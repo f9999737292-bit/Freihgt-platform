@@ -42,6 +42,10 @@ fail() {
   exit 1
 }
 
+diag() {
+  echo -e "${BLUE}DIAG:${NC} $1"
+}
+
 require_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
     fail "$1 is required but not installed"
@@ -81,7 +85,9 @@ api_request() {
   parse_http "$raw"
 
   if [[ "$HTTP_CODE" -lt 200 || "$HTTP_CODE" -ge 300 ]]; then
-    echo "$HTTP_BODY" | jq . 2>/dev/null || echo "$HTTP_BODY"
+    echo "Request failed: $method $url (HTTP $HTTP_CODE)" >&2
+    echo "Response body:" >&2
+    echo "$HTTP_BODY" | jq . 2>/dev/null || echo "$HTTP_BODY" >&2
     fail "Request failed: $method $url (HTTP $HTTP_CODE)"
   fi
 
@@ -590,31 +596,33 @@ assert_json_number "$ITEM_JSON" '.amount_with_vat' 126000 "item amount_with_vat"
 pass "Billing register item added"
 
 step "Calculate billing register"
-REGISTER_JSON="$(api_request POST "$BILLING_REGISTER_SERVICE_URL/v1/billing-registers/$BILLING_REGISTER_ID/calculate" "$(cat <<EOF
+CALCULATE_REGISTER_JSON="$(api_request POST "$BILLING_REGISTER_SERVICE_URL/v1/billing-registers/$BILLING_REGISTER_ID/calculate" "$(cat <<EOF
 {
   "tenant_id": "$TENANT_ID"
 }
 EOF
 )")"
-assert_json_field "$REGISTER_JSON" '.status' "CALCULATED" "billing register status"
-assert_json_number "$REGISTER_JSON" '.total_without_vat' 105000 "total_without_vat"
-assert_json_number "$REGISTER_JSON" '.vat_amount' 21000 "vat_amount"
-assert_json_number "$REGISTER_JSON" '.total_with_vat' 126000 "total_with_vat"
+assert_json_field "$CALCULATE_REGISTER_JSON" '.status' "CALCULATED" "billing register status"
+assert_json_number "$CALCULATE_REGISTER_JSON" '.total_without_vat' 105000 "total_without_vat"
+assert_json_number "$CALCULATE_REGISTER_JSON" '.vat_amount' 21000 "vat_amount"
+assert_json_number "$CALCULATE_REGISTER_JSON" '.total_with_vat' 126000 "total_with_vat"
 pass "Billing register calculated"
 
 step "Approve billing register"
-REGISTER_JSON="$(api_request POST "$BILLING_REGISTER_SERVICE_URL/v1/billing-registers/$BILLING_REGISTER_ID/approve" "$(cat <<EOF
+APPROVE_REGISTER_JSON="$(api_request POST "$BILLING_REGISTER_SERVICE_URL/v1/billing-registers/$BILLING_REGISTER_ID/approve" "$(cat <<EOF
 {
   "tenant_id": "$TENANT_ID",
   "approved_by": "$USER_ID"
 }
 EOF
 )")"
-assert_json_field "$REGISTER_JSON" '.status' "APPROVED" "billing register status"
+assert_json_field "$APPROVE_REGISTER_JSON" '.status' "APPROVED" "billing register status"
 pass "Billing register approved"
 
-step "Create UPD UPD-TEST-${SMOKE_RUN_ID}"
-UPD_JSON="$(api_request POST "$BILLING_REGISTER_SERVICE_URL/v1/billing-registers/$BILLING_REGISTER_ID/upd" "$(jq -nc \
+step "Diagnose UPD prerequisites"
+REGISTER_BEFORE_UPD="$(api_request GET "$BILLING_REGISTER_SERVICE_URL/v1/billing-registers/$BILLING_REGISTER_ID")"
+REGISTER_ITEMS_COUNT="$(echo "$REGISTER_BEFORE_UPD" | jq -r '(.items // []) | length')"
+UPD_PAYLOAD="$(jq -nc \
   --arg tenant_id "$TENANT_ID" \
   --arg upd_number "UPD-TEST-${SMOKE_RUN_ID}" \
   --arg seller "$CARRIER_COMPANY_ID" \
@@ -626,7 +634,23 @@ UPD_JSON="$(api_request POST "$BILLING_REGISTER_SERVICE_URL/v1/billing-registers
     seller_company_id: $seller,
     buyer_company_id: $buyer,
     function_code: "\u0421\u0427\u0424\u0414\u041e\u041f"
-  }')")"
+  }')"
+diag "billing_register_id=$BILLING_REGISTER_ID"
+diag "tenant_id=$TENANT_ID"
+diag "shipment_id=$SHIPMENT_ID"
+diag "register_status_before_upd=$(echo "$REGISTER_BEFORE_UPD" | jq -r '.status')"
+diag "register_items_count=$REGISTER_ITEMS_COUNT"
+diag "calculate_response=$(echo "$CALCULATE_REGISTER_JSON" | jq -c '{status,total_without_vat,vat_amount,total_with_vat}')"
+diag "approve_response=$(echo "$APPROVE_REGISTER_JSON" | jq -c '{status,approved_by,approved_at}')"
+diag "upd_request_method=POST"
+diag "upd_request_url=$BILLING_REGISTER_SERVICE_URL/v1/billing-registers/$BILLING_REGISTER_ID/upd"
+diag "upd_request_headers=Content-Type: application/json; charset=utf-8"
+diag "upd_request_payload=$UPD_PAYLOAD"
+diag "expected_upd_http_status=201"
+
+step "Create UPD UPD-TEST-${SMOKE_RUN_ID}"
+UPD_JSON="$(api_request POST "$BILLING_REGISTER_SERVICE_URL/v1/billing-registers/$BILLING_REGISTER_ID/upd" "$UPD_PAYLOAD")"
+diag "upd_response=$(echo "$UPD_JSON" | jq -c '{id,status,function_code,amount_with_vat}')"
 pass "UPD created: $(echo "$UPD_JSON" | jq -r '.id')"
 
 REGISTER_JSON="$(api_request GET "$BILLING_REGISTER_SERVICE_URL/v1/billing-registers/$BILLING_REGISTER_ID")"
