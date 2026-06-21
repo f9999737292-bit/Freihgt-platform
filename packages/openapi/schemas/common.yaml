@@ -1,0 +1,51 @@
+UUID:
+  type: string
+  format: uuid
+  example: "11111111-1111-1111-1111-111111111111"
+
+Date:
+  type: string
+  format: date
+  example: "2026-07-01"
+
+DateTime:
+  type: string
+  format: date-time
+  example: "2026-07-01T12:00:00Z"
+
+TenantId:
+  type: string
+  format: uuid
+  description: Tenant identifier
+
+HealthResponse:
+  type: object
+  properties:
+    status:
+      type: string
+      example: ok
+    service:
+      type: string
+
+Headers:
+  type: object
+  description: Common request headers
+  properties:
+    X-Request-ID:
+      type: string
+      description: Correlation / request identifier
+    X-Tenant-ID:
+      type: string
+      format: uuid
+      description: Tenant context
+    X-Company-ID:
+      type: string
+      format: uuid
+      description: Active company context
+    X-Locale:
+      type: string
+      example: ru-RU
+    Authorization:
+      type: string
+      description: Bearer JWT access token
+      example: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...

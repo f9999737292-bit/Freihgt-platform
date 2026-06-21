@@ -1,0 +1,33 @@
+BillingRegister:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    register_number:
+      type: string
+    status:
+      type: string
+    total_with_vat:
+      type: number
+
+BillingRegisterItem:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    shipment_id:
+      type: string
+      format: uuid
+    amount_with_vat:
+      type: number
+
+ClosingDocumentPackage:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    package_number:
+      type: string

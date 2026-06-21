@@ -1,0 +1,28 @@
+Document:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    document_number:
+      type: string
+    document_type:
+      type: string
+    document_status:
+      type: string
+
+SigningSession:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    status:
+      type: string
+
+Signature:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid

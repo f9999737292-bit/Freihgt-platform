@@ -1,0 +1,12 @@
+DROP TABLE IF EXISTS core.audit_logs CASCADE;
+DROP TABLE IF EXISTS core.translation_values CASCADE;
+DROP TABLE IF EXISTS core.translation_keys CASCADE;
+DROP TABLE IF EXISTS core.locales CASCADE;
+DROP TABLE IF EXISTS core.role_permissions CASCADE;
+DROP TABLE IF EXISTS core.user_roles CASCADE;
+DROP TABLE IF EXISTS core.permissions CASCADE;
+DROP TABLE IF EXISTS core.roles CASCADE;
+DROP TABLE IF EXISTS core.company_memberships CASCADE;
+DROP TABLE IF EXISTS core.users CASCADE;
+DROP TABLE IF EXISTS core.companies CASCADE;
+DROP TABLE IF EXISTS core.tenants CASCADE;

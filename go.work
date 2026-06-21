@@ -1,0 +1,15 @@
+go 1.25.0
+
+use (
+	./packages/shared-go
+	./scripts/openapi
+	./services/api-gateway
+	./services/billing-register-service
+	./services/company-service
+	./services/document-service
+	./services/identity-service
+	./services/localization-service
+	./services/rfx-service
+	./services/shipment-service
+	./services/transport-order-service
+)

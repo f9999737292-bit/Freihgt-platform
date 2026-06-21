@@ -1,0 +1,304 @@
+services:
+  postgres:
+    image: mirror.gcr.io/library/postgres:16
+    container_name: freight_postgres
+    restart: unless-stopped
+    command:
+      - postgres
+      - -c
+      - log_min_duration_statement=500
+      - -c
+      - log_statement=none
+      - -c
+      - log_connections=off
+      - -c
+      - log_disconnections=off
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-freight_platform}
+      POSTGRES_USER: ${POSTGRES_USER:-freight}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-freight_password}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - freight_postgres_data:/var/lib/postgresql/data
+    networks:
+      - freight-platform-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-freight} -d ${POSTGRES_DB:-freight_platform}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  identity-service:
+    build:
+      context: ../..
+      dockerfile: services/identity-service/Dockerfile
+    container_name: freight_identity_service
+    restart: unless-stopped
+    environment:
+      IDENTITY_SERVICE_PORT: 8081
+      DATABASE_URL: postgres://freight:freight_password@postgres:5432/freight_platform?sslmode=disable
+      JWT_SECRET: dev_secret_change_me
+      JWT_ACCESS_TOKEN_TTL_MINUTES: 60
+      LOG_LEVEL: info
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - freight-platform-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  company-service:
+    build:
+      context: ../..
+      dockerfile: services/company-service/Dockerfile
+    container_name: freight_company_service
+    restart: unless-stopped
+    environment:
+      COMPANY_SERVICE_PORT: 8082
+      DATABASE_URL: postgres://freight:freight_password@postgres:5432/freight_platform?sslmode=disable
+      LOG_LEVEL: info
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - freight-platform-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8082/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  transport-order-service:
+    build:
+      context: ../..
+      dockerfile: services/transport-order-service/Dockerfile
+    container_name: freight_transport_order_service
+    restart: unless-stopped
+    environment:
+      TRANSPORT_ORDER_SERVICE_PORT: 8083
+      DATABASE_URL: postgres://freight:freight_password@postgres:5432/freight_platform?sslmode=disable
+      LOG_LEVEL: info
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - freight-platform-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8083/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  rfx-service:
+    build:
+      context: ../..
+      dockerfile: services/rfx-service/Dockerfile
+    container_name: freight_rfx_service
+    restart: unless-stopped
+    environment:
+      RFX_SERVICE_PORT: 8084
+      DATABASE_URL: postgres://freight:freight_password@postgres:5432/freight_platform?sslmode=disable
+      LOG_LEVEL: info
+    ports:
+      - "8084:8084"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - freight-platform-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8084/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  shipment-service:
+    build:
+      context: ../..
+      dockerfile: services/shipment-service/Dockerfile
+    container_name: freight_shipment_service
+    restart: unless-stopped
+    environment:
+      SHIPMENT_SERVICE_PORT: 8085
+      DATABASE_URL: postgres://freight:freight_password@postgres:5432/freight_platform?sslmode=disable
+      LOG_LEVEL: info
+    ports:
+      - "8085:8085"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - freight-platform-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8085/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  document-service:
+    build:
+      context: ../..
+      dockerfile: services/document-service/Dockerfile
+    container_name: freight_document_service
+    restart: unless-stopped
+    environment:
+      DOCUMENT_SERVICE_PORT: 8086
+      DATABASE_URL: postgres://freight:freight_password@postgres:5432/freight_platform?sslmode=disable
+      LOG_LEVEL: info
+    ports:
+      - "8086:8086"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - freight-platform-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8086/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  billing-register-service:
+    build:
+      context: ../..
+      dockerfile: services/billing-register-service/Dockerfile
+    container_name: freight_billing_register_service
+    restart: unless-stopped
+    environment:
+      BILLING_REGISTER_SERVICE_PORT: 8087
+      DATABASE_URL: postgres://freight:freight_password@postgres:5432/freight_platform?sslmode=disable
+      LOG_LEVEL: info
+    ports:
+      - "8087:8087"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - freight-platform-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8087/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  api-gateway:
+    build:
+      context: ../..
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: freight_api_gateway
+    restart: unless-stopped
+    environment:
+      API_GATEWAY_PORT: 8080
+      LOG_LEVEL: info
+      IDENTITY_SERVICE_URL: http://identity-service:8081
+      COMPANY_SERVICE_URL: http://company-service:8082
+      TRANSPORT_ORDER_SERVICE_URL: http://transport-order-service:8083
+      RFX_SERVICE_URL: http://rfx-service:8084
+      SHIPMENT_SERVICE_URL: http://shipment-service:8085
+      DOCUMENT_SERVICE_URL: http://document-service:8086
+      BILLING_REGISTER_SERVICE_URL: http://billing-register-service:8087
+      AUTH_ENABLED: "false"
+      JWT_SECRET: dev_secret_change_me
+      OPENAPI_DIR: /app/packages/openapi
+      CORS_ALLOWED_ORIGINS: "http://localhost:3000,http://localhost:3001,http://localhost:5173"
+    ports:
+      - "8080:8080"
+    depends_on:
+      identity-service:
+        condition: service_healthy
+      company-service:
+        condition: service_healthy
+      transport-order-service:
+        condition: service_healthy
+      rfx-service:
+        condition: service_healthy
+      shipment-service:
+        condition: service_healthy
+      document-service:
+        condition: service_healthy
+      billing-register-service:
+        condition: service_healthy
+    networks:
+      - freight-platform-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  prometheus:
+    profiles:
+      - observability
+    image: prom/prometheus:v2.54.1
+    container_name: freight_prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      - freight-platform-network
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+
+  grafana:
+    profiles:
+      - observability
+    image: grafana/grafana:11.2.2
+    container_name: freight_grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ../monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ../monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+    networks:
+      - freight-platform-network
+    depends_on:
+      - prometheus
+
+  migrate:
+    image: migrate/migrate:v4.17.1
+    profiles:
+      - tools
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ../migrations:/migrations:ro
+    networks:
+      - freight-platform-network
+    command:
+      - -path=/migrations
+      - -database=postgres://${POSTGRES_USER:-freight}:${POSTGRES_PASSWORD:-freight_password}@postgres:5432/${POSTGRES_DB:-freight_platform}?sslmode=disable
+
+networks:
+  freight-platform-network:
+    name: freight-platform-network
+
+volumes:
+  freight_postgres_data:

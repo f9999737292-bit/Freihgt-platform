@@ -1,0 +1,15 @@
+MoneyAmount:
+  type: number
+  format: double
+  example: 100000
+
+CurrencyCode:
+  type: string
+  example: RUB
+  minLength: 3
+  maxLength: 3
+
+VATRate:
+  type: number
+  format: double
+  example: 20

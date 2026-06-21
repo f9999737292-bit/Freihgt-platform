@@ -1,0 +1,8 @@
+{
+  "common": {
+    "welcome": "Welcome to Freight Platform",
+    "health": "Status",
+    "language": "Language",
+    "home": "Home"
+  }
+}

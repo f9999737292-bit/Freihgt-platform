@@ -1,0 +1,10 @@
+DROP TRIGGER IF EXISTS trg_billing_registers_updated_at ON billing.billing_registers;
+DROP TRIGGER IF EXISTS trg_documents_updated_at ON documents.documents;
+DROP TRIGGER IF EXISTS trg_freight_requests_updated_at ON rfx.freight_requests;
+DROP TRIGGER IF EXISTS trg_rfx_events_updated_at ON rfx.rfx_events;
+DROP TRIGGER IF EXISTS trg_shipments_updated_at ON transport.shipments;
+DROP TRIGGER IF EXISTS trg_transport_orders_updated_at ON transport.transport_orders;
+DROP TRIGGER IF EXISTS trg_users_updated_at ON core.users;
+DROP TRIGGER IF EXISTS trg_companies_updated_at ON core.companies;
+DROP TRIGGER IF EXISTS trg_tenants_updated_at ON core.tenants;
+DROP FUNCTION IF EXISTS core.set_updated_at();

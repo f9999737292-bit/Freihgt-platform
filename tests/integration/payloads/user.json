@@ -1,0 +1,7 @@
+{
+  "tenant_id": "TENANT_ID",
+  "email": "logist@test.local",
+  "password": "StrongPassword123!",
+  "full_name": "Тестовый Логист",
+  "preferred_locale": "ru-RU"
+}

@@ -1,0 +1,30 @@
+FreightRequest:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    freight_request_number:
+      type: string
+    status:
+      type: string
+
+Bid:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    bid_number:
+      type: string
+    status:
+      type: string
+
+RFXEvent:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    status:
+      type: string

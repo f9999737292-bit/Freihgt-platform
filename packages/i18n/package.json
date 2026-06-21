@@ -1,0 +1,24 @@
+{
+  "name": "@freight-platform/i18n",
+  "version": "0.0.1",
+  "description": "Shared i18n locale files and Nuxt i18n configuration for the freight platform",
+  "type": "module",
+  "exports": {
+    "./locales/en-US": "./src/locales/en-US.json",
+    "./locales/ru-RU": "./src/locales/ru-RU.json",
+    "./locales/zh-CN": "./src/locales/zh-CN.json",
+    "./config": {
+      "types": "./src/config.ts",
+      "default": "./src/config.ts"
+    }
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "tenant_id": "TENANT_ID",
+  "cargo_type": "FMCG",
+  "description": "Продукты питания",
+  "gross_weight": 20000,
+  "volume": 82,
+  "items": [
+    {
+      "sku": "TEST-SKU-001",
+      "name": "Продукты питания",
+      "quantity": 100,
+      "unit": "PALLET"
+    }
+  ]
+}

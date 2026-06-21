@@ -1,0 +1,31 @@
+Company:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    tenant_id:
+      type: string
+      format: uuid
+    legal_name:
+      type: string
+    company_type:
+      type: string
+      enum: [SHIPPER, CONSIGNEE, CARRIER, FORWARDER]
+    status:
+      type: string
+
+Membership:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    company_id:
+      type: string
+      format: uuid
+    user_id:
+      type: string
+      format: uuid
+    status:
+      type: string

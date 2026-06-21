@@ -1,0 +1,18 @@
+{
+  "name": "freight-platform",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev:admin": "pnpm --filter @freight-platform/web-admin dev",
+    "dev:shipper": "pnpm --filter @freight-platform/web-shipper dev",
+    "dev:carrier": "pnpm --filter @freight-platform/web-carrier dev",
+    "dev:consignee": "pnpm --filter @freight-platform/web-consignee dev",
+    "dev:finance": "pnpm --filter @freight-platform/web-finance dev",
+    "dev:procurement": "pnpm --filter @freight-platform/web-procurement dev",
+    "build:apps": "pnpm --filter './apps/*' build",
+    "typecheck:packages": "pnpm --filter './packages/*' typecheck"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

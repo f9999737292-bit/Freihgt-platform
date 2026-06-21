@@ -1,0 +1,12 @@
+PaginatedResponse:
+  type: object
+  properties:
+    items:
+      type: array
+      items: {}
+    total:
+      type: integer
+    limit:
+      type: integer
+    offset:
+      type: integer

@@ -1,0 +1,33 @@
+TransportOrder:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    tenant_id:
+      type: string
+      format: uuid
+    order_number:
+      type: string
+    status:
+      type: string
+
+Location:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    name:
+      type: string
+    location_type:
+      type: string
+
+Cargo:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    cargo_type:
+      type: string

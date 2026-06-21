@@ -1,0 +1,28 @@
+Shipment:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    shipment_number:
+      type: string
+    status:
+      type: string
+
+Driver:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    full_name:
+      type: string
+
+Vehicle:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    plate_number:
+      type: string

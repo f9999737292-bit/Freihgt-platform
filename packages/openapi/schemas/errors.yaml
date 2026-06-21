@@ -1,0 +1,28 @@
+ErrorResponse:
+  type: object
+  required:
+    - error
+  properties:
+    error:
+      type: object
+      required:
+        - code
+        - message
+        - details
+      properties:
+        code:
+          type: string
+          enum:
+            - VALIDATION_ERROR
+            - UNAUTHORIZED
+            - FORBIDDEN
+            - NOT_FOUND
+            - CONFLICT
+            - SERVICE_UNAVAILABLE
+            - INTERNAL_ERROR
+            - ROUTE_NOT_FOUND
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true

@@ -1,0 +1,41 @@
+User:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    tenant_id:
+      type: string
+      format: uuid
+    email:
+      type: string
+      format: email
+    full_name:
+      type: string
+    status:
+      type: string
+
+LoginRequest:
+  type: object
+  required: [tenant_id, email, password]
+  properties:
+    tenant_id:
+      type: string
+      format: uuid
+    email:
+      type: string
+      format: email
+    password:
+      type: string
+      format: password
+
+LoginResponse:
+  type: object
+  properties:
+    access_token:
+      type: string
+    token_type:
+      type: string
+      example: Bearer
+    expires_in:
+      type: integer

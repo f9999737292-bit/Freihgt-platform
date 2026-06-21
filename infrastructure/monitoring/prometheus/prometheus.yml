@@ -1,0 +1,44 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: api-gateway
+    static_configs:
+      - targets: ["api-gateway:8080"]
+    metrics_path: /metrics
+
+  - job_name: identity-service
+    static_configs:
+      - targets: ["identity-service:8081"]
+    metrics_path: /metrics
+
+  - job_name: company-service
+    static_configs:
+      - targets: ["company-service:8082"]
+    metrics_path: /metrics
+
+  - job_name: transport-order-service
+    static_configs:
+      - targets: ["transport-order-service:8083"]
+    metrics_path: /metrics
+
+  - job_name: rfx-service
+    static_configs:
+      - targets: ["rfx-service:8084"]
+    metrics_path: /metrics
+
+  - job_name: shipment-service
+    static_configs:
+      - targets: ["shipment-service:8085"]
+    metrics_path: /metrics
+
+  - job_name: document-service
+    static_configs:
+      - targets: ["document-service:8086"]
+    metrics_path: /metrics
+
+  - job_name: billing-register-service
+    static_configs:
+      - targets: ["billing-register-service:8087"]
+    metrics_path: /metrics

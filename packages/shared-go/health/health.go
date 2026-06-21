@@ -1,0 +1,27 @@
+package health
+
+import (
+	"encoding/json"
+	"net/http"
+	"time"
+)
+
+// Response is returned by health check endpoints.
+type Response struct {
+	Status    string `json:"status"`
+	Service   string `json:"service"`
+	Timestamp string `json:"timestamp"`
+}
+
+// Handler returns a handler that reports service health.
+func Handler(serviceName string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(Response{
+			Status:    "ok",
+			Service:   serviceName,
+			Timestamp: time.Now().UTC().Format(time.RFC3339),
+		})
+	}
+}

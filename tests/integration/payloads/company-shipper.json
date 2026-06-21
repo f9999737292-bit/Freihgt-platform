@@ -1,0 +1,7 @@
+{
+  "tenant_id": "TENANT_ID",
+  "legal_name": "ООО Грузоотправитель Тест",
+  "company_type": "SHIPPER",
+  "country_code": "RU",
+  "preferred_locale": "ru-RU"
+}

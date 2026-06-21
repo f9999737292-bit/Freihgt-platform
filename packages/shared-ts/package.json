@@ -1,0 +1,25 @@
+{
+  "name": "@freight-platform/shared-ts",
+  "version": "0.0.1",
+  "description": "Shared TypeScript types and utilities for the freight platform",
+  "type": "module",
+  "exports": {
+    "./types": {
+      "types": "./src/types/index.ts",
+      "default": "./src/types/index.ts"
+    },
+    "./utils": {
+      "types": "./src/utils/index.ts",
+      "default": "./src/utils/index.ts"
+    }
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

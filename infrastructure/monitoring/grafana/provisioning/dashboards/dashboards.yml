@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: freight-platform
+    orgId: 1
+    folder: Freight Platform
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /etc/grafana/provisioning/dashboards

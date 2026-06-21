@@ -1,0 +1,39 @@
+# Portable Node.js for local development (optional, created by scripts/setup-node.ps1)
+.tools/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Node / frontend build artifacts
+node_modules/
+.nuxt/
+.output/
+dist/
+coverage/
+
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Logs and temp files
+*.log
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Docker local overrides (keep compose files tracked)
+docker-compose.override.yml
