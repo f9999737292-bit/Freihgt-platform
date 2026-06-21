@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  repository-safety:
+    name: repository-safety
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify tracked env files
+        run: |
+          set -euo pipefail
+          TRACKED_ENV="$(git ls-files | grep -E '(^|/)\.env(\.|$)' | grep -vE '\.env\.example$' || true)"
+          if [ -n "$TRACKED_ENV" ]; then
+            echo "ERROR: tracked .env files found (excluding .env.example):"
+            echo "$TRACKED_ENV"
+            exit 1
+          fi
+          echo "OK: no tracked .env secrets (.env.example allowed)"
+
+      - name: Git status
+        run: git status --short
+
+  backend-go-check:
+    name: backend-go-check (${{ matrix.module }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - packages/shared-go
+          - services/api-gateway
+          - services/billing-register-service
+          - services/company-service
+          - services/document-service
+          - services/identity-service
+          - services/localization-service
+          - services/rfx-service
+          - services/shipment-service
+          - services/transport-order-service
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache-dependency-path: |
+            packages/shared-go/go.sum
+            services/**/go.sum
+
+      - name: Go version
+        run: go version
+
+      - name: Run tests
+        working-directory: ${{ matrix.module }}
+        run: go test ./...
+
+  frontend-web-admin-build:
+    name: frontend-web-admin-build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web-admin
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/web-admin/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web-admin
+        run: npm run build
+
+  scripts-check:
+    name: scripts-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Shell syntax check
+        run: |
+          set -euo pipefail
+          SCRIPTS=(
+            tests/integration/smoke-test.sh
+            tests/integration/run-upd-400-repro.sh
+            tests/integration/upd-400-repro.sh
+            scripts/dev/seed_dev_admin.sh
+          )
+          MISSING=()
+          for script in "${SCRIPTS[@]}"; do
+            if [ ! -f "$script" ]; then
+              MISSING+=("$script")
+              continue
+            fi
+            echo "Checking $script"
+            bash -n "$script"
+          done
+          if [ "${#MISSING[@]}" -gt 0 ]; then
+            echo "Missing scripts:"
+            printf '  - %s\n' "${MISSING[@]}"
+            exit 1
+          fi
+          echo "OK: all shell scripts present and syntax-valid"
