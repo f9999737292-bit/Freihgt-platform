@@ -20,6 +20,7 @@ type FormTemplateSummary struct {
 	SectionsCount int
 	FieldsCount   int
 	PublishedAt   *time.Time
+	IsActive      bool
 }
 
 type FormField struct {

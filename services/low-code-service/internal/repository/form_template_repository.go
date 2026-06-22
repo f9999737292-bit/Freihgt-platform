@@ -94,6 +94,91 @@ func (r *FormTemplateRepository) ListPublished(
 	return items, nil
 }
 
+func (r *FormTemplateRepository) ListActivePublished(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	entityType string,
+	code string,
+) ([]domain.FormTemplateSummary, error) {
+	var items []domain.FormTemplateSummary
+	err := measureDB("form_template_repository", "list_active_published", func() error {
+		query := `
+			SELECT DISTINCT ON (ft.tenant_id, ft.entity_type, ft.code)
+				ft.id,
+				ft.tenant_id,
+				ft.entity_type,
+				ft.code,
+				ft.name,
+				ft.status,
+				ft.version,
+				ft.published_at,
+				(
+					SELECT COUNT(*)
+					FROM lowcode.form_sections fs
+					WHERE fs.form_template_id = ft.id AND fs.tenant_id = ft.tenant_id
+				) AS sections_count,
+				(
+					SELECT COUNT(*)
+					FROM lowcode.form_fields ff
+					WHERE ff.form_template_id = ft.id AND ff.tenant_id = ft.tenant_id
+				) AS fields_count
+			FROM lowcode.form_templates ft
+			WHERE ft.tenant_id = $1
+				AND ft.status = $2
+				AND ft.entity_type = $3
+		`
+		args := []any{tenantID, domain.PublishedStatus, entityType}
+		if code != "" {
+			query += " AND ft.code = $4"
+			args = append(args, code)
+		}
+		query += `
+			ORDER BY
+				ft.tenant_id,
+				ft.entity_type,
+				ft.code,
+				ft.version DESC,
+				ft.published_at DESC NULLS LAST,
+				ft.updated_at DESC
+		`
+
+		rows, err := r.pool.Query(ctx, query, args...)
+		if err != nil {
+			return mapDBError(err)
+		}
+		defer rows.Close()
+
+		items = make([]domain.FormTemplateSummary, 0)
+		for rows.Next() {
+			var item domain.FormTemplateSummary
+			if err := rows.Scan(
+				&item.ID,
+				&item.TenantID,
+				&item.EntityType,
+				&item.Code,
+				&item.Name,
+				&item.Status,
+				&item.Version,
+				&item.PublishedAt,
+				&item.SectionsCount,
+				&item.FieldsCount,
+			); err != nil {
+				return mapDBError(err)
+			}
+			item.IsActive = true
+			items = append(items, item)
+		}
+		if err := rows.Err(); err != nil {
+			return mapDBError(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 func (r *FormTemplateRepository) GetPublishedByID(
 	ctx context.Context,
 	tenantID uuid.UUID,
@@ -148,7 +233,7 @@ func (r *FormTemplateRepository) loadPublishedTemplate(
 		WHERE ft.tenant_id = $1
 			AND ft.status = '%s'
 			AND %s
-		ORDER BY ft.version DESC
+		ORDER BY ft.version DESC, ft.published_at DESC NULLS LAST, ft.updated_at DESC
 		LIMIT 1
 	`, domain.PublishedStatus, matchClause)
 

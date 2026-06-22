@@ -21,7 +21,7 @@ const templateId = computed(() => String(route.params.id ?? ''))
 
 const {
   getAdminFormTemplate,
-  listAdminFormTemplates,
+  listActiveFormTemplates,
   updateDraftFormTemplate,
   publishDraftFormTemplate,
   clonePublishedTemplateToDraft,
@@ -36,6 +36,7 @@ const { t } = useI18n()
 const template = ref<AdminFormTemplateDetail | null>(null)
 const draft = ref<DraftFormTemplateDraft | null>(null)
 const basePublished = ref<AdminFormTemplateDetail | null>(null)
+const isActivePublished = ref(false)
 const editorRef = ref<{ validate: () => unknown[] } | null>(null)
 const loading = ref(true)
 const basePublishedLoading = ref(false)
@@ -79,23 +80,39 @@ async function loadBasePublished() {
 
   basePublishedLoading.value = true
   try {
-    const { items } = await listAdminFormTemplates({
+    const { items } = await listActiveFormTemplates({
       entity_type: template.value.entity_type,
-      status: 'PUBLISHED',
-      limit: 100,
+      code: template.value.code,
     })
-    const matches = items.filter((item) => item.code === template.value!.code)
-    if (!matches.length) {
+    const active = items[0]
+    if (!active) {
       basePublished.value = null
       return
     }
-    const latest = matches.reduce((best, item) => (item.version > best.version ? item : best))
-    basePublished.value = await getAdminFormTemplate(latest.id)
+    basePublished.value = await getAdminFormTemplate(active.id)
   } catch (error) {
     if (error instanceof TenantRequiredError) return
     basePublished.value = null
   } finally {
     basePublishedLoading.value = false
+  }
+}
+
+async function loadActiveStatus() {
+  if (!template.value || template.value.status !== 'PUBLISHED') {
+    isActivePublished.value = false
+    return
+  }
+
+  try {
+    const { items } = await listActiveFormTemplates({
+      entity_type: template.value.entity_type,
+      code: template.value.code,
+    })
+    isActivePublished.value = items.some((item) => item.id === template.value!.id)
+  } catch (error) {
+    if (error instanceof TenantRequiredError) return
+    isActivePublished.value = false
   }
 }
 
@@ -111,11 +128,12 @@ async function load() {
     const detail = await getAdminFormTemplate(templateId.value)
     template.value = detail
     draft.value = adminDetailToDraft(detail)
-    await loadBasePublished()
+    await Promise.all([loadBasePublished(), loadActiveStatus()])
   } catch (error) {
     template.value = null
     draft.value = null
     basePublished.value = null
+    isActivePublished.value = false
     if (error instanceof TenantRequiredError) return
     loadFailed.value = isApiUnavailableError(error)
     if (!loadFailed.value) {
@@ -219,10 +237,33 @@ watch(templateId, load)
           <div><dt>{{ $t('lowCode.entityType') }}</dt><dd>{{ template.entity_type }}</dd></div>
           <div><dt>{{ $t('lowCode.code') }}</dt><dd><code>{{ template.code }}</code></dd></div>
           <div><dt>{{ $t('common.status') }}</dt><dd><UiBadge :status="template.status" /></dd></div>
+          <div v-if="template.status === 'PUBLISHED'">
+            <dt>{{ $t('lowCode.versionStatus') }}</dt>
+            <dd>
+              <UiBadge
+                v-if="isActivePublished"
+                :status="$t('lowCode.activePublishedVersion')"
+                tone="success"
+              />
+              <UiBadge
+                v-else
+                :status="$t('lowCode.olderPublishedVersion')"
+                tone="warning"
+              />
+            </dd>
+          </div>
           <div><dt>{{ $t('lowCode.version') }}</dt><dd>{{ template.version }}</dd></div>
           <div><dt>{{ $t('lowCode.publishedAt') }}</dt><dd>{{ formatLowCodeDate(template.published_at) }}</dd></div>
         </dl>
       </UiCard>
+
+      <div
+        v-if="template.status === 'PUBLISHED' && !isActivePublished"
+        class="notice notice--warn"
+      >
+        <strong>{{ $t('lowCode.olderPublishedVersionNotice') }}</strong>
+        <p class="notice__text">{{ $t('lowCode.newFormsShouldUseActiveVersion') }}</p>
+      </div>
 
       <div
         v-if="template.status === 'PUBLISHED'"

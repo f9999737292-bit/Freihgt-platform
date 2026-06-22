@@ -57,6 +57,11 @@ export interface FormTemplateSummary {
   sections_count: number
   fields_count: number
   published_at?: string
+  is_active?: boolean
+}
+
+export interface ActiveFormTemplateSummary extends FormTemplateSummary {
+  is_active: boolean
 }
 
 export interface FormField {
@@ -240,6 +245,33 @@ export interface CustomFieldValuesResponse {
 
 export interface ListFormTemplatesResponse {
   items: FormTemplateSummary[]
+}
+
+export interface ListActiveFormTemplatesParams {
+  entity_type: string
+  code?: string
+}
+
+function isNewerPublishedVersion(candidate: FormTemplateSummary, current: FormTemplateSummary): boolean {
+  if (candidate.version !== current.version) return candidate.version > current.version
+  return (candidate.published_at ?? '') > (current.published_at ?? '')
+}
+
+export function buildActivePublishedTemplateIdSet(items: FormTemplateSummary[]): Set<string> {
+  const bestByKey = new Map<string, FormTemplateSummary>()
+  for (const item of items) {
+    if (item.status !== 'PUBLISHED') continue
+    const key = `${item.entity_type}::${item.code}`
+    const current = bestByKey.get(key)
+    if (!current || isNewerPublishedVersion(item, current)) {
+      bestByKey.set(key, item)
+    }
+  }
+  return new Set([...bestByKey.values()].map((item) => item.id))
+}
+
+export function isActivePublishedTemplate(templateId: string, activeIds: Set<string>): boolean {
+  return activeIds.has(templateId)
 }
 
 export interface SaveCustomFieldValueItem {

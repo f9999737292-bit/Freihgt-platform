@@ -37,6 +37,7 @@ type formTemplateSummaryResponse struct {
 	SectionsCount int     `json:"sections_count"`
 	FieldsCount   int     `json:"fields_count"`
 	PublishedAt   *string `json:"published_at,omitempty"`
+	IsActive      bool    `json:"is_active,omitempty"`
 }
 
 type formTemplateDetailResponse struct {
@@ -94,6 +95,30 @@ func (h *FormTemplateHandler) List(w http.ResponseWriter, r *http.Request) {
 	respond.JSON(w, http.StatusOK, listFormTemplatesResponse{Items: responseItems})
 }
 
+func (h *FormTemplateHandler) ListActive(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := parseTenantID(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	entityType := r.URL.Query().Get("entity_type")
+	code := r.URL.Query().Get("code")
+	items, err := h.service.ListActivePublished(r.Context(), tenantID, entityType, code)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	responseItems := make([]formTemplateSummaryResponse, 0, len(items))
+	for _, item := range items {
+		response := toSummaryResponse(item)
+		response.IsActive = true
+		responseItems = append(responseItems, response)
+	}
+	respond.JSON(w, http.StatusOK, listFormTemplatesResponse{Items: responseItems})
+}
+
 func (h *FormTemplateHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := parseTenantID(r)
 	if err != nil {
@@ -140,6 +165,7 @@ func toSummaryResponse(item domain.FormTemplateSummary) formTemplateSummaryRespo
 		SectionsCount: item.SectionsCount,
 		FieldsCount:   item.FieldsCount,
 		PublishedAt:   formatTime(item.PublishedAt),
+		IsActive:      item.IsActive,
 	}
 }
 

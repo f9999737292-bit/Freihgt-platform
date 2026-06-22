@@ -42,6 +42,7 @@ func NewRouter(
 	auditHandler := handlers.NewAuditHandler(auditSvc)
 	r.Route("/v1/low-code", func(r chi.Router) {
 		r.Get("/form-templates", formTemplateHandler.List)
+		r.Get("/form-templates/active", formTemplateHandler.ListActive)
 		r.Get("/form-templates/{id}", formTemplateHandler.GetByID)
 		r.Get("/custom-field-values", customFieldValueHandler.Get)
 		r.Put("/custom-field-values", customFieldValueHandler.Put)

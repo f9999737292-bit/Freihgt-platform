@@ -212,6 +212,19 @@ http://localhost:3000/low-code/admin/form-templates/{draft-id}
 
 See `docs/LOW_CODE_FORM_TEMPLATE_VERSION_COMPARE_V0.1.md`.
 
+Form template version activation (active published selection):
+
+```powershell
+curl -H "X-Tenant-ID: 74519f22-ff9b-4a8b-8fff-a958c689682f" "http://localhost:8080/api/v1/low-code/form-templates/active?entity_type=TRANSPORT_ORDER"
+```
+
+```text
+http://localhost:3000/low-code/form-templates
+http://localhost:3000/low-code/admin/form-templates
+```
+
+See `docs/LOW_CODE_FORM_TEMPLATE_VERSION_ACTIVATION_POLICY_V0.1.md`.
+
 Drag-and-drop form builder (section/field reorder):
 
 ```text

@@ -2,20 +2,23 @@
 import {
   LOW_CODE_ADMIN_ENTITY_TYPES,
   LOW_CODE_TEMPLATE_STATUSES,
+  buildActivePublishedTemplateIdSet,
   formatLowCodeDate,
+  isActivePublishedTemplate,
   type FormTemplateSummary,
 } from '~/types/lowCode'
 import { TenantRequiredError } from '~/composables/useApi'
 
 definePageMeta({ middleware: 'auth', layout: 'default' })
 
-const { listAdminFormTemplates, clonePublishedTemplateToDraft, getAdminFormTemplateErrorMessage, isApiUnavailableError } = useLowCodeApi()
+const { listAdminFormTemplates, loadActivePublishedTemplateIds, clonePublishedTemplateToDraft, getAdminFormTemplateErrorMessage, isApiUnavailableError } = useLowCodeApi()
 const router = useRouter()
 const { hasTenant } = useTenantContext()
 const { pushToast } = useToast()
 const { t } = useI18n()
 
 const items = ref<FormTemplateSummary[]>([])
+const activeTemplateIds = ref<Set<string>>(new Set())
 const loading = ref(true)
 const loadFailed = ref(false)
 const cloningId = ref<string | null>(null)
@@ -51,8 +54,18 @@ async function load() {
       limit: 100,
     })
     items.value = data.items
+    const publishedItems = data.items.filter((item) => item.status === 'PUBLISHED')
+    if (publishedItems.length) {
+      const entityTypes = [...new Set(publishedItems.map((item) => item.entity_type))]
+      activeTemplateIds.value = entityTypes.length
+        ? await loadActivePublishedTemplateIds(entityTypes)
+        : buildActivePublishedTemplateIdSet(publishedItems)
+    } else {
+      activeTemplateIds.value = new Set()
+    }
   } catch (error) {
     items.value = []
+    activeTemplateIds.value = new Set()
     if (error instanceof TenantRequiredError) return
     loadFailed.value = isApiUnavailableError(error)
     if (!loadFailed.value) {
@@ -132,6 +145,7 @@ onMounted(load)
         $t('lowCode.code'),
         $t('common.name'),
         $t('common.status'),
+        $t('lowCode.versionStatus'),
         $t('lowCode.version'),
         $t('lowCode.updatedAt'),
         $t('common.actions'),
@@ -143,6 +157,24 @@ onMounted(load)
         <td><code>{{ item.code }}</code></td>
         <td>{{ item.name }}</td>
         <td><UiBadge :status="item.status" /></td>
+        <td>
+          <UiBadge
+            v-if="item.status === 'DRAFT'"
+            :status="$t('lowCode.draft')"
+            tone="neutral"
+          />
+          <UiBadge
+            v-else-if="item.status === 'PUBLISHED' && isActivePublishedTemplate(item.id, activeTemplateIds)"
+            :status="$t('lowCode.active')"
+            tone="success"
+          />
+          <UiBadge
+            v-else-if="item.status === 'PUBLISHED'"
+            :status="$t('lowCode.olderPublishedVersion')"
+            tone="warning"
+          />
+          <span v-else class="text-muted">—</span>
+        </td>
         <td>{{ item.version }}</td>
         <td>{{ formatLowCodeDate(item.published_at) }}</td>
         <td>
@@ -195,5 +227,9 @@ onMounted(load)
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+}
+
+.text-muted {
+  color: var(--color-text-muted);
 }
 </style>

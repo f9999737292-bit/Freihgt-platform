@@ -4,11 +4,12 @@ import { formatJsonValue, formatLowCodeDate, formTemplateDetailToPreview, type F
 definePageMeta({ middleware: 'auth', layout: 'default' })
 
 const route = useRoute()
-const { getFormTemplate, isApiUnavailableError } = useLowCodeApi()
+const { getFormTemplate, listActiveFormTemplates, isApiUnavailableError } = useLowCodeApi()
 const { pushToast } = useToast()
 const { t } = useI18n()
 
 const template = ref<FormTemplateDetail | null>(null)
+const isActivePublished = ref(false)
 const loading = ref(true)
 const apiUnavailable = ref(false)
 
@@ -21,8 +22,17 @@ async function loadTemplate() {
   apiUnavailable.value = false
   try {
     template.value = await getFormTemplate(templateId.value)
+    isActivePublished.value = false
+    if (template.value?.status === 'PUBLISHED') {
+      const active = await listActiveFormTemplates({
+        entity_type: template.value.entity_type,
+        code: template.value.code,
+      })
+      isActivePublished.value = active.items.some((item) => item.id === template.value!.id)
+    }
   } catch (error) {
     template.value = null
+    isActivePublished.value = false
     apiUnavailable.value = isApiUnavailableError(error)
     if (!apiUnavailable.value) {
       pushToast('error', error instanceof Error ? error.message : t('lowCode.loadFailed'))
@@ -53,6 +63,16 @@ watch(templateId, loadTemplate, { immediate: true })
 
     <UiPageHeader :title="template?.name || $t('lowCode.templateDetails')">
       <template #actions>
+        <UiBadge
+          v-if="template?.status === 'PUBLISHED' && isActivePublished"
+          :status="$t('lowCode.activePublishedVersion')"
+          tone="success"
+        />
+        <UiBadge
+          v-else-if="template?.status === 'PUBLISHED'"
+          :status="$t('lowCode.olderPublishedVersion')"
+          tone="warning"
+        />
         <UiButton variant="secondary" @click="$router.push('/low-code/form-templates')">
           {{ $t('common.back') }}
         </UiButton>
@@ -83,7 +103,19 @@ watch(templateId, loadTemplate, { immediate: true })
           </div>
           <div class="details-item">
             <span class="details-item__label">{{ $t('common.status') }}</span>
-            <UiBadge :status="template.status" />
+            <div class="badge-stack">
+              <UiBadge :status="template.status" />
+              <UiBadge
+                v-if="template.status === 'PUBLISHED' && isActivePublished"
+                :status="$t('lowCode.activePublishedVersion')"
+                tone="success"
+              />
+              <UiBadge
+                v-else-if="template.status === 'PUBLISHED'"
+                :status="$t('lowCode.olderPublishedVersion')"
+                tone="warning"
+              />
+            </div>
           </div>
           <div class="details-item">
             <span class="details-item__label">{{ $t('lowCode.version') }}</span>
@@ -228,6 +260,12 @@ watch(templateId, loadTemplate, { immediate: true })
 .details-item__label {
   font-size: 0.8125rem;
   color: var(--color-text-muted);
+}
+
+.badge-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
 }
 
 .field-json-block {

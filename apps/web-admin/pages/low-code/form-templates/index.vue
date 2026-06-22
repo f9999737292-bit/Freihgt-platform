@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import { LOW_CODE_ENTITY_TYPES, formatLowCodeDate, type FormTemplateSummary } from '~/types/lowCode'
+import { LOW_CODE_ENTITY_TYPES, buildActivePublishedTemplateIdSet, formatLowCodeDate, isActivePublishedTemplate, type FormTemplateSummary } from '~/types/lowCode'
 import { TenantRequiredError } from '~/composables/useApi'
 
 definePageMeta({ middleware: 'auth', layout: 'default' })
 
-const { listFormTemplates, isApiUnavailableError } = useLowCodeApi()
+const { listFormTemplates, loadActivePublishedTemplateIds, isApiUnavailableError } = useLowCodeApi()
 const { hasTenant } = useTenantContext()
 const { pushToast } = useToast()
 const { t } = useI18n()
 
 const items = ref<FormTemplateSummary[]>([])
+const activeTemplateIds = ref<Set<string>>(new Set())
 const loading = ref(true)
 const loadFailed = ref(false)
 
@@ -19,6 +20,10 @@ const entityTypeOptions = computed(() => [
   { label: t('common.all'), value: '' },
   ...LOW_CODE_ENTITY_TYPES.map((value) => ({ label: value, value })),
 ])
+
+function onFilterChange() {
+  load()
+}
 
 async function load() {
   if (!hasTenant.value) {
@@ -32,8 +37,17 @@ async function load() {
   try {
     const data = await listFormTemplates(filters.entity_type || undefined)
     items.value = data.items
+    if (filters.entity_type) {
+      activeTemplateIds.value = await loadActivePublishedTemplateIds([filters.entity_type])
+    } else {
+      const entityTypes = [...new Set(data.items.map((item) => item.entity_type))]
+      activeTemplateIds.value = entityTypes.length
+        ? await loadActivePublishedTemplateIds(entityTypes)
+        : buildActivePublishedTemplateIdSet(data.items)
+    }
   } catch (error) {
     items.value = []
+    activeTemplateIds.value = new Set()
     if (error instanceof TenantRequiredError) return
     loadFailed.value = isApiUnavailableError(error)
     if (!loadFailed.value) {
@@ -42,10 +56,6 @@ async function load() {
   } finally {
     loading.value = false
   }
-}
-
-function onFilterChange() {
-  load()
 }
 
 onMounted(load)
@@ -89,6 +99,7 @@ onMounted(load)
         $t('lowCode.code'),
         $t('common.name'),
         $t('common.status'),
+        $t('lowCode.versionStatus'),
         $t('lowCode.version'),
         $t('lowCode.sectionsCount'),
         $t('lowCode.fieldsCount'),
@@ -102,6 +113,20 @@ onMounted(load)
         <td><code>{{ item.code }}</code></td>
         <td>{{ item.name }}</td>
         <td><UiBadge :status="item.status" /></td>
+        <td>
+          <div class="badge-stack">
+            <UiBadge
+              v-if="isActivePublishedTemplate(item.id, activeTemplateIds)"
+              :status="$t('lowCode.active')"
+              tone="success"
+            />
+            <UiBadge
+              v-else
+              :status="$t('lowCode.olderPublishedVersion')"
+              tone="warning"
+            />
+          </div>
+        </td>
         <td>{{ item.version }}</td>
         <td>{{ item.sections_count }}</td>
         <td>{{ item.fields_count }}</td>
@@ -133,5 +158,11 @@ onMounted(load)
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 1rem;
+}
+
+.badge-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
 }
 </style>

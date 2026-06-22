@@ -10,6 +10,7 @@ import type {
   ListAuditEventsParams,
   ListAuditEventsResponse,
   ListFormTemplatesResponse,
+  ListActiveFormTemplatesParams,
   LowCodeEntityType,
   SaveCustomFieldValuesPayload,
   SaveCustomFieldValuesResponse,
@@ -38,6 +39,29 @@ export function useLowCodeApi() {
     }
     const data = await apiGet<ListFormTemplatesResponse>('/api/v1/low-code/form-templates', { query })
     return { ...data, items: data.items ?? [] }
+  }
+
+  async function listActiveFormTemplates(params: ListActiveFormTemplatesParams) {
+    const query: Record<string, string | number | undefined> = tenantQuery({
+      entity_type: params.entity_type.trim(),
+    })
+    if (params.code?.trim()) {
+      query.code = params.code.trim()
+    }
+    const data = await apiGet<ListFormTemplatesResponse>('/api/v1/low-code/form-templates/active', { query })
+    return { ...data, items: data.items ?? [] }
+  }
+
+  async function loadActivePublishedTemplateIds(entityTypes: string[]) {
+    const uniqueTypes = [...new Set(entityTypes.map((value) => value.trim()).filter(Boolean))]
+    const ids = new Set<string>()
+    for (const entityType of uniqueTypes) {
+      const data = await listActiveFormTemplates({ entity_type: entityType })
+      for (const item of data.items) {
+        ids.add(item.id)
+      }
+    }
+    return ids
   }
 
   async function getFormTemplate(id: string) {
@@ -150,9 +174,14 @@ export function useLowCodeApi() {
     return t('common.error')
   }
 
-  async function resolvePublishedTemplate(entityType: string): Promise<FormTemplateDetail | null> {
-    const list = await listFormTemplates(entityType)
-    const summary = list.items.find((item) => item.entity_type === entityType) ?? list.items[0]
+  async function resolvePublishedTemplate(entityType: string, code?: string): Promise<FormTemplateDetail | null> {
+    const active = await listActiveFormTemplates({
+      entity_type: entityType,
+      code,
+    })
+    const summary = code
+      ? active.items.find((item) => item.code === code)
+      : active.items.find((item) => item.entity_type === entityType) ?? active.items[0]
     if (!summary) return null
     return getFormTemplate(summary.id)
   }
@@ -328,6 +357,8 @@ export function useLowCodeApi() {
 
   return {
     listFormTemplates,
+    listActiveFormTemplates,
+    loadActivePublishedTemplateIds,
     getFormTemplate,
     getCustomFieldValues,
     saveCustomFieldValues,
