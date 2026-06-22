@@ -740,8 +740,28 @@ Future migration `000011` is **ready to merge** when:
 
 ---
 
+## Implementation Notes
+
+| Item | Value |
+| ---- | ----- |
+| Migration files | `infrastructure/migrations/000011_create_lowcode_custom_fields_v0.1.up.sql`, `infrastructure/migrations/000011_create_lowcode_custom_fields_v0.1.down.sql` |
+| `core.set_updated_at()` reused | Yes — triggers on 7 tables with `updated_at` use `core.set_updated_at()` from migration `000007` |
+| Migration applied | Yes — `make migrate-up` applied version `11/u create_lowcode_custom_fields_v0.1` |
+| Schema / tables verified | Yes — `lowcode` schema with 9 tables, 48 indexes, CHECK/FK/UNIQUE constraints confirmed via `psql` |
+| GIN on `value_json` | Not added (deferred per design) |
+| RLS | Not enabled (deferred per design) |
+| Core tables changed | No |
+| Seed data in migration | No |
+| `make health-check` | Passed |
+| `make seed-dev-admin` | Passed (script via Git Bash on Windows) |
+| `make seed-demo-data` | Passed (script via Git Bash on Windows) |
+| `make integration-smoke-test` | Passed — `SMOKE TEST PASSED` |
+
+---
+
 ## Document History
 
 | Version | Date | Notes |
 | ------- | ---- | ----- |
 | v0.1 | 2026-06-22 | Initial migration design — docs only, no SQL files |
+| v0.1 impl | 2026-06-22 | Real migration `000011` created and applied |
