@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import {
   adminDetailToDraft,
+  compareFormTemplates,
+  adminDetailToCompareInput,
+  draftToCompareInput,
   draftToPayload,
   draftToPreviewModel,
   formatLowCodeDate,
   formTemplateDetailToPreview,
+  hasFormTemplateCompareChanges,
   type AdminFormTemplateDetail,
   type DraftFormTemplateDraft,
 } from '~/types/lowCode'
@@ -17,6 +21,7 @@ const templateId = computed(() => String(route.params.id ?? ''))
 
 const {
   getAdminFormTemplate,
+  listAdminFormTemplates,
   updateDraftFormTemplate,
   publishDraftFormTemplate,
   clonePublishedTemplateToDraft,
@@ -30,14 +35,16 @@ const { t } = useI18n()
 
 const template = ref<AdminFormTemplateDetail | null>(null)
 const draft = ref<DraftFormTemplateDraft | null>(null)
+const basePublished = ref<AdminFormTemplateDetail | null>(null)
 const editorRef = ref<{ validate: () => unknown[] } | null>(null)
 const loading = ref(true)
+const basePublishedLoading = ref(false)
 const loadFailed = ref(false)
 const saving = ref(false)
 const publishing = ref(false)
 const cloning = ref(false)
 const publishModalOpen = ref(false)
-const builderTab = ref<'editor' | 'preview'>('editor')
+const builderTab = ref<'editor' | 'preview' | 'compare'>('editor')
 
 const isDraft = computed(() => template.value?.status === 'DRAFT')
 const isReadOnly = computed(() => !isDraft.value)
@@ -52,6 +59,46 @@ const previewModel = computed(() => {
   return null
 })
 
+const compareResult = computed(() => {
+  if (!basePublished.value || !draft.value) return null
+  return compareFormTemplates(
+    adminDetailToCompareInput(basePublished.value),
+    draftToCompareInput(draft.value, template.value?.version ?? 0),
+  )
+})
+
+const hasCompareChanges = computed(() =>
+  compareResult.value ? hasFormTemplateCompareChanges(compareResult.value) : false,
+)
+
+async function loadBasePublished() {
+  if (!template.value || template.value.status !== 'DRAFT') {
+    basePublished.value = null
+    return
+  }
+
+  basePublishedLoading.value = true
+  try {
+    const { items } = await listAdminFormTemplates({
+      entity_type: template.value.entity_type,
+      status: 'PUBLISHED',
+      limit: 100,
+    })
+    const matches = items.filter((item) => item.code === template.value!.code)
+    if (!matches.length) {
+      basePublished.value = null
+      return
+    }
+    const latest = matches.reduce((best, item) => (item.version > best.version ? item : best))
+    basePublished.value = await getAdminFormTemplate(latest.id)
+  } catch (error) {
+    if (error instanceof TenantRequiredError) return
+    basePublished.value = null
+  } finally {
+    basePublishedLoading.value = false
+  }
+}
+
 async function load() {
   if (!hasTenant.value || !templateId.value) {
     loading.value = false
@@ -64,9 +111,11 @@ async function load() {
     const detail = await getAdminFormTemplate(templateId.value)
     template.value = detail
     draft.value = adminDetailToDraft(detail)
+    await loadBasePublished()
   } catch (error) {
     template.value = null
     draft.value = null
+    basePublished.value = null
     if (error instanceof TenantRequiredError) return
     loadFailed.value = isApiUnavailableError(error)
     if (!loadFailed.value) {
@@ -90,6 +139,7 @@ async function saveDraft() {
     const updated = await updateDraftFormTemplate(templateId.value, draftToPayload(draft.value))
     template.value = updated
     draft.value = adminDetailToDraft(updated)
+    await loadBasePublished()
     pushToast('success', t('lowCode.draftSaved'))
   } catch (error) {
     if (error instanceof TenantRequiredError) return
@@ -105,7 +155,9 @@ async function confirmPublish() {
     const updated = await publishDraftFormTemplate(templateId.value)
     template.value = updated
     draft.value = adminDetailToDraft(updated)
+    basePublished.value = null
     publishModalOpen.value = false
+    builderTab.value = 'editor'
     pushToast('success', t('lowCode.draftPublished'))
   } catch (error) {
     if (error instanceof TenantRequiredError) return
@@ -190,6 +242,13 @@ watch(templateId, load)
         <strong>{{ $t('lowCode.archivedTemplatesReadOnly') }}</strong>
       </div>
 
+      <div
+        v-else-if="isDraft && !basePublishedLoading && !basePublished"
+        class="notice notice--info"
+      >
+        {{ $t('lowCode.noPublishedBaseTemplateFound') }}
+      </div>
+
       <div class="form-builder">
         <div class="form-builder__tabs" role="tablist">
           <button
@@ -212,9 +271,41 @@ watch(templateId, load)
           >
             {{ $t('lowCode.preview') }}
           </button>
+          <button
+            v-if="isDraft"
+            type="button"
+            role="tab"
+            class="form-builder__tab"
+            :class="{ 'form-builder__tab--active': builderTab === 'compare' }"
+            :aria-selected="builderTab === 'compare'"
+            @click="builderTab = 'compare'"
+          >
+            {{ $t('lowCode.compare') }}
+          </button>
         </div>
 
-        <div class="form-builder__layout">
+        <div
+          v-if="builderTab === 'compare'"
+          class="form-builder__compare"
+          role="tabpanel"
+        >
+          <UiCard>
+            <template #header>{{ $t('lowCode.versionCompare') }}</template>
+            <div v-if="basePublishedLoading" class="text-muted">{{ $t('common.loading') }}</div>
+            <LowCodeFormTemplateDiff
+              v-else
+              :base-template="basePublished"
+              :draft-template="draft"
+              :draft-version="template.version"
+            />
+          </UiCard>
+        </div>
+
+        <div
+          v-else
+          class="form-builder__layout"
+          :class="{ 'form-builder__layout--split': builderTab === 'editor' }"
+        >
           <div
             class="form-builder__editor"
             :class="{ 'form-builder__panel--hidden': builderTab !== 'editor' }"
@@ -230,7 +321,7 @@ watch(templateId, load)
 
           <aside
             class="form-builder__preview"
-            :class="{ 'form-builder__panel--hidden': builderTab !== 'preview' }"
+            :class="{ 'form-builder__panel--hidden': builderTab !== 'preview' && builderTab !== 'editor' }"
             role="tabpanel"
           >
             <LowCodeFormTemplatePreview
@@ -255,13 +346,39 @@ watch(templateId, load)
 
   <UiModal
     :open="publishModalOpen"
-    :title="$t('lowCode.publish')"
+    :title="$t('lowCode.publishReview')"
     @close="publishModalOpen = false"
   >
-    <p>{{ $t('lowCode.publishConfirmMessage') }}</p>
+    <div class="publish-review">
+      <dl class="publish-review__meta">
+        <div><dt>{{ $t('lowCode.code') }}</dt><dd><code>{{ template?.code }}</code></dd></div>
+        <div><dt>{{ $t('lowCode.draftVersion') }}</dt><dd>{{ template?.version ?? '—' }}</dd></div>
+        <div>
+          <dt>{{ $t('lowCode.basePublishedVersion') }}</dt>
+          <dd>{{ basePublished?.version ?? '—' }}</dd>
+        </div>
+      </dl>
+
+      <LowCodeFormTemplateDiff
+        :base-template="basePublished"
+        :draft-template="draft"
+        :draft-version="template?.version ?? 0"
+        compact
+        :show-empty-state="!!basePublished"
+      />
+
+      <p v-if="basePublished && !hasCompareChanges" class="publish-review__warn">
+        {{ $t('lowCode.noChangesDetected') }}
+      </p>
+
+      <p class="publish-review__warn publish-review__warn--primary">
+        {{ $t('lowCode.publishPublicApiWarning') }}
+      </p>
+    </div>
+
     <template #footer>
       <UiButton variant="secondary" @click="publishModalOpen = false">{{ $t('common.cancel') }}</UiButton>
-      <UiButton :loading="publishing" @click="confirmPublish">{{ $t('lowCode.publish') }}</UiButton>
+      <UiButton :loading="publishing" @click="confirmPublish">{{ $t('lowCode.publishThisDraft') }}</UiButton>
     </template>
   </UiModal>
 </template>
@@ -333,6 +450,7 @@ watch(templateId, load)
   display: flex;
   gap: 0.5rem;
   margin-bottom: 1rem;
+  flex-wrap: wrap;
 }
 
 .form-builder__tab {
@@ -361,6 +479,10 @@ watch(templateId, load)
   min-width: 0;
 }
 
+.form-builder__compare {
+  min-width: 0;
+}
+
 .form-builder__sticky-actions {
   position: sticky;
   bottom: 0;
@@ -373,25 +495,63 @@ watch(templateId, load)
   background: linear-gradient(to top, var(--color-bg, #fff) 70%, transparent);
 }
 
-@media (min-width: 1100px) {
-  .form-builder__tabs {
-    display: none;
-  }
+.publish-review {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
 
-  .form-builder__layout {
+.publish-review__meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.publish-review__meta div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.publish-review__meta dt {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.publish-review__meta dd {
+  margin: 0;
+}
+
+.publish-review__warn {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 0.875rem;
+}
+
+.publish-review__warn--primary {
+  background: #eff6ff;
+  color: #1e3a8a;
+}
+
+@media (min-width: 1100px) {
+  .form-builder__layout--split {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
     gap: 1.5rem;
     align-items: start;
   }
 
-  .form-builder__panel--hidden {
-    display: block !important;
-  }
-
-  .form-builder__preview {
+  .form-builder__layout--split .form-builder__preview {
     position: sticky;
     top: 1rem;
+  }
+
+  .form-builder__layout--split .form-builder__panel--hidden {
+    display: block !important;
   }
 }
 

@@ -1229,3 +1229,373 @@ export function countMissingRequiredPreviewFields(
   }
   return count
 }
+
+export interface FormTemplateCompareField {
+  code: string
+  label: string
+  field_type: string
+  required: boolean
+  read_only: boolean
+  system_field: boolean
+  sort_order: number
+  options_json?: unknown
+  validation_rule_json?: unknown
+  visibility_rule_json?: unknown
+}
+
+export interface FormTemplateCompareSection {
+  code: string
+  title: string
+  sort_order: number
+  fields: FormTemplateCompareField[]
+}
+
+export interface FormTemplateCompareInput {
+  name: string
+  description: string
+  version: number
+  sections: FormTemplateCompareSection[]
+}
+
+export type FormTemplateCompareChangeType = 'added' | 'removed' | 'changed'
+export type FormTemplateCompareArea = 'template' | 'section' | 'field'
+
+export interface FormTemplateCompareRow {
+  type: FormTemplateCompareChangeType
+  area: FormTemplateCompareArea
+  code: string
+  label?: string
+  sectionCode?: string
+  attribute?: string
+  before?: string
+  after?: string
+}
+
+export interface FormTemplateCompareSummary {
+  addedSections: number
+  removedSections: number
+  changedSections: number
+  addedFields: number
+  removedFields: number
+  changedFields: number
+}
+
+export interface FormTemplateCompareResult {
+  summary: FormTemplateCompareSummary
+  rows: FormTemplateCompareRow[]
+}
+
+function sortKeysDeep(value: unknown): unknown {
+  if (value === null || typeof value !== 'object') return value
+  if (Array.isArray(value)) return value.map(sortKeysDeep)
+  return Object.keys(value as Record<string, unknown>)
+    .sort()
+    .reduce<Record<string, unknown>>((acc, key) => {
+      acc[key] = sortKeysDeep((value as Record<string, unknown>)[key])
+      return acc
+    }, {})
+}
+
+export function stableStringifyJson(value: unknown): string {
+  if (value === undefined || value === null) return ''
+  try {
+    return JSON.stringify(sortKeysDeep(value))
+  } catch {
+    return String(value)
+  }
+}
+
+export function stableFormatJsonValue(value: unknown): string {
+  if (value === undefined || value === null) return '—'
+  try {
+    return JSON.stringify(sortKeysDeep(value), null, 2)
+  } catch {
+    return String(value)
+  }
+}
+
+function compareScalar(before: unknown, after: unknown): boolean {
+  return String(before ?? '') === String(after ?? '')
+}
+
+function pushTemplateMetadataChanges(
+  rows: FormTemplateCompareRow[],
+  base: FormTemplateCompareInput,
+  draft: FormTemplateCompareInput,
+) {
+  if (base.name !== draft.name) {
+    rows.push({
+      type: 'changed',
+      area: 'template',
+      code: 'name',
+      label: 'name',
+      attribute: 'name',
+      before: base.name,
+      after: draft.name,
+    })
+  }
+  if (base.description !== draft.description) {
+    rows.push({
+      type: 'changed',
+      area: 'template',
+      code: 'description',
+      label: 'description',
+      attribute: 'description',
+      before: base.description || '—',
+      after: draft.description || '—',
+    })
+  }
+  if (base.version !== draft.version) {
+    rows.push({
+      type: 'changed',
+      area: 'template',
+      code: 'version',
+      label: 'version',
+      attribute: 'version',
+      before: String(base.version),
+      after: String(draft.version),
+    })
+  }
+}
+
+function pushFieldChangeRows(
+  rows: FormTemplateCompareRow[],
+  sectionCode: string,
+  field: FormTemplateCompareField,
+  baseField: FormTemplateCompareField,
+) {
+  const attrs: Array<{
+    key: keyof FormTemplateCompareField
+    label: string
+    isJson?: boolean
+  }> = [
+    { key: 'label', label: 'label' },
+    { key: 'field_type', label: 'field_type' },
+    { key: 'required', label: 'required' },
+    { key: 'read_only', label: 'read_only' },
+    { key: 'system_field', label: 'system_field' },
+    { key: 'sort_order', label: 'sort_order' },
+    { key: 'options_json', label: 'options_json', isJson: true },
+    { key: 'validation_rule_json', label: 'validation_rule_json', isJson: true },
+    { key: 'visibility_rule_json', label: 'visibility_rule_json', isJson: true },
+  ]
+
+  for (const attr of attrs) {
+    const beforeValue = baseField[attr.key]
+    const afterValue = field[attr.key]
+    const equal = attr.isJson
+      ? stableStringifyJson(beforeValue) === stableStringifyJson(afterValue)
+      : compareScalar(beforeValue, afterValue)
+    if (equal) continue
+    rows.push({
+      type: 'changed',
+      area: 'field',
+      code: field.code,
+      label: field.label,
+      sectionCode,
+      attribute: attr.label,
+      before: attr.isJson ? stableFormatJsonValue(beforeValue) : String(beforeValue ?? '—'),
+      after: attr.isJson ? stableFormatJsonValue(afterValue) : String(afterValue ?? '—'),
+    })
+  }
+}
+
+export function adminDetailToCompareInput(detail: AdminFormTemplateDetail): FormTemplateCompareInput {
+  return {
+    name: detail.name,
+    description: detail.description ?? '',
+    version: detail.version,
+    sections: (detail.sections ?? []).map((section) => ({
+      code: section.code,
+      title: section.title,
+      sort_order: section.sort_order,
+      fields: (section.fields ?? []).map((field) => ({
+        code: field.code,
+        label: field.label,
+        field_type: field.field_type,
+        required: field.required,
+        read_only: field.read_only,
+        system_field: field.system_field,
+        sort_order: field.sort_order,
+        options_json: field.options_json,
+        validation_rule_json: field.validation_rule_json,
+        visibility_rule_json: field.visibility_rule_json,
+      })),
+    })),
+  }
+}
+
+export function draftToCompareInput(
+  draft: DraftFormTemplateDraft,
+  version = 0,
+): FormTemplateCompareInput {
+  return {
+    name: draft.name.trim(),
+    description: draft.description.trim(),
+    version,
+    sections: draft.sections.map((section) => ({
+      code: section.code.trim(),
+      title: section.title.trim(),
+      sort_order: section.sort_order,
+      fields: section.fields.map((field) => ({
+        code: field.code.trim(),
+        label: field.label.trim(),
+        field_type: field.field_type,
+        required: field.required,
+        read_only: field.read_only,
+        system_field: field.system_field,
+        sort_order: field.sort_order,
+        options_json: tryParseJsonText(field.options_json_text),
+        validation_rule_json: tryParseJsonText(field.validation_rule_json_text),
+        visibility_rule_json: tryParseJsonText(field.visibility_rule_json_text),
+      })),
+    })),
+  }
+}
+
+export function compareFormTemplates(
+  baseTemplate: FormTemplateCompareInput,
+  draftTemplate: FormTemplateCompareInput,
+): FormTemplateCompareResult {
+  const rows: FormTemplateCompareRow[] = []
+  const summary: FormTemplateCompareSummary = {
+    addedSections: 0,
+    removedSections: 0,
+    changedSections: 0,
+    addedFields: 0,
+    removedFields: 0,
+    changedFields: 0,
+  }
+
+  pushTemplateMetadataChanges(rows, baseTemplate, draftTemplate)
+
+  const baseSections = new Map(baseTemplate.sections.map((section) => [section.code, section]))
+  const draftSections = new Map(draftTemplate.sections.map((section) => [section.code, section]))
+  const changedFieldKeys = new Set<string>()
+
+  for (const [code, baseSection] of baseSections) {
+    const draftSection = draftSections.get(code)
+    if (!draftSection) {
+      summary.removedSections += 1
+      rows.push({
+        type: 'removed',
+        area: 'section',
+        code,
+        label: baseSection.title,
+      })
+      for (const field of baseSection.fields) {
+        summary.removedFields += 1
+        rows.push({
+          type: 'removed',
+          area: 'field',
+          code: field.code,
+          label: field.label,
+          sectionCode: code,
+        })
+      }
+      continue
+    }
+
+    let sectionChanged = false
+    if (baseSection.title !== draftSection.title) {
+      sectionChanged = true
+      rows.push({
+        type: 'changed',
+        area: 'section',
+        code,
+        label: draftSection.title,
+        attribute: 'title',
+        before: baseSection.title,
+        after: draftSection.title,
+      })
+    }
+    if (baseSection.sort_order !== draftSection.sort_order) {
+      sectionChanged = true
+      rows.push({
+        type: 'changed',
+        area: 'section',
+        code,
+        label: draftSection.title,
+        attribute: 'sort_order',
+        before: String(baseSection.sort_order),
+        after: String(draftSection.sort_order),
+      })
+    }
+    if (sectionChanged) summary.changedSections += 1
+
+    const baseFields = new Map(baseSection.fields.map((field) => [field.code, field]))
+    const draftFields = new Map(draftSection.fields.map((field) => [field.code, field]))
+
+    for (const [fieldCode, baseField] of baseFields) {
+      if (!draftFields.has(fieldCode)) {
+        summary.removedFields += 1
+        rows.push({
+          type: 'removed',
+          area: 'field',
+          code: fieldCode,
+          label: baseField.label,
+          sectionCode: code,
+        })
+      }
+    }
+
+    for (const [fieldCode, draftField] of draftFields) {
+      const baseField = baseFields.get(fieldCode)
+      if (!baseField) {
+        summary.addedFields += 1
+        rows.push({
+          type: 'added',
+          area: 'field',
+          code: fieldCode,
+          label: draftField.label,
+          sectionCode: code,
+        })
+        continue
+      }
+
+      const beforeRows = rows.length
+      pushFieldChangeRows(rows, code, draftField, baseField)
+      if (rows.length > beforeRows) {
+        changedFieldKeys.add(`${code}.${fieldCode}`)
+      }
+    }
+  }
+
+  for (const [code, draftSection] of draftSections) {
+    if (baseSections.has(code)) continue
+    summary.addedSections += 1
+    rows.push({
+      type: 'added',
+      area: 'section',
+      code,
+      label: draftSection.title,
+    })
+    for (const field of draftSection.fields) {
+      summary.addedFields += 1
+      rows.push({
+        type: 'added',
+        area: 'field',
+        code: field.code,
+        label: field.label,
+        sectionCode: code,
+      })
+    }
+  }
+
+  summary.changedFields = changedFieldKeys.size
+
+  return { summary, rows }
+}
+
+export function hasFormTemplateCompareChanges(result: FormTemplateCompareResult): boolean {
+  const { summary } = result
+  return (
+    summary.addedSections +
+      summary.removedSections +
+      summary.changedSections +
+      summary.addedFields +
+      summary.removedFields +
+      summary.changedFields >
+    0
+  )
+}

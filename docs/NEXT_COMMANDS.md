@@ -204,6 +204,14 @@ http://localhost:3000/low-code/admin/form-templates/{id}
 
 See `docs/LOW_CODE_FORM_BUILDER_UX_V0.1.md`.
 
+Form template version compare (draft vs published):
+
+```text
+http://localhost:3000/low-code/admin/form-templates/{draft-id}
+```
+
+See `docs/LOW_CODE_FORM_TEMPLATE_VERSION_COMPARE_V0.1.md`.
+
 If a target fails with WSL/bash errors, override:
 
 ```powershell
