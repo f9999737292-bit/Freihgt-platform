@@ -4,12 +4,15 @@ import type {
   FormTemplateDetail,
   ListFormTemplatesResponse,
   LowCodeEntityType,
+  SaveCustomFieldValuesPayload,
+  SaveCustomFieldValuesResponse,
 } from '~/types/lowCode'
 import { ApiError } from '~/composables/useApi'
 
 export function useLowCodeApi() {
   const tenantStore = useTenantStore()
-  const { apiGet } = useApi()
+  const { apiGet, apiPut } = useApi()
+  const { t } = useI18n()
 
   function tenantId() {
     return tenantStore.tenantId
@@ -42,6 +45,46 @@ export function useLowCodeApi() {
       }),
     })
     return { ...data, items: data.items ?? [] }
+  }
+
+  async function saveCustomFieldValues(payload: SaveCustomFieldValuesPayload) {
+    return apiPut<SaveCustomFieldValuesResponse>('/api/v1/low-code/custom-field-values', payload, {
+      query: tenantQuery(),
+    })
+  }
+
+  async function resolvePublishedTemplate(entityType: string): Promise<FormTemplateDetail | null> {
+    const list = await listFormTemplates(entityType)
+    const summary = list.items.find((item) => item.entity_type === entityType) ?? list.items[0]
+    if (!summary) return null
+    return getFormTemplate(summary.id)
+  }
+
+  function getSaveErrorMessage(error: unknown): string {
+    if (error instanceof ApiError) {
+      switch (error.code) {
+        case 'TENANT_REQUIRED':
+          return t('tenant.required')
+        case 'FORM_TEMPLATE_NOT_FOUND':
+          return t('lowCode.errorFormTemplateNotFound')
+        case 'FIELD_NOT_FOUND':
+          return t('lowCode.errorFieldNotFound')
+        case 'FIELD_INVALID_TYPE':
+          return t('lowCode.errorFieldInvalidType')
+        case 'VALIDATION_RULE_FAILED':
+          return t('lowCode.errorValidationRuleFailed')
+        case 'SYSTEM_FIELD_PROTECTED':
+          return t('lowCode.errorSystemFieldProtected')
+        default:
+          return error.message || t('lowCode.saveFailed')
+      }
+    }
+    if (error instanceof Error) {
+      if (error.message === 'INVALID_NUMBER') return t('lowCode.errorFieldInvalidType')
+      if (error.message === 'INVALID_JSON') return t('lowCode.invalidJson')
+      return error.message
+    }
+    return t('lowCode.saveFailed')
   }
 
   async function resolveDemoEntityId(entityType: LowCodeEntityType): Promise<string | null> {
@@ -97,7 +140,10 @@ export function useLowCodeApi() {
     listFormTemplates,
     getFormTemplate,
     getCustomFieldValues,
+    saveCustomFieldValues,
+    resolvePublishedTemplate,
     resolveDemoEntityId,
+    getSaveErrorMessage,
     isApiUnavailableError,
     isLowCodeServiceError,
   }

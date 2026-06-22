@@ -1,17 +1,9 @@
 <script setup lang="ts">
-import {
-  DEMO_ENTITY_REFS,
-  LOW_CODE_ENTITY_TYPES,
-  formatJsonValue,
-  formatLowCodeDate,
-  type CustomFieldValueItem,
-  type LowCodeEntityType,
-} from '~/types/lowCode'
-import { TenantRequiredError } from '~/composables/useApi'
+import { DEMO_ENTITY_REFS, LOW_CODE_ENTITY_TYPES, type LowCodeEntityType } from '~/types/lowCode'
 
 definePageMeta({ middleware: 'auth', layout: 'default' })
 
-const { getCustomFieldValues, resolveDemoEntityId, isApiUnavailableError } = useLowCodeApi()
+const { resolveDemoEntityId } = useLowCodeApi()
 const { hasTenant } = useTenantContext()
 const { pushToast } = useToast()
 const { t } = useI18n()
@@ -21,11 +13,14 @@ const form = reactive({
   entity_id: '',
 })
 
-const items = ref<CustomFieldValueItem[]>([])
-const loading = ref(false)
-const loadFailed = ref(false)
+const loadedEntity = reactive({
+  entity_type: '' as LowCodeEntityType | '',
+  entity_id: '',
+})
+
 const loaded = ref(false)
 const resolvingDemo = ref(false)
+const panelKey = ref(0)
 
 const entityTypeOptions = computed(() =>
   LOW_CODE_ENTITY_TYPES.map((value) => ({ label: value, value })),
@@ -33,30 +28,20 @@ const entityTypeOptions = computed(() =>
 
 const demoRefHint = computed(() => DEMO_ENTITY_REFS[form.entity_type])
 
+function markLoaded() {
+  loadedEntity.entity_type = form.entity_type
+  loadedEntity.entity_id = form.entity_id.trim()
+  loaded.value = true
+  panelKey.value += 1
+}
+
 async function loadValues() {
   if (!hasTenant.value) return
   if (!form.entity_id.trim()) {
     pushToast('error', t('lowCode.entityIdRequired'))
     return
   }
-
-  loading.value = true
-  loadFailed.value = false
-  loaded.value = false
-  try {
-    const data = await getCustomFieldValues(form.entity_type, form.entity_id.trim())
-    items.value = data.items
-    loaded.value = true
-  } catch (error) {
-    items.value = []
-    if (error instanceof TenantRequiredError) return
-    loadFailed.value = isApiUnavailableError(error)
-    if (!loadFailed.value) {
-      pushToast('error', error instanceof Error ? error.message : t('lowCode.loadFailed'))
-    }
-  } finally {
-    loading.value = false
-  }
+  markLoaded()
 }
 
 async function useDemoEntity() {
@@ -69,12 +54,17 @@ async function useDemoEntity() {
       return
     }
     form.entity_id = id
-    await loadValues()
+    markLoaded()
   } catch (error) {
     pushToast('error', error instanceof Error ? error.message : t('lowCode.demoResolveFailed'))
   } finally {
     resolvingDemo.value = false
   }
+}
+
+function reloadPanel() {
+  if (!loadedEntity.entity_id) return
+  panelKey.value += 1
 }
 </script>
 
@@ -92,9 +82,9 @@ async function useDemoEntity() {
       </template>
     </UiPageHeader>
 
-    <div class="low-code-hub__notice low-code-hub__notice--info">
-      <strong>{{ $t('lowCode.readOnlyPreview') }}</strong>
-      <p>{{ $t('lowCode.customFieldValuesReadOnlyHint') }}</p>
+    <div class="low-code-hub__notice low-code-hub__notice--warn">
+      <strong>{{ $t('lowCode.editCustomFields') }}</strong>
+      <p>{{ $t('lowCode.coreEntityNotChanged') }}</p>
     </div>
 
     <UiCard>
@@ -110,9 +100,16 @@ async function useDemoEntity() {
           :placeholder="$t('lowCode.entityIdPlaceholder')"
         />
         <div class="lookup-form__actions">
-          <UiButton :loading="loading" @click="loadValues">{{ $t('lowCode.loadValues') }}</UiButton>
+          <UiButton @click="loadValues">{{ $t('lowCode.loadValues') }}</UiButton>
           <UiButton variant="secondary" :loading="resolvingDemo" @click="useDemoEntity">
             {{ $t('lowCode.useDemoEntity') }}
+          </UiButton>
+          <UiButton
+            v-if="loaded && loadedEntity.entity_id"
+            variant="secondary"
+            @click="reloadPanel"
+          >
+            {{ $t('lowCode.reloadValues') }}
           </UiButton>
         </div>
       </div>
@@ -121,25 +118,13 @@ async function useDemoEntity() {
       </p>
     </UiCard>
 
-    <CommonApiUnavailableState
-      v-if="loadFailed"
-      :message="$t('lowCode.serviceUnavailable')"
-      @retry="loadValues"
+    <LowCodeLowCodeCustomFieldsPanel
+      v-if="loaded && loadedEntity.entity_id"
+      :key="panelKey"
+      :entity-type="loadedEntity.entity_type"
+      :entity-id="loadedEntity.entity_id"
+      editable
     />
-
-    <UiTable
-      v-else-if="loaded && (items.length || loading)"
-      :columns="[$t('lowCode.fieldCode'), $t('lowCode.value'), $t('lowCode.updatedAt')]"
-      :loading="loading"
-    >
-      <tr v-for="item in items" :key="item.field_id">
-        <td><code>{{ item.field_code }}</code></td>
-        <td><pre class="value-pre">{{ formatJsonValue(item.value_json) }}</pre></td>
-        <td>{{ formatLowCodeDate(item.updated_at) }}</td>
-      </tr>
-    </UiTable>
-
-    <UiEmptyState v-else-if="loaded && !items.length" :title="$t('lowCode.noCustomFieldValuesFound')" />
   </div>
 </template>
 
@@ -167,10 +152,10 @@ async function useDemoEntity() {
   font-size: 0.875rem;
 }
 
-.low-code-hub__notice--info {
-  background: #eff6ff;
-  border-color: #bfdbfe;
-  color: #1e3a8a;
+.low-code-hub__notice--warn {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
 }
 
 .lookup-form {
@@ -190,12 +175,5 @@ async function useDemoEntity() {
   margin: 1rem 0 0;
   font-size: 0.875rem;
   color: var(--color-text-muted);
-}
-
-.value-pre {
-  margin: 0;
-  font-size: 0.8125rem;
-  white-space: pre-wrap;
-  word-break: break-word;
 }
 </style>

@@ -54,6 +54,14 @@ http://localhost:3000/low-code/custom-field-values
 
 See `docs/LOW_CODE_ADMIN_UI_PREVIEW_V0.1.md`.
 
+Low-code custom field values edit UI:
+
+```text
+http://localhost:3000/low-code/custom-field-values
+```
+
+See `docs/LOW_CODE_CUSTOM_FIELD_VALUES_EDIT_UI_V0.1.md`.
+
 If a target fails with WSL/bash errors, override:
 
 ```powershell
