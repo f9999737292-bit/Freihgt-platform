@@ -350,10 +350,10 @@ go test ./internal/http/handlers/... ./internal/domain/...
 
 ## Next Action
 
-1. ~~**Optional:** backend reject writes to `read_only` fields~~ — implemented in `LOW_CODE_RUNTIME_INLINE_EDIT_GUARDRAILS_V0.1.md`
-2. **Optional:** automated runtime compliance test (entity detail save does not call core PUT)
-3. **Future pack:** core services optionally pass `validation_context` on server-side integration
-4. **Future pack:** explicit custom field value migration when active template version changes
+1. ~~**Optional:** automated runtime compliance test~~ — `make lowcode-runtime-compliance-test`
+2. ~~**Future pack:** core services optionally pass `validation_context`~~ — header pass-through + `shared-go/lowcode`
+3. ~~**Future pack:** explicit custom field value migration~~ — `POST /admin/custom-field-values/migrate-to-active`
+4. Wire core BFF to use shared-go headers; optional admin UI for migration
 
 Related docs:
 

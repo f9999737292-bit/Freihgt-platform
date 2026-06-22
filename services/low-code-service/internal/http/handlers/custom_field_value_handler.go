@@ -141,13 +141,7 @@ func (h *CustomFieldValueHandler) Put(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	validationContext := domain.ValidationContext{}
-	if req.ValidationContext != nil {
-		validationContext = domain.ValidationContext{
-			EntityStatus: req.ValidationContext.EntityStatus,
-			Role:         req.ValidationContext.Role,
-		}
-	}
+	validationContext := validationContextFromRequest(r, req.ValidationContext)
 
 	result, err := h.service.Upsert(r.Context(), domain.UpsertCustomFieldValuesInput{
 		TenantID:          tenantID,

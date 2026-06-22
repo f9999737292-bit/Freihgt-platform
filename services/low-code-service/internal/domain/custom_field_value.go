@@ -54,3 +54,19 @@ type UpsertCustomFieldValuesResult struct {
 	EntityID   uuid.UUID
 	SavedCount int
 }
+
+type MigrateCustomFieldValuesToActiveInput struct {
+	TenantID          uuid.UUID
+	EntityType        string
+	EntityID          uuid.UUID
+	Code              string
+	ValidationContext ValidationContext
+	Audit             AuditContext
+}
+
+type MigrateCustomFieldValuesToActiveResult struct {
+	ActiveTemplateID uuid.UUID
+	MigratedCount    int
+	SkippedCount     int
+	SkippedFields    []string
+}

@@ -62,7 +62,7 @@ K6 ?= k6
 	run-transport-order-service run-shipment-service run-rfx-service \
 	run-document-service run-billing-register-service run-low-code-service \
 	test-company-service test-identity-service test-transport-order-service test-rfx-service test-shipment-service test-document-service test-billing-register-service test-low-code-service test-api-gateway \
-	integration-smoke-test full-flow-smoke-test seed-dev-admin seed-demo-data seed-lowcode-demo create-lowcode-draft-template \
+	integration-smoke-test full-flow-smoke-test lowcode-runtime-compliance-test seed-dev-admin seed-demo-data seed-lowcode-demo create-lowcode-draft-template \
 	project-map tree-project find-service find-text \
 	openapi-generate openapi-generate-json openapi-validate openapi-check api-docs-open \
 	install-web-admin run-web-admin build-web-admin test-web-admin setup-node
@@ -139,6 +139,7 @@ help:
 	@echo ""
 	@echo "Integration:"
 	@echo "  make integration-smoke-test   Run end-to-end smoke test (all services must be up)"
+	@echo "  make lowcode-runtime-compliance-test  Verify low-code runtime does not mutate core entities"
 	@echo "  make seed-dev-admin           Create dev tenant admin (idempotent)"
 	@echo "  make seed-demo-data           Create demo UI data for dev tenant (idempotent)"
 	@echo "  make seed-lowcode-demo        Create published low-code form templates (dev-only psql)"
@@ -471,6 +472,9 @@ test-low-code-service:
 
 integration-smoke-test:
 	"$(BASH)" tests/integration/smoke-test.sh
+
+lowcode-runtime-compliance-test:
+	"$(BASH)" tests/integration/lowcode-runtime-compliance-test.sh
 
 full-flow-smoke-test:
 	"$(BASH)" tests/integration/full-flow-smoke-test.sh

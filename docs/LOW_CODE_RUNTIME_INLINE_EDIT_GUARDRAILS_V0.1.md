@@ -86,15 +86,12 @@ Manual check:
 
 ## What Is Not Implemented Yet
 
-- Automated E2E test asserting entity detail save never calls core PUT endpoints
-- Server-side `validation_context` from core services
-- Custom field value migration when active template version changes
+- Automatic migration on template publish (use explicit migrate API)
+- Core BFF wiring for validation context headers (helper ready in shared-go)
 
 ## Next Action
 
-1. Optional E2E/runtime compliance test in integration suite
-2. Core service → low-code `validation_context` pass-through (future pack)
-3. Template version value migration pack
+See `docs/LOW_CODE_RUNTIME_NEXT_STEPS_V0.1.md`.
 
 See also:
 

@@ -39,6 +39,7 @@ func NewRouter(
 
 	formTemplateHandler := handlers.NewFormTemplateHandler(formTemplateSvc)
 	customFieldValueHandler := handlers.NewCustomFieldValueHandler(customFieldValueSvc)
+	adminCustomFieldValueHandler := handlers.NewAdminCustomFieldValueHandler(customFieldValueSvc)
 	auditHandler := handlers.NewAuditHandler(auditSvc)
 	r.Route("/v1/low-code", func(r chi.Router) {
 		r.Get("/form-templates", formTemplateHandler.List)
@@ -47,6 +48,10 @@ func NewRouter(
 		r.Get("/custom-field-values", customFieldValueHandler.Get)
 		r.Put("/custom-field-values", customFieldValueHandler.Put)
 		r.Get("/audit-events", auditHandler.List)
+
+		r.Route("/admin/custom-field-values", func(r chi.Router) {
+			r.Post("/migrate-to-active", adminCustomFieldValueHandler.MigrateToActive)
+		})
 
 		adminFormTemplateHandler := handlers.NewAdminFormTemplateHandler(adminFormTemplateSvc)
 		r.Route("/admin/form-templates", func(r chi.Router) {

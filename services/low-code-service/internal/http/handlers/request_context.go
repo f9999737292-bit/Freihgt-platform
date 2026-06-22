@@ -13,6 +13,9 @@ import (
 
 const userIDHeader = "X-User-ID"
 
+const lowCodeEntityStatusHeader = "X-Low-Code-Entity-Status"
+const lowCodeRoleHeader = "X-Low-Code-Role"
+
 func auditContextFromRequest(r *http.Request) domain.AuditContext {
 	ctx := domain.AuditContext{
 		RequestID: strings.TrimSpace(r.Header.Get(sharedmiddleware.RequestIDHeader)),
@@ -27,6 +30,21 @@ func auditContextFromRequest(r *http.Request) domain.AuditContext {
 		if userID, err := uuid.Parse(raw); err == nil {
 			ctx.ChangedByUserID = &userID
 		}
+	}
+	return ctx
+}
+
+func validationContextFromRequest(r *http.Request, body *validationContextRequest) domain.ValidationContext {
+	ctx := domain.ValidationContext{}
+	if body != nil {
+		ctx.EntityStatus = strings.TrimSpace(body.EntityStatus)
+		ctx.Role = strings.TrimSpace(body.Role)
+	}
+	if ctx.EntityStatus == "" {
+		ctx.EntityStatus = strings.TrimSpace(r.Header.Get(lowCodeEntityStatusHeader))
+	}
+	if ctx.Role == "" {
+		ctx.Role = strings.TrimSpace(r.Header.Get(lowCodeRoleHeader))
 	}
 	return ctx
 }
