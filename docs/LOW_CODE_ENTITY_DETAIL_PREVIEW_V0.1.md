@@ -72,8 +72,8 @@ npm run dev
 
 ## Next action
 
-1. RFx / document entity pages when low-code seeds exist
-2. Inline edit on entity detail (future write pack)
-3. Preview empty-state when template exists but no values stored
+1. Inline edit on entity detail (future write pack)
+2. RFx lot / bid entity types when templates are needed
+3. Visibility rules in preview renderer
 
-See also: `docs/LOW_CODE_ENTITY_DETAIL_INTEGRATION_V0.1.md`, `docs/LOW_CODE_FORM_TEMPLATE_PREVIEW_RENDERER_V0.1.md`.
+See also: `docs/LOW_CODE_ENTITY_DETAIL_RFX_DOCUMENT_V0.1.md`, `docs/LOW_CODE_FORM_TEMPLATE_PREVIEW_RENDERER_V0.1.md`.

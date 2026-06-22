@@ -110,6 +110,9 @@ Protected:
 | TRANSPORT_ORDER | DEMO-TO-001 | cargo_class=GENERAL, internal_cost_center=CC-1001 |
 | SHIPMENT | DEMO-SH-PLANNED | temperature_mode=AMBIENT |
 | BILLING_REGISTER | DEMO-BR-001 | payment_priority=NORMAL |
+| FREIGHT_REQUEST | DEMO-FR-001 | lane_priority=HIGH |
+| DOCUMENT | DEMO-DOC-001 | archive_reference=ARC-2026-001 |
+| RFX | DEMO-RFX-001 | confidentiality_level=INTERNAL |
 
 Idempotent — 3 runs safe.
 

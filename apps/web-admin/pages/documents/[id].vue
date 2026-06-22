@@ -208,6 +208,10 @@ watch(documentId, loadDocument, { immediate: true })
 
       <DocumentsDocumentVersionsTable :versions="versions" :loading="loadingRelated" />
       <DocumentsDocumentFilesTable :files="files" :loading="loadingRelated" />
+      <LowCodeCustomFieldsPanel
+        entity-type="DOCUMENT"
+        :entity-id="document.id"
+      />
     </template>
 
     <DocumentsDocumentVersionCreateModal

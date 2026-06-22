@@ -104,6 +104,10 @@ onMounted(async () => {
       <RfxRfxActions :event="event" @updated="loadEvent" @edit="openEdit" />
       <RfxRfxDetailsCard :event="event" :company-name="companyName" @edit="openEdit" />
       <RfxRfxParticipantsTable :rfx-event-id="event.id" :company-name="companyNameById" />
+      <LowCodeCustomFieldsPanel
+        entity-type="RFX"
+        :entity-id="event.id"
+      />
     </template>
 
     <UiModal :open="showEditModal" :title="$t('rfx.edit')" @close="showEditModal = false">

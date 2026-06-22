@@ -113,6 +113,16 @@ http://localhost:3000/billing-registers/{id}
 
 See `docs/LOW_CODE_ENTITY_DETAIL_PREVIEW_V0.1.md`.
 
+RFx / document / freight request detail custom fields:
+
+```text
+http://localhost:3000/freight-requests/{id}
+http://localhost:3000/documents/{id}
+http://localhost:3000/rfx/{id}
+```
+
+See `docs/LOW_CODE_ENTITY_DETAIL_RFX_DOCUMENT_V0.1.md`.
+
 If a target fails with WSL/bash errors, override:
 
 ```powershell

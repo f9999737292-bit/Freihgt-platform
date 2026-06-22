@@ -687,6 +687,8 @@
     "unsupportedFieldType": "Unsupported field type",
     "currentValuesPreview": "Current values preview",
     "viewFormTemplate": "View form template",
+    "noCustomFieldValuesYet": "No custom field values stored yet. The form template preview below shows available fields.",
+    "templateOnlyPreview": "Form template preview (no values stored)",
     "filePlaceholder": "File upload (preview placeholder)"
   },
   "backendStatus": {

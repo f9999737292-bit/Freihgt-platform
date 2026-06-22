@@ -373,6 +373,291 @@ SQL
   pass "created BILLING_REGISTER / billing_register_default"
 }
 
+seed_freight_request_template() {
+  if template_exists "FREIGHT_REQUEST" "freight_request_default"; then
+    skip "published template exists: FREIGHT_REQUEST / freight_request_default"
+    return 0
+  fi
+
+  step "Seed published template FREIGHT_REQUEST / freight_request_default"
+  psql_exec <<SQL
+INSERT INTO lowcode.low_code_configurations (
+  id, tenant_id, code, name, config_type, status, version, published_at
+) VALUES (
+  'b4444444-4444-4444-8444-444444444401',
+  '${TENANT_ID}',
+  'cfg_freight_request_default',
+  'Freight Request Default Configuration',
+  'FORM_TEMPLATE',
+  'PUBLISHED',
+  1,
+  now()
+) ON CONFLICT (id) DO UPDATE SET
+  status = EXCLUDED.status,
+  published_at = EXCLUDED.published_at,
+  name = EXCLUDED.name;
+
+INSERT INTO lowcode.form_templates (
+  id, tenant_id, configuration_id, entity_type, code, name, status, version, published_at
+) VALUES (
+  'b4444444-4444-4444-8444-444444444402',
+  '${TENANT_ID}',
+  'b4444444-4444-4444-8444-444444444401',
+  'FREIGHT_REQUEST',
+  'freight_request_default',
+  'Freight Request Default Form',
+  'PUBLISHED',
+  1,
+  now()
+) ON CONFLICT (id) DO UPDATE SET
+  status = EXCLUDED.status,
+  published_at = EXCLUDED.published_at,
+  name = EXCLUDED.name;
+
+INSERT INTO lowcode.form_sections (
+  id, tenant_id, form_template_id, code, title, sort_order
+) VALUES (
+  'b4444444-4444-4444-8444-444444444403',
+  '${TENANT_ID}',
+  'b4444444-4444-4444-8444-444444444402',
+  'tender',
+  'Tender',
+  100
+) ON CONFLICT (id) DO UPDATE SET
+  title = EXCLUDED.title,
+  sort_order = EXCLUDED.sort_order;
+
+INSERT INTO lowcode.form_fields (
+  id, tenant_id, form_template_id, section_id, code, label, field_type,
+  required, read_only, system_field, options_json, sort_order
+) VALUES
+(
+  'b4444444-4444-4444-8444-444444444404',
+  '${TENANT_ID}',
+  'b4444444-4444-4444-8444-444444444402',
+  'b4444444-4444-4444-8444-444444444403',
+  'lane_priority',
+  'Lane priority',
+  'SELECT',
+  false,
+  false,
+  false,
+  '{"options":[{"value":"LOW","label":"Low"},{"value":"NORMAL","label":"Normal"},{"value":"HIGH","label":"High"}]}'::jsonb,
+  100
+),
+(
+  'b4444444-4444-4444-8444-444444444405',
+  '${TENANT_ID}',
+  'b4444444-4444-4444-8444-444444444402',
+  'b4444444-4444-4444-8444-444444444403',
+  'special_instructions',
+  'Special instructions',
+  'TEXT',
+  false,
+  false,
+  false,
+  NULL,
+  110
+)
+ON CONFLICT (id) DO UPDATE SET
+  label = EXCLUDED.label,
+  field_type = EXCLUDED.field_type,
+  options_json = EXCLUDED.options_json,
+  sort_order = EXCLUDED.sort_order;
+SQL
+  pass "created FREIGHT_REQUEST / freight_request_default"
+}
+
+seed_document_template() {
+  if template_exists "DOCUMENT" "document_default"; then
+    skip "published template exists: DOCUMENT / document_default"
+    return 0
+  fi
+
+  step "Seed published template DOCUMENT / document_default"
+  psql_exec <<SQL
+INSERT INTO lowcode.low_code_configurations (
+  id, tenant_id, code, name, config_type, status, version, published_at
+) VALUES (
+  'b5555555-5555-4555-8555-555555555501',
+  '${TENANT_ID}',
+  'cfg_document_default',
+  'Document Default Configuration',
+  'FORM_TEMPLATE',
+  'PUBLISHED',
+  1,
+  now()
+) ON CONFLICT (id) DO UPDATE SET
+  status = EXCLUDED.status,
+  published_at = EXCLUDED.published_at,
+  name = EXCLUDED.name;
+
+INSERT INTO lowcode.form_templates (
+  id, tenant_id, configuration_id, entity_type, code, name, status, version, published_at
+) VALUES (
+  'b5555555-5555-4555-8555-555555555502',
+  '${TENANT_ID}',
+  'b5555555-5555-4555-8555-555555555501',
+  'DOCUMENT',
+  'document_default',
+  'Document Default Form',
+  'PUBLISHED',
+  1,
+  now()
+) ON CONFLICT (id) DO UPDATE SET
+  status = EXCLUDED.status,
+  published_at = EXCLUDED.published_at,
+  name = EXCLUDED.name;
+
+INSERT INTO lowcode.form_sections (
+  id, tenant_id, form_template_id, code, title, sort_order
+) VALUES (
+  'b5555555-5555-4555-8555-555555555503',
+  '${TENANT_ID}',
+  'b5555555-5555-4555-8555-555555555502',
+  'archive',
+  'Archive',
+  100
+) ON CONFLICT (id) DO UPDATE SET
+  title = EXCLUDED.title,
+  sort_order = EXCLUDED.sort_order;
+
+INSERT INTO lowcode.form_fields (
+  id, tenant_id, form_template_id, section_id, code, label, field_type,
+  required, read_only, system_field, options_json, sort_order
+) VALUES
+(
+  'b5555555-5555-4555-8555-555555555504',
+  '${TENANT_ID}',
+  'b5555555-5555-4555-8555-555555555502',
+  'b5555555-5555-4555-8555-555555555503',
+  'archive_reference',
+  'Archive reference',
+  'TEXT',
+  false,
+  false,
+  false,
+  NULL,
+  100
+),
+(
+  'b5555555-5555-4555-8555-555555555505',
+  '${TENANT_ID}',
+  'b5555555-5555-4555-8555-555555555502',
+  'b5555555-5555-4555-8555-555555555503',
+  'document_category',
+  'Document category',
+  'SELECT',
+  false,
+  false,
+  false,
+  '{"options":[{"value":"OPERATIONAL","label":"Operational"},{"value":"FINANCE","label":"Finance"},{"value":"LEGAL","label":"Legal"}]}'::jsonb,
+  110
+)
+ON CONFLICT (id) DO UPDATE SET
+  label = EXCLUDED.label,
+  field_type = EXCLUDED.field_type,
+  options_json = EXCLUDED.options_json,
+  sort_order = EXCLUDED.sort_order;
+SQL
+  pass "created DOCUMENT / document_default"
+}
+
+seed_rfx_template() {
+  if template_exists "RFX" "rfx_default"; then
+    skip "published template exists: RFX / rfx_default"
+    return 0
+  fi
+
+  step "Seed published template RFX / rfx_default"
+  psql_exec <<SQL
+INSERT INTO lowcode.low_code_configurations (
+  id, tenant_id, code, name, config_type, status, version, published_at
+) VALUES (
+  'b6666666-6666-4666-8666-666666666601',
+  '${TENANT_ID}',
+  'cfg_rfx_default',
+  'RFX Default Configuration',
+  'FORM_TEMPLATE',
+  'PUBLISHED',
+  1,
+  now()
+) ON CONFLICT (id) DO UPDATE SET
+  status = EXCLUDED.status,
+  published_at = EXCLUDED.published_at,
+  name = EXCLUDED.name;
+
+INSERT INTO lowcode.form_templates (
+  id, tenant_id, configuration_id, entity_type, code, name, status, version, published_at
+) VALUES (
+  'b6666666-6666-4666-8666-666666666602',
+  '${TENANT_ID}',
+  'b6666666-6666-4666-8666-666666666601',
+  'RFX',
+  'rfx_default',
+  'RFX Default Form',
+  'PUBLISHED',
+  1,
+  now()
+) ON CONFLICT (id) DO UPDATE SET
+  status = EXCLUDED.status,
+  published_at = EXCLUDED.published_at,
+  name = EXCLUDED.name;
+
+INSERT INTO lowcode.form_sections (
+  id, tenant_id, form_template_id, code, title, sort_order
+) VALUES (
+  'b6666666-6666-4666-8666-666666666603',
+  '${TENANT_ID}',
+  'b6666666-6666-4666-8666-666666666602',
+  'procurement',
+  'Procurement',
+  100
+) ON CONFLICT (id) DO UPDATE SET
+  title = EXCLUDED.title,
+  sort_order = EXCLUDED.sort_order;
+
+INSERT INTO lowcode.form_fields (
+  id, tenant_id, form_template_id, section_id, code, label, field_type,
+  required, read_only, system_field, options_json, sort_order
+) VALUES
+(
+  'b6666666-6666-4666-8666-666666666604',
+  '${TENANT_ID}',
+  'b6666666-6666-4666-8666-666666666602',
+  'b6666666-6666-4666-8666-666666666603',
+  'evaluation_criteria',
+  'Evaluation criteria',
+  'TEXT',
+  false,
+  false,
+  false,
+  NULL,
+  100
+),
+(
+  'b6666666-6666-4666-8666-666666666605',
+  '${TENANT_ID}',
+  'b6666666-6666-4666-8666-666666666602',
+  'b6666666-6666-4666-8666-666666666603',
+  'confidentiality_level',
+  'Confidentiality level',
+  'SELECT',
+  false,
+  false,
+  false,
+  '{"options":[{"value":"PUBLIC","label":"Public"},{"value":"INTERNAL","label":"Internal"},{"value":"RESTRICTED","label":"Restricted"}]}'::jsonb,
+  110
+)
+ON CONFLICT (id) DO UPDATE SET
+  label = EXCLUDED.label,
+  field_type = EXCLUDED.field_type,
+  options_json = EXCLUDED.options_json,
+  sort_order = EXCLUDED.sort_order;
+SQL
+  pass "created RFX / rfx_default"
+}
+
 print_summary() {
   psql_exec -c "
     SELECT entity_type, code, status, version
@@ -446,14 +731,16 @@ seed_custom_field_values() {
     WHERE id = 'b3333333-3333-4333-8333-333333333305';
   " >/dev/null
 
-  local to_id sh_id br_id
+  local to_id sh_id br_id fr_id doc_id rfx_id
   to_id="$(lookup_entity_id "SELECT id FROM transport.transport_orders WHERE tenant_id = '${TENANT_ID}' AND order_number = 'DEMO-TO-001' LIMIT 1;")"
   sh_id="$(lookup_entity_id "SELECT id FROM transport.shipments WHERE tenant_id = '${TENANT_ID}' AND shipment_number = 'DEMO-SH-PLANNED' LIMIT 1;")"
   br_id="$(lookup_entity_id "SELECT id FROM billing.billing_registers WHERE tenant_id = '${TENANT_ID}' AND register_number = 'DEMO-BR-001' LIMIT 1;")"
+  fr_id="$(lookup_entity_id "SELECT id FROM rfx.freight_requests WHERE tenant_id = '${TENANT_ID}' AND freight_request_number = 'DEMO-FR-001' LIMIT 1;")"
+  doc_id="$(lookup_entity_id "SELECT id FROM documents.documents WHERE tenant_id = '${TENANT_ID}' AND document_number = 'DEMO-DOC-001' LIMIT 1;")"
+  rfx_id="$(lookup_entity_id "SELECT id FROM rfx.rfx_events WHERE tenant_id = '${TENANT_ID}' AND rfx_number = 'DEMO-RFX-001' LIMIT 1;")"
 
   if [[ -z "$to_id" || -z "$sh_id" || -z "$br_id" ]]; then
-    echo "WARN: demo entities not found — run make seed-demo-data first" >&2
-    return 0
+    echo "WARN: core demo entities not found — run make seed-demo-data first" >&2
   fi
 
   if custom_value_exists "TRANSPORT_ORDER" "$to_id" "cargo_class"; then
@@ -482,6 +769,42 @@ seed_custom_field_values() {
     upsert_custom_value "BILLING_REGISTER" "$br_id" "b3333333-3333-4333-8333-333333333302" "b3333333-3333-4333-8333-333333333306" "payment_priority" "to_jsonb('NORMAL'::text)"
     pass "custom field values seeded for BILLING_REGISTER DEMO-BR-001"
   fi
+
+  if [[ -n "$fr_id" ]]; then
+    if custom_value_exists "FREIGHT_REQUEST" "$fr_id" "lane_priority"; then
+      skip "custom field values exist for FREIGHT_REQUEST DEMO-FR-001"
+    else
+      upsert_custom_value "FREIGHT_REQUEST" "$fr_id" "b4444444-4444-4444-8444-444444444402" "b4444444-4444-4444-8444-444444444404" "lane_priority" "to_jsonb('HIGH'::text)"
+      upsert_custom_value "FREIGHT_REQUEST" "$fr_id" "b4444444-4444-4444-8444-444444444402" "b4444444-4444-4444-8444-444444444405" "special_instructions" "to_jsonb('Требуется фиксированная ставка на квартал'::text)"
+      pass "custom field values seeded for FREIGHT_REQUEST DEMO-FR-001"
+    fi
+  else
+    echo "WARN: DEMO-FR-001 not found — skip FREIGHT_REQUEST custom field values" >&2
+  fi
+
+  if [[ -n "$doc_id" ]]; then
+    if custom_value_exists "DOCUMENT" "$doc_id" "archive_reference"; then
+      skip "custom field values exist for DOCUMENT DEMO-DOC-001"
+    else
+      upsert_custom_value "DOCUMENT" "$doc_id" "b5555555-5555-4555-8555-555555555502" "b5555555-5555-4555-8555-555555555504" "archive_reference" "to_jsonb('ARC-2026-001'::text)"
+      upsert_custom_value "DOCUMENT" "$doc_id" "b5555555-5555-4555-8555-555555555502" "b5555555-5555-4555-8555-555555555505" "document_category" "to_jsonb('OPERATIONAL'::text)"
+      pass "custom field values seeded for DOCUMENT DEMO-DOC-001"
+    fi
+  else
+    echo "WARN: DEMO-DOC-001 not found — skip DOCUMENT custom field values" >&2
+  fi
+
+  if [[ -n "$rfx_id" ]]; then
+    if custom_value_exists "RFX" "$rfx_id" "evaluation_criteria"; then
+      skip "custom field values exist for RFX DEMO-RFX-001"
+    else
+      upsert_custom_value "RFX" "$rfx_id" "b6666666-6666-4666-8666-666666666602" "b6666666-6666-4666-8666-666666666604" "evaluation_criteria" "to_jsonb('Price 60%, SLA 25%, experience 15%'::text)"
+      upsert_custom_value "RFX" "$rfx_id" "b6666666-6666-4666-8666-666666666602" "b6666666-6666-4666-8666-666666666605" "confidentiality_level" "to_jsonb('INTERNAL'::text)"
+      pass "custom field values seeded for RFX DEMO-RFX-001"
+    fi
+  else
+    echo "WARN: DEMO-RFX-001 not found — skip RFX custom field values" >&2
+  fi
 }
 
 main() {
@@ -495,6 +818,9 @@ main() {
   seed_transport_order_template
   seed_shipment_template
   seed_billing_register_template
+  seed_freight_request_template
+  seed_document_template
+  seed_rfx_template
   seed_custom_field_values
   step "Published form templates"
   print_summary

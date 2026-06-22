@@ -687,6 +687,8 @@
     "unsupportedFieldType": "Неподдерживаемый тип поля",
     "currentValuesPreview": "Предпросмотр текущих значений",
     "viewFormTemplate": "Открыть шаблон формы",
+    "noCustomFieldValuesYet": "Значения пользовательских полей не сохранены. Ниже — предпросмотр доступных полей шаблона.",
+    "templateOnlyPreview": "Предпросмотр шаблона (без сохранённых значений)",
     "filePlaceholder": "Загрузка файла (placeholder предпросмотра)"
   },
   "backendStatus": {

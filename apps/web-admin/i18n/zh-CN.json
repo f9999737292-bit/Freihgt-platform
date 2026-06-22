@@ -687,6 +687,8 @@
     "unsupportedFieldType": "不支持的字段类型",
     "currentValuesPreview": "当前值预览",
     "viewFormTemplate": "查看表单模板",
+    "noCustomFieldValuesYet": "尚未保存自定义字段值。下方预览显示模板中的可用字段。",
+    "templateOnlyPreview": "表单模板预览（无已存值）",
     "filePlaceholder": "文件上传（预览占位）"
   },
   "backendStatus": {

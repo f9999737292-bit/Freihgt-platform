@@ -81,6 +81,10 @@ onMounted(async () => {
         :company-name="companyNameById"
         @updated="loadRequest"
       />
+      <LowCodeCustomFieldsPanel
+        entity-type="FREIGHT_REQUEST"
+        :entity-id="request.id"
+      />
     </template>
   </div>
 </template>

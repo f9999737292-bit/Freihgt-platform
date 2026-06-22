@@ -100,6 +100,10 @@ function resetEditDraft() {
 
 const previewValues = computed(() => customFieldValuesToPreviewMap(items.value))
 
+const previewTitle = computed(() =>
+  items.value.length ? t('lowCode.currentValuesPreview') : t('lowCode.templateOnlyPreview'),
+)
+
 async function loadTemplateMetadata() {
   if (!canLoad.value) {
     formTemplateId.value = null
@@ -275,10 +279,17 @@ watch(
     />
 
     <UiEmptyState
-      v-else-if="loaded && !items.length"
+      v-else-if="loaded && !items.length && !previewTemplate"
       :title="$t('lowCode.noCustomFieldsFound')"
       :description="editable ? $t('lowCode.emptySeedHint') : undefined"
     />
+
+    <p
+      v-else-if="loaded && !items.length && previewTemplate"
+      class="low-code-panel__muted"
+    >
+      {{ $t('lowCode.noCustomFieldValuesYet') }}
+    </p>
 
     <template v-else-if="items.length && !editing">
       <UiTable :columns="[$t('lowCode.field'), $t('lowCode.label'), $t('lowCode.value'), $t('lowCode.updatedAt')]">
@@ -374,10 +385,10 @@ watch(
   </UiCard>
 
   <LowCodeFormTemplatePreview
-    v-if="showPreview && loaded && previewTemplate && items.length"
+    v-if="showPreview && loaded && previewTemplate"
     :template="previewTemplate"
     :values="previewValues"
-    :title="$t('lowCode.currentValuesPreview')"
+    :title="previewTitle"
   />
   </div>
 </template>
