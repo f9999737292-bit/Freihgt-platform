@@ -769,7 +769,13 @@
     "compareRemoved": "Удалено",
     "compareChanged": "Изменено",
     "compareArea": "Область",
-    "compareUnavailableOpenDraft": "Сравнение доступно для черновиков. Склонируйте в черновик для просмотра изменений."
+    "compareUnavailableOpenDraft": "Сравнение доступно для черновиков. Склонируйте в черновик для просмотра изменений.",
+    "dragToReorder": "Перетащите для изменения порядка",
+    "dragSectionsOrFieldsHint": "Перетаскивайте секции или поля для изменения порядка",
+    "dropHere": "Отпустите здесь",
+    "reorderSections": "Изменить порядок секций",
+    "reorderFields": "Изменить порядок полей",
+    "dragDisabledReadOnly": "Перетаскивание отключено в режиме только для чтения"
   },
   "backendStatus": {
     "title": "Статус backend",

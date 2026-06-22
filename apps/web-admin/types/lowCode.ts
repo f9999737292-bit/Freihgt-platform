@@ -612,7 +612,7 @@ const DEFAULT_SELECT_OPTIONS = JSON.stringify(
 
 export function nextFieldSortOrder(fields: DraftFormFieldDraft[]): number {
   if (!fields.length) return 100
-  return Math.max(...fields.map((field) => field.sort_order)) + 10
+  return Math.max(...fields.map((field) => field.sort_order)) + 100
 }
 
 export function createPaletteField(fieldType: string, sortOrder?: number): DraftFormFieldDraft {
@@ -673,7 +673,11 @@ export function createPresetField(presetId: FormBuilderPresetId, sortOrder?: num
 }
 
 export function reindexFieldSortOrders(fields: DraftFormFieldDraft[]): DraftFormFieldDraft[] {
-  return fields.map((field, index) => ({ ...field, sort_order: 100 + index * 10 }))
+  return fields.map((field, index) => ({ ...field, sort_order: 100 + index * 100 }))
+}
+
+export function reindexSectionSortOrders(sections: DraftFormSectionDraft[]): DraftFormSectionDraft[] {
+  return sections.map((section, index) => ({ ...section, sort_order: 100 + index * 100 }))
 }
 
 export function duplicateDraftField(field: DraftFormFieldDraft, sortOrder: number): DraftFormFieldDraft {

@@ -10,12 +10,21 @@ import {
   formatJsonDraftText,
   nextFieldSortOrder,
   reindexFieldSortOrders,
+  reindexSectionSortOrders,
   validateDraftTemplateDraft,
   validateJsonDraftText,
   type DraftFormTemplateDraft,
   type DraftEditorValidationIssue,
   type FormBuilderPresetId,
 } from '~/types/lowCode'
+
+const DND_MIME = 'application/x-lowcode-dnd'
+
+interface DndPayload {
+  kind: 'section' | 'field'
+  sectionKey: string
+  fieldKey?: string
+}
 
 const props = withDefaults(
   defineProps<{
@@ -40,6 +49,8 @@ const activeSectionKey = ref('')
 const collapsedSections = ref<Record<string, boolean>>({})
 const jsonFeedback = ref<Record<string, { ok: boolean; message: string }>>({})
 const confirmRemove = ref<{ type: 'section' | 'field'; sectionKey: string; fieldKey?: string } | null>(null)
+const dragPayload = ref<DndPayload | null>(null)
+const dropHighlight = ref<DndPayload | null>(null)
 
 const entityTypeOptions = computed(() =>
   LOW_CODE_ADMIN_ENTITY_TYPES.map((value) => ({ label: value, value })),
@@ -102,9 +113,13 @@ function setSectionFields(sectionKey: string, fields: DraftFormTemplateDraft['se
   updateSection(sectionKey, { fields: reindexFieldSortOrders(fields) })
 }
 
+function setSections(sections: DraftFormTemplateDraft['sections']) {
+  updateDraft({ sections: reindexSectionSortOrders(sections) })
+}
+
 function addSection() {
   const section = createEmptyDraftSection()
-  updateDraft({ sections: [...props.modelValue.sections, section] })
+  setSections([...props.modelValue.sections, section])
   activeSectionKey.value = section._key
 }
 
@@ -115,9 +130,7 @@ function requestRemoveSection(sectionKey: string) {
 
 function removeSection(sectionKey: string) {
   if (props.modelValue.sections.length <= 1) return
-  updateDraft({
-    sections: props.modelValue.sections.filter((section) => section._key !== sectionKey),
-  })
+  setSections(props.modelValue.sections.filter((section) => section._key !== sectionKey))
   confirmRemove.value = null
 }
 
@@ -179,6 +192,187 @@ function moveField(sectionKey: string, fieldKey: string, direction: -1 | 1) {
   const [item] = fields.splice(index, 1)
   fields.splice(target, 0, item)
   setSectionFields(sectionKey, fields)
+}
+
+function moveSection(sectionKey: string, direction: -1 | 1) {
+  const index = props.modelValue.sections.findIndex((section) => section._key === sectionKey)
+  const target = index + direction
+  if (index < 0 || target < 0 || target >= props.modelValue.sections.length) return
+  const sections = [...props.modelValue.sections]
+  const [item] = sections.splice(index, 1)
+  sections.splice(target, 0, item)
+  setSections(sections)
+}
+
+function reorderSections(sourceSectionKey: string, targetSectionKey: string) {
+  if (sourceSectionKey === targetSectionKey) return
+  const sections = [...props.modelValue.sections]
+  const sourceIndex = sections.findIndex((section) => section._key === sourceSectionKey)
+  const targetIndex = sections.findIndex((section) => section._key === targetSectionKey)
+  if (sourceIndex < 0 || targetIndex < 0) return
+  const [item] = sections.splice(sourceIndex, 1)
+  sections.splice(targetIndex, 0, item)
+  setSections(sections)
+}
+
+function reorderField(
+  sourceSectionKey: string,
+  fieldKey: string,
+  targetSectionKey: string,
+  targetFieldKey: string | null,
+) {
+  const sections = props.modelValue.sections.map((section) => ({
+    ...section,
+    fields: [...section.fields],
+  }))
+  const sourceSection = sections.find((section) => section._key === sourceSectionKey)
+  const targetSection = sections.find((section) => section._key === targetSectionKey)
+  if (!sourceSection || !targetSection) return
+
+  const sourceIndex = sourceSection.fields.findIndex((field) => field._key === fieldKey)
+  if (sourceIndex < 0) return
+
+  const [field] = sourceSection.fields.splice(sourceIndex, 1)
+
+  let insertIndex = targetSection.fields.length
+  if (targetFieldKey) {
+    const targetIndex = targetSection.fields.findIndex((item) => item._key === targetFieldKey)
+    if (targetIndex >= 0) insertIndex = targetIndex
+    if (sourceSectionKey === targetSectionKey && sourceIndex < insertIndex) {
+      insertIndex -= 1
+    }
+  }
+
+  targetSection.fields.splice(insertIndex, 0, field)
+  targetSection.fields = reindexFieldSortOrders(targetSection.fields)
+  if (sourceSectionKey !== targetSectionKey) {
+    sourceSection.fields = reindexFieldSortOrders(sourceSection.fields)
+  }
+
+  updateDraft({ sections: reindexSectionSortOrders(sections) })
+}
+
+function setDndPayload(event: DragEvent, payload: DndPayload) {
+  event.dataTransfer?.setData(DND_MIME, JSON.stringify(payload))
+  event.dataTransfer?.setData('text/plain', JSON.stringify(payload))
+  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
+  dragPayload.value = payload
+}
+
+function readDndPayload(event: DragEvent): DndPayload | null {
+  const raw = event.dataTransfer?.getData(DND_MIME) || event.dataTransfer?.getData('text/plain')
+  if (raw) {
+    try {
+      return JSON.parse(raw) as DndPayload
+    } catch {
+      return null
+    }
+  }
+  return dragPayload.value
+}
+
+function clearDragState() {
+  dragPayload.value = null
+  dropHighlight.value = null
+}
+
+function isDraggingSection(sectionKey: string) {
+  return dragPayload.value?.kind === 'section' && dragPayload.value.sectionKey === sectionKey
+}
+
+function isSectionDropTarget(sectionKey: string) {
+  return dropHighlight.value?.kind === 'section' && dropHighlight.value.sectionKey === sectionKey
+}
+
+function isDraggingField(sectionKey: string, fieldKey: string) {
+  return (
+    dragPayload.value?.kind === 'field' &&
+    dragPayload.value.sectionKey === sectionKey &&
+    dragPayload.value.fieldKey === fieldKey
+  )
+}
+
+function isFieldDropTarget(sectionKey: string, fieldKey: string) {
+  return (
+    dropHighlight.value?.kind === 'field' &&
+    dropHighlight.value.sectionKey === sectionKey &&
+    dropHighlight.value.fieldKey === fieldKey
+  )
+}
+
+function isFieldsListDropTarget(sectionKey: string) {
+  return dropHighlight.value?.kind === 'field' && dropHighlight.value.sectionKey === sectionKey && !dropHighlight.value.fieldKey
+}
+
+function onSectionDragStart(sectionKey: string, event: DragEvent) {
+  if (props.readonly) {
+    event.preventDefault()
+    return
+  }
+  setDndPayload(event, { kind: 'section', sectionKey })
+}
+
+function onSectionDragOver(sectionKey: string, event: DragEvent) {
+  if (props.readonly) return
+  const payload = readDndPayload(event)
+  if (!payload || payload.kind !== 'section' || payload.sectionKey === sectionKey) return
+  event.preventDefault()
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+  dropHighlight.value = { kind: 'section', sectionKey }
+}
+
+function onSectionDrop(sectionKey: string, event: DragEvent) {
+  if (props.readonly) return
+  event.preventDefault()
+  const payload = readDndPayload(event)
+  if (!payload || payload.kind !== 'section') return
+  reorderSections(payload.sectionKey, sectionKey)
+  clearDragState()
+}
+
+function onFieldDragStart(sectionKey: string, fieldKey: string, event: DragEvent) {
+  if (props.readonly) {
+    event.preventDefault()
+    return
+  }
+  setDndPayload(event, { kind: 'field', sectionKey, fieldKey })
+}
+
+function onFieldDragOver(sectionKey: string, fieldKey: string, event: DragEvent) {
+  if (props.readonly || isSectionCollapsed(sectionKey)) return
+  const payload = readDndPayload(event)
+  if (!payload || payload.kind !== 'field') return
+  if (payload.sectionKey === sectionKey && payload.fieldKey === fieldKey) return
+  event.preventDefault()
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+  dropHighlight.value = { kind: 'field', sectionKey, fieldKey }
+}
+
+function onFieldDrop(sectionKey: string, fieldKey: string, event: DragEvent) {
+  if (props.readonly || isSectionCollapsed(sectionKey)) return
+  event.preventDefault()
+  const payload = readDndPayload(event)
+  if (!payload || payload.kind !== 'field' || !payload.fieldKey) return
+  reorderField(payload.sectionKey, payload.fieldKey, sectionKey, fieldKey)
+  clearDragState()
+}
+
+function onFieldsListDragOver(sectionKey: string, event: DragEvent) {
+  if (props.readonly || isSectionCollapsed(sectionKey)) return
+  const payload = readDndPayload(event)
+  if (!payload || payload.kind !== 'field') return
+  event.preventDefault()
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+  dropHighlight.value = { kind: 'field', sectionKey }
+}
+
+function onFieldsListDrop(sectionKey: string, event: DragEvent) {
+  if (props.readonly || isSectionCollapsed(sectionKey)) return
+  event.preventDefault()
+  const payload = readDndPayload(event)
+  if (!payload || payload.kind !== 'field' || !payload.fieldKey) return
+  reorderField(payload.sectionKey, payload.fieldKey, sectionKey, null)
+  clearDragState()
 }
 
 function toggleSectionCollapsed(sectionKey: string) {
@@ -352,10 +546,39 @@ defineExpose({ validate })
       </p>
     </UiCard>
 
-    <div v-for="(section, sectionIndex) in modelValue.sections" :key="section._key" class="template-editor__section">
+    <p v-if="!readonly" class="template-editor__dnd-hint">
+      {{ $t('lowCode.dragSectionsOrFieldsHint') }}
+    </p>
+    <p v-else class="template-editor__dnd-hint template-editor__dnd-hint--readonly">
+      {{ $t('lowCode.dragDisabledReadOnly') }}
+    </p>
+
+    <div
+      v-for="(section, sectionIndex) in modelValue.sections"
+      :key="section._key"
+      class="template-editor__section"
+      :class="{
+        'template-editor__section--dragging': isDraggingSection(section._key),
+        'template-editor__section--drop-target': isSectionDropTarget(section._key),
+      }"
+      @dragover="onSectionDragOver(section._key, $event)"
+      @drop="onSectionDrop(section._key, $event)"
+    >
       <UiCard>
         <template #header>
           <div class="template-editor__section-header">
+            <button
+              v-if="!readonly"
+              type="button"
+              class="template-editor__drag-handle"
+              draggable="true"
+              :aria-label="$t('lowCode.reorderSections')"
+              :title="$t('lowCode.dragToReorder')"
+              @dragstart="onSectionDragStart(section._key, $event)"
+              @dragend="clearDragState"
+            >
+              ≡
+            </button>
             <button
               type="button"
               class="template-editor__collapse-btn"
@@ -378,14 +601,27 @@ defineExpose({ validate })
               >
                 {{ $t('lowCode.activeSection') }}
               </UiButton>
-              <UiButton
-                v-if="!readonly"
-                size="sm"
-                variant="secondary"
-                @click="requestRemoveSection(section._key)"
-              >
-                {{ $t('lowCode.removeSection') }}
-              </UiButton>
+              <template v-if="!readonly">
+                <UiButton
+                  size="sm"
+                  variant="secondary"
+                  :disabled="sectionIndex === 0"
+                  @click="moveSection(section._key, -1)"
+                >
+                  {{ $t('lowCode.moveUp') }}
+                </UiButton>
+                <UiButton
+                  size="sm"
+                  variant="secondary"
+                  :disabled="sectionIndex === modelValue.sections.length - 1"
+                  @click="moveSection(section._key, 1)"
+                >
+                  {{ $t('lowCode.moveDown') }}
+                </UiButton>
+                <UiButton size="sm" variant="secondary" @click="requestRemoveSection(section._key)">
+                  {{ $t('lowCode.removeSection') }}
+                </UiButton>
+              </template>
             </div>
           </div>
         </template>
@@ -418,7 +654,12 @@ defineExpose({ validate })
             />
           </div>
 
-          <div class="template-editor__fields">
+          <div
+            class="template-editor__fields"
+            :class="{ 'template-editor__fields--drop-target': isFieldsListDropTarget(section._key) }"
+            @dragover="onFieldsListDragOver(section._key, $event)"
+            @drop="onFieldsListDrop(section._key, $event)"
+          >
             <div class="template-editor__fields-header">
               <strong>{{ $t('lowCode.fields') }}</strong>
               <UiButton v-if="!readonly" size="sm" variant="secondary" @click="addField(section._key)">
@@ -430,9 +671,27 @@ defineExpose({ validate })
               v-for="(field, fieldIndex) in section.fields"
               :key="field._key"
               class="template-editor__field"
-              :class="{ 'template-editor__field--error': hasIssue(`sections.${sectionIndex}.fields.${fieldIndex}`) }"
+              :class="{
+                'template-editor__field--error': hasIssue(`sections.${sectionIndex}.fields.${fieldIndex}`),
+                'template-editor__field--dragging': isDraggingField(section._key, field._key),
+                'template-editor__field--drop-target': isFieldDropTarget(section._key, field._key),
+              }"
+              @dragover="onFieldDragOver(section._key, field._key, $event)"
+              @drop="onFieldDrop(section._key, field._key, $event)"
             >
               <div class="template-editor__field-header">
+                <button
+                  v-if="!readonly"
+                  type="button"
+                  class="template-editor__drag-handle"
+                  draggable="true"
+                  :aria-label="$t('lowCode.reorderFields')"
+                  :title="$t('lowCode.dragToReorder')"
+                  @dragstart="onFieldDragStart(section._key, field._key, $event)"
+                  @dragend="clearDragState"
+                >
+                  ≡
+                </button>
                 <div class="template-editor__field-summary">
                   <code>{{ field.code || '—' }}</code>
                   <span>{{ field.label || '—' }}</span>
@@ -587,6 +846,9 @@ defineExpose({ validate })
               </div>
             </div>
 
+            <p v-if="section.fields.length === 0" class="template-editor__drop-hint">
+              {{ $t('lowCode.dropHere') }}
+            </p>
             <p v-if="section.fields.length === 0" class="template-editor__hint">
               {{ $t('lowCode.noFieldsInSection') }}
             </p>
@@ -652,6 +914,30 @@ defineExpose({ validate })
   gap: 0.5rem;
 }
 
+.template-editor__dnd-hint {
+  margin: 0;
+  padding: 0.625rem 0.875rem;
+  border-radius: var(--radius-md);
+  background: #f8fafc;
+  border: 1px dashed var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.template-editor__dnd-hint--readonly {
+  background: #f1f5f9;
+}
+
+.template-editor__section--dragging {
+  opacity: 0.55;
+}
+
+.template-editor__section--drop-target {
+  outline: 2px dashed #2563eb;
+  outline-offset: 4px;
+  border-radius: var(--radius-lg);
+}
+
 .template-editor__section-header,
 .template-editor__fields-header,
 .template-editor__field-header {
@@ -681,6 +967,27 @@ defineExpose({ validate })
   gap: 0.5rem;
 }
 
+.template-editor__drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: grab;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.template-editor__drag-handle:active {
+  cursor: grabbing;
+}
+
 .template-editor__collapse-btn {
   border: 1px solid var(--color-border);
   background: var(--color-surface);
@@ -697,6 +1004,13 @@ defineExpose({ validate })
   gap: 1rem;
 }
 
+.template-editor__fields--drop-target {
+  outline: 2px dashed #2563eb;
+  outline-offset: 4px;
+  border-radius: var(--radius-md);
+  padding: 0.5rem;
+}
+
 .template-editor__field {
   padding: 1rem;
   border: 1px solid var(--color-border);
@@ -704,6 +1018,15 @@ defineExpose({ validate })
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.template-editor__field--dragging {
+  opacity: 0.55;
+}
+
+.template-editor__field--drop-target {
+  border-color: #2563eb;
+  box-shadow: inset 0 0 0 1px #2563eb;
 }
 
 .template-editor__field--error {
@@ -716,6 +1039,7 @@ defineExpose({ validate })
   align-items: center;
   gap: 0.5rem;
   font-size: 0.875rem;
+  flex: 1;
 }
 
 .template-editor__checkboxes {
@@ -780,10 +1104,18 @@ defineExpose({ validate })
   color: #991b1b;
 }
 
-.template-editor__hint {
+.template-editor__hint,
+.template-editor__drop-hint {
   margin: 0;
   color: var(--color-text-muted);
   font-size: 0.875rem;
+}
+
+.template-editor__drop-hint {
+  padding: 0.75rem;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  text-align: center;
 }
 
 .template-editor__input--error :deep(input),

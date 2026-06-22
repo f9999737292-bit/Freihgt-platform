@@ -769,7 +769,13 @@
     "compareRemoved": "Removed",
     "compareChanged": "Changed",
     "compareArea": "Area",
-    "compareUnavailableOpenDraft": "Compare is available on draft templates. Clone to draft to review changes."
+    "compareUnavailableOpenDraft": "Compare is available on draft templates. Clone to draft to review changes.",
+    "dragToReorder": "Drag to reorder",
+    "dragSectionsOrFieldsHint": "Drag sections or fields to reorder",
+    "dropHere": "Drop here",
+    "reorderSections": "Reorder sections",
+    "reorderFields": "Reorder fields",
+    "dragDisabledReadOnly": "Drag disabled in read-only mode"
   },
   "backendStatus": {
     "title": "Backend status",

@@ -212,6 +212,15 @@ http://localhost:3000/low-code/admin/form-templates/{draft-id}
 
 See `docs/LOW_CODE_FORM_TEMPLATE_VERSION_COMPARE_V0.1.md`.
 
+Drag-and-drop form builder (section/field reorder):
+
+```text
+http://localhost:3000/low-code/admin/form-templates/new
+http://localhost:3000/low-code/admin/form-templates/{draft-id}
+```
+
+See `docs/LOW_CODE_DRAG_AND_DROP_FORM_BUILDER_V0.1.md`.
+
 If a target fails with WSL/bash errors, override:
 
 ```powershell

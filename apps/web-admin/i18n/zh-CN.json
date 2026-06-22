@@ -769,7 +769,13 @@
     "compareRemoved": "删除",
     "compareChanged": "变更",
     "compareArea": "区域",
-    "compareUnavailableOpenDraft": "对比功能仅适用于草稿模板。请克隆为草稿以查看变更。"
+    "compareUnavailableOpenDraft": "对比功能仅适用于草稿模板。请克隆为草稿以查看变更。",
+    "dragToReorder": "拖拽以排序",
+    "dragSectionsOrFieldsHint": "拖拽分区或字段以调整顺序",
+    "dropHere": "拖放到此处",
+    "reorderSections": "调整分区顺序",
+    "reorderFields": "调整字段顺序",
+    "dragDisabledReadOnly": "只读模式下禁用拖拽"
   },
   "backendStatus": {
     "title": "后端状态",
