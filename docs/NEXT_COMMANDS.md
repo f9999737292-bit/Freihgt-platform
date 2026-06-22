@@ -44,6 +44,16 @@ curl -H "X-Tenant-ID: 74519f22-ff9b-4a8b-8fff-a958c689682f" "http://localhost:80
 
 See `docs/LOW_CODE_CUSTOM_FIELD_VALUES_API_V0.1.md`.
 
+Low-code admin UI (read-only preview):
+
+```text
+http://localhost:3000/low-code
+http://localhost:3000/low-code/form-templates
+http://localhost:3000/low-code/custom-field-values
+```
+
+See `docs/LOW_CODE_ADMIN_UI_PREVIEW_V0.1.md`.
+
 If a target fails with WSL/bash errors, override:
 
 ```powershell

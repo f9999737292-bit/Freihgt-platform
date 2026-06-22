@@ -12,6 +12,7 @@ const navItems = [
   { to: '/shipments', icon: '⛟', labelKey: 'nav.shipments' },
   { to: '/documents', icon: '📄', labelKey: 'nav.documents' },
   { to: '/billing-registers', icon: '₽', labelKey: 'nav.billingRegisters' },
+  { to: '/low-code', icon: '⬡', labelKey: 'nav.lowCode' },
   { to: '/health', icon: '♥', labelKey: 'nav.health' },
   { to: '/settings', icon: '⚙', labelKey: 'nav.settings' },
 ]
