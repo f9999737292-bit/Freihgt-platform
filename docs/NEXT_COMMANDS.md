@@ -225,6 +225,12 @@ http://localhost:3000/low-code/admin/form-templates
 
 See `docs/LOW_CODE_FORM_TEMPLATE_VERSION_ACTIVATION_POLICY_V0.1.md`.
 
+## Low-code Runtime Integration
+
+* Runtime policy: `docs/LOW_CODE_RUNTIME_INTEGRATION_POLICY_V0.1.md`
+* Prerequisite (implemented): Low-code Form Template Version Activation Policy v0.1 — active template endpoint + UI badges
+* Next: entity detail inline edit guardrails / runtime compliance checks
+
 Drag-and-drop form builder (section/field reorder):
 
 ```text
