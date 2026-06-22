@@ -1,8 +1,15 @@
-# Prefer Git Bash on Windows (GnuWin32 make does not resolve /bin/bash).
-ifeq ($(wildcard C:/Program Files/Git/bin/bash.exe),)
-SHELL := /bin/bash
+# Prefer Git Bash on Windows (GnuWin32 make does not resolve /bin/bash or wildcard on Win paths).
+# Recipe targets use $(BASH) so plain `bash` in PATH (WSL) is not invoked.
+GIT_BASH ?= C:/Program Files/Git/bin/bash.exe
+ifeq ($(OS),Windows_NT)
+BASH ?= $(GIT_BASH)
 else
-SHELL := "C:/Program Files/Git/bin/bash.exe"
+BASH ?= bash
+endif
+ifeq ($(OS),Windows_NT)
+SHELL := "$(GIT_BASH)"
+else
+SHELL := /bin/bash
 endif
 
 include .env
@@ -45,7 +52,7 @@ K6 ?= k6
 	platform-down platform-restart platform-logs platform-ps platform-health \
 	observability-up observability-down observability-logs metrics-check health-check ready-check \
 	db-metrics-check generate-db-metrics-traffic db-pool-metrics-check postgres-logs \
-	python-check python-check-win docker-readiness ports-check \
+	python-check python-check-win 	docker-readiness ports-check bash-check \
 	docker-disk-usage docker-clean-safe docker-volumes \
 	performance-smoke performance-load performance-companies performance-transport-orders \
 	performance-rfx performance-shipments performance-billing performance-index-check \
@@ -93,6 +100,7 @@ help:
 	@echo "  make postgres-logs       Follow PostgreSQL container logs"
 	@echo ""
 	@echo "Environment checks:"
+	@echo "  make bash-check          Show selected bash and version (Windows Git Bash hint)"
 	@echo "  make python-check        Verify Python >= 3.10"
 	@echo "  make python-check-win    Windows: py -3 scripts/dev/check_python.py"
 	@echo "  make docker-readiness    Docker CLI/daemon/disk readiness"
@@ -305,6 +313,16 @@ docker-readiness:
 ports-check:
 	$(PYTHON) scripts/dev/check_ports.py
 
+bash-check:
+	@echo BASH=$(BASH)
+	@echo GIT_BASH=$(GIT_BASH)
+	@"$(BASH)" --version
+	@echo OK: bash available
+ifeq ($(OS),Windows_NT)
+	@echo Windows: seed/smoke targets use BASH above, not WSL bash from PATH.
+	@echo Override: make BASH="C:/Program Files/Git/bin/bash.exe" seed-dev-admin
+endif
+
 postgres-logs:
 	$(COMPOSE) logs -f postgres
 
@@ -436,16 +454,16 @@ test-billing-register-service:
 	@cd services/billing-register-service && go test ./...
 
 integration-smoke-test:
-	bash tests/integration/smoke-test.sh
+	"$(BASH)" tests/integration/smoke-test.sh
 
 full-flow-smoke-test:
-	bash tests/integration/full-flow-smoke-test.sh
+	"$(BASH)" tests/integration/full-flow-smoke-test.sh
 
 seed-dev-admin:
-	bash scripts/dev/seed_dev_admin.sh
+	"$(BASH)" scripts/dev/seed_dev_admin.sh
 
 seed-demo-data:
-	bash scripts/dev/seed_demo_data.sh
+	"$(BASH)" scripts/dev/seed_demo_data.sh
 
 project-map:
 	@echo "Project documentation:"

@@ -20,11 +20,25 @@ make platform-up-no-build
 make health-check
 ```
 
+## Check bash (Windows)
+
+```powershell
+make bash-check
+```
+
+On Windows, Makefile uses Git Bash for `.sh` scripts (not WSL `bash` from PATH). See `docs/WINDOWS_MAKE_BASH.md`.
+
 ## Seed dev data
 
 ```powershell
 make seed-dev-admin
 make seed-demo-data
+```
+
+If a target fails with WSL/bash errors, override:
+
+```powershell
+make BASH="C:/Program Files/Git/bin/bash.exe" seed-dev-admin
 ```
 
 ## Run smoke test
