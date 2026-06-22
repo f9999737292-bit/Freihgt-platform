@@ -85,6 +85,15 @@ curl.exe -H "X-Tenant-ID: 74519f22-ff9b-4a8b-8fff-a958c689682f" "http://localhos
 
 See `docs/LOW_CODE_FORM_TEMPLATE_DRAFT_API_V0.1.md`.
 
+Low-code form template admin UI:
+
+```text
+http://localhost:3000/low-code/admin/form-templates
+http://localhost:3000/low-code/admin/form-templates/new
+```
+
+See `docs/LOW_CODE_FORM_TEMPLATE_ADMIN_UI_V0.1.md`.
+
 If a target fails with WSL/bash errors, override:
 
 ```powershell

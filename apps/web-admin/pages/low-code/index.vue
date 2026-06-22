@@ -14,6 +14,7 @@ const lowCodeMessage = ref('')
 
 const navLinks = [
   { to: '/low-code/form-templates', labelKey: 'lowCode.formTemplates', descKey: 'lowCode.formTemplatesDesc' },
+  { to: '/low-code/admin/form-templates', labelKey: 'lowCode.formTemplateAdmin', descKey: 'lowCode.formTemplateAdminDesc' },
   { to: '/low-code/custom-field-values', labelKey: 'lowCode.customFieldValues', descKey: 'lowCode.customFieldValuesDesc' },
   { to: '/low-code/audit', labelKey: 'lowCode.auditLog', descKey: 'lowCode.auditLogDesc' },
 ]
@@ -68,13 +69,13 @@ onMounted(refreshAll)
     </header>
 
     <div class="low-code-hub__notice low-code-hub__notice--info">
-      <strong>{{ $t('lowCode.readOnlyPreview') }}</strong>
-      <p>{{ $t('lowCode.readOnlyHint') }}</p>
+      <strong>{{ $t('lowCode.formTemplateAdmin') }}</strong>
+      <p>{{ $t('lowCode.formTemplateAdminHint') }}</p>
     </div>
 
     <div class="low-code-hub__notice low-code-hub__notice--warn">
-      <strong>{{ $t('lowCode.editingNotImplemented') }}</strong>
-      <p>{{ $t('lowCode.editingNotImplementedHint') }}</p>
+      <strong>{{ $t('lowCode.readOnlyPreview') }}</strong>
+      <p>{{ $t('lowCode.readOnlyHint') }}</p>
     </div>
 
     <div class="health-grid">

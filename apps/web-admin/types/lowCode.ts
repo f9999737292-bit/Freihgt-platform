@@ -6,6 +6,43 @@ export const LOW_CODE_ENTITY_TYPES = [
 
 export type LowCodeEntityType = (typeof LOW_CODE_ENTITY_TYPES)[number]
 
+export const LOW_CODE_ADMIN_ENTITY_TYPES = [
+  'TRANSPORT_ORDER',
+  'RFX',
+  'FREIGHT_REQUEST',
+  'BID',
+  'SHIPMENT',
+  'DOCUMENT',
+  'BILLING_REGISTER',
+  'COMPANY_PROFILE',
+  'DRIVER_TASK',
+] as const
+
+export type LowCodeAdminEntityType = (typeof LOW_CODE_ADMIN_ENTITY_TYPES)[number]
+
+export const LOW_CODE_FIELD_TYPES = [
+  'TEXT',
+  'NUMBER',
+  'DATE',
+  'DATETIME',
+  'SELECT',
+  'MULTI_SELECT',
+  'CHECKBOX',
+  'MONEY',
+  'CURRENCY',
+  'FILE',
+  'COMPANY_REFERENCE',
+  'DOCUMENT_REFERENCE',
+  'ROUTE',
+  'ADDRESS',
+  'VEHICLE',
+  'VAT_TAX',
+] as const
+
+export type LowCodeFieldType = (typeof LOW_CODE_FIELD_TYPES)[number]
+
+export const LOW_CODE_TEMPLATE_STATUSES = ['DRAFT', 'PUBLISHED', 'ARCHIVED'] as const
+
 export interface FormTemplateSummary {
   id: string
   tenant_id: string
@@ -51,6 +88,80 @@ export interface FormTemplateDetail {
   version: number
   published_at?: string
   sections: FormSection[]
+}
+
+export interface AdminFormTemplateDetail extends FormTemplateDetail {
+  description?: string
+}
+
+export interface DraftFormFieldDraft {
+  _key: string
+  code: string
+  label: string
+  field_type: string
+  required: boolean
+  read_only: boolean
+  system_field: boolean
+  sort_order: number
+  options_json_text: string
+  validation_rule_json_text: string
+  visibility_rule_json_text: string
+}
+
+export interface DraftFormSectionDraft {
+  _key: string
+  code: string
+  title: string
+  sort_order: number
+  fields: DraftFormFieldDraft[]
+}
+
+export interface DraftFormTemplateDraft {
+  entity_type: string
+  code: string
+  name: string
+  description: string
+  sections: DraftFormSectionDraft[]
+}
+
+export interface DraftFormFieldPayload {
+  code: string
+  label: string
+  field_type: string
+  required: boolean
+  read_only: boolean
+  system_field: boolean
+  sort_order: number
+  options_json?: unknown
+  validation_rule_json?: unknown
+  visibility_rule_json?: unknown
+}
+
+export interface DraftFormSectionPayload {
+  code: string
+  title: string
+  sort_order: number
+  fields: DraftFormFieldPayload[]
+}
+
+export interface DraftFormTemplatePayload {
+  entity_type: string
+  code: string
+  name: string
+  description: string
+  sections: DraftFormSectionPayload[]
+}
+
+export interface CreateDraftFormTemplateResponse {
+  id: string
+  status: string
+  version: number
+}
+
+export interface ListAdminFormTemplatesParams {
+  entity_type?: string
+  status?: string
+  limit?: number
 }
 
 export interface CustomFieldValueItem {
@@ -245,4 +356,193 @@ export function parseEditDraftToValueJson(fieldType: string, draft: string): unk
 
 export function usesJsonTextareaFallback(fieldType: string): boolean {
   return !['TEXT', 'NUMBER', 'SELECT', 'CHECKBOX', 'CURRENCY'].includes(fieldType)
+}
+
+export function createEmptyDraftField(): DraftFormFieldDraft {
+  return {
+    _key: crypto.randomUUID(),
+    code: '',
+    label: '',
+    field_type: 'TEXT',
+    required: false,
+    read_only: false,
+    system_field: false,
+    sort_order: 100,
+    options_json_text: '',
+    validation_rule_json_text: '{}',
+    visibility_rule_json_text: '{}',
+  }
+}
+
+export function createEmptyDraftSection(): DraftFormSectionDraft {
+  return {
+    _key: crypto.randomUUID(),
+    code: '',
+    title: '',
+    sort_order: 100,
+    fields: [],
+  }
+}
+
+export function createEmptyDraftTemplate(): DraftFormTemplateDraft {
+  return {
+    entity_type: 'TRANSPORT_ORDER',
+    code: '',
+    name: '',
+    description: '',
+    sections: [createEmptyDraftSection()],
+  }
+}
+
+export function parseOptionalJsonText(text: string): unknown | undefined {
+  const trimmed = text.trim()
+  if (!trimmed) return undefined
+  return JSON.parse(trimmed)
+}
+
+export function adminDetailToDraft(detail: AdminFormTemplateDetail): DraftFormTemplateDraft {
+  return {
+    entity_type: detail.entity_type,
+    code: detail.code,
+    name: detail.name,
+    description: detail.description ?? '',
+    sections: (detail.sections ?? []).map((section) => ({
+      _key: crypto.randomUUID(),
+      code: section.code,
+      title: section.title,
+      sort_order: section.sort_order,
+      fields: (section.fields ?? []).map((field) => ({
+        _key: crypto.randomUUID(),
+        code: field.code,
+        label: field.label,
+        field_type: field.field_type,
+        required: field.required,
+        read_only: field.read_only,
+        system_field: field.system_field,
+        sort_order: field.sort_order,
+        options_json_text: field.options_json ? formatJsonValue(field.options_json) : '',
+        validation_rule_json_text: field.validation_rule_json
+          ? formatJsonValue(field.validation_rule_json)
+          : '{}',
+        visibility_rule_json_text: field.visibility_rule_json
+          ? formatJsonValue(field.visibility_rule_json)
+          : '{}',
+      })),
+    })),
+  }
+}
+
+export function draftToPayload(draft: DraftFormTemplateDraft): DraftFormTemplatePayload {
+  return {
+    entity_type: draft.entity_type.trim(),
+    code: draft.code.trim(),
+    name: draft.name.trim(),
+    description: draft.description.trim(),
+    sections: draft.sections.map((section) => ({
+      code: section.code.trim(),
+      title: section.title.trim(),
+      sort_order: section.sort_order,
+      fields: section.fields.map((field) => ({
+        code: field.code.trim(),
+        label: field.label.trim(),
+        field_type: field.field_type,
+        required: field.required,
+        read_only: field.read_only,
+        system_field: field.system_field,
+        sort_order: field.sort_order,
+        options_json: parseOptionalJsonText(field.options_json_text),
+        validation_rule_json: parseOptionalJsonText(field.validation_rule_json_text) ?? {},
+        visibility_rule_json: parseOptionalJsonText(field.visibility_rule_json_text) ?? {},
+      })),
+    })),
+  }
+}
+
+export interface DraftEditorValidationIssue {
+  path: string
+  message: string
+}
+
+export function validateDraftTemplateDraft(
+  draft: DraftFormTemplateDraft,
+  messages: {
+    entityTypeRequired: string
+    codeRequired: string
+    nameRequired: string
+    sectionCodeRequired: string
+    sectionTitleRequired: string
+    fieldCodeRequired: string
+    fieldLabelRequired: string
+    fieldTypeRequired: string
+    sectionsRequired: string
+    fieldsRequired: string
+    invalidJson: string
+  },
+): DraftEditorValidationIssue[] {
+  const issues: DraftEditorValidationIssue[] = []
+
+  if (!draft.entity_type.trim()) {
+    issues.push({ path: 'entity_type', message: messages.entityTypeRequired })
+  }
+  if (!draft.code.trim()) {
+    issues.push({ path: 'code', message: messages.codeRequired })
+  }
+  if (!draft.name.trim()) {
+    issues.push({ path: 'name', message: messages.nameRequired })
+  }
+  if (!draft.sections.length) {
+    issues.push({ path: 'sections', message: messages.sectionsRequired })
+  }
+
+  let totalFields = 0
+  draft.sections.forEach((section, sectionIndex) => {
+    if (!section.code.trim()) {
+      issues.push({ path: `sections.${sectionIndex}.code`, message: messages.sectionCodeRequired })
+    }
+    if (!section.title.trim()) {
+      issues.push({ path: `sections.${sectionIndex}.title`, message: messages.sectionTitleRequired })
+    }
+    section.fields.forEach((field, fieldIndex) => {
+      totalFields += 1
+      if (!field.code.trim()) {
+        issues.push({
+          path: `sections.${sectionIndex}.fields.${fieldIndex}.code`,
+          message: messages.fieldCodeRequired,
+        })
+      }
+      if (!field.label.trim()) {
+        issues.push({
+          path: `sections.${sectionIndex}.fields.${fieldIndex}.label`,
+          message: messages.fieldLabelRequired,
+        })
+      }
+      if (!field.field_type.trim()) {
+        issues.push({
+          path: `sections.${sectionIndex}.fields.${fieldIndex}.field_type`,
+          message: messages.fieldTypeRequired,
+        })
+      }
+      for (const [key, text] of [
+        ['options_json', field.options_json_text],
+        ['validation_rule_json', field.validation_rule_json_text],
+        ['visibility_rule_json', field.visibility_rule_json_text],
+      ] as const) {
+        if (!text.trim()) continue
+        try {
+          JSON.parse(text)
+        } catch {
+          issues.push({
+            path: `sections.${sectionIndex}.fields.${fieldIndex}.${key}`,
+            message: messages.invalidJson,
+          })
+        }
+      }
+    })
+  })
+
+  if (draft.sections.length && totalFields === 0) {
+    issues.push({ path: 'fields', message: messages.fieldsRequired })
+  }
+
+  return issues
 }

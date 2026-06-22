@@ -1,7 +1,11 @@
 import type { PaginatedResponse } from '~/types/api'
 import type {
+  AdminFormTemplateDetail,
+  CreateDraftFormTemplateResponse,
   CustomFieldValuesResponse,
+  DraftFormTemplatePayload,
   FormTemplateDetail,
+  ListAdminFormTemplatesParams,
   ListAuditEventsParams,
   ListAuditEventsResponse,
   ListFormTemplatesResponse,
@@ -11,9 +15,11 @@ import type {
 } from '~/types/lowCode'
 import { ApiError } from '~/composables/useApi'
 
+const ADMIN_FORM_TEMPLATES_PATH = '/api/v1/low-code/admin/form-templates'
+
 export function useLowCodeApi() {
   const tenantStore = useTenantStore()
-  const { apiGet, apiPut } = useApi()
+  const { apiGet, apiPut, apiPost } = useApi()
   const { t } = useI18n()
 
   function tenantId() {
@@ -65,6 +71,71 @@ export function useLowCodeApi() {
 
     const data = await apiGet<ListAuditEventsResponse>('/api/v1/low-code/audit-events', { query })
     return { ...data, items: data.items ?? [] }
+  }
+
+  async function listAdminFormTemplates(params: ListAdminFormTemplatesParams = {}) {
+    const query: Record<string, string | number | undefined> = tenantQuery({
+      limit: params.limit ?? 50,
+    })
+    if (params.entity_type?.trim()) query.entity_type = params.entity_type.trim()
+    if (params.status?.trim()) query.status = params.status.trim()
+
+    const data = await apiGet<ListFormTemplatesResponse>(ADMIN_FORM_TEMPLATES_PATH, { query })
+    return { ...data, items: data.items ?? [] }
+  }
+
+  async function getAdminFormTemplate(id: string) {
+    return apiGet<AdminFormTemplateDetail>(`${ADMIN_FORM_TEMPLATES_PATH}/${id}`, {
+      query: tenantQuery(),
+    })
+  }
+
+  async function createDraftFormTemplate(payload: DraftFormTemplatePayload) {
+    return apiPost<CreateDraftFormTemplateResponse>(ADMIN_FORM_TEMPLATES_PATH, payload, {
+      query: tenantQuery(),
+    })
+  }
+
+  async function updateDraftFormTemplate(id: string, payload: DraftFormTemplatePayload) {
+    return apiPut<AdminFormTemplateDetail>(`${ADMIN_FORM_TEMPLATES_PATH}/${id}`, payload, {
+      query: tenantQuery(),
+    })
+  }
+
+  async function publishDraftFormTemplate(id: string) {
+    return apiPost<AdminFormTemplateDetail>(`${ADMIN_FORM_TEMPLATES_PATH}/${id}/publish`, undefined, {
+      query: tenantQuery(),
+    })
+  }
+
+  function getAdminFormTemplateErrorMessage(error: unknown): string {
+    if (error instanceof ApiError) {
+      switch (error.code) {
+        case 'TENANT_REQUIRED':
+          return t('tenant.required')
+        case 'VALIDATION_ERROR':
+          return error.message || t('lowCode.validationError')
+        case 'FORM_TEMPLATE_NOT_FOUND':
+          return t('lowCode.errorFormTemplateNotFound')
+        case 'FORM_TEMPLATE_NOT_DRAFT':
+          return t('lowCode.publishedTemplatesCannotBeEdited')
+        case 'FORM_TEMPLATE_CONFLICT':
+          return t('lowCode.templateCodeConflict')
+        case 'FIELD_INVALID_TYPE':
+          return t('lowCode.errorFieldInvalidType')
+        case 'TEMPLATE_CODE_INVALID':
+          return t('lowCode.templateCodeInvalid')
+        case 'INTERNAL_ERROR':
+          return t('common.error')
+        default:
+          return error.message || t('common.error')
+      }
+    }
+    if (error instanceof Error) {
+      if (error.message === 'INVALID_JSON') return t('lowCode.invalidJson')
+      return error.message
+    }
+    return t('common.error')
   }
 
   async function resolvePublishedTemplate(entityType: string): Promise<FormTemplateDetail | null> {
@@ -156,6 +227,12 @@ export function useLowCodeApi() {
     getCustomFieldValues,
     saveCustomFieldValues,
     listAuditEvents,
+    listAdminFormTemplates,
+    getAdminFormTemplate,
+    createDraftFormTemplate,
+    updateDraftFormTemplate,
+    publishDraftFormTemplate,
+    getAdminFormTemplateErrorMessage,
     resolvePublishedTemplate,
     resolveDemoEntityId,
     getSaveErrorMessage,
