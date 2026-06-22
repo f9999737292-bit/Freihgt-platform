@@ -212,6 +212,8 @@ watch(documentId, loadDocument, { immediate: true })
         entity-type="DOCUMENT"
         :entity-id="document.id"
         :entity-status="document.document_status"
+        editable
+        show-full-editor-link
       />
     </template>
 

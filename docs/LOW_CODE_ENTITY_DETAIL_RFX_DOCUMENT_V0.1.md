@@ -58,8 +58,8 @@ npm run dev
 
 ## Next action
 
-1. Pass `previewContext` from entity detail pages (status, role)
-2. Inline edit on entity detail (future write pack)
+1. Server-side conditional required validation (future pack)
+2. Create-first-value edit flow for empty entities
 3. RFx lot / bid entity types when templates are needed
 
-See also: `docs/LOW_CODE_PREVIEW_VISIBILITY_RULES_V0.1.md`, `docs/LOW_CODE_FORM_TEMPLATE_PREVIEW_RENDERER_V0.1.md`.
+See also: `docs/LOW_CODE_ENTITY_DETAIL_INLINE_EDIT_V0.1.md`, `docs/LOW_CODE_PREVIEW_VISIBILITY_RULES_V0.1.md`.

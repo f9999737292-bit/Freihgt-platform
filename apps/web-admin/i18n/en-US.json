@@ -701,6 +701,7 @@
     "previewEntityStatusAuto": "Auto / none",
     "previewEntityStatusHint": "Optional status for preview visibility and required rules. Fetched automatically when loading demo entity.",
     "fetchEntityStatus": "Fetch status",
+    "openFullEditor": "Open full editor",
     "previewEntityStatusFetchFailed": "Could not fetch entity status",
     "filePlaceholder": "File upload (preview placeholder)"
   },

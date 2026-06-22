@@ -701,6 +701,7 @@
     "previewEntityStatusAuto": "Авто / не задан",
     "previewEntityStatusHint": "Необязательный статус для правил видимости и обязательности в preview. Подставляется при загрузке demo entity.",
     "fetchEntityStatus": "Получить статус",
+    "openFullEditor": "Открыть полный редактор",
     "previewEntityStatusFetchFailed": "Не удалось получить статус сущности",
     "filePlaceholder": "Загрузка файла (placeholder предпросмотра)"
   },

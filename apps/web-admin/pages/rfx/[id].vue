@@ -108,6 +108,8 @@ onMounted(async () => {
         entity-type="RFX"
         :entity-id="event.id"
         :entity-status="event.status"
+        editable
+        show-full-editor-link
       />
     </template>
 

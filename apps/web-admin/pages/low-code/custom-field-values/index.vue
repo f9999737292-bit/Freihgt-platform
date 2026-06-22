@@ -252,6 +252,20 @@ function formatChangedFields(fields: string[]) {
 
 }
 
+const route = useRoute()
+
+onMounted(async () => {
+  const q = route.query
+  if (typeof q.entity_type === 'string' && q.entity_type) {
+    form.entity_type = q.entity_type as LowCodeEntityType
+  }
+  if (typeof q.entity_id === 'string') form.entity_id = q.entity_id
+  if (typeof q.entity_status === 'string') form.entity_status = q.entity_status
+  if (hasTenant.value && form.entity_id.trim()) {
+    await loadValues()
+  }
+})
+
 </script>
 
 

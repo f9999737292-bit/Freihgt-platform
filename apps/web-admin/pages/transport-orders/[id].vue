@@ -70,6 +70,8 @@ onMounted(loadOrder)
       entity-type="TRANSPORT_ORDER"
       :entity-id="order.id"
       :entity-status="order.status"
+      editable
+      show-full-editor-link
     />
     <UiEmptyState v-else :title="$t('common.empty')" />
 

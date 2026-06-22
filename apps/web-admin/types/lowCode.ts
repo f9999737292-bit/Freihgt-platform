@@ -2,6 +2,9 @@ export const LOW_CODE_ENTITY_TYPES = [
   'TRANSPORT_ORDER',
   'SHIPMENT',
   'BILLING_REGISTER',
+  'FREIGHT_REQUEST',
+  'DOCUMENT',
+  'RFX',
 ] as const
 
 export type LowCodeEntityType = (typeof LOW_CODE_ENTITY_TYPES)[number]
@@ -284,12 +287,31 @@ export const DEMO_ENTITY_REFS: Record<LowCodeEntityType, string> = {
   TRANSPORT_ORDER: 'DEMO-TO-001',
   SHIPMENT: 'DEMO-SH-PLANNED',
   BILLING_REGISTER: 'DEMO-BR-001',
+  FREIGHT_REQUEST: 'DEMO-FR-001',
+  DOCUMENT: 'DEMO-DOC-001',
+  RFX: 'DEMO-RFX-001',
 }
 
 export const PREVIEW_ENTITY_STATUS_PRESETS: Record<LowCodeEntityType, string[]> = {
   TRANSPORT_ORDER: ['DRAFT', 'READY_FOR_SOURCING', 'SOURCING_IN_PROGRESS', 'AWARDED'],
   SHIPMENT: ['PLANNED', 'PICKUP_SLOT_BOOKED', 'IN_TRANSIT', 'DELIVERED', 'READY_FOR_BILLING'],
   BILLING_REGISTER: ['DRAFT', 'CALCULATED', 'APPROVED', 'PAID', 'CLOSED'],
+  FREIGHT_REQUEST: ['DRAFT', 'PUBLISHED', 'ACCEPTED', 'CANCELLED'],
+  DOCUMENT: ['DRAFT', 'READY_FOR_SIGNING', 'SIGNED', 'ARCHIVED'],
+  RFX: ['DRAFT', 'PUBLISHED', 'RESPONSES_OPEN', 'AWARDED'],
+}
+
+export function buildCustomFieldValuesEditorLink(
+  entityType: string,
+  entityId: string,
+  entityStatus?: string | null,
+): string {
+  const query = new URLSearchParams({
+    entity_type: entityType,
+    entity_id: entityId,
+  })
+  if (entityStatus?.trim()) query.set('entity_status', entityStatus.trim())
+  return `/low-code/custom-field-values?${query.toString()}`
 }
 
 export function formatLowCodeDate(value?: string): string {

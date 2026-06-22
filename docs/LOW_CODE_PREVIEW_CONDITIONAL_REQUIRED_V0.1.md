@@ -78,7 +78,7 @@ npm run dev
 
 ## Next action
 
-1. Inline edit on entity detail (future write pack)
-2. Server-side conditional required validation (future validation pack)
+1. Server-side conditional required validation (future pack)
+2. Create-first-value edit flow for empty entities
 
-See also: `docs/LOW_CODE_CUSTOM_FIELD_VALUES_PREVIEW_STATUS_V0.1.md`, `docs/LOW_CODE_PREVIEW_CONTEXT_V0.1.md`.
+See also: `docs/LOW_CODE_ENTITY_DETAIL_INLINE_EDIT_V0.1.md`, `docs/LOW_CODE_PREVIEW_CONTEXT_V0.1.md`.

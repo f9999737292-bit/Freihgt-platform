@@ -30,6 +30,8 @@ onMounted(async () => {
       entity-type="BILLING_REGISTER"
       :entity-id="item.id"
       :entity-status="item.status"
+      editable
+      show-full-editor-link
     />
     <UiEmptyState v-else :title="$t('common.empty')" />
   </div>

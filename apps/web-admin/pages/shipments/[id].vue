@@ -214,6 +214,8 @@ onMounted(async () => {
         entity-type="SHIPMENT"
         :entity-id="shipment.id"
         :entity-status="shipment.status"
+        editable
+        show-full-editor-link
       />
 
       <UiCard v-if="showDocumentsBlock">

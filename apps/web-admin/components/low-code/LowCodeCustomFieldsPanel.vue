@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  buildCustomFieldValuesEditorLink,
   customFieldValuesToPreviewMap,
   flattenFormFields,
   formTemplateDetailToPreview,
@@ -29,6 +30,7 @@ const props = withDefaults(
     title?: string
     editable?: boolean
     showPreview?: boolean
+    showFullEditorLink?: boolean
     previewContext?: PreviewRuleContext
   }>(),
   {
@@ -37,6 +39,7 @@ const props = withDefaults(
     title: undefined,
     editable: false,
     showPreview: true,
+    showFullEditorLink: false,
     previewContext: undefined,
   },
 )
@@ -113,6 +116,15 @@ const previewTitle = computed(() =>
 const effectivePreviewContext = computed(() =>
   buildPreviewContext(props.entityStatus, props.previewContext),
 )
+
+const fullEditorLink = computed(() => {
+  if (!props.entityId?.trim()) return '/low-code/custom-field-values'
+  return buildCustomFieldValuesEditorLink(
+    props.entityType,
+    props.entityId.trim(),
+    props.entityStatus,
+  )
+})
 
 async function loadTemplateMetadata() {
   if (!canLoad.value) {
@@ -239,6 +251,13 @@ watch(
         <h3 class="low-code-panel__title">{{ panelTitle }}</h3>
         <div class="low-code-panel__actions">
           <NuxtLink
+            v-if="showFullEditorLink && editable && !editing && entityId"
+            :to="fullEditorLink"
+            class="low-code-panel__template-link"
+          >
+            {{ $t('lowCode.openFullEditor') }}
+          </NuxtLink>
+          <NuxtLink
             v-if="formTemplateId && !editing"
             :to="`/low-code/form-templates/${formTemplateId}`"
             class="low-code-panel__template-link"
@@ -246,7 +265,7 @@ watch(
             {{ $t('lowCode.viewFormTemplate') }}
           </NuxtLink>
           <UiBadge
-            v-if="!editing"
+            v-if="!editing && !editable"
             status="read-only"
             tone="neutral"
           >

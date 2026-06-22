@@ -200,6 +200,30 @@ export function useLowCodeApi() {
       return data.items?.find((item) => item.register_number === 'DEMO-BR-001')?.id ?? null
     }
 
+    if (entityType === 'FREIGHT_REQUEST') {
+      const data = await apiGet<PaginatedResponse<{ id: string; freight_request_number?: string }>>(
+        '/api/v1/freight-requests',
+        { query: { tenant_id: tenant, limit: 100, offset: 0 } },
+      )
+      return data.items?.find((item) => item.freight_request_number === 'DEMO-FR-001')?.id ?? null
+    }
+
+    if (entityType === 'DOCUMENT') {
+      const data = await apiGet<PaginatedResponse<{ id: string; document_number?: string }>>(
+        '/api/v1/documents',
+        { query: { tenant_id: tenant, limit: 100, offset: 0 } },
+      )
+      return data.items?.find((item) => item.document_number === 'DEMO-DOC-001')?.id ?? null
+    }
+
+    if (entityType === 'RFX') {
+      const data = await apiGet<PaginatedResponse<{ id: string; rfx_number?: string }>>(
+        '/api/v1/rfx-events',
+        { query: { tenant_id: tenant, limit: 100, offset: 0 } },
+      )
+      return data.items?.find((item) => item.rfx_number === 'DEMO-RFX-001')?.id ?? null
+    }
+
     return null
   }
 
@@ -225,6 +249,27 @@ export function useLowCodeApi() {
 
       if (entityType === 'BILLING_REGISTER') {
         const data = await apiGet<{ status?: string }>(`/api/v1/billing-registers/${id}`, {
+          query: { tenant_id: tenant },
+        })
+        return data.status?.trim() || null
+      }
+
+      if (entityType === 'FREIGHT_REQUEST') {
+        const data = await apiGet<{ status?: string }>(`/api/v1/freight-requests/${id}`, {
+          query: { tenant_id: tenant },
+        })
+        return data.status?.trim() || null
+      }
+
+      if (entityType === 'DOCUMENT') {
+        const data = await apiGet<{ document_status?: string }>(`/api/v1/documents/${id}`, {
+          query: { tenant_id: tenant },
+        })
+        return data.document_status?.trim() || null
+      }
+
+      if (entityType === 'RFX') {
+        const data = await apiGet<{ status?: string }>(`/api/v1/rfx-events/${id}`, {
           query: { tenant_id: tenant },
         })
         return data.status?.trim() || null

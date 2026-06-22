@@ -85,6 +85,8 @@ onMounted(async () => {
         entity-type="FREIGHT_REQUEST"
         :entity-id="request.id"
         :entity-status="request.status"
+        editable
+        show-full-editor-link
       />
     </template>
   </div>

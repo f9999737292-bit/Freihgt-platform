@@ -72,8 +72,7 @@ npm run dev
 
 ## Next action
 
-1. Inline edit on entity detail (future write pack)
-2. RFx lot / bid entity types when templates are needed
-3. Visibility rules in preview renderer
+1. Server-side conditional required validation (future pack)
+2. Create-first-value edit flow for empty entities
 
-See also: `docs/LOW_CODE_ENTITY_DETAIL_RFX_DOCUMENT_V0.1.md`, `docs/LOW_CODE_FORM_TEMPLATE_PREVIEW_RENDERER_V0.1.md`.
+See also: `docs/LOW_CODE_ENTITY_DETAIL_INLINE_EDIT_V0.1.md`, `docs/LOW_CODE_ENTITY_DETAIL_RFX_DOCUMENT_V0.1.md`.

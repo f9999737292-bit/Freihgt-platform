@@ -157,6 +157,15 @@ http://localhost:3000/low-code/custom-field-values
 
 See `docs/LOW_CODE_CUSTOM_FIELD_VALUES_PREVIEW_STATUS_V0.1.md`.
 
+Entity detail inline edit:
+
+```text
+http://localhost:3000/transport-orders/{id}
+http://localhost:3000/shipments/{id}
+```
+
+See `docs/LOW_CODE_ENTITY_DETAIL_INLINE_EDIT_V0.1.md`.
+
 If a target fails with WSL/bash errors, override:
 
 ```powershell

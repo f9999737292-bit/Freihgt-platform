@@ -38,13 +38,9 @@ Warning shown: editing affects only low-code custom field values; core entity da
 
 ## Read-only Pages
 
-Entity detail pages keep default `editable=false`:
+Entity detail pages support inline edit as of v0.1.1 — see `docs/LOW_CODE_ENTITY_DETAIL_INLINE_EDIT_V0.1.md`.
 
-- `/transport-orders/[id]`
-- `/shipments/[id]`
-- `/billing-registers/[id]`
-
-Low-code hub and form template pages unchanged (read-only).
+Dedicated lookup page remains available at `/low-code/custom-field-values`.
 
 ## Supported Field Types
 
@@ -124,7 +120,8 @@ curl.exe -s -H "X-Tenant-ID: 74519f22-ff9b-4a8b-8fff-a958c689682f" "http://local
 
 ## Next Action
 
-1. Optional: enable edit on entity detail pages (feature flag)
-2. Rich editors per field type (DATE, MONEY object, MULTI_SELECT)
-3. Show field labels from template metadata in panel
-4. Form template write UI (separate pack)
+1. Server-side conditional required validation (future pack)
+2. Create-first-value edit flow for empty entities
+3. Rich field editors per type
+
+See `docs/LOW_CODE_ENTITY_DETAIL_INLINE_EDIT_V0.1.md`.
