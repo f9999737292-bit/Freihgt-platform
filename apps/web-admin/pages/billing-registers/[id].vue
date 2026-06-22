@@ -25,7 +25,7 @@ onMounted(async () => {
         <div><span class="text-muted">{{ $t('billing.totalWithVat') }}</span><div>{{ item.total_with_vat ?? '—' }}</div></div>
       </div>
     </UiCard>
-    <LowCodeLowCodeCustomFieldsPanel
+    <LowCodeCustomFieldsPanel
       v-if="item"
       entity-type="BILLING_REGISTER"
       :entity-id="item.id"

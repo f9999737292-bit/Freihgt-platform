@@ -103,6 +103,16 @@ http://localhost:3000/low-code/custom-field-values   (values preview)
 
 See `docs/LOW_CODE_FORM_TEMPLATE_PREVIEW_RENDERER_V0.1.md`.
 
+Entity detail custom fields + preview:
+
+```text
+http://localhost:3000/transport-orders/{id}
+http://localhost:3000/shipments/{id}
+http://localhost:3000/billing-registers/{id}
+```
+
+See `docs/LOW_CODE_ENTITY_DETAIL_PREVIEW_V0.1.md`.
+
 If a target fails with WSL/bash errors, override:
 
 ```powershell

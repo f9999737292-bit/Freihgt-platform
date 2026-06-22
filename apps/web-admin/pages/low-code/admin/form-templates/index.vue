@@ -129,7 +129,15 @@ onMounted(load)
         <td>{{ item.version }}</td>
         <td>{{ formatLowCodeDate(item.published_at) }}</td>
         <td>
-          <NuxtLink :to="`/low-code/admin/form-templates/${item.id}`">{{ $t('lowCode.open') }}</NuxtLink>
+          <div class="actions-cell">
+            <NuxtLink :to="`/low-code/admin/form-templates/${item.id}`">{{ $t('lowCode.open') }}</NuxtLink>
+            <NuxtLink
+              v-if="item.status === 'PUBLISHED'"
+              :to="`/low-code/form-templates/${item.id}`"
+            >
+              {{ $t('lowCode.viewFormTemplate') }}
+            </NuxtLink>
+          </div>
         </td>
       </tr>
     </UiTable>
@@ -155,5 +163,11 @@ onMounted(load)
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 1rem;
+}
+
+.actions-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 </style>

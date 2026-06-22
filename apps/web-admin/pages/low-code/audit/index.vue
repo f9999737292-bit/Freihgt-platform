@@ -24,7 +24,7 @@ const loadFailed = ref(false)
 const filters = reactive({
   entity_type: '' as LowCodeEntityType | '',
   entity_id: '',
-  action: 'CUSTOM_FIELD_VALUES_UPDATED',
+  action: '',
   limit: 50,
 })
 
@@ -36,6 +36,9 @@ const entityTypeOptions = computed(() => [
 const actionOptions = computed(() => [
   { label: t('common.all'), value: '' },
   { label: 'CUSTOM_FIELD_VALUES_UPDATED', value: 'CUSTOM_FIELD_VALUES_UPDATED' },
+  { label: 'FORM_TEMPLATE_DRAFT_CREATED', value: 'FORM_TEMPLATE_DRAFT_CREATED' },
+  { label: 'FORM_TEMPLATE_DRAFT_UPDATED', value: 'FORM_TEMPLATE_DRAFT_UPDATED' },
+  { label: 'FORM_TEMPLATE_DRAFT_PUBLISHED', value: 'FORM_TEMPLATE_DRAFT_PUBLISHED' },
 ])
 
 const limitOptions = [

@@ -26,11 +26,13 @@ const props = withDefaults(
     entityId?: string | null
     title?: string
     editable?: boolean
+    showPreview?: boolean
   }>(),
   {
     entityId: null,
     title: undefined,
     editable: false,
+    showPreview: true,
   },
 )
 
@@ -76,6 +78,10 @@ function isFieldEditable(fieldCode: string): boolean {
 
 function fieldTypeLabel(fieldCode: string): string {
   return fieldMeta(fieldCode)?.field_type ?? 'JSON'
+}
+
+function fieldLabel(fieldCode: string): string {
+  return fieldMeta(fieldCode)?.label || fieldCode
 }
 
 function selectOptions(fieldCode: string) {
@@ -218,6 +224,13 @@ watch(
       <div class="low-code-panel__header">
         <h3 class="low-code-panel__title">{{ panelTitle }}</h3>
         <div class="low-code-panel__actions">
+          <NuxtLink
+            v-if="formTemplateId && !editing"
+            :to="`/low-code/form-templates/${formTemplateId}`"
+            class="low-code-panel__template-link"
+          >
+            {{ $t('lowCode.viewFormTemplate') }}
+          </NuxtLink>
           <UiBadge
             v-if="!editing"
             status="read-only"
@@ -268,7 +281,7 @@ watch(
     />
 
     <template v-else-if="items.length && !editing">
-      <UiTable :columns="[$t('lowCode.field'), $t('lowCode.value'), $t('lowCode.updatedAt')]">
+      <UiTable :columns="[$t('lowCode.field'), $t('lowCode.label'), $t('lowCode.value'), $t('lowCode.updatedAt')]">
         <tr v-for="item in items" :key="item.field_id">
           <td>
             <code>{{ item.field_code }}</code>
@@ -279,6 +292,7 @@ watch(
               {{ $t('lowCode.readOnlyField') }}
             </span>
           </td>
+          <td>{{ fieldLabel(item.field_code) }}</td>
           <td>
             <span
               v-if="!isCustomFieldComplexValue(item.value_json)"
@@ -360,7 +374,7 @@ watch(
   </UiCard>
 
   <LowCodeFormTemplatePreview
-    v-if="loaded && previewTemplate && items.length"
+    v-if="showPreview && loaded && previewTemplate && items.length"
     :template="previewTemplate"
     :values="previewValues"
     :title="$t('lowCode.currentValuesPreview')"
@@ -383,17 +397,27 @@ watch(
   flex-wrap: wrap;
 }
 
+.low-code-panel__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.low-code-panel__template-link {
+  font-size: 0.875rem;
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.low-code-panel__template-link:hover {
+  text-decoration: underline;
+}
+
 .low-code-panel__title {
   margin: 0;
   font-size: 1rem;
   font-weight: 600;
-}
-
-.low-code-panel__actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
 }
 
 .low-code-panel__hint {

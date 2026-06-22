@@ -210,7 +210,7 @@ onMounted(async () => {
       />
       <ShipmentsShipmentStatusTimeline :status="shipment.status" />
 
-      <LowCodeLowCodeCustomFieldsPanel
+      <LowCodeCustomFieldsPanel
         entity-type="SHIPMENT"
         :entity-id="shipment.id"
       />

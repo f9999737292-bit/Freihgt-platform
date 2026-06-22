@@ -93,9 +93,8 @@ npm run dev
 
 ## Next Action
 
-1. Enrich detail pages with links to matching form template (`/low-code/form-templates/{code}`)
-2. Show field labels from published template metadata (not just field_code)
-3. Integrate on RFx / document pages when low-code seeds exist
-4. Inline edit custom fields (future write pack)
+1. Integrate on RFx / document pages when low-code seeds exist
+2. Inline edit custom fields on entity detail (future write pack)
+3. Preview empty-state when template exists but no values stored
 
-See also: `docs/LOW_CODE_ADMIN_UI_PREVIEW_V0.1.md`, `docs/LOW_CODE_CUSTOM_FIELD_VALUES_API_V0.1.md`.
+See also: `docs/LOW_CODE_ENTITY_DETAIL_PREVIEW_V0.1.md`, `docs/LOW_CODE_ADMIN_UI_PREVIEW_V0.1.md`, `docs/LOW_CODE_CUSTOM_FIELD_VALUES_API_V0.1.md`.

@@ -686,6 +686,7 @@
     "noValue": "No value",
     "unsupportedFieldType": "Unsupported field type",
     "currentValuesPreview": "Current values preview",
+    "viewFormTemplate": "View form template",
     "filePlaceholder": "File upload (preview placeholder)"
   },
   "backendStatus": {

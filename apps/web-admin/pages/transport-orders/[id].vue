@@ -65,7 +65,7 @@ onMounted(loadOrder)
         <div><span class="text-muted">{{ $t('transportOrders.deliveryDate') }}</span><div>{{ order.delivery_date || order.requested_delivery_date || '—' }}</div></div>
       </div>
     </UiCard>
-    <LowCodeLowCodeCustomFieldsPanel
+    <LowCodeCustomFieldsPanel
       v-if="order"
       entity-type="TRANSPORT_ORDER"
       :entity-id="order.id"

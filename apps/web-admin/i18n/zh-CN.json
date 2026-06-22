@@ -686,6 +686,7 @@
     "noValue": "无值",
     "unsupportedFieldType": "不支持的字段类型",
     "currentValuesPreview": "当前值预览",
+    "viewFormTemplate": "查看表单模板",
     "filePlaceholder": "文件上传（预览占位）"
   },
   "backendStatus": {

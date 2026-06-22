@@ -686,6 +686,7 @@
     "noValue": "Нет значения",
     "unsupportedFieldType": "Неподдерживаемый тип поля",
     "currentValuesPreview": "Предпросмотр текущих значений",
+    "viewFormTemplate": "Открыть шаблон формы",
     "filePlaceholder": "Загрузка файла (placeholder предпросмотра)"
   },
   "backendStatus": {
