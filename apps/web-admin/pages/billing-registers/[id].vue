@@ -29,6 +29,7 @@ onMounted(async () => {
       v-if="item"
       entity-type="BILLING_REGISTER"
       :entity-id="item.id"
+      :entity-status="item.status"
     />
     <UiEmptyState v-else :title="$t('common.empty')" />
   </div>

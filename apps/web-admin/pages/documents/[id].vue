@@ -211,6 +211,7 @@ watch(documentId, loadDocument, { immediate: true })
       <LowCodeCustomFieldsPanel
         entity-type="DOCUMENT"
         :entity-id="document.id"
+        :entity-status="document.document_status"
       />
     </template>
 

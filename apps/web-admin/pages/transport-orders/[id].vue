@@ -69,6 +69,7 @@ onMounted(loadOrder)
       v-if="order"
       entity-type="TRANSPORT_ORDER"
       :entity-id="order.id"
+      :entity-status="order.status"
     />
     <UiEmptyState v-else :title="$t('common.empty')" />
 

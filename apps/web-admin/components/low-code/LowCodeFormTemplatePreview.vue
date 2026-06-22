@@ -2,6 +2,7 @@
 import {
   filterPreviewSectionsForVisibility,
   formatJsonValue,
+  hasPreviewRuleContext,
   isPreviewComplexFieldType,
   previewCheckboxChecked,
   previewFieldValue,
@@ -44,6 +45,7 @@ const visibilityResult = computed(() =>
 
 const visibleSections = computed(() => visibilityResult.value.sections)
 const hiddenFieldCount = computed(() => visibilityResult.value.hiddenFieldCount)
+const showPreviewContext = computed(() => hasPreviewRuleContext(props.previewContext))
 
 function sortedFields(section: FormTemplatePreviewModel['sections'][number]) {
   return [...section.fields].sort((a, b) => a.sort_order - b.sort_order || a.code.localeCompare(b.code))
@@ -99,6 +101,14 @@ function moneyPreview(value: unknown): string {
       <p v-if="hiddenFieldCount" class="form-preview__hint form-preview__hint--muted">
         {{ $t('lowCode.fieldsHiddenByVisibility', { count: hiddenFieldCount }) }}
       </p>
+      <div v-if="showPreviewContext" class="form-preview__context">
+        <span v-if="previewContext?.entity_status" class="form-preview__context-item">
+          {{ $t('lowCode.previewEntityStatus') }}: <code>{{ previewContext.entity_status }}</code>
+        </span>
+        <span v-if="previewContext?.role" class="form-preview__context-item">
+          {{ $t('lowCode.previewRole') }}: <code>{{ previewContext.role }}</code>
+        </span>
+      </div>
 
       <section
         v-for="section in visibleSections"
@@ -267,6 +277,19 @@ function moneyPreview(value: unknown): string {
 .form-preview__hint--muted {
   margin-top: -0.5rem;
   font-size: 0.8125rem;
+}
+
+.form-preview__context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 0 0 1rem;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.form-preview__context-item code {
+  font-size: 0.75rem;
 }
 
 .form-preview__body {

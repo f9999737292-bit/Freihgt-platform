@@ -107,6 +107,7 @@ onMounted(async () => {
       <LowCodeCustomFieldsPanel
         entity-type="RFX"
         :entity-id="event.id"
+        :entity-status="event.status"
       />
     </template>
 

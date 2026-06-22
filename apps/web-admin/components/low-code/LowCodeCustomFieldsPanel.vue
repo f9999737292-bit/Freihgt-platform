@@ -13,6 +13,7 @@ import {
   type FormField,
   type FormTemplatePreviewModel,
   type LowCodeEntityType,
+  type PreviewRuleContext,
 } from '~/types/lowCode'
 import { TenantRequiredError } from '~/composables/useApi'
 
@@ -24,15 +25,19 @@ const props = withDefaults(
   defineProps<{
     entityType: LowCodeEntityType | string
     entityId?: string | null
+    entityStatus?: string | null
     title?: string
     editable?: boolean
     showPreview?: boolean
+    previewContext?: PreviewRuleContext
   }>(),
   {
     entityId: null,
+    entityStatus: null,
     title: undefined,
     editable: false,
     showPreview: true,
+    previewContext: undefined,
   },
 )
 
@@ -44,6 +49,7 @@ const {
   isApiUnavailableError,
 } = useLowCodeApi()
 const { hasTenant } = useTenantContext()
+const { buildPreviewContext } = useLowCodePreviewContext()
 const { pushToast } = useToast()
 const { t } = useI18n()
 
@@ -102,6 +108,10 @@ const previewValues = computed(() => customFieldValuesToPreviewMap(items.value))
 
 const previewTitle = computed(() =>
   items.value.length ? t('lowCode.currentValuesPreview') : t('lowCode.templateOnlyPreview'),
+)
+
+const effectivePreviewContext = computed(() =>
+  buildPreviewContext(props.entityStatus, props.previewContext),
 )
 
 async function loadTemplateMetadata() {
@@ -389,6 +399,7 @@ watch(
     :template="previewTemplate"
     :values="previewValues"
     :title="previewTitle"
+    :preview-context="effectivePreviewContext"
   />
   </div>
 </template>

@@ -196,6 +196,22 @@ export interface PreviewRuleContext {
   entity_status?: string
 }
 
+export function mergePreviewRuleContext(
+  ...contexts: Array<PreviewRuleContext | undefined | null>
+): PreviewRuleContext | undefined {
+  const merged: PreviewRuleContext = {}
+  for (const context of contexts) {
+    if (!context) continue
+    if (context.role?.trim()) merged.role = context.role.trim()
+    if (context.entity_status?.trim()) merged.entity_status = context.entity_status.trim()
+  }
+  return merged.role || merged.entity_status ? merged : undefined
+}
+
+export function hasPreviewRuleContext(context?: PreviewRuleContext | null): boolean {
+  return Boolean(context?.role?.trim() || context?.entity_status?.trim())
+}
+
 export interface CustomFieldValueItem {
   field_id: string
   field_code: string

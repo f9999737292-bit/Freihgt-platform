@@ -735,8 +735,20 @@ seed_custom_field_values() {
     WHERE id = 'b1111111-1111-4111-8111-111111111106';
 
     UPDATE lowcode.form_fields
+    SET visibility_rule_json = '{\"if\":{\"context.entity_status\":{\"in\":[\"READY_FOR_SOURCING\",\"SOURCING_IN_PROGRESS\",\"AWARDED\"]}}}'::jsonb
+    WHERE id = 'b1111111-1111-4111-8111-111111111105';
+
+    UPDATE lowcode.form_fields
     SET visibility_rule_json = '{\"if\":{\"field\":\"temperature_mode\",\"in\":[\"FROZEN\",\"CHILLED\"]}}'::jsonb
     WHERE id = 'b2222222-2222-4222-8222-222222222206';
+
+    UPDATE lowcode.form_fields
+    SET visibility_rule_json = '{\"if\":{\"context.entity_status\":{\"in\":[\"IN_TRANSIT\",\"ARRIVED_AT_CONSIGNEE\",\"DELIVERED\",\"UNLOADING\"]}}}'::jsonb
+    WHERE id = 'b2222222-2222-4222-8222-222222222205';
+
+    UPDATE lowcode.form_fields
+    SET visibility_rule_json = '{\"if\":{\"context.role\":\"PLATFORM_ADMIN\"}}'::jsonb
+    WHERE id = 'b3333333-3333-4333-8333-333333333306';
   " >/dev/null
 
   local to_id sh_id br_id fr_id doc_id rfx_id

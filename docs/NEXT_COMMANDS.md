@@ -132,6 +132,15 @@ http://localhost:3000/shipments/{id}         (driver_comment when cold chain)
 
 See `docs/LOW_CODE_PREVIEW_VISIBILITY_RULES_V0.1.md`.
 
+Preview context (entity status + role):
+
+```text
+http://localhost:3000/transport-orders/{id}
+http://localhost:3000/billing-registers/{id}
+```
+
+See `docs/LOW_CODE_PREVIEW_CONTEXT_V0.1.md`.
+
 If a target fails with WSL/bash errors, override:
 
 ```powershell

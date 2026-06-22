@@ -213,6 +213,7 @@ onMounted(async () => {
       <LowCodeCustomFieldsPanel
         entity-type="SHIPMENT"
         :entity-id="shipment.id"
+        :entity-status="shipment.status"
       />
 
       <UiCard v-if="showDocumentsBlock">

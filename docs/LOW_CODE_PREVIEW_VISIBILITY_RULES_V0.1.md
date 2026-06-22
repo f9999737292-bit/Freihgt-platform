@@ -49,7 +49,10 @@ Empty `{}` or missing `if` → field always visible.
 | Field | Entity | Rule |
 | ----- | ------ | ---- |
 | `loading_window_note` | TRANSPORT_ORDER | visible when `cargo_class` = `GENERAL` |
+| `internal_cost_center` | TRANSPORT_ORDER | visible when entity status in sourcing flow |
 | `driver_comment` | SHIPMENT | visible when `temperature_mode` in `FROZEN`, `CHILLED` |
+| `loading_contact_phone` | SHIPMENT | visible when entity status in transit/delivery |
+| `payment_priority` | BILLING_REGISTER | visible when role = `PLATFORM_ADMIN` |
 
 **Verify:**
 
@@ -74,13 +77,12 @@ npm run dev
 
 - Preview only (not enforced on save/API)
 - No rule engine / cross-field `then.visible` lists
-- Context rules need `previewContext` prop (not wired on entity pages yet)
+- `/low-code/custom-field-values` does not pass entity status (no core entity on page)
 - Validation / read-only rules not evaluated in preview
 
 ## Next action
 
-1. Pass `previewContext` from entity detail pages (status, role)
-2. Conditional required indicator in preview
-3. Inline edit on entity detail (future write pack)
+1. Conditional required indicator in preview
+2. Inline edit on entity detail (future write pack)
 
-See also: `docs/LOW_CODE_FORM_TEMPLATE_PREVIEW_RENDERER_V0.1.md`, `docs/LOW_CODE_CUSTOM_FIELDS_TECHNICAL_DESIGN_V0.1.md`.
+See also: `docs/LOW_CODE_PREVIEW_CONTEXT_V0.1.md`, `docs/LOW_CODE_CUSTOM_FIELDS_TECHNICAL_DESIGN_V0.1.md`.

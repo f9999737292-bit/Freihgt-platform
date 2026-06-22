@@ -690,6 +690,8 @@
     "noCustomFieldValuesYet": "Значения пользовательских полей не сохранены. Ниже — предпросмотр доступных полей шаблона.",
     "templateOnlyPreview": "Предпросмотр шаблона (без сохранённых значений)",
     "fieldsHiddenByVisibility": "Скрыто полей по правилам видимости: {count}",
+    "previewEntityStatus": "Статус сущности",
+    "previewRole": "Роль",
     "filePlaceholder": "Загрузка файла (placeholder предпросмотра)"
   },
   "backendStatus": {

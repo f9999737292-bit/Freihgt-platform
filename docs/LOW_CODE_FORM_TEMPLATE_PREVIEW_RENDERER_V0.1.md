@@ -103,7 +103,7 @@ make integration-smoke-test
 ## Next Action
 
 - Interactive preview mode for Form Builder v2
-- Pass preview context (entity status / role) from entity detail pages
 - Conditional required indicator in preview
+- Optional entity status on custom-field-values page
 
-See `docs/LOW_CODE_PREVIEW_VISIBILITY_RULES_V0.1.md`.
+See `docs/LOW_CODE_PREVIEW_CONTEXT_V0.1.md`, `docs/LOW_CODE_PREVIEW_VISIBILITY_RULES_V0.1.md`.
