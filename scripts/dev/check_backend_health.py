@@ -17,6 +17,7 @@ SERVICES = (
     ("shipment-service", 8085),
     ("document-service", 8086),
     ("billing-register-service", 8087),
+    ("low-code-service", 8088),
 )
 
 

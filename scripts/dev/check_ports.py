@@ -18,6 +18,7 @@ PORTS = (
     (8085, "shipment-service"),
     (8086, "document-service"),
     (8087, "billing-register-service"),
+    (8088, "low-code-service"),
     (9090, "prometheus"),
 )
 

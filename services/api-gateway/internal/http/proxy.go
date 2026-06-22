@@ -50,6 +50,7 @@ func NewProxyHandler(cfg config.Config) (*ProxyHandler, error) {
 		{"/api/v1/documents", "document-service", cfg.Services.Document},
 		{"/api/v1/signing-sessions", "document-service", cfg.Services.Document},
 		{"/api/v1/billing-registers", "billing-register-service", cfg.Services.BillingRegister},
+		{"/api/v1/low-code", "low-code-service", cfg.Services.LowCode},
 	}
 
 	routes := make([]Route, 0, len(routeDefs))
@@ -165,6 +166,7 @@ func downstreamServices(cfg config.Config) []downstreamService {
 		{name: "shipment-service", url: cfg.Services.Shipment},
 		{name: "document-service", url: cfg.Services.Document},
 		{name: "billing-register-service", url: cfg.Services.BillingRegister},
+		{name: "low-code-service", url: cfg.Services.LowCode},
 	}
 }
 
@@ -187,7 +189,7 @@ func CheckServiceHealth(ctx context.Context, client *http.Client, baseURL string
 }
 
 func ReadyStatus(ctx context.Context, cfg config.Config) (status string, httpStatus int, services map[string]string) {
-	services = make(map[string]string, 7)
+	services = make(map[string]string, 8)
 	client := &http.Client{Timeout: time.Duration(cfg.ReadyCheckTimeoutMS) * time.Millisecond}
 
 	allOK := true

@@ -199,6 +199,30 @@ services:
       retries: 5
       start_period: 15s
 
+  low-code-service:
+    build:
+      context: ../..
+      dockerfile: services/low-code-service/Dockerfile
+    container_name: freight_low_code_service
+    restart: unless-stopped
+    environment:
+      LOW_CODE_SERVICE_PORT: 8088
+      DATABASE_URL: postgres://freight:freight_password@postgres:5432/freight_platform?sslmode=disable
+      LOG_LEVEL: info
+    ports:
+      - "8088:8088"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - freight-platform-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8088/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
   api-gateway:
     build:
       context: ../..
@@ -215,6 +239,7 @@ services:
       SHIPMENT_SERVICE_URL: http://shipment-service:8085
       DOCUMENT_SERVICE_URL: http://document-service:8086
       BILLING_REGISTER_SERVICE_URL: http://billing-register-service:8087
+      LOW_CODE_SERVICE_URL: http://low-code-service:8088
       AUTH_ENABLED: "false"
       JWT_SECRET: dev_secret_change_me
       OPENAPI_DIR: /app/packages/openapi
@@ -235,6 +260,8 @@ services:
       document-service:
         condition: service_healthy
       billing-register-service:
+        condition: service_healthy
+      low-code-service:
         condition: service_healthy
     networks:
       - freight-platform-network

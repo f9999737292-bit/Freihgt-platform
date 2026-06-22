@@ -27,7 +27,8 @@ BACKEND_SERVICES := \
 	rfx-service \
 	shipment-service \
 	document-service \
-	billing-register-service
+	billing-register-service \
+	low-code-service
 PYTHON ?= python
 MIGRATIONS_PATH=infrastructure/migrations
 POSTGRES_USER ?= freight
@@ -41,7 +42,7 @@ DB_URL?=postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:$(POSTGRES_PO
 MIGRATE_RUN=$(COMPOSE) --profile tools run --rm migrate
 
 GO_SERVICES := api-gateway identity-service company-service localization-service \
-	transport-order-service shipment-service rfx-service document-service billing-register-service
+	transport-order-service shipment-service rfx-service document-service billing-register-service low-code-service
 
 K6 ?= k6
 
@@ -59,8 +60,8 @@ K6 ?= k6
 	go-build go-test \
 	run-api-gateway run-identity-service run-company-service run-localization-service \
 	run-transport-order-service run-shipment-service run-rfx-service \
-	run-document-service run-billing-register-service \
-	test-company-service test-identity-service test-transport-order-service test-rfx-service test-shipment-service test-document-service test-billing-register-service test-api-gateway \
+	run-document-service run-billing-register-service run-low-code-service \
+	test-company-service test-identity-service test-transport-order-service test-rfx-service test-shipment-service test-document-service test-billing-register-service test-low-code-service test-api-gateway \
 	integration-smoke-test full-flow-smoke-test seed-dev-admin seed-demo-data \
 	project-map tree-project find-service find-text \
 	openapi-generate openapi-generate-json openapi-validate openapi-check api-docs-open \
@@ -134,6 +135,7 @@ help:
 	@echo "  make run-rfx-service             Run rfx-service (8084)"
 	@echo "  make run-document-service        Run document-service (8086)"
 	@echo "  make run-billing-register-service Run billing-register-service (8087)"
+	@echo "  make run-low-code-service        Run low-code-service (8088)"
 	@echo ""
 	@echo "Integration:"
 	@echo "  make integration-smoke-test   Run end-to-end smoke test (all services must be up)"
@@ -226,6 +228,7 @@ platform-build-serial:
 	@$(MAKE) platform-build-service SERVICE=shipment-service
 	@$(MAKE) platform-build-service SERVICE=document-service
 	@$(MAKE) platform-build-service SERVICE=billing-register-service
+	@$(MAKE) platform-build-service SERVICE=low-code-service
 	@echo "Serial build completed"
 
 platform-up-no-build:
@@ -266,6 +269,7 @@ platform-health:
 	@curl -s http://localhost:8085/health && echo
 	@curl -s http://localhost:8086/health && echo
 	@curl -s http://localhost:8087/health && echo
+	@curl -s http://localhost:8088/health && echo
 
 observability-up:
 	$(COMPOSE) --profile observability up -d prometheus grafana
@@ -286,6 +290,7 @@ metrics-check:
 	@curl -sf http://localhost:8085/metrics >/dev/null
 	@curl -sf http://localhost:8086/metrics >/dev/null
 	@curl -sf http://localhost:8087/metrics >/dev/null
+	@curl -sf http://localhost:8088/metrics >/dev/null
 	@echo "Metrics OK"
 
 health-check:
@@ -389,6 +394,8 @@ go-build:
 	@go build -o services/document-service/bin/server ./services/document-service/cmd/server
 	@echo Building billing-register-service...
 	@go build -o services/billing-register-service/bin/server ./services/billing-register-service/cmd/server
+	@echo Building low-code-service...
+	@go build -o services/low-code-service/bin/server ./services/low-code-service/cmd/server
 
 go-test:
 	@go test ./packages/shared-go/... \
@@ -400,7 +407,8 @@ go-test:
 		./services/shipment-service/... \
 		./services/rfx-service/... \
 		./services/document-service/... \
-		./services/billing-register-service/...
+		./services/billing-register-service/... \
+		./services/low-code-service/...
 
 run-api-gateway:
 	@cd services/api-gateway && go run ./cmd/server
@@ -452,6 +460,12 @@ run-billing-register-service:
 
 test-billing-register-service:
 	@cd services/billing-register-service && go test ./...
+
+run-low-code-service:
+	@cd services/low-code-service && go run ./cmd/server
+
+test-low-code-service:
+	@cd services/low-code-service && go test ./...
 
 integration-smoke-test:
 	"$(BASH)" tests/integration/smoke-test.sh
