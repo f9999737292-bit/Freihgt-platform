@@ -103,5 +103,7 @@ make integration-smoke-test
 ## Next Action
 
 - Interactive preview mode for Form Builder v2
-- Evaluate visibility rules in preview
-- Shared preview component for entity detail read-only panels
+- Pass preview context (entity status / role) from entity detail pages
+- Conditional required indicator in preview
+
+See `docs/LOW_CODE_PREVIEW_VISIBILITY_RULES_V0.1.md`.

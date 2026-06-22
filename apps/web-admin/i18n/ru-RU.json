@@ -689,6 +689,7 @@
     "viewFormTemplate": "Открыть шаблон формы",
     "noCustomFieldValuesYet": "Значения пользовательских полей не сохранены. Ниже — предпросмотр доступных полей шаблона.",
     "templateOnlyPreview": "Предпросмотр шаблона (без сохранённых значений)",
+    "fieldsHiddenByVisibility": "Скрыто полей по правилам видимости: {count}",
     "filePlaceholder": "Загрузка файла (placeholder предпросмотра)"
   },
   "backendStatus": {

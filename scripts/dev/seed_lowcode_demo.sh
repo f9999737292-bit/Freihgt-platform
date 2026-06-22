@@ -729,6 +729,14 @@ seed_custom_field_values() {
     UPDATE lowcode.form_fields
     SET options_json = '{\"options\":[{\"value\":\"LOGISTICS_FINANCE\",\"label\":\"Logistics Finance\"},{\"value\":\"FINANCE\",\"label\":\"Finance\"},{\"value\":\"OPS\",\"label\":\"Operations\"},{\"value\":\"MANAGEMENT\",\"label\":\"Management\"}]}'::jsonb
     WHERE id = 'b3333333-3333-4333-8333-333333333305';
+
+    UPDATE lowcode.form_fields
+    SET visibility_rule_json = '{\"if\":{\"field\":\"cargo_class\",\"equals\":\"GENERAL\"}}'::jsonb
+    WHERE id = 'b1111111-1111-4111-8111-111111111106';
+
+    UPDATE lowcode.form_fields
+    SET visibility_rule_json = '{\"if\":{\"field\":\"temperature_mode\",\"in\":[\"FROZEN\",\"CHILLED\"]}}'::jsonb
+    WHERE id = 'b2222222-2222-4222-8222-222222222206';
   " >/dev/null
 
   local to_id sh_id br_id fr_id doc_id rfx_id

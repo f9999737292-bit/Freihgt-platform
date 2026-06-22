@@ -123,6 +123,15 @@ http://localhost:3000/rfx/{id}
 
 See `docs/LOW_CODE_ENTITY_DETAIL_RFX_DOCUMENT_V0.1.md`.
 
+Preview visibility rules:
+
+```text
+http://localhost:3000/transport-orders/{id}   (loading_window_note when cargo_class=GENERAL)
+http://localhost:3000/shipments/{id}         (driver_comment when cold chain)
+```
+
+See `docs/LOW_CODE_PREVIEW_VISIBILITY_RULES_V0.1.md`.
+
 If a target fails with WSL/bash errors, override:
 
 ```powershell

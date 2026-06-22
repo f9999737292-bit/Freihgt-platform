@@ -172,6 +172,7 @@ export interface FormTemplatePreviewField {
   read_only: boolean
   system_field: boolean
   options_json?: unknown
+  visibility_rule_json?: unknown
   sort_order: number
 }
 
@@ -189,6 +190,11 @@ export interface FormTemplatePreviewModel {
 }
 
 export type FormTemplatePreviewValues = Record<string, unknown>
+
+export interface PreviewRuleContext {
+  role?: string
+  entity_status?: string
+}
 
 export interface CustomFieldValueItem {
   field_id: string
@@ -599,6 +605,7 @@ export function formTemplateDetailToPreview(detail: FormTemplateDetail): FormTem
         read_only: field.read_only,
         system_field: field.system_field,
         options_json: field.options_json,
+        visibility_rule_json: field.visibility_rule_json,
         sort_order: field.sort_order,
       })),
     })),
@@ -621,6 +628,7 @@ export function draftToPreviewModel(draft: DraftFormTemplateDraft): FormTemplate
         read_only: field.read_only,
         system_field: field.system_field,
         options_json: tryParseJsonText(field.options_json_text),
+        visibility_rule_json: tryParseJsonText(field.visibility_rule_json_text),
         sort_order: field.sort_order,
       })),
     })),
@@ -710,4 +718,122 @@ export function previewMultiSelectValues(value: unknown): string[] {
 export function isPreviewComplexFieldType(fieldType: string): boolean {
   return ['ROUTE', 'ADDRESS', 'VEHICLE', 'VAT_TAX', 'MONEY', 'FILE', 'COMPANY_REFERENCE', 'DOCUMENT_REFERENCE'].includes(fieldType)
     || !['TEXT', 'NUMBER', 'DATE', 'DATETIME', 'SELECT', 'MULTI_SELECT', 'CHECKBOX', 'CURRENCY'].includes(fieldType)
+}
+
+function previewValuesEqual(left: unknown, right: unknown): boolean {
+  if (left === right) return true
+  if (left === undefined || left === null || left === '') {
+    return right === undefined || right === null || right === ''
+  }
+  return String(left) === String(right)
+}
+
+function previewValueInList(value: unknown, list: unknown[]): boolean {
+  return list.some((item) => previewValuesEqual(value, item))
+}
+
+function evaluatePreviewContextCondition(key: string, expected: unknown, context?: PreviewRuleContext): boolean {
+  if (!context) return false
+  if (key === 'context.role') {
+    return previewValuesEqual(context.role, expected)
+  }
+  if (key === 'context.entity_status') {
+    if (expected && typeof expected === 'object' && !Array.isArray(expected) && 'in' in expected) {
+      const values = (expected as { in?: unknown[] }).in ?? []
+      return previewValueInList(context.entity_status, values)
+    }
+    return previewValuesEqual(context.entity_status, expected)
+  }
+  return false
+}
+
+function evaluatePreviewFieldCondition(
+  fieldCode: string,
+  expected: unknown,
+  values: FormTemplatePreviewValues | undefined,
+): boolean {
+  const actual = previewFieldValue(values, fieldCode)
+  if (expected && typeof expected === 'object' && !Array.isArray(expected)) {
+    if ('in' in expected) {
+      return previewValueInList(actual, (expected as { in?: unknown[] }).in ?? [])
+    }
+    if ('not_in' in expected) {
+      return !previewValueInList(actual, (expected as { not_in?: unknown[] }).not_in ?? [])
+    }
+  }
+  return previewValuesEqual(actual, expected)
+}
+
+export function evaluatePreviewVisibilityCondition(
+  condition: unknown,
+  values: FormTemplatePreviewValues | undefined,
+  context?: PreviewRuleContext,
+): boolean {
+  if (!condition || typeof condition !== 'object' || Array.isArray(condition)) return true
+  const clause = condition as Record<string, unknown>
+  const reservedFieldKeys = ['field', 'equals', 'not_equals', 'in', 'not_in']
+  let matched = true
+
+  if (typeof clause.field === 'string' && clause.field.trim()) {
+    const actual = previewFieldValue(values, clause.field.trim())
+    if ('equals' in clause) matched = matched && previewValuesEqual(actual, clause.equals)
+    if ('not_equals' in clause) matched = matched && !previewValuesEqual(actual, clause.not_equals)
+    if ('in' in clause) {
+      matched = matched && previewValueInList(actual, Array.isArray(clause.in) ? clause.in : [])
+    }
+    if ('not_in' in clause) {
+      matched = matched && !previewValueInList(actual, Array.isArray(clause.not_in) ? clause.not_in : [])
+    }
+  }
+
+  for (const [key, expected] of Object.entries(clause)) {
+    if (reservedFieldKeys.includes(key)) continue
+    if (key.startsWith('context.')) {
+      matched = matched && evaluatePreviewContextCondition(key, expected, context)
+      continue
+    }
+    matched = matched && evaluatePreviewFieldCondition(key, expected, values)
+  }
+
+  return matched
+}
+
+export function isPreviewVisibilityRuleActive(rule: unknown): boolean {
+  if (!rule || typeof rule !== 'object' || Array.isArray(rule)) return false
+  const ifClause = (rule as { if?: unknown }).if
+  if (!ifClause || typeof ifClause !== 'object' || Array.isArray(ifClause)) return false
+  return Object.keys(ifClause as object).length > 0
+}
+
+export function isPreviewFieldVisible(
+  field: Pick<FormTemplatePreviewField, 'visibility_rule_json'>,
+  values: FormTemplatePreviewValues | undefined,
+  context?: PreviewRuleContext,
+): boolean {
+  const rule = field.visibility_rule_json
+  if (!isPreviewVisibilityRuleActive(rule)) return true
+  const ifClause = (rule as { if?: unknown }).if
+  return evaluatePreviewVisibilityCondition(ifClause, values, context)
+}
+
+export function filterPreviewSectionsForVisibility(
+  sections: FormTemplatePreviewSection[],
+  values: FormTemplatePreviewValues | undefined,
+  context?: PreviewRuleContext,
+): { sections: FormTemplatePreviewSection[]; hiddenFieldCount: number } {
+  let hiddenFieldCount = 0
+  const filteredSections: FormTemplatePreviewSection[] = []
+
+  for (const section of sections) {
+    const visibleFields = section.fields.filter((field) => {
+      const visible = isPreviewFieldVisible(field, values, context)
+      if (!visible) hiddenFieldCount += 1
+      return visible
+    })
+    if (visibleFields.length) {
+      filteredSections.push({ ...section, fields: visibleFields })
+    }
+  }
+
+  return { sections: filteredSections, hiddenFieldCount }
 }

@@ -689,6 +689,7 @@
     "viewFormTemplate": "查看表单模板",
     "noCustomFieldValuesYet": "尚未保存自定义字段值。下方预览显示模板中的可用字段。",
     "templateOnlyPreview": "表单模板预览（无已存值）",
+    "fieldsHiddenByVisibility": "按可见性规则隐藏 {count} 个字段",
     "filePlaceholder": "文件上传（预览占位）"
   },
   "backendStatus": {

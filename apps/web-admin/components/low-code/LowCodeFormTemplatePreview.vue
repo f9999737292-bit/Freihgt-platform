@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  filterPreviewSectionsForVisibility,
   formatJsonValue,
   isPreviewComplexFieldType,
   previewCheckboxChecked,
@@ -10,6 +11,7 @@ import {
   previewValueToInputString,
   type FormTemplatePreviewModel,
   type FormTemplatePreviewValues,
+  type PreviewRuleContext,
 } from '~/types/lowCode'
 
 const props = withDefaults(
@@ -18,12 +20,14 @@ const props = withDefaults(
     values?: FormTemplatePreviewValues
     readonly?: boolean
     title?: string
+    previewContext?: PreviewRuleContext
   }>(),
   {
     template: null,
     values: undefined,
     readonly: true,
     title: undefined,
+    previewContext: undefined,
   },
 )
 
@@ -33,6 +37,13 @@ const sortedSections = computed(() => {
   if (!props.template?.sections?.length) return []
   return [...props.template.sections].sort((a, b) => a.sort_order - b.sort_order || a.code.localeCompare(b.code))
 })
+
+const visibilityResult = computed(() =>
+  filterPreviewSectionsForVisibility(sortedSections.value, props.values, props.previewContext),
+)
+
+const visibleSections = computed(() => visibilityResult.value.sections)
+const hiddenFieldCount = computed(() => visibilityResult.value.hiddenFieldCount)
 
 function sortedFields(section: FormTemplatePreviewModel['sections'][number]) {
   return [...section.fields].sort((a, b) => a.sort_order - b.sort_order || a.code.localeCompare(b.code))
@@ -79,15 +90,18 @@ function moneyPreview(value: unknown): string {
       </div>
     </template>
 
-    <div v-if="!template || !sortedSections.length" class="form-preview__empty">
+    <div v-if="!template || !visibleSections.length" class="form-preview__empty">
       {{ $t('lowCode.noPreviewAvailable') }}
     </div>
 
     <div v-else class="form-preview__body">
       <p v-if="values" class="form-preview__hint">{{ $t('lowCode.currentValuesPreview') }}</p>
+      <p v-if="hiddenFieldCount" class="form-preview__hint form-preview__hint--muted">
+        {{ $t('lowCode.fieldsHiddenByVisibility', { count: hiddenFieldCount }) }}
+      </p>
 
       <section
-        v-for="section in sortedSections"
+        v-for="section in visibleSections"
         :key="section.code"
         class="form-preview__section"
       >
@@ -248,6 +262,11 @@ function moneyPreview(value: unknown): string {
   margin: 0 0 1rem;
   font-size: 0.875rem;
   color: var(--color-text-muted);
+}
+
+.form-preview__hint--muted {
+  margin-top: -0.5rem;
+  font-size: 0.8125rem;
 }
 
 .form-preview__body {

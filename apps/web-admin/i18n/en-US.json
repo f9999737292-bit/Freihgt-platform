@@ -689,6 +689,7 @@
     "viewFormTemplate": "View form template",
     "noCustomFieldValuesYet": "No custom field values stored yet. The form template preview below shows available fields.",
     "templateOnlyPreview": "Form template preview (no values stored)",
+    "fieldsHiddenByVisibility": "{count} field(s) hidden by visibility rules",
     "filePlaceholder": "File upload (preview placeholder)"
   },
   "backendStatus": {
