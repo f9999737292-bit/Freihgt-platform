@@ -27,8 +27,12 @@ type stubAdminFormTemplateRepo struct {
 	updateErr    error
 	publishDetail *domain.FormTemplateDetail
 	publishErr   error
+	cloneResult  *repository.ClonePublishedToDraftResult
+	cloneErr     error
 	lastCreateInput repository.CreateDraftInput
 	lastUpdateInput repository.UpdateDraftInput
+	lastCloneTenantID uuid.UUID
+	lastCloneSourceID uuid.UUID
 }
 
 func (s *stubAdminFormTemplateRepo) CreateDraft(_ context.Context, input repository.CreateDraftInput) (*repository.CreateDraftResult, error) {
@@ -51,6 +55,12 @@ func (s *stubAdminFormTemplateRepo) UpdateDraft(_ context.Context, input reposit
 
 func (s *stubAdminFormTemplateRepo) PublishDraft(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ domain.AuditContext) (*domain.FormTemplateDetail, error) {
 	return s.publishDetail, s.publishErr
+}
+
+func (s *stubAdminFormTemplateRepo) ClonePublishedToDraft(_ context.Context, tenantID uuid.UUID, sourceTemplateID uuid.UUID, _ domain.AuditContext) (*repository.ClonePublishedToDraftResult, error) {
+	s.lastCloneTenantID = tenantID
+	s.lastCloneSourceID = sourceTemplateID
+	return s.cloneResult, s.cloneErr
 }
 
 func validDraftPayload() []byte {
@@ -324,5 +334,121 @@ func TestAdminListLimitMax(t *testing.T) {
 	}
 	if items == nil {
 		t.Fatal("expected empty slice")
+	}
+}
+
+func TestAdminCloneToDraftTenantRequired(t *testing.T) {
+	handler := NewAdminFormTemplateHandler(service.NewAdminFormTemplateService(&stubAdminFormTemplateRepo{}))
+	req := httptest.NewRequest(http.MethodPost, "/v1/low-code/admin/form-templates/x/clone-to-draft", nil)
+	rec := httptest.NewRecorder()
+	handler.CloneToDraft(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+	assertErrorCode(t, rec.Body.Bytes(), "TENANT_REQUIRED")
+}
+
+func TestAdminCloneToDraftPublishedSuccess(t *testing.T) {
+	tenantID := uuid.MustParse("74519f22-ff9b-4a8b-8fff-a958c689682f")
+	sourceID := uuid.New()
+	draftID := uuid.New()
+	stub := &stubAdminFormTemplateRepo{
+		cloneResult: &repository.ClonePublishedToDraftResult{
+			ID:               draftID,
+			SourceTemplateID: sourceID,
+			Status:           domain.DraftStatus,
+			Version:          2,
+			Code:             "transport_order_default",
+		},
+	}
+	handler := NewAdminFormTemplateHandler(service.NewAdminFormTemplateService(stub))
+
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("id", sourceID.String())
+	req := httptest.NewRequest(http.MethodPost, "/v1/low-code/admin/form-templates/x/clone-to-draft", nil)
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+	req.Header.Set(tenantHeader, tenantID.String())
+	rec := httptest.NewRecorder()
+
+	handler.CloneToDraft(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if stub.lastCloneTenantID != tenantID || stub.lastCloneSourceID != sourceID {
+		t.Fatalf("expected clone tenant/source isolation")
+	}
+	var payload clonePublishedToDraftResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if payload.Status != domain.DraftStatus || payload.Version != 2 {
+		t.Fatalf("unexpected payload: %+v", payload)
+	}
+}
+
+func TestAdminCloneToDraftBlockedForDraftSource(t *testing.T) {
+	handler := NewAdminFormTemplateHandler(service.NewAdminFormTemplateService(&stubAdminFormTemplateRepo{
+		cloneErr: apperrors.FormTemplateCloneSourceNotPublished(domain.DraftStatus),
+	}))
+	sourceID := uuid.New()
+
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("id", sourceID.String())
+	req := httptest.NewRequest(http.MethodPost, "/v1/low-code/admin/form-templates/x/clone-to-draft", nil)
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+	req.Header.Set(tenantHeader, "74519f22-ff9b-4a8b-8fff-a958c689682f")
+	rec := httptest.NewRecorder()
+
+	handler.CloneToDraft(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	assertErrorCode(t, rec.Body.Bytes(), "VALIDATION_ERROR")
+}
+
+func TestAdminCloneToDraftBlockedForArchivedSource(t *testing.T) {
+	handler := NewAdminFormTemplateHandler(service.NewAdminFormTemplateService(&stubAdminFormTemplateRepo{
+		cloneErr: apperrors.FormTemplateCloneSourceNotPublished(domain.ArchivedStatus),
+	}))
+	sourceID := uuid.New()
+
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("id", sourceID.String())
+	req := httptest.NewRequest(http.MethodPost, "/v1/low-code/admin/form-templates/x/clone-to-draft", nil)
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+	req.Header.Set(tenantHeader, "74519f22-ff9b-4a8b-8fff-a958c689682f")
+	rec := httptest.NewRecorder()
+
+	handler.CloneToDraft(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+	assertErrorCode(t, rec.Body.Bytes(), "VALIDATION_ERROR")
+}
+
+func TestAdminCloneToDraftTenantIsolation(t *testing.T) {
+	tenantID := uuid.MustParse("74519f22-ff9b-4a8b-8fff-a958c689682f")
+	sourceID := uuid.New()
+	stub := &stubAdminFormTemplateRepo{
+		cloneResult: &repository.ClonePublishedToDraftResult{
+			ID: uuid.New(), SourceTemplateID: sourceID, Status: domain.DraftStatus, Version: 2, Code: "x",
+		},
+	}
+	handler := NewAdminFormTemplateHandler(service.NewAdminFormTemplateService(stub))
+
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("id", sourceID.String())
+	req := httptest.NewRequest(http.MethodPost, "/v1/low-code/admin/form-templates/x/clone-to-draft", nil)
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+	req.Header.Set(tenantHeader, tenantID.String())
+	rec := httptest.NewRecorder()
+
+	handler.CloneToDraft(rec, req)
+
+	if stub.lastCloneTenantID != tenantID {
+		t.Fatalf("expected tenant %s, got %s", tenantID, stub.lastCloneTenantID)
 	}
 }

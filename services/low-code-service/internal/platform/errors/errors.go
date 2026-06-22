@@ -84,6 +84,14 @@ func FormTemplateNotDraft(status string) *AppError {
 	}
 }
 
+func FormTemplateCloneSourceNotPublished(status string) *AppError {
+	return &AppError{
+		Code:    CodeValidation,
+		Message: "only published templates can be cloned to draft",
+		Details: map[string]any{"status": status, "field": "status"},
+	}
+}
+
 func FormTemplateConflict(details map[string]any) *AppError {
 	return &AppError{
 		Code:    CodeFormTemplateConflict,

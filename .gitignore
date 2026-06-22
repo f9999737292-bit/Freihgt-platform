@@ -37,3 +37,8 @@ Thumbs.db
 
 # Docker local overrides (keep compose files tracked)
 docker-compose.override.yml
+
+# Local one-off low-code UI verification scripts (not part of repo deliverable)
+scripts/dev/package.json
+scripts/dev/verify_lowcode_ui_report.py
+scripts/dev/verify_lowcode_ui_temp.mjs

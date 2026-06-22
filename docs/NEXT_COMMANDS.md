@@ -187,6 +187,14 @@ http://localhost:3000/shipments/{id}   (DEMO-SH-PLANNED)
 
 See `docs/LOW_CODE_RICH_FIELD_EDITORS_V0.1.md`.
 
+Clone published template to draft:
+
+```text
+http://localhost:3000/low-code/admin/form-templates
+```
+
+See `docs/LOW_CODE_CLONE_PUBLISHED_TEMPLATE_TO_DRAFT_V0.1.md`.
+
 If a target fails with WSL/bash errors, override:
 
 ```powershell

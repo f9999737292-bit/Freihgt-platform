@@ -12,6 +12,7 @@ const (
 	AuditEventKindFormTemplateDraftCreated = "FORM_TEMPLATE_DRAFT_CREATED"
 	AuditEventKindFormTemplateDraftUpdated = "FORM_TEMPLATE_DRAFT_UPDATED"
 	AuditEventKindFormTemplateDraftPublished = "FORM_TEMPLATE_DRAFT_PUBLISHED"
+	AuditEventKindFormTemplateClonedToDraft   = "FORM_TEMPLATE_CLONED_TO_DRAFT"
 	AuditDBActionCreate                    = "CREATE"
 	AuditDBActionUpdate                    = "UPDATE"
 	AuditDBActionPublish                   = "PUBLISH"
@@ -123,6 +124,32 @@ func ParseAuditChangedFields(newValueJSON json.RawMessage) []string {
 		return nil
 	}
 	return payload.ChangedFields
+}
+
+func BuildFormTemplateClonedAuditPayload(
+	sourceTemplateID uuid.UUID,
+	draftTemplateID uuid.UUID,
+	entityType string,
+	sourceCode string,
+	draftCode string,
+	sourceVersion int,
+	draftVersion int,
+	sectionsCount int,
+	fieldsCount int,
+) (json.RawMessage, error) {
+	payload := map[string]any{
+		"event_kind":          AuditEventKindFormTemplateClonedToDraft,
+		"source_template_id":  sourceTemplateID.String(),
+		"draft_template_id":   draftTemplateID.String(),
+		"entity_type":         entityType,
+		"source_code":         sourceCode,
+		"draft_code":          draftCode,
+		"source_version":      sourceVersion,
+		"draft_version":       draftVersion,
+		"sections_count":      sectionsCount,
+		"fields_count":        fieldsCount,
+	}
+	return json.Marshal(payload)
 }
 
 func BuildFormTemplateDraftAuditPayload(

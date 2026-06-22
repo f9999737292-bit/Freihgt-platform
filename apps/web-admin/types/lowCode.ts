@@ -161,6 +161,14 @@ export interface CreateDraftFormTemplateResponse {
   version: number
 }
 
+export interface ClonePublishedTemplateToDraftResponse {
+  id: string
+  source_template_id: string
+  status: string
+  version: number
+  code: string
+}
+
 export interface ListAdminFormTemplatesParams {
   entity_type?: string
   status?: string

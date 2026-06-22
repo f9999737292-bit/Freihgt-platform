@@ -29,6 +29,14 @@ type createDraftFormTemplateResponse struct {
 	Version int    `json:"version"`
 }
 
+type clonePublishedToDraftResponse struct {
+	ID               string `json:"id"`
+	SourceTemplateID string `json:"source_template_id"`
+	Status           string `json:"status"`
+	Version          int    `json:"version"`
+	Code             string `json:"code"`
+}
+
 type draftFormTemplateRequest struct {
 	EntityType  string                      `json:"entity_type"`
 	Code        string                      `json:"code"`
@@ -194,6 +202,34 @@ func (h *AdminFormTemplateHandler) Publish(w http.ResponseWriter, r *http.Reques
 	}
 
 	respond.JSON(w, http.StatusOK, toAdminDetailResponse(*detail))
+}
+
+func (h *AdminFormTemplateHandler) CloneToDraft(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := parseTenantID(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	templateID, err := parseTemplateID(chi.URLParam(r, "id"))
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	result, err := h.service.ClonePublishedToDraft(r.Context(), tenantID, templateID, auditContextFromRequest(r))
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	respond.JSON(w, http.StatusCreated, clonePublishedToDraftResponse{
+		ID:               result.ID.String(),
+		SourceTemplateID: result.SourceTemplateID.String(),
+		Status:           result.Status,
+		Version:          result.Version,
+		Code:             result.Code,
+	})
 }
 
 func parseTemplateID(raw string) (uuid.UUID, error) {

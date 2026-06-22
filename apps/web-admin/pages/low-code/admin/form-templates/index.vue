@@ -9,7 +9,8 @@ import { TenantRequiredError } from '~/composables/useApi'
 
 definePageMeta({ middleware: 'auth', layout: 'default' })
 
-const { listAdminFormTemplates, isApiUnavailableError } = useLowCodeApi()
+const { listAdminFormTemplates, clonePublishedTemplateToDraft, getAdminFormTemplateErrorMessage, isApiUnavailableError } = useLowCodeApi()
+const router = useRouter()
 const { hasTenant } = useTenantContext()
 const { pushToast } = useToast()
 const { t } = useI18n()
@@ -17,6 +18,7 @@ const { t } = useI18n()
 const items = ref<FormTemplateSummary[]>([])
 const loading = ref(true)
 const loadFailed = ref(false)
+const cloningId = ref<string | null>(null)
 
 const filters = reactive({
   entity_type: '',
@@ -63,6 +65,21 @@ async function load() {
 
 function onFilterChange() {
   load()
+}
+
+async function clonePublished(item: FormTemplateSummary) {
+  if (item.status !== 'PUBLISHED') return
+  cloningId.value = item.id
+  try {
+    const result = await clonePublishedTemplateToDraft(item.id)
+    pushToast('success', t('lowCode.draftCreatedFromPublished'))
+    await router.push(`/low-code/admin/form-templates/${result.id}`)
+  } catch (error) {
+    if (error instanceof TenantRequiredError) return
+    pushToast('error', getAdminFormTemplateErrorMessage(error))
+  } finally {
+    cloningId.value = null
+  }
 }
 
 onMounted(load)
@@ -131,6 +148,15 @@ onMounted(load)
         <td>
           <div class="actions-cell">
             <NuxtLink :to="`/low-code/admin/form-templates/${item.id}`">{{ $t('lowCode.open') }}</NuxtLink>
+            <UiButton
+              v-if="item.status === 'PUBLISHED'"
+              size="sm"
+              variant="secondary"
+              :loading="cloningId === item.id"
+              @click="clonePublished(item)"
+            >
+              {{ $t('lowCode.cloneToDraft') }}
+            </UiButton>
             <NuxtLink
               v-if="item.status === 'PUBLISHED'"
               :to="`/low-code/form-templates/${item.id}`"

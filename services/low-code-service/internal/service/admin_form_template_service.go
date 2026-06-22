@@ -15,6 +15,7 @@ type AdminFormTemplateRepository interface {
 	GetByID(ctx context.Context, tenantID uuid.UUID, templateID uuid.UUID) (*domain.FormTemplateDetail, error)
 	UpdateDraft(ctx context.Context, input repository.UpdateDraftInput) error
 	PublishDraft(ctx context.Context, tenantID uuid.UUID, templateID uuid.UUID, audit domain.AuditContext) (*domain.FormTemplateDetail, error)
+	ClonePublishedToDraft(ctx context.Context, tenantID uuid.UUID, sourceTemplateID uuid.UUID, audit domain.AuditContext) (*repository.ClonePublishedToDraftResult, error)
 }
 
 type AdminFormTemplateService struct {
@@ -107,4 +108,13 @@ func (s *AdminFormTemplateService) PublishDraft(
 	audit domain.AuditContext,
 ) (*domain.FormTemplateDetail, error) {
 	return s.repo.PublishDraft(ctx, tenantID, templateID, audit)
+}
+
+func (s *AdminFormTemplateService) ClonePublishedToDraft(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	sourceTemplateID uuid.UUID,
+	audit domain.AuditContext,
+) (*repository.ClonePublishedToDraftResult, error) {
+	return s.repo.ClonePublishedToDraft(ctx, tenantID, sourceTemplateID, audit)
 }

@@ -622,6 +622,362 @@ func (r *AdminFormTemplateRepository) insertTemplateAudit(
 	return r.auditRepo.InsertInTx(ctx, tx, entry)
 }
 
+type ClonePublishedToDraftResult struct {
+	ID               uuid.UUID
+	SourceTemplateID uuid.UUID
+	Status           string
+	Version          int
+	Code             string
+}
+
+func (r *AdminFormTemplateRepository) ClonePublishedToDraft(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	sourceTemplateID uuid.UUID,
+	audit domain.AuditContext,
+) (*ClonePublishedToDraftResult, error) {
+	var result *ClonePublishedToDraftResult
+	err := measureDB("admin_form_template_repository", "clone_published_to_draft", func() error {
+		tx, err := r.pool.Begin(ctx)
+		if err != nil {
+			return mapDBError(err)
+		}
+		defer tx.Rollback(ctx)
+
+		source, err := r.loadTemplateDetailInTx(ctx, tx, tenantID, sourceTemplateID)
+		if err != nil {
+			return err
+		}
+		if source.Status != domain.PublishedStatus {
+			return apperrors.FormTemplateCloneSourceNotPublished(source.Status)
+		}
+
+		draftCode, draftVersion, err := r.resolveCloneDraftCodeAndVersion(ctx, tx, tenantID, source.EntityType, source.Code)
+		if err != nil {
+			return err
+		}
+
+		configurationID := uuid.New()
+		draftTemplateID := uuid.New()
+		configCode := fmt.Sprintf("cfg_%s", draftCode)
+
+		const configQuery = `
+			INSERT INTO lowcode.low_code_configurations (
+				id, tenant_id, code, name, description, config_type, status, version, created_by_user_id, updated_by_user_id
+			) VALUES ($1, $2, $3, $4, $5, 'FORM_TEMPLATE', $6, $7, $8, $8)
+		`
+		if _, err := tx.Exec(ctx, configQuery,
+			configurationID,
+			tenantID,
+			configCode,
+			source.Name,
+			nullIfEmptyString(source.Description),
+			domain.DraftStatus,
+			draftVersion,
+			audit.ChangedByUserID,
+		); err != nil {
+			return mapDBError(err)
+		}
+
+		const templateQuery = `
+			INSERT INTO lowcode.form_templates (
+				id, tenant_id, configuration_id, entity_type, code, name, description, status, version,
+				created_by_user_id, updated_by_user_id
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)
+		`
+		if _, err := tx.Exec(ctx, templateQuery,
+			draftTemplateID,
+			tenantID,
+			configurationID,
+			source.EntityType,
+			draftCode,
+			source.Name,
+			nullIfEmptyString(source.Description),
+			domain.DraftStatus,
+			draftVersion,
+			audit.ChangedByUserID,
+		); err != nil {
+			return mapDBError(err)
+		}
+
+		if err := r.insertSectionsAndFieldsFromTemplate(ctx, tx, tenantID, draftTemplateID, source.Sections); err != nil {
+			return err
+		}
+
+		sectionsCount := len(source.Sections)
+		fieldsCount := 0
+		for _, section := range source.Sections {
+			fieldsCount += len(section.Fields)
+		}
+
+		if err := r.insertCloneAudit(ctx, tx, tenantID, configurationID, source, draftTemplateID, draftCode, draftVersion, sectionsCount, fieldsCount, audit); err != nil {
+			return err
+		}
+
+		if err := tx.Commit(ctx); err != nil {
+			return mapDBError(err)
+		}
+
+		result = &ClonePublishedToDraftResult{
+			ID:               draftTemplateID,
+			SourceTemplateID: sourceTemplateID,
+			Status:           domain.DraftStatus,
+			Version:          draftVersion,
+			Code:             draftCode,
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (r *AdminFormTemplateRepository) resolveCloneDraftCodeAndVersion(
+	ctx context.Context,
+	tx pgx.Tx,
+	tenantID uuid.UUID,
+	entityType string,
+	sourceCode string,
+) (string, int, error) {
+	const versionQuery = `
+		SELECT COALESCE(MAX(version), 0)
+		FROM lowcode.form_templates
+		WHERE tenant_id = $1 AND entity_type = $2 AND code = $3
+	`
+	var maxVersion int
+	if err := tx.QueryRow(ctx, versionQuery, tenantID, entityType, sourceCode).Scan(&maxVersion); err != nil {
+		return "", 0, mapDBError(err)
+	}
+	nextVersion := maxVersion + 1
+	return sourceCode, nextVersion, nil
+}
+
+func (r *AdminFormTemplateRepository) loadTemplateDetailInTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	tenantID uuid.UUID,
+	templateID uuid.UUID,
+) (*domain.FormTemplateDetail, error) {
+	const query = `
+		SELECT id, tenant_id, entity_type, code, name, description, status, version, published_at
+		FROM lowcode.form_templates
+		WHERE id = $1 AND tenant_id = $2
+	`
+	var detail domain.FormTemplateDetail
+	var description *string
+	if err := tx.QueryRow(ctx, query, templateID, tenantID).Scan(
+		&detail.ID,
+		&detail.TenantID,
+		&detail.EntityType,
+		&detail.Code,
+		&detail.Name,
+		&description,
+		&detail.Status,
+		&detail.Version,
+		&detail.PublishedAt,
+	); err != nil {
+		return nil, mapDBError(err)
+	}
+	if description != nil {
+		detail.Description = *description
+	}
+
+	sections, err := r.loadSectionsInTx(ctx, tx, tenantID, templateID)
+	if err != nil {
+		return nil, err
+	}
+	detail.Sections = sections
+	return &detail, nil
+}
+
+func (r *AdminFormTemplateRepository) loadSectionsInTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	tenantID uuid.UUID,
+	templateID uuid.UUID,
+) ([]domain.FormSection, error) {
+	const sectionQuery = `
+		SELECT id, code, title, sort_order
+		FROM lowcode.form_sections
+		WHERE tenant_id = $1 AND form_template_id = $2
+		ORDER BY sort_order, code
+	`
+	rows, err := tx.Query(ctx, sectionQuery, tenantID, templateID)
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	defer rows.Close()
+
+	sections := make([]domain.FormSection, 0)
+	for rows.Next() {
+		var section domain.FormSection
+		if err := rows.Scan(&section.ID, &section.Code, &section.Title, &section.SortOrder); err != nil {
+			return nil, mapDBError(err)
+		}
+		section.Fields = []domain.FormField{}
+		sections = append(sections, section)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, mapDBError(err)
+	}
+
+	const fieldQuery = `
+		SELECT
+			section_id, code, label, field_type, required, read_only, system_field,
+			options_json, validation_rule_json, visibility_rule_json, sort_order
+		FROM lowcode.form_fields
+		WHERE tenant_id = $1 AND form_template_id = $2
+		ORDER BY sort_order, code
+	`
+	fieldRows, err := tx.Query(ctx, fieldQuery, tenantID, templateID)
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	defer fieldRows.Close()
+
+	fieldsBySection := make(map[uuid.UUID][]domain.FormField)
+	for fieldRows.Next() {
+		var sectionID uuid.UUID
+		var field domain.FormField
+		var optionsJSON, validationJSON, visibilityJSON []byte
+		if err := fieldRows.Scan(
+			&sectionID,
+			&field.Code,
+			&field.Label,
+			&field.FieldType,
+			&field.Required,
+			&field.ReadOnly,
+			&field.SystemField,
+			&optionsJSON,
+			&validationJSON,
+			&visibilityJSON,
+			&field.SortOrder,
+		); err != nil {
+			return nil, mapDBError(err)
+		}
+		field.OptionsJSON = normalizeJSON(optionsJSON)
+		field.ValidationRuleJSON = normalizeJSON(validationJSON)
+		field.VisibilityRuleJSON = normalizeJSON(visibilityJSON)
+		fieldsBySection[sectionID] = append(fieldsBySection[sectionID], field)
+	}
+	if err := fieldRows.Err(); err != nil {
+		return nil, mapDBError(err)
+	}
+
+	for i := range sections {
+		sections[i].Fields = fieldsBySection[sections[i].ID]
+		if sections[i].Fields == nil {
+			sections[i].Fields = []domain.FormField{}
+		}
+	}
+	return sections, nil
+}
+
+func (r *AdminFormTemplateRepository) insertSectionsAndFieldsFromTemplate(
+	ctx context.Context,
+	tx pgx.Tx,
+	tenantID uuid.UUID,
+	templateID uuid.UUID,
+	sections []domain.FormSection,
+) error {
+	const sectionQuery = `
+		INSERT INTO lowcode.form_sections (
+			id, tenant_id, form_template_id, code, title, sort_order
+		) VALUES ($1, $2, $3, $4, $5, $6)
+	`
+	const fieldQuery = `
+		INSERT INTO lowcode.form_fields (
+			id, tenant_id, form_template_id, section_id, code, label, field_type,
+			required, read_only, system_field, options_json, validation_rule_json, visibility_rule_json, sort_order
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+	`
+
+	for _, section := range sections {
+		sectionID := uuid.New()
+		if _, err := tx.Exec(ctx, sectionQuery,
+			sectionID,
+			tenantID,
+			templateID,
+			section.Code,
+			section.Title,
+			section.SortOrder,
+		); err != nil {
+			return mapDBError(err)
+		}
+
+		for _, field := range section.Fields {
+			if _, err := tx.Exec(ctx, fieldQuery,
+				uuid.New(),
+				tenantID,
+				templateID,
+				sectionID,
+				field.Code,
+				field.Label,
+				field.FieldType,
+				field.Required,
+				field.ReadOnly,
+				field.SystemField,
+				nullJSON(field.OptionsJSON),
+				nullJSON(field.ValidationRuleJSON),
+				nullJSON(field.VisibilityRuleJSON),
+				field.SortOrder,
+			); err != nil {
+				return mapDBError(err)
+			}
+		}
+	}
+	return nil
+}
+
+func (r *AdminFormTemplateRepository) insertCloneAudit(
+	ctx context.Context,
+	tx pgx.Tx,
+	tenantID uuid.UUID,
+	configurationID uuid.UUID,
+	source *domain.FormTemplateDetail,
+	draftTemplateID uuid.UUID,
+	draftCode string,
+	draftVersion int,
+	sectionsCount int,
+	fieldsCount int,
+	audit domain.AuditContext,
+) error {
+	if r.auditRepo == nil {
+		return nil
+	}
+
+	newJSON, err := domain.BuildFormTemplateClonedAuditPayload(
+		source.ID,
+		draftTemplateID,
+		source.EntityType,
+		source.Code,
+		draftCode,
+		source.Version,
+		draftVersion,
+		sectionsCount,
+		fieldsCount,
+	)
+	if err != nil {
+		return apperrors.Internal("failed to build clone audit payload", err)
+	}
+
+	configID := configurationID
+	entry := domain.ConfigurationAuditEntry{
+		TenantID:        tenantID,
+		ConfigurationID: &configID,
+		EntityType:      source.EntityType,
+		EntityID:        draftTemplateID,
+		Action:          domain.AuditDBActionCreate,
+		NewValueJSON:    newJSON,
+		ChangedByUserID: audit.ChangedByUserID,
+		RequestID:       audit.RequestID,
+		IPAddress:       audit.IPAddress,
+		UserAgent:       audit.UserAgent,
+	}
+	return r.auditRepo.InsertInTx(ctx, tx, entry)
+}
+
 func nullIfEmptyString(value string) any {
 	value = strings.TrimSpace(value)
 	if value == "" {

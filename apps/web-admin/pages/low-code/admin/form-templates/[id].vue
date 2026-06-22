@@ -19,9 +19,11 @@ const {
   getAdminFormTemplate,
   updateDraftFormTemplate,
   publishDraftFormTemplate,
+  clonePublishedTemplateToDraft,
   getAdminFormTemplateErrorMessage,
   isApiUnavailableError,
 } = useLowCodeApi()
+const router = useRouter()
 const { hasTenant } = useTenantContext()
 const { pushToast } = useToast()
 const { t } = useI18n()
@@ -33,6 +35,7 @@ const loading = ref(true)
 const loadFailed = ref(false)
 const saving = ref(false)
 const publishing = ref(false)
+const cloning = ref(false)
 const publishModalOpen = ref(false)
 
 const isDraft = computed(() => template.value?.status === 'DRAFT')
@@ -111,6 +114,21 @@ async function confirmPublish() {
   }
 }
 
+async function cloneToDraft() {
+  if (!template.value || template.value.status !== 'PUBLISHED') return
+  cloning.value = true
+  try {
+    const result = await clonePublishedTemplateToDraft(templateId.value)
+    pushToast('success', t('lowCode.draftCreatedFromPublished'))
+    await router.push(`/low-code/admin/form-templates/${result.id}`)
+  } catch (error) {
+    if (error instanceof TenantRequiredError) return
+    pushToast('error', getAdminFormTemplateErrorMessage(error))
+  } finally {
+    cloning.value = false
+  }
+}
+
 onMounted(load)
 watch(templateId, load)
 </script>
@@ -157,7 +175,11 @@ watch(templateId, load)
         v-if="template.status === 'PUBLISHED'"
         class="notice notice--warn"
       >
-        <strong>{{ $t('lowCode.publishedTemplatesCannotBeEdited') }}</strong>
+        <strong>{{ $t('lowCode.publishedTemplatesCannotBeEditedDirectly') }}</strong>
+        <p class="notice__text">{{ $t('lowCode.publishedTemplatesCannotBeEdited') }}</p>
+        <UiButton class="notice__action" :loading="cloning" @click="cloneToDraft">
+          {{ $t('lowCode.cloneToDraft') }}
+        </UiButton>
       </div>
 
       <div
@@ -247,6 +269,15 @@ watch(templateId, load)
   background: #fffbeb;
   border-color: #fde68a;
   color: #92400e;
+}
+
+.notice__text {
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+}
+
+.notice__action {
+  margin-top: 0.75rem;
 }
 
 .notice--info {

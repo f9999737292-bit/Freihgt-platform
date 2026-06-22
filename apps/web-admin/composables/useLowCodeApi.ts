@@ -1,6 +1,7 @@
 import type { PaginatedResponse } from '~/types/api'
 import type {
   AdminFormTemplateDetail,
+  ClonePublishedTemplateToDraftResponse,
   CreateDraftFormTemplateResponse,
   CustomFieldValuesResponse,
   DraftFormTemplatePayload,
@@ -108,12 +109,23 @@ export function useLowCodeApi() {
     })
   }
 
+  async function clonePublishedTemplateToDraft(id: string) {
+    return apiPost<ClonePublishedTemplateToDraftResponse>(
+      `${ADMIN_FORM_TEMPLATES_PATH}/${id}/clone-to-draft`,
+      undefined,
+      { query: tenantQuery() },
+    )
+  }
+
   function getAdminFormTemplateErrorMessage(error: unknown): string {
     if (error instanceof ApiError) {
       switch (error.code) {
         case 'TENANT_REQUIRED':
           return t('tenant.required')
         case 'VALIDATION_ERROR':
+          if (error.message?.includes('cloned')) {
+            return t('lowCode.cloneTemplateFailed')
+          }
           return error.message || t('lowCode.validationError')
         case 'FORM_TEMPLATE_NOT_FOUND':
           return t('lowCode.errorFormTemplateNotFound')
@@ -325,6 +337,7 @@ export function useLowCodeApi() {
     createDraftFormTemplate,
     updateDraftFormTemplate,
     publishDraftFormTemplate,
+    clonePublishedTemplateToDraft,
     getAdminFormTemplateErrorMessage,
     resolvePublishedTemplate,
     resolveDemoEntityId,
