@@ -164,6 +164,32 @@ export interface ListAdminFormTemplatesParams {
   limit?: number
 }
 
+export interface FormTemplatePreviewField {
+  code: string
+  label: string
+  field_type: string
+  required: boolean
+  read_only: boolean
+  system_field: boolean
+  options_json?: unknown
+  sort_order: number
+}
+
+export interface FormTemplatePreviewSection {
+  code: string
+  title: string
+  sort_order: number
+  fields: FormTemplatePreviewField[]
+}
+
+export interface FormTemplatePreviewModel {
+  name?: string
+  code?: string
+  sections: FormTemplatePreviewSection[]
+}
+
+export type FormTemplatePreviewValues = Record<string, unknown>
+
 export interface CustomFieldValueItem {
   field_id: string
   field_code: string
@@ -545,4 +571,143 @@ export function validateDraftTemplateDraft(
   }
 
   return issues
+}
+
+function tryParseJsonText(text: string): unknown | undefined {
+  const trimmed = text.trim()
+  if (!trimmed) return undefined
+  try {
+    return JSON.parse(trimmed)
+  } catch {
+    return undefined
+  }
+}
+
+export function formTemplateDetailToPreview(detail: FormTemplateDetail): FormTemplatePreviewModel {
+  return {
+    name: detail.name,
+    code: detail.code,
+    sections: (detail.sections ?? []).map((section) => ({
+      code: section.code,
+      title: section.title,
+      sort_order: section.sort_order,
+      fields: (section.fields ?? []).map((field) => ({
+        code: field.code,
+        label: field.label,
+        field_type: field.field_type,
+        required: field.required,
+        read_only: field.read_only,
+        system_field: field.system_field,
+        options_json: field.options_json,
+        sort_order: field.sort_order,
+      })),
+    })),
+  }
+}
+
+export function draftToPreviewModel(draft: DraftFormTemplateDraft): FormTemplatePreviewModel {
+  return {
+    name: draft.name,
+    code: draft.code,
+    sections: draft.sections.map((section) => ({
+      code: section.code,
+      title: section.title,
+      sort_order: section.sort_order,
+      fields: section.fields.map((field) => ({
+        code: field.code,
+        label: field.label,
+        field_type: field.field_type,
+        required: field.required,
+        read_only: field.read_only,
+        system_field: field.system_field,
+        options_json: tryParseJsonText(field.options_json_text),
+        sort_order: field.sort_order,
+      })),
+    })),
+  }
+}
+
+export function customFieldValuesToPreviewMap(
+  items: Array<{ field_code: string; value_json: unknown }>,
+): FormTemplatePreviewValues {
+  const map: FormTemplatePreviewValues = {}
+  for (const item of items) {
+    map[item.field_code] = parseCustomFieldValue(item.value_json)
+  }
+  return map
+}
+
+export function previewFieldValue(
+  values: FormTemplatePreviewValues | undefined,
+  fieldCode: string,
+): unknown {
+  if (!values || !(fieldCode in values)) return undefined
+  return values[fieldCode]
+}
+
+export function previewHasValue(value: unknown): boolean {
+  return value !== undefined && value !== null && value !== ''
+}
+
+export function previewValueToInputString(fieldType: string, value: unknown): string {
+  if (!previewHasValue(value)) return ''
+  if (fieldType === 'CHECKBOX') return value ? 'true' : 'false'
+  if (fieldType === 'NUMBER') return String(value)
+  if (fieldType === 'DATETIME' && typeof value === 'string') {
+    const date = new Date(value)
+    if (!Number.isNaN(date.getTime())) {
+      const pad = (n: number) => String(n).padStart(2, '0')
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+    }
+  }
+  if (fieldType === 'DATE' && typeof value === 'string') {
+    return value.slice(0, 10)
+  }
+  if (Array.isArray(value)) return value.map(String).join(', ')
+  if (typeof value === 'object') return formatJsonValue(value)
+  return String(value)
+}
+
+export function previewCheckboxChecked(value: unknown): boolean {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'string') return value === 'true' || value === '1'
+  return Boolean(value)
+}
+
+export function previewSelectOptions(optionsJson: unknown): SelectOption[] {
+  const parsed = parseSelectOptions(optionsJson)
+  if (parsed.length) return parsed
+  const raw = parseCustomFieldValue(optionsJson)
+  if (raw && typeof raw === 'object' && 'options' in raw) {
+    const options = (raw as { options?: unknown[] }).options ?? []
+    return options.map((option) => {
+      if (typeof option === 'string' || typeof option === 'number') {
+        return { value: String(option), label: String(option) }
+      }
+      if (option && typeof option === 'object' && 'value' in option) {
+        const obj = option as { value?: unknown; label?: unknown }
+        return {
+          value: String(obj.value ?? ''),
+          label: String(obj.label ?? obj.value ?? ''),
+        }
+      }
+      return { value: String(option), label: String(option) }
+    }).filter((option) => option.value)
+  }
+  return []
+}
+
+export function previewMultiSelectValues(value: unknown): string[] {
+  const parsed = parseCustomFieldValue(value)
+  if (Array.isArray(parsed)) return parsed.map(String)
+  if (typeof parsed === 'string' && parsed.includes(',')) {
+    return parsed.split(',').map((part) => part.trim()).filter(Boolean)
+  }
+  if (previewHasValue(parsed)) return [String(parsed)]
+  return []
+}
+
+export function isPreviewComplexFieldType(fieldType: string): boolean {
+  return ['ROUTE', 'ADDRESS', 'VEHICLE', 'VAT_TAX', 'MONEY', 'FILE', 'COMPANY_REFERENCE', 'DOCUMENT_REFERENCE'].includes(fieldType)
+    || !['TEXT', 'NUMBER', 'DATE', 'DATETIME', 'SELECT', 'MULTI_SELECT', 'CHECKBOX', 'CURRENCY'].includes(fieldType)
 }

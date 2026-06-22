@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import {
+  customFieldValuesToPreviewMap,
   flattenFormFields,
+  formTemplateDetailToPreview,
   formatCustomFieldDisplayValue,
   formatJsonValue,
   formatLowCodeDate,
@@ -9,6 +11,7 @@ import {
   parseSelectOptions,
   valueToEditDraft,
   type FormField,
+  type FormTemplatePreviewModel,
   type LowCodeEntityType,
 } from '~/types/lowCode'
 import { TenantRequiredError } from '~/composables/useApi'
@@ -49,6 +52,7 @@ const templateLoading = ref(false)
 const saving = ref(false)
 const editing = ref(false)
 const formTemplateId = ref<string | null>(null)
+const previewTemplate = ref<FormTemplatePreviewModel | null>(null)
 const fieldsByCode = ref<Record<string, FormField>>({})
 const items = ref<Array<{ field_id: string; field_code: string; value_json: unknown; updated_at: string }>>([])
 const editDraft = ref<Record<string, string>>({})
@@ -88,9 +92,12 @@ function resetEditDraft() {
   editDraft.value = draft
 }
 
+const previewValues = computed(() => customFieldValuesToPreviewMap(items.value))
+
 async function loadTemplateMetadata() {
-  if (!props.editable || !canLoad.value) {
+  if (!canLoad.value) {
     formTemplateId.value = null
+    previewTemplate.value = null
     fieldsByCode.value = {}
     return
   }
@@ -100,10 +107,12 @@ async function loadTemplateMetadata() {
     const template = await resolvePublishedTemplate(props.entityType)
     if (!template) {
       formTemplateId.value = null
+      previewTemplate.value = null
       fieldsByCode.value = {}
       return
     }
     formTemplateId.value = template.id
+    previewTemplate.value = formTemplateDetailToPreview(template)
     const map: Record<string, FormField> = {}
     for (const field of flattenFormFields(template.sections ?? [])) {
       map[field.code] = field
@@ -111,6 +120,7 @@ async function loadTemplateMetadata() {
     fieldsByCode.value = map
   } catch {
     formTemplateId.value = null
+    previewTemplate.value = null
     fieldsByCode.value = {}
   } finally {
     templateLoading.value = false
@@ -202,6 +212,7 @@ watch(
 </script>
 
 <template>
+  <div class="low-code-panel-stack">
   <UiCard class="low-code-panel">
     <template #header>
       <div class="low-code-panel__header">
@@ -347,9 +358,23 @@ watch(
       </div>
     </form>
   </UiCard>
+
+  <LowCodeFormTemplatePreview
+    v-if="loaded && previewTemplate && items.length"
+    :template="previewTemplate"
+    :values="previewValues"
+    :title="$t('lowCode.currentValuesPreview')"
+  />
+  </div>
 </template>
 
 <style scoped>
+.low-code-panel-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
 .low-code-panel__header {
   display: flex;
   align-items: center;

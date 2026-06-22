@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatJsonValue, formatLowCodeDate, type FormTemplateDetail } from '~/types/lowCode'
+import { formatJsonValue, formatLowCodeDate, formTemplateDetailToPreview, type FormTemplateDetail } from '~/types/lowCode'
 
 definePageMeta({ middleware: 'auth', layout: 'default' })
 
@@ -13,6 +13,8 @@ const loading = ref(true)
 const apiUnavailable = ref(false)
 
 const templateId = computed(() => String(route.params.id))
+
+const activeView = ref<'details' | 'preview'>('details')
 
 async function loadTemplate() {
   loading.value = true
@@ -33,6 +35,8 @@ async function loadTemplate() {
 function boolLabel(value: boolean) {
   return value ? t('lowCode.yes') : t('lowCode.no')
 }
+
+const previewModel = computed(() => (template.value ? formTemplateDetailToPreview(template.value) : null))
 
 watch(templateId, loadTemplate, { immediate: true })
 </script>
@@ -96,6 +100,32 @@ watch(templateId, loadTemplate, { immediate: true })
         </div>
       </UiCard>
 
+      <div class="view-tabs">
+        <button
+          type="button"
+          class="view-tabs__btn"
+          :class="{ 'view-tabs__btn--active': activeView === 'details' }"
+          @click="activeView = 'details'"
+        >
+          {{ $t('common.details') }}
+        </button>
+        <button
+          type="button"
+          class="view-tabs__btn"
+          :class="{ 'view-tabs__btn--active': activeView === 'preview' }"
+          @click="activeView = 'preview'"
+        >
+          {{ $t('lowCode.preview') }}
+        </button>
+      </div>
+
+      <LowCodeFormTemplatePreview
+        v-if="activeView === 'preview'"
+        :template="previewModel"
+        :title="$t('lowCode.formPreview')"
+      />
+
+      <template v-if="activeView === 'details'">
       <UiCard v-for="section in template.sections" :key="section.id">
         <template #header>
           {{ section.title }}
@@ -138,6 +168,7 @@ watch(templateId, loadTemplate, { immediate: true })
           </details>
         </div>
       </UiCard>
+      </template>
     </template>
   </div>
 </template>
@@ -160,6 +191,26 @@ watch(templateId, loadTemplate, { immediate: true })
   padding: 2rem;
   text-align: center;
   color: var(--color-text-muted);
+}
+
+.view-tabs {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.view-tabs__btn {
+  padding: 0.5rem 0.875rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  font: inherit;
+  cursor: pointer;
+}
+
+.view-tabs__btn--active {
+  border-color: var(--color-primary);
+  background: #eff6ff;
+  color: var(--color-primary);
 }
 
 .details-grid {

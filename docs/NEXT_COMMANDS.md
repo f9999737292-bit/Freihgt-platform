@@ -94,6 +94,15 @@ http://localhost:3000/low-code/admin/form-templates/new
 
 See `docs/LOW_CODE_FORM_TEMPLATE_ADMIN_UI_V0.1.md`.
 
+Form template preview:
+
+```text
+http://localhost:3000/low-code/form-templates/{id}  (Preview tab)
+http://localhost:3000/low-code/custom-field-values   (values preview)
+```
+
+See `docs/LOW_CODE_FORM_TEMPLATE_PREVIEW_RENDERER_V0.1.md`.
+
 If a target fails with WSL/bash errors, override:
 
 ```powershell

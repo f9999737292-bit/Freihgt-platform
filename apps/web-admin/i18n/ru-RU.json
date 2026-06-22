@@ -678,7 +678,15 @@
     "templateCodeConflict": "Шаблон с таким кодом уже существует",
     "templateCodeInvalid": "Некорректный код шаблона",
     "publishConfirmMessage": "После публикации шаблон станет доступен через public form templates API. Продолжить?",
-    "noFieldsInSection": "В секции пока нет полей"
+    "noFieldsInSection": "В секции пока нет полей",
+    "preview": "Предпросмотр",
+    "formPreview": "Предпросмотр формы",
+    "previewOnly": "Только предпросмотр",
+    "noPreviewAvailable": "Предпросмотр недоступен",
+    "noValue": "Нет значения",
+    "unsupportedFieldType": "Неподдерживаемый тип поля",
+    "currentValuesPreview": "Предпросмотр текущих значений",
+    "filePlaceholder": "Загрузка файла (placeholder предпросмотра)"
   },
   "backendStatus": {
     "title": "Статус backend",

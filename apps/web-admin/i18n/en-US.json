@@ -678,7 +678,15 @@
     "templateCodeConflict": "Form template with this code already exists",
     "templateCodeInvalid": "Template code is invalid",
     "publishConfirmMessage": "After publishing, this template becomes available through the public form templates API. Continue?",
-    "noFieldsInSection": "No fields in this section yet"
+    "noFieldsInSection": "No fields in this section yet",
+    "preview": "Preview",
+    "formPreview": "Form preview",
+    "previewOnly": "Preview only",
+    "noPreviewAvailable": "No preview available",
+    "noValue": "No value",
+    "unsupportedFieldType": "Unsupported field type",
+    "currentValuesPreview": "Current values preview",
+    "filePlaceholder": "File upload (preview placeholder)"
   },
   "backendStatus": {
     "title": "Backend status",

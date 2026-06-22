@@ -678,7 +678,15 @@
     "templateCodeConflict": "该代码的模板已存在",
     "templateCodeInvalid": "模板代码无效",
     "publishConfirmMessage": "发布后，此模板将通过 public form templates API 可用。是否继续？",
-    "noFieldsInSection": "此分区尚无字段"
+    "noFieldsInSection": "此分区尚无字段",
+    "preview": "预览",
+    "formPreview": "表单预览",
+    "previewOnly": "仅预览",
+    "noPreviewAvailable": "无可用预览",
+    "noValue": "无值",
+    "unsupportedFieldType": "不支持的字段类型",
+    "currentValuesPreview": "当前值预览",
+    "filePlaceholder": "文件上传（预览占位）"
   },
   "backendStatus": {
     "title": "后端状态",

@@ -2,7 +2,9 @@
 import {
   adminDetailToDraft,
   draftToPayload,
+  draftToPreviewModel,
   formatLowCodeDate,
+  formTemplateDetailToPreview,
   type AdminFormTemplateDetail,
   type DraftFormTemplateDraft,
 } from '~/types/lowCode'
@@ -35,6 +37,16 @@ const publishModalOpen = ref(false)
 
 const isDraft = computed(() => template.value?.status === 'DRAFT')
 const isReadOnly = computed(() => !isDraft.value)
+
+const previewModel = computed(() => {
+  if (isDraft.value && draft.value) {
+    return draftToPreviewModel(draft.value)
+  }
+  if (template.value) {
+    return formTemplateDetailToPreview(template.value)
+  }
+  return null
+})
 
 async function load() {
   if (!hasTenant.value || !templateId.value) {
@@ -160,6 +172,11 @@ watch(templateId, load)
         v-model="draft"
         :readonly="isReadOnly"
         lock-identity
+      />
+
+      <LowCodeFormTemplatePreview
+        :template="previewModel"
+        :title="$t('lowCode.formPreview')"
       />
 
       <div v-if="isDraft" class="actions-row">
