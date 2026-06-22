@@ -99,3 +99,48 @@ export function formatJsonValue(value: unknown): string {
     return String(value)
   }
 }
+
+export function parseCustomFieldValue(value: unknown): unknown {
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value)
+    } catch {
+      return value
+    }
+  }
+  return value
+}
+
+export function formatCustomFieldDisplayValue(value: unknown): string {
+  const parsed = parseCustomFieldValue(value)
+  if (parsed === undefined || parsed === null) return '—'
+  if (typeof parsed === 'string') return parsed
+  if (typeof parsed === 'number' || typeof parsed === 'boolean') return String(parsed)
+  if (Array.isArray(parsed)) {
+    if (parsed.every((item) => typeof item === 'string' || typeof item === 'number')) {
+      return parsed.join(', ')
+    }
+    try {
+      return JSON.stringify(parsed)
+    } catch {
+      return String(parsed)
+    }
+  }
+  try {
+    return JSON.stringify(parsed)
+  } catch {
+    return String(parsed)
+  }
+}
+
+export function isCustomFieldComplexValue(value: unknown): boolean {
+  const parsed = parseCustomFieldValue(value)
+  if (parsed === null || parsed === undefined) return false
+  if (typeof parsed === 'object') {
+    if (Array.isArray(parsed)) {
+      return !parsed.every((item) => typeof item === 'string' || typeof item === 'number')
+    }
+    return true
+  }
+  return false
+}

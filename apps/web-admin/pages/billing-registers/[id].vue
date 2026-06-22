@@ -25,6 +25,11 @@ onMounted(async () => {
         <div><span class="text-muted">{{ $t('billing.totalWithVat') }}</span><div>{{ item.total_with_vat ?? '—' }}</div></div>
       </div>
     </UiCard>
+    <LowCodeLowCodeCustomFieldsPanel
+      v-if="item"
+      entity-type="BILLING_REGISTER"
+      :entity-id="item.id"
+    />
     <UiEmptyState v-else :title="$t('common.empty')" />
   </div>
 </template>

@@ -210,6 +210,11 @@ onMounted(async () => {
       />
       <ShipmentsShipmentStatusTimeline :status="shipment.status" />
 
+      <LowCodeLowCodeCustomFieldsPanel
+        entity-type="SHIPMENT"
+        :entity-id="shipment.id"
+      />
+
       <UiCard v-if="showDocumentsBlock">
         <template #header>
           <h3 class="card-title">{{ $t('documents.shipmentDocuments') }}</h3>

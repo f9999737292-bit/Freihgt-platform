@@ -600,6 +600,12 @@
     "validationRuleJson": "validation_rule_json",
     "visibilityRuleJson": "visibility_rule_json",
     "loadFailed": "Не удалось загрузить low-code данные",
+    "customFields": "Custom fields",
+    "lowCodeFields": "Low-code fields",
+    "lowCodeFieldsHint": "Read-only кастомные поля из low-code слоя.",
+    "noCustomFieldsFound": "No custom fields found",
+    "field": "Field",
+    "customFieldsLoadFailed": "Failed to load custom fields",
     "yes": "Да",
     "no": "Нет"
   },

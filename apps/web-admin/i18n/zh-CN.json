@@ -600,6 +600,12 @@
     "validationRuleJson": "validation_rule_json",
     "visibilityRuleJson": "visibility_rule_json",
     "loadFailed": "加载 low-code 数据失败",
+    "customFields": "Custom fields",
+    "lowCodeFields": "Low-code fields",
+    "lowCodeFieldsHint": "来自 low-code 层的只读自定义字段。",
+    "noCustomFieldsFound": "No custom fields found",
+    "field": "Field",
+    "customFieldsLoadFailed": "Failed to load custom fields",
     "yes": "是",
     "no": "否"
   },

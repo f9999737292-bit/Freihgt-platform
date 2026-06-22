@@ -600,6 +600,12 @@
     "validationRuleJson": "validation_rule_json",
     "visibilityRuleJson": "visibility_rule_json",
     "loadFailed": "Failed to load low-code data",
+    "customFields": "Custom fields",
+    "lowCodeFields": "Low-code fields",
+    "lowCodeFieldsHint": "Read-only custom fields stored in the low-code layer.",
+    "noCustomFieldsFound": "No custom fields found",
+    "field": "Field",
+    "customFieldsLoadFailed": "Failed to load custom fields",
     "yes": "Yes",
     "no": "No"
   },
