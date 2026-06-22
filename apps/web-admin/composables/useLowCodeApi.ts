@@ -203,6 +203,39 @@ export function useLowCodeApi() {
     return null
   }
 
+  async function resolveEntityStatus(entityType: string, entityId: string): Promise<string | null> {
+    const tenant = tenantId()
+    const id = entityId.trim()
+    if (!tenant || !id) return null
+
+    try {
+      if (entityType === 'TRANSPORT_ORDER') {
+        const data = await apiGet<{ status?: string }>(`/api/v1/transport-orders/${id}`, {
+          query: { tenant_id: tenant },
+        })
+        return data.status?.trim() || null
+      }
+
+      if (entityType === 'SHIPMENT') {
+        const data = await apiGet<{ status?: string }>(`/api/v1/shipments/${id}`, {
+          query: { tenant_id: tenant },
+        })
+        return data.status?.trim() || null
+      }
+
+      if (entityType === 'BILLING_REGISTER') {
+        const data = await apiGet<{ status?: string }>(`/api/v1/billing-registers/${id}`, {
+          query: { tenant_id: tenant },
+        })
+        return data.status?.trim() || null
+      }
+    } catch {
+      return null
+    }
+
+    return null
+  }
+
   function isApiUnavailableError(error: unknown): boolean {
     if (error instanceof ApiError) {
       return error.status === 0 || error.status >= 500 || error.code === 'SERVICE_UNAVAILABLE'
@@ -235,6 +268,7 @@ export function useLowCodeApi() {
     getAdminFormTemplateErrorMessage,
     resolvePublishedTemplate,
     resolveDemoEntityId,
+    resolveEntityStatus,
     getSaveErrorMessage,
     isApiUnavailableError,
     isLowCodeServiceError,

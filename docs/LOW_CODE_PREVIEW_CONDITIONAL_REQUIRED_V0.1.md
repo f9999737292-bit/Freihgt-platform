@@ -78,8 +78,7 @@ npm run dev
 
 ## Next action
 
-1. Optional entity status input on `/low-code/custom-field-values`
-2. Inline edit on entity detail (future write pack)
-3. Server-side conditional required evaluation (future validation pack)
+1. Inline edit on entity detail (future write pack)
+2. Server-side conditional required validation (future validation pack)
 
-See also: `docs/LOW_CODE_PREVIEW_CONTEXT_V0.1.md`, `docs/LOW_CODE_PREVIEW_VISIBILITY_RULES_V0.1.md`.
+See also: `docs/LOW_CODE_CUSTOM_FIELD_VALUES_PREVIEW_STATUS_V0.1.md`, `docs/LOW_CODE_PREVIEW_CONTEXT_V0.1.md`.

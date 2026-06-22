@@ -149,6 +149,14 @@ http://localhost:3000/low-code/custom-field-values  (change cargo_class to A)
 
 See `docs/LOW_CODE_PREVIEW_CONDITIONAL_REQUIRED_V0.1.md`.
 
+Custom field values preview status:
+
+```text
+http://localhost:3000/low-code/custom-field-values
+```
+
+See `docs/LOW_CODE_CUSTOM_FIELD_VALUES_PREVIEW_STATUS_V0.1.md`.
+
 If a target fails with WSL/bash errors, override:
 
 ```powershell

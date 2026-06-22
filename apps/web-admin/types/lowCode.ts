@@ -286,6 +286,12 @@ export const DEMO_ENTITY_REFS: Record<LowCodeEntityType, string> = {
   BILLING_REGISTER: 'DEMO-BR-001',
 }
 
+export const PREVIEW_ENTITY_STATUS_PRESETS: Record<LowCodeEntityType, string[]> = {
+  TRANSPORT_ORDER: ['DRAFT', 'READY_FOR_SOURCING', 'SOURCING_IN_PROGRESS', 'AWARDED'],
+  SHIPMENT: ['PLANNED', 'PICKUP_SLOT_BOOKED', 'IN_TRANSIT', 'DELIVERED', 'READY_FOR_BILLING'],
+  BILLING_REGISTER: ['DRAFT', 'CALCULATED', 'APPROVED', 'PAID', 'CLOSED'],
+}
+
 export function formatLowCodeDate(value?: string): string {
   if (!value) return '—'
   const date = new Date(value)

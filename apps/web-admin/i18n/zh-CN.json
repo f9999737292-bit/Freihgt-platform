@@ -695,6 +695,13 @@
     "conditionalRequired": "必填（条件）",
     "missingRequiredValue": "规则要求填写该值",
     "missingRequiredValues": "{count} 个必填字段缺少值",
+    "previewEntityStatusLabel": "预览实体状态",
+    "previewEntityStatusCustom": "或输入状态",
+    "previewEntityStatusPlaceholder": "例如 READY_FOR_SOURCING",
+    "previewEntityStatusAuto": "自动 / 无",
+    "previewEntityStatusHint": "可选状态，用于预览中的可见性与必填规则。加载 demo 实体时会自动获取。",
+    "fetchEntityStatus": "获取状态",
+    "previewEntityStatusFetchFailed": "无法获取实体状态",
     "filePlaceholder": "文件上传（预览占位）"
   },
   "backendStatus": {

@@ -695,6 +695,13 @@
     "conditionalRequired": "Required (conditional)",
     "missingRequiredValue": "Value required by rule",
     "missingRequiredValues": "{count} required field(s) missing values",
+    "previewEntityStatusLabel": "Preview entity status",
+    "previewEntityStatusCustom": "Or enter status",
+    "previewEntityStatusPlaceholder": "e.g. READY_FOR_SOURCING",
+    "previewEntityStatusAuto": "Auto / none",
+    "previewEntityStatusHint": "Optional status for preview visibility and required rules. Fetched automatically when loading demo entity.",
+    "fetchEntityStatus": "Fetch status",
+    "previewEntityStatusFetchFailed": "Could not fetch entity status",
     "filePlaceholder": "File upload (preview placeholder)"
   },
   "backendStatus": {

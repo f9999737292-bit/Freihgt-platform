@@ -695,6 +695,13 @@
     "conditionalRequired": "Обязательно (условно)",
     "missingRequiredValue": "Значение обязательно по правилу",
     "missingRequiredValues": "Не заполнено обязательных полей: {count}",
+    "previewEntityStatusLabel": "Статус для preview",
+    "previewEntityStatusCustom": "Или введите статус",
+    "previewEntityStatusPlaceholder": "например READY_FOR_SOURCING",
+    "previewEntityStatusAuto": "Авто / не задан",
+    "previewEntityStatusHint": "Необязательный статус для правил видимости и обязательности в preview. Подставляется при загрузке demo entity.",
+    "fetchEntityStatus": "Получить статус",
+    "previewEntityStatusFetchFailed": "Не удалось получить статус сущности",
     "filePlaceholder": "Загрузка файла (placeholder предпросмотра)"
   },
   "backendStatus": {
