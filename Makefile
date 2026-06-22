@@ -54,7 +54,7 @@ K6 ?= k6
 	run-transport-order-service run-shipment-service run-rfx-service \
 	run-document-service run-billing-register-service \
 	test-company-service test-identity-service test-transport-order-service test-rfx-service test-shipment-service test-document-service test-billing-register-service test-api-gateway \
-	integration-smoke-test full-flow-smoke-test seed-dev-admin \
+	integration-smoke-test full-flow-smoke-test seed-dev-admin seed-demo-data \
 	project-map tree-project find-service find-text \
 	openapi-generate openapi-generate-json openapi-validate openapi-check api-docs-open \
 	install-web-admin run-web-admin build-web-admin test-web-admin setup-node
@@ -129,6 +129,8 @@ help:
 	@echo ""
 	@echo "Integration:"
 	@echo "  make integration-smoke-test   Run end-to-end smoke test (all services must be up)"
+	@echo "  make seed-dev-admin           Create dev tenant admin (idempotent)"
+	@echo "  make seed-demo-data           Create demo UI data for dev tenant (idempotent)"
 	@echo ""
 	@echo "API Documentation:"
 	@echo "  make openapi-check       Validate OpenAPI and regenerate openapi.json"
@@ -441,6 +443,9 @@ full-flow-smoke-test:
 
 seed-dev-admin:
 	bash scripts/dev/seed_dev_admin.sh
+
+seed-demo-data:
+	bash scripts/dev/seed_demo_data.sh
 
 project-map:
 	@echo "Project documentation:"
