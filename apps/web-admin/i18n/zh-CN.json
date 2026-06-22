@@ -692,6 +692,9 @@
     "fieldsHiddenByVisibility": "按可见性规则隐藏 {count} 个字段",
     "previewEntityStatus": "实体状态",
     "previewRole": "角色",
+    "conditionalRequired": "必填（条件）",
+    "missingRequiredValue": "规则要求填写该值",
+    "missingRequiredValues": "{count} 个必填字段缺少值",
     "filePlaceholder": "文件上传（预览占位）"
   },
   "backendStatus": {

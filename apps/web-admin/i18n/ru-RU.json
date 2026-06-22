@@ -692,6 +692,9 @@
     "fieldsHiddenByVisibility": "Скрыто полей по правилам видимости: {count}",
     "previewEntityStatus": "Статус сущности",
     "previewRole": "Роль",
+    "conditionalRequired": "Обязательно (условно)",
+    "missingRequiredValue": "Значение обязательно по правилу",
+    "missingRequiredValues": "Не заполнено обязательных полей: {count}",
     "filePlaceholder": "Загрузка файла (placeholder предпросмотра)"
   },
   "backendStatus": {

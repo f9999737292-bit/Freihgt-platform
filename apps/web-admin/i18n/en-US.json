@@ -692,6 +692,9 @@
     "fieldsHiddenByVisibility": "{count} field(s) hidden by visibility rules",
     "previewEntityStatus": "Entity status",
     "previewRole": "Role",
+    "conditionalRequired": "Required (conditional)",
+    "missingRequiredValue": "Value required by rule",
+    "missingRequiredValues": "{count} required field(s) missing values",
     "filePlaceholder": "File upload (preview placeholder)"
   },
   "backendStatus": {

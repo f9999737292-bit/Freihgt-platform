@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import {
+  collectConditionallyRequiredFields,
+  countMissingRequiredPreviewFields,
   filterPreviewSectionsForVisibility,
   formatJsonValue,
   hasPreviewRuleContext,
@@ -10,6 +12,8 @@ import {
   previewMultiSelectValues,
   previewSelectOptions,
   previewValueToInputString,
+  resolvePreviewFieldRequiredState,
+  type FormTemplatePreviewField,
   type FormTemplatePreviewModel,
   type FormTemplatePreviewValues,
   type PreviewRuleContext,
@@ -46,6 +50,18 @@ const visibilityResult = computed(() =>
 const visibleSections = computed(() => visibilityResult.value.sections)
 const hiddenFieldCount = computed(() => visibilityResult.value.hiddenFieldCount)
 const showPreviewContext = computed(() => hasPreviewRuleContext(props.previewContext))
+
+const conditionalRequiredFields = computed(() =>
+  collectConditionallyRequiredFields(sortedSections.value, props.values, props.previewContext),
+)
+
+const missingRequiredCount = computed(() =>
+  countMissingRequiredPreviewFields(visibleSections.value, conditionalRequiredFields.value, props.values),
+)
+
+function fieldRequiredState(field: FormTemplatePreviewField) {
+  return resolvePreviewFieldRequiredState(field, conditionalRequiredFields.value, props.values)
+}
 
 function sortedFields(section: FormTemplatePreviewModel['sections'][number]) {
   return [...section.fields].sort((a, b) => a.sort_order - b.sort_order || a.code.localeCompare(b.code))
@@ -109,6 +125,9 @@ function moneyPreview(value: unknown): string {
           {{ $t('lowCode.previewRole') }}: <code>{{ previewContext.role }}</code>
         </span>
       </div>
+      <p v-if="missingRequiredCount" class="form-preview__hint form-preview__hint--warning">
+        {{ $t('lowCode.missingRequiredValues', { count: missingRequiredCount }) }}
+      </p>
 
       <section
         v-for="section in visibleSections"
@@ -124,14 +143,24 @@ function moneyPreview(value: unknown): string {
           v-for="field in sortedFields(section)"
           :key="field.code"
           class="form-preview__field"
+          :class="{ 'form-preview__field--missing-required': fieldRequiredState(field).isMissing }"
         >
           <div class="form-preview__field-meta">
             <label class="form-preview__label">{{ field.label || field.code }}</label>
             <div class="form-preview__badges">
               <span class="form-preview__code"><code>{{ field.code }}</code></span>
               <span class="form-preview__type">{{ field.field_type }}</span>
-              <span v-if="field.required" class="form-preview__tag form-preview__tag--required">
+              <span
+                v-if="field.required"
+                class="form-preview__tag form-preview__tag--required"
+              >
                 {{ $t('lowCode.required') }}
+              </span>
+              <span
+                v-else-if="fieldRequiredState(field).isConditional"
+                class="form-preview__tag form-preview__tag--conditional-required"
+              >
+                {{ $t('lowCode.conditionalRequired') }}
               </span>
               <span v-if="field.read_only" class="form-preview__tag">
                 {{ $t('lowCode.readOnly') }}
@@ -141,6 +170,10 @@ function moneyPreview(value: unknown): string {
               </span>
             </div>
           </div>
+
+          <p v-if="fieldRequiredState(field).isMissing" class="form-preview__missing-hint">
+            {{ $t('lowCode.missingRequiredValue') }}
+          </p>
 
           <div class="form-preview__control">
             <template v-if="field.field_type === 'CHECKBOX'">
@@ -279,6 +312,22 @@ function moneyPreview(value: unknown): string {
   font-size: 0.8125rem;
 }
 
+.form-preview__hint--warning {
+  color: #b45309;
+}
+
+.form-preview__field--missing-required .form-preview__input,
+.form-preview__field--missing-required .form-preview__json,
+.form-preview__field--missing-required .form-preview__file {
+  border-color: #fca5a5;
+}
+
+.form-preview__missing-hint {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #b91c1c;
+}
+
 .form-preview__context {
   display: flex;
   flex-wrap: wrap;
@@ -366,6 +415,12 @@ function moneyPreview(value: unknown): string {
   background: #fef2f2;
   border-color: #fecaca;
   color: #991b1b;
+}
+
+.form-preview__tag--conditional-required {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
 }
 
 .form-preview__control {

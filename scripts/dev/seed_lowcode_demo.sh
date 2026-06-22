@@ -749,6 +749,14 @@ seed_custom_field_values() {
     UPDATE lowcode.form_fields
     SET visibility_rule_json = '{\"if\":{\"context.role\":\"PLATFORM_ADMIN\"}}'::jsonb
     WHERE id = 'b3333333-3333-4333-8333-333333333306';
+
+    UPDATE lowcode.form_fields
+    SET validation_rule_json = '{\"if\":{\"field\":\"cargo_class\",\"in\":[\"A\",\"B\",\"C\"]},\"then\":{\"required\":[\"loading_window_note\"]}}'::jsonb
+    WHERE id = 'b1111111-1111-4111-8111-111111111104';
+
+    UPDATE lowcode.form_fields
+    SET validation_rule_json = '{\"if\":{\"field\":\"temperature_mode\",\"in\":[\"FROZEN\",\"CHILLED\"]},\"then\":{\"required\":[\"driver_comment\"]}}'::jsonb
+    WHERE id = 'b2222222-2222-4222-8222-222222222204';
   " >/dev/null
 
   local to_id sh_id br_id fr_id doc_id rfx_id

@@ -173,6 +173,7 @@ export interface FormTemplatePreviewField {
   system_field: boolean
   options_json?: unknown
   visibility_rule_json?: unknown
+  validation_rule_json?: unknown
   sort_order: number
 }
 
@@ -622,6 +623,7 @@ export function formTemplateDetailToPreview(detail: FormTemplateDetail): FormTem
         system_field: field.system_field,
         options_json: field.options_json,
         visibility_rule_json: field.visibility_rule_json,
+        validation_rule_json: field.validation_rule_json,
         sort_order: field.sort_order,
       })),
     })),
@@ -645,6 +647,7 @@ export function draftToPreviewModel(draft: DraftFormTemplateDraft): FormTemplate
         system_field: field.system_field,
         options_json: tryParseJsonText(field.options_json_text),
         visibility_rule_json: tryParseJsonText(field.visibility_rule_json_text),
+        validation_rule_json: tryParseJsonText(field.validation_rule_json_text),
         sort_order: field.sort_order,
       })),
     })),
@@ -852,4 +855,87 @@ export function filterPreviewSectionsForVisibility(
   }
 
   return { sections: filteredSections, hiddenFieldCount }
+}
+
+export interface PreviewFieldRequiredState {
+  isRequired: boolean
+  isConditional: boolean
+  isMissing: boolean
+}
+
+export function flattenPreviewFields(sections: FormTemplatePreviewSection[]): FormTemplatePreviewField[] {
+  const fields: FormTemplatePreviewField[] = []
+  for (const section of sections) {
+    fields.push(...section.fields)
+  }
+  return fields
+}
+
+export function isConditionalRequiredRule(rule: unknown): boolean {
+  if (!rule || typeof rule !== 'object' || Array.isArray(rule)) return false
+  const payload = rule as { if?: unknown; then?: unknown }
+  if (!payload.if || typeof payload.if !== 'object' || Array.isArray(payload.if)) return false
+  if (!Object.keys(payload.if as object).length) return false
+  if (!payload.then || typeof payload.then !== 'object' || Array.isArray(payload.then)) return false
+  const then = payload.then as { required?: unknown }
+  if (then.required === true) return true
+  return Array.isArray(then.required) && then.required.some((code) => typeof code === 'string' && code.trim())
+}
+
+function applyConditionalRequiredAction(
+  then: unknown,
+  sourceFieldCode: string,
+  target: Set<string>,
+) {
+  if (!then || typeof then !== 'object' || Array.isArray(then)) return
+  const payload = then as { required?: unknown }
+  if (payload.required === true) {
+    target.add(sourceFieldCode)
+    return
+  }
+  if (!Array.isArray(payload.required)) return
+  for (const code of payload.required) {
+    if (typeof code === 'string' && code.trim()) target.add(code.trim())
+  }
+}
+
+export function collectConditionallyRequiredFields(
+  sections: FormTemplatePreviewSection[],
+  values?: FormTemplatePreviewValues,
+  context?: PreviewRuleContext,
+): Set<string> {
+  const required = new Set<string>()
+  for (const field of flattenPreviewFields(sections)) {
+    const rule = field.validation_rule_json
+    if (!isConditionalRequiredRule(rule)) continue
+    const payload = rule as { if?: unknown; then?: unknown }
+    if (!evaluatePreviewVisibilityCondition(payload.if, values, context)) continue
+    applyConditionalRequiredAction(payload.then, field.code, required)
+  }
+  return required
+}
+
+export function resolvePreviewFieldRequiredState(
+  field: FormTemplatePreviewField,
+  conditionalRequired: Set<string>,
+  values?: FormTemplatePreviewValues,
+): PreviewFieldRequiredState {
+  const isConditional = !field.required && conditionalRequired.has(field.code)
+  const isRequired = field.required || isConditional
+  const isMissing = isRequired && !previewHasValue(previewFieldValue(values, field.code))
+  return { isRequired, isConditional, isMissing }
+}
+
+export function countMissingRequiredPreviewFields(
+  sections: FormTemplatePreviewSection[],
+  conditionalRequired: Set<string>,
+  values?: FormTemplatePreviewValues,
+): number {
+  let count = 0
+  for (const field of flattenPreviewFields(sections)) {
+    if (resolvePreviewFieldRequiredState(field, conditionalRequired, values).isMissing) {
+      count += 1
+    }
+  }
+  return count
 }

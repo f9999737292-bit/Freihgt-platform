@@ -69,8 +69,7 @@ npm run dev
 
 ## Next action
 
-1. Conditional required indicator in preview
-2. Optional entity status input on custom-field-values page
-3. Inline edit on entity detail (future write pack)
+1. Optional entity status input on custom-field-values page
+2. Inline edit on entity detail (future write pack)
 
-See also: `docs/LOW_CODE_PREVIEW_VISIBILITY_RULES_V0.1.md`.
+See also: `docs/LOW_CODE_PREVIEW_CONDITIONAL_REQUIRED_V0.1.md`, `docs/LOW_CODE_PREVIEW_VISIBILITY_RULES_V0.1.md`.
