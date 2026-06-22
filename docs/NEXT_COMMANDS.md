@@ -195,6 +195,15 @@ http://localhost:3000/low-code/admin/form-templates
 
 See `docs/LOW_CODE_CLONE_PUBLISHED_TEMPLATE_TO_DRAFT_V0.1.md`.
 
+Form builder UX (palette, presets, validation, live preview):
+
+```text
+http://localhost:3000/low-code/admin/form-templates/new
+http://localhost:3000/low-code/admin/form-templates/{id}
+```
+
+See `docs/LOW_CODE_FORM_BUILDER_UX_V0.1.md`.
+
 If a target fails with WSL/bash errors, override:
 
 ```powershell

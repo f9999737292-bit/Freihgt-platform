@@ -573,6 +573,159 @@ export function createEmptyDraftTemplate(): DraftFormTemplateDraft {
   }
 }
 
+export const FORM_BUILDER_PALETTE_TYPES = [
+  'TEXT',
+  'NUMBER',
+  'DATE',
+  'DATETIME',
+  'SELECT',
+  'MULTI_SELECT',
+  'CHECKBOX',
+  'MONEY',
+  'CURRENCY',
+  'FILE',
+  'COMPANY_REFERENCE',
+  'DOCUMENT_REFERENCE',
+  'ADDRESS',
+  'VEHICLE',
+] as const
+
+export type FormBuilderPresetId =
+  | 'text'
+  | 'select'
+  | 'money'
+  | 'date'
+  | 'checkbox'
+  | 'multi_select'
+  | 'phone_comment'
+
+const DEFAULT_SELECT_OPTIONS = JSON.stringify(
+  {
+    options: [
+      { value: 'OPTION_A', label: 'Option A' },
+      { value: 'OPTION_B', label: 'Option B' },
+    ],
+  },
+  null,
+  2,
+)
+
+export function nextFieldSortOrder(fields: DraftFormFieldDraft[]): number {
+  if (!fields.length) return 100
+  return Math.max(...fields.map((field) => field.sort_order)) + 10
+}
+
+export function createPaletteField(fieldType: string, sortOrder?: number): DraftFormFieldDraft {
+  const base = createEmptyDraftField()
+  const slug = fieldType.toLowerCase()
+  return {
+    ...base,
+    field_type: fieldType,
+    code: `new_${slug}_field`,
+    label: `New ${fieldType.replace(/_/g, ' ').toLowerCase()} field`,
+    sort_order: sortOrder ?? 100,
+    options_json_text:
+      fieldType === 'SELECT' || fieldType === 'MULTI_SELECT' ? DEFAULT_SELECT_OPTIONS : '',
+  }
+}
+
+export function createPresetField(presetId: FormBuilderPresetId, sortOrder?: number): DraftFormFieldDraft {
+  const order = sortOrder ?? 100
+  switch (presetId) {
+    case 'text':
+      return { ...createEmptyDraftField(), code: 'text_field', label: 'Text field', field_type: 'TEXT', sort_order: order }
+    case 'select':
+      return {
+        ...createEmptyDraftField(),
+        code: 'select_field',
+        label: 'Select field',
+        field_type: 'SELECT',
+        sort_order: order,
+        options_json_text: DEFAULT_SELECT_OPTIONS,
+      }
+    case 'money':
+      return { ...createEmptyDraftField(), code: 'amount', label: 'Amount', field_type: 'MONEY', sort_order: order }
+    case 'date':
+      return { ...createEmptyDraftField(), code: 'event_date', label: 'Date', field_type: 'DATE', sort_order: order }
+    case 'checkbox':
+      return { ...createEmptyDraftField(), code: 'confirmed', label: 'Confirmed', field_type: 'CHECKBOX', sort_order: order }
+    case 'multi_select':
+      return {
+        ...createEmptyDraftField(),
+        code: 'tags',
+        label: 'Tags',
+        field_type: 'MULTI_SELECT',
+        sort_order: order,
+        options_json_text: DEFAULT_SELECT_OPTIONS,
+      }
+    case 'phone_comment':
+      return {
+        ...createEmptyDraftField(),
+        code: 'comment',
+        label: 'Comment / phone note',
+        field_type: 'TEXT',
+        sort_order: order,
+        validation_rule_json_text: JSON.stringify({ maxLength: 500 }, null, 2),
+      }
+    default:
+      return createPaletteField('TEXT', order)
+  }
+}
+
+export function reindexFieldSortOrders(fields: DraftFormFieldDraft[]): DraftFormFieldDraft[] {
+  return fields.map((field, index) => ({ ...field, sort_order: 100 + index * 10 }))
+}
+
+export function duplicateDraftField(field: DraftFormFieldDraft, sortOrder: number): DraftFormFieldDraft {
+  const suffix = '_copy'
+  let code = `${field.code}${suffix}`
+  if (code.length > 64) code = `${field.code.slice(0, 58)}${suffix}`
+  return {
+    ...field,
+    _key: crypto.randomUUID(),
+    code,
+    label: `${field.label} (copy)`,
+    sort_order: sortOrder,
+  }
+}
+
+export function formatJsonDraftText(text: string): { ok: true; value: string } | { ok: false; error: string } {
+  const trimmed = text.trim()
+  if (!trimmed) return { ok: true, value: '' }
+  try {
+    return { ok: true, value: JSON.stringify(JSON.parse(trimmed), null, 2) }
+  } catch {
+    return { ok: false, error: 'INVALID_JSON' }
+  }
+}
+
+export function validateJsonDraftText(text: string): { ok: true } | { ok: false; error: string } {
+  const trimmed = text.trim()
+  if (!trimmed) return { ok: true }
+  try {
+    JSON.parse(trimmed)
+    return { ok: true }
+  } catch {
+    return { ok: false, error: 'INVALID_JSON' }
+  }
+}
+
+export function validateSelectOptionsJson(text: string): { ok: true } | { ok: false; error: string } {
+  const result = validateJsonDraftText(text)
+  if (!result.ok) return result
+  const trimmed = text.trim()
+  if (!trimmed) return { ok: false, error: 'OPTIONS_REQUIRED' }
+  try {
+    const parsed = JSON.parse(trimmed) as { options?: unknown }
+    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.options) || !parsed.options.length) {
+      return { ok: false, error: 'OPTIONS_ARRAY_REQUIRED' }
+    }
+  } catch {
+    return { ok: false, error: 'INVALID_JSON' }
+  }
+  return { ok: true }
+}
+
 export function parseOptionalJsonText(text: string): unknown | undefined {
   const trimmed = text.trim()
   if (!trimmed) return undefined
@@ -654,8 +807,11 @@ export function validateDraftTemplateDraft(
     fieldLabelRequired: string
     fieldTypeRequired: string
     sectionsRequired: string
-    fieldsRequired: string
+    fieldsRequired?: string
     invalidJson: string
+    duplicateSectionCode: string
+    duplicateFieldCode: string
+    invalidOptionsJson: string
   },
 ): DraftEditorValidationIssue[] {
   const issues: DraftEditorValidationIssue[] = []
@@ -673,55 +829,59 @@ export function validateDraftTemplateDraft(
     issues.push({ path: 'sections', message: messages.sectionsRequired })
   }
 
-  let totalFields = 0
+  const sectionCodeSeen = new Map<string, number>()
+  const fieldCodeSeen = new Map<string, string>()
+
   draft.sections.forEach((section, sectionIndex) => {
+    const sectionCode = section.code.trim().toLowerCase()
     if (!section.code.trim()) {
       issues.push({ path: `sections.${sectionIndex}.code`, message: messages.sectionCodeRequired })
+    } else if (sectionCodeSeen.has(sectionCode)) {
+      issues.push({ path: `sections.${sectionIndex}.code`, message: messages.duplicateSectionCode })
+    } else {
+      sectionCodeSeen.set(sectionCode, sectionIndex)
     }
     if (!section.title.trim()) {
       issues.push({ path: `sections.${sectionIndex}.title`, message: messages.sectionTitleRequired })
     }
     section.fields.forEach((field, fieldIndex) => {
-      totalFields += 1
+      const fieldPath = `sections.${sectionIndex}.fields.${fieldIndex}`
+      const fieldCode = field.code.trim().toLowerCase()
       if (!field.code.trim()) {
-        issues.push({
-          path: `sections.${sectionIndex}.fields.${fieldIndex}.code`,
-          message: messages.fieldCodeRequired,
-        })
+        issues.push({ path: `${fieldPath}.code`, message: messages.fieldCodeRequired })
+      } else if (fieldCodeSeen.has(fieldCode)) {
+        issues.push({ path: `${fieldPath}.code`, message: messages.duplicateFieldCode })
+      } else {
+        fieldCodeSeen.set(fieldCode, fieldPath)
       }
       if (!field.label.trim()) {
-        issues.push({
-          path: `sections.${sectionIndex}.fields.${fieldIndex}.label`,
-          message: messages.fieldLabelRequired,
-        })
+        issues.push({ path: `${fieldPath}.label`, message: messages.fieldLabelRequired })
       }
       if (!field.field_type.trim()) {
-        issues.push({
-          path: `sections.${sectionIndex}.fields.${fieldIndex}.field_type`,
-          message: messages.fieldTypeRequired,
-        })
+        issues.push({ path: `${fieldPath}.field_type`, message: messages.fieldTypeRequired })
       }
       for (const [key, text] of [
-        ['options_json', field.options_json_text],
         ['validation_rule_json', field.validation_rule_json_text],
         ['visibility_rule_json', field.visibility_rule_json_text],
       ] as const) {
         if (!text.trim()) continue
-        try {
-          JSON.parse(text)
-        } catch {
-          issues.push({
-            path: `sections.${sectionIndex}.fields.${fieldIndex}.${key}`,
-            message: messages.invalidJson,
-          })
+        if (!validateJsonDraftText(text).ok) {
+          issues.push({ path: `${fieldPath}.${key}`, message: messages.invalidJson })
         }
+      }
+      if (field.options_json_text.trim()) {
+        if (!validateJsonDraftText(field.options_json_text).ok) {
+          issues.push({ path: `${fieldPath}.options_json`, message: messages.invalidJson })
+        } else if (field.field_type === 'SELECT' || field.field_type === 'MULTI_SELECT') {
+          if (!validateSelectOptionsJson(field.options_json_text).ok) {
+            issues.push({ path: `${fieldPath}.options_json`, message: messages.invalidOptionsJson })
+          }
+        }
+      } else if (field.field_type === 'SELECT' || field.field_type === 'MULTI_SELECT') {
+        issues.push({ path: `${fieldPath}.options_json`, message: messages.invalidOptionsJson })
       }
     })
   })
-
-  if (draft.sections.length && totalFields === 0) {
-    issues.push({ path: 'fields', message: messages.fieldsRequired })
-  }
 
   return issues
 }

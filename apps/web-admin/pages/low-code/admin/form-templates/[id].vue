@@ -37,6 +37,7 @@ const saving = ref(false)
 const publishing = ref(false)
 const cloning = ref(false)
 const publishModalOpen = ref(false)
+const builderTab = ref<'editor' | 'preview'>('editor')
 
 const isDraft = computed(() => template.value?.status === 'DRAFT')
 const isReadOnly = computed(() => !isDraft.value)
@@ -134,7 +135,7 @@ watch(templateId, load)
 </script>
 
 <template>
-  <div class="page-stack">
+  <div class="page-stack form-template-builder-page">
     <nav class="breadcrumbs" aria-label="Breadcrumb">
       <NuxtLink to="/low-code">{{ $t('lowCode.title') }}</NuxtLink>
       <span class="breadcrumbs__sep">/</span>
@@ -146,7 +147,7 @@ watch(templateId, load)
     <UiPageHeader :title="template?.name || $t('lowCode.templateDetails')">
       <template #actions>
         <UiButton variant="secondary" @click="$router.push('/low-code/admin/form-templates')">
-          {{ $t('common.back') }}
+          {{ $t('lowCode.backToTemplates') }}
         </UiButton>
       </template>
     </UiPageHeader>
@@ -189,22 +190,64 @@ watch(templateId, load)
         <strong>{{ $t('lowCode.archivedTemplatesReadOnly') }}</strong>
       </div>
 
-      <LowCodeFormTemplateEditor
-        ref="editorRef"
-        v-model="draft"
-        :readonly="isReadOnly"
-        lock-identity
-      />
+      <div class="form-builder">
+        <div class="form-builder__tabs" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            class="form-builder__tab"
+            :class="{ 'form-builder__tab--active': builderTab === 'editor' }"
+            :aria-selected="builderTab === 'editor'"
+            @click="builderTab = 'editor'"
+          >
+            {{ $t('lowCode.editor') }}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            class="form-builder__tab"
+            :class="{ 'form-builder__tab--active': builderTab === 'preview' }"
+            :aria-selected="builderTab === 'preview'"
+            @click="builderTab = 'preview'"
+          >
+            {{ $t('lowCode.preview') }}
+          </button>
+        </div>
 
-      <LowCodeFormTemplatePreview
-        :template="previewModel"
-        :title="$t('lowCode.formPreview')"
-      />
+        <div class="form-builder__layout">
+          <div
+            class="form-builder__editor"
+            :class="{ 'form-builder__panel--hidden': builderTab !== 'editor' }"
+            role="tabpanel"
+          >
+            <LowCodeFormTemplateEditor
+              ref="editorRef"
+              v-model="draft"
+              :readonly="isReadOnly"
+              lock-identity
+            />
+          </div>
 
-      <div v-if="isDraft" class="actions-row">
+          <aside
+            class="form-builder__preview"
+            :class="{ 'form-builder__panel--hidden': builderTab !== 'preview' }"
+            role="tabpanel"
+          >
+            <LowCodeFormTemplatePreview
+              :template="previewModel"
+              :title="$t('lowCode.formPreview')"
+            />
+          </aside>
+        </div>
+      </div>
+
+      <div v-if="isDraft" class="form-builder__sticky-actions">
         <UiButton :loading="saving" @click="saveDraft">{{ $t('lowCode.saveDraft') }}</UiButton>
         <UiButton variant="secondary" :loading="publishing" @click="publishModalOpen = true">
           {{ $t('lowCode.publish') }}
+        </UiButton>
+        <UiButton variant="secondary" @click="$router.push('/low-code/admin/form-templates')">
+          {{ $t('lowCode.backToTemplates') }}
         </UiButton>
       </div>
     </template>
@@ -286,9 +329,75 @@ watch(templateId, load)
   color: #1e3a8a;
 }
 
-.actions-row {
+.form-builder__tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.form-builder__tab {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  padding: 0.375rem 0.875rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.form-builder__tab--active {
+  border-color: var(--color-primary, #2563eb);
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.form-builder__layout {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.form-builder__preview {
+  min-width: 0;
+}
+
+.form-builder__sticky-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+  padding: 0.875rem 0;
+  margin-top: 0.5rem;
+  background: linear-gradient(to top, var(--color-bg, #fff) 70%, transparent);
+}
+
+@media (min-width: 1100px) {
+  .form-builder__tabs {
+    display: none;
+  }
+
+  .form-builder__layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
+    gap: 1.5rem;
+    align-items: start;
+  }
+
+  .form-builder__panel--hidden {
+    display: block !important;
+  }
+
+  .form-builder__preview {
+    position: sticky;
+    top: 1rem;
+  }
+}
+
+@media (max-width: 1099px) {
+  .form-builder__panel--hidden {
+    display: none;
+  }
 }
 </style>
