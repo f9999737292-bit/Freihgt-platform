@@ -33,6 +33,7 @@ On Windows, Makefile uses Git Bash for `.sh` scripts (not WSL `bash` from PATH).
 ```powershell
 make seed-dev-admin
 make seed-demo-data
+make seed-lowcode-demo
 ```
 
 If a target fails with WSL/bash errors, override:

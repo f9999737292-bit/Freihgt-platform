@@ -14,6 +14,8 @@ import (
 	httpserver "github.com/freight-platform/low-code-service/internal/http"
 	"github.com/freight-platform/low-code-service/internal/platform/database"
 	"github.com/freight-platform/low-code-service/internal/platform/logger"
+	"github.com/freight-platform/low-code-service/internal/repository"
+	"github.com/freight-platform/low-code-service/internal/service"
 	"github.com/freight-platform/shared-go/metrics"
 )
 
@@ -46,7 +48,9 @@ func main() {
 	metrics.RegisterPgxPoolMetrics(cfg.ServiceName, db.Pool)
 
 	readiness := database.NewReadinessChecker(db.Pool)
-	router := httpserver.NewRouter(log, readiness)
+	formTemplateRepo := repository.NewFormTemplateRepository(db.Pool)
+	formTemplateSvc := service.NewFormTemplateService(formTemplateRepo)
+	router := httpserver.NewRouter(log, readiness, formTemplateSvc)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),
