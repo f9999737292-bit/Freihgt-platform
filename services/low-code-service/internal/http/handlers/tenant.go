@@ -3,12 +3,14 @@ package handlers
 import (
 	"net/http"
 	"strings"
+
+	sharedlowcode "github.com/freight-platform/shared-go/lowcode"
 )
 
-const tenantHeader = "X-Tenant-ID"
+const tenantHeader = sharedlowcode.HeaderTenantID
 
 func tenantIDFromRequest(r *http.Request) string {
-	if tenantID := strings.TrimSpace(r.Header.Get(tenantHeader)); tenantID != "" {
+	if tenantID := sharedlowcode.TenantIDFromHeader(r.Header); tenantID != "" {
 		return tenantID
 	}
 	return strings.TrimSpace(r.URL.Query().Get("tenant_id"))

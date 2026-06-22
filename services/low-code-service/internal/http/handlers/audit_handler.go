@@ -33,6 +33,7 @@ type auditEventResponse struct {
 	EntityID      string                     `json:"entity_id"`
 	Action        string                     `json:"action"`
 	Actor         string                     `json:"actor,omitempty"`
+	RequestID     string                     `json:"request_id,omitempty"`
 	ChangedFields []string                   `json:"changed_fields"`
 	OldValues     map[string]json.RawMessage `json:"old_values"`
 	NewValues     map[string]json.RawMessage `json:"new_values"`
@@ -108,6 +109,7 @@ func toAuditEventResponse(item domain.ConfigurationAuditEntry) auditEventRespons
 		EntityID:      item.EntityID.String(),
 		Action:        domain.ParseAuditEventAction(item.Action, item.NewValueJSON),
 		Actor:         actor,
+		RequestID:     item.RequestID,
 		ChangedFields: changedFields,
 		OldValues:     domain.ParseAuditValuesMap(item.OldValueJSON),
 		NewValues:     domain.ParseAuditValuesMap(item.NewValueJSON),

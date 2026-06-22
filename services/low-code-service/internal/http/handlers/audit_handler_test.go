@@ -117,6 +117,43 @@ func TestAuditListFiltersByTenantAndEntity(t *testing.T) {
 	}
 }
 
+func TestAuditListIncludesRequestID(t *testing.T) {
+	entityID := uuid.MustParse("2db04b49-665c-469f-bcb1-ffeb1274fedb")
+	tenantID := uuid.MustParse("74519f22-ff9b-4a8b-8fff-a958c689682f")
+	store := &stubAuditStore{
+		items: []domain.ConfigurationAuditEntry{
+			{
+				ID:         uuid.New(),
+				TenantID:   tenantID,
+				EntityType: "TRANSPORT_ORDER",
+				EntityID:   entityID,
+				Action:     domain.AuditDBActionUpdate,
+				RequestID:  "req-header-check",
+				ChangedAt:  time.Now().UTC(),
+			},
+		},
+	}
+	handler := NewAuditHandler(service.NewAuditService(store))
+	req := httptest.NewRequest(http.MethodGet, "/v1/low-code/audit-events?entity_id="+entityID.String(), nil)
+	req.Header.Set(tenantHeader, tenantID.String())
+	rec := httptest.NewRecorder()
+	handler.List(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var response listAuditEventsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(response.Items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(response.Items))
+	}
+	if response.Items[0].RequestID != "req-header-check" {
+		t.Fatalf("expected request_id in response, got %q", response.Items[0].RequestID)
+	}
+}
+
 func TestCustomFieldValuePutPassesAuditContext(t *testing.T) {
 	store := &stubCustomFieldValueStore{}
 	templateID := uuid.New()

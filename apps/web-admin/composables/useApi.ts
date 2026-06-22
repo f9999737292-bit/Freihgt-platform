@@ -1,4 +1,9 @@
 import type { ApiErrorBody } from '~/types/api'
+import {
+  API_HEADER_AUTHORIZATION,
+  API_HEADER_REQUEST_ID,
+  API_HEADER_TENANT_ID,
+} from '~/constants/apiHeaders'
 
 export class ApiError extends Error {
   code: string
@@ -104,16 +109,16 @@ function buildHeaders(options: RequestOptions = {}) {
   const headers: Record<string, string> = {
     Accept: 'application/json',
     'Content-Type': 'application/json',
-    'X-Request-ID': crypto.randomUUID(),
+    [API_HEADER_REQUEST_ID]: crypto.randomUUID(),
     'X-Locale': locale.value,
     ...options.headers,
   }
 
   if (!options.skipAuth && authStore.token) {
-    headers.Authorization = `Bearer ${authStore.token}`
+    headers[API_HEADER_AUTHORIZATION] = `Bearer ${authStore.token}`
   }
   if (!options.skipTenant && tenantStore.tenantId) {
-    headers['X-Tenant-ID'] = tenantStore.tenantId
+    headers[API_HEADER_TENANT_ID] = tenantStore.tenantId
   }
   if (tenantStore.currentCompanyId) {
     headers['X-Company-ID'] = tenantStore.currentCompanyId

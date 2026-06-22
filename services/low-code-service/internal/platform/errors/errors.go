@@ -1,6 +1,10 @@
 package errors
 
-import "fmt"
+import (
+	"fmt"
+
+	sharedlowcode "github.com/freight-platform/shared-go/lowcode"
+)
 
 type Code string
 
@@ -57,7 +61,7 @@ func TenantRequired() *AppError {
 	return &AppError{
 		Code:    CodeTenantRequired,
 		Message: "tenant id is required",
-		Details: map[string]any{"header": "X-Tenant-ID"},
+		Details: map[string]any{"header": sharedlowcode.HeaderTenantID},
 	}
 }
 
