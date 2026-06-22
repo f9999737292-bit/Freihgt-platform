@@ -50,6 +50,7 @@ type FormTemplateDetail struct {
 	EntityType  string
 	Code        string
 	Name        string
+	Description string
 	Status      string
 	Version     int
 	PublishedAt *time.Time

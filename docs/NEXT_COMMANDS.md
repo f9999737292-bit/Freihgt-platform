@@ -76,6 +76,15 @@ curl -H "X-Tenant-ID: 74519f22-ff9b-4a8b-8fff-a958c689682f" "http://localhost:80
 
 See `docs/LOW_CODE_AUDIT_LOG_V0.1.md`.
 
+Low-code form template draft API:
+
+```powershell
+make create-lowcode-draft-template
+curl.exe -H "X-Tenant-ID: 74519f22-ff9b-4a8b-8fff-a958c689682f" "http://localhost:8080/api/v1/low-code/admin/form-templates?status=DRAFT"
+```
+
+See `docs/LOW_CODE_FORM_TEMPLATE_DRAFT_API_V0.1.md`.
+
 If a target fails with WSL/bash errors, override:
 
 ```powershell

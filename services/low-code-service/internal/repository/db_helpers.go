@@ -18,8 +18,11 @@ func mapDBError(err error) error {
 	}
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
-		if pgErr.Code == "23514" {
+		switch pgErr.Code {
+		case "23514":
 			return apperrors.Validation("constraint violation", map[string]any{"detail": pgErr.Message})
+		case "23505":
+			return apperrors.FormTemplateConflict(map[string]any{"detail": pgErr.Message})
 		}
 	}
 	return apperrors.Internal("database error", err)

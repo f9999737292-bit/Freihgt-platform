@@ -22,6 +22,7 @@ func NewRouter(
 	formTemplateSvc *service.FormTemplateService,
 	customFieldValueSvc *service.CustomFieldValueService,
 	auditSvc *service.AuditService,
+	adminFormTemplateSvc *service.AdminFormTemplateService,
 ) http.Handler {
 	metricsCollector := metrics.New(serviceName)
 
@@ -45,6 +46,15 @@ func NewRouter(
 		r.Get("/custom-field-values", customFieldValueHandler.Get)
 		r.Put("/custom-field-values", customFieldValueHandler.Put)
 		r.Get("/audit-events", auditHandler.List)
+
+		adminFormTemplateHandler := handlers.NewAdminFormTemplateHandler(adminFormTemplateSvc)
+		r.Route("/admin/form-templates", func(r chi.Router) {
+			r.Post("/", adminFormTemplateHandler.Create)
+			r.Get("/", adminFormTemplateHandler.List)
+			r.Get("/{id}", adminFormTemplateHandler.GetByID)
+			r.Put("/{id}", adminFormTemplateHandler.Update)
+			r.Post("/{id}/publish", adminFormTemplateHandler.Publish)
+		})
 	})
 
 	return r

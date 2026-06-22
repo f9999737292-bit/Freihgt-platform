@@ -39,8 +39,10 @@ func Error(w http.ResponseWriter, err error) {
 		apperrors.CodeEntityTypeInvalid, apperrors.CodeEntityIDInvalid,
 		apperrors.CodeFieldInvalidType, apperrors.CodeValidationRuleFailed,
 		apperrors.CodeSystemFieldProtected, apperrors.CodeTenantMismatch,
-		apperrors.CodeFormTemplateNotPublished:
+		apperrors.CodeFormTemplateNotPublished, apperrors.CodeFormTemplateNotDraft:
 		status = http.StatusBadRequest
+	case apperrors.CodeFormTemplateConflict:
+		status = http.StatusConflict
 	case apperrors.CodeNotFound, apperrors.CodeFormTemplateNotFound, apperrors.CodeFieldNotFound:
 		status = http.StatusNotFound
 	}

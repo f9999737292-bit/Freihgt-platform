@@ -13,6 +13,8 @@ const (
 	CodeEntityTypeInvalid       Code = "ENTITY_TYPE_INVALID"
 	CodeEntityIDInvalid         Code = "ENTITY_ID_INVALID"
 	CodeFormTemplateNotPublished Code = "FORM_TEMPLATE_NOT_PUBLISHED"
+	CodeFormTemplateNotDraft     Code = "FORM_TEMPLATE_NOT_DRAFT"
+	CodeFormTemplateConflict     Code = "FORM_TEMPLATE_CONFLICT"
 	CodeFieldNotFound           Code = "FIELD_NOT_FOUND"
 	CodeFieldInvalidType        Code = "FIELD_INVALID_TYPE"
 	CodeValidationRuleFailed    Code = "VALIDATION_RULE_FAILED"
@@ -71,6 +73,22 @@ func FormTemplateNotPublished() *AppError {
 		Code:    CodeFormTemplateNotPublished,
 		Message: "form template is not published",
 		Details: map[string]any{},
+	}
+}
+
+func FormTemplateNotDraft(status string) *AppError {
+	return &AppError{
+		Code:    CodeFormTemplateNotDraft,
+		Message: "only draft form templates can be modified",
+		Details: map[string]any{"status": status},
+	}
+}
+
+func FormTemplateConflict(details map[string]any) *AppError {
+	return &AppError{
+		Code:    CodeFormTemplateConflict,
+		Message: "form template already exists",
+		Details: detailsOrEmpty(details),
 	}
 }
 

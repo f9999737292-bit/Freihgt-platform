@@ -9,7 +9,12 @@ import (
 
 const (
 	AuditEventKindCustomFieldValuesUpdated = "CUSTOM_FIELD_VALUES_UPDATED"
+	AuditEventKindFormTemplateDraftCreated = "FORM_TEMPLATE_DRAFT_CREATED"
+	AuditEventKindFormTemplateDraftUpdated = "FORM_TEMPLATE_DRAFT_UPDATED"
+	AuditEventKindFormTemplateDraftPublished = "FORM_TEMPLATE_DRAFT_PUBLISHED"
+	AuditDBActionCreate                    = "CREATE"
 	AuditDBActionUpdate                    = "UPDATE"
+	AuditDBActionPublish                   = "PUBLISH"
 )
 
 type AuditContext struct {
@@ -118,6 +123,27 @@ func ParseAuditChangedFields(newValueJSON json.RawMessage) []string {
 		return nil
 	}
 	return payload.ChangedFields
+}
+
+func BuildFormTemplateDraftAuditPayload(
+	eventKind string,
+	templateID uuid.UUID,
+	entityType string,
+	code string,
+	sectionCodes []string,
+	fieldCodes []string,
+) (json.RawMessage, error) {
+	payload := map[string]any{
+		"event_kind":       eventKind,
+		"template_id":      templateID.String(),
+		"entity_type":      entityType,
+		"code":             code,
+		"section_codes":    sectionCodes,
+		"field_codes":      fieldCodes,
+		"sections_count":   len(sectionCodes),
+		"fields_count":     len(fieldCodes),
+	}
+	return json.Marshal(payload)
 }
 
 func ParseAuditValuesMap(raw json.RawMessage) map[string]json.RawMessage {

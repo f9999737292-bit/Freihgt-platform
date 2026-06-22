@@ -1,0 +1,29 @@
+{
+  "entity_type": "TRANSPORT_ORDER",
+  "code": "transport_order_custom_v1",
+  "name": "Transport Order Custom Form",
+  "description": "Custom draft form",
+  "sections": [
+    {
+      "code": "cargo",
+      "title": "Cargo",
+      "sort_order": 100,
+      "fields": [
+        {
+          "code": "cargo_class",
+          "label": "Cargo class",
+          "field_type": "SELECT",
+          "required": false,
+          "read_only": false,
+          "system_field": false,
+          "options_json": {
+            "options": ["GENERAL", "DANGEROUS", "TEMPERATURE"]
+          },
+          "validation_rule_json": {},
+          "visibility_rule_json": {},
+          "sort_order": 100
+        }
+      ]
+    }
+  ]
+}
