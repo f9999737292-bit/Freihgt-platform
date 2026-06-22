@@ -2,165 +2,124 @@
 
 ## Summary
 
-Runtime verification confirms **backend, seed data, and gateway API work correctly** under dev tenant `74519f22-ff9b-4a8b-8fff-a958c689682f`. Low-code form templates (3) and custom field values for all demo entities are returned as expected.
+* **Backend/API low-code flow works** under dev tenant `74519f22-ff9b-4a8b-8fff-a958c689682f`.
+* **Playwright visual test skipped/failed** due to local Chromium install lock and missing browser binary — **not an app issue**.
+* **Manual browser verification required** to confirm UI rendering (Custom fields panel, Read-only badge, lookup page).
 
-The user report **«по запросу 74519f22-ff9b-4a8b-8fff-a958c689682f ничего не найдено»** is consistent with **misuse of Tenant ID in a lookup/search context**, not with missing backend data.
+No application code, API contracts, migrations, or business logic were changed in this pack.
 
-**Most likely root cause:** Tenant UUID was entered in the **Entity ID** field on `/low-code/custom-field-values`, or the browser session used a **different / empty tenant** in `localStorage` instead of the dev tenant set at login.
+## Root Cause
 
-No application code changes were required.
+* **Tenant ID was likely entered into Entity ID / search field** on `/low-code/custom-field-values` (or confused with a search input). API accepts the UUID format but returns **0 custom field values** when tenant UUID is used as `entity_id`.
+* **Or browser session used another tenant** — stale or wrong value in `localStorage` key `freight_admin_tenant_id`. Wrong `X-Tenant-ID` returns **0 form templates**.
+* **Correct flow:** login with Tenant ID `74519f22-ff9b-4a8b-8fff-a958c689682f`, confirm tenant in header, then open low-code / entity detail pages. On lookup page use **Use demo entity** or a valid **entity UUID** (not tenant UUID).
 
-## Environment
+## Verified by API
 
-| Item | Value |
-| ---- | ----- |
-| Project | `D:\Projects\freight-platform` |
-| Base commit | `3daec09` (entity detail panel) |
-| API Gateway | `http://localhost:8080` |
-| Low-code service (direct) | `http://localhost:8088` |
-| Web-admin dev server | `http://127.0.0.1:3000` (HTTP 200 at verification time) |
-| Verification date | 2026-06-22 |
+All checks run via PowerShell against gateway `http://localhost:8080` (2026-06-22).
 
-## Tenant Used
+| Check | Result |
+| ----- | ------ |
+| `make health-check` | **OK** — all services including `low-code-service` |
+| `make seed-dev-admin` | **OK** |
+| `make seed-demo-data` | **OK** |
+| `make seed-lowcode-demo` | **OK** |
+| Low-code form templates API | **OK** — 3 published templates |
+| Low-code custom field values API | **OK** — all demo entities return expected fields |
+| Login API | **OK** — `user.tenant_id` matches dev tenant |
 
-```
-74519f22-ff9b-4a8b-8fff-a958c689682f
-```
-
-Login: `admin@7rights.local` / `Admin123456!`
-
-## Backend Checks
-
-| Command | Result |
-| ------- | ------ |
-| `make health-check` | **OK** — all 9 services including `low-code-service` |
-| `make seed-dev-admin` | **OK** — tenant + admin login verified via gateway |
-| `make seed-demo-data` | **OK** — DEMO-TO-001, DEMO-SH-PLANNED, DEMO-BR-001 present |
-| `make seed-lowcode-demo` | **OK** — 3 published templates + demo custom field values |
-
-## API Checks
-
-### Form templates (gateway)
+### Form templates
 
 ```http
 GET /api/v1/low-code/form-templates
 X-Tenant-ID: 74519f22-ff9b-4a8b-8fff-a958c689682f
 ```
 
-**Result:** **3 templates** — `TRANSPORT_ORDER`, `SHIPMENT`, `BILLING_REGISTER`.
+**Result:** 3 templates — `TRANSPORT_ORDER`, `SHIPMENT`, `BILLING_REGISTER`.
 
-### Custom field values (gateway)
+### Custom field values
 
-| entity_type | entity_id | Expected fields | Actual fields | Match |
-| ----------- | --------- | --------------- | ------------- | ----- |
-| TRANSPORT_ORDER | `2db04b49-665c-469f-bcb1-ffeb1274fedb` | cargo_class, internal_cost_center, loading_window_note | cargo_class, internal_cost_center, loading_window_note | **yes** |
-| SHIPMENT | `14d405e2-0152-4030-b356-eec464a3cc66` | temperature_mode, driver_comment, loading_contact_phone | driver_comment, loading_contact_phone, temperature_mode | **yes** |
-| BILLING_REGISTER | `cf7dbc77-395f-42a2-9717-476e4cd93796` | payment_priority, approval_group, cost_allocation_code | approval_group, cost_allocation_code, payment_priority | **yes** |
+| entity_type | entity_id | fields returned |
+| ----------- | --------- | ----------------- |
+| TRANSPORT_ORDER | `2db04b49-665c-469f-bcb1-ffeb1274fedb` | cargo_class, internal_cost_center, loading_window_note |
+| SHIPMENT | `14d405e2-0152-4030-b356-eec464a3cc66` | temperature_mode, driver_comment, loading_contact_phone |
+| BILLING_REGISTER | `cf7dbc77-395f-42a2-9717-476e4cd93796` | payment_priority, approval_group, cost_allocation_code |
 
-### Negative tests (reproduces empty UI)
+### Negative reproduction (empty UI)
 
-| Scenario | API result | UI symptom |
-| -------- | ---------- | ---------- |
-| Wrong `X-Tenant-ID` (`00000000-0000-4000-8000-000000000001`) | **0 form templates** | «No templates found» on `/low-code/form-templates` |
-| Tenant UUID used as `entity_id` | **0 custom field values** | «No custom fields found» on lookup page or entity panel |
-| Direct low-code-service `/v1/low-code/form-templates` with dev tenant | **3 templates** | Gateway routing OK |
+| Scenario | API result |
+| -------- | ---------- |
+| Wrong `X-Tenant-ID` | 0 form templates |
+| Tenant UUID as `entity_id` | 0 custom field values |
 
-### Login API
+## Manual Visual Check URLs
 
-```http
-POST /api/v1/auth/login
-{ "tenant_id": "74519f22-ff9b-4a8b-8fff-a958c689682f", "email": "admin@7rights.local", "password": "Admin123456!" }
-```
+**Login:** http://localhost:3000/login
 
-**Result:** **OK** — `user.tenant_id` = `74519f22-ff9b-4a8b-8fff-a958c689682f`.
+| Field | Value |
+| ----- | ----- |
+| Tenant | `74519f22-ff9b-4a8b-8fff-a958c689682f` |
+| Email | `admin@7rights.local` |
+| Password | `Admin123456!` |
 
-## UI Login Check
+After login, confirm header shows current tenant `74519f22-...`.
 
-Frontend tenant flow (code review, no changes):
+### Transport Order
 
-1. **Login page** — Tenant ID field → `useAuth().login()` → `tenantStore.setTenant()` → saved to `localStorage` key `freight_admin_tenant_id`.
-2. **All API calls** — `useApi()` adds header `X-Tenant-ID: {tenantStore.tenantId}` and low-code composable adds query `tenant_id`.
-3. **Header** — shows truncated current tenant (`74519f22-...`) with **Change tenant** modal.
-4. **No `.env`** with `NUXT_PUBLIC_DEFAULT_TENANT_ID` in repo — tenant must be entered at login unless already in `localStorage`.
+http://localhost:3000/transport-orders/2db04b49-665c-469f-bcb1-ffeb1274fedb
 
-**Important:** Low-code pages do **not** have a tenant search box. `/low-code/form-templates` only filters by **entity_type** (select). `/low-code/custom-field-values` has **Entity ID** (entity UUID), **not** Tenant ID.
+Expected Custom fields panel:
 
-## Pages Checked
+* cargo_class
+* internal_cost_center
+* loading_window_note
 
-| Page | URL | Expected under correct tenant |
-| ---- | --- | ----------------------------- |
-| Low-code hub | `/low-code` | Service status + links |
-| Form templates | `/low-code/form-templates` | 3 rows |
-| Custom field lookup | `/low-code/custom-field-values` | Values after **Use demo entity** or correct entity UUID |
-| Transport order detail | `/transport-orders/2db04b49-665c-469f-bcb1-ffeb1274fedb` | Custom fields panel, 3 fields |
-| Shipment detail | `/shipments/14d405e2-0152-4030-b356-eec464a3cc66` | Custom fields panel, 3 fields |
-| Billing register detail | `/billing-registers/cf7dbc77-395f-42a2-9717-476e4cd93796` | Custom fields panel, 3 fields |
+### Shipment
 
-Automated browser run (Playwright) was **not completed** in this session (browser binary install lock/timeout). API verification uses the **same endpoints and tenant header** as the UI.
+http://localhost:3000/shipments/14d405e2-0152-4030-b356-eec464a3cc66
 
-## Expected Low-code Fields
+Expected Custom fields panel:
 
-See API Checks table above.
+* temperature_mode
+* driver_comment
+* loading_contact_phone
 
-## Actual Result
+### Billing Register
 
-| Check | Result |
-| ----- | ------ |
-| Backend + seed | **Pass** |
-| Gateway API with dev tenant | **Pass** — data present |
-| Login API | **Pass** |
-| Wrong tenant / wrong entity_id reproduction | **Pass** — explains empty UI |
-| Browser UI (automated) | **Not run** — manual check recommended |
-| Browser UI (expected with correct login) | **Should pass** — API data + component wiring confirmed |
+http://localhost:3000/billing-registers/cf7dbc77-395f-42a2-9717-476e4cd93796
 
-## Browser Console / Network Errors
+Expected Custom fields panel:
 
-Not captured (no successful headless browser session). When debugging manually, check DevTools **Network**:
+* payment_priority
+* approval_group
+* cost_allocation_code
 
-- Request must include `X-Tenant-ID: 74519f22-ff9b-4a8b-8fff-a958c689682f`
-- `GET /api/v1/low-code/form-templates` → 200, `items.length === 3`
-- `GET /api/v1/low-code/custom-field-values?entity_type=...&entity_id=...` → 200, non-empty `items` for demo UUIDs
+### Low-code lookup
 
-Typical errors if empty:
+http://localhost:3000/low-code/custom-field-values
 
-- **200 + empty items** — wrong tenant header or wrong entity_id (not a bug)
-- **401/403** — auth/session issue; re-login
-- **502/503** — backend/low-code-service down
+Expected:
 
-## Root Cause If Empty
+* **Use demo entity** resolves entity UUID and loads values
+* Table shows field_code / value / updated_at
+* Read-only badge visible
 
-1. **Tenant UUID pasted into Entity ID field** on `/low-code/custom-field-values`  
-   API accepts the UUID format but returns **0 values** (verified). UI shows «No custom fields found».
+### Additional low-code pages
 
-2. **Session uses wrong tenant** — stale `freight_admin_tenant_id` in `localStorage`, or login without correct Tenant ID field.  
-   Form templates list returns **0 items** for other tenants.
+* http://localhost:3000/low-code — hub / service status
+* http://localhost:3000/low-code/form-templates — 3 template rows
 
-3. **Tenant ID confused with search** — user may have expected a global search; low-code list has only **entity_type** filter, not tenant search.
+## Playwright Note
 
-4. **Not a backend/seed issue** — all seeds and API calls pass for dev tenant.
+* Playwright automated browser test **failed** due to Chromium install lock and missing browser binary in the local environment.
+* **Do not treat as app failure** — backend/API verification passed; UI uses the same endpoints and `X-Tenant-ID` header.
+* Playwright setup can be fixed later in a separate tooling pack if automated UI regression is needed.
 
-## Recommended Fix
+## Recommended Next Action
 
-**No code change required for v0.1.** User workflow:
-
-1. Log out → open `/login`
-2. Enter **Tenant ID** = `74519f22-ff9b-4a8b-8fff-a958c689682f` (first field, not Entity ID)
-3. Login `admin@7rights.local` / `Admin123456!`
-4. Confirm header shows `74519f22-...`
-5. Open entity detail URLs directly (UUIDs above) — Custom fields panel should populate
-6. On lookup page: use **Use demo entity** or paste **entity UUID**, not tenant UUID
-
-Optional future UX improvements (separate pack):
-
-- Warn if `entity_id === tenantId`
-- Clearer label: «Entity UUID (not Tenant ID)»
-- Prefill `NUXT_PUBLIC_DEFAULT_TENANT_ID` in local `.env`
-
-## Next Action
-
-1. Manual browser smoke with steps above (5 min)
-2. If still empty with correct header tenant → capture Network tab for one failing request
-3. Consider docs-only update to `apps/web-admin/README.md` with tenant vs entity_id note (optional)
+1. **Manual visual check** in browser using URLs above (~5 min).
+2. If still empty with correct header tenant → DevTools Network: confirm `X-Tenant-ID` and response payloads.
+3. Then proceed to **Low-code Custom Field Values Edit UI Pack v0.1**.
 
 ## Verification Commands
 
@@ -171,17 +130,26 @@ make seed-dev-admin
 make seed-demo-data
 make seed-lowcode-demo
 
-# Form templates
 curl.exe -s -H "X-Tenant-ID: 74519f22-ff9b-4a8b-8fff-a958c689682f" http://localhost:8080/api/v1/low-code/form-templates
 
-# Custom field values (transport order)
 curl.exe -s -H "X-Tenant-ID: 74519f22-ff9b-4a8b-8fff-a958c689682f" "http://localhost:8080/api/v1/low-code/custom-field-values?entity_type=TRANSPORT_ORDER&entity_id=2db04b49-665c-469f-bcb1-ffeb1274fedb"
 
 cd apps/web-admin
 npm run dev
 ```
 
-Manual URLs after login:
+## Environment
 
-- http://localhost:3000/low-code/form-templates
-- http://localhost:3000/transport-orders/2db04b49-665c-469f-bcb1-ffeb1274fedb
+| Item | Value |
+| ---- | ----- |
+| Project | `D:\Projects\freight-platform` |
+| Base commit (panel) | `3daec09` |
+| API Gateway | `http://localhost:8080` |
+| Low-code service | `http://localhost:8088` |
+| Web-admin | `http://localhost:3000` |
+
+## Frontend tenant flow (reference)
+
+* Tenant set at **login** → `localStorage` key `freight_admin_tenant_id`
+* API calls send `X-Tenant-ID` via `useApi()` / `useLowCodeApi()`
+* Low-code pages have **no tenant search** — only `entity_type` filter and `entity_id` lookup
