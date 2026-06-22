@@ -20,6 +20,7 @@ func NewRouter(
 	log *slog.Logger,
 	readiness *database.ReadinessChecker,
 	formTemplateSvc *service.FormTemplateService,
+	customFieldValueSvc *service.CustomFieldValueService,
 ) http.Handler {
 	metricsCollector := metrics.New(serviceName)
 
@@ -35,9 +36,12 @@ func NewRouter(
 	r.Handle("/metrics", metricsCollector.Handler())
 
 	formTemplateHandler := handlers.NewFormTemplateHandler(formTemplateSvc)
+	customFieldValueHandler := handlers.NewCustomFieldValueHandler(customFieldValueSvc)
 	r.Route("/v1/low-code", func(r chi.Router) {
 		r.Get("/form-templates", formTemplateHandler.List)
 		r.Get("/form-templates/{id}", formTemplateHandler.GetByID)
+		r.Get("/custom-field-values", customFieldValueHandler.Get)
+		r.Put("/custom-field-values", customFieldValueHandler.Put)
 	})
 
 	return r

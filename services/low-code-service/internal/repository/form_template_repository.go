@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/freight-platform/low-code-service/internal/domain"
+	apperrors "github.com/freight-platform/low-code-service/internal/platform/errors"
 )
 
 type FormTemplateRepository struct {
@@ -289,4 +290,79 @@ func normalizeJSON(raw []byte) json.RawMessage {
 		return nil
 	}
 	return json.RawMessage(raw)
+}
+
+func (r *FormTemplateRepository) GetPublishedTemplateContext(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	templateID uuid.UUID,
+) (*domain.PublishedTemplateContext, error) {
+	var result *domain.PublishedTemplateContext
+	err := measureDB("form_template_repository", "get_published_template_context", func() error {
+		const query = `
+			SELECT id, tenant_id, entity_type, status
+			FROM lowcode.form_templates
+			WHERE id = $1 AND tenant_id = $2
+		`
+		var tmpl domain.PublishedTemplateContext
+		if err := r.pool.QueryRow(ctx, query, templateID, tenantID).Scan(
+			&tmpl.ID, &tmpl.TenantID, &tmpl.EntityType, &tmpl.Status,
+		); err != nil {
+			return mapDBError(err)
+		}
+		if tmpl.TenantID != tenantID {
+			return apperrors.TenantMismatch()
+		}
+		if tmpl.Status != domain.PublishedStatus {
+			return apperrors.FormTemplateNotPublished()
+		}
+
+		fields, err := r.loadFieldDefinitions(ctx, tenantID, templateID)
+		if err != nil {
+			return err
+		}
+		tmpl.Fields = fields
+		result = &tmpl
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (r *FormTemplateRepository) loadFieldDefinitions(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	templateID uuid.UUID,
+) (map[string]domain.FieldDefinition, error) {
+	const query = `
+		SELECT id, code, field_type, required, system_field, options_json, validation_rule_json
+		FROM lowcode.form_fields
+		WHERE tenant_id = $1 AND form_template_id = $2
+	`
+	rows, err := r.pool.Query(ctx, query, tenantID, templateID)
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	defer rows.Close()
+
+	fields := make(map[string]domain.FieldDefinition)
+	for rows.Next() {
+		var field domain.FieldDefinition
+		var optionsJSON, validationJSON []byte
+		if err := rows.Scan(
+			&field.ID, &field.Code, &field.FieldType, &field.Required, &field.SystemField,
+			&optionsJSON, &validationJSON,
+		); err != nil {
+			return nil, mapDBError(err)
+		}
+		field.OptionsJSON = normalizeJSON(optionsJSON)
+		field.ValidationRuleJSON = normalizeJSON(validationJSON)
+		fields[field.Code] = field
+	}
+	if err := rows.Err(); err != nil {
+		return nil, mapDBError(err)
+	}
+	return fields, nil
 }

@@ -115,7 +115,7 @@ INSERT INTO lowcode.form_fields (
   false,
   false,
   false,
-  '{"options":[{"value":"A","label":"Class A"},{"value":"B","label":"Class B"},{"value":"C","label":"Class C"}]}'::jsonb,
+  '{"options":[{"value":"GENERAL","label":"General"},{"value":"A","label":"Class A"},{"value":"B","label":"Class B"},{"value":"C","label":"Class C"}]}'::jsonb,
   100
 ),
 (
@@ -347,7 +347,7 @@ INSERT INTO lowcode.form_fields (
   false,
   false,
   false,
-  '{"options":[{"value":"FINANCE","label":"Finance"},{"value":"OPS","label":"Operations"},{"value":"MANAGEMENT","label":"Management"}]}'::jsonb,
+  '{"options":[{"value":"LOGISTICS_FINANCE","label":"Logistics Finance"},{"value":"FINANCE","label":"Finance"},{"value":"OPS","label":"Operations"},{"value":"MANAGEMENT","label":"Management"}]}'::jsonb,
   110
 ),
 (
@@ -383,6 +383,107 @@ print_summary() {
   "
 }
 
+lookup_entity_id() {
+  local sql="$1"
+  psql_exec -t -A -c "$sql" | tr -d '[:space:]'
+}
+
+custom_value_exists() {
+  local entity_type="$1"
+  local entity_id="$2"
+  local field_code="$3"
+  local count
+  count="$(psql_exec -t -A -c "
+    SELECT COUNT(*)
+    FROM lowcode.custom_field_values
+    WHERE tenant_id = '${TENANT_ID}'
+      AND entity_type = '${entity_type}'
+      AND entity_id = '${entity_id}'
+      AND field_code = '${field_code}';
+  " | tr -d '[:space:]')"
+  [[ "${count:-0}" != "0" ]]
+}
+
+upsert_custom_value() {
+  local entity_type="$1"
+  local entity_id="$2"
+  local form_template_id="$3"
+  local field_id="$4"
+  local field_code="$5"
+  local value_json="$6"
+
+  psql_exec -c "
+    INSERT INTO lowcode.custom_field_values (
+      tenant_id, entity_type, entity_id, form_template_id, field_id, field_code, value_json
+    ) VALUES (
+      '${TENANT_ID}',
+      '${entity_type}',
+      '${entity_id}',
+      '${form_template_id}',
+      '${field_id}',
+      '${field_code}',
+      ${value_json}
+    )
+    ON CONFLICT (tenant_id, entity_type, entity_id, field_id)
+    DO UPDATE SET
+      form_template_id = EXCLUDED.form_template_id,
+      field_code = EXCLUDED.field_code,
+      value_json = EXCLUDED.value_json,
+      updated_at = now();
+  " >/dev/null
+}
+
+seed_custom_field_values() {
+  step "Seed demo custom field values (dev-only psql)"
+
+  psql_exec -c "
+    UPDATE lowcode.form_fields
+    SET options_json = '{\"options\":[{\"value\":\"GENERAL\",\"label\":\"General\"},{\"value\":\"A\",\"label\":\"Class A\"},{\"value\":\"B\",\"label\":\"Class B\"},{\"value\":\"C\",\"label\":\"Class C\"}]}'::jsonb
+    WHERE id = 'b1111111-1111-4111-8111-111111111104';
+
+    UPDATE lowcode.form_fields
+    SET options_json = '{\"options\":[{\"value\":\"LOGISTICS_FINANCE\",\"label\":\"Logistics Finance\"},{\"value\":\"FINANCE\",\"label\":\"Finance\"},{\"value\":\"OPS\",\"label\":\"Operations\"},{\"value\":\"MANAGEMENT\",\"label\":\"Management\"}]}'::jsonb
+    WHERE id = 'b3333333-3333-4333-8333-333333333305';
+  " >/dev/null
+
+  local to_id sh_id br_id
+  to_id="$(lookup_entity_id "SELECT id FROM transport.transport_orders WHERE tenant_id = '${TENANT_ID}' AND order_number = 'DEMO-TO-001' LIMIT 1;")"
+  sh_id="$(lookup_entity_id "SELECT id FROM transport.shipments WHERE tenant_id = '${TENANT_ID}' AND shipment_number = 'DEMO-SH-PLANNED' LIMIT 1;")"
+  br_id="$(lookup_entity_id "SELECT id FROM billing.billing_registers WHERE tenant_id = '${TENANT_ID}' AND register_number = 'DEMO-BR-001' LIMIT 1;")"
+
+  if [[ -z "$to_id" || -z "$sh_id" || -z "$br_id" ]]; then
+    echo "WARN: demo entities not found — run make seed-demo-data first" >&2
+    return 0
+  fi
+
+  if custom_value_exists "TRANSPORT_ORDER" "$to_id" "cargo_class"; then
+    skip "custom field values exist for TRANSPORT_ORDER DEMO-TO-001"
+  else
+    upsert_custom_value "TRANSPORT_ORDER" "$to_id" "b1111111-1111-4111-8111-111111111102" "b1111111-1111-4111-8111-111111111104" "cargo_class" "to_jsonb('GENERAL'::text)"
+    upsert_custom_value "TRANSPORT_ORDER" "$to_id" "b1111111-1111-4111-8111-111111111102" "b1111111-1111-4111-8111-111111111105" "internal_cost_center" "to_jsonb('CC-1001'::text)"
+    upsert_custom_value "TRANSPORT_ORDER" "$to_id" "b1111111-1111-4111-8111-111111111102" "b1111111-1111-4111-8111-111111111106" "loading_window_note" "to_jsonb('Окно погрузки 09:00–12:00'::text)"
+    pass "custom field values seeded for TRANSPORT_ORDER DEMO-TO-001"
+  fi
+
+  if custom_value_exists "SHIPMENT" "$sh_id" "temperature_mode"; then
+    skip "custom field values exist for SHIPMENT DEMO-SH-PLANNED"
+  else
+    upsert_custom_value "SHIPMENT" "$sh_id" "b2222222-2222-4222-8222-222222222202" "b2222222-2222-4222-8222-222222222204" "temperature_mode" "to_jsonb('AMBIENT'::text)"
+    upsert_custom_value "SHIPMENT" "$sh_id" "b2222222-2222-4222-8222-222222222202" "b2222222-2222-4222-8222-222222222205" "loading_contact_phone" "to_jsonb('+7 900 000-00-01'::text)"
+    upsert_custom_value "SHIPMENT" "$sh_id" "b2222222-2222-4222-8222-222222222202" "b2222222-2222-4222-8222-222222222206" "driver_comment" "to_jsonb('Позвонить за 1 час до прибытия'::text)"
+    pass "custom field values seeded for SHIPMENT DEMO-SH-PLANNED"
+  fi
+
+  if custom_value_exists "BILLING_REGISTER" "$br_id" "cost_allocation_code"; then
+    skip "custom field values exist for BILLING_REGISTER DEMO-BR-001"
+  else
+    upsert_custom_value "BILLING_REGISTER" "$br_id" "b3333333-3333-4333-8333-333333333302" "b3333333-3333-4333-8333-333333333304" "cost_allocation_code" "to_jsonb('FIN-LOG-001'::text)"
+    upsert_custom_value "BILLING_REGISTER" "$br_id" "b3333333-3333-4333-8333-333333333302" "b3333333-3333-4333-8333-333333333305" "approval_group" "to_jsonb('LOGISTICS_FINANCE'::text)"
+    upsert_custom_value "BILLING_REGISTER" "$br_id" "b3333333-3333-4333-8333-333333333302" "b3333333-3333-4333-8333-333333333306" "payment_priority" "to_jsonb('NORMAL'::text)"
+    pass "custom field values seeded for BILLING_REGISTER DEMO-BR-001"
+  fi
+}
+
 main() {
   echo ""
   echo "Freight Platform — seed low-code demo templates"
@@ -394,6 +495,7 @@ main() {
   seed_transport_order_template
   seed_shipment_template
   seed_billing_register_template
+  seed_custom_field_values
   step "Published form templates"
   print_summary
   pass "Low-code demo seed completed"

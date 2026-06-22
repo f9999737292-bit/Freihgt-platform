@@ -5,11 +5,19 @@ import "fmt"
 type Code string
 
 const (
-	CodeValidation           Code = "VALIDATION_ERROR"
-	CodeNotFound             Code = "NOT_FOUND"
-	CodeInternal             Code = "INTERNAL_ERROR"
-	CodeTenantRequired       Code = "TENANT_REQUIRED"
-	CodeFormTemplateNotFound Code = "FORM_TEMPLATE_NOT_FOUND"
+	CodeValidation              Code = "VALIDATION_ERROR"
+	CodeNotFound                Code = "NOT_FOUND"
+	CodeInternal                Code = "INTERNAL_ERROR"
+	CodeTenantRequired          Code = "TENANT_REQUIRED"
+	CodeFormTemplateNotFound    Code = "FORM_TEMPLATE_NOT_FOUND"
+	CodeEntityTypeInvalid       Code = "ENTITY_TYPE_INVALID"
+	CodeEntityIDInvalid         Code = "ENTITY_ID_INVALID"
+	CodeFormTemplateNotPublished Code = "FORM_TEMPLATE_NOT_PUBLISHED"
+	CodeFieldNotFound           Code = "FIELD_NOT_FOUND"
+	CodeFieldInvalidType        Code = "FIELD_INVALID_TYPE"
+	CodeValidationRuleFailed    Code = "VALIDATION_RULE_FAILED"
+	CodeSystemFieldProtected    Code = "SYSTEM_FIELD_PROTECTED"
+	CodeTenantMismatch          Code = "TENANT_MISMATCH"
 )
 
 type AppError struct {
@@ -53,7 +61,76 @@ func TenantRequired() *AppError {
 func FormTemplateNotFound() *AppError {
 	return &AppError{
 		Code:    CodeFormTemplateNotFound,
-		Message: "published form template not found",
+		Message: "form template not found",
+		Details: map[string]any{},
+	}
+}
+
+func FormTemplateNotPublished() *AppError {
+	return &AppError{
+		Code:    CodeFormTemplateNotPublished,
+		Message: "form template is not published",
+		Details: map[string]any{},
+	}
+}
+
+func EntityTypeInvalid(entityType string) *AppError {
+	return &AppError{
+		Code:    CodeEntityTypeInvalid,
+		Message: "invalid entity_type",
+		Details: map[string]any{"entity_type": entityType},
+	}
+}
+
+func EntityIDInvalid(details map[string]any) *AppError {
+	return &AppError{
+		Code:    CodeEntityIDInvalid,
+		Message: "invalid entity_id",
+		Details: detailsOrEmpty(details),
+	}
+}
+
+func FieldNotFound(fieldCode string) *AppError {
+	return &AppError{
+		Code:    CodeFieldNotFound,
+		Message: "field not found in form template",
+		Details: map[string]any{"field_code": fieldCode},
+	}
+}
+
+func FieldInvalidType(fieldCode, fieldType string, details map[string]any) *AppError {
+	d := detailsOrEmpty(details)
+	d["field_code"] = fieldCode
+	d["field_type"] = fieldType
+	return &AppError{
+		Code:    CodeFieldInvalidType,
+		Message: "value does not match field type",
+		Details: d,
+	}
+}
+
+func ValidationRuleFailed(fieldCode string, details map[string]any) *AppError {
+	d := detailsOrEmpty(details)
+	d["field_code"] = fieldCode
+	return &AppError{
+		Code:    CodeValidationRuleFailed,
+		Message: "validation rule failed",
+		Details: d,
+	}
+}
+
+func SystemFieldProtected(fieldCode string) *AppError {
+	return &AppError{
+		Code:    CodeSystemFieldProtected,
+		Message: "system field cannot be modified",
+		Details: map[string]any{"field_code": fieldCode},
+	}
+}
+
+func TenantMismatch() *AppError {
+	return &AppError{
+		Code:    CodeTenantMismatch,
+		Message: "tenant mismatch",
 		Details: map[string]any{},
 	}
 }

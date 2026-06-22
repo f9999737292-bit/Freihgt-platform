@@ -36,6 +36,14 @@ make seed-demo-data
 make seed-lowcode-demo
 ```
 
+Custom field values API (after seed-demo-data + seed-lowcode-demo):
+
+```powershell
+curl -H "X-Tenant-ID: 74519f22-ff9b-4a8b-8fff-a958c689682f" "http://localhost:8088/v1/low-code/custom-field-values?entity_type=TRANSPORT_ORDER&entity_id=<ENTITY_ID>"
+```
+
+See `docs/LOW_CODE_CUSTOM_FIELD_VALUES_API_V0.1.md`.
+
 If a target fails with WSL/bash errors, override:
 
 ```powershell

@@ -35,12 +35,14 @@ func Error(w http.ResponseWriter, err error) {
 
 	status := http.StatusInternalServerError
 	switch appErr.Code {
-	case apperrors.CodeValidation:
+	case apperrors.CodeValidation, apperrors.CodeTenantRequired,
+		apperrors.CodeEntityTypeInvalid, apperrors.CodeEntityIDInvalid,
+		apperrors.CodeFieldInvalidType, apperrors.CodeValidationRuleFailed,
+		apperrors.CodeSystemFieldProtected, apperrors.CodeTenantMismatch,
+		apperrors.CodeFormTemplateNotPublished:
 		status = http.StatusBadRequest
-	case apperrors.CodeNotFound, apperrors.CodeFormTemplateNotFound:
+	case apperrors.CodeNotFound, apperrors.CodeFormTemplateNotFound, apperrors.CodeFieldNotFound:
 		status = http.StatusNotFound
-	case apperrors.CodeTenantRequired:
-		status = http.StatusBadRequest
 	}
 
 	JSON(w, status, errorBody{
