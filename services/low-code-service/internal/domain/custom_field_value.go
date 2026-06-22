@@ -38,12 +38,13 @@ type CustomFieldValueInput struct {
 }
 
 type UpsertCustomFieldValuesInput struct {
-	TenantID       uuid.UUID
-	EntityType     string
-	EntityID       uuid.UUID
-	FormTemplateID uuid.UUID
-	Values         []CustomFieldValueInput
-	Audit          AuditContext
+	TenantID           uuid.UUID
+	EntityType         string
+	EntityID           uuid.UUID
+	FormTemplateID     uuid.UUID
+	Values             []CustomFieldValueInput
+	ValidationContext  ValidationContext
+	Audit              AuditContext
 }
 
 type UpsertCustomFieldValuesResult struct {

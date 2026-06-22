@@ -722,6 +722,58 @@ seed_custom_field_values() {
   step "Seed demo custom field values (dev-only psql)"
 
   psql_exec -c "
+    INSERT INTO lowcode.form_fields (
+      id, tenant_id, form_template_id, section_id, code, label, field_type,
+      required, read_only, system_field, options_json, sort_order
+    ) VALUES
+    (
+      'b2222222-2222-4222-8222-222222222207',
+      '${TENANT_ID}',
+      'b2222222-2222-4222-8222-222222222202',
+      'b2222222-2222-4222-8222-222222222203',
+      'planned_pickup_date',
+      'Planned pickup date',
+      'DATE',
+      false,
+      false,
+      false,
+      NULL,
+      130
+    ),
+    (
+      'b2222222-2222-4222-8222-222222222208',
+      '${TENANT_ID}',
+      'b2222222-2222-4222-8222-222222222202',
+      'b2222222-2222-4222-8222-222222222203',
+      'declared_value',
+      'Declared value',
+      'MONEY',
+      false,
+      false,
+      false,
+      NULL,
+      140
+    ),
+    (
+      'b2222222-2222-4222-8222-222222222209',
+      '${TENANT_ID}',
+      'b2222222-2222-4222-8222-222222222202',
+      'b2222222-2222-4222-8222-222222222203',
+      'handling_flags',
+      'Handling flags',
+      'MULTI_SELECT',
+      false,
+      false,
+      false,
+      '{\"options\":[{\"value\":\"FRAGILE\",\"label\":\"Fragile\"},{\"value\":\"OVERSIZED\",\"label\":\"Oversized\"},{\"value\":\"HAZMAT\",\"label\":\"Hazmat\"}]}'::jsonb,
+      150
+    )
+    ON CONFLICT (id) DO UPDATE SET
+      label = EXCLUDED.label,
+      field_type = EXCLUDED.field_type,
+      options_json = EXCLUDED.options_json,
+      sort_order = EXCLUDED.sort_order;
+
     UPDATE lowcode.form_fields
     SET options_json = '{\"options\":[{\"value\":\"GENERAL\",\"label\":\"General\"},{\"value\":\"A\",\"label\":\"Class A\"},{\"value\":\"B\",\"label\":\"Class B\"},{\"value\":\"C\",\"label\":\"Class C\"}]}'::jsonb
     WHERE id = 'b1111111-1111-4111-8111-111111111104';
@@ -787,6 +839,17 @@ seed_custom_field_values() {
     upsert_custom_value "SHIPMENT" "$sh_id" "b2222222-2222-4222-8222-222222222202" "b2222222-2222-4222-8222-222222222205" "loading_contact_phone" "to_jsonb('+7 900 000-00-01'::text)"
     upsert_custom_value "SHIPMENT" "$sh_id" "b2222222-2222-4222-8222-222222222202" "b2222222-2222-4222-8222-222222222206" "driver_comment" "to_jsonb('Позвонить за 1 час до прибытия'::text)"
     pass "custom field values seeded for SHIPMENT DEMO-SH-PLANNED"
+  fi
+
+  if [[ -n "$sh_id" ]]; then
+    if ! custom_value_exists "SHIPMENT" "$sh_id" "planned_pickup_date"; then
+      upsert_custom_value "SHIPMENT" "$sh_id" "b2222222-2222-4222-8222-222222222202" "b2222222-2222-4222-8222-222222222207" "planned_pickup_date" "to_jsonb('2026-08-15'::text)"
+      upsert_custom_value "SHIPMENT" "$sh_id" "b2222222-2222-4222-8222-222222222202" "b2222222-2222-4222-8222-222222222208" "declared_value" "(jsonb_build_object('amount', 125000, 'currency', 'RUB'))"
+      upsert_custom_value "SHIPMENT" "$sh_id" "b2222222-2222-4222-8222-222222222202" "b2222222-2222-4222-8222-222222222209" "handling_flags" "(jsonb_build_array('FRAGILE'))"
+      pass "rich field demo values seeded for SHIPMENT DEMO-SH-PLANNED"
+    else
+      skip "rich field demo values exist for SHIPMENT DEMO-SH-PLANNED"
+    fi
   fi
 
   if custom_value_exists "BILLING_REGISTER" "$br_id" "cost_allocation_code"; then

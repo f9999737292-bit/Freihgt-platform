@@ -74,6 +74,9 @@ func validateSimpleRules(field FieldDefinition, raw json.RawMessage) error {
 	if err := json.Unmarshal(field.ValidationRuleJSON, &rules); err != nil {
 		return nil
 	}
+	if _, hasIf := rules["if"]; hasIf {
+		return nil
+	}
 
 	if field.FieldType == "TEXT" {
 		var value string

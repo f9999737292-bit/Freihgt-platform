@@ -2,6 +2,8 @@
 
 import {
 
+  DEMO_EMPTY_ENTITY_REFS,
+
   DEMO_ENTITY_REFS,
 
   LOW_CODE_ENTITY_TYPES,
@@ -24,7 +26,7 @@ definePageMeta({ middleware: 'auth', layout: 'default' })
 
 
 
-const { resolveDemoEntityId, resolveEntityStatus, listAuditEvents } = useLowCodeApi()
+const { resolveDemoEntityId, resolveDemoEmptyEntityId, resolveEntityStatus, listAuditEvents } = useLowCodeApi()
 
 const { hasTenant } = useTenantContext()
 
@@ -81,6 +83,8 @@ const entityTypeOptions = computed(() =>
 
 
 const demoRefHint = computed(() => DEMO_ENTITY_REFS[form.entity_type])
+
+const demoEmptyRefHint = computed(() => DEMO_EMPTY_ENTITY_REFS[form.entity_type] ?? null)
 
 const entityStatusPresetOptions = computed(() => {
   const presets = PREVIEW_ENTITY_STATUS_PRESETS[form.entity_type] ?? []
@@ -236,6 +240,27 @@ async function useDemoEntity() {
 }
 
 
+async function useDemoEmptyEntity() {
+  if (!hasTenant.value || !demoEmptyRefHint.value) return
+  resolvingDemo.value = true
+  try {
+    const id = await resolveDemoEmptyEntityId(form.entity_type)
+    if (!id) {
+      pushToast('error', t('lowCode.demoEntityNotFound', { ref: demoEmptyRefHint.value }))
+      return
+    }
+
+    form.entity_id = id
+    await refreshEntityStatus()
+    markLoaded()
+    await loadRecentAuditEvents()
+  } catch (error) {
+    pushToast('error', error instanceof Error ? error.message : t('lowCode.demoResolveFailed'))
+  } finally {
+    resolvingDemo.value = false
+  }
+}
+
 function reloadPanel() {
 
   if (!loadedEntity.entity_id) return
@@ -345,6 +370,14 @@ onMounted(async () => {
             {{ $t('lowCode.useDemoEntity') }}
           </UiButton>
           <UiButton
+            v-if="demoEmptyRefHint"
+            variant="secondary"
+            :loading="resolvingDemo"
+            @click="useDemoEmptyEntity"
+          >
+            {{ $t('lowCode.useDemoEmptyEntity') }}
+          </UiButton>
+          <UiButton
             variant="secondary"
             :loading="fetchingStatus"
             :disabled="!form.entity_id.trim()"
@@ -372,6 +405,9 @@ onMounted(async () => {
 
       <p class="demo-hint">
         {{ $t('lowCode.demoHint', { entityType: form.entity_type, demoRef: demoRefHint }) }}
+      </p>
+      <p v-if="demoEmptyRefHint" class="demo-hint">
+        {{ $t('lowCode.demoEmptyHint', { demoRef: demoEmptyRefHint }) }}
       </p>
       <p class="demo-hint">{{ $t('lowCode.previewEntityStatusHint') }}</p>
     </UiCard>

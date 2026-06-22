@@ -104,6 +104,15 @@ func (s *CustomFieldValueService) Upsert(
 		})
 	}
 
+	existing, err := s.values.ListByEntity(ctx, input.TenantID, input.EntityType, input.EntityID)
+	if err != nil {
+		return nil, err
+	}
+	merged := domain.BuildValueSnapshot(existing, input.Values)
+	if err := domain.ValidateConditionalRequiredFields(tmpl.Fields, merged, input.ValidationContext); err != nil {
+		return nil, err
+	}
+
 	saved, err := s.values.UpsertBatch(ctx, input, resolved)
 	if err != nil {
 		return nil, err

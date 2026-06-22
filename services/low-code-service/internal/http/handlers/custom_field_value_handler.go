@@ -36,10 +36,16 @@ type customFieldValueItemResponse struct {
 }
 
 type upsertCustomFieldValuesRequest struct {
-	EntityType     string                         `json:"entity_type"`
-	EntityID       string                         `json:"entity_id"`
-	FormTemplateID string                         `json:"form_template_id"`
-	Values         []upsertCustomFieldValueItem   `json:"values"`
+	EntityType        string                         `json:"entity_type"`
+	EntityID          string                         `json:"entity_id"`
+	FormTemplateID    string                         `json:"form_template_id"`
+	ValidationContext *validationContextRequest      `json:"validation_context,omitempty"`
+	Values            []upsertCustomFieldValueItem   `json:"values"`
+}
+
+type validationContextRequest struct {
+	EntityStatus string `json:"entity_status,omitempty"`
+	Role         string `json:"role,omitempty"`
 }
 
 type upsertCustomFieldValueItem struct {
@@ -135,13 +141,22 @@ func (h *CustomFieldValueHandler) Put(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	validationContext := domain.ValidationContext{}
+	if req.ValidationContext != nil {
+		validationContext = domain.ValidationContext{
+			EntityStatus: req.ValidationContext.EntityStatus,
+			Role:         req.ValidationContext.Role,
+		}
+	}
+
 	result, err := h.service.Upsert(r.Context(), domain.UpsertCustomFieldValuesInput{
-		TenantID:       tenantID,
-		EntityType:     req.EntityType,
-		EntityID:       entityID,
-		FormTemplateID: formTemplateID,
-		Values:         values,
-		Audit:          auditContextFromRequest(r),
+		TenantID:          tenantID,
+		EntityType:        req.EntityType,
+		EntityID:          entityID,
+		FormTemplateID:    formTemplateID,
+		Values:            values,
+		ValidationContext: validationContext,
+		Audit:             auditContextFromRequest(r),
 	})
 	if err != nil {
 		respond.Error(w, err)

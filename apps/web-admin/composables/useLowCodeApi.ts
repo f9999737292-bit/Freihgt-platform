@@ -227,6 +227,21 @@ export function useLowCodeApi() {
     return null
   }
 
+  async function resolveDemoEmptyEntityId(entityType: LowCodeEntityType): Promise<string | null> {
+    const tenant = tenantId()
+    if (!tenant) return null
+
+    if (entityType === 'TRANSPORT_ORDER') {
+      const data = await apiGet<PaginatedResponse<{ id: string; order_number?: string }>>(
+        '/api/v1/transport-orders',
+        { query: { tenant_id: tenant, limit: 100, offset: 0 } },
+      )
+      return data.items?.find((item) => item.order_number === 'DEMO-TO-002')?.id ?? null
+    }
+
+    return null
+  }
+
   async function resolveEntityStatus(entityType: string, entityId: string): Promise<string | null> {
     const tenant = tenantId()
     const id = entityId.trim()
@@ -313,6 +328,7 @@ export function useLowCodeApi() {
     getAdminFormTemplateErrorMessage,
     resolvePublishedTemplate,
     resolveDemoEntityId,
+    resolveDemoEmptyEntityId,
     resolveEntityStatus,
     getSaveErrorMessage,
     isApiUnavailableError,

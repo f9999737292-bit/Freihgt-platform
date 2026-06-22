@@ -243,6 +243,7 @@ export interface SaveCustomFieldValuesPayload {
   entity_type: string
   entity_id: string
   form_template_id: string
+  validation_context?: PreviewRuleContext
   values: SaveCustomFieldValueItem[]
 }
 
@@ -290,6 +291,10 @@ export const DEMO_ENTITY_REFS: Record<LowCodeEntityType, string> = {
   FREIGHT_REQUEST: 'DEMO-FR-001',
   DOCUMENT: 'DEMO-DOC-001',
   RFX: 'DEMO-RFX-001',
+}
+
+export const DEMO_EMPTY_ENTITY_REFS: Partial<Record<LowCodeEntityType, string>> = {
+  TRANSPORT_ORDER: 'DEMO-TO-002',
 }
 
 export const PREVIEW_ENTITY_STATUS_PRESETS: Record<LowCodeEntityType, string[]> = {
@@ -400,6 +405,41 @@ export function parseSelectOptions(optionsJson: unknown): SelectOption[] {
     }))
 }
 
+export function moneyDraftKeys(fieldCode: string) {
+  return {
+    amount: `${fieldCode}__amount`,
+    currency: `${fieldCode}__currency`,
+  }
+}
+
+export function seedMoneyDraft(draft: Record<string, string>, fieldCode: string, value: unknown) {
+  const keys = moneyDraftKeys(fieldCode)
+  const parsed = parseCustomFieldValue(value)
+  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+    const obj = parsed as { amount?: unknown; currency?: unknown }
+    draft[keys.amount] = obj.amount != null && obj.amount !== '' ? String(obj.amount) : ''
+    draft[keys.currency] = obj.currency != null ? String(obj.currency) : ''
+    return
+  }
+  draft[keys.amount] = ''
+  draft[keys.currency] = ''
+}
+
+export function parseMoneyDraft(draft: Record<string, string>, fieldCode: string): unknown {
+  const keys = moneyDraftKeys(fieldCode)
+  const amountStr = draft[keys.amount] ?? ''
+  const currency = (draft[keys.currency] ?? '').trim()
+  if (!amountStr.trim() && !currency) return null
+  const amount = Number(amountStr)
+  if (Number.isNaN(amount)) {
+    throw new Error('INVALID_NUMBER')
+  }
+  if (!currency) {
+    throw new Error('INVALID_MONEY')
+  }
+  return { amount, currency }
+}
+
 export function valueToEditDraft(fieldType: string, value: unknown): string {
   const parsed = parseCustomFieldValue(value)
   if (parsed === undefined || parsed === null) return ''
@@ -408,12 +448,37 @@ export function valueToEditDraft(fieldType: string, value: unknown): string {
   if (fieldType === 'TEXT' || fieldType === 'SELECT' || fieldType === 'CURRENCY') {
     return String(parsed)
   }
+  if (fieldType === 'DATE' || fieldType === 'DATETIME') {
+    return previewValueToInputString(fieldType, parsed)
+  }
+  if (fieldType === 'MULTI_SELECT') {
+    return previewMultiSelectValues(parsed).join(', ')
+  }
   return formatJsonValue(parsed)
 }
 
-export function parseEditDraftToValueJson(fieldType: string, draft: string): unknown {
+export function seedEditDraftForField(
+  draft: Record<string, string>,
+  fieldType: string,
+  fieldCode: string,
+  value: unknown,
+) {
+  if (fieldType === 'MONEY') {
+    seedMoneyDraft(draft, fieldCode, value)
+    return
+  }
+  draft[fieldCode] = valueToEditDraft(fieldType, value)
+}
+
+export function parseEditDraftToValueJson(
+  fieldType: string,
+  draft: string,
+  fieldCode?: string,
+  fullDraft?: Record<string, string>,
+): unknown {
   switch (fieldType) {
     case 'NUMBER': {
+      if (!draft.trim()) return null
       const num = Number(draft)
       if (Number.isNaN(num)) {
         throw new Error('INVALID_NUMBER')
@@ -426,13 +491,42 @@ export function parseEditDraftToValueJson(fieldType: string, draft: string): unk
     case 'SELECT':
     case 'CURRENCY':
       return draft
+    case 'DATE':
+      return draft.trim() ? draft.trim() : null
+    case 'DATETIME': {
+      if (!draft.trim()) return null
+      const date = new Date(draft)
+      if (Number.isNaN(date.getTime())) {
+        throw new Error('INVALID_DATETIME')
+      }
+      return date.toISOString()
+    }
+    case 'MULTI_SELECT':
+      if (!draft.trim()) return []
+      return draft.split(',').map((part) => part.trim()).filter(Boolean)
+    case 'MONEY':
+      if (!fieldCode || !fullDraft) {
+        throw new Error('INVALID_MONEY')
+      }
+      return parseMoneyDraft(fullDraft, fieldCode)
     default:
+      if (!draft.trim()) return null
       return JSON.parse(draft)
   }
 }
 
 export function usesJsonTextareaFallback(fieldType: string): boolean {
-  return !['TEXT', 'NUMBER', 'SELECT', 'CHECKBOX', 'CURRENCY'].includes(fieldType)
+  return ![
+    'TEXT',
+    'NUMBER',
+    'SELECT',
+    'MULTI_SELECT',
+    'CHECKBOX',
+    'CURRENCY',
+    'DATE',
+    'DATETIME',
+    'MONEY',
+  ].includes(fieldType)
 }
 
 export function createEmptyDraftField(): DraftFormFieldDraft {

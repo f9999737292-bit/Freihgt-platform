@@ -46,15 +46,12 @@ cd apps/web-admin; npm run dev
 
 ## Limitations
 
-- Edit requires at least one stored custom field value (same as lookup page v0.1)
-- No create-first-value flow for empty entities
-- Complex field types use JSON textarea
-- Preview rules are not enforced on save (API validates types/static rules only)
+- Complex field types beyond DATE/MONEY/MULTI_SELECT still use JSON textarea
+- Preview rules are not all enforced on save (conditional required is enforced server-side)
 
 ## Next action
 
-1. Server-side conditional required validation (future pack)
-2. Create custom field values when template exists but no values stored
-3. Rich field editors (DATE, MONEY, MULTI_SELECT)
+1. Entity reference / FILE upload editors
+2. RFx lot / bid entity types when templates are needed
 
-See also: `docs/LOW_CODE_CUSTOM_FIELD_VALUES_EDIT_UI_V0.1.md`, `docs/LOW_CODE_ENTITY_DETAIL_PREVIEW_V0.1.md`.
+See also: `docs/LOW_CODE_CONDITIONAL_REQUIRED_VALIDATION_V0.1.md`, `docs/LOW_CODE_CREATE_FIRST_VALUE_EDIT_V0.1.md`, `docs/LOW_CODE_RICH_FIELD_EDITORS_V0.1.md`.

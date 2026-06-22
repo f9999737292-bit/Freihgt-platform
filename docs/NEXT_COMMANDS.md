@@ -166,6 +166,27 @@ http://localhost:3000/shipments/{id}
 
 See `docs/LOW_CODE_ENTITY_DETAIL_INLINE_EDIT_V0.1.md`.
 
+Conditional required validation (server):
+
+See `docs/LOW_CODE_CONDITIONAL_REQUIRED_VALIDATION_V0.1.md`.
+
+Create-first-value edit (empty demo DEMO-TO-002):
+
+```text
+http://localhost:3000/transport-orders/{id}
+http://localhost:3000/low-code/custom-field-values
+```
+
+See `docs/LOW_CODE_CREATE_FIRST_VALUE_EDIT_V0.1.md`.
+
+Rich field editors (DATE, MONEY, MULTI_SELECT):
+
+```text
+http://localhost:3000/shipments/{id}   (DEMO-SH-PLANNED)
+```
+
+See `docs/LOW_CODE_RICH_FIELD_EDITORS_V0.1.md`.
+
 If a target fails with WSL/bash errors, override:
 
 ```powershell

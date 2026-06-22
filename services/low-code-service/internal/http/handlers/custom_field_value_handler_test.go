@@ -136,6 +136,53 @@ func TestCustomFieldValuePutDraftTemplateBlocked(t *testing.T) {
 	assertErrorCode(t, rec.Body.Bytes(), "FORM_TEMPLATE_NOT_PUBLISHED")
 }
 
+func TestCustomFieldValuePutConditionalRequiredFailed(t *testing.T) {
+	templateID := uuid.New()
+	cargoFieldID := uuid.New()
+	noteFieldID := uuid.New()
+	tenantID := uuid.MustParse("74519f22-ff9b-4a8b-8fff-a958c689682f")
+	entityID := uuid.New()
+
+	handler := NewCustomFieldValueHandler(service.NewCustomFieldValueService(
+		&stubFormTemplateReader{
+			ctx: &domain.PublishedTemplateContext{
+				ID:         templateID,
+				TenantID:   tenantID,
+				EntityType: "TRANSPORT_ORDER",
+				Status:     domain.PublishedStatus,
+				Fields: map[string]domain.FieldDefinition{
+					"cargo_class": {
+						ID:        cargoFieldID,
+						Code:      "cargo_class",
+						FieldType: "SELECT",
+						OptionsJSON: json.RawMessage(`{"options":[{"value":"A","label":"Class A"}]}`),
+						ValidationRuleJSON: json.RawMessage(
+							`{"if":{"field":"cargo_class","in":["A","B","C"]},"then":{"required":["loading_window_note"]}}`,
+						),
+					},
+					"loading_window_note": {
+						ID:        noteFieldID,
+						Code:      "loading_window_note",
+						FieldType: "TEXT",
+					},
+				},
+			},
+		},
+		&stubCustomFieldValueStore{},
+	))
+
+	body := `{"entity_type":"TRANSPORT_ORDER","entity_id":"` + entityID.String() + `","form_template_id":"` + templateID.String() + `","values":[{"field_code":"cargo_class","value_json":"A"}]}`
+	req := httptest.NewRequest(http.MethodPut, "/v1/low-code/custom-field-values", strings.NewReader(body))
+	req.Header.Set(tenantHeader, tenantID.String())
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.Put(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	assertErrorCode(t, rec.Body.Bytes(), "VALIDATION_RULE_FAILED")
+}
+
 func TestCustomFieldValuePutIdempotent(t *testing.T) {
 	templateID := uuid.New()
 	fieldID := uuid.New()

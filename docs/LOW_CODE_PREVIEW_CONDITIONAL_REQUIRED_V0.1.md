@@ -78,7 +78,7 @@ npm run dev
 
 ## Next action
 
-1. Server-side conditional required validation (future pack)
-2. Create-first-value edit flow for empty entities
+1. Entity reference / FILE upload editors
+2. Partial save (only changed fields)
 
-See also: `docs/LOW_CODE_ENTITY_DETAIL_INLINE_EDIT_V0.1.md`, `docs/LOW_CODE_PREVIEW_CONTEXT_V0.1.md`.
+See also: `docs/LOW_CODE_CONDITIONAL_REQUIRED_VALIDATION_V0.1.md`, `docs/LOW_CODE_ENTITY_DETAIL_INLINE_EDIT_V0.1.md`.

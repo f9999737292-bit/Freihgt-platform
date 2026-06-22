@@ -53,12 +53,18 @@ Request body:
   "entity_type": "TRANSPORT_ORDER",
   "entity_id": "...",
   "form_template_id": "...",
+  "validation_context": {
+    "entity_status": "READY_FOR_SOURCING",
+    "role": "PLATFORM_ADMIN"
+  },
   "values": [
     { "field_code": "cargo_class", "value_json": "GENERAL" },
     { "field_code": "internal_cost_center", "value_json": "CC-1001" }
   ]
 }
 ```
+
+Optional `validation_context` enables conditional required rules that reference `context.entity_status` or `context.role`. Field-based conditional rules work without it.
 
 Response:
 
@@ -94,6 +100,8 @@ Field-type validation (v0.1):
 | ROUTE / ADDRESS / VEHICLE / VAT_TAX | object |
 
 Simple `validation_rule_json`: `minLength`, `maxLength`, `min`, `max`.
+
+Conditional required (v0.1): `{ "if": { ... }, "then": { "required": [...] } }` — evaluated against merged existing + incoming values. See `docs/LOW_CODE_CONDITIONAL_REQUIRED_VALIDATION_V0.1.md`.
 
 Protected:
 
@@ -144,7 +152,7 @@ curl -H "X-Tenant-ID: ..." "http://localhost:8080/api/v1/low-code/custom-field-v
 - Integration with transport/rfx/shipment/document/billing services
 - File upload for FILE fields
 - Delete endpoint (use `null` value_json to clear)
-- Advanced validation rules / Rule Engine
+- Full Rule Engine (visibility on save, cross-field `then.visible`)
 - RLS
 
 ## Verification Commands
