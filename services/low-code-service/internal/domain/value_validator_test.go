@@ -40,6 +40,16 @@ func TestValidateFieldValueSystemFieldProtected(t *testing.T) {
 	}
 }
 
+func TestValidateFieldValueReadOnlyFieldProtected(t *testing.T) {
+	field := FieldDefinition{Code: "locked_note", FieldType: "TEXT", ReadOnly: true}
+	if err := ValidateFieldValue(field, json.RawMessage(`"x"`)); err == nil {
+		t.Fatal("expected read-only field protected error")
+	}
+	if err := ValidateFieldValue(field, json.RawMessage(`null`)); err == nil {
+		t.Fatal("expected read-only field protected error for null")
+	}
+}
+
 func TestValidateFieldValueMoney(t *testing.T) {
 	field := FieldDefinition{Code: "price", FieldType: "MONEY"}
 	if err := ValidateFieldValue(field, json.RawMessage(`{"amount":1000,"currency":"RUB"}`)); err != nil {

@@ -18,6 +18,9 @@ func ValidateFieldValue(field FieldDefinition, raw json.RawMessage) error {
 	if field.SystemField {
 		return apperrors.SystemFieldProtected(field.Code)
 	}
+	if field.ReadOnly {
+		return apperrors.ReadOnlyFieldProtected(field.Code)
+	}
 
 	if isJSONNull(raw) {
 		if field.Required {

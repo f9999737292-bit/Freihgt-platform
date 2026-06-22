@@ -286,7 +286,7 @@ Gateway forwards `/api/v1/low-code/*` to `low-code-service` with tenant header p
 | No SQL fragments in JSON rules | Rules parsed as JSON structures only |
 | No `v-html` for low-code JSON | Enforced in low-code components (text / `<pre>` only) |
 | `system_field` protected | Enforced backend (`SYSTEM_FIELD_PROTECTED`) + UI filter |
-| `read_only` fields protected | Enforced UI (excluded from edit controls); backend hard reject optional future |
+| `read_only` fields protected | Enforced backend (`READ_ONLY_FIELD_PROTECTED`) + UI filter |
 | DRAFT templates never public runtime | Public API returns `PUBLISHED` only |
 | ARCHIVED templates never runtime | Excluded from public/active queries |
 | PUBLISHED templates immutable | Admin must clone-to-draft to edit |
@@ -350,7 +350,7 @@ go test ./internal/http/handlers/... ./internal/domain/...
 
 ## Next Action
 
-1. **Optional:** backend reject writes to `read_only` fields (currently UI-only in v0.1)
+1. ~~**Optional:** backend reject writes to `read_only` fields~~ — implemented in `LOW_CODE_RUNTIME_INLINE_EDIT_GUARDRAILS_V0.1.md`
 2. **Optional:** automated runtime compliance test (entity detail save does not call core PUT)
 3. **Future pack:** core services optionally pass `validation_context` on server-side integration
 4. **Future pack:** explicit custom field value migration when active template version changes
@@ -358,6 +358,7 @@ go test ./internal/http/handlers/... ./internal/domain/...
 Related docs:
 
 - `docs/LOW_CODE_FORM_TEMPLATE_VERSION_ACTIVATION_POLICY_V0.1.md` — active template (implemented)
+- `docs/LOW_CODE_RUNTIME_INLINE_EDIT_GUARDRAILS_V0.1.md` — read-only field backend guardrail (implemented)
 - `docs/LOW_CODE_ENTITY_DETAIL_INLINE_EDIT_V0.1.md` — inline edit on entity pages
 - `docs/LOW_CODE_CUSTOM_FIELD_VALUES_API_V0.1.md` — values API contract
 - `docs/LOW_CODE_AUDIT_LOG_V0.1.md` — audit read API

@@ -38,7 +38,7 @@ func Error(w http.ResponseWriter, err error) {
 	case apperrors.CodeValidation, apperrors.CodeTenantRequired,
 		apperrors.CodeEntityTypeInvalid, apperrors.CodeEntityIDInvalid,
 		apperrors.CodeFieldInvalidType, apperrors.CodeValidationRuleFailed,
-		apperrors.CodeSystemFieldProtected, apperrors.CodeTenantMismatch,
+		apperrors.CodeSystemFieldProtected, apperrors.CodeReadOnlyFieldProtected, apperrors.CodeTenantMismatch,
 		apperrors.CodeFormTemplateNotPublished, apperrors.CodeFormTemplateNotDraft:
 		status = http.StatusBadRequest
 	case apperrors.CodeFormTemplateConflict:

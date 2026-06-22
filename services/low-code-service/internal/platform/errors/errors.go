@@ -19,6 +19,7 @@ const (
 	CodeFieldInvalidType        Code = "FIELD_INVALID_TYPE"
 	CodeValidationRuleFailed    Code = "VALIDATION_RULE_FAILED"
 	CodeSystemFieldProtected    Code = "SYSTEM_FIELD_PROTECTED"
+	CodeReadOnlyFieldProtected  Code = "READ_ONLY_FIELD_PROTECTED"
 	CodeTenantMismatch          Code = "TENANT_MISMATCH"
 )
 
@@ -149,6 +150,14 @@ func SystemFieldProtected(fieldCode string) *AppError {
 	return &AppError{
 		Code:    CodeSystemFieldProtected,
 		Message: "system field cannot be modified",
+		Details: map[string]any{"field_code": fieldCode},
+	}
+}
+
+func ReadOnlyFieldProtected(fieldCode string) *AppError {
+	return &AppError{
+		Code:    CodeReadOnlyFieldProtected,
+		Message: "read-only field cannot be modified",
 		Details: map[string]any{"field_code": fieldCode},
 	}
 }

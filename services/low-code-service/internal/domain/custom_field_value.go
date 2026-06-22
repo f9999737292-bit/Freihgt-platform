@@ -12,6 +12,7 @@ type FieldDefinition struct {
 	Code               string
 	FieldType          string
 	Required           bool
+	ReadOnly           bool
 	SystemField        bool
 	OptionsJSON        json.RawMessage
 	ValidationRuleJSON json.RawMessage

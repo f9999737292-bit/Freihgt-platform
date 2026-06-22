@@ -201,6 +201,8 @@ export function useLowCodeApi() {
           return t('lowCode.errorValidationRuleFailed')
         case 'SYSTEM_FIELD_PROTECTED':
           return t('lowCode.errorSystemFieldProtected')
+        case 'READ_ONLY_FIELD_PROTECTED':
+          return t('lowCode.errorReadOnlyFieldProtected')
         default:
           return error.message || t('lowCode.saveFailed')
       }

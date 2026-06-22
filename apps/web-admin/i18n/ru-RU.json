@@ -635,6 +635,7 @@
     "errorFieldInvalidType": "Invalid field value type",
     "errorValidationRuleFailed": "Validation rule failed",
     "errorSystemFieldProtected": "System field cannot be edited",
+    "errorReadOnlyFieldProtected": "Read-only field cannot be edited",
     "yes": "Да",
     "no": "Нет",
     "auditLog": "Журнал аудита",

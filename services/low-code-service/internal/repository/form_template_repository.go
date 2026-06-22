@@ -422,7 +422,7 @@ func (r *FormTemplateRepository) loadFieldDefinitions(
 	templateID uuid.UUID,
 ) (map[string]domain.FieldDefinition, error) {
 	const query = `
-		SELECT id, code, field_type, required, system_field, options_json, validation_rule_json
+		SELECT id, code, field_type, required, read_only, system_field, options_json, validation_rule_json
 		FROM lowcode.form_fields
 		WHERE tenant_id = $1 AND form_template_id = $2
 	`
@@ -437,7 +437,7 @@ func (r *FormTemplateRepository) loadFieldDefinitions(
 		var field domain.FieldDefinition
 		var optionsJSON, validationJSON []byte
 		if err := rows.Scan(
-			&field.ID, &field.Code, &field.FieldType, &field.Required, &field.SystemField,
+			&field.ID, &field.Code, &field.FieldType, &field.Required, &field.ReadOnly, &field.SystemField,
 			&optionsJSON, &validationJSON,
 		); err != nil {
 			return nil, mapDBError(err)

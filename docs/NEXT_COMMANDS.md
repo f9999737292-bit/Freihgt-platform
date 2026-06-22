@@ -229,7 +229,8 @@ See `docs/LOW_CODE_FORM_TEMPLATE_VERSION_ACTIVATION_POLICY_V0.1.md`.
 
 * Runtime policy: `docs/LOW_CODE_RUNTIME_INTEGRATION_POLICY_V0.1.md`
 * Prerequisite (implemented): Low-code Form Template Version Activation Policy v0.1 — active template endpoint + UI badges
-* Next: entity detail inline edit guardrails / runtime compliance checks
+* Inline edit guardrails: `docs/LOW_CODE_RUNTIME_INLINE_EDIT_GUARDRAILS_V0.1.md`
+* Next: automated runtime compliance test / core validation_context pass-through
 
 Drag-and-drop form builder (section/field reorder):
 
