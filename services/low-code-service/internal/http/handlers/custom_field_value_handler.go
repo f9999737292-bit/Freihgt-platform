@@ -141,6 +141,7 @@ func (h *CustomFieldValueHandler) Put(w http.ResponseWriter, r *http.Request) {
 		EntityID:       entityID,
 		FormTemplateID: formTemplateID,
 		Values:         values,
+		Audit:          auditContextFromRequest(r),
 	})
 	if err != nil {
 		respond.Error(w, err)

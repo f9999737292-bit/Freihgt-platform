@@ -91,6 +91,30 @@ export interface SaveCustomFieldValuesResponse {
   saved_count: number
 }
 
+export interface AuditEventItem {
+  id: string
+  tenant_id: string
+  entity_type: string
+  entity_id: string
+  action: string
+  actor?: string
+  changed_fields: string[]
+  old_values: Record<string, unknown>
+  new_values: Record<string, unknown>
+  created_at: string
+}
+
+export interface ListAuditEventsResponse {
+  items: AuditEventItem[]
+}
+
+export interface ListAuditEventsParams {
+  entity_type?: string
+  entity_id?: string
+  action?: string
+  limit?: number
+}
+
 export interface SelectOption {
   label: string
   value: string

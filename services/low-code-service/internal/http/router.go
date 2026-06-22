@@ -21,6 +21,7 @@ func NewRouter(
 	readiness *database.ReadinessChecker,
 	formTemplateSvc *service.FormTemplateService,
 	customFieldValueSvc *service.CustomFieldValueService,
+	auditSvc *service.AuditService,
 ) http.Handler {
 	metricsCollector := metrics.New(serviceName)
 
@@ -37,11 +38,13 @@ func NewRouter(
 
 	formTemplateHandler := handlers.NewFormTemplateHandler(formTemplateSvc)
 	customFieldValueHandler := handlers.NewCustomFieldValueHandler(customFieldValueSvc)
+	auditHandler := handlers.NewAuditHandler(auditSvc)
 	r.Route("/v1/low-code", func(r chi.Router) {
 		r.Get("/form-templates", formTemplateHandler.List)
 		r.Get("/form-templates/{id}", formTemplateHandler.GetByID)
 		r.Get("/custom-field-values", customFieldValueHandler.Get)
 		r.Put("/custom-field-values", customFieldValueHandler.Put)
+		r.Get("/audit-events", auditHandler.List)
 	})
 
 	return r

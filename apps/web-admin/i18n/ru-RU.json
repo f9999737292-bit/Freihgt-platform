@@ -621,7 +621,20 @@
     "errorValidationRuleFailed": "Validation rule failed",
     "errorSystemFieldProtected": "System field cannot be edited",
     "yes": "Да",
-    "no": "Нет"
+    "no": "Нет",
+    "auditLog": "Журнал аудита",
+    "auditLogDesc": "Только чтение: история изменений пользовательских полей low-code",
+    "auditEvents": "События аудита",
+    "action": "Действие",
+    "actor": "Исполнитель",
+    "changedFields": "Изменённые поля",
+    "oldValues": "Старые значения",
+    "newValues": "Новые значения",
+    "createdAt": "Создано",
+    "noAuditEventsFound": "События аудита не найдены",
+    "viewAuditLog": "Открыть журнал аудита",
+    "reloadAuditEvents": "Обновить события аудита",
+    "limit": "Лимит"
   },
   "backendStatus": {
     "title": "Статус backend",

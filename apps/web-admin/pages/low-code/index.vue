@@ -15,6 +15,7 @@ const lowCodeMessage = ref('')
 const navLinks = [
   { to: '/low-code/form-templates', labelKey: 'lowCode.formTemplates', descKey: 'lowCode.formTemplatesDesc' },
   { to: '/low-code/custom-field-values', labelKey: 'lowCode.customFieldValues', descKey: 'lowCode.customFieldValuesDesc' },
+  { to: '/low-code/audit', labelKey: 'lowCode.auditLog', descKey: 'lowCode.auditLogDesc' },
 ]
 
 async function probeLowCode() {

@@ -2,6 +2,8 @@ import type { PaginatedResponse } from '~/types/api'
 import type {
   CustomFieldValuesResponse,
   FormTemplateDetail,
+  ListAuditEventsParams,
+  ListAuditEventsResponse,
   ListFormTemplatesResponse,
   LowCodeEntityType,
   SaveCustomFieldValuesPayload,
@@ -51,6 +53,18 @@ export function useLowCodeApi() {
     return apiPut<SaveCustomFieldValuesResponse>('/api/v1/low-code/custom-field-values', payload, {
       query: tenantQuery(),
     })
+  }
+
+  async function listAuditEvents(params: ListAuditEventsParams = {}) {
+    const query: Record<string, string | number | undefined> = tenantQuery({
+      limit: params.limit ?? 50,
+    })
+    if (params.entity_type?.trim()) query.entity_type = params.entity_type.trim()
+    if (params.entity_id?.trim()) query.entity_id = params.entity_id.trim()
+    if (params.action?.trim()) query.action = params.action.trim()
+
+    const data = await apiGet<ListAuditEventsResponse>('/api/v1/low-code/audit-events', { query })
+    return { ...data, items: data.items ?? [] }
   }
 
   async function resolvePublishedTemplate(entityType: string): Promise<FormTemplateDetail | null> {
@@ -141,6 +155,7 @@ export function useLowCodeApi() {
     getFormTemplate,
     getCustomFieldValues,
     saveCustomFieldValues,
+    listAuditEvents,
     resolvePublishedTemplate,
     resolveDemoEntityId,
     getSaveErrorMessage,

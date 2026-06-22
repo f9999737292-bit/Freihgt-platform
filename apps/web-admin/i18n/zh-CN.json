@@ -621,7 +621,20 @@
     "errorValidationRuleFailed": "Validation rule failed",
     "errorSystemFieldProtected": "System field cannot be edited",
     "yes": "是",
-    "no": "否"
+    "no": "否",
+    "auditLog": "审计日志",
+    "auditLogDesc": "只读：low-code 自定义字段值变更历史",
+    "auditEvents": "审计事件",
+    "action": "操作",
+    "actor": "操作者",
+    "changedFields": "变更字段",
+    "oldValues": "旧值",
+    "newValues": "新值",
+    "createdAt": "创建时间",
+    "noAuditEventsFound": "未找到审计事件",
+    "viewAuditLog": "查看审计日志",
+    "reloadAuditEvents": "重新加载审计事件",
+    "limit": "条数限制"
   },
   "backendStatus": {
     "title": "后端状态",

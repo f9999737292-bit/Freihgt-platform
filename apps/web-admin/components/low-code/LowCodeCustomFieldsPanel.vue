@@ -13,6 +13,10 @@ import {
 } from '~/types/lowCode'
 import { TenantRequiredError } from '~/composables/useApi'
 
+const emit = defineEmits<{
+  saved: []
+}>()
+
 const props = withDefaults(
   defineProps<{
     entityType: LowCodeEntityType | string
@@ -180,6 +184,7 @@ async function saveEdit() {
     pushToast('success', t('lowCode.saved'))
     editing.value = false
     await load()
+    emit('saved')
   } catch (error) {
     pushToast('error', getSaveErrorMessage(error))
   } finally {

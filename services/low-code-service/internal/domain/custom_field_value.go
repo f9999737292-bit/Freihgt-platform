@@ -43,6 +43,7 @@ type UpsertCustomFieldValuesInput struct {
 	EntityID       uuid.UUID
 	FormTemplateID uuid.UUID
 	Values         []CustomFieldValueInput
+	Audit          AuditContext
 }
 
 type UpsertCustomFieldValuesResult struct {

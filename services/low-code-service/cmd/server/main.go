@@ -50,9 +50,11 @@ func main() {
 	readiness := database.NewReadinessChecker(db.Pool)
 	formTemplateRepo := repository.NewFormTemplateRepository(db.Pool)
 	formTemplateSvc := service.NewFormTemplateService(formTemplateRepo)
-	customFieldValueRepo := repository.NewCustomFieldValueRepository(db.Pool)
+	auditRepo := repository.NewConfigurationAuditRepository(db.Pool)
+	customFieldValueRepo := repository.NewCustomFieldValueRepository(db.Pool, auditRepo)
 	customFieldValueSvc := service.NewCustomFieldValueService(formTemplateRepo, customFieldValueRepo)
-	router := httpserver.NewRouter(log, readiness, formTemplateSvc, customFieldValueSvc)
+	auditSvc := service.NewAuditService(auditRepo)
+	router := httpserver.NewRouter(log, readiness, formTemplateSvc, customFieldValueSvc, auditSvc)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

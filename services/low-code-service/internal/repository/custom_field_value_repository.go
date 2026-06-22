@@ -4,17 +4,20 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/freight-platform/low-code-service/internal/domain"
+	apperrors "github.com/freight-platform/low-code-service/internal/platform/errors"
 )
 
 type CustomFieldValueRepository struct {
-	pool *pgxpool.Pool
+	pool      *pgxpool.Pool
+	auditRepo *ConfigurationAuditRepository
 }
 
-func NewCustomFieldValueRepository(pool *pgxpool.Pool) *CustomFieldValueRepository {
-	return &CustomFieldValueRepository{pool: pool}
+func NewCustomFieldValueRepository(pool *pgxpool.Pool, auditRepo *ConfigurationAuditRepository) *CustomFieldValueRepository {
+	return &CustomFieldValueRepository{pool: pool, auditRepo: auditRepo}
 }
 
 func (r *CustomFieldValueRepository) ListByEntity(
@@ -86,6 +89,20 @@ func (r *CustomFieldValueRepository) UpsertBatch(
 				updated_at = now()
 		`
 
+		fieldCodes := make([]string, 0, len(values))
+		for _, value := range values {
+			fieldCodes = append(fieldCodes, value.FieldCode)
+		}
+
+		var oldValues map[string][]byte
+		if r.auditRepo != nil && len(values) > 0 {
+			var err error
+			oldValues, err = r.loadExistingValuesInTx(ctx, tx, input.TenantID, input.EntityType, input.EntityID, fieldCodes)
+			if err != nil {
+				return err
+			}
+		}
+
 		for _, value := range values {
 			if _, err := tx.Exec(ctx, query,
 				input.TenantID,
@@ -101,6 +118,38 @@ func (r *CustomFieldValueRepository) UpsertBatch(
 			saved++
 		}
 
+		if r.auditRepo != nil && saved > 0 {
+			auditValues := make([]domain.ResolvedCustomFieldValueForAudit, 0, len(values))
+			for _, value := range values {
+				auditValues = append(auditValues, domain.ResolvedCustomFieldValueForAudit{
+					FieldCode: value.FieldCode,
+					ValueJSON: value.ValueJSON,
+				})
+			}
+
+			oldJSON, newJSON, _, err := domain.BuildCustomFieldValuesAuditPayload(input.FormTemplateID, auditValues, oldValues)
+			if err != nil {
+				return apperrors.Internal("failed to build audit payload", err)
+			}
+
+			configID := input.FormTemplateID
+			if err := r.auditRepo.InsertInTx(ctx, tx, domain.ConfigurationAuditEntry{
+				TenantID:        input.TenantID,
+				ConfigurationID: &configID,
+				EntityType:      input.EntityType,
+				EntityID:        input.EntityID,
+				Action:          domain.AuditDBActionUpdate,
+				OldValueJSON:    oldJSON,
+				NewValueJSON:    newJSON,
+				ChangedByUserID: input.Audit.ChangedByUserID,
+				RequestID:       input.Audit.RequestID,
+				IPAddress:       input.Audit.IPAddress,
+				UserAgent:       input.Audit.UserAgent,
+			}); err != nil {
+				return err
+			}
+		}
+
 		if err := tx.Commit(ctx); err != nil {
 			return mapDBError(err)
 		}
@@ -110,4 +159,42 @@ func (r *CustomFieldValueRepository) UpsertBatch(
 		return 0, err
 	}
 	return saved, nil
+}
+
+func (r *CustomFieldValueRepository) loadExistingValuesInTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	tenantID uuid.UUID,
+	entityType string,
+	entityID uuid.UUID,
+	fieldCodes []string,
+) (map[string][]byte, error) {
+	if len(fieldCodes) == 0 {
+		return map[string][]byte{}, nil
+	}
+
+	const query = `
+		SELECT field_code, value_json
+		FROM lowcode.custom_field_values
+		WHERE tenant_id = $1 AND entity_type = $2 AND entity_id = $3 AND field_code = ANY($4)
+	`
+	rows, err := tx.Query(ctx, query, tenantID, entityType, entityID, fieldCodes)
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	defer rows.Close()
+
+	result := make(map[string][]byte, len(fieldCodes))
+	for rows.Next() {
+		var code string
+		var valueJSON []byte
+		if err := rows.Scan(&code, &valueJSON); err != nil {
+			return nil, mapDBError(err)
+		}
+		result[code] = valueJSON
+	}
+	if err := rows.Err(); err != nil {
+		return nil, mapDBError(err)
+	}
+	return result, nil
 }

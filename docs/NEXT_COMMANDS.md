@@ -62,6 +62,20 @@ http://localhost:3000/low-code/custom-field-values
 
 See `docs/LOW_CODE_CUSTOM_FIELD_VALUES_EDIT_UI_V0.1.md`.
 
+Low-code audit log:
+
+```text
+http://localhost:3000/low-code/audit
+```
+
+Audit API:
+
+```powershell
+curl -H "X-Tenant-ID: 74519f22-ff9b-4a8b-8fff-a958c689682f" "http://localhost:8080/api/v1/low-code/audit-events?entity_type=TRANSPORT_ORDER&entity_id=<ENTITY_ID>"
+```
+
+See `docs/LOW_CODE_AUDIT_LOG_V0.1.md`.
+
 If a target fails with WSL/bash errors, override:
 
 ```powershell

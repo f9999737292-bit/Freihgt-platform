@@ -621,7 +621,20 @@
     "errorValidationRuleFailed": "Validation rule failed",
     "errorSystemFieldProtected": "System field cannot be edited",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "auditLog": "Audit log",
+    "auditLogDesc": "Read-only history of low-code custom field value changes",
+    "auditEvents": "Audit events",
+    "action": "Action",
+    "actor": "Actor",
+    "changedFields": "Changed fields",
+    "oldValues": "Old values",
+    "newValues": "New values",
+    "createdAt": "Created at",
+    "noAuditEventsFound": "No audit events found",
+    "viewAuditLog": "View audit log",
+    "reloadAuditEvents": "Reload audit events",
+    "limit": "Limit"
   },
   "backendStatus": {
     "title": "Backend status",
