@@ -91,12 +91,20 @@ type migrationPreviewItemResponse struct {
 	Warnings              []string                                    `json:"warnings"`
 }
 
-type migrationPreviewResponse struct {
+type batchMigrationPreviewSummaryResponse struct {
+	Total    int `json:"total"`
+	Safe     int `json:"safe"`
+	Warnings int `json:"warnings"`
+	Blocked  int `json:"blocked"`
+}
+
+type batchMigrationPreviewResponse struct {
 	TenantID       string                                 `json:"tenant_id"`
 	EntityType     string                                 `json:"entity_type"`
+	TemplateCode   string                                 `json:"template_code"`
 	TargetTemplate migrationPreviewTargetTemplateResponse `json:"target_template"`
-	Summary        migrationPreviewSummaryResponse        `json:"summary"`
-	Items          []migrationPreviewItemResponse         `json:"items"`
+	Summary        batchMigrationPreviewSummaryResponse   `json:"summary"`
+	Items          []migrationPreviewItemResponse           `json:"items"`
 }
 
 func (h *AdminCustomFieldValueHandler) MigrateToActive(w http.ResponseWriter, r *http.Request) {
@@ -183,24 +191,53 @@ func buildMigrateToActiveResponse(tenantID uuid.UUID, entityType string, entityI
 }
 
 func (h *AdminCustomFieldValueHandler) MigrationPreview(w http.ResponseWriter, r *http.Request) {
-	tenantID, err := parseTenantID(r)
+	tenantID, input, err := parseMigrationPreviewRequest(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
 
+	result, err := h.service.PreviewMigrationToActive(r.Context(), input)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	respond.JSON(w, http.StatusOK, buildMigrationPreviewResponse(tenantID, result))
+}
+
+func (h *AdminCustomFieldValueHandler) BatchMigrationPreview(w http.ResponseWriter, r *http.Request) {
+	tenantID, input, err := parseMigrationPreviewRequest(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	result, err := h.service.PreviewMigrationToActive(r.Context(), input)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	respond.JSON(w, http.StatusOK, buildBatchMigrationPreviewResponse(tenantID, input.TemplateCode, result))
+}
+
+func parseMigrationPreviewRequest(r *http.Request) (uuid.UUID, domain.MigrationPreviewInput, error) {
+	tenantID, err := parseTenantID(r)
+	if err != nil {
+		return uuid.Nil, domain.MigrationPreviewInput{}, err
+	}
+
 	var req migrationPreviewRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respond.Error(w, apperrors.Validation("invalid request body", map[string]any{"error": err.Error()}))
-		return
+		return uuid.Nil, domain.MigrationPreviewInput{}, apperrors.Validation("invalid request body", map[string]any{"error": err.Error()})
 	}
 
 	entityIDs := make([]uuid.UUID, 0, len(req.EntityIDs))
 	for _, rawID := range req.EntityIDs {
 		entityID, err := uuid.Parse(rawID)
 		if err != nil {
-			respond.Error(w, apperrors.EntityIDInvalid(map[string]any{"field": "entity_id", "value": rawID}))
-			return
+			return uuid.Nil, domain.MigrationPreviewInput{}, apperrors.EntityIDInvalid(map[string]any{"field": "entity_id", "value": rawID})
 		}
 		entityIDs = append(entityIDs, entityID)
 	}
@@ -209,25 +246,22 @@ func (h *AdminCustomFieldValueHandler) MigrationPreview(w http.ResponseWriter, r
 	if strings.TrimSpace(req.TargetTemplateID) != "" {
 		targetTemplateID, err = uuid.Parse(req.TargetTemplateID)
 		if err != nil {
-			respond.Error(w, apperrors.Validation("invalid target_template_id", map[string]any{"field": "target_template_id"}))
-			return
+			return uuid.Nil, domain.MigrationPreviewInput{}, apperrors.Validation("invalid target_template_id", map[string]any{"field": "target_template_id"})
 		}
 	}
 
-	result, err := h.service.PreviewMigrationToActive(r.Context(), domain.MigrationPreviewInput{
+	return tenantID, domain.MigrationPreviewInput{
 		TenantID:         tenantID,
 		EntityType:       req.EntityType,
 		EntityIDs:        entityIDs,
 		TemplateCode:     req.TemplateCode,
 		TargetTemplateID: targetTemplateID,
-	})
-	if err != nil {
-		respond.Error(w, err)
-		return
-	}
+	}, nil
+}
 
-	items := make([]migrationPreviewItemResponse, 0, len(result.Items))
-	for _, item := range result.Items {
+func buildMigrationPreviewItemResponses(items []domain.MigrationPreviewItem) []migrationPreviewItemResponse {
+	responseItems := make([]migrationPreviewItemResponse, 0, len(items))
+	for _, item := range items {
 		incompatible := make([]migrationPreviewIncompatibleFieldResponse, 0, len(item.IncompatibleFields))
 		for _, field := range item.IncompatibleFields {
 			incompatible = append(incompatible, migrationPreviewIncompatibleFieldResponse{
@@ -249,10 +283,13 @@ func (h *AdminCustomFieldValueHandler) MigrationPreview(w http.ResponseWriter, r
 		if item.SourceTemplateID != uuid.Nil {
 			responseItem.SourceTemplateID = item.SourceTemplateID.String()
 		}
-		items = append(items, responseItem)
+		responseItems = append(responseItems, responseItem)
 	}
+	return responseItems
+}
 
-	respond.JSON(w, http.StatusOK, migrationPreviewResponse{
+func buildMigrationPreviewResponse(tenantID uuid.UUID, result *domain.MigrationPreviewResult) migrationPreviewResponse {
+	return migrationPreviewResponse{
 		TenantID:   result.TenantID.String(),
 		EntityType: result.EntityType,
 		TargetTemplate: migrationPreviewTargetTemplateResponse{
@@ -266,8 +303,41 @@ func (h *AdminCustomFieldValueHandler) MigrationPreview(w http.ResponseWriter, r
 			Warnings:        result.Summary.Warnings,
 			Blocked:         result.Summary.Blocked,
 		},
-		Items: items,
-	})
+		Items: buildMigrationPreviewItemResponses(result.Items),
+	}
+}
+
+func buildBatchMigrationPreviewResponse(tenantID uuid.UUID, requestedTemplateCode string, result *domain.MigrationPreviewResult) batchMigrationPreviewResponse {
+	templateCode := strings.TrimSpace(requestedTemplateCode)
+	if templateCode == "" {
+		templateCode = result.TargetTemplate.Code
+	}
+
+	return batchMigrationPreviewResponse{
+		TenantID:     tenantID.String(),
+		EntityType:   result.EntityType,
+		TemplateCode: templateCode,
+		TargetTemplate: migrationPreviewTargetTemplateResponse{
+			ID:      result.TargetTemplate.ID.String(),
+			Code:    result.TargetTemplate.Code,
+			Version: result.TargetTemplate.Version,
+		},
+		Summary: batchMigrationPreviewSummaryResponse{
+			Total:    result.Summary.EntitiesChecked,
+			Safe:     result.Summary.SafeToMigrate,
+			Warnings: result.Summary.Warnings,
+			Blocked:  result.Summary.Blocked,
+		},
+		Items: buildMigrationPreviewItemResponses(result.Items),
+	}
+}
+
+type migrationPreviewResponse struct {
+	TenantID       string                                 `json:"tenant_id"`
+	EntityType     string                                 `json:"entity_type"`
+	TargetTemplate migrationPreviewTargetTemplateResponse `json:"target_template"`
+	Summary        migrationPreviewSummaryResponse        `json:"summary"`
+	Items          []migrationPreviewItemResponse         `json:"items"`
 }
 
 func nonNilStringSlice(values []string) []string {

@@ -292,16 +292,26 @@ Payloads: `scripts/dev/payloads/migration-edge-cases/`
 
 See `docs/LOW_CODE_MIGRATION_EDGE_CASES_TEST_PACK_V0.1.md`.
 
-Low-code batch migration (design):
+Low-code batch migration:
 
-See `docs/LOW_CODE_BATCH_MIGRATION_DESIGN_V0.1.md`.
+* Design: `docs/LOW_CODE_BATCH_MIGRATION_DESIGN_V0.1.md`
+* Batch preview API: `docs/LOW_CODE_BATCH_MIGRATION_PREVIEW_API_V0.1.md`
+
+Batch migration preview (read-only):
+
+```powershell
+curl.exe -X POST `
+  -H "Content-Type: application/json" `
+  -H "X-Tenant-ID: 74519f22-ff9b-4a8b-8fff-a958c689682f" `
+  --data-binary "@scripts/dev/payloads/lowcode_batch_migration_preview_transport_order.json" `
+  http://localhost:8080/api/v1/low-code/admin/custom-field-values/batch-migration-preview
+```
 
 Next implementation:
 
-1. Low-code Batch Migration Preview API Pack v0.1
-2. Low-code Batch Migration Execute API Pack v0.1
-3. Admin UI Batch Migration Wizard Pack v0.1
-4. Batch Migration Audit & Metrics Pack v0.1
+1. Low-code Batch Migration Execute API Pack v0.1
+2. Admin UI Batch Migration Wizard Pack v0.1
+3. Batch Migration Audit & Metrics Pack v0.1
 
 Drag-and-drop form builder (section/field reorder):
 

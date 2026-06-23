@@ -52,6 +52,7 @@ func NewRouter(
 		r.Route("/admin/custom-field-values", func(r chi.Router) {
 			r.Post("/migrate-to-active", adminCustomFieldValueHandler.MigrateToActive)
 			r.Post("/migration-preview", adminCustomFieldValueHandler.MigrationPreview)
+			r.Post("/batch-migration-preview", adminCustomFieldValueHandler.BatchMigrationPreview)
 		})
 
 		adminFormTemplateHandler := handlers.NewAdminFormTemplateHandler(adminFormTemplateSvc)

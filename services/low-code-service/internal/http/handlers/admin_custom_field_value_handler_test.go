@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/freight-platform/low-code-service/internal/domain"
+	apperrors "github.com/freight-platform/low-code-service/internal/platform/errors"
 	"github.com/freight-platform/low-code-service/internal/repository"
 	"github.com/freight-platform/low-code-service/internal/service"
 )
@@ -180,6 +181,9 @@ type previewMigrationFormTemplateReader struct {
 
 func (s *previewMigrationFormTemplateReader) GetPublishedTemplateContext(ctx context.Context, tenantID uuid.UUID, templateID uuid.UUID) (*domain.PublishedTemplateContext, error) {
 	if s.target != nil && s.target.ID == templateID {
+		if s.target.TenantID != tenantID {
+			return nil, apperrors.TenantMismatch()
+		}
 		return s.target, nil
 	}
 	return nil, nil
