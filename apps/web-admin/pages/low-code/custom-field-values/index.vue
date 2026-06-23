@@ -31,6 +31,7 @@ const { resolveDemoEntityId, resolveDemoEmptyEntityId, resolveEntityStatus, reso
 const { hasTenant } = useTenantContext()
 
 const { pushToast } = useToast()
+const { isPlatformAdmin } = usePermissions()
 
 const { t } = useI18n()
 
@@ -134,11 +135,11 @@ const latestMigrationEvent = computed(() =>
 )
 
 const canOpenMigration = computed(
-  () => loaded.value && !!loadedEntity.entity_id && !!activeTemplateCode.value,
+  () => isPlatformAdmin() && loaded.value && !!loadedEntity.entity_id && !!activeTemplateCode.value,
 )
 
 const canOpenBatchMigration = computed(
-  () => hasTenant.value && !!form.entity_type && !!activeTemplateCode.value,
+  () => isPlatformAdmin() && hasTenant.value && !!form.entity_type && !!activeTemplateCode.value,
 )
 
 async function resolveTemplateCodeForType(entityType: LowCodeEntityType) {

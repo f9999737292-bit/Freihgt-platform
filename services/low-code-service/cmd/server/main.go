@@ -12,7 +12,9 @@ import (
 
 	"github.com/freight-platform/low-code-service/internal/config"
 	httpserver "github.com/freight-platform/low-code-service/internal/http"
+	lcmiddleware "github.com/freight-platform/low-code-service/internal/http/middleware"
 	"github.com/freight-platform/low-code-service/internal/platform/database"
+	"github.com/freight-platform/low-code-service/internal/platform/identity"
 	"github.com/freight-platform/low-code-service/internal/platform/logger"
 	"github.com/freight-platform/low-code-service/internal/repository"
 	"github.com/freight-platform/low-code-service/internal/service"
@@ -56,7 +58,19 @@ func main() {
 	customFieldValueRepo := repository.NewCustomFieldValueRepository(db.Pool, auditRepo)
 	customFieldValueSvc := service.NewCustomFieldValueService(formTemplateRepo, customFieldValueRepo)
 	auditSvc := service.NewAuditService(auditRepo)
-	router := httpserver.NewRouter(log, readiness, formTemplateSvc, customFieldValueSvc, auditSvc, adminFormTemplateSvc)
+	identityClient := identity.NewClient(cfg.IdentityServiceURL)
+	router := httpserver.NewRouter(
+		log,
+		readiness,
+		formTemplateSvc,
+		customFieldValueSvc,
+		auditSvc,
+		adminFormTemplateSvc,
+		lcmiddleware.AdminAuthConfig{
+			Enabled:     cfg.AdminAuthEnabled,
+			RoleChecker: identityClient,
+		},
+	)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

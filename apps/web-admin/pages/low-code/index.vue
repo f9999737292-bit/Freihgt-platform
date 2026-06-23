@@ -12,12 +12,23 @@ const templatesCount = ref<number | null>(null)
 const lowCodeStatus = ref<'online' | 'offline' | 'unknown'>('unknown')
 const lowCodeMessage = ref('')
 
-const navLinks = [
-  { to: '/low-code/form-templates', labelKey: 'lowCode.formTemplates', descKey: 'lowCode.formTemplatesDesc' },
-  { to: '/low-code/admin/form-templates', labelKey: 'lowCode.formTemplateAdmin', descKey: 'lowCode.formTemplateAdminDesc' },
-  { to: '/low-code/custom-field-values', labelKey: 'lowCode.customFieldValues', descKey: 'lowCode.customFieldValuesDesc' },
-  { to: '/low-code/audit', labelKey: 'lowCode.auditLog', descKey: 'lowCode.auditLogDesc' },
-]
+const { isPlatformAdmin } = usePermissions()
+
+const navLinks = computed(() => {
+  const links = [
+    { to: '/low-code/form-templates', labelKey: 'lowCode.formTemplates', descKey: 'lowCode.formTemplatesDesc' },
+    { to: '/low-code/custom-field-values', labelKey: 'lowCode.customFieldValues', descKey: 'lowCode.customFieldValuesDesc' },
+    { to: '/low-code/audit', labelKey: 'lowCode.auditLog', descKey: 'lowCode.auditLogDesc' },
+  ]
+  if (isPlatformAdmin()) {
+    links.splice(1, 0, {
+      to: '/low-code/admin/form-templates',
+      labelKey: 'lowCode.formTemplateAdmin',
+      descKey: 'lowCode.formTemplateAdminDesc',
+    })
+  }
+  return links
+})
 
 async function probeLowCode() {
   loading.value = true
@@ -68,7 +79,7 @@ onMounted(refreshAll)
       </UiButton>
     </header>
 
-    <div class="low-code-hub__notice low-code-hub__notice--info">
+    <div v-if="isPlatformAdmin()" class="low-code-hub__notice low-code-hub__notice--info">
       <strong>{{ $t('lowCode.formTemplateAdmin') }}</strong>
       <p>{{ $t('lowCode.formTemplateAdminHint') }}</p>
     </div>

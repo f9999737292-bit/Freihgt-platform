@@ -49,6 +49,10 @@ func Error(w http.ResponseWriter, err error) {
 		status = http.StatusConflict
 	case apperrors.CodeNotFound, apperrors.CodeFormTemplateNotFound, apperrors.CodeFieldNotFound:
 		status = http.StatusNotFound
+	case apperrors.CodeUnauthorized:
+		status = http.StatusUnauthorized
+	case apperrors.CodeForbidden:
+		status = http.StatusForbidden
 	}
 
 	JSON(w, status, errorBody{

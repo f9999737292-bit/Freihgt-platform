@@ -4,14 +4,17 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
-	ServiceName string
-	Environment string
-	HTTPPort    int
-	LogLevel    string
-	DatabaseURL string
+	ServiceName         string
+	Environment         string
+	HTTPPort            int
+	LogLevel            string
+	DatabaseURL         string
+	IdentityServiceURL  string
+	AdminAuthEnabled    bool
 }
 
 func Load() (Config, error) {
@@ -34,12 +37,26 @@ func Load() (Config, error) {
 	}
 
 	return Config{
-		ServiceName: "low-code-service",
-		Environment: getEnv("ENVIRONMENT", "development"),
-		HTTPPort:    port,
-		LogLevel:    getEnv("LOG_LEVEL", "info"),
-		DatabaseURL: databaseURL,
+		ServiceName:        "low-code-service",
+		Environment:        getEnv("ENVIRONMENT", "development"),
+		HTTPPort:           port,
+		LogLevel:           getEnv("LOG_LEVEL", "info"),
+		DatabaseURL:        databaseURL,
+		IdentityServiceURL: getEnv("IDENTITY_SERVICE_URL", "http://identity-service:8081"),
+		AdminAuthEnabled:   getEnvBool("LOW_CODE_ADMIN_AUTH_ENABLED", false),
 	}, nil
+}
+
+func getEnvBool(key string, fallback bool) bool {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return fallback
+	}
+	value, err := strconv.ParseBool(raw)
+	if err != nil {
+		return fallback
+	}
+	return value
 }
 
 func getEnv(key, fallback string) string {

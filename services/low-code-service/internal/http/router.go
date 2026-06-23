@@ -8,6 +8,7 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 
 	"github.com/freight-platform/low-code-service/internal/http/handlers"
+	lcmiddleware "github.com/freight-platform/low-code-service/internal/http/middleware"
 	"github.com/freight-platform/low-code-service/internal/platform/database"
 	"github.com/freight-platform/low-code-service/internal/service"
 	"github.com/freight-platform/shared-go/metrics"
@@ -23,6 +24,7 @@ func NewRouter(
 	customFieldValueSvc *service.CustomFieldValueService,
 	auditSvc *service.AuditService,
 	adminFormTemplateSvc *service.AdminFormTemplateService,
+	adminAuth lcmiddleware.AdminAuthConfig,
 ) http.Handler {
 	metricsCollector := metrics.New(serviceName)
 
@@ -49,7 +51,10 @@ func NewRouter(
 		r.Put("/custom-field-values", customFieldValueHandler.Put)
 		r.Get("/audit-events", auditHandler.List)
 
+	adminGuard := lcmiddleware.RequireLowCodeAdmin(adminAuth)
+
 		r.Route("/admin/custom-field-values", func(r chi.Router) {
+			r.Use(adminGuard)
 			r.Post("/migrate-to-active", adminCustomFieldValueHandler.MigrateToActive)
 			r.Post("/migration-preview", adminCustomFieldValueHandler.MigrationPreview)
 			r.Post("/batch-migration-preview", adminCustomFieldValueHandler.BatchMigrationPreview)
@@ -58,6 +63,7 @@ func NewRouter(
 
 		adminFormTemplateHandler := handlers.NewAdminFormTemplateHandler(adminFormTemplateSvc)
 		r.Route("/admin/form-templates", func(r chi.Router) {
+			r.Use(adminGuard)
 			r.Post("/", adminFormTemplateHandler.Create)
 			r.Get("/", adminFormTemplateHandler.List)
 			r.Get("/{id}", adminFormTemplateHandler.GetByID)

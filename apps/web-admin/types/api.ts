@@ -34,6 +34,7 @@ export interface AuthUser {
   full_name: string
   preferred_locale: string
   status?: string
+  roles?: string[]
 }
 
 export interface GatewayHealth {

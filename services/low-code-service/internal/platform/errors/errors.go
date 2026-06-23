@@ -29,6 +29,8 @@ const (
 	CodeMigrationWarningsRequireConfirmation Code = "MIGRATION_WARNINGS_REQUIRE_CONFIRMATION"
 	CodeBatchMigrationBlocked   Code = "BATCH_MIGRATION_BLOCKED"
 	CodeBatchMigrationWarningsRequireConfirmation Code = "BATCH_MIGRATION_WARNINGS_REQUIRE_CONFIRMATION"
+	CodeUnauthorized          Code = "UNAUTHORIZED"
+	CodeForbidden             Code = "FORBIDDEN"
 )
 
 type AppError struct {
@@ -208,6 +210,20 @@ func BatchMigrationWarningsRequireConfirmation(message string, preview map[strin
 		Message: message,
 		Details: map[string]any{"preview": preview},
 	}
+}
+
+func Unauthorized(message string) *AppError {
+	if message == "" {
+		message = "authentication required"
+	}
+	return &AppError{Code: CodeUnauthorized, Message: message, Details: map[string]any{}}
+}
+
+func Forbidden(message string) *AppError {
+	if message == "" {
+		message = "access denied"
+	}
+	return &AppError{Code: CodeForbidden, Message: message, Details: map[string]any{}}
 }
 
 func detailsOrEmpty(details map[string]any) map[string]any {

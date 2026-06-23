@@ -350,7 +350,15 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-1. Low-code Permissions & Admin Guardrails Pack v0.1
+1. Low-code Entity Integration v0.2 (validation_context wiring + frontend tests)
+
+Low-code admin permissions (v0.1):
+
+```text
+http://localhost:3000/low-code/admin/form-templates
+```
+
+Set `LOW_CODE_ADMIN_AUTH_ENABLED=true` on `low-code-service` for pilot RBAC. See `docs/LOW_CODE_PERMISSIONS_ADMIN_GUARDRAILS_V0.1.md`.
 
 Drag-and-drop form builder (section/field reorder):
 

@@ -32,12 +32,13 @@ export const useAuthStore = defineStore('auth', {
 
       if (config.public.mockAuth) {
         const mockUser: AuthUser = {
-          id: 'demo-admin-user',
+          id: '8541a3a3-bde7-4fed-9501-37b9953bf904',
           tenant_id: payload.tenant_id.trim(),
           email: payload.email.trim(),
           full_name: 'Demo Admin',
           preferred_locale: 'ru-RU',
           status: 'ACTIVE',
+          roles: ['PLATFORM_ADMIN'],
         }
         this.setSession('mock-token-' + Date.now(), mockUser)
         return { access_token: this.token!, user: mockUser } as LoginResponse

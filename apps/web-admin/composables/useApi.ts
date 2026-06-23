@@ -3,6 +3,7 @@ import {
   API_HEADER_AUTHORIZATION,
   API_HEADER_REQUEST_ID,
   API_HEADER_TENANT_ID,
+  API_HEADER_USER_ID,
 } from '~/constants/apiHeaders'
 
 export class ApiError extends Error {
@@ -118,6 +119,9 @@ function buildHeaders(options: RequestOptions = {}) {
 
   if (!options.skipAuth && authStore.token) {
     headers[API_HEADER_AUTHORIZATION] = `Bearer ${authStore.token}`
+  }
+  if (!options.skipAuth && authStore.user?.id) {
+    headers[API_HEADER_USER_ID] = authStore.user.id
   }
   if (!options.skipTenant && tenantStore.tenantId) {
     headers[API_HEADER_TENANT_ID] = tenantStore.tenantId

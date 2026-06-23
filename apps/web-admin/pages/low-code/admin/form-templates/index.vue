@@ -9,7 +9,7 @@ import {
 } from '~/types/lowCode'
 import { TenantRequiredError } from '~/composables/useApi'
 
-definePageMeta({ middleware: 'auth', layout: 'default' })
+definePageMeta({ middleware: ['auth', 'low-code-admin'], layout: 'default' })
 
 const { listAdminFormTemplates, loadActivePublishedTemplateIds, clonePublishedTemplateToDraft, getAdminFormTemplateErrorMessage, isApiUnavailableError } = useLowCodeApi()
 const router = useRouter()

@@ -54,20 +54,22 @@ type userResponse struct {
 }
 
 type userPublicResponse struct {
-	ID              string `json:"id"`
-	TenantID        string `json:"tenant_id"`
-	Email           string `json:"email"`
-	FullName        string `json:"full_name"`
-	PreferredLocale string `json:"preferred_locale"`
+	ID              string   `json:"id"`
+	TenantID        string   `json:"tenant_id"`
+	Email           string   `json:"email"`
+	FullName        string   `json:"full_name"`
+	PreferredLocale string   `json:"preferred_locale"`
+	Roles           []string `json:"roles,omitempty"`
 }
 
 type userMeResponse struct {
-	ID              string `json:"id"`
-	TenantID        string `json:"tenant_id"`
-	Email           string `json:"email"`
-	FullName        string `json:"full_name"`
-	PreferredLocale string `json:"preferred_locale"`
-	Status          string `json:"status"`
+	ID              string   `json:"id"`
+	TenantID        string   `json:"tenant_id"`
+	Email           string   `json:"email"`
+	FullName        string   `json:"full_name"`
+	PreferredLocale string   `json:"preferred_locale"`
+	Status          string   `json:"status"`
+	Roles           []string `json:"roles,omitempty"`
 }
 
 type listUsersResponse struct {
@@ -302,17 +304,18 @@ func toUserResponse(user *domain.User) userResponse {
 	}
 }
 
-func toUserPublicResponse(user *domain.User) userPublicResponse {
+func toUserPublicResponse(user *domain.User, roles []string) userPublicResponse {
 	return userPublicResponse{
 		ID:              user.ID.String(),
 		TenantID:        user.TenantID.String(),
 		Email:           user.Email,
 		FullName:        user.FullName,
 		PreferredLocale: user.PreferredLocale,
+		Roles:           roles,
 	}
 }
 
-func toUserMeResponse(user *domain.User) userMeResponse {
+func toUserMeResponse(user *domain.User, roles []string) userMeResponse {
 	return userMeResponse{
 		ID:              user.ID.String(),
 		TenantID:        user.TenantID.String(),
@@ -320,6 +323,7 @@ func toUserMeResponse(user *domain.User) userMeResponse {
 		FullName:        user.FullName,
 		PreferredLocale: user.PreferredLocale,
 		Status:          user.Status,
+		Roles:           roles,
 	}
 }
 

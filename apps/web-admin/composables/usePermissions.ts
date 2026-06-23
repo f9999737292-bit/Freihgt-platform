@@ -2,14 +2,9 @@ import type { AuthUser } from '~/types/api'
 
 // TODO: extend AuthUser with roles[] and permissions[] when /auth/me returns RBAC payload.
 
-type UserWithRbac = AuthUser & {
-  roles?: string[]
-  permissions?: string[]
-}
-
-function currentUser(): UserWithRbac | null {
+function currentUser(): AuthUser | null {
   const authStore = useAuthStore()
-  return authStore.user as UserWithRbac | null
+  return authStore.user
 }
 
 function userRoles(): string[] {

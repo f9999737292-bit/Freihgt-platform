@@ -25,7 +25,7 @@ func NewRouter(
 	roleService *service.RoleService,
 	membershipService *service.MembershipService,
 ) http.Handler {
-	authHandler := handlers.NewAuthHandler(authService)
+	authHandler := handlers.NewAuthHandler(authService, roleService)
 	userHandler := handlers.NewUserHandler(userService, roleService)
 	roleHandler := handlers.NewRoleHandler(roleService)
 	membershipHandler := handlers.NewMembershipHandler(membershipService)

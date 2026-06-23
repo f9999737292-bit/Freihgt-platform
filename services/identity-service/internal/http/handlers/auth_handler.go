@@ -1,8 +1,11 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
+
+	"github.com/google/uuid"
 
 	"github.com/freight-platform/identity-service/internal/domain"
 	"github.com/freight-platform/identity-service/internal/http/middleware"
@@ -13,10 +16,11 @@ import (
 
 type AuthHandler struct {
 	authService *service.AuthService
+	roleService *service.RoleService
 }
 
-func NewAuthHandler(authService *service.AuthService) *AuthHandler {
-	return &AuthHandler{authService: authService}
+func NewAuthHandler(authService *service.AuthService, roleService *service.RoleService) *AuthHandler {
+	return &AuthHandler{authService: authService, roleService: roleService}
 }
 
 type loginRequest struct {
@@ -66,7 +70,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		AccessToken: result.AccessToken,
 		TokenType:   result.TokenType,
 		ExpiresIn:   result.ExpiresIn,
-		User:        toUserPublicResponse(result.User),
+		User:        toUserPublicResponse(result.User, h.roleCodesForUser(r.Context(), result.User.ID, result.User.TenantID)),
 	})
 }
 
@@ -83,5 +87,22 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respond.JSON(w, http.StatusOK, toUserMeResponse(user))
+	respond.JSON(w, http.StatusOK, toUserMeResponse(user, h.roleCodesForUser(r.Context(), userID, user.TenantID)))
+}
+
+func (h *AuthHandler) roleCodesForUser(ctx context.Context, userID, tenantID uuid.UUID) []string {
+	if h.roleService == nil {
+		return nil
+	}
+	items, err := h.roleService.ListUserRoles(ctx, userID, tenantID)
+	if err != nil {
+		return nil
+	}
+	codes := make([]string, 0, len(items))
+	for _, item := range items {
+		if item.Code != "" {
+			codes = append(codes, item.Code)
+		}
+	}
+	return codes
 }

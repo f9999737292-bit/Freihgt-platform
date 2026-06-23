@@ -652,6 +652,7 @@
     "reloadAuditEvents": "Reload audit events",
     "limit": "Limit",
     "formTemplateAdmin": "Form template admin",
+    "adminAccessDenied": "Admin access required. Contact your platform administrator.",
     "formTemplateAdminDesc": "Create and edit DRAFT form templates",
     "formTemplateAdminHint": "Use Form Template Admin to create, edit, and publish DRAFT templates. Published templates are read-only in v0.1.",
     "formTemplateDrafts": "Form template drafts",

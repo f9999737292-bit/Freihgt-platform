@@ -652,6 +652,7 @@
     "reloadAuditEvents": "重新加载审计事件",
     "limit": "条数限制",
     "formTemplateAdmin": "表单模板管理",
+    "adminAccessDenied": "需要管理员权限。请联系平台管理员。",
     "formTemplateAdminDesc": "创建和编辑 DRAFT 表单模板",
     "formTemplateAdminHint": "使用表单模板管理创建、编辑和发布 DRAFT 模板。v0.1 中已发布模板为只读。",
     "formTemplateDrafts": "表单模板草稿",
