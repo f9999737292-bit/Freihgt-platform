@@ -30,6 +30,34 @@ function formatFields(fields: string[]) {
   return formatAuditFieldList(fields, emptyLabel.value)
 }
 
+function previewStatusTone(status: string | undefined) {
+  switch (status?.toUpperCase()) {
+    case 'SAFE':
+      return 'success'
+    case 'WARNING':
+      return 'warning'
+    case 'BLOCKED':
+      return 'danger'
+    default:
+      return 'neutral'
+  }
+}
+
+function migrationStatusTone(status: string | undefined) {
+  switch (status?.toLowerCase()) {
+    case 'migrated':
+    case 'migrated_with_warnings':
+      return 'success'
+    case 'skipped':
+      return 'warning'
+    case 'blocked':
+    case 'failed':
+      return 'danger'
+    default:
+      return 'neutral'
+  }
+}
+
 async function copyBatchId(value: string) {
   if (!value || !import.meta.client) return
   try {
@@ -76,7 +104,7 @@ async function copyBatchId(value: string) {
         <dd class="migration-audit-card__batch-id">
           <code class="mono">{{ payload.batchId }}</code>
           <UiButton size="sm" variant="secondary" @click="copyBatchId(payload.batchId!)">
-            {{ batchIdCopied ? $t('lowCode.auditCopied') : $t('lowCode.auditCopy') }}
+            {{ batchIdCopied ? $t('lowCode.batchMigrationBatchIdCopied') : $t('lowCode.batchMigrationCopyBatchId') }}
           </UiButton>
         </dd>
       </div>
@@ -94,15 +122,21 @@ async function copyBatchId(value: string) {
       </div>
       <div v-if="payload.previewStatus">
         <dt>{{ $t('lowCode.auditPreviewStatus') }}</dt>
-        <dd>{{ payload.previewStatus }}</dd>
+        <dd>
+          <UiBadge :status="payload.previewStatus" :tone="previewStatusTone(payload.previewStatus)" />
+        </dd>
       </div>
       <div v-if="payload.migrationStatus">
         <dt>{{ $t('lowCode.auditMigrationStatus') }}</dt>
-        <dd>{{ payload.migrationStatus }}</dd>
+        <dd>
+          <UiBadge :status="payload.migrationStatus" :tone="migrationStatusTone(payload.migrationStatus)" />
+        </dd>
       </div>
       <div v-else-if="payload.status">
         <dt>{{ $t('lowCode.migrationStatus') }}</dt>
-        <dd>{{ payload.status }}</dd>
+        <dd>
+          <UiBadge :status="payload.status" :tone="migrationStatusTone(payload.status)" />
+        </dd>
       </div>
       <div v-if="payload.migratedCount != null">
         <dt>{{ $t('lowCode.auditMigratedCount') }}</dt>

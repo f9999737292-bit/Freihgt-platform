@@ -62,6 +62,57 @@ const canProceedFromSelect = computed(() => !selectionError.value && entityIds.v
 
 const isRequestInFlight = computed(() => phase.value === 'loadingPreview' || phase.value === 'executing')
 
+const enteredValidCount = computed(() => parsedIds.value.enteredValidCount)
+const uniqueEntityCount = computed(() => parsedIds.value.ids.length)
+const duplicateCount = computed(() => parsedIds.value.duplicateCount)
+const hasDuplicateIds = computed(() => duplicateCount.value > 0)
+
+const storageKey = computed(() => `lowcode-batch-migration:${props.entityType}:${props.templateCode}`)
+
+const batchIdCopied = ref(false)
+
+const stepDefinitions = computed(() => [
+  {
+    title: t('lowCode.batchMigrationStepSelect'),
+    description: t('lowCode.batchMigrationStepSelectDesc'),
+  },
+  {
+    title: t('lowCode.batchMigrationStepPreview'),
+    description: t('lowCode.batchMigrationStepPreviewDesc'),
+  },
+  {
+    title: t('lowCode.batchMigrationStepConfirm'),
+    description: t('lowCode.batchMigrationStepConfirmDesc'),
+  },
+  {
+    title: t('lowCode.batchMigrationStepResult'),
+    description: t('lowCode.batchMigrationStepResultDesc'),
+  },
+])
+
+const currentStepMeta = computed(() => stepDefinitions.value[step.value - 1] ?? stepDefinitions.value[0])
+
+const stepIndicatorLabel = computed(() =>
+  t('lowCode.batchMigrationStepIndicator', { current: step.value, total: 4 }),
+)
+
+const executeStatusTone = computed(() => statusBadgeTone(executeResult.value?.status ?? ''))
+
+const executeDisabledReason = computed(() => {
+  if (!preview.value || phase.value !== 'previewLoaded') return ''
+  if (allBlocked.value) return t('lowCode.batchMigrationAllBlockedExecuteDisabled')
+  if (hasWarnings.value && !warningsConfirmed.value) return t('lowCode.batchMigrationWarningsRequireConfirmationHint')
+  if (hasBlocked.value && !skipBlocked.value) return t('lowCode.batchMigrationSkipBlockedHint')
+  return ''
+})
+
+const previewSummaryCards = computed(() => [
+  { key: 'total', label: t('lowCode.batchMigrationTotal'), value: previewSummary.value.total, tone: 'neutral' as const },
+  { key: 'safe', label: t('lowCode.batchMigrationSafe'), value: previewSummary.value.safe, tone: 'success' as const },
+  { key: 'warnings', label: t('lowCode.batchMigrationWarnings'), value: previewSummary.value.warnings, tone: 'warning' as const },
+  { key: 'blocked', label: t('lowCode.batchMigrationBlocked'), value: previewSummary.value.blocked, tone: 'danger' as const },
+])
+
 const executeSummary = computed(() => executeResult.value?.summary ?? {
   total: 0,
   migrated: 0,
@@ -129,6 +180,55 @@ const batchAuditLink = computed(() =>
   }),
 )
 
+function formatFieldList(fields: string[] | undefined): string {
+  return fields?.length ? fields.join(', ') : t('lowCode.migrationNone')
+}
+
+function saveSelectionToSession() {
+  if (!import.meta.client) return
+  try {
+    sessionStorage.setItem(storageKey.value, entityIdsText.value)
+  } catch {
+    // sessionStorage unavailable
+  }
+}
+
+function restoreSelectionFromSession() {
+  if (!import.meta.client) return
+  try {
+    const saved = sessionStorage.getItem(storageKey.value)
+    if (saved != null) entityIdsText.value = saved
+  } catch {
+    // sessionStorage unavailable
+  }
+}
+
+async function copyBatchId(value: string | undefined) {
+  if (!value?.trim() || !import.meta.client) return
+  try {
+    await navigator.clipboard.writeText(value.trim())
+    batchIdCopied.value = true
+    window.setTimeout(() => {
+      batchIdCopied.value = false
+    }, 2000)
+  } catch {
+    // clipboard unavailable
+  }
+}
+
+function retryPreviewFromResult() {
+  executeResult.value = null
+  errorMessage.value = ''
+  if (preview.value) {
+    step.value = 2
+    phase.value = 'previewLoaded'
+    return
+  }
+  step.value = 1
+  phase.value = 'selecting'
+  loadPreview()
+}
+
 function resetState() {
   step.value = 1
   phase.value = 'selecting'
@@ -139,7 +239,12 @@ function resetState() {
   expandedRows.value = new Set()
   warningsConfirmed.value = false
   skipBlocked.value = true
-  entityIdsText.value = props.initialEntityId?.trim() ? `${props.initialEntityId.trim()}\n` : ''
+  batchIdCopied.value = false
+  if (props.initialEntityId?.trim()) {
+    entityIdsText.value = `${props.initialEntityId.trim()}\n`
+  } else {
+    restoreSelectionFromSession()
+  }
 }
 
 function useCurrentEntity() {
@@ -168,9 +273,11 @@ function statusBadgeTone(status: MigrationPreviewStatus | string) {
   switch (status) {
     case 'SAFE':
     case 'migrated':
+    case 'completed':
       return 'success'
     case 'WARNING':
     case 'migrated_with_warnings':
+    case 'partially_completed':
       return 'warning'
     case 'BLOCKED':
     case 'blocked':
@@ -305,6 +412,10 @@ watch(
   },
 )
 
+watch(entityIdsText, () => {
+  if (props.open && step.value === 1) saveSelectionToSession()
+})
+
 watch(skipBlocked, (value) => {
   if (!value && hasBlocked.value) {
     errorMessage.value = t('lowCode.batchMigrationSkipBlockedHint')
@@ -322,6 +433,12 @@ watch(skipBlocked, (value) => {
       @close="handleClose"
     >
       <div class="batch-wizard">
+        <header class="batch-wizard__step-header">
+          <p class="batch-wizard__step-indicator">{{ stepIndicatorLabel }}</p>
+          <h3 class="batch-wizard__step-title">{{ currentStepMeta.title }}</h3>
+          <p class="batch-wizard__step-desc">{{ currentStepMeta.description }}</p>
+        </header>
+
         <ol class="batch-wizard__steps" aria-label="Wizard steps">
           <li :class="{ 'batch-wizard__step--active': step === 1, 'batch-wizard__step--done': step > 1 }">
             {{ $t('lowCode.batchMigrationStepSelect') }}
@@ -363,10 +480,22 @@ watch(skipBlocked, (value) => {
             >
               {{ $t('lowCode.batchMigrationUseCurrentEntity') }}
             </UiButton>
-            <span class="batch-wizard__count">
-              {{ entityIds.length }} / {{ MAX_BATCH_MIGRATION_ENTITIES }}
-            </span>
           </div>
+
+          <dl class="batch-wizard__entity-counts">
+            <div>
+              <dt>{{ $t('lowCode.batchMigrationEnteredCount') }}</dt>
+              <dd>{{ enteredValidCount }}</dd>
+            </div>
+            <div>
+              <dt>{{ $t('lowCode.batchMigrationUniqueEntities') }}</dt>
+              <dd>{{ uniqueEntityCount }} / {{ MAX_BATCH_MIGRATION_ENTITIES }}</dd>
+            </div>
+          </dl>
+
+          <p v-if="hasDuplicateIds" class="batch-wizard__duplicate-warning">
+            {{ $t('lowCode.batchMigrationDuplicateIdsDetected', { count: duplicateCount }) }}
+          </p>
 
           <p v-if="invalidLines.length" class="batch-wizard__error">
             {{ $t('lowCode.batchMigrationInvalidUuid') }}:
@@ -397,24 +526,22 @@ watch(skipBlocked, (value) => {
         </div>
 
         <template v-else-if="preview && (step === 2 || step === 3)">
-          <dl class="batch-wizard__summary">
-            <div>
-              <dt>{{ $t('lowCode.batchMigrationTotal') }}</dt>
-              <dd>{{ previewSummary.total }}</dd>
+          <div class="batch-wizard__summary-cards">
+            <div
+              v-for="card in previewSummaryCards"
+              :key="card.key"
+              class="batch-wizard__summary-card"
+              :class="`batch-wizard__summary-card--${card.tone}`"
+            >
+              <span class="batch-wizard__summary-card-label">{{ card.label }}</span>
+              <span class="batch-wizard__summary-card-value">{{ card.value }}</span>
+              <UiBadge
+                v-if="card.key !== 'total'"
+                :status="card.label"
+                :tone="card.tone"
+              />
             </div>
-            <div>
-              <dt>{{ $t('lowCode.batchMigrationSafe') }}</dt>
-              <dd>{{ previewSummary.safe }}</dd>
-            </div>
-            <div>
-              <dt>{{ $t('lowCode.batchMigrationWarnings') }}</dt>
-              <dd>{{ previewSummary.warnings }}</dd>
-            </div>
-            <div>
-              <dt>{{ $t('lowCode.batchMigrationBlocked') }}</dt>
-              <dd>{{ previewSummary.blocked }}</dd>
-            </div>
-          </dl>
+          </div>
 
           <div class="batch-wizard__filters">
             <button
@@ -471,31 +598,33 @@ watch(skipBlocked, (value) => {
                   <tr v-if="isRowExpanded(item.entity_id)" class="batch-wizard__details-row">
                     <td colspan="8">
                       <div class="batch-wizard__details">
-                        <section>
-                          <h4>{{ $t('lowCode.migrationCopiedFields') }}</h4>
-                          <p>{{ item.copied_fields?.join(', ') || $t('lowCode.migrationNone') }}</p>
-                        </section>
-                        <section>
-                          <h4>{{ $t('lowCode.migrationLegacyFields') }}</h4>
-                          <p>{{ item.legacy_fields?.join(', ') || $t('lowCode.migrationNone') }}</p>
-                        </section>
-                        <section>
-                          <h4>{{ $t('lowCode.migrationMissingRequiredFields') }}</h4>
-                          <p>{{ item.missing_required_fields?.join(', ') || $t('lowCode.migrationNone') }}</p>
-                        </section>
-                        <section>
-                          <h4>{{ $t('lowCode.migrationIncompatibleFields') }}</h4>
-                          <ul v-if="item.incompatible_fields?.length">
-                            <li v-for="field in item.incompatible_fields" :key="field.field_code">
-                              <code>{{ field.field_code }}</code> — {{ field.reason }}
-                            </li>
-                          </ul>
-                          <p v-else>{{ $t('lowCode.migrationNone') }}</p>
-                        </section>
-                        <section>
-                          <h4>{{ $t('lowCode.migrationWarningsSection') }}</h4>
-                          <p>{{ item.warnings?.join(', ') || $t('lowCode.migrationNone') }}</p>
-                        </section>
+                        <div class="batch-wizard__detail-grid">
+                          <section>
+                            <h4>{{ $t('lowCode.migrationCopiedFields') }}</h4>
+                            <p>{{ formatFieldList(item.copied_fields) }}</p>
+                          </section>
+                          <section>
+                            <h4>{{ $t('lowCode.migrationLegacyFields') }}</h4>
+                            <p>{{ formatFieldList(item.legacy_fields) }}</p>
+                          </section>
+                          <section>
+                            <h4>{{ $t('lowCode.migrationMissingRequiredFields') }}</h4>
+                            <p>{{ formatFieldList(item.missing_required_fields) }}</p>
+                          </section>
+                          <section>
+                            <h4>{{ $t('lowCode.migrationIncompatibleFields') }}</h4>
+                            <ul v-if="item.incompatible_fields?.length">
+                              <li v-for="field in item.incompatible_fields" :key="field.field_code">
+                                <code>{{ field.field_code }}</code> — {{ field.reason }}
+                              </li>
+                            </ul>
+                            <p v-else>{{ $t('lowCode.migrationNone') }}</p>
+                          </section>
+                          <section>
+                            <h4>{{ $t('lowCode.migrationWarningsSection') }}</h4>
+                            <p>{{ formatFieldList(item.warnings) }}</p>
+                          </section>
+                        </div>
                         <details class="batch-wizard__raw">
                           <summary>{{ $t('lowCode.batchMigrationRawItem') }}</summary>
                           <pre>{{ formatJsonValue(renderItemDetails(item)) }}</pre>
@@ -509,6 +638,12 @@ watch(skipBlocked, (value) => {
           </div>
 
           <div v-if="step === 3" class="batch-wizard__confirm">
+            <p v-if="hasWarnings" class="batch-wizard__confirm-hint batch-wizard__confirm-hint--warning">
+              {{ $t('lowCode.batchMigrationWarningsRequireConfirmationHint') }}
+            </p>
+            <p v-if="hasBlocked && skipBlocked" class="batch-wizard__confirm-hint">
+              {{ $t('lowCode.batchMigrationBlockedWillBeSkipped') }}
+            </p>
             <label v-if="hasWarnings" class="batch-wizard__checkbox">
               <input v-model="warningsConfirmed" type="checkbox" />
               <span>{{ $t('lowCode.batchMigrationWarningsConfirm') }}</span>
@@ -518,23 +653,37 @@ watch(skipBlocked, (value) => {
               <span>{{ $t('lowCode.batchMigrationSkipBlocked') }}</span>
             </label>
             <p v-if="allBlocked" class="batch-wizard__blocked">
-              {{ $t('lowCode.batchMigrationAllBlocked') }}
+              {{ $t('lowCode.batchMigrationAllEntitiesBlocked') }}. {{ $t('lowCode.batchMigrationAllBlocked') }}
             </p>
             <p v-else-if="hasBlocked && !skipBlocked" class="batch-wizard__blocked">
               {{ $t('lowCode.batchMigrationSkipBlockedHint') }}
             </p>
           </div>
 
+          <p v-if="executeDisabledReason && step === 3" class="batch-wizard__error-inline">
+            {{ executeDisabledReason }}
+          </p>
           <p v-if="errorMessage" class="batch-wizard__error-inline">{{ errorMessage }}</p>
         </template>
 
         <div v-else-if="step === 4 && executeResult" class="batch-wizard__panel">
-          <div class="batch-wizard__success">
-            <p>{{ executeStatusLabel }}</p>
-            <p class="batch-wizard__muted">
-              {{ $t('lowCode.batchMigrationBatchId') }}:
-              <code>{{ executeResult.batch_id || '—' }}</code>
-            </p>
+          <div class="batch-wizard__result-header">
+            <div class="batch-wizard__result-status">
+              <span class="batch-wizard__result-status-label">{{ $t('lowCode.batchMigrationExecutionStatus') }}</span>
+              <UiBadge :status="executeStatusLabel" :tone="executeStatusTone" />
+            </div>
+            <div class="batch-wizard__batch-id-row">
+              <span class="batch-wizard__muted">{{ $t('lowCode.batchMigrationBatchId') }}:</span>
+              <code class="batch-wizard__mono">{{ executeResult.batch_id || '—' }}</code>
+              <UiButton
+                v-if="executeResult.batch_id"
+                size="sm"
+                variant="secondary"
+                @click="copyBatchId(executeResult.batch_id)"
+              >
+                {{ batchIdCopied ? $t('lowCode.batchMigrationBatchIdCopied') : $t('lowCode.batchMigrationCopyBatchId') }}
+              </UiButton>
+            </div>
           </div>
 
           <dl class="batch-wizard__summary">
@@ -589,14 +738,23 @@ watch(skipBlocked, (value) => {
             </table>
           </div>
 
-          <NuxtLink :to="batchAuditLink" class="batch-wizard__audit-link">
-            {{ $t('lowCode.batchMigrationViewBatchAudit') }}
-          </NuxtLink>
+          <div class="batch-wizard__result-actions">
+            <NuxtLink :to="batchAuditLink">
+              <UiButton variant="primary">
+                {{ $t('lowCode.batchMigrationViewBatchAudit') }}
+              </UiButton>
+            </NuxtLink>
+          </div>
         </div>
       </div>
 
       <template #footer>
-        <UiButton variant="secondary" :disabled="phase === 'executing'" @click="handleClose">
+        <UiButton
+          v-if="step !== 4"
+          variant="secondary"
+          :disabled="phase === 'executing'"
+          @click="handleClose"
+        >
           {{ $t('lowCode.migrationClose') }}
         </UiButton>
 
@@ -639,6 +797,15 @@ watch(skipBlocked, (value) => {
             {{ executeButtonLabel }}
           </UiButton>
         </template>
+
+        <template v-else-if="step === 4">
+          <UiButton variant="secondary" @click="retryPreviewFromResult">
+            {{ $t('lowCode.batchMigrationRetryPreview') }}
+          </UiButton>
+          <UiButton @click="handleClose">
+            {{ $t('lowCode.migrationClose') }}
+          </UiButton>
+        </template>
       </template>
     </UiModal>
   </div>
@@ -653,6 +820,163 @@ watch(skipBlocked, (value) => {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.batch-wizard__step-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.batch-wizard__step-indicator {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+.batch-wizard__step-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.batch-wizard__step-desc {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.batch-wizard__entity-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 1.5rem;
+  margin: 0;
+}
+
+.batch-wizard__entity-counts dt {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.batch-wizard__entity-counts dd {
+  margin: 0.125rem 0 0;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.batch-wizard__duplicate-warning {
+  margin: 0;
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--radius-md);
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  font-size: 0.8125rem;
+}
+
+.batch-wizard__summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
+}
+
+.batch-wizard__summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  border-left-width: 3px;
+}
+
+.batch-wizard__summary-card--neutral {
+  border-left-color: var(--color-border);
+}
+
+.batch-wizard__summary-card--success {
+  border-left-color: #34d399;
+}
+
+.batch-wizard__summary-card--warning {
+  border-left-color: #fbbf24;
+}
+
+.batch-wizard__summary-card--danger {
+  border-left-color: #f87171;
+}
+
+.batch-wizard__summary-card-label {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.batch-wizard__summary-card-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.batch-wizard__detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem 1rem;
+}
+
+.batch-wizard__confirm-hint {
+  margin: 0;
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted, #f8fafc);
+  border: 1px solid var(--color-border);
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.batch-wizard__confirm-hint--warning {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+.batch-wizard__result-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border-radius: var(--radius-md);
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+}
+
+.batch-wizard__result-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.batch-wizard__result-status-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #065f46;
+}
+
+.batch-wizard__batch-id-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.batch-wizard__result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
 }
 
 .batch-wizard__steps {

@@ -477,23 +477,33 @@ export function isValidEntityUuid(value: string): boolean {
   return UUID_PATTERN.test(value.trim())
 }
 
-export function parseEntityIdsTextarea(raw: string): { ids: string[]; invalidLines: string[] } {
+export function parseEntityIdsTextarea(raw: string): {
+  ids: string[]
+  invalidLines: string[]
+  enteredValidCount: number
+  duplicateCount: number
+} {
   const lines = raw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
   const ids: string[] = []
   const invalidLines: string[] = []
   const seen = new Set<string>()
+  let enteredValidCount = 0
+  let duplicateCount = 0
   for (const line of lines) {
     if (!isValidEntityUuid(line)) {
       invalidLines.push(line)
       continue
     }
+    enteredValidCount++
     const normalized = line.toLowerCase()
-    if (!seen.has(normalized)) {
-      seen.add(normalized)
-      ids.push(line)
+    if (seen.has(normalized)) {
+      duplicateCount++
+      continue
     }
+    seen.add(normalized)
+    ids.push(line)
   }
-  return { ids, invalidLines }
+  return { ids, invalidLines, enteredValidCount, duplicateCount }
 }
 
 export function normalizeBatchMigrationPreviewResponse(

@@ -88,6 +88,17 @@ const emptyMessage = computed(() => {
   return t('lowCode.noAuditEventsFound')
 })
 
+const hasActiveFilters = computed(() =>
+  Boolean(
+    filters.entity_type
+    || filters.entity_id.trim()
+    || filters.action.trim()
+    || filters.batch_id.trim()
+    || quickFilter.value !== 'all'
+    || filters.limit !== 50,
+  ),
+)
+
 function resolveActionForLoad(): string | undefined {
   if (filters.action.trim()) return filters.action.trim()
   if (quickFilter.value === 'migrations' || quickFilter.value === 'batch_migrations') {
@@ -135,6 +146,16 @@ function setQuickFilter(value: LowCodeAuditQuickFilter) {
   if (value === 'migrations' || value === 'batch_migrations' || value === 'value_updates' || value === 'all' || value === 'template_changes') {
     filters.action = ''
   }
+  load()
+}
+
+function clearFilters() {
+  filters.entity_type = ''
+  filters.entity_id = ''
+  filters.action = ''
+  filters.batch_id = ''
+  filters.limit = 50
+  quickFilter.value = 'all'
   load()
 }
 
@@ -205,6 +226,7 @@ onMounted(() => {
         />
         <UiInput
           v-model="filters.batch_id"
+          class="audit-batch-id-input"
           :label="$t('lowCode.auditBatchId')"
           :placeholder="$t('lowCode.auditBatchIdPlaceholder')"
           @keyup.enter="onFilterChange"
@@ -240,6 +262,9 @@ onMounted(() => {
 
       <div class="filters-actions">
         <UiButton @click="onFilterChange">{{ $t('common.search') }}</UiButton>
+        <UiButton v-if="hasActiveFilters" variant="secondary" @click="clearFilters">
+          {{ $t('lowCode.auditClearFilters') }}
+        </UiButton>
       </div>
     </UiCard>
 
@@ -256,7 +281,18 @@ onMounted(() => {
       <div v-if="loading" class="text-muted">{{ $t('common.loading') }}</div>
 
       <div v-else-if="displayedItems.length === 0" class="empty-state">
-        {{ emptyMessage }}
+        <p class="empty-state__title">{{ emptyMessage }}</p>
+        <p v-if="filters.batch_id.trim()" class="empty-state__hint">
+          {{ $t('lowCode.auditEmptyBatchIdHint') }}
+        </p>
+        <UiButton
+          v-if="hasActiveFilters"
+          size="sm"
+          variant="secondary"
+          @click="clearFilters"
+        >
+          {{ $t('lowCode.auditClearFilters') }}
+        </UiButton>
       </div>
 
       <div v-else class="audit-event-list">
@@ -309,13 +345,38 @@ onMounted(() => {
 }
 
 .filters-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
   margin-top: 1rem;
 }
 
+.audit-batch-id-input :deep(input) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.8125rem;
+}
+
 .empty-state {
-  padding: 2rem 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 2rem 1rem;
   text-align: center;
   color: var(--color-text-muted);
+}
+
+.empty-state__title {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.empty-state__hint {
+  margin: 0;
+  max-width: 36rem;
+  font-size: 0.8125rem;
 }
 
 .audit-event-list {

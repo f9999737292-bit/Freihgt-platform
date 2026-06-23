@@ -340,9 +340,13 @@ Batch migration hardening (dedup, guardrails, runbook):
 
 See `docs/LOW_CODE_BATCH_MIGRATION_HARDENING_V0.1.md`.
 
+Batch migration admin UI polish:
+
+See `docs/LOW_CODE_ADMIN_BATCH_MIGRATION_POLISH_V0.1.md`.
+
 Next implementation:
 
-1. Low-code Admin Batch Migration Polish Pack v0.1
+1. Low-code Runtime Readiness Review Pack v0.1
 
 Drag-and-drop form builder (section/field reorder):
 
