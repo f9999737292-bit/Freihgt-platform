@@ -235,9 +235,9 @@ See `docs/LOW_CODE_FORM_TEMPLATE_VERSION_ACTIVATION_POLICY_V0.1.md`.
 ## Low-code Runtime Headers
 
 * Contract: `docs/LOW_CODE_RUNTIME_HEADERS_CONTRACT_V0.1.md`
-* Verify tenant-required: `bash scripts/dev/check_lowcode_headers.sh`
-* Constants: `packages/shared-go/lowcode` (Go), `apps/web-admin/constants/apiHeaders.ts` (frontend)
-* Next: migrate-to-active design / batch migration design
+* Verify tenant-required behavior
+* Verify audit request_id behavior
+* Next: Low-code Migrate-to-Active Design Pack v0.1
 
 Drag-and-drop form builder (section/field reorder):
 
