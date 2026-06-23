@@ -350,7 +350,11 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-1. Low-code Template Import/Export Design Pack v0.1
+1. Low-code Template Export API Pack v0.1
+
+Template import/export design:
+
+See `docs/LOW_CODE_TEMPLATE_IMPORT_EXPORT_DESIGN_V0.1.md`.
 
 Low-code permissions matrix:
 
