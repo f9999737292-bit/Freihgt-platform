@@ -344,9 +344,13 @@ Batch migration admin UI polish:
 
 See `docs/LOW_CODE_ADMIN_BATCH_MIGRATION_POLISH_V0.1.md`.
 
+Runtime readiness review:
+
+See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
+
 Next implementation:
 
-1. Low-code Runtime Readiness Review Pack v0.1
+1. Low-code Permissions & Admin Guardrails Pack v0.1
 
 Drag-and-drop form builder (section/field reorder):
 
