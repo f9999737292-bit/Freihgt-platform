@@ -292,9 +292,16 @@ Payloads: `scripts/dev/payloads/migration-edge-cases/`
 
 See `docs/LOW_CODE_MIGRATION_EDGE_CASES_TEST_PACK_V0.1.md`.
 
+Low-code batch migration (design):
+
+See `docs/LOW_CODE_BATCH_MIGRATION_DESIGN_V0.1.md`.
+
 Next implementation:
 
-1. Low-code Batch Migration Design Pack v0.1
+1. Low-code Batch Migration Preview API Pack v0.1
+2. Low-code Batch Migration Execute API Pack v0.1
+3. Admin UI Batch Migration Wizard Pack v0.1
+4. Batch Migration Audit & Metrics Pack v0.1
 
 Drag-and-drop form builder (section/field reorder):
 
