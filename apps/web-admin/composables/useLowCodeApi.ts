@@ -16,6 +16,10 @@ import type {
   MigrateToActiveResponse,
   MigrationPreviewRequest,
   MigrationPreviewResponse,
+  BatchMigrationPreviewRequest,
+  BatchMigrationPreviewResponse,
+  BatchMigrateToActivePayload,
+  BatchMigrateToActiveResponse,
   SaveCustomFieldValuesPayload,
   SaveCustomFieldValuesResponse,
 } from '~/types/lowCode'
@@ -95,6 +99,22 @@ export function useLowCodeApi() {
     return apiPost<MigrationPreviewResponse>(`${ADMIN_CUSTOM_FIELD_VALUES_PATH}/migration-preview`, payload, {
       query: tenantQuery(),
     })
+  }
+
+  async function previewBatchMigrationToActive(payload: BatchMigrationPreviewRequest) {
+    return apiPost<BatchMigrationPreviewResponse>(
+      `${ADMIN_CUSTOM_FIELD_VALUES_PATH}/batch-migration-preview`,
+      payload,
+      { query: tenantQuery() },
+    )
+  }
+
+  async function batchMigrateCustomFieldValuesToActive(payload: BatchMigrateToActivePayload) {
+    return apiPost<BatchMigrateToActiveResponse>(
+      `${ADMIN_CUSTOM_FIELD_VALUES_PATH}/batch-migrate-to-active`,
+      payload,
+      { query: tenantQuery() },
+    )
   }
 
   async function migrateCustomFieldValuesToActive(payload: MigrateToActivePayload) {
@@ -245,6 +265,10 @@ export function useLowCodeApi() {
           return t('lowCode.migrationBlockedMessage')
         case 'MIGRATION_WARNINGS_REQUIRE_CONFIRMATION':
           return t('lowCode.migrationWarningsRequireConfirmation')
+        case 'BATCH_MIGRATION_BLOCKED':
+          return t('lowCode.batchMigrationBlockedMessage')
+        case 'BATCH_MIGRATION_WARNINGS_REQUIRE_CONFIRMATION':
+          return t('lowCode.batchMigrationWarningsRequireConfirmation')
         case 'FORM_TEMPLATE_NOT_FOUND':
           return t('lowCode.errorFormTemplateNotFound')
         case 'INTERNAL_ERROR':
@@ -419,7 +443,9 @@ export function useLowCodeApi() {
     getCustomFieldValues,
     saveCustomFieldValues,
     previewMigrationToActive,
+    previewBatchMigrationToActive,
     migrateCustomFieldValuesToActive,
+    batchMigrateCustomFieldValuesToActive,
     listAuditEvents,
     listAdminFormTemplates,
     getAdminFormTemplate,

@@ -389,6 +389,226 @@ export interface MigrateToActiveResponse {
   warnings: string[]
 }
 
+export interface MigrateToActiveResponse {
+  status: string
+  tenant_id?: string
+  entity_type?: string
+  entity_id?: string
+  active_template_id?: string
+  target_template_id?: string
+  source_template_id?: string
+  migrated_count?: number
+  copied_fields: string[]
+  legacy_fields: string[]
+  missing_required_fields: string[]
+  incompatible_fields: MigrationPreviewIncompatibleField[]
+  warnings: string[]
+}
+
+export interface BatchMigrationPreviewSummary {
+  total: number
+  safe: number
+  warnings: number
+  blocked: number
+}
+
+export interface BatchMigrationPreviewResponse {
+  tenant_id: string
+  entity_type: string
+  template_code: string
+  target_template: MigrationPreviewTargetTemplate
+  summary: BatchMigrationPreviewSummary
+  items: MigrationPreviewItem[]
+}
+
+export interface BatchMigrationPreviewRequest {
+  entity_type: string
+  template_code?: string
+  entity_ids: string[]
+  target_template_id?: string
+}
+
+export interface BatchMigrateToActivePayload {
+  entity_type: string
+  template_code: string
+  entity_ids: string[]
+  allow_warnings: boolean
+  skip_blocked: boolean
+}
+
+export interface BatchMigrateSummary {
+  total: number
+  migrated: number
+  skipped: number
+  blocked: number
+  failed: number
+  warnings: number
+}
+
+export interface BatchMigrateItemResult {
+  entity_id: string
+  status: string
+  preview_status: string
+  reason?: string
+  migrated_count?: number
+  copied_fields: string[]
+  legacy_fields: string[]
+  missing_required_fields: string[]
+  incompatible_fields: MigrationPreviewIncompatibleField[]
+  warnings: string[]
+}
+
+export interface BatchMigrateToActiveResponse {
+  batch_id: string
+  status: string
+  tenant_id: string
+  entity_type: string
+  template_code: string
+  target_template: MigrationPreviewTargetTemplate
+  summary: BatchMigrateSummary
+  items: BatchMigrateItemResult[]
+}
+
+export const MAX_BATCH_MIGRATION_ENTITIES = 100
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+export function isValidEntityUuid(value: string): boolean {
+  return UUID_PATTERN.test(value.trim())
+}
+
+export function parseEntityIdsTextarea(raw: string): { ids: string[]; invalidLines: string[] } {
+  const lines = raw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
+  const ids: string[] = []
+  const invalidLines: string[] = []
+  const seen = new Set<string>()
+  for (const line of lines) {
+    if (!isValidEntityUuid(line)) {
+      invalidLines.push(line)
+      continue
+    }
+    const normalized = line.toLowerCase()
+    if (!seen.has(normalized)) {
+      seen.add(normalized)
+      ids.push(line)
+    }
+  }
+  return { ids, invalidLines }
+}
+
+export function normalizeBatchMigrationPreviewResponse(
+  raw: Record<string, unknown> | BatchMigrationPreviewResponse,
+): BatchMigrationPreviewResponse | null {
+  if (!raw || typeof raw !== 'object') return null
+
+  const summaryRaw = raw.summary as Record<string, unknown> | undefined
+  const targetRaw = raw.target_template as Record<string, unknown> | undefined
+  const itemsRaw = Array.isArray(raw.items) ? raw.items : []
+
+  if (!summaryRaw || !targetRaw) return null
+
+  const items: MigrationPreviewItem[] = itemsRaw.map((item) => {
+    const row = item as Record<string, unknown>
+    const incompatibleRaw = Array.isArray(row.incompatible_fields) ? row.incompatible_fields : []
+    return {
+      entity_id: String(row.entity_id ?? ''),
+      source_template_id: row.source_template_id ? String(row.source_template_id) : undefined,
+      target_template_id: String(row.target_template_id ?? ''),
+      status: String(row.status ?? 'BLOCKED') as MigrationPreviewStatus,
+      copied_fields: Array.isArray(row.copied_fields) ? row.copied_fields.map(String) : [],
+      legacy_fields: Array.isArray(row.legacy_fields) ? row.legacy_fields.map(String) : [],
+      missing_required_fields: Array.isArray(row.missing_required_fields)
+        ? row.missing_required_fields.map(String)
+        : [],
+      incompatible_fields: incompatibleRaw.map((field) => {
+        const entry = field as Record<string, unknown>
+        return {
+          field_code: String(entry.field_code ?? ''),
+          reason: String(entry.reason ?? ''),
+        }
+      }),
+      warnings: Array.isArray(row.warnings) ? row.warnings.map(String) : [],
+    }
+  })
+
+  return {
+    tenant_id: String(raw.tenant_id ?? ''),
+    entity_type: String(raw.entity_type ?? ''),
+    template_code: String(raw.template_code ?? targetRaw.code ?? ''),
+    target_template: {
+      id: String(targetRaw.id ?? ''),
+      code: String(targetRaw.code ?? ''),
+      version: Number(targetRaw.version ?? 0),
+    },
+    summary: {
+      total: Number(summaryRaw.total ?? summaryRaw.entities_checked ?? items.length),
+      safe: Number(summaryRaw.safe ?? summaryRaw.safe_to_migrate ?? 0),
+      warnings: Number(summaryRaw.warnings ?? 0),
+      blocked: Number(summaryRaw.blocked ?? 0),
+    },
+    items,
+  }
+}
+
+export function normalizeBatchMigrationExecuteResponse(
+  raw: Record<string, unknown> | BatchMigrateToActiveResponse,
+): BatchMigrateToActiveResponse | null {
+  if (!raw || typeof raw !== 'object') return null
+
+  const summaryRaw = raw.summary as Record<string, unknown> | undefined
+  const targetRaw = raw.target_template as Record<string, unknown> | undefined
+  const itemsRaw = Array.isArray(raw.items) ? raw.items : []
+
+  if (!summaryRaw || !targetRaw) return null
+
+  const items: BatchMigrateItemResult[] = itemsRaw.map((item) => {
+    const row = item as Record<string, unknown>
+    const incompatibleRaw = Array.isArray(row.incompatible_fields) ? row.incompatible_fields : []
+    return {
+      entity_id: String(row.entity_id ?? ''),
+      status: String(row.status ?? ''),
+      preview_status: String(row.preview_status ?? ''),
+      reason: row.reason ? String(row.reason) : undefined,
+      migrated_count: row.migrated_count != null ? Number(row.migrated_count) : undefined,
+      copied_fields: Array.isArray(row.copied_fields) ? row.copied_fields.map(String) : [],
+      legacy_fields: Array.isArray(row.legacy_fields) ? row.legacy_fields.map(String) : [],
+      missing_required_fields: Array.isArray(row.missing_required_fields)
+        ? row.missing_required_fields.map(String)
+        : [],
+      incompatible_fields: incompatibleRaw.map((field) => {
+        const entry = field as Record<string, unknown>
+        return {
+          field_code: String(entry.field_code ?? ''),
+          reason: String(entry.reason ?? ''),
+        }
+      }),
+      warnings: Array.isArray(row.warnings) ? row.warnings.map(String) : [],
+    }
+  })
+
+  return {
+    batch_id: String(raw.batch_id ?? ''),
+    status: String(raw.status ?? ''),
+    tenant_id: String(raw.tenant_id ?? ''),
+    entity_type: String(raw.entity_type ?? ''),
+    template_code: String(raw.template_code ?? targetRaw.code ?? ''),
+    target_template: {
+      id: String(targetRaw.id ?? ''),
+      code: String(targetRaw.code ?? ''),
+      version: Number(targetRaw.version ?? 0),
+    },
+    summary: {
+      total: Number(summaryRaw.total ?? items.length),
+      migrated: Number(summaryRaw.migrated ?? 0),
+      skipped: Number(summaryRaw.skipped ?? 0),
+      blocked: Number(summaryRaw.blocked ?? 0),
+      failed: Number(summaryRaw.failed ?? 0),
+      warnings: Number(summaryRaw.warnings ?? 0),
+    },
+    items,
+  }
+}
+
 export function normalizeMigrationPreviewResponse(
   raw: Record<string, unknown> | MigrationPreviewResponse,
 ): MigrationPreviewResponse | null {

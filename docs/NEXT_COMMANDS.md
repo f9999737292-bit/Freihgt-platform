@@ -320,10 +320,17 @@ curl.exe -X POST `
 
 See `docs/LOW_CODE_BATCH_MIGRATION_EXECUTE_API_V0.1.md`.
 
+Admin UI batch migration wizard:
+
+```text
+http://localhost:3000/low-code/custom-field-values
+```
+
+See `docs/LOW_CODE_ADMIN_BATCH_MIGRATION_WIZARD_V0.1.md`.
+
 Next implementation:
 
-1. Admin UI Batch Migration Wizard Pack v0.1
-2. Batch Migration Audit & Metrics Pack v0.1
+1. Low-code Batch Migration Audit & Metrics Pack v0.1
 
 Drag-and-drop form builder (section/field reorder):
 

@@ -73,6 +73,7 @@ const loadingRecentAudit = ref(false)
 const showAuditLink = ref(false)
 
 const migrationModalOpen = ref(false)
+const batchWizardOpen = ref(false)
 const activeTemplateCode = ref<string | null>(null)
 const resolvingTemplateCode = ref(false)
 
@@ -136,14 +137,18 @@ const canOpenMigration = computed(
   () => loaded.value && !!loadedEntity.entity_id && !!activeTemplateCode.value,
 )
 
-async function resolveTemplateCodeForEntity() {
-  if (!hasTenant.value || !loadedEntity.entity_id) {
+const canOpenBatchMigration = computed(
+  () => hasTenant.value && !!form.entity_type && !!activeTemplateCode.value,
+)
+
+async function resolveTemplateCodeForType(entityType: LowCodeEntityType) {
+  if (!hasTenant.value) {
     activeTemplateCode.value = null
     return
   }
   resolvingTemplateCode.value = true
   try {
-    activeTemplateCode.value = await resolveActiveTemplateCode(loadedEntity.entity_type)
+    activeTemplateCode.value = await resolveActiveTemplateCode(entityType)
   } catch {
     activeTemplateCode.value = null
   } finally {
@@ -151,9 +156,34 @@ async function resolveTemplateCodeForEntity() {
   }
 }
 
+async function resolveTemplateCodeForEntity() {
+  if (!loadedEntity.entity_id) {
+    await resolveTemplateCodeForType(form.entity_type)
+    return
+  }
+  await resolveTemplateCodeForType(loadedEntity.entity_type)
+}
+
 function openMigrationModal() {
   if (!canOpenMigration.value) return
   migrationModalOpen.value = true
+}
+
+function openBatchWizard() {
+  if (!canOpenBatchMigration.value || !activeTemplateCode.value) return
+  batchWizardOpen.value = true
+}
+
+async function onBatchMigrationExecuted(migratedEntityIds: string[]) {
+  showAuditLink.value = true
+  if (
+    loaded.value
+    && loadedEntity.entity_id
+    && migratedEntityIds.some((id) => id.toLowerCase() === loadedEntity.entity_id.toLowerCase())
+  ) {
+    panelKey.value += 1
+  }
+  await loadRecentAuditEvents(undefined)
 }
 
 async function onMigrationCompleted() {
@@ -330,10 +360,18 @@ onMounted(async () => {
   }
   if (typeof q.entity_id === 'string') form.entity_id = q.entity_id
   if (typeof q.entity_status === 'string') form.entity_status = q.entity_status
+  await resolveTemplateCodeForType(form.entity_type)
   if (hasTenant.value && form.entity_id.trim()) {
     await loadValues()
   }
 })
+
+watch(
+  () => form.entity_type,
+  (entityType) => {
+    void resolveTemplateCodeForType(entityType)
+  },
+)
 
 </script>
 
@@ -461,6 +499,23 @@ onMounted(async () => {
             </span>
           </span>
 
+          <span
+            class="migration-entry"
+            :title="canOpenBatchMigration ? '' : $t('lowCode.batchMigrationSelectContextFirst')"
+          >
+            <UiButton
+              variant="secondary"
+              :disabled="!canOpenBatchMigration"
+              :loading="resolvingTemplateCode"
+              @click="openBatchWizard"
+            >
+              {{ $t('lowCode.batchMigration') }}
+            </UiButton>
+            <span v-if="!canOpenBatchMigration" class="migration-entry__hint">
+              {{ $t('lowCode.batchMigrationSelectContextFirst') }}
+            </span>
+          </span>
+
         </div>
 
       </div>
@@ -492,6 +547,16 @@ onMounted(async () => {
       :template-code="activeTemplateCode"
       @close="migrationModalOpen = false"
       @migrated="onMigrationCompleted"
+    />
+
+    <LowCodeBatchMigrationWizard
+      v-if="activeTemplateCode"
+      :open="batchWizardOpen"
+      :entity-type="form.entity_type"
+      :template-code="activeTemplateCode"
+      :initial-entity-id="loadedEntity.entity_id || form.entity_id.trim() || undefined"
+      @close="batchWizardOpen = false"
+      @executed="onBatchMigrationExecuted"
     />
 
     <UiCard v-if="loaded && loadedEntity.entity_id && latestMigrationEvent">
