@@ -365,3 +365,54 @@ func boolItemCount(status string, expected string) int {
 	}
 	return 0
 }
+
+func MigrationPreviewResultToBatchMap(result *MigrationPreviewResult, templateCode string) map[string]any {
+	code := strings.TrimSpace(templateCode)
+	if code == "" {
+		code = result.TargetTemplate.Code
+	}
+
+	items := make([]map[string]any, 0, len(result.Items))
+	for _, item := range result.Items {
+		incompatible := make([]map[string]string, 0, len(item.IncompatibleFields))
+		for _, field := range item.IncompatibleFields {
+			incompatible = append(incompatible, map[string]string{
+				"field_code": field.FieldCode,
+				"reason":     field.Reason,
+			})
+		}
+		sourceTemplateID := ""
+		if item.SourceTemplateID != uuid.Nil {
+			sourceTemplateID = item.SourceTemplateID.String()
+		}
+		items = append(items, map[string]any{
+			"entity_id":               item.EntityID.String(),
+			"source_template_id":      sourceTemplateID,
+			"target_template_id":      item.TargetTemplateID.String(),
+			"status":                  item.Status,
+			"copied_fields":           item.CopiedFields,
+			"legacy_fields":           item.LegacyFields,
+			"missing_required_fields": item.MissingRequiredFields,
+			"incompatible_fields":     incompatible,
+			"warnings":                item.Warnings,
+		})
+	}
+
+	return map[string]any{
+		"tenant_id":     result.TenantID.String(),
+		"entity_type":   result.EntityType,
+		"template_code": code,
+		"target_template": map[string]any{
+			"id":      result.TargetTemplate.ID.String(),
+			"code":    result.TargetTemplate.Code,
+			"version": result.TargetTemplate.Version,
+		},
+		"summary": map[string]any{
+			"total":    result.Summary.EntitiesChecked,
+			"safe":     result.Summary.SafeToMigrate,
+			"warnings": result.Summary.Warnings,
+			"blocked":  result.Summary.Blocked,
+		},
+		"items": items,
+	}
+}

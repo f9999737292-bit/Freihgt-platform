@@ -107,6 +107,53 @@ type batchMigrationPreviewResponse struct {
 	Items          []migrationPreviewItemResponse           `json:"items"`
 }
 
+type batchMigrateToActiveRequest struct {
+	EntityType       string   `json:"entity_type"`
+	EntityIDs        []string `json:"entity_ids"`
+	TemplateCode     string   `json:"template_code,omitempty"`
+	TargetTemplateID string   `json:"target_template_id,omitempty"`
+	AllowWarnings    bool     `json:"allow_warnings"`
+	SkipBlocked      *bool    `json:"skip_blocked"`
+}
+
+type batchMigrateSummaryResponse struct {
+	Total    int `json:"total"`
+	Migrated int `json:"migrated"`
+	Skipped  int `json:"skipped"`
+	Blocked  int `json:"blocked"`
+	Failed   int `json:"failed"`
+	Warnings int `json:"warnings"`
+}
+
+type batchMigrateIncompatibleFieldResponse struct {
+	FieldCode string `json:"field_code"`
+	Reason    string `json:"reason"`
+}
+
+type batchMigrateItemResponse struct {
+	EntityID              string                                  `json:"entity_id"`
+	Status                string                                  `json:"status"`
+	PreviewStatus         string                                  `json:"preview_status"`
+	Reason                string                                  `json:"reason,omitempty"`
+	MigratedCount         int                                     `json:"migrated_count,omitempty"`
+	CopiedFields          []string                                `json:"copied_fields"`
+	LegacyFields          []string                                `json:"legacy_fields"`
+	MissingRequiredFields []string                                `json:"missing_required_fields"`
+	IncompatibleFields    []batchMigrateIncompatibleFieldResponse `json:"incompatible_fields"`
+	Warnings              []string                                `json:"warnings"`
+}
+
+type batchMigrateToActiveResponse struct {
+	BatchID        string                                 `json:"batch_id"`
+	Status         string                                 `json:"status"`
+	TenantID       string                                 `json:"tenant_id"`
+	EntityType     string                                 `json:"entity_type"`
+	TemplateCode   string                                 `json:"template_code"`
+	TargetTemplate migrationPreviewTargetTemplateResponse `json:"target_template"`
+	Summary        batchMigrateSummaryResponse            `json:"summary"`
+	Items          []batchMigrateItemResponse             `json:"items"`
+}
+
 func (h *AdminCustomFieldValueHandler) MigrateToActive(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := parseTenantID(r)
 	if err != nil {
@@ -220,6 +267,125 @@ func (h *AdminCustomFieldValueHandler) BatchMigrationPreview(w http.ResponseWrit
 	}
 
 	respond.JSON(w, http.StatusOK, buildBatchMigrationPreviewResponse(tenantID, input.TemplateCode, result))
+}
+
+func (h *AdminCustomFieldValueHandler) BatchMigrateToActive(w http.ResponseWriter, r *http.Request) {
+	tenantID, input, err := parseBatchMigrateToActiveRequest(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	batchID := uuid.New()
+	result, err := h.service.BatchMigrateToActiveTemplate(r.Context(), domain.BatchMigrateCustomFieldValuesToActiveInput{
+		TenantID:          tenantID,
+		EntityType:        input.EntityType,
+		EntityIDs:         input.EntityIDs,
+		TemplateCode:      input.TemplateCode,
+		TargetTemplateID:  input.TargetTemplateID,
+		AllowWarnings:     input.AllowWarnings,
+		SkipBlocked:       input.SkipBlocked,
+		BatchID:           batchID,
+		ValidationContext: validationContextFromRequest(r, nil),
+		Audit:             auditContextFromRequest(r),
+	})
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	respond.JSON(w, http.StatusOK, buildBatchMigrateToActiveResponse(tenantID, result))
+}
+
+func parseBatchMigrateToActiveRequest(r *http.Request) (uuid.UUID, domain.BatchMigrateCustomFieldValuesToActiveInput, error) {
+	tenantID, err := parseTenantID(r)
+	if err != nil {
+		return uuid.Nil, domain.BatchMigrateCustomFieldValuesToActiveInput{}, err
+	}
+
+	var req batchMigrateToActiveRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return uuid.Nil, domain.BatchMigrateCustomFieldValuesToActiveInput{}, apperrors.Validation("invalid request body", map[string]any{"error": err.Error()})
+	}
+
+	entityIDs := make([]uuid.UUID, 0, len(req.EntityIDs))
+	for _, rawID := range req.EntityIDs {
+		entityID, err := uuid.Parse(rawID)
+		if err != nil {
+			return uuid.Nil, domain.BatchMigrateCustomFieldValuesToActiveInput{}, apperrors.EntityIDInvalid(map[string]any{"field": "entity_id", "value": rawID})
+		}
+		entityIDs = append(entityIDs, entityID)
+	}
+
+	var targetTemplateID uuid.UUID
+	if strings.TrimSpace(req.TargetTemplateID) != "" {
+		targetTemplateID, err = uuid.Parse(req.TargetTemplateID)
+		if err != nil {
+			return uuid.Nil, domain.BatchMigrateCustomFieldValuesToActiveInput{}, apperrors.Validation("invalid target_template_id", map[string]any{"field": "target_template_id"})
+		}
+	}
+
+	skipBlocked := true
+	if req.SkipBlocked != nil {
+		skipBlocked = *req.SkipBlocked
+	}
+
+	return tenantID, domain.BatchMigrateCustomFieldValuesToActiveInput{
+		TenantID:         tenantID,
+		EntityType:       req.EntityType,
+		EntityIDs:        entityIDs,
+		TemplateCode:     req.TemplateCode,
+		TargetTemplateID: targetTemplateID,
+		AllowWarnings:    req.AllowWarnings,
+		SkipBlocked:      skipBlocked,
+	}, nil
+}
+
+func buildBatchMigrateToActiveResponse(tenantID uuid.UUID, result *domain.BatchMigrateCustomFieldValuesToActiveResult) batchMigrateToActiveResponse {
+	items := make([]batchMigrateItemResponse, 0, len(result.Items))
+	for _, item := range result.Items {
+		incompatible := make([]batchMigrateIncompatibleFieldResponse, 0, len(item.IncompatibleFields))
+		for _, field := range item.IncompatibleFields {
+			incompatible = append(incompatible, batchMigrateIncompatibleFieldResponse{
+				FieldCode: field.FieldCode,
+				Reason:    field.Reason,
+			})
+		}
+		items = append(items, batchMigrateItemResponse{
+			EntityID:              item.EntityID.String(),
+			Status:                item.Status,
+			PreviewStatus:         item.PreviewStatus,
+			Reason:                item.Reason,
+			MigratedCount:         item.MigratedCount,
+			CopiedFields:          nonNilStringSlice(item.CopiedFields),
+			LegacyFields:          nonNilStringSlice(item.LegacyFields),
+			MissingRequiredFields: nonNilStringSlice(item.MissingRequiredFields),
+			IncompatibleFields:    incompatible,
+			Warnings:              nonNilStringSlice(item.Warnings),
+		})
+	}
+
+	return batchMigrateToActiveResponse{
+		BatchID:      result.BatchID.String(),
+		Status:       result.Status,
+		TenantID:     tenantID.String(),
+		EntityType:   result.EntityType,
+		TemplateCode: result.TemplateCode,
+		TargetTemplate: migrationPreviewTargetTemplateResponse{
+			ID:      result.TargetTemplate.ID.String(),
+			Code:    result.TargetTemplate.Code,
+			Version: result.TargetTemplate.Version,
+		},
+		Summary: batchMigrateSummaryResponse{
+			Total:    result.Summary.Total,
+			Migrated: result.Summary.Migrated,
+			Skipped:  result.Summary.Skipped,
+			Blocked:  result.Summary.Blocked,
+			Failed:   result.Summary.Failed,
+			Warnings: result.Summary.Warnings,
+		},
+		Items: items,
+	}
 }
 
 func parseMigrationPreviewRequest(r *http.Request) (uuid.UUID, domain.MigrationPreviewInput, error) {

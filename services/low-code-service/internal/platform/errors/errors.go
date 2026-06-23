@@ -27,6 +27,8 @@ const (
 	CodeTenantMismatch          Code = "TENANT_MISMATCH"
 	CodeMigrationBlocked        Code = "MIGRATION_BLOCKED"
 	CodeMigrationWarningsRequireConfirmation Code = "MIGRATION_WARNINGS_REQUIRE_CONFIRMATION"
+	CodeBatchMigrationBlocked   Code = "BATCH_MIGRATION_BLOCKED"
+	CodeBatchMigrationWarningsRequireConfirmation Code = "BATCH_MIGRATION_WARNINGS_REQUIRE_CONFIRMATION"
 )
 
 type AppError struct {
@@ -187,6 +189,22 @@ func MigrationBlocked(message string, preview map[string]any) *AppError {
 func MigrationWarningsRequireConfirmation(message string, preview map[string]any) *AppError {
 	return &AppError{
 		Code:    CodeMigrationWarningsRequireConfirmation,
+		Message: message,
+		Details: map[string]any{"preview": preview},
+	}
+}
+
+func BatchMigrationBlocked(message string, preview map[string]any) *AppError {
+	return &AppError{
+		Code:    CodeBatchMigrationBlocked,
+		Message: message,
+		Details: map[string]any{"preview": preview},
+	}
+}
+
+func BatchMigrationWarningsRequireConfirmation(message string, preview map[string]any) *AppError {
+	return &AppError{
+		Code:    CodeBatchMigrationWarningsRequireConfirmation,
 		Message: message,
 		Details: map[string]any{"preview": preview},
 	}

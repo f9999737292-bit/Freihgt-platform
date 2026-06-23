@@ -44,7 +44,8 @@ func Error(w http.ResponseWriter, err error) {
 		status = http.StatusBadRequest
 	case apperrors.CodeFormTemplateConflict:
 		status = http.StatusConflict
-	case apperrors.CodeMigrationBlocked, apperrors.CodeMigrationWarningsRequireConfirmation:
+	case apperrors.CodeMigrationBlocked, apperrors.CodeMigrationWarningsRequireConfirmation,
+		apperrors.CodeBatchMigrationBlocked, apperrors.CodeBatchMigrationWarningsRequireConfirmation:
 		status = http.StatusConflict
 	case apperrors.CodeNotFound, apperrors.CodeFormTemplateNotFound, apperrors.CodeFieldNotFound:
 		status = http.StatusNotFound

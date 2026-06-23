@@ -53,6 +53,7 @@ func NewRouter(
 			r.Post("/migrate-to-active", adminCustomFieldValueHandler.MigrateToActive)
 			r.Post("/migration-preview", adminCustomFieldValueHandler.MigrationPreview)
 			r.Post("/batch-migration-preview", adminCustomFieldValueHandler.BatchMigrationPreview)
+			r.Post("/batch-migrate-to-active", adminCustomFieldValueHandler.BatchMigrateToActive)
 		})
 
 		adminFormTemplateHandler := handlers.NewAdminFormTemplateHandler(adminFormTemplateSvc)

@@ -57,6 +57,7 @@ func TestBuildCustomFieldValuesMigratedToActiveAuditPayload(t *testing.T) {
 			CopiedFields: []string{"cargo_class"},
 		},
 		true,
+		nil,
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

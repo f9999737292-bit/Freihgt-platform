@@ -55,6 +55,9 @@ type UpsertCustomFieldValuesInput struct {
 type MigrateToActiveMigrationAudit struct {
 	SourceTemplateID uuid.UUID
 	AllowWarnings    bool
+	SkipBlocked      bool
+	BatchID          uuid.UUID
+	TemplateCode     string
 	PreviewItem      MigrationPreviewItem
 }
 
@@ -73,6 +76,8 @@ type MigrateCustomFieldValuesToActiveInput struct {
 	TemplateCode      string
 	TargetTemplateID  uuid.UUID
 	AllowWarnings     bool
+	SkipBlocked       bool
+	BatchID           uuid.UUID
 	ValidationContext ValidationContext
 	Audit             AuditContext
 }
@@ -149,4 +154,65 @@ type MigrationPreviewResult struct {
 	TargetTemplate MigrationPreviewTargetTemplate
 	Summary        MigrationPreviewSummary
 	Items          []MigrationPreviewItem
+}
+
+const (
+	BatchMigrateStatusCompleted          = "completed"
+	BatchMigrateStatusPartiallyCompleted = "partially_completed"
+	BatchMigrateStatusFailed             = "failed"
+	BatchMigrateStatusBlocked            = "blocked"
+
+	BatchMigrateItemStatusMigrated             = "migrated"
+	BatchMigrateItemStatusMigratedWithWarnings = "migrated_with_warnings"
+	BatchMigrateItemStatusSkipped              = "skipped"
+	BatchMigrateItemStatusFailed               = "failed"
+
+	BatchMigrateSkipReasonBlocked                     = "BLOCKED"
+	BatchMigrateSkipReasonWarningsRequireConfirmation = "WARNINGS_REQUIRE_CONFIRMATION"
+)
+
+type BatchMigrateCustomFieldValuesToActiveInput struct {
+	TenantID          uuid.UUID
+	EntityType        string
+	EntityIDs         []uuid.UUID
+	TemplateCode      string
+	TargetTemplateID  uuid.UUID
+	AllowWarnings     bool
+	SkipBlocked       bool
+	BatchID           uuid.UUID
+	ValidationContext ValidationContext
+	Audit             AuditContext
+}
+
+type BatchMigrateSummary struct {
+	Total    int
+	Migrated int
+	Skipped  int
+	Blocked  int
+	Failed   int
+	Warnings int
+}
+
+type BatchMigrateItemResult struct {
+	EntityID              uuid.UUID
+	Status                string
+	PreviewStatus         string
+	Reason                string
+	MigratedCount         int
+	CopiedFields          []string
+	LegacyFields          []string
+	MissingRequiredFields []string
+	IncompatibleFields    []MigrationPreviewIncompatibleField
+	Warnings              []string
+}
+
+type BatchMigrateCustomFieldValuesToActiveResult struct {
+	BatchID        uuid.UUID
+	Status         string
+	TenantID       uuid.UUID
+	EntityType     string
+	TemplateCode   string
+	TargetTemplate MigrationPreviewTargetTemplate
+	Summary        BatchMigrateSummary
+	Items          []BatchMigrateItemResult
 }

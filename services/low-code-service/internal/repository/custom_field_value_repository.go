@@ -213,11 +213,22 @@ func (r *CustomFieldValueRepository) ReplaceFieldCodesBatch(
 
 		if r.auditRepo != nil && saved > 0 {
 			if input.MigrationAudit != nil {
+				var batchCtx *domain.BatchMigrationAuditContext
+				if input.MigrationAudit.BatchID != uuid.Nil || input.MigrationAudit.TemplateCode != "" {
+					batchCtx = &domain.BatchMigrationAuditContext{
+						BatchID:      input.MigrationAudit.BatchID,
+						EntityType:   input.EntityType,
+						EntityID:     input.EntityID,
+						TemplateCode: input.MigrationAudit.TemplateCode,
+						SkipBlocked:  input.MigrationAudit.SkipBlocked,
+					}
+				}
 				oldJSON, newJSON, err := domain.BuildCustomFieldValuesMigratedToActiveAuditPayload(
 					input.MigrationAudit.SourceTemplateID,
 					input.FormTemplateID,
 					input.MigrationAudit.PreviewItem,
 					input.MigrationAudit.AllowWarnings,
+					batchCtx,
 				)
 				if err != nil {
 					return apperrors.Internal("failed to build migration audit payload", err)

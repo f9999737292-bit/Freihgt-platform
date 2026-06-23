@@ -106,6 +106,7 @@ func BuildCustomFieldValuesMigratedToActiveAuditPayload(
 	targetTemplateID uuid.UUID,
 	item MigrationPreviewItem,
 	allowWarnings bool,
+	batchCtx *BatchMigrationAuditContext,
 ) (oldJSON json.RawMessage, newJSON json.RawMessage, err error) {
 	incompatible := make([]map[string]string, 0, len(item.IncompatibleFields))
 	for _, field := range item.IncompatibleFields {
@@ -122,10 +123,25 @@ func BuildCustomFieldValuesMigratedToActiveAuditPayload(
 		"copied_fields":           item.CopiedFields,
 		"legacy_fields":           item.LegacyFields,
 		"missing_required_fields": item.MissingRequiredFields,
-		"incompatible_fields":   incompatible,
+		"incompatible_fields":     incompatible,
 		"warnings":                item.Warnings,
 		"allow_warnings":          allowWarnings,
 		"status":                  item.Status,
+	}
+	if batchCtx != nil {
+		if batchCtx.BatchID != uuid.Nil {
+			newPayload["batch_id"] = batchCtx.BatchID.String()
+		}
+		if batchCtx.EntityType != "" {
+			newPayload["entity_type"] = batchCtx.EntityType
+		}
+		if batchCtx.EntityID != uuid.Nil {
+			newPayload["entity_id"] = batchCtx.EntityID.String()
+		}
+		if batchCtx.TemplateCode != "" {
+			newPayload["template_code"] = batchCtx.TemplateCode
+		}
+		newPayload["skip_blocked"] = batchCtx.SkipBlocked
 	}
 	oldPayload := map[string]any{
 		"event_kind": AuditEventKindCustomFieldValuesMigratedToActive,
@@ -140,6 +156,14 @@ func BuildCustomFieldValuesMigratedToActiveAuditPayload(
 		return nil, nil, err
 	}
 	return oldJSON, newJSON, nil
+}
+
+type BatchMigrationAuditContext struct {
+	BatchID      uuid.UUID
+	EntityType   string
+	EntityID     uuid.UUID
+	TemplateCode string
+	SkipBlocked  bool
 }
 
 func ParseAuditEventAction(dbAction string, newValueJSON json.RawMessage) string {

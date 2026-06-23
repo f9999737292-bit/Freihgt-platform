@@ -221,6 +221,9 @@ func (s *CustomFieldValueService) MigrateToActiveTemplate(
 		MigrationAudit: &domain.MigrateToActiveMigrationAudit{
 			SourceTemplateID: sourceTemplateID,
 			AllowWarnings:    input.AllowWarnings,
+			SkipBlocked:      input.SkipBlocked,
+			BatchID:          input.BatchID,
+			TemplateCode:     templateCode,
 			PreviewItem:      previewItem,
 		},
 	}, previewItem.CopiedFields, resolved)
