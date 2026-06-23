@@ -1,0 +1,7 @@
+{
+  "entity_type": "TRANSPORT_ORDER",
+  "template_code": "transport_order_default",
+  "entity_ids": [
+    "REPLACE_WITH_DEMO_TO_002_ENTITY_ID"
+  ]
+}

@@ -281,10 +281,20 @@ http://localhost:3000/low-code/custom-field-values
 
 See `docs/LOW_CODE_MIGRATION_HISTORY_AUDIT_UI_V0.1.md`.
 
+Migration edge-case tests:
+
+```powershell
+cd services\low-code-service
+go test ./...
+```
+
+Payloads: `scripts/dev/payloads/migration-edge-cases/`
+
+See `docs/LOW_CODE_MIGRATION_EDGE_CASES_TEST_PACK_V0.1.md`.
+
 Next implementation:
 
 1. Low-code Batch Migration Design Pack v0.1
-2. Low-code Migration Edge Cases Test Pack v0.1
 
 Drag-and-drop form builder (section/field reorder):
 

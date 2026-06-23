@@ -39,6 +39,13 @@ const executeResultStatus = ref('')
 
 const previewItem = computed<MigrationPreviewItem | null>(() => preview.value?.items?.[0] ?? null)
 
+const previewSummary = computed(() => preview.value?.summary ?? {
+  entities_checked: 0,
+  safe_to_migrate: 0,
+  warnings: 0,
+  blocked: 0,
+})
+
 const entityStatus = computed<MigrationPreviewStatus | null>(() => previewItem.value?.status ?? null)
 
 const canExecute = computed(() => {
@@ -85,6 +92,10 @@ function resetState() {
 
 function formatFieldList(fields: string[] | undefined): string {
   return fields?.length ? fields.join(', ') : t('lowCode.migrationNone')
+}
+
+function fieldList(fields: string[] | undefined): string[] {
+  return Array.isArray(fields) ? fields : []
 }
 
 function applyPreviewData(data: MigrationPreviewResponse | null) {
@@ -196,19 +207,19 @@ watch(
         <dl v-if="phase !== 'migrated'" class="migration-modal__summary">
           <div>
             <dt>{{ $t('lowCode.migrationEntitiesChecked') }}</dt>
-            <dd>{{ preview.summary.entities_checked }}</dd>
+            <dd>{{ previewSummary.entities_checked }}</dd>
           </div>
           <div>
             <dt>{{ $t('lowCode.migrationStatusSafe') }}</dt>
-            <dd>{{ preview.summary.safe_to_migrate }}</dd>
+            <dd>{{ previewSummary.safe_to_migrate }}</dd>
           </div>
           <div>
             <dt>{{ $t('lowCode.migrationStatusWarning') }}</dt>
-            <dd>{{ preview.summary.warnings }}</dd>
+            <dd>{{ previewSummary.warnings }}</dd>
           </div>
           <div>
             <dt>{{ $t('lowCode.migrationStatusBlocked') }}</dt>
-            <dd>{{ preview.summary.blocked }}</dd>
+            <dd>{{ previewSummary.blocked }}</dd>
           </div>
         </dl>
 
@@ -226,19 +237,19 @@ watch(
         <div v-if="phase !== 'migrated'" class="migration-modal__sections">
           <section>
             <h4>{{ $t('lowCode.migrationCopiedFields') }}</h4>
-            <p>{{ formatFieldList(previewItem.copied_fields) }}</p>
+            <p>{{ formatFieldList(fieldList(previewItem.copied_fields)) }}</p>
           </section>
           <section>
             <h4>{{ $t('lowCode.migrationLegacyFields') }}</h4>
-            <p>{{ formatFieldList(previewItem.legacy_fields) }}</p>
+            <p>{{ formatFieldList(fieldList(previewItem.legacy_fields)) }}</p>
           </section>
           <section>
             <h4>{{ $t('lowCode.migrationMissingRequiredFields') }}</h4>
-            <p>{{ formatFieldList(previewItem.missing_required_fields) }}</p>
+            <p>{{ formatFieldList(fieldList(previewItem.missing_required_fields)) }}</p>
           </section>
           <section>
             <h4>{{ $t('lowCode.migrationIncompatibleFields') }}</h4>
-            <div v-if="previewItem.incompatible_fields.length === 0" class="migration-modal__muted">
+            <div v-if="!(previewItem.incompatible_fields?.length)" class="migration-modal__muted">
               {{ $t('lowCode.migrationNone') }}
             </div>
             <ul v-else class="migration-modal__incompatible">
@@ -249,11 +260,11 @@ watch(
           </section>
           <section>
             <h4>{{ $t('lowCode.migrationWarningsSection') }}</h4>
-            <p v-if="previewItem.warnings.length === 0" class="migration-modal__muted">
+            <p v-if="fieldList(previewItem.warnings).length === 0" class="migration-modal__muted">
               {{ $t('lowCode.migrationNoIssues') }}
             </p>
             <ul v-else class="migration-modal__warnings">
-              <li v-for="(warning, index) in previewItem.warnings" :key="`${warning}-${index}`">
+              <li v-for="(warning, index) in fieldList(previewItem.warnings)" :key="`${warning}-${index}`">
                 {{ warning }}
               </li>
             </ul>

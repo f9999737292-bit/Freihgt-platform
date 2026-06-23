@@ -1,0 +1,6 @@
+{
+  "entity_type": "TRANSPORT_ORDER",
+  "template_code": "transport_order_default",
+  "entity_id": "2db04b49-665c-469f-bcb1-ffeb1274fedb",
+  "allow_warnings": true
+}
