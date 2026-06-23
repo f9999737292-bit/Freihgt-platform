@@ -14,9 +14,11 @@ const (
 	AuditEventKindFormTemplateDraftUpdated = "FORM_TEMPLATE_DRAFT_UPDATED"
 	AuditEventKindFormTemplateDraftPublished = "FORM_TEMPLATE_DRAFT_PUBLISHED"
 	AuditEventKindFormTemplateClonedToDraft   = "FORM_TEMPLATE_CLONED_TO_DRAFT"
+	AuditEventKindFormTemplateExported        = "FORM_TEMPLATE_EXPORTED"
 	AuditDBActionCreate                    = "CREATE"
 	AuditDBActionUpdate                    = "UPDATE"
 	AuditDBActionPublish                   = "PUBLISH"
+	AuditDBActionTest                      = "TEST"
 )
 
 type AuditContext struct {

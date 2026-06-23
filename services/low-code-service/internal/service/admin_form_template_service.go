@@ -2,10 +2,12 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/freight-platform/low-code-service/internal/domain"
+	apperrors "github.com/freight-platform/low-code-service/internal/platform/errors"
 	"github.com/freight-platform/low-code-service/internal/repository"
 )
 
@@ -16,6 +18,7 @@ type AdminFormTemplateRepository interface {
 	UpdateDraft(ctx context.Context, input repository.UpdateDraftInput) error
 	PublishDraft(ctx context.Context, tenantID uuid.UUID, templateID uuid.UUID, audit domain.AuditContext) (*domain.FormTemplateDetail, error)
 	ClonePublishedToDraft(ctx context.Context, tenantID uuid.UUID, sourceTemplateID uuid.UUID, audit domain.AuditContext) (*repository.ClonePublishedToDraftResult, error)
+	RecordTemplateExport(ctx context.Context, tenantID uuid.UUID, templateID uuid.UUID, detail domain.FormTemplateDetail, audit domain.AuditContext, schemaVersion string) error
 }
 
 type AdminFormTemplateService struct {
@@ -117,4 +120,40 @@ func (s *AdminFormTemplateService) ClonePublishedToDraft(
 	audit domain.AuditContext,
 ) (*repository.ClonePublishedToDraftResult, error) {
 	return s.repo.ClonePublishedToDraft(ctx, tenantID, sourceTemplateID, audit)
+}
+
+func (s *AdminFormTemplateService) Export(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	templateID uuid.UUID,
+	audit domain.AuditContext,
+	exportedAt time.Time,
+) (domain.TemplateExportEnvelope, error) {
+	detail, err := s.repo.GetByID(ctx, tenantID, templateID)
+	if err != nil {
+		return domain.TemplateExportEnvelope{}, err
+	}
+	if !domain.IsExportableTemplateStatus(detail.Status) {
+		return domain.TemplateExportEnvelope{}, apperrors.Validation(
+			"template status is not exportable",
+			map[string]any{"status": detail.Status},
+		)
+	}
+
+	envelope, err := domain.BuildTemplateExportEnvelope(
+		*detail,
+		audit,
+		exportedAt,
+		domain.DefaultExportEnvironment,
+		domain.DefaultExportServiceName,
+	)
+	if err != nil {
+		return domain.TemplateExportEnvelope{}, apperrors.Internal("failed to build export envelope", err)
+	}
+
+	if err := s.repo.RecordTemplateExport(ctx, tenantID, templateID, *detail, audit, domain.TemplateExportSchemaVersion); err != nil {
+		return domain.TemplateExportEnvelope{}, err
+	}
+
+	return envelope, nil
 }

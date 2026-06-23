@@ -978,6 +978,60 @@ func (r *AdminFormTemplateRepository) insertCloneAudit(
 	return r.auditRepo.InsertInTx(ctx, tx, entry)
 }
 
+func (r *AdminFormTemplateRepository) RecordTemplateExport(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	templateID uuid.UUID,
+	detail domain.FormTemplateDetail,
+	audit domain.AuditContext,
+	schemaVersion string,
+) error {
+	return measureDB("admin_form_template_repository", "record_template_export", func() error {
+		tx, err := r.pool.Begin(ctx)
+		if err != nil {
+			return mapDBError(err)
+		}
+		defer tx.Rollback(ctx)
+
+		meta, err := r.loadTemplateMetaInTx(ctx, tx, tenantID, templateID)
+		if err != nil {
+			return err
+		}
+
+		if r.auditRepo != nil {
+			newJSON, err := domain.BuildFormTemplateExportedAuditPayload(
+				templateID,
+				detail.Code,
+				detail.Version,
+				detail.Status,
+				schemaVersion,
+			)
+			if err != nil {
+				return apperrors.Internal("failed to build export audit payload", err)
+			}
+
+			configID := meta.ConfigurationID
+			entry := domain.ConfigurationAuditEntry{
+				TenantID:        tenantID,
+				ConfigurationID: &configID,
+				EntityType:      detail.EntityType,
+				EntityID:        templateID,
+				Action:          domain.AuditDBActionTest,
+				NewValueJSON:    newJSON,
+				ChangedByUserID: audit.ChangedByUserID,
+				RequestID:       audit.RequestID,
+				IPAddress:       audit.IPAddress,
+				UserAgent:       audit.UserAgent,
+			}
+			if err := r.auditRepo.InsertInTx(ctx, tx, entry); err != nil {
+				return err
+			}
+		}
+
+		return mapDBError(tx.Commit(ctx))
+	})
+}
+
 func nullIfEmptyString(value string) any {
 	value = strings.TrimSpace(value)
 	if value == "" {

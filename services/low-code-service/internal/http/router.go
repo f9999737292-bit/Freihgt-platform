@@ -70,6 +70,7 @@ func NewRouter(
 			r.Put("/{id}", adminFormTemplateHandler.Update)
 			r.Post("/{id}/publish", adminFormTemplateHandler.Publish)
 			r.Post("/{id}/clone-to-draft", adminFormTemplateHandler.CloneToDraft)
+			r.Get("/{id}/export", adminFormTemplateHandler.Export)
 		})
 	})
 

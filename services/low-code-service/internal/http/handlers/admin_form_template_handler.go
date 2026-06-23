@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -230,6 +231,28 @@ func (h *AdminFormTemplateHandler) CloneToDraft(w http.ResponseWriter, r *http.R
 		Version:          result.Version,
 		Code:             result.Code,
 	})
+}
+
+func (h *AdminFormTemplateHandler) Export(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := parseTenantID(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	templateID, err := parseTemplateID(chi.URLParam(r, "id"))
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	envelope, err := h.service.Export(r.Context(), tenantID, templateID, auditContextFromRequest(r), time.Now().UTC())
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	respond.JSON(w, http.StatusOK, envelope)
 }
 
 func parseTemplateID(raw string) (uuid.UUID, error) {

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -33,6 +34,12 @@ type stubAdminFormTemplateRepo struct {
 	lastUpdateInput repository.UpdateDraftInput
 	lastCloneTenantID uuid.UUID
 	lastCloneSourceID uuid.UUID
+	exportErr           error
+	lastExportTenantID    uuid.UUID
+	lastExportTemplateID  uuid.UUID
+	lastExportAudit       domain.AuditContext
+	lastExportSchemaVersion string
+	exportRecorded        bool
 }
 
 func (s *stubAdminFormTemplateRepo) CreateDraft(_ context.Context, input repository.CreateDraftInput) (*repository.CreateDraftResult, error) {
@@ -61,6 +68,15 @@ func (s *stubAdminFormTemplateRepo) ClonePublishedToDraft(_ context.Context, ten
 	s.lastCloneTenantID = tenantID
 	s.lastCloneSourceID = sourceTemplateID
 	return s.cloneResult, s.cloneErr
+}
+
+func (s *stubAdminFormTemplateRepo) RecordTemplateExport(_ context.Context, tenantID uuid.UUID, templateID uuid.UUID, _ domain.FormTemplateDetail, audit domain.AuditContext, schemaVersion string) error {
+	s.exportRecorded = true
+	s.lastExportTenantID = tenantID
+	s.lastExportTemplateID = templateID
+	s.lastExportAudit = audit
+	s.lastExportSchemaVersion = schemaVersion
+	return s.exportErr
 }
 
 func validDraftPayload() []byte {
@@ -450,5 +466,168 @@ func TestAdminCloneToDraftTenantIsolation(t *testing.T) {
 
 	if stub.lastCloneTenantID != tenantID {
 		t.Fatalf("expected tenant %s, got %s", tenantID, stub.lastCloneTenantID)
+	}
+}
+
+func exportTemplateDetail(status string) *domain.FormTemplateDetail {
+	sectionID := uuid.New()
+	fieldID := uuid.New()
+	templateID := uuid.MustParse("b1111111-1111-4111-8111-111111111102")
+	tenantID := uuid.MustParse("74519f22-ff9b-4a8b-8fff-a958c689682f")
+	return &domain.FormTemplateDetail{
+		ID:         templateID,
+		TenantID:   tenantID,
+		EntityType: "TRANSPORT_ORDER",
+		Code:       "transport_order_default",
+		Name:       "Transport Order Default",
+		Status:     status,
+		Version:    1,
+		Sections: []domain.FormSection{
+			{
+				ID:        sectionID,
+				Code:      "general",
+				Title:     "General",
+				SortOrder: 100,
+				Fields: []domain.FormField{
+					{
+						ID:          fieldID,
+						Code:        "cargo_class",
+						Label:       "Cargo class",
+						FieldType:   "SELECT",
+						SortOrder:   100,
+						OptionsJSON: json.RawMessage(`{"options":["GENERAL"]}`),
+					},
+				},
+			},
+		},
+	}
+}
+
+func exportRequest(templateID uuid.UUID, tenantID uuid.UUID) *http.Request {
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("id", templateID.String())
+	req := httptest.NewRequest(http.MethodGet, "/v1/low-code/admin/form-templates/x/export", nil)
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+	req.Header.Set(tenantHeader, tenantID.String())
+	return req
+}
+
+func TestAdminExportTenantRequired(t *testing.T) {
+	handler := NewAdminFormTemplateHandler(service.NewAdminFormTemplateService(&stubAdminFormTemplateRepo{}))
+	rec := httptest.NewRecorder()
+	handler.Export(rec, httptest.NewRequest(http.MethodGet, "/v1/low-code/admin/form-templates/x/export", nil))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+	assertErrorCode(t, rec.Body.Bytes(), "TENANT_REQUIRED")
+}
+
+func TestAdminExportDraftAllowed(t *testing.T) {
+	detail := exportTemplateDetail(domain.DraftStatus)
+	stub := &stubAdminFormTemplateRepo{getDetail: detail}
+	handler := NewAdminFormTemplateHandler(service.NewAdminFormTemplateService(stub))
+	rec := httptest.NewRecorder()
+	handler.Export(rec, exportRequest(detail.ID, detail.TenantID))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	var payload domain.TemplateExportEnvelope
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if payload.SchemaVersion != domain.TemplateExportSchemaVersion {
+		t.Fatalf("schema_version = %q", payload.SchemaVersion)
+	}
+	if payload.Template.Status != domain.DraftStatus {
+		t.Fatalf("expected draft status in export")
+	}
+	if !stub.exportRecorded {
+		t.Fatal("expected export audit recorded")
+	}
+}
+
+func TestAdminExportPublishedAllowed(t *testing.T) {
+	detail := exportTemplateDetail(domain.PublishedStatus)
+	stub := &stubAdminFormTemplateRepo{getDetail: detail}
+	handler := NewAdminFormTemplateHandler(service.NewAdminFormTemplateService(stub))
+	rec := httptest.NewRecorder()
+	handler.Export(rec, exportRequest(detail.ID, detail.TenantID))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestAdminExportWrongTenantRejected(t *testing.T) {
+	detail := exportTemplateDetail(domain.PublishedStatus)
+	stub := &stubAdminFormTemplateRepo{
+		getErr: apperrors.FormTemplateNotFound(),
+	}
+	handler := NewAdminFormTemplateHandler(service.NewAdminFormTemplateService(stub))
+	otherTenant := uuid.New()
+	rec := httptest.NewRecorder()
+	handler.Export(rec, exportRequest(detail.ID, otherTenant))
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestAdminExportMissingTemplateNotFound(t *testing.T) {
+	stub := &stubAdminFormTemplateRepo{getErr: apperrors.FormTemplateNotFound()}
+	handler := NewAdminFormTemplateHandler(service.NewAdminFormTemplateService(stub))
+	tenantID := uuid.MustParse("74519f22-ff9b-4a8b-8fff-a958c689682f")
+	rec := httptest.NewRecorder()
+	handler.Export(rec, exportRequest(uuid.New(), tenantID))
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", rec.Code)
+	}
+}
+
+func TestAdminExportPortableTemplateShape(t *testing.T) {
+	detail := exportTemplateDetail(domain.PublishedStatus)
+	sectionID := detail.Sections[0].ID
+	fieldID := detail.Sections[0].Fields[0].ID
+	stub := &stubAdminFormTemplateRepo{getDetail: detail}
+	handler := NewAdminFormTemplateHandler(service.NewAdminFormTemplateService(stub))
+	rec := httptest.NewRecorder()
+	handler.Export(rec, exportRequest(detail.ID, detail.TenantID))
+
+	body := rec.Body.String()
+	if strings.Contains(body, sectionID.String()) || strings.Contains(body, fieldID.String()) {
+		t.Fatalf("export must not include section/field DB ids: %s", body)
+	}
+	if strings.Contains(body, `"values"`) || strings.Contains(body, "audit") {
+		t.Fatalf("export must not include custom values or audit events: %s", body)
+	}
+
+	var payload domain.TemplateExportEnvelope
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if payload.Template.Code != "transport_order_default" {
+		t.Fatalf("template.code = %q", payload.Template.Code)
+	}
+	if len(payload.Template.Sections) != 1 || len(payload.Template.Sections[0].Fields) != 1 {
+		t.Fatalf("expected sections/fields in export: %+v", payload.Template)
+	}
+	if payload.Template.Sections[0].Fields[0].Code != "cargo_class" {
+		t.Fatalf("expected field_code cargo_class")
+	}
+	if payload.Metadata.Checksum == "" {
+		t.Fatal("expected checksum")
+	}
+	if stub.lastExportSchemaVersion != domain.TemplateExportSchemaVersion {
+		t.Fatalf("audit schema version = %q", stub.lastExportSchemaVersion)
+	}
+}
+
+func TestAdminExportDefaultOffCompatibility(t *testing.T) {
+	detail := exportTemplateDetail(domain.PublishedStatus)
+	stub := &stubAdminFormTemplateRepo{getDetail: detail}
+	handler := NewAdminFormTemplateHandler(service.NewAdminFormTemplateService(stub))
+	req := exportRequest(detail.ID, detail.TenantID)
+	rec := httptest.NewRecorder()
+	handler.Export(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 without X-User-ID, got %d", rec.Code)
 	}
 }
