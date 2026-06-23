@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import {
+  LOW_CODE_AUDIT_ACTION_MIGRATED_TO_ACTIVE,
+  LOW_CODE_AUDIT_ACTION_VALUES_UPDATED,
   LOW_CODE_ENTITY_TYPES,
-  formatJsonValue,
-  formatLowCodeDate,
+  isTemplateAuditEvent,
   type AuditEventItem,
+  type LowCodeAuditQuickFilter,
   type LowCodeEntityType,
 } from '~/types/lowCode'
 import { TenantRequiredError } from '~/composables/useApi'
@@ -28,17 +30,28 @@ const filters = reactive({
   limit: 50,
 })
 
+const quickFilter = ref<LowCodeAuditQuickFilter>('all')
+
 const entityTypeOptions = computed(() => [
   { label: t('common.all'), value: '' },
   ...LOW_CODE_ENTITY_TYPES.map((value) => ({ label: value, value })),
 ])
 
 const actionOptions = computed(() => [
-  { label: t('common.all'), value: '' },
-  { label: 'CUSTOM_FIELD_VALUES_UPDATED', value: 'CUSTOM_FIELD_VALUES_UPDATED' },
+  { label: t('lowCode.auditAllActions'), value: '' },
+  { label: LOW_CODE_AUDIT_ACTION_VALUES_UPDATED, value: LOW_CODE_AUDIT_ACTION_VALUES_UPDATED },
+  { label: LOW_CODE_AUDIT_ACTION_MIGRATED_TO_ACTIVE, value: LOW_CODE_AUDIT_ACTION_MIGRATED_TO_ACTIVE },
   { label: 'FORM_TEMPLATE_DRAFT_CREATED', value: 'FORM_TEMPLATE_DRAFT_CREATED' },
   { label: 'FORM_TEMPLATE_DRAFT_UPDATED', value: 'FORM_TEMPLATE_DRAFT_UPDATED' },
   { label: 'FORM_TEMPLATE_DRAFT_PUBLISHED', value: 'FORM_TEMPLATE_DRAFT_PUBLISHED' },
+  { label: 'FORM_TEMPLATE_CLONED_TO_DRAFT', value: 'FORM_TEMPLATE_CLONED_TO_DRAFT' },
+])
+
+const quickFilterOptions = computed(() => [
+  { id: 'all' as const, label: t('lowCode.auditAllActions') },
+  { id: 'value_updates' as const, label: t('lowCode.auditValueUpdates') },
+  { id: 'template_changes' as const, label: t('lowCode.auditTemplateChanges') },
+  { id: 'migrations' as const, label: t('lowCode.auditMigrations') },
 ])
 
 const limitOptions = [
@@ -47,6 +60,27 @@ const limitOptions = [
   { label: '50', value: 50 },
   { label: '100', value: 100 },
 ]
+
+const displayedItems = computed(() => {
+  if (quickFilter.value === 'template_changes') {
+    return items.value.filter((item) => isTemplateAuditEvent(item))
+  }
+  return items.value
+})
+
+const emptyMessage = computed(() => {
+  if (quickFilter.value === 'migrations') {
+    return t('lowCode.auditNoMigrationEventsFound')
+  }
+  return t('lowCode.noAuditEventsFound')
+})
+
+function resolveActionForLoad(): string | undefined {
+  if (filters.action.trim()) return filters.action.trim()
+  if (quickFilter.value === 'migrations') return LOW_CODE_AUDIT_ACTION_MIGRATED_TO_ACTIVE
+  if (quickFilter.value === 'value_updates') return LOW_CODE_AUDIT_ACTION_VALUES_UPDATED
+  return undefined
+}
 
 async function load() {
   if (!hasTenant.value) {
@@ -61,7 +95,7 @@ async function load() {
     const data = await listAuditEvents({
       entity_type: filters.entity_type || undefined,
       entity_id: filters.entity_id.trim() || undefined,
-      action: filters.action.trim() || undefined,
+      action: resolveActionForLoad(),
       limit: filters.limit,
     })
     items.value = data.items
@@ -81,8 +115,25 @@ function onFilterChange() {
   load()
 }
 
-function formatChangedFields(fields: string[]) {
-  return fields?.length ? fields.join(', ') : '—'
+function setQuickFilter(value: LowCodeAuditQuickFilter) {
+  quickFilter.value = value
+  if (value === 'migrations') {
+    filters.action = ''
+  } else if (value === 'value_updates') {
+    filters.action = ''
+  } else if (value === 'all') {
+    filters.action = ''
+  } else if (value === 'template_changes') {
+    filters.action = ''
+  }
+  load()
+}
+
+function parseCategory(value: string | undefined): LowCodeAuditQuickFilter {
+  if (value === 'migrations' || value === 'value_updates' || value === 'template_changes') {
+    return value
+  }
+  return 'all'
 }
 
 onMounted(() => {
@@ -90,9 +141,17 @@ onMounted(() => {
   if (typeof q.entity_type === 'string') filters.entity_type = q.entity_type as LowCodeEntityType | ''
   if (typeof q.entity_id === 'string') filters.entity_id = q.entity_id
   if (typeof q.action === 'string') filters.action = q.action
+  if (typeof q.category === 'string') quickFilter.value = parseCategory(q.category)
   if (typeof q.limit === 'string') {
     const parsed = Number.parseInt(q.limit, 10)
     if (!Number.isNaN(parsed)) filters.limit = parsed
+  }
+  if (filters.action === LOW_CODE_AUDIT_ACTION_MIGRATED_TO_ACTIVE) {
+    quickFilter.value = 'migrations'
+    filters.action = ''
+  } else if (filters.action === LOW_CODE_AUDIT_ACTION_VALUES_UPDATED) {
+    quickFilter.value = 'value_updates'
+    filters.action = ''
   }
   load()
 })
@@ -142,6 +201,22 @@ onMounted(() => {
           @update:model-value="onFilterChange"
         />
       </div>
+
+      <div class="quick-filters">
+        <span class="quick-filters__label">{{ $t('lowCode.auditMigrationHistory') }}</span>
+        <div class="quick-filters__buttons">
+          <UiButton
+            v-for="option in quickFilterOptions"
+            :key="option.id"
+            size="sm"
+            :variant="quickFilter === option.id ? 'primary' : 'secondary'"
+            @click="setQuickFilter(option.id)"
+          >
+            {{ option.label }}
+          </UiButton>
+        </div>
+      </div>
+
       <div class="filters-actions">
         <UiButton @click="onFilterChange">{{ $t('common.search') }}</UiButton>
       </div>
@@ -159,47 +234,16 @@ onMounted(() => {
 
       <div v-if="loading" class="text-muted">{{ $t('common.loading') }}</div>
 
-      <div v-else-if="items.length === 0" class="empty-state">
-        {{ $t('lowCode.noAuditEventsFound') }}
+      <div v-else-if="displayedItems.length === 0" class="empty-state">
+        {{ emptyMessage }}
       </div>
 
-      <div v-else class="table-wrap">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>{{ $t('lowCode.createdAt') }}</th>
-              <th>{{ $t('lowCode.entityType') }}</th>
-              <th>{{ $t('lowCode.entityId') }}</th>
-              <th>{{ $t('lowCode.action') }}</th>
-              <th>{{ $t('lowCode.actor') }}</th>
-              <th>{{ $t('lowCode.changedFields') }}</th>
-              <th>{{ $t('lowCode.oldValues') }}</th>
-              <th>{{ $t('lowCode.newValues') }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in items" :key="item.id">
-              <td>{{ formatLowCodeDate(item.created_at) }}</td>
-              <td>{{ item.entity_type }}</td>
-              <td class="mono">{{ item.entity_id }}</td>
-              <td>{{ item.action }}</td>
-              <td>{{ item.actor || '—' }}</td>
-              <td>{{ formatChangedFields(item.changed_fields) }}</td>
-              <td>
-                <details class="json-details">
-                  <summary>{{ $t('common.details') }}</summary>
-                  <pre>{{ formatJsonValue(item.old_values) }}</pre>
-                </details>
-              </td>
-              <td>
-                <details class="json-details">
-                  <summary>{{ $t('common.details') }}</summary>
-                  <pre>{{ formatJsonValue(item.new_values) }}</pre>
-                </details>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <div v-else class="audit-event-list">
+        <LowCodeAuditEventCard
+          v-for="item in displayedItems"
+          :key="item.id"
+          :event="item"
+        />
       </div>
     </UiCard>
   </div>
@@ -224,6 +268,25 @@ onMounted(() => {
   gap: 1rem;
 }
 
+.quick-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.quick-filters__label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.quick-filters__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .filters-actions {
   margin-top: 1rem;
 }
@@ -234,50 +297,9 @@ onMounted(() => {
   color: var(--color-text-muted);
 }
 
-.table-wrap {
-  overflow-x: auto;
-}
-
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.875rem;
-}
-
-.data-table th,
-.data-table td {
-  padding: 0.625rem 0.75rem;
-  border-bottom: 1px solid var(--color-border);
-  text-align: left;
-  vertical-align: top;
-}
-
-.data-table th {
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.mono {
-  font-family: ui-monospace, monospace;
-  font-size: 0.8125rem;
-  word-break: break-all;
-}
-
-.json-details summary {
-  cursor: pointer;
-  color: var(--color-primary);
-}
-
-.json-details pre {
-  margin: 0.5rem 0 0;
-  max-width: 280px;
-  max-height: 200px;
-  overflow: auto;
-  padding: 0.5rem;
-  background: var(--color-surface-muted, #f8fafc);
-  border-radius: var(--radius-sm);
-  font-size: 0.75rem;
-  white-space: pre-wrap;
-  word-break: break-word;
+.audit-event-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
 }
 </style>

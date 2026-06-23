@@ -272,10 +272,19 @@ http://localhost:3000/low-code/custom-field-values
 
 See `docs/LOW_CODE_ADMIN_MIGRATION_PREVIEW_MODAL_V0.1.md`.
 
+Admin UI migration history & audit:
+
+```text
+http://localhost:3000/low-code/audit?category=migrations
+http://localhost:3000/low-code/custom-field-values
+```
+
+See `docs/LOW_CODE_MIGRATION_HISTORY_AUDIT_UI_V0.1.md`.
+
 Next implementation:
 
-1. Low-code Migration History & Audit UI Enhancement Pack v0.1
-2. Low-code Batch Migration Design Pack v0.1 (batch execute after publish)
+1. Low-code Batch Migration Design Pack v0.1
+2. Low-code Migration Edge Cases Test Pack v0.1
 
 Drag-and-drop form builder (section/field reorder):
 

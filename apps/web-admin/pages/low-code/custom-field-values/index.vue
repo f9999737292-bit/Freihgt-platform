@@ -10,9 +10,9 @@ import {
 
   PREVIEW_ENTITY_STATUS_PRESETS,
 
-  formatJsonValue,
+  isMigrationAuditEvent,
 
-  formatLowCodeDate,
+  buildLowCodeAuditLink,
 
   type AuditEventItem,
 
@@ -102,7 +102,7 @@ const auditLogLink = computed(() => {
 
   if (!loadedEntity.entity_id) return '/low-code/audit'
 
-  const query = new URLSearchParams({
+  return buildLowCodeAuditLink({
 
     entity_type: loadedEntity.entity_type,
 
@@ -110,9 +110,27 @@ const auditLogLink = computed(() => {
 
   })
 
-  return `/low-code/audit?${query.toString()}`
+})
+
+const migrationHistoryLink = computed(() => {
+
+  if (!loadedEntity.entity_id) return '/low-code/audit?category=migrations'
+
+  return buildLowCodeAuditLink({
+
+    entity_type: loadedEntity.entity_type,
+
+    entity_id: loadedEntity.entity_id,
+
+    category: 'migrations',
+
+  })
 
 })
+
+const latestMigrationEvent = computed(() =>
+  recentAuditEvents.value.find((item) => isMigrationAuditEvent(item)) ?? null,
+)
 
 const canOpenMigration = computed(
   () => loaded.value && !!loadedEntity.entity_id && !!activeTemplateCode.value,
@@ -210,7 +228,7 @@ async function loadRecentAuditEvents(action?: string) {
 
       action,
 
-      limit: 5,
+      limit: 10,
 
     })
 
@@ -300,14 +318,6 @@ function reloadPanel() {
   if (!loadedEntity.entity_id) return
 
   panelKey.value += 1
-
-}
-
-
-
-function formatChangedFields(fields: string[]) {
-
-  return fields?.length ? fields.join(', ') : '—'
 
 }
 
@@ -484,6 +494,16 @@ onMounted(async () => {
       @migrated="onMigrationCompleted"
     />
 
+    <UiCard v-if="loaded && loadedEntity.entity_id && latestMigrationEvent">
+      <template #header>{{ $t('lowCode.auditLatestMigration') }}</template>
+      <LowCodeMigrationAuditCard :event="latestMigrationEvent" compact />
+      <div class="audit-actions">
+        <NuxtLink :to="migrationHistoryLink" class="audit-link">
+          {{ $t('lowCode.auditViewMigrationHistory') }}
+        </NuxtLink>
+      </div>
+    </UiCard>
+
     <UiCard v-if="loaded && loadedEntity.entity_id && (showAuditLink || recentAuditEvents.length)">
 
       <template #header>{{ $t('lowCode.auditEvents') }}</template>
@@ -491,6 +511,8 @@ onMounted(async () => {
       <div class="audit-actions">
 
         <NuxtLink :to="auditLogLink" class="audit-link">{{ $t('lowCode.viewAuditLog') }}</NuxtLink>
+
+        <NuxtLink :to="migrationHistoryLink" class="audit-link">{{ $t('lowCode.auditViewMigrationHistory') }}</NuxtLink>
 
         <UiButton
 
@@ -522,58 +544,12 @@ onMounted(async () => {
 
       </div>
 
-      <div v-else class="table-wrap">
-
-        <table class="data-table">
-
-          <thead>
-
-            <tr>
-
-              <th>{{ $t('lowCode.createdAt') }}</th>
-
-              <th>{{ $t('lowCode.action') }}</th>
-
-              <th>{{ $t('lowCode.actor') }}</th>
-
-              <th>{{ $t('lowCode.changedFields') }}</th>
-
-              <th>{{ $t('lowCode.newValues') }}</th>
-
-            </tr>
-
-          </thead>
-
-          <tbody>
-
-            <tr v-for="item in recentAuditEvents" :key="item.id">
-
-              <td>{{ formatLowCodeDate(item.created_at) }}</td>
-
-              <td>{{ item.action }}</td>
-
-              <td>{{ item.actor || '—' }}</td>
-
-              <td>{{ formatChangedFields(item.changed_fields) }}</td>
-
-              <td>
-
-                <details class="json-details">
-
-                  <summary>{{ $t('common.details') }}</summary>
-
-                  <pre>{{ formatJsonValue(item.new_values) }}</pre>
-
-                </details>
-
-              </td>
-
-            </tr>
-
-          </tbody>
-
-        </table>
-
+      <div v-else class="audit-event-list">
+        <LowCodeAuditEventCard
+          v-for="item in recentAuditEvents"
+          :key="item.id"
+          :event="item"
+        />
       </div>
 
     </UiCard>
@@ -728,7 +704,11 @@ onMounted(async () => {
 
 }
 
-
+.audit-event-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
 
 .table-wrap {
 

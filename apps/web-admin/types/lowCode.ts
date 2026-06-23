@@ -302,6 +302,7 @@ export interface AuditEventItem {
   entity_id: string
   action: string
   actor?: string
+  request_id?: string
   changed_fields: string[]
   old_values: Record<string, unknown>
   new_values: Record<string, unknown>
@@ -439,6 +440,119 @@ export function normalizeMigrationPreviewResponse(
     },
     items,
   }
+}
+
+export const LOW_CODE_AUDIT_ACTION_VALUES_UPDATED = 'CUSTOM_FIELD_VALUES_UPDATED'
+export const LOW_CODE_AUDIT_ACTION_MIGRATED_TO_ACTIVE = 'CUSTOM_FIELD_VALUES_MIGRATED_TO_ACTIVE'
+
+export const LOW_CODE_TEMPLATE_AUDIT_ACTIONS = [
+  'FORM_TEMPLATE_DRAFT_CREATED',
+  'FORM_TEMPLATE_DRAFT_UPDATED',
+  'FORM_TEMPLATE_DRAFT_PUBLISHED',
+  'FORM_TEMPLATE_CLONED_TO_DRAFT',
+] as const
+
+export type LowCodeAuditQuickFilter = 'all' | 'value_updates' | 'template_changes' | 'migrations'
+
+export interface MigrationAuditPayload {
+  sourceTemplateId?: string
+  targetTemplateId?: string
+  copiedFields: string[]
+  legacyFields: string[]
+  missingRequiredFields: string[]
+  incompatibleFields: MigrationPreviewIncompatibleField[]
+  warnings: string[]
+  allowWarnings?: boolean
+  status?: string
+}
+
+function readStringField(source: Record<string, unknown>, key: string): string | undefined {
+  const value = source[key]
+  if (typeof value === 'string' && value.trim()) return value.trim()
+  return undefined
+}
+
+function readStringArrayField(source: Record<string, unknown>, key: string): string[] {
+  const value = source[key]
+  if (!Array.isArray(value)) return []
+  return value.map(String).filter(Boolean)
+}
+
+function readIncompatibleFields(source: Record<string, unknown>): MigrationPreviewIncompatibleField[] {
+  const value = source.incompatible_fields
+  if (!Array.isArray(value)) return []
+  return value.map((entry) => {
+    const row = entry as Record<string, unknown>
+    return {
+      field_code: String(row.field_code ?? ''),
+      reason: String(row.reason ?? ''),
+    }
+  }).filter((field) => field.field_code)
+}
+
+function readBooleanField(source: Record<string, unknown>, key: string): boolean | undefined {
+  const value = source[key]
+  if (typeof value === 'boolean') return value
+  return undefined
+}
+
+function extractMigrationPayloadSource(item: AuditEventItem): Record<string, unknown> {
+  const candidates = [item.new_values, item.old_values]
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== 'object') continue
+    if (
+      candidate.event_kind === LOW_CODE_AUDIT_ACTION_MIGRATED_TO_ACTIVE
+      || typeof candidate.source_template_id === 'string'
+      || typeof candidate.target_template_id === 'string'
+    ) {
+      return candidate
+    }
+  }
+  return {}
+}
+
+export function isMigrationAuditEvent(item: AuditEventItem): boolean {
+  return item.action === LOW_CODE_AUDIT_ACTION_MIGRATED_TO_ACTIVE
+}
+
+export function isTemplateAuditEvent(item: AuditEventItem): boolean {
+  return (LOW_CODE_TEMPLATE_AUDIT_ACTIONS as readonly string[]).includes(item.action)
+}
+
+export function parseMigrationAuditPayload(item: AuditEventItem): MigrationAuditPayload {
+  const source = extractMigrationPayloadSource(item)
+  return {
+    sourceTemplateId: readStringField(source, 'source_template_id'),
+    targetTemplateId: readStringField(source, 'target_template_id'),
+    copiedFields: readStringArrayField(source, 'copied_fields'),
+    legacyFields: readStringArrayField(source, 'legacy_fields'),
+    missingRequiredFields: readStringArrayField(source, 'missing_required_fields'),
+    incompatibleFields: readIncompatibleFields(source),
+    warnings: readStringArrayField(source, 'warnings'),
+    allowWarnings: readBooleanField(source, 'allow_warnings'),
+    status: readStringField(source, 'status'),
+  }
+}
+
+export function formatAuditFieldList(fields: string[] | undefined, emptyLabel: string): string {
+  return fields?.length ? fields.join(', ') : emptyLabel
+}
+
+export function buildLowCodeAuditLink(params: {
+  entity_type?: string
+  entity_id?: string
+  action?: string
+  category?: LowCodeAuditQuickFilter
+  limit?: number
+}): string {
+  const query = new URLSearchParams()
+  if (params.entity_type?.trim()) query.set('entity_type', params.entity_type.trim())
+  if (params.entity_id?.trim()) query.set('entity_id', params.entity_id.trim())
+  if (params.action?.trim()) query.set('action', params.action.trim())
+  if (params.category && params.category !== 'all') query.set('category', params.category)
+  if (params.limit != null) query.set('limit', String(params.limit))
+  const qs = query.toString()
+  return qs ? `/low-code/audit?${qs}` : '/low-code/audit'
 }
 
 export interface SelectOption {
