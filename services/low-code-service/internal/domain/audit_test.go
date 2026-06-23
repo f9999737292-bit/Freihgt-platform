@@ -45,3 +45,31 @@ func TestParseAuditEventAction(t *testing.T) {
 		t.Fatalf("expected mapped action, got %s", action)
 	}
 }
+
+func TestBuildCustomFieldValuesMigratedToActiveAuditPayload(t *testing.T) {
+	sourceID := uuid.New()
+	targetID := uuid.New()
+	_, newJSON, err := BuildCustomFieldValuesMigratedToActiveAuditPayload(
+		sourceID,
+		targetID,
+		MigrationPreviewItem{
+			Status:       MigrationPreviewStatusSafe,
+			CopiedFields: []string{"cargo_class"},
+		},
+		true,
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(newJSON, &payload); err != nil {
+		t.Fatalf("json: %v", err)
+	}
+	if payload["event_kind"] != AuditEventKindCustomFieldValuesMigratedToActive {
+		t.Fatalf("unexpected event kind: %#v", payload["event_kind"])
+	}
+	action := ParseAuditEventAction(AuditDBActionUpdate, newJSON)
+	if action != AuditEventKindCustomFieldValuesMigratedToActive {
+		t.Fatalf("expected parsed action, got %s", action)
+	}
+}

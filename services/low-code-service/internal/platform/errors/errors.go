@@ -25,6 +25,8 @@ const (
 	CodeSystemFieldProtected    Code = "SYSTEM_FIELD_PROTECTED"
 	CodeReadOnlyFieldProtected  Code = "READ_ONLY_FIELD_PROTECTED"
 	CodeTenantMismatch          Code = "TENANT_MISMATCH"
+	CodeMigrationBlocked        Code = "MIGRATION_BLOCKED"
+	CodeMigrationWarningsRequireConfirmation Code = "MIGRATION_WARNINGS_REQUIRE_CONFIRMATION"
 )
 
 type AppError struct {
@@ -171,6 +173,22 @@ func TenantMismatch() *AppError {
 		Code:    CodeTenantMismatch,
 		Message: "tenant mismatch",
 		Details: map[string]any{},
+	}
+}
+
+func MigrationBlocked(message string, preview map[string]any) *AppError {
+	return &AppError{
+		Code:    CodeMigrationBlocked,
+		Message: message,
+		Details: map[string]any{"preview": preview},
+	}
+}
+
+func MigrationWarningsRequireConfirmation(message string, preview map[string]any) *AppError {
+	return &AppError{
+		Code:    CodeMigrationWarningsRequireConfirmation,
+		Message: message,
+		Details: map[string]any{"preview": preview},
 	}
 }
 

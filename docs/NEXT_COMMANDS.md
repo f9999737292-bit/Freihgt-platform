@@ -242,6 +242,7 @@ See `docs/LOW_CODE_FORM_TEMPLATE_VERSION_ACTIVATION_POLICY_V0.1.md`.
 
 * Design: `docs/LOW_CODE_MIGRATE_TO_ACTIVE_DESIGN_V0.1.md`
 * Preview API: `docs/LOW_CODE_MIGRATE_TO_ACTIVE_PREVIEW_API_V0.1.md`
+* Execute API: `docs/LOW_CODE_MIGRATE_TO_ACTIVE_EXECUTE_V0.1.md`
 
 Preview migration (read-only):
 
@@ -253,11 +254,20 @@ curl.exe -X POST `
   http://localhost:8080/api/v1/low-code/admin/custom-field-values/migration-preview
 ```
 
+Execute migration (entity-level):
+
+```powershell
+curl.exe -X POST `
+  -H "Content-Type: application/json" `
+  -H "X-Tenant-ID: 74519f22-ff9b-4a8b-8fff-a958c689682f" `
+  --data-binary "@scripts/dev/payloads/lowcode_migrate_to_active_transport_order.json" `
+  http://localhost:8080/api/v1/low-code/admin/custom-field-values/migrate-to-active
+```
+
 Next implementation:
 
-1. enhance entity-level migrate-to-active (soft warnings, dedicated audit)
-2. admin UI preview modal
-3. batch migration execute after publish
+1. admin UI preview modal
+2. batch migration execute after publish
 
 Drag-and-drop form builder (section/field reorder):
 

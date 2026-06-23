@@ -144,95 +144,115 @@ func (s *CustomFieldValueService) MigrateToActiveTemplate(
 	if input.EntityID == uuid.Nil {
 		return nil, apperrors.EntityIDInvalid(map[string]any{"field": "entity_id"})
 	}
-	code := strings.TrimSpace(input.Code)
-	if code == "" {
-		return nil, apperrors.Validation("code is required", map[string]any{"field": "code"})
+
+	templateCode := strings.TrimSpace(input.TemplateCode)
+	if templateCode == "" {
+		templateCode = strings.TrimSpace(input.Code)
 	}
 
-	activeItems, err := s.templates.ListActivePublished(ctx, input.TenantID, input.EntityType, code)
+	targetTemplate, err := s.resolveMigrationPreviewTarget(ctx, domain.MigrationPreviewInput{
+		TenantID:         input.TenantID,
+		EntityType:       input.EntityType,
+		TemplateCode:     templateCode,
+		TargetTemplateID: input.TargetTemplateID,
+	})
 	if err != nil {
 		return nil, err
 	}
-	if len(activeItems) == 0 {
-		return nil, apperrors.FormTemplateNotFound()
-	}
-	activeTemplateID := activeItems[0].ID
-
-	tmpl, err := s.templates.GetPublishedTemplateContext(ctx, input.TenantID, activeTemplateID)
-	if err != nil {
-		return nil, err
+	if targetTemplate.EntityType != input.EntityType {
+		return nil, apperrors.Validation("entity_type does not match form template", map[string]any{
+			"entity_type":          input.EntityType,
+			"template_entity_type": targetTemplate.EntityType,
+		})
 	}
 
 	existing, err := s.values.ListByEntity(ctx, input.TenantID, input.EntityType, input.EntityID)
 	if err != nil {
 		return nil, err
 	}
-	if len(existing) == 0 {
-		return &domain.MigrateCustomFieldValuesToActiveResult{
-			ActiveTemplateID: activeTemplateID,
-		}, nil
+
+	sourceTemplateID := domain.InferSourceTemplateID(existing)
+	sourceFields := map[string]domain.FieldDefinition{}
+	if sourceTemplateID != uuid.Nil && sourceTemplateID != targetTemplate.ID {
+		sourceCtx, err := s.templates.GetPublishedTemplateContext(ctx, input.TenantID, sourceTemplateID)
+		if err == nil && sourceCtx != nil {
+			sourceFields = sourceCtx.Fields
+		}
 	}
 
-	resolved := make([]repository.ResolvedCustomFieldValue, 0, len(existing))
-	fieldCodes := make([]string, 0, len(existing))
-	skipped := make([]string, 0)
+	previewItem := domain.BuildMigrationPreviewItem(input.EntityID, sourceTemplateID, *targetTemplate, existing, sourceFields)
+	targetMeta := domain.MigrationPreviewTargetTemplate{
+		ID:      targetTemplate.ID,
+		Code:    targetTemplate.Code,
+		Version: targetTemplate.Version,
+	}
+	previewMap := domain.MigrationPreviewItemToMap(previewItem, targetMeta, input.EntityType, input.TenantID)
 
-	for _, item := range existing {
-		field, ok := tmpl.Fields[item.FieldCode]
-		if !ok {
-			skipped = append(skipped, item.FieldCode)
-			continue
+	switch previewItem.Status {
+	case domain.MigrationPreviewStatusBlocked:
+		return nil, apperrors.MigrationBlocked("migration is blocked by incompatible fields", previewMap)
+	case domain.MigrationPreviewStatusWarning:
+		if !input.AllowWarnings {
+			return nil, apperrors.MigrationWarningsRequireConfirmation("migration has warnings and requires allow_warnings=true", previewMap)
 		}
-		if field.SystemField || field.ReadOnly {
-			skipped = append(skipped, item.FieldCode)
-			continue
-		}
-		if err := domain.ValidateFieldValue(field, item.ValueJSON); err != nil {
-			return nil, err
-		}
-		valueBytes := append([]byte(nil), item.ValueJSON...)
+	}
+
+	if len(previewItem.CopiedFields) == 0 {
+		return buildMigrateResult(previewItem, targetTemplate.ID, 0), nil
+	}
+
+	resolvedDomain := domain.BuildResolvedMigrationValues(previewItem, existing, *targetTemplate, sourceFields)
+	resolved := make([]repository.ResolvedCustomFieldValue, 0, len(resolvedDomain))
+	for _, item := range resolvedDomain {
 		resolved = append(resolved, repository.ResolvedCustomFieldValue{
-			FieldID:   field.ID,
-			FieldCode: field.Code,
-			ValueJSON: valueBytes,
+			FieldID:   item.FieldID,
+			FieldCode: item.FieldCode,
+			ValueJSON: item.ValueJSON,
 		})
-		fieldCodes = append(fieldCodes, field.Code)
-	}
-
-	if len(resolved) == 0 {
-		return &domain.MigrateCustomFieldValuesToActiveResult{
-			ActiveTemplateID: activeTemplateID,
-			SkippedCount:     len(skipped),
-			SkippedFields:    skipped,
-		}, nil
-	}
-
-	merged := domain.ValueSnapshot{}
-	for _, item := range existing {
-		merged[item.FieldCode] = item.ValueJSON
-	}
-	if err := domain.ValidateConditionalRequiredFields(tmpl.Fields, merged, input.ValidationContext); err != nil {
-		return nil, err
 	}
 
 	saved, err := s.values.ReplaceFieldCodesBatch(ctx, domain.UpsertCustomFieldValuesInput{
 		TenantID:          input.TenantID,
 		EntityType:        input.EntityType,
 		EntityID:          input.EntityID,
-		FormTemplateID:    activeTemplateID,
+		FormTemplateID:    targetTemplate.ID,
 		ValidationContext: input.ValidationContext,
 		Audit:             input.Audit,
-	}, fieldCodes, resolved)
+		MigrationAudit: &domain.MigrateToActiveMigrationAudit{
+			SourceTemplateID: sourceTemplateID,
+			AllowWarnings:    input.AllowWarnings,
+			PreviewItem:      previewItem,
+		},
+	}, previewItem.CopiedFields, resolved)
 	if err != nil {
 		return nil, err
 	}
 
+	return buildMigrateResult(previewItem, targetTemplate.ID, saved), nil
+}
+
+func buildMigrateResult(previewItem domain.MigrationPreviewItem, targetTemplateID uuid.UUID, migratedCount int) *domain.MigrateCustomFieldValuesToActiveResult {
+	status := "migrated"
+	if previewItem.Status == domain.MigrationPreviewStatusWarning {
+		status = "migrated_with_warnings"
+	}
+
+	skipped := append([]string{}, previewItem.LegacyFields...)
+
 	return &domain.MigrateCustomFieldValuesToActiveResult{
-		ActiveTemplateID: activeTemplateID,
-		MigratedCount:    saved,
-		SkippedCount:     len(skipped),
-		SkippedFields:    skipped,
-	}, nil
+		Status:                status,
+		ActiveTemplateID:      targetTemplateID,
+		TargetTemplateID:      targetTemplateID,
+		SourceTemplateID:      previewItem.SourceTemplateID,
+		MigratedCount:         migratedCount,
+		SkippedCount:          len(skipped),
+		SkippedFields:         skipped,
+		CopiedFields:          previewItem.CopiedFields,
+		LegacyFields:          previewItem.LegacyFields,
+		MissingRequiredFields: previewItem.MissingRequiredFields,
+		IncompatibleFields:    previewItem.IncompatibleFields,
+		Warnings:              previewItem.Warnings,
+	}
 }
 
 func (s *CustomFieldValueService) PreviewMigrationToActive(

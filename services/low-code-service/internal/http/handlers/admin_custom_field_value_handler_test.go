@@ -30,6 +30,8 @@ func TestAdminMigrateCustomFieldValuesToActive(t *testing.T) {
 				ID:         templateID,
 				TenantID:   tenantID,
 				EntityType: "TRANSPORT_ORDER",
+				Code:       "transport_order_default",
+				Version:    2,
 				Status:     domain.PublishedStatus,
 				Fields: map[string]domain.FieldDefinition{
 					"cargo_class": {
@@ -69,6 +71,9 @@ func TestAdminMigrateCustomFieldValuesToActive(t *testing.T) {
 	}
 	if payload.MigratedCount != 1 || payload.ActiveTemplateID != templateID.String() {
 		t.Fatalf("unexpected payload: %+v", payload)
+	}
+	if payload.Status != "migrated" {
+		t.Fatalf("expected migrated status, got %s", payload.Status)
 	}
 }
 

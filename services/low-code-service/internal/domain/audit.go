@@ -9,6 +9,7 @@ import (
 
 const (
 	AuditEventKindCustomFieldValuesUpdated = "CUSTOM_FIELD_VALUES_UPDATED"
+	AuditEventKindCustomFieldValuesMigratedToActive = "CUSTOM_FIELD_VALUES_MIGRATED_TO_ACTIVE"
 	AuditEventKindFormTemplateDraftCreated = "FORM_TEMPLATE_DRAFT_CREATED"
 	AuditEventKindFormTemplateDraftUpdated = "FORM_TEMPLATE_DRAFT_UPDATED"
 	AuditEventKindFormTemplateDraftPublished = "FORM_TEMPLATE_DRAFT_PUBLISHED"
@@ -98,6 +99,47 @@ func BuildCustomFieldValuesAuditPayload(
 type ResolvedCustomFieldValueForAudit struct {
 	FieldCode string
 	ValueJSON []byte
+}
+
+func BuildCustomFieldValuesMigratedToActiveAuditPayload(
+	sourceTemplateID uuid.UUID,
+	targetTemplateID uuid.UUID,
+	item MigrationPreviewItem,
+	allowWarnings bool,
+) (oldJSON json.RawMessage, newJSON json.RawMessage, err error) {
+	incompatible := make([]map[string]string, 0, len(item.IncompatibleFields))
+	for _, field := range item.IncompatibleFields {
+		incompatible = append(incompatible, map[string]string{
+			"field_code": field.FieldCode,
+			"reason":     field.Reason,
+		})
+	}
+
+	newPayload := map[string]any{
+		"event_kind":              AuditEventKindCustomFieldValuesMigratedToActive,
+		"source_template_id":      sourceTemplateID.String(),
+		"target_template_id":      targetTemplateID.String(),
+		"copied_fields":           item.CopiedFields,
+		"legacy_fields":           item.LegacyFields,
+		"missing_required_fields": item.MissingRequiredFields,
+		"incompatible_fields":   incompatible,
+		"warnings":                item.Warnings,
+		"allow_warnings":          allowWarnings,
+		"status":                  item.Status,
+	}
+	oldPayload := map[string]any{
+		"event_kind": AuditEventKindCustomFieldValuesMigratedToActive,
+	}
+
+	oldJSON, err = json.Marshal(oldPayload)
+	if err != nil {
+		return nil, nil, err
+	}
+	newJSON, err = json.Marshal(newPayload)
+	if err != nil {
+		return nil, nil, err
+	}
+	return oldJSON, newJSON, nil
 }
 
 func ParseAuditEventAction(dbAction string, newValueJSON json.RawMessage) string {

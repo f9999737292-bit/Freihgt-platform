@@ -58,7 +58,7 @@ func BuildMigrationPreviewItem(
 			continue
 		}
 
-		sourceType := resolveSourceFieldType(value, sourceFields)
+		sourceType := resolveSourceFieldType(value, sourceFields, targetTemplate.Fields)
 		compat := evaluateTypeCompatibility(sourceType, targetField, value.ValueJSON)
 		switch compat.Outcome {
 		case typeCompatibilityBlocked:
@@ -130,9 +130,14 @@ func InferSourceTemplateID(values []CustomFieldValue) uuid.UUID {
 	return best
 }
 
-func resolveSourceFieldType(value CustomFieldValue, sourceFields map[string]FieldDefinition) string {
+func resolveSourceFieldType(value CustomFieldValue, sourceFields map[string]FieldDefinition, targetFields map[string]FieldDefinition) string {
 	if sourceFields != nil {
 		if field, ok := sourceFields[value.FieldCode]; ok {
+			return field.FieldType
+		}
+	}
+	if targetFields != nil {
+		if field, ok := targetFields[value.FieldCode]; ok {
 			return field.FieldType
 		}
 	}
@@ -270,4 +275,93 @@ func validationFailureReason(err error) string {
 		return "validation failed"
 	}
 	return err.Error()
+}
+
+func BuildResolvedMigrationValues(
+	preview MigrationPreviewItem,
+	existing []CustomFieldValue,
+	target PublishedTemplateContext,
+	sourceFields map[string]FieldDefinition,
+) []ResolvedMigrationValue {
+	valueByCode := make(map[string]CustomFieldValue, len(existing))
+	for _, value := range existing {
+		valueByCode[value.FieldCode] = value
+	}
+
+	resolved := make([]ResolvedMigrationValue, 0, len(preview.CopiedFields))
+	for _, fieldCode := range preview.CopiedFields {
+		value, ok := valueByCode[fieldCode]
+		if !ok {
+			continue
+		}
+		targetField, ok := target.Fields[fieldCode]
+		if !ok {
+			continue
+		}
+		sourceType := resolveSourceFieldType(value, sourceFields, target.Fields)
+		compat := evaluateTypeCompatibility(sourceType, targetField, value.ValueJSON)
+		previewValue := value.ValueJSON
+		if len(compat.PreviewValueJSON) > 0 {
+			previewValue = compat.PreviewValueJSON
+		}
+		var valueBytes []byte
+		if IsNullJSON(previewValue) {
+			valueBytes = nil
+		} else {
+			valueBytes = append([]byte(nil), previewValue...)
+		}
+		resolved = append(resolved, ResolvedMigrationValue{
+			FieldID:   targetField.ID,
+			FieldCode: fieldCode,
+			ValueJSON: valueBytes,
+		})
+	}
+	return resolved
+}
+
+func MigrationPreviewItemToMap(item MigrationPreviewItem, targetTemplate MigrationPreviewTargetTemplate, entityType string, tenantID uuid.UUID) map[string]any {
+	incompatible := make([]map[string]string, 0, len(item.IncompatibleFields))
+	for _, field := range item.IncompatibleFields {
+		incompatible = append(incompatible, map[string]string{
+			"field_code": field.FieldCode,
+			"reason":     field.Reason,
+		})
+	}
+	sourceTemplateID := ""
+	if item.SourceTemplateID != uuid.Nil {
+		sourceTemplateID = item.SourceTemplateID.String()
+	}
+	return map[string]any{
+		"tenant_id":   tenantID.String(),
+		"entity_type": entityType,
+		"target_template": map[string]any{
+			"id":      targetTemplate.ID.String(),
+			"code":    targetTemplate.Code,
+			"version": targetTemplate.Version,
+		},
+		"summary": map[string]any{
+			"entities_checked": 1,
+			"safe_to_migrate":  boolItemCount(item.Status, MigrationPreviewStatusSafe),
+			"warnings":         boolItemCount(item.Status, MigrationPreviewStatusWarning),
+			"blocked":          boolItemCount(item.Status, MigrationPreviewStatusBlocked),
+		},
+		"items": []map[string]any{{
+			"entity_id":               item.EntityID.String(),
+			"source_template_id":      sourceTemplateID,
+			"target_template_id":      item.TargetTemplateID.String(),
+			"status":                  item.Status,
+			"copied_fields":           item.CopiedFields,
+			"legacy_fields":           item.LegacyFields,
+			"missing_required_fields": item.MissingRequiredFields,
+			"incompatible_fields":     incompatible,
+			"warnings":                item.Warnings,
+		}},
+	}
+}
+
+func boolItemCount(status string, expected string) int {
+	if status == expected {
+		return 1
+	}
+	return 0
 }

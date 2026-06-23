@@ -212,34 +212,62 @@ func (r *CustomFieldValueRepository) ReplaceFieldCodesBatch(
 		}
 
 		if r.auditRepo != nil && saved > 0 {
-			auditValues := make([]domain.ResolvedCustomFieldValueForAudit, 0, len(values))
-			for _, value := range values {
-				auditValues = append(auditValues, domain.ResolvedCustomFieldValueForAudit{
-					FieldCode: value.FieldCode,
-					ValueJSON: value.ValueJSON,
-				})
-			}
+			if input.MigrationAudit != nil {
+				oldJSON, newJSON, err := domain.BuildCustomFieldValuesMigratedToActiveAuditPayload(
+					input.MigrationAudit.SourceTemplateID,
+					input.FormTemplateID,
+					input.MigrationAudit.PreviewItem,
+					input.MigrationAudit.AllowWarnings,
+				)
+				if err != nil {
+					return apperrors.Internal("failed to build migration audit payload", err)
+				}
+				configID := input.FormTemplateID
+				if err := r.auditRepo.InsertInTx(ctx, tx, domain.ConfigurationAuditEntry{
+					TenantID:        input.TenantID,
+					ConfigurationID: &configID,
+					EntityType:      input.EntityType,
+					EntityID:        input.EntityID,
+					Action:          domain.AuditDBActionUpdate,
+					OldValueJSON:    oldJSON,
+					NewValueJSON:    newJSON,
+					ChangedByUserID: input.Audit.ChangedByUserID,
+					RequestID:       input.Audit.RequestID,
+					IPAddress:       input.Audit.IPAddress,
+					UserAgent:       input.Audit.UserAgent,
+				}); err != nil {
+					return err
+				}
+			} else {
+				auditValues := make([]domain.ResolvedCustomFieldValueForAudit, 0, len(values))
+				for _, value := range values {
+					auditValues = append(auditValues, domain.ResolvedCustomFieldValueForAudit{
+						FieldCode: value.FieldCode,
+						ValueJSON: value.ValueJSON,
+					})
+				}
 
-			oldJSON, newJSON, _, err := domain.BuildCustomFieldValuesAuditPayload(input.FormTemplateID, auditValues, oldValues)
-			if err != nil {
-				return apperrors.Internal("failed to build audit payload", err)
-			}
+				oldJSON, newJSON, _, err := domain.BuildCustomFieldValuesAuditPayload(input.FormTemplateID, auditValues, oldValues)
+				if err != nil {
+					return apperrors.Internal("failed to build audit payload", err)
+				}
 
-			configID := input.FormTemplateID
-			if err := r.auditRepo.InsertInTx(ctx, tx, domain.ConfigurationAuditEntry{
-				TenantID:        input.TenantID,
-				ConfigurationID: &configID,
-				EntityType:      input.EntityType,
-				EntityID:        input.EntityID,
-				Action:          domain.AuditDBActionUpdate,
-				OldValueJSON:    oldJSON,
-				NewValueJSON:    newJSON,
-				ChangedByUserID: input.Audit.ChangedByUserID,
-				RequestID:       input.Audit.RequestID,
-				IPAddress:       input.Audit.IPAddress,
-				UserAgent:       input.Audit.UserAgent,
-			}); err != nil {
-				return err
+				configID := input.FormTemplateID
+				if err := r.auditRepo.InsertInTx(ctx, tx, domain.ConfigurationAuditEntry{
+					TenantID:        input.TenantID,
+					ConfigurationID: &configID,
+					EntityType:      input.EntityType,
+					EntityID:        input.EntityID,
+					Action:          domain.AuditDBActionUpdate,
+					OldValueJSON:    oldJSON,
+					NewValueJSON:    newJSON,
+					ChangedByUserID: input.Audit.ChangedByUserID,
+					RequestID:       input.Audit.RequestID,
+					IPAddress:       input.Audit.IPAddress,
+					UserAgent:       input.Audit.UserAgent,
+				}); err != nil {
+					return err
+				}
 			}
 		}
 

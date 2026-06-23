@@ -49,6 +49,13 @@ type UpsertCustomFieldValuesInput struct {
 	Values             []CustomFieldValueInput
 	ValidationContext  ValidationContext
 	Audit              AuditContext
+	MigrationAudit     *MigrateToActiveMigrationAudit
+}
+
+type MigrateToActiveMigrationAudit struct {
+	SourceTemplateID uuid.UUID
+	AllowWarnings    bool
+	PreviewItem      MigrationPreviewItem
 }
 
 type UpsertCustomFieldValuesResult struct {
@@ -63,15 +70,26 @@ type MigrateCustomFieldValuesToActiveInput struct {
 	EntityType        string
 	EntityID          uuid.UUID
 	Code              string
+	TemplateCode      string
+	TargetTemplateID  uuid.UUID
+	AllowWarnings     bool
 	ValidationContext ValidationContext
 	Audit             AuditContext
 }
 
 type MigrateCustomFieldValuesToActiveResult struct {
-	ActiveTemplateID uuid.UUID
-	MigratedCount    int
-	SkippedCount     int
-	SkippedFields    []string
+	Status                string
+	ActiveTemplateID      uuid.UUID
+	TargetTemplateID      uuid.UUID
+	SourceTemplateID      uuid.UUID
+	MigratedCount         int
+	SkippedCount          int
+	SkippedFields         []string
+	CopiedFields          []string
+	LegacyFields          []string
+	MissingRequiredFields []string
+	IncompatibleFields    []MigrationPreviewIncompatibleField
+	Warnings              []string
 }
 
 const (
@@ -117,6 +135,12 @@ type MigrationPreviewItem struct {
 	MissingRequiredFields []string
 	IncompatibleFields    []MigrationPreviewIncompatibleField
 	Warnings              []string
+}
+
+type ResolvedMigrationValue struct {
+	FieldID   uuid.UUID
+	FieldCode string
+	ValueJSON []byte
 }
 
 type MigrationPreviewResult struct {

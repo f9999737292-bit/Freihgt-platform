@@ -25,15 +25,33 @@ type migrateCustomFieldValuesToActiveRequest struct {
 	EntityType        string                    `json:"entity_type"`
 	EntityID          string                    `json:"entity_id"`
 	Code              string                    `json:"code"`
+	TemplateCode      string                    `json:"template_code"`
+	TargetTemplateID  string                    `json:"target_template_id"`
+	AllowWarnings     bool                      `json:"allow_warnings"`
 	ValidationContext *validationContextRequest `json:"validation_context,omitempty"`
 }
 
+type migrateCustomFieldValuesIncompatibleFieldResponse struct {
+	FieldCode string `json:"field_code"`
+	Reason    string `json:"reason"`
+}
+
 type migrateCustomFieldValuesToActiveResponse struct {
-	Status           string   `json:"status"`
-	ActiveTemplateID string   `json:"active_template_id"`
-	MigratedCount    int      `json:"migrated_count"`
-	SkippedCount     int      `json:"skipped_count"`
-	SkippedFields    []string `json:"skipped_fields"`
+	Status                string                                            `json:"status"`
+	TenantID              string                                            `json:"tenant_id"`
+	EntityType            string                                            `json:"entity_type"`
+	EntityID              string                                            `json:"entity_id"`
+	ActiveTemplateID      string                                            `json:"active_template_id"`
+	TargetTemplateID      string                                            `json:"target_template_id"`
+	SourceTemplateID      string                                            `json:"source_template_id,omitempty"`
+	MigratedCount         int                                               `json:"migrated_count"`
+	SkippedCount          int                                               `json:"skipped_count"`
+	SkippedFields         []string                                          `json:"skipped_fields"`
+	CopiedFields          []string                                          `json:"copied_fields"`
+	LegacyFields          []string                                          `json:"legacy_fields"`
+	MissingRequiredFields []string                                          `json:"missing_required_fields"`
+	IncompatibleFields    []migrateCustomFieldValuesIncompatibleFieldResponse `json:"incompatible_fields"`
+	Warnings              []string                                          `json:"warnings"`
 }
 
 type migrationPreviewRequest struct {
@@ -100,11 +118,28 @@ func (h *AdminCustomFieldValueHandler) MigrateToActive(w http.ResponseWriter, r 
 		return
 	}
 
+	var targetTemplateID uuid.UUID
+	if strings.TrimSpace(req.TargetTemplateID) != "" {
+		targetTemplateID, err = uuid.Parse(req.TargetTemplateID)
+		if err != nil {
+			respond.Error(w, apperrors.Validation("invalid target_template_id", map[string]any{"field": "target_template_id"}))
+			return
+		}
+	}
+
+	templateCode := strings.TrimSpace(req.TemplateCode)
+	if templateCode == "" {
+		templateCode = strings.TrimSpace(req.Code)
+	}
+
 	result, err := h.service.MigrateToActiveTemplate(r.Context(), domain.MigrateCustomFieldValuesToActiveInput{
 		TenantID:          tenantID,
 		EntityType:        req.EntityType,
 		EntityID:          entityID,
 		Code:              req.Code,
+		TemplateCode:      templateCode,
+		TargetTemplateID:  targetTemplateID,
+		AllowWarnings:     req.AllowWarnings,
 		ValidationContext: validationContextFromRequest(r, req.ValidationContext),
 		Audit:             auditContextFromRequest(r),
 	})
@@ -113,18 +148,38 @@ func (h *AdminCustomFieldValueHandler) MigrateToActive(w http.ResponseWriter, r 
 		return
 	}
 
-	skipped := result.SkippedFields
-	if skipped == nil {
-		skipped = []string{}
+	respond.JSON(w, http.StatusOK, buildMigrateToActiveResponse(tenantID, req.EntityType, entityID, result))
+}
+
+func buildMigrateToActiveResponse(tenantID uuid.UUID, entityType string, entityID uuid.UUID, result *domain.MigrateCustomFieldValuesToActiveResult) migrateCustomFieldValuesToActiveResponse {
+	incompatible := make([]migrateCustomFieldValuesIncompatibleFieldResponse, 0, len(result.IncompatibleFields))
+	for _, field := range result.IncompatibleFields {
+		incompatible = append(incompatible, migrateCustomFieldValuesIncompatibleFieldResponse{
+			FieldCode: field.FieldCode,
+			Reason:    field.Reason,
+		})
 	}
 
-	respond.JSON(w, http.StatusOK, migrateCustomFieldValuesToActiveResponse{
-		Status:           "ok",
-		ActiveTemplateID: result.ActiveTemplateID.String(),
-		MigratedCount:    result.MigratedCount,
-		SkippedCount:     result.SkippedCount,
-		SkippedFields:    skipped,
-	})
+	response := migrateCustomFieldValuesToActiveResponse{
+		Status:                result.Status,
+		TenantID:              tenantID.String(),
+		EntityType:            entityType,
+		EntityID:              entityID.String(),
+		ActiveTemplateID:      result.ActiveTemplateID.String(),
+		TargetTemplateID:      result.TargetTemplateID.String(),
+		MigratedCount:         result.MigratedCount,
+		SkippedCount:          result.SkippedCount,
+		SkippedFields:         nonNilStringSlice(result.SkippedFields),
+		CopiedFields:          nonNilStringSlice(result.CopiedFields),
+		LegacyFields:          nonNilStringSlice(result.LegacyFields),
+		MissingRequiredFields: nonNilStringSlice(result.MissingRequiredFields),
+		IncompatibleFields:    incompatible,
+		Warnings:              nonNilStringSlice(result.Warnings),
+	}
+	if result.SourceTemplateID != uuid.Nil {
+		response.SourceTemplateID = result.SourceTemplateID.String()
+	}
+	return response
 }
 
 func (h *AdminCustomFieldValueHandler) MigrationPreview(w http.ResponseWriter, r *http.Request) {

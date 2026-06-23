@@ -16,6 +16,7 @@ type errorPayload struct {
 	Code    string         `json:"code"`
 	Message string         `json:"message"`
 	Details map[string]any `json:"details"`
+	Preview map[string]any `json:"preview,omitempty"`
 }
 
 func JSON(w http.ResponseWriter, status int, payload any) {
@@ -43,15 +44,34 @@ func Error(w http.ResponseWriter, err error) {
 		status = http.StatusBadRequest
 	case apperrors.CodeFormTemplateConflict:
 		status = http.StatusConflict
+	case apperrors.CodeMigrationBlocked, apperrors.CodeMigrationWarningsRequireConfirmation:
+		status = http.StatusConflict
 	case apperrors.CodeNotFound, apperrors.CodeFormTemplateNotFound, apperrors.CodeFieldNotFound:
 		status = http.StatusNotFound
 	}
 
 	JSON(w, status, errorBody{
-		Error: errorPayload{
-			Code:    string(appErr.Code),
-			Message: appErr.Message,
-			Details: appErr.Details,
-		},
+		Error: buildErrorPayload(appErr),
 	})
+}
+
+func buildErrorPayload(appErr *apperrors.AppError) errorPayload {
+	details := appErr.Details
+	if details == nil {
+		details = map[string]any{}
+	}
+	var preview map[string]any
+	if rawPreview, ok := details["preview"].(map[string]any); ok {
+		preview = rawPreview
+		delete(details, "preview")
+	}
+	if len(details) == 0 {
+		details = map[string]any{}
+	}
+	return errorPayload{
+		Code:    string(appErr.Code),
+		Message: appErr.Message,
+		Details: details,
+		Preview: preview,
+	}
 }
