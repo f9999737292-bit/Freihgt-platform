@@ -58,6 +58,10 @@ const selectionError = computed(() => {
   return ''
 })
 
+const canProceedFromSelect = computed(() => !selectionError.value && entityIds.value.length > 0)
+
+const isRequestInFlight = computed(() => phase.value === 'loadingPreview' || phase.value === 'executing')
+
 const executeSummary = computed(() => executeResult.value?.summary ?? {
   total: 0,
   migrated: 0,
@@ -208,7 +212,7 @@ function applyPreviewData(data: BatchMigrationPreviewResponse | null) {
 }
 
 async function loadPreview() {
-  if (!canProceedFromSelect.value) return
+  if (!canProceedFromSelect.value || isRequestInFlight.value) return
   errorMessage.value = ''
   phase.value = 'loadingPreview'
   try {
@@ -240,7 +244,7 @@ function goToConfirm() {
 }
 
 async function executeBatch() {
-  if (!canExecute.value || !preview.value) return
+  if (!canExecute.value || !preview.value || isRequestInFlight.value) return
   errorMessage.value = ''
   phase.value = 'executing'
   try {
@@ -377,9 +381,19 @@ watch(skipBlocked, (value) => {
 
         <div v-else-if="phase === 'error' && !preview" class="batch-wizard__error-panel">
           <p>{{ errorMessage || $t('lowCode.batchMigrationFailed') }}</p>
-          <UiButton size="sm" variant="secondary" @click="backToSelect">
-            {{ $t('lowCode.migrationRetry') }}
-          </UiButton>
+          <div class="batch-wizard__inline-actions">
+            <UiButton
+              size="sm"
+              :disabled="!canProceedFromSelect || isRequestInFlight"
+              :loading="phase === 'loadingPreview'"
+              @click="loadPreview"
+            >
+              {{ $t('lowCode.batchMigrationRetryPreview') }}
+            </UiButton>
+            <UiButton size="sm" variant="secondary" @click="backToSelect">
+              {{ $t('common.back') }}
+            </UiButton>
+          </div>
         </div>
 
         <template v-else-if="preview && (step === 2 || step === 3)">
@@ -588,7 +602,7 @@ watch(skipBlocked, (value) => {
 
         <template v-if="step === 1">
           <UiButton
-            :disabled="!canProceedFromSelect"
+            :disabled="!canProceedFromSelect || isRequestInFlight"
             :loading="phase === 'loadingPreview'"
             @click="loadPreview"
           >
@@ -597,10 +611,18 @@ watch(skipBlocked, (value) => {
         </template>
 
         <template v-else-if="step === 2 && phase === 'previewLoaded'">
-          <UiButton variant="secondary" @click="backToSelect">
+          <UiButton variant="secondary" :disabled="isRequestInFlight" @click="backToSelect">
             {{ $t('common.back') }}
           </UiButton>
-          <UiButton @click="goToConfirm">
+          <UiButton
+            variant="secondary"
+            :disabled="isRequestInFlight"
+            :loading="phase === 'loadingPreview'"
+            @click="loadPreview"
+          >
+            {{ $t('lowCode.batchMigrationRetryPreview') }}
+          </UiButton>
+          <UiButton :disabled="isRequestInFlight" @click="goToConfirm">
             {{ $t('lowCode.batchMigrationContinueConfirm') }}
           </UiButton>
         </template>

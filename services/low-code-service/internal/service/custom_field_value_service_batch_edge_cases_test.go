@@ -11,7 +11,7 @@ import (
 	apperrors "github.com/freight-platform/low-code-service/internal/platform/errors"
 )
 
-func TestBatchPreviewDuplicateEntityIDsProcessedTwice(t *testing.T) {
+func TestBatchPreviewDuplicateEntityIDsDeduplicated(t *testing.T) {
 	tenantID := uuid.New()
 	targetID := uuid.New()
 	entityID := uuid.New()
@@ -31,10 +31,10 @@ func TestBatchPreviewDuplicateEntityIDsProcessedTwice(t *testing.T) {
 	if err != nil {
 		t.Fatalf("preview failed: %v", err)
 	}
-	if len(result.Items) != 2 {
-		t.Fatalf("duplicate entity_ids are not deduplicated; expected 2 preview items, got %d", len(result.Items))
+	if len(result.Items) != 1 {
+		t.Fatalf("duplicate entity_ids must be deduplicated; expected 1 preview item, got %d", len(result.Items))
 	}
-	if result.Summary.EntitiesChecked != 2 || result.Summary.SafeToMigrate != 2 {
+	if result.Summary.EntitiesChecked != 1 || result.Summary.SafeToMigrate != 1 {
 		t.Fatalf("unexpected summary for duplicate ids: %+v", result.Summary)
 	}
 }

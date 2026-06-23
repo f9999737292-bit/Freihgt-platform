@@ -54,8 +54,8 @@ func TestAdminBatchMigrationPreviewDuplicateEntityIDs(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if payload.Summary.Total != 2 || len(payload.Items) != 2 {
-		t.Fatalf("duplicate entity_ids preserved in preview: summary=%+v items=%d", payload.Summary, len(payload.Items))
+	if payload.Summary.Total != 1 || len(payload.Items) != 1 {
+		t.Fatalf("duplicate entity_ids must be deduplicated: summary=%+v items=%d", payload.Summary, len(payload.Items))
 	}
 }
 

@@ -265,6 +265,7 @@ func (s *CustomFieldValueService) PreviewMigrationToActive(
 	if err := domain.ValidateEntityType(input.EntityType); err != nil {
 		return nil, toEntityTypeInvalid(err)
 	}
+	input.EntityIDs = domain.NormalizeBatchEntityIDs(input.EntityIDs)
 	if len(input.EntityIDs) == 0 {
 		return nil, apperrors.Validation("entity_ids must not be empty", map[string]any{"field": "entity_ids"})
 	}

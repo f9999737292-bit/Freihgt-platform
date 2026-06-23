@@ -7,6 +7,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+// Batch migration metrics intentionally use bounded labels only (entity_type, operation, status).
+// Never add tenant_id, entity_id, batch_id, or other high-cardinality dimensions.
 var (
 	batchMigrationMetricsOnce sync.Once
 

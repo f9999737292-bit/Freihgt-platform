@@ -336,9 +336,13 @@ Batch migration edge-case tests:
 
 See `docs/LOW_CODE_BATCH_MIGRATION_EDGE_CASES_TEST_PACK_V0.1.md`.
 
+Batch migration hardening (dedup, guardrails, runbook):
+
+See `docs/LOW_CODE_BATCH_MIGRATION_HARDENING_V0.1.md`.
+
 Next implementation:
 
-1. Low-code Batch Migration Hardening Pack v0.1
+1. Low-code Admin Batch Migration Polish Pack v0.1
 
 Drag-and-drop form builder (section/field reorder):
 

@@ -352,13 +352,9 @@ func parseBatchMigrateToActiveRequest(r *http.Request) (uuid.UUID, domain.BatchM
 		return uuid.Nil, domain.BatchMigrateCustomFieldValuesToActiveInput{}, apperrors.Validation("invalid request body", map[string]any{"error": err.Error()})
 	}
 
-	entityIDs := make([]uuid.UUID, 0, len(req.EntityIDs))
-	for _, rawID := range req.EntityIDs {
-		entityID, err := uuid.Parse(rawID)
-		if err != nil {
-			return uuid.Nil, domain.BatchMigrateCustomFieldValuesToActiveInput{}, apperrors.EntityIDInvalid(map[string]any{"field": "entity_id", "value": rawID})
-		}
-		entityIDs = append(entityIDs, entityID)
+	entityIDs, err := parseBatchEntityIDs(req.EntityIDs)
+	if err != nil {
+		return uuid.Nil, domain.BatchMigrateCustomFieldValuesToActiveInput{}, err
 	}
 
 	var targetTemplateID uuid.UUID
@@ -432,6 +428,18 @@ func buildBatchMigrateToActiveResponse(tenantID uuid.UUID, result *domain.BatchM
 	}
 }
 
+func parseBatchEntityIDs(rawIDs []string) ([]uuid.UUID, error) {
+	entityIDs := make([]uuid.UUID, 0, len(rawIDs))
+	for _, rawID := range rawIDs {
+		entityID, err := uuid.Parse(rawID)
+		if err != nil {
+			return nil, apperrors.EntityIDInvalid(map[string]any{"field": "entity_id", "value": rawID})
+		}
+		entityIDs = append(entityIDs, entityID)
+	}
+	return domain.NormalizeBatchEntityIDs(entityIDs), nil
+}
+
 func parseMigrationPreviewRequest(r *http.Request) (uuid.UUID, domain.MigrationPreviewInput, error) {
 	tenantID, err := parseTenantID(r)
 	if err != nil {
@@ -443,13 +451,9 @@ func parseMigrationPreviewRequest(r *http.Request) (uuid.UUID, domain.MigrationP
 		return uuid.Nil, domain.MigrationPreviewInput{}, apperrors.Validation("invalid request body", map[string]any{"error": err.Error()})
 	}
 
-	entityIDs := make([]uuid.UUID, 0, len(req.EntityIDs))
-	for _, rawID := range req.EntityIDs {
-		entityID, err := uuid.Parse(rawID)
-		if err != nil {
-			return uuid.Nil, domain.MigrationPreviewInput{}, apperrors.EntityIDInvalid(map[string]any{"field": "entity_id", "value": rawID})
-		}
-		entityIDs = append(entityIDs, entityID)
+	entityIDs, err := parseBatchEntityIDs(req.EntityIDs)
+	if err != nil {
+		return uuid.Nil, domain.MigrationPreviewInput{}, err
 	}
 
 	var targetTemplateID uuid.UUID

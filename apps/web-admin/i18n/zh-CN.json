@@ -828,6 +828,7 @@
     "batchMigrationEntityIdsPlaceholder": "2db04b49-665c-469f-bcb1-ffeb1274fedb",
     "batchMigrationUseCurrentEntity": "使用当前实体",
     "batchMigrationPreviewAction": "预览批量迁移",
+    "batchMigrationRetryPreview": "重试预览",
     "batchMigrationLoadingPreview": "正在加载预览…",
     "batchMigrationTotal": "总计",
     "batchMigrationSafe": "安全",
