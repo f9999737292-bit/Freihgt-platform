@@ -8,13 +8,15 @@ import {
 export class ApiError extends Error {
   code: string
   details: Record<string, unknown>
+  preview?: Record<string, unknown>
   status: number
 
   constructor(status: number, body: ApiErrorBody['error']) {
     super(body.message)
     this.name = 'ApiError'
     this.code = body.code
-    this.details = body.details
+    this.details = body.details ?? {}
+    this.preview = body.preview
     this.status = status
   }
 }

@@ -12,12 +12,17 @@ import type {
   ListFormTemplatesResponse,
   ListActiveFormTemplatesParams,
   LowCodeEntityType,
+  MigrateToActivePayload,
+  MigrateToActiveResponse,
+  MigrationPreviewRequest,
+  MigrationPreviewResponse,
   SaveCustomFieldValuesPayload,
   SaveCustomFieldValuesResponse,
 } from '~/types/lowCode'
 import { ApiError } from '~/composables/useApi'
 
 const ADMIN_FORM_TEMPLATES_PATH = '/api/v1/low-code/admin/form-templates'
+const ADMIN_CUSTOM_FIELD_VALUES_PATH = '/api/v1/low-code/admin/custom-field-values'
 
 export function useLowCodeApi() {
   const tenantStore = useTenantStore()
@@ -82,6 +87,18 @@ export function useLowCodeApi() {
 
   async function saveCustomFieldValues(payload: SaveCustomFieldValuesPayload) {
     return apiPut<SaveCustomFieldValuesResponse>('/api/v1/low-code/custom-field-values', payload, {
+      query: tenantQuery(),
+    })
+  }
+
+  async function previewMigrationToActive(payload: MigrationPreviewRequest) {
+    return apiPost<MigrationPreviewResponse>(`${ADMIN_CUSTOM_FIELD_VALUES_PATH}/migration-preview`, payload, {
+      query: tenantQuery(),
+    })
+  }
+
+  async function migrateCustomFieldValuesToActive(payload: MigrateToActivePayload) {
+    return apiPost<MigrateToActiveResponse>(`${ADMIN_CUSTOM_FIELD_VALUES_PATH}/migrate-to-active`, payload, {
       query: tenantQuery(),
     })
   }
@@ -213,6 +230,43 @@ export function useLowCodeApi() {
       return error.message
     }
     return t('lowCode.saveFailed')
+  }
+
+  function getMigrationErrorMessage(error: unknown): string {
+    if (error instanceof ApiError) {
+      switch (error.code) {
+        case 'TENANT_REQUIRED':
+          return t('tenant.required')
+        case 'VALIDATION_ERROR':
+        case 'ENTITY_TYPE_INVALID':
+        case 'ENTITY_ID_INVALID':
+          return error.message || t('lowCode.migrationValidationError')
+        case 'MIGRATION_BLOCKED':
+          return t('lowCode.migrationBlockedMessage')
+        case 'MIGRATION_WARNINGS_REQUIRE_CONFIRMATION':
+          return t('lowCode.migrationWarningsRequireConfirmation')
+        case 'FORM_TEMPLATE_NOT_FOUND':
+          return t('lowCode.errorFormTemplateNotFound')
+        case 'INTERNAL_ERROR':
+          return t('common.error')
+        default:
+          if (error.status >= 500 || error.status === 0) {
+            return t('lowCode.migrationServerError')
+          }
+          return error.message || t('lowCode.migrationFailed')
+      }
+    }
+    if (error instanceof Error) {
+      return error.message
+    }
+    return t('lowCode.migrationFailed')
+  }
+
+  async function resolveActiveTemplateCode(entityType: string): Promise<string | null> {
+    const data = await listActiveFormTemplates({ entity_type: entityType })
+    const template =
+      data.items.find((item) => item.entity_type === entityType) ?? data.items[0]
+    return template?.code?.trim() || null
   }
 
   async function resolveDemoEntityId(entityType: LowCodeEntityType): Promise<string | null> {
@@ -364,6 +418,8 @@ export function useLowCodeApi() {
     getFormTemplate,
     getCustomFieldValues,
     saveCustomFieldValues,
+    previewMigrationToActive,
+    migrateCustomFieldValuesToActive,
     listAuditEvents,
     listAdminFormTemplates,
     getAdminFormTemplate,
@@ -377,6 +433,8 @@ export function useLowCodeApi() {
     resolveDemoEmptyEntityId,
     resolveEntityStatus,
     getSaveErrorMessage,
+    getMigrationErrorMessage,
+    resolveActiveTemplateCode,
     isApiUnavailableError,
     isLowCodeServiceError,
   }

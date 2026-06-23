@@ -26,7 +26,7 @@ definePageMeta({ middleware: 'auth', layout: 'default' })
 
 
 
-const { resolveDemoEntityId, resolveDemoEmptyEntityId, resolveEntityStatus, listAuditEvents } = useLowCodeApi()
+const { resolveDemoEntityId, resolveDemoEmptyEntityId, resolveEntityStatus, resolveActiveTemplateCode, listAuditEvents } = useLowCodeApi()
 
 const { hasTenant } = useTenantContext()
 
@@ -72,6 +72,10 @@ const loadingRecentAudit = ref(false)
 
 const showAuditLink = ref(false)
 
+const migrationModalOpen = ref(false)
+const activeTemplateCode = ref<string | null>(null)
+const resolvingTemplateCode = ref(false)
+
 
 
 const entityTypeOptions = computed(() =>
@@ -104,13 +108,41 @@ const auditLogLink = computed(() => {
 
     entity_id: loadedEntity.entity_id,
 
-    action: 'CUSTOM_FIELD_VALUES_UPDATED',
-
   })
 
   return `/low-code/audit?${query.toString()}`
 
 })
+
+const canOpenMigration = computed(
+  () => loaded.value && !!loadedEntity.entity_id && !!activeTemplateCode.value,
+)
+
+async function resolveTemplateCodeForEntity() {
+  if (!hasTenant.value || !loadedEntity.entity_id) {
+    activeTemplateCode.value = null
+    return
+  }
+  resolvingTemplateCode.value = true
+  try {
+    activeTemplateCode.value = await resolveActiveTemplateCode(loadedEntity.entity_type)
+  } catch {
+    activeTemplateCode.value = null
+  } finally {
+    resolvingTemplateCode.value = false
+  }
+}
+
+function openMigrationModal() {
+  if (!canOpenMigration.value) return
+  migrationModalOpen.value = true
+}
+
+async function onMigrationCompleted() {
+  showAuditLink.value = true
+  panelKey.value += 1
+  await loadRecentAuditEvents(undefined)
+}
 
 
 
@@ -127,6 +159,8 @@ function markLoaded() {
   showAuditLink.value = false
 
   recentAuditEvents.value = []
+
+  void resolveTemplateCodeForEntity()
 
 }
 
@@ -160,7 +194,7 @@ function applyPreviewEntityStatus() {
   if (loaded.value) panelKey.value += 1
 }
 
-async function loadRecentAuditEvents() {
+async function loadRecentAuditEvents(action?: string) {
 
   if (!hasTenant.value || !loadedEntity.entity_id) return
 
@@ -174,7 +208,7 @@ async function loadRecentAuditEvents() {
 
       entity_id: loadedEntity.entity_id,
 
-      action: 'CUSTOM_FIELD_VALUES_UPDATED',
+      action,
 
       limit: 5,
 
@@ -399,6 +433,24 @@ onMounted(async () => {
 
           </UiButton>
 
+          <span
+            v-if="loaded && loadedEntity.entity_id"
+            class="migration-entry"
+            :title="canOpenMigration ? '' : $t('lowCode.migrationSelectEntityFirst')"
+          >
+            <UiButton
+              variant="secondary"
+              :disabled="!canOpenMigration"
+              :loading="resolvingTemplateCode"
+              @click="openMigrationModal"
+            >
+              {{ $t('lowCode.migrateToActiveTemplate') }}
+            </UiButton>
+            <span v-if="!canOpenMigration" class="migration-entry__hint">
+              {{ $t('lowCode.migrationSelectEntityFirst') }}
+            </span>
+          </span>
+
         </div>
 
       </div>
@@ -422,6 +474,15 @@ onMounted(async () => {
       @saved="onPanelSaved"
     />
 
+    <LowCodeMigrationPreviewModal
+      v-if="loaded && loadedEntity.entity_id && activeTemplateCode"
+      :open="migrationModalOpen"
+      :entity-type="loadedEntity.entity_type"
+      :entity-id="loadedEntity.entity_id"
+      :template-code="activeTemplateCode"
+      @close="migrationModalOpen = false"
+      @migrated="onMigrationCompleted"
+    />
 
     <UiCard v-if="loaded && loadedEntity.entity_id && (showAuditLink || recentAuditEvents.length)">
 
@@ -605,6 +666,20 @@ onMounted(async () => {
 
   gap: 0.5rem;
 
+  align-items: center;
+
+}
+
+.migration-entry {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.migration-entry__hint {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  max-width: 220px;
 }
 
 

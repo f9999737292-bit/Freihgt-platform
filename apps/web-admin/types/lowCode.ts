@@ -319,6 +319,128 @@ export interface ListAuditEventsParams {
   limit?: number
 }
 
+export type MigrationPreviewStatus = 'SAFE' | 'WARNING' | 'BLOCKED'
+
+export interface MigrationPreviewIncompatibleField {
+  field_code: string
+  reason: string
+}
+
+export interface MigrationPreviewItem {
+  entity_id: string
+  source_template_id?: string
+  target_template_id: string
+  status: MigrationPreviewStatus
+  copied_fields: string[]
+  legacy_fields: string[]
+  missing_required_fields: string[]
+  incompatible_fields: MigrationPreviewIncompatibleField[]
+  warnings: string[]
+}
+
+export interface MigrationPreviewSummary {
+  entities_checked: number
+  safe_to_migrate: number
+  warnings: number
+  blocked: number
+}
+
+export interface MigrationPreviewTargetTemplate {
+  id: string
+  code: string
+  version: number
+}
+
+export interface MigrationPreviewResponse {
+  tenant_id: string
+  entity_type: string
+  target_template: MigrationPreviewTargetTemplate
+  summary: MigrationPreviewSummary
+  items: MigrationPreviewItem[]
+}
+
+export interface MigrationPreviewRequest {
+  entity_type: string
+  template_code?: string
+  entity_ids: string[]
+}
+
+export interface MigrateToActivePayload {
+  entity_type: string
+  template_code: string
+  entity_id: string
+  allow_warnings: boolean
+}
+
+export interface MigrateToActiveResponse {
+  status: string
+  tenant_id?: string
+  entity_type?: string
+  entity_id?: string
+  active_template_id?: string
+  target_template_id?: string
+  source_template_id?: string
+  migrated_count?: number
+  copied_fields: string[]
+  legacy_fields: string[]
+  missing_required_fields: string[]
+  incompatible_fields: MigrationPreviewIncompatibleField[]
+  warnings: string[]
+}
+
+export function normalizeMigrationPreviewResponse(
+  raw: Record<string, unknown> | MigrationPreviewResponse,
+): MigrationPreviewResponse | null {
+  if (!raw || typeof raw !== 'object') return null
+
+  const summaryRaw = raw.summary as Record<string, unknown> | undefined
+  const targetRaw = raw.target_template as Record<string, unknown> | undefined
+  const itemsRaw = Array.isArray(raw.items) ? raw.items : []
+
+  if (!summaryRaw || !targetRaw) return null
+
+  const items: MigrationPreviewItem[] = itemsRaw.map((item) => {
+    const row = item as Record<string, unknown>
+    const incompatibleRaw = Array.isArray(row.incompatible_fields) ? row.incompatible_fields : []
+    return {
+      entity_id: String(row.entity_id ?? ''),
+      source_template_id: row.source_template_id ? String(row.source_template_id) : undefined,
+      target_template_id: String(row.target_template_id ?? ''),
+      status: String(row.status ?? 'BLOCKED') as MigrationPreviewStatus,
+      copied_fields: Array.isArray(row.copied_fields) ? row.copied_fields.map(String) : [],
+      legacy_fields: Array.isArray(row.legacy_fields) ? row.legacy_fields.map(String) : [],
+      missing_required_fields: Array.isArray(row.missing_required_fields)
+        ? row.missing_required_fields.map(String)
+        : [],
+      incompatible_fields: incompatibleRaw.map((field) => {
+        const entry = field as Record<string, unknown>
+        return {
+          field_code: String(entry.field_code ?? ''),
+          reason: String(entry.reason ?? ''),
+        }
+      }),
+      warnings: Array.isArray(row.warnings) ? row.warnings.map(String) : [],
+    }
+  })
+
+  return {
+    tenant_id: String(raw.tenant_id ?? ''),
+    entity_type: String(raw.entity_type ?? ''),
+    target_template: {
+      id: String(targetRaw.id ?? ''),
+      code: String(targetRaw.code ?? ''),
+      version: Number(targetRaw.version ?? 0),
+    },
+    summary: {
+      entities_checked: Number(summaryRaw.entities_checked ?? items.length),
+      safe_to_migrate: Number(summaryRaw.safe_to_migrate ?? 0),
+      warnings: Number(summaryRaw.warnings ?? 0),
+      blocked: Number(summaryRaw.blocked ?? 0),
+    },
+    items,
+  }
+}
+
 export interface SelectOption {
   label: string
   value: string

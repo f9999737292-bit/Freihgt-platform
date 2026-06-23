@@ -264,10 +264,18 @@ curl.exe -X POST `
   http://localhost:8080/api/v1/low-code/admin/custom-field-values/migrate-to-active
 ```
 
+Admin UI migration preview modal:
+
+```text
+http://localhost:3000/low-code/custom-field-values
+```
+
+See `docs/LOW_CODE_ADMIN_MIGRATION_PREVIEW_MODAL_V0.1.md`.
+
 Next implementation:
 
-1. admin UI preview modal
-2. batch migration execute after publish
+1. Low-code Migration History & Audit UI Enhancement Pack v0.1
+2. Low-code Batch Migration Design Pack v0.1 (batch execute after publish)
 
 Drag-and-drop form builder (section/field reorder):
 
