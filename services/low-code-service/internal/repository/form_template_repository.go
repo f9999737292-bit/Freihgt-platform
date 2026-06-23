@@ -385,13 +385,13 @@ func (r *FormTemplateRepository) GetPublishedTemplateContext(
 	var result *domain.PublishedTemplateContext
 	err := measureDB("form_template_repository", "get_published_template_context", func() error {
 		const query = `
-			SELECT id, tenant_id, entity_type, status
+			SELECT id, tenant_id, entity_type, code, version, status
 			FROM lowcode.form_templates
 			WHERE id = $1 AND tenant_id = $2
 		`
 		var tmpl domain.PublishedTemplateContext
 		if err := r.pool.QueryRow(ctx, query, templateID, tenantID).Scan(
-			&tmpl.ID, &tmpl.TenantID, &tmpl.EntityType, &tmpl.Status,
+			&tmpl.ID, &tmpl.TenantID, &tmpl.EntityType, &tmpl.Code, &tmpl.Version, &tmpl.Status,
 		); err != nil {
 			return mapDBError(err)
 		}

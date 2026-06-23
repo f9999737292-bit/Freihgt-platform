@@ -29,7 +29,7 @@ func (r *CustomFieldValueRepository) ListByEntity(
 	var items []domain.CustomFieldValue
 	err := measureDB("custom_field_value_repository", "list_by_entity", func() error {
 		const query = `
-			SELECT field_id, field_code, value_json, updated_at
+			SELECT field_id, field_code, value_json, COALESCE(form_template_id, '00000000-0000-0000-0000-000000000000'::uuid), updated_at
 			FROM lowcode.custom_field_values
 			WHERE tenant_id = $1 AND entity_type = $2 AND entity_id = $3
 			ORDER BY field_code
@@ -44,7 +44,7 @@ func (r *CustomFieldValueRepository) ListByEntity(
 		for rows.Next() {
 			var item domain.CustomFieldValue
 			var valueJSON []byte
-			if err := rows.Scan(&item.FieldID, &item.FieldCode, &valueJSON, &item.UpdatedAt); err != nil {
+			if err := rows.Scan(&item.FieldID, &item.FieldCode, &valueJSON, &item.FormTemplateID, &item.UpdatedAt); err != nil {
 				return mapDBError(err)
 			}
 			item.ValueJSON = normalizeJSON(valueJSON)
