@@ -220,6 +220,71 @@ func (r *AdminFormTemplateRepository) ListAdmin(
 	return items, nil
 }
 
+func (r *AdminFormTemplateRepository) ListByEntityTypeAndCode(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	entityType string,
+	code string,
+) ([]domain.FormTemplateSummary, error) {
+	var items []domain.FormTemplateSummary
+	err := measureDB("admin_form_template_repository", "list_by_entity_type_and_code", func() error {
+		const query = `
+			SELECT
+				ft.id,
+				ft.tenant_id,
+				ft.entity_type,
+				ft.code,
+				ft.name,
+				ft.status,
+				ft.version,
+				ft.published_at,
+				(
+					SELECT COUNT(*)
+					FROM lowcode.form_sections fs
+					WHERE fs.form_template_id = ft.id AND fs.tenant_id = ft.tenant_id
+				) AS sections_count,
+				(
+					SELECT COUNT(*)
+					FROM lowcode.form_fields ff
+					WHERE ff.form_template_id = ft.id AND ff.tenant_id = ft.tenant_id
+				) AS fields_count
+			FROM lowcode.form_templates ft
+			WHERE ft.tenant_id = $1 AND ft.entity_type = $2 AND ft.code = $3
+			ORDER BY ft.version DESC, ft.updated_at DESC
+		`
+		rows, err := r.pool.Query(ctx, query, tenantID, entityType, code)
+		if err != nil {
+			return mapDBError(err)
+		}
+		defer rows.Close()
+
+		items = make([]domain.FormTemplateSummary, 0)
+		for rows.Next() {
+			var item domain.FormTemplateSummary
+			if err := rows.Scan(
+				&item.ID,
+				&item.TenantID,
+				&item.EntityType,
+				&item.Code,
+				&item.Name,
+				&item.Status,
+				&item.Version,
+				&item.PublishedAt,
+				&item.SectionsCount,
+				&item.FieldsCount,
+			); err != nil {
+				return mapDBError(err)
+			}
+			items = append(items, item)
+		}
+		return rows.Err()
+	})
+	if err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 func (r *AdminFormTemplateRepository) GetByID(
 	ctx context.Context,
 	tenantID uuid.UUID,
@@ -1026,6 +1091,52 @@ func (r *AdminFormTemplateRepository) RecordTemplateExport(
 			if err := r.auditRepo.InsertInTx(ctx, tx, entry); err != nil {
 				return err
 			}
+		}
+
+		return mapDBError(tx.Commit(ctx))
+	})
+}
+
+func (r *AdminFormTemplateRepository) RecordTemplateImportPreview(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	entityType string,
+	entityID *uuid.UUID,
+	input domain.TemplateImportPreviewInput,
+	result domain.TemplateImportPreviewResult,
+	audit domain.AuditContext,
+) error {
+	return measureDB("admin_form_template_repository", "record_template_import_preview", func() error {
+		if r.auditRepo == nil {
+			return nil
+		}
+
+		tx, err := r.pool.Begin(ctx)
+		if err != nil {
+			return mapDBError(err)
+		}
+		defer tx.Rollback(ctx)
+
+		newJSON, err := domain.BuildFormTemplateImportPreviewedAuditPayload(input, result)
+		if err != nil {
+			return apperrors.Internal("failed to build import preview audit payload", err)
+		}
+
+		entry := domain.ConfigurationAuditEntry{
+			TenantID:        tenantID,
+			EntityType:      entityType,
+			Action:          domain.AuditDBActionTest,
+			NewValueJSON:    newJSON,
+			ChangedByUserID: audit.ChangedByUserID,
+			RequestID:       audit.RequestID,
+			IPAddress:       audit.IPAddress,
+			UserAgent:       audit.UserAgent,
+		}
+		if entityID != nil {
+			entry.EntityID = *entityID
+		}
+		if err := r.auditRepo.InsertInTx(ctx, tx, entry); err != nil {
+			return err
 		}
 
 		return mapDBError(tx.Commit(ctx))

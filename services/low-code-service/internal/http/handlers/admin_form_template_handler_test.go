@@ -40,6 +40,11 @@ type stubAdminFormTemplateRepo struct {
 	lastExportAudit       domain.AuditContext
 	lastExportSchemaVersion string
 	exportRecorded        bool
+	listByCodeItems       []domain.FormTemplateSummary
+	listByCodeErr         error
+	importPreviewRecorded bool
+	lastImportPreviewAudit domain.AuditContext
+	importPreviewErr      error
 }
 
 func (s *stubAdminFormTemplateRepo) CreateDraft(_ context.Context, input repository.CreateDraftInput) (*repository.CreateDraftResult, error) {
@@ -77,6 +82,16 @@ func (s *stubAdminFormTemplateRepo) RecordTemplateExport(_ context.Context, tena
 	s.lastExportAudit = audit
 	s.lastExportSchemaVersion = schemaVersion
 	return s.exportErr
+}
+
+func (s *stubAdminFormTemplateRepo) ListByEntityTypeAndCode(_ context.Context, _ uuid.UUID, _ string, _ string) ([]domain.FormTemplateSummary, error) {
+	return s.listByCodeItems, s.listByCodeErr
+}
+
+func (s *stubAdminFormTemplateRepo) RecordTemplateImportPreview(_ context.Context, _ uuid.UUID, _ string, _ *uuid.UUID, _ domain.TemplateImportPreviewInput, _ domain.TemplateImportPreviewResult, audit domain.AuditContext) error {
+	s.importPreviewRecorded = true
+	s.lastImportPreviewAudit = audit
+	return s.importPreviewErr
 }
 
 func validDraftPayload() []byte {
@@ -627,6 +642,165 @@ func TestAdminExportDefaultOffCompatibility(t *testing.T) {
 	req := exportRequest(detail.ID, detail.TenantID)
 	rec := httptest.NewRecorder()
 	handler.Export(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 without X-User-ID, got %d", rec.Code)
+	}
+}
+
+func validImportPreviewPayload() []byte {
+	return []byte(`{
+		"schema_version":"lowcode.template.export.v1",
+		"conflict_strategy":"NEW_VERSION",
+		"template":{
+			"entity_type":"TRANSPORT_ORDER",
+			"code":"transport_order_default",
+			"name":"Transport Order Default Form",
+			"sections":[{
+				"code":"cargo",
+				"title":"Cargo",
+				"sort_order":100,
+				"fields":[{
+					"code":"cargo_class",
+					"label":"Cargo class",
+					"field_type":"SELECT",
+					"sort_order":100,
+					"options_json":{"options":["GENERAL"]}
+				}]
+			}]
+		}
+	}`)
+}
+
+func TestAdminImportPreviewTenantRequired(t *testing.T) {
+	handler := NewAdminFormTemplateHandler(service.NewAdminFormTemplateService(&stubAdminFormTemplateRepo{}))
+	req := httptest.NewRequest(http.MethodPost, "/v1/low-code/admin/form-templates/import-preview", bytes.NewReader(validImportPreviewPayload()))
+	rec := httptest.NewRecorder()
+	handler.ImportPreview(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+	assertErrorCode(t, rec.Body.Bytes(), "TENANT_REQUIRED")
+}
+
+func TestAdminImportPreviewReadyWithPublishedExisting(t *testing.T) {
+	tenantID := uuid.MustParse("74519f22-ff9b-4a8b-8fff-a958c689682f")
+	templateID := uuid.MustParse("b1111111-1111-4111-8111-111111111102")
+	stub := &stubAdminFormTemplateRepo{
+		listByCodeItems: []domain.FormTemplateSummary{{
+			ID: templateID, TenantID: tenantID, EntityType: "TRANSPORT_ORDER",
+			Code: "transport_order_default", Status: domain.PublishedStatus, Version: 1,
+		}},
+		getDetail: &domain.FormTemplateDetail{
+			ID: templateID, TenantID: tenantID, EntityType: "TRANSPORT_ORDER", Code: "transport_order_default",
+			Status: domain.PublishedStatus, Version: 1,
+			Sections: []domain.FormSection{{
+				Code: "cargo", Title: "Cargo",
+				Fields: []domain.FormField{{Code: "cargo_class", Label: "Cargo class", FieldType: "SELECT"}},
+			}},
+		},
+	}
+	handler := NewAdminFormTemplateHandler(service.NewAdminFormTemplateService(stub))
+	req := httptest.NewRequest(http.MethodPost, "/v1/low-code/admin/form-templates/import-preview", bytes.NewReader(validImportPreviewPayload()))
+	req.Header.Set(tenantHeader, tenantID.String())
+	rec := httptest.NewRecorder()
+	handler.ImportPreview(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	var payload domain.TemplateImportPreviewResult
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if payload.SchemaVersion != domain.TemplateExportSchemaVersion {
+		t.Fatalf("schema_version = %q", payload.SchemaVersion)
+	}
+	if payload.Status != domain.ImportPreviewStatusReady {
+		t.Fatalf("status = %q", payload.Status)
+	}
+	if payload.Summary.FieldsCount != 1 || payload.Summary.SectionsCount != 1 {
+		t.Fatalf("summary = %+v", payload.Summary)
+	}
+	if !stub.importPreviewRecorded {
+		t.Fatal("expected import preview audit")
+	}
+}
+
+func TestAdminImportPreviewInvalidFieldType(t *testing.T) {
+	body := []byte(`{
+		"schema_version":"lowcode.template.export.v1",
+		"template":{
+			"entity_type":"TRANSPORT_ORDER",
+			"code":"transport_order_default",
+			"name":"Default",
+			"sections":[{"code":"cargo","title":"Cargo","fields":[{"code":"x","label":"X","field_type":"BAD"}]}]
+		}
+	}`)
+	handler := NewAdminFormTemplateHandler(service.NewAdminFormTemplateService(&stubAdminFormTemplateRepo{}))
+	req := httptest.NewRequest(http.MethodPost, "/v1/low-code/admin/form-templates/import-preview", bytes.NewReader(body))
+	req.Header.Set(tenantHeader, "74519f22-ff9b-4a8b-8fff-a958c689682f")
+	rec := httptest.NewRecorder()
+	handler.ImportPreview(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	assertErrorCode(t, rec.Body.Bytes(), "VALIDATION_ERROR")
+}
+
+func TestAdminImportPreviewFailIfExistsConflict(t *testing.T) {
+	stub := &stubAdminFormTemplateRepo{
+		listByCodeItems: []domain.FormTemplateSummary{{
+			Status: domain.PublishedStatus, Version: 1, Code: "transport_order_default", EntityType: "TRANSPORT_ORDER",
+		}},
+	}
+	handler := NewAdminFormTemplateHandler(service.NewAdminFormTemplateService(stub))
+	body := []byte(`{
+		"schema_version":"lowcode.template.export.v1",
+		"conflict_strategy":"FAIL_IF_EXISTS",
+		"template":{
+			"entity_type":"TRANSPORT_ORDER",
+			"code":"transport_order_default",
+			"name":"Default",
+			"sections":[{"code":"cargo","title":"Cargo","fields":[{"code":"cargo_class","label":"Class","field_type":"SELECT"}]}]
+		}
+	}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/low-code/admin/form-templates/import-preview", bytes.NewReader(body))
+	req.Header.Set(tenantHeader, "74519f22-ff9b-4a8b-8fff-a958c689682f")
+	rec := httptest.NewRecorder()
+	handler.ImportPreview(rec, req)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	assertErrorCode(t, rec.Body.Bytes(), "FORM_TEMPLATE_CONFLICT")
+}
+
+func TestAdminImportPreviewUnsupportedSchemaVersion(t *testing.T) {
+	handler := NewAdminFormTemplateHandler(service.NewAdminFormTemplateService(&stubAdminFormTemplateRepo{}))
+	body := []byte(`{
+		"schema_version":"lowcode.template.export.v2",
+		"template":{
+			"entity_type":"TRANSPORT_ORDER",
+			"code":"transport_order_default",
+			"name":"Default",
+			"sections":[{"code":"cargo","title":"Cargo","fields":[{"code":"cargo_class","label":"Class","field_type":"SELECT"}]}]
+		}
+	}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/low-code/admin/form-templates/import-preview", bytes.NewReader(body))
+	req.Header.Set(tenantHeader, "74519f22-ff9b-4a8b-8fff-a958c689682f")
+	rec := httptest.NewRecorder()
+	handler.ImportPreview(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+	assertErrorCode(t, rec.Body.Bytes(), "UNSUPPORTED_SCHEMA_VERSION")
+}
+
+func TestAdminImportPreviewDefaultOffCompatibility(t *testing.T) {
+	stub := &stubAdminFormTemplateRepo{listByCodeItems: []domain.FormTemplateSummary{}}
+	handler := NewAdminFormTemplateHandler(service.NewAdminFormTemplateService(stub))
+	req := httptest.NewRequest(http.MethodPost, "/v1/low-code/admin/form-templates/import-preview", bytes.NewReader(validImportPreviewPayload()))
+	req.Header.Set(tenantHeader, "74519f22-ff9b-4a8b-8fff-a958c689682f")
+	rec := httptest.NewRecorder()
+	handler.ImportPreview(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200 without X-User-ID, got %d", rec.Code)
 	}

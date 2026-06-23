@@ -19,6 +19,8 @@ type AdminFormTemplateRepository interface {
 	PublishDraft(ctx context.Context, tenantID uuid.UUID, templateID uuid.UUID, audit domain.AuditContext) (*domain.FormTemplateDetail, error)
 	ClonePublishedToDraft(ctx context.Context, tenantID uuid.UUID, sourceTemplateID uuid.UUID, audit domain.AuditContext) (*repository.ClonePublishedToDraftResult, error)
 	RecordTemplateExport(ctx context.Context, tenantID uuid.UUID, templateID uuid.UUID, detail domain.FormTemplateDetail, audit domain.AuditContext, schemaVersion string) error
+	ListByEntityTypeAndCode(ctx context.Context, tenantID uuid.UUID, entityType string, code string) ([]domain.FormTemplateSummary, error)
+	RecordTemplateImportPreview(ctx context.Context, tenantID uuid.UUID, entityType string, entityID *uuid.UUID, input domain.TemplateImportPreviewInput, result domain.TemplateImportPreviewResult, audit domain.AuditContext) error
 }
 
 type AdminFormTemplateService struct {
@@ -156,4 +158,50 @@ func (s *AdminFormTemplateService) Export(
 	}
 
 	return envelope, nil
+}
+
+func (s *AdminFormTemplateService) ImportPreview(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	rawBody []byte,
+	audit domain.AuditContext,
+) (domain.TemplateImportPreviewResult, error) {
+	input, err := domain.ParseImportPreviewRequest(rawBody)
+	if err != nil {
+		return domain.TemplateImportPreviewResult{}, err
+	}
+
+	draftInput := domain.ExportedTemplateToDraftInput(input.Template, input.TargetCode)
+	if err := domain.ValidateImportSystemFields(draftInput, input.AllowSystemFields); err != nil {
+		return domain.TemplateImportPreviewResult{}, err
+	}
+	if err := domain.ValidateDraftFormTemplateInput(draftInput); err != nil {
+		return domain.TemplateImportPreviewResult{}, err
+	}
+
+	existing, err := s.repo.ListByEntityTypeAndCode(ctx, tenantID, draftInput.EntityType, draftInput.Code)
+	if err != nil {
+		return domain.TemplateImportPreviewResult{}, err
+	}
+
+	var comparisonTemplate *domain.FormTemplateDetail
+	if published := domain.SelectComparisonPublishedTemplate(existing); published != nil {
+		detail, err := s.repo.GetByID(ctx, tenantID, published.ID)
+		if err != nil {
+			return domain.TemplateImportPreviewResult{}, err
+		}
+		comparisonTemplate = detail
+	}
+
+	result, err := domain.BuildTemplateImportPreview(input, draftInput, existing, comparisonTemplate)
+	if err != nil {
+		return domain.TemplateImportPreviewResult{}, err
+	}
+
+	entityID := domain.ResolveImportPreviewAuditEntityID(input, existing)
+	if err := s.repo.RecordTemplateImportPreview(ctx, tenantID, draftInput.EntityType, entityID, input, result, audit); err != nil {
+		return domain.TemplateImportPreviewResult{}, err
+	}
+
+	return result, nil
 }

@@ -350,7 +350,11 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-1. Low-code Template Import Preview API Pack v0.1
+1. Low-code Template Import Execute API Pack v0.1
+
+Template import preview API:
+
+See `docs/LOW_CODE_TEMPLATE_IMPORT_PREVIEW_API_V0.1.md`.
 
 Template export API:
 

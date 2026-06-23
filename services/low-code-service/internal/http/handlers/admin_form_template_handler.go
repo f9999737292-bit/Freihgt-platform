@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -253,6 +254,28 @@ func (h *AdminFormTemplateHandler) Export(w http.ResponseWriter, r *http.Request
 	}
 
 	respond.JSON(w, http.StatusOK, envelope)
+}
+
+func (h *AdminFormTemplateHandler) ImportPreview(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := parseTenantID(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, domain.MaxImportPayloadBytes))
+	if err != nil {
+		respond.Error(w, apperrors.ImportPayloadTooLarge())
+		return
+	}
+
+	result, err := h.service.ImportPreview(r.Context(), tenantID, body, auditContextFromRequest(r))
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	respond.JSON(w, http.StatusOK, result)
 }
 
 func parseTemplateID(raw string) (uuid.UUID, error) {

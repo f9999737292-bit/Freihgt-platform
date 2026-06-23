@@ -65,6 +65,7 @@ func NewRouter(
 		r.Route("/admin/form-templates", func(r chi.Router) {
 			r.Use(adminGuard)
 			r.Post("/", adminFormTemplateHandler.Create)
+			r.Post("/import-preview", adminFormTemplateHandler.ImportPreview)
 			r.Get("/", adminFormTemplateHandler.List)
 			r.Get("/{id}", adminFormTemplateHandler.GetByID)
 			r.Put("/{id}", adminFormTemplateHandler.Update)

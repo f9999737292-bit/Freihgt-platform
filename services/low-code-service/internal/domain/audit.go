@@ -15,6 +15,7 @@ const (
 	AuditEventKindFormTemplateDraftPublished = "FORM_TEMPLATE_DRAFT_PUBLISHED"
 	AuditEventKindFormTemplateClonedToDraft   = "FORM_TEMPLATE_CLONED_TO_DRAFT"
 	AuditEventKindFormTemplateExported        = "FORM_TEMPLATE_EXPORTED"
+	AuditEventKindFormTemplateImportPreviewed = "FORM_TEMPLATE_IMPORT_PREVIEWED"
 	AuditDBActionCreate                    = "CREATE"
 	AuditDBActionUpdate                    = "UPDATE"
 	AuditDBActionPublish                   = "PUBLISH"

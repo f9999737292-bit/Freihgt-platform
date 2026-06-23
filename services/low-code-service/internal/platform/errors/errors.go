@@ -31,6 +31,8 @@ const (
 	CodeBatchMigrationWarningsRequireConfirmation Code = "BATCH_MIGRATION_WARNINGS_REQUIRE_CONFIRMATION"
 	CodeUnauthorized          Code = "UNAUTHORIZED"
 	CodeForbidden             Code = "FORBIDDEN"
+	CodeUnsupportedSchemaVersion Code = "UNSUPPORTED_SCHEMA_VERSION"
+	CodeImportPayloadTooLarge    Code = "IMPORT_PAYLOAD_TOO_LARGE"
 )
 
 type AppError struct {
@@ -224,6 +226,22 @@ func Forbidden(message string) *AppError {
 		message = "access denied"
 	}
 	return &AppError{Code: CodeForbidden, Message: message, Details: map[string]any{}}
+}
+
+func UnsupportedSchemaVersion(schemaVersion string) *AppError {
+	return &AppError{
+		Code:    CodeUnsupportedSchemaVersion,
+		Message: "unsupported schema_version",
+		Details: map[string]any{"schema_version": schemaVersion, "supported": []string{"lowcode.template.export.v1"}},
+	}
+}
+
+func ImportPayloadTooLarge() *AppError {
+	return &AppError{
+		Code:    CodeImportPayloadTooLarge,
+		Message: "import payload too large",
+		Details: map[string]any{"max_bytes": 512 * 1024},
+	}
 }
 
 func detailsOrEmpty(details map[string]any) map[string]any {

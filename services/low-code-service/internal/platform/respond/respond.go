@@ -40,8 +40,11 @@ func Error(w http.ResponseWriter, err error) {
 		apperrors.CodeEntityTypeInvalid, apperrors.CodeEntityIDInvalid,
 		apperrors.CodeFieldInvalidType, apperrors.CodeValidationRuleFailed,
 		apperrors.CodeSystemFieldProtected, apperrors.CodeReadOnlyFieldProtected, apperrors.CodeTenantMismatch,
-		apperrors.CodeFormTemplateNotPublished, apperrors.CodeFormTemplateNotDraft:
+		apperrors.CodeFormTemplateNotPublished, apperrors.CodeFormTemplateNotDraft,
+		apperrors.CodeUnsupportedSchemaVersion:
 		status = http.StatusBadRequest
+	case apperrors.CodeImportPayloadTooLarge:
+		status = http.StatusRequestEntityTooLarge
 	case apperrors.CodeFormTemplateConflict:
 		status = http.StatusConflict
 	case apperrors.CodeMigrationBlocked, apperrors.CodeMigrationWarningsRequireConfirmation,
