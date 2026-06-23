@@ -237,7 +237,15 @@ See `docs/LOW_CODE_FORM_TEMPLATE_VERSION_ACTIVATION_POLICY_V0.1.md`.
 * Contract: `docs/LOW_CODE_RUNTIME_HEADERS_CONTRACT_V0.1.md`
 * Verify tenant-required behavior
 * Verify audit request_id behavior
-* Next: Low-code Migrate-to-Active Design Pack v0.1
+
+## Low-code Migrate-to-Active
+
+* Design: `docs/LOW_CODE_MIGRATE_TO_ACTIVE_DESIGN_V0.1.md`
+* Next implementation:
+  1. migration preview API
+  2. entity-level migrate-to-active API
+  3. admin UI preview modal
+  4. batch migration after publish
 
 Drag-and-drop form builder (section/field reorder):
 
