@@ -38,6 +38,10 @@ import {
 
 } from '~/types/lowCode'
 
+import type { LowCodeValidationContext } from '~/utils/lowCodeValidationContext'
+
+import { compactValidationContextForPut, mergeLowCodeValidationContext } from '~/utils/lowCodeValidationContext'
+
 import { TenantRequiredError } from '~/composables/useApi'
 
 
@@ -70,6 +74,8 @@ const props = withDefaults(
 
     previewContext?: PreviewRuleContext
 
+    validationContext?: LowCodeValidationContext | PreviewRuleContext | null
+
   }>(),
 
   {
@@ -87,6 +93,8 @@ const props = withDefaults(
     showFullEditorLink: false,
 
     previewContext: undefined,
+
+    validationContext: undefined,
 
   },
 
@@ -291,6 +299,26 @@ const previewTitle = computed(() =>
 const effectivePreviewContext = computed(() =>
 
   buildPreviewContext(props.entityStatus, props.previewContext),
+
+)
+
+
+
+const effectiveValidationContext = computed(() =>
+
+  compactValidationContextForPut(
+
+    mergeLowCodeValidationContext(
+
+      props.validationContext,
+
+      props.previewContext,
+
+      buildPreviewContext(props.entityStatus, props.validationContext ?? props.previewContext),
+
+    ),
+
+  ),
 
 )
 
@@ -512,7 +540,7 @@ async function saveEdit() {
 
       form_template_id: formTemplateId.value,
 
-      validation_context: effectivePreviewContext.value,
+      validation_context: effectiveValidationContext.value,
 
       values,
 

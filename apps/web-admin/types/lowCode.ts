@@ -283,7 +283,7 @@ export interface SaveCustomFieldValuesPayload {
   entity_type: string
   entity_id: string
   form_template_id: string
-  validation_context?: PreviewRuleContext
+  validation_context?: PreviewRuleContext | Record<string, unknown>
   values: SaveCustomFieldValueItem[]
 }
 

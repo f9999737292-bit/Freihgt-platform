@@ -7,6 +7,7 @@ import type {
   Shipment,
   Vehicle,
 } from '~/types/shipment'
+import { buildShipmentValidationContext } from '~/utils/lowCodeValidationContext'
 
 definePageMeta({ middleware: 'auth', layout: 'default' })
 
@@ -34,6 +35,18 @@ const apiUnavailable = ref(false)
 const showCancelModal = ref(false)
 const showDriverSelect = ref(false)
 const showVehicleSelect = ref(false)
+
+const lowCodeValidationContext = computed(() => {
+  if (!shipment.value) return undefined
+  const routeFrom = origin.value?.name || origin.value?.city || origin.value?.id || undefined
+  const routeTo = destination.value?.name || destination.value?.city || destination.value?.id || undefined
+  return buildShipmentValidationContext(shipment.value, {
+    route: {
+      from: routeFrom ?? undefined,
+      to: routeTo ?? undefined,
+    },
+  })
+})
 
 const shipmentId = computed(() => String(route.params.id))
 
@@ -214,6 +227,7 @@ onMounted(async () => {
         entity-type="SHIPMENT"
         :entity-id="shipment.id"
         :entity-status="shipment.status"
+        :validation-context="lowCodeValidationContext"
         editable
         show-full-editor-link
       />

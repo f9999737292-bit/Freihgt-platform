@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { TransportOrder } from '~/types/transportOrder'
+import { buildTransportOrderValidationContext } from '~/utils/lowCodeValidationContext'
 
 definePageMeta({ middleware: 'auth', layout: 'default' })
 
@@ -11,6 +12,10 @@ const { t } = useI18n()
 const order = ref<TransportOrder | null>(null)
 const submitting = ref(false)
 const showMiniTenderModal = ref(false)
+
+const lowCodeValidationContext = computed(() =>
+  order.value ? buildTransportOrderValidationContext(order.value) : undefined,
+)
 
 async function loadOrder() {
   try {
@@ -70,6 +75,7 @@ onMounted(loadOrder)
       entity-type="TRANSPORT_ORDER"
       :entity-id="order.id"
       :entity-status="order.status"
+      :validation-context="lowCodeValidationContext"
       editable
       show-full-editor-link
     />

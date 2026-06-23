@@ -350,7 +350,23 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-1. Low-code Entity Integration v0.2 (validation_context wiring + frontend tests)
+1. Low-code Runtime Pilot Readiness Pack v0.1
+
+Low-code entity integration (validation_context v0.2):
+
+```text
+http://localhost:3000/transport-orders/{id}
+http://localhost:3000/shipments/{id}
+http://localhost:3000/billing-registers/{id}
+```
+
+Verify helper:
+
+```powershell
+node scripts/dev/verify_lowcode_validation_context.mjs
+```
+
+See `docs/LOW_CODE_ENTITY_INTEGRATION_V0.2.md`.
 
 Low-code admin permissions (v0.1):
 

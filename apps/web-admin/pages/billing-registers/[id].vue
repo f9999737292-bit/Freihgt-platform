@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import type { BillingRegister } from '~/types/billing'
+import { buildBillingRegisterValidationContext } from '~/utils/lowCodeValidationContext'
 
 definePageMeta({ middleware: 'auth', layout: 'default' })
 
 const route = useRoute()
 const { apiGet } = useApi()
 const item = ref<BillingRegister | null>(null)
+
+const lowCodeValidationContext = computed(() =>
+  item.value ? buildBillingRegisterValidationContext(item.value) : undefined,
+)
 
 onMounted(async () => {
   try {
@@ -30,6 +35,7 @@ onMounted(async () => {
       entity-type="BILLING_REGISTER"
       :entity-id="item.id"
       :entity-status="item.status"
+      :validation-context="lowCodeValidationContext"
       editable
       show-full-editor-link
     />
