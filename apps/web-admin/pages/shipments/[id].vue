@@ -48,6 +48,8 @@ const lowCodeValidationContext = computed(() => {
   })
 })
 
+const { canEditCustomFieldsRuntime } = useLowCodePermissions()
+
 const shipmentId = computed(() => String(route.params.id))
 
 const showDocumentsBlock = computed(() => {
@@ -228,7 +230,7 @@ onMounted(async () => {
         :entity-id="shipment.id"
         :entity-status="shipment.status"
         :validation-context="lowCodeValidationContext"
-        editable
+        :editable="canEditCustomFieldsRuntime()"
         show-full-editor-link
       />
 

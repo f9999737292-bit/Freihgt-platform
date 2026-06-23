@@ -17,6 +17,8 @@ const apiUnavailable = ref(false)
 
 const requestId = computed(() => String(route.params.id))
 
+const { canEditCustomFieldsRuntime } = useLowCodePermissions()
+
 const companyName = computed(() => {
   if (!request.value) return ''
   return companies.value.find((c) => c.id === request.value!.shipper_company_id)?.legal_name
@@ -85,7 +87,7 @@ onMounted(async () => {
         entity-type="FREIGHT_REQUEST"
         :entity-id="request.id"
         :entity-status="request.status"
-        editable
+        :editable="canEditCustomFieldsRuntime()"
         show-full-editor-link
       />
     </template>

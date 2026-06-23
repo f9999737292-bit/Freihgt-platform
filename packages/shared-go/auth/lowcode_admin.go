@@ -1,6 +1,7 @@
 package auth
 
-// Low-code admin API roles (v0.1). Extend with LOW_CODE_ADMIN / LOW_CODE_PUBLISHER when seeded.
+// LowCodeAdminRoleCodes lists roles allowed for /v1/low-code/admin/* when
+// LOW_CODE_ADMIN_AUTH_ENABLED=true. See docs/LOW_CODE_PERMISSIONS_MATRIX_V0.1.md.
 var LowCodeAdminRoleCodes = []string{
 	"PLATFORM_ADMIN",
 }

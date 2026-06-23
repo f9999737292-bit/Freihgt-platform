@@ -52,6 +52,25 @@ func TestRequireLowCodeAdminMissingUserUnauthorized(t *testing.T) {
 	}
 }
 
+func TestRequireLowCodeAdminForbiddenForDriver(t *testing.T) {
+	handler := RequireLowCodeAdmin(AdminAuthConfig{
+		Enabled:     true,
+		RoleChecker: stubRoleChecker{codes: []string{"DRIVER"}},
+	})(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		t.Fatal("handler should not be called")
+	}))
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	req.Header.Set(sharedlowcode.HeaderTenantID, uuid.New().String())
+	req.Header.Set(sharedlowcode.HeaderUserID, uuid.New().String())
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 for DRIVER, got %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestRequireLowCodeAdminForbiddenWithoutRole(t *testing.T) {
 	handler := RequireLowCodeAdmin(AdminAuthConfig{
 		Enabled:     true,

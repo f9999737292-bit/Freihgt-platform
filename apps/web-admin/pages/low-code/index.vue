@@ -12,7 +12,7 @@ const templatesCount = ref<number | null>(null)
 const lowCodeStatus = ref<'online' | 'offline' | 'unknown'>('unknown')
 const lowCodeMessage = ref('')
 
-const { isPlatformAdmin } = usePermissions()
+const { canAccessLowCodeAdmin } = useLowCodePermissions()
 
 const navLinks = computed(() => {
   const links = [
@@ -20,7 +20,7 @@ const navLinks = computed(() => {
     { to: '/low-code/custom-field-values', labelKey: 'lowCode.customFieldValues', descKey: 'lowCode.customFieldValuesDesc' },
     { to: '/low-code/audit', labelKey: 'lowCode.auditLog', descKey: 'lowCode.auditLogDesc' },
   ]
-  if (isPlatformAdmin()) {
+  if (canAccessLowCodeAdmin()) {
     links.splice(1, 0, {
       to: '/low-code/admin/form-templates',
       labelKey: 'lowCode.formTemplateAdmin',
@@ -79,7 +79,7 @@ onMounted(refreshAll)
       </UiButton>
     </header>
 
-    <div v-if="isPlatformAdmin()" class="low-code-hub__notice low-code-hub__notice--info">
+    <div v-if="canAccessLowCodeAdmin()" class="low-code-hub__notice low-code-hub__notice--info">
       <strong>{{ $t('lowCode.formTemplateAdmin') }}</strong>
       <p>{{ $t('lowCode.formTemplateAdminHint') }}</p>
     </div>

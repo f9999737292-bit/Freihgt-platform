@@ -17,6 +17,8 @@ const lowCodeValidationContext = computed(() =>
   order.value ? buildTransportOrderValidationContext(order.value) : undefined,
 )
 
+const { canEditCustomFieldsRuntime } = useLowCodePermissions()
+
 async function loadOrder() {
   try {
     order.value = await apiGet<TransportOrder>(`/api/v1/transport-orders/${route.params.id}`)
@@ -76,7 +78,7 @@ onMounted(loadOrder)
       :entity-id="order.id"
       :entity-status="order.status"
       :validation-context="lowCodeValidationContext"
-      editable
+      :editable="canEditCustomFieldsRuntime()"
       show-full-editor-link
     />
     <UiEmptyState v-else :title="$t('common.empty')" />

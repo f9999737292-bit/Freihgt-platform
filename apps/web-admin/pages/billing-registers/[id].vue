@@ -12,6 +12,8 @@ const lowCodeValidationContext = computed(() =>
   item.value ? buildBillingRegisterValidationContext(item.value) : undefined,
 )
 
+const { canEditCustomFieldsRuntime } = useLowCodePermissions()
+
 onMounted(async () => {
   try {
     item.value = await apiGet<BillingRegister>(`/api/v1/billing-registers/${route.params.id}`)
@@ -36,7 +38,7 @@ onMounted(async () => {
       :entity-id="item.id"
       :entity-status="item.status"
       :validation-context="lowCodeValidationContext"
-      editable
+      :editable="canEditCustomFieldsRuntime()"
       show-full-editor-link
     />
     <UiEmptyState v-else :title="$t('common.empty')" />

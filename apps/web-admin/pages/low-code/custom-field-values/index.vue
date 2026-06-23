@@ -31,7 +31,7 @@ const { resolveDemoEntityId, resolveDemoEmptyEntityId, resolveEntityStatus, reso
 const { hasTenant } = useTenantContext()
 
 const { pushToast } = useToast()
-const { isPlatformAdmin } = usePermissions()
+const { canEditCustomFieldsRuntime, canRunBatchMigrationPreview, canRunMigrationPreview } = useLowCodePermissions()
 
 const { t } = useI18n()
 
@@ -135,11 +135,11 @@ const latestMigrationEvent = computed(() =>
 )
 
 const canOpenMigration = computed(
-  () => isPlatformAdmin() && loaded.value && !!loadedEntity.entity_id && !!activeTemplateCode.value,
+  () => canRunMigrationPreview() && loaded.value && !!loadedEntity.entity_id && !!activeTemplateCode.value,
 )
 
 const canOpenBatchMigration = computed(
-  () => isPlatformAdmin() && hasTenant.value && !!form.entity_type && !!activeTemplateCode.value,
+  () => canRunBatchMigrationPreview() && hasTenant.value && !!form.entity_type && !!activeTemplateCode.value,
 )
 
 async function resolveTemplateCodeForType(entityType: LowCodeEntityType) {
@@ -536,7 +536,7 @@ watch(
       :entity-type="loadedEntity.entity_type"
       :entity-id="loadedEntity.entity_id"
       :entity-status="form.entity_status || null"
-      editable
+      :editable="canEditCustomFieldsRuntime()"
       @saved="onPanelSaved"
     />
 

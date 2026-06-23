@@ -45,10 +45,12 @@ const { hasRole, hasAnyRole, hasPermission, hasAnyPermission, isPlatformAdmin } 
 | `hasAnyPermission(permissions)` | Есть ли хотя бы одно permission |
 | `isPlatformAdmin()` | Роль `PLATFORM_ADMIN` или dev fallback |
 
+Low-code permission matrix: `docs/LOW_CODE_PERMISSIONS_MATRIX_V0.1.md` — используйте `useLowCodePermissions()` для admin/migration/runtime edit в low-code UI.
+
 ### Источник данных
 
 - Роли и permissions читаются из `authStore.user` (`roles[]`, `permissions[]`)
-- **TODO:** `AuthUser` в `types/api.ts` пока не содержит `roles`/`permissions`; backend `/auth/me` может ещё не возвращать RBAC payload — в этом случае функции возвращают `false`
+- Login и `/auth/me` возвращают `roles[]` для tenant (identity-service)
 
 ### Dev fallback
 

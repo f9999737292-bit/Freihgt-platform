@@ -20,6 +20,8 @@ const { getShipment } = useShipmentsApi()
 const { pushToast } = useToast()
 const { t } = useI18n()
 
+const { canEditCustomFieldsRuntime } = useLowCodePermissions()
+
 const document = ref<DocumentDetail | null>(null)
 const versions = ref<DocumentVersion[]>([])
 const files = ref<DocumentFile[]>([])
@@ -212,7 +214,7 @@ watch(documentId, loadDocument, { immediate: true })
         entity-type="DOCUMENT"
         :entity-id="document.id"
         :entity-status="document.document_status"
-        editable
+        :editable="canEditCustomFieldsRuntime()"
         show-full-editor-link
       />
     </template>

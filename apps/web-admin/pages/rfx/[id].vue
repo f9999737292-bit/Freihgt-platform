@@ -20,6 +20,9 @@ const saving = ref(false)
 const editForm = reactive({ title: '', description: '', response_deadline: '' })
 
 const eventId = computed(() => String(route.params.id))
+
+const { canEditCustomFieldsRuntime } = useLowCodePermissions()
+
 const companyName = computed(() => {
   if (!event.value) return ''
   return companies.value.find((c) => c.id === event.value!.owner_company_id)?.legal_name
@@ -108,7 +111,7 @@ onMounted(async () => {
         entity-type="RFX"
         :entity-id="event.id"
         :entity-status="event.status"
-        editable
+        :editable="canEditCustomFieldsRuntime()"
         show-full-editor-link
       />
     </template>

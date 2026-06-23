@@ -350,7 +350,11 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-1. Low-code Permissions Matrix Pack v0.1
+1. Low-code Template Import/Export Design Pack v0.1
+
+Low-code permissions matrix:
+
+See `docs/LOW_CODE_PERMISSIONS_MATRIX_V0.1.md`.
 
 Runtime pilot readiness review:
 
