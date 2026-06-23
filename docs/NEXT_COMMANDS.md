@@ -350,7 +350,11 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-1. Low-code Runtime Pilot Readiness Pack v0.1
+1. Low-code Permissions Matrix Pack v0.1
+
+Runtime pilot readiness review:
+
+See `docs/LOW_CODE_RUNTIME_PILOT_READINESS_V0.1.md`.
 
 Low-code entity integration (validation_context v0.2):
 
