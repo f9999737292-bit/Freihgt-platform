@@ -332,9 +332,13 @@ Batch migration audit & metrics:
 
 See `docs/LOW_CODE_BATCH_MIGRATION_AUDIT_METRICS_V0.1.md`.
 
+Batch migration edge-case tests:
+
+See `docs/LOW_CODE_BATCH_MIGRATION_EDGE_CASES_TEST_PACK_V0.1.md`.
+
 Next implementation:
 
-1. Low-code Batch Migration Edge Cases Test Pack v0.1
+1. Low-code Batch Migration Hardening Pack v0.1
 
 Drag-and-drop form builder (section/field reorder):
 

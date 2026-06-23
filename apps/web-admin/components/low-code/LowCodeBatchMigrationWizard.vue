@@ -58,7 +58,16 @@ const selectionError = computed(() => {
   return ''
 })
 
-const canProceedFromSelect = computed(() => !selectionError.value && entityIds.value.length > 0)
+const executeSummary = computed(() => executeResult.value?.summary ?? {
+  total: 0,
+  migrated: 0,
+  skipped: 0,
+  blocked: 0,
+  failed: 0,
+  warnings: 0,
+})
+
+const executeItems = computed(() => executeResult.value?.items ?? [])
 
 const previewSummary = computed(() => preview.value?.summary ?? { total: 0, safe: 0, warnings: 0, blocked: 0 })
 
@@ -509,34 +518,35 @@ watch(skipBlocked, (value) => {
           <div class="batch-wizard__success">
             <p>{{ executeStatusLabel }}</p>
             <p class="batch-wizard__muted">
-              {{ $t('lowCode.batchMigrationBatchId') }}: <code>{{ executeResult.batch_id }}</code>
+              {{ $t('lowCode.batchMigrationBatchId') }}:
+              <code>{{ executeResult.batch_id || '—' }}</code>
             </p>
           </div>
 
           <dl class="batch-wizard__summary">
             <div>
               <dt>{{ $t('lowCode.batchMigrationTotal') }}</dt>
-              <dd>{{ executeResult.summary.total }}</dd>
+              <dd>{{ executeSummary.total }}</dd>
             </div>
             <div>
               <dt>{{ $t('lowCode.batchMigrationMigrated') }}</dt>
-              <dd>{{ executeResult.summary.migrated }}</dd>
+              <dd>{{ executeSummary.migrated }}</dd>
             </div>
             <div>
               <dt>{{ $t('lowCode.batchMigrationSkipped') }}</dt>
-              <dd>{{ executeResult.summary.skipped }}</dd>
+              <dd>{{ executeSummary.skipped }}</dd>
             </div>
             <div>
               <dt>{{ $t('lowCode.batchMigrationBlocked') }}</dt>
-              <dd>{{ executeResult.summary.blocked }}</dd>
+              <dd>{{ executeSummary.blocked }}</dd>
             </div>
             <div>
               <dt>{{ $t('lowCode.batchMigrationFailedCount') }}</dt>
-              <dd>{{ executeResult.summary.failed }}</dd>
+              <dd>{{ executeSummary.failed }}</dd>
             </div>
             <div>
               <dt>{{ $t('lowCode.batchMigrationWarnings') }}</dt>
-              <dd>{{ executeResult.summary.warnings }}</dd>
+              <dd>{{ executeSummary.warnings }}</dd>
             </div>
           </dl>
 
@@ -552,12 +562,12 @@ watch(skipBlocked, (value) => {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="item in executeResult.items" :key="item.entity_id">
+                <tr v-for="item in executeItems" :key="item.entity_id">
                   <td class="batch-wizard__mono">{{ item.entity_id }}</td>
                   <td>
-                    <UiBadge :status="item.status" :tone="statusBadgeTone(item.status)" />
+                    <UiBadge :status="item.status || '—'" :tone="statusBadgeTone(item.status || '')" />
                   </td>
-                  <td>{{ item.preview_status }}</td>
+                  <td>{{ item.preview_status || '—' }}</td>
                   <td>{{ item.copied_fields?.join(', ') || $t('lowCode.migrationNone') }}</td>
                   <td>{{ item.reason || '—' }}</td>
                 </tr>
