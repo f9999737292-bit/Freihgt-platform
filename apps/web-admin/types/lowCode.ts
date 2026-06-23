@@ -672,17 +672,30 @@ export const LOW_CODE_TEMPLATE_AUDIT_ACTIONS = [
   'FORM_TEMPLATE_CLONED_TO_DRAFT',
 ] as const
 
-export type LowCodeAuditQuickFilter = 'all' | 'value_updates' | 'template_changes' | 'migrations'
+export type LowCodeAuditQuickFilter =
+  | 'all'
+  | 'value_updates'
+  | 'template_changes'
+  | 'migrations'
+  | 'batch_migrations'
 
 export interface MigrationAuditPayload {
+  batchId?: string
+  templateCode?: string
   sourceTemplateId?: string
   targetTemplateId?: string
+  activeTemplateId?: string
   copiedFields: string[]
   legacyFields: string[]
   missingRequiredFields: string[]
   incompatibleFields: MigrationPreviewIncompatibleField[]
   warnings: string[]
   allowWarnings?: boolean
+  skipBlocked?: boolean
+  previewStatus?: string
+  migrationStatus?: string
+  migratedCount?: number
+  skippedCount?: number
   status?: string
 }
 
@@ -716,6 +729,12 @@ function readBooleanField(source: Record<string, unknown>, key: string): boolean
   return undefined
 }
 
+function readNumberField(source: Record<string, unknown>, key: string): number | undefined {
+  const value = source[key]
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  return undefined
+}
+
 function extractMigrationPayloadSource(item: AuditEventItem): Record<string, unknown> {
   const candidates = [item.new_values, item.old_values]
   for (const candidate of candidates) {
@@ -724,6 +743,7 @@ function extractMigrationPayloadSource(item: AuditEventItem): Record<string, unk
       candidate.event_kind === LOW_CODE_AUDIT_ACTION_MIGRATED_TO_ACTIVE
       || typeof candidate.source_template_id === 'string'
       || typeof candidate.target_template_id === 'string'
+      || typeof candidate.batch_id === 'string'
     ) {
       return candidate
     }
@@ -735,23 +755,44 @@ export function isMigrationAuditEvent(item: AuditEventItem): boolean {
   return item.action === LOW_CODE_AUDIT_ACTION_MIGRATED_TO_ACTIVE
 }
 
+export function isBatchMigrationAuditEvent(item: AuditEventItem): boolean {
+  if (!isMigrationAuditEvent(item)) return false
+  return Boolean(parseMigrationAuditPayload(item).batchId)
+}
+
 export function isTemplateAuditEvent(item: AuditEventItem): boolean {
   return (LOW_CODE_TEMPLATE_AUDIT_ACTIONS as readonly string[]).includes(item.action)
 }
 
 export function parseMigrationAuditPayload(item: AuditEventItem): MigrationAuditPayload {
   const source = extractMigrationPayloadSource(item)
+  const previewStatus = readStringField(source, 'preview_status') ?? readStringField(source, 'status')
   return {
+    batchId: readStringField(source, 'batch_id'),
+    templateCode: readStringField(source, 'template_code'),
     sourceTemplateId: readStringField(source, 'source_template_id'),
     targetTemplateId: readStringField(source, 'target_template_id'),
+    activeTemplateId: readStringField(source, 'active_template_id'),
     copiedFields: readStringArrayField(source, 'copied_fields'),
     legacyFields: readStringArrayField(source, 'legacy_fields'),
     missingRequiredFields: readStringArrayField(source, 'missing_required_fields'),
     incompatibleFields: readIncompatibleFields(source),
     warnings: readStringArrayField(source, 'warnings'),
     allowWarnings: readBooleanField(source, 'allow_warnings'),
+    skipBlocked: readBooleanField(source, 'skip_blocked'),
+    previewStatus,
+    migrationStatus: readStringField(source, 'migration_status'),
+    migratedCount: readNumberField(source, 'migrated_count'),
+    skippedCount: readNumberField(source, 'skipped_count'),
     status: readStringField(source, 'status'),
   }
+}
+
+export function auditEventMatchesBatchId(item: AuditEventItem, batchId: string): boolean {
+  const normalized = batchId.trim().toLowerCase()
+  if (!normalized) return true
+  const payload = parseMigrationAuditPayload(item)
+  return payload.batchId?.trim().toLowerCase() === normalized
 }
 
 export function formatAuditFieldList(fields: string[] | undefined, emptyLabel: string): string {
@@ -763,6 +804,7 @@ export function buildLowCodeAuditLink(params: {
   entity_id?: string
   action?: string
   category?: LowCodeAuditQuickFilter
+  batch_id?: string
   limit?: number
 }): string {
   const query = new URLSearchParams()
@@ -770,6 +812,7 @@ export function buildLowCodeAuditLink(params: {
   if (params.entity_id?.trim()) query.set('entity_id', params.entity_id.trim())
   if (params.action?.trim()) query.set('action', params.action.trim())
   if (params.category && params.category !== 'all') query.set('category', params.category)
+  if (params.batch_id?.trim()) query.set('batch_id', params.batch_id.trim())
   if (params.limit != null) query.set('limit', String(params.limit))
   const qs = query.toString()
   return qs ? `/low-code/audit?${qs}` : '/low-code/audit'

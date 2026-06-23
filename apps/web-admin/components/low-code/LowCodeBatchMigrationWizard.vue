@@ -107,19 +107,14 @@ const executeStatusLabel = computed(() => {
   }
 })
 
-const auditLink = computed(() => {
-  const migratedIds = executeResult.value?.items
-    ?.filter((item) => item.status === 'migrated' || item.status === 'migrated_with_warnings')
-    .map((item) => item.entity_id) ?? []
-  const entityId = props.initialEntityId && migratedIds.includes(props.initialEntityId)
-    ? props.initialEntityId
-    : migratedIds[0]
-  return buildLowCodeAuditLink({
+const batchAuditLink = computed(() =>
+  buildLowCodeAuditLink({
     entity_type: props.entityType,
-    entity_id: entityId,
-    category: 'migrations',
-  })
-})
+    category: 'batch_migrations',
+    batch_id: executeResult.value?.batch_id,
+    limit: 100,
+  }),
+)
 
 function resetState() {
   step.value = 1
@@ -570,8 +565,8 @@ watch(skipBlocked, (value) => {
             </table>
           </div>
 
-          <NuxtLink :to="auditLink" class="batch-wizard__audit-link">
-            {{ $t('lowCode.batchMigrationViewAudit') }}
+          <NuxtLink :to="batchAuditLink" class="batch-wizard__audit-link">
+            {{ $t('lowCode.batchMigrationViewBatchAudit') }}
           </NuxtLink>
         </div>
       </div>

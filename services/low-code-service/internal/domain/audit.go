@@ -107,6 +107,7 @@ func BuildCustomFieldValuesMigratedToActiveAuditPayload(
 	item MigrationPreviewItem,
 	allowWarnings bool,
 	batchCtx *BatchMigrationAuditContext,
+	execCtx *MigrationExecutionAuditContext,
 ) (oldJSON json.RawMessage, newJSON json.RawMessage, err error) {
 	incompatible := make([]map[string]string, 0, len(item.IncompatibleFields))
 	for _, field := range item.IncompatibleFields {
@@ -116,17 +117,31 @@ func BuildCustomFieldValuesMigratedToActiveAuditPayload(
 		})
 	}
 
+	migrationStatus := ""
+	migratedCount := 0
+	skippedCount := 0
+	if execCtx != nil {
+		migrationStatus = execCtx.MigrationStatus
+		migratedCount = execCtx.MigratedCount
+		skippedCount = execCtx.SkippedCount
+	}
+
 	newPayload := map[string]any{
 		"event_kind":              AuditEventKindCustomFieldValuesMigratedToActive,
 		"source_template_id":      sourceTemplateID.String(),
 		"target_template_id":      targetTemplateID.String(),
+		"active_template_id":      targetTemplateID.String(),
 		"copied_fields":           item.CopiedFields,
 		"legacy_fields":           item.LegacyFields,
 		"missing_required_fields": item.MissingRequiredFields,
 		"incompatible_fields":     incompatible,
 		"warnings":                item.Warnings,
 		"allow_warnings":          allowWarnings,
+		"preview_status":          item.Status,
 		"status":                  item.Status,
+		"migration_status":        migrationStatus,
+		"migrated_count":          migratedCount,
+		"skipped_count":           skippedCount,
 	}
 	if batchCtx != nil {
 		if batchCtx.BatchID != uuid.Nil {
@@ -156,6 +171,12 @@ func BuildCustomFieldValuesMigratedToActiveAuditPayload(
 		return nil, nil, err
 	}
 	return oldJSON, newJSON, nil
+}
+
+type MigrationExecutionAuditContext struct {
+	MigrationStatus string
+	MigratedCount   int
+	SkippedCount    int
 }
 
 type BatchMigrationAuditContext struct {
@@ -243,11 +264,22 @@ func ParseAuditValuesMap(raw json.RawMessage) map[string]json.RawMessage {
 	if len(raw) == 0 {
 		return map[string]json.RawMessage{}
 	}
-	var payload struct {
-		Values map[string]json.RawMessage `json:"values"`
-	}
-	if err := json.Unmarshal(raw, &payload); err != nil || payload.Values == nil {
+
+	var payload map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &payload); err != nil || payload == nil {
 		return map[string]json.RawMessage{}
 	}
-	return payload.Values
+
+	if valuesRaw, ok := payload["values"]; ok {
+		var values map[string]json.RawMessage
+		if err := json.Unmarshal(valuesRaw, &values); err == nil && values != nil {
+			return values
+		}
+	}
+
+	if _, ok := payload["event_kind"]; ok {
+		return payload
+	}
+
+	return map[string]json.RawMessage{}
 }

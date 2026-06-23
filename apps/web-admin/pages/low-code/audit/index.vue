@@ -3,6 +3,8 @@ import {
   LOW_CODE_AUDIT_ACTION_MIGRATED_TO_ACTIVE,
   LOW_CODE_AUDIT_ACTION_VALUES_UPDATED,
   LOW_CODE_ENTITY_TYPES,
+  auditEventMatchesBatchId,
+  isBatchMigrationAuditEvent,
   isTemplateAuditEvent,
   type AuditEventItem,
   type LowCodeAuditQuickFilter,
@@ -27,6 +29,7 @@ const filters = reactive({
   entity_type: '' as LowCodeEntityType | '',
   entity_id: '',
   action: '',
+  batch_id: '',
   limit: 50,
 })
 
@@ -52,6 +55,7 @@ const quickFilterOptions = computed(() => [
   { id: 'value_updates' as const, label: t('lowCode.auditValueUpdates') },
   { id: 'template_changes' as const, label: t('lowCode.auditTemplateChanges') },
   { id: 'migrations' as const, label: t('lowCode.auditMigrations') },
+  { id: 'batch_migrations' as const, label: t('lowCode.auditBatchMigrations') },
 ])
 
 const limitOptions = [
@@ -62,13 +66,22 @@ const limitOptions = [
 ]
 
 const displayedItems = computed(() => {
+  let rows = items.value
   if (quickFilter.value === 'template_changes') {
-    return items.value.filter((item) => isTemplateAuditEvent(item))
+    rows = rows.filter((item) => isTemplateAuditEvent(item))
+  } else if (quickFilter.value === 'batch_migrations') {
+    rows = rows.filter((item) => isBatchMigrationAuditEvent(item))
   }
-  return items.value
+  if (filters.batch_id.trim()) {
+    rows = rows.filter((item) => auditEventMatchesBatchId(item, filters.batch_id))
+  }
+  return rows
 })
 
 const emptyMessage = computed(() => {
+  if (quickFilter.value === 'batch_migrations') {
+    return t('lowCode.auditNoBatchMigrationEventsFound')
+  }
   if (quickFilter.value === 'migrations') {
     return t('lowCode.auditNoMigrationEventsFound')
   }
@@ -77,7 +90,9 @@ const emptyMessage = computed(() => {
 
 function resolveActionForLoad(): string | undefined {
   if (filters.action.trim()) return filters.action.trim()
-  if (quickFilter.value === 'migrations') return LOW_CODE_AUDIT_ACTION_MIGRATED_TO_ACTIVE
+  if (quickFilter.value === 'migrations' || quickFilter.value === 'batch_migrations') {
+    return LOW_CODE_AUDIT_ACTION_MIGRATED_TO_ACTIVE
+  }
   if (quickFilter.value === 'value_updates') return LOW_CODE_AUDIT_ACTION_VALUES_UPDATED
   return undefined
 }
@@ -117,20 +132,19 @@ function onFilterChange() {
 
 function setQuickFilter(value: LowCodeAuditQuickFilter) {
   quickFilter.value = value
-  if (value === 'migrations') {
-    filters.action = ''
-  } else if (value === 'value_updates') {
-    filters.action = ''
-  } else if (value === 'all') {
-    filters.action = ''
-  } else if (value === 'template_changes') {
+  if (value === 'migrations' || value === 'batch_migrations' || value === 'value_updates' || value === 'all' || value === 'template_changes') {
     filters.action = ''
   }
   load()
 }
 
 function parseCategory(value: string | undefined): LowCodeAuditQuickFilter {
-  if (value === 'migrations' || value === 'value_updates' || value === 'template_changes') {
+  if (
+    value === 'migrations'
+    || value === 'value_updates'
+    || value === 'template_changes'
+    || value === 'batch_migrations'
+  ) {
     return value
   }
   return 'all'
@@ -141,13 +155,14 @@ onMounted(() => {
   if (typeof q.entity_type === 'string') filters.entity_type = q.entity_type as LowCodeEntityType | ''
   if (typeof q.entity_id === 'string') filters.entity_id = q.entity_id
   if (typeof q.action === 'string') filters.action = q.action
+  if (typeof q.batch_id === 'string') filters.batch_id = q.batch_id
   if (typeof q.category === 'string') quickFilter.value = parseCategory(q.category)
   if (typeof q.limit === 'string') {
     const parsed = Number.parseInt(q.limit, 10)
     if (!Number.isNaN(parsed)) filters.limit = parsed
   }
   if (filters.action === LOW_CODE_AUDIT_ACTION_MIGRATED_TO_ACTIVE) {
-    quickFilter.value = 'migrations'
+    quickFilter.value = filters.batch_id.trim() ? 'batch_migrations' : 'migrations'
     filters.action = ''
   } else if (filters.action === LOW_CODE_AUDIT_ACTION_VALUES_UPDATED) {
     quickFilter.value = 'value_updates'
@@ -186,6 +201,12 @@ onMounted(() => {
           v-model="filters.entity_id"
           :label="$t('lowCode.entityId')"
           :placeholder="$t('lowCode.entityIdPlaceholder')"
+          @keyup.enter="onFilterChange"
+        />
+        <UiInput
+          v-model="filters.batch_id"
+          :label="$t('lowCode.auditBatchId')"
+          :placeholder="$t('lowCode.auditBatchIdPlaceholder')"
           @keyup.enter="onFilterChange"
         />
         <UiSelect

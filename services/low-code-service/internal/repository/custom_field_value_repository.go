@@ -213,15 +213,21 @@ func (r *CustomFieldValueRepository) ReplaceFieldCodesBatch(
 
 		if r.auditRepo != nil && saved > 0 {
 			if input.MigrationAudit != nil {
-				var batchCtx *domain.BatchMigrationAuditContext
-				if input.MigrationAudit.BatchID != uuid.Nil || input.MigrationAudit.TemplateCode != "" {
-					batchCtx = &domain.BatchMigrationAuditContext{
-						BatchID:      input.MigrationAudit.BatchID,
-						EntityType:   input.EntityType,
-						EntityID:     input.EntityID,
-						TemplateCode: input.MigrationAudit.TemplateCode,
-						SkipBlocked:  input.MigrationAudit.SkipBlocked,
-					}
+				batchCtx := &domain.BatchMigrationAuditContext{
+					BatchID:      input.MigrationAudit.BatchID,
+					EntityType:   input.EntityType,
+					EntityID:     input.EntityID,
+					TemplateCode: input.MigrationAudit.TemplateCode,
+					SkipBlocked:  input.MigrationAudit.SkipBlocked,
+				}
+				migrationStatus := "migrated"
+				if input.MigrationAudit.PreviewItem.Status == domain.MigrationPreviewStatusWarning {
+					migrationStatus = "migrated_with_warnings"
+				}
+				execCtx := &domain.MigrationExecutionAuditContext{
+					MigrationStatus: migrationStatus,
+					MigratedCount:   saved,
+					SkippedCount:    len(input.MigrationAudit.PreviewItem.LegacyFields),
 				}
 				oldJSON, newJSON, err := domain.BuildCustomFieldValuesMigratedToActiveAuditPayload(
 					input.MigrationAudit.SourceTemplateID,
@@ -229,6 +235,7 @@ func (r *CustomFieldValueRepository) ReplaceFieldCodesBatch(
 					input.MigrationAudit.PreviewItem,
 					input.MigrationAudit.AllowWarnings,
 					batchCtx,
+					execCtx,
 				)
 				if err != nil {
 					return apperrors.Internal("failed to build migration audit payload", err)

@@ -4,11 +4,14 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/freight-platform/low-code-service/internal/domain"
+	"github.com/freight-platform/low-code-service/internal/platform/batchmigration"
 	apperrors "github.com/freight-platform/low-code-service/internal/platform/errors"
+	lcmetrics "github.com/freight-platform/low-code-service/internal/platform/metrics"
 	"github.com/freight-platform/low-code-service/internal/platform/respond"
 	"github.com/freight-platform/low-code-service/internal/service"
 )
@@ -254,22 +257,34 @@ func (h *AdminCustomFieldValueHandler) MigrationPreview(w http.ResponseWriter, r
 }
 
 func (h *AdminCustomFieldValueHandler) BatchMigrationPreview(w http.ResponseWriter, r *http.Request) {
+	startedAt := time.Now()
 	tenantID, input, err := parseMigrationPreviewRequest(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
 
+	auditCtx := auditContextFromRequest(r)
+	templateCode := strings.TrimSpace(input.TemplateCode)
 	result, err := h.service.PreviewMigrationToActive(r.Context(), input)
 	if err != nil {
+		lcmetrics.ObserveBatchMigrationPreview(input.EntityType, "error")
+		lcmetrics.ObserveBatchMigrationPreviewDuration(input.EntityType, "error", time.Since(startedAt))
+		batchmigration.LogPreview(uuid.Nil, input.EntityType, templateCode, auditCtx.RequestID, "error", domain.MigrationPreviewSummary{})
 		respond.Error(w, err)
 		return
 	}
+
+	status := batchPreviewMetricStatus(result)
+	lcmetrics.ObserveBatchMigrationPreview(input.EntityType, status)
+	lcmetrics.ObserveBatchMigrationPreviewDuration(input.EntityType, status, time.Since(startedAt))
+	batchmigration.LogPreview(uuid.Nil, input.EntityType, resolvedBatchTemplateCode(templateCode, result), auditCtx.RequestID, status, result.Summary)
 
 	respond.JSON(w, http.StatusOK, buildBatchMigrationPreviewResponse(tenantID, input.TemplateCode, result))
 }
 
 func (h *AdminCustomFieldValueHandler) BatchMigrateToActive(w http.ResponseWriter, r *http.Request) {
+	startedAt := time.Now()
 	tenantID, input, err := parseBatchMigrateToActiveRequest(r)
 	if err != nil {
 		respond.Error(w, err)
@@ -277,6 +292,8 @@ func (h *AdminCustomFieldValueHandler) BatchMigrateToActive(w http.ResponseWrite
 	}
 
 	batchID := uuid.New()
+	auditCtx := auditContextFromRequest(r)
+	templateCode := strings.TrimSpace(input.TemplateCode)
 	result, err := h.service.BatchMigrateToActiveTemplate(r.Context(), domain.BatchMigrateCustomFieldValuesToActiveInput{
 		TenantID:          tenantID,
 		EntityType:        input.EntityType,
@@ -287,14 +304,41 @@ func (h *AdminCustomFieldValueHandler) BatchMigrateToActive(w http.ResponseWrite
 		SkipBlocked:       input.SkipBlocked,
 		BatchID:           batchID,
 		ValidationContext: validationContextFromRequest(r, nil),
-		Audit:             auditContextFromRequest(r),
+		Audit:             auditCtx,
 	})
 	if err != nil {
+		lcmetrics.ObserveBatchMigrationExecute(input.EntityType, "error", lcmetrics.BatchMigrationExecuteSummary{}, time.Since(startedAt))
+		batchmigration.LogExecute(batchID, input.EntityType, templateCode, auditCtx.RequestID, "error", domain.BatchMigrateSummary{})
 		respond.Error(w, err)
 		return
 	}
 
+	lcmetrics.ObserveBatchMigrationExecute(input.EntityType, result.Status, lcmetrics.BatchMigrationExecuteSummary{
+		Migrated: result.Summary.Migrated,
+		Skipped:  result.Summary.Skipped,
+		Blocked:  result.Summary.Blocked,
+		Failed:   result.Summary.Failed,
+	}, time.Since(startedAt))
+	batchmigration.LogExecute(batchID, input.EntityType, result.TemplateCode, auditCtx.RequestID, result.Status, result.Summary)
+
 	respond.JSON(w, http.StatusOK, buildBatchMigrateToActiveResponse(tenantID, result))
+}
+
+func batchPreviewMetricStatus(result *domain.MigrationPreviewResult) string {
+	if result.Summary.Blocked > 0 && result.Summary.SafeToMigrate == 0 && result.Summary.Warnings == 0 {
+		return "blocked"
+	}
+	if result.Summary.Blocked > 0 || result.Summary.Warnings > 0 {
+		return "warnings"
+	}
+	return "success"
+}
+
+func resolvedBatchTemplateCode(requested string, result *domain.MigrationPreviewResult) string {
+	if strings.TrimSpace(requested) != "" {
+		return strings.TrimSpace(requested)
+	}
+	return result.TargetTemplate.Code
 }
 
 func parseBatchMigrateToActiveRequest(r *http.Request) (uuid.UUID, domain.BatchMigrateCustomFieldValuesToActiveInput, error) {

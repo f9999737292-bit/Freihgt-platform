@@ -328,9 +328,13 @@ http://localhost:3000/low-code/custom-field-values
 
 See `docs/LOW_CODE_ADMIN_BATCH_MIGRATION_WIZARD_V0.1.md`.
 
+Batch migration audit & metrics:
+
+See `docs/LOW_CODE_BATCH_MIGRATION_AUDIT_METRICS_V0.1.md`.
+
 Next implementation:
 
-1. Low-code Batch Migration Audit & Metrics Pack v0.1
+1. Low-code Batch Migration Edge Cases Test Pack v0.1
 
 Drag-and-drop form builder (section/field reorder):
 

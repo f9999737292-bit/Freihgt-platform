@@ -19,12 +19,28 @@ const { t } = useI18n()
 
 const payload = computed(() => parseMigrationAuditPayload(props.event))
 const showRaw = ref(false)
-const badgeLabel = computed(() => t('lowCode.auditMigrations'))
+const batchIdCopied = ref(false)
+const badgeLabel = computed(() =>
+  payload.value.batchId ? t('lowCode.auditBatchAudit') : t('lowCode.auditMigrations'),
+)
 
 const emptyLabel = computed(() => t('lowCode.migrationNone'))
 
 function formatFields(fields: string[]) {
   return formatAuditFieldList(fields, emptyLabel.value)
+}
+
+async function copyBatchId(value: string) {
+  if (!value || !import.meta.client) return
+  try {
+    await navigator.clipboard.writeText(value)
+    batchIdCopied.value = true
+    window.setTimeout(() => {
+      batchIdCopied.value = false
+    }, 2000)
+  } catch {
+    // clipboard unavailable
+  }
 }
 </script>
 
@@ -55,6 +71,19 @@ function formatFields(fields: string[]) {
         <dt>{{ $t('lowCode.auditRequestId') }}</dt>
         <dd class="mono">{{ event.request_id }}</dd>
       </div>
+      <div v-if="payload.batchId" class="migration-audit-card__wide">
+        <dt>{{ $t('lowCode.auditBatchId') }}</dt>
+        <dd class="migration-audit-card__batch-id">
+          <code class="mono">{{ payload.batchId }}</code>
+          <UiButton size="sm" variant="secondary" @click="copyBatchId(payload.batchId!)">
+            {{ batchIdCopied ? $t('lowCode.auditCopied') : $t('lowCode.auditCopy') }}
+          </UiButton>
+        </dd>
+      </div>
+      <div v-if="payload.templateCode">
+        <dt>{{ $t('lowCode.templateCode') }}</dt>
+        <dd><code>{{ payload.templateCode }}</code></dd>
+      </div>
       <div>
         <dt>{{ $t('lowCode.auditSourceTemplate') }}</dt>
         <dd class="mono">{{ payload.sourceTemplateId || emptyLabel }}</dd>
@@ -63,15 +92,40 @@ function formatFields(fields: string[]) {
         <dt>{{ $t('lowCode.auditTargetTemplate') }}</dt>
         <dd class="mono">{{ payload.targetTemplateId || emptyLabel }}</dd>
       </div>
-      <div v-if="payload.status">
+      <div v-if="payload.previewStatus">
+        <dt>{{ $t('lowCode.auditPreviewStatus') }}</dt>
+        <dd>{{ payload.previewStatus }}</dd>
+      </div>
+      <div v-if="payload.migrationStatus">
+        <dt>{{ $t('lowCode.auditMigrationStatus') }}</dt>
+        <dd>{{ payload.migrationStatus }}</dd>
+      </div>
+      <div v-else-if="payload.status">
         <dt>{{ $t('lowCode.migrationStatus') }}</dt>
         <dd>{{ payload.status }}</dd>
+      </div>
+      <div v-if="payload.migratedCount != null">
+        <dt>{{ $t('lowCode.auditMigratedCount') }}</dt>
+        <dd>{{ payload.migratedCount }}</dd>
+      </div>
+      <div v-if="payload.skippedCount != null">
+        <dt>{{ $t('lowCode.auditSkippedCount') }}</dt>
+        <dd>{{ payload.skippedCount }}</dd>
       </div>
       <div v-if="payload.allowWarnings != null">
         <dt>{{ $t('lowCode.auditAllowWarnings') }}</dt>
         <dd>{{ payload.allowWarnings ? $t('lowCode.yes') : $t('lowCode.no') }}</dd>
       </div>
+      <div v-if="payload.skipBlocked != null">
+        <dt>{{ $t('lowCode.auditSkipBlocked') }}</dt>
+        <dd>{{ payload.skipBlocked ? $t('lowCode.yes') : $t('lowCode.no') }}</dd>
+      </div>
     </dl>
+
+    <section v-if="payload.batchId && !compact" class="migration-audit-card__batch-meta">
+      <h5>{{ $t('lowCode.auditBatchMetadata') }}</h5>
+      <p class="migration-audit-card__batch-meta-note">{{ $t('lowCode.auditSourceOfTruth') }}</p>
+    </section>
 
     <div v-if="!compact" class="migration-audit-card__sections">
       <section>
@@ -189,6 +243,29 @@ function formatFields(fields: string[]) {
 .mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.8125rem;
+}
+
+.migration-audit-card__wide {
+  grid-column: 1 / -1;
+}
+
+.migration-audit-card__batch-id {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.migration-audit-card__batch-meta h5 {
+  margin: 0 0 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.migration-audit-card__batch-meta-note {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
 }
 
 .migration-audit-card__sections {
