@@ -52,7 +52,19 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** Low-code Pilot Week-3 First Real Operator Feedback Capture Pack v0.1.
+**Next pack (use AI team):** Low-code Pilot Week-3 Operator Feedback Scheduling Follow-up Pack v0.1.
+
+Week-3 first real operator feedback capture:
+
+See `docs/LOW_CODE_PILOT_WEEK3_FIRST_REAL_OPERATOR_FEEDBACK_CAPTURE_V0.1.md`.
+
+Week-3 first real operator feedback summary:
+
+See `docs/LOW_CODE_PILOT_WEEK3_FIRST_REAL_OPERATOR_FEEDBACK_SUMMARY_V0.1.md`.
+
+Week-3 first real operator feedback PM action note:
+
+See `docs/LOW_CODE_PILOT_WEEK3_FIRST_REAL_OPERATOR_FEEDBACK_PM_ACTION_NOTE_V0.1.md`.
 
 Week-3 operator feedback PM escalation:
 
@@ -640,7 +652,19 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-1. Low-code Pilot Week-3 First Real Operator Feedback Capture Pack v0.1
+1. Low-code Pilot Week-3 Operator Feedback Scheduling Follow-up Pack v0.1
+
+Week-3 first real operator feedback capture:
+
+See `docs/LOW_CODE_PILOT_WEEK3_FIRST_REAL_OPERATOR_FEEDBACK_CAPTURE_V0.1.md`.
+
+Week-3 first real operator feedback summary:
+
+See `docs/LOW_CODE_PILOT_WEEK3_FIRST_REAL_OPERATOR_FEEDBACK_SUMMARY_V0.1.md`.
+
+Week-3 first real operator feedback PM action note:
+
+See `docs/LOW_CODE_PILOT_WEEK3_FIRST_REAL_OPERATOR_FEEDBACK_PM_ACTION_NOTE_V0.1.md`.
 
 Week-3 operator feedback PM escalation:
 
