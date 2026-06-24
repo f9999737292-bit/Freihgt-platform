@@ -6,9 +6,9 @@ PM owner action tracker for Week-3 low-code pilot operator feedback scheduling. 
 
 **Real operator submissions:** **0**
 
-**Decision:** **LIVE_SESSION_CONFIRMATION_STILL_PENDING**
+**Decision:** **PM_OVERRIDE_NOT_REQUESTED**
 
-Reference: `LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_SESSION_CONFIRMATION_FOLLOW_UP_V0.1.md`
+Reference: `LOW_CODE_PILOT_WEEK3_PM_OVERRIDE_DECISION_V0.1.md`
 
 ## Owner Actions Table
 
@@ -46,7 +46,9 @@ Reference: `LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_SESSION_CONFIRMATION_FOLLOW_UP_V0
 | OA-W3-030 | Virtual PM / Pilot Coordinator | Follow-up: confirm SH operator + date/time | SHIPMENT | ASAP | **NEEDS_CONFIRMATION** | Still TBD after follow-up | — | LIVE_SESSION_CONFIRMATION_STILL_PENDING |
 | OA-W3-031 | Virtual PM / Pilot Coordinator | Follow-up: confirm BR operator + date/time | BILLING_REGISTER | ASAP | **NEEDS_CONFIRMATION** | Still TBD after follow-up | — | LIVE_SESSION_CONFIRMATION_STILL_PENDING |
 | OA-W3-032 | Virtual PM / Pilot Coordinator | Follow-up: confirm environment (local/staging) | ALL | Before Session 1 | **NEEDS_CONFIRMATION** | Local proposed only | — | LIVE_SESSION_CONFIRMATION_STILL_PENDING |
-| OA-W3-033 | Virtual PM / Pilot Coordinator | Follow-up: confirm capture retry readiness | ALL | After confirmation | **OPEN** | All sessions TBD | — | BLOCKED_UNTIL_CONFIRMED |
+| OA-W3-033 | Virtual PM / Pilot Coordinator | Follow-up: confirm capture retry readiness | ALL | After confirmation | **OPEN** | Override not requested; still blocked | — | PM_OVERRIDE_NOT_REQUESTED |
+| OA-W3-034 | Virtual PM / Pilot Coordinator | PM override decision — evaluate override vs wait | ALL | 2026-06-24 | **DONE** | Override not requested | 2026-06-24 | PM_OVERRIDE_NOT_REQUESTED |
+| OA-W3-035 | Virtual PM / Pilot Coordinator | Await human PM: real operators + confirmed dates | ALL | When available | **OPEN** | Human action required | — | BLOCKED_UNTIL_CONFIRMED |
 
 ### Session reference
 
@@ -71,7 +73,9 @@ Reference: `LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_SESSION_CONFIRMATION_FOLLOW_UP_V0
 | Outcome | Next pack |
 |---------|-----------|
 | Confirmation pending — operators/dates TBD | Live Operator Session Confirmation Follow-up v0.1 — **completed** |
-| Confirmation still pending after follow-up | PM Override Decision v0.1 |
+| Confirmation still pending after follow-up | PM Override Decision v0.1 — **completed** |
+| Override not requested | Pilot Monitoring Continuation v0.1 |
+| Override requested with risk acceptance | Re-run PM Override with scope note |
 | Sessions confirmed (SCHEDULED) | First Real Operator Feedback Capture Retry v0.1 |
 | Partial confirmation | Partial Operator Feedback Capture v0.1 |
 | Schedule proposed; confirmation pack run | Live Operator Session Confirmation v0.1 — **completed** |

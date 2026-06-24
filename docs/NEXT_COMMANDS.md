@@ -52,7 +52,15 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** Low-code Pilot Week-3 PM Override Decision Pack v0.1.
+**Next pack (use AI team):** Low-code Pilot Week-3 Pilot Monitoring Continuation Pack v0.1.
+
+Week-3 PM override decision:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PM_OVERRIDE_DECISION_V0.1.md`.
+
+Week-3 PM override decision action note:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PM_OVERRIDE_DECISION_ACTION_NOTE_V0.1.md`.
 
 Week-3 live operator session confirmation follow-up:
 
@@ -88,8 +96,8 @@ Week-3 virtual PM owner:
 - **PM owner assigned:** yes — virtual
 - **Session dates:** **TBD** (proposed only — not confirmed)
 - **Real feedback count:** 0
-- **Decision:** LIVE_SESSION_CONFIRMATION_STILL_PENDING
-- **Blocked:** capture retry, UI/docs polish, pilot expansion, production readiness — until sessions confirmed + completed or PM override
+- **Decision:** PM_OVERRIDE_NOT_REQUESTED
+- **Blocked:** capture retry, UI/docs polish, pilot expansion, production readiness — until sessions confirmed + completed or future documented PM override
 
 Week-3 PM scheduling decision:
 
@@ -713,7 +721,15 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-1. Low-code Pilot Week-3 PM Override Decision Pack v0.1
+1. Low-code Pilot Week-3 Pilot Monitoring Continuation Pack v0.1
+
+Week-3 PM override decision:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PM_OVERRIDE_DECISION_V0.1.md`.
+
+Week-3 PM override decision action note:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PM_OVERRIDE_DECISION_ACTION_NOTE_V0.1.md`.
 
 Week-3 live operator session confirmation follow-up:
 
@@ -745,7 +761,7 @@ See `docs/LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_FEEDBACK_CHECKLIST_V0.1.md`.
 
 Week-3 virtual PM owner:
 
-**Virtual PM / Pilot Coordinator** — assigned (virtual). Session dates **TBD**. Real operator feedback **0**. Decision: **LIVE_SESSION_CONFIRMATION_STILL_PENDING**.
+**Virtual PM / Pilot Coordinator** — assigned (virtual). Session dates **TBD**. Real operator feedback **0**. Decision: **PM_OVERRIDE_NOT_REQUESTED**.
 
 Week-3 PM scheduling decision:
 

@@ -2,9 +2,9 @@
 
 ## Purpose
 
-Documents risks and limits if PM requests proceeding **without real operator feedback** (Option C). **Not currently selected** — current decision is **PM_SCHEDULING_DECISION_REQUIRED** (Option B: keep scheduling blocked).
+Documents risks and limits if PM requests proceeding **without real operator feedback** (Option C). **Not currently selected** — current decision is **PM_OVERRIDE_NOT_REQUESTED** (after **LIVE_SESSION_CONFIRMATION_STILL_PENDING**).
 
-Reference: `LOW_CODE_PILOT_WEEK3_PM_SCHEDULING_DECISION_V0.1.md`
+Reference: `LOW_CODE_PILOT_WEEK3_PM_OVERRIDE_DECISION_V0.1.md`
 
 ## When This Applies
 

@@ -4,23 +4,23 @@
 
 Consolidated **improvements backlog** for Week-3 low-code pilot feedback triage. Contains baseline placeholder items while **no real operator submissions** exist, plus structure for P0–P3 items when feedback arrives.
 
-**Backlog status:** Baseline only — **0 real feedback-derived items**. **17** items (BL-W3-000–016). **Confirmation follow-up** — **LIVE_SESSION_CONFIRMATION_STILL_PENDING**; PM override decision next.
+**Backlog status:** **0 real feedback-derived items**. **18** items (BL-W3-000–017). **PM_OVERRIDE_NOT_REQUESTED** — monitoring continuation while blocked.
 
-Reference: `LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_SESSION_CONFIRMATION_FOLLOW_UP_V0.1.md`, `LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_SESSION_CONFIRMATION_FOLLOW_UP_ACTION_NOTE_V0.1.md`
+Reference: `LOW_CODE_PILOT_WEEK3_PM_OVERRIDE_DECISION_V0.1.md`
 
 ## Backlog Status
 
 | Metric | Value |
 |--------|-------|
-| Total items | **17** |
+| Total items | **18** |
 | Real feedback-derived | **0** |
-| Baseline + scheduling + live session prep + confirmation + follow-up | **17** |
+| Baseline + scheduling + live session prep + confirmation + follow-up + override | **18** |
 | Open P0 | **0** |
 | Open P1 | **0** |
-| Open P2 | **7** (BL-W3-010–016) |
+| Open P2 | **8** (BL-W3-010–017) |
 | Open P3 / baseline | **10** |
 | Last updated | 2026-06-24 |
-| Evidence status | **LIVE_SESSION_CONFIRMATION_STILL_PENDING** — session confirmation blocker; capture retry blocked |
+| Evidence status | **PM_OVERRIDE_NOT_REQUESTED** — await real operators; monitoring continuation next |
 
 ## Backlog Table
 
@@ -42,7 +42,8 @@ Reference: `LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_SESSION_CONFIRMATION_FOLLOW_UP_V0
 | BL-W3-013 | PM scheduling decision pack | ALL | Documentation/runbook | P2 | Virtual PM owner assigned — Option B; calendar still TBD | Virtual PM assigned; live scheduling pack executed | Virtual PM / Pilot Coordinator | Live Operator Session Confirmation v0.1 | OPEN | PM_OWNER_ASSIGNED_VIRTUAL |
 | BL-W3-014 | live operator session scheduling pack | ALL | Documentation/runbook | P2 | Live operator session schedule proposed — confirm operators and calendar | Confirmation pack executed; still pending | Virtual PM / Pilot Coordinator | Live Operator Session Confirmation Follow-up v0.1 | OPEN | LIVE_SESSION_SCHEDULE_PROPOSED_NOT_CONFIRMED |
 | BL-W3-015 | live operator session confirmation pack | ALL | Documentation/runbook | P2 | Live session confirmation reviewed — operators/dates not confirmed | Follow-up pack executed; still pending | Virtual PM / Pilot Coordinator | PM Override Decision v0.1 | OPEN | LIVE_SESSION_CONFIRMATION_PENDING |
-| BL-W3-016 | live session confirmation follow-up pack | ALL | Documentation/runbook | P2 | Confirmation follow-up — operators/dates still TBD; management blocker | PM Override Decision or supply real operators/dates | Virtual PM / Pilot Coordinator | PM Override Decision v0.1 | OPEN | LIVE_SESSION_CONFIRMATION_STILL_PENDING |
+| BL-W3-016 | live session confirmation follow-up pack | ALL | Documentation/runbook | P2 | Confirmation follow-up — operators/dates still TBD | PM override decision executed | Virtual PM / Pilot Coordinator | Pilot Monitoring Continuation v0.1 | OPEN | LIVE_SESSION_CONFIRMATION_STILL_PENDING |
+| BL-W3-017 | PM override decision pack | ALL | Documentation/runbook | P2 | PM override evaluated — not requested; blocked work unchanged | Monitoring continuation; await human operators | Virtual PM / Pilot Coordinator | Pilot Monitoring Continuation v0.1 | OPEN | PM_OVERRIDE_NOT_REQUESTED |
 
 ## P0 Items
 
@@ -60,13 +61,8 @@ When P1 appears: add row with owner assigned, target fix pack, decision **GO_WIT
 
 | id | summary | target pack | status |
 |----|---------|-------------|--------|
-| BL-W3-010 | Schedule real operator feedback sessions | PM Override Decision v0.1 | OPEN |
-| BL-W3-011 | Capture attempted — no real submissions | PM Override Decision v0.1 | OPEN |
-| BL-W3-012 | Confirm operators/dates | PM Override Decision v0.1 | OPEN |
-| BL-W3-013 | Virtual PM owner assigned | PM Override Decision v0.1 | OPEN |
-| BL-W3-014 | Live session schedule proposed | PM Override Decision v0.1 | OPEN |
-| BL-W3-015 | Live session confirmation pending | PM Override Decision v0.1 | OPEN |
-| BL-W3-016 | Confirmation follow-up — still pending | PM Override Decision v0.1 | OPEN |
+| BL-W3-010–016 | Session confirmation / override path | Pilot Monitoring Continuation v0.1 | OPEN |
+| BL-W3-017 | PM override not requested | Pilot Monitoring Continuation v0.1 | OPEN |
 
 **Rules (reinforced):**
 
@@ -113,7 +109,8 @@ Explicit list (BL-W3-000–009):
 | **Low-code Pilot Week-3 Live Operator Session Scheduling Pack v0.1** | Completed | LIVE_SESSION_SCHEDULE_PROPOSED_NOT_CONFIRMED |
 | **Low-code Pilot Week-3 Live Operator Session Confirmation Pack v0.1** | Completed | LIVE_SESSION_CONFIRMATION_PENDING |
 | **Low-code Pilot Week-3 Live Operator Session Confirmation Follow-up Pack v0.1** | Completed | LIVE_SESSION_CONFIRMATION_STILL_PENDING |
-| **Low-code Pilot Week-3 PM Override Decision Pack v0.1** | **Next Action** | Operators/dates still TBD |
+| **Low-code Pilot Week-3 PM Override Decision Pack v0.1** | Completed | PM_OVERRIDE_NOT_REQUESTED |
+| **Low-code Pilot Week-3 Pilot Monitoring Continuation Pack v0.1** | **Next Action** | Read-only monitoring while blocked |
 | **Low-code Pilot Week-3 First Real Operator Feedback Capture Retry Pack v0.1** | After LIVE_SESSION_CONFIRMED | Blocked |
 | **Low-code Pilot Week-3 Feedback-Based UI/Docs Polish Selection Pack v0.1** | After real feedback, no P0/P1 | Blocked until submissions |
 | **Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1** | Ops staging config ready | BL-W3-003 |
