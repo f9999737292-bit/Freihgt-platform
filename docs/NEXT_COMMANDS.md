@@ -52,7 +52,19 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** Low-code Pilot Week-2 Closure & Week-3 Plan Pack v0.1.
+**Next pack (use AI team):** Low-code Pilot Week-3 Monitoring Evidence Pack v0.1.
+
+Week-2 closure:
+
+See `docs/LOW_CODE_PILOT_WEEK2_CLOSURE_V0.1.md`.
+
+Week-2 closure PM decision note:
+
+See `docs/LOW_CODE_PILOT_WEEK2_CLOSURE_PM_DECISION_NOTE_V0.1.md`.
+
+Week-3 execution plan:
+
+See `docs/LOW_CODE_PILOT_WEEK3_EXECUTION_PLAN_V0.1.md`.
 
 Week-2 cross-entity readiness review:
 
@@ -540,7 +552,19 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-1. Low-code Pilot Week-2 Closure & Week-3 Plan Pack v0.1
+1. Low-code Pilot Week-3 Monitoring Evidence Pack v0.1
+
+Week-2 closure:
+
+See `docs/LOW_CODE_PILOT_WEEK2_CLOSURE_V0.1.md`.
+
+Week-2 closure PM decision note:
+
+See `docs/LOW_CODE_PILOT_WEEK2_CLOSURE_PM_DECISION_NOTE_V0.1.md`.
+
+Week-3 execution plan:
+
+See `docs/LOW_CODE_PILOT_WEEK3_EXECUTION_PLAN_V0.1.md`.
 
 Week-2 cross-entity readiness review:
 
