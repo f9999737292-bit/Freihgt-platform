@@ -52,7 +52,15 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** Low-code Pilot Week-2 BILLING_REGISTER Operator Flow Review Pack v0.1.
+**Next pack (use AI team):** Low-code Pilot Week-2 BILLING_REGISTER Limited Write Enablement Pack v0.1.
+
+BILLING_REGISTER operator flow review:
+
+See `docs/LOW_CODE_PILOT_WEEK2_BILLING_REGISTER_OPERATOR_FLOW_REVIEW_V0.1.md`.
+
+BILLING_REGISTER operator quick guide:
+
+See `docs/LOW_CODE_PILOT_WEEK2_BILLING_REGISTER_OPERATOR_QUICK_GUIDE_V0.1.md`.
 
 BILLING_REGISTER controlled write validation:
 
@@ -504,7 +512,15 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-1. Low-code Pilot Week-2 BILLING_REGISTER Operator Flow Review Pack v0.1
+1. Low-code Pilot Week-2 BILLING_REGISTER Limited Write Enablement Pack v0.1
+
+BILLING_REGISTER operator flow review:
+
+See `docs/LOW_CODE_PILOT_WEEK2_BILLING_REGISTER_OPERATOR_FLOW_REVIEW_V0.1.md`.
+
+BILLING_REGISTER operator quick guide:
+
+See `docs/LOW_CODE_PILOT_WEEK2_BILLING_REGISTER_OPERATOR_QUICK_GUIDE_V0.1.md`.
 
 BILLING_REGISTER controlled write validation:
 

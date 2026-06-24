@@ -106,6 +106,32 @@ Mark pilot **BLOCKED** → `Low-code Runtime Pilot Fix Pack v0.1`.
 
 Quick guide: `LOW_CODE_PILOT_WEEK2_SHIPMENT_OPERATOR_QUICK_GUIDE_V0.1.md`
 
+## BILLING_REGISTER Operator Flow
+
+**Status:** Controlled write validated — limited enablement pending. See `LOW_CODE_PILOT_WEEK2_BILLING_REGISTER_OPERATOR_FLOW_REVIEW_V0.1.md`.
+
+### Before BILLING_REGISTER write
+
+- [ ] Entity on **approved list** (initial: DEMO-BR-001 `cf7dbc77-395f-42a2-9717-476e4cd93796`)
+- [ ] `template_code` = `billing_register_default`; active template PUBLISHED
+- [ ] Only allowed field_codes (3 fields — see operator quick guide)
+- [ ] Valid SELECT options only (`approval_group`, `payment_priority`)
+- [ ] Baseline GET + core billing register GET recorded
+- [ ] No migration/import/batch in progress
+- [ ] Save once — wait for in-flight complete
+- [ ] **Do not** attempt billing/payment status change via custom fields
+
+### After BILLING_REGISTER write
+
+- [ ] GET confirms changes; no fields disappeared
+- [ ] Core billing register status/totals **unchanged**
+- [ ] Audit: `CUSTOM_FIELD_VALUES_UPDATED` for correct entity_id
+- [ ] No template publish / migration / import audit events
+- [ ] Log in daily report
+- [ ] Rollback via restore payload if test values must revert
+
+Quick guide: `LOW_CODE_PILOT_WEEK2_BILLING_REGISTER_OPERATOR_QUICK_GUIDE_V0.1.md`
+
 ## Who To Notify
 
 | Situation | Notify |
