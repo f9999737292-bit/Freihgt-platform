@@ -350,11 +350,11 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-1. Low-code Runtime Pilot Staging Checklist Pack v0.1
+1. Low-code Staging Auth-On Verification Pack v0.1
 
-Template import/export hardening:
+Runtime pilot staging checklist:
 
-See `docs/LOW_CODE_TEMPLATE_IMPORT_EXPORT_HARDENING_V0.1.md`.
+See `docs/LOW_CODE_RUNTIME_PILOT_STAGING_CHECKLIST_V0.1.md`.
 
 Template import execute API:
 
