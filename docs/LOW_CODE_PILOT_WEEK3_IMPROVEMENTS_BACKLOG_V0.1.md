@@ -4,23 +4,23 @@
 
 Consolidated **improvements backlog** for Week-3 low-code pilot feedback triage. Contains baseline placeholder items while **no real operator submissions** exist, plus structure for P0–P3 items when feedback arrives.
 
-**Backlog status:** Baseline only — **0 real feedback-derived items**. **14** items (BL-W3-000–013). **PM scheduling decision** — **PM_SCHEDULING_DECISION_REQUIRED**; owner/date TBD; polish/expansion blocked.
+**Backlog status:** Baseline only — **0 real feedback-derived items**. **15** items (BL-W3-000–014). **Live session schedule proposed** — **LIVE_SESSION_SCHEDULE_PROPOSED_NOT_CONFIRMED**; polish/expansion blocked.
 
-Reference: `LOW_CODE_PILOT_WEEK3_PM_SCHEDULING_DECISION_V0.1.md`, `LOW_CODE_PILOT_WEEK3_PM_OVERRIDE_RISK_NOTE_V0.1.md`
+Reference: `LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_SESSION_SCHEDULING_V0.1.md`, `LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_FEEDBACK_CHECKLIST_V0.1.md`
 
 ## Backlog Status
 
 | Metric | Value |
 |--------|-------|
-| Total items | **14** |
+| Total items | **15** |
 | Real feedback-derived | **0** |
-| Baseline + escalation + capture + follow-up + PM sched | **14** |
+| Baseline + scheduling + live session prep | **15** |
 | Open P0 | **0** |
 | Open P1 | **0** |
-| Open P2 | **4** (BL-W3-010, BL-W3-011, BL-W3-012, BL-W3-013) |
+| Open P2 | **5** (BL-W3-010, BL-W3-011, BL-W3-012, BL-W3-013, BL-W3-014) |
 | Open P3 / baseline | **10** |
 | Last updated | 2026-06-24 |
-| Evidence status | **PM_SCHEDULING_DECISION_REQUIRED** — PM owner/date TBD; UI/docs polish blocked until real feedback or PM override |
+| Evidence status | **LIVE_SESSION_SCHEDULE_PROPOSED_NOT_CONFIRMED** — real feedback 0; UI/docs polish blocked |
 
 ## Backlog Table
 
@@ -39,7 +39,8 @@ Reference: `LOW_CODE_PILOT_WEEK3_PM_SCHEDULING_DECISION_V0.1.md`, `LOW_CODE_PILO
 | BL-W3-010 | PM escalation pack | ALL | Documentation/runbook | P2 | Schedule real operator feedback sessions (TO 30m + SH 45m + BR 45m + PM wrap-up 15m) | Complete 3 sessions by 2026-07-01; use schedule template; no code fixes without feedback | PM / operator lead | PM Scheduling Decision v0.1 | OPEN | ACTION_REQUIRED |
 | BL-W3-011 | first real feedback capture pack | ALL | Documentation/runbook | P2 | First real operator feedback capture attempted — zero submissions; PM must execute scheduling follow-up | Follow-up pack executed; owner/date still TBD | PM / pilot owner | PM Scheduling Decision v0.1 | OPEN | FOLLOW_UP_REQUIRED |
 | BL-W3-012 | scheduling follow-up pack | ALL | Documentation/runbook | P2 | PM owner action tracker created — assign owner, book TO/SH/BR sessions by 2026-06-27 | PM scheduling decision executed; owner/date still TBD | PM | Operator Feedback Scheduling Follow-up v0.1 | OPEN | PM_SCHEDULING_DECISION_REQUIRED |
-| BL-W3-013 | PM scheduling decision pack | ALL | Documentation/runbook | P2 | PM scheduling decision required — Option B selected; assign owner and calendar | PM assigns named owner + dates; then Capture Retry Pack | PM / pilot owner (TBD) | Operator Feedback Scheduling Follow-up v0.1 | OPEN | PM_SCHEDULING_DECISION_REQUIRED |
+| BL-W3-013 | PM scheduling decision pack | ALL | Documentation/runbook | P2 | Virtual PM owner assigned — Option B; calendar still TBD | Virtual PM assigned; live scheduling pack executed | Virtual PM / Pilot Coordinator | Live Operator Session Confirmation v0.1 | OPEN | PM_OWNER_ASSIGNED_VIRTUAL |
+| BL-W3-014 | live operator session scheduling pack | ALL | Documentation/runbook | P2 | Live operator session schedule proposed — confirm operators and calendar | Run Confirmation Pack; then Capture Retry after live sessions | Virtual PM / Pilot Coordinator | Live Operator Session Confirmation v0.1 | OPEN | LIVE_SESSION_SCHEDULE_PROPOSED_NOT_CONFIRMED |
 
 ## P0 Items
 
@@ -57,16 +58,18 @@ When P1 appears: add row with owner assigned, target fix pack, decision **GO_WIT
 
 | id | summary | target pack | status |
 |----|---------|-------------|--------|
-| BL-W3-010 | Schedule real operator feedback sessions | Operator Feedback Scheduling Follow-up v0.1 | OPEN |
-| BL-W3-011 | Capture attempted — no real submissions | Operator Feedback Scheduling Follow-up v0.1 | OPEN |
-| BL-W3-012 | Follow-up tracker — owner/date TBD | Operator Feedback Scheduling Follow-up v0.1 | OPEN |
-| BL-W3-013 | PM scheduling decision — Option B, owner TBD | Operator Feedback Scheduling Follow-up v0.1 | OPEN |
+| BL-W3-010 | Schedule real operator feedback sessions | Live Operator Session Confirmation v0.1 | OPEN |
+| BL-W3-011 | Capture attempted — no real submissions | Live Operator Session Confirmation v0.1 | OPEN |
+| BL-W3-012 | Follow-up tracker — confirm operators/dates | Live Operator Session Confirmation v0.1 | OPEN |
+| BL-W3-013 | Virtual PM owner assigned | Live Operator Session Confirmation v0.1 | OPEN |
+| BL-W3-014 | Live session schedule proposed — not confirmed | Live Operator Session Confirmation v0.1 | OPEN |
 
 **Rules (reinforced):**
 
-- PM scheduling decision required — feedback unavailable remains P2 management blocker.
-- No code fixes approved without real P0/P1 evidence or explicit PM override.
-- UI/docs polish selection blocked until real feedback or documented PM override.
+- Real feedback remains **0** — no code fixes from assumptions.
+- UI/docs polish selection **blocked** until real feedback exists.
+- Pilot expansion **blocked** until operator sessions + triage.
+- Live session scheduling is active P2 management focus.
 
 Route to PM follow-up; no code fixes without real P0/P1 evidence.
 
@@ -100,10 +103,11 @@ Explicit list (BL-W3-000–009):
 | **Low-code Pilot Week-3 First Operator Feedback Session Retry Pack v0.1** | Completed — pending operator | 2 attempts; API OK |
 | **Low-code Pilot Week-3 Operator Feedback Scheduling & PM Escalation Pack v0.1** | Completed | ESCALATION_READY |
 | **Low-code Pilot Week-3 First Real Operator Feedback Capture Pack v0.1** | Completed | NOT_READY_NO_REAL_FEEDBACK |
-| **Low-code Pilot Week-3 Operator Feedback Scheduling Follow-up Pack v0.1** | Completed (uncommitted) | FOLLOW_UP_REQUIRED |
-| **Low-code Pilot Week-3 PM Scheduling Decision Pack v0.1** | Completed | PM_SCHEDULING_DECISION_REQUIRED |
-| **Low-code Pilot Week-3 Operator Feedback Scheduling Follow-up Pack v0.1** | **Next Action** | Re-run after PM assigns owner/date |
-| **Low-code Pilot Week-3 First Real Operator Feedback Capture Retry Pack v0.1** | After PM_SCHEDULED | Blocked until calendar confirmed |
+| **Low-code Pilot Week-3 Operator Feedback Scheduling Follow-up Pack v0.1** | Completed | FOLLOW_UP_REQUIRED |
+| **Low-code Pilot Week-3 PM Scheduling Decision Pack v0.1** | Completed | PM_OWNER_ASSIGNED_VIRTUAL |
+| **Low-code Pilot Week-3 Live Operator Session Scheduling Pack v0.1** | Completed | LIVE_SESSION_SCHEDULE_PROPOSED_NOT_CONFIRMED |
+| **Low-code Pilot Week-3 Live Operator Session Confirmation Pack v0.1** | **Next Action** | Confirm operators + calendar |
+| **Low-code Pilot Week-3 First Real Operator Feedback Capture Retry Pack v0.1** | After LIVE_SESSION_SCHEDULED | Blocked until sessions confirmed + completed |
 | **Low-code Pilot Week-3 PM Override Decision Pack v0.1** | If override requested | Not selected |
 | **Low-code Pilot Week-3 Feedback-Based UI/Docs Polish Selection Pack v0.1** | After real feedback, no P0/P1 | Blocked until submissions |
 | **Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1** | Ops staging config ready | BL-W3-003 |

@@ -52,15 +52,27 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** Low-code Pilot Week-3 Live Operator Session Scheduling Pack v0.1.
+**Next pack (use AI team):** Low-code Pilot Week-3 Live Operator Session Confirmation Pack v0.1.
+
+Week-3 live operator session scheduling:
+
+See `docs/LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_SESSION_SCHEDULING_V0.1.md`.
+
+Week-3 live operator session run sheet:
+
+See `docs/LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_SESSION_RUN_SHEET_V0.1.md`.
+
+Week-3 live operator feedback checklist:
+
+See `docs/LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_FEEDBACK_CHECKLIST_V0.1.md`.
 
 Week-3 virtual PM owner:
 
 - **PM owner:** Virtual PM / Pilot Coordinator (virtual)
 - **PM owner assigned:** yes — virtual
-- **Session dates:** TBD
+- **Session dates:** proposed only — **NEEDS_CONFIRMATION**
 - **Real feedback count:** 0
-- **Decision:** PM_OWNER_ASSIGNED_VIRTUAL
+- **Decision:** LIVE_SESSION_SCHEDULE_PROPOSED_NOT_CONFIRMED
 - **Blocked:** UI/docs polish selection, pilot expansion, production readiness claim — until real feedback
 
 Week-3 PM scheduling decision:
@@ -685,11 +697,23 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-1. Low-code Pilot Week-3 Live Operator Session Scheduling Pack v0.1
+1. Low-code Pilot Week-3 Live Operator Session Confirmation Pack v0.1
+
+Week-3 live operator session scheduling:
+
+See `docs/LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_SESSION_SCHEDULING_V0.1.md`.
+
+Week-3 live operator session run sheet:
+
+See `docs/LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_SESSION_RUN_SHEET_V0.1.md`.
+
+Week-3 live operator feedback checklist:
+
+See `docs/LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_FEEDBACK_CHECKLIST_V0.1.md`.
 
 Week-3 virtual PM owner:
 
-**Virtual PM / Pilot Coordinator** — assigned (virtual). Session dates **TBD**. Real operator feedback **0**.
+**Virtual PM / Pilot Coordinator** — assigned (virtual). Session dates **proposed — NEEDS_CONFIRMATION**. Real operator feedback **0**. Decision: **LIVE_SESSION_SCHEDULE_PROPOSED_NOT_CONFIRMED**.
 
 Week-3 PM scheduling decision:
 
