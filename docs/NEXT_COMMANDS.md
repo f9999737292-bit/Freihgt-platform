@@ -350,7 +350,11 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-1. Low-code Pilot Launch Runbook Pack v0.1
+1. Low-code Pilot Launch Rehearsal Pack v0.1
+
+Pilot launch runbook:
+
+See `docs/LOW_CODE_PILOT_LAUNCH_RUNBOOK_V0.1.md`.
 
 Pilot go/no-go review:
 

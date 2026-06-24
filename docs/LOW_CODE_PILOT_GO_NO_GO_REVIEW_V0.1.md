@@ -2,15 +2,16 @@
 
 ## Summary
 
-Final go/no-go decision for a **limited pilot/staging** launch of the low-code runtime layer. Evidence spans runtime readiness, staging checklist, live auth-on verification, permissions matrix, entity integration, template import/export hardening, batch migration, audit/metrics, and automated verification on 2026-06-24.
+Final go/no-go decision for a **limited pilot/staging** launch of the low-code runtime layer. Produced as part of **Accelerated Low-code Pilot Decision + Launch Runbook Sprint v0.1** (combined Go/No-Go + Launch Runbook). Evidence spans runtime readiness, staging checklist, live auth-on verification, permissions matrix, entity integration, template import/export hardening, batch migration, audit/metrics, and automated verification on 2026-06-24.
 
-**Decision: GO_WITH_CONDITIONS** — no hard blockers. Pilot may proceed under narrow scope (single tenant, TRANSPORT_ORDER first) with auth-on enabled in staging, mandatory preview gates, and documented rollback.
+**Decision: GO_WITH_CONDITIONS** — no hard blockers. Pilot may proceed under narrow scope (single tenant, TRANSPORT_ORDER first) with auth-on enabled in staging, mandatory preview gates, and documented rollback. Operational steps: `docs/LOW_CODE_PILOT_LAUNCH_RUNBOOK_V0.1.md`.
 
 ## Current Commit
 
 | Field | Value |
 |-------|-------|
-| Commit | `9afb85c` |
+| Commit | `9afb85c` (evidence baseline) |
+| Sprint | Accelerated Decision + Launch Runbook Sprint v0.1 |
 | Message | `docs: add low-code staging auth verification` |
 | Branch | `main` |
 | Review date | 2026-06-24 |
@@ -150,6 +151,7 @@ Before pilot go-live in staging:
 - Default-off admin routes open in dev — **must not** deploy staging without auth-on
 - Import never auto-publishes — explicit publish step required
 - No auto-rollback UI for migrated values — audit + DB backup required
+- Auth-on live staging toggle must be repeated in real staging (local Docker verified only)
 - Batch execute at scale capped at 100 — split large batches
 - Vitest/component tests not present for low-code UI
 
@@ -186,7 +188,7 @@ Full detail: `LOW_CODE_RUNTIME_PILOT_STAGING_CHECKLIST_V0.1.md` → Rollback Pla
 The low-code runtime layer is sufficiently mature for a **narrow, monitored pilot**: one tenant, TRANSPORT_ORDER, auth-on enabled in staging, PLATFORM_ADMIN for admin operations, preview-before-execute discipline, and accepted known limitations. Do not promote to production-wide rollout until Phase 1 sign-off and Phase 2 scope review.
 
 If staging finds regressions → **Low-code Runtime Pilot Fix Pack v0.1**.  
-If Phase 1 succeeds → **Low-code Pilot Launch Runbook Pack v0.1**.
+If Phase 1 succeeds → **Low-code Pilot Launch Rehearsal Pack v0.1** (dry-run using launch runbook).
 
 ## Verification Commands
 
@@ -220,4 +222,6 @@ curl.exe -i -H "X-Tenant-ID: {tenant}" `
 
 ## Next Action
 
-**Low-code Pilot Launch Runbook Pack v0.1** — operational runbook for staging pilot execution (env setup, day-0 checklist, monitoring, escalation).
+**Low-code Pilot Launch Rehearsal Pack v0.1** — dry-run staging launch per `docs/LOW_CODE_PILOT_LAUNCH_RUNBOOK_V0.1.md`.
+
+Operational runbook: `docs/LOW_CODE_PILOT_LAUNCH_RUNBOOK_V0.1.md`.
