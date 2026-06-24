@@ -217,7 +217,7 @@ const exportJsonText = computed(() =>
 )
 
 async function runExport() {
-  if (!canExportTemplates()) return
+  if (!canExportTemplates() || exporting.value) return
   exporting.value = true
   exportError.value = ''
   try {
@@ -275,6 +275,7 @@ watch(templateId, () => {
           v-if="canExportTemplates()"
           variant="secondary"
           :loading="exporting"
+          :disabled="exporting"
           @click="runExport"
         >
           {{ $t('lowCode.templateExportJson') }}

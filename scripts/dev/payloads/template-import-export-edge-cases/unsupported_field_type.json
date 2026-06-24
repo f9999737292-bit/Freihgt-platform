@@ -1,0 +1,19 @@
+{
+  "schema_version": "lowcode.template.export.v1",
+  "conflict_strategy": "NEW_VERSION",
+  "mode": "CREATE_DRAFT",
+  "template": {
+    "entity_type": "TRANSPORT_ORDER",
+    "code": "transport_order_edge_bad_type",
+    "name": "Unsupported field type",
+    "sections": [
+      {
+        "code": "cargo",
+        "title": "Cargo",
+        "fields": [
+          { "code": "bad_field", "label": "Bad", "field_type": "NOT_A_REAL_TYPE" }
+        ]
+      }
+    ]
+  }
+}

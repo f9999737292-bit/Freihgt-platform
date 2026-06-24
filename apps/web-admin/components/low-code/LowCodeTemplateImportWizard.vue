@@ -104,11 +104,16 @@ const predictedResultKey = computed(() => {
 
 const executeDisabled = computed(() => {
   if (!canImportTemplates()) return true
+  if (executeLoading.value) return true
   if (!previewResult.value || !lastPreviewRequest.value) return true
   if (hasBlockingErrors.value) return true
   if (hasWarnings.value && !warningsConfirmed.value) return true
   return false
 })
+
+const canStartPreview = computed(() =>
+  canImportTemplates() && jsonText.value.trim().length > 0 && !previewLoading.value,
+)
 
 function resetWizard() {
   step.value = 1
@@ -173,6 +178,7 @@ function validateStep1(): boolean {
 }
 
 async function runPreview() {
+  if (previewLoading.value) return
   previewError.value = ''
   previewResult.value = null
   warningsConfirmed.value = false
@@ -225,7 +231,7 @@ function goToConfirmStep() {
 }
 
 async function executeImport() {
-  if (executeDisabled.value || !lastPreviewRequest.value) return
+  if (executeLoading.value || executeDisabled.value || !lastPreviewRequest.value) return
 
   executeError.value = ''
   executeLoading.value = true
@@ -385,11 +391,11 @@ watch([jsonText, conflictStrategy, targetCode], () => {
               </div>
               <div>
                 <dt>{{ $t('lowCode.templateImportSectionsCount') }}</dt>
-                <dd>{{ previewResult.summary.sections_count }}</dd>
+                <dd>{{ previewResult.summary?.sections_count ?? 0 }}</dd>
               </div>
               <div>
                 <dt>{{ $t('lowCode.templateImportFieldsCount') }}</dt>
-                <dd>{{ previewResult.summary.fields_count }}</dd>
+                <dd>{{ previewResult.summary?.fields_count ?? 0 }}</dd>
               </div>
               <div>
                 <dt>{{ $t('lowCode.templateImportConflictStrategy') }}</dt>
@@ -401,7 +407,7 @@ watch([jsonText, conflictStrategy, targetCode], () => {
               </div>
             </dl>
 
-            <div v-if="previewResult.validation_errors.length" class="import-wizard__issues">
+            <div v-if="(previewResult.validation_errors?.length ?? 0) > 0" class="import-wizard__issues">
               <strong>{{ $t('lowCode.templateImportBlockingErrors') }}</strong>
               <ul>
                 <li v-for="(item, index) in previewResult.validation_errors" :key="`err-${index}`">
@@ -410,7 +416,7 @@ watch([jsonText, conflictStrategy, targetCode], () => {
               </ul>
             </div>
 
-            <div v-if="previewResult.warnings.length" class="import-wizard__issues import-wizard__issues--warn">
+            <div v-if="(previewResult.warnings?.length ?? 0) > 0" class="import-wizard__issues import-wizard__issues--warn">
               <strong>{{ $t('lowCode.templateImportWarnings') }}</strong>
               <ul>
                 <li v-for="(item, index) in previewResult.warnings" :key="`warn-${index}`">
@@ -499,7 +505,7 @@ watch([jsonText, conflictStrategy, targetCode], () => {
         <footer class="import-wizard__footer">
           <template v-if="step === 1">
             <UiButton variant="secondary" @click="handleClose">{{ $t('common.cancel') }}</UiButton>
-            <UiButton :disabled="!canImportTemplates()" @click="goToPreviewStep">
+            <UiButton :disabled="!canStartPreview" @click="goToPreviewStep">
               {{ $t('lowCode.templateImportPreview') }}
             </UiButton>
           </template>

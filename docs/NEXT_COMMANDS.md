@@ -350,11 +350,11 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-1. Template Import/Export Edge Cases Test Pack v0.1
+1. Low-code Template Import/Export Hardening Pack v0.1
 
-Admin UI template import/export:
+Template import/export edge cases:
 
-See `docs/LOW_CODE_ADMIN_TEMPLATE_IMPORT_EXPORT_UI_V0.1.md`.
+See `docs/LOW_CODE_TEMPLATE_IMPORT_EXPORT_EDGE_CASES_V0.1.md`.
 
 Template import execute API:
 

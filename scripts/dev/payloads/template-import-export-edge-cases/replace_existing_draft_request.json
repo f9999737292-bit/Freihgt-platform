@@ -1,0 +1,32 @@
+{
+  "schema_version": "lowcode.template.export.v1",
+  "mode": "REPLACE_EXISTING_DRAFT",
+  "conflict_strategy": "REPLACE_EXISTING_DRAFT",
+  "template": {
+    "entity_type": "TRANSPORT_ORDER",
+    "code": "transport_order_default",
+    "name": "Replaced draft from import",
+    "sections": [
+      {
+        "code": "cargo",
+        "title": "Cargo (replaced)",
+        "sort_order": 100,
+        "fields": [
+          {
+            "code": "cargo_class",
+            "label": "Cargo class",
+            "field_type": "SELECT",
+            "sort_order": 100,
+            "options_json": { "options": ["GENERAL", "DANGEROUS"] }
+          }
+        ]
+      }
+    ]
+  },
+  "source_metadata": {
+    "source_tenant_id": "74519f22-ff9b-4a8b-8fff-a958c689682f",
+    "source_template_id": "REPLACE_WITH_EXISTING_DRAFT_TEMPLATE_ID",
+    "source_version": 2,
+    "source_status": "DRAFT"
+  }
+}

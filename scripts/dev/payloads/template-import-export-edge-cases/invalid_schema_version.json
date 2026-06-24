@@ -1,0 +1,21 @@
+{
+  "schema_version": "lowcode.template.export.v2",
+  "template": {
+    "entity_type": "TRANSPORT_ORDER",
+    "code": "transport_order_default",
+    "name": "Invalid schema",
+    "sections": [
+      {
+        "code": "cargo",
+        "title": "Cargo",
+        "fields": [
+          {
+            "code": "cargo_class",
+            "label": "Cargo class",
+            "field_type": "SELECT"
+          }
+        ]
+      }
+    ]
+  }
+}

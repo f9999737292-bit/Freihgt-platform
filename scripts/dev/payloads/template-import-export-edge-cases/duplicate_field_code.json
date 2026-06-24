@@ -1,0 +1,20 @@
+{
+  "schema_version": "lowcode.template.export.v1",
+  "conflict_strategy": "NEW_VERSION",
+  "mode": "CREATE_DRAFT",
+  "template": {
+    "entity_type": "TRANSPORT_ORDER",
+    "code": "transport_order_edge_dup_fields",
+    "name": "Duplicate field codes",
+    "sections": [
+      {
+        "code": "cargo",
+        "title": "Cargo",
+        "fields": [
+          { "code": "dup_field", "label": "First", "field_type": "TEXT" },
+          { "code": "dup_field", "label": "Second", "field_type": "TEXT" }
+        ]
+      }
+    ]
+  }
+}

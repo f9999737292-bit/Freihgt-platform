@@ -48,6 +48,7 @@ type stubAdminFormTemplateRepo struct {
 	importResult          *repository.ImportTemplateAsDraftResult
 	importErr             error
 	lastImportInput       repository.ImportTemplateAsDraftInput
+	importCallCount       int
 }
 
 func (s *stubAdminFormTemplateRepo) CreateDraft(_ context.Context, input repository.CreateDraftInput) (*repository.CreateDraftResult, error) {
@@ -98,6 +99,7 @@ func (s *stubAdminFormTemplateRepo) RecordTemplateImportPreview(_ context.Contex
 }
 
 func (s *stubAdminFormTemplateRepo) ImportTemplateAsDraft(_ context.Context, input repository.ImportTemplateAsDraftInput) (*repository.ImportTemplateAsDraftResult, error) {
+	s.importCallCount++
 	s.lastImportInput = input
 	if s.importErr != nil {
 		return nil, s.importErr
