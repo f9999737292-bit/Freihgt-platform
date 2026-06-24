@@ -45,6 +45,9 @@ type stubAdminFormTemplateRepo struct {
 	importPreviewRecorded bool
 	lastImportPreviewAudit domain.AuditContext
 	importPreviewErr      error
+	importResult          *repository.ImportTemplateAsDraftResult
+	importErr             error
+	lastImportInput       repository.ImportTemplateAsDraftInput
 }
 
 func (s *stubAdminFormTemplateRepo) CreateDraft(_ context.Context, input repository.CreateDraftInput) (*repository.CreateDraftResult, error) {
@@ -92,6 +95,23 @@ func (s *stubAdminFormTemplateRepo) RecordTemplateImportPreview(_ context.Contex
 	s.importPreviewRecorded = true
 	s.lastImportPreviewAudit = audit
 	return s.importPreviewErr
+}
+
+func (s *stubAdminFormTemplateRepo) ImportTemplateAsDraft(_ context.Context, input repository.ImportTemplateAsDraftInput) (*repository.ImportTemplateAsDraftResult, error) {
+	s.lastImportInput = input
+	if s.importErr != nil {
+		return nil, s.importErr
+	}
+	if s.importResult != nil {
+		return s.importResult, nil
+	}
+	return &repository.ImportTemplateAsDraftResult{
+		ID:            uuid.New(),
+		Status:        domain.DraftStatus,
+		Version:       2,
+		Code:          input.DraftInput.Code,
+		ReplacedDraft: input.ReplaceDraftID != nil,
+	}, nil
 }
 
 func validDraftPayload() []byte {
@@ -803,5 +823,127 @@ func TestAdminImportPreviewDefaultOffCompatibility(t *testing.T) {
 	handler.ImportPreview(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200 without X-User-ID, got %d", rec.Code)
+	}
+}
+
+func TestAdminImportTenantRequired(t *testing.T) {
+	handler := NewAdminFormTemplateHandler(service.NewAdminFormTemplateService(&stubAdminFormTemplateRepo{}))
+	req := httptest.NewRequest(http.MethodPost, "/v1/low-code/admin/form-templates/import", bytes.NewReader(validImportPreviewPayload()))
+	rec := httptest.NewRecorder()
+	handler.Import(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+	assertErrorCode(t, rec.Body.Bytes(), "TENANT_REQUIRED")
+}
+
+func TestAdminImportCreatesDraft(t *testing.T) {
+	tenantID := uuid.MustParse("74519f22-ff9b-4a8b-8fff-a958c689682f")
+	templateID := uuid.MustParse("b1111111-1111-4111-8111-111111111102")
+	stub := &stubAdminFormTemplateRepo{
+		listByCodeItems: []domain.FormTemplateSummary{{
+			ID: templateID, TenantID: tenantID, EntityType: "TRANSPORT_ORDER",
+			Code: "transport_order_default", Status: domain.PublishedStatus, Version: 1,
+		}},
+		getDetail: &domain.FormTemplateDetail{
+			ID: templateID, TenantID: tenantID, EntityType: "TRANSPORT_ORDER", Code: "transport_order_default",
+			Status: domain.PublishedStatus, Version: 1,
+			Sections: []domain.FormSection{{
+				Code: "cargo", Title: "Cargo",
+				Fields: []domain.FormField{{Code: "cargo_class", Label: "Cargo class", FieldType: "SELECT"}},
+			}},
+		},
+	}
+	handler := NewAdminFormTemplateHandler(service.NewAdminFormTemplateService(stub))
+	req := httptest.NewRequest(http.MethodPost, "/v1/low-code/admin/form-templates/import", bytes.NewReader(validImportPreviewPayload()))
+	req.Header.Set(tenantHeader, tenantID.String())
+	rec := httptest.NewRecorder()
+	handler.Import(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	var payload domain.TemplateImportExecuteResult
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if payload.Status != domain.DraftStatus {
+		t.Fatalf("status = %q", payload.Status)
+	}
+	if payload.ImportSummary.ConflictStrategy != domain.ConflictStrategyNewVersion {
+		t.Fatalf("conflict strategy = %q", payload.ImportSummary.ConflictStrategy)
+	}
+	if stub.lastImportInput.ReplaceDraftID != nil {
+		t.Fatal("expected new draft import")
+	}
+}
+
+func TestAdminImportReplaceExistingDraft(t *testing.T) {
+	draftID := uuid.New()
+	stub := &stubAdminFormTemplateRepo{
+		listByCodeItems: []domain.FormTemplateSummary{{
+			ID: draftID, Status: domain.DraftStatus, Version: 2, Code: "transport_order_default", EntityType: "TRANSPORT_ORDER",
+		}},
+		importResult: &repository.ImportTemplateAsDraftResult{
+			ID: draftID, Status: domain.DraftStatus, Version: 2, Code: "transport_order_default", ReplacedDraft: true,
+		},
+	}
+	handler := NewAdminFormTemplateHandler(service.NewAdminFormTemplateService(stub))
+	body := []byte(`{
+		"schema_version":"lowcode.template.export.v1",
+		"mode":"REPLACE_EXISTING_DRAFT",
+		"template":{
+			"entity_type":"TRANSPORT_ORDER",
+			"code":"transport_order_default",
+			"name":"Updated Draft",
+			"sections":[{"code":"cargo","title":"Cargo","fields":[{"code":"cargo_class","label":"Class","field_type":"SELECT"}]}]
+		}
+	}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/low-code/admin/form-templates/import", bytes.NewReader(body))
+	req.Header.Set(tenantHeader, "74519f22-ff9b-4a8b-8fff-a958c689682f")
+	rec := httptest.NewRecorder()
+	handler.Import(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if stub.lastImportInput.ReplaceDraftID == nil || *stub.lastImportInput.ReplaceDraftID != draftID {
+		t.Fatal("expected replace draft id passed to repo")
+	}
+}
+
+func TestAdminImportFailIfExistsConflict(t *testing.T) {
+	stub := &stubAdminFormTemplateRepo{
+		listByCodeItems: []domain.FormTemplateSummary{{
+			Status: domain.PublishedStatus, Version: 1, Code: "transport_order_default", EntityType: "TRANSPORT_ORDER",
+		}},
+	}
+	handler := NewAdminFormTemplateHandler(service.NewAdminFormTemplateService(stub))
+	body := []byte(`{
+		"schema_version":"lowcode.template.export.v1",
+		"conflict_strategy":"FAIL_IF_EXISTS",
+		"template":{
+			"entity_type":"TRANSPORT_ORDER",
+			"code":"transport_order_default",
+			"name":"Default",
+			"sections":[{"code":"cargo","title":"Cargo","fields":[{"code":"cargo_class","label":"Class","field_type":"SELECT"}]}]
+		}
+	}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/low-code/admin/form-templates/import", bytes.NewReader(body))
+	req.Header.Set(tenantHeader, "74519f22-ff9b-4a8b-8fff-a958c689682f")
+	rec := httptest.NewRecorder()
+	handler.Import(rec, req)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestAdminImportDefaultOffCompatibility(t *testing.T) {
+	stub := &stubAdminFormTemplateRepo{listByCodeItems: []domain.FormTemplateSummary{}}
+	handler := NewAdminFormTemplateHandler(service.NewAdminFormTemplateService(stub))
+	req := httptest.NewRequest(http.MethodPost, "/v1/low-code/admin/form-templates/import", bytes.NewReader(validImportPreviewPayload()))
+	req.Header.Set(tenantHeader, "74519f22-ff9b-4a8b-8fff-a958c689682f")
+	rec := httptest.NewRecorder()
+	handler.Import(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201 without X-User-ID, got %d", rec.Code)
 	}
 }

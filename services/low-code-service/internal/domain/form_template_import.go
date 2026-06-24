@@ -74,6 +74,27 @@ type TemplateImportPreviewResult struct {
 	SchemaVersion                  string                         `json:"schema_version"`
 }
 
+type TemplateImportExecuteSummary struct {
+	SectionsCount     int    `json:"sections_count"`
+	FieldsCount       int    `json:"fields_count"`
+	ConflictStrategy  string `json:"conflict_strategy"`
+	ImportMode        string `json:"import_mode"`
+	ReplacedDraft     bool   `json:"replaced_draft"`
+}
+
+type TemplateImportExecuteResult struct {
+	ID            string                       `json:"id"`
+	Status        string                       `json:"status"`
+	Version       int                          `json:"version"`
+	Code          string                       `json:"code"`
+	ImportSummary TemplateImportExecuteSummary `json:"import_summary"`
+}
+
+type ImportExecutionPlan struct {
+	ReplaceDraftID *uuid.UUID
+	CreateNewDraft bool
+}
+
 type importPreviewHTTPBody struct {
 	SchemaVersion     string                          `json:"schema_version"`
 	Mode              string                          `json:"mode"`
@@ -86,6 +107,10 @@ type importPreviewHTTPBody struct {
 }
 
 func ParseImportPreviewRequest(raw []byte) (TemplateImportPreviewInput, error) {
+	return ParseImportRequest(raw)
+}
+
+func ParseImportRequest(raw []byte) (TemplateImportPreviewInput, error) {
 	if len(raw) > MaxImportPayloadBytes {
 		return TemplateImportPreviewInput{}, apperrors.ImportPayloadTooLarge()
 	}
@@ -468,4 +493,63 @@ func validateConflictStrategy(strategy string) error {
 	default:
 		return apperrors.Validation("invalid conflict_strategy", map[string]any{"field": "conflict_strategy", "value": strategy})
 	}
+}
+
+func ResolveImportExecutionPlan(input TemplateImportPreviewInput, existing []FormTemplateSummary) (ImportExecutionPlan, error) {
+	draft := findDraftTemplate(existing)
+	switch input.Mode {
+	case ImportModeReplaceExistingDraft:
+		if draft == nil {
+			return ImportExecutionPlan{}, apperrors.FormTemplateNotDraft("missing")
+		}
+		id := draft.ID
+		return ImportExecutionPlan{ReplaceDraftID: &id}, nil
+	case ImportModeCreateNewCode:
+		return ImportExecutionPlan{CreateNewDraft: true}, nil
+	}
+
+	switch input.ConflictStrategy {
+	case ConflictStrategyReplaceExistingDraft:
+		if draft == nil {
+			return ImportExecutionPlan{}, apperrors.FormTemplateNotDraft("missing")
+		}
+		id := draft.ID
+		return ImportExecutionPlan{ReplaceDraftID: &id}, nil
+	default:
+		return ImportExecutionPlan{CreateNewDraft: true}, nil
+	}
+}
+
+func BuildFormTemplateImportedAuditPayload(
+	templateID uuid.UUID,
+	version int,
+	input TemplateImportPreviewInput,
+	preview TemplateImportPreviewResult,
+	replacedDraft bool,
+) (json.RawMessage, error) {
+	payload := map[string]any{
+		"event_kind":              AuditEventKindFormTemplateImportedAsDraft,
+		"template_id":           templateID.String(),
+		"code":                  preview.TargetCode,
+		"version":               version,
+		"entity_type":           preview.TargetEntityType,
+		"source_schema_version": input.SchemaVersion,
+		"conflict_strategy":     preview.ConflictStrategy,
+		"import_mode":           preview.ImportMode,
+		"imported_sections_count": preview.Summary.SectionsCount,
+		"imported_fields_count":   preview.Summary.FieldsCount,
+		"target_code":           preview.TargetCode,
+		"dry_run":               false,
+		"replaced_draft":        replacedDraft,
+	}
+	if input.SourceMetadata.SourceTemplateID != "" {
+		payload["source_template_id"] = input.SourceMetadata.SourceTemplateID
+	}
+	if input.SourceMetadata.SourceTenantID != "" {
+		payload["source_tenant_id"] = input.SourceMetadata.SourceTenantID
+	}
+	if input.SourceMetadata.SourceVersion > 0 {
+		payload["source_version"] = input.SourceMetadata.SourceVersion
+	}
+	return json.Marshal(payload)
 }

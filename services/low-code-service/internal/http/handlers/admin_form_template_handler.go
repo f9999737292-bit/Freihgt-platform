@@ -278,6 +278,28 @@ func (h *AdminFormTemplateHandler) ImportPreview(w http.ResponseWriter, r *http.
 	respond.JSON(w, http.StatusOK, result)
 }
 
+func (h *AdminFormTemplateHandler) Import(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := parseTenantID(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, domain.MaxImportPayloadBytes))
+	if err != nil {
+		respond.Error(w, apperrors.ImportPayloadTooLarge())
+		return
+	}
+
+	result, err := h.service.Import(r.Context(), tenantID, body, auditContextFromRequest(r))
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	respond.JSON(w, http.StatusCreated, result)
+}
+
 func parseTemplateID(raw string) (uuid.UUID, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {

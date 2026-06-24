@@ -137,3 +137,62 @@ func TestBuildFormTemplateImportPreviewedAuditPayload(t *testing.T) {
 		t.Fatalf("event_kind = %v", payload["event_kind"])
 	}
 }
+
+func TestResolveImportExecutionPlanCreateNewDraft(t *testing.T) {
+	input := TemplateImportPreviewInput{
+		Mode:             ImportModeCreateDraft,
+		ConflictStrategy: ConflictStrategyNewVersion,
+	}
+	plan, err := ResolveImportExecutionPlan(input, []FormTemplateSummary{{Status: PublishedStatus, Version: 1}})
+	if err != nil {
+		t.Fatalf("plan: %v", err)
+	}
+	if !plan.CreateNewDraft || plan.ReplaceDraftID != nil {
+		t.Fatalf("expected create new draft: %+v", plan)
+	}
+}
+
+func TestResolveImportExecutionPlanReplaceExistingDraft(t *testing.T) {
+	draftID := uuid.New()
+	input := TemplateImportPreviewInput{
+		Mode:             ImportModeReplaceExistingDraft,
+		ConflictStrategy: ConflictStrategyNewVersion,
+	}
+	plan, err := ResolveImportExecutionPlan(input, []FormTemplateSummary{{ID: draftID, Status: DraftStatus}})
+	if err != nil {
+		t.Fatalf("plan: %v", err)
+	}
+	if plan.ReplaceDraftID == nil || *plan.ReplaceDraftID != draftID {
+		t.Fatalf("expected replace draft id")
+	}
+}
+
+func TestBuildFormTemplateImportedAuditPayload(t *testing.T) {
+	templateID := uuid.New()
+	raw, err := BuildFormTemplateImportedAuditPayload(
+		templateID,
+		2,
+		TemplateImportPreviewInput{SchemaVersion: TemplateExportSchemaVersion},
+		TemplateImportPreviewResult{
+			TargetCode:       "transport_order_default",
+			TargetEntityType: "TRANSPORT_ORDER",
+			ConflictStrategy: ConflictStrategyNewVersion,
+			ImportMode:       ImportModeCreateDraft,
+			Summary:          TemplateImportPreviewSummary{SectionsCount: 1, FieldsCount: 2},
+		},
+		false,
+	)
+	if err != nil {
+		t.Fatalf("payload: %v", err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if payload["event_kind"] != AuditEventKindFormTemplateImportedAsDraft {
+		t.Fatalf("event_kind = %v", payload["event_kind"])
+	}
+	if payload["dry_run"] != false {
+		t.Fatal("expected dry_run false")
+	}
+}

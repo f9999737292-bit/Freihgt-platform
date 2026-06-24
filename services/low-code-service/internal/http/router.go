@@ -66,6 +66,7 @@ func NewRouter(
 			r.Use(adminGuard)
 			r.Post("/", adminFormTemplateHandler.Create)
 			r.Post("/import-preview", adminFormTemplateHandler.ImportPreview)
+			r.Post("/import", adminFormTemplateHandler.Import)
 			r.Get("/", adminFormTemplateHandler.List)
 			r.Get("/{id}", adminFormTemplateHandler.GetByID)
 			r.Put("/{id}", adminFormTemplateHandler.Update)

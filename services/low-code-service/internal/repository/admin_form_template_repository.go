@@ -55,6 +55,23 @@ type CreateDraftInput struct {
 	Audit       domain.AuditContext
 }
 
+type ImportTemplateAsDraftInput struct {
+	TenantID       uuid.UUID
+	DraftInput     domain.DraftFormTemplateInput
+	ReplaceDraftID *uuid.UUID
+	ImportInput    domain.TemplateImportPreviewInput
+	Preview        domain.TemplateImportPreviewResult
+	Audit          domain.AuditContext
+}
+
+type ImportTemplateAsDraftResult struct {
+	ID            uuid.UUID
+	Status        string
+	Version       int
+	Code          string
+	ReplacedDraft bool
+}
+
 func (r *AdminFormTemplateRepository) CreateDraft(
 	ctx context.Context,
 	input CreateDraftInput,
@@ -1141,6 +1158,193 @@ func (r *AdminFormTemplateRepository) RecordTemplateImportPreview(
 
 		return mapDBError(tx.Commit(ctx))
 	})
+}
+
+func (r *AdminFormTemplateRepository) ImportTemplateAsDraft(
+	ctx context.Context,
+	input ImportTemplateAsDraftInput,
+) (*ImportTemplateAsDraftResult, error) {
+	var result *ImportTemplateAsDraftResult
+	err := measureDB("admin_form_template_repository", "import_template_as_draft", func() error {
+		tx, err := r.pool.Begin(ctx)
+		if err != nil {
+			return mapDBError(err)
+		}
+		defer tx.Rollback(ctx)
+
+		replacedDraft := input.ReplaceDraftID != nil
+		var templateID uuid.UUID
+		var configurationID uuid.UUID
+		var draftVersion int
+		entityType := input.DraftInput.EntityType
+
+		if replacedDraft {
+			templateID = *input.ReplaceDraftID
+			meta, err := r.loadTemplateMetaInTx(ctx, tx, input.TenantID, templateID)
+			if err != nil {
+				return err
+			}
+			if meta.Status != domain.DraftStatus {
+				return apperrors.FormTemplateNotDraft(meta.Status)
+			}
+			configurationID = meta.ConfigurationID
+			detail, err := r.loadTemplateDetailInTx(ctx, tx, input.TenantID, templateID)
+			if err != nil {
+				return err
+			}
+			draftVersion = detail.Version
+
+			const updateTemplateQuery = `
+				UPDATE lowcode.form_templates
+				SET name = $3,
+				    description = $4,
+				    updated_by_user_id = $5,
+				    updated_at = now()
+				WHERE id = $1 AND tenant_id = $2
+			`
+			if _, err := tx.Exec(ctx, updateTemplateQuery,
+				templateID, input.TenantID, input.DraftInput.Name,
+				nullIfEmptyString(input.DraftInput.Description), input.Audit.ChangedByUserID,
+			); err != nil {
+				return mapDBError(err)
+			}
+
+			const updateConfigQuery = `
+				UPDATE lowcode.low_code_configurations
+				SET name = $3,
+				    description = $4,
+				    updated_by_user_id = $5,
+				    updated_at = now()
+				WHERE id = $1 AND tenant_id = $2
+			`
+			if _, err := tx.Exec(ctx, updateConfigQuery,
+				configurationID, input.TenantID, input.DraftInput.Name,
+				nullIfEmptyString(input.DraftInput.Description), input.Audit.ChangedByUserID,
+			); err != nil {
+				return mapDBError(err)
+			}
+
+			if _, err := tx.Exec(ctx, `
+				DELETE FROM lowcode.form_fields
+				WHERE tenant_id = $1 AND form_template_id = $2
+			`, input.TenantID, templateID); err != nil {
+				return mapDBError(err)
+			}
+			if _, err := tx.Exec(ctx, `
+				DELETE FROM lowcode.form_sections
+				WHERE tenant_id = $1 AND form_template_id = $2
+			`, input.TenantID, templateID); err != nil {
+				return mapDBError(err)
+			}
+
+			if err := r.insertSectionsAndFields(ctx, tx, input.TenantID, templateID, input.DraftInput.Sections); err != nil {
+				return err
+			}
+		} else {
+			draftCode, nextVersion, err := r.resolveCloneDraftCodeAndVersion(
+				ctx, tx, input.TenantID, input.DraftInput.EntityType, input.DraftInput.Code,
+			)
+			if err != nil {
+				return err
+			}
+			draftVersion = nextVersion
+			configurationID = uuid.New()
+			templateID = uuid.New()
+			configCode := fmt.Sprintf("cfg_%s", draftCode)
+
+			const configQuery = `
+				INSERT INTO lowcode.low_code_configurations (
+					id, tenant_id, code, name, description, config_type, status, version, created_by_user_id, updated_by_user_id
+				) VALUES ($1, $2, $3, $4, $5, 'FORM_TEMPLATE', $6, $7, $8, $8)
+			`
+			if _, err := tx.Exec(ctx, configQuery,
+				configurationID,
+				input.TenantID,
+				configCode,
+				input.DraftInput.Name,
+				nullIfEmptyString(input.DraftInput.Description),
+				domain.DraftStatus,
+				draftVersion,
+				input.Audit.ChangedByUserID,
+			); err != nil {
+				return mapDBError(err)
+			}
+
+			const templateQuery = `
+				INSERT INTO lowcode.form_templates (
+					id, tenant_id, configuration_id, entity_type, code, name, description, status, version,
+					created_by_user_id, updated_by_user_id
+				) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)
+			`
+			if _, err := tx.Exec(ctx, templateQuery,
+				templateID,
+				input.TenantID,
+				configurationID,
+				input.DraftInput.EntityType,
+				draftCode,
+				input.DraftInput.Name,
+				nullIfEmptyString(input.DraftInput.Description),
+				domain.DraftStatus,
+				draftVersion,
+				input.Audit.ChangedByUserID,
+			); err != nil {
+				return mapDBError(err)
+			}
+
+			if err := r.insertSectionsAndFields(ctx, tx, input.TenantID, templateID, input.DraftInput.Sections); err != nil {
+				return err
+			}
+		}
+
+		if r.auditRepo != nil {
+			newJSON, err := domain.BuildFormTemplateImportedAuditPayload(
+				templateID,
+				draftVersion,
+				input.ImportInput,
+				input.Preview,
+				replacedDraft,
+			)
+			if err != nil {
+				return apperrors.Internal("failed to build import audit payload", err)
+			}
+			configID := configurationID
+			entry := domain.ConfigurationAuditEntry{
+				TenantID:        input.TenantID,
+				ConfigurationID: &configID,
+				EntityType:      entityType,
+				EntityID:        templateID,
+				Action:          domain.AuditDBActionCreate,
+				NewValueJSON:    newJSON,
+				ChangedByUserID: input.Audit.ChangedByUserID,
+				RequestID:       input.Audit.RequestID,
+				IPAddress:       input.Audit.IPAddress,
+				UserAgent:       input.Audit.UserAgent,
+			}
+			if replacedDraft {
+				entry.Action = domain.AuditDBActionUpdate
+			}
+			if err := r.auditRepo.InsertInTx(ctx, tx, entry); err != nil {
+				return err
+			}
+		}
+
+		if err := tx.Commit(ctx); err != nil {
+			return mapDBError(err)
+		}
+
+		result = &ImportTemplateAsDraftResult{
+			ID:            templateID,
+			Status:        domain.DraftStatus,
+			Version:       draftVersion,
+			Code:          input.DraftInput.Code,
+			ReplacedDraft: replacedDraft,
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func nullIfEmptyString(value string) any {

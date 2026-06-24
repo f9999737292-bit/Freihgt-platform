@@ -21,6 +21,7 @@ type AdminFormTemplateRepository interface {
 	RecordTemplateExport(ctx context.Context, tenantID uuid.UUID, templateID uuid.UUID, detail domain.FormTemplateDetail, audit domain.AuditContext, schemaVersion string) error
 	ListByEntityTypeAndCode(ctx context.Context, tenantID uuid.UUID, entityType string, code string) ([]domain.FormTemplateSummary, error)
 	RecordTemplateImportPreview(ctx context.Context, tenantID uuid.UUID, entityType string, entityID *uuid.UUID, input domain.TemplateImportPreviewInput, result domain.TemplateImportPreviewResult, audit domain.AuditContext) error
+	ImportTemplateAsDraft(ctx context.Context, input repository.ImportTemplateAsDraftInput) (*repository.ImportTemplateAsDraftResult, error)
 }
 
 type AdminFormTemplateService struct {
@@ -160,48 +161,116 @@ func (s *AdminFormTemplateService) Export(
 	return envelope, nil
 }
 
-func (s *AdminFormTemplateService) ImportPreview(
+type preparedTemplateImport struct {
+	input      domain.TemplateImportPreviewInput
+	draftInput domain.DraftFormTemplateInput
+	existing   []domain.FormTemplateSummary
+	preview    domain.TemplateImportPreviewResult
+}
+
+func (s *AdminFormTemplateService) prepareTemplateImport(
 	ctx context.Context,
 	tenantID uuid.UUID,
 	rawBody []byte,
-	audit domain.AuditContext,
-) (domain.TemplateImportPreviewResult, error) {
-	input, err := domain.ParseImportPreviewRequest(rawBody)
+) (preparedTemplateImport, error) {
+	input, err := domain.ParseImportRequest(rawBody)
 	if err != nil {
-		return domain.TemplateImportPreviewResult{}, err
+		return preparedTemplateImport{}, err
 	}
 
 	draftInput := domain.ExportedTemplateToDraftInput(input.Template, input.TargetCode)
 	if err := domain.ValidateImportSystemFields(draftInput, input.AllowSystemFields); err != nil {
-		return domain.TemplateImportPreviewResult{}, err
+		return preparedTemplateImport{}, err
 	}
 	if err := domain.ValidateDraftFormTemplateInput(draftInput); err != nil {
-		return domain.TemplateImportPreviewResult{}, err
+		return preparedTemplateImport{}, err
 	}
 
 	existing, err := s.repo.ListByEntityTypeAndCode(ctx, tenantID, draftInput.EntityType, draftInput.Code)
 	if err != nil {
-		return domain.TemplateImportPreviewResult{}, err
+		return preparedTemplateImport{}, err
 	}
 
 	var comparisonTemplate *domain.FormTemplateDetail
 	if published := domain.SelectComparisonPublishedTemplate(existing); published != nil {
 		detail, err := s.repo.GetByID(ctx, tenantID, published.ID)
 		if err != nil {
-			return domain.TemplateImportPreviewResult{}, err
+			return preparedTemplateImport{}, err
 		}
 		comparisonTemplate = detail
 	}
 
-	result, err := domain.BuildTemplateImportPreview(input, draftInput, existing, comparisonTemplate)
+	preview, err := domain.BuildTemplateImportPreview(input, draftInput, existing, comparisonTemplate)
+	if err != nil {
+		return preparedTemplateImport{}, err
+	}
+
+	return preparedTemplateImport{
+		input:      input,
+		draftInput: draftInput,
+		existing:   existing,
+		preview:    preview,
+	}, nil
+}
+
+func (s *AdminFormTemplateService) ImportPreview(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	rawBody []byte,
+	audit domain.AuditContext,
+) (domain.TemplateImportPreviewResult, error) {
+	prepared, err := s.prepareTemplateImport(ctx, tenantID, rawBody)
 	if err != nil {
 		return domain.TemplateImportPreviewResult{}, err
 	}
 
-	entityID := domain.ResolveImportPreviewAuditEntityID(input, existing)
-	if err := s.repo.RecordTemplateImportPreview(ctx, tenantID, draftInput.EntityType, entityID, input, result, audit); err != nil {
+	entityID := domain.ResolveImportPreviewAuditEntityID(prepared.input, prepared.existing)
+	if err := s.repo.RecordTemplateImportPreview(ctx, tenantID, prepared.draftInput.EntityType, entityID, prepared.input, prepared.preview, audit); err != nil {
 		return domain.TemplateImportPreviewResult{}, err
 	}
 
-	return result, nil
+	return prepared.preview, nil
+}
+
+func (s *AdminFormTemplateService) Import(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	rawBody []byte,
+	audit domain.AuditContext,
+) (domain.TemplateImportExecuteResult, error) {
+	prepared, err := s.prepareTemplateImport(ctx, tenantID, rawBody)
+	if err != nil {
+		return domain.TemplateImportExecuteResult{}, err
+	}
+
+	plan, err := domain.ResolveImportExecutionPlan(prepared.input, prepared.existing)
+	if err != nil {
+		return domain.TemplateImportExecuteResult{}, err
+	}
+
+	result, err := s.repo.ImportTemplateAsDraft(ctx, repository.ImportTemplateAsDraftInput{
+		TenantID:       tenantID,
+		DraftInput:     prepared.draftInput,
+		ReplaceDraftID: plan.ReplaceDraftID,
+		ImportInput:    prepared.input,
+		Preview:        prepared.preview,
+		Audit:          audit,
+	})
+	if err != nil {
+		return domain.TemplateImportExecuteResult{}, err
+	}
+
+	return domain.TemplateImportExecuteResult{
+		ID:      result.ID.String(),
+		Status:  result.Status,
+		Version: result.Version,
+		Code:    result.Code,
+		ImportSummary: domain.TemplateImportExecuteSummary{
+			SectionsCount:    prepared.preview.Summary.SectionsCount,
+			FieldsCount:      prepared.preview.Summary.FieldsCount,
+			ConflictStrategy: prepared.preview.ConflictStrategy,
+			ImportMode:       prepared.preview.ImportMode,
+			ReplacedDraft:    result.ReplacedDraft,
+		},
+	}, nil
 }
