@@ -28,6 +28,32 @@ make bash-check
 
 On Windows, Makefile uses Git Bash for `.sh` scripts (not WSL `bash` from PATH). See `docs/WINDOWS_MAKE_BASH.md`.
 
+## Accelerated AI Team Workflow
+
+Virtual team role playbooks for faster Cursor-driven development:
+
+```text
+docs/ai-team/
+```
+
+| Resource | Purpose |
+|----------|---------|
+| [README.md](./ai-team/README.md) | How to use roles |
+| [ACCELERATED_WORKFLOW.md](./ai-team/ACCELERATED_WORKFLOW.md) | Fast / Safe / Sprint tracks |
+| [CURSOR_TASK_TEMPLATE.md](./ai-team/CURSOR_TASK_TEMPLATE.md) | Paste into Cursor chat |
+| [DAILY_CHECKLIST.md](./ai-team/DAILY_CHECKLIST.md) | Morning / pack / commit routine |
+
+**Working format:**
+
+1. **PM** — plan scope, acceptance criteria, final report
+2. **Backend / Frontend** — implement (owner role)
+3. **QA** — health-check, tests, smoke, curl
+4. **Security** — auth, tenant, import/export (when relevant)
+5. **DevOps** — Docker, env flags, safe restart (when relevant)
+6. **Docs** — pack doc + update this file
+
+**Next pack (use AI team):** Low-code Pilot Launch Rehearsal Pack v0.1 — dry-run per `docs/LOW_CODE_PILOT_LAUNCH_RUNBOOK_V0.1.md`.
+
 ## Seed dev data
 
 ```powershell
