@@ -1,0 +1,10 @@
+{
+  "entity_type": "BILLING_REGISTER",
+  "entity_id": "cf7dbc77-395f-42a2-9717-476e4cd93796",
+  "form_template_id": "b3333333-3333-4333-8333-333333333302",
+  "values": [
+    { "field_code": "cost_allocation_code", "value_json": "FIN-LOG-001" },
+    { "field_code": "approval_group", "value_json": "LOGISTICS_FINANCE" },
+    { "field_code": "payment_priority", "value_json": "NORMAL" }
+  ]
+}

@@ -52,7 +52,19 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** Low-code Pilot Week-2 BILLING_REGISTER Write Validation Design Pack v0.1.
+**Next pack (use AI team):** Low-code Pilot Week-2 BILLING_REGISTER Controlled Write Validation Pack v0.1.
+
+BILLING_REGISTER write validation design:
+
+See `docs/LOW_CODE_PILOT_WEEK2_BILLING_REGISTER_WRITE_VALIDATION_DESIGN_V0.1.md`.
+
+BILLING_REGISTER write validation commands:
+
+See `docs/LOW_CODE_PILOT_WEEK2_BILLING_REGISTER_WRITE_VALIDATION_COMMANDS_V0.1.md`.
+
+BILLING_REGISTER write validation checklist:
+
+See `docs/LOW_CODE_PILOT_WEEK2_BILLING_REGISTER_WRITE_VALIDATION_CHECKLIST_V0.1.md`.
 
 BILLING_REGISTER read-only validation:
 
@@ -484,7 +496,19 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-1. Low-code Pilot Week-2 BILLING_REGISTER Write Validation Design Pack v0.1
+1. Low-code Pilot Week-2 BILLING_REGISTER Controlled Write Validation Pack v0.1
+
+BILLING_REGISTER write validation design:
+
+See `docs/LOW_CODE_PILOT_WEEK2_BILLING_REGISTER_WRITE_VALIDATION_DESIGN_V0.1.md`.
+
+BILLING_REGISTER write validation commands:
+
+See `docs/LOW_CODE_PILOT_WEEK2_BILLING_REGISTER_WRITE_VALIDATION_COMMANDS_V0.1.md`.
+
+BILLING_REGISTER write validation checklist:
+
+See `docs/LOW_CODE_PILOT_WEEK2_BILLING_REGISTER_WRITE_VALIDATION_CHECKLIST_V0.1.md`.
 
 BILLING_REGISTER read-only validation:
 

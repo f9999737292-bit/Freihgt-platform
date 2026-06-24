@@ -1,0 +1,18 @@
+{
+  "entity_type": "BILLING_REGISTER",
+  "entity_id": "cf7dbc77-395f-42a2-9717-476e4cd93796",
+  "form_template_id": "b3333333-3333-4333-8333-333333333302",
+  "validation_context": {
+    "entity_type": "BILLING_REGISTER",
+    "entity_id": "cf7dbc77-395f-42a2-9717-476e4cd93796",
+    "entity_status": "CLOSING_DOCUMENTS_CREATED",
+    "period": "2026-08-01..2026-08-15",
+    "amount": 119400,
+    "currency": "RUB"
+  },
+  "values": [
+    { "field_code": "cost_allocation_code", "value_json": "FIN-PILOT-002" },
+    { "field_code": "approval_group", "value_json": "FINANCE_OPS" },
+    { "field_code": "payment_priority", "value_json": "HIGH" }
+  ]
+}
