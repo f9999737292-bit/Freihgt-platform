@@ -83,6 +83,29 @@ Stop pilot and escalate if:
 
 Mark pilot **BLOCKED** → `Low-code Runtime Pilot Fix Pack v0.1`.
 
+## SHIPMENT Limited Write Pilot
+
+**Enablement:** `ENABLE_LIMITED_WRITE_WITH_CONDITIONS` — see `LOW_CODE_PILOT_WEEK2_SHIPMENT_LIMITED_WRITE_ENABLEMENT_V0.1.md`.
+
+### Before SHIPMENT write
+
+- [ ] Entity on **approved list** (initial: DEMO-SH-PLANNED `14d405e2-0152-4030-b356-eec464a3cc66`)
+- [ ] `template_code` = `shipment_default`; active template PUBLISHED
+- [ ] Only allowed field_codes (6 fields — see enablement doc)
+- [ ] Baseline GET recorded for rollback if needed
+- [ ] No migration/import/batch in progress
+- [ ] Save once — wait for in-flight complete
+
+### After SHIPMENT write
+
+- [ ] GET confirms changes; no fields disappeared
+- [ ] Audit: `CUSTOM_FIELD_VALUES_UPDATED` for correct entity_id
+- [ ] No template publish / migration / import audit events
+- [ ] Log in daily report
+- [ ] Rollback via restore payload if test values must revert
+
+Quick guide: `LOW_CODE_PILOT_WEEK2_SHIPMENT_OPERATOR_QUICK_GUIDE_V0.1.md`
+
 ## Who To Notify
 
 | Situation | Notify |
