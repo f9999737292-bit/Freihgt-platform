@@ -12,7 +12,7 @@
   },
   "values": [
     { "field_code": "cost_allocation_code", "value_json": "FIN-PILOT-002" },
-    { "field_code": "approval_group", "value_json": "FINANCE_OPS" },
+    { "field_code": "approval_group", "value_json": "FINANCE" },
     { "field_code": "payment_priority", "value_json": "HIGH" }
   ]
 }
