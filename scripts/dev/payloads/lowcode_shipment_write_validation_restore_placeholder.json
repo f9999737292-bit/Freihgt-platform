@@ -1,0 +1,13 @@
+{
+  "entity_type": "SHIPMENT",
+  "entity_id": "14d405e2-0152-4030-b356-eec464a3cc66",
+  "form_template_id": "b2222222-2222-4222-8222-222222222202",
+  "values": [
+    { "field_code": "temperature_mode", "value_json": "AMBIENT" },
+    { "field_code": "loading_contact_phone", "value_json": "+7 900 000-00-01" },
+    { "field_code": "driver_comment", "value_json": "Позвонить за 1 час до прибытия" },
+    { "field_code": "planned_pickup_date", "value_json": "2026-08-15" },
+    { "field_code": "declared_value", "value_json": { "amount": 125000, "currency": "RUB" } },
+    { "field_code": "handling_flags", "value_json": ["FRAGILE"] }
+  ]
+}
