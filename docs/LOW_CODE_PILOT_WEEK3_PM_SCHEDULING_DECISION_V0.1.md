@@ -2,13 +2,15 @@
 
 ## Summary
 
-**PM scheduling decision pack** for Week-3 low-code pilot operator feedback. Follow-up evidence exists; runtime baseline passes read-only checks. **Real operator submissions remain 0.** PM owner, session dates, and operator participants are **not confirmed** (TBD).
+**PM scheduling decision pack** for Week-3 low-code pilot operator feedback. Follow-up evidence exists; runtime baseline passes read-only checks. **Real operator submissions remain 0.**
 
-**Selected option: B — Keep scheduling blocked until PM assigns owner and calendar**
+**Temporary virtual PM owner assigned:** **Virtual PM / Pilot Coordinator** (docs-only placeholder — not a live operator; does not unlock polish/expansion).
 
-**Decision: PM_SCHEDULING_DECISION_REQUIRED**
+**Selected option: B — Keep scheduling blocked until live session calendar confirmed**
 
-Evidence-based UI/docs polish selection, pilot expansion, and production readiness claims remain **blocked** without real feedback or a separate documented PM override.
+**Decision: PM_OWNER_ASSIGNED_VIRTUAL**
+
+Session dates and operator participants remain **TBD**. Live operator sessions are still **mandatory**. Evidence-based UI/docs polish selection, pilot expansion, and production readiness claims remain **blocked** without real feedback or a separate documented PM override.
 
 **Docs-only pack** — no backend, frontend, API, migration, or write operations.
 
@@ -16,8 +18,9 @@ Evidence-based UI/docs polish selection, pilot expansion, and production readine
 
 | Field | Value |
 |-------|-------|
-| HEAD (pack start) | `631bee0` — `docs: capture first real operator feedback` (follow-up docs uncommitted in working tree) |
+| HEAD (pack start) | `77e8af7` — `docs: add week 3 operator feedback scheduling follow-up` |
 | Decision date | 2026-06-24 |
+| Virtual PM owner assigned | 2026-06-24 |
 | Branch | `main` |
 | Write operations in this pack | **no** |
 
@@ -34,7 +37,7 @@ Evidence-based UI/docs polish selection, pilot expansion, and production readine
 
 **Out of scope**
 
-- Assigning real named persons (PM must confirm outside repo)
+- Assigning real named persons beyond virtual PM placeholder (human PM may replace virtual owner later)
 - Fabricated operator feedback
 - UI/docs polish, code fixes, save/PUT, production writes
 
@@ -42,9 +45,9 @@ Evidence-based UI/docs polish selection, pilot expansion, and production readine
 
 | Document | Found |
 |----------|-------|
-| `LOW_CODE_PILOT_WEEK3_OPERATOR_FEEDBACK_SCHEDULING_FOLLOW_UP_V0.1.md` | **yes** (uncommitted) |
-| `LOW_CODE_PILOT_WEEK3_OPERATOR_FEEDBACK_PM_OWNER_ACTION_TRACKER_V0.1.md` | **yes** (uncommitted) |
-| `LOW_CODE_PILOT_WEEK3_FEEDBACK_BLOCKED_WORK_NOTE_V0.1.md` | **yes** (uncommitted) |
+| `LOW_CODE_PILOT_WEEK3_OPERATOR_FEEDBACK_SCHEDULING_FOLLOW_UP_V0.1.md` | **yes** |
+| `LOW_CODE_PILOT_WEEK3_OPERATOR_FEEDBACK_PM_OWNER_ACTION_TRACKER_V0.1.md` | **yes** |
+| `LOW_CODE_PILOT_WEEK3_FEEDBACK_BLOCKED_WORK_NOTE_V0.1.md` | **yes** |
 | `LOW_CODE_PILOT_WEEK3_OPERATOR_FEEDBACK_LOG_V0.1.md` | **yes** |
 | `LOW_CODE_PILOT_WEEK3_IMPROVEMENTS_BACKLOG_V0.1.md` | **yes** |
 | `LOW_CODE_PILOT_WEEK3_OPERATOR_FEEDBACK_PM_ESCALATION_V0.1.md` | **yes** |
@@ -63,13 +66,16 @@ Evidence-based UI/docs polish selection, pilot expansion, and production readine
 | Sessions attempted (no operator) | 2 (first + retry) |
 | Capture pack outcome | NOT_READY_NO_REAL_FEEDBACK |
 | Follow-up outcome | FOLLOW_UP_REQUIRED |
+| Virtual PM owner update | PM_OWNER_ASSIGNED_VIRTUAL |
 
 ## Current Scheduling Status
 
 | Field | Status |
 |-------|--------|
-| PM owner assigned (named) | **TBD** |
-| Session dates booked | **TBD** |
+| PM owner assigned | **yes — virtual** |
+| PM owner name | **Virtual PM / Pilot Coordinator** |
+| PM owner type | Temporary virtual (Accelerated AI Team Workflow placeholder) |
+| Session dates booked | **no — TBD** |
 | Logistics / shipment operator | **TBD** |
 | Billing / finance operator | **TBD** |
 | Platform admin observer | **TBD** |
@@ -85,11 +91,11 @@ Evidence-based UI/docs polish selection, pilot expansion, and production readine
 
 | Criterion | Status |
 |-----------|--------|
-| PM owner assigned | **no** — TBD |
-| Date/time assigned | **no** — TBD |
-| Operators assigned | **no** — TBD |
-| **Eligible now?** | **no** |
-| Next action if selected | First Real Operator Feedback Capture Retry Pack v0.1 |
+| PM owner assigned | **yes — virtual** (`Virtual PM / Pilot Coordinator`) |
+| Date/time assigned | **no — TBD** |
+| Operators assigned | **no — TBD** |
+| **Eligible now?** | **no** — calendar required |
+| Next action if selected | Live Operator Session Scheduling Pack v0.1 → Capture Retry |
 
 ### Option B: Keep scheduling blocked
 
@@ -99,7 +105,7 @@ Evidence-based UI/docs polish selection, pilot expansion, and production readine
 | Feedback remains missing | **yes** |
 | Polish/expansion blocked | **yes** |
 | **Selected** | **yes** |
-| Next action | Operator Feedback Scheduling Follow-up Pack v0.1 (re-run after PM assigns) |
+| Next action | Live Operator Session Scheduling Pack v0.1 (until calendar confirmed → Capture Retry) |
 
 ### Option C: PM override requested
 
@@ -119,24 +125,27 @@ Evidence-based UI/docs polish selection, pilot expansion, and production readine
 
 ## Selected Decision
 
-**Option B — Keep scheduling blocked**
+**Option B — Keep scheduling blocked until live session calendar confirmed**
 
-PM must assign named owner, confirm operators, and book calendar before feedback capture retry. No override requested; feedback track continues with scheduling as the blocker (not runtime).
+Virtual PM owner assigned for scheduling coordination. Operators and session dates still TBD. No override requested; feedback track continues with **calendar booking** as the next blocker (not runtime).
 
 ## Required PM Decision Fields
 
 | Field | Value |
 |-------|-------|
-| PM owner | **TBD** |
+| PM owner | **Virtual PM / Pilot Coordinator** (virtual) |
+| PM owner assigned | **yes — virtual** |
 | Decision date | **2026-06-24** |
-| Selected option | **B — Keep scheduling blocked** |
+| Selected option | **B — Keep scheduling blocked until calendar confirmed** |
 | Operator roles required | Logistics/shipment operator; billing/finance operator; platform admin observer |
 | Target session dates | **TBD** (proposed window: 2026-06-30 – 2026-07-01) |
+| Session date assigned | **no** |
+| Real feedback count | **0** |
 | Evidence required | Completed feedback forms; `FB-W3-001+` log rows; session notes |
-| Blocked work | UI/docs polish selection; pilot expansion; production readiness claim; broad rollout; assumption-based code fixes |
-| Allowed work | Read-only monitoring; scheduling; docs/runbooks; auth-on remote repeat; PM decision docs |
-| Conditions | Named PM owner + calendar by 2026-06-27; sessions by 2026-07-01; no polish without feedback or override |
-| Next action | Operator Feedback Scheduling Follow-up Pack v0.1 (until owner/date confirmed → Capture Retry) |
+| Blocked work | UI/docs polish selection; pilot expansion; production readiness claim; broad rollout; assumption-based code fixes — **remain blocked** |
+| Allowed work | Read-only monitoring; live session scheduling; docs/runbooks; auth-on remote repeat; PM decision docs |
+| Conditions | Virtual PM books calendar + confirms operators; sessions by 2026-07-01; no polish without real feedback or override |
+| Next action | **Low-code Pilot Week-3 Live Operator Session Scheduling Pack v0.1** |
 | Risk acceptance (override) | **N/A** — override not requested |
 
 ## Required Sessions
@@ -199,9 +208,9 @@ See: `LOW_CODE_PILOT_WEEK3_FEEDBACK_BLOCKED_WORK_NOTE_V0.1.md`
 
 ## Conditions
 
-1. PM assigns **named owner** by **2026-06-27**.
-2. PM books three sessions + wrap-up; target execution **2026-07-01**.
-3. After owner/date confirmed → update tracker → **Capture Retry Pack**.
+1. Virtual PM confirms operators and books calendar by **2026-06-27**.
+2. Virtual PM books three sessions + wrap-up; target execution **2026-07-01**.
+3. After calendar confirmed → **Live Operator Session Scheduling Pack** → **Capture Retry Pack**.
 4. If operator unavailable past deadline → re-run follow-up or Option D review.
 5. Override requires separate **PM Override Decision Pack** — not selected now.
 6. No production broad rollout even with override.
@@ -210,23 +219,23 @@ See: `LOW_CODE_PILOT_WEEK3_FEEDBACK_BLOCKED_WORK_NOTE_V0.1.md`
 
 | Risk | Mitigation |
 |------|------------|
-| Continued zero feedback delays polish/expansion | PM assigns owner + calendar; escalation deadline 2026-06-27 |
+| Continued zero feedback delays polish/expansion | Virtual PM books calendar; escalation deadline 2026-06-27 |
 | Assumption-based UX fixes without operators | Blocked by policy; override note defines limits |
 | BR financial safety perception unvalidated | Mandatory finance operator in Session 3 |
 | Remote auth-on gap | Parallel BL-W3-003; not blocking scheduling |
 
 ## Decision
 
-**PM_SCHEDULING_DECISION_REQUIRED**
+**PM_OWNER_ASSIGNED_VIRTUAL**
 
-Owner and dates remain TBD; Option B selected; scheduling blocked until PM confirms calendar.
+Virtual PM owner assigned (`Virtual PM / Pilot Coordinator`). Session dates and operators remain TBD. Live operator sessions still mandatory. Polish/expansion/production readiness **remain blocked**.
 
 ## Recommended Next Steps
 
-1. PM assigns named owner and updates `LOW_CODE_PILOT_WEEK3_OPERATOR_FEEDBACK_PM_OWNER_ACTION_TRACKER_V0.1.md`.
-2. Book TO/SH/BR sessions using `LOW_CODE_PILOT_WEEK3_PM_SCHEDULING_ACTION_PLAN_V0.1.md`.
-3. Re-run **Operator Feedback Scheduling Follow-up Pack** once owner/date confirmed → decision becomes **PM_SCHEDULED** → **Capture Retry Pack**.
-4. If PM cannot schedule → evaluate Option D (monitoring continuation / closure).
+1. Execute **Low-code Pilot Week-3 Live Operator Session Scheduling Pack v0.1** — book TO/SH/BR calendar slots.
+2. Nominate operators; update `LOW_CODE_PILOT_WEEK3_OPERATOR_FEEDBACK_PM_OWNER_ACTION_TRACKER_V0.1.md`.
+3. After calendar confirmed → decision becomes **PM_SCHEDULED** → **First Real Operator Feedback Capture Retry Pack v0.1**.
+4. If operators unavailable past deadline → evaluate Option D (monitoring continuation / closure).
 5. If PM requests override → **PM Override Decision Pack** + `LOW_CODE_PILOT_WEEK3_PM_OVERRIDE_RISK_NOTE_V0.1.md`.
 
 ## Verification Commands

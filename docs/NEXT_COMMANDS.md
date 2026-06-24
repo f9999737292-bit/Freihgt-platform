@@ -52,7 +52,16 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** Low-code Pilot Week-3 Operator Feedback Scheduling Follow-up Pack v0.1.
+**Next pack (use AI team):** Low-code Pilot Week-3 Live Operator Session Scheduling Pack v0.1.
+
+Week-3 virtual PM owner:
+
+- **PM owner:** Virtual PM / Pilot Coordinator (virtual)
+- **PM owner assigned:** yes — virtual
+- **Session dates:** TBD
+- **Real feedback count:** 0
+- **Decision:** PM_OWNER_ASSIGNED_VIRTUAL
+- **Blocked:** UI/docs polish selection, pilot expansion, production readiness claim — until real feedback
 
 Week-3 PM scheduling decision:
 
@@ -676,7 +685,11 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-1. Low-code Pilot Week-3 Operator Feedback Scheduling Follow-up Pack v0.1
+1. Low-code Pilot Week-3 Live Operator Session Scheduling Pack v0.1
+
+Week-3 virtual PM owner:
+
+**Virtual PM / Pilot Coordinator** — assigned (virtual). Session dates **TBD**. Real operator feedback **0**.
 
 Week-3 PM scheduling decision:
 

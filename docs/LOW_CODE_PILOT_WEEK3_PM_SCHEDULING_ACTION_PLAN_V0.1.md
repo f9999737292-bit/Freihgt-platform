@@ -2,9 +2,11 @@
 
 ## Purpose
 
-Action plan for PM to schedule and execute Week-3 low-code pilot operator feedback sessions after **PM_SCHEDULING_DECISION_REQUIRED** (Option B — scheduling blocked until PM assigns owner and calendar).
+Action plan for **Virtual PM / Pilot Coordinator** to schedule and execute Week-3 low-code pilot operator feedback sessions after **PM_OWNER_ASSIGNED_VIRTUAL** (Option B — calendar and operators still TBD).
 
 **Real operator submissions:** **0**
+
+**Note:** Virtual PM assignment does **not** count as real operator feedback and does **not** unlock UI/docs polish or pilot expansion.
 
 Reference: `LOW_CODE_PILOT_WEEK3_PM_SCHEDULING_DECISION_V0.1.md`
 
@@ -12,11 +14,11 @@ Reference: `LOW_CODE_PILOT_WEEK3_PM_SCHEDULING_DECISION_V0.1.md`
 
 | Role | Assigned |
 |------|----------|
-| PM / pilot owner | **TBD** |
+| PM / pilot owner | **Virtual PM / Pilot Coordinator** (virtual) |
 | Pilot lead (facilitator) | **TBD** |
 | Operator lead (participant nomination) | **TBD** |
 
-**Owner action:** Assign named persons before next feedback capture pack.
+**Owner action:** Virtual PM books live session calendar and confirms operator participants.
 
 ## Required Participants
 
@@ -25,7 +27,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PM_SCHEDULING_DECISION_V0.1.md`
 | Logistics / shipment operator | TO baseline and/or SH session | **TBD** |
 | Billing / finance operator | BR session — **mandatory** | **TBD** |
 | Platform admin (observer) | Technical support only | **TBD** |
-| PM | Scheduling owner, P0/P1 decisions | **TBD** |
+| PM | Scheduling owner, P0/P1 decisions | **Virtual PM / Pilot Coordinator** (virtual) |
 | Pilot lead | Facilitation, log updates | **TBD** |
 
 ## Required Sessions
@@ -45,7 +47,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PM_SCHEDULING_DECISION_V0.1.md`
 
 | Window | Proposal |
 |--------|----------|
-| PM owner assignment | By **2026-06-27** |
+| PM owner assignment | **Done (virtual)** — Virtual PM / Pilot Coordinator |
 | Operator nomination | By **2026-06-26** |
 | Session 1 (TO) | **TBD** — propose 2026-06-30 AM |
 | Session 2 (SH) | **TBD** — propose 2026-06-30 PM or 2026-07-01 AM |
@@ -67,7 +69,7 @@ Per session:
 
 ## Preparation Checklist
 
-- [ ] Named PM owner assigned
+- [x] Named PM owner assigned (**Virtual PM / Pilot Coordinator** — virtual)
 - [ ] Operators nominated (logistics + billing/finance)
 - [ ] Platform admin observer assigned
 - [ ] Calendar invites sent (2h 15min or split)
@@ -106,12 +108,16 @@ Per session:
 
 ## Next Decision
 
-**Current:** PM_SCHEDULING_DECISION_REQUIRED — owner/date **TBD**
+**Current:** **PM_OWNER_ASSIGNED_VIRTUAL** — virtual PM owner assigned; session dates **TBD**
 
-**After PM assigns owner + calendar:**
+**After calendar + operators confirmed:**
 
 - Decision → **PM_SCHEDULED**
 - Next pack → **First Real Operator Feedback Capture Retry Pack v0.1**
+
+**Immediate next pack:**
+
+- **Low-code Pilot Week-3 Live Operator Session Scheduling Pack v0.1**
 
 **If scheduling remains blocked past deadline:**
 
