@@ -6,9 +6,9 @@ PM owner action tracker for Week-3 low-code pilot operator feedback scheduling. 
 
 **Real operator submissions:** **0**
 
-**Decision:** **LIVE_SESSION_CONFIRMATION_PENDING**
+**Decision:** **LIVE_SESSION_CONFIRMATION_STILL_PENDING**
 
-Reference: `LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_SESSION_CONFIRMATION_V0.1.md`
+Reference: `LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_SESSION_CONFIRMATION_FOLLOW_UP_V0.1.md`
 
 ## Owner Actions Table
 
@@ -41,7 +41,12 @@ Reference: `LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_SESSION_CONFIRMATION_V0.1.md`
 | OA-W3-019 | Pilot lead | Conduct SHIPMENT live session | SHIPMENT | After confirm | **OPEN** | Session not confirmed | After OA-W3-016 | BLOCKED_UNTIL_CONFIRMED |
 | OA-W3-020 | Pilot lead | Conduct BILLING_REGISTER live session | BILLING_REGISTER | After confirm | **OPEN** | Session not confirmed | After OA-W3-016 | BLOCKED_UNTIL_CONFIRMED |
 | OA-W3-021 | Pilot lead | Collect completed feedback forms from all sessions | ALL | 2026-07-01 | **OPEN** | Sessions not run | After sessions | BLOCKED_UNTIL_CONFIRMED |
-| OA-W3-022 | Virtual PM / Pilot Coordinator | Run First Real Operator Feedback Capture Retry Pack | ALL | After sessions | **OPEN** | No real feedback yet | After OA-W3-021 | BLOCKED_UNTIL_FEEDBACK |
+| OA-W3-022 | Virtual PM / Pilot Coordinator | Run First Real Operator Feedback Capture Retry Pack | ALL | After sessions | **OPEN** | Confirmation still pending | After OA-W3-021 | BLOCKED_UNTIL_FEEDBACK |
+| OA-W3-029 | Virtual PM / Pilot Coordinator | Follow-up: confirm TO operator + date/time | TRANSPORT_ORDER | ASAP | **NEEDS_CONFIRMATION** | Still TBD after follow-up | — | LIVE_SESSION_CONFIRMATION_STILL_PENDING |
+| OA-W3-030 | Virtual PM / Pilot Coordinator | Follow-up: confirm SH operator + date/time | SHIPMENT | ASAP | **NEEDS_CONFIRMATION** | Still TBD after follow-up | — | LIVE_SESSION_CONFIRMATION_STILL_PENDING |
+| OA-W3-031 | Virtual PM / Pilot Coordinator | Follow-up: confirm BR operator + date/time | BILLING_REGISTER | ASAP | **NEEDS_CONFIRMATION** | Still TBD after follow-up | — | LIVE_SESSION_CONFIRMATION_STILL_PENDING |
+| OA-W3-032 | Virtual PM / Pilot Coordinator | Follow-up: confirm environment (local/staging) | ALL | Before Session 1 | **NEEDS_CONFIRMATION** | Local proposed only | — | LIVE_SESSION_CONFIRMATION_STILL_PENDING |
+| OA-W3-033 | Virtual PM / Pilot Coordinator | Follow-up: confirm capture retry readiness | ALL | After confirmation | **OPEN** | All sessions TBD | — | BLOCKED_UNTIL_CONFIRMED |
 
 ### Session reference
 
@@ -65,7 +70,8 @@ Reference: `LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_SESSION_CONFIRMATION_V0.1.md`
 
 | Outcome | Next pack |
 |---------|-----------|
-| Confirmation pending — operators/dates TBD | Live Operator Session Confirmation Follow-up v0.1 |
+| Confirmation pending — operators/dates TBD | Live Operator Session Confirmation Follow-up v0.1 — **completed** |
+| Confirmation still pending after follow-up | PM Override Decision v0.1 |
 | Sessions confirmed (SCHEDULED) | First Real Operator Feedback Capture Retry v0.1 |
 | Partial confirmation | Partial Operator Feedback Capture v0.1 |
 | Schedule proposed; confirmation pack run | Live Operator Session Confirmation v0.1 — **completed** |

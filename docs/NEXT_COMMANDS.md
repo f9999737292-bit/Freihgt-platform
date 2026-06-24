@@ -52,7 +52,15 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** Low-code Pilot Week-3 Live Operator Session Confirmation Follow-up Pack v0.1.
+**Next pack (use AI team):** Low-code Pilot Week-3 PM Override Decision Pack v0.1.
+
+Week-3 live operator session confirmation follow-up:
+
+See `docs/LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_SESSION_CONFIRMATION_FOLLOW_UP_V0.1.md`.
+
+Week-3 live operator session confirmation follow-up action note:
+
+See `docs/LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_SESSION_CONFIRMATION_FOLLOW_UP_ACTION_NOTE_V0.1.md`.
 
 Week-3 live operator session confirmation:
 
@@ -78,10 +86,10 @@ Week-3 virtual PM owner:
 
 - **PM owner:** Virtual PM / Pilot Coordinator (virtual)
 - **PM owner assigned:** yes — virtual
-- **Session dates:** proposed only — **NEEDS_CONFIRMATION**
+- **Session dates:** **TBD** (proposed only — not confirmed)
 - **Real feedback count:** 0
-- **Decision:** LIVE_SESSION_CONFIRMATION_PENDING
-- **Blocked:** capture retry, UI/docs polish, pilot expansion — until sessions confirmed + completed
+- **Decision:** LIVE_SESSION_CONFIRMATION_STILL_PENDING
+- **Blocked:** capture retry, UI/docs polish, pilot expansion, production readiness — until sessions confirmed + completed or PM override
 
 Week-3 PM scheduling decision:
 
@@ -705,7 +713,15 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-1. Low-code Pilot Week-3 Live Operator Session Confirmation Follow-up Pack v0.1
+1. Low-code Pilot Week-3 PM Override Decision Pack v0.1
+
+Week-3 live operator session confirmation follow-up:
+
+See `docs/LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_SESSION_CONFIRMATION_FOLLOW_UP_V0.1.md`.
+
+Week-3 live operator session confirmation follow-up action note:
+
+See `docs/LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_SESSION_CONFIRMATION_FOLLOW_UP_ACTION_NOTE_V0.1.md`.
 
 Week-3 live operator session confirmation:
 
@@ -729,7 +745,7 @@ See `docs/LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_FEEDBACK_CHECKLIST_V0.1.md`.
 
 Week-3 virtual PM owner:
 
-**Virtual PM / Pilot Coordinator** — assigned (virtual). Session dates **proposed — NEEDS_CONFIRMATION**. Real operator feedback **0**. Decision: **LIVE_SESSION_SCHEDULE_PROPOSED_NOT_CONFIRMED**.
+**Virtual PM / Pilot Coordinator** — assigned (virtual). Session dates **TBD**. Real operator feedback **0**. Decision: **LIVE_SESSION_CONFIRMATION_STILL_PENDING**.
 
 Week-3 PM scheduling decision:
 
