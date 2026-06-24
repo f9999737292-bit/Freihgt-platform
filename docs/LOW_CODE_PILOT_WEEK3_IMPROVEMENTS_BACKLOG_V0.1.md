@@ -4,34 +4,37 @@
 
 Consolidated **improvements backlog** for Week-3 low-code pilot feedback triage. Contains baseline placeholder items while **no real operator submissions** exist, plus structure for P0–P3 items when feedback arrives.
 
-**Backlog status:** Baseline only — **0 real feedback-derived items**. **7** conservative baseline items (BL-W3-001–007).
+**Backlog status:** Baseline only — **0 real feedback-derived items**. **9** conservative baseline items (BL-W3-000–008).
 
-Reference: `LOW_CODE_PILOT_WEEK3_FEEDBACK_TRIAGE_AND_BACKLOG_V0.1.md`
+Reference: `LOW_CODE_PILOT_WEEK3_FEEDBACK_TRIAGE_AND_BACKLOG_V0.1.md`, `LOW_CODE_PILOT_WEEK3_OPERATOR_FEEDBACK_EVIDENCE_V0.1.md`
 
 ## Backlog Status
 
 | Metric | Value |
 |--------|-------|
-| Total items | **7** |
+| Total items | **9** |
 | Real feedback-derived | **0** |
-| Baseline (no-real-feedback) | **7** |
+| Baseline (no-real-feedback) | **9** |
 | Open P0 | **0** |
 | Open P1 | **0** |
 | Open P2 | **0** |
-| Open P3 / baseline | **7** |
+| Open P3 / baseline | **9** |
 | Last updated | 2026-06-24 |
+| Evidence status | **NO_SUBMISSIONS_YET** — see Operator Feedback Evidence v0.1 |
 
 ## Backlog Table
 
 | id | source | entity_type | category | severity | summary | proposed action | owner | target pack | status | decision |
 |----|--------|-------------|----------|----------|---------|-----------------|-------|-------------|--------|----------|
-| BL-W3-001 | baseline / Week-3 triage pack | SHIPMENT | Documentation/runbook | P3 | Collect first real operator feedback for SHIPMENT limited write pilot | Schedule 15-min walkthrough on DEMO-SH-PLANNED; distribute SH quick guide; submit form template | operator lead | Operator Feedback Evidence v0.1 | OPEN | GO_WITH_CONDITIONS |
-| BL-W3-002 | baseline / Week-3 triage pack | BILLING_REGISTER | Documentation/runbook | P3 | Collect first real operator feedback for BILLING_REGISTER limited write pilot | Schedule walkthrough on DEMO-BR-001; distribute BR quick guide; capture financial safety perception | operator lead | Operator Feedback Evidence v0.1 | OPEN | GO_WITH_CONDITIONS |
+| BL-W3-000 | baseline / feedback evidence pack | TRANSPORT_ORDER | Documentation/runbook | P3 | Collect first TRANSPORT_ORDER baseline operator feedback | Schedule 15-min read-only walkthrough on DEMO-TO-001; review cargo_class, internal_cost_center, loading_window_note | operator lead | First Operator Feedback Session v0.1 | OPEN | GO_WITH_CONDITIONS |
+| BL-W3-001 | baseline / Week-3 triage pack | SHIPMENT | Documentation/runbook | P3 | Collect first real operator feedback for SHIPMENT limited write pilot | Schedule 15-min walkthrough on DEMO-SH-PLANNED; distribute SH quick guide; submit form template | operator lead | First Operator Feedback Session v0.1 | OPEN | GO_WITH_CONDITIONS |
+| BL-W3-002 | baseline / Week-3 triage pack | BILLING_REGISTER | Documentation/runbook | P3 | Collect first real operator feedback for BILLING_REGISTER limited write pilot | Schedule walkthrough on DEMO-BR-001; distribute BR quick guide; capture financial safety perception | operator lead | First Operator Feedback Session v0.1 | OPEN | GO_WITH_CONDITIONS |
 | BL-W3-003 | baseline / auth-on partial | ALL | Permission/auth clarity | P3 | Repeat auth-on verification on remote staging when ops ready | Ops enables deployment config; re-run auth-on runbook curl matrix | DevOps + Security | Remote Auth-On Repeat v0.1 | OPEN | GO_WITH_CONDITIONS |
-| BL-W3-004 | baseline / monitoring | ALL | Audit visibility | P3 | Review audit visibility after first real pilot day | After first write: verify audit GET shows event; operator feedback on findability | pilot lead | Monitoring Report Review v0.1 | OPEN | GO_WITH_CONDITIONS |
+| BL-W3-004 | baseline / monitoring | ALL | Audit visibility | P3 | Review audit visibility after first real pilot day | After first write: verify audit GET shows event; document operator findability | pilot lead | Monitoring Report Review v0.1 | OPEN | GO_WITH_CONDITIONS |
 | BL-W3-005 | baseline / UX | ALL | Field label/help text | P3 | Review field label/help clarity after first operator session | Triage UX feedback; doc-only polish if P3 | pilot lead | UI Help Text Polish v0.1 | OPEN | GO_WITH_CONDITIONS |
-| BL-W3-006 | baseline / financial | BILLING_REGISTER | Financial safety wording | P3 | Review financial safety wording for BILLING_REGISTER with operator | Walkthrough BR fields; confirm no payment-status confusion | operator lead + PM | Operator Feedback Evidence v0.1 | OPEN | GO_WITH_CONDITIONS |
+| BL-W3-006 | baseline / financial | BILLING_REGISTER | Financial safety wording | P3 | Review financial safety wording for BILLING_REGISTER with operator | Walkthrough BR fields; confirm operator understands low-code does not change core billing/payment status | operator lead + PM | First Operator Feedback Session v0.1 | OPEN | GO_WITH_CONDITIONS |
 | BL-W3-007 | baseline / monitoring | ALL | Monitoring/reporting | P3 | Review monitoring report completeness after first real write day | Fill SH/BR daily report template or document zero-write day | pilot lead | Monitoring Report Review v0.1 | OPEN | GO_WITH_CONDITIONS |
+| BL-W3-008 | baseline / feedback evidence pack | ALL | Audit visibility | P3 | Review audit visibility with operator during first feedback session | Ask operator to locate audit history; record findability in form template | operator lead | First Operator Feedback Session v0.1 | OPEN | GO_WITH_CONDITIONS |
 
 ## P0 Items
 
@@ -57,15 +60,17 @@ All current items are **P3 baseline** (see Backlog Table). No code changes appro
 
 ## No-real-feedback Baseline Items
 
-Explicit list (same as BL-W3-001–007):
+Explicit list (BL-W3-000–008):
 
-1. Collect first SHIPMENT operator feedback
-2. Collect first BILLING_REGISTER operator feedback
-3. Repeat auth-on on remote staging when ops ready
-4. Review audit visibility after first real pilot day
-5. Review field label/help after first operator session
-6. Review BR financial safety wording with operator
-7. Review monitoring report completeness after first real write day
+1. Collect first TRANSPORT_ORDER baseline operator feedback
+2. Collect first SHIPMENT operator feedback
+3. Collect first BILLING_REGISTER operator feedback
+4. Repeat auth-on on remote staging when ops ready
+5. Review audit visibility after first real pilot day
+6. Review audit visibility with operator during first session
+7. Review field label/help after first operator session
+8. Review BR financial safety wording with operator
+9. Review monitoring report completeness after first real write day
 
 **Rule:** Do not create backend/frontend code tasks from baseline items without real P0/P1 evidence.
 
@@ -73,7 +78,8 @@ Explicit list (same as BL-W3-001–007):
 
 | Pack | Trigger | Notes |
 |------|---------|-------|
-| **Low-code Pilot Week-3 Operator Feedback Evidence Pack v0.1** | First walkthroughs scheduled | **Next Action** — capture real submissions |
+| **Low-code Pilot Week-3 Operator Feedback Evidence Pack v0.1** | Completed — no submissions yet | Documents pending state |
+| **Low-code Pilot Week-3 First Operator Feedback Session Pack v0.1** | Next Action | Execute action plan scenarios |
 | **Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1** | Ops staging config ready | BL-W3-003 |
 | **Low-code Pilot Week-3 Pilot UI Help Text Polish Pack v0.1** | P3 UX themes after operator session | Docs/UI copy only; no API change |
 | **Low-code Pilot Week-3 Monitoring Report Review Pack v0.1** | First real write day | BL-W3-004, BL-W3-007 |
