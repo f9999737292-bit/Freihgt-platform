@@ -52,7 +52,15 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** Low-code Pilot Week-2 SHIPMENT Write Monitoring Pack v0.1.
+**Next pack (use AI team):** Low-code Pilot Week-2 BILLING_REGISTER Read-only Validation Pack v0.1.
+
+SHIPMENT write monitoring:
+
+See `docs/LOW_CODE_PILOT_WEEK2_SHIPMENT_WRITE_MONITORING_V0.1.md`.
+
+SHIPMENT write monitoring daily report template:
+
+See `docs/LOW_CODE_PILOT_WEEK2_SHIPMENT_WRITE_MONITORING_REPORT_TEMPLATE_V0.1.md`.
 
 SHIPMENT limited write enablement:
 
@@ -468,7 +476,15 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-1. Low-code Pilot Week-2 SHIPMENT Write Monitoring Pack v0.1
+1. Low-code Pilot Week-2 BILLING_REGISTER Read-only Validation Pack v0.1
+
+SHIPMENT write monitoring:
+
+See `docs/LOW_CODE_PILOT_WEEK2_SHIPMENT_WRITE_MONITORING_V0.1.md`.
+
+SHIPMENT write monitoring daily report template:
+
+See `docs/LOW_CODE_PILOT_WEEK2_SHIPMENT_WRITE_MONITORING_REPORT_TEMPLATE_V0.1.md`.
 
 SHIPMENT limited write enablement:
 
