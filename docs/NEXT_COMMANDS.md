@@ -52,7 +52,19 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** Low-code Pilot Week-3 Monitoring Evidence Pack v0.1.
+**Next pack (use AI team):** Low-code Pilot Week-3 Auth-On Staging Verification Pack v0.1.
+
+Week-3 monitoring evidence:
+
+See `docs/LOW_CODE_PILOT_WEEK3_MONITORING_EVIDENCE_V0.1.md`.
+
+Week-3 monitoring baseline report:
+
+See `docs/LOW_CODE_PILOT_WEEK3_MONITORING_BASELINE_REPORT_V0.1.md`.
+
+Week-3 monitoring runbook:
+
+See `docs/LOW_CODE_PILOT_WEEK3_MONITORING_RUNBOOK_V0.1.md`.
 
 Week-2 closure:
 
@@ -552,7 +564,19 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-1. Low-code Pilot Week-3 Monitoring Evidence Pack v0.1
+1. Low-code Pilot Week-3 Auth-On Staging Verification Pack v0.1
+
+Week-3 monitoring evidence:
+
+See `docs/LOW_CODE_PILOT_WEEK3_MONITORING_EVIDENCE_V0.1.md`.
+
+Week-3 monitoring baseline report:
+
+See `docs/LOW_CODE_PILOT_WEEK3_MONITORING_BASELINE_REPORT_V0.1.md`.
+
+Week-3 monitoring runbook:
+
+See `docs/LOW_CODE_PILOT_WEEK3_MONITORING_RUNBOOK_V0.1.md`.
 
 Week-2 closure:
 
