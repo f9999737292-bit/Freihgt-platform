@@ -52,7 +52,15 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** Low-code Pilot Week-2 BILLING_REGISTER Write Monitoring Pack v0.1.
+**Next pack (use AI team):** Low-code Pilot Week-2 Cross-Entity Pilot Readiness Review Pack v0.1.
+
+BILLING_REGISTER write monitoring:
+
+See `docs/LOW_CODE_PILOT_WEEK2_BILLING_REGISTER_WRITE_MONITORING_V0.1.md`.
+
+BILLING_REGISTER write monitoring daily report template:
+
+See `docs/LOW_CODE_PILOT_WEEK2_BILLING_REGISTER_WRITE_MONITORING_REPORT_TEMPLATE_V0.1.md`.
 
 BILLING_REGISTER limited write enablement:
 
@@ -520,7 +528,15 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-1. Low-code Pilot Week-2 BILLING_REGISTER Write Monitoring Pack v0.1
+1. Low-code Pilot Week-2 Cross-Entity Pilot Readiness Review Pack v0.1
+
+BILLING_REGISTER write monitoring:
+
+See `docs/LOW_CODE_PILOT_WEEK2_BILLING_REGISTER_WRITE_MONITORING_V0.1.md`.
+
+BILLING_REGISTER write monitoring daily report template:
+
+See `docs/LOW_CODE_PILOT_WEEK2_BILLING_REGISTER_WRITE_MONITORING_REPORT_TEMPLATE_V0.1.md`.
 
 BILLING_REGISTER limited write enablement:
 
