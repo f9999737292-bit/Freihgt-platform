@@ -54,6 +54,30 @@ docs/ai-team/
 
 **Next pack (use AI team):** Low-code Pilot Week-3 Operator Feedback Scheduling Follow-up Pack v0.1.
 
+Week-3 PM scheduling decision:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PM_SCHEDULING_DECISION_V0.1.md`.
+
+Week-3 PM scheduling action plan:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PM_SCHEDULING_ACTION_PLAN_V0.1.md`.
+
+Week-3 PM override risk note:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PM_OVERRIDE_RISK_NOTE_V0.1.md`.
+
+Week-3 operator feedback scheduling follow-up:
+
+See `docs/LOW_CODE_PILOT_WEEK3_OPERATOR_FEEDBACK_SCHEDULING_FOLLOW_UP_V0.1.md`.
+
+Week-3 operator feedback PM owner action tracker:
+
+See `docs/LOW_CODE_PILOT_WEEK3_OPERATOR_FEEDBACK_PM_OWNER_ACTION_TRACKER_V0.1.md`.
+
+Week-3 feedback blocked work note:
+
+See `docs/LOW_CODE_PILOT_WEEK3_FEEDBACK_BLOCKED_WORK_NOTE_V0.1.md`.
+
 Week-3 first real operator feedback capture:
 
 See `docs/LOW_CODE_PILOT_WEEK3_FIRST_REAL_OPERATOR_FEEDBACK_CAPTURE_V0.1.md`.
@@ -653,6 +677,30 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 Next implementation:
 
 1. Low-code Pilot Week-3 Operator Feedback Scheduling Follow-up Pack v0.1
+
+Week-3 PM scheduling decision:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PM_SCHEDULING_DECISION_V0.1.md`.
+
+Week-3 PM scheduling action plan:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PM_SCHEDULING_ACTION_PLAN_V0.1.md`.
+
+Week-3 PM override risk note:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PM_OVERRIDE_RISK_NOTE_V0.1.md`.
+
+Week-3 operator feedback scheduling follow-up:
+
+See `docs/LOW_CODE_PILOT_WEEK3_OPERATOR_FEEDBACK_SCHEDULING_FOLLOW_UP_V0.1.md`.
+
+Week-3 operator feedback PM owner action tracker:
+
+See `docs/LOW_CODE_PILOT_WEEK3_OPERATOR_FEEDBACK_PM_OWNER_ACTION_TRACKER_V0.1.md`.
+
+Week-3 feedback blocked work note:
+
+See `docs/LOW_CODE_PILOT_WEEK3_FEEDBACK_BLOCKED_WORK_NOTE_V0.1.md`.
 
 Week-3 first real operator feedback capture:
 

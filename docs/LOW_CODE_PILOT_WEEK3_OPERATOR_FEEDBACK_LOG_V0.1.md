@@ -4,20 +4,20 @@
 
 Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER**, **SHIPMENT**, and **BILLING_REGISTER**.
 
-**Current status:** First real feedback capture pack executed — **still no real operator submission**. Capture attempt logged (**W3-FB-CAPTURE-001**). **PM must schedule live operator sessions** via follow-up pack; polish selection **blocked**.
+**Current status:** PM scheduling decision pack executed — **still no real operator submission**. PM decision logged (**W3-FB-PM-SCHED-001**). **Option B selected** — owner/date **TBD**; polish/expansion **blocked**.
 
 ## Current Status
 
 | Metric | Value |
 |--------|-------|
-| Total entries | **5** (1 baseline + 2 session/retry + 1 escalation + 1 capture) |
+| Total entries | **7** (1 baseline + 2 session/retry + 1 escalation + 1 capture + 1 follow-up + 1 PM sched) |
 | Real operator submissions | **0** |
 | Open P0 | **0** |
 | Open P1 | **0** |
-| NEEDS_INFO | **3** (W3-FB-SESSION-001, W3-FB-RETRY-001, W3-FB-CAPTURE-001) |
+| NEEDS_INFO | **5** (W3-FB-SESSION-001, W3-FB-RETRY-001, W3-FB-CAPTURE-001, W3-FB-FOLLOWUP-001, W3-FB-PM-SCHED-001) |
 | FIX_PLANNED | **1** (W3-FB-ESC-001) |
 | Last updated | 2026-06-24 |
-| Capture decision | **NOT_READY_NO_REAL_FEEDBACK** |
+| PM scheduling decision | **PM_SCHEDULING_DECISION_REQUIRED** |
 
 ## Feedback Table
 
@@ -28,12 +28,14 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | W3-FB-RETRY-001 | 2026-06-24 | not available | CROSS_ENTITY | TO/SH/BR demos | operator feedback collection | P3 | First operator feedback retry session attempted/planned, no real operator submission collected — API validation passed again | NEEDS_INFO | PM / pilot owner | Operator Feedback Scheduling & PM Escalation v0.1 | schedule real operator feedback before improvement selection |
 | W3-FB-ESC-001 | 2026-06-24 | — | CROSS_ENTITY | TO/SH/BR demos | scheduling/escalation | P2 | Real operator feedback still missing after first session/retry; PM scheduling required — polish/expansion blocked | FIX_PLANNED | PM / pilot owner | First Real Operator Feedback Capture v0.1 | collect real feedback before UI/docs polish selection or pilot expansion |
 | W3-FB-CAPTURE-001 | 2026-06-24 | — | CROSS_ENTITY | TO/SH/BR demos | feedback capture | P2 | First real operator feedback capture attempted, no real submissions available | NEEDS_INFO | PM / pilot owner | Operator Feedback Scheduling Follow-up v0.1 | real feedback still required before polish selection or expansion |
+| W3-FB-FOLLOWUP-001 | 2026-06-24 | — | CROSS_ENTITY | TO/SH/BR demos | scheduling follow-up | P2 | Real operator feedback remains unavailable; PM follow-up required to schedule live sessions | NEEDS_INFO | PM / pilot owner | First Real Operator Feedback Capture Retry v0.1 | do not proceed to UI/docs polish selection until real feedback is captured or PM override is documented |
+| W3-FB-PM-SCHED-001 | 2026-06-24 | — | CROSS_ENTITY | TO/SH/BR demos | PM scheduling decision | P2 | PM scheduling decision required because real operator feedback remains unavailable; Option B — keep scheduling blocked | NEEDS_INFO | PM / pilot owner (TBD) | Operator Feedback Scheduling Follow-up v0.1 | block polish/expansion until real feedback or PM override |
 
 ### Column guide
 
 | Column | Description |
 |--------|-------------|
-| **id** | `FB-W3-###`, `W3-FB-SESSION-###`, `W3-FB-RETRY-###`, `W3-FB-ESC-###`, or `W3-FB-CAPTURE-###` |
+| **id** | `FB-W3-###`, `W3-FB-SESSION-###`, `W3-FB-RETRY-###`, `W3-FB-ESC-###`, `W3-FB-CAPTURE-###`, `W3-FB-FOLLOWUP-###`, or `W3-FB-PM-SCHED-###` |
 | **date** | Submission or triage date |
 | **operator** | Name or role |
 | **entity_type** | TRANSPORT_ORDER / SHIPMENT / BILLING_REGISTER / ALL / CROSS_ENTITY |
