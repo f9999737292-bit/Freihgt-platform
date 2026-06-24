@@ -52,7 +52,15 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** Low-code Pilot Week-2 SHIPMENT Read-only Validation Pack v0.1.
+**Next pack (use AI team):** Low-code Pilot Week-2 SHIPMENT Write Validation Design Pack v0.1.
+
+SHIPMENT read-only validation:
+
+See `docs/LOW_CODE_PILOT_WEEK2_SHIPMENT_READONLY_VALIDATION_V0.1.md`.
+
+Week-2 scope expansion note:
+
+See `docs/LOW_CODE_PILOT_WEEK2_SCOPE_EXPANSION_NOTE_V0.1.md`.
 
 Week-1 review:
 
@@ -424,7 +432,15 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-1. Low-code Pilot Week-2 SHIPMENT Read-only Validation Pack v0.1
+1. Low-code Pilot Week-2 SHIPMENT Write Validation Design Pack v0.1
+
+SHIPMENT read-only validation:
+
+See `docs/LOW_CODE_PILOT_WEEK2_SHIPMENT_READONLY_VALIDATION_V0.1.md`.
+
+Week-2 scope expansion note:
+
+See `docs/LOW_CODE_PILOT_WEEK2_SCOPE_EXPANSION_NOTE_V0.1.md`.
 
 Week-1 review:
 
