@@ -43,6 +43,7 @@ type TemplateImportPreviewInput struct {
 	AllowSystemFields bool
 	Template          ExportedFormTemplate
 	SourceMetadata    TemplateImportSourceMetadata
+	ExportChecksum    string
 }
 
 type TemplateImportFieldTypeChange struct {
@@ -104,6 +105,7 @@ type importPreviewHTTPBody struct {
 	Template          ExportedFormTemplate            `json:"template"`
 	SourceMetadata    *TemplateImportSourceMetadata   `json:"source_metadata"`
 	Source            *TemplateExportSource           `json:"source"`
+	Metadata          *TemplateExportMetadata         `json:"metadata"`
 }
 
 func ParseImportPreviewRequest(raw []byte) (TemplateImportPreviewInput, error) {
@@ -113,6 +115,14 @@ func ParseImportPreviewRequest(raw []byte) (TemplateImportPreviewInput, error) {
 func ParseImportRequest(raw []byte) (TemplateImportPreviewInput, error) {
 	if len(raw) > MaxImportPayloadBytes {
 		return TemplateImportPreviewInput{}, apperrors.ImportPayloadTooLarge()
+	}
+
+	var rawObject map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &rawObject); err != nil {
+		return TemplateImportPreviewInput{}, apperrors.Validation("invalid json body", map[string]any{"error": err.Error()})
+	}
+	if err := validateImportTopLevelKeys(rawObject); err != nil {
+		return TemplateImportPreviewInput{}, err
 	}
 
 	var body importPreviewHTTPBody
@@ -162,6 +172,11 @@ func ParseImportRequest(raw []byte) (TemplateImportPreviewInput, error) {
 		}
 	}
 
+	exportChecksum := ""
+	if body.Metadata != nil {
+		exportChecksum = strings.TrimSpace(body.Metadata.Checksum)
+	}
+
 	return TemplateImportPreviewInput{
 		SchemaVersion:     schemaVersion,
 		Mode:              mode,
@@ -170,6 +185,7 @@ func ParseImportRequest(raw []byte) (TemplateImportPreviewInput, error) {
 		AllowSystemFields: body.AllowSystemFields,
 		Template:          body.Template,
 		SourceMetadata:    sourceMetadata,
+		ExportChecksum:    exportChecksum,
 	}, nil
 }
 
@@ -328,6 +344,12 @@ func BuildTemplateImportPreview(
 	if len(summary.TypeChanges) > 0 {
 		result.Status = ImportPreviewStatusWarning
 		result.Warnings = append(result.Warnings, "import changes field types compared to active published template")
+	}
+
+	if checksumWarning, err := ChecksumImportWarning(input.Template, input.ExportChecksum); err != nil {
+		return TemplateImportPreviewResult{}, err
+	} else {
+		appendImportPreviewWarning(&result, checksumWarning)
 	}
 
 	return result, nil

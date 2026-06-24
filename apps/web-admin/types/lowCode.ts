@@ -2230,6 +2230,8 @@ export interface ImportPreviewRequest {
   template: ExportedFormTemplate
   source_metadata?: TemplateImportSourceMetadata
   source?: TemplateExportSource
+  metadata?: TemplateExportMetadata
+  exported_at?: string
 }
 
 export interface TemplateImportFieldTypeChange {

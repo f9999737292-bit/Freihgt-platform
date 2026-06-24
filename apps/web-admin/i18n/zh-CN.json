@@ -970,7 +970,9 @@
     "templateImportDraftId": "草稿 ID",
     "templateImportAuditHint": "后端会记录 FORM_TEMPLATE_IMPORTED_AS_DRAFT 审计事件。",
     "templateImportPayloadTooLarge": "导入载荷超过 512 KB 限制",
-    "templateImportUnsupportedSchema": "不支持的导出架构版本"
+    "templateImportUnsupportedSchema": "不支持的导出架构版本",
+    "templateImportUnsupportedField": "不支持的导入字段：{field}",
+    "templateImportForbiddenField": "禁止的导入字段：{field}"
   },
   "backendStatus": {
     "title": "后端状态",

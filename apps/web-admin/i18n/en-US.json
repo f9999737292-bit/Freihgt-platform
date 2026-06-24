@@ -970,7 +970,9 @@
     "templateImportDraftId": "Draft ID",
     "templateImportAuditHint": "Audit event FORM_TEMPLATE_IMPORTED_AS_DRAFT is recorded on the backend.",
     "templateImportPayloadTooLarge": "Import payload exceeds 512 KB limit",
-    "templateImportUnsupportedSchema": "Unsupported export schema version"
+    "templateImportUnsupportedSchema": "Unsupported export schema version",
+    "templateImportUnsupportedField": "Unsupported import field: {field}",
+    "templateImportForbiddenField": "Forbidden import field: {field}"
   },
   "backendStatus": {
     "title": "Backend status",

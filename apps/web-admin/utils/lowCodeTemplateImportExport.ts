@@ -10,12 +10,40 @@ import {
 export class TemplateImportJsonError extends Error {
   constructor(
     message: string,
-    readonly code: 'INVALID_JSON' | 'UNSUPPORTED_SCHEMA' | 'MISSING_TEMPLATE' | 'PAYLOAD_TOO_LARGE',
+    readonly code:
+      | 'INVALID_JSON'
+      | 'UNSUPPORTED_SCHEMA'
+      | 'MISSING_TEMPLATE'
+      | 'PAYLOAD_TOO_LARGE'
+      | 'UNSUPPORTED_FIELD'
+      | 'FORBIDDEN_FIELD',
   ) {
     super(message)
     this.name = 'TemplateImportJsonError'
   }
 }
+
+const ALLOWED_IMPORT_TOP_LEVEL_KEYS = new Set([
+  'schema_version',
+  'mode',
+  'conflict_strategy',
+  'target_code',
+  'allow_system_fields',
+  'template',
+  'source_metadata',
+  'source',
+  'exported_at',
+  'metadata',
+])
+
+const FORBIDDEN_IMPORT_TOP_LEVEL_KEYS = new Set([
+  'custom_values',
+  'audit_events',
+  'values',
+  'execute',
+  'script',
+  'publish',
+])
 
 export function buildTemplateExportFilename(envelope: TemplateExportEnvelope): string {
   const { entity_type, code, version } = envelope.template
@@ -51,6 +79,17 @@ export function parseTemplateImportJsonText(
   return buildImportPreviewRequestFromParsed(parsed, options)
 }
 
+function validateImportTopLevelKeys(body: Record<string, unknown>): void {
+  for (const key of Object.keys(body)) {
+    if (FORBIDDEN_IMPORT_TOP_LEVEL_KEYS.has(key)) {
+      throw new TemplateImportJsonError(key, 'FORBIDDEN_FIELD')
+    }
+    if (!ALLOWED_IMPORT_TOP_LEVEL_KEYS.has(key)) {
+      throw new TemplateImportJsonError(key, 'UNSUPPORTED_FIELD')
+    }
+  }
+}
+
 export function buildImportPreviewRequestFromParsed(
   parsed: unknown,
   options: {
@@ -64,6 +103,8 @@ export function buildImportPreviewRequestFromParsed(
   }
 
   const body = parsed as Record<string, unknown>
+  validateImportTopLevelKeys(body)
+
   const schemaVersion = typeof body.schema_version === 'string' ? body.schema_version.trim() : ''
   if (!schemaVersion) {
     throw new TemplateImportJsonError('MISSING_SCHEMA', 'UNSUPPORTED_SCHEMA')
@@ -93,6 +134,13 @@ export function buildImportPreviewRequestFromParsed(
     request.source_metadata = body.source_metadata as ImportPreviewRequest['source_metadata']
   } else if (body.source && typeof body.source === 'object') {
     request.source = body.source as ImportPreviewRequest['source']
+  }
+
+  if (body.metadata && typeof body.metadata === 'object') {
+    request.metadata = body.metadata as ImportPreviewRequest['metadata']
+  }
+  if (typeof body.exported_at === 'string' && body.exported_at.trim()) {
+    request.exported_at = body.exported_at.trim()
   }
 
   return request

@@ -159,6 +159,10 @@ function mapParseError(error: unknown): string {
         return t('lowCode.templateImportMissingTemplate')
       case 'PAYLOAD_TOO_LARGE':
         return t('lowCode.templateImportPayloadTooLarge')
+      case 'UNSUPPORTED_FIELD':
+        return t('lowCode.templateImportUnsupportedField', { field: error.message })
+      case 'FORBIDDEN_FIELD':
+        return t('lowCode.templateImportForbiddenField', { field: error.message })
       default:
         return t('lowCode.templateImportInvalidJson')
     }
@@ -511,16 +515,17 @@ watch([jsonText, conflictStrategy, targetCode], () => {
           </template>
 
           <template v-else-if="step === 2">
-            <UiButton variant="secondary" @click="goBack">{{ $t('common.back') }}</UiButton>
+            <UiButton variant="secondary" :disabled="previewLoading" @click="goBack">{{ $t('common.back') }}</UiButton>
             <UiButton
               variant="secondary"
               :loading="previewLoading"
+              :disabled="previewLoading"
               @click="runPreview"
             >
               {{ $t('common.refresh') }}
             </UiButton>
             <UiButton
-              :disabled="!previewResult || !!previewError || hasBlockingErrors"
+              :disabled="!previewResult || !!previewError || hasBlockingErrors || previewLoading"
               @click="goToConfirmStep"
             >
               {{ $t('common.next') }}
@@ -528,7 +533,7 @@ watch([jsonText, conflictStrategy, targetCode], () => {
           </template>
 
           <template v-else-if="step === 3">
-            <UiButton variant="secondary" @click="goBack">{{ $t('common.back') }}</UiButton>
+            <UiButton variant="secondary" :disabled="executeLoading" @click="goBack">{{ $t('common.back') }}</UiButton>
             <UiButton
               :loading="executeLoading"
               :disabled="executeDisabled"

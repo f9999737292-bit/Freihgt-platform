@@ -317,6 +317,64 @@ func TestAdminImportReplaceExistingDraftWithoutDraftRejected(t *testing.T) {
 	}
 }
 
+func TestAdminImportPreviewRejectsUnknownTopLevelKey(t *testing.T) {
+	handler := NewAdminFormTemplateHandler(service.NewAdminFormTemplateService(&stubAdminFormTemplateRepo{}))
+	body := []byte(`{
+		"schema_version":"lowcode.template.export.v1",
+		"custom_values":[],
+		"template":{
+			"entity_type":"TRANSPORT_ORDER",
+			"code":"transport_order_default",
+			"name":"Default",
+			"sections":[{"code":"cargo","title":"Cargo","fields":[{"code":"f","label":"F","field_type":"TEXT"}]}]
+		}
+	}`)
+	rec := httptest.NewRecorder()
+	handler.ImportPreview(rec, importPreviewRequest(body, "74519f22-ff9b-4a8b-8fff-a958c689682f"))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	assertErrorCode(t, rec.Body.Bytes(), "VALIDATION_ERROR")
+}
+
+func TestAdminImportPreviewChecksumMismatchWarning(t *testing.T) {
+	stub := &stubAdminFormTemplateRepo{listByCodeItems: []domain.FormTemplateSummary{}}
+	handler := NewAdminFormTemplateHandler(service.NewAdminFormTemplateService(stub))
+	body := []byte(`{
+		"schema_version":"lowcode.template.export.v1",
+		"conflict_strategy":"NEW_VERSION",
+		"metadata":{"checksum":"0000000000000000000000000000000000000000000000000000000000000000"},
+		"template":{
+			"entity_type":"TRANSPORT_ORDER",
+			"code":"transport_order_default",
+			"name":"Default",
+			"sections":[{"code":"cargo","title":"Cargo","fields":[{"code":"cargo_class","label":"Class","field_type":"SELECT"}]}]
+		}
+	}`)
+	rec := httptest.NewRecorder()
+	handler.ImportPreview(rec, importPreviewRequest(body, "74519f22-ff9b-4a8b-8fff-a958c689682f"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	var payload domain.TemplateImportPreviewResult
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if payload.Status != domain.ImportPreviewStatusWarning {
+		t.Fatalf("status = %q", payload.Status)
+	}
+	found := false
+	for _, w := range payload.Warnings {
+		if strings.Contains(w, "checksum mismatch") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected checksum warning, got %+v", payload.Warnings)
+	}
+}
+
 func TestAdminImportNewVersionDoesNotReplacePublished(t *testing.T) {
 	tenantID := uuid.MustParse("74519f22-ff9b-4a8b-8fff-a958c689682f")
 	publishedID := uuid.MustParse("b1111111-1111-4111-8111-111111111102")

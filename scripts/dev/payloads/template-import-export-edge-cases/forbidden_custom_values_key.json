@@ -1,0 +1,18 @@
+{
+  "schema_version": "lowcode.template.export.v1",
+  "custom_values": [],
+  "template": {
+    "entity_type": "TRANSPORT_ORDER",
+    "code": "transport_order_default",
+    "name": "Forbidden key example",
+    "sections": [
+      {
+        "code": "cargo",
+        "title": "Cargo",
+        "fields": [
+          { "code": "cargo_class", "label": "Class", "field_type": "SELECT" }
+        ]
+      }
+    ]
+  }
+}

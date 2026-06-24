@@ -31,6 +31,8 @@ Or clone published to draft in Admin UI first.
 | `fail_if_exists_request.json` | Expect 409 when `transport_order_default` exists |
 | `new_version_request.json` | Import as new DRAFT version when published exists |
 | `replace_existing_draft_request.json` | Replace existing DRAFT sections/fields |
+| `checksum_mismatch_request.json` | Preview WARNING for checksum mismatch |
+| `forbidden_custom_values_key.json` | Expect 400 forbidden top-level key |
 
 ## Curl examples
 

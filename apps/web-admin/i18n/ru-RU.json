@@ -970,7 +970,9 @@
     "templateImportDraftId": "ID черновика",
     "templateImportAuditHint": "На бэкенде записывается событие FORM_TEMPLATE_IMPORTED_AS_DRAFT.",
     "templateImportPayloadTooLarge": "Размер импорта превышает лимит 512 КБ",
-    "templateImportUnsupportedSchema": "Неподдерживаемая версия схемы экспорта"
+    "templateImportUnsupportedSchema": "Неподдерживаемая версия схемы экспорта",
+    "templateImportUnsupportedField": "Неподдерживаемое поле импорта: {field}",
+    "templateImportForbiddenField": "Запрещённое поле импорта: {field}"
   },
   "backendStatus": {
     "title": "Статус backend",

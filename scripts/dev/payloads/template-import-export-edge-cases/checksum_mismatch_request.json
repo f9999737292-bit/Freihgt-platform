@@ -1,0 +1,29 @@
+{
+  "schema_version": "lowcode.template.export.v1",
+  "conflict_strategy": "NEW_VERSION",
+  "mode": "CREATE_DRAFT",
+  "metadata": {
+    "checksum": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "template": {
+    "entity_type": "TRANSPORT_ORDER",
+    "code": "transport_order_default",
+    "name": "Transport Order Default Form",
+    "sections": [
+      {
+        "code": "cargo",
+        "title": "Cargo",
+        "sort_order": 100,
+        "fields": [
+          {
+            "code": "cargo_class",
+            "label": "Cargo class",
+            "field_type": "SELECT",
+            "sort_order": 100,
+            "options_json": { "options": ["GENERAL"] }
+          }
+        ]
+      }
+    ]
+  }
+}
