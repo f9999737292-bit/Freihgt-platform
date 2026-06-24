@@ -52,7 +52,11 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** Low-code Pilot Launch Rehearsal Pack v0.1 — dry-run per `docs/LOW_CODE_PILOT_LAUNCH_RUNBOOK_V0.1.md`.
+**Next pack (use AI team):** Low-code Pilot Release Package Pack v0.1.
+
+Pilot launch rehearsal:
+
+See `docs/LOW_CODE_PILOT_LAUNCH_REHEARSAL_V0.1.md`.
 
 ## Seed dev data
 
@@ -376,7 +380,11 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-1. Low-code Pilot Launch Rehearsal Pack v0.1
+1. Low-code Pilot Release Package Pack v0.1
+
+Pilot launch rehearsal:
+
+See `docs/LOW_CODE_PILOT_LAUNCH_REHEARSAL_V0.1.md`.
 
 Pilot launch runbook:
 
