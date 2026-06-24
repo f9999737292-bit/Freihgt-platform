@@ -4,7 +4,19 @@
 
 Facilitator run sheet for live Week-3 low-code pilot operator feedback sessions. Use during TO / SH / BR walkthroughs. **Not a substitute for completed feedback forms.**
 
-Reference: `LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_SESSION_SCHEDULING_V0.1.md`
+Reference: `LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_SESSION_SCHEDULING_V0.1.md`, `LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_SESSION_CONFIRMATION_V0.1.md`
+
+## Confirmation Status
+
+| Session | Confirmed | Operator | Date/time | Capture retry |
+|---------|-----------|----------|-----------|---------------|
+| 1 — TRANSPORT_ORDER | **pending** | **TBD** | **TBD** (proposed 2026-06-30 09:00) | **blocked** |
+| 2 — SHIPMENT | **pending** | **TBD** | **TBD** (proposed 2026-06-30 14:00) | **blocked** |
+| 3 — BILLING_REGISTER | **pending** | **TBD** | **TBD** (proposed 2026-07-01 09:00) | **blocked** |
+
+**Decision:** **LIVE_SESSION_CONFIRMATION_PENDING**
+
+Do **not** run **First Real Operator Feedback Capture Retry Pack v0.1** until sessions are **confirmed** and **completed** with real operator feedback forms.
 
 ## Facilitator
 

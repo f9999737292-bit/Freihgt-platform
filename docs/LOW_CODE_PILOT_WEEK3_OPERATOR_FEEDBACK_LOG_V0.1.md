@@ -4,22 +4,21 @@
 
 Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER**, **SHIPMENT**, and **BILLING_REGISTER**.
 
-**Current status:** Live operator session schedule **proposed** by Virtual PM — **still no real operator submission**. Operators/dates **NEEDS_CONFIRMATION**; polish/expansion **blocked**.
+**Current status:** Live session confirmation reviewed — **sessions NOT confirmed**. **Still no real operator submission**. Capture retry **blocked**; polish/expansion **blocked**.
 
 ## Current Status
 
 | Metric | Value |
 |--------|-------|
-| Total entries | **9** |
+| Total entries | **10** |
 | Real operator submissions | **0** |
-| PM owner assigned | **yes — virtual** |
-| PM owner name | **Virtual PM / Pilot Coordinator** |
-| Session dates assigned | **no — proposed only** |
-| Live scheduling decision | **LIVE_SESSION_SCHEDULE_PROPOSED_NOT_CONFIRMED** |
+| PM owner | **Virtual PM / Pilot Coordinator** |
+| Session dates confirmed | **no — proposed only** |
+| Live confirmation decision | **LIVE_SESSION_CONFIRMATION_PENDING** |
 | Open P0 | **0** |
 | Open P1 | **0** |
-| NEEDS_INFO | **6** |
-| FIX_PLANNED | **2** (W3-FB-ESC-001, W3-FB-VPM-001) |
+| NEEDS_INFO | **7** |
+| FIX_PLANNED | **2** |
 | Last updated | 2026-06-24 |
 
 ## Feedback Table
@@ -35,12 +34,13 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | W3-FB-PM-SCHED-001 | 2026-06-24 | — | CROSS_ENTITY | TO/SH/BR demos | PM scheduling decision | P2 | PM scheduling decision required because real operator feedback remains unavailable; Option B — keep scheduling blocked | NEEDS_INFO | PM / pilot owner (TBD) | Operator Feedback Scheduling Follow-up v0.1 | block polish/expansion until real feedback or PM override |
 | W3-FB-VPM-001 | 2026-06-24 | — | CROSS_ENTITY | TO/SH/BR demos | virtual PM owner assignment | P2 | Temporary virtual PM owner assigned: Virtual PM / Pilot Coordinator; session dates TBD; live sessions still required | FIX_PLANNED | Virtual PM / Pilot Coordinator | Live Operator Session Scheduling v0.1 | PM_OWNER_ASSIGNED_VIRTUAL — polish/expansion remain blocked until real feedback |
 | W3-FB-LIVE-SCHED-001 | 2026-06-24 | — | CROSS_ENTITY | TO/SH/BR demos | live session scheduling | P2 | Live operator feedback sessions prepared by Virtual PM / Pilot Coordinator; proposed slots only; real feedback still pending | NEEDS_INFO | Virtual PM / Pilot Coordinator | First Real Operator Feedback Capture Retry v0.1 | proceed to capture retry only after live sessions completed and real feedback forms exist |
+| W3-FB-LIVE-CONFIRM-001 | 2026-06-24 | — | CROSS_ENTITY | TO/SH/BR demos | live session confirmation | P2 | Live operator session confirmation reviewed; operators/dates not confirmed; real feedback still pending | NEEDS_INFO | Virtual PM / Pilot Coordinator | Live Operator Session Confirmation Follow-up v0.1 | feedback capture remains blocked until live sessions are confirmed and completed |
 
 ### Column guide
 
 | Column | Description |
 |--------|-------------|
-| **id** | `FB-W3-###`, `W3-FB-SESSION-###`, …, `W3-FB-VPM-###`, or `W3-FB-LIVE-SCHED-###` |
+| **id** | `FB-W3-###`, `W3-FB-SESSION-###`, …, `W3-FB-LIVE-SCHED-###`, or `W3-FB-LIVE-CONFIRM-###` |
 | **date** | Submission or triage date |
 | **operator** | Name or role |
 | **entity_type** | TRANSPORT_ORDER / SHIPMENT / BILLING_REGISTER / ALL / CROSS_ENTITY |

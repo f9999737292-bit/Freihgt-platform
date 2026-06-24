@@ -6,9 +6,9 @@ PM owner action tracker for Week-3 low-code pilot operator feedback scheduling. 
 
 **Real operator submissions:** **0**
 
-**Decision:** **LIVE_SESSION_SCHEDULE_PROPOSED_NOT_CONFIRMED**
+**Decision:** **LIVE_SESSION_CONFIRMATION_PENDING**
 
-Reference: `LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_SESSION_SCHEDULING_V0.1.md`
+Reference: `LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_SESSION_CONFIRMATION_V0.1.md`
 
 ## Owner Actions Table
 
@@ -29,7 +29,13 @@ Reference: `LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_SESSION_SCHEDULING_V0.1.md`
 | OA-W3-013 | Virtual PM / Pilot Coordinator | Assign real logistics / transport operator (TO Session 1) | TRANSPORT_ORDER | Before Session 1 | **NEEDS_CONFIRMATION** | Operator TBD | 2026-06-27 | LIVE_SESSION_SCHEDULE_PROPOSED |
 | OA-W3-014 | Virtual PM / Pilot Coordinator | Assign real shipment / logistics operator (SH Session 2) | SHIPMENT | Before Session 2 | **NEEDS_CONFIRMATION** | Operator TBD | 2026-06-27 | LIVE_SESSION_SCHEDULE_PROPOSED |
 | OA-W3-015 | Virtual PM / Pilot Coordinator | Assign real billing / finance operator (BR Session 3) | BILLING_REGISTER | Before Session 3 | **NEEDS_CONFIRMATION** | Operator TBD | 2026-06-27 | LIVE_SESSION_SCHEDULE_PROPOSED |
-| OA-W3-016 | Virtual PM / Pilot Coordinator | Confirm proposed calendar slots with all participants | ALL | 2026-06-27 | **NEEDS_CONFIRMATION** | Dates proposed only | 2026-06-27 | LIVE_SESSION_SCHEDULE_PROPOSED |
+| OA-W3-016 | Virtual PM / Pilot Coordinator | Confirm proposed calendar slots with all participants | ALL | 2026-06-27 | **NEEDS_CONFIRMATION** | Confirmation pack — still pending | 2026-06-27 | LIVE_SESSION_CONFIRMATION_PENDING |
+| OA-W3-023 | Virtual PM / Pilot Coordinator | Confirm TRANSPORT_ORDER session (operator + date/time) | TRANSPORT_ORDER | Before Session 1 | **NEEDS_CONFIRMATION** | Not confirmed | 2026-06-27 | LIVE_SESSION_CONFIRMATION_PENDING |
+| OA-W3-024 | Virtual PM / Pilot Coordinator | Confirm SHIPMENT session (operator + date/time) | SHIPMENT | Before Session 2 | **NEEDS_CONFIRMATION** | Not confirmed | 2026-06-27 | LIVE_SESSION_CONFIRMATION_PENDING |
+| OA-W3-025 | Virtual PM / Pilot Coordinator | Confirm BILLING_REGISTER session (operator + date/time) | BILLING_REGISTER | Before Session 3 | **NEEDS_CONFIRMATION** | Not confirmed | 2026-06-27 | LIVE_SESSION_CONFIRMATION_PENDING |
+| OA-W3-026 | Virtual PM / Pilot Coordinator | Assign real operators (all three sessions) | ALL | Before sessions | **NEEDS_CONFIRMATION** | Operators TBD | 2026-06-27 | LIVE_SESSION_CONFIRMATION_PENDING |
+| OA-W3-027 | Virtual PM / Pilot Coordinator | Confirm environment (local vs staging) | ALL | Before Session 1 | **NEEDS_CONFIRMATION** | Local proposed only | 2026-06-27 | LIVE_SESSION_CONFIRMATION_PENDING |
+| OA-W3-028 | Pilot lead | Confirm feedback form ownership + facilitator assignment | ALL | Before Session 1 | **NEEDS_CONFIRMATION** | Facilitator TBD | 2026-06-27 | LIVE_SESSION_CONFIRMATION_PENDING |
 | OA-W3-017 | Pilot lead | Prepare feedback forms + live checklist for sessions | ALL | Before Session 1 | **IN_PROGRESS** | Docs created | Before Session 1 | LIVE_SESSION_SCHEDULE_PROPOSED |
 | OA-W3-018 | Pilot lead | Conduct TRANSPORT_ORDER live session | TRANSPORT_ORDER | After confirm | **OPEN** | Session not confirmed | After OA-W3-016 | BLOCKED_UNTIL_CONFIRMED |
 | OA-W3-019 | Pilot lead | Conduct SHIPMENT live session | SHIPMENT | After confirm | **OPEN** | Session not confirmed | After OA-W3-016 | BLOCKED_UNTIL_CONFIRMED |
@@ -59,9 +65,10 @@ Reference: `LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_SESSION_SCHEDULING_V0.1.md`
 
 | Outcome | Next pack |
 |---------|-----------|
-| Schedule proposed; operators/dates TBD | Live Operator Session Confirmation v0.1 |
+| Confirmation pending — operators/dates TBD | Live Operator Session Confirmation Follow-up v0.1 |
 | Sessions confirmed (SCHEDULED) | First Real Operator Feedback Capture Retry v0.1 |
-| Virtual PM owner assigned; calendar TBD | Live Operator Session Scheduling v0.1 — **completed** |
+| Partial confirmation | Partial Operator Feedback Capture v0.1 |
+| Schedule proposed; confirmation pack run | Live Operator Session Confirmation v0.1 — **completed** |
 | Owner + dates confirmed, sessions pending | First Real Operator Feedback Capture Retry v0.1 |
 | Owner/date still TBD at 2026-06-27 | PM Scheduling Decision v0.1 |
 | Real feedback captured, no P0/P1 | Feedback-Based UI/Docs Polish Selection v0.1 |
