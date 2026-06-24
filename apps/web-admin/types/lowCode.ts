@@ -2144,3 +2144,137 @@ export function hasFormTemplateCompareChanges(result: FormTemplateCompareResult)
     0
   )
 }
+
+/** Portable template export/import schema (backend: lowcode.template.export.v1). */
+export const TEMPLATE_EXPORT_SCHEMA_VERSION = 'lowcode.template.export.v1'
+
+export const MAX_TEMPLATE_IMPORT_PAYLOAD_BYTES = 512 * 1024
+
+export type ImportConflictStrategy =
+  | 'NEW_VERSION'
+  | 'REPLACE_EXISTING_DRAFT'
+  | 'FAIL_IF_EXISTS'
+
+export type ImportMode = 'CREATE_DRAFT'
+
+export type ImportPreviewStatus = 'READY' | 'WARNING' | 'BLOCKED'
+
+export interface TemplateExportSource {
+  template_id: string
+  tenant_id: string
+  environment: string
+  service: string
+  template_code?: string
+  template_version?: number
+  template_status?: string
+}
+
+export interface ExportedFormField {
+  code: string
+  label: string
+  field_type: string
+  required: boolean
+  read_only: boolean
+  system_field: boolean
+  options_json?: unknown
+  validation_rule_json?: unknown
+  visibility_rule_json?: unknown
+  sort_order: number
+}
+
+export interface ExportedFormSection {
+  code: string
+  title: string
+  sort_order: number
+  fields: ExportedFormField[]
+}
+
+export interface ExportedFormTemplate {
+  entity_type: string
+  code: string
+  name: string
+  description?: string
+  version: number
+  status: string
+  sections: ExportedFormSection[]
+}
+
+export interface TemplateExportMetadata {
+  checksum?: string
+  exported_by?: string
+  request_id?: string
+}
+
+export interface TemplateExportEnvelope {
+  schema_version: string
+  exported_at: string
+  source: TemplateExportSource
+  template: ExportedFormTemplate
+  metadata: TemplateExportMetadata
+}
+
+export interface TemplateImportSourceMetadata {
+  source_tenant_id?: string
+  source_template_id?: string
+  source_version?: number
+  source_status?: string
+  exported_at?: string
+}
+
+export interface ImportPreviewRequest {
+  schema_version: string
+  mode: ImportMode
+  conflict_strategy: ImportConflictStrategy
+  target_code?: string | null
+  allow_system_fields?: boolean
+  template: ExportedFormTemplate
+  source_metadata?: TemplateImportSourceMetadata
+  source?: TemplateExportSource
+}
+
+export interface TemplateImportFieldTypeChange {
+  field_code: string
+  from_type: string
+  to_type: string
+}
+
+export interface TemplateImportPreviewSummary {
+  sections_count: number
+  fields_count: number
+  new_field_codes: string[]
+  removed_field_codes: string[]
+  type_changes: TemplateImportFieldTypeChange[]
+}
+
+export interface ImportPreviewResponse {
+  status: ImportPreviewStatus
+  conflict_strategy: ImportConflictStrategy
+  import_mode: string
+  target_entity_type: string
+  target_code: string
+  existing_draft_id?: string | null
+  existing_published_versions: number[]
+  proposed_draft_version_on_publish: number
+  warnings: string[]
+  validation_errors: string[]
+  summary: TemplateImportPreviewSummary
+  schema_version: string
+}
+
+export type ImportExecuteRequest = ImportPreviewRequest
+
+export interface TemplateImportExecuteSummary {
+  sections_count: number
+  fields_count: number
+  conflict_strategy: ImportConflictStrategy
+  import_mode: string
+  replaced_draft: boolean
+}
+
+export interface ImportExecuteResponse {
+  id: string
+  status: string
+  version: number
+  code: string
+  import_summary: TemplateImportExecuteSummary
+}

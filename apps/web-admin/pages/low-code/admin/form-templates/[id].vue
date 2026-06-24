@@ -11,7 +11,13 @@ import {
   hasFormTemplateCompareChanges,
   type AdminFormTemplateDetail,
   type DraftFormTemplateDraft,
+  type TemplateExportEnvelope,
 } from '~/types/lowCode'
+import {
+  buildTemplateExportFilename,
+  downloadJsonFile,
+  formatTemplateExportJson,
+} from '~/utils/lowCodeTemplateImportExport'
 import { TenantRequiredError } from '~/composables/useApi'
 
 definePageMeta({ middleware: ['auth', 'low-code-admin'], layout: 'default' })
@@ -25,6 +31,7 @@ const {
   updateDraftFormTemplate,
   publishDraftFormTemplate,
   clonePublishedTemplateToDraft,
+  exportFormTemplate,
   getAdminFormTemplateErrorMessage,
   isApiUnavailableError,
 } = useLowCodeApi()
@@ -32,6 +39,7 @@ const router = useRouter()
 const { hasTenant } = useTenantContext()
 const { pushToast } = useToast()
 const { t } = useI18n()
+const { canExportTemplates } = useLowCodePermissions()
 
 const template = ref<AdminFormTemplateDetail | null>(null)
 const draft = ref<DraftFormTemplateDraft | null>(null)
@@ -46,6 +54,10 @@ const publishing = ref(false)
 const cloning = ref(false)
 const publishModalOpen = ref(false)
 const builderTab = ref<'editor' | 'preview' | 'compare'>('editor')
+const exporting = ref(false)
+const exportError = ref('')
+const exportEnvelope = ref<TemplateExportEnvelope | null>(null)
+const exportCopied = ref(false)
 
 const isDraft = computed(() => template.value?.status === 'DRAFT')
 const isReadOnly = computed(() => !isDraft.value)
@@ -200,8 +212,51 @@ async function cloneToDraft() {
   }
 }
 
+const exportJsonText = computed(() =>
+  exportEnvelope.value ? formatTemplateExportJson(exportEnvelope.value) : '',
+)
+
+async function runExport() {
+  if (!canExportTemplates()) return
+  exporting.value = true
+  exportError.value = ''
+  try {
+    exportEnvelope.value = await exportFormTemplate(templateId.value)
+    pushToast('success', t('lowCode.templateExportSuccess'))
+  } catch (error) {
+    exportEnvelope.value = null
+    exportError.value = getAdminFormTemplateErrorMessage(error)
+    pushToast('error', exportError.value)
+  } finally {
+    exporting.value = false
+  }
+}
+
+function downloadExport() {
+  if (!exportEnvelope.value) return
+  downloadJsonFile(buildTemplateExportFilename(exportEnvelope.value), exportJsonText.value)
+}
+
+async function copyExportJson() {
+  if (!exportJsonText.value) return
+  try {
+    await navigator.clipboard.writeText(exportJsonText.value)
+    exportCopied.value = true
+    pushToast('success', t('lowCode.templateExportJsonCopied'))
+    window.setTimeout(() => {
+      exportCopied.value = false
+    }, 2000)
+  } catch {
+    pushToast('error', t('common.error'))
+  }
+}
+
 onMounted(load)
-watch(templateId, load)
+watch(templateId, () => {
+  exportEnvelope.value = null
+  exportError.value = ''
+  load()
+})
 </script>
 
 <template>
@@ -216,6 +271,14 @@ watch(templateId, load)
 
     <UiPageHeader :title="template?.name || $t('lowCode.templateDetails')">
       <template #actions>
+        <UiButton
+          v-if="canExportTemplates()"
+          variant="secondary"
+          :loading="exporting"
+          @click="runExport"
+        >
+          {{ $t('lowCode.templateExportJson') }}
+        </UiButton>
         <UiButton variant="secondary" @click="$router.push('/low-code/admin/form-templates')">
           {{ $t('lowCode.backToTemplates') }}
         </UiButton>
@@ -255,6 +318,25 @@ watch(templateId, load)
           <div><dt>{{ $t('lowCode.version') }}</dt><dd>{{ template.version }}</dd></div>
           <div><dt>{{ $t('lowCode.publishedAt') }}</dt><dd>{{ formatLowCodeDate(template.published_at) }}</dd></div>
         </dl>
+      </UiCard>
+
+      <UiCard v-if="exportEnvelope || exportError">
+        <template #header>{{ $t('lowCode.templateExportJson') }}</template>
+        <p v-if="exportError" class="export-panel__error" role="alert">{{ exportError }}</p>
+        <template v-else-if="exportEnvelope">
+          <div class="export-panel__actions">
+            <UiButton size="sm" variant="secondary" @click="downloadExport">
+              {{ $t('lowCode.templateExportDownloadJson') }}
+            </UiButton>
+            <UiButton size="sm" variant="secondary" @click="copyExportJson">
+              {{ exportCopied ? $t('lowCode.templateExportJsonCopied') : $t('lowCode.templateExportCopyJson') }}
+            </UiButton>
+          </div>
+          <details class="export-panel__preview" open>
+            <summary>{{ $t('lowCode.templateExportPreview') }}</summary>
+            <pre class="export-panel__pre">{{ exportJsonText }}</pre>
+          </details>
+        </template>
       </UiCard>
 
       <div
@@ -600,5 +682,36 @@ watch(templateId, load)
   .form-builder__panel--hidden {
     display: none;
   }
+}
+
+.export-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.export-panel__preview summary {
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.export-panel__pre {
+  margin: 0.5rem 0 0;
+  padding: 0.75rem;
+  max-height: 320px;
+  overflow: auto;
+  font-size: 0.75rem;
+  border-radius: 0.375rem;
+  background: var(--color-bg-muted, #f4f4f5);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.export-panel__error {
+  margin: 0;
+  color: var(--color-danger, #dc2626);
+  font-size: 0.875rem;
 }
 </style>

@@ -22,6 +22,11 @@ import type {
   BatchMigrateToActiveResponse,
   SaveCustomFieldValuesPayload,
   SaveCustomFieldValuesResponse,
+  TemplateExportEnvelope,
+  ImportPreviewRequest,
+  ImportPreviewResponse,
+  ImportExecuteRequest,
+  ImportExecuteResponse,
 } from '~/types/lowCode'
 import { ApiError } from '~/composables/useApi'
 
@@ -178,6 +183,24 @@ export function useLowCodeApi() {
     )
   }
 
+  async function exportFormTemplate(templateId: string) {
+    return apiGet<TemplateExportEnvelope>(`${ADMIN_FORM_TEMPLATES_PATH}/${templateId}/export`, {
+      query: tenantQuery(),
+    })
+  }
+
+  async function previewImportFormTemplate(payload: ImportPreviewRequest) {
+    return apiPost<ImportPreviewResponse>(`${ADMIN_FORM_TEMPLATES_PATH}/import-preview`, payload, {
+      query: tenantQuery(),
+    })
+  }
+
+  async function importFormTemplate(payload: ImportExecuteRequest) {
+    return apiPost<ImportExecuteResponse>(`${ADMIN_FORM_TEMPLATES_PATH}/import`, payload, {
+      query: tenantQuery(),
+    })
+  }
+
   function getAdminFormTemplateErrorMessage(error: unknown): string {
     if (error instanceof ApiError) {
       switch (error.code) {
@@ -194,6 +217,10 @@ export function useLowCodeApi() {
           return t('lowCode.publishedTemplatesCannotBeEdited')
         case 'FORM_TEMPLATE_CONFLICT':
           return t('lowCode.templateCodeConflict')
+        case 'UNSUPPORTED_SCHEMA_VERSION':
+          return t('lowCode.templateImportUnsupportedSchema')
+        case 'IMPORT_PAYLOAD_TOO_LARGE':
+          return t('lowCode.templateImportPayloadTooLarge')
         case 'FIELD_INVALID_TYPE':
           return t('lowCode.errorFieldInvalidType')
         case 'TEMPLATE_CODE_INVALID':
@@ -453,6 +480,9 @@ export function useLowCodeApi() {
     updateDraftFormTemplate,
     publishDraftFormTemplate,
     clonePublishedTemplateToDraft,
+    exportFormTemplate,
+    previewImportFormTemplate,
+    importFormTemplate,
     getAdminFormTemplateErrorMessage,
     resolvePublishedTemplate,
     resolveDemoEntityId,

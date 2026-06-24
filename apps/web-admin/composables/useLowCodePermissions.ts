@@ -47,6 +47,18 @@ export function useLowCodePermissions() {
     return canAccessLowCodeAdmin()
   }
 
+  function canManageTemplates(): boolean {
+    return canAccessLowCodeAdmin()
+  }
+
+  function canImportTemplates(): boolean {
+    return canAccessLowCodeAdmin()
+  }
+
+  function canExportTemplates(): boolean {
+    return canAccessLowCodeAdmin()
+  }
+
   /** Runtime custom-field edit on entity detail / values page (UI gate; API tenant-scoped). */
   function canEditCustomFieldsRuntime(): boolean {
     if (!hasTenant.value) return false
@@ -74,6 +86,9 @@ export function useLowCodePermissions() {
     canRunMigrationExecute,
     canRunBatchMigrationPreview,
     canRunBatchMigrationExecute,
+    canManageTemplates,
+    canImportTemplates,
+    canExportTemplates,
     canEditCustomFieldsRuntime,
     canViewLowCodeAudit,
     canViewLowCodeAuditStrict,

@@ -16,6 +16,9 @@ const router = useRouter()
 const { hasTenant } = useTenantContext()
 const { pushToast } = useToast()
 const { t } = useI18n()
+const { canImportTemplates } = useLowCodePermissions()
+
+const importWizardOpen = ref(false)
 
 const items = ref<FormTemplateSummary[]>([])
 const activeTemplateIds = ref<Set<string>>(new Set())
@@ -108,6 +111,13 @@ onMounted(load)
 
     <UiPageHeader :title="$t('lowCode.formTemplateDrafts')">
       <template #actions>
+        <UiButton
+          v-if="canImportTemplates()"
+          variant="secondary"
+          @click="importWizardOpen = true"
+        >
+          {{ $t('lowCode.templateImportTemplate') }}
+        </UiButton>
         <UiButton @click="$router.push('/low-code/admin/form-templates/new')">
           {{ $t('lowCode.newDraft') }}
         </UiButton>
@@ -201,6 +211,12 @@ onMounted(load)
     </UiTable>
 
     <UiEmptyState v-else :title="$t('lowCode.noDraftTemplatesFound')" />
+
+    <LowCodeTemplateImportWizard
+      :open="importWizardOpen"
+      @close="importWizardOpen = false"
+      @executed="load"
+    />
   </div>
 </template>
 

@@ -14,6 +14,8 @@ const lowCodeMessage = ref('')
 
 const { canAccessLowCodeAdmin } = useLowCodePermissions()
 
+const importWizardOpen = ref(false)
+
 const navLinks = computed(() => {
   const links = [
     { to: '/low-code/form-templates', labelKey: 'lowCode.formTemplates', descKey: 'lowCode.formTemplatesDesc' },
@@ -82,6 +84,14 @@ onMounted(refreshAll)
     <div v-if="canAccessLowCodeAdmin()" class="low-code-hub__notice low-code-hub__notice--info">
       <strong>{{ $t('lowCode.formTemplateAdmin') }}</strong>
       <p>{{ $t('lowCode.formTemplateAdminHint') }}</p>
+      <div class="low-code-hub__admin-actions">
+        <UiButton size="sm" variant="secondary" @click="importWizardOpen = true">
+          {{ $t('lowCode.templateImportTemplate') }}
+        </UiButton>
+        <NuxtLink to="/low-code/admin/form-templates">
+          <UiButton size="sm" variant="secondary">{{ $t('lowCode.formTemplateAdmin') }}</UiButton>
+        </NuxtLink>
+      </div>
     </div>
 
     <div class="low-code-hub__notice low-code-hub__notice--warn">
@@ -138,6 +148,11 @@ onMounted(refreshAll)
         </NuxtLink>
       </div>
     </UiCard>
+
+    <LowCodeTemplateImportWizard
+      :open="importWizardOpen"
+      @close="importWizardOpen = false"
+    />
   </div>
 </template>
 
@@ -168,6 +183,13 @@ onMounted(refreshAll)
 .low-code-hub__notice p {
   margin: 0.375rem 0 0;
   font-size: 0.875rem;
+}
+
+.low-code-hub__admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
 }
 
 .low-code-hub__notice--info {
