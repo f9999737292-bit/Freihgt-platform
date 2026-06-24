@@ -52,11 +52,19 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** Low-code Pilot Release Package Pack v0.1.
+**Next pack (use AI team):** Low-code Pilot Final Smoke & Handoff Pack v0.1.
 
-Pilot launch rehearsal:
+Pilot fix & polish sprint:
 
-See `docs/LOW_CODE_PILOT_LAUNCH_REHEARSAL_V0.1.md`.
+See `docs/LOW_CODE_PILOT_FIX_POLISH_SPRINT_V0.1.md`.
+
+Pilot manual UI verification:
+
+See `docs/LOW_CODE_PILOT_MANUAL_UI_VERIFICATION_V0.1.md`.
+
+Pilot release package:
+
+See `docs/LOW_CODE_PILOT_RELEASE_PACKAGE_V0.1.md`.
 
 ## Seed dev data
 
@@ -380,7 +388,27 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-1. Low-code Pilot Release Package Pack v0.1
+1. Low-code Pilot Final Smoke & Handoff Pack v0.1
+
+Pilot fix & polish sprint:
+
+See `docs/LOW_CODE_PILOT_FIX_POLISH_SPRINT_V0.1.md`.
+
+Pilot manual UI verification:
+
+See `docs/LOW_CODE_PILOT_MANUAL_UI_VERIFICATION_V0.1.md`.
+
+Pilot release package:
+
+See `docs/LOW_CODE_PILOT_RELEASE_PACKAGE_V0.1.md`.
+
+Pilot operator checklist:
+
+See `docs/LOW_CODE_PILOT_OPERATOR_CHECKLIST_V0.1.md`.
+
+Pilot release notes:
+
+See `docs/LOW_CODE_PILOT_RELEASE_NOTES_V0.1.md`.
 
 Pilot launch rehearsal:
 
