@@ -350,7 +350,11 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-1. Low-code Pilot Go/No-Go Review Pack v0.1
+1. Low-code Pilot Launch Runbook Pack v0.1
+
+Pilot go/no-go review:
+
+See `docs/LOW_CODE_PILOT_GO_NO_GO_REVIEW_V0.1.md`.
 
 Staging auth-on verification:
 
