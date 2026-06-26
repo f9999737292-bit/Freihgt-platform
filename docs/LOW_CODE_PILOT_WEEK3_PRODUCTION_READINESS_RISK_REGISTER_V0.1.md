@@ -8,6 +8,8 @@ Risk register for production readiness review after controlled pilot approval.
 
 **Gap closure plan:** **created** — `GAP_CLOSURE_PLAN_CREATED` (2026-06-26).
 
+**Auth-on repeat (local):** `AUTH_ON_REPEAT_LOCAL_VERIFIED` (2026-06-23) — remote staging **pending**.
+
 **Production go/no-go blocked** until gaps PR-GAP-001–010 closed per acceptance criteria.
 
 **Controlled pilot may continue** while production risks remain **OPEN**.
@@ -16,7 +18,7 @@ Risk register for production readiness review after controlled pilot approval.
 
 | risk id | gap id | risk | severity | status | mitigation | owner | next action |
 |---------|--------|------|----------|--------|------------|-------|-------------|
-| PR-RISK-001 | PR-GAP-001 | Remote Auth-On not repeated on staging | P2 | OPEN | Execute Remote Auth-On Repeat Pack when ops ready | DevOps + Security | Remote Auth-On Repeat v0.1 |
+| PR-RISK-001 | PR-GAP-001 | Remote Auth-On not repeated on staging | P2 | OPEN | Local repeat PASS 2026-06-23; execute remote staging matrix when URL available | DevOps + Security | Remote Auth-On Repeat (remote staging) |
 | PR-RISK-002 | PR-GAP-002 | Production data policy not approved | P2 | OPEN | Document and approve data policy before prod | PM / governance | Production Data Policy Pack v0.1 |
 | PR-RISK-003 | PR-GAP-003 | Rollback plan not approved | P2 | OPEN | Define and approve rollback runbook | DevOps + PM | Low-code Production Rollback Plan Pack v0.1 |
 | PR-RISK-004 | PR-GAP-004 | Monitoring/alerting policy not approved | P2 | OPEN | Define prod monitoring SLOs and alerts | DevOps | Production Monitoring Policy Pack v0.1 |

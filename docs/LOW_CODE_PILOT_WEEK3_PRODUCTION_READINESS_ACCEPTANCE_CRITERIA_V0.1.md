@@ -16,7 +16,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | 2 | 3/3 operator feedback completed | **PASS** | — |
 | 3 | No P0/P1/P2 from operator feedback | **PASS** | — |
 | 4 | Health-check OK (target env) | **PASS** (dev) | — |
-| 5 | Remote Auth-On Repeat completed | **PENDING** | PR-GAP-001 |
+| 5 | Remote Auth-On Repeat completed | **PENDING** (remote staging) — local **PASS** 2026-06-23 | PR-GAP-001 |
 | 6 | Production data policy approved | **PENDING** | PR-GAP-002 |
 | 7 | Rollback plan approved | **PENDING** | PR-GAP-003 |
 | 8 | Monitoring/alerting policy approved | **PENDING** | PR-GAP-004 |

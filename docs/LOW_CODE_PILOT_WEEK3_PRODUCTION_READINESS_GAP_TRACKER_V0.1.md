@@ -2,7 +2,9 @@
 
 ## Summary
 
-Tracks **10 open production readiness gaps**. All **PENDING** until respective event-based packs complete.
+Tracks **10 open production readiness gaps**. PR-GAP-001: local auth-on repeat **PASS**; remote staging **pending**.
+
+**Auth-on repeat (local):** `AUTH_ON_REPEAT_LOCAL_VERIFIED` (2026-06-23)
 
 **Production-ready:** **not claimed**  
 **Controlled pilot:** **CONTROLLED_PILOT_APPROVED** — active
@@ -13,7 +15,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 
 | Gap ID | Gap | Status | Owner | Acceptance Criteria | Next Pack | Notes |
 |--------|-----|--------|-------|---------------------|-----------|-------|
-| PR-GAP-001 | Remote Auth-On Repeat not completed | PENDING | Ops / Security | Admin low-code routes verified with auth-on; non-admin denied; runtime GET compatibility verified | Remote Auth-On Repeat Pack v0.1 | **First recommended technical/security gap** when ops ready |
+| PR-GAP-001 | Remote Auth-On Repeat not completed | PENDING | Ops / Security | Admin low-code routes verified with auth-on; non-admin denied; runtime GET compatibility verified | Remote Auth-On Repeat (remote staging) when URL available | Local repeat **PASS** 2026-06-23 (`AUTH_ON_REPEAT_LOCAL_VERIFIED`); **remote staging not verified** |
 | PR-GAP-002 | Production data policy not approved | PENDING | Product / Legal / Data Owner | Approved policy for no production data or controlled production data use | Production Data Policy Pack v0.1 | — |
 | PR-GAP-003 | Rollback plan not approved | PENDING | Tech Lead / Ops | Documented rollback steps for low-code templates, custom fields, and runtime config | Low-code Production Rollback Plan Pack v0.1 | — |
 | PR-GAP-004 | Monitoring / alerting policy not approved | PENDING | Ops | Health, audit, metrics, low-code runtime indicators defined | Production Monitoring Policy Pack v0.1 | — |

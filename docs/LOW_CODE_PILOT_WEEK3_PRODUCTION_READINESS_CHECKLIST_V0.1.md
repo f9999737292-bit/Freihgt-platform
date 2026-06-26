@@ -34,7 +34,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 
 | criterion | status | evidence | owner | notes |
 |-----------|--------|----------|-------|-------|
-| Remote Auth-On Repeat | PENDING | BL-W3-003; local partial only | DevOps + Security | staging not verified |
+| Remote Auth-On Repeat | PENDING (remote) | Local repeat PASS 2026-06-23; remote staging not verified — `LOW_CODE_PILOT_WEEK3_REMOTE_AUTH_ON_REPEAT_V0.1.md` | DevOps + Security | PR-GAP-001 open until remote staging |
 | Production auth policy | PENDING | — | Security | not approved |
 | RBAC production review | PENDING | — | Security | out of scope v0.1 pilot |
 

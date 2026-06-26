@@ -54,7 +54,7 @@ docs/ai-team/
 
 **Next pack (use AI team):** Event-based gap closure — see event triggers below.
 
-**Current status:** **PRODUCTION_READINESS_GAP_CLOSURE_PLAN_CREATED**
+**Current status:** **AUTH_ON_REPEAT_LOCAL_VERIFIED**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -62,13 +62,15 @@ docs/ai-team/
 
 **Production-ready claimed:** **no**
 
+**PR-GAP-001:** local auth-on repeat **PASS**; **remote staging pending**
+
 **Next mode:** **EVENT_BASED_GAP_CLOSURE**
 
 **Event-based next actions:**
 
 | Event | Pack |
 |-------|------|
-| Ops ready | Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1 |
+| Remote staging URL + auth-on config ready | Remote Auth-On Repeat (remote staging) — close PR-GAP-001 |
 | Production data policy owner ready | Low-code Pilot Week-3 Production Data Policy Pack v0.1 |
 | Rollback owner ready | Low-code Pilot Week-3 Production Rollback Plan Pack v0.1 |
 | Monitoring owner ready | Low-code Pilot Week-3 Production Monitoring Policy Pack v0.1 |
@@ -78,6 +80,10 @@ docs/ai-team/
 | Release owner assigned | Low-code Pilot Week-3 Release Ownership Pack v0.1 |
 | Final go/no-go owner assigned | Low-code Pilot Week-3 Final Go-No-Go Ownership Pack v0.1 |
 | P0/P1 suspected | Low-code Runtime Pilot Fix Pack v0.1 |
+
+Week-3 remote auth-on repeat v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_REMOTE_AUTH_ON_REPEAT_V0.1.md`.
 
 Week-3 production readiness gap closure plan v0.1:
 
@@ -902,7 +908,7 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-**Current status:** **PRODUCTION_READINESS_GAP_CLOSURE_PLAN_CREATED**
+**Current status:** **AUTH_ON_REPEAT_LOCAL_VERIFIED**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -910,13 +916,15 @@ Next implementation:
 
 **Production-ready claimed:** **no**
 
+**PR-GAP-001:** local auth-on repeat **PASS**; **remote staging pending**
+
 **Next mode:** **EVENT_BASED_GAP_CLOSURE**
 
 **Event-based next actions:**
 
 | Event | Pack |
 |-------|------|
-| Ops ready | Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1 |
+| Remote staging URL + auth-on config ready | Remote Auth-On Repeat (remote staging) — close PR-GAP-001 |
 | Production data policy owner ready | Low-code Pilot Week-3 Production Data Policy Pack v0.1 |
 | Rollback owner ready | Low-code Pilot Week-3 Production Rollback Plan Pack v0.1 |
 | Monitoring owner ready | Low-code Pilot Week-3 Production Monitoring Policy Pack v0.1 |
@@ -926,6 +934,10 @@ Next implementation:
 | Release owner assigned | Low-code Pilot Week-3 Release Ownership Pack v0.1 |
 | Final go/no-go owner assigned | Low-code Pilot Week-3 Final Go-No-Go Ownership Pack v0.1 |
 | P0/P1 suspected | Low-code Runtime Pilot Fix Pack v0.1 |
+
+Week-3 remote auth-on repeat v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_REMOTE_AUTH_ON_REPEAT_V0.1.md`.
 
 Week-3 production readiness gap closure plan v0.1:
 
