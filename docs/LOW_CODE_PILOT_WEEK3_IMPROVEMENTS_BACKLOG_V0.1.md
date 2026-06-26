@@ -4,25 +4,27 @@
 
 Consolidated **improvements backlog** for Week-3 low-code pilot feedback triage. Contains baseline placeholder items while **no real operator submissions** exist, plus structure for P0–P3 items when feedback arrives.
 
-**Backlog status:** **0 real feedback-derived items**. **25** items (BL-W3-000–024). **CADENCE_AD_HOC_ON_EVENT** — automatic continuation v0.8+ **disabled**.
+**Backlog status:** **0 real feedback-derived items**. **26** items (BL-W3-000–025). **LIVE_SESSION_CONFIRMED** — **REAL_FEEDBACK_PENDING**.
 
-Reference: `LOW_CODE_PILOT_WEEK3_MONITORING_CADENCE_DECISION_V0.1.md`
+Reference: `LOW_CODE_PILOT_WEEK3_FIRST_REAL_OPERATOR_FEEDBACK_CAPTURE_RETRY_V0.1.md`
 
 ## Backlog Status
 
 | Metric | Value |
 |--------|-------|
-| Total items | **25** |
+| Total items | **26** |
 | Real feedback-derived | **0** |
-| Baseline + scheduling + live session + override + monitoring + cadence | **25** |
+| Baseline + scheduling + live session + override + monitoring + cadence + capture retry | **26** |
 | Open P0 | **0** |
 | Open P1 | **0** |
 | Open P2 | **9** (BL-W3-010–018) |
-| Open P3 / baseline + monitoring + cadence | **16** |
+| Open P3 / baseline + monitoring + cadence + capture | **17** |
 | Last updated | 2026-06-26 |
-| Evidence status | **CADENCE_AD_HOC_ON_EVENT** — event-based monitoring active |
-| Unblock path | human PM → operators + dates → LIVE_SESSION_CONFIRMED → Capture Retry Pack |
-| Cadence note | v0.3–v0.7 loop **closed**; no automatic v0.8+ continuation packs |
+| Evidence status | **LIVE_SESSION_CONFIRMED** — REAL_FEEDBACK_PENDING |
+| Session date/time | **26.06.2026 12:30** |
+| PM / Coordinator | **Феликс Асаев** |
+| Operators | Пейсахов (TO), Крылова (SH), Курганова (BR) |
+| Unblock path | session execution → feedback forms → Real Operator Feedback Intake Pack |
 
 ## Backlog Table
 
@@ -52,7 +54,8 @@ Reference: `LOW_CODE_PILOT_WEEK3_MONITORING_CADENCE_DECISION_V0.1.md`
 | BL-W3-021 | pilot monitoring continuation pack v0.5 | ALL | Monitoring/reporting | P3 | Monitoring v0.5 — read-only PASS; feedback/sessions still blocked | v0.6 executed | Virtual PM / Pilot Coordinator | Pilot Monitoring Continuation v0.6 | OPEN | MONITORING_CONTINUATION_ACTIVE_WITH_BLOCKERS |
 | BL-W3-022 | pilot monitoring continuation pack v0.6 | ALL | Monitoring/reporting | P3 | Monitoring v0.6 — read-only PASS; feedback/sessions still blocked | v0.7 executed | Virtual PM / Pilot Coordinator | Pilot Monitoring Continuation v0.7 | OPEN | MONITORING_CONTINUATION_ACTIVE_WITH_BLOCKERS |
 | BL-W3-023 | pilot monitoring continuation pack v0.7 | ALL | Monitoring/reporting | P3 | Monitoring v0.7 — loop review complete; cadence decision recommended; no assumed code fixes | Cadence decision executed | Virtual PM / Pilot Coordinator | Monitoring Cadence Decision v0.1 | OPEN | MONITORING_CONTINUATION_ACTIVE_WITH_BLOCKERS |
-| BL-W3-024 | monitoring cadence decision pack v0.1 | ALL | Monitoring/reporting | P3 | Cadence set to event-based; continuation v0.8+ disabled; await PM/operator/ops triggers | Await trigger events per trigger matrix | Virtual PM / Pilot Coordinator | Event-based packs (see trigger matrix) | OPEN | CADENCE_AD_HOC_ON_EVENT |
+| BL-W3-024 | monitoring cadence decision pack v0.1 | ALL | Monitoring/reporting | P3 | Cadence set to event-based; continuation v0.8+ disabled; await PM/operator/ops triggers | Capture retry executed on LIVE_SESSION_CONFIRMED | Virtual PM / Pilot Coordinator | First Real Operator Feedback Capture Retry v0.1 | OPEN | CADENCE_AD_HOC_ON_EVENT |
+| BL-W3-025 | first real operator feedback capture retry pack v0.1 | ALL | Documentation/runbook | P3 | LIVE_SESSION_CONFIRMED — PM Феликс Асаев; operators assigned; 26.06.2026 12:30; feedback forms pending | Await completed operator forms; then Intake Pack | Феликс Асаев | Real Operator Feedback Intake v0.1 | OPEN | LIVE_SESSION_CONFIRMED_REAL_FEEDBACK_PENDING |
 
 ## P0 Items
 
@@ -72,19 +75,18 @@ When P1 appears: add row with owner assigned, target fix pack, decision **GO_WIT
 |----|---------|-------------|--------|
 | BL-W3-010–018 | Session confirmation / override / monitoring v0.1 | Event-based trigger | OPEN |
 | BL-W3-019–023 | Monitoring v0.3–v0.7 loop | **Closed** — cadence decision executed | OPEN |
-| BL-W3-024 | Cadence decision v0.1 | Await trigger events | OPEN |
+| BL-W3-024 | Cadence decision v0.1 | Capture retry triggered | OPEN |
+| BL-W3-025 | Capture retry — sessions confirmed | Real Operator Feedback Intake v0.1 | OPEN |
 
 **Rules (reinforced):**
 
-- Monitoring continuation loop **replaced by cadence decision** (`CADENCE_AD_HOC_ON_EVENT`).
-- Repeated v0.x monitoring continuation is **no longer default**.
+- **LIVE_SESSION_CONFIRMED** achieved — PM **Феликс Асаев**; operators assigned; **26.06.2026 12:30**.
 - Real feedback remains **0** — no code fixes from assumed operator feedback.
-- Live operator sessions remain **unconfirmed** (TBD).
+- Feedback-based polish/expansion **blocked** until actual forms completed and triaged.
+- Pilot expansion **blocked** until real feedback reviewed.
+- Production readiness claim **blocked** until real feedback and any P0/P1/P2 findings resolved.
 - Remote Auth-On Repeat remains **parallel pending ops readiness** (BL-W3-003).
-- Feedback-based polish/expansion **blocked** until real feedback or documented PM override.
-- Pilot expansion **blocked** until operator sessions + triage.
-- Production readiness claim **blocked** until real submissions.
-- Unblock path: human PM → operators + dates → LIVE_SESSION_CONFIRMED → Capture Retry Pack.
+- Monitoring cadence remains **CADENCE_AD_HOC_ON_EVENT** — no automatic v0.8+ continuation packs.
 
 Route to PM follow-up; no code fixes without real P0/P1 evidence.
 
@@ -131,8 +133,9 @@ Explicit list (BL-W3-000–009):
 | **Low-code Pilot Week-3 Pilot Monitoring Continuation Pack v0.6** | Completed | MONITORING_CONTINUATION_ACTIVE_WITH_BLOCKERS |
 | **Low-code Pilot Week-3 Pilot Monitoring Continuation Pack v0.7** | Completed | MONITORING_CONTINUATION_ACTIVE_WITH_BLOCKERS — cadence decision recommended |
 | **Low-code Pilot Week-3 Monitoring Cadence Decision Pack v0.1** | Completed | **CADENCE_AD_HOC_ON_EVENT** — no automatic v0.8+ |
-| **Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1** | Ops staging config ready | BL-W3-003 — parallel track; trigger event |
-| **Low-code Pilot Week-3 First Real Operator Feedback Capture Retry Pack v0.1** | After LIVE_SESSION_CONFIRMED | Blocked — trigger event |
+| **Low-code Pilot Week-3 First Real Operator Feedback Capture Retry Pack v0.1** | Completed | **LIVE_SESSION_CONFIRMED_REAL_FEEDBACK_PENDING** |
+| **Low-code Pilot Week-3 Real Operator Feedback Intake Pack v0.1** | **Next Action** | When all 3 operator forms completed |
+| **Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1** | Ops staging config ready | BL-W3-003 — parallel track |
 | **Low-code Pilot Week-3 Monitoring Evidence Refresh Pack v0.1** | Stakeholder requests fresh evidence | Trigger event |
 | **Low-code Pilot Week-3 Feedback-Based UI/Docs Polish Selection Pack v0.1** | After real feedback, no P0/P1 | Blocked until submissions |
 | **Low-code Pilot Week-3 Pilot UI Help Text Polish Pack v0.1** | P3 UX themes after operator session | Docs/UI copy only; no API change |

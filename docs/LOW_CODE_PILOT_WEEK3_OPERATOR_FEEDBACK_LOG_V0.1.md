@@ -4,18 +4,20 @@
 
 Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER**, **SHIPMENT**, and **BILLING_REGISTER**.
 
-**Current status:** Monitoring cadence decision v0.1 — **CADENCE_AD_HOC_ON_EVENT**. Continuation loop v0.3–v0.7 **closed**. Sessions still **NOT confirmed**. **Still no real operator submission**.
+**Current status:** **LIVE_SESSION_CONFIRMED** — Capture Retry v0.1 executed. PM **Феликс Асаев**; sessions **26.06.2026 12:30** with Пейсахов / Крылова / Курганова. **REAL_FEEDBACK_PENDING** (0 submissions).
 
 ## Current Status
 
 | Metric | Value |
 |--------|-------|
-| Total entries | **19** |
+| Total entries | **22** |
 | Real operator submissions | **0** |
+| Live session status | **LIVE_SESSION_CONFIRMED** |
+| Session date/time | **26.06.2026 12:30** |
+| PM / Coordinator | **Феликс Асаев** |
 | Monitoring cadence | **CADENCE_AD_HOC_ON_EVENT** |
-| Automatic continuation v0.8+ | **disabled** |
-| PM override decision | **PM_OVERRIDE_NOT_REQUESTED** |
-| Session dates confirmed | **no — TBD** |
+| Capture retry decision | **LIVE_SESSION_CONFIRMED_REAL_FEEDBACK_PENDING** |
+| OPEN (capture retry pending) | **3** |
 | OPEN (monitoring/cadence) | **6** |
 | NEEDS_INFO | **10** |
 | Last updated | 2026-06-26 |
@@ -43,6 +45,9 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | W3-FB-MONITOR-V06-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | pilot monitoring continuation | P3 | Pilot monitoring v0.6 continued while real operator feedback and live session confirmation remain pending | OPEN | Virtual PM / Pilot Coordinator | Pilot Monitoring Continuation v0.7 / Remote Auth-On Repeat v0.1 / Capture Retry when confirmed | monitoring can continue, but feedback-based polish/expansion remains blocked |
 | W3-FB-MONITOR-V07-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | pilot monitoring continuation | P3 | Pilot monitoring v0.7 continued while real operator feedback and live session confirmation remain pending; loop review recommends cadence decision | OPEN | Virtual PM / Pilot Coordinator | Monitoring Cadence Decision v0.1 / Remote Auth-On Repeat v0.1 / Capture Retry when confirmed | monitoring can continue, but feedback-based polish/expansion remains blocked |
 | W3-FB-CADENCE-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | monitoring cadence decision | P3 | Monitoring loop v0.3–v0.7 reviewed; cadence changed to event-based monitoring until PM/operator unblock | OPEN | Virtual PM / Pilot Coordinator | Remote Auth-On Repeat v0.1 when ops ready / Capture Retry when confirmed / Monitoring Evidence Refresh when requested | do not create additional monitoring continuation packs unless a trigger event occurs |
+| W3-FB-CAPTURE-RETRY-001 | 2026-06-26 | Пейсахов Семен | TRANSPORT_ORDER | DEMO-TO-001 | live operator feedback | P3 | Live session confirmed 26.06.2026 12:30 — TRANSPORT_ORDER feedback pending | SCHEDULED_OR_PENDING_FEEDBACK | Феликс Асаев | Real Operator Feedback Intake v0.1 | pending real operator input |
+| W3-FB-CAPTURE-RETRY-002 | 2026-06-26 | Крылова Любовь | SHIPMENT | DEMO-SH-PLANNED | live operator feedback | P3 | Live session confirmed 26.06.2026 12:30 — SHIPMENT feedback pending | SCHEDULED_OR_PENDING_FEEDBACK | Феликс Асаев | Real Operator Feedback Intake v0.1 | pending real operator input |
+| W3-FB-CAPTURE-RETRY-003 | 2026-06-26 | Курганова Наталья | BILLING_REGISTER | DEMO-BR-001 | live operator feedback | P3 | Live session confirmed 26.06.2026 12:30 — BILLING_REGISTER feedback pending | SCHEDULED_OR_PENDING_FEEDBACK | Феликс Асаев | Real Operator Feedback Intake v0.1 | pending real operator input |
 
 ### Column guide
 

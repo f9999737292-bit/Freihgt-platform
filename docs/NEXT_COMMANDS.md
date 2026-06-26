@@ -52,18 +52,31 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** No automatic monitoring continuation pack.
+**Next pack (use AI team):** Low-code Pilot Week-3 Real Operator Feedback Intake Pack v0.1.
 
-**Event-based next actions:**
+**Current status:** **LIVE_SESSION_CONFIRMED**
 
-* If ops ready: **Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1**
-* If human PM assigns operators/dates and sessions are confirmed: **Low-code Pilot Week-3 First Real Operator Feedback Capture Retry Pack v0.1**
-* If stakeholder requests fresh evidence: **Low-code Pilot Week-3 Monitoring Evidence Refresh Pack v0.1**
-* If P0/P1 suspected: **Low-code Runtime Pilot Fix Pack v0.1**
+**Use Intake Pack when:**
 
-**Unblock path:** human PM → operators + dates → LIVE_SESSION_CONFIRMED → Low-code Pilot Week-3 First Real Operator Feedback Capture Retry Pack v0.1.
+* Пейсахов Семен completed TRANSPORT_ORDER feedback form
+* Крылова Любовь completed SHIPMENT feedback form
+* Курганова Наталья completed BILLING_REGISTER feedback form
 
-**If P0 during monitoring:** Low-code Runtime Pilot Fix Pack v0.1.
+**Parallel when ops ready:** Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1.
+
+**If P0/P1 suspected:** Low-code Runtime Pilot Fix Pack v0.1.
+
+Week-3 first real operator feedback capture retry v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_FIRST_REAL_OPERATOR_FEEDBACK_CAPTURE_RETRY_V0.1.md`.
+
+Week-3 operator feedback forms v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_OPERATOR_FEEDBACK_FORMS_V0.1.md`.
+
+Week-3 live operator session run sheet (confirmed) v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_SESSION_RUN_SHEET_CONFIRMED_V0.1.md`.
 
 Week-3 monitoring cadence decision v0.1:
 
@@ -816,16 +829,31 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-**No automatic monitoring continuation pack.**
+**Current status:** **LIVE_SESSION_CONFIRMED**
 
-Event-based next actions:
+1. **Low-code Pilot Week-3 Real Operator Feedback Intake Pack v0.1** — when all 3 operator forms completed
 
-1. If ops ready → **Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1**
-2. If human PM assigns operators/dates and sessions confirmed → **Low-code Pilot Week-3 First Real Operator Feedback Capture Retry Pack v0.1**
-3. If stakeholder requests fresh evidence → **Low-code Pilot Week-3 Monitoring Evidence Refresh Pack v0.1**
-4. If P0/P1 suspected → **Low-code Runtime Pilot Fix Pack v0.1**
+**Use when:**
 
-**Unblock path:** human PM → operators + dates → LIVE_SESSION_CONFIRMED → Low-code Pilot Week-3 First Real Operator Feedback Capture Retry Pack v0.1.
+* Пейсахов Семен completed TRANSPORT_ORDER feedback form
+* Крылова Любовь completed SHIPMENT feedback form
+* Курганова Наталья completed BILLING_REGISTER feedback form
+
+**Parallel when ops ready:** Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1.
+
+**If P0/P1 suspected:** Low-code Runtime Pilot Fix Pack v0.1.
+
+Week-3 first real operator feedback capture retry v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_FIRST_REAL_OPERATOR_FEEDBACK_CAPTURE_RETRY_V0.1.md`.
+
+Week-3 operator feedback forms v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_OPERATOR_FEEDBACK_FORMS_V0.1.md`.
+
+Week-3 live operator session run sheet (confirmed) v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_SESSION_RUN_SHEET_CONFIRMED_V0.1.md`.
 
 Week-3 monitoring cadence decision v0.1:
 
