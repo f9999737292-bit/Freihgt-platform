@@ -4,17 +4,19 @@
 
 Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER**, **SHIPMENT**, and **BILLING_REGISTER**.
 
-**Current status:** Monitoring continuation active — **MONITORING_CONTINUATION_ACTIVE**. Sessions still **NOT confirmed**. **Still no real operator submission**. Capture retry **blocked**.
+**Current status:** Monitoring continuation v0.7 — **MONITORING_CONTINUATION_ACTIVE_WITH_BLOCKERS**. Loop review complete — **cadence decision recommended**. Sessions still **NOT confirmed**. **Still no real operator submission**.
 
 ## Current Status
 
 | Metric | Value |
 |--------|-------|
-| Total entries | **13** |
+| Total entries | **18** |
 | Real operator submissions | **0** |
-| Monitoring decision | **MONITORING_CONTINUATION_ACTIVE** |
+| Monitoring decision | **MONITORING_CONTINUATION_ACTIVE_WITH_BLOCKERS** |
+| Cadence recommendation | **Monitoring Cadence Decision Pack v0.1** |
 | PM override decision | **PM_OVERRIDE_NOT_REQUESTED** |
 | Session dates confirmed | **no — TBD** |
+| OPEN (monitoring) | **5** |
 | NEEDS_INFO | **10** |
 | Last updated | 2026-06-26 |
 
@@ -35,12 +37,17 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | W3-FB-LIVE-CONFIRM-FOLLOWUP-001 | 2026-06-24 | — | CROSS_ENTITY | TO/SH/BR demos | live session confirmation follow-up | P2 | Live operator session confirmation follow-up completed; sessions still pending unless real dates/operators supplied | NEEDS_INFO | Virtual PM / Pilot Coordinator | PM Override Decision v0.1 | feedback capture remains blocked until live sessions are confirmed and completed |
 | W3-FB-PM-OVERRIDE-001 | 2026-06-24 | — | CROSS_ENTITY | TO/SH/BR demos | PM override decision | P2 | PM override evaluated — not requested; feedback capture and polish/expansion remain blocked | NEEDS_INFO | Virtual PM / Pilot Coordinator | Pilot Monitoring Continuation v0.1 | PM_OVERRIDE_NOT_REQUESTED — await real operators or future documented override |
 | W3-FB-MON-CONT-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | monitoring continuation | P2 | Read-only monitoring continuation executed — runtime PASS; zero writes; feedback track still blocked | NEEDS_INFO | Pilot lead | Pilot Monitoring Continuation v0.2 | MONITORING_CONTINUATION_ACTIVE — await operators or next monitoring cycle |
+| W3-FB-MONITOR-V03-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | pilot monitoring continuation | P3 | Pilot monitoring v0.3 continued while real operator feedback and live session confirmation remain pending | OPEN | Virtual PM / Pilot Coordinator | Pilot Monitoring Continuation v0.4 | monitoring can continue, but feedback-based polish/expansion remains blocked |
+| W3-FB-MONITOR-V04-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | pilot monitoring continuation | P3 | Pilot monitoring v0.4 continued while real operator feedback and live session confirmation remain pending | OPEN | Virtual PM / Pilot Coordinator | Pilot Monitoring Continuation v0.5 | monitoring can continue, but feedback-based polish/expansion remains blocked |
+| W3-FB-MONITOR-V05-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | pilot monitoring continuation | P3 | Pilot monitoring v0.5 continued while real operator feedback and live session confirmation remain pending | OPEN | Virtual PM / Pilot Coordinator | Pilot Monitoring Continuation v0.6 | monitoring can continue, but feedback-based polish/expansion remains blocked |
+| W3-FB-MONITOR-V06-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | pilot monitoring continuation | P3 | Pilot monitoring v0.6 continued while real operator feedback and live session confirmation remain pending | OPEN | Virtual PM / Pilot Coordinator | Pilot Monitoring Continuation v0.7 / Remote Auth-On Repeat v0.1 / Capture Retry when confirmed | monitoring can continue, but feedback-based polish/expansion remains blocked |
+| W3-FB-MONITOR-V07-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | pilot monitoring continuation | P3 | Pilot monitoring v0.7 continued while real operator feedback and live session confirmation remain pending; loop review recommends cadence decision | OPEN | Virtual PM / Pilot Coordinator | Monitoring Cadence Decision v0.1 / Remote Auth-On Repeat v0.1 / Capture Retry when confirmed | monitoring can continue, but feedback-based polish/expansion remains blocked |
 
 ### Column guide
 
 | Column | Description |
 |--------|-------------|
-| **id** | `FB-W3-###`, …, `W3-FB-PM-OVERRIDE-###`, or `W3-FB-MON-CONT-###` |
+| **id** | `FB-W3-###`, …, or `W3-FB-MONITOR-V0#-###` |
 | **date** | Submission or triage date |
 | **operator** | Name or role |
 | **entity_type** | TRANSPORT_ORDER / SHIPMENT / BILLING_REGISTER / ALL / CROSS_ENTITY |

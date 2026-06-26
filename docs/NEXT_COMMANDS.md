@@ -52,7 +52,73 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** Low-code Pilot Week-3 Pilot Monitoring Continuation Pack v0.2.
+**Next pack (use AI team):** Low-code Pilot Week-3 Monitoring Cadence Decision Pack v0.1.
+
+**Parallel when ops ready:** Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1.
+
+**Unblock path:** human PM → operators + dates → LIVE_SESSION_CONFIRMED → Low-code Pilot Week-3 First Real Operator Feedback Capture Retry Pack v0.1.
+
+**If P0 during monitoring:** Low-code Runtime Pilot Fix Pack v0.1.
+
+Week-3 pilot monitoring continuation v0.7:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PILOT_MONITORING_CONTINUATION_V0.7.md`.
+
+Week-3 monitoring evidence snapshot v0.7:
+
+See `docs/LOW_CODE_PILOT_WEEK3_MONITORING_EVIDENCE_SNAPSHOT_V0.7.md`.
+
+Week-3 monitoring decision note v0.7:
+
+See `docs/LOW_CODE_PILOT_WEEK3_MONITORING_DECISION_NOTE_V0.7.md`.
+
+Week-3 pilot monitoring continuation v0.6:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PILOT_MONITORING_CONTINUATION_V0.6.md`.
+
+Week-3 monitoring evidence snapshot v0.6:
+
+See `docs/LOW_CODE_PILOT_WEEK3_MONITORING_EVIDENCE_SNAPSHOT_V0.6.md`.
+
+Week-3 monitoring decision note v0.6:
+
+See `docs/LOW_CODE_PILOT_WEEK3_MONITORING_DECISION_NOTE_V0.6.md`.
+
+Week-3 pilot monitoring continuation v0.5:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PILOT_MONITORING_CONTINUATION_V0.5.md`.
+
+Week-3 monitoring evidence snapshot v0.5:
+
+See `docs/LOW_CODE_PILOT_WEEK3_MONITORING_EVIDENCE_SNAPSHOT_V0.5.md`.
+
+Week-3 monitoring decision note v0.5:
+
+See `docs/LOW_CODE_PILOT_WEEK3_MONITORING_DECISION_NOTE_V0.5.md`.
+
+Week-3 pilot monitoring continuation v0.4:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PILOT_MONITORING_CONTINUATION_V0.4.md`.
+
+Week-3 monitoring evidence snapshot v0.4:
+
+See `docs/LOW_CODE_PILOT_WEEK3_MONITORING_EVIDENCE_SNAPSHOT_V0.4.md`.
+
+Week-3 monitoring decision note v0.4:
+
+See `docs/LOW_CODE_PILOT_WEEK3_MONITORING_DECISION_NOTE_V0.4.md`.
+
+Week-3 pilot monitoring continuation v0.3:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PILOT_MONITORING_CONTINUATION_V0.3.md`.
+
+Week-3 monitoring evidence snapshot v0.3:
+
+See `docs/LOW_CODE_PILOT_WEEK3_MONITORING_EVIDENCE_SNAPSHOT_V0.3.md`.
+
+Week-3 monitoring decision note v0.3:
+
+See `docs/LOW_CODE_PILOT_WEEK3_MONITORING_DECISION_NOTE_V0.3.md`.
 
 Week-3 pilot monitoring continuation:
 
@@ -108,7 +174,7 @@ Week-3 virtual PM owner:
 - **PM owner assigned:** yes — virtual
 - **Session dates:** **TBD** (proposed only — not confirmed)
 - **Real feedback count:** 0
-- **Decision:** MONITORING_CONTINUATION_ACTIVE
+- **Decision:** MONITORING_CONTINUATION_ACTIVE_WITH_BLOCKERS
 - **Blocked:** capture retry, UI/docs polish, pilot expansion, production readiness — until sessions confirmed + completed or future documented PM override
 
 Week-3 PM scheduling decision:
@@ -733,7 +799,71 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-1. Low-code Pilot Week-3 Pilot Monitoring Continuation Pack v0.2
+1. Low-code Pilot Week-3 Monitoring Cadence Decision Pack v0.1
+
+**Parallel when ops ready:** Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1.
+
+**Unblock path:** human PM → operators + dates → LIVE_SESSION_CONFIRMED → Low-code Pilot Week-3 First Real Operator Feedback Capture Retry Pack v0.1.
+
+Week-3 pilot monitoring continuation v0.7:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PILOT_MONITORING_CONTINUATION_V0.7.md`.
+
+Week-3 monitoring evidence snapshot v0.7:
+
+See `docs/LOW_CODE_PILOT_WEEK3_MONITORING_EVIDENCE_SNAPSHOT_V0.7.md`.
+
+Week-3 monitoring decision note v0.7:
+
+See `docs/LOW_CODE_PILOT_WEEK3_MONITORING_DECISION_NOTE_V0.7.md`.
+
+Week-3 pilot monitoring continuation v0.6:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PILOT_MONITORING_CONTINUATION_V0.6.md`.
+
+Week-3 monitoring evidence snapshot v0.6:
+
+See `docs/LOW_CODE_PILOT_WEEK3_MONITORING_EVIDENCE_SNAPSHOT_V0.6.md`.
+
+Week-3 monitoring decision note v0.6:
+
+See `docs/LOW_CODE_PILOT_WEEK3_MONITORING_DECISION_NOTE_V0.6.md`.
+
+Week-3 pilot monitoring continuation v0.5:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PILOT_MONITORING_CONTINUATION_V0.5.md`.
+
+Week-3 monitoring evidence snapshot v0.5:
+
+See `docs/LOW_CODE_PILOT_WEEK3_MONITORING_EVIDENCE_SNAPSHOT_V0.5.md`.
+
+Week-3 monitoring decision note v0.5:
+
+See `docs/LOW_CODE_PILOT_WEEK3_MONITORING_DECISION_NOTE_V0.5.md`.
+
+Week-3 pilot monitoring continuation v0.4:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PILOT_MONITORING_CONTINUATION_V0.4.md`.
+
+Week-3 monitoring evidence snapshot v0.4:
+
+See `docs/LOW_CODE_PILOT_WEEK3_MONITORING_EVIDENCE_SNAPSHOT_V0.4.md`.
+
+Week-3 monitoring decision note v0.4:
+
+See `docs/LOW_CODE_PILOT_WEEK3_MONITORING_DECISION_NOTE_V0.4.md`.
+
+Week-3 pilot monitoring continuation v0.3:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PILOT_MONITORING_CONTINUATION_V0.3.md`.
+
+Week-3 monitoring evidence snapshot v0.3:
+
+See `docs/LOW_CODE_PILOT_WEEK3_MONITORING_EVIDENCE_SNAPSHOT_V0.3.md`.
+
+Week-3 monitoring decision note v0.3:
+
+See `docs/LOW_CODE_PILOT_WEEK3_MONITORING_DECISION_NOTE_V0.3.md`.
 
 Week-3 pilot monitoring continuation:
 
@@ -785,7 +915,7 @@ See `docs/LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_FEEDBACK_CHECKLIST_V0.1.md`.
 
 Week-3 virtual PM owner:
 
-**Virtual PM / Pilot Coordinator** — assigned (virtual). Session dates **TBD**. Real operator feedback **0**. Decision: **MONITORING_CONTINUATION_ACTIVE**.
+**Virtual PM / Pilot Coordinator** — assigned (virtual). Session dates **TBD**. Real operator feedback **0**. Decision: **MONITORING_CONTINUATION_ACTIVE_WITH_BLOCKERS**.
 
 Week-3 PM scheduling decision:
 

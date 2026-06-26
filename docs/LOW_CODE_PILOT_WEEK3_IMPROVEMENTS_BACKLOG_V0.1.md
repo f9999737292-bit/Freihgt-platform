@@ -4,23 +4,25 @@
 
 Consolidated **improvements backlog** for Week-3 low-code pilot feedback triage. Contains baseline placeholder items while **no real operator submissions** exist, plus structure for P0–P3 items when feedback arrives.
 
-**Backlog status:** **0 real feedback-derived items**. **19** items (BL-W3-000–018). **MONITORING_CONTINUATION_ACTIVE** — next monitoring cycle or remote auth-on repeat.
+**Backlog status:** **0 real feedback-derived items**. **24** items (BL-W3-000–023). **MONITORING_CONTINUATION_ACTIVE_WITH_BLOCKERS** — v0.7 loop complete; **Monitoring Cadence Decision** recommended next.
 
-Reference: `LOW_CODE_PILOT_WEEK3_PILOT_MONITORING_CONTINUATION_V0.1.md`
+Reference: `LOW_CODE_PILOT_WEEK3_PILOT_MONITORING_CONTINUATION_V0.7.md`
 
 ## Backlog Status
 
 | Metric | Value |
 |--------|-------|
-| Total items | **19** |
+| Total items | **24** |
 | Real feedback-derived | **0** |
-| Baseline + scheduling + live session prep + confirmation + follow-up + override + monitoring continuation | **19** |
+| Baseline + scheduling + live session + override + monitoring v0.1–v0.7 | **24** |
 | Open P0 | **0** |
 | Open P1 | **0** |
 | Open P2 | **9** (BL-W3-010–018) |
-| Open P3 / baseline | **10** |
+| Open P3 / baseline + monitoring v0.3–v0.7 + cadence | **15** |
 | Last updated | 2026-06-26 |
-| Evidence status | **MONITORING_CONTINUATION_ACTIVE** — feedback blocked; monitoring continues |
+| Evidence status | **MONITORING_CONTINUATION_ACTIVE_WITH_BLOCKERS** — cadence decision recommended |
+| Unblock path | human PM → operators + dates → LIVE_SESSION_CONFIRMED → Capture Retry Pack |
+| Cadence note | v0.3–v0.7 loop complete — avoid v0.8+ daily packs without new trigger |
 
 ## Backlog Table
 
@@ -44,7 +46,12 @@ Reference: `LOW_CODE_PILOT_WEEK3_PILOT_MONITORING_CONTINUATION_V0.1.md`
 | BL-W3-015 | live operator session confirmation pack | ALL | Documentation/runbook | P2 | Live session confirmation reviewed — operators/dates not confirmed | Follow-up pack executed; still pending | Virtual PM / Pilot Coordinator | PM Override Decision v0.1 | OPEN | LIVE_SESSION_CONFIRMATION_PENDING |
 | BL-W3-016 | live session confirmation follow-up pack | ALL | Documentation/runbook | P2 | Confirmation follow-up — operators/dates still TBD | PM override decision executed | Virtual PM / Pilot Coordinator | Pilot Monitoring Continuation v0.1 | OPEN | LIVE_SESSION_CONFIRMATION_STILL_PENDING |
 | BL-W3-017 | PM override decision pack | ALL | Documentation/runbook | P2 | PM override evaluated — not requested; blocked work unchanged | Monitoring continuation executed | Virtual PM / Pilot Coordinator | Pilot Monitoring Continuation v0.2 | OPEN | PM_OVERRIDE_NOT_REQUESTED |
-| BL-W3-018 | pilot monitoring continuation pack | ALL | Monitoring/reporting | P2 | Read-only monitoring continuation — runtime PASS; zero writes; feedback still blocked | Next monitoring cycle or await operators | Pilot lead | Pilot Monitoring Continuation v0.2 | OPEN | MONITORING_CONTINUATION_ACTIVE |
+| BL-W3-018 | pilot monitoring continuation pack v0.1 | ALL | Monitoring/reporting | P2 | Read-only monitoring continuation v0.1 — runtime PASS; zero writes; feedback still blocked | v0.3 executed | Pilot lead | Pilot Monitoring Continuation v0.3 | OPEN | MONITORING_CONTINUATION_ACTIVE |
+| BL-W3-019 | pilot monitoring continuation pack v0.3 | ALL | Monitoring/reporting | P3 | Monitoring v0.3 — read-only PASS; feedback/sessions still blocked | v0.4 executed | Virtual PM / Pilot Coordinator | Pilot Monitoring Continuation v0.4 | OPEN | MONITORING_CONTINUATION_ACTIVE_WITH_BLOCKERS |
+| BL-W3-020 | pilot monitoring continuation pack v0.4 | ALL | Monitoring/reporting | P3 | Monitoring v0.4 — read-only PASS; feedback/sessions still blocked | v0.5 executed | Virtual PM / Pilot Coordinator | Pilot Monitoring Continuation v0.5 | OPEN | MONITORING_CONTINUATION_ACTIVE_WITH_BLOCKERS |
+| BL-W3-021 | pilot monitoring continuation pack v0.5 | ALL | Monitoring/reporting | P3 | Monitoring v0.5 — read-only PASS; feedback/sessions still blocked | v0.6 executed | Virtual PM / Pilot Coordinator | Pilot Monitoring Continuation v0.6 | OPEN | MONITORING_CONTINUATION_ACTIVE_WITH_BLOCKERS |
+| BL-W3-022 | pilot monitoring continuation pack v0.6 | ALL | Monitoring/reporting | P3 | Monitoring v0.6 — read-only PASS; feedback/sessions still blocked | v0.7 executed | Virtual PM / Pilot Coordinator | Pilot Monitoring Continuation v0.7 | OPEN | MONITORING_CONTINUATION_ACTIVE_WITH_BLOCKERS |
+| BL-W3-023 | pilot monitoring continuation pack v0.7 | ALL | Monitoring/reporting | P3 | Monitoring v0.7 — loop review complete; cadence decision recommended; no assumed code fixes | Monitoring Cadence Decision v0.1; await operators or ops | Virtual PM / Pilot Coordinator | Monitoring Cadence Decision v0.1 | OPEN | MONITORING_CONTINUATION_ACTIVE_WITH_BLOCKERS |
 
 ## P0 Items
 
@@ -62,14 +69,16 @@ When P1 appears: add row with owner assigned, target fix pack, decision **GO_WIT
 
 | id | summary | target pack | status |
 |----|---------|-------------|--------|
-| BL-W3-010–017 | Session confirmation / override path | Pilot Monitoring Continuation v0.2 | OPEN |
-| BL-W3-018 | Monitoring continuation active | Pilot Monitoring Continuation v0.2 | OPEN |
+| BL-W3-010–018 | Session confirmation / override / monitoring v0.1 | Monitoring Cadence Decision v0.1 | OPEN |
+| BL-W3-019–023 | Monitoring v0.3–v0.7 loop complete | Monitoring Cadence Decision v0.1 | OPEN |
 
 **Rules (reinforced):**
 
-- Real feedback remains **0** — no code fixes from assumptions.
-- Session confirmation remains active **P2 management blocker**.
-- UI/docs polish selection **blocked** until real feedback exists.
+- Real feedback remains **0** — no code fixes from assumed operator feedback.
+- Live operator sessions remain **unconfirmed** (TBD).
+- Repeated monitoring loop (v0.3–v0.7) should move to **Monitoring Cadence Decision** if no new PM/operator/ops data.
+- Remote Auth-On Repeat remains **parallel pending ops readiness** (BL-W3-003).
+- UI/docs polish selection **blocked** until real feedback or documented PM override.
 - Pilot expansion **blocked** until operator sessions + triage.
 - Production readiness claim **blocked** until real submissions.
 
@@ -112,7 +121,12 @@ Explicit list (BL-W3-000–009):
 | **Low-code Pilot Week-3 Live Operator Session Confirmation Follow-up Pack v0.1** | Completed | LIVE_SESSION_CONFIRMATION_STILL_PENDING |
 | **Low-code Pilot Week-3 PM Override Decision Pack v0.1** | Completed | PM_OVERRIDE_NOT_REQUESTED |
 | **Low-code Pilot Week-3 Pilot Monitoring Continuation Pack v0.1** | Completed | MONITORING_CONTINUATION_ACTIVE |
-| **Low-code Pilot Week-3 Pilot Monitoring Continuation Pack v0.2** | **Next Action** | Next read-only monitoring cycle |
+| **Low-code Pilot Week-3 Pilot Monitoring Continuation Pack v0.3** | Completed | MONITORING_CONTINUATION_ACTIVE_WITH_BLOCKERS |
+| **Low-code Pilot Week-3 Pilot Monitoring Continuation Pack v0.4** | Completed | MONITORING_CONTINUATION_ACTIVE_WITH_BLOCKERS |
+| **Low-code Pilot Week-3 Pilot Monitoring Continuation Pack v0.5** | Completed | MONITORING_CONTINUATION_ACTIVE_WITH_BLOCKERS |
+| **Low-code Pilot Week-3 Pilot Monitoring Continuation Pack v0.6** | Completed | MONITORING_CONTINUATION_ACTIVE_WITH_BLOCKERS |
+| **Low-code Pilot Week-3 Pilot Monitoring Continuation Pack v0.7** | Completed | MONITORING_CONTINUATION_ACTIVE_WITH_BLOCKERS — cadence decision recommended |
+| **Low-code Pilot Week-3 Monitoring Cadence Decision Pack v0.1** | **Next Action** | Set weekly/on-event/pause cadence; avoid v0.8+ daily loop |
 | **Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1** | Ops staging config ready | BL-W3-003 — parallel track |
 | **Low-code Pilot Week-3 First Real Operator Feedback Capture Retry Pack v0.1** | After LIVE_SESSION_CONFIRMED | Blocked |
 | **Low-code Pilot Week-3 Feedback-Based UI/Docs Polish Selection Pack v0.1** | After real feedback, no P0/P1 | Blocked until submissions |
