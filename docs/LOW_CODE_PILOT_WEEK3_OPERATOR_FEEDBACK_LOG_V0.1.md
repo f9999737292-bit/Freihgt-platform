@@ -4,22 +4,20 @@
 
 Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER**, **SHIPMENT**, and **BILLING_REGISTER**.
 
-**Current status:** **LIVE_SESSION_CONFIRMED** — Capture Retry v0.1 executed. PM **Феликс Асаев**; sessions **26.06.2026 12:30** with Пейсахов / Крылова / Курганова. **REAL_FEEDBACK_PENDING** (0 submissions).
+**Current status:** **REAL_FEEDBACK_INTAKE_COMPLETED_READY** — **3 / 3** forms; all ratings **5/5**; all **ready**; замечаний нет.
 
 ## Current Status
 
 | Metric | Value |
 |--------|-------|
-| Total entries | **22** |
-| Real operator submissions | **0** |
-| Live session status | **LIVE_SESSION_CONFIRMED** |
+| Total entries | **23** |
+| Real operator submissions | **3** |
+| Forms completed | **3 / 3** |
+| Average rating | **5.0** |
+| Intake decision | **REAL_FEEDBACK_INTAKE_COMPLETED_READY** |
+| P0 / P1 / P2 from intake | **0 / 0 / 0** |
 | Session date/time | **26.06.2026 12:30** |
 | PM / Coordinator | **Феликс Асаев** |
-| Monitoring cadence | **CADENCE_AD_HOC_ON_EVENT** |
-| Capture retry decision | **LIVE_SESSION_CONFIRMED_REAL_FEEDBACK_PENDING** |
-| OPEN (capture retry pending) | **3** |
-| OPEN (monitoring/cadence) | **6** |
-| NEEDS_INFO | **10** |
 | Last updated | 2026-06-26 |
 
 ## Feedback Table
@@ -45,9 +43,10 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | W3-FB-MONITOR-V06-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | pilot monitoring continuation | P3 | Pilot monitoring v0.6 continued while real operator feedback and live session confirmation remain pending | OPEN | Virtual PM / Pilot Coordinator | Pilot Monitoring Continuation v0.7 / Remote Auth-On Repeat v0.1 / Capture Retry when confirmed | monitoring can continue, but feedback-based polish/expansion remains blocked |
 | W3-FB-MONITOR-V07-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | pilot monitoring continuation | P3 | Pilot monitoring v0.7 continued while real operator feedback and live session confirmation remain pending; loop review recommends cadence decision | OPEN | Virtual PM / Pilot Coordinator | Monitoring Cadence Decision v0.1 / Remote Auth-On Repeat v0.1 / Capture Retry when confirmed | monitoring can continue, but feedback-based polish/expansion remains blocked |
 | W3-FB-CADENCE-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | monitoring cadence decision | P3 | Monitoring loop v0.3–v0.7 reviewed; cadence changed to event-based monitoring until PM/operator unblock | OPEN | Virtual PM / Pilot Coordinator | Remote Auth-On Repeat v0.1 when ops ready / Capture Retry when confirmed / Monitoring Evidence Refresh when requested | do not create additional monitoring continuation packs unless a trigger event occurs |
-| W3-FB-CAPTURE-RETRY-001 | 2026-06-26 | Пейсахов Семен | TRANSPORT_ORDER | DEMO-TO-001 | live operator feedback | P3 | Live session confirmed 26.06.2026 12:30 — TRANSPORT_ORDER feedback pending | SCHEDULED_OR_PENDING_FEEDBACK | Феликс Асаев | Real Operator Feedback Intake v0.1 | pending real operator input |
-| W3-FB-CAPTURE-RETRY-002 | 2026-06-26 | Крылова Любовь | SHIPMENT | DEMO-SH-PLANNED | live operator feedback | P3 | Live session confirmed 26.06.2026 12:30 — SHIPMENT feedback pending | SCHEDULED_OR_PENDING_FEEDBACK | Феликс Асаев | Real Operator Feedback Intake v0.1 | pending real operator input |
-| W3-FB-CAPTURE-RETRY-003 | 2026-06-26 | Курганова Наталья | BILLING_REGISTER | DEMO-BR-001 | live operator feedback | P3 | Live session confirmed 26.06.2026 12:30 — BILLING_REGISTER feedback pending | SCHEDULED_OR_PENDING_FEEDBACK | Феликс Асаев | Real Operator Feedback Intake v0.1 | pending real operator input |
+| W3-FB-CAPTURE-RETRY-001 | 2026-06-26 | Пейсахов Семен | TRANSPORT_ORDER | DEMO-TO-001 | live operator feedback | P3 | TO — сценарий=да, оценка=5, ready, замечаний нет | COMPLETED | Феликс Асаев | Post-Feedback Readiness Decision v0.1 | ready — no remarks |
+| W3-FB-CAPTURE-RETRY-002 | 2026-06-26 | Крылова Любовь | SHIPMENT | DEMO-SH-PLANNED | live operator feedback | P3 | SH — сценарий=да, оценка=5, ready, замечаний нет | COMPLETED | Феликс Асаев | Post-Feedback Readiness Decision v0.1 | ready — no remarks |
+| W3-FB-CAPTURE-RETRY-003 | 2026-06-26 | Курганова Наталья | BILLING_REGISTER | DEMO-BR-001 | live operator feedback | P3 | BR — сценарий=да, оценка=5, ready, замечаний нет | COMPLETED | Феликс Асаев | Post-Feedback Readiness Decision v0.1 | ready — no remarks |
+| W3-FB-INTAKE-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | real operator feedback intake | P3 | Real operator feedback intake completed for TRANSPORT_ORDER, SHIPMENT, and BILLING_REGISTER | COMPLETED | Феликс Асаев | Post-Feedback Readiness Decision v0.1 | REAL_FEEDBACK_INTAKE_COMPLETED_READY — real_feedback_count=3, average_rating=5, blockers_found=no |
 
 ### Column guide
 

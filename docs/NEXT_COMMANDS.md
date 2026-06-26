@@ -52,23 +52,23 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** Low-code Pilot Week-3 Real Operator Feedback Intake Pack v0.1.
+**Next pack (use AI team):** Low-code Pilot Week-3 Post-Feedback Readiness Decision Pack v0.1.
 
-**Current status:** **LIVE_SESSION_CONFIRMED**
-
-**Use Intake Pack when:**
-
-* Пейсахов Семен completed TRANSPORT_ORDER feedback form
-* Крылова Любовь completed SHIPMENT feedback form
-* Курганова Наталья completed BILLING_REGISTER feedback form
+**Current status:** **REAL_FEEDBACK_INTAKE_COMPLETED_READY**
 
 **Parallel when ops ready:** Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1.
 
+**If stakeholder requests fresh evidence:** Low-code Pilot Week-3 Monitoring Evidence Refresh Pack v0.1.
+
 **If P0/P1 suspected:** Low-code Runtime Pilot Fix Pack v0.1.
 
-Week-3 first real operator feedback capture retry v0.1:
+Week-3 real operator feedback intake v0.1:
 
-See `docs/LOW_CODE_PILOT_WEEK3_FIRST_REAL_OPERATOR_FEEDBACK_CAPTURE_RETRY_V0.1.md`.
+See `docs/LOW_CODE_PILOT_WEEK3_REAL_OPERATOR_FEEDBACK_INTAKE_V0.1.md`.
+
+Week-3 real operator feedback summary v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_REAL_OPERATOR_FEEDBACK_SUMMARY_V0.1.md`.
 
 Week-3 operator feedback forms v0.1:
 
@@ -829,23 +829,23 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-**Current status:** **LIVE_SESSION_CONFIRMED**
+**Current status:** **REAL_FEEDBACK_INTAKE_COMPLETED_READY**
 
-1. **Low-code Pilot Week-3 Real Operator Feedback Intake Pack v0.1** — when all 3 operator forms completed
-
-**Use when:**
-
-* Пейсахов Семен completed TRANSPORT_ORDER feedback form
-* Крылова Любовь completed SHIPMENT feedback form
-* Курганова Наталья completed BILLING_REGISTER feedback form
+1. **Low-code Pilot Week-3 Post-Feedback Readiness Decision Pack v0.1**
 
 **Parallel when ops ready:** Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1.
 
+**If stakeholder requests fresh evidence:** Low-code Pilot Week-3 Monitoring Evidence Refresh Pack v0.1.
+
 **If P0/P1 suspected:** Low-code Runtime Pilot Fix Pack v0.1.
 
-Week-3 first real operator feedback capture retry v0.1:
+Week-3 real operator feedback intake v0.1:
 
-See `docs/LOW_CODE_PILOT_WEEK3_FIRST_REAL_OPERATOR_FEEDBACK_CAPTURE_RETRY_V0.1.md`.
+See `docs/LOW_CODE_PILOT_WEEK3_REAL_OPERATOR_FEEDBACK_INTAKE_V0.1.md`.
+
+Week-3 real operator feedback summary v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_REAL_OPERATOR_FEEDBACK_SUMMARY_V0.1.md`.
 
 Week-3 operator feedback forms v0.1:
 
