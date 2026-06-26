@@ -2,7 +2,7 @@
 
 ## Summary
 
-Operational checklist for low-code rollback procedure execution. **Default status: PENDING** until incident or drill.
+Operational checklist for low-code rollback procedure execution. Owner **assigned**; **final approval pending**.
 
 Reference: `LOW_CODE_PILOT_WEEK3_LOW_CODE_ROLLBACK_PROCEDURE_V0.1.md`
 
@@ -10,8 +10,12 @@ Reference: `LOW_CODE_PILOT_WEEK3_LOW_CODE_ROLLBACK_PROCEDURE_V0.1.md`
 
 | Item | Status | Owner | Evidence | Notes |
 |------|--------|-------|----------|-------|
-| Rollback owner assigned | **PENDING** | Tech Lead / Ops | — | See owner note |
-| Incident severity confirmed | **PENDING** | Rollback owner | — | P0/P1/P2 |
+| Rollback owner assigned | **PASS** | Артем Асаев | Owner Assignment v0.1 | Assigned 2026-06-26 |
+| Final rollback approval | **PENDING** | Артем Асаев | — | Final Approval Pack required |
+| No rollback executed | **PASS** | — | This pack | Docs-only |
+| No production writes | **PASS** | — | Safety gate | No writes in pack |
+| No secrets committed | **PASS** | — | Safety gate | No credentials in docs |
+| Incident severity confirmed | **PENDING** | Rollback owner | — | P0/P1/P2 — incident only |
 | Impacted tenant identified | **PENDING** | Ops | — | `X-Tenant-ID` |
 | Impacted entity_type identified | **PENDING** | Ops | — | TO/SH/BR/… |
 | Impacted template identified | **PENDING** | Ops | — | template_code + version |
@@ -22,7 +26,6 @@ Reference: `LOW_CODE_PILOT_WEEK3_LOW_CODE_ROLLBACK_PROCEDURE_V0.1.md`
 | Audit events verified | **PENDING** | QA | — | GET audit-events |
 | Communication sent | **PENDING** | PM | — | Operators notified |
 | Resume decision captured | **PENDING** | Rollback owner | — | Resume or continue |
-| No secrets committed | **PENDING** | All | — | No JWT/passwords in docs |
 | No manual DB edits performed | **PENDING** | Ops / DBA | — | Unless emergency approved |
 
 ## Status Legend
@@ -37,11 +40,11 @@ Reference: `LOW_CODE_PILOT_WEEK3_LOW_CODE_ROLLBACK_PROCEDURE_V0.1.md`
 
 ## Usage
 
-1. Rollback owner approves decision gate
-2. Update rows during procedure
-3. Attach evidence references (ticket IDs — not secrets)
-4. On completion: link to incident record; update PR-GAP-003 only after owner approval pack
+1. Rollback owner completes final approval (Final Approval Pack)
+2. Rollback owner approves decision gate during incident
+3. Update rows during procedure
+4. Attach evidence references (ticket IDs — not secrets)
 
 ## Next Pack
 
-**Low-code Pilot Week-3 Rollback Owner Approval Pack v0.1**
+**Low-code Pilot Week-3 Rollback Owner Final Approval Pack v0.1**

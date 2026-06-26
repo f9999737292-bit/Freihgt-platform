@@ -52,9 +52,9 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** **EVENT_BASED_GAP_CLOSURE** — rollback plan created; await rollback owner approval.
+**Next pack (use AI team):** **EVENT_BASED_GAP_CLOSURE** — rollback owner assigned; await final approval.
 
-**Current status:** **PRODUCTION_ROLLBACK_PLAN_CREATED**
+**Current status:** **ROLLBACK_OWNER_ASSIGNED_PENDING_APPROVAL**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -62,30 +62,43 @@ docs/ai-team/
 
 **Production-ready claimed:** **no**
 
-**PR-GAP-001:** **BLOCKED_WAITING_FOR_REMOTE_STAGING**
+**PR-GAP-003:** **ROLLBACK_OWNER_ASSIGNED_PENDING_APPROVAL**
 
-**PR-GAP-003:** **ROLLBACK_PLAN_CREATED_PENDING_OWNER_APPROVAL**
+**Rollback owner:** **Артем Асаев** (role TBD; contact not provided)
 
-**Auth-on (local):** **AUTH_ON_REPEAT_LOCAL_VERIFIED**
+**Next event:** **Rollback owner final approval provided**
 
-**Next event:** **Rollback owner assigned / approved**
+**Next pack:** **Low-code Pilot Week-3 Rollback Owner Final Approval Pack v0.1**
 
-**Next pack:** **Low-code Pilot Week-3 Rollback Owner Approval Pack v0.1**
+**Required before final approval:**
+
+- owner role confirmed
+- owner contact confirmed (optional)
+- explicit approval from owner
+- no rollback executed
 
 **Other event-based packs:**
 
 | Event | Pack |
 |-------|------|
 | Remote staging details provided | Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1 |
-| Temporary tunnel approved | Low-code Pilot Week-3 Temporary Tunnel Auth-On Matrix Pack v0.1 |
 | Production data policy owner ready | Low-code Pilot Week-3 Production Data Policy Pack v0.1 |
 | Monitoring owner ready | Low-code Pilot Week-3 Production Monitoring Policy Pack v0.1 |
 | Audit/compliance owner ready | Low-code Pilot Week-3 Audit Retention Policy Pack v0.1 |
 | Tenant isolation evidence requested | Low-code Pilot Week-3 Tenant Isolation Evidence Pack v0.1 |
-| Support owner assigned | Low-code Pilot Week-3 Support Ownership Pack v0.1 |
-| Release owner assigned | Low-code Pilot Week-3 Release Ownership Pack v0.1 |
-| Final go/no-go owner assigned | Low-code Pilot Week-3 Final Go-No-Go Ownership Pack v0.1 |
 | P0/P1 suspected | Low-code Runtime Pilot Fix Pack v0.1 |
+
+Week-3 rollback owner assignment v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_ROLLBACK_OWNER_ASSIGNMENT_V0.1.md`.
+
+Week-3 rollback owner approval checklist v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_ROLLBACK_OWNER_APPROVAL_CHECKLIST_V0.1.md`.
+
+Week-3 rollback owner approval decision note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_ROLLBACK_OWNER_APPROVAL_DECISION_NOTE_V0.1.md`.
 
 Week-3 production rollback plan v0.1:
 
@@ -962,7 +975,7 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-**Current status:** **PRODUCTION_ROLLBACK_PLAN_CREATED**
+**Current status:** **ROLLBACK_OWNER_ASSIGNED_PENDING_APPROVAL**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -970,29 +983,30 @@ Next implementation:
 
 **Production-ready claimed:** **no**
 
-**PR-GAP-001:** **BLOCKED_WAITING_FOR_REMOTE_STAGING**
+**PR-GAP-003:** **ROLLBACK_OWNER_ASSIGNED_PENDING_APPROVAL**
 
-**PR-GAP-003:** **ROLLBACK_PLAN_CREATED_PENDING_OWNER_APPROVAL**
+**Rollback owner:** **Артем Асаев** (role TBD; contact not provided)
 
-**Auth-on (local):** **AUTH_ON_REPEAT_LOCAL_VERIFIED**
+**Next event:** **Rollback owner final approval provided**
 
-**Next event:** **Rollback owner assigned / approved**
+**Next pack:** **Low-code Pilot Week-3 Rollback Owner Final Approval Pack v0.1**
 
-**Next pack:** **Low-code Pilot Week-3 Rollback Owner Approval Pack v0.1**
+**Required before final approval:**
+
+- owner role confirmed
+- owner contact confirmed (optional)
+- explicit approval from owner
+- no rollback executed
 
 **Other event-based packs:**
 
 | Event | Pack |
 |-------|------|
 | Remote staging details provided | Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1 |
-| Temporary tunnel approved | Low-code Pilot Week-3 Temporary Tunnel Auth-On Matrix Pack v0.1 |
 | Production data policy owner ready | Low-code Pilot Week-3 Production Data Policy Pack v0.1 |
 | Monitoring owner ready | Low-code Pilot Week-3 Production Monitoring Policy Pack v0.1 |
 | Audit/compliance owner ready | Low-code Pilot Week-3 Audit Retention Policy Pack v0.1 |
 | Tenant isolation evidence requested | Low-code Pilot Week-3 Tenant Isolation Evidence Pack v0.1 |
-| Support owner assigned | Low-code Pilot Week-3 Support Ownership Pack v0.1 |
-| Release owner assigned | Low-code Pilot Week-3 Release Ownership Pack v0.1 |
-| Final go/no-go owner assigned | Low-code Pilot Week-3 Final Go-No-Go Ownership Pack v0.1 |
 | P0/P1 suspected | Low-code Runtime Pilot Fix Pack v0.1 |
 
 Week-3 production rollback plan v0.1:

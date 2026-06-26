@@ -4,7 +4,7 @@
 
 Consolidated **improvements backlog** for Week-3 low-code pilot feedback triage. Contains baseline placeholder items while **no real operator submissions** exist, plus structure for P0–P3 items when feedback arrives.
 
-**Backlog status:** **0 real feedback-derived improvement items**. **35** items (BL-W3-000–034). **PRODUCTION_ROLLBACK_PLAN_CREATED** — **EVENT_BASED_GAP_CLOSURE**.
+**Backlog status:** **0 real feedback-derived improvement items**. **36** items (BL-W3-000–035). **ROLLBACK_OWNER_ASSIGNED_PENDING_APPROVAL**.
 
 Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 
@@ -12,13 +12,14 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 
 | Metric | Value |
 |--------|-------|
-| Total items | **35** |
+| Total items | **36** |
 | Controlled pilot | **CONTROLLED_PILOT_APPROVED** — active |
 | Production readiness | **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY** |
 | Staging deploy runbook | **STAGING_DEPLOY_RUNBOOK_CREATED** |
 | Rollback plan | **PRODUCTION_ROLLBACK_PLAN_CREATED** |
+| Rollback owner | **Артем Асаев** |
 | PR-GAP-001 | **BLOCKED_WAITING_FOR_REMOTE_STAGING** |
-| PR-GAP-003 | **ROLLBACK_PLAN_CREATED_PENDING_OWNER_APPROVAL** |
+| PR-GAP-003 | **ROLLBACK_OWNER_ASSIGNED_PENDING_APPROVAL** |
 | Open production gaps | **10** |
 | Real feedback intake | **3 / 3** |
 | Open P0 / P1 | **0 / 0** |
@@ -62,7 +63,8 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 | BL-W3-031 | remote auth-on repeat pack v0.1 | ALL | Permission/auth clarity | P3 | Local auth-on repeat PASS — admin 200/403/401, runtime GET 200; remote staging not verified | Staging prep checklist created; await details | DevOps + Security | Remote Auth-On Staging Repeat Pack v0.1 | COMPLETED | AUTH_ON_REPEAT_LOCAL_VERIFIED |
 | BL-W3-032 | remote staging preparation checklist pack v0.1 | ALL | Staging preparation | P3 | Staging prep checklist, test matrix, ops request created — remote staging missing | Staging deploy runbook pack executed | DevOps + Security | Staging Deployment Runbook Pack v0.1 | COMPLETED | REMOTE_STAGING_PREPARATION_CHECKLIST_CREATED |
 | BL-W3-033 | staging deployment runbook pack v0.1 | ALL | Staging deployment | P3 | Staging deploy runbook, env example, input form, readiness checklist, tunnel option — no secrets | Await staging details or approved temporary tunnel | DevOps + Security | Remote Auth-On Staging Repeat Pack v0.1 | COMPLETED | STAGING_DEPLOY_RUNBOOK_CREATED |
-| BL-W3-034 | production rollback plan pack v0.1 | ALL | Production rollback | P3 | Rollback plan, procedure, checklist, owner note created — no rollback executed | Rollback owner assigned/approved | Tech Lead / Ops — TBD | Rollback Owner Approval Pack v0.1 | OPEN | PRODUCTION_ROLLBACK_PLAN_CREATED |
+| BL-W3-034 | production rollback plan pack v0.1 | ALL | Production rollback | P3 | Rollback plan, procedure, checklist, owner note created — no rollback executed | Rollback owner assigned | Tech Lead / Ops — TBD | Rollback Owner Approval Pack v0.1 | COMPLETED | PRODUCTION_ROLLBACK_PLAN_CREATED |
+| BL-W3-035 | rollback owner approval pack v0.1 | ALL | Rollback owner assignment | P3 | Rollback owner assigned as Артем Асаев — role/contact/approval pending | Final owner approval | Артем Асаев | Rollback Owner Final Approval Pack v0.1 | OPEN | ROLLBACK_OWNER_ASSIGNED_PENDING_APPROVAL |
 
 ## P0 Items
 
@@ -92,18 +94,17 @@ When P1 appears: add row with owner assigned, target fix pack, decision **GO_WIT
 | BL-W3-031 | Remote auth-on repeat v0.1 (local) | **Completed** | COMPLETED |
 | BL-W3-032 | Remote staging preparation checklist v0.1 | **Completed** | COMPLETED |
 | BL-W3-033 | Staging deployment runbook v0.1 | **Completed** | COMPLETED |
-| BL-W3-034 | Production rollback plan v0.1 | Rollback owner approval | OPEN |
+| BL-W3-034 | Production rollback plan v0.1 | **Completed** | COMPLETED |
+| BL-W3-035 | Rollback owner approval v0.1 | Final owner approval | OPEN |
 
 **Rules (reinforced):**
 
-- **Rollback plan created** — `PRODUCTION_ROLLBACK_PLAN_CREATED`.
-- **Rollback procedure created** — `LOW_CODE_PILOT_WEEK3_LOW_CODE_ROLLBACK_PROCEDURE_V0.1.md`.
-- **Rollback checklist created** — default PENDING.
-- **Rollback owner note created** — owner **TBD**.
-- **PR-GAP-003 partially mitigated** — pending owner approval.
-- **Production-ready not claimed** — `NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY`.
-- **Controlled pilot continues** — `CONTROLLED_PILOT_APPROVED`.
-- **Next action:** Rollback Owner Approval Pack v0.1 when owner assigned.
+- **Rollback owner assigned:** **Артем Асаев**.
+- **PR-GAP-003 partially mitigated** — final owner approval still pending.
+- **Role/contact confirmation pending.**
+- **Production-ready not claimed.**
+- **No rollback executed.**
+- **Next action:** Rollback Owner Final Approval Pack v0.1.
 
 Route to PM follow-up; no code fixes without real P0/P1 evidence.
 
@@ -160,7 +161,8 @@ Explicit list (BL-W3-000–009):
 | **Low-code Pilot Week-3 Remote Staging Preparation Checklist Pack v0.1** | Completed | **REMOTE_STAGING_PREPARATION_CHECKLIST_CREATED** |
 | **Low-code Pilot Week-3 Staging Deployment Runbook Pack v0.1** | Completed | **STAGING_DEPLOY_RUNBOOK_CREATED** |
 | **Low-code Pilot Week-3 Production Rollback Plan Pack v0.1** | Completed | **PRODUCTION_ROLLBACK_PLAN_CREATED** |
-| **Low-code Pilot Week-3 Rollback Owner Approval Pack v0.1** | Rollback owner assigned / approved | PR-GAP-003 closure |
+| **Low-code Pilot Week-3 Rollback Owner Approval Pack v0.1** | Completed | **ROLLBACK_OWNER_ASSIGNED_PENDING_APPROVAL** |
+| **Low-code Pilot Week-3 Rollback Owner Final Approval Pack v0.1** | Rollback owner final approval provided | PR-GAP-003 closure |
 | **Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1** | Remote staging details provided | PR-GAP-001 closure |
 | **Low-code Pilot Week-3 Temporary Tunnel Auth-On Matrix Pack v0.1** | Temporary tunnel approved | Partial PR-GAP-001 evidence |
 | **Low-code Pilot Week-3 Production Data Policy Pack v0.1** | Production data policy owner ready | PR-GAP-002 |

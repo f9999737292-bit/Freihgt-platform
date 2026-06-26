@@ -4,13 +4,13 @@
 
 Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER**, **SHIPMENT**, and **BILLING_REGISTER**.
 
-**Current status:** **PRODUCTION_ROLLBACK_PLAN_CREATED** — controlled pilot **active**; production-ready **not claimed**; PR-GAP-001 **BLOCKED_WAITING_FOR_REMOTE_STAGING**; PR-GAP-003 **pending owner approval**.
+**Current status:** **ROLLBACK_OWNER_ASSIGNED_PENDING_APPROVAL** — controlled pilot **active**; production-ready **not claimed**; PR-GAP-003 **owner assigned, approval pending**.
 
 ## Current Status
 
 | Metric | Value |
 |--------|-------|
-| Total entries | **30** |
+| Total entries | **31** |
 | Real operator submissions | **3** |
 | Controlled pilot | **CONTROLLED_PILOT_APPROVED** — active |
 | Production readiness | **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY** |
@@ -18,8 +18,9 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | Auth-on repeat (local) | **AUTH_ON_REPEAT_LOCAL_VERIFIED** |
 | Staging deploy runbook | **STAGING_DEPLOY_RUNBOOK_CREATED** |
 | Rollback plan | **PRODUCTION_ROLLBACK_PLAN_CREATED** |
+| Rollback owner | **Артем Асаев** |
 | PR-GAP-001 | **BLOCKED_WAITING_FOR_REMOTE_STAGING** |
-| PR-GAP-003 | **ROLLBACK_PLAN_CREATED_PENDING_OWNER_APPROVAL** |
+| PR-GAP-003 | **ROLLBACK_OWNER_ASSIGNED_PENDING_APPROVAL** |
 | Production ready claimed | **no** |
 | PM / Coordinator | **Феликс Асаев** |
 | Last updated | 2026-06-26 |
@@ -58,6 +59,23 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | W3-FB-AUTH-ON-REPEAT-001 | 2026-06-23 | — | CROSS_ENTITY | TO/SH/BR demos | remote auth-on repeat | P3 | Remote Auth-On Repeat Pack executed — local auth-on matrix PASS; remote staging not available | COMPLETED | DevOps + Security | Remote Auth-On Repeat (remote staging) when URL available | AUTH_ON_REPEAT_LOCAL_VERIFIED — production_ready_claimed=no, PR-GAP-001 pending remote staging |
 | W3-FB-REMOTE-STAGING-PREP-001 | 2026-06-23 | — | CROSS_ENTITY | TO/SH/BR demos | remote staging preparation | P3 | Remote staging preparation checklist created because remote staging is not available yet | COMPLETED | DevOps + Security | Remote Auth-On Staging Repeat Pack v0.1 after staging details | REMOTE_STAGING_PREPARATION_CHECKLIST_CREATED — production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, pr_gap=PR-GAP-001, pr_gap_status=BLOCKED_WAITING_FOR_REMOTE_STAGING |
 | W3-FB-ROLLBACK-PLAN-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness rollback planning | P3 | Production rollback plan created for low-code readiness gap closure | COMPLETED | Tech Lead / Ops — TBD | Rollback Owner Approval Pack v0.1 | PRODUCTION_ROLLBACK_PLAN_CREATED — pr_gap=PR-GAP-003, pr_gap_status=ROLLBACK_PLAN_CREATED_PENDING_OWNER_APPROVAL, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED |
+| W3-FB-ROLLBACK-OWNER-ASSIGNED-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness rollback owner assignment | P3 | Rollback owner assigned for low-code production readiness rollback gap | COMPLETED | Артем Асаев | Rollback Owner Final Approval Pack v0.1 | ROLLBACK_OWNER_ASSIGNED_PENDING_APPROVAL — pr_gap=PR-GAP-003, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, rollback_executed=no |
+
+### W3-FB-ROLLBACK-OWNER-ASSIGNED-001
+
+- **entity_type:** CROSS_ENTITY
+- **category:** production readiness rollback owner assignment
+- **severity:** P3
+- **status:** COMPLETED
+- **summary:** Rollback owner assigned for low-code production readiness rollback gap
+- **owner:** Артем Асаев
+- **decision:** ROLLBACK_OWNER_ASSIGNED_PENDING_APPROVAL
+- **pr_gap:** PR-GAP-003
+- **pr_gap_status:** ROLLBACK_OWNER_ASSIGNED_PENDING_APPROVAL
+- **production_ready_claimed:** no
+- **controlled_pilot_status:** CONTROLLED_PILOT_APPROVED
+- **rollback_executed:** no
+- **next_pack:** Low-code Pilot Week-3 Rollback Owner Final Approval Pack v0.1
 
 ### Column guide
 
