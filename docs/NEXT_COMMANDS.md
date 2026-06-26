@@ -52,9 +52,9 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** **EVENT_BASED_GAP_CLOSURE** — monitoring policy draft created; await monitoring owner approval.
+**Next pack (use AI team):** **EVENT_BASED_GAP_CLOSURE** — monitoring owner assigned; await final owner approval.
 
-**Current status:** **MONITORING_POLICY_DRAFT_CREATED_PENDING_OWNER_APPROVAL**
+**Current status:** **MONITORING_OWNER_ASSIGNED_PENDING_APPROVAL**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -62,15 +62,25 @@ docs/ai-team/
 
 **Production-ready claimed:** **no**
 
-**PR-GAP-004:** **MONITORING_POLICY_DRAFT_CREATED_PENDING_OWNER_APPROVAL**
+**PR-GAP-004:** **MONITORING_OWNER_ASSIGNED_PENDING_APPROVAL**
 
 **PR-GAP-002:** **PLACEHOLDER_APPROVAL_REHEARSED_PENDING_REAL_OWNER_APPROVAL**
 
 **PR-GAP-003:** **CLOSED_APPROVED_BY_OWNER**
 
-**Next event:** **Monitoring owner approval provided**
+**Next event:** **Monitoring owner final approval provided**
 
-**Next pack:** **Low-code Pilot Week-3 Production Monitoring Owner Approval Pack v0.1**
+**Next pack:** **Low-code Pilot Week-3 Production Monitoring Owner Final Approval Pack v0.1**
+
+**Required before final approval:**
+
+- Owner role confirmed
+- Owner contact confirmed (optional)
+- Explicit approval from owner
+- Monitoring policy reviewed
+- Alert conditions reviewed
+- P0/P1 escalation accepted
+- Real monitoring config changed: **no**, unless separately approved
 
 **Other event-based packs:**
 
@@ -100,6 +110,18 @@ See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_MONITORING_CHECKLIST_V0.1.md`.
 Week-3 production monitoring owner note v0.1:
 
 See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_MONITORING_OWNER_NOTE_V0.1.md`.
+
+Week-3 production monitoring owner assignment v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_MONITORING_OWNER_ASSIGNMENT_V0.1.md`.
+
+Week-3 production monitoring owner approval checklist v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_MONITORING_OWNER_APPROVAL_CHECKLIST_V0.1.md`.
+
+Week-3 production monitoring owner approval decision note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_MONITORING_OWNER_APPROVAL_DECISION_NOTE_V0.1.md`.
 
 Week-3 production monitoring decision note v0.1:
 
@@ -1070,6 +1092,18 @@ See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_MONITORING_CHECKLIST_V0.1.md`.
 Week-3 production monitoring owner note v0.1:
 
 See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_MONITORING_OWNER_NOTE_V0.1.md`.
+
+Week-3 production monitoring owner assignment v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_MONITORING_OWNER_ASSIGNMENT_V0.1.md`.
+
+Week-3 production monitoring owner approval checklist v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_MONITORING_OWNER_APPROVAL_CHECKLIST_V0.1.md`.
+
+Week-3 production monitoring owner approval decision note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_MONITORING_OWNER_APPROVAL_DECISION_NOTE_V0.1.md`.
 
 Week-3 production monitoring decision note v0.1:
 
