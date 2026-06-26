@@ -10,7 +10,7 @@ Risk register for production readiness review after controlled pilot approval.
 
 **Auth-on repeat (local):** `AUTH_ON_REPEAT_LOCAL_VERIFIED` (2026-06-23) — remote staging **pending**.
 
-**Audit retention policy:** draft created — `AUDIT_RETENTION_POLICY_DRAFT_CREATED_PENDING_OWNER_APPROVAL` (PR-GAP-005).
+**Audit retention policy:** owner approval gate prepared — `AUDIT_COMPLIANCE_OWNER_ASSIGNMENT_PENDING` (PR-GAP-005).
 
 **Production monitoring:** owner **Артем Асаев** — `MONITORING_OWNER_FINAL_APPROVAL_CAPTURED` (PR-GAP-004 **CLOSED**).
 
@@ -38,7 +38,7 @@ Risk register for production readiness review after controlled pilot approval.
 | PR-RISK-006 | PR-GAP-010 | Low-code fields used as financial/legal source of truth without approval | P1 | OPEN | Explicit policy: core billing/payment status unchanged; BR operator briefing documented | PM + operator lead | Low-code Source-of-Truth Policy Pack v0.1 |
 | PR-RISK-007 | PR-GAP-006 | Tenant isolation not evidenced for production | P2 | OPEN | Security review + isolation tests on target env | Security | Tenant Isolation Evidence Pack v0.1 |
 | PR-RISK-008 | — | Limited operator sample (3 users, demo entities) | P3 | OPEN | Expand only via approved governance | PM | controlled pilot scope only |
-| PR-RISK-009 | PR-GAP-005 | Audit retention policy undefined for production | P3 | **PARTIALLY_MITIGATED_BY_DRAFT_POLICY_PENDING_OWNER_APPROVAL** | Audit retention policy and evidence handling rules created; final Audit/Compliance owner approval still required | Audit / Compliance / Security Owner — TBD | Audit Compliance Owner Approval Pack v0.1 |
+| PR-RISK-009 | PR-GAP-005 | Audit retention policy undefined for production | P3 | **PARTIALLY_MITIGATED_POLICY_CREATED_OWNER_ASSIGNMENT_PENDING** | Audit retention policy and evidence handling rules created; audit/compliance owner assignment and final approval still required | Audit / Compliance / Security Owner — TBD | Audit Compliance Owner Final Approval Pack v0.1 |
 | PR-RISK-010 | PR-GAP-007 | Support owner not assigned | P2 | OPEN | Assign named support owner and escalation | PM / Operations | Support Ownership Pack v0.1 |
 | PR-RISK-011 | PR-GAP-008 | Release owner not assigned | P2 | OPEN | Assign release owner and checklist | PM / Release Manager | Release Ownership Pack v0.1 |
 
