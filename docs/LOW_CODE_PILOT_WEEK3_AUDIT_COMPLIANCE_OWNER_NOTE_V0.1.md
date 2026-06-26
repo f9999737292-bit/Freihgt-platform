@@ -2,9 +2,9 @@
 
 ## Summary
 
-Documents **required Audit / Compliance owner** for PR-GAP-005. Owner **not assigned**; approval gate prepared.
+Documents **Audit / Compliance owner** for PR-GAP-005. Owner **Феликс Асаев** assigned; **explicit final approval pending**.
 
-**Decision:** **AUDIT_COMPLIANCE_OWNER_ASSIGNMENT_PENDING**
+**Decision:** **AUDIT_COMPLIANCE_OWNER_ASSIGNED_PENDING_FINAL_APPROVAL**
 
 ## Required Owner
 
@@ -14,16 +14,16 @@ Documents **required Audit / Compliance owner** for PR-GAP-005. Owner **not assi
 
 ## Current Owner
 
-**TBD**
+**Феликс Асаев**
 
 ## Current Owner Status
 
-**OWNER_ASSIGNMENT_PENDING**
+**OWNER_ASSIGNED_PENDING_FINAL_APPROVAL**
 
 | Field | Value |
 |-------|-------|
-| Named owner | **TBD** |
-| Owner role | **TBD** |
+| Named owner | **Феликс Асаев** |
+| Owner role | **Audit / Compliance / Security Owner** |
 | Contact | **not provided** |
 | Approval date | — |
 | Final policy approval | **no** |
@@ -31,10 +31,8 @@ Documents **required Audit / Compliance owner** for PR-GAP-005. Owner **not assi
 
 ## Missing
 
-- Real Audit/Compliance/Security owner
-- Owner role
-- Owner contact
 - Explicit final approval
+- Owner contact
 
 ## Owner Responsibilities
 
@@ -49,7 +47,7 @@ Documents **required Audit / Compliance owner** for PR-GAP-005. Owner **not assi
 
 | Rule | Detail |
 |------|--------|
-| Assignment gate | Does **not** approve audit retention policy |
+| Assignment | Does **not** approve audit retention policy |
 | Draft policy | Does **not** configure real retention |
 | Production-ready | Audit approval **does not** imply production-ready |
 | Secrets | Audit evidence must **never** contain passwords, JWT, tokens |
@@ -60,8 +58,8 @@ Documents **required Audit / Compliance owner** for PR-GAP-005. Owner **not assi
 
 | # | Decision | Status |
 |---|----------|--------|
-| 1 | Named audit/compliance owner | **PENDING** |
-| 2 | Owner role confirmed | **PENDING** |
+| 1 | Named audit/compliance owner | **DONE** — Феликс Асаев |
+| 2 | Owner role confirmed | **DONE** — Audit / Compliance / Security Owner |
 | 3 | Production retention period confirmed | **PENDING** |
 | 4 | Audit read access protection accepted | **PENDING** |
 | 5 | Final audit retention policy approval | **PENDING** |

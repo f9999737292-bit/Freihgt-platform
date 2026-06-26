@@ -52,9 +52,9 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** **EVENT_BASED_GAP_CLOSURE** — audit compliance owner assignment pending; await final owner approval.
+**Next pack (use AI team):** **EVENT_BASED_GAP_CLOSURE** — audit/compliance owner assigned; await final owner approval.
 
-**Current status:** **AUDIT_COMPLIANCE_OWNER_ASSIGNMENT_PENDING**
+**Current status:** **AUDIT_COMPLIANCE_OWNER_ASSIGNED_PENDING_FINAL_APPROVAL**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -62,7 +62,9 @@ docs/ai-team/
 
 **Production-ready claimed:** **no**
 
-**PR-GAP-005:** **AUDIT_COMPLIANCE_OWNER_ASSIGNMENT_PENDING**
+**PR-GAP-005:** **AUDIT_COMPLIANCE_OWNER_ASSIGNED_PENDING_FINAL_APPROVAL**
+
+**Audit/Compliance owner:** **Феликс Асаев**
 
 **PR-GAP-004:** **CLOSED_APPROVED_BY_OWNER**
 
@@ -76,14 +78,12 @@ docs/ai-team/
 
 **Required before final approval:**
 
-- Real Audit/Compliance/Security owner name
-- Owner role
-- Owner contact (optional)
-- Explicit approval from owner
-- Audit retention policy reviewed
-- Evidence handling rules reviewed
-- Secrets/JWT/tokens forbidden in audit evidence accepted
+- Explicit approval from **Феликс Асаев**
+- Audit retention policy reviewed: **yes**
+- Evidence handling rules reviewed: **yes**
+- Secrets/JWT/tokens forbidden in audit evidence accepted: **yes**
 - Real retention config changed: **no**, unless separately approved
+- Production-ready claimed: **no**
 
 **Next mode:** **EVENT_BASED_GAP_CLOSURE**
 

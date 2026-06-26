@@ -2,22 +2,22 @@
 
 ## Summary
 
-Prepares **Audit / Compliance owner assignment gate** for PR-GAP-005. Owner **not assigned**; **explicit final approval pending**.
+Captures **Audit / Compliance owner assignment** for PR-GAP-005. Owner **Феликс Асаев** assigned; **explicit final approval pending**.
 
-**Decision:** **AUDIT_COMPLIANCE_OWNER_ASSIGNMENT_PENDING**
+**Decision:** **AUDIT_COMPLIANCE_OWNER_ASSIGNED_PENDING_FINAL_APPROVAL**
 
-**PR-GAP-005:** **AUDIT_COMPLIANCE_OWNER_ASSIGNMENT_PENDING**
+**PR-GAP-005:** **AUDIT_COMPLIANCE_OWNER_ASSIGNED_PENDING_FINAL_APPROVAL**
 
 ## Current Status
 
 | Field | Value |
 |-------|-------|
-| Prior status | `AUDIT_RETENTION_POLICY_DRAFT_CREATED_PENDING_OWNER_APPROVAL` |
-| Current status | `AUDIT_COMPLIANCE_OWNER_ASSIGNMENT_PENDING` |
+| Prior status | `AUDIT_COMPLIANCE_OWNER_ASSIGNMENT_PENDING` |
+| Current status | `AUDIT_COMPLIANCE_OWNER_ASSIGNED_PENDING_FINAL_APPROVAL` |
 | Production-ready claimed | **no** |
 | Controlled pilot | **CONTROLLED_PILOT_APPROVED** — active |
 | Real retention config changed | **no** |
-| Approval status | **pending** |
+| Approval status | owner assigned, final approval pending |
 
 ## Required Owner
 
@@ -25,11 +25,11 @@ Prepares **Audit / Compliance owner assignment gate** for PR-GAP-005. Owner **no
 
 ## Assigned Owner
 
-**TBD**
+**Феликс Асаев**
 
 ## Owner Role
 
-**TBD**
+**Audit / Compliance / Security Owner**
 
 ## Owner Contact
 
@@ -39,9 +39,9 @@ Prepares **Audit / Compliance owner assignment gate** for PR-GAP-005. Owner **no
 
 | Gate | Status |
 |------|--------|
-| Owner assigned | **pending** — TBD |
-| Role confirmation | **pending** |
-| Contact confirmation | **pending** |
+| Owner assigned | **complete** — Феликс Асаев |
+| Role confirmation | **complete** — Audit / Compliance / Security Owner |
+| Contact confirmation | **not provided** |
 | Policy reviewed | **pending** |
 | Explicit final approval | **pending** |
 | Real retention config | **not changed** |
@@ -59,21 +59,19 @@ Prepares **Audit / Compliance owner assignment gate** for PR-GAP-005. Owner **no
 
 Before PR-GAP-005 closure:
 
-- Real Audit / Compliance / Security owner name assigned
-- Owner role confirmed
-- Owner contact confirmed (optional)
+- Explicit final approval from **Феликс Асаев**
 - Audit retention policy reviewed and approved
 - Audit evidence handling rules reviewed and approved
-- Explicit final approval captured
+- Production retention period confirmed
+- Owner contact confirmed (optional)
 
 ## Decision
 
-**AUDIT_COMPLIANCE_OWNER_ASSIGNMENT_PENDING**
+**AUDIT_COMPLIANCE_OWNER_ASSIGNED_PENDING_FINAL_APPROVAL**
 
 ## Next Steps
 
-1. Assign named Audit / Compliance / Security owner
-2. Execute **Low-code Pilot Week-3 Audit Compliance Owner Final Approval Pack v0.1**
-3. Do **not** change real retention config or purge logs until final approval
+1. Execute **Low-code Pilot Week-3 Audit Compliance Owner Final Approval Pack v0.1**
+2. Do **not** change real retention config or purge logs until final approval
 
 Reference: `LOW_CODE_PILOT_WEEK3_AUDIT_COMPLIANCE_OWNER_APPROVAL_CHECKLIST_V0.1.md`

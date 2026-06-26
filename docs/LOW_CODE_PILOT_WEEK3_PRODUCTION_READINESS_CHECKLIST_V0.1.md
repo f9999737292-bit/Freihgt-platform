@@ -59,7 +59,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 |-----------|--------|----------|-------|-------|
 | Audit read (dev) | PASS_FOR_CONTROLLED_PILOT | audit GET 200 | pilot lead | dev only |
 | Monitoring/alerting production policy | **PASS** | Production Monitoring Policy v0.1, Alert Conditions v0.1, Monitoring Checklist v0.1, Monitoring Owner Final Approval v0.1 | **Артем Асаев** | PR-GAP-004 closed; real config not changed |
-| Audit retention production policy | **PARTIAL / OWNER_ASSIGNMENT_PENDING** | Audit Retention Policy v0.1, Audit Evidence Handling Rules v0.1, Audit Compliance Owner Assignment v0.1, Audit Compliance Owner Approval Checklist v0.1 | Audit / Compliance Owner — TBD | PR-GAP-005 open; no config changed |
+| Audit retention production policy | **PARTIAL / OWNER_ASSIGNED_PENDING_FINAL_APPROVAL** | Audit Retention Policy v0.1, Audit Evidence Handling Rules v0.1, Audit Compliance Owner Assignment v0.1 | **Феликс Асаев** | PR-GAP-005 open; explicit approval pending |
 
 ## Rollback Readiness
 
