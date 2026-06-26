@@ -10,7 +10,9 @@ Tracks **10 open production readiness gaps**. PR-GAP-001 **blocked** waiting for
 
 **Staging deploy runbook:** `STAGING_DEPLOY_RUNBOOK_CREATED`
 
-**Mode:** **WAIT_FOR_REMOTE_STAGING_DETAILS**
+**Rollback plan:** `PRODUCTION_ROLLBACK_PLAN_CREATED`
+
+**Mode:** **EVENT_BASED_GAP_CLOSURE**
 
 **Production-ready:** **not claimed**  
 **Controlled pilot:** **CONTROLLED_PILOT_APPROVED** — active
@@ -23,7 +25,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 |--------|-----|--------|-------|---------------------|-----------|-------|
 | PR-GAP-001 | Remote Auth-On Repeat not completed | **BLOCKED_WAITING_FOR_REMOTE_STAGING** | Ops / Security | Admin low-code routes verified with auth-on; non-admin denied; runtime GET compatibility verified | Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1 | Local repeat **PASS** 2026-06-23. **Dependency:** Remote Staging Preparation Checklist Pack v0.1 **completed**; **Staging Deployment Runbook Pack v0.1 created**. Staging deployment instructions and input form are now available. Remote auth-on staging verification remains **blocked** until actual staging details are provided. |
 | PR-GAP-002 | Production data policy not approved | PENDING | Product / Legal / Data Owner | Approved policy for no production data or controlled production data use | Production Data Policy Pack v0.1 | — |
-| PR-GAP-003 | Rollback plan not approved | PENDING | Tech Lead / Ops | Documented rollback steps for low-code templates, custom fields, and runtime config | Low-code Production Rollback Plan Pack v0.1 | — |
+| PR-GAP-003 | Rollback plan not approved | **ROLLBACK_PLAN_CREATED_PENDING_OWNER_APPROVAL** | Tech Lead / Ops — **TBD** | Rollback plan, procedure, checklist, owner note created; final approval still required from rollback owner | Low-code Pilot Week-3 Rollback Owner Approval Pack v0.1 | Rollback plan created docs-only. **No rollback executed.** No production-ready claim. |
 | PR-GAP-004 | Monitoring / alerting policy not approved | PENDING | Ops | Health, audit, metrics, low-code runtime indicators defined | Production Monitoring Policy Pack v0.1 | — |
 | PR-GAP-005 | Audit retention policy not approved | PENDING | Security / Compliance | Audit event retention and access policy approved | Audit Retention Policy Pack v0.1 | — |
 | PR-GAP-006 | Tenant isolation production evidence not approved | PENDING | Security / Backend Lead | Tenant boundary checks documented and verified | Tenant Isolation Evidence Pack v0.1 | — |
@@ -36,8 +38,9 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 
 | Status | Count |
 |--------|-------|
-| PENDING | **9** |
+| PENDING | **8** |
 | BLOCKED_WAITING_FOR_REMOTE_STAGING | **1** (PR-GAP-001) |
+| ROLLBACK_PLAN_CREATED_PENDING_OWNER_APPROVAL | **1** (PR-GAP-003) |
 | IN_PROGRESS | **0** |
 | CLOSED | **0** |
 

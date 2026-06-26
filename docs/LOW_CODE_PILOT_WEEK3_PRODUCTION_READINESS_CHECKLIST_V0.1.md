@@ -65,7 +65,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 
 | criterion | status | evidence | owner | notes |
 |-----------|--------|----------|-------|-------|
-| Rollback plan | PENDING | — | DevOps + PM | not approved |
+| Rollback plan | **PARTIAL / PENDING_APPROVAL** | Production Rollback Plan v0.1, Low-code Rollback Procedure v0.1, Rollback Checklist v0.1, Rollback Owner Note v0.1 | Tech Lead / Ops — TBD | PR-GAP-003; owner approval required |
 | Rollback drill (prod) | PENDING | — | DevOps | not executed |
 
 ## Support Readiness
