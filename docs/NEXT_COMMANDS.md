@@ -52,9 +52,9 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** **EVENT_BASED_GAP_CLOSURE** — PR-GAP-004 closed; continue remaining gap closure.
+**Next pack (use AI team):** **EVENT_BASED_GAP_CLOSURE** — audit retention policy draft created; await Audit/Compliance owner approval.
 
-**Current status:** **MONITORING_OWNER_FINAL_APPROVAL_CAPTURED**
+**Current status:** **AUDIT_RETENTION_POLICY_DRAFT_CREATED_PENDING_OWNER_APPROVAL**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -62,11 +62,17 @@ docs/ai-team/
 
 **Production-ready claimed:** **no**
 
+**PR-GAP-005:** **AUDIT_RETENTION_POLICY_DRAFT_CREATED_PENDING_OWNER_APPROVAL**
+
 **PR-GAP-004:** **CLOSED_APPROVED_BY_OWNER**
 
 **PR-GAP-002:** **PLACEHOLDER_APPROVAL_REHEARSED_PENDING_REAL_OWNER_APPROVAL**
 
 **PR-GAP-003:** **CLOSED_APPROVED_BY_OWNER**
+
+**Next event:** **Audit/compliance owner approval provided**
+
+**Next pack:** **Low-code Pilot Week-3 Audit Compliance Owner Approval Pack v0.1**
 
 **Next mode:** **EVENT_BASED_GAP_CLOSURE**
 
@@ -82,6 +88,26 @@ docs/ai-team/
 | Release owner assigned | Low-code Pilot Week-3 Release Ownership Pack v0.1 |
 | Final go/no-go owner assigned | Low-code Pilot Week-3 Final Go-No-Go Ownership Pack v0.1 |
 | P0/P1 suspected | Low-code Runtime Pilot Fix Pack v0.1 |
+
+Week-3 audit retention policy v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_AUDIT_RETENTION_POLICY_V0.1.md`.
+
+Week-3 audit retention checklist v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_AUDIT_RETENTION_CHECKLIST_V0.1.md`.
+
+Week-3 audit evidence handling rules v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_AUDIT_EVIDENCE_HANDLING_RULES_V0.1.md`.
+
+Week-3 audit compliance owner note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_AUDIT_COMPLIANCE_OWNER_NOTE_V0.1.md`.
+
+Week-3 audit retention decision note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_AUDIT_RETENTION_DECISION_NOTE_V0.1.md`.
 
 Week-3 production monitoring policy v0.1:
 
@@ -1068,6 +1094,26 @@ Next implementation:
 | Release owner assigned | Low-code Pilot Week-3 Release Ownership Pack v0.1 |
 | Final go/no-go owner assigned | Low-code Pilot Week-3 Final Go-No-Go Ownership Pack v0.1 |
 | P0/P1 suspected | Low-code Runtime Pilot Fix Pack v0.1 |
+
+Week-3 audit retention policy v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_AUDIT_RETENTION_POLICY_V0.1.md`.
+
+Week-3 audit retention checklist v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_AUDIT_RETENTION_CHECKLIST_V0.1.md`.
+
+Week-3 audit evidence handling rules v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_AUDIT_EVIDENCE_HANDLING_RULES_V0.1.md`.
+
+Week-3 audit compliance owner note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_AUDIT_COMPLIANCE_OWNER_NOTE_V0.1.md`.
+
+Week-3 audit retention decision note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_AUDIT_RETENTION_DECISION_NOTE_V0.1.md`.
 
 Week-3 production monitoring policy v0.1:
 

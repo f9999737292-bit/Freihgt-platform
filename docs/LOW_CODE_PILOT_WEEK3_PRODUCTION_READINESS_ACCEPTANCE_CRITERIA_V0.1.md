@@ -19,15 +19,15 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | 5 | Remote Auth-On Repeat completed | **PENDING** (remote staging) — local **PASS** 2026-06-23 | PR-GAP-001 |
 | 6 | Production data policy approved | **PARTIAL** (draft created; owner approval pending) | PR-GAP-002 |
 | 7 | Rollback plan approved | **PASS** | PR-GAP-003 |
-| 8 | Monitoring/alerting policy approved | **PARTIAL** (draft created; owner approval pending) | PR-GAP-004 |
-| 9 | Audit retention policy approved | **PENDING** | PR-GAP-005 |
+| 8 | Monitoring/alerting policy approved | **PASS** | PR-GAP-004 |
+| 9 | Audit retention policy approved | **PARTIAL** (draft created; owner approval pending) | PR-GAP-005 |
 | 10 | Tenant isolation evidence approved | **PENDING** | PR-GAP-006 |
 | 11 | Support owner assigned | **PENDING** | PR-GAP-007 |
 | 12 | Release owner assigned | **PENDING** | PR-GAP-008 |
 | 13 | Final go/no-go owner assigned | **PENDING** | PR-GAP-009 |
 | 14 | Low-code SoT policy approved | **PENDING** | PR-GAP-010 |
 
-**Must pass count:** **5 / 14** met for production claim (rollback plan approved; data policy draft only).
+**Must pass count:** **6 / 14** met for production claim (rollback and monitoring approved; audit retention draft only).
 
 ### Must Not Happen
 
@@ -41,7 +41,9 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | 6 | No migration execution without approval |
 | 7 | No low-code financial/legal source of truth without approval |
 | 8 | Signed legal documents and payment data excluded unless separately approved |
-| 9 | No broad rollout while gaps PR-GAP-001–002, PR-GAP-004–010 open |
+| 9 | No broad rollout while gaps PR-GAP-001–002, PR-GAP-005–010 open |
+| 10 | No audit evidence containing secrets, JWT, tokens, or raw production dumps |
+| 11 | No production-ready claim without audit retention approval |
 
 ## Evidence Required
 
@@ -69,6 +71,16 @@ For each gap closure pack:
 - Monitoring owner must be assigned
 - Evidence format must avoid secrets/JWT/tokens
 - No production-ready claim without monitoring owner approval
+
+### Audit Retention Policy Requirements (PR-GAP-005)
+
+- Audit retention policy must be **approved** before production
+- Audit evidence must **not** contain secrets, JWT, or tokens
+- Audit evidence must **not** contain raw production data dumps
+- Audit read access must be **protected**
+- Audit/compliance owner must be **assigned**
+- No production-ready claim without audit retention approval
+- No log purge or retention config change without owner approval
 
 ## Final Go/No-Go Criteria
 
