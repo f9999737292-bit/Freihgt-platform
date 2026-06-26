@@ -4,18 +4,20 @@
 
 Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER**, **SHIPMENT**, and **BILLING_REGISTER**.
 
-**Current status:** **AUTH_ON_REPEAT_LOCAL_VERIFIED** — controlled pilot **active**; production-ready **not claimed**; PR-GAP-001 **pending remote staging**.
+**Current status:** **WAIT_FOR_REMOTE_STAGING_DETAILS** — controlled pilot **active**; production-ready **not claimed**; PR-GAP-001 **BLOCKED_WAITING_FOR_REMOTE_STAGING**.
 
 ## Current Status
 
 | Metric | Value |
 |--------|-------|
-| Total entries | **28** |
+| Total entries | **29** |
 | Real operator submissions | **3** |
 | Controlled pilot | **CONTROLLED_PILOT_APPROVED** — active |
 | Production readiness | **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY** |
 | Gap closure plan | **GAP_CLOSURE_PLAN_CREATED** |
 | Auth-on repeat (local) | **AUTH_ON_REPEAT_LOCAL_VERIFIED** |
+| Staging prep checklist | **REMOTE_STAGING_PREPARATION_CHECKLIST_CREATED** |
+| PR-GAP-001 | **BLOCKED_WAITING_FOR_REMOTE_STAGING** |
 | Production ready claimed | **no** |
 | PM / Coordinator | **Феликс Асаев** |
 | Last updated | 2026-06-23 |
@@ -52,6 +54,7 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | W3-FB-PROD-READINESS-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness review | P3 | Production readiness review completed after controlled pilot approval and 3/3 positive operator feedback | COMPLETED | Феликс Асаев | Production Readiness Gap Closure v0.1 / Remote Auth-On when ops ready | NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY — production_ready_claimed=no, governance/ops pending |
 | W3-FB-PROD-GAP-CLOSURE-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness gap closure | P3 | Production readiness gap closure plan created after production readiness review | COMPLETED | Феликс Асаев | event-based gap closure packs | GAP_CLOSURE_PLAN_CREATED — production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, next_pack=event-based gap closure packs, parallel_pack=Remote Auth-On Repeat v0.1 when ops ready |
 | W3-FB-AUTH-ON-REPEAT-001 | 2026-06-23 | — | CROSS_ENTITY | TO/SH/BR demos | remote auth-on repeat | P3 | Remote Auth-On Repeat Pack executed — local auth-on matrix PASS; remote staging not available | COMPLETED | DevOps + Security | Remote Auth-On Repeat (remote staging) when URL available | AUTH_ON_REPEAT_LOCAL_VERIFIED — production_ready_claimed=no, PR-GAP-001 pending remote staging |
+| W3-FB-REMOTE-STAGING-PREP-001 | 2026-06-23 | — | CROSS_ENTITY | TO/SH/BR demos | remote staging preparation | P3 | Remote staging preparation checklist created because remote staging is not available yet | COMPLETED | DevOps + Security | Remote Auth-On Staging Repeat Pack v0.1 after staging details | REMOTE_STAGING_PREPARATION_CHECKLIST_CREATED — production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, pr_gap=PR-GAP-001, pr_gap_status=BLOCKED_WAITING_FOR_REMOTE_STAGING |
 
 ### Column guide
 

@@ -52,9 +52,9 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** Event-based gap closure — see event triggers below.
+**Next pack (use AI team):** **WAIT_FOR_REMOTE_STAGING_DETAILS** — see required details below.
 
-**Current status:** **AUTH_ON_REPEAT_LOCAL_VERIFIED**
+**Current status:** **WAIT_FOR_REMOTE_STAGING_DETAILS**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -62,15 +62,32 @@ docs/ai-team/
 
 **Production-ready claimed:** **no**
 
-**PR-GAP-001:** local auth-on repeat **PASS**; **remote staging pending**
+**PR-GAP-001:** **BLOCKED_WAITING_FOR_REMOTE_STAGING**
 
-**Next mode:** **EVENT_BASED_GAP_CLOSURE**
+**Auth-on (local):** **AUTH_ON_REPEAT_LOCAL_VERIFIED**
 
-**Event-based next actions:**
+**Staging prep decision:** **REMOTE_STAGING_PREPARATION_CHECKLIST_CREATED**
+
+**Next event:** **Remote staging details provided**
+
+**Next pack:** **Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1**
+
+**Required staging details:**
+
+- staging URL
+- API URL
+- `LOW_CODE_ADMIN_AUTH_ENABLED=true` confirmation
+- service restart confirmation
+- admin user (email/UUID — credentials separately)
+- non-admin user (email/UUID — credentials separately)
+- tenant ID
+- login/JWT flow
+- read-only permission (**yes** required)
+
+**Other event-based packs remain available:**
 
 | Event | Pack |
 |-------|------|
-| Remote staging URL + auth-on config ready | Remote Auth-On Repeat (remote staging) — close PR-GAP-001 |
 | Production data policy owner ready | Low-code Pilot Week-3 Production Data Policy Pack v0.1 |
 | Rollback owner ready | Low-code Pilot Week-3 Production Rollback Plan Pack v0.1 |
 | Monitoring owner ready | Low-code Pilot Week-3 Production Monitoring Policy Pack v0.1 |
@@ -80,6 +97,18 @@ docs/ai-team/
 | Release owner assigned | Low-code Pilot Week-3 Release Ownership Pack v0.1 |
 | Final go/no-go owner assigned | Low-code Pilot Week-3 Final Go-No-Go Ownership Pack v0.1 |
 | P0/P1 suspected | Low-code Runtime Pilot Fix Pack v0.1 |
+
+Week-3 remote staging preparation checklist v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_REMOTE_STAGING_PREPARATION_CHECKLIST_V0.1.md`.
+
+Week-3 remote staging auth-on test matrix v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_REMOTE_STAGING_AUTH_ON_TEST_MATRIX_V0.1.md`.
+
+Week-3 remote staging ops request v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_REMOTE_STAGING_OPS_REQUEST_V0.1.md`.
 
 Week-3 remote auth-on repeat v0.1:
 
@@ -908,7 +937,7 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-**Current status:** **AUTH_ON_REPEAT_LOCAL_VERIFIED**
+**Current status:** **WAIT_FOR_REMOTE_STAGING_DETAILS**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -916,15 +945,32 @@ Next implementation:
 
 **Production-ready claimed:** **no**
 
-**PR-GAP-001:** local auth-on repeat **PASS**; **remote staging pending**
+**PR-GAP-001:** **BLOCKED_WAITING_FOR_REMOTE_STAGING**
 
-**Next mode:** **EVENT_BASED_GAP_CLOSURE**
+**Auth-on (local):** **AUTH_ON_REPEAT_LOCAL_VERIFIED**
 
-**Event-based next actions:**
+**Staging prep decision:** **REMOTE_STAGING_PREPARATION_CHECKLIST_CREATED**
+
+**Next event:** **Remote staging details provided**
+
+**Next pack:** **Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1**
+
+**Required staging details:**
+
+- staging URL
+- API URL
+- `LOW_CODE_ADMIN_AUTH_ENABLED=true` confirmation
+- service restart confirmation
+- admin user (email/UUID — credentials separately)
+- non-admin user (email/UUID — credentials separately)
+- tenant ID
+- login/JWT flow
+- read-only permission (**yes** required)
+
+**Other event-based packs remain available:**
 
 | Event | Pack |
 |-------|------|
-| Remote staging URL + auth-on config ready | Remote Auth-On Repeat (remote staging) — close PR-GAP-001 |
 | Production data policy owner ready | Low-code Pilot Week-3 Production Data Policy Pack v0.1 |
 | Rollback owner ready | Low-code Pilot Week-3 Production Rollback Plan Pack v0.1 |
 | Monitoring owner ready | Low-code Pilot Week-3 Production Monitoring Policy Pack v0.1 |
@@ -934,6 +980,18 @@ Next implementation:
 | Release owner assigned | Low-code Pilot Week-3 Release Ownership Pack v0.1 |
 | Final go/no-go owner assigned | Low-code Pilot Week-3 Final Go-No-Go Ownership Pack v0.1 |
 | P0/P1 suspected | Low-code Runtime Pilot Fix Pack v0.1 |
+
+Week-3 remote staging preparation checklist v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_REMOTE_STAGING_PREPARATION_CHECKLIST_V0.1.md`.
+
+Week-3 remote staging auth-on test matrix v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_REMOTE_STAGING_AUTH_ON_TEST_MATRIX_V0.1.md`.
+
+Week-3 remote staging ops request v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_REMOTE_STAGING_OPS_REQUEST_V0.1.md`.
 
 Week-3 remote auth-on repeat v0.1:
 

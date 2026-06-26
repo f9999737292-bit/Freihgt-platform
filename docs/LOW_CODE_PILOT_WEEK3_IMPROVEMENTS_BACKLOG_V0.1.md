@@ -4,7 +4,7 @@
 
 Consolidated **improvements backlog** for Week-3 low-code pilot feedback triage. Contains baseline placeholder items while **no real operator submissions** exist, plus structure for P0–P3 items when feedback arrives.
 
-**Backlog status:** **0 real feedback-derived improvement items**. **32** items (BL-W3-000–031). **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY** — controlled pilot **active**; auth-on local repeat **verified**.
+**Backlog status:** **0 real feedback-derived improvement items**. **33** items (BL-W3-000–032). **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY** — controlled pilot **active**; **WAIT_FOR_REMOTE_STAGING_DETAILS**.
 
 Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 
@@ -12,12 +12,14 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 
 | Metric | Value |
 |--------|-------|
-| Total items | **32** |
+| Total items | **33** |
 | Controlled pilot | **CONTROLLED_PILOT_APPROVED** — active |
 | Production readiness | **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY** |
 | Gap closure plan | **GAP_CLOSURE_PLAN_CREATED** |
 | Auth-on repeat (local) | **AUTH_ON_REPEAT_LOCAL_VERIFIED** |
-| Open production gaps | **10** (PR-GAP-001 remote staging pending) |
+| Staging prep | **REMOTE_STAGING_PREPARATION_CHECKLIST_CREATED** |
+| PR-GAP-001 | **BLOCKED_WAITING_FOR_REMOTE_STAGING** |
+| Open production gaps | **10** |
 | Real feedback intake | **3 / 3** |
 | Open P0 / P1 | **0 / 0** |
 | Last updated | 2026-06-23 |
@@ -29,7 +31,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 | BL-W3-000 | baseline / feedback evidence pack | TRANSPORT_ORDER | Documentation/runbook | P3 | Collect first TRANSPORT_ORDER baseline operator feedback | PM schedule Session 1 per escalation doc | operator lead | First Real Operator Feedback Capture v0.1 | OPEN | GO_WITH_CONDITIONS |
 | BL-W3-001 | baseline / Week-3 triage pack | SHIPMENT | Documentation/runbook | P3 | Collect first real operator feedback for SHIPMENT limited write pilot | PM schedule Session 2; SH quick guide | operator lead | First Real Operator Feedback Capture v0.1 | OPEN | GO_WITH_CONDITIONS |
 | BL-W3-002 | baseline / Week-3 triage pack | BILLING_REGISTER | Documentation/runbook | P3 | Collect first real operator feedback for BILLING_REGISTER limited write pilot | PM schedule Session 3; financial safety briefing | operator lead | First Real Operator Feedback Capture v0.1 | OPEN | GO_WITH_CONDITIONS |
-| BL-W3-003 | baseline / auth-on partial | ALL | Permission/auth clarity | P3 | Repeat auth-on verification on remote staging when ops ready | Local repeat PASS 2026-06-23; remote staging URL required for PR-GAP-001 closure | DevOps + Security | Remote Auth-On Repeat (remote staging) | OPEN | AUTH_ON_REPEAT_LOCAL_VERIFIED |
+| BL-W3-003 | baseline / auth-on partial | ALL | Permission/auth clarity | P3 | Repeat auth-on verification on remote staging when ops ready | Staging prep checklist created; await staging details | DevOps + Security | Remote Auth-On Staging Repeat Pack v0.1 | OPEN | BLOCKED_WAITING_FOR_REMOTE_STAGING |
 | BL-W3-004 | baseline / monitoring | ALL | Audit visibility | P3 | Review audit visibility after first real pilot day | After first write: verify audit GET shows event; document operator findability | pilot lead | Monitoring Report Review v0.1 | OPEN | GO_WITH_CONDITIONS |
 | BL-W3-005 | baseline / UX | ALL | Field label/help text | P3 | Review field label/help clarity after first operator session | Triage UX feedback; doc-only polish if P3 | pilot lead | UI Help Text Polish v0.1 | OPEN | GO_WITH_CONDITIONS |
 | BL-W3-006 | baseline / financial | BILLING_REGISTER | Financial safety wording | P3 | Review financial safety wording for BILLING_REGISTER with operator | PM schedule session; confirm low-code does not change core billing/payment status | operator lead + PM | Operator Feedback Scheduling & PM Escalation v0.1 | OPEN | GO_WITH_CONDITIONS |
@@ -57,7 +59,8 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 | BL-W3-028 | controlled pilot approval pack v0.1 | ALL | Governance/approval | P3 | Controlled pilot approved — demo tenant, limited users, scope charter active | Production review executed | Феликс Асаев | Production Readiness Decision v0.1 | COMPLETED | CONTROLLED_PILOT_APPROVED |
 | BL-W3-029 | production readiness decision pack v0.1 | ALL | Governance/production | P3 | Production review — NOT production ready; governance/ops gaps open | Gap Closure Pack executed | Феликс Асаев | Production Readiness Gap Closure v0.1 | COMPLETED | NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY |
 | BL-W3-030 | production readiness gap closure pack v0.1 | ALL | Governance/gap closure | P3 | Gap closure plan, tracker, owner matrix, acceptance criteria created; 10 open gaps tracked | Event-based gap closure | Феликс Асаев | event-based gap packs | COMPLETED | GAP_CLOSURE_PLAN_CREATED |
-| BL-W3-031 | remote auth-on repeat pack v0.1 | ALL | Permission/auth clarity | P3 | Local auth-on repeat PASS — admin 200/403/401, runtime GET 200; remote staging not verified | Ops provides staging URL; re-run matrix on remote | DevOps + Security | Remote Auth-On Repeat (remote staging) | OPEN | AUTH_ON_REPEAT_LOCAL_VERIFIED |
+| BL-W3-031 | remote auth-on repeat pack v0.1 | ALL | Permission/auth clarity | P3 | Local auth-on repeat PASS — admin 200/403/401, runtime GET 200; remote staging not verified | Staging prep checklist created; await details | DevOps + Security | Remote Auth-On Staging Repeat Pack v0.1 | COMPLETED | AUTH_ON_REPEAT_LOCAL_VERIFIED |
+| BL-W3-032 | remote staging preparation checklist pack v0.1 | ALL | Staging preparation | P3 | Staging prep checklist, test matrix, ops request created — remote staging missing | Await staging details from Ops/Security | DevOps + Security | Remote Auth-On Staging Repeat Pack v0.1 | OPEN | REMOTE_STAGING_PREPARATION_CHECKLIST_CREATED |
 
 ## P0 Items
 
@@ -84,18 +87,19 @@ When P1 appears: add row with owner assigned, target fix pack, decision **GO_WIT
 | BL-W3-028 | Controlled pilot approval v0.1 | **Completed** | COMPLETED |
 | BL-W3-029 | Production readiness decision v0.1 | **Completed** | COMPLETED |
 | BL-W3-030 | Production readiness gap closure v0.1 | **Completed** | COMPLETED |
-| BL-W3-031 | Remote auth-on repeat v0.1 (local) | Remote staging when URL available | OPEN |
+| BL-W3-031 | Remote auth-on repeat v0.1 (local) | **Completed** | COMPLETED |
+| BL-W3-032 | Remote staging preparation checklist v0.1 | Await staging details | OPEN |
 
 **Rules (reinforced):**
 
-- **Production readiness gap closure plan created** — `GAP_CLOSURE_PLAN_CREATED`.
-- **Controlled pilot remains approved and active** — `CONTROLLED_PILOT_APPROVED`.
-- **Production-ready still not claimed** — `NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY`.
-- **Open gaps tracked** in `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_TRACKER_V0.1.md` (10 PENDING).
-- **Next actions are event-based** — `EVENT_BASED_GAP_CLOSURE`.
-- **Auth-on local repeat verified** — `AUTH_ON_REPEAT_LOCAL_VERIFIED` (2026-06-23); PR-GAP-001 **pending remote staging**.
-- Remote Auth-On **remote staging** remains open (BL-W3-003 / BL-W3-031).
-- No feedback-based fixes required from operator intake.
+- **Remote staging is missing** — PR-GAP-001 **BLOCKED_WAITING_FOR_REMOTE_STAGING**.
+- **Staging preparation checklist created** — `REMOTE_STAGING_PREPARATION_CHECKLIST_CREATED`.
+- **Remote auth-on staging test matrix created** — `LOW_CODE_PILOT_WEEK3_REMOTE_STAGING_AUTH_ON_TEST_MATRIX_V0.1.md`.
+- **Ops request created** — `LOW_CODE_PILOT_WEEK3_REMOTE_STAGING_OPS_REQUEST_V0.1.md`.
+- **Controlled pilot continues** — `CONTROLLED_PILOT_APPROVED`.
+- **Production-ready not claimed** — `NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY`.
+- **Auth-on local repeat verified** — `AUTH_ON_REPEAT_LOCAL_VERIFIED`.
+- **Next actions event-based** — wait for remote staging details or other gap owners.
 
 Route to PM follow-up; no code fixes without real P0/P1 evidence.
 
@@ -148,8 +152,9 @@ Explicit list (BL-W3-000–009):
 | **Low-code Pilot Week-3 Controlled Pilot Approval Pack v0.1** | Completed | **CONTROLLED_PILOT_APPROVED** |
 | **Low-code Pilot Week-3 Production Readiness Decision Pack v0.1** | Completed | **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY** |
 | **Low-code Pilot Week-3 Production Readiness Gap Closure Pack v0.1** | Completed | **GAP_CLOSURE_PLAN_CREATED** |
-| **Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1** | **Completed (local)** | **AUTH_ON_REPEAT_LOCAL_VERIFIED** — remote staging pending |
-| **Low-code Pilot Week-3 Remote Auth-On Repeat (remote staging)** | Remote staging URL + auth-on config ready | PR-GAP-001 closure |
+| **Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1** | Completed (local) | **AUTH_ON_REPEAT_LOCAL_VERIFIED** |
+| **Low-code Pilot Week-3 Remote Staging Preparation Checklist Pack v0.1** | Completed | **REMOTE_STAGING_PREPARATION_CHECKLIST_CREATED** |
+| **Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1** | Remote staging details provided | PR-GAP-001 closure |
 | **Low-code Pilot Week-3 Production Data Policy Pack v0.1** | Production data policy owner ready | PR-GAP-002 |
 | **Low-code Pilot Week-3 Production Rollback Plan Pack v0.1** | Rollback owner ready | PR-GAP-003 |
 | **Low-code Pilot Week-3 Production Monitoring Policy Pack v0.1** | Monitoring owner ready | PR-GAP-004 |
