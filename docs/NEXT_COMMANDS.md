@@ -52,9 +52,9 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** **EVENT_BASED_GAP_CLOSURE** — placeholder approval rehearsed; await **real** owner final approval.
+**Next pack (use AI team):** **EVENT_BASED_GAP_CLOSURE** — monitoring policy draft created; await monitoring owner approval.
 
-**Current status:** **PLACEHOLDER_APPROVAL_REHEARSED_PENDING_REAL_OWNER_APPROVAL**
+**Current status:** **MONITORING_POLICY_DRAFT_CREATED_PENDING_OWNER_APPROVAL**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -62,34 +62,48 @@ docs/ai-team/
 
 **Production-ready claimed:** **no**
 
+**PR-GAP-004:** **MONITORING_POLICY_DRAFT_CREATED_PENDING_OWNER_APPROVAL**
+
 **PR-GAP-002:** **PLACEHOLDER_APPROVAL_REHEARSED_PENDING_REAL_OWNER_APPROVAL**
 
 **PR-GAP-003:** **CLOSED_APPROVED_BY_OWNER**
 
-**Next event:** **Real production data owner final approval provided**
+**Next event:** **Monitoring owner approval provided**
 
-**Next pack:** **Low-code Pilot Week-3 Production Data Owner Final Approval Pack v0.1**
-
-**Required before real approval:**
-
-- real Product/Data Owner name
-- real Legal/Compliance Owner name
-- explicit real approval
-- confirmation that production data use is either approved or remains forbidden
-- confirmation that low-code fields are not legal/financial source of truth without approval
+**Next pack:** **Low-code Pilot Week-3 Production Monitoring Owner Approval Pack v0.1**
 
 **Other event-based packs:**
 
 | Event | Pack |
 |-------|------|
 | Remote staging details provided | Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1 |
-| Monitoring owner ready | Low-code Pilot Week-3 Production Monitoring Policy Pack v0.1 |
+| Real production data owner final approval provided | Low-code Pilot Week-3 Production Data Owner Final Approval Pack v0.1 |
 | Audit/compliance owner ready | Low-code Pilot Week-3 Audit Retention Policy Pack v0.1 |
 | Tenant isolation evidence requested | Low-code Pilot Week-3 Tenant Isolation Evidence Pack v0.1 |
 | Support owner assigned | Low-code Pilot Week-3 Support Ownership Pack v0.1 |
 | Release owner assigned | Low-code Pilot Week-3 Release Ownership Pack v0.1 |
 | Final go/no-go owner assigned | Low-code Pilot Week-3 Final Go-No-Go Ownership Pack v0.1 |
 | P0/P1 suspected | Low-code Runtime Pilot Fix Pack v0.1 |
+
+Week-3 production monitoring policy v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_MONITORING_POLICY_V0.1.md`.
+
+Week-3 production monitoring alert conditions v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_MONITORING_ALERT_CONDITIONS_V0.1.md`.
+
+Week-3 production monitoring checklist v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_MONITORING_CHECKLIST_V0.1.md`.
+
+Week-3 production monitoring owner note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_MONITORING_OWNER_NOTE_V0.1.md`.
+
+Week-3 production monitoring decision note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_MONITORING_DECISION_NOTE_V0.1.md`.
 
 Week-3 production data owner placeholder approval v0.1:
 
@@ -1010,7 +1024,7 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-**Current status:** **PLACEHOLDER_APPROVAL_REHEARSED_PENDING_REAL_OWNER_APPROVAL**
+**Current status:** **MONITORING_POLICY_DRAFT_CREATED_PENDING_OWNER_APPROVAL**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -1018,34 +1032,48 @@ Next implementation:
 
 **Production-ready claimed:** **no**
 
+**PR-GAP-004:** **MONITORING_POLICY_DRAFT_CREATED_PENDING_OWNER_APPROVAL**
+
 **PR-GAP-002:** **PLACEHOLDER_APPROVAL_REHEARSED_PENDING_REAL_OWNER_APPROVAL**
 
 **PR-GAP-003:** **CLOSED_APPROVED_BY_OWNER**
 
-**Next event:** **Real production data owner final approval provided**
+**Next event:** **Monitoring owner approval provided**
 
-**Next pack:** **Low-code Pilot Week-3 Production Data Owner Final Approval Pack v0.1**
-
-**Required before real approval:**
-
-- real Product/Data Owner name
-- real Legal/Compliance Owner name
-- explicit real approval
-- confirmation that production data use is either approved or remains forbidden
-- confirmation that low-code fields are not legal/financial source of truth without approval
+**Next pack:** **Low-code Pilot Week-3 Production Monitoring Owner Approval Pack v0.1**
 
 **Other event-based packs:**
 
 | Event | Pack |
 |-------|------|
 | Remote staging details provided | Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1 |
-| Monitoring owner ready | Low-code Pilot Week-3 Production Monitoring Policy Pack v0.1 |
+| Real production data owner final approval provided | Low-code Pilot Week-3 Production Data Owner Final Approval Pack v0.1 |
 | Audit/compliance owner ready | Low-code Pilot Week-3 Audit Retention Policy Pack v0.1 |
 | Tenant isolation evidence requested | Low-code Pilot Week-3 Tenant Isolation Evidence Pack v0.1 |
 | Support owner assigned | Low-code Pilot Week-3 Support Ownership Pack v0.1 |
 | Release owner assigned | Low-code Pilot Week-3 Release Ownership Pack v0.1 |
 | Final go/no-go owner assigned | Low-code Pilot Week-3 Final Go-No-Go Ownership Pack v0.1 |
 | P0/P1 suspected | Low-code Runtime Pilot Fix Pack v0.1 |
+
+Week-3 production monitoring policy v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_MONITORING_POLICY_V0.1.md`.
+
+Week-3 production monitoring alert conditions v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_MONITORING_ALERT_CONDITIONS_V0.1.md`.
+
+Week-3 production monitoring checklist v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_MONITORING_CHECKLIST_V0.1.md`.
+
+Week-3 production monitoring owner note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_MONITORING_OWNER_NOTE_V0.1.md`.
+
+Week-3 production monitoring decision note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_MONITORING_DECISION_NOTE_V0.1.md`.
 
 Week-3 production data owner placeholder approval v0.1:
 

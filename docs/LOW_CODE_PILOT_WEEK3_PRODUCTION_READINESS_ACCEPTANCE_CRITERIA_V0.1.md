@@ -19,7 +19,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | 5 | Remote Auth-On Repeat completed | **PENDING** (remote staging) — local **PASS** 2026-06-23 | PR-GAP-001 |
 | 6 | Production data policy approved | **PARTIAL** (draft created; owner approval pending) | PR-GAP-002 |
 | 7 | Rollback plan approved | **PASS** | PR-GAP-003 |
-| 8 | Monitoring/alerting policy approved | **PENDING** | PR-GAP-004 |
+| 8 | Monitoring/alerting policy approved | **PARTIAL** (draft created; owner approval pending) | PR-GAP-004 |
 | 9 | Audit retention policy approved | **PENDING** | PR-GAP-005 |
 | 10 | Tenant isolation evidence approved | **PENDING** | PR-GAP-006 |
 | 11 | Support owner assigned | **PENDING** | PR-GAP-007 |
@@ -60,6 +60,15 @@ For each gap closure pack:
 - No secrets/JWT/tokens in docs or repo
 - No low-code financial/legal source-of-truth use without approval
 - Signed legal documents and payment data excluded unless separately approved
+
+### Production Monitoring Policy Requirements (PR-GAP-004)
+
+- Monitoring / alerting policy must be **approved** before production
+- P0/P1 alert routing must be defined
+- Auth bypass, tenant isolation, secrets leakage must be **P0** alerts
+- Monitoring owner must be assigned
+- Evidence format must avoid secrets/JWT/tokens
+- No production-ready claim without monitoring owner approval
 
 ## Final Go/No-Go Criteria
 
