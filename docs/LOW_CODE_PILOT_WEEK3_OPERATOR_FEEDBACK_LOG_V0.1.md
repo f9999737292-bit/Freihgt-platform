@@ -4,17 +4,16 @@
 
 Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER**, **SHIPMENT**, and **BILLING_REGISTER**.
 
-**Current status:** **POST_FEEDBACK_READY_FOR_CONTROLLED_PILOT** — intake **3/3** complete; readiness decision recorded; **production-ready not claimed**.
+**Current status:** **CONTROLLED_PILOT_APPROVED** — controlled internal pilot **active**; production-ready **not claimed**.
 
 ## Current Status
 
 | Metric | Value |
 |--------|-------|
-| Total entries | **24** |
+| Total entries | **25** |
 | Real operator submissions | **3** |
-| Readiness decision | **POST_FEEDBACK_READY_FOR_CONTROLLED_PILOT** |
+| Pilot approval | **CONTROLLED_PILOT_APPROVED** |
 | Production ready claimed | **no** |
-| P0 / P1 / P2 | **0 / 0 / 0** |
 | PM / Coordinator | **Феликс Асаев** |
 | Last updated | 2026-06-26 |
 
@@ -46,6 +45,7 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | W3-FB-CAPTURE-RETRY-003 | 2026-06-26 | Курганова Наталья | BILLING_REGISTER | DEMO-BR-001 | live operator feedback | P3 | BR — сценарий=да, оценка=5, ready, замечаний нет | COMPLETED | Феликс Асаев | Post-Feedback Readiness Decision v0.1 | ready — no remarks |
 | W3-FB-INTAKE-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | real operator feedback intake | P3 | Real operator feedback intake completed for TRANSPORT_ORDER, SHIPMENT, and BILLING_REGISTER | COMPLETED | Феликс Асаев | Post-Feedback Readiness Decision v0.1 | REAL_FEEDBACK_INTAKE_COMPLETED_READY — real_feedback_count=3, average_rating=5, blockers_found=no |
 | W3-FB-READINESS-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | post-feedback readiness decision | P3 | Post-feedback readiness decision completed after 3/3 operators rated scenarios 5/5 and ready | COMPLETED | Феликс Асаев | Controlled Pilot Approval v0.1 | POST_FEEDBACK_READY_FOR_CONTROLLED_PILOT — blockers_found=no, production_ready_claimed=no |
+| W3-FB-APPROVAL-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | controlled pilot approval | P3 | Controlled internal pilot approved for demo tenant and limited users; production not claimed | COMPLETED | Феликс Асаев | Event-based monitoring / Production Readiness when triggered | CONTROLLED_PILOT_APPROVED — scope charter active |
 
 ### Column guide
 

@@ -52,15 +52,28 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** Low-code Pilot Week-3 Controlled Pilot Approval Pack v0.1.
+**Next pack (use AI team):** No automatic pack — **controlled pilot active**.
 
-**Current status:** **POST_FEEDBACK_READY_FOR_CONTROLLED_PILOT**
+**Current status:** **CONTROLLED_PILOT_APPROVED**
 
-**Parallel when ops ready:** Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1.
+**Event-based next actions:**
 
-**If stakeholder requests fresh evidence:** Low-code Pilot Week-3 Monitoring Evidence Refresh Pack v0.1.
+* Ops ready → **Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1**
+* Stakeholder requests production review → **Low-code Pilot Week-3 Production Readiness Decision Pack v0.1**
+* Fresh evidence requested → **Low-code Pilot Week-3 Monitoring Evidence Refresh Pack v0.1**
+* P0/P1 suspected → **Low-code Runtime Pilot Fix Pack v0.1**
 
-**If P0/P1 suspected:** Low-code Runtime Pilot Fix Pack v0.1.
+Week-3 controlled pilot approval v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_CONTROLLED_PILOT_APPROVAL_V0.1.md`.
+
+Week-3 controlled pilot scope charter v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_CONTROLLED_PILOT_SCOPE_CHARTER_V0.1.md`.
+
+Week-3 controlled pilot approval note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_CONTROLLED_PILOT_APPROVAL_NOTE_V0.1.md`.
 
 Week-3 post-feedback readiness decision v0.1:
 
@@ -841,15 +854,21 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-**Current status:** **POST_FEEDBACK_READY_FOR_CONTROLLED_PILOT**
+**Current status:** **CONTROLLED_PILOT_APPROVED** — controlled pilot **active**.
 
-1. **Low-code Pilot Week-3 Controlled Pilot Approval Pack v0.1**
+**No automatic next pack.** Event-based actions only.
 
-**Parallel when ops ready:** Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1.
+Week-3 controlled pilot approval v0.1:
 
-**If stakeholder requests fresh evidence:** Low-code Pilot Week-3 Monitoring Evidence Refresh Pack v0.1.
+See `docs/LOW_CODE_PILOT_WEEK3_CONTROLLED_PILOT_APPROVAL_V0.1.md`.
 
-**If P0/P1 suspected:** Low-code Runtime Pilot Fix Pack v0.1.
+Week-3 controlled pilot scope charter v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_CONTROLLED_PILOT_SCOPE_CHARTER_V0.1.md`.
+
+Week-3 controlled pilot approval note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_CONTROLLED_PILOT_APPROVAL_NOTE_V0.1.md`.
 
 Week-3 post-feedback readiness decision v0.1:
 
