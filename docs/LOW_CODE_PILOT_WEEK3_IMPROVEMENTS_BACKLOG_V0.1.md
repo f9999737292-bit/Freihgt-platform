@@ -4,7 +4,7 @@
 
 Consolidated **improvements backlog** for Week-3 low-code pilot feedback triage. Contains baseline placeholder items while **no real operator submissions** exist, plus structure for P0–P3 items when feedback arrives.
 
-**Backlog status:** **0 real feedback-derived improvement items**. **46** items (BL-W3-000–045). **AUDIT_COMPLIANCE_OWNER_ASSIGNED_PENDING_FINAL_APPROVAL**.
+**Backlog status:** **0 real feedback-derived improvement items**. **47** items (BL-W3-000–046). **AUDIT_COMPLIANCE_OWNER_FINAL_APPROVAL_CAPTURED**.
 
 Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 
@@ -12,7 +12,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 
 | Metric | Value |
 |--------|-------|
-| Total items | **46** |
+| Total items | **47** |
 | Controlled pilot | **CONTROLLED_PILOT_APPROVED** — active |
 | Production readiness | **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY** |
 | Staging deploy runbook | **STAGING_DEPLOY_RUNBOOK_CREATED** |
@@ -20,7 +20,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 | Rollback owner | **Артем Асаев** |
 | PR-GAP-001 | **BLOCKED_WAITING_FOR_REMOTE_STAGING** |
 | PR-GAP-002 | **PLACEHOLDER_APPROVAL_REHEARSED_PENDING_REAL_OWNER_APPROVAL** |
-| PR-GAP-005 | **AUDIT_COMPLIANCE_OWNER_ASSIGNED_PENDING_FINAL_APPROVAL** |
+| PR-GAP-005 | **CLOSED_APPROVED_BY_OWNER** |
 | PR-GAP-004 | **CLOSED_APPROVED_BY_OWNER** |
 | PR-GAP-003 | **CLOSED_APPROVED_BY_OWNER** |
 | Open production gaps | **8** |
@@ -77,7 +77,8 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 | BL-W3-042 | production monitoring owner final approval pack v0.1 | ALL | Production monitoring owner final approval | P3 | Monitoring owner final approval captured — PR-GAP-004 closed | Continue event-based gap closure | Артем Асаев | event-based gap packs | COMPLETED | MONITORING_OWNER_FINAL_APPROVAL_CAPTURED |
 | BL-W3-043 | audit retention policy pack v0.1 | ALL | Audit retention policy | P3 | Audit retention policy, checklist, evidence rules created — no config changed | Audit/compliance owner approval | Audit / Compliance Owner — TBD | Audit Compliance Owner Approval Pack v0.1 | COMPLETED | AUDIT_RETENTION_POLICY_DRAFT_CREATED_PENDING_OWNER_APPROVAL |
 | BL-W3-044 | audit compliance owner approval pack v0.1 | ALL | Audit compliance owner approval | P3 | Audit compliance owner approval gate prepared — owner TBD | Final owner approval | Audit / Compliance Owner — TBD | Audit Compliance Owner Final Approval Pack v0.1 | COMPLETED | AUDIT_COMPLIANCE_OWNER_ASSIGNMENT_PENDING |
-| BL-W3-045 | audit compliance owner assignment update pack v0.1 | ALL | Audit compliance owner assignment | P3 | Audit/compliance owner assigned as **Феликс Асаев** — final approval pending | Explicit final approval | **Феликс Асаев** | Audit Compliance Owner Final Approval Pack v0.1 | OPEN | AUDIT_COMPLIANCE_OWNER_ASSIGNED_PENDING_FINAL_APPROVAL |
+| BL-W3-045 | audit compliance owner assignment update pack v0.1 | ALL | Audit compliance owner assignment | P3 | Audit/compliance owner assigned as **Феликс Асаев** — final approval pending | Explicit final approval | **Феликс Асаев** | Audit Compliance Owner Final Approval Pack v0.1 | COMPLETED | AUDIT_COMPLIANCE_OWNER_ASSIGNED_PENDING_FINAL_APPROVAL |
+| BL-W3-046 | audit compliance owner final approval pack v0.1 | ALL | Audit compliance owner final approval | P3 | Audit/compliance owner final approval captured — PR-GAP-005 closed | Continue event-based gap closure | **Феликс Асаев** | event-based gap packs | COMPLETED | AUDIT_COMPLIANCE_OWNER_FINAL_APPROVAL_CAPTURED |
 
 ## P0 Items
 
@@ -118,16 +119,18 @@ When P1 appears: add row with owner assigned, target fix pack, decision **GO_WIT
 | BL-W3-042 | Production monitoring owner final approval v0.1 | **Completed** | COMPLETED |
 | BL-W3-043 | Audit retention policy v0.1 | **Completed** | COMPLETED |
 | BL-W3-044 | Audit compliance owner approval v0.1 | **Completed** | COMPLETED |
-| BL-W3-045 | Audit compliance owner assignment update v0.1 | Audit/compliance owner final approval | OPEN |
+| BL-W3-045 | Audit compliance owner assignment update v0.1 | **Completed** | COMPLETED |
+| BL-W3-046 | Audit compliance owner final approval v0.1 | **Completed** | COMPLETED |
 
 **Rules (reinforced):**
 
-- **Audit/compliance owner assigned:** **Феликс Асаев**
-- **PR-GAP-005 remains open**
-- **Final owner approval still pending**
-- **Real retention config not changed**
+- **Audit compliance owner final approval captured** — **Феликс Асаев**
+- **PR-GAP-005 closed as approved by owner**
+- **Real retention config was not changed**
+- **Audit logs were not cleaned**
 - **Production-ready still not claimed**
-- **Next action:** Audit Compliance Owner Final Approval Pack v0.1
+- **Remaining gaps still tracked in gap tracker**
+- **Continue event-based gap closure**
 
 Route to PM follow-up; no code fixes without real P0/P1 evidence.
 
@@ -199,7 +202,7 @@ Explicit list (BL-W3-000–009):
 | **Low-code Pilot Week-3 Audit Retention Policy Pack v0.1** | Completed | **AUDIT_RETENTION_POLICY_DRAFT_CREATED_PENDING_OWNER_APPROVAL** |
 | **Low-code Pilot Week-3 Audit Compliance Owner Approval Pack v0.1** | Completed | **AUDIT_COMPLIANCE_OWNER_ASSIGNMENT_PENDING** |
 | **Low-code Pilot Week-3 Audit Compliance Owner Assignment Update Pack v0.1** | Completed | **AUDIT_COMPLIANCE_OWNER_ASSIGNED_PENDING_FINAL_APPROVAL** |
-| **Low-code Pilot Week-3 Audit Compliance Owner Final Approval Pack v0.1** | Audit/compliance owner final approval provided | PR-GAP-005 closure |
+| **Low-code Pilot Week-3 Audit Compliance Owner Final Approval Pack v0.1** | Completed | **AUDIT_COMPLIANCE_OWNER_FINAL_APPROVAL_CAPTURED** — PR-GAP-005 closed |
 | **Low-code Pilot Week-3 Tenant Isolation Evidence Pack v0.1** | Tenant isolation evidence requested | PR-GAP-006 |
 | **Low-code Pilot Week-3 Support Ownership Pack v0.1** | Support owner assigned | PR-GAP-007 |
 | **Low-code Pilot Week-3 Release Ownership Pack v0.1** | Release owner assigned | PR-GAP-008 |

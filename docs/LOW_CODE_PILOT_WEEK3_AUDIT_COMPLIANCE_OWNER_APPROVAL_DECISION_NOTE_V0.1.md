@@ -2,11 +2,11 @@
 
 ## Decision Summary
 
-Audit / Compliance owner **assigned** for PR-GAP-005. **Final audit retention approval not granted** in this pack.
+Audit / Compliance owner **final approval captured** for PR-GAP-005. Audit retention policy **approved** by owner **Феликс Асаев**.
 
-**Decision:** **AUDIT_COMPLIANCE_OWNER_ASSIGNED_PENDING_FINAL_APPROVAL**
+**Decision:** **AUDIT_COMPLIANCE_OWNER_FINAL_APPROVAL_CAPTURED**
 
-**PR-GAP-005:** **AUDIT_COMPLIANCE_OWNER_ASSIGNED_PENDING_FINAL_APPROVAL**
+**PR-GAP-005:** **CLOSED_APPROVED_BY_OWNER**
 
 ## Owner
 
@@ -18,46 +18,46 @@ Audit / Compliance owner **assigned** for PR-GAP-005. **Final audit retention ap
 
 ## Approval Status
 
-**owner assigned, final approval pending**
+**approved**
 
 | Gate | Status |
 |------|--------|
 | Owner assignment | **complete** |
 | Role confirmation | **complete** |
 | Contact confirmation | **not provided** |
-| Explicit policy approval | **pending** |
+| Explicit policy approval | **complete** — **yes** |
 
-## What Is Captured
+## What Is Approved
 
-- Audit/compliance owner assigned
-- Owner name: **Феликс Асаев**
-- Audit retention policy draft exists
-- Audit evidence handling rules exist
+- Audit/compliance owner assignment
+- Audit retention policy
+- Audit evidence handling rules
+- Secrets/JWT/tokens forbidden in evidence
+- Tenant isolation audit rule
+- Audit read access protection
+- Deletion/redaction rule
 
-## What Is Not Approved Yet
+## What Is Not Approved
 
-- Final audit retention approval
-- Production retention period
 - Production-ready
+- Production release
 - Real retention config changes
+- Deploy
+- Production writes
+- Audit log cleanup
 
 ## Open Items
 
 | # | Item | Owner |
 |---|------|-------|
-| 1 | Review audit retention policy | Феликс Асаев |
-| 2 | Review evidence handling rules | Феликс Асаев |
-| 3 | Provide contact (optional) | Феликс Асаев |
-| 4 | Explicit final approval | Феликс Асаев |
+| 1 | Provide contact (optional handover) | Феликс Асаев |
 
 ## Decision
 
-**AUDIT_COMPLIANCE_OWNER_ASSIGNED_PENDING_FINAL_APPROVAL**
+**AUDIT_COMPLIANCE_OWNER_FINAL_APPROVAL_CAPTURED**
 
 ## Next Pack
 
-**Low-code Pilot Week-3 Audit Compliance Owner Final Approval Pack v0.1**
+**continue event-based gap closure**
 
-**Trigger:** Audit/compliance owner final approval provided
-
-Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_TRACKER_V0.1.md` (PR-GAP-005)
+Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_TRACKER_V0.1.md` (PR-GAP-005 **CLOSED**)

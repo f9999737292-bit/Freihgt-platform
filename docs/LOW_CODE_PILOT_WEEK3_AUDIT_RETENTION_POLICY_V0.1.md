@@ -4,9 +4,9 @@
 
 Draft **audit retention policy** for low-code runtime and admin modules (PR-GAP-005). Defines audit events in scope, retention rules, access rules, evidence requirements, and forbidden data. **Docs-only** — no real retention config changed.
 
-**Decision:** **AUDIT_RETENTION_POLICY_DRAFT_CREATED_PENDING_OWNER_APPROVAL**
+**Decision:** **AUDIT_COMPLIANCE_OWNER_FINAL_APPROVAL_CAPTURED**
 
-**PR-GAP-005:** **AUDIT_RETENTION_POLICY_DRAFT_CREATED_PENDING_OWNER_APPROVAL**
+**PR-GAP-005:** **CLOSED_APPROVED_BY_OWNER**
 
 ## Purpose
 
@@ -27,11 +27,15 @@ Establish what low-code audit events are retained, for how long, who may access 
 
 | Field | Value |
 |-------|-------|
-| Owner | **TBD** (Audit / Compliance / Security Owner) |
-| Approval | **pending** |
+| Owner | **Феликс Асаев** (Audit / Compliance / Security Owner) |
+| Approval | **approved** |
+| Current Approval Status | **APPROVED_BY_AUDIT_COMPLIANCE_OWNER** |
+| Approved By | **Феликс Асаев** |
 | Production-ready claimed | **no** |
 | Controlled pilot | **CONTROLLED_PILOT_APPROVED** — active |
 | Real retention config changed | **no** |
+
+**Important:** This approval is **docs-only**. No real retention config was changed. Production-ready is **not** claimed.
 
 ## Audit Events In Scope
 

@@ -10,7 +10,7 @@ Risk register for production readiness review after controlled pilot approval.
 
 **Auth-on repeat (local):** `AUTH_ON_REPEAT_LOCAL_VERIFIED` (2026-06-23) — remote staging **pending**.
 
-**Audit retention policy:** owner **Феликс Асаев** assigned — `AUDIT_COMPLIANCE_OWNER_ASSIGNED_PENDING_FINAL_APPROVAL` (PR-GAP-005).
+**Audit retention policy:** owner **Феликс Асаев** — `AUDIT_COMPLIANCE_OWNER_FINAL_APPROVAL_CAPTURED` (PR-GAP-005 **CLOSED**).
 
 **Production monitoring:** owner **Артем Асаев** — `MONITORING_OWNER_FINAL_APPROVAL_CAPTURED` (PR-GAP-004 **CLOSED**).
 
@@ -22,7 +22,9 @@ Risk register for production readiness review after controlled pilot approval.
 
 **PR-RISK-004 residual risk:** owner role/contact not provided; real monitoring config implementation may require separate operational task if needed.
 
-**Production go/no-go blocked** until gaps PR-GAP-001–002, PR-GAP-005–010 closed per acceptance criteria.
+**PR-RISK-009 residual risk:** owner contact not provided; real retention config implementation may require a separate operational task if needed.
+
+**Production go/no-go blocked** until gaps PR-GAP-001–002, PR-GAP-006–010 closed per acceptance criteria.
 
 **Controlled pilot may continue** while production risks remain **OPEN**.
 
@@ -38,7 +40,7 @@ Risk register for production readiness review after controlled pilot approval.
 | PR-RISK-006 | PR-GAP-010 | Low-code fields used as financial/legal source of truth without approval | P1 | OPEN | Explicit policy: core billing/payment status unchanged; BR operator briefing documented | PM + operator lead | Low-code Source-of-Truth Policy Pack v0.1 |
 | PR-RISK-007 | PR-GAP-006 | Tenant isolation not evidenced for production | P2 | OPEN | Security review + isolation tests on target env | Security | Tenant Isolation Evidence Pack v0.1 |
 | PR-RISK-008 | — | Limited operator sample (3 users, demo entities) | P3 | OPEN | Expand only via approved governance | PM | controlled pilot scope only |
-| PR-RISK-009 | PR-GAP-005 | Audit retention policy undefined for production | P3 | **PARTIALLY_MITIGATED_OWNER_ASSIGNED_PENDING_FINAL_APPROVAL** | Audit retention policy and evidence handling rules created; Audit/Compliance owner assigned as **Феликс Асаев**; final approval still required | **Феликс Асаев** | Audit Compliance Owner Final Approval Pack v0.1 |
+| PR-RISK-009 | PR-GAP-005 | Audit retention policy undefined for production | P3 | **MITIGATED_BY_APPROVED_AUDIT_RETENTION_POLICY** | Audit retention policy, evidence handling rules, checklist, and owner final approval captured with owner **Феликс Асаев** | **Феликс Асаев** | Optional: contact handover; real retention config implementation if needed |
 | PR-RISK-010 | PR-GAP-007 | Support owner not assigned | P2 | OPEN | Assign named support owner and escalation | PM / Operations | Support Ownership Pack v0.1 |
 | PR-RISK-011 | PR-GAP-008 | Release owner not assigned | P2 | OPEN | Assign release owner and checklist | PM / Release Manager | Release Ownership Pack v0.1 |
 

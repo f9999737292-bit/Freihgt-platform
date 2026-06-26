@@ -2,7 +2,7 @@
 
 ## Summary
 
-Tracks **8 open production readiness gaps**. PR-GAP-003 and PR-GAP-004 **closed** — rollback and monitoring policies approved by owner.
+Tracks **7 open production readiness gaps**. PR-GAP-003, PR-GAP-004, and PR-GAP-005 **closed** — rollback, monitoring, and audit retention policies approved by owner.
 
 **Auth-on repeat (local):** `AUTH_ON_REPEAT_LOCAL_VERIFIED` (2026-06-23)
 
@@ -18,9 +18,9 @@ Tracks **8 open production readiness gaps**. PR-GAP-003 and PR-GAP-004 **closed*
 
 **Production monitoring policy:** `MONITORING_OWNER_FINAL_APPROVAL_CAPTURED` (PR-GAP-004 **CLOSED**)
 
-**Audit retention policy:** `AUDIT_COMPLIANCE_OWNER_ASSIGNED_PENDING_FINAL_APPROVAL` (PR-GAP-005)
+**Audit retention policy:** `AUDIT_COMPLIANCE_OWNER_FINAL_APPROVAL_CAPTURED` (PR-GAP-005 **CLOSED**)
 
-**Audit/compliance owner:** **Феликс Асаев**
+**Audit/compliance owner:** **Феликс Асаев** — approved
 
 **Monitoring owner:** **Артем Асаев** — approved
 
@@ -39,7 +39,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | PR-GAP-002 | Production data policy not approved | **PLACEHOLDER_APPROVAL_REHEARSED_PENDING_REAL_OWNER_APPROVAL** | Placeholder only — **Иван Петров** / **Елена Смирнова** / **Ольга Кузнецова** | Real Product/Data Owner and Legal/Compliance approval still required; placeholder rehearsal does not close PR-GAP-002 | Low-code Pilot Week-3 Production Data Owner Final Approval Pack v0.1 | Virtual names used for rehearsal only. Production data use is **not** approved. Production-ready not claimed. |
 | PR-GAP-003 | Rollback plan not approved | **CLOSED_APPROVED_BY_OWNER** | **Артем Асаев** | Rollback plan, rollback procedure, rollback checklist, owner assignment, and final approval captured | none for PR-GAP-003 unless role/contact handover is required later | Rollback plan approved by owner. Rollback was not executed. Production-ready not claimed. Other production readiness gaps remain open. |
 | PR-GAP-004 | Monitoring / alerting policy not approved | **CLOSED_APPROVED_BY_OWNER** | **Артем Асаев** | Monitoring policy, alert conditions, checklist, owner assignment, and final approval captured | none for PR-GAP-004 unless role/contact/on-call handover required later | Monitoring policy approved by owner. Real monitoring config was not changed. Production-ready not claimed. Other production readiness gaps remain open. |
-| PR-GAP-005 | Audit retention policy not approved | **AUDIT_COMPLIANCE_OWNER_ASSIGNED_PENDING_FINAL_APPROVAL** | **Феликс Асаев** | Audit/compliance owner assigned; final approval is still required before PR-GAP-005 can be closed | Low-code Pilot Week-3 Audit Compliance Owner Final Approval Pack v0.1 | Audit/Compliance owner assigned docs-only. Audit retention policy is not finally approved yet. No real retention config changed. Production-ready not claimed. |
+| PR-GAP-005 | Audit retention policy not approved | **CLOSED_APPROVED_BY_OWNER** | **Феликс Асаев** | Audit retention policy, audit evidence handling rules, audit retention checklist, owner assignment, owner approval checklist, and final owner approval captured | none for PR-GAP-005 unless real retention config implementation or operational handover is required later | Audit retention policy approved by owner. Real retention config was not changed. Audit logs were not cleaned. Production-ready not claimed. Other production readiness gaps remain open. |
 | PR-GAP-006 | Tenant isolation production evidence not approved | PENDING | Security / Backend Lead | Tenant boundary checks documented and verified | Tenant Isolation Evidence Pack v0.1 | — |
 | PR-GAP-007 | Support owner not assigned | PENDING | PM / Operations | Named support owner and escalation path | Support Ownership Pack v0.1 | — |
 | PR-GAP-008 | Release owner not assigned | PENDING | PM / Release Manager | Named release owner and release checklist | Release Ownership Pack v0.1 | — |
@@ -53,8 +53,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | PENDING | **4** |
 | BLOCKED_WAITING_FOR_REMOTE_STAGING | **1** (PR-GAP-001) |
 | PLACEHOLDER_APPROVAL_REHEARSED_PENDING_REAL_OWNER_APPROVAL | **1** (PR-GAP-002) |
-| AUDIT_COMPLIANCE_OWNER_ASSIGNED_PENDING_FINAL_APPROVAL | **1** (PR-GAP-005) |
-| CLOSED | **2** (PR-GAP-003, PR-GAP-004 — CLOSED_APPROVED_BY_OWNER) |
+| CLOSED | **3** (PR-GAP-003, PR-GAP-004, PR-GAP-005 — CLOSED_APPROVED_BY_OWNER) |
 | IN_PROGRESS | **0** |
 
 ## Closure Rules

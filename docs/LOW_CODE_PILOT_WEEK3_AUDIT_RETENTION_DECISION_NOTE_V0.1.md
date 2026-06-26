@@ -2,44 +2,40 @@
 
 ## Decision Summary
 
-Audit retention policy **draft created** for PR-GAP-005. **Final Audit/Compliance owner approval not granted** in this pack.
+Audit retention policy **approved by owner** for PR-GAP-005. Owner **Феликс Асаев** — final approval captured.
 
-**Decision:** **AUDIT_RETENTION_POLICY_DRAFT_CREATED_PENDING_OWNER_APPROVAL**
+**Decision:** **AUDIT_COMPLIANCE_OWNER_FINAL_APPROVAL_CAPTURED**
 
-**PR-GAP-005:** **AUDIT_RETENTION_POLICY_DRAFT_CREATED_PENDING_OWNER_APPROVAL**
+**PR-GAP-005:** **CLOSED_APPROVED_BY_OWNER**
 
 ## What Is Approved Now
 
-- Audit retention policy draft created
-- Audit evidence handling rules drafted
-- Secrets/JWT/tokens forbidden in audit evidence
-- Owner approval is still required
+- Audit retention policy approved by owner
+- Audit evidence handling rules approved by owner
+- Secrets/JWT/tokens forbidden in evidence accepted
+- Tenant isolation audit rule accepted
+- Audit read access protection accepted
+- Deletion/redaction rule reviewed
 
-## What Is Not Approved Yet
+## What Is Not Approved
 
-- Final audit/compliance owner approval
-- Production retention period
 - Production-ready
-- Real retention config changes
-- Log purge or audit cleanup
+- Real retention config change
+- Audit cleanup operation
+- Production release
 
 ## Open Items
 
 | # | Item | Owner |
 |---|------|-------|
-| 1 | Assign Audit / Compliance / Security owner | PM |
-| 2 | Confirm production retention periods | TBD |
-| 3 | Approve audit read access protection for production | TBD |
-| 4 | Explicit final approval | TBD |
+| 1 | Optional owner contact handover | Феликс Асаев |
 
 ## Decision
 
-**AUDIT_RETENTION_POLICY_DRAFT_CREATED_PENDING_OWNER_APPROVAL**
+**AUDIT_COMPLIANCE_OWNER_FINAL_APPROVAL_CAPTURED**
 
 ## Next Pack
 
-**Low-code Pilot Week-3 Audit Compliance Owner Approval Pack v0.1**
+**continue event-based gap closure**
 
-**Trigger:** Audit/compliance owner approval provided
-
-Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_TRACKER_V0.1.md` (PR-GAP-005)
+Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_TRACKER_V0.1.md` (PR-GAP-005 **CLOSED**)

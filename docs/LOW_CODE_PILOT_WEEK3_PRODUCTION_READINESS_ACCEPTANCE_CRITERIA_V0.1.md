@@ -20,14 +20,14 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | 6 | Production data policy approved | **PARTIAL** (draft created; owner approval pending) | PR-GAP-002 |
 | 7 | Rollback plan approved | **PASS** | PR-GAP-003 |
 | 8 | Monitoring/alerting policy approved | **PASS** | PR-GAP-004 |
-| 9 | Audit retention policy approved | **PARTIAL** (draft created; owner approval pending) | PR-GAP-005 |
+| 9 | Audit retention policy approved | **PASS** / **APPROVED_BY_OWNER** | PR-GAP-005 |
 | 10 | Tenant isolation evidence approved | **PENDING** | PR-GAP-006 |
 | 11 | Support owner assigned | **PENDING** | PR-GAP-007 |
 | 12 | Release owner assigned | **PENDING** | PR-GAP-008 |
 | 13 | Final go/no-go owner assigned | **PENDING** | PR-GAP-009 |
 | 14 | Low-code SoT policy approved | **PENDING** | PR-GAP-010 |
 
-**Must pass count:** **6 / 14** met for production claim (rollback and monitoring approved; audit retention draft only).
+**Must pass count:** **7 / 14** met for production claim (rollback, monitoring, and audit retention approved by owner).
 
 ### Must Not Happen
 
@@ -41,7 +41,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | 6 | No migration execution without approval |
 | 7 | No low-code financial/legal source of truth without approval |
 | 8 | Signed legal documents and payment data excluded unless separately approved |
-| 9 | No broad rollout while gaps PR-GAP-001–002, PR-GAP-005–010 open |
+| 9 | No broad rollout while gaps PR-GAP-001–002, PR-GAP-006–010 open |
 | 10 | No audit evidence containing secrets, JWT, tokens, or raw production dumps |
 | 11 | No production-ready claim without audit retention approval |
 
@@ -81,6 +81,12 @@ For each gap closure pack:
 - Audit/compliance owner must be **assigned**
 - No production-ready claim without audit retention approval
 - No log purge or retention config change without owner approval
+
+**Status:** **PASS / APPROVED_BY_OWNER**
+
+**Evidence:** Audit Compliance Owner Final Approval v0.1
+
+Audit retention policy is **approved by owner**, but this does **not** equal production-ready. Production-ready requires all remaining production readiness gaps to be closed.
 
 ## Final Go/No-Go Criteria
 
