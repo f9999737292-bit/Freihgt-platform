@@ -17,8 +17,8 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | 3 | No P0/P1/P2 from operator feedback | **PASS** | — |
 | 4 | Health-check OK (target env) | **PASS** (dev) | — |
 | 5 | Remote Auth-On Repeat completed | **PENDING** (remote staging) — local **PASS** 2026-06-23 | PR-GAP-001 |
-| 6 | Production data policy approved | **PENDING** | PR-GAP-002 |
-| 7 | Rollback plan approved | **PENDING** | PR-GAP-003 |
+| 6 | Production data policy approved | **PARTIAL** (draft created; owner approval pending) | PR-GAP-002 |
+| 7 | Rollback plan approved | **PASS** | PR-GAP-003 |
 | 8 | Monitoring/alerting policy approved | **PENDING** | PR-GAP-004 |
 | 9 | Audit retention policy approved | **PENDING** | PR-GAP-005 |
 | 10 | Tenant isolation evidence approved | **PENDING** | PR-GAP-006 |
@@ -27,7 +27,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | 13 | Final go/no-go owner assigned | **PENDING** | PR-GAP-009 |
 | 14 | Low-code SoT policy approved | **PENDING** | PR-GAP-010 |
 
-**Must pass count:** **4 / 14** met for production claim.
+**Must pass count:** **5 / 14** met for production claim (rollback plan approved; data policy draft only).
 
 ### Must Not Happen
 
@@ -35,10 +35,13 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 |---|------|
 | 1 | No production-ready claim without final go/no-go approval |
 | 2 | No production data writes without approved data policy |
-| 3 | No template publishing without approval |
-| 4 | No migration execution without approval |
-| 5 | No low-code financial/legal source of truth without approval |
-| 6 | No broad rollout while gaps PR-GAP-001–010 open |
+| 3 | No real production data writes without explicit owner approval |
+| 4 | No secrets, JWT, or tokens in docs or repo |
+| 5 | No template publishing without approval |
+| 6 | No migration execution without approval |
+| 7 | No low-code financial/legal source of truth without approval |
+| 8 | Signed legal documents and payment data excluded unless separately approved |
+| 9 | No broad rollout while gaps PR-GAP-001–002, PR-GAP-004–010 open |
 
 ## Evidence Required
 
@@ -49,6 +52,14 @@ For each gap closure pack:
 - Evidence artifact (doc, test log, policy PDF reference — not committed secrets)
 - Tracker status updated to **CLOSED**
 - Risk register risk mapped to gap **mitigated** or **accepted** with approval
+
+### Production Data Policy Requirements (PR-GAP-002)
+
+- Production data policy must be **approved** before production
+- No real production data writes without approval
+- No secrets/JWT/tokens in docs or repo
+- No low-code financial/legal source-of-truth use without approval
+- Signed legal documents and payment data excluded unless separately approved
 
 ## Final Go/No-Go Criteria
 

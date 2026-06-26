@@ -52,9 +52,9 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** **EVENT_BASED_GAP_CLOSURE** — PR-GAP-003 closed; continue remaining gaps.
+**Next pack (use AI team):** **EVENT_BASED_GAP_CLOSURE** — production data policy draft created; await data owner approval.
 
-**Current status:** **ROLLBACK_OWNER_FINAL_APPROVAL_CAPTURED**
+**Current status:** **DATA_POLICY_DRAFT_CREATED_PENDING_OWNER_APPROVAL**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -62,18 +62,19 @@ docs/ai-team/
 
 **Production-ready claimed:** **no**
 
+**PR-GAP-002:** **DATA_POLICY_DRAFT_CREATED_PENDING_OWNER_APPROVAL**
+
 **PR-GAP-003:** **CLOSED_APPROVED_BY_OWNER**
 
-**Rollback owner:** **Артем Асаев** (role not provided; contact not provided)
+**Next event:** **Production data owner approval provided**
 
-**Next mode:** **EVENT_BASED_GAP_CLOSURE**
+**Next pack:** **Low-code Pilot Week-3 Production Data Owner Approval Pack v0.1**
 
-**Recommended next events:**
+**Other event-based packs:**
 
 | Event | Pack |
 |-------|------|
 | Remote staging details provided | Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1 |
-| Production data policy owner ready | Low-code Pilot Week-3 Production Data Policy Pack v0.1 |
 | Monitoring owner ready | Low-code Pilot Week-3 Production Monitoring Policy Pack v0.1 |
 | Audit/compliance owner ready | Low-code Pilot Week-3 Audit Retention Policy Pack v0.1 |
 | Tenant isolation evidence requested | Low-code Pilot Week-3 Tenant Isolation Evidence Pack v0.1 |
@@ -81,6 +82,22 @@ docs/ai-team/
 | Release owner assigned | Low-code Pilot Week-3 Release Ownership Pack v0.1 |
 | Final go/no-go owner assigned | Low-code Pilot Week-3 Final Go-No-Go Ownership Pack v0.1 |
 | P0/P1 suspected | Low-code Runtime Pilot Fix Pack v0.1 |
+
+Week-3 production data policy v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_DATA_POLICY_V0.1.md`.
+
+Week-3 production data policy checklist v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_DATA_POLICY_CHECKLIST_V0.1.md`.
+
+Week-3 production data owner note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_DATA_OWNER_NOTE_V0.1.md`.
+
+Week-3 production data policy decision note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_DATA_POLICY_DECISION_NOTE_V0.1.md`.
 
 Week-3 rollback owner final approval v0.1:
 
@@ -973,7 +990,7 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-**Current status:** **ROLLBACK_OWNER_FINAL_APPROVAL_CAPTURED**
+**Current status:** **DATA_POLICY_DRAFT_CREATED_PENDING_OWNER_APPROVAL**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -981,18 +998,19 @@ Next implementation:
 
 **Production-ready claimed:** **no**
 
+**PR-GAP-002:** **DATA_POLICY_DRAFT_CREATED_PENDING_OWNER_APPROVAL**
+
 **PR-GAP-003:** **CLOSED_APPROVED_BY_OWNER**
 
-**Rollback owner:** **Артем Асаев** (role not provided; contact not provided)
+**Next event:** **Production data owner approval provided**
 
-**Next mode:** **EVENT_BASED_GAP_CLOSURE**
+**Next pack:** **Low-code Pilot Week-3 Production Data Owner Approval Pack v0.1**
 
-**Recommended next events:**
+**Other event-based packs:**
 
 | Event | Pack |
 |-------|------|
 | Remote staging details provided | Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1 |
-| Production data policy owner ready | Low-code Pilot Week-3 Production Data Policy Pack v0.1 |
 | Monitoring owner ready | Low-code Pilot Week-3 Production Monitoring Policy Pack v0.1 |
 | Audit/compliance owner ready | Low-code Pilot Week-3 Audit Retention Policy Pack v0.1 |
 | Tenant isolation evidence requested | Low-code Pilot Week-3 Tenant Isolation Evidence Pack v0.1 |
@@ -1000,6 +1018,22 @@ Next implementation:
 | Release owner assigned | Low-code Pilot Week-3 Release Ownership Pack v0.1 |
 | Final go/no-go owner assigned | Low-code Pilot Week-3 Final Go-No-Go Ownership Pack v0.1 |
 | P0/P1 suspected | Low-code Runtime Pilot Fix Pack v0.1 |
+
+Week-3 production data policy v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_DATA_POLICY_V0.1.md`.
+
+Week-3 production data policy checklist v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_DATA_POLICY_CHECKLIST_V0.1.md`.
+
+Week-3 production data owner note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_DATA_OWNER_NOTE_V0.1.md`.
+
+Week-3 production data policy decision note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_DATA_POLICY_DECISION_NOTE_V0.1.md`.
 
 Week-3 rollback owner final approval v0.1:
 

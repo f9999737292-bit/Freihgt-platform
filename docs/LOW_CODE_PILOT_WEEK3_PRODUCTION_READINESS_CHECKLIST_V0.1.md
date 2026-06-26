@@ -49,7 +49,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 
 | criterion | status | evidence | owner | notes |
 |-----------|--------|----------|-------|-------|
-| Production data approval | PENDING | — | PM / governance | not approved |
+| Production data approval | **PARTIAL / PENDING_APPROVAL** | Production Data Policy v0.1, Production Data Policy Checklist v0.1, Production Data Owner Note v0.1, Production Data Policy Decision Note v0.1 | Product / Legal / Data Owner — TBD | PR-GAP-002 draft; production data use not approved |
 | Migration execute policy | PENDING | — | DevOps | no prod migrations approved |
 | Template publish policy | PENDING | — | pilot lead | publish blocked without pack |
 

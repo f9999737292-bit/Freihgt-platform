@@ -10,6 +10,8 @@ Risk register for production readiness review after controlled pilot approval.
 
 **Auth-on repeat (local):** `AUTH_ON_REPEAT_LOCAL_VERIFIED` (2026-06-23) — remote staging **pending**.
 
+**Production data policy:** draft created — `DATA_POLICY_DRAFT_CREATED_PENDING_OWNER_APPROVAL` (PR-GAP-002).
+
 **Rollback owner:** **Артем Асаев** — final approval **captured** (PR-GAP-003 **CLOSED**).
 
 **PR-RISK-003 residual risk:** owner role/contact not provided; can be completed in operational handover if needed.
@@ -23,7 +25,7 @@ Risk register for production readiness review after controlled pilot approval.
 | risk id | gap id | risk | severity | status | mitigation | owner | next action |
 |---------|--------|------|----------|--------|------------|-------|-------------|
 | PR-RISK-001 | PR-GAP-001 | Remote Auth-On not repeated on staging | P2 | OPEN | Local repeat PASS 2026-06-23; execute remote staging matrix when URL available | DevOps + Security | Remote Auth-On Repeat (remote staging) |
-| PR-RISK-002 | PR-GAP-002 | Production data policy not approved | P2 | OPEN | Document and approve data policy before prod | PM / governance | Production Data Policy Pack v0.1 |
+| PR-RISK-002 | PR-GAP-002 | Production data policy not approved | P2 | **PARTIALLY_MITIGATED_BY_DRAFT_POLICY_PENDING_OWNER_APPROVAL** | Production data policy draft created; final Product/Data Owner and Legal/Compliance approval still required | Product / Legal / Data Owner — TBD | Production Data Owner Approval Pack v0.1 |
 | PR-RISK-003 | PR-GAP-003 | Rollback plan not approved | P2 | **MITIGATED_BY_APPROVED_ROLLBACK_PLAN** | Rollback plan/procedure/checklist created and approved by rollback owner **Артем Асаев** | **Артем Асаев** | Optional: role/contact handover |
 | PR-RISK-004 | PR-GAP-004 | Monitoring/alerting policy not approved | P2 | OPEN | Define prod monitoring SLOs and alerts | DevOps | Production Monitoring Policy Pack v0.1 |
 | PR-RISK-005 | PR-GAP-009 | Production go/no-go owner not assigned | P2 | OPEN | Assign governance owner for final approval | PM | Final Go-No-Go Ownership Pack v0.1 |
