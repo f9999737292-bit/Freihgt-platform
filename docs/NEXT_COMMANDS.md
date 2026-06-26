@@ -52,7 +52,7 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Current status:** **TENANT_ISOLATION_EVIDENCE_PACK_CREATED_PENDING_REVIEW**
+**Current status:** **TENANT_ISOLATION_EVIDENCE_REVIEWED_PENDING_OWNER_APPROVAL**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -64,7 +64,7 @@ docs/ai-team/
 
 **Open gaps:** PR-GAP-001, PR-GAP-002, PR-GAP-006, PR-GAP-007, PR-GAP-008, PR-GAP-009, PR-GAP-010
 
-**PR-GAP-006:** **TENANT_ISOLATION_EVIDENCE_PACK_CREATED_PENDING_REVIEW**
+**PR-GAP-006:** **TENANT_ISOLATION_EVIDENCE_REVIEWED_PENDING_OWNER_APPROVAL**
 
 **PR-GAP-005:** **CLOSED_APPROVED_BY_OWNER**
 
@@ -78,15 +78,15 @@ docs/ai-team/
 
 **Next mode:** **EVENT_BASED_GAP_CLOSURE**
 
-**Next event:** **Tenant isolation evidence review requested**
+**Next event:** **Tenant isolation owner approval provided**
 
-**Next pack:** **Low-code Pilot Week-3 Tenant Isolation Evidence Review Pack v0.1**
+**Next pack:** **Low-code Pilot Week-3 Tenant Isolation Owner Approval Pack v0.1**
 
 **Recommended next events:**
 
 | Event | Pack |
 |-------|------|
-| Tenant isolation evidence review requested | Low-code Pilot Week-3 Tenant Isolation Evidence Review Pack v0.1 |
+| Tenant isolation owner approval provided | Low-code Pilot Week-3 Tenant Isolation Owner Approval Pack v0.1 |
 | Remote staging details provided | Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1 |
 | Real production data owner final approval provided | Low-code Pilot Week-3 Production Data Owner Final Approval Pack v0.1 |
 | Support owner assigned | Low-code Pilot Week-3 Support Ownership Pack v0.1 |
@@ -149,6 +149,18 @@ See `docs/LOW_CODE_PILOT_WEEK3_TENANT_ISOLATION_EVIDENCE_LOG_V0.1.md`.
 Week-3 tenant isolation decision note v0.1:
 
 See `docs/LOW_CODE_PILOT_WEEK3_TENANT_ISOLATION_DECISION_NOTE_V0.1.md`.
+
+Week-3 tenant isolation evidence review v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_TENANT_ISOLATION_EVIDENCE_REVIEW_V0.1.md`.
+
+Week-3 tenant isolation review checklist v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_TENANT_ISOLATION_REVIEW_CHECKLIST_V0.1.md`.
+
+Week-3 tenant isolation owner approval note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_TENANT_ISOLATION_OWNER_APPROVAL_NOTE_V0.1.md`.
 
 Week-3 production monitoring policy v0.1:
 
@@ -1105,7 +1117,7 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-**Current status:** **TENANT_ISOLATION_EVIDENCE_PACK_CREATED_PENDING_REVIEW**
+**Current status:** **TENANT_ISOLATION_EVIDENCE_REVIEWED_PENDING_OWNER_APPROVAL**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -1117,11 +1129,11 @@ Next implementation:
 
 **Open gaps:** PR-GAP-001, PR-GAP-002, PR-GAP-006, PR-GAP-007, PR-GAP-008, PR-GAP-009, PR-GAP-010
 
-**PR-GAP-006:** **TENANT_ISOLATION_EVIDENCE_PACK_CREATED_PENDING_REVIEW**
+**PR-GAP-006:** **TENANT_ISOLATION_EVIDENCE_REVIEWED_PENDING_OWNER_APPROVAL**
 
-**Next event:** **Tenant isolation evidence review requested**
+**Next event:** **Tenant isolation owner approval provided**
 
-**Next pack:** **Low-code Pilot Week-3 Tenant Isolation Evidence Review Pack v0.1**
+**Next pack:** **Low-code Pilot Week-3 Tenant Isolation Owner Approval Pack v0.1**
 
 **Other event-based packs:**
 
@@ -1205,6 +1217,18 @@ See `docs/LOW_CODE_PILOT_WEEK3_TENANT_ISOLATION_EVIDENCE_LOG_V0.1.md`.
 Week-3 tenant isolation decision note v0.1:
 
 See `docs/LOW_CODE_PILOT_WEEK3_TENANT_ISOLATION_DECISION_NOTE_V0.1.md`.
+
+Week-3 tenant isolation evidence review v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_TENANT_ISOLATION_EVIDENCE_REVIEW_V0.1.md`.
+
+Week-3 tenant isolation review checklist v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_TENANT_ISOLATION_REVIEW_CHECKLIST_V0.1.md`.
+
+Week-3 tenant isolation owner approval note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_TENANT_ISOLATION_OWNER_APPROVAL_NOTE_V0.1.md`.
 
 Week-3 production monitoring policy v0.1:
 

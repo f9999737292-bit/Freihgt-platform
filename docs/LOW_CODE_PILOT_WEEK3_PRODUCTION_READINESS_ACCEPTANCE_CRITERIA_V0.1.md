@@ -21,7 +21,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | 7 | Rollback plan approved | **PASS** | PR-GAP-003 |
 | 8 | Monitoring/alerting policy approved | **PASS** | PR-GAP-004 |
 | 9 | Audit retention policy approved | **PASS** / **APPROVED_BY_OWNER** | PR-GAP-005 |
-| 10 | Tenant isolation evidence approved | **PARTIAL / PENDING_REVIEW** (evidence pack created) | PR-GAP-006 |
+| 10 | Tenant isolation evidence approved | **PARTIAL / REVIEWED_PENDING_OWNER_APPROVAL** (evidence reviewed) | PR-GAP-006 |
 | 11 | Support owner assigned | **PENDING** | PR-GAP-007 |
 | 12 | Release owner assigned | **PENDING** | PR-GAP-008 |
 | 13 | Final go/no-go owner assigned | **PENDING** | PR-GAP-009 |
@@ -56,11 +56,11 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 - Evidence must **not** contain secrets/JWT/tokens
 - No production-ready claim without tenant isolation evidence review
 
-**Status:** **PARTIAL / PENDING_REVIEW**
+**Status:** **PARTIAL / REVIEWED_PENDING_OWNER_APPROVAL**
 
-**Evidence:** Tenant Isolation Evidence Request v0.1, Tenant Isolation Evidence Checklist v0.1, Tenant Isolation Read-only Test Plan v0.1, Tenant Isolation Evidence Log v0.1, Tenant Isolation Decision Note v0.1
+**Evidence:** Tenant Isolation Evidence Review v0.1, Tenant Isolation Review Checklist v0.1, Tenant Isolation Evidence Log v0.1, Tenant Isolation Owner Approval Note v0.1
 
-Tenant isolation evidence pack is **created**, but this does **not** equal production-ready. PR-GAP-006 remains **open** until formal evidence review.
+Tenant isolation evidence is **reviewed**, but PR-GAP-006 requires **final owner approval** before closure. This does **not** equal production-ready.
 
 ## Evidence Required
 
