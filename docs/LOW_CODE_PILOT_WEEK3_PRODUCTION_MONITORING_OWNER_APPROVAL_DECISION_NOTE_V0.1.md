@@ -2,60 +2,61 @@
 
 ## Decision Summary
 
-Monitoring owner **assigned** for PR-GAP-004. **Final monitoring policy approval not granted** in this pack.
+Monitoring owner **final approval captured** for PR-GAP-004. Monitoring policy **approved** by owner **Артем Асаев**.
 
-**Decision:** **MONITORING_OWNER_ASSIGNED_PENDING_APPROVAL**
+**Decision:** **MONITORING_OWNER_FINAL_APPROVAL_CAPTURED**
+
+**PR-GAP-004:** **MONITORING_POLICY_APPROVED_BY_OWNER**
 
 ## Owner
 
 | Field | Value |
 |-------|-------|
 | Assigned owner | **Артем Асаев** |
-| Role | **TBD** (Ops / Monitoring Owner / SRE) |
+| Role | **not provided** |
 | Contact | **not provided** |
 
 ## Approval Status
 
+**approved**
+
 | Gate | Status |
 |------|--------|
 | Owner assignment | **complete** |
-| Role confirmation | **pending** |
-| Contact confirmation | **pending** |
-| Explicit policy approval | **pending** |
+| Role confirmation | **not provided** |
+| Contact confirmation | **not provided** |
+| Explicit policy approval | **complete** — **yes** |
 
-**assigned, pending explicit approval**
+## What Is Approved
 
-## What Is Captured
+- Owner assignment
+- Monitoring policy
+- Alert conditions
+- P0/P1 escalation rules
+- Evidence format without secrets
 
-- Monitoring owner assignment captured
-- Owner name: **Артем Асаев**
+## What Is Not Approved
 
-## What Is Not Approved Yet
-
-- Final monitoring policy approval
-- Owner role confirmation
-- Owner contact confirmation
-- Production alert routing configuration
 - Production-ready
+- Production release
 - Real monitoring config changes
+- Deploy
+- Production writes
 
 ## Open Items
 
 | # | Item | Owner |
 |---|------|-------|
-| 1 | Confirm role (Ops / Monitoring Owner / SRE) | Артем Асаев |
-| 2 | Provide contact (optional) | Артем Асаев |
-| 3 | Review policy + alert conditions | Артем Асаев |
-| 4 | Explicit final approval | Артем Асаев |
+| 1 | Confirm role (Ops / Monitoring Owner / SRE) — optional handover | Артем Асаев |
+| 2 | Provide contact — optional handover | Артем Асаев |
+| 3 | Configure on-call routing — future ops | Артем Асаев |
 
 ## Decision
 
-**MONITORING_OWNER_ASSIGNED_PENDING_APPROVAL**
+**MONITORING_OWNER_FINAL_APPROVAL_CAPTURED**
 
 ## Next Pack
 
-**Low-code Pilot Week-3 Production Monitoring Owner Final Approval Pack v0.1**
+**continue event-based gap closure**
 
-**Trigger:** Monitoring owner final approval provided
-
-Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_TRACKER_V0.1.md` (PR-GAP-004)
+Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_TRACKER_V0.1.md` (PR-GAP-004 **CLOSED_APPROVED_BY_OWNER**)

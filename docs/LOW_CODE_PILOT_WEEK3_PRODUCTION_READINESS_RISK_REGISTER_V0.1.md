@@ -10,7 +10,7 @@ Risk register for production readiness review after controlled pilot approval.
 
 **Auth-on repeat (local):** `AUTH_ON_REPEAT_LOCAL_VERIFIED` (2026-06-23) — remote staging **pending**.
 
-**Production monitoring:** owner **Артем Асаев** assigned — `MONITORING_OWNER_ASSIGNED_PENDING_APPROVAL` (PR-GAP-004).
+**Production monitoring:** owner **Артем Асаев** — `MONITORING_OWNER_FINAL_APPROVAL_CAPTURED` (PR-GAP-004 **CLOSED**).
 
 **Production data policy:** placeholder rehearsal — `PLACEHOLDER_APPROVAL_REHEARSED_PENDING_REAL_OWNER_APPROVAL` (PR-GAP-002).
 
@@ -18,7 +18,9 @@ Risk register for production readiness review after controlled pilot approval.
 
 **PR-RISK-003 residual risk:** owner role/contact not provided; can be completed in operational handover if needed.
 
-**Production go/no-go blocked** until gaps PR-GAP-001–002, PR-GAP-004–010 closed per acceptance criteria.
+**PR-RISK-004 residual risk:** owner role/contact not provided; real monitoring config implementation may require separate operational task if needed.
+
+**Production go/no-go blocked** until gaps PR-GAP-001–002, PR-GAP-005–010 closed per acceptance criteria.
 
 **Controlled pilot may continue** while production risks remain **OPEN**.
 
@@ -29,7 +31,7 @@ Risk register for production readiness review after controlled pilot approval.
 | PR-RISK-001 | PR-GAP-001 | Remote Auth-On not repeated on staging | P2 | OPEN | Local repeat PASS 2026-06-23; execute remote staging matrix when URL available | DevOps + Security | Remote Auth-On Repeat (remote staging) |
 | PR-RISK-002 | PR-GAP-002 | Production data policy not approved | P2 | **PARTIALLY_MITIGATED_BY_POLICY_AND_PLACEHOLDER_REHEARSAL_PENDING_REAL_APPROVAL** | Production data policy and approval form exist; placeholder approval rehearsal completed; real Product/Data Owner and Legal/Compliance approval still required | Placeholder only — real owners TBD | Production Data Owner Final Approval Pack v0.1 |
 | PR-RISK-003 | PR-GAP-003 | Rollback plan not approved | P2 | **MITIGATED_BY_APPROVED_ROLLBACK_PLAN** | Rollback plan/procedure/checklist created and approved by rollback owner **Артем Асаев** | **Артем Асаев** | Optional: role/contact handover |
-| PR-RISK-004 | PR-GAP-004 | Monitoring/alerting policy not approved | P2 | **PARTIALLY_MITIGATED_OWNER_ASSIGNED_PENDING_APPROVAL** | Monitoring owner assigned as **Артем Асаев**; final approval still pending | **Артем Асаев** | Production Monitoring Owner Final Approval Pack v0.1 |
+| PR-RISK-004 | PR-GAP-004 | Monitoring/alerting policy not approved | P2 | **MITIGATED_BY_APPROVED_MONITORING_POLICY** | Monitoring policy, alert conditions, checklist, and owner approval captured with owner **Артем Асаев** | **Артем Асаев** | Optional: role/contact/on-call handover; real monitoring config implementation may require separate operational task if needed |
 | PR-RISK-005 | PR-GAP-009 | Production go/no-go owner not assigned | P2 | OPEN | Assign governance owner for final approval | PM | Final Go-No-Go Ownership Pack v0.1 |
 | PR-RISK-006 | PR-GAP-010 | Low-code fields used as financial/legal source of truth without approval | P1 | OPEN | Explicit policy: core billing/payment status unchanged; BR operator briefing documented | PM + operator lead | Low-code Source-of-Truth Policy Pack v0.1 |
 | PR-RISK-007 | PR-GAP-006 | Tenant isolation not evidenced for production | P2 | OPEN | Security review + isolation tests on target env | Security | Tenant Isolation Evidence Pack v0.1 |

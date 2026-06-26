@@ -2,9 +2,11 @@
 
 ## Summary
 
-Documents **monitoring owner** for PR-GAP-004. Owner **assigned**; **explicit approval pending**.
+Documents **monitoring owner** for PR-GAP-004. Owner **Артем Асаев** — **final approval captured**.
 
-**Decision:** **MONITORING_OWNER_ASSIGNED_PENDING_APPROVAL**
+**Decision:** **MONITORING_OWNER_FINAL_APPROVAL_CAPTURED**
+
+**PR-GAP-004:** **CLOSED_APPROVED_BY_OWNER**
 
 ## Required Owner
 
@@ -18,41 +20,40 @@ Documents **monitoring owner** for PR-GAP-004. Owner **assigned**; **explicit ap
 
 ## Current Owner Status
 
-**ASSIGNED_PENDING_APPROVAL**
+**FINAL_APPROVAL_CAPTURED**
 
 | Field | Value |
 |-------|-------|
 | Named owner | **Артем Асаев** |
-| Owner role | **TBD** (Ops / Monitoring Owner / SRE) |
+| Owner role | **not provided** |
 | Contact | **not provided** |
 | On-call routing | **not configured** |
-| Approval date | — |
-| Final policy approval | **no** |
+| Approval date | 2026-06-23 |
+| Final policy approval | **yes** |
 | Real monitoring config changed | **no** |
 
-## Missing
+## Missing operational metadata
 
-- Role confirmation
-- Contact confirmation (optional)
-- Explicit approval of monitoring policy v0.1
+- Owner role not provided
+- Owner contact not provided
+- On-call routing not configured (future ops)
 
 ## Owner Responsibilities
 
-1. Review `LOW_CODE_PILOT_WEEK3_PRODUCTION_MONITORING_POLICY_V0.1.md`
-2. Approve `LOW_CODE_PILOT_WEEK3_PRODUCTION_MONITORING_ALERT_CONDITIONS_V0.1.md`
-3. Complete `LOW_CODE_PILOT_WEEK3_PRODUCTION_MONITORING_CHECKLIST_V0.1.md`
-4. Complete **Production Monitoring Owner Final Approval Pack v0.1**
-5. Define P0/P1 alert routing (future ops — after final approval)
+1. Approve monitoring policy and alert conditions — **done**
+2. Confirm P0/P1 escalation paths — **done**
+3. Approve evidence format (no secrets in repo) — **done**
+4. Complete operational handover (role/contact/on-call) when available
+5. Do **not** change Prometheus/Grafana until separately approved
 
 ## Approval Rules
 
 | Rule | Detail |
 |------|--------|
-| Assignment | Does **not** approve monitoring policy |
-| Draft policy | Does **not** configure real monitoring |
+| Policy approval | Owner reviewed policy + alert conditions — **approved** |
+| Config changes | Prometheus/Grafana/deploy **blocked** until separately approved |
 | Production-ready | Monitoring approval **does not** imply production-ready |
 | P0 alerts | Auth bypass, tenant leak, secrets = **P0** always |
-| Config changes | Prometheus/Grafana/deploy **blocked** until approved |
 
 ## Escalation Rules
 
@@ -69,13 +70,13 @@ Documents **monitoring owner** for PR-GAP-004. Owner **assigned**; **explicit ap
 | # | Decision | Status |
 |---|----------|--------|
 | 1 | Named monitoring owner | **DONE** — Артем Асаев |
-| 2 | Owner role confirmed | **PENDING** |
-| 3 | Alert routing approved | **PENDING** |
-| 4 | Final monitoring policy approval | **PENDING** |
-| 5 | Production alert thresholds | **PENDING** |
+| 2 | Owner role confirmed | **NOT PROVIDED** |
+| 3 | Alert routing configured | **PENDING** (future ops) |
+| 4 | Final monitoring policy approval | **DONE** — Final Approval v0.1 |
+| 5 | Production alert thresholds | **PENDING** (future ops) |
 
 ## Next Step
 
-**Low-code Pilot Week-3 Production Monitoring Owner Final Approval Pack v0.1**
+Continue **event-based gap closure**. Optional: complete role/contact/on-call for operational handover.
 
-Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_MONITORING_OWNER_ASSIGNMENT_V0.1.md`
+Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_MONITORING_OWNER_FINAL_APPROVAL_V0.1.md`

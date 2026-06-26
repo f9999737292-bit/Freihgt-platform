@@ -52,9 +52,9 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** **EVENT_BASED_GAP_CLOSURE** — monitoring owner assigned; await final owner approval.
+**Next pack (use AI team):** **EVENT_BASED_GAP_CLOSURE** — PR-GAP-004 closed; continue remaining gap closure.
 
-**Current status:** **MONITORING_OWNER_ASSIGNED_PENDING_APPROVAL**
+**Current status:** **MONITORING_OWNER_FINAL_APPROVAL_CAPTURED**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -62,27 +62,15 @@ docs/ai-team/
 
 **Production-ready claimed:** **no**
 
-**PR-GAP-004:** **MONITORING_OWNER_ASSIGNED_PENDING_APPROVAL**
+**PR-GAP-004:** **CLOSED_APPROVED_BY_OWNER**
 
 **PR-GAP-002:** **PLACEHOLDER_APPROVAL_REHEARSED_PENDING_REAL_OWNER_APPROVAL**
 
 **PR-GAP-003:** **CLOSED_APPROVED_BY_OWNER**
 
-**Next event:** **Monitoring owner final approval provided**
+**Next mode:** **EVENT_BASED_GAP_CLOSURE**
 
-**Next pack:** **Low-code Pilot Week-3 Production Monitoring Owner Final Approval Pack v0.1**
-
-**Required before final approval:**
-
-- Owner role confirmed
-- Owner contact confirmed (optional)
-- Explicit approval from owner
-- Monitoring policy reviewed
-- Alert conditions reviewed
-- P0/P1 escalation accepted
-- Real monitoring config changed: **no**, unless separately approved
-
-**Other event-based packs:**
+**Recommended next events:**
 
 | Event | Pack |
 |-------|------|
@@ -110,6 +98,10 @@ See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_MONITORING_CHECKLIST_V0.1.md`.
 Week-3 production monitoring owner note v0.1:
 
 See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_MONITORING_OWNER_NOTE_V0.1.md`.
+
+Week-3 production monitoring owner final approval v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_MONITORING_OWNER_FINAL_APPROVAL_V0.1.md`.
 
 Week-3 production monitoring owner assignment v0.1:
 
@@ -1092,6 +1084,10 @@ See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_MONITORING_CHECKLIST_V0.1.md`.
 Week-3 production monitoring owner note v0.1:
 
 See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_MONITORING_OWNER_NOTE_V0.1.md`.
+
+Week-3 production monitoring owner final approval v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_MONITORING_OWNER_FINAL_APPROVAL_V0.1.md`.
 
 Week-3 production monitoring owner assignment v0.1:
 

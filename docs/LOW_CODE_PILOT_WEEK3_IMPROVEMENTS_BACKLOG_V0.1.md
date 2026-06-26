@@ -4,7 +4,7 @@
 
 Consolidated **improvements backlog** for Week-3 low-code pilot feedback triage. Contains baseline placeholder items while **no real operator submissions** exist, plus structure for P0–P3 items when feedback arrives.
 
-**Backlog status:** **0 real feedback-derived improvement items**. **42** items (BL-W3-000–041). **MONITORING_OWNER_ASSIGNED_PENDING_APPROVAL**.
+**Backlog status:** **0 real feedback-derived improvement items**. **43** items (BL-W3-000–042). **MONITORING_OWNER_FINAL_APPROVAL_CAPTURED**.
 
 Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 
@@ -12,7 +12,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 
 | Metric | Value |
 |--------|-------|
-| Total items | **41** |
+| Total items | **43** |
 | Controlled pilot | **CONTROLLED_PILOT_APPROVED** — active |
 | Production readiness | **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY** |
 | Staging deploy runbook | **STAGING_DEPLOY_RUNBOOK_CREATED** |
@@ -20,9 +20,9 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 | Rollback owner | **Артем Асаев** |
 | PR-GAP-001 | **BLOCKED_WAITING_FOR_REMOTE_STAGING** |
 | PR-GAP-002 | **PLACEHOLDER_APPROVAL_REHEARSED_PENDING_REAL_OWNER_APPROVAL** |
-| PR-GAP-004 | **MONITORING_POLICY_DRAFT_CREATED_PENDING_OWNER_APPROVAL** |
+| PR-GAP-004 | **CLOSED_APPROVED_BY_OWNER** |
 | PR-GAP-003 | **CLOSED_APPROVED_BY_OWNER** |
-| Open production gaps | **9** |
+| Open production gaps | **8** |
 | Real feedback intake | **3 / 3** |
 | Open P0 / P1 | **0 / 0** |
 | Last updated | 2026-06-26 |
@@ -71,8 +71,9 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 | BL-W3-037 | production data policy pack v0.1 | ALL | Production data policy | P3 | Production data policy draft created — production data use not approved | Data owner assignment | Product / Legal / Data Owner — TBD | Production Data Owner Assignment Pack v0.1 | COMPLETED | DATA_POLICY_DRAFT_CREATED_PENDING_OWNER_APPROVAL |
 | BL-W3-038 | production data owner assignment pack v0.1 | ALL | Production data owner assignment | P3 | Data owner assignment and approval form prepared — owners TBD | Placeholder rehearsal | Product / Legal / Data Owner — TBD | Production Data Owner Placeholder Approval Pack v0.1 | COMPLETED | DATA_OWNER_ASSIGNMENT_PREPARED_PENDING_APPROVAL |
 | BL-W3-039 | production data owner placeholder approval pack v0.1 | ALL | Production data owner placeholder approval | P3 | Placeholder approval rehearsal with virtual names — not real approval | Real owner final approval | Real owners TBD | Production Data Owner Final Approval Pack v0.1 | OPEN | PLACEHOLDER_APPROVAL_REHEARSED_PENDING_REAL_OWNER_APPROVAL |
-| BL-W3-040 | production monitoring policy pack v0.1 | ALL | Production monitoring policy | P3 | Monitoring policy, alert conditions, checklist created — no config changed | Monitoring owner approval | Артем Асаев | Production Monitoring Owner Final Approval Pack v0.1 | OPEN | MONITORING_OWNER_ASSIGNED_PENDING_APPROVAL |
-| BL-W3-041 | production monitoring owner assignment pack v0.1 | ALL | Production monitoring owner assignment | P3 | Monitoring owner assigned as **Артем Асаев** — final approval pending | Role/contact confirmation + explicit approval | Артем Асаев | Production Monitoring Owner Final Approval Pack v0.1 | OPEN | MONITORING_OWNER_ASSIGNED_PENDING_APPROVAL |
+| BL-W3-040 | production monitoring policy pack v0.1 | ALL | Production monitoring policy | P3 | Monitoring policy, alert conditions, checklist created — no config changed | Monitoring owner approval | Артем Асаев | Production Monitoring Owner Final Approval Pack v0.1 | COMPLETED | MONITORING_OWNER_FINAL_APPROVAL_CAPTURED |
+| BL-W3-041 | production monitoring owner assignment pack v0.1 | ALL | Production monitoring owner assignment | P3 | Monitoring owner assigned as **Артем Асаев** — final approval pending | Final owner approval | Артем Асаев | Production Monitoring Owner Final Approval Pack v0.1 | COMPLETED | MONITORING_OWNER_ASSIGNED_PENDING_APPROVAL |
+| BL-W3-042 | production monitoring owner final approval pack v0.1 | ALL | Production monitoring owner final approval | P3 | Monitoring owner final approval captured — PR-GAP-004 closed | Continue event-based gap closure | Артем Асаев | event-based gap packs | COMPLETED | MONITORING_OWNER_FINAL_APPROVAL_CAPTURED |
 
 ## P0 Items
 
@@ -108,18 +109,18 @@ When P1 appears: add row with owner assigned, target fix pack, decision **GO_WIT
 | BL-W3-037 | Production data policy v0.1 | **Completed** | COMPLETED |
 | BL-W3-038 | Production data owner assignment v0.1 | **Completed** | COMPLETED |
 | BL-W3-039 | Production data owner placeholder approval v0.1 | Real owner final approval | OPEN |
-| BL-W3-040 | Production monitoring policy v0.1 | Monitoring owner final approval | OPEN |
-| BL-W3-041 | Production monitoring owner assignment v0.1 | Monitoring owner final approval | OPEN |
+| BL-W3-040 | Production monitoring policy v0.1 | **Completed** | COMPLETED |
+| BL-W3-041 | Production monitoring owner assignment v0.1 | **Completed** | COMPLETED |
+| BL-W3-042 | Production monitoring owner final approval v0.1 | **Completed** | COMPLETED |
 
 **Rules (reinforced):**
 
-- **Monitoring owner assigned:** **Артем Асаев**
-- **PR-GAP-004 partially mitigated** — owner assigned; final approval pending
-- **Final owner approval still pending**
-- **Role/contact confirmation pending**
-- **Real monitoring config not changed**
+- **Monitoring owner final approval captured** — **Артем Асаев**
+- **PR-GAP-004 closed as approved by owner**
+- **Real monitoring config was not changed**
 - **Production-ready still not claimed**
-- **Next action:** Production Monitoring Owner Final Approval Pack v0.1
+- **Remaining gaps still tracked in gap tracker**
+- **Continue event-based gap closure**
 
 Route to PM follow-up; no code fixes without real P0/P1 evidence.
 
@@ -185,8 +186,9 @@ Explicit list (BL-W3-000–009):
 | **Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1** | Remote staging details provided | PR-GAP-001 closure |
 | **Low-code Pilot Week-3 Temporary Tunnel Auth-On Matrix Pack v0.1** | Temporary tunnel approved | Partial PR-GAP-001 evidence |
 | **Low-code Pilot Week-3 Production Rollback Plan Pack v0.1** | Rollback owner ready | PR-GAP-003 |
-| **Low-code Pilot Week-3 Production Monitoring Policy Pack v0.1** | Completed | **MONITORING_POLICY_DRAFT_CREATED_PENDING_OWNER_APPROVAL** |
-| **Low-code Pilot Week-3 Production Monitoring Owner Approval Pack v0.1** | Monitoring owner approval provided | PR-GAP-004 closure |
+| **Low-code Pilot Week-3 Production Monitoring Policy Pack v0.1** | Completed | **MONITORING_OWNER_FINAL_APPROVAL_CAPTURED** |
+| **Low-code Pilot Week-3 Production Monitoring Owner Assignment Pack v0.1** | Completed | **MONITORING_OWNER_ASSIGNED_PENDING_APPROVAL** |
+| **Low-code Pilot Week-3 Production Monitoring Owner Final Approval Pack v0.1** | Completed | **MONITORING_OWNER_FINAL_APPROVAL_CAPTURED** — PR-GAP-004 closed |
 | **Low-code Pilot Week-3 Audit Retention Policy Pack v0.1** | Audit/compliance owner ready | PR-GAP-005 |
 | **Low-code Pilot Week-3 Tenant Isolation Evidence Pack v0.1** | Tenant isolation evidence requested | PR-GAP-006 |
 | **Low-code Pilot Week-3 Support Ownership Pack v0.1** | Support owner assigned | PR-GAP-007 |
