@@ -65,7 +65,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 
 | criterion | status | evidence | owner | notes |
 |-----------|--------|----------|-------|-------|
-| Rollback plan | **PARTIAL / OWNER_ASSIGNED_PENDING_APPROVAL** | Rollback Owner Assignment v0.1, Rollback Owner Approval Checklist v0.1, Rollback Owner Approval Decision Note v0.1; Production Rollback Plan v0.1 | **Артем Асаев** | PR-GAP-003; explicit approval pending |
+| Rollback plan | **PASS** | Rollback Plan v0.1, Low-code Rollback Procedure v0.1, Rollback Checklist v0.1, Rollback Owner Final Approval v0.1 | **Артем Асаев** | PR-GAP-003 closed; rollback not executed |
 | Rollback drill (prod) | PENDING | — | DevOps | not executed |
 
 ## Support Readiness
@@ -92,7 +92,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 | Owner Matrix | **created** | `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_OWNER_MATRIX_V0.1.md` |
 | Acceptance Criteria | **created** | `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_ACCEPTANCE_CRITERIA_V0.1.md` |
 
-**Open gaps:** **10** (PR-GAP-001–010) — all **PENDING**
+**Open gaps:** **9** (PR-GAP-001–002, PR-GAP-004–010) — PR-GAP-003 **CLOSED**
 
 ## Final Status
 
@@ -101,6 +101,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 | Controlled pilot | **PASS — continue** |
 | Production readiness | **NOT APPROVED** |
 | Decision | `NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY` |
+| Reason | Other gaps remain open, including remote staging/auth-on and other governance/security/ops gaps |
 | Gap closure plan | **created** — `GAP_CLOSURE_PLAN_CREATED` |
 
 Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`, `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`

@@ -2,7 +2,7 @@
 
 ## Summary
 
-Tracks **10 open production readiness gaps**. PR-GAP-001 **blocked** waiting for remote staging inputs.
+Tracks **9 open production readiness gaps**. PR-GAP-003 **closed** — rollback plan approved by owner.
 
 **Auth-on repeat (local):** `AUTH_ON_REPEAT_LOCAL_VERIFIED` (2026-06-23)
 
@@ -12,7 +12,7 @@ Tracks **10 open production readiness gaps**. PR-GAP-001 **blocked** waiting for
 
 **Rollback plan:** `PRODUCTION_ROLLBACK_PLAN_CREATED`
 
-**Rollback owner:** **Артем Асаев** — `ROLLBACK_OWNER_ASSIGNED_PENDING_APPROVAL`
+**Rollback owner:** **Артем Асаев** — `ROLLBACK_OWNER_FINAL_APPROVAL_CAPTURED` (PR-GAP-003 **CLOSED**)
 
 **Mode:** **EVENT_BASED_GAP_CLOSURE**
 
@@ -27,7 +27,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 |--------|-----|--------|-------|---------------------|-----------|-------|
 | PR-GAP-001 | Remote Auth-On Repeat not completed | **BLOCKED_WAITING_FOR_REMOTE_STAGING** | Ops / Security | Admin low-code routes verified with auth-on; non-admin denied; runtime GET compatibility verified | Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1 | Local repeat **PASS** 2026-06-23. **Dependency:** Remote Staging Preparation Checklist Pack v0.1 **completed**; **Staging Deployment Runbook Pack v0.1 created**. Staging deployment instructions and input form are now available. Remote auth-on staging verification remains **blocked** until actual staging details are provided. |
 | PR-GAP-002 | Production data policy not approved | PENDING | Product / Legal / Data Owner | Approved policy for no production data or controlled production data use | Production Data Policy Pack v0.1 | — |
-| PR-GAP-003 | Rollback plan not approved | **ROLLBACK_OWNER_ASSIGNED_PENDING_APPROVAL** | **Артем Асаев** | Rollback owner assigned; final approval still requires role/contact confirmation and explicit owner approval | Low-code Pilot Week-3 Rollback Owner Final Approval Pack v0.1 | Rollback owner assigned docs-only. Rollback plan **not fully approved** yet. No rollback executed. Production-ready not claimed. |
+| PR-GAP-003 | Rollback plan not approved | **CLOSED_APPROVED_BY_OWNER** | **Артем Асаев** | Rollback plan, rollback procedure, rollback checklist, owner assignment, and final approval captured | none for PR-GAP-003 unless role/contact handover is required later | Rollback plan approved by owner. Rollback was not executed. Production-ready not claimed. Other production readiness gaps remain open. |
 | PR-GAP-004 | Monitoring / alerting policy not approved | PENDING | Ops | Health, audit, metrics, low-code runtime indicators defined | Production Monitoring Policy Pack v0.1 | — |
 | PR-GAP-005 | Audit retention policy not approved | PENDING | Security / Compliance | Audit event retention and access policy approved | Audit Retention Policy Pack v0.1 | — |
 | PR-GAP-006 | Tenant isolation production evidence not approved | PENDING | Security / Backend Lead | Tenant boundary checks documented and verified | Tenant Isolation Evidence Pack v0.1 | — |
@@ -40,11 +40,10 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 
 | Status | Count |
 |--------|-------|
-| PENDING | **8** |
+| PENDING | **7** |
 | BLOCKED_WAITING_FOR_REMOTE_STAGING | **1** (PR-GAP-001) |
-| ROLLBACK_OWNER_ASSIGNED_PENDING_APPROVAL | **1** (PR-GAP-003) |
+| CLOSED | **1** (PR-GAP-003 — CLOSED_APPROVED_BY_OWNER) |
 | IN_PROGRESS | **0** |
-| CLOSED | **0** |
 
 ## Closure Rules
 

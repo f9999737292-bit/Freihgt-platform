@@ -4,13 +4,13 @@
 
 Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER**, **SHIPMENT**, and **BILLING_REGISTER**.
 
-**Current status:** **ROLLBACK_OWNER_ASSIGNED_PENDING_APPROVAL** — controlled pilot **active**; production-ready **not claimed**; PR-GAP-003 **owner assigned, approval pending**.
+**Current status:** **ROLLBACK_OWNER_FINAL_APPROVAL_CAPTURED** — controlled pilot **active**; production-ready **not claimed**; PR-GAP-003 **closed, approved by owner**.
 
 ## Current Status
 
 | Metric | Value |
 |--------|-------|
-| Total entries | **31** |
+| Total entries | **32** |
 | Real operator submissions | **3** |
 | Controlled pilot | **CONTROLLED_PILOT_APPROVED** — active |
 | Production readiness | **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY** |
@@ -20,12 +20,10 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | Rollback plan | **PRODUCTION_ROLLBACK_PLAN_CREATED** |
 | Rollback owner | **Артем Асаев** |
 | PR-GAP-001 | **BLOCKED_WAITING_FOR_REMOTE_STAGING** |
-| PR-GAP-003 | **ROLLBACK_OWNER_ASSIGNED_PENDING_APPROVAL** |
+| PR-GAP-003 | **CLOSED_APPROVED_BY_OWNER** |
 | Production ready claimed | **no** |
 | PM / Coordinator | **Феликс Асаев** |
 | Last updated | 2026-06-26 |
-
-## Feedback Table
 
 | id | date | operator | entity_type | entity_id/demo | category | severity | summary | status | owner | target pack | decision |
 |----|------|----------|-------------|----------------|----------|----------|---------|--------|-------|-------------|----------|
@@ -60,6 +58,26 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | W3-FB-REMOTE-STAGING-PREP-001 | 2026-06-23 | — | CROSS_ENTITY | TO/SH/BR demos | remote staging preparation | P3 | Remote staging preparation checklist created because remote staging is not available yet | COMPLETED | DevOps + Security | Remote Auth-On Staging Repeat Pack v0.1 after staging details | REMOTE_STAGING_PREPARATION_CHECKLIST_CREATED — production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, pr_gap=PR-GAP-001, pr_gap_status=BLOCKED_WAITING_FOR_REMOTE_STAGING |
 | W3-FB-ROLLBACK-PLAN-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness rollback planning | P3 | Production rollback plan created for low-code readiness gap closure | COMPLETED | Tech Lead / Ops — TBD | Rollback Owner Approval Pack v0.1 | PRODUCTION_ROLLBACK_PLAN_CREATED — pr_gap=PR-GAP-003, pr_gap_status=ROLLBACK_PLAN_CREATED_PENDING_OWNER_APPROVAL, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED |
 | W3-FB-ROLLBACK-OWNER-ASSIGNED-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness rollback owner assignment | P3 | Rollback owner assigned for low-code production readiness rollback gap | COMPLETED | Артем Асаев | Rollback Owner Final Approval Pack v0.1 | ROLLBACK_OWNER_ASSIGNED_PENDING_APPROVAL — pr_gap=PR-GAP-003, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, rollback_executed=no |
+| W3-FB-ROLLBACK-FINAL-APPROVAL-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness rollback final approval | P3 | Rollback owner final approval captured for low-code production rollback plan | COMPLETED | Артем Асаев | continue event-based gap closure | ROLLBACK_OWNER_FINAL_APPROVAL_CAPTURED — pr_gap=PR-GAP-003, pr_gap_status=CLOSED_APPROVED_BY_OWNER, production_ready_claimed=no, rollback_executed=no |
+
+### W3-FB-ROLLBACK-FINAL-APPROVAL-001
+
+- **entity_type:** CROSS_ENTITY
+- **category:** production readiness rollback final approval
+- **severity:** P3
+- **status:** COMPLETED
+- **owner:** Артем Асаев
+- **owner_role:** not provided
+- **owner_contact:** not provided
+- **summary:** Rollback owner final approval captured for low-code production rollback plan
+- **decision:** ROLLBACK_OWNER_FINAL_APPROVAL_CAPTURED
+- **pr_gap:** PR-GAP-003
+- **pr_gap_status:** CLOSED_APPROVED_BY_OWNER
+- **production_ready_claimed:** no
+- **controlled_pilot_status:** CONTROLLED_PILOT_APPROVED
+- **rollback_executed:** no
+- **write_operations_executed:** no
+- **next_pack:** continue event-based gap closure
 
 ### W3-FB-ROLLBACK-OWNER-ASSIGNED-001
 

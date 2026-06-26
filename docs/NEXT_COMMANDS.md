@@ -52,9 +52,9 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** **EVENT_BASED_GAP_CLOSURE** — rollback owner assigned; await final approval.
+**Next pack (use AI team):** **EVENT_BASED_GAP_CLOSURE** — PR-GAP-003 closed; continue remaining gaps.
 
-**Current status:** **ROLLBACK_OWNER_ASSIGNED_PENDING_APPROVAL**
+**Current status:** **ROLLBACK_OWNER_FINAL_APPROVAL_CAPTURED**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -62,22 +62,13 @@ docs/ai-team/
 
 **Production-ready claimed:** **no**
 
-**PR-GAP-003:** **ROLLBACK_OWNER_ASSIGNED_PENDING_APPROVAL**
+**PR-GAP-003:** **CLOSED_APPROVED_BY_OWNER**
 
-**Rollback owner:** **Артем Асаев** (role TBD; contact not provided)
+**Rollback owner:** **Артем Асаев** (role not provided; contact not provided)
 
-**Next event:** **Rollback owner final approval provided**
+**Next mode:** **EVENT_BASED_GAP_CLOSURE**
 
-**Next pack:** **Low-code Pilot Week-3 Rollback Owner Final Approval Pack v0.1**
-
-**Required before final approval:**
-
-- owner role confirmed
-- owner contact confirmed (optional)
-- explicit approval from owner
-- no rollback executed
-
-**Other event-based packs:**
+**Recommended next events:**
 
 | Event | Pack |
 |-------|------|
@@ -86,7 +77,14 @@ docs/ai-team/
 | Monitoring owner ready | Low-code Pilot Week-3 Production Monitoring Policy Pack v0.1 |
 | Audit/compliance owner ready | Low-code Pilot Week-3 Audit Retention Policy Pack v0.1 |
 | Tenant isolation evidence requested | Low-code Pilot Week-3 Tenant Isolation Evidence Pack v0.1 |
+| Support owner assigned | Low-code Pilot Week-3 Support Ownership Pack v0.1 |
+| Release owner assigned | Low-code Pilot Week-3 Release Ownership Pack v0.1 |
+| Final go/no-go owner assigned | Low-code Pilot Week-3 Final Go-No-Go Ownership Pack v0.1 |
 | P0/P1 suspected | Low-code Runtime Pilot Fix Pack v0.1 |
+
+Week-3 rollback owner final approval v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_ROLLBACK_OWNER_FINAL_APPROVAL_V0.1.md`.
 
 Week-3 rollback owner assignment v0.1:
 
@@ -975,7 +973,7 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-**Current status:** **ROLLBACK_OWNER_ASSIGNED_PENDING_APPROVAL**
+**Current status:** **ROLLBACK_OWNER_FINAL_APPROVAL_CAPTURED**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -983,22 +981,13 @@ Next implementation:
 
 **Production-ready claimed:** **no**
 
-**PR-GAP-003:** **ROLLBACK_OWNER_ASSIGNED_PENDING_APPROVAL**
+**PR-GAP-003:** **CLOSED_APPROVED_BY_OWNER**
 
-**Rollback owner:** **Артем Асаев** (role TBD; contact not provided)
+**Rollback owner:** **Артем Асаев** (role not provided; contact not provided)
 
-**Next event:** **Rollback owner final approval provided**
+**Next mode:** **EVENT_BASED_GAP_CLOSURE**
 
-**Next pack:** **Low-code Pilot Week-3 Rollback Owner Final Approval Pack v0.1**
-
-**Required before final approval:**
-
-- owner role confirmed
-- owner contact confirmed (optional)
-- explicit approval from owner
-- no rollback executed
-
-**Other event-based packs:**
+**Recommended next events:**
 
 | Event | Pack |
 |-------|------|
@@ -1007,7 +996,14 @@ Next implementation:
 | Monitoring owner ready | Low-code Pilot Week-3 Production Monitoring Policy Pack v0.1 |
 | Audit/compliance owner ready | Low-code Pilot Week-3 Audit Retention Policy Pack v0.1 |
 | Tenant isolation evidence requested | Low-code Pilot Week-3 Tenant Isolation Evidence Pack v0.1 |
+| Support owner assigned | Low-code Pilot Week-3 Support Ownership Pack v0.1 |
+| Release owner assigned | Low-code Pilot Week-3 Release Ownership Pack v0.1 |
+| Final go/no-go owner assigned | Low-code Pilot Week-3 Final Go-No-Go Ownership Pack v0.1 |
 | P0/P1 suspected | Low-code Runtime Pilot Fix Pack v0.1 |
+
+Week-3 rollback owner final approval v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_ROLLBACK_OWNER_FINAL_APPROVAL_V0.1.md`.
 
 Week-3 production rollback plan v0.1:
 

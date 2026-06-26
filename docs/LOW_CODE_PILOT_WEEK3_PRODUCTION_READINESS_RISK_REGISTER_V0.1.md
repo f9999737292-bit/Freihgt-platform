@@ -10,9 +10,11 @@ Risk register for production readiness review after controlled pilot approval.
 
 **Auth-on repeat (local):** `AUTH_ON_REPEAT_LOCAL_VERIFIED` (2026-06-23) — remote staging **pending**.
 
-**Rollback owner:** **Артем Асаев** assigned — final approval **pending** (PR-GAP-003).
+**Rollback owner:** **Артем Асаев** — final approval **captured** (PR-GAP-003 **CLOSED**).
 
-**Production go/no-go blocked** until gaps PR-GAP-001–010 closed per acceptance criteria.
+**PR-RISK-003 residual risk:** owner role/contact not provided; can be completed in operational handover if needed.
+
+**Production go/no-go blocked** until gaps PR-GAP-001–002, PR-GAP-004–010 closed per acceptance criteria.
 
 **Controlled pilot may continue** while production risks remain **OPEN**.
 
@@ -22,7 +24,7 @@ Risk register for production readiness review after controlled pilot approval.
 |---------|--------|------|----------|--------|------------|-------|-------------|
 | PR-RISK-001 | PR-GAP-001 | Remote Auth-On not repeated on staging | P2 | OPEN | Local repeat PASS 2026-06-23; execute remote staging matrix when URL available | DevOps + Security | Remote Auth-On Repeat (remote staging) |
 | PR-RISK-002 | PR-GAP-002 | Production data policy not approved | P2 | OPEN | Document and approve data policy before prod | PM / governance | Production Data Policy Pack v0.1 |
-| PR-RISK-003 | PR-GAP-003 | Rollback plan not approved | P2 | **PARTIALLY_MITIGATED_OWNER_ASSIGNED_PENDING_APPROVAL** | Rollback owner assigned as **Артем Асаев**; final approval still pending | **Артем Асаев** | Rollback Owner Final Approval Pack v0.1 |
+| PR-RISK-003 | PR-GAP-003 | Rollback plan not approved | P2 | **MITIGATED_BY_APPROVED_ROLLBACK_PLAN** | Rollback plan/procedure/checklist created and approved by rollback owner **Артем Асаев** | **Артем Асаев** | Optional: role/contact handover |
 | PR-RISK-004 | PR-GAP-004 | Monitoring/alerting policy not approved | P2 | OPEN | Define prod monitoring SLOs and alerts | DevOps | Production Monitoring Policy Pack v0.1 |
 | PR-RISK-005 | PR-GAP-009 | Production go/no-go owner not assigned | P2 | OPEN | Assign governance owner for final approval | PM | Final Go-No-Go Ownership Pack v0.1 |
 | PR-RISK-006 | PR-GAP-010 | Low-code fields used as financial/legal source of truth without approval | P1 | OPEN | Explicit policy: core billing/payment status unchanged; BR operator briefing documented | PM + operator lead | Low-code Source-of-Truth Policy Pack v0.1 |
