@@ -4,23 +4,23 @@
 
 Consolidated **improvements backlog** for Week-3 low-code pilot feedback triage. Contains baseline placeholder items while **no real operator submissions** exist, plus structure for P0–P3 items when feedback arrives.
 
-**Backlog status:** **0 real feedback-derived items**. **18** items (BL-W3-000–017). **PM_OVERRIDE_NOT_REQUESTED** — monitoring continuation while blocked.
+**Backlog status:** **0 real feedback-derived items**. **19** items (BL-W3-000–018). **MONITORING_CONTINUATION_ACTIVE** — next monitoring cycle or remote auth-on repeat.
 
-Reference: `LOW_CODE_PILOT_WEEK3_PM_OVERRIDE_DECISION_V0.1.md`
+Reference: `LOW_CODE_PILOT_WEEK3_PILOT_MONITORING_CONTINUATION_V0.1.md`
 
 ## Backlog Status
 
 | Metric | Value |
 |--------|-------|
-| Total items | **18** |
+| Total items | **19** |
 | Real feedback-derived | **0** |
-| Baseline + scheduling + live session prep + confirmation + follow-up + override | **18** |
+| Baseline + scheduling + live session prep + confirmation + follow-up + override + monitoring continuation | **19** |
 | Open P0 | **0** |
 | Open P1 | **0** |
-| Open P2 | **8** (BL-W3-010–017) |
+| Open P2 | **9** (BL-W3-010–018) |
 | Open P3 / baseline | **10** |
-| Last updated | 2026-06-24 |
-| Evidence status | **PM_OVERRIDE_NOT_REQUESTED** — await real operators; monitoring continuation next |
+| Last updated | 2026-06-26 |
+| Evidence status | **MONITORING_CONTINUATION_ACTIVE** — feedback blocked; monitoring continues |
 
 ## Backlog Table
 
@@ -43,7 +43,8 @@ Reference: `LOW_CODE_PILOT_WEEK3_PM_OVERRIDE_DECISION_V0.1.md`
 | BL-W3-014 | live operator session scheduling pack | ALL | Documentation/runbook | P2 | Live operator session schedule proposed — confirm operators and calendar | Confirmation pack executed; still pending | Virtual PM / Pilot Coordinator | Live Operator Session Confirmation Follow-up v0.1 | OPEN | LIVE_SESSION_SCHEDULE_PROPOSED_NOT_CONFIRMED |
 | BL-W3-015 | live operator session confirmation pack | ALL | Documentation/runbook | P2 | Live session confirmation reviewed — operators/dates not confirmed | Follow-up pack executed; still pending | Virtual PM / Pilot Coordinator | PM Override Decision v0.1 | OPEN | LIVE_SESSION_CONFIRMATION_PENDING |
 | BL-W3-016 | live session confirmation follow-up pack | ALL | Documentation/runbook | P2 | Confirmation follow-up — operators/dates still TBD | PM override decision executed | Virtual PM / Pilot Coordinator | Pilot Monitoring Continuation v0.1 | OPEN | LIVE_SESSION_CONFIRMATION_STILL_PENDING |
-| BL-W3-017 | PM override decision pack | ALL | Documentation/runbook | P2 | PM override evaluated — not requested; blocked work unchanged | Monitoring continuation; await human operators | Virtual PM / Pilot Coordinator | Pilot Monitoring Continuation v0.1 | OPEN | PM_OVERRIDE_NOT_REQUESTED |
+| BL-W3-017 | PM override decision pack | ALL | Documentation/runbook | P2 | PM override evaluated — not requested; blocked work unchanged | Monitoring continuation executed | Virtual PM / Pilot Coordinator | Pilot Monitoring Continuation v0.2 | OPEN | PM_OVERRIDE_NOT_REQUESTED |
+| BL-W3-018 | pilot monitoring continuation pack | ALL | Monitoring/reporting | P2 | Read-only monitoring continuation — runtime PASS; zero writes; feedback still blocked | Next monitoring cycle or await operators | Pilot lead | Pilot Monitoring Continuation v0.2 | OPEN | MONITORING_CONTINUATION_ACTIVE |
 
 ## P0 Items
 
@@ -61,8 +62,8 @@ When P1 appears: add row with owner assigned, target fix pack, decision **GO_WIT
 
 | id | summary | target pack | status |
 |----|---------|-------------|--------|
-| BL-W3-010–016 | Session confirmation / override path | Pilot Monitoring Continuation v0.1 | OPEN |
-| BL-W3-017 | PM override not requested | Pilot Monitoring Continuation v0.1 | OPEN |
+| BL-W3-010–017 | Session confirmation / override path | Pilot Monitoring Continuation v0.2 | OPEN |
+| BL-W3-018 | Monitoring continuation active | Pilot Monitoring Continuation v0.2 | OPEN |
 
 **Rules (reinforced):**
 
@@ -110,10 +111,11 @@ Explicit list (BL-W3-000–009):
 | **Low-code Pilot Week-3 Live Operator Session Confirmation Pack v0.1** | Completed | LIVE_SESSION_CONFIRMATION_PENDING |
 | **Low-code Pilot Week-3 Live Operator Session Confirmation Follow-up Pack v0.1** | Completed | LIVE_SESSION_CONFIRMATION_STILL_PENDING |
 | **Low-code Pilot Week-3 PM Override Decision Pack v0.1** | Completed | PM_OVERRIDE_NOT_REQUESTED |
-| **Low-code Pilot Week-3 Pilot Monitoring Continuation Pack v0.1** | **Next Action** | Read-only monitoring while blocked |
+| **Low-code Pilot Week-3 Pilot Monitoring Continuation Pack v0.1** | Completed | MONITORING_CONTINUATION_ACTIVE |
+| **Low-code Pilot Week-3 Pilot Monitoring Continuation Pack v0.2** | **Next Action** | Next read-only monitoring cycle |
+| **Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1** | Ops staging config ready | BL-W3-003 — parallel track |
 | **Low-code Pilot Week-3 First Real Operator Feedback Capture Retry Pack v0.1** | After LIVE_SESSION_CONFIRMED | Blocked |
 | **Low-code Pilot Week-3 Feedback-Based UI/Docs Polish Selection Pack v0.1** | After real feedback, no P0/P1 | Blocked until submissions |
-| **Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1** | Ops staging config ready | BL-W3-003 |
 | **Low-code Pilot Week-3 Pilot UI Help Text Polish Pack v0.1** | P3 UX themes after operator session | Docs/UI copy only; no API change |
 | **Low-code Pilot Week-3 Monitoring Report Review Pack v0.1** | First real write day | BL-W3-004, BL-W3-007 |
 | **Low-code Runtime Pilot Fix Pack v0.1** | P0 or blocking P1 | STOP writes until cleared |

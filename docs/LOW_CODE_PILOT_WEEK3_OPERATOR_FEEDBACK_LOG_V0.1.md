@@ -4,18 +4,19 @@
 
 Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER**, **SHIPMENT**, and **BILLING_REGISTER**.
 
-**Current status:** PM override decision completed — **override not requested**. Sessions still **NOT confirmed**. **Still no real operator submission**. Capture retry **blocked**; monitoring continuation recommended.
+**Current status:** Monitoring continuation active — **MONITORING_CONTINUATION_ACTIVE**. Sessions still **NOT confirmed**. **Still no real operator submission**. Capture retry **blocked**.
 
 ## Current Status
 
 | Metric | Value |
 |--------|-------|
-| Total entries | **12** |
+| Total entries | **13** |
 | Real operator submissions | **0** |
+| Monitoring decision | **MONITORING_CONTINUATION_ACTIVE** |
 | PM override decision | **PM_OVERRIDE_NOT_REQUESTED** |
 | Session dates confirmed | **no — TBD** |
-| NEEDS_INFO | **9** |
-| Last updated | 2026-06-24 |
+| NEEDS_INFO | **10** |
+| Last updated | 2026-06-26 |
 
 ## Feedback Table
 
@@ -33,12 +34,13 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | W3-FB-LIVE-CONFIRM-001 | 2026-06-24 | — | CROSS_ENTITY | TO/SH/BR demos | live session confirmation | P2 | Live operator session confirmation reviewed; operators/dates not confirmed; real feedback still pending | NEEDS_INFO | Virtual PM / Pilot Coordinator | Live Operator Session Confirmation Follow-up v0.1 | feedback capture remains blocked until live sessions are confirmed and completed |
 | W3-FB-LIVE-CONFIRM-FOLLOWUP-001 | 2026-06-24 | — | CROSS_ENTITY | TO/SH/BR demos | live session confirmation follow-up | P2 | Live operator session confirmation follow-up completed; sessions still pending unless real dates/operators supplied | NEEDS_INFO | Virtual PM / Pilot Coordinator | PM Override Decision v0.1 | feedback capture remains blocked until live sessions are confirmed and completed |
 | W3-FB-PM-OVERRIDE-001 | 2026-06-24 | — | CROSS_ENTITY | TO/SH/BR demos | PM override decision | P2 | PM override evaluated — not requested; feedback capture and polish/expansion remain blocked | NEEDS_INFO | Virtual PM / Pilot Coordinator | Pilot Monitoring Continuation v0.1 | PM_OVERRIDE_NOT_REQUESTED — await real operators or future documented override |
+| W3-FB-MON-CONT-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | monitoring continuation | P2 | Read-only monitoring continuation executed — runtime PASS; zero writes; feedback track still blocked | NEEDS_INFO | Pilot lead | Pilot Monitoring Continuation v0.2 | MONITORING_CONTINUATION_ACTIVE — await operators or next monitoring cycle |
 
 ### Column guide
 
 | Column | Description |
 |--------|-------------|
-| **id** | `FB-W3-###`, …, `W3-FB-LIVE-CONFIRM-FOLLOWUP-###`, or `W3-FB-PM-OVERRIDE-###` |
+| **id** | `FB-W3-###`, …, `W3-FB-PM-OVERRIDE-###`, or `W3-FB-MON-CONT-###` |
 | **date** | Submission or triage date |
 | **operator** | Name or role |
 | **entity_type** | TRANSPORT_ORDER / SHIPMENT / BILLING_REGISTER / ALL / CROSS_ENTITY |

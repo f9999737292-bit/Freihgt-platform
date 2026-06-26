@@ -6,9 +6,9 @@ PM owner action tracker for Week-3 low-code pilot operator feedback scheduling. 
 
 **Real operator submissions:** **0**
 
-**Decision:** **PM_OVERRIDE_NOT_REQUESTED**
+**Decision:** **MONITORING_CONTINUATION_ACTIVE**
 
-Reference: `LOW_CODE_PILOT_WEEK3_PM_OVERRIDE_DECISION_V0.1.md`
+Reference: `LOW_CODE_PILOT_WEEK3_PILOT_MONITORING_CONTINUATION_V0.1.md`
 
 ## Owner Actions Table
 
@@ -49,6 +49,8 @@ Reference: `LOW_CODE_PILOT_WEEK3_PM_OVERRIDE_DECISION_V0.1.md`
 | OA-W3-033 | Virtual PM / Pilot Coordinator | Follow-up: confirm capture retry readiness | ALL | After confirmation | **OPEN** | Override not requested; still blocked | — | PM_OVERRIDE_NOT_REQUESTED |
 | OA-W3-034 | Virtual PM / Pilot Coordinator | PM override decision — evaluate override vs wait | ALL | 2026-06-24 | **DONE** | Override not requested | 2026-06-24 | PM_OVERRIDE_NOT_REQUESTED |
 | OA-W3-035 | Virtual PM / Pilot Coordinator | Await human PM: real operators + confirmed dates | ALL | When available | **OPEN** | Human action required | — | BLOCKED_UNTIL_CONFIRMED |
+| OA-W3-036 | Pilot lead | Execute read-only monitoring continuation (health, GET, audit) | ALL | 2026-06-26 | **DONE** | Zero-write day documented | 2026-06-26 | MONITORING_CONTINUATION_ACTIVE |
+| OA-W3-037 | Pilot lead | Continue monitoring cadence per runbook | ALL | Ongoing | **OPEN** | Feedback track blocked | — | MONITORING_CONTINUATION_ACTIVE |
 
 ### Session reference
 
@@ -74,7 +76,8 @@ Reference: `LOW_CODE_PILOT_WEEK3_PM_OVERRIDE_DECISION_V0.1.md`
 |---------|-----------|
 | Confirmation pending — operators/dates TBD | Live Operator Session Confirmation Follow-up v0.1 — **completed** |
 | Confirmation still pending after follow-up | PM Override Decision v0.1 — **completed** |
-| Override not requested | Pilot Monitoring Continuation v0.1 |
+| Override not requested | Pilot Monitoring Continuation v0.1 — **completed** |
+| Monitoring continuation active | Pilot Monitoring Continuation v0.2 or Remote Auth-On Repeat v0.1 |
 | Override requested with risk acceptance | Re-run PM Override with scope note |
 | Sessions confirmed (SCHEDULED) | First Real Operator Feedback Capture Retry v0.1 |
 | Partial confirmation | Partial Operator Feedback Capture v0.1 |

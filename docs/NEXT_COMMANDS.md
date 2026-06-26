@@ -52,7 +52,19 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** Low-code Pilot Week-3 Pilot Monitoring Continuation Pack v0.1.
+**Next pack (use AI team):** Low-code Pilot Week-3 Pilot Monitoring Continuation Pack v0.2.
+
+Week-3 pilot monitoring continuation:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PILOT_MONITORING_CONTINUATION_V0.1.md`.
+
+Week-3 pilot monitoring continuation action note:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PILOT_MONITORING_CONTINUATION_ACTION_NOTE_V0.1.md`.
+
+Week-3 pilot monitoring continuation report:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PILOT_MONITORING_CONTINUATION_REPORT_V0.1.md`.
 
 Week-3 PM override decision:
 
@@ -96,7 +108,7 @@ Week-3 virtual PM owner:
 - **PM owner assigned:** yes — virtual
 - **Session dates:** **TBD** (proposed only — not confirmed)
 - **Real feedback count:** 0
-- **Decision:** PM_OVERRIDE_NOT_REQUESTED
+- **Decision:** MONITORING_CONTINUATION_ACTIVE
 - **Blocked:** capture retry, UI/docs polish, pilot expansion, production readiness — until sessions confirmed + completed or future documented PM override
 
 Week-3 PM scheduling decision:
@@ -721,7 +733,19 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-1. Low-code Pilot Week-3 Pilot Monitoring Continuation Pack v0.1
+1. Low-code Pilot Week-3 Pilot Monitoring Continuation Pack v0.2
+
+Week-3 pilot monitoring continuation:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PILOT_MONITORING_CONTINUATION_V0.1.md`.
+
+Week-3 pilot monitoring continuation action note:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PILOT_MONITORING_CONTINUATION_ACTION_NOTE_V0.1.md`.
+
+Week-3 pilot monitoring continuation report:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PILOT_MONITORING_CONTINUATION_REPORT_V0.1.md`.
 
 Week-3 PM override decision:
 
@@ -761,7 +785,7 @@ See `docs/LOW_CODE_PILOT_WEEK3_LIVE_OPERATOR_FEEDBACK_CHECKLIST_V0.1.md`.
 
 Week-3 virtual PM owner:
 
-**Virtual PM / Pilot Coordinator** — assigned (virtual). Session dates **TBD**. Real operator feedback **0**. Decision: **PM_OVERRIDE_NOT_REQUESTED**.
+**Virtual PM / Pilot Coordinator** — assigned (virtual). Session dates **TBD**. Real operator feedback **0**. Decision: **MONITORING_CONTINUATION_ACTIVE**.
 
 Week-3 PM scheduling decision:
 
