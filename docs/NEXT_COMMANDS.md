@@ -52,15 +52,27 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** Low-code Pilot Week-3 Post-Feedback Readiness Decision Pack v0.1.
+**Next pack (use AI team):** Low-code Pilot Week-3 Controlled Pilot Approval Pack v0.1.
 
-**Current status:** **REAL_FEEDBACK_INTAKE_COMPLETED_READY**
+**Current status:** **POST_FEEDBACK_READY_FOR_CONTROLLED_PILOT**
 
 **Parallel when ops ready:** Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1.
 
 **If stakeholder requests fresh evidence:** Low-code Pilot Week-3 Monitoring Evidence Refresh Pack v0.1.
 
 **If P0/P1 suspected:** Low-code Runtime Pilot Fix Pack v0.1.
+
+Week-3 post-feedback readiness decision v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_POST_FEEDBACK_READINESS_DECISION_V0.1.md`.
+
+Week-3 post-feedback readiness summary v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_POST_FEEDBACK_READINESS_SUMMARY_V0.1.md`.
+
+Week-3 controlled pilot recommendation v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_CONTROLLED_PILOT_RECOMMENDATION_V0.1.md`.
 
 Week-3 real operator feedback intake v0.1:
 
@@ -829,15 +841,27 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-**Current status:** **REAL_FEEDBACK_INTAKE_COMPLETED_READY**
+**Current status:** **POST_FEEDBACK_READY_FOR_CONTROLLED_PILOT**
 
-1. **Low-code Pilot Week-3 Post-Feedback Readiness Decision Pack v0.1**
+1. **Low-code Pilot Week-3 Controlled Pilot Approval Pack v0.1**
 
 **Parallel when ops ready:** Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1.
 
 **If stakeholder requests fresh evidence:** Low-code Pilot Week-3 Monitoring Evidence Refresh Pack v0.1.
 
 **If P0/P1 suspected:** Low-code Runtime Pilot Fix Pack v0.1.
+
+Week-3 post-feedback readiness decision v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_POST_FEEDBACK_READINESS_DECISION_V0.1.md`.
+
+Week-3 post-feedback readiness summary v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_POST_FEEDBACK_READINESS_SUMMARY_V0.1.md`.
+
+Week-3 controlled pilot recommendation v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_CONTROLLED_PILOT_RECOMMENDATION_V0.1.md`.
 
 Week-3 real operator feedback intake v0.1:
 

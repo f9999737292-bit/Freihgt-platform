@@ -4,19 +4,17 @@
 
 Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER**, **SHIPMENT**, and **BILLING_REGISTER**.
 
-**Current status:** **REAL_FEEDBACK_INTAKE_COMPLETED_READY** — **3 / 3** forms; all ratings **5/5**; all **ready**; замечаний нет.
+**Current status:** **POST_FEEDBACK_READY_FOR_CONTROLLED_PILOT** — intake **3/3** complete; readiness decision recorded; **production-ready not claimed**.
 
 ## Current Status
 
 | Metric | Value |
 |--------|-------|
-| Total entries | **23** |
+| Total entries | **24** |
 | Real operator submissions | **3** |
-| Forms completed | **3 / 3** |
-| Average rating | **5.0** |
-| Intake decision | **REAL_FEEDBACK_INTAKE_COMPLETED_READY** |
-| P0 / P1 / P2 from intake | **0 / 0 / 0** |
-| Session date/time | **26.06.2026 12:30** |
+| Readiness decision | **POST_FEEDBACK_READY_FOR_CONTROLLED_PILOT** |
+| Production ready claimed | **no** |
+| P0 / P1 / P2 | **0 / 0 / 0** |
 | PM / Coordinator | **Феликс Асаев** |
 | Last updated | 2026-06-26 |
 
@@ -47,6 +45,7 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | W3-FB-CAPTURE-RETRY-002 | 2026-06-26 | Крылова Любовь | SHIPMENT | DEMO-SH-PLANNED | live operator feedback | P3 | SH — сценарий=да, оценка=5, ready, замечаний нет | COMPLETED | Феликс Асаев | Post-Feedback Readiness Decision v0.1 | ready — no remarks |
 | W3-FB-CAPTURE-RETRY-003 | 2026-06-26 | Курганова Наталья | BILLING_REGISTER | DEMO-BR-001 | live operator feedback | P3 | BR — сценарий=да, оценка=5, ready, замечаний нет | COMPLETED | Феликс Асаев | Post-Feedback Readiness Decision v0.1 | ready — no remarks |
 | W3-FB-INTAKE-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | real operator feedback intake | P3 | Real operator feedback intake completed for TRANSPORT_ORDER, SHIPMENT, and BILLING_REGISTER | COMPLETED | Феликс Асаев | Post-Feedback Readiness Decision v0.1 | REAL_FEEDBACK_INTAKE_COMPLETED_READY — real_feedback_count=3, average_rating=5, blockers_found=no |
+| W3-FB-READINESS-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | post-feedback readiness decision | P3 | Post-feedback readiness decision completed after 3/3 operators rated scenarios 5/5 and ready | COMPLETED | Феликс Асаев | Controlled Pilot Approval v0.1 | POST_FEEDBACK_READY_FOR_CONTROLLED_PILOT — blockers_found=no, production_ready_claimed=no |
 
 ### Column guide
 

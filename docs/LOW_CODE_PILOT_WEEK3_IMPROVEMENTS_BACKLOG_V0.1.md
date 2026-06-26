@@ -4,26 +4,21 @@
 
 Consolidated **improvements backlog** for Week-3 low-code pilot feedback triage. Contains baseline placeholder items while **no real operator submissions** exist, plus structure for P0–P3 items when feedback arrives.
 
-**Backlog status:** **0 real feedback-derived improvement items** (no issues reported). **27** items (BL-W3-000–026). **REAL_FEEDBACK_INTAKE_COMPLETED_READY**.
+**Backlog status:** **0 real feedback-derived improvement items**. **28** items (BL-W3-000–027). **POST_FEEDBACK_READY_FOR_CONTROLLED_PILOT**.
 
-Reference: `LOW_CODE_PILOT_WEEK3_REAL_OPERATOR_FEEDBACK_INTAKE_V0.1.md`
+Reference: `LOW_CODE_PILOT_WEEK3_POST_FEEDBACK_READINESS_DECISION_V0.1.md`
 
 ## Backlog Status
 
 | Metric | Value |
 |--------|-------|
-| Total items | **27** |
-| Real feedback-derived improvement items | **0** (no issues reported) |
-| Real feedback received | **3 / 3** |
-| Baseline + scheduling + monitoring + intake | **27** |
+| Total items | **28** |
+| Real feedback-derived improvement items | **0** |
+| Real feedback intake completed | **3 / 3** |
+| Readiness decision | **POST_FEEDBACK_READY_FOR_CONTROLLED_PILOT** |
 | Open P0 | **0** |
 | Open P1 | **0** |
-| Open P2 | **9** (BL-W3-010–018 — historical scheduling/monitoring) |
-| Open P3 | **18** |
 | Last updated | 2026-06-26 |
-| Evidence status | **REAL_FEEDBACK_INTAKE_COMPLETED_READY** |
-| Average operator rating | **5.0** |
-| PM / Coordinator | **Феликс Асаев** |
 
 ## Backlog Table
 
@@ -55,7 +50,8 @@ Reference: `LOW_CODE_PILOT_WEEK3_REAL_OPERATOR_FEEDBACK_INTAKE_V0.1.md`
 | BL-W3-023 | pilot monitoring continuation pack v0.7 | ALL | Monitoring/reporting | P3 | Monitoring v0.7 — loop review complete; cadence decision recommended; no assumed code fixes | Cadence decision executed | Virtual PM / Pilot Coordinator | Monitoring Cadence Decision v0.1 | OPEN | MONITORING_CONTINUATION_ACTIVE_WITH_BLOCKERS |
 | BL-W3-024 | monitoring cadence decision pack v0.1 | ALL | Monitoring/reporting | P3 | Cadence set to event-based; continuation v0.8+ disabled; await PM/operator/ops triggers | Capture retry executed on LIVE_SESSION_CONFIRMED | Virtual PM / Pilot Coordinator | First Real Operator Feedback Capture Retry v0.1 | OPEN | CADENCE_AD_HOC_ON_EVENT |
 | BL-W3-025 | first real operator feedback capture retry pack v0.1 | ALL | Documentation/runbook | P3 | LIVE_SESSION_CONFIRMED — sessions completed; all 3 forms submitted | Intake pack executed | Феликс Асаев | Real Operator Feedback Intake v0.1 | COMPLETED | LIVE_SESSION_CONFIRMED_REAL_FEEDBACK_PENDING |
-| BL-W3-026 | real operator feedback intake pack v0.1 | ALL | Documentation/runbook | P3 | Intake complete — 3/3 forms, all 5/5 ready, no remarks, no P0/P1/P2 | Post-Feedback Readiness Decision v0.1 | Феликс Асаев | Post-Feedback Readiness Decision v0.1 | OPEN | REAL_FEEDBACK_INTAKE_COMPLETED_READY |
+| BL-W3-026 | real operator feedback intake pack v0.1 | ALL | Documentation/runbook | P3 | Intake complete — 3/3 forms, all 5/5 ready, no remarks, no P0/P1/P2 | Readiness decision executed | Феликс Асаев | Post-Feedback Readiness Decision v0.1 | COMPLETED | REAL_FEEDBACK_INTAKE_COMPLETED_READY |
+| BL-W3-027 | post-feedback readiness decision pack v0.1 | ALL | Governance/readiness | P3 | Readiness decision — controlled pilot recommended; production not claimed | Controlled Pilot Approval v0.1 | Феликс Асаев | Controlled Pilot Approval v0.1 | OPEN | POST_FEEDBACK_READY_FOR_CONTROLLED_PILOT |
 
 ## P0 Items
 
@@ -77,15 +73,15 @@ When P1 appears: add row with owner assigned, target fix pack, decision **GO_WIT
 | BL-W3-019–023 | Monitoring v0.3–v0.7 loop | **Closed** — cadence decision executed | OPEN |
 | BL-W3-024 | Cadence decision v0.1 | Capture retry triggered | OPEN |
 | BL-W3-025 | Capture retry — sessions + forms | **Completed** — intake executed | COMPLETED |
-| BL-W3-026 | Real operator feedback intake v0.1 | Post-Feedback Readiness Decision v0.1 | OPEN |
+| BL-W3-026 | Real operator feedback intake v0.1 | **Completed** | COMPLETED |
+| BL-W3-027 | Post-feedback readiness decision v0.1 | Controlled Pilot Approval v0.1 | OPEN |
 
 **Rules (reinforced):**
 
-- **Real feedback received: 3 / 3** — all operators rated scenarios **5/5**, decision **ready**, замечаний нет.
-- **No P0/P1/P2 issues** reported from operator intake.
-- **Feedback-based polish not required** from current operator intake.
-- Pilot can move to **post-feedback readiness decision**.
-- **Production readiness** still requires separate readiness/governance decision.
+- **Real feedback intake completed: 3 / 3** — post-feedback readiness decision **completed**.
+- **No feedback-based fixes required** from current intake.
+- **Controlled pilot can be recommended** — `POST_FEEDBACK_READY_FOR_CONTROLLED_PILOT`.
+- **Production readiness** still requires separate governance decision — **not claimed**.
 - Remote Auth-On Repeat remains **parallel pending ops readiness** (BL-W3-003).
 
 Route to PM follow-up; no code fixes without real P0/P1 evidence.
@@ -135,7 +131,8 @@ Explicit list (BL-W3-000–009):
 | **Low-code Pilot Week-3 Monitoring Cadence Decision Pack v0.1** | Completed | **CADENCE_AD_HOC_ON_EVENT** — no automatic v0.8+ |
 | **Low-code Pilot Week-3 First Real Operator Feedback Capture Retry Pack v0.1** | Completed | **LIVE_SESSION_CONFIRMED** — forms submitted |
 | **Low-code Pilot Week-3 Real Operator Feedback Intake Pack v0.1** | Completed | **REAL_FEEDBACK_INTAKE_COMPLETED_READY** |
-| **Low-code Pilot Week-3 Post-Feedback Readiness Decision Pack v0.1** | **Next Action** | Governance decision after intake |
+| **Low-code Pilot Week-3 Post-Feedback Readiness Decision Pack v0.1** | Completed | **POST_FEEDBACK_READY_FOR_CONTROLLED_PILOT** |
+| **Low-code Pilot Week-3 Controlled Pilot Approval Pack v0.1** | **Next Action** | Formal controlled pilot approval |
 | **Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1** | Ops staging config ready | BL-W3-003 — parallel track |
 | **Low-code Pilot Week-3 Monitoring Evidence Refresh Pack v0.1** | Stakeholder requests fresh evidence | Trigger event |
 | **Low-code Pilot Week-3 Feedback-Based UI/Docs Polish Selection Pack v0.1** | Not required from intake | No operator change requests |
