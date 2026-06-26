@@ -14,7 +14,7 @@ Tracks **9 open production readiness gaps**. PR-GAP-003 **closed** — rollback 
 
 **Rollback owner:** **Артем Асаев** — `ROLLBACK_OWNER_FINAL_APPROVAL_CAPTURED` (PR-GAP-003 **CLOSED**)
 
-**Production data policy:** `DATA_OWNER_ASSIGNMENT_PREPARED_PENDING_APPROVAL` (PR-GAP-002)
+**Production data policy:** `PLACEHOLDER_APPROVAL_REHEARSED_PENDING_REAL_OWNER_APPROVAL` (PR-GAP-002)
 
 **Mode:** **EVENT_BASED_GAP_CLOSURE**
 
@@ -28,7 +28,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | Gap ID | Gap | Status | Owner | Acceptance Criteria | Next Pack | Notes |
 |--------|-----|--------|-------|---------------------|-----------|-------|
 | PR-GAP-001 | Remote Auth-On Repeat not completed | **BLOCKED_WAITING_FOR_REMOTE_STAGING** | Ops / Security | Admin low-code routes verified with auth-on; non-admin denied; runtime GET compatibility verified | Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1 | Local repeat **PASS** 2026-06-23. **Dependency:** Remote Staging Preparation Checklist Pack v0.1 **completed**; **Staging Deployment Runbook Pack v0.1 created**. Staging deployment instructions and input form are now available. Remote auth-on staging verification remains **blocked** until actual staging details are provided. |
-| PR-GAP-002 | Production data policy not approved | **DATA_OWNER_ASSIGNMENT_PREPARED_PENDING_APPROVAL** | Product / Legal / Data Owner — **TBD** | Data owner assignment form created; final approval requires Product/Data Owner and Legal/Compliance confirmations | Low-code Pilot Week-3 Production Data Owner Final Approval Pack v0.1 | Production data policy draft exists. Owner approval form prepared. Production data use is **not** approved. Production-ready not claimed. |
+| PR-GAP-002 | Production data policy not approved | **PLACEHOLDER_APPROVAL_REHEARSED_PENDING_REAL_OWNER_APPROVAL** | Placeholder only — **Иван Петров** / **Елена Смирнова** / **Ольга Кузнецова** | Real Product/Data Owner and Legal/Compliance approval still required; placeholder rehearsal does not close PR-GAP-002 | Low-code Pilot Week-3 Production Data Owner Final Approval Pack v0.1 | Virtual names used for rehearsal only. Production data use is **not** approved. Production-ready not claimed. |
 | PR-GAP-003 | Rollback plan not approved | **CLOSED_APPROVED_BY_OWNER** | **Артем Асаев** | Rollback plan, rollback procedure, rollback checklist, owner assignment, and final approval captured | none for PR-GAP-003 unless role/contact handover is required later | Rollback plan approved by owner. Rollback was not executed. Production-ready not claimed. Other production readiness gaps remain open. |
 | PR-GAP-004 | Monitoring / alerting policy not approved | PENDING | Ops | Health, audit, metrics, low-code runtime indicators defined | Production Monitoring Policy Pack v0.1 | — |
 | PR-GAP-005 | Audit retention policy not approved | PENDING | Security / Compliance | Audit event retention and access policy approved | Audit Retention Policy Pack v0.1 | — |
@@ -44,7 +44,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 |--------|-------|
 | PENDING | **6** |
 | BLOCKED_WAITING_FOR_REMOTE_STAGING | **1** (PR-GAP-001) |
-| DATA_OWNER_ASSIGNMENT_PREPARED_PENDING_APPROVAL | **1** (PR-GAP-002) |
+| PLACEHOLDER_APPROVAL_REHEARSED_PENDING_REAL_OWNER_APPROVAL | **1** (PR-GAP-002) |
 | CLOSED | **1** (PR-GAP-003 — CLOSED_APPROVED_BY_OWNER) |
 | IN_PROGRESS | **0** |
 

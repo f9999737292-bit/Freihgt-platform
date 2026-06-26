@@ -52,9 +52,9 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** **EVENT_BASED_GAP_CLOSURE** — data owner assignment prepared; await final approval.
+**Next pack (use AI team):** **EVENT_BASED_GAP_CLOSURE** — placeholder approval rehearsed; await **real** owner final approval.
 
-**Current status:** **DATA_OWNER_ASSIGNMENT_PREPARED_PENDING_APPROVAL**
+**Current status:** **PLACEHOLDER_APPROVAL_REHEARSED_PENDING_REAL_OWNER_APPROVAL**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -62,19 +62,19 @@ docs/ai-team/
 
 **Production-ready claimed:** **no**
 
-**PR-GAP-002:** **DATA_OWNER_ASSIGNMENT_PREPARED_PENDING_APPROVAL**
+**PR-GAP-002:** **PLACEHOLDER_APPROVAL_REHEARSED_PENDING_REAL_OWNER_APPROVAL**
 
 **PR-GAP-003:** **CLOSED_APPROVED_BY_OWNER**
 
-**Next event:** **Production data owner final approval provided**
+**Next event:** **Real production data owner final approval provided**
 
 **Next pack:** **Low-code Pilot Week-3 Production Data Owner Final Approval Pack v0.1**
 
-**Required before final approval:**
+**Required before real approval:**
 
-- Product/Data Owner name
-- Legal/Compliance Owner name
-- explicit approval
+- real Product/Data Owner name
+- real Legal/Compliance Owner name
+- explicit real approval
 - confirmation that production data use is either approved or remains forbidden
 - confirmation that low-code fields are not legal/financial source of truth without approval
 
@@ -90,6 +90,10 @@ docs/ai-team/
 | Release owner assigned | Low-code Pilot Week-3 Release Ownership Pack v0.1 |
 | Final go/no-go owner assigned | Low-code Pilot Week-3 Final Go-No-Go Ownership Pack v0.1 |
 | P0/P1 suspected | Low-code Runtime Pilot Fix Pack v0.1 |
+
+Week-3 production data owner placeholder approval v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_DATA_OWNER_PLACEHOLDER_APPROVAL_V0.1.md`.
 
 Week-3 production data owner assignment v0.1:
 
@@ -1006,7 +1010,7 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-**Current status:** **DATA_OWNER_ASSIGNMENT_PREPARED_PENDING_APPROVAL**
+**Current status:** **PLACEHOLDER_APPROVAL_REHEARSED_PENDING_REAL_OWNER_APPROVAL**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -1014,19 +1018,19 @@ Next implementation:
 
 **Production-ready claimed:** **no**
 
-**PR-GAP-002:** **DATA_OWNER_ASSIGNMENT_PREPARED_PENDING_APPROVAL**
+**PR-GAP-002:** **PLACEHOLDER_APPROVAL_REHEARSED_PENDING_REAL_OWNER_APPROVAL**
 
 **PR-GAP-003:** **CLOSED_APPROVED_BY_OWNER**
 
-**Next event:** **Production data owner final approval provided**
+**Next event:** **Real production data owner final approval provided**
 
 **Next pack:** **Low-code Pilot Week-3 Production Data Owner Final Approval Pack v0.1**
 
-**Required before final approval:**
+**Required before real approval:**
 
-- Product/Data Owner name
-- Legal/Compliance Owner name
-- explicit approval
+- real Product/Data Owner name
+- real Legal/Compliance Owner name
+- explicit real approval
 - confirmation that production data use is either approved or remains forbidden
 - confirmation that low-code fields are not legal/financial source of truth without approval
 
@@ -1042,6 +1046,10 @@ Next implementation:
 | Release owner assigned | Low-code Pilot Week-3 Release Ownership Pack v0.1 |
 | Final go/no-go owner assigned | Low-code Pilot Week-3 Final Go-No-Go Ownership Pack v0.1 |
 | P0/P1 suspected | Low-code Runtime Pilot Fix Pack v0.1 |
+
+Week-3 production data owner placeholder approval v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_DATA_OWNER_PLACEHOLDER_APPROVAL_V0.1.md`.
 
 Week-3 production data owner assignment v0.1:
 

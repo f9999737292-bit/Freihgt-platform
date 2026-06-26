@@ -77,10 +77,45 @@ Do **not** include in completed form or committed docs:
 | **DATA_OWNER_APPROVAL_REJECTED** | Owner rejected policy or production data use |
 | **DATA_OWNER_ASSIGNMENT_PENDING** | Names or approvals still missing |
 
+## Placeholder Example — Not Real Approval
+
+> **Warning:** This placeholder section is for **rehearsal only** and must be replaced by **real owner approval** before PR-GAP-002 can be closed.
+
+```text
+Product / Data Owner:
+ФИО: Иван Петров
+Роль: Placeholder Product/Data Owner
+Контакт: not real / placeholder
+Approval status: placeholder only / not real approval
+
+Legal / Compliance Owner:
+ФИО: Елена Смирнова
+Роль: Placeholder Legal/Compliance Owner
+Контакт: not real / placeholder
+Approval status: placeholder only / not real approval
+
+Finance Owner:
+ФИО: Ольга Кузнецова
+Роль: Placeholder Finance Owner
+Контакт: not real / placeholder
+Approval status: placeholder only / not real approval
+
+Confirmations:
+- Production data policy reviewed: placeholder only
+- Real production data use approved: no
+- Secrets/JWT/tokens forbidden in repo: yes
+- Signed legal documents excluded: yes
+- Payment data excluded: yes
+- Low-code fields are not legal/financial source of truth without separate approval: yes
+- Production-ready claimed: no
+```
+
+Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_DATA_OWNER_PLACEHOLDER_APPROVAL_V0.1.md`
+
 ## Next Pack
 
 **Low-code Pilot Week-3 Production Data Owner Final Approval Pack v0.1**
 
-**Trigger:** Production data owner final approval provided
+**Trigger:** Real production data owner final approval provided
 
 Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_DATA_OWNER_ASSIGNMENT_V0.1.md`

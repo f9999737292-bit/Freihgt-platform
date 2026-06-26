@@ -4,7 +4,7 @@
 
 Consolidated **improvements backlog** for Week-3 low-code pilot feedback triage. Contains baseline placeholder items while **no real operator submissions** exist, plus structure for P0–P3 items when feedback arrives.
 
-**Backlog status:** **0 real feedback-derived improvement items**. **39** items (BL-W3-000–038). **DATA_OWNER_ASSIGNMENT_PREPARED_PENDING_APPROVAL**.
+**Backlog status:** **0 real feedback-derived improvement items**. **40** items (BL-W3-000–039). **PLACEHOLDER_APPROVAL_REHEARSED_PENDING_REAL_OWNER_APPROVAL**.
 
 Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 
@@ -12,14 +12,14 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 
 | Metric | Value |
 |--------|-------|
-| Total items | **39** |
+| Total items | **40** |
 | Controlled pilot | **CONTROLLED_PILOT_APPROVED** — active |
 | Production readiness | **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY** |
 | Staging deploy runbook | **STAGING_DEPLOY_RUNBOOK_CREATED** |
 | Rollback plan | **PRODUCTION_ROLLBACK_PLAN_CREATED** |
 | Rollback owner | **Артем Асаев** |
 | PR-GAP-001 | **BLOCKED_WAITING_FOR_REMOTE_STAGING** |
-| PR-GAP-002 | **DATA_OWNER_ASSIGNMENT_PREPARED_PENDING_APPROVAL** |
+| PR-GAP-002 | **PLACEHOLDER_APPROVAL_REHEARSED_PENDING_REAL_OWNER_APPROVAL** |
 | PR-GAP-003 | **CLOSED_APPROVED_BY_OWNER** |
 | Open production gaps | **9** |
 | Real feedback intake | **3 / 3** |
@@ -68,7 +68,8 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 | BL-W3-035 | rollback owner approval pack v0.1 | ALL | Rollback owner assignment | P3 | Rollback owner assigned as Артем Асаев — role/contact/approval pending | Final owner approval | Артем Асаев | Rollback Owner Final Approval Pack v0.1 | COMPLETED | ROLLBACK_OWNER_ASSIGNED_PENDING_APPROVAL |
 | BL-W3-036 | rollback owner final approval pack v0.1 | ALL | Rollback owner final approval | P3 | Rollback owner final approval captured — PR-GAP-003 closed | Continue event-based gap closure | Артем Асаев | event-based gap packs | COMPLETED | ROLLBACK_OWNER_FINAL_APPROVAL_CAPTURED |
 | BL-W3-037 | production data policy pack v0.1 | ALL | Production data policy | P3 | Production data policy draft created — production data use not approved | Data owner assignment | Product / Legal / Data Owner — TBD | Production Data Owner Assignment Pack v0.1 | COMPLETED | DATA_POLICY_DRAFT_CREATED_PENDING_OWNER_APPROVAL |
-| BL-W3-038 | production data owner assignment pack v0.1 | ALL | Production data owner assignment | P3 | Data owner assignment and approval form prepared — owners TBD | Final owner approval | Product / Legal / Data Owner — TBD | Production Data Owner Final Approval Pack v0.1 | OPEN | DATA_OWNER_ASSIGNMENT_PREPARED_PENDING_APPROVAL |
+| BL-W3-038 | production data owner assignment pack v0.1 | ALL | Production data owner assignment | P3 | Data owner assignment and approval form prepared — owners TBD | Placeholder rehearsal | Product / Legal / Data Owner — TBD | Production Data Owner Placeholder Approval Pack v0.1 | COMPLETED | DATA_OWNER_ASSIGNMENT_PREPARED_PENDING_APPROVAL |
+| BL-W3-039 | production data owner placeholder approval pack v0.1 | ALL | Production data owner placeholder approval | P3 | Placeholder approval rehearsal with virtual names — not real approval | Real owner final approval | Real owners TBD | Production Data Owner Final Approval Pack v0.1 | OPEN | PLACEHOLDER_APPROVAL_REHEARSED_PENDING_REAL_OWNER_APPROVAL |
 
 ## P0 Items
 
@@ -102,17 +103,17 @@ When P1 appears: add row with owner assigned, target fix pack, decision **GO_WIT
 | BL-W3-035 | Rollback owner approval v0.1 | **Completed** | COMPLETED |
 | BL-W3-036 | Rollback owner final approval v0.1 | **Completed** | COMPLETED |
 | BL-W3-037 | Production data policy v0.1 | **Completed** | COMPLETED |
-| BL-W3-038 | Production data owner assignment v0.1 | Final owner approval | OPEN |
+| BL-W3-038 | Production data owner assignment v0.1 | **Completed** | COMPLETED |
+| BL-W3-039 | Production data owner placeholder approval v0.1 | Real owner final approval | OPEN |
 
 **Rules (reinforced):**
 
-- **Data owner assignment prepared** — approval form created.
-- **Product/Data Owner still TBD.**
-- **Legal/Compliance Owner still TBD.**
-- **Production data use still not approved.**
+- **Placeholder data owner approval rehearsal completed** — virtual names only.
+- **Real owner approval still required.**
 - **PR-GAP-002 remains open.**
+- **Production data use still not approved.**
 - **Production-ready still not claimed.**
-- **Next action:** Production Data Owner Final Approval Pack v0.1 after owners provide approval.
+- **Next action:** replace placeholder owners with real owners and run Final Approval Pack v0.1.
 
 Route to PM follow-up; no code fixes without real P0/P1 evidence.
 
@@ -173,7 +174,8 @@ Explicit list (BL-W3-000–009):
 | **Low-code Pilot Week-3 Rollback Owner Final Approval Pack v0.1** | Completed | **ROLLBACK_OWNER_FINAL_APPROVAL_CAPTURED** |
 | **Low-code Pilot Week-3 Production Data Policy Pack v0.1** | Completed | **DATA_POLICY_DRAFT_CREATED_PENDING_OWNER_APPROVAL** |
 | **Low-code Pilot Week-3 Production Data Owner Assignment Pack v0.1** | Completed | **DATA_OWNER_ASSIGNMENT_PREPARED_PENDING_APPROVAL** |
-| **Low-code Pilot Week-3 Production Data Owner Final Approval Pack v0.1** | Production data owner final approval provided | PR-GAP-002 closure |
+| **Low-code Pilot Week-3 Production Data Owner Placeholder Approval Pack v0.1** | Completed | **PLACEHOLDER_APPROVAL_REHEARSED_PENDING_REAL_OWNER_APPROVAL** |
+| **Low-code Pilot Week-3 Production Data Owner Final Approval Pack v0.1** | Real production data owner final approval provided | PR-GAP-002 closure |
 | **Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1** | Remote staging details provided | PR-GAP-001 closure |
 | **Low-code Pilot Week-3 Temporary Tunnel Auth-On Matrix Pack v0.1** | Temporary tunnel approved | Partial PR-GAP-001 evidence |
 | **Low-code Pilot Week-3 Production Rollback Plan Pack v0.1** | Rollback owner ready | PR-GAP-003 |
