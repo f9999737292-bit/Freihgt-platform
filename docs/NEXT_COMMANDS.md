@@ -52,17 +52,48 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** Low-code Pilot Week-3 Production Readiness Gap Closure Pack v0.1.
+**Next pack (use AI team):** Event-based gap closure — see event triggers below.
 
-**Current status:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
+**Current status:** **PRODUCTION_READINESS_GAP_CLOSURE_PLAN_CREATED**
+
+**Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
 **Controlled pilot:** **CONTROLLED_PILOT_APPROVED** — active
 
-**Parallel when ops ready:** Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1.
+**Production-ready claimed:** **no**
 
-**If fresh evidence requested:** Low-code Pilot Week-3 Monitoring Evidence Refresh Pack v0.1.
+**Next mode:** **EVENT_BASED_GAP_CLOSURE**
 
-**If P0/P1 suspected:** Low-code Runtime Pilot Fix Pack v0.1.
+**Event-based next actions:**
+
+| Event | Pack |
+|-------|------|
+| Ops ready | Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1 |
+| Production data policy owner ready | Low-code Pilot Week-3 Production Data Policy Pack v0.1 |
+| Rollback owner ready | Low-code Pilot Week-3 Production Rollback Plan Pack v0.1 |
+| Monitoring owner ready | Low-code Pilot Week-3 Production Monitoring Policy Pack v0.1 |
+| Audit/compliance owner ready | Low-code Pilot Week-3 Audit Retention Policy Pack v0.1 |
+| Tenant isolation evidence requested | Low-code Pilot Week-3 Tenant Isolation Evidence Pack v0.1 |
+| Support owner assigned | Low-code Pilot Week-3 Support Ownership Pack v0.1 |
+| Release owner assigned | Low-code Pilot Week-3 Release Ownership Pack v0.1 |
+| Final go/no-go owner assigned | Low-code Pilot Week-3 Final Go-No-Go Ownership Pack v0.1 |
+| P0/P1 suspected | Low-code Runtime Pilot Fix Pack v0.1 |
+
+Week-3 production readiness gap closure plan v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`.
+
+Week-3 production readiness gap tracker v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_TRACKER_V0.1.md`.
+
+Week-3 production readiness owner matrix v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_OWNER_MATRIX_V0.1.md`.
+
+Week-3 production readiness acceptance criteria v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_ACCEPTANCE_CRITERIA_V0.1.md`.
 
 Week-3 production readiness decision v0.1:
 
@@ -871,17 +902,46 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-**Current status:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
+**Current status:** **PRODUCTION_READINESS_GAP_CLOSURE_PLAN_CREATED**
+
+**Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
 **Controlled pilot:** **CONTROLLED_PILOT_APPROVED** — active
 
-1. **Low-code Pilot Week-3 Production Readiness Gap Closure Pack v0.1**
+**Production-ready claimed:** **no**
 
-**Parallel when ops ready:** Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1.
+**Next mode:** **EVENT_BASED_GAP_CLOSURE**
 
-**If fresh evidence requested:** Low-code Pilot Week-3 Monitoring Evidence Refresh Pack v0.1.
+**Event-based next actions:**
 
-**If P0/P1 suspected:** Low-code Runtime Pilot Fix Pack v0.1.
+| Event | Pack |
+|-------|------|
+| Ops ready | Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1 |
+| Production data policy owner ready | Low-code Pilot Week-3 Production Data Policy Pack v0.1 |
+| Rollback owner ready | Low-code Pilot Week-3 Production Rollback Plan Pack v0.1 |
+| Monitoring owner ready | Low-code Pilot Week-3 Production Monitoring Policy Pack v0.1 |
+| Audit/compliance owner ready | Low-code Pilot Week-3 Audit Retention Policy Pack v0.1 |
+| Tenant isolation evidence requested | Low-code Pilot Week-3 Tenant Isolation Evidence Pack v0.1 |
+| Support owner assigned | Low-code Pilot Week-3 Support Ownership Pack v0.1 |
+| Release owner assigned | Low-code Pilot Week-3 Release Ownership Pack v0.1 |
+| Final go/no-go owner assigned | Low-code Pilot Week-3 Final Go-No-Go Ownership Pack v0.1 |
+| P0/P1 suspected | Low-code Runtime Pilot Fix Pack v0.1 |
+
+Week-3 production readiness gap closure plan v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`.
+
+Week-3 production readiness gap tracker v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_TRACKER_V0.1.md`.
+
+Week-3 production readiness owner matrix v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_OWNER_MATRIX_V0.1.md`.
+
+Week-3 production readiness acceptance criteria v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_ACCEPTANCE_CRITERIA_V0.1.md`.
 
 Week-3 production readiness decision v0.1:
 

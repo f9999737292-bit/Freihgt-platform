@@ -4,7 +4,7 @@
 
 Consolidated **improvements backlog** for Week-3 low-code pilot feedback triage. Contains baseline placeholder items while **no real operator submissions** exist, plus structure for P0–P3 items when feedback arrives.
 
-**Backlog status:** **0 real feedback-derived improvement items**. **30** items (BL-W3-000–029). **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY** — controlled pilot **active**.
+**Backlog status:** **0 real feedback-derived improvement items**. **31** items (BL-W3-000–030). **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY** — controlled pilot **active**; gap closure plan **created**.
 
 Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 
@@ -12,9 +12,11 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 
 | Metric | Value |
 |--------|-------|
-| Total items | **30** |
+| Total items | **31** |
 | Controlled pilot | **CONTROLLED_PILOT_APPROVED** — active |
 | Production readiness | **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY** |
+| Gap closure plan | **GAP_CLOSURE_PLAN_CREATED** |
+| Open production gaps | **10** (PR-GAP-001–010) |
 | Real feedback intake | **3 / 3** |
 | Open P0 / P1 | **0 / 0** |
 | Last updated | 2026-06-26 |
@@ -52,7 +54,8 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 | BL-W3-026 | real operator feedback intake pack v0.1 | ALL | Documentation/runbook | P3 | Intake complete — 3/3 forms, all 5/5 ready, no remarks, no P0/P1/P2 | Readiness decision executed | Феликс Асаев | Post-Feedback Readiness Decision v0.1 | COMPLETED | REAL_FEEDBACK_INTAKE_COMPLETED_READY |
 | BL-W3-027 | post-feedback readiness decision pack v0.1 | ALL | Governance/readiness | P3 | Readiness decision — controlled pilot recommended; production not claimed | Approval pack executed | Феликс Асаев | Controlled Pilot Approval v0.1 | COMPLETED | POST_FEEDBACK_READY_FOR_CONTROLLED_PILOT |
 | BL-W3-028 | controlled pilot approval pack v0.1 | ALL | Governance/approval | P3 | Controlled pilot approved — demo tenant, limited users, scope charter active | Production review executed | Феликс Асаев | Production Readiness Decision v0.1 | COMPLETED | CONTROLLED_PILOT_APPROVED |
-| BL-W3-029 | production readiness decision pack v0.1 | ALL | Governance/production | P3 | Production review — NOT production ready; governance/ops gaps open | Gap Closure Pack; Remote Auth-On when ops | Феликс Асаев | Production Readiness Gap Closure v0.1 | OPEN | NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY |
+| BL-W3-029 | production readiness decision pack v0.1 | ALL | Governance/production | P3 | Production review — NOT production ready; governance/ops gaps open | Gap Closure Pack executed | Феликс Асаев | Production Readiness Gap Closure v0.1 | COMPLETED | NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY |
+| BL-W3-030 | production readiness gap closure pack v0.1 | ALL | Governance/gap closure | P3 | Gap closure plan, tracker, owner matrix, acceptance criteria created; 10 open gaps tracked | Event-based gap closure; Remote Auth-On first when ops ready | Феликс Асаев | Remote Auth-On Repeat v0.1 when ops ready | OPEN | GAP_CLOSURE_PLAN_CREATED |
 
 ## P0 Items
 
@@ -77,15 +80,17 @@ When P1 appears: add row with owner assigned, target fix pack, decision **GO_WIT
 | BL-W3-026 | Real operator feedback intake v0.1 | **Completed** | COMPLETED |
 | BL-W3-027 | Post-feedback readiness decision v0.1 | **Completed** | COMPLETED |
 | BL-W3-028 | Controlled pilot approval v0.1 | **Completed** | COMPLETED |
-| BL-W3-029 | Production readiness decision v0.1 | Gap Closure Pack | OPEN |
+| BL-W3-029 | Production readiness decision v0.1 | **Completed** | COMPLETED |
+| BL-W3-030 | Production readiness gap closure v0.1 | Event-based gap closure | OPEN |
 
 **Rules (reinforced):**
 
-- **Production review completed** — `NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY`.
+- **Production readiness gap closure plan created** — `GAP_CLOSURE_PLAN_CREATED`.
 - **Controlled pilot remains approved and active** — `CONTROLLED_PILOT_APPROVED`.
-- **Production readiness not yet approved** — governance/security/ops conditions **pending**.
-- Remote Auth-On Repeat **pending** (BL-W3-003) — parallel when ops ready.
-- Next recommended: **Production Readiness Gap Closure Pack v0.1**.
+- **Production-ready still not claimed** — `NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY`.
+- **Open gaps tracked** in `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_TRACKER_V0.1.md` (10 PENDING).
+- **Next actions are event-based** — `EVENT_BASED_GAP_CLOSURE`.
+- Remote Auth-On Repeat **remains first recommended technical/security gap** (BL-W3-003 / PR-GAP-001) when ops ready.
 - No feedback-based fixes required from operator intake.
 
 Route to PM follow-up; no code fixes without real P0/P1 evidence.
@@ -138,8 +143,17 @@ Explicit list (BL-W3-000–009):
 | **Low-code Pilot Week-3 Post-Feedback Readiness Decision Pack v0.1** | Completed | **POST_FEEDBACK_READY_FOR_CONTROLLED_PILOT** |
 | **Low-code Pilot Week-3 Controlled Pilot Approval Pack v0.1** | Completed | **CONTROLLED_PILOT_APPROVED** |
 | **Low-code Pilot Week-3 Production Readiness Decision Pack v0.1** | Completed | **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY** |
-| **Low-code Pilot Week-3 Production Readiness Gap Closure Pack v0.1** | **Next Action** | Close governance/ops gaps |
-| **Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1** | Ops staging config ready | BL-W3-003 — parallel track |
+| **Low-code Pilot Week-3 Production Readiness Gap Closure Pack v0.1** | Completed | **GAP_CLOSURE_PLAN_CREATED** |
+| **Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1** | **Ops ready** (first recommended) | BL-W3-003 / PR-GAP-001 |
+| **Low-code Pilot Week-3 Production Data Policy Pack v0.1** | Production data policy owner ready | PR-GAP-002 |
+| **Low-code Pilot Week-3 Production Rollback Plan Pack v0.1** | Rollback owner ready | PR-GAP-003 |
+| **Low-code Pilot Week-3 Production Monitoring Policy Pack v0.1** | Monitoring owner ready | PR-GAP-004 |
+| **Low-code Pilot Week-3 Audit Retention Policy Pack v0.1** | Audit/compliance owner ready | PR-GAP-005 |
+| **Low-code Pilot Week-3 Tenant Isolation Evidence Pack v0.1** | Tenant isolation evidence requested | PR-GAP-006 |
+| **Low-code Pilot Week-3 Support Ownership Pack v0.1** | Support owner assigned | PR-GAP-007 |
+| **Low-code Pilot Week-3 Release Ownership Pack v0.1** | Release owner assigned | PR-GAP-008 |
+| **Low-code Pilot Week-3 Final Go-No-Go Ownership Pack v0.1** | Final go/no-go owner assigned | PR-GAP-009 |
+| **Low-code Pilot Week-3 Low-code Source-of-Truth Policy Pack v0.1** | Legal/finance owner ready | PR-GAP-010 |
 | **Low-code Pilot Week-3 Monitoring Evidence Refresh Pack v0.1** | Stakeholder requests fresh evidence | Trigger event |
 | **Low-code Pilot Week-3 Feedback-Based UI/Docs Polish Selection Pack v0.1** | Not required from intake | No operator change requests |
 | **Low-code Pilot Week-3 Pilot UI Help Text Polish Pack v0.1** | P3 UX themes after operator session | Docs/UI copy only; no API change |

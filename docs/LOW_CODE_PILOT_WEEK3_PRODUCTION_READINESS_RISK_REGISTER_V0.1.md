@@ -6,18 +6,33 @@ Risk register for production readiness review after controlled pilot approval.
 
 **Overall production release recommendation:** **NO-GO** (controlled pilot **GO** to continue).
 
+**Gap closure plan:** **created** — `GAP_CLOSURE_PLAN_CREATED` (2026-06-26).
+
+**Production go/no-go blocked** until gaps PR-GAP-001–010 closed per acceptance criteria.
+
+**Controlled pilot may continue** while production risks remain **OPEN**.
+
 ## Risks
 
-| risk id | risk | severity | status | mitigation | owner | next action |
-|---------|------|----------|--------|------------|-------|-------------|
-| PR-RISK-001 | Remote Auth-On not repeated on staging | P2 | OPEN | Execute Remote Auth-On Repeat Pack when ops ready | DevOps + Security | Remote Auth-On Repeat v0.1 |
-| PR-RISK-002 | Production data policy not approved | P2 | OPEN | Document and approve data policy before prod | PM / governance | Gap Closure Pack |
-| PR-RISK-003 | Rollback plan not approved | P2 | OPEN | Define and approve rollback runbook | DevOps + PM | Gap Closure Pack |
-| PR-RISK-004 | Monitoring/alerting policy not approved | P2 | OPEN | Define prod monitoring SLOs and alerts | DevOps | Gap Closure Pack |
-| PR-RISK-005 | Production go/no-go owner not assigned | P2 | OPEN | Assign governance owner for final approval | PM | Gap Closure Pack |
-| PR-RISK-006 | Low-code fields used as financial/legal source of truth without approval | P1 | OPEN | Explicit policy: core billing/payment status unchanged; BR operator briefing documented | PM + operator lead | Gap Closure Pack + governance sign-off |
-| PR-RISK-007 | Tenant isolation not evidenced for production | P2 | OPEN | Security review + isolation tests on target env | Security | Gap Closure Pack |
-| PR-RISK-008 | Limited operator sample (3 users, demo entities) | P3 | OPEN | Expand only via approved governance | PM | controlled pilot scope only |
-| PR-RISK-009 | Audit retention policy undefined for production | P3 | OPEN | Define retention and access policy | DevOps | Gap Closure Pack |
+| risk id | gap id | risk | severity | status | mitigation | owner | next action |
+|---------|--------|------|----------|--------|------------|-------|-------------|
+| PR-RISK-001 | PR-GAP-001 | Remote Auth-On not repeated on staging | P2 | OPEN | Execute Remote Auth-On Repeat Pack when ops ready | DevOps + Security | Remote Auth-On Repeat v0.1 |
+| PR-RISK-002 | PR-GAP-002 | Production data policy not approved | P2 | OPEN | Document and approve data policy before prod | PM / governance | Production Data Policy Pack v0.1 |
+| PR-RISK-003 | PR-GAP-003 | Rollback plan not approved | P2 | OPEN | Define and approve rollback runbook | DevOps + PM | Low-code Production Rollback Plan Pack v0.1 |
+| PR-RISK-004 | PR-GAP-004 | Monitoring/alerting policy not approved | P2 | OPEN | Define prod monitoring SLOs and alerts | DevOps | Production Monitoring Policy Pack v0.1 |
+| PR-RISK-005 | PR-GAP-009 | Production go/no-go owner not assigned | P2 | OPEN | Assign governance owner for final approval | PM | Final Go-No-Go Ownership Pack v0.1 |
+| PR-RISK-006 | PR-GAP-010 | Low-code fields used as financial/legal source of truth without approval | P1 | OPEN | Explicit policy: core billing/payment status unchanged; BR operator briefing documented | PM + operator lead | Low-code Source-of-Truth Policy Pack v0.1 |
+| PR-RISK-007 | PR-GAP-006 | Tenant isolation not evidenced for production | P2 | OPEN | Security review + isolation tests on target env | Security | Tenant Isolation Evidence Pack v0.1 |
+| PR-RISK-008 | — | Limited operator sample (3 users, demo entities) | P3 | OPEN | Expand only via approved governance | PM | controlled pilot scope only |
+| PR-RISK-009 | PR-GAP-005 | Audit retention policy undefined for production | P3 | OPEN | Define retention and access policy | DevOps / Compliance | Audit Retention Policy Pack v0.1 |
+| PR-RISK-010 | PR-GAP-007 | Support owner not assigned | P2 | OPEN | Assign named support owner and escalation | PM / Operations | Support Ownership Pack v0.1 |
+| PR-RISK-011 | PR-GAP-008 | Release owner not assigned | P2 | OPEN | Assign release owner and checklist | PM / Release Manager | Release Ownership Pack v0.1 |
 
-Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_GO_NO_GO_NOTE_V0.1.md`
+## Risk–Gap Mapping Rules
+
+1. Each mapped production risk remains **OPEN** until corresponding gap is **CLOSED** in gap tracker.
+2. **PR-RISK-008** (limited sample) is accepted for controlled pilot; not a gap-closure blocker for pilot continuation.
+3. Production **GO** requires all mapped risks **mitigated** or **accepted** with documented approval.
+4. Gap closure does not auto-close risks — evidence pack + tracker update required.
+
+Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_GO_NO_GO_NOTE_V0.1.md`, `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_TRACKER_V0.1.md`

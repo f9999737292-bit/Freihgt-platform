@@ -4,16 +4,17 @@
 
 Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER**, **SHIPMENT**, and **BILLING_REGISTER**.
 
-**Current status:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY** — controlled pilot **active**; production-ready **not claimed**.
+**Current status:** **PRODUCTION_READINESS_GAP_CLOSURE_PLAN_CREATED** — controlled pilot **active**; production-ready **not claimed**.
 
 ## Current Status
 
 | Metric | Value |
 |--------|-------|
-| Total entries | **26** |
+| Total entries | **27** |
 | Real operator submissions | **3** |
 | Controlled pilot | **CONTROLLED_PILOT_APPROVED** — active |
 | Production readiness | **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY** |
+| Gap closure plan | **GAP_CLOSURE_PLAN_CREATED** |
 | Production ready claimed | **no** |
 | PM / Coordinator | **Феликс Асаев** |
 | Last updated | 2026-06-26 |
@@ -48,6 +49,7 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | W3-FB-READINESS-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | post-feedback readiness decision | P3 | Post-feedback readiness decision completed after 3/3 operators rated scenarios 5/5 and ready | COMPLETED | Феликс Асаев | Controlled Pilot Approval v0.1 | POST_FEEDBACK_READY_FOR_CONTROLLED_PILOT — blockers_found=no, production_ready_claimed=no |
 | W3-FB-APPROVAL-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | controlled pilot approval | P3 | Controlled internal pilot approved for demo tenant and limited users; production not claimed | COMPLETED | Феликс Асаев | Event-based monitoring / Production Readiness when triggered | CONTROLLED_PILOT_APPROVED — scope charter active |
 | W3-FB-PROD-READINESS-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness review | P3 | Production readiness review completed after controlled pilot approval and 3/3 positive operator feedback | COMPLETED | Феликс Асаев | Production Readiness Gap Closure v0.1 / Remote Auth-On when ops ready | NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY — production_ready_claimed=no, governance/ops pending |
+| W3-FB-PROD-GAP-CLOSURE-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness gap closure | P3 | Production readiness gap closure plan created after production readiness review | COMPLETED | Феликс Асаев | event-based gap closure packs | GAP_CLOSURE_PLAN_CREATED — production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, next_pack=event-based gap closure packs, parallel_pack=Remote Auth-On Repeat v0.1 when ops ready |
 
 ### Column guide
 

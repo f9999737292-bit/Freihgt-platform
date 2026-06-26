@@ -83,6 +83,17 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 | Release owner | PENDING | — | PM | not assigned |
 | Final go/no-go approval | PENDING | — | governance | not granted |
 
+## Gap Closure Artifacts
+
+| artifact | status | reference |
+|----------|--------|-----------|
+| Gap Closure Plan | **created** | `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md` |
+| Gap Tracker | **created** | `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_TRACKER_V0.1.md` |
+| Owner Matrix | **created** | `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_OWNER_MATRIX_V0.1.md` |
+| Acceptance Criteria | **created** | `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_ACCEPTANCE_CRITERIA_V0.1.md` |
+
+**Open gaps:** **10** (PR-GAP-001–010) — all **PENDING**
+
 ## Final Status
 
 | Area | Result |
@@ -90,5 +101,6 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 | Controlled pilot | **PASS — continue** |
 | Production readiness | **NOT APPROVED** |
 | Decision | `NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY` |
+| Gap closure plan | **created** — `GAP_CLOSURE_PLAN_CREATED` |
 
-Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
+Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`, `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
