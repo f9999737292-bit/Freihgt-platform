@@ -4,15 +4,16 @@
 
 Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER**, **SHIPMENT**, and **BILLING_REGISTER**.
 
-**Current status:** **CONTROLLED_PILOT_APPROVED** — controlled internal pilot **active**; production-ready **not claimed**.
+**Current status:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY** — controlled pilot **active**; production-ready **not claimed**.
 
 ## Current Status
 
 | Metric | Value |
 |--------|-------|
-| Total entries | **25** |
+| Total entries | **26** |
 | Real operator submissions | **3** |
-| Pilot approval | **CONTROLLED_PILOT_APPROVED** |
+| Controlled pilot | **CONTROLLED_PILOT_APPROVED** — active |
+| Production readiness | **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY** |
 | Production ready claimed | **no** |
 | PM / Coordinator | **Феликс Асаев** |
 | Last updated | 2026-06-26 |
@@ -46,6 +47,7 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | W3-FB-INTAKE-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | real operator feedback intake | P3 | Real operator feedback intake completed for TRANSPORT_ORDER, SHIPMENT, and BILLING_REGISTER | COMPLETED | Феликс Асаев | Post-Feedback Readiness Decision v0.1 | REAL_FEEDBACK_INTAKE_COMPLETED_READY — real_feedback_count=3, average_rating=5, blockers_found=no |
 | W3-FB-READINESS-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | post-feedback readiness decision | P3 | Post-feedback readiness decision completed after 3/3 operators rated scenarios 5/5 and ready | COMPLETED | Феликс Асаев | Controlled Pilot Approval v0.1 | POST_FEEDBACK_READY_FOR_CONTROLLED_PILOT — blockers_found=no, production_ready_claimed=no |
 | W3-FB-APPROVAL-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | controlled pilot approval | P3 | Controlled internal pilot approved for demo tenant and limited users; production not claimed | COMPLETED | Феликс Асаев | Event-based monitoring / Production Readiness when triggered | CONTROLLED_PILOT_APPROVED — scope charter active |
+| W3-FB-PROD-READINESS-001 | 2026-06-26 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness review | P3 | Production readiness review completed after controlled pilot approval and 3/3 positive operator feedback | COMPLETED | Феликс Асаев | Production Readiness Gap Closure v0.1 / Remote Auth-On when ops ready | NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY — production_ready_claimed=no, governance/ops pending |
 
 ### Column guide
 

@@ -52,16 +52,33 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** No automatic pack — **controlled pilot active**.
+**Next pack (use AI team):** Low-code Pilot Week-3 Production Readiness Gap Closure Pack v0.1.
 
-**Current status:** **CONTROLLED_PILOT_APPROVED**
+**Current status:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
-**Event-based next actions:**
+**Controlled pilot:** **CONTROLLED_PILOT_APPROVED** — active
 
-* Ops ready → **Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1**
-* Stakeholder requests production review → **Low-code Pilot Week-3 Production Readiness Decision Pack v0.1**
-* Fresh evidence requested → **Low-code Pilot Week-3 Monitoring Evidence Refresh Pack v0.1**
-* P0/P1 suspected → **Low-code Runtime Pilot Fix Pack v0.1**
+**Parallel when ops ready:** Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1.
+
+**If fresh evidence requested:** Low-code Pilot Week-3 Monitoring Evidence Refresh Pack v0.1.
+
+**If P0/P1 suspected:** Low-code Runtime Pilot Fix Pack v0.1.
+
+Week-3 production readiness decision v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`.
+
+Week-3 production readiness checklist v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_CHECKLIST_V0.1.md`.
+
+Week-3 production readiness risk register v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_RISK_REGISTER_V0.1.md`.
+
+Week-3 production go/no-go note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_GO_NO_GO_NOTE_V0.1.md`.
 
 Week-3 controlled pilot approval v0.1:
 
@@ -854,9 +871,33 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-**Current status:** **CONTROLLED_PILOT_APPROVED** — controlled pilot **active**.
+**Current status:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
-**No automatic next pack.** Event-based actions only.
+**Controlled pilot:** **CONTROLLED_PILOT_APPROVED** — active
+
+1. **Low-code Pilot Week-3 Production Readiness Gap Closure Pack v0.1**
+
+**Parallel when ops ready:** Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1.
+
+**If fresh evidence requested:** Low-code Pilot Week-3 Monitoring Evidence Refresh Pack v0.1.
+
+**If P0/P1 suspected:** Low-code Runtime Pilot Fix Pack v0.1.
+
+Week-3 production readiness decision v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`.
+
+Week-3 production readiness checklist v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_CHECKLIST_V0.1.md`.
+
+Week-3 production readiness risk register v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_RISK_REGISTER_V0.1.md`.
+
+Week-3 production go/no-go note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_GO_NO_GO_NOTE_V0.1.md`.
 
 Week-3 controlled pilot approval v0.1:
 
