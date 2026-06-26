@@ -52,13 +52,30 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** Low-code Pilot Week-3 Monitoring Cadence Decision Pack v0.1.
+**Next pack (use AI team):** No automatic monitoring continuation pack.
 
-**Parallel when ops ready:** Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1.
+**Event-based next actions:**
+
+* If ops ready: **Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1**
+* If human PM assigns operators/dates and sessions are confirmed: **Low-code Pilot Week-3 First Real Operator Feedback Capture Retry Pack v0.1**
+* If stakeholder requests fresh evidence: **Low-code Pilot Week-3 Monitoring Evidence Refresh Pack v0.1**
+* If P0/P1 suspected: **Low-code Runtime Pilot Fix Pack v0.1**
 
 **Unblock path:** human PM → operators + dates → LIVE_SESSION_CONFIRMED → Low-code Pilot Week-3 First Real Operator Feedback Capture Retry Pack v0.1.
 
 **If P0 during monitoring:** Low-code Runtime Pilot Fix Pack v0.1.
+
+Week-3 monitoring cadence decision v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_MONITORING_CADENCE_DECISION_V0.1.md`.
+
+Week-3 monitoring cadence runbook v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_MONITORING_CADENCE_RUNBOOK_V0.1.md`.
+
+Week-3 monitoring trigger matrix v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_MONITORING_TRIGGER_MATRIX_V0.1.md`.
 
 Week-3 pilot monitoring continuation v0.7:
 
@@ -799,11 +816,28 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-1. Low-code Pilot Week-3 Monitoring Cadence Decision Pack v0.1
+**No automatic monitoring continuation pack.**
 
-**Parallel when ops ready:** Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1.
+Event-based next actions:
+
+1. If ops ready → **Low-code Pilot Week-3 Remote Auth-On Repeat Pack v0.1**
+2. If human PM assigns operators/dates and sessions confirmed → **Low-code Pilot Week-3 First Real Operator Feedback Capture Retry Pack v0.1**
+3. If stakeholder requests fresh evidence → **Low-code Pilot Week-3 Monitoring Evidence Refresh Pack v0.1**
+4. If P0/P1 suspected → **Low-code Runtime Pilot Fix Pack v0.1**
 
 **Unblock path:** human PM → operators + dates → LIVE_SESSION_CONFIRMED → Low-code Pilot Week-3 First Real Operator Feedback Capture Retry Pack v0.1.
+
+Week-3 monitoring cadence decision v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_MONITORING_CADENCE_DECISION_V0.1.md`.
+
+Week-3 monitoring cadence runbook v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_MONITORING_CADENCE_RUNBOOK_V0.1.md`.
+
+Week-3 monitoring trigger matrix v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_MONITORING_TRIGGER_MATRIX_V0.1.md`.
 
 Week-3 pilot monitoring continuation v0.7:
 
