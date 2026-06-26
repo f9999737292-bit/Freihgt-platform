@@ -37,6 +37,18 @@ Local auth-on repeat **PASS** (`LOW_CODE_PILOT_WEEK3_REMOTE_AUTH_ON_REPEAT_V0.1.
 
 This checklist tells Ops/Security/Product **what to provide** and **what must not go into git**.
 
+## Deploy Pack Artifacts (Option C)
+
+| Artifact | Status | Reference |
+|----------|--------|-----------|
+| Staging Deploy Runbook | **created** | `LOW_CODE_PILOT_WEEK3_STAGING_DEPLOY_RUNBOOK_V0.1.md` |
+| Staging Env Example | **created** | `LOW_CODE_PILOT_WEEK3_STAGING_ENV_EXAMPLE_V0.1.md` (placeholders only) |
+| Staging Input Form | **created** | `LOW_CODE_PILOT_WEEK3_STAGING_INPUT_FORM_V0.1.md` |
+| Staging Readiness Checklist | **created** | `LOW_CODE_PILOT_WEEK3_STAGING_READINESS_CHECKLIST_V0.1.md` |
+| Temporary Tunnel Option | **documented** | `LOW_CODE_PILOT_WEEK3_TEMPORARY_TUNNEL_OPTION_V0.1.md` |
+
+**Deploy runbook decision:** `STAGING_DEPLOY_RUNBOOK_CREATED`
+
 ## Required Staging Inputs
 
 | Item | Required Value | Status | Notes |

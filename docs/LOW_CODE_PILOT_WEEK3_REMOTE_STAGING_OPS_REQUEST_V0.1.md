@@ -10,6 +10,17 @@ Formal request to **Ops**, **Security**, and **Product/PM** for staging inputs n
 
 Ops/Security must provide staging URL, auth-on confirmation, service restart confirmation, admin/non-admin test users, tenant ID, and login/JWT flow. Credentials must be provided **separately** and must **not** be committed to git.
 
+## Staging Deployment Options
+
+| Option | Description | Doc |
+|--------|-------------|-----|
+| **A. VPS + staging.7rights.ru** | Preferred full staging | `LOW_CODE_PILOT_WEEK3_STAGING_DEPLOY_RUNBOOK_V0.1.md` |
+| **B. Temporary HTTPS tunnel** | Short-term local Docker exposure | `LOW_CODE_PILOT_WEEK3_TEMPORARY_TUNNEL_OPTION_V0.1.md` |
+
+**Repo now contains:** staging deploy runbook, env example (placeholders), input form, readiness checklist.
+
+Ops completes handoff via `LOW_CODE_PILOT_WEEK3_STAGING_INPUT_FORM_V0.1.md` — **no passwords in git**.
+
 ## Needed From Ops
 
 | # | Item | Notes |
@@ -73,5 +84,9 @@ Ops must confirm **read-only permission: yes** before **Remote Auth-On Staging R
 **Test matrix:** `LOW_CODE_PILOT_WEEK3_REMOTE_STAGING_AUTH_ON_TEST_MATRIX_V0.1.md`
 
 **Checklist:** `LOW_CODE_PILOT_WEEK3_REMOTE_STAGING_PREPARATION_CHECKLIST_V0.1.md`
+
+**Deploy runbook:** `LOW_CODE_PILOT_WEEK3_STAGING_DEPLOY_RUNBOOK_V0.1.md`
+
+**Input form:** `LOW_CODE_PILOT_WEEK3_STAGING_INPUT_FORM_V0.1.md`
 
 Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_TRACKER_V0.1.md` (PR-GAP-001)

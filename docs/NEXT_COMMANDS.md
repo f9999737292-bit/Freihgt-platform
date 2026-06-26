@@ -52,9 +52,9 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** **WAIT_FOR_REMOTE_STAGING_DETAILS** — see required details below.
+**Next pack (use AI team):** **WAIT_FOR_REMOTE_STAGING_DETAILS** — staging deploy runbook ready; await Ops handoff.
 
-**Current status:** **WAIT_FOR_REMOTE_STAGING_DETAILS**
+**Current status:** **STAGING_DEPLOY_RUNBOOK_CREATED**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -66,28 +66,12 @@ docs/ai-team/
 
 **Auth-on (local):** **AUTH_ON_REPEAT_LOCAL_VERIFIED**
 
-**Staging prep decision:** **REMOTE_STAGING_PREPARATION_CHECKLIST_CREATED**
-
-**Next event:** **Remote staging details provided**
-
-**Next pack:** **Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1**
-
-**Required staging details:**
-
-- staging URL
-- API URL
-- `LOW_CODE_ADMIN_AUTH_ENABLED=true` confirmation
-- service restart confirmation
-- admin user (email/UUID — credentials separately)
-- non-admin user (email/UUID — credentials separately)
-- tenant ID
-- login/JWT flow
-- read-only permission (**yes** required)
-
-**Other event-based packs remain available:**
+**Next event options:**
 
 | Event | Pack |
 |-------|------|
+| Remote staging details provided | Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1 |
+| Temporary tunnel approved | Low-code Pilot Week-3 Temporary Tunnel Auth-On Matrix Pack v0.1 |
 | Production data policy owner ready | Low-code Pilot Week-3 Production Data Policy Pack v0.1 |
 | Rollback owner ready | Low-code Pilot Week-3 Production Rollback Plan Pack v0.1 |
 | Monitoring owner ready | Low-code Pilot Week-3 Production Monitoring Policy Pack v0.1 |
@@ -97,6 +81,26 @@ docs/ai-team/
 | Release owner assigned | Low-code Pilot Week-3 Release Ownership Pack v0.1 |
 | Final go/no-go owner assigned | Low-code Pilot Week-3 Final Go-No-Go Ownership Pack v0.1 |
 | P0/P1 suspected | Low-code Runtime Pilot Fix Pack v0.1 |
+
+Week-3 staging deploy runbook v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_STAGING_DEPLOY_RUNBOOK_V0.1.md`.
+
+Week-3 staging env example v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_STAGING_ENV_EXAMPLE_V0.1.md`.
+
+Week-3 staging input form v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_STAGING_INPUT_FORM_V0.1.md`.
+
+Week-3 staging readiness checklist v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_STAGING_READINESS_CHECKLIST_V0.1.md`.
+
+Week-3 temporary tunnel option v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_TEMPORARY_TUNNEL_OPTION_V0.1.md`.
 
 Week-3 remote staging preparation checklist v0.1:
 
@@ -937,7 +941,7 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-**Current status:** **WAIT_FOR_REMOTE_STAGING_DETAILS**
+**Current status:** **STAGING_DEPLOY_RUNBOOK_CREATED**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -949,28 +953,12 @@ Next implementation:
 
 **Auth-on (local):** **AUTH_ON_REPEAT_LOCAL_VERIFIED**
 
-**Staging prep decision:** **REMOTE_STAGING_PREPARATION_CHECKLIST_CREATED**
-
-**Next event:** **Remote staging details provided**
-
-**Next pack:** **Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1**
-
-**Required staging details:**
-
-- staging URL
-- API URL
-- `LOW_CODE_ADMIN_AUTH_ENABLED=true` confirmation
-- service restart confirmation
-- admin user (email/UUID — credentials separately)
-- non-admin user (email/UUID — credentials separately)
-- tenant ID
-- login/JWT flow
-- read-only permission (**yes** required)
-
-**Other event-based packs remain available:**
+**Next event options:**
 
 | Event | Pack |
 |-------|------|
+| Remote staging details provided | Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1 |
+| Temporary tunnel approved | Low-code Pilot Week-3 Temporary Tunnel Auth-On Matrix Pack v0.1 |
 | Production data policy owner ready | Low-code Pilot Week-3 Production Data Policy Pack v0.1 |
 | Rollback owner ready | Low-code Pilot Week-3 Production Rollback Plan Pack v0.1 |
 | Monitoring owner ready | Low-code Pilot Week-3 Production Monitoring Policy Pack v0.1 |
@@ -980,6 +968,26 @@ Next implementation:
 | Release owner assigned | Low-code Pilot Week-3 Release Ownership Pack v0.1 |
 | Final go/no-go owner assigned | Low-code Pilot Week-3 Final Go-No-Go Ownership Pack v0.1 |
 | P0/P1 suspected | Low-code Runtime Pilot Fix Pack v0.1 |
+
+Week-3 staging deploy runbook v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_STAGING_DEPLOY_RUNBOOK_V0.1.md`.
+
+Week-3 staging env example v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_STAGING_ENV_EXAMPLE_V0.1.md`.
+
+Week-3 staging input form v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_STAGING_INPUT_FORM_V0.1.md`.
+
+Week-3 staging readiness checklist v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_STAGING_READINESS_CHECKLIST_V0.1.md`.
+
+Week-3 temporary tunnel option v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_TEMPORARY_TUNNEL_OPTION_V0.1.md`.
 
 Week-3 remote staging preparation checklist v0.1:
 
