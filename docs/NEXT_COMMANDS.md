@@ -52,15 +52,19 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Next pack (use AI team):** **EVENT_BASED_GAP_CLOSURE** — PR-GAP-005 closed; continue remaining gap closure.
-
-**Current status:** **AUDIT_COMPLIANCE_OWNER_FINAL_APPROVAL_CAPTURED**
+**Current status:** **TENANT_ISOLATION_EVIDENCE_PACK_CREATED_PENDING_REVIEW**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
 **Controlled pilot:** **CONTROLLED_PILOT_APPROVED** — active
 
 **Production-ready claimed:** **no**
+
+**Closed gaps:** PR-GAP-003, PR-GAP-004, PR-GAP-005
+
+**Open gaps:** PR-GAP-001, PR-GAP-002, PR-GAP-006, PR-GAP-007, PR-GAP-008, PR-GAP-009, PR-GAP-010
+
+**PR-GAP-006:** **TENANT_ISOLATION_EVIDENCE_PACK_CREATED_PENDING_REVIEW**
 
 **PR-GAP-005:** **CLOSED_APPROVED_BY_OWNER**
 
@@ -74,14 +78,17 @@ docs/ai-team/
 
 **Next mode:** **EVENT_BASED_GAP_CLOSURE**
 
+**Next event:** **Tenant isolation evidence review requested**
+
+**Next pack:** **Low-code Pilot Week-3 Tenant Isolation Evidence Review Pack v0.1**
+
 **Recommended next events:**
 
 | Event | Pack |
 |-------|------|
+| Tenant isolation evidence review requested | Low-code Pilot Week-3 Tenant Isolation Evidence Review Pack v0.1 |
 | Remote staging details provided | Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1 |
 | Real production data owner final approval provided | Low-code Pilot Week-3 Production Data Owner Final Approval Pack v0.1 |
-| Audit/compliance owner ready | Low-code Pilot Week-3 Audit Retention Policy Pack v0.1 |
-| Tenant isolation evidence requested | Low-code Pilot Week-3 Tenant Isolation Evidence Pack v0.1 |
 | Support owner assigned | Low-code Pilot Week-3 Support Ownership Pack v0.1 |
 | Release owner assigned | Low-code Pilot Week-3 Release Ownership Pack v0.1 |
 | Final go/no-go owner assigned | Low-code Pilot Week-3 Final Go-No-Go Ownership Pack v0.1 |
@@ -122,6 +129,26 @@ See `docs/LOW_CODE_PILOT_WEEK3_AUDIT_COMPLIANCE_OWNER_NOTE_V0.1.md`.
 Week-3 audit retention decision note v0.1:
 
 See `docs/LOW_CODE_PILOT_WEEK3_AUDIT_RETENTION_DECISION_NOTE_V0.1.md`.
+
+Week-3 tenant isolation evidence request v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_TENANT_ISOLATION_EVIDENCE_REQUEST_V0.1.md`.
+
+Week-3 tenant isolation evidence checklist v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_TENANT_ISOLATION_EVIDENCE_CHECKLIST_V0.1.md`.
+
+Week-3 tenant isolation read-only test plan v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_TENANT_ISOLATION_READ_ONLY_TEST_PLAN_V0.1.md`.
+
+Week-3 tenant isolation evidence log v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_TENANT_ISOLATION_EVIDENCE_LOG_V0.1.md`.
+
+Week-3 tenant isolation decision note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_TENANT_ISOLATION_DECISION_NOTE_V0.1.md`.
 
 Week-3 production monitoring policy v0.1:
 
@@ -1078,7 +1105,7 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-**Current status:** **MONITORING_POLICY_DRAFT_CREATED_PENDING_OWNER_APPROVAL**
+**Current status:** **TENANT_ISOLATION_EVIDENCE_PACK_CREATED_PENDING_REVIEW**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -1086,15 +1113,15 @@ Next implementation:
 
 **Production-ready claimed:** **no**
 
-**PR-GAP-004:** **MONITORING_POLICY_DRAFT_CREATED_PENDING_OWNER_APPROVAL**
+**Closed gaps:** PR-GAP-003, PR-GAP-004, PR-GAP-005
 
-**PR-GAP-002:** **PLACEHOLDER_APPROVAL_REHEARSED_PENDING_REAL_OWNER_APPROVAL**
+**Open gaps:** PR-GAP-001, PR-GAP-002, PR-GAP-006, PR-GAP-007, PR-GAP-008, PR-GAP-009, PR-GAP-010
 
-**PR-GAP-003:** **CLOSED_APPROVED_BY_OWNER**
+**PR-GAP-006:** **TENANT_ISOLATION_EVIDENCE_PACK_CREATED_PENDING_REVIEW**
 
-**Next event:** **Monitoring owner approval provided**
+**Next event:** **Tenant isolation evidence review requested**
 
-**Next pack:** **Low-code Pilot Week-3 Production Monitoring Owner Approval Pack v0.1**
+**Next pack:** **Low-code Pilot Week-3 Tenant Isolation Evidence Review Pack v0.1**
 
 **Other event-based packs:**
 
@@ -1102,18 +1129,32 @@ Next implementation:
 |-------|------|
 | Remote staging details provided | Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1 |
 | Real production data owner final approval provided | Low-code Pilot Week-3 Production Data Owner Final Approval Pack v0.1 |
-| Audit/compliance owner ready | Low-code Pilot Week-3 Audit Retention Policy Pack v0.1 |
-| Tenant isolation evidence requested | Low-code Pilot Week-3 Tenant Isolation Evidence Pack v0.1 |
 | Support owner assigned | Low-code Pilot Week-3 Support Ownership Pack v0.1 |
 | Release owner assigned | Low-code Pilot Week-3 Release Ownership Pack v0.1 |
 | Final go/no-go owner assigned | Low-code Pilot Week-3 Final Go-No-Go Ownership Pack v0.1 |
 | P0/P1 suspected | Low-code Runtime Pilot Fix Pack v0.1 |
 
+Week-3 tenant isolation evidence request v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_TENANT_ISOLATION_EVIDENCE_REQUEST_V0.1.md`.
+
+Week-3 tenant isolation evidence checklist v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_TENANT_ISOLATION_EVIDENCE_CHECKLIST_V0.1.md`.
+
+Week-3 tenant isolation read-only test plan v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_TENANT_ISOLATION_READ_ONLY_TEST_PLAN_V0.1.md`.
+
+Week-3 tenant isolation evidence log v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_TENANT_ISOLATION_EVIDENCE_LOG_V0.1.md`.
+
+Week-3 tenant isolation decision note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_TENANT_ISOLATION_DECISION_NOTE_V0.1.md`.
+
 Week-3 audit compliance owner final approval v0.1:
-
-See `docs/LOW_CODE_PILOT_WEEK3_AUDIT_COMPLIANCE_OWNER_FINAL_APPROVAL_V0.1.md`.
-
-Week-3 audit compliance owner assignment v0.1:
 
 See `docs/LOW_CODE_PILOT_WEEK3_AUDIT_COMPLIANCE_OWNER_ASSIGNMENT_V0.1.md`.
 
@@ -1144,6 +1185,26 @@ See `docs/LOW_CODE_PILOT_WEEK3_AUDIT_COMPLIANCE_OWNER_NOTE_V0.1.md`.
 Week-3 audit retention decision note v0.1:
 
 See `docs/LOW_CODE_PILOT_WEEK3_AUDIT_RETENTION_DECISION_NOTE_V0.1.md`.
+
+Week-3 tenant isolation evidence request v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_TENANT_ISOLATION_EVIDENCE_REQUEST_V0.1.md`.
+
+Week-3 tenant isolation evidence checklist v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_TENANT_ISOLATION_EVIDENCE_CHECKLIST_V0.1.md`.
+
+Week-3 tenant isolation read-only test plan v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_TENANT_ISOLATION_READ_ONLY_TEST_PLAN_V0.1.md`.
+
+Week-3 tenant isolation evidence log v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_TENANT_ISOLATION_EVIDENCE_LOG_V0.1.md`.
+
+Week-3 tenant isolation decision note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_TENANT_ISOLATION_DECISION_NOTE_V0.1.md`.
 
 Week-3 production monitoring policy v0.1:
 

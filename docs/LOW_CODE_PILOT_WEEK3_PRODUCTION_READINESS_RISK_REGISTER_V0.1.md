@@ -24,6 +24,10 @@ Risk register for production readiness review after controlled pilot approval.
 
 **PR-RISK-009 residual risk:** owner contact not provided; real retention config implementation may require a separate operational task if needed.
 
+**PR-RISK-007 residual risk:** final evidence review is pending; runtime/staging verification may still be required.
+
+**Tenant isolation evidence pack:** `TENANT_ISOLATION_EVIDENCE_PACK_CREATED_PENDING_REVIEW` (PR-GAP-006 **open**; final evidence review pending).
+
 **Production go/no-go blocked** until gaps PR-GAP-001–002, PR-GAP-006–010 closed per acceptance criteria.
 
 **Controlled pilot may continue** while production risks remain **OPEN**.
@@ -38,7 +42,7 @@ Risk register for production readiness review after controlled pilot approval.
 | PR-RISK-004 | PR-GAP-004 | Monitoring/alerting policy not approved | P2 | **MITIGATED_BY_APPROVED_MONITORING_POLICY** | Monitoring policy, alert conditions, checklist, and owner approval captured with owner **Артем Асаев** | **Артем Асаев** | Optional: role/contact/on-call handover; real monitoring config implementation may require separate operational task if needed |
 | PR-RISK-005 | PR-GAP-009 | Production go/no-go owner not assigned | P2 | OPEN | Assign governance owner for final approval | PM | Final Go-No-Go Ownership Pack v0.1 |
 | PR-RISK-006 | PR-GAP-010 | Low-code fields used as financial/legal source of truth without approval | P1 | OPEN | Explicit policy: core billing/payment status unchanged; BR operator briefing documented | PM + operator lead | Low-code Source-of-Truth Policy Pack v0.1 |
-| PR-RISK-007 | PR-GAP-006 | Tenant isolation not evidenced for production | P2 | OPEN | Security review + isolation tests on target env | Security | Tenant Isolation Evidence Pack v0.1 |
+| PR-RISK-007 | PR-GAP-006 | Tenant isolation not evidenced for production | P2 | **PARTIALLY_MITIGATED_EVIDENCE_PACK_CREATED_PENDING_REVIEW** | Tenant isolation evidence request, checklist, read-only test plan, and evidence log created | Security / Architecture — TBD | Tenant Isolation Evidence Review Pack v0.1 |
 | PR-RISK-008 | — | Limited operator sample (3 users, demo entities) | P3 | OPEN | Expand only via approved governance | PM | controlled pilot scope only |
 | PR-RISK-009 | PR-GAP-005 | Audit retention policy undefined for production | P3 | **MITIGATED_BY_APPROVED_AUDIT_RETENTION_POLICY** | Audit retention policy, evidence handling rules, checklist, and owner final approval captured with owner **Феликс Асаев** | **Феликс Асаев** | Optional: contact handover; real retention config implementation if needed |
 | PR-RISK-010 | PR-GAP-007 | Support owner not assigned | P2 | OPEN | Assign named support owner and escalation | PM / Operations | Support Ownership Pack v0.1 |

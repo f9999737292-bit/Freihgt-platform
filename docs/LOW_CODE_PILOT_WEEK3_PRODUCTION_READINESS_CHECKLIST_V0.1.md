@@ -42,7 +42,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 
 | criterion | status | evidence | owner | notes |
 |-----------|--------|----------|-------|-------|
-| Tenant isolation production evidence | PENDING | — | Security | demo tenant only so far |
+| Tenant isolation production evidence | **PARTIAL / PENDING_REVIEW** | Tenant Isolation Evidence Request v0.1, Tenant Isolation Evidence Checklist v0.1, Tenant Isolation Read-only Test Plan v0.1, Tenant Isolation Evidence Log v0.1, Tenant Isolation Decision Note v0.1 | Security / Architecture — TBD | PR-GAP-006 open; source inspection only; final review pending |
 | Cross-tenant leak test (prod) | PENDING | — | Security | not executed |
 
 ## Data / Migration Readiness
@@ -101,7 +101,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 | Controlled pilot | **PASS — continue** |
 | Production readiness | **NOT APPROVED** |
 | Decision | `NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY` |
-| Reason | Other gaps remain open, including remote staging/auth-on and real data owner approval |
+| Reason | Other gaps remain open, including remote staging/auth-on, tenant isolation evidence review, and real data owner approval |
 | Gap closure plan | **created** — `GAP_CLOSURE_PLAN_CREATED` |
 
 Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`, `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
