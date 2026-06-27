@@ -24,7 +24,7 @@ Tracks **7 open production readiness gaps**. PR-GAP-003, PR-GAP-004, and PR-GAP-
 
 **Monitoring owner:** **Артем Асаев** — approved
 
-**Tenant isolation evidence pack:** `TENANT_ISOLATION_EVIDENCE_REVIEWED_PENDING_OWNER_APPROVAL` (PR-GAP-006 **open**)
+**Tenant isolation evidence pack:** `TENANT_ISOLATION_OWNER_APPROVAL_GATE_PREPARED_PENDING_OWNER_ASSIGNMENT` (PR-GAP-006 **open**)
 
 **Mode:** **EVENT_BASED_GAP_CLOSURE**
 
@@ -42,7 +42,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | PR-GAP-003 | Rollback plan not approved | **CLOSED_APPROVED_BY_OWNER** | **Артем Асаев** | Rollback plan, rollback procedure, rollback checklist, owner assignment, and final approval captured | none for PR-GAP-003 unless role/contact handover is required later | Rollback plan approved by owner. Rollback was not executed. Production-ready not claimed. Other production readiness gaps remain open. |
 | PR-GAP-004 | Monitoring / alerting policy not approved | **CLOSED_APPROVED_BY_OWNER** | **Артем Асаев** | Monitoring policy, alert conditions, checklist, owner assignment, and final approval captured | none for PR-GAP-004 unless role/contact/on-call handover required later | Monitoring policy approved by owner. Real monitoring config was not changed. Production-ready not claimed. Other production readiness gaps remain open. |
 | PR-GAP-005 | Audit retention policy not approved | **CLOSED_APPROVED_BY_OWNER** | **Феликс Асаев** | Audit retention policy, audit evidence handling rules, audit retention checklist, owner assignment, owner approval checklist, and final owner approval captured | none for PR-GAP-005 unless real retention config implementation or operational handover is required later | Audit retention policy approved by owner. Real retention config was not changed. Audit logs were not cleaned. Production-ready not claimed. Other production readiness gaps remain open. |
-| PR-GAP-006 | Tenant isolation production evidence not approved | **TENANT_ISOLATION_EVIDENCE_REVIEWED_PENDING_OWNER_APPROVAL** | Security / Architecture / Platform Owner — **TBD** | Tenant isolation evidence pack reviewed; final Security/Architecture/Platform owner approval still required before PR-GAP-006 can be closed | Low-code Pilot Week-3 Tenant Isolation Owner Approval Pack v0.1 | Tenant isolation evidence reviewed docs/source/read-only. No code changed. No write operations executed. No secrets or production data captured. Production-ready not claimed. |
+| PR-GAP-006 | Tenant isolation production evidence not approved | **TENANT_ISOLATION_OWNER_APPROVAL_GATE_PREPARED_PENDING_OWNER_ASSIGNMENT** | Security / Architecture / Platform Owner — **TBD** | Tenant isolation evidence pack reviewed; owner approval gate prepared; named owner and final Security/Architecture/Platform owner approval still required before PR-GAP-006 can be closed | Low-code Pilot Week-3 Tenant Isolation Owner Final Approval Pack v0.1 | Owner approval gate prepared docs-only. No code changed. No write operations. No secrets or production data captured. Production-ready not claimed. |
 | PR-GAP-007 | Support owner not assigned | PENDING | PM / Operations | Named support owner and escalation path | Support Ownership Pack v0.1 | — |
 | PR-GAP-008 | Release owner not assigned | PENDING | PM / Release Manager | Named release owner and release checklist | Release Ownership Pack v0.1 | — |
 | PR-GAP-009 | Final go/no-go owner not assigned | PENDING | Business Owner / PM | Named approver for final production decision | Final Go-No-Go Ownership Pack v0.1 | — |
@@ -53,7 +53,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | Status | Count |
 |--------|-------|
 | PENDING | **3** |
-| TENANT_ISOLATION_EVIDENCE_REVIEWED_PENDING_OWNER_APPROVAL | **1** (PR-GAP-006) |
+| TENANT_ISOLATION_OWNER_APPROVAL_GATE_PREPARED_PENDING_OWNER_ASSIGNMENT | **1** (PR-GAP-006) |
 | BLOCKED_WAITING_FOR_REMOTE_STAGING | **1** (PR-GAP-001) |
 | PLACEHOLDER_APPROVAL_REHEARSED_PENDING_REAL_OWNER_APPROVAL | **1** (PR-GAP-002) |
 | CLOSED | **3** (PR-GAP-003, PR-GAP-004, PR-GAP-005 — CLOSED_APPROVED_BY_OWNER) |
