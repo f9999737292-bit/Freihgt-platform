@@ -4,7 +4,7 @@
 
 Evidence log for tenant isolation (PR-GAP-006). Entries **reviewed** via docs/source inspection; **owner approval pending**.
 
-**Decision:** **TENANT_ISOLATION_EVIDENCE_REVIEWED_PENDING_OWNER_APPROVAL**
+**Decision:** **TENANT_ISOLATION_OWNER_FINAL_APPROVAL_CAPTURED**
 
 ## Evidence Collection Status
 
@@ -17,7 +17,7 @@ Evidence log for tenant isolation (PR-GAP-006). Entries **reviewed** via docs/so
 | Secrets captured | **no** |
 | Production data captured | **no** |
 | Final review | **completed** |
-| Owner approval | **pending** |
+| Owner approval | **yes** — **Феликс Асаев** |
 
 ## Evidence Entries
 

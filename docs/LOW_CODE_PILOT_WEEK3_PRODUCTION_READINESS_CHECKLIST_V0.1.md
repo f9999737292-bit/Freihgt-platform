@@ -42,7 +42,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 
 | criterion | status | evidence | owner | notes |
 |-----------|--------|----------|-------|-------|
-| Tenant isolation production evidence | **PARTIAL / OWNER_APPROVAL_GATE_PREPARED** | Tenant Isolation Owner Assignment v0.1, Tenant Isolation Owner Approval Checklist v0.1, Tenant Isolation Owner Approval Form v0.1, Tenant Isolation Owner Note v0.1 | Security / Architecture — TBD | PR-GAP-006 open; named owner TBD |
+| Tenant isolation production evidence | **PASS** | Tenant Isolation Owner Final Approval v0.1, Tenant Isolation Evidence Review v0.1 | **Феликс Асаев** | PR-GAP-006 closed; optional staging follow-up |
 | Cross-tenant leak test (prod) | PENDING | — | Security | not executed |
 
 ## Data / Migration Readiness
@@ -92,7 +92,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 | Owner Matrix | **created** | `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_OWNER_MATRIX_V0.1.md` |
 | Acceptance Criteria | **created** | `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_ACCEPTANCE_CRITERIA_V0.1.md` |
 
-**Open gaps:** **7** (PR-GAP-001–002, PR-GAP-006–010) — PR-GAP-003, PR-GAP-004, PR-GAP-005 **CLOSED**
+**Open gaps:** **6** (PR-GAP-001–002, PR-GAP-007–010) — PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006 **CLOSED**
 
 ## Final Status
 

@@ -21,13 +21,13 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | 7 | Rollback plan approved | **PASS** | PR-GAP-003 |
 | 8 | Monitoring/alerting policy approved | **PASS** | PR-GAP-004 |
 | 9 | Audit retention policy approved | **PASS** / **APPROVED_BY_OWNER** | PR-GAP-005 |
-| 10 | Tenant isolation evidence approved | **PARTIAL / OWNER_APPROVAL_GATE_PREPARED** (gate prepared; owner TBD) | PR-GAP-006 |
+| 10 | Tenant isolation evidence approved | **PASS** / **APPROVED_BY_OWNER** | PR-GAP-006 |
 | 11 | Support owner assigned | **PENDING** | PR-GAP-007 |
 | 12 | Release owner assigned | **PENDING** | PR-GAP-008 |
 | 13 | Final go/no-go owner assigned | **PENDING** | PR-GAP-009 |
 | 14 | Low-code SoT policy approved | **PENDING** | PR-GAP-010 |
 
-**Must pass count:** **7 / 14** met for production claim (rollback, monitoring, and audit retention approved by owner).
+**Must pass count:** **8 / 14** met for production claim (rollback, monitoring, audit retention, and tenant isolation approved by owner).
 
 ### Must Not Happen
 
@@ -41,7 +41,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | 6 | No migration execution without approval |
 | 7 | No low-code financial/legal source of truth without approval |
 | 8 | Signed legal documents and payment data excluded unless separately approved |
-| 9 | No broad rollout while gaps PR-GAP-001–002, PR-GAP-006–010 open |
+| 9 | No broad rollout while gaps PR-GAP-001–002, PR-GAP-007–010 open |
 | 10 | No audit evidence containing secrets, JWT, tokens, or raw production dumps |
 | 11 | No production-ready claim without audit retention approval |
 | 12 | No production-ready claim without tenant isolation evidence review |
@@ -56,11 +56,11 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 - Evidence must **not** contain secrets/JWT/tokens
 - No production-ready claim without tenant isolation evidence review
 
-**Status:** **PARTIAL / OWNER_APPROVAL_GATE_PREPARED**
+**Status:** **PASS / APPROVED_BY_OWNER**
 
-**Evidence:** Tenant Isolation Owner Assignment v0.1, Tenant Isolation Owner Approval Checklist v0.1, Tenant Isolation Owner Approval Form v0.1, Tenant Isolation Owner Note v0.1
+**Evidence:** Tenant Isolation Owner Final Approval v0.1
 
-Tenant isolation evidence is **reviewed** and owner approval **gate is prepared**, but PR-GAP-006 requires **named owner assignment and final approval** before closure.
+Tenant isolation evidence is **approved by owner**, but this does **not** equal production-ready. Other production readiness gaps remain open.
 
 ## Evidence Required
 

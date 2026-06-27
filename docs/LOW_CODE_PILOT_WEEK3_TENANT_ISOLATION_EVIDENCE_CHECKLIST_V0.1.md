@@ -18,9 +18,9 @@ Reference: `LOW_CODE_PILOT_WEEK3_TENANT_ISOLATION_EVIDENCE_LOG_V0.1.md`
 | Tenant-bound migration preview checked | **PASS** | Source: `custom_field_value_service_preview_test.go` | Preview validates source/target tenant |
 | Tenant-bound migration execute checked as docs/source only | **PASS** | Source: handler edge-case tests | `TestAdminMigrateToActiveTenantRequired`; no execute run |
 | Tenant-bound batch migration checked as docs/source only | **PASS** | Source: `admin_custom_field_value_handler_batch_*_test.go` | `TestAdminBatchMigrationPreviewTenantRequired`, `TestAdminBatchMigrateToActiveTenantRequired` |
-| Cross-tenant read blocked or not evidenced | **PENDING** | — | Code review suggests isolation; no negative runtime matrix — owner may accept residual risk |
-| Cross-tenant write blocked or not evidenced | **PENDING** | — | `TenantMismatch` in service layer; no negative runtime matrix |
-| Tenant ID not taken from untrusted client-only source | **PENDING** | Source: `tenant.go` | Header preferred; query `tenant_id` fallback — owner acceptance required |
+| Cross-tenant read blocked or not evidenced | **PASS** | Final Approval v0.1 | Residual risk accepted by owner; optional staging follow-up |
+| Cross-tenant write blocked or not evidenced | **PASS** | Final Approval v0.1 | Service-layer TenantMismatch; owner accepted source evidence |
+| Tenant ID not taken from untrusted client-only source | **PASS** | Final Approval v0.1 | Query fallback accepted for controlled pilot; header preferred in production |
 | Audit events include tenant context | **PASS** | Source: `audit_service.go`, audit retention policy | Tenant filter required |
 | Evidence contains no secrets/JWT/tokens | **PASS** | Safety gate | No secrets in evidence docs |
 | Raw production data not captured | **PASS** | Safety gate | Source inspection only |
@@ -29,11 +29,11 @@ Reference: `LOW_CODE_PILOT_WEEK3_TENANT_ISOLATION_EVIDENCE_LOG_V0.1.md`
 
 ## Review Decision
 
-**Review decision:** **TENANT_ISOLATION_EVIDENCE_REVIEWED_PENDING_OWNER_APPROVAL**
+**Review decision:** **TENANT_ISOLATION_OWNER_FINAL_APPROVAL_CAPTURED**
 
-**Owner approval:** **pending**
+**Owner approval:** **yes** — **Феликс Асаев**
 
-**PR-GAP-006:** **not closed**
+**PR-GAP-006:** **CLOSED_APPROVED_BY_OWNER**
 
 ## Status Legend
 
