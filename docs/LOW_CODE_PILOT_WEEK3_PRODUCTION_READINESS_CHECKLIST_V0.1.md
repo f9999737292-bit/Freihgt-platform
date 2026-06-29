@@ -81,7 +81,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 |-----------|--------|----------|-------|-------|
 | controlled pilot approval | PASS | CONTROLLED_PILOT_APPROVED | Феликс Асаев | active |
 | Release owner | **PARTIAL / OWNER_ASSIGNMENT_PENDING** | Release Ownership Policy v0.1, Release Freeze Rules v0.1, Release Checklist v0.1, Release Owner Note v0.1, Release Decision Note v0.1 | Release / Delivery — TBD | PR-GAP-008 open; owner TBD |
-| Final go/no-go approval | PENDING | — | governance | not granted |
+| Final go/no-go approval | **PARTIAL / OWNER_ASSIGNMENT_PENDING** | Final Go/No-Go Policy v0.1, Final Go/No-Go Checklist v0.1, Final Go/No-Go Owner Note v0.1, Final Go/No-Go Decision Note v0.1 | Product / Executive — TBD | PR-GAP-009 open; no GO decision |
 
 ## Gap Closure Artifacts
 

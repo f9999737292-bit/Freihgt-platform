@@ -24,7 +24,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | 10 | Tenant isolation evidence approved | **PASS** / **APPROVED_BY_OWNER** | PR-GAP-006 |
 | 11 | Support owner assigned | **PASS** / **APPROVED_BY_OWNER** | PR-GAP-007 |
 | 12 | Release owner assigned | **PARTIAL / OWNER_ASSIGNMENT_PENDING** (pack created) | PR-GAP-008 |
-| 13 | Final go/no-go owner assigned | **PENDING** | PR-GAP-009 |
+| 13 | Final go/no-go owner assigned | **PARTIAL / OWNER_ASSIGNMENT_PENDING** (pack created) | PR-GAP-009 |
 | 14 | Low-code SoT policy approved | **PENDING** | PR-GAP-010 |
 
 **Must pass count:** **9 / 14** met for production claim (rollback, monitoring, audit retention, tenant isolation, and support ownership approved by owner).
@@ -76,6 +76,22 @@ Support ownership is **approved by owner**, but this does **not** equal producti
 **Evidence:** Release Ownership Policy v0.1, Release Freeze Rules v0.1, Release Checklist v0.1, Release Owner Note v0.1, Release Decision Note v0.1
 
 Release ownership pack is **created**, but PR-GAP-008 requires **named owner assignment and final approval** before closure.
+
+### Final Go/No-Go Requirements (PR-GAP-009)
+
+- Final decision owner must be **assigned** before production GO
+- Controlled pilot approval is **not** production approval
+- All Must Pass criteria must be **PASS** before GO
+- Open gaps PR-GAP-001–002, PR-GAP-008–010 must be **closed or explicitly waived**
+- P0/P1 blockers must be **cleared** before GO
+- Go/no-go evidence must **not** contain secrets/JWT/tokens or raw production data
+- No production-ready claim without final signed approval
+
+**Status:** **PARTIAL / OWNER_ASSIGNMENT_PENDING**
+
+**Evidence:** Final Go/No-Go Policy v0.1, Final Go/No-Go Checklist v0.1, Final Go/No-Go Owner Note v0.1, Final Go/No-Go Decision Note v0.1
+
+Final go/no-go pack is **created**, but PR-GAP-009 requires **named owner assignment and explicit GO/NO-GO decision** before closure.
 
 ### Tenant Isolation Requirements (PR-GAP-006)
 

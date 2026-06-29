@@ -30,6 +30,8 @@ Tracks **5 open production readiness gaps**. PR-GAP-003, PR-GAP-004, PR-GAP-005,
 
 **Release ownership pack:** `RELEASE_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT` (PR-GAP-008 **open**)
 
+**Final go/no-go pack:** `FINAL_GO_NO_GO_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT` (PR-GAP-009 **open**)
+
 **Mode:** **EVENT_BASED_GAP_CLOSURE**
 
 **Production-ready:** **not claimed**  
@@ -49,15 +51,16 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | PR-GAP-006 | Tenant isolation production evidence not approved | **CLOSED_APPROVED_BY_OWNER** | **Феликс Асаев** | Tenant isolation evidence pack reviewed; owner assignment and final approval captured | none for PR-GAP-006 unless handover required | Tenant isolation evidence approved by owner. No code changed. No write operations. Production-ready not claimed. |
 | PR-GAP-007 | Support owner not assigned | **CLOSED_APPROVED_BY_OWNER** | **Артем Асаев** | Support ownership policy, escalation matrix, checklist, owner note, decision note, and support owner final approval captured | none for PR-GAP-007 unless operational support tooling implementation or handover is required later | Support ownership approved by owner. No support config was changed. Production-ready not claimed. Other production readiness gaps remain open. |
 | PR-GAP-008 | Release owner not assigned | **RELEASE_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT** | Release / Delivery / Platform Owner — **TBD** | Release ownership policy, freeze rules, checklist, owner note, and decision note created; final release owner approval still required | Low-code Pilot Week-3 Release Owner Approval Pack v0.1 | Release ownership pack created docs-only. No release config changed. No deploy. Production-ready not claimed. PR-GAP-008 remains open until owner assignment and approval. |
-| PR-GAP-009 | Final go/no-go owner not assigned | PENDING | Business Owner / PM | Named approver for final production decision | Final Go-No-Go Ownership Pack v0.1 | — |
+| PR-GAP-009 | Final go/no-go owner not assigned | **FINAL_GO_NO_GO_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT** | Product / Executive / Final Decision Owner — **TBD** | Final go/no-go policy, checklist, owner note, and decision note created; final decision owner approval and explicit GO/NO-GO still required | Low-code Pilot Week-3 Final Go-No-Go Owner Approval Pack v0.1 | Final go/no-go pack created docs-only. No go/no-go decision made. Production-ready not claimed. PR-GAP-009 remains open until owner assignment and approval. |
 | PR-GAP-010 | Low-code financial/legal source-of-truth policy not approved | PENDING | Product / Legal / Finance | Policy confirms low-code fields are advisory unless separately approved | Low-code Source-of-Truth Policy Pack v0.1 | Maps to PR-RISK-006 |
 
 ## Status Summary
 
 | Status | Count |
 |--------|-------|
-| PENDING | **2** |
+| PENDING | **1** |
 | RELEASE_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT | **1** (PR-GAP-008) |
+| FINAL_GO_NO_GO_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT | **1** (PR-GAP-009) |
 | BLOCKED_WAITING_FOR_REMOTE_STAGING | **1** (PR-GAP-001) |
 | PLACEHOLDER_APPROVAL_REHEARSED_PENDING_REAL_OWNER_APPROVAL | **1** (PR-GAP-002) |
 | CLOSED | **5** (PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006, PR-GAP-007 — CLOSED_APPROVED_BY_OWNER) |

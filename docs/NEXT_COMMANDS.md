@@ -52,7 +52,7 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Current status:** **RELEASE_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT**
+**Current status:** **FINAL_GO_NO_GO_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -64,17 +64,31 @@ docs/ai-team/
 
 **Open gaps:** PR-GAP-001, PR-GAP-002, PR-GAP-008, PR-GAP-009, PR-GAP-010
 
+**PR-GAP-009:** **FINAL_GO_NO_GO_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT**
+
+**Final go/no-go owner:** **TBD**
+
 **PR-GAP-008:** **RELEASE_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT**
 
-**Release owner:** **TBD**
+**Next event:** **Final go/no-go owner assignment provided**
 
-**PR-GAP-007:** **CLOSED_APPROVED_BY_OWNER**
+**Next pack:** **Low-code Pilot Week-3 Final Go-No-Go Owner Approval Pack v0.1**
 
-**Support owner:** **Артем Асаев**
+Week-3 final go/no-go policy v0.1:
 
-**Next event:** **Release owner assignment provided**
+See `docs/LOW_CODE_PILOT_WEEK3_FINAL_GO_NO_GO_POLICY_V0.1.md`.
 
-**Next pack:** **Low-code Pilot Week-3 Release Owner Approval Pack v0.1**
+Week-3 final go/no-go checklist v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_FINAL_GO_NO_GO_CHECKLIST_V0.1.md`.
+
+Week-3 final go/no-go owner note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_FINAL_GO_NO_GO_OWNER_NOTE_V0.1.md`.
+
+Week-3 final go/no-go decision note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_FINAL_GO_NO_GO_DECISION_NOTE_V0.1.md`.
 
 Week-3 release ownership policy v0.1:
 
