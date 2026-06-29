@@ -82,6 +82,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 | BL-W3-047 | tenant isolation evidence pack v0.1 | ALL | Tenant isolation evidence | P2 | Tenant isolation evidence pack created — PR-GAP-006 partially mitigated; final evidence review pending | Tenant Isolation Evidence Review Pack v0.1 | Security / Architecture — TBD | Tenant Isolation Evidence Review Pack v0.1 | COMPLETED | TENANT_ISOLATION_EVIDENCE_PACK_CREATED_PENDING_REVIEW |
 | BL-W3-048 | tenant isolation evidence review pack v0.1 | ALL | Tenant isolation evidence review | P2 | Tenant isolation evidence reviewed — PR-GAP-006 partially mitigated; owner approval pending | Tenant Isolation Owner Approval Pack v0.1 | Security / Architecture — TBD | Tenant Isolation Owner Approval Pack v0.1 | COMPLETED | TENANT_ISOLATION_EVIDENCE_REVIEWED_PENDING_OWNER_APPROVAL |
 | BL-W3-049 | tenant isolation owner approval pack v0.1 | ALL | Tenant isolation owner approval gate | P2 | Tenant isolation owner approval gate prepared — named owner TBD; final approval pending | Tenant Isolation Owner Final Approval Pack v0.1 | Security / Architecture — TBD | Tenant Isolation Owner Final Approval Pack v0.1 | COMPLETED | TENANT_ISOLATION_OWNER_APPROVAL_GATE_PREPARED_PENDING_OWNER_ASSIGNMENT |
+| BL-W3-055 | source of truth policy pack v0.1 | ALL | Low-code financial/legal SoT policy | P3 | Source-of-truth policy pack created; policy owner assignment pending | Source-of-Truth Owner Approval Pack v0.1 | Product / Legal / Finance — TBD | event-based gap packs | COMPLETED | SOURCE_OF_TRUTH_POLICY_PACK_CREATED_PENDING_OWNER_ASSIGNMENT |
 | BL-W3-054 | final go/no-go ownership pack v0.1 | ALL | Final go/no-go policy and checklist | P3 | Final go/no-go pack created; final decision owner assignment pending | Final Go-No-Go Owner Approval Pack v0.1 | Product / Executive — TBD | event-based gap packs | COMPLETED | FINAL_GO_NO_GO_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT |
 | BL-W3-053 | release ownership pack v0.1 | ALL | Release ownership policy and freeze rules | P3 | Release ownership pack created; release owner assignment pending | Release Owner Approval Pack v0.1 | Release / Delivery — TBD | event-based gap packs | COMPLETED | RELEASE_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT |
 | BL-W3-052 | support owner final approval pack v0.1 | ALL | Support owner final approval | P3 | Support owner final approval captured — PR-GAP-007 closed | Continue event-based gap closure | **Артем Асаев** | event-based gap packs | COMPLETED | SUPPORT_OWNER_FINAL_APPROVAL_CAPTURED |
@@ -132,6 +133,7 @@ When P1 appears: add row with owner assigned, target fix pack, decision **GO_WIT
 | BL-W3-047 | Tenant isolation evidence pack v0.1 | **Completed** | COMPLETED |
 | BL-W3-048 | Tenant isolation evidence review pack v0.1 | **Completed** | COMPLETED |
 | BL-W3-049 | Tenant isolation owner approval pack v0.1 | **Completed** | COMPLETED |
+| BL-W3-055 | Source-of-truth policy pack v0.1 | **Completed** | COMPLETED |
 | BL-W3-054 | Final go/no-go ownership pack v0.1 | **Completed** | COMPLETED |
 | BL-W3-053 | Release ownership pack v0.1 | **Completed** | COMPLETED |
 | BL-W3-052 | Support owner final approval pack v0.1 | **Completed** | COMPLETED |
@@ -150,7 +152,8 @@ When P1 appears: add row with owner assigned, target fix pack, decision **GO_WIT
 - **Release freeze rules created**
 - **Final go/no-go pack created** — PR-GAP-009 partially mitigated
 - **Final decision owner assignment pending**
-- **Go/no-go decision not made**
+- **Source-of-truth policy pack created** — PR-GAP-010 partially mitigated
+- **SoT policy owner assignment pending**
 - **No release config changed**
 - **No deploy executed**
 - **Production-ready still not claimed**
@@ -237,7 +240,8 @@ Explicit list (BL-W3-000–009):
 | **Low-code Pilot Week-3 Release Owner Approval Pack v0.1** | Release owner assigned | PR-GAP-008 closure |
 | **Low-code Pilot Week-3 Final Go-No-Go Ownership Pack v0.1** | Completed | **FINAL_GO_NO_GO_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT** — PR-GAP-009 open |
 | **Low-code Pilot Week-3 Final Go-No-Go Owner Approval Pack v0.1** | Final go/no-go owner assigned | PR-GAP-009 closure |
-| **Low-code Pilot Week-3 Low-code Source-of-Truth Policy Pack v0.1** | Legal/finance owner ready | PR-GAP-010 |
+| **Low-code Pilot Week-3 Low-code Source-of-Truth Policy Pack v0.1** | Completed | **SOURCE_OF_TRUTH_POLICY_PACK_CREATED_PENDING_OWNER_ASSIGNMENT** — PR-GAP-010 open |
+| **Low-code Pilot Week-3 Source-of-Truth Owner Approval Pack v0.1** | Product/Legal/Finance owner assigned | PR-GAP-010 closure |
 | **Low-code Pilot Week-3 Monitoring Evidence Refresh Pack v0.1** | Stakeholder requests fresh evidence | Trigger event |
 | **Low-code Pilot Week-3 Feedback-Based UI/Docs Polish Selection Pack v0.1** | Not required from intake | No operator change requests |
 | **Low-code Pilot Week-3 Pilot UI Help Text Polish Pack v0.1** | P3 UX themes after operator session | Docs/UI copy only; no API change |

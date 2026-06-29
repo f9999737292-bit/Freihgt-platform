@@ -52,6 +52,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 | Production data approval | **PARTIAL / PLACEHOLDER_REHEARSED_PENDING_REAL_APPROVAL** | Production Data Owner Placeholder Approval v0.1, Production Data Policy v0.1, Data Policy Checklist v0.1, Data Owner Approval Form v0.1 | Real owners TBD | PR-GAP-002 open; production data use not approved |
 | Migration execute policy | PENDING | — | DevOps | no prod migrations approved |
 | Template publish policy | PENDING | — | pilot lead | publish blocked without pack |
+| Low-code SoT policy | **PARTIAL / OWNER_ASSIGNMENT_PENDING** | Source-of-Truth Policy v0.1, Source-of-Truth Checklist v0.1, Source-of-Truth Owner Note v0.1, Source-of-Truth Decision Note v0.1 | Product / Legal / Finance — TBD | PR-GAP-010 open; advisory-by-default defined |
 
 ## Audit / Observability Readiness
 

@@ -25,7 +25,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | 11 | Support owner assigned | **PASS** / **APPROVED_BY_OWNER** | PR-GAP-007 |
 | 12 | Release owner assigned | **PARTIAL / OWNER_ASSIGNMENT_PENDING** (pack created) | PR-GAP-008 |
 | 13 | Final go/no-go owner assigned | **PARTIAL / OWNER_ASSIGNMENT_PENDING** (pack created) | PR-GAP-009 |
-| 14 | Low-code SoT policy approved | **PENDING** | PR-GAP-010 |
+| 14 | Low-code SoT policy approved | **PARTIAL / OWNER_ASSIGNMENT_PENDING** (pack created) | PR-GAP-010 |
 
 **Must pass count:** **9 / 14** met for production claim (rollback, monitoring, audit retention, tenant isolation, and support ownership approved by owner).
 
@@ -92,6 +92,20 @@ Release ownership pack is **created**, but PR-GAP-008 requires **named owner ass
 **Evidence:** Final Go/No-Go Policy v0.1, Final Go/No-Go Checklist v0.1, Final Go/No-Go Owner Note v0.1, Final Go/No-Go Decision Note v0.1
 
 Final go/no-go pack is **created**, but PR-GAP-009 requires **named owner assignment and explicit GO/NO-GO decision** before closure.
+
+### Low-code Source-of-Truth Requirements (PR-GAP-010)
+
+- Low-code custom fields must be **advisory** unless separately approved
+- Core billing/payment systems remain **authoritative**
+- Signed legal documents and payment data **excluded** from low-code SoT
+- No financial/legal SoT use without explicit approval
+- Policy evidence must **not** contain secrets/JWT/tokens or raw production data
+
+**Status:** **PARTIAL / OWNER_ASSIGNMENT_PENDING**
+
+**Evidence:** Low-code Source-of-Truth Policy v0.1, Source-of-Truth Checklist v0.1, Source-of-Truth Owner Note v0.1, Source-of-Truth Decision Note v0.1
+
+Source-of-truth policy pack is **created**, but PR-GAP-010 requires **named owner assignment and final approval** before closure.
 
 ### Tenant Isolation Requirements (PR-GAP-006)
 

@@ -52,7 +52,7 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Current status:** **FINAL_GO_NO_GO_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT**
+**Current status:** **SOURCE_OF_TRUTH_POLICY_PACK_CREATED_PENDING_OWNER_ASSIGNMENT**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -64,15 +64,31 @@ docs/ai-team/
 
 **Open gaps:** PR-GAP-001, PR-GAP-002, PR-GAP-008, PR-GAP-009, PR-GAP-010
 
+**PR-GAP-010:** **SOURCE_OF_TRUTH_POLICY_PACK_CREATED_PENDING_OWNER_ASSIGNMENT**
+
+**SoT policy owner:** **TBD**
+
 **PR-GAP-009:** **FINAL_GO_NO_GO_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT**
 
-**Final go/no-go owner:** **TBD**
+**Next event:** **Product/Legal/Finance SoT owner assignment provided**
 
-**PR-GAP-008:** **RELEASE_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT**
+**Next pack:** **Low-code Pilot Week-3 Source-of-Truth Owner Approval Pack v0.1**
 
-**Next event:** **Final go/no-go owner assignment provided**
+Week-3 low-code source-of-truth policy v0.1:
 
-**Next pack:** **Low-code Pilot Week-3 Final Go-No-Go Owner Approval Pack v0.1**
+See `docs/LOW_CODE_PILOT_WEEK3_LOW_CODE_SOURCE_OF_TRUTH_POLICY_V0.1.md`.
+
+Week-3 low-code source-of-truth checklist v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_LOW_CODE_SOURCE_OF_TRUTH_CHECKLIST_V0.1.md`.
+
+Week-3 low-code source-of-truth owner note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_LOW_CODE_SOURCE_OF_TRUTH_OWNER_NOTE_V0.1.md`.
+
+Week-3 low-code source-of-truth decision note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_LOW_CODE_SOURCE_OF_TRUTH_DECISION_NOTE_V0.1.md`.
 
 Week-3 final go/no-go policy v0.1:
 
