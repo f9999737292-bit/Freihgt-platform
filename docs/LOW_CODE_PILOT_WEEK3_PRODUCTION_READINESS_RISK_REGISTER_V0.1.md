@@ -36,6 +36,8 @@ Risk register for production readiness review after controlled pilot approval.
 
 **Source-of-truth policy pack:** `SOURCE_OF_TRUTH_POLICY_PACK_CREATED_PENDING_OWNER_ASSIGNMENT` (PR-GAP-010 **open**; owner TBD).
 
+**Remaining gaps consolidation:** `REMAINING_GAPS_STATUS_CONSOLIDATED` — see `LOW_CODE_PILOT_WEEK3_REMAINING_GAPS_STATUS_CONSOLIDATION_V0.1.md`.
+
 **Production go/no-go blocked** until gaps PR-GAP-001–002, PR-GAP-008–010 closed per acceptance criteria.
 
 **Controlled pilot may continue** while production risks remain **OPEN**.

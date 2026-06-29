@@ -52,7 +52,7 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Current status:** **SOURCE_OF_TRUTH_POLICY_PACK_CREATED_PENDING_OWNER_ASSIGNMENT**
+**Current status:** **REMAINING_GAPS_STATUS_CONSOLIDATED**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -64,15 +64,13 @@ docs/ai-team/
 
 **Open gaps:** PR-GAP-001, PR-GAP-002, PR-GAP-008, PR-GAP-009, PR-GAP-010
 
-**PR-GAP-010:** **SOURCE_OF_TRUTH_POLICY_PACK_CREATED_PENDING_OWNER_ASSIGNMENT**
+**Must pass:** **9 / 14**
 
-**SoT policy owner:** **TBD**
+**Next recommended event:** **Remote staging details provided** → Remote Auth-On Staging Repeat Pack v0.1
 
-**PR-GAP-009:** **FINAL_GO_NO_GO_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT**
+Week-3 remaining gaps status consolidation v0.1:
 
-**Next event:** **Product/Legal/Finance SoT owner assignment provided**
-
-**Next pack:** **Low-code Pilot Week-3 Source-of-Truth Owner Approval Pack v0.1**
+See `docs/LOW_CODE_PILOT_WEEK3_REMAINING_GAPS_STATUS_CONSOLIDATION_V0.1.md`.
 
 Week-3 low-code source-of-truth policy v0.1:
 
