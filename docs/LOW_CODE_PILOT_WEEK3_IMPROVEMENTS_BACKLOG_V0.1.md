@@ -82,6 +82,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 | BL-W3-047 | tenant isolation evidence pack v0.1 | ALL | Tenant isolation evidence | P2 | Tenant isolation evidence pack created — PR-GAP-006 partially mitigated; final evidence review pending | Tenant Isolation Evidence Review Pack v0.1 | Security / Architecture — TBD | Tenant Isolation Evidence Review Pack v0.1 | COMPLETED | TENANT_ISOLATION_EVIDENCE_PACK_CREATED_PENDING_REVIEW |
 | BL-W3-048 | tenant isolation evidence review pack v0.1 | ALL | Tenant isolation evidence review | P2 | Tenant isolation evidence reviewed — PR-GAP-006 partially mitigated; owner approval pending | Tenant Isolation Owner Approval Pack v0.1 | Security / Architecture — TBD | Tenant Isolation Owner Approval Pack v0.1 | COMPLETED | TENANT_ISOLATION_EVIDENCE_REVIEWED_PENDING_OWNER_APPROVAL |
 | BL-W3-049 | tenant isolation owner approval pack v0.1 | ALL | Tenant isolation owner approval gate | P2 | Tenant isolation owner approval gate prepared — named owner TBD; final approval pending | Tenant Isolation Owner Final Approval Pack v0.1 | Security / Architecture — TBD | Tenant Isolation Owner Final Approval Pack v0.1 | COMPLETED | TENANT_ISOLATION_OWNER_APPROVAL_GATE_PREPARED_PENDING_OWNER_ASSIGNMENT |
+| BL-W3-051 | support ownership pack v0.1 | ALL | Support ownership policy and escalation matrix | P3 | Support ownership pack created; support owner assignment pending | Support Owner Approval Pack v0.1 | Support / Operations — TBD | event-based gap packs | COMPLETED | SUPPORT_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT |
 | BL-W3-050 | tenant isolation owner final approval pack v0.1 | ALL | Tenant isolation owner final approval | P2 | Tenant isolation owner final approval captured — PR-GAP-006 closed | Continue event-based gap closure | **Феликс Асаев** | event-based gap packs | COMPLETED | TENANT_ISOLATION_OWNER_FINAL_APPROVAL_CAPTURED |
 
 ## P0 Items
@@ -128,6 +129,7 @@ When P1 appears: add row with owner assigned, target fix pack, decision **GO_WIT
 | BL-W3-047 | Tenant isolation evidence pack v0.1 | **Completed** | COMPLETED |
 | BL-W3-048 | Tenant isolation evidence review pack v0.1 | **Completed** | COMPLETED |
 | BL-W3-049 | Tenant isolation owner approval pack v0.1 | **Completed** | COMPLETED |
+| BL-W3-051 | Support ownership pack v0.1 | **Completed** | COMPLETED |
 | BL-W3-050 | Tenant isolation owner final approval pack v0.1 | **Completed** | COMPLETED |
 
 **Rules (reinforced):**
@@ -137,7 +139,12 @@ When P1 appears: add row with owner assigned, target fix pack, decision **GO_WIT
 - **Real retention config was not changed**
 - **Audit logs were not cleaned**
 - **PR-GAP-006 closed** — tenant isolation approved by **Феликс Асаев**
-- **Next action:** continue event-based gap closure (PR-GAP-001–002, PR-GAP-007–010)
+- **Support ownership pack created** — PR-GAP-007 partially mitigated
+- **Support escalation matrix created**
+- **Support owner assignment pending**
+- **Support owner final approval pending**
+- **No support config changed**
+- **Next action:** Support Owner Approval Pack v0.1
 - **Production-ready still not claimed**
 - **Remaining gaps still tracked in gap tracker**
 - **Continue event-based gap closure**
@@ -216,7 +223,8 @@ Explicit list (BL-W3-000–009):
 | **Low-code Pilot Week-3 Tenant Isolation Evidence Review Pack v0.1** | Completed | **TENANT_ISOLATION_EVIDENCE_REVIEWED_PENDING_OWNER_APPROVAL** — PR-GAP-006 open |
 | **Low-code Pilot Week-3 Tenant Isolation Owner Approval Pack v0.1** | Completed | **TENANT_ISOLATION_OWNER_APPROVAL_GATE_PREPARED_PENDING_OWNER_ASSIGNMENT** — PR-GAP-006 open |
 | **Low-code Pilot Week-3 Tenant Isolation Owner Final Approval Pack v0.1** | Completed | **TENANT_ISOLATION_OWNER_FINAL_APPROVAL_CAPTURED** — PR-GAP-006 closed |
-| **Low-code Pilot Week-3 Support Ownership Pack v0.1** | Support owner assigned | PR-GAP-007 |
+| **Low-code Pilot Week-3 Support Ownership Pack v0.1** | Completed | **SUPPORT_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT** — PR-GAP-007 open |
+| **Low-code Pilot Week-3 Support Owner Approval Pack v0.1** | Support owner assigned | PR-GAP-007 closure |
 | **Low-code Pilot Week-3 Release Ownership Pack v0.1** | Release owner assigned | PR-GAP-008 |
 | **Low-code Pilot Week-3 Final Go-No-Go Ownership Pack v0.1** | Final go/no-go owner assigned | PR-GAP-009 |
 | **Low-code Pilot Week-3 Low-code Source-of-Truth Policy Pack v0.1** | Legal/finance owner ready | PR-GAP-010 |

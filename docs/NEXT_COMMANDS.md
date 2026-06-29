@@ -52,7 +52,7 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Current status:** **TENANT_ISOLATION_OWNER_FINAL_APPROVAL_CAPTURED**
+**Current status:** **SUPPORT_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -63,6 +63,10 @@ docs/ai-team/
 **Closed gaps:** PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006
 
 **Open gaps:** PR-GAP-001, PR-GAP-002, PR-GAP-007, PR-GAP-008, PR-GAP-009, PR-GAP-010
+
+**PR-GAP-007:** **SUPPORT_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT**
+
+**Support owner:** **TBD**
 
 **PR-GAP-006:** **CLOSED_APPROVED_BY_OWNER**
 
@@ -80,21 +84,39 @@ docs/ai-team/
 
 **Next mode:** **EVENT_BASED_GAP_CLOSURE**
 
-**Next event:** **EVENT_BASED_GAP_CLOSURE**
+**Next event:** **Support owner assignment provided**
 
-**Next pack:** **continue event-based gap closure** (e.g. Support Ownership Pack v0.1)
+**Next pack:** **Low-code Pilot Week-3 Support Owner Approval Pack v0.1**
 
-**Recommended next events:**
+**Other event-based packs:**
 
 | Event | Pack |
 |-------|------|
-| Support owner assigned | Low-code Pilot Week-3 Support Ownership Pack v0.1 |
 | Remote staging details provided | Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1 |
 | Real production data owner final approval provided | Low-code Pilot Week-3 Production Data Owner Final Approval Pack v0.1 |
-| Support owner assigned | Low-code Pilot Week-3 Support Ownership Pack v0.1 |
 | Release owner assigned | Low-code Pilot Week-3 Release Ownership Pack v0.1 |
 | Final go/no-go owner assigned | Low-code Pilot Week-3 Final Go-No-Go Ownership Pack v0.1 |
 | P0/P1 suspected | Low-code Runtime Pilot Fix Pack v0.1 |
+
+Week-3 support ownership policy v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_SUPPORT_OWNERSHIP_POLICY_V0.1.md`.
+
+Week-3 support escalation matrix v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_SUPPORT_ESCALATION_MATRIX_V0.1.md`.
+
+Week-3 support ownership checklist v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_SUPPORT_OWNERSHIP_CHECKLIST_V0.1.md`.
+
+Week-3 support owner note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_SUPPORT_OWNER_NOTE_V0.1.md`.
+
+Week-3 support ownership decision note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_SUPPORT_OWNERSHIP_DECISION_NOTE_V0.1.md`.
 
 Week-3 audit compliance owner final approval v0.1:
 
@@ -1143,7 +1165,7 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-**Current status:** **TENANT_ISOLATION_OWNER_FINAL_APPROVAL_CAPTURED**
+**Current status:** **SUPPORT_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -1155,25 +1177,47 @@ Next implementation:
 
 **Open gaps:** PR-GAP-001, PR-GAP-002, PR-GAP-007, PR-GAP-008, PR-GAP-009, PR-GAP-010
 
+**PR-GAP-007:** **SUPPORT_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT**
+
+**Support owner:** **TBD**
+
 **PR-GAP-006:** **CLOSED_APPROVED_BY_OWNER**
 
 **Tenant isolation owner:** **Феликс Асаев**
 
-**Next event:** **EVENT_BASED_GAP_CLOSURE**
+**Next event:** **Support owner assignment provided**
 
-**Next pack:** **continue event-based gap closure** (e.g. Support Ownership Pack v0.1)
+**Next pack:** **Low-code Pilot Week-3 Support Owner Approval Pack v0.1**
 
 **Other event-based packs:**
 
 | Event | Pack |
 |-------|------|
-| Support owner assigned | Low-code Pilot Week-3 Support Ownership Pack v0.1 |
 | Remote staging details provided | Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1 |
 | Real production data owner final approval provided | Low-code Pilot Week-3 Production Data Owner Final Approval Pack v0.1 |
-| Support owner assigned | Low-code Pilot Week-3 Support Ownership Pack v0.1 |
 | Release owner assigned | Low-code Pilot Week-3 Release Ownership Pack v0.1 |
 | Final go/no-go owner assigned | Low-code Pilot Week-3 Final Go-No-Go Ownership Pack v0.1 |
 | P0/P1 suspected | Low-code Runtime Pilot Fix Pack v0.1 |
+
+Week-3 support ownership policy v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_SUPPORT_OWNERSHIP_POLICY_V0.1.md`.
+
+Week-3 support escalation matrix v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_SUPPORT_ESCALATION_MATRIX_V0.1.md`.
+
+Week-3 support ownership checklist v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_SUPPORT_OWNERSHIP_CHECKLIST_V0.1.md`.
+
+Week-3 support owner note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_SUPPORT_OWNER_NOTE_V0.1.md`.
+
+Week-3 support ownership decision note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_SUPPORT_OWNERSHIP_DECISION_NOTE_V0.1.md`.
 
 Week-3 tenant isolation evidence request v0.1:
 

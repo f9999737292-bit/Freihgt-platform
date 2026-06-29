@@ -22,7 +22,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | 8 | Monitoring/alerting policy approved | **PASS** | PR-GAP-004 |
 | 9 | Audit retention policy approved | **PASS** / **APPROVED_BY_OWNER** | PR-GAP-005 |
 | 10 | Tenant isolation evidence approved | **PASS** / **APPROVED_BY_OWNER** | PR-GAP-006 |
-| 11 | Support owner assigned | **PENDING** | PR-GAP-007 |
+| 11 | Support owner assigned | **PARTIAL / OWNER_ASSIGNMENT_PENDING** (pack created) | PR-GAP-007 |
 | 12 | Release owner assigned | **PENDING** | PR-GAP-008 |
 | 13 | Final go/no-go owner assigned | **PENDING** | PR-GAP-009 |
 | 14 | Low-code SoT policy approved | **PENDING** | PR-GAP-010 |
@@ -45,6 +45,22 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | 10 | No audit evidence containing secrets, JWT, tokens, or raw production dumps |
 | 11 | No production-ready claim without audit retention approval |
 | 12 | No production-ready claim without tenant isolation evidence review |
+| 13 | No production-ready claim without support ownership approval |
+
+### Support Ownership Requirements (PR-GAP-007)
+
+- Support owner must be **assigned** before production
+- P0/P1 escalation rules must be **approved**
+- Support evidence must **not** contain secrets/JWT/tokens
+- Support evidence must **not** contain raw production data
+- Controlled pilot stop/freeze rule must exist for P0 incidents
+- No production-ready claim without support ownership approval
+
+**Status:** **PARTIAL / OWNER_ASSIGNMENT_PENDING**
+
+**Evidence:** Support Ownership Policy v0.1, Support Escalation Matrix v0.1, Support Ownership Checklist v0.1, Support Owner Note v0.1, Support Ownership Decision Note v0.1
+
+Support ownership pack is **created**, but PR-GAP-007 requires **named owner assignment and final approval** before closure.
 
 ### Tenant Isolation Requirements (PR-GAP-006)
 

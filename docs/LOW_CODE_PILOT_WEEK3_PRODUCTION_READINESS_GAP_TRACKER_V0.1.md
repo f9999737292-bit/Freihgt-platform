@@ -26,6 +26,8 @@ Tracks **6 open production readiness gaps**. PR-GAP-003, PR-GAP-004, PR-GAP-005,
 
 **Tenant isolation owner:** **Феликс Асаев** — `TENANT_ISOLATION_OWNER_FINAL_APPROVAL_CAPTURED` (PR-GAP-006 **CLOSED**)
 
+**Support ownership pack:** `SUPPORT_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT` (PR-GAP-007 **open**)
+
 **Mode:** **EVENT_BASED_GAP_CLOSURE**
 
 **Production-ready:** **not claimed**  
@@ -43,7 +45,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | PR-GAP-004 | Monitoring / alerting policy not approved | **CLOSED_APPROVED_BY_OWNER** | **Артем Асаев** | Monitoring policy, alert conditions, checklist, owner assignment, and final approval captured | none unless handover required | Monitoring approved. Real config not changed. |
 | PR-GAP-005 | Audit retention policy not approved | **CLOSED_APPROVED_BY_OWNER** | **Феликс Асаев** | Audit retention policy, evidence rules, checklist, owner assignment, and final approval captured | none unless handover required | Audit retention approved. Real config not changed. |
 | PR-GAP-006 | Tenant isolation production evidence not approved | **CLOSED_APPROVED_BY_OWNER** | **Феликс Асаев** | Tenant isolation evidence pack reviewed; owner assignment and final approval captured | none for PR-GAP-006 unless handover required | Tenant isolation evidence approved by owner. No code changed. No write operations. Production-ready not claimed. |
-| PR-GAP-007 | Support owner not assigned | PENDING | PM / Operations | Named support owner and escalation path | Support Ownership Pack v0.1 | — |
+| PR-GAP-007 | Support owner not assigned | **SUPPORT_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT** | Support / Operations / Platform Support Owner — **TBD** | Support ownership policy, escalation matrix, checklist, owner note, and decision note created; final support owner approval still required | Low-code Pilot Week-3 Support Owner Approval Pack v0.1 | Support ownership pack created docs-only. No support tooling/config changed. No production-ready claim. PR-GAP-007 remains open until owner assignment and approval. |
 | PR-GAP-008 | Release owner not assigned | PENDING | PM / Release Manager | Named release owner and release checklist | Release Ownership Pack v0.1 | — |
 | PR-GAP-009 | Final go/no-go owner not assigned | PENDING | Business Owner / PM | Named approver for final production decision | Final Go-No-Go Ownership Pack v0.1 | — |
 | PR-GAP-010 | Low-code financial/legal source-of-truth policy not approved | PENDING | Product / Legal / Finance | Policy confirms low-code fields are advisory unless separately approved | Low-code Source-of-Truth Policy Pack v0.1 | Maps to PR-RISK-006 |
@@ -52,7 +54,8 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 
 | Status | Count |
 |--------|-------|
-| PENDING | **3** |
+| PENDING | **2** |
+| SUPPORT_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT | **1** (PR-GAP-007) |
 | BLOCKED_WAITING_FOR_REMOTE_STAGING | **1** (PR-GAP-001) |
 | PLACEHOLDER_APPROVAL_REHEARSED_PENDING_REAL_OWNER_APPROVAL | **1** (PR-GAP-002) |
 | CLOSED | **4** (PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006 — CLOSED_APPROVED_BY_OWNER) |

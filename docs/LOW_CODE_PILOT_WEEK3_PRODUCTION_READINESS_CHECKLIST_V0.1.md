@@ -72,7 +72,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 
 | criterion | status | evidence | owner | notes |
 |-----------|--------|----------|-------|-------|
-| Support owner | PENDING | — | PM | not assigned for production |
+| Support owner | **PARTIAL / OWNER_ASSIGNMENT_PENDING** | Support Ownership Policy v0.1, Support Escalation Matrix v0.1, Support Ownership Checklist v0.1, Support Owner Note v0.1, Support Ownership Decision Note v0.1 | Support / Operations — TBD | PR-GAP-007 open; owner TBD |
 | Runbooks for production ops | PENDING | — | pilot lead | controlled pilot runbooks only |
 
 ## Governance Approval
