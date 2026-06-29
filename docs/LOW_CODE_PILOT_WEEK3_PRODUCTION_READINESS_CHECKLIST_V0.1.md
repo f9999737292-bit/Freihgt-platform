@@ -49,7 +49,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 
 | criterion | status | evidence | owner | notes |
 |-----------|--------|----------|-------|-------|
-| Production data approval | **PENDING / OPEN_PENDING_REAL_OWNER_FINAL_APPROVAL** | Production Data Owner Final Approval Request v0.1, Production Data Owner Final Approval Gate v0.1 | Real owners TBD | PR-GAP-002 open |
+| Production data approval | **PASS / APPROVED_BY_OWNER** | Production Data Owner Final Approval v0.1, Production Data Policy v0.1 | **Феликс Асаев** | PR-GAP-002 closed; production data use not approved |
 | Migration execute policy | PENDING | — | DevOps | no prod migrations approved |
 | Template publish policy | PENDING | — | pilot lead | publish blocked without pack |
 | Low-code SoT policy | **PENDING / OPEN_PENDING_SOT_OWNER_FINAL_APPROVAL** | SoT Owner Final Approval Request v0.1, SoT Owner Approval Gate v0.1, Source-of-Truth Policy v0.1 | SoT / Product / Legal / Finance — TBD | PR-GAP-010 open |
@@ -95,7 +95,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 | Owner Matrix | **created** | `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_OWNER_MATRIX_V0.1.md` |
 | Acceptance Criteria | **created** | `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_ACCEPTANCE_CRITERIA_V0.1.md` |
 
-**Open gaps:** **5** (PR-GAP-001–002, PR-GAP-008–010) — PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006, PR-GAP-007 **CLOSED**
+**Open gaps:** **4** (PR-GAP-001, PR-GAP-008–010) — PR-GAP-002, PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006, PR-GAP-007 **CLOSED**
 
 ## Final Status
 
@@ -103,8 +103,10 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 |------|--------|
 | Controlled pilot | **PASS — continue** |
 | Production readiness | **NOT APPROVED** |
+| PR-GAP-002 | **PASS / APPROVED_BY_OWNER** |
+| Final production readiness | **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY** |
 | Decision | `NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY` |
-| Reason | Open gaps: PR-GAP-001 blocked (staging), PR-GAP-002/008/009/010 pending owner final approval |
+| Reason | PR-GAP-001 remains blocked until staging server details are provided; PR-GAP-008/009/010 pending owner final approval |
 | Gap closure plan | **created** — `GAP_CLOSURE_PLAN_CREATED` |
 
 Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`, `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`

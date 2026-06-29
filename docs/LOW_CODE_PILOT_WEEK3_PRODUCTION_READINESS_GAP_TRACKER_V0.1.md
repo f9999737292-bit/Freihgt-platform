@@ -2,7 +2,7 @@
 
 ## Summary
 
-Tracks **5 open production readiness gaps**. PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006, and PR-GAP-007 **closed** — rollback, monitoring, audit retention, tenant isolation, and support ownership approved by owner.
+Tracks **4 open production readiness gaps**. PR-GAP-002, PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006, and PR-GAP-007 **closed** — production data, rollback, monitoring, audit retention, tenant isolation, and support ownership approved by owner.
 
 **Auth-on repeat (local):** `AUTH_ON_REPEAT_LOCAL_VERIFIED` (2026-06-23)
 
@@ -22,7 +22,7 @@ Tracks **5 open production readiness gaps**. PR-GAP-003, PR-GAP-004, PR-GAP-005,
 
 **Rollback owner:** **Артем Асаев** — `ROLLBACK_OWNER_FINAL_APPROVAL_CAPTURED` (PR-GAP-003 **CLOSED**)
 
-**Production data policy:** `OPEN_PENDING_REAL_OWNER_FINAL_APPROVAL` (PR-GAP-002 **open**)
+**Production data policy:** **Феликс Асаев** — `PRODUCTION_DATA_OWNER_FINAL_APPROVAL_CAPTURED` (PR-GAP-002 **CLOSED**)
 
 **No-server gap closure:** `NO_SERVER_GAP_CLOSURE_STARTED_DOCS_ONLY` (2026-06-23)
 
@@ -61,7 +61,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | Gap ID | Gap | Status | Owner | Acceptance Criteria | Next Pack | Notes |
 |--------|-----|--------|-------|---------------------|-----------|-------|
 | PR-GAP-001 | Remote Auth-On Repeat not completed | **BLOCKED_WAITING_FOR_STAGING_SERVER_DETAILS** | Ops / Platform / Staging Owner — **TBD** | Staging server details must be provided; remote auth-on repeat blocked | Remote Auth-On Staging Repeat Pack v0.1 (re-run) | No staging server details provided. Remote Auth-On Staging Repeat cannot be executed. No deploy, no SSH, no staging writes, no secrets captured. |
-| PR-GAP-002 | Production data policy not approved | **OPEN_PENDING_REAL_OWNER_FINAL_APPROVAL** | Real owners — **TBD** | Real Product/Data Owner final approval required | Production Data Owner Final Approval Pack v0.1 | Final approval request created. Placeholder rehearsal only. Ordered closure checked — no real approval found. |
+| PR-GAP-002 | Production data policy not approved | **CLOSED_APPROVED_BY_OWNER** | **Феликс Асаев** | Production data policy, checklist, and owner final approval captured | none unless handover required | Production data owner final approval captured docs-only. No production writes. No secrets. Production-ready not claimed. |
 | PR-GAP-003 | Rollback plan not approved | **CLOSED_APPROVED_BY_OWNER** | **Артем Асаев** | Rollback plan, procedure, checklist, owner assignment, and final approval captured | none unless handover required | Rollback approved. Not executed. |
 | PR-GAP-004 | Monitoring / alerting policy not approved | **CLOSED_APPROVED_BY_OWNER** | **Артем Асаев** | Monitoring policy, alert conditions, checklist, owner assignment, and final approval captured | none unless handover required | Monitoring approved. Real config not changed. |
 | PR-GAP-005 | Audit retention policy not approved | **CLOSED_APPROVED_BY_OWNER** | **Феликс Асаев** | Audit retention policy, evidence rules, checklist, owner assignment, and final approval captured | none unless handover required | Audit retention approved. Real config not changed. |
@@ -80,8 +80,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | OPEN_PENDING_FINAL_GO_NO_GO_OWNER_APPROVAL | **1** (PR-GAP-009) |
 | OPEN_PENDING_RELEASE_OWNER_FINAL_APPROVAL | **1** (PR-GAP-008) |
 | BLOCKED_WAITING_FOR_STAGING_SERVER_DETAILS | **1** (PR-GAP-001) |
-| OPEN_PENDING_REAL_OWNER_FINAL_APPROVAL | **1** (PR-GAP-002) |
-| CLOSED | **5** (PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006, PR-GAP-007 — CLOSED_APPROVED_BY_OWNER) |
+| CLOSED | **6** (PR-GAP-002, PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006, PR-GAP-007 — CLOSED_APPROVED_BY_OWNER) |
 | IN_PROGRESS | **0** |
 
 ## Closure Rules
@@ -92,4 +91,4 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 4. Controlled pilot **may continue** while gaps are open.
 5. PR-GAP-001 unblocks when staging inputs provided and Remote Auth-On Staging Repeat Pack completes.
 6. No-server docs-only owner gates prepared 2026-06-23 — gaps **not closed** without user owner approval.
-7. Ordered remaining gap closure 2026-06-23 — approval **requests** created; gaps remain open until user provides owner approval.
+7. Ordered remaining gap closure 2026-06-23 — approval **requests** created; PR-GAP-002 **closed** 2026-06-23 with owner **Феликс Асаев**; PR-GAP-008/009/010 remain open until user provides owner approval.

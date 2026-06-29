@@ -52,7 +52,7 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Current status:** **ORDERED_REMAINING_GAP_CLOSURE_EXECUTED_DOCS_ONLY**
+**Current status:** **PRODUCTION_DATA_OWNER_FINAL_APPROVAL_CAPTURED**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -60,13 +60,13 @@ docs/ai-team/
 
 **Production-ready claimed:** **no**
 
-**Closed gaps:** PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006, PR-GAP-007
+**Closed gaps:** PR-GAP-002, PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006, PR-GAP-007
 
-**Open gaps:** PR-GAP-001, PR-GAP-002, PR-GAP-008, PR-GAP-009, PR-GAP-010
+**Open gaps:** PR-GAP-001, PR-GAP-008, PR-GAP-009, PR-GAP-010
 
 **PR-GAP-001:** **BLOCKED_WAITING_FOR_STAGING_SERVER_DETAILS**
 
-**PR-GAP-002:** **OPEN_PENDING_REAL_OWNER_FINAL_APPROVAL**
+**PR-GAP-002:** **CLOSED_APPROVED_BY_OWNER**
 
 **PR-GAP-008:** **OPEN_PENDING_RELEASE_OWNER_FINAL_APPROVAL**
 
@@ -74,13 +74,20 @@ docs/ai-team/
 
 **PR-GAP-010:** **OPEN_PENDING_SOT_OWNER_FINAL_APPROVAL**
 
+**Next event:** Release owner approval provided
+
+**Next pack:** Low-code Pilot Week-3 Release Owner Final Approval Pack v0.1
+
 **Next recommended events:**
 
-- Real production data owner approval provided → Production Data Owner Final Approval Pack v0.1
 - Release owner approval provided → Release Owner Final Approval Pack v0.1
 - SoT owner approval provided → SoT Owner Final Approval Pack v0.1
 - Final go/no-go owner approval provided → Final Go-No-Go Owner Final Approval Pack v0.1
 - Staging server details provided → Remote Auth-On Staging Repeat Pack v0.1 (re-run)
+
+Week-3 production data owner final approval v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_DATA_OWNER_FINAL_APPROVAL_V0.1.md`.
 
 Week-3 production data owner final approval request v0.1:
 

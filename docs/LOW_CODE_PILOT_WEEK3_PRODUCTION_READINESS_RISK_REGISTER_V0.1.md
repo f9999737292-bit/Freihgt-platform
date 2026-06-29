@@ -22,7 +22,7 @@ Risk register for production readiness review after controlled pilot approval.
 
 **Production monitoring:** owner **Артем Асаев** — `MONITORING_OWNER_FINAL_APPROVAL_CAPTURED` (PR-GAP-004 **CLOSED**).
 
-**Production data policy:** `OPEN_PENDING_REAL_OWNER_FINAL_APPROVAL` (PR-GAP-002).
+**Production data policy:** owner **Феликс Асаев** — `PRODUCTION_DATA_OWNER_FINAL_APPROVAL_CAPTURED` (PR-GAP-002 **CLOSED**).
 
 **No-server gap closure:** `NO_SERVER_GAP_CLOSURE_STARTED_DOCS_ONLY` (PR-GAP-002/008/009/010 owner gates refreshed).
 
@@ -57,7 +57,7 @@ Risk register for production readiness review after controlled pilot approval.
 | risk id | gap id | risk | severity | status | mitigation | owner | next action |
 |---------|--------|------|----------|--------|------------|-------|-------------|
 | PR-RISK-001 | PR-GAP-001 | Remote Auth-On not repeated on staging | P2 | **BLOCKED_WAITING_FOR_STAGING_SERVER_DETAILS** | Missing input request, repeat plan, and repeat pack (blocked) prepared; intake empty; local repeat PASS 2026-06-23 | Ops / Platform / Staging Owner — TBD | Provide staging details, re-run remote auth-on repeat with read-only GET |
-| PR-RISK-002 | PR-GAP-002 | Production data policy not approved | P2 | **OPEN_PENDING_REAL_OWNER_FINAL_APPROVAL** | Production data policy, gate, and final approval request prepared; placeholder rehearsal only | Real owners — TBD | Production Data Owner Final Approval Pack v0.1 |
+| PR-RISK-002 | PR-GAP-002 | Production data policy not approved | P2 | **MITIGATED_BY_PRODUCTION_DATA_OWNER_FINAL_APPROVAL** | Production data policy and owner final approval captured with owner **Феликс Асаев** | **Феликс Асаев** | Residual risk: production-ready still blocked by other open gaps, including PR-GAP-001 |
 | PR-RISK-003 | PR-GAP-003 | Rollback plan not approved | P2 | **MITIGATED_BY_APPROVED_ROLLBACK_PLAN** | Rollback plan/procedure/checklist created and approved by rollback owner **Артем Асаев** | **Артем Асаев** | Optional: role/contact handover |
 | PR-RISK-004 | PR-GAP-004 | Monitoring/alerting policy not approved | P2 | **MITIGATED_BY_APPROVED_MONITORING_POLICY** | Monitoring policy, alert conditions, checklist, and owner approval captured with owner **Артем Асаев** | **Артем Асаев** | Optional: role/contact/on-call handover; real monitoring config implementation may require separate operational task if needed |
 | PR-RISK-005 | PR-GAP-009 | Production go/no-go owner not assigned | P2 | **OPEN_PENDING_FINAL_GO_NO_GO_OWNER_APPROVAL** | Final go/no-go policy, gate, and final approval request prepared; production GO blocked while PR-GAP-001 open | Product / Executive — TBD | Final Go-No-Go Owner Final Approval Pack v0.1 |
