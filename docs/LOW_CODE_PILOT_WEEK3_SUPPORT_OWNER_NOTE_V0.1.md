@@ -2,11 +2,11 @@
 
 ## Summary
 
-Documents **support owner** requirements for PR-GAP-007. **Named owner TBD**; **final approval pending**.
+Documents **support owner** for PR-GAP-007. **Final approval captured**.
 
-**Decision:** **SUPPORT_OWNER_ASSIGNMENT_REQUIRED**
+**Decision:** **SUPPORT_OWNER_FINAL_APPROVAL_CAPTURED**
 
-**PR-GAP-007:** **SUPPORT_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT**
+**PR-GAP-007:** **CLOSED_APPROVED_BY_OWNER**
 
 ## Required Owner
 
@@ -16,10 +16,11 @@ Documents **support owner** requirements for PR-GAP-007. **Named owner TBD**; **
 
 | Field | Value |
 |-------|-------|
-| Named owner | **TBD** |
-| Role | **TBD** |
-| Contact | **not provided** |
-| Final approval | **pending** |
+| Current Owner | **Артем Асаев** |
+| Current Owner Status | **FINAL_APPROVAL_CAPTURED** |
+| Owner Role | **Support / Operations / Platform Support Owner** |
+| Owner Contact | **not provided** |
+| Final approval | **captured** |
 | Support config changed | **no** |
 | Production-ready claimed | **no** |
 
@@ -30,33 +31,28 @@ Documents **support owner** requirements for PR-GAP-007. **Named owner TBD**; **
 3. Ensure support evidence contains no secrets/JWT/tokens or raw production data
 4. Recommend controlled pilot stop/freeze on P0
 5. Do **not** authorize production writes or config changes without approval
-6. Provide explicit final approval in Support Owner Approval Pack
+6. Final approval captured in Support Owner Final Approval v0.1
 
 ## Approval Required
 
-Before PR-GAP-007 closure:
+PR-GAP-007 closure complete:
 
-- [ ] Named support owner assigned
-- [ ] Owner role confirmed
-- [ ] Owner contact confirmed (optional but recommended)
-- [ ] P0/P1 escalation rules explicitly approved
-- [ ] Final support owner sign-off captured
+- [x] Named support owner assigned — **Артем Асаев**
+- [x] Owner role confirmed
+- [ ] Owner contact confirmed (optional — **not provided**)
+- [x] P0/P1 escalation rules explicitly approved
+- [x] Final support owner sign-off captured
 
-## Missing Items
+## Missing operational metadata
 
-1. Real support owner name
-2. Owner role confirmation
-3. Owner contact
-4. Explicit final approval
+- Owner contact not provided
 
 ## Decision
 
-**SUPPORT_OWNER_ASSIGNMENT_REQUIRED**
+**SUPPORT_OWNER_FINAL_APPROVAL_CAPTURED**
 
 ## Next Pack
 
-**Low-code Pilot Week-3 Support Owner Approval Pack v0.1**
+Continue **event-based gap closure**
 
-**Trigger:** Support owner assignment provided
-
-Reference: `LOW_CODE_PILOT_WEEK3_SUPPORT_OWNERSHIP_DECISION_NOTE_V0.1.md`
+Reference: `LOW_CODE_PILOT_WEEK3_SUPPORT_OWNER_FINAL_APPROVAL_V0.1.md`

@@ -52,7 +52,7 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Current status:** **SUPPORT_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT**
+**Current status:** **SUPPORT_OWNER_FINAL_APPROVAL_CAPTURED**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -60,13 +60,13 @@ docs/ai-team/
 
 **Production-ready claimed:** **no**
 
-**Closed gaps:** PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006
+**Closed gaps:** PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006, PR-GAP-007
 
-**Open gaps:** PR-GAP-001, PR-GAP-002, PR-GAP-007, PR-GAP-008, PR-GAP-009, PR-GAP-010
+**Open gaps:** PR-GAP-001, PR-GAP-002, PR-GAP-008, PR-GAP-009, PR-GAP-010
 
-**PR-GAP-007:** **SUPPORT_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT**
+**PR-GAP-007:** **CLOSED_APPROVED_BY_OWNER**
 
-**Support owner:** **TBD**
+**Support owner:** **Артем Асаев**
 
 **PR-GAP-006:** **CLOSED_APPROVED_BY_OWNER**
 
@@ -84,11 +84,11 @@ docs/ai-team/
 
 **Next mode:** **EVENT_BASED_GAP_CLOSURE**
 
-**Next event:** **Support owner assignment provided**
+**Next event:** **Release owner assigned**
 
-**Next pack:** **Low-code Pilot Week-3 Support Owner Approval Pack v0.1**
+**Next pack:** **Low-code Pilot Week-3 Release Ownership Pack v0.1**
 
-**Other event-based packs:**
+**Recommended next events:**
 
 | Event | Pack |
 |-------|------|
@@ -97,6 +97,10 @@ docs/ai-team/
 | Release owner assigned | Low-code Pilot Week-3 Release Ownership Pack v0.1 |
 | Final go/no-go owner assigned | Low-code Pilot Week-3 Final Go-No-Go Ownership Pack v0.1 |
 | P0/P1 suspected | Low-code Runtime Pilot Fix Pack v0.1 |
+
+Week-3 support owner final approval v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_SUPPORT_OWNER_FINAL_APPROVAL_V0.1.md`.
 
 Week-3 support ownership policy v0.1:
 
@@ -1165,7 +1169,7 @@ See `docs/LOW_CODE_RUNTIME_READINESS_REVIEW_V0.1.md`.
 
 Next implementation:
 
-**Current status:** **SUPPORT_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT**
+**Current status:** **SUPPORT_OWNER_FINAL_APPROVAL_CAPTURED**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -1173,23 +1177,23 @@ Next implementation:
 
 **Production-ready claimed:** **no**
 
-**Closed gaps:** PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006
+**Closed gaps:** PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006, PR-GAP-007
 
-**Open gaps:** PR-GAP-001, PR-GAP-002, PR-GAP-007, PR-GAP-008, PR-GAP-009, PR-GAP-010
+**Open gaps:** PR-GAP-001, PR-GAP-002, PR-GAP-008, PR-GAP-009, PR-GAP-010
 
-**PR-GAP-007:** **SUPPORT_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT**
+**PR-GAP-007:** **CLOSED_APPROVED_BY_OWNER**
 
-**Support owner:** **TBD**
+**Support owner:** **Артем Асаев**
 
 **PR-GAP-006:** **CLOSED_APPROVED_BY_OWNER**
 
 **Tenant isolation owner:** **Феликс Асаев**
 
-**Next event:** **Support owner assignment provided**
+**Next event:** **Release owner assigned**
 
-**Next pack:** **Low-code Pilot Week-3 Support Owner Approval Pack v0.1**
+**Next pack:** **Low-code Pilot Week-3 Release Ownership Pack v0.1**
 
-**Other event-based packs:**
+**Recommended next events:**
 
 | Event | Pack |
 |-------|------|
@@ -1198,6 +1202,10 @@ Next implementation:
 | Release owner assigned | Low-code Pilot Week-3 Release Ownership Pack v0.1 |
 | Final go/no-go owner assigned | Low-code Pilot Week-3 Final Go-No-Go Ownership Pack v0.1 |
 | P0/P1 suspected | Low-code Runtime Pilot Fix Pack v0.1 |
+
+Week-3 support owner final approval v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_SUPPORT_OWNER_FINAL_APPROVAL_V0.1.md`.
 
 Week-3 support ownership policy v0.1:
 

@@ -72,7 +72,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 
 | criterion | status | evidence | owner | notes |
 |-----------|--------|----------|-------|-------|
-| Support owner | **PARTIAL / OWNER_ASSIGNMENT_PENDING** | Support Ownership Policy v0.1, Support Escalation Matrix v0.1, Support Ownership Checklist v0.1, Support Owner Note v0.1, Support Ownership Decision Note v0.1 | Support / Operations — TBD | PR-GAP-007 open; owner TBD |
+| Support owner | **PASS** | Support Ownership Policy v0.1, Support Escalation Matrix v0.1, Support Ownership Checklist v0.1, Support Owner Final Approval v0.1 | **Артем Асаев** | PR-GAP-007 closed |
 | Runbooks for production ops | PENDING | — | pilot lead | controlled pilot runbooks only |
 
 ## Governance Approval
@@ -92,7 +92,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 | Owner Matrix | **created** | `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_OWNER_MATRIX_V0.1.md` |
 | Acceptance Criteria | **created** | `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_ACCEPTANCE_CRITERIA_V0.1.md` |
 
-**Open gaps:** **6** (PR-GAP-001–002, PR-GAP-007–010) — PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006 **CLOSED**
+**Open gaps:** **5** (PR-GAP-001–002, PR-GAP-008–010) — PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006, PR-GAP-007 **CLOSED**
 
 ## Final Status
 
@@ -101,7 +101,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 | Controlled pilot | **PASS — continue** |
 | Production readiness | **NOT APPROVED** |
 | Decision | `NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY` |
-| Reason | Other gaps remain open, including remote staging/auth-on, tenant isolation evidence review, and real data owner approval |
+| Reason | Other gaps remain open, including remote staging/auth-on, real production data owner approval, release ownership, and final go/no-go ownership |
 | Gap closure plan | **created** — `GAP_CLOSURE_PLAN_CREATED` |
 
 Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`, `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`

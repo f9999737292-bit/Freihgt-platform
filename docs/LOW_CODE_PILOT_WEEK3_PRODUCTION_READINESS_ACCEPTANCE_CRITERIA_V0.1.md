@@ -22,12 +22,12 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | 8 | Monitoring/alerting policy approved | **PASS** | PR-GAP-004 |
 | 9 | Audit retention policy approved | **PASS** / **APPROVED_BY_OWNER** | PR-GAP-005 |
 | 10 | Tenant isolation evidence approved | **PASS** / **APPROVED_BY_OWNER** | PR-GAP-006 |
-| 11 | Support owner assigned | **PARTIAL / OWNER_ASSIGNMENT_PENDING** (pack created) | PR-GAP-007 |
+| 11 | Support owner assigned | **PASS** / **APPROVED_BY_OWNER** | PR-GAP-007 |
 | 12 | Release owner assigned | **PENDING** | PR-GAP-008 |
 | 13 | Final go/no-go owner assigned | **PENDING** | PR-GAP-009 |
 | 14 | Low-code SoT policy approved | **PENDING** | PR-GAP-010 |
 
-**Must pass count:** **8 / 14** met for production claim (rollback, monitoring, audit retention, and tenant isolation approved by owner).
+**Must pass count:** **9 / 14** met for production claim (rollback, monitoring, audit retention, tenant isolation, and support ownership approved by owner).
 
 ### Must Not Happen
 
@@ -41,7 +41,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | 6 | No migration execution without approval |
 | 7 | No low-code financial/legal source of truth without approval |
 | 8 | Signed legal documents and payment data excluded unless separately approved |
-| 9 | No broad rollout while gaps PR-GAP-001–002, PR-GAP-007–010 open |
+| 9 | No broad rollout while gaps PR-GAP-001–002, PR-GAP-008–010 open |
 | 10 | No audit evidence containing secrets, JWT, tokens, or raw production dumps |
 | 11 | No production-ready claim without audit retention approval |
 | 12 | No production-ready claim without tenant isolation evidence review |
@@ -56,11 +56,11 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 - Controlled pilot stop/freeze rule must exist for P0 incidents
 - No production-ready claim without support ownership approval
 
-**Status:** **PARTIAL / OWNER_ASSIGNMENT_PENDING**
+**Status:** **PASS / APPROVED_BY_OWNER**
 
-**Evidence:** Support Ownership Policy v0.1, Support Escalation Matrix v0.1, Support Ownership Checklist v0.1, Support Owner Note v0.1, Support Ownership Decision Note v0.1
+**Evidence:** Support Owner Final Approval v0.1
 
-Support ownership pack is **created**, but PR-GAP-007 requires **named owner assignment and final approval** before closure.
+Support ownership is **approved by owner**, but this does **not** equal production-ready. Production-ready requires all remaining production readiness gaps to be closed.
 
 ### Tenant Isolation Requirements (PR-GAP-006)
 
