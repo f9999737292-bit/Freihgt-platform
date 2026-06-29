@@ -82,7 +82,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 |-----------|--------|----------|-------|-------|
 | controlled pilot approval | PASS | CONTROLLED_PILOT_APPROVED | Феликс Асаев | active |
 | Release owner | **PASS / APPROVED_BY_RELEASE_OWNER** | Release Owner Final Approval v0.1, Release Ownership Policy v0.1 | **Артем Асаев** | PR-GAP-008 closed; no deploy executed |
-| Final go/no-go approval | **PENDING / OPEN_PENDING_FINAL_GO_NO_GO_OWNER_APPROVAL** | Final Go-No-Go Owner Final Approval Request v0.1, Final Go-No-Go Owner Final Approval Gate v0.1 | Product / Executive — TBD | PR-GAP-009 open; production GO blocked while PR-GAP-001 open |
+| Final go/no-go approval | **OWNER_APPROVED / PRODUCTION_READY_BLOCKED_BY_PR_GAP_001** | Final Go-No-Go Owner Final Approval v0.1, Final Go-No-Go Policy v0.1 | **Феликс Асаев** | PR-GAP-009 owner approved; production GO blocked while PR-GAP-001 open |
 
 ## Gap Closure Artifacts
 
@@ -95,7 +95,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 | Owner Matrix | **created** | `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_OWNER_MATRIX_V0.1.md` |
 | Acceptance Criteria | **created** | `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_ACCEPTANCE_CRITERIA_V0.1.md` |
 
-**Open gaps:** **2** (PR-GAP-001, PR-GAP-009) — PR-GAP-002, PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006, PR-GAP-007, PR-GAP-008, PR-GAP-010 **CLOSED**
+**Remaining blocker:** **PR-GAP-001** (`BLOCKED_WAITING_FOR_STAGING_SERVER_DETAILS`) — PR-GAP-009 **OWNER_APPROVED_BUT_PRODUCTION_READY_BLOCKED** — PR-GAP-002, PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006, PR-GAP-007, PR-GAP-008, PR-GAP-010 **CLOSED**
 
 ## Final Status
 
@@ -106,6 +106,8 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 | PR-GAP-002 | **PASS / APPROVED_BY_OWNER** |
 | PR-GAP-008 | **PASS / APPROVED_BY_RELEASE_OWNER** |
 | PR-GAP-010 | **PASS / APPROVED_BY_SOT_OWNER** |
+| PR-GAP-009 | **OWNER_APPROVED / PRODUCTION_READY_BLOCKED_BY_PR_GAP_001** |
+| PR-GAP-001 | **BLOCKED / WAITING_FOR_STAGING_SERVER_DETAILS** |
 | Final production readiness | **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY** |
 | Decision | `NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY` |
 | Reason | PR-GAP-001 remains blocked until staging server details are provided and remote auth-on repeat is completed |

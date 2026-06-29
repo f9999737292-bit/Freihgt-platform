@@ -25,7 +25,8 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 | PR-GAP-003 | **CLOSED_APPROVED_BY_OWNER** |
 | PR-GAP-008 | **CLOSED_APPROVED_BY_OWNER** |
 | PR-GAP-010 | **CLOSED_APPROVED_BY_OWNER** |
-| Open production gaps | **2** |
+| PR-GAP-009 | **OWNER_APPROVED_BUT_PRODUCTION_READY_BLOCKED** |
+| Open production gaps | **1** (PR-GAP-001 blocked only) |
 | Real feedback intake | **3 / 3** |
 | Open P0 / P1 | **0 / 0** |
 | Last updated | 2026-06-26 |
@@ -77,6 +78,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 | BL-W3-063 | production data owner approval intake pack v0.1 | ALL | Production data owner final approval | P2 | Production data owner final approval captured — PR-GAP-002 closed | PR-GAP-008 release owner approval | **Феликс Асаев** | Release Owner Final Approval Pack v0.1 | COMPLETED | PRODUCTION_DATA_OWNER_FINAL_APPROVAL_CAPTURED |
 | BL-W3-064 | release owner final approval pack v0.1 | ALL | Release owner final approval | P2 | Release owner final approval captured — PR-GAP-008 closed | PR-GAP-010 SoT owner approval | **Артем Асаев** | SoT Owner Final Approval Pack v0.1 | COMPLETED | RELEASE_OWNER_FINAL_APPROVAL_CAPTURED |
 | BL-W3-065 | SoT owner final approval pack v0.1 | ALL | SoT owner final approval | P2 | SoT owner final approval captured — PR-GAP-010 closed | PR-GAP-009 final go/no-go owner approval | **Феликс Асаев** | Final Go-No-Go Owner Final Approval Pack v0.1 | COMPLETED | SOT_OWNER_FINAL_APPROVAL_CAPTURED |
+| BL-W3-066 | final go/no-go owner final approval pack v0.1 | ALL | Final go/no-go owner final approval | P1 | Final go/no-go owner approval captured — PR-GAP-009 owner approved but production-ready blocked | Provide sanitized staging server details | **Феликс Асаев** | Remote Auth-On Staging Repeat Pack v0.1 | COMPLETED | FINAL_GO_NO_GO_OWNER_APPROVAL_CAPTURED_NOT_PRODUCTION_READY |
 | BL-W3-040 | production monitoring policy pack v0.1 | ALL | Production monitoring policy | P3 | Monitoring policy, alert conditions, checklist created — no config changed | Monitoring owner approval | Артем Асаев | Production Monitoring Owner Final Approval Pack v0.1 | COMPLETED | MONITORING_OWNER_FINAL_APPROVAL_CAPTURED |
 | BL-W3-041 | production monitoring owner assignment pack v0.1 | ALL | Production monitoring owner assignment | P3 | Monitoring owner assigned as **Артем Асаев** — final approval pending | Final owner approval | Артем Асаев | Production Monitoring Owner Final Approval Pack v0.1 | COMPLETED | MONITORING_OWNER_ASSIGNED_PENDING_APPROVAL |
 | BL-W3-042 | production monitoring owner final approval pack v0.1 | ALL | Production monitoring owner final approval | P3 | Monitoring owner final approval captured — PR-GAP-004 closed | Continue event-based gap closure | Артем Асаев | event-based gap packs | COMPLETED | MONITORING_OWNER_FINAL_APPROVAL_CAPTURED |
@@ -167,17 +169,18 @@ When P1 appears: add row with owner assigned, target fix pack, decision **GO_WIT
 - **Audit logs were not cleaned**
 - **PR-GAP-006 closed** — tenant isolation approved by **Феликс Асаев**
 - **PR-GAP-007 closed** — support ownership approved by **Артем Асаев**
+- **PR-GAP-009 final go/no-go owner approval captured**
+- **Final go/no-go owner: Феликс Асаев**
+- **PR-GAP-009 owner approval captured but production-ready remains blocked**
+- **Next action: provide sanitized staging server details**
 - **PR-GAP-010 closed** — SoT approved by **Феликс Асаев**
-- **PR-GAP-010 SoT owner final approval captured**
-- **SoT owner: Феликс Асаев**
 - **Source-of-truth scope approved**
 - **Deploy not executed**
-- **Next action: PR-GAP-009 final go/no-go owner approval**
 - **PR-GAP-008 closed** — release ownership approved by **Артем Асаев**
 - **PR-GAP-001 remains blocked waiting for staging server details**
 - **Production-ready still not claimed**
-- **Final go/no-go pack created** — PR-GAP-009 partially mitigated
-- **Final decision owner assignment pending**
+- **Final decision owner approval captured** — production-ready blocked by PR-GAP-001
+- **Final go/no-go pack created** — PR-GAP-009 owner approved
 - **Remote staging details intake prepared**
 - **Ordered remaining gap closure executed**
 - **PR-GAP-002 closed as approved by owner**
@@ -267,8 +270,8 @@ Explicit list (BL-W3-000–009):
 | **Low-code Pilot Week-3 Support Ownership Pack v0.1** | Completed | **SUPPORT_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT** — PR-GAP-007 open |
 | **Low-code Pilot Week-3 Release Owner Final Approval Pack v0.1** | Completed | **RELEASE_OWNER_FINAL_APPROVAL_CAPTURED** — PR-GAP-008 closed |
 | **Low-code Pilot Week-3 Release Ownership Pack v0.1** | Completed | **RELEASE_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT** — PR-GAP-008 closed |
-| **Low-code Pilot Week-3 Final Go-No-Go Ownership Pack v0.1** | Completed | **FINAL_GO_NO_GO_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT** — PR-GAP-009 open |
-| **Low-code Pilot Week-3 Final Go-No-Go Owner Approval Pack v0.1** | Final go/no-go owner assigned | PR-GAP-009 closure |
+| **Low-code Pilot Week-3 Final Go-No-Go Owner Final Approval Pack v0.1** | Completed | **FINAL_GO_NO_GO_OWNER_APPROVAL_CAPTURED_NOT_PRODUCTION_READY** — PR-GAP-009 owner approved; production-ready blocked |
+| **Low-code Pilot Week-3 Final Go-No-Go Ownership Pack v0.1** | Completed | **FINAL_GO_NO_GO_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT** — PR-GAP-009 owner approved |
 | **Low-code Pilot Week-3 SoT Owner Final Approval Pack v0.1** | Completed | **SOT_OWNER_FINAL_APPROVAL_CAPTURED** — PR-GAP-010 closed |
 | **Low-code Pilot Week-3 Low-code Source-of-Truth Policy Pack v0.1** | Completed | **SOURCE_OF_TRUTH_POLICY_PACK_CREATED_PENDING_OWNER_ASSIGNMENT** — PR-GAP-010 closed |
 | **Low-code Pilot Week-3 Monitoring Evidence Refresh Pack v0.1** | Stakeholder requests fresh evidence | Trigger event |

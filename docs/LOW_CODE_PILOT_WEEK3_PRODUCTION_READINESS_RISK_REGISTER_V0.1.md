@@ -42,7 +42,7 @@ Risk register for production readiness review after controlled pilot approval.
 
 **Release ownership:** owner **Артем Асаев** — `RELEASE_OWNER_FINAL_APPROVAL_CAPTURED` (PR-GAP-008 **CLOSED**).
 
-**Final go/no-go:** `OPEN_PENDING_FINAL_GO_NO_GO_OWNER_APPROVAL` (PR-GAP-009 **open**; owner TBD).
+**Final go/no-go:** owner **Феликс Асаев** — `FINAL_GO_NO_GO_OWNER_APPROVAL_CAPTURED_NOT_PRODUCTION_READY` (PR-GAP-009 **OWNER_APPROVED_BUT_PRODUCTION_READY_BLOCKED**).
 
 **SoT / source-of-truth:** owner **Феликс Асаев** — `SOT_OWNER_FINAL_APPROVAL_CAPTURED` (PR-GAP-010 **CLOSED**).
 
@@ -60,7 +60,7 @@ Risk register for production readiness review after controlled pilot approval.
 | PR-RISK-002 | PR-GAP-002 | Production data policy not approved | P2 | **MITIGATED_BY_PRODUCTION_DATA_OWNER_FINAL_APPROVAL** | Production data policy and owner final approval captured with owner **Феликс Асаев** | **Феликс Асаев** | Residual risk: production-ready still blocked by other open gaps, including PR-GAP-001 |
 | PR-RISK-003 | PR-GAP-003 | Rollback plan not approved | P2 | **MITIGATED_BY_APPROVED_ROLLBACK_PLAN** | Rollback plan/procedure/checklist created and approved by rollback owner **Артем Асаев** | **Артем Асаев** | Optional: role/contact handover |
 | PR-RISK-004 | PR-GAP-004 | Monitoring/alerting policy not approved | P2 | **MITIGATED_BY_APPROVED_MONITORING_POLICY** | Monitoring policy, alert conditions, checklist, and owner approval captured with owner **Артем Асаев** | **Артем Асаев** | Optional: role/contact/on-call handover; real monitoring config implementation may require separate operational task if needed |
-| PR-RISK-005 | PR-GAP-009 | Production go/no-go owner not assigned | P2 | **OPEN_PENDING_FINAL_GO_NO_GO_OWNER_APPROVAL** | Final go/no-go policy, gate, and final approval request prepared; production GO blocked while PR-GAP-001 open | Product / Executive — TBD | Final Go-No-Go Owner Final Approval Pack v0.1 |
+| PR-RISK-005 | PR-GAP-009 | Production go/no-go owner not assigned | P2 | **OWNER_APPROVED_BUT_PRODUCTION_READY_BLOCKED** | Final go/no-go policy, checklist, and owner final approval captured with owner **Феликс Асаев** | **Феликс Асаев** | Residual risk: production-ready remains blocked by PR-GAP-001. Final go/no-go owner approval does not authorize production deploy while remote auth-on staging repeat is not completed. |
 | PR-RISK-006 | PR-GAP-010 | Low-code fields used as financial/legal source of truth without approval | P1 | **MITIGATED_BY_SOT_OWNER_FINAL_APPROVAL** | SoT scope, source-of-truth policy, and owner final approval captured with owner **Феликс Асаев** | **Феликс Асаев** | Residual risk: production-ready remains blocked by PR-GAP-001 and final go/no-go dependencies. SoT owner approval does not authorize production deploy. |
 | PR-RISK-007 | PR-GAP-006 | Tenant isolation not evidenced for production | P2 | **MITIGATED_BY_APPROVED_TENANT_ISOLATION_EVIDENCE** | Tenant isolation evidence reviewed and approved by owner **Феликс Асаев** | **Феликс Асаев** | Optional: staging cross-tenant matrix when PR-GAP-001 unblocks |
 | PR-RISK-008 | — | Limited operator sample (3 users, demo entities) | P3 | OPEN | Expand only via approved governance | PM | controlled pilot scope only |

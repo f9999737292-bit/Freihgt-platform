@@ -52,7 +52,7 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Current status:** **SOT_OWNER_FINAL_APPROVAL_CAPTURED**
+**Current status:** **FINAL_GO_NO_GO_OWNER_APPROVAL_CAPTURED_NOT_PRODUCTION_READY**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -62,26 +62,25 @@ docs/ai-team/
 
 **Closed gaps:** PR-GAP-002, PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006, PR-GAP-007, PR-GAP-008, PR-GAP-010
 
-**Open gaps:** PR-GAP-001, PR-GAP-009
+**PR-GAP-009:** **OWNER_APPROVED_BUT_PRODUCTION_READY_BLOCKED**
 
 **PR-GAP-001:** **BLOCKED_WAITING_FOR_STAGING_SERVER_DETAILS**
 
-**PR-GAP-002:** **CLOSED_APPROVED_BY_OWNER**
+**Only remaining blocker:** PR-GAP-001 — staging server details and remote auth-on staging repeat
 
-**PR-GAP-008:** **CLOSED_APPROVED_BY_OWNER**
+**Next event:** Staging server details provided
 
-**PR-GAP-010:** **CLOSED_APPROVED_BY_OWNER**
+**Next pack:** Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1
 
-**PR-GAP-009:** **OPEN_PENDING_FINAL_GO_NO_GO_OWNER_APPROVAL**
-
-**Next event:** PR-GAP-009 final go/no-go owner approval provided
-
-**Next pack:** Low-code Pilot Week-3 Final Go-No-Go Owner Final Approval Pack v0.1
+**Required input:** Remote staging details, sanitized, without secrets/JWT/tokens/.env values/private keys
 
 **Next recommended events:**
 
-- Final go/no-go owner approval provided → Final Go-No-Go Owner Final Approval Pack v0.1
 - Staging server details provided → Remote Auth-On Staging Repeat Pack v0.1 (re-run)
+
+Week-3 final go/no-go owner final approval v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_FINAL_GO_NO_GO_OWNER_FINAL_APPROVAL_V0.1.md`.
 
 Week-3 SoT owner final approval v0.1:
 
