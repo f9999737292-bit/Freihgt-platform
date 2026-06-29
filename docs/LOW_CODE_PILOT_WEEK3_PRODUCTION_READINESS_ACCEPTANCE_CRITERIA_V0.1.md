@@ -23,7 +23,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | 9 | Audit retention policy approved | **PASS** / **APPROVED_BY_OWNER** | PR-GAP-005 |
 | 10 | Tenant isolation evidence approved | **PASS** / **APPROVED_BY_OWNER** | PR-GAP-006 |
 | 11 | Support owner assigned | **PASS** / **APPROVED_BY_OWNER** | PR-GAP-007 |
-| 12 | Release owner assigned | **PENDING** | PR-GAP-008 |
+| 12 | Release owner assigned | **PARTIAL / OWNER_ASSIGNMENT_PENDING** (pack created) | PR-GAP-008 |
 | 13 | Final go/no-go owner assigned | **PENDING** | PR-GAP-009 |
 | 14 | Low-code SoT policy approved | **PENDING** | PR-GAP-010 |
 
@@ -61,6 +61,21 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 **Evidence:** Support Owner Final Approval v0.1
 
 Support ownership is **approved by owner**, but this does **not** equal production-ready. Production-ready requires all remaining production readiness gaps to be closed.
+
+### Release Ownership Requirements (PR-GAP-008)
+
+- Release owner must be **assigned** before production release
+- Release freeze rules must be **defined**
+- Release evidence must **not** contain secrets/JWT/tokens or raw production data
+- Rollback dependency must be **referenced**
+- Staging/auth-on and production data dependencies must be **referenced**
+- No production release without final go/no-go approval
+
+**Status:** **PARTIAL / OWNER_ASSIGNMENT_PENDING**
+
+**Evidence:** Release Ownership Policy v0.1, Release Freeze Rules v0.1, Release Checklist v0.1, Release Owner Note v0.1, Release Decision Note v0.1
+
+Release ownership pack is **created**, but PR-GAP-008 requires **named owner assignment and final approval** before closure.
 
 ### Tenant Isolation Requirements (PR-GAP-006)
 

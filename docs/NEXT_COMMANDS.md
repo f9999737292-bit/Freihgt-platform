@@ -52,7 +52,7 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Current status:** **SUPPORT_OWNER_FINAL_APPROVAL_CAPTURED**
+**Current status:** **RELEASE_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -64,39 +64,37 @@ docs/ai-team/
 
 **Open gaps:** PR-GAP-001, PR-GAP-002, PR-GAP-008, PR-GAP-009, PR-GAP-010
 
+**PR-GAP-008:** **RELEASE_OWNERSHIP_PACK_CREATED_PENDING_OWNER_ASSIGNMENT**
+
+**Release owner:** **TBD**
+
 **PR-GAP-007:** **CLOSED_APPROVED_BY_OWNER**
 
 **Support owner:** **Артем Асаев**
 
-**PR-GAP-006:** **CLOSED_APPROVED_BY_OWNER**
+**Next event:** **Release owner assignment provided**
 
-**Tenant isolation owner:** **Феликс Асаев**
+**Next pack:** **Low-code Pilot Week-3 Release Owner Approval Pack v0.1**
 
-**PR-GAP-005:** **CLOSED_APPROVED_BY_OWNER**
+Week-3 release ownership policy v0.1:
 
-**PR-GAP-004:** **CLOSED_APPROVED_BY_OWNER**
+See `docs/LOW_CODE_PILOT_WEEK3_RELEASE_OWNERSHIP_POLICY_V0.1.md`.
 
-**Audit/Compliance owner:** **Феликс Асаев**
+Week-3 release freeze rules v0.1:
 
-**PR-GAP-002:** **PLACEHOLDER_APPROVAL_REHEARSED_PENDING_REAL_OWNER_APPROVAL**
+See `docs/LOW_CODE_PILOT_WEEK3_RELEASE_FREEZE_RULES_V0.1.md`.
 
-**PR-GAP-003:** **CLOSED_APPROVED_BY_OWNER**
+Week-3 release checklist v0.1:
 
-**Next mode:** **EVENT_BASED_GAP_CLOSURE**
+See `docs/LOW_CODE_PILOT_WEEK3_RELEASE_CHECKLIST_V0.1.md`.
 
-**Next event:** **Release owner assigned**
+Week-3 release owner note v0.1:
 
-**Next pack:** **Low-code Pilot Week-3 Release Ownership Pack v0.1**
+See `docs/LOW_CODE_PILOT_WEEK3_RELEASE_OWNER_NOTE_V0.1.md`.
 
-**Recommended next events:**
+Week-3 release decision note v0.1:
 
-| Event | Pack |
-|-------|------|
-| Remote staging details provided | Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1 |
-| Real production data owner final approval provided | Low-code Pilot Week-3 Production Data Owner Final Approval Pack v0.1 |
-| Release owner assigned | Low-code Pilot Week-3 Release Ownership Pack v0.1 |
-| Final go/no-go owner assigned | Low-code Pilot Week-3 Final Go-No-Go Ownership Pack v0.1 |
-| P0/P1 suspected | Low-code Runtime Pilot Fix Pack v0.1 |
+See `docs/LOW_CODE_PILOT_WEEK3_RELEASE_DECISION_NOTE_V0.1.md`.
 
 Week-3 support owner final approval v0.1:
 
