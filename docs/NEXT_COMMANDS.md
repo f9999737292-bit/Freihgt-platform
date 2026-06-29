@@ -52,7 +52,7 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Current status:** **REMAINING_GAPS_STATUS_CONSOLIDATED**
+**Current status:** **REMOTE_STAGING_DETAILS_PENDING_INPUT**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -64,9 +64,35 @@ docs/ai-team/
 
 **Open gaps:** PR-GAP-001, PR-GAP-002, PR-GAP-008, PR-GAP-009, PR-GAP-010
 
-**Must pass:** **9 / 14**
+**PR-GAP-001:** **REMOTE_STAGING_DETAILS_PENDING_INPUT**
 
-**Next recommended event:** **Remote staging details provided** → Remote Auth-On Staging Repeat Pack v0.1
+**Next event:** **Remote staging details provided**
+
+**Next pack:** **Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1**
+
+**Required input:**
+
+- public IP
+- domain/subdomain
+- OS
+- SSH/sudo readiness
+- Docker readiness
+- HTTPS/domain readiness
+- LOW_CODE_ADMIN_AUTH_ENABLED=true planned
+- staging URLs
+- no secrets in docs
+
+Week-3 remote staging details intake form v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_REMOTE_STAGING_DETAILS_INTAKE_FORM_V0.1.md`.
+
+Week-3 remote staging readiness checklist v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_REMOTE_STAGING_READINESS_CHECKLIST_V0.1.md`.
+
+Week-3 remote auth-on staging prerequisites v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_REMOTE_AUTH_ON_STAGING_PREREQUISITES_V0.1.md`.
 
 Week-3 remaining gaps status consolidation v0.1:
 
