@@ -52,7 +52,7 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Current status:** **BLOCKED_WAITING_FOR_STAGING_SERVER_DETAILS**
+**Current status:** **NO_SERVER_GAP_CLOSURE_STARTED_DOCS_ONLY**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -66,17 +66,49 @@ docs/ai-team/
 
 **PR-GAP-001:** **BLOCKED_WAITING_FOR_STAGING_SERVER_DETAILS**
 
-**Remote auth-on staging repeat:** **REMOTE_AUTH_ON_STAGING_REPEAT_BLOCKED_MISSING_STAGING_DETAILS**
+**PR-GAP-002:** **OPEN_PENDING_REAL_OWNER_FINAL_APPROVAL**
 
-**Next event:** **Remote staging details provided**
+**PR-GAP-008:** **OPEN_PENDING_RELEASE_OWNER_FINAL_APPROVAL**
 
-**Next pack:** **Re-run Remote Auth-On Staging Repeat** (read-only GET) after details + explicit approval
+**PR-GAP-009:** **OPEN_PENDING_FINAL_GO_NO_GO_OWNER_APPROVAL**
 
-**Required:**
+**PR-GAP-010:** **SOT_OWNER_APPROVAL_GATE_CREATED_PENDING_OWNER_ASSIGNMENT**
 
-- complete missing input request template (sanitized)
-- no secrets in docs
-- explicit approval before remote SSH/deploy/check execution
+**Recommended next events:**
+
+- Staging server details provided → Remote Auth-On Staging Repeat Pack v0.1 (re-run)
+- Real production data owner approval provided → Production Data Owner Final Approval Pack v0.1
+- Release owner approval provided → Release Owner Final Approval Pack v0.1
+- Final go/no-go owner approval provided → Final Go-No-Go Owner Final Approval Pack v0.1
+- SoT owner approval provided → SoT Owner Final Approval Pack v0.1
+
+**Required user inputs:**
+
+- production data owner name + approval
+- release owner name + approval
+- final go/no-go owner name + approval
+- SoT owner name + approval
+- staging server details (sanitized)
+
+Week-3 no-server gap closure status v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_NO_SERVER_GAP_CLOSURE_STATUS_V0.1.md`.
+
+Week-3 production data owner final approval gate v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_DATA_OWNER_FINAL_APPROVAL_GATE_V0.1.md`.
+
+Week-3 release owner final approval gate v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_RELEASE_OWNER_FINAL_APPROVAL_GATE_V0.1.md`.
+
+Week-3 final go/no-go owner final approval gate v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_FINAL_GO_NO_GO_OWNER_FINAL_APPROVAL_GATE_V0.1.md`.
+
+Week-3 SoT owner approval gate v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_SOT_OWNER_APPROVAL_GATE_V0.1.md`.
 
 Week-3 remote auth-on staging repeat v0.1:
 

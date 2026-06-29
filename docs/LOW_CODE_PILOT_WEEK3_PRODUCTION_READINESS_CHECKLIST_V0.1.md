@@ -49,10 +49,10 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 
 | criterion | status | evidence | owner | notes |
 |-----------|--------|----------|-------|-------|
-| Production data approval | **PARTIAL / PLACEHOLDER_REHEARSED_PENDING_REAL_APPROVAL** | Production Data Owner Placeholder Approval v0.1, Production Data Policy v0.1, Data Policy Checklist v0.1, Data Owner Approval Form v0.1 | Real owners TBD | PR-GAP-002 open; production data use not approved |
+| Production data approval | **PENDING / OPEN_PENDING_REAL_OWNER_FINAL_APPROVAL** | Production Data Owner Final Approval Gate v0.1, Production Data Policy v0.1, Data Owner Placeholder Approval v0.1 | Real owners TBD | PR-GAP-002 open |
 | Migration execute policy | PENDING | — | DevOps | no prod migrations approved |
 | Template publish policy | PENDING | — | pilot lead | publish blocked without pack |
-| Low-code SoT policy | **PARTIAL / OWNER_ASSIGNMENT_PENDING** | Source-of-Truth Policy v0.1, Source-of-Truth Checklist v0.1, Source-of-Truth Owner Note v0.1, Source-of-Truth Decision Note v0.1 | Product / Legal / Finance — TBD | PR-GAP-010 open; advisory-by-default defined |
+| Low-code SoT policy | **PENDING / SOT_OWNER_GATE_PENDING** | SoT Owner Approval Gate v0.1, Source-of-Truth Policy v0.1, Source-of-Truth Checklist v0.1 | SoT / Product / Legal / Finance — TBD | PR-GAP-010 open |
 
 ## Audit / Observability Readiness
 
@@ -81,8 +81,8 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 | criterion | status | evidence | owner | notes |
 |-----------|--------|----------|-------|-------|
 | controlled pilot approval | PASS | CONTROLLED_PILOT_APPROVED | Феликс Асаев | active |
-| Release owner | **PARTIAL / OWNER_ASSIGNMENT_PENDING** | Release Ownership Policy v0.1, Release Freeze Rules v0.1, Release Checklist v0.1, Release Owner Note v0.1, Release Decision Note v0.1 | Release / Delivery — TBD | PR-GAP-008 open; owner TBD |
-| Final go/no-go approval | **PARTIAL / OWNER_ASSIGNMENT_PENDING** | Final Go/No-Go Policy v0.1, Final Go/No-Go Checklist v0.1, Final Go/No-Go Owner Note v0.1, Final Go/No-Go Decision Note v0.1 | Product / Executive — TBD | PR-GAP-009 open; no GO decision |
+| Release owner | **PENDING / OPEN_PENDING_RELEASE_OWNER_FINAL_APPROVAL** | Release Owner Final Approval Gate v0.1, Release Ownership Policy v0.1, Release Checklist v0.1 | Release / Delivery — TBD | PR-GAP-008 open |
+| Final go/no-go approval | **PENDING / OPEN_PENDING_FINAL_GO_NO_GO_OWNER_APPROVAL** | Final Go-No-Go Owner Final Approval Gate v0.1, Final Go/No-Go Policy v0.1, Final Go/No-Go Checklist v0.1 | Product / Executive — TBD | PR-GAP-009 open |
 
 ## Gap Closure Artifacts
 
@@ -90,6 +90,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 |----------|--------|-----------|
 | Gap Closure Plan | **created** | `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md` |
 | Remaining Gaps Consolidation | **created** | `LOW_CODE_PILOT_WEEK3_REMAINING_GAPS_STATUS_CONSOLIDATION_V0.1.md` |
+| No-Server Gap Closure Status | **created** | `LOW_CODE_PILOT_WEEK3_NO_SERVER_GAP_CLOSURE_STATUS_V0.1.md` |
 | Gap Tracker | **created** | `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_TRACKER_V0.1.md` |
 | Owner Matrix | **created** | `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_OWNER_MATRIX_V0.1.md` |
 | Acceptance Criteria | **created** | `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_ACCEPTANCE_CRITERIA_V0.1.md` |
@@ -103,7 +104,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 | Controlled pilot | **PASS — continue** |
 | Production readiness | **NOT APPROVED** |
 | Decision | `NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY` |
-| Reason | Other gaps remain open, including remote staging/auth-on, real production data owner approval, release ownership, and final go/no-go ownership |
+| Reason | Open gaps: PR-GAP-001 blocked (staging), PR-GAP-002/008/009/010 pending owner final approval |
 | Gap closure plan | **created** — `GAP_CLOSURE_PLAN_CREATED` |
 
 Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`, `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
