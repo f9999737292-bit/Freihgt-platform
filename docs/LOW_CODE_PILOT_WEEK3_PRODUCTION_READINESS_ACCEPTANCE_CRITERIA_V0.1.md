@@ -25,9 +25,9 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | 11 | Support owner assigned | **PASS** / **APPROVED_BY_OWNER** | PR-GAP-007 |
 | 12 | Release owner assigned | **PASS** / **APPROVED_BY_RELEASE_OWNER** | PR-GAP-008 |
 | 13 | Final go/no-go owner assigned | **PENDING** (final approval request created; production GO blocked while PR-GAP-001 open) | PR-GAP-009 |
-| 14 | Low-code SoT policy approved | **PENDING** (final approval request created) | PR-GAP-010 |
+| 14 | Low-code SoT policy approved | **PASS** / **APPROVED_BY_SOT_OWNER** | PR-GAP-010 |
 
-**Must pass count:** **11 / 14** met for production claim (production data, rollback, monitoring, audit retention, tenant isolation, support ownership, and release ownership approved by owner).
+**Must pass count:** **12 / 14** met for production claim (production data, rollback, monitoring, audit retention, tenant isolation, support ownership, release ownership, and SoT approved by owner).
 
 ### Must Not Happen
 
@@ -41,7 +41,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | 6 | No migration execution without approval |
 | 7 | No low-code financial/legal source of truth without approval |
 | 8 | Signed legal documents and payment data excluded unless separately approved |
-| 9 | No broad rollout while gaps PR-GAP-001, PR-GAP-009, PR-GAP-010 open |
+| 9 | No broad rollout while gaps PR-GAP-001, PR-GAP-009 open |
 | 10 | No audit evidence containing secrets, JWT, tokens, or raw production dumps |
 | 11 | No production-ready claim without audit retention approval |
 | 12 | No production-ready claim without tenant isolation evidence review |
@@ -105,11 +105,13 @@ Final go/no-go pack is **created**, but PR-GAP-009 requires **named owner assign
 - No financial/legal SoT use without explicit approval
 - Policy evidence must **not** contain secrets/JWT/tokens or raw production data
 
-**Status:** **PARTIAL / OWNER_ASSIGNMENT_PENDING**
+**Status:** **PASS / APPROVED_BY_SOT_OWNER**
 
-**Evidence:** Low-code Source-of-Truth Policy v0.1, Source-of-Truth Checklist v0.1, Source-of-Truth Owner Note v0.1, Source-of-Truth Decision Note v0.1
+**Evidence:** `docs/LOW_CODE_PILOT_WEEK3_SOT_OWNER_FINAL_APPROVAL_V0.1.md`, Low-code Source-of-Truth Policy v0.1, Source-of-Truth Checklist v0.1, Source-of-Truth Owner Note v0.1, Source-of-Truth Decision Note v0.1
 
-Source-of-truth policy pack is **created**, but PR-GAP-010 requires **named owner assignment and final approval** before closure.
+**Owner:** **Феликс Асаев**
+
+SoT owner approval closes PR-GAP-010 only. It confirms the controlled source-of-truth set for readiness evidence, but it does **not** equal production-ready, does **not** authorize production deploy, and does **not** bypass PR-GAP-001 remote staging auth-on repeat.
 
 ### Tenant Isolation Requirements (PR-GAP-006)
 

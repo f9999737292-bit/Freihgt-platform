@@ -52,7 +52,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 | Production data approval | **PASS / APPROVED_BY_OWNER** | Production Data Owner Final Approval v0.1, Production Data Policy v0.1 | **Феликс Асаев** | PR-GAP-002 closed; production data use not approved |
 | Migration execute policy | PENDING | — | DevOps | no prod migrations approved |
 | Template publish policy | PENDING | — | pilot lead | publish blocked without pack |
-| Low-code SoT policy | **PENDING / OPEN_PENDING_SOT_OWNER_FINAL_APPROVAL** | SoT Owner Final Approval Request v0.1, SoT Owner Approval Gate v0.1, Source-of-Truth Policy v0.1 | SoT / Product / Legal / Finance — TBD | PR-GAP-010 open |
+| Low-code SoT policy | **PASS / APPROVED_BY_SOT_OWNER** | SoT Owner Final Approval v0.1, SoT Owner Approval Gate v0.1, Source-of-Truth Policy v0.1 | **Феликс Асаев** | PR-GAP-010 closed; source-of-truth scope approved |
 
 ## Audit / Observability Readiness
 
@@ -95,7 +95,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 | Owner Matrix | **created** | `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_OWNER_MATRIX_V0.1.md` |
 | Acceptance Criteria | **created** | `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_ACCEPTANCE_CRITERIA_V0.1.md` |
 
-**Open gaps:** **3** (PR-GAP-001, PR-GAP-009, PR-GAP-010) — PR-GAP-002, PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006, PR-GAP-007, PR-GAP-008 **CLOSED**
+**Open gaps:** **2** (PR-GAP-001, PR-GAP-009) — PR-GAP-002, PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006, PR-GAP-007, PR-GAP-008, PR-GAP-010 **CLOSED**
 
 ## Final Status
 
@@ -105,6 +105,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 | Production readiness | **NOT APPROVED** |
 | PR-GAP-002 | **PASS / APPROVED_BY_OWNER** |
 | PR-GAP-008 | **PASS / APPROVED_BY_RELEASE_OWNER** |
+| PR-GAP-010 | **PASS / APPROVED_BY_SOT_OWNER** |
 | Final production readiness | **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY** |
 | Decision | `NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY` |
 | Reason | PR-GAP-001 remains blocked until staging server details are provided and remote auth-on repeat is completed |
