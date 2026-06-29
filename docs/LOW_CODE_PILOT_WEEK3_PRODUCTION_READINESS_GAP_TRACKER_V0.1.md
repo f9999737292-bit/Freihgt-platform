@@ -26,6 +26,8 @@ Tracks **5 open production readiness gaps**. PR-GAP-003, PR-GAP-004, PR-GAP-005,
 
 **No-server gap closure:** `NO_SERVER_GAP_CLOSURE_STARTED_DOCS_ONLY` (2026-06-23)
 
+**Ordered remaining gap closure:** `ORDERED_REMAINING_GAP_CLOSURE_EXECUTED_DOCS_ONLY` (2026-06-23)
+
 **Production monitoring policy:** `MONITORING_OWNER_FINAL_APPROVAL_CAPTURED` (PR-GAP-004 **CLOSED**)
 
 **Audit retention policy:** `AUDIT_COMPLIANCE_OWNER_FINAL_APPROVAL_CAPTURED` (PR-GAP-005 **CLOSED**)
@@ -42,13 +44,14 @@ Tracks **5 open production readiness gaps**. PR-GAP-003, PR-GAP-004, PR-GAP-005,
 
 **Final go/no-go pack:** `OPEN_PENDING_FINAL_GO_NO_GO_OWNER_APPROVAL` (PR-GAP-009 **open**)
 
-**Source-of-truth / SoT gate:** `SOT_OWNER_APPROVAL_GATE_CREATED_PENDING_OWNER_ASSIGNMENT` (PR-GAP-010 **open**)
+**Source-of-truth / SoT:** `OPEN_PENDING_SOT_OWNER_FINAL_APPROVAL` (PR-GAP-010 **open**)
 
 **Remaining gaps consolidation:** `REMAINING_GAPS_STATUS_CONSOLIDATED` (2026-06-23)
 
 **Mode:** **EVENT_BASED_GAP_CLOSURE**
 
-**Production-ready:** **not claimed**  
+**Production-ready:** **not claimed** — **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
+
 **Controlled pilot:** **CONTROLLED_PILOT_APPROVED** — active
 
 Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
@@ -57,23 +60,23 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 
 | Gap ID | Gap | Status | Owner | Acceptance Criteria | Next Pack | Notes |
 |--------|-----|--------|-------|---------------------|-----------|-------|
-| PR-GAP-001 | Remote Auth-On Repeat not completed | **BLOCKED_WAITING_FOR_STAGING_SERVER_DETAILS** | Ops / Platform / Staging Owner — **TBD** | Staging server details must be provided; remote auth-on repeat blocked until intake complete | Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1 (re-run after details) | Repeat pack executed blocked. No deploy. No SSH. No remote GET. No secrets. Local repeat PASS 2026-06-23. PR-GAP-001 open. |
-| PR-GAP-002 | Production data policy not approved | **OPEN_PENDING_REAL_OWNER_FINAL_APPROVAL** | Real owners — **TBD** | Real Product/Data Owner and Legal/Compliance final approval required | Low-code Pilot Week-3 Production Data Owner Final Approval Pack v0.1 | Final approval gate refreshed. Placeholder rehearsal only. No server. Production data use **not** approved. |
+| PR-GAP-001 | Remote Auth-On Repeat not completed | **BLOCKED_WAITING_FOR_STAGING_SERVER_DETAILS** | Ops / Platform / Staging Owner — **TBD** | Staging server details must be provided; remote auth-on repeat blocked | Remote Auth-On Staging Repeat Pack v0.1 (re-run) | No staging server details provided. Remote Auth-On Staging Repeat cannot be executed. No deploy, no SSH, no staging writes, no secrets captured. |
+| PR-GAP-002 | Production data policy not approved | **OPEN_PENDING_REAL_OWNER_FINAL_APPROVAL** | Real owners — **TBD** | Real Product/Data Owner final approval required | Production Data Owner Final Approval Pack v0.1 | Final approval request created. Placeholder rehearsal only. Ordered closure checked — no real approval found. |
 | PR-GAP-003 | Rollback plan not approved | **CLOSED_APPROVED_BY_OWNER** | **Артем Асаев** | Rollback plan, procedure, checklist, owner assignment, and final approval captured | none unless handover required | Rollback approved. Not executed. |
 | PR-GAP-004 | Monitoring / alerting policy not approved | **CLOSED_APPROVED_BY_OWNER** | **Артем Асаев** | Monitoring policy, alert conditions, checklist, owner assignment, and final approval captured | none unless handover required | Monitoring approved. Real config not changed. |
 | PR-GAP-005 | Audit retention policy not approved | **CLOSED_APPROVED_BY_OWNER** | **Феликс Асаев** | Audit retention policy, evidence rules, checklist, owner assignment, and final approval captured | none unless handover required | Audit retention approved. Real config not changed. |
 | PR-GAP-006 | Tenant isolation production evidence not approved | **CLOSED_APPROVED_BY_OWNER** | **Феликс Асаев** | Tenant isolation evidence pack reviewed; owner assignment and final approval captured | none for PR-GAP-006 unless handover required | Tenant isolation evidence approved by owner. No code changed. No write operations. Production-ready not claimed. |
 | PR-GAP-007 | Support owner not assigned | **CLOSED_APPROVED_BY_OWNER** | **Артем Асаев** | Support ownership policy, escalation matrix, checklist, owner note, decision note, and support owner final approval captured | none for PR-GAP-007 unless operational support tooling implementation or handover is required later | Support ownership approved by owner. No support config was changed. Production-ready not claimed. Other production readiness gaps remain open. |
-| PR-GAP-008 | Release owner not assigned | **OPEN_PENDING_RELEASE_OWNER_FINAL_APPROVAL** | Release / Delivery / Platform Owner — **TBD** | Release ownership policy approved by named release owner with final approval | Low-code Pilot Week-3 Release Owner Final Approval Pack v0.1 | Final approval gate refreshed. No deploy. PR-GAP-008 open. |
-| PR-GAP-009 | Final go/no-go owner not assigned | **OPEN_PENDING_FINAL_GO_NO_GO_OWNER_APPROVAL** | Product / Executive / Final Decision Owner — **TBD** | Final go/no-go owner assigned; explicit GO/NO-GO captured when blockers allow | Low-code Pilot Week-3 Final Go-No-Go Owner Final Approval Pack v0.1 | Final approval gate refreshed. No GO decision. PR-GAP-009 open. |
-| PR-GAP-010 | Low-code financial/legal source-of-truth policy not approved | **SOT_OWNER_APPROVAL_GATE_CREATED_PENDING_OWNER_ASSIGNMENT** | SoT / Product / Legal / Finance — **TBD** | SoT owner assigned; low-code SoT policy and docs governance SoT approved | Low-code Pilot Week-3 SoT Owner Final Approval Pack v0.1 | SoT owner gate created. No code changed. PR-GAP-010 open. |
+| PR-GAP-008 | Release owner not assigned | **OPEN_PENDING_RELEASE_OWNER_FINAL_APPROVAL** | Release / Delivery / Platform Owner — **TBD** | Named release owner final approval required | Release Owner Final Approval Pack v0.1 | Final approval request created. Ordered closure checked — no real approval found. |
+| PR-GAP-009 | Final go/no-go owner not assigned | **OPEN_PENDING_FINAL_GO_NO_GO_OWNER_APPROVAL** | Product / Executive / Final Decision Owner — **TBD** | Final go/no-go owner approval required; production GO blocked while PR-GAP-001 open | Final Go-No-Go Owner Final Approval Pack v0.1 | Final approval request created. No production GO while PR-GAP-001 blocked. |
+| PR-GAP-010 | Low-code financial/legal source-of-truth policy not approved | **OPEN_PENDING_SOT_OWNER_FINAL_APPROVAL** | SoT / Product / Legal / Finance — **TBD** | SoT owner final approval required | SoT Owner Final Approval Pack v0.1 | Final approval request created. Ordered closure checked — no real approval found. |
 
 ## Status Summary
 
 | Status | Count |
 |--------|-------|
 | PENDING | **0** |
-| SOT_OWNER_APPROVAL_GATE_CREATED_PENDING_OWNER_ASSIGNMENT | **1** (PR-GAP-010) |
+| OPEN_PENDING_SOT_OWNER_FINAL_APPROVAL | **1** (PR-GAP-010) |
 | OPEN_PENDING_FINAL_GO_NO_GO_OWNER_APPROVAL | **1** (PR-GAP-009) |
 | OPEN_PENDING_RELEASE_OWNER_FINAL_APPROVAL | **1** (PR-GAP-008) |
 | BLOCKED_WAITING_FOR_STAGING_SERVER_DETAILS | **1** (PR-GAP-001) |
@@ -89,3 +92,4 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 4. Controlled pilot **may continue** while gaps are open.
 5. PR-GAP-001 unblocks when staging inputs provided and Remote Auth-On Staging Repeat Pack completes.
 6. No-server docs-only owner gates prepared 2026-06-23 — gaps **not closed** without user owner approval.
+7. Ordered remaining gap closure 2026-06-23 — approval **requests** created; gaps remain open until user provides owner approval.

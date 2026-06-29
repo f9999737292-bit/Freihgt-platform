@@ -49,10 +49,10 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 
 | criterion | status | evidence | owner | notes |
 |-----------|--------|----------|-------|-------|
-| Production data approval | **PENDING / OPEN_PENDING_REAL_OWNER_FINAL_APPROVAL** | Production Data Owner Final Approval Gate v0.1, Production Data Policy v0.1, Data Owner Placeholder Approval v0.1 | Real owners TBD | PR-GAP-002 open |
+| Production data approval | **PENDING / OPEN_PENDING_REAL_OWNER_FINAL_APPROVAL** | Production Data Owner Final Approval Request v0.1, Production Data Owner Final Approval Gate v0.1 | Real owners TBD | PR-GAP-002 open |
 | Migration execute policy | PENDING | — | DevOps | no prod migrations approved |
 | Template publish policy | PENDING | — | pilot lead | publish blocked without pack |
-| Low-code SoT policy | **PENDING / SOT_OWNER_GATE_PENDING** | SoT Owner Approval Gate v0.1, Source-of-Truth Policy v0.1, Source-of-Truth Checklist v0.1 | SoT / Product / Legal / Finance — TBD | PR-GAP-010 open |
+| Low-code SoT policy | **PENDING / OPEN_PENDING_SOT_OWNER_FINAL_APPROVAL** | SoT Owner Final Approval Request v0.1, SoT Owner Approval Gate v0.1, Source-of-Truth Policy v0.1 | SoT / Product / Legal / Finance — TBD | PR-GAP-010 open |
 
 ## Audit / Observability Readiness
 
@@ -81,8 +81,8 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 | criterion | status | evidence | owner | notes |
 |-----------|--------|----------|-------|-------|
 | controlled pilot approval | PASS | CONTROLLED_PILOT_APPROVED | Феликс Асаев | active |
-| Release owner | **PENDING / OPEN_PENDING_RELEASE_OWNER_FINAL_APPROVAL** | Release Owner Final Approval Gate v0.1, Release Ownership Policy v0.1, Release Checklist v0.1 | Release / Delivery — TBD | PR-GAP-008 open |
-| Final go/no-go approval | **PENDING / OPEN_PENDING_FINAL_GO_NO_GO_OWNER_APPROVAL** | Final Go-No-Go Owner Final Approval Gate v0.1, Final Go/No-Go Policy v0.1, Final Go/No-Go Checklist v0.1 | Product / Executive — TBD | PR-GAP-009 open |
+| Release owner | **PENDING / OPEN_PENDING_RELEASE_OWNER_FINAL_APPROVAL** | Release Owner Final Approval Request v0.1, Release Owner Final Approval Gate v0.1 | Release / Delivery — TBD | PR-GAP-008 open |
+| Final go/no-go approval | **PENDING / OPEN_PENDING_FINAL_GO_NO_GO_OWNER_APPROVAL** | Final Go-No-Go Owner Final Approval Request v0.1, Final Go-No-Go Owner Final Approval Gate v0.1 | Product / Executive — TBD | PR-GAP-009 open; production GO blocked while PR-GAP-001 open |
 
 ## Gap Closure Artifacts
 

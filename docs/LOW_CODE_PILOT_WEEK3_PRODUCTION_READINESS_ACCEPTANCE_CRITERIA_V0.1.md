@@ -17,15 +17,15 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | 3 | No P0/P1/P2 from operator feedback | **PASS** | — |
 | 4 | Health-check OK (target env) | **PASS** (dev) | — |
 | 5 | Remote Auth-On Repeat completed | **PENDING** (remote staging) — local **PASS** 2026-06-23 | PR-GAP-001 |
-| 6 | Production data policy approved | **PARTIAL** (draft created; owner approval pending) | PR-GAP-002 |
+| 6 | Production data policy approved | **PENDING** (final approval request created) | PR-GAP-002 |
 | 7 | Rollback plan approved | **PASS** | PR-GAP-003 |
 | 8 | Monitoring/alerting policy approved | **PASS** | PR-GAP-004 |
 | 9 | Audit retention policy approved | **PASS** / **APPROVED_BY_OWNER** | PR-GAP-005 |
 | 10 | Tenant isolation evidence approved | **PASS** / **APPROVED_BY_OWNER** | PR-GAP-006 |
 | 11 | Support owner assigned | **PASS** / **APPROVED_BY_OWNER** | PR-GAP-007 |
-| 12 | Release owner assigned | **PARTIAL / OWNER_ASSIGNMENT_PENDING** (pack created) | PR-GAP-008 |
-| 13 | Final go/no-go owner assigned | **PARTIAL / OWNER_ASSIGNMENT_PENDING** (pack created) | PR-GAP-009 |
-| 14 | Low-code SoT policy approved | **PARTIAL / OWNER_ASSIGNMENT_PENDING** (pack created) | PR-GAP-010 |
+| 12 | Release owner assigned | **PENDING** (final approval request created) | PR-GAP-008 |
+| 13 | Final go/no-go owner assigned | **PENDING** (final approval request created; production GO blocked while PR-GAP-001 open) | PR-GAP-009 |
+| 14 | Low-code SoT policy approved | **PENDING** (final approval request created) | PR-GAP-010 |
 
 **Must pass count:** **9 / 14** met for production claim (rollback, monitoring, audit retention, tenant isolation, and support ownership approved by owner).
 
@@ -46,6 +46,10 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | 11 | No production-ready claim without audit retention approval |
 | 12 | No production-ready claim without tenant isolation evidence review |
 | 13 | No production-ready claim without support ownership approval |
+| 14 | No production-ready claim while PR-GAP-001 remains blocked (remote staging auth-on) |
+| 15 | Final go/no-go owner approval is **not** equal to production go-live if staging auth-on repeat is not verified |
+| 16 | All owner approvals must be docs-only unless explicitly authorized |
+| 17 | Secrets/JWT/tokens must never be included in approval evidence |
 
 ### Support Ownership Requirements (PR-GAP-007)
 

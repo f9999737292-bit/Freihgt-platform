@@ -52,7 +52,7 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Current status:** **NO_SERVER_GAP_CLOSURE_STARTED_DOCS_ONLY**
+**Current status:** **ORDERED_REMAINING_GAP_CLOSURE_EXECUTED_DOCS_ONLY**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -72,23 +72,31 @@ docs/ai-team/
 
 **PR-GAP-009:** **OPEN_PENDING_FINAL_GO_NO_GO_OWNER_APPROVAL**
 
-**PR-GAP-010:** **SOT_OWNER_APPROVAL_GATE_CREATED_PENDING_OWNER_ASSIGNMENT**
+**PR-GAP-010:** **OPEN_PENDING_SOT_OWNER_FINAL_APPROVAL**
 
-**Recommended next events:**
+**Next recommended events:**
 
-- Staging server details provided → Remote Auth-On Staging Repeat Pack v0.1 (re-run)
 - Real production data owner approval provided → Production Data Owner Final Approval Pack v0.1
 - Release owner approval provided → Release Owner Final Approval Pack v0.1
-- Final go/no-go owner approval provided → Final Go-No-Go Owner Final Approval Pack v0.1
 - SoT owner approval provided → SoT Owner Final Approval Pack v0.1
+- Final go/no-go owner approval provided → Final Go-No-Go Owner Final Approval Pack v0.1
+- Staging server details provided → Remote Auth-On Staging Repeat Pack v0.1 (re-run)
 
-**Required user inputs:**
+Week-3 production data owner final approval request v0.1:
 
-- production data owner name + approval
-- release owner name + approval
-- final go/no-go owner name + approval
-- SoT owner name + approval
-- staging server details (sanitized)
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_DATA_OWNER_FINAL_APPROVAL_REQUEST_V0.1.md`.
+
+Week-3 release owner final approval request v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_RELEASE_OWNER_FINAL_APPROVAL_REQUEST_V0.1.md`.
+
+Week-3 SoT owner final approval request v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_SOT_OWNER_FINAL_APPROVAL_REQUEST_V0.1.md`.
+
+Week-3 final go/no-go owner final approval request v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_FINAL_GO_NO_GO_OWNER_FINAL_APPROVAL_REQUEST_V0.1.md`.
 
 Week-3 no-server gap closure status v0.1:
 

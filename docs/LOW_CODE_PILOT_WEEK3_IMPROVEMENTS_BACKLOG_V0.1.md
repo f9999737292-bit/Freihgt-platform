@@ -82,6 +82,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 | BL-W3-047 | tenant isolation evidence pack v0.1 | ALL | Tenant isolation evidence | P2 | Tenant isolation evidence pack created — PR-GAP-006 partially mitigated; final evidence review pending | Tenant Isolation Evidence Review Pack v0.1 | Security / Architecture — TBD | Tenant Isolation Evidence Review Pack v0.1 | COMPLETED | TENANT_ISOLATION_EVIDENCE_PACK_CREATED_PENDING_REVIEW |
 | BL-W3-048 | tenant isolation evidence review pack v0.1 | ALL | Tenant isolation evidence review | P2 | Tenant isolation evidence reviewed — PR-GAP-006 partially mitigated; owner approval pending | Tenant Isolation Owner Approval Pack v0.1 | Security / Architecture — TBD | Tenant Isolation Owner Approval Pack v0.1 | COMPLETED | TENANT_ISOLATION_EVIDENCE_REVIEWED_PENDING_OWNER_APPROVAL |
 | BL-W3-049 | tenant isolation owner approval pack v0.1 | ALL | Tenant isolation owner approval gate | P2 | Tenant isolation owner approval gate prepared — named owner TBD; final approval pending | Tenant Isolation Owner Final Approval Pack v0.1 | Security / Architecture — TBD | Tenant Isolation Owner Final Approval Pack v0.1 | COMPLETED | TENANT_ISOLATION_OWNER_APPROVAL_GATE_PREPARED_PENDING_OWNER_ASSIGNMENT |
+| BL-W3-062 | ordered remaining gap closure pack v0.1 | ALL | Ordered remaining gap closure | P3 | Final approval requests created for PR-GAP-002/008/009/010; no real owner approval found; PR-GAP-001 blocked | Owner approvals or staging details | — | event-based gap packs | COMPLETED | ORDERED_REMAINING_GAP_CLOSURE_EXECUTED_DOCS_ONLY |
 | BL-W3-061 | no-server gap closure pack v0.1 | ALL | No-server docs-only gap closure | P3 | Owner final approval gates refreshed for PR-GAP-002/008/009/010; PR-GAP-001 remains blocked | Owner approvals or staging details | — | event-based gap packs | COMPLETED | NO_SERVER_GAP_CLOSURE_STARTED_DOCS_ONLY |
 | BL-W3-060 | remote auth-on staging repeat pack v0.1 | ALL | Remote auth-on staging repeat | P2 | Repeat pack executed blocked — staging details missing; evidence scaffold created; PR-GAP-001 open | Provide staging details, re-run remote read-only GET matrix | Ops / Platform / Staging Owner — TBD | event-based gap packs | COMPLETED | REMOTE_AUTH_ON_STAGING_REPEAT_BLOCKED_MISSING_STAGING_DETAILS |
 | BL-W3-059 | remote auth-on staging preparation gate pack v0.1 | ALL | Remote staging preparation gate | P2 | Remote staging details validation blocked; auth-on repeat plan and missing input request created; PR-GAP-001 remains open | Remote Auth-On Staging Repeat Pack v0.1 | Ops / Platform / Staging Owner — TBD | event-based gap packs | COMPLETED | REMOTE_STAGING_DETAILS_VALIDATION_BLOCKED_PENDING_INPUT |
@@ -139,6 +140,7 @@ When P1 appears: add row with owner assigned, target fix pack, decision **GO_WIT
 | BL-W3-047 | Tenant isolation evidence pack v0.1 | **Completed** | COMPLETED |
 | BL-W3-048 | Tenant isolation evidence review pack v0.1 | **Completed** | COMPLETED |
 | BL-W3-049 | Tenant isolation owner approval pack v0.1 | **Completed** | COMPLETED |
+| BL-W3-062 | Ordered remaining gap closure pack v0.1 | **Completed** | COMPLETED |
 | BL-W3-061 | No-server gap closure pack v0.1 | **Completed** | COMPLETED |
 | BL-W3-060 | Remote auth-on staging repeat pack v0.1 | **Completed (blocked)** | COMPLETED |
 | BL-W3-059 | Remote auth-on staging preparation gate pack v0.1 | **Completed** | COMPLETED |
@@ -166,12 +168,12 @@ When P1 appears: add row with owner assigned, target fix pack, decision **GO_WIT
 - **Final decision owner assignment pending**
 - **Source-of-truth policy pack created** — PR-GAP-010 partially mitigated
 - **Remote staging details intake prepared**
-- **No-server gap closure status created**
-- **PR-GAP-002 final owner approval gate refreshed**
-- **PR-GAP-008 release owner approval gate refreshed**
-- **PR-GAP-009 final go/no-go owner approval gate refreshed**
-- **PR-GAP-010 SoT owner approval gate created**
-- **PR-GAP-001 remains blocked waiting for server**
+- **Ordered remaining gap closure executed**
+- **PR-GAP-002 final approval request created**
+- **PR-GAP-008 release owner approval request created**
+- **PR-GAP-010 SoT owner approval request created**
+- **PR-GAP-009 final go/no-go approval request created**
+- **PR-GAP-001 remains blocked waiting for staging server details**
 - **Production-ready still not claimed**
 - **No release config changed**
 - **No deploy executed**
@@ -240,6 +242,7 @@ Explicit list (BL-W3-000–009):
 | **Low-code Pilot Week-3 Production Data Owner Assignment Pack v0.1** | Completed | **DATA_OWNER_ASSIGNMENT_PREPARED_PENDING_APPROVAL** |
 | **Low-code Pilot Week-3 Production Data Owner Placeholder Approval Pack v0.1** | Completed | **PLACEHOLDER_APPROVAL_REHEARSED_PENDING_REAL_OWNER_APPROVAL** |
 | **Low-code Pilot Week-3 Production Data Owner Final Approval Pack v0.1** | Real production data owner final approval provided | PR-GAP-002 closure |
+| **Low-code Pilot Week-3 Ordered Remaining Gap Closure Pack v0.1** | Completed | **ORDERED_REMAINING_GAP_CLOSURE_EXECUTED_DOCS_ONLY** |
 | **Low-code Pilot Week-3 No-Server Gap Closure Pack v0.1** | Completed | **NO_SERVER_GAP_CLOSURE_STARTED_DOCS_ONLY** |
 | **Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1** | Completed (blocked) | **REMOTE_AUTH_ON_STAGING_REPEAT_BLOCKED_MISSING_STAGING_DETAILS** — PR-GAP-001 open |
 | **Low-code Pilot Week-3 Remote Auth-On Staging Preparation Gate Pack v0.1** | Completed | **REMOTE_STAGING_DETAILS_VALIDATION_BLOCKED_PENDING_INPUT** — PR-GAP-001 open |
