@@ -52,7 +52,7 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Current status:** **REMOTE_STAGING_SERVER_REQUIREMENTS_CREATED_PENDING_PROVISIONING**
+**Current status:** **BLOCKED_WAITING_FOR_STAGING_SERVER_DETAILS**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -64,26 +64,29 @@ docs/ai-team/
 
 **Open gaps:** PR-GAP-001, PR-GAP-002, PR-GAP-008, PR-GAP-009, PR-GAP-010
 
-**PR-GAP-001:** **REMOTE_STAGING_SERVER_REQUIREMENTS_CREATED_PENDING_PROVISIONING**
+**PR-GAP-001:** **BLOCKED_WAITING_FOR_STAGING_SERVER_DETAILS**
 
-**Next event:** **Staging server provisioned and details provided**
+**Next event:** **Remote staging details provided / Remote Auth-On Staging Repeat execution approved**
 
 **Next pack:** **Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1**
 
-**Required server:**
+**Required:**
 
-- Ubuntu Server 24.04 LTS x64
-- 8 vCPU preferred
-- 32 GB RAM preferred
-- 500 GB NVMe preferred
-- public IPv4
-- domain/subdomain
-- SSH key access
-- sudo/root access
-- 80/443 open
-- DB ports closed externally
-- Docker/Docker Compose ready
+- staging details completed (see missing input request)
 - no secrets in docs
+- explicit approval before any remote SSH/deploy/check execution
+
+Week-3 remote staging details validation note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_REMOTE_STAGING_DETAILS_VALIDATION_NOTE_V0.1.md`.
+
+Week-3 remote auth-on staging repeat plan v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_REMOTE_AUTH_ON_STAGING_REPEAT_PLAN_V0.1.md`.
+
+Week-3 remote staging missing input request v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_REMOTE_STAGING_MISSING_INPUT_REQUEST_V0.1.md`.
 
 Week-3 staging server requirements v0.1:
 

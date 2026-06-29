@@ -14,6 +14,8 @@ Risk register for production readiness review after controlled pilot approval.
 
 **Staging server provisioning:** `STAGING_SERVER_REQUIREMENTS_CREATED_PENDING_PROVISIONING` (PR-GAP-001 **open**).
 
+**Remote staging preparation gate:** `REMOTE_STAGING_DETAILS_VALIDATION_BLOCKED_PENDING_INPUT` (PR-GAP-001 **open**).
+
 **Audit retention policy:** owner **Феликс Асаев** — `AUDIT_COMPLIANCE_OWNER_FINAL_APPROVAL_CAPTURED` (PR-GAP-005 **CLOSED**).
 
 **Production monitoring:** owner **Артем Асаев** — `MONITORING_OWNER_FINAL_APPROVAL_CAPTURED` (PR-GAP-004 **CLOSED**).
@@ -42,7 +44,7 @@ Risk register for production readiness review after controlled pilot approval.
 
 **Remaining gaps consolidation:** `REMAINING_GAPS_STATUS_CONSOLIDATED` — see `LOW_CODE_PILOT_WEEK3_REMAINING_GAPS_STATUS_CONSOLIDATION_V0.1.md`.
 
-**PR-RISK-001 residual risk:** server not yet provisioned and remote auth-on staging repeat not yet executed.
+**PR-RISK-001 residual risk:** remote staging not verified.
 
 **Production go/no-go blocked** until gaps PR-GAP-001–002, PR-GAP-008–010 closed per acceptance criteria.
 
@@ -52,7 +54,7 @@ Risk register for production readiness review after controlled pilot approval.
 
 | risk id | gap id | risk | severity | status | mitigation | owner | next action |
 |---------|--------|------|----------|--------|------------|-------|-------------|
-| PR-RISK-001 | PR-GAP-001 | Remote Auth-On not repeated on staging | P2 | **BLOCKED_WAITING_FOR_STAGING_SERVER_PROVISIONING** | Server requirements, provider request, and acceptance checklist prepared; intake form and readiness checklist exist; local repeat PASS 2026-06-23 | Ops / Platform / Staging Owner — TBD | Provision staging server, provide details, then run Remote Auth-On Staging Repeat Pack v0.1 |
+| PR-RISK-001 | PR-GAP-001 | Remote Auth-On not repeated on staging | P2 | **BLOCKED_WAITING_FOR_STAGING_SERVER_DETAILS** | Missing input request and auth-on repeat plan prepared; intake form empty; local repeat PASS 2026-06-23 | Ops / Platform / Staging Owner — TBD | Provide staging server details, then run Remote Auth-On Staging Repeat Pack v0.1 |
 | PR-RISK-002 | PR-GAP-002 | Production data policy not approved | P2 | **PARTIALLY_MITIGATED_BY_POLICY_AND_PLACEHOLDER_REHEARSAL_PENDING_REAL_APPROVAL** | Production data policy and approval form exist; placeholder approval rehearsal completed; real Product/Data Owner and Legal/Compliance approval still required | Placeholder only — real owners TBD | Production Data Owner Final Approval Pack v0.1 |
 | PR-RISK-003 | PR-GAP-003 | Rollback plan not approved | P2 | **MITIGATED_BY_APPROVED_ROLLBACK_PLAN** | Rollback plan/procedure/checklist created and approved by rollback owner **Артем Асаев** | **Артем Асаев** | Optional: role/contact handover |
 | PR-RISK-004 | PR-GAP-004 | Monitoring/alerting policy not approved | P2 | **MITIGATED_BY_APPROVED_MONITORING_POLICY** | Monitoring policy, alert conditions, checklist, and owner approval captured with owner **Артем Асаев** | **Артем Асаев** | Optional: role/contact/on-call handover; real monitoring config implementation may require separate operational task if needed |
