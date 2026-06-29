@@ -14,6 +14,8 @@ Tracks **1 blocked production readiness gap** (PR-GAP-001). PR-GAP-002, PR-GAP-0
 
 **Remote auth-on staging repeat:** `REMOTE_AUTH_ON_STAGING_REPEAT_BLOCKED_MISSING_STAGING_DETAILS` (PR-GAP-001 **open**)
 
+**No-server continuation:** `PR_GAP_001_NO_SERVER_CONTINUATION_DOCS_ONLY` (2026-06-23)
+
 **Staging prep:** `REMOTE_STAGING_PREPARATION_CHECKLIST_CREATED`
 
 **Staging deploy runbook:** `STAGING_DEPLOY_RUNBOOK_CREATED`
@@ -60,7 +62,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 
 | Gap ID | Gap | Status | Owner | Acceptance Criteria | Next Pack | Notes |
 |--------|-----|--------|-------|---------------------|-----------|-------|
-| PR-GAP-001 | Remote Auth-On Repeat not completed | **BLOCKED_WAITING_FOR_STAGING_SERVER_DETAILS** | Ops / Platform / Staging Owner — **TBD** | Staging server details must be provided; remote auth-on repeat blocked | Remote Auth-On Staging Repeat Pack v0.1 (re-run) | No staging server details provided. Remote Auth-On Staging Repeat cannot be executed. No deploy, no SSH, no staging writes, no secrets captured. |
+| PR-GAP-001 | Remote Auth-On Repeat not completed | **BLOCKED_WAITING_FOR_STAGING_SERVER_DETAILS** | Ops / Platform / Staging Owner — **TBD** | Staging server details must be provided; remote auth-on repeat blocked | Remote Auth-On Staging Repeat Pack v0.1 (re-run) | No remote staging server details provided. No-server continuation docs created. Remote Auth-On Staging Repeat cannot be executed yet. No deploy, no SSH, no staging writes, no secrets captured. |
 | PR-GAP-002 | Production data policy not approved | **CLOSED_APPROVED_BY_OWNER** | **Феликс Асаев** | Production data policy, checklist, and owner final approval captured | none unless handover required | Production data owner final approval captured docs-only. No production writes. No secrets. Production-ready not claimed. |
 | PR-GAP-003 | Rollback plan not approved | **CLOSED_APPROVED_BY_OWNER** | **Артем Асаев** | Rollback plan, procedure, checklist, owner assignment, and final approval captured | none unless handover required | Rollback approved. Not executed. |
 | PR-GAP-004 | Monitoring / alerting policy not approved | **CLOSED_APPROVED_BY_OWNER** | **Артем Асаев** | Monitoring policy, alert conditions, checklist, owner assignment, and final approval captured | none unless handover required | Monitoring approved. Real config not changed. |
@@ -89,4 +91,5 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 4. Controlled pilot **may continue** while gaps are open.
 5. PR-GAP-001 unblocks when staging inputs provided and Remote Auth-On Staging Repeat Pack completes.
 6. No-server docs-only owner gates prepared 2026-06-23 — gaps **not closed** without user owner approval.
-7. Ordered remaining gap closure 2026-06-23 — approval **requests** created; PR-GAP-002 **closed** 2026-06-23 with owner **Феликс Асаев**; PR-GAP-008 **closed** with owner **Артем Асаев**; PR-GAP-010 **closed** with owner **Феликс Асаев**; PR-GAP-009 owner approval **captured** 2026-06-23 with owner **Феликс Асаев** — status **OWNER_APPROVED_BUT_PRODUCTION_READY_BLOCKED** while PR-GAP-001 remains blocked.
+7. Ordered remaining gap closure 2026-06-23 — PR-GAP-002/008/010 **closed**; PR-GAP-009 owner approval **captured** — **OWNER_APPROVED_BUT_PRODUCTION_READY_BLOCKED** while PR-GAP-001 remains blocked.
+8. PR-GAP-001 no-server continuation 2026-06-23 — local rehearsal plan, remote GET matrix skeleton, sanitized intake template, and evidence index prepared; gap remains **blocked**.

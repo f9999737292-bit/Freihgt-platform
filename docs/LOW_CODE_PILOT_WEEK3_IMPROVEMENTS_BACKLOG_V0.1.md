@@ -79,6 +79,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 | BL-W3-064 | release owner final approval pack v0.1 | ALL | Release owner final approval | P2 | Release owner final approval captured — PR-GAP-008 closed | PR-GAP-010 SoT owner approval | **Артем Асаев** | SoT Owner Final Approval Pack v0.1 | COMPLETED | RELEASE_OWNER_FINAL_APPROVAL_CAPTURED |
 | BL-W3-065 | SoT owner final approval pack v0.1 | ALL | SoT owner final approval | P2 | SoT owner final approval captured — PR-GAP-010 closed | PR-GAP-009 final go/no-go owner approval | **Феликс Асаев** | Final Go-No-Go Owner Final Approval Pack v0.1 | COMPLETED | SOT_OWNER_FINAL_APPROVAL_CAPTURED |
 | BL-W3-066 | final go/no-go owner final approval pack v0.1 | ALL | Final go/no-go owner final approval | P1 | Final go/no-go owner approval captured — PR-GAP-009 owner approved but production-ready blocked | Provide sanitized staging server details | **Феликс Асаев** | Remote Auth-On Staging Repeat Pack v0.1 | COMPLETED | FINAL_GO_NO_GO_OWNER_APPROVAL_CAPTURED_NOT_PRODUCTION_READY |
+| BL-W3-067 | PR-GAP-001 no-server continuation pack v0.1 | ALL | PR-GAP-001 no-server continuation | P2 | No-server continuation status, local rehearsal plan, remote GET matrix skeleton, intake template, and evidence index prepared | Provide sanitized staging server details | — | Remote Auth-On Staging Repeat Pack v0.1 | COMPLETED | PR_GAP_001_NO_SERVER_CONTINUATION_DOCS_ONLY |
 | BL-W3-040 | production monitoring policy pack v0.1 | ALL | Production monitoring policy | P3 | Monitoring policy, alert conditions, checklist created — no config changed | Monitoring owner approval | Артем Асаев | Production Monitoring Owner Final Approval Pack v0.1 | COMPLETED | MONITORING_OWNER_FINAL_APPROVAL_CAPTURED |
 | BL-W3-041 | production monitoring owner assignment pack v0.1 | ALL | Production monitoring owner assignment | P3 | Monitoring owner assigned as **Артем Асаев** — final approval pending | Final owner approval | Артем Асаев | Production Monitoring Owner Final Approval Pack v0.1 | COMPLETED | MONITORING_OWNER_ASSIGNED_PENDING_APPROVAL |
 | BL-W3-042 | production monitoring owner final approval pack v0.1 | ALL | Production monitoring owner final approval | P3 | Monitoring owner final approval captured — PR-GAP-004 closed | Continue event-based gap closure | Артем Асаев | event-based gap packs | COMPLETED | MONITORING_OWNER_FINAL_APPROVAL_CAPTURED |
@@ -169,10 +170,13 @@ When P1 appears: add row with owner assigned, target fix pack, decision **GO_WIT
 - **Audit logs were not cleaned**
 - **PR-GAP-006 closed** — tenant isolation approved by **Феликс Асаев**
 - **PR-GAP-007 closed** — support ownership approved by **Артем Асаев**
-- **PR-GAP-009 final go/no-go owner approval captured**
-- **Final go/no-go owner: Феликс Асаев**
-- **PR-GAP-009 owner approval captured but production-ready remains blocked**
+- **PR-GAP-001 no-server continuation status prepared**
+- **Local auth-on rehearsal plan prepared**
+- **Remote read-only GET matrix skeleton prepared**
+- **Staging details sanitized intake template prepared**
+- **Production readiness evidence index prepared**
 - **Next action: provide sanitized staging server details**
+- **PR-GAP-009 final go/no-go owner approval captured**
 - **PR-GAP-010 closed** — SoT approved by **Феликс Асаев**
 - **Source-of-truth scope approved**
 - **Deploy not executed**

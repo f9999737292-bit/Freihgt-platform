@@ -52,7 +52,7 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Current status:** **FINAL_GO_NO_GO_OWNER_APPROVAL_CAPTURED_NOT_PRODUCTION_READY**
+**Current status:** **PR_GAP_001_NO_SERVER_CONTINUATION_DOCS_ONLY**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -68,7 +68,7 @@ docs/ai-team/
 
 **Only remaining blocker:** PR-GAP-001 — staging server details and remote auth-on staging repeat
 
-**Next event:** Staging server details provided
+**Next event:** Sanitized staging server details provided
 
 **Next pack:** Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1
 
@@ -76,7 +76,27 @@ docs/ai-team/
 
 **Next recommended events:**
 
-- Staging server details provided → Remote Auth-On Staging Repeat Pack v0.1 (re-run)
+- Sanitized staging server details provided → Remote Auth-On Staging Repeat Pack v0.1 (re-run)
+
+Week-3 PR-GAP-001 no-server continuation status v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PR_GAP_001_NO_SERVER_CONTINUATION_STATUS_V0.1.md`.
+
+Week-3 local auth-on rehearsal plan v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_LOCAL_AUTH_ON_REHEARSAL_PLAN_V0.1.md`.
+
+Week-3 remote auth-on read-only GET matrix skeleton v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_REMOTE_AUTH_ON_READ_ONLY_GET_MATRIX_SKELETON_V0.1.md`.
+
+Week-3 staging details sanitized intake template v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_STAGING_DETAILS_SANITIZED_INTAKE_TEMPLATE_V0.1.md`.
+
+Week-3 production readiness evidence index v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_EVIDENCE_INDEX_V0.1.md`.
 
 Week-3 final go/no-go owner final approval v0.1:
 

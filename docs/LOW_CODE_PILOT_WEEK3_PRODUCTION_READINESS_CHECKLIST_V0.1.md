@@ -34,7 +34,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 
 | criterion | status | evidence | owner | notes |
 |-----------|--------|----------|-------|-------|
-| Remote Auth-On Repeat | **BLOCKED / WAITING_FOR_STAGING_SERVER_DETAILS** | Remote Auth-On Staging Repeat v0.1, Remote Auth-On Staging Repeat Evidence v0.1, Remote Staging Details Validation Note v0.1, Remote Auth-On Staging Repeat Plan v0.1, Remote Staging Missing Input Request v0.1 | Ops / Platform / Staging Owner — TBD | Remote repeat blocked — details missing; local PASS 2026-06-23; PR-GAP-001 open |
+| Remote Auth-On Repeat | **BLOCKED / WAITING_FOR_STAGING_SERVER_DETAILS** | No-Server Continuation Status v0.1, Local Auth-On Rehearsal Plan v0.1, Remote Auth-On Read-only GET Matrix Skeleton v0.1, Staging Details Sanitized Intake Template v0.1, Production Readiness Evidence Index v0.1 | Ops / Platform / Staging Owner — TBD | Remote repeat blocked — details missing; local PASS 2026-06-23; no-server continuation prepared; PR-GAP-001 open |
 | Production auth policy | PENDING | — | Security | not approved |
 | RBAC production review | PENDING | — | Security | out of scope v0.1 pilot |
 
@@ -112,5 +112,6 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 | Decision | `NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY` |
 | Reason | PR-GAP-001 remains blocked until staging server details are provided and remote auth-on repeat is completed |
 | Gap closure plan | **created** — `GAP_CLOSURE_PLAN_CREATED` |
+| Evidence prepared | No-Server Continuation Status v0.1, Local Auth-On Rehearsal Plan v0.1, Remote GET Matrix Skeleton v0.1, Staging Details Sanitized Intake Template v0.1, Production Readiness Evidence Index v0.1 |
 
 Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`, `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
