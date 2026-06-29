@@ -17,17 +17,17 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | 3 | No P0/P1/P2 from operator feedback | **PASS** | — |
 | 4 | Health-check OK (target env) | **PASS** (dev) | — |
 | 5 | Remote Auth-On Repeat completed | **PENDING** (remote staging) — local **PASS** 2026-06-23 | PR-GAP-001 |
-| 6 | Production data policy approved | **PENDING** (final approval request created) | PR-GAP-002 |
+| 6 | Production data policy approved | **PASS** / **APPROVED_BY_OWNER** | PR-GAP-002 |
 | 7 | Rollback plan approved | **PASS** | PR-GAP-003 |
 | 8 | Monitoring/alerting policy approved | **PASS** | PR-GAP-004 |
 | 9 | Audit retention policy approved | **PASS** / **APPROVED_BY_OWNER** | PR-GAP-005 |
 | 10 | Tenant isolation evidence approved | **PASS** / **APPROVED_BY_OWNER** | PR-GAP-006 |
 | 11 | Support owner assigned | **PASS** / **APPROVED_BY_OWNER** | PR-GAP-007 |
-| 12 | Release owner assigned | **PENDING** (final approval request created) | PR-GAP-008 |
+| 12 | Release owner assigned | **PASS** / **APPROVED_BY_RELEASE_OWNER** | PR-GAP-008 |
 | 13 | Final go/no-go owner assigned | **PENDING** (final approval request created; production GO blocked while PR-GAP-001 open) | PR-GAP-009 |
 | 14 | Low-code SoT policy approved | **PENDING** (final approval request created) | PR-GAP-010 |
 
-**Must pass count:** **9 / 14** met for production claim (rollback, monitoring, audit retention, tenant isolation, and support ownership approved by owner).
+**Must pass count:** **11 / 14** met for production claim (production data, rollback, monitoring, audit retention, tenant isolation, support ownership, and release ownership approved by owner).
 
 ### Must Not Happen
 
@@ -41,7 +41,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | 6 | No migration execution without approval |
 | 7 | No low-code financial/legal source of truth without approval |
 | 8 | Signed legal documents and payment data excluded unless separately approved |
-| 9 | No broad rollout while gaps PR-GAP-001–002, PR-GAP-008–010 open |
+| 9 | No broad rollout while gaps PR-GAP-001, PR-GAP-009, PR-GAP-010 open |
 | 10 | No audit evidence containing secrets, JWT, tokens, or raw production dumps |
 | 11 | No production-ready claim without audit retention approval |
 | 12 | No production-ready claim without tenant isolation evidence review |
@@ -169,6 +169,16 @@ For each gap closure pack:
 **Evidence:** Audit Compliance Owner Final Approval v0.1
 
 Audit retention policy is **approved by owner**, but this does **not** equal production-ready. Production-ready requires all remaining production readiness gaps to be closed.
+
+### Release Owner Approval Requirements (PR-GAP-008)
+
+Release owner approval closes PR-GAP-008 only. It does **not** equal production-ready, does **not** authorize production deploy, and does **not** bypass PR-GAP-001 remote staging auth-on repeat.
+
+**Status:** **PASS / APPROVED_BY_RELEASE_OWNER**
+
+**Evidence:** `docs/LOW_CODE_PILOT_WEEK3_RELEASE_OWNER_FINAL_APPROVAL_V0.1.md`
+
+**Owner:** **Артем Асаев**
 
 ## Final Go/No-Go Criteria
 

@@ -40,7 +40,7 @@ Risk register for production readiness review after controlled pilot approval.
 
 **Support owner:** **Артем Асаев** — `SUPPORT_OWNER_FINAL_APPROVAL_CAPTURED` (PR-GAP-007 **CLOSED**).
 
-**Release ownership:** `OPEN_PENDING_RELEASE_OWNER_FINAL_APPROVAL` (PR-GAP-008 **open**; owner TBD).
+**Release ownership:** owner **Артем Асаев** — `RELEASE_OWNER_FINAL_APPROVAL_CAPTURED` (PR-GAP-008 **CLOSED**).
 
 **Final go/no-go:** `OPEN_PENDING_FINAL_GO_NO_GO_OWNER_APPROVAL` (PR-GAP-009 **open**; owner TBD).
 
@@ -66,7 +66,7 @@ Risk register for production readiness review after controlled pilot approval.
 | PR-RISK-008 | — | Limited operator sample (3 users, demo entities) | P3 | OPEN | Expand only via approved governance | PM | controlled pilot scope only |
 | PR-RISK-009 | PR-GAP-005 | Audit retention policy undefined for production | P3 | **MITIGATED_BY_APPROVED_AUDIT_RETENTION_POLICY** | Audit retention policy, evidence handling rules, checklist, and owner final approval captured with owner **Феликс Асаев** | **Феликс Асаев** | Optional: contact handover; real retention config implementation if needed |
 | PR-RISK-010 | PR-GAP-007 | Support owner not assigned | P2 | **MITIGATED_BY_APPROVED_SUPPORT_OWNERSHIP** | Support ownership policy, escalation matrix, checklist, and owner final approval captured with owner **Артем Асаев** | **Артем Асаев** | Optional: contact handover; real support tooling/config implementation may require separate operational task if needed |
-| PR-RISK-011 | PR-GAP-008 | Release owner not assigned | P2 | **OPEN_PENDING_RELEASE_OWNER_FINAL_APPROVAL** | Release ownership policy, gate, and final approval request prepared; release owner approval pending | Release / Delivery — TBD | Release Owner Final Approval Pack v0.1 |
+| PR-RISK-011 | PR-GAP-008 | Release owner not assigned | P2 | **MITIGATED_BY_RELEASE_OWNER_FINAL_APPROVAL** | Release ownership policy, freeze rules, checklist, and owner final approval captured with owner **Артем Асаев** | **Артем Асаев** | Residual risk: production-ready remains blocked by PR-GAP-001 and final go/no-go dependencies. Release owner approval does not authorize production deploy. |
 
 ## Risk–Gap Mapping Rules
 
