@@ -6,13 +6,21 @@ Intake form template for collecting **remote staging infrastructure details** to
 
 **Decision:** **REMOTE_STAGING_DETAILS_INTAKE_FORM_CREATED_PENDING_INPUT**
 
-**PR-GAP-001:** **REMOTE_STAGING_DETAILS_PENDING_INPUT**
+**PR-GAP-001:** **REMOTE_STAGING_SERVER_REQUIREMENTS_CREATED_PENDING_PROVISIONING**
 
 ## Purpose
 
 Capture server, network, access, and runtime readiness **metadata** (not secrets) so Ops can proceed to Remote Auth-On Staging Repeat Pack v0.1.
 
 Reference: `LOW_CODE_PILOT_WEEK3_STAGING_INPUT_FORM_V0.1.md` (post-deploy URLs), `LOW_CODE_PILOT_WEEK3_REMOTE_STAGING_READINESS_CHECKLIST_V0.1.md`
+
+## Related Provisioning Docs
+
+- `LOW_CODE_PILOT_WEEK3_STAGING_SERVER_REQUIREMENTS_V0.1.md`
+- `LOW_CODE_PILOT_WEEK3_STAGING_SERVER_PROVIDER_REQUEST_V0.1.md`
+- `LOW_CODE_PILOT_WEEK3_STAGING_SERVER_ACCEPTANCE_CHECKLIST_V0.1.md`
+
+Complete provisioning docs **before** filling server fields below. Use provider request output only — **no secrets in repo**.
 
 ## Current Status
 

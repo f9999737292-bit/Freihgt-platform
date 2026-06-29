@@ -82,6 +82,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 | BL-W3-047 | tenant isolation evidence pack v0.1 | ALL | Tenant isolation evidence | P2 | Tenant isolation evidence pack created — PR-GAP-006 partially mitigated; final evidence review pending | Tenant Isolation Evidence Review Pack v0.1 | Security / Architecture — TBD | Tenant Isolation Evidence Review Pack v0.1 | COMPLETED | TENANT_ISOLATION_EVIDENCE_PACK_CREATED_PENDING_REVIEW |
 | BL-W3-048 | tenant isolation evidence review pack v0.1 | ALL | Tenant isolation evidence review | P2 | Tenant isolation evidence reviewed — PR-GAP-006 partially mitigated; owner approval pending | Tenant Isolation Owner Approval Pack v0.1 | Security / Architecture — TBD | Tenant Isolation Owner Approval Pack v0.1 | COMPLETED | TENANT_ISOLATION_EVIDENCE_REVIEWED_PENDING_OWNER_APPROVAL |
 | BL-W3-049 | tenant isolation owner approval pack v0.1 | ALL | Tenant isolation owner approval gate | P2 | Tenant isolation owner approval gate prepared — named owner TBD; final approval pending | Tenant Isolation Owner Final Approval Pack v0.1 | Security / Architecture — TBD | Tenant Isolation Owner Final Approval Pack v0.1 | COMPLETED | TENANT_ISOLATION_OWNER_APPROVAL_GATE_PREPARED_PENDING_OWNER_ASSIGNMENT |
+| BL-W3-058 | staging server provisioning request pack v0.1 | ALL | Staging server requirements and provider request | P2 | Staging server requirements, provider request, acceptance checklist created; PR-GAP-001 remains open; real server details still required | Provision staging server, then Remote Auth-On Staging Repeat Pack v0.1 | Ops / Platform / Staging Owner — TBD | event-based gap packs | COMPLETED | STAGING_SERVER_REQUIREMENTS_CREATED_PENDING_PROVISIONING |
 | BL-W3-057 | remote staging details intake pack v0.1 | ALL | Remote staging details intake form | P2 | Remote staging details intake prepared; PR-GAP-001 remains open | Remote Auth-On Staging Repeat Pack v0.1 | Ops / Platform / Staging Owner — TBD | event-based gap packs | COMPLETED | REMOTE_STAGING_DETAILS_INTAKE_FORM_CREATED_PENDING_INPUT |
 | BL-W3-056 | remaining gaps status consolidation v0.1 | ALL | Consolidated open/closed gap status | P3 | Remaining gaps status consolidated after autonomous run | Event-based gap closure | — | event-based gap packs | COMPLETED | REMAINING_GAPS_STATUS_CONSOLIDATED |
 | BL-W3-055 | source of truth policy pack v0.1 | ALL | Low-code financial/legal SoT policy | P3 | Source-of-truth policy pack created; policy owner assignment pending | Source-of-Truth Owner Approval Pack v0.1 | Product / Legal / Finance — TBD | event-based gap packs | COMPLETED | SOURCE_OF_TRUTH_POLICY_PACK_CREATED_PENDING_OWNER_ASSIGNMENT |
@@ -135,6 +136,7 @@ When P1 appears: add row with owner assigned, target fix pack, decision **GO_WIT
 | BL-W3-047 | Tenant isolation evidence pack v0.1 | **Completed** | COMPLETED |
 | BL-W3-048 | Tenant isolation evidence review pack v0.1 | **Completed** | COMPLETED |
 | BL-W3-049 | Tenant isolation owner approval pack v0.1 | **Completed** | COMPLETED |
+| BL-W3-058 | Staging server provisioning request pack v0.1 | **Completed** | COMPLETED |
 | BL-W3-057 | Remote staging details intake pack v0.1 | **Completed** | COMPLETED |
 | BL-W3-056 | Remaining gaps status consolidation v0.1 | **Completed** | COMPLETED |
 | BL-W3-055 | Source-of-truth policy pack v0.1 | **Completed** | COMPLETED |
@@ -158,12 +160,16 @@ When P1 appears: add row with owner assigned, target fix pack, decision **GO_WIT
 - **Final decision owner assignment pending**
 - **Source-of-truth policy pack created** — PR-GAP-010 partially mitigated
 - **Remote staging details intake prepared**
+- **Staging server requirements created**
+- **Provider request created**
+- **Acceptance checklist created**
 - **PR-GAP-001 remains open**
-- **Real staging details still required**
+- **Real server details still required**
 - **Remote auth-on repeat not executed**
 - **No deploy**
 - **No staging writes**
 - **No secrets captured**
+- **Next action:** provision staging server, then Remote Auth-On Staging Repeat Pack v0.1
 - **No release config changed**
 - **No deploy executed**
 - **Production-ready still not claimed**
@@ -231,6 +237,7 @@ Explicit list (BL-W3-000–009):
 | **Low-code Pilot Week-3 Production Data Owner Assignment Pack v0.1** | Completed | **DATA_OWNER_ASSIGNMENT_PREPARED_PENDING_APPROVAL** |
 | **Low-code Pilot Week-3 Production Data Owner Placeholder Approval Pack v0.1** | Completed | **PLACEHOLDER_APPROVAL_REHEARSED_PENDING_REAL_OWNER_APPROVAL** |
 | **Low-code Pilot Week-3 Production Data Owner Final Approval Pack v0.1** | Real production data owner final approval provided | PR-GAP-002 closure |
+| **Low-code Pilot Week-3 Staging Server Provisioning Request Pack v0.1** | Completed | **STAGING_SERVER_REQUIREMENTS_CREATED_PENDING_PROVISIONING** — PR-GAP-001 open |
 | **Low-code Pilot Week-3 Remote Staging Details Intake Pack v0.1** | Completed | **REMOTE_STAGING_DETAILS_INTAKE_FORM_CREATED_PENDING_INPUT** — PR-GAP-001 open |
 | **Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1** | Remote staging details provided | PR-GAP-001 closure |
 | **Low-code Pilot Week-3 Temporary Tunnel Auth-On Matrix Pack v0.1** | Temporary tunnel approved | Partial PR-GAP-001 evidence |

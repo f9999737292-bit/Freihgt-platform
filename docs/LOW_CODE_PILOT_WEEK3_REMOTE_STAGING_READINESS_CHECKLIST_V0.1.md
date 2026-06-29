@@ -6,15 +6,17 @@ Readiness checklist for remote staging environment before PR-GAP-001 auth-on rep
 
 Reference: `LOW_CODE_PILOT_WEEK3_REMOTE_STAGING_DETAILS_INTAKE_FORM_V0.1.md`
 
-**Decision:** **REMOTE_STAGING_DETAILS_INTAKE_FORM_CREATED_PENDING_INPUT**
+**Provisioning evidence:** Staging Server Requirements v0.1, Staging Server Provider Request v0.1, Staging Server Acceptance Checklist v0.1
+
+**Decision:** **STAGING_SERVER_REQUIREMENTS_CREATED_PENDING_PROVISIONING**
 
 ## Readiness Checklist
 
 | Item | Status | Evidence | Notes |
 |------|--------|----------|-------|
-| Server provisioned | **PENDING** | Intake Form v0.1 | Awaiting real details |
-| Ubuntu 24.04 LTS x64 confirmed | **PENDING** | Intake Form v0.1 | OS field |
-| Public IP available | **PENDING** | Intake Form v0.1 | |
+| Server provisioned | **PENDING** | Staging Server Requirements v0.1; Staging Server Provider Request v0.1; Staging Server Acceptance Checklist v0.1; Intake Form v0.1 | Awaiting real details |
+| Ubuntu 24.04 LTS x64 confirmed | **PENDING** | Staging Server Requirements v0.1; Intake Form v0.1 | OS field |
+| Public IP available | **PENDING** | Staging Server Acceptance Checklist v0.1; Intake Form v0.1 | |
 | Domain/subdomain assigned | **PENDING** | Intake Form v0.1 | |
 | SSH key access available | **PENDING** | Intake Form v0.1 | keys not stored in docs |
 | Sudo/root access available | **PENDING** | Intake Form v0.1 | |
@@ -43,7 +45,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_REMOTE_STAGING_DETAILS_INTAKE_FORM_V0.1.md`
 
 ## Decision
 
-**REMOTE_STAGING_DETAILS_INTAKE_FORM_CREATED_PENDING_INPUT**
+**STAGING_SERVER_REQUIREMENTS_CREATED_PENDING_PROVISIONING**
 
 ## Next Pack
 
