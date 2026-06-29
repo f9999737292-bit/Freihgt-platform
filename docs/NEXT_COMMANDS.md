@@ -66,15 +66,25 @@ docs/ai-team/
 
 **PR-GAP-001:** **BLOCKED_WAITING_FOR_STAGING_SERVER_DETAILS**
 
-**Next event:** **Remote staging details provided / Remote Auth-On Staging Repeat execution approved**
+**Remote auth-on staging repeat:** **REMOTE_AUTH_ON_STAGING_REPEAT_BLOCKED_MISSING_STAGING_DETAILS**
 
-**Next pack:** **Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1**
+**Next event:** **Remote staging details provided**
+
+**Next pack:** **Re-run Remote Auth-On Staging Repeat** (read-only GET) after details + explicit approval
 
 **Required:**
 
-- staging details completed (see missing input request)
+- complete missing input request template (sanitized)
 - no secrets in docs
-- explicit approval before any remote SSH/deploy/check execution
+- explicit approval before remote SSH/deploy/check execution
+
+Week-3 remote auth-on staging repeat v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_REMOTE_AUTH_ON_STAGING_REPEAT_V0.1.md`.
+
+Week-3 remote auth-on staging repeat evidence v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_REMOTE_AUTH_ON_STAGING_REPEAT_EVIDENCE_V0.1.md`.
 
 Week-3 remote staging details validation note v0.1:
 

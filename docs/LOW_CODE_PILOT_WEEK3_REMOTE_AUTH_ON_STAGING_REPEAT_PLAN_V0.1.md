@@ -80,7 +80,9 @@ Store evidence in repeat pack execution doc only — not in this plan.
 
 **REMOTE_AUTH_ON_STAGING_REPEAT_PLAN_CREATED_PENDING_EXECUTION**
 
-Execution blocked until staging details validated and explicit approval granted.
+Execution blocked 2026-06-23 — see `LOW_CODE_PILOT_WEEK3_REMOTE_AUTH_ON_STAGING_REPEAT_V0.1.md`.
+
+**Decision:** **REMOTE_AUTH_ON_STAGING_REPEAT_PLAN_EXECUTION_BLOCKED**
 
 ## Next Pack
 

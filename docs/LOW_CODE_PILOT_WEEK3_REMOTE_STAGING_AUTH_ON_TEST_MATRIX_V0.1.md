@@ -4,7 +4,7 @@
 
 Read-only test matrix for **remote staging** auth-on verification (PR-GAP-001). Execute only after staging inputs are **PROVIDED** per preparation checklist.
 
-**Not executed yet** — staging not available.
+**Not executed yet** — staging details missing; repeat pack blocked 2026-06-23.
 
 Reference: `LOW_CODE_PILOT_WEEK3_REMOTE_STAGING_PREPARATION_CHECKLIST_V0.1.md`
 

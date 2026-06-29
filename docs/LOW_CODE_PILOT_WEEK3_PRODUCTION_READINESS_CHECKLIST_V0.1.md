@@ -34,7 +34,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 
 | criterion | status | evidence | owner | notes |
 |-----------|--------|----------|-------|-------|
-| Remote Auth-On Repeat | **BLOCKED / WAITING_FOR_STAGING_SERVER_DETAILS** | Remote Staging Details Validation Note v0.1, Remote Auth-On Staging Repeat Plan v0.1, Remote Staging Missing Input Request v0.1, Remote Staging Details Intake Form v0.1 | Ops / Platform / Staging Owner — TBD | Local repeat PASS 2026-06-23; PR-GAP-001 open; staging details not provided |
+| Remote Auth-On Repeat | **BLOCKED / WAITING_FOR_STAGING_SERVER_DETAILS** | Remote Auth-On Staging Repeat v0.1, Remote Auth-On Staging Repeat Evidence v0.1, Remote Staging Details Validation Note v0.1, Remote Auth-On Staging Repeat Plan v0.1, Remote Staging Missing Input Request v0.1 | Ops / Platform / Staging Owner — TBD | Remote repeat blocked — details missing; local PASS 2026-06-23; PR-GAP-001 open |
 | Production auth policy | PENDING | — | Security | not approved |
 | RBAC production review | PENDING | — | Security | out of scope v0.1 pilot |
 
