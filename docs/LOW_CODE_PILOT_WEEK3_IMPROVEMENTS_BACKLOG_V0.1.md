@@ -18,7 +18,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 | Staging deploy runbook | **STAGING_DEPLOY_RUNBOOK_CREATED** |
 | Rollback plan | **PRODUCTION_ROLLBACK_PLAN_CREATED** |
 | Rollback owner | **Артем Асаев** |
-| PR-GAP-001 | **BLOCKED_WAITING_FOR_STAGING_SERVER_DETAILS** |
+| PR-GAP-001 | **BLOCKED_WAITING_FOR_STAGING_HARDENING_AND_RUNTIME_PREPARATION** |
 | PR-GAP-002 | **CLOSED_APPROVED_BY_OWNER** |
 | PR-GAP-005 | **CLOSED_APPROVED_BY_OWNER** |
 | PR-GAP-004 | **CLOSED_APPROVED_BY_OWNER** |
@@ -181,8 +181,18 @@ When P1 appears: add row with owner assigned, target fix pack, decision **GO_WIT
 - **Source-of-truth scope approved**
 - **Deploy not executed**
 - **PR-GAP-008 closed** — release ownership approved by **Артем Асаев**
-- **PR-GAP-001 remains blocked waiting for staging server details**
+- **PR-GAP-001 remains blocked waiting for staging hardening and runtime preparation**
+- **Selectel staging details captured**
+- **Server hardware profile accepted for staging**
+- **SSH restriction by IP required**
+- **PostgreSQL external access must be closed**
+- **Redis external access must be closed**
+- **Docker/Docker Compose installation required**
+- **Repo clone required**
+- **Valid staging domain required**
+- **Runtime URLs required**
 - **Production-ready still not claimed**
+- **Next action: Selectel Staging Hardening + Runtime Preparation Pack v0.1**
 - **Final decision owner approval captured** — production-ready blocked by PR-GAP-001
 - **Final go/no-go pack created** — PR-GAP-009 owner approved
 - **Remote staging details intake prepared**

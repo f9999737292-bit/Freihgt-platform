@@ -93,6 +93,7 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | W3-FB-NO-SERVER-GAP-CLOSURE-001 | 2026-06-23 | — | CROSS_ENTITY | TO/SH/BR demos | no-server production readiness gap closure | P3 | No-server docs-only gap closure performed while remote staging remains blocked | COMPLETED | — | owner approval packs for PR-GAP-002/008/009/010 or Remote Auth-On when server exists | NO_SERVER_GAP_CLOSURE_STARTED_DOCS_ONLY — production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, remote_staging_status=BLOCKED_WAITING_FOR_STAGING_SERVER_DETAILS, backend_code_changed=no, frontend_code_changed=no, deploy_executed=no, staging_writes_executed=no, secrets_captured=no |
 | W3-FB-ORDERED-REMAINING-GAP-CLOSURE-001 | 2026-06-23 | — | CROSS_ENTITY | TO/SH/BR demos | ordered remaining production readiness gap closure | P3 | Ordered gap closure performed for PR-GAP-002/008/010/009; PR-GAP-001 kept blocked | COMPLETED | — | owner approval packs or Remote Auth-On after server details | ORDERED_REMAINING_GAP_CLOSURE_EXECUTED_DOCS_ONLY — production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, staging_server_available=no, deploy_executed=no, staging_writes_executed=no, secrets_captured=no |
 | W3-FB-PR-GAP-001-NO-SERVER-CONTINUATION-001 | 2026-06-23 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness no-server continuation | P2 | PR-GAP-001 no-server continuation package prepared while staging server remains unavailable | COMPLETED | — | Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1 after sanitized staging server details are provided | PR_GAP_001_NO_SERVER_CONTINUATION_DOCS_ONLY — pr_gap=PR-GAP-001, pr_gap_status=BLOCKED_WAITING_FOR_STAGING_SERVER_DETAILS, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, remote_server_available=no, deploy_executed=no, ssh_executed=no, staging_writes_executed=no, secrets_captured=no |
+| W3-FB-SELECTEL-STAGING-DETAILS-CAPTURE-001 | 2026-07-10 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness selectel staging details capture | P1 | Selectel staging server details captured; hardening and runtime preparation required before Remote Auth-On Staging Repeat | COMPLETED | — | Selectel Staging Hardening + Runtime Preparation Pack v0.1 | SELECTEL_STAGING_DETAILS_CAPTURED_HARDENING_REQUIRED — pr_gap=PR-GAP-001, pr_gap_status=BLOCKED_WAITING_FOR_STAGING_HARDENING_AND_RUNTIME_PREPARATION, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, provider=Selectel, public_ip=161.104.53.221, ssh_restricted_by_ip=no, postgresql_external_access_closed=no, redis_external_access_closed=no, docker_installed=no, docker_compose_installed=no, repo_cloned=no, deploy_executed=no, ssh_executed=no, staging_writes_executed=no, secrets_captured=no |
 | W3-FB-FINAL-GO-NO-GO-OWNER-APPROVAL-001 | 2026-06-23 | Феликс Асаев | CROSS_ENTITY | TO/SH/BR demos | production readiness final go/no-go owner approval | P1 | Final go/no-go owner approval captured, but production-ready remains blocked by PR-GAP-001 | COMPLETED | **Феликс Асаев** | Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1 after staging server details are provided | FINAL_GO_NO_GO_OWNER_APPROVAL_CAPTURED_NOT_PRODUCTION_READY — pr_gap=PR-GAP-009, pr_gap_status=OWNER_APPROVED_BUT_PRODUCTION_READY_BLOCKED, blocking_gap=PR-GAP-001, blocking_gap_status=BLOCKED_WAITING_FOR_STAGING_SERVER_DETAILS, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, deploy_executed=no, ssh_executed=no, staging_writes_executed=no, secrets_captured=no |
 | W3-FB-SOT-OWNER-FINAL-APPROVAL-001 | 2026-06-23 | Феликс Асаев | CROSS_ENTITY | TO/SH/BR demos | production readiness SoT owner final approval | P2 | SoT owner final approval captured for PR-GAP-010 | COMPLETED | **Феликс Асаев** | Low-code Pilot Week-3 Final Go-No-Go Owner Final Approval Pack v0.1 | SOT_OWNER_FINAL_APPROVAL_CAPTURED — pr_gap=PR-GAP-010, pr_gap_status=CLOSED_APPROVED_BY_OWNER, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, deploy_executed=no, ssh_executed=no, staging_writes_executed=no, secrets_captured=no |
 | W3-FB-RELEASE-OWNER-FINAL-APPROVAL-001 | 2026-06-23 | Артем Асаев | CROSS_ENTITY | TO/SH/BR demos | production readiness release owner final approval | P2 | Release owner final approval captured for PR-GAP-008 | COMPLETED | **Артем Асаев** | Low-code Pilot Week-3 SoT Owner Final Approval Pack v0.1 | RELEASE_OWNER_FINAL_APPROVAL_CAPTURED — pr_gap=PR-GAP-008, pr_gap_status=CLOSED_APPROVED_BY_OWNER, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, deploy_executed=no, ssh_executed=no, staging_writes_executed=no, secrets_captured=no |
@@ -680,6 +681,32 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 - **controlled_pilot_status:** CONTROLLED_PILOT_APPROVED
 - **rollback_executed:** no
 - **next_pack:** Low-code Pilot Week-3 Rollback Owner Final Approval Pack v0.1
+
+### W3-FB-SELECTEL-STAGING-DETAILS-CAPTURE-001
+
+- **entity_type:** CROSS_ENTITY
+- **category:** production readiness selectel staging details capture
+- **severity:** P1
+- **status:** COMPLETED
+- **provider:** Selectel
+- **public_ip:** 161.104.53.221
+- **summary:** Selectel staging server details captured; hardening and runtime preparation required before Remote Auth-On Staging Repeat
+- **decision:** SELECTEL_STAGING_DETAILS_CAPTURED_HARDENING_REQUIRED
+- **pr_gap:** PR-GAP-001
+- **pr_gap_status:** BLOCKED_WAITING_FOR_STAGING_HARDENING_AND_RUNTIME_PREPARATION
+- **production_ready_claimed:** no
+- **controlled_pilot_status:** CONTROLLED_PILOT_APPROVED
+- **ssh_restricted_by_ip:** no
+- **postgresql_external_access_closed:** no
+- **redis_external_access_closed:** no
+- **docker_installed:** no
+- **docker_compose_installed:** no
+- **repo_cloned:** no
+- **deploy_executed:** no
+- **ssh_executed:** no
+- **staging_writes_executed:** no
+- **secrets_captured:** no
+- **next_pack:** Selectel Staging Hardening + Runtime Preparation Pack v0.1
 
 ### Column guide
 

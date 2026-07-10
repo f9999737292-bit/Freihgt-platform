@@ -34,7 +34,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 
 | criterion | status | evidence | owner | notes |
 |-----------|--------|----------|-------|-------|
-| Remote Auth-On Repeat | **BLOCKED / WAITING_FOR_STAGING_SERVER_DETAILS** | No-Server Continuation Status v0.1, Local Auth-On Rehearsal Plan v0.1, Remote Auth-On Read-only GET Matrix Skeleton v0.1, Staging Details Sanitized Intake Template v0.1, Production Readiness Evidence Index v0.1 | Ops / Platform / Staging Owner — TBD | Remote repeat blocked — details missing; local PASS 2026-06-23; no-server continuation prepared; PR-GAP-001 open |
+| Remote Auth-On Repeat | **BLOCKED / WAITING_FOR_STAGING_HARDENING_AND_RUNTIME_PREPARATION** | Selectel Staging Details Capture v0.1, Selectel Staging Hardening Checklist v0.1, Selectel Runtime Preparation Plan v0.1, No-Server Continuation Status v0.1, Local Auth-On Rehearsal Plan v0.1, Remote Auth-On Read-only GET Matrix Skeleton v0.1, Staging Details Sanitized Intake Template v0.1, Production Readiness Evidence Index v0.1 | Ops / Platform / Staging Owner — TBD | Selectel details captured; hardening and runtime prep required; local PASS 2026-06-23; PR-GAP-001 open |
 | Production auth policy | PENDING | — | Security | not approved |
 | RBAC production review | PENDING | — | Security | out of scope v0.1 pilot |
 
@@ -95,7 +95,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 | Owner Matrix | **created** | `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_OWNER_MATRIX_V0.1.md` |
 | Acceptance Criteria | **created** | `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_ACCEPTANCE_CRITERIA_V0.1.md` |
 
-**Remaining blocker:** **PR-GAP-001** (`BLOCKED_WAITING_FOR_STAGING_SERVER_DETAILS`) — PR-GAP-009 **OWNER_APPROVED_BUT_PRODUCTION_READY_BLOCKED** — PR-GAP-002, PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006, PR-GAP-007, PR-GAP-008, PR-GAP-010 **CLOSED**
+**Remaining blocker:** **PR-GAP-001** (`BLOCKED_WAITING_FOR_STAGING_HARDENING_AND_RUNTIME_PREPARATION`) — PR-GAP-009 **OWNER_APPROVED_BUT_PRODUCTION_READY_BLOCKED** — PR-GAP-002, PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006, PR-GAP-007, PR-GAP-008, PR-GAP-010 **CLOSED**
 
 ## Final Status
 
@@ -107,11 +107,11 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 | PR-GAP-008 | **PASS / APPROVED_BY_RELEASE_OWNER** |
 | PR-GAP-010 | **PASS / APPROVED_BY_SOT_OWNER** |
 | PR-GAP-009 | **OWNER_APPROVED / PRODUCTION_READY_BLOCKED_BY_PR_GAP_001** |
-| PR-GAP-001 | **BLOCKED / WAITING_FOR_STAGING_SERVER_DETAILS** |
+| PR-GAP-001 | **BLOCKED / WAITING_FOR_STAGING_HARDENING_AND_RUNTIME_PREPARATION** |
 | Final production readiness | **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY** |
 | Decision | `NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY` |
-| Reason | PR-GAP-001 remains blocked until staging server details are provided and remote auth-on repeat is completed |
+| Reason | PR-GAP-001 remains blocked until Selectel staging hardening and runtime preparation are completed and remote auth-on repeat is executed |
 | Gap closure plan | **created** — `GAP_CLOSURE_PLAN_CREATED` |
-| Evidence prepared | No-Server Continuation Status v0.1, Local Auth-On Rehearsal Plan v0.1, Remote GET Matrix Skeleton v0.1, Staging Details Sanitized Intake Template v0.1, Production Readiness Evidence Index v0.1 |
+| Evidence prepared | Selectel Staging Details Capture v0.1, Selectel Staging Hardening Checklist v0.1, Selectel Runtime Preparation Plan v0.1, No-Server Continuation Status v0.1, Local Auth-On Rehearsal Plan v0.1, Remote GET Matrix Skeleton v0.1, Staging Details Sanitized Intake Template v0.1, Production Readiness Evidence Index v0.1 |
 
 Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`, `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`

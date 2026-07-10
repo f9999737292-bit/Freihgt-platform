@@ -52,7 +52,7 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Current status:** **PR_GAP_001_NO_SERVER_CONTINUATION_DOCS_ONLY**
+**Current status:** **SELECTEL_STAGING_DETAILS_CAPTURED_HARDENING_REQUIRED**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -64,19 +64,41 @@ docs/ai-team/
 
 **PR-GAP-009:** **OWNER_APPROVED_BUT_PRODUCTION_READY_BLOCKED**
 
-**PR-GAP-001:** **BLOCKED_WAITING_FOR_STAGING_SERVER_DETAILS**
+**PR-GAP-001:** **BLOCKED_WAITING_FOR_STAGING_HARDENING_AND_RUNTIME_PREPARATION**
 
-**Only remaining blocker:** PR-GAP-001 — staging server details and remote auth-on staging repeat
+**Only remaining blocker:** PR-GAP-001 — Selectel staging hardening and runtime preparation
 
-**Next event:** Sanitized staging server details provided
+**Next event:** Selectel staging hardening completed and runtime prepared
 
-**Next pack:** Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1
+**Next pack:** Selectel Staging Hardening + Runtime Preparation Pack v0.1
 
-**Required input:** Remote staging details, sanitized, without secrets/JWT/tokens/.env values/private keys
+**Hardening required:**
+
+- restrict SSH 22 by trusted IP
+- close PostgreSQL 5432 externally
+- close Redis 6379 externally
+- configure staging.7rights.ru or pilot.7rights.ru
+- install Docker
+- install Docker Compose
+- clone repo main
+- prepare staging .env without exposing values
+- define Web-admin URL and API gateway URL
 
 **Next recommended events:**
 
-- Sanitized staging server details provided → Remote Auth-On Staging Repeat Pack v0.1 (re-run)
+- Selectel staging hardening completed and runtime prepared → Remote Auth-On Staging Repeat Pack v0.1
+
+Week-3 Selectel staging details capture v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_SELECTEL_STAGING_DETAILS_CAPTURE_V0.1.md`.
+
+Week-3 Selectel staging hardening checklist v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_SELECTEL_STAGING_HARDENING_CHECKLIST_V0.1.md`.
+
+Week-3 Selectel runtime preparation plan v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_SELECTEL_RUNTIME_PREPARATION_PLAN_V0.1.md`.
 
 Week-3 PR-GAP-001 no-server continuation status v0.1:
 

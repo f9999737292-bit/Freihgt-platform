@@ -14,6 +14,10 @@ Tracks **1 blocked production readiness gap** (PR-GAP-001). PR-GAP-002, PR-GAP-0
 
 **Remote auth-on staging repeat:** `REMOTE_AUTH_ON_STAGING_REPEAT_BLOCKED_MISSING_STAGING_DETAILS` (PR-GAP-001 **open**)
 
+**Selectel staging details:** `SELECTEL_STAGING_DETAILS_CAPTURED_HARDENING_REQUIRED` (PR-GAP-001 **blocked**)
+
+**Provider:** Selectel — Public IP: 161.104.53.221
+
 **No-server continuation:** `PR_GAP_001_NO_SERVER_CONTINUATION_DOCS_ONLY` (2026-06-23)
 
 **Staging prep:** `REMOTE_STAGING_PREPARATION_CHECKLIST_CREATED`
@@ -62,7 +66,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 
 | Gap ID | Gap | Status | Owner | Acceptance Criteria | Next Pack | Notes |
 |--------|-----|--------|-------|---------------------|-----------|-------|
-| PR-GAP-001 | Remote Auth-On Repeat not completed | **BLOCKED_WAITING_FOR_STAGING_SERVER_DETAILS** | Ops / Platform / Staging Owner — **TBD** | Staging server details must be provided; remote auth-on repeat blocked | Remote Auth-On Staging Repeat Pack v0.1 (re-run) | No remote staging server details provided. No-server continuation docs created. Remote Auth-On Staging Repeat cannot be executed yet. No deploy, no SSH, no staging writes, no secrets captured. |
+| PR-GAP-001 | Remote Auth-On Repeat not completed | **BLOCKED_WAITING_FOR_STAGING_HARDENING_AND_RUNTIME_PREPARATION** | Ops / Platform / Staging Owner — **TBD** | Staging hardening and runtime preparation must be completed; remote auth-on repeat blocked | Selectel Staging Hardening + Runtime Preparation Pack v0.1 | Provider: Selectel. Public IP: 161.104.53.221. Decision: SELECTEL_STAGING_DETAILS_CAPTURED_HARDENING_REQUIRED. Selectel staging server details captured. Hardware profile is acceptable. Remote Auth-On Staging Repeat cannot run yet because SSH is not restricted by IP, PostgreSQL and Redis external access are not closed, Docker/Docker Compose are not installed, repo is not cloned, domain is localhost, and runtime URLs are not available. No deploy, no SSH, no staging writes, no secrets captured. |
 | PR-GAP-002 | Production data policy not approved | **CLOSED_APPROVED_BY_OWNER** | **Феликс Асаев** | Production data policy, checklist, and owner final approval captured | none unless handover required | Production data owner final approval captured docs-only. No production writes. No secrets. Production-ready not claimed. |
 | PR-GAP-003 | Rollback plan not approved | **CLOSED_APPROVED_BY_OWNER** | **Артем Асаев** | Rollback plan, procedure, checklist, owner assignment, and final approval captured | none unless handover required | Rollback approved. Not executed. |
 | PR-GAP-004 | Monitoring / alerting policy not approved | **CLOSED_APPROVED_BY_OWNER** | **Артем Асаев** | Monitoring policy, alert conditions, checklist, owner assignment, and final approval captured | none unless handover required | Monitoring approved. Real config not changed. |
@@ -79,7 +83,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 |--------|-------|
 | PENDING | **0** |
 | OWNER_APPROVED_BUT_PRODUCTION_READY_BLOCKED | **1** (PR-GAP-009) |
-| BLOCKED_WAITING_FOR_STAGING_SERVER_DETAILS | **1** (PR-GAP-001) |
+| BLOCKED_WAITING_FOR_STAGING_HARDENING_AND_RUNTIME_PREPARATION | **1** (PR-GAP-001) |
 | CLOSED | **8** (PR-GAP-002, PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006, PR-GAP-007, PR-GAP-008, PR-GAP-010 — CLOSED_APPROVED_BY_OWNER) |
 | IN_PROGRESS | **0** |
 

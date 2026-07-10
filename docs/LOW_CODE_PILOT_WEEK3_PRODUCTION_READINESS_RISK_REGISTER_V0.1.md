@@ -18,6 +18,8 @@ Risk register for production readiness review after controlled pilot approval.
 
 **Remote auth-on staging repeat:** `REMOTE_AUTH_ON_STAGING_REPEAT_BLOCKED_MISSING_STAGING_DETAILS` (PR-GAP-001 **open**).
 
+**Selectel staging details:** `SELECTEL_STAGING_DETAILS_CAPTURED_HARDENING_REQUIRED` (PR-GAP-001 **blocked**).
+
 **No-server continuation:** `PR_GAP_001_NO_SERVER_CONTINUATION_DOCS_ONLY` (PR-GAP-001 **blocked**).
 
 **Audit retention policy:** owner **Феликс Асаев** — `AUDIT_COMPLIANCE_OWNER_FINAL_APPROVAL_CAPTURED` (PR-GAP-005 **CLOSED**).
@@ -58,7 +60,7 @@ Risk register for production readiness review after controlled pilot approval.
 
 | risk id | gap id | risk | severity | status | mitigation | owner | next action |
 |---------|--------|------|----------|--------|------------|-------|-------------|
-| PR-RISK-001 | PR-GAP-001 | Remote Auth-On not repeated on staging | P2 | **BLOCKED_WAITING_FOR_STAGING_SERVER_DETAILS** | No-server continuation docs, local rehearsal plan, remote GET matrix skeleton, sanitized intake template, and evidence index prepared; local repeat PASS 2026-06-23 | Ops / Platform / Staging Owner — TBD | Residual risk: remote auth-on staging behavior remains unverified until staging server details are provided and read-only GET matrix is executed. |
+| PR-RISK-001 | PR-GAP-001 | Remote Auth-On not repeated on staging | P2 | **BLOCKED_WAITING_FOR_STAGING_HARDENING_AND_RUNTIME_PREPARATION** | Restrict SSH by trusted IP, close PostgreSQL/Redis externally, configure valid staging domain, install Docker/Docker Compose, clone repo, prepare staging env without secrets in docs, then execute Remote Auth-On Staging Repeat Pack v0.1 in read-only GET mode | Ops / Platform / Staging Owner — TBD | Residual risk: Production-ready cannot be claimed until remote read-only GET matrix is completed with sanitized evidence. Remote auth-on staging behavior remains unverified. Current Selectel server network posture exposes PostgreSQL/Redis externally and SSH is not restricted by IP. |
 | PR-RISK-002 | PR-GAP-002 | Production data policy not approved | P2 | **MITIGATED_BY_PRODUCTION_DATA_OWNER_FINAL_APPROVAL** | Production data policy and owner final approval captured with owner **Феликс Асаев** | **Феликс Асаев** | Residual risk: production-ready still blocked by other open gaps, including PR-GAP-001 |
 | PR-RISK-003 | PR-GAP-003 | Rollback plan not approved | P2 | **MITIGATED_BY_APPROVED_ROLLBACK_PLAN** | Rollback plan/procedure/checklist created and approved by rollback owner **Артем Асаев** | **Артем Асаев** | Optional: role/contact handover |
 | PR-RISK-004 | PR-GAP-004 | Monitoring/alerting policy not approved | P2 | **MITIGATED_BY_APPROVED_MONITORING_POLICY** | Monitoring policy, alert conditions, checklist, and owner approval captured with owner **Артем Асаев** | **Артем Асаев** | Optional: role/contact/on-call handover; real monitoring config implementation may require separate operational task if needed |
