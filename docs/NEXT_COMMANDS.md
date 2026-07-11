@@ -52,7 +52,7 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Current status:** **SELECTEL_SSH_SG_TRUSTED_PATH_PASS_NON_TRUSTED_REJECTION_PENDING**
+**Current status:** **SELECTEL_SSH_SG_POST_PANEL_REVERIFICATION_FAILED_PORT_22_STILL_PUBLIC**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -60,18 +60,26 @@ docs/ai-team/
 
 **Production-ready claimed:** **no**
 
-**Open staging limitations:** **STG-LIM-001..006** (STG-LIM-003: **OPEN_PENDING_NON_TRUSTED_REJECTION_TEST**)
+**Open staging limitations:** **STG-LIM-001..006** (STG-LIM-003: **OPEN** — operator reported SG done; external scan still 5/5 connect)
 
-**Verification:** API health **200** | SSH trusted **PASS** | Runtime **10 containers healthy** | UFW 5432/6379 **DENY**
+**Verification:** API health **200** | SSH trusted **PASS** | Runtime **10 containers healthy** | Non-trusted TCP 22 **FAIL (5/5)**
 
-**Next event:** perform non-trusted SSH rejection test or capture independent Selectel SG panel evidence
+**Next event:** operator verifies Selectel SG rules in panel — correct group, /32 only, no 0.0.0.0/0 SSH
 
-**Next pack:** Selectel SSH SG Non-Trusted Rejection or Panel Evidence Pack v0.1
+**Next pack:** Selectel SSH SG Post-Panel Re-Verification Pack v0.1 (retry)
 
 **Blockers:**
 
-- Selectel SG /32 restriction not independently confirmed
-- Non-trusted IP SSH rejection test not executed
+- **BLOCKED_WAITING_FOR_SELECTEL_SG_PANEL_CHANGE**
+- External scan after operator action: port 22 still publicly reachable
+
+Week-3 Selectel SSH SG post-panel re-verification evidence v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_SELECTEL_SSH_SG_POST_PANEL_REVERIFICATION_EVIDENCE_V0.1.md`.
+
+Week-3 Selectel SSH SG post-panel re-verification note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_SELECTEL_SSH_SG_POST_PANEL_REVERIFICATION_NOTE_V0.1.md`.
 
 Week-3 Selectel SSH SG post-panel verification evidence v0.1:
 

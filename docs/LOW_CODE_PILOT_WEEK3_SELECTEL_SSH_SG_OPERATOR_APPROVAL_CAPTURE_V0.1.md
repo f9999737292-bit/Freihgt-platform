@@ -59,7 +59,7 @@ SELECTEL_SSH_SG_OPERATOR_APPROVAL_CAPTURED
 ## STG-LIM-003
 
 ```text
-OPEN — approval captured; SG panel change and SSH verification pending
+OPEN — panel confirmation re-verified; Selectel SG panel change pending manual operator action
 ```
 
 ## Production-ready Status

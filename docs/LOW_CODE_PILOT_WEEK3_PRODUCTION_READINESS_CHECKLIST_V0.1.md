@@ -108,11 +108,11 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 | PR-GAP-010 | **PASS / APPROVED_BY_SOT_OWNER** |
 | PR-GAP-009 | **OWNER_APPROVED_BUT_PRODUCTION_READY_NOT_CLAIMED** |
 | PR-GAP-001 | **CLOSED_APPROVED_BY_OWNER_REMOTE_AUTH_ON_VERIFIED** |
-| Staging limitations | **STG-LIM-001..006 OPEN** — STG-LIM-003 **OPEN_PENDING_NON_TRUSTED_REJECTION_TEST** |
+| Staging limitations | **STG-LIM-001..006 OPEN** — STG-LIM-003 **OPEN** — port 22 publicly reachable |
 | Final production readiness | **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY** |
-| Decision | `SELECTEL_SSH_SG_TRUSTED_PATH_PASS_NON_TRUSTED_REJECTION_PENDING` |
-| Reason | PR-GAP-001 closed; trusted SSH/API/runtime pass; Selectel SG /32 and non-trusted rejection not confirmed |
+| Decision | `SELECTEL_SSH_SG_NON_TRUSTED_REJECTION_FAILED_PORT_22_PUBLICLY_OPEN` |
+| Reason | External non-trusted scan confirms port 22 open; Selectel SG /32 not applied |
 | Gap closure plan | **created** — `GAP_CLOSURE_PLAN_CREATED` |
-| Evidence prepared | `docs/LOW_CODE_PILOT_WEEK3_SELECTEL_SSH_SG_POST_PANEL_VERIFICATION_EVIDENCE_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_STG_LIM_003_CLOSURE_CANDIDATE_NOTE_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_STAGING_LIMITATIONS_TRACKER_V0.1.md` |
+| Evidence prepared | `docs/LOW_CODE_PILOT_WEEK3_SELECTEL_SSH_SG_NON_TRUSTED_REJECTION_EVIDENCE_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_STG_LIM_003_CLOSURE_CANDIDATE_NOTE_V0.1.md` |
 
 Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`, `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`

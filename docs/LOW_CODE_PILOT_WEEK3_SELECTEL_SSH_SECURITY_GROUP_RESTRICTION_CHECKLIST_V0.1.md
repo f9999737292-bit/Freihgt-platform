@@ -15,7 +15,7 @@ STG-LIM-003
 ## Current Status
 
 ```text
-OPEN — operator approval captured; SG panel change not verified; SSH key not configured
+OPEN — panel confirmation re-verified; Selectel SG /32 panel change pending manual operator action
 ```
 
 ## Preparation Checklist
@@ -24,7 +24,7 @@ OPEN — operator approval captured; SG panel change not verified; SSH key not c
 | - | ---- | ------ |
 | 1 | Runbook created | PASS |
 | 2 | Trusted operator IP identified | PASS — not stored in docs |
-| 3 | Selectel panel access confirmed | PENDING — operator panel action |
+| 3 | Selectel panel access confirmed | PENDING — manual panel action required |
 | 4 | Break-glass Console access confirmed | PENDING |
 | 5 | Security Group change approved | PASS |
 
@@ -53,13 +53,13 @@ OPEN — operator approval captured; SG panel change not verified; SSH key not c
 ## Decision
 
 ```text
-SELECTEL_SSH_SG_VERIFICATION_PARTIAL_SSH_TRUSTED_PASS_SG_PENDING
+SELECTEL_SSH_SG_PANEL_CONFIRMATION_REVERIFIED_SG_PANEL_CHANGE_PENDING
 ```
 
 ## STG-LIM-003 After This Pack
 
 ```text
-OPEN — SSH trusted access verified; Selectel SG /32 restriction not verified
+OPEN — trusted SSH PASS; Selectel SG /32 panel change pending
 ```
 
 ## Production-ready Status
@@ -78,5 +78,5 @@ Trusted operator IP: <provided separately, not stored in docs>
 ## Next Pack After Execution
 
 ```text
-Selectel SSH Security Group Restriction Execution Evidence Pack v0.1
+Selectel SSH SG Post-Panel Verification Pack v0.1
 ```

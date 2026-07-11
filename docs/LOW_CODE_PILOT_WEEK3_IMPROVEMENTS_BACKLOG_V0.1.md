@@ -299,7 +299,8 @@ Explicit list (BL-W3-000–009):
 | **Selectel SSH SG Verification Pack v0.1** | Completed (partial) | **SELECTEL_SSH_SG_VERIFICATION_PARTIAL_SSH_TRUSTED_PASS_SG_PENDING** |
 | **Selectel SSH SG Panel Confirmation Pack v0.1** | Completed (partial) | **SELECTEL_SSH_SG_PANEL_CONFIRMATION_REVERIFIED_SG_PANEL_CHANGE_PENDING** |
 | **Selectel SSH SG Post-Panel Verification Pack v0.1** | Completed (partial) | **SELECTEL_SSH_SG_TRUSTED_PATH_PASS_NON_TRUSTED_REJECTION_PENDING** |
-| **Selectel SSH SG Non-Trusted Rejection or Panel Evidence Pack v0.1** | Next | STG-LIM-003 closure evidence |
+| **Selectel SSH SG Non-Trusted Rejection or Panel Evidence Pack v0.1** | Completed | **SELECTEL_SSH_SG_NON_TRUSTED_REJECTION_FAILED_PORT_22_PUBLICLY_OPEN** |
+| **Selectel SSH SG Post-Panel Re-Verification Pack v0.1** | Next | STG-LIM-003 after manual SG /32 change |
 | **Low-code Pilot Week-3 Temporary Tunnel Auth-On Matrix Pack v0.1** | Temporary tunnel approved | Partial PR-GAP-001 evidence |
 | **Low-code Pilot Week-3 Production Rollback Plan Pack v0.1** | Rollback owner ready | PR-GAP-003 |
 | **Low-code Pilot Week-3 Production Monitoring Policy Pack v0.1** | Completed | **MONITORING_OWNER_FINAL_APPROVAL_CAPTURED** |

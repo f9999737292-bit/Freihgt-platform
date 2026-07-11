@@ -16,9 +16,9 @@ Risk register for production readiness review after controlled pilot approval.
 
 **Staging hardening review:** `STAGING_HARDENING_AND_PRODUCTION_READINESS_REVIEW_COMPLETED` (2026-07-11)
 
-**Selectel SSH SG restriction:** `SELECTEL_SSH_SG_TRUSTED_PATH_PASS_NON_TRUSTED_REJECTION_PENDING` (2026-07-11)
+**Selectel SSH SG restriction:** `SELECTEL_SSH_SG_NON_TRUSTED_REJECTION_FAILED_PORT_22_PUBLICLY_OPEN` (2026-07-11)
 
-**Staging limitations:** STG-LIM-001..006 **OPEN** — STG-LIM-003 **OPEN_PENDING_NON_TRUSTED_REJECTION_TEST**
+**Staging limitations:** STG-LIM-001..006 **OPEN** — STG-LIM-003 **OPEN** — port 22 publicly reachable; **BLOCKED_WAITING_FOR_SELECTEL_SG_PANEL_CHANGE**
 
 **Remote staging intake:** `REMOTE_STAGING_DETAILS_INTAKE_FORM_CREATED_PENDING_INPUT` (completed)
 

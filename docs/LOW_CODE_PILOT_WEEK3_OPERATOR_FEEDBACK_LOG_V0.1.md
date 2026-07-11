@@ -4,13 +4,13 @@
 
 Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER**, **SHIPMENT**, and **BILLING_REGISTER**.
 
-**Current status:** **SELECTEL_SSH_SG_TRUSTED_PATH_PASS_NON_TRUSTED_REJECTION_PENDING** — SSH trusted **PASS**; STG-LIM-003 **OPEN_PENDING_NON_TRUSTED_REJECTION_TEST**.
+**Current status:** **SELECTEL_SSH_SG_POST_PANEL_REVERIFICATION_FAILED_PORT_22_STILL_PUBLIC** — operator reported SG done; external scan **5/5 FAIL**.
 
 ## Current Status
 
 | Metric | Value |
 |--------|-------|
-| Total entries | **61** |
+| Total entries | **62** |
 | Staging limitations | **STG-LIM-001..006 OPEN** |
 | Remote server available | **yes** (Selectel 161.104.53.221) |
 | Final go/no-go owner | **Феликс Асаев** — owner approved; production-ready blocked by PR-GAP-001 |
@@ -107,6 +107,7 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | W3-FB-SELECTEL-SSH-SG-VERIFICATION-001 | 2026-07-11 | — | CROSS_ENTITY | TO/SH/BR demos | selectel SSH SG verification | P0 | SSH trusted access verified; Selectel SG /32 not verified; API health 200; 10 containers healthy | COMPLETED | — | Selectel SSH SG Panel Confirmation Pack v0.1 | SELECTEL_SSH_SG_VERIFICATION_PARTIAL_SSH_TRUSTED_PASS_SG_PENDING — stg_lim=STG-LIM-003, production_ready_claimed=no, ssh_executed=yes, ssh_success=yes, secrets_captured=no |
 | W3-FB-SELECTEL-SSH-SG-PANEL-CONFIRMATION-001 | 2026-07-11 | — | CROSS_ENTITY | TO/SH/BR demos | selectel SSH SG panel confirmation | P0 | Panel confirmation re-verified; Selectel SG /32 panel change pending manual operator action; API health 200; SSH trusted PASS | COMPLETED | — | Selectel SSH SG Post-Panel Verification Pack v0.1 | SELECTEL_SSH_SG_PANEL_CONFIRMATION_REVERIFIED_SG_PANEL_CHANGE_PENDING — stg_lim=STG-LIM-003, production_ready_claimed=no, ssh_executed=yes, ssh_success=yes, selectel_panel_change=no, secrets_captured=no |
 | W3-FB-SELECTEL-SSH-SG-POST-PANEL-001 | 2026-07-11 | — | CROSS_ENTITY | TO/SH/BR demos | selectel SSH SG post-panel verification | P0 | Trusted path pass; API 200; 10 containers healthy; UFW deny pass; SG /32 unknown; non-trusted rejection not available | COMPLETED | — | Selectel SSH SG Non-Trusted Rejection or Panel Evidence Pack v0.1 | SELECTEL_SSH_SG_TRUSTED_PATH_PASS_NON_TRUSTED_REJECTION_PENDING — stg_lim=STG-LIM-003, production_ready_claimed=no, ssh_executed=yes, ssh_success=yes, selectel_sg_confirmed=unknown, non_trusted_rejection=not_available, secrets_captured=no |
+| W3-FB-SELECTEL-SSH-SG-NON-TRUSTED-001 | 2026-07-11 | — | CROSS_ENTITY | TO/SH/BR demos | selectel SSH SG non-trusted rejection test | P0 | External scan: 5/5 non-trusted nodes TCP 22 connect success; SG /32 not applied; STG-LIM-003 remains open | COMPLETED | — | Selectel SSH SG Post-Panel Re-Verification Pack v0.1 | SELECTEL_SSH_SG_NON_TRUSTED_REJECTION_FAILED_PORT_22_PUBLICLY_OPEN — stg_lim=STG-LIM-003, production_ready_claimed=no, ssh_executed=yes, ssh_success=yes, selectel_sg_confirmed=no, non_trusted_rejection=fail, secrets_captured=no |
 | W3-FB-FINAL-GO-NO-GO-OWNER-APPROVAL-001 | 2026-06-23 | Феликс Асаев | CROSS_ENTITY | TO/SH/BR demos | production readiness final go/no-go owner approval | P1 | Final go/no-go owner approval captured, but production-ready remains blocked by PR-GAP-001 | COMPLETED | **Феликс Асаев** | Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1 after staging server details are provided | FINAL_GO_NO_GO_OWNER_APPROVAL_CAPTURED_NOT_PRODUCTION_READY — pr_gap=PR-GAP-009, pr_gap_status=OWNER_APPROVED_BUT_PRODUCTION_READY_BLOCKED, blocking_gap=PR-GAP-001, blocking_gap_status=BLOCKED_WAITING_FOR_STAGING_SERVER_DETAILS, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, deploy_executed=no, ssh_executed=no, staging_writes_executed=no, secrets_captured=no |
 | W3-FB-SOT-OWNER-FINAL-APPROVAL-001 | 2026-06-23 | Феликс Асаев | CROSS_ENTITY | TO/SH/BR demos | production readiness SoT owner final approval | P2 | SoT owner final approval captured for PR-GAP-010 | COMPLETED | **Феликс Асаев** | Low-code Pilot Week-3 Final Go-No-Go Owner Final Approval Pack v0.1 | SOT_OWNER_FINAL_APPROVAL_CAPTURED — pr_gap=PR-GAP-010, pr_gap_status=CLOSED_APPROVED_BY_OWNER, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, deploy_executed=no, ssh_executed=no, staging_writes_executed=no, secrets_captured=no |
 | W3-FB-RELEASE-OWNER-FINAL-APPROVAL-001 | 2026-06-23 | Артем Асаев | CROSS_ENTITY | TO/SH/BR demos | production readiness release owner final approval | P2 | Release owner final approval captured for PR-GAP-008 | COMPLETED | **Артем Асаев** | Low-code Pilot Week-3 SoT Owner Final Approval Pack v0.1 | RELEASE_OWNER_FINAL_APPROVAL_CAPTURED — pr_gap=PR-GAP-008, pr_gap_status=CLOSED_APPROVED_BY_OWNER, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, deploy_executed=no, ssh_executed=no, staging_writes_executed=no, secrets_captured=no |
@@ -927,6 +928,27 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 - **controlled_pilot_status:** continues
 - **secrets_captured:** no
 - **next_pack:** Selectel SSH SG Non-Trusted Rejection or Panel Evidence Pack v0.1
+
+### W3-FB-SELECTEL-SSH-SG-NON-TRUSTED-001
+
+- **entity_type:** CROSS_ENTITY
+- **category:** selectel SSH SG non-trusted rejection test
+- **severity:** P0
+- **status:** COMPLETED
+- **decision:** SELECTEL_SSH_SG_NON_TRUSTED_REJECTION_FAILED_PORT_22_PUBLICLY_OPEN
+- **stg_lim:** STG-LIM-003
+- **stg_lim_status:** OPEN — BLOCKED_WAITING_FOR_SELECTEL_SG_PANEL_CHANGE
+- **baseline_api_health:** 200
+- **ssh_executed:** yes
+- **ssh_success:** yes
+- **runtime_containers_healthy:** 10
+- **non_trusted_source:** check-host.net — 5 international nodes
+- **non_trusted_rejection:** fail — 5/5 TCP 22 connect success
+- **selectel_sg_confirmed:** no
+- **production_ready_claimed:** no
+- **controlled_pilot_status:** continues
+- **secrets_captured:** no
+- **next_pack:** Selectel SSH SG Post-Panel Re-Verification Pack v0.1
 
 ### Column guide
 

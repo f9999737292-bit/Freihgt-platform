@@ -89,7 +89,7 @@ Staging limitations acceptance:
 
 - STG-LIM-001 HTTP-only IP access: OPEN
 - STG-LIM-002 HTTPS/Certbot: OPEN
-- STG-LIM-003 SSH Selectel Security Group restriction: OPEN_PENDING_NON_TRUSTED_REJECTION_TEST — trusted SSH PASS; SG /32 unknown; non-trusted rejection not available
+- STG-LIM-003 SSH Selectel Security Group restriction: OPEN — external scan confirms port 22 publicly reachable; SG /32 not applied
 - STG-LIM-004 Web-admin UI deploy: OPEN
 - STG-LIM-005 Full demo UI seed-data: OPEN
 - STG-LIM-006 seed-lowcode-demo custom field values: OPEN
