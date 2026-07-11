@@ -52,7 +52,7 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Current status:** **SELECTEL_SSH_SG_RESTRICTION_PREPARED_PENDING_EXECUTION**
+**Current status:** **SELECTEL_SSH_SG_RESTRICTION_EXECUTION_BLOCKED_PENDING_OPERATOR_INPUT**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -66,26 +66,37 @@ docs/ai-team/
 
 **Open production gaps:** **0**
 
-**Open staging limitations:** **STG-LIM-001..006** (STG-LIM-003 prep complete, execution pending)
+**Open staging limitations:** **STG-LIM-001..006** (STG-LIM-003 execution blocked pending operator)
 
-**Next event:** operator executes SSH SG restriction in Selectel panel
+**Baseline check:** API health GET `http://161.104.53.221/health` → **200**
 
-**Next pack:** Selectel SSH Security Group Restriction Execution Evidence Pack v0.1
+**Next event:** operator applies Selectel SG restriction per runbook
+
+**Next pack:** Selectel SSH SG Restriction Re-run Pack v0.1 (after operator execution)
 
 **Required operator input:**
 
 ```text
 Selectel SSH SG restriction approval: yes
 Trusted operator IP: <provided separately, not stored in docs>
+Selectel SG change completed: yes
 ```
 
 **Known limitations:**
 
 - STG-LIM-001 HTTP-only IP access
 - STG-LIM-002 HTTPS/domain pending
-- STG-LIM-003 SSH 22 Selectel Security Group — runbook prepared, execution pending
+- STG-LIM-003 SSH SG — execution blocked pending operator
 - STG-LIM-004 Web-admin UI deploy pending
 - STG-LIM-005 Full demo UI seed-data pending
+
+Week-3 Selectel SSH security group restriction execution evidence v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_SELECTEL_SSH_SECURITY_GROUP_RESTRICTION_EXECUTION_EVIDENCE_V0.1.md`.
+
+Week-3 Selectel SSH security group restriction verification note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_SELECTEL_SSH_SECURITY_GROUP_RESTRICTION_VERIFICATION_NOTE_V0.1.md`.
 
 Week-3 Selectel SSH security group restriction runbook v0.1:
 

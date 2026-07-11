@@ -40,7 +40,7 @@ OPEN — preparation complete, execution pending
 | 6 | HTTPS 443 open in Selectel SG | yes | yes | PASS |
 | 7 | SSH from trusted IP verified | yes | not executed | PENDING |
 | 8 | SSH from non-trusted IP rejected | yes | not executed | PENDING |
-| 9 | API health GET still 200 | yes | not re-verified post-SG | PENDING |
+| 9 | API health GET still 200 | yes | yes | PASS |
 | 10 | Sanitized evidence captured | yes | no | PENDING |
 
 ## Safety
@@ -53,13 +53,13 @@ OPEN — preparation complete, execution pending
 ## Decision
 
 ```text
-SELECTEL_SSH_SG_RESTRICTION_CHECKLIST_PREPARED_PENDING_EXECUTION
+SELECTEL_SSH_SG_RESTRICTION_EXECUTION_BLOCKED_PENDING_OPERATOR_INPUT
 ```
 
 ## STG-LIM-003 After This Pack
 
 ```text
-OPEN — runbook and checklist prepared, awaiting operator execution in Selectel panel
+OPEN — execution blocked pending operator approval and Selectel panel action
 ```
 
 ## Production-ready Status

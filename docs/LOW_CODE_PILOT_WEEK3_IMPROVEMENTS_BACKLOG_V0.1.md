@@ -208,8 +208,9 @@ When P1 appears: add row with owner assigned, target fix pack, decision **GO_WIT
 - **STG-LIM-001..006 tracked as open limitations**
 - **production-ready still not claimed**
 - **Selectel SSH SG restriction runbook and checklist prepared**
-- **STG-LIM-003 execution pending operator approval in Selectel panel**
-- **next action: operator executes SG restriction and captures evidence**
+- **STG-LIM-003 execution evidence capture attempted — blocked pending operator input**
+- **baseline API health GET 200 confirmed**
+- **next action: operator applies Selectel SG restriction and provides approval**
 - **Remote Auth-On Staging Repeat completed successfully**
 - **CORE_MATRIX_PASS=yes**
 - **FULL_MATRIX_PASS=yes**
@@ -294,7 +295,8 @@ Explicit list (BL-W3-000–009):
 | **Low-code Pilot Week-3 PR-GAP-001 Owner Approval Capture and Closure Pack v0.1** | Completed | **PR_GAP_001_CLOSED_APPROVED_BY_OWNER_REMOTE_AUTH_ON_VERIFIED** |
 | **Staging Hardening and Production Readiness Review Pack v0.1** | Completed | **STAGING_HARDENING_AND_PRODUCTION_READINESS_REVIEW_COMPLETED** |
 | **Selectel SSH Security Group Restriction Pack v0.1** | Completed (prep) | **SELECTEL_SSH_SG_RESTRICTION_PREPARED_PENDING_EXECUTION** |
-| **Selectel SSH Security Group Restriction Execution Evidence Pack v0.1** | Next | STG-LIM-003 closure after operator execution |
+| **Selectel SSH Security Group Restriction Execution Evidence Pack v0.1** | Completed (blocked) | **SELECTEL_SSH_SG_RESTRICTION_EXECUTION_BLOCKED_PENDING_OPERATOR_INPUT** |
+| **Selectel SSH SG Restriction Re-run Pack v0.1** | Next | STG-LIM-003 after operator execution |
 | **Low-code Pilot Week-3 Temporary Tunnel Auth-On Matrix Pack v0.1** | Temporary tunnel approved | Partial PR-GAP-001 evidence |
 | **Low-code Pilot Week-3 Production Rollback Plan Pack v0.1** | Rollback owner ready | PR-GAP-003 |
 | **Low-code Pilot Week-3 Production Monitoring Policy Pack v0.1** | Completed | **MONITORING_OWNER_FINAL_APPROVAL_CAPTURED** |
