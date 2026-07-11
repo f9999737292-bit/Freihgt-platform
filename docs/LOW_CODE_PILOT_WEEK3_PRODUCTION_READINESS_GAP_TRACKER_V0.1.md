@@ -12,7 +12,9 @@ Tracks **0 open production readiness gaps**. PR-GAP-001 **closed** with owner ap
 
 **Staging hardening review:** `STAGING_HARDENING_AND_PRODUCTION_READINESS_REVIEW_COMPLETED` (2026-07-11)
 
-**Staging limitations:** `STAGING_LIMITATIONS_REVIEWED_PRODUCTION_READY_NOT_CLAIMED` — STG-LIM-001..006 tracked
+**Staging limitations:** `STAGING_LIMITATIONS_REVIEWED_PRODUCTION_READY_NOT_CLAIMED` — STG-LIM-001..006 tracked; STG-LIM-003 runbook prepared
+
+**Selectel SSH SG restriction:** `SELECTEL_SSH_SG_RESTRICTION_PREPARED_PENDING_EXECUTION` (2026-07-11)
 
 **Remote staging intake:** `REMOTE_STAGING_DETAILS_INTAKE_FORM_CREATED_PENDING_INPUT` (completed)
 
@@ -84,7 +86,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | PR-GAP-006 | Tenant isolation production evidence not approved | **CLOSED_APPROVED_BY_OWNER** | **Феликс Асаев** | Tenant isolation evidence pack reviewed; owner assignment and final approval captured | none for PR-GAP-006 unless handover required | Tenant isolation evidence approved by owner. No code changed. No write operations. Production-ready not claimed. |
 | PR-GAP-007 | Support owner not assigned | **CLOSED_APPROVED_BY_OWNER** | **Артем Асаев** | Support ownership policy, escalation matrix, checklist, owner note, decision note, and support owner final approval captured | none for PR-GAP-007 unless operational support tooling implementation or handover is required later | Support ownership approved by owner. No support config was changed. Production-ready not claimed. Other production readiness gaps remain open. |
 | PR-GAP-008 | Release owner not assigned | **CLOSED_APPROVED_BY_OWNER** | **Артем Асаев** — Release / Delivery / Platform Owner | Release ownership policy, freeze rules, checklist, and owner final approval captured | none unless handover required | Release owner final approval captured docs-only. No deploy executed. No production-ready claim. PR-GAP-001 remains blocked waiting for staging server details. |
-| PR-GAP-009 | Final go/no-go owner not assigned | **OWNER_APPROVED_BUT_PRODUCTION_READY_NOT_CLAIMED** | **Феликс Асаев** — Product / Executive / Final Decision Owner | Final go/no-go owner approval captured; PR-GAP-001 closed; staging limitations reviewed; production-ready not claimed | Selectel SSH Security Group Restriction Pack v0.1 | Staging hardening review completed. Production-ready not claimed due to STG-LIM-001..004 open. |
+| PR-GAP-009 | Final go/no-go owner not assigned | **OWNER_APPROVED_BUT_PRODUCTION_READY_NOT_CLAIMED** | **Феликс Асаев** — Product / Executive / Final Decision Owner | Final go/no-go owner approval captured; PR-GAP-001 closed; staging limitations reviewed; production-ready not claimed | Selectel SSH Security Group Restriction Execution Evidence Pack v0.1 after operator execution | STG-LIM-003 runbook and checklist prepared. Awaiting operator execution in Selectel panel. |
 | PR-GAP-010 | Low-code financial/legal source-of-truth policy not approved | **CLOSED_APPROVED_BY_OWNER** | **Феликс Асаев** — SoT / Documentation / Product Operations Owner | SoT scope, gap tracker, risk register, checklist, acceptance criteria, NEXT_COMMANDS, feedback log, backlog, and owner approval records accepted as controlled source of truth | none unless handover required | SoT owner final approval captured docs-only. Source-of-truth scope approved. No production-ready claim. PR-GAP-001 remains blocked waiting for staging server details. |
 
 ## Status Summary
