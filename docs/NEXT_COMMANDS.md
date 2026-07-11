@@ -52,7 +52,7 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Current status:** **SELECTEL_SSH_SG_RESTRICTION_EXECUTION_BLOCKED_PENDING_OPERATOR_INPUT**
+**Current status:** **SELECTEL_SSH_SG_VERIFICATION_PARTIAL_SSH_TRUSTED_PASS_SG_PENDING**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -60,35 +60,34 @@ docs/ai-team/
 
 **Production-ready claimed:** **no**
 
-**Closed gaps:** PR-GAP-001, PR-GAP-002, PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006, PR-GAP-007, PR-GAP-008, PR-GAP-010
+**Open staging limitations:** **STG-LIM-001..006** (STG-LIM-003: SSH trusted PASS; Selectel SG /32 not verified)
 
-**PR-GAP-009:** **OWNER_APPROVED_BUT_PRODUCTION_READY_NOT_CLAIMED**
+**Verification:** API health **200** | SSH trusted **PASS** | Runtime **10 containers healthy**
 
-**Open production gaps:** **0**
+**Next event:** apply Selectel SG SSH /32 rule in panel (trusted operator IP — use in panel only, not stored in repo)
 
-**Open staging limitations:** **STG-LIM-001..006** (STG-LIM-003 execution blocked pending operator)
+**Next pack:** Selectel SSH SG Panel Confirmation Pack v0.1
 
-**Baseline check:** API health GET `http://161.104.53.221/health` → **200**
+**Blockers:**
 
-**Next event:** operator applies Selectel SG restriction per runbook
+- Selectel Security Group SSH /32 not verified
+- Non-trusted IP SSH rejection test not executed
 
-**Next pack:** Selectel SSH SG Restriction Re-run Pack v0.1 (after operator execution)
+Week-3 Selectel SSH SG verification evidence v0.1:
 
-**Required operator input:**
+See `docs/LOW_CODE_PILOT_WEEK3_SELECTEL_SSH_SG_VERIFICATION_EVIDENCE_V0.1.md`.
 
-```text
-Selectel SSH SG restriction approval: yes
-Trusted operator IP: <provided separately, not stored in docs>
-Selectel SG change completed: yes
-```
+Week-3 Selectel SSH SG verification note v0.1:
 
-**Known limitations:**
+See `docs/LOW_CODE_PILOT_WEEK3_SELECTEL_SSH_SG_VERIFICATION_NOTE_V0.1.md`.
 
-- STG-LIM-001 HTTP-only IP access
-- STG-LIM-002 HTTPS/domain pending
-- STG-LIM-003 SSH SG — execution blocked pending operator
-- STG-LIM-004 Web-admin UI deploy pending
-- STG-LIM-005 Full demo UI seed-data pending
+Week-3 Selectel SSH SG operator approval capture v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_SELECTEL_SSH_SG_OPERATOR_APPROVAL_CAPTURE_V0.1.md`.
+
+Week-3 Selectel SSH SG restriction re-run evidence v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_SELECTEL_SSH_SG_RESTRICTION_RE_RUN_EVIDENCE_V0.1.md`.
 
 Week-3 Selectel SSH security group restriction execution evidence v0.1:
 

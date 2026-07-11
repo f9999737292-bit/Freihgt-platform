@@ -15,7 +15,7 @@ STG-LIM-003
 ## Current Status
 
 ```text
-OPEN — preparation complete, execution pending
+OPEN — operator approval captured; SG panel change not verified; SSH key not configured
 ```
 
 ## Preparation Checklist
@@ -23,10 +23,10 @@ OPEN — preparation complete, execution pending
 | # | Item | Status |
 | - | ---- | ------ |
 | 1 | Runbook created | PASS |
-| 2 | Trusted operator IP identified | PENDING — operator input |
-| 3 | Selectel panel access confirmed | PENDING — operator input |
-| 4 | Break-glass Console access confirmed | PENDING — operator input |
-| 5 | Security Group change approved | PENDING — operator approval |
+| 2 | Trusted operator IP identified | PASS — not stored in docs |
+| 3 | Selectel panel access confirmed | PENDING — operator panel action |
+| 4 | Break-glass Console access confirmed | PENDING |
+| 5 | Security Group change approved | PASS |
 
 ## Execution Checklist (operator — not done in this pack)
 
@@ -38,10 +38,10 @@ OPEN — preparation complete, execution pending
 | 4 | Redis 6379 not open in Selectel SG | yes | unknown | PENDING |
 | 5 | HTTP 80 open in Selectel SG | yes | yes | PASS |
 | 6 | HTTPS 443 open in Selectel SG | yes | yes | PASS |
-| 7 | SSH from trusted IP verified | yes | not executed | PENDING |
+| 7 | SSH from trusted IP verified | yes | success | PASS |
 | 8 | SSH from non-trusted IP rejected | yes | not executed | PENDING |
 | 9 | API health GET still 200 | yes | yes | PASS |
-| 10 | Sanitized evidence captured | yes | no | PENDING |
+| 10 | Sanitized evidence captured | yes | yes | PASS |
 
 ## Safety
 
@@ -53,13 +53,13 @@ OPEN — preparation complete, execution pending
 ## Decision
 
 ```text
-SELECTEL_SSH_SG_RESTRICTION_EXECUTION_BLOCKED_PENDING_OPERATOR_INPUT
+SELECTEL_SSH_SG_VERIFICATION_PARTIAL_SSH_TRUSTED_PASS_SG_PENDING
 ```
 
 ## STG-LIM-003 After This Pack
 
 ```text
-OPEN — execution blocked pending operator approval and Selectel panel action
+OPEN — SSH trusted access verified; Selectel SG /32 restriction not verified
 ```
 
 ## Production-ready Status

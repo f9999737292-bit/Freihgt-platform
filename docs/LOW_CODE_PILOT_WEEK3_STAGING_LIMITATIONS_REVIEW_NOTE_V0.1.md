@@ -18,7 +18,7 @@ STAGING_LIMITATIONS_REVIEWED_PRODUCTION_READY_NOT_CLAIMED
 | -- | ---------- | ------ | -------- |
 | STG-LIM-001 | HTTP-only IP access | OPEN | P1 |
 | STG-LIM-002 | HTTPS / Certbot not configured | OPEN | P1 |
-| STG-LIM-003 | SSH 22 Selectel Security Group restriction pending | OPEN — execution blocked pending operator input | P0 |
+| STG-LIM-003 | SSH 22 Selectel Security Group restriction pending | OPEN — SSH trusted PASS; SG not verified | P0 |
 | STG-LIM-004 | Web-admin UI not deployed | OPEN | P2 |
 | STG-LIM-005 | Full demo UI seed-data not executed | OPEN | P3 |
 | STG-LIM-006 | seed-lowcode-demo custom field values skipped | OPEN | P3 |
@@ -52,5 +52,5 @@ continues
 ## Recommended First Action
 
 ```text
-Selectel SSH Security Group Restriction Execution Evidence Pack v0.1
+Selectel SSH SG Panel Confirmation Pack v0.1
 ```

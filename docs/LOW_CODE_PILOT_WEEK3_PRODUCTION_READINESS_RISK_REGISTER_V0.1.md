@@ -16,7 +16,7 @@ Risk register for production readiness review after controlled pilot approval.
 
 **Staging hardening review:** `STAGING_HARDENING_AND_PRODUCTION_READINESS_REVIEW_COMPLETED` (2026-07-11)
 
-**Selectel SSH SG restriction:** `SELECTEL_SSH_SG_RESTRICTION_EXECUTION_BLOCKED_PENDING_OPERATOR_INPUT` (2026-07-11)
+**Selectel SSH SG restriction:** `SELECTEL_SSH_SG_VERIFICATION_PARTIAL_SSH_TRUSTED_PASS_SG_PENDING` (2026-07-11)
 
 **Staging limitations:** STG-LIM-001..006 **OPEN** — STG-LIM-003 preparation complete, execution pending
 
@@ -83,7 +83,7 @@ Risk register for production readiness review after controlled pilot approval.
 | PR-RISK-009 | PR-GAP-005 | Audit retention policy undefined for production | P3 | **MITIGATED_BY_APPROVED_AUDIT_RETENTION_POLICY** | Audit retention policy, evidence handling rules, checklist, and owner final approval captured with owner **Феликс Асаев** | **Феликс Асаев** | Optional: contact handover; real retention config implementation if needed |
 | PR-RISK-010 | PR-GAP-007 | Support owner not assigned | P2 | **MITIGATED_BY_APPROVED_SUPPORT_OWNERSHIP** | Support ownership policy, escalation matrix, checklist, and owner final approval captured with owner **Артем Асаев** | **Артем Асаев** | Optional: contact handover; real support tooling/config implementation may require separate operational task if needed |
 | PR-RISK-011 | PR-GAP-008 | Release owner not assigned | P2 | **MITIGATED_BY_RELEASE_OWNER_FINAL_APPROVAL** | Release ownership policy, freeze rules, checklist, and owner final approval captured with owner **Артем Асаев** | **Артем Асаев** | Residual risk: production-ready not claimed due to staging limitations. Release owner approval does not authorize production deploy. |
-| PR-RISK-012 | — | Staging hardening incomplete for production claim | P1 | **OPEN** | Execution evidence pack attempted; blocked pending operator approval and Selectel SG change; baseline API health PASS | Ops / DevOps — TBD | Operator applies SG restriction per runbook, then re-run evidence capture |
+| PR-RISK-012 | — | Staging hardening incomplete for production claim | P1 | **OPEN** | SSH trusted access verified; Selectel SG /32 not verified; runtime healthy; API health 200 | Ops / DevOps — TBD | Apply Selectel SG SSH /32 in panel; re-run non-trusted IP test |
 
 ## Risk–Gap Mapping Rules
 
