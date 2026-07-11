@@ -52,7 +52,7 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Current status:** **PR_GAP_001_OWNER_REVIEW_REQUESTED**
+**Current status:** **PR_GAP_001_CLOSED_APPROVED_BY_OWNER_REMOTE_AUTH_ON_VERIFIED**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -60,25 +60,17 @@ docs/ai-team/
 
 **Production-ready claimed:** **no**
 
-**Closed gaps:** PR-GAP-002, PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006, PR-GAP-007, PR-GAP-008, PR-GAP-010
+**Closed gaps:** PR-GAP-001, PR-GAP-002, PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006, PR-GAP-007, PR-GAP-008, PR-GAP-010
 
-**PR-GAP-009:** **OWNER_APPROVED_BUT_PRODUCTION_READY_BLOCKED**
+**PR-GAP-009:** **OWNER_APPROVED_BUT_PRODUCTION_READY_NOT_CLAIMED**
 
-**PR-GAP-001:** **OWNER_REVIEW_REQUESTED_REMOTE_AUTH_ON_VERIFIED**
+**PR-GAP-001:** **CLOSED_APPROVED_BY_OWNER_REMOTE_AUTH_ON_VERIFIED**
 
-**Only remaining gap:** PR-GAP-001 — explicit owner approval required before closure
+**Open production gaps:** **0**
 
-**Next event:** owner approval for PR-GAP-001 closure
+**Next event:** staging hardening and production readiness review for remaining limitations
 
-**Required owner approval format:**
-
-```text
-PR-GAP-001 owner approval: yes
-Owner: <name>
-Decision: approve closure
-```
-
-**Next pack:** PR-GAP-001 Owner Approval Capture and Closure Pack v0.1
+**Next pack:** Staging Hardening and Production Readiness Review Pack v0.1
 
 **Known limitations:**
 

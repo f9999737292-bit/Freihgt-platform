@@ -34,7 +34,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 
 | criterion | status | evidence | owner | notes |
 |-----------|--------|----------|-------|-------|
-| Remote Auth-On Repeat | **OWNER_REVIEW_REQUESTED_REMOTE_AUTH_ON_VERIFIED** | `docs/LOW_CODE_PILOT_WEEK3_PR_GAP_001_OWNER_REVIEW_REQUEST_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_PR_GAP_001_CLOSURE_DECISION_DRAFT_V0.1.md` | Ops / Platform / Staging Owner — TBD | Remote Auth-On Staging Repeat verification passed. Owner review request and closure decision draft prepared. Closure not final until explicit owner approval. Production-ready not claimed. |
+| Remote Auth-On Repeat | **CLOSED_APPROVED_BY_OWNER_REMOTE_AUTH_ON_VERIFIED** | `docs/LOW_CODE_PILOT_WEEK3_PR_GAP_001_OWNER_APPROVAL_CAPTURE_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_PR_GAP_001_CLOSURE_DECISION_NOTE_V0.1.md` | **Феликс Асаев** | PR-GAP-001 closed with owner approval. Remote auth-on verified on Selectel staging. Production-ready not claimed. Remaining staging limitations tracked separately. |
 | Production auth policy | PENDING | — | Security | not approved |
 | RBAC production review | PENDING | — | Security | out of scope v0.1 pilot |
 
@@ -95,7 +95,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 | Owner Matrix | **created** | `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_OWNER_MATRIX_V0.1.md` |
 | Acceptance Criteria | **created** | `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_ACCEPTANCE_CRITERIA_V0.1.md` |
 
-**Remaining blocker:** **PR-GAP-001** (`OWNER_REVIEW_REQUESTED_REMOTE_AUTH_ON_VERIFIED`) — PR-GAP-009 **OWNER_APPROVED_BUT_PRODUCTION_READY_BLOCKED** — PR-GAP-002, PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006, PR-GAP-007, PR-GAP-008, PR-GAP-010 **CLOSED**
+**Remaining blocker:** **none (PR-GAP-001 closed)** — PR-GAP-009 **OWNER_APPROVED_BUT_PRODUCTION_READY_NOT_CLAIMED** — production-ready not claimed due to staging limitations
 
 ## Final Status
 
@@ -107,11 +107,12 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 | PR-GAP-008 | **PASS / APPROVED_BY_RELEASE_OWNER** |
 | PR-GAP-010 | **PASS / APPROVED_BY_SOT_OWNER** |
 | PR-GAP-009 | **OWNER_APPROVED / PRODUCTION_READY_BLOCKED_BY_PR_GAP_001** |
-| PR-GAP-001 | **OWNER_REVIEW_REQUESTED_REMOTE_AUTH_ON_VERIFIED** |
+| PR-GAP-001 | **CLOSED_APPROVED_BY_OWNER_REMOTE_AUTH_ON_VERIFIED** |
+| PR-GAP-009 | **OWNER_APPROVED_BUT_PRODUCTION_READY_NOT_CLAIMED** |
 | Final production readiness | **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY** |
-| Decision | `PR_GAP_001_OWNER_REVIEW_REQUESTED` |
-| Reason | Remote auth-on verified on Selectel staging; owner review request and closure draft prepared; explicit owner approval required before closure; production-ready not claimed |
+| Decision | `PR_GAP_001_CLOSED_APPROVED_BY_OWNER_REMOTE_AUTH_ON_VERIFIED` |
+| Reason | PR-GAP-001 closed with owner approval; production-ready not claimed due to HTTP-only IP access, SSH restriction pending, web-admin UI not deployed |
 | Gap closure plan | **created** — `GAP_CLOSURE_PLAN_CREATED` |
-| Evidence prepared | `docs/LOW_CODE_PILOT_WEEK3_PR_GAP_001_OWNER_REVIEW_REQUEST_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_PR_GAP_001_CLOSURE_DECISION_DRAFT_V0.1.md` |
+| Evidence prepared | `docs/LOW_CODE_PILOT_WEEK3_PR_GAP_001_OWNER_APPROVAL_CAPTURE_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_PR_GAP_001_CLOSURE_DECISION_NOTE_V0.1.md` |
 
 Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`, `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`

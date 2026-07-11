@@ -4,13 +4,13 @@
 
 Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER**, **SHIPMENT**, and **BILLING_REGISTER**.
 
-**Current status:** **PR_GAP_001_OWNER_REVIEW_REQUESTED** — PR-GAP-001 **OWNER_REVIEW_REQUESTED_REMOTE_AUTH_ON_VERIFIED**; controlled pilot **active**; production-ready **not claimed**.
+**Current status:** **PR_GAP_001_CLOSED_APPROVED_BY_OWNER_REMOTE_AUTH_ON_VERIFIED** — PR-GAP-001 **closed**; controlled pilot **active**; production-ready **not claimed**.
 
 ## Current Status
 
 | Metric | Value |
 |--------|-------|
-| Total entries | **53** |
+| Total entries | **54** |
 | Remote server available | **yes** (Selectel 161.104.53.221) |
 | Final go/no-go owner | **Феликс Асаев** — owner approved; production-ready blocked by PR-GAP-001 |
 | SoT owner | **Феликс Асаев** — approved |
@@ -28,8 +28,8 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | Rollback plan | **PRODUCTION_ROLLBACK_PLAN_CREATED** |
 | Rollback owner | **Артем Асаев** |
 | Auth-on repeat (remote) | **AUTH_ON_REMOTE_VERIFIED** |
-| PR-GAP-001 | **OWNER_REVIEW_REQUESTED_REMOTE_AUTH_ON_VERIFIED** |
-| PR-GAP-009 | **OWNER_APPROVED_BUT_PRODUCTION_READY_BLOCKED** |
+| PR-GAP-001 | **CLOSED_APPROVED_BY_OWNER_REMOTE_AUTH_ON_VERIFIED** |
+| PR-GAP-009 | **OWNER_APPROVED_BUT_PRODUCTION_READY_NOT_CLAIMED** |
 | PR-GAP-010 | **CLOSED_APPROVED_BY_OWNER** |
 | PR-GAP-008 | **CLOSED_APPROVED_BY_OWNER** |
 | PR-GAP-002 | **CLOSED_APPROVED_BY_OWNER** |
@@ -98,6 +98,7 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | W3-FB-SELECTEL-REMOTE-EXECUTION-RUNTIME-SETUP-001 | 2026-07-10 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness selectel remote execution runtime setup | P1 | Selectel remote execution approval captured; SSH attempted but failed (publickey); runtime setup not executed | COMPLETED | — | Selectel Remote Execution Approval + Runtime Setup Pack v0.1 (re-run after SSH key configured) | SELECTEL_RUNTIME_PREPARED_PENDING_STAGING_ENV_AND_PLATFORM_START — pr_gap=PR-GAP-001, pr_gap_status=BLOCKED_WAITING_FOR_STAGING_ENV_AND_PLATFORM_START, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, provider=Selectel, public_ip=161.104.53.221, ssh_executed=yes, ssh_success=no, deploy_executed=no, staging_writes_executed=no, secrets_captured=no |
 | W3-FB-REMOTE-AUTH-ON-VERIFIED-001 | 2026-07-11 | — | CROSS_ENTITY | TO/SH/BR demos | remote auth-on staging repeat verification | P0 | Remote Auth-On Staging Repeat Pack completed successfully with full read-only GET matrix pass | COMPLETED | — | PR-GAP-001 Owner Review and Closure Pack v0.1 | AUTH_ON_REMOTE_VERIFIED — pr_gap=PR-GAP-001, pr_gap_status=READY_FOR_OWNER_REVIEW_REMOTE_AUTH_ON_VERIFIED, production_ready_claimed=no, controlled_pilot_status=continues, provider=Selectel, public_ip=161.104.53.221, core_matrix_pass=yes, full_matrix_pass=yes, secrets_captured=no, writes_executed=no |
 | W3-FB-PR-GAP-001-OWNER-REVIEW-REQUEST-001 | 2026-07-11 | — | CROSS_ENTITY | TO/SH/BR demos | PR-GAP-001 owner review request | P0 | PR-GAP-001 owner review request and closure decision draft prepared; closure not final until owner approval | COMPLETED | — | PR-GAP-001 Owner Approval Capture and Closure Pack v0.1 | PR_GAP_001_OWNER_REVIEW_REQUESTED — pr_gap=PR-GAP-001, pr_gap_status=OWNER_REVIEW_REQUESTED_REMOTE_AUTH_ON_VERIFIED, evidence_status=AUTH_ON_REMOTE_VERIFIED, production_ready_claimed=no, controlled_pilot_status=continues, closure_finalized=no, owner_approval_captured=no, secrets_captured=no, writes_executed=no |
+| W3-FB-PR-GAP-001-OWNER-APPROVAL-CLOSURE-001 | 2026-07-11 | Феликс Асаев | CROSS_ENTITY | TO/SH/BR demos | PR-GAP-001 owner approval and closure | P0 | PR-GAP-001 owner approval captured and gap closed; production-ready not claimed | COMPLETED | **Феликс Асаев** | staging hardening and production readiness review | PR_GAP_001_CLOSED_APPROVED_BY_OWNER_REMOTE_AUTH_ON_VERIFIED — pr_gap=PR-GAP-001, pr_gap_status=CLOSED_APPROVED_BY_OWNER_REMOTE_AUTH_ON_VERIFIED, production_ready_claimed=no, controlled_pilot_status=continues, closure_finalized=yes, owner_approval_captured=yes, secrets_captured=no, writes_executed=no |
 | W3-FB-FINAL-GO-NO-GO-OWNER-APPROVAL-001 | 2026-06-23 | Феликс Асаев | CROSS_ENTITY | TO/SH/BR demos | production readiness final go/no-go owner approval | P1 | Final go/no-go owner approval captured, but production-ready remains blocked by PR-GAP-001 | COMPLETED | **Феликс Асаев** | Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1 after staging server details are provided | FINAL_GO_NO_GO_OWNER_APPROVAL_CAPTURED_NOT_PRODUCTION_READY — pr_gap=PR-GAP-009, pr_gap_status=OWNER_APPROVED_BUT_PRODUCTION_READY_BLOCKED, blocking_gap=PR-GAP-001, blocking_gap_status=BLOCKED_WAITING_FOR_STAGING_SERVER_DETAILS, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, deploy_executed=no, ssh_executed=no, staging_writes_executed=no, secrets_captured=no |
 | W3-FB-SOT-OWNER-FINAL-APPROVAL-001 | 2026-06-23 | Феликс Асаев | CROSS_ENTITY | TO/SH/BR demos | production readiness SoT owner final approval | P2 | SoT owner final approval captured for PR-GAP-010 | COMPLETED | **Феликс Асаев** | Low-code Pilot Week-3 Final Go-No-Go Owner Final Approval Pack v0.1 | SOT_OWNER_FINAL_APPROVAL_CAPTURED — pr_gap=PR-GAP-010, pr_gap_status=CLOSED_APPROVED_BY_OWNER, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, deploy_executed=no, ssh_executed=no, staging_writes_executed=no, secrets_captured=no |
 | W3-FB-RELEASE-OWNER-FINAL-APPROVAL-001 | 2026-06-23 | Артем Асаев | CROSS_ENTITY | TO/SH/BR demos | production readiness release owner final approval | P2 | Release owner final approval captured for PR-GAP-008 | COMPLETED | **Артем Асаев** | Low-code Pilot Week-3 SoT Owner Final Approval Pack v0.1 | RELEASE_OWNER_FINAL_APPROVAL_CAPTURED — pr_gap=PR-GAP-008, pr_gap_status=CLOSED_APPROVED_BY_OWNER, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, deploy_executed=no, ssh_executed=no, staging_writes_executed=no, secrets_captured=no |
@@ -779,6 +780,27 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 - **secrets_captured:** no
 - **writes_executed:** no
 - **next_pack:** PR-GAP-001 Owner Approval Capture and Closure Pack v0.1
+
+### W3-FB-PR-GAP-001-OWNER-APPROVAL-CLOSURE-001
+
+- **entity_type:** CROSS_ENTITY
+- **category:** PR-GAP-001 owner approval and closure
+- **severity:** P0
+- **status:** COMPLETED
+- **owner:** Феликс Асаев
+- **decision:** PR_GAP_001_CLOSED_APPROVED_BY_OWNER_REMOTE_AUTH_ON_VERIFIED
+- **pr_gap:** PR-GAP-001
+- **pr_gap_status:** CLOSED_APPROVED_BY_OWNER_REMOTE_AUTH_ON_VERIFIED
+- **evidence_status:** AUTH_ON_REMOTE_VERIFIED
+- **core_matrix_pass:** yes
+- **full_matrix_pass:** yes
+- **production_ready_claimed:** no
+- **controlled_pilot_status:** continues
+- **closure_finalized:** yes
+- **owner_approval_captured:** yes
+- **secrets_captured:** no
+- **writes_executed:** no
+- **next_pack:** staging hardening and production readiness review for remaining limitations
 
 ### Column guide
 

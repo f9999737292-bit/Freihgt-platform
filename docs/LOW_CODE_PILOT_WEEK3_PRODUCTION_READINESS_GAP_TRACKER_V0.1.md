@@ -2,13 +2,13 @@
 
 ## Summary
 
-Tracks **1 open production readiness gap** (PR-GAP-001 — owner review requested). PR-GAP-002, PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006, PR-GAP-007, PR-GAP-008, and PR-GAP-010 **closed**. PR-GAP-009 final go/no-go owner approval **captured** but production-ready **not claimed**.
+Tracks **0 open production readiness gaps**. PR-GAP-001 **closed** with owner approval. PR-GAP-002, PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006, PR-GAP-007, PR-GAP-008, and PR-GAP-010 **closed**. PR-GAP-009 final go/no-go owner approval **captured**; production-ready **not claimed** due to remaining staging limitations.
 
 **Auth-on repeat (local):** `AUTH_ON_REPEAT_LOCAL_VERIFIED` (2026-06-23)
 
-**Auth-on repeat (remote):** `AUTH_ON_REMOTE_VERIFIED` (2026-07-11) — PR-GAP-001 **OWNER_REVIEW_REQUESTED_REMOTE_AUTH_ON_VERIFIED**
+**Auth-on repeat (remote):** `AUTH_ON_REMOTE_VERIFIED` (2026-07-11)
 
-**PR-GAP-001 owner review:** `PR_GAP_001_OWNER_REVIEW_REQUESTED` (2026-07-11)
+**PR-GAP-001 closure:** `PR_GAP_001_CLOSED_APPROVED_BY_OWNER_REMOTE_AUTH_ON_VERIFIED` (2026-07-11) — owner **Феликс Асаев**
 
 **Remote staging intake:** `REMOTE_STAGING_DETAILS_INTAKE_FORM_CREATED_PENDING_INPUT` (completed)
 
@@ -16,7 +16,7 @@ Tracks **1 open production readiness gap** (PR-GAP-001 — owner review requeste
 
 **Remote staging preparation gate:** `REMOTE_STAGING_DETAILS_VALIDATION_BLOCKED_PENDING_INPUT` (completed)
 
-**Remote auth-on staging repeat:** `AUTH_ON_REMOTE_VERIFIED` (PR-GAP-001 **owner review requested**)
+**Remote auth-on staging repeat:** `AUTH_ON_REMOTE_VERIFIED` (PR-GAP-001 **closed**)
 
 **Selectel staging details:** `SELECTEL_STAGING_DETAILS_CAPTURED_HARDENING_REQUIRED` (completed)
 
@@ -72,7 +72,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 
 | Gap ID | Gap | Status | Owner | Acceptance Criteria | Next Pack | Notes |
 |--------|-----|--------|-------|---------------------|-----------|-------|
-| PR-GAP-001 | Remote Auth-On Repeat not completed | **OWNER_REVIEW_REQUESTED_REMOTE_AUTH_ON_VERIFIED** | Ops / Platform / Staging Owner — **TBD** | Remote Auth-On Staging Repeat verification passed. PR-GAP-001 is ready for owner review. Closure is not final until explicit owner approval is captured. Production-ready not claimed. | PR-GAP-001 Owner Approval Capture and Closure Pack v0.1 | Decision: `PR_GAP_001_OWNER_REVIEW_REQUESTED`. Evidence: `docs/LOW_CODE_PILOT_WEEK3_REMOTE_AUTH_ON_STAGING_REPEAT_EVIDENCE_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_PR_GAP_001_REMOTE_AUTH_ON_REVIEW_NOTE_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_PR_GAP_001_OWNER_REVIEW_REQUEST_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_PR_GAP_001_CLOSURE_DECISION_DRAFT_V0.1.md`. Remaining limitations: HTTP-only IP access, no HTTPS/domain, SSH restriction via Selectel Security Group pending, web-admin UI not deployed. |
+| PR-GAP-001 | Remote Auth-On Repeat not completed | **CLOSED_APPROVED_BY_OWNER_REMOTE_AUTH_ON_VERIFIED** | **Феликс Асаев** — Product / Executive / Final Decision Owner | Remote Auth-On Staging Repeat verification passed and owner approval captured. CORE_MATRIX_PASS=yes and FULL_MATRIX_PASS=yes. Read-only GET verification. Production-ready not claimed. | none unless staging hardening follow-up required | Decision: `PR_GAP_001_CLOSED_APPROVED_BY_OWNER_REMOTE_AUTH_ON_VERIFIED`. Evidence: `docs/LOW_CODE_PILOT_WEEK3_REMOTE_AUTH_ON_STAGING_REPEAT_EVIDENCE_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_PR_GAP_001_REMOTE_AUTH_ON_REVIEW_NOTE_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_PR_GAP_001_OWNER_REVIEW_REQUEST_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_PR_GAP_001_OWNER_APPROVAL_CAPTURE_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_PR_GAP_001_CLOSURE_DECISION_NOTE_V0.1.md`. Remaining limitations tracked separately: HTTP-only IP access, no HTTPS/domain, SSH restriction via Selectel Security Group pending, web-admin UI not deployed. |
 | PR-GAP-002 | Production data policy not approved | **CLOSED_APPROVED_BY_OWNER** | **Феликс Асаев** | Production data policy, checklist, and owner final approval captured | none unless handover required | Production data owner final approval captured docs-only. No production writes. No secrets. Production-ready not claimed. |
 | PR-GAP-003 | Rollback plan not approved | **CLOSED_APPROVED_BY_OWNER** | **Артем Асаев** | Rollback plan, procedure, checklist, owner assignment, and final approval captured | none unless handover required | Rollback approved. Not executed. |
 | PR-GAP-004 | Monitoring / alerting policy not approved | **CLOSED_APPROVED_BY_OWNER** | **Артем Асаев** | Monitoring policy, alert conditions, checklist, owner assignment, and final approval captured | none unless handover required | Monitoring approved. Real config not changed. |
@@ -80,7 +80,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | PR-GAP-006 | Tenant isolation production evidence not approved | **CLOSED_APPROVED_BY_OWNER** | **Феликс Асаев** | Tenant isolation evidence pack reviewed; owner assignment and final approval captured | none for PR-GAP-006 unless handover required | Tenant isolation evidence approved by owner. No code changed. No write operations. Production-ready not claimed. |
 | PR-GAP-007 | Support owner not assigned | **CLOSED_APPROVED_BY_OWNER** | **Артем Асаев** | Support ownership policy, escalation matrix, checklist, owner note, decision note, and support owner final approval captured | none for PR-GAP-007 unless operational support tooling implementation or handover is required later | Support ownership approved by owner. No support config was changed. Production-ready not claimed. Other production readiness gaps remain open. |
 | PR-GAP-008 | Release owner not assigned | **CLOSED_APPROVED_BY_OWNER** | **Артем Асаев** — Release / Delivery / Platform Owner | Release ownership policy, freeze rules, checklist, and owner final approval captured | none unless handover required | Release owner final approval captured docs-only. No deploy executed. No production-ready claim. PR-GAP-001 remains blocked waiting for staging server details. |
-| PR-GAP-009 | Final go/no-go owner not assigned | **OWNER_APPROVED_BUT_PRODUCTION_READY_BLOCKED** | **Феликс Асаев** — Product / Executive / Final Decision Owner | Final go/no-go owner approval captured; production GO blocked while PR-GAP-001 open | Remote Auth-On Staging Repeat Pack v0.1 after staging details | Final go/no-go owner approval captured docs-only. Production-ready not claimed because PR-GAP-001 remains blocked waiting for staging server details. |
+| PR-GAP-009 | Final go/no-go owner not assigned | **OWNER_APPROVED_BUT_PRODUCTION_READY_NOT_CLAIMED** | **Феликс Асаев** — Product / Executive / Final Decision Owner | Final go/no-go owner approval captured; PR-GAP-001 closed; production-ready not claimed due to staging limitations | staging hardening and production readiness review | Final go/no-go owner approval captured docs-only. Production-ready not claimed because staging remains HTTP-only by IP with open hardening and UI limitations. |
 | PR-GAP-010 | Low-code financial/legal source-of-truth policy not approved | **CLOSED_APPROVED_BY_OWNER** | **Феликс Асаев** — SoT / Documentation / Product Operations Owner | SoT scope, gap tracker, risk register, checklist, acceptance criteria, NEXT_COMMANDS, feedback log, backlog, and owner approval records accepted as controlled source of truth | none unless handover required | SoT owner final approval captured docs-only. Source-of-truth scope approved. No production-ready claim. PR-GAP-001 remains blocked waiting for staging server details. |
 
 ## Status Summary
@@ -88,9 +88,8 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | Status | Count |
 |--------|-------|
 | PENDING | **0** |
-| OWNER_APPROVED_BUT_PRODUCTION_READY_BLOCKED | **1** (PR-GAP-009) |
-| OWNER_REVIEW_REQUESTED_REMOTE_AUTH_ON_VERIFIED | **1** (PR-GAP-001) |
-| CLOSED | **8** (PR-GAP-002, PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006, PR-GAP-007, PR-GAP-008, PR-GAP-010 — CLOSED_APPROVED_BY_OWNER) |
+| OWNER_APPROVED_BUT_PRODUCTION_READY_NOT_CLAIMED | **1** (PR-GAP-009) |
+| CLOSED | **9** (PR-GAP-001, PR-GAP-002, PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006, PR-GAP-007, PR-GAP-008, PR-GAP-010 — CLOSED_APPROVED_BY_OWNER or CLOSED_APPROVED_BY_OWNER_REMOTE_AUTH_ON_VERIFIED) |
 | IN_PROGRESS | **0** |
 
 ## Closure Rules
