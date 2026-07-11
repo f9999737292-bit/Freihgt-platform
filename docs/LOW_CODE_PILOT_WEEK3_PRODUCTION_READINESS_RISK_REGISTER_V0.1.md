@@ -8,17 +8,21 @@ Risk register for production readiness review after controlled pilot approval.
 
 **Gap closure plan:** **created** — `GAP_CLOSURE_PLAN_CREATED` (2026-06-26).
 
-**Auth-on repeat (local):** `AUTH_ON_REPEAT_LOCAL_VERIFIED` (2026-06-23) — remote staging **pending input**.
+**Auth-on repeat (local):** `AUTH_ON_REPEAT_LOCAL_VERIFIED` (2026-06-23)
 
-**Remote staging intake:** `REMOTE_STAGING_DETAILS_INTAKE_FORM_CREATED_PENDING_INPUT` (PR-GAP-001 **open**).
+**Auth-on repeat (remote):** `AUTH_ON_REMOTE_VERIFIED` (2026-07-11) — PR-GAP-001 **READY_FOR_OWNER_REVIEW_REMOTE_AUTH_ON_VERIFIED**
 
-**Staging server provisioning:** `STAGING_SERVER_REQUIREMENTS_CREATED_PENDING_PROVISIONING` (PR-GAP-001 **open**).
+**Remote staging intake:** `REMOTE_STAGING_DETAILS_INTAKE_FORM_CREATED_PENDING_INPUT` (completed)
 
-**Remote staging preparation gate:** `REMOTE_STAGING_DETAILS_VALIDATION_BLOCKED_PENDING_INPUT` (PR-GAP-001 **open**).
+**Staging server provisioning:** `STAGING_SERVER_REQUIREMENTS_CREATED_PENDING_PROVISIONING` (completed)
 
-**Remote auth-on staging repeat:** `REMOTE_AUTH_ON_STAGING_REPEAT_BLOCKED_MISSING_STAGING_DETAILS` (PR-GAP-001 **open**).
+**Remote staging preparation gate:** `REMOTE_STAGING_DETAILS_VALIDATION_BLOCKED_PENDING_INPUT` (completed)
 
-**Selectel staging details:** `SELECTEL_STAGING_DETAILS_CAPTURED_HARDENING_REQUIRED` (PR-GAP-001 **blocked**).
+**Remote auth-on staging repeat:** `AUTH_ON_REMOTE_VERIFIED` (PR-GAP-001 **owner review candidate**)
+
+**Selectel staging details:** `SELECTEL_STAGING_DETAILS_CAPTURED_HARDENING_REQUIRED` (completed)
+
+**Selectel remote execution:** `SELECTEL_RUNTIME_PREPARED_PENDING_STAGING_ENV_AND_PLATFORM_START` (completed — platform started)
 
 **No-server continuation:** `PR_GAP_001_NO_SERVER_CONTINUATION_DOCS_ONLY` (PR-GAP-001 **blocked**).
 
@@ -52,7 +56,7 @@ Risk register for production readiness review after controlled pilot approval.
 
 **Ordered remaining gap closure:** `ORDERED_REMAINING_GAP_CLOSURE_EXECUTED_DOCS_ONLY` (2026-06-23).
 
-**Residual risk (all gaps):** production-ready cannot be claimed while PR-GAP-001 remains blocked.
+**Residual risk (all gaps):** production-ready cannot be claimed while PR-GAP-001 awaits owner review and staging limitations remain open.
 
 **Controlled pilot may continue** while production risks remain **OPEN**.
 
@@ -60,7 +64,7 @@ Risk register for production readiness review after controlled pilot approval.
 
 | risk id | gap id | risk | severity | status | mitigation | owner | next action |
 |---------|--------|------|----------|--------|------------|-------|-------------|
-| PR-RISK-001 | PR-GAP-001 | Remote Auth-On not repeated on staging | P2 | **BLOCKED_WAITING_FOR_STAGING_HARDENING_AND_RUNTIME_PREPARATION** | Restrict SSH by trusted IP, close PostgreSQL/Redis externally, configure valid staging domain, install Docker/Docker Compose, clone repo, prepare staging env without secrets in docs, then execute Remote Auth-On Staging Repeat Pack v0.1 in read-only GET mode | Ops / Platform / Staging Owner — TBD | Residual risk: Production-ready cannot be claimed until remote read-only GET matrix is completed with sanitized evidence. Remote auth-on staging behavior remains unverified. Current Selectel server network posture exposes PostgreSQL/Redis externally and SSH is not restricted by IP. |
+| PR-RISK-001 | PR-GAP-001 | Remote Auth-On not repeated on staging | P2 | **READY_FOR_OWNER_REVIEW_REMOTE_AUTH_ON_VERIFIED** | Remote auth-on behavior verified on Selectel staging using read-only GET matrix. Admin, non-admin, anonymous and wrong-tenant cases passed. No secrets or writes captured. | Ops / Platform / Staging Owner — TBD | Residual risk: **partially mitigated / pending owner review** — Production-ready cannot be claimed because staging remains HTTP-only by IP, SSH 22 restriction via Selectel Security Group is pending, and web-admin UI is not deployed. |
 | PR-RISK-002 | PR-GAP-002 | Production data policy not approved | P2 | **MITIGATED_BY_PRODUCTION_DATA_OWNER_FINAL_APPROVAL** | Production data policy and owner final approval captured with owner **Феликс Асаев** | **Феликс Асаев** | Residual risk: production-ready still blocked by other open gaps, including PR-GAP-001 |
 | PR-RISK-003 | PR-GAP-003 | Rollback plan not approved | P2 | **MITIGATED_BY_APPROVED_ROLLBACK_PLAN** | Rollback plan/procedure/checklist created and approved by rollback owner **Артем Асаев** | **Артем Асаев** | Optional: role/contact handover |
 | PR-RISK-004 | PR-GAP-004 | Monitoring/alerting policy not approved | P2 | **MITIGATED_BY_APPROVED_MONITORING_POLICY** | Monitoring policy, alert conditions, checklist, and owner approval captured with owner **Артем Асаев** | **Артем Асаев** | Optional: role/contact/on-call handover; real monitoring config implementation may require separate operational task if needed |

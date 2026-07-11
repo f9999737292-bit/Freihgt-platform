@@ -18,7 +18,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 | Staging deploy runbook | **STAGING_DEPLOY_RUNBOOK_CREATED** |
 | Rollback plan | **PRODUCTION_ROLLBACK_PLAN_CREATED** |
 | Rollback owner | **Артем Асаев** |
-| PR-GAP-001 | **BLOCKED_WAITING_FOR_STAGING_HARDENING_AND_RUNTIME_PREPARATION** |
+| PR-GAP-001 | **READY_FOR_OWNER_REVIEW_REMOTE_AUTH_ON_VERIFIED** |
 | PR-GAP-002 | **CLOSED_APPROVED_BY_OWNER** |
 | PR-GAP-005 | **CLOSED_APPROVED_BY_OWNER** |
 | PR-GAP-004 | **CLOSED_APPROVED_BY_OWNER** |
@@ -26,10 +26,10 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 | PR-GAP-008 | **CLOSED_APPROVED_BY_OWNER** |
 | PR-GAP-010 | **CLOSED_APPROVED_BY_OWNER** |
 | PR-GAP-009 | **OWNER_APPROVED_BUT_PRODUCTION_READY_BLOCKED** |
-| Open production gaps | **1** (PR-GAP-001 blocked only) |
+| Open production gaps | **1** (PR-GAP-001 owner review candidate) |
 | Real feedback intake | **3 / 3** |
 | Open P0 / P1 | **0 / 0** |
-| Last updated | 2026-06-26 |
+| Last updated | 2026-07-11 |
 
 ## Backlog Table
 
@@ -192,7 +192,24 @@ When P1 appears: add row with owner assigned, target fix pack, decision **GO_WIT
 - **Valid staging domain required**
 - **Runtime URLs required**
 - **Production-ready still not claimed**
-- **Next action: Selectel Staging Hardening + Runtime Preparation Pack v0.1**
+- **Remote execution approval captured**
+- **SSH/runtime preparation executed or attempted**
+- **SSH access failed — publickey not configured on operator workstation**
+- **Server hardening status unchanged — UFW not configured**
+- **Docker/Docker Compose status unchanged — not installed**
+- **Repo clone status unchanged — not cloned**
+- **PR-GAP-001 remains open**
+- **Production-ready still not claimed**
+- **Next action: owner review and approval for PR-GAP-001 closure**
+- **Remote Auth-On Staging Repeat completed successfully**
+- **CORE_MATRIX_PASS=yes**
+- **FULL_MATRIX_PASS=yes**
+- **PR-GAP-001 moved to owner review candidate**
+- **Production-ready still not claimed**
+- **Selectel SSH restriction via Security Group remains pending**
+- **HTTPS/domain remains pending**
+- **Web-admin UI deploy remains pending**
+- **Full demo UI seed-data remains pending**
 - **Final decision owner approval captured** — production-ready blocked by PR-GAP-001
 - **Final go/no-go pack created** — PR-GAP-009 owner approved
 - **Remote staging details intake prepared**
@@ -263,11 +280,8 @@ Explicit list (BL-W3-000–009):
 | **Low-code Pilot Week-3 Production Data Owner Final Approval Pack v0.1** | Completed | **PRODUCTION_DATA_OWNER_FINAL_APPROVAL_CAPTURED** — PR-GAP-002 closed |
 | **Low-code Pilot Week-3 Ordered Remaining Gap Closure Pack v0.1** | Completed | **ORDERED_REMAINING_GAP_CLOSURE_EXECUTED_DOCS_ONLY** |
 | **Low-code Pilot Week-3 No-Server Gap Closure Pack v0.1** | Completed | **NO_SERVER_GAP_CLOSURE_STARTED_DOCS_ONLY** |
-| **Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1** | Completed (blocked) | **REMOTE_AUTH_ON_STAGING_REPEAT_BLOCKED_MISSING_STAGING_DETAILS** — PR-GAP-001 open |
-| **Low-code Pilot Week-3 Remote Auth-On Staging Preparation Gate Pack v0.1** | Completed | **REMOTE_STAGING_DETAILS_VALIDATION_BLOCKED_PENDING_INPUT** — PR-GAP-001 open |
-| **Low-code Pilot Week-3 Staging Server Provisioning Request Pack v0.1** | Completed | **STAGING_SERVER_REQUIREMENTS_CREATED_PENDING_PROVISIONING** — PR-GAP-001 open |
-| **Low-code Pilot Week-3 Remote Staging Details Intake Pack v0.1** | Completed | **REMOTE_STAGING_DETAILS_INTAKE_FORM_CREATED_PENDING_INPUT** — PR-GAP-001 open |
-| **Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1** | Remote staging details provided | PR-GAP-001 closure |
+| **Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1** | Completed | **AUTH_ON_REMOTE_VERIFIED** — PR-GAP-001 owner review candidate |
+| **Low-code Pilot Week-3 PR-GAP-001 Owner Review and Closure Pack v0.1** | Next | PR-GAP-001 closure |
 | **Low-code Pilot Week-3 Temporary Tunnel Auth-On Matrix Pack v0.1** | Temporary tunnel approved | Partial PR-GAP-001 evidence |
 | **Low-code Pilot Week-3 Production Rollback Plan Pack v0.1** | Rollback owner ready | PR-GAP-003 |
 | **Low-code Pilot Week-3 Production Monitoring Policy Pack v0.1** | Completed | **MONITORING_OWNER_FINAL_APPROVAL_CAPTURED** |

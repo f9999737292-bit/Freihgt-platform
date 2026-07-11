@@ -2,19 +2,23 @@
 
 ## Summary
 
-Tracks **1 blocked production readiness gap** (PR-GAP-001). PR-GAP-002, PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006, PR-GAP-007, PR-GAP-008, and PR-GAP-010 **closed**. PR-GAP-009 final go/no-go owner approval **captured** but production-ready **blocked** by PR-GAP-001.
+Tracks **1 open production readiness gap** (PR-GAP-001 — owner review candidate). PR-GAP-002, PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006, PR-GAP-007, PR-GAP-008, and PR-GAP-010 **closed**. PR-GAP-009 final go/no-go owner approval **captured** but production-ready **not claimed**.
 
 **Auth-on repeat (local):** `AUTH_ON_REPEAT_LOCAL_VERIFIED` (2026-06-23)
 
-**Remote staging intake:** `REMOTE_STAGING_DETAILS_INTAKE_FORM_CREATED_PENDING_INPUT` (PR-GAP-001 **open**)
+**Auth-on repeat (remote):** `AUTH_ON_REMOTE_VERIFIED` (2026-07-11) — PR-GAP-001 **READY_FOR_OWNER_REVIEW_REMOTE_AUTH_ON_VERIFIED**
 
-**Staging server provisioning:** `STAGING_SERVER_REQUIREMENTS_CREATED_PENDING_PROVISIONING` (PR-GAP-001 **open**)
+**Remote staging intake:** `REMOTE_STAGING_DETAILS_INTAKE_FORM_CREATED_PENDING_INPUT` (completed)
 
-**Remote staging preparation gate:** `REMOTE_STAGING_DETAILS_VALIDATION_BLOCKED_PENDING_INPUT` (PR-GAP-001 **open**)
+**Staging server provisioning:** `STAGING_SERVER_REQUIREMENTS_CREATED_PENDING_PROVISIONING` (completed)
 
-**Remote auth-on staging repeat:** `REMOTE_AUTH_ON_STAGING_REPEAT_BLOCKED_MISSING_STAGING_DETAILS` (PR-GAP-001 **open**)
+**Remote staging preparation gate:** `REMOTE_STAGING_DETAILS_VALIDATION_BLOCKED_PENDING_INPUT` (completed)
 
-**Selectel staging details:** `SELECTEL_STAGING_DETAILS_CAPTURED_HARDENING_REQUIRED` (PR-GAP-001 **blocked**)
+**Remote auth-on staging repeat:** `AUTH_ON_REMOTE_VERIFIED` (PR-GAP-001 **owner review candidate**)
+
+**Selectel staging details:** `SELECTEL_STAGING_DETAILS_CAPTURED_HARDENING_REQUIRED` (completed)
+
+**Selectel remote execution:** `SELECTEL_RUNTIME_PREPARED_PENDING_STAGING_ENV_AND_PLATFORM_START` (completed — platform started)
 
 **Provider:** Selectel — Public IP: 161.104.53.221
 
@@ -66,7 +70,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 
 | Gap ID | Gap | Status | Owner | Acceptance Criteria | Next Pack | Notes |
 |--------|-----|--------|-------|---------------------|-----------|-------|
-| PR-GAP-001 | Remote Auth-On Repeat not completed | **BLOCKED_WAITING_FOR_STAGING_HARDENING_AND_RUNTIME_PREPARATION** | Ops / Platform / Staging Owner — **TBD** | Staging hardening and runtime preparation must be completed; remote auth-on repeat blocked | Selectel Staging Hardening + Runtime Preparation Pack v0.1 | Provider: Selectel. Public IP: 161.104.53.221. Decision: SELECTEL_STAGING_DETAILS_CAPTURED_HARDENING_REQUIRED. Selectel staging server details captured. Hardware profile is acceptable. Remote Auth-On Staging Repeat cannot run yet because SSH is not restricted by IP, PostgreSQL and Redis external access are not closed, Docker/Docker Compose are not installed, repo is not cloned, domain is localhost, and runtime URLs are not available. No deploy, no SSH, no staging writes, no secrets captured. |
+| PR-GAP-001 | Remote Auth-On Repeat not completed | **READY_FOR_OWNER_REVIEW_REMOTE_AUTH_ON_VERIFIED** | Ops / Platform / Staging Owner — **TBD** | Remote Auth-On Staging Repeat Pack completed successfully against Selectel staging API. CORE_MATRIX_PASS=yes and FULL_MATRIX_PASS=yes. Verification was read-only GET, no secrets captured, no writes executed. Production-ready not claimed. | PR-GAP-001 Owner Review and Closure Pack v0.1 | Decision: `AUTH_ON_REMOTE_VERIFIED`. Evidence: `docs/LOW_CODE_PILOT_WEEK3_REMOTE_AUTH_ON_STAGING_REPEAT_EVIDENCE_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_PR_GAP_001_REMOTE_AUTH_ON_REVIEW_NOTE_V0.1.md`. Remaining limitations: HTTP-only IP access, no HTTPS/domain, SSH restriction via Selectel Security Group pending, web-admin UI not deployed. |
 | PR-GAP-002 | Production data policy not approved | **CLOSED_APPROVED_BY_OWNER** | **Феликс Асаев** | Production data policy, checklist, and owner final approval captured | none unless handover required | Production data owner final approval captured docs-only. No production writes. No secrets. Production-ready not claimed. |
 | PR-GAP-003 | Rollback plan not approved | **CLOSED_APPROVED_BY_OWNER** | **Артем Асаев** | Rollback plan, procedure, checklist, owner assignment, and final approval captured | none unless handover required | Rollback approved. Not executed. |
 | PR-GAP-004 | Monitoring / alerting policy not approved | **CLOSED_APPROVED_BY_OWNER** | **Артем Асаев** | Monitoring policy, alert conditions, checklist, owner assignment, and final approval captured | none unless handover required | Monitoring approved. Real config not changed. |
@@ -83,7 +87,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 |--------|-------|
 | PENDING | **0** |
 | OWNER_APPROVED_BUT_PRODUCTION_READY_BLOCKED | **1** (PR-GAP-009) |
-| BLOCKED_WAITING_FOR_STAGING_HARDENING_AND_RUNTIME_PREPARATION | **1** (PR-GAP-001) |
+| READY_FOR_OWNER_REVIEW_REMOTE_AUTH_ON_VERIFIED | **1** (PR-GAP-001) |
 | CLOSED | **8** (PR-GAP-002, PR-GAP-003, PR-GAP-004, PR-GAP-005, PR-GAP-006, PR-GAP-007, PR-GAP-008, PR-GAP-010 — CLOSED_APPROVED_BY_OWNER) |
 | IN_PROGRESS | **0** |
 
@@ -93,7 +97,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 2. Gap moves to **CLOSED** only with documented evidence in approved pack doc.
 3. Production go/no-go remains **blocked** until all **Must Pass** criteria met (see acceptance criteria doc).
 4. Controlled pilot **may continue** while gaps are open.
-5. PR-GAP-001 unblocks when staging inputs provided and Remote Auth-On Staging Repeat Pack completes.
+5. PR-GAP-001 moves to owner review when Remote Auth-On Staging Repeat Pack completes with acceptable evidence.
 6. No-server docs-only owner gates prepared 2026-06-23 — gaps **not closed** without user owner approval.
 7. Ordered remaining gap closure 2026-06-23 — PR-GAP-002/008/010 **closed**; PR-GAP-009 owner approval **captured** — **OWNER_APPROVED_BUT_PRODUCTION_READY_BLOCKED** while PR-GAP-001 remains blocked.
 8. PR-GAP-001 no-server continuation 2026-06-23 — local rehearsal plan, remote GET matrix skeleton, sanitized intake template, and evidence index prepared; gap remains **blocked**.

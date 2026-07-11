@@ -52,7 +52,7 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Current status:** **SELECTEL_STAGING_DETAILS_CAPTURED_HARDENING_REQUIRED**
+**Current status:** **AUTH_ON_REMOTE_VERIFIED**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -64,29 +64,28 @@ docs/ai-team/
 
 **PR-GAP-009:** **OWNER_APPROVED_BUT_PRODUCTION_READY_BLOCKED**
 
-**PR-GAP-001:** **BLOCKED_WAITING_FOR_STAGING_HARDENING_AND_RUNTIME_PREPARATION**
+**PR-GAP-001:** **READY_FOR_OWNER_REVIEW_REMOTE_AUTH_ON_VERIFIED**
 
-**Only remaining blocker:** PR-GAP-001 — Selectel staging hardening and runtime preparation
+**Only remaining gap:** PR-GAP-001 — owner review and approval for closure
 
-**Next event:** Selectel staging hardening completed and runtime prepared
+**Next event:** owner review and approval for PR-GAP-001 closure
 
-**Next pack:** Selectel Staging Hardening + Runtime Preparation Pack v0.1
+**Next pack:** PR-GAP-001 Owner Review and Closure Pack v0.1
 
-**Hardening required:**
+**Known limitations:**
 
-- restrict SSH 22 by trusted IP
-- close PostgreSQL 5432 externally
-- close Redis 6379 externally
-- configure staging.7rights.ru or pilot.7rights.ru
-- install Docker
-- install Docker Compose
-- clone repo main
-- prepare staging .env without exposing values
-- define Web-admin URL and API gateway URL
+- HTTP-only IP access
+- SSH 22 restriction via Selectel Security Group pending
+- HTTPS/domain pending
+- Web-admin UI deploy pending
 
-**Next recommended events:**
+Week-3 Selectel remote execution evidence v0.1:
 
-- Selectel staging hardening completed and runtime prepared → Remote Auth-On Staging Repeat Pack v0.1
+See `docs/LOW_CODE_PILOT_WEEK3_SELECTEL_REMOTE_EXECUTION_EVIDENCE_V0.1.md`.
+
+Week-3 Selectel runtime readiness checklist v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_SELECTEL_RUNTIME_READINESS_CHECKLIST_V0.1.md`.
 
 Week-3 Selectel staging details capture v0.1:
 
