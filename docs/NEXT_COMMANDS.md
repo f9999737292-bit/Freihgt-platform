@@ -52,7 +52,7 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Current status:** **SELECTEL_SSH_SG_VERIFICATION_PARTIAL_SSH_TRUSTED_PASS_SG_PENDING**
+**Current status:** **SELECTEL_SSH_SG_TRUSTED_PATH_PASS_NON_TRUSTED_REJECTION_PENDING**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -60,18 +60,30 @@ docs/ai-team/
 
 **Production-ready claimed:** **no**
 
-**Open staging limitations:** **STG-LIM-001..006** (STG-LIM-003: SSH trusted PASS; Selectel SG /32 not verified)
+**Open staging limitations:** **STG-LIM-001..006** (STG-LIM-003: **OPEN_PENDING_NON_TRUSTED_REJECTION_TEST**)
 
-**Verification:** API health **200** | SSH trusted **PASS** | Runtime **10 containers healthy**
+**Verification:** API health **200** | SSH trusted **PASS** | Runtime **10 containers healthy** | UFW 5432/6379 **DENY**
 
-**Next event:** apply Selectel SG SSH /32 rule in panel (trusted operator IP — use in panel only, not stored in repo)
+**Next event:** perform non-trusted SSH rejection test or capture independent Selectel SG panel evidence
 
-**Next pack:** Selectel SSH SG Panel Confirmation Pack v0.1
+**Next pack:** Selectel SSH SG Non-Trusted Rejection or Panel Evidence Pack v0.1
 
 **Blockers:**
 
-- Selectel Security Group SSH /32 not verified
+- Selectel SG /32 restriction not independently confirmed
 - Non-trusted IP SSH rejection test not executed
+
+Week-3 Selectel SSH SG post-panel verification evidence v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_SELECTEL_SSH_SG_POST_PANEL_VERIFICATION_EVIDENCE_V0.1.md`.
+
+Week-3 STG-LIM-003 closure candidate note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_STG_LIM_003_CLOSURE_CANDIDATE_NOTE_V0.1.md`.
+
+Week-3 staging limitations tracker v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_STAGING_LIMITATIONS_TRACKER_V0.1.md`.
 
 Week-3 Selectel SSH SG verification evidence v0.1:
 
