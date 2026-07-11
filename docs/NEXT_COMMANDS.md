@@ -52,7 +52,7 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Current status:** **AUTH_ON_REMOTE_VERIFIED**
+**Current status:** **PR_GAP_001_OWNER_REVIEW_REQUESTED**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -64,13 +64,21 @@ docs/ai-team/
 
 **PR-GAP-009:** **OWNER_APPROVED_BUT_PRODUCTION_READY_BLOCKED**
 
-**PR-GAP-001:** **READY_FOR_OWNER_REVIEW_REMOTE_AUTH_ON_VERIFIED**
+**PR-GAP-001:** **OWNER_REVIEW_REQUESTED_REMOTE_AUTH_ON_VERIFIED**
 
-**Only remaining gap:** PR-GAP-001 — owner review and approval for closure
+**Only remaining gap:** PR-GAP-001 — explicit owner approval required before closure
 
-**Next event:** owner review and approval for PR-GAP-001 closure
+**Next event:** owner approval for PR-GAP-001 closure
 
-**Next pack:** PR-GAP-001 Owner Review and Closure Pack v0.1
+**Required owner approval format:**
+
+```text
+PR-GAP-001 owner approval: yes
+Owner: <name>
+Decision: approve closure
+```
+
+**Next pack:** PR-GAP-001 Owner Approval Capture and Closure Pack v0.1
 
 **Known limitations:**
 
@@ -78,6 +86,7 @@ docs/ai-team/
 - SSH 22 restriction via Selectel Security Group pending
 - HTTPS/domain pending
 - Web-admin UI deploy pending
+- Full demo UI seed-data pending
 
 Week-3 Selectel remote execution evidence v0.1:
 

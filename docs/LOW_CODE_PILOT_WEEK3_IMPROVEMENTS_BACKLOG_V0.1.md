@@ -18,7 +18,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 | Staging deploy runbook | **STAGING_DEPLOY_RUNBOOK_CREATED** |
 | Rollback plan | **PRODUCTION_ROLLBACK_PLAN_CREATED** |
 | Rollback owner | **Артем Асаев** |
-| PR-GAP-001 | **READY_FOR_OWNER_REVIEW_REMOTE_AUTH_ON_VERIFIED** |
+| PR-GAP-001 | **OWNER_REVIEW_REQUESTED_REMOTE_AUTH_ON_VERIFIED** |
 | PR-GAP-002 | **CLOSED_APPROVED_BY_OWNER** |
 | PR-GAP-005 | **CLOSED_APPROVED_BY_OWNER** |
 | PR-GAP-004 | **CLOSED_APPROVED_BY_OWNER** |
@@ -26,7 +26,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`
 | PR-GAP-008 | **CLOSED_APPROVED_BY_OWNER** |
 | PR-GAP-010 | **CLOSED_APPROVED_BY_OWNER** |
 | PR-GAP-009 | **OWNER_APPROVED_BUT_PRODUCTION_READY_BLOCKED** |
-| Open production gaps | **1** (PR-GAP-001 owner review candidate) |
+| Open production gaps | **1** (PR-GAP-001 owner review requested) |
 | Real feedback intake | **3 / 3** |
 | Open P0 / P1 | **0 / 0** |
 | Last updated | 2026-07-11 |
@@ -200,7 +200,12 @@ When P1 appears: add row with owner assigned, target fix pack, decision **GO_WIT
 - **Repo clone status unchanged — not cloned**
 - **PR-GAP-001 remains open**
 - **Production-ready still not claimed**
-- **Next action: owner review and approval for PR-GAP-001 closure**
+- **Next action: owner approval capture**
+- **PR-GAP-001 owner review request prepared**
+- **PR-GAP-001 closure decision draft prepared**
+- **owner approval still required**
+- **production-ready still not claimed**
+- **remaining limitations stay visible**
 - **Remote Auth-On Staging Repeat completed successfully**
 - **CORE_MATRIX_PASS=yes**
 - **FULL_MATRIX_PASS=yes**
@@ -281,7 +286,8 @@ Explicit list (BL-W3-000–009):
 | **Low-code Pilot Week-3 Ordered Remaining Gap Closure Pack v0.1** | Completed | **ORDERED_REMAINING_GAP_CLOSURE_EXECUTED_DOCS_ONLY** |
 | **Low-code Pilot Week-3 No-Server Gap Closure Pack v0.1** | Completed | **NO_SERVER_GAP_CLOSURE_STARTED_DOCS_ONLY** |
 | **Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1** | Completed | **AUTH_ON_REMOTE_VERIFIED** — PR-GAP-001 owner review candidate |
-| **Low-code Pilot Week-3 PR-GAP-001 Owner Review and Closure Pack v0.1** | Next | PR-GAP-001 closure |
+| **Low-code Pilot Week-3 PR-GAP-001 Owner Review and Closure Request Pack v0.1** | Completed | **PR_GAP_001_OWNER_REVIEW_REQUESTED** — owner approval pending |
+| **Low-code Pilot Week-3 PR-GAP-001 Owner Approval Capture and Closure Pack v0.1** | Next | PR-GAP-001 closure after owner approval |
 | **Low-code Pilot Week-3 Temporary Tunnel Auth-On Matrix Pack v0.1** | Temporary tunnel approved | Partial PR-GAP-001 evidence |
 | **Low-code Pilot Week-3 Production Rollback Plan Pack v0.1** | Rollback owner ready | PR-GAP-003 |
 | **Low-code Pilot Week-3 Production Monitoring Policy Pack v0.1** | Completed | **MONITORING_OWNER_FINAL_APPROVAL_CAPTURED** |

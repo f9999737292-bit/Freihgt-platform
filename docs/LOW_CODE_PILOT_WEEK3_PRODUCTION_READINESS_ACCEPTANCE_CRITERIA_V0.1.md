@@ -16,7 +16,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | 2 | 3/3 operator feedback completed | **PASS** | — |
 | 3 | No P0/P1/P2 from operator feedback | **PASS** | — |
 | 4 | Health-check OK (target env) | **PASS** (dev) | — |
-| 5 | Remote Auth-On Repeat completed | **PASS** (Selectel staging read-only GET) — **READY_FOR_OWNER_REVIEW_REMOTE_AUTH_ON_VERIFIED** | PR-GAP-001 |
+| 5 | Remote Auth-On Repeat completed | **PASS** (Selectel staging read-only GET) — **OWNER_REVIEW_REQUESTED_REMOTE_AUTH_ON_VERIFIED** | PR-GAP-001 |
 | 6 | Production data policy approved | **PASS** / **APPROVED_BY_OWNER** | PR-GAP-002 |
 | 7 | Rollback plan approved | **PASS** | PR-GAP-003 |
 | 8 | Monitoring/alerting policy approved | **PASS** | PR-GAP-004 |
@@ -27,7 +27,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`
 | 13 | Final go/no-go owner assigned | **OWNER_APPROVED / PRODUCTION_READY_BLOCKED_BY_PR_GAP_001** | PR-GAP-009 |
 | 14 | Low-code SoT policy approved | **PASS** / **APPROVED_BY_SOT_OWNER** | PR-GAP-010 |
 
-**Must pass count:** **14 / 14** technical criteria met including remote auth-on verification; **production-ready claim remains not claimed** — PR-GAP-001 pending owner review; staging limitations remain open.
+**Must pass count:** **14 / 14** technical criteria met including remote auth-on verification; **production-ready claim remains not claimed** — PR-GAP-001 owner review requested; closure pending explicit owner approval; staging limitations remain open.
 
 ### Must Not Happen
 
@@ -67,11 +67,20 @@ Remote Auth-On Staging Repeat acceptance:
 - no secrets captured: PASS
 - no writes executed: PASS
 
-**Status:** **READY_FOR_OWNER_REVIEW_REMOTE_AUTH_ON_VERIFIED**
+**Status:** **OWNER_REVIEW_REQUESTED_REMOTE_AUTH_ON_VERIFIED**
 
-**Evidence:** `docs/LOW_CODE_PILOT_WEEK3_REMOTE_AUTH_ON_STAGING_REPEAT_EVIDENCE_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_PR_GAP_001_REMOTE_AUTH_ON_REVIEW_NOTE_V0.1.md`
+**PR-GAP-001 acceptance summary:**
 
-Remote auth-on verification closes the technical acceptance portion of PR-GAP-001 only. It does **not** equal production-ready while staging limitations remain open and owner review for PR-GAP-001 closure is pending.
+```text
+Remote Auth-On Staging Repeat acceptance: PASS
+Owner review request: PREPARED
+Closure decision: DRAFT_PENDING_OWNER_APPROVAL
+Production-ready: NOT_CLAIMED
+```
+
+**Evidence:** `docs/LOW_CODE_PILOT_WEEK3_REMOTE_AUTH_ON_STAGING_REPEAT_EVIDENCE_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_PR_GAP_001_REMOTE_AUTH_ON_REVIEW_NOTE_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_PR_GAP_001_OWNER_REVIEW_REQUEST_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_PR_GAP_001_CLOSURE_DECISION_DRAFT_V0.1.md`
+
+Remote auth-on verification closes the technical acceptance portion of PR-GAP-001 only. Closure is **not final** until explicit owner approval is captured. It does **not** equal production-ready while staging limitations remain open.
 
 ### Support Ownership Requirements (PR-GAP-007)
 
