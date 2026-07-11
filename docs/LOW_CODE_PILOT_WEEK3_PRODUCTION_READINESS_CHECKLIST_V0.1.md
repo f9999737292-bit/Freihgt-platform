@@ -82,7 +82,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 |-----------|--------|----------|-------|-------|
 | controlled pilot approval | PASS | CONTROLLED_PILOT_APPROVED | Феликс Асаев | active |
 | Release owner | **PASS / APPROVED_BY_RELEASE_OWNER** | Release Owner Final Approval v0.1, Release Ownership Policy v0.1 | **Артем Асаев** | PR-GAP-008 closed; no deploy executed |
-| Final go/no-go approval | **OWNER_APPROVED / PRODUCTION_READY_BLOCKED_BY_PR_GAP_001** | Final Go-No-Go Owner Final Approval v0.1, Final Go-No-Go Policy v0.1 | **Феликс Асаев** | PR-GAP-009 owner approved; production GO blocked while PR-GAP-001 open |
+| Final go/no-go approval | **OWNER_APPROVED_BUT_PRODUCTION_READY_NOT_CLAIMED** | Final Go-No-Go Owner Final Approval v0.1, Staging Hardening Review v0.1 | **Феликс Асаев** | PR-GAP-009 owner approved; production-ready not claimed due to STG-LIM-001..004 |
 
 ## Gap Closure Artifacts
 
@@ -106,13 +106,13 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 | PR-GAP-002 | **PASS / APPROVED_BY_OWNER** |
 | PR-GAP-008 | **PASS / APPROVED_BY_RELEASE_OWNER** |
 | PR-GAP-010 | **PASS / APPROVED_BY_SOT_OWNER** |
-| PR-GAP-009 | **OWNER_APPROVED / PRODUCTION_READY_BLOCKED_BY_PR_GAP_001** |
-| PR-GAP-001 | **CLOSED_APPROVED_BY_OWNER_REMOTE_AUTH_ON_VERIFIED** |
 | PR-GAP-009 | **OWNER_APPROVED_BUT_PRODUCTION_READY_NOT_CLAIMED** |
+| PR-GAP-001 | **CLOSED_APPROVED_BY_OWNER_REMOTE_AUTH_ON_VERIFIED** |
+| Staging limitations | **STG-LIM-001..006 OPEN** — review completed |
 | Final production readiness | **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY** |
-| Decision | `PR_GAP_001_CLOSED_APPROVED_BY_OWNER_REMOTE_AUTH_ON_VERIFIED` |
-| Reason | PR-GAP-001 closed with owner approval; production-ready not claimed due to HTTP-only IP access, SSH restriction pending, web-admin UI not deployed |
+| Decision | `STAGING_HARDENING_AND_PRODUCTION_READINESS_REVIEW_COMPLETED` |
+| Reason | PR-GAP-001 closed; staging hardening reviewed; STG-LIM-001..004 block production-ready claim |
 | Gap closure plan | **created** — `GAP_CLOSURE_PLAN_CREATED` |
-| Evidence prepared | `docs/LOW_CODE_PILOT_WEEK3_PR_GAP_001_OWNER_APPROVAL_CAPTURE_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_PR_GAP_001_CLOSURE_DECISION_NOTE_V0.1.md` |
+| Evidence prepared | `docs/LOW_CODE_PILOT_WEEK3_STAGING_HARDENING_AND_PRODUCTION_READINESS_REVIEW_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_STAGING_LIMITATIONS_REVIEW_NOTE_V0.1.md` |
 
 Reference: `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_DECISION_V0.1.md`, `LOW_CODE_PILOT_WEEK3_PRODUCTION_READINESS_GAP_CLOSURE_PLAN_V0.1.md`

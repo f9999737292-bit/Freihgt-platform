@@ -12,7 +12,11 @@ Risk register for production readiness review after controlled pilot approval.
 
 **Auth-on repeat (remote):** `AUTH_ON_REMOTE_VERIFIED` (2026-07-11)
 
-**PR-GAP-001 closure:** `PR_GAP_001_CLOSED_APPROVED_BY_OWNER_REMOTE_AUTH_ON_VERIFIED` (2026-07-11) — owner **Феликс Асаев**
+**PR-GAP-001 closure:** `PR_GAP_001_CLOSED_APPROVED_BY_OWNER_REMOTE_AUTH_ON_VERIFIED` (2026-07-11)
+
+**Staging hardening review:** `STAGING_HARDENING_AND_PRODUCTION_READINESS_REVIEW_COMPLETED` (2026-07-11)
+
+**Staging limitations:** STG-LIM-001..006 **OPEN** — production-ready **not claimed**
 
 **Remote staging intake:** `REMOTE_STAGING_DETAILS_INTAKE_FORM_CREATED_PENDING_INPUT` (completed)
 
@@ -58,7 +62,7 @@ Risk register for production readiness review after controlled pilot approval.
 
 **Ordered remaining gap closure:** `ORDERED_REMAINING_GAP_CLOSURE_EXECUTED_DOCS_ONLY` (2026-06-23).
 
-**Residual risk (all gaps):** production-ready cannot be claimed while staging limitations remain open (HTTP-only IP, SSH SG pending, web-admin UI not deployed).
+**Residual risk (all gaps):** production-ready cannot be claimed while STG-LIM-001..004 remain open (HTTP-only, HTTPS/domain, SSH SG, web-admin UI).
 
 **Controlled pilot may continue** while production risks remain **OPEN**.
 
@@ -77,6 +81,7 @@ Risk register for production readiness review after controlled pilot approval.
 | PR-RISK-009 | PR-GAP-005 | Audit retention policy undefined for production | P3 | **MITIGATED_BY_APPROVED_AUDIT_RETENTION_POLICY** | Audit retention policy, evidence handling rules, checklist, and owner final approval captured with owner **Феликс Асаев** | **Феликс Асаев** | Optional: contact handover; real retention config implementation if needed |
 | PR-RISK-010 | PR-GAP-007 | Support owner not assigned | P2 | **MITIGATED_BY_APPROVED_SUPPORT_OWNERSHIP** | Support ownership policy, escalation matrix, checklist, and owner final approval captured with owner **Артем Асаев** | **Артем Асаев** | Optional: contact handover; real support tooling/config implementation may require separate operational task if needed |
 | PR-RISK-011 | PR-GAP-008 | Release owner not assigned | P2 | **MITIGATED_BY_RELEASE_OWNER_FINAL_APPROVAL** | Release ownership policy, freeze rules, checklist, and owner final approval captured with owner **Артем Асаев** | **Артем Асаев** | Residual risk: production-ready not claimed due to staging limitations. Release owner approval does not authorize production deploy. |
+| PR-RISK-012 | — | Staging hardening incomplete for production claim | P1 | **OPEN** | Staging hardening and production readiness review completed; limitations STG-LIM-001..006 tracked | Ops / DevOps — TBD | Address STG-LIM-003 SSH Security Group restriction first |
 
 ## Risk–Gap Mapping Rules
 

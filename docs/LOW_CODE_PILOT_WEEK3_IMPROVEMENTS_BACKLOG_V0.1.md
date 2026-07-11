@@ -204,7 +204,10 @@ When P1 appears: add row with owner assigned, target fix pack, decision **GO_WIT
 - **owner approval captured by Феликс Асаев**
 - **production-ready still not claimed**
 - **remaining limitations stay visible**
-- **next action: staging hardening and production readiness review**
+- **Staging hardening and production readiness review completed**
+- **STG-LIM-001..006 tracked as open limitations**
+- **production-ready still not claimed**
+- **next action: Selectel SSH Security Group restriction (STG-LIM-003)**
 - **Remote Auth-On Staging Repeat completed successfully**
 - **CORE_MATRIX_PASS=yes**
 - **FULL_MATRIX_PASS=yes**
@@ -287,7 +290,8 @@ Explicit list (BL-W3-000–009):
 | **Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1** | Completed | **AUTH_ON_REMOTE_VERIFIED** — PR-GAP-001 owner review candidate |
 | **Low-code Pilot Week-3 PR-GAP-001 Owner Review and Closure Request Pack v0.1** | Completed | **PR_GAP_001_OWNER_REVIEW_REQUESTED** — owner approval pending |
 | **Low-code Pilot Week-3 PR-GAP-001 Owner Approval Capture and Closure Pack v0.1** | Completed | **PR_GAP_001_CLOSED_APPROVED_BY_OWNER_REMOTE_AUTH_ON_VERIFIED** |
-| **Staging Hardening and Production Readiness Review Pack v0.1** | Next | address remaining staging limitations |
+| **Staging Hardening and Production Readiness Review Pack v0.1** | Completed | **STAGING_HARDENING_AND_PRODUCTION_READINESS_REVIEW_COMPLETED** |
+| **Selectel SSH Security Group Restriction Pack v0.1** | Next | STG-LIM-003 |
 | **Low-code Pilot Week-3 Temporary Tunnel Auth-On Matrix Pack v0.1** | Temporary tunnel approved | Partial PR-GAP-001 evidence |
 | **Low-code Pilot Week-3 Production Rollback Plan Pack v0.1** | Rollback owner ready | PR-GAP-003 |
 | **Low-code Pilot Week-3 Production Monitoring Policy Pack v0.1** | Completed | **MONITORING_OWNER_FINAL_APPROVAL_CAPTURED** |

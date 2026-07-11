@@ -52,7 +52,7 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Current status:** **PR_GAP_001_CLOSED_APPROVED_BY_OWNER_REMOTE_AUTH_ON_VERIFIED**
+**Current status:** **STAGING_HARDENING_AND_PRODUCTION_READINESS_REVIEW_COMPLETED**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -64,21 +64,29 @@ docs/ai-team/
 
 **PR-GAP-009:** **OWNER_APPROVED_BUT_PRODUCTION_READY_NOT_CLAIMED**
 
-**PR-GAP-001:** **CLOSED_APPROVED_BY_OWNER_REMOTE_AUTH_ON_VERIFIED**
-
 **Open production gaps:** **0**
 
-**Next event:** staging hardening and production readiness review for remaining limitations
+**Open staging limitations:** **STG-LIM-001..006**
 
-**Next pack:** Staging Hardening and Production Readiness Review Pack v0.1
+**Next event:** Selectel SSH Security Group restriction (STG-LIM-003)
+
+**Next pack:** Selectel SSH Security Group Restriction Pack v0.1
 
 **Known limitations:**
 
-- HTTP-only IP access
-- SSH 22 restriction via Selectel Security Group pending
-- HTTPS/domain pending
-- Web-admin UI deploy pending
-- Full demo UI seed-data pending
+- STG-LIM-001 HTTP-only IP access
+- STG-LIM-002 HTTPS/domain pending
+- STG-LIM-003 SSH 22 Selectel Security Group restriction pending
+- STG-LIM-004 Web-admin UI deploy pending
+- STG-LIM-005 Full demo UI seed-data pending
+
+Week-3 staging hardening and production readiness review v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_STAGING_HARDENING_AND_PRODUCTION_READINESS_REVIEW_V0.1.md`.
+
+Week-3 staging limitations review note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_STAGING_LIMITATIONS_REVIEW_NOTE_V0.1.md`.
 
 Week-3 Selectel remote execution evidence v0.1:
 
