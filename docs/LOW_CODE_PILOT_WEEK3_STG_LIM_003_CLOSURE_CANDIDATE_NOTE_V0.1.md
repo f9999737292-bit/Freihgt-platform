@@ -2,20 +2,20 @@
 
 ## Summary
 
-Post-panel re-verification after operator reported SG change. Closure not approved.
+Post-panel re-verification retry #4 (2026-07-12) after operator reported SG fix. Closure not approved.
 
 ## Current Result
 
 Trusted SSH path:
 
 ```text
-pass
+fail — banner exchange timeout (regression from prior pass)
 ```
 
 Non-trusted rejection:
 
 ```text
-fail — 5/5 international nodes TCP 22 connect success (re-scan after operator action)
+fail — 5/5 international nodes TCP 22 connect success (retry #4)
 ```
 
 Selectel SG /32 confirmation:

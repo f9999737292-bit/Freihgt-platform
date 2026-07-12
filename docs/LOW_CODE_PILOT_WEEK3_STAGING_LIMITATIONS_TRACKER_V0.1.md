@@ -22,7 +22,7 @@ active
 | -- | ---------- | ------ | -------- | -------- |
 | STG-LIM-001 | HTTP-only IP access | OPEN | STAGING_LIMITATIONS_REVIEWED | P1 |
 | STG-LIM-002 | HTTPS / Certbot not configured | OPEN | STAGING_LIMITATIONS_REVIEWED | P1 |
-| STG-LIM-003 | SSH 22 Selectel Security Group /32 restriction | OPEN — operator reported SG done; external scan 5/5 connect | SELECTEL_SSH_SG_POST_PANEL_REVERIFICATION_FAILED_PORT_22_STILL_PUBLIC | P0 |
+| STG-LIM-003 | SSH 22 Selectel Security Group /32 restriction | OPEN — retry #4: trusted SSH fail; external scan 5/5 connect | SELECTEL_SSH_SG_POST_PANEL_REVERIFICATION_FAILED_PORT_22_STILL_PUBLIC | P0 |
 | STG-LIM-004 | Web-admin UI not deployed | OPEN | STAGING_LIMITATIONS_REVIEWED | P2 |
 | STG-LIM-005 | Full demo UI seed-data not executed | OPEN | STAGING_LIMITATIONS_REVIEWED | P3 |
 | STG-LIM-006 | seed-lowcode-demo custom field values skipped | OPEN | STAGING_LIMITATIONS_REVIEWED | P3 |
@@ -32,7 +32,7 @@ active
 Trusted SSH path:
 
 ```text
-pass
+fail — banner exchange timeout (retry #4, 2026-07-12)
 ```
 
 API health:
@@ -44,19 +44,19 @@ API health:
 Runtime:
 
 ```text
-10 containers healthy
+not verified — SSH unavailable on retry #4
 ```
 
 UFW 5432/6379/internal ports:
 
 ```text
-denied
+not verified — SSH unavailable on retry #4
 ```
 
 Selectel SG /32 confirmed:
 
 ```text
-no — external non-trusted scan: 5/5 nodes TCP 22 connect success
+no — external non-trusted scan retry #4: 5/5 nodes TCP 22 connect success
 ```
 
 Non-trusted SSH rejection:

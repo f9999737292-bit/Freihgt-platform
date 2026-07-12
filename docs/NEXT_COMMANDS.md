@@ -60,18 +60,30 @@ docs/ai-team/
 
 **Production-ready claimed:** **no**
 
-**Open staging limitations:** **STG-LIM-001..006** (STG-LIM-003: **OPEN** — operator reported SG done; external scan still 5/5 connect)
+**Open staging limitations:** **STG-LIM-001..006** (STG-LIM-003: **OPEN** — retry #4: trusted SSH fail; external scan 5/5 connect)
 
-**Verification:** API health **200** | SSH trusted **PASS** | Runtime **10 containers healthy** | Non-trusted TCP 22 **FAIL (5/5)**
+**Verification:** API health **200** | SSH trusted **FAIL** (banner timeout) | Runtime **not verified** | Non-trusted TCP 22 **FAIL (5/5)**
 
-**Next event:** operator verifies Selectel SG rules in panel — correct group, /32 only, no 0.0.0.0/0 SSH
+**Next event:** operator verifies Selectel SG rules in panel — correct group, /32 only, no 0.0.0.0/0 SSH; check sshd if banner timeout persists
 
-**Next pack:** Selectel SSH SG Post-Panel Re-Verification Pack v0.1 (retry)
+**Next pack:** Selectel SSH SG Post-Panel Re-Verification Pack v0.1 (retry #5)
 
 **Blockers:**
 
 - **BLOCKED_WAITING_FOR_SELECTEL_SG_PANEL_CHANGE**
-- External scan after operator action: port 22 still publicly reachable
+- External scan retry #4: port 22 still publicly reachable; trusted SSH regressed
+
+Week-3 Selectel SSH SG post-panel re-verification retry 4 evidence v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_SELECTEL_SSH_SG_POST_PANEL_REVERIFICATION_RETRY_4_EVIDENCE_V0.1.md`.
+
+Week-3 Selectel SSH SG post-panel re-verification retry 4 note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_SELECTEL_SSH_SG_POST_PANEL_REVERIFICATION_RETRY_4_NOTE_V0.1.md`.
+
+Week-3 Selectel SSH SG retry 4 operator approval capture v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_SELECTEL_SSH_SG_RETRY_4_OPERATOR_APPROVAL_CAPTURE_V0.1.md`.
 
 Week-3 Selectel SSH SG post-panel re-verification evidence v0.1:
 
