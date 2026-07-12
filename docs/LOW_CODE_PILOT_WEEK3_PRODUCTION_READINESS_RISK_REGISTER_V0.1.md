@@ -18,9 +18,9 @@ Risk register for production readiness review after controlled pilot approval.
 
 **Selectel SSH SG restriction:** `SELECTEL_SSH_SG_NON_TRUSTED_REJECTION_FAILED_PORT_22_PUBLICLY_OPEN` (2026-07-11)
 
-**Staging limitations:** STG-LIM-001..006 **OPEN** — STG-LIM-001 **OPEN_DNS_PENDING_BINTRANS_DOMAIN** (`staging.bintrans.ru`); STG-LIM-002 **OPEN_HTTPS_PENDING_DNS_AND_SSH**; STG-LIM-003 **OPEN** — port 22 publicly reachable pending re-verification; **BLOCKED_WAITING_FOR_SELECTEL_SG_PANEL_CHANGE**
+**Staging limitations:** STG-LIM-001..006 **OPEN** — STG-LIM-001 **OPEN_DNS_PENDING_BINTRANS_DOMAIN** (`staging.bintrans.ru`); STG-LIM-002 **OPEN_HTTPS_PENDING_DNS_AND_SSH**; STG-LIM-003 **OPEN** — retry #5 FAIL, port 22 publicly reachable; **BLOCKED_WAITING_FOR_SELECTEL_SG_PANEL_CHANGE**
 
-**Bintrans domain decision:** `BINTRANS_STAGING_DOMAIN_SELECTED_DNS_PENDING` — 7rights staging domain deprecated for this path; production-ready not claimed
+**Bintrans domain decision:** `BINTRANS_STAGING_DOMAIN_SELECTED_DNS_PENDING` — 7rights staging domain deprecated for new staging path; STG-LIM-003 remains open; production-ready not claimed
 
 **Remote staging intake:** `REMOTE_STAGING_DETAILS_INTAKE_FORM_CREATED_PENDING_INPUT` (completed)
 

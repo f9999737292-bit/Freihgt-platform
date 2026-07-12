@@ -89,10 +89,12 @@ Staging limitations acceptance:
 
 - STG-LIM-001 HTTP-only IP access: OPEN_DNS_PENDING_BINTRANS_DOMAIN — domain `staging.bintrans.ru`, DNS A-record pending
 - STG-LIM-002 HTTPS/Certbot: OPEN_HTTPS_PENDING_DNS_AND_SSH — docs-only prep; Certbot not executed
-- STG-LIM-003 SSH Selectel Security Group restriction: OPEN — external scan retry #4 confirms port 22 publicly reachable; SG /32 not verified closed
+- STG-LIM-003 SSH Selectel Security Group restriction: OPEN — external scan retry #5 confirms port 22 publicly reachable; SG /32 not verified closed
 - STG-LIM-004 Web-admin UI deploy: OPEN
 - STG-LIM-005 Full demo UI seed-data: OPEN
 - STG-LIM-006 seed-lowcode-demo custom field values: OPEN
+
+**7rights staging domain:** deprecated for new staging path (`staging.7rights.ru` / `pilot.7rights.ru` not used)
 
 **Status:** **STAGING_LIMITATIONS_REVIEWED_PRODUCTION_READY_NOT_CLAIMED**
 

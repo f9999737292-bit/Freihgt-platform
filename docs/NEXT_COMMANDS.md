@@ -74,9 +74,9 @@ docs/ai-team/
 
 **Verification (last SG retry #5):** API health **200** | SSH trusted **FAIL** (banner timeout) | Non-trusted TCP 22 **FAIL (5/5)**
 
-**Next operator action:** Verify Selectel SG applied to server — correct group, /32 only, no 0.0.0.0/0 SSH; check sshd if banner timeout persists
+**Next operator action:** Create DNS A-record: `staging.bintrans.ru` → `161.104.53.221`
 
-**Next operator action (parallel):** Create DNS A-record: `staging.bintrans.ru` → `161.104.53.221`
+**Next operator action (parallel):** Verify Selectel SG applied to server — correct group, /32 only, no 0.0.0.0/0 SSH; check sshd if banner timeout persists
 
 **Next technical pack:** **Bintrans HTTPS / Certbot Preparation Pack v0.1**
 
@@ -84,7 +84,7 @@ docs/ai-team/
 
 **Blockers:**
 
-- **STG-LIM-003** SSH SG /32 not effective — external scan 5/5 connect after panel screenshot
+- **STG-LIM-003** SSH SG /32 still open
 - **STG-LIM-001** DNS pending
 - **STG-LIM-002** HTTPS pending DNS and SSH
 - **STG-LIM-004** web-admin UI pending

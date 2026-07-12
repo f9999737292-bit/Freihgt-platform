@@ -77,18 +77,11 @@ Optional fallback record:
 A pilot.bintrans.ru -> 161.104.53.221
 ```
 
-## HTTPS Prerequisite (docs-only)
+## Scope
 
-Certbot and Nginx TLS configuration must not be executed until:
+This decision is docs-only.
 
-* DNS resolves `staging.bintrans.ru` to `161.104.53.221`
-* SSH access is available from trusted operator workstation
-* Nginx is reachable on port 80 for the staging domain
-* Selectel Security Group allows inbound TCP 80 and 443
-* STG-LIM-003 SSH /32 restriction is verified closed
-* production-ready remains not claimed
-
-See `docs/LOW_CODE_PILOT_WEEK3_BINTRANS_DNS_CHECKLIST_V0.1.md`.
+No DNS changes, SSH commands, Certbot commands, Nginx server changes, backend changes, frontend changes, API contract changes, or migrations were executed.
 
 ## Production-ready
 

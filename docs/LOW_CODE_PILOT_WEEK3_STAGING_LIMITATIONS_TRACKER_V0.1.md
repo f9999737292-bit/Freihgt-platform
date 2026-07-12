@@ -22,7 +22,7 @@ active
 | -- | ---------- | ------ | -------- | -------- |
 | STG-LIM-001 | HTTP-only IP access | OPEN_DNS_PENDING_BINTRANS_DOMAIN | BINTRANS_STAGING_DOMAIN_SELECTED_DNS_PENDING | P1 |
 | STG-LIM-002 | HTTPS / Certbot not configured | OPEN_HTTPS_PENDING_DNS_AND_SSH | HTTPS_PREP_PENDING_BINTRANS_DNS_AND_SERVER_ACCESS | P1 |
-| STG-LIM-003 | SSH 22 Selectel Security Group /32 restriction | OPEN — retry #5: trusted SSH fail; external scan 5/5 connect | SELECTEL_SSH_SG_POST_PANEL_REVERIFICATION_FAILED_PORT_22_STILL_PUBLIC | P0 |
+| STG-LIM-003 | SSH 22 Selectel Security Group /32 restriction | OPEN | SELECTEL_SSH_SG_POST_PANEL_REVERIFICATION_FAILED_PORT_22_STILL_PUBLIC | P0 |
 | STG-LIM-004 | Web-admin UI not deployed | OPEN | STAGING_LIMITATIONS_REVIEWED | P2 |
 | STG-LIM-005 | Full demo UI seed-data not executed | OPEN | STAGING_LIMITATIONS_REVIEWED | P3 |
 | STG-LIM-006 | seed-lowcode-demo custom field values skipped | OPEN | STAGING_LIMITATIONS_REVIEWED | P3 |

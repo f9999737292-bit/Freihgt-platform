@@ -53,7 +53,7 @@ Expected:
 200
 ```
 
-## HTTPS Prerequisite
+## HTTPS Prerequisites
 
 Certbot must not be executed until:
 
@@ -61,19 +61,8 @@ Certbot must not be executed until:
 * SSH access is available
 * Nginx is reachable on port 80
 * Selectel Security Group allows 80 and 443
+* STG-LIM-003 is not blocking SSH access
 * production-ready remains not claimed
-
-### Certbot preparation (docs-only — do not execute)
-
-When prerequisites above are met, planned steps for **Bintrans HTTPS / Certbot Preparation Pack v0.1**:
-
-1. Confirm Nginx server_name includes `staging.bintrans.ru`
-2. Confirm HTTP `/health` returns 200 via domain (not IP only)
-3. Run Certbot with nginx plugin for `staging.bintrans.ru` only after operator approval
-4. Verify `https://staging.bintrans.ru/health` returns 200
-5. Capture evidence pack — do not claim production-ready
-
-Fallback domain `pilot.bintrans.ru` may receive a separate cert only if explicitly approved.
 
 ## Status
 
@@ -87,7 +76,7 @@ DNS_PENDING_OPERATOR_ACTION
 | -- | ------ |
 | STG-LIM-001 | OPEN_DNS_PENDING_BINTRANS_DOMAIN |
 | STG-LIM-002 | OPEN_HTTPS_PENDING_DNS_AND_SSH |
-| STG-LIM-003 | OPEN — separately verified |
+| STG-LIM-003 | OPEN |
 
 ## Production-ready
 
