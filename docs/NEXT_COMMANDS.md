@@ -52,7 +52,7 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Current status:** **SELECTEL_SSH_SG_POST_PANEL_REVERIFICATION_FAILED_PORT_22_STILL_PUBLIC**
+**Current status:** **BINTRANS_STAGING_DOMAIN_SELECTED_DNS_PENDING**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -60,18 +60,44 @@ docs/ai-team/
 
 **Production-ready claimed:** **no**
 
-**Open staging limitations:** **STG-LIM-001..006** (STG-LIM-003: **OPEN** — retry #4: trusted SSH fail; external scan 5/5 connect)
+**Current domain decision:** **BINTRANS_STAGING_DOMAIN_SELECTED_DNS_PENDING**
 
-**Verification:** API health **200** | SSH trusted **FAIL** (banner timeout) | Runtime **not verified** | Non-trusted TCP 22 **FAIL (5/5)**
+**Selected domain:** **staging.bintrans.ru**
 
-**Next event:** operator verifies Selectel SG rules in panel — correct group, /32 only, no 0.0.0.0/0 SSH; check sshd if banner timeout persists
+**Fallback domain:** **pilot.bintrans.ru**
 
-**Next pack:** Selectel SSH SG Post-Panel Re-Verification Pack v0.1 (retry #5)
+**Target IP:** **161.104.53.221**
+
+**Deprecated staging domains:** `staging.7rights.ru` / `pilot.7rights.ru` — not used for this path
+
+**Open staging limitations:** **STG-LIM-001..006**
+
+**Verification (last SG retry #4):** API health **200** | SSH trusted **FAIL** (banner timeout) | Non-trusted TCP 22 **FAIL (5/5)**
+
+**Next operator action:** Create DNS A-record: `staging.bintrans.ru` → `161.104.53.221`
+
+**Next technical pack:** **Bintrans HTTPS / Certbot Preparation Pack v0.1**
+
+**Next pack (blocker):** Selectel SSH SG Post-Panel Re-Verification Pack v0.1 (retry #5)
 
 **Blockers:**
 
-- **BLOCKED_WAITING_FOR_SELECTEL_SG_PANEL_CHANGE**
-- External scan retry #4: port 22 still publicly reachable; trusted SSH regressed
+- **STG-LIM-003** SSH SG /32 pending verification
+- **STG-LIM-001** DNS pending
+- **STG-LIM-002** HTTPS pending DNS and SSH
+- **STG-LIM-004** web-admin UI pending
+
+Week-3 Bintrans domain decision v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_BINTRANS_DOMAIN_DECISION_V0.1.md`.
+
+Week-3 Bintrans DNS checklist v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_BINTRANS_DNS_CHECKLIST_V0.1.md`.
+
+Week-3 staging limitations tracker v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_STAGING_LIMITATIONS_TRACKER_V0.1.md`.
 
 Week-3 Selectel SSH SG post-panel re-verification retry 4 evidence v0.1:
 

@@ -18,7 +18,9 @@ Risk register for production readiness review after controlled pilot approval.
 
 **Selectel SSH SG restriction:** `SELECTEL_SSH_SG_NON_TRUSTED_REJECTION_FAILED_PORT_22_PUBLICLY_OPEN` (2026-07-11)
 
-**Staging limitations:** STG-LIM-001..006 **OPEN** — STG-LIM-003 **OPEN** — port 22 publicly reachable; **BLOCKED_WAITING_FOR_SELECTEL_SG_PANEL_CHANGE**
+**Staging limitations:** STG-LIM-001..006 **OPEN** — STG-LIM-001 **OPEN_DNS_PENDING_BINTRANS_DOMAIN** (`staging.bintrans.ru`); STG-LIM-002 **OPEN_HTTPS_PENDING_DNS_AND_SSH**; STG-LIM-003 **OPEN** — port 22 publicly reachable pending re-verification; **BLOCKED_WAITING_FOR_SELECTEL_SG_PANEL_CHANGE**
+
+**Bintrans domain decision:** `BINTRANS_STAGING_DOMAIN_SELECTED_DNS_PENDING` — 7rights staging domain deprecated for this path; production-ready not claimed
 
 **Remote staging intake:** `REMOTE_STAGING_DETAILS_INTAKE_FORM_CREATED_PENDING_INPUT` (completed)
 
@@ -64,7 +66,7 @@ Risk register for production readiness review after controlled pilot approval.
 
 **Ordered remaining gap closure:** `ORDERED_REMAINING_GAP_CLOSURE_EXECUTED_DOCS_ONLY` (2026-06-23).
 
-**Residual risk (all gaps):** production-ready cannot be claimed while STG-LIM-001..004 remain open (HTTP-only, HTTPS/domain, SSH SG, web-admin UI).
+**Residual risk (all gaps):** production-ready cannot be claimed while STG-LIM-001..004 remain open (HTTP-only pending Bintrans DNS, HTTPS/domain pending DNS+SSH, SSH SG, web-admin UI).
 
 **Controlled pilot may continue** while production risks remain **OPEN**.
 

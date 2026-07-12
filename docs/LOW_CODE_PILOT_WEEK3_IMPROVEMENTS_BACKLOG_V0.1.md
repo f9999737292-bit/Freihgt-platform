@@ -218,6 +218,10 @@ When P1 appears: add row with owner assigned, target fix pack, decision **GO_WIT
 - **PR-GAP-001 moved to owner review candidate**
 - **Production-ready still not claimed**
 - **Selectel SSH restriction via Security Group remains pending**
+- **Bintrans staging domain selected: staging.bintrans.ru**
+- **DNS A-record pending operator action**
+- **HTTPS pending DNS + SSH/server access**
+- **7rights staging domain deprecated for this path**
 - **HTTPS/domain remains pending**
 - **Web-admin UI deploy remains pending**
 - **Full demo UI seed-data remains pending**

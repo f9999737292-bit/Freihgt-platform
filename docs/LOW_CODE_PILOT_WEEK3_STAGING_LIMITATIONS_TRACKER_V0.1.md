@@ -20,12 +20,108 @@ active
 
 | ID | Limitation | Status | Decision | Priority |
 | -- | ---------- | ------ | -------- | -------- |
-| STG-LIM-001 | HTTP-only IP access | OPEN | STAGING_LIMITATIONS_REVIEWED | P1 |
-| STG-LIM-002 | HTTPS / Certbot not configured | OPEN | STAGING_LIMITATIONS_REVIEWED | P1 |
+| STG-LIM-001 | HTTP-only IP access | OPEN_DNS_PENDING_BINTRANS_DOMAIN | BINTRANS_STAGING_DOMAIN_SELECTED_DNS_PENDING | P1 |
+| STG-LIM-002 | HTTPS / Certbot not configured | OPEN_HTTPS_PENDING_DNS_AND_SSH | HTTPS_PREP_PENDING_BINTRANS_DNS_AND_SERVER_ACCESS | P1 |
 | STG-LIM-003 | SSH 22 Selectel Security Group /32 restriction | OPEN — retry #4: trusted SSH fail; external scan 5/5 connect | SELECTEL_SSH_SG_POST_PANEL_REVERIFICATION_FAILED_PORT_22_STILL_PUBLIC | P0 |
 | STG-LIM-004 | Web-admin UI not deployed | OPEN | STAGING_LIMITATIONS_REVIEWED | P2 |
 | STG-LIM-005 | Full demo UI seed-data not executed | OPEN | STAGING_LIMITATIONS_REVIEWED | P3 |
 | STG-LIM-006 | seed-lowcode-demo custom field values skipped | OPEN | STAGING_LIMITATIONS_REVIEWED | P3 |
+
+## STG-LIM-001 Detail
+
+Status:
+
+```text
+OPEN_DNS_PENDING_BINTRANS_DOMAIN
+```
+
+Decision:
+
+```text
+BINTRANS_STAGING_DOMAIN_SELECTED_DNS_PENDING
+```
+
+Domain:
+
+```text
+staging.bintrans.ru
+```
+
+Fallback domain:
+
+```text
+pilot.bintrans.ru
+```
+
+Target IP:
+
+```text
+161.104.53.221
+```
+
+Deprecated for this path:
+
+```text
+staging.7rights.ru
+pilot.7rights.ru
+```
+
+Current access:
+
+```text
+http://161.104.53.221 — HTTP-only IP
+```
+
+DNS configured:
+
+```text
+no — pending operator action at registrar
+```
+
+Evidence:
+
+```text
+docs/LOW_CODE_PILOT_WEEK3_BINTRANS_DOMAIN_DECISION_V0.1.md
+docs/LOW_CODE_PILOT_WEEK3_BINTRANS_DNS_CHECKLIST_V0.1.md
+```
+
+## STG-LIM-002 Detail
+
+Status:
+
+```text
+OPEN_HTTPS_PENDING_DNS_AND_SSH
+```
+
+Decision:
+
+```text
+HTTPS_PREP_PENDING_BINTRANS_DNS_AND_SERVER_ACCESS
+```
+
+Domain:
+
+```text
+staging.bintrans.ru
+```
+
+HTTPS execution:
+
+```text
+blocked — docs-only until DNS resolves and SSH available
+```
+
+Certbot executed:
+
+```text
+no
+```
+
+Evidence:
+
+```text
+docs/LOW_CODE_PILOT_WEEK3_BINTRANS_DNS_CHECKLIST_V0.1.md
+```
 
 ## STG-LIM-003 Detail
 
@@ -87,5 +183,7 @@ not claimed
 ## Next Recommended Event
 
 ```text
+operator creates DNS A-record: staging.bintrans.ru -> 161.104.53.221
 operator applies Selectel SG SSH /32 restriction in control panel, then re-run non-trusted rejection test
+next technical pack: Bintrans HTTPS / Certbot Preparation Pack v0.1 (after DNS + SSH ready)
 ```
