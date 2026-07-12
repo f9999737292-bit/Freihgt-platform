@@ -18,9 +18,9 @@ Risk register for production readiness review after controlled pilot approval.
 
 **Selectel SSH SG restriction:** `SELECTEL_SSH_SG_NON_TRUSTED_REJECTION_FAILED_PORT_22_PUBLICLY_OPEN` (2026-07-11)
 
-**Staging limitations:** STG-LIM-001..006 **OPEN** — STG-LIM-002 **OPEN_HTTPS_PREP_CREATED_DNS_PENDING**; STG-LIM-003 **OPEN** — external scan deferred per operator
+**Staging limitations:** STG-LIM-001..006 **OPEN** — STG-LIM-004 **OPEN_WEB_ADMIN_DEPLOY_PLAN_CREATED**; API read-only smoke pass
 
-**Bintrans domain decision:** `BINTRANS_STAGING_DOMAIN_SELECTED_DNS_PENDING` — HTTPS prep pack created; production-ready not claimed
+**Bintrans domain decision:** `BINTRANS_STAGING_DOMAIN_SELECTED_DNS_PENDING` — web-admin deploy plan created; production-ready not claimed
 
 **Remote staging intake:** `REMOTE_STAGING_DETAILS_INTAKE_FORM_CREATED_PENDING_INPUT` (completed)
 

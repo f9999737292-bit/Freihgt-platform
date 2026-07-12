@@ -52,7 +52,7 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Current status:** **BINTRANS_HTTPS_CERTBOT_PREP_PACK_CREATED_DNS_PENDING**
+**Current status:** **WEB_ADMIN_DEPLOY_PLAN_CREATED_STAGING_API_SMOKE_PASS**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -72,18 +72,34 @@ docs/ai-team/
 
 **Open staging limitations:** **STG-LIM-001..006**
 
-**Verification:** API health **200** | SSH trusted **PASS** | Runtime **10 healthy** | DNS **pending** | STG-LIM-003 external scan **deferred**
+**Verification:** API read-only smoke **PASS** | API health **200** | SSH trusted **PASS** | DNS **pending** | STG-LIM-003 **deferred**
 
 **Next operator action:** Create DNS A-record: `staging.bintrans.ru` → `161.104.53.221`
 
-**Next pack:** **Bintrans HTTPS / Certbot Execution Pack v0.1** (after DNS resolves + operator approval)
+**Next pack:** **Web-admin Deploy Execution Pack v0.1** (operator approval required)
 
 **Blockers:**
 
 - **STG-LIM-001** DNS pending
 - **STG-LIM-002** HTTPS execution pending DNS
-- **STG-LIM-003** OPEN — external port 22 scan deferred per operator
-- **STG-LIM-004** web-admin UI pending
+- **STG-LIM-003** OPEN — external port 22 scan deferred
+- **STG-LIM-004** web-admin execution pending
+
+Week-3 staging API read-only smoke evidence v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_STAGING_API_READ_ONLY_SMOKE_EVIDENCE_V0.1.md`.
+
+Week-3 staging API read-only smoke note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_STAGING_API_READ_ONLY_SMOKE_NOTE_V0.1.md`.
+
+Week-3 web-admin deploy plan v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_WEB_ADMIN_DEPLOY_PLAN_V0.1.md`.
+
+Week-3 web-admin deploy checklist v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_WEB_ADMIN_DEPLOY_CHECKLIST_V0.1.md`.
 
 Week-3 Bintrans HTTPS / Certbot preparation pack v0.1:
 

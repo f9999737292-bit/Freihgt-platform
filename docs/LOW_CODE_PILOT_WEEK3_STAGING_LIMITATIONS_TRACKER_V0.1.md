@@ -23,7 +23,7 @@ active
 | STG-LIM-001 | HTTP-only IP access | OPEN_DNS_PENDING_BINTRANS_DOMAIN | BINTRANS_STAGING_DOMAIN_SELECTED_DNS_PENDING | P1 |
 | STG-LIM-002 | HTTPS / Certbot not configured | OPEN_HTTPS_PREP_CREATED_DNS_PENDING | BINTRANS_HTTPS_CERTBOT_PREP_PACK_CREATED_DNS_PENDING | P1 |
 | STG-LIM-003 | SSH 22 Selectel Security Group /32 restriction | OPEN — external scan deferred per operator | SELECTEL_SSH_SG_POST_PANEL_REVERIFICATION_DEFERRED | P0 |
-| STG-LIM-004 | Web-admin UI not deployed | OPEN | STAGING_LIMITATIONS_REVIEWED | P2 |
+| STG-LIM-004 | Web-admin UI not deployed | OPEN_WEB_ADMIN_DEPLOY_PLAN_CREATED | WEB_ADMIN_DEPLOY_PLAN_CREATED_PENDING_EXECUTION | P2 |
 | STG-LIM-005 | Full demo UI seed-data not executed | OPEN | STAGING_LIMITATIONS_REVIEWED | P3 |
 | STG-LIM-006 | seed-lowcode-demo custom field values skipped | OPEN | STAGING_LIMITATIONS_REVIEWED | P3 |
 
@@ -175,6 +175,40 @@ docs/LOW_CODE_PILOT_WEEK3_SELECTEL_SSH_SG_POST_PANEL_REVERIFICATION_RETRY_6_EVID
 docs/LOW_CODE_PILOT_WEEK3_STG_LIM_003_CLOSURE_CANDIDATE_NOTE_V0.1.md
 ```
 
+## STG-LIM-004 Detail
+
+Status:
+
+```text
+OPEN_WEB_ADMIN_DEPLOY_PLAN_CREATED
+```
+
+Decision:
+
+```text
+WEB_ADMIN_DEPLOY_PLAN_CREATED_PENDING_EXECUTION
+```
+
+Web-admin deployed:
+
+```text
+no
+```
+
+API read-only smoke:
+
+```text
+pass — STAGING_API_READ_ONLY_SMOKE_PASS
+```
+
+Evidence:
+
+```text
+docs/LOW_CODE_PILOT_WEEK3_WEB_ADMIN_DEPLOY_PLAN_V0.1.md
+docs/LOW_CODE_PILOT_WEEK3_WEB_ADMIN_DEPLOY_CHECKLIST_V0.1.md
+docs/LOW_CODE_PILOT_WEEK3_STAGING_API_READ_ONLY_SMOKE_EVIDENCE_V0.1.md
+```
+
 ## Production-ready Status
 
 ```text
@@ -185,6 +219,6 @@ not claimed
 
 ```text
 operator creates DNS A-record: staging.bintrans.ru -> 161.104.53.221
-after DNS resolves: Bintrans HTTPS / Certbot Execution Pack v0.1 (operator approval required)
+Web-admin Deploy Execution Pack v0.1 (operator approval required)
 STG-LIM-003 external port 22 scan: deferred per operator — remains open
 ```
