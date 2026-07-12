@@ -52,6 +52,8 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
+**Project status dashboard:** See `docs/LOW_CODE_PILOT_WEEK3_PROJECT_STATUS_DASHBOARD_V0.1.md`.
+
 **Current status:** **WEB_ADMIN_DEPLOY_PLAN_CREATED_STAGING_API_SMOKE_PASS**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
@@ -84,6 +86,10 @@ docs/ai-team/
 - **STG-LIM-002** HTTPS execution pending DNS
 - **STG-LIM-003** OPEN — external port 22 scan deferred
 - **STG-LIM-004** web-admin execution pending
+
+Week-3 project status dashboard v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_PROJECT_STATUS_DASHBOARD_V0.1.md`.
 
 Week-3 staging API read-only smoke evidence v0.1:
 
