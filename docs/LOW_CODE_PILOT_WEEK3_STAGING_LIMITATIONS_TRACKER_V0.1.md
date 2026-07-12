@@ -21,8 +21,8 @@ active
 | ID | Limitation | Status | Decision | Priority |
 | -- | ---------- | ------ | -------- | -------- |
 | STG-LIM-001 | HTTP-only IP access | OPEN_DNS_PENDING_BINTRANS_DOMAIN | BINTRANS_STAGING_DOMAIN_SELECTED_DNS_PENDING | P1 |
-| STG-LIM-002 | HTTPS / Certbot not configured | OPEN_HTTPS_PENDING_DNS_AND_SSH | HTTPS_PREP_PENDING_BINTRANS_DNS_AND_SERVER_ACCESS | P1 |
-| STG-LIM-003 | SSH 22 Selectel Security Group /32 restriction | OPEN — retry #6: trusted SSH pass; external scan 4/5 connect | SELECTEL_SSH_SG_POST_PANEL_REVERIFICATION_FAILED_PORT_22_STILL_PUBLIC | P0 |
+| STG-LIM-002 | HTTPS / Certbot not configured | OPEN_HTTPS_PREP_CREATED_DNS_PENDING | BINTRANS_HTTPS_CERTBOT_PREP_PACK_CREATED_DNS_PENDING | P1 |
+| STG-LIM-003 | SSH 22 Selectel Security Group /32 restriction | OPEN — external scan deferred per operator | SELECTEL_SSH_SG_POST_PANEL_REVERIFICATION_DEFERRED | P0 |
 | STG-LIM-004 | Web-admin UI not deployed | OPEN | STAGING_LIMITATIONS_REVIEWED | P2 |
 | STG-LIM-005 | Full demo UI seed-data not executed | OPEN | STAGING_LIMITATIONS_REVIEWED | P3 |
 | STG-LIM-006 | seed-lowcode-demo custom field values skipped | OPEN | STAGING_LIMITATIONS_REVIEWED | P3 |
@@ -90,13 +90,13 @@ docs/LOW_CODE_PILOT_WEEK3_BINTRANS_DNS_CHECKLIST_V0.1.md
 Status:
 
 ```text
-OPEN_HTTPS_PENDING_DNS_AND_SSH
+OPEN_HTTPS_PREP_CREATED_DNS_PENDING
 ```
 
 Decision:
 
 ```text
-HTTPS_PREP_PENDING_BINTRANS_DNS_AND_SERVER_ACCESS
+BINTRANS_HTTPS_CERTBOT_PREP_PACK_CREATED_DNS_PENDING
 ```
 
 Domain:
@@ -108,7 +108,7 @@ staging.bintrans.ru
 HTTPS execution:
 
 ```text
-blocked — docs-only until DNS resolves and SSH available
+blocked — docs-only prep pack created; execution pending DNS + operator approval
 ```
 
 Certbot executed:
@@ -120,7 +120,8 @@ no
 Evidence:
 
 ```text
-docs/LOW_CODE_PILOT_WEEK3_BINTRANS_DNS_CHECKLIST_V0.1.md
+docs/LOW_CODE_PILOT_WEEK3_BINTRANS_HTTPS_CERTBOT_PREPARATION_PACK_V0.1.md
+docs/LOW_CODE_PILOT_WEEK3_BINTRANS_HTTPS_CERTBOT_CHECKLIST_V0.1.md
 ```
 
 ## STG-LIM-003 Detail
@@ -158,7 +159,7 @@ no — external non-trusted scan retry #6: 4/5 nodes TCP 22 connect success
 Non-trusted SSH rejection:
 
 ```text
-fail
+deferred — external port 22 scan skipped per operator request; last retry #7: 5/5 connect
 ```
 
 Closure candidate:
@@ -184,6 +185,6 @@ not claimed
 
 ```text
 operator creates DNS A-record: staging.bintrans.ru -> 161.104.53.221
-operator applies Selectel SG SSH /32 restriction in control panel, then re-run non-trusted rejection test
-next technical pack: Bintrans HTTPS / Certbot Preparation Pack v0.1 (after DNS + SSH ready)
+after DNS resolves: Bintrans HTTPS / Certbot Execution Pack v0.1 (operator approval required)
+STG-LIM-003 external port 22 scan: deferred per operator — remains open
 ```

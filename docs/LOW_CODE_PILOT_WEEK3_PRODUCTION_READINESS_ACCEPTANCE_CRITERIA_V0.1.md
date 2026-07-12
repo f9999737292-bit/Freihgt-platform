@@ -88,8 +88,8 @@ PR-GAP-001 is **closed** with owner approval. It does **not** equal production-r
 Staging limitations acceptance:
 
 - STG-LIM-001 HTTP-only IP access: OPEN_DNS_PENDING_BINTRANS_DOMAIN — domain `staging.bintrans.ru`, DNS A-record pending
-- STG-LIM-002 HTTPS/Certbot: OPEN_HTTPS_PENDING_DNS_AND_SSH — docs-only prep; Certbot not executed
-- STG-LIM-003 SSH Selectel Security Group restriction: OPEN — external scan retry #5 confirms port 22 publicly reachable; SG /32 not verified closed
+- STG-LIM-002 HTTPS/Certbot: OPEN_HTTPS_PREP_CREATED_DNS_PENDING — prep pack created; Certbot not executed
+- STG-LIM-003 SSH Selectel Security Group restriction: OPEN — external port 22 scan deferred per operator; not closed
 - STG-LIM-004 Web-admin UI deploy: OPEN
 - STG-LIM-005 Full demo UI seed-data: OPEN
 - STG-LIM-006 seed-lowcode-demo custom field values: OPEN
@@ -98,7 +98,7 @@ Staging limitations acceptance:
 
 **Status:** **STAGING_LIMITATIONS_REVIEWED_PRODUCTION_READY_NOT_CLAIMED**
 
-**Evidence:** `docs/LOW_CODE_PILOT_WEEK3_STAGING_HARDENING_AND_PRODUCTION_READINESS_REVIEW_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_STAGING_LIMITATIONS_REVIEW_NOTE_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_BINTRANS_DOMAIN_DECISION_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_BINTRANS_DNS_CHECKLIST_V0.1.md`
+**Evidence:** `docs/LOW_CODE_PILOT_WEEK3_STAGING_HARDENING_AND_PRODUCTION_READINESS_REVIEW_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_STAGING_LIMITATIONS_REVIEW_NOTE_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_BINTRANS_DOMAIN_DECISION_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_BINTRANS_DNS_CHECKLIST_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_BINTRANS_HTTPS_CERTBOT_PREPARATION_PACK_V0.1.md`
 
 Staging limitations do not reopen PR-GAP-001. They block production-ready claim until addressed or separately accepted.
 

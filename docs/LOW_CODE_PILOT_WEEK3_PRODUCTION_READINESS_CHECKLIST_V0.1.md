@@ -108,7 +108,7 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 | PR-GAP-010 | **PASS / APPROVED_BY_SOT_OWNER** |
 | PR-GAP-009 | **OWNER_APPROVED_BUT_PRODUCTION_READY_NOT_CLAIMED** |
 | PR-GAP-001 | **CLOSED_APPROVED_BY_OWNER_REMOTE_AUTH_ON_VERIFIED** |
-| Staging limitations | **STG-LIM-001..006 OPEN** — STG-LIM-001 DNS pending (`staging.bintrans.ru`); STG-LIM-002 HTTPS pending DNS+SSH; STG-LIM-003 **OPEN** — retry #5 SSH SG FAIL |
+| Staging limitations | **STG-LIM-001..006 OPEN** — STG-LIM-002 HTTPS prep created; STG-LIM-003 OPEN deferred |
 | Final production readiness | **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY** |
 | Decision | `SELECTEL_SSH_SG_NON_TRUSTED_REJECTION_FAILED_PORT_22_PUBLICLY_OPEN` |
 | Reason | External non-trusted scan confirms port 22 open; Selectel SG /32 not applied |

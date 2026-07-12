@@ -223,7 +223,8 @@ When P1 appears: add row with owner assigned, target fix pack, decision **GO_WIT
 - **DNS A-record pending operator action**
 - **HTTPS pending DNS + SSH/server access**
 - **7rights staging domain deprecated for new staging path**
-- **STG-LIM-003 remains open**
+- **Bintrans HTTPS / Certbot preparation pack created (docs-only)**
+- **STG-LIM-003 external port 22 scan deferred per operator**
 - **HTTPS/domain remains pending**
 - **Web-admin UI deploy remains pending**
 - **Full demo UI seed-data remains pending**

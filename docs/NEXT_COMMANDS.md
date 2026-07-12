@@ -52,7 +52,7 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Current status:** **SELECTEL_SSH_SG_POST_PANEL_REVERIFICATION_FAILED_PORT_22_STILL_PUBLIC**
+**Current status:** **BINTRANS_HTTPS_CERTBOT_PREP_PACK_CREATED_DNS_PENDING**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -72,22 +72,30 @@ docs/ai-team/
 
 **Open staging limitations:** **STG-LIM-001..006**
 
-**Verification (last SG retry #6):** API health **200** | SSH trusted **PASS** | Runtime **10 healthy** | Non-trusted TCP 22 **FAIL (4/5)**
+**Verification:** API health **200** | SSH trusted **PASS** | Runtime **10 healthy** | DNS **pending** | STG-LIM-003 external scan **deferred**
 
-**Next operator action:** Verify Selectel SG applied to server — correct group, /32 only, no 0.0.0.0/0 SSH
+**Next operator action:** Create DNS A-record: `staging.bintrans.ru` → `161.104.53.221`
 
-**Next operator action (parallel):** Create DNS A-record: `staging.bintrans.ru` → `161.104.53.221`
-
-**Next technical pack:** **Bintrans HTTPS / Certbot Preparation Pack v0.1**
-
-**Next pack (blocker):** Selectel SSH SG Post-Panel Re-Verification Pack v0.1 (retry #7)
+**Next pack:** **Bintrans HTTPS / Certbot Execution Pack v0.1** (after DNS resolves + operator approval)
 
 **Blockers:**
 
-- **STG-LIM-003** SSH SG /32 still open — external scan 4/5 connect
 - **STG-LIM-001** DNS pending
-- **STG-LIM-002** HTTPS pending DNS and SSH
+- **STG-LIM-002** HTTPS execution pending DNS
+- **STG-LIM-003** OPEN — external port 22 scan deferred per operator
 - **STG-LIM-004** web-admin UI pending
+
+Week-3 Bintrans HTTPS / Certbot preparation pack v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_BINTRANS_HTTPS_CERTBOT_PREPARATION_PACK_V0.1.md`.
+
+Week-3 Bintrans HTTPS / Certbot checklist v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_BINTRANS_HTTPS_CERTBOT_CHECKLIST_V0.1.md`.
+
+Week-3 Bintrans HTTPS / Certbot preparation note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_BINTRANS_HTTPS_CERTBOT_PREPARATION_NOTE_V0.1.md`.
 
 Week-3 Bintrans domain decision v0.1:
 
