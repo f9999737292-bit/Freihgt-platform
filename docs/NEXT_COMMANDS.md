@@ -52,7 +52,7 @@ docs/ai-team/
 5. **DevOps** — Docker, env flags, safe restart (when relevant)
 6. **Docs** — pack doc + update this file
 
-**Current status:** **BINTRANS_STAGING_DOMAIN_SELECTED_DNS_PENDING**
+**Current status:** **SELECTEL_SSH_SG_POST_PANEL_REVERIFICATION_FAILED_PORT_22_STILL_PUBLIC**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -72,19 +72,19 @@ docs/ai-team/
 
 **Open staging limitations:** **STG-LIM-001..006**
 
-**Verification (last SG retry #5):** API health **200** | SSH trusted **FAIL** (banner timeout) | Non-trusted TCP 22 **FAIL (5/5)**
+**Verification (last SG retry #6):** API health **200** | SSH trusted **PASS** | Runtime **10 healthy** | Non-trusted TCP 22 **FAIL (4/5)**
 
-**Next operator action:** Create DNS A-record: `staging.bintrans.ru` → `161.104.53.221`
+**Next operator action:** Verify Selectel SG applied to server — correct group, /32 only, no 0.0.0.0/0 SSH
 
-**Next operator action (parallel):** Verify Selectel SG applied to server — correct group, /32 only, no 0.0.0.0/0 SSH; check sshd if banner timeout persists
+**Next operator action (parallel):** Create DNS A-record: `staging.bintrans.ru` → `161.104.53.221`
 
 **Next technical pack:** **Bintrans HTTPS / Certbot Preparation Pack v0.1**
 
-**Next pack (blocker):** Selectel SSH SG Post-Panel Re-Verification Pack v0.1 (retry #6)
+**Next pack (blocker):** Selectel SSH SG Post-Panel Re-Verification Pack v0.1 (retry #7)
 
 **Blockers:**
 
-- **STG-LIM-003** SSH SG /32 still open
+- **STG-LIM-003** SSH SG /32 still open — external scan 4/5 connect
 - **STG-LIM-001** DNS pending
 - **STG-LIM-002** HTTPS pending DNS and SSH
 - **STG-LIM-004** web-admin UI pending
@@ -100,6 +100,14 @@ See `docs/LOW_CODE_PILOT_WEEK3_BINTRANS_DNS_CHECKLIST_V0.1.md`.
 Week-3 staging limitations tracker v0.1:
 
 See `docs/LOW_CODE_PILOT_WEEK3_STAGING_LIMITATIONS_TRACKER_V0.1.md`.
+
+Week-3 Selectel SSH SG post-panel re-verification retry 6 evidence v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_SELECTEL_SSH_SG_POST_PANEL_REVERIFICATION_RETRY_6_EVIDENCE_V0.1.md`.
+
+Week-3 Selectel SSH SG post-panel re-verification retry 6 note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_SELECTEL_SSH_SG_POST_PANEL_REVERIFICATION_RETRY_6_NOTE_V0.1.md`.
 
 Week-3 Selectel SSH SG post-panel re-verification retry 5 evidence v0.1:
 
