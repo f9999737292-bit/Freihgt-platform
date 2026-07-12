@@ -54,7 +54,9 @@ docs/ai-team/
 
 **Project status dashboard:** See `docs/LOW_CODE_PILOT_WEEK3_PROJECT_STATUS_DASHBOARD_V0.1.md`.
 
-**Current status:** **WEB_ADMIN_DEPLOY_PLAN_CREATED_STAGING_API_SMOKE_PASS**
+**Controlled pilot test plan:** See `docs/LOW_CODE_PILOT_WEEK3_CONTROLLED_PILOT_TEST_PLAN_V0.1.md`.
+
+**Current status:** **CONTROLLED_PILOT_TEST_PLAN_CREATED**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -76,9 +78,11 @@ docs/ai-team/
 
 **Verification:** API read-only smoke **PASS** | API health **200** | SSH trusted **PASS** | DNS **pending** | STG-LIM-003 **deferred**
 
-**Next operator action:** Create DNS A-record: `staging.bintrans.ru` → `161.104.53.221`
+**Next operator action:** Create DNS A-record: `staging.bintrans.ru` → `161.104.53.221`; then Selectel SG verification
 
-**Next pack:** **Web-admin Deploy Execution Pack v0.1** (operator approval required)
+**Next recommended event:** DNS + SG, then controlled pilot read-only testing / write-test approval
+
+**Next pack:** **Controlled Pilot Read-only Test Execution Pack v0.1** (after DNS + SG)
 
 **Blockers:**
 
@@ -90,6 +94,10 @@ docs/ai-team/
 Week-3 project status dashboard v0.1:
 
 See `docs/LOW_CODE_PILOT_WEEK3_PROJECT_STATUS_DASHBOARD_V0.1.md`.
+
+Week-3 controlled pilot test plan v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_CONTROLLED_PILOT_TEST_PLAN_V0.1.md`.
 
 Week-3 staging API read-only smoke evidence v0.1:
 
