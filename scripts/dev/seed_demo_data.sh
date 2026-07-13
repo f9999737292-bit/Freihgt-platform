@@ -12,6 +12,11 @@ BILLING_REGISTER_SERVICE_URL="${BILLING_REGISTER_SERVICE_URL:-http://localhost:8
 
 TENANT_ID="${TENANT_ID:-74519f22-ff9b-4a8b-8fff-a958c689682f}"
 DEMO_PASSWORD="${DEMO_PASSWORD:-Demo123456!}"
+ADMIN_EMAIL="${ADMIN_EMAIL:-admin@7rights.local}"
+SHIPPER_EMAIL="${SHIPPER_EMAIL:-shipper@7rights.local}"
+CARRIER_EMAIL="${CARRIER_EMAIL:-carrier@7rights.local}"
+FORWARDER_EMAIL="${FORWARDER_EMAIL:-forwarder@7rights.local}"
+CONSIGNEE_EMAIL="${CONSIGNEE_EMAIL:-consignee@7rights.local}"
 LIST_LIMIT="${LIST_LIMIT:-100}"
 
 step() { echo "==> $1" >&2; }
@@ -1156,11 +1161,11 @@ main() {
   done
 
   step "Ensure demo users and memberships"
-  admin_user="$(find_user_id "admin@7rights.local")"
-  shipper_user="$(ensure_user "shipper@7rights.local" "Демо Грузовладелец")"
-  carrier_user="$(ensure_user "carrier@7rights.local" "Демо Перевозчик")"
-  forwarder_user="$(ensure_user "forwarder@7rights.local" "Демо Экспедитор")"
-  consignee_user="$(ensure_user "consignee@7rights.local" "Демо Грузополучатель")"
+  admin_user="$(find_user_id "$ADMIN_EMAIL")"
+  shipper_user="$(ensure_user "$SHIPPER_EMAIL" "Демо Грузовладелец")"
+  carrier_user="$(ensure_user "$CARRIER_EMAIL" "Демо Перевозчик")"
+  forwarder_user="$(ensure_user "$FORWARDER_EMAIL" "Демо Экспедитор")"
+  consignee_user="$(ensure_user "$CONSIGNEE_EMAIL" "Демо Грузополучатель")"
 
   ensure_membership "$shipper_id" "$shipper_user" "Логист грузовладельца"
   ensure_membership "$carrier_id" "$carrier_user" "Диспетчер перевозчика"

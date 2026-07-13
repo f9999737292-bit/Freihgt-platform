@@ -60,7 +60,9 @@ docs/ai-team/
 
 **Demo seed plan:** See `docs/LOW_CODE_PILOT_WEEK3_DEMO_SEED_PLAN_V0.1.md`.
 
-**Current status:** **DEMO_SEED_PLAN_CREATED_PENDING_EXECUTION**
+**Demo seed execution:** See `docs/LOW_CODE_PILOT_WEEK3_DEMO_SEED_EXECUTION_EVIDENCE_V0.1.md` — approval captured; SSH run pending.
+
+**Current status:** **DEMO_SEED_EXECUTION_APPROVED_PENDING_OPERATOR_CONFIRMATION**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -82,11 +84,9 @@ docs/ai-team/
 
 **Verification:** Controlled pilot read-only CP-RO-001..008 **PASS** | API health **200** | SSH trusted **PASS** | DNS **pending** | STG-LIM-003 **deferred**
 
-**Next operator action:** Create DNS A-record: `staging.bintrans.ru` → `161.104.53.221`
+**Next operator action:** Run SSH seed runbook on `161.104.53.221`, then write **«seed выполнен»**
 
-**Next recommended event:** DNS → demo seed execution (approval) / web-admin deploy
-
-**Next pack:** **Demo Seed Execution Pack v0.1** (operator approval required)
+**Next pack:** **Demo Seed Execution Verification Pack v0.1** (after operator confirms SSH run)
 
 **Blockers:**
 
