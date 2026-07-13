@@ -14,21 +14,28 @@ DEMO_SEED_EXECUTION_APPROVED_PENDING_OPERATOR_CONFIRMATION
 
 ```text
 разрешаю staging seed execution
+разрешаю staging demo seed на сервере
 ```
 
-Captured in:
+## Server Execution Attempt (2026-07-13)
 
-```text
-docs/LOW_CODE_PILOT_WEEK3_DEMO_SEED_EXECUTION_OPERATOR_APPROVAL_CAPTURE_V0.1.md
+Agent SSH execution attempted after server approval. Shell output not captured from agent environment.
+
+Operator must run locally:
+
+```bash
+ssh root@161.104.53.221 "cd /opt/bintrans/freight-platform && git pull origin main && export DEMO_PASSWORD='<secure>' && bash scripts/dev/run_staging_demo_seed.sh && bash scripts/dev/verify_staging_demo_seed_readonly.sh"
 ```
+
+Password: use staging demo password from secure channel — **not stored in docs**.
 
 ## Execution Status
 
 | Step | Status |
 | ---- | ------ |
-| Operator approval | **captured** |
-| SSH seed-demo-data | **pending operator run** — agent shell no output capture |
-| SSH seed-lowcode-demo | **pending operator run** |
+| Operator approval | **captured** (including server run) |
+| SSH seed-demo-data | **pending** — run command above |
+| SSH seed-lowcode-demo | **pending** |
 | Post-seed read-only verify | **pending** |
 
 ## Script Update

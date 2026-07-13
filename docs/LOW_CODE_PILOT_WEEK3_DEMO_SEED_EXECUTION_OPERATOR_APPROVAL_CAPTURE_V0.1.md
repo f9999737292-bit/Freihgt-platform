@@ -12,15 +12,22 @@ Approval text:
 разрешаю staging seed execution
 ```
 
+Server execution approval (2026-07-13):
+
+```text
+разрешаю staging demo seed на сервере
+```
+
 Expanded interpretation:
 
 ```text
 staging demo seed execution approved: yes
-seed-demo-data approved: yes
-seed-lowcode-demo custom field values approved: yes
+seed-demo-data on server approved: yes
+seed-lowcode-demo on server approved: yes
 demo data only: yes
 production-ready not claimed: yes
 secrets stored in docs: no
+agent SSH execution: attempted — shell output not captured; operator runs locally
 ```
 
 ## Target

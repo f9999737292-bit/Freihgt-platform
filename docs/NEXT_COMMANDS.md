@@ -86,7 +86,7 @@ docs/ai-team/
 
 **Verification:** Controlled pilot read-only CP-RO-001..008 **PASS** | API health **200** | SSH trusted **PASS** | DNS **pending** | STG-LIM-003 **deferred**
 
-**Next operator action:** SSH → `bash scripts/dev/run_staging_demo_seed.sh` → verify → **«seed выполнен»**
+**Next operator action:** Run seed **now** (approved): `ssh root@161.104.53.221` → `bash scripts/dev/run_staging_demo_seed.sh` → verify → **«seed выполнен»**
 
 **Runner script:** `scripts/dev/run_staging_demo_seed.sh` (server) | `scripts/dev/Verify-StagingDemoSeed.ps1` (Windows verify)
 
