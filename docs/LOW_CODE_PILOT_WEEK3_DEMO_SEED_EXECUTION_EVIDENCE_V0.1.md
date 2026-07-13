@@ -106,4 +106,15 @@ not claimed
 
 ## Next Step
 
-Operator runs SSH runbook, then writes **«seed выполнен»** for verification evidence update and STG-LIM closure candidate review.
+Operator runs on server:
+
+```bash
+cd /opt/bintrans/freight-platform && git pull origin main
+export DEMO_PASSWORD='<secure>'
+bash scripts/dev/run_staging_demo_seed.sh
+bash scripts/dev/verify_staging_demo_seed_readonly.sh
+```
+
+Then writes **«seed выполнен»** with verify output for evidence update and STG-LIM closure candidate review.
+
+See `docs/LOW_CODE_PILOT_WEEK3_DEMO_SEED_EXECUTION_VERIFICATION_EVIDENCE_V0.1.md`.

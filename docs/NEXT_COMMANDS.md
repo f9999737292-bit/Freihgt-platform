@@ -60,9 +60,11 @@ docs/ai-team/
 
 **Demo seed plan:** See `docs/LOW_CODE_PILOT_WEEK3_DEMO_SEED_PLAN_V0.1.md`.
 
-**Demo seed execution:** See `docs/LOW_CODE_PILOT_WEEK3_DEMO_SEED_EXECUTION_EVIDENCE_V0.1.md` — approval captured; SSH run pending.
+**Demo seed execution:** See `docs/LOW_CODE_PILOT_WEEK3_DEMO_SEED_EXECUTION_EVIDENCE_V0.1.md`.
 
-**Current status:** **DEMO_SEED_EXECUTION_APPROVED_PENDING_OPERATOR_CONFIRMATION**
+**Demo seed verification:** See `docs/LOW_CODE_PILOT_WEEK3_DEMO_SEED_EXECUTION_VERIFICATION_EVIDENCE_V0.1.md`.
+
+**Current status:** **DEMO_SEED_EXECUTION_VERIFICATION_PENDING_OPERATOR_RUN**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -84,9 +86,9 @@ docs/ai-team/
 
 **Verification:** Controlled pilot read-only CP-RO-001..008 **PASS** | API health **200** | SSH trusted **PASS** | DNS **pending** | STG-LIM-003 **deferred**
 
-**Next operator action:** Run SSH seed runbook on `161.104.53.221`, then write **«seed выполнен»**
+**Next operator action:** SSH → `bash scripts/dev/run_staging_demo_seed.sh` → verify → **«seed выполнен»**
 
-**Next pack:** **Demo Seed Execution Verification Pack v0.1** (after operator confirms SSH run)
+**Runner script:** `scripts/dev/run_staging_demo_seed.sh` (server) | `scripts/dev/Verify-StagingDemoSeed.ps1` (Windows verify)
 
 **Blockers:**
 
@@ -114,6 +116,10 @@ See `docs/LOW_CODE_PILOT_WEEK3_CONTROLLED_PILOT_READ_ONLY_TEST_EXECUTION_NOTE_V0
 Week-3 demo seed plan v0.1:
 
 See `docs/LOW_CODE_PILOT_WEEK3_DEMO_SEED_PLAN_V0.1.md`.
+
+Week-3 demo seed execution verification evidence v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_DEMO_SEED_EXECUTION_VERIFICATION_EVIDENCE_V0.1.md`.
 
 Week-3 demo seed checklist v0.1:
 
