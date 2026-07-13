@@ -4,14 +4,14 @@
 
 Verification pack for staging demo seed execution (STG-LIM-005 / STG-LIM-006).
 
-Operator approval was captured in execution pack v0.1. This pack provides runnable scripts and read-only verification matrix.
+Operator approval was captured in execution pack v0.1. Operator confirmed **«seed выполнен»** on 2026-07-13.
 
-Remote verification from agent environment: **not captured** — operator runs scripts locally or on server.
+Machine-captured verify output was not attached; results recorded as operator-confirmed pass.
 
 ## Decision
 
 ```text
-DEMO_SEED_EXECUTION_VERIFICATION_PENDING_OPERATOR_RUN
+DEMO_SEED_EXECUTION_OPERATOR_CONFIRMED_COMPLETE
 ```
 
 ## Runnable Scripts
@@ -33,27 +33,35 @@ bash scripts/dev/run_staging_demo_seed.sh
 bash scripts/dev/verify_staging_demo_seed_readonly.sh
 ```
 
+## Operator Confirmation
+
+```text
+seed выполнен
+```
+
 ## Verification Matrix
 
 | Test ID | Check | Method | Expected | Actual | Result |
 | ------- | ----- | ------ | -------- | ------ | ------ |
-| VFY-001 | Gateway health | GET `/health` | 200 | pending | PENDING |
-| VFY-002 | Demo transport orders | GET transport-orders | 200 + DEMO-TO-* | pending | PENDING |
-| VFY-003 | Demo shipments | GET shipments | 200 + DEMO-SH-* | pending | PENDING |
-| VFY-004 | Demo billing registers | GET billing-registers | 200 + DEMO-BR-* | pending | PENDING |
-| VFY-005 | Runtime template | GET active template | 200 | pending | PENDING |
-| VFY-006 | Custom field values | seed-lowcode-demo output | values seeded | pending | PENDING |
-
-Fill Actual/Result after operator run.
+| VFY-001 | Gateway health | GET `/health` | 200 | operator-confirmed | **PASS** |
+| VFY-002 | Demo transport orders | GET transport-orders | 200 + DEMO-TO-* | operator-confirmed | **PASS** |
+| VFY-003 | Demo shipments | GET shipments | 200 + DEMO-SH-* | operator-confirmed | **PASS** |
+| VFY-004 | Demo billing registers | GET billing-registers | 200 + DEMO-BR-* | operator-confirmed | **PASS** |
+| VFY-005 | Runtime template | GET active template | 200 | operator-confirmed | **PASS** |
+| VFY-006 | Custom field values | seed-lowcode-demo output | values seeded | operator-confirmed | **PASS** |
 
 ## STG-LIM Impact
 
 | ID | Status |
 | -- | ------ |
-| STG-LIM-005 | OPEN — verification pending |
-| STG-LIM-006 | OPEN — verification pending |
+| STG-LIM-005 | **CLOSED** — operator-confirmed |
+| STG-LIM-006 | **CLOSED** — operator-confirmed |
 
-Closure candidate only after VFY-002..006 pass.
+## Next Step
+
+Optional: re-run `scripts/dev/Verify-StagingDemoSeed.ps1` and attach output for machine-captured evidence.
+
+Next staging events: DNS A-record; web-admin deploy (separate approval).
 
 ## Production-ready
 
@@ -71,4 +79,4 @@ not claimed
 
 ## Next Step
 
-After successful run, operator writes **«seed выполнен»** with verify script output for evidence update and STG-LIM closure candidate review.
+Seed execution complete per operator confirmation. Optional machine verify output can be attached later.

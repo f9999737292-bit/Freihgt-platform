@@ -4,14 +4,14 @@
 
 Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER**, **SHIPMENT**, and **BILLING_REGISTER**.
 
-**Current status:** **DEMO_SEED_EXECUTION_VERIFICATION_PENDING_OPERATOR_RUN** — runner + verify scripts ready.
+**Current status:** **DEMO_SEED_EXECUTION_OPERATOR_CONFIRMED_COMPLETE** — STG-LIM-005/006 closed per operator confirmation.
 
 ## Current Status
 
 | Metric | Value |
 |--------|-------|
-| Total entries | **76** |
-| Staging limitations | **STG-LIM-001..006 OPEN** |
+| Total entries | **77** |
+| Staging limitations | **STG-LIM-001..004 OPEN**; **STG-LIM-005/006 CLOSED** |
 | Remote server available | **yes** (Selectel 161.104.53.221) |
 | Final go/no-go owner | **Феликс Асаев** — owner approved; production-ready blocked by PR-GAP-001 |
 | SoT owner | **Феликс Асаев** — approved |
@@ -40,7 +40,7 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | PR-GAP-006 | **CLOSED_APPROVED_BY_OWNER** |
 | Production ready claimed | **no** |
 | PM / Coordinator | **Феликс Асаев** |
-| Last updated | 2026-07-11 |
+| Last updated | 2026-07-13 |
 
 ## Feedback Table
 
@@ -121,6 +121,7 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | W3-FB-DEMO-SEED-EXEC-APPROVAL-001 | 2026-07-13 | — | CROSS_ENTITY | TO/SH/BR demos | demo seed execution approval | P3 | Operator approved staging seed execution; SSH runbook prepared; seed script email env overrides added; remote run pending operator confirmation | COMPLETED | — | Demo Seed Execution Verification Pack v0.1 | DEMO_SEED_EXECUTION_APPROVED_PENDING_OPERATOR_CONFIRMATION — stg_lim=STG-LIM-005, stg_lim_006=OPEN_SEED_EXECUTION_APPROVED, production_ready_claimed=no, seed_executed=pending, secrets_captured=no |
 | W3-FB-DEMO-SEED-VERIFY-001 | 2026-07-13 | — | CROSS_ENTITY | TO/SH/BR demos | demo seed execution verification pack | P3 | Runner and read-only verify scripts created; verification matrix pending operator run on staging | COMPLETED | — | STG-LIM-005/006 closure candidate after seed выполнен | DEMO_SEED_EXECUTION_VERIFICATION_PENDING_OPERATOR_RUN — production_ready_claimed=no, seed_executed=pending, secrets_captured=no |
 | W3-FB-DEMO-SEED-SERVER-APPROVAL-001 | 2026-07-13 | — | CROSS_ENTITY | TO/SH/BR demos | staging demo seed server execution approval | P3 | Operator approved server seed run; agent SSH attempt no output capture; pending local operator execution | COMPLETED | — | seed выполнен verification | DEMO_SEED_SERVER_EXECUTION_APPROVED_PENDING_RUN — production_ready_claimed=no, seed_executed=pending, secrets_captured=no |
+| W3-FB-DEMO-SEED-COMPLETE-001 | 2026-07-13 | — | CROSS_ENTITY | TO/SH/BR demos | staging demo seed execution complete | P3 | Operator confirmed seed выполнен; STG-LIM-005/006 closed; machine verify output not attached | COMPLETED | — | DNS A-record / web-admin deploy | DEMO_SEED_EXECUTION_OPERATOR_CONFIRMED_COMPLETE — stg_lim_005=CLOSED, stg_lim_006=CLOSED, production_ready_claimed=no, seed_executed=yes, staging_writes_executed=yes, secrets_captured=no |
 | W3-FB-FINAL-GO-NO-GO-OWNER-APPROVAL-001 | 2026-06-23 | Феликс Асаев | CROSS_ENTITY | TO/SH/BR demos | production readiness final go/no-go owner approval | P1 | Final go/no-go owner approval captured, but production-ready remains blocked by PR-GAP-001 | COMPLETED | **Феликс Асаев** | Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1 after staging server details are provided | FINAL_GO_NO_GO_OWNER_APPROVAL_CAPTURED_NOT_PRODUCTION_READY — pr_gap=PR-GAP-009, pr_gap_status=OWNER_APPROVED_BUT_PRODUCTION_READY_BLOCKED, blocking_gap=PR-GAP-001, blocking_gap_status=BLOCKED_WAITING_FOR_STAGING_SERVER_DETAILS, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, deploy_executed=no, ssh_executed=no, staging_writes_executed=no, secrets_captured=no |
 | W3-FB-SOT-OWNER-FINAL-APPROVAL-001 | 2026-06-23 | Феликс Асаев | CROSS_ENTITY | TO/SH/BR demos | production readiness SoT owner final approval | P2 | SoT owner final approval captured for PR-GAP-010 | COMPLETED | **Феликс Асаев** | Low-code Pilot Week-3 Final Go-No-Go Owner Final Approval Pack v0.1 | SOT_OWNER_FINAL_APPROVAL_CAPTURED — pr_gap=PR-GAP-010, pr_gap_status=CLOSED_APPROVED_BY_OWNER, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, deploy_executed=no, ssh_executed=no, staging_writes_executed=no, secrets_captured=no |
 | W3-FB-RELEASE-OWNER-FINAL-APPROVAL-001 | 2026-06-23 | Артем Асаев | CROSS_ENTITY | TO/SH/BR demos | production readiness release owner final approval | P2 | Release owner final approval captured for PR-GAP-008 | COMPLETED | **Артем Асаев** | Low-code Pilot Week-3 SoT Owner Final Approval Pack v0.1 | RELEASE_OWNER_FINAL_APPROVAL_CAPTURED — pr_gap=PR-GAP-008, pr_gap_status=CLOSED_APPROVED_BY_OWNER, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, deploy_executed=no, ssh_executed=no, staging_writes_executed=no, secrets_captured=no |

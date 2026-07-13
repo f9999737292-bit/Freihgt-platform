@@ -64,7 +64,7 @@ docs/ai-team/
 
 **Demo seed verification:** See `docs/LOW_CODE_PILOT_WEEK3_DEMO_SEED_EXECUTION_VERIFICATION_EVIDENCE_V0.1.md`.
 
-**Current status:** **DEMO_SEED_EXECUTION_VERIFICATION_PENDING_OPERATOR_RUN**
+**Current status:** **DEMO_SEED_EXECUTION_OPERATOR_CONFIRMED_COMPLETE**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -82,13 +82,13 @@ docs/ai-team/
 
 **Deprecated staging domains:** `staging.7rights.ru` / `pilot.7rights.ru` — not used for this path
 
-**Open staging limitations:** **STG-LIM-001..006**
+**Open staging limitations:** **STG-LIM-001..004** (STG-LIM-005/006 **CLOSED**)
 
-**Verification:** Controlled pilot read-only CP-RO-001..008 **PASS** | API health **200** | SSH trusted **PASS** | DNS **pending** | STG-LIM-003 **deferred**
+**Verification:** Controlled pilot read-only CP-RO-001..008 **PASS** | API health **200** | Demo seed **operator-confirmed complete** | SSH trusted **PASS** | DNS **pending** | STG-LIM-003 **deferred**
 
-**Next operator action:** Run seed **now** (approved): `ssh root@161.104.53.221` → `bash scripts/dev/run_staging_demo_seed.sh` → verify → **«seed выполнен»**
+**Next operator action:** Create DNS A-record `staging.bintrans.ru` → `161.104.53.221`; then HTTPS/Certbot prep. Web-admin deploy — separate approval.
 
-**Runner script:** `scripts/dev/run_staging_demo_seed.sh` (server) | `scripts/dev/Verify-StagingDemoSeed.ps1` (Windows verify)
+**Demo seed:** **complete** (operator-confirmed 2026-07-13)
 
 **Blockers:**
 

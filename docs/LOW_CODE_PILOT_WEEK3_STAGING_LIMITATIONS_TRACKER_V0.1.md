@@ -24,8 +24,8 @@ active
 | STG-LIM-002 | HTTPS / Certbot not configured | OPEN_HTTPS_PREP_CREATED_DNS_PENDING | BINTRANS_HTTPS_CERTBOT_PREP_PACK_CREATED_DNS_PENDING | P1 |
 | STG-LIM-003 | SSH 22 Selectel Security Group /32 restriction | OPEN — external scan deferred per operator | SELECTEL_SSH_SG_POST_PANEL_REVERIFICATION_DEFERRED | P0 |
 | STG-LIM-004 | Web-admin UI not deployed | OPEN_WEB_ADMIN_DEPLOY_PLAN_CREATED | WEB_ADMIN_DEPLOY_PLAN_CREATED_PENDING_EXECUTION | P2 |
-| STG-LIM-005 | Full demo UI seed-data not executed | OPEN_SEED_EXECUTION_APPROVED | DEMO_SEED_EXECUTION_APPROVED_PENDING_OPERATOR_CONFIRMATION | P3 |
-| STG-LIM-006 | seed-lowcode-demo custom field values skipped | OPEN_SEED_EXECUTION_APPROVED | DEMO_SEED_EXECUTION_APPROVED_PENDING_OPERATOR_CONFIRMATION | P3 |
+| STG-LIM-005 | Full demo UI seed-data not executed | **CLOSED** | DEMO_SEED_EXECUTION_OPERATOR_CONFIRMED_COMPLETE | P3 |
+| STG-LIM-006 | seed-lowcode-demo custom field values skipped | **CLOSED** | DEMO_SEED_EXECUTION_OPERATOR_CONFIRMED_COMPLETE | P3 |
 
 ## STG-LIM-001 Detail
 
@@ -214,19 +214,19 @@ docs/LOW_CODE_PILOT_WEEK3_STAGING_API_READ_ONLY_SMOKE_EVIDENCE_V0.1.md
 Status:
 
 ```text
-OPEN_SEED_EXECUTION_APPROVED
+CLOSED
 ```
 
 Decision:
 
 ```text
-DEMO_SEED_EXECUTION_APPROVED_PENDING_OPERATOR_CONFIRMATION
+DEMO_SEED_EXECUTION_OPERATOR_CONFIRMED_COMPLETE
 ```
 
 Seed executed:
 
 ```text
-pending — operator SSH runbook in execution evidence
+yes — operator confirmed «seed выполнен» on 2026-07-13
 ```
 
 Evidence:
@@ -234,6 +234,8 @@ Evidence:
 ```text
 docs/LOW_CODE_PILOT_WEEK3_DEMO_SEED_PLAN_V0.1.md
 docs/LOW_CODE_PILOT_WEEK3_DEMO_SEED_CHECKLIST_V0.1.md
+docs/LOW_CODE_PILOT_WEEK3_DEMO_SEED_EXECUTION_EVIDENCE_V0.1.md
+docs/LOW_CODE_PILOT_WEEK3_DEMO_SEED_EXECUTION_VERIFICATION_EVIDENCE_V0.1.md
 ```
 
 ## STG-LIM-006 Detail
@@ -241,19 +243,19 @@ docs/LOW_CODE_PILOT_WEEK3_DEMO_SEED_CHECKLIST_V0.1.md
 Status:
 
 ```text
-OPEN_SEED_EXECUTION_APPROVED
+CLOSED
 ```
 
 Decision:
 
 ```text
-DEMO_SEED_EXECUTION_APPROVED_PENDING_OPERATOR_CONFIRMATION
+DEMO_SEED_EXECUTION_OPERATOR_CONFIRMED_COMPLETE
 ```
 
 Custom field values seeded:
 
 ```text
-pending — after seed-demo-data on server
+yes — operator confirmed «seed выполнен» on 2026-07-13
 ```
 
 Evidence:
@@ -261,6 +263,8 @@ Evidence:
 ```text
 docs/LOW_CODE_PILOT_WEEK3_DEMO_SEED_PLAN_V0.1.md
 docs/LOW_CODE_PILOT_WEEK3_DEMO_SEED_CHECKLIST_V0.1.md
+docs/LOW_CODE_PILOT_WEEK3_DEMO_SEED_EXECUTION_EVIDENCE_V0.1.md
+docs/LOW_CODE_PILOT_WEEK3_DEMO_SEED_EXECUTION_VERIFICATION_EVIDENCE_V0.1.md
 ```
 
 ## Production-ready Status
@@ -273,7 +277,6 @@ not claimed
 
 ```text
 operator creates DNS A-record: staging.bintrans.ru -> 161.104.53.221
-Demo Seed Execution Pack v0.1 — operator runs SSH runbook, then «seed выполнен»
 Web-admin Deploy Execution Pack v0.1 (operator approval required)
 STG-LIM-003 external port 22 scan: deferred per operator — remains open
 ```

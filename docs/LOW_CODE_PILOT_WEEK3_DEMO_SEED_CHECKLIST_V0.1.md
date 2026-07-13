@@ -63,13 +63,13 @@ Checklist for executing demo seed on Selectel staging (STG-LIM-005 / STG-LIM-006
 | STG-LIM-002 | OPEN — HTTPS pending |
 | STG-LIM-003 | OPEN — deferred |
 | STG-LIM-004 | OPEN — web-admin execution pending |
-| STG-LIM-005 | OPEN — plan created, execution pending |
-| STG-LIM-006 | OPEN — plan created, execution pending |
+| STG-LIM-005 | **CLOSED** — operator-confirmed |
+| STG-LIM-006 | **CLOSED** — operator-confirmed |
 
 ## Status
 
 ```text
-DEMO_SEED_PLAN_CREATED_PENDING_EXECUTION
+DEMO_SEED_EXECUTION_OPERATOR_CONFIRMED_COMPLETE
 ```
 
 ## Production-ready

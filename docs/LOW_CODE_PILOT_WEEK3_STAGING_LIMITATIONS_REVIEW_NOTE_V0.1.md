@@ -20,8 +20,8 @@ STAGING_LIMITATIONS_REVIEWED_PRODUCTION_READY_NOT_CLAIMED
 | STG-LIM-002 | HTTPS / Certbot not configured | OPEN | P1 |
 | STG-LIM-003 | SSH 22 Selectel Security Group restriction pending | OPEN — SSH trusted PASS; SG panel change pending | P0 |
 | STG-LIM-004 | Web-admin UI not deployed | OPEN | P2 |
-| STG-LIM-005 | Full demo UI seed-data not executed | OPEN | P3 |
-| STG-LIM-006 | seed-lowcode-demo custom field values skipped | OPEN | P3 |
+| STG-LIM-005 | Full demo UI seed-data not executed | **CLOSED** | P3 |
+| STG-LIM-006 | seed-lowcode-demo custom field values skipped | **CLOSED** | P3 |
 
 ## What Is Sufficient for Controlled Pilot
 
