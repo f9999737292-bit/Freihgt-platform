@@ -91,14 +91,14 @@ Staging limitations acceptance:
 - STG-LIM-002 HTTPS/Certbot: OPEN_HTTPS_PREP_CREATED_DNS_PENDING — prep pack created; Certbot not executed
 - STG-LIM-003 SSH Selectel Security Group restriction: OPEN — external port 22 scan deferred per operator; not closed
 - STG-LIM-004 Web-admin UI deploy: OPEN_WEB_ADMIN_DEPLOY_PLAN_CREATED — deploy plan created; execution pending
-- STG-LIM-005 Full demo UI seed-data: OPEN
-- STG-LIM-006 seed-lowcode-demo custom field values: OPEN
+- STG-LIM-005 Full demo UI seed-data: OPEN_DEMO_SEED_PLAN_CREATED — plan created; execution pending
+- STG-LIM-006 seed-lowcode-demo custom field values: OPEN_DEMO_SEED_PLAN_CREATED — plan created; execution pending
 
 **7rights staging domain:** deprecated for new staging path (`staging.7rights.ru` / `pilot.7rights.ru` not used)
 
 **Status:** **STAGING_LIMITATIONS_REVIEWED_PRODUCTION_READY_NOT_CLAIMED**
 
-**Evidence:** `docs/LOW_CODE_PILOT_WEEK3_STAGING_HARDENING_AND_PRODUCTION_READINESS_REVIEW_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_STAGING_LIMITATIONS_REVIEW_NOTE_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_BINTRANS_DOMAIN_DECISION_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_BINTRANS_DNS_CHECKLIST_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_BINTRANS_HTTPS_CERTBOT_PREPARATION_PACK_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_WEB_ADMIN_DEPLOY_PLAN_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_STAGING_API_READ_ONLY_SMOKE_EVIDENCE_V0.1.md`
+**Evidence:** `docs/LOW_CODE_PILOT_WEEK3_STAGING_HARDENING_AND_PRODUCTION_READINESS_REVIEW_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_STAGING_LIMITATIONS_REVIEW_NOTE_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_BINTRANS_DOMAIN_DECISION_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_BINTRANS_DNS_CHECKLIST_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_DEMO_SEED_PLAN_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_CONTROLLED_PILOT_READ_ONLY_TEST_EXECUTION_EVIDENCE_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_BINTRANS_HTTPS_CERTBOT_PREPARATION_PACK_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_WEB_ADMIN_DEPLOY_PLAN_V0.1.md`, `docs/LOW_CODE_PILOT_WEEK3_STAGING_API_READ_ONLY_SMOKE_EVIDENCE_V0.1.md`
 
 Staging limitations do not reopen PR-GAP-001. They block production-ready claim until addressed or separately accepted.
 

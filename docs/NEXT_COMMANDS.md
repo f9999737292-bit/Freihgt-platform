@@ -58,7 +58,9 @@ docs/ai-team/
 
 **Controlled pilot read-only execution:** See `docs/LOW_CODE_PILOT_WEEK3_CONTROLLED_PILOT_READ_ONLY_TEST_EXECUTION_EVIDENCE_V0.1.md`.
 
-**Current status:** **CONTROLLED_PILOT_READ_ONLY_TEST_EXECUTION_PASS**
+**Demo seed plan:** See `docs/LOW_CODE_PILOT_WEEK3_DEMO_SEED_PLAN_V0.1.md`.
+
+**Current status:** **DEMO_SEED_PLAN_CREATED_PENDING_EXECUTION**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -82,9 +84,9 @@ docs/ai-team/
 
 **Next operator action:** Create DNS A-record: `staging.bintrans.ru` → `161.104.53.221`
 
-**Next recommended event:** DNS → HTTPS/Certbot execution → web-admin deploy / demo seed plan
+**Next recommended event:** DNS → demo seed execution (approval) / web-admin deploy
 
-**Next pack:** **Demo Seed Plan v0.1** (STG-LIM-005/006 prep) or **Web-admin Deploy Execution Pack v0.1** (operator approval)
+**Next pack:** **Demo Seed Execution Pack v0.1** (operator approval required)
 
 **Blockers:**
 
@@ -108,6 +110,14 @@ See `docs/LOW_CODE_PILOT_WEEK3_CONTROLLED_PILOT_READ_ONLY_TEST_EXECUTION_EVIDENC
 Week-3 controlled pilot read-only test execution note v0.1:
 
 See `docs/LOW_CODE_PILOT_WEEK3_CONTROLLED_PILOT_READ_ONLY_TEST_EXECUTION_NOTE_V0.1.md`.
+
+Week-3 demo seed plan v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_DEMO_SEED_PLAN_V0.1.md`.
+
+Week-3 demo seed checklist v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_DEMO_SEED_CHECKLIST_V0.1.md`.
 
 Week-3 staging API read-only smoke evidence v0.1:
 

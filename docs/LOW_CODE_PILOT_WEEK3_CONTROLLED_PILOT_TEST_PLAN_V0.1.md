@@ -163,8 +163,8 @@ Notes:
 | STG-LIM-002 HTTPS                       | open              |
 | STG-LIM-003 SSH SG /32                  | open              |
 | STG-LIM-004 web-admin UI deploy         | pending execution |
-| STG-LIM-005 demo seed-data              | pending           |
-| STG-LIM-006 low-code custom fields demo | pending           |
+| STG-LIM-005 demo seed-data              | plan created, execution pending |
+| STG-LIM-006 low-code custom fields demo | plan created, execution pending |
 
 ## Next Recommended Events
 

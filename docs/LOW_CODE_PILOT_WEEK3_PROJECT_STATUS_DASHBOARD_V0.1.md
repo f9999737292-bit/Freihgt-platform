@@ -13,8 +13,7 @@
 * DNS: pending operator action
 * HTTPS: pending (prep docs created)
 * Web-admin deploy: plan created, execution pending
-* Last commit: f8df518
-* Controlled pilot read-only tests: CP-RO-001..008 PASS
+* Last commit: 57e5da6
 
 ## Completed Commits
 
@@ -45,8 +44,8 @@ Recent important commits (from `git log`):
 | STG-LIM-002 | OPEN_HTTPS_PENDING_DNS_AND_SSH | HTTPS pending; prep pack created | wait for DNS + SSH approval |
 | STG-LIM-003 | OPEN | SSH SG /32 not verified; external scan deferred per operator | fix Selectel SG; re-run verification when ready |
 | STG-LIM-004 | PLAN_CREATED_EXECUTION_PENDING | web-admin deploy plan exists | deploy after operator approval |
-| STG-LIM-005 | OPEN | demo seed-data pending | later |
-| STG-LIM-006 | OPEN | low-code custom values demo pending | later |
+| STG-LIM-005 | OPEN_DEMO_SEED_PLAN_CREATED | demo seed plan exists | execute after approval |
+| STG-LIM-006 | OPEN_DEMO_SEED_PLAN_CREATED | custom field values plan exists | after seed-demo-data |
 
 ## What Works Now
 
@@ -58,6 +57,7 @@ Recent important commits (from `git log`):
 * Trusted SSH path available
 * Runtime: 10 containers healthy (last verified)
 * Controlled pilot read-only test execution pass (CP-RO-001..008)
+* Demo seed plan exists (STG-LIM-005/006)
 * Web-admin deploy plan exists
 * HTTPS prep docs exist
 * Bintrans domain decision exists
@@ -116,6 +116,7 @@ Recent important commits (from `git log`):
 | HTTPS prep | `LOW_CODE_PILOT_WEEK3_BINTRANS_HTTPS_CERTBOT_PREPARATION_PACK_V0.1.md` |
 | Web-admin plan | `LOW_CODE_PILOT_WEEK3_WEB_ADMIN_DEPLOY_PLAN_V0.1.md` |
 | API smoke | `LOW_CODE_PILOT_WEEK3_STAGING_API_READ_ONLY_SMOKE_EVIDENCE_V0.1.md` |
+| Demo seed plan | `LOW_CODE_PILOT_WEEK3_DEMO_SEED_PLAN_V0.1.md` |
 | Controlled pilot RO execution | `LOW_CODE_PILOT_WEEK3_CONTROLLED_PILOT_READ_ONLY_TEST_EXECUTION_EVIDENCE_V0.1.md` |
 | Remote auth-on | `LOW_CODE_PILOT_WEEK3_REMOTE_AUTH_ON_STAGING_REPEAT_EVIDENCE_V0.1.md` |
 | SSH SG retry 6 | `LOW_CODE_PILOT_WEEK3_SELECTEL_SSH_SG_POST_PANEL_REVERIFICATION_RETRY_6_EVIDENCE_V0.1.md` |
