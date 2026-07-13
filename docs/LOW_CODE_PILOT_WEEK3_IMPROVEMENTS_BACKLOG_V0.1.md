@@ -224,6 +224,7 @@ When P1 appears: add row with owner assigned, target fix pack, decision **GO_WIT
 - **HTTPS pending DNS + SSH/server access**
 - **7rights staging domain deprecated for new staging path**
 - **Staging API read-only smoke pass**
+- **Controlled pilot read-only test execution pass (CP-RO-001..008)**
 - **Web-admin deploy plan created (docs-only)**
 - **STG-LIM-003 external port 22 scan deferred per operator**
 - **HTTPS/domain remains pending**

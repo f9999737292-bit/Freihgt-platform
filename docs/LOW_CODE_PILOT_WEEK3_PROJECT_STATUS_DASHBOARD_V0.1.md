@@ -13,7 +13,8 @@
 * DNS: pending operator action
 * HTTPS: pending (prep docs created)
 * Web-admin deploy: plan created, execution pending
-* Last commit: c318e47
+* Last commit: f8df518
+* Controlled pilot read-only tests: CP-RO-001..008 PASS
 
 ## Completed Commits
 
@@ -56,6 +57,7 @@ Recent important commits (from `git log`):
 * Staging API read-only smoke passed
 * Trusted SSH path available
 * Runtime: 10 containers healthy (last verified)
+* Controlled pilot read-only test execution pass (CP-RO-001..008)
 * Web-admin deploy plan exists
 * HTTPS prep docs exist
 * Bintrans domain decision exists
@@ -114,6 +116,7 @@ Recent important commits (from `git log`):
 | HTTPS prep | `LOW_CODE_PILOT_WEEK3_BINTRANS_HTTPS_CERTBOT_PREPARATION_PACK_V0.1.md` |
 | Web-admin plan | `LOW_CODE_PILOT_WEEK3_WEB_ADMIN_DEPLOY_PLAN_V0.1.md` |
 | API smoke | `LOW_CODE_PILOT_WEEK3_STAGING_API_READ_ONLY_SMOKE_EVIDENCE_V0.1.md` |
+| Controlled pilot RO execution | `LOW_CODE_PILOT_WEEK3_CONTROLLED_PILOT_READ_ONLY_TEST_EXECUTION_EVIDENCE_V0.1.md` |
 | Remote auth-on | `LOW_CODE_PILOT_WEEK3_REMOTE_AUTH_ON_STAGING_REPEAT_EVIDENCE_V0.1.md` |
 | SSH SG retry 6 | `LOW_CODE_PILOT_WEEK3_SELECTEL_SSH_SG_POST_PANEL_REVERIFICATION_RETRY_6_EVIDENCE_V0.1.md` |
 

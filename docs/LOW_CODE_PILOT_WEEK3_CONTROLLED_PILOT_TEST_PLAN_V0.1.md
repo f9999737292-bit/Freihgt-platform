@@ -135,7 +135,7 @@ Write tests require separate explicit approval:
 | Documents lifecycle               | planned            |
 | Billing register lifecycle        | planned            |
 | Low-code custom fields visibility | planned            |
-| Audit and access control          | partially verified |
+| Audit and access control          | verified (read-only) |
 
 ## Reporting Template
 

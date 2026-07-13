@@ -4,13 +4,13 @@
 
 Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER**, **SHIPMENT**, and **BILLING_REGISTER**.
 
-**Current status:** **WEB_ADMIN_DEPLOY_PLAN_CREATED_STAGING_API_SMOKE_PASS** — web-admin deploy plan created; API read-only smoke pass; DNS pending.
+**Current status:** **CONTROLLED_PILOT_READ_ONLY_TEST_EXECUTION_PASS** — read-only test matrix CP-RO-001..008 pass; DNS pending.
 
 ## Current Status
 
 | Metric | Value |
 |--------|-------|
-| Total entries | **70** |
+| Total entries | **71** |
 | Staging limitations | **STG-LIM-001..006 OPEN** |
 | Remote server available | **yes** (Selectel 161.104.53.221) |
 | Final go/no-go owner | **Феликс Асаев** — owner approved; production-ready blocked by PR-GAP-001 |
@@ -116,6 +116,7 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | W3-FB-BINTRANS-HTTPS-PREP-001 | 2026-07-12 | — | CROSS_ENTITY | TO/SH/BR demos | bintrans HTTPS certbot preparation pack | P1 | HTTPS/Certbot prep docs created; DNS pending; trusted SSH pass; STG-LIM-003 external scan deferred per operator; production-ready not claimed | COMPLETED | — | Bintrans HTTPS / Certbot Execution Pack v0.1 | BINTRANS_HTTPS_CERTBOT_PREP_PACK_CREATED_DNS_PENDING — stg_lim=STG-LIM-002, stg_lim_003=OPEN_DEFERRED, domain=staging.bintrans.ru, dns_executed=no, certbot_executed=no, secrets_captured=no |
 | W3-FB-STAGING-API-SMOKE-001 | 2026-07-12 | — | CROSS_ENTITY | TO/SH/BR demos | staging API read-only smoke | P2 | Read-only GET smoke on http://161.104.53.221 passed; no JWT captured; no writes | COMPLETED | — | Web-admin Deploy Plan v0.1 | STAGING_API_READ_ONLY_SMOKE_PASS — production_ready_claimed=no, writes_executed=no, secrets_captured=no |
 | W3-FB-WEB-ADMIN-DEPLOY-PLAN-001 | 2026-07-12 | — | CROSS_ENTITY | TO/SH/BR demos | web-admin deploy plan | P2 | Web-admin deploy plan and checklist created; execution pending; DNS pending | COMPLETED | — | Web-admin Deploy Execution Pack v0.1 | WEB_ADMIN_DEPLOY_PLAN_CREATED_PENDING_EXECUTION — stg_lim=STG-LIM-004, production_ready_claimed=no, deploy_executed=no, secrets_captured=no |
+| W3-FB-CONTROLLED-PILOT-RO-EXEC-001 | 2026-07-13 | — | CROSS_ENTITY | TO/SH/BR demos | controlled pilot read-only test execution | P2 | Read-only test matrix CP-RO-001..008 pass on staging; no writes; no secrets captured; DNS pending | COMPLETED | — | Demo Seed Plan v0.1 / Web-admin Deploy Execution Pack v0.1 | CONTROLLED_PILOT_READ_ONLY_TEST_EXECUTION_PASS — production_ready_claimed=no, writes_executed=no, secrets_captured=no, dns_pending=yes |
 | W3-FB-FINAL-GO-NO-GO-OWNER-APPROVAL-001 | 2026-06-23 | Феликс Асаев | CROSS_ENTITY | TO/SH/BR demos | production readiness final go/no-go owner approval | P1 | Final go/no-go owner approval captured, but production-ready remains blocked by PR-GAP-001 | COMPLETED | **Феликс Асаев** | Low-code Pilot Week-3 Remote Auth-On Staging Repeat Pack v0.1 after staging server details are provided | FINAL_GO_NO_GO_OWNER_APPROVAL_CAPTURED_NOT_PRODUCTION_READY — pr_gap=PR-GAP-009, pr_gap_status=OWNER_APPROVED_BUT_PRODUCTION_READY_BLOCKED, blocking_gap=PR-GAP-001, blocking_gap_status=BLOCKED_WAITING_FOR_STAGING_SERVER_DETAILS, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, deploy_executed=no, ssh_executed=no, staging_writes_executed=no, secrets_captured=no |
 | W3-FB-SOT-OWNER-FINAL-APPROVAL-001 | 2026-06-23 | Феликс Асаев | CROSS_ENTITY | TO/SH/BR demos | production readiness SoT owner final approval | P2 | SoT owner final approval captured for PR-GAP-010 | COMPLETED | **Феликс Асаев** | Low-code Pilot Week-3 Final Go-No-Go Owner Final Approval Pack v0.1 | SOT_OWNER_FINAL_APPROVAL_CAPTURED — pr_gap=PR-GAP-010, pr_gap_status=CLOSED_APPROVED_BY_OWNER, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, deploy_executed=no, ssh_executed=no, staging_writes_executed=no, secrets_captured=no |
 | W3-FB-RELEASE-OWNER-FINAL-APPROVAL-001 | 2026-06-23 | Артем Асаев | CROSS_ENTITY | TO/SH/BR demos | production readiness release owner final approval | P2 | Release owner final approval captured for PR-GAP-008 | COMPLETED | **Артем Асаев** | Low-code Pilot Week-3 SoT Owner Final Approval Pack v0.1 | RELEASE_OWNER_FINAL_APPROVAL_CAPTURED — pr_gap=PR-GAP-008, pr_gap_status=CLOSED_APPROVED_BY_OWNER, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, deploy_executed=no, ssh_executed=no, staging_writes_executed=no, secrets_captured=no |

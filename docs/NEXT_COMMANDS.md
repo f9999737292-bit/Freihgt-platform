@@ -56,7 +56,9 @@ docs/ai-team/
 
 **Controlled pilot test plan:** See `docs/LOW_CODE_PILOT_WEEK3_CONTROLLED_PILOT_TEST_PLAN_V0.1.md`.
 
-**Current status:** **CONTROLLED_PILOT_TEST_PLAN_CREATED**
+**Controlled pilot read-only execution:** See `docs/LOW_CODE_PILOT_WEEK3_CONTROLLED_PILOT_READ_ONLY_TEST_EXECUTION_EVIDENCE_V0.1.md`.
+
+**Current status:** **CONTROLLED_PILOT_READ_ONLY_TEST_EXECUTION_PASS**
 
 **Production readiness decision:** **NOT_PRODUCTION_READY_CONTROLLED_PILOT_ONLY**
 
@@ -76,13 +78,13 @@ docs/ai-team/
 
 **Open staging limitations:** **STG-LIM-001..006**
 
-**Verification:** API read-only smoke **PASS** | API health **200** | SSH trusted **PASS** | DNS **pending** | STG-LIM-003 **deferred**
+**Verification:** Controlled pilot read-only CP-RO-001..008 **PASS** | API health **200** | SSH trusted **PASS** | DNS **pending** | STG-LIM-003 **deferred**
 
-**Next operator action:** Create DNS A-record: `staging.bintrans.ru` → `161.104.53.221`; then Selectel SG verification
+**Next operator action:** Create DNS A-record: `staging.bintrans.ru` → `161.104.53.221`
 
-**Next recommended event:** DNS + SG, then controlled pilot read-only testing / write-test approval
+**Next recommended event:** DNS → HTTPS/Certbot execution → web-admin deploy / demo seed plan
 
-**Next pack:** **Controlled Pilot Read-only Test Execution Pack v0.1** (after DNS + SG)
+**Next pack:** **Demo Seed Plan v0.1** (STG-LIM-005/006 prep) or **Web-admin Deploy Execution Pack v0.1** (operator approval)
 
 **Blockers:**
 
@@ -98,6 +100,14 @@ See `docs/LOW_CODE_PILOT_WEEK3_PROJECT_STATUS_DASHBOARD_V0.1.md`.
 Week-3 controlled pilot test plan v0.1:
 
 See `docs/LOW_CODE_PILOT_WEEK3_CONTROLLED_PILOT_TEST_PLAN_V0.1.md`.
+
+Week-3 controlled pilot read-only test execution evidence v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_CONTROLLED_PILOT_READ_ONLY_TEST_EXECUTION_EVIDENCE_V0.1.md`.
+
+Week-3 controlled pilot read-only test execution note v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_CONTROLLED_PILOT_READ_ONLY_TEST_EXECUTION_NOTE_V0.1.md`.
 
 Week-3 staging API read-only smoke evidence v0.1:
 
