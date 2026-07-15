@@ -9,27 +9,28 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-HTTP IP read-only controlled pilot cycle 003 PASS
+HTTP IP read-only controlled pilot cycle 004 PASS
 ```
 
 ## Current status
 
 ```text
-- DNS pending
+- DNS pending (staging.бинтранс.рф)
 - HTTPS pending
 - STG-LIM-001..004 open
 - STG-LIM-005/006 closed
 - Production-ready not claimed
-- HTTP IP read-only cycle 003: PASS (machine-captured)
+- HTTP IP read-only cycle 004: PASS (machine-captured)
 ```
 
 ## Next
 
 ```text
 1. DNS A-record for staging.бинтранс.рф
-2. DNS verification
-3. HTTPS / Certbot only after DNS + SSH readiness
-4. Web-admin deploy only after separate approval
+2. Alternative: continue read-only controlled pilot checks by IP
+3. DNS verification
+4. HTTPS / Certbot only after DNS + SSH readiness
+5. Web-admin deploy only after separate approval
 ```
 
 ## Current active staging domain
@@ -59,6 +60,10 @@ staging.бинтранс.рф -> 161.104.53.221
 Punycode equivalent:
 staging.xn--80abvubqje.xn--p1ai -> 161.104.53.221
 ```
+
+Week-3 HTTP IP read-only cycle 004 evidence v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_HTTP_IP_READONLY_CYCLE_004_EVIDENCE_V0.1.md`.
 
 Week-3 HTTP IP read-only cycle 003 evidence v0.1:
 
