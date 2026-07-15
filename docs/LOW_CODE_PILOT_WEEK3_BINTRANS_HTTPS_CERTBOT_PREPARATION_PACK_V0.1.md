@@ -2,7 +2,9 @@
 
 ## Summary
 
-Docs-only preparation pack for HTTPS on `staging.bintrans.ru` via Nginx + Certbot on Selectel staging server.
+Docs-only preparation pack for HTTPS on `staging.бинтранс.рф` via Nginx + Certbot on Selectel staging server.
+
+Technical commands use punycode: `staging.xn--80abvubqje.xn--p1ai`.
 
 No DNS changes, SSH writes, Certbot execution, Nginx server changes, backend changes, frontend changes, API contract changes, or migrations were executed in this pack.
 
@@ -11,7 +13,7 @@ External non-trusted TCP 22 scan verification for STG-LIM-003 was **deferred per
 ## Decision
 
 ```text
-BINTRANS_HTTPS_CERTBOT_PREP_PACK_CREATED_DNS_PENDING
+CYRILLIC_RF_DOMAIN_SELECTED_DNS_PENDING
 ```
 
 ## Target
@@ -28,16 +30,22 @@ Staging IP:
 161.104.53.221
 ```
 
-Primary domain:
+Primary domain (display):
+
+```text
+staging.бинтранс.рф
+```
+
+Primary domain (technical / punycode):
+
+```text
+staging.xn--80abvubqje.xn--p1ai
+```
+
+Deprecated previous domain:
 
 ```text
 staging.bintrans.ru
-```
-
-Fallback domain:
-
-```text
-pilot.bintrans.ru
 ```
 
 Current HTTP endpoint:
@@ -46,17 +54,23 @@ Current HTTP endpoint:
 http://161.104.53.221/health — 200
 ```
 
-Target HTTPS endpoint:
+Target HTTPS endpoint (display):
 
 ```text
-https://staging.bintrans.ru/health
+https://staging.бинтранс.рф/health
+```
+
+Target HTTPS endpoint (technical):
+
+```text
+https://staging.xn--80abvubqje.xn--p1ai/health
 ```
 
 ## Prerequisites Checklist
 
 | # | Prerequisite | Status | Notes |
 | - | ------------ | ------ | ----- |
-| 1 | DNS A-record `staging.bintrans.ru` → `161.104.53.221` | **pending** | operator action at registrar |
+| 1 | DNS A-record `staging.бинтранс.рф` → `161.104.53.221` | **pending** | operator action at registrar |
 | 2 | HTTP `/health` via domain returns 200 | **pending** | blocked by DNS |
 | 3 | SSH trusted path available | **pass** | retry #6/#7 trusted SSH OK |
 | 4 | Nginx installed on server | **assumed** | verify on execution |
@@ -67,10 +81,11 @@ https://staging.bintrans.ru/health
 ## DNS Verification (local — not executed on server)
 
 ```powershell
-Resolve-DnsName staging.bintrans.ru
+nslookup staging.бинтранс.рф
+nslookup staging.xn--80abvubqje.xn--p1ai
 ```
 
-Result at pack creation:
+Result at pack update:
 
 ```text
 no resolution — DNS_PENDING_OPERATOR_ACTION
@@ -78,12 +93,12 @@ no resolution — DNS_PENDING_OPERATOR_ACTION
 
 ## Planned Nginx Configuration (docs-only — do not apply without approval)
 
-Server block target for `staging.bintrans.ru`:
+Server block target for `staging.xn--80abvubqje.xn--p1ai`:
 
 ```nginx
 server {
     listen 80;
-    server_name staging.bintrans.ru;
+    server_name staging.xn--80abvubqje.xn--p1ai;
 
     location /health {
         proxy_pass http://127.0.0.1:8080/health;
@@ -115,7 +130,7 @@ After DNS resolves and HTTP domain check passes:
 nginx -t
 
 # issue certificate (execute only after operator approval)
-certbot --nginx -d staging.bintrans.ru
+certbot --nginx -d staging.xn--80abvubqje.xn--p1ai
 
 # verify renewal timer
 systemctl status certbot.timer
@@ -124,13 +139,19 @@ systemctl status certbot.timer
 Post-Certbot verification:
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}" https://staging.bintrans.ru/health
+curl -s -o /dev/null -w "%{http_code}" https://staging.xn--80abvubqje.xn--p1ai/health
 ```
 
 Expected:
 
 ```text
 200
+```
+
+## Future CORS Origin (technical)
+
+```text
+https://staging.xn--80abvubqje.xn--p1ai
 ```
 
 ## Staging Limitations Impact
@@ -182,7 +203,7 @@ Bintrans HTTPS / Certbot Execution Pack v0.1 (after DNS resolves + operator appr
 ## Related Docs
 
 ```text
-docs/LOW_CODE_PILOT_WEEK3_BINTRANS_DOMAIN_DECISION_V0.1.md
+docs/LOW_CODE_PILOT_WEEK3_CYRILLIC_RF_DOMAIN_MIGRATION_DECISION_V0.1.md
 docs/LOW_CODE_PILOT_WEEK3_BINTRANS_DNS_CHECKLIST_V0.1.md
 docs/LOW_CODE_PILOT_WEEK3_BINTRANS_HTTPS_CERTBOT_CHECKLIST_V0.1.md
 docs/LOW_CODE_PILOT_WEEK3_STAGING_DEPLOY_RUNBOOK_V0.1.md

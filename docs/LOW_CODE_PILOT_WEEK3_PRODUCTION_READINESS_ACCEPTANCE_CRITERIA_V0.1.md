@@ -87,12 +87,12 @@ PR-GAP-001 is **closed** with owner approval. It does **not** equal production-r
 
 Staging limitations acceptance:
 
-- STG-LIM-001 HTTP-only IP access: OPEN_DNS_PENDING_BINTRANS_DOMAIN — domain `staging.bintrans.ru`, DNS A-record pending
+- STG-LIM-001 HTTP-only IP access: OPEN_DNS_PENDING_CYRILLIC_RF_DOMAIN — domain `staging.бинтранс.рф` (technical: `staging.xn--80abvubqje.xn--p1ai`), DNS A-record pending
 - STG-LIM-002 HTTPS/Certbot: OPEN_HTTPS_PREP_CREATED_DNS_PENDING — prep pack created; Certbot not executed
 - STG-LIM-003 SSH Selectel Security Group restriction: OPEN — external port 22 scan deferred per operator; not closed
 - STG-LIM-004 Web-admin UI deploy: OPEN_WEB_ADMIN_DEPLOY_PLAN_CREATED — deploy plan created; execution pending
-- STG-LIM-005 Full demo UI seed-data: OPEN_DEMO_SEED_PLAN_CREATED — plan created; execution pending
-- STG-LIM-006 seed-lowcode-demo custom field values: OPEN_DEMO_SEED_PLAN_CREATED — plan created; execution pending
+- STG-LIM-005 Full demo UI seed-data: **CLOSED** — operator-confirmed complete (2026-07-13)
+- STG-LIM-006 seed-lowcode-demo custom field values: **CLOSED** — operator-confirmed complete (2026-07-13)
 
 **7rights staging domain:** deprecated for new staging path (`staging.7rights.ru` / `pilot.7rights.ru` not used)
 

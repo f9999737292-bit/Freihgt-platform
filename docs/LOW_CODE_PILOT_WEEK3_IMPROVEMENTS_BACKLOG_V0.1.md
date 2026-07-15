@@ -218,7 +218,9 @@ When P1 appears: add row with owner assigned, target fix pack, decision **GO_WIT
 - **PR-GAP-001 moved to owner review candidate**
 - **Production-ready still not claimed**
 - **Selectel SSH restriction via Security Group remains pending**
-- **Bintrans staging domain selected: staging.bintrans.ru**
+- **Bintrans staging domain selected: staging.бинтранс.рф** (technical: staging.xn--80abvubqje.xn--p1ai)
+- **Active staging domain changed to staging.бинтранс.рф — DNS pending operator action**
+- **HTTPS pending DNS + SSH readiness — production-ready not claimed**
 - **Bintrans domain decision finalized (docs-only)**
 - **DNS A-record pending operator action**
 - **HTTPS pending DNS + SSH/server access**

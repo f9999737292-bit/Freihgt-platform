@@ -20,7 +20,7 @@ Risk register for production readiness review after controlled pilot approval.
 
 **Staging limitations:** STG-LIM-001..006 **OPEN** — STG-LIM-004 **OPEN_WEB_ADMIN_DEPLOY_PLAN_CREATED**; API read-only smoke pass
 
-**Bintrans domain decision:** `BINTRANS_STAGING_DOMAIN_SELECTED_DNS_PENDING` — web-admin deploy plan created; production-ready not claimed
+**Cyrillic .рф domain migration:** `CYRILLIC_RF_DOMAIN_SELECTED_DNS_PENDING` — active staging domain `staging.бинтранс.рф`; web-admin deploy plan created; production-ready not claimed
 
 **Remote staging intake:** `REMOTE_STAGING_DETAILS_INTAKE_FORM_CREATED_PENDING_INPUT` (completed)
 
@@ -66,7 +66,7 @@ Risk register for production readiness review after controlled pilot approval.
 
 **Ordered remaining gap closure:** `ORDERED_REMAINING_GAP_CLOSURE_EXECUTED_DOCS_ONLY` (2026-06-23).
 
-**Residual risk (all gaps):** production-ready cannot be claimed while STG-LIM-001..004 remain open (HTTP-only pending Bintrans DNS, HTTPS/domain pending DNS+SSH, SSH SG, web-admin UI).
+**Residual risk (all gaps):** production-ready cannot be claimed while STG-LIM-001..004 remain open (HTTP-only pending Cyrillic .рф DNS for staging.бинтранс.рф, HTTPS/domain pending DNS+SSH, SSH SG, web-admin UI).
 
 **Controlled pilot may continue** while production risks remain **OPEN**.
 

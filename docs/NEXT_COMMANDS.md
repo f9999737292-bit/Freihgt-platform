@@ -26,10 +26,38 @@ HTTP IP read-only controlled pilot cycle 003 PASS
 ## Next
 
 ```text
-1. DNS A-record staging.bintrans.ru -> 161.104.53.221
-2. Alternative: continue read-only controlled pilot checks by IP
+1. DNS A-record for staging.бинтранс.рф
+2. DNS verification
 3. HTTPS / Certbot only after DNS + SSH readiness
-4. Web-admin deploy only after explicit approval
+4. Web-admin deploy only after separate approval
+```
+
+## Current active staging domain
+
+```text
+staging.бинтранс.рф
+```
+
+Technical / punycode:
+
+```text
+staging.xn--80abvubqje.xn--p1ai
+```
+
+Target IP:
+
+```text
+161.104.53.221
+```
+
+Next operator action:
+
+```text
+Create DNS A-record:
+staging.бинтранс.рф -> 161.104.53.221
+
+Punycode equivalent:
+staging.xn--80abvubqje.xn--p1ai -> 161.104.53.221
 ```
 
 Week-3 HTTP IP read-only cycle 003 evidence v0.1:
@@ -114,21 +142,21 @@ docs/ai-team/
 
 **Production-ready claimed:** **no**
 
-**Current domain decision:** **BINTRANS_STAGING_DOMAIN_SELECTED_DNS_PENDING**
+**Current domain decision:** **CYRILLIC_RF_DOMAIN_SELECTED_DNS_PENDING**
 
-**Selected domain:** **staging.bintrans.ru**
+**Selected domain:** **staging.бинтранс.рф**
 
-**Fallback domain:** **pilot.bintrans.ru**
+**Technical / punycode:** **staging.xn--80abvubqje.xn--p1ai**
 
 **Target IP:** **161.104.53.221**
 
-**Deprecated staging domains:** `staging.7rights.ru` / `pilot.7rights.ru` — not used for this path
+**Deprecated staging domains:** `staging.bintrans.ru` / `pilot.bintrans.ru` / `staging.7rights.ru` / `pilot.7rights.ru` — not used for new staging path
 
 **Open staging limitations:** **STG-LIM-001..004** (STG-LIM-005/006 **CLOSED**)
 
 **Verification:** Controlled pilot read-only CP-RO-001..008 **PASS** | API health **200** | Demo seed **operator-confirmed complete** | SSH trusted **PASS** | DNS **pending** | STG-LIM-003 **deferred**
 
-**Next operator action:** Create DNS A-record `staging.bintrans.ru` → `161.104.53.221`; then HTTPS/Certbot prep. Web-admin deploy — separate approval.
+**Next operator action:** Create DNS A-record `staging.бинтранс.рф` → `161.104.53.221` (punycode: `staging.xn--80abvubqje.xn--p1ai`); then HTTPS/Certbot prep. Web-admin deploy — separate approval.
 
 **Demo seed:** **complete** (operator-confirmed 2026-07-13)
 

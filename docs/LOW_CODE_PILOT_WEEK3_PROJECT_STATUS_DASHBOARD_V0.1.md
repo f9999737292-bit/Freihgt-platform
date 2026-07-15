@@ -8,12 +8,14 @@
 * Production gaps open: 0
 * Staging IP: 161.104.53.221
 * Current HTTP API: http://161.104.53.221
-* Selected domain: staging.bintrans.ru
-* Fallback domain: pilot.bintrans.ru
-* DNS: pending operator action
+* Selected domain: staging.бинтранс.рф
+* Technical / punycode: staging.xn--80abvubqje.xn--p1ai
+* Previous domain (deprecated): staging.bintrans.ru
+* DNS: pending operator action (staging.бинтранс.рф)
 * HTTPS: pending (prep docs created)
 * Web-admin deploy: plan created, execution pending
-* Last commit: 57e5da6
+* Demo seed: operator-confirmed complete (2026-07-13)
+* Last commit: 4bd4988
 
 ## Completed Commits
 
@@ -21,6 +23,10 @@ Recent important commits (from `git log`):
 
 | Hash | Message |
 | ---- | ------- |
+| 4bd4988 | docs: record staging demo seed completion and close STG-LIM-005/006 |
+| 6877d4b | docs: add demo seed execution verification scripts and evidence |
+| 6da1513 | docs: add demo seed plan for STG-LIM-005/006 |
+| 57e5da6 | docs: execute controlled pilot read-only tests |
 | c318e47 | docs: add web-admin deploy plan and staging API smoke |
 | ba3577a | docs: prepare Bintrans HTTPS Certbot staging pack |
 | 3e39256 | docs: record week 3 Selectel SSH SG retry 6 evidence |
@@ -40,12 +46,12 @@ Recent important commits (from `git log`):
 
 | ID | Status | Meaning | Next action |
 | -- | ------ | ------- | ----------- |
-| STG-LIM-001 | OPEN_DNS_PENDING_BINTRANS_DOMAIN | DNS for staging.bintrans.ru pending | operator creates A-record |
+| STG-LIM-001 | OPEN_DNS_PENDING_CYRILLIC_RF_DOMAIN | DNS for staging.бинтранс.рф pending | operator creates A-record |
 | STG-LIM-002 | OPEN_HTTPS_PENDING_DNS_AND_SSH | HTTPS pending; prep pack created | wait for DNS + SSH approval |
 | STG-LIM-003 | OPEN | SSH SG /32 not verified; external scan deferred per operator | fix Selectel SG; re-run verification when ready |
 | STG-LIM-004 | PLAN_CREATED_EXECUTION_PENDING | web-admin deploy plan exists | deploy after operator approval |
-| STG-LIM-005 | OPEN_DEMO_SEED_PLAN_CREATED | demo seed plan exists | execute after approval |
-| STG-LIM-006 | OPEN_DEMO_SEED_PLAN_CREATED | custom field values plan exists | after seed-demo-data |
+| STG-LIM-005 | **CLOSED** | demo seed executed (operator-confirmed) | — |
+| STG-LIM-006 | **CLOSED** | custom field values executed (operator-confirmed) | — |
 
 ## What Works Now
 
@@ -57,7 +63,7 @@ Recent important commits (from `git log`):
 * Trusted SSH path available
 * Runtime: 10 containers healthy (last verified)
 * Controlled pilot read-only test execution pass (CP-RO-001..008)
-* Demo seed plan exists (STG-LIM-005/006)
+* Demo seed complete — STG-LIM-005/006 **CLOSED** (operator-confirmed 2026-07-13)
 * Web-admin deploy plan exists
 * HTTPS prep docs exist
 * Bintrans domain decision exists
@@ -75,7 +81,8 @@ Recent important commits (from `git log`):
 1. Create DNS A-record:
 
    ```text
-   staging.bintrans.ru -> 161.104.53.221
+   staging.бинтранс.рф -> 161.104.53.221
+   staging.xn--80abvubqje.xn--p1ai -> 161.104.53.221
    ```
 
 2. Fix Selectel Security Group (if re-verification requested later):
@@ -86,8 +93,9 @@ Recent important commits (from `git log`):
 
 3. After DNS / SG readiness:
 
-   * DNS verification: `Resolve-DnsName staging.bintrans.ru`
-   * HTTP domain check: `http://staging.bintrans.ru/health`
+   * DNS verification: `nslookup staging.бинтранс.рф`
+   * DNS verification (punycode): `nslookup staging.xn--80abvubqje.xn--p1ai`
+   * HTTP domain check: `http://staging.xn--80abvubqje.xn--p1ai/health`
    * optional: re-run external port 22 verification
 
 ## Next Technical Packs
@@ -117,6 +125,8 @@ Recent important commits (from `git log`):
 | Web-admin plan | `LOW_CODE_PILOT_WEEK3_WEB_ADMIN_DEPLOY_PLAN_V0.1.md` |
 | API smoke | `LOW_CODE_PILOT_WEEK3_STAGING_API_READ_ONLY_SMOKE_EVIDENCE_V0.1.md` |
 | Demo seed plan | `LOW_CODE_PILOT_WEEK3_DEMO_SEED_PLAN_V0.1.md` |
+| Demo seed execution | `LOW_CODE_PILOT_WEEK3_DEMO_SEED_EXECUTION_EVIDENCE_V0.1.md` |
+| Demo seed verification | `LOW_CODE_PILOT_WEEK3_DEMO_SEED_EXECUTION_VERIFICATION_EVIDENCE_V0.1.md` |
 | Controlled pilot RO execution | `LOW_CODE_PILOT_WEEK3_CONTROLLED_PILOT_READ_ONLY_TEST_EXECUTION_EVIDENCE_V0.1.md` |
 | Remote auth-on | `LOW_CODE_PILOT_WEEK3_REMOTE_AUTH_ON_STAGING_REPEAT_EVIDENCE_V0.1.md` |
 | SSH SG retry 6 | `LOW_CODE_PILOT_WEEK3_SELECTEL_SSH_SG_POST_PANEL_REVERIFICATION_RETRY_6_EVIDENCE_V0.1.md` |

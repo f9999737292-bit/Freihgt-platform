@@ -6,6 +6,8 @@ Production readiness checklist for Week-3 low-code pilot review (trigger: **Prod
 
 **Final status:** **NOT_PRODUCTION_READY** — controlled pilot only.
 
+Active staging domain changed to `staging.бинтранс.рф`. Technical punycode: `staging.xn--80abvubqje.xn--p1ai`. DNS pending operator action. HTTPS pending DNS + SSH readiness. Production-ready not claimed.
+
 ## Functional Readiness
 
 | criterion | status | evidence | owner | notes |

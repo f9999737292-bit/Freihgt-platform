@@ -4,47 +4,73 @@
 
 This checklist defines the operator action required to point the Bintrans staging domain to the Selectel staging server.
 
+Active staging domain migrated from `staging.bintrans.ru` to Cyrillic `.рф` domain.
+
+## Selected Domain
+
+```text
+Selected domain: staging.бинтранс.рф
+Technical domain: staging.xn--80abvubqje.xn--p1ai
+Target IP: 161.104.53.221
+DNS status: DNS_PENDING_OPERATOR_ACTION
+```
+
 ## Required DNS Record
+
+Human-readable:
 
 | Type | Name                | Value          | TTL                     |
 | ---- | ------------------- | -------------- | ----------------------- |
-| A    | staging.bintrans.ru | 161.104.53.221 | 300 or provider default |
+| A    | staging.бинтранс.рф | 161.104.53.221 | 300 or provider default |
 
-## Optional Fallback DNS Record
+Technical / punycode:
 
-| Type | Name              | Value          | TTL                     |
-| ---- | ----------------- | -------------- | ----------------------- |
-| A    | pilot.bintrans.ru | 161.104.53.221 | 300 or provider default |
+| Type | Name                              | Value          | TTL                     |
+| ---- | --------------------------------- | -------------- | ----------------------- |
+| A    | staging.xn--80abvubqje.xn--p1ai | 161.104.53.221 | 300 or provider default |
 
-## Operator Action
-
-Operator must create the A-record in the DNS provider / registrar panel.
-
-Do not use deprecated 7rights staging domains for this path:
+Equivalent record:
 
 ```text
+A staging.бинтранс.рф -> 161.104.53.221
+A staging.xn--80abvubqje.xn--p1ai -> 161.104.53.221
+```
+
+## Deprecated Domains
+
+Do not use for new staging path:
+
+```text
+staging.bintrans.ru
+pilot.bintrans.ru
 staging.7rights.ru
 pilot.7rights.ru
 ```
+
+## Operator Action
+
+Operator must create the A-record in the DNS provider / registrar panel for zone `бинтранс.рф` (`xn--80abvubqje.xn--p1ai`).
 
 ## Verification Commands
 
 After DNS propagation:
 
 ```powershell
-Resolve-DnsName staging.bintrans.ru
+nslookup staging.бинтранс.рф
+nslookup staging.xn--80abvubqje.xn--p1ai
 ```
 
 Expected:
 
 ```text
-staging.bintrans.ru -> 161.104.53.221
+staging.бинтранс.рф -> 161.104.53.221
+staging.xn--80abvubqje.xn--p1ai -> 161.104.53.221
 ```
 
-HTTP check before HTTPS:
+HTTP check before HTTPS (use punycode in commands):
 
 ```powershell
-Invoke-WebRequest -UseBasicParsing http://staging.bintrans.ru/health | Select-Object StatusCode
+Invoke-WebRequest -UseBasicParsing http://staging.xn--80abvubqje.xn--p1ai/health | Select-Object StatusCode
 ```
 
 Expected:
@@ -74,7 +100,7 @@ DNS_PENDING_OPERATOR_ACTION
 
 | ID | Status |
 | -- | ------ |
-| STG-LIM-001 | OPEN_DNS_PENDING_BINTRANS_DOMAIN |
+| STG-LIM-001 | OPEN_DNS_PENDING_CYRILLIC_RF_DOMAIN |
 | STG-LIM-002 | OPEN_HTTPS_PENDING_DNS_AND_SSH |
 | STG-LIM-003 | OPEN |
 

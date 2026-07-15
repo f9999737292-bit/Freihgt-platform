@@ -2,12 +2,14 @@
 
 ## Summary
 
-HTTPS/Certbot preparation pack created. Docs-only. DNS still pending.
+HTTPS/Certbot preparation pack updated for Cyrillic `.рф` staging domain. Docs-only. DNS still pending.
+
+Active staging domain: `staging.бинтранс.рф` (technical: `staging.xn--80abvubqje.xn--p1ai`).
 
 ## Decision
 
 ```text
-BINTRANS_HTTPS_CERTBOT_PREP_PACK_CREATED_DNS_PENDING
+CYRILLIC_RF_DOMAIN_SELECTED_DNS_PENDING
 ```
 
 ## Pass
@@ -19,7 +21,7 @@ BINTRANS_HTTPS_CERTBOT_PREP_PACK_CREATED_DNS_PENDING
 
 ## Pending
 
-* DNS A-record
+* DNS A-record for `staging.бинтранс.рф`
 * HTTP domain health check
 * Certbot execution
 * STG-LIM-003 external scan (deferred per operator)
