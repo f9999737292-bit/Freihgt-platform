@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-HTTP IP read-only controlled pilot cycle 002 PASS
+HTTP IP read-only controlled pilot cycle 003 PASS
 ```
 
 ## Current status
@@ -20,7 +20,7 @@ HTTP IP read-only controlled pilot cycle 002 PASS
 - STG-LIM-001..004 open
 - STG-LIM-005/006 closed
 - Production-ready not claimed
-- HTTP IP read-only cycle 002: PASS (machine-captured)
+- HTTP IP read-only cycle 003: PASS (machine-captured)
 ```
 
 ## Next
@@ -31,6 +31,10 @@ HTTP IP read-only controlled pilot cycle 002 PASS
 3. HTTPS / Certbot only after DNS + SSH readiness
 4. Web-admin deploy only after explicit approval
 ```
+
+Week-3 HTTP IP read-only cycle 003 evidence v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_HTTP_IP_READONLY_CYCLE_003_EVIDENCE_V0.1.md`.
 
 Week-3 HTTP IP read-only cycle 002 evidence v0.1:
 
