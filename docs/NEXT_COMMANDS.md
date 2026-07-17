@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Production deployment preparation pack.
+Production deployment execution approval capture.
 ```
 
 ## Current status
@@ -18,17 +18,19 @@ Production deployment preparation pack.
 - Owner production-ready approval: RECORDED
 - Production-ready: owner-approved for controlled pilot documentation
 - Production deployment preparation: APPROVED
-- Production deployment plan/checklist/runbook: prepared
-- Production deployment execution: not authorized / not executed
+- Production deployment execution approval: RECORDED
+- Deployment scope: pending — target environment, domain, window, operator
+- Production deployment execution pack: BLOCKED_PENDING_SCOPE_DEFINITION
+- Production deploy: not executed
 - Staging UI: https://staging.бинтранс.рф/
 ```
 
 ## Next
 
 ```text
-1. Owner must explicitly approve actual deployment execution with: OWNER_APPROVES_PRODUCTION_DEPLOYMENT_EXECUTION
-2. Do not execute production deploy without a separate deployment execution pack.
-3. Before execution, define target production environment, domain, window, operator, backup/snapshot and rollback criteria.
+1. Specify deployment scope: target environment, target domain, deployment window, responsible operator.
+2. Run production deployment execution pack only after scope is defined.
+3. Do not execute production deploy from approval capture alone.
 4. Keep secrets, cert files, private keys, server configs, and build archives out of repo.
 ```
 

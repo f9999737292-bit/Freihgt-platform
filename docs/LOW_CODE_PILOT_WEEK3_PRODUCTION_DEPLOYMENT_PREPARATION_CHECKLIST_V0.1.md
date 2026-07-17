@@ -12,8 +12,9 @@ This checklist does not authorize or execute production deploy.
 | --- | --- |
 | Production-ready owner approval recorded | yes |
 | Deployment preparation owner approval recorded | yes |
-| Deployment execution owner approval recorded | no |
-| Production deploy authorized | no |
+| Deployment execution owner approval recorded | yes |
+| Deployment execution scope fully defined | no — pending |
+| Production deploy authorized for execution pack | blocked pending scope |
 | Production deploy executed | no |
 
 Required future execution wording:

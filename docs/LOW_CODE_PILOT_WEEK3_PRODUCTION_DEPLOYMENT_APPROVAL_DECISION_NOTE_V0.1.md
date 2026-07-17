@@ -4,11 +4,11 @@
 
 Production deployment approval gate was prepared after owner production-ready approval.
 
-Owner has approved production deployment preparation.
-
-Production deployment execution is not authorized.
+Owner has approved production deployment preparation and production deployment execution authorization wording.
 
 Production deployment was not executed.
+
+Deployment execution pack remains blocked until deployment scope fields are specified.
 
 ## Preconditions
 
@@ -34,7 +34,7 @@ Production deployment was not executed.
 ## Decision
 
 ```text
-PRODUCTION_DEPLOYMENT_PREPARATION_APPROVED
+PRODUCTION_DEPLOYMENT_EXECUTION_APPROVAL_RECORDED
 ```
 
 ## Preparation Approval Capture
@@ -69,6 +69,44 @@ Capture reference:
 docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_DEPLOYMENT_PREPARATION_APPROVAL_CAPTURE_V0.1.md
 ```
 
+## Execution Approval Capture
+
+Owner has approved production deployment execution authorization wording.
+
+```text
+OWNER_APPROVES_PRODUCTION_DEPLOYMENT_EXECUTION
+```
+
+Owner:
+
+```text
+Феликс Асаев
+```
+
+Decision date:
+
+```text
+2026-07-17
+```
+
+Deployment scope:
+
+| Field | Value |
+| --- | --- |
+| Target environment | pending — owner must specify |
+| Target domain | pending — owner must specify |
+| Deployment window | pending — owner must specify |
+| Responsible operator | pending — owner must specify |
+| Go/no-go owner | Феликс Асаев |
+| Backup/snapshot required | yes |
+| Rollback required | yes |
+
+Capture reference:
+
+```text
+docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_DEPLOYMENT_EXECUTION_APPROVAL_CAPTURE_V0.1.md
+```
+
 ## Production-ready Status
 
 ```text
@@ -83,18 +121,36 @@ Production deployment preparation:
 approved
 ```
 
-Production deployment execution:
+Production deployment execution approval:
 
 ```text
-not authorized
+recorded
+```
+
+Production deployment execution pack:
+
+```text
+BLOCKED_PENDING_SCOPE_DEFINITION
+```
+
+Production deploy:
+
+```text
 not executed
 ```
 
-Required next explicit owner decision for actual execution:
+## Required Next Action Before Execution Pack
+
+Owner or operator must specify:
 
 ```text
-OWNER_APPROVES_PRODUCTION_DEPLOYMENT_EXECUTION
+target environment
+target domain
+deployment window
+responsible operator
 ```
+
+Then run a separate production deployment execution pack.
 
 ## Checklist Reference
 
@@ -107,12 +163,12 @@ docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_DEPLOYMENT_RUNBOOK_DRAFT_V0.1.md
 ## Safety
 
 ```text
-Backend/frontend source changed during production deployment approval pack: no
+Backend/frontend source changed during production deployment approval capture: no
 Docker compose repo changed: no
 UFW changed: no
-Nginx changed during production deployment approval pack: no
-Certbot executed during production deployment approval pack: no
-Web-admin redeployed during production deployment approval pack: no
+Nginx changed during production deployment approval capture: no
+Certbot executed during production deployment approval capture: no
+Web-admin redeployed during production deployment approval capture: no
 Production deploy executed: no
 POST/PUT/PATCH/DELETE executed: no
 Secrets captured: no
