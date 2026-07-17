@@ -9,16 +9,15 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Cyrillic .рф DNS verification PASS.
+STG-LIM-001 DNS closure.
 ```
 
 ## Current status
 
 ```text
-- DNS delegation: PASS
-- A-record staging: PASS -> 161.104.53.221
-- HTTP health by domain: PASS 200
-- STG-LIM-001: READY_FOR_CLOSURE_REVIEW
+- STG-LIM-001: CLOSED — DNS verified
+- staging.бинтранс.рф -> 161.104.53.221
+- HTTP /health by domain: PASS 200
 - STG-LIM-002: OPEN — HTTPS / Certbot pending
 - STG-LIM-003: OPEN — SSH SG /32
 - STG-LIM-004: OPEN — web-admin deploy pending
@@ -29,12 +28,9 @@ Cyrillic .рф DNS verification PASS.
 ## Next
 
 ```text
-1. Commit DNS PASS evidence after user confirmation
-2. Review STG-LIM-001 closure
-3. Do not run Certbot until explicit approval
-4. HTTPS / Certbot pack only after separate approval
-5. Fix/verify SSH SG /32
-6. Web-admin deploy only after separate approval
+1. Prepare HTTPS / Certbot pack only after explicit approval
+2. Keep STG-LIM-003 open until Selectel SSH SG /32 is verified
+3. Web-admin deploy requires separate approval
 ```
 
 ## Current active staging domain

@@ -20,7 +20,7 @@ active
 
 | ID | Limitation | Status | Decision | Priority |
 | -- | ---------- | ------ | -------- | -------- |
-| STG-LIM-001 | HTTP-only IP access | READY_FOR_CLOSURE_REVIEW | CYRILLIC_RF_DNS_VERIFICATION_PASS | P1 |
+| STG-LIM-001 | HTTP-only IP access | **CLOSED** | STG-LIM-001_CLOSED_DNS_VERIFIED | P1 |
 | STG-LIM-002 | HTTPS / Certbot not configured | OPEN_HTTPS_PENDING_DNS_AND_SSH | CYRILLIC_RF_DOMAIN_SELECTED_DNS_PENDING | P1 |
 | STG-LIM-003 | SSH 22 Selectel Security Group /32 restriction | OPEN — external scan deferred per operator | SELECTEL_SSH_SG_POST_PANEL_REVERIFICATION_DEFERRED | P0 |
 | STG-LIM-004 | Web-admin UI not deployed | OPEN_WEB_ADMIN_DEPLOY_PLAN_CREATED | WEB_ADMIN_DEPLOY_PLAN_CREATED_PENDING_EXECUTION | P2 |
@@ -32,13 +32,13 @@ active
 Status:
 
 ```text
-READY_FOR_CLOSURE_REVIEW
+CLOSED
 ```
 
 Decision:
 
 ```text
-CYRILLIC_RF_DNS_VERIFICATION_PASS
+STG-LIM-001_CLOSED_DNS_VERIFIED
 ```
 
 Domain display:
@@ -75,6 +75,12 @@ HTTP health:
 
 ```text
 PASS 200
+```
+
+Closure note:
+
+```text
+docs/LOW_CODE_PILOT_WEEK3_STG_LIM_001_DNS_CLOSURE_NOTE_V0.1.md
 ```
 
 Previous active domain (deprecated):
@@ -118,6 +124,7 @@ Evidence:
 docs/LOW_CODE_PILOT_WEEK3_CYRILLIC_RF_DOMAIN_MIGRATION_DECISION_V0.1.md
 docs/LOW_CODE_PILOT_WEEK3_BINTRANS_DNS_CHECKLIST_V0.1.md
 docs/LOW_CODE_PILOT_WEEK3_CYRILLIC_RF_DNS_VERIFICATION_EVIDENCE_V0.1.md
+docs/LOW_CODE_PILOT_WEEK3_STG_LIM_001_DNS_CLOSURE_NOTE_V0.1.md
 ```
 
 ## STG-LIM-002 Detail
@@ -317,8 +324,7 @@ not claimed
 ## Next Recommended Event
 
 ```text
-STG-LIM-001 closure review
-STG-LIM-002: OPEN — HTTPS / Certbot pending
+STG-LIM-002: OPEN — HTTPS / Certbot pending (explicit approval required)
 Web-admin Deploy Execution Pack v0.1 (operator approval required)
 STG-LIM-003 external port 22 scan: deferred per operator — remains open
 ```
