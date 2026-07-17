@@ -9,29 +9,30 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-STG-LIM-002 HTTPS / Certbot execution.
+STG-LIM-002 outbound DNS fix + Certbot retry.
 ```
 
 ## Current status
 
 ```text
 - STG-LIM-001: CLOSED — DNS verified
-- STG-LIM-002: OPEN — Certbot FAIL (server DNS resolver timeout for ACME)
+- STG-LIM-002: OPEN — outbound DNS fix FAIL (Selectel SG egress blocked)
 - STG-LIM-003: CLOSED — SSH SG /32 verified
 - STG-LIM-004: OPEN — web-admin deploy pending
 - STG-LIM-005/006: CLOSED
 - HTTP by domain: PASS 200
-- HTTPS by domain: not configured (Certbot FAIL)
+- HTTPS by domain: not configured (Certbot not re-run)
 - Production-ready: not claimed
 ```
 
 ## Next
 
 ```text
-1. Fix server outbound DNS on 161.104.53.221 for acme-v02.api.letsencrypt.org
-2. Re-run Certbot after DNS fix
-3. Web-admin deploy requires separate explicit approval
-4. Do not claim production-ready until remaining limitations are resolved and reviewed
+1. Allow outbound egress on Selectel Security Group for 161.104.53.221 (UDP/TCP 53 + TCP 443)
+2. Verify server can resolve acme-v02.api.letsencrypt.org
+3. Re-run STG-LIM-002 Outbound DNS Fix + Certbot Retry Pack
+4. Web-admin deploy requires separate explicit approval
+5. Do not claim production-ready until remaining limitations are resolved and reviewed
 ```
 
 ## Current active staging domain

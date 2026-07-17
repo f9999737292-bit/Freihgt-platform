@@ -21,7 +21,7 @@ active
 | ID | Limitation | Status | Decision | Priority |
 | -- | ---------- | ------ | -------- | -------- |
 | STG-LIM-001 | HTTP-only IP access | **CLOSED** | STG-LIM-001_CLOSED_DNS_VERIFIED | P1 |
-| STG-LIM-002 | HTTPS / Certbot not configured | OPEN | STG_LIM_002_HTTPS_CERTBOT_FAIL | P1 |
+| STG-LIM-002 | HTTPS / Certbot not configured | OPEN | STG_LIM_002_OUTBOUND_DNS_FIX_FAIL | P1 |
 | STG-LIM-003 | SSH 22 Selectel Security Group /32 restriction | **CLOSED** | STG-LIM-003_CLOSED_SSH_SG_VERIFIED | P0 |
 | STG-LIM-004 | Web-admin UI not deployed | OPEN_WEB_ADMIN_DEPLOY_PLAN_CREATED | WEB_ADMIN_DEPLOY_PLAN_CREATED_PENDING_EXECUTION | P2 |
 | STG-LIM-005 | Full demo UI seed-data not executed | **CLOSED** | DEMO_SEED_EXECUTION_OPERATOR_CONFIRMED_COMPLETE | P3 |
@@ -138,7 +138,7 @@ OPEN
 Decision:
 
 ```text
-STG_LIM_002_HTTPS_CERTBOT_FAIL
+STG_LIM_002_OUTBOUND_DNS_FIX_FAIL
 ```
 
 Domain display:
@@ -157,12 +157,20 @@ HTTPS execution:
 
 ```text
 attempted 2026-07-17 — Certbot FAIL (server DNS cannot resolve acme-v02.api.letsencrypt.org)
+retry 2026-07-17 — outbound DNS fix attempted; ACME DNS/HTTPS still FAIL; Certbot not re-run
 ```
 
 Nginx domain site:
 
 ```text
 created — /etc/nginx/sites-available/staging-bintrans.conf (HTTP only)
+```
+
+Server DNS fix:
+
+```text
+systemd-resolved drop-in applied — 1.1.1.1 / 8.8.8.8 / 9.9.9.9
+/etc/resolv.conf switched to stub — still FAIL (outbound DNS egress blocked)
 ```
 
 HTTPS health:
@@ -180,18 +188,19 @@ PASS 200 — http://staging.xn--80abvubqje.xn--p1ai/health
 Certbot executed:
 
 ```text
-attempted — FAIL
+attempted — FAIL (initial); retry not executed (DNS fix prerequisite failed)
 ```
 
 Reason:
 
 ```text
-Server DNS resolver timeout for Let's Encrypt ACME endpoint
+Server outbound DNS egress blocked — queries to 1.1.1.1 / 8.8.8.8 / Selectel resolvers timeout; ACME unreachable
 ```
 
 Evidence:
 
 ```text
+docs/LOW_CODE_PILOT_WEEK3_STG_LIM_002_OUTBOUND_DNS_CERTBOT_RETRY_EVIDENCE_V0.1.md
 docs/LOW_CODE_PILOT_WEEK3_STG_LIM_002_HTTPS_CERTBOT_EVIDENCE_V0.1.md
 docs/LOW_CODE_PILOT_WEEK3_BINTRANS_HTTPS_CERTBOT_PREPARATION_PACK_V0.1.md
 docs/LOW_CODE_PILOT_WEEK3_BINTRANS_HTTPS_CERTBOT_CHECKLIST_V0.1.md
@@ -397,7 +406,7 @@ not claimed
 ## Next Recommended Event
 
 ```text
-Fix server DNS for Certbot / re-run STG-LIM-002 HTTPS Certbot execution
+Allow Selectel SG outbound egress (UDP/TCP 53 + TCP 443) / re-run STG-LIM-002 DNS + Certbot retry
 STG-LIM-004: OPEN — web-admin deploy pending (explicit approval required)
 Web-admin Deploy Execution Pack v0.1 (operator approval required)
 ```
