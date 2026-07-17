@@ -9,30 +9,28 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-STG-LIM-002 outbound DNS fix + Certbot retry.
+STG-LIM-002 Certbot retry after Selectel egress fix.
 ```
 
 ## Current status
 
 ```text
 - STG-LIM-001: CLOSED — DNS verified
-- STG-LIM-002: OPEN — outbound DNS fix FAIL (Selectel SG egress blocked)
+- STG-LIM-002: READY_FOR_CLOSURE_REVIEW — HTTPS Certbot PASS
 - STG-LIM-003: CLOSED — SSH SG /32 verified
 - STG-LIM-004: OPEN — web-admin deploy pending
 - STG-LIM-005/006: CLOSED
-- HTTP by domain: PASS 200
-- HTTPS by domain: not configured (Certbot not re-run)
+- HTTP by domain: PASS 200 (redirects to HTTPS)
+- HTTPS by domain: PASS 200
 - Production-ready: not claimed
 ```
 
 ## Next
 
 ```text
-1. Allow outbound egress on Selectel Security Group for 161.104.53.221 (UDP/TCP 53 + TCP 443)
-2. Verify server can resolve acme-v02.api.letsencrypt.org
-3. Re-run STG-LIM-002 Outbound DNS Fix + Certbot Retry Pack
-4. Web-admin deploy requires separate explicit approval
-5. Do not claim production-ready until remaining limitations are resolved and reviewed
+1. Prepare STG-LIM-002 closure review pack
+2. Web-admin deploy requires separate explicit approval
+3. Do not claim production-ready until remaining limitations are resolved and reviewed
 ```
 
 ## Current active staging domain

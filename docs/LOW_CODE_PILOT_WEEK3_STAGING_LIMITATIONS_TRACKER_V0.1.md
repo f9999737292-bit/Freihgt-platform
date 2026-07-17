@@ -21,7 +21,7 @@ active
 | ID | Limitation | Status | Decision | Priority |
 | -- | ---------- | ------ | -------- | -------- |
 | STG-LIM-001 | HTTP-only IP access | **CLOSED** | STG-LIM-001_CLOSED_DNS_VERIFIED | P1 |
-| STG-LIM-002 | HTTPS / Certbot not configured | OPEN | STG_LIM_002_OUTBOUND_DNS_FIX_FAIL | P1 |
+| STG-LIM-002 | HTTPS / Certbot not configured | READY_FOR_CLOSURE_REVIEW | STG_LIM_002_CERTBOT_RETRY_AFTER_EGRESS_PASS | P1 |
 | STG-LIM-003 | SSH 22 Selectel Security Group /32 restriction | **CLOSED** | STG-LIM-003_CLOSED_SSH_SG_VERIFIED | P0 |
 | STG-LIM-004 | Web-admin UI not deployed | OPEN_WEB_ADMIN_DEPLOY_PLAN_CREATED | WEB_ADMIN_DEPLOY_PLAN_CREATED_PENDING_EXECUTION | P2 |
 | STG-LIM-005 | Full demo UI seed-data not executed | **CLOSED** | DEMO_SEED_EXECUTION_OPERATOR_CONFIRMED_COMPLETE | P3 |
@@ -132,13 +132,13 @@ docs/LOW_CODE_PILOT_WEEK3_STG_LIM_001_DNS_CLOSURE_NOTE_V0.1.md
 Status:
 
 ```text
-OPEN
+READY_FOR_CLOSURE_REVIEW
 ```
 
 Decision:
 
 ```text
-STG_LIM_002_OUTBOUND_DNS_FIX_FAIL
+STG_LIM_002_CERTBOT_RETRY_AFTER_EGRESS_PASS
 ```
 
 Domain display:
@@ -156,50 +156,46 @@ staging.xn--80abvubqje.xn--p1ai
 HTTPS execution:
 
 ```text
-attempted 2026-07-17 — Certbot FAIL (server DNS cannot resolve acme-v02.api.letsencrypt.org)
-retry 2026-07-17 — outbound DNS fix attempted; ACME DNS/HTTPS still FAIL; Certbot not re-run
+2026-07-17 — Certbot PASS after Selectel outbound egress fix
+Certificate expiry: 2026-10-15
 ```
 
 Nginx domain site:
 
 ```text
-created — /etc/nginx/sites-available/staging-bintrans.conf (HTTP only)
-```
-
-Server DNS fix:
-
-```text
-systemd-resolved drop-in applied — 1.1.1.1 / 8.8.8.8 / 9.9.9.9
-/etc/resolv.conf switched to stub — still FAIL (outbound DNS egress blocked)
+updated — /etc/nginx/sites-enabled/staging-bintrans.conf (HTTP + HTTPS via Certbot)
 ```
 
 HTTPS health:
 
 ```text
-FAIL — certificate not issued
+PASS 200 — https://staging.xn--80abvubqje.xn--p1ai/health
+PASS 200 — https://staging.бинтранс.рф/health
 ```
 
 HTTP health:
 
 ```text
-PASS 200 — http://staging.xn--80abvubqje.xn--p1ai/health
+PASS 200 — http://staging.xn--80abvubqje.xn--p1ai/health (redirects 301 to HTTPS)
+```
+
+HTTP redirect:
+
+```text
+PASS — 301 to HTTPS
 ```
 
 Certbot executed:
 
 ```text
-attempted — FAIL (initial); retry not executed (DNS fix prerequisite failed)
-```
-
-Reason:
-
-```text
-Server outbound DNS egress blocked — queries to 1.1.1.1 / 8.8.8.8 / Selectel resolvers timeout; ACME unreachable
+yes — PASS
+Certbot renewal dry-run: PASS
 ```
 
 Evidence:
 
 ```text
+docs/LOW_CODE_PILOT_WEEK3_STG_LIM_002_CERTBOT_RETRY_AFTER_EGRESS_EVIDENCE_V0.1.md
 docs/LOW_CODE_PILOT_WEEK3_STG_LIM_002_OUTBOUND_DNS_CERTBOT_RETRY_EVIDENCE_V0.1.md
 docs/LOW_CODE_PILOT_WEEK3_STG_LIM_002_HTTPS_CERTBOT_EVIDENCE_V0.1.md
 docs/LOW_CODE_PILOT_WEEK3_BINTRANS_HTTPS_CERTBOT_PREPARATION_PACK_V0.1.md
@@ -406,7 +402,7 @@ not claimed
 ## Next Recommended Event
 
 ```text
-Allow Selectel SG outbound egress (UDP/TCP 53 + TCP 443) / re-run STG-LIM-002 DNS + Certbot retry
+Prepare STG-LIM-002 closure review pack
 STG-LIM-004: OPEN — web-admin deploy pending (explicit approval required)
 Web-admin Deploy Execution Pack v0.1 (operator approval required)
 ```
