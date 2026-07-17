@@ -22,7 +22,7 @@ active
 | -- | ---------- | ------ | -------- | -------- |
 | STG-LIM-001 | HTTP-only IP access | **CLOSED** | STG-LIM-001_CLOSED_DNS_VERIFIED | P1 |
 | STG-LIM-002 | HTTPS / Certbot not configured | OPEN_HTTPS_PENDING_DNS_AND_SSH | CYRILLIC_RF_DOMAIN_SELECTED_DNS_PENDING | P1 |
-| STG-LIM-003 | SSH 22 Selectel Security Group /32 restriction | READY_FOR_CLOSURE_REVIEW | SELECTEL_SSH_SG_RETRY_007_PASS | P0 |
+| STG-LIM-003 | SSH 22 Selectel Security Group /32 restriction | **CLOSED** | STG-LIM-003_CLOSED_SSH_SG_VERIFIED | P0 |
 | STG-LIM-004 | Web-admin UI not deployed | OPEN_WEB_ADMIN_DEPLOY_PLAN_CREATED | WEB_ADMIN_DEPLOY_PLAN_CREATED_PENDING_EXECUTION | P2 |
 | STG-LIM-005 | Full demo UI seed-data not executed | **CLOSED** | DEMO_SEED_EXECUTION_OPERATOR_CONFIRMED_COMPLETE | P3 |
 | STG-LIM-006 | seed-lowcode-demo custom field values skipped | **CLOSED** | DEMO_SEED_EXECUTION_OPERATOR_CONFIRMED_COMPLETE | P3 |
@@ -177,27 +177,32 @@ docs/LOW_CODE_PILOT_WEEK3_BINTRANS_HTTPS_CERTBOT_CHECKLIST_V0.1.md
 Status:
 
 ```text
-READY_FOR_CLOSURE_REVIEW
+CLOSED
 ```
 
 Decision:
 
 ```text
-SELECTEL_SSH_SG_RETRY_007_PASS
+STG-LIM-003_CLOSED_SSH_SG_VERIFIED
 ```
 
 Evidence:
 
 ```text
 docs/LOW_CODE_PILOT_WEEK3_SELECTEL_SSH_SG_RETRY_007_EVIDENCE_V0.1.md
-docs/LOW_CODE_PILOT_WEEK3_SELECTEL_SSH_SG_POST_PANEL_REVERIFICATION_RETRY_6_EVIDENCE_V0.1.md
-docs/LOW_CODE_PILOT_WEEK3_STG_LIM_003_CLOSURE_CANDIDATE_NOTE_V0.1.md
+docs/LOW_CODE_PILOT_WEEK3_STG_LIM_003_SSH_SG_CLOSURE_NOTE_V0.1.md
+```
+
+Closure note:
+
+```text
+docs/LOW_CODE_PILOT_WEEK3_STG_LIM_003_SSH_SG_CLOSURE_NOTE_V0.1.md
 ```
 
 Trusted TCP 22:
 
 ```text
-PASS — TcpTestSucceeded: True (retry #7, 2026-07-17)
+PASS — TcpTestSucceeded: True (closure re-check 2026-07-17)
 ```
 
 Trusted SSH read-only:
@@ -215,7 +220,13 @@ PASS — 0/5 external nodes connect; 5/5 timeout/denied (check-host.net retry #7
 HTTP health:
 
 ```text
-PASS 200 — staging.xn--80abvubqje.xn--p1ai/health
+PASS 200 — staging.xn--80abvubqje.xn--p1ai/health (closure re-check)
+```
+
+Full trusted IP stored:
+
+```text
+no — masked /32 only
 ```
 
 Trusted SSH path (historical):
@@ -257,7 +268,7 @@ pass — retry #7 external scan 0/5 connect
 Closure candidate:
 
 ```text
-yes — STG-LIM-003_READY_FOR_CLOSURE_REVIEW
+closed — STG-LIM-003_CLOSED_SSH_SG_VERIFIED (2026-07-17)
 ```
 
 ## STG-LIM-004 Detail
@@ -361,7 +372,6 @@ not claimed
 ## Next Recommended Event
 
 ```text
-STG-LIM-003 closure review (retry #7 PASS)
 STG-LIM-002: OPEN — HTTPS / Certbot pending (explicit approval required)
 Web-admin Deploy Execution Pack v0.1 (operator approval required)
 ```

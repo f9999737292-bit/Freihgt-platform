@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-STG-LIM-003 Selectel SSH SG retry #7.
+STG-LIM-003 SSH SG closure.
 ```
 
 ## Current status
@@ -17,7 +17,7 @@ STG-LIM-003 Selectel SSH SG retry #7.
 ```text
 - STG-LIM-001: CLOSED — DNS verified
 - STG-LIM-002: OPEN — HTTPS / Certbot pending
-- STG-LIM-003: READY_FOR_CLOSURE_REVIEW — retry #7 PASS
+- STG-LIM-003: CLOSED — Selectel SSH SG /32 verified
 - STG-LIM-004: OPEN — web-admin deploy pending
 - STG-LIM-005/006: CLOSED
 - Production-ready: not claimed
@@ -26,10 +26,9 @@ STG-LIM-003 Selectel SSH SG retry #7.
 ## Next
 
 ```text
-1. Prepare STG-LIM-003 closure review pack
-2. If retry #7 PASS confirmed, close STG-LIM-003 after review
-3. Do not run Certbot until explicit approval
-4. Do not deploy web-admin without separate approval
+1. Prepare HTTPS / Certbot pack only after explicit approval
+2. Keep web-admin deploy pending separate approval
+3. Do not claim production-ready until remaining limitations are resolved and reviewed
 ```
 
 ## Current active staging domain
