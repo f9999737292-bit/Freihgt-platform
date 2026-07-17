@@ -9,26 +9,27 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Final production-readiness review.
+Owner production approval pack.
 ```
 
 ## Current status
 
 ```text
-- Final staging limitations review: PASS
+- Final production-readiness review: READY_FOR_OWNER_APPROVAL
+- Owner production approval gate: READY_FOR_DECISION
 - STG-LIM-001..006: CLOSED
 - Open STG limitations: none
-- Final production-readiness review: READY_FOR_OWNER_PRODUCTION_APPROVAL
 - Staging UI: https://staging.бинтранс.рф/
 - Production-ready: not claimed
+- Production deploy: not executed
 ```
 
 ## Next
 
 ```text
-1. Prepare OWNER_PRODUCTION_APPROVAL_PACK only after explicit owner approval request.
-2. Do not claim production-ready until owner approval is recorded.
-3. Do not execute production deploy from this pack.
+1. Owner must explicitly approve with: OWNER_APPROVES_PRODUCTION_READY_STATUS
+2. Do not claim production-ready until that owner decision is recorded.
+3. Do not execute production deploy without a separate production deployment approval and deployment pack.
 4. Keep secrets, cert files, private keys, server configs, and build archives out of repo.
 ```
 
