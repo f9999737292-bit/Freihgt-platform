@@ -18,7 +18,23 @@ Production-ready is not claimed unless an explicit owner approval decision is re
 | Open STG limitations | none |
 | Open production blockers found in final review | none |
 | Production deploy | not executed |
-| Production-ready | not claimed |
+| Production-ready | owner-approved, deploy not executed |
+
+## Owner Decision Record
+
+| Field | Value |
+| --- | --- |
+| Decision wording | `OWNER_APPROVES_PRODUCTION_READY_STATUS` |
+| Owner name | Феликс Асаев |
+| Decision date | 2026-07-17 |
+| Approval scope | Staging-controlled pilot readiness documentation and current staging deployment evidence. |
+| Status | RECORDED |
+
+Capture reference:
+
+```text
+docs/LOW_CODE_PILOT_WEEK3_OWNER_PRODUCTION_APPROVAL_CAPTURE_V0.1.md
+```
 
 ## Staging Access
 

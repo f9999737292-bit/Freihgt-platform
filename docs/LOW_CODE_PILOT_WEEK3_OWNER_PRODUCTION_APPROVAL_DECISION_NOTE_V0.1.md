@@ -2,9 +2,9 @@
 
 ## Summary
 
-Owner production approval gate was prepared after final production-readiness review.
+Owner production approval was recorded after final production-readiness review.
 
-Production-ready is not claimed in this note.
+Production-ready status is owner-approved for controlled pilot documentation.
 
 Production deploy was not executed.
 
@@ -30,13 +30,37 @@ Production deploy was not executed.
 ## Owner Decision
 
 ```text
-OWNER_PRODUCTION_APPROVAL_READY_FOR_DECISION
+OWNER_PRODUCTION_APPROVAL_RECORDED
+```
+
+Explicit owner wording:
+
+```text
+OWNER_APPROVES_PRODUCTION_READY_STATUS
+```
+
+Owner name:
+
+```text
+Феликс Асаев
+```
+
+Decision date:
+
+```text
+2026-07-17
+```
+
+Approval scope:
+
+```text
+Staging-controlled pilot readiness documentation and current staging deployment evidence.
 ```
 
 ## Production-ready Status
 
 ```text
-not claimed
+owner-approved, deploy not executed
 ```
 
 ## Production Deploy
@@ -45,34 +69,25 @@ not claimed
 not executed
 ```
 
-## Required Next Owner Action
-
-Owner must explicitly provide:
+## Capture Reference
 
 ```text
-OWNER_APPROVES_PRODUCTION_READY_STATUS
-```
-
-Until that explicit owner decision is recorded, production-ready remains not claimed.
-
-## Checklist Reference
-
-```text
+docs/LOW_CODE_PILOT_WEEK3_OWNER_PRODUCTION_APPROVAL_CAPTURE_V0.1.md
 docs/LOW_CODE_PILOT_WEEK3_OWNER_PRODUCTION_APPROVAL_CHECKLIST_V0.1.md
 ```
 
 ## Safety
 
 ```text
-Backend/frontend source changed during owner approval pack: no
+Backend/frontend source changed during owner approval capture: no
 Docker compose repo changed: no
 UFW changed: no
-Nginx changed during owner approval pack: no
-Certbot executed during owner approval pack: no
-Web-admin redeployed during owner approval pack: no
+Nginx changed during owner approval capture: no
+Certbot executed during owner approval capture: no
+Web-admin redeployed during owner approval capture: no
 Production deploy executed: no
 POST/PUT/PATCH/DELETE executed: no
 Secrets captured: no
 Certificate private key captured: no
-Production-ready claimed: no
+Production deploy authorized: no
 ```
