@@ -20,7 +20,7 @@ active
 
 | ID | Limitation | Status | Decision | Priority |
 | -- | ---------- | ------ | -------- | -------- |
-| STG-LIM-001 | HTTP-only IP access | OPEN_DNS_PENDING_CYRILLIC_RF_DOMAIN | CYRILLIC_RF_DOMAIN_SELECTED_DNS_PENDING | P1 |
+| STG-LIM-001 | HTTP-only IP access | OPEN_DNS_PENDING_CYRILLIC_RF_DOMAIN | CYRILLIC_RF_DNS_VERIFICATION_FAIL | P1 |
 | STG-LIM-002 | HTTPS / Certbot not configured | OPEN_HTTPS_PENDING_DNS_AND_SSH | CYRILLIC_RF_DOMAIN_SELECTED_DNS_PENDING | P1 |
 | STG-LIM-003 | SSH 22 Selectel Security Group /32 restriction | OPEN — external scan deferred per operator | SELECTEL_SSH_SG_POST_PANEL_REVERIFICATION_DEFERRED | P0 |
 | STG-LIM-004 | Web-admin UI not deployed | OPEN_WEB_ADMIN_DEPLOY_PLAN_CREATED | WEB_ADMIN_DEPLOY_PLAN_CREATED_PENDING_EXECUTION | P2 |
@@ -38,7 +38,7 @@ OPEN_DNS_PENDING_CYRILLIC_RF_DOMAIN
 Decision:
 
 ```text
-CYRILLIC_RF_DOMAIN_SELECTED_DNS_PENDING
+CYRILLIC_RF_DNS_VERIFICATION_FAIL
 ```
 
 Domain display:
@@ -83,7 +83,13 @@ http://161.104.53.221 — HTTP-only IP
 DNS configured:
 
 ```text
-no — pending operator action at registrar
+no — verification failed 2026-07-17; operator reported A-record created; public resolvers return NXDOMAIN
+```
+
+Verification:
+
+```text
+2026-07-17 — Resolve-DnsName FAIL, nslookup FAIL, domain /health FAIL (503 proxy intercept); IP /health 200
 ```
 
 Evidence:
@@ -91,6 +97,7 @@ Evidence:
 ```text
 docs/LOW_CODE_PILOT_WEEK3_CYRILLIC_RF_DOMAIN_MIGRATION_DECISION_V0.1.md
 docs/LOW_CODE_PILOT_WEEK3_BINTRANS_DNS_CHECKLIST_V0.1.md
+docs/LOW_CODE_PILOT_WEEK3_CYRILLIC_RF_DNS_VERIFICATION_EVIDENCE_V0.1.md
 ```
 
 ## STG-LIM-002 Detail
@@ -290,8 +297,9 @@ not claimed
 ## Next Recommended Event
 
 ```text
-operator creates DNS A-record: staging.бинтранс.рф -> 161.104.53.221
+operator confirms/fixes DNS A-record: staging.бинтранс.рф -> 161.104.53.221
 punycode equivalent: staging.xn--80abvubqje.xn--p1ai -> 161.104.53.221
+re-run Cyrillic .рф DNS Verification Evidence Pack v0.1 after propagation
 Web-admin Deploy Execution Pack v0.1 (operator approval required)
 STG-LIM-003 external port 22 scan: deferred per operator — remains open
 ```

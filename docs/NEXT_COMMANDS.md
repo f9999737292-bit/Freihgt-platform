@@ -9,26 +9,28 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-HTTP IP read-only controlled pilot cycle 004 PASS
+Cyrillic .рф DNS verification.
 ```
 
 ## Current status
 
 ```text
-- DNS pending (staging.бинтранс.рф)
-- HTTPS pending
-- STG-LIM-001..004 open
-- STG-LIM-005/006 closed
-- Production-ready not claimed
-- HTTP IP read-only cycle 004: PASS (machine-captured)
+- DNS: verification failed — NXDOMAIN on public resolvers (2026-07-17)
+- STG-LIM-001: OPEN — CYRILLIC_RF_DNS_VERIFICATION_FAIL
+- STG-LIM-002: OPEN — HTTPS pending DNS + SSH readiness
+- STG-LIM-003: OPEN
+- STG-LIM-004: OPEN
+- STG-LIM-005/006: CLOSED
+- Production-ready: not claimed
+- IP /health: 200 (reference only)
 ```
 
 ## Next
 
 ```text
-1. DNS A-record for staging.бинтранс.рф
-2. Alternative: continue read-only controlled pilot checks by IP
-3. DNS verification
+1. Operator confirms/fixes DNS A-record at registrar
+2. Re-run Cyrillic .рф DNS Verification Evidence Pack v0.1 after propagation
+3. Fix/verify SSH SG /32
 4. HTTPS / Certbot only after DNS + SSH readiness
 5. Web-admin deploy only after separate approval
 ```
@@ -60,6 +62,10 @@ staging.бинтранс.рф -> 161.104.53.221
 Punycode equivalent:
 staging.xn--80abvubqje.xn--p1ai -> 161.104.53.221
 ```
+
+Week-3 HTTP IP read-only cycle 005 evidence v0.1:
+
+See `docs/LOW_CODE_PILOT_WEEK3_HTTP_IP_READONLY_CYCLE_005_EVIDENCE_V0.1.md`.
 
 Week-3 HTTP IP read-only cycle 004 evidence v0.1:
 
