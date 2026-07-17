@@ -9,17 +9,15 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-STG-LIM-001 DNS closure.
+STG-LIM-003 Selectel SSH SG retry #7.
 ```
 
 ## Current status
 
 ```text
 - STG-LIM-001: CLOSED — DNS verified
-- staging.бинтранс.рф -> 161.104.53.221
-- HTTP /health by domain: PASS 200
 - STG-LIM-002: OPEN — HTTPS / Certbot pending
-- STG-LIM-003: OPEN — SSH SG /32
+- STG-LIM-003: READY_FOR_CLOSURE_REVIEW — retry #7 PASS
 - STG-LIM-004: OPEN — web-admin deploy pending
 - STG-LIM-005/006: CLOSED
 - Production-ready: not claimed
@@ -28,9 +26,10 @@ STG-LIM-001 DNS closure.
 ## Next
 
 ```text
-1. Prepare HTTPS / Certbot pack only after explicit approval
-2. Keep STG-LIM-003 open until Selectel SSH SG /32 is verified
-3. Web-admin deploy requires separate approval
+1. Prepare STG-LIM-003 closure review pack
+2. If retry #7 PASS confirmed, close STG-LIM-003 after review
+3. Do not run Certbot until explicit approval
+4. Do not deploy web-admin without separate approval
 ```
 
 ## Current active staging domain

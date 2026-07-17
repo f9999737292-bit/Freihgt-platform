@@ -22,7 +22,7 @@ active
 | -- | ---------- | ------ | -------- | -------- |
 | STG-LIM-001 | HTTP-only IP access | **CLOSED** | STG-LIM-001_CLOSED_DNS_VERIFIED | P1 |
 | STG-LIM-002 | HTTPS / Certbot not configured | OPEN_HTTPS_PENDING_DNS_AND_SSH | CYRILLIC_RF_DOMAIN_SELECTED_DNS_PENDING | P1 |
-| STG-LIM-003 | SSH 22 Selectel Security Group /32 restriction | OPEN — external scan deferred per operator | SELECTEL_SSH_SG_POST_PANEL_REVERIFICATION_DEFERRED | P0 |
+| STG-LIM-003 | SSH 22 Selectel Security Group /32 restriction | READY_FOR_CLOSURE_REVIEW | SELECTEL_SSH_SG_RETRY_007_PASS | P0 |
 | STG-LIM-004 | Web-admin UI not deployed | OPEN_WEB_ADMIN_DEPLOY_PLAN_CREATED | WEB_ADMIN_DEPLOY_PLAN_CREATED_PENDING_EXECUTION | P2 |
 | STG-LIM-005 | Full demo UI seed-data not executed | **CLOSED** | DEMO_SEED_EXECUTION_OPERATOR_CONFIRMED_COMPLETE | P3 |
 | STG-LIM-006 | seed-lowcode-demo custom field values skipped | **CLOSED** | DEMO_SEED_EXECUTION_OPERATOR_CONFIRMED_COMPLETE | P3 |
@@ -174,7 +174,51 @@ docs/LOW_CODE_PILOT_WEEK3_BINTRANS_HTTPS_CERTBOT_CHECKLIST_V0.1.md
 
 ## STG-LIM-003 Detail
 
-Trusted SSH path:
+Status:
+
+```text
+READY_FOR_CLOSURE_REVIEW
+```
+
+Decision:
+
+```text
+SELECTEL_SSH_SG_RETRY_007_PASS
+```
+
+Evidence:
+
+```text
+docs/LOW_CODE_PILOT_WEEK3_SELECTEL_SSH_SG_RETRY_007_EVIDENCE_V0.1.md
+docs/LOW_CODE_PILOT_WEEK3_SELECTEL_SSH_SG_POST_PANEL_REVERIFICATION_RETRY_6_EVIDENCE_V0.1.md
+docs/LOW_CODE_PILOT_WEEK3_STG_LIM_003_CLOSURE_CANDIDATE_NOTE_V0.1.md
+```
+
+Trusted TCP 22:
+
+```text
+PASS — TcpTestSucceeded: True (retry #7, 2026-07-17)
+```
+
+Trusted SSH read-only:
+
+```text
+PASS — root@gpt-docker; UFW/docker read-only (retry #7)
+```
+
+Non-trusted TCP 22:
+
+```text
+PASS — 0/5 external nodes connect; 5/5 timeout/denied (check-host.net retry #7)
+```
+
+HTTP health:
+
+```text
+PASS 200 — staging.xn--80abvubqje.xn--p1ai/health
+```
+
+Trusted SSH path (historical):
 
 ```text
 pass — SSH_TRUSTED_PATH_OK (retry #6, 2026-07-12)
@@ -201,26 +245,19 @@ deny
 Selectel SG /32 confirmed:
 
 ```text
-no — external non-trusted scan retry #6: 4/5 nodes TCP 22 connect success
+yes — external non-trusted scan retry #7: 0/5 nodes TCP 22 connect; 5/5 timeout/denied
 ```
 
 Non-trusted SSH rejection:
 
 ```text
-deferred — external port 22 scan skipped per operator request; last retry #7: 5/5 connect
+pass — retry #7 external scan 0/5 connect
 ```
 
 Closure candidate:
 
 ```text
-no — STG_LIM_003_REMAINS_OPEN
-```
-
-Evidence:
-
-```text
-docs/LOW_CODE_PILOT_WEEK3_SELECTEL_SSH_SG_POST_PANEL_REVERIFICATION_RETRY_6_EVIDENCE_V0.1.md
-docs/LOW_CODE_PILOT_WEEK3_STG_LIM_003_CLOSURE_CANDIDATE_NOTE_V0.1.md
+yes — STG-LIM-003_READY_FOR_CLOSURE_REVIEW
 ```
 
 ## STG-LIM-004 Detail
@@ -324,7 +361,7 @@ not claimed
 ## Next Recommended Event
 
 ```text
+STG-LIM-003 closure review (retry #7 PASS)
 STG-LIM-002: OPEN — HTTPS / Certbot pending (explicit approval required)
 Web-admin Deploy Execution Pack v0.1 (operator approval required)
-STG-LIM-003 external port 22 scan: deferred per operator — remains open
 ```
