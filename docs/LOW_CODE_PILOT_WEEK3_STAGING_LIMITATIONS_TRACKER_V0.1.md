@@ -21,7 +21,7 @@ active
 | ID | Limitation | Status | Decision | Priority |
 | -- | ---------- | ------ | -------- | -------- |
 | STG-LIM-001 | HTTP-only IP access | **CLOSED** | STG-LIM-001_CLOSED_DNS_VERIFIED | P1 |
-| STG-LIM-002 | HTTPS / Certbot not configured | READY_FOR_CLOSURE_REVIEW | STG_LIM_002_CERTBOT_RETRY_AFTER_EGRESS_PASS | P1 |
+| STG-LIM-002 | HTTPS / Certbot not configured | **CLOSED** | STG-LIM-002_CLOSED_HTTPS_CERTBOT_VERIFIED | P1 |
 | STG-LIM-003 | SSH 22 Selectel Security Group /32 restriction | **CLOSED** | STG-LIM-003_CLOSED_SSH_SG_VERIFIED | P0 |
 | STG-LIM-004 | Web-admin UI not deployed | OPEN_WEB_ADMIN_DEPLOY_PLAN_CREATED | WEB_ADMIN_DEPLOY_PLAN_CREATED_PENDING_EXECUTION | P2 |
 | STG-LIM-005 | Full demo UI seed-data not executed | **CLOSED** | DEMO_SEED_EXECUTION_OPERATOR_CONFIRMED_COMPLETE | P3 |
@@ -132,13 +132,13 @@ docs/LOW_CODE_PILOT_WEEK3_STG_LIM_001_DNS_CLOSURE_NOTE_V0.1.md
 Status:
 
 ```text
-READY_FOR_CLOSURE_REVIEW
+CLOSED
 ```
 
 Decision:
 
 ```text
-STG_LIM_002_CERTBOT_RETRY_AFTER_EGRESS_PASS
+STG-LIM-002_CLOSED_HTTPS_CERTBOT_VERIFIED
 ```
 
 Domain display:
@@ -190,6 +190,13 @@ Certbot executed:
 ```text
 yes — PASS
 Certbot renewal dry-run: PASS
+certbot.timer: active
+```
+
+Closure note:
+
+```text
+docs/LOW_CODE_PILOT_WEEK3_STG_LIM_002_HTTPS_CLOSURE_NOTE_V0.1.md
 ```
 
 Evidence:
@@ -402,7 +409,6 @@ not claimed
 ## Next Recommended Event
 
 ```text
-Prepare STG-LIM-002 closure review pack
 STG-LIM-004: OPEN — web-admin deploy pending (explicit approval required)
 Web-admin Deploy Execution Pack v0.1 (operator approval required)
 ```

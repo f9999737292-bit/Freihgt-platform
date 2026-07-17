@@ -9,14 +9,14 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-STG-LIM-002 Certbot retry after Selectel egress fix.
+STG-LIM-002 HTTPS closure.
 ```
 
 ## Current status
 
 ```text
 - STG-LIM-001: CLOSED — DNS verified
-- STG-LIM-002: READY_FOR_CLOSURE_REVIEW — HTTPS Certbot PASS
+- STG-LIM-002: CLOSED — HTTPS / Certbot verified
 - STG-LIM-003: CLOSED — SSH SG /32 verified
 - STG-LIM-004: OPEN — web-admin deploy pending
 - STG-LIM-005/006: CLOSED
@@ -28,9 +28,9 @@ STG-LIM-002 Certbot retry after Selectel egress fix.
 ## Next
 
 ```text
-1. Prepare STG-LIM-002 closure review pack
-2. Web-admin deploy requires separate explicit approval
-3. Do not claim production-ready until remaining limitations are resolved and reviewed
+1. Prepare web-admin deploy pack only after explicit approval.
+2. Do not claim production-ready until STG-LIM-004 is resolved and reviewed.
+3. Keep server cert/private key contents out of repo/docs.
 ```
 
 ## Current active staging domain
