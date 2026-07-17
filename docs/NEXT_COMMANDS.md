@@ -9,29 +9,28 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-STG-LIM-004 web-admin closure.
+Final staging limitations review.
 ```
 
 ## Current status
 
 ```text
-- STG-LIM-001: CLOSED — DNS verified
-- STG-LIM-002: CLOSED — HTTPS / Certbot verified
-- STG-LIM-003: CLOSED — SSH SG /32 verified
-- STG-LIM-004: CLOSED — web-admin deployed and verified
+- STG-LIM-001: CLOSED
+- STG-LIM-002: CLOSED
+- STG-LIM-003: CLOSED
+- STG-LIM-004: CLOSED
 - STG-LIM-005/006: CLOSED
-- HTTP by domain: PASS 200 (redirects to HTTPS)
-- HTTPS by domain: PASS 200
-- Web-admin UI: deployed at HTTPS root
+- Open STG limitations: none in STG-LIM-001..006
+- Staging UI: https://staging.бинтранс.рф/
 - Production-ready: not claimed
 ```
 
 ## Next
 
 ```text
-1. Prepare final staging limitations review pack.
-2. Do not claim production-ready until final review is completed and approved.
-3. Keep secrets, server configs, cert files, and private keys out of repo/docs.
+1. Prepare final production-readiness review pack only after explicit approval.
+2. Do not claim production-ready without owner approval.
+3. Keep secrets, cert files, private keys, server configs, and build archives out of repo.
 ```
 
 ## Current active staging domain
