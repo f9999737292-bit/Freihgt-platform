@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-STG-LIM-004 web-admin deploy.
+STG-LIM-004 web-admin closure.
 ```
 
 ## Current status
@@ -18,7 +18,7 @@ STG-LIM-004 web-admin deploy.
 - STG-LIM-001: CLOSED — DNS verified
 - STG-LIM-002: CLOSED — HTTPS / Certbot verified
 - STG-LIM-003: CLOSED — SSH SG /32 verified
-- STG-LIM-004: READY_FOR_CLOSURE_REVIEW — web-admin deploy PASS
+- STG-LIM-004: CLOSED — web-admin deployed and verified
 - STG-LIM-005/006: CLOSED
 - HTTP by domain: PASS 200 (redirects to HTTPS)
 - HTTPS by domain: PASS 200
@@ -29,9 +29,9 @@ STG-LIM-004 web-admin deploy.
 ## Next
 
 ```text
-1. If deploy PASS, prepare STG-LIM-004 closure review pack.
-2. Do not claim production-ready until STG-LIM-004 is closed and final review is completed.
-3. Keep server cert/private key contents out of repo/docs.
+1. Prepare final staging limitations review pack.
+2. Do not claim production-ready until final review is completed and approved.
+3. Keep secrets, server configs, cert files, and private keys out of repo/docs.
 ```
 
 ## Current active staging domain
