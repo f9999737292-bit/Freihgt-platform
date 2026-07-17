@@ -13,8 +13,7 @@ This checklist does not authorize or execute production deploy.
 | Production-ready owner approval recorded | yes |
 | Deployment preparation owner approval recorded | yes |
 | Deployment execution owner approval recorded | yes |
-| Deployment execution scope fully defined | no — pending |
-| Production deploy authorized for execution pack | blocked pending scope |
+| Production deploy authorized for execution pack | yes — execution pack still required |
 | Production deploy executed | no |
 
 Required future execution wording:
@@ -27,13 +26,16 @@ OWNER_APPROVES_PRODUCTION_DEPLOYMENT_EXECUTION
 
 | Item | Status |
 | --- | --- |
-| Target production server/environment defined | pending |
-| Production domain defined | pending |
-| DNS plan defined | pending |
-| SSL/HTTPS plan defined | pending |
-| Firewall/security group plan defined | pending |
-| Backup/snapshot plan defined | pending |
-| Rollback trigger criteria defined | pending |
+| Target production server/environment defined | yes — current Selectel VM / current staging-to-production promotion |
+| Production domain defined | yes — бинтранс.рф |
+| Deployment window defined | yes — 2026-07-17 23:00–01:00 MSK |
+| Responsible operator defined | yes — Феликс Асаев |
+| Go/no-go owner defined | yes — Феликс Асаев |
+| DNS plan defined | pending — execution pack |
+| SSL/HTTPS plan defined | pending — execution pack |
+| Firewall/security group plan defined | pending — execution pack |
+| Backup/snapshot plan required | yes |
+| Rollback trigger criteria required | yes |
 
 ## Gate 2 — Pre-deploy Readiness
 

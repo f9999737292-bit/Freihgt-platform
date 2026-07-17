@@ -30,13 +30,41 @@ Decision date:
 
 | Field | Value |
 | --- | --- |
-| Target environment | pending — owner must specify |
-| Target domain | pending — owner must specify |
-| Deployment window | pending — owner must specify |
-| Responsible operator | pending — owner must specify |
+| Target environment | current Selectel VM / current staging-to-production promotion |
+| Target domain | бинтранс.рф |
+| Deployment window | 2026-07-17 23:00–01:00 MSK |
+| Responsible operator | Феликс Асаев |
 | Go/no-go owner | Феликс Асаев |
 | Backup/snapshot required | yes |
 | Rollback required | yes |
+
+## Scope Definition Update
+
+Owner provided the missing deployment scope.
+
+Updated status:
+
+```text
+PRODUCTION_DEPLOYMENT_SCOPE_DEFINED
+```
+
+Execution pack:
+
+```text
+READY_TO_PREPARE
+```
+
+Production deploy:
+
+```text
+not executed
+```
+
+Scope definition reference:
+
+```text
+docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_DEPLOYMENT_SCOPE_DEFINITION_V0.1.md
+```
 
 ## Decision
 
@@ -47,13 +75,14 @@ PRODUCTION_DEPLOYMENT_EXECUTION_APPROVAL_RECORDED
 ## Execution Pack Status
 
 ```text
-BLOCKED_PENDING_SCOPE_DEFINITION
+READY_TO_PREPARE
 ```
 
 Reason:
 
 ```text
-Execution approval wording is recorded, but target environment, target domain, deployment window, and responsible operator are not yet specified.
+Execution approval wording is recorded and deployment scope is now defined.
+Production deployment execution pack may be prepared; production deploy is not executed by scope definition alone.
 ```
 
 ## Production Deployment Status
@@ -63,7 +92,7 @@ Execution approval wording is recorded, but target environment, target domain, d
 | Production-ready | owner-approved for controlled pilot documentation |
 | Deployment preparation | approved |
 | Deployment execution approval | recorded |
-| Production deploy authorized for execution pack | blocked pending scope |
+| Production deploy authorized for execution pack | yes — scope defined; execution pack still required |
 | Production deploy executed | no |
 
 ## Boundary

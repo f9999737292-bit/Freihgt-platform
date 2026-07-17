@@ -9,18 +9,24 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Production deployment execution approval capture.
+Production deployment scope definition.
 ```
 
 ## Current status
 
 ```text
 - Owner production-ready approval: RECORDED
-- Production-ready: owner-approved for controlled pilot documentation
 - Production deployment preparation: APPROVED
 - Production deployment execution approval: RECORDED
-- Deployment scope: pending — target environment, domain, window, operator
-- Production deployment execution pack: BLOCKED_PENDING_SCOPE_DEFINITION
+- Production deployment scope: DEFINED
+- Target environment: current Selectel VM / current staging-to-production promotion
+- Target domain: бинтранс.рф
+- Deployment window: 2026-07-17 23:00–01:00 MSK
+- Responsible operator: Феликс Асаев
+- Go/no-go owner: Феликс Асаев
+- Backup/snapshot required: yes
+- Rollback required: yes
+- Production deployment execution pack: READY_TO_PREPARE
 - Production deploy: not executed
 - Staging UI: https://staging.бинтранс.рф/
 ```
@@ -28,9 +34,9 @@ Production deployment execution approval capture.
 ## Next
 
 ```text
-1. Specify deployment scope: target environment, target domain, deployment window, responsible operator.
-2. Run production deployment execution pack only after scope is defined.
-3. Do not execute production deploy from approval capture alone.
+1. Prepare PRODUCTION_DEPLOYMENT_EXECUTION_PACK.
+2. Execution pack must include backup/snapshot confirmation before any changes.
+3. Execution pack must stop if backup/snapshot is not confirmed.
 4. Keep secrets, cert files, private keys, server configs, and build archives out of repo.
 ```
 
