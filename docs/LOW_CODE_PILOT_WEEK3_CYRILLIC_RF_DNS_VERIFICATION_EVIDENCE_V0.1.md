@@ -4,9 +4,11 @@
 
 DNS verification was executed for the active Cyrillic .рф staging domain on 2026-07-17.
 
-Production-ready is not claimed.
+**Initial attempt (v0.1):** FAIL — NXDOMAIN on public and authoritative resolvers; domain `/health` 503 via VPN proxy intercept.
 
-Operator reported DNS A-record created; machine verification from this workstation did not resolve the domain on public resolvers. HTTP `/health` by domain returned 503 via VPN proxy intercept (DNS unresolved); direct IP health remains 200.
+**Retry (v0.2):** PASS — DNS delegation and A-record propagated; domain `/health` 200.
+
+Production-ready is not claimed.
 
 ## Domain
 
@@ -29,6 +31,8 @@ Target IP:
 ```
 
 ## DNS Results
+
+Initial attempt (2026-07-17, before propagation):
 
 | Check                                           | Result | Notes                                                                 |
 | ----------------------------------------------- | ------ | --------------------------------------------------------------------- |
@@ -57,43 +61,80 @@ http://161.104.53.221/health — 200 OK
 
 ## HTTP Results
 
+Initial attempt (2026-07-17, before propagation):
+
 | Check                                         | Result | Notes                                                                 |
 | --------------------------------------------- | ------ | --------------------------------------------------------------------- |
 | http://staging.xn--80abvubqje.xn--p1ai/health | FAIL   | 503 via VPN proxy intercept; curl exit 6 could not resolve host       |
 | http://staging.бинтранс.рф/health             | FAIL   | 503 via VPN proxy intercept; expected 200 if DNS + nginx vhost ready |
 
-## Decision
+## Initial Decision
 
 ```text
 CYRILLIC_RF_DNS_VERIFICATION_FAIL
 ```
 
-## STG-LIM-001
+## STG-LIM-001 (initial)
 
 DNS and HTTP health did not pass — closure candidate not advanced:
 
 ```text
-OPEN_DNS_PENDING_CYRILLIC_RF_DOMAIN — verification failed 2026-07-17
+OPEN_DNS_PENDING_CYRILLIC_RF_DOMAIN — verification failed 2026-07-17 (initial attempt)
 ```
 
 Do not close STG-LIM-002. HTTPS remains pending Certbot and SSH readiness.
 
-## Open Limitations
+## Retry Result — DNS Propagation Completed
+
+Decision:
 
 ```text
-STG-LIM-001: OPEN — DNS A-record not verified; re-check propagation / registrar record
-STG-LIM-002: OPEN — HTTPS pending DNS + SSH readiness
-STG-LIM-003: OPEN — SSH SG /32
-STG-LIM-004: OPEN — web-admin deploy pending
+CYRILLIC_RF_DNS_VERIFICATION_PASS
 ```
 
-## Production-ready
+NS apex from public resolver:
+
+```text
+xn--80abvubqje.xn--p1ai NS ns3-l2.nic.ru
+xn--80abvubqje.xn--p1ai NS ns4-l2.nic.ru
+xn--80abvubqje.xn--p1ai NS ns4-cloud.nic.ru
+xn--80abvubqje.xn--p1ai NS ns8-l2.nic.ru
+xn--80abvubqje.xn--p1ai NS ns8-cloud.nic.ru
+```
+
+A-record:
+
+```text
+staging.xn--80abvubqje.xn--p1ai A 161.104.53.221
+```
+
+Verification matrix:
+
+| Check            | Result                |
+| ---------------- | --------------------- |
+| ns3-l2.nic.ru    | PASS — 161.104.53.221 |
+| ns4-l2.nic.ru    | PASS — 161.104.53.221 |
+| ns8-l2.nic.ru    | PASS — 161.104.53.221 |
+| ns4-cloud.nic.ru | PASS — 161.104.53.221 |
+| ns8-cloud.nic.ru | PASS — 161.104.53.221 |
+| 1.1.1.1          | PASS — 161.104.53.221 |
+| 8.8.8.8          | PASS — 161.104.53.221 |
+| default resolver | PASS — 161.104.53.221 |
+| HTTP /health     | PASS — 200            |
+
+STG-LIM-001:
+
+```text
+READY_FOR_CLOSURE_REVIEW
+```
+
+Production-ready:
 
 ```text
 not claimed
 ```
 
-## Safety
+Safety:
 
 ```text
 Certbot executed: no
@@ -103,11 +144,21 @@ Writes executed: no
 Secrets captured: no
 ```
 
+## Open Limitations (after retry)
+
+```text
+STG-LIM-001: READY_FOR_CLOSURE_REVIEW — DNS verified 2026-07-17 (retry)
+STG-LIM-002: OPEN — HTTPS pending DNS + SSH readiness
+STG-LIM-003: OPEN — SSH SG /32
+STG-LIM-004: OPEN — web-admin deploy pending
+```
+
 ## Next operator action
 
 ```text
-1. Confirm A-record at registrar: staging.бинтранс.рф -> 161.104.53.221
-2. Confirm punycode equivalent: staging.xn--80abvubqje.xn--p1ai -> 161.104.53.221
-3. Wait for DNS propagation; re-run Cyrillic .рф DNS Verification Evidence Pack v0.1
-4. Ensure nginx server_name includes staging domain before expecting domain /health 200
+1. Review STG-LIM-001 closure
+2. Do not run Certbot until explicit approval
+3. HTTPS / Certbot pack only after separate approval
+4. Fix/verify SSH SG /32 (STG-LIM-003)
+5. Web-admin deploy only after separate approval (STG-LIM-004)
 ```

@@ -9,30 +9,32 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Cyrillic .рф DNS verification.
+Cyrillic .рф DNS verification PASS.
 ```
 
 ## Current status
 
 ```text
-- DNS: verification failed — NXDOMAIN on public resolvers (2026-07-17)
-- STG-LIM-001: OPEN — CYRILLIC_RF_DNS_VERIFICATION_FAIL
-- STG-LIM-002: OPEN — HTTPS pending DNS + SSH readiness
-- STG-LIM-003: OPEN
-- STG-LIM-004: OPEN
+- DNS delegation: PASS
+- A-record staging: PASS -> 161.104.53.221
+- HTTP health by domain: PASS 200
+- STG-LIM-001: READY_FOR_CLOSURE_REVIEW
+- STG-LIM-002: OPEN — HTTPS / Certbot pending
+- STG-LIM-003: OPEN — SSH SG /32
+- STG-LIM-004: OPEN — web-admin deploy pending
 - STG-LIM-005/006: CLOSED
 - Production-ready: not claimed
-- IP /health: 200 (reference only)
 ```
 
 ## Next
 
 ```text
-1. Operator confirms/fixes DNS A-record at registrar
-2. Re-run Cyrillic .рф DNS Verification Evidence Pack v0.1 after propagation
-3. Fix/verify SSH SG /32
-4. HTTPS / Certbot only after DNS + SSH readiness
-5. Web-admin deploy only after separate approval
+1. Commit DNS PASS evidence after user confirmation
+2. Review STG-LIM-001 closure
+3. Do not run Certbot until explicit approval
+4. HTTPS / Certbot pack only after separate approval
+5. Fix/verify SSH SG /32
+6. Web-admin deploy only after separate approval
 ```
 
 ## Current active staging domain

@@ -20,7 +20,7 @@ active
 
 | ID | Limitation | Status | Decision | Priority |
 | -- | ---------- | ------ | -------- | -------- |
-| STG-LIM-001 | HTTP-only IP access | OPEN_DNS_PENDING_CYRILLIC_RF_DOMAIN | CYRILLIC_RF_DNS_VERIFICATION_FAIL | P1 |
+| STG-LIM-001 | HTTP-only IP access | READY_FOR_CLOSURE_REVIEW | CYRILLIC_RF_DNS_VERIFICATION_PASS | P1 |
 | STG-LIM-002 | HTTPS / Certbot not configured | OPEN_HTTPS_PENDING_DNS_AND_SSH | CYRILLIC_RF_DOMAIN_SELECTED_DNS_PENDING | P1 |
 | STG-LIM-003 | SSH 22 Selectel Security Group /32 restriction | OPEN — external scan deferred per operator | SELECTEL_SSH_SG_POST_PANEL_REVERIFICATION_DEFERRED | P0 |
 | STG-LIM-004 | Web-admin UI not deployed | OPEN_WEB_ADMIN_DEPLOY_PLAN_CREATED | WEB_ADMIN_DEPLOY_PLAN_CREATED_PENDING_EXECUTION | P2 |
@@ -32,13 +32,13 @@ active
 Status:
 
 ```text
-OPEN_DNS_PENDING_CYRILLIC_RF_DOMAIN
+READY_FOR_CLOSURE_REVIEW
 ```
 
 Decision:
 
 ```text
-CYRILLIC_RF_DNS_VERIFICATION_FAIL
+CYRILLIC_RF_DNS_VERIFICATION_PASS
 ```
 
 Domain display:
@@ -53,16 +53,34 @@ Domain technical:
 staging.xn--80abvubqje.xn--p1ai
 ```
 
-Previous active domain (deprecated):
-
-```text
-staging.bintrans.ru
-```
-
 Target IP:
 
 ```text
 161.104.53.221
+```
+
+DNS delegation:
+
+```text
+PASS
+```
+
+A-record:
+
+```text
+PASS
+```
+
+HTTP health:
+
+```text
+PASS 200
+```
+
+Previous active domain (deprecated):
+
+```text
+staging.bintrans.ru
 ```
 
 Deprecated for this path:
@@ -77,19 +95,21 @@ pilot.7rights.ru
 Current access:
 
 ```text
-http://161.104.53.221 — HTTP-only IP
+http://staging.бинтранс.рф — HTTP by domain (verified)
+http://161.104.53.221 — HTTP by IP
 ```
 
 DNS configured:
 
 ```text
-no — verification failed 2026-07-17; operator reported A-record created; public resolvers return NXDOMAIN
+yes — verified 2026-07-17 (retry); A-record staging -> 161.104.53.221; delegation ns*-l2/cloud.nic.ru
 ```
 
 Verification:
 
 ```text
-2026-07-17 — Resolve-DnsName FAIL, nslookup FAIL, domain /health FAIL (503 proxy intercept); IP /health 200
+2026-07-17 initial — FAIL (NXDOMAIN)
+2026-07-17 retry — PASS: delegation PASS, A-record PASS, domain /health 200
 ```
 
 Evidence:
@@ -297,9 +317,8 @@ not claimed
 ## Next Recommended Event
 
 ```text
-operator confirms/fixes DNS A-record: staging.бинтранс.рф -> 161.104.53.221
-punycode equivalent: staging.xn--80abvubqje.xn--p1ai -> 161.104.53.221
-re-run Cyrillic .рф DNS Verification Evidence Pack v0.1 after propagation
+STG-LIM-001 closure review
+STG-LIM-002: OPEN — HTTPS / Certbot pending
 Web-admin Deploy Execution Pack v0.1 (operator approval required)
 STG-LIM-003 external port 22 scan: deferred per operator — remains open
 ```
