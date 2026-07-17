@@ -9,18 +9,16 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Final staging limitations review.
+Final production-readiness review.
 ```
 
 ## Current status
 
 ```text
-- STG-LIM-001: CLOSED
-- STG-LIM-002: CLOSED
-- STG-LIM-003: CLOSED
-- STG-LIM-004: CLOSED
-- STG-LIM-005/006: CLOSED
-- Open STG limitations: none in STG-LIM-001..006
+- Final staging limitations review: PASS
+- STG-LIM-001..006: CLOSED
+- Open STG limitations: none
+- Final production-readiness review: READY_FOR_OWNER_PRODUCTION_APPROVAL
 - Staging UI: https://staging.бинтранс.рф/
 - Production-ready: not claimed
 ```
@@ -28,9 +26,10 @@ Final staging limitations review.
 ## Next
 
 ```text
-1. Prepare final production-readiness review pack only after explicit approval.
-2. Do not claim production-ready without owner approval.
-3. Keep secrets, cert files, private keys, server configs, and build archives out of repo.
+1. Prepare OWNER_PRODUCTION_APPROVAL_PACK only after explicit owner approval request.
+2. Do not claim production-ready until owner approval is recorded.
+3. Do not execute production deploy from this pack.
+4. Keep secrets, cert files, private keys, server configs, and build archives out of repo.
 ```
 
 ## Current active staging domain
