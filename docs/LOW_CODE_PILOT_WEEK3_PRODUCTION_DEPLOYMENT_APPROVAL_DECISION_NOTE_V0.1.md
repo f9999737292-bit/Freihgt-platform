@@ -4,7 +4,9 @@
 
 Production deployment approval gate was prepared after owner production-ready approval.
 
-Production deployment is not authorized in this note.
+Owner has approved production deployment preparation.
+
+Production deployment execution is not authorized.
 
 Production deployment was not executed.
 
@@ -32,7 +34,39 @@ Production deployment was not executed.
 ## Decision
 
 ```text
-PRODUCTION_DEPLOYMENT_APPROVAL_READY_FOR_DECISION
+PRODUCTION_DEPLOYMENT_PREPARATION_APPROVED
+```
+
+## Preparation Approval Capture
+
+Owner has approved production deployment preparation.
+
+```text
+OWNER_APPROVES_PRODUCTION_DEPLOYMENT_PREPARATION
+```
+
+Owner:
+
+```text
+Феликс Асаев
+```
+
+Decision date:
+
+```text
+2026-07-17
+```
+
+Scope:
+
+```text
+prepare production deployment plan/checklist/runbook only; no production deploy execution.
+```
+
+Capture reference:
+
+```text
+docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_DEPLOYMENT_PREPARATION_APPROVAL_CAPTURE_V0.1.md
 ```
 
 ## Production-ready Status
@@ -43,31 +77,31 @@ owner-approved for controlled pilot documentation
 
 ## Production Deployment Status
 
+Production deployment preparation:
+
+```text
+approved
+```
+
+Production deployment execution:
+
 ```text
 not authorized
 not executed
 ```
 
-## Required Next Owner Action
-
-To authorize production deployment preparation, owner must explicitly provide:
-
-```text
-OWNER_APPROVES_PRODUCTION_DEPLOYMENT_PREPARATION
-```
-
-To authorize actual production deployment execution later, owner must explicitly provide:
+Required next explicit owner decision for actual execution:
 
 ```text
 OWNER_APPROVES_PRODUCTION_DEPLOYMENT_EXECUTION
 ```
 
-Until explicit deployment approval is recorded, production deploy remains not authorized.
-
 ## Checklist Reference
 
 ```text
 docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_DEPLOYMENT_APPROVAL_CHECKLIST_V0.1.md
+docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_DEPLOYMENT_PREPARATION_CHECKLIST_V0.1.md
+docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_DEPLOYMENT_RUNBOOK_DRAFT_V0.1.md
 ```
 
 ## Safety

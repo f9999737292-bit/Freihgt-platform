@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Production deployment approval pack.
+Production deployment preparation pack.
 ```
 
 ## Current status
@@ -17,17 +17,18 @@ Production deployment approval pack.
 ```text
 - Owner production-ready approval: RECORDED
 - Production-ready: owner-approved for controlled pilot documentation
-- Production deployment approval gate: READY_FOR_DECISION
-- Production deploy: not authorized / not executed
+- Production deployment preparation: APPROVED
+- Production deployment plan/checklist/runbook: prepared
+- Production deployment execution: not authorized / not executed
 - Staging UI: https://staging.бинтранс.рф/
 ```
 
 ## Next
 
 ```text
-1. Owner must explicitly approve deployment preparation with: OWNER_APPROVES_PRODUCTION_DEPLOYMENT_PREPARATION
-2. Actual deployment execution requires a later explicit decision: OWNER_APPROVES_PRODUCTION_DEPLOYMENT_EXECUTION
-3. Do not execute production deploy without a separate deployment execution pack.
+1. Owner must explicitly approve actual deployment execution with: OWNER_APPROVES_PRODUCTION_DEPLOYMENT_EXECUTION
+2. Do not execute production deploy without a separate deployment execution pack.
+3. Before execution, define target production environment, domain, window, operator, backup/snapshot and rollback criteria.
 4. Keep secrets, cert files, private keys, server configs, and build archives out of repo.
 ```
 
