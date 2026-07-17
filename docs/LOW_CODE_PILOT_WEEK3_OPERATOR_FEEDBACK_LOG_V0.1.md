@@ -10,8 +10,8 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 
 | Metric | Value |
 |--------|-------|
-| Total entries | **92** |
-| Staging limitations | **STG-LIM-001/002/003 CLOSED**; **STG-LIM-004 OPEN**; **STG-LIM-005/006 CLOSED** |
+| Total entries | **93** |
+| Staging limitations | **STG-LIM-001/002/003 CLOSED**; **STG-LIM-004 READY_FOR_CLOSURE_REVIEW**; **STG-LIM-005/006 CLOSED** |
 | Remote server available | **yes** (Selectel 161.104.53.221) |
 | Final go/no-go owner | **Феликс Асаев** — owner approved; production-ready blocked by PR-GAP-001 |
 | SoT owner | **Феликс Асаев** — approved |
@@ -123,6 +123,7 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | W3-FB-DEMO-SEED-SERVER-APPROVAL-001 | 2026-07-13 | — | CROSS_ENTITY | TO/SH/BR demos | staging demo seed server execution approval | P3 | Operator approved server seed run; agent SSH attempt no output capture; pending local operator execution | COMPLETED | — | seed выполнен verification | DEMO_SEED_SERVER_EXECUTION_APPROVED_PENDING_RUN — production_ready_claimed=no, seed_executed=pending, secrets_captured=no |
 | W3-FB-DEMO-SEED-COMPLETE-001 | 2026-07-13 | — | CROSS_ENTITY | TO/SH/BR demos | staging demo seed execution complete | P3 | Operator confirmed seed выполнен; STG-LIM-005/006 closed; machine verify output not attached | COMPLETED | — | DNS A-record / web-admin deploy | DEMO_SEED_EXECUTION_OPERATOR_CONFIRMED_COMPLETE — stg_lim_005=CLOSED, stg_lim_006=CLOSED, production_ready_claimed=no, seed_executed=yes, staging_writes_executed=yes, secrets_captured=no |
 | W3-FB-HTTP-STAGING-PILOT-REGRESSION-001 | 2026-07-14 | — | CROSS_ENTITY | TO/SH/BR demos | HTTP staging controlled pilot regression | P2 | Continued controlled pilot without DNS; machine-captured verify PASS via local PowerShell | COMPLETED | — | DNS A-record / web-admin deploy (separate approval) | HTTP_STAGING_CONTROLLED_PILOT_REGRESSION_PASS — production_ready_claimed=no, writes_executed=no, secrets_captured=no, dns_pending=yes |
+| W3-FB-STG-LIM-004-WEB-ADMIN-DEPLOY-001 | 2026-07-17 | — | CROSS_ENTITY | TO/SH/BR demos | STG-LIM-004 web-admin deploy | P2 | Static web-admin deployed to HTTPS staging; SPA root/login PASS; API proxy PASS | completed | — | STG-LIM-004 closure review | STG_LIM_004_WEB_ADMIN_DEPLOY_PASS — domain=staging.бинтранс.рф, punycode=staging.xn--80abvubqje.xn--p1ai, target_ip=161.104.53.221, build=PASS, https_root=200, https_login=PASS, https_health=200, http_redirect=PASS, api_proxy_readonly=200, stg_lim_004=READY_FOR_CLOSURE_REVIEW, production_ready_claimed=no, backend_frontend_source_changed=no, nginx_changed=yes, ufw_changed=no, cors_env_changed=no, web_admin_deployed=yes, writes_executed=no, secrets_captured=no, certificate_private_key_captured=no |
 | W3-FB-STG-LIM-002-CLOSURE-001 | 2026-07-17 | — | CROSS_ENTITY | TO/SH/BR demos | STG-LIM-002 HTTPS closure | P1 | STG-LIM-002 closed after HTTPS/Certbot verification; closure re-check HTTPS 200 and redirect 301 PASS | completed | — | web-admin deploy (explicit approval) | STG-LIM-002_CLOSED_HTTPS_CERTBOT_VERIFIED — domain=staging.бинтранс.рф, punycode=staging.xn--80abvubqje.xn--p1ai, target_ip=161.104.53.221, https_health_punycode=200, https_health_cyrillic=200, http_redirect=PASS, certbot_renewal_dry_run=PASS, stg_lim_002=CLOSED, stg_lim_004=OPEN, production_ready_claimed=no, ufw_changed=no, nginx_changed_during_closure=no, certbot_executed_during_closure=no, cors_env_changed=no, web_admin_deployed=no, writes_executed=no, secrets_captured=no, certificate_private_key_captured=no |
 | W3-FB-STG-LIM-002-CERTBOT-RETRY-AFTER-EGRESS-001 | 2026-07-17 | — | CROSS_ENTITY | TO/SH/BR demos | STG-LIM-002 Certbot retry after Selectel egress fix | P1 | Certbot PASS; HTTPS 200; HTTP redirect 301; renewal dry-run PASS | completed | — | STG-LIM-002 closure review | STG_LIM_002_CERTBOT_RETRY_AFTER_EGRESS_PASS — domain=staging.бинтранс.рф, punycode=staging.xn--80abvubqje.xn--p1ai, target_ip=161.104.53.221, server_acme_dns=PASS, server_acme_https_directory=PASS, certbot_retry=PASS, https_health=200, http_health=200, http_redirect=PASS, certbot_renewal_dry_run=PASS, stg_lim_002=READY_FOR_CLOSURE_REVIEW, stg_lim_004=OPEN, production_ready_claimed=no, nginx_changed=yes, certbot_executed=yes, ufw_changed=no, cors_env_changed=no, web_admin_deployed=no, writes_executed=no, secrets_captured=no, certificate_private_key_captured=no |
 | W3-FB-STG-LIM-002-DNS-CERTBOT-RETRY-001 | 2026-07-17 | — | CROSS_ENTITY | TO/SH/BR demos | STG-LIM-002 outbound DNS fix + Certbot retry | P1 | systemd-resolved reconfigured; outbound DNS still FAIL; ACME unreachable; Certbot not re-run; HTTP 200 remains | failed | — | allow Selectel SG outbound egress / re-run retry | STG_LIM_002_OUTBOUND_DNS_FIX_FAIL — domain=staging.бинтранс.рф, punycode=staging.xn--80abvubqje.xn--p1ai, target_ip=161.104.53.221, server_outbound_dns=FAIL, acme_directory=FAIL, certbot_retry=FAIL, https_health=FAIL, http_health=200, http_redirect=FAIL, certbot_renewal_dry_run=FAIL, stg_lim_002=OPEN, stg_lim_004=OPEN, production_ready_claimed=no, nginx_changed=no, certbot_executed=no, ufw_changed=no, cors_env_changed=no, web_admin_deployed=no, writes_executed=no, secrets_captured=no, certificate_private_key_captured=no |
@@ -151,6 +152,35 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | W3-FB-TENANT-ISOLATION-OWNER-APPROVAL-001 | 2026-06-23 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness tenant isolation owner approval gate | P2 | Tenant isolation owner approval gate prepared; named owner TBD | COMPLETED | Security / Architecture — TBD | Tenant Isolation Owner Final Approval Pack v0.1 | TENANT_ISOLATION_OWNER_APPROVAL_GATE_PREPARED_PENDING_OWNER_ASSIGNMENT — pr_gap=PR-GAP-006, production_ready_claimed=no, code_changed=no, write_operations_executed=no, secrets_captured=no |
 | W3-FB-TENANT-ISOLATION-REVIEW-001 | 2026-06-23 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness tenant isolation evidence review | P2 | Tenant isolation evidence reviewed; owner approval still required | COMPLETED | Security / Architecture — TBD | Tenant Isolation Owner Approval Pack v0.1 | TENANT_ISOLATION_EVIDENCE_REVIEWED_PENDING_OWNER_APPROVAL — pr_gap=PR-GAP-006, pr_gap_status=TENANT_ISOLATION_EVIDENCE_REVIEWED_PENDING_OWNER_APPROVAL, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, code_changed=no, write_operations_executed=no, secrets_captured=no |
 | W3-FB-TENANT-ISOLATION-EVIDENCE-001 | 2026-06-23 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness tenant isolation evidence | P2 | Tenant isolation evidence pack created for low-code production readiness gap closure | COMPLETED | Security / Architecture — TBD | Tenant Isolation Evidence Review Pack v0.1 | TENANT_ISOLATION_EVIDENCE_PACK_CREATED_PENDING_REVIEW — pr_gap=PR-GAP-006, pr_gap_status=TENANT_ISOLATION_EVIDENCE_PACK_CREATED_PENDING_REVIEW, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, code_changed=no, write_operations_executed=no, secrets_captured=no |
+
+### W3-FB-STG-LIM-004-WEB-ADMIN-DEPLOY-001
+
+- **entity_type:** CROSS_ENTITY
+- **category:** STG-LIM-004 web-admin deploy
+- **severity:** P2
+- **status:** completed
+- **summary:** Static web-admin deployed to HTTPS staging; SPA root/login PASS; API proxy PASS
+- **decision:** STG_LIM_004_WEB_ADMIN_DEPLOY_PASS
+- **production_ready_claimed:** no
+- **domain:** staging.бинтранс.рф
+- **punycode:** staging.xn--80abvubqje.xn--p1ai
+- **target_ip:** 161.104.53.221
+- **build:** PASS — nuxi generate
+- **https_root:** PASS 200
+- **https_login:** PASS — 301 to /login/ then 200
+- **https_health:** PASS 200
+- **http_redirect:** PASS — 301
+- **api_proxy_readonly:** PASS 200
+- **stg_lim_004:** READY_FOR_CLOSURE_REVIEW
+- **backend_frontend_source_changed:** no
+- **nginx_changed:** yes — SPA + API proxy
+- **ufw_changed:** no
+- **cors_env_changed:** no
+- **web_admin_deployed:** yes
+- **writes_executed:** no
+- **secrets_captured:** no
+- **certificate_private_key_captured:** no
+- **next_pack:** STG-LIM-004 closure review
 
 ### W3-FB-STG-LIM-002-CLOSURE-001
 

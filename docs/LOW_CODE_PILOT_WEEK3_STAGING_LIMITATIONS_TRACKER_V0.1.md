@@ -23,7 +23,7 @@ active
 | STG-LIM-001 | HTTP-only IP access | **CLOSED** | STG-LIM-001_CLOSED_DNS_VERIFIED | P1 |
 | STG-LIM-002 | HTTPS / Certbot not configured | **CLOSED** | STG-LIM-002_CLOSED_HTTPS_CERTBOT_VERIFIED | P1 |
 | STG-LIM-003 | SSH 22 Selectel Security Group /32 restriction | **CLOSED** | STG-LIM-003_CLOSED_SSH_SG_VERIFIED | P0 |
-| STG-LIM-004 | Web-admin UI not deployed | OPEN_WEB_ADMIN_DEPLOY_PLAN_CREATED | WEB_ADMIN_DEPLOY_PLAN_CREATED_PENDING_EXECUTION | P2 |
+| STG-LIM-004 | Web-admin UI not deployed | READY_FOR_CLOSURE_REVIEW | STG_LIM_004_WEB_ADMIN_DEPLOY_PASS | P2 |
 | STG-LIM-005 | Full demo UI seed-data not executed | **CLOSED** | DEMO_SEED_EXECUTION_OPERATOR_CONFIRMED_COMPLETE | P3 |
 | STG-LIM-006 | seed-lowcode-demo custom field values skipped | **CLOSED** | DEMO_SEED_EXECUTION_OPERATOR_CONFIRMED_COMPLETE | P3 |
 
@@ -313,30 +313,55 @@ closed — STG-LIM-003_CLOSED_SSH_SG_VERIFIED (2026-07-17)
 Status:
 
 ```text
-OPEN_WEB_ADMIN_DEPLOY_PLAN_CREATED
+READY_FOR_CLOSURE_REVIEW
 ```
 
 Decision:
 
 ```text
-WEB_ADMIN_DEPLOY_PLAN_CREATED_PENDING_EXECUTION
+STG_LIM_004_WEB_ADMIN_DEPLOY_PASS
 ```
 
 Web-admin deployed:
 
 ```text
-no
+yes — static SPA at /var/www/bintrans-web-admin via Nginx HTTPS
 ```
 
-API read-only smoke:
+HTTPS root:
 
 ```text
-pass — STAGING_API_READ_ONLY_SMOKE_PASS
+PASS 200 — https://staging.xn--80abvubqje.xn--p1ai/
+```
+
+HTTPS login route:
+
+```text
+PASS — 301 to /login/ then 200 text/html
+```
+
+HTTPS health:
+
+```text
+PASS 200 — proxied to API gateway
+```
+
+HTTP redirect:
+
+```text
+PASS — 301 to HTTPS
+```
+
+API proxy:
+
+```text
+PASS — /api/ proxied to 127.0.0.1:8080; read-only low-code active template 200
 ```
 
 Evidence:
 
 ```text
+docs/LOW_CODE_PILOT_WEEK3_STG_LIM_004_WEB_ADMIN_DEPLOY_EVIDENCE_V0.1.md
 docs/LOW_CODE_PILOT_WEEK3_WEB_ADMIN_DEPLOY_PLAN_V0.1.md
 docs/LOW_CODE_PILOT_WEEK3_WEB_ADMIN_DEPLOY_CHECKLIST_V0.1.md
 docs/LOW_CODE_PILOT_WEEK3_STAGING_API_READ_ONLY_SMOKE_EVIDENCE_V0.1.md
@@ -409,6 +434,6 @@ not claimed
 ## Next Recommended Event
 
 ```text
-STG-LIM-004: OPEN — web-admin deploy pending (explicit approval required)
-Web-admin Deploy Execution Pack v0.1 (operator approval required)
+STG-LIM-004 closure review pack
+Web-admin Deploy Execution Pack v0.1 complete — closure pending
 ```
