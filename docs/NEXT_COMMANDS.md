@@ -9,24 +9,20 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Production deployment scope definition.
+Snapshot confirmation gate.
 ```
 
 ## Current status
 
 ```text
-- Owner production-ready approval: RECORDED
-- Production deployment preparation: APPROVED
-- Production deployment execution approval: RECORDED
 - Production deployment scope: DEFINED
+- Execution approval: RECORDED
+- Execution pack: BLOCKED_PENDING_SNAPSHOT_CONFIRMATION
 - Target environment: current Selectel VM / current staging-to-production promotion
 - Target domain: бинтранс.рф
-- Deployment window: 2026-07-17 23:00–01:00 MSK
-- Responsible operator: Феликс Асаев
-- Go/no-go owner: Феликс Асаев
+- Server IP: 161.104.53.221
 - Backup/snapshot required: yes
 - Rollback required: yes
-- Production deployment execution pack: READY_TO_PREPARE
 - Production deploy: not executed
 - Staging UI: https://staging.бинтранс.рф/
 ```
@@ -34,10 +30,20 @@ Production deployment scope definition.
 ## Next
 
 ```text
-1. Prepare PRODUCTION_DEPLOYMENT_EXECUTION_PACK.
-2. Execution pack must include backup/snapshot confirmation before any changes.
-3. Execution pack must stop if backup/snapshot is not confirmed.
-4. Keep secrets, cert files, private keys, server configs, and build archives out of repo.
+Required next action:
+Owner/operator must create or confirm Selectel snapshot/backup and provide:
+
+SNAPSHOT_CONFIRMED
+Provider: Selectel
+Server: 161.104.53.221
+Snapshot/backup name: <name>
+Created at: <YYYY-MM-DD HH:MM MSK>
+Retention: <manual snapshot / 7 days / other>
+Rollback allowed: yes
+Owner: Феликс Асаев
+
+Do not run production deployment execution pack before snapshot confirmation.
+Keep secrets, cert files, private keys, server configs, and build archives out of repo.
 ```
 
 ## Current active staging domain
