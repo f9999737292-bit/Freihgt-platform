@@ -14,7 +14,7 @@ This document does not change server state.
 | --- | --- |
 | Production deployment scope | DEFINED |
 | Execution approval | RECORDED |
-| Execution pack | BLOCKED_PENDING_SNAPSHOT_CONFIRMATION |
+| Execution pack | BLOCKED_PENDING_PRODUCTION_DNS |
 | Backup/snapshot required | yes |
 | Rollback required | yes |
 | Production deploy | not executed |
@@ -45,17 +45,35 @@ Rollback allowed: yes
 Owner: Феликс Асаев
 ```
 
+## Snapshot Confirmation
+
+```text
+SNAPSHOT_CONFIRMED
+Provider: Selectel
+Server: 161.104.53.221
+Snapshot/backup name: 6450ba4f-5e95-4052-a0fc-dea853399dad
+Created at: 2026-07-20 14:52 MSK
+Retention: manual backup / no explicit retention shown in Selectel
+Backup type: Полный
+Size: 9 ГБ
+Rollback allowed: yes
+Owner: Феликс Асаев
+```
+
 ## Current Decision
 
 ```text
-SNAPSHOT_CONFIRMATION_REQUIRED
+SNAPSHOT_CONFIRMATION_CONFIRMED
 ```
 
 ## Execution Status
 
 ```text
-Production deployment execution pack: BLOCKED_PENDING_SNAPSHOT_CONFIRMATION
+Production deployment execution pack: BLOCKED_PENDING_PRODUCTION_DNS
 Production deploy executed: no
+Production execution decision: PRODUCTION_DEPLOYMENT_EXECUTION_FAIL
+Blocking reason: production apex DNS A record missing on 1.1.1.1 and 8.8.8.8
+Required DNS: бинтранс.рф A 161.104.53.221
 ```
 
 ## References

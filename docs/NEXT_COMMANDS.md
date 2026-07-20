@@ -9,40 +9,37 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Snapshot confirmation gate.
+Production deployment execution.
 ```
 
 ## Current status
 
 ```text
-- Production deployment scope: DEFINED
-- Execution approval: RECORDED
-- Execution pack: BLOCKED_PENDING_SNAPSHOT_CONFIRMATION
-- Target environment: current Selectel VM / current staging-to-production promotion
-- Target domain: бинтранс.рф
-- Server IP: 161.104.53.221
-- Backup/snapshot required: yes
-- Rollback required: yes
+- Snapshot confirmation: CONFIRMED
+- Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
+- Production deployment execution: FAIL
+- Blocking reason: production DNS not ready
+- Required DNS: бинтранс.рф A 161.104.53.221
+- Target production domain: https://бинтранс.рф/
+- Target production punycode: https://xn--80abvubqje.xn--p1ai/
+- Staging domain preserved: https://staging.бинтранс.рф/
 - Production deploy: not executed
-- Staging UI: https://staging.бинтранс.рф/
+- Rollback allowed: yes
+- Server IP: 161.104.53.221
 ```
 
 ## Next
 
 ```text
 Required next action:
-Owner/operator must create or confirm Selectel snapshot/backup and provide:
+Create production apex DNS A-record:
 
-SNAPSHOT_CONFIRMED
-Provider: Selectel
-Server: 161.104.53.221
-Snapshot/backup name: <name>
-Created at: <YYYY-MM-DD HH:MM MSK>
-Retention: <manual snapshot / 7 days / other>
-Rollback allowed: yes
-Owner: Феликс Асаев
+бинтранс.рф A 161.104.53.221
+xn--80abvubqje.xn--p1ai A 161.104.53.221
 
-Do not run production deployment execution pack before snapshot confirmation.
+Verify on 1.1.1.1 and 8.8.8.8, then retry PRODUCTION_DEPLOYMENT_EXECUTION_PACK.
+
+Do not claim production deploy executed until all required checks PASS.
 Keep secrets, cert files, private keys, server configs, and build archives out of repo.
 ```
 
