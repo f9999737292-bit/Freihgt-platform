@@ -9,21 +9,20 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Production deployment execution retry v0.3.
+Production deployment closure review.
 ```
 
 ## Current status
 
 ```text
 - Production deployment execution retry v0.3: PASS
+- Production deployment closure: CLOSED
 - Production domain: https://бинтранс.рф/
 - Production punycode: https://xn--80abvubqje.xn--p1ai/
 - Staging domain preserved: https://staging.бинтранс.рф/
 - Production deploy: executed
-- Snapshot confirmation: CONFIRMED
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
 - Server-side Nginx backup: /root/prod-deploy-retry-v03-final-backup-20260720_162412
-- freight-staging sites-enabled: removed (apex catch-all fix)
 - Rollback allowed: yes
 - Server IP: 161.104.53.221
 ```
@@ -31,11 +30,11 @@ Production deployment execution retry v0.3.
 ## Next
 
 ```text
-1. Run production deployment closure review pack.
-2. Continue monitoring production and staging endpoints.
+1. Run post-deployment monitoring pack.
+2. Keep production/staging read-only monitoring active.
 3. Keep secrets, cert files, private keys, server configs, and build archives out of repo.
 
-See docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_DEPLOYMENT_EXECUTION_RETRY_V03_EVIDENCE_V0.1.md
+See docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_DEPLOYMENT_CLOSURE_NOTE_V0.1.md
 ```
 
 ## Current active staging domain
