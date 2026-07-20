@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Production deployment closure review.
+Post-deployment monitoring baseline v0.1.
 ```
 
 ## Current status
@@ -17,10 +17,12 @@ Production deployment closure review.
 ```text
 - Production deployment execution retry v0.3: PASS
 - Production deployment closure: CLOSED
+- Post-deployment monitoring baseline v0.1: PASS
 - Production domain: https://бинтранс.рф/
 - Production punycode: https://xn--80abvubqje.xn--p1ai/
 - Staging domain preserved: https://staging.бинтранс.рф/
 - Production deploy: executed
+- P0/P1 alerts triggered: none
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
 - Server-side Nginx backup: /root/prod-deploy-retry-v03-final-backup-20260720_162412
 - Rollback allowed: yes
@@ -30,11 +32,11 @@ Production deployment closure review.
 ## Next
 
 ```text
-1. Run post-deployment monitoring pack.
-2. Keep production/staging read-only monitoring active.
+1. Continue event-based production/staging read-only monitoring (cadence runbook).
+2. Optional: post-deployment monitoring cycle v0.2 on schedule or stakeholder request.
 3. Keep secrets, cert files, private keys, server configs, and build archives out of repo.
 
-See docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_DEPLOYMENT_CLOSURE_NOTE_V0.1.md
+See docs/LOW_CODE_PILOT_WEEK3_POST_DEPLOYMENT_MONITORING_NOTE_V0.1.md
 ```
 
 ## Current active staging domain
