@@ -9,32 +9,33 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Nginx vhost investigation after production deployment retry failure.
+Production deployment execution retry v0.3.
 ```
 
 ## Current status
 
 ```text
-- Production deployment retry: FAIL
-- Staging: preserved — https://staging.бинтранс.рф/
-- Production deploy: not executed
-- Investigation: COMPLETE
-- Root cause: no enabled production vhost; HTTP apex hits freight-staging default → API gateway 404 JSON
-- Production cert on server: yes (xn--80abvubqje.xn--p1ai, expires 2026-10-18) — not wired to nginx
+- Production deployment execution retry v0.3: PASS
+- Production domain: https://бинтранс.рф/
+- Production punycode: https://xn--80abvubqje.xn--p1ai/
+- Staging domain preserved: https://staging.бинтранс.рф/
+- Production deploy: executed
+- Snapshot confirmation: CONFIRMED
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
-- Server-side Nginx backup: /root/prod-deploy-retry-backup-20260720_154539
+- Server-side Nginx backup: /root/prod-deploy-retry-v03-final-backup-20260720_162412
+- freight-staging sites-enabled: removed (apex catch-all fix)
+- Rollback allowed: yes
 - Server IP: 161.104.53.221
 ```
 
 ## Next
 
 ```text
-1. Prepare fixed PRODUCTION_DEPLOYMENT_EXECUTION_RETRY_PACK v0.3 based on vhost findings.
-2. Enable dedicated production nginx vhost for xn--80abvubqje.xn--p1ai using existing cert.
-3. Keep production deploy blocked until v0.3 is explicitly approved and executed.
-4. Keep secrets, cert files, private keys, server configs, and build archives out of repo.
+1. Run production deployment closure review pack.
+2. Continue monitoring production and staging endpoints.
+3. Keep secrets, cert files, private keys, server configs, and build archives out of repo.
 
-See docs/LOW_CODE_PILOT_WEEK3_NGINX_VHOST_INVESTIGATION_EVIDENCE_V0.1.md
+See docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_DEPLOYMENT_EXECUTION_RETRY_V03_EVIDENCE_V0.1.md
 ```
 
 ## Current active staging domain

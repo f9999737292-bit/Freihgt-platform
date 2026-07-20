@@ -97,7 +97,7 @@ Backup:
 ## Production Deploy Status
 
 ```text
-not executed
+executed — retry v0.3 PASS (2026-07-20)
 ```
 
 ## Rollback
@@ -109,7 +109,7 @@ Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
 Server-side Nginx backup path: n/a — server script not executed
 ```
 
-## Retry
+## Retry v0.2
 
 ```text
 Decision: PRODUCTION_DEPLOYMENT_EXECUTION_RETRY_FAIL
@@ -119,6 +119,17 @@ Retry blocker: PRODUCTION_DEPLOYMENT_EXECUTION_RETRY_SERVER_HTTPS_VERIFICATION_F
 Production DNS gate retry: PASS
 Production deploy executed: no
 Rollback triggered: yes — ROLLBACK_NGINX_RESTORED=PASS
+```
+
+## Retry v0.3
+
+```text
+Decision: PRODUCTION_DEPLOYMENT_EXECUTION_RETRY_V03_PASS
+Evidence: docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_DEPLOYMENT_EXECUTION_RETRY_V03_EVIDENCE_V0.1.md
+Retry date: 2026-07-20
+Fix applied: enable production vhost; remove freight-staging from sites-enabled
+Production deploy executed: yes
+Rollback triggered: no
 ```
 
 ## Safety
