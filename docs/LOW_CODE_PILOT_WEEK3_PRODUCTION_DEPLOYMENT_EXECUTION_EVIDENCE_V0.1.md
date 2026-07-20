@@ -109,6 +109,18 @@ Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
 Server-side Nginx backup path: n/a — server script not executed
 ```
 
+## Retry
+
+```text
+Decision: PRODUCTION_DEPLOYMENT_EXECUTION_RETRY_FAIL
+Evidence: docs/LOW_CODE_PILOT_WEEK3_PRODUCTION_DEPLOYMENT_EXECUTION_RETRY_EVIDENCE_V0.1.md
+Retry date: 2026-07-20
+Retry blocker: PRODUCTION_DEPLOYMENT_EXECUTION_RETRY_SERVER_HTTPS_VERIFICATION_FAIL
+Production DNS gate retry: PASS
+Production deploy executed: no
+Rollback triggered: yes — ROLLBACK_NGINX_RESTORED=PASS
+```
+
 ## Safety
 
 ```text

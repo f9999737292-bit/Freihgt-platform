@@ -9,22 +9,25 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Production deployment execution.
+Production deployment execution retry.
 ```
 
 ## Current status
 
 ```text
+- Previous production deployment execution: FAIL due DNS gate
+- Production DNS gate: PASS
 - Snapshot confirmation: CONFIRMED
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
-- Production deployment execution: FAIL
-- Blocking reason: production DNS not ready
-- Required DNS: бинтранс.рф A 161.104.53.221
+- Production deployment execution retry: FAIL
+- Retry blocker: server HTTPS verification fail; automatic Nginx rollback PASS
+- Certbot cert issued on server: yes (xn--80abvubqje.xn--p1ai, not enabled after rollback)
 - Target production domain: https://бинтранс.рф/
 - Target production punycode: https://xn--80abvubqje.xn--p1ai/
 - Staging domain preserved: https://staging.бинтранс.рф/
 - Production deploy: not executed
 - Rollback allowed: yes
+- Server-side Nginx backup: /root/prod-deploy-retry-backup-20260720_154539
 - Server IP: 161.104.53.221
 ```
 
@@ -32,12 +35,8 @@ Production deployment execution.
 
 ```text
 Required next action:
-Create production apex DNS A-record:
-
-бинтранс.рф A 161.104.53.221
-xn--80abvubqje.xn--p1ai A 161.104.53.221
-
-Verify on 1.1.1.1 and 8.8.8.8, then retry PRODUCTION_DEPLOYMENT_EXECUTION_PACK.
+Investigate production Nginx vhost conflict / HTTP root 404 application/json and server HTTPS verify failure.
+Retry production deployment execution after root cause fix.
 
 Do not claim production deploy executed until all required checks PASS.
 Keep secrets, cert files, private keys, server configs, and build archives out of repo.
