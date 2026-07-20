@@ -9,24 +9,19 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Production deployment execution retry.
+Nginx vhost investigation after production deployment retry failure.
 ```
 
 ## Current status
 
 ```text
-- Previous production deployment execution: FAIL due DNS gate
-- Production DNS gate: PASS
-- Snapshot confirmation: CONFIRMED
-- Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
-- Production deployment execution retry: FAIL
-- Retry blocker: server HTTPS verification fail; automatic Nginx rollback PASS
-- Certbot cert issued on server: yes (xn--80abvubqje.xn--p1ai, not enabled after rollback)
-- Target production domain: https://бинтранс.рф/
-- Target production punycode: https://xn--80abvubqje.xn--p1ai/
-- Staging domain preserved: https://staging.бинтранс.рф/
+- Production deployment retry: FAIL
+- Staging: preserved — https://staging.бинтранс.рф/
 - Production deploy: not executed
-- Rollback allowed: yes
+- Investigation: COMPLETE
+- Root cause: no enabled production vhost; HTTP apex hits freight-staging default → API gateway 404 JSON
+- Production cert on server: yes (xn--80abvubqje.xn--p1ai, expires 2026-10-18) — not wired to nginx
+- Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
 - Server-side Nginx backup: /root/prod-deploy-retry-backup-20260720_154539
 - Server IP: 161.104.53.221
 ```
@@ -34,12 +29,12 @@ Production deployment execution retry.
 ## Next
 
 ```text
-Required next action:
-Investigate production Nginx vhost conflict / HTTP root 404 application/json and server HTTPS verify failure.
-Retry production deployment execution after root cause fix.
+1. Prepare fixed PRODUCTION_DEPLOYMENT_EXECUTION_RETRY_PACK v0.3 based on vhost findings.
+2. Enable dedicated production nginx vhost for xn--80abvubqje.xn--p1ai using existing cert.
+3. Keep production deploy blocked until v0.3 is explicitly approved and executed.
+4. Keep secrets, cert files, private keys, server configs, and build archives out of repo.
 
-Do not claim production deploy executed until all required checks PASS.
-Keep secrets, cert files, private keys, server configs, and build archives out of repo.
+See docs/LOW_CODE_PILOT_WEEK3_NGINX_VHOST_INVESTIGATION_EVIDENCE_V0.1.md
 ```
 
 ## Current active staging domain
