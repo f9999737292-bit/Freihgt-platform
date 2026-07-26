@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Local rollback docs review.
+Local Selectel/staging modified docs review.
 ```
 
 ## Current status
@@ -20,12 +20,10 @@ Local rollback docs review.
 - Production: https://бинтранс.рф/ — PASS
 - Staging: https://staging.бинтранс.рф/ — PASS
 - Operating mode: event-based monitoring
-- Rollback docs reviewed: LOCAL_ROLLBACK_DOCS_OWNER_DECISION_REQUIRED
-- Rollback docs decision: keep local / no commit for now unless explicit rollback owner approval
-- Rollback executed: no
-- Obsolete Selectel/domain docs: LOCAL_OBSOLETE_SELECTEL_DOMAIN_DOCS_ARCHIVED — e112491
-- Selectel/staging modified docs: pending review
-- Scripts: pending review
+- Rollback docs reviewed and kept local — 598a8ae
+- Selectel/staging modified docs reviewed: LOCAL_SELECTEL_STAGING_MODIFIED_DOCS_OWNER_DECISION_REQUIRED
+- Selectel/staging docs decision: keep local / no commit for now unless explicit owner approval
+- Local scripts: pending review
 - web-admin-dist-staging.tar.gz: must not be committed
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
 - Server IP: 161.104.53.221
@@ -34,13 +32,13 @@ Local rollback docs review.
 ## Next
 
 ```text
-1. Review selectel/staging modified docs in a separate pack.
-2. Review local scripts only if needed.
-3. Do not commit rollback docs without explicit owner approval.
-4. Do not execute rollback unless a separate rollback decision pack is approved.
+1. Review local scripts in a separate pack if needed.
+2. Decide later whether to keep/archive/revert Selectel/staging modified docs.
+3. Do not commit Selectel/staging docs without explicit owner approval.
+4. Do not execute deploy/rollback without a separate approved pack.
 5. Continue event-based monitoring — no daily packs without incident or approved change.
 
-See docs/LOCAL_ROLLBACK_DOCS_REVIEW_V0.1.md
+See docs/LOCAL_SELECTEL_STAGING_MODIFIED_DOCS_REVIEW_V0.1.md
 ```
 
 ## Current active staging domain
