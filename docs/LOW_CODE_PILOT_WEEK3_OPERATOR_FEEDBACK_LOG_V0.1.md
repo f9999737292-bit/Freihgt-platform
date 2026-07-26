@@ -10,7 +10,7 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 
 | Metric | Value |
 |--------|-------|
-| Total entries | **110** |
+| Total entries | **111** |
 | Staging limitations | **STG-LIM-001..006 CLOSED — final review PASS** |
 | Production-readiness review | **READY_FOR_OWNER_PRODUCTION_APPROVAL** |
 | Owner production approval | **RECORDED — Феликс Асаев (2026-07-17)** |
@@ -51,7 +51,7 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | PR-GAP-006 | **CLOSED_APPROVED_BY_OWNER** |
 | Production ready claimed | **no** |
 | PM / Coordinator | **Феликс Асаев** |
-| Last updated | 2026-07-17 |
+| Last updated | 2026-07-26 |
 
 ## Feedback Table
 
@@ -134,6 +134,7 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | W3-FB-DEMO-SEED-SERVER-APPROVAL-001 | 2026-07-13 | — | CROSS_ENTITY | TO/SH/BR demos | staging demo seed server execution approval | P3 | Operator approved server seed run; agent SSH attempt no output capture; pending local operator execution | COMPLETED | — | seed выполнен verification | DEMO_SEED_SERVER_EXECUTION_APPROVED_PENDING_RUN — production_ready_claimed=no, seed_executed=pending, secrets_captured=no |
 | W3-FB-DEMO-SEED-COMPLETE-001 | 2026-07-13 | — | CROSS_ENTITY | TO/SH/BR demos | staging demo seed execution complete | P3 | Operator confirmed seed выполнен; STG-LIM-005/006 closed; machine verify output not attached | COMPLETED | — | DNS A-record / web-admin deploy | DEMO_SEED_EXECUTION_OPERATOR_CONFIRMED_COMPLETE — stg_lim_005=CLOSED, stg_lim_006=CLOSED, production_ready_claimed=no, seed_executed=yes, staging_writes_executed=yes, secrets_captured=no |
 | W3-FB-HTTP-STAGING-PILOT-REGRESSION-001 | 2026-07-14 | — | CROSS_ENTITY | TO/SH/BR demos | HTTP staging controlled pilot regression | P2 | Continued controlled pilot without DNS; machine-captured verify PASS via local PowerShell | COMPLETED | — | DNS A-record / web-admin deploy (separate approval) | HTTP_STAGING_CONTROLLED_PILOT_REGRESSION_PASS — production_ready_claimed=no, writes_executed=no, secrets_captured=no, dns_pending=yes |
+| W3-FB-POST-DEPLOYMENT-MONITORING-CYCLE-V02-001 | 2026-07-26 | — | CROSS_ENTITY | TO/SH/BR demos | post-deployment monitoring cycle v0.2 | P1 | Optional one-week/no-change read-only monitoring cycle; production and staging checks PASS; no P0/P1 alerts | completed | — | event-based monitoring cadence | POST_DEPLOYMENT_MONITORING_CYCLE_V02_PASS — production=https://бинтранс.рф/, staging=https://staging.бинтранс.рф/, prod_root=PASS_200, prod_login=PASS_200, prod_health=PASS_200, prod_api_to_sh_br=PASS_200, staging_root=PASS_200, staging_login=PASS_200, staging_health=PASS_200, staging_api_to_sh_br=PASS_200, nginx_t=PASS, prod_site_enabled=yes, stg_site_enabled=yes, freight_staging_disabled=yes, prod_cert_expires=2026-10-18, stg_cert_expires=2026-10-15, certbot_timer=active, docker_healthy=10/10, p0_triggered=no, p1_triggered=no, backend_frontend_source_changed=no, nginx_changed=no, dns_changed=no, certbot_executed=no, database_writes=no, secrets_captured=no, certificate_private_key_captured=no, evidence=LOW_CODE_PILOT_WEEK3_POST_DEPLOYMENT_MONITORING_CYCLE_V02_EVIDENCE_V0.1.md |
 | W3-FB-POST-DEPLOYMENT-MONITORING-001 | 2026-07-20 | — | CROSS_ENTITY | TO/SH/BR demos | post-deployment monitoring baseline | P1 | Read-only monitoring after deployment closure; production and staging checks PASS; no P0/P1 alerts | completed | **Артем Асаев** | event-based monitoring cadence / optional cycle v0.2 | POST_DEPLOYMENT_MONITORING_BASELINE_PASS — prior_decision=PRODUCTION_DEPLOYMENT_CLOSED, prod_https_root=PASS_200, prod_login=PASS_200, prod_health=PASS_200, prod_redirect=PASS_301, prod_api_to_sh_br=PASS_200, prod_cyrillic=PASS_200, staging_root=PASS_200, staging_health=PASS_200, staging_api_to_sh_br=PASS_200, prod_site_enabled=yes, stg_site_enabled=yes, freight_staging_disabled=yes, prod_cert_expires=2026-10-18, stg_cert_expires=2026-10-15, certbot_timer=active, docker_healthy=10/10, p0_triggered=no, p1_triggered=no, nginx_changed=no, certbot_executed=no, dns_changed=no, ufw_changed=no, backend_frontend_source_changed=no, database_writes=no, secrets_captured=no, certificate_private_key_captured=no, evidence=LOW_CODE_PILOT_WEEK3_POST_DEPLOYMENT_MONITORING_EVIDENCE_V0.1.md |
 | W3-FB-PRODUCTION-DEPLOYMENT-CLOSURE-001 | 2026-07-20 | — | CROSS_ENTITY | TO/SH/BR demos | production deployment closure review | P0 | Read-only closure review after retry v0.3 PASS; production and staging checks PASS; deployment closed | completed | **Феликс Асаев** | post-deployment monitoring pack | PRODUCTION_DEPLOYMENT_CLOSED — production_domain=бинтранс.рф, production_punycode=xn--80abvubqje.xn--p1ai, staging_preserved=yes, production_deploy_executed=yes, closure_review=PASS, prod_https_root=PASS_200, prod_login=PASS_200, prod_health=PASS_200, prod_redirect=PASS_301, prod_api=PASS_200, prod_cyrillic=PASS_200, staging_root=PASS_200, staging_health=PASS_200, staging_api=PASS_200, prod_site_enabled=yes, stg_site_enabled=yes, freight_staging_disabled=yes, certbot_timer=active, nginx_changed=no, certbot_executed=no, dns_changed=no, ufw_changed=no, backend_frontend_source_changed=no, database_writes=no, secrets_captured=no, certificate_private_key_captured=no |
 | W3-FB-PRODUCTION-DEPLOYMENT-EXECUTION-RETRY-V03-001 | 2026-07-20 | Феликс Асаев | CROSS_ENTITY | TO/SH/BR demos | production deployment execution retry v0.3 | P0 | Production vhost enabled with existing cert; freight-staging removed from sites-enabled; all production checks PASS; staging preserved | completed | **Феликс Асаев** | production deployment closure review pack | PRODUCTION_DEPLOYMENT_EXECUTION_RETRY_V03_PASS — snapshot_confirmation=SNAPSHOT_CONFIRMED, selectel_backup=6450ba4f-5e95-4052-a0fc-dea853399dad, nginx_backup=/root/prod-deploy-retry-v03-final-backup-20260720_162412, production_domain=бинтранс.рф, production_punycode=xn--80abvubqje.xn--p1ai, freight_staging_sites_enabled=removed, prod_https_root=PASS_200, prod_login=PASS_200, prod_health=PASS_200, prod_redirect=PASS_301, prod_api=PASS_200, prod_cyrillic=PASS_200, staging_preserved=PASS, production_deploy_executed=yes, rollback_triggered=no, certbot_executed=no, backend_frontend_source_changed=no, nginx_changed=yes, ufw_changed=no, dns_changed_by_pack=no, cors_env_changed=no, web_admin_redeployed=no, database_writes=no, secrets_captured=no, certificate_private_key_captured=no |
@@ -180,6 +181,37 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | W3-FB-TENANT-ISOLATION-OWNER-APPROVAL-001 | 2026-06-23 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness tenant isolation owner approval gate | P2 | Tenant isolation owner approval gate prepared; named owner TBD | COMPLETED | Security / Architecture — TBD | Tenant Isolation Owner Final Approval Pack v0.1 | TENANT_ISOLATION_OWNER_APPROVAL_GATE_PREPARED_PENDING_OWNER_ASSIGNMENT — pr_gap=PR-GAP-006, production_ready_claimed=no, code_changed=no, write_operations_executed=no, secrets_captured=no |
 | W3-FB-TENANT-ISOLATION-REVIEW-001 | 2026-06-23 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness tenant isolation evidence review | P2 | Tenant isolation evidence reviewed; owner approval still required | COMPLETED | Security / Architecture — TBD | Tenant Isolation Owner Approval Pack v0.1 | TENANT_ISOLATION_EVIDENCE_REVIEWED_PENDING_OWNER_APPROVAL — pr_gap=PR-GAP-006, pr_gap_status=TENANT_ISOLATION_EVIDENCE_REVIEWED_PENDING_OWNER_APPROVAL, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, code_changed=no, write_operations_executed=no, secrets_captured=no |
 | W3-FB-TENANT-ISOLATION-EVIDENCE-001 | 2026-06-23 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness tenant isolation evidence | P2 | Tenant isolation evidence pack created for low-code production readiness gap closure | COMPLETED | Security / Architecture — TBD | Tenant Isolation Evidence Review Pack v0.1 | TENANT_ISOLATION_EVIDENCE_PACK_CREATED_PENDING_REVIEW — pr_gap=PR-GAP-006, pr_gap_status=TENANT_ISOLATION_EVIDENCE_PACK_CREATED_PENDING_REVIEW, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, code_changed=no, write_operations_executed=no, secrets_captured=no |
+
+### W3-FB-POST-DEPLOYMENT-MONITORING-CYCLE-V02-001
+
+- **entity_type:** CROSS_ENTITY
+- **category:** post-deployment monitoring cycle v0.2
+- **severity:** P1
+- **status:** completed
+- **summary:** Optional one-week/no-change read-only monitoring cycle; production and staging checks PASS; no P0/P1 alerts
+- **decision:** POST_DEPLOYMENT_MONITORING_CYCLE_V02_PASS
+- **production:** https://бинтранс.рф/
+- **staging:** https://staging.бинтранс.рф/
+- **production_root:** PASS 200
+- **production_login:** PASS 200
+- **production_health:** PASS 200
+- **production_api_active_templates_to_sh_br:** PASS 200
+- **staging_root:** PASS 200
+- **staging_login:** PASS 200
+- **staging_health:** PASS 200
+- **staging_api_active_templates_to_sh_br:** PASS 200
+- **server_nginx_t:** PASS
+- **docker_containers:** PASS 10/10
+- **certbot_timer:** active
+- **p0_alerts:** none
+- **p1_alerts:** none
+- **backend_frontend_source_changed:** no
+- **nginx_changed:** no
+- **dns_changed:** no
+- **certbot_executed:** no
+- **database_writes:** no
+- **secrets_captured:** no
+- **certificate_private_key_captured:** no
 
 ### W3-FB-STG-LIM-004-CLOSURE-001
 

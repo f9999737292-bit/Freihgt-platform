@@ -9,20 +9,19 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Post-deployment monitoring baseline v0.1.
+Post-deployment monitoring cycle v0.2.
 ```
 
 ## Current status
 
 ```text
-- Production deployment execution retry v0.3: PASS
-- Production deployment closure: CLOSED
+- Production deployment: CLOSED
+- Production: https://бинтранс.рф/ — PASS
+- Staging: https://staging.бинтранс.рф/ — PASS
 - Post-deployment monitoring baseline v0.1: PASS
-- Production domain: https://бинтранс.рф/
-- Production punycode: https://xn--80abvubqje.xn--p1ai/
-- Staging domain preserved: https://staging.бинтранс.рф/
-- Production deploy: executed
-- P0/P1 alerts triggered: none
+- Monitoring cycle v0.2: PASS
+- P0/P1 alerts: none
+- Operating mode: event-based monitoring
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
 - Server-side Nginx backup: /root/prod-deploy-retry-v03-final-backup-20260720_162412
 - Rollback allowed: yes
@@ -32,11 +31,13 @@ Post-deployment monitoring baseline v0.1.
 ## Next
 
 ```text
-1. Continue event-based production/staging read-only monitoring (cadence runbook).
-2. Optional: post-deployment monitoring cycle v0.2 on schedule or stakeholder request.
-3. Keep secrets, cert files, private keys, server configs, and build archives out of repo.
+1. Continue event-based monitoring.
+2. Do not run daily packs without incident or approved change.
+3. If P0/P1 trigger appears, run incident response pack.
+4. If future production change is needed, run production change approval pack.
+5. Keep secrets, cert files, private keys, server configs, and build archives out of repo.
 
-See docs/LOW_CODE_PILOT_WEEK3_POST_DEPLOYMENT_MONITORING_NOTE_V0.1.md
+See docs/LOW_CODE_PILOT_WEEK3_POST_DEPLOYMENT_MONITORING_CYCLE_V02_NOTE_V0.1.md
 ```
 
 ## Current active staging domain
