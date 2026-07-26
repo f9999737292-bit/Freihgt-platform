@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Local staging regression pair decision.
+Local obsolete Selectel/domain docs archive.
 ```
 
 ## Current status
@@ -20,9 +20,10 @@ Local staging regression pair decision.
 - Production: https://бинтранс.рф/ — PASS
 - Staging: https://staging.бинтранс.рф/ — PASS
 - Operating mode: event-based monitoring
-- Cycle 005 evidence: committed — ec8ee8d
-- Staging regression pair: LOCAL_STAGING_REGRESSION_PAIR_KEEP_LOCAL
-- Obsolete Selectel/domain docs: archive candidates — pending owner decision
+- Staging regression pair decision: LOCAL_STAGING_REGRESSION_PAIR_KEEP_LOCAL — ee44c43
+- Obsolete Selectel/domain docs: LOCAL_OBSOLETE_SELECTEL_DOMAIN_DOCS_ARCHIVED
+- Archive location: D:\Projects\freight-platform-local-archive\obsolete_docs\20260726_225758
+- Local workspace still has rollback/selectel/staging modified docs, staging regression pair, scripts, and web-admin archive outside approved packs
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
 - Server IP: 161.104.53.221
 ```
@@ -30,12 +31,13 @@ Local staging regression pair decision.
 ## Next
 
 ```text
-1. Archive obsolete Selectel/domain docs only after explicit owner approval.
-2. Do not commit rollback/selectel/staging modified docs without separate owner approval.
-3. Do not commit web-admin-dist-staging.tar.gz.
-4. Continue event-based monitoring — no daily packs without incident or approved change.
+1. Decide whether to review rollback docs.
+2. Decide whether to review selectel/staging modified docs.
+3. Decide whether to review local scripts.
+4. Do not commit web-admin-dist-staging.tar.gz.
+5. Continue event-based monitoring — no daily packs without incident or approved change.
 
-See docs/LOCAL_STAGING_REGRESSION_PAIR_DECISION_V0.1.md
+See docs/LOCAL_OBSOLETE_SELECTEL_DOMAIN_DOCS_ARCHIVE_V0.1.md
 ```
 
 ## Current active staging domain
