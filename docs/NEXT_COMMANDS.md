@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Local workspace hygiene audit.
+Local runtime outputs archive.
 ```
 
 ## Current status
@@ -20,9 +20,9 @@ Local workspace hygiene audit.
 - Production: https://бинтранс.рф/ — PASS
 - Staging: https://staging.бинтранс.рф/ — PASS
 - Operating mode: event-based monitoring
-- Local workspace has uncommitted/untracked files outside approved packs
-- Hygiene audit: LOCAL_WORKSPACE_HYGIENE_OWNER_DECISION_REQUIRED
-- Owner decision required before delete/move/commit of local leftovers
+- Runtime outputs archived outside repo
+- Archive location: D:\Projects\freight-platform-local-archive\runtime_outputs\20260726_222453
+- Local workspace still has rollback/selectel/staging docs and untracked evidence/scripts/archive outside approved packs
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
 - Server-side Nginx backup: /root/prod-deploy-retry-v03-final-backup-20260720_162412
 - Rollback allowed: yes
@@ -32,13 +32,13 @@ Local workspace hygiene audit.
 ## Next
 
 ```text
-1. Review docs/LOCAL_WORKSPACE_HYGIENE_AUDIT_V0.1.md.
-2. Decide what to do with rollback/selectel/staging docs and untracked runtime files.
-3. Do not commit or delete local leftovers without explicit owner approval.
+1. Decide whether to review category A evidence docs.
+2. Do not commit rollback/selectel/staging docs without separate owner approval.
+3. Do not commit web-admin-dist-staging.tar.gz.
 4. Continue event-based monitoring — no daily packs without incident or approved change.
 5. Keep secrets, cert files, private keys, server configs, and build archives out of repo.
 
-See docs/LOCAL_WORKSPACE_HYGIENE_AUDIT_V0.1.md
+See docs/LOCAL_RUNTIME_OUTPUTS_ARCHIVE_V0.1.md
 ```
 
 ## Current active staging domain
