@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Local category A evidence docs review.
+Local Cycle 005 evidence commit decision.
 ```
 
 ## Current status
@@ -21,9 +21,10 @@ Local category A evidence docs review.
 - Staging: https://staging.бинтранс.рф/ — PASS
 - Operating mode: event-based monitoring
 - Runtime outputs archived: D:\Projects\freight-platform-local-archive\runtime_outputs\20260726_222453
-- Category A evidence docs reviewed: 6 candidates
-- Decision: LOCAL_CATEGORY_A_EVIDENCE_OWNER_DECISION_REQUIRED
-- Owner decision required before commit/archive/delete of evidence docs
+- Category A evidence docs reviewed: completed
+- Cycle 005 evidence: LOCAL_CYCLE_005_EVIDENCE_COMMIT_APPROVED — pending docs-only commit
+- Staging regression pair: owner decision pending
+- Obsolete Selectel/domain docs: archive candidates — not included
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
 - Server IP: 161.104.53.221
 ```
@@ -31,13 +32,13 @@ Local category A evidence docs review.
 ## Next
 
 ```text
-1. Review docs/LOCAL_CATEGORY_A_EVIDENCE_DOCS_REVIEW_V0.1.md.
-2. Decide whether selected evidence docs should be committed, archived, kept local, or deleted.
-3. Do not touch rollback/selectel/staging modified docs without separate owner approval.
-4. Do not commit web-admin-dist-staging.tar.gz.
+1. Commit Cycle 005 evidence only (awaiting user confirmation).
+2. Decide later whether to keep/archive/commit staging regression pair.
+3. Archive obsolete Selectel/domain docs only after explicit owner approval.
+4. Do not touch rollback/selectel/staging modified docs without separate owner approval.
 5. Continue event-based monitoring — no daily packs without incident or approved change.
 
-See docs/LOCAL_CATEGORY_A_EVIDENCE_DOCS_REVIEW_V0.1.md
+See docs/LOCAL_CYCLE_005_EVIDENCE_COMMIT_DECISION_V0.1.md
 ```
 
 ## Current active staging domain
