@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Local Selectel/staging modified docs review.
+Local scripts review.
 ```
 
 ## Current status
@@ -20,10 +20,11 @@ Local Selectel/staging modified docs review.
 - Production: https://бинтранс.рф/ — PASS
 - Staging: https://staging.бинтранс.рф/ — PASS
 - Operating mode: event-based monitoring
-- Rollback docs reviewed and kept local — 598a8ae
-- Selectel/staging modified docs reviewed: LOCAL_SELECTEL_STAGING_MODIFIED_DOCS_OWNER_DECISION_REQUIRED
-- Selectel/staging docs decision: keep local / no commit for now unless explicit owner approval
-- Local scripts: pending review
+- Local workspace hygiene review: LOCAL_WORKSPACE_HYGIENE_REVIEW_COMPLETE
+- Scripts decision: LOCAL_SCRIPTS_KEEP_LOCAL
+- Rollback docs: keep local — 598a8ae
+- Selectel/staging modified docs: keep local — 65723ba
+- Staging regression pair: keep local — ee44c43
 - web-admin-dist-staging.tar.gz: must not be committed
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
 - Server IP: 161.104.53.221
@@ -32,13 +33,12 @@ Local Selectel/staging modified docs review.
 ## Next
 
 ```text
-1. Review local scripts in a separate pack if needed.
-2. Decide later whether to keep/archive/revert Selectel/staging modified docs.
-3. Do not commit Selectel/staging docs without explicit owner approval.
-4. Do not execute deploy/rollback without a separate approved pack.
-5. Continue event-based monitoring — no daily packs without incident or approved change.
+1. Continue event-based monitoring — no daily packs without incident or approved change.
+2. Do not commit rollback/selectel/staging modified docs without explicit owner approval.
+3. Do not commit local scripts or web-admin-dist-staging.tar.gz.
+4. Re-open local hygiene review only on owner trigger or workspace drift.
 
-See docs/LOCAL_SELECTEL_STAGING_MODIFIED_DOCS_REVIEW_V0.1.md
+See docs/LOCAL_SCRIPTS_REVIEW_V0.1.md
 ```
 
 ## Current active staging domain
