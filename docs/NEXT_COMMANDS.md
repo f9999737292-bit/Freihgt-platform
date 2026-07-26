@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Local scripts review.
+Local workspace hygiene closure.
 ```
 
 ## Current status
@@ -20,12 +20,8 @@ Local scripts review.
 - Production: https://бинтранс.рф/ — PASS
 - Staging: https://staging.бинтранс.рф/ — PASS
 - Operating mode: event-based monitoring
-- Local workspace hygiene review: LOCAL_WORKSPACE_HYGIENE_REVIEW_COMPLETE
-- Scripts decision: LOCAL_SCRIPTS_KEEP_LOCAL
-- Rollback docs: keep local — 598a8ae
-- Selectel/staging modified docs: keep local — 65723ba
-- Staging regression pair: keep local — ee44c43
-- web-admin-dist-staging.tar.gz: must not be committed
+- Local workspace hygiene review: COMPLETE — LOCAL_WORKSPACE_HYGIENE_REVIEW_COMPLETE
+- Remaining local leftovers have owner decisions (10 modified, 5 untracked)
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
 - Server IP: 161.104.53.221
 ```
@@ -33,12 +29,12 @@ Local scripts review.
 ## Next
 
 ```text
-1. Continue event-based monitoring — no daily packs without incident or approved change.
-2. Do not commit rollback/selectel/staging modified docs without explicit owner approval.
-3. Do not commit local scripts or web-admin-dist-staging.tar.gz.
-4. Re-open local hygiene review only on owner trigger or workspace drift.
+1. Do not run daily packs without incident or approved change.
+2. If P0/P1 trigger appears, run incident response pack.
+3. If future production change is needed, run production change approval pack.
+4. Do not commit remaining local leftovers without explicit owner approval.
 
-See docs/LOCAL_SCRIPTS_REVIEW_V0.1.md
+See docs/LOCAL_WORKSPACE_HYGIENE_CLOSURE_V0.1.md
 ```
 
 ## Current active staging domain

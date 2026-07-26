@@ -10,7 +10,7 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 
 | Metric | Value |
 |--------|-------|
-| Total entries | **120** |
+| Total entries | **121** |
 | Staging limitations | **STG-LIM-001..006 CLOSED — final review PASS** |
 | Production-readiness review | **READY_FOR_OWNER_PRODUCTION_APPROVAL** |
 | Owner production approval | **RECORDED — Феликс Асаев (2026-07-17)** |
@@ -134,6 +134,7 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | W3-FB-DEMO-SEED-SERVER-APPROVAL-001 | 2026-07-13 | — | CROSS_ENTITY | TO/SH/BR demos | staging demo seed server execution approval | P3 | Operator approved server seed run; agent SSH attempt no output capture; pending local operator execution | COMPLETED | — | seed выполнен verification | DEMO_SEED_SERVER_EXECUTION_APPROVED_PENDING_RUN — production_ready_claimed=no, seed_executed=pending, secrets_captured=no |
 | W3-FB-DEMO-SEED-COMPLETE-001 | 2026-07-13 | — | CROSS_ENTITY | TO/SH/BR demos | staging demo seed execution complete | P3 | Operator confirmed seed выполнен; STG-LIM-005/006 closed; machine verify output not attached | COMPLETED | — | DNS A-record / web-admin deploy | DEMO_SEED_EXECUTION_OPERATOR_CONFIRMED_COMPLETE — stg_lim_005=CLOSED, stg_lim_006=CLOSED, production_ready_claimed=no, seed_executed=yes, staging_writes_executed=yes, secrets_captured=no |
 | W3-FB-HTTP-STAGING-PILOT-REGRESSION-001 | 2026-07-14 | — | CROSS_ENTITY | TO/SH/BR demos | HTTP staging controlled pilot regression | P2 | Continued controlled pilot without DNS; machine-captured verify PASS via local PowerShell | COMPLETED | — | DNS A-record / web-admin deploy (separate approval) | HTTP_STAGING_CONTROLLED_PILOT_REGRESSION_PASS — production_ready_claimed=no, writes_executed=no, secrets_captured=no, dns_pending=yes |
+| W3-FB-LOCAL-WORKSPACE-HYGIENE-CLOSURE-001 | 2026-07-26 | — | CROSS_ENTITY | TO/SH/BR demos | local workspace hygiene closure | P2 | Local workspace hygiene chain complete; all leftover categories reviewed or assigned owner decisions | completed | — | event-based monitoring steady state | LOCAL_WORKSPACE_HYGIENE_REVIEW_COMPLETE — production_mode=event_based_monitoring, runtime_outputs=archived, category_a_evidence=reviewed, cycle_005_evidence=committed, staging_regression_pair=keep_local, obsolete_selectel_domain=archived, rollback_docs=keep_local, selectel_staging_docs=keep_local, local_scripts=keep_local, web_admin_dist_staging_tar_gz=never_commit, modified_files=10, untracked_files=5, deleted_tracked=0, server_changed=no, production_changed=no, staging_changed=no, backend_frontend_source_changed=no, database_writes=no, secrets_captured=no, certificate_private_key_captured=no, evidence=LOCAL_WORKSPACE_HYGIENE_CLOSURE_V0.1.md |
 | W3-FB-LOCAL-SCRIPTS-REVIEW-001 | 2026-07-26 | — | CROSS_ENTITY | TO/SH/BR demos | local scripts review | P2 | Read-only review of 2 untracked local scripts; keep local; no commit | completed | — | event-based monitoring steady state | LOCAL_SCRIPTS_KEEP_LOCAL — scripts_reviewed=2, scripts_committed=no, scripts_moved=no, scripts_deleted=no, verify_script_executed=no, production_mode=event_based_monitoring, server_changed=no, production_changed=no, staging_changed=no, backend_frontend_source_changed=no, database_writes=no, secrets_captured=no, certificate_private_key_captured=no, next_decision=local_workspace_hygiene_review_complete, evidence=LOCAL_SCRIPTS_REVIEW_V0.1.md |
 | W3-FB-LOCAL-SELECTEL-STAGING-MODIFIED-DOCS-REVIEW-001 | 2026-07-26 | — | CROSS_ENTITY | TO/SH/BR demos | local Selectel/staging modified docs review | P2 | Read-only review of 7 modified Selectel/staging docs; keep local unless explicit owner approval | completed | — | local scripts review | LOCAL_SELECTEL_STAGING_MODIFIED_DOCS_OWNER_DECISION_REQUIRED — selectel_staging_docs_reviewed=yes, selectel_staging_docs_committed=no, selectel_staging_docs_moved=no, selectel_staging_docs_deleted=no, selectel_staging_docs_reverted=no, rollback_executed=no, production_mode=event_based_monitoring, server_changed=no, production_changed=no, staging_changed=no, backend_frontend_source_changed=no, database_writes=no, secrets_captured=no, certificate_private_key_captured=no, next_decision=local_scripts_review, evidence=LOCAL_SELECTEL_STAGING_MODIFIED_DOCS_REVIEW_V0.1.md |
 | W3-FB-LOCAL-ROLLBACK-DOCS-REVIEW-001 | 2026-07-26 | — | CROSS_ENTITY | TO/SH/BR demos | local rollback docs review | P2 | Read-only review of 3 modified rollback docs; keep local unless explicit rollback owner approval | completed | — | selectel/staging modified docs review | LOCAL_ROLLBACK_DOCS_OWNER_DECISION_REQUIRED — rollback_docs_reviewed=yes, rollback_docs_committed=no, rollback_docs_moved=no, rollback_docs_deleted=no, rollback_executed=no, production_mode=event_based_monitoring, server_changed=no, production_changed=no, backend_frontend_source_changed=no, database_writes=no, secrets_captured=no, certificate_private_key_captured=no, next_decision=selectel_staging_modified_docs_review, evidence=LOCAL_ROLLBACK_DOCS_REVIEW_V0.1.md |
@@ -190,6 +191,36 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | W3-FB-TENANT-ISOLATION-OWNER-APPROVAL-001 | 2026-06-23 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness tenant isolation owner approval gate | P2 | Tenant isolation owner approval gate prepared; named owner TBD | COMPLETED | Security / Architecture — TBD | Tenant Isolation Owner Final Approval Pack v0.1 | TENANT_ISOLATION_OWNER_APPROVAL_GATE_PREPARED_PENDING_OWNER_ASSIGNMENT — pr_gap=PR-GAP-006, production_ready_claimed=no, code_changed=no, write_operations_executed=no, secrets_captured=no |
 | W3-FB-TENANT-ISOLATION-REVIEW-001 | 2026-06-23 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness tenant isolation evidence review | P2 | Tenant isolation evidence reviewed; owner approval still required | COMPLETED | Security / Architecture — TBD | Tenant Isolation Owner Approval Pack v0.1 | TENANT_ISOLATION_EVIDENCE_REVIEWED_PENDING_OWNER_APPROVAL — pr_gap=PR-GAP-006, pr_gap_status=TENANT_ISOLATION_EVIDENCE_REVIEWED_PENDING_OWNER_APPROVAL, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, code_changed=no, write_operations_executed=no, secrets_captured=no |
 | W3-FB-TENANT-ISOLATION-EVIDENCE-001 | 2026-06-23 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness tenant isolation evidence | P2 | Tenant isolation evidence pack created for low-code production readiness gap closure | COMPLETED | Security / Architecture — TBD | Tenant Isolation Evidence Review Pack v0.1 | TENANT_ISOLATION_EVIDENCE_PACK_CREATED_PENDING_REVIEW — pr_gap=PR-GAP-006, pr_gap_status=TENANT_ISOLATION_EVIDENCE_PACK_CREATED_PENDING_REVIEW, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, code_changed=no, write_operations_executed=no, secrets_captured=no |
+
+### W3-FB-LOCAL-WORKSPACE-HYGIENE-CLOSURE-001
+
+- **entity_type:** CROSS_ENTITY
+- **category:** local workspace hygiene closure
+- **severity:** P2
+- **status:** completed
+- **summary:** Local workspace hygiene chain complete; all leftover categories reviewed or assigned owner decisions
+- **decision:** LOCAL_WORKSPACE_HYGIENE_REVIEW_COMPLETE
+- **production_mode:** event-based monitoring
+- **runtime_outputs:** archived
+- **category_a_evidence:** reviewed
+- **cycle_005_evidence:** committed
+- **staging_regression_pair:** keep local
+- **obsolete_selectel_domain:** archived
+- **rollback_docs:** keep local
+- **selectel_staging_docs:** keep local
+- **local_scripts:** keep local
+- **web_admin_dist_staging_tar_gz:** never commit
+- **modified_files:** 10
+- **untracked_files:** 5
+- **deleted_tracked:** 0
+- **server_changed:** no
+- **production_changed:** no
+- **staging_changed:** no
+- **backend_frontend_source_changed:** no
+- **database_writes:** no
+- **secrets_captured:** no
+- **certificate_private_key_captured:** no
+- **evidence:** docs/LOCAL_WORKSPACE_HYGIENE_CLOSURE_V0.1.md
 
 ### W3-FB-LOCAL-SCRIPTS-REVIEW-001
 
