@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Local runtime outputs archive.
+Local category A evidence docs review.
 ```
 
 ## Current status
@@ -20,25 +20,24 @@ Local runtime outputs archive.
 - Production: https://бинтранс.рф/ — PASS
 - Staging: https://staging.бинтранс.рф/ — PASS
 - Operating mode: event-based monitoring
-- Runtime outputs archived outside repo
-- Archive location: D:\Projects\freight-platform-local-archive\runtime_outputs\20260726_222453
-- Local workspace still has rollback/selectel/staging docs and untracked evidence/scripts/archive outside approved packs
+- Runtime outputs archived: D:\Projects\freight-platform-local-archive\runtime_outputs\20260726_222453
+- Category A evidence docs reviewed: 6 candidates
+- Decision: LOCAL_CATEGORY_A_EVIDENCE_OWNER_DECISION_REQUIRED
+- Owner decision required before commit/archive/delete of evidence docs
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
-- Server-side Nginx backup: /root/prod-deploy-retry-v03-final-backup-20260720_162412
-- Rollback allowed: yes
 - Server IP: 161.104.53.221
 ```
 
 ## Next
 
 ```text
-1. Decide whether to review category A evidence docs.
-2. Do not commit rollback/selectel/staging docs without separate owner approval.
-3. Do not commit web-admin-dist-staging.tar.gz.
-4. Continue event-based monitoring — no daily packs without incident or approved change.
-5. Keep secrets, cert files, private keys, server configs, and build archives out of repo.
+1. Review docs/LOCAL_CATEGORY_A_EVIDENCE_DOCS_REVIEW_V0.1.md.
+2. Decide whether selected evidence docs should be committed, archived, kept local, or deleted.
+3. Do not touch rollback/selectel/staging modified docs without separate owner approval.
+4. Do not commit web-admin-dist-staging.tar.gz.
+5. Continue event-based monitoring — no daily packs without incident or approved change.
 
-See docs/LOCAL_RUNTIME_OUTPUTS_ARCHIVE_V0.1.md
+See docs/LOCAL_CATEGORY_A_EVIDENCE_DOCS_REVIEW_V0.1.md
 ```
 
 ## Current active staging domain
