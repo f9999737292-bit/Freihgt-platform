@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Local obsolete Selectel/domain docs archive.
+Local rollback docs review.
 ```
 
 ## Current status
@@ -20,10 +20,13 @@ Local obsolete Selectel/domain docs archive.
 - Production: https://бинтранс.рф/ — PASS
 - Staging: https://staging.бинтранс.рф/ — PASS
 - Operating mode: event-based monitoring
-- Staging regression pair decision: LOCAL_STAGING_REGRESSION_PAIR_KEEP_LOCAL — ee44c43
-- Obsolete Selectel/domain docs: LOCAL_OBSOLETE_SELECTEL_DOMAIN_DOCS_ARCHIVED
-- Archive location: D:\Projects\freight-platform-local-archive\obsolete_docs\20260726_225758
-- Local workspace still has rollback/selectel/staging modified docs, staging regression pair, scripts, and web-admin archive outside approved packs
+- Rollback docs reviewed: LOCAL_ROLLBACK_DOCS_OWNER_DECISION_REQUIRED
+- Rollback docs decision: keep local / no commit for now unless explicit rollback owner approval
+- Rollback executed: no
+- Obsolete Selectel/domain docs: LOCAL_OBSOLETE_SELECTEL_DOMAIN_DOCS_ARCHIVED — e112491
+- Selectel/staging modified docs: pending review
+- Scripts: pending review
+- web-admin-dist-staging.tar.gz: must not be committed
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
 - Server IP: 161.104.53.221
 ```
@@ -31,13 +34,13 @@ Local obsolete Selectel/domain docs archive.
 ## Next
 
 ```text
-1. Decide whether to review rollback docs.
-2. Decide whether to review selectel/staging modified docs.
-3. Decide whether to review local scripts.
-4. Do not commit web-admin-dist-staging.tar.gz.
+1. Review selectel/staging modified docs in a separate pack.
+2. Review local scripts only if needed.
+3. Do not commit rollback docs without explicit owner approval.
+4. Do not execute rollback unless a separate rollback decision pack is approved.
 5. Continue event-based monitoring — no daily packs without incident or approved change.
 
-See docs/LOCAL_OBSOLETE_SELECTEL_DOMAIN_DOCS_ARCHIVE_V0.1.md
+See docs/LOCAL_ROLLBACK_DOCS_REVIEW_V0.1.md
 ```
 
 ## Current active staging domain
