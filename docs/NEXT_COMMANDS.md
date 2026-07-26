@@ -9,19 +9,20 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Post-deployment monitoring cycle v0.2.
+Local workspace hygiene audit.
 ```
 
 ## Current status
 
 ```text
 - Production deployment: CLOSED
+- Monitoring cycle v0.2: PASS
 - Production: https://бинтранс.рф/ — PASS
 - Staging: https://staging.бинтранс.рф/ — PASS
-- Post-deployment monitoring baseline v0.1: PASS
-- Monitoring cycle v0.2: PASS
-- P0/P1 alerts: none
 - Operating mode: event-based monitoring
+- Local workspace has uncommitted/untracked files outside approved packs
+- Hygiene audit: LOCAL_WORKSPACE_HYGIENE_OWNER_DECISION_REQUIRED
+- Owner decision required before delete/move/commit of local leftovers
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
 - Server-side Nginx backup: /root/prod-deploy-retry-v03-final-backup-20260720_162412
 - Rollback allowed: yes
@@ -31,13 +32,13 @@ Post-deployment monitoring cycle v0.2.
 ## Next
 
 ```text
-1. Continue event-based monitoring.
-2. Do not run daily packs without incident or approved change.
-3. If P0/P1 trigger appears, run incident response pack.
-4. If future production change is needed, run production change approval pack.
+1. Review docs/LOCAL_WORKSPACE_HYGIENE_AUDIT_V0.1.md.
+2. Decide what to do with rollback/selectel/staging docs and untracked runtime files.
+3. Do not commit or delete local leftovers without explicit owner approval.
+4. Continue event-based monitoring — no daily packs without incident or approved change.
 5. Keep secrets, cert files, private keys, server configs, and build archives out of repo.
 
-See docs/LOW_CODE_PILOT_WEEK3_POST_DEPLOYMENT_MONITORING_CYCLE_V02_NOTE_V0.1.md
+See docs/LOCAL_WORKSPACE_HYGIENE_AUDIT_V0.1.md
 ```
 
 ## Current active staging domain
