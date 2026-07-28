@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Production demo readiness.
+Product next iteration planning.
 ```
 
 ## Current status
@@ -17,9 +17,9 @@ Production demo readiness.
 ```text
 - Production deployment: CLOSED
 - Monitoring cycle v0.2: PASS
-- Local workspace hygiene: CLOSED
-- Production/staging: healthy
-- Demo readiness checklist prepared
+- Demo readiness: PREPARED
+- Pilot launch: paused
+- Product next iteration roadmap prepared
 - Operating mode: event-based monitoring
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
 - Server IP: 161.104.53.221
@@ -28,14 +28,14 @@ Production demo readiness.
 ## Next
 
 ```text
-1. Run 30–60 minute owner/product review.
-2. Capture gaps and owner decisions.
-3. If approved, prepare pilot demo data and role walkthrough.
-4. Do not run deploy/monitoring packs without incident or approved change.
+1. Start PRODUCT_UI_AND_NAVIGATION_AUDIT_PACK.
+2. Do not run pilot demo data pack yet.
+3. Do not run deploy/monitoring packs without incident or approved change.
+4. Keep production/staging unchanged.
 
-See docs/PRODUCTION_DEMO_READINESS_CHECKLIST_V0.1.md
-See docs/PRODUCTION_DEMO_WALKTHROUGH_SCRIPT_V0.1.md
-See docs/PRODUCTION_RESULT_REVIEW_NOTE_V0.1.md
+See docs/PRODUCT_NEXT_ITERATION_ROADMAP_V0.1.md
+See docs/PRODUCT_NEXT_ITERATION_BACKLOG_V0.1.md
+See docs/PRODUCT_MODULE_PRIORITY_MATRIX_V0.1.md
 ```
 
 ## Current active staging domain
