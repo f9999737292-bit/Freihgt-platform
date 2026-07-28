@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-RBAC and role navigation implementation plan.
+RBAC role navigation implementation approval.
 ```
 
 ## Current status
@@ -17,10 +17,9 @@ RBAC and role navigation implementation plan.
 ```text
 - Production deployment: CLOSED
 - Monitoring cycle v0.2: PASS
-- UI/navigation audit: COMPLETE
-- Role-based cabinets gap analysis: COMPLETE
-- RBAC and role navigation design: COMPLETE
+- RBAC design: COMPLETE
 - RBAC implementation plan: COMPLETE
+- RBAC frontend implementation approval: COMPLETE
 - Pilot launch: paused
 - Operating mode: event-based monitoring
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
@@ -30,15 +29,14 @@ RBAC and role navigation implementation plan.
 ## Next
 
 ```text
-1. Review RBAC implementation plan.
-2. If approved, start RBAC_AND_ROLE_NAVIGATION_IMPLEMENTATION_APPROVAL_PACK.
-3. Do not change frontend/backend code without explicit approval.
-4. Do not deploy without separate production deployment approval.
+1. Start RBAC_ROLE_NAVIGATION_FRONTEND_IMPLEMENTATION_PACK.
+2. Change only approved web-admin frontend files.
+3. Do not change backend/API/migrations.
+4. Do not deploy without separate deployment approval.
 
-See docs/RBAC_AND_ROLE_NAVIGATION_IMPLEMENTATION_PLAN_V0.1.md
-See docs/RBAC_ROLE_NAVIGATION_ACCEPTANCE_CHECKLIST_V0.1.md
-See docs/RBAC_ROLE_NAVIGATION_RISK_MATRIX_V0.1.md
-See docs/RBAC_ROLE_NAVIGATION_IMPLEMENTATION_TASKS_V0.1.md
+See docs/RBAC_ROLE_NAVIGATION_IMPLEMENTATION_APPROVAL_V0.1.md
+See docs/RBAC_ROLE_NAVIGATION_SOURCE_BOUNDARY_V0.1.md
+See docs/RBAC_ROLE_NAVIGATION_IMPLEMENTATION_APPROVAL_CHECKLIST_V0.1.md
 ```
 
 ## Current active staging domain
