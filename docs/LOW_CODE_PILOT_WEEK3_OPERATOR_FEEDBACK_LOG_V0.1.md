@@ -10,7 +10,7 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 
 | Metric | Value |
 |--------|-------|
-| Total entries | **129** |
+| Total entries | **130** |
 | Staging limitations | **STG-LIM-001..006 CLOSED — final review PASS** |
 | Production-readiness review | **READY_FOR_OWNER_PRODUCTION_APPROVAL** |
 | Owner production approval | **RECORDED — Феликс Асаев (2026-07-17)** |
@@ -134,6 +134,7 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | W3-FB-DEMO-SEED-SERVER-APPROVAL-001 | 2026-07-13 | — | CROSS_ENTITY | TO/SH/BR demos | staging demo seed server execution approval | P3 | Operator approved server seed run; agent SSH attempt no output capture; pending local operator execution | COMPLETED | — | seed выполнен verification | DEMO_SEED_SERVER_EXECUTION_APPROVED_PENDING_RUN — production_ready_claimed=no, seed_executed=pending, secrets_captured=no |
 | W3-FB-DEMO-SEED-COMPLETE-001 | 2026-07-13 | — | CROSS_ENTITY | TO/SH/BR demos | staging demo seed execution complete | P3 | Operator confirmed seed выполнен; STG-LIM-005/006 closed; machine verify output not attached | COMPLETED | — | DNS A-record / web-admin deploy | DEMO_SEED_EXECUTION_OPERATOR_CONFIRMED_COMPLETE — stg_lim_005=CLOSED, stg_lim_006=CLOSED, production_ready_claimed=no, seed_executed=yes, staging_writes_executed=yes, secrets_captured=no |
 | W3-FB-HTTP-STAGING-PILOT-REGRESSION-001 | 2026-07-14 | — | CROSS_ENTITY | TO/SH/BR demos | HTTP staging controlled pilot regression | P2 | Continued controlled pilot without DNS; machine-captured verify PASS via local PowerShell | COMPLETED | — | DNS A-record / web-admin deploy (separate approval) | HTTP_STAGING_CONTROLLED_PILOT_REGRESSION_PASS — production_ready_claimed=no, writes_executed=no, secrets_captured=no, dns_pending=yes |
+| W3-FB-RBAC-ROLE-NAVIGATION-FRONTEND-REVIEW-001 | 2026-07-28 | — | CROSS_ENTITY | TO/SH/BR demos | RBAC role navigation frontend review | P2 | Read-only review of commit aee3a9d; build pass; typecheck/lint pre-existing failures documented | completed | — | RBAC_ROLE_NAVIGATION_LOCAL_RUNTIME_REVIEW_PACK | RBAC_ROLE_NAVIGATION_FRONTEND_REVIEW_COMPLETE — reviewed_commit=aee3a9d, production_deployment=CLOSED, monitoring_cycle_v02=PASS, rbac_frontend_implementation=COMMITTED, pilot_launch=paused, source_scope_respected=yes, build_result=pass, typecheck_result=fail_pre_existing, lint_result=fail_pre_existing, review_conclusion=ready_for_local_runtime_review, recommended_next_pack=RBAC_ROLE_NAVIGATION_LOCAL_RUNTIME_REVIEW_PACK, production_changed=no, staging_changed=no, server_changed=no, source_code_changed_by_review_pack=no, backend_changed=no, api_contracts_changed=no, migrations_changed=no, database_writes=no, secrets_captured=no, deploy_executed=no, evidence=RBAC_ROLE_NAVIGATION_FRONTEND_REVIEW_V0.1.md |
 | W3-FB-RBAC-ROLE-NAVIGATION-FRONTEND-IMPLEMENTATION-001 | 2026-07-28 | — | CROSS_ENTITY | TO/SH/BR demos | RBAC role navigation frontend implementation | P2 | Frontend-only RBAC role navigation in web-admin; sidebar filtering, permission helpers, role landing redirect, dev-guarded login defaults | completed | — | RBAC_ROLE_NAVIGATION_FRONTEND_REVIEW_PACK | RBAC_ROLE_NAVIGATION_FRONTEND_IMPLEMENTATION_COMPLETE — production_deployment=CLOSED, monitoring_cycle_v02=PASS, rbac_design=COMPLETE, rbac_implementation_plan=COMPLETE, rbac_implementation_approval=COMPLETE, pilot_launch=paused, sidebar_filtering=yes, permission_helpers=yes, login_demo_defaults_dev_guarded=yes, role_landing_redirect=yes, frontend_validation=partial, recommended_next_pack=RBAC_ROLE_NAVIGATION_FRONTEND_REVIEW_PACK, production_changed=no, staging_changed=no, server_changed=no, backend_changed=no, api_contracts_changed=no, migrations_changed=no, database_writes=no, secrets_captured=no, deploy_executed=no, evidence=RBAC_ROLE_NAVIGATION_FRONTEND_IMPLEMENTATION_EVIDENCE_V0.1.md |
 | W3-FB-RBAC-ROLE-NAVIGATION-IMPLEMENTATION-APPROVAL-001 | 2026-07-28 | — | CROSS_ENTITY | TO/SH/BR demos | RBAC role navigation implementation approval | P2 | Frontend implementation approval, source boundary, and approval checklist created; target files verified | completed | — | RBAC_ROLE_NAVIGATION_FRONTEND_IMPLEMENTATION_PACK | RBAC_ROLE_NAVIGATION_IMPLEMENTATION_APPROVED_FOR_FRONTEND_PACK — production_deployment=CLOSED, monitoring_cycle_v02=PASS, rbac_design=COMPLETE, rbac_implementation_plan=COMPLETE, plan_commit=da08c06, pilot_launch=paused, source_boundary_created=yes, approval_checklist_created=yes, sidebar_path=components/layout/AppSidebar.vue, recommended_next_pack=RBAC_ROLE_NAVIGATION_FRONTEND_IMPLEMENTATION_PACK, production_changed=no, staging_changed=no, server_changed=no, source_code_changed=no, database_writes=no, secrets_captured=no, evidence=RBAC_ROLE_NAVIGATION_IMPLEMENTATION_APPROVAL_V0.1.md |
 | W3-FB-RBAC-ROLE-NAVIGATION-IMPLEMENTATION-PLAN-001 | 2026-07-28 | — | CROSS_ENTITY | TO/SH/BR demos | RBAC role navigation implementation plan | P2 | Implementation plan, acceptance checklist, risk matrix, and tasks created; 7 phases defined | completed | — | RBAC_AND_ROLE_NAVIGATION_IMPLEMENTATION_APPROVAL_PACK | RBAC_AND_ROLE_NAVIGATION_IMPLEMENTATION_PLAN_COMPLETE — production_deployment=CLOSED, monitoring_cycle_v02=PASS, ui_navigation_audit=COMPLETE, role_cabinets_gap_analysis=COMPLETE, rbac_design=COMPLETE, design_commit=33695b7, pilot_launch=paused, implementation_plan_created=yes, acceptance_checklist_created=yes, risk_matrix_created=yes, implementation_tasks_created=yes, recommended_next_pack=RBAC_AND_ROLE_NAVIGATION_IMPLEMENTATION_APPROVAL_PACK, production_changed=no, staging_changed=no, server_changed=no, source_code_changed=no, database_writes=no, secrets_captured=no, evidence=RBAC_AND_ROLE_NAVIGATION_IMPLEMENTATION_PLAN_V0.1.md |
@@ -199,6 +200,32 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | W3-FB-TENANT-ISOLATION-OWNER-APPROVAL-001 | 2026-06-23 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness tenant isolation owner approval gate | P2 | Tenant isolation owner approval gate prepared; named owner TBD | COMPLETED | Security / Architecture — TBD | Tenant Isolation Owner Final Approval Pack v0.1 | TENANT_ISOLATION_OWNER_APPROVAL_GATE_PREPARED_PENDING_OWNER_ASSIGNMENT — pr_gap=PR-GAP-006, production_ready_claimed=no, code_changed=no, write_operations_executed=no, secrets_captured=no |
 | W3-FB-TENANT-ISOLATION-REVIEW-001 | 2026-06-23 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness tenant isolation evidence review | P2 | Tenant isolation evidence reviewed; owner approval still required | COMPLETED | Security / Architecture — TBD | Tenant Isolation Owner Approval Pack v0.1 | TENANT_ISOLATION_EVIDENCE_REVIEWED_PENDING_OWNER_APPROVAL — pr_gap=PR-GAP-006, pr_gap_status=TENANT_ISOLATION_EVIDENCE_REVIEWED_PENDING_OWNER_APPROVAL, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, code_changed=no, write_operations_executed=no, secrets_captured=no |
 | W3-FB-TENANT-ISOLATION-EVIDENCE-001 | 2026-06-23 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness tenant isolation evidence | P2 | Tenant isolation evidence pack created for low-code production readiness gap closure | COMPLETED | Security / Architecture — TBD | Tenant Isolation Evidence Review Pack v0.1 | TENANT_ISOLATION_EVIDENCE_PACK_CREATED_PENDING_REVIEW — pr_gap=PR-GAP-006, pr_gap_status=TENANT_ISOLATION_EVIDENCE_PACK_CREATED_PENDING_REVIEW, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, code_changed=no, write_operations_executed=no, secrets_captured=no |
+
+### W3-FB-RBAC-ROLE-NAVIGATION-FRONTEND-REVIEW-001
+
+- **Status:** completed
+- **Decision:** RBAC_ROLE_NAVIGATION_FRONTEND_REVIEW_COMPLETE
+- **Reviewed commit:** aee3a9d
+- **Production deployment:** CLOSED
+- **Monitoring cycle v0.2:** PASS
+- **RBAC frontend implementation:** COMMITTED
+- **Pilot launch:** paused
+- **Source scope respected:** yes
+- **Build result:** pass
+- **Typecheck result:** fail (pre-existing)
+- **Lint result:** fail (pre-existing)
+- **Recommended next pack:** RBAC_ROLE_NAVIGATION_LOCAL_RUNTIME_REVIEW_PACK
+- **Production changed:** no
+- **Staging changed:** no
+- **Server changed:** no
+- **Source code changed by review pack:** no
+- **Backend changed:** no
+- **API contracts changed:** no
+- **Migrations changed:** no
+- **Database writes executed:** no
+- **Secrets captured:** no
+- **Deploy executed:** no
+- **evidence:** docs/RBAC_ROLE_NAVIGATION_FRONTEND_REVIEW_V0.1.md, docs/RBAC_ROLE_NAVIGATION_FRONTEND_REVIEW_CHECKLIST_V0.1.md
 
 ### W3-FB-RBAC-ROLE-NAVIGATION-FRONTEND-IMPLEMENTATION-001
 
