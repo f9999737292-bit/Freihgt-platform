@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-RBAC role navigation staging build approval.
+RBAC role navigation staging deployment.
 ```
 
 ## Current status
@@ -18,10 +18,10 @@ RBAC role navigation staging build approval.
 - Production deployment: CLOSED
 - Monitoring cycle v0.2: PASS
 - RBAC frontend implementation: COMMITTED
-- RBAC frontend review: COMPLETE
-- RBAC local runtime review: COMPLETE
 - RBAC mock-role review: COMPLETE
 - RBAC staging build approval: COMPLETE
+- RBAC staging deployment: BLOCKED (shared web root)
+- Production deploy: not approved
 - Pilot launch: paused
 - Operating mode: event-based monitoring
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
@@ -31,15 +31,13 @@ RBAC role navigation staging build approval.
 ## Next
 
 ```text
-1. Start RBAC_ROLE_NAVIGATION_STAGING_DEPLOYMENT_PACK only after explicit user approval.
-2. Deploy to staging only, not production.
-3. Do not change backend/API/migrations.
-4. Keep production unchanged.
-5. Do not include local leftovers in commits.
+1. Start STAGING_PRODUCTION_WEB_ROOT_SEPARATION_PLAN_PACK — staging and production share /var/www/bintrans-web-admin.
+2. Do not deploy RBAC to staging until roots are separated.
+3. Do not deploy to production without separate explicit approval.
+4. Do not include local leftovers in commits.
 
-See docs/RBAC_ROLE_NAVIGATION_STAGING_BUILD_APPROVAL_V0.1.md
-See docs/RBAC_ROLE_NAVIGATION_STAGING_ACCEPTANCE_CHECKLIST_V0.1.md
-See docs/RBAC_ROLE_NAVIGATION_STAGING_DEPLOYMENT_READINESS_NOTE_V0.1.md
+See docs/RBAC_ROLE_NAVIGATION_STAGING_DEPLOYMENT_EVIDENCE_V0.1.md
+See docs/RBAC_ROLE_NAVIGATION_STAGING_DEPLOYMENT_CHECKLIST_V0.1.md
 ```
 
 ## Current active staging domain

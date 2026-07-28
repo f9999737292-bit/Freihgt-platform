@@ -10,7 +10,7 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 
 | Metric | Value |
 |--------|-------|
-| Total entries | **133** |
+| Total entries | **134** |
 | Staging limitations | **STG-LIM-001..006 CLOSED — final review PASS** |
 | Production-readiness review | **READY_FOR_OWNER_PRODUCTION_APPROVAL** |
 | Owner production approval | **RECORDED — Феликс Асаев (2026-07-17)** |
@@ -134,6 +134,7 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | W3-FB-DEMO-SEED-SERVER-APPROVAL-001 | 2026-07-13 | — | CROSS_ENTITY | TO/SH/BR demos | staging demo seed server execution approval | P3 | Operator approved server seed run; agent SSH attempt no output capture; pending local operator execution | COMPLETED | — | seed выполнен verification | DEMO_SEED_SERVER_EXECUTION_APPROVED_PENDING_RUN — production_ready_claimed=no, seed_executed=pending, secrets_captured=no |
 | W3-FB-DEMO-SEED-COMPLETE-001 | 2026-07-13 | — | CROSS_ENTITY | TO/SH/BR demos | staging demo seed execution complete | P3 | Operator confirmed seed выполнен; STG-LIM-005/006 closed; machine verify output not attached | COMPLETED | — | DNS A-record / web-admin deploy | DEMO_SEED_EXECUTION_OPERATOR_CONFIRMED_COMPLETE — stg_lim_005=CLOSED, stg_lim_006=CLOSED, production_ready_claimed=no, seed_executed=yes, staging_writes_executed=yes, secrets_captured=no |
 | W3-FB-HTTP-STAGING-PILOT-REGRESSION-001 | 2026-07-14 | — | CROSS_ENTITY | TO/SH/BR demos | HTTP staging controlled pilot regression | P2 | Continued controlled pilot without DNS; machine-captured verify PASS via local PowerShell | COMPLETED | — | DNS A-record / web-admin deploy (separate approval) | HTTP_STAGING_CONTROLLED_PILOT_REGRESSION_PASS — production_ready_claimed=no, writes_executed=no, secrets_captured=no, dns_pending=yes |
+| W3-FB-RBAC-ROLE-NAVIGATION-STAGING-DEPLOYMENT-001 | 2026-07-28 | — | CROSS_ENTITY | TO/SH/BR demos | RBAC role navigation staging deployment | P0 | Staging deploy blocked: production and staging share web root /var/www/bintrans-web-admin | blocked | — | STAGING_PRODUCTION_WEB_ROOT_SEPARATION_PLAN_PACK | RBAC_ROLE_NAVIGATION_STAGING_DEPLOYMENT_BLOCKED_SHARED_WEB_ROOT — user_approval=staging_yes_production_no, implementation_commit=aee3a9d, staging_build_approval_commit=dacf86b, production_deployment=not_executed, pilot_launch=paused, build_result=pass, root_safety_gate=fail, staging_web_root=/var/www/bintrans-web-admin, production_web_root=/var/www/bintrans-web-admin, staging_backup_path=none, staging_endpoint_after_deploy=not_deployed, production_endpoint_after_deploy=baseline_200, recommended_next_pack=STAGING_PRODUCTION_WEB_ROOT_SEPARATION_PLAN_PACK, production_changed=no, staging_changed=no, server_changed=no, backend_changed=no, api_contracts_changed=no, migrations_changed=no, database_writes=no, secrets_captured=no, nginx_changed=no, dns_changed=no, certbot_changed=no, deploy_executed=no, evidence=RBAC_ROLE_NAVIGATION_STAGING_DEPLOYMENT_EVIDENCE_V0.1.md |
 | W3-FB-RBAC-ROLE-NAVIGATION-STAGING-BUILD-APPROVAL-001 | 2026-07-28 | — | CROSS_ENTITY | TO/SH/BR demos | RBAC role navigation staging build approval | P2 | Staging build approval docs created; build pass; prod/staging endpoints 200; deploy not executed | completed | — | RBAC_ROLE_NAVIGATION_STAGING_DEPLOYMENT_PACK | RBAC_ROLE_NAVIGATION_STAGING_BUILD_APPROVED — implementation_commit=aee3a9d, mock_role_review_commit=d49ad53, production_deployment=CLOSED, monitoring_cycle_v02=PASS, pilot_launch=paused, build_result=pass, production_endpoint_check=pass, staging_endpoint_check=pass, staging_deployment_approved_for_next_pack=yes, production_deployment_approved=no, production_changed=no, staging_changed=no, server_changed=no, source_code_changed_by_approval_pack=no, backend_changed=no, api_contracts_changed=no, migrations_changed=no, database_writes=no, secrets_captured=no, deploy_executed=no, recommended_next_pack=RBAC_ROLE_NAVIGATION_STAGING_DEPLOYMENT_PACK, evidence=RBAC_ROLE_NAVIGATION_STAGING_BUILD_APPROVAL_V0.1.md |
 | W3-FB-RBAC-ROLE-NAVIGATION-MOCK-ROLE-REVIEW-001 | 2026-07-28 | — | CROSS_ENTITY | TO/SH/BR demos | RBAC role navigation mock-role review | P2 | Static verification pass for 7 roles; localStorage mock method documented; runtime UI partial | completed | — | RBAC_ROLE_NAVIGATION_STAGING_BUILD_APPROVAL_PACK | RBAC_ROLE_NAVIGATION_MOCK_ROLE_REVIEW_COMPLETE — implementation_commit=aee3a9d, frontend_review_commit=ee4f2bd, local_runtime_review_commit=01e9f31, production_deployment=CLOSED, monitoring_cycle_v02=PASS, pilot_launch=paused, mock_method=localStorage_plus_static, build_result=pass, admin_review=static_pass, shipper_review=static_pass, carrier_review=static_pass, forwarder_review=static_pass, consignee_review=static_pass, finance_review=static_pass, procurement_review=static_pass, blockers=none, recommended_next_pack=RBAC_ROLE_NAVIGATION_STAGING_BUILD_APPROVAL_PACK, production_changed=no, staging_changed=no, server_changed=no, source_code_changed_by_mock_role_review_pack=no, backend_changed=no, api_contracts_changed=no, migrations_changed=no, database_writes=no, secrets_captured=no, deploy_executed=no, evidence=RBAC_ROLE_NAVIGATION_MOCK_ROLE_REVIEW_V0.1.md |
 | W3-FB-RBAC-ROLE-NAVIGATION-LOCAL-RUNTIME-REVIEW-001 | 2026-07-28 | — | CROSS_ENTITY | TO/SH/BR demos | RBAC role navigation local runtime review | P2 | Local dev runtime on 127.0.0.1:3100; build pass; routes respond; non-admin roles not tested | completed | — | RBAC_ROLE_NAVIGATION_MOCK_ROLE_REVIEW_PACK | RBAC_ROLE_NAVIGATION_LOCAL_RUNTIME_REVIEW_COMPLETE — implementation_commit=aee3a9d, review_commit=ee4f2bd, production_deployment=CLOSED, monitoring_cycle_v02=PASS, pilot_launch=paused, build_result=pass, local_dev_server=pass, local_root_login_dashboard=pass, sidebar_renders=partial, admin_mock_admin_nav=partial, non_admin_runtime=not_tested, recommended_next_pack=RBAC_ROLE_NAVIGATION_MOCK_ROLE_REVIEW_PACK, production_changed=no, staging_changed=no, server_changed=no, source_code_changed_by_runtime_review_pack=no, backend_changed=no, api_contracts_changed=no, migrations_changed=no, database_writes=no, secrets_captured=no, deploy_executed=no, evidence=RBAC_ROLE_NAVIGATION_LOCAL_RUNTIME_REVIEW_V0.1.md |
@@ -203,6 +204,37 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | W3-FB-TENANT-ISOLATION-OWNER-APPROVAL-001 | 2026-06-23 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness tenant isolation owner approval gate | P2 | Tenant isolation owner approval gate prepared; named owner TBD | COMPLETED | Security / Architecture — TBD | Tenant Isolation Owner Final Approval Pack v0.1 | TENANT_ISOLATION_OWNER_APPROVAL_GATE_PREPARED_PENDING_OWNER_ASSIGNMENT — pr_gap=PR-GAP-006, production_ready_claimed=no, code_changed=no, write_operations_executed=no, secrets_captured=no |
 | W3-FB-TENANT-ISOLATION-REVIEW-001 | 2026-06-23 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness tenant isolation evidence review | P2 | Tenant isolation evidence reviewed; owner approval still required | COMPLETED | Security / Architecture — TBD | Tenant Isolation Owner Approval Pack v0.1 | TENANT_ISOLATION_EVIDENCE_REVIEWED_PENDING_OWNER_APPROVAL — pr_gap=PR-GAP-006, pr_gap_status=TENANT_ISOLATION_EVIDENCE_REVIEWED_PENDING_OWNER_APPROVAL, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, code_changed=no, write_operations_executed=no, secrets_captured=no |
 | W3-FB-TENANT-ISOLATION-EVIDENCE-001 | 2026-06-23 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness tenant isolation evidence | P2 | Tenant isolation evidence pack created for low-code production readiness gap closure | COMPLETED | Security / Architecture — TBD | Tenant Isolation Evidence Review Pack v0.1 | TENANT_ISOLATION_EVIDENCE_PACK_CREATED_PENDING_REVIEW — pr_gap=PR-GAP-006, pr_gap_status=TENANT_ISOLATION_EVIDENCE_PACK_CREATED_PENDING_REVIEW, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, code_changed=no, write_operations_executed=no, secrets_captured=no |
+
+### W3-FB-RBAC-ROLE-NAVIGATION-STAGING-DEPLOYMENT-001
+
+- **Status:** blocked
+- **Decision:** RBAC_ROLE_NAVIGATION_STAGING_DEPLOYMENT_BLOCKED_SHARED_WEB_ROOT
+- **User approval:** staging deploy approved, production not approved
+- **Implementation commit:** aee3a9d
+- **Staging build approval commit:** dacf86b
+- **Production deployment:** not executed
+- **Pilot launch:** paused
+- **Build result:** pass
+- **Root safety gate:** fail
+- **Staging web root:** `/var/www/bintrans-web-admin`
+- **Production web root:** `/var/www/bintrans-web-admin`
+- **Staging backup path:** none
+- **Staging endpoint after deploy:** not deployed
+- **Production endpoint after deploy:** baseline 200
+- **Recommended next pack:** STAGING_PRODUCTION_WEB_ROOT_SEPARATION_PLAN_PACK
+- **Production changed:** no
+- **Staging changed:** no
+- **Server changed:** no
+- **Backend changed:** no
+- **API contracts changed:** no
+- **Migrations changed:** no
+- **Database writes executed:** no
+- **Secrets captured:** no
+- **Nginx changed:** no
+- **DNS changed:** no
+- **Certbot changed:** no
+- **Deploy executed:** no
+- **evidence:** docs/RBAC_ROLE_NAVIGATION_STAGING_DEPLOYMENT_EVIDENCE_V0.1.md, docs/RBAC_ROLE_NAVIGATION_STAGING_DEPLOYMENT_CHECKLIST_V0.1.md
 
 ### W3-FB-RBAC-ROLE-NAVIGATION-STAGING-BUILD-APPROVAL-001
 
