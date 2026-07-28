@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Local workspace hygiene closure.
+Production demo readiness.
 ```
 
 ## Current status
@@ -17,11 +17,10 @@ Local workspace hygiene closure.
 ```text
 - Production deployment: CLOSED
 - Monitoring cycle v0.2: PASS
-- Production: https://бинтранс.рф/ — PASS
-- Staging: https://staging.бинтранс.рф/ — PASS
+- Local workspace hygiene: CLOSED
+- Production/staging: healthy
+- Demo readiness checklist prepared
 - Operating mode: event-based monitoring
-- Local workspace hygiene review: COMPLETE — LOCAL_WORKSPACE_HYGIENE_REVIEW_COMPLETE
-- Remaining local leftovers have owner decisions (10 modified, 5 untracked)
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
 - Server IP: 161.104.53.221
 ```
@@ -29,12 +28,14 @@ Local workspace hygiene closure.
 ## Next
 
 ```text
-1. Do not run daily packs without incident or approved change.
-2. If P0/P1 trigger appears, run incident response pack.
-3. If future production change is needed, run production change approval pack.
-4. Do not commit remaining local leftovers without explicit owner approval.
+1. Run 30–60 minute owner/product review.
+2. Capture gaps and owner decisions.
+3. If approved, prepare pilot demo data and role walkthrough.
+4. Do not run deploy/monitoring packs without incident or approved change.
 
-See docs/LOCAL_WORKSPACE_HYGIENE_CLOSURE_V0.1.md
+See docs/PRODUCTION_DEMO_READINESS_CHECKLIST_V0.1.md
+See docs/PRODUCTION_DEMO_WALKTHROUGH_SCRIPT_V0.1.md
+See docs/PRODUCTION_RESULT_REVIEW_NOTE_V0.1.md
 ```
 
 ## Current active staging domain
