@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Product UI and navigation audit.
+Role-based cabinets gap analysis.
 ```
 
 ## Current status
@@ -17,9 +17,9 @@ Product UI and navigation audit.
 ```text
 - Production deployment: CLOSED
 - Monitoring cycle v0.2: PASS
-- Demo readiness: PREPARED
 - Product next iteration planning: COMPLETE
 - UI/navigation audit: COMPLETE
+- Role-based cabinets gap analysis: COMPLETE
 - Pilot launch: paused
 - Operating mode: event-based monitoring
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
@@ -29,14 +29,14 @@ Product UI and navigation audit.
 ## Next
 
 ```text
-1. Start ROLE_BASED_CABINETS_GAP_ANALYSIS_PACK.
-2. Do not start pilot demo data yet.
-3. Do not run deploy/monitoring packs without incident or approved change.
+1. Start RBAC_AND_ROLE_NAVIGATION_DESIGN_PACK.
+2. Do not expose separate role apps to production yet.
+3. Do not start pilot demo data yet.
 4. Keep production/staging unchanged.
 
-See docs/PRODUCT_UI_AND_NAVIGATION_AUDIT_V0.1.md
-See docs/PRODUCT_UI_NAVIGATION_GAP_LIST_V0.1.md
-See docs/PRODUCT_UI_PAGE_MAP_V0.1.md
+See docs/ROLE_BASED_CABINETS_GAP_ANALYSIS_V0.1.md
+See docs/ROLE_TO_MODULE_ACCESS_MATRIX_V0.1.md
+See docs/ROLE_BASED_CABINETS_BACKLOG_V0.1.md
 ```
 
 ## Current active staging domain
