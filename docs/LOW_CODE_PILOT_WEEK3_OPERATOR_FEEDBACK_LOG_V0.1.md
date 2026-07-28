@@ -10,7 +10,7 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 
 | Metric | Value |
 |--------|-------|
-| Total entries | **135** |
+| Total entries | **136** |
 | Staging limitations | **STG-LIM-001..006 CLOSED — final review PASS** |
 | Production-readiness review | **READY_FOR_OWNER_PRODUCTION_APPROVAL** |
 | Owner production approval | **RECORDED — Феликс Асаев (2026-07-17)** |
@@ -134,6 +134,7 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | W3-FB-DEMO-SEED-SERVER-APPROVAL-001 | 2026-07-13 | — | CROSS_ENTITY | TO/SH/BR demos | staging demo seed server execution approval | P3 | Operator approved server seed run; agent SSH attempt no output capture; pending local operator execution | COMPLETED | — | seed выполнен verification | DEMO_SEED_SERVER_EXECUTION_APPROVED_PENDING_RUN — production_ready_claimed=no, seed_executed=pending, secrets_captured=no |
 | W3-FB-DEMO-SEED-COMPLETE-001 | 2026-07-13 | — | CROSS_ENTITY | TO/SH/BR demos | staging demo seed execution complete | P3 | Operator confirmed seed выполнен; STG-LIM-005/006 closed; machine verify output not attached | COMPLETED | — | DNS A-record / web-admin deploy | DEMO_SEED_EXECUTION_OPERATOR_CONFIRMED_COMPLETE — stg_lim_005=CLOSED, stg_lim_006=CLOSED, production_ready_claimed=no, seed_executed=yes, staging_writes_executed=yes, secrets_captured=no |
 | W3-FB-HTTP-STAGING-PILOT-REGRESSION-001 | 2026-07-14 | — | CROSS_ENTITY | TO/SH/BR demos | HTTP staging controlled pilot regression | P2 | Continued controlled pilot without DNS; machine-captured verify PASS via local PowerShell | COMPLETED | — | DNS A-record / web-admin deploy (separate approval) | HTTP_STAGING_CONTROLLED_PILOT_REGRESSION_PASS — production_ready_claimed=no, writes_executed=no, secrets_captured=no, dns_pending=yes |
+| W3-FB-STAGING-WEB-ROOT-SEPARATION-APPROVAL-001 | 2026-07-28 | — | CROSS_ENTITY | TO/SH/BR demos | staging web root separation approval | P0 | Approval for future staging-only Nginx root change; no server changes in this pack | completed | — | STAGING_WEB_ROOT_SEPARATION_EXECUTION_PACK | STAGING_WEB_ROOT_SEPARATION_APPROVED_FOR_EXECUTION_PACK — user_approval=approval_pack_confirmed_staging_nginx_root_only, separation_plan_commit=828cb2a, current_production_root=/var/www/bintrans-web-admin, current_staging_root=/var/www/bintrans-web-admin, target_staging_root=/var/www/staging-bintrans-web-admin, future_execution_approved=execution_pack_still_required, production_deployment_approved=no, rbac_staging_deployment_executed=no, nginx_change_executed=no, dns_change_executed=no, certbot_executed=no, production_changed=no, staging_changed=no, server_changed=no, backend_changed=no, api_contracts_changed=no, migrations_changed=no, database_writes=no, secrets_captured=no, recommended_next_pack=STAGING_WEB_ROOT_SEPARATION_EXECUTION_PACK, evidence=STAGING_WEB_ROOT_SEPARATION_APPROVAL_V0.1.md |
 | W3-FB-STAGING-PRODUCTION-WEB-ROOT-SEPARATION-PLAN-001 | 2026-07-28 | — | CROSS_ENTITY | TO/SH/BR demos | staging production web root separation plan | P0 | Planning-only pack; shared root confirmed; target staging root defined; no server changes | completed | — | STAGING_WEB_ROOT_SEPARATION_APPROVAL_PACK | STAGING_PRODUCTION_WEB_ROOT_SEPARATION_PLAN_COMPLETE — blocked_rbac_staging_deploy_commit=7cbaf4f, shared_root_confirmed=yes, current_production_root=/var/www/bintrans-web-admin, current_staging_root=/var/www/bintrans-web-admin, target_staging_root=/var/www/staging-bintrans-web-admin, target_staging_root_exists=no, production_vhost=00-bintrans-production.conf, staging_vhost=staging-bintrans.conf, production_deployment_approved=no, staging_deployment_approved=no, nginx_change_executed=no, dns_change_executed=no, certbot_executed=no, production_changed=no, staging_changed=no, server_changed=no, backend_changed=no, api_contracts_changed=no, migrations_changed=no, database_writes=no, secrets_captured=no, recommended_next_pack=STAGING_WEB_ROOT_SEPARATION_APPROVAL_PACK, evidence=STAGING_PRODUCTION_WEB_ROOT_SEPARATION_PLAN_V0.1.md |
 | W3-FB-RBAC-ROLE-NAVIGATION-STAGING-DEPLOYMENT-001 | 2026-07-28 | — | CROSS_ENTITY | TO/SH/BR demos | RBAC role navigation staging deployment | P0 | Staging deploy blocked: production and staging share web root /var/www/bintrans-web-admin | blocked | — | STAGING_PRODUCTION_WEB_ROOT_SEPARATION_PLAN_PACK | RBAC_ROLE_NAVIGATION_STAGING_DEPLOYMENT_BLOCKED_SHARED_WEB_ROOT — user_approval=staging_yes_production_no, implementation_commit=aee3a9d, staging_build_approval_commit=dacf86b, production_deployment=not_executed, pilot_launch=paused, build_result=pass, root_safety_gate=fail, staging_web_root=/var/www/bintrans-web-admin, production_web_root=/var/www/bintrans-web-admin, staging_backup_path=none, staging_endpoint_after_deploy=not_deployed, production_endpoint_after_deploy=baseline_200, recommended_next_pack=STAGING_PRODUCTION_WEB_ROOT_SEPARATION_PLAN_PACK, production_changed=no, staging_changed=no, server_changed=no, backend_changed=no, api_contracts_changed=no, migrations_changed=no, database_writes=no, secrets_captured=no, nginx_changed=no, dns_changed=no, certbot_changed=no, deploy_executed=no, evidence=RBAC_ROLE_NAVIGATION_STAGING_DEPLOYMENT_EVIDENCE_V0.1.md |
 | W3-FB-RBAC-ROLE-NAVIGATION-STAGING-BUILD-APPROVAL-001 | 2026-07-28 | — | CROSS_ENTITY | TO/SH/BR demos | RBAC role navigation staging build approval | P2 | Staging build approval docs created; build pass; prod/staging endpoints 200; deploy not executed | completed | — | RBAC_ROLE_NAVIGATION_STAGING_DEPLOYMENT_PACK | RBAC_ROLE_NAVIGATION_STAGING_BUILD_APPROVED — implementation_commit=aee3a9d, mock_role_review_commit=d49ad53, production_deployment=CLOSED, monitoring_cycle_v02=PASS, pilot_launch=paused, build_result=pass, production_endpoint_check=pass, staging_endpoint_check=pass, staging_deployment_approved_for_next_pack=yes, production_deployment_approved=no, production_changed=no, staging_changed=no, server_changed=no, source_code_changed_by_approval_pack=no, backend_changed=no, api_contracts_changed=no, migrations_changed=no, database_writes=no, secrets_captured=no, deploy_executed=no, recommended_next_pack=RBAC_ROLE_NAVIGATION_STAGING_DEPLOYMENT_PACK, evidence=RBAC_ROLE_NAVIGATION_STAGING_BUILD_APPROVAL_V0.1.md |
@@ -205,6 +206,32 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | W3-FB-TENANT-ISOLATION-OWNER-APPROVAL-001 | 2026-06-23 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness tenant isolation owner approval gate | P2 | Tenant isolation owner approval gate prepared; named owner TBD | COMPLETED | Security / Architecture — TBD | Tenant Isolation Owner Final Approval Pack v0.1 | TENANT_ISOLATION_OWNER_APPROVAL_GATE_PREPARED_PENDING_OWNER_ASSIGNMENT — pr_gap=PR-GAP-006, production_ready_claimed=no, code_changed=no, write_operations_executed=no, secrets_captured=no |
 | W3-FB-TENANT-ISOLATION-REVIEW-001 | 2026-06-23 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness tenant isolation evidence review | P2 | Tenant isolation evidence reviewed; owner approval still required | COMPLETED | Security / Architecture — TBD | Tenant Isolation Owner Approval Pack v0.1 | TENANT_ISOLATION_EVIDENCE_REVIEWED_PENDING_OWNER_APPROVAL — pr_gap=PR-GAP-006, pr_gap_status=TENANT_ISOLATION_EVIDENCE_REVIEWED_PENDING_OWNER_APPROVAL, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, code_changed=no, write_operations_executed=no, secrets_captured=no |
 | W3-FB-TENANT-ISOLATION-EVIDENCE-001 | 2026-06-23 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness tenant isolation evidence | P2 | Tenant isolation evidence pack created for low-code production readiness gap closure | COMPLETED | Security / Architecture — TBD | Tenant Isolation Evidence Review Pack v0.1 | TENANT_ISOLATION_EVIDENCE_PACK_CREATED_PENDING_REVIEW — pr_gap=PR-GAP-006, pr_gap_status=TENANT_ISOLATION_EVIDENCE_PACK_CREATED_PENDING_REVIEW, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, code_changed=no, write_operations_executed=no, secrets_captured=no |
+
+### W3-FB-STAGING-WEB-ROOT-SEPARATION-APPROVAL-001
+
+- **Status:** completed
+- **Decision:** STAGING_WEB_ROOT_SEPARATION_APPROVED_FOR_EXECUTION_PACK
+- **User approval:** approval pack confirmed; future change only staging Nginx root; production not approved
+- **Separation plan commit:** 828cb2a
+- **Current production root:** `/var/www/bintrans-web-admin`
+- **Current staging root:** `/var/www/bintrans-web-admin`
+- **Target staging root:** `/var/www/staging-bintrans-web-admin`
+- **Future execution approved:** execution pack still required
+- **Production deployment approved:** no
+- **RBAC staging deployment executed:** no
+- **Nginx change executed:** no
+- **DNS change executed:** no
+- **Certbot executed:** no
+- **Server changed:** no
+- **Production changed:** no
+- **Staging changed:** no
+- **Backend changed:** no
+- **API contracts changed:** no
+- **Migrations changed:** no
+- **Database writes executed:** no
+- **Secrets captured:** no
+- **Recommended next pack:** STAGING_WEB_ROOT_SEPARATION_EXECUTION_PACK
+- **evidence:** docs/STAGING_WEB_ROOT_SEPARATION_APPROVAL_V0.1.md, docs/STAGING_WEB_ROOT_SEPARATION_EXECUTION_BOUNDARY_V0.1.md, docs/STAGING_WEB_ROOT_SEPARATION_EXECUTION_APPROVAL_CHECKLIST_V0.1.md
 
 ### W3-FB-STAGING-PRODUCTION-WEB-ROOT-SEPARATION-PLAN-001
 
