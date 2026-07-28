@@ -9,18 +9,18 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Staging web root separation approval.
+Staging web root separation execution.
 ```
 
 ## Current status
 
 ```text
 - Production deployment: CLOSED
-- RBAC staging deployment: BLOCKED_SHARED_WEB_ROOT
-- Web root separation plan: COMPLETE
 - Web root separation approval: COMPLETE
-- Approved future target staging root: /var/www/staging-bintrans-web-admin
-- Production root must remain: /var/www/bintrans-web-admin
+- Web root separation execution: COMPLETE
+- Production root: /var/www/bintrans-web-admin
+- Staging root: /var/www/staging-bintrans-web-admin
+- RBAC staging deployment: ready for retry
 - Production deploy: not approved
 - Pilot launch: paused
 - Operating mode: event-based monitoring
@@ -31,15 +31,13 @@ Staging web root separation approval.
 ## Next
 
 ```text
-1. Start STAGING_WEB_ROOT_SEPARATION_EXECUTION_PACK only after explicit execution approval.
-2. Change only staging Nginx root.
-3. Do not deploy RBAC to staging until web root separation is complete.
-4. Do not deploy to production.
-5. Do not include local leftovers in commits.
+1. If separation completed, start RBAC_ROLE_NAVIGATION_STAGING_DEPLOYMENT_RETRY_PACK.
+2. Do not deploy to production.
+3. Do not change backend/API/migrations.
+4. Do not include local leftovers in commits.
 
-See docs/STAGING_WEB_ROOT_SEPARATION_APPROVAL_V0.1.md
-See docs/STAGING_WEB_ROOT_SEPARATION_EXECUTION_BOUNDARY_V0.1.md
-See docs/STAGING_WEB_ROOT_SEPARATION_EXECUTION_APPROVAL_CHECKLIST_V0.1.md
+See docs/STAGING_WEB_ROOT_SEPARATION_EXECUTION_EVIDENCE_V0.1.md
+See docs/STAGING_WEB_ROOT_SEPARATION_EXECUTION_CHECKLIST_V0.1.md
 ```
 
 ## Current active staging domain
