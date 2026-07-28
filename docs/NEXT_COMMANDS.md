@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Role-based cabinets gap analysis.
+RBAC and role navigation design.
 ```
 
 ## Current status
@@ -17,9 +17,9 @@ Role-based cabinets gap analysis.
 ```text
 - Production deployment: CLOSED
 - Monitoring cycle v0.2: PASS
-- Product next iteration planning: COMPLETE
 - UI/navigation audit: COMPLETE
 - Role-based cabinets gap analysis: COMPLETE
+- RBAC and role navigation design: COMPLETE
 - Pilot launch: paused
 - Operating mode: event-based monitoring
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
@@ -29,14 +29,15 @@ Role-based cabinets gap analysis.
 ## Next
 
 ```text
-1. Start RBAC_AND_ROLE_NAVIGATION_DESIGN_PACK.
-2. Do not expose separate role apps to production yet.
-3. Do not start pilot demo data yet.
+1. Start RBAC_AND_ROLE_NAVIGATION_IMPLEMENTATION_PLAN_PACK.
+2. Do not implement frontend/backend changes without explicit approval.
+3. Do not expose separate role apps to production yet.
 4. Keep production/staging unchanged.
 
-See docs/ROLE_BASED_CABINETS_GAP_ANALYSIS_V0.1.md
-See docs/ROLE_TO_MODULE_ACCESS_MATRIX_V0.1.md
-See docs/ROLE_BASED_CABINETS_BACKLOG_V0.1.md
+See docs/RBAC_AND_ROLE_NAVIGATION_DESIGN_V0.1.md
+See docs/RBAC_ROLE_PERMISSION_MATRIX_V0.1.md
+See docs/ROLE_BASED_SIDEBAR_NAVIGATION_SPEC_V0.1.md
+See docs/RBAC_ROLE_NAVIGATION_IMPLEMENTATION_BACKLOG_V0.1.md
 ```
 
 ## Current active staging domain

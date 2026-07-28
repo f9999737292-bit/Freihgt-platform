@@ -10,7 +10,7 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 
 | Metric | Value |
 |--------|-------|
-| Total entries | **125** |
+| Total entries | **126** |
 | Staging limitations | **STG-LIM-001..006 CLOSED — final review PASS** |
 | Production-readiness review | **READY_FOR_OWNER_PRODUCTION_APPROVAL** |
 | Owner production approval | **RECORDED — Феликс Асаев (2026-07-17)** |
@@ -134,6 +134,7 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | W3-FB-DEMO-SEED-SERVER-APPROVAL-001 | 2026-07-13 | — | CROSS_ENTITY | TO/SH/BR demos | staging demo seed server execution approval | P3 | Operator approved server seed run; agent SSH attempt no output capture; pending local operator execution | COMPLETED | — | seed выполнен verification | DEMO_SEED_SERVER_EXECUTION_APPROVED_PENDING_RUN — production_ready_claimed=no, seed_executed=pending, secrets_captured=no |
 | W3-FB-DEMO-SEED-COMPLETE-001 | 2026-07-13 | — | CROSS_ENTITY | TO/SH/BR demos | staging demo seed execution complete | P3 | Operator confirmed seed выполнен; STG-LIM-005/006 closed; machine verify output not attached | COMPLETED | — | DNS A-record / web-admin deploy | DEMO_SEED_EXECUTION_OPERATOR_CONFIRMED_COMPLETE — stg_lim_005=CLOSED, stg_lim_006=CLOSED, production_ready_claimed=no, seed_executed=yes, staging_writes_executed=yes, secrets_captured=no |
 | W3-FB-HTTP-STAGING-PILOT-REGRESSION-001 | 2026-07-14 | — | CROSS_ENTITY | TO/SH/BR demos | HTTP staging controlled pilot regression | P2 | Continued controlled pilot without DNS; machine-captured verify PASS via local PowerShell | COMPLETED | — | DNS A-record / web-admin deploy (separate approval) | HTTP_STAGING_CONTROLLED_PILOT_REGRESSION_PASS — production_ready_claimed=no, writes_executed=no, secrets_captured=no, dns_pending=yes |
+| W3-FB-RBAC-ROLE-NAVIGATION-DESIGN-001 | 2026-07-28 | — | CROSS_ENTITY | TO/SH/BR demos | RBAC and role navigation design | P2 | RBAC design, permission matrix, sidebar spec, and implementation backlog created; hybrid strategy confirmed | completed | — | RBAC_AND_ROLE_NAVIGATION_IMPLEMENTATION_PLAN_PACK | RBAC_AND_ROLE_NAVIGATION_DESIGN_COMPLETE — production_deployment=CLOSED, monitoring_cycle_v02=PASS, ui_navigation_audit=COMPLETE, role_cabinets_gap_analysis=COMPLETE, pilot_launch=paused, canonical_roles=7, permission_matrix_created=yes, sidebar_spec_created=yes, implementation_backlog_created=yes, recommended_strategy=hybrid, recommended_next_pack=RBAC_AND_ROLE_NAVIGATION_IMPLEMENTATION_PLAN_PACK, production_changed=no, staging_changed=no, server_changed=no, source_code_changed=no, database_writes=no, secrets_captured=no, evidence=RBAC_AND_ROLE_NAVIGATION_DESIGN_V0.1.md |
 | W3-FB-ROLE-BASED-CABINETS-GAP-ANALYSIS-001 | 2026-07-28 | — | CROSS_ENTITY | TO/SH/BR demos | role-based cabinets gap analysis | P2 | Read-only analysis of 6 frontend apps; hybrid strategy recommended; role-to-module matrix and backlog created | completed | — | RBAC_AND_ROLE_NAVIGATION_DESIGN_PACK | ROLE_BASED_CABINETS_GAP_ANALYSIS_COMPLETE — production_deployment=CLOSED, monitoring_cycle_v02=PASS, ui_navigation_audit=COMPLETE, pilot_launch=paused, role_apps_reviewed=6, web_admin_pages=30, role_app_pages=1_each_skeleton, recommended_strategy=hybrid, prod_root=PASS_200, prod_login=PASS_200, prod_health=PASS_200, staging_root=PASS_200, staging_login=PASS_200, staging_health=PASS_200, role_analysis_created=yes, role_matrix_created=yes, role_backlog_created=yes, recommended_next_pack=RBAC_AND_ROLE_NAVIGATION_DESIGN_PACK, production_changed=no, staging_changed=no, server_changed=no, source_code_changed=no, database_writes=no, secrets_captured=no, evidence=ROLE_BASED_CABINETS_GAP_ANALYSIS_V0.1.md |
 | W3-FB-PRODUCT-UI-NAVIGATION-AUDIT-001 | 2026-07-28 | — | CROSS_ENTITY | TO/SH/BR demos | product UI and navigation audit | P2 | Read-only web-admin UI/navigation audit; page map and gap list created; production/staging short check PASS | completed | — | ROLE_BASED_CABINETS_GAP_ANALYSIS_PACK | PRODUCT_UI_AND_NAVIGATION_AUDIT_COMPLETE — production_deployment=CLOSED, monitoring_cycle_v02=PASS, demo_readiness=PREPARED, pilot_launch=paused, page_files=30, sidebar_nav_items=13, prod_root=PASS_200, prod_login=PASS_200, prod_health=PASS_200, staging_root=PASS_200, staging_login=PASS_200, staging_health=PASS_200, ui_navigation_audit_created=yes, ui_gap_list_created=yes, ui_page_map_created=yes, recommended_next_pack=ROLE_BASED_CABINETS_GAP_ANALYSIS_PACK, production_changed=no, staging_changed=no, server_changed=no, source_code_changed=no, database_writes=no, secrets_captured=no, evidence=PRODUCT_UI_AND_NAVIGATION_AUDIT_V0.1.md |
 | W3-FB-PRODUCT-NEXT-ITERATION-PLANNING-001 | 2026-07-28 | — | CROSS_ENTITY | TO/SH/BR demos | product next iteration planning | P2 | Product roadmap, backlog, and module priority matrix prepared; pilot launch paused; read-only repo inventory completed | completed | — | PRODUCT_UI_AND_NAVIGATION_AUDIT_PACK | PRODUCT_NEXT_ITERATION_PLANNING_COMPLETE — production_deployment=CLOSED, monitoring_cycle_v02=PASS, demo_readiness=PREPARED, pilot_launch=paused, roadmap_created=yes, backlog_created=yes, priority_matrix_created=yes, recommended_next_pack=PRODUCT_UI_AND_NAVIGATION_AUDIT_PACK, production_changed=no, staging_changed=no, server_changed=no, source_code_changed=no, database_writes=no, secrets_captured=no, evidence=PRODUCT_NEXT_ITERATION_ROADMAP_V0.1.md |
@@ -195,6 +196,33 @@ Central log for Week-3 low-code pilot operator feedback across **TRANSPORT_ORDER
 | W3-FB-TENANT-ISOLATION-OWNER-APPROVAL-001 | 2026-06-23 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness tenant isolation owner approval gate | P2 | Tenant isolation owner approval gate prepared; named owner TBD | COMPLETED | Security / Architecture — TBD | Tenant Isolation Owner Final Approval Pack v0.1 | TENANT_ISOLATION_OWNER_APPROVAL_GATE_PREPARED_PENDING_OWNER_ASSIGNMENT — pr_gap=PR-GAP-006, production_ready_claimed=no, code_changed=no, write_operations_executed=no, secrets_captured=no |
 | W3-FB-TENANT-ISOLATION-REVIEW-001 | 2026-06-23 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness tenant isolation evidence review | P2 | Tenant isolation evidence reviewed; owner approval still required | COMPLETED | Security / Architecture — TBD | Tenant Isolation Owner Approval Pack v0.1 | TENANT_ISOLATION_EVIDENCE_REVIEWED_PENDING_OWNER_APPROVAL — pr_gap=PR-GAP-006, pr_gap_status=TENANT_ISOLATION_EVIDENCE_REVIEWED_PENDING_OWNER_APPROVAL, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, code_changed=no, write_operations_executed=no, secrets_captured=no |
 | W3-FB-TENANT-ISOLATION-EVIDENCE-001 | 2026-06-23 | — | CROSS_ENTITY | TO/SH/BR demos | production readiness tenant isolation evidence | P2 | Tenant isolation evidence pack created for low-code production readiness gap closure | COMPLETED | Security / Architecture — TBD | Tenant Isolation Evidence Review Pack v0.1 | TENANT_ISOLATION_EVIDENCE_PACK_CREATED_PENDING_REVIEW — pr_gap=PR-GAP-006, pr_gap_status=TENANT_ISOLATION_EVIDENCE_PACK_CREATED_PENDING_REVIEW, production_ready_claimed=no, controlled_pilot_status=CONTROLLED_PILOT_APPROVED, code_changed=no, write_operations_executed=no, secrets_captured=no |
+
+### W3-FB-RBAC-ROLE-NAVIGATION-DESIGN-001
+
+- **entity_type:** CROSS_ENTITY
+- **category:** RBAC and role navigation design
+- **severity:** P2
+- **status:** completed
+- **summary:** RBAC design, permission matrix, sidebar spec, and implementation backlog created; hybrid strategy confirmed
+- **decision:** RBAC_AND_ROLE_NAVIGATION_DESIGN_COMPLETE
+- **production_deployment:** CLOSED
+- **monitoring_cycle_v02:** PASS
+- **ui_navigation_audit:** COMPLETE
+- **role_cabinets_gap_analysis:** COMPLETE
+- **pilot_launch:** paused
+- **canonical_roles:** 7
+- **permission_matrix_created:** yes
+- **sidebar_spec_created:** yes
+- **implementation_backlog_created:** yes
+- **recommended_strategy:** hybrid
+- **recommended_next_pack:** RBAC_AND_ROLE_NAVIGATION_IMPLEMENTATION_PLAN_PACK
+- **production_changed:** no
+- **staging_changed:** no
+- **server_changed:** no
+- **source_code_changed:** no
+- **database_writes:** no
+- **secrets_captured:** no
+- **evidence:** docs/RBAC_AND_ROLE_NAVIGATION_DESIGN_V0.1.md, docs/RBAC_ROLE_PERMISSION_MATRIX_V0.1.md, docs/ROLE_BASED_SIDEBAR_NAVIGATION_SPEC_V0.1.md, docs/RBAC_ROLE_NAVIGATION_IMPLEMENTATION_BACKLOG_V0.1.md
 
 ### W3-FB-ROLE-BASED-CABINETS-GAP-ANALYSIS-001
 
