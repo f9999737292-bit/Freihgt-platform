@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-RBAC role navigation local runtime review.
+RBAC role navigation mock-role review.
 ```
 
 ## Current status
@@ -20,6 +20,7 @@ RBAC role navigation local runtime review.
 - RBAC frontend implementation: COMMITTED
 - RBAC frontend review: COMPLETE
 - RBAC local runtime review: COMPLETE
+- RBAC mock-role review: COMPLETE
 - Pilot launch: paused
 - Operating mode: event-based monitoring
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
@@ -29,13 +30,14 @@ RBAC role navigation local runtime review.
 ## Next
 
 ```text
-1. Start RBAC_ROLE_NAVIGATION_MOCK_ROLE_REVIEW_PACK if non-admin roles were not fully tested.
-2. Do not deploy without separate deployment approval.
-3. Keep production/staging unchanged.
-4. Do not include local leftovers in commits.
+1. If mock-role runtime switching was blocked, prepare RBAC_ROLE_NAVIGATION_TEST_HOOK_PLAN_PACK.
+2. If mock-role review passed, prepare RBAC_ROLE_NAVIGATION_STAGING_BUILD_APPROVAL_PACK.
+3. Do not deploy without separate deployment approval.
+4. Keep production/staging unchanged.
+5. Do not include local leftovers in commits.
 
-See docs/RBAC_ROLE_NAVIGATION_LOCAL_RUNTIME_REVIEW_V0.1.md
-See docs/RBAC_ROLE_NAVIGATION_LOCAL_RUNTIME_CHECKLIST_V0.1.md
+See docs/RBAC_ROLE_NAVIGATION_MOCK_ROLE_REVIEW_V0.1.md
+See docs/RBAC_ROLE_NAVIGATION_MOCK_ROLE_CHECKLIST_V0.1.md
 ```
 
 ## Current active staging domain
