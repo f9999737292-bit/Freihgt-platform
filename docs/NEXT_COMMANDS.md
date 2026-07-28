@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Product next iteration planning.
+Product UI and navigation audit.
 ```
 
 ## Current status
@@ -18,8 +18,9 @@ Product next iteration planning.
 - Production deployment: CLOSED
 - Monitoring cycle v0.2: PASS
 - Demo readiness: PREPARED
+- Product next iteration planning: COMPLETE
+- UI/navigation audit: COMPLETE
 - Pilot launch: paused
-- Product next iteration roadmap prepared
 - Operating mode: event-based monitoring
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
 - Server IP: 161.104.53.221
@@ -28,14 +29,14 @@ Product next iteration planning.
 ## Next
 
 ```text
-1. Start PRODUCT_UI_AND_NAVIGATION_AUDIT_PACK.
-2. Do not run pilot demo data pack yet.
+1. Start ROLE_BASED_CABINETS_GAP_ANALYSIS_PACK.
+2. Do not start pilot demo data yet.
 3. Do not run deploy/monitoring packs without incident or approved change.
 4. Keep production/staging unchanged.
 
-See docs/PRODUCT_NEXT_ITERATION_ROADMAP_V0.1.md
-See docs/PRODUCT_NEXT_ITERATION_BACKLOG_V0.1.md
-See docs/PRODUCT_MODULE_PRIORITY_MATRIX_V0.1.md
+See docs/PRODUCT_UI_AND_NAVIGATION_AUDIT_V0.1.md
+See docs/PRODUCT_UI_NAVIGATION_GAP_LIST_V0.1.md
+See docs/PRODUCT_UI_PAGE_MAP_V0.1.md
 ```
 
 ## Current active staging domain
