@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const uiStore = useUiStore()
+const { canSeeNavItem } = usePermissions()
 
 const navItems = [
   { to: '/dashboard', icon: '▣', labelKey: 'nav.dashboard' },
@@ -16,6 +17,8 @@ const navItems = [
   { to: '/health', icon: '♥', labelKey: 'nav.health' },
   { to: '/settings', icon: '⚙', labelKey: 'nav.settings' },
 ]
+
+const visibleNavItems = computed(() => navItems.filter((item) => canSeeNavItem(item.to)))
 </script>
 
 <template>
@@ -29,7 +32,7 @@ const navItems = [
     </div>
     <nav class="sidebar__nav">
       <NuxtLink
-        v-for="item in navItems"
+        v-for="item in visibleNavItems"
         :key="item.to"
         :to="item.to"
         class="sidebar__link"

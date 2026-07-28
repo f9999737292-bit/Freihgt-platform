@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-RBAC role navigation implementation approval.
+RBAC role navigation frontend implementation.
 ```
 
 ## Current status
@@ -19,7 +19,8 @@ RBAC role navigation implementation approval.
 - Monitoring cycle v0.2: PASS
 - RBAC design: COMPLETE
 - RBAC implementation plan: COMPLETE
-- RBAC frontend implementation approval: COMPLETE
+- RBAC implementation approval: COMPLETE
+- RBAC frontend implementation: COMPLETE
 - Pilot launch: paused
 - Operating mode: event-based monitoring
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
@@ -29,14 +30,12 @@ RBAC role navigation implementation approval.
 ## Next
 
 ```text
-1. Start RBAC_ROLE_NAVIGATION_FRONTEND_IMPLEMENTATION_PACK.
-2. Change only approved web-admin frontend files.
-3. Do not change backend/API/migrations.
-4. Do not deploy without separate deployment approval.
+1. Start RBAC_ROLE_NAVIGATION_FRONTEND_REVIEW_PACK.
+2. Review source diff and validation results.
+3. Do not deploy without separate deployment approval.
+4. Keep production/staging unchanged.
 
-See docs/RBAC_ROLE_NAVIGATION_IMPLEMENTATION_APPROVAL_V0.1.md
-See docs/RBAC_ROLE_NAVIGATION_SOURCE_BOUNDARY_V0.1.md
-See docs/RBAC_ROLE_NAVIGATION_IMPLEMENTATION_APPROVAL_CHECKLIST_V0.1.md
+See docs/RBAC_ROLE_NAVIGATION_FRONTEND_IMPLEMENTATION_EVIDENCE_V0.1.md
 ```
 
 ## Current active staging domain

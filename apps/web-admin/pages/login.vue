@@ -2,15 +2,17 @@
 definePageMeta({ layout: 'auth', middleware: 'guest' })
 
 const config = useRuntimeConfig()
+const router = useRouter()
 const { login } = useAuth()
+const { getLandingRoute } = usePermissions()
 const { pushToast } = useToast()
 const { t } = useI18n()
 const { resolveInitialTenantId } = useTenantContext()
 const { backendOnline, backendStatus, checkBackendStatus } = useBackendStatus()
 
 const tenantId = ref('')
-const email = ref('demo@7rights.local')
-const password = ref('123456')
+const email = ref(import.meta.dev ? 'demo@7rights.local' : '')
+const password = ref(import.meta.dev ? '123456' : '')
 const loading = ref(false)
 const checkingBackend = ref(false)
 
@@ -42,6 +44,7 @@ async function onSubmit() {
   loading.value = true
   try {
     await login(tenantId.value, email.value, password.value)
+    await router.replace(getLandingRoute())
   } catch (error) {
     if (error instanceof Error && error.message !== t('tenant.required')) {
       pushToast('error', error.message)
