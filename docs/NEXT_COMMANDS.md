@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Backend public API readiness approval boundary.
+Backend public API browser health diagnostic.
 ```
 
 ## Current status
@@ -17,15 +17,14 @@ Backend public API readiness approval boundary.
 ```text
 - Production static UI demo readiness: SIGNED_OFF
 - Production live-data demo readiness: PARTIAL
-- Backend public API readiness plan: COMPLETE
 - Backend public API approval boundary: COMPLETE
-- Public /health: 200
-- Public /api/health: 404 gateway/application
-- Public /api/: 404 gateway/application
-- Public /api/v1/*: route family exists
-- Backend-offline banner: visible
-- Selected strategy: API_READINESS_BROWSER_FIRST_GATEWAY_NORMALIZATION
-- Nginx change selected now: no
+- Browser health diagnostic: COMPLETE
+- Diagnostic classification: BROWSER_HEALTH_OK_BANNER_NOT_REPRODUCED + BROWSER_HEALTH_API_HEALTH_404_EXPECTED
+- Public /health: 200 (browser + curl)
+- Public /api/health: 404 gateway/application (expected; not used by frontend health)
+- Backend-offline banner: not reproduced in browser diagnostic (online)
+- Canonical health path: /health
+- Nginx change selected: no
 - Production execution approved: no
 - Full production readiness: not claimed
 - Operating mode: event-based monitoring
@@ -36,22 +35,17 @@ Backend public API readiness approval boundary.
 ## Next options
 
 ```text
-1. BACKEND_PUBLIC_API_BROWSER_HEALTH_DIAGNOSTIC_PACK v0.1
-2. Then select exact execution path:
-   - browser/runtime health fix
-   - gateway /api/health alias
-   - documentation-only canonical path
+1. BACKEND_PUBLIC_API_CANONICAL_PATH_SIGNOFF_PACK v0.1
+2. Or DEMO_SCENARIO_SMOKE_PACK v0.1 for controlled demo walkthrough.
 3. Do not change Nginx/backend/source/database without explicit approval.
 4. Do not open internal ports publicly.
 5. Do not include local leftovers in commits.
 
+See docs/BACKEND_PUBLIC_API_BROWSER_HEALTH_DIAGNOSTIC_EVIDENCE_V0.1.md
+See docs/BACKEND_PUBLIC_API_BROWSER_HEALTH_DIAGNOSTIC_CHECKLIST_V0.1.md
+See docs/BACKEND_PUBLIC_API_BROWSER_HEALTH_NEXT_PATH_RECOMMENDATION_V0.1.md
 See docs/BACKEND_PUBLIC_API_READINESS_APPROVAL_V0.1.md
-See docs/BACKEND_PUBLIC_API_BROWSER_HEALTH_DIAGNOSTIC_PLAN_V0.1.md
-See docs/BACKEND_PUBLIC_API_READINESS_EXECUTION_BOUNDARY_V0.1.md
-See docs/BACKEND_PUBLIC_API_READINESS_APPROVAL_CHECKLIST_V0.1.md
-See docs/BACKEND_PUBLIC_API_READINESS_PLAN_V0.1.md
 See docs/BACKEND_PUBLIC_API_ROUTING_AUDIT_V0.1.md
-See docs/PRODUCTION_DEMO_READINESS_LIMITATIONS_V0.1.md
 ```
 
 ## Current active staging domain
