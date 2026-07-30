@@ -9,18 +9,17 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Production login prefill artifact fix final signoff.
+Production demo readiness review after login prefill fix.
 ```
 
 ## Current status
 
 ```text
 - Production deployment: CLOSED
-- RBAC staging QA final signoff: COMPLETE
 - Production login prefill artifact issue: FIXED
-- Production login prefill artifact fix chain: CLOSED
-- Production login prefill final signoff: COMPLETE
-- Production login prefill: removed
+- Production login prefill chain: CLOSED
+- Production demo readiness review: COMPLETE
+- Demo readiness classification: DEMO_READINESS_STATIC_UI_PASS + DEMO_READINESS_LIVE_DATA_PARTIAL
 - RBAC UI promoted to production static UI: yes
 - Production root: /var/www/bintrans-web-admin
 - Staging root: /var/www/staging-bintrans-web-admin
@@ -34,17 +33,15 @@ Production login prefill artifact fix final signoff.
 ## Next options
 
 ```text
-1. PRODUCTION_DEMO_READINESS_REVIEW_PACK v0.1
-2. Or resume product iteration planning after owner approval.
-3. Do not change Nginx/DNS/Certbot/backend/API/database without explicit approval.
-4. Do not include local leftovers in commits.
+1. PRODUCTION_DEMO_READINESS_FINAL_SIGNOFF_PACK v0.1
+2. For live customer demo, prepare separate DEMO_SCENARIO_SMOKE_PACK
+3. Do not change Nginx/DNS/Certbot/backend/API/database without explicit approval
+4. Do not include local leftovers in commits
 
+See docs/PRODUCTION_DEMO_READINESS_REVIEW_EVIDENCE_V0.1.md
+See docs/PRODUCTION_DEMO_READINESS_REVIEW_CHECKLIST_V0.1.md
+See docs/PRODUCTION_DEMO_READINESS_LIMITATIONS_V0.1.md
 See docs/PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_FINAL_SIGNOFF_V0.1.md
-See docs/PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_FINAL_SIGNOFF_CHECKLIST_V0.1.md
-See docs/PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_ROLLBACK_CAVEAT_NOTE_V0.1.md
-See docs/PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_POST_DEPLOY_REVIEW_EVIDENCE_V0.1.md
-See docs/PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_EXECUTION_EVIDENCE_V0.1.md
-See docs/PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_PLAN_V0.1.md
 ```
 
 ## Current active staging domain
