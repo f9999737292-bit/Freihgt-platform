@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Production demo readiness review after login prefill fix.
+Production demo readiness final signoff.
 ```
 
 ## Current status
@@ -18,8 +18,12 @@ Production demo readiness review after login prefill fix.
 - Production deployment: CLOSED
 - Production login prefill artifact issue: FIXED
 - Production login prefill chain: CLOSED
-- Production demo readiness review: COMPLETE
+- Production demo readiness final signoff: COMPLETE
 - Demo readiness classification: DEMO_READINESS_STATIC_UI_PASS + DEMO_READINESS_LIVE_DATA_PARTIAL
+- Production static UI demo readiness: SIGNED_OFF
+- Production live-data demo readiness: PARTIAL
+- Public /api/health and /api/: 404
+- Backend-offline banner: visible
 - RBAC UI promoted to production static UI: yes
 - Production root: /var/www/bintrans-web-admin
 - Staging root: /var/www/staging-bintrans-web-admin
@@ -33,15 +37,17 @@ Production demo readiness review after login prefill fix.
 ## Next options
 
 ```text
-1. PRODUCTION_DEMO_READINESS_FINAL_SIGNOFF_PACK v0.1
-2. For live customer demo, prepare separate DEMO_SCENARIO_SMOKE_PACK
-3. Do not change Nginx/DNS/Certbot/backend/API/database without explicit approval
-4. Do not include local leftovers in commits
+1. DEMO_SCENARIO_SMOKE_PACK v0.1 — prepare controlled demo walkthrough.
+2. BACKEND_PUBLIC_API_READINESS_PLAN_PACK v0.1 — plan fix for public API/live-data demo limitation.
+3. Do not claim full production readiness.
+4. Do not change Nginx/DNS/Certbot/backend/API/database without explicit approval.
+5. Do not include local leftovers in commits.
 
+See docs/PRODUCTION_DEMO_READINESS_FINAL_SIGNOFF_V0.1.md
+See docs/PRODUCTION_DEMO_READINESS_FINAL_SIGNOFF_CHECKLIST_V0.1.md
+See docs/PRODUCTION_DEMO_READINESS_STATIC_UI_SCOPE_NOTE_V0.1.md
 See docs/PRODUCTION_DEMO_READINESS_REVIEW_EVIDENCE_V0.1.md
-See docs/PRODUCTION_DEMO_READINESS_REVIEW_CHECKLIST_V0.1.md
 See docs/PRODUCTION_DEMO_READINESS_LIMITATIONS_V0.1.md
-See docs/PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_FINAL_SIGNOFF_V0.1.md
 ```
 
 ## Current active staging domain
