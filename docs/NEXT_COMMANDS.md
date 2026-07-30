@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Live-data demo workflow planning.
+Live-data demo workflow approval boundary.
 ```
 
 ## Current status
@@ -20,8 +20,14 @@ Live-data demo workflow planning.
 - Demo scenario chain: CLOSED
 - Controlled static production walkthrough: READY
 - Live-data demo workflow plan: COMPLETE
+- Live-data demo workflow approval boundary: COMPLETE
+- Selected environment strategy: staging-first
+- Approved v0.1 roles for future demo: PLATFORM_ADMIN, SHIPPER_ADMIN, CARRIER_ADMIN, FINANCE_MANAGER
 - Live-data demo readiness: PARTIAL
 - Authenticated workflow readiness: NOT_SIGNED_OFF
+- Demo credentials: not approved / not created
+- Seed data: not approved / not created
+- Production live-data demo: not approved
 - Full production readiness: not claimed
 - Operating mode: event-based monitoring
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
@@ -31,21 +37,20 @@ Live-data demo workflow planning.
 ## Next options
 
 ```text
-1. LIVE_DATA_DEMO_WORKFLOW_APPROVAL_PACK v0.1
-2. Then DEMO_CREDENTIALS_AND_SEED_DATA_APPROVAL_PACK v0.1 if approved.
-3. Prefer staging-first authenticated workflow.
-4. Do not create credentials or seed data without explicit approval.
-5. Do not enter real credentials or create fake sessions in production.
-6. Do not include local leftovers in commits.
+1. DEMO_CREDENTIALS_AND_SEED_DATA_APPROVAL_PACK v0.1
+2. Then LIVE_DATA_DEMO_WORKFLOW_STAGING_EXECUTION_PACK v0.1 after explicit approval.
+3. Do not create credentials or seed data without explicit approval.
+4. Do not enter real credentials or create fake sessions.
+5. Do not include local leftovers in commits.
 
-See docs/LIVE_DATA_DEMO_WORKFLOW_PLAN_V0.1.md
-See docs/LIVE_DATA_DEMO_ROLE_MATRIX_V0.1.md
-See docs/LIVE_DATA_DEMO_API_REQUIREMENTS_V0.1.md
-See docs/LIVE_DATA_DEMO_SEED_DATA_REQUIREMENTS_V0.1.md
-See docs/LIVE_DATA_DEMO_WORKFLOW_RISK_MATRIX_V0.1.md
+See docs/LIVE_DATA_DEMO_WORKFLOW_APPROVAL_V0.1.md
+See docs/LIVE_DATA_DEMO_ENVIRONMENT_DECISION_V0.1.md
+See docs/DEMO_CREDENTIALS_AND_SEED_DATA_APPROVAL_BOUNDARY_V0.1.md
+See docs/LIVE_DATA_DEMO_WORKFLOW_EXECUTION_BOUNDARY_V0.1.md
+See docs/LIVE_DATA_DEMO_PRODUCTION_BOUNDARY_V0.1.md
 See docs/LIVE_DATA_DEMO_WORKFLOW_APPROVAL_CHECKLIST_V0.1.md
+See docs/LIVE_DATA_DEMO_WORKFLOW_PLAN_V0.1.md
 See docs/DEMO_SCENARIO_FINAL_SIGNOFF_V0.1.md
-See docs/DEMO_SCENARIO_EXTERNAL_DEMO_GUARDRAILS_V0.1.md
 ```
 
 ## Current active staging domain
