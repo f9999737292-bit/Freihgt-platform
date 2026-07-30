@@ -9,25 +9,21 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Demo credentials and seed data approval.
+Demo credentials and seed data staging execution.
 ```
 
 ## Current status
 
 ```text
-- Production static UI demo readiness: SIGNED_OFF
-- Demo scenario chain: CLOSED
-- Live-data demo workflow approval boundary: COMPLETE
-- Demo credentials and seed data approval: COMPLETE
-- Selected environment: staging-first
-- Approved future demo tenant alias: DEMO_BINTRANS_TENANT
-- Approved future user aliases: DEMO_PLATFORM_ADMIN, DEMO_SHIPPER_ADMIN, DEMO_CARRIER_ADMIN, DEMO_FINANCE_MANAGER
-- Approved future seed dataset: DEMO tenant/users/companies/RFx/TO/shipments/billing/doc metadata
-- Credentials created: no
-- Seed data created: no
-- Staging writes executed: no
-- Production writes approved: no
+- Explicit staging write approval: GIVEN
+- Staging execution: BLOCKED
+- Staging isolation gate: BLOCKED
+- Blocker: staging and production share API gateway (127.0.0.1:8080) and Postgres (freight_postgres)
+- Staging demo credentials: not created
+- Staging demo seed data: not created
+- Production writes: no
 - Production live-data demo: not approved
+- Secrets recorded in docs/repo/chat: no
 - Authenticated workflow readiness: NOT_SIGNED_OFF
 - Full production readiness: not claimed
 - Operating mode: event-based monitoring
@@ -38,20 +34,18 @@ Demo credentials and seed data approval.
 ## Next options
 
 ```text
-1. DEMO_CREDENTIALS_AND_SEED_DATA_STAGING_EXECUTION_PACK v0.1 — only after explicit staging write approval.
-2. Then LIVE_DATA_DEMO_WORKFLOW_STAGING_SMOKE_PACK v0.1.
-3. Do not create credentials or seed data without explicit execution approval.
+1. STAGING_BACKEND_DB_ISOLATION_PLAN_PACK v0.1
+2. Do not create credentials/seed data until staging backend/DB isolation is proven.
+3. Do not perform production writes.
 4. Do not record passwords/tokens in repo/docs/chat.
 5. Do not include local leftovers in commits.
 
+See docs/DEMO_CREDENTIALS_AND_SEED_DATA_STAGING_EXECUTION_RESULT_V0.1.md
+See docs/DEMO_CREDENTIALS_AND_SEED_DATA_STAGING_ISOLATION_CHECK_V0.1.md
+See docs/DEMO_CREDENTIALS_AND_SEED_DATA_STAGING_EXECUTION_EVIDENCE_V0.1.md
+See docs/DEMO_CREDENTIALS_AND_SEED_DATA_STAGING_EXECUTION_RUNBOOK_V0.1.md
 See docs/DEMO_CREDENTIALS_AND_SEED_DATA_APPROVAL_V0.1.md
-See docs/DEMO_CREDENTIAL_HANDLING_POLICY_V0.1.md
-See docs/DEMO_SEED_DATASET_APPROVAL_V0.1.md
-See docs/DEMO_CREDENTIALS_AND_SEED_DATA_STAGING_EXECUTION_BOUNDARY_V0.1.md
-See docs/DEMO_CREDENTIALS_AND_SEED_DATA_CLEANUP_PLAN_V0.1.md
-See docs/DEMO_CREDENTIALS_AND_SEED_DATA_APPROVAL_BOUNDARY_V0.1.md
-See docs/LIVE_DATA_DEMO_WORKFLOW_APPROVAL_V0.1.md
-See docs/DEMO_SCENARIO_FINAL_SIGNOFF_V0.1.md
+See docs/LIVE_DATA_DEMO_PRODUCTION_BOUNDARY_V0.1.md
 ```
 
 ## Current active staging domain
