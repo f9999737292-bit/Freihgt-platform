@@ -9,26 +9,21 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Production demo readiness final signoff.
+Backend public API readiness planning.
 ```
 
 ## Current status
 
 ```text
-- Production deployment: CLOSED
-- Production login prefill artifact issue: FIXED
-- Production login prefill chain: CLOSED
-- Production demo readiness final signoff: COMPLETE
-- Demo readiness classification: DEMO_READINESS_STATIC_UI_PASS + DEMO_READINESS_LIVE_DATA_PARTIAL
 - Production static UI demo readiness: SIGNED_OFF
 - Production live-data demo readiness: PARTIAL
 - Public /api/health and /api/: 404
 - Backend-offline banner: visible
-- RBAC UI promoted to production static UI: yes
+- Backend public API readiness plan: COMPLETE
+- Root cause classification: API_READINESS_ROOT_CAUSE_GATEWAY_ROUTE_MISSING + API_READINESS_ROOT_CAUSE_FRONTEND_BASE_URL_MISMATCH
 - Production root: /var/www/bintrans-web-admin
 - Staging root: /var/www/staging-bintrans-web-admin
-- Rollback caveat: backup path is symlink copy, not detached snapshot
-- Pilot launch: paused
+- Full production readiness: not claimed
 - Operating mode: event-based monitoring
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
 - Server IP: 161.104.53.221
@@ -37,16 +32,18 @@ Production demo readiness final signoff.
 ## Next options
 
 ```text
-1. DEMO_SCENARIO_SMOKE_PACK v0.1 — prepare controlled demo walkthrough.
-2. BACKEND_PUBLIC_API_READINESS_PLAN_PACK v0.1 — plan fix for public API/live-data demo limitation.
-3. Do not claim full production readiness.
-4. Do not change Nginx/DNS/Certbot/backend/API/database without explicit approval.
+1. BACKEND_PUBLIC_API_READINESS_APPROVAL_PACK v0.1
+2. Or DEMO_SCENARIO_SMOKE_PACK v0.1 if proceeding with static-only demo.
+3. Do not change Nginx/backend/source/database without explicit approval.
+4. Do not open internal ports publicly.
 5. Do not include local leftovers in commits.
 
+See docs/BACKEND_PUBLIC_API_READINESS_PLAN_V0.1.md
+See docs/BACKEND_PUBLIC_API_ROUTING_AUDIT_V0.1.md
+See docs/BACKEND_PUBLIC_API_READINESS_RISK_MATRIX_V0.1.md
+See docs/BACKEND_PUBLIC_API_READINESS_APPROVAL_CHECKLIST_V0.1.md
+See docs/BACKEND_PUBLIC_API_READINESS_SCOPE_NOTE_V0.1.md
 See docs/PRODUCTION_DEMO_READINESS_FINAL_SIGNOFF_V0.1.md
-See docs/PRODUCTION_DEMO_READINESS_FINAL_SIGNOFF_CHECKLIST_V0.1.md
-See docs/PRODUCTION_DEMO_READINESS_STATIC_UI_SCOPE_NOTE_V0.1.md
-See docs/PRODUCTION_DEMO_READINESS_REVIEW_EVIDENCE_V0.1.md
 See docs/PRODUCTION_DEMO_READINESS_LIMITATIONS_V0.1.md
 ```
 
