@@ -9,18 +9,17 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Staging web root separation execution.
+RBAC role navigation staging deployment retry.
 ```
 
 ## Current status
 
 ```text
 - Production deployment: CLOSED
-- Web root separation approval: COMPLETE
 - Web root separation execution: COMPLETE
 - Production root: /var/www/bintrans-web-admin
 - Staging root: /var/www/staging-bintrans-web-admin
-- RBAC staging deployment: ready for retry
+- RBAC staging deployment retry: COMPLETE
 - Production deploy: not approved
 - Pilot launch: paused
 - Operating mode: event-based monitoring
@@ -31,13 +30,13 @@ Staging web root separation execution.
 ## Next
 
 ```text
-1. If separation completed, start RBAC_ROLE_NAVIGATION_STAGING_DEPLOYMENT_RETRY_PACK.
+1. If retry deployment completed, start RBAC_ROLE_NAVIGATION_STAGING_POST_DEPLOY_REVIEW_PACK.
 2. Do not deploy to production.
 3. Do not change backend/API/migrations.
 4. Do not include local leftovers in commits.
 
-See docs/STAGING_WEB_ROOT_SEPARATION_EXECUTION_EVIDENCE_V0.1.md
-See docs/STAGING_WEB_ROOT_SEPARATION_EXECUTION_CHECKLIST_V0.1.md
+See docs/RBAC_ROLE_NAVIGATION_STAGING_DEPLOYMENT_RETRY_EVIDENCE_V0.1.md
+See docs/RBAC_ROLE_NAVIGATION_STAGING_DEPLOYMENT_RETRY_CHECKLIST_V0.1.md
 ```
 
 ## Current active staging domain
