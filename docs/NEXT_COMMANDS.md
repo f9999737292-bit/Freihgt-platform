@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-RBAC role navigation staging deployment retry.
+RBAC role navigation staging post-deploy review.
 ```
 
 ## Current status
@@ -17,9 +17,10 @@ RBAC role navigation staging deployment retry.
 ```text
 - Production deployment: CLOSED
 - Web root separation execution: COMPLETE
+- RBAC staging deployment retry: COMPLETE
+- RBAC staging post-deploy review: COMPLETE
 - Production root: /var/www/bintrans-web-admin
 - Staging root: /var/www/staging-bintrans-web-admin
-- RBAC staging deployment retry: COMPLETE
 - Production deploy: not approved
 - Pilot launch: paused
 - Operating mode: event-based monitoring
@@ -30,13 +31,13 @@ RBAC role navigation staging deployment retry.
 ## Next
 
 ```text
-1. If retry deployment completed, start RBAC_ROLE_NAVIGATION_STAGING_POST_DEPLOY_REVIEW_PACK.
-2. Do not deploy to production.
+1. If review completed, start RBAC_ROLE_NAVIGATION_STAGING_ACCEPTANCE_SIGNOFF_PACK.
+2. Do not deploy to production without explicit approval.
 3. Do not change backend/API/migrations.
 4. Do not include local leftovers in commits.
 
-See docs/RBAC_ROLE_NAVIGATION_STAGING_DEPLOYMENT_RETRY_EVIDENCE_V0.1.md
-See docs/RBAC_ROLE_NAVIGATION_STAGING_DEPLOYMENT_RETRY_CHECKLIST_V0.1.md
+See docs/RBAC_ROLE_NAVIGATION_STAGING_POST_DEPLOY_REVIEW_EVIDENCE_V0.1.md
+See docs/RBAC_ROLE_NAVIGATION_STAGING_POST_DEPLOY_REVIEW_CHECKLIST_V0.1.md
 ```
 
 ## Current active staging domain
