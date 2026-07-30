@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Backend public API browser health diagnostic.
+Backend public API canonical path signoff.
 ```
 
 ## Current status
@@ -17,13 +17,12 @@ Backend public API browser health diagnostic.
 ```text
 - Production static UI demo readiness: SIGNED_OFF
 - Production live-data demo readiness: PARTIAL
-- Backend public API approval boundary: COMPLETE
 - Browser health diagnostic: COMPLETE
-- Diagnostic classification: BROWSER_HEALTH_OK_BANNER_NOT_REPRODUCED + BROWSER_HEALTH_API_HEALTH_404_EXPECTED
-- Public /health: 200 (browser + curl)
-- Public /api/health: 404 gateway/application (expected; not used by frontend health)
-- Backend-offline banner: not reproduced in browser diagnostic (online)
+- Backend-offline banner: NOT_REPRODUCED
 - Canonical health path: /health
+- Canonical business API path family: /api/v1/*
+- /api/health: expected 404, not canonical, not used for frontend banner
+- Backend public API canonical path signoff: COMPLETE
 - Nginx change selected: no
 - Production execution approved: no
 - Full production readiness: not claimed
@@ -35,16 +34,16 @@ Backend public API browser health diagnostic.
 ## Next options
 
 ```text
-1. BACKEND_PUBLIC_API_CANONICAL_PATH_SIGNOFF_PACK v0.1
-2. Or DEMO_SCENARIO_SMOKE_PACK v0.1 for controlled demo walkthrough.
+1. DEMO_SCENARIO_SMOKE_PACK v0.1
+2. LIVE_DATA_DEMO_WORKFLOW_PLAN_PACK v0.1
 3. Do not change Nginx/backend/source/database without explicit approval.
 4. Do not open internal ports publicly.
 5. Do not include local leftovers in commits.
 
+See docs/BACKEND_PUBLIC_API_CANONICAL_PATH_SIGNOFF_V0.1.md
+See docs/BACKEND_PUBLIC_API_CANONICAL_PATH_SIGNOFF_CHECKLIST_V0.1.md
+See docs/LIVE_DATA_DEMO_NEXT_SCOPE_NOTE_V0.1.md
 See docs/BACKEND_PUBLIC_API_BROWSER_HEALTH_DIAGNOSTIC_EVIDENCE_V0.1.md
-See docs/BACKEND_PUBLIC_API_BROWSER_HEALTH_DIAGNOSTIC_CHECKLIST_V0.1.md
-See docs/BACKEND_PUBLIC_API_BROWSER_HEALTH_NEXT_PATH_RECOMMENDATION_V0.1.md
-See docs/BACKEND_PUBLIC_API_READINESS_APPROVAL_V0.1.md
 See docs/BACKEND_PUBLIC_API_ROUTING_AUDIT_V0.1.md
 ```
 
