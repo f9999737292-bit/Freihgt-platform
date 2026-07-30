@@ -1,60 +1,75 @@
 # Backend Public API Readiness Approval Checklist v0.1
 
-## Approval Required Before Execution
+## Approval Boundary Checks
+
+| Check | Result |
+|---|---|
+| plan committed | yes — `83a730d` |
+| routing audit committed | yes — `83a730d` |
+| root cause classified | yes — gateway route missing + browser/runtime TBD |
+| Nginx change selected as primary path | no |
+| browser/runtime diagnostic required | yes |
+| browser/runtime diagnostic completed | no — deferred to diagnostic pack |
+| gateway route normalization candidate recorded | yes — Candidate B |
+| source/backend execution approved now | no |
+| production execution approved now | no |
+
+## Required Before Execution
 
 | Check | Required |
 |---|---|
-| root cause classified | yes |
-| selected fix option documented | yes |
-| public API path selected | yes |
-| gateway target selected | yes |
-| frontend API base URL decision documented | yes |
-| Nginx change needed yes/no documented | yes |
-| backend/source change needed yes/no documented | yes |
-| rollback plan documented | yes |
-| security guardrails documented | yes |
-| post-deploy review planned | yes |
-| browser login backend-status verification planned | yes |
+| browser health diagnostic complete | yes |
+| exact fix path selected | yes |
+| owner execution approval | yes |
+| rollback plan | yes |
+| endpoint baseline | yes |
+| security boundary | yes |
+| post-deploy review plan | yes |
 
-## Possible Future Execution Scopes
-
-Only one should be selected in approval pack:
-
-| Option | Scope |
-|---|---|
-| A | Nginx `/api/` proxy/rewrite to gateway — **likely not needed; already present** |
-| B | production static frontend API base URL refresh — **only if browser origin mismatch confirmed** |
-| C | gateway route normalization — **primary candidate: `/api/health` alias or documented `/health` canonical path** |
-| D | keep API disabled and prepare static-only demo |
-
-## Planning Inputs (from audit v0.1)
+## Planning Inputs (from audit + approval v0.1)
 
 | Item | Current value |
 |---|---|
 | Nginx /api proxy | present on production and staging |
 | Nginx /health proxy | present on production and staging |
 | gateway health path | `/health` |
-| gateway v1 API prefixes | `/api/v1/*` (auth, users, companies, transport-orders, …) |
+| gateway v1 API prefixes | `/api/v1/*` |
 | frontend health path | `{apiBaseUrl}/health` |
 | frontend API path | `{apiBaseUrl}/api/v1/*` |
 | deployed mockAuth | false |
+| deployed apiBaseUrl | `https://xn--80abvubqje.xn--p1ai` |
+| selected strategy | `API_READINESS_BROWSER_FIRST_GATEWAY_NORMALIZATION` |
 
-## Explicitly Not Approved In This Plan
+## Possible Future Execution Scopes
+
+Only one should be selected after browser diagnostic:
+
+| Option | Scope |
+|---|---|
+| A | browser/runtime health fix (CORS, apiBaseUrl alignment, parsing) |
+| B | gateway `/api/health` alias |
+| C | documentation-only canonical path (`/health` + `/api/v1/*`) |
+| D | controlled static demo only |
+
+Nginx `/api/` proxy change is **not selected** — proxy already present.
+
+## Current Decision
 
 ```text
-Nginx edits.
-Nginx reload.
-Backend deploy.
-Source code changes.
-Frontend artifact refresh.
-Database migrations/writes.
-Docker restart.
-Opening ports.
-Public API exposure changes.
+BACKEND_PUBLIC_API_READINESS_APPROVAL_BOUNDARY_COMPLETE
+BACKEND_PUBLIC_API_EXECUTION_NOT_APPROVED_YET
 ```
 
-## Decision
+## Explicitly Not Approved
 
 ```text
-BACKEND_PUBLIC_API_READINESS_APPROVAL_CHECKLIST_CREATED
+Production execution.
+Nginx edits/reload.
+Backend deploy.
+Source changes.
+Frontend artifact refresh.
+Docker restart.
+Database writes.
+Opening ports.
+Public API exposure changes without separate execution approval.
 ```

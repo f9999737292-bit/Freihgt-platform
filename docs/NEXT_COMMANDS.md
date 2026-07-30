@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Backend public API readiness planning.
+Backend public API readiness approval boundary.
 ```
 
 ## Current status
@@ -17,12 +17,16 @@ Backend public API readiness planning.
 ```text
 - Production static UI demo readiness: SIGNED_OFF
 - Production live-data demo readiness: PARTIAL
-- Public /api/health and /api/: 404
-- Backend-offline banner: visible
 - Backend public API readiness plan: COMPLETE
-- Root cause classification: API_READINESS_ROOT_CAUSE_GATEWAY_ROUTE_MISSING + API_READINESS_ROOT_CAUSE_FRONTEND_BASE_URL_MISMATCH
-- Production root: /var/www/bintrans-web-admin
-- Staging root: /var/www/staging-bintrans-web-admin
+- Backend public API approval boundary: COMPLETE
+- Public /health: 200
+- Public /api/health: 404 gateway/application
+- Public /api/: 404 gateway/application
+- Public /api/v1/*: route family exists
+- Backend-offline banner: visible
+- Selected strategy: API_READINESS_BROWSER_FIRST_GATEWAY_NORMALIZATION
+- Nginx change selected now: no
+- Production execution approved: no
 - Full production readiness: not claimed
 - Operating mode: event-based monitoring
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
@@ -32,18 +36,21 @@ Backend public API readiness planning.
 ## Next options
 
 ```text
-1. BACKEND_PUBLIC_API_READINESS_APPROVAL_PACK v0.1
-2. Or DEMO_SCENARIO_SMOKE_PACK v0.1 if proceeding with static-only demo.
+1. BACKEND_PUBLIC_API_BROWSER_HEALTH_DIAGNOSTIC_PACK v0.1
+2. Then select exact execution path:
+   - browser/runtime health fix
+   - gateway /api/health alias
+   - documentation-only canonical path
 3. Do not change Nginx/backend/source/database without explicit approval.
 4. Do not open internal ports publicly.
 5. Do not include local leftovers in commits.
 
+See docs/BACKEND_PUBLIC_API_READINESS_APPROVAL_V0.1.md
+See docs/BACKEND_PUBLIC_API_BROWSER_HEALTH_DIAGNOSTIC_PLAN_V0.1.md
+See docs/BACKEND_PUBLIC_API_READINESS_EXECUTION_BOUNDARY_V0.1.md
+See docs/BACKEND_PUBLIC_API_READINESS_APPROVAL_CHECKLIST_V0.1.md
 See docs/BACKEND_PUBLIC_API_READINESS_PLAN_V0.1.md
 See docs/BACKEND_PUBLIC_API_ROUTING_AUDIT_V0.1.md
-See docs/BACKEND_PUBLIC_API_READINESS_RISK_MATRIX_V0.1.md
-See docs/BACKEND_PUBLIC_API_READINESS_APPROVAL_CHECKLIST_V0.1.md
-See docs/BACKEND_PUBLIC_API_READINESS_SCOPE_NOTE_V0.1.md
-See docs/PRODUCTION_DEMO_READINESS_FINAL_SIGNOFF_V0.1.md
 See docs/PRODUCTION_DEMO_READINESS_LIMITATIONS_V0.1.md
 ```
 
