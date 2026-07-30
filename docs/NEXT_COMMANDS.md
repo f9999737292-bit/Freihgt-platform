@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-RBAC role navigation staging acceptance signoff.
+RBAC role navigation authenticated staging QA.
 ```
 
 ## Current status
@@ -20,6 +20,7 @@ RBAC role navigation staging acceptance signoff.
 - RBAC staging deployment retry: COMPLETE
 - RBAC staging post-deploy review: COMPLETE
 - RBAC staging acceptance signoff: COMPLETE_PARTIAL_AUTH_SCOPE
+- Authenticated staging QA: COMPLETE
 - Production root: /var/www/bintrans-web-admin
 - Staging root: /var/www/staging-bintrans-web-admin
 - Production deploy: not approved
@@ -32,14 +33,15 @@ RBAC role navigation staging acceptance signoff.
 ## Next
 
 ```text
-1. Start RBAC_ROLE_NAVIGATION_AUTHENTICATED_STAGING_QA_PACK if a staging session/login is available.
-2. Do not deploy to production without explicit approval.
-3. Do not change backend/API/migrations.
-4. Track production login prefill as a separate production artifact issue, not part of staging signoff.
+1. If authenticated QA completed, start RBAC_ROLE_NAVIGATION_STAGING_QA_FINAL_SIGNOFF_PACK.
+2. If QA blocked, start RBAC_ROLE_NAVIGATION_AUTHENTICATED_STAGING_QA_FIX_PLAN_PACK.
+3. Do not deploy to production without explicit approval.
+4. Track production login prefill as a separate production artifact issue.
 5. Do not include local leftovers in commits.
 
-See docs/RBAC_ROLE_NAVIGATION_STAGING_ACCEPTANCE_SIGNOFF_V0.1.md
-See docs/RBAC_ROLE_NAVIGATION_STAGING_ACCEPTANCE_SIGNOFF_CHECKLIST_V0.1.md
+See docs/RBAC_ROLE_NAVIGATION_AUTHENTICATED_STAGING_QA_EVIDENCE_V0.1.md
+See docs/RBAC_ROLE_NAVIGATION_AUTHENTICATED_STAGING_QA_CHECKLIST_V0.1.md
+See docs/RBAC_ROLE_NAVIGATION_AUTHENTICATED_STAGING_ROLE_MATRIX_V0.1.md
 ```
 
 ## Current active staging domain
