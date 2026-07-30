@@ -9,25 +9,26 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Live-data demo workflow approval boundary.
+Demo credentials and seed data approval.
 ```
 
 ## Current status
 
 ```text
 - Production static UI demo readiness: SIGNED_OFF
-- Backend public API canonical paths: SIGNED_OFF
 - Demo scenario chain: CLOSED
-- Controlled static production walkthrough: READY
-- Live-data demo workflow plan: COMPLETE
 - Live-data demo workflow approval boundary: COMPLETE
-- Selected environment strategy: staging-first
-- Approved v0.1 roles for future demo: PLATFORM_ADMIN, SHIPPER_ADMIN, CARRIER_ADMIN, FINANCE_MANAGER
-- Live-data demo readiness: PARTIAL
-- Authenticated workflow readiness: NOT_SIGNED_OFF
-- Demo credentials: not approved / not created
-- Seed data: not approved / not created
+- Demo credentials and seed data approval: COMPLETE
+- Selected environment: staging-first
+- Approved future demo tenant alias: DEMO_BINTRANS_TENANT
+- Approved future user aliases: DEMO_PLATFORM_ADMIN, DEMO_SHIPPER_ADMIN, DEMO_CARRIER_ADMIN, DEMO_FINANCE_MANAGER
+- Approved future seed dataset: DEMO tenant/users/companies/RFx/TO/shipments/billing/doc metadata
+- Credentials created: no
+- Seed data created: no
+- Staging writes executed: no
+- Production writes approved: no
 - Production live-data demo: not approved
+- Authenticated workflow readiness: NOT_SIGNED_OFF
 - Full production readiness: not claimed
 - Operating mode: event-based monitoring
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
@@ -37,19 +38,19 @@ Live-data demo workflow approval boundary.
 ## Next options
 
 ```text
-1. DEMO_CREDENTIALS_AND_SEED_DATA_APPROVAL_PACK v0.1
-2. Then LIVE_DATA_DEMO_WORKFLOW_STAGING_EXECUTION_PACK v0.1 after explicit approval.
-3. Do not create credentials or seed data without explicit approval.
-4. Do not enter real credentials or create fake sessions.
+1. DEMO_CREDENTIALS_AND_SEED_DATA_STAGING_EXECUTION_PACK v0.1 — only after explicit staging write approval.
+2. Then LIVE_DATA_DEMO_WORKFLOW_STAGING_SMOKE_PACK v0.1.
+3. Do not create credentials or seed data without explicit execution approval.
+4. Do not record passwords/tokens in repo/docs/chat.
 5. Do not include local leftovers in commits.
 
-See docs/LIVE_DATA_DEMO_WORKFLOW_APPROVAL_V0.1.md
-See docs/LIVE_DATA_DEMO_ENVIRONMENT_DECISION_V0.1.md
+See docs/DEMO_CREDENTIALS_AND_SEED_DATA_APPROVAL_V0.1.md
+See docs/DEMO_CREDENTIAL_HANDLING_POLICY_V0.1.md
+See docs/DEMO_SEED_DATASET_APPROVAL_V0.1.md
+See docs/DEMO_CREDENTIALS_AND_SEED_DATA_STAGING_EXECUTION_BOUNDARY_V0.1.md
+See docs/DEMO_CREDENTIALS_AND_SEED_DATA_CLEANUP_PLAN_V0.1.md
 See docs/DEMO_CREDENTIALS_AND_SEED_DATA_APPROVAL_BOUNDARY_V0.1.md
-See docs/LIVE_DATA_DEMO_WORKFLOW_EXECUTION_BOUNDARY_V0.1.md
-See docs/LIVE_DATA_DEMO_PRODUCTION_BOUNDARY_V0.1.md
-See docs/LIVE_DATA_DEMO_WORKFLOW_APPROVAL_CHECKLIST_V0.1.md
-See docs/LIVE_DATA_DEMO_WORKFLOW_PLAN_V0.1.md
+See docs/LIVE_DATA_DEMO_WORKFLOW_APPROVAL_V0.1.md
 See docs/DEMO_SCENARIO_FINAL_SIGNOFF_V0.1.md
 ```
 
