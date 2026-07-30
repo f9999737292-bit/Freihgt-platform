@@ -9,22 +9,20 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Backend public API canonical path signoff.
+Demo scenario smoke.
 ```
 
 ## Current status
 
 ```text
 - Production static UI demo readiness: SIGNED_OFF
-- Production live-data demo readiness: PARTIAL
-- Browser health diagnostic: COMPLETE
-- Backend-offline banner: NOT_REPRODUCED
+- Backend public API canonical paths: SIGNED_OFF
+- Demo scenario smoke: COMPLETE
+- Static walkthrough readiness: READY
+- Live-data demo readiness: PARTIAL
+- Authenticated workflow readiness: NOT_SIGNED_OFF
 - Canonical health path: /health
 - Canonical business API path family: /api/v1/*
-- /api/health: expected 404, not canonical, not used for frontend banner
-- Backend public API canonical path signoff: COMPLETE
-- Nginx change selected: no
-- Production execution approved: no
 - Full production readiness: not claimed
 - Operating mode: event-based monitoring
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
@@ -34,17 +32,17 @@ Backend public API canonical path signoff.
 ## Next options
 
 ```text
-1. DEMO_SCENARIO_SMOKE_PACK v0.1
+1. DEMO_SCENARIO_FINAL_SIGNOFF_PACK v0.1
 2. LIVE_DATA_DEMO_WORKFLOW_PLAN_PACK v0.1
-3. Do not change Nginx/backend/source/database without explicit approval.
-4. Do not open internal ports publicly.
+3. Do not enter real credentials or create fake sessions in production.
+4. Do not claim full production/backend/API readiness.
 5. Do not include local leftovers in commits.
 
+See docs/DEMO_SCENARIO_SMOKE_EVIDENCE_V0.1.md
+See docs/DEMO_SCENARIO_SMOKE_CHECKLIST_V0.1.md
+See docs/DEMO_SCENARIO_CONTROLLED_WALKTHROUGH_SCRIPT_V0.1.md
+See docs/DEMO_SCENARIO_LIMITATIONS_V0.1.md
 See docs/BACKEND_PUBLIC_API_CANONICAL_PATH_SIGNOFF_V0.1.md
-See docs/BACKEND_PUBLIC_API_CANONICAL_PATH_SIGNOFF_CHECKLIST_V0.1.md
-See docs/LIVE_DATA_DEMO_NEXT_SCOPE_NOTE_V0.1.md
-See docs/BACKEND_PUBLIC_API_BROWSER_HEALTH_DIAGNOSTIC_EVIDENCE_V0.1.md
-See docs/BACKEND_PUBLIC_API_ROUTING_AUDIT_V0.1.md
 ```
 
 ## Current active staging domain
