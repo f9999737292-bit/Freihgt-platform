@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Production login prefill artifact fix post-deploy review.
+Production login prefill artifact fix final signoff.
 ```
 
 ## Current status
@@ -17,12 +17,14 @@ Production login prefill artifact fix post-deploy review.
 ```text
 - Production deployment: CLOSED
 - RBAC staging QA final signoff: COMPLETE
-- Production login prefill artifact issue: FIX_EXECUTED
-- Production login prefill post-deploy review: COMPLETE
+- Production login prefill artifact issue: FIXED
+- Production login prefill artifact fix chain: CLOSED
+- Production login prefill final signoff: COMPLETE
 - Production login prefill: removed
+- RBAC UI promoted to production static UI: yes
 - Production root: /var/www/bintrans-web-admin
 - Staging root: /var/www/staging-bintrans-web-admin
-- Production backup: /root/production-login-prefill-fix-backup-20260730_200750
+- Rollback caveat: backup path is symlink copy, not detached snapshot
 - Pilot launch: paused
 - Operating mode: event-based monitoring
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
@@ -32,15 +34,16 @@ Production login prefill artifact fix post-deploy review.
 ## Next options
 
 ```text
-1. Start PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_FINAL_SIGNOFF_PACK v0.1
-2. Do not change Nginx/DNS/Certbot/backend/API/database
-3. Do not include local leftovers in commits
+1. PRODUCTION_DEMO_READINESS_REVIEW_PACK v0.1
+2. Or resume product iteration planning after owner approval.
+3. Do not change Nginx/DNS/Certbot/backend/API/database without explicit approval.
+4. Do not include local leftovers in commits.
 
+See docs/PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_FINAL_SIGNOFF_V0.1.md
+See docs/PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_FINAL_SIGNOFF_CHECKLIST_V0.1.md
+See docs/PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_ROLLBACK_CAVEAT_NOTE_V0.1.md
 See docs/PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_POST_DEPLOY_REVIEW_EVIDENCE_V0.1.md
-See docs/PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_POST_DEPLOY_REVIEW_CHECKLIST_V0.1.md
 See docs/PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_EXECUTION_EVIDENCE_V0.1.md
-See docs/PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_EXECUTION_CHECKLIST_V0.1.md
-See docs/PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_APPROVAL_V0.1.md
 See docs/PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_PLAN_V0.1.md
 ```
 
