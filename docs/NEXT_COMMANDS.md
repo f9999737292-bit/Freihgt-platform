@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Demo scenario smoke.
+Demo scenario final signoff.
 ```
 
 ## Current status
@@ -18,11 +18,12 @@ Demo scenario smoke.
 - Production static UI demo readiness: SIGNED_OFF
 - Backend public API canonical paths: SIGNED_OFF
 - Demo scenario smoke: COMPLETE
-- Static walkthrough readiness: READY
+- Demo scenario final signoff: COMPLETE
+- Controlled static production walkthrough: READY
 - Live-data demo readiness: PARTIAL
 - Authenticated workflow readiness: NOT_SIGNED_OFF
 - Canonical health path: /health
-- Canonical business API path family: /api/v1/*
+- Canonical business API path: /api/v1/*
 - Full production readiness: not claimed
 - Operating mode: event-based monitoring
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
@@ -32,14 +33,16 @@ Demo scenario smoke.
 ## Next options
 
 ```text
-1. DEMO_SCENARIO_FINAL_SIGNOFF_PACK v0.1
-2. LIVE_DATA_DEMO_WORKFLOW_PLAN_PACK v0.1
+1. LIVE_DATA_DEMO_WORKFLOW_PLAN_PACK v0.1 — plan authenticated live-data demo workflow.
+2. Or prepare business presentation/demo script for external audience using approved guardrails.
 3. Do not enter real credentials or create fake sessions in production.
 4. Do not claim full production/backend/API readiness.
 5. Do not include local leftovers in commits.
 
+See docs/DEMO_SCENARIO_FINAL_SIGNOFF_V0.1.md
+See docs/DEMO_SCENARIO_FINAL_SIGNOFF_CHECKLIST_V0.1.md
+See docs/DEMO_SCENARIO_EXTERNAL_DEMO_GUARDRAILS_V0.1.md
 See docs/DEMO_SCENARIO_SMOKE_EVIDENCE_V0.1.md
-See docs/DEMO_SCENARIO_SMOKE_CHECKLIST_V0.1.md
 See docs/DEMO_SCENARIO_CONTROLLED_WALKTHROUGH_SCRIPT_V0.1.md
 See docs/DEMO_SCENARIO_LIMITATIONS_V0.1.md
 See docs/BACKEND_PUBLIC_API_CANONICAL_PATH_SIGNOFF_V0.1.md
