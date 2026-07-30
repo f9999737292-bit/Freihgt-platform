@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-RBAC role navigation authenticated staging QA.
+RBAC role navigation staging QA final signoff.
 ```
 
 ## Current status
@@ -21,6 +21,7 @@ RBAC role navigation authenticated staging QA.
 - RBAC staging post-deploy review: COMPLETE
 - RBAC staging acceptance signoff: COMPLETE_PARTIAL_AUTH_SCOPE
 - Authenticated staging QA: COMPLETE
+- RBAC staging QA final signoff: COMPLETE
 - Production root: /var/www/bintrans-web-admin
 - Staging root: /var/www/staging-bintrans-web-admin
 - Production deploy: not approved
@@ -30,18 +31,19 @@ RBAC role navigation authenticated staging QA.
 - Server IP: 161.104.53.221
 ```
 
-## Next
+## Next options
 
 ```text
-1. If authenticated QA completed, start RBAC_ROLE_NAVIGATION_STAGING_QA_FINAL_SIGNOFF_PACK.
-2. If QA blocked, start RBAC_ROLE_NAVIGATION_AUTHENTICATED_STAGING_QA_FIX_PLAN_PACK.
-3. Do not deploy to production without explicit approval.
-4. Track production login prefill as a separate production artifact issue.
-5. Do not include local leftovers in commits.
+1. PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_PLAN_PACK v0.1
+2. RBAC_ROLE_NAVIGATION_PRODUCTION_READINESS_PLAN_PACK v0.1
 
-See docs/RBAC_ROLE_NAVIGATION_AUTHENTICATED_STAGING_QA_EVIDENCE_V0.1.md
-See docs/RBAC_ROLE_NAVIGATION_AUTHENTICATED_STAGING_QA_CHECKLIST_V0.1.md
-See docs/RBAC_ROLE_NAVIGATION_AUTHENTICATED_STAGING_ROLE_MATRIX_V0.1.md
+Notes:
+- Do not deploy to production without explicit approval.
+- Track production login prefill as a separate production artifact issue.
+- Do not include local leftovers in commits.
+
+See docs/RBAC_ROLE_NAVIGATION_STAGING_QA_FINAL_SIGNOFF_V0.1.md
+See docs/RBAC_ROLE_NAVIGATION_STAGING_QA_FINAL_SIGNOFF_CHECKLIST_V0.1.md
 ```
 
 ## Current active staging domain
