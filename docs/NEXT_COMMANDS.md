@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Production login prefill artifact fix plan.
+Production login prefill artifact fix approval boundary.
 ```
 
 ## Current status
@@ -18,7 +18,9 @@ Production login prefill artifact fix plan.
 - Production deployment: CLOSED
 - RBAC staging QA final signoff: COMPLETE
 - Production login prefill artifact issue: PLAN_COMPLETE
-- Production deploy: not approved
+- Production login prefill artifact fix approval boundary: COMPLETE
+- Selected future path: Option A — QA-signed web-admin artifact refresh
+- Production deploy: not executed in this pack
 - Production root: /var/www/bintrans-web-admin
 - Staging root: /var/www/staging-bintrans-web-admin
 - Pilot launch: paused
@@ -30,14 +32,15 @@ Production login prefill artifact fix plan.
 ## Next options
 
 ```text
-1. PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_APPROVAL_PACK v0.1
-2. RBAC_ROLE_NAVIGATION_PRODUCTION_READINESS_PLAN_PACK v0.1
+1. Start PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_EXECUTION_PACK only after explicit production execution approval.
+2. Future execution may update only /var/www/bintrans-web-admin static content.
+3. Do not change Nginx/DNS/Certbot/backend/API/database.
+4. Do not include local leftovers in commits.
 
-Notes:
-- Do not deploy to production without explicit approval.
-- Do not change Nginx/DNS/Certbot for this issue.
-- Do not include local leftovers in commits.
-
+See docs/PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_APPROVAL_V0.1.md
+See docs/PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_EXECUTION_BOUNDARY_V0.1.md
+See docs/PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_ROLLBACK_BOUNDARY_V0.1.md
+See docs/PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_EXECUTION_APPROVAL_CHECKLIST_V0.1.md
 See docs/PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_PLAN_V0.1.md
 See docs/PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_RISK_MATRIX_V0.1.md
 See docs/PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_APPROVAL_CHECKLIST_V0.1.md
