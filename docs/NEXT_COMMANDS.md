@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-RBAC role navigation staging post-deploy review.
+RBAC role navigation staging acceptance signoff.
 ```
 
 ## Current status
@@ -19,6 +19,7 @@ RBAC role navigation staging post-deploy review.
 - Web root separation execution: COMPLETE
 - RBAC staging deployment retry: COMPLETE
 - RBAC staging post-deploy review: COMPLETE
+- RBAC staging acceptance signoff: COMPLETE_PARTIAL_AUTH_SCOPE
 - Production root: /var/www/bintrans-web-admin
 - Staging root: /var/www/staging-bintrans-web-admin
 - Production deploy: not approved
@@ -31,13 +32,14 @@ RBAC role navigation staging post-deploy review.
 ## Next
 
 ```text
-1. If review completed, start RBAC_ROLE_NAVIGATION_STAGING_ACCEPTANCE_SIGNOFF_PACK.
+1. Start RBAC_ROLE_NAVIGATION_AUTHENTICATED_STAGING_QA_PACK if a staging session/login is available.
 2. Do not deploy to production without explicit approval.
 3. Do not change backend/API/migrations.
-4. Do not include local leftovers in commits.
+4. Track production login prefill as a separate production artifact issue, not part of staging signoff.
+5. Do not include local leftovers in commits.
 
-See docs/RBAC_ROLE_NAVIGATION_STAGING_POST_DEPLOY_REVIEW_EVIDENCE_V0.1.md
-See docs/RBAC_ROLE_NAVIGATION_STAGING_POST_DEPLOY_REVIEW_CHECKLIST_V0.1.md
+See docs/RBAC_ROLE_NAVIGATION_STAGING_ACCEPTANCE_SIGNOFF_V0.1.md
+See docs/RBAC_ROLE_NAVIGATION_STAGING_ACCEPTANCE_SIGNOFF_CHECKLIST_V0.1.md
 ```
 
 ## Current active staging domain
