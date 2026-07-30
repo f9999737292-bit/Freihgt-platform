@@ -9,22 +9,18 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-RBAC role navigation staging QA final signoff.
+Production login prefill artifact fix plan.
 ```
 
 ## Current status
 
 ```text
 - Production deployment: CLOSED
-- Web root separation execution: COMPLETE
-- RBAC staging deployment retry: COMPLETE
-- RBAC staging post-deploy review: COMPLETE
-- RBAC staging acceptance signoff: COMPLETE_PARTIAL_AUTH_SCOPE
-- Authenticated staging QA: COMPLETE
 - RBAC staging QA final signoff: COMPLETE
+- Production login prefill artifact issue: PLAN_COMPLETE
+- Production deploy: not approved
 - Production root: /var/www/bintrans-web-admin
 - Staging root: /var/www/staging-bintrans-web-admin
-- Production deploy: not approved
 - Pilot launch: paused
 - Operating mode: event-based monitoring
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
@@ -34,16 +30,18 @@ RBAC role navigation staging QA final signoff.
 ## Next options
 
 ```text
-1. PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_PLAN_PACK v0.1
+1. PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_APPROVAL_PACK v0.1
 2. RBAC_ROLE_NAVIGATION_PRODUCTION_READINESS_PLAN_PACK v0.1
 
 Notes:
 - Do not deploy to production without explicit approval.
-- Track production login prefill as a separate production artifact issue.
+- Do not change Nginx/DNS/Certbot for this issue.
 - Do not include local leftovers in commits.
 
-See docs/RBAC_ROLE_NAVIGATION_STAGING_QA_FINAL_SIGNOFF_V0.1.md
-See docs/RBAC_ROLE_NAVIGATION_STAGING_QA_FINAL_SIGNOFF_CHECKLIST_V0.1.md
+See docs/PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_PLAN_V0.1.md
+See docs/PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_RISK_MATRIX_V0.1.md
+See docs/PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_APPROVAL_CHECKLIST_V0.1.md
+See docs/PRODUCTION_LOGIN_PREFILL_ARTIFACT_FIX_RUNBOOK_DRAFT_V0.1.md
 ```
 
 ## Current active staging domain
