@@ -88,9 +88,7 @@ type shipmentFetchResult struct {
 }
 
 func (c *DownstreamClient) FetchShipment(ctx context.Context, reqCtx RequestContext, shipmentID string) (shipmentFetchResult, error) {
-	values := url.Values{}
-	values.Set("tenant_id", reqCtx.TenantID)
-	endpoint := c.shipment + "/v1/shipments/" + url.PathEscape(shipmentID) + "?" + values.Encode()
+	endpoint := c.shipment + "/v1/shipments/" + url.PathEscape(shipmentID)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return shipmentFetchResult{}, err
@@ -169,6 +167,9 @@ func (c *DownstreamClient) getJSON(ctx context.Context, endpoint string, reqCtx 
 func (c *DownstreamClient) applyHeaders(req *http.Request, reqCtx RequestContext) {
 	if reqCtx.AuthToken != "" {
 		req.Header.Set("Authorization", reqCtx.AuthToken)
+	}
+	if reqCtx.TenantID != "" {
+		req.Header.Set("X-Tenant-ID", reqCtx.TenantID)
 	}
 	if reqCtx.RequestID != "" {
 		req.Header.Set(sharedmiddleware.RequestIDHeader, reqCtx.RequestID)

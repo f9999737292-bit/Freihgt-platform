@@ -30,13 +30,13 @@ func (h *ShipmentHandler) Health(w http.ResponseWriter, _ *http.Request) {
 }
 
 type createShipmentFromOrderRequest struct {
-	TenantID             string  `json:"tenant_id"`
-	ShipmentNumber       string  `json:"shipment_number"`
-	TransportOrderID     string  `json:"transport_order_id"`
-	CarrierCompanyID     string  `json:"carrier_company_id"`
-	ForwarderCompanyID   *string `json:"forwarder_company_id"`
-	PlannedPickupAt      *string `json:"planned_pickup_at"`
-	PlannedDeliveryAt    *string `json:"planned_delivery_at"`
+	TenantID           string  `json:"tenant_id"`
+	ShipmentNumber     string  `json:"shipment_number"`
+	TransportOrderID   string  `json:"transport_order_id"`
+	CarrierCompanyID   string  `json:"carrier_company_id"`
+	ForwarderCompanyID *string `json:"forwarder_company_id"`
+	PlannedPickupAt    *string `json:"planned_pickup_at"`
+	PlannedDeliveryAt  *string `json:"planned_delivery_at"`
 }
 
 type createShipmentFromBidRequest struct {
@@ -117,7 +117,12 @@ func (h *ShipmentHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, err)
 		return
 	}
-	shipment, err := h.service.GetByID(r.Context(), id)
+	tenantID, err := resolveVerifiedTenant(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	shipment, err := h.service.GetByIDAndTenant(r.Context(), tenantID, id)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -345,13 +350,13 @@ func parseCreateShipmentFromOrderRequest(req createShipmentFromOrderRequest) (do
 		return domain.CreateShipmentFromOrderInput{}, err
 	}
 	return domain.CreateShipmentFromOrderInput{
-		TenantID:             tenantID,
-		ShipmentNumber:       req.ShipmentNumber,
-		TransportOrderID:     transportOrderID,
-		CarrierCompanyID:     carrierCompanyID,
-		ForwarderCompanyID:   forwarderCompanyID,
-		PlannedPickupAt:      plannedPickup,
-		PlannedDeliveryAt:    plannedDelivery,
+		TenantID:           tenantID,
+		ShipmentNumber:     req.ShipmentNumber,
+		TransportOrderID:   transportOrderID,
+		CarrierCompanyID:   carrierCompanyID,
+		ForwarderCompanyID: forwarderCompanyID,
+		PlannedPickupAt:    plannedPickup,
+		PlannedDeliveryAt:  plannedDelivery,
 	}, nil
 }
 

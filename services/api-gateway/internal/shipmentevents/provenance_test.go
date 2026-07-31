@@ -25,8 +25,11 @@ func testDownstreamClient(t *testing.T) *DownstreamClient {
 	shipmentID := "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
 
 	shipmentServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if got := r.URL.Query().Get("tenant_id"); got != tenantID {
-			t.Fatalf("shipment request tenant_id=%q want %q", got, tenantID)
+		if got := r.Header.Get("X-Tenant-ID"); got != tenantID {
+			t.Fatalf("shipment request X-Tenant-ID=%q want %q", got, tenantID)
+		}
+		if got := r.URL.Query().Get("tenant_id"); got != "" {
+			t.Fatalf("shipment request must not include tenant_id query, got %q", got)
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"id": shipmentID, "tenant_id": tenantID, "shipment_number": "SHP-1", "status": "IN_TRANSIT",

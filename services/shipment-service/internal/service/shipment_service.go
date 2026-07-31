@@ -7,8 +7,8 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/freight-platform/shipment-service/internal/domain"
-	"github.com/freight-platform/shipment-service/internal/repository"
 	apperrors "github.com/freight-platform/shipment-service/internal/platform/errors"
+	"github.com/freight-platform/shipment-service/internal/repository"
 )
 
 type ShipmentStore interface {
@@ -16,7 +16,6 @@ type ShipmentStore interface {
 	GetTransportOrder(ctx context.Context, id, tenantID uuid.UUID) (*domain.TransportOrderSnapshot, error)
 	GetBid(ctx context.Context, id, tenantID uuid.UUID) (*domain.BidSnapshot, error)
 	CreateShipment(ctx context.Context, params repository.CreateShipmentParams) (*domain.Shipment, error)
-	GetByID(ctx context.Context, id uuid.UUID) (*domain.Shipment, error)
 	GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.Shipment, error)
 	List(ctx context.Context, filter domain.ListShipmentsFilter) ([]domain.Shipment, int, error)
 	AssignDriver(ctx context.Context, id, tenantID, driverID uuid.UUID, newStatus string, expectedVersion int) (*domain.Shipment, error)
@@ -116,11 +115,14 @@ func (s *ShipmentService) CreateFromBid(ctx context.Context, in domain.CreateShi
 	})
 }
 
-func (s *ShipmentService) GetByID(ctx context.Context, id uuid.UUID) (*domain.Shipment, error) {
+func (s *ShipmentService) GetByIDAndTenant(ctx context.Context, tenantID, id uuid.UUID) (*domain.Shipment, error) {
 	if id == uuid.Nil {
 		return nil, apperrors.Validation("id is required", map[string]any{"field": "id"})
 	}
-	return s.shipments.GetByID(ctx, id)
+	if tenantID == uuid.Nil {
+		return nil, apperrors.Unauthorized("tenant context is required")
+	}
+	return s.shipments.GetByIDAndTenant(ctx, id, tenantID)
 }
 
 func (s *ShipmentService) List(ctx context.Context, filter domain.ListShipmentsFilter) ([]domain.Shipment, int, error) {

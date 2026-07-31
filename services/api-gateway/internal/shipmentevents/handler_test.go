@@ -20,14 +20,16 @@ import (
 
 func TestEventsForeignTenantReturns404(t *testing.T) {
 	tenantA := "11111111-1111-1111-1111-111111111111"
-	tenantB := "22222222-2222-2222-2222-222222222222"
 	shipmentID := "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
 
 	shipmentServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"id": shipmentID, "tenant_id": tenantB, "shipment_number": "SHP-1", "status": "IN_TRANSIT",
-			"created_at": "2026-07-31T10:00:00Z", "updated_at": "2026-07-31T11:00:00Z",
-		})
+		if got := r.URL.Query().Get("tenant_id"); got != "" {
+			t.Fatalf("downstream must not receive tenant_id query, got %q", got)
+		}
+		if got := r.Header.Get("X-Tenant-ID"); got != tenantA {
+			t.Fatalf("downstream X-Tenant-ID=%q want %q", got, tenantA)
+		}
+		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer shipmentServer.Close()
 

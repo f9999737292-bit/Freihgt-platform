@@ -137,32 +137,7 @@ func (r *ShipmentRepository) CreateShipment(ctx context.Context, params CreateSh
 	return result, err
 }
 
-func (r *ShipmentRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Shipment, error) {
-	var result *domain.Shipment
-	err := measureDB("shipment_repository", "get_shipment", func() error {
-		const query = `
-		SELECT id, tenant_id, shipment_number, transport_order_id,
-			shipper_company_id, consignee_company_id, carrier_company_id, forwarder_company_id,
-			driver_id, vehicle_id, origin_location_id, destination_location_id, cargo_id,
-			transport_mode, status, planned_pickup_at, planned_delivery_at,
-			actual_pickup_at, actual_delivery_at, created_at, updated_at, version
-		FROM transport.shipments
-		WHERE id = $1 AND deleted_at IS NULL
-	`
-		shipment, err := scanShipment(r.pool.QueryRow(ctx, query, id))
-		if err != nil {
-			return err
-		}
-		result = shipment
-		return nil
-	})
-	return result, err
-}
-
-func (r *ShipmentRepository) GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.Shipment, error) {
-	var result *domain.Shipment
-	err := measureDB("shipment_repository", "get_shipment", func() error {
-		const query = `
+const getShipmentByIDAndTenantQuery = `
 		SELECT id, tenant_id, shipment_number, transport_order_id,
 			shipper_company_id, consignee_company_id, carrier_company_id, forwarder_company_id,
 			driver_id, vehicle_id, origin_location_id, destination_location_id, cargo_id,
@@ -171,7 +146,11 @@ func (r *ShipmentRepository) GetByIDAndTenant(ctx context.Context, id, tenantID 
 		FROM transport.shipments
 		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
 	`
-		shipment, err := scanShipment(r.pool.QueryRow(ctx, query, id, tenantID))
+
+func (r *ShipmentRepository) GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.Shipment, error) {
+	var result *domain.Shipment
+	err := measureDB("shipment_repository", "get_shipment_by_tenant", func() error {
+		shipment, err := scanShipment(r.pool.QueryRow(ctx, getShipmentByIDAndTenantQuery, id, tenantID))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return apperrors.NotFound("shipment not found")
 		}

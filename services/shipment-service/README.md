@@ -27,7 +27,7 @@ Go microservice for managing freight shipments after a carrier is selected.
 | GET | `/health` | Health check |
 | POST | `/v1/shipments/from-transport-order` | Create shipment from transport order |
 | POST | `/v1/shipments/from-bid` | Create shipment from accepted bid |
-| GET | `/v1/shipments/{id}` | Get shipment by ID |
+| GET | `/v1/shipments/{id}` | Get shipment by ID (tenant-scoped) |
 | GET | `/v1/shipments` | List shipments |
 | POST | `/v1/shipments/{id}/assign-driver` | Assign driver |
 | POST | `/v1/shipments/{id}/assign-vehicle` | Assign vehicle |
@@ -153,6 +153,31 @@ curl -X PATCH http://localhost:8085/v1/shipments/{shipment_id}/status \
     "actual_time": "2026-07-01T11:00:00Z"
   }'
 ```
+
+## Tenant isolation (GET /v1/shipments/{id})
+
+Shipment detail lookup is tenant-scoped at the repository layer:
+
+```sql
+WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+```
+
+Security invariants:
+
+- A single repository query loads shipment by `shipment_id` and verified `tenant_id`.
+- Post-fetch tenant comparison is not used as the primary isolation mechanism.
+- Missing and foreign-tenant shipments both return `404 Not Found` with the same error shape.
+- A second lookup by shipment ID only (to detect foreign tenants) is forbidden.
+- **`GET /v1/shipments/{id}` does not accept `tenant_id` from query.** Tenant is supplied only via trusted `X-Tenant-ID` header set by API Gateway.
+- Requests without verified tenant return `401 Unauthorized` and do not hit the repository.
+
+## Network trust boundary
+
+In production, external requests must enter only through API Gateway (`8080`). Shipment-service must not have a public ingress or public LoadBalancer.
+
+Local `docker-compose` publishes `8085:8085` for **development only** (direct health checks, local debugging). This is not a production trust model.
+
+Gateway defense-in-depth comparison of `tenant_id` in downstream responses remains in Shipment Event History.
 
 ## Tests
 

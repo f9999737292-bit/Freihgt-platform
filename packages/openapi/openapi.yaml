@@ -3032,6 +3032,7 @@ paths:
     get:
       tags: [Shipments]
       summary: Get shipment by ID
+      description: Returns shipment details for the authenticated tenant. Shipments belonging to another tenant are indistinguishable from missing shipments (404). Tenant is derived from bearer authentication at the gateway; `tenant_id` is not a query parameter on this endpoint. Trusted internal `X-Tenant-ID` is set by API Gateway and is not a public client parameter.
       operationId: get_get_shipment_by_id
       parameters:
         - $ref: '#/components/parameters/XRequestID'

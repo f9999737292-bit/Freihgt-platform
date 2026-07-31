@@ -116,7 +116,7 @@ This is a **capability limitation**, not a runtime outage. Billing timeline even
 
 | Source | Required | Notes |
 |---|---|---|
-| `shipment-service` `GET /v1/shipments/{id}?tenant_id=...` | Yes | Tenant query sent; defense-in-depth tenant check on response. **Note:** shipment-service `GetByID` handler currently loads by ID only — documented risk. |
+| `shipment-service` `GET /v1/shipments/{id}` | Yes | Verified tenant via trusted internal `X-Tenant-ID` header only (no `tenant_id` query). Tenant-scoped repository lookup; defense-in-depth tenant check on response remains. |
 | `document-service` filtered list | No | Runtime failure → `DOCUMENT_EVENTS_UNAVAILABLE` |
 | Billing reverse lookup | No | Not called in v0.1 |
 | Shared SLA calculator | Derived | Reused from Control Tower |
@@ -124,9 +124,15 @@ This is a **capability limitation**, not a runtime outage. Billing timeline even
 ## Tenant isolation
 
 - Tenant from verified JWT `AuthContext` only
-- Spoofed headers / `tenant_id` query ignored for auth context
-- Outbound shipment request includes verified `tenant_id` query parameter
-- Foreign tenant → **404**
+- Spoofed headers / `tenant_id` query ignored for auth context at gateway
+- Outbound shipment detail request sends verified tenant as `X-Tenant-ID` header only (no `tenant_id` in URL)
+- **`GET /v1/shipments/{id}` does not accept `tenant_id` from query.** Tenant arrives only through trusted gateway context.
+- **Shipment isolation invariant:** shipment-service loads shipment in one repository query by `shipment_id` and verified `tenant_id`. Post-fetch tenant check is defense in depth only.
+- Foreign tenant shipment is indistinguishable from missing shipment (`404`)
+- Second lookup by shipment ID only is forbidden in shipment-service
+- Missing verified tenant → gateway `401`; shipment-service `401` without repository call
+- Foreign tenant → **404** from shipment-service (gateway defense-in-depth comparison retained)
+- In production, shipment-service must not be reachable from the external network directly; external ingress goes to API Gateway only. Local port `8085` in docker-compose is development-only.
 
 ## RBAC
 

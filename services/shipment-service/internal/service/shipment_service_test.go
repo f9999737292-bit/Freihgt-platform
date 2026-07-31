@@ -9,8 +9,8 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/freight-platform/shipment-service/internal/domain"
-	"github.com/freight-platform/shipment-service/internal/repository"
 	apperrors "github.com/freight-platform/shipment-service/internal/platform/errors"
+	"github.com/freight-platform/shipment-service/internal/repository"
 )
 
 type mockShipmentStore struct {
@@ -35,9 +35,6 @@ func (m *mockShipmentStore) GetBid(ctx context.Context, id, tenantID uuid.UUID) 
 }
 func (m *mockShipmentStore) CreateShipment(ctx context.Context, params repository.CreateShipmentParams) (*domain.Shipment, error) {
 	return m.createFn(ctx, params)
-}
-func (m *mockShipmentStore) GetByID(context.Context, uuid.UUID) (*domain.Shipment, error) {
-	return nil, nil
 }
 func (m *mockShipmentStore) GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.Shipment, error) {
 	return m.getByIDAndTenantFn(ctx, id, tenantID)
@@ -109,7 +106,7 @@ func TestShipmentServiceCreateFromBid(t *testing.T) {
 		},
 		getTransportOrderFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.TransportOrderSnapshot, error) {
 			return &domain.TransportOrderSnapshot{
-				Status: domain.TransportOrderStatusAssigned,
+				Status:           domain.TransportOrderStatusAssigned,
 				ShipperCompanyID: uuid.New(), ConsigneeCompanyID: uuid.New(),
 				OriginLocationID: uuid.New(), DestinationLocationID: uuid.New(),
 				TransportMode: "ROAD",

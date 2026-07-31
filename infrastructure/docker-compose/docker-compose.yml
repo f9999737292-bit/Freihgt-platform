@@ -137,6 +137,8 @@ services:
       SHIPMENT_SERVICE_PORT: 8085
       DATABASE_URL: postgres://freight:freight_password@postgres:5432/freight_platform?sslmode=disable
       LOG_LEVEL: info
+    # Development-only host port mapping. Production must not expose shipment-service publicly;
+    # external traffic enters through api-gateway (8080) on the internal Docker/Kubernetes network.
     ports:
       - "8085:8085"
     depends_on:
