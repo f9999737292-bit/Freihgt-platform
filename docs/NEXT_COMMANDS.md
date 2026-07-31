@@ -9,18 +9,20 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Demo credentials and seed data staging execution.
+Staging backend/DB isolation planning.
 ```
 
 ## Current status
 
 ```text
-- Explicit staging write approval: GIVEN
-- Staging execution: BLOCKED
-- Staging isolation gate: BLOCKED
-- Blocker: staging and production share API gateway (127.0.0.1:8080) and Postgres (freight_postgres)
-- Staging demo credentials: not created
-- Staging demo seed data: not created
+- Blocked staging demo credentials execution recorded.
+- Blocker: staging and production share API gateway and Postgres.
+- Staging backend/DB isolation plan: COMPLETE
+- Target architecture: Option A — same VM, isolated staging Docker stack
+- Production API target remains: 127.0.0.1:8080
+- Target staging API: 127.0.0.1:18080
+- Target staging DB: separate staging Postgres container/volume
+- Staging credentials/seed data remain blocked until isolation is executed and re-verified
 - Production writes: no
 - Production live-data demo: not approved
 - Secrets recorded in docs/repo/chat: no
@@ -34,18 +36,22 @@ Demo credentials and seed data staging execution.
 ## Next options
 
 ```text
-1. STAGING_BACKEND_DB_ISOLATION_PLAN_PACK v0.1
-2. Do not create credentials/seed data until staging backend/DB isolation is proven.
-3. Do not perform production writes.
-4. Do not record passwords/tokens in repo/docs/chat.
-5. Do not include local leftovers in commits.
+1. STAGING_BACKEND_DB_ISOLATION_APPROVAL_PACK v0.1
+2. Then STAGING_BACKEND_DB_ISOLATION_EXECUTION_PACK v0.1 only after explicit server/Nginx/Docker/DB approval.
+3. Then re-run DEMO_CREDENTIALS_AND_SEED_DATA_STAGING_EXECUTION_PACK v0.2.
+4. Do not perform staging writes until isolation gate passes.
+5. Do not record passwords/tokens in repo/docs/chat.
+6. Do not include local leftovers in commits.
 
+See docs/STAGING_BACKEND_DB_ISOLATION_PLAN_V0.1.md
+See docs/STAGING_BACKEND_DB_ISOLATION_ARCHITECTURE_V0.1.md
+See docs/STAGING_BACKEND_DB_ISOLATION_NGINX_BOUNDARY_V0.1.md
+See docs/STAGING_BACKEND_DB_ISOLATION_DATA_SAFETY_V0.1.md
+See docs/STAGING_BACKEND_DB_ISOLATION_EXECUTION_APPROVAL_CHECKLIST_V0.1.md
+See docs/STAGING_BACKEND_DB_ISOLATION_ROLLBACK_PLAN_V0.1.md
+See docs/STAGING_BACKEND_DB_ISOLATION_RISK_MATRIX_V0.1.md
 See docs/DEMO_CREDENTIALS_AND_SEED_DATA_STAGING_EXECUTION_RESULT_V0.1.md
 See docs/DEMO_CREDENTIALS_AND_SEED_DATA_STAGING_ISOLATION_CHECK_V0.1.md
-See docs/DEMO_CREDENTIALS_AND_SEED_DATA_STAGING_EXECUTION_EVIDENCE_V0.1.md
-See docs/DEMO_CREDENTIALS_AND_SEED_DATA_STAGING_EXECUTION_RUNBOOK_V0.1.md
-See docs/DEMO_CREDENTIALS_AND_SEED_DATA_APPROVAL_V0.1.md
-See docs/LIVE_DATA_DEMO_PRODUCTION_BOUNDARY_V0.1.md
 ```
 
 ## Current active staging domain
