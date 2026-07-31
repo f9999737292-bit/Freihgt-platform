@@ -9,24 +9,21 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Staging backend/DB isolation execution.
+Demo credentials and seed data staging execution v0.2.
 ```
 
 ## Current status
 
 ```text
-- Explicit server/Nginx/Docker/DB execution approval: GIVEN
-- Staging backend/DB isolation execution: COMPLETE
+- Explicit staging credentials/seed execution approval: GIVEN
 - Staging isolation gate: PASS
-- Production API target: 127.0.0.1:8080
-- Staging API target: 127.0.0.1:18080
-- Staging Docker project: bintrans-staging
-- Staging DB: separate Postgres/data scope
-- Production backend/DB: unchanged
-- Demo credentials created: no
-- Seed data created: no
-- Staging credentials/seed data can be retried after approval
-- Authenticated workflow readiness: NOT_SIGNED_OFF
+- Staging demo credentials: created/verified
+- Staging demo seed data: created/verified
+- Staging tenant alias: DEMO_BINTRANS_TENANT
+- Production writes: no
+- Production live-data demo: not approved
+- Secrets recorded in docs/repo/chat: no
+- Authenticated workflow readiness: still NOT_SIGNED_OFF until staging smoke
 - Full production readiness: not claimed
 - Operating mode: event-based monitoring
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
@@ -36,19 +33,17 @@ Staging backend/DB isolation execution.
 ## Next options
 
 ```text
-1. DEMO_CREDENTIALS_AND_SEED_DATA_STAGING_EXECUTION_PACK v0.2
-2. Then LIVE_DATA_DEMO_WORKFLOW_STAGING_SMOKE_PACK v0.1
+1. LIVE_DATA_DEMO_WORKFLOW_STAGING_SMOKE_PACK v0.1
+2. Do not paste credentials/tokens into chat/docs/repo.
 3. Do not perform production live-data demo without separate approval.
-4. Do not record passwords/tokens in repo/docs/chat.
-5. Do not include local leftovers in commits.
+4. Do not include local leftovers in commits.
 
+See docs/DEMO_CREDENTIALS_AND_SEED_DATA_STAGING_EXECUTION_RESULT_V0.2.md
+See docs/DEMO_CREDENTIALS_AND_SEED_DATA_STAGING_EXECUTION_EVIDENCE_V0.2.md
+See docs/DEMO_CREDENTIALS_AND_SEED_DATA_STAGING_ISOLATION_RECHECK_V0.2.md
+See docs/DEMO_CREDENTIALS_AND_SEED_DATA_SECRET_HANDLING_EVIDENCE_V0.2.md
+See docs/DEMO_CREDENTIALS_AND_SEED_DATA_CLEANUP_TRACKING_V0.2.md
 See docs/STAGING_BACKEND_DB_ISOLATION_EXECUTION_RESULT_V0.1.md
-See docs/STAGING_BACKEND_DB_ISOLATION_EXECUTION_EVIDENCE_V0.1.md
-See docs/STAGING_BACKEND_DB_ISOLATION_EXECUTION_RUNBOOK_V0.1.md
-See docs/STAGING_BACKEND_DB_ISOLATION_NGINX_CHANGE_EVIDENCE_V0.1.md
-See docs/STAGING_BACKEND_DB_ISOLATION_DOCKER_DB_EVIDENCE_V0.1.md
-See docs/DEMO_CREDENTIALS_AND_SEED_DATA_STAGING_EXECUTION_RESULT_V0.1.md
-See docs/DEMO_CREDENTIALS_AND_SEED_DATA_STAGING_ISOLATION_CHECK_V0.1.md
 ```
 
 ## Current active staging domain
