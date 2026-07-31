@@ -9,25 +9,23 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Staging backend/DB isolation approval boundary.
+Staging backend/DB isolation execution.
 ```
 
 ## Current status
 
 ```text
-- Staging backend/DB isolation plan: COMPLETE
-- Staging backend/DB isolation approval boundary: COMPLETE
-- Approved option: Option A — same VM isolated staging Docker stack
-- Target staging API: 127.0.0.1:18080
-- Target staging Docker project: bintrans-staging
-- Target staging DB: separate staging Postgres container/volume
-- Production API target remains: 127.0.0.1:8080
-- Production backend/DB changes: not approved
-- Execution in this pack: not performed
-- Staging credentials/seed data: still blocked until isolation execution and re-verification
-- Production writes: no
-- Production live-data demo: not approved
-- Secrets recorded in docs/repo/chat: no
+- Explicit server/Nginx/Docker/DB execution approval: GIVEN
+- Staging backend/DB isolation execution: COMPLETE
+- Staging isolation gate: PASS
+- Production API target: 127.0.0.1:8080
+- Staging API target: 127.0.0.1:18080
+- Staging Docker project: bintrans-staging
+- Staging DB: separate Postgres/data scope
+- Production backend/DB: unchanged
+- Demo credentials created: no
+- Seed data created: no
+- Staging credentials/seed data can be retried after approval
 - Authenticated workflow readiness: NOT_SIGNED_OFF
 - Full production readiness: not claimed
 - Operating mode: event-based monitoring
@@ -38,21 +36,17 @@ Staging backend/DB isolation approval boundary.
 ## Next options
 
 ```text
-1. STAGING_BACKEND_DB_ISOLATION_EXECUTION_PACK v0.1 — only after explicit server/Nginx/Docker/DB execution approval.
-2. Then re-run staging isolation gate.
-3. Then DEMO_CREDENTIALS_AND_SEED_DATA_STAGING_EXECUTION_PACK v0.2 only if isolation PASS.
-4. Do not perform staging credentials/seed writes until staging backend/DB isolation is proven.
-5. Do not record passwords/tokens in repo/docs/chat.
-6. Do not include local leftovers in commits.
+1. DEMO_CREDENTIALS_AND_SEED_DATA_STAGING_EXECUTION_PACK v0.2
+2. Then LIVE_DATA_DEMO_WORKFLOW_STAGING_SMOKE_PACK v0.1
+3. Do not perform production live-data demo without separate approval.
+4. Do not record passwords/tokens in repo/docs/chat.
+5. Do not include local leftovers in commits.
 
-See docs/STAGING_BACKEND_DB_ISOLATION_APPROVAL_V0.1.md
-See docs/STAGING_BACKEND_DB_ISOLATION_OPTION_A_DECISION_V0.1.md
-See docs/STAGING_BACKEND_DB_ISOLATION_EXECUTION_BOUNDARY_V0.1.md
-See docs/STAGING_BACKEND_DB_ISOLATION_SERVER_CHANGE_BOUNDARY_V0.1.md
-See docs/STAGING_BACKEND_DB_ISOLATION_PORT_ENV_POLICY_V0.1.md
-See docs/STAGING_BACKEND_DB_ISOLATION_STOP_CONDITIONS_V0.1.md
-See docs/STAGING_BACKEND_DB_ISOLATION_PLAN_V0.1.md
-See docs/STAGING_BACKEND_DB_ISOLATION_EXECUTION_APPROVAL_CHECKLIST_V0.1.md
+See docs/STAGING_BACKEND_DB_ISOLATION_EXECUTION_RESULT_V0.1.md
+See docs/STAGING_BACKEND_DB_ISOLATION_EXECUTION_EVIDENCE_V0.1.md
+See docs/STAGING_BACKEND_DB_ISOLATION_EXECUTION_RUNBOOK_V0.1.md
+See docs/STAGING_BACKEND_DB_ISOLATION_NGINX_CHANGE_EVIDENCE_V0.1.md
+See docs/STAGING_BACKEND_DB_ISOLATION_DOCKER_DB_EVIDENCE_V0.1.md
 See docs/DEMO_CREDENTIALS_AND_SEED_DATA_STAGING_EXECUTION_RESULT_V0.1.md
 See docs/DEMO_CREDENTIALS_AND_SEED_DATA_STAGING_ISOLATION_CHECK_V0.1.md
 ```
