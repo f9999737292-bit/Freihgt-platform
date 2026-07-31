@@ -2,56 +2,6 @@ package controltower
 
 import "time"
 
-type SLAStatus string
-
-const (
-	SLAStatusOnTime   SLAStatus = "ON_TIME"
-	SLAStatusAtRisk   SLAStatus = "AT_RISK"
-	SLAStatusDelayed  SLAStatus = "DELAYED"
-	SLAStatusCritical SLAStatus = "CRITICAL"
-	SLAStatusUnknown  SLAStatus = "UNKNOWN"
-)
-
-const (
-	SLAReasonMissingPlannedDates = "MISSING_PLANNED_DATES"
-	SLAReasonOnSchedule          = "ON_SCHEDULE"
-	SLAReasonPickupAtRisk        = "PICKUP_AT_RISK"
-	SLAReasonPickupOverdue       = "PICKUP_OVERDUE"
-	SLAReasonDeliveryAtRisk      = "DELIVERY_AT_RISK"
-	SLAReasonDeliveryOverdue     = "DELIVERY_OVERDUE"
-	SLAReasonStaleUpdates        = "STALE_UPDATES"
-	SLAReasonCancelled           = "CANCELLED"
-	SLAReasonTechnicalProblem    = "TECHNICAL_PROBLEM"
-	SLAReasonCompletedOnTime     = "COMPLETED_ON_TIME"
-	SLAReasonCompletedLate       = "COMPLETED_LATE"
-	SLAReasonUnknownStatus       = "UNKNOWN_STATUS"
-)
-
-type SLAThresholds struct {
-	AtRiskMinutes        int
-	CriticalDelayMinutes int
-	StaleWarningMinutes  int
-	StaleCriticalMinutes int
-}
-
-type SLAInput struct {
-	Status            string
-	PlannedPickupAt   *time.Time
-	PlannedDeliveryAt *time.Time
-	ActualPickupAt    *time.Time
-	ActualDeliveryAt  *time.Time
-	LastUpdatedAt     *time.Time
-	TechnicalProblem  bool
-	Now               time.Time
-	Thresholds        SLAThresholds
-}
-
-type SLAResult struct {
-	Status       SLAStatus
-	Reason       string
-	DelayMinutes *int64
-}
-
 type ControlTowerShipment struct {
 	ID                   string     `json:"id"`
 	ShipmentNumber       string     `json:"shipmentNumber"`

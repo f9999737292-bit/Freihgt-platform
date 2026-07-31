@@ -70,7 +70,7 @@ func BuildCriticalEvents(
 			})
 		}
 
-		if hasStatus(shipment.Status, deliveredStatuses) {
+		if IsDeliveredShipmentStatus(shipment.Status) {
 			if _, ok := shipmentIDsWithDocs[shipment.ID]; !ok {
 				occurredAt := pickTime(shipment.LastUpdatedAt, now)
 				events = append(events, ControlTowerEvent{

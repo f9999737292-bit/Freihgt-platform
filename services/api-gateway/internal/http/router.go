@@ -12,6 +12,7 @@ import (
 	gwmiddleware "github.com/freight-platform/api-gateway/internal/http/middleware"
 	apperrors "github.com/freight-platform/api-gateway/internal/platform/errors"
 	"github.com/freight-platform/api-gateway/internal/platform/respond"
+	"github.com/freight-platform/api-gateway/internal/shipmentevents"
 	"github.com/freight-platform/shared-go/metrics"
 	sharedmiddleware "github.com/freight-platform/shared-go/middleware"
 	"github.com/freight-platform/shared-go/observability"
@@ -20,7 +21,7 @@ import (
 
 const serviceName = "api-gateway"
 
-func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, controlTower *controltower.Handler) http.Handler {
+func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, controlTower *controltower.Handler, shipmentEvents *shipmentevents.Handler) http.Handler {
 	metricsCollector := metrics.New(serviceName)
 
 	r := chi.NewRouter()
@@ -63,6 +64,10 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 
 	if controlTower != nil {
 		r.Get("/api/v1/control-tower/summary", controlTower.Summary)
+	}
+
+	if shipmentEvents != nil {
+		r.Get("/api/v1/shipments/{shipmentId}/events", shipmentEvents.Events)
 	}
 
 	r.Handle("/api/*", proxy)

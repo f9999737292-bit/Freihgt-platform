@@ -42,6 +42,13 @@ function eventTypeKey(type: string) {
         </p>
         <NuxtLink
           v-if="event.shipmentId"
+          :to="`/shipments/${event.shipmentId}/events`"
+          class="critical-events__link"
+        >
+          {{ $t('controlTower.actions.eventHistory') }}
+        </NuxtLink>
+        <NuxtLink
+          v-if="event.shipmentId"
           :to="`/shipments/${event.shipmentId}`"
           class="critical-events__link"
         >

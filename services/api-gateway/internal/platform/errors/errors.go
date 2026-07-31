@@ -5,16 +5,18 @@ import "fmt"
 type Code string
 
 const (
-	CodeRouteNotFound                    Code = "ROUTE_NOT_FOUND"
-	CodeUnauthorized                     Code = "UNAUTHORIZED"
-	CodeForbidden                        Code = "FORBIDDEN"
-	CodeValidation                       Code = "VALIDATION_ERROR"
-	CodeServiceUnavailable               Code = "SERVICE_UNAVAILABLE"
-	CodeControlTowerShipmentsUnavailable Code = "CONTROL_TOWER_SHIPMENTS_UNAVAILABLE"
-	CodeAuthDependencyUnavailable        Code = "AUTH_DEPENDENCY_UNAVAILABLE"
-	CodeInternal                         Code = "INTERNAL_ERROR"
-	CodeRateLimitExceeded                Code = "RATE_LIMIT_EXCEEDED"
-	CodeRequestBodyTooLarge              Code = "REQUEST_BODY_TOO_LARGE"
+	CodeRouteNotFound                     Code = "ROUTE_NOT_FOUND"
+	CodeNotFound                          Code = "NOT_FOUND"
+	CodeUnauthorized                      Code = "UNAUTHORIZED"
+	CodeForbidden                         Code = "FORBIDDEN"
+	CodeValidation                        Code = "VALIDATION_ERROR"
+	CodeServiceUnavailable                Code = "SERVICE_UNAVAILABLE"
+	CodeControlTowerShipmentsUnavailable  Code = "CONTROL_TOWER_SHIPMENTS_UNAVAILABLE"
+	CodeShipmentEventsShipmentUnavailable Code = "SHIPMENT_EVENTS_SHIPMENT_UNAVAILABLE"
+	CodeAuthDependencyUnavailable         Code = "AUTH_DEPENDENCY_UNAVAILABLE"
+	CodeInternal                          Code = "INTERNAL_ERROR"
+	CodeRateLimitExceeded                 Code = "RATE_LIMIT_EXCEEDED"
+	CodeRequestBodyTooLarge               Code = "REQUEST_BODY_TOO_LARGE"
 )
 
 type AppError struct {
@@ -35,6 +37,10 @@ func (e *AppError) Unwrap() error { return e.Err }
 
 func RouteNotFound(message string) *AppError {
 	return &AppError{Code: CodeRouteNotFound, Message: message, Details: map[string]any{}}
+}
+
+func NotFound(message string) *AppError {
+	return &AppError{Code: CodeNotFound, Message: message, Details: map[string]any{}}
 }
 
 func Unauthorized(message string) *AppError {
@@ -63,6 +69,14 @@ func ServiceUnavailable(message string, service string) *AppError {
 func ControlTowerShipmentsUnavailable(message string) *AppError {
 	return &AppError{
 		Code:    CodeControlTowerShipmentsUnavailable,
+		Message: message,
+		Details: map[string]any{},
+	}
+}
+
+func ShipmentEventsShipmentUnavailable(message string) *AppError {
+	return &AppError{
+		Code:    CodeShipmentEventsShipmentUnavailable,
 		Message: message,
 		Details: map[string]any{},
 	}

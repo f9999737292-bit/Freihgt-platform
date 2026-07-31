@@ -57,8 +57,7 @@ const columns = computed(() => [
         >
           {{ $t('controlTower.actions.openOrder') }}
         </NuxtLink>
-        <!-- TODO: dedicated shipment event history route when available -->
-        <NuxtLink :to="`/shipments/${row.id}#events`">
+        <NuxtLink :to="`/shipments/${row.id}/events`">
           {{ $t('controlTower.actions.eventHistory') }}
         </NuxtLink>
       </td>

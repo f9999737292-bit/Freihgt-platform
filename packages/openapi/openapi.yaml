@@ -897,6 +897,114 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/shipments/{shipmentId}/events:
+    get:
+      tags: [Shipments]
+      summary: Shipment event history timeline
+      description: |
+        BFF endpoint that aggregates shipment state, documents, billing registers, and SLA signals
+        into a unified event timeline. Optional dependencies may return partial responses with
+        machine-readable warning codes. Tenant context is derived from the verified JWT bearer token only.
+        Derived events are explicitly marked with `derived: true`.
+      operationId: get_shipment_events
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            $ref: '#/components/schemas/ShipmentEventCategory'
+        - name: source
+          in: query
+          schema:
+            $ref: '#/components/schemas/ShipmentEventSource'
+        - name: severity
+          in: query
+          schema:
+            $ref: '#/components/schemas/ShipmentEventSeverity'
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: derived
+          in: query
+          schema:
+            type: boolean
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Shipment event timeline
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShipmentEventsResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Shipment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Required shipment data source is temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/companies:
     post:
       tags: [Companies]
@@ -5375,4 +5483,111 @@ components:
           format: date-time
         description: { type: string }
         source: { type: string }
+    ShipmentEventCategory:
+      type: string
+      enum: [SHIPMENT, OPERATION, DOCUMENT, SLA, BILLING, TECHNICAL, GEOLOCATION, SYSTEM]
+    ShipmentEventSource:
+      type: string
+      enum: [SHIPMENT_STATE, SLA_CALCULATOR, DOCUMENT_STATE, BILLING_STATE]
+      description: |
+        BFF-generated timeline events use *_STATE or SLA_CALCULATOR sources and are always derived=true.
+        derived=false is reserved for future downstream event/audit records with stable event IDs.
+    ShipmentEventSeverity:
+      type: string
+      enum: [INFO, WARNING, CRITICAL]
+    ShipmentEventActor:
+      type: object
+      properties:
+        type: { type: string }
+        id: { type: string }
+        name: { type: string }
+    ShipmentTimelineEvent:
+      type: object
+      required: [id, shipmentId, shipmentNumber, type, category, source, severity, titleCode, occurredAt, derived]
+      properties:
+        id: { type: string }
+        shipmentId: { type: string }
+        shipmentNumber: { type: string }
+        type: { type: string }
+        category:
+          $ref: '#/components/schemas/ShipmentEventCategory'
+        source:
+          $ref: '#/components/schemas/ShipmentEventSource'
+        severity:
+          $ref: '#/components/schemas/ShipmentEventSeverity'
+        titleCode: { type: string }
+        descriptionCode: { type: string }
+        occurredAt: { type: string, format: date-time }
+        recordedAt: { type: string, format: date-time }
+        actor:
+          $ref: '#/components/schemas/ShipmentEventActor'
+        metadata:
+          type: object
+          additionalProperties: true
+        derived: { type: boolean }
+        correlationId: { type: string }
+        sourceEventId: { type: string }
+    ShipmentEventsResponse:
+      type: object
+      required: [shipment, generatedAt, dataFreshness, timeline, filters]
+      properties:
+        shipment:
+          type: object
+          properties:
+            id: { type: string }
+            number: { type: string }
+            status: { type: string }
+        generatedAt: { type: string, format: date-time }
+        dataFreshness:
+          type: object
+          properties:
+            shipmentLoaded: { type: boolean }
+            shipmentEventsLoaded: { type: boolean, description: False when no canonical shipment event store is available; derived timeline may still be returned. }
+            documentsLoaded: { type: boolean }
+            billingLoaded: { type: boolean }
+            technicalEventsLoaded: { type: boolean }
+            partial: { type: boolean }
+            warnings:
+              type: array
+              items:
+                type: string
+                enum:
+                  - SHIPMENT_EVENTS_UNAVAILABLE
+                  - SHIPMENT_HISTORY_DERIVED_FROM_CURRENT_STATE
+                  - DOCUMENT_EVENTS_UNAVAILABLE
+                  - BILLING_EVENTS_UNAVAILABLE
+                  - TECHNICAL_EVENTS_UNAVAILABLE
+                  - GEOLOCATION_EVENTS_UNAVAILABLE
+                  - TIMELINE_CALCULATED_FROM_LIMITED_DATASET
+                  - FILTER_OPTIONS_INCOMPLETE
+        timeline:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/ShipmentTimelineEvent'
+            page: { type: integer }
+            limit: { type: integer }
+            total: { type: integer }
+            hasNext: { type: boolean }
+        filters:
+          type: object
+          properties:
+            types:
+              type: array
+              items:
+                $ref: '#/components/schemas/ControlTowerFilterOption'
+            categories:
+              type: array
+              items:
+                $ref: '#/components/schemas/ControlTowerFilterOption'
+            sources:
+              type: array
+              items:
+                $ref: '#/components/schemas/ControlTowerFilterOption'
+            severities:
+              type: array
+              items:
+                $ref: '#/components/schemas/ControlTowerFilterOption'
 
