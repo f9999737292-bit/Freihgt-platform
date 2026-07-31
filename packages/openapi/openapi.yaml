@@ -3084,6 +3084,10 @@ paths:
     post:
       tags: [Shipments]
       summary: Assign driver to shipment
+      description: |
+        Driver must belong to the same authenticated tenant as the shipment.
+        Tenant scope is derived from authenticated gateway context and cannot be selected in the request body.
+        Unknown, foreign-tenant, or soft-deleted driver returns 404 indistinguishable from a missing driver.
       operationId: post_assign_driver_to_shipment
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -3096,8 +3100,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: true
+              $ref: '#/components/schemas/AssignDriverRequest'
       security:
         - bearerAuth: []
       responses:
@@ -3142,6 +3145,10 @@ paths:
     post:
       tags: [Shipments]
       summary: Assign vehicle to shipment
+      description: |
+        Vehicle must belong to the same authenticated tenant as the shipment.
+        Tenant scope is derived from authenticated gateway context and cannot be selected in the request body.
+        Unknown, foreign-tenant, or soft-deleted vehicle returns 404 indistinguishable from a missing vehicle.
       operationId: post_assign_vehicle_to_shipment
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -3154,8 +3161,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: true
+              $ref: '#/components/schemas/AssignVehicleRequest'
       security:
         - bearerAuth: []
       responses:
@@ -3482,6 +3488,7 @@ paths:
     get:
       tags: [Drivers]
       summary: Get driver by ID
+      description: Returns driver details for the authenticated tenant. Foreign-tenant drivers are indistinguishable from missing drivers (404). Tenant is derived from bearer authentication at the gateway; `tenant_id` is not a query parameter on this endpoint.
       operationId: get_get_driver_by_id
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -3641,6 +3648,7 @@ paths:
     get:
       tags: [Vehicles]
       summary: Get vehicle by ID
+      description: Returns vehicle details for the authenticated tenant. Foreign-tenant vehicles are indistinguishable from missing vehicles (404). Tenant is derived from bearer authentication at the gateway; `tenant_id` is not a query parameter on this endpoint.
       operationId: get_get_vehicle_by_id
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -5306,6 +5314,22 @@ components:
         type: string
       description: Bearer JWT access token
   schemas:
+    AssignDriverRequest:
+      type: object
+      required: [driver_id]
+      additionalProperties: false
+      properties:
+        driver_id:
+          type: string
+          format: uuid
+    AssignVehicleRequest:
+      type: object
+      required: [vehicle_id]
+      additionalProperties: false
+      properties:
+        vehicle_id:
+          type: string
+          format: uuid
     ErrorResponse:
       type: object
       required: [error]

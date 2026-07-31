@@ -57,7 +57,12 @@ func (h *DriverHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, err)
 		return
 	}
-	driver, err := h.service.GetByID(r.Context(), id)
+	tenantID, err := resolveVerifiedTenant(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	driver, err := h.service.GetByIDAndTenant(r.Context(), tenantID, id)
 	if err != nil {
 		respond.Error(w, err)
 		return

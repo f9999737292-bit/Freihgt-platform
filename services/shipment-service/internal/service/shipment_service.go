@@ -26,11 +26,11 @@ type ShipmentStore interface {
 }
 
 type DriverLookup interface {
-	GetByID(ctx context.Context, id uuid.UUID) (*domain.Driver, error)
+	GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.Driver, error)
 }
 
 type VehicleLookup interface {
-	GetByID(ctx context.Context, id uuid.UUID) (*domain.Vehicle, error)
+	GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.Vehicle, error)
 }
 
 type ShipmentService struct {
@@ -135,15 +135,12 @@ func (s *ShipmentService) List(ctx context.Context, filter domain.ListShipmentsF
 	return s.shipments.List(ctx, filter)
 }
 
-func (s *ShipmentService) AssignDriver(ctx context.Context, id uuid.UUID, in domain.AssignDriverInput) (*domain.Shipment, error) {
-	if id == uuid.Nil {
-		return nil, apperrors.Validation("id is required", map[string]any{"field": "id"})
-	}
-	if err := domain.ValidateAssignDriverInput(in); err != nil {
+func (s *ShipmentService) AssignDriver(ctx context.Context, tenantID, shipmentID, driverID uuid.UUID) (*domain.Shipment, error) {
+	if err := domain.ValidateAssignDriverParams(tenantID, shipmentID, driverID); err != nil {
 		return nil, err
 	}
 
-	shipment, err := s.shipments.GetByIDAndTenant(ctx, id, in.TenantID)
+	shipment, err := s.shipments.GetByIDAndTenant(ctx, shipmentID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -151,30 +148,24 @@ func (s *ShipmentService) AssignDriver(ctx context.Context, id uuid.UUID, in dom
 		return nil, err
 	}
 
-	driver, err := s.drivers.GetByID(ctx, in.DriverID)
+	driver, err := s.drivers.GetByIDAndTenant(ctx, driverID, tenantID)
 	if err != nil {
 		return nil, err
-	}
-	if driver.TenantID != in.TenantID {
-		return nil, apperrors.NotFound("driver not found")
 	}
 	if shipment.CarrierCompanyID == nil || driver.CarrierCompanyID != *shipment.CarrierCompanyID {
 		return nil, apperrors.Validation("driver carrier_company_id must match shipment carrier_company_id", map[string]any{"field": "driver_id"})
 	}
 
 	newStatus := domain.ResolveStatusAfterAssignDriver(shipment.Status, shipment.VehicleID != nil)
-	return s.shipments.AssignDriver(ctx, id, in.TenantID, in.DriverID, newStatus, shipment.Version)
+	return s.shipments.AssignDriver(ctx, shipmentID, tenantID, driverID, newStatus, shipment.Version)
 }
 
-func (s *ShipmentService) AssignVehicle(ctx context.Context, id uuid.UUID, in domain.AssignVehicleInput) (*domain.Shipment, error) {
-	if id == uuid.Nil {
-		return nil, apperrors.Validation("id is required", map[string]any{"field": "id"})
-	}
-	if err := domain.ValidateAssignVehicleInput(in); err != nil {
+func (s *ShipmentService) AssignVehicle(ctx context.Context, tenantID, shipmentID, vehicleID uuid.UUID) (*domain.Shipment, error) {
+	if err := domain.ValidateAssignVehicleParams(tenantID, shipmentID, vehicleID); err != nil {
 		return nil, err
 	}
 
-	shipment, err := s.shipments.GetByIDAndTenant(ctx, id, in.TenantID)
+	shipment, err := s.shipments.GetByIDAndTenant(ctx, shipmentID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -182,19 +173,16 @@ func (s *ShipmentService) AssignVehicle(ctx context.Context, id uuid.UUID, in do
 		return nil, err
 	}
 
-	vehicle, err := s.vehicles.GetByID(ctx, in.VehicleID)
+	vehicle, err := s.vehicles.GetByIDAndTenant(ctx, vehicleID, tenantID)
 	if err != nil {
 		return nil, err
-	}
-	if vehicle.TenantID != in.TenantID {
-		return nil, apperrors.NotFound("vehicle not found")
 	}
 	if shipment.CarrierCompanyID == nil || vehicle.CarrierCompanyID != *shipment.CarrierCompanyID {
 		return nil, apperrors.Validation("vehicle carrier_company_id must match shipment carrier_company_id", map[string]any{"field": "vehicle_id"})
 	}
 
 	newStatus := domain.ResolveStatusAfterAssignVehicle(shipment.DriverID != nil)
-	return s.shipments.AssignVehicle(ctx, id, in.TenantID, in.VehicleID, newStatus, shipment.Version)
+	return s.shipments.AssignVehicle(ctx, shipmentID, tenantID, vehicleID, newStatus, shipment.Version)
 }
 
 func (s *ShipmentService) Accept(ctx context.Context, id uuid.UUID, in domain.AcceptShipmentInput) (*domain.Shipment, error) {

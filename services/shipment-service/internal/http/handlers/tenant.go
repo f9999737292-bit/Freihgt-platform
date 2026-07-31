@@ -10,8 +10,8 @@ import (
 	apperrors "github.com/freight-platform/shipment-service/internal/platform/errors"
 )
 
-// resolveVerifiedTenant returns the trusted tenant for shipment detail read paths.
-// Tenant must come from X-Tenant-ID set by API Gateway; query parameters are not accepted.
+// resolveVerifiedTenant returns the trusted tenant for tenant-bound detail read paths
+// (shipments, drivers, vehicles). Tenant must come from X-Tenant-ID set by API Gateway.
 func resolveVerifiedTenant(r *http.Request) (uuid.UUID, error) {
 	raw := strings.TrimSpace(r.Header.Get("X-Tenant-ID"))
 	if raw == "" {

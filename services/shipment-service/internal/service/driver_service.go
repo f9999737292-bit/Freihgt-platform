@@ -12,7 +12,7 @@ import (
 type DriverStore interface {
 	CompanyExists(ctx context.Context, companyID, tenantID uuid.UUID) (bool, error)
 	Create(ctx context.Context, in domain.CreateDriverInput) (*domain.Driver, error)
-	GetByID(ctx context.Context, id uuid.UUID) (*domain.Driver, error)
+	GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.Driver, error)
 	List(ctx context.Context, filter domain.ListDriversFilter) ([]domain.Driver, int, error)
 }
 
@@ -40,11 +40,14 @@ func (s *DriverService) Create(ctx context.Context, in domain.CreateDriverInput)
 	return s.drivers.Create(ctx, in)
 }
 
-func (s *DriverService) GetByID(ctx context.Context, id uuid.UUID) (*domain.Driver, error) {
+func (s *DriverService) GetByIDAndTenant(ctx context.Context, tenantID, id uuid.UUID) (*domain.Driver, error) {
 	if id == uuid.Nil {
 		return nil, apperrors.Validation("id is required", map[string]any{"field": "id"})
 	}
-	return s.drivers.GetByID(ctx, id)
+	if tenantID == uuid.Nil {
+		return nil, apperrors.Unauthorized("tenant context is required")
+	}
+	return s.drivers.GetByIDAndTenant(ctx, id, tenantID)
 }
 
 func (s *DriverService) List(ctx context.Context, filter domain.ListDriversFilter) ([]domain.Driver, int, error) {

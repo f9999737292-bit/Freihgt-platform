@@ -59,19 +59,19 @@ func (m *mockShipmentStore) Cancel(ctx context.Context, id, tenantID uuid.UUID, 
 }
 
 type mockDriverLookup struct {
-	getByIDFn func(ctx context.Context, id uuid.UUID) (*domain.Driver, error)
+	getByIDAndTenantFn func(ctx context.Context, id, tenantID uuid.UUID) (*domain.Driver, error)
 }
 
-func (m *mockDriverLookup) GetByID(ctx context.Context, id uuid.UUID) (*domain.Driver, error) {
-	return m.getByIDFn(ctx, id)
+func (m *mockDriverLookup) GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.Driver, error) {
+	return m.getByIDAndTenantFn(ctx, id, tenantID)
 }
 
 type mockVehicleLookup struct {
-	getByIDFn func(ctx context.Context, id uuid.UUID) (*domain.Vehicle, error)
+	getByIDAndTenantFn func(ctx context.Context, id, tenantID uuid.UUID) (*domain.Vehicle, error)
 }
 
-func (m *mockVehicleLookup) GetByID(ctx context.Context, id uuid.UUID) (*domain.Vehicle, error) {
-	return m.getByIDFn(ctx, id)
+func (m *mockVehicleLookup) GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.Vehicle, error) {
+	return m.getByIDAndTenantFn(ctx, id, tenantID)
 }
 
 func TestShipmentServiceCreateFromTransportOrderValidation(t *testing.T) {
@@ -151,14 +151,12 @@ func TestShipmentServiceAssignDriver(t *testing.T) {
 			return &domain.Shipment{Status: newStatus, DriverID: &driverID}, nil
 		},
 	}, &mockDriverLookup{
-		getByIDFn: func(context.Context, uuid.UUID) (*domain.Driver, error) {
+		getByIDAndTenantFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.Driver, error) {
 			return &domain.Driver{ID: driverID, TenantID: tenantID, CarrierCompanyID: carrierID}, nil
 		},
 	}, &mockVehicleLookup{})
 
-	shipment, err := svc.AssignDriver(context.Background(), shipmentID, domain.AssignDriverInput{
-		TenantID: tenantID, DriverID: driverID,
-	})
+	shipment, err := svc.AssignDriver(context.Background(), tenantID, shipmentID, driverID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -187,14 +185,12 @@ func TestShipmentServiceAssignVehicle(t *testing.T) {
 			return &domain.Shipment{Status: newStatus, VehicleID: &vehicleID}, nil
 		},
 	}, &mockDriverLookup{}, &mockVehicleLookup{
-		getByIDFn: func(context.Context, uuid.UUID) (*domain.Vehicle, error) {
+		getByIDAndTenantFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.Vehicle, error) {
 			return &domain.Vehicle{ID: vehicleID, TenantID: tenantID, CarrierCompanyID: carrierID}, nil
 		},
 	})
 
-	shipment, err := svc.AssignVehicle(context.Background(), shipmentID, domain.AssignVehicleInput{
-		TenantID: tenantID, VehicleID: vehicleID,
-	})
+	shipment, err := svc.AssignVehicle(context.Background(), tenantID, shipmentID, vehicleID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

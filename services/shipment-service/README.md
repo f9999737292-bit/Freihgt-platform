@@ -125,8 +125,8 @@ Assign driver:
 ```bash
 curl -X POST http://localhost:8085/v1/shipments/{shipment_id}/assign-driver \
   -H "Content-Type: application/json" \
+  -H "X-Tenant-ID: 11111111-1111-1111-1111-111111111111" \
   -d '{
-    "tenant_id": "11111111-1111-1111-1111-111111111111",
     "driver_id": "55555555-5555-5555-5555-555555555555"
   }'
 ```
@@ -136,8 +136,8 @@ Assign vehicle:
 ```bash
 curl -X POST http://localhost:8085/v1/shipments/{shipment_id}/assign-vehicle \
   -H "Content-Type: application/json" \
+  -H "X-Tenant-ID: 11111111-1111-1111-1111-111111111111" \
   -d '{
-    "tenant_id": "11111111-1111-1111-1111-111111111111",
     "vehicle_id": "66666666-6666-6666-6666-666666666666"
   }'
 ```
@@ -155,6 +155,8 @@ curl -X PATCH http://localhost:8085/v1/shipments/{shipment_id}/status \
 ```
 
 ## Tenant isolation (GET /v1/shipments/{id})
+
+See also: [Driver & Vehicle tenant isolation](../../docs/DRIVER_VEHICLE_TENANT_ISOLATION.md).
 
 Shipment detail lookup is tenant-scoped at the repository layer:
 
@@ -178,6 +180,20 @@ In production, external requests must enter only through API Gateway (`8080`). S
 Local `docker-compose` publishes `8085:8085` for **development only** (direct health checks, local debugging). This is not a production trust model.
 
 Gateway defense-in-depth comparison of `tenant_id` in downstream responses remains in Shipment Event History.
+
+## Driver & Vehicle detail endpoints
+
+`GET /v1/drivers/{id}` and `GET /v1/vehicles/{id}` use the same trust model as shipment detail:
+
+- Tenant from trusted `X-Tenant-ID` header only (no query fallback)
+- Repository lookup: `WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`
+- Foreign tenant object returns the same `404` as missing object
+
+## Assign driver / assign vehicle
+
+`POST /v1/shipments/{id}/assign-driver` and `POST /v1/shipments/{id}/assign-vehicle` do **not** accept `tenant_id` in the JSON body. Tenant is derived only from trusted `X-Tenant-ID` (same boundary as detail endpoints).
+
+Request body contains only `driver_id` or `vehicle_id`. Unknown `tenant_id` field in body returns `400 Bad Request`.
 
 ## Tests
 

@@ -22,14 +22,14 @@ func NewVehicleHandler(svc *service.VehicleService) *VehicleHandler {
 }
 
 type createVehicleRequest struct {
-	TenantID             string   `json:"tenant_id"`
-	CarrierCompanyID     string   `json:"carrier_company_id"`
-	PlateNumber          string   `json:"plate_number"`
-	VehicleType          string   `json:"vehicle_type"`
-	EquipmentType        *string  `json:"equipment_type"`
-	CapacityWeight       *float64 `json:"capacity_weight"`
-	CapacityVolume       *float64 `json:"capacity_volume"`
-	RegistrationCountry  string   `json:"registration_country"`
+	TenantID            string   `json:"tenant_id"`
+	CarrierCompanyID    string   `json:"carrier_company_id"`
+	PlateNumber         string   `json:"plate_number"`
+	VehicleType         string   `json:"vehicle_type"`
+	EquipmentType       *string  `json:"equipment_type"`
+	CapacityWeight      *float64 `json:"capacity_weight"`
+	CapacityVolume      *float64 `json:"capacity_volume"`
+	RegistrationCountry string   `json:"registration_country"`
 }
 
 func (h *VehicleHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -57,7 +57,12 @@ func (h *VehicleHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, err)
 		return
 	}
-	vehicle, err := h.service.GetByID(r.Context(), id)
+	tenantID, err := resolveVerifiedTenant(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	vehicle, err := h.service.GetByIDAndTenant(r.Context(), tenantID, id)
 	if err != nil {
 		respond.Error(w, err)
 		return

@@ -66,18 +66,12 @@ export function useShipmentsApi() {
     })
   }
 
-  async function assignDriver(id: string, payload: Omit<AssignDriverPayload, 'tenant_id'>) {
-    return apiPost<Shipment>(`/api/v1/shipments/${id}/assign-driver`, {
-      ...payload,
-      tenant_id: tenantId(),
-    })
+  async function assignDriver(id: string, payload: AssignDriverPayload) {
+    return apiPost<Shipment>(`/api/v1/shipments/${id}/assign-driver`, payload)
   }
 
-  async function assignVehicle(id: string, payload: Omit<AssignVehiclePayload, 'tenant_id'>) {
-    return apiPost<Shipment>(`/api/v1/shipments/${id}/assign-vehicle`, {
-      ...payload,
-      tenant_id: tenantId(),
-    })
+  async function assignVehicle(id: string, payload: AssignVehiclePayload) {
+    return apiPost<Shipment>(`/api/v1/shipments/${id}/assign-vehicle`, payload)
   }
 
   async function acceptShipment(id: string, payload: Omit<AcceptShipmentPayload, 'tenant_id'> = {}) {

@@ -149,12 +149,10 @@ export interface CreateShipmentFromOrderPayload {
 }
 
 export interface AssignDriverPayload {
-  tenant_id: string
   driver_id: string
 }
 
 export interface AssignVehiclePayload {
-  tenant_id: string
   vehicle_id: string
 }
 

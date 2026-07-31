@@ -68,14 +68,15 @@ func (r *DriverRepository) Create(ctx context.Context, in domain.CreateDriverInp
 	return result, err
 }
 
-func (r *DriverRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Driver, error) {
-	const query = `
+const getDriverByIDAndTenantQuery = `
 		SELECT id, tenant_id, carrier_company_id, user_id, full_name, phone,
 			license_number, license_country, preferred_locale, status
 		FROM transport.drivers
-		WHERE id = $1 AND deleted_at IS NULL
+		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
 	`
-	return scanDriver(r.pool.QueryRow(ctx, query, id))
+
+func (r *DriverRepository) GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.Driver, error) {
+	return scanDriver(r.pool.QueryRow(ctx, getDriverByIDAndTenantQuery, id, tenantID))
 }
 
 func (r *DriverRepository) List(ctx context.Context, filter domain.ListDriversFilter) ([]domain.Driver, int, error) {

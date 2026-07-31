@@ -49,12 +49,10 @@ type createShipmentFromBidRequest struct {
 }
 
 type assignDriverRequest struct {
-	TenantID string `json:"tenant_id"`
 	DriverID string `json:"driver_id"`
 }
 
 type assignVehicleRequest struct {
-	TenantID  string `json:"tenant_id"`
 	VehicleID string `json:"vehicle_id"`
 }
 
@@ -181,19 +179,28 @@ func (h *ShipmentHandler) List(w http.ResponseWriter, r *http.Request) {
 	respond.JSON(w, http.StatusOK, map[string]any{"items": items, "total": total})
 }
 
+func decodeStrictJSON(r *http.Request, dst any) error {
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(dst); err != nil {
+		return apperrors.Validation("invalid JSON body", map[string]any{"field": "body"})
+	}
+	return nil
+}
+
 func (h *ShipmentHandler) AssignDriver(w http.ResponseWriter, r *http.Request) {
-	id, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
+	tenantID, err := resolveVerifiedTenant(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	shipmentID, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
 	var req assignDriverRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
-		return
-	}
-	tenantID, err := domain.ParseUUID(req.TenantID, "tenant_id")
-	if err != nil {
+	if err := decodeStrictJSON(r, &req); err != nil {
 		respond.Error(w, err)
 		return
 	}
@@ -202,9 +209,7 @@ func (h *ShipmentHandler) AssignDriver(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, err)
 		return
 	}
-	shipment, err := h.service.AssignDriver(r.Context(), id, domain.AssignDriverInput{
-		TenantID: tenantID, DriverID: driverID,
-	})
+	shipment, err := h.service.AssignDriver(r.Context(), tenantID, shipmentID, driverID)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -213,18 +218,18 @@ func (h *ShipmentHandler) AssignDriver(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ShipmentHandler) AssignVehicle(w http.ResponseWriter, r *http.Request) {
-	id, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
+	tenantID, err := resolveVerifiedTenant(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	shipmentID, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
 	var req assignVehicleRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
-		return
-	}
-	tenantID, err := domain.ParseUUID(req.TenantID, "tenant_id")
-	if err != nil {
+	if err := decodeStrictJSON(r, &req); err != nil {
 		respond.Error(w, err)
 		return
 	}
@@ -233,9 +238,7 @@ func (h *ShipmentHandler) AssignVehicle(w http.ResponseWriter, r *http.Request) 
 		respond.Error(w, err)
 		return
 	}
-	shipment, err := h.service.AssignVehicle(r.Context(), id, domain.AssignVehicleInput{
-		TenantID: tenantID, VehicleID: vehicleID,
-	})
+	shipment, err := h.service.AssignVehicle(r.Context(), tenantID, shipmentID, vehicleID)
 	if err != nil {
 		respond.Error(w, err)
 		return
