@@ -9,21 +9,19 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Demo credentials and seed data staging execution v0.2.
+Live-data demo workflow staging smoke.
 ```
 
 ## Current status
 
 ```text
-- Explicit staging credentials/seed execution approval: GIVEN
-- Staging isolation gate: PASS
-- Staging demo credentials: created/verified
-- Staging demo seed data: created/verified
-- Staging tenant alias: DEMO_BINTRANS_TENANT
-- Production writes: no
+- Staging backend/DB isolation: COMPLETE
+- Staging credentials/seed data: COMPLETE
+- Staging live-data workflow smoke: PASS
+- Authenticated staging workflow: SIGNED_OFF
 - Production live-data demo: not approved
+- Production writes: no
 - Secrets recorded in docs/repo/chat: no
-- Authenticated workflow readiness: still NOT_SIGNED_OFF until staging smoke
 - Full production readiness: not claimed
 - Operating mode: event-based monitoring
 - Selectel backup: 6450ba4f-5e95-4052-a0fc-dea853399dad
@@ -33,16 +31,19 @@ Demo credentials and seed data staging execution v0.2.
 ## Next options
 
 ```text
-1. LIVE_DATA_DEMO_WORKFLOW_STAGING_SMOKE_PACK v0.1
-2. Do not paste credentials/tokens into chat/docs/repo.
-3. Do not perform production live-data demo without separate approval.
-4. Do not include local leftovers in commits.
+1. LIVE_DATA_DEMO_WORKFLOW_STAGING_SIGNOFF_PACK v0.1
+2. Then decide whether to prepare production read-only/auth demo approval separately.
+3. Do not perform production live-data demo without explicit approval.
+4. Do not paste credentials/tokens into chat/docs/repo.
+5. Do not include local leftovers in commits.
 
+See docs/LIVE_DATA_DEMO_WORKFLOW_STAGING_SMOKE_RESULT_V0.1.md
+See docs/LIVE_DATA_DEMO_WORKFLOW_STAGING_BROWSER_SMOKE_EVIDENCE_V0.1.md
+See docs/LIVE_DATA_DEMO_WORKFLOW_STAGING_ROLE_NAVIGATION_EVIDENCE_V0.1.md
+See docs/LIVE_DATA_DEMO_WORKFLOW_STAGING_API_SMOKE_EVIDENCE_V0.1.md
+See docs/LIVE_DATA_DEMO_WORKFLOW_STAGING_ISOLATION_RECHECK_V0.1.md
+See docs/LIVE_DATA_DEMO_WORKFLOW_STAGING_LIMITATIONS_V0.1.md
 See docs/DEMO_CREDENTIALS_AND_SEED_DATA_STAGING_EXECUTION_RESULT_V0.2.md
-See docs/DEMO_CREDENTIALS_AND_SEED_DATA_STAGING_EXECUTION_EVIDENCE_V0.2.md
-See docs/DEMO_CREDENTIALS_AND_SEED_DATA_STAGING_ISOLATION_RECHECK_V0.2.md
-See docs/DEMO_CREDENTIALS_AND_SEED_DATA_SECRET_HANDLING_EVIDENCE_V0.2.md
-See docs/DEMO_CREDENTIALS_AND_SEED_DATA_CLEANUP_TRACKING_V0.2.md
 See docs/STAGING_BACKEND_DB_ISOLATION_EXECUTION_RESULT_V0.1.md
 ```
 
