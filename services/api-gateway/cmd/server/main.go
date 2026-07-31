@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/freight-platform/api-gateway/internal/config"
+	"github.com/freight-platform/api-gateway/internal/controltower"
 	httpserver "github.com/freight-platform/api-gateway/internal/http"
 	"github.com/freight-platform/api-gateway/internal/platform/logger"
 )
@@ -30,7 +31,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	router := httpserver.NewRouter(log, cfg, proxy)
+	router := httpserver.NewRouter(log, cfg, proxy, controltower.NewHandler(log, cfg))
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

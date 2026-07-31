@@ -8,18 +8,19 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 
 	"github.com/freight-platform/api-gateway/internal/config"
+	"github.com/freight-platform/api-gateway/internal/controltower"
 	gwmiddleware "github.com/freight-platform/api-gateway/internal/http/middleware"
 	apperrors "github.com/freight-platform/api-gateway/internal/platform/errors"
 	"github.com/freight-platform/api-gateway/internal/platform/respond"
 	"github.com/freight-platform/shared-go/metrics"
+	sharedmiddleware "github.com/freight-platform/shared-go/middleware"
 	"github.com/freight-platform/shared-go/observability"
 	sharedpprof "github.com/freight-platform/shared-go/pprof"
-	sharedmiddleware "github.com/freight-platform/shared-go/middleware"
 )
 
 const serviceName = "api-gateway"
 
-func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler) http.Handler {
+func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, controlTower *controltower.Handler) http.Handler {
 	metricsCollector := metrics.New(serviceName)
 
 	r := chi.NewRouter()
@@ -59,6 +60,10 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler) http.Ha
 
 	openAPI := NewOpenAPIHandler(cfg.OpenAPIDir)
 	openAPI.RegisterRoutes(r)
+
+	if controlTower != nil {
+		r.Get("/api/v1/control-tower/summary", controlTower.Summary)
+	}
 
 	r.Handle("/api/*", proxy)
 	r.Handle("/api", proxy)

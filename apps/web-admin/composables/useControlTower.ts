@@ -12,9 +12,11 @@ import {
   type ControlTowerActivityItem,
   type ControlTowerBillingSummary,
   type ControlTowerData,
+  type ControlTowerDataFreshness,
   type ControlTowerDocumentsSummary,
   type ControlTowerEvent,
   type ControlTowerFetchResult,
+  type ControlTowerFilterOption,
   type ControlTowerFilters,
   type ControlTowerFunnelStep,
   type ControlTowerKpiCard,
@@ -23,7 +25,10 @@ import {
   type ControlTowerRiskAlert,
   type ControlTowerShipment,
   type ControlTowerShipmentStatusRow,
+  type ControlTowerSummaryKpi,
+  type ControlTowerSummaryResponse,
 } from '~/types/controlTower'
+import { ApiError } from '~/composables/useApi'
 import {
   applyControlTowerFilters,
   buildCriticalEvents,
@@ -97,19 +102,33 @@ function parseTimestamp(value?: string | null): number {
 }
 
 export function useControlTower() {
+  const config = useRuntimeConfig()
   const { apiGet, checkGatewayHealth } = useApi()
   const tenantStore = useTenantStore()
   const uiStore = useUiStore()
   const { t } = useI18n()
+
+  const summaryApiEnabled = config.public.controlTowerSummaryApiEnabled !== false
 
   const loading = ref(true)
   const gatewayOnline = ref(true)
   const loadError = ref<string | null>(null)
   const lastUpdatedAt = ref<string | null>(null)
   const demoMode = ref(false)
+  const summaryMode = ref(false)
+  const dataFreshness = ref<ControlTowerDataFreshness | null>(null)
+  const summaryFilterOptions = ref<{
+    shippers: ControlTowerFilterOption[]
+    carriers: ControlTowerFilterOption[]
+  }>({ shippers: [], carriers: [] })
+  const summaryPagination = ref({ page: 1, limit: 50, total: 0, hasNext: false })
   const autoRefreshEnabled = ref(false)
   const autoRefreshIntervalMs = ref(60_000)
   const filters = reactive<ControlTowerFilters>(createDefaultControlTowerFilters())
+
+  const summaryShipments = ref<ControlTowerShipment[]>([])
+  const summaryKpi = ref<ControlTowerSummaryKpi | null>(null)
+  const summaryEvents = ref<ControlTowerEvent[]>([])
 
   let autoRefreshTimer: ReturnType<typeof setInterval> | undefined
 
@@ -125,6 +144,153 @@ export function useControlTower() {
   })
 
   const tenantId = computed(() => tenantStore.tenantId?.trim() || DEV_TENANT_FALLBACK)
+
+  function formatRoute(origin?: string, destination?: string): string | undefined {
+    if (!origin && !destination) return undefined
+    if (origin && destination) return `${origin} → ${destination}`
+    return origin || destination
+  }
+
+  function mapSummaryShipment(row: ControlTowerShipment): ControlTowerShipment {
+    const origin = row.origin ?? row.originName
+    const destination = row.destination ?? row.destinationName
+    return {
+      ...row,
+      shipperCompanyId: row.shipperCompanyId ?? row.shipperId,
+      carrierCompanyId: row.carrierCompanyId ?? row.carrierId,
+      origin,
+      destination,
+      route: row.route ?? formatRoute(origin, destination),
+    }
+  }
+
+  function buildSummaryQuery(): Record<string, string | number | boolean> {
+    const query: Record<string, string | number | boolean> = {
+      page: summaryPagination.value.page,
+      limit: summaryPagination.value.limit,
+    }
+    if (filters.search.trim()) query.q = filters.search.trim()
+    if (filters.status) query.status = filters.status
+    if (filters.slaStatus) query.sla_status = filters.slaStatus
+    if (filters.shipperCompanyId) query.shipper_id = filters.shipperCompanyId
+    if (filters.carrierCompanyId) query.carrier_id = filters.carrierCompanyId
+    if (filters.date) {
+      query.date_from = filters.date
+      query.date_to = filters.date
+    }
+    if (filters.criticalOnly) query.critical_only = true
+    return query
+  }
+
+  function buildKpiMetricsFromSummary(kpi: ControlTowerSummaryKpi): ControlTowerKpiMetric[] {
+    const pct = (value: number) => (kpi.active ? Math.round((value / kpi.active) * 100) : 0)
+    const combinedCritical = kpi.critical + kpi.delayed
+
+    return [
+      {
+        key: 'activeShipments',
+        titleKey: 'controlTower.kpiV01.activeShipments',
+        descriptionKey: 'controlTower.kpiV01.activeShipmentsDesc',
+        value: kpi.active,
+        tone: 'neutral',
+      },
+      {
+        key: 'onTime',
+        titleKey: 'controlTower.kpiV01.onTime',
+        descriptionKey: 'controlTower.kpiV01.onTimeDesc',
+        value: kpi.onTime,
+        percent: pct(kpi.onTime),
+        tone: 'ok',
+      },
+      {
+        key: 'atRisk',
+        titleKey: 'controlTower.kpiV01.atRisk',
+        descriptionKey: 'controlTower.kpiV01.atRiskDesc',
+        value: kpi.atRisk,
+        percent: pct(kpi.atRisk),
+        tone: 'warning',
+      },
+      {
+        key: 'critical',
+        titleKey: 'controlTower.kpiV01.critical',
+        descriptionKey: 'controlTower.kpiV01.criticalDesc',
+        value: combinedCritical,
+        percent: pct(combinedCritical),
+        tone: 'danger',
+      },
+      {
+        key: 'awaitingDocuments',
+        titleKey: 'controlTower.kpiV01.awaitingDocuments',
+        descriptionKey: 'controlTower.kpiV01.awaitingDocumentsDesc',
+        value: kpi.awaitingDocuments,
+        percent: pct(kpi.awaitingDocuments),
+        tone: 'warning',
+      },
+      {
+        key: 'readyForBilling',
+        titleKey: 'controlTower.kpiV01.readyForBilling',
+        descriptionKey: 'controlTower.kpiV01.readyForBillingDesc',
+        value: kpi.readyForBilling,
+        percent: pct(kpi.readyForBilling),
+        tone: 'ok',
+      },
+    ]
+  }
+
+  function applySummaryResponse(summary: ControlTowerSummaryResponse) {
+    summaryMode.value = true
+    demoMode.value = false
+    loadError.value = null
+    dataFreshness.value = summary.dataFreshness
+    summaryKpi.value = summary.kpi
+    summaryShipments.value = summary.shipments.items.map(mapSummaryShipment)
+    summaryEvents.value = summary.criticalEvents.map((event) => ({
+      ...event,
+      occurredAt:
+        typeof event.occurredAt === 'string' ? event.occurredAt : String(event.occurredAt),
+    }))
+    summaryFilterOptions.value = {
+      shippers: summary.filters.shippers,
+      carriers: summary.filters.carriers,
+    }
+    summaryPagination.value = {
+      page: summary.shipments.page,
+      limit: summary.shipments.limit,
+      total: summary.shipments.total,
+      hasNext: summary.shipments.hasNext,
+    }
+    lastUpdatedAt.value = summary.generatedAt
+  }
+
+  async function loadSummaryData(): Promise<boolean> {
+    try {
+      const summary = await apiGet<ControlTowerSummaryResponse>('/api/v1/control-tower/summary', {
+        query: buildSummaryQuery(),
+        skipTenant: true,
+      })
+      applySummaryResponse(summary)
+      return true
+    } catch (error) {
+      summaryMode.value = false
+      if (error instanceof ApiError) {
+        if (error.status === 503) {
+          loadError.value = 'api_unavailable'
+          return false
+        }
+        if (error.status === 404 && import.meta.dev) {
+          return false
+        }
+      }
+      if (!summaryApiEnabled) {
+        return false
+      }
+      if (import.meta.dev) {
+        return false
+      }
+      loadError.value = 'api_unavailable'
+      return false
+    }
+  }
 
   async function fetchList<T>(path: string, key: string): Promise<ControlTowerFetchResult<T>> {
     try {
@@ -146,10 +312,23 @@ export function useControlTower() {
     loading.value = true
     loadError.value = null
     demoMode.value = false
+    summaryMode.value = false
     try {
       gatewayOnline.value = await checkGatewayHealth()
     } catch {
       gatewayOnline.value = false
+    }
+
+    if (summaryApiEnabled) {
+      const loaded = await loadSummaryData()
+      if (loaded) {
+        loading.value = false
+        return
+      }
+      if (loadError.value === 'api_unavailable') {
+        loading.value = false
+        return
+      }
     }
 
     const settled = await Promise.allSettled([
@@ -629,6 +808,9 @@ export function useControlTower() {
   })
 
   const controlTowerShipments = computed<ControlTowerShipment[]>(() => {
+    if (summaryMode.value) {
+      return summaryShipments.value
+    }
     if (demoMode.value) {
       return CONTROL_TOWER_DEMO_SHIPMENTS
     }
@@ -644,15 +826,24 @@ export function useControlTower() {
       )
   })
 
-  const filteredShipments = computed(() =>
-    applyControlTowerFilters(controlTowerShipments.value, filters),
-  )
+  const filteredShipments = computed(() => {
+    if (summaryMode.value) {
+      return summaryShipments.value
+    }
+    return applyControlTowerFilters(controlTowerShipments.value, filters)
+  })
 
-  const kpiMetrics = computed<ControlTowerKpiMetric[]>(() =>
-    buildKpiMetrics(controlTowerShipments.value),
-  )
+  const kpiMetrics = computed<ControlTowerKpiMetric[]>(() => {
+    if (summaryMode.value && summaryKpi.value) {
+      return buildKpiMetricsFromSummary(summaryKpi.value)
+    }
+    return buildKpiMetrics(controlTowerShipments.value)
+  })
 
   const criticalEvents = computed<ControlTowerEvent[]>(() => {
+    if (summaryMode.value) {
+      return summaryEvents.value
+    }
     if (demoMode.value) {
       return CONTROL_TOWER_DEMO_EVENTS
     }
@@ -665,13 +856,29 @@ export function useControlTower() {
     () => !demoMode.value && (!gatewayOnline.value || loadError.value === 'api_unavailable'),
   )
 
-  const shipperCompanies = computed(() =>
-    data.value.companies.items.filter((company) => company.company_type === 'SHIPPER'),
-  )
+  const shipperCompanies = computed(() => {
+    if (summaryMode.value) {
+      return summaryFilterOptions.value.shippers.map((option) => ({
+        id: option.value,
+        legal_name: option.label,
+        short_name: option.label,
+        company_type: 'SHIPPER',
+      })) as Company[]
+    }
+    return data.value.companies.items.filter((company) => company.company_type === 'SHIPPER')
+  })
 
-  const carrierCompanies = computed(() =>
-    data.value.companies.items.filter((company) => company.company_type === 'CARRIER'),
-  )
+  const carrierCompanies = computed(() => {
+    if (summaryMode.value) {
+      return summaryFilterOptions.value.carriers.map((option) => ({
+        id: option.value,
+        legal_name: option.label,
+        short_name: option.label,
+        company_type: 'CARRIER',
+      })) as Company[]
+    }
+    return data.value.companies.items.filter((company) => company.company_type === 'CARRIER')
+  })
 
   function resetFilters() {
     Object.assign(filters, createDefaultControlTowerFilters())
@@ -727,6 +934,9 @@ export function useControlTower() {
     loadError,
     lastUpdatedAt,
     demoMode,
+    summaryMode,
+    dataFreshness,
+    summaryPagination,
     autoRefreshEnabled,
     autoRefreshIntervalMs,
     filters,

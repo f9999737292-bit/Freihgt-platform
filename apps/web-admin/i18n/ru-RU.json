@@ -549,6 +549,14 @@
     "backendOnline": "Online",
     "backendOfflineShort": "Offline",
     "demoMode": "Демонстрационный режим — синтетические демо-данные",
+    "partialDataWarning": "Часть данных временно недоступна. Показатели могут быть неполными.",
+    "partialWarnings": {
+      "COMPANIES_UNAVAILABLE": "Справочник компаний временно недоступен",
+      "DOCUMENTS_UNAVAILABLE": "Реестр документов временно недоступен",
+      "TRANSPORT_ORDERS_UNAVAILABLE": "Транспортные заказы временно недоступны",
+      "KPI_CALCULATED_FROM_LIMITED_DATASET": "KPI рассчитаны по ограниченному набору перевозок",
+      "FILTER_OPTIONS_INCOMPLETE": "Список фильтров может быть неполным"
+    },
     "accessDeniedTitle": "Доступ запрещён",
     "accessDeniedDescription": "У вас нет прав для просмотра Control Tower.",
     "autoRefresh": {
@@ -627,7 +635,9 @@
         "MISSING_DOCUMENTS": "Отсутствие документов",
         "SHIPMENT_CANCELLED": "Отмена перевозки",
         "TECHNICAL_ISSUE": "Техническая проблема",
-        "UNKNOWN_CRITICAL": "Неизвестное критическое событие"
+        "TECHNICAL_PROBLEM": "Техническая проблема",
+        "UNKNOWN_CRITICAL": "Неизвестное критическое событие",
+        "UNKNOWN_CRITICAL_EVENT": "Неизвестное критическое событие"
       },
       "descriptions": {
         "pickupDelay": "Плановое время погрузки прошло без подтверждения",

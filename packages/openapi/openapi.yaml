@@ -27,6 +27,7 @@ tags:
   - name: Signing
   - name: Billing Registers
   - name: Closing Documents
+  - name: Control Tower
 
 paths:
   /health:
@@ -794,6 +795,104 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/control-tower/summary:
+    get:
+      tags: [Control Tower]
+      summary: Control Tower aggregated summary
+      description: |
+        BFF endpoint that aggregates shipments, transport orders, companies, and documents
+        for the Control Tower dashboard. Supports server-side filtering and pagination.
+        Optional dependencies may return partial responses with machine-readable warning codes.
+        Tenant context is derived from the verified JWT bearer token only.
+      operationId: get_control_tower_summary
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: Search by shipment number, transport order number, shipper or carrier name
+        - name: status
+          in: query
+          schema:
+            type: string
+          description: Shipment status filter
+        - name: sla_status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ControlTowerSLAStatus'
+        - name: shipper_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: carrier_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: critical_only
+          in: query
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Control Tower summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerSummaryResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Required shipment data source is temporarily unavailable
           content:
             application/json:
               schema:
@@ -5142,4 +5241,138 @@ components:
           type: integer
         offset:
           type: integer
+    ControlTowerSLAStatus:
+      type: string
+      enum: [ON_TIME, AT_RISK, DELAYED, CRITICAL, UNKNOWN]
+    ControlTowerEventSeverity:
+      type: string
+      enum: [INFO, WARNING, CRITICAL]
+    ControlTowerEventType:
+      type: string
+      enum:
+        - PICKUP_DELAY
+        - DELIVERY_DELAY
+        - STALE_UPDATES
+        - MISSING_DOCUMENTS
+        - SHIPMENT_CANCELLED
+        - TECHNICAL_PROBLEM
+        - UNKNOWN_CRITICAL_EVENT
+    ControlTowerSummaryResponse:
+      type: object
+      required: [generatedAt, dataFreshness, kpi, shipments, criticalEvents, filters]
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        dataFreshness:
+          type: object
+          properties:
+            shipmentsLoaded:
+              type: boolean
+            transportOrdersLoaded:
+              type: boolean
+            companiesLoaded:
+              type: boolean
+            documentsLoaded:
+              type: boolean
+            partial:
+              type: boolean
+            warnings:
+              type: array
+              items:
+                type: string
+                enum:
+                  - TRANSPORT_ORDERS_UNAVAILABLE
+                  - COMPANIES_UNAVAILABLE
+                  - DOCUMENTS_UNAVAILABLE
+                  - KPI_CALCULATED_FROM_LIMITED_DATASET
+                  - FILTER_OPTIONS_INCOMPLETE
+        kpi:
+          type: object
+          properties:
+            active: { type: integer }
+            onTime: { type: integer }
+            atRisk: { type: integer }
+            delayed: { type: integer }
+            critical: { type: integer }
+            awaitingDocuments: { type: integer }
+            readyForBilling: { type: integer }
+        shipments:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/ControlTowerShipment'
+            page: { type: integer }
+            limit: { type: integer }
+            total: { type: integer }
+            hasNext: { type: boolean }
+        criticalEvents:
+          type: array
+          items:
+            $ref: '#/components/schemas/ControlTowerEvent'
+        filters:
+          type: object
+          properties:
+            statuses:
+              type: array
+              items:
+                $ref: '#/components/schemas/ControlTowerFilterOption'
+            shippers:
+              type: array
+              items:
+                $ref: '#/components/schemas/ControlTowerFilterOption'
+            carriers:
+              type: array
+              items:
+                $ref: '#/components/schemas/ControlTowerFilterOption'
+    ControlTowerFilterOption:
+      type: object
+      properties:
+        value: { type: string }
+        label: { type: string }
+    ControlTowerShipment:
+      type: object
+      properties:
+        id: { type: string }
+        shipmentNumber: { type: string }
+        transportOrderId: { type: string }
+        transportOrderNumber: { type: string }
+        shipperId: { type: string }
+        shipperName: { type: string }
+        carrierId: { type: string }
+        carrierName: { type: string }
+        originId: { type: string }
+        originName: { type: string }
+        destinationId: { type: string }
+        destinationName: { type: string }
+        plannedPickupAt: { type: string, format: date-time }
+        actualPickupAt: { type: string, format: date-time }
+        plannedDeliveryAt: { type: string, format: date-time }
+        actualDeliveryAt: { type: string, format: date-time }
+        status: { type: string }
+        slaStatus:
+          $ref: '#/components/schemas/ControlTowerSLAStatus'
+        slaReason: { type: string }
+        delayMinutes: { type: integer }
+        lastEvent: { type: string }
+        lastUpdatedAt: { type: string, format: date-time }
+        documentsComplete: { type: boolean }
+        readyForBilling: { type: boolean }
+    ControlTowerEvent:
+      type: object
+      properties:
+        id: { type: string }
+        shipmentId: { type: string }
+        shipmentNumber: { type: string }
+        type:
+          $ref: '#/components/schemas/ControlTowerEventType'
+        severity:
+          $ref: '#/components/schemas/ControlTowerEventSeverity'
+        occurredAt:
+          type: string
+          format: date-time
+        description: { type: string }
+        source: { type: string }
 

@@ -118,7 +118,9 @@ export type ControlTowerEventType =
   | 'MISSING_DOCUMENTS'
   | 'SHIPMENT_CANCELLED'
   | 'TECHNICAL_ISSUE'
+  | 'TECHNICAL_PROBLEM'
   | 'UNKNOWN_CRITICAL'
+  | 'UNKNOWN_CRITICAL_EVENT'
 
 export interface ControlTowerEvent {
   id: string
@@ -136,10 +138,16 @@ export interface ControlTowerShipment {
   shipmentNumber: string
   transportOrderId?: string
   transportOrderNumber?: string
+  shipperId?: string
   shipperCompanyId?: string
+  carrierId?: string
   carrierCompanyId?: string
   shipperName?: string
   carrierName?: string
+  originId?: string
+  originName?: string
+  destinationId?: string
+  destinationName?: string
   origin?: string
   destination?: string
   route?: string
@@ -184,21 +192,7 @@ export const CONTROL_TOWER_ACCESS_ROLES = [
   'SHIPPER_ADMIN',
   'SHIPPER_LOGIST',
   'FORWARDER_MANAGER',
-  'FINANCE_MANAGER',
-  'PROCUREMENT_MANAGER',
 ] as const
-
-export function createDefaultControlTowerFilters(): ControlTowerFilters {
-  return {
-    search: '',
-    status: '',
-    slaStatus: '',
-    shipperCompanyId: '',
-    carrierCompanyId: '',
-    date: '',
-    criticalOnly: false,
-  }
-}
 
 export const CONTROL_TOWER_SHIPMENT_BOARD_STATUSES = [
   'CARRIER_ASSIGNED',
@@ -217,4 +211,71 @@ export const CONTROL_TOWER_SHIPMENT_BOARD_STATUSES = [
   'READY_FOR_BILLING',
   'INCLUDED_IN_BILLING_REGISTER',
   'FINANCIALLY_CLOSED',
+] as const
+
+export interface ControlTowerFilterOption {
+  value: string
+  label: string
+}
+
+export interface ControlTowerDataFreshness {
+  shipmentsLoaded: boolean
+  transportOrdersLoaded: boolean
+  companiesLoaded: boolean
+  documentsLoaded: boolean
+  partial: boolean
+  warnings: string[]
+}
+
+export interface ControlTowerSummaryKpi {
+  active: number
+  onTime: number
+  atRisk: number
+  delayed: number
+  critical: number
+  awaitingDocuments: number
+  readyForBilling: number
+}
+
+export interface ControlTowerSummaryPagination {
+  items: ControlTowerShipment[]
+  page: number
+  limit: number
+  total: number
+  hasNext: boolean
+}
+
+export interface ControlTowerSummaryFilters {
+  statuses: ControlTowerFilterOption[]
+  shippers: ControlTowerFilterOption[]
+  carriers: ControlTowerFilterOption[]
+}
+
+export interface ControlTowerSummaryResponse {
+  generatedAt: string
+  dataFreshness: ControlTowerDataFreshness
+  kpi: ControlTowerSummaryKpi
+  shipments: ControlTowerSummaryPagination
+  criticalEvents: ControlTowerEvent[]
+  filters: ControlTowerSummaryFilters
+}
+
+export function createDefaultControlTowerFilters(): ControlTowerFilters {
+  return {
+    search: '',
+    status: '',
+    slaStatus: '',
+    shipperCompanyId: '',
+    carrierCompanyId: '',
+    date: '',
+    criticalOnly: false,
+  }
+}
+
+export const CONTROL_TOWER_PARTIAL_WARNING_CODES = [
+  'COMPANIES_UNAVAILABLE',
+  'DOCUMENTS_UNAVAILABLE',
+  'TRANSPORT_ORDERS_UNAVAILABLE',
+  'KPI_CALCULATED_FROM_LIMITED_DATASET',
+  'FILTER_OPTIONS_INCOMPLETE',
 ] as const

@@ -549,6 +549,14 @@
     "backendOnline": "在线",
     "backendOfflineShort": "离线",
     "demoMode": "演示模式 — 合成演示数据",
+    "partialDataWarning": "部分数据暂时不可用。指标可能不完整。",
+    "partialWarnings": {
+      "COMPANIES_UNAVAILABLE": "公司目录暂时不可用",
+      "DOCUMENTS_UNAVAILABLE": "文档登记暂时不可用",
+      "TRANSPORT_ORDERS_UNAVAILABLE": "运输订单暂时不可用",
+      "KPI_CALCULATED_FROM_LIMITED_DATASET": "KPI 基于有限的运输数据集计算",
+      "FILTER_OPTIONS_INCOMPLETE": "筛选选项可能不完整"
+    },
     "accessDeniedTitle": "无权访问",
     "accessDeniedDescription": "您没有查看控制塔的权限。",
     "autoRefresh": {
@@ -627,7 +635,9 @@
         "MISSING_DOCUMENTS": "缺少文档",
         "SHIPMENT_CANCELLED": "运输取消",
         "TECHNICAL_ISSUE": "技术问题",
-        "UNKNOWN_CRITICAL": "未知关键事件"
+        "TECHNICAL_PROBLEM": "技术问题",
+        "UNKNOWN_CRITICAL": "未知关键事件",
+        "UNKNOWN_CRITICAL_EVENT": "未知关键事件"
       },
       "descriptions": {
         "pickupDelay": "计划提货时间已过但未确认提货",

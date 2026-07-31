@@ -18,6 +18,8 @@ const {
   kpiMetrics,
   criticalEvents,
   apiUnavailable,
+  dataFreshness,
+  summaryPagination,
   shipperCompanies,
   carrierCompanies,
   resetFilters,
@@ -51,6 +53,8 @@ function syncRouteFromFilters() {
 
 function onFiltersChange() {
   syncRouteFromFilters()
+  summaryPagination.value.page = 1
+  void loadData()
 }
 
 function onResetFilters() {
@@ -105,6 +109,18 @@ onBeforeUnmount(() => {
 
       <div v-if="demoMode" class="control-tower-v01__demo-banner">
         {{ $t('controlTower.demoMode') }}
+      </div>
+
+      <div
+        v-if="dataFreshness?.partial"
+        class="control-tower-v01__partial-banner"
+      >
+        <p>{{ $t('controlTower.partialDataWarning') }}</p>
+        <ul v-if="dataFreshness.warnings?.length" class="control-tower-v01__partial-list">
+          <li v-for="warning in dataFreshness.warnings" :key="warning">
+            {{ $t(`controlTower.partialWarnings.${warning}`) }}
+          </li>
+        </ul>
       </div>
 
       <CommonApiUnavailableState
@@ -173,6 +189,26 @@ onBeforeUnmount(() => {
   color: var(--color-info);
   font-size: 0.875rem;
   font-weight: 600;
+}
+
+.control-tower-v01__partial-banner {
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 35%, var(--color-border));
+  background: color-mix(in srgb, var(--color-warning) 8%, white);
+  color: var(--color-text);
+  font-size: 0.875rem;
+}
+
+.control-tower-v01__partial-banner p {
+  margin: 0;
+  font-weight: 600;
+}
+
+.control-tower-v01__partial-list {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+  color: var(--color-text-muted);
 }
 
 .control-tower-v01__kpi-grid {

@@ -18,7 +18,7 @@ func TestUnknownRouteReturnsRouteNotFound(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	handler := gatewayhttp.NewRouter(testLogger(), testConfig(), proxy)
+	handler := gatewayhttp.NewRouter(testLogger(), testConfig(), proxy, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/unknown", nil)
 	rec := httptest.NewRecorder()
@@ -52,7 +52,7 @@ func TestProxyRewritesCompaniesPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	handler := gatewayhttp.NewRouter(testLogger(), cfg, proxy)
+	handler := gatewayhttp.NewRouter(testLogger(), cfg, proxy, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/companies?tenant_id=abc", nil)
 	req.Header.Set("X-Request-ID", "gateway-req-1")

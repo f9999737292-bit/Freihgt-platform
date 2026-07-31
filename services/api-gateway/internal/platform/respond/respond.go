@@ -40,8 +40,12 @@ func Error(w http.ResponseWriter, err error) {
 		status = http.StatusUnauthorized
 	case apperrors.CodeForbidden:
 		status = http.StatusForbidden
+	case apperrors.CodeValidation:
+		status = http.StatusBadRequest
 	case apperrors.CodeServiceUnavailable:
 		status = http.StatusBadGateway
+	case apperrors.CodeControlTowerShipmentsUnavailable, apperrors.CodeAuthDependencyUnavailable:
+		status = http.StatusServiceUnavailable
 	case apperrors.CodeRateLimitExceeded:
 		status = http.StatusTooManyRequests
 	case apperrors.CodeRequestBodyTooLarge:

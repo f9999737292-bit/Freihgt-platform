@@ -17,6 +17,8 @@ export default defineNuxtConfig({
       defaultLocale: process.env.NUXT_PUBLIC_DEFAULT_LOCALE || 'ru-RU',
       defaultTenantId: process.env.NUXT_PUBLIC_DEFAULT_TENANT_ID || '',
       mockAuth: process.env.NUXT_PUBLIC_MOCK_AUTH === 'true',
+      controlTowerSummaryApiEnabled:
+        process.env.NUXT_PUBLIC_CONTROL_TOWER_SUMMARY_API_ENABLED !== 'false',
     },
   },
   i18n: {

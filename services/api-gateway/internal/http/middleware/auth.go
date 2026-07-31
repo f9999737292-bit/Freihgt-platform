@@ -25,6 +25,8 @@ func Auth(enabled bool, jwtSecret string) func(http.Handler) http.Handler {
 				return
 			}
 
+			StripUntrustedIdentityHeaders(r.Header)
+
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
 				respond.Error(w, apperrors.Unauthorized("authorization header is required"))
@@ -43,15 +45,23 @@ func Auth(enabled bool, jwtSecret string) func(http.Handler) http.Handler {
 				return
 			}
 
+			ac := AuthContext{
+				AuthToken: authHeader,
+			}
 			if claims.Subject != "" {
+				ac.UserID = claims.Subject
 				r.Header.Set("X-User-ID", claims.Subject)
 			}
 			if claims.TenantID != "" {
+				ac.TenantID = claims.TenantID
 				r.Header.Set("X-Tenant-ID", claims.TenantID)
 			}
 			if claims.Email != "" {
+				ac.Email = claims.Email
 				r.Header.Set("X-User-Email", claims.Email)
 			}
+
+			r = r.WithContext(WithAuthContext(r.Context(), ac))
 
 			next.ServeHTTP(w, r)
 		})

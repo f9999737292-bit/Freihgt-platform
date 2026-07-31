@@ -5,13 +5,16 @@ import "fmt"
 type Code string
 
 const (
-	CodeRouteNotFound        Code = "ROUTE_NOT_FOUND"
-	CodeUnauthorized         Code = "UNAUTHORIZED"
-	CodeForbidden            Code = "FORBIDDEN"
-	CodeServiceUnavailable   Code = "SERVICE_UNAVAILABLE"
-	CodeInternal             Code = "INTERNAL_ERROR"
-	CodeRateLimitExceeded    Code = "RATE_LIMIT_EXCEEDED"
-	CodeRequestBodyTooLarge  Code = "REQUEST_BODY_TOO_LARGE"
+	CodeRouteNotFound                    Code = "ROUTE_NOT_FOUND"
+	CodeUnauthorized                     Code = "UNAUTHORIZED"
+	CodeForbidden                        Code = "FORBIDDEN"
+	CodeValidation                       Code = "VALIDATION_ERROR"
+	CodeServiceUnavailable               Code = "SERVICE_UNAVAILABLE"
+	CodeControlTowerShipmentsUnavailable Code = "CONTROL_TOWER_SHIPMENTS_UNAVAILABLE"
+	CodeAuthDependencyUnavailable        Code = "AUTH_DEPENDENCY_UNAVAILABLE"
+	CodeInternal                         Code = "INTERNAL_ERROR"
+	CodeRateLimitExceeded                Code = "RATE_LIMIT_EXCEEDED"
+	CodeRequestBodyTooLarge              Code = "REQUEST_BODY_TOO_LARGE"
 )
 
 type AppError struct {
@@ -42,11 +45,34 @@ func Forbidden(message string) *AppError {
 	return &AppError{Code: CodeForbidden, Message: message, Details: map[string]any{}}
 }
 
+func Validation(message string, details map[string]any) *AppError {
+	if details == nil {
+		details = map[string]any{}
+	}
+	return &AppError{Code: CodeValidation, Message: message, Details: details}
+}
+
 func ServiceUnavailable(message string, service string) *AppError {
 	return &AppError{
 		Code:    CodeServiceUnavailable,
 		Message: message,
 		Details: map[string]any{"service": service},
+	}
+}
+
+func ControlTowerShipmentsUnavailable(message string) *AppError {
+	return &AppError{
+		Code:    CodeControlTowerShipmentsUnavailable,
+		Message: message,
+		Details: map[string]any{},
+	}
+}
+
+func AuthDependencyUnavailable(message string) *AppError {
+	return &AppError{
+		Code:    CodeAuthDependencyUnavailable,
+		Message: message,
+		Details: map[string]any{},
 	}
 }
 

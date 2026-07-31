@@ -549,6 +549,14 @@
     "backendOnline": "Online",
     "backendOfflineShort": "Offline",
     "demoMode": "Demo mode — synthetic demonstration data",
+    "partialDataWarning": "Some data is temporarily unavailable. Metrics may be incomplete.",
+    "partialWarnings": {
+      "COMPANIES_UNAVAILABLE": "Company directory is temporarily unavailable",
+      "DOCUMENTS_UNAVAILABLE": "Document registry is temporarily unavailable",
+      "TRANSPORT_ORDERS_UNAVAILABLE": "Transport orders are temporarily unavailable",
+      "KPI_CALCULATED_FROM_LIMITED_DATASET": "KPI calculated from a limited shipment dataset",
+      "FILTER_OPTIONS_INCOMPLETE": "Filter options may be incomplete"
+    },
     "accessDeniedTitle": "Access denied",
     "accessDeniedDescription": "You do not have permission to view Control Tower.",
     "autoRefresh": {
@@ -627,7 +635,9 @@
         "MISSING_DOCUMENTS": "Missing documents",
         "SHIPMENT_CANCELLED": "Shipment cancelled",
         "TECHNICAL_ISSUE": "Technical issue",
-        "UNKNOWN_CRITICAL": "Unknown critical event"
+        "TECHNICAL_PROBLEM": "Technical problem",
+        "UNKNOWN_CRITICAL": "Unknown critical event",
+        "UNKNOWN_CRITICAL_EVENT": "Unknown critical event"
       },
       "descriptions": {
         "pickupDelay": "Planned pickup time has passed without pickup confirmation",
