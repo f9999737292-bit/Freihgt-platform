@@ -9,7 +9,7 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Live-data demo workflow staging smoke.
+Live-data demo workflow staging signoff.
 ```
 
 ## Current status
@@ -18,8 +18,9 @@ Live-data demo workflow staging smoke.
 - Staging backend/DB isolation: COMPLETE
 - Staging credentials/seed data: COMPLETE
 - Staging live-data workflow smoke: PASS
+- Staging live-data workflow signoff: COMPLETE
 - Authenticated staging workflow: SIGNED_OFF
-- Production live-data demo: not approved
+- Production live-data demo: NOT_APPROVED
 - Production writes: no
 - Secrets recorded in docs/repo/chat: no
 - Full production readiness: not claimed
@@ -28,21 +29,29 @@ Live-data demo workflow staging smoke.
 - Server IP: 161.104.53.221
 ```
 
+Important limitation:
+
+```text
+- staging AUTH_ENABLED=false
+- role-based API denial was not verified
+- signoff scope is controlled staging demo/read-list workflow, not full RBAC/security enforcement
+```
+
 ## Next options
 
 ```text
-1. LIVE_DATA_DEMO_WORKFLOW_STAGING_SIGNOFF_PACK v0.1
-2. Then decide whether to prepare production read-only/auth demo approval separately.
+1. LIVE_DATA_DEMO_STAGING_PRESENTATION_SCRIPT_PACK v0.1
+2. Optional later: STAGING_AUTH_ENABLED_RBAC_ENFORCEMENT_PLAN_PACK v0.1
 3. Do not perform production live-data demo without explicit approval.
 4. Do not paste credentials/tokens into chat/docs/repo.
 5. Do not include local leftovers in commits.
 
+See docs/LIVE_DATA_DEMO_WORKFLOW_STAGING_SIGNOFF_V0.1.md
+See docs/LIVE_DATA_DEMO_WORKFLOW_STAGING_ACCEPTANCE_SIGNOFF_V0.1.md
+See docs/LIVE_DATA_DEMO_WORKFLOW_STAGING_SIGNOFF_LIMITATIONS_V0.1.md
+See docs/LIVE_DATA_DEMO_WORKFLOW_STAGING_PRODUCTION_BOUNDARY_V0.1.md
+See docs/LIVE_DATA_DEMO_WORKFLOW_STAGING_NEXT_STEPS_V0.1.md
 See docs/LIVE_DATA_DEMO_WORKFLOW_STAGING_SMOKE_RESULT_V0.1.md
-See docs/LIVE_DATA_DEMO_WORKFLOW_STAGING_BROWSER_SMOKE_EVIDENCE_V0.1.md
-See docs/LIVE_DATA_DEMO_WORKFLOW_STAGING_ROLE_NAVIGATION_EVIDENCE_V0.1.md
-See docs/LIVE_DATA_DEMO_WORKFLOW_STAGING_API_SMOKE_EVIDENCE_V0.1.md
-See docs/LIVE_DATA_DEMO_WORKFLOW_STAGING_ISOLATION_RECHECK_V0.1.md
-See docs/LIVE_DATA_DEMO_WORKFLOW_STAGING_LIMITATIONS_V0.1.md
 See docs/DEMO_CREDENTIALS_AND_SEED_DATA_STAGING_EXECUTION_RESULT_V0.2.md
 See docs/STAGING_BACKEND_DB_ISOLATION_EXECUTION_RESULT_V0.1.md
 ```
