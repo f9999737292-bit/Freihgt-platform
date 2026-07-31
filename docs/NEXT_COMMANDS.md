@@ -9,20 +9,22 @@ cd D:\Projects\freight-platform
 ## Current event
 
 ```text
-Staging backend/DB isolation planning.
+Staging backend/DB isolation approval boundary.
 ```
 
 ## Current status
 
 ```text
-- Blocked staging demo credentials execution recorded.
-- Blocker: staging and production share API gateway and Postgres.
 - Staging backend/DB isolation plan: COMPLETE
-- Target architecture: Option A — same VM, isolated staging Docker stack
-- Production API target remains: 127.0.0.1:8080
+- Staging backend/DB isolation approval boundary: COMPLETE
+- Approved option: Option A — same VM isolated staging Docker stack
 - Target staging API: 127.0.0.1:18080
+- Target staging Docker project: bintrans-staging
 - Target staging DB: separate staging Postgres container/volume
-- Staging credentials/seed data remain blocked until isolation is executed and re-verified
+- Production API target remains: 127.0.0.1:8080
+- Production backend/DB changes: not approved
+- Execution in this pack: not performed
+- Staging credentials/seed data: still blocked until isolation execution and re-verification
 - Production writes: no
 - Production live-data demo: not approved
 - Secrets recorded in docs/repo/chat: no
@@ -36,20 +38,21 @@ Staging backend/DB isolation planning.
 ## Next options
 
 ```text
-1. STAGING_BACKEND_DB_ISOLATION_APPROVAL_PACK v0.1
-2. Then STAGING_BACKEND_DB_ISOLATION_EXECUTION_PACK v0.1 only after explicit server/Nginx/Docker/DB approval.
-3. Then re-run DEMO_CREDENTIALS_AND_SEED_DATA_STAGING_EXECUTION_PACK v0.2.
-4. Do not perform staging writes until isolation gate passes.
+1. STAGING_BACKEND_DB_ISOLATION_EXECUTION_PACK v0.1 — only after explicit server/Nginx/Docker/DB execution approval.
+2. Then re-run staging isolation gate.
+3. Then DEMO_CREDENTIALS_AND_SEED_DATA_STAGING_EXECUTION_PACK v0.2 only if isolation PASS.
+4. Do not perform staging credentials/seed writes until staging backend/DB isolation is proven.
 5. Do not record passwords/tokens in repo/docs/chat.
 6. Do not include local leftovers in commits.
 
+See docs/STAGING_BACKEND_DB_ISOLATION_APPROVAL_V0.1.md
+See docs/STAGING_BACKEND_DB_ISOLATION_OPTION_A_DECISION_V0.1.md
+See docs/STAGING_BACKEND_DB_ISOLATION_EXECUTION_BOUNDARY_V0.1.md
+See docs/STAGING_BACKEND_DB_ISOLATION_SERVER_CHANGE_BOUNDARY_V0.1.md
+See docs/STAGING_BACKEND_DB_ISOLATION_PORT_ENV_POLICY_V0.1.md
+See docs/STAGING_BACKEND_DB_ISOLATION_STOP_CONDITIONS_V0.1.md
 See docs/STAGING_BACKEND_DB_ISOLATION_PLAN_V0.1.md
-See docs/STAGING_BACKEND_DB_ISOLATION_ARCHITECTURE_V0.1.md
-See docs/STAGING_BACKEND_DB_ISOLATION_NGINX_BOUNDARY_V0.1.md
-See docs/STAGING_BACKEND_DB_ISOLATION_DATA_SAFETY_V0.1.md
 See docs/STAGING_BACKEND_DB_ISOLATION_EXECUTION_APPROVAL_CHECKLIST_V0.1.md
-See docs/STAGING_BACKEND_DB_ISOLATION_ROLLBACK_PLAN_V0.1.md
-See docs/STAGING_BACKEND_DB_ISOLATION_RISK_MATRIX_V0.1.md
 See docs/DEMO_CREDENTIALS_AND_SEED_DATA_STAGING_EXECUTION_RESULT_V0.1.md
 See docs/DEMO_CREDENTIALS_AND_SEED_DATA_STAGING_ISOLATION_CHECK_V0.1.md
 ```
