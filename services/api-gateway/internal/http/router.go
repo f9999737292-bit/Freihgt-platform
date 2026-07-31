@@ -9,6 +9,7 @@ import (
 
 	"github.com/freight-platform/api-gateway/internal/config"
 	"github.com/freight-platform/api-gateway/internal/controltower"
+	"github.com/freight-platform/api-gateway/internal/fleetrbac"
 	gwmiddleware "github.com/freight-platform/api-gateway/internal/http/middleware"
 	apperrors "github.com/freight-platform/api-gateway/internal/platform/errors"
 	"github.com/freight-platform/api-gateway/internal/platform/respond"
@@ -69,6 +70,16 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	if shipmentEvents != nil {
 		r.Get("/api/v1/shipments/{shipmentId}/events", shipmentEvents.Events)
 	}
+
+	fleetGuard := fleetrbac.NewGuard(cfg, proxy)
+	r.Get("/api/v1/drivers", fleetGuard.WithPolicy(fleetrbac.PolicyView))
+	r.Get("/api/v1/drivers/{id}", fleetGuard.WithPolicy(fleetrbac.PolicyView))
+	r.Post("/api/v1/drivers", fleetGuard.WithPolicy(fleetrbac.PolicyCreate))
+	r.Get("/api/v1/vehicles", fleetGuard.WithPolicy(fleetrbac.PolicyView))
+	r.Get("/api/v1/vehicles/{id}", fleetGuard.WithPolicy(fleetrbac.PolicyView))
+	r.Post("/api/v1/vehicles", fleetGuard.WithPolicy(fleetrbac.PolicyCreate))
+	r.Post("/api/v1/shipments/{id}/assign-driver", fleetGuard.WithPolicy(fleetrbac.PolicyAssign))
+	r.Post("/api/v1/shipments/{id}/assign-vehicle", fleetGuard.WithPolicy(fleetrbac.PolicyAssign))
 
 	r.Handle("/api/*", proxy)
 	r.Handle("/api", proxy)

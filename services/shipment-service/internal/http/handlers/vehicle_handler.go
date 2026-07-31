@@ -1,14 +1,12 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/freight-platform/shipment-service/internal/domain"
-	apperrors "github.com/freight-platform/shipment-service/internal/platform/errors"
 	"github.com/freight-platform/shipment-service/internal/platform/respond"
 	"github.com/freight-platform/shipment-service/internal/service"
 )
@@ -22,7 +20,6 @@ func NewVehicleHandler(svc *service.VehicleService) *VehicleHandler {
 }
 
 type createVehicleRequest struct {
-	TenantID            string   `json:"tenant_id"`
 	CarrierCompanyID    string   `json:"carrier_company_id"`
 	PlateNumber         string   `json:"plate_number"`
 	VehicleType         string   `json:"vehicle_type"`
@@ -33,9 +30,14 @@ type createVehicleRequest struct {
 }
 
 func (h *VehicleHandler) Create(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := resolveVerifiedTenant(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
 	var req createVehicleRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
+	if err := decodeStrictJSON(r, &req); err != nil {
+		respond.Error(w, err)
 		return
 	}
 	input, err := parseCreateVehicleRequest(req)
@@ -43,7 +45,7 @@ func (h *VehicleHandler) Create(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, err)
 		return
 	}
-	vehicle, err := h.service.Create(r.Context(), input)
+	vehicle, err := h.service.Create(r.Context(), tenantID, input)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -71,15 +73,14 @@ func (h *VehicleHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *VehicleHandler) List(w http.ResponseWriter, r *http.Request) {
-	tenantID, err := domain.ParseUUID(r.URL.Query().Get("tenant_id"), "tenant_id")
+	tenantID, err := resolveVerifiedTenant(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
 	filter := domain.ListVehiclesFilter{
-		TenantID: tenantID,
-		Limit:    parseLimit(r),
-		Offset:   parseOffset(r),
+		Limit:  parseLimit(r),
+		Offset: parseOffset(r),
 	}
 	if raw := strings.TrimSpace(r.URL.Query().Get("carrier_company_id")); raw != "" {
 		id, err := domain.ParseUUID(raw, "carrier_company_id")
@@ -93,7 +94,7 @@ func (h *VehicleHandler) List(w http.ResponseWriter, r *http.Request) {
 		filter.Status = &raw
 	}
 
-	vehicles, total, err := h.service.List(r.Context(), filter)
+	vehicles, total, err := h.service.List(r.Context(), tenantID, filter)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -106,16 +107,11 @@ func (h *VehicleHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func parseCreateVehicleRequest(req createVehicleRequest) (domain.CreateVehicleInput, error) {
-	tenantID, err := domain.ParseUUID(req.TenantID, "tenant_id")
-	if err != nil {
-		return domain.CreateVehicleInput{}, err
-	}
 	carrierCompanyID, err := domain.ParseUUID(req.CarrierCompanyID, "carrier_company_id")
 	if err != nil {
 		return domain.CreateVehicleInput{}, err
 	}
 	return domain.CreateVehicleInput{
-		TenantID:            tenantID,
 		CarrierCompanyID:    carrierCompanyID,
 		PlateNumber:         req.PlateNumber,
 		VehicleType:         req.VehicleType,

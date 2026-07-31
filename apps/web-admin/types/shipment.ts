@@ -172,7 +172,6 @@ export interface CancelShipmentPayload {
 }
 
 export interface CreateDriverPayload {
-  tenant_id: string
   carrier_company_id: string
   user_id?: string | null
   full_name: string
@@ -183,7 +182,6 @@ export interface CreateDriverPayload {
 }
 
 export interface CreateVehiclePayload {
-  tenant_id: string
   carrier_company_id: string
   plate_number: string
   vehicle_type: string

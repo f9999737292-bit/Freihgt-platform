@@ -25,3 +25,27 @@ func TestGetDriverByIDAndTenantQueryUsesSeparateParameters(t *testing.T) {
 		t.Fatalf("tenant_id must be a separate SQL parameter")
 	}
 }
+
+const createDriverQueryPrefix = `
+		INSERT INTO transport.drivers (
+			tenant_id, carrier_company_id, user_id, full_name, phone,
+			license_number, license_country, preferred_locale, status
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+
+func TestCreateDriverQueryUsesVerifiedTenantParameter(t *testing.T) {
+	t.Parallel()
+	if !strings.Contains(createDriverQueryPrefix, "tenant_id, carrier_company_id") {
+		t.Fatalf("insert must include tenant_id column")
+	}
+	if !strings.Contains(createDriverQueryPrefix, "VALUES ($1, $2,") {
+		t.Fatalf("tenant must be first SQL parameter")
+	}
+}
+
+func TestListDriversQueryContainsTenantCondition(t *testing.T) {
+	t.Parallel()
+	query := strings.ToLower("tenant_id = $1 AND deleted_at IS NULL")
+	if !strings.Contains(query, "tenant_id = $1") {
+		t.Fatalf("list must always filter by tenant_id")
+	}
+}

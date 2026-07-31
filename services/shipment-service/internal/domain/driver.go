@@ -22,7 +22,6 @@ type Driver struct {
 }
 
 type CreateDriverInput struct {
-	TenantID         uuid.UUID
 	CarrierCompanyID uuid.UUID
 	UserID           *uuid.UUID
 	FullName         string
@@ -33,7 +32,6 @@ type CreateDriverInput struct {
 }
 
 type ListDriversFilter struct {
-	TenantID         uuid.UUID
 	CarrierCompanyID *uuid.UUID
 	Status           *string
 	Limit            int
@@ -41,9 +39,6 @@ type ListDriversFilter struct {
 }
 
 func ValidateCreateDriverInput(in CreateDriverInput) error {
-	if in.TenantID == uuid.Nil {
-		return apperrors.Validation("tenant_id is required", map[string]any{"field": "tenant_id"})
-	}
 	if in.CarrierCompanyID == uuid.Nil {
 		return apperrors.Validation("carrier_company_id is required", map[string]any{"field": "carrier_company_id"})
 	}
@@ -54,9 +49,6 @@ func ValidateCreateDriverInput(in CreateDriverInput) error {
 }
 
 func ValidateListDriversFilter(f ListDriversFilter) error {
-	if f.TenantID == uuid.Nil {
-		return apperrors.Validation("tenant_id is required", map[string]any{"field": "tenant_id"})
-	}
 	if f.Limit == 0 {
 		return apperrors.Validation("limit must be greater than 0", map[string]any{"field": "limit"})
 	}

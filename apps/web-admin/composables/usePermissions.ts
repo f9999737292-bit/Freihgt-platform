@@ -10,6 +10,10 @@ export type ProductRole =
   | 'finance'
   | 'procurement'
 
+const FLEET_VIEW_ROLES = ['PLATFORM_ADMIN', 'CARRIER_ADMIN', 'CARRIER_DISPATCHER'] as const
+const FLEET_CREATE_ROLES = ['PLATFORM_ADMIN', 'CARRIER_ADMIN'] as const
+const FLEET_ASSIGN_ROLES = ['PLATFORM_ADMIN', 'CARRIER_ADMIN', 'CARRIER_DISPATCHER'] as const
+
 const IDENTITY_TO_PRODUCT: Record<string, ProductRole> = {
   PLATFORM_ADMIN: 'admin',
   SHIPPER_ADMIN: 'shipper',
@@ -245,6 +249,27 @@ export function usePermissions() {
     return hasAnyRole([...CONTROL_TOWER_ACCESS_ROLES])
   }
 
+  function canViewFleet(): boolean {
+    if (hasAdminAccess() || isDevPlatformAdminFallback()) {
+      return true
+    }
+    return hasAnyRole([...FLEET_VIEW_ROLES])
+  }
+
+  function canCreateFleet(): boolean {
+    if (hasAdminAccess() || isDevPlatformAdminFallback()) {
+      return true
+    }
+    return hasAnyRole([...FLEET_CREATE_ROLES])
+  }
+
+  function canAssignFleet(): boolean {
+    if (hasAdminAccess() || isDevPlatformAdminFallback()) {
+      return true
+    }
+    return hasAnyRole([...FLEET_ASSIGN_ROLES])
+  }
+
   function getLandingRoute(): string {
     if (hasAdminAccess() || isDevPlatformAdminFallback()) {
       return LANDING_ROUTES.admin
@@ -275,6 +300,9 @@ export function usePermissions() {
     canAccessRoute,
     canSeeNavItem,
     canAccessControlTower,
+    canViewFleet,
+    canCreateFleet,
+    canAssignFleet,
     getLandingRoute,
   }
 }

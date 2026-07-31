@@ -22,7 +22,7 @@ type tenantScopedDriverService struct {
 func (s *tenantScopedDriverService) CompanyExists(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
 	return true, nil
 }
-func (s *tenantScopedDriverService) Create(context.Context, domain.CreateDriverInput) (*domain.Driver, error) {
+func (s *tenantScopedDriverService) Create(context.Context, uuid.UUID, domain.CreateDriverInput) (*domain.Driver, error) {
 	return nil, nil
 }
 func (s *tenantScopedDriverService) GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.Driver, error) {
@@ -31,7 +31,7 @@ func (s *tenantScopedDriverService) GetByIDAndTenant(ctx context.Context, id, te
 	}
 	return nil, nil
 }
-func (s *tenantScopedDriverService) List(context.Context, domain.ListDriversFilter) ([]domain.Driver, int, error) {
+func (s *tenantScopedDriverService) List(context.Context, uuid.UUID, domain.ListDriversFilter) ([]domain.Driver, int, error) {
 	return nil, 0, nil
 }
 

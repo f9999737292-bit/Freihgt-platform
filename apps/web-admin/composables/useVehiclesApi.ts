@@ -3,20 +3,10 @@ import type { CreateVehiclePayload, ListVehiclesFilters, Vehicle } from '~/types
 import { ApiError } from '~/composables/useApi'
 
 export function useVehiclesApi() {
-  const tenantStore = useTenantStore()
   const { apiGet, apiPost } = useApi()
-
-  function tenantId() {
-    return tenantStore.tenantId
-  }
-
-  function tenantQuery(extra: Record<string, string | number | undefined> = {}) {
-    return { tenant_id: tenantId(), ...extra }
-  }
 
   async function listVehicles(params: ListVehiclesFilters = {}) {
     const query: Record<string, string | number | undefined> = {
-      ...tenantQuery(),
       limit: params.limit ?? 100,
       offset: params.offset ?? 0,
     }
@@ -28,13 +18,12 @@ export function useVehiclesApi() {
   }
 
   async function getVehicle(id: string) {
-    return apiGet<Vehicle>(`/api/v1/vehicles/${id}`, { query: tenantQuery() })
+    return apiGet<Vehicle>(`/api/v1/vehicles/${id}`)
   }
 
-  async function createVehicle(payload: Omit<CreateVehiclePayload, 'tenant_id'>) {
+  async function createVehicle(payload: CreateVehiclePayload) {
     return apiPost<Vehicle>('/api/v1/vehicles', {
       ...payload,
-      tenant_id: tenantId(),
       equipment_type: payload.equipment_type?.trim() || undefined,
       capacity_weight: payload.capacity_weight ?? undefined,
       capacity_volume: payload.capacity_volume ?? undefined,

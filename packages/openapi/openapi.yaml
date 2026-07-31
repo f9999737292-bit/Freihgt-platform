@@ -3123,6 +3123,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Not found
           content:
@@ -3180,6 +3186,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
           content:
             application/json:
               schema:
@@ -3380,6 +3392,8 @@ paths:
     post:
       tags: [Drivers]
       summary: Create driver
+      description: |
+        Tenant scope is derived from authenticated gateway context and cannot be selected in the request body.
       operationId: post_create_driver
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -3392,8 +3406,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: true
+              $ref: '#/components/schemas/CreateDriverRequest'
       security:
         - bearerAuth: []
       responses:
@@ -3412,6 +3425,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
           content:
             application/json:
               schema:
@@ -3437,6 +3456,8 @@ paths:
     get:
       tags: [Drivers]
       summary: List drivers
+      description: |
+        Tenant scope is derived from authenticated gateway context and cannot be selected through query parameters.
       operationId: get_list_drivers
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -3444,6 +3465,29 @@ paths:
         - $ref: '#/components/parameters/XCompanyID'
         - $ref: '#/components/parameters/XLocale'
         - $ref: '#/components/parameters/Authorization'
+        - name: carrier_company_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
       security:
         - bearerAuth: []
       responses:
@@ -3462,6 +3506,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
           content:
             application/json:
               schema:
@@ -3518,6 +3568,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Not found
           content:
@@ -3540,6 +3596,8 @@ paths:
     post:
       tags: [Vehicles]
       summary: Create vehicle
+      description: |
+        Tenant scope is derived from authenticated gateway context and cannot be selected in the request body.
       operationId: post_create_vehicle
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -3552,8 +3610,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: true
+              $ref: '#/components/schemas/CreateVehicleRequest'
       security:
         - bearerAuth: []
       responses:
@@ -3572,6 +3629,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
           content:
             application/json:
               schema:
@@ -3597,6 +3660,8 @@ paths:
     get:
       tags: [Vehicles]
       summary: List vehicles
+      description: |
+        Tenant scope is derived from authenticated gateway context and cannot be selected through query parameters.
       operationId: get_list_vehicles
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -3604,6 +3669,29 @@ paths:
         - $ref: '#/components/parameters/XCompanyID'
         - $ref: '#/components/parameters/XLocale'
         - $ref: '#/components/parameters/Authorization'
+        - name: carrier_company_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
       security:
         - bearerAuth: []
       responses:
@@ -3622,6 +3710,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
           content:
             application/json:
               schema:
@@ -3674,6 +3768,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
           content:
             application/json:
               schema:
@@ -5314,6 +5414,48 @@ components:
         type: string
       description: Bearer JWT access token
   schemas:
+    CreateDriverRequest:
+      type: object
+      required: [carrier_company_id, full_name]
+      additionalProperties: false
+      properties:
+        carrier_company_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+          nullable: true
+        full_name:
+          type: string
+        phone:
+          type: string
+        license_number:
+          type: string
+        license_country:
+          type: string
+        preferred_locale:
+          type: string
+    CreateVehicleRequest:
+      type: object
+      required: [carrier_company_id, plate_number]
+      additionalProperties: false
+      properties:
+        carrier_company_id:
+          type: string
+          format: uuid
+        plate_number:
+          type: string
+        vehicle_type:
+          type: string
+        equipment_type:
+          type: string
+        capacity_weight:
+          type: number
+        capacity_volume:
+          type: number
+        registration_country:
+          type: string
     AssignDriverRequest:
       type: object
       required: [driver_id]

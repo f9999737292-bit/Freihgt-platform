@@ -179,15 +179,6 @@ func (h *ShipmentHandler) List(w http.ResponseWriter, r *http.Request) {
 	respond.JSON(w, http.StatusOK, map[string]any{"items": items, "total": total})
 }
 
-func decodeStrictJSON(r *http.Request, dst any) error {
-	dec := json.NewDecoder(r.Body)
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(dst); err != nil {
-		return apperrors.Validation("invalid JSON body", map[string]any{"field": "body"})
-	}
-	return nil
-}
-
 func (h *ShipmentHandler) AssignDriver(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := resolveVerifiedTenant(r)
 	if err != nil {

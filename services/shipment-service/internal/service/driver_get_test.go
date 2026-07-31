@@ -13,18 +13,30 @@ import (
 
 type mockDriverStore struct {
 	getByIDAndTenantFn func(ctx context.Context, id, tenantID uuid.UUID) (*domain.Driver, error)
+	createFn           func(ctx context.Context, tenantID uuid.UUID, in domain.CreateDriverInput) (*domain.Driver, error)
+	listFn             func(ctx context.Context, tenantID uuid.UUID, filter domain.ListDriversFilter) ([]domain.Driver, int, error)
+	companyExistsFn    func(ctx context.Context, companyID, tenantID uuid.UUID) (bool, error)
 }
 
-func (m *mockDriverStore) CompanyExists(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
+func (m *mockDriverStore) CompanyExists(ctx context.Context, companyID, tenantID uuid.UUID) (bool, error) {
+	if m.companyExistsFn != nil {
+		return m.companyExistsFn(ctx, companyID, tenantID)
+	}
 	return true, nil
 }
-func (m *mockDriverStore) Create(context.Context, domain.CreateDriverInput) (*domain.Driver, error) {
+func (m *mockDriverStore) Create(ctx context.Context, tenantID uuid.UUID, in domain.CreateDriverInput) (*domain.Driver, error) {
+	if m.createFn != nil {
+		return m.createFn(ctx, tenantID, in)
+	}
 	return nil, nil
 }
 func (m *mockDriverStore) GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.Driver, error) {
 	return m.getByIDAndTenantFn(ctx, id, tenantID)
 }
-func (m *mockDriverStore) List(context.Context, domain.ListDriversFilter) ([]domain.Driver, int, error) {
+func (m *mockDriverStore) List(ctx context.Context, tenantID uuid.UUID, filter domain.ListDriversFilter) ([]domain.Driver, int, error) {
+	if m.listFn != nil {
+		return m.listFn(ctx, tenantID, filter)
+	}
 	return nil, 0, nil
 }
 

@@ -13,18 +13,30 @@ import (
 
 type mockVehicleStore struct {
 	getByIDAndTenantFn func(ctx context.Context, id, tenantID uuid.UUID) (*domain.Vehicle, error)
+	createFn           func(ctx context.Context, tenantID uuid.UUID, in domain.CreateVehicleInput) (*domain.Vehicle, error)
+	listFn             func(ctx context.Context, tenantID uuid.UUID, filter domain.ListVehiclesFilter) ([]domain.Vehicle, int, error)
+	companyExistsFn    func(ctx context.Context, companyID, tenantID uuid.UUID) (bool, error)
 }
 
-func (m *mockVehicleStore) CompanyExists(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
+func (m *mockVehicleStore) CompanyExists(ctx context.Context, companyID, tenantID uuid.UUID) (bool, error) {
+	if m.companyExistsFn != nil {
+		return m.companyExistsFn(ctx, companyID, tenantID)
+	}
 	return true, nil
 }
-func (m *mockVehicleStore) Create(context.Context, domain.CreateVehicleInput) (*domain.Vehicle, error) {
+func (m *mockVehicleStore) Create(ctx context.Context, tenantID uuid.UUID, in domain.CreateVehicleInput) (*domain.Vehicle, error) {
+	if m.createFn != nil {
+		return m.createFn(ctx, tenantID, in)
+	}
 	return nil, nil
 }
 func (m *mockVehicleStore) GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.Vehicle, error) {
 	return m.getByIDAndTenantFn(ctx, id, tenantID)
 }
-func (m *mockVehicleStore) List(context.Context, domain.ListVehiclesFilter) ([]domain.Vehicle, int, error) {
+func (m *mockVehicleStore) List(ctx context.Context, tenantID uuid.UUID, filter domain.ListVehiclesFilter) ([]domain.Vehicle, int, error) {
+	if m.listFn != nil {
+		return m.listFn(ctx, tenantID, filter)
+	}
 	return nil, 0, nil
 }
 

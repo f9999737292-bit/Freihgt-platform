@@ -1,12 +1,24 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/google/uuid"
+
+	apperrors "github.com/freight-platform/shipment-service/internal/platform/errors"
 )
+
+func decodeStrictJSON(r *http.Request, dst any) error {
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(dst); err != nil {
+		return apperrors.Validation("invalid JSON body", map[string]any{"field": "body"})
+	}
+	return nil
+}
 
 func parseLimit(r *http.Request) int {
 	limit := 20

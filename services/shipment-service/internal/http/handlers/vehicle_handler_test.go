@@ -22,7 +22,7 @@ type tenantScopedVehicleService struct {
 func (s *tenantScopedVehicleService) CompanyExists(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
 	return true, nil
 }
-func (s *tenantScopedVehicleService) Create(context.Context, domain.CreateVehicleInput) (*domain.Vehicle, error) {
+func (s *tenantScopedVehicleService) Create(context.Context, uuid.UUID, domain.CreateVehicleInput) (*domain.Vehicle, error) {
 	return nil, nil
 }
 func (s *tenantScopedVehicleService) GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.Vehicle, error) {
@@ -31,7 +31,7 @@ func (s *tenantScopedVehicleService) GetByIDAndTenant(ctx context.Context, id, t
 	}
 	return nil, nil
 }
-func (s *tenantScopedVehicleService) List(context.Context, domain.ListVehiclesFilter) ([]domain.Vehicle, int, error) {
+func (s *tenantScopedVehicleService) List(context.Context, uuid.UUID, domain.ListVehiclesFilter) ([]domain.Vehicle, int, error) {
 	return nil, 0, nil
 }
 

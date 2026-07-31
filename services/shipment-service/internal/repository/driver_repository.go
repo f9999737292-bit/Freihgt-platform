@@ -36,7 +36,7 @@ func (r *DriverRepository) CompanyExists(ctx context.Context, companyID, tenantI
 	return exists, nil
 }
 
-func (r *DriverRepository) Create(ctx context.Context, in domain.CreateDriverInput) (*domain.Driver, error) {
+func (r *DriverRepository) Create(ctx context.Context, tenantID uuid.UUID, in domain.CreateDriverInput) (*domain.Driver, error) {
 	var result *domain.Driver
 	err := measureDB("driver_repository", "create_driver", func() error {
 		const query = `
@@ -48,7 +48,7 @@ func (r *DriverRepository) Create(ctx context.Context, in domain.CreateDriverInp
 			license_number, license_country, preferred_locale, status
 	`
 		row := r.pool.QueryRow(ctx, query,
-			in.TenantID,
+			tenantID,
 			in.CarrierCompanyID,
 			optionalUUID(in.UserID),
 			strings.TrimSpace(in.FullName),
@@ -79,11 +79,11 @@ func (r *DriverRepository) GetByIDAndTenant(ctx context.Context, id, tenantID uu
 	return scanDriver(r.pool.QueryRow(ctx, getDriverByIDAndTenantQuery, id, tenantID))
 }
 
-func (r *DriverRepository) List(ctx context.Context, filter domain.ListDriversFilter) ([]domain.Driver, int, error) {
+func (r *DriverRepository) List(ctx context.Context, tenantID uuid.UUID, filter domain.ListDriversFilter) ([]domain.Driver, int, error) {
 	var drivers []domain.Driver
 	var total int
 	err := measureDB("driver_repository", "list_drivers", func() error {
-		args := []any{filter.TenantID}
+		args := []any{tenantID}
 		where := []string{"tenant_id = $1", "deleted_at IS NULL"}
 
 		if filter.CarrierCompanyID != nil {

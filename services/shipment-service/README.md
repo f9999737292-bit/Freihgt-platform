@@ -195,6 +195,48 @@ Gateway defense-in-depth comparison of `tenant_id` in downstream responses remai
 
 Request body contains only `driver_id` or `vehicle_id`. Unknown `tenant_id` field in body returns `400 Bad Request`.
 
+## Create / list driver / vehicle
+
+`POST /v1/drivers`, `POST /v1/vehicles`, `GET /v1/drivers`, and `GET /v1/vehicles` derive tenant only from trusted `X-Tenant-ID`.
+
+- Create body must not contain `tenant_id` (strict JSON → `400` if present)
+- List must not use `tenant_id` query; conflicting query tenant is ignored
+- Missing trusted tenant → `401`, repository not called
+
+## Authorization vs tenant isolation
+
+API Gateway performs authentication and route-level authorization for Driver, Vehicle, and fleet assignment routes. Shipment-service performs tenant isolation at handler, service, and SQL repository layers.
+
+| Layer | Responsibility |
+|---|---|
+| API Gateway | JWT validation, role check via `GET /v1/auth/me`, route allowlists |
+| Shipment-service | Trusted `X-Tenant-ID`, tenant-scoped SQL, `404` for foreign resources |
+
+Tenant-scoped SQL does not replace checking whether the authenticated user is allowed to perform the operation. Frontend role restrictions are UX only.
+
+See [Driver & Vehicle tenant isolation](../../docs/DRIVER_VEHICLE_TENANT_ISOLATION.md) for gateway role allowlists and HTTP semantics.
+
+Create driver example:
+
+```bash
+curl -X POST http://localhost:8085/v1/drivers \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-ID: 11111111-1111-1111-1111-111111111111" \
+  -d '{
+    "carrier_company_id": "22222222-2222-2222-2222-222222222222",
+    "full_name": "Иван Иванов",
+    "license_country": "RU",
+    "preferred_locale": "ru-RU"
+  }'
+```
+
+List drivers example:
+
+```bash
+curl -X GET "http://localhost:8085/v1/drivers?limit=20&offset=0" \
+  -H "X-Tenant-ID: 11111111-1111-1111-1111-111111111111"
+```
+
 ## Tests
 
 ```bash

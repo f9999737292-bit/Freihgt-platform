@@ -12,6 +12,7 @@ const { listVehicles } = useVehiclesApi()
 const { assignVehicle } = useShipmentsApi()
 const { pushToast } = useToast()
 const { t } = useI18n()
+const { canCreateFleet } = usePermissions()
 
 const loading = ref(false)
 const assigning = ref(false)
@@ -90,7 +91,7 @@ async function assign() {
         :options="vehicleOptions"
         required
       />
-      <UiButton variant="secondary" @click="showCreateModal = true">{{ $t('shipments.createVehicle') }}</UiButton>
+      <UiButton v-if="canCreateFleet()" variant="secondary" @click="showCreateModal = true">{{ $t('shipments.createVehicle') }}</UiButton>
     </div>
     <template #footer>
       <UiButton variant="secondary" @click="$emit('close')">{{ $t('common.cancel') }}</UiButton>
