@@ -1,4 +1,5 @@
 import type { AuthUser } from '~/types/api'
+import { CONTROL_TOWER_ACCESS_ROLES } from '~/types/controlTower'
 
 export type ProductRole =
   | 'admin'
@@ -55,6 +56,7 @@ const ROLE_ROUTES: Record<ProductRole, readonly string[]> = {
   ],
   carrier: [
     '/dashboard',
+    '/control-tower',
     '/shipments',
     '/transport-orders',
     '/freight-requests',
@@ -236,6 +238,13 @@ export function usePermissions() {
     return canAccessRoute(route)
   }
 
+  function canAccessControlTower(): boolean {
+    if (hasAdminAccess() || isDevPlatformAdminFallback()) {
+      return true
+    }
+    return hasAnyRole([...CONTROL_TOWER_ACCESS_ROLES])
+  }
+
   function getLandingRoute(): string {
     if (hasAdminAccess() || isDevPlatformAdminFallback()) {
       return LANDING_ROUTES.admin
@@ -265,6 +274,7 @@ export function usePermissions() {
     hasProductRole,
     canAccessRoute,
     canSeeNavItem,
+    canAccessControlTower,
     getLandingRoute,
   }
 }

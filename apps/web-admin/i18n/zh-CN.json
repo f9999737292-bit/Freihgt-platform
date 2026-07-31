@@ -426,7 +426,10 @@
       "alertsRisks": "风险和警告",
       "quickActions": "快速操作",
       "recentActivity": "最近活动",
-      "systemLinks": "系统链接"
+      "systemLinks": "系统链接",
+      "filters": "筛选",
+      "activeShipments": "活跃运输",
+      "criticalEvents": "关键事件"
     },
     "kpi": {
       "companies": "Companies",
@@ -539,6 +542,108 @@
       "swagger": "Swagger API docs",
       "prometheus": "Prometheus",
       "grafana": "Grafana"
+    },
+    "pageTitle": "运输控制中心",
+    "lastUpdated": "最后更新",
+    "backendConnection": "后端连接",
+    "backendOnline": "在线",
+    "backendOfflineShort": "离线",
+    "demoMode": "演示模式 — 合成演示数据",
+    "accessDeniedTitle": "无权访问",
+    "accessDeniedDescription": "您没有查看控制塔的权限。",
+    "autoRefresh": {
+      "label": "自动刷新",
+      "interval": "间隔",
+      "intervals": {
+        "30s": "30 秒",
+        "1m": "1 分钟",
+        "5m": "5 分钟"
+      }
+    },
+    "kpiV01": {
+      "activeShipments": "活跃运输",
+      "activeShipmentsDesc": "进行中的运输",
+      "onTime": "按计划",
+      "onTimeDesc": "SLA 计划内的运输",
+      "atRisk": "SLA 风险",
+      "atRiskDesc": "存在 SLA 风险的运输",
+      "critical": "严重偏差",
+      "criticalDesc": "延迟或严重 SLA 偏差",
+      "awaitingDocuments": "待文档",
+      "awaitingDocumentsDesc": "已交付但缺少文档的运输",
+      "readyForBilling": "可计费",
+      "readyForBillingDesc": "可进入计费登记的运输"
+    },
+    "sla": {
+      "ON_TIME": "准时",
+      "AT_RISK": "有风险",
+      "DELAYED": "延迟",
+      "CRITICAL": "严重",
+      "UNKNOWN": "未知"
+    },
+    "slaTooltips": {
+      "ON_TIME": "运输按计划执行",
+      "AT_RISK": "存在 SLA 违规风险",
+      "DELAYED": "已记录相对计划的延迟",
+      "CRITICAL": "需要关注的严重偏差",
+      "UNKNOWN": "数据不足，无法评估 SLA"
+    },
+    "filters": {
+      "search": "搜索运输或订单",
+      "status": "运输状态",
+      "slaStatus": "SLA 状态",
+      "shipper": "货主",
+      "carrier": "承运商",
+      "date": "日期",
+      "criticalOnly": "仅严重",
+      "reset": "重置筛选"
+    },
+    "table": {
+      "shipmentNumber": "运输编号",
+      "transportOrder": "运输订单",
+      "shipper": "货主",
+      "carrier": "承运商",
+      "route": "路线",
+      "plannedPickup": "计划提货",
+      "plannedDelivery": "计划交付",
+      "status": "状态",
+      "slaStatus": "SLA",
+      "lastEvent": "最近事件",
+      "lastUpdated": "更新时间"
+    },
+    "actions": {
+      "openShipment": "打开运输",
+      "openOrder": "打开订单",
+      "eventHistory": "事件历史"
+    },
+    "events": {
+      "empty": "无关键事件",
+      "types": {
+        "PICKUP_DELAY": "提货延迟",
+        "DELIVERY_DELAY": "交付延迟",
+        "NO_GEOLOCATION": "无定位",
+        "STALE_UPDATES": "长时间无更新",
+        "ROUTE_DEVIATION": "路线偏差",
+        "MISSING_DOCUMENTS": "缺少文档",
+        "SHIPMENT_CANCELLED": "运输取消",
+        "TECHNICAL_ISSUE": "技术问题",
+        "UNKNOWN_CRITICAL": "未知关键事件"
+      },
+      "descriptions": {
+        "pickupDelay": "计划提货时间已过但未确认提货",
+        "deliveryDelay": "计划交付时间已过但未确认交付",
+        "noGeolocation": "活跃运输缺少路线定位数据",
+        "staleUpdates": "运输长时间未收到更新",
+        "missingDocuments": "已交付运输缺少关联文档",
+        "shipmentCancelled": "运输已取消",
+        "technicalIssue": "检测到后端或集成问题"
+      }
+    },
+    "states": {
+      "noActiveShipments": "无活跃运输",
+      "noActiveShipmentsHint": "当前租户没有进行中的运输",
+      "noFilteredResults": "没有符合筛选的运输",
+      "noFilteredResultsHint": "调整筛选条件或重置"
     }
   },
   "tenant": {

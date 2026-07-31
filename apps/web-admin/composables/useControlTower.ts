@@ -8,17 +8,34 @@ import type { TransportOrder } from '~/types/transportOrder'
 import type { AuthUser } from '~/types/api'
 import {
   CONTROL_TOWER_SHIPMENT_BOARD_STATUSES,
+  createDefaultControlTowerFilters,
   type ControlTowerActivityItem,
   type ControlTowerBillingSummary,
   type ControlTowerData,
   type ControlTowerDocumentsSummary,
+  type ControlTowerEvent,
   type ControlTowerFetchResult,
+  type ControlTowerFilters,
   type ControlTowerFunnelStep,
   type ControlTowerKpiCard,
+  type ControlTowerKpiMetric,
   type ControlTowerOperationRow,
   type ControlTowerRiskAlert,
+  type ControlTowerShipment,
   type ControlTowerShipmentStatusRow,
 } from '~/types/controlTower'
+import {
+  applyControlTowerFilters,
+  buildCriticalEvents,
+  buildKpiMetrics,
+  companyNameMap,
+  isActiveShipment,
+  mapShipmentToControlTowerRow,
+} from '~/utils/controlTowerLogic'
+import {
+  CONTROL_TOWER_DEMO_EVENTS,
+  CONTROL_TOWER_DEMO_SHIPMENTS,
+} from '~/utils/controlTowerDemoData'
 
 const DEV_TENANT_FALLBACK = '74519f22-ff9b-4a8b-8fff-a958c689682f'
 
@@ -87,6 +104,14 @@ export function useControlTower() {
 
   const loading = ref(true)
   const gatewayOnline = ref(true)
+  const loadError = ref<string | null>(null)
+  const lastUpdatedAt = ref<string | null>(null)
+  const demoMode = ref(false)
+  const autoRefreshEnabled = ref(false)
+  const autoRefreshIntervalMs = ref(60_000)
+  const filters = reactive<ControlTowerFilters>(createDefaultControlTowerFilters())
+
+  let autoRefreshTimer: ReturnType<typeof setInterval> | undefined
 
   const data = ref<ControlTowerData>({
     companies: emptyResult('companies'),
@@ -119,6 +144,8 @@ export function useControlTower() {
 
   async function loadData() {
     loading.value = true
+    loadError.value = null
+    demoMode.value = false
     try {
       gatewayOnline.value = await checkGatewayHealth()
     } catch {
@@ -170,6 +197,19 @@ export function useControlTower() {
         ? billingRegistersResult.value
         : emptyResult('billingRegisters')
 
+    const coreUnavailable =
+      !gatewayOnline.value ||
+      !data.value.shipments.ok ||
+      !data.value.companies.ok ||
+      !data.value.transportOrders.ok
+
+    if (coreUnavailable && import.meta.dev) {
+      demoMode.value = true
+    } else if (coreUnavailable) {
+      loadError.value = 'api_unavailable'
+    }
+
+    lastUpdatedAt.value = new Date().toISOString()
     loading.value = false
   }
 
@@ -578,11 +618,132 @@ export function useControlTower() {
       .slice(0, 15)
   })
 
+  const companiesMap = computed(() => companyNameMap(data.value.companies.items))
+
+  const transportOrderMap = computed(() => {
+    const map = new Map<string, TransportOrder>()
+    for (const order of data.value.transportOrders.items) {
+      map.set(order.id, order)
+    }
+    return map
+  })
+
+  const controlTowerShipments = computed<ControlTowerShipment[]>(() => {
+    if (demoMode.value) {
+      return CONTROL_TOWER_DEMO_SHIPMENTS
+    }
+
+    return data.value.shipments.items
+      .filter((shipment) => isActiveShipment(shipment.status))
+      .map((shipment) =>
+        mapShipmentToControlTowerRow(shipment, {
+          transportOrderById: transportOrderMap.value,
+          companyNameById: companiesMap.value,
+          locationLabelById: new Map(),
+        }),
+      )
+  })
+
+  const filteredShipments = computed(() =>
+    applyControlTowerFilters(controlTowerShipments.value, filters),
+  )
+
+  const kpiMetrics = computed<ControlTowerKpiMetric[]>(() =>
+    buildKpiMetrics(controlTowerShipments.value),
+  )
+
+  const criticalEvents = computed<ControlTowerEvent[]>(() => {
+    if (demoMode.value) {
+      return CONTROL_TOWER_DEMO_EVENTS
+    }
+    return buildCriticalEvents(data.value.shipments.items, data.value.documents.items, {
+      apiUnavailable: !gatewayOnline.value || !data.value.shipments.ok,
+    })
+  })
+
+  const apiUnavailable = computed(
+    () => !demoMode.value && (!gatewayOnline.value || loadError.value === 'api_unavailable'),
+  )
+
+  const shipperCompanies = computed(() =>
+    data.value.companies.items.filter((company) => company.company_type === 'SHIPPER'),
+  )
+
+  const carrierCompanies = computed(() =>
+    data.value.companies.items.filter((company) => company.company_type === 'CARRIER'),
+  )
+
+  function resetFilters() {
+    Object.assign(filters, createDefaultControlTowerFilters())
+  }
+
+  function setAutoRefresh(enabled: boolean, intervalMs = autoRefreshIntervalMs.value) {
+    autoRefreshEnabled.value = enabled
+    autoRefreshIntervalMs.value = intervalMs
+    stopAutoRefresh()
+    if (enabled) {
+      autoRefreshTimer = setInterval(() => {
+        void loadData()
+      }, intervalMs)
+    }
+  }
+
+  function stopAutoRefresh() {
+    if (autoRefreshTimer) {
+      clearInterval(autoRefreshTimer)
+      autoRefreshTimer = undefined
+    }
+  }
+
+  function parseFiltersFromQuery(query: Record<string, unknown>) {
+    filters.search = String(query.q ?? query.search ?? '')
+    filters.status = String(query.status ?? '')
+    filters.slaStatus = String(query.sla ?? query.slaStatus ?? '')
+    filters.shipperCompanyId = String(query.shipper ?? query.shipperCompanyId ?? '')
+    filters.carrierCompanyId = String(query.carrier ?? query.carrierCompanyId ?? '')
+    filters.date = String(query.date ?? '')
+    filters.criticalOnly = query.critical === '1' || query.criticalOnly === 'true'
+  }
+
+  function filtersToQuery(): Record<string, string> {
+    const query: Record<string, string> = {}
+    if (filters.search.trim()) query.q = filters.search.trim()
+    if (filters.status) query.status = filters.status
+    if (filters.slaStatus) query.sla = filters.slaStatus
+    if (filters.shipperCompanyId) query.shipper = filters.shipperCompanyId
+    if (filters.carrierCompanyId) query.carrier = filters.carrierCompanyId
+    if (filters.date) query.date = filters.date
+    if (filters.criticalOnly) query.critical = '1'
+    return query
+  }
+
+  onScopeDispose(() => {
+    stopAutoRefresh()
+  })
+
   return {
     loading,
     gatewayOnline,
+    loadError,
+    lastUpdatedAt,
+    demoMode,
+    autoRefreshEnabled,
+    autoRefreshIntervalMs,
+    filters,
     tenantId,
     data,
+    controlTowerShipments,
+    filteredShipments,
+    kpiMetrics,
+    criticalEvents,
+    apiUnavailable,
+    shipperCompanies,
+    carrierCompanies,
+    resetFilters,
+    setAutoRefresh,
+    stopAutoRefresh,
+    parseFiltersFromQuery,
+    filtersToQuery,
     kpiCards,
     operationsRows,
     transportFunnel,

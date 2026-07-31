@@ -426,7 +426,10 @@
       "alertsRisks": "Alerts / Risks",
       "quickActions": "Quick actions",
       "recentActivity": "Recent activity",
-      "systemLinks": "System links"
+      "systemLinks": "System links",
+      "filters": "Filters",
+      "activeShipments": "Active shipments",
+      "criticalEvents": "Critical events"
     },
     "kpi": {
       "companies": "Companies",
@@ -539,6 +542,108 @@
       "swagger": "Swagger API docs",
       "prometheus": "Prometheus",
       "grafana": "Grafana"
+    },
+    "pageTitle": "Transport Control Center",
+    "lastUpdated": "Last updated",
+    "backendConnection": "Backend connection",
+    "backendOnline": "Online",
+    "backendOfflineShort": "Offline",
+    "demoMode": "Demo mode — synthetic demonstration data",
+    "accessDeniedTitle": "Access denied",
+    "accessDeniedDescription": "You do not have permission to view Control Tower.",
+    "autoRefresh": {
+      "label": "Auto refresh",
+      "interval": "Interval",
+      "intervals": {
+        "30s": "30 seconds",
+        "1m": "1 minute",
+        "5m": "5 minutes"
+      }
+    },
+    "kpiV01": {
+      "activeShipments": "Active shipments",
+      "activeShipmentsDesc": "Shipments currently in progress",
+      "onTime": "On plan",
+      "onTimeDesc": "Shipments executing within SLA plan",
+      "atRisk": "SLA at risk",
+      "atRiskDesc": "Shipments with SLA risk indicators",
+      "critical": "Critical deviations",
+      "criticalDesc": "Delayed or critical SLA deviations",
+      "awaitingDocuments": "Awaiting documents",
+      "awaitingDocumentsDesc": "Delivered shipments pending documents",
+      "readyForBilling": "Ready for billing",
+      "readyForBillingDesc": "Shipments ready for billing register"
+    },
+    "sla": {
+      "ON_TIME": "On time",
+      "AT_RISK": "At risk",
+      "DELAYED": "Delayed",
+      "CRITICAL": "Critical",
+      "UNKNOWN": "Unknown"
+    },
+    "slaTooltips": {
+      "ON_TIME": "Shipment is executing according to plan",
+      "AT_RISK": "Risk of SLA violation detected",
+      "DELAYED": "Delay against planned schedule recorded",
+      "CRITICAL": "Critical deviation requiring attention",
+      "UNKNOWN": "Insufficient data to evaluate SLA"
+    },
+    "filters": {
+      "search": "Search shipment or order",
+      "status": "Shipment status",
+      "slaStatus": "SLA status",
+      "shipper": "Shipper",
+      "carrier": "Carrier",
+      "date": "Date",
+      "criticalOnly": "Critical only",
+      "reset": "Reset filters"
+    },
+    "table": {
+      "shipmentNumber": "Shipment #",
+      "transportOrder": "Transport order",
+      "shipper": "Shipper",
+      "carrier": "Carrier",
+      "route": "Route",
+      "plannedPickup": "Planned pickup",
+      "plannedDelivery": "Planned delivery",
+      "status": "Status",
+      "slaStatus": "SLA",
+      "lastEvent": "Last event",
+      "lastUpdated": "Updated"
+    },
+    "actions": {
+      "openShipment": "Open shipment",
+      "openOrder": "Open transport order",
+      "eventHistory": "Event history"
+    },
+    "events": {
+      "empty": "No critical events",
+      "types": {
+        "PICKUP_DELAY": "Pickup delay",
+        "DELIVERY_DELAY": "Delivery delay",
+        "NO_GEOLOCATION": "No geolocation",
+        "STALE_UPDATES": "Stale updates",
+        "ROUTE_DEVIATION": "Route deviation",
+        "MISSING_DOCUMENTS": "Missing documents",
+        "SHIPMENT_CANCELLED": "Shipment cancelled",
+        "TECHNICAL_ISSUE": "Technical issue",
+        "UNKNOWN_CRITICAL": "Unknown critical event"
+      },
+      "descriptions": {
+        "pickupDelay": "Planned pickup time has passed without pickup confirmation",
+        "deliveryDelay": "Planned delivery time has passed without delivery confirmation",
+        "noGeolocation": "No route location data available for active shipment",
+        "staleUpdates": "No shipment updates received for an extended period",
+        "missingDocuments": "Delivered shipment has no linked documents",
+        "shipmentCancelled": "Shipment was cancelled",
+        "technicalIssue": "Backend or integration issue detected"
+      }
+    },
+    "states": {
+      "noActiveShipments": "No active shipments",
+      "noActiveShipmentsHint": "There are no shipments in progress for this tenant",
+      "noFilteredResults": "No shipments match filters",
+      "noFilteredResultsHint": "Adjust filters or reset to see active shipments"
     }
   },
   "tenant": {
