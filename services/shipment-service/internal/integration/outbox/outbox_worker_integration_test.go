@@ -137,7 +137,20 @@ func TestStartupDisabledAndEnabledWithoutTransport(t *testing.T) {
 	if _, err := shipmentoutbox.NewPublisher(config.OutboxConfig{Enabled: true, Transport: ""}); err == nil {
 		t.Fatal("enabled without transport must fail")
 	}
-	if _, err := shipmentoutbox.NewPublisher(config.OutboxConfig{Enabled: true, Transport: "kafka"}); err == nil {
+	if _, err := shipmentoutbox.NewPublisher(config.OutboxConfig{
+		Enabled:   true,
+		Transport: "kafka",
+		Kafka: config.KafkaConfig{
+			Brokers:      []string{"localhost:19092"},
+			Topic:        "shipment.status.v1",
+			ClientID:     "shipment-service-it",
+			DialTimeout:  time.Second,
+			WriteTimeout: time.Second,
+		},
+	}); err != nil {
+		t.Fatalf("kafka publisher should start with valid config: %v", err)
+	}
+	if _, err := shipmentoutbox.NewPublisher(config.OutboxConfig{Enabled: true, Transport: "nats"}); err == nil {
 		t.Fatal("unsupported transport must fail")
 	}
 }

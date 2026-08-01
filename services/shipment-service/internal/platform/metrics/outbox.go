@@ -112,3 +112,48 @@ func SetOutboxGaugeSnapshot(pending, failed int64, oldestPendingAgeSeconds float
 	outboxFailedCount.Set(float64(failed))
 	outboxOldestPendingAgeGauge.Set(oldestPendingAgeSeconds)
 }
+
+var (
+	kafkaMetricsOnce sync.Once
+
+	kafkaPublishTotal    *prometheus.CounterVec
+	kafkaPublishDuration *prometheus.HistogramVec
+	kafkaPublishErrors   *prometheus.CounterVec
+)
+
+func initKafkaMetrics() {
+	kafkaMetricsOnce.Do(func() {
+		kafkaPublishTotal = prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "shipment_outbox_kafka_publish_total",
+				Help: "Total Kafka publish attempts from shipment outbox worker transport",
+			},
+			[]string{"event_type", "result"},
+		)
+		kafkaPublishDuration = prometheus.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Name:    "shipment_outbox_kafka_publish_duration_seconds",
+				Help:    "Kafka publish duration in seconds from shipment outbox transport",
+				Buckets: prometheus.DefBuckets,
+			},
+			[]string{"event_type", "result"},
+		)
+		kafkaPublishErrors = prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "shipment_outbox_kafka_publish_errors_total",
+				Help: "Total Kafka publish errors from shipment outbox transport",
+			},
+			[]string{"event_type", "error_code"},
+		)
+		prometheus.MustRegister(kafkaPublishTotal, kafkaPublishDuration, kafkaPublishErrors)
+	})
+}
+
+func ObserveKafkaPublish(eventType, result, errorCode string, duration time.Duration) {
+	initKafkaMetrics()
+	kafkaPublishTotal.WithLabelValues(eventType, result).Inc()
+	kafkaPublishDuration.WithLabelValues(eventType, result).Observe(duration.Seconds())
+	if result != "success" && errorCode != "" {
+		kafkaPublishErrors.WithLabelValues(eventType, errorCode).Inc()
+	}
+}

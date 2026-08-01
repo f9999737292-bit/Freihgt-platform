@@ -50,12 +50,14 @@ func main() {
 	vehicleSvc := service.NewVehicleService(vehicleRepo)
 
 	var outboxWorker *outbox.Worker
+	var outboxPublisher outbox.EventPublisher
 	if cfg.Outbox.Enabled {
 		publisher, err := outbox.NewPublisher(cfg.Outbox)
 		if err != nil {
 			log.Error("failed to configure outbox publisher", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
+		outboxPublisher = publisher
 		outboxWorker = outbox.NewWorker(cfg.Outbox, shipmentRepo, publisher, log, outbox.NewRealClock())
 		outboxWorker.Start(ctx)
 		log.Info("outbox worker started",
@@ -99,6 +101,14 @@ func main() {
 		defer workerCancel()
 		if err := outboxWorker.Wait(workerWaitCtx); err != nil {
 			log.Warn("outbox worker shutdown timed out", slog.String("error", err.Error()))
+		}
+	}
+
+	if closer, ok := outboxPublisher.(outbox.CloseablePublisher); ok {
+		closeCtx, closeCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer closeCancel()
+		if err := closer.Close(closeCtx); err != nil {
+			log.Warn("outbox publisher close timed out", slog.String("error", err.Error()))
 		}
 	}
 

@@ -28,7 +28,7 @@ func TestNewPublisherEnabledWithoutTransportFails(t *testing.T) {
 
 func TestNewPublisherUnsupportedTransportFails(t *testing.T) {
 	t.Parallel()
-	_, err := NewPublisher(config.OutboxConfig{Enabled: true, Transport: "kafka"})
+	_, err := NewPublisher(config.OutboxConfig{Enabled: true, Transport: "nats"})
 	if err == nil {
 		t.Fatal("expected unsupported transport error")
 	}

@@ -217,10 +217,12 @@ Published rows are **not deleted** in v0.1. Without a future retention/purge job
 
 ## TODO / future work
 
-- Broker transport implementation (Kafka/NATS) behind `EventPublisher`
 - Published-row retention/purge
 - Explicit FAILED replay tooling (internal only)
 - Optional NOTIFY-based wakeups instead of pure polling
+- Consumer services for `shipment.status.v1`
+
+Kafka-compatible transport is documented in `docs/SHIPMENT_STATUS_KAFKA_PUBLISHER.md`.
 
 ## v0.1 scope limits
 
@@ -276,4 +278,4 @@ go test -tags=integration ./internal/integration/outbox/... -count=1 -v
 
 Without `TEST_DATABASE_URL`, integration tests **skip** with a clear message (unit tests still run via `go test ./...`).
 
-Production broker transport is **not** required or implemented in v0.1; integration tests use an in-memory test publisher with the real PostgreSQL repository.
+Kafka transport integration tests require Redpanda and `TEST_KAFKA_BROKERS`; see `docs/SHIPMENT_STATUS_KAFKA_PUBLISHER.md`.

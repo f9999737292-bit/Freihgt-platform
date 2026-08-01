@@ -61,7 +61,9 @@ K6 ?= k6
 	run-api-gateway run-identity-service run-company-service run-localization-service \
 	run-transport-order-service run-shipment-service run-rfx-service \
 	run-document-service run-billing-register-service run-low-code-service \
-	test-company-service test-identity-service test-transport-order-service test-rfx-service test-shipment-service outbox-integration-test test-document-service test-billing-register-service test-low-code-service test-api-gateway \
+	test-company-service test-identity-service test-transport-order-service test-rfx-service test-shipment-service outbox-integration-test outbox-kafka-integration-test outbox-end-to-end-test \
+	messaging-up messaging-down messaging-status shipment-kafka-topic-create \
+	test-document-service test-billing-register-service test-low-code-service test-api-gateway \
 	integration-smoke-test full-flow-smoke-test lowcode-runtime-compliance-test check-lowcode-headers seed-dev-admin seed-demo-data seed-lowcode-demo create-lowcode-draft-template \
 	project-map tree-project find-service find-text \
 	openapi-generate openapi-generate-json openapi-validate openapi-check api-docs-open \
@@ -449,6 +451,24 @@ test-shipment-service:
 
 outbox-integration-test:
 	@cd services/shipment-service && go test -tags=integration ./internal/integration/outbox/... -count=1 -v
+
+outbox-kafka-integration-test:
+	@cd services/shipment-service && go test -tags=integration ./internal/integration/kafka/... -count=1 -v
+
+outbox-end-to-end-test:
+	@cd services/shipment-service && go test -tags=integration ./internal/integration/kafka/... -run 'EndToEnd|DuplicateDelivery|BrokerUnavailable' -count=1 -v
+
+messaging-up:
+	$(COMPOSE) --profile messaging up -d redpanda
+
+messaging-down:
+	$(COMPOSE) --profile messaging stop redpanda
+
+messaging-status:
+	$(COMPOSE) --profile messaging ps redpanda
+
+shipment-kafka-topic-create:
+	"$(BASH)" scripts/dev/create_shipment_kafka_topic.sh
 
 run-rfx-service:
 	@cd services/rfx-service && go run ./cmd/server

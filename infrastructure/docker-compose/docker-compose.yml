@@ -329,6 +329,40 @@ services:
       - -path=/migrations
       - -database=postgres://${POSTGRES_USER:-freight}:${POSTGRES_PASSWORD:-freight_password}@postgres:5432/${POSTGRES_DB:-freight_platform}?sslmode=disable
 
+  redpanda:
+    profiles:
+      - messaging
+    image: docker.redpanda.com/redpandadata/redpanda:v24.2.8
+    container_name: freight_redpanda
+    restart: unless-stopped
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp
+      - "1"
+      - --memory
+      - 512M
+      - --reserve-memory
+      - 0M
+      - --node-id
+      - "0"
+      - --check=false
+      - --kafka-addr
+      - internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr
+      - internal://redpanda:9092,external://localhost:19092
+    ports:
+      - "19092:19092"
+    networks:
+      - freight-platform-network
+    healthcheck:
+      test: ["CMD", "rpk", "cluster", "info", "--brokers", "localhost:9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
 networks:
   freight-platform-network:
     name: freight-platform-network

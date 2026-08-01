@@ -28,6 +28,7 @@ type OutboxConfig struct {
 	LeaseTimeout   time.Duration
 	MaxAttempts    int
 	WorkerID       string
+	Kafka          KafkaConfig
 }
 
 func Load() (Config, error) {
@@ -95,6 +96,11 @@ func loadOutboxConfig() (OutboxConfig, error) {
 		workerID = host + "-" + uuid.NewString()
 	}
 
+	kafka, err := loadKafkaConfig()
+	if err != nil {
+		return OutboxConfig{}, err
+	}
+
 	cfg := OutboxConfig{
 		Enabled:        enabled,
 		Transport:      strings.TrimSpace(os.Getenv("SHIPMENT_OUTBOX_TRANSPORT")),
@@ -104,6 +110,7 @@ func loadOutboxConfig() (OutboxConfig, error) {
 		LeaseTimeout:   leaseTimeout,
 		MaxAttempts:    maxAttempts,
 		WorkerID:       workerID,
+		Kafka:          kafka,
 	}
 	if err := cfg.Validate(); err != nil {
 		return OutboxConfig{}, err
@@ -132,6 +139,11 @@ func (c OutboxConfig) Validate() error {
 	}
 	if c.Enabled && strings.TrimSpace(c.Transport) == "" {
 		return fmt.Errorf("SHIPMENT_OUTBOX_ENABLED=true requires SHIPMENT_OUTBOX_TRANSPORT")
+	}
+	if c.Enabled && strings.EqualFold(strings.TrimSpace(c.Transport), "kafka") {
+		if err := c.Kafka.ValidateRequired(); err != nil {
+			return err
+		}
 	}
 	return nil
 }

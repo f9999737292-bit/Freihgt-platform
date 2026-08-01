@@ -20,13 +20,26 @@ Go microservice for managing freight shipments after a carrier is selected.
 | `LOG_LEVEL` | `info` | Log level (`debug`, `info`, `warn`, `error`) |
 | `ENVIRONMENT` | `development` | Runtime environment |
 | `SHIPMENT_OUTBOX_ENABLED` | `false` | Enable background outbox publisher worker |
-| `SHIPMENT_OUTBOX_TRANSPORT` | _(empty)_ | Required when outbox enabled; no broker transport is implemented in v0.1 |
+| `SHIPMENT_OUTBOX_TRANSPORT` | _(empty)_ | Required when outbox enabled; `kafka` for Kafka-compatible broker |
 | `SHIPMENT_OUTBOX_POLL_INTERVAL` | `2s` | Worker poll interval |
 | `SHIPMENT_OUTBOX_BATCH_SIZE` | `50` | Claim batch size |
 | `SHIPMENT_OUTBOX_PUBLISH_TIMEOUT` | `10s` | Per-event publish timeout |
 | `SHIPMENT_OUTBOX_LEASE_TIMEOUT` | `60s` | Claim lease timeout (must exceed publish timeout) |
 | `SHIPMENT_OUTBOX_MAX_ATTEMPTS` | `5` | Max publish attempts before `FAILED` |
 | `SHIPMENT_OUTBOX_WORKER_ID` | generated | Unique worker instance ID |
+| `SHIPMENT_KAFKA_BROKERS` | _(empty)_ | Comma-separated brokers when transport=`kafka` |
+| `SHIPMENT_KAFKA_TOPIC` | `shipment.status.v1` | Kafka topic for status events |
+| `SHIPMENT_KAFKA_CLIENT_ID` | `shipment-service` | Kafka client ID |
+| `SHIPMENT_KAFKA_DIAL_TIMEOUT` | `10s` | Broker dial timeout |
+| `SHIPMENT_KAFKA_WRITE_TIMEOUT` | `10s` | Produce request timeout |
+| `SHIPMENT_KAFKA_TLS_ENABLED` | `false` | Enable TLS |
+| `SHIPMENT_KAFKA_TLS_CA_FILE` | _(empty)_ | CA bundle path |
+| `SHIPMENT_KAFKA_TLS_CERT_FILE` | _(empty)_ | Client certificate path |
+| `SHIPMENT_KAFKA_TLS_KEY_FILE` | _(empty)_ | Client private key path |
+| `SHIPMENT_KAFKA_TLS_SERVER_NAME` | _(empty)_ | TLS server name override |
+| `SHIPMENT_KAFKA_SASL_MECHANISM` | _(empty)_ | `plain`, `scram-sha-256`, or `scram-sha-512` |
+| `SHIPMENT_KAFKA_SASL_USERNAME` | _(empty)_ | SASL username |
+| `SHIPMENT_KAFKA_SASL_PASSWORD` | _(empty)_ | SASL password (never logged) |
 
 ## Endpoints
 
@@ -75,6 +88,16 @@ make outbox-integration-test
 ```
 
 Tests create and drop an isolated `freight_platform_outbox_test_*` database automatically.
+
+Kafka publisher integration (requires Redpanda; each test creates its own topic):
+
+```bash
+make messaging-up
+$env:TEST_KAFKA_BROKERS = "localhost:19092"
+make outbox-kafka-integration-test
+```
+
+See `docs/SHIPMENT_STATUS_KAFKA_PUBLISHER.md` for end-to-end PostgreSQL + Kafka tests.
 
 ## Examples
 

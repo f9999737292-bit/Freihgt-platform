@@ -20,7 +20,12 @@ func NewPublisher(cfg config.OutboxConfig) (EventPublisher, error) {
 	if transport == "" {
 		return nil, fmt.Errorf("SHIPMENT_OUTBOX_ENABLED=true requires SHIPMENT_OUTBOX_TRANSPORT")
 	}
-	return nil, fmt.Errorf("unsupported SHIPMENT_OUTBOX_TRANSPORT %q: no broker transport is implemented in v0.1", cfg.Transport)
+	switch transport {
+	case "kafka":
+		return NewKafkaPublisher(cfg.Kafka, NewRealClock())
+	default:
+		return nil, fmt.Errorf("unsupported SHIPMENT_OUTBOX_TRANSPORT %q", cfg.Transport)
+	}
 }
 
 type OutboxRepository interface {
