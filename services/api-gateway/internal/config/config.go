@@ -149,7 +149,7 @@ func Load() (Config, error) {
 			CriticalDelayMinutes:    intEnv("CONTROL_TOWER_CRITICAL_DELAY_MINUTES", 240),
 			StaleWarningMinutes:     intEnv("CONTROL_TOWER_STALE_WARNING_MINUTES", 120),
 			StaleCriticalMinutes:    intEnv("CONTROL_TOWER_STALE_CRITICAL_MINUTES", 360),
-			MaxDownstreamFetchLimit: intEnv("CONTROL_TOWER_MAX_DOWNSTREAM_FETCH_LIMIT", 200),
+			MaxDownstreamFetchLimit: intEnv("CONTROL_TOWER_MAX_DOWNSTREAM_FETCH_LIMIT", 100),
 			LegacyStatusTimeout:     legacyStatusTimeout,
 			ReadModel:               readModelCfg,
 		},

@@ -53,6 +53,26 @@ func TestMergeDisabledFullLegacyReturnsSummary(t *testing.T) {
 	}
 }
 
+func TestMergeShadowKeepsLegacyWhenFullAggregateUnavailable(t *testing.T) {
+	out := Merge(MergeInput{
+		Mode: ModeShadow,
+		Legacy: LegacyStatusInput{
+			TotalShipments:         3,
+			CountedShipments:       3,
+			ByStatus:               map[string]int64{"IN_TRANSIT": 1, "READY_FOR_BILLING": 2},
+			LimitedDataset:         false,
+			FullAggregateAvailable: false,
+		},
+		ReadModel: readModelPayload(0, map[string]int64{}, 0, true),
+	})
+	if out.StatusSummary == nil || out.StatusSummary.Source != SourceLegacy {
+		t.Fatalf("shadow mode must expose page legacy status summary, got %+v", out.StatusSummary)
+	}
+	if out.Comparison != ComparisonLegacyFullAggregateUnavailable {
+		t.Fatalf("comparison=%q want LEGACY_FULL_AGGREGATE_UNAVAILABLE", out.Comparison)
+	}
+}
+
 func TestMergeShadowKeepsLegacyInOutput(t *testing.T) {
 	out := Merge(MergeInput{
 		Mode:      ModeShadow,

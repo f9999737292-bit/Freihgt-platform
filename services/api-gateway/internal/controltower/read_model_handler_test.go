@@ -601,3 +601,78 @@ func TestSummaryReadModelVerifiedTenantHeaderOnly(t *testing.T) {
 		t.Fatalf("authorization must not be forwarded to read-model: %q", gotAuth)
 	}
 }
+
+func TestSummaryDisabledVsShadowPublicResponseEquivalence(t *testing.T) {
+	tenantA := "11111111-1111-1111-1111-111111111111"
+	shipmentServer := shipmentCombinedServer(shipmentCombinedConfig{
+		items: []map[string]any{
+			{"id": "s1", "shipment_number": "SH-1", "status": "IN_TRANSIT"},
+			{"id": "s2", "shipment_number": "SH-2", "status": "DELIVERED"},
+		},
+		total: 2,
+		aggregateBody: `{
+			"totalShipments": 2,
+			"countedShipments": 2,
+			"byStatus": {"IN_TRANSIT": 1, "DELIVERED": 1},
+			"complete": true
+		}`,
+	})
+	defer shipmentServer.Close()
+
+	baseCfg := readModelHandlerConfig{
+		testHandlerConfig: testHandlerConfig{
+			shipmentURL: shipmentServer.URL,
+			identityURL: identityAdminServer().URL,
+			authEnabled: true,
+		},
+		readModelFn: func(w http.ResponseWriter, r *http.Request) {
+			_, _ = w.Write([]byte(`{"totalShipments":99,"byStatus":{"CANCELLED":99},"incompleteProjections":0,"freshness":{"consumerRunning":true}}`))
+		},
+	}
+
+	disabledHandler, _ := newReadModelSummaryHandler(t, func() readModelHandlerConfig {
+		cfg := baseCfg
+		cfg.readModelMode = controltowerreadmodel.ModeDisabled
+		return cfg
+	}())
+	shadowHandler, _ := newReadModelSummaryHandler(t, func() readModelHandlerConfig {
+		cfg := baseCfg
+		cfg.readModelMode = controltowerreadmodel.ModeShadow
+		return cfg
+	}())
+
+	token := signTestToken(t, "secret", "user-a", tenantA, "user@example.com")
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/control-tower/summary", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	disabledRec := serveThroughAuth(t, disabledHandler, req, "secret", true)
+	shadowRec := serveThroughAuth(t, shadowHandler, req, "secret", true)
+	if disabledRec.Code != http.StatusOK || shadowRec.Code != http.StatusOK {
+		t.Fatalf("status disabled=%d shadow=%d", disabledRec.Code, shadowRec.Code)
+	}
+
+	disabledResp := decodeSummary(t, disabledRec.Body.String())
+	shadowResp := decodeSummary(t, shadowRec.Body.String())
+	if disabledResp.StatusSummary == nil || shadowResp.StatusSummary == nil {
+		t.Fatal("expected statusSummary in both modes")
+	}
+	if shadowResp.StatusSummary.Source != StatusSummarySourceLegacy {
+		t.Fatalf("shadow must keep legacy source, got %q", shadowResp.StatusSummary.Source)
+	}
+	if disabledResp.StatusSummary.Source != shadowResp.StatusSummary.Source {
+		t.Fatalf("source mismatch disabled=%q shadow=%q", disabledResp.StatusSummary.Source, shadowResp.StatusSummary.Source)
+	}
+	if disabledResp.StatusSummary.TotalShipments != shadowResp.StatusSummary.TotalShipments {
+		t.Fatalf("total mismatch disabled=%d shadow=%d", disabledResp.StatusSummary.TotalShipments, shadowResp.StatusSummary.TotalShipments)
+	}
+	if disabledResp.StatusSummary.CountedShipments != shadowResp.StatusSummary.CountedShipments {
+		t.Fatalf("counted mismatch disabled=%d shadow=%d", disabledResp.StatusSummary.CountedShipments, shadowResp.StatusSummary.CountedShipments)
+	}
+	if disabledResp.StatusSummary.ByStatus["IN_TRANSIT"] != shadowResp.StatusSummary.ByStatus["IN_TRANSIT"] ||
+		disabledResp.StatusSummary.ByStatus["DELIVERED"] != shadowResp.StatusSummary.ByStatus["DELIVERED"] {
+		t.Fatalf("byStatus mismatch disabled=%v shadow=%v", disabledResp.StatusSummary.ByStatus, shadowResp.StatusSummary.ByStatus)
+	}
+	if disabledResp.StatusSummary.LimitedDataset != shadowResp.StatusSummary.LimitedDataset {
+		t.Fatalf("limitedDataset mismatch")
+	}
+}

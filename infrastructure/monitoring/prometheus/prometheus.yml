@@ -2,6 +2,9 @@ global:
   scrape_interval: 15s
   evaluation_interval: 15s
 
+rule_files:
+  - /etc/prometheus/control_tower_shadow_recording_rules.yml
+
 scrape_configs:
   - job_name: api-gateway
     static_configs:
@@ -46,4 +49,9 @@ scrape_configs:
   - job_name: low-code-service
     static_configs:
       - targets: ["low-code-service:8088"]
+    metrics_path: /metrics
+
+  - job_name: control-tower-read-model-service
+    static_configs:
+      - targets: ["control-tower-read-model-service:8089"]
     metrics_path: /metrics

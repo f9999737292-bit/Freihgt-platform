@@ -1,0 +1,28 @@
+# Staging / controlled local shadow rollout override.
+# Base compose keeps CONTROL_TOWER_READ_MODEL_MODE=disabled and consumer off.
+# Apply with:
+#   docker compose \
+#     -f infrastructure/docker-compose/docker-compose.yml \
+#     -f infrastructure/docker-compose/docker-compose.staging-shadow.yml \
+#     --profile messaging --profile read-model --profile observability \
+#     up -d
+#
+# Do not commit secrets. Kafka/DB credentials come from environment or .env (gitignored).
+
+services:
+  api-gateway:
+    environment:
+      CONTROL_TOWER_READ_MODEL_MODE: shadow
+      CONTROL_TOWER_READ_MODEL_BASE_URL: http://control-tower-read-model-service:8089
+      CONTROL_TOWER_READ_MODEL_TIMEOUT: 800ms
+      CONTROL_TOWER_READ_MODEL_REQUIRE_CONSUMER_RUNNING: "true"
+      DEV_TENANT_ID: ${DEV_TENANT_ID}
+      AUTH_ENABLED: ${AUTH_ENABLED:-false}
+
+  control-tower-read-model-service:
+    environment:
+      CONTROL_TOWER_CONSUMER_ENABLED: "true"
+      CONTROL_TOWER_KAFKA_BROKERS: redpanda:9092
+      CONTROL_TOWER_KAFKA_TOPIC: shipment.status.v1
+      CONTROL_TOWER_KAFKA_GROUP_ID: control-tower-shipment-status-v1
+      CONTROL_TOWER_KAFKA_CLIENT_ID: control-tower-read-model-service

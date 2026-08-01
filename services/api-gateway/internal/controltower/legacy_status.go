@@ -32,7 +32,7 @@ func (s *Service) resolveLegacyStatusInput(
 
 	summary, depErr := s.legacyAggregate.FetchStatusSummary(aggCtx, mode, reqCtx.TenantID, reqCtx.RequestID)
 	if depErr != nil {
-		s.legacyMetrics.ObserveError("error", string(depErr.Reason))
+		s.legacyMetrics.ObserveError("ERROR", string(depErr.Reason))
 		fallbackReason := legacyaggregate.FallbackReasonFullLegacyUnavailable
 		incomplete := depErr.Reason == legacyaggregate.ReasonIncomplete
 		if incomplete {

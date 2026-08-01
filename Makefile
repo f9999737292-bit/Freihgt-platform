@@ -17,6 +17,8 @@ export
 
 COMPOSE_FILE ?= infrastructure/docker-compose/docker-compose.yml
 COMPOSE=docker compose -f $(COMPOSE_FILE)
+COMPOSE_SHADOW_FILE ?= infrastructure/docker-compose/docker-compose.staging-shadow.yml
+COMPOSE_SHADOW=docker compose -f $(COMPOSE_FILE) -f $(COMPOSE_SHADOW_FILE)
 
 # Backend containers started by platform-up (serial build uses this list).
 BACKEND_SERVICES := \
@@ -55,6 +57,9 @@ K6 ?= k6
 	db-metrics-check generate-db-metrics-traffic db-pool-metrics-check postgres-logs \
 	python-check python-check-win 	docker-readiness ports-check bash-check \
 	docker-disk-usage docker-clean-safe docker-volumes \
+	control-tower-shadow-rollout-config-check control-tower-shadow-rollout-smoke-test \
+	control-tower-shadow-rollout-metrics-check control-tower-shadow-rollout-regression \
+	control-tower-shadow-rollout-observability-check \
 	performance-smoke performance-load performance-companies performance-transport-orders \
 	performance-rfx performance-shipments performance-billing performance-index-check \
 	go-build go-test \
@@ -297,6 +302,7 @@ metrics-check:
 	@curl -sf http://localhost:8086/metrics >/dev/null
 	@curl -sf http://localhost:8087/metrics >/dev/null
 	@curl -sf http://localhost:8088/metrics >/dev/null
+	@curl -sf http://localhost:8089/metrics >/dev/null 2>/dev/null || echo "Note: read-model metrics on :8089 (profile read-model)"
 	@echo "Metrics OK"
 
 health-check:
@@ -526,6 +532,24 @@ control-tower-full-status-baseline-integration-test:
 
 control-tower-full-status-baseline-integration-test-parallel:
 	@cd services/api-gateway && go test -tags=integration ./internal/integration/controltowerreadmodel/... -run "FullBaseline|BlackBox.*Aggregate|ShadowMatch" -count=1 -parallel=2 -p=2 -v
+
+control-tower-shadow-rollout-config-check:
+	"$(BASH)" scripts/dev/control_tower_shadow_rollout_config_check.sh
+
+control-tower-shadow-rollout-smoke-test:
+	"$(BASH)" scripts/dev/control_tower_shadow_rollout_smoke.sh
+
+control-tower-shadow-rollout-metrics-check:
+	"$(BASH)" scripts/dev/control_tower_shadow_rollout_metrics_check.sh
+
+control-tower-shadow-rollout-regression:
+	$(MAKE) control-tower-shadow-rollout-config-check
+	"$(BASH)" -lc 'cd services/api-gateway && go test ./internal/controltower/... ./internal/controltowerreadmodel/... -run "Shadow|Compare|Merge|DisabledVsShadow|Metrics" -count=1'
+	"$(BASH)" -lc 'cd services/api-gateway && go test -tags=integration ./internal/integration/controltowerreadmodel/... -run "Shadow|FullBaselineShadow|ShadowMatch" -count=1 -p=1'
+	"$(BASH)" -lc 'cd services/control-tower-read-model-service && go test ./internal/consumer/... -run "Poll|Error|Recovery|Cancellation" -count=1'
+
+control-tower-shadow-rollout-observability-check:
+	"$(BASH)" scripts/dev/control_tower_shadow_rollout_observability_check.sh
 
 run-low-code-service:
 	@cd services/low-code-service && go run ./cmd/server

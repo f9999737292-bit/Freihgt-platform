@@ -94,7 +94,7 @@ type remoteSummary struct {
 
 func (c *Client) FetchStatusSummary(ctx context.Context, mode, tenantID, requestID string) (*Summary, *DependencyError) {
 	start := time.Now()
-	result := "success"
+	result := "SUCCESS"
 	reason := ReasonUnknown
 	fallbackLevel := FallbackLevelFullAggregate
 
@@ -106,7 +106,7 @@ func (c *Client) FetchStatusSummary(ctx context.Context, mode, tenantID, request
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		reason = ReasonUnknown
-		result = "error"
+		result = "ERROR"
 		c.metrics.ObserveError(result, string(reason))
 		return nil, &DependencyError{Reason: reason, Err: err}
 	}
@@ -118,14 +118,14 @@ func (c *Client) FetchStatusSummary(ctx context.Context, mode, tenantID, request
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		reason = classifyRequestError(ctx, err)
-		result = "error"
+		result = "ERROR"
 		return nil, &DependencyError{Reason: reason, Err: err}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		reason = ReasonNon2XX
-		result = "error"
+		result = "ERROR"
 		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
 		return nil, &DependencyError{Reason: reason, Status: resp.StatusCode}
 	}
@@ -134,31 +134,31 @@ func (c *Client) FetchStatusSummary(ctx context.Context, mode, tenantID, request
 	body, err := io.ReadAll(limited)
 	if err != nil {
 		reason = ReasonMalformedResponse
-		result = "error"
+		result = "ERROR"
 		return nil, &DependencyError{Reason: reason, Err: err}
 	}
 	if int64(len(body)) > c.maxBytes {
 		reason = ReasonMalformedResponse
-		result = "error"
+		result = "ERROR"
 		return nil, &DependencyError{Reason: reason, Err: fmt.Errorf("response exceeds size limit")}
 	}
 
 	var payload remoteSummary
 	if err := json.Unmarshal(body, &payload); err != nil {
 		reason = ReasonMalformedResponse
-		result = "error"
+		result = "ERROR"
 		return nil, &DependencyError{Reason: reason, Err: err}
 	}
 	contract := aggregateFromRemote(&payload)
 	if err := ValidateAggregateContract(contract); err != nil {
 		reason = ReasonInvalidContract
-		result = "error"
+		result = "ERROR"
 		c.metrics.ObserveError(result, string(reason))
 		return nil, &DependencyError{Reason: reason, Err: err}
 	}
 	if err := ValidateCompleteLegacyAggregate(contract); err != nil {
 		reason = ReasonIncomplete
-		result = "error"
+		result = "ERROR"
 		c.metrics.ObserveError(result, string(reason))
 		return nil, &DependencyError{Reason: reason, Err: err}
 	}

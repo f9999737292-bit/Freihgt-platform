@@ -33,7 +33,7 @@ func NewDownstreamClient(
 		httpClient = &http.Client{Timeout: 30 * time.Second}
 	}
 	if maxFetch <= 0 {
-		maxFetch = 200
+		maxFetch = 100
 	}
 	return &DownstreamClient{
 		httpClient: httpClient,

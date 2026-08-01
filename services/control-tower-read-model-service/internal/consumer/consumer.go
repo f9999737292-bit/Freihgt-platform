@@ -20,14 +20,15 @@ type projectionStore interface {
 }
 
 type Service struct {
-	client    *kgo.Client
-	committer OffsetCommitter
-	repo      projectionStore
-	cfg       config.Config
-	log       *slog.Logger
-	metrics   *ctmetrics.ConsumerMetrics
-	freshness *Freshness
-	topic     string
+	client      *kgo.Client
+	committer   OffsetCommitter
+	repo        projectionStore
+	cfg         config.Config
+	log         *slog.Logger
+	metrics     *ctmetrics.ConsumerMetrics
+	freshness   *Freshness
+	topic       string
+	pollFetches func(context.Context) kgo.Fetches // test hook only
 }
 
 func NewService(
@@ -71,6 +72,8 @@ func (s *Service) Run(ctx context.Context) error {
 	s.freshness.SetRunning(true)
 	defer s.freshness.SetRunning(false)
 
+	var pollBackoff time.Duration
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -79,15 +82,32 @@ func (s *Service) Run(ctx context.Context) error {
 		}
 
 		pollCtx, cancel := context.WithTimeout(ctx, s.cfg.Consumer.PollTimeout)
-		fetches := s.client.PollFetches(pollCtx)
+		fetches := s.pollOnce(pollCtx)
+		pollErr := fetches.Err()
 		cancel()
-		if err := fetches.Err(); err != nil {
-			if ctx.Err() != nil {
-				return ctx.Err()
-			}
-			s.metrics.ObserveError("POLL_ERROR")
-			s.log.Warn("kafka poll failed", slog.String("error", s.cfg.Kafka.ErrorString(err)))
+
+		outcome, errorCode := ClassifyPollError(ctx, pollCtx, pollErr)
+		switch outcome {
+		case PollOutcomeShutdown:
+			return ctx.Err()
+		case PollOutcomeIdle:
+			pollBackoff = 0
 			continue
+		case PollOutcomeError:
+			s.metrics.ObserveError(errorCode)
+			s.log.Warn("kafka poll failed",
+				slog.String("error_code", errorCode),
+				slog.String("error", s.cfg.Kafka.ErrorString(pollErr)),
+			)
+			pollBackoff = nextPollBackoff(pollBackoff, s.cfg.Consumer.PollTimeout)
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(pollBackoff):
+			}
+			continue
+		case PollOutcomeOK:
+			pollBackoff = 0
 		}
 
 		fetches.EachRecord(func(record *kgo.Record) {
@@ -97,6 +117,13 @@ func (s *Service) Run(ctx context.Context) error {
 			s.processRecord(ctx, record)
 		})
 	}
+}
+
+func (s *Service) pollOnce(ctx context.Context) kgo.Fetches {
+	if s.pollFetches != nil {
+		return s.pollFetches(ctx)
+	}
+	return s.client.PollFetches(ctx)
 }
 
 func (s *Service) processRecord(ctx context.Context, record *kgo.Record) {

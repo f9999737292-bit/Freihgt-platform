@@ -8,12 +8,12 @@ func Merge(input MergeInput) MergeOutput {
 
 	switch input.Mode {
 	case ModeDisabled:
-		if input.Legacy.FullAggregateAvailable || input.Legacy.LimitedDataset {
+		if input.Legacy.FullAggregateAvailable || input.Legacy.LimitedDataset || input.Legacy.CountedShipments > 0 {
 			summary := legacySummary
 			out.StatusSummary = &summary
 			freshness := &StatusSummaryFreshness{
-				Loaded:               true,
-				Source:               SourceLegacy,
+				Loaded:                true,
+				Source:                SourceLegacy,
 				LegacyAggregateLoaded: boolPtr(input.Legacy.FullAggregateAvailable),
 			}
 			if input.Legacy.LimitedDataset {
@@ -36,7 +36,7 @@ func Merge(input MergeInput) MergeOutput {
 		} else {
 			out.Comparison = CompareStatusSummaries(input.Legacy, input.ReadModel)
 		}
-		if input.Legacy.FullAggregateAvailable || input.Legacy.LimitedDataset {
+		if input.Legacy.FullAggregateAvailable || input.Legacy.LimitedDataset || input.Legacy.CountedShipments > 0 {
 			summary := legacySummary
 			out.StatusSummary = &summary
 			freshness := &StatusSummaryFreshness{

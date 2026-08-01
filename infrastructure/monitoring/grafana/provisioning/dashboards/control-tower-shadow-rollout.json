@@ -1,0 +1,223 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "id": 1,
+      "targets": [
+        {
+          "expr": "sum by (comparison) (rate(control_tower_read_model_shadow_comparison_total[5m]))",
+          "legendFormat": "{{comparison}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Shadow comparison results",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "id": 2,
+      "targets": [
+        {
+          "expr": "sum(rate(control_tower_read_model_shadow_comparison_total{comparison=\"MATCH\"}[5m])) / clamp_min(sum(rate(control_tower_read_model_shadow_comparison_total[5m])), 1e-9)",
+          "legendFormat": "match ratio",
+          "refId": "A"
+        }
+      ],
+      "title": "Shadow match ratio",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "id": 3,
+      "targets": [
+        {
+          "expr": "sum by (result, reason) (rate(control_tower_read_model_requests_total[5m]))",
+          "legendFormat": "{{result}}/{{reason}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Read-model request success/failure",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "id": 4,
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(control_tower_read_model_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "read-model p95",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{service=\"api-gateway\",path=~\".*/control-tower/summary.*\"}[5m])))",
+          "legendFormat": "gateway summary p95",
+          "refId": "B"
+        }
+      ],
+      "title": "Read-model and gateway summary latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "id": 5,
+      "targets": [
+        {
+          "expr": "sum by (result, reason) (rate(control_tower_legacy_status_aggregate_requests_total[5m]))",
+          "legendFormat": "{{result}}/{{reason}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Full legacy aggregate requests",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "id": 6,
+      "targets": [
+        {
+          "expr": "sum by (fallback_level, reason) (rate(control_tower_legacy_status_fallback_total[5m]))",
+          "legendFormat": "{{fallback_level}}/{{reason}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Legacy fallback levels",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "id": 7,
+      "targets": [
+        {
+          "expr": "sum(rate(control_tower_shipment_consumer_records_total[5m]))",
+          "legendFormat": "consumer records",
+          "refId": "A"
+        }
+      ],
+      "title": "Consumer processing rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "id": 8,
+      "targets": [
+        {
+          "expr": "sum by (error_code) (rate(control_tower_shipment_consumer_errors_total[5m]))",
+          "legendFormat": "{{error_code}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Consumer processing errors",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 32 },
+      "id": 9,
+      "targets": [
+        {
+          "expr": "sum(rate(control_tower_shipment_projection_applied_total[5m]))",
+          "legendFormat": "applied",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(control_tower_shipment_projection_duplicate_total[5m]))",
+          "legendFormat": "duplicate",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(rate(control_tower_shipment_projection_stale_total[5m]))",
+          "legendFormat": "stale",
+          "refId": "C"
+        },
+        {
+          "expr": "sum(rate(control_tower_shipment_projection_gap_total[5m]))",
+          "legendFormat": "gap",
+          "refId": "D"
+        }
+      ],
+      "title": "Projection applied/duplicate/stale/gap",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 32 },
+      "id": 10,
+      "targets": [
+        {
+          "expr": "sum(rate(control_tower_shipment_dead_letter_total[5m]))",
+          "legendFormat": "dead-letter",
+          "refId": "A"
+        }
+      ],
+      "title": "Dead-letter rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 32 },
+      "id": 11,
+      "targets": [
+        {
+          "expr": "time() - control_tower_shipment_consumer_last_record_timestamp_seconds",
+          "legendFormat": "last record age",
+          "refId": "A"
+        },
+        {
+          "expr": "time() - control_tower_shipment_projection_last_applied_timestamp_seconds",
+          "legendFormat": "last apply age",
+          "refId": "B"
+        }
+      ],
+      "title": "Consumer/projection freshness",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 40 },
+      "id": 12,
+      "targets": [
+        {
+          "expr": "sum(rate(control_tower_read_model_partial_response_total[5m]))",
+          "legendFormat": "partial responses",
+          "refId": "A"
+        }
+      ],
+      "title": "Read-model partial responses",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["freight-platform", "control-tower", "shadow-rollout"],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "title": "Control Tower Read Model Shadow Rollout",
+  "uid": "control-tower-shadow-rollout",
+  "version": 1
+}

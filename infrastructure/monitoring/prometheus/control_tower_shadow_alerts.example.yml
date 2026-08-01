@@ -1,0 +1,47 @@
+# Example alert rules for Control Tower shadow rollout v0.1.
+# Not loaded by default. Copy thresholds into your alerting stack after operational review.
+# Do not auto-enable primary mode from these alerts.
+
+groups:
+  - name: control_tower_shadow_rollout_examples
+    rules:
+      - alert: ControlTowerReadModelConsumerNotRunning
+        expr: |
+          sum(rate(control_tower_read_model_requests_total{mode="shadow",reason="CONSUMER_NOT_RUNNING"}[10m])) > 0
+        for: 15m
+        labels:
+          severity: warning
+          component: control-tower-read-model
+        annotations:
+          summary: Read-model consumer reported not running during shadow rollout
+          runbook: docs/CONTROL_TOWER_SHADOW_ROLLOUT_RUNBOOK.md
+
+      - alert: ControlTowerShadowReadModelUnavailable
+        expr: |
+          sum(rate(control_tower_read_model_requests_total{mode="shadow",result="error"}[10m])) /
+          clamp_min(sum(rate(control_tower_read_model_requests_total{mode="shadow"}[10m])), 1) > 0.5
+        for: 15m
+        labels:
+          severity: warning
+          component: api-gateway
+        annotations:
+          summary: Elevated read-model dependency failures in shadow mode
+
+      - alert: ControlTowerShadowSustainedMismatch
+        expr: |
+          sum(rate(control_tower_read_model_shadow_comparison_total{comparison=~"TOTAL_MISMATCH|STATUS_COUNT_MISMATCH"}[30m])) > 0
+        for: 30m
+        labels:
+          severity: warning
+          component: control-tower-shadow
+        annotations:
+          summary: Sustained shadow comparison mismatches detected
+
+      - alert: ControlTowerConsumerDeadLetterGrowth
+        expr: increase(control_tower_shipment_dead_letter_total[1h]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          component: control-tower-read-model
+        annotations:
+          summary: Dead-letter rows increased during shadow rollout
