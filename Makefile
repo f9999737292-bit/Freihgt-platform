@@ -488,6 +488,30 @@ run-billing-register-service:
 test-billing-register-service:
 	@cd services/billing-register-service && go test ./...
 
+run-control-tower-read-model-service:
+	@cd services/control-tower-read-model-service && go run ./cmd/server
+
+control-tower-read-model-test:
+	@cd services/control-tower-read-model-service && go test ./...
+
+control-tower-read-model-build:
+	@cd services/control-tower-read-model-service && go build -o bin/server ./cmd/server
+
+control-tower-read-model-integration-test:
+	@cd services/control-tower-read-model-service && go test -tags=integration ./internal/integration/... -count=1 -v
+
+control-tower-read-model-restart-e2e-test:
+	@cd services/control-tower-read-model-service && go test -tags=integration ./internal/integration/kafka/... -run "ConsumerRestart|OffsetCommitFailure|DeadLetterRestart" -count=1 -v
+
+control-tower-read-model-up:
+	$(COMPOSE) --profile read-model up -d control-tower-read-model-service
+
+control-tower-read-model-down:
+	$(COMPOSE) --profile read-model stop control-tower-read-model-service
+
+control-tower-read-model-status:
+	$(COMPOSE) --profile read-model ps control-tower-read-model-service
+
 run-low-code-service:
 	@cd services/low-code-service && go run ./cmd/server
 

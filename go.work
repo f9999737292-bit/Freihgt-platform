@@ -6,6 +6,7 @@ use (
 	./services/api-gateway
 	./services/billing-register-service
 	./services/company-service
+	./services/control-tower-read-model-service
 	./services/document-service
 	./services/identity-service
 	./services/localization-service

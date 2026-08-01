@@ -229,6 +229,42 @@ services:
       retries: 5
       start_period: 15s
 
+  control-tower-read-model-service:
+    profiles:
+      - read-model
+    build:
+      context: ../..
+      dockerfile: services/control-tower-read-model-service/Dockerfile
+    container_name: freight_control_tower_read_model_service
+    restart: unless-stopped
+    environment:
+      CONTROL_TOWER_READ_MODEL_SERVICE_PORT: 8089
+      CONTROL_TOWER_DATABASE_URL: postgres://freight:freight_password@postgres:5432/freight_platform?sslmode=disable
+      CONTROL_TOWER_CONSUMER_ENABLED: "false"
+      CONTROL_TOWER_KAFKA_BROKERS: redpanda:9092
+      CONTROL_TOWER_KAFKA_TOPIC: shipment.status.v1
+      CONTROL_TOWER_KAFKA_GROUP_ID: control-tower-shipment-status-v1
+      CONTROL_TOWER_KAFKA_CLIENT_ID: control-tower-read-model-service
+      LOG_LEVEL: info
+    ports:
+      - "127.0.0.1:8089:8089"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - freight-platform-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8089/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+
   api-gateway:
     build:
       context: ../..

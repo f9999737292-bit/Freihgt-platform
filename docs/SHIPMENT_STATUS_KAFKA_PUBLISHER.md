@@ -224,7 +224,9 @@ Not used in v0.1. Event contract is the versioned JSON schema in `packages/event
 
 ## Future consumer rollout
 
-Downstream services will consume `shipment.status.v1`, deduplicate by `eventId`/`sourceEventId`, and treat the envelope as the contract. Consumer deployment, offset management, and replay tooling are out of scope for v0.1.
+The `control-tower-read-model-service` (v0.1) consumes `shipment.status.v1` into a PostgreSQL read-model. See [CONTROL_TOWER_SHIPMENT_STATUS_READ_MODEL.md](./CONTROL_TOWER_SHIPMENT_STATUS_READ_MODEL.md).
+
+Downstream services deduplicate by `eventId`/`sourceEventId`, and treat the envelope as the contract. API Gateway BFF integration with the read-model is a separate rollout step.
 
 ## Go client
 
