@@ -258,6 +258,29 @@ export interface ControlTowerSummaryResponse {
   shipments: ControlTowerSummaryPagination
   criticalEvents: ControlTowerEvent[]
   filters: ControlTowerSummaryFilters
+  statusSummary?: ControlTowerStatusSummary
+  statusSummaryFreshness?: ControlTowerStatusSummaryFreshness
+}
+
+export type ControlTowerStatusSummarySource = 'LEGACY' | 'READ_MODEL'
+
+export interface ControlTowerStatusSummary {
+  totalShipments: number
+  countedShipments?: number
+  byStatus: Record<string, number>
+  incompleteProjections?: number
+  source?: ControlTowerStatusSummarySource
+  limitedDataset?: boolean
+}
+
+export interface ControlTowerStatusSummaryFreshness {
+  loaded?: boolean
+  fallbackUsed?: boolean
+  partial?: boolean
+  source?: ControlTowerStatusSummarySource
+  consumerRunning?: boolean
+  lastRecordReceivedAt?: string
+  lastProjectionAppliedAt?: string
 }
 
 export function createDefaultControlTowerFilters(): ControlTowerFilters {
@@ -278,4 +301,9 @@ export const CONTROL_TOWER_PARTIAL_WARNING_CODES = [
   'TRANSPORT_ORDERS_UNAVAILABLE',
   'KPI_CALCULATED_FROM_LIMITED_DATASET',
   'FILTER_OPTIONS_INCOMPLETE',
+  'CONTROL_TOWER_READ_MODEL_UNAVAILABLE',
+  'CONTROL_TOWER_READ_MODEL_CONSUMER_NOT_RUNNING',
+  'CONTROL_TOWER_READ_MODEL_PARTIAL',
+  'CONTROL_TOWER_READ_MODEL_FALLBACK_USED',
+  'CONTROL_TOWER_LEGACY_STATUS_SUMMARY_LIMITED',
 ] as const

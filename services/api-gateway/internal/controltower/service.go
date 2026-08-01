@@ -2,19 +2,35 @@ package controltower
 
 import (
 	"context"
+	"log/slog"
+	"net/http"
 	"sync"
 	"time"
 
 	"github.com/freight-platform/api-gateway/internal/config"
+	"github.com/freight-platform/api-gateway/internal/controltowerreadmodel"
 	apperrors "github.com/freight-platform/api-gateway/internal/platform/errors"
 )
 
 type Service struct {
-	client     *DownstreamClient
-	thresholds SLAThresholds
+	client       *DownstreamClient
+	thresholds   SLAThresholds
+	readModel    *controltowerreadmodel.Client
+	readModelCfg controltowerreadmodel.Config
+	readModelLog *slog.Logger
+	metrics      *controltowerreadmodel.Metrics
 }
 
-func NewService(cfg config.Config, client *DownstreamClient) *Service {
+func NewService(cfg config.Config, client *DownstreamClient, log *slog.Logger) *Service {
+	metrics := controltowerreadmodel.NewMetrics()
+	var readModelClient *controltowerreadmodel.Client
+	if cfg.ControlTower.ReadModel.Mode.Enabled() {
+		readModelClient = controltowerreadmodel.NewClient(
+			&http.Client{Timeout: cfg.ControlTower.ReadModel.Timeout},
+			cfg.ControlTower.ReadModel,
+			metrics,
+		)
+	}
 	return &Service{
 		client: client,
 		thresholds: SLAThresholds{
@@ -23,6 +39,10 @@ func NewService(cfg config.Config, client *DownstreamClient) *Service {
 			StaleWarningMinutes:  cfg.ControlTower.StaleWarningMinutes,
 			StaleCriticalMinutes: cfg.ControlTower.StaleCriticalMinutes,
 		},
+		readModel:    readModelClient,
+		readModelCfg: cfg.ControlTower.ReadModel,
+		readModelLog: log,
+		metrics:      metrics,
 	}
 }
 
@@ -124,14 +144,19 @@ func (s *Service) GetSummary(ctx context.Context, reqCtx RequestContext, query L
 		freshness.Warnings = appendUniqueWarning(freshness.Warnings, WarningFilterOptionsIncomplete)
 	}
 
-	return SummaryResponse{
+	legacyTotal, legacyCounted, legacyByStatus, legacyLimited := BuildLegacyStatusSummary(shipmentsRaw, shipmentsTotal)
+
+	response := SummaryResponse{
 		GeneratedAt:    now,
 		DataFreshness:  freshness,
 		KPI:            kpi,
 		Shipments:      page,
 		CriticalEvents: criticalEvents,
 		Filters:        filters,
-	}, nil
+	}
+
+	s.applyReadModelStatusSummary(ctx, &response, reqCtx, legacyTotal, legacyCounted, legacyByStatus, legacyLimited)
+	return response, nil
 }
 
 func (s *Service) mapShipment(

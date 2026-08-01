@@ -556,7 +556,18 @@
       "DOCUMENTS_UNAVAILABLE": "Document registry is temporarily unavailable",
       "TRANSPORT_ORDERS_UNAVAILABLE": "Transport orders are temporarily unavailable",
       "KPI_CALCULATED_FROM_LIMITED_DATASET": "KPI calculated from a limited shipment dataset",
-      "FILTER_OPTIONS_INCOMPLETE": "Filter options may be incomplete"
+      "FILTER_OPTIONS_INCOMPLETE": "Filter options may be incomplete",
+      "CONTROL_TOWER_READ_MODEL_UNAVAILABLE": "Status projection is temporarily unavailable",
+      "CONTROL_TOWER_READ_MODEL_CONSUMER_NOT_RUNNING": "Status projection consumer is not running",
+      "CONTROL_TOWER_READ_MODEL_PARTIAL": "Some status projections have version gaps",
+      "CONTROL_TOWER_READ_MODEL_FALLBACK_USED": "Status counts were loaded from the current source",
+      "CONTROL_TOWER_LEGACY_STATUS_SUMMARY_LIMITED": "Status summary covers a limited shipment sample"
+    },
+    "readModel": {
+      "sourceBanner": "Status source: Control Tower projection",
+      "fallbackBanner": "Status projection is temporarily unavailable. Showing data from the current source.",
+      "partialBanner": "Some projections have version gaps. Status data may be incomplete.",
+      "legacyLimitedBanner": "The status summary is calculated from a limited shipment dataset and may be incomplete."
     },
     "accessDeniedTitle": "Access denied",
     "accessDeniedDescription": "You do not have permission to view Control Tower.",

@@ -556,7 +556,18 @@
       "DOCUMENTS_UNAVAILABLE": "文档登记暂时不可用",
       "TRANSPORT_ORDERS_UNAVAILABLE": "运输订单暂时不可用",
       "KPI_CALCULATED_FROM_LIMITED_DATASET": "KPI 基于有限的运输数据集计算",
-      "FILTER_OPTIONS_INCOMPLETE": "筛选选项可能不完整"
+      "FILTER_OPTIONS_INCOMPLETE": "筛选选项可能不完整",
+      "CONTROL_TOWER_READ_MODEL_UNAVAILABLE": "状态投影暂时不可用",
+      "CONTROL_TOWER_READ_MODEL_CONSUMER_NOT_RUNNING": "状态投影消费者未运行",
+      "CONTROL_TOWER_READ_MODEL_PARTIAL": "部分投影存在版本缺口",
+      "CONTROL_TOWER_READ_MODEL_FALLBACK_USED": "状态汇总来自当前数据源",
+      "CONTROL_TOWER_LEGACY_STATUS_SUMMARY_LIMITED": "状态汇总仅覆盖有限的运输样本"
+    },
+    "readModel": {
+      "sourceBanner": "状态来源：Control Tower 投影",
+      "fallbackBanner": "状态投影暂时不可用，当前显示现有数据源。",
+      "partialBanner": "部分投影存在版本缺口，状态数据可能不完整。",
+      "legacyLimitedBanner": "状态汇总基于有限的运输数据集计算，可能不完整。"
     },
     "accessDeniedTitle": "无权访问",
     "accessDeniedDescription": "您没有查看控制塔的权限。",

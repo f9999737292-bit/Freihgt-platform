@@ -34,7 +34,7 @@ func NewHandler(log *slog.Logger, cfg config.Config) *Handler {
 	)
 	return &Handler{
 		log:         log,
-		service:     NewService(cfg, client),
+		service:     NewService(cfg, client, log),
 		client:      client,
 		authEnabled: cfg.AuthEnabled,
 		devTenantID: strings.TrimSpace(cfg.DevTenantID),

@@ -556,7 +556,18 @@
       "DOCUMENTS_UNAVAILABLE": "Реестр документов временно недоступен",
       "TRANSPORT_ORDERS_UNAVAILABLE": "Транспортные заказы временно недоступны",
       "KPI_CALCULATED_FROM_LIMITED_DATASET": "KPI рассчитаны по ограниченному набору перевозок",
-      "FILTER_OPTIONS_INCOMPLETE": "Список фильтров может быть неполным"
+      "FILTER_OPTIONS_INCOMPLETE": "Список фильтров может быть неполным",
+      "CONTROL_TOWER_READ_MODEL_UNAVAILABLE": "Проекция статусов временно недоступна",
+      "CONTROL_TOWER_READ_MODEL_CONSUMER_NOT_RUNNING": "Consumer проекции статусов не запущен",
+      "CONTROL_TOWER_READ_MODEL_PARTIAL": "Часть проекций содержит пропуски версий",
+      "CONTROL_TOWER_READ_MODEL_FALLBACK_USED": "Сводка статусов загружена из текущего источника",
+      "CONTROL_TOWER_LEGACY_STATUS_SUMMARY_LIMITED": "Сводка статусов охватывает ограниченную выборку перевозок"
+    },
+    "readModel": {
+      "sourceBanner": "Источник статусов: проекция Control Tower",
+      "fallbackBanner": "Проекция статусов временно недоступна. Показаны данные текущего источника.",
+      "partialBanner": "Часть проекций содержит пропуски версий. Данные статусов могут быть неполными.",
+      "legacyLimitedBanner": "Сводка статусов рассчитана по ограниченной выборке перевозок и может быть неполной."
     },
     "accessDeniedTitle": "Доступ запрещён",
     "accessDeniedDescription": "У вас нет прав для просмотра Control Tower.",

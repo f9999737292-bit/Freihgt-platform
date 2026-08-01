@@ -5688,6 +5688,11 @@ components:
                   - DOCUMENTS_UNAVAILABLE
                   - KPI_CALCULATED_FROM_LIMITED_DATASET
                   - FILTER_OPTIONS_INCOMPLETE
+                  - CONTROL_TOWER_READ_MODEL_UNAVAILABLE
+                  - CONTROL_TOWER_READ_MODEL_CONSUMER_NOT_RUNNING
+                  - CONTROL_TOWER_READ_MODEL_PARTIAL
+                  - CONTROL_TOWER_READ_MODEL_FALLBACK_USED
+                  - CONTROL_TOWER_LEGACY_STATUS_SUMMARY_LIMITED
         kpi:
           type: object
           properties:
@@ -5728,6 +5733,57 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/ControlTowerFilterOption'
+        statusSummary:
+          $ref: '#/components/schemas/ControlTowerStatusSummary'
+        statusSummaryFreshness:
+          $ref: '#/components/schemas/ControlTowerStatusSummaryFreshness'
+    ControlTowerStatusSummarySource:
+      type: string
+      enum: [LEGACY, READ_MODEL]
+    ControlTowerStatusSummary:
+      type: object
+      properties:
+        totalShipments:
+          type: integer
+          format: int64
+          description: Total tenant shipment population for the summary scope.
+        countedShipments:
+          type: integer
+          format: int64
+          description: Number of shipments included in byStatus counts.
+        byStatus:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+          description: When limitedDataset is true, counts cover countedShipments rather than the full totalShipments population.
+        incompleteProjections:
+          type: integer
+          format: int64
+        source:
+          $ref: '#/components/schemas/ControlTowerStatusSummarySource'
+        limitedDataset:
+          type: boolean
+          description: True when byStatus was calculated from a limited fetched dataset.
+    ControlTowerStatusSummaryFreshness:
+      type: object
+      properties:
+        loaded:
+          type: boolean
+        fallbackUsed:
+          type: boolean
+        partial:
+          type: boolean
+        source:
+          $ref: '#/components/schemas/ControlTowerStatusSummarySource'
+        consumerRunning:
+          type: boolean
+        lastRecordReceivedAt:
+          type: string
+          format: date-time
+        lastProjectionAppliedAt:
+          type: string
+          format: date-time
     ControlTowerFilterOption:
       type: object
       properties:

@@ -44,6 +44,31 @@ Features:
 | `RATE_LIMIT_BURST` | `100` | Burst size per IP |
 | `MAX_REQUEST_BODY_BYTES` | `10485760` | Max request body (10 MB) |
 | `PPROF_ENABLED` | `false` | Enable `/debug/pprof/*` (dev only) |
+| `CONTROL_TOWER_READ_MODEL_MODE` | `disabled` | Read-model rollout mode: `disabled`, `shadow`, or `primary` |
+| `CONTROL_TOWER_READ_MODEL_BASE_URL` | _(required when mode ≠ disabled)_ | Internal read-model base URL (no credentials/query/fragment) |
+| `CONTROL_TOWER_READ_MODEL_TIMEOUT` | `800ms` | Read-model HTTP timeout |
+| `CONTROL_TOWER_READ_MODEL_REQUIRE_CONSUMER_RUNNING` | `true` | Treat `consumerRunning=false` as dependency failure in shadow/primary |
+
+When `CONTROL_TOWER_READ_MODEL_MODE=disabled`, `CONTROL_TOWER_READ_MODEL_BASE_URL` is not required. Invalid mode values fail startup configuration validation. Read-model availability does **not** block gateway startup or `/ready`.
+
+### Status summary fields
+
+Optional `statusSummary` block fields:
+
+- `totalShipments` — tenant total (legacy) or projection total (read-model)
+- `countedShipments` — rows included in `byStatus` (legacy limited dataset)
+- `limitedDataset` — true when legacy counts cover only a fetched page
+- `source` — `LEGACY` or `READ_MODEL`
+
+Warnings include `CONTROL_TOWER_LEGACY_STATUS_SUMMARY_LIMITED` for page-limited legacy summaries.
+
+### Black-box integration test
+
+```bash
+make control-tower-read-model-blackbox-integration-test
+```
+
+Requires `TEST_DATABASE_URL` pointing at a PostgreSQL instance with permission to create temporary databases. The test builds and starts `control-tower-read-model-service` as a child process on `127.0.0.1:0` and exercises the production gateway read-model client over HTTP.
 
 ## Gateway endpoints
 

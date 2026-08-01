@@ -512,6 +512,15 @@ control-tower-read-model-down:
 control-tower-read-model-status:
 	$(COMPOSE) --profile read-model ps control-tower-read-model-service
 
+control-tower-read-model-shadow-check:
+	@cd services/api-gateway && go test ./internal/controltowerreadmodel/... ./internal/controltower/... -run 'Shadow|Compare|Merge' -count=1
+
+control-tower-read-model-primary-check:
+	@cd services/api-gateway && go test ./internal/controltowerreadmodel/... ./internal/controltower/... -run 'Primary|Fallback|Merge|Client' -count=1
+
+control-tower-read-model-blackbox-integration-test:
+	@cd services/api-gateway && go test -tags=integration ./internal/integration/controltowerreadmodel/... -count=1 -v
+
 run-low-code-service:
 	@cd services/low-code-service && go run ./cmd/server
 

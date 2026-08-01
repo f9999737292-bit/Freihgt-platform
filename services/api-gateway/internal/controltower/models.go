@@ -93,13 +93,44 @@ type FiltersResponse struct {
 }
 
 type SummaryResponse struct {
-	GeneratedAt    time.Time           `json:"generatedAt"`
-	DataFreshness  DataFreshness       `json:"dataFreshness"`
-	KPI            KPI                 `json:"kpi"`
-	Shipments      ShipmentsPage       `json:"shipments"`
-	CriticalEvents []ControlTowerEvent `json:"criticalEvents"`
-	Filters        FiltersResponse     `json:"filters"`
+	GeneratedAt            time.Time                    `json:"generatedAt"`
+	DataFreshness          DataFreshness                `json:"dataFreshness"`
+	KPI                    KPI                          `json:"kpi"`
+	Shipments              ShipmentsPage                `json:"shipments"`
+	CriticalEvents         []ControlTowerEvent          `json:"criticalEvents"`
+	Filters                FiltersResponse              `json:"filters"`
+	StatusSummary          *StatusSummaryBlock          `json:"statusSummary,omitempty"`
+	StatusSummaryFreshness *StatusSummaryFreshnessBlock `json:"statusSummaryFreshness,omitempty"`
 }
+
+type StatusSummaryBlock struct {
+	TotalShipments        int64            `json:"totalShipments"`
+	CountedShipments      int64            `json:"countedShipments,omitempty"`
+	ByStatus              map[string]int64 `json:"byStatus"`
+	IncompleteProjections int64            `json:"incompleteProjections"`
+	Source                string           `json:"source"`
+	LimitedDataset        bool             `json:"limitedDataset,omitempty"`
+}
+
+type StatusSummaryFreshnessBlock struct {
+	Loaded                  bool    `json:"loaded"`
+	FallbackUsed            bool    `json:"fallbackUsed"`
+	Partial                 bool    `json:"partial"`
+	Source                  string  `json:"source,omitempty"`
+	ConsumerRunning         *bool   `json:"consumerRunning,omitempty"`
+	LastRecordReceivedAt    *string `json:"lastRecordReceivedAt,omitempty"`
+	LastProjectionAppliedAt *string `json:"lastProjectionAppliedAt,omitempty"`
+}
+
+const (
+	WarningReadModelUnavailable        = "CONTROL_TOWER_READ_MODEL_UNAVAILABLE"
+	WarningReadModelConsumerNotRunning = "CONTROL_TOWER_READ_MODEL_CONSUMER_NOT_RUNNING"
+	WarningReadModelPartial            = "CONTROL_TOWER_READ_MODEL_PARTIAL"
+	WarningReadModelFallbackUsed       = "CONTROL_TOWER_READ_MODEL_FALLBACK_USED"
+	WarningLegacyStatusSummaryLimited  = "CONTROL_TOWER_LEGACY_STATUS_SUMMARY_LIMITED"
+	StatusSummarySourceLegacy          = "LEGACY"
+	StatusSummarySourceReadModel       = "READ_MODEL"
+)
 
 const (
 	WarningTransportOrdersUnavailable = "TRANSPORT_ORDERS_UNAVAILABLE"

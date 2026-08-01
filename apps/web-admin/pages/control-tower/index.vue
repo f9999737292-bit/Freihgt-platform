@@ -27,7 +27,36 @@ const {
   parseFiltersFromQuery,
   filtersToQuery,
   loadData,
+  statusSummary,
+  statusSummaryFreshness,
 } = useControlTower()
+
+const showReadModelSourceBanner = computed(
+  () =>
+    !demoMode.value &&
+    statusSummaryFreshness.value?.loaded &&
+    statusSummary.value?.source === 'READ_MODEL' &&
+    !statusSummaryFreshness.value.fallbackUsed,
+)
+
+const showReadModelFallbackBanner = computed(
+  () => !demoMode.value && statusSummaryFreshness.value?.fallbackUsed === true,
+)
+
+const showReadModelPartialBanner = computed(
+  () =>
+    !demoMode.value &&
+    !statusSummary.value?.limitedDataset &&
+    (statusSummaryFreshness.value?.partial === true ||
+      (dataFreshness.value?.warnings ?? []).includes('CONTROL_TOWER_READ_MODEL_PARTIAL')),
+)
+
+const showLegacyLimitedBanner = computed(
+  () =>
+    !demoMode.value &&
+    (statusSummary.value?.limitedDataset === true ||
+      (dataFreshness.value?.warnings ?? []).includes('CONTROL_TOWER_LEGACY_STATUS_SUMMARY_LIMITED')),
+)
 
 const hasAccess = computed(() => canAccessControlTower())
 
@@ -112,6 +141,34 @@ onBeforeUnmount(() => {
       </div>
 
       <div
+        v-if="showReadModelSourceBanner"
+        class="control-tower-v01__read-model-banner control-tower-v01__read-model-banner--source"
+      >
+        {{ $t('controlTower.readModel.sourceBanner') }}
+      </div>
+
+      <div
+        v-if="showReadModelFallbackBanner"
+        class="control-tower-v01__read-model-banner control-tower-v01__read-model-banner--fallback"
+      >
+        {{ $t('controlTower.readModel.fallbackBanner') }}
+      </div>
+
+      <div
+        v-if="showReadModelPartialBanner"
+        class="control-tower-v01__read-model-banner control-tower-v01__read-model-banner--partial"
+      >
+        {{ $t('controlTower.readModel.partialBanner') }}
+      </div>
+
+      <div
+        v-if="showLegacyLimitedBanner"
+        class="control-tower-v01__read-model-banner control-tower-v01__read-model-banner--limited"
+      >
+        {{ $t('controlTower.readModel.legacyLimitedBanner') }}
+      </div>
+
+      <div
         v-if="dataFreshness?.partial"
         class="control-tower-v01__partial-banner"
       >
@@ -189,6 +246,37 @@ onBeforeUnmount(() => {
   color: var(--color-info);
   font-size: 0.875rem;
   font-weight: 600;
+}
+
+.control-tower-v01__read-model-banner {
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.control-tower-v01__read-model-banner--source {
+  border: 1px solid color-mix(in srgb, var(--color-info) 35%, var(--color-border));
+  background: color-mix(in srgb, var(--color-info) 8%, white);
+  color: var(--color-info);
+}
+
+.control-tower-v01__read-model-banner--fallback {
+  border: 1px solid color-mix(in srgb, var(--color-warning) 35%, var(--color-border));
+  background: color-mix(in srgb, var(--color-warning) 8%, white);
+  color: var(--color-text);
+}
+
+.control-tower-v01__read-model-banner--partial {
+  border: 1px solid color-mix(in srgb, var(--color-warning) 35%, var(--color-border));
+  background: color-mix(in srgb, var(--color-warning) 6%, white);
+  color: var(--color-text);
+}
+
+.control-tower-v01__read-model-banner--limited {
+  border: 1px solid color-mix(in srgb, var(--color-warning) 35%, var(--color-border));
+  background: color-mix(in srgb, var(--color-warning) 5%, white);
+  color: var(--color-text);
 }
 
 .control-tower-v01__partial-banner {

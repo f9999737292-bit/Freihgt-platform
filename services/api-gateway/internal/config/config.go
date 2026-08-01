@@ -5,6 +5,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/freight-platform/api-gateway/internal/controltowerreadmodel"
 )
 
 type ServiceURLs struct {
@@ -24,6 +26,7 @@ type ControlTowerConfig struct {
 	StaleWarningMinutes     int
 	StaleCriticalMinutes    int
 	MaxDownstreamFetchLimit int
+	ReadModel               controltowerreadmodel.Config
 }
 
 type Config struct {
@@ -122,6 +125,11 @@ func Load() (Config, error) {
 		maxBodyBytes = parsed
 	}
 
+	readModelCfg, err := controltowerreadmodel.LoadConfigFromEnv()
+	if err != nil {
+		return Config{}, err
+	}
+
 	return Config{
 		ServiceName: "api-gateway",
 		Environment: getEnv("ENVIRONMENT", "development"),
@@ -134,6 +142,7 @@ func Load() (Config, error) {
 			StaleWarningMinutes:     intEnv("CONTROL_TOWER_STALE_WARNING_MINUTES", 120),
 			StaleCriticalMinutes:    intEnv("CONTROL_TOWER_STALE_CRITICAL_MINUTES", 360),
 			MaxDownstreamFetchLimit: intEnv("CONTROL_TOWER_MAX_DOWNSTREAM_FETCH_LIMIT", 200),
+			ReadModel:               readModelCfg,
 		},
 		Services: ServiceURLs{
 			Identity:        getEnv("IDENTITY_SERVICE_URL", "http://localhost:8081"),

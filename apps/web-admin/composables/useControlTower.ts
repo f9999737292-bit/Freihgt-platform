@@ -27,6 +27,8 @@ import {
   type ControlTowerShipmentStatusRow,
   type ControlTowerSummaryKpi,
   type ControlTowerSummaryResponse,
+  type ControlTowerStatusSummary,
+  type ControlTowerStatusSummaryFreshness,
 } from '~/types/controlTower'
 import { ApiError } from '~/composables/useApi'
 import {
@@ -129,6 +131,8 @@ export function useControlTower() {
   const summaryShipments = ref<ControlTowerShipment[]>([])
   const summaryKpi = ref<ControlTowerSummaryKpi | null>(null)
   const summaryEvents = ref<ControlTowerEvent[]>([])
+  const statusSummary = ref<ControlTowerStatusSummary | null>(null)
+  const statusSummaryFreshness = ref<ControlTowerStatusSummaryFreshness | null>(null)
 
   let autoRefreshTimer: ReturnType<typeof setInterval> | undefined
 
@@ -259,6 +263,8 @@ export function useControlTower() {
       total: summary.shipments.total,
       hasNext: summary.shipments.hasNext,
     }
+    statusSummary.value = summary.statusSummary ?? null
+    statusSummaryFreshness.value = summary.statusSummaryFreshness ?? null
     lastUpdatedAt.value = summary.generatedAt
   }
 
@@ -947,6 +953,8 @@ export function useControlTower() {
     kpiMetrics,
     criticalEvents,
     apiUnavailable,
+    statusSummary,
+    statusSummaryFreshness,
     shipperCompanies,
     carrierCompanies,
     resetFilters,
