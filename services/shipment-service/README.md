@@ -55,6 +55,7 @@ Go microservice for managing freight shipments after a carrier is selected.
 | POST | `/v1/shipments/{id}/accept` | Carrier accepts shipment |
 | PATCH | `/v1/shipments/{id}/status` | Update shipment status |
 | POST | `/v1/shipments/{id}/cancel` | Cancel shipment |
+| GET | `/internal/v1/shipments/status-summary` | Internal: tenant-scoped full status aggregate for Control Tower baseline (tenant via `X-Tenant-ID`) |
 | GET | `/internal/v1/shipments/{shipmentId}/status-history` | Internal: list persisted status transitions (tenant via `X-Tenant-ID`) |
 | POST | `/v1/drivers` | Create driver |
 | GET | `/v1/drivers/{id}` | Get driver |
@@ -297,6 +298,31 @@ List drivers example:
 curl -X GET "http://localhost:8085/v1/drivers?limit=20&offset=0" \
   -H "X-Tenant-ID: 11111111-1111-1111-1111-111111111111"
 ```
+
+## Status summary (internal aggregate)
+
+Tenant-scoped shipment status counts for Control Tower shadow comparison and primary fallback baseline:
+
+```http
+GET /internal/v1/shipments/status-summary
+```
+
+- **Tenant:** trusted `X-Tenant-ID` header only (same boundary as status history). Missing tenant → `401`.
+- **Not public:** not exposed through API Gateway `/api/v1/...`; called service-to-service from api-gateway.
+- **Response:** `totalShipments`, `countedShipments`, `byStatus`, `complete`, `calculatedAt`, optional `warnings`.
+- **Complete aggregate:** when `complete=true`, `totalShipments` equals `countedShipments` and the sum of `byStatus` values. Gateway uses this as the primary legacy comparison source.
+- **Incomplete:** invalid/unknown status rows may yield `complete=false` and warning `UNKNOWN_SHIPMENT_STATUS`; gateway falls back to page-limited list counts.
+
+Example:
+
+```bash
+curl http://localhost:8085/internal/v1/shipments/status-summary \
+  -H "X-Tenant-ID: 11111111-1111-1111-1111-111111111111"
+```
+
+See [docs/CONTROL_TOWER_FULL_STATUS_BASELINE.md](../../docs/CONTROL_TOWER_FULL_STATUS_BASELINE.md).
+
+Prometheus metrics: `shipment_status_summary_requests_total`, `shipment_status_summary_query_duration_seconds`, `shipment_status_summary_errors_total`.
 
 ## Status history
 

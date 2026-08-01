@@ -165,10 +165,11 @@ func TestBlackBoxShadowResponseUnchanged(t *testing.T) {
 	}
 
 	legacy := gatewayrm.LegacyStatusInput{
-		TotalShipments:   1,
-		CountedShipments: 1,
-		ByStatus:         map[string]int64{"DELIVERED": 1},
-		LimitedDataset:   false,
+		TotalShipments:         3,
+		CountedShipments:       3,
+		ByStatus:               map[string]int64{"IN_TRANSIT": 2, "DELIVERED": 1},
+		LimitedDataset:         false,
+		FullAggregateAvailable: true,
 	}
 	out := gatewayrm.Merge(gatewayrm.MergeInput{
 		Mode:                   gatewayrm.ModeShadow,
@@ -176,11 +177,11 @@ func TestBlackBoxShadowResponseUnchanged(t *testing.T) {
 		ReadModel:              payload,
 		RequireConsumerRunning: false,
 	})
-	if out.StatusSummary != nil {
-		t.Fatal("shadow merge must not expose status summary")
+	if out.StatusSummary == nil || out.StatusSummary.Source != gatewayrm.SourceLegacy {
+		t.Fatalf("shadow merge must expose legacy status summary, got %+v", out.StatusSummary)
 	}
-	if out.Comparison != gatewayrm.ComparisonTotalMismatch {
-		t.Fatalf("comparison=%q", out.Comparison)
+	if out.Comparison != gatewayrm.ComparisonMatch {
+		t.Fatalf("comparison=%q want MATCH", out.Comparison)
 	}
 }
 

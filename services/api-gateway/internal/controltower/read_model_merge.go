@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/freight-platform/api-gateway/internal/controltower/legacyaggregate"
 	"github.com/freight-platform/api-gateway/internal/controltowerreadmodel"
 )
 
@@ -12,18 +13,8 @@ func (s *Service) applyReadModelStatusSummary(
 	ctx context.Context,
 	response *SummaryResponse,
 	reqCtx RequestContext,
-	legacyTotal int64,
-	legacyCounted int64,
-	legacyByStatus map[string]int64,
-	legacyLimited bool,
+	legacyInput controltowerreadmodel.LegacyStatusInput,
 ) {
-	legacyInput := controltowerreadmodel.LegacyStatusInput{
-		TotalShipments:   legacyTotal,
-		CountedShipments: legacyCounted,
-		ByStatus:         legacyByStatus,
-		LimitedDataset:   legacyLimited,
-	}
-
 	var (
 		rmPayload *controltowerreadmodel.RemoteStatusSummary
 		rmErr     *controltowerreadmodel.DependencyError
@@ -43,25 +34,34 @@ func (s *Service) applyReadModelStatusSummary(
 		RequireConsumerRunning: s.readModelCfg.RequireConsumerRunning,
 	})
 
+	mode := string(s.readModelCfg.Mode)
 	switch s.readModelCfg.Mode {
 	case controltowerreadmodel.ModeShadow:
 		if mergeOut.Comparison != "" {
-			s.metrics.ObserveComparison(string(s.readModelCfg.Mode), mergeOut.Comparison)
+			s.metrics.ObserveComparison(mode, mergeOut.Comparison)
 		}
 		if rmPayload != nil && rmPayload.IncompleteProjections > 0 {
-			s.metrics.ObservePartial(string(s.readModelCfg.Mode))
+			s.metrics.ObservePartial(mode)
 		}
+		applyStatusSummaryMerge(response, mergeOut)
 		s.logReadModelShadow(reqCtx, legacyInput, mergeOut, rmErr)
 	case controltowerreadmodel.ModePrimary:
 		applyStatusSummaryMerge(response, mergeOut)
 		if mergeOut.StatusSummaryFreshness != nil && mergeOut.StatusSummaryFreshness.FallbackUsed {
-			s.metrics.ObserveFallback(string(s.readModelCfg.Mode), string(mergeOut.FailureReason))
+			s.metrics.ObserveFallback(mode, string(mergeOut.FailureReason))
+			fallbackLevel := legacyaggregate.FallbackLevelFullAggregate
+			if legacyInput.LimitedDataset {
+				fallbackLevel = legacyaggregate.FallbackLevelPageLimited
+			}
+			s.legacyMetrics.ObserveFallback(mode, fallbackLevel, string(mergeOut.FailureReason))
 		}
 		if rmPayload != nil && rmPayload.IncompleteProjections > 0 && mergeOut.StatusSummaryFreshness != nil && !mergeOut.StatusSummaryFreshness.FallbackUsed {
-			s.metrics.ObservePartial(string(s.readModelCfg.Mode))
+			s.metrics.ObservePartial(mode)
 		}
 		s.logReadModelPrimary(reqCtx, mergeOut, rmErr)
 	case controltowerreadmodel.ModeDisabled:
+		applyStatusSummaryMerge(response, mergeOut)
+	default:
 		applyStatusSummaryMerge(response, mergeOut)
 	}
 }
@@ -94,11 +94,12 @@ func mapFreshnessBlock(in *controltowerreadmodel.StatusSummaryFreshness) *Status
 		return nil
 	}
 	block := &StatusSummaryFreshnessBlock{
-		Loaded:          in.Loaded,
-		FallbackUsed:    in.FallbackUsed,
-		Partial:         in.Partial,
-		Source:          in.Source,
-		ConsumerRunning: in.ConsumerRunning,
+		Loaded:                in.Loaded,
+		FallbackUsed:          in.FallbackUsed,
+		Partial:               in.Partial,
+		Source:                in.Source,
+		ConsumerRunning:       in.ConsumerRunning,
+		LegacyAggregateLoaded: in.LegacyAggregateLoaded,
 	}
 	if in.LastRecordReceivedAt != nil {
 		formatted := in.LastRecordReceivedAt.UTC().Format(time.RFC3339)
@@ -119,12 +120,8 @@ func (s *Service) logReadModelShadow(reqCtx RequestContext, legacy controltowerr
 		slog.String("mode", string(s.readModelCfg.Mode)),
 		slog.String("comparison", string(out.Comparison)),
 		slog.String("request_id", reqCtx.RequestID),
-	}
-	if legacy.LimitedDataset {
-		attrs = append(attrs,
-			slog.Int64("total_shipments", legacy.TotalShipments),
-			slog.Int64("counted_shipments", legacy.CountedShipments),
-		)
+		slog.Bool("legacy_aggregate_loaded", legacy.FullAggregateAvailable),
+		slog.Bool("legacy_limited_dataset", legacy.LimitedDataset),
 	}
 	if rmErr != nil {
 		attrs = append(attrs, slog.String("reason", string(rmErr.Reason)))
@@ -145,6 +142,9 @@ func (s *Service) logReadModelPrimary(reqCtx RequestContext, out controltowerrea
 			slog.Bool("fallback_used", out.StatusSummaryFreshness.FallbackUsed),
 			slog.Bool("partial", out.StatusSummaryFreshness.Partial),
 		)
+		if out.StatusSummaryFreshness.LegacyAggregateLoaded != nil {
+			attrs = append(attrs, slog.Bool("legacy_aggregate_loaded", *out.StatusSummaryFreshness.LegacyAggregateLoaded))
+		}
 	}
 	if rmErr != nil {
 		attrs = append(attrs, slog.String("reason", string(rmErr.Reason)))

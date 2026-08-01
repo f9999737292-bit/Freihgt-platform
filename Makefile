@@ -521,6 +521,12 @@ control-tower-read-model-primary-check:
 control-tower-read-model-blackbox-integration-test:
 	@cd services/api-gateway && go test -tags=integration ./internal/integration/controltowerreadmodel/... -count=1 -v
 
+control-tower-full-status-baseline-integration-test:
+	@cd services/api-gateway && go test -tags=integration ./internal/integration/controltowerreadmodel/... -run "FullBaseline|BlackBox.*Aggregate|ShadowMatch" -count=1 -p=1 -v
+
+control-tower-full-status-baseline-integration-test-parallel:
+	@cd services/api-gateway && go test -tags=integration ./internal/integration/controltowerreadmodel/... -run "FullBaseline|BlackBox.*Aggregate|ShadowMatch" -count=1 -parallel=2 -p=2 -v
+
 run-low-code-service:
 	@cd services/low-code-service && go run ./cmd/server
 

@@ -5,7 +5,9 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/freight-platform/api-gateway/internal/controltower/legacyaggregate"
 	"github.com/freight-platform/api-gateway/internal/controltowerreadmodel"
 )
 
@@ -26,6 +28,7 @@ type ControlTowerConfig struct {
 	StaleWarningMinutes     int
 	StaleCriticalMinutes    int
 	MaxDownstreamFetchLimit int
+	LegacyStatusTimeout     time.Duration
 	ReadModel               controltowerreadmodel.Config
 }
 
@@ -130,6 +133,11 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
+	legacyStatusTimeout, err := legacyaggregate.LoadTimeoutFromEnv()
+	if err != nil {
+		return Config{}, err
+	}
+
 	return Config{
 		ServiceName: "api-gateway",
 		Environment: getEnv("ENVIRONMENT", "development"),
@@ -142,6 +150,7 @@ func Load() (Config, error) {
 			StaleWarningMinutes:     intEnv("CONTROL_TOWER_STALE_WARNING_MINUTES", 120),
 			StaleCriticalMinutes:    intEnv("CONTROL_TOWER_STALE_CRITICAL_MINUTES", 360),
 			MaxDownstreamFetchLimit: intEnv("CONTROL_TOWER_MAX_DOWNSTREAM_FETCH_LIMIT", 200),
+			LegacyStatusTimeout:     legacyStatusTimeout,
 			ReadModel:               readModelCfg,
 		},
 		Services: ServiceURLs{

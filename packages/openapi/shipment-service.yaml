@@ -542,6 +542,38 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /internal/v1/shipments/status-summary:
+    get:
+      tags: [Shipments]
+      summary: Tenant-scoped full shipment status aggregate (internal)
+      description: |
+        Internal-only endpoint for Control Tower legacy baseline and shadow comparison.
+        Not exposed as a public browser route through API Gateway catch-all.
+        Tenant scope is required via trusted `X-Tenant-ID` header only.
+        Returns complete tenant-wide status counts when `complete=true`.
+      operationId: get_internal_shipment_status_summary
+      parameters:
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XRequestID'
+      responses:
+        '200':
+          description: Status aggregate
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShipmentStatusSummaryResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /internal/v1/shipments/{shipmentId}/status-history:
     get:
       tags: [Shipments]
@@ -1147,6 +1179,38 @@ components:
         vehicle_id:
           type: string
           format: uuid
+    ShipmentStatusSummaryResponse:
+      type: object
+      required: [totalShipments, countedShipments, byStatus, complete, calculatedAt]
+      properties:
+        totalShipments:
+          type: integer
+          format: int64
+          description: Total non-deleted shipments for the tenant.
+        countedShipments:
+          type: integer
+          format: int64
+          description: Sum of counts in byStatus included in this response.
+        byStatus:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+          description: Shipment count per status code.
+        complete:
+          type: boolean
+          description: |
+            True when the aggregate is safe for exact shadow comparison
+            (totalShipments equals countedShipments and all rows are valid).
+        calculatedAt:
+          type: string
+          format: date-time
+          description: Aggregate calculation timestamp (UTC).
+        warnings:
+          type: array
+          items:
+            type: string
+            enum: [UNKNOWN_SHIPMENT_STATUS]
     ShipmentStatusHistoryItem:
       type: object
       required: [id, shipmentId, shipmentVersion, toStatus, source, actor, occurredAt, recordedAt]

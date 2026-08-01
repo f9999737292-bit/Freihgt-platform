@@ -5,11 +5,9 @@ package controltowerreadmodelintegration
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -41,13 +39,13 @@ func newReadModelHarness(t *testing.T) *readModelHarness {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	t.Cleanup(cancel)
 
-	testURL, dropDB, err := createTempDatabase(ctx, adminURL)
+	testURL, dropDB, err := createTempDatabase(ctx, adminURL, "freight_platform_gateway_rm_")
 	if err != nil {
 		t.Fatalf("create temp database: %v", err)
 	}
 	t.Cleanup(func() { dropDB(context.Background()) })
 
-	pool, err := pgxpool.New(ctx, testURL)
+	pool, err := connectIntegrationPool(ctx, testURL)
 	if err != nil {
 		t.Fatalf("connect test database: %v", err)
 	}
@@ -96,12 +94,12 @@ func (h *readModelHarness) client(timeout time.Duration) *gatewayrm.Client {
 	}, gatewayrm.NewMetrics())
 }
 
-func createTempDatabase(ctx context.Context, adminURL string) (testURL string, cleanup func(context.Context), err error) {
+func createTempDatabase(ctx context.Context, adminURL, namePrefix string) (testURL string, cleanup func(context.Context), err error) {
 	cfg, err := pgxpool.ParseConfig(adminURL)
 	if err != nil {
 		return "", nil, fmt.Errorf("parse TEST_DATABASE_URL: %w", err)
 	}
-	dbName := "freight_platform_gateway_rm_" + strings.ReplaceAll(uuid.NewString(), "-", "")[:16]
+	dbName := namePrefix + strings.ReplaceAll(uuid.NewString(), "-", "")[:16]
 	adminCfg := cfg.Copy()
 	adminCfg.ConnConfig.Database = "postgres"
 
@@ -125,10 +123,27 @@ func createTempDatabase(ctx context.Context, adminURL string) (testURL string, c
 			return
 		}
 		defer cadmin.Close()
+		_, _ = cadmin.Exec(cctx, `
+SELECT pg_terminate_backend(pid)
+FROM pg_stat_activity
+WHERE datname = $1 AND pid <> pg_backend_pid()`, dbName)
 		_, _ = cadmin.Exec(cctx, "DROP DATABASE IF EXISTS "+pgx.Identifier{dbName}.Sanitize()+" WITH (FORCE)")
 	}
 	return testURL, cleanup, nil
 }
+
+func connectIntegrationPool(ctx context.Context, testURL string) (*pgxpool.Pool, error) {
+	cfg, err := pgxpool.ParseConfig(testURL)
+	if err != nil {
+		return nil, err
+	}
+	cfg.MaxConns = 2
+	cfg.MinConns = 0
+	return pgxpool.NewWithConfig(ctx, cfg)
+}
+
+const integrationDBPoolEnv = "DB_MAX_OPEN_CONNS=2"
+const integrationDBIdleEnv = "DB_MAX_IDLE_CONNS=1"
 
 func buildPostgresDSN(cfg *pgxpool.Config) string {
 	user := url.QueryEscape(cfg.ConnConfig.User)
@@ -173,53 +188,23 @@ func locateMigrationsDir() (string, error) {
 	return "", fmt.Errorf("migrations dir not found from %s", dir)
 }
 
+const (
+	shipmentServiceBinaryKey  = "shipment-service-integration"
+	readModelServiceBinaryKey = "read-model-integration"
+)
+
 func startReadModelProcess(t *testing.T, databaseURL string) (baseURL string, stop func(), err error) {
 	t.Helper()
-	port, err := freeTCPPort()
-	if err != nil {
-		return "", nil, err
-	}
-
-	repoRoot, err := locateRepoRoot()
-	if err != nil {
-		return "", nil, err
-	}
-	serviceDir := filepath.Join(repoRoot, "services", "control-tower-read-model-service")
-	binName := "read-model-blackbox-test"
-	if runtime.GOOS == "windows" {
-		binName += ".exe"
-	}
-	binPath := filepath.Join(t.TempDir(), binName)
-
-	build := exec.Command("go", "build", "-o", binPath, "./cmd/server")
-	build.Dir = serviceDir
-	if out, buildErr := build.CombinedOutput(); buildErr != nil {
-		return "", nil, fmt.Errorf("build read-model: %w: %s", buildErr, string(out))
-	}
-
-	cmd := exec.Command(binPath)
-	cmd.Env = append(os.Environ(),
-		"CONTROL_TOWER_DATABASE_URL="+databaseURL,
-		fmt.Sprintf("CONTROL_TOWER_READ_MODEL_SERVICE_PORT=%d", port),
+	binPath := buildServiceBinaryOnce(t, "services/control-tower-read-model-service", readModelServiceBinaryKey)
+	baseURL = startManagedHTTPProcess(t, binPath, []string{
+		"CONTROL_TOWER_DATABASE_URL=" + databaseURL,
+		integrationDBPoolEnv,
+		integrationDBIdleEnv,
 		"CONTROL_TOWER_CONSUMER_ENABLED=false",
 		"LOG_LEVEL=error",
 		"ENVIRONMENT=test",
-	)
-	if err := cmd.Start(); err != nil {
-		return "", nil, fmt.Errorf("start read-model: %w", err)
-	}
-
-	baseURL = fmt.Sprintf("http://127.0.0.1:%d", port)
-	if err := waitForHTTP200(baseURL+"/health", 30*time.Second); err != nil {
-		_ = cmd.Process.Kill()
-		return "", nil, err
-	}
-
-	stop = func() {
-		_ = cmd.Process.Kill()
-		_, _ = cmd.Process.Wait()
-	}
-	return baseURL, stop, nil
+	}, "CONTROL_TOWER_READ_MODEL_SERVICE_PORT", "/ready")
+	return baseURL, func() {}, nil
 }
 
 func locateRepoRoot() (string, error) {
@@ -228,29 +213,4 @@ func locateRepoRoot() (string, error) {
 		return "", fmt.Errorf("runtime caller unavailable")
 	}
 	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", "..", "..", "..")), nil
-}
-
-func freeTCPPort() (int, error) {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return 0, err
-	}
-	defer ln.Close()
-	return ln.Addr().(*net.TCPAddr).Port, nil
-}
-
-func waitForHTTP200(endpoint string, timeout time.Duration) error {
-	deadline := time.Now().Add(timeout)
-	client := &http.Client{Timeout: 2 * time.Second}
-	for time.Now().Before(deadline) {
-		resp, err := client.Get(endpoint)
-		if err == nil {
-			resp.Body.Close()
-			if resp.StatusCode == http.StatusOK {
-				return nil
-			}
-		}
-		time.Sleep(200 * time.Millisecond)
-	}
-	return fmt.Errorf("timeout waiting for %s", endpoint)
 }

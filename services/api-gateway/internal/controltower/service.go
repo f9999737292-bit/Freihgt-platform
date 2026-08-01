@@ -8,21 +8,28 @@ import (
 	"time"
 
 	"github.com/freight-platform/api-gateway/internal/config"
+	"github.com/freight-platform/api-gateway/internal/controltower/legacyaggregate"
 	"github.com/freight-platform/api-gateway/internal/controltowerreadmodel"
 	apperrors "github.com/freight-platform/api-gateway/internal/platform/errors"
 )
 
 type Service struct {
-	client       *DownstreamClient
-	thresholds   SLAThresholds
-	readModel    *controltowerreadmodel.Client
-	readModelCfg controltowerreadmodel.Config
-	readModelLog *slog.Logger
-	metrics      *controltowerreadmodel.Metrics
+	client                *DownstreamClient
+	thresholds            SLAThresholds
+	readModel             *controltowerreadmodel.Client
+	readModelCfg          controltowerreadmodel.Config
+	readModelLog          *slog.Logger
+	metrics               *controltowerreadmodel.Metrics
+	legacyAggregate       *legacyaggregate.Client
+	legacyAggregateTimeout time.Duration
+	legacyMetrics         *legacyaggregate.Metrics
+	legacyLog             *slog.Logger
 }
 
 func NewService(cfg config.Config, client *DownstreamClient, log *slog.Logger) *Service {
 	metrics := controltowerreadmodel.NewMetrics()
+	legacyMetrics := legacyaggregate.NewMetrics()
+
 	var readModelClient *controltowerreadmodel.Client
 	if cfg.ControlTower.ReadModel.Mode.Enabled() {
 		readModelClient = controltowerreadmodel.NewClient(
@@ -31,6 +38,18 @@ func NewService(cfg config.Config, client *DownstreamClient, log *slog.Logger) *
 			metrics,
 		)
 	}
+
+	legacyTimeout := cfg.ControlTower.LegacyStatusTimeout
+	legacyClient := legacyaggregate.NewClient(
+		&http.Client{Timeout: legacyTimeout},
+		legacyaggregate.Config{
+			BaseURL:          cfg.Services.Shipment,
+			Timeout:          legacyTimeout,
+			MaxResponseBytes: 256 * 1024,
+		},
+		legacyMetrics,
+	)
+
 	return &Service{
 		client: client,
 		thresholds: SLAThresholds{
@@ -39,10 +58,14 @@ func NewService(cfg config.Config, client *DownstreamClient, log *slog.Logger) *
 			StaleWarningMinutes:  cfg.ControlTower.StaleWarningMinutes,
 			StaleCriticalMinutes: cfg.ControlTower.StaleCriticalMinutes,
 		},
-		readModel:    readModelClient,
-		readModelCfg: cfg.ControlTower.ReadModel,
-		readModelLog: log,
-		metrics:      metrics,
+		readModel:              readModelClient,
+		readModelCfg:           cfg.ControlTower.ReadModel,
+		readModelLog:           log,
+		metrics:                metrics,
+		legacyAggregate:        legacyClient,
+		legacyAggregateTimeout: legacyTimeout,
+		legacyMetrics:          legacyMetrics,
+		legacyLog:              log,
 	}
 }
 
@@ -144,7 +167,7 @@ func (s *Service) GetSummary(ctx context.Context, reqCtx RequestContext, query L
 		freshness.Warnings = appendUniqueWarning(freshness.Warnings, WarningFilterOptionsIncomplete)
 	}
 
-	legacyTotal, legacyCounted, legacyByStatus, legacyLimited := BuildLegacyStatusSummary(shipmentsRaw, shipmentsTotal)
+	legacyInput := s.resolveLegacyStatusInput(ctx, reqCtx, shipmentsRaw, shipmentsTotal)
 
 	response := SummaryResponse{
 		GeneratedAt:    now,
@@ -155,7 +178,7 @@ func (s *Service) GetSummary(ctx context.Context, reqCtx RequestContext, query L
 		Filters:        filters,
 	}
 
-	s.applyReadModelStatusSummary(ctx, &response, reqCtx, legacyTotal, legacyCounted, legacyByStatus, legacyLimited)
+	s.applyReadModelStatusSummary(ctx, &response, reqCtx, legacyInput)
 	return response, nil
 }
 

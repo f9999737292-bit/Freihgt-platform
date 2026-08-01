@@ -8,15 +8,20 @@ func Merge(input MergeInput) MergeOutput {
 
 	switch input.Mode {
 	case ModeDisabled:
-		if input.Legacy.LimitedDataset {
+		if input.Legacy.FullAggregateAvailable || input.Legacy.LimitedDataset {
 			summary := legacySummary
 			out.StatusSummary = &summary
-			out.StatusSummaryFreshness = &StatusSummaryFreshness{
-				Loaded:  true,
-				Partial: true,
-				Source:  SourceLegacy,
+			freshness := &StatusSummaryFreshness{
+				Loaded:               true,
+				Source:               SourceLegacy,
+				LegacyAggregateLoaded: boolPtr(input.Legacy.FullAggregateAvailable),
 			}
-			out.Warnings = dedupeWarnings([]string{WarningLegacyLimited})
+			if input.Legacy.LimitedDataset {
+				freshness.Partial = true
+				out.Warnings = append(out.Warnings, WarningLegacyLimited)
+			}
+			out.StatusSummaryFreshness = freshness
+			out.Warnings = dedupeWarnings(out.Warnings)
 		}
 		return out
 	case ModeShadow:
@@ -25,14 +30,27 @@ func Merge(input MergeInput) MergeOutput {
 			if input.ReadModelErr != nil {
 				out.FailureReason = input.ReadModelErr.Reason
 			}
-			return out
-		}
-		if input.RequireConsumerRunning && !input.ReadModel.Freshness.ConsumerRunning {
+		} else if input.RequireConsumerRunning && !input.ReadModel.Freshness.ConsumerRunning {
 			out.Comparison = ComparisonReadModelNotRunning
 			out.FailureReason = ReasonConsumerNotRunning
-			return out
+		} else {
+			out.Comparison = CompareStatusSummaries(input.Legacy, input.ReadModel)
 		}
-		out.Comparison = CompareStatusSummaries(input.Legacy, input.ReadModel)
+		if input.Legacy.FullAggregateAvailable || input.Legacy.LimitedDataset {
+			summary := legacySummary
+			out.StatusSummary = &summary
+			freshness := &StatusSummaryFreshness{
+				Loaded:                true,
+				Source:                SourceLegacy,
+				LegacyAggregateLoaded: boolPtr(input.Legacy.FullAggregateAvailable),
+			}
+			if input.Legacy.LimitedDataset {
+				freshness.Partial = true
+				out.Warnings = append(out.Warnings, WarningLegacyLimited)
+			}
+			out.StatusSummaryFreshness = freshness
+			out.Warnings = dedupeWarnings(out.Warnings)
+		}
 		return out
 	case ModePrimary:
 		return mergePrimary(input, legacySummary)
@@ -63,10 +81,11 @@ func mergePrimary(input MergeInput, legacySummary StatusSummary) MergeOutput {
 		out.StatusSummary = &summary
 		partial := input.Legacy.LimitedDataset
 		out.StatusSummaryFreshness = &StatusSummaryFreshness{
-			Loaded:       true,
-			FallbackUsed: true,
-			Partial:      partial,
-			Source:       SourceLegacy,
+			Loaded:                true,
+			FallbackUsed:          true,
+			Partial:               partial,
+			Source:                SourceLegacy,
+			LegacyAggregateLoaded: boolPtr(input.Legacy.FullAggregateAvailable),
 		}
 		if input.Legacy.LimitedDataset {
 			out.Warnings = append(out.Warnings, WarningLegacyLimited)

@@ -48,8 +48,50 @@ Features:
 | `CONTROL_TOWER_READ_MODEL_BASE_URL` | _(required when mode ≠ disabled)_ | Internal read-model base URL (no credentials/query/fragment) |
 | `CONTROL_TOWER_READ_MODEL_TIMEOUT` | `800ms` | Read-model HTTP timeout |
 | `CONTROL_TOWER_READ_MODEL_REQUIRE_CONSUMER_RUNNING` | `true` | Treat `consumerRunning=false` as dependency failure in shadow/primary |
+| `CONTROL_TOWER_LEGACY_STATUS_TIMEOUT` | `800ms` | Full legacy status aggregate HTTP timeout (shipment-service) |
 
 When `CONTROL_TOWER_READ_MODEL_MODE=disabled`, `CONTROL_TOWER_READ_MODEL_BASE_URL` is not required. Invalid mode values fail startup configuration validation. Read-model availability does **not** block gateway startup or `/ready`.
+
+### Legacy status aggregate client
+
+Package: `internal/controltower/legacyaggregate/`
+
+Gateway calls shipment-service for the full tenant status baseline:
+
+```http
+GET /internal/v1/shipments/status-summary
+```
+
+- Base URL: `SHIPMENT_SERVICE_URL`
+- Timeout: `CONTROL_TOWER_LEGACY_STATUS_TIMEOUT` (default `800ms`)
+- Headers forwarded: `X-Tenant-ID`, `X-Request-ID` (no bearer token)
+
+### Legacy fallback hierarchy
+
+Resolved on every Control Tower summary request (all read-model modes):
+
+```text
+1. FULL_AGGREGATE — status-summary endpoint, complete=true
+2. PAGE_LIMITED   — counts from fetched shipment list page
+```
+
+| Tier | When | Shadow comparison | User warning |
+|------|------|-------------------|--------------|
+| `FULL_AGGREGATE` | Aggregate HTTP success + valid contract | Exact compare enabled | none |
+| `PAGE_LIMITED` | Aggregate unavailable/incomplete/timeout | `LEGACY_LIMITED_DATASET` or `LEGACY_FULL_AGGREGATE_UNAVAILABLE` | `CONTROL_TOWER_LEGACY_STATUS_SUMMARY_LIMITED` when limited |
+
+Primary read-model fallback uses whichever legacy tier was resolved. Read-model success never inherits page-limited markers.
+
+`statusSummaryFreshness.legacyAggregateLoaded` is `true` when the full aggregate supplied the legacy baseline.
+
+Prometheus metrics:
+
+- `control_tower_legacy_status_aggregate_requests_total{result,reason,mode}`
+- `control_tower_legacy_status_aggregate_duration_seconds{result,reason,mode}`
+- `control_tower_legacy_status_aggregate_errors_total{result,error_code}`
+- `control_tower_legacy_status_fallback_total{mode,fallback_level,reason}`
+
+See [docs/CONTROL_TOWER_FULL_STATUS_BASELINE.md](../../docs/CONTROL_TOWER_FULL_STATUS_BASELINE.md).
 
 ### Status summary fields
 
@@ -69,6 +111,14 @@ make control-tower-read-model-blackbox-integration-test
 ```
 
 Requires `TEST_DATABASE_URL` pointing at a PostgreSQL instance with permission to create temporary databases. The test builds and starts `control-tower-read-model-service` as a child process on `127.0.0.1:0` and exercises the production gateway read-model client over HTTP.
+
+### Full status baseline integration test
+
+```bash
+make control-tower-full-status-baseline-integration-test
+```
+
+Runs aggregate baseline, shadow match, and legacy client integration tests (`FullBaseline`, `BlackBox.*Aggregate`, `ShadowMatch`).
 
 ## Gateway endpoints
 

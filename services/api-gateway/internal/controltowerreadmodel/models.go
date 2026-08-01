@@ -36,6 +36,7 @@ type StatusSummaryFreshness struct {
 	ConsumerRunning         *bool      `json:"consumerRunning,omitempty"`
 	LastRecordReceivedAt    *time.Time `json:"lastRecordReceivedAt,omitempty"`
 	LastProjectionAppliedAt *time.Time `json:"lastProjectionAppliedAt,omitempty"`
+	LegacyAggregateLoaded   *bool      `json:"legacyAggregateLoaded,omitempty"`
 }
 
 type RemoteStatusSummary struct {
@@ -48,10 +49,12 @@ type RemoteStatusSummary struct {
 }
 
 type LegacyStatusInput struct {
-	TotalShipments   int64
-	CountedShipments int64
-	ByStatus         map[string]int64
-	LimitedDataset   bool
+	TotalShipments          int64
+	CountedShipments        int64
+	ByStatus                map[string]int64
+	LimitedDataset          bool
+	FullAggregateAvailable  bool
+	FullAggregateIncomplete bool
 }
 
 type MergeInput struct {

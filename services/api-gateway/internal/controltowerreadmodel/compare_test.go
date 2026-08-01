@@ -72,3 +72,32 @@ func TestCompareReadModelUnavailable(t *testing.T) {
 		t.Fatal("expected READ_MODEL_UNAVAILABLE")
 	}
 }
+
+func TestCompareLegacyFullAggregateIncomplete(t *testing.T) {
+	legacy := LegacyStatusInput{
+		TotalShipments:          100,
+		CountedShipments:        2,
+		ByStatus:                map[string]int64{"IN_TRANSIT": 2},
+		LimitedDataset:          true,
+		FullAggregateAvailable:  false,
+		FullAggregateIncomplete: true,
+	}
+	rm := readModelPayload(100, map[string]int64{"IN_TRANSIT": 100}, 0, true)
+	if CompareStatusSummaries(legacy, rm) != ComparisonLegacyFullAggregateIncomplete {
+		t.Fatal("expected LEGACY_FULL_AGGREGATE_INCOMPLETE")
+	}
+}
+
+func TestCompareLegacyFullAggregateUnavailable(t *testing.T) {
+	legacy := LegacyStatusInput{
+		TotalShipments:         10,
+		CountedShipments:       10,
+		ByStatus:               map[string]int64{"IN_TRANSIT": 10},
+		LimitedDataset:         false,
+		FullAggregateAvailable: false,
+	}
+	rm := readModelPayload(10, map[string]int64{"IN_TRANSIT": 10}, 0, true)
+	if CompareStatusSummaries(legacy, rm) != ComparisonLegacyFullAggregateUnavailable {
+		t.Fatal("expected LEGACY_FULL_AGGREGATE_UNAVAILABLE")
+	}
+}

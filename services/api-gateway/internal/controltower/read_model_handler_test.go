@@ -96,6 +96,7 @@ func newTestSummaryHandlerWithReadModel(
 		},
 		ControlTower: config.ControlTowerConfig{
 			MaxDownstreamFetchLimit: 200,
+			LegacyStatusTimeout:     800 * time.Millisecond,
 			ReadModel:               readModelCfg,
 		},
 	})
@@ -105,6 +106,41 @@ func newTestSummaryHandlerWithReadModel(
 func shipmentSummaryServer(items []map[string]any, total int) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"items": items, "total": total})
+	}))
+}
+
+type shipmentCombinedConfig struct {
+	items           []map[string]any
+	total           int
+	aggregateBody   string
+	aggregateStatus int
+	aggregateDelay  time.Duration
+}
+
+func shipmentCombinedServer(cfg shipmentCombinedConfig) *httptest.Server {
+	if cfg.aggregateStatus == 0 {
+		cfg.aggregateStatus = http.StatusOK
+	}
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/shipments":
+			_ = json.NewEncoder(w).Encode(map[string]any{"items": cfg.items, "total": cfg.total})
+		case "/internal/v1/shipments/status-summary":
+			if cfg.aggregateDelay > 0 {
+				time.Sleep(cfg.aggregateDelay)
+			}
+			if cfg.aggregateStatus != http.StatusOK {
+				http.Error(w, "down", cfg.aggregateStatus)
+				return
+			}
+			if cfg.aggregateBody != "" {
+				_, _ = w.Write([]byte(cfg.aggregateBody))
+				return
+			}
+			_, _ = w.Write([]byte(`{"totalShipments":0,"countedShipments":0,"byStatus":{},"complete":true}`))
+		default:
+			http.NotFound(w, r)
+		}
 	}))
 }
 
@@ -125,9 +161,18 @@ func decodeSummary(t *testing.T, body string) SummaryResponse {
 
 func TestSummaryReadModelDisabledHasNoStatusSummary(t *testing.T) {
 	tenantA := "11111111-1111-1111-1111-111111111111"
-	shipmentServer := shipmentSummaryServer([]map[string]any{
-		{"id": "s1", "shipment_number": "SH-1", "status": "IN_TRANSIT"},
-	}, 1)
+	shipmentServer := shipmentCombinedServer(shipmentCombinedConfig{
+		items: []map[string]any{
+			{"id": "s1", "shipment_number": "SH-1", "status": "IN_TRANSIT"},
+		},
+		total: 1,
+		aggregateBody: `{
+			"totalShipments": 5,
+			"countedShipments": 5,
+			"byStatus": {"IN_TRANSIT": 3, "DELIVERED": 2},
+			"complete": true
+		}`,
+	})
 	defer shipmentServer.Close()
 
 	handler, readModelServer := newReadModelSummaryHandler(t, readModelHandlerConfig{
@@ -150,8 +195,20 @@ func TestSummaryReadModelDisabledHasNoStatusSummary(t *testing.T) {
 		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
 	}
 	resp := decodeSummary(t, rec.Body.String())
-	if resp.StatusSummary != nil {
-		t.Fatalf("expected no statusSummary in disabled mode, got %+v", resp.StatusSummary)
+	if resp.StatusSummary == nil {
+		t.Fatal("expected full legacy statusSummary when aggregate available")
+	}
+	if resp.StatusSummary.Source != StatusSummarySourceLegacy {
+		t.Fatalf("source=%q want LEGACY", resp.StatusSummary.Source)
+	}
+	if resp.StatusSummary.TotalShipments != 5 || resp.StatusSummary.ByStatus["DELIVERED"] != 2 {
+		t.Fatalf("expected full aggregate counts, got %+v", resp.StatusSummary)
+	}
+	if resp.StatusSummary.LimitedDataset {
+		t.Fatal("full aggregate must not be marked limited")
+	}
+	if resp.StatusSummaryFreshness == nil || resp.StatusSummaryFreshness.LegacyAggregateLoaded == nil || !*resp.StatusSummaryFreshness.LegacyAggregateLoaded {
+		t.Fatalf("expected legacyAggregateLoaded=true, freshness=%+v", resp.StatusSummaryFreshness)
 	}
 }
 
@@ -293,9 +350,18 @@ func TestSummaryReadModelPrimaryPartialProjectionWarning(t *testing.T) {
 
 func TestSummaryReadModelShadowKeepsLegacyResponse(t *testing.T) {
 	tenantA := "11111111-1111-1111-1111-111111111111"
-	shipmentServer := shipmentSummaryServer([]map[string]any{
-		{"id": "s1", "shipment_number": "SH-1", "status": "DELIVERED"},
-	}, 1)
+	shipmentServer := shipmentCombinedServer(shipmentCombinedConfig{
+		items: []map[string]any{
+			{"id": "s1", "shipment_number": "SH-1", "status": "DELIVERED"},
+		},
+		total: 1,
+		aggregateBody: `{
+			"totalShipments": 1,
+			"countedShipments": 1,
+			"byStatus": {"DELIVERED": 1},
+			"complete": true
+		}`,
+	})
 	defer shipmentServer.Close()
 
 	handler, _ := newReadModelSummaryHandler(t, readModelHandlerConfig{
@@ -315,8 +381,121 @@ func TestSummaryReadModelShadowKeepsLegacyResponse(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer "+token)
 	rec := serveThroughAuth(t, handler, req, "secret", true)
 	resp := decodeSummary(t, rec.Body.String())
-	if resp.StatusSummary != nil {
-		t.Fatalf("shadow mode must not expose statusSummary, got %+v", resp.StatusSummary)
+	if resp.StatusSummary == nil {
+		t.Fatal("shadow mode must expose legacy statusSummary")
+	}
+	if resp.StatusSummary.Source != StatusSummarySourceLegacy {
+		t.Fatalf("expected legacy source, got %+v", resp.StatusSummary)
+	}
+	if resp.StatusSummary.ByStatus["DELIVERED"] != 1 || resp.StatusSummary.ByStatus["IN_TRANSIT"] != 0 {
+		t.Fatalf("expected legacy aggregate counts, got %+v", resp.StatusSummary)
+	}
+}
+
+func TestSummaryReadModelPrimaryFallbackUsesFullAggregate(t *testing.T) {
+	tenantA := "11111111-1111-1111-1111-111111111111"
+	shipmentServer := shipmentCombinedServer(shipmentCombinedConfig{
+		items: []map[string]any{
+			{"id": "s1", "shipment_number": "SH-1", "status": "IN_TRANSIT"},
+			{"id": "s2", "shipment_number": "SH-2", "status": "IN_TRANSIT"},
+		},
+		total: 100,
+		aggregateBody: `{
+			"totalShipments": 100,
+			"countedShipments": 100,
+			"byStatus": {"IN_TRANSIT": 60, "DELIVERED": 40},
+			"complete": true
+		}`,
+	})
+	defer shipmentServer.Close()
+
+	handler, _ := newReadModelSummaryHandler(t, readModelHandlerConfig{
+		testHandlerConfig: testHandlerConfig{
+			shipmentURL: shipmentServer.URL,
+			identityURL: identityAdminServer().URL,
+			authEnabled: true,
+		},
+		readModelMode:  controltowerreadmodel.ModePrimary,
+		readModelDelay: 2 * time.Second,
+	})
+
+	token := signTestToken(t, "secret", "user-a", tenantA, "user@example.com")
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/control-tower/summary", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := serveThroughAuth(t, handler, req, "secret", true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	resp := decodeSummary(t, rec.Body.String())
+	if resp.StatusSummary == nil || resp.StatusSummary.Source != StatusSummarySourceLegacy {
+		t.Fatalf("expected legacy fallback with full aggregate, got %+v", resp.StatusSummary)
+	}
+	if resp.StatusSummary.LimitedDataset {
+		t.Fatal("full aggregate fallback must not be page-limited")
+	}
+	if resp.StatusSummary.TotalShipments != 100 || resp.StatusSummary.ByStatus["DELIVERED"] != 40 {
+		t.Fatalf("expected full aggregate counts, got %+v", resp.StatusSummary)
+	}
+	if resp.StatusSummaryFreshness == nil || !resp.StatusSummaryFreshness.FallbackUsed {
+		t.Fatal("expected fallbackUsed=true")
+	}
+	if resp.StatusSummaryFreshness.LegacyAggregateLoaded == nil || !*resp.StatusSummaryFreshness.LegacyAggregateLoaded {
+		t.Fatalf("expected legacyAggregateLoaded=true, freshness=%+v", resp.StatusSummaryFreshness)
+	}
+	if strings.Contains(rec.Body.String(), WarningLegacyStatusSummaryLimited) {
+		t.Fatalf("full aggregate fallback must not include limited warning, body=%s", rec.Body.String())
+	}
+}
+
+func TestSummaryReadModelPrimaryDoubleFallbackPageLimited(t *testing.T) {
+	tenantA := "11111111-1111-1111-1111-111111111111"
+	shipmentServer := shipmentCombinedServer(shipmentCombinedConfig{
+		items: []map[string]any{
+			{"id": "s1", "shipment_number": "SH-1", "status": "IN_TRANSIT"},
+			{"id": "s2", "shipment_number": "SH-2", "status": "IN_TRANSIT"},
+		},
+		total:           100,
+		aggregateStatus: http.StatusServiceUnavailable,
+	})
+	defer shipmentServer.Close()
+
+	handler, _ := newReadModelSummaryHandler(t, readModelHandlerConfig{
+		testHandlerConfig: testHandlerConfig{
+			shipmentURL: shipmentServer.URL,
+			identityURL: identityAdminServer().URL,
+			authEnabled: true,
+		},
+		readModelMode: controltowerreadmodel.ModePrimary,
+		readModelFn: func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "down", http.StatusInternalServerError)
+		},
+	})
+
+	token := signTestToken(t, "secret", "user-a", tenantA, "user@example.com")
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/control-tower/summary", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := serveThroughAuth(t, handler, req, "secret", true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	resp := decodeSummary(t, rec.Body.String())
+	if resp.StatusSummary == nil || resp.StatusSummary.Source != StatusSummarySourceLegacy {
+		t.Fatalf("expected page-limited legacy fallback, got %+v", resp.StatusSummary)
+	}
+	if !resp.StatusSummary.LimitedDataset {
+		t.Fatal("expected limitedDataset=true when aggregate unavailable")
+	}
+	if resp.StatusSummary.TotalShipments != 100 || resp.StatusSummary.CountedShipments != 2 {
+		t.Fatalf("expected page-limited counts, got %+v", resp.StatusSummary)
+	}
+	if resp.StatusSummaryFreshness == nil || !resp.StatusSummaryFreshness.Partial {
+		t.Fatal("expected partial freshness for page-limited fallback")
+	}
+	if resp.StatusSummaryFreshness.LegacyAggregateLoaded == nil || *resp.StatusSummaryFreshness.LegacyAggregateLoaded {
+		t.Fatalf("expected legacyAggregateLoaded=false, freshness=%+v", resp.StatusSummaryFreshness)
+	}
+	if !strings.Contains(rec.Body.String(), WarningLegacyStatusSummaryLimited) {
+		t.Fatalf("expected limited warning, body=%s", rec.Body.String())
 	}
 }
 

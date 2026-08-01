@@ -120,6 +120,7 @@ type StatusSummaryFreshnessBlock struct {
 	ConsumerRunning         *bool   `json:"consumerRunning,omitempty"`
 	LastRecordReceivedAt    *string `json:"lastRecordReceivedAt,omitempty"`
 	LastProjectionAppliedAt *string `json:"lastProjectionAppliedAt,omitempty"`
+	LegacyAggregateLoaded   *bool   `json:"legacyAggregateLoaded,omitempty"`
 }
 
 const (

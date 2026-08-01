@@ -20,11 +20,13 @@ func NewRouter(
 	db observability.DatabasePinger,
 	shipmentSvc *service.ShipmentService,
 	statusHistorySvc *service.StatusHistoryService,
+	statusSummarySvc *service.StatusSummaryService,
 	driverSvc *service.DriverService,
 	vehicleSvc *service.VehicleService,
 ) http.Handler {
 	shipmentHandler := handlers.NewShipmentHandler(shipmentSvc)
 	statusHistoryHandler := handlers.NewStatusHistoryHandler(statusHistorySvc)
+	statusSummaryHandler := handlers.NewStatusSummaryHandler(statusSummarySvc)
 	driverHandler := handlers.NewDriverHandler(driverSvc)
 	vehicleHandler := handlers.NewVehicleHandler(vehicleSvc)
 
@@ -62,6 +64,7 @@ func NewRouter(
 	})
 
 	r.Route("/internal/v1/shipments", func(r chi.Router) {
+		r.Get("/status-summary", statusSummaryHandler.GetStatusSummary)
 		r.Get("/{shipmentId}/status-history", statusHistoryHandler.List)
 	})
 

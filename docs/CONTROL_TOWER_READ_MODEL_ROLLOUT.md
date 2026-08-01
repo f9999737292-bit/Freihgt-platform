@@ -55,7 +55,26 @@ When read-model is unavailable, malformed, timed out, or consumer-not-running (i
 
 Fallback cannot be disabled in v0.1.
 
+## Full legacy aggregate baseline
+
+API Gateway resolves legacy status input through a two-tier hierarchy documented in [CONTROL_TOWER_FULL_STATUS_BASELINE.md](./CONTROL_TOWER_FULL_STATUS_BASELINE.md):
+
+1. **Primary comparison source:** `GET /internal/v1/shipments/status-summary` in shipment-service (full tenant aggregate, `complete=true`).
+2. **Fallback comparison source:** page-limited counts from the tenant-scoped shipment list fetch used by Control Tower aggregation.
+
+When the full aggregate succeeds, shadow comparison uses exact totals and per-status counts across the entire tenant population. Page-limited legacy is used only when the aggregate client is unavailable, times out, returns incomplete data, or fails contract validation.
+
+Gateway exposes `statusSummaryFreshness.legacyAggregateLoaded=true` when the full aggregate supplied the legacy baseline for that request.
+
 ## Legacy fallback completeness
+
+### Full aggregate path (preferred)
+
+- `FullAggregateAvailable=true`, `LimitedDataset=false`
+- Shadow exact comparison enabled (`MATCH`, `TOTAL_MISMATCH`, `STATUS_COUNT_MISMATCH`)
+- No `CONTROL_TOWER_LEGACY_STATUS_SUMMARY_LIMITED` warning
+
+### Page-limited path (secondary)
 
 Legacy status summary is derived from the same tenant-scoped shipment-service list fetch used by Control Tower aggregation.
 
@@ -66,8 +85,8 @@ Legacy status summary is derived from the same tenant-scoped shipment-service li
 5. Shadow exact comparison is disabled when `limitedDataset=true`; comparison result is `LEGACY_LIMITED_DATASET`.
 6. Primary fallback preserves the limited marker and warnings when legacy data is page-limited.
 7. Read-model primary success does **not** inherit the legacy limited marker (`limitedDataset=false`, `countedShipments=totalShipments`).
-8. Rollout acceptance must not treat shadow mismatches caused by limited legacy population as read-model defects.
-9. Full shadow comparison in future phases requires a dedicated full legacy aggregate query.
+8. Rollout acceptance must not treat shadow mismatches caused by limited legacy population as read-model defects when the full aggregate was unavailable.
+9. When the full aggregate is unavailable entirely, comparison result is `LEGACY_FULL_AGGREGATE_UNAVAILABLE`.
 
 ## Partial projection semantics
 

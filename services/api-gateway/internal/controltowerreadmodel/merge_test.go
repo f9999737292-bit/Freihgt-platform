@@ -4,10 +4,11 @@ import "testing"
 
 func legacyInput(total int64, counted int64, byStatus map[string]int64, limited bool) LegacyStatusInput {
 	return LegacyStatusInput{
-		TotalShipments:   total,
-		CountedShipments: counted,
-		ByStatus:         byStatus,
-		LimitedDataset:   limited,
+		TotalShipments:         total,
+		CountedShipments:       counted,
+		ByStatus:               byStatus,
+		LimitedDataset:         limited,
+		FullAggregateAvailable: !limited,
 	}
 }
 
@@ -36,24 +37,30 @@ func TestMergeDisabledLimitedLegacyReturnsSummary(t *testing.T) {
 	}
 }
 
-func TestMergeDisabledFullLegacyOmitsSummary(t *testing.T) {
+func TestMergeDisabledFullLegacyReturnsSummary(t *testing.T) {
 	out := Merge(MergeInput{
 		Mode:   ModeDisabled,
 		Legacy: legacyInput(10, 10, map[string]int64{"IN_TRANSIT": 10}, false),
 	})
-	if out.StatusSummary != nil {
-		t.Fatalf("expected no summary for full legacy disabled mode, got %+v", out.StatusSummary)
+	if out.StatusSummary == nil {
+		t.Fatal("expected full legacy summary in disabled mode")
+	}
+	if out.StatusSummary.LimitedDataset || out.StatusSummary.CountedShipments != 10 {
+		t.Fatalf("summary=%+v", out.StatusSummary)
+	}
+	if out.StatusSummaryFreshness == nil || out.StatusSummaryFreshness.LegacyAggregateLoaded == nil || !*out.StatusSummaryFreshness.LegacyAggregateLoaded {
+		t.Fatalf("freshness=%+v", out.StatusSummaryFreshness)
 	}
 }
 
-func TestMergeShadowKeepsLegacyOnlyInOutput(t *testing.T) {
+func TestMergeShadowKeepsLegacyInOutput(t *testing.T) {
 	out := Merge(MergeInput{
 		Mode:      ModeShadow,
 		Legacy:    legacyInput(2, 2, map[string]int64{"IN_TRANSIT": 2}, false),
 		ReadModel: readModelPayload(2, map[string]int64{"IN_TRANSIT": 2}, 0, true),
 	})
-	if out.StatusSummary != nil {
-		t.Fatal("shadow mode must not expose read-model status summary in merge output")
+	if out.StatusSummary == nil || out.StatusSummary.Source != SourceLegacy {
+		t.Fatalf("shadow mode must expose legacy status summary, got %+v", out.StatusSummary)
 	}
 	if out.Comparison != ComparisonMatch {
 		t.Fatalf("comparison=%q want MATCH", out.Comparison)

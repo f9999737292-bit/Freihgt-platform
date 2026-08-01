@@ -1,6 +1,7 @@
 package controltowerreadmodel
 
 var knownShipmentStatuses = map[string]struct{}{
+	"CREATED":          {},
 	"CARRIER_ASSIGNED": {}, "ACCEPTED_BY_CARRIER": {}, "VEHICLE_ASSIGNED": {},
 	"DRIVER_ASSIGNED": {}, "PICKUP_SLOT_BOOKED": {}, "DELIVERY_SLOT_BOOKED": {},
 	"IN_PICKUP": {}, "LOADED": {}, "IN_TRANSIT": {}, "ARRIVED_AT_CONSIGNEE": {},
