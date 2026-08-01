@@ -58,6 +58,8 @@ func (w *Worker) run(ctx context.Context) {
 	ticker := time.NewTicker(w.cfg.PollInterval)
 	defer ticker.Stop()
 
+	w.pollOnce(ctx)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -69,6 +71,9 @@ func (w *Worker) run(ctx context.Context) {
 }
 
 func (w *Worker) pollOnce(ctx context.Context) {
+	if ctx.Err() != nil {
+		return
+	}
 	now := w.clock.Now()
 	w.refreshGauges(ctx, now)
 
