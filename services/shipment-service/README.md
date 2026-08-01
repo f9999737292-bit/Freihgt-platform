@@ -19,6 +19,14 @@ Go microservice for managing freight shipments after a carrier is selected.
 | `DATABASE_URL` | local postgres URL | PostgreSQL connection string |
 | `LOG_LEVEL` | `info` | Log level (`debug`, `info`, `warn`, `error`) |
 | `ENVIRONMENT` | `development` | Runtime environment |
+| `SHIPMENT_OUTBOX_ENABLED` | `false` | Enable background outbox publisher worker |
+| `SHIPMENT_OUTBOX_TRANSPORT` | _(empty)_ | Required when outbox enabled; no broker transport is implemented in v0.1 |
+| `SHIPMENT_OUTBOX_POLL_INTERVAL` | `2s` | Worker poll interval |
+| `SHIPMENT_OUTBOX_BATCH_SIZE` | `50` | Claim batch size |
+| `SHIPMENT_OUTBOX_PUBLISH_TIMEOUT` | `10s` | Per-event publish timeout |
+| `SHIPMENT_OUTBOX_LEASE_TIMEOUT` | `60s` | Claim lease timeout (must exceed publish timeout) |
+| `SHIPMENT_OUTBOX_MAX_ATTEMPTS` | `5` | Max publish attempts before `FAILED` |
+| `SHIPMENT_OUTBOX_WORKER_ID` | generated | Unique worker instance ID |
 
 ## Endpoints
 
@@ -55,6 +63,18 @@ Health check:
 ```bash
 curl http://localhost:8085/health
 ```
+
+## PostgreSQL outbox integration tests
+
+Requires live PostgreSQL (see `docs/SHIPMENT_STATUS_OUTBOX.md`):
+
+```bash
+# PowerShell example — use your local Compose credentials
+$env:TEST_DATABASE_URL = "postgres://freight:freight_password@localhost:5432/postgres?sslmode=disable"
+make outbox-integration-test
+```
+
+Tests create and drop an isolated `freight_platform_outbox_test_*` database automatically.
 
 ## Examples
 

@@ -61,7 +61,7 @@ K6 ?= k6
 	run-api-gateway run-identity-service run-company-service run-localization-service \
 	run-transport-order-service run-shipment-service run-rfx-service \
 	run-document-service run-billing-register-service run-low-code-service \
-	test-company-service test-identity-service test-transport-order-service test-rfx-service test-shipment-service test-document-service test-billing-register-service test-low-code-service test-api-gateway \
+	test-company-service test-identity-service test-transport-order-service test-rfx-service test-shipment-service outbox-integration-test test-document-service test-billing-register-service test-low-code-service test-api-gateway \
 	integration-smoke-test full-flow-smoke-test lowcode-runtime-compliance-test check-lowcode-headers seed-dev-admin seed-demo-data seed-lowcode-demo create-lowcode-draft-template \
 	project-map tree-project find-service find-text \
 	openapi-generate openapi-generate-json openapi-validate openapi-check api-docs-open \
@@ -446,6 +446,9 @@ run-shipment-service:
 
 test-shipment-service:
 	@cd services/shipment-service && go test ./...
+
+outbox-integration-test:
+	@cd services/shipment-service && go test -tags=integration ./internal/integration/outbox/... -count=1 -v
 
 run-rfx-service:
 	@cd services/rfx-service && go run ./cmd/server

@@ -13,6 +13,7 @@ import (
 	"github.com/freight-platform/shared-go/metrics"
 	"github.com/freight-platform/shipment-service/internal/config"
 	httpserver "github.com/freight-platform/shipment-service/internal/http"
+	"github.com/freight-platform/shipment-service/internal/outbox"
 	"github.com/freight-platform/shipment-service/internal/platform/database"
 	"github.com/freight-platform/shipment-service/internal/platform/logger"
 	"github.com/freight-platform/shipment-service/internal/repository"
@@ -48,6 +49,21 @@ func main() {
 	driverSvc := service.NewDriverService(driverRepo)
 	vehicleSvc := service.NewVehicleService(vehicleRepo)
 
+	var outboxWorker *outbox.Worker
+	if cfg.Outbox.Enabled {
+		publisher, err := outbox.NewPublisher(cfg.Outbox)
+		if err != nil {
+			log.Error("failed to configure outbox publisher", slog.String("error", err.Error()))
+			os.Exit(1)
+		}
+		outboxWorker = outbox.NewWorker(cfg.Outbox, shipmentRepo, publisher, log, outbox.NewRealClock())
+		outboxWorker.Start(ctx)
+		log.Info("outbox worker started",
+			slog.String("worker_id", cfg.Outbox.WorkerID),
+			slog.String("transport", cfg.Outbox.Transport),
+		)
+	}
+
 	router := httpserver.NewRouter(log, db.Pool, shipmentSvc, statusHistorySvc, driverSvc, vehicleSvc)
 
 	server := &http.Server{
@@ -76,6 +92,14 @@ func main() {
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Error("graceful shutdown failed", slog.String("error", err.Error()))
 		os.Exit(1)
+	}
+
+	if outboxWorker != nil {
+		workerWaitCtx, workerCancel := context.WithTimeout(context.Background(), cfg.Outbox.PublishTimeout+cfg.Outbox.PollInterval)
+		defer workerCancel()
+		if err := outboxWorker.Wait(workerWaitCtx); err != nil {
+			log.Warn("outbox worker shutdown timed out", slog.String("error", err.Error()))
+		}
 	}
 
 	log.Info("shutdown complete")

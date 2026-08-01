@@ -145,7 +145,7 @@ func (r *ShipmentRepository) CreateShipment(ctx context.Context, params CreateSh
 			shipment.Status,
 			transition,
 		)
-		if err := insertStatusHistoryRow(ctx, tx, write); err != nil {
+		if err := insertStatusHistoryAndOutbox(ctx, tx, write); err != nil {
 			return err
 		}
 
@@ -276,7 +276,7 @@ func (r *ShipmentRepository) AssignDriver(ctx context.Context, id, tenantID, dri
 
 		if shouldRecordStatusHistory(stringPtr(fromStatus), newStatus) {
 			write := statusHistoryWriteFromTransition(tenantID, id, shipment.Version, stringPtr(fromStatus), newStatus, transition)
-			if err := insertStatusHistoryRow(ctx, tx, write); err != nil {
+			if err := insertStatusHistoryAndOutbox(ctx, tx, write); err != nil {
 				return err
 			}
 		}
@@ -316,7 +316,7 @@ func (r *ShipmentRepository) AssignVehicle(ctx context.Context, id, tenantID, ve
 
 		if shouldRecordStatusHistory(stringPtr(fromStatus), newStatus) {
 			write := statusHistoryWriteFromTransition(tenantID, id, shipment.Version, stringPtr(fromStatus), newStatus, transition)
-			if err := insertStatusHistoryRow(ctx, tx, write); err != nil {
+			if err := insertStatusHistoryAndOutbox(ctx, tx, write); err != nil {
 				return err
 			}
 		}
@@ -364,7 +364,7 @@ func (r *ShipmentRepository) UpdateStatus(ctx context.Context, id, tenantID uuid
 		}
 
 		write := statusHistoryWriteFromTransition(tenantID, id, shipment.Version, stringPtr(fromStatus), newStatus, transition)
-		if err := insertStatusHistoryRow(ctx, tx, write); err != nil {
+		if err := insertStatusHistoryAndOutbox(ctx, tx, write); err != nil {
 			return err
 		}
 
@@ -409,7 +409,7 @@ func (r *ShipmentRepository) Accept(ctx context.Context, id, tenantID uuid.UUID,
 			domain.ShipmentStatusAcceptedByCarrier,
 			transition,
 		)
-		if err := insertStatusHistoryRow(ctx, tx, write); err != nil {
+		if err := insertStatusHistoryAndOutbox(ctx, tx, write); err != nil {
 			return err
 		}
 
@@ -454,7 +454,7 @@ func (r *ShipmentRepository) Cancel(ctx context.Context, id, tenantID uuid.UUID,
 			domain.ShipmentStatusCancelled,
 			transition,
 		)
-		if err := insertStatusHistoryRow(ctx, tx, write); err != nil {
+		if err := insertStatusHistoryAndOutbox(ctx, tx, write); err != nil {
 			return err
 		}
 

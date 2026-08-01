@@ -168,12 +168,13 @@ Metadata allowlist: `fromStatus`, `toStatus`, `shipmentVersion`, `reasonCode`.
 ## v0.1 limitations
 
 - No separate event-store microservice
-- No Kafka / outbox / event streaming
 - No retroactive synthesis of unknown transition times
 - Assign driver/vehicle without status change does not write history
 - State machine rules are unchanged; history layer does not validate transitions independently
 
+Canonical status history remains the UI timeline source. Shipment status outbox (`transport.shipment_event_outbox`) stores durable publish intents in the same transaction as history writes; see `docs/SHIPMENT_STATUS_OUTBOX.md`.
+
 ## Future work
 
-- Outbox pattern and event streaming for cross-service consumers
 - Optional dedicated audit/event store when legal retention requirements expand
+- Outbox retention/purge job and FAILED replay tooling
