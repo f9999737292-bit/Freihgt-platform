@@ -45,22 +45,18 @@ export function useShipmentsApi() {
     return apiGet<Shipment>(`/api/v1/shipments/${id}`, { query: tenantQuery() })
   }
 
-  async function createShipmentFromTransportOrder(
-    payload: Omit<CreateShipmentFromOrderPayload, 'tenant_id'>,
-  ) {
+  async function createShipmentFromTransportOrder(payload: CreateShipmentFromOrderPayload) {
     return apiPost<Shipment>('/api/v1/shipments/from-transport-order', {
       ...payload,
-      tenant_id: tenantId(),
       forwarder_company_id: payload.forwarder_company_id?.trim() || null,
       planned_pickup_at: payload.planned_pickup_at || undefined,
       planned_delivery_at: payload.planned_delivery_at || undefined,
     })
   }
 
-  async function createShipmentFromBid(payload: Omit<CreateShipmentFromBidPayload, 'tenant_id'>) {
+  async function createShipmentFromBid(payload: CreateShipmentFromBidPayload) {
     return apiPost<Shipment>('/api/v1/shipments/from-bid', {
       ...payload,
-      tenant_id: tenantId(),
       planned_pickup_at: payload.planned_pickup_at || undefined,
       planned_delivery_at: payload.planned_delivery_at || undefined,
     })
@@ -74,29 +70,19 @@ export function useShipmentsApi() {
     return apiPost<Shipment>(`/api/v1/shipments/${id}/assign-vehicle`, payload)
   }
 
-  async function acceptShipment(id: string, payload: Omit<AcceptShipmentPayload, 'tenant_id'> = {}) {
-    return apiPost<Shipment>(`/api/v1/shipments/${id}/accept`, {
-      ...payload,
-      tenant_id: tenantId(),
-    })
+  async function acceptShipment(id: string, payload: AcceptShipmentPayload = {}) {
+    return apiPost<Shipment>(`/api/v1/shipments/${id}/accept`, payload)
   }
 
-  async function updateShipmentStatus(
-    id: string,
-    payload: Omit<UpdateShipmentStatusPayload, 'tenant_id'>,
-  ) {
+  async function updateShipmentStatus(id: string, payload: UpdateShipmentStatusPayload) {
     return apiPatch<Shipment>(`/api/v1/shipments/${id}/status`, {
       ...payload,
-      tenant_id: tenantId(),
       actual_time: payload.actual_time || new Date().toISOString(),
     })
   }
 
-  async function cancelShipment(id: string, payload: Omit<CancelShipmentPayload, 'tenant_id'>) {
-    return apiPost<Shipment>(`/api/v1/shipments/${id}/cancel`, {
-      ...payload,
-      tenant_id: tenantId(),
-    })
+  async function cancelShipment(id: string, payload: CancelShipmentPayload) {
+    return apiPost<Shipment>(`/api/v1/shipments/${id}/cancel`, payload)
   }
 
   function isApiUnavailableError(error: unknown): boolean {

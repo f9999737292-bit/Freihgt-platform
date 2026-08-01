@@ -1,5 +1,7 @@
 package fleetrbac
 
+import "github.com/freight-platform/api-gateway/internal/routeauth"
+
 var fleetViewRoles = map[string]struct{}{
 	"PLATFORM_ADMIN":     {},
 	"CARRIER_ADMIN":      {},
@@ -18,22 +20,13 @@ var fleetAssignRoles = map[string]struct{}{
 }
 
 func CanViewFleet(roles []string) bool {
-	return hasAnyRole(roles, fleetViewRoles)
+	return routeauth.HasAnyRole(roles, fleetViewRoles)
 }
 
 func CanCreateFleet(roles []string) bool {
-	return hasAnyRole(roles, fleetCreateRoles)
+	return routeauth.HasAnyRole(roles, fleetCreateRoles)
 }
 
 func CanAssignFleet(roles []string) bool {
-	return hasAnyRole(roles, fleetAssignRoles)
-}
-
-func hasAnyRole(roles []string, allowed map[string]struct{}) bool {
-	for _, role := range roles {
-		if _, ok := allowed[role]; ok {
-			return true
-		}
-	}
-	return false
+	return routeauth.HasAnyRole(roles, fleetAssignRoles)
 }

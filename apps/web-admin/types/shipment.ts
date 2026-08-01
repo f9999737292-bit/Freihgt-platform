@@ -130,7 +130,6 @@ export interface ListShipmentsFilters {
 }
 
 export interface CreateShipmentFromBidPayload {
-  tenant_id: string
   shipment_number: string
   bid_id: string
   transport_order_id: string
@@ -139,7 +138,6 @@ export interface CreateShipmentFromBidPayload {
 }
 
 export interface CreateShipmentFromOrderPayload {
-  tenant_id: string
   shipment_number: string
   transport_order_id: string
   carrier_company_id: string
@@ -157,17 +155,15 @@ export interface AssignVehiclePayload {
 }
 
 export interface AcceptShipmentPayload {
-  tenant_id: string
+  // Empty body; tenant and actor come from authenticated gateway context.
 }
 
 export interface UpdateShipmentStatusPayload {
-  tenant_id: string
   status: string
   actual_time?: string
 }
 
 export interface CancelShipmentPayload {
-  tenant_id: string
   reason: string
 }
 

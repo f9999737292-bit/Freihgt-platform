@@ -3,6 +3,7 @@ package middleware_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -163,6 +164,33 @@ func TestAuthEnabledStripsSpoofedIdentityHeaders(t *testing.T) {
 	req.Header.Set("X-User-ID", "spoofed-user")
 	req.Header.Set("X-User-Email", "spoofed@example.com")
 	req.Header.Set("X-Company-ID", "company-b")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d want 200", rec.Code)
+	}
+}
+
+func TestAuthEnabledStripsSpoofedIdentityHeadersOnPostMutation(t *testing.T) {
+	secret := "test-secret"
+	token := signToken(t, secret, "user-id", "tenant-a", "user@example.com")
+
+	handler := middleware.Auth(true, secret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("X-Tenant-ID"); got != "tenant-a" {
+			t.Fatalf("tenant header=%q want tenant-a", got)
+		}
+		if got := r.Header.Get("X-User-ID"); got != "user-id" {
+			t.Fatalf("user header=%q want user-id", got)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/shipments/from-transport-order", strings.NewReader(`{"shipment_number":"SHP-1"}`))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Tenant-ID", "tenant-b")
+	req.Header.Set("X-User-ID", "spoofed-user")
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 

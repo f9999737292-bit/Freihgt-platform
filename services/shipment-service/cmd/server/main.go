@@ -10,13 +10,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/freight-platform/shared-go/metrics"
 	"github.com/freight-platform/shipment-service/internal/config"
 	httpserver "github.com/freight-platform/shipment-service/internal/http"
 	"github.com/freight-platform/shipment-service/internal/platform/database"
 	"github.com/freight-platform/shipment-service/internal/platform/logger"
 	"github.com/freight-platform/shipment-service/internal/repository"
 	"github.com/freight-platform/shipment-service/internal/service"
-	"github.com/freight-platform/shared-go/metrics"
 )
 
 func main() {
@@ -44,10 +44,11 @@ func main() {
 	vehicleRepo := repository.NewVehicleRepository(db.Pool)
 
 	shipmentSvc := service.NewShipmentService(shipmentRepo, driverRepo, vehicleRepo)
+	statusHistorySvc := service.NewStatusHistoryService(shipmentRepo)
 	driverSvc := service.NewDriverService(driverRepo)
 	vehicleSvc := service.NewVehicleService(vehicleRepo)
 
-	router := httpserver.NewRouter(log, db.Pool, shipmentSvc, driverSvc, vehicleSvc)
+	router := httpserver.NewRouter(log, db.Pool, shipmentSvc, statusHistorySvc, driverSvc, vehicleSvc)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

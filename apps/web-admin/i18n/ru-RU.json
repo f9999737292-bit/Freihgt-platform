@@ -30,6 +30,7 @@
     "loading": "Загрузка…",
     "empty": "Нет данных",
     "error": "Ошибка",
+    "insufficientPermission": "Недостаточно прав для выполнения операции",
     "apiUnavailable": "API temporarily unavailable",
     "apiUnavailableHint": "Проверьте API Gateway и backend services",
     "refresh": "Обновить",
@@ -1136,6 +1137,7 @@
     },
     "sources": {
       "SHIPMENT_STATE": "Состояние перевозки",
+      "SHIPMENT_STATUS_HISTORY": "История статусов перевозки",
       "SLA_CALCULATOR": "SLA-калькулятор",
       "DOCUMENT_STATE": "Состояние документа",
       "BILLING_STATE": "Состояние биллинга"
@@ -1148,6 +1150,8 @@
     "warnings": {
       "SHIPMENT_EVENTS_UNAVAILABLE": "Сохранённая история перевозки",
       "SHIPMENT_HISTORY_DERIVED_FROM_CURRENT_STATE": "Сохранённая история перевозки",
+      "SHIPMENT_STATUS_HISTORY_PARTIAL": "Неполная история статусов",
+      "SHIPMENT_STATUS_HISTORY_UNAVAILABLE": "История статусов недоступна",
       "DOCUMENT_EVENTS_UNAVAILABLE": "Документы",
       "BILLING_EVENTS_UNAVAILABLE": "Биллинг",
       "TECHNICAL_EVENTS_UNAVAILABLE": "Технические события",
@@ -1166,7 +1170,11 @@
       "actualAt": "Фактическое время",
       "delayMinutes": "Задержка (мин.)",
       "slaStatus": "SLA-статус",
-      "slaReason": "Причина SLA"
+      "slaReason": "Причина SLA",
+      "fromStatus": "Предыдущий статус",
+      "toStatus": "Новый статус",
+      "shipmentVersion": "Версия перевозки",
+      "reasonCode": "Код причины"
     },
     "types": {
       "SHIPMENT_CREATED": { "title": "Перевозка создана", "description": "Перевозка была создана." },

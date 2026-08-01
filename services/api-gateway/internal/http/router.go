@@ -14,6 +14,7 @@ import (
 	apperrors "github.com/freight-platform/api-gateway/internal/platform/errors"
 	"github.com/freight-platform/api-gateway/internal/platform/respond"
 	"github.com/freight-platform/api-gateway/internal/shipmentevents"
+	"github.com/freight-platform/api-gateway/internal/shipmentrbac"
 	"github.com/freight-platform/shared-go/metrics"
 	sharedmiddleware "github.com/freight-platform/shared-go/middleware"
 	"github.com/freight-platform/shared-go/observability"
@@ -80,6 +81,13 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	r.Post("/api/v1/vehicles", fleetGuard.WithPolicy(fleetrbac.PolicyCreate))
 	r.Post("/api/v1/shipments/{id}/assign-driver", fleetGuard.WithPolicy(fleetrbac.PolicyAssign))
 	r.Post("/api/v1/shipments/{id}/assign-vehicle", fleetGuard.WithPolicy(fleetrbac.PolicyAssign))
+
+	shipmentGuard := shipmentrbac.NewGuard(cfg, proxy)
+	r.Post("/api/v1/shipments/from-transport-order", shipmentGuard.WithPolicy(shipmentrbac.PolicyCreate))
+	r.Post("/api/v1/shipments/from-bid", shipmentGuard.WithPolicy(shipmentrbac.PolicyCreate))
+	r.Post("/api/v1/shipments/{id}/accept", shipmentGuard.WithPolicy(shipmentrbac.PolicyAccept))
+	r.Patch("/api/v1/shipments/{id}/status", shipmentGuard.WithPolicy(shipmentrbac.PolicyUpdateStatus))
+	r.Post("/api/v1/shipments/{id}/cancel", shipmentGuard.WithPolicy(shipmentrbac.PolicyCancel))
 
 	r.Handle("/api/*", proxy)
 	r.Handle("/api", proxy)

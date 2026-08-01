@@ -120,6 +120,110 @@ func (c *DownstreamClient) FetchShipment(ctx context.Context, reqCtx RequestCont
 	return shipmentFetchResult{Shipment: &shipment}, nil
 }
 
+type statusHistoryResponse struct {
+	Complete bool             `json:"complete"`
+	Items    []map[string]any `json:"items"`
+	Warnings []string         `json:"warnings"`
+}
+
+func (c *DownstreamClient) FetchStatusHistory(ctx context.Context, reqCtx RequestContext, shipmentID string) (statusHistoryFetchResult, error) {
+	endpoint := c.shipment + "/internal/v1/shipments/" + url.PathEscape(shipmentID) + "/status-history?limit=200&order=asc"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return statusHistoryFetchResult{}, err
+	}
+	c.applyHeaders(req, reqCtx)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return statusHistoryFetchResult{Failed: true}, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return statusHistoryFetchResult{NotFound: true}, nil
+	}
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return statusHistoryFetchResult{Failed: true}, fmt.Errorf("status history service returned %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var payload statusHistoryResponse
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return statusHistoryFetchResult{Failed: true}, err
+	}
+
+	items := make([]rawStatusHistory, 0, len(payload.Items))
+	for _, item := range payload.Items {
+		parsed, ok := parseRawStatusHistory(item)
+		if ok {
+			items = append(items, parsed)
+		}
+	}
+	return statusHistoryFetchResult{
+		Complete: payload.Complete,
+		Items:    items,
+		Warnings: payload.Warnings,
+	}, nil
+}
+
+func parseRawStatusHistory(item map[string]any) (rawStatusHistory, bool) {
+	id := stringField(item, "id")
+	toStatus := stringField(item, "toStatus")
+	if id == "" || toStatus == "" {
+		return rawStatusHistory{}, false
+	}
+	var fromStatus *string
+	if raw := stringField(item, "fromStatus"); raw != "" {
+		fromStatus = &raw
+	}
+	var reasonCode *string
+	if raw := stringField(item, "reasonCode"); raw != "" {
+		reasonCode = &raw
+	}
+	actorType := "SYSTEM"
+	actorID := (*string)(nil)
+	if actorRaw, ok := item["actor"].(map[string]any); ok {
+		if typed := stringField(actorRaw, "type"); typed != "" {
+			actorType = typed
+		}
+		if raw := stringField(actorRaw, "id"); raw != "" {
+			actorID = &raw
+		}
+	}
+	var correlationID *string
+	if raw := stringField(item, "correlationId"); raw != "" {
+		correlationID = &raw
+	}
+	occurredAt := timePtrField(item, "occurredAt")
+	recordedAt := timePtrField(item, "recordedAt")
+	if occurredAt == nil {
+		return rawStatusHistory{}, false
+	}
+	recorded := *occurredAt
+	if recordedAt != nil {
+		recorded = *recordedAt
+	}
+	version := 0
+	if raw, ok := item["shipmentVersion"].(float64); ok {
+		version = int(raw)
+	}
+	return rawStatusHistory{
+		ID:              id,
+		ShipmentID:      stringField(item, "shipmentId"),
+		ShipmentVersion: version,
+		FromStatus:      fromStatus,
+		ToStatus:        toStatus,
+		ReasonCode:      reasonCode,
+		Source:          stringField(item, "source"),
+		ActorType:       actorType,
+		ActorID:         actorID,
+		CorrelationID:   correlationID,
+		OccurredAt:      *occurredAt,
+		RecordedAt:      recorded,
+	}, true
+}
+
 func (c *DownstreamClient) FetchDocuments(ctx context.Context, reqCtx RequestContext, shipmentID string) ([]rawDocument, bool, error) {
 	values := url.Values{}
 	values.Set("tenant_id", reqCtx.TenantID)

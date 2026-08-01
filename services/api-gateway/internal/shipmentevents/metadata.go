@@ -12,6 +12,10 @@ var allowedMetadataKeys = map[string]struct{}{
 	"delayMinutes":          {},
 	"slaReason":             {},
 	"slaStatus":             {},
+	"fromStatus":            {},
+	"toStatus":              {},
+	"shipmentVersion":       {},
+	"reasonCode":            {},
 }
 
 func sanitizeMetadata(raw map[string]interface{}) map[string]interface{} {

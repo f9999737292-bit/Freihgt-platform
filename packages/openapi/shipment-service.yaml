@@ -45,8 +45,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: true
+              $ref: '#/components/schemas/CreateShipmentFromTransportOrderRequest'
       security:
         - bearerAuth: []
       responses:
@@ -103,8 +102,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: true
+              $ref: '#/components/schemas/CreateShipmentFromBidRequest'
       security:
         - bearerAuth: []
       responses:
@@ -382,12 +380,14 @@ paths:
         - $ref: '#/components/parameters/XLocale'
         - $ref: '#/components/parameters/Authorization'
       requestBody:
-        required: true
+        required: false
+        description: Optional empty body. If present, must not contain tenant or actor fields; unknown properties are rejected.
         content:
           application/json:
             schema:
               type: object
-              additionalProperties: true
+              additionalProperties: false
+              maxProperties: 0
       security:
         - bearerAuth: []
       responses:
@@ -444,8 +444,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: true
+              $ref: '#/components/schemas/UpdateShipmentStatusRequest'
       security:
         - bearerAuth: []
       responses:
@@ -502,8 +501,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: true
+              $ref: '#/components/schemas/CancelShipmentRequest'
       security:
         - bearerAuth: []
       responses:
@@ -534,6 +532,72 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
           description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /internal/v1/shipments/{shipmentId}/status-history:
+    get:
+      tags: [Shipments]
+      summary: List persisted shipment status history (internal)
+      description: |
+        Internal-only endpoint for BFF aggregation. Not exposed as a public browser route through API Gateway catch-all.
+        Tenant scope is required via trusted `X-Tenant-ID` header only.
+      operationId: get_internal_shipment_status_history
+      parameters:
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/XTenantID'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Status history page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShipmentStatusHistoryResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Shipment not found
           content:
             application/json:
               schema:
@@ -938,7 +1002,7 @@ components:
       schema:
         type: string
         format: uuid
-      description: Tenant context
+      description: Internal trusted tenant context set by API Gateway after JWT validation. Not a client-selectable parameter on shipment mutations.
     XCompanyID:
       name: X-Company-ID
       in: header
@@ -1004,6 +1068,69 @@ components:
           type: number
         registration_country:
           type: string
+    CreateShipmentFromTransportOrderRequest:
+      type: object
+      required: [shipment_number, transport_order_id, carrier_company_id]
+      additionalProperties: false
+      description: Tenant scope and actor identity are derived from authenticated gateway context and cannot be selected through request body or query parameters.
+      properties:
+        shipment_number:
+          type: string
+        transport_order_id:
+          type: string
+          format: uuid
+        carrier_company_id:
+          type: string
+          format: uuid
+        forwarder_company_id:
+          type: string
+          format: uuid
+          nullable: true
+        planned_pickup_at:
+          type: string
+          format: date-time
+        planned_delivery_at:
+          type: string
+          format: date-time
+    CreateShipmentFromBidRequest:
+      type: object
+      required: [shipment_number, bid_id, transport_order_id]
+      additionalProperties: false
+      description: Tenant scope and actor identity are derived from authenticated gateway context and cannot be selected through request body or query parameters.
+      properties:
+        shipment_number:
+          type: string
+        bid_id:
+          type: string
+          format: uuid
+        transport_order_id:
+          type: string
+          format: uuid
+        planned_pickup_at:
+          type: string
+          format: date-time
+        planned_delivery_at:
+          type: string
+          format: date-time
+    UpdateShipmentStatusRequest:
+      type: object
+      required: [status]
+      additionalProperties: false
+      description: Tenant scope and actor identity are derived from authenticated gateway context and cannot be selected through request body or query parameters.
+      properties:
+        status:
+          type: string
+        actual_time:
+          type: string
+          format: date-time
+    CancelShipmentRequest:
+      type: object
+      required: [reason]
+      additionalProperties: false
+      description: Tenant scope and actor identity are derived from authenticated gateway context and cannot be selected through request body or query parameters.
+      properties:
+        reason:
+          type: string
     AssignDriverRequest:
       type: object
       required: [driver_id]
@@ -1020,6 +1147,54 @@ components:
         vehicle_id:
           type: string
           format: uuid
+    ShipmentStatusHistoryItem:
+      type: object
+      required: [id, shipmentId, shipmentVersion, toStatus, source, actor, occurredAt, recordedAt]
+      properties:
+        id: { type: string, format: uuid }
+        shipmentId: { type: string, format: uuid }
+        shipmentVersion: { type: integer }
+        fromStatus: { type: string }
+        toStatus: { type: string }
+        reasonCode: { type: string }
+        source: { type: string }
+        actor:
+          type: object
+          required: [type]
+          description: |
+            USER means a verified authenticated user (gateway-set X-User-ID from JWT sub).
+            SYSTEM means an explicit server-side process; never inferred from missing user context on HTTP mutations.
+            Actor id is not accepted in mutation request bodies.
+          properties:
+            type: { type: string, enum: [USER, SYSTEM] }
+            id: { type: string, format: uuid, description: Present for USER; omitted for SYSTEM. }
+        correlationId: { type: string }
+        occurredAt: { type: string, format: date-time }
+        recordedAt: { type: string, format: date-time }
+    ShipmentStatusHistoryResponse:
+      type: object
+      required: [shipment, complete, items, page, limit, total, hasNext, warnings]
+      properties:
+        shipment:
+          type: object
+          properties:
+            id: { type: string, format: uuid }
+            number: { type: string }
+            currentStatus: { type: string }
+        complete: { type: boolean, description: True when initial creation transition (fromStatus null) exists. }
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShipmentStatusHistoryItem'
+        page: { type: integer }
+        limit: { type: integer }
+        total: { type: integer }
+        hasNext: { type: boolean }
+        warnings:
+          type: array
+          items:
+            type: string
+            enum: [SHIPMENT_STATUS_HISTORY_PARTIAL]
     ErrorResponse:
       type: object
       required: [error]

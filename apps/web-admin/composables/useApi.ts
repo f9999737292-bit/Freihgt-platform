@@ -61,6 +61,20 @@ export function isBackendUnavailableError(error: unknown): boolean {
   return isNetworkFetchError(error)
 }
 
+export function formatApiErrorForUser(error: unknown): string {
+  const { t } = useI18n()
+  if (error instanceof ApiError) {
+    if (error.status === 403 || error.code === 'FORBIDDEN') {
+      return t('common.insufficientPermission')
+    }
+    return error.message
+  }
+  if (error instanceof Error) {
+    return error.message
+  }
+  return t('common.error')
+}
+
 function throwBackendUnavailable() {
   const { t } = useI18n()
   throw new ApiError(0, {

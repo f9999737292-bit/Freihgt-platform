@@ -36,7 +36,7 @@ func TestAssignDriverForeignDriverReturns404(t *testing.T) {
 		},
 	}, &mockVehicleLookup{})
 
-	_, err := svc.AssignDriver(context.Background(), tenantID, shipmentID, driverID)
+	_, err := svc.AssignDriver(context.Background(), tenantID, shipmentID, driverID, testUserTransition())
 	if !driverLookupCalled {
 		t.Fatal("driver lookup must be tenant-scoped")
 	}
@@ -60,7 +60,7 @@ func TestAssignDriverForeignShipmentReturns404(t *testing.T) {
 		},
 	}, &mockVehicleLookup{})
 
-	_, err := svc.AssignDriver(context.Background(), tenantID, uuid.New(), uuid.New())
+	_, err := svc.AssignDriver(context.Background(), tenantID, uuid.New(), uuid.New(), testUserTransition())
 	var appErr *apperrors.AppError
 	if !errors.As(err, &appErr) || appErr.Code != apperrors.CodeNotFound {
 		t.Fatalf("expected not found, got %v", err)
@@ -92,7 +92,7 @@ func TestAssignVehicleForeignVehicleReturns404(t *testing.T) {
 		},
 	})
 
-	_, err := svc.AssignVehicle(context.Background(), tenantID, shipmentID, vehicleID)
+	_, err := svc.AssignVehicle(context.Background(), tenantID, shipmentID, vehicleID, testUserTransition())
 	if !vehicleLookupCalled {
 		t.Fatal("vehicle lookup must be tenant-scoped")
 	}
@@ -116,7 +116,7 @@ func TestAssignVehicleForeignShipmentReturns404(t *testing.T) {
 		},
 	})
 
-	_, err := svc.AssignVehicle(context.Background(), tenantID, uuid.New(), uuid.New())
+	_, err := svc.AssignVehicle(context.Background(), tenantID, uuid.New(), uuid.New(), testUserTransition())
 	var appErr *apperrors.AppError
 	if !errors.As(err, &appErr) || appErr.Code != apperrors.CodeNotFound {
 		t.Fatalf("expected not found, got %v", err)
@@ -139,7 +139,7 @@ func TestAssignDriverMissingTenantSkipsRepository(t *testing.T) {
 		},
 	}, &mockVehicleLookup{})
 
-	_, err := svc.AssignDriver(context.Background(), uuid.Nil, uuid.New(), uuid.New())
+	_, err := svc.AssignDriver(context.Background(), uuid.Nil, uuid.New(), uuid.New(), testUserTransition())
 	if shipmentCalled || driverCalled {
 		t.Fatal("repository must not be called without tenant")
 	}
@@ -162,7 +162,7 @@ func TestAssignDriverRepositoryFailureReturns500(t *testing.T) {
 				CarrierCompanyID: &carrierID, Version: 1,
 			}, nil
 		},
-		assignDriverFn: func(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, string, int) (*domain.Shipment, error) {
+		assignDriverFn: func(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, string, string, int, domain.StatusTransitionContext) (*domain.Shipment, error) {
 			return nil, apperrors.Internal("db failure", errors.New("boom"))
 		},
 	}, &mockDriverLookup{
@@ -171,7 +171,7 @@ func TestAssignDriverRepositoryFailureReturns500(t *testing.T) {
 		},
 	}, &mockVehicleLookup{})
 
-	_, err := svc.AssignDriver(context.Background(), tenantID, shipmentID, driverID)
+	_, err := svc.AssignDriver(context.Background(), tenantID, shipmentID, driverID, testUserTransition())
 	var appErr *apperrors.AppError
 	if !errors.As(err, &appErr) || appErr.Code != apperrors.CodeInternal {
 		t.Fatalf("expected internal error, got %v", err)
@@ -194,7 +194,7 @@ func TestAssignVehicleMissingTenantSkipsRepository(t *testing.T) {
 		},
 	})
 
-	_, err := svc.AssignVehicle(context.Background(), uuid.Nil, uuid.New(), uuid.New())
+	_, err := svc.AssignVehicle(context.Background(), uuid.Nil, uuid.New(), uuid.New(), testUserTransition())
 	if shipmentCalled || vehicleCalled {
 		t.Fatal("repository must not be called without tenant")
 	}
@@ -217,7 +217,7 @@ func TestAssignVehicleRepositoryFailureReturns500(t *testing.T) {
 				CarrierCompanyID: &carrierID, Version: 1,
 			}, nil
 		},
-		assignVehicleFn: func(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, string, int) (*domain.Shipment, error) {
+		assignVehicleFn: func(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, string, string, int, domain.StatusTransitionContext) (*domain.Shipment, error) {
 			return nil, apperrors.Internal("db failure", errors.New("boom"))
 		},
 	}, &mockDriverLookup{}, &mockVehicleLookup{
@@ -226,7 +226,7 @@ func TestAssignVehicleRepositoryFailureReturns500(t *testing.T) {
 		},
 	})
 
-	_, err := svc.AssignVehicle(context.Background(), tenantID, shipmentID, vehicleID)
+	_, err := svc.AssignVehicle(context.Background(), tenantID, shipmentID, vehicleID, testUserTransition())
 	var appErr *apperrors.AppError
 	if !errors.As(err, &appErr) || appErr.Code != apperrors.CodeInternal {
 		t.Fatalf("expected internal error, got %v", err)
@@ -252,7 +252,7 @@ func TestAssignDriverVerifiedTenantPassedToRepositories(t *testing.T) {
 				CarrierCompanyID: &carrierID, Version: 1,
 			}, nil
 		},
-		assignDriverFn: func(_ context.Context, id, tenant, gotDriverID uuid.UUID, _ string, _ int) (*domain.Shipment, error) {
+		assignDriverFn: func(_ context.Context, id, tenant, gotDriverID uuid.UUID, _, _ string, _ int, _ domain.StatusTransitionContext) (*domain.Shipment, error) {
 			assignTenant = tenant
 			return &domain.Shipment{Status: domain.ShipmentStatusAcceptedByCarrier, DriverID: &gotDriverID}, nil
 		},
@@ -263,7 +263,7 @@ func TestAssignDriverVerifiedTenantPassedToRepositories(t *testing.T) {
 		},
 	}, &mockVehicleLookup{})
 
-	if _, err := svc.AssignDriver(context.Background(), tenantID, shipmentID, driverID); err != nil {
+	if _, err := svc.AssignDriver(context.Background(), tenantID, shipmentID, driverID, testUserTransition()); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if shipmentLookupTenant != tenantID || driverLookupTenant != tenantID || assignTenant != tenantID {
@@ -290,7 +290,7 @@ func TestAssignVehicleVerifiedTenantPassedToRepositories(t *testing.T) {
 				CarrierCompanyID: &carrierID, Version: 1,
 			}, nil
 		},
-		assignVehicleFn: func(_ context.Context, id, tenant, gotVehicleID uuid.UUID, _ string, _ int) (*domain.Shipment, error) {
+		assignVehicleFn: func(_ context.Context, id, tenant, gotVehicleID uuid.UUID, _, _ string, _ int, _ domain.StatusTransitionContext) (*domain.Shipment, error) {
 			assignTenant = tenant
 			return &domain.Shipment{Status: domain.ShipmentStatusVehicleAssigned, VehicleID: &gotVehicleID}, nil
 		},
@@ -301,7 +301,7 @@ func TestAssignVehicleVerifiedTenantPassedToRepositories(t *testing.T) {
 		},
 	})
 
-	if _, err := svc.AssignVehicle(context.Background(), tenantID, shipmentID, vehicleID); err != nil {
+	if _, err := svc.AssignVehicle(context.Background(), tenantID, shipmentID, vehicleID, testUserTransition()); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if shipmentLookupTenant != tenantID || vehicleLookupTenant != tenantID || assignTenant != tenantID {

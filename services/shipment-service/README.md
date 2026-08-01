@@ -34,6 +34,7 @@ Go microservice for managing freight shipments after a carrier is selected.
 | POST | `/v1/shipments/{id}/accept` | Carrier accepts shipment |
 | PATCH | `/v1/shipments/{id}/status` | Update shipment status |
 | POST | `/v1/shipments/{id}/cancel` | Cancel shipment |
+| GET | `/internal/v1/shipments/{shipmentId}/status-history` | Internal: list persisted status transitions (tenant via `X-Tenant-ID`) |
 | POST | `/v1/drivers` | Create driver |
 | GET | `/v1/drivers/{id}` | Get driver |
 | GET | `/v1/drivers` | List drivers |
@@ -95,8 +96,9 @@ Create shipment from transport order:
 ```bash
 curl -X POST http://localhost:8085/v1/shipments/from-transport-order \
   -H "Content-Type: application/json" \
+  -H "X-Tenant-ID: 11111111-1111-1111-1111-111111111111" \
+  -H "X-User-ID: 22222222-2222-2222-2222-222222222222" \
   -d '{
-    "tenant_id": "11111111-1111-1111-1111-111111111111",
     "shipment_number": "SH-2026-000001",
     "transport_order_id": "33333333-3333-3333-3333-333333333333",
     "carrier_company_id": "22222222-2222-2222-2222-222222222222",
@@ -110,8 +112,9 @@ Create shipment from accepted bid:
 ```bash
 curl -X POST http://localhost:8085/v1/shipments/from-bid \
   -H "Content-Type: application/json" \
+  -H "X-Tenant-ID: 11111111-1111-1111-1111-111111111111" \
+  -H "X-User-ID: 22222222-2222-2222-2222-222222222222" \
   -d '{
-    "tenant_id": "11111111-1111-1111-1111-111111111111",
     "shipment_number": "SH-2026-000002",
     "bid_id": "44444444-4444-4444-4444-444444444444",
     "transport_order_id": "33333333-3333-3333-3333-333333333333",
@@ -147,12 +150,27 @@ Update status:
 ```bash
 curl -X PATCH http://localhost:8085/v1/shipments/{shipment_id}/status \
   -H "Content-Type: application/json" \
+  -H "X-Tenant-ID: 11111111-1111-1111-1111-111111111111" \
+  -H "X-User-ID: 22222222-2222-2222-2222-222222222222" \
   -d '{
-    "tenant_id": "11111111-1111-1111-1111-111111111111",
     "status": "LOADED",
     "actual_time": "2026-07-01T11:00:00Z"
   }'
 ```
+
+## Shipment mutation trust boundary
+
+**Пользовательские операции Create, Accept, UpdateStatus и Cancel не принимают tenant_id как источник области данных. Tenant определяется только из verified gateway context и используется одинаково для shipment mutation и shipment_status_history.**
+
+- Tenant and actor are not selected via request body or query on user-facing mutations.
+- Handlers resolve verified `X-Tenant-ID` and `X-User-ID` (gateway-set from JWT) before JSON decode and before any repository transaction.
+- Spoofed `tenant_id` in mutation body returns `400` (strict JSON).
+- Missing trusted tenant returns `401` before body parsing.
+- Foreign and unknown shipments or source entities return indistinguishable `404`.
+- Status updates and `shipment_status_history.tenant_id` always match the verified tenant within one transaction.
+- Production clients must use API Gateway; direct shipment-service mutation access from untrusted networks is prohibited.
+
+Gateway route-level RBAC for Create, Accept, UpdateStatus, and Cancel is enforced in API Gateway before proxying. See [SHIPMENT_MUTATION_AUTHORIZATION.md](../../docs/SHIPMENT_MUTATION_AUTHORIZATION.md).
 
 ## Tenant isolation (GET /v1/shipments/{id})
 
@@ -236,6 +254,14 @@ List drivers example:
 curl -X GET "http://localhost:8085/v1/drivers?limit=20&offset=0" \
   -H "X-Tenant-ID: 11111111-1111-1111-1111-111111111111"
 ```
+
+## Status history
+
+Persisted status transitions are stored in `transport.shipment_status_history` and exposed internally at `GET /internal/v1/shipments/{shipmentId}/status-history`. See [docs/SHIPMENT_STATUS_HISTORY.md](../../docs/SHIPMENT_STATUS_HISTORY.md).
+
+Each successful status mutation writes a history row in the same PostgreSQL transaction as the shipment update. Assign driver/vehicle without status change does not create history rows.
+
+User-facing mutation handlers require verified `X-User-ID` from API Gateway. Missing user context returns `401` before any repository call; malformed or zero UUID returns `400`. See [docs/SHIPMENT_STATUS_HISTORY.md](../../docs/SHIPMENT_STATUS_HISTORY.md) (Actor provenance).
 
 ## Tests
 

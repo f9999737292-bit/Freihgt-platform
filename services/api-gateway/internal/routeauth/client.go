@@ -1,14 +1,20 @@
-package fleetrbac
+package routeauth
 
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	sharedmiddleware "github.com/freight-platform/shared-go/middleware"
+)
+
+var (
+	ErrIdentityUnauthorized = errors.New("identity unauthorized")
+	ErrIdentityForbidden    = errors.New("identity forbidden")
 )
 
 type IdentityClient struct {
@@ -44,8 +50,11 @@ func (c *IdentityClient) FetchUserRoles(ctx context.Context, reqCtx RequestConte
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusUnauthorized {
-		return nil, fmt.Errorf("unauthorized")
+	switch resp.StatusCode {
+	case http.StatusUnauthorized:
+		return nil, ErrIdentityUnauthorized
+	case http.StatusForbidden:
+		return nil, ErrIdentityForbidden
 	}
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("identity service returned %d", resp.StatusCode)

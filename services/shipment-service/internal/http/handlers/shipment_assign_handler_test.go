@@ -21,8 +21,8 @@ import (
 
 type assignShipmentStore struct {
 	getByIDAndTenantFn func(ctx context.Context, id, tenantID uuid.UUID) (*domain.Shipment, error)
-	assignDriverFn     func(ctx context.Context, id, tenantID, driverID uuid.UUID, newStatus string, expectedVersion int) (*domain.Shipment, error)
-	assignVehicleFn    func(ctx context.Context, id, tenantID, vehicleID uuid.UUID, newStatus string, expectedVersion int) (*domain.Shipment, error)
+	assignDriverFn     func(ctx context.Context, id, tenantID, driverID uuid.UUID, fromStatus, newStatus string, expectedVersion int, transition domain.StatusTransitionContext) (*domain.Shipment, error)
+	assignVehicleFn    func(ctx context.Context, id, tenantID, vehicleID uuid.UUID, fromStatus, newStatus string, expectedVersion int, transition domain.StatusTransitionContext) (*domain.Shipment, error)
 }
 
 func (s *assignShipmentStore) CompanyExists(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
@@ -34,7 +34,7 @@ func (s *assignShipmentStore) GetTransportOrder(context.Context, uuid.UUID, uuid
 func (s *assignShipmentStore) GetBid(context.Context, uuid.UUID, uuid.UUID) (*domain.BidSnapshot, error) {
 	return nil, nil
 }
-func (s *assignShipmentStore) CreateShipment(context.Context, repository.CreateShipmentParams) (*domain.Shipment, error) {
+func (s *assignShipmentStore) CreateShipment(context.Context, repository.CreateShipmentParams, domain.StatusTransitionContext) (*domain.Shipment, error) {
 	return nil, nil
 }
 func (s *assignShipmentStore) GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.Shipment, error) {
@@ -46,26 +46,32 @@ func (s *assignShipmentStore) GetByIDAndTenant(ctx context.Context, id, tenantID
 func (s *assignShipmentStore) List(context.Context, domain.ListShipmentsFilter) ([]domain.Shipment, int, error) {
 	return nil, 0, nil
 }
-func (s *assignShipmentStore) AssignDriver(ctx context.Context, id, tenantID, driverID uuid.UUID, newStatus string, expectedVersion int) (*domain.Shipment, error) {
+func (s *assignShipmentStore) AssignDriver(ctx context.Context, id, tenantID, driverID uuid.UUID, fromStatus, newStatus string, expectedVersion int, transition domain.StatusTransitionContext) (*domain.Shipment, error) {
 	if s.assignDriverFn != nil {
-		return s.assignDriverFn(ctx, id, tenantID, driverID, newStatus, expectedVersion)
+		return s.assignDriverFn(ctx, id, tenantID, driverID, fromStatus, newStatus, expectedVersion, transition)
 	}
 	return nil, nil
 }
-func (s *assignShipmentStore) AssignVehicle(ctx context.Context, id, tenantID, vehicleID uuid.UUID, newStatus string, expectedVersion int) (*domain.Shipment, error) {
+func (s *assignShipmentStore) AssignVehicle(ctx context.Context, id, tenantID, vehicleID uuid.UUID, fromStatus, newStatus string, expectedVersion int, transition domain.StatusTransitionContext) (*domain.Shipment, error) {
 	if s.assignVehicleFn != nil {
-		return s.assignVehicleFn(ctx, id, tenantID, vehicleID, newStatus, expectedVersion)
+		return s.assignVehicleFn(ctx, id, tenantID, vehicleID, fromStatus, newStatus, expectedVersion, transition)
 	}
 	return nil, nil
 }
-func (s *assignShipmentStore) UpdateStatus(context.Context, uuid.UUID, uuid.UUID, string, *time.Time, *time.Time, int) (*domain.Shipment, error) {
+func (s *assignShipmentStore) UpdateStatus(context.Context, uuid.UUID, uuid.UUID, string, string, *time.Time, *time.Time, int, domain.StatusTransitionContext) (*domain.Shipment, error) {
 	return nil, nil
 }
-func (s *assignShipmentStore) Accept(context.Context, uuid.UUID, uuid.UUID, int) (*domain.Shipment, error) {
+func (s *assignShipmentStore) Accept(context.Context, uuid.UUID, uuid.UUID, string, int, domain.StatusTransitionContext) (*domain.Shipment, error) {
 	return nil, nil
 }
-func (s *assignShipmentStore) Cancel(context.Context, uuid.UUID, uuid.UUID, int) (*domain.Shipment, error) {
+func (s *assignShipmentStore) Cancel(context.Context, uuid.UUID, uuid.UUID, string, int, domain.StatusTransitionContext) (*domain.Shipment, error) {
 	return nil, nil
+}
+func (s *assignShipmentStore) ListStatusHistory(context.Context, domain.ListStatusHistoryFilter) ([]domain.ShipmentStatusHistory, int, error) {
+	return nil, 0, nil
+}
+func (s *assignShipmentStore) HasInitialStatusHistory(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
+	return false, nil
 }
 
 type assignDriverLookup struct {
@@ -123,7 +129,7 @@ func TestAssignDriverTrustedHeaderAndDriverIDReturns200(t *testing.T) {
 				CarrierCompanyID: &carrierID, Version: 1,
 			}, nil
 		},
-		assignDriverFn: func(_ context.Context, id, tenant, gotDriverID uuid.UUID, _ string, _ int) (*domain.Shipment, error) {
+		assignDriverFn: func(_ context.Context, id, tenant, gotDriverID uuid.UUID, _, _ string, _ int, _ domain.StatusTransitionContext) (*domain.Shipment, error) {
 			return &domain.Shipment{
 				ID: id, TenantID: tenant, Status: domain.ShipmentStatusAcceptedByCarrier, DriverID: &gotDriverID,
 				CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
@@ -138,6 +144,7 @@ func TestAssignDriverTrustedHeaderAndDriverIDReturns200(t *testing.T) {
 	body, _ := json.Marshal(map[string]string{"driver_id": driverID})
 	req := httptest.NewRequest(http.MethodPost, "/v1/shipments/"+shipmentID+"/assign-driver", bytes.NewReader(body))
 	req.Header.Set("X-Tenant-ID", tenantID)
+	setVerifiedUserHeader(req)
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
@@ -181,6 +188,7 @@ func TestAssignDriverBodyTenantWithHeaderReturns400(t *testing.T) {
 	}, &assignDriverLookup{})
 	req := httptest.NewRequest(http.MethodPost, "/v1/shipments/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/assign-driver", bytes.NewReader(body))
 	req.Header.Set("X-Tenant-ID", "11111111-1111-1111-1111-111111111111")
+	setVerifiedUserHeader(req)
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
@@ -232,6 +240,7 @@ func TestAssignDriverInvalidDriverIDReturns400(t *testing.T) {
 	router := newAssignDriverTestRouter(t, &assignShipmentStore{}, &assignDriverLookup{})
 	req := httptest.NewRequest(http.MethodPost, "/v1/shipments/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/assign-driver", bytes.NewReader(body))
 	req.Header.Set("X-Tenant-ID", "11111111-1111-1111-1111-111111111111")
+	setVerifiedUserHeader(req)
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
@@ -257,6 +266,7 @@ func TestAssignDriverForeignDriverReturns404(t *testing.T) {
 	body, _ := json.Marshal(map[string]string{"driver_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"})
 	req := httptest.NewRequest(http.MethodPost, "/v1/shipments/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/assign-driver", bytes.NewReader(body))
 	req.Header.Set("X-Tenant-ID", "11111111-1111-1111-1111-111111111111")
+	setVerifiedUserHeader(req)
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
@@ -280,6 +290,7 @@ func TestAssignDriverForeignShipmentReturns404(t *testing.T) {
 	body, _ := json.Marshal(map[string]string{"driver_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"})
 	req := httptest.NewRequest(http.MethodPost, "/v1/shipments/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/assign-driver", bytes.NewReader(body))
 	req.Header.Set("X-Tenant-ID", "11111111-1111-1111-1111-111111111111")
+	setVerifiedUserHeader(req)
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
@@ -303,6 +314,7 @@ func TestAssignDriverInternalErrorReturns500(t *testing.T) {
 	body, _ := json.Marshal(map[string]string{"driver_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"})
 	req := httptest.NewRequest(http.MethodPost, "/v1/shipments/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/assign-driver", bytes.NewReader(body))
 	req.Header.Set("X-Tenant-ID", "11111111-1111-1111-1111-111111111111")
+	setVerifiedUserHeader(req)
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
@@ -325,7 +337,7 @@ func TestAssignVehicleTrustedHeaderAndVehicleIDReturns200(t *testing.T) {
 				CarrierCompanyID: &carrierID, Version: 1,
 			}, nil
 		},
-		assignVehicleFn: func(_ context.Context, id, tenant, gotVehicleID uuid.UUID, _ string, _ int) (*domain.Shipment, error) {
+		assignVehicleFn: func(_ context.Context, id, tenant, gotVehicleID uuid.UUID, _, _ string, _ int, _ domain.StatusTransitionContext) (*domain.Shipment, error) {
 			return &domain.Shipment{
 				ID: id, TenantID: tenant, Status: domain.ShipmentStatusVehicleAssigned, VehicleID: &gotVehicleID,
 				CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
@@ -340,6 +352,7 @@ func TestAssignVehicleTrustedHeaderAndVehicleIDReturns200(t *testing.T) {
 	body, _ := json.Marshal(map[string]string{"vehicle_id": vehicleID})
 	req := httptest.NewRequest(http.MethodPost, "/v1/shipments/"+shipmentID+"/assign-vehicle", bytes.NewReader(body))
 	req.Header.Set("X-Tenant-ID", tenantID)
+	setVerifiedUserHeader(req)
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
@@ -383,6 +396,7 @@ func TestAssignVehicleBodyTenantWithHeaderReturns400(t *testing.T) {
 	}, &assignVehicleLookup{})
 	req := httptest.NewRequest(http.MethodPost, "/v1/shipments/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/assign-vehicle", bytes.NewReader(body))
 	req.Header.Set("X-Tenant-ID", "11111111-1111-1111-1111-111111111111")
+	setVerifiedUserHeader(req)
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
@@ -434,6 +448,7 @@ func TestAssignVehicleInvalidVehicleIDReturns400(t *testing.T) {
 	router := newAssignVehicleTestRouter(t, &assignShipmentStore{}, &assignVehicleLookup{})
 	req := httptest.NewRequest(http.MethodPost, "/v1/shipments/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/assign-vehicle", bytes.NewReader(body))
 	req.Header.Set("X-Tenant-ID", "11111111-1111-1111-1111-111111111111")
+	setVerifiedUserHeader(req)
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
@@ -459,6 +474,7 @@ func TestAssignVehicleForeignVehicleReturns404(t *testing.T) {
 	body, _ := json.Marshal(map[string]string{"vehicle_id": "cccccccc-cccc-cccc-cccc-cccccccccccc"})
 	req := httptest.NewRequest(http.MethodPost, "/v1/shipments/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/assign-vehicle", bytes.NewReader(body))
 	req.Header.Set("X-Tenant-ID", "11111111-1111-1111-1111-111111111111")
+	setVerifiedUserHeader(req)
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
@@ -482,6 +498,7 @@ func TestAssignVehicleForeignShipmentReturns404(t *testing.T) {
 	body, _ := json.Marshal(map[string]string{"vehicle_id": "cccccccc-cccc-cccc-cccc-cccccccccccc"})
 	req := httptest.NewRequest(http.MethodPost, "/v1/shipments/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/assign-vehicle", bytes.NewReader(body))
 	req.Header.Set("X-Tenant-ID", "11111111-1111-1111-1111-111111111111")
+	setVerifiedUserHeader(req)
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
@@ -500,6 +517,7 @@ func TestAssignVehicleInternalErrorReturns500(t *testing.T) {
 	body, _ := json.Marshal(map[string]string{"vehicle_id": "cccccccc-cccc-cccc-cccc-cccccccccccc"})
 	req := httptest.NewRequest(http.MethodPost, "/v1/shipments/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/assign-vehicle", bytes.NewReader(body))
 	req.Header.Set("X-Tenant-ID", "11111111-1111-1111-1111-111111111111")
+	setVerifiedUserHeader(req)
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)

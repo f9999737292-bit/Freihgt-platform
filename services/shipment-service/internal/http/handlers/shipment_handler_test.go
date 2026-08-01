@@ -31,7 +31,7 @@ func (s *tenantScopedShipmentService) GetTransportOrder(context.Context, uuid.UU
 func (s *tenantScopedShipmentService) GetBid(context.Context, uuid.UUID, uuid.UUID) (*domain.BidSnapshot, error) {
 	return nil, nil
 }
-func (s *tenantScopedShipmentService) CreateShipment(context.Context, repository.CreateShipmentParams) (*domain.Shipment, error) {
+func (s *tenantScopedShipmentService) CreateShipment(context.Context, repository.CreateShipmentParams, domain.StatusTransitionContext) (*domain.Shipment, error) {
 	return nil, nil
 }
 func (s *tenantScopedShipmentService) GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.Shipment, error) {
@@ -43,20 +43,26 @@ func (s *tenantScopedShipmentService) GetByIDAndTenant(ctx context.Context, id, 
 func (s *tenantScopedShipmentService) List(context.Context, domain.ListShipmentsFilter) ([]domain.Shipment, int, error) {
 	return nil, 0, nil
 }
-func (s *tenantScopedShipmentService) AssignDriver(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, string, int) (*domain.Shipment, error) {
+func (s *tenantScopedShipmentService) AssignDriver(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, string, string, int, domain.StatusTransitionContext) (*domain.Shipment, error) {
 	return nil, nil
 }
-func (s *tenantScopedShipmentService) AssignVehicle(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, string, int) (*domain.Shipment, error) {
+func (s *tenantScopedShipmentService) AssignVehicle(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, string, string, int, domain.StatusTransitionContext) (*domain.Shipment, error) {
 	return nil, nil
 }
-func (s *tenantScopedShipmentService) UpdateStatus(context.Context, uuid.UUID, uuid.UUID, string, *time.Time, *time.Time, int) (*domain.Shipment, error) {
+func (s *tenantScopedShipmentService) UpdateStatus(context.Context, uuid.UUID, uuid.UUID, string, string, *time.Time, *time.Time, int, domain.StatusTransitionContext) (*domain.Shipment, error) {
 	return nil, nil
 }
-func (s *tenantScopedShipmentService) Accept(context.Context, uuid.UUID, uuid.UUID, int) (*domain.Shipment, error) {
+func (s *tenantScopedShipmentService) Accept(context.Context, uuid.UUID, uuid.UUID, string, int, domain.StatusTransitionContext) (*domain.Shipment, error) {
 	return nil, nil
 }
-func (s *tenantScopedShipmentService) Cancel(context.Context, uuid.UUID, uuid.UUID, int) (*domain.Shipment, error) {
+func (s *tenantScopedShipmentService) Cancel(context.Context, uuid.UUID, uuid.UUID, string, int, domain.StatusTransitionContext) (*domain.Shipment, error) {
 	return nil, nil
+}
+func (s *tenantScopedShipmentService) ListStatusHistory(context.Context, domain.ListStatusHistoryFilter) ([]domain.ShipmentStatusHistory, int, error) {
+	return nil, 0, nil
+}
+func (s *tenantScopedShipmentService) HasInitialStatusHistory(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
+	return false, nil
 }
 
 func newGetByIDTestRouter(t *testing.T, store *tenantScopedShipmentService) http.Handler {

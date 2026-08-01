@@ -54,12 +54,35 @@ func (s *Service) GetEvents(ctx context.Context, reqCtx RequestContext, shipment
 		TechnicalEventsLoaded: false,
 		Partial:               true,
 		Warnings: []string{
-			WarningShipmentHistoryDerived,
 			WarningBillingEventsUnavailable,
 		},
 	}
 
-	events := buildDerivedShipmentEvents(shipment)
+	var events []ShipmentTimelineEvent
+	historyResult, historyErr := s.client.FetchStatusHistory(ctx, reqCtx, shipmentID)
+	if historyErr != nil {
+		freshness.Warnings = appendUnique(freshness.Warnings, WarningShipmentStatusHistoryUnavailable)
+		freshness.Warnings = appendUnique(freshness.Warnings, WarningShipmentHistoryDerived)
+		events = buildDerivedShipmentEvents(shipment)
+	} else if historyResult.NotFound {
+		return EventsResponse{}, apperrors.NotFound("shipment not found")
+	} else {
+		freshness.ShipmentEventsLoaded = true
+		canonical := buildCanonicalStatusHistoryEvents(shipment, historyResult.Items)
+		if historyResult.Complete {
+			events = append(events, canonical...)
+			derivedOps := buildDerivedShipmentEventsWithoutStatusDuplicates(shipment, canonical)
+			events = append(events, derivedOps...)
+		} else {
+			freshness.Warnings = appendUnique(freshness.Warnings, WarningShipmentStatusHistoryPartial)
+			freshness.Warnings = appendUnique(freshness.Warnings, WarningShipmentHistoryDerived)
+			events = append(events, canonical...)
+			events = append(events, buildDerivedShipmentEventsWithoutStatusDuplicates(shipment, canonical)...)
+		}
+		for _, warning := range historyResult.Warnings {
+			freshness.Warnings = appendUnique(freshness.Warnings, warning)
+		}
+	}
 
 	if slaEvent := buildSLAEvent(shipment, s.thresholds, now); slaEvent != nil {
 		events = append(events, *slaEvent)
@@ -76,11 +99,16 @@ func (s *Service) GetEvents(ctx context.Context, reqCtx RequestContext, shipment
 		}
 	}
 
+	events = removeDerivedStatusTransitionDuplicates(events)
 	events = dedupeEvents(events)
 	events = filterEvents(events, query)
 	sortEvents(events, query.Order)
 	filters := buildFilterOptions(events)
 	page := paginateEvents(events, query.Page, query.Limit)
+
+	if len(freshness.Warnings) == 0 {
+		freshness.Partial = false
+	}
 
 	return EventsResponse{
 		Shipment: ShipmentSummary{

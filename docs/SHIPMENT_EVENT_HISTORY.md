@@ -23,18 +23,22 @@ The gateway does not access downstream databases directly and does not introduce
 
 ## Event provenance
 
-An event is **canonical** (`derived: false`) only when downstream returns a dedicated event/audit record with:
+An event is **canonical** (`derived: false`) when downstream returns a dedicated persisted record with stable ID, explicit type, confirmed `occurredAt`, and shipment linkage.
 
-- stable event ID
-- explicit event type
-- confirmed `occurredAt`
-- shipment linkage
+**Shipment status transitions** use persisted history from `shipment-service`:
 
-**v0.1 has no canonical event sources.** All timeline items are BFF-generated from current entity state or SLA calculation.
+```text
+SHIPMENT_STATUS_HISTORY
+```
+
+See [SHIPMENT_STATUS_HISTORY.md](./SHIPMENT_STATUS_HISTORY.md) for transactional storage, completeness rules, and legacy behavior.
 
 | Event type | Source | Timestamp field | Event record? | derived |
 |---|---|---|---|---|
-| `SHIPMENT_CREATED` | shipment entity | `created_at` | No | true |
+| `SHIPMENT_CREATED` | status history (or shipment entity fallback) | history `occurred_at` / `created_at` | Yes when history complete | false / true |
+| `SHIPMENT_STATUS_CHANGED` | status history (or derived fallback) | history `occurred_at` | Yes when available | false / true |
+| `SHIPMENT_CANCELLED` | status history (or derived fallback) | history `occurred_at` | Yes when available | false / true |
+| `READY_FOR_BILLING`, `DOCUMENTS_COMPLETED`, `FINANCIALLY_CLOSED` | status history when present | history `occurred_at` | Yes when available | false |
 | `PICKUP_*` / `DELIVERY_*` | shipment entity | planned/actual fields | No | true |
 | `DOCUMENT_CREATED` | document entity | `created_at` | No | true |
 | `DOCUMENT_SIGNED` | document entity | `signed_at` only | No | true |
@@ -42,7 +46,7 @@ An event is **canonical** (`derived: false`) only when downstream returns a dedi
 | SLA events | SLA calculator | deadline / stale field | No | true |
 | Billing milestones | — | — | Not emitted in v0.1 | — |
 
-Sources for BFF-generated events:
+Sources for BFF-generated (derived) events:
 
 ```text
 SHIPMENT_STATE
@@ -52,7 +56,11 @@ SLA_CALCULATOR
 
 Do **not** use names implying a separate event store (`DOCUMENT_SERVICE`, `BILLING_REGISTER`).
 
-`sourceEventId` is omitted for derived events. It is reserved for future real downstream event records.
+`sourceEventId` is set for canonical status history events. Derived events omit `sourceEventId`.
+
+## Shipment mutation trust boundary
+
+Status history rows are written only from verified tenant context on successful user-facing mutations (Create, Accept, UpdateStatus, Cancel). Clients cannot select tenant or actor via mutation body or query; API Gateway sets trusted identity headers from JWT after stripping spoofed values. Gateway route-level RBAC runs before proxying mutations — see [SHIPMENT_MUTATION_AUTHORIZATION.md](./SHIPMENT_MUTATION_AUTHORIZATION.md). See [SHIPMENT_STATUS_HISTORY.md](./SHIPMENT_STATUS_HISTORY.md) for invariants and handler ordering.
 
 ## Timestamp guarantees
 
@@ -103,20 +111,23 @@ This is a **capability limitation**, not a runtime outage. Billing timeline even
 
 | Situation | `partial` | Warning |
 |---|---|---|
-| Derived shipment history (no event store) | true | `SHIPMENT_HISTORY_DERIVED_FROM_CURRENT_STATE` |
+| Derived shipment history (legacy / history unavailable) | true | `SHIPMENT_HISTORY_DERIVED_FROM_CURRENT_STATE` |
+| Persisted status history incomplete (pre-migration shipment) | true | `SHIPMENT_STATUS_HISTORY_PARTIAL` |
+| Status history internal endpoint unavailable | true | `SHIPMENT_STATUS_HISTORY_UNAVAILABLE` |
 | Billing not supported in v0.1 | true | `BILLING_EVENTS_UNAVAILABLE` |
 | Document service configured but fails | true | `DOCUMENT_EVENTS_UNAVAILABLE` |
 | Document list truncated at fetch limit | true | `TIMELINE_CALCULATED_FROM_LIMITED_DATASET` |
 | GPS / geolocation not integrated | — | *(no warning — not a runtime failure)* |
 | Technical events source not configured | — | *(no warning — `technicalEventsLoaded: false`)* |
 
-`shipmentEventsLoaded: false` means no canonical shipment event journal was loaded. Derived shipment events may still appear in `timeline.items`.
+`shipmentEventsLoaded: true` when persisted status history was loaded successfully (including empty or partial legacy history). `shipmentEventsLoaded: false` only when the internal history source is unavailable; derived shipment events may still appear in `timeline.items`.
 
 ## Data sources
 
 | Source | Required | Notes |
 |---|---|---|
 | `shipment-service` `GET /v1/shipments/{id}` | Yes | Verified tenant via trusted internal `X-Tenant-ID` header only (no `tenant_id` query). Tenant-scoped repository lookup; defense-in-depth tenant check on response remains. |
+| `shipment-service` `GET /internal/v1/shipments/{id}/status-history` | Yes (BFF) | Internal network only. Canonical status transition source. Not exposed as public browser route. |
 | `document-service` filtered list | No | Runtime failure → `DOCUMENT_EVENTS_UNAVAILABLE` |
 | Billing reverse lookup | No | Not called in v0.1 |
 | Shared SLA calculator | Derived | Reused from Control Tower |

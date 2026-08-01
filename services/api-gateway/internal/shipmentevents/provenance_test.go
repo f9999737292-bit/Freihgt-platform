@@ -31,6 +31,10 @@ func testDownstreamClient(t *testing.T) *DownstreamClient {
 		if got := r.URL.Query().Get("tenant_id"); got != "" {
 			t.Fatalf("shipment request must not include tenant_id query, got %q", got)
 		}
+		if strings.HasPrefix(r.URL.Path, "/internal/") {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"id": shipmentID, "tenant_id": tenantID, "shipment_number": "SHP-1", "status": "IN_TRANSIT",
 			"planned_pickup_at": "2026-08-01T10:00:00Z", "created_at": "2026-07-31T10:00:00Z", "updated_at": "2026-07-31T11:00:00Z",

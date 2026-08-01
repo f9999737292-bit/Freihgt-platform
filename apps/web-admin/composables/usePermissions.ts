@@ -14,6 +14,11 @@ const FLEET_VIEW_ROLES = ['PLATFORM_ADMIN', 'CARRIER_ADMIN', 'CARRIER_DISPATCHER
 const FLEET_CREATE_ROLES = ['PLATFORM_ADMIN', 'CARRIER_ADMIN'] as const
 const FLEET_ASSIGN_ROLES = ['PLATFORM_ADMIN', 'CARRIER_ADMIN', 'CARRIER_DISPATCHER'] as const
 
+const SHIPMENT_CREATE_ROLES = ['PLATFORM_ADMIN', 'SHIPPER_ADMIN', 'SHIPPER_LOGIST', 'FORWARDER_MANAGER'] as const
+const SHIPMENT_ACCEPT_ROLES = ['PLATFORM_ADMIN', 'CARRIER_ADMIN', 'CARRIER_DISPATCHER'] as const
+const SHIPMENT_UPDATE_STATUS_ROLES = ['PLATFORM_ADMIN', 'CARRIER_ADMIN', 'CARRIER_DISPATCHER'] as const
+const SHIPMENT_CANCEL_ROLES = ['PLATFORM_ADMIN', 'SHIPPER_ADMIN', 'SHIPPER_LOGIST', 'FORWARDER_MANAGER'] as const
+
 const IDENTITY_TO_PRODUCT: Record<string, ProductRole> = {
   PLATFORM_ADMIN: 'admin',
   SHIPPER_ADMIN: 'shipper',
@@ -270,6 +275,34 @@ export function usePermissions() {
     return hasAnyRole([...FLEET_ASSIGN_ROLES])
   }
 
+  function canCreateShipment(): boolean {
+    if (hasAdminAccess() || isDevPlatformAdminFallback()) {
+      return true
+    }
+    return hasAnyRole([...SHIPMENT_CREATE_ROLES])
+  }
+
+  function canAcceptShipment(): boolean {
+    if (hasAdminAccess() || isDevPlatformAdminFallback()) {
+      return true
+    }
+    return hasAnyRole([...SHIPMENT_ACCEPT_ROLES])
+  }
+
+  function canUpdateShipmentStatus(): boolean {
+    if (hasAdminAccess() || isDevPlatformAdminFallback()) {
+      return true
+    }
+    return hasAnyRole([...SHIPMENT_UPDATE_STATUS_ROLES])
+  }
+
+  function canCancelShipment(): boolean {
+    if (hasAdminAccess() || isDevPlatformAdminFallback()) {
+      return true
+    }
+    return hasAnyRole([...SHIPMENT_CANCEL_ROLES])
+  }
+
   function getLandingRoute(): string {
     if (hasAdminAccess() || isDevPlatformAdminFallback()) {
       return LANDING_ROUTES.admin
@@ -303,6 +336,10 @@ export function usePermissions() {
     canViewFleet,
     canCreateFleet,
     canAssignFleet,
+    canCreateShipment,
+    canAcceptShipment,
+    canUpdateShipmentStatus,
+    canCancelShipment,
     getLandingRoute,
   }
 }

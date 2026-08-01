@@ -2865,6 +2865,7 @@ paths:
     post:
       tags: [Shipments]
       summary: Create shipment from transport order
+      description: Tenant scope and actor identity are derived from authenticated gateway context. Shipment mutation is also protected by gateway route-level authorization.
       operationId: post_create_shipment_from_transport_order
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -2877,8 +2878,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: true
+              $ref: '#/components/schemas/CreateShipmentFromTransportOrderRequest'
       security:
         - bearerAuth: []
       responses:
@@ -2901,6 +2901,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Not found
           content:
@@ -2909,6 +2915,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
           description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Authorization dependency unavailable
           content:
             application/json:
               schema:
@@ -2923,6 +2935,7 @@ paths:
     post:
       tags: [Shipments]
       summary: Create shipment from accepted bid
+      description: Tenant scope and actor identity are derived from authenticated gateway context. Shipment mutation is also protected by gateway route-level authorization.
       operationId: post_create_shipment_from_accepted_bid
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -2935,8 +2948,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: true
+              $ref: '#/components/schemas/CreateShipmentFromBidRequest'
       security:
         - bearerAuth: []
       responses:
@@ -2959,6 +2971,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Not found
           content:
@@ -2967,6 +2985,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
           description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Authorization dependency unavailable
           content:
             application/json:
               schema:
@@ -3218,6 +3242,7 @@ paths:
     post:
       tags: [Shipments]
       summary: Accept shipment
+      description: Tenant scope and actor identity are derived from authenticated gateway context. Shipment mutation is also protected by gateway route-level authorization.
       operationId: post_accept_shipment
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -3226,12 +3251,14 @@ paths:
         - $ref: '#/components/parameters/XLocale'
         - $ref: '#/components/parameters/Authorization'
       requestBody:
-        required: true
+        required: false
+        description: Optional empty body. If present, must not contain tenant or actor fields; unknown properties are rejected.
         content:
           application/json:
             schema:
               type: object
-              additionalProperties: true
+              additionalProperties: false
+              maxProperties: 0
       security:
         - bearerAuth: []
       responses:
@@ -3254,6 +3281,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Not found
           content:
@@ -3262,6 +3295,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
           description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Authorization dependency unavailable
           content:
             application/json:
               schema:
@@ -3276,6 +3315,7 @@ paths:
     patch:
       tags: [Shipments]
       summary: Update shipment status
+      description: Tenant scope and actor identity are derived from authenticated gateway context. Shipment mutation is also protected by gateway route-level authorization.
       operationId: patch_update_shipment_status
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -3288,8 +3328,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: true
+              $ref: '#/components/schemas/UpdateShipmentStatusRequest'
       security:
         - bearerAuth: []
       responses:
@@ -3312,6 +3351,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Not found
           content:
@@ -3320,6 +3365,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
           description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Authorization dependency unavailable
           content:
             application/json:
               schema:
@@ -3334,6 +3385,7 @@ paths:
     post:
       tags: [Shipments]
       summary: Cancel shipment
+      description: Tenant scope and actor identity are derived from authenticated gateway context. Shipment mutation is also protected by gateway route-level authorization.
       operationId: post_cancel_shipment
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -3346,8 +3398,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: true
+              $ref: '#/components/schemas/CancelShipmentRequest'
       security:
         - bearerAuth: []
       responses:
@@ -3370,6 +3421,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Not found
           content:
@@ -3378,6 +3435,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
           description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Authorization dependency unavailable
           content:
             application/json:
               schema:
@@ -5390,7 +5453,7 @@ components:
       schema:
         type: string
         format: uuid
-      description: Tenant context
+      description: Internal trusted tenant context set by API Gateway after JWT validation. Not a client-selectable parameter on shipment mutations.
     XCompanyID:
       name: X-Company-ID
       in: header
@@ -5455,6 +5518,69 @@ components:
         capacity_volume:
           type: number
         registration_country:
+          type: string
+    CreateShipmentFromTransportOrderRequest:
+      type: object
+      required: [shipment_number, transport_order_id, carrier_company_id]
+      additionalProperties: false
+      description: Tenant scope and actor identity are derived from authenticated gateway context and cannot be selected through request body or query parameters.
+      properties:
+        shipment_number:
+          type: string
+        transport_order_id:
+          type: string
+          format: uuid
+        carrier_company_id:
+          type: string
+          format: uuid
+        forwarder_company_id:
+          type: string
+          format: uuid
+          nullable: true
+        planned_pickup_at:
+          type: string
+          format: date-time
+        planned_delivery_at:
+          type: string
+          format: date-time
+    CreateShipmentFromBidRequest:
+      type: object
+      required: [shipment_number, bid_id, transport_order_id]
+      additionalProperties: false
+      description: Tenant scope and actor identity are derived from authenticated gateway context and cannot be selected through request body or query parameters.
+      properties:
+        shipment_number:
+          type: string
+        bid_id:
+          type: string
+          format: uuid
+        transport_order_id:
+          type: string
+          format: uuid
+        planned_pickup_at:
+          type: string
+          format: date-time
+        planned_delivery_at:
+          type: string
+          format: date-time
+    UpdateShipmentStatusRequest:
+      type: object
+      required: [status]
+      additionalProperties: false
+      description: Tenant scope and actor identity are derived from authenticated gateway context and cannot be selected through request body or query parameters.
+      properties:
+        status:
+          type: string
+        actual_time:
+          type: string
+          format: date-time
+    CancelShipmentRequest:
+      type: object
+      required: [reason]
+      additionalProperties: false
+      description: Tenant scope and actor identity are derived from authenticated gateway context and cannot be selected through request body or query parameters.
+      properties:
+        reason:
           type: string
     AssignDriverRequest:
       type: object
@@ -5655,19 +5781,22 @@ components:
       enum: [SHIPMENT, OPERATION, DOCUMENT, SLA, BILLING, TECHNICAL, GEOLOCATION, SYSTEM]
     ShipmentEventSource:
       type: string
-      enum: [SHIPMENT_STATE, SLA_CALCULATOR, DOCUMENT_STATE, BILLING_STATE]
+      enum: [SHIPMENT_STATE, SHIPMENT_STATUS_HISTORY, SLA_CALCULATOR, DOCUMENT_STATE, BILLING_STATE]
       description: |
-        BFF-generated timeline events use *_STATE or SLA_CALCULATOR sources and are always derived=true.
-        derived=false is reserved for future downstream event/audit records with stable event IDs.
+        BFF-generated timeline events from current entity state use *_STATE or SLA_CALCULATOR sources and are always derived=true.
+        Persisted shipment status transitions use SHIPMENT_STATUS_HISTORY with derived=false and sourceEventId set to the history row ID.
     ShipmentEventSeverity:
       type: string
       enum: [INFO, WARNING, CRITICAL]
     ShipmentEventActor:
       type: object
+      description: |
+        USER indicates a verified authenticated user from persisted status history.
+        SYSTEM indicates an explicit server-side transition; never inferred from missing user context on HTTP mutations.
       properties:
-        type: { type: string }
-        id: { type: string }
-        name: { type: string }
+        type: { type: string, enum: [USER, SYSTEM] }
+        id: { type: string, format: uuid, description: Present for USER canonical history events. }
+        name: { type: string, description: Not populated from status history in v0.1. }
     ShipmentTimelineEvent:
       type: object
       required: [id, shipmentId, shipmentNumber, type, category, source, severity, titleCode, occurredAt, derived]
@@ -5709,7 +5838,7 @@ components:
           type: object
           properties:
             shipmentLoaded: { type: boolean }
-            shipmentEventsLoaded: { type: boolean, description: False when no canonical shipment event store is available; derived timeline may still be returned. }
+            shipmentEventsLoaded: { type: boolean, description: True when persisted shipment status history was loaded; false only when the internal history source is unavailable. Empty history for a legacy shipment still sets this to true. }
             documentsLoaded: { type: boolean }
             billingLoaded: { type: boolean }
             technicalEventsLoaded: { type: boolean }
@@ -5721,6 +5850,8 @@ components:
                 enum:
                   - SHIPMENT_EVENTS_UNAVAILABLE
                   - SHIPMENT_HISTORY_DERIVED_FROM_CURRENT_STATE
+                  - SHIPMENT_STATUS_HISTORY_PARTIAL
+                  - SHIPMENT_STATUS_HISTORY_UNAVAILABLE
                   - DOCUMENT_EVENTS_UNAVAILABLE
                   - BILLING_EVENTS_UNAVAILABLE
                   - TECHNICAL_EVENTS_UNAVAILABLE

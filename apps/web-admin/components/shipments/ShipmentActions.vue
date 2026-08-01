@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {
-  canCancelShipment,
+  canCancelShipment as isShipmentStatusCancellable,
   getNextShipmentStatus,
   type Shipment,
 } from '~/types/shipment'
@@ -9,6 +9,7 @@ const props = defineProps<{ shipment: Shipment }>()
 const emit = defineEmits<{ updated: []; cancel: [] }>()
 
 const { acceptShipment, updateShipmentStatus } = useShipmentsApi()
+const { canAcceptShipment, canUpdateShipmentStatus, canCancelShipment: canCancelShipmentRole } = usePermissions()
 const { pushToast } = useToast()
 const { t } = useI18n()
 const router = useRouter()
@@ -18,17 +19,18 @@ const updatingStatus = ref(false)
 const movingToBilling = ref(false)
 
 const nextStatus = computed(() => getNextShipmentStatus(props.shipment.status))
-const canAccept = computed(() => props.shipment.status === 'CARRIER_ASSIGNED')
+const canAccept = computed(() => canAcceptShipment() && props.shipment.status === 'CARRIER_ASSIGNED')
 const showNextStatus = computed(
   () =>
+    canUpdateShipmentStatus() &&
     nextStatus.value &&
     props.shipment.status !== 'CARRIER_ASSIGNED' &&
     props.shipment.status !== 'CANCELLED' &&
     props.shipment.status !== 'DOCUMENTS_COMPLETED',
 )
-const showDocumentsHint = computed(() => props.shipment.status === 'DOCUMENTS_COMPLETED')
-const showBillingHint = computed(() => props.shipment.status === 'READY_FOR_BILLING')
-const showCancel = computed(() => canCancelShipment(props.shipment.status))
+const showDocumentsHint = computed(() => canUpdateShipmentStatus() && props.shipment.status === 'DOCUMENTS_COMPLETED')
+const showBillingHint = computed(() => canUpdateShipmentStatus() && props.shipment.status === 'READY_FOR_BILLING')
+const showCancel = computed(() => canCancelShipmentRole() && isShipmentStatusCancellable(props.shipment.status))
 
 async function onAccept() {
   accepting.value = true
@@ -37,7 +39,7 @@ async function onAccept() {
     pushToast('success', t('shipments.shipmentAccepted'))
     emit('updated')
   } catch (error) {
-    pushToast('error', error instanceof Error ? error.message : t('common.error'))
+    pushToast('error', formatApiErrorForUser(error))
   } finally {
     accepting.value = false
   }
@@ -51,7 +53,7 @@ async function onNextStatus() {
     pushToast('success', t('shipments.statusUpdated'))
     emit('updated')
   } catch (error) {
-    pushToast('error', error instanceof Error ? error.message : t('shipments.statusUpdateFailed'))
+    pushToast('error', formatApiErrorForUser(error))
   } finally {
     updatingStatus.value = false
   }
@@ -64,7 +66,7 @@ async function onMoveToBilling() {
     pushToast('success', t('shipments.statusUpdated'))
     emit('updated')
   } catch (error) {
-    pushToast('error', error instanceof Error ? error.message : t('shipments.statusUpdateFailed'))
+    pushToast('error', formatApiErrorForUser(error))
   } finally {
     movingToBilling.value = false
   }

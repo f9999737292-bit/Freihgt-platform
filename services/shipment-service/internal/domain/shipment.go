@@ -110,7 +110,6 @@ type BidSnapshot struct {
 }
 
 type CreateShipmentFromOrderInput struct {
-	TenantID           uuid.UUID
 	ShipmentNumber     string
 	TransportOrderID   uuid.UUID
 	CarrierCompanyID   uuid.UUID
@@ -120,7 +119,6 @@ type CreateShipmentFromOrderInput struct {
 }
 
 type CreateShipmentFromBidInput struct {
-	TenantID          uuid.UUID
 	ShipmentNumber    string
 	BidID             uuid.UUID
 	TransportOrderID  uuid.UUID
@@ -164,25 +162,23 @@ func ValidateAssignVehicleParams(tenantID, shipmentID, vehicleID uuid.UUID) erro
 	return nil
 }
 
-type AcceptShipmentInput struct {
-	TenantID uuid.UUID
-}
-
 type UpdateShipmentStatusInput struct {
-	TenantID   uuid.UUID
 	Status     string
 	ActualTime *time.Time
 }
 
 type CancelShipmentInput struct {
-	TenantID uuid.UUID
-	Reason   string
+	Reason string
+}
+
+func ValidateVerifiedTenant(tenantID uuid.UUID) error {
+	if tenantID == uuid.Nil {
+		return apperrors.Unauthorized("tenant context is required")
+	}
+	return nil
 }
 
 func ValidateCreateShipmentFromOrderInput(in CreateShipmentFromOrderInput) error {
-	if in.TenantID == uuid.Nil {
-		return apperrors.Validation("tenant_id is required", map[string]any{"field": "tenant_id"})
-	}
 	if strings.TrimSpace(in.ShipmentNumber) == "" {
 		return apperrors.Validation("shipment_number is required", map[string]any{"field": "shipment_number"})
 	}
@@ -196,9 +192,6 @@ func ValidateCreateShipmentFromOrderInput(in CreateShipmentFromOrderInput) error
 }
 
 func ValidateCreateShipmentFromBidInput(in CreateShipmentFromBidInput) error {
-	if in.TenantID == uuid.Nil {
-		return apperrors.Validation("tenant_id is required", map[string]any{"field": "tenant_id"})
-	}
 	if strings.TrimSpace(in.ShipmentNumber) == "" {
 		return apperrors.Validation("shipment_number is required", map[string]any{"field": "shipment_number"})
 	}
@@ -221,17 +214,11 @@ func ValidateListShipmentsFilter(f ListShipmentsFilter) error {
 	return ValidateListPagination(f.Limit, f.Offset)
 }
 
-func ValidateAcceptShipmentInput(in AcceptShipmentInput) error {
-	if in.TenantID == uuid.Nil {
-		return apperrors.Validation("tenant_id is required", map[string]any{"field": "tenant_id"})
-	}
+func ValidateAcceptShipmentInput() error {
 	return nil
 }
 
 func ValidateUpdateShipmentStatusInput(in UpdateShipmentStatusInput) error {
-	if in.TenantID == uuid.Nil {
-		return apperrors.Validation("tenant_id is required", map[string]any{"field": "tenant_id"})
-	}
 	if strings.TrimSpace(in.Status) == "" {
 		return apperrors.Validation("status is required", map[string]any{"field": "status"})
 	}
@@ -244,9 +231,6 @@ func ValidateUpdateShipmentStatusInput(in UpdateShipmentStatusInput) error {
 }
 
 func ValidateCancelShipmentInput(in CancelShipmentInput) error {
-	if in.TenantID == uuid.Nil {
-		return apperrors.Validation("tenant_id is required", map[string]any{"field": "tenant_id"})
-	}
 	return nil
 }
 

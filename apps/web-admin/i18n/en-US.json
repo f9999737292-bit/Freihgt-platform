@@ -30,6 +30,7 @@
     "loading": "Loading…",
     "empty": "No data",
     "error": "Error",
+    "insufficientPermission": "You do not have permission to perform this operation",
     "apiUnavailable": "API temporarily unavailable",
     "apiUnavailableHint": "Check API Gateway and backend services",
     "refresh": "Refresh",
@@ -1136,6 +1137,7 @@
     },
     "sources": {
       "SHIPMENT_STATE": "Shipment state",
+      "SHIPMENT_STATUS_HISTORY": "Shipment status history",
       "SLA_CALCULATOR": "SLA calculator",
       "DOCUMENT_STATE": "Document state",
       "BILLING_STATE": "Billing state"
@@ -1148,6 +1150,8 @@
     "warnings": {
       "SHIPMENT_EVENTS_UNAVAILABLE": "Stored shipment history",
       "SHIPMENT_HISTORY_DERIVED_FROM_CURRENT_STATE": "Stored shipment history",
+      "SHIPMENT_STATUS_HISTORY_PARTIAL": "Partial status history",
+      "SHIPMENT_STATUS_HISTORY_UNAVAILABLE": "Status history unavailable",
       "DOCUMENT_EVENTS_UNAVAILABLE": "Documents",
       "BILLING_EVENTS_UNAVAILABLE": "Billing",
       "TECHNICAL_EVENTS_UNAVAILABLE": "Technical events",
@@ -1166,7 +1170,11 @@
       "actualAt": "Actual at",
       "delayMinutes": "Delay (minutes)",
       "slaStatus": "SLA status",
-      "slaReason": "SLA reason"
+      "slaReason": "SLA reason",
+      "fromStatus": "From status",
+      "toStatus": "To status",
+      "shipmentVersion": "Shipment version",
+      "reasonCode": "Reason code"
     },
     "types": {
       "SHIPMENT_CREATED": { "title": "Shipment created", "description": "The shipment was created." },

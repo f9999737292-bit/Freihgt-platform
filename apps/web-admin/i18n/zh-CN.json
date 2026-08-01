@@ -30,6 +30,7 @@
     "loading": "加载中…",
     "empty": "暂无数据",
     "error": "错误",
+    "insufficientPermission": "权限不足，无法执行此操作",
     "apiUnavailable": "API temporarily unavailable",
     "apiUnavailableHint": "Check API Gateway and backend services",
     "refresh": "Refresh",
@@ -1136,6 +1137,7 @@
     },
     "sources": {
       "SHIPMENT_STATE": "运输状态",
+      "SHIPMENT_STATUS_HISTORY": "运输单状态历史",
       "SLA_CALCULATOR": "SLA 计算器",
       "DOCUMENT_STATE": "文档状态",
       "BILLING_STATE": "计费状态"
@@ -1148,6 +1150,8 @@
     "warnings": {
       "SHIPMENT_EVENTS_UNAVAILABLE": "已保存的运输历史",
       "SHIPMENT_HISTORY_DERIVED_FROM_CURRENT_STATE": "已保存的运输历史",
+      "SHIPMENT_STATUS_HISTORY_PARTIAL": "状态历史不完整",
+      "SHIPMENT_STATUS_HISTORY_UNAVAILABLE": "状态历史不可用",
       "DOCUMENT_EVENTS_UNAVAILABLE": "文档",
       "BILLING_EVENTS_UNAVAILABLE": "计费",
       "TECHNICAL_EVENTS_UNAVAILABLE": "技术事件",
@@ -1166,7 +1170,11 @@
       "actualAt": "实际时间",
       "delayMinutes": "延迟（分钟）",
       "slaStatus": "SLA 状态",
-      "slaReason": "SLA 原因"
+      "slaReason": "SLA 原因",
+      "fromStatus": "原状态",
+      "toStatus": "新状态",
+      "shipmentVersion": "运输单版本",
+      "reasonCode": "原因代码"
     },
     "types": {
       "SHIPMENT_CREATED": { "title": "运输单已创建", "description": "运输单已创建。" },

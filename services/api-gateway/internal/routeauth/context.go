@@ -1,4 +1,4 @@
-package fleetrbac
+package routeauth
 
 import (
 	"net/http"
@@ -16,7 +16,7 @@ type RequestContext struct {
 	RequestID string
 }
 
-func buildRequestContext(r *http.Request, authEnabled bool, devTenantID string) (RequestContext, error) {
+func BuildRequestContext(r *http.Request, authEnabled bool, devTenantID string) (RequestContext, error) {
 	if authEnabled {
 		ac, err := gwmiddleware.MustAuthContext(r.Context())
 		if err != nil {
