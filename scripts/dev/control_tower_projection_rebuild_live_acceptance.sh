@@ -31,7 +31,8 @@ SNAPSHOT_B=""
 ADMIN_EMAIL_A=""
 ADMIN_PASSWORD_A=""
 ADMIN_EMAIL_B=""
-ADMIN_PASSWORD_B=""
+KAFKA_BEFORE_PAUSE_FILE=""
+KAFKA_DURING_PAUSE_FILE=""
 
 fail() { echo "live-rebuild-acceptance: $*" >&2; exit 1; }
 step() { echo "==> $*" >&2; }
@@ -119,8 +120,10 @@ create_rebuild_tenant() {
   local label="$1"
   step "Create isolated tenant ${label} (consumer paused)"
   set_consumer false
+  KAFKA_BEFORE_PAUSE_FILE="$(kafka_snapshot_save "before_pause")"
   # Reuse shadow acceptance fixture with unique tenant; distribution 2/2/1 by default.
   eval "$("${ROOT}/scripts/dev/control_tower_shadow_rollout_acceptance_fixture.sh")"
+  KAFKA_DURING_PAUSE_FILE="$(kafka_snapshot_save "during_pause")"
   if [[ "${label}" == "A" ]]; then
     TENANT_A="${TENANT_ID}"
     ADMIN_EMAIL_A="${ADMIN_EMAIL}"
@@ -178,10 +181,89 @@ export_import_activate() {
   printf -v "${var_snapshot}" '%s' "${snapshot_id}"
 }
 
-kafka_group_offset() {
-  dc exec -T redpanda rpk group describe "${KAFKA_GROUP}" -o json 2>/dev/null \
-    | jq -r --arg topic "${KAFKA_TOPIC}" '
-      [.members[]?.assignments[]? | select(.topic==$topic) | .offset] | add // 0'
+normalize_committed() {
+  local v="$1"
+  if [[ -z "${v}" || "${v}" == "-" || "${v}" == "-1" ]]; then
+    echo "UNCOMMITTED"
+  else
+    echo "${v}"
+  fi
+}
+
+kafka_fetch_partition_lines() {
+  dc exec -T redpanda rpk group describe "${KAFKA_GROUP}" 2>/dev/null \
+    | awk -v topic="${KAFKA_TOPIC}" '
+      $1 == topic && $2 ~ /^[0-9]+$/ {
+        printf "%s %s %s %s\n", $2, $3, $5, $6
+      }'
+}
+
+kafka_snapshot_save() {
+  local tag="$1"
+  local file part committed logend lag
+  file="$(mktemp /tmp/ct-kafka-${tag}.XXXXXX)"
+  while read -r part committed logend lag; do
+    [[ -n "${part}" ]] || continue
+    committed="$(normalize_committed "${committed}")"
+    if [[ "${committed}" == "UNCOMMITTED" ]]; then
+      lag="UNCOMMITTED"
+    fi
+    echo "${part}|${committed}|${logend}|${lag}" >>"${file}"
+    echo "live-rebuild-acceptance: ${tag} partition ${part}: committed=${committed}, logEnd=${logend}, lag=${lag}" >&2
+  done < <(kafka_fetch_partition_lines)
+  [[ -s "${file}" ]] || fail "no partition offsets found for topic=${KAFKA_TOPIC} group=${KAFKA_GROUP}"
+  printf '%s' "${file}"
+}
+
+kafka_lookup_field() {
+  local file="$1" part="$2" field="$3"
+  awk -F'|' -v p="${part}" -v f="${field}" '
+    $1 == p {
+      if (f == "committed") print $2
+      else if (f == "logend") print $3
+      else if (f == "lag") print $4
+    }' "${file}"
+}
+
+kafka_assert_committed_unchanged() {
+  local before_file="$1" after_file="$2" context="$3"
+  local part before after
+  while IFS='|' read -r part before _ _; do
+    after="$(kafka_lookup_field "${after_file}" "${part}" committed)"
+    [[ -n "${after}" ]] || fail "${context}: missing partition ${part} in after snapshot"
+    [[ "${before}" == "${after}" ]] \
+      || fail "${context}: partition ${part} committed changed (${before} -> ${after})"
+  done <"${before_file}"
+}
+
+kafka_assert_catchup() {
+  local before_file="$1" during_file="$2" after_file="$3"
+  local part before_committed during_logend after_committed after_lag
+  while IFS='|' read -r part before_committed _ _; do
+    during_logend="$(kafka_lookup_field "${during_file}" "${part}" logend)"
+    after_committed="$(kafka_lookup_field "${after_file}" "${part}" committed)"
+    after_lag="$(kafka_lookup_field "${after_file}" "${part}" lag)"
+    [[ -n "${after_committed}" && -n "${after_lag}" ]] \
+      || fail "catch-up: missing partition ${part} in after snapshot"
+    [[ "${after_lag}" == "0" ]] || fail "catch-up: partition ${part} lag=${after_lag} (expected 0)"
+    if [[ "${before_committed}" =~ ^[0-9]+$ && "${during_logend}" =~ ^[0-9]+$ \
+      && "${during_logend}" -gt "${before_committed}" ]]; then
+      [[ "${after_committed}" =~ ^[0-9]+$ ]] \
+        || fail "catch-up: partition ${part} committed still ${after_committed} after backlog"
+      [[ "${after_committed}" -gt "${before_committed}" ]] \
+        || fail "catch-up: partition ${part} committed did not advance (${before_committed} -> ${after_committed})"
+    elif [[ "${before_committed}" =~ ^[0-9]+$ && "${after_committed}" =~ ^[0-9]+$ ]]; then
+      [[ "${after_committed}" -ge "${before_committed}" ]] \
+        || fail "catch-up: partition ${part} committed regressed (${before_committed} -> ${after_committed})"
+    fi
+  done <"${before_file}"
+}
+
+kafka_cleanup_snapshots() {
+  local f
+  for f in "$@"; do
+    [[ -n "${f}" && -f "${f}" ]] && rm -f "${f}"
+  done
 }
 
 wait_catchup() {
@@ -246,22 +328,25 @@ run_tenant_a_historical() {
   step "Tenant A pre-rebuild gateway summary"
   gateway_summary_assert false "${before_match}"
 
-  local offset_before
-  offset_before="$(kafka_group_offset || echo 0)"
-  echo "live-rebuild-acceptance: topic=${KAFKA_TOPIC} group=${KAFKA_GROUP} offset_before=${offset_before} consumerRunning=false" >&2
+  echo "live-rebuild-acceptance: topic=${KAFKA_TOPIC} group=${KAFKA_GROUP} consumerRunning=false" >&2
+  [[ -n "${KAFKA_BEFORE_PAUSE_FILE}" && -n "${KAFKA_DURING_PAUSE_FILE}" ]] \
+    || fail "kafka pause snapshots missing"
+  kafka_assert_committed_unchanged "${KAFKA_BEFORE_PAUSE_FILE}" "${KAFKA_DURING_PAUSE_FILE}" "during_pause"
 
   export_import_activate "${TENANT_A}" SNAPSHOT_A
 
-  local offset_after_activation
-  offset_after_activation="$(kafka_group_offset || echo 0)"
-  [[ "${offset_after_activation}" == "${offset_before}" ]] || fail "offsets changed during activation"
+  local kafka_after_activation
+  kafka_after_activation="$(kafka_snapshot_save "after_activation")"
+  kafka_assert_committed_unchanged "${KAFKA_BEFORE_PAUSE_FILE}" "${kafka_after_activation}" "after_activation"
 
   set_consumer true
   wait_catchup "${TENANT_A}" 5
 
-  local offset_after_catchup
-  offset_after_catchup="$(kafka_group_offset || echo 0)"
-  echo "live-rebuild-acceptance: offset_after_catchup=${offset_after_catchup} same_group=${KAFKA_GROUP}" >&2
+  local kafka_after_catchup
+  kafka_after_catchup="$(kafka_snapshot_save "after_catchup")"
+  kafka_assert_catchup "${KAFKA_BEFORE_PAUSE_FILE}" "${KAFKA_DURING_PAUSE_FILE}" "${kafka_after_catchup}"
+  echo "live-rebuild-acceptance: same_group=${KAFKA_GROUP} same_topic=${KAFKA_TOPIC}" >&2
+  kafka_cleanup_snapshots "${kafka_after_activation}" "${kafka_after_catchup}"
 
   login_jwt "${TENANT_A}" "${ADMIN_EMAIL_A}" "${ADMIN_PASSWORD_A}"
   gateway_summary_assert true "${before_match}"
