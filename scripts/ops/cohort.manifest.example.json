@@ -1,0 +1,18 @@
+# Example cohort manifest — copy to protected path outside Git.
+# Replace tenantId/email/password with staging-approved values.
+[
+  {
+    "alias": "STG-T01",
+    "tenantId": "00000000-0000-4000-8000-000000000001",
+    "email": "admin@example.local",
+    "password": "REPLACE_ME",
+    "category": "missing_projection"
+  },
+  {
+    "alias": "STG-T02",
+    "tenantId": "00000000-0000-4000-8000-000000000002",
+    "email": "admin@example.local",
+    "password": "REPLACE_ME",
+    "category": "incomplete_projection"
+  }
+]
