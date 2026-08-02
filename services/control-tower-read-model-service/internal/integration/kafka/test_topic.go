@@ -43,6 +43,11 @@ func requireKafkaBrokers(t *testing.T) []string {
 	return brokers
 }
 
+// RequireKafkaBrokers returns broker addresses or skips the test when unset.
+func RequireKafkaBrokers(t *testing.T) []string {
+	return requireKafkaBrokers(t)
+}
+
 func CreateUniqueTestTopic(t *testing.T, brokers []string, partitions int32) string {
 	t.Helper()
 	if partitions <= 0 {

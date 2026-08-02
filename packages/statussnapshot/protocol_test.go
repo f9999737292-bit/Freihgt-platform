@@ -30,10 +30,11 @@ func sampleShipment(snapshotID, tenantID, shipmentID uuid.UUID) ShipmentRecord {
 	prev := "CARRIER_ASSIGNED"
 	eventID := uuid.New()
 	sourceID := uuid.New()
+	eventType := "shipment.status.changed"
 	return ShipmentRecord{
 		RecordType: RecordTypeShipment, SchemaVersion: SchemaVersionV1, SnapshotID: snapshotID,
 		TenantID: tenantID, ShipmentID: shipmentID, CurrentStatus: "IN_TRANSIT", PreviousStatus: &prev,
-		AggregateVersion: 2, LastEventID: &eventID, LastSourceEventID: &sourceID,
+		AggregateVersion: 2, LastEventID: &eventID, LastSourceEventID: &sourceID, LastEventType: &eventType,
 		SourceUpdatedAt: time.Now().UTC(),
 	}
 }

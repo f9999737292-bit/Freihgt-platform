@@ -3,15 +3,15 @@ package rebuild
 import "errors"
 
 const (
-	CodeSnapshotAlreadyImported     = "SNAPSHOT_ALREADY_IMPORTED"
-	CodeSnapshotImportInProgress    = "SNAPSHOT_IMPORT_IN_PROGRESS"
+	CodeSnapshotAlreadyImported      = "SNAPSHOT_ALREADY_IMPORTED"
+	CodeSnapshotImportInProgress     = "SNAPSHOT_IMPORT_IN_PROGRESS"
 	CodeSnapshotImportReuseForbidden = "SNAPSHOT_IMPORT_REUSE_FORBIDDEN"
-	CodeStageRowCountMismatch       = "STAGE_ROW_COUNT_MISMATCH"
-	CodeStageTenantCountMismatch    = "STAGE_TENANT_COUNT_MISMATCH"
-	CodeStageScopeMismatch          = "STAGE_SCOPE_MISMATCH"
-	CodeImportCancelled             = "IMPORT_CANCELLED"
-	CodeDatabaseUnavailable         = "DATABASE_UNAVAILABLE"
-	CodeDatabaseConstraintViolation = "DATABASE_CONSTRAINT_VIOLATION"
+	CodeStageRowCountMismatch        = "STAGE_ROW_COUNT_MISMATCH"
+	CodeStageTenantCountMismatch     = "STAGE_TENANT_COUNT_MISMATCH"
+	CodeStageScopeMismatch           = "STAGE_SCOPE_MISMATCH"
+	CodeImportCancelled              = "IMPORT_CANCELLED"
+	CodeDatabaseUnavailable          = "DATABASE_UNAVAILABLE"
+	CodeDatabaseConstraintViolation  = "DATABASE_CONSTRAINT_VIOLATION"
 )
 
 type ImportError struct {

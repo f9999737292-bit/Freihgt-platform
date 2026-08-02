@@ -5,15 +5,12 @@ package rebuild
 import (
 	"bytes"
 	"context"
-	"sort"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	apprebuild "github.com/freight-platform/control-tower-read-model-service/internal/rebuild"
-	"github.com/freight-platform/statussnapshot"
 )
 
 func TestDryRunDoesNotModifyDatabase(t *testing.T) {
@@ -89,60 +86,12 @@ func TestPersistentImportValidatedState(t *testing.T) {
 	require.Equal(t, int64(2), stageCount)
 }
 
-func buildIntegrationStream(t *testing.T, rows int) []byte {
-	t.Helper()
-	id := uuid.New()
-	tenantID := uuid.New()
-	checksum := statussnapshot.NewChecksummer()
-	var buf bytes.Buffer
-	m := statussnapshot.ManifestRecord{
-		RecordType: statussnapshot.RecordTypeManifest, SchemaVersion: 1, SnapshotID: id, Scope: statussnapshot.ScopeAll,
-		Ordering: statussnapshot.OrderingTenantIDShipmentID,
-		StartedAt: time.Now().UTC(), TransactionIsolation: statussnapshot.IsolationRepeatableRead,
-		Source: statussnapshot.SourceShipmentService,
-	}
-	line, _ := statussnapshot.MarshalNDJSON(m)
-	buf.Write(line)
-	shipIDs := make([]uuid.UUID, rows)
-	for i := 0; i < rows; i++ {
-		shipIDs[i] = uuid.New()
-	}
-	sort.Slice(shipIDs, func(i, j int) bool { return shipIDs[i].String() < shipIDs[j].String() })
-	for _, shipID := range shipIDs {
-		prev := "CARRIER_ASSIGNED"
-		eventID, sourceID := uuid.New(), uuid.New()
-		rec := statussnapshot.ShipmentRecord{
-			RecordType: statussnapshot.RecordTypeShipment, SchemaVersion: 1, SnapshotID: id,
-			TenantID: tenantID, ShipmentID: shipID, CurrentStatus: "IN_TRANSIT", PreviousStatus: &prev,
-			AggregateVersion: 2, LastEventID: &eventID, LastSourceEventID: &sourceID, SourceUpdatedAt: time.Now().UTC(),
-		}
-		_ = checksum.AddCanonicalShipment(rec)
-		sline, _ := statussnapshot.MarshalNDJSON(rec)
-		buf.Write(sline)
-	}
-	c := statussnapshot.CompletionRecord{
-		RecordType: statussnapshot.RecordTypeCompletion, SchemaVersion: 1, SnapshotID: id,
-		RowCount: int64(rows), TenantCount: 1, SHA256: checksum.SumHex(), CompletedAt: time.Now().UTC(),
-	}
-	cline, _ := statussnapshot.MarshalNDJSON(c)
-	buf.Write(cline)
-	return buf.Bytes()
-}
-
-func extractSnapshotID(t *testing.T, stream []byte) uuid.UUID {
-	t.Helper()
-	dec := statussnapshot.NewDecoder(bytes.NewReader(stream), statussnapshot.DecoderOptions{})
-	rec, err := dec.Next()
-	require.NoError(t, err)
-	return rec.(statussnapshot.ManifestRecord).SnapshotID
-}
-
 func TestPersistentImportEmptyTenantScope(t *testing.T) {
 	ctx := context.Background()
 	pool := setupMigrationDB(t)
 	t.Cleanup(pool.Close)
 	tenantID := uuid.New()
-	stream := buildTenantEmptyStream(t, tenantID)
+	stream := buildEmptyTenantStream(t, tenantID)
 	repo := apprebuild.NewRepository(pool)
 	require.NoError(t, apprebuild.NewImporter(repo).Import(ctx, bytes.NewReader(stream), 100))
 	id := extractSnapshotID(t, stream)
@@ -178,25 +127,4 @@ func TestPersistentImportBrokenStream(t *testing.T) {
 	job, err2 := repo.GetJobStatus(ctx, id)
 	require.NoError(t, err2)
 	require.Equal(t, apprebuild.StateFailed, job.State)
-}
-
-func buildTenantEmptyStream(t *testing.T, tenantID uuid.UUID) []byte {
-	t.Helper()
-	id := uuid.New()
-	var buf bytes.Buffer
-	m := statussnapshot.ManifestRecord{
-		RecordType: statussnapshot.RecordTypeManifest, SchemaVersion: 1, SnapshotID: id,
-		Scope: statussnapshot.ScopeTenant, TenantID: &tenantID, Ordering: statussnapshot.OrderingTenantIDShipmentID,
-		StartedAt: time.Now().UTC(), TransactionIsolation: statussnapshot.IsolationRepeatableRead,
-		Source: statussnapshot.SourceShipmentService,
-	}
-	line, _ := statussnapshot.MarshalNDJSON(m)
-	buf.Write(line)
-	c := statussnapshot.CompletionRecord{
-		RecordType: statussnapshot.RecordTypeCompletion, SchemaVersion: 1, SnapshotID: id,
-		RowCount: 0, TenantCount: 0, SHA256: statussnapshot.EmptyStreamChecksumSHA256, CompletedAt: time.Now().UTC(),
-	}
-	cline, _ := statussnapshot.MarshalNDJSON(c)
-	buf.Write(cline)
-	return buf.Bytes()
 }

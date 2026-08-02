@@ -36,22 +36,13 @@ func run() int {
 	)
 	flag.BoolVar(&stdin, "stdin", false, "Read snapshot from stdin")
 	flag.BoolVar(&dryRun, "dry-run", false, "Validate snapshot without persisting")
-	flag.BoolVar(&activate, "activate", false, "Activate validated snapshot")
+	flag.BoolVar(&activate, "activate", false, "Activate validated snapshot (requires CONFIRM_PROJECTION_REBUILD_ACTIVATION=true)")
 	flag.BoolVar(&status, "status", false, "Show rebuild job status")
-	flag.BoolVar(&cleanup, "cleanup", false, "Cleanup staging rows")
-	flag.BoolVar(&rollback, "rollback", false, "Rollback activation")
+	flag.BoolVar(&cleanup, "cleanup", false, "Cleanup staging/backup rows (requires CONFIRM_PROJECTION_REBUILD_CLEANUP=true)")
+	flag.BoolVar(&rollback, "rollback", false, "Rollback activation (requires CONFIRM_PROJECTION_REBUILD_ROLLBACK=true)")
 	flag.StringVar(&snapshotID, "snapshot-id", "", "Snapshot job UUID")
 	flag.IntVar(&batchSize, "batch-size", rebuild.DefaultBatchSize, "Bounded batch insert size")
 	flag.Parse()
-
-	if activate {
-		if !strings.EqualFold(os.Getenv("CONFIRM_PROJECTION_REBUILD_ACTIVATION"), "true") {
-			fmt.Fprintln(os.Stderr, "ACTIVATION_CONFIRMATION_REQUIRED")
-			return 2
-		}
-		fmt.Fprintln(os.Stderr, rebuild.ErrActivationForbidden.Error())
-		return 2
-	}
 
 	cfg, err := rebuild.LoadConfig(stdin, dryRun, activate, status, cleanup, rollback, snapshotID, batchSize)
 	if err != nil {
@@ -65,6 +56,7 @@ func run() int {
 	defer stop()
 
 	var repo rebuild.RebuildRepository
+	var activationRepo rebuild.ActivationRepository
 	if dbURL := strings.TrimSpace(os.Getenv("DATABASE_URL")); dbURL != "" {
 		db, err := database.Connect(ctx, dbURL)
 		if err != nil {
@@ -73,6 +65,119 @@ func run() int {
 		}
 		defer db.Close()
 		repo = rebuild.NewRepository(db.Pool)
+		activationRepo = rebuild.NewActivationRepository(db.Pool)
+	}
+
+	if cfg.Activate {
+		if !strings.EqualFold(os.Getenv("CONFIRM_PROJECTION_REBUILD_ACTIVATION"), "true") {
+			fmt.Fprintln(os.Stderr, rebuild.CodeActivationConfirmationRequired)
+			return 2
+		}
+		if activationRepo == nil {
+			fmt.Fprintln(os.Stderr, "DATABASE_URL is required for --activate")
+			return 2
+		}
+		id, err := uuid.Parse(cfg.SnapshotID)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "invalid snapshot-id")
+			return 2
+		}
+		result, err := activationRepo.Activate(ctx, id)
+		if err != nil {
+			code := activationSafeCode(err)
+			log.Error("activation failed", slog.String("operation", "activate"), slog.String("safe_error_code", code))
+			fmt.Fprintln(os.Stderr, code)
+			return 1
+		}
+		out := map[string]any{
+			"state":            result.State,
+			"scope":            result.Scope,
+			"activatedRows":    result.ActivatedRows,
+			"backupRows":       result.BackupRows,
+			"rollbackEligible": result.RollbackEligible,
+			"activatedAt":      result.ActivatedAt.UTC().Format("2006-01-02T15:04:05Z07:00"),
+		}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(out)
+		log.Info("activation complete",
+			slog.String("operation", "activate"),
+			slog.String("scope", result.Scope),
+			slog.String("state", result.State),
+			slog.Int64("rows", result.ActivatedRows),
+			slog.String("result", "success"),
+		)
+		return 0
+	}
+
+	if cfg.Rollback {
+		if !strings.EqualFold(os.Getenv("CONFIRM_PROJECTION_REBUILD_ROLLBACK"), "true") {
+			fmt.Fprintln(os.Stderr, rebuild.CodeRollbackConfirmationRequired)
+			return 2
+		}
+		if activationRepo == nil {
+			fmt.Fprintln(os.Stderr, "DATABASE_URL is required for --rollback")
+			return 2
+		}
+		id, err := uuid.Parse(cfg.SnapshotID)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "invalid snapshot-id")
+			return 2
+		}
+		result, err := activationRepo.Rollback(ctx, id)
+		if err != nil {
+			code := activationSafeCode(err)
+			log.Error("rollback failed", slog.String("operation", "rollback"), slog.String("safe_error_code", code))
+			fmt.Fprintln(os.Stderr, code)
+			return 1
+		}
+		out := map[string]any{
+			"state":        result.State,
+			"restoredRows": result.RestoredRows,
+			"rolledBackAt": result.RolledBackAt.UTC().Format("2006-01-02T15:04:05Z07:00"),
+		}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(out)
+		log.Info("rollback complete",
+			slog.String("operation", "rollback"),
+			slog.String("state", result.State),
+			slog.Int64("rows", result.RestoredRows),
+			slog.String("result", "success"),
+		)
+		return 0
+	}
+
+	if cfg.Cleanup {
+		if !strings.EqualFold(os.Getenv("CONFIRM_PROJECTION_REBUILD_CLEANUP"), "true") {
+			fmt.Fprintln(os.Stderr, rebuild.CodeCleanupConfirmationRequired)
+			return 2
+		}
+		if activationRepo == nil {
+			fmt.Fprintln(os.Stderr, "DATABASE_URL is required for --cleanup")
+			return 2
+		}
+		id, err := uuid.Parse(cfg.SnapshotID)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "invalid snapshot-id")
+			return 2
+		}
+		result, err := activationRepo.Cleanup(ctx, id)
+		if err != nil {
+			code := activationSafeCode(err)
+			log.Error("cleanup failed", slog.String("operation", "cleanup"), slog.String("safe_error_code", code))
+			fmt.Fprintln(os.Stderr, code)
+			return 1
+		}
+		out := map[string]any{
+			"state":             result.State,
+			"stageRowsRemoved":  result.StageRowsRemoved,
+			"backupRowsRemoved": result.BackupRowsRemoved,
+		}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(out)
+		return 0
 	}
 
 	if cfg.Status {
@@ -136,6 +241,13 @@ func rebuildSafeCode(err error) string {
 		return code
 	}
 	return "IMPORT_FAILED"
+}
+
+func activationSafeCode(err error) string {
+	if code := rebuild.ActivationErrorCode(err); code != "" {
+		return code
+	}
+	return "ACTIVATION_FAILED"
 }
 
 var _ = io.Discard

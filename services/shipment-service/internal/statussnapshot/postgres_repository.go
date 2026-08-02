@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -180,6 +181,10 @@ func scanSnapshotRow(rows pgx.Rows) (scannedRow, error) {
 	row.PreviousStatus = previous
 	row.LastEventID = lastEvent
 	row.LastSourceEventID = lastSource
+	if row.outboxEventType != nil && strings.TrimSpace(*row.outboxEventType) != "" {
+		t := strings.TrimSpace(*row.outboxEventType)
+		row.LastEventType = &t
+	}
 	if sourceUpdated != nil {
 		row.SourceUpdatedAt = sourceUpdated.UTC()
 	}

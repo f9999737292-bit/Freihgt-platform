@@ -69,11 +69,11 @@ func setupMigrationDB(t *testing.T) *pgxpool.Pool {
 	testCfg.ConnConfig.Database = dbName
 	pool, err := pgxpool.NewWithConfig(context.Background(), testCfg)
 	require.NoError(t, err)
-	require.NoError(t, applyMigrationsThrough16(context.Background(), pool))
+	require.NoError(t, applyMigrationsThrough18(context.Background(), pool))
 	return pool
 }
 
-func applyMigrationsThrough16(ctx context.Context, pool *pgxpool.Pool) error {
+func applyMigrationsThrough18(ctx context.Context, pool *pgxpool.Pool) error {
 	dir, err := locateMigrationsDir()
 	if err != nil {
 		return err
@@ -85,7 +85,7 @@ func applyMigrationsThrough16(ctx context.Context, pool *pgxpool.Pool) error {
 	sort.Strings(files)
 	for _, file := range files {
 		base := filepath.Base(file)
-		if strings.HasPrefix(base, "000017") {
+		if strings.HasPrefix(base, "000019") {
 			continue
 		}
 		content, err := os.ReadFile(file)
@@ -97,6 +97,10 @@ func applyMigrationsThrough16(ctx context.Context, pool *pgxpool.Pool) error {
 		}
 	}
 	return nil
+}
+
+func applyMigrationsThrough16(ctx context.Context, pool *pgxpool.Pool) error {
+	return applyMigrationsThrough18(ctx, pool)
 }
 
 func locateMigrationsDir() (string, error) {

@@ -95,6 +95,7 @@ func (e *Exporter) Export(ctx context.Context, cfg Config) (ExportResult, error)
 			AggregateVersion:  row.AggregateVersion,
 			LastEventID:       row.LastEventID,
 			LastSourceEventID: row.LastSourceEventID,
+			LastEventType:     row.LastEventType,
 			SourceUpdatedAt:   row.SourceUpdatedAt.UTC(),
 		}
 		if err := statussnapshot.ValidateShipment(rec, manifest); err != nil {

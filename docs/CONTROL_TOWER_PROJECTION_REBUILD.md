@@ -10,11 +10,11 @@ shipment-service PostgreSQL (READ ONLY REPEATABLE READ)
 → streaming importer
 → persistent rebuild job + staging rows
 → VALIDATED
+→ atomic activation (v0.3)
+→ Kafka catch-up (same consumer group)
 ```
 
-Activation, rollback, live consumer advisory-lock integration, Kafka catch-up, and historical shadow acceptance remain out of scope.
-
-> **A VALIDATED rebuild job contains a fully verified staging snapshot but does not modify the active Control Tower projection.**
+Activation, rollback, advisory-lock coordination, and Kafka catch-up are implemented in v0.3. Primary mode remains blocked.
 
 ## Authoritative DB sources
 
@@ -147,7 +147,130 @@ CONFIRM_PROJECTION_REBUILD_IMPORT=true
 
 Separate from activation confirmation. Import may create jobs and stage rows only.
 
-Activation still requires `CONFIRM_PROJECTION_REBUILD_ACTIVATION=true` and remains `NOT_IMPLEMENTED`.
+Activation, rollback, and cleanup require separate confirmations and do **not** auto-run after import.
+
+## Activation (v0.3)
+
+Preconditions:
+
+- Job state `VALIDATED`
+- Stage row count/checksum revalidated inside activation transaction
+- Consumer pause recommended (not enforced) to minimize exclusive lock wait
+- `CONFIRM_PROJECTION_REBUILD_ACTIVATION=true`
+- CLI: `--activate --snapshot-id <uuid>`
+
+Activation replaces the scoped active projection in one PostgreSQL transaction while holding the exclusive projection advisory lock (`ProjectionRebuildAdvisoryLockKey = 0x4354505350524F4A`).
+
+Sequence:
+
+```text
+BEGIN → exclusive advisory lock → job FOR UPDATE → VALIDATED→ACTIVATING
+→ revalidate stage → backup scoped active rows → DELETE scoped active
+→ INSERT stage→active → post-validation → ACTIVE → COMMIT
+```
+
+Stage→active mapping:
+
+| Stage | Active |
+| --- | --- |
+| `tenant_id` | `tenant_id` |
+| `shipment_id` | `shipment_id` |
+| `aggregate_version` | `shipment_version` |
+| `current_status` | `current_status` |
+| `previous_status` | `previous_status` |
+| `last_event_id` (or nil UUID) | `last_event_id` |
+| `last_source_event_id` (or nil UUID) | `last_source_event_id` |
+| `last_event_type` from canonical outbox (`shipment.status.changed`, etc.) | `last_event_type` |
+| `source_updated_at` | `last_occurred_at`, `authoritative_as_of` |
+| activation time | `last_consumed_at`, `rebuilt_at`, `created_at`, `updated_at` |
+| constant `true` | `complete` |
+| cleared | gap fields |
+| `AUTHORITATIVE_SNAPSHOT` | `projection_source` |
+| job snapshot ID | `snapshot_id` |
+
+`last_event_type` carries the **last real domain event type** from canonical outbox when present; it is `NULL` when the snapshot row has no published outbox event. Rebuild does **not** fabricate `projection.rebuild.snapshot` or other synthetic domain types.
+
+After first live event on an activated row, consumer sets `projection_source=LIVE_EVENT`, `snapshot_id=NULL`, `authoritative_as_of=NULL`, and replaces event metadata (`last_event_id`, `last_source_event_id`, `last_event_type`, `last_occurred_at`, `last_consumed_at`) with the live Kafka envelope. `rebuilt_at` is preserved as the historical rebuild timestamp.
+
+## Tenant activation and rollback
+
+TENANT scope activation backs up, deletes, and inserts rows for the manifest tenant only. Other tenants remain field-by-field unchanged. Rollback restores backup rows for the scoped tenant; eligibility checks scope the live-write detector with `(projection_source <> AUTHORITATIVE_SNAPSHOT OR snapshot_id <> job_id) AND tenant_id = scoped_tenant`.
+
+Empty-tenant scenarios:
+
+- No prior active rows, non-empty stage → activation inserts rows, `backup_rows=0`; rollback removes tenant rows again.
+- Prior active rows, empty validated stage → activation deletes tenant projection, `backup_rows>0`; rollback restores prior rows.
+
+## Concurrent read visibility
+
+During activation pause (mid-transaction after scoped DELETE), concurrent readers using ordinary READ COMMITTED queries see either the full pre-activation snapshot or, after COMMIT, the full post-activation snapshot. Partial/mixed tenant states are forbidden; integration tests block activation mid-transaction and poll readers.
+
+## Summary query atomicity
+
+Status summary HTTP handler reads totals/byStatus/incomplete inside a **single database transaction** so READ COMMITTED clients observe one consistent committed snapshot per request.
+
+## Lock timeout
+
+`SET LOCAL lock_timeout` uses bounded millisecond values derived from context deadline (safe numeric `set_config`, no string concatenation). Timeout or cancellation rolls back the DB transaction; Kafka offsets are not committed when projection lock acquisition fails.
+
+## Rollback factual eligibility
+
+Beyond provenance and row counts, eligibility runs bidirectional `EXCEPT` between active rows and stage-derived expected rows across version, status, event metadata, completeness, gap fields, provenance, and timestamps. Any drift → `ROLLBACK_WINDOW_CLOSED`. Live updates or new rows in scope also close the window.
+
+## Kafka same-group catch-up
+
+Consumer group remains `control-tower-shipment-status-v1`. Activation and rollback never read or modify Kafka offsets. Integration tests record `group_before=group_after`, `offset_after_activation=offset_before_pause`, and `offset_after_resume>offset_before_pause`.
+
+Events published while consumer is paused: events already covered by snapshot version are STALE/DUPLICATE after resume; newer events apply as `LIVE_EVENT`.
+
+## Historical and rollback acceptance
+
+```text
+make control-tower-projection-rebuild-historical-acceptance
+make control-tower-projection-rebuild-rollback-acceptance
+```
+
+PostgreSQL fixture mode (`RUN_REBUILD_ACCEPTANCE_FIXTURE=1`) validates pre-activation mismatch, post-activation stage parity, inbox/dead-letter preservation, and post-rollback exact restore. Gateway mode requires `GATEWAY_URL`, `JWT`, and `TENANT_ID` for full shadow `comparison=MATCH` with `public source=LEGACY`.
+
+## 20k query plans (diagnostic)
+
+Integration test (`RUN_20K_REBUILD_TESTS=1`) exercises 20k stage/active/backup rows across multiple tenants. Representative plans use index scans on `idx_projection_rebuild_stage_snapshot_tenant` and `idx_shipment_status_projection_tenant_updated`; stage→active insert ~140ms and EXCEPT validation ~50ms on local fixture hardware (not production SLO).
+
+## Observability
+
+CLI activation/rollback emit structured operational summaries via `operation_summary.go` (slog fields: operation, scope, result, duration). These are not process-local Prometheus counters.
+
+## Cleanup states
+
+Cleanup allowed for `FAILED`, `CANCELLED`, `ROLLED_BACK`; forbidden for `ACTIVE` (`ACTIVE_CLEANUP_FORBIDDEN`). Removes stage and backup rows only; active projection, inbox, dead-letter, and Kafka offsets unchanged.
+
+## Live consumer advisory lock
+
+The live Kafka consumer acquires the shared projection advisory lock in every projection-write transaction before inbox dedupe and projection read/update. Static tests assert activation package does not import Kafka clients.
+
+## Rollback window
+
+Rollback allowed only while active scoped projection exactly matches activated snapshot (all rows `projection_source=AUTHORITATIVE_SNAPSHOT`, `snapshot_id=job id`, field-equivalent to stage). Any live write closes the window (`ROLLBACK_WINDOW_CLOSED`).
+
+Requires `CONFIRM_PROJECTION_REBUILD_ROLLBACK=true` and `--rollback --snapshot-id <uuid>`.
+
+Activation failure inside the activation transaction rolls back to `VALIDATED` with prior active projection intact; safe error codes may be recorded in a separate guarded update. Rollback failure leaves job `ACTIVE` with backup intact.
+
+## Import confirmation
+
+Persistent import requires:
+
+```text
+CONFIRM_PROJECTION_REBUILD_IMPORT=true
+```
+
+Separate from activation confirmation. Import may create jobs and stage rows only; it never activates.
+
+Activation requires:
+
+```text
+CONFIRM_PROJECTION_REBUILD_ACTIVATION=true
+```
 
 ## Job lifecycle
 
@@ -155,7 +278,12 @@ Activation still requires `CONFIRM_PROJECTION_REBUILD_ACTIVATION=true` and remai
 | --- | --- |
 | `IMPORTING` | Job created, stage batches may be partial |
 | `VALIDATED` | DB-side stage validation passed; projection unchanged |
+| `ACTIVATING` | Activation transaction in progress |
+| `ACTIVE` | Scoped projection replaced; rollback window open until live writes |
+| `ROLLING_BACK` | Rollback transaction in progress |
+| `ROLLED_BACK` | Backup restored |
 | `FAILED` | Safe error code stored; projection unchanged |
+| `CLEANED` | Stage/backup rows removed; job audit retained |
 
 Snapshot ID reuse:
 
@@ -163,33 +291,27 @@ Snapshot ID reuse:
 - `IMPORTING` → `SNAPSHOT_IMPORT_IN_PROGRESS`
 - `FAILED` → `SNAPSHOT_IMPORT_REUSE_FORBIDDEN` (explicit cleanup required)
 
-## Dry-run
+## Kafka catch-up
 
-Non-persistent stream validation. Job/stage/projection counts unchanged.
-
-## Failure recovery
-
-Broken stream (missing completion) → job `FAILED`, safe code, partial stage rows may remain, projection unchanged.
-
-## Large snapshots
-
-Exporter/importer stream row-by-row with bounded batch inserts (default 500, max 10000). No unbounded in-memory duplicate map.
+After activation, resume the same consumer group (`control-tower-shipment-status-v1`). Offsets are never reset or modified by activation or rollback. Stale/duplicate events at or below snapshot version are acknowledged without reverting projection; newer events apply with `LIVE_EVENT` provenance.
 
 ## Not yet implemented
 
-- Atomic activation / projection swap
-- Rollback execution
-- Live consumer shared advisory lock
-- Kafka catch-up verification
-- Historical shadow acceptance
 - Primary mode (blocked)
-
-Rebuild is **not** operationally ready for production cutover until activation and catch-up are implemented.
+- Production SLO for activation lock duration
 
 ## Required statements
 
-> The projection rebuild protocol represents an authoritative current-state snapshot and does not fabricate historical Kafka events.
+> Activation replaces the scoped active projection in one PostgreSQL transaction while holding the exclusive projection advisory lock.
 
-> Kafka consumer offsets are never reset by the exporter or importer.
+> The live Kafka consumer acquires the shared projection advisory lock in every projection-write transaction.
+
+> Kafka consumer offsets are never reset or modified by activation or rollback.
+
+> Rollback is refused after any live projection write has changed the activated snapshot scope.
+
+> Inbox and dead-letter records are preserved during activation and rollback.
+
+> The projection rebuild protocol represents an authoritative current-state snapshot and does not fabricate historical Kafka events.
 
 > Snapshot data is streamed through stdin/stdout by default and is not persisted to disk.

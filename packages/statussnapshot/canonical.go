@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"hash"
 	"io"
+	"strings"
 )
 
 // EmptyStreamChecksumSHA256 is SHA-256 over zero canonical shipment lines.
@@ -23,6 +24,7 @@ type canonicalShipmentPayload struct {
 	AggregateVersion  int64   `json:"aggregateVersion"`
 	LastEventID       *string `json:"lastEventId,omitempty"`
 	LastSourceEventID *string `json:"lastSourceEventId,omitempty"`
+	LastEventType     *string `json:"lastEventType,omitempty"`
 	SourceUpdatedAt   string  `json:"sourceUpdatedAt"`
 }
 
@@ -45,6 +47,10 @@ func toCanonicalPayload(rec ShipmentRecord) canonicalShipmentPayload {
 	if rec.LastSourceEventID != nil {
 		s := rec.LastSourceEventID.String()
 		payload.LastSourceEventID = &s
+	}
+	if rec.LastEventType != nil && strings.TrimSpace(*rec.LastEventType) != "" {
+		t := strings.TrimSpace(*rec.LastEventType)
+		payload.LastEventType = &t
 	}
 	return payload
 }

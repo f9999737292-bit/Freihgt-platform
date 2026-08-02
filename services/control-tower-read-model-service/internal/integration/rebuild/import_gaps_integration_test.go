@@ -123,7 +123,7 @@ func apprehendImportCode(err error) string {
 	return statussnapshot.ValidationCode(err)
 }
 
-func buildTenantScopedStream(t *testing.T, manifestTenant, rowTenant uuid.UUID) []byte {
+func buildTenantScopeMismatchStream(t *testing.T, manifestTenant, rowTenant uuid.UUID) []byte {
 	t.Helper()
 	id := uuid.New()
 	checksum := statussnapshot.NewChecksummer()
@@ -131,7 +131,7 @@ func buildTenantScopedStream(t *testing.T, manifestTenant, rowTenant uuid.UUID) 
 	m := statussnapshot.ManifestRecord{
 		RecordType: statussnapshot.RecordTypeManifest, SchemaVersion: 1, SnapshotID: id,
 		Scope: statussnapshot.ScopeTenant, TenantID: &manifestTenant,
-		Ordering: statussnapshot.OrderingTenantIDShipmentID,
+		Ordering:  statussnapshot.OrderingTenantIDShipmentID,
 		StartedAt: time.Now().UTC(), TransactionIsolation: statussnapshot.IsolationRepeatableRead,
 		Source: statussnapshot.SourceShipmentService,
 	}
@@ -145,6 +145,7 @@ func buildTenantScopedStream(t *testing.T, manifestTenant, rowTenant uuid.UUID) 
 		TenantID: rowTenant, ShipmentID: shipID, CurrentStatus: "IN_TRANSIT", PreviousStatus: &prev,
 		AggregateVersion: 2, LastEventID: &eventID, LastSourceEventID: &sourceID, SourceUpdatedAt: time.Now().UTC(),
 	}
+	addLastEventTypeToRecord(&rec)
 	_ = checksum.AddCanonicalShipment(rec)
 	sline, _ := statussnapshot.MarshalNDJSON(rec)
 	buf.Write(sline)

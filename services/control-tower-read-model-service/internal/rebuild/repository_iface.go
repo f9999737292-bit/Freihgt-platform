@@ -14,3 +14,10 @@ type RebuildRepository interface {
 	MarkFailed(ctx context.Context, snapshotID uuid.UUID, code string) error
 	GetJobStatus(ctx context.Context, snapshotID uuid.UUID) (JobStatus, error)
 }
+
+type ActivationRepository interface {
+	Activate(ctx context.Context, snapshotID uuid.UUID) (ActivationResult, error)
+	Rollback(ctx context.Context, snapshotID uuid.UUID) (RollbackResult, error)
+	Cleanup(ctx context.Context, snapshotID uuid.UUID) (CleanupResult, error)
+	GetRollbackEligibility(ctx context.Context, snapshotID uuid.UUID) (RollbackEligibility, error)
+}

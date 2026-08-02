@@ -80,10 +80,12 @@ func buildStream(t *testing.T, rows int) []byte {
 	for _, shipID := range shipIDs {
 		prev := "CARRIER_ASSIGNED"
 		eventID, sourceID := uuid.New(), uuid.New()
+		eventType := "shipment.status.changed"
 		rec := statussnapshot.ShipmentRecord{
 			RecordType: statussnapshot.RecordTypeShipment, SchemaVersion: 1, SnapshotID: id,
 			TenantID: tenantID, ShipmentID: shipID, CurrentStatus: "IN_TRANSIT", PreviousStatus: &prev,
-			AggregateVersion: 2, LastEventID: &eventID, LastSourceEventID: &sourceID, SourceUpdatedAt: time.Now().UTC(),
+			AggregateVersion: 2, LastEventID: &eventID, LastSourceEventID: &sourceID, LastEventType: &eventType,
+			SourceUpdatedAt: time.Now().UTC(),
 		}
 		_ = checksum.AddCanonicalShipment(rec)
 		sline, _ := statussnapshot.MarshalNDJSON(rec)
@@ -136,17 +138,31 @@ func TestImporterBatchInsertErrorMarksFailed(t *testing.T) {
 	}
 }
 
-func TestImporterActivateNotImplementedConfig(t *testing.T) {
-	_, err := LoadConfig(false, false, true, false, false, false, uuid.NewString(), DefaultBatchSize)
+func TestImporterActivateConfigRequiresSnapshotID(t *testing.T) {
+	_, err := LoadConfig(false, false, true, false, false, false, "", DefaultBatchSize)
 	if err == nil {
-		t.Fatal("expected conflicting or invalid config")
+		t.Fatal("expected snapshot-id required")
+	}
+	cfg, err := LoadConfig(false, false, true, false, false, false, uuid.NewString(), DefaultBatchSize)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.Activate {
+		t.Fatal("expected activate mode")
 	}
 }
 
-func TestImporterCleanupNotImplemented(t *testing.T) {
-	_, err := LoadConfig(false, false, false, false, true, false, uuid.NewString(), DefaultBatchSize)
-	if !errors.Is(err, ErrNotImplemented) {
-		t.Fatal("expected not implemented")
+func TestImporterCleanupConfigRequiresSnapshotID(t *testing.T) {
+	_, err := LoadConfig(false, false, false, false, true, false, "", DefaultBatchSize)
+	if err == nil {
+		t.Fatal("expected snapshot-id required")
+	}
+	cfg, err := LoadConfig(false, false, false, false, true, false, uuid.NewString(), DefaultBatchSize)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.Cleanup {
+		t.Fatal("expected cleanup mode")
 	}
 }
 

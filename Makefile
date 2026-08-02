@@ -593,8 +593,22 @@ control-tower-projection-rebuild-import:
 
 control-tower-projection-rebuild-activate:
 	@if [ "$(CONFIRM_PROJECTION_REBUILD_ACTIVATION)" != "true" ]; then echo "ACTIVATION_CONFIRMATION_REQUIRED"; exit 2; fi
-	@echo "Activation is not implemented in core infrastructure v0.1."
-	@exit 2
+	@if [ -z "$(SNAPSHOT_ID)" ]; then echo "SNAPSHOT_ID is required"; exit 2; fi
+	"$(BASH)" scripts/dev/control_tower_projection_rebuild_activate.sh
+
+control-tower-projection-rebuild-rollback:
+	@if [ "$(CONFIRM_PROJECTION_REBUILD_ROLLBACK)" != "true" ]; then echo "ROLLBACK_CONFIRMATION_REQUIRED"; exit 2; fi
+	@if [ -z "$(SNAPSHOT_ID)" ]; then echo "SNAPSHOT_ID is required"; exit 2; fi
+	"$(BASH)" scripts/dev/control_tower_projection_rebuild_rollback.sh
+
+control-tower-projection-rebuild-kafka-catch-up-test:
+	go test -tags=integration ./services/control-tower-read-model-service/internal/integration/rebuild/... -run "KafkaCatchUp|OffsetPreservation|EventsDuringPause|GapAfterActivation" -count=1 -v
+
+control-tower-projection-rebuild-historical-acceptance:
+	"$(BASH)" scripts/dev/control_tower_projection_rebuild_historical_acceptance.sh
+
+control-tower-projection-rebuild-rollback-acceptance:
+	"$(BASH)" scripts/dev/control_tower_projection_rebuild_rollback_acceptance.sh
 
 control-tower-projection-rebuild-status:
 	"$(BASH)" scripts/dev/control_tower_projection_rebuild_status.sh

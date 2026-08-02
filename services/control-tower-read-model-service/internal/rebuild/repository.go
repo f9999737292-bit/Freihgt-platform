@@ -23,6 +23,10 @@ func NewRepository(pool *pgxpool.Pool) RebuildRepository {
 	return &pgRepository{pool: pool}
 }
 
+func NewActivationRepository(pool *pgxpool.Pool) ActivationRepository {
+	return &pgRepository{pool: pool}
+}
+
 func (r *pgRepository) CreateImportJob(ctx context.Context, manifest Manifest) error {
 	var existingState string
 	err := r.pool.QueryRow(ctx, `
@@ -67,12 +71,12 @@ func (r *pgRepository) InsertStageBatch(ctx context.Context, rows []StageRow) er
 	const q = `
 INSERT INTO control_tower.shipment_status_projection_rebuild_stage (
     snapshot_id, tenant_id, shipment_id, current_status, previous_status,
-    aggregate_version, last_event_id, last_source_event_id, source_updated_at, record_sequence
-) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`
+    aggregate_version, last_event_id, last_source_event_id, last_event_type, source_updated_at, record_sequence
+) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`
 	for _, row := range rows {
 		batch.Queue(q,
 			row.SnapshotID, row.TenantID, row.ShipmentID, row.CurrentStatus, row.PreviousStatus,
-			row.AggregateVersion, row.LastEventID, row.LastSourceEventID, row.SourceUpdatedAt, row.RecordSequence,
+			row.AggregateVersion, row.LastEventID, row.LastSourceEventID, row.LastEventType, row.SourceUpdatedAt, row.RecordSequence,
 		)
 	}
 	br := r.pool.SendBatch(ctx, batch)
@@ -207,16 +211,19 @@ WHERE snapshot_id=$1 AND state=$5`,
 func (r *pgRepository) GetJobStatus(ctx context.Context, snapshotID uuid.UUID) (JobStatus, error) {
 	const q = `
 SELECT snapshot_id, state, scope, expected_rows, imported_rows, tenant_count,
-       expected_sha256, actual_sha256, started_at, validated_at, error_code
+       expected_sha256, actual_sha256, started_at, validated_at, activated_at, rolled_back_at,
+       activated_rows, backup_rows, rollback_eligible, error_code
 FROM control_tower.shipment_status_projection_rebuild_job WHERE snapshot_id=$1`
 	var status JobStatus
-	var expected, tenant *int64
+	var expected, tenant, activated, backup *int64
 	var expectedSHA, actualSHA *string
-	var validated *time.Time
+	var validated, activatedAt, rolledBackAt *time.Time
 	var errCode *string
+	var rollbackEligible *bool
 	err := r.pool.QueryRow(ctx, q, snapshotID).Scan(
 		&status.SnapshotID, &status.State, &status.Scope, &expected, &status.ImportedRows, &tenant,
-		&expectedSHA, &actualSHA, &status.StartedAt, &validated, &errCode,
+		&expectedSHA, &actualSHA, &status.StartedAt, &validated, &activatedAt, &rolledBackAt,
+		&activated, &backup, &rollbackEligible, &errCode,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return JobStatus{}, ErrJobNotFound
@@ -227,6 +234,11 @@ FROM control_tower.shipment_status_projection_rebuild_job WHERE snapshot_id=$1`
 	status.ExpectedRows = expected
 	status.TenantCount = tenant
 	status.ValidatedAt = validated
+	status.ActivatedAt = activatedAt
+	status.RolledBackAt = rolledBackAt
+	status.ActivatedRows = activated
+	status.BackupRows = backup
+	status.RollbackEligible = rollbackEligible
 	status.ErrorCode = errCode
 	if expectedSHA != nil && actualSHA != nil && *expectedSHA != "" {
 		status.ChecksumMatched = *expectedSHA == *actualSHA

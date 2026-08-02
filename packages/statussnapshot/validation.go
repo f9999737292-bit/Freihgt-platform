@@ -30,6 +30,7 @@ const (
 	CodeInvalidOrdering          = "INVALID_ORDERING"
 	CodeRecordOrderViolation     = "RECORD_ORDER_VIOLATION"
 	CodeInconsistentMetadata     = "INCONSISTENT_METADATA"
+	CodeUnknownEventType         = "UNKNOWN_EVENT_TYPE"
 )
 
 type ValidationError struct {

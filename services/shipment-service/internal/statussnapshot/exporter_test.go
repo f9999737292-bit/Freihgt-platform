@@ -48,9 +48,11 @@ func sampleRow(tenantID uuid.UUID) ShipmentSnapshotRow {
 	prev := "CARRIER_ASSIGNED"
 	eventID := uuid.New()
 	sourceID := uuid.New()
+	eventType := "shipment.status.changed"
 	return ShipmentSnapshotRow{
 		TenantID: tenantID, ShipmentID: uuid.New(), CurrentStatus: "IN_TRANSIT", PreviousStatus: &prev,
-		AggregateVersion: 2, LastEventID: &eventID, LastSourceEventID: &sourceID, SourceUpdatedAt: time.Now().UTC(),
+		AggregateVersion: 2, LastEventID: &eventID, LastSourceEventID: &sourceID, LastEventType: &eventType,
+		SourceUpdatedAt: time.Now().UTC(),
 	}
 }
 
@@ -238,9 +240,11 @@ func sampleRowWithIDs(tenantID, shipmentID uuid.UUID) ShipmentSnapshotRow {
 	prev := "CARRIER_ASSIGNED"
 	eventID := uuid.New()
 	sourceID := uuid.New()
+	eventType := "shipment.status.changed"
 	return ShipmentSnapshotRow{
 		TenantID: tenantID, ShipmentID: shipmentID, CurrentStatus: "IN_TRANSIT", PreviousStatus: &prev,
-		AggregateVersion: 2, LastEventID: &eventID, LastSourceEventID: &sourceID, SourceUpdatedAt: time.Now().UTC(),
+		AggregateVersion: 2, LastEventID: &eventID, LastSourceEventID: &sourceID, LastEventType: &eventType,
+		SourceUpdatedAt: time.Now().UTC(),
 	}
 }
 

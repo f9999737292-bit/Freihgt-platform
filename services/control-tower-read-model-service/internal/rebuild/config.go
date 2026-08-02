@@ -7,10 +7,9 @@ import (
 )
 
 var (
-	ErrInvalidConfig       = errors.New("invalid importer config")
-	ErrNotImplemented      = errors.New("NOT_IMPLEMENTED")
-	ErrConflictingMode     = errors.New("conflicting CLI mode")
-	ErrActivationForbidden = errors.New("activation is not implemented in v0.1 core infrastructure")
+	ErrInvalidConfig   = errors.New("invalid importer config")
+	ErrNotImplemented  = errors.New("NOT_IMPLEMENTED")
+	ErrConflictingMode = errors.New("conflicting CLI mode")
 )
 
 const (
@@ -55,9 +54,7 @@ func (c Config) Validate() error {
 		if c.SnapshotID == "" {
 			return fmt.Errorf("%w: snapshot-id required", ErrInvalidConfig)
 		}
-	}
-	if c.Cleanup || c.Rollback {
-		return ErrNotImplemented
+		return nil
 	}
 	if c.Status {
 		if c.SnapshotID == "" {

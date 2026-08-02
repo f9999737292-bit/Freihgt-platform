@@ -81,8 +81,9 @@ func (i *Importer) Import(ctx context.Context, r io.Reader, batchSize int) error
 				SnapshotID: typed.SnapshotID, TenantID: typed.TenantID, ShipmentID: typed.ShipmentID,
 				CurrentStatus: typed.CurrentStatus, PreviousStatus: typed.PreviousStatus,
 				AggregateVersion: typed.AggregateVersion, LastEventID: typed.LastEventID,
-				LastSourceEventID: typed.LastSourceEventID, SourceUpdatedAt: typed.SourceUpdatedAt,
-				RecordSequence: dec.Stats().RowCount,
+				LastSourceEventID: typed.LastSourceEventID, LastEventType: typed.LastEventType,
+				SourceUpdatedAt: typed.SourceUpdatedAt,
+				RecordSequence:  dec.Stats().RowCount,
 			})
 			if len(batch) >= batchSize {
 				if err := flush(); err != nil {

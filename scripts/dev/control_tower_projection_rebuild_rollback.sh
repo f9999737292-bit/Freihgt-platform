@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ "${CONFIRM_PROJECTION_REBUILD_ACTIVATION:-}" != "true" ]]; then
-  echo "ACTIVATION_CONFIRMATION_REQUIRED" >&2
+if [[ "${CONFIRM_PROJECTION_REBUILD_ROLLBACK:-}" != "true" ]]; then
+  echo "ROLLBACK_CONFIRMATION_REQUIRED" >&2
   exit 2
 fi
 
@@ -10,5 +10,5 @@ fi
 : "${COMPOSE:=docker compose -f infrastructure/docker-compose/docker-compose.yml -f infrastructure/docker-compose/docker-compose.staging-shadow.yml}"
 
 ${COMPOSE} exec -T control-tower-read-model-service \
-  env CONFIRM_PROJECTION_REBUILD_ACTIVATION=true \
-  /app/control-tower-status-snapshot-import --activate --snapshot-id "${SNAPSHOT_ID}"
+  env CONFIRM_PROJECTION_REBUILD_ROLLBACK=true \
+  /app/control-tower-status-snapshot-import --rollback --snapshot-id "${SNAPSHOT_ID}"

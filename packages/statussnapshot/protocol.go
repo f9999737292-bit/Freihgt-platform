@@ -39,6 +39,16 @@ var KnownShipmentStatuses = map[string]struct{}{
 	"FINANCIALLY_CLOSED": {}, "CANCELLED": {},
 }
 
+var KnownEventTypes = map[string]struct{}{
+	"shipment.created": {}, "shipment.status.changed": {}, "shipment.cancelled": {},
+	"shipment.ready_for_billing": {}, "shipment.documents_completed": {}, "shipment.financially_closed": {},
+}
+
+func IsKnownEventType(eventType string) bool {
+	_, ok := KnownEventTypes[strings.TrimSpace(eventType)]
+	return ok
+}
+
 type ManifestRecord struct {
 	RecordType           string     `json:"recordType"`
 	SchemaVersion        int        `json:"schemaVersion"`
@@ -62,6 +72,7 @@ type ShipmentRecord struct {
 	AggregateVersion  int64      `json:"aggregateVersion"`
 	LastEventID       *uuid.UUID `json:"lastEventId,omitempty"`
 	LastSourceEventID *uuid.UUID `json:"lastSourceEventId,omitempty"`
+	LastEventType     *string    `json:"lastEventType,omitempty"`
 	SourceUpdatedAt   time.Time  `json:"sourceUpdatedAt"`
 }
 
@@ -203,6 +214,14 @@ func ValidateShipment(rec ShipmentRecord, manifest ManifestRecord) error {
 	}
 	if rec.LastEventID != nil && rec.LastSourceEventID == nil {
 		return &ValidationError{Code: CodeInconsistentMetadata}
+	}
+	if rec.LastEventID != nil {
+		if rec.LastEventType == nil || !IsKnownEventType(*rec.LastEventType) {
+			return &ValidationError{Code: CodeUnknownEventType}
+		}
+	}
+	if rec.LastEventType != nil && !IsKnownEventType(*rec.LastEventType) {
+		return &ValidationError{Code: CodeUnknownEventType}
 	}
 	if manifest.Scope == ScopeTenant {
 		if manifest.TenantID == nil || rec.TenantID != *manifest.TenantID {

@@ -12,6 +12,7 @@ import (
 
 	"github.com/freight-platform/control-tower-read-model-service/internal/domain"
 	"github.com/freight-platform/control-tower-read-model-service/internal/projection"
+	"github.com/freight-platform/control-tower-read-model-service/internal/rebuild"
 )
 
 type ProjectionRepository struct {
@@ -52,6 +53,10 @@ func (r *ProjectionRepository) ProcessEvent(ctx context.Context, input ProcessIn
 		return ProcessResult{}, err
 	}
 	defer tx.Rollback(ctx)
+
+	if err := rebuild.AcquireProjectionSharedLock(ctx, tx); err != nil {
+		return ProcessResult{}, err
+	}
 
 	dupOutcome, dup, err := findDuplicateInbox(ctx, tx, input)
 	if err != nil {
@@ -173,12 +178,12 @@ INSERT INTO control_tower.shipment_status_projection (
     tenant_id, shipment_id, shipment_version, current_status, previous_status,
     last_event_id, last_source_event_id, last_event_type,
     last_occurred_at, last_consumed_at, complete, gap_detected,
-    gap_from_version, gap_to_version, created_at, updated_at
+    gap_from_version, gap_to_version, projection_source, created_at, updated_at
 ) VALUES (
     $1, $2, $3, $4, $5,
     $6, $7, $8,
     $9, $10, $11, $12,
-    $13, $14, $15, $16
+    $13, $14, $15, $16, $17
 )
 ON CONFLICT (tenant_id, shipment_id) DO UPDATE SET
     shipment_version = EXCLUDED.shipment_version,
@@ -193,12 +198,15 @@ ON CONFLICT (tenant_id, shipment_id) DO UPDATE SET
     gap_detected = EXCLUDED.gap_detected,
     gap_from_version = EXCLUDED.gap_from_version,
     gap_to_version = EXCLUDED.gap_to_version,
+    projection_source = $15,
+    snapshot_id = NULL,
+    authoritative_as_of = NULL,
     updated_at = EXCLUDED.updated_at`
 	_, err := tx.Exec(ctx, q,
 		p.TenantID, p.ShipmentID, p.ShipmentVersion, p.CurrentStatus, p.PreviousStatus,
 		p.LastEventID, p.LastSourceEventID, p.LastEventType,
 		p.LastOccurredAt, p.LastConsumedAt, p.Complete, p.GapDetected,
-		p.GapFromVersion, p.GapToVersion, p.CreatedAt, p.UpdatedAt,
+		p.GapFromVersion, p.GapToVersion, rebuild.ProjectionSourceLiveEvent, p.CreatedAt, p.UpdatedAt,
 	)
 	return err
 }
@@ -267,10 +275,16 @@ type StatusSummary struct {
 }
 
 func (r *ProjectionRepository) GetStatusSummary(ctx context.Context, tenantID uuid.UUID) (StatusSummary, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return StatusSummary{}, err
+	}
+	defer tx.Rollback(ctx)
+
 	summary := StatusSummary{ByStatus: map[string]int64{}}
 
 	const totalQ = `SELECT COUNT(*) FROM control_tower.shipment_status_projection WHERE tenant_id = $1`
-	if err := r.pool.QueryRow(ctx, totalQ, tenantID).Scan(&summary.TotalShipments); err != nil {
+	if err := tx.QueryRow(ctx, totalQ, tenantID).Scan(&summary.TotalShipments); err != nil {
 		return StatusSummary{}, err
 	}
 
@@ -279,7 +293,7 @@ SELECT current_status, COUNT(*)
 FROM control_tower.shipment_status_projection
 WHERE tenant_id = $1
 GROUP BY current_status`
-	rows, err := r.pool.Query(ctx, byStatusQ, tenantID)
+	rows, err := tx.Query(ctx, byStatusQ, tenantID)
 	if err != nil {
 		return StatusSummary{}, err
 	}
@@ -300,7 +314,7 @@ GROUP BY current_status`
 SELECT COUNT(*)
 FROM control_tower.shipment_status_projection
 WHERE tenant_id = $1 AND complete = FALSE`
-	if err := r.pool.QueryRow(ctx, incompleteQ, tenantID).Scan(&summary.IncompleteProjections); err != nil {
+	if err := tx.QueryRow(ctx, incompleteQ, tenantID).Scan(&summary.IncompleteProjections); err != nil {
 		return StatusSummary{}, err
 	}
 
@@ -309,11 +323,15 @@ SELECT MIN(updated_at), MAX(updated_at)
 FROM control_tower.shipment_status_projection
 WHERE tenant_id = $1`
 	var oldest, latest *time.Time
-	if err := r.pool.QueryRow(ctx, boundsQ, tenantID).Scan(&oldest, &latest); err != nil {
+	if err := tx.QueryRow(ctx, boundsQ, tenantID).Scan(&oldest, &latest); err != nil {
 		return StatusSummary{}, err
 	}
 	summary.OldestProjectionUpdatedAt = oldest
 	summary.LatestProjectionUpdatedAt = latest
+
+	if err := tx.Commit(ctx); err != nil {
+		return StatusSummary{}, err
+	}
 	return summary, nil
 }
 
@@ -406,6 +424,9 @@ func scanProjection(row scannable) (domain.ShipmentStatusProjection, error) {
 
 // ProcessEventTx exposes transaction-level processing for concurrent tests.
 func (r *ProjectionRepository) ProcessEventTx(ctx context.Context, tx pgx.Tx, input ProcessInput) (ProcessResult, error) {
+	if err := rebuild.AcquireProjectionSharedLock(ctx, tx); err != nil {
+		return ProcessResult{}, err
+	}
 	dupOutcome, dup, err := findDuplicateInbox(ctx, tx, input)
 	if err != nil {
 		return ProcessResult{}, err

@@ -19,6 +19,7 @@ type ShipmentSnapshotRow struct {
 	AggregateVersion  int64
 	LastEventID       *uuid.UUID
 	LastSourceEventID *uuid.UUID
+	LastEventType     *string
 	SourceUpdatedAt   time.Time
 }
 
