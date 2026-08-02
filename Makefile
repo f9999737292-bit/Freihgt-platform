@@ -557,6 +557,39 @@ control-tower-shadow-rollout-acceptance:
 control-tower-shadow-rollout-equivalence-check:
 	"$(BASH)" scripts/dev/control_tower_shadow_rollout_equivalence_check.sh
 
+control-tower-projection-rebuild-build:
+	"$(BASH)" -lc 'cd packages/statussnapshot && go build ./...'
+	"$(BASH)" -lc 'cd services/shipment-service && go build -o /dev/null ./cmd/shipment-status-snapshot-export'
+	"$(BASH)" -lc 'cd services/control-tower-read-model-service && go build -o /dev/null ./cmd/control-tower-status-snapshot-import'
+
+control-tower-projection-rebuild-protocol-test:
+	"$(BASH)" -lc 'cd packages/statussnapshot && go test ./... -count=100'
+
+control-tower-projection-rebuild-test:
+	"$(BASH)" -lc 'cd packages/statussnapshot && go test ./... -count=1'
+	"$(BASH)" -lc 'cd services/shipment-service && go test ./internal/statussnapshot/... -count=100'
+	"$(BASH)" -lc 'cd services/control-tower-read-model-service && go test ./internal/rebuild/... -count=100'
+
+control-tower-projection-rebuild-migration-test:
+	"$(BASH)" -lc 'cd services/control-tower-read-model-service && go test -tags=integration ./internal/integration/rebuild/... -run Migration -count=1 -v'
+
+control-tower-projection-rebuild-integration-test: control-tower-projection-rebuild-migration-test
+
+control-tower-projection-rebuild-dry-run:
+	@echo "Protocol fixture dry-run (exporter PostgreSQL query not implemented in v0.1)"
+	"$(BASH)" scripts/dev/control_tower_projection_rebuild_dry_run.sh
+
+control-tower-projection-rebuild-activate:
+	@if [ "$(CONFIRM_PROJECTION_REBUILD_ACTIVATION)" != "true" ]; then echo "ACTIVATION_CONFIRMATION_REQUIRED"; exit 2; fi
+	@echo "Activation is not implemented in core infrastructure v0.1."
+	@exit 2
+
+control-tower-projection-rebuild-status:
+	"$(BASH)" scripts/dev/control_tower_projection_rebuild_status.sh
+
+control-tower-projection-rebuild-verify:
+	"$(BASH)" scripts/dev/control_tower_projection_rebuild_verify.sh
+
 run-low-code-service:
 	@cd services/low-code-service && go run ./cmd/server
 
