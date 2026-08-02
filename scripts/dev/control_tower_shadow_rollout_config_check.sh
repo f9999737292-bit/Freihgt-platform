@@ -32,6 +32,13 @@ echo "${merged}" | grep -q 'CONTROL_TOWER_KAFKA_TOPIC: shipment.status.v1' \
 echo "${merged}" | grep -q 'CONTROL_TOWER_READ_MODEL_BASE_URL: http://control-tower-read-model-service:8089' \
   || fail "internal read-model URL missing"
 
+echo "${merged}" | grep -q 'SHIPMENT_OUTBOX_ENABLED: "true"' \
+  || fail "staging override must enable shipment outbox publisher"
+echo "${merged}" | grep -q 'SHIPMENT_OUTBOX_TRANSPORT: kafka' \
+  || fail "staging override must set shipment outbox transport=kafka"
+echo "${merged}" | grep -q 'SHIPMENT_KAFKA_TOPIC: shipment.status.v1' \
+  || fail "shipment kafka topic must remain shipment.status.v1"
+
 if echo "${merged}" | grep -qiE 'password=|sasl.*password|BEGIN PRIVATE KEY'; then
   fail "compose config must not embed credentials"
 fi

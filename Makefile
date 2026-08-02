@@ -59,7 +59,7 @@ K6 ?= k6
 	docker-disk-usage docker-clean-safe docker-volumes \
 	control-tower-shadow-rollout-config-check control-tower-shadow-rollout-smoke-test \
 	control-tower-shadow-rollout-metrics-check control-tower-shadow-rollout-regression \
-	control-tower-shadow-rollout-observability-check \
+	control-tower-shadow-rollout-observability-check control-tower-shadow-rollout-acceptance \
 	performance-smoke performance-load performance-companies performance-transport-orders \
 	performance-rfx performance-shipments performance-billing performance-index-check \
 	go-build go-test \
@@ -550,6 +550,12 @@ control-tower-shadow-rollout-regression:
 
 control-tower-shadow-rollout-observability-check:
 	"$(BASH)" scripts/dev/control_tower_shadow_rollout_observability_check.sh
+
+control-tower-shadow-rollout-acceptance:
+	"$(BASH)" scripts/dev/control_tower_shadow_rollout_acceptance.sh
+
+control-tower-shadow-rollout-equivalence-check:
+	"$(BASH)" scripts/dev/control_tower_shadow_rollout_equivalence_check.sh
 
 run-low-code-service:
 	@cd services/low-code-service && go run ./cmd/server

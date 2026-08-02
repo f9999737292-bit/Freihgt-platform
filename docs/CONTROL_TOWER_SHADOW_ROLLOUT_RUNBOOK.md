@@ -470,6 +470,30 @@ Redeploy gateway with base compose (`mode=disabled`) and repeat Control Tower su
 
 Docker Compose on a developer machine is **local controlled rollout**, not production staging. Use the same checks before enabling shadow on real staging infrastructure.
 
+## Authenticated acceptance
+
+`AUTH_ENABLED=false` is insufficient for acceptance. Shadow rollout acceptance requires:
+
+1. **Current images** for `shipment-service`, `api-gateway`, and `control-tower-read-model-service` (rebuild all three together). Also ensure `identity-service` is rebuilt when `/v1/auth/me` must return role codes for RBAC (`AUTH_ENABLED=true`).
+2. **Shipment outbox → Kafka** enabled in `docker-compose.staging-shadow.yml` (`SHIPMENT_OUTBOX_ENABLED=true`, topic `shipment.status.v1`). Without outbox publishing, read-model projection never converges and shadow comparison cannot reach `MATCH`.
+3. **Full legacy endpoint** live at `GET /internal/v1/shipments/status-summary` returning `complete=true` (404 blocks acceptance).
+3. **Isolated post-rollout tenant** created via `scripts/dev/control_tower_shadow_rollout_acceptance_fixture.sh` (no historical shipments, stable consumer group unchanged).
+4. **Temporary JWT** from `POST /api/v1/auth/login` with `tenant_id`, `email`, `password` supplied via shell ENV only — never commit or log the token.
+5. **Metric deltas** on authenticated `GET /api/v1/control-tower/summary`: legacy aggregate +1, read-model +1, comparison `MATCH` +1. Pre-initialized zero series are not evidence.
+6. **Live comparison** must be `MATCH` (not `LEGACY_FULL_AGGREGATE_UNAVAILABLE`, not page-limited fallback).
+7. **Controlled convergence**: after a new status transition, projection applies and comparison returns to `MATCH`.
+8. **Frontend gate**: `cd apps/web-admin && npm run build` — shadow must not add user-facing read-model banners or direct read-model calls.
+9. **Rollback proof**: redeploy base compose (`mode=disabled`), confirm read-model/comparison metrics do not increase on the next Control Tower request.
+10. **Primary remains blocked** until approved historical backfill exists.
+
+Run the full gate:
+
+```bash
+make control-tower-shadow-rollout-acceptance
+```
+
+Or stepwise: `acceptance-fixture` → wait for projection → `smoke-test` / `metrics-check` with `TENANT_ID`, `DEV_ADMIN_EMAIL`, `DEV_ADMIN_PASSWORD`, `AUTH_ENABLED=true`.
+
 ## TODO (out of v0.1 scope)
 
 - [ ] Approved projection rebuild/replay for historical shipments

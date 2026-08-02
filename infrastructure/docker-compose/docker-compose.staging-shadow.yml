@@ -17,7 +17,7 @@ services:
       CONTROL_TOWER_READ_MODEL_TIMEOUT: 800ms
       CONTROL_TOWER_READ_MODEL_REQUIRE_CONSUMER_RUNNING: "true"
       DEV_TENANT_ID: ${DEV_TENANT_ID}
-      AUTH_ENABLED: ${AUTH_ENABLED:-false}
+      AUTH_ENABLED: ${AUTH_ENABLED:-true}
 
   control-tower-read-model-service:
     environment:
@@ -26,3 +26,14 @@ services:
       CONTROL_TOWER_KAFKA_TOPIC: shipment.status.v1
       CONTROL_TOWER_KAFKA_GROUP_ID: control-tower-shipment-status-v1
       CONTROL_TOWER_KAFKA_CLIENT_ID: control-tower-read-model-service
+
+  shipment-service:
+    environment:
+      SHIPMENT_OUTBOX_ENABLED: "true"
+      SHIPMENT_OUTBOX_TRANSPORT: kafka
+      SHIPMENT_KAFKA_BROKERS: redpanda:9092
+      SHIPMENT_KAFKA_TOPIC: shipment.status.v1
+      SHIPMENT_KAFKA_CLIENT_ID: shipment-service
+    depends_on:
+      redpanda:
+        condition: service_healthy
