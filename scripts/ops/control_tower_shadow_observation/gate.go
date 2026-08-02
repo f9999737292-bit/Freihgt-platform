@@ -67,7 +67,11 @@ func runSnapshot(ctx context.Context, cfg Config, client *http.Client) error {
 		if err != nil {
 			return fmt.Errorf("alias %s login: %w", entry.Alias, err)
 		}
-		bl, err := fetchTenantBaseline(ctx, client, cfg, jwt, entry.TenantID, entry.Alias, entry.Category)
+		tenantID, err := entry.resolveTenantID()
+		if err != nil {
+			return fmt.Errorf("alias %s tenant: %w", entry.Alias, err)
+		}
+		bl, err := fetchTenantBaseline(ctx, client, cfg, jwt, tenantID, entry.Alias, entry.Category)
 		if err != nil {
 			return fmt.Errorf("alias %s baseline: %w", entry.Alias, err)
 		}
@@ -93,13 +97,17 @@ func runSnapshot(ctx context.Context, cfg Config, client *http.Client) error {
 }
 
 func loginForEntry(cfg Config, client *http.Client, entry CohortEntry) (string, error) {
-	tenantCfg := cfg
-	tenantCfg.TenantID = entry.TenantID
-	if entry.Email != "" {
-		tenantCfg.AdminEmail = entry.Email
+	tenantID, err := entry.resolveTenantID()
+	if err != nil {
+		return "", err
 	}
-	if entry.Password != "" {
-		tenantCfg.AdminPassword = entry.Password
+	tenantCfg := cfg
+	tenantCfg.TenantID = tenantID
+	if email := entry.resolveEmail(); email != "" {
+		tenantCfg.AdminEmail = email
+	}
+	if password := entry.resolvePassword(); password != "" {
+		tenantCfg.AdminPassword = password
 	}
 	return resolveJWT(tenantCfg, client)
 }
@@ -129,7 +137,11 @@ func runGate(ctx context.Context, cfg Config, client *http.Client) error {
 		if err != nil {
 			return err
 		}
-		bl, err := fetchTenantBaseline(ctx, client, cfg, jwt, entry.TenantID, entry.Alias, entry.Category)
+		tenantID, err := entry.resolveTenantID()
+		if err != nil {
+			return err
+		}
+		bl, err := fetchTenantBaseline(ctx, client, cfg, jwt, tenantID, entry.Alias, entry.Category)
 		if err != nil {
 			return err
 		}

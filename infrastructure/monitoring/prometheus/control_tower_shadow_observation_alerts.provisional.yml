@@ -14,6 +14,8 @@ groups:
           component: control-tower-shadow
         annotations:
           summary: Sustained shadow comparison mismatch
+          description: Shadow comparison reports TOTAL_MISMATCH or STATUS_COUNT_MISMATCH for at least 5 minutes.
+          severity: warning
           runbook: docs/CONTROL_TOWER_STAGING_SHADOW_OBSERVATION.md
 
       - alert: ReadModelUnavailable
@@ -26,6 +28,9 @@ groups:
           component: api-gateway
         annotations:
           summary: Elevated read-model errors in shadow mode
+          description: More than 10% of shadow read-model requests are failing over a 5-minute window.
+          severity: warning
+          runbook: docs/CONTROL_TOWER_STAGING_SHADOW_OBSERVATION.md
 
       - alert: ProjectionIncompleteAfterRebuild
         expr: increase(control_tower_read_model_partial_response_total{mode="shadow"}[15m]) > 0
@@ -35,6 +40,9 @@ groups:
           component: control-tower-read-model
         annotations:
           summary: Incomplete projection responses after rebuild window
+          description: Partial shadow responses increased within the observation window.
+          severity: warning
+          runbook: docs/CONTROL_TOWER_STAGING_SHADOW_OBSERVATION.md
 
       - alert: OffsetCommitErrors
         expr: increase(control_tower_shipment_consumer_offset_commit_errors_total[5m]) > 0
@@ -44,6 +52,9 @@ groups:
           component: control-tower-read-model
         annotations:
           summary: Kafka offset commit errors detected
+          description: Consumer offset commit errors increased; investigate before continuing observation.
+          severity: critical
+          runbook: docs/CONTROL_TOWER_STAGING_SHADOW_OBSERVATION.md
 
       - alert: DeadLetterGrowth
         expr: increase(control_tower_shipment_dead_letter_total[1h]) > 0
@@ -53,6 +64,9 @@ groups:
           component: control-tower-read-model
         annotations:
           summary: Dead-letter rows increased
+          description: Dead-letter counter grew during the observation window.
+          severity: warning
+          runbook: docs/CONTROL_TOWER_STAGING_SHADOW_OBSERVATION.md
 
       - alert: GatewayErrorRegression
         expr: sum(increase(http_requests_total{service="api-gateway",status=~"5.."}[15m])) > 0
@@ -62,6 +76,9 @@ groups:
           component: api-gateway
         annotations:
           summary: Gateway 5xx regression during shadow observation
+          description: Gateway returned 5xx responses during the observation window.
+          severity: warning
+          runbook: docs/CONTROL_TOWER_STAGING_SHADOW_OBSERVATION.md
 
       - alert: PrimaryModeActivityDetected
         expr: sum(rate(control_tower_read_model_requests_total{mode="primary"}[5m])) > 0
@@ -71,6 +88,9 @@ groups:
           component: control-tower
         annotations:
           summary: Primary read-model mode activity detected — observation FAIL
+          description: Primary mode request activity detected; stop observation and investigate immediately.
+          severity: critical
+          runbook: docs/CONTROL_TOWER_STAGING_SHADOW_OBSERVATION.md
 
       # Rebuild job stuck states (IMPORTING/ACTIVATING/ROLLING_BACK) are monitored via
       # SQL preflight in observation collector and ops runbook — no Prometheus metric yet.

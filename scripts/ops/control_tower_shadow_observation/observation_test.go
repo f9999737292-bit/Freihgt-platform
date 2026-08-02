@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -82,5 +83,42 @@ func TestLoadCohortRequiresAlias(t *testing.T) {
 	_, err := loadCohort("testdata/invalid_cohort.json")
 	if err == nil {
 		t.Fatal("expected invalid cohort error")
+	}
+}
+
+func TestLoadCohortSecretRef(t *testing.T) {
+	t.Setenv("CONTROL_TOWER_TENANT_TEST", "00000000-0000-4000-8000-000000000099")
+	entries, err := loadCohort("testdata/valid_cohort_secret_ref.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	id, err := entries[0].resolveTenantID()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id != "00000000-0000-4000-8000-000000000099" {
+		t.Fatalf("unexpected tenant id: %s", id)
+	}
+}
+
+func TestLoadCohortSkipsUnapproved(t *testing.T) {
+	t.Setenv("CONTROL_TOWER_TENANT_TEST", "00000000-0000-4000-8000-000000000099")
+	raw := `{"environment":"staging","tenants":[{"alias":"STG-X","tenantIdFromSecretRef":"CONTROL_TOWER_TENANT_TEST","approved":false}]}`
+	path := t.TempDir() + "/cohort.json"
+	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := loadCohort(path)
+	if err == nil {
+		t.Fatal("expected no approved tenants error")
+	}
+}
+
+func TestRedactTenantID(t *testing.T) {
+	if redactTenantID("00000000-0000-4000-8000-000000000001") != "[REDACTED]" {
+		t.Fatal("tenant id not redacted")
 	}
 }
