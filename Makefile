@@ -607,6 +607,9 @@ control-tower-projection-rebuild-kafka-catch-up-test:
 control-tower-projection-rebuild-historical-acceptance:
 	"$(BASH)" scripts/dev/control_tower_projection_rebuild_historical_acceptance.sh
 
+control-tower-projection-rebuild-live-acceptance:
+	"$(BASH)" scripts/dev/control_tower_projection_rebuild_live_acceptance.sh
+
 control-tower-projection-rebuild-rollback-acceptance:
 	"$(BASH)" scripts/dev/control_tower_projection_rebuild_rollback_acceptance.sh
 

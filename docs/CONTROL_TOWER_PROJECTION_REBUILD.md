@@ -226,11 +226,15 @@ Events published while consumer is paused: events already covered by snapshot ve
 ## Historical and rollback acceptance
 
 ```text
+make migrate-up   # required through 000018 before first live run
 make control-tower-projection-rebuild-historical-acceptance
+make control-tower-projection-rebuild-live-acceptance
 make control-tower-projection-rebuild-rollback-acceptance
 ```
 
-PostgreSQL fixture mode (`RUN_REBUILD_ACCEPTANCE_FIXTURE=1`) validates pre-activation mismatch, post-activation stage parity, inbox/dead-letter preservation, and post-rollback exact restore. Gateway mode requires `GATEWAY_URL`, `JWT`, and `TENANT_ID` for full shadow `comparison=MATCH` with `public source=LEGACY`.
+**Live gateway mode** (default when shadow stack health checks pass): real JWT via identity login, exporter stdout piped to importer stdin, activation/rollback/cleanup CLI, same consumer group catch-up, authenticated `GET /api/v1/control-tower/summary` with `public source=LEGACY` and shadow metric `comparison=MATCH`. Uses `docker-compose.staging-shadow.yml` plus optional `docker-compose.rebuild-acceptance.yml` to toggle `CONTROL_TOWER_CONSUMER_ENABLED`. Does not print JWT, tenant UUIDs, or persist snapshots.
+
+**PostgreSQL fixture mode** (`RUN_REBUILD_ACCEPTANCE_FIXTURE=1` in integration tests) validates pre-activation mismatch, post-activation stage parity, inbox/dead-letter preservation, and post-rollback exact restore without gateway boundaries.
 
 ## 20k query plans (diagnostic)
 

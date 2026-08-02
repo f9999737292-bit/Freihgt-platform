@@ -1,0 +1,6 @@
+# Optional override for projection rebuild live acceptance.
+# Allows toggling consumer via CONTROL_TOWER_CONSUMER_ENABLED without editing shadow compose.
+services:
+  control-tower-read-model-service:
+    environment:
+      CONTROL_TOWER_CONSUMER_ENABLED: "${CONTROL_TOWER_CONSUMER_ENABLED:-true}"

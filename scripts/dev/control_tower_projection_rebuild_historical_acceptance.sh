@@ -6,17 +6,18 @@ cd "${ROOT}"
 
 fail() { echo "historical-acceptance: $*" >&2; exit 1; }
 
-command -v go >/dev/null 2>&1 || fail "go is required"
+require_cmd() { command -v "$1" >/dev/null 2>&1 || fail "$1 is required"; }
+require_cmd docker
+require_cmd curl
 
-if [[ -n "${GATEWAY_URL:-}" && -n "${JWT:-${JWT_TOKEN:-}}" && -n "${TENANT_ID:-}" ]]; then
-  echo "historical-acceptance: gateway-backed mode (GATEWAY_URL=${GATEWAY_URL})" >&2
-  go test -tags="integration acceptance" \
-    ./services/control-tower-read-model-service/internal/integration/rebuild/... \
-    -run '^TestHistoricalAcceptanceIntegration$' -count=1 -v
-  exit 0
+if curl -fsS "${GATEWAY_URL:-http://127.0.0.1:8080}/health" >/dev/null 2>&1 \
+  && curl -fsS "${READ_MODEL_URL:-http://127.0.0.1:8089}/health" >/dev/null 2>&1; then
+  echo "historical-acceptance: live gateway mode" >&2
+  exec "${ROOT}/scripts/dev/control_tower_projection_rebuild_live_acceptance.sh"
 fi
 
-echo "historical-acceptance: PostgreSQL fixture mode (set GATEWAY_URL+JWT+TENANT_ID for live shadow)" >&2
-RUN_REBUILD_ACCEPTANCE_FIXTURE=1 go test -tags="integration acceptance" \
-  ./services/control-tower-read-model-service/internal/integration/rebuild/... \
-  -run '^TestHistoricalAcceptanceIntegration$' -count=1 -v
+echo "historical-acceptance: missing prerequisites: shadow stack (GATEWAY_URL/READ_MODEL_URL health)" >&2
+echo "  start: docker compose -f infrastructure/docker-compose/docker-compose.yml \\" >&2
+echo "    -f infrastructure/docker-compose/docker-compose.staging-shadow.yml \\" >&2
+echo "    --profile messaging --profile read-model --profile observability up -d" >&2
+exit 2

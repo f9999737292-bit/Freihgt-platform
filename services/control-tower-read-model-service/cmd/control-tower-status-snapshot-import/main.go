@@ -57,7 +57,11 @@ func run() int {
 
 	var repo rebuild.RebuildRepository
 	var activationRepo rebuild.ActivationRepository
-	if dbURL := strings.TrimSpace(os.Getenv("DATABASE_URL")); dbURL != "" {
+	dbURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
+	if dbURL == "" {
+		dbURL = strings.TrimSpace(os.Getenv("CONTROL_TOWER_DATABASE_URL"))
+	}
+	if dbURL != "" {
 		db, err := database.Connect(ctx, dbURL)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "database connection failed")
