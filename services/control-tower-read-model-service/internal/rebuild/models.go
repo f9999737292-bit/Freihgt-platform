@@ -18,6 +18,7 @@ type Manifest struct {
 	SnapshotID    uuid.UUID
 	SchemaVersion int
 	Scope         statussnapshot.Scope
+	TenantID      *uuid.UUID
 	StartedAt     time.Time
 }
 

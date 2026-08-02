@@ -1,75 +1,190 @@
-# Control Tower Projection Rebuild — Core Infrastructure v0.1
+# Control Tower Projection Rebuild
 
 ## Scope
 
-This document covers the core infrastructure phase only: protocol, migration schema, exporter/importer skeletons, streaming validation, and dry-run. Activation, rollback, live consumer advisory-lock integration, and Kafka catch-up acceptance are explicitly out of scope for this phase.
+Export/import v0.2 implements the working chain:
+
+```text
+shipment-service PostgreSQL (READ ONLY REPEATABLE READ)
+→ NDJSON protocol v1
+→ streaming importer
+→ persistent rebuild job + staging rows
+→ VALIDATED
+```
+
+Activation, rollback, live consumer advisory-lock integration, Kafka catch-up, and historical shadow acceptance remain out of scope.
+
+> **A VALIDATED rebuild job contains a fully verified staging snapshot but does not modify the active Control Tower projection.**
+
+## Authoritative DB sources
+
+| Snapshot field | Authoritative source | Nullable | Rule |
+| --- | --- | ---: | --- |
+| `tenantId` | `transport.shipments.tenant_id` | No | Non-zero UUID |
+| `shipmentId` | `transport.shipments.id` | No | Non-zero UUID |
+| `currentStatus` | `transport.shipments.status` | No | Must match latest history `to_status` |
+| `previousStatus` | Latest `transport.shipment_status_history.from_status` | Yes | NULL on initial create transition |
+| `aggregateVersion` | `transport.shipments.version` | No | Must equal latest history `shipment_version`; >= 1 |
+| `lastEventId` | `transport.shipment_event_outbox.id` (latest history row) | Yes | Allowed absent when outbox not published |
+| `lastSourceEventId` | Latest `transport.shipment_status_history.id` | Yes | Required when canonical history exists |
+| `sourceUpdatedAt` | Latest history `occurred_at` | No | Transition timestamp, not `shipments.updated_at` |
+
+### Status/history consistency
+
+Exporter rejects rows when:
+
+- latest history is missing → `MISSING_CANONICAL_STATUS_HISTORY`
+- `shipments.status` ≠ latest history `to_status` → `AUTHORITATIVE_STATUS_MISMATCH`
+- `shipments.version` ≠ latest history `shipment_version` → `AUTHORITATIVE_STATUS_MISMATCH`
+- `shipments.version` < 1 → `MISSING_AGGREGATE_VERSION`
+
+Soft-deleted rows (`deleted_at IS NOT NULL`) are excluded.
+
+### CREATED policy (variant B)
+
+`CREATED` is a DB default pre-lifecycle state excluded from protocol v1 and read-model consumer allowlists. Domain create path writes `CARRIER_ASSIGNED` with canonical history. Legacy rows with `status='CREATED'` are **not silently excluded** — export fails with `UNSUPPORTED_SHIPMENT_STATUS`.
+
+### Event metadata policy
+
+Asymmetric metadata is allowed when history exists without a published outbox row:
+
+```text
+lastSourceEventId present, lastEventId absent → allowed
+lastEventId present, lastSourceEventId absent → rejected (INCONSISTENT_METADATA)
+both absent → allowed when no outbox/history IDs exported
+both present → normal published path
+```
+
+### Kafka event ID source
+
+| Purpose | Field |
+| --- | --- |
+| Outbox PK | `transport.shipment_event_outbox.id` |
+| Kafka envelope `eventId` | Same UUID, embedded in outbox `payload.eventId` at outbox build time |
+| `sourceEventId` | `transport.shipment_status_history.id` (FK `source_event_id`) |
+| Aggregate ID | `transport.shipment_event_outbox.aggregate_id` (= shipment UUID) |
+| Aggregate version | `transport.shipment_event_outbox.aggregate_version` |
+| Event type | `transport.shipment_event_outbox.event_type` (`domain.MapOutboxEventType`) |
+
+**Proof:** `BuildOutboxEventFromStatusHistory` assigns one UUID to both outbox row `id` and envelope `eventId`. Kafka publisher sends the pre-built payload unchanged. Read-model consumer parses `eventId` from envelope JSON → inbox/projection `last_event_id`.
+
+Exporter `lastEventId` = `transport.shipment_event_outbox.id` joined on `source_event_id = latest history.id`.
+
+### History→outbox uniqueness
+
+Migration `000014` defines `UNIQUE (source_event_id)` on `transport.shipment_event_outbox`. At most one outbox row per canonical history row; snapshot join cannot multiply rows. DB constraint is asserted in integration tests.
+
+### Outbox publish status semantics
+
+`lastEventId` is the canonical event identity, not Kafka delivery confirmation:
+
+| Outbox `status` | Snapshot `lastEventId` |
+| --- | --- |
+| row absent | `null` |
+| `PENDING` | outbox `id` |
+| `PUBLISHED` | outbox `id` |
+| `FAILED` | outbox `id` |
+
+Exporter validates outbox aggregate ID/version/event type and envelope `eventId`/`sourceEventId` consistency. Mismatch codes: `OUTBOX_AGGREGATE_ID_MISMATCH`, `OUTBOX_AGGREGATE_VERSION_MISMATCH`, `INCONSISTENT_OUTBOX_EVENT_ID`, `INCONSISTENT_OUTBOX_EVENT_TYPE`.
+
+### CLI-to-CLI integration test
+
+Windows-compatible E2E (no bash required):
+
+```text
+go test -tags=integration ./services/shipment-service/internal/integration/projectionrebuild/... -count=1
+```
+
+Builds real exporter/importer binaries, pipes stdout→stdin across two temporary PostgreSQL databases, asserts `VALIDATED`, stage/source row equality, and explicit projection/inbox/dead-letter unchanged counts.
+
+### Tenant query predicate
+
+Tenant-scoped export filters history inside the CTE (`WHERE h.tenant_id = $1`) and shipments (`WHERE s.tenant_id = $1 AND s.deleted_at IS NULL`).
+
+### Large snapshot full pipeline
+
+20k integration test covers exporter→importer CLI pipe with bounded batch inserts (default 500), stage row count validation, and active projection unchanged.
+
+### Concurrent import
+
+Duplicate concurrent importers for the same snapshot ID: one succeeds (`VALIDATED`), the second receives `SNAPSHOT_IMPORT_IN_PROGRESS` or `SNAPSHOT_ALREADY_IMPORTED`. Stage rows are not doubled.
+
+### Late MarkFailed protection
+
+`MarkFailed` updates only jobs in `IMPORTING` state; `VALIDATED` jobs cannot be downgraded.
+
+### Shadow acceptance
+
+Rebuild changes must not break shadow rollout `comparison=MATCH` with `primary` disabled. Run `make control-tower-shadow-rollout-acceptance` before merge.
 
 ## Snapshot protocol
 
-NDJSON v1 with record types `manifest`, `shipment`, `complete`. Shared module: `github.com/freight-platform/statussnapshot` (`packages/statussnapshot/`).
+NDJSON v1 (`manifest`, `shipment`, `complete`). Shared module: `packages/statussnapshot/`.
 
-## Manifest
+Manifest requires `ordering=TENANT_ID_SHIPMENT_ID`. TENANT scope requires manifest `tenantId` even for zero-row snapshots.
 
-Fields: `recordType`, `schemaVersion`, `snapshotId`, `scope` (`ALL`|`TENANT`), optional `tenantId` (required for `TENANT`, absent for `ALL`), `ordering` (`TENANT_ID_SHIPMENT_ID`), `startedAt`, `transactionIsolation` (`REPEATABLE_READ`), `source` (`SHIPMENT_SERVICE`).
+## Export transaction
 
-### Tenant identity
+Single PostgreSQL transaction per snapshot:
 
-A TENANT-scoped snapshot identifies the tenant in the manifest, including when the snapshot contains zero shipment records.
+```text
+BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY
+→ authoritative row/tenant counts
+→ streaming SELECT ORDER BY tenant_id, shipment_id
+→ validate streamed counts
+→ COMMIT
+```
 
-## Ordering
+Manifest reports `transactionIsolation=REPEATABLE_READ`.
 
-Protocol v1 requires records to be ordered by tenant ID and shipment ID. This permits streaming duplicate and ordering validation with constant memory.
+## Import confirmation
 
-Exporter and importer validate ascending `(tenantId, shipmentId)` order. Violations emit `RECORD_ORDER_VIOLATION`; adjacent duplicates emit `DUPLICATE_SHIPMENT`.
+Persistent import requires:
 
-## Shipment record
+```text
+CONFIRM_PROJECTION_REBUILD_IMPORT=true
+```
 
-Authoritative fields from shipment-service (when export query is implemented): `currentStatus`, `aggregateVersion`, optional `previousStatus`, optional `lastEventId` / `lastSourceEventId`, `sourceUpdatedAt`. Fields are never fabricated.
+Separate from activation confirmation. Import may create jobs and stage rows only.
 
-`aggregateVersion` is required (>= 1). `previousStatus`, `lastEventId`, and `lastSourceEventId` are optional. `sourceUpdatedAt` is required. `lastEventId` without `lastSourceEventId` is rejected as inconsistent metadata; `lastSourceEventId` without `lastEventId` is allowed when history exists without a published outbox event.
+Activation still requires `CONFIRM_PROJECTION_REBUILD_ACTIVATION=true` and remains `NOT_IMPLEMENTED`.
 
-## Duplicate detection
+## Job lifecycle
 
-- **Stream validation:** adjacent-key comparison with O(1) memory (previous `(tenantId, shipmentId)` only).
-- **Persistent import:** staging table primary key `(snapshot_id, tenant_id, shipment_id)`; unique violations are classified as `DUPLICATE_SHIPMENT` without exposing raw PostgreSQL errors.
-- **No global unbounded map** of shipment keys during dry-run or import parsing.
+| State | Meaning |
+| --- | --- |
+| `IMPORTING` | Job created, stage batches may be partial |
+| `VALIDATED` | DB-side stage validation passed; projection unchanged |
+| `FAILED` | Safe error code stored; projection unchanged |
 
-## Completion / checksum
+Snapshot ID reuse:
 
-SHA-256 over canonical shipment JSON lines (fixed field order, trailing `\n` per line). Manifest and completion records are excluded from checksum. Empty shipment stream checksum: `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`.
+- `VALIDATED` → `SNAPSHOT_ALREADY_IMPORTED`
+- `IMPORTING` → `SNAPSHOT_IMPORT_IN_PROGRESS`
+- `FAILED` → `SNAPSHOT_IMPORT_REUSE_FORBIDDEN` (explicit cleanup required)
 
-## Exporter CLI
+## Dry-run
 
-`/app/shipment-status-snapshot-export` with `--scope all`, `--tenant`, `--batch-size`, `--format ndjson`, `--output -`. Repository streaming returns `NOT_IMPLEMENTED_EXPORT_QUERY` until PostgreSQL export is implemented.
+Non-persistent stream validation. Job/stage/projection counts unchanged.
 
-## Importer CLI
+## Failure recovery
 
-`/app/control-tower-status-snapshot-import` supports `--stdin`, `--dry-run`, `--status`. `--activate`, `--cleanup`, `--rollback` return `NOT_IMPLEMENTED` / `ACTIVATION_CONFIRMATION_REQUIRED` and never modify active projection.
+Broken stream (missing completion) → job `FAILED`, safe code, partial stage rows may remain, projection unchanged.
 
-## Dry-run semantics
+## Large snapshots
 
-Dry-run validates the full stream and emits an aggregated JSON report on stdout. No persistent validated job; active projection unchanged; rebuild job/stage tables unchanged.
+Exporter/importer stream row-by-row with bounded batch inserts (default 500, max 10000). No unbounded in-memory duplicate map.
 
-## Persistent import semantics
+## Not yet implemented
 
-Import creates a job, inserts stage rows in bounded batches (separate statements), then marks the job `VALIDATED` or `FAILED`. Batch failure leaves partial stage rows for diagnostics; active projection is unchanged until activation (not implemented). Full import is not a single atomic transaction across all batches.
+- Atomic activation / projection swap
+- Rollback execution
+- Live consumer shared advisory lock
+- Kafka catch-up verification
+- Historical shadow acceptance
+- Primary mode (blocked)
 
-## Migration objects
-
-- `control_tower.shipment_status_projection_rebuild_job`
-- `control_tower.shipment_status_projection_rebuild_stage`
-- `control_tower.shipment_status_projection_rebuild_backup`
-- Projection provenance columns: `projection_source`, `snapshot_id`, `authoritative_as_of`, `rebuilt_at`
-
-Existing projection rows remain `projection_source=LIVE_EVENT`, `snapshot_id=NULL`. Down migration removes rebuild tables and provenance columns only; projection, inbox, and dead-letter tables are preserved.
-
-## Advisory lock
-
-`ProjectionRebuildAdvisoryLockKey = 0x4354505350524F4A` (`CTPSPROJ`). Helpers use `pg_advisory_xact_lock_shared` / `pg_advisory_xact_lock` within a transaction. Live consumer integration is not wired in v0.1.
-
-## Security
-
-Stream-only by default; no API Gateway routes; credentials from ENV only; stdout reserved for protocol/report.
+Rebuild is **not** operationally ready for production cutover until activation and catch-up are implemented.
 
 ## Required statements
 
@@ -77,18 +192,4 @@ Stream-only by default; no API Gateway routes; credentials from ENV only; stdout
 
 > Kafka consumer offsets are never reset by the exporter or importer.
 
-> The core importer cannot modify the active projection until explicit activation support has been implemented and validated.
-
-> Snapshot data is streamed through standard input and output by default and is not persisted to disk.
-
-## Core limitations (not yet implemented)
-
-- Real PostgreSQL exporter query
-- Activation
-- Rollback execution
-- Live consumer advisory-lock integration
-- Kafka catch-up acceptance
-- Historical shadow acceptance
-- Primary mode (remains blocked)
-
-Rebuild is **not** operationally ready for production cutover in v0.1.
+> Snapshot data is streamed through stdin/stdout by default and is not persisted to disk.

@@ -113,16 +113,26 @@ func run() int {
 		fmt.Fprintln(os.Stderr, "DATABASE_URL is required for import")
 		return 2
 	}
+	if !strings.EqualFold(os.Getenv("CONFIRM_PROJECTION_REBUILD_IMPORT"), "true") {
+		fmt.Fprintln(os.Stderr, "CONFIRM_PROJECTION_REBUILD_IMPORT=true is required for persistent import")
+		return 2
+	}
 	if err := rebuild.NewImporter(repo).Import(ctx, os.Stdin, cfg.BatchSize); err != nil {
 		log.Error("import failed", slog.String("error_code", rebuildSafeCode(err)))
 		return 1
 	}
+	result := map[string]string{"state": rebuild.StateValidated, "result": "validated"}
+	enc := json.NewEncoder(os.Stdout)
+	_ = enc.Encode(result)
 	log.Info("import validated")
 	return 0
 }
 
 func rebuildSafeCode(err error) string {
 	if code := statussnapshot.ValidationCode(err); code != "" {
+		return code
+	}
+	if code := rebuild.ImportErrorCode(err); code != "" {
 		return code
 	}
 	return "IMPORT_FAILED"

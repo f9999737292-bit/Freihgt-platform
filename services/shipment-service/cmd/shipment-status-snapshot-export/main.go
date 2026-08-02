@@ -10,8 +10,10 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/freight-platform/shipment-service/internal/platform/database"
+	snap "github.com/freight-platform/statussnapshot"
 	"github.com/freight-platform/shipment-service/internal/statussnapshot"
 )
 
@@ -20,6 +22,7 @@ func main() {
 }
 
 func run() int {
+	started := time.Now().UTC()
 	var (
 		scopeFlag string
 		tenant    string
@@ -42,49 +45,55 @@ func run() int {
 
 	var out io.Writer = os.Stdout
 	if cfg.OutputPath != "-" {
-		fmt.Fprintln(os.Stderr, "file output is not implemented in v0.1 core infrastructure")
+		fmt.Fprintln(os.Stderr, "file output is not implemented")
 		return 2
 	}
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
-	if helpRequested := flag.Args(); len(helpRequested) == 0 && os.Getenv("DATABASE_URL") == "" {
-		// allow --help without DB
-	}
-
 	dbURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	repo := statussnapshot.SnapshotRepository(statussnapshot.NotImplementedRepository{})
-	if dbURL != "" {
-		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-		defer stop()
-		db, err := database.Connect(ctx, dbURL)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "database connection failed")
-			return 1
-		}
-		defer db.Close()
-		_ = db
+	if dbURL == "" {
+		fmt.Fprintln(os.Stderr, "DATABASE_URL is required")
+		return 2
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	exporter := statussnapshot.NewExporter(repo, out, os.Stderr, log)
-	_, err = exporter.Export(ctx, cfg)
+	db, err := database.Connect(ctx, dbURL)
 	if err != nil {
-		if err == statussnapshot.ErrNotImplemented {
-			log.Error("export query not implemented", slog.String("error_code", "NOT_IMPLEMENTED_EXPORT_QUERY"))
-		} else {
-			log.Error("snapshot export failed", slog.String("error_code", safeCode(err)))
-		}
+		log.Error("database connection failed", slog.String("error_code", statussnapshot.CodeDatabaseUnavailable))
 		return 1
 	}
-	return 0
-}
+	defer db.Close()
 
-func safeCode(err error) string {
-	if err == statussnapshot.ErrUnknownStatus {
-		return "UNKNOWN_STATUS"
+	repo := statussnapshot.NewPostgresSnapshotRepository(db.Pool)
+	exporter := statussnapshot.NewExporter(repo, out, os.Stderr, log)
+	result, err := exporter.Export(ctx, cfg)
+	duration := time.Since(started)
+	scope := string(cfg.Scope())
+	if err != nil {
+		code := statussnapshot.ExportErrorCode(err)
+		if code == "" {
+			code = snap.ValidationCode(err)
+		}
+		if code == "" {
+			code = "EXPORT_FAILED"
+		}
+		log.Error("snapshot export failed",
+			slog.String("scope", scope),
+			slog.String("result", "failed"),
+			slog.String("error_code", code),
+			slog.Duration("duration", duration),
+		)
+		return 1
 	}
-	return "EXPORT_FAILED"
+	log.Info("snapshot export completed",
+		slog.String("scope", scope),
+		slog.String("result", "success"),
+		slog.Int64("row_count", result.Stats.RowCount),
+		slog.Int64("tenant_count", result.Stats.TenantCount),
+		slog.Duration("duration", duration),
+	)
+	return 0
 }

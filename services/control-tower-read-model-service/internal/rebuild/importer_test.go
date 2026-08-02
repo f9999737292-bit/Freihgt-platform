@@ -36,6 +36,10 @@ func (f *fakeRepo) InsertStageBatch(ctx context.Context, rows []StageRow) error 
 	return nil
 }
 
+func (f *fakeRepo) UpdateImportProgress(ctx context.Context, snapshotID uuid.UUID, importedRows int64) error {
+	return nil
+}
+
 func (f *fakeRepo) MarkValidated(ctx context.Context, result ValidationResult) error {
 	f.jobs[result.SnapshotID] = StateValidated
 	return nil

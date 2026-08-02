@@ -136,3 +136,67 @@ func extractSnapshotID(t *testing.T, stream []byte) uuid.UUID {
 	require.NoError(t, err)
 	return rec.(statussnapshot.ManifestRecord).SnapshotID
 }
+
+func TestPersistentImportEmptyTenantScope(t *testing.T) {
+	ctx := context.Background()
+	pool := setupMigrationDB(t)
+	t.Cleanup(pool.Close)
+	tenantID := uuid.New()
+	stream := buildTenantEmptyStream(t, tenantID)
+	repo := apprebuild.NewRepository(pool)
+	require.NoError(t, apprebuild.NewImporter(repo).Import(ctx, bytes.NewReader(stream), 100))
+	id := extractSnapshotID(t, stream)
+	job, err := repo.GetJobStatus(ctx, id)
+	require.NoError(t, err)
+	require.Equal(t, apprebuild.StateValidated, job.State)
+	require.Equal(t, int64(0), *job.ExpectedRows)
+}
+
+func TestPersistentImportDuplicateSnapshotID(t *testing.T) {
+	ctx := context.Background()
+	pool := setupMigrationDB(t)
+	t.Cleanup(pool.Close)
+	repo := apprebuild.NewRepository(pool)
+	stream := buildIntegrationStream(t, 1)
+	require.NoError(t, apprebuild.NewImporter(repo).Import(ctx, bytes.NewReader(stream), 100))
+	err := apprebuild.NewImporter(repo).Import(ctx, bytes.NewReader(stream), 100)
+	require.Error(t, err)
+	require.Equal(t, apprebuild.CodeSnapshotAlreadyImported, apprebuild.ImportErrorCode(err))
+}
+
+func TestPersistentImportBrokenStream(t *testing.T) {
+	ctx := context.Background()
+	pool := setupMigrationDB(t)
+	t.Cleanup(pool.Close)
+	repo := apprebuild.NewRepository(pool)
+	stream := buildIntegrationStream(t, 1)
+	lines := bytes.Split(bytes.TrimSpace(stream), []byte("\n"))
+	partial := bytes.Join(lines[:2], []byte("\n"))
+	err := apprebuild.NewImporter(repo).Import(ctx, bytes.NewReader(append(partial, '\n')), 100)
+	require.Error(t, err)
+	id := extractSnapshotID(t, stream)
+	job, err2 := repo.GetJobStatus(ctx, id)
+	require.NoError(t, err2)
+	require.Equal(t, apprebuild.StateFailed, job.State)
+}
+
+func buildTenantEmptyStream(t *testing.T, tenantID uuid.UUID) []byte {
+	t.Helper()
+	id := uuid.New()
+	var buf bytes.Buffer
+	m := statussnapshot.ManifestRecord{
+		RecordType: statussnapshot.RecordTypeManifest, SchemaVersion: 1, SnapshotID: id,
+		Scope: statussnapshot.ScopeTenant, TenantID: &tenantID, Ordering: statussnapshot.OrderingTenantIDShipmentID,
+		StartedAt: time.Now().UTC(), TransactionIsolation: statussnapshot.IsolationRepeatableRead,
+		Source: statussnapshot.SourceShipmentService,
+	}
+	line, _ := statussnapshot.MarshalNDJSON(m)
+	buf.Write(line)
+	c := statussnapshot.CompletionRecord{
+		RecordType: statussnapshot.RecordTypeCompletion, SchemaVersion: 1, SnapshotID: id,
+		RowCount: 0, TenantCount: 0, SHA256: statussnapshot.EmptyStreamChecksumSHA256, CompletedAt: time.Now().UTC(),
+	}
+	cline, _ := statussnapshot.MarshalNDJSON(c)
+	buf.Write(cline)
+	return buf.Bytes()
+}

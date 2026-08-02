@@ -25,6 +25,7 @@ func (i *Importer) Import(ctx context.Context, r io.Reader, batchSize int) error
 	var manifest *statussnapshot.ManifestRecord
 	var batch []StageRow
 	var completion *statussnapshot.CompletionRecord
+	var importedRows int64
 
 	flush := func() error {
 		if len(batch) == 0 {
@@ -34,6 +35,11 @@ func (i *Importer) Import(ctx context.Context, r io.Reader, batchSize int) error
 			if manifest != nil {
 				_ = i.repo.MarkFailed(ctx, manifest.SnapshotID, safeErrorCode(err))
 			}
+			return err
+		}
+		importedRows += int64(len(batch))
+		if err := i.repo.UpdateImportProgress(ctx, manifest.SnapshotID, importedRows); err != nil {
+			_ = i.repo.MarkFailed(ctx, manifest.SnapshotID, safeErrorCode(err))
 			return err
 		}
 		batch = batch[:0]
@@ -63,7 +69,7 @@ func (i *Importer) Import(ctx context.Context, r io.Reader, batchSize int) error
 			manifest = &typed
 			if err := i.repo.CreateImportJob(ctx, Manifest{
 				SnapshotID: typed.SnapshotID, SchemaVersion: typed.SchemaVersion,
-				Scope: typed.Scope, StartedAt: typed.StartedAt,
+				Scope: typed.Scope, TenantID: typed.TenantID, StartedAt: typed.StartedAt,
 			}); err != nil {
 				return err
 			}

@@ -178,6 +178,26 @@ func TestExporterChecksumPresent(t *testing.T) {
 	}
 }
 
+func TestExporterBrokenWriterMidSnapshot(t *testing.T) {
+	repo := fakeRepo{rows: []ShipmentSnapshotRow{sampleRow(uuid.New()), sampleRow(uuid.New())}}
+	exporter := NewExporter(repo, &brokenAfterFirstWriter{}, io.Discard, nil)
+	cfg, _ := LoadConfig(true, "", DefaultBatchSize, DefaultFormat, "-")
+	_, err := exporter.Export(context.Background(), cfg)
+	if err == nil {
+		t.Fatal("expected write error")
+	}
+}
+
+type brokenAfterFirstWriter struct{ n int }
+
+func (b *brokenAfterFirstWriter) Write(p []byte) (int, error) {
+	b.n++
+	if b.n > 1 {
+		return 0, errors.New("broken")
+	}
+	return len(p), nil
+}
+
 func TestExporterRecordOrderViolation(t *testing.T) {
 	tenantA, tenantB := uuid.New(), uuid.New()
 	if tenantA.String() > tenantB.String() {

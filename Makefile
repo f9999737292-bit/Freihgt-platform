@@ -576,8 +576,20 @@ control-tower-projection-rebuild-migration-test:
 control-tower-projection-rebuild-integration-test: control-tower-projection-rebuild-migration-test
 
 control-tower-projection-rebuild-dry-run:
-	@echo "Protocol fixture dry-run (exporter PostgreSQL query not implemented in v0.1)"
+	@echo "Real PostgreSQL exporter dry-run (requires TEST_DATABASE_URL)"
 	"$(BASH)" scripts/dev/control_tower_projection_rebuild_dry_run.sh
+
+control-tower-projection-rebuild-export-import-integration-test:
+	go test -tags=integration ./services/shipment-service/internal/integration/projectionrebuild/... -count=1 -v
+
+control-tower-projection-rebuild-component-integration-tests:
+	go test -tags=integration ./services/shipment-service/internal/integration/statussnapshot/... -count=1
+	go test -tags=integration ./services/control-tower-read-model-service/internal/integration/rebuild/... -count=1
+
+control-tower-projection-rebuild-import:
+	@if [ "$(CONFIRM_PROJECTION_REBUILD_IMPORT)" != "true" ]; then echo "CONFIRM_PROJECTION_REBUILD_IMPORT=true is required"; exit 2; fi
+	@echo "Persistent import requires piping exporter stdout to importer stdin with DATABASE_URL set."
+	@exit 2
 
 control-tower-projection-rebuild-activate:
 	@if [ "$(CONFIRM_PROJECTION_REBUILD_ACTIVATION)" != "true" ]; then echo "ACTIVATION_CONFIRMATION_REQUIRED"; exit 2; fi

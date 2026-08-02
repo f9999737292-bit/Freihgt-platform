@@ -9,6 +9,7 @@ import (
 type RebuildRepository interface {
 	CreateImportJob(ctx context.Context, manifest Manifest) error
 	InsertStageBatch(ctx context.Context, rows []StageRow) error
+	UpdateImportProgress(ctx context.Context, snapshotID uuid.UUID, importedRows int64) error
 	MarkValidated(ctx context.Context, result ValidationResult) error
 	MarkFailed(ctx context.Context, snapshotID uuid.UUID, code string) error
 	GetJobStatus(ctx context.Context, snapshotID uuid.UUID) (JobStatus, error)
