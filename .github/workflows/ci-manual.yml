@@ -1,0 +1,203 @@
+name: CI Manual Recovery
+
+run-name: Manual CI for ${{ inputs.ref }} by @${{ github.actor }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Exact commit SHA or branch to validate"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  repository-safety:
+    name: repository-safety
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout requested ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 1
+
+      - name: Verify checked out ref
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          REQUESTED="${{ inputs.ref }}"
+
+          echo "requested_ref=$REQUESTED"
+          echo "actual_sha=$ACTUAL_SHA"
+
+          if [[ "$REQUESTED" =~ ^[0-9a-fA-F]{40}$ ]] && [[ "$ACTUAL_SHA" != "$REQUESTED" ]]; then
+            echo "ERROR: checkout SHA does not match requested SHA"
+            exit 1
+          fi
+
+      - name: Verify tracked env files
+        shell: bash
+        run: |
+          set -euo pipefail
+          TRACKED_ENV="$(git ls-files | grep -E '(^|/)\.env(\.|$)' | grep -vE '\.env\.example$' || true)"
+          if [ -n "$TRACKED_ENV" ]; then
+            echo "ERROR: tracked .env files found:"
+            echo "$TRACKED_ENV"
+            exit 1
+          fi
+
+      - name: Git status
+        run: git status --short
+
+  backend-go-check:
+    name: backend-go-check (${{ matrix.module }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - packages/shared-go
+          - services/api-gateway
+          - services/billing-register-service
+          - services/company-service
+          - services/control-tower-read-model-service
+          - services/document-service
+          - services/identity-service
+          - services/localization-service
+          - services/rfx-service
+          - services/shipment-service
+          - services/transport-order-service
+
+    steps:
+      - name: Checkout requested ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 1
+
+      - name: Verify checked out SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          REQUESTED="${{ inputs.ref }}"
+
+          if [[ "$REQUESTED" =~ ^[0-9a-fA-F]{40}$ ]] && [[ "$ACTUAL_SHA" != "$REQUESTED" ]]; then
+            echo "ERROR: checkout SHA mismatch"
+            exit 1
+          fi
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache-dependency-path: |
+            packages/shared-go/go.sum
+            services/**/go.sum
+
+      - name: Go version
+        run: go version
+
+      - name: Run tests
+        working-directory: ${{ matrix.module }}
+        run: go test ./...
+
+      - name: Build
+        working-directory: ${{ matrix.module }}
+        run: go build ./...
+
+  frontend-web-admin-build:
+    name: frontend-web-admin-build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web-admin
+
+    steps:
+      - name: Checkout requested ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 1
+
+      - name: Verify checked out SHA
+        shell: bash
+        working-directory: .
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          REQUESTED="${{ inputs.ref }}"
+
+          if [[ "$REQUESTED" =~ ^[0-9a-fA-F]{40}$ ]] && [[ "$ACTUAL_SHA" != "$REQUESTED" ]]; then
+            echo "ERROR: checkout SHA mismatch"
+            exit 1
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web-admin/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web-admin
+        run: npm run build
+
+  scripts-check:
+    name: scripts-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout requested ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 1
+
+      - name: Verify checked out SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          REQUESTED="${{ inputs.ref }}"
+
+          if [[ "$REQUESTED" =~ ^[0-9a-fA-F]{40}$ ]] && [[ "$ACTUAL_SHA" != "$REQUESTED" ]]; then
+            echo "ERROR: checkout SHA mismatch"
+            exit 1
+          fi
+
+      - name: Shell syntax check
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SCRIPTS=(
+            tests/integration/smoke-test.sh
+            tests/integration/run-upd-400-repro.sh
+            tests/integration/upd-400-repro.sh
+            scripts/dev/seed_dev_admin.sh
+          )
+
+          MISSING=()
+
+          for script in "${SCRIPTS[@]}"; do
+            if [ ! -f "$script" ]; then
+              MISSING+=("$script")
+              continue
+            fi
+
+            echo "Checking $script"
+            bash -n "$script"
+          done
+
+          if [ "${#MISSING[@]}" -gt 0 ]; then
+            echo "Missing scripts:"
+            printf '  - %s\n' "${MISSING[@]}"
+            exit 1
+          fi
