@@ -10,7 +10,7 @@ Copy this template for each observation day. Store completed reports in protecte
 |-------|-------|
 | Date | |
 | Environment | selectel-staging |
-| Deployed SHA | 21cd301 |
+| Deployed SHA | b75eb3d |
 | Migration version | 18 |
 | Observation day | Day 0 / Day 1 / … / Day 7 |
 

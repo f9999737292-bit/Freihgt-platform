@@ -17,7 +17,7 @@ Out of scope: enabling `primary`, public rebuild HTTP routes, frontend activatio
 | Requirement | Value |
 |-------------|-------|
 | Deployment | Docker Compose (`bintrans-staging` on Selectel VPS) or layered local shadow stack |
-| Commit | Feature branch through `21cd301` (reviewed HEAD) or later observation branch |
+| Commit | Feature branch through `b75eb3d` (reviewed HEAD) or later observation branch |
 | Migrations | Through **000019** (`make migrate-up`) |
 | Mode | `CONTROL_TOWER_READ_MODEL_MODE=shadow` |
 | Consumer | `CONTROL_TOWER_CONSUMER_ENABLED=true` |

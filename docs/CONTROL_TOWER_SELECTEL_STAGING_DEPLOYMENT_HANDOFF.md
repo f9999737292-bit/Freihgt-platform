@@ -18,7 +18,7 @@ Confirm access and artifacts before starting:
 |--------------|-------|
 | SSH/VPS access | Selectel staging host |
 | Repository access | Clone/pull `Freihgt-platform` |
-| Container registry access | Pull images tagged `git-21cd301` |
+| Container registry access | Pull images tagged `git-b75eb3d` |
 | Protected staging `.env` | Outside Git; never commit |
 | Database backup procedure | Verified backup + restore path |
 | Migration binary | Via `make migrate-up` (Docker migrate image) |
@@ -37,7 +37,7 @@ Do **not** record secret values in this document or in Git.
 
 | Field | Value |
 |-------|-------|
-| Feature review SHA | `21cd301` |
+| Feature review SHA | `b75eb3d` |
 | Migration target | `000019` |
 | Mode | `shadow` |
 | Primary | **disabled** |
@@ -61,7 +61,7 @@ git status --short
 
 docker compose ps
 docker compose config
-docker images --digests | grep -E 'identity|shipment|read-model|gateway|21cd301'
+docker images --digests | grep -E 'identity|shipment|read-model|gateway|b75eb3d'
 ```
 
 Verify runtime intent in compose config:
@@ -201,7 +201,7 @@ docker compose config
 Verify:
 
 ```text
-image Git SHA = 21cd301
+image Git SHA = b75eb3d
 image digest recorded
 no image uses unverified latest
 mode = shadow

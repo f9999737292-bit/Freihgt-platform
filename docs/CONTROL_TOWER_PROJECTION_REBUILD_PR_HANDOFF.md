@@ -6,7 +6,7 @@ Handoff package for manual PR creation and review. **Do not assume PRs are alrea
 
 | Item | Status |
 |------|--------|
-| Feature branch | **Feature PR #1 OPEN** (`21cd301`) |
+| Feature branch | **Feature PR #1 OPEN** (`b75eb3d`) |
 | Observation branch | **Observation PR #2 OPEN** (resolve head with `git rev-parse HEAD`) |
 | Staging execution | **STAGING_EXECUTION_PENDING_OPS_ACCESS** |
 | Observation window | **NOT STARTED** |
@@ -22,7 +22,7 @@ Handoff package for manual PR creation and review. **Do not assume PRs are alrea
 | Head | `feat/control-tower-projection-rebuild-activation-v0.3` |
 | Title | Control Tower projection rebuild: export, activation, rollback and live acceptance |
 | Compare page | https://github.com/f9999737292-bit/Freihgt-platform/compare/main...feat/control-tower-projection-rebuild-activation-v0.3?expand=1 |
-| Feature review SHA | `21cd301` |
+| Feature review SHA | `b75eb3d` |
 
 ### Manual PR creation steps
 
@@ -108,7 +108,7 @@ Review commits in this order:
 | `d1e9ac2` | Activation/rollback |
 | `d68f081` | Live acceptance |
 | `a5163c3` | Kafka offset evidence (historical local acceptance SHA) |
-| `21cd301` | AI audit remediation v1.2 (tenant isolation, backup nullability, CI/Docker alignment) |
+| `b75eb3d` | AI audit remediation v1.2 (tenant isolation, backup nullability, CI/Docker alignment) |
 
 ### Key review areas
 

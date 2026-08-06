@@ -10,7 +10,7 @@ Do not retag images as `latest` without digest or Git SHA.
 
 | Field | Value |
 |-------|-------|
-| Feature review SHA | `21cd301` |
+| Feature review SHA | `b75eb3d` |
 | Observation tooling baseline commits | `8708f2e`, `648138a` |
 | Observation branch synchronization commit | `14873b7` (historical merge only; not a functional tooling commit) |
 | Migration target | `000019` |
@@ -28,10 +28,10 @@ Do not retag images as `latest` without digest or Git SHA.
 Replace `<registry>` with approved staging registry. Tag every image with Git SHA — never deploy unverified `latest`.
 
 ```text
-IDENTITY_IMAGE=<registry>/identity-service:git-21cd301
-SHIPMENT_IMAGE=<registry>/shipment-service:git-21cd301
-READ_MODEL_IMAGE=<registry>/control-tower-read-model-service:git-21cd301
-GATEWAY_IMAGE=<registry>/api-gateway:git-21cd301
+IDENTITY_IMAGE=<registry>/identity-service:git-b75eb3d
+SHIPMENT_IMAGE=<registry>/shipment-service:git-b75eb3d
+READ_MODEL_IMAGE=<registry>/control-tower-read-model-service:git-b75eb3d
+GATEWAY_IMAGE=<registry>/api-gateway:git-b75eb3d
 ```
 
 Record image digest at deploy time:
@@ -77,7 +77,7 @@ AUTH_ENABLED=true
 
 | Branch | SHA | Purpose |
 |--------|-----|---------|
-| `feat/control-tower-projection-rebuild-activation-v0.3` | `21cd301` | Feature functionality (reviewed HEAD) |
+| `feat/control-tower-projection-rebuild-activation-v0.3` | `b75eb3d` | Feature functionality (reviewed HEAD) |
 | `test/control-tower-staging-shadow-observation-v0.6` | resolve at deploy with `git rev-parse HEAD` | Observation tooling, ops handoff, and release alignment |
 
 PR status: **Feature PR #1 OPEN** / **Observation PR #2 OPEN**
