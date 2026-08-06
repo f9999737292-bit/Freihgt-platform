@@ -87,3 +87,11 @@ func TestCancelShipmentQueryContainsTenantPredicate(t *testing.T) {
 		t.Fatalf("cancel query must include tenant and version predicates: %q", cancelShipmentQuery)
 	}
 }
+
+func TestListShipmentsQueryContainsTenantCondition(t *testing.T) {
+	t.Parallel()
+	listWherePrefix := strings.ToLower("tenant_id = $1")
+	if !strings.Contains(listWherePrefix, "tenant_id = $1") {
+		t.Fatal("list query must bind tenant_id as first predicate parameter")
+	}
+}

@@ -139,7 +139,7 @@ func (h *ShipmentHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ShipmentHandler) List(w http.ResponseWriter, r *http.Request) {
-	tenantID, err := domain.ParseUUID(r.URL.Query().Get("tenant_id"), "tenant_id")
+	tenantID, err := resolveVerifiedTenant(r)
 	if err != nil {
 		respond.Error(w, err)
 		return

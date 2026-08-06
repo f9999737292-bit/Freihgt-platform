@@ -85,7 +85,7 @@ func applyMigrationsThrough18(ctx context.Context, pool *pgxpool.Pool) error {
 	sort.Strings(files)
 	for _, file := range files {
 		base := filepath.Base(file)
-		if strings.HasPrefix(base, "000019") {
+		if strings.HasPrefix(base, "000020") {
 			continue
 		}
 		content, err := os.ReadFile(file)
@@ -286,4 +286,44 @@ INSERT INTO control_tower.shipment_status_projection (
 
 	err = applySingleMigrationDown(ctx, pool, "000018_projection_rebuild_last_event_type_v0.1")
 	require.Error(t, err, "down migration must fail when NULL last_event_type rows exist")
+}
+
+func TestMigration000019BackupLastEventTypeNullable(t *testing.T) {
+	ctx := context.Background()
+	pool := setupMigrationDB(t)
+	t.Cleanup(pool.Close)
+
+	require.NoError(t, applySingleMigration(ctx, pool, "000019_projection_rebuild_backup_last_event_type_nullable_v0.1"))
+
+	var nullable bool
+	require.NoError(t, pool.QueryRow(ctx, `
+SELECT is_nullable='YES' FROM information_schema.columns
+WHERE table_schema='control_tower'
+  AND table_name='shipment_status_projection_rebuild_backup'
+  AND column_name='last_event_type'
+`).Scan(&nullable))
+	require.True(t, nullable)
+}
+
+func TestMigration000019DownRequiresNoNullBackupLastEventType(t *testing.T) {
+	ctx := context.Background()
+	pool := setupMigrationDB(t)
+	t.Cleanup(pool.Close)
+
+	snapshotID := uuid.New()
+	require.NoError(t, applySingleMigration(ctx, pool, "000019_projection_rebuild_backup_last_event_type_nullable_v0.1"))
+	_, err := pool.Exec(ctx, `
+INSERT INTO control_tower.shipment_status_projection_rebuild_backup (
+    snapshot_id, tenant_id, shipment_id, shipment_version, current_status,
+    last_event_id, last_source_event_id, last_event_type, last_occurred_at, last_consumed_at,
+    complete, gap_detected, projection_source, created_at, updated_at, backed_up_at
+) VALUES (
+    $1, $2, $3, 1, 'IN_TRANSIT',
+    $4, $5, NULL, NOW(), NOW(),
+    TRUE, FALSE, 'LIVE_EVENT', NOW(), NOW(), NOW()
+)`, snapshotID, uuid.New(), uuid.New(), uuid.New(), uuid.New())
+	require.NoError(t, err)
+
+	err = applySingleMigrationDown(ctx, pool, "000019_projection_rebuild_backup_last_event_type_nullable_v0.1")
+	require.Error(t, err, "down migration must fail when NULL backup last_event_type rows exist")
 }

@@ -147,6 +147,7 @@ paths:
     get:
       tags: [Shipments]
       summary: List shipments
+      description: Returns shipments for the authenticated tenant only. Tenant is derived from bearer authentication at the gateway; `tenant_id` is not a query parameter on this endpoint. Trusted internal `X-Tenant-ID` is set by API Gateway and is not a public client parameter.
       operationId: get_list_shipments
       parameters:
         - $ref: '#/components/parameters/XRequestID'
