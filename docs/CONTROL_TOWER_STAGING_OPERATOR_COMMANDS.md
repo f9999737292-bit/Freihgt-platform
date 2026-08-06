@@ -4,7 +4,7 @@ Placeholders:
 
 - `<STAGING_PROJECT_PATH>` — e.g. `/protected/bintrans-staging`
 - `<PROTECTED_ENV_FILE>` — e.g. `/protected/control-tower-observation/staging.env`
-- `<IMAGE_TAG>` — `git-7d560a3`
+- `<IMAGE_TAG>` — `git-21cd301`
 - `<POSTGRES_CONTAINER>` — staging Postgres container name
 
 All commands assume **staging only**. Primary mode must remain disabled.

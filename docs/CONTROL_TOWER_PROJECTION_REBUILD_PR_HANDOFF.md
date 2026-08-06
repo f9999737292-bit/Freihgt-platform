@@ -6,8 +6,8 @@ Handoff package for manual PR creation and review. **Do not assume PRs are alrea
 
 | Item | Status |
 |------|--------|
-| Feature branch | **Feature PR #1 OPEN** (`7d560a3`) |
-| Observation branch | **Observation PR #2 OPEN** (`14873b7`) |
+| Feature branch | **Feature PR #1 OPEN** (`21cd301`) |
+| Observation branch | **Observation PR #2 OPEN** (resolve head with `git rev-parse HEAD`) |
 | Staging execution | **STAGING_EXECUTION_PENDING_OPS_ACCESS** |
 | Observation window | **NOT STARTED** |
 | Primary readiness | **BLOCKED** |
@@ -22,7 +22,7 @@ Handoff package for manual PR creation and review. **Do not assume PRs are alrea
 | Head | `feat/control-tower-projection-rebuild-activation-v0.3` |
 | Title | Control Tower projection rebuild: export, activation, rollback and live acceptance |
 | Compare page | https://github.com/f9999737292-bit/Freihgt-platform/compare/main...feat/control-tower-projection-rebuild-activation-v0.3?expand=1 |
-| Feature review SHA | `7d560a3` |
+| Feature review SHA | `21cd301` |
 
 ### Manual PR creation steps
 
@@ -108,7 +108,7 @@ Review commits in this order:
 | `d1e9ac2` | Activation/rollback |
 | `d68f081` | Live acceptance |
 | `a5163c3` | Kafka offset evidence (historical local acceptance SHA) |
-| `7d560a3` | Frontend lockfile sync and Node 22 CI (reviewed HEAD) |
+| `21cd301` | AI audit remediation v1.2 (tenant isolation, backup nullability, CI/Docker alignment) |
 
 ### Key review areas
 
@@ -117,7 +117,7 @@ Review commits in this order:
 3. Persistent importer
 4. Migration `000016`
 5. Migration `000017`
-6. Migration `000018`
+6. Migration `000019`
 7. Atomic activation
 8. Exact rollback
 9. Advisory lock placement

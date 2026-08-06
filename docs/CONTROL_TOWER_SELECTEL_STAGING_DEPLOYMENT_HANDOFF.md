@@ -18,7 +18,7 @@ Confirm access and artifacts before starting:
 |--------------|-------|
 | SSH/VPS access | Selectel staging host |
 | Repository access | Clone/pull `Freihgt-platform` |
-| Container registry access | Pull images tagged `git-7d560a3` |
+| Container registry access | Pull images tagged `git-21cd301` |
 | Protected staging `.env` | Outside Git; never commit |
 | Database backup procedure | Verified backup + restore path |
 | Migration binary | Via `make migrate-up` (Docker migrate image) |
@@ -37,8 +37,8 @@ Do **not** record secret values in this document or in Git.
 
 | Field | Value |
 |-------|-------|
-| Feature review SHA | `7d560a3` |
-| Migration target | `000018` |
+| Feature review SHA | `21cd301` |
+| Migration target | `000019` |
 | Mode | `shadow` |
 | Primary | **disabled** |
 | Manifest | `docs/releases/CONTROL_TOWER_SHADOW_OBSERVATION_V0.6_RELEASE_MANIFEST.md` |
@@ -61,7 +61,7 @@ git status --short
 
 docker compose ps
 docker compose config
-docker images --digests | grep -E 'identity|shipment|read-model|gateway|7d560a3'
+docker images --digests | grep -E 'identity|shipment|read-model|gateway|21cd301'
 ```
 
 Verify runtime intent in compose config:
@@ -155,13 +155,14 @@ Deployment is **forbidden** without a verified backup/restore process.
 
 ## 7. Migration procedure
 
-Target version: **000018**
+Target version: **000019**
 
 | Order | Migration | Purpose |
 |-------|-----------|---------|
 | 1 | `000016` | Rebuild core |
 | 2 | `000017` | Activation |
-| 3 | `000018` | Nullable `last_event_type` |
+| 3 | `000018` | Nullable `last_event_type` on projection/stage |
+| 4 | `000019` | Nullable `last_event_type` on rebuild backup |
 
 ```bash
 # STAGING ONLY
@@ -200,7 +201,7 @@ docker compose config
 Verify:
 
 ```text
-image Git SHA = 7d560a3
+image Git SHA = 21cd301
 image digest recorded
 no image uses unverified latest
 mode = shadow

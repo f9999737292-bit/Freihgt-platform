@@ -10,10 +10,10 @@ Do not retag images as `latest` without digest or Git SHA.
 
 | Field | Value |
 |-------|-------|
-| Feature review SHA | `7d560a3` |
+| Feature review SHA | `21cd301` |
 | Observation tooling baseline commits | `8708f2e`, `648138a` |
-| Observation branch synchronization commit | `14873b7` (merge/synchronization only; not a functional tooling commit) |
-| Migration target | `000018` |
+| Observation branch synchronization commit | `14873b7` (historical merge only; not a functional tooling commit) |
+| Migration target | `000019` |
 | Gateway mode | `shadow` |
 | Consumer enabled | `true` |
 | Shipment outbox enabled | `true` |
@@ -28,10 +28,10 @@ Do not retag images as `latest` without digest or Git SHA.
 Replace `<registry>` with approved staging registry. Tag every image with Git SHA — never deploy unverified `latest`.
 
 ```text
-IDENTITY_IMAGE=<registry>/identity-service:git-7d560a3
-SHIPMENT_IMAGE=<registry>/shipment-service:git-7d560a3
-READ_MODEL_IMAGE=<registry>/control-tower-read-model-service:git-7d560a3
-GATEWAY_IMAGE=<registry>/api-gateway:git-7d560a3
+IDENTITY_IMAGE=<registry>/identity-service:git-21cd301
+SHIPMENT_IMAGE=<registry>/shipment-service:git-21cd301
+READ_MODEL_IMAGE=<registry>/control-tower-read-model-service:git-21cd301
+GATEWAY_IMAGE=<registry>/api-gateway:git-21cd301
 ```
 
 Record image digest at deploy time:
@@ -52,8 +52,9 @@ GATEWAY_IMAGE_DIGEST=<sha256:...>
 | `000016` | Rebuild core (job, stage, backup tables) |
 | `000017` | Activation/rollback columns and constraints |
 | `000018` | Nullable `last_event_type` on stage |
+| `000019` | Nullable `last_event_type` on rebuild backup |
 
-Target: **version 18**. Down migrations on staging are **not** permitted.
+Target: **version 19**. Down migrations on staging are **not** permitted.
 
 ---
 
@@ -76,8 +77,8 @@ AUTH_ENABLED=true
 
 | Branch | SHA | Purpose |
 |--------|-----|---------|
-| `feat/control-tower-projection-rebuild-activation-v0.3` | `7d560a3` | Feature functionality (reviewed HEAD) |
-| `test/control-tower-staging-shadow-observation-v0.6` | `14873b7` | Observation tooling, ops handoff, and release alignment |
+| `feat/control-tower-projection-rebuild-activation-v0.3` | `21cd301` | Feature functionality (reviewed HEAD) |
+| `test/control-tower-staging-shadow-observation-v0.6` | resolve at deploy with `git rev-parse HEAD` | Observation tooling, ops handoff, and release alignment |
 
 PR status: **Feature PR #1 OPEN** / **Observation PR #2 OPEN**
 
@@ -86,7 +87,7 @@ PR status: **Feature PR #1 OPEN** / **Observation PR #2 OPEN**
 ## Observation window
 
 - Duration: **7 consecutive calendar days** (minimum 5 business days)
-- Starts: after deployment healthy + migration 18 + approved cohort + baseline snapshot
+- Starts: after deployment healthy + migration 19 + approved cohort + baseline snapshot
 - Status: **NOT STARTED**
 
 ---
