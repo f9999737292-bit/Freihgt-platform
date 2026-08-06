@@ -10,8 +10,9 @@ Do not retag images as `latest` without digest or Git SHA.
 
 | Field | Value |
 |-------|-------|
-| Feature SHA | `a5163c3` |
-| Observation tooling SHA | `8708f2e` (+ handoff docs commit on observation branch) |
+| Feature review SHA | `7d560a3` |
+| Observation tooling baseline commits | `8708f2e`, `648138a` |
+| Observation branch synchronization commit | `14873b7` (merge/synchronization only; not a functional tooling commit) |
 | Migration target | `000018` |
 | Gateway mode | `shadow` |
 | Consumer enabled | `true` |
@@ -27,10 +28,10 @@ Do not retag images as `latest` without digest or Git SHA.
 Replace `<registry>` with approved staging registry. Tag every image with Git SHA — never deploy unverified `latest`.
 
 ```text
-IDENTITY_IMAGE=<registry>/identity-service:git-a5163c3
-SHIPMENT_IMAGE=<registry>/shipment-service:git-a5163c3
-READ_MODEL_IMAGE=<registry>/control-tower-read-model-service:git-a5163c3
-GATEWAY_IMAGE=<registry>/api-gateway:git-a5163c3
+IDENTITY_IMAGE=<registry>/identity-service:git-7d560a3
+SHIPMENT_IMAGE=<registry>/shipment-service:git-7d560a3
+READ_MODEL_IMAGE=<registry>/control-tower-read-model-service:git-7d560a3
+GATEWAY_IMAGE=<registry>/api-gateway:git-7d560a3
 ```
 
 Record image digest at deploy time:
@@ -75,10 +76,10 @@ AUTH_ENABLED=true
 
 | Branch | SHA | Purpose |
 |--------|-----|---------|
-| `feat/control-tower-projection-rebuild-activation-v0.3` | `a5163c3` | Feature functionality |
-| `test/control-tower-staging-shadow-observation-v0.6` | `8708f2e+` | Observation tooling and ops handoff |
+| `feat/control-tower-projection-rebuild-activation-v0.3` | `7d560a3` | Feature functionality (reviewed HEAD) |
+| `test/control-tower-staging-shadow-observation-v0.6` | `14873b7` | Observation tooling, ops handoff, and release alignment |
 
-PR status: **Feature branch pushed — PR creation pending** / **Observation branch pushed — PR creation pending**
+PR status: **Feature PR #1 OPEN** / **Observation PR #2 OPEN**
 
 ---
 

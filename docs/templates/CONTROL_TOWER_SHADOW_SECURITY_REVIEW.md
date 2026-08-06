@@ -21,7 +21,7 @@ Review before staging deployment and before Day 7 final gate.
 | 9 | Primary mode absent from staging config | | |
 | 10 | Least-privilege staging roles | | |
 | 11 | PR secret scan passed | | |
-| 12 | Container images traceable to SHA `a5163c3` | | |
+| 12 | Container images traceable to SHA `7d560a3` | | |
 
 ---
 
