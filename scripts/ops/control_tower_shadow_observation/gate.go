@@ -37,7 +37,7 @@ func runPreflight(ctx context.Context, cfg Config, client *http.Client) error {
 		}
 		fmt.Fprintf(os.Stderr, "observation-preflight: %s OK\n", c.name)
 	}
-	metrics, err := collectPrometheusMetrics(ctx, client, cfg.PrometheusURL)
+	metrics, err := collectPrometheusMetrics(ctx, client, cfg.PrometheusURL, cfg.SustainedMismatchMinutes)
 	if err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func runSnapshot(ctx context.Context, cfg Config, client *http.Client) error {
 	if err != nil {
 		return err
 	}
-	metrics, err := collectPrometheusMetrics(ctx, client, cfg.PrometheusURL)
+	metrics, err := collectPrometheusMetrics(ctx, client, cfg.PrometheusURL, cfg.SustainedMismatchMinutes)
 	if err != nil {
 		return err
 	}
@@ -96,42 +96,23 @@ func runSnapshot(ctx context.Context, cfg Config, client *http.Client) error {
 	return writeReport(cfg.OutputPath, report)
 }
 
-func loginForEntry(cfg Config, client *http.Client, entry CohortEntry) (string, error) {
-	tenantID, err := entry.resolveTenantID()
-	if err != nil {
-		return "", err
-	}
-	tenantCfg := cfg
-	tenantCfg.TenantID = tenantID
-	if email := entry.resolveEmail(); email != "" {
-		tenantCfg.AdminEmail = email
-	}
-	if password := entry.resolvePassword(); password != "" {
-		tenantCfg.AdminPassword = password
-	}
-	return resolveJWT(tenantCfg, client)
-}
-
 func runGate(ctx context.Context, cfg Config, client *http.Client) error {
+	if err := validateGateConfig(cfg); err != nil {
+		return err
+	}
 	cohort, err := loadCohort(cfg.CohortManifest)
 	if err != nil {
 		return err
 	}
-	metrics, err := collectPrometheusMetrics(ctx, client, cfg.PrometheusURL)
+	metrics, err := collectPrometheusMetrics(ctx, client, cfg.PrometheusURL, cfg.SustainedMismatchMinutes)
 	if err != nil {
 		return err
 	}
 	if metrics.PrimaryRequestTotal > 0 {
 		return fmt.Errorf("gate: primary mode activity detected")
 	}
-	var maxLag int64
-	if parts, err := fetchKafkaOffsets(cfg.RpkExec, cfg.KafkaGroup, cfg.KafkaTopic); err == nil {
-		maxLag = computeMaxLag(parts)
-		fmt.Fprint(os.Stderr, formatPartitionOffsets("gate", parts))
-	}
-	matchCount := 0
-	mismatchCount := 0
-	incompleteCount := 0
+
+	var baselines []TenantBaseline
 	for _, entry := range cohort {
 		jwt, err := loginForEntry(cfg, client, entry)
 		if err != nil {
@@ -148,74 +129,66 @@ func runGate(ctx context.Context, cfg Config, client *http.Client) error {
 		if bl.PublicSource != "LEGACY" {
 			return fmt.Errorf("gate: alias %s public source=%s", entry.Alias, bl.PublicSource)
 		}
-		if bl.FallbackUsed {
-			mismatchCount++
-		}
-		if bl.LimitedDataset {
-			incompleteCount++
-		}
-		if bl.ComparisonCategory == "PENDING_PROMETHEUS_CLASSIFICATION" && metrics.MismatchTotal == 0 {
-			matchCount++
-		}
+		baselines = append(baselines, bl)
 	}
-	if metrics.MismatchTotal > 0 {
-		mismatchCount = int(metrics.MismatchTotal)
+
+	kafkaParts, kafkaErr := fetchKafkaOffsets(cfg.RpkExec, cfg.KafkaGroup, cfg.KafkaTopic)
+	if kafkaErr == nil {
+		fmt.Fprint(os.Stderr, formatPartitionOffsets("gate", kafkaParts))
 	}
-	if metrics.IncompletePartialTotal > 0 {
-		incompleteCount = int(metrics.IncompletePartialTotal)
-	}
-	if metrics.MatchTotal > 0 && mismatchCount == 0 {
-		matchCount = len(cohort)
-	}
-	ratio := float64(matchCount) / float64(max(1, len(cohort)))
-	result := "PASS"
-	var notes []string
-	if ratio < cfg.RequireMatchRatio {
-		result = "FAIL"
-		notes = append(notes, fmt.Sprintf("match ratio %.2f below required %.2f", ratio, cfg.RequireMatchRatio))
-	}
-	if maxLag > cfg.MaxConsumerLag {
-		result = "FAIL"
-		notes = append(notes, fmt.Sprintf("max consumer lag %d exceeds %d", maxLag, cfg.MaxConsumerLag))
-	}
-	if metrics.OffsetCommitErrorsTotal > 0 {
-		result = "FAIL"
-		notes = append(notes, "offset commit errors > 0")
-	}
+
+	outcome := evaluateGate(gateInputs{
+		cfg:                       cfg,
+		metrics:                   metrics,
+		baselines:                 baselines,
+		kafkaParts:                kafkaParts,
+		kafkaErr:                  kafkaErr,
+		sustainedMismatchIncrease: metrics.SustainedMismatchIncrease,
+	})
+
 	report := ObservationReport{
 		Timestamp:               time.Now().UTC(),
 		Environment:             cfg.Environment,
 		Commit:                  cfg.Commit,
 		CohortSize:              len(cohort),
-		MatchCount:              matchCount,
-		MismatchCount:           mismatchCount,
-		IncompleteCount:         incompleteCount,
-		DeadLetterDelta:         0,
+		MatchCount:              outcome.MatchCount,
+		MismatchCount:           outcome.MismatchCount,
+		IncompleteCount:         outcome.IncompleteCount,
+		DeadLetterDelta:         outcome.DeadLetterDelta,
 		OffsetCommitErrorsDelta: metrics.OffsetCommitErrorsTotal,
-		MaxConsumerLag:          maxLag,
-		Gateway5xxDelta:         metrics.Gateway5xxTotal,
+		MaxConsumerLag:          outcome.MaxConsumerLag,
+		Gateway5xxDelta:         outcome.Gateway5xxDelta,
 		PrimaryEnabled:          false,
 		LegacyP95Seconds:        metrics.LegacyP95Seconds,
 		ReadModelP95Seconds:     metrics.ReadModelP95Seconds,
-		RelativeLatencyRatio:    relativeLatency(metrics.LegacyP95Seconds, metrics.ReadModelP95Seconds),
-		Result:                  result,
-		Notes:                   notes,
+		RelativeLatencyRatio:    outcome.RelativeLatencyRatio,
+		Result:                  outcome.Result,
+		Notes:                   outcome.Notes,
 	}
 	if err := writeReport(cfg.OutputPath, report); err != nil {
 		return err
 	}
-	if result != "PASS" {
+	if outcome.Result != gateResultPass {
 		return fmt.Errorf("observation gate failed")
 	}
 	fmt.Fprintln(os.Stderr, "observation-gate: PASS")
 	return nil
 }
 
-func max(a, b int) int {
-	if a > b {
-		return a
+func loginForEntry(cfg Config, client *http.Client, entry CohortEntry) (string, error) {
+	tenantID, err := entry.resolveTenantID()
+	if err != nil {
+		return "", err
 	}
-	return b
+	tenantCfg := cfg
+	tenantCfg.TenantID = tenantID
+	if email := entry.resolveEmail(); email != "" {
+		tenantCfg.AdminEmail = email
+	}
+	if password := entry.resolvePassword(); password != "" {
+		tenantCfg.AdminPassword = password
+	}
+	return resolveJWT(tenantCfg, client)
 }
 
 func newHTTPClient(timeout time.Duration) *http.Client {

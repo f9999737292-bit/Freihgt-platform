@@ -29,6 +29,9 @@ type Config struct {
 	SustainedMismatchMinutes int
 	MaxConsumerLag  int64
 	RequireMatchRatio float64
+	MaxDeadLetterTotal float64
+	MaxGateway5xxTotal float64
+	MaxRelativeLatencyRatio float64
 }
 
 func LoadConfig() (Config, error) {
@@ -53,6 +56,9 @@ func LoadConfig() (Config, error) {
 		SustainedMismatchMinutes: intEnv("OBSERVATION_SUSTAINED_MISMATCH_MIN", 5),
 		MaxConsumerLag: int64Env("OBSERVATION_MAX_CONSUMER_LAG", 0),
 		RequireMatchRatio: floatEnv("OBSERVATION_REQUIRE_MATCH_RATIO", 1.0),
+		MaxDeadLetterTotal: floatEnv("OBSERVATION_MAX_DEAD_LETTER_DELTA", 0),
+		MaxGateway5xxTotal: floatEnv("OBSERVATION_MAX_GATEWAY_5XX_DELTA", 0),
+		MaxRelativeLatencyRatio: floatEnv("OBSERVATION_MAX_RELATIVE_LATENCY_RATIO", 1.2),
 	}
 	if cfg.Command == "" {
 		cfg.Command = "gate"

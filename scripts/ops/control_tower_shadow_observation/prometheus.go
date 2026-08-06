@@ -80,11 +80,16 @@ type MetricSnapshot struct {
 	ReadModelP95Seconds     float64
 	Gateway5xxTotal         float64
 	IncompletePartialTotal  float64
+	SustainedMismatchIncrease float64
 }
 
-func collectPrometheusMetrics(ctx context.Context, client *http.Client, promURL string) (MetricSnapshot, error) {
+func collectPrometheusMetrics(ctx context.Context, client *http.Client, promURL string, sustainedMismatchMinutes int) (MetricSnapshot, error) {
 	var snap MetricSnapshot
 	var err error
+	sustainedWindow := sustainedMismatchMinutes
+	if sustainedWindow <= 0 {
+		sustainedWindow = 5
+	}
 	queries := []struct {
 		name  string
 		query string
@@ -101,6 +106,7 @@ func collectPrometheusMetrics(ctx context.Context, client *http.Client, promURL 
 		{"read_model_p95", `histogram_quantile(0.95, sum by (le) (rate(control_tower_read_model_request_duration_seconds_bucket{mode="shadow"}[5m])))`, &snap.ReadModelP95Seconds},
 		{"gateway_5xx", `sum(increase(http_requests_total{service="api-gateway",status=~"5.."}[1h]))`, &snap.Gateway5xxTotal},
 		{"partial", `sum(control_tower_read_model_partial_response_total{mode="shadow"})`, &snap.IncompletePartialTotal},
+		{"sustained_mismatch", fmt.Sprintf(`sum(increase(control_tower_read_model_shadow_comparison_total{comparison=~"TOTAL_MISMATCH|STATUS_COUNT_MISMATCH",mode="shadow"}[%dm]))`, sustainedWindow), &snap.SustainedMismatchIncrease},
 	}
 	for _, q := range queries {
 		*q.dest, err = promQueryInstant(ctx, client, promURL, q.query)
