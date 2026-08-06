@@ -19,7 +19,8 @@ import (
 )
 
 type tenantScopedShipmentService struct {
-	getFn func(ctx context.Context, tenantID, id uuid.UUID) (*domain.Shipment, error)
+	getFn  func(ctx context.Context, tenantID, id uuid.UUID) (*domain.Shipment, error)
+	listFn func(ctx context.Context, filter domain.ListShipmentsFilter) ([]domain.Shipment, int, error)
 }
 
 func (s *tenantScopedShipmentService) CompanyExists(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
@@ -40,7 +41,10 @@ func (s *tenantScopedShipmentService) GetByIDAndTenant(ctx context.Context, id, 
 	}
 	return nil, nil
 }
-func (s *tenantScopedShipmentService) List(context.Context, domain.ListShipmentsFilter) ([]domain.Shipment, int, error) {
+func (s *tenantScopedShipmentService) List(ctx context.Context, filter domain.ListShipmentsFilter) ([]domain.Shipment, int, error) {
+	if s.listFn != nil {
+		return s.listFn(ctx, filter)
+	}
 	return nil, 0, nil
 }
 func (s *tenantScopedShipmentService) AssignDriver(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, string, string, int, domain.StatusTransitionContext) (*domain.Shipment, error) {
@@ -70,6 +74,14 @@ func newGetByIDTestRouter(t *testing.T, store *tenantScopedShipmentService) http
 	handler := NewShipmentHandler(service.NewShipmentService(store, nil, nil))
 	r := chi.NewRouter()
 	r.Get("/v1/shipments/{id}", handler.GetByID)
+	return r
+}
+
+func newListTestRouter(t *testing.T, store *tenantScopedShipmentService) http.Handler {
+	t.Helper()
+	handler := NewShipmentHandler(service.NewShipmentService(store, nil, nil))
+	r := chi.NewRouter()
+	r.Get("/v1/shipments", handler.List)
 	return r
 }
 
@@ -246,5 +258,155 @@ func TestGetByIDRepositoryFailureReturns500(t *testing.T) {
 	var payload map[string]any
 	if err := json.NewDecoder(rec.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode: %v", err)
+	}
+}
+
+func TestShipmentListMissingTrustedTenantReturns401(t *testing.T) {
+	t.Parallel()
+	called := false
+	router := newListTestRouter(t, &tenantScopedShipmentService{
+		listFn: func(context.Context, domain.ListShipmentsFilter) ([]domain.Shipment, int, error) {
+			called = true
+			return nil, 0, nil
+		},
+	})
+	req := httptest.NewRequest(http.MethodGet, "/v1/shipments", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	if called {
+		t.Fatal("service must not be called without trusted tenant")
+	}
+}
+
+func TestShipmentListQueryOnlyTenantReturns401(t *testing.T) {
+	t.Parallel()
+	called := false
+	router := newListTestRouter(t, &tenantScopedShipmentService{
+		listFn: func(context.Context, domain.ListShipmentsFilter) ([]domain.Shipment, int, error) {
+			called = true
+			return nil, 0, nil
+		},
+	})
+	req := httptest.NewRequest(http.MethodGet, "/v1/shipments?tenant_id=11111111-1111-1111-1111-111111111111", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	if called {
+		t.Fatal("service must not be called for query-only tenant")
+	}
+}
+
+func TestShipmentListIgnoresForeignTenantQuery(t *testing.T) {
+	t.Parallel()
+	headerTenant := "11111111-1111-1111-1111-111111111111"
+	queryTenant := "22222222-2222-2222-2222-222222222222"
+	router := newListTestRouter(t, &tenantScopedShipmentService{
+		listFn: func(_ context.Context, filter domain.ListShipmentsFilter) ([]domain.Shipment, int, error) {
+			if filter.TenantID.String() != headerTenant {
+				t.Fatalf("expected header tenant, got %s", filter.TenantID)
+			}
+			return []domain.Shipment{{
+				ID: uuid.MustParse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+				TenantID: filter.TenantID, ShipmentNumber: "SHP-1", Status: domain.ShipmentStatusInTransit,
+				CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
+			}}, 1, nil
+		},
+	})
+	req := httptest.NewRequest(http.MethodGet, "/v1/shipments?tenant_id="+queryTenant, nil)
+	req.Header.Set("X-Tenant-ID", headerTenant)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestShipmentListUsesTrustedTenant(t *testing.T) {
+	t.Parallel()
+	headerTenant := "11111111-1111-1111-1111-111111111111"
+	router := newListTestRouter(t, &tenantScopedShipmentService{
+		listFn: func(_ context.Context, filter domain.ListShipmentsFilter) ([]domain.Shipment, int, error) {
+			if filter.TenantID.String() != headerTenant {
+				t.Fatalf("unexpected tenant %s", filter.TenantID)
+			}
+			return nil, 0, nil
+		},
+	})
+	req := httptest.NewRequest(http.MethodGet, "/v1/shipments", nil)
+	req.Header.Set("X-Tenant-ID", headerTenant)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestShipmentListRepositoryReceivesTrustedTenant(t *testing.T) {
+	t.Parallel()
+	headerTenant := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+	foreignTenant := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+	var gotTenant uuid.UUID
+	router := newListTestRouter(t, &tenantScopedShipmentService{
+		listFn: func(_ context.Context, filter domain.ListShipmentsFilter) ([]domain.Shipment, int, error) {
+			gotTenant = filter.TenantID
+			return nil, 0, nil
+		},
+	})
+	req := httptest.NewRequest(http.MethodGet, "/v1/shipments?tenant_id="+foreignTenant.String(), nil)
+	req.Header.Set("X-Tenant-ID", headerTenant.String())
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	if gotTenant != headerTenant {
+		t.Fatalf("repository tenant=%s want=%s", gotTenant, headerTenant)
+	}
+}
+
+func TestShipmentListDoesNotPerformUnscopedLookup(t *testing.T) {
+	t.Parallel()
+	headerTenant := "11111111-1111-1111-1111-111111111111"
+	foreignTenant := "22222222-2222-2222-2222-222222222222"
+	router := newListTestRouter(t, &tenantScopedShipmentService{
+		listFn: func(_ context.Context, filter domain.ListShipmentsFilter) ([]domain.Shipment, int, error) {
+			if filter.TenantID.String() == foreignTenant {
+				t.Fatal("unscoped foreign tenant lookup must not occur")
+			}
+			return nil, 0, nil
+		},
+	})
+	req := httptest.NewRequest(http.MethodGet, "/v1/shipments?tenant_id="+foreignTenant, nil)
+	req.Header.Set("X-Tenant-ID", headerTenant)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestShipmentListInvalidHeaderTenantReturns400(t *testing.T) {
+	t.Parallel()
+	called := false
+	router := newListTestRouter(t, &tenantScopedShipmentService{
+		listFn: func(context.Context, domain.ListShipmentsFilter) ([]domain.Shipment, int, error) {
+			called = true
+			return nil, 0, nil
+		},
+	})
+	req := httptest.NewRequest(http.MethodGet, "/v1/shipments", nil)
+	req.Header.Set("X-Tenant-ID", "not-a-uuid")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	if called {
+		t.Fatal("service must not be called with invalid tenant header")
 	}
 }
