@@ -39,12 +39,27 @@ Do **not** record secret values in this document or in Git.
 |-------|-------|
 | Feature review SHA | `b75eb3d` |
 | Migration target | `000019` |
+| Expected migration version | **19** |
 | Mode | `shadow` |
 | Primary | **disabled** |
 | Manifest | `docs/releases/CONTROL_TOWER_SHADOW_OBSERVATION_V0.6_RELEASE_MANIFEST.md` |
 | Env template | `scripts/ops/control_tower_shadow_observation/staging.env.example` |
 
 Image policy: tag with Git SHA; record digest; **no unverified `latest`**.
+
+### Release identity
+
+| Field | Value |
+|-------|-------|
+| Repository release SHA | `64d218b6474d85075126cbf753fe73c1bbff94dd` |
+| Runtime image source SHA | `b75eb3de751002da94a3c271fda30d09be1db450` |
+| Observation tooling source SHA | `9da601044f8bd5248a5fd04fb8dc7e2652e6415e` |
+
+**Repository release SHA** — final `main` after controlled merge of Feature PR #1 and Observation PR #2.
+
+**Runtime image SHA** — reviewed feature code from which staging runtime images must be built as `git-b75eb3d`. Do **not** retag runtime images to `git-64d218b` unless images with that tag were built and verified separately.
+
+**Observation tooling** is included in the repository release on `main` and does **not** change the runtime image source SHA.
 
 ---
 
@@ -170,13 +185,13 @@ Target version: **000019**
 
 cd <STAGING_PROJECT_PATH>
 make migrate-up
-make migrate-version   # expect version=18
+make migrate-version   # expect version=19
 ```
 
 Post-migration verification:
 
 ```text
-migration version = 18
+migration version = 19
 projection row count unchanged
 inbox row count unchanged
 dead-letter row count unchanged
@@ -278,7 +293,7 @@ Starts only after:
 
 ```text
 deployment healthy
-migration version = 18
+migration version = 19
 cohort manifest approved
 baseline snapshot completed
 ```

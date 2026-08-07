@@ -11,7 +11,7 @@ Review before staging deployment and before Day 7 final gate.
 | # | Item | Pass | Notes |
 |---|------|------|-------|
 | 1 | Deployment procedure reviewed (`docs/CONTROL_TOWER_SELECTEL_STAGING_DEPLOYMENT_HANDOFF.md`) | | |
-| 2 | Migration procedure reviewed (`make migrate-up` → version 18) | | |
+| 2 | Migration procedure reviewed (`make migrate-up` → version 19) | | |
 | 3 | Consumer pause/resume procedure documented | | |
 | 4 | Per-partition offset capture procedure documented | | |
 | 5 | Activation confirmation handling reviewed | | |

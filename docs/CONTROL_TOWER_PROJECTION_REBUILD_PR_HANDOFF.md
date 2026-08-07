@@ -6,8 +6,9 @@ Handoff package for manual PR creation and review. **Do not assume PRs are alrea
 
 | Item | Status |
 |------|--------|
-| Feature branch | **Feature PR #1 OPEN** (`b75eb3d`) |
-| Observation branch | **Observation PR #2 OPEN** (resolve head with `git rev-parse HEAD`) |
+| Feature branch | **Feature PR #1 MERGED** (`e3cc74fb1e03a0ac92aa4a8b6d749890ce2302b4`; runtime source `b75eb3d`) |
+| Observation branch | **Observation PR #2 MERGED** (`64d218b6474d85075126cbf753fe73c1bbff94dd`; tooling source `9da6010`) |
+| Repository release SHA | `64d218b6474d85075126cbf753fe73c1bbff94dd` |
 | Staging execution | **STAGING_EXECUTION_PENDING_OPS_ACCESS** |
 | Observation window | **NOT STARTED** |
 | Primary readiness | **BLOCKED** |
@@ -152,7 +153,7 @@ After staging deployment is healthy:
 - **Days 1–6** — daily snapshot + gate
 - **Day 7** — final gate
 
-Observation window starts only after: deployment healthy, migration version = 18, cohort manifest approved, baseline snapshot completed.
+Observation window starts only after: deployment healthy, migration version = 19, cohort manifest approved, baseline snapshot completed.
 
 See `docs/templates/CONTROL_TOWER_SHADOW_DAILY_REPORT_TEMPLATE.md` for daily fields and PASS/FAIL semantics.
 

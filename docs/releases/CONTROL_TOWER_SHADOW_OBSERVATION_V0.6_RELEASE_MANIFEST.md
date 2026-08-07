@@ -10,10 +10,16 @@ Do not retag images as `latest` without digest or Git SHA.
 
 | Field | Value |
 |-------|-------|
-| Feature review SHA | `b75eb3d` |
-| Observation tooling baseline commits | `8708f2e`, `648138a` |
+| Repository release SHA | `64d218b6474d85075126cbf753fe73c1bbff94dd` |
+| Feature runtime SHA | `b75eb3de751002da94a3c271fda30d09be1db450` |
+| Observation tooling SHA | `9da601044f8bd5248a5fd04fb8dc7e2652e6415e` |
+| Feature merge SHA | `e3cc74fb1e03a0ac92aa4a8b6d749890ce2302b4` |
+| Observation merge / final main SHA | `64d218b6474d85075126cbf753fe73c1bbff94dd` |
+| Feature review SHA (runtime images) | `b75eb3d` |
+| Observation tooling baseline commits | `8708f2e`, `648138a` (historical) |
 | Observation branch synchronization commit | `14873b7` (historical merge only; not a functional tooling commit) |
 | Migration target | `000019` |
+| Migration version | **19** |
 | Gateway mode | `shadow` |
 | Consumer enabled | `true` |
 | Shipment outbox enabled | `true` |
@@ -80,7 +86,7 @@ AUTH_ENABLED=true
 | `feat/control-tower-projection-rebuild-activation-v0.3` | `b75eb3d` | Feature functionality (reviewed HEAD) |
 | `test/control-tower-staging-shadow-observation-v0.6` | resolve at deploy with `git rev-parse HEAD` | Observation tooling, ops handoff, and release alignment |
 
-PR status: **Feature PR #1 OPEN** / **Observation PR #2 OPEN**
+PR status: **Feature PR #1 MERGED** (`e3cc74fb1e03a0ac92aa4a8b6d749890ce2302b4`) / **Observation PR #2 MERGED** (`64d218b6474d85075126cbf753fe73c1bbff94dd`)
 
 ---
 
