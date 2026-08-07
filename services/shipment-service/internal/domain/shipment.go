@@ -10,59 +10,59 @@ import (
 )
 
 const (
-	ShipmentStatusCarrierAssigned          = "CARRIER_ASSIGNED"
-	ShipmentStatusAcceptedByCarrier        = "ACCEPTED_BY_CARRIER"
-	ShipmentStatusVehicleAssigned          = "VEHICLE_ASSIGNED"
-	ShipmentStatusDriverAssigned           = "DRIVER_ASSIGNED"
-	ShipmentStatusPickupSlotBooked         = "PICKUP_SLOT_BOOKED"
-	ShipmentStatusDeliverySlotBooked       = "DELIVERY_SLOT_BOOKED"
-	ShipmentStatusInPickup                 = "IN_PICKUP"
-	ShipmentStatusLoaded                   = "LOADED"
-	ShipmentStatusInTransit                = "IN_TRANSIT"
-	ShipmentStatusArrivedAtConsignee       = "ARRIVED_AT_CONSIGNEE"
-	ShipmentStatusUnloading                = "UNLOADING"
-	ShipmentStatusDelivered                = "DELIVERED"
-	ShipmentStatusDeliveryConfirmed        = "DELIVERY_CONFIRMED"
-	ShipmentStatusDocumentsCompleted       = "DOCUMENTS_COMPLETED"
-	ShipmentStatusReadyForBilling          = "READY_FOR_BILLING"
+	ShipmentStatusCarrierAssigned           = "CARRIER_ASSIGNED"
+	ShipmentStatusAcceptedByCarrier         = "ACCEPTED_BY_CARRIER"
+	ShipmentStatusVehicleAssigned           = "VEHICLE_ASSIGNED"
+	ShipmentStatusDriverAssigned            = "DRIVER_ASSIGNED"
+	ShipmentStatusPickupSlotBooked          = "PICKUP_SLOT_BOOKED"
+	ShipmentStatusDeliverySlotBooked        = "DELIVERY_SLOT_BOOKED"
+	ShipmentStatusInPickup                  = "IN_PICKUP"
+	ShipmentStatusLoaded                    = "LOADED"
+	ShipmentStatusInTransit                 = "IN_TRANSIT"
+	ShipmentStatusArrivedAtConsignee        = "ARRIVED_AT_CONSIGNEE"
+	ShipmentStatusUnloading                 = "UNLOADING"
+	ShipmentStatusDelivered                 = "DELIVERED"
+	ShipmentStatusDeliveryConfirmed         = "DELIVERY_CONFIRMED"
+	ShipmentStatusDocumentsCompleted        = "DOCUMENTS_COMPLETED"
+	ShipmentStatusReadyForBilling           = "READY_FOR_BILLING"
 	ShipmentStatusIncludedInBillingRegister = "INCLUDED_IN_BILLING_REGISTER"
-	ShipmentStatusFinanciallyClosed        = "FINANCIALLY_CLOSED"
-	ShipmentStatusCancelled                = "CANCELLED"
+	ShipmentStatusFinanciallyClosed         = "FINANCIALLY_CLOSED"
+	ShipmentStatusCancelled                 = "CANCELLED"
 
 	TransportOrderStatusAssigned         = "ASSIGNED"
 	TransportOrderStatusReadyForSourcing = "READY_FOR_SOURCING"
 
 	BidStatusAccepted = "ACCEPTED"
 
-	DriverStatusActive = "ACTIVE"
+	DriverStatusActive  = "ACTIVE"
 	VehicleStatusActive = "ACTIVE"
 )
 
 var allowedStatusTransitions = map[string][]string{
-	ShipmentStatusCarrierAssigned:   {ShipmentStatusAcceptedByCarrier},
-	ShipmentStatusAcceptedByCarrier:   {ShipmentStatusVehicleAssigned, ShipmentStatusDriverAssigned},
-	ShipmentStatusVehicleAssigned:     {ShipmentStatusDriverAssigned},
-	ShipmentStatusDriverAssigned:      {ShipmentStatusPickupSlotBooked},
-	ShipmentStatusPickupSlotBooked:    {ShipmentStatusInPickup},
-	ShipmentStatusInPickup:            {ShipmentStatusLoaded},
-	ShipmentStatusLoaded:              {ShipmentStatusInTransit},
-	ShipmentStatusInTransit:           {ShipmentStatusArrivedAtConsignee},
-	ShipmentStatusArrivedAtConsignee:  {ShipmentStatusUnloading},
-	ShipmentStatusUnloading:           {ShipmentStatusDelivered},
-	ShipmentStatusDelivered:           {ShipmentStatusDeliveryConfirmed},
-	ShipmentStatusDeliveryConfirmed:   {ShipmentStatusDocumentsCompleted},
-	ShipmentStatusDocumentsCompleted:  {ShipmentStatusReadyForBilling},
-	ShipmentStatusReadyForBilling:     {ShipmentStatusIncludedInBillingRegister},
+	ShipmentStatusCarrierAssigned:           {ShipmentStatusAcceptedByCarrier},
+	ShipmentStatusAcceptedByCarrier:         {ShipmentStatusVehicleAssigned, ShipmentStatusDriverAssigned},
+	ShipmentStatusVehicleAssigned:           {ShipmentStatusDriverAssigned},
+	ShipmentStatusDriverAssigned:            {ShipmentStatusPickupSlotBooked},
+	ShipmentStatusPickupSlotBooked:          {ShipmentStatusInPickup},
+	ShipmentStatusInPickup:                  {ShipmentStatusLoaded},
+	ShipmentStatusLoaded:                    {ShipmentStatusInTransit},
+	ShipmentStatusInTransit:                 {ShipmentStatusArrivedAtConsignee},
+	ShipmentStatusArrivedAtConsignee:        {ShipmentStatusUnloading},
+	ShipmentStatusUnloading:                 {ShipmentStatusDelivered},
+	ShipmentStatusDelivered:                 {ShipmentStatusDeliveryConfirmed},
+	ShipmentStatusDeliveryConfirmed:         {ShipmentStatusDocumentsCompleted},
+	ShipmentStatusDocumentsCompleted:        {ShipmentStatusReadyForBilling},
+	ShipmentStatusReadyForBilling:           {ShipmentStatusIncludedInBillingRegister},
 	ShipmentStatusIncludedInBillingRegister: {ShipmentStatusFinanciallyClosed},
 }
 
 var cancelForbiddenStatuses = map[string]struct{}{
-	ShipmentStatusDelivered:                {},
-	ShipmentStatusDeliveryConfirmed:        {},
-	ShipmentStatusDocumentsCompleted:       {},
-	ShipmentStatusReadyForBilling:          {},
+	ShipmentStatusDelivered:                 {},
+	ShipmentStatusDeliveryConfirmed:         {},
+	ShipmentStatusDocumentsCompleted:        {},
+	ShipmentStatusReadyForBilling:           {},
 	ShipmentStatusIncludedInBillingRegister: {},
-	ShipmentStatusFinanciallyClosed:        {},
+	ShipmentStatusFinanciallyClosed:         {},
 }
 
 type Shipment struct {
@@ -110,17 +110,15 @@ type BidSnapshot struct {
 }
 
 type CreateShipmentFromOrderInput struct {
-	TenantID             uuid.UUID
-	ShipmentNumber       string
-	TransportOrderID     uuid.UUID
-	CarrierCompanyID     uuid.UUID
-	ForwarderCompanyID   *uuid.UUID
-	PlannedPickupAt      *time.Time
-	PlannedDeliveryAt    *time.Time
+	ShipmentNumber     string
+	TransportOrderID   uuid.UUID
+	CarrierCompanyID   uuid.UUID
+	ForwarderCompanyID *uuid.UUID
+	PlannedPickupAt    *time.Time
+	PlannedDeliveryAt  *time.Time
 }
 
 type CreateShipmentFromBidInput struct {
-	TenantID          uuid.UUID
 	ShipmentNumber    string
 	BidID             uuid.UUID
 	TransportOrderID  uuid.UUID
@@ -138,35 +136,49 @@ type ListShipmentsFilter struct {
 	Offset             int
 }
 
-type AssignDriverInput struct {
-	TenantID uuid.UUID
-	DriverID uuid.UUID
+func ValidateAssignDriverParams(tenantID, shipmentID, driverID uuid.UUID) error {
+	if tenantID == uuid.Nil {
+		return apperrors.Unauthorized("tenant context is required")
+	}
+	if shipmentID == uuid.Nil {
+		return apperrors.Validation("id is required", map[string]any{"field": "id"})
+	}
+	if driverID == uuid.Nil {
+		return apperrors.Validation("driver_id is required", map[string]any{"field": "driver_id"})
+	}
+	return nil
 }
 
-type AssignVehicleInput struct {
-	TenantID  uuid.UUID
-	VehicleID uuid.UUID
-}
-
-type AcceptShipmentInput struct {
-	TenantID uuid.UUID
+func ValidateAssignVehicleParams(tenantID, shipmentID, vehicleID uuid.UUID) error {
+	if tenantID == uuid.Nil {
+		return apperrors.Unauthorized("tenant context is required")
+	}
+	if shipmentID == uuid.Nil {
+		return apperrors.Validation("id is required", map[string]any{"field": "id"})
+	}
+	if vehicleID == uuid.Nil {
+		return apperrors.Validation("vehicle_id is required", map[string]any{"field": "vehicle_id"})
+	}
+	return nil
 }
 
 type UpdateShipmentStatusInput struct {
-	TenantID    uuid.UUID
-	Status      string
-	ActualTime  *time.Time
+	Status     string
+	ActualTime *time.Time
 }
 
 type CancelShipmentInput struct {
-	TenantID uuid.UUID
-	Reason   string
+	Reason string
+}
+
+func ValidateVerifiedTenant(tenantID uuid.UUID) error {
+	if tenantID == uuid.Nil {
+		return apperrors.Unauthorized("tenant context is required")
+	}
+	return nil
 }
 
 func ValidateCreateShipmentFromOrderInput(in CreateShipmentFromOrderInput) error {
-	if in.TenantID == uuid.Nil {
-		return apperrors.Validation("tenant_id is required", map[string]any{"field": "tenant_id"})
-	}
 	if strings.TrimSpace(in.ShipmentNumber) == "" {
 		return apperrors.Validation("shipment_number is required", map[string]any{"field": "shipment_number"})
 	}
@@ -180,9 +192,6 @@ func ValidateCreateShipmentFromOrderInput(in CreateShipmentFromOrderInput) error
 }
 
 func ValidateCreateShipmentFromBidInput(in CreateShipmentFromBidInput) error {
-	if in.TenantID == uuid.Nil {
-		return apperrors.Validation("tenant_id is required", map[string]any{"field": "tenant_id"})
-	}
 	if strings.TrimSpace(in.ShipmentNumber) == "" {
 		return apperrors.Validation("shipment_number is required", map[string]any{"field": "shipment_number"})
 	}
@@ -205,37 +214,11 @@ func ValidateListShipmentsFilter(f ListShipmentsFilter) error {
 	return ValidateListPagination(f.Limit, f.Offset)
 }
 
-func ValidateAssignDriverInput(in AssignDriverInput) error {
-	if in.TenantID == uuid.Nil {
-		return apperrors.Validation("tenant_id is required", map[string]any{"field": "tenant_id"})
-	}
-	if in.DriverID == uuid.Nil {
-		return apperrors.Validation("driver_id is required", map[string]any{"field": "driver_id"})
-	}
-	return nil
-}
-
-func ValidateAssignVehicleInput(in AssignVehicleInput) error {
-	if in.TenantID == uuid.Nil {
-		return apperrors.Validation("tenant_id is required", map[string]any{"field": "tenant_id"})
-	}
-	if in.VehicleID == uuid.Nil {
-		return apperrors.Validation("vehicle_id is required", map[string]any{"field": "vehicle_id"})
-	}
-	return nil
-}
-
-func ValidateAcceptShipmentInput(in AcceptShipmentInput) error {
-	if in.TenantID == uuid.Nil {
-		return apperrors.Validation("tenant_id is required", map[string]any{"field": "tenant_id"})
-	}
+func ValidateAcceptShipmentInput() error {
 	return nil
 }
 
 func ValidateUpdateShipmentStatusInput(in UpdateShipmentStatusInput) error {
-	if in.TenantID == uuid.Nil {
-		return apperrors.Validation("tenant_id is required", map[string]any{"field": "tenant_id"})
-	}
 	if strings.TrimSpace(in.Status) == "" {
 		return apperrors.Validation("status is required", map[string]any{"field": "status"})
 	}
@@ -248,9 +231,6 @@ func ValidateUpdateShipmentStatusInput(in UpdateShipmentStatusInput) error {
 }
 
 func ValidateCancelShipmentInput(in CancelShipmentInput) error {
-	if in.TenantID == uuid.Nil {
-		return apperrors.Validation("tenant_id is required", map[string]any{"field": "tenant_id"})
-	}
 	return nil
 }
 
@@ -312,9 +292,9 @@ func ValidateStatusTransition(current, next string) error {
 	allowed, ok := allowedStatusTransitions[current]
 	if !ok {
 		return apperrors.Validation("status transition is not allowed", map[string]any{
-			"field":    "status",
-			"from":     current,
-			"to":       next,
+			"field": "status",
+			"from":  current,
+			"to":    next,
 		})
 	}
 	for _, candidate := range allowed {

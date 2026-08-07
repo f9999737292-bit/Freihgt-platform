@@ -10,6 +10,7 @@ const emit = defineEmits<{ updated: [] }>()
 
 const { listFreightRequestBids, isApiUnavailableError } = useFreightRequestsApi()
 const { submitBid, acceptBid } = useBidsApi()
+const { canCreateShipment } = usePermissions()
 const { pushToast } = useToast()
 const { t } = useI18n()
 const router = useRouter()
@@ -141,7 +142,7 @@ watch(() => props.freightRequestId, load, { immediate: true })
     <UiEmptyState v-else :title="$t('freightRequests.noBids')" />
   </UiCard>
 
-  <UiCard v-if="acceptedBid" class="shipment-hint">
+  <UiCard v-if="acceptedBid && canCreateShipment()" class="shipment-hint">
     <p>{{ $t('freightRequests.createShipmentHint') }}</p>
     <UiButton @click="createShipment">{{ $t('freightRequests.createShipment') }}</UiButton>
   </UiCard>

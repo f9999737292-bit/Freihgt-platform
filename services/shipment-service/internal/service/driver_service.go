@@ -11,9 +11,9 @@ import (
 
 type DriverStore interface {
 	CompanyExists(ctx context.Context, companyID, tenantID uuid.UUID) (bool, error)
-	Create(ctx context.Context, in domain.CreateDriverInput) (*domain.Driver, error)
-	GetByID(ctx context.Context, id uuid.UUID) (*domain.Driver, error)
-	List(ctx context.Context, filter domain.ListDriversFilter) ([]domain.Driver, int, error)
+	Create(ctx context.Context, tenantID uuid.UUID, in domain.CreateDriverInput) (*domain.Driver, error)
+	GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.Driver, error)
+	List(ctx context.Context, tenantID uuid.UUID, filter domain.ListDriversFilter) ([]domain.Driver, int, error)
 }
 
 type DriverService struct {
@@ -24,35 +24,44 @@ func NewDriverService(drivers DriverStore) *DriverService {
 	return &DriverService{drivers: drivers}
 }
 
-func (s *DriverService) Create(ctx context.Context, in domain.CreateDriverInput) (*domain.Driver, error) {
+func (s *DriverService) Create(ctx context.Context, tenantID uuid.UUID, in domain.CreateDriverInput) (*domain.Driver, error) {
+	if tenantID == uuid.Nil {
+		return nil, apperrors.Unauthorized("tenant context is required")
+	}
 	in.LicenseCountry = domain.NormalizeCountryCode(in.LicenseCountry)
 	in.PreferredLocale = domain.NormalizeTimezone(in.PreferredLocale)
 	if err := domain.ValidateCreateDriverInput(in); err != nil {
 		return nil, err
 	}
-	exists, err := s.drivers.CompanyExists(ctx, in.CarrierCompanyID, in.TenantID)
+	exists, err := s.drivers.CompanyExists(ctx, in.CarrierCompanyID, tenantID)
 	if err != nil {
 		return nil, err
 	}
 	if !exists {
 		return nil, apperrors.NotFound("carrier_company_id not found")
 	}
-	return s.drivers.Create(ctx, in)
+	return s.drivers.Create(ctx, tenantID, in)
 }
 
-func (s *DriverService) GetByID(ctx context.Context, id uuid.UUID) (*domain.Driver, error) {
+func (s *DriverService) GetByIDAndTenant(ctx context.Context, tenantID, id uuid.UUID) (*domain.Driver, error) {
 	if id == uuid.Nil {
 		return nil, apperrors.Validation("id is required", map[string]any{"field": "id"})
 	}
-	return s.drivers.GetByID(ctx, id)
+	if tenantID == uuid.Nil {
+		return nil, apperrors.Unauthorized("tenant context is required")
+	}
+	return s.drivers.GetByIDAndTenant(ctx, id, tenantID)
 }
 
-func (s *DriverService) List(ctx context.Context, filter domain.ListDriversFilter) ([]domain.Driver, int, error) {
+func (s *DriverService) List(ctx context.Context, tenantID uuid.UUID, filter domain.ListDriversFilter) ([]domain.Driver, int, error) {
+	if tenantID == uuid.Nil {
+		return nil, 0, apperrors.Unauthorized("tenant context is required")
+	}
 	if filter.Limit == 0 {
 		filter.Limit = 20
 	}
 	if err := domain.ValidateListDriversFilter(filter); err != nil {
 		return nil, 0, err
 	}
-	return s.drivers.List(ctx, filter)
+	return s.drivers.List(ctx, tenantID, filter)
 }

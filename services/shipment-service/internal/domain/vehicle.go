@@ -26,7 +26,6 @@ type Vehicle struct {
 }
 
 type CreateVehicleInput struct {
-	TenantID            uuid.UUID
 	CarrierCompanyID    uuid.UUID
 	PlateNumber         string
 	VehicleType         string
@@ -37,7 +36,6 @@ type CreateVehicleInput struct {
 }
 
 type ListVehiclesFilter struct {
-	TenantID         uuid.UUID
 	CarrierCompanyID *uuid.UUID
 	Status           *string
 	Limit            int
@@ -45,9 +43,6 @@ type ListVehiclesFilter struct {
 }
 
 func ValidateCreateVehicleInput(in CreateVehicleInput) error {
-	if in.TenantID == uuid.Nil {
-		return apperrors.Validation("tenant_id is required", map[string]any{"field": "tenant_id"})
-	}
 	if in.CarrierCompanyID == uuid.Nil {
 		return apperrors.Validation("carrier_company_id is required", map[string]any{"field": "carrier_company_id"})
 	}
@@ -61,9 +56,6 @@ func ValidateCreateVehicleInput(in CreateVehicleInput) error {
 }
 
 func ValidateListVehiclesFilter(f ListVehiclesFilter) error {
-	if f.TenantID == uuid.Nil {
-		return apperrors.Validation("tenant_id is required", map[string]any{"field": "tenant_id"})
-	}
 	if f.Limit == 0 {
 		return apperrors.Validation("limit must be greater than 0", map[string]any{"field": "limit"})
 	}

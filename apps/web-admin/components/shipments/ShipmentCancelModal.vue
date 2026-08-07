@@ -33,7 +33,7 @@ async function submit() {
     emit('cancelled')
     emit('close')
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : t('common.error')
+    errorMessage.value = formatApiErrorForUser(error)
   } finally {
     saving.value = false
   }

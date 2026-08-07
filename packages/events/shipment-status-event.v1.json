@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freight-platform.local/events/shipment-status-event.v1.json",
+  "title": "ShipmentStatusEventV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "eventId",
+    "eventType",
+    "schemaVersion",
+    "occurredAt",
+    "tenantId",
+    "aggregate",
+    "sourceEventId",
+    "data"
+  ],
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "eventType": {
+      "type": "string",
+      "enum": [
+        "shipment.created",
+        "shipment.status.changed",
+        "shipment.cancelled",
+        "shipment.ready_for_billing",
+        "shipment.documents_completed",
+        "shipment.financially_closed"
+      ]
+    },
+    "schemaVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "tenantId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "aggregate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id", "version"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "SHIPMENT"
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "sourceEventId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "correlationId": {
+      "type": "string"
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["toStatus", "actorType"],
+      "properties": {
+        "fromStatus": {
+          "type": ["string", "null"]
+        },
+        "toStatus": {
+          "type": "string"
+        },
+        "reasonCode": {
+          "type": ["string", "null"]
+        },
+        "actorType": {
+          "type": "string",
+          "enum": ["USER", "SYSTEM"]
+        }
+      }
+    }
+  }
+}

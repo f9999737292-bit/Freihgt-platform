@@ -3,20 +3,10 @@ import type { CreateDriverPayload, Driver, ListDriversFilters } from '~/types/sh
 import { ApiError } from '~/composables/useApi'
 
 export function useDriversApi() {
-  const tenantStore = useTenantStore()
   const { apiGet, apiPost } = useApi()
-
-  function tenantId() {
-    return tenantStore.tenantId
-  }
-
-  function tenantQuery(extra: Record<string, string | number | undefined> = {}) {
-    return { tenant_id: tenantId(), ...extra }
-  }
 
   async function listDrivers(params: ListDriversFilters = {}) {
     const query: Record<string, string | number | undefined> = {
-      ...tenantQuery(),
       limit: params.limit ?? 100,
       offset: params.offset ?? 0,
     }
@@ -28,13 +18,12 @@ export function useDriversApi() {
   }
 
   async function getDriver(id: string) {
-    return apiGet<Driver>(`/api/v1/drivers/${id}`, { query: tenantQuery() })
+    return apiGet<Driver>(`/api/v1/drivers/${id}`)
   }
 
-  async function createDriver(payload: Omit<CreateDriverPayload, 'tenant_id'>) {
+  async function createDriver(payload: CreateDriverPayload) {
     return apiPost<Driver>('/api/v1/drivers', {
       ...payload,
-      tenant_id: tenantId(),
       user_id: payload.user_id || null,
       phone: payload.phone?.trim() || undefined,
       license_number: payload.license_number?.trim() || undefined,

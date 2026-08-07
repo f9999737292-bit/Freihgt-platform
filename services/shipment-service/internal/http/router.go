@@ -6,11 +6,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/freight-platform/shipment-service/internal/http/handlers"
-	"github.com/freight-platform/shipment-service/internal/service"
 	"github.com/freight-platform/shared-go/metrics"
 	"github.com/freight-platform/shared-go/observability"
 	sharedpprof "github.com/freight-platform/shared-go/pprof"
+	"github.com/freight-platform/shipment-service/internal/http/handlers"
+	"github.com/freight-platform/shipment-service/internal/service"
 )
 
 const serviceName = "shipment-service"
@@ -19,10 +19,14 @@ func NewRouter(
 	log *slog.Logger,
 	db observability.DatabasePinger,
 	shipmentSvc *service.ShipmentService,
+	statusHistorySvc *service.StatusHistoryService,
+	statusSummarySvc *service.StatusSummaryService,
 	driverSvc *service.DriverService,
 	vehicleSvc *service.VehicleService,
 ) http.Handler {
 	shipmentHandler := handlers.NewShipmentHandler(shipmentSvc)
+	statusHistoryHandler := handlers.NewStatusHistoryHandler(statusHistorySvc)
+	statusSummaryHandler := handlers.NewStatusSummaryHandler(statusSummarySvc)
 	driverHandler := handlers.NewDriverHandler(driverSvc)
 	vehicleHandler := handlers.NewVehicleHandler(vehicleSvc)
 
@@ -57,6 +61,11 @@ func NewRouter(
 		r.Post("/", vehicleHandler.Create)
 		r.Get("/", vehicleHandler.List)
 		r.Get("/{id}", vehicleHandler.GetByID)
+	})
+
+	r.Route("/internal/v1/shipments", func(r chi.Router) {
+		r.Get("/status-summary", statusSummaryHandler.GetStatusSummary)
+		r.Get("/{shipmentId}/status-history", statusHistoryHandler.List)
 	})
 
 	return r

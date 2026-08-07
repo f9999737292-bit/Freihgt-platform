@@ -30,6 +30,7 @@
     "loading": "Загрузка…",
     "empty": "Нет данных",
     "error": "Ошибка",
+    "insufficientPermission": "Недостаточно прав для выполнения операции",
     "apiUnavailable": "API temporarily unavailable",
     "apiUnavailableHint": "Проверьте API Gateway и backend services",
     "refresh": "Обновить",
@@ -426,7 +427,10 @@
       "alertsRisks": "Риски и предупреждения",
       "quickActions": "Быстрые действия",
       "recentActivity": "Последние события",
-      "systemLinks": "Системные ссылки"
+      "systemLinks": "Системные ссылки",
+      "filters": "Фильтры",
+      "activeShipments": "Активные перевозки",
+      "criticalEvents": "Критические события"
     },
     "kpi": {
       "companies": "Companies",
@@ -539,6 +543,129 @@
       "swagger": "Swagger API docs",
       "prometheus": "Prometheus",
       "grafana": "Grafana"
+    },
+    "pageTitle": "Центр управления перевозками",
+    "lastUpdated": "Обновлено",
+    "backendConnection": "Соединение с backend",
+    "backendOnline": "Online",
+    "backendOfflineShort": "Offline",
+    "demoMode": "Демонстрационный режим — синтетические демо-данные",
+    "partialDataWarning": "Часть данных временно недоступна. Показатели могут быть неполными.",
+    "partialWarnings": {
+      "COMPANIES_UNAVAILABLE": "Справочник компаний временно недоступен",
+      "DOCUMENTS_UNAVAILABLE": "Реестр документов временно недоступен",
+      "TRANSPORT_ORDERS_UNAVAILABLE": "Транспортные заказы временно недоступны",
+      "KPI_CALCULATED_FROM_LIMITED_DATASET": "KPI рассчитаны по ограниченному набору перевозок",
+      "FILTER_OPTIONS_INCOMPLETE": "Список фильтров может быть неполным",
+      "CONTROL_TOWER_READ_MODEL_UNAVAILABLE": "Проекция статусов временно недоступна",
+      "CONTROL_TOWER_READ_MODEL_CONSUMER_NOT_RUNNING": "Consumer проекции статусов не запущен",
+      "CONTROL_TOWER_READ_MODEL_PARTIAL": "Часть проекций содержит пропуски версий",
+      "CONTROL_TOWER_READ_MODEL_FALLBACK_USED": "Сводка статусов загружена из текущего источника",
+      "CONTROL_TOWER_LEGACY_STATUS_SUMMARY_LIMITED": "Сводка статусов охватывает ограниченную выборку перевозок"
+    },
+    "readModel": {
+      "sourceBanner": "Источник статусов: проекция Control Tower",
+      "fallbackBanner": "Проекция статусов временно недоступна. Показаны данные текущего источника.",
+      "partialBanner": "Часть проекций содержит пропуски версий. Данные статусов могут быть неполными.",
+      "legacyLimitedBanner": "Сводка статусов рассчитана по ограниченной выборке перевозок и может быть неполной."
+    },
+    "accessDeniedTitle": "Доступ запрещён",
+    "accessDeniedDescription": "У вас нет прав для просмотра Control Tower.",
+    "autoRefresh": {
+      "label": "Автообновление",
+      "interval": "Интервал",
+      "intervals": {
+        "30s": "30 секунд",
+        "1m": "1 минута",
+        "5m": "5 минут"
+      }
+    },
+    "kpiV01": {
+      "activeShipments": "Активные перевозки",
+      "activeShipmentsDesc": "Перевозки в работе",
+      "onTime": "По плану",
+      "onTimeDesc": "Перевозки в пределах SLA",
+      "atRisk": "Риск SLA",
+      "atRiskDesc": "Перевозки с риском нарушения SLA",
+      "critical": "Критические отклонения",
+      "criticalDesc": "Задержки и критические отклонения SLA",
+      "awaitingDocuments": "Ожидают документов",
+      "awaitingDocumentsDesc": "Доставленные перевозки без документов",
+      "readyForBilling": "Готовы к биллингу",
+      "readyForBillingDesc": "Перевозки готовые к реестру биллинга"
+    },
+    "sla": {
+      "ON_TIME": "По плану",
+      "AT_RISK": "Риск",
+      "DELAYED": "Опоздание",
+      "CRITICAL": "Критично",
+      "UNKNOWN": "Неизвестно"
+    },
+    "slaTooltips": {
+      "ON_TIME": "Перевозка выполняется по плану",
+      "AT_RISK": "Есть риск нарушения SLA",
+      "DELAYED": "Зафиксировано опоздание",
+      "CRITICAL": "Критическое отклонение",
+      "UNKNOWN": "Недостаточно данных для оценки SLA"
+    },
+    "filters": {
+      "search": "Поиск по перевозке или заказу",
+      "status": "Статус перевозки",
+      "slaStatus": "SLA-состояние",
+      "shipper": "Грузовладелец",
+      "carrier": "Перевозчик",
+      "date": "Дата",
+      "criticalOnly": "Только критические",
+      "reset": "Сбросить фильтры"
+    },
+    "table": {
+      "shipmentNumber": "№ перевозки",
+      "transportOrder": "Транспортный заказ",
+      "shipper": "Грузовладелец",
+      "carrier": "Перевозчик",
+      "route": "Маршрут",
+      "plannedPickup": "План погрузки",
+      "plannedDelivery": "План доставки",
+      "status": "Статус",
+      "slaStatus": "SLA",
+      "lastEvent": "Последнее событие",
+      "lastUpdated": "Обновлено"
+    },
+    "actions": {
+      "openShipment": "Открыть перевозку",
+      "openOrder": "Открыть заказ",
+      "eventHistory": "История событий"
+    },
+    "events": {
+      "empty": "Критических событий нет",
+      "types": {
+        "PICKUP_DELAY": "Опоздание на погрузку",
+        "DELIVERY_DELAY": "Опоздание на доставку",
+        "NO_GEOLOCATION": "Нет геолокации",
+        "STALE_UPDATES": "Длительное отсутствие обновлений",
+        "ROUTE_DEVIATION": "Отклонение от маршрута",
+        "MISSING_DOCUMENTS": "Отсутствие документов",
+        "SHIPMENT_CANCELLED": "Отмена перевозки",
+        "TECHNICAL_ISSUE": "Техническая проблема",
+        "TECHNICAL_PROBLEM": "Техническая проблема",
+        "UNKNOWN_CRITICAL": "Неизвестное критическое событие",
+        "UNKNOWN_CRITICAL_EVENT": "Неизвестное критическое событие"
+      },
+      "descriptions": {
+        "pickupDelay": "Плановое время погрузки прошло без подтверждения",
+        "deliveryDelay": "Плановое время доставки прошло без подтверждения",
+        "noGeolocation": "Нет данных геолокации для активной перевозки",
+        "staleUpdates": "Длительное отсутствие обновлений по перевозке",
+        "missingDocuments": "Доставленная перевозка без связанных документов",
+        "shipmentCancelled": "Перевозка отменена",
+        "technicalIssue": "Обнаружена проблема backend или интеграции"
+      }
+    },
+    "states": {
+      "noActiveShipments": "Нет активных перевозок",
+      "noActiveShipmentsHint": "Для текущего tenant нет перевозок в работе",
+      "noFilteredResults": "Нет перевозок по фильтрам",
+      "noFilteredResultsHint": "Измените фильтры или сбросьте их"
     }
   },
   "tenant": {
@@ -973,6 +1100,120 @@
     "templateImportUnsupportedSchema": "Неподдерживаемая версия схемы экспорта",
     "templateImportUnsupportedField": "Неподдерживаемое поле импорта: {field}",
     "templateImportForbiddenField": "Запрещённое поле импорта: {field}"
+  },
+  "shipmentEvents": {
+    "title": "История событий",
+    "timelineTitle": "Хронология",
+    "backToShipment": "К перевозке",
+    "loading": "Загрузка истории событий…",
+    "empty": "Для этой перевозки пока нет событий.",
+    "derived": "Вычислено",
+    "derivedOnlyNote": "История восстановлена из текущего состояния перевозки и может не содержать все переходы.",
+    "actor": "Участник",
+    "notFoundTitle": "Перевозка не найдена",
+    "accessDeniedTitle": "Доступ запрещён",
+    "accessDeniedMessage": "У вас нет прав для просмотра истории событий этой перевозки.",
+    "unavailableTitle": "История событий недоступна",
+    "unavailableMessage": "Сервис временно недоступен. Повторите попытку позже.",
+    "partialWarningTitle": "История может быть неполной",
+    "partialWarningMessage": "История может быть неполной: часть источников временно недоступна.",
+    "filtersEmpty": "Нет событий по выбранным фильтрам.",
+    "paginationSummary": "Страница {page} · событий: {total}",
+    "filters": {
+      "title": "Фильтры",
+      "type": "Тип события",
+      "category": "Категория",
+      "source": "Источник",
+      "severity": "Важность",
+      "dateFrom": "С",
+      "dateTo": "По",
+      "derived": "Вычисленные события",
+      "derivedOnly": "Только вычисленные",
+      "canonicalOnly": "Только канонические",
+      "order": "Порядок",
+      "newestFirst": "Сначала новые",
+      "oldestFirst": "Сначала старые",
+      "apply": "Применить",
+      "reset": "Сбросить"
+    },
+    "categories": {
+      "SHIPMENT": "Перевозка",
+      "OPERATION": "Операция",
+      "DOCUMENT": "Документ",
+      "SLA": "SLA",
+      "BILLING": "Биллинг",
+      "TECHNICAL": "Технические",
+      "GEOLOCATION": "Геолокация",
+      "SYSTEM": "Система"
+    },
+    "sources": {
+      "SHIPMENT_STATE": "Состояние перевозки",
+      "SHIPMENT_STATUS_HISTORY": "История статусов перевозки",
+      "SLA_CALCULATOR": "SLA-калькулятор",
+      "DOCUMENT_STATE": "Состояние документа",
+      "BILLING_STATE": "Состояние биллинга"
+    },
+    "severities": {
+      "INFO": "Информация",
+      "WARNING": "Предупреждение",
+      "CRITICAL": "Критично"
+    },
+    "warnings": {
+      "SHIPMENT_EVENTS_UNAVAILABLE": "Сохранённая история перевозки",
+      "SHIPMENT_HISTORY_DERIVED_FROM_CURRENT_STATE": "Сохранённая история перевозки",
+      "SHIPMENT_STATUS_HISTORY_PARTIAL": "Неполная история статусов",
+      "SHIPMENT_STATUS_HISTORY_UNAVAILABLE": "История статусов недоступна",
+      "DOCUMENT_EVENTS_UNAVAILABLE": "Документы",
+      "BILLING_EVENTS_UNAVAILABLE": "Биллинг",
+      "TECHNICAL_EVENTS_UNAVAILABLE": "Технические события",
+      "GEOLOCATION_EVENTS_UNAVAILABLE": "Геолокация",
+      "TIMELINE_CALCULATED_FROM_LIMITED_DATASET": "Ограниченный набор данных",
+      "FILTER_OPTIONS_INCOMPLETE": "Фильтры"
+    },
+    "metadata": {
+      "documentId": "ID документа",
+      "documentType": "Тип документа",
+      "documentStatus": "Статус документа",
+      "billingRegisterId": "ID реестра",
+      "billingRegisterNumber": "Номер реестра",
+      "billingStatus": "Статус биллинга",
+      "plannedAt": "Плановое время",
+      "actualAt": "Фактическое время",
+      "delayMinutes": "Задержка (мин.)",
+      "slaStatus": "SLA-статус",
+      "slaReason": "Причина SLA",
+      "fromStatus": "Предыдущий статус",
+      "toStatus": "Новый статус",
+      "shipmentVersion": "Версия перевозки",
+      "reasonCode": "Код причины"
+    },
+    "types": {
+      "SHIPMENT_CREATED": { "title": "Перевозка создана", "description": "Перевозка была создана." },
+      "SHIPMENT_STATUS_CHANGED": { "title": "Изменение статуса", "description": "Статус перевозки изменился." },
+      "SHIPMENT_CANCELLED": { "title": "Перевозка отменена", "description": "Перевозка была отменена." },
+      "PICKUP_PLANNED": { "title": "Погрузка запланирована", "description": "Запланирована погрузка." },
+      "PICKUP_COMPLETED": { "title": "Погрузка выполнена", "description": "Погрузка выполнена." },
+      "DELIVERY_PLANNED": { "title": "Доставка запланирована", "description": "Запланирована доставка." },
+      "DELIVERY_COMPLETED": { "title": "Доставка выполнена", "description": "Доставка выполнена." },
+      "DOCUMENT_CREATED": { "title": "Документ создан", "description": "Создан документ." },
+      "DOCUMENT_SIGNED": { "title": "Документ подписан", "description": "Документ подписан." },
+      "DOCUMENT_REJECTED": { "title": "Документ отклонён", "description": "Документ отклонён." },
+      "DOCUMENTS_COMPLETED": { "title": "Документы завершены", "description": "Все необходимые документы готовы." },
+      "DOCUMENTS_MISSING": { "title": "Документы отсутствуют", "description": "Отсутствуют необходимые документы." },
+      "READY_FOR_BILLING": { "title": "Готово к биллингу", "description": "Перевозка готова к биллингу." },
+      "BILLING_REGISTER_ADDED": { "title": "Добавлено в реестр", "description": "Перевозка добавлена в реестр биллинга." },
+      "CLOSING_DOCUMENTS_CREATED": { "title": "Закрывающие документы созданы", "description": "Созданы закрывающие документы." },
+      "SIGNED_BY_COUNTERPARTY": { "title": "Подписано контрагентом", "description": "Документы подписаны контрагентом." },
+      "PAYMENT_MARKED": { "title": "Оплата отмечена", "description": "Оплата зафиксирована." },
+      "FINANCIALLY_CLOSED": { "title": "Финансово закрыто", "description": "Перевозка финансово закрыта." },
+      "SLA_AT_RISK": { "title": "SLA под риском", "description": "SLA перевозки под риском." },
+      "SLA_DELAYED": { "title": "SLA нарушен", "description": "Перевозка опаздывает по SLA." },
+      "SLA_CRITICAL": { "title": "SLA критичен", "description": "Критическое отклонение по SLA." },
+      "TECHNICAL_PROBLEM": { "title": "Техническая проблема", "description": "Зафиксирована техническая проблема." },
+      "GEOLOCATION_LOST": { "title": "Потеря геолокации", "description": "Потерян сигнал геолокации." },
+      "ROUTE_DEVIATION": { "title": "Отклонение от маршрута", "description": "Отклонение от запланированного маршрута." },
+      "UNKNOWN_EVENT": { "title": "Неизвестное событие", "description": "Зафиксировано неизвестное событие." }
+    }
   },
   "backendStatus": {
     "title": "Статус backend",

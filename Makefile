@@ -17,6 +17,8 @@ export
 
 COMPOSE_FILE ?= infrastructure/docker-compose/docker-compose.yml
 COMPOSE=docker compose -f $(COMPOSE_FILE)
+COMPOSE_SHADOW_FILE ?= infrastructure/docker-compose/docker-compose.staging-shadow.yml
+COMPOSE_SHADOW=docker compose -f $(COMPOSE_FILE) -f $(COMPOSE_SHADOW_FILE)
 
 # Backend containers started by platform-up (serial build uses this list).
 BACKEND_SERVICES := \
@@ -55,13 +57,18 @@ K6 ?= k6
 	db-metrics-check generate-db-metrics-traffic db-pool-metrics-check postgres-logs \
 	python-check python-check-win 	docker-readiness ports-check bash-check \
 	docker-disk-usage docker-clean-safe docker-volumes \
+	control-tower-shadow-rollout-config-check control-tower-shadow-rollout-smoke-test \
+	control-tower-shadow-rollout-metrics-check control-tower-shadow-rollout-regression \
+	control-tower-shadow-rollout-observability-check control-tower-shadow-rollout-acceptance \
 	performance-smoke performance-load performance-companies performance-transport-orders \
 	performance-rfx performance-shipments performance-billing performance-index-check \
 	go-build go-test \
 	run-api-gateway run-identity-service run-company-service run-localization-service \
 	run-transport-order-service run-shipment-service run-rfx-service \
 	run-document-service run-billing-register-service run-low-code-service \
-	test-company-service test-identity-service test-transport-order-service test-rfx-service test-shipment-service test-document-service test-billing-register-service test-low-code-service test-api-gateway \
+	test-company-service test-identity-service test-transport-order-service test-rfx-service test-shipment-service outbox-integration-test outbox-kafka-integration-test outbox-end-to-end-test \
+	messaging-up messaging-down messaging-status shipment-kafka-topic-create \
+	test-document-service test-billing-register-service test-low-code-service test-api-gateway \
 	integration-smoke-test full-flow-smoke-test lowcode-runtime-compliance-test check-lowcode-headers seed-dev-admin seed-demo-data seed-lowcode-demo create-lowcode-draft-template \
 	project-map tree-project find-service find-text \
 	openapi-generate openapi-generate-json openapi-validate openapi-check api-docs-open \
@@ -295,6 +302,7 @@ metrics-check:
 	@curl -sf http://localhost:8086/metrics >/dev/null
 	@curl -sf http://localhost:8087/metrics >/dev/null
 	@curl -sf http://localhost:8088/metrics >/dev/null
+	@curl -sf http://localhost:8089/metrics >/dev/null 2>/dev/null || echo "Note: read-model metrics on :8089 (profile read-model)"
 	@echo "Metrics OK"
 
 health-check:
@@ -447,6 +455,27 @@ run-shipment-service:
 test-shipment-service:
 	@cd services/shipment-service && go test ./...
 
+outbox-integration-test:
+	@cd services/shipment-service && go test -tags=integration ./internal/integration/outbox/... -count=1 -v
+
+outbox-kafka-integration-test:
+	@cd services/shipment-service && go test -tags=integration ./internal/integration/kafka/... -count=1 -v
+
+outbox-end-to-end-test:
+	@cd services/shipment-service && go test -tags=integration ./internal/integration/kafka/... -run 'EndToEnd|DuplicateDelivery|BrokerUnavailable' -count=1 -v
+
+messaging-up:
+	$(COMPOSE) --profile messaging up -d redpanda
+
+messaging-down:
+	$(COMPOSE) --profile messaging stop redpanda
+
+messaging-status:
+	$(COMPOSE) --profile messaging ps redpanda
+
+shipment-kafka-topic-create:
+	"$(BASH)" scripts/dev/create_shipment_kafka_topic.sh
+
 run-rfx-service:
 	@cd services/rfx-service && go run ./cmd/server
 
@@ -464,6 +493,131 @@ run-billing-register-service:
 
 test-billing-register-service:
 	@cd services/billing-register-service && go test ./...
+
+run-control-tower-read-model-service:
+	@cd services/control-tower-read-model-service && go run ./cmd/server
+
+control-tower-read-model-test:
+	@cd services/control-tower-read-model-service && go test ./...
+
+control-tower-read-model-build:
+	@cd services/control-tower-read-model-service && go build -o bin/server ./cmd/server
+
+control-tower-read-model-integration-test:
+	@cd services/control-tower-read-model-service && go test -tags=integration ./internal/integration/... -count=1 -v
+
+control-tower-read-model-restart-e2e-test:
+	@cd services/control-tower-read-model-service && go test -tags=integration ./internal/integration/kafka/... -run "ConsumerRestart|OffsetCommitFailure|DeadLetterRestart" -count=1 -v
+
+control-tower-read-model-up:
+	$(COMPOSE) --profile read-model up -d control-tower-read-model-service
+
+control-tower-read-model-down:
+	$(COMPOSE) --profile read-model stop control-tower-read-model-service
+
+control-tower-read-model-status:
+	$(COMPOSE) --profile read-model ps control-tower-read-model-service
+
+control-tower-read-model-shadow-check:
+	@cd services/api-gateway && go test ./internal/controltowerreadmodel/... ./internal/controltower/... -run 'Shadow|Compare|Merge' -count=1
+
+control-tower-read-model-primary-check:
+	@cd services/api-gateway && go test ./internal/controltowerreadmodel/... ./internal/controltower/... -run 'Primary|Fallback|Merge|Client' -count=1
+
+control-tower-read-model-blackbox-integration-test:
+	@cd services/api-gateway && go test -tags=integration ./internal/integration/controltowerreadmodel/... -count=1 -v
+
+control-tower-full-status-baseline-integration-test:
+	@cd services/api-gateway && go test -tags=integration ./internal/integration/controltowerreadmodel/... -run "FullBaseline|BlackBox.*Aggregate|ShadowMatch" -count=1 -p=1 -v
+
+control-tower-full-status-baseline-integration-test-parallel:
+	@cd services/api-gateway && go test -tags=integration ./internal/integration/controltowerreadmodel/... -run "FullBaseline|BlackBox.*Aggregate|ShadowMatch" -count=1 -parallel=2 -p=2 -v
+
+control-tower-shadow-rollout-config-check:
+	"$(BASH)" scripts/dev/control_tower_shadow_rollout_config_check.sh
+
+control-tower-shadow-rollout-smoke-test:
+	"$(BASH)" scripts/dev/control_tower_shadow_rollout_smoke.sh
+
+control-tower-shadow-rollout-metrics-check:
+	"$(BASH)" scripts/dev/control_tower_shadow_rollout_metrics_check.sh
+
+control-tower-shadow-rollout-regression:
+	$(MAKE) control-tower-shadow-rollout-config-check
+	"$(BASH)" -lc 'cd services/api-gateway && go test ./internal/controltower/... ./internal/controltowerreadmodel/... -run "Shadow|Compare|Merge|DisabledVsShadow|Metrics" -count=1'
+	"$(BASH)" -lc 'cd services/api-gateway && go test -tags=integration ./internal/integration/controltowerreadmodel/... -run "Shadow|FullBaselineShadow|ShadowMatch" -count=1 -p=1'
+	"$(BASH)" -lc 'cd services/control-tower-read-model-service && go test ./internal/consumer/... -run "Poll|Error|Recovery|Cancellation" -count=1'
+
+control-tower-shadow-rollout-observability-check:
+	"$(BASH)" scripts/dev/control_tower_shadow_rollout_observability_check.sh
+
+control-tower-shadow-rollout-acceptance:
+	"$(BASH)" scripts/dev/control_tower_shadow_rollout_acceptance.sh
+
+control-tower-shadow-rollout-equivalence-check:
+	"$(BASH)" scripts/dev/control_tower_shadow_rollout_equivalence_check.sh
+
+control-tower-projection-rebuild-build:
+	"$(BASH)" -lc 'cd packages/statussnapshot && go build ./...'
+	"$(BASH)" -lc 'cd services/shipment-service && go build -o /dev/null ./cmd/shipment-status-snapshot-export'
+	"$(BASH)" -lc 'cd services/control-tower-read-model-service && go build -o /dev/null ./cmd/control-tower-status-snapshot-import'
+
+control-tower-projection-rebuild-protocol-test:
+	"$(BASH)" -lc 'cd packages/statussnapshot && go test ./... -count=100'
+
+control-tower-projection-rebuild-test:
+	"$(BASH)" -lc 'cd packages/statussnapshot && go test ./... -count=1'
+	"$(BASH)" -lc 'cd services/shipment-service && go test ./internal/statussnapshot/... -count=100'
+	"$(BASH)" -lc 'cd services/control-tower-read-model-service && go test ./internal/rebuild/... -count=100'
+
+control-tower-projection-rebuild-migration-test:
+	"$(BASH)" -lc 'cd services/control-tower-read-model-service && go test -tags=integration ./internal/integration/rebuild/... -run Migration -count=1 -v'
+
+control-tower-projection-rebuild-integration-test: control-tower-projection-rebuild-migration-test
+
+control-tower-projection-rebuild-dry-run:
+	@echo "Real PostgreSQL exporter dry-run (requires TEST_DATABASE_URL)"
+	"$(BASH)" scripts/dev/control_tower_projection_rebuild_dry_run.sh
+
+control-tower-projection-rebuild-export-import-integration-test:
+	go test -tags=integration ./services/shipment-service/internal/integration/projectionrebuild/... -count=1 -v
+
+control-tower-projection-rebuild-component-integration-tests:
+	go test -tags=integration ./services/shipment-service/internal/integration/statussnapshot/... -count=1
+	go test -tags=integration ./services/control-tower-read-model-service/internal/integration/rebuild/... -count=1
+
+control-tower-projection-rebuild-import:
+	@if [ "$(CONFIRM_PROJECTION_REBUILD_IMPORT)" != "true" ]; then echo "CONFIRM_PROJECTION_REBUILD_IMPORT=true is required"; exit 2; fi
+	@echo "Persistent import requires piping exporter stdout to importer stdin with DATABASE_URL set."
+	@exit 2
+
+control-tower-projection-rebuild-activate:
+	@if [ "$(CONFIRM_PROJECTION_REBUILD_ACTIVATION)" != "true" ]; then echo "ACTIVATION_CONFIRMATION_REQUIRED"; exit 2; fi
+	@if [ -z "$(SNAPSHOT_ID)" ]; then echo "SNAPSHOT_ID is required"; exit 2; fi
+	"$(BASH)" scripts/dev/control_tower_projection_rebuild_activate.sh
+
+control-tower-projection-rebuild-rollback:
+	@if [ "$(CONFIRM_PROJECTION_REBUILD_ROLLBACK)" != "true" ]; then echo "ROLLBACK_CONFIRMATION_REQUIRED"; exit 2; fi
+	@if [ -z "$(SNAPSHOT_ID)" ]; then echo "SNAPSHOT_ID is required"; exit 2; fi
+	"$(BASH)" scripts/dev/control_tower_projection_rebuild_rollback.sh
+
+control-tower-projection-rebuild-kafka-catch-up-test:
+	go test -tags=integration ./services/control-tower-read-model-service/internal/integration/rebuild/... -run "KafkaCatchUp|OffsetPreservation|EventsDuringPause|GapAfterActivation" -count=1 -v
+
+control-tower-projection-rebuild-historical-acceptance:
+	"$(BASH)" scripts/dev/control_tower_projection_rebuild_historical_acceptance.sh
+
+control-tower-projection-rebuild-live-acceptance:
+	"$(BASH)" scripts/dev/control_tower_projection_rebuild_live_acceptance.sh
+
+control-tower-projection-rebuild-rollback-acceptance:
+	"$(BASH)" scripts/dev/control_tower_projection_rebuild_rollback_acceptance.sh
+
+control-tower-projection-rebuild-status:
+	"$(BASH)" scripts/dev/control_tower_projection_rebuild_status.sh
+
+control-tower-projection-rebuild-verify:
+	"$(BASH)" scripts/dev/control_tower_projection_rebuild_verify.sh
 
 run-low-code-service:
 	@cd services/low-code-service && go run ./cmd/server

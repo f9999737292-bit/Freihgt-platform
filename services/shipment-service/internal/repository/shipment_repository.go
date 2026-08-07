@@ -95,9 +95,15 @@ type CreateShipmentParams struct {
 	PlannedDeliveryAt     *time.Time
 }
 
-func (r *ShipmentRepository) CreateShipment(ctx context.Context, params CreateShipmentParams) (*domain.Shipment, error) {
+func (r *ShipmentRepository) CreateShipment(ctx context.Context, params CreateShipmentParams, transition domain.StatusTransitionContext) (*domain.Shipment, error) {
 	var result *domain.Shipment
 	err := measureDB("shipment_repository", "create_shipment", func() error {
+		tx, err := r.pool.Begin(ctx)
+		if err != nil {
+			return mapDBError(err)
+		}
+		defer tx.Rollback(ctx)
+
 		const query = `
 		INSERT INTO transport.shipments (
 			tenant_id, shipment_number, transport_order_id,
@@ -111,7 +117,7 @@ func (r *ShipmentRepository) CreateShipment(ctx context.Context, params CreateSh
 			transport_mode, status, planned_pickup_at, planned_delivery_at,
 			actual_pickup_at, actual_delivery_at, created_at, updated_at, version
 	`
-		row := r.pool.QueryRow(ctx, query,
+		shipment, err := scanShipment(tx.QueryRow(ctx, query,
 			params.TenantID,
 			strings.TrimSpace(params.ShipmentNumber),
 			params.TransportOrderID,
@@ -126,10 +132,25 @@ func (r *ShipmentRepository) CreateShipment(ctx context.Context, params CreateSh
 			domain.ShipmentStatusCarrierAssigned,
 			optionalTime(params.PlannedPickupAt),
 			optionalTime(params.PlannedDeliveryAt),
+		))
+		if err != nil {
+			return err
+		}
+
+		write := statusHistoryWriteFromTransition(
+			params.TenantID,
+			shipment.ID,
+			shipment.Version,
+			nil,
+			shipment.Status,
+			transition,
 		)
-		shipment, err := scanShipment(row)
-		if err != nil {
+		if err := insertStatusHistoryAndOutbox(ctx, tx, write); err != nil {
 			return err
+		}
+
+		if err := tx.Commit(ctx); err != nil {
+			return mapDBError(err)
 		}
 		result = shipment
 		return nil
@@ -137,32 +158,7 @@ func (r *ShipmentRepository) CreateShipment(ctx context.Context, params CreateSh
 	return result, err
 }
 
-func (r *ShipmentRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Shipment, error) {
-	var result *domain.Shipment
-	err := measureDB("shipment_repository", "get_shipment", func() error {
-		const query = `
-		SELECT id, tenant_id, shipment_number, transport_order_id,
-			shipper_company_id, consignee_company_id, carrier_company_id, forwarder_company_id,
-			driver_id, vehicle_id, origin_location_id, destination_location_id, cargo_id,
-			transport_mode, status, planned_pickup_at, planned_delivery_at,
-			actual_pickup_at, actual_delivery_at, created_at, updated_at, version
-		FROM transport.shipments
-		WHERE id = $1 AND deleted_at IS NULL
-	`
-		shipment, err := scanShipment(r.pool.QueryRow(ctx, query, id))
-		if err != nil {
-			return err
-		}
-		result = shipment
-		return nil
-	})
-	return result, err
-}
-
-func (r *ShipmentRepository) GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.Shipment, error) {
-	var result *domain.Shipment
-	err := measureDB("shipment_repository", "get_shipment", func() error {
-		const query = `
+const getShipmentByIDAndTenantQuery = `
 		SELECT id, tenant_id, shipment_number, transport_order_id,
 			shipper_company_id, consignee_company_id, carrier_company_id, forwarder_company_id,
 			driver_id, vehicle_id, origin_location_id, destination_location_id, cargo_id,
@@ -171,7 +167,11 @@ func (r *ShipmentRepository) GetByIDAndTenant(ctx context.Context, id, tenantID 
 		FROM transport.shipments
 		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
 	`
-		shipment, err := scanShipment(r.pool.QueryRow(ctx, query, id, tenantID))
+
+func (r *ShipmentRepository) GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.Shipment, error) {
+	var result *domain.Shipment
+	err := measureDB("shipment_repository", "get_shipment_by_tenant", func() error {
+		shipment, err := scanShipment(r.pool.QueryRow(ctx, getShipmentByIDAndTenantQuery, id, tenantID))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return apperrors.NotFound("shipment not found")
 		}
@@ -250,9 +250,15 @@ func (r *ShipmentRepository) List(ctx context.Context, filter domain.ListShipmen
 	return shipments, total, err
 }
 
-func (r *ShipmentRepository) AssignDriver(ctx context.Context, id, tenantID, driverID uuid.UUID, newStatus string, expectedVersion int) (*domain.Shipment, error) {
+func (r *ShipmentRepository) AssignDriver(ctx context.Context, id, tenantID, driverID uuid.UUID, fromStatus, newStatus string, expectedVersion int, transition domain.StatusTransitionContext) (*domain.Shipment, error) {
 	var result *domain.Shipment
 	err := measureDB("shipment_repository", "assign_driver", func() error {
+		tx, err := r.pool.Begin(ctx)
+		if err != nil {
+			return mapDBError(err)
+		}
+		defer tx.Rollback(ctx)
+
 		const query = `
 		UPDATE transport.shipments
 		SET driver_id = $1, status = $2, version = version + 1, updated_at = now()
@@ -263,9 +269,20 @@ func (r *ShipmentRepository) AssignDriver(ctx context.Context, id, tenantID, dri
 			transport_mode, status, planned_pickup_at, planned_delivery_at,
 			actual_pickup_at, actual_delivery_at, created_at, updated_at, version
 	`
-		shipment, err := scanShipmentUpdate(r.pool.QueryRow(ctx, query, driverID, newStatus, id, tenantID, expectedVersion))
+		shipment, err := scanShipmentUpdate(tx.QueryRow(ctx, query, driverID, newStatus, id, tenantID, expectedVersion))
 		if err != nil {
 			return err
+		}
+
+		if shouldRecordStatusHistory(stringPtr(fromStatus), newStatus) {
+			write := statusHistoryWriteFromTransition(tenantID, id, shipment.Version, stringPtr(fromStatus), newStatus, transition)
+			if err := insertStatusHistoryAndOutbox(ctx, tx, write); err != nil {
+				return err
+			}
+		}
+
+		if err := tx.Commit(ctx); err != nil {
+			return mapDBError(err)
 		}
 		result = shipment
 		return nil
@@ -273,9 +290,15 @@ func (r *ShipmentRepository) AssignDriver(ctx context.Context, id, tenantID, dri
 	return result, err
 }
 
-func (r *ShipmentRepository) AssignVehicle(ctx context.Context, id, tenantID, vehicleID uuid.UUID, newStatus string, expectedVersion int) (*domain.Shipment, error) {
+func (r *ShipmentRepository) AssignVehicle(ctx context.Context, id, tenantID, vehicleID uuid.UUID, fromStatus, newStatus string, expectedVersion int, transition domain.StatusTransitionContext) (*domain.Shipment, error) {
 	var result *domain.Shipment
 	err := measureDB("shipment_repository", "assign_vehicle", func() error {
+		tx, err := r.pool.Begin(ctx)
+		if err != nil {
+			return mapDBError(err)
+		}
+		defer tx.Rollback(ctx)
+
 		const query = `
 		UPDATE transport.shipments
 		SET vehicle_id = $1, status = $2, version = version + 1, updated_at = now()
@@ -286,9 +309,20 @@ func (r *ShipmentRepository) AssignVehicle(ctx context.Context, id, tenantID, ve
 			transport_mode, status, planned_pickup_at, planned_delivery_at,
 			actual_pickup_at, actual_delivery_at, created_at, updated_at, version
 	`
-		shipment, err := scanShipmentUpdate(r.pool.QueryRow(ctx, query, vehicleID, newStatus, id, tenantID, expectedVersion))
+		shipment, err := scanShipmentUpdate(tx.QueryRow(ctx, query, vehicleID, newStatus, id, tenantID, expectedVersion))
 		if err != nil {
 			return err
+		}
+
+		if shouldRecordStatusHistory(stringPtr(fromStatus), newStatus) {
+			write := statusHistoryWriteFromTransition(tenantID, id, shipment.Version, stringPtr(fromStatus), newStatus, transition)
+			if err := insertStatusHistoryAndOutbox(ctx, tx, write); err != nil {
+				return err
+			}
+		}
+
+		if err := tx.Commit(ctx); err != nil {
+			return mapDBError(err)
 		}
 		result = shipment
 		return nil
@@ -296,9 +330,15 @@ func (r *ShipmentRepository) AssignVehicle(ctx context.Context, id, tenantID, ve
 	return result, err
 }
 
-func (r *ShipmentRepository) UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, newStatus string, actualPickupAt, actualDeliveryAt *time.Time, expectedVersion int) (*domain.Shipment, error) {
+func (r *ShipmentRepository) UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, fromStatus, newStatus string, actualPickupAt, actualDeliveryAt *time.Time, expectedVersion int, transition domain.StatusTransitionContext) (*domain.Shipment, error) {
 	var result *domain.Shipment
 	err := measureDB("shipment_repository", "update_shipment_status", func() error {
+		tx, err := r.pool.Begin(ctx)
+		if err != nil {
+			return mapDBError(err)
+		}
+		defer tx.Rollback(ctx)
+
 		const query = `
 		UPDATE transport.shipments
 		SET status = $1,
@@ -313,7 +353,7 @@ func (r *ShipmentRepository) UpdateStatus(ctx context.Context, id, tenantID uuid
 			transport_mode, status, planned_pickup_at, planned_delivery_at,
 			actual_pickup_at, actual_delivery_at, created_at, updated_at, version
 	`
-		shipment, err := scanShipmentUpdate(r.pool.QueryRow(ctx, query,
+		shipment, err := scanShipmentUpdate(tx.QueryRow(ctx, query,
 			newStatus,
 			optionalTime(actualPickupAt),
 			optionalTime(actualDeliveryAt),
@@ -322,28 +362,14 @@ func (r *ShipmentRepository) UpdateStatus(ctx context.Context, id, tenantID uuid
 		if err != nil {
 			return err
 		}
-		result = shipment
-		return nil
-	})
-	return result, err
-}
 
-func (r *ShipmentRepository) Accept(ctx context.Context, id, tenantID uuid.UUID, expectedVersion int) (*domain.Shipment, error) {
-	var result *domain.Shipment
-	err := measureDB("shipment_repository", "accept_shipment", func() error {
-		const query = `
-		UPDATE transport.shipments
-		SET status = $1, version = version + 1, updated_at = now()
-		WHERE id = $2 AND tenant_id = $3 AND deleted_at IS NULL AND version = $4
-		RETURNING id, tenant_id, shipment_number, transport_order_id,
-			shipper_company_id, consignee_company_id, carrier_company_id, forwarder_company_id,
-			driver_id, vehicle_id, origin_location_id, destination_location_id, cargo_id,
-			transport_mode, status, planned_pickup_at, planned_delivery_at,
-			actual_pickup_at, actual_delivery_at, created_at, updated_at, version
-	`
-		shipment, err := scanShipmentUpdate(r.pool.QueryRow(ctx, query, domain.ShipmentStatusAcceptedByCarrier, id, tenantID, expectedVersion))
-		if err != nil {
+		write := statusHistoryWriteFromTransition(tenantID, id, shipment.Version, stringPtr(fromStatus), newStatus, transition)
+		if err := insertStatusHistoryAndOutbox(ctx, tx, write); err != nil {
 			return err
+		}
+
+		if err := tx.Commit(ctx); err != nil {
+			return mapDBError(err)
 		}
 		result = shipment
 		return nil
@@ -351,9 +377,15 @@ func (r *ShipmentRepository) Accept(ctx context.Context, id, tenantID uuid.UUID,
 	return result, err
 }
 
-func (r *ShipmentRepository) Cancel(ctx context.Context, id, tenantID uuid.UUID, expectedVersion int) (*domain.Shipment, error) {
+func (r *ShipmentRepository) Accept(ctx context.Context, id, tenantID uuid.UUID, fromStatus string, expectedVersion int, transition domain.StatusTransitionContext) (*domain.Shipment, error) {
 	var result *domain.Shipment
-	err := measureDB("shipment_repository", "cancel_shipment", func() error {
+	err := measureDB("shipment_repository", "accept_shipment", func() error {
+		tx, err := r.pool.Begin(ctx)
+		if err != nil {
+			return mapDBError(err)
+		}
+		defer tx.Rollback(ctx)
+
 		const query = `
 		UPDATE transport.shipments
 		SET status = $1, version = version + 1, updated_at = now()
@@ -364,9 +396,70 @@ func (r *ShipmentRepository) Cancel(ctx context.Context, id, tenantID uuid.UUID,
 			transport_mode, status, planned_pickup_at, planned_delivery_at,
 			actual_pickup_at, actual_delivery_at, created_at, updated_at, version
 	`
-		shipment, err := scanShipmentUpdate(r.pool.QueryRow(ctx, query, domain.ShipmentStatusCancelled, id, tenantID, expectedVersion))
+		shipment, err := scanShipmentUpdate(tx.QueryRow(ctx, query, domain.ShipmentStatusAcceptedByCarrier, id, tenantID, expectedVersion))
 		if err != nil {
 			return err
+		}
+
+		write := statusHistoryWriteFromTransition(
+			tenantID,
+			id,
+			shipment.Version,
+			stringPtr(fromStatus),
+			domain.ShipmentStatusAcceptedByCarrier,
+			transition,
+		)
+		if err := insertStatusHistoryAndOutbox(ctx, tx, write); err != nil {
+			return err
+		}
+
+		if err := tx.Commit(ctx); err != nil {
+			return mapDBError(err)
+		}
+		result = shipment
+		return nil
+	})
+	return result, err
+}
+
+func (r *ShipmentRepository) Cancel(ctx context.Context, id, tenantID uuid.UUID, fromStatus string, expectedVersion int, transition domain.StatusTransitionContext) (*domain.Shipment, error) {
+	var result *domain.Shipment
+	err := measureDB("shipment_repository", "cancel_shipment", func() error {
+		tx, err := r.pool.Begin(ctx)
+		if err != nil {
+			return mapDBError(err)
+		}
+		defer tx.Rollback(ctx)
+
+		const query = `
+		UPDATE transport.shipments
+		SET status = $1, version = version + 1, updated_at = now()
+		WHERE id = $2 AND tenant_id = $3 AND deleted_at IS NULL AND version = $4
+		RETURNING id, tenant_id, shipment_number, transport_order_id,
+			shipper_company_id, consignee_company_id, carrier_company_id, forwarder_company_id,
+			driver_id, vehicle_id, origin_location_id, destination_location_id, cargo_id,
+			transport_mode, status, planned_pickup_at, planned_delivery_at,
+			actual_pickup_at, actual_delivery_at, created_at, updated_at, version
+	`
+		shipment, err := scanShipmentUpdate(tx.QueryRow(ctx, query, domain.ShipmentStatusCancelled, id, tenantID, expectedVersion))
+		if err != nil {
+			return err
+		}
+
+		write := statusHistoryWriteFromTransition(
+			tenantID,
+			id,
+			shipment.Version,
+			stringPtr(fromStatus),
+			domain.ShipmentStatusCancelled,
+			transition,
+		)
+		if err := insertStatusHistoryAndOutbox(ctx, tx, write); err != nil {
+			return err
+		}
+
+		if err := tx.Commit(ctx); err != nil {
+			return mapDBError(err)
 		}
 		result = shipment
 		return nil

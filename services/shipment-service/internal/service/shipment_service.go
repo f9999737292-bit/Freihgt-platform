@@ -2,36 +2,38 @@ package service
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/freight-platform/shipment-service/internal/domain"
-	"github.com/freight-platform/shipment-service/internal/repository"
 	apperrors "github.com/freight-platform/shipment-service/internal/platform/errors"
+	"github.com/freight-platform/shipment-service/internal/repository"
 )
 
 type ShipmentStore interface {
 	CompanyExists(ctx context.Context, companyID, tenantID uuid.UUID) (bool, error)
 	GetTransportOrder(ctx context.Context, id, tenantID uuid.UUID) (*domain.TransportOrderSnapshot, error)
 	GetBid(ctx context.Context, id, tenantID uuid.UUID) (*domain.BidSnapshot, error)
-	CreateShipment(ctx context.Context, params repository.CreateShipmentParams) (*domain.Shipment, error)
-	GetByID(ctx context.Context, id uuid.UUID) (*domain.Shipment, error)
+	CreateShipment(ctx context.Context, params repository.CreateShipmentParams, transition domain.StatusTransitionContext) (*domain.Shipment, error)
 	GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.Shipment, error)
 	List(ctx context.Context, filter domain.ListShipmentsFilter) ([]domain.Shipment, int, error)
-	AssignDriver(ctx context.Context, id, tenantID, driverID uuid.UUID, newStatus string, expectedVersion int) (*domain.Shipment, error)
-	AssignVehicle(ctx context.Context, id, tenantID, vehicleID uuid.UUID, newStatus string, expectedVersion int) (*domain.Shipment, error)
-	UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, newStatus string, actualPickupAt, actualDeliveryAt *time.Time, expectedVersion int) (*domain.Shipment, error)
-	Accept(ctx context.Context, id, tenantID uuid.UUID, expectedVersion int) (*domain.Shipment, error)
-	Cancel(ctx context.Context, id, tenantID uuid.UUID, expectedVersion int) (*domain.Shipment, error)
+	AssignDriver(ctx context.Context, id, tenantID, driverID uuid.UUID, fromStatus, newStatus string, expectedVersion int, transition domain.StatusTransitionContext) (*domain.Shipment, error)
+	AssignVehicle(ctx context.Context, id, tenantID, vehicleID uuid.UUID, fromStatus, newStatus string, expectedVersion int, transition domain.StatusTransitionContext) (*domain.Shipment, error)
+	UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, fromStatus, newStatus string, actualPickupAt, actualDeliveryAt *time.Time, expectedVersion int, transition domain.StatusTransitionContext) (*domain.Shipment, error)
+	Accept(ctx context.Context, id, tenantID uuid.UUID, fromStatus string, expectedVersion int, transition domain.StatusTransitionContext) (*domain.Shipment, error)
+	Cancel(ctx context.Context, id, tenantID uuid.UUID, fromStatus string, expectedVersion int, transition domain.StatusTransitionContext) (*domain.Shipment, error)
+	ListStatusHistory(ctx context.Context, filter domain.ListStatusHistoryFilter) ([]domain.ShipmentStatusHistory, int, error)
+	HasInitialStatusHistory(ctx context.Context, tenantID, shipmentID uuid.UUID) (bool, error)
 }
 
 type DriverLookup interface {
-	GetByID(ctx context.Context, id uuid.UUID) (*domain.Driver, error)
+	GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.Driver, error)
 }
 
 type VehicleLookup interface {
-	GetByID(ctx context.Context, id uuid.UUID) (*domain.Vehicle, error)
+	GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.Vehicle, error)
 }
 
 type ShipmentService struct {
@@ -44,12 +46,18 @@ func NewShipmentService(shipments ShipmentStore, drivers DriverLookup, vehicles 
 	return &ShipmentService{shipments: shipments, drivers: drivers, vehicles: vehicles}
 }
 
-func (s *ShipmentService) CreateFromTransportOrder(ctx context.Context, in domain.CreateShipmentFromOrderInput) (*domain.Shipment, error) {
+func (s *ShipmentService) CreateFromTransportOrder(ctx context.Context, tenantID uuid.UUID, in domain.CreateShipmentFromOrderInput, transition domain.StatusTransitionContext) (*domain.Shipment, error) {
+	if err := domain.ValidateVerifiedTenant(tenantID); err != nil {
+		return nil, err
+	}
+	if err := domain.ValidateStatusTransitionContext(transition); err != nil {
+		return nil, err
+	}
 	if err := domain.ValidateCreateShipmentFromOrderInput(in); err != nil {
 		return nil, err
 	}
 
-	order, err := s.shipments.GetTransportOrder(ctx, in.TransportOrderID, in.TenantID)
+	order, err := s.shipments.GetTransportOrder(ctx, in.TransportOrderID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +65,7 @@ func (s *ShipmentService) CreateFromTransportOrder(ctx context.Context, in domai
 		return nil, err
 	}
 
-	exists, err := s.shipments.CompanyExists(ctx, in.CarrierCompanyID, in.TenantID)
+	exists, err := s.shipments.CompanyExists(ctx, in.CarrierCompanyID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +74,7 @@ func (s *ShipmentService) CreateFromTransportOrder(ctx context.Context, in domai
 	}
 
 	return s.shipments.CreateShipment(ctx, repository.CreateShipmentParams{
-		TenantID:              in.TenantID,
+		TenantID:              tenantID,
 		ShipmentNumber:        in.ShipmentNumber,
 		TransportOrderID:      in.TransportOrderID,
 		ShipperCompanyID:      order.ShipperCompanyID,
@@ -79,15 +87,21 @@ func (s *ShipmentService) CreateFromTransportOrder(ctx context.Context, in domai
 		TransportMode:         order.TransportMode,
 		PlannedPickupAt:       in.PlannedPickupAt,
 		PlannedDeliveryAt:     in.PlannedDeliveryAt,
-	})
+	}, transition)
 }
 
-func (s *ShipmentService) CreateFromBid(ctx context.Context, in domain.CreateShipmentFromBidInput) (*domain.Shipment, error) {
+func (s *ShipmentService) CreateFromBid(ctx context.Context, tenantID uuid.UUID, in domain.CreateShipmentFromBidInput, transition domain.StatusTransitionContext) (*domain.Shipment, error) {
+	if err := domain.ValidateVerifiedTenant(tenantID); err != nil {
+		return nil, err
+	}
+	if err := domain.ValidateStatusTransitionContext(transition); err != nil {
+		return nil, err
+	}
 	if err := domain.ValidateCreateShipmentFromBidInput(in); err != nil {
 		return nil, err
 	}
 
-	bid, err := s.shipments.GetBid(ctx, in.BidID, in.TenantID)
+	bid, err := s.shipments.GetBid(ctx, in.BidID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -95,13 +109,13 @@ func (s *ShipmentService) CreateFromBid(ctx context.Context, in domain.CreateShi
 		return nil, err
 	}
 
-	order, err := s.shipments.GetTransportOrder(ctx, in.TransportOrderID, in.TenantID)
+	order, err := s.shipments.GetTransportOrder(ctx, in.TransportOrderID, tenantID)
 	if err != nil {
 		return nil, err
 	}
 
 	return s.shipments.CreateShipment(ctx, repository.CreateShipmentParams{
-		TenantID:              in.TenantID,
+		TenantID:              tenantID,
 		ShipmentNumber:        in.ShipmentNumber,
 		TransportOrderID:      in.TransportOrderID,
 		ShipperCompanyID:      order.ShipperCompanyID,
@@ -113,14 +127,17 @@ func (s *ShipmentService) CreateFromBid(ctx context.Context, in domain.CreateShi
 		TransportMode:         order.TransportMode,
 		PlannedPickupAt:       in.PlannedPickupAt,
 		PlannedDeliveryAt:     in.PlannedDeliveryAt,
-	})
+	}, transition)
 }
 
-func (s *ShipmentService) GetByID(ctx context.Context, id uuid.UUID) (*domain.Shipment, error) {
+func (s *ShipmentService) GetByIDAndTenant(ctx context.Context, tenantID, id uuid.UUID) (*domain.Shipment, error) {
 	if id == uuid.Nil {
 		return nil, apperrors.Validation("id is required", map[string]any{"field": "id"})
 	}
-	return s.shipments.GetByID(ctx, id)
+	if err := domain.ValidateVerifiedTenant(tenantID); err != nil {
+		return nil, err
+	}
+	return s.shipments.GetByIDAndTenant(ctx, id, tenantID)
 }
 
 func (s *ShipmentService) List(ctx context.Context, filter domain.ListShipmentsFilter) ([]domain.Shipment, int, error) {
@@ -133,15 +150,15 @@ func (s *ShipmentService) List(ctx context.Context, filter domain.ListShipmentsF
 	return s.shipments.List(ctx, filter)
 }
 
-func (s *ShipmentService) AssignDriver(ctx context.Context, id uuid.UUID, in domain.AssignDriverInput) (*domain.Shipment, error) {
-	if id == uuid.Nil {
-		return nil, apperrors.Validation("id is required", map[string]any{"field": "id"})
+func (s *ShipmentService) AssignDriver(ctx context.Context, tenantID, shipmentID, driverID uuid.UUID, transition domain.StatusTransitionContext) (*domain.Shipment, error) {
+	if err := domain.ValidateStatusTransitionContext(transition); err != nil {
+		return nil, err
 	}
-	if err := domain.ValidateAssignDriverInput(in); err != nil {
+	if err := domain.ValidateAssignDriverParams(tenantID, shipmentID, driverID); err != nil {
 		return nil, err
 	}
 
-	shipment, err := s.shipments.GetByIDAndTenant(ctx, id, in.TenantID)
+	shipment, err := s.shipments.GetByIDAndTenant(ctx, shipmentID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -149,30 +166,27 @@ func (s *ShipmentService) AssignDriver(ctx context.Context, id uuid.UUID, in dom
 		return nil, err
 	}
 
-	driver, err := s.drivers.GetByID(ctx, in.DriverID)
+	driver, err := s.drivers.GetByIDAndTenant(ctx, driverID, tenantID)
 	if err != nil {
 		return nil, err
-	}
-	if driver.TenantID != in.TenantID {
-		return nil, apperrors.NotFound("driver not found")
 	}
 	if shipment.CarrierCompanyID == nil || driver.CarrierCompanyID != *shipment.CarrierCompanyID {
 		return nil, apperrors.Validation("driver carrier_company_id must match shipment carrier_company_id", map[string]any{"field": "driver_id"})
 	}
 
 	newStatus := domain.ResolveStatusAfterAssignDriver(shipment.Status, shipment.VehicleID != nil)
-	return s.shipments.AssignDriver(ctx, id, in.TenantID, in.DriverID, newStatus, shipment.Version)
+	return s.shipments.AssignDriver(ctx, shipmentID, tenantID, driverID, shipment.Status, newStatus, shipment.Version, transition)
 }
 
-func (s *ShipmentService) AssignVehicle(ctx context.Context, id uuid.UUID, in domain.AssignVehicleInput) (*domain.Shipment, error) {
-	if id == uuid.Nil {
-		return nil, apperrors.Validation("id is required", map[string]any{"field": "id"})
+func (s *ShipmentService) AssignVehicle(ctx context.Context, tenantID, shipmentID, vehicleID uuid.UUID, transition domain.StatusTransitionContext) (*domain.Shipment, error) {
+	if err := domain.ValidateStatusTransitionContext(transition); err != nil {
+		return nil, err
 	}
-	if err := domain.ValidateAssignVehicleInput(in); err != nil {
+	if err := domain.ValidateAssignVehicleParams(tenantID, shipmentID, vehicleID); err != nil {
 		return nil, err
 	}
 
-	shipment, err := s.shipments.GetByIDAndTenant(ctx, id, in.TenantID)
+	shipment, err := s.shipments.GetByIDAndTenant(ctx, shipmentID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -180,48 +194,57 @@ func (s *ShipmentService) AssignVehicle(ctx context.Context, id uuid.UUID, in do
 		return nil, err
 	}
 
-	vehicle, err := s.vehicles.GetByID(ctx, in.VehicleID)
+	vehicle, err := s.vehicles.GetByIDAndTenant(ctx, vehicleID, tenantID)
 	if err != nil {
 		return nil, err
-	}
-	if vehicle.TenantID != in.TenantID {
-		return nil, apperrors.NotFound("vehicle not found")
 	}
 	if shipment.CarrierCompanyID == nil || vehicle.CarrierCompanyID != *shipment.CarrierCompanyID {
 		return nil, apperrors.Validation("vehicle carrier_company_id must match shipment carrier_company_id", map[string]any{"field": "vehicle_id"})
 	}
 
 	newStatus := domain.ResolveStatusAfterAssignVehicle(shipment.DriverID != nil)
-	return s.shipments.AssignVehicle(ctx, id, in.TenantID, in.VehicleID, newStatus, shipment.Version)
+	return s.shipments.AssignVehicle(ctx, shipmentID, tenantID, vehicleID, shipment.Status, newStatus, shipment.Version, transition)
 }
 
-func (s *ShipmentService) Accept(ctx context.Context, id uuid.UUID, in domain.AcceptShipmentInput) (*domain.Shipment, error) {
-	if id == uuid.Nil {
+func (s *ShipmentService) Accept(ctx context.Context, tenantID, shipmentID uuid.UUID, transition domain.StatusTransitionContext) (*domain.Shipment, error) {
+	if err := domain.ValidateVerifiedTenant(tenantID); err != nil {
+		return nil, err
+	}
+	if err := domain.ValidateStatusTransitionContext(transition); err != nil {
+		return nil, err
+	}
+	if shipmentID == uuid.Nil {
 		return nil, apperrors.Validation("id is required", map[string]any{"field": "id"})
 	}
-	if err := domain.ValidateAcceptShipmentInput(in); err != nil {
+	if err := domain.ValidateAcceptShipmentInput(); err != nil {
 		return nil, err
 	}
 
-	shipment, err := s.shipments.GetByIDAndTenant(ctx, id, in.TenantID)
+	shipment, err := s.shipments.GetByIDAndTenant(ctx, shipmentID, tenantID)
 	if err != nil {
 		return nil, err
 	}
 	if err := domain.ValidateAcceptShipmentStatus(shipment.Status); err != nil {
 		return nil, err
 	}
-	return s.shipments.Accept(ctx, id, in.TenantID, shipment.Version)
+	return s.shipments.Accept(ctx, shipmentID, tenantID, shipment.Status, shipment.Version, transition)
 }
 
-func (s *ShipmentService) UpdateStatus(ctx context.Context, id uuid.UUID, in domain.UpdateShipmentStatusInput) (*domain.Shipment, error) {
-	if id == uuid.Nil {
+func (s *ShipmentService) UpdateStatus(ctx context.Context, tenantID, shipmentID uuid.UUID, in domain.UpdateShipmentStatusInput, transition domain.StatusTransitionContext) (*domain.Shipment, error) {
+	if err := domain.ValidateVerifiedTenant(tenantID); err != nil {
+		return nil, err
+	}
+	if err := domain.ValidateStatusTransitionContext(transition); err != nil {
+		return nil, err
+	}
+	if shipmentID == uuid.Nil {
 		return nil, apperrors.Validation("id is required", map[string]any{"field": "id"})
 	}
 	if err := domain.ValidateUpdateShipmentStatusInput(in); err != nil {
 		return nil, err
 	}
 
-	shipment, err := s.shipments.GetByIDAndTenant(ctx, id, in.TenantID)
+	shipment, err := s.shipments.GetByIDAndTenant(ctx, shipmentID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -237,23 +260,34 @@ func (s *ShipmentService) UpdateStatus(ctx context.Context, id uuid.UUID, in dom
 		actualDelivery = in.ActualTime
 	}
 
-	return s.shipments.UpdateStatus(ctx, id, in.TenantID, in.Status, actualPickup, actualDelivery, shipment.Version)
+	return s.shipments.UpdateStatus(ctx, shipmentID, tenantID, shipment.Status, in.Status, actualPickup, actualDelivery, shipment.Version, transition)
 }
 
-func (s *ShipmentService) Cancel(ctx context.Context, id uuid.UUID, in domain.CancelShipmentInput) (*domain.Shipment, error) {
-	if id == uuid.Nil {
+func (s *ShipmentService) Cancel(ctx context.Context, tenantID, shipmentID uuid.UUID, in domain.CancelShipmentInput, transition domain.StatusTransitionContext) (*domain.Shipment, error) {
+	if err := domain.ValidateVerifiedTenant(tenantID); err != nil {
+		return nil, err
+	}
+	if err := domain.ValidateStatusTransitionContext(transition); err != nil {
+		return nil, err
+	}
+	if shipmentID == uuid.Nil {
 		return nil, apperrors.Validation("id is required", map[string]any{"field": "id"})
 	}
 	if err := domain.ValidateCancelShipmentInput(in); err != nil {
 		return nil, err
 	}
 
-	shipment, err := s.shipments.GetByIDAndTenant(ctx, id, in.TenantID)
+	shipment, err := s.shipments.GetByIDAndTenant(ctx, shipmentID, tenantID)
 	if err != nil {
 		return nil, err
 	}
 	if err := domain.ValidateCancelShipmentStatus(shipment.Status); err != nil {
 		return nil, err
 	}
-	return s.shipments.Cancel(ctx, id, in.TenantID, shipment.Version)
+
+	cancelTransition := transition
+	if trimmed := strings.TrimSpace(in.Reason); trimmed != "" {
+		cancelTransition.ReasonCode = &trimmed
+	}
+	return s.shipments.Cancel(ctx, shipmentID, tenantID, shipment.Status, shipment.Version, cancelTransition)
 }

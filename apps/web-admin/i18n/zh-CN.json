@@ -30,6 +30,7 @@
     "loading": "加载中…",
     "empty": "暂无数据",
     "error": "错误",
+    "insufficientPermission": "权限不足，无法执行此操作",
     "apiUnavailable": "API temporarily unavailable",
     "apiUnavailableHint": "Check API Gateway and backend services",
     "refresh": "Refresh",
@@ -426,7 +427,10 @@
       "alertsRisks": "风险和警告",
       "quickActions": "快速操作",
       "recentActivity": "最近活动",
-      "systemLinks": "系统链接"
+      "systemLinks": "系统链接",
+      "filters": "筛选",
+      "activeShipments": "活跃运输",
+      "criticalEvents": "关键事件"
     },
     "kpi": {
       "companies": "Companies",
@@ -539,6 +543,129 @@
       "swagger": "Swagger API docs",
       "prometheus": "Prometheus",
       "grafana": "Grafana"
+    },
+    "pageTitle": "运输控制中心",
+    "lastUpdated": "最后更新",
+    "backendConnection": "后端连接",
+    "backendOnline": "在线",
+    "backendOfflineShort": "离线",
+    "demoMode": "演示模式 — 合成演示数据",
+    "partialDataWarning": "部分数据暂时不可用。指标可能不完整。",
+    "partialWarnings": {
+      "COMPANIES_UNAVAILABLE": "公司目录暂时不可用",
+      "DOCUMENTS_UNAVAILABLE": "文档登记暂时不可用",
+      "TRANSPORT_ORDERS_UNAVAILABLE": "运输订单暂时不可用",
+      "KPI_CALCULATED_FROM_LIMITED_DATASET": "KPI 基于有限的运输数据集计算",
+      "FILTER_OPTIONS_INCOMPLETE": "筛选选项可能不完整",
+      "CONTROL_TOWER_READ_MODEL_UNAVAILABLE": "状态投影暂时不可用",
+      "CONTROL_TOWER_READ_MODEL_CONSUMER_NOT_RUNNING": "状态投影消费者未运行",
+      "CONTROL_TOWER_READ_MODEL_PARTIAL": "部分投影存在版本缺口",
+      "CONTROL_TOWER_READ_MODEL_FALLBACK_USED": "状态汇总来自当前数据源",
+      "CONTROL_TOWER_LEGACY_STATUS_SUMMARY_LIMITED": "状态汇总仅覆盖有限的运输样本"
+    },
+    "readModel": {
+      "sourceBanner": "状态来源：Control Tower 投影",
+      "fallbackBanner": "状态投影暂时不可用，当前显示现有数据源。",
+      "partialBanner": "部分投影存在版本缺口，状态数据可能不完整。",
+      "legacyLimitedBanner": "状态汇总基于有限的运输数据集计算，可能不完整。"
+    },
+    "accessDeniedTitle": "无权访问",
+    "accessDeniedDescription": "您没有查看控制塔的权限。",
+    "autoRefresh": {
+      "label": "自动刷新",
+      "interval": "间隔",
+      "intervals": {
+        "30s": "30 秒",
+        "1m": "1 分钟",
+        "5m": "5 分钟"
+      }
+    },
+    "kpiV01": {
+      "activeShipments": "活跃运输",
+      "activeShipmentsDesc": "进行中的运输",
+      "onTime": "按计划",
+      "onTimeDesc": "SLA 计划内的运输",
+      "atRisk": "SLA 风险",
+      "atRiskDesc": "存在 SLA 风险的运输",
+      "critical": "严重偏差",
+      "criticalDesc": "延迟或严重 SLA 偏差",
+      "awaitingDocuments": "待文档",
+      "awaitingDocumentsDesc": "已交付但缺少文档的运输",
+      "readyForBilling": "可计费",
+      "readyForBillingDesc": "可进入计费登记的运输"
+    },
+    "sla": {
+      "ON_TIME": "准时",
+      "AT_RISK": "有风险",
+      "DELAYED": "延迟",
+      "CRITICAL": "严重",
+      "UNKNOWN": "未知"
+    },
+    "slaTooltips": {
+      "ON_TIME": "运输按计划执行",
+      "AT_RISK": "存在 SLA 违规风险",
+      "DELAYED": "已记录相对计划的延迟",
+      "CRITICAL": "需要关注的严重偏差",
+      "UNKNOWN": "数据不足，无法评估 SLA"
+    },
+    "filters": {
+      "search": "搜索运输或订单",
+      "status": "运输状态",
+      "slaStatus": "SLA 状态",
+      "shipper": "货主",
+      "carrier": "承运商",
+      "date": "日期",
+      "criticalOnly": "仅严重",
+      "reset": "重置筛选"
+    },
+    "table": {
+      "shipmentNumber": "运输编号",
+      "transportOrder": "运输订单",
+      "shipper": "货主",
+      "carrier": "承运商",
+      "route": "路线",
+      "plannedPickup": "计划提货",
+      "plannedDelivery": "计划交付",
+      "status": "状态",
+      "slaStatus": "SLA",
+      "lastEvent": "最近事件",
+      "lastUpdated": "更新时间"
+    },
+    "actions": {
+      "openShipment": "打开运输",
+      "openOrder": "打开订单",
+      "eventHistory": "事件历史"
+    },
+    "events": {
+      "empty": "无关键事件",
+      "types": {
+        "PICKUP_DELAY": "提货延迟",
+        "DELIVERY_DELAY": "交付延迟",
+        "NO_GEOLOCATION": "无定位",
+        "STALE_UPDATES": "长时间无更新",
+        "ROUTE_DEVIATION": "路线偏差",
+        "MISSING_DOCUMENTS": "缺少文档",
+        "SHIPMENT_CANCELLED": "运输取消",
+        "TECHNICAL_ISSUE": "技术问题",
+        "TECHNICAL_PROBLEM": "技术问题",
+        "UNKNOWN_CRITICAL": "未知关键事件",
+        "UNKNOWN_CRITICAL_EVENT": "未知关键事件"
+      },
+      "descriptions": {
+        "pickupDelay": "计划提货时间已过但未确认提货",
+        "deliveryDelay": "计划交付时间已过但未确认交付",
+        "noGeolocation": "活跃运输缺少路线定位数据",
+        "staleUpdates": "运输长时间未收到更新",
+        "missingDocuments": "已交付运输缺少关联文档",
+        "shipmentCancelled": "运输已取消",
+        "technicalIssue": "检测到后端或集成问题"
+      }
+    },
+    "states": {
+      "noActiveShipments": "无活跃运输",
+      "noActiveShipmentsHint": "当前租户没有进行中的运输",
+      "noFilteredResults": "没有符合筛选的运输",
+      "noFilteredResultsHint": "调整筛选条件或重置"
     }
   },
   "tenant": {
@@ -973,6 +1100,120 @@
     "templateImportUnsupportedSchema": "不支持的导出架构版本",
     "templateImportUnsupportedField": "不支持的导入字段：{field}",
     "templateImportForbiddenField": "禁止的导入字段：{field}"
+  },
+  "shipmentEvents": {
+    "title": "事件历史",
+    "timelineTitle": "时间线",
+    "backToShipment": "返回运输单",
+    "loading": "正在加载事件历史…",
+    "empty": "该运输单暂无事件。",
+    "derived": "推导",
+    "derivedOnlyNote": "此时间线由当前运输状态重建，可能不包含全部历史变更。",
+    "actor": "参与者",
+    "notFoundTitle": "未找到运输单",
+    "accessDeniedTitle": "访问被拒绝",
+    "accessDeniedMessage": "您无权查看此运输单的事件历史。",
+    "unavailableTitle": "事件历史不可用",
+    "unavailableMessage": "服务暂时不可用，请稍后重试。",
+    "partialWarningTitle": "历史可能不完整",
+    "partialWarningMessage": "历史可能不完整：部分数据源暂时不可用。",
+    "filtersEmpty": "没有符合筛选条件的事件。",
+    "paginationSummary": "第 {page} 页 · 共 {total} 条事件",
+    "filters": {
+      "title": "筛选",
+      "type": "事件类型",
+      "category": "类别",
+      "source": "来源",
+      "severity": "严重程度",
+      "dateFrom": "开始日期",
+      "dateTo": "结束日期",
+      "derived": "推导事件",
+      "derivedOnly": "仅推导",
+      "canonicalOnly": "仅原始",
+      "order": "排序",
+      "newestFirst": "最新优先",
+      "oldestFirst": "最早优先",
+      "apply": "应用",
+      "reset": "重置"
+    },
+    "categories": {
+      "SHIPMENT": "运输",
+      "OPERATION": "操作",
+      "DOCUMENT": "文档",
+      "SLA": "SLA",
+      "BILLING": "计费",
+      "TECHNICAL": "技术",
+      "GEOLOCATION": "地理定位",
+      "SYSTEM": "系统"
+    },
+    "sources": {
+      "SHIPMENT_STATE": "运输状态",
+      "SHIPMENT_STATUS_HISTORY": "运输单状态历史",
+      "SLA_CALCULATOR": "SLA 计算器",
+      "DOCUMENT_STATE": "文档状态",
+      "BILLING_STATE": "计费状态"
+    },
+    "severities": {
+      "INFO": "信息",
+      "WARNING": "警告",
+      "CRITICAL": "严重"
+    },
+    "warnings": {
+      "SHIPMENT_EVENTS_UNAVAILABLE": "已保存的运输历史",
+      "SHIPMENT_HISTORY_DERIVED_FROM_CURRENT_STATE": "已保存的运输历史",
+      "SHIPMENT_STATUS_HISTORY_PARTIAL": "状态历史不完整",
+      "SHIPMENT_STATUS_HISTORY_UNAVAILABLE": "状态历史不可用",
+      "DOCUMENT_EVENTS_UNAVAILABLE": "文档",
+      "BILLING_EVENTS_UNAVAILABLE": "计费",
+      "TECHNICAL_EVENTS_UNAVAILABLE": "技术事件",
+      "GEOLOCATION_EVENTS_UNAVAILABLE": "地理定位",
+      "TIMELINE_CALCULATED_FROM_LIMITED_DATASET": "有限数据集",
+      "FILTER_OPTIONS_INCOMPLETE": "筛选选项"
+    },
+    "metadata": {
+      "documentId": "文档 ID",
+      "documentType": "文档类型",
+      "documentStatus": "文档状态",
+      "billingRegisterId": "计费登记 ID",
+      "billingRegisterNumber": "计费登记编号",
+      "billingStatus": "计费状态",
+      "plannedAt": "计划时间",
+      "actualAt": "实际时间",
+      "delayMinutes": "延迟（分钟）",
+      "slaStatus": "SLA 状态",
+      "slaReason": "SLA 原因",
+      "fromStatus": "原状态",
+      "toStatus": "新状态",
+      "shipmentVersion": "运输单版本",
+      "reasonCode": "原因代码"
+    },
+    "types": {
+      "SHIPMENT_CREATED": { "title": "运输单已创建", "description": "运输单已创建。" },
+      "SHIPMENT_STATUS_CHANGED": { "title": "状态变更", "description": "运输单状态已变更。" },
+      "SHIPMENT_CANCELLED": { "title": "运输单已取消", "description": "运输单已取消。" },
+      "PICKUP_PLANNED": { "title": "计划装货", "description": "已计划装货。" },
+      "PICKUP_COMPLETED": { "title": "装货完成", "description": "装货已完成。" },
+      "DELIVERY_PLANNED": { "title": "计划送达", "description": "已计划送达。" },
+      "DELIVERY_COMPLETED": { "title": "送达完成", "description": "送达已完成。" },
+      "DOCUMENT_CREATED": { "title": "文档已创建", "description": "文档已创建。" },
+      "DOCUMENT_SIGNED": { "title": "文档已签署", "description": "文档已签署。" },
+      "DOCUMENT_REJECTED": { "title": "文档已拒绝", "description": "文档已拒绝。" },
+      "DOCUMENTS_COMPLETED": { "title": "文档已完成", "description": "所有必需文档已完成。" },
+      "DOCUMENTS_MISSING": { "title": "缺少文档", "description": "缺少必需文档。" },
+      "READY_FOR_BILLING": { "title": "可计费", "description": "运输单可进入计费。" },
+      "BILLING_REGISTER_ADDED": { "title": "已加入计费登记", "description": "运输单已加入计费登记。" },
+      "CLOSING_DOCUMENTS_CREATED": { "title": "结算文档已创建", "description": "结算文档已创建。" },
+      "SIGNED_BY_COUNTERPARTY": { "title": "对方已签署", "description": "对方已签署文档。" },
+      "PAYMENT_MARKED": { "title": "已标记付款", "description": "付款已记录。" },
+      "FINANCIALLY_CLOSED": { "title": "财务已关闭", "description": "运输单财务已关闭。" },
+      "SLA_AT_RISK": { "title": "SLA 有风险", "description": "运输单 SLA 存在风险。" },
+      "SLA_DELAYED": { "title": "SLA 延迟", "description": "运输单 SLA 延迟。" },
+      "SLA_CRITICAL": { "title": "SLA 严重", "description": "运输单 SLA 严重偏差。" },
+      "TECHNICAL_PROBLEM": { "title": "技术问题", "description": "报告了技术问题。" },
+      "GEOLOCATION_LOST": { "title": "定位丢失", "description": "地理定位信号丢失。" },
+      "ROUTE_DEVIATION": { "title": "路线偏离", "description": "偏离计划路线。" },
+      "UNKNOWN_EVENT": { "title": "未知事件", "description": "记录了未知事件。" }
+    }
   },
   "backendStatus": {
     "title": "后端状态",

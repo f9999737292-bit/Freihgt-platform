@@ -5,17 +5,31 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/freight-platform/api-gateway/internal/controltower/legacyaggregate"
+	"github.com/freight-platform/api-gateway/internal/controltowerreadmodel"
 )
 
 type ServiceURLs struct {
-	Identity       string
-	Company        string
-	TransportOrder string
-	RFX            string
-	Shipment       string
-	Document       string
+	Identity        string
+	Company         string
+	TransportOrder  string
+	RFX             string
+	Shipment        string
+	Document        string
 	BillingRegister string
-	LowCode        string
+	LowCode         string
+}
+
+type ControlTowerConfig struct {
+	AtRiskMinutes           int
+	CriticalDelayMinutes    int
+	StaleWarningMinutes     int
+	StaleCriticalMinutes    int
+	MaxDownstreamFetchLimit int
+	LegacyStatusTimeout     time.Duration
+	ReadModel               controltowerreadmodel.Config
 }
 
 type Config struct {
@@ -24,8 +38,10 @@ type Config struct {
 	HTTPPort            int
 	LogLevel            string
 	Services            ServiceURLs
+	ControlTower        ControlTowerConfig
 	AuthEnabled         bool
 	JWTSecret           string
+	DevTenantID         string
 	CORSAllowedOrigins  []string
 	ProxyTimeoutSeconds int
 	ReadyCheckTimeoutMS int
@@ -112,12 +128,31 @@ func Load() (Config, error) {
 		maxBodyBytes = parsed
 	}
 
+	readModelCfg, err := controltowerreadmodel.LoadConfigFromEnv()
+	if err != nil {
+		return Config{}, err
+	}
+
+	legacyStatusTimeout, err := legacyaggregate.LoadTimeoutFromEnv()
+	if err != nil {
+		return Config{}, err
+	}
+
 	return Config{
 		ServiceName: "api-gateway",
 		Environment: getEnv("ENVIRONMENT", "development"),
 		HTTPPort:    port,
 		LogLevel:    getEnv("LOG_LEVEL", "info"),
 		OpenAPIDir:  resolveOpenAPIDir(getEnv("OPENAPI_DIR", "")),
+		ControlTower: ControlTowerConfig{
+			AtRiskMinutes:           intEnv("CONTROL_TOWER_AT_RISK_MINUTES", 120),
+			CriticalDelayMinutes:    intEnv("CONTROL_TOWER_CRITICAL_DELAY_MINUTES", 240),
+			StaleWarningMinutes:     intEnv("CONTROL_TOWER_STALE_WARNING_MINUTES", 120),
+			StaleCriticalMinutes:    intEnv("CONTROL_TOWER_STALE_CRITICAL_MINUTES", 360),
+			MaxDownstreamFetchLimit: intEnv("CONTROL_TOWER_MAX_DOWNSTREAM_FETCH_LIMIT", 100),
+			LegacyStatusTimeout:     legacyStatusTimeout,
+			ReadModel:               readModelCfg,
+		},
 		Services: ServiceURLs{
 			Identity:        getEnv("IDENTITY_SERVICE_URL", "http://localhost:8081"),
 			Company:         getEnv("COMPANY_SERVICE_URL", "http://localhost:8082"),
@@ -130,6 +165,7 @@ func Load() (Config, error) {
 		},
 		AuthEnabled:         authEnabled,
 		JWTSecret:           jwtSecret,
+		DevTenantID:         getEnv("DEV_TENANT_ID", ""),
 		CORSAllowedOrigins:  parseOrigins(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:5173")),
 		ProxyTimeoutSeconds: proxyTimeout,
 		ReadyCheckTimeoutMS: readyTimeoutMS,
@@ -145,6 +181,18 @@ func getEnv(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func intEnv(key string, fallback int) int {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return fallback
+	}
+	parsed, err := strconv.Atoi(raw)
+	if err != nil || parsed <= 0 {
+		return fallback
+	}
+	return parsed
 }
 
 func resolveOpenAPIDir(fromEnv string) string {

@@ -189,6 +189,9 @@ onMounted(async () => {
 
     <UiPageHeader :title="shipment?.shipment_number || $t('shipments.details')">
       <template #actions>
+        <UiButton variant="secondary" :to="`/shipments/${shipmentId}/events`">
+          {{ $t('shipmentEvents.title') }}
+        </UiButton>
         <UiButton variant="secondary" @click="$router.push('/shipments')">
           {{ $t('common.back') }}
         </UiButton>

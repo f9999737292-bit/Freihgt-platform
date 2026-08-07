@@ -1,0 +1,18 @@
+groups:
+  - name: control_tower_shadow_rollout
+    interval: 30s
+    rules:
+      - record: control_tower:shadow_comparison:rate5m
+        expr: sum by (comparison) (rate(control_tower_read_model_shadow_comparison_total[5m]))
+
+      - record: control_tower:read_model_requests:rate5m
+        expr: sum by (result, reason) (rate(control_tower_read_model_requests_total[5m]))
+
+      - record: control_tower:legacy_aggregate_requests:rate5m
+        expr: sum by (result, reason) (rate(control_tower_legacy_status_aggregate_requests_total[5m]))
+
+      - record: control_tower:read_model_request_duration_seconds:p95
+        expr: histogram_quantile(0.95, sum by (le) (rate(control_tower_read_model_request_duration_seconds_bucket[5m])))
+
+      - record: control_tower:consumer_errors:rate5m
+        expr: sum by (error_code) (rate(control_tower_shipment_consumer_errors_total[5m]))

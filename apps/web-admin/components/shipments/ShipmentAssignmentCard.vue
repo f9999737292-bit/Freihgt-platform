@@ -15,8 +15,10 @@ const emit = defineEmits<{
   assignVehicle: []
 }>()
 
-const showAssignDriver = computed(() => canAssignDriver(props.shipment.status))
-const showAssignVehicle = computed(() => canAssignVehicle(props.shipment.status))
+const { canAssignFleet } = usePermissions()
+
+const showAssignDriver = computed(() => canAssignFleet() && canAssignDriver(props.shipment.status))
+const showAssignVehicle = computed(() => canAssignFleet() && canAssignVehicle(props.shipment.status))
 </script>
 
 <template>

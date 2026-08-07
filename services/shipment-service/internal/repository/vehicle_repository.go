@@ -36,7 +36,7 @@ func (r *VehicleRepository) CompanyExists(ctx context.Context, companyID, tenant
 	return exists, nil
 }
 
-func (r *VehicleRepository) Create(ctx context.Context, in domain.CreateVehicleInput) (*domain.Vehicle, error) {
+func (r *VehicleRepository) Create(ctx context.Context, tenantID uuid.UUID, in domain.CreateVehicleInput) (*domain.Vehicle, error) {
 	var result *domain.Vehicle
 	err := measureDB("vehicle_repository", "create_vehicle", func() error {
 		const query = `
@@ -48,7 +48,7 @@ func (r *VehicleRepository) Create(ctx context.Context, in domain.CreateVehicleI
 			capacity_weight, capacity_volume, registration_country, status
 	`
 		row := r.pool.QueryRow(ctx, query,
-			in.TenantID,
+			tenantID,
 			in.CarrierCompanyID,
 			strings.TrimSpace(in.PlateNumber),
 			domain.NormalizeVehicleType(in.VehicleType),
@@ -68,21 +68,22 @@ func (r *VehicleRepository) Create(ctx context.Context, in domain.CreateVehicleI
 	return result, err
 }
 
-func (r *VehicleRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Vehicle, error) {
-	const query = `
+const getVehicleByIDAndTenantQuery = `
 		SELECT id, tenant_id, carrier_company_id, plate_number, vehicle_type, equipment_type,
 			capacity_weight, capacity_volume, registration_country, status
 		FROM transport.vehicles
-		WHERE id = $1 AND deleted_at IS NULL
+		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
 	`
-	return scanVehicle(r.pool.QueryRow(ctx, query, id))
+
+func (r *VehicleRepository) GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.Vehicle, error) {
+	return scanVehicle(r.pool.QueryRow(ctx, getVehicleByIDAndTenantQuery, id, tenantID))
 }
 
-func (r *VehicleRepository) List(ctx context.Context, filter domain.ListVehiclesFilter) ([]domain.Vehicle, int, error) {
+func (r *VehicleRepository) List(ctx context.Context, tenantID uuid.UUID, filter domain.ListVehiclesFilter) ([]domain.Vehicle, int, error) {
 	var vehicles []domain.Vehicle
 	var total int
 	err := measureDB("vehicle_repository", "list_vehicles", func() error {
-		args := []any{filter.TenantID}
+		args := []any{tenantID}
 		where := []string{"tenant_id = $1", "deleted_at IS NULL"}
 
 		if filter.CarrierCompanyID != nil {

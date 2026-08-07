@@ -27,6 +27,7 @@ tags:
   - name: Signing
   - name: Billing Registers
   - name: Closing Documents
+  - name: Control Tower
 
 paths:
   /health:
@@ -794,6 +795,212 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/control-tower/summary:
+    get:
+      tags: [Control Tower]
+      summary: Control Tower aggregated summary
+      description: |
+        BFF endpoint that aggregates shipments, transport orders, companies, and documents
+        for the Control Tower dashboard. Supports server-side filtering and pagination.
+        Optional dependencies may return partial responses with machine-readable warning codes.
+        Tenant context is derived from the verified JWT bearer token only.
+      operationId: get_control_tower_summary
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: Search by shipment number, transport order number, shipper or carrier name
+        - name: status
+          in: query
+          schema:
+            type: string
+          description: Shipment status filter
+        - name: sla_status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ControlTowerSLAStatus'
+        - name: shipper_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: carrier_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: critical_only
+          in: query
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Control Tower summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerSummaryResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Required shipment data source is temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/shipments/{shipmentId}/events:
+    get:
+      tags: [Shipments]
+      summary: Shipment event history timeline
+      description: |
+        BFF endpoint that aggregates shipment state, documents, billing registers, and SLA signals
+        into a unified event timeline. Optional dependencies may return partial responses with
+        machine-readable warning codes. Tenant context is derived from the verified JWT bearer token only.
+        Derived events are explicitly marked with `derived: true`.
+      operationId: get_shipment_events
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            $ref: '#/components/schemas/ShipmentEventCategory'
+        - name: source
+          in: query
+          schema:
+            $ref: '#/components/schemas/ShipmentEventSource'
+        - name: severity
+          in: query
+          schema:
+            $ref: '#/components/schemas/ShipmentEventSeverity'
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: derived
+          in: query
+          schema:
+            type: boolean
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Shipment event timeline
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShipmentEventsResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Shipment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Required shipment data source is temporarily unavailable
           content:
             application/json:
               schema:
@@ -2658,6 +2865,7 @@ paths:
     post:
       tags: [Shipments]
       summary: Create shipment from transport order
+      description: Tenant scope and actor identity are derived from authenticated gateway context. Shipment mutation is also protected by gateway route-level authorization.
       operationId: post_create_shipment_from_transport_order
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -2670,8 +2878,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: true
+              $ref: '#/components/schemas/CreateShipmentFromTransportOrderRequest'
       security:
         - bearerAuth: []
       responses:
@@ -2694,6 +2901,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Not found
           content:
@@ -2702,6 +2915,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
           description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Authorization dependency unavailable
           content:
             application/json:
               schema:
@@ -2716,6 +2935,7 @@ paths:
     post:
       tags: [Shipments]
       summary: Create shipment from accepted bid
+      description: Tenant scope and actor identity are derived from authenticated gateway context. Shipment mutation is also protected by gateway route-level authorization.
       operationId: post_create_shipment_from_accepted_bid
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -2728,8 +2948,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: true
+              $ref: '#/components/schemas/CreateShipmentFromBidRequest'
       security:
         - bearerAuth: []
       responses:
@@ -2752,6 +2971,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Not found
           content:
@@ -2760,6 +2985,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
           description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Authorization dependency unavailable
           content:
             application/json:
               schema:
@@ -2774,6 +3005,7 @@ paths:
     get:
       tags: [Shipments]
       summary: List shipments
+      description: Returns shipments for the authenticated tenant only. Tenant is derived from bearer authentication at the gateway; `tenant_id` is not a query parameter on this endpoint. Trusted internal `X-Tenant-ID` is set by API Gateway and is not a public client parameter.
       operationId: get_list_shipments
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -2825,6 +3057,7 @@ paths:
     get:
       tags: [Shipments]
       summary: Get shipment by ID
+      description: Returns shipment details for the authenticated tenant. Shipments belonging to another tenant are indistinguishable from missing shipments (404). Tenant is derived from bearer authentication at the gateway; `tenant_id` is not a query parameter on this endpoint. Trusted internal `X-Tenant-ID` is set by API Gateway and is not a public client parameter.
       operationId: get_get_shipment_by_id
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -2876,6 +3109,10 @@ paths:
     post:
       tags: [Shipments]
       summary: Assign driver to shipment
+      description: |
+        Driver must belong to the same authenticated tenant as the shipment.
+        Tenant scope is derived from authenticated gateway context and cannot be selected in the request body.
+        Unknown, foreign-tenant, or soft-deleted driver returns 404 indistinguishable from a missing driver.
       operationId: post_assign_driver_to_shipment
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -2888,8 +3125,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: true
+              $ref: '#/components/schemas/AssignDriverRequest'
       security:
         - bearerAuth: []
       responses:
@@ -2908,6 +3144,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
           content:
             application/json:
               schema:
@@ -2934,6 +3176,10 @@ paths:
     post:
       tags: [Shipments]
       summary: Assign vehicle to shipment
+      description: |
+        Vehicle must belong to the same authenticated tenant as the shipment.
+        Tenant scope is derived from authenticated gateway context and cannot be selected in the request body.
+        Unknown, foreign-tenant, or soft-deleted vehicle returns 404 indistinguishable from a missing vehicle.
       operationId: post_assign_vehicle_to_shipment
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -2946,8 +3192,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: true
+              $ref: '#/components/schemas/AssignVehicleRequest'
       security:
         - bearerAuth: []
       responses:
@@ -2966,6 +3211,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
           content:
             application/json:
               schema:
@@ -2992,6 +3243,7 @@ paths:
     post:
       tags: [Shipments]
       summary: Accept shipment
+      description: Tenant scope and actor identity are derived from authenticated gateway context. Shipment mutation is also protected by gateway route-level authorization.
       operationId: post_accept_shipment
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -3000,12 +3252,14 @@ paths:
         - $ref: '#/components/parameters/XLocale'
         - $ref: '#/components/parameters/Authorization'
       requestBody:
-        required: true
+        required: false
+        description: Optional empty body. If present, must not contain tenant or actor fields; unknown properties are rejected.
         content:
           application/json:
             schema:
               type: object
-              additionalProperties: true
+              additionalProperties: false
+              maxProperties: 0
       security:
         - bearerAuth: []
       responses:
@@ -3028,6 +3282,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Not found
           content:
@@ -3036,6 +3296,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
           description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Authorization dependency unavailable
           content:
             application/json:
               schema:
@@ -3050,6 +3316,7 @@ paths:
     patch:
       tags: [Shipments]
       summary: Update shipment status
+      description: Tenant scope and actor identity are derived from authenticated gateway context. Shipment mutation is also protected by gateway route-level authorization.
       operationId: patch_update_shipment_status
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -3062,8 +3329,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: true
+              $ref: '#/components/schemas/UpdateShipmentStatusRequest'
       security:
         - bearerAuth: []
       responses:
@@ -3086,6 +3352,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Not found
           content:
@@ -3094,6 +3366,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
           description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Authorization dependency unavailable
           content:
             application/json:
               schema:
@@ -3108,6 +3386,7 @@ paths:
     post:
       tags: [Shipments]
       summary: Cancel shipment
+      description: Tenant scope and actor identity are derived from authenticated gateway context. Shipment mutation is also protected by gateway route-level authorization.
       operationId: post_cancel_shipment
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -3120,8 +3399,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: true
+              $ref: '#/components/schemas/CancelShipmentRequest'
       security:
         - bearerAuth: []
       responses:
@@ -3140,6 +3418,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
           content:
             application/json:
               schema:
@@ -3156,6 +3440,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Authorization dependency unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Internal error
           content:
@@ -3166,6 +3456,8 @@ paths:
     post:
       tags: [Drivers]
       summary: Create driver
+      description: |
+        Tenant scope is derived from authenticated gateway context and cannot be selected in the request body.
       operationId: post_create_driver
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -3178,8 +3470,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: true
+              $ref: '#/components/schemas/CreateDriverRequest'
       security:
         - bearerAuth: []
       responses:
@@ -3198,6 +3489,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
           content:
             application/json:
               schema:
@@ -3223,6 +3520,8 @@ paths:
     get:
       tags: [Drivers]
       summary: List drivers
+      description: |
+        Tenant scope is derived from authenticated gateway context and cannot be selected through query parameters.
       operationId: get_list_drivers
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -3230,6 +3529,29 @@ paths:
         - $ref: '#/components/parameters/XCompanyID'
         - $ref: '#/components/parameters/XLocale'
         - $ref: '#/components/parameters/Authorization'
+        - name: carrier_company_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
       security:
         - bearerAuth: []
       responses:
@@ -3248,6 +3570,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
           content:
             application/json:
               schema:
@@ -3274,6 +3602,7 @@ paths:
     get:
       tags: [Drivers]
       summary: Get driver by ID
+      description: Returns driver details for the authenticated tenant. Foreign-tenant drivers are indistinguishable from missing drivers (404). Tenant is derived from bearer authentication at the gateway; `tenant_id` is not a query parameter on this endpoint.
       operationId: get_get_driver_by_id
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -3303,6 +3632,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Not found
           content:
@@ -3325,6 +3660,8 @@ paths:
     post:
       tags: [Vehicles]
       summary: Create vehicle
+      description: |
+        Tenant scope is derived from authenticated gateway context and cannot be selected in the request body.
       operationId: post_create_vehicle
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -3337,8 +3674,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: true
+              $ref: '#/components/schemas/CreateVehicleRequest'
       security:
         - bearerAuth: []
       responses:
@@ -3357,6 +3693,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
           content:
             application/json:
               schema:
@@ -3382,6 +3724,8 @@ paths:
     get:
       tags: [Vehicles]
       summary: List vehicles
+      description: |
+        Tenant scope is derived from authenticated gateway context and cannot be selected through query parameters.
       operationId: get_list_vehicles
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -3389,6 +3733,29 @@ paths:
         - $ref: '#/components/parameters/XCompanyID'
         - $ref: '#/components/parameters/XLocale'
         - $ref: '#/components/parameters/Authorization'
+        - name: carrier_company_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
       security:
         - bearerAuth: []
       responses:
@@ -3407,6 +3774,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
           content:
             application/json:
               schema:
@@ -3433,6 +3806,7 @@ paths:
     get:
       tags: [Vehicles]
       summary: Get vehicle by ID
+      description: Returns vehicle details for the authenticated tenant. Foreign-tenant vehicles are indistinguishable from missing vehicles (404). Tenant is derived from bearer authentication at the gateway; `tenant_id` is not a query parameter on this endpoint.
       operationId: get_get_vehicle_by_id
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -3458,6 +3832,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
           content:
             application/json:
               schema:
@@ -5074,7 +5454,7 @@ components:
       schema:
         type: string
         format: uuid
-      description: Tenant context
+      description: Internal trusted tenant context set by API Gateway after JWT validation. Not a client-selectable parameter on shipment mutations.
     XCompanyID:
       name: X-Company-ID
       in: header
@@ -5098,6 +5478,127 @@ components:
         type: string
       description: Bearer JWT access token
   schemas:
+    CreateDriverRequest:
+      type: object
+      required: [carrier_company_id, full_name]
+      additionalProperties: false
+      properties:
+        carrier_company_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+          nullable: true
+        full_name:
+          type: string
+        phone:
+          type: string
+        license_number:
+          type: string
+        license_country:
+          type: string
+        preferred_locale:
+          type: string
+    CreateVehicleRequest:
+      type: object
+      required: [carrier_company_id, plate_number]
+      additionalProperties: false
+      properties:
+        carrier_company_id:
+          type: string
+          format: uuid
+        plate_number:
+          type: string
+        vehicle_type:
+          type: string
+        equipment_type:
+          type: string
+        capacity_weight:
+          type: number
+        capacity_volume:
+          type: number
+        registration_country:
+          type: string
+    CreateShipmentFromTransportOrderRequest:
+      type: object
+      required: [shipment_number, transport_order_id, carrier_company_id]
+      additionalProperties: false
+      description: Tenant scope and actor identity are derived from authenticated gateway context and cannot be selected through request body or query parameters.
+      properties:
+        shipment_number:
+          type: string
+        transport_order_id:
+          type: string
+          format: uuid
+        carrier_company_id:
+          type: string
+          format: uuid
+        forwarder_company_id:
+          type: string
+          format: uuid
+          nullable: true
+        planned_pickup_at:
+          type: string
+          format: date-time
+        planned_delivery_at:
+          type: string
+          format: date-time
+    CreateShipmentFromBidRequest:
+      type: object
+      required: [shipment_number, bid_id, transport_order_id]
+      additionalProperties: false
+      description: Tenant scope and actor identity are derived from authenticated gateway context and cannot be selected through request body or query parameters.
+      properties:
+        shipment_number:
+          type: string
+        bid_id:
+          type: string
+          format: uuid
+        transport_order_id:
+          type: string
+          format: uuid
+        planned_pickup_at:
+          type: string
+          format: date-time
+        planned_delivery_at:
+          type: string
+          format: date-time
+    UpdateShipmentStatusRequest:
+      type: object
+      required: [status]
+      additionalProperties: false
+      description: Tenant scope and actor identity are derived from authenticated gateway context and cannot be selected through request body or query parameters.
+      properties:
+        status:
+          type: string
+        actual_time:
+          type: string
+          format: date-time
+    CancelShipmentRequest:
+      type: object
+      required: [reason]
+      additionalProperties: false
+      description: Tenant scope and actor identity are derived from authenticated gateway context and cannot be selected through request body or query parameters.
+      properties:
+        reason:
+          type: string
+    AssignDriverRequest:
+      type: object
+      required: [driver_id]
+      additionalProperties: false
+      properties:
+        driver_id:
+          type: string
+          format: uuid
+    AssignVehicleRequest:
+      type: object
+      required: [vehicle_id]
+      additionalProperties: false
+      properties:
+        vehicle_id:
+          type: string
+          format: uuid
     ErrorResponse:
       type: object
       required: [error]
@@ -5142,4 +5643,306 @@ components:
           type: integer
         offset:
           type: integer
+    ControlTowerSLAStatus:
+      type: string
+      enum: [ON_TIME, AT_RISK, DELAYED, CRITICAL, UNKNOWN]
+    ControlTowerEventSeverity:
+      type: string
+      enum: [INFO, WARNING, CRITICAL]
+    ControlTowerEventType:
+      type: string
+      enum:
+        - PICKUP_DELAY
+        - DELIVERY_DELAY
+        - STALE_UPDATES
+        - MISSING_DOCUMENTS
+        - SHIPMENT_CANCELLED
+        - TECHNICAL_PROBLEM
+        - UNKNOWN_CRITICAL_EVENT
+    ControlTowerSummaryResponse:
+      type: object
+      required: [generatedAt, dataFreshness, kpi, shipments, criticalEvents, filters]
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        dataFreshness:
+          type: object
+          properties:
+            shipmentsLoaded:
+              type: boolean
+            transportOrdersLoaded:
+              type: boolean
+            companiesLoaded:
+              type: boolean
+            documentsLoaded:
+              type: boolean
+            partial:
+              type: boolean
+            warnings:
+              type: array
+              items:
+                type: string
+                enum:
+                  - TRANSPORT_ORDERS_UNAVAILABLE
+                  - COMPANIES_UNAVAILABLE
+                  - DOCUMENTS_UNAVAILABLE
+                  - KPI_CALCULATED_FROM_LIMITED_DATASET
+                  - FILTER_OPTIONS_INCOMPLETE
+                  - CONTROL_TOWER_READ_MODEL_UNAVAILABLE
+                  - CONTROL_TOWER_READ_MODEL_CONSUMER_NOT_RUNNING
+                  - CONTROL_TOWER_READ_MODEL_PARTIAL
+                  - CONTROL_TOWER_READ_MODEL_FALLBACK_USED
+                  - CONTROL_TOWER_LEGACY_STATUS_SUMMARY_LIMITED
+        kpi:
+          type: object
+          properties:
+            active: { type: integer }
+            onTime: { type: integer }
+            atRisk: { type: integer }
+            delayed: { type: integer }
+            critical: { type: integer }
+            awaitingDocuments: { type: integer }
+            readyForBilling: { type: integer }
+        shipments:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/ControlTowerShipment'
+            page: { type: integer }
+            limit: { type: integer }
+            total: { type: integer }
+            hasNext: { type: boolean }
+        criticalEvents:
+          type: array
+          items:
+            $ref: '#/components/schemas/ControlTowerEvent'
+        filters:
+          type: object
+          properties:
+            statuses:
+              type: array
+              items:
+                $ref: '#/components/schemas/ControlTowerFilterOption'
+            shippers:
+              type: array
+              items:
+                $ref: '#/components/schemas/ControlTowerFilterOption'
+            carriers:
+              type: array
+              items:
+                $ref: '#/components/schemas/ControlTowerFilterOption'
+        statusSummary:
+          $ref: '#/components/schemas/ControlTowerStatusSummary'
+        statusSummaryFreshness:
+          $ref: '#/components/schemas/ControlTowerStatusSummaryFreshness'
+    ControlTowerStatusSummarySource:
+      type: string
+      enum: [LEGACY, READ_MODEL]
+    ControlTowerStatusSummary:
+      type: object
+      properties:
+        totalShipments:
+          type: integer
+          format: int64
+          description: Total tenant shipment population for the summary scope.
+        countedShipments:
+          type: integer
+          format: int64
+          description: Number of shipments included in byStatus counts.
+        byStatus:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+          description: When limitedDataset is true, counts cover countedShipments rather than the full totalShipments population.
+        incompleteProjections:
+          type: integer
+          format: int64
+        source:
+          $ref: '#/components/schemas/ControlTowerStatusSummarySource'
+        limitedDataset:
+          type: boolean
+          description: True when byStatus was calculated from a limited fetched dataset.
+    ControlTowerStatusSummaryFreshness:
+      type: object
+      properties:
+        loaded:
+          type: boolean
+        fallbackUsed:
+          type: boolean
+        partial:
+          type: boolean
+        source:
+          $ref: '#/components/schemas/ControlTowerStatusSummarySource'
+        consumerRunning:
+          type: boolean
+        lastRecordReceivedAt:
+          type: string
+          format: date-time
+        lastProjectionAppliedAt:
+          type: string
+          format: date-time
+    ControlTowerFilterOption:
+      type: object
+      properties:
+        value: { type: string }
+        label: { type: string }
+    ControlTowerShipment:
+      type: object
+      properties:
+        id: { type: string }
+        shipmentNumber: { type: string }
+        transportOrderId: { type: string }
+        transportOrderNumber: { type: string }
+        shipperId: { type: string }
+        shipperName: { type: string }
+        carrierId: { type: string }
+        carrierName: { type: string }
+        originId: { type: string }
+        originName: { type: string }
+        destinationId: { type: string }
+        destinationName: { type: string }
+        plannedPickupAt: { type: string, format: date-time }
+        actualPickupAt: { type: string, format: date-time }
+        plannedDeliveryAt: { type: string, format: date-time }
+        actualDeliveryAt: { type: string, format: date-time }
+        status: { type: string }
+        slaStatus:
+          $ref: '#/components/schemas/ControlTowerSLAStatus'
+        slaReason: { type: string }
+        delayMinutes: { type: integer }
+        lastEvent: { type: string }
+        lastUpdatedAt: { type: string, format: date-time }
+        documentsComplete: { type: boolean }
+        readyForBilling: { type: boolean }
+    ControlTowerEvent:
+      type: object
+      properties:
+        id: { type: string }
+        shipmentId: { type: string }
+        shipmentNumber: { type: string }
+        type:
+          $ref: '#/components/schemas/ControlTowerEventType'
+        severity:
+          $ref: '#/components/schemas/ControlTowerEventSeverity'
+        occurredAt:
+          type: string
+          format: date-time
+        description: { type: string }
+        source: { type: string }
+    ShipmentEventCategory:
+      type: string
+      enum: [SHIPMENT, OPERATION, DOCUMENT, SLA, BILLING, TECHNICAL, GEOLOCATION, SYSTEM]
+    ShipmentEventSource:
+      type: string
+      enum: [SHIPMENT_STATE, SHIPMENT_STATUS_HISTORY, SLA_CALCULATOR, DOCUMENT_STATE, BILLING_STATE]
+      description: |
+        BFF-generated timeline events from current entity state use *_STATE or SLA_CALCULATOR sources and are always derived=true.
+        Persisted shipment status transitions use SHIPMENT_STATUS_HISTORY with derived=false and sourceEventId set to the history row ID.
+    ShipmentEventSeverity:
+      type: string
+      enum: [INFO, WARNING, CRITICAL]
+    ShipmentEventActor:
+      type: object
+      description: |
+        USER indicates a verified authenticated user from persisted status history.
+        SYSTEM indicates an explicit server-side transition; never inferred from missing user context on HTTP mutations.
+      properties:
+        type: { type: string, enum: [USER, SYSTEM] }
+        id: { type: string, format: uuid, description: Present for USER canonical history events. }
+        name: { type: string, description: Not populated from status history in v0.1. }
+    ShipmentTimelineEvent:
+      type: object
+      required: [id, shipmentId, shipmentNumber, type, category, source, severity, titleCode, occurredAt, derived]
+      properties:
+        id: { type: string }
+        shipmentId: { type: string }
+        shipmentNumber: { type: string }
+        type: { type: string }
+        category:
+          $ref: '#/components/schemas/ShipmentEventCategory'
+        source:
+          $ref: '#/components/schemas/ShipmentEventSource'
+        severity:
+          $ref: '#/components/schemas/ShipmentEventSeverity'
+        titleCode: { type: string }
+        descriptionCode: { type: string }
+        occurredAt: { type: string, format: date-time }
+        recordedAt: { type: string, format: date-time }
+        actor:
+          $ref: '#/components/schemas/ShipmentEventActor'
+        metadata:
+          type: object
+          additionalProperties: true
+        derived: { type: boolean }
+        correlationId: { type: string }
+        sourceEventId: { type: string }
+    ShipmentEventsResponse:
+      type: object
+      required: [shipment, generatedAt, dataFreshness, timeline, filters]
+      properties:
+        shipment:
+          type: object
+          properties:
+            id: { type: string }
+            number: { type: string }
+            status: { type: string }
+        generatedAt: { type: string, format: date-time }
+        dataFreshness:
+          type: object
+          properties:
+            shipmentLoaded: { type: boolean }
+            shipmentEventsLoaded: { type: boolean, description: True when persisted shipment status history was loaded; false only when the internal history source is unavailable. Empty history for a legacy shipment still sets this to true. }
+            documentsLoaded: { type: boolean }
+            billingLoaded: { type: boolean }
+            technicalEventsLoaded: { type: boolean }
+            partial: { type: boolean }
+            warnings:
+              type: array
+              items:
+                type: string
+                enum:
+                  - SHIPMENT_EVENTS_UNAVAILABLE
+                  - SHIPMENT_HISTORY_DERIVED_FROM_CURRENT_STATE
+                  - SHIPMENT_STATUS_HISTORY_PARTIAL
+                  - SHIPMENT_STATUS_HISTORY_UNAVAILABLE
+                  - DOCUMENT_EVENTS_UNAVAILABLE
+                  - BILLING_EVENTS_UNAVAILABLE
+                  - TECHNICAL_EVENTS_UNAVAILABLE
+                  - GEOLOCATION_EVENTS_UNAVAILABLE
+                  - TIMELINE_CALCULATED_FROM_LIMITED_DATASET
+                  - FILTER_OPTIONS_INCOMPLETE
+        timeline:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/ShipmentTimelineEvent'
+            page: { type: integer }
+            limit: { type: integer }
+            total: { type: integer }
+            hasNext: { type: boolean }
+        filters:
+          type: object
+          properties:
+            types:
+              type: array
+              items:
+                $ref: '#/components/schemas/ControlTowerFilterOption'
+            categories:
+              type: array
+              items:
+                $ref: '#/components/schemas/ControlTowerFilterOption'
+            sources:
+              type: array
+              items:
+                $ref: '#/components/schemas/ControlTowerFilterOption'
+            severities:
+              type: array
+              items:
+                $ref: '#/components/schemas/ControlTowerFilterOption'
 

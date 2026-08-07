@@ -1,14 +1,12 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/freight-platform/shipment-service/internal/domain"
-	apperrors "github.com/freight-platform/shipment-service/internal/platform/errors"
 	"github.com/freight-platform/shipment-service/internal/platform/respond"
 	"github.com/freight-platform/shipment-service/internal/service"
 )
@@ -22,7 +20,6 @@ func NewDriverHandler(svc *service.DriverService) *DriverHandler {
 }
 
 type createDriverRequest struct {
-	TenantID         string  `json:"tenant_id"`
 	CarrierCompanyID string  `json:"carrier_company_id"`
 	UserID           *string `json:"user_id"`
 	FullName         string  `json:"full_name"`
@@ -33,9 +30,14 @@ type createDriverRequest struct {
 }
 
 func (h *DriverHandler) Create(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := resolveVerifiedTenant(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
 	var req createDriverRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
+	if err := decodeStrictJSON(r, &req); err != nil {
+		respond.Error(w, err)
 		return
 	}
 	input, err := parseCreateDriverRequest(req)
@@ -43,7 +45,7 @@ func (h *DriverHandler) Create(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, err)
 		return
 	}
-	driver, err := h.service.Create(r.Context(), input)
+	driver, err := h.service.Create(r.Context(), tenantID, input)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -57,7 +59,12 @@ func (h *DriverHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, err)
 		return
 	}
-	driver, err := h.service.GetByID(r.Context(), id)
+	tenantID, err := resolveVerifiedTenant(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	driver, err := h.service.GetByIDAndTenant(r.Context(), tenantID, id)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -66,15 +73,14 @@ func (h *DriverHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *DriverHandler) List(w http.ResponseWriter, r *http.Request) {
-	tenantID, err := domain.ParseUUID(r.URL.Query().Get("tenant_id"), "tenant_id")
+	tenantID, err := resolveVerifiedTenant(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
 	filter := domain.ListDriversFilter{
-		TenantID: tenantID,
-		Limit:    parseLimit(r),
-		Offset:   parseOffset(r),
+		Limit:  parseLimit(r),
+		Offset: parseOffset(r),
 	}
 	if raw := strings.TrimSpace(r.URL.Query().Get("carrier_company_id")); raw != "" {
 		id, err := domain.ParseUUID(raw, "carrier_company_id")
@@ -88,7 +94,7 @@ func (h *DriverHandler) List(w http.ResponseWriter, r *http.Request) {
 		filter.Status = &raw
 	}
 
-	drivers, total, err := h.service.List(r.Context(), filter)
+	drivers, total, err := h.service.List(r.Context(), tenantID, filter)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -101,10 +107,6 @@ func (h *DriverHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func parseCreateDriverRequest(req createDriverRequest) (domain.CreateDriverInput, error) {
-	tenantID, err := domain.ParseUUID(req.TenantID, "tenant_id")
-	if err != nil {
-		return domain.CreateDriverInput{}, err
-	}
 	carrierCompanyID, err := domain.ParseUUID(req.CarrierCompanyID, "carrier_company_id")
 	if err != nil {
 		return domain.CreateDriverInput{}, err
@@ -114,7 +116,6 @@ func parseCreateDriverRequest(req createDriverRequest) (domain.CreateDriverInput
 		return domain.CreateDriverInput{}, err
 	}
 	return domain.CreateDriverInput{
-		TenantID:         tenantID,
 		CarrierCompanyID: carrierCompanyID,
 		UserID:           userID,
 		FullName:         req.FullName,

@@ -41,6 +41,7 @@ jobs:
           - services/api-gateway
           - services/billing-register-service
           - services/company-service
+          - services/control-tower-read-model-service
           - services/document-service
           - services/identity-service
           - services/localization-service
@@ -79,7 +80,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
           cache-dependency-path: apps/web-admin/package-lock.json
 

@@ -14,6 +14,7 @@ const route = useRoute()
 const { listShipments, isApiUnavailableError } = useShipmentsApi()
 const { listCompanies } = useCompanies()
 const { hasTenant } = useTenantContext()
+const { canCreateShipment } = usePermissions()
 const { pushToast } = useToast()
 const { t } = useI18n()
 
@@ -130,10 +131,10 @@ onMounted(async () => {
   <div class="page-stack">
     <UiPageHeader :title="$t('shipments.title')">
       <template #actions>
-        <UiButton variant="secondary" @click="showOrderModal = true">
+        <UiButton v-if="canCreateShipment()" variant="secondary" @click="showOrderModal = true">
           {{ $t('shipments.createFromTransportOrder') }}
         </UiButton>
-        <UiButton @click="openBidModal()">{{ $t('shipments.createFromBid') }}</UiButton>
+        <UiButton v-if="canCreateShipment()" @click="openBidModal()">{{ $t('shipments.createFromBid') }}</UiButton>
       </template>
     </UiPageHeader>
 

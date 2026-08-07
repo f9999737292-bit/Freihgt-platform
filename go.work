@@ -2,10 +2,12 @@ go 1.25.0
 
 use (
 	./packages/shared-go
+	./packages/statussnapshot
 	./scripts/openapi
 	./services/api-gateway
 	./services/billing-register-service
 	./services/company-service
+	./services/control-tower-read-model-service
 	./services/document-service
 	./services/identity-service
 	./services/localization-service

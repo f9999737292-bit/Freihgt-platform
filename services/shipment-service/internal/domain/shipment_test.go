@@ -9,22 +9,21 @@ import (
 
 func TestValidateCreateShipmentFromOrderInput(t *testing.T) {
 	t.Parallel()
-	tenantID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
 	pickup := time.Date(2026, 7, 1, 9, 0, 0, 0, time.UTC)
 	delivery := time.Date(2026, 7, 3, 18, 0, 0, 0, time.UTC)
 
 	if err := ValidateCreateShipmentFromOrderInput(CreateShipmentFromOrderInput{
-		TenantID: tenantID, ShipmentNumber: "SH-1", TransportOrderID: uuid.New(),
+		ShipmentNumber: "SH-1", TransportOrderID: uuid.New(),
 		CarrierCompanyID: uuid.New(), PlannedPickupAt: &pickup, PlannedDeliveryAt: &delivery,
 	}); err != nil {
 		t.Fatalf("expected valid input, got %v", err)
 	}
 
 	if err := ValidateCreateShipmentFromOrderInput(CreateShipmentFromOrderInput{}); err == nil {
-		t.Fatalf("expected validation error for missing tenant_id")
+		t.Fatalf("expected validation error for missing fields")
 	}
 	if err := ValidateCreateShipmentFromOrderInput(CreateShipmentFromOrderInput{
-		TenantID: tenantID,
+		ShipmentNumber: "SH-1",
 	}); err == nil {
 		t.Fatalf("expected validation error for missing shipment_number")
 	}
@@ -35,7 +34,7 @@ func TestValidatePlannedDeliveryBeforePickup(t *testing.T) {
 	pickup := time.Date(2026, 7, 3, 18, 0, 0, 0, time.UTC)
 	delivery := time.Date(2026, 7, 1, 9, 0, 0, 0, time.UTC)
 	if err := ValidateCreateShipmentFromOrderInput(CreateShipmentFromOrderInput{
-		TenantID: uuid.New(), ShipmentNumber: "SH-1", TransportOrderID: uuid.New(),
+		ShipmentNumber: "SH-1", TransportOrderID: uuid.New(),
 		CarrierCompanyID: uuid.New(), PlannedPickupAt: &pickup, PlannedDeliveryAt: &delivery,
 	}); err == nil {
 		t.Fatalf("expected validation error when delivery is before pickup")

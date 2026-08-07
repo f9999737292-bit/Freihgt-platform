@@ -12,6 +12,7 @@ const { listDrivers } = useDriversApi()
 const { assignDriver } = useShipmentsApi()
 const { pushToast } = useToast()
 const { t } = useI18n()
+const { canCreateFleet } = usePermissions()
 
 const loading = ref(false)
 const assigning = ref(false)
@@ -90,7 +91,7 @@ async function assign() {
         :options="driverOptions"
         required
       />
-      <UiButton variant="secondary" @click="showCreateModal = true">{{ $t('shipments.createDriver') }}</UiButton>
+      <UiButton v-if="canCreateFleet()" variant="secondary" @click="showCreateModal = true">{{ $t('shipments.createDriver') }}</UiButton>
     </div>
     <template #footer>
       <UiButton variant="secondary" @click="$emit('close')">{{ $t('common.cancel') }}</UiButton>
