@@ -1,0 +1,17 @@
+{
+  "environment": "staging",
+  "tenants": [
+    {
+      "alias": "STG-T01",
+      "tenantIdFromSecretRef": "CONTROL_TOWER_TENANT_01",
+      "category": "missing_projection",
+      "approved": true
+    },
+    {
+      "alias": "STG-T02",
+      "tenantIdFromSecretRef": "CONTROL_TOWER_TENANT_02",
+      "category": "incomplete_projection",
+      "approved": true
+    }
+  ]
+}

@@ -60,6 +60,9 @@ K6 ?= k6
 	control-tower-shadow-rollout-config-check control-tower-shadow-rollout-smoke-test \
 	control-tower-shadow-rollout-metrics-check control-tower-shadow-rollout-regression \
 	control-tower-shadow-rollout-observability-check control-tower-shadow-rollout-acceptance \
+	control-tower-shadow-observation-preflight control-tower-shadow-observation-snapshot \
+	control-tower-shadow-observation-gate control-tower-shadow-observation-rollback-drill \
+	control-tower-shadow-observation-consumer-restart-drill \
 	performance-smoke performance-load performance-companies performance-transport-orders \
 	performance-rfx performance-shipments performance-billing performance-index-check \
 	go-build go-test \
@@ -618,6 +621,24 @@ control-tower-projection-rebuild-status:
 
 control-tower-projection-rebuild-verify:
 	"$(BASH)" scripts/dev/control_tower_projection_rebuild_verify.sh
+
+control-tower-shadow-observation-preflight:
+	@test -n "$(COHORT_MANIFEST)" || (echo "COHORT_MANIFEST is required"; exit 2)
+	"$(BASH)" -lc 'cd scripts/ops/control_tower_shadow_observation && GOWORK=off go run . -command preflight'
+
+control-tower-shadow-observation-snapshot:
+	@test -n "$(COHORT_MANIFEST)" || (echo "COHORT_MANIFEST is required"; exit 2)
+	"$(BASH)" -lc 'cd scripts/ops/control_tower_shadow_observation && GOWORK=off go run . -command snapshot'
+
+control-tower-shadow-observation-gate:
+	@test -n "$(COHORT_MANIFEST)" || (echo "COHORT_MANIFEST is required"; exit 2)
+	"$(BASH)" -lc 'cd scripts/ops/control_tower_shadow_observation && GOWORK=off go run . -command gate'
+
+control-tower-shadow-observation-rollback-drill:
+	"$(BASH)" scripts/ops/control_tower_shadow_observation_rollback_drill.sh
+
+control-tower-shadow-observation-consumer-restart-drill:
+	"$(BASH)" scripts/ops/control_tower_shadow_observation_consumer_restart_drill.sh
 
 run-low-code-service:
 	@cd services/low-code-service && go run ./cmd/server
