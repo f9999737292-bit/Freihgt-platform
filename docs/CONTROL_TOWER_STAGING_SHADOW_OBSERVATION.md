@@ -16,9 +16,13 @@ Out of scope: enabling `primary`, public rebuild HTTP routes, frontend activatio
 
 | Requirement | Value |
 |-------------|-------|
+| Repository release | `64d218b6474d85075126cbf753fe73c1bbff94dd` |
+| Runtime feature source | `b75eb3de751002da94a3c271fda30d09be1db450` |
+| Observation tooling source | `9da601044f8bd5248a5fd04fb8dc7e2652e6415e` |
 | Deployment | Docker Compose (`bintrans-staging` on Selectel VPS) or layered local shadow stack |
-| Commit | Feature branch through `b75eb3d` (reviewed HEAD) or later observation branch |
+| Runtime images | Built from feature source SHA `b75eb3d` (`git-b75eb3d`) |
 | Migrations | Through **000019** (`make migrate-up`) |
+| Expected migration version | **19** |
 | Mode | `CONTROL_TOWER_READ_MODEL_MODE=shadow` |
 | Consumer | `CONTROL_TOWER_CONSUMER_ENABLED=true` |
 | Outbox | `SHIPMENT_OUTBOX_ENABLED=true` |
@@ -142,7 +146,9 @@ Checklist: CLI not exposed via HTTP; confirmations required; secrets via env/vau
 
 ## 13. DBA review
 
-Review migrations 000016–000018; stage/backup growth; activation transaction duration; advisory lock duration; WAL/replication; backup retention; down-migration limitations (000018 fails with NULL `last_event_type`).
+Review migrations 000016–000019; stage/backup growth; activation transaction duration; advisory lock duration; WAL/replication; backup retention; down-migration limitations (`000018` and `000019` fail with NULL `last_event_type`).
+
+**000019** makes rebuild backup `last_event_type` nullable.
 
 ## 14. Failure policy
 

@@ -4,8 +4,11 @@ Placeholders:
 
 - `<STAGING_PROJECT_PATH>` — e.g. `/protected/bintrans-staging`
 - `<PROTECTED_ENV_FILE>` — e.g. `/protected/control-tower-observation/staging.env`
-- `<IMAGE_TAG>` — `git-b75eb3d`
+- `<IMAGE_TAG>` — `git-b75eb3d` (runtime image tag; reviewed feature source SHA)
+- `<REPOSITORY_RELEASE_SHA>` — `64d218b6474d85075126cbf753fe73c1bbff94dd` (repository/runbook release after Feature + Observation merge)
 - `<POSTGRES_CONTAINER>` — staging Postgres container name
+
+`git-b75eb3d` identifies **runtime images**. `64d218b` identifies the **repository/runbook release** recorded in deployment evidence.
 
 All commands assume **staging only**. Primary mode must remain disabled.
 
@@ -88,7 +91,7 @@ make migrate-up
 make migrate-version
 ```
 
-Expected: `version=18`. Do **not** run down migrations on staging.
+Expected: `version=19`. Do **not** run down migrations on staging.
 
 ---
 

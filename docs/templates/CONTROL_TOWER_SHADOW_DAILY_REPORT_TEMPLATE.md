@@ -92,7 +92,7 @@ Copy this template for each observation day. Store completed reports in protecte
 
 Window: 7 consecutive calendar days (minimum 5 business days).
 
-Window starts only after: deployment healthy, migration version=18, cohort manifest approved, baseline snapshot completed.
+Window starts only after: deployment healthy, migration version=19, cohort manifest approved, baseline snapshot completed.
 
 ---
 

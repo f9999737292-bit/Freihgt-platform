@@ -10,7 +10,7 @@ Review before staging migration and before Day 7 final gate.
 
 | # | Item | Pass | Notes |
 |---|------|------|-------|
-| 1 | Migrations `000016–000018` reviewed | | |
+| 1 | Migrations `000016–000019` reviewed | | |
 | 2 | Backup verified before migrate | | |
 | 3 | Restore tested or reviewed | | |
 | 4 | Stage table growth acceptable | | |
@@ -24,7 +24,7 @@ Review before staging migration and before Day 7 final gate.
 | 12 | Autovacuum adequate for stage/backup tables | | |
 | 13 | Retention policy documented | | |
 | 14 | Cleanup authorization process defined | | |
-| 15 | Down migration limitation for `000018` understood | | |
+| 15 | Down migration limitations for `000018` and `000019` understood | | |
 
 ---
 
@@ -34,7 +34,8 @@ Review before staging migration and before Day 7 final gate.
 |---------|-------------|
 | 000016 | Rebuild core (job, stage, backup) |
 | 000017 | Activation/rollback constraints |
-| 000018 | Nullable `last_event_type` — down fails with NULL values |
+| 000018 | Nullable `last_event_type` on stage — down fails with NULL values |
+| 000019 | Nullable `last_event_type` on rebuild backup — down fails with NULL values |
 
 **Staging policy:** no down migrations.
 
