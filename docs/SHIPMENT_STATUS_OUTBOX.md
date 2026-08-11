@@ -215,10 +215,116 @@ Payload, JWT, credentials, email, phone, and raw broker responses are not logged
 
 Published rows are **not deleted** in v0.1. Without a future retention/purge job the outbox table will grow.
 
+## FAILED replay tooling (internal operator)
+
+When outbox rows reach terminal `FAILED` status they are **not** picked up by the worker (`claimPendingOutboxQuery` selects only `status = 'PENDING'`). Automatic retry stops after `SHIPMENT_OUTBOX_MAX_ATTEMPTS` (default 5).
+
+### When replay is appropriate
+
+Replay is appropriate only when the root publish failure is resolved (for example missing Kafka topic, broker outage, configuration fix verified by a post-fix canary). Replay is **not** a substitute for fixing bad payloads or schema mismatches.
+
+### Preconditions
+
+- Post-fix canary end-to-end PASS for new events
+- Kafka topic/broker healthy
+- Runtime + observability health PASS
+- Control Tower remains in `shadow`; primary disabled
+- Explicit tenant UUID and explicit row selectors (aggregate IDs and/or event IDs)
+- Operator dry-run reviewed and approved before `--execute`
+
+### Operator CLI
+
+Build:
+
+```bash
+cd services/shipment-service
+go build -o shipment-outbox-replay ./cmd/shipment-outbox-replay
+```
+
+Dry-run (default — **no mutation**):
+
+```bash
+export DATABASE_URL='postgres://...'
+./scripts/ops/bintrans_shipment_outbox_replay.sh \
+  --tenant-id <tenant-uuid> \
+  --aggregate-id <shipment-uuid>
+```
+
+Execute (only after approval):
+
+```bash
+./scripts/ops/bintrans_shipment_outbox_replay.sh \
+  --tenant-id <tenant-uuid> \
+  --aggregate-id <shipment-uuid> \
+  --execute
+```
+
+Selectors (at least one required):
+
+| Flag | Purpose |
+|------|---------|
+| `--tenant-id` | Required tenant scope |
+| `--aggregate-id` | Repeatable shipment UUID; selects all FAILED rows for that aggregate |
+| `--event-id` | Repeatable outbox row UUID |
+| `--event-ids-file` | Optional file, one UUID per line |
+
+Dry-run prints safe metadata only:
+
+```text
+EVENT_ID TENANT_ID AGGREGATE_ID EVENT_TYPE CURRENT_STATUS ATTEMPT_COUNT LAST_ERROR_CODE
+```
+
+Payload is never printed.
+
+### Fields reset on replay
+
+Repository method `ReplayFailedOutboxRows` resets only publish-state fields required for the worker to claim rows again:
+
+| Field | Reset value | Why |
+|-------|-------------|-----|
+| `status` | `PENDING` | Worker claims only PENDING rows |
+| `attempts` | `0` | Restores full retry budget (`MaxAttempts`) |
+| `available_at` | operator `now` | Makes row immediately eligible |
+| `locked_at` / `locked_by` | `NULL` | Clears stale lease |
+| `last_error_code` | `NULL` | Clears terminal failure marker |
+| `published_at` | `NULL` | Clears prior publish timestamp before republication |
+
+Immutable fields preserved: `id` (eventId), `source_event_id`, `payload`, `headers`, `aggregate_id`, `aggregate_version`, `event_type`, `schema_version`, `tenant_id`, `created_at`.
+
+### Ordering safety
+
+Before execute, the service validates that for each affected aggregate **every** remaining `FAILED` row is included in the selection (or earlier rows are already `PUBLISHED`). This prevents replaying later status events while earlier ones remain FAILED.
+
+After reset, the existing worker claim order (`ORDER BY created_at ASC, id ASC`) republishes oldest events first. Kafka record key is `aggregate_id`, preserving per-shipment partition ordering.
+
+### Control Tower idempotency
+
+Consumers dedupe by:
+
+- primary key `event_id` (outbox row UUID / envelope `eventId`)
+- unique `source_event_id` (history row UUID)
+- unique Kafka position `(topic, partition_id, message_offset)`
+
+Duplicate delivery after successful prior ingest records inbox outcome `DUPLICATE` and does not fail the consumer.
+
+### Verify success
+
+Read-only checks:
+
+- selected rows → `PUBLISHED`, `FAILED=0`
+- Kafka topic offsets increased
+- Control Tower inbox rows `APPLIED` (or `DUPLICATE` on accidental second delivery)
+- projection status matches legacy shipment status
+
+Staging recovery runbook: `docs/ops/BINTRANS_STAGING_FAILED_OUTBOX_RECOVERY_RUNBOOK.md`
+
+### Prohibited: arbitrary SQL
+
+Do **not** run ad-hoc `UPDATE transport.shipment_event_outbox SET status='PENDING'` in production or staging. That bypasses tenant guards, ordering validation, affected-row checks, and auditability.
+
 ## TODO / future work
 
 - Published-row retention/purge
-- Explicit FAILED replay tooling (internal only)
 - Optional NOTIFY-based wakeups instead of pure polling
 - Consumer services for `shipment.status.v1`
 
