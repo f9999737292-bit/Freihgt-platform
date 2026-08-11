@@ -1,0 +1,92 @@
+# BINTRANS dedicated Control Tower staging — network isolation override.
+#
+# Target VM: bintrans-control-tower-staging
+# Compose project: bintrans-ct-staging
+#
+# Apply with protected env (never commit secrets):
+#   --env-file /protected/bintrans/control-tower-observation/staging.env
+#
+# Foundation (postgres + redpanda only):
+#   -f docker-compose.yml
+#   -f docker-compose.bintrans-ct-staging.yml
+#   --profile messaging
+#
+# Shadow runtime adds:
+#   -f docker-compose.staging-shadow.yml
+#   -f docker-compose.bintrans-ct-staging-images.yml  (when registry images ready)
+#   --profile read-model [--profile observability]
+#
+# Requires Docker Compose v2.23+ for ports !override semantics.
+
+x-bintrans-database-url: &bintrans_database_url
+  postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+
+services:
+  postgres:
+    ports: !override []
+
+  redpanda:
+    ports: !override []
+
+  identity-service:
+    ports: !override []
+    environment:
+      DATABASE_URL: *bintrans_database_url
+
+  company-service:
+    ports: !override []
+    environment:
+      DATABASE_URL: *bintrans_database_url
+
+  transport-order-service:
+    ports: !override []
+    environment:
+      DATABASE_URL: *bintrans_database_url
+
+  rfx-service:
+    ports: !override []
+    environment:
+      DATABASE_URL: *bintrans_database_url
+
+  shipment-service:
+    ports: !override []
+    environment:
+      DATABASE_URL: *bintrans_database_url
+
+  document-service:
+    ports: !override []
+    environment:
+      DATABASE_URL: *bintrans_database_url
+
+  billing-register-service:
+    ports: !override []
+    environment:
+      DATABASE_URL: *bintrans_database_url
+
+  low-code-service:
+    ports: !override []
+    environment:
+      DATABASE_URL: *bintrans_database_url
+
+  control-tower-read-model-service:
+    ports: !override
+      - "127.0.0.1:${CONTROL_TOWER_READ_MODEL_HOST_PORT:-8089}:8089"
+    environment:
+      CONTROL_TOWER_DATABASE_URL: *bintrans_database_url
+
+  api-gateway:
+    ports: !override
+      - "127.0.0.1:${API_GATEWAY_HOST_PORT:-18080}:8080"
+
+  prometheus:
+    ports: !override
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
+
+  grafana:
+    ports: !override
+      - "127.0.0.1:${GRAFANA_PORT:-3001}:3000"
+
+  migrate:
+    command:
+      - -path=/migrations
+      - -database=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
