@@ -5,6 +5,7 @@
 Operator repository checkout: `a1c246d0629e1cc8be3c0681064a31626f396273`  
 Runtime image source: `b75eb3d` / tag `git-b75eb3d`  
 Migration target: `000019` (schema version **19**)  
+**Fresh DB note:** target version **19** is not “one migration only”. On a database with no `schema_migrations` table (version 0), `goto 19` applies the **full UP chain** `000001` … `000019` (up to 19 migrations).  
 Control Tower mode: **shadow** — **PRIMARY MUST REMAIN DISABLED**
 
 ---
@@ -219,10 +220,12 @@ Gate checks before execution:
 - `version` prints `N` on success, or `N (dirty)` when dirty (rejected)
 - no migrations yet → error containing `no migration` (treated as version 0)
 - apply uses explicit `goto 19`, **not** unbounded `up`
+- on version 0, `goto 19` runs every applicable UP migration through version 19 and creates `schema_migrations` automatically
+- **target migration version = 19** is distinct from **number of UP files applied from fresh DB = up to 19**
 
 ---
 
-## PHASE F — Migration 000019 (NOT executed yet)
+## PHASE F — Migration to version 19 (NOT executed yet)
 
 **Do not use unbounded `make migrate-up`** for this staging path. Use explicit target:
 
@@ -233,6 +236,11 @@ CONFIRM_MIGRATION_000019=true \
 
 Underlying tooling: `golang-migrate` **`goto 19`** (not `up` to latest).
 
+**Fresh staging database (current state: version 0 / no `schema_migrations`):**  
+`goto 19` applies migrations **000001 through 000019** in order. The final schema version is **19**. Migration **000019** alone is only the last step in that chain.
+
+**Already-migrated database:** if current version is already 19, gate exits with `ALREADY_AT_TARGET=YES` and applies nothing.
+
 Post-migration verification:
 
 ```bash
@@ -241,7 +249,7 @@ docker compose ... --profile tools run --rm migrate \
 # expect: 19
 ```
 
-Migration `000019` alters `control_tower.shipment_status_projection_rebuild_backup.last_event_type` to nullable.
+Migration **000019** (final step) alters `control_tower.shipment_status_projection_rebuild_backup.last_event_type` to nullable.
 
 **Do not run down migrations on staging.**
 
@@ -345,7 +353,7 @@ See also (on `a1c246d`):
 | `bintrans_ct_staging_backup.sh` | pg_dump backup |
 | `bintrans_ct_staging_foundation_up_selfcheck.sh` | Foundation script static contract |
 | `staging.env.example` | Protected env template |
-| `bintrans_ct_staging_migrate_gate.sh` | Migration 000019 gate |
+| `bintrans_ct_staging_migrate_gate.sh` | Migration to version 19 gate (fresh DB: chain 000001–000019) |
 | `registry.images.template.env` | Digest pinning template |
 
 ## Explicitly forbidden in this runbook path

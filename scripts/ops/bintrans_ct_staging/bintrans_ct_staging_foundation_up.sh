@@ -9,14 +9,44 @@ source "${ROOT}/scripts/ops/bintrans_ct_staging/bintrans_ct_staging_common.sh"
 
 bintrans_require_env_file
 
-# Static self-check: this script must remain foundation-only.
+# Validate the actual compose invocation line — not arbitrary script source text.
 self="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || realpath "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")"
-if ! grep -e '--no-deps' "${self}" >/dev/null 2>&1; then
-  bintrans_fail "foundation script missing required --no-deps guard"
-fi
-if grep -Eq 'up -d.*(api-gateway|identity-service|prometheus|grafana|control-tower-read-model-service|migrate)' "${self}"; then
-  bintrans_fail "foundation script must not start runtime/observability/migrate services"
-fi
+compose_line="$(
+  grep 'bintrans_compose.*up -d' "${self}" \
+    | grep -v '^[[:space:]]*#' \
+    | grep -v '^[[:space:]]*echo' \
+    | tail -n1 \
+    || true
+)"
+[[ -n "${compose_line}" ]] || bintrans_fail "foundation script missing bintrans_compose up -d invocation"
+
+echo "${compose_line}" | grep -e '--no-deps' >/dev/null 2>&1 \
+  || bintrans_fail "foundation compose command missing --no-deps"
+echo "${compose_line}" | grep -e '--profile messaging' >/dev/null 2>&1 \
+  || bintrans_fail "foundation compose command missing --profile messaging"
+echo "${compose_line}" | grep -q 'postgres redpanda' \
+  || bintrans_fail "foundation compose command must target postgres redpanda only"
+
+forbidden_services=(
+  migrate
+  api-gateway
+  identity-service
+  company-service
+  transport-order-service
+  rfx-service
+  shipment-service
+  document-service
+  billing-register-service
+  low-code-service
+  control-tower-read-model-service
+  prometheus
+  grafana
+)
+for svc in "${forbidden_services[@]}"; do
+  if echo "${compose_line}" | grep -q "${svc}"; then
+    bintrans_fail "foundation compose command must not include ${svc}"
+  fi
+done
 
 echo "Starting foundation only: postgres, redpanda"
 echo "Project: ${BINTRANS_COMPOSE_PROJECT}"
