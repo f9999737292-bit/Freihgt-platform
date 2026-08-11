@@ -128,7 +128,7 @@ Read-only / minimally mutating sequence for operator after Phase R:
 
 | Category | Check | Tool / method |
 |----------|-------|---------------|
-| **A. Infrastructure** | Exact runtime service set; no migrate/prometheus/grafana | `bintrans_ct_staging_runtime_health.sh` |
+| **A. Infrastructure** | Foundation + 10 runtime services; migrate forbidden; observability optional | `bintrans_ct_staging_runtime_health.sh` |
 | **B. Authentication** | identity-service + gateway up; JWT issuance requires valid credentials | Manual login once cohort exists; not required for container health |
 | **C. Service connectivity** | Gateway `/health`; internal routing | `curl` localhost gateway |
 | **D. Database** | postgres `pg_isready` | `bintrans_ct_staging_runtime_health.sh` |
@@ -138,6 +138,42 @@ Read-only / minimally mutating sequence for operator after Phase R:
 **Blocked until cohort:** functional tenant-scoped API requests, Day 0 observation, comparison metrics requiring approved tenants.
 
 **Empty cohort rejected:** `cohort manifest is empty` / `cohort manifest has no approved tenants` (`cohort.go`).
+
+### Full-stack health gate contract (14 approved services)
+
+Approved running compose project services:
+
+`postgres`, `redpanda`, 10 runtime services, `prometheus`, `grafana`.
+
+Forbidden: `migrate`. Any other service name → FAIL.
+
+| State | prometheus/grafana | runtime_health | observability_health |
+|-------|-------------------|----------------|----------------------|
+| A — foundation + runtime only | absent | PASS | N/A (not run) |
+| B — full stack | present | PASS | PASS |
+| C — observability expected but missing | prometheus or grafana absent | PASS | FAIL |
+| D — migrate running | any | FAIL | FAIL |
+| E — unknown project service | any | FAIL | FAIL |
+
+Health scripts validate explicit required subsets plus approved project-wide enumeration. Observability presence does **not** fail runtime health.
+
+### Operator-supplied live evidence (2026-08-11; not re-verified by repository tooling in this section)
+
+After first runtime shadow deploy and observability start on dedicated VM `bintrans-control-tower-staging`:
+
+| Field | Operator report |
+|-------|-----------------|
+| `OBSERVABILITY_STARTED` | YES |
+| `PROMETHEUS_HTTP` | 200 |
+| `PROMETHEUS_TARGETS` | 10/10 UP |
+| `GRAFANA_HTTP` | 200 |
+| `RUNTIME_HEALTH_DIRECT_VERIFICATION` | PASS (compose ps: 10/10 runtime healthy) |
+| `SCHEMA_VERSION` | 19 |
+| `SCHEMA_DIRTY` | false |
+| `CONTROL_TOWER_MODE` | shadow |
+| `PRIMARY_ENABLED` | NO |
+
+**Tooling note:** Earlier nonzero exits from `bintrans_ct_staging_observability_health.sh` and `bintrans_ct_staging_runtime_health.sh` were **false positives** caused by project-wide `docker compose ps` enumeration after observability joined the same compose project (foundation/runtime listed as “unexpected” in observability health; prometheus/grafana listed as “unexpected” in runtime health). Fixed in repository by explicit approved service sets — see selfchecks `bintrans_ct_staging_runtime_health_selfcheck.sh` and `bintrans_ct_staging_observability_health_selfcheck.sh`.
 
 ---
 
@@ -484,6 +520,7 @@ See also (on `a1c246d`):
 | `bintrans_ct_staging_runtime_up.sh` | Start 10 runtime services (`--no-build`, excludes migrate/observability) |
 | `bintrans_ct_staging_runtime_up_selfcheck.sh` | Runtime wrapper static contract |
 | `bintrans_ct_staging_runtime_health.sh` | Post-start health (read-only) |
+| `bintrans_ct_staging_runtime_health_selfcheck.sh` | Runtime health service-set contract (offline) |
 | `bintrans_ct_staging_observability_up.sh` | Start prometheus + grafana only |
 | `bintrans_ct_staging_observability_up_selfcheck.sh` | Observability wrapper static contract |
 | `bintrans_ct_staging_migrate_version_parser_selfcheck.sh` | Parser regression (no DB) |
@@ -496,6 +533,7 @@ See also (on `a1c246d`):
 | `bintrans_ct_staging_registry_publish_guide.sh` | Operator registry push steps (text) |
 | `bintrans_ct_staging_image_provenance_check.sh` | Local publish-tag presence check |
 | `bintrans_ct_staging_observability_health.sh` | Observability health (read-only) |
+| `bintrans_ct_staging_observability_health_selfcheck.sh` | Observability health service-set contract (offline) |
 | `bintrans_ct_staging_foundation_up.sh` | Start postgres + redpanda |
 | `bintrans_ct_staging_foundation_health.sh` | Foundation health |
 | `bintrans_ct_staging_backup.sh` | pg_dump backup |

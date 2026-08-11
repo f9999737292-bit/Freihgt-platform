@@ -159,6 +159,68 @@ bintrans_runtime_service_names=(
   api-gateway
 )
 
+bintrans_foundation_service_names=(
+  postgres
+  redpanda
+)
+
+bintrans_observability_service_names=(
+  prometheus
+  grafana
+)
+
+# Canonical approved running services for the full BINTRANS staging compose project.
+bintrans_full_stack_service_names=(
+  "${bintrans_foundation_service_names[@]}"
+  "${bintrans_runtime_service_names[@]}"
+  "${bintrans_observability_service_names[@]}"
+)
+
+bintrans_forbidden_project_services=(
+  migrate
+)
+
+bintrans_is_approved_project_service() {
+  local svc="$1"
+  local approved
+  for approved in "${bintrans_full_stack_service_names[@]}"; do
+    [[ "${svc}" == "${approved}" ]] && return 0
+  done
+  return 1
+}
+
+# Validate project-wide compose ps service names: forbid migrate/unknown; allow full approved set.
+bintrans_validate_project_service_names() {
+  local running="$1"
+  local svc
+  while IFS= read -r svc; do
+    [[ -z "${svc}" ]] && continue
+    for forbidden in "${bintrans_forbidden_project_services[@]}"; do
+      [[ "${svc}" == "${forbidden}" ]] \
+        && bintrans_fail "forbidden project service running: ${forbidden}"
+    done
+    if ! bintrans_is_approved_project_service "${svc}"; then
+      bintrans_fail "unknown project service running: ${svc}"
+    fi
+  done <<< "${running}"
+}
+
+bintrans_assert_services_listed() {
+  local running="$1"
+  shift
+  local svc
+  for svc in "$@"; do
+    echo "${running}" | grep -qx "${svc}" \
+      || bintrans_fail "expected service not running: ${svc}"
+    echo "OK: service running: ${svc}"
+  done
+}
+
+# Read sorted unique running service names from compose ps (project-wide enumeration).
+bintrans_compose_running_service_names() {
+  bintrans_compose "$@" ps --format '{{.Service}}' 2>/dev/null | sort -u
+}
+
 bintrans_runtime_forbidden_up_services=(
   migrate
   prometheus

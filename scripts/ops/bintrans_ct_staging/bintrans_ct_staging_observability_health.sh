@@ -20,18 +20,27 @@ echo "=== BINTRANS observability health check ==="
 gw_cid="$(bintrans_compose --profile messaging --profile read-model ps -q api-gateway 2>/dev/null | head -n1)"
 [[ -n "${gw_cid}" ]] || bintrans_fail "api-gateway must be running before observability health check"
 
-running="$(bintrans_compose --profile messaging --profile read-model --profile observability ps --format '{{.Service}}' 2>/dev/null | sort -u || true)"
+running="$(bintrans_compose_running_service_names --profile messaging --profile read-model --profile observability)"
 
-for svc in prometheus grafana; do
-  echo "${running}" | grep -qx "${svc}" \
-    || bintrans_fail "expected observability service not running: ${svc}"
-  echo "OK: service running: ${svc}"
-done
+bintrans_validate_project_service_names "${running}"
+bintrans_assert_services_listed "${running}" "${bintrans_observability_service_names[@]}"
 
-for forbidden in migrate postgres redpanda; do
-  echo "${running}" | grep -qx "${forbidden}" \
-    && bintrans_fail "unexpected service in observability ps: ${forbidden}" || true
-done
+while IFS= read -r line; do
+  [[ -z "${line}" ]] && continue
+  svc="${line%%|*}"
+  state="${line#*|}"; state="${state%%|*}"
+  health="${line##*|}"
+  if [[ "${state}" != "running" ]]; then
+    bintrans_fail "observability service not running: ${svc} (state=${state})"
+  fi
+  if [[ -n "${health}" && "${health}" == "unhealthy" ]]; then
+    bintrans_fail "observability service unhealthy: ${svc}"
+  fi
+done < <(
+  bintrans_compose --profile messaging --profile read-model --profile observability ps \
+    --format '{{.Service}}|{{.State}}|{{.Health}}' 2>/dev/null \
+    | grep -E '^(prometheus|grafana)\|'
+)
 
 curl_check() {
   local label="$1" url="$2"

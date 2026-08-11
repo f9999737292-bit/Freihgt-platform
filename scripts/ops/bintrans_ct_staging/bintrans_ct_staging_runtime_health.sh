@@ -14,9 +14,6 @@ CTRM_PORT="$(bintrans_env_value CONTROL_TOWER_READ_MODEL_HOST_PORT)"
 CTRM_PORT="${CTRM_PORT:-8089}"
 CTRM_URL="http://127.0.0.1:${CTRM_PORT}"
 
-expected_services=("${bintrans_runtime_service_names[@]}")
-forbidden_services=(migrate prometheus grafana)
-
 echo "=== BINTRANS runtime health check ==="
 
 pg_cid="$(bintrans_postgres_container)"
@@ -41,21 +38,32 @@ else
   bintrans_fail "redpanda not ready"
 fi
 
-running="$(bintrans_compose --profile messaging --profile read-model ps --format '{{.Service}}' 2>/dev/null | sort -u || true)"
+running="$(bintrans_compose_running_service_names --profile messaging --profile read-model)"
 
-for svc in "${expected_services[@]}"; do
-  if echo "${running}" | grep -qx "${svc}"; then
-    echo "OK: service running: ${svc}"
-  else
-    bintrans_fail "expected runtime service not running: ${svc}"
-  fi
-done
+bintrans_validate_project_service_names "${running}"
 
-for forbidden in "${forbidden_services[@]}"; do
-  if echo "${running}" | grep -qx "${forbidden}"; then
-    bintrans_fail "unexpected service running: ${forbidden}"
+required=(
+  "${bintrans_foundation_service_names[@]}"
+  "${bintrans_runtime_service_names[@]}"
+)
+bintrans_assert_services_listed "${running}" "${required[@]}"
+
+while IFS= read -r line; do
+  [[ -z "${line}" ]] && continue
+  svc="${line%%|*}"
+  state="${line#*|}"; state="${state%%|*}"
+  health="${line##*|}"
+  if [[ "${state}" != "running" ]]; then
+    bintrans_fail "required service not running: ${svc} (state=${state})"
   fi
-done
+  if [[ -n "${health}" && "${health}" != "healthy" ]]; then
+    bintrans_fail "required service unhealthy: ${svc} (health=${health})"
+  fi
+done < <(
+  bintrans_compose --profile messaging --profile read-model ps \
+    --format '{{.Service}}|{{.State}}|{{.Health}}' 2>/dev/null \
+    | grep -E '^(postgres|redpanda|identity-service|company-service|transport-order-service|rfx-service|shipment-service|document-service|billing-register-service|low-code-service|control-tower-read-model-service|api-gateway)\|'
+)
 
 curl_check() {
   local label="$1" url="$2"
