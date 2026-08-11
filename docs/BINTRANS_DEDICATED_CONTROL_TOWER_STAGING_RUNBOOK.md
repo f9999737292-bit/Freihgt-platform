@@ -50,22 +50,71 @@ Control Tower mode: **shadow** — **PRIMARY MUST REMAIN DISABLED**
 
 ---
 
-## Current expected state (not claimed executed by this document)
+## Current expected state (operator-supplied; autonomous task did NOT SSH)
 
-| Gate | Expected |
-|------|----------|
+| Gate | State |
+|------|-------|
 | `DOCKER_BOOTSTRAP` | PASS |
-| `REPOSITORY_CHECKOUT` | PASS (`a1c246d`) |
-| `PROTECTED_ENV_CREATED` | PASS |
-| `NETWORK_ISOLATION_OPERATOR_VERIFIED` | **YES** (operator-supplied; Cursor did not verify Selectel) |
-| `COHORT_APPROVED` | **NO** |
-| `FOUNDATION_STARTED` | **NO** |
-| `BACKUP_VERIFIED` | **NO** |
-| `MIGRATION_19_EXECUTED` | **NO** |
-| `RUNTIME_DEPLOYED` | **NO** |
-| `DAY_0_STARTED` | **NO** |
-| `OBSERVATION_WINDOW_STARTED` | **NO** |
-| `PRIMARY_ENABLED` | **NO** |
+| `NETWORK_ISOLATION_OPERATOR_VERIFIED` | YES |
+| `FOUNDATION_STARTED` | YES |
+| `FOUNDATION_HEALTHY` | YES |
+| `BACKUP_VERIFIED` | YES |
+| `MIGRATION_19_EXECUTED` | YES |
+| `SCHEMA_VERSION` | 19 |
+| `SCHEMA_DIRTY` | false |
+| `RUNTIME_DEPLOYED` | NO |
+| `CONTROL_TOWER_STARTED` | NO |
+| `OBSERVABILITY_STARTED` | NO |
+| `COHORT_APPROVED` | NO |
+| `DAY_0_STARTED` | NO |
+| `PRIMARY_ENABLED` | NO |
+
+Verified backup (operator): `/protected/bintrans/backups/freight_platform_20260811T083942Z.dump`  
+SHA-256: `c04d993fedc70b9627b773a367f0a62872fd6feed6ccce7990793bd7e66c6c9b`
+
+**Do not rerun migration.** Next live gates: JWT_SECRET provisioning, registry push, digest pinning, runtime preflight, runtime start.
+
+---
+
+## Operator sequence (post-migration → Day 0)
+
+| Phase | Action |
+|-------|--------|
+| **K** | Update staging-pack commit on VM (`git fetch` + checkout latest `ops/bintrans-ct-staging-pack`) |
+| **L** | Provision strong `JWT_SECRET` in protected env (see `docs/BINTRANS_STAGING_JWT_AUDIT.md`) |
+| **M** | Registry login (`docker login cr.selcloud.ru`) — operator credentials only |
+| **N** | Push runtime images (`git-b75eb3d` tag per service) — see `bintrans_ct_staging_registry_publish_guide.sh` |
+| **O** | Capture and verify digests (`docker inspect --format='{{index .RepoDigests 0}}' ...`) |
+| **P** | Write digest-pinned `BINTRANS_*_IMAGE=` lines to protected env (template: `runtime.images.digest.env.example`) |
+| **Q** | `./scripts/ops/bintrans_ct_staging/bintrans_ct_staging_runtime_preflight.sh` |
+| **R** | `./scripts/ops/bintrans_ct_staging/bintrans_ct_staging_runtime_up.sh` |
+| **S** | `./scripts/ops/bintrans_ct_staging/bintrans_ct_staging_runtime_health.sh` |
+| **T** | `./scripts/ops/bintrans_ct_staging/bintrans_ct_staging_observability_up.sh` (after gateway healthy) |
+| **U** | Operator-approved cohort at `/protected/bintrans/control-tower-cohort.json`; set `COHORT_APPROVED=YES` |
+| **V** | Day 0 shadow observation (`scripts/ops/control_tower_shadow_observation/`) |
+
+---
+
+## Runtime smoke gate design (first deploy)
+
+Read-only / minimally mutating sequence for operator after Phase R:
+
+| Category | Check | Tool / method |
+|----------|-------|---------------|
+| **A. Infrastructure** | Exact runtime service set; no migrate/prometheus/grafana | `bintrans_ct_staging_runtime_health.sh` |
+| **B. Authentication** | identity-service + gateway up; JWT issuance requires valid credentials | Manual login once cohort exists; not required for container health |
+| **C. Service connectivity** | Gateway `/health`; internal routing | `curl` localhost gateway |
+| **D. Database** | postgres `pg_isready` | `bintrans_ct_staging_runtime_health.sh` |
+| **E. Kafka** | redpanda cluster info | `bintrans_ct_staging_runtime_health.sh` |
+| **F. Control Tower shadow** | Effective mode=shadow; consumer enabled | runtime preflight + gateway env |
+
+**Blocked until cohort:** functional tenant-scoped API requests, Day 0 observation, comparison metrics requiring approved tenants.
+
+**Empty cohort rejected:** `cohort manifest is empty` / `cohort manifest has no approved tenants` (`cohort.go`).
+
+---
+
+## PHASE G — Registry digest verification
 
 ### Network isolation (operator-supplied evidence)
 
@@ -308,6 +357,24 @@ Service → registry path (tag baseline):
 
 ## PHASE H — Runtime shadow deployment (NOT executed yet)
 
+Use wrapper (runs preflight first):
+
+```bash
+./scripts/ops/bintrans_ct_staging/bintrans_ct_staging_runtime_up.sh
+```
+
+Static contract:
+
+```bash
+./scripts/ops/bintrans_ct_staging/bintrans_ct_staging_runtime_up_selfcheck.sh
+```
+
+Health after start:
+
+```bash
+./scripts/ops/bintrans_ct_staging/bintrans_ct_staging_runtime_health.sh
+```
+
 Prerequisites beyond foundation/migration:
 
 1. `JWT_SECRET` set in protected env (non-placeholder; externalized via `docker-compose.bintrans-ct-staging.yml`)
@@ -342,11 +409,14 @@ Restart order recommendation: identity → company → transport-order → rfx �
 
 Preflight validates **effective** `api-gateway` `CONTROL_TOWER_READ_MODEL_MODE: shadow` in rendered compose — not a generic text search for the word `primary`.
 
-Optional observability (requires api-gateway healthy first — do not use during foundation-only):
+Optional observability (separate script — requires api-gateway healthy first):
 
 ```bash
-docker compose ... --profile observability up -d prometheus grafana
+./scripts/ops/bintrans_ct_staging/bintrans_ct_staging_observability_up.sh
+./scripts/ops/bintrans_ct_staging/bintrans_ct_staging_observability_up_selfcheck.sh
 ```
+
+Manual equivalent:
 
 ---
 
@@ -380,15 +450,26 @@ See also (on `a1c246d`):
 |--------|---------|
 | `bintrans_ct_staging_preflight.sh` | Static validation (foundation + compose; no JWT required) |
 | `bintrans_ct_staging_runtime_preflight.sh` | Runtime deploy gate (JWT + digest images + shadow mode) |
+| `bintrans_ct_staging_runtime_up.sh` | Start 10 runtime services (`--no-build`, excludes migrate/observability) |
+| `bintrans_ct_staging_runtime_up_selfcheck.sh` | Runtime wrapper static contract |
+| `bintrans_ct_staging_runtime_health.sh` | Post-start health (read-only) |
+| `bintrans_ct_staging_observability_up.sh` | Start prometheus + grafana only |
+| `bintrans_ct_staging_observability_up_selfcheck.sh` | Observability wrapper static contract |
 | `bintrans_ct_staging_migrate_version_parser_selfcheck.sh` | Parser regression (no DB) |
+| `bintrans_ct_staging_migration_parser_selfcheck.sh` | Alias for parser selfcheck |
 | `bintrans_ct_staging_runtime_preflight_selfcheck.sh` | Runtime preflight regression (no DB) |
+| `bintrans_ct_staging_registry_digest_validate.sh` | Digest manifest completeness |
+| `bintrans_ct_staging_registry_digest_validate_selfcheck.sh` | Digest validator regression |
+| `bintrans_ct_staging_registry_publish_guide.sh` | Operator registry push steps (no login/push) |
 | `bintrans_ct_staging_foundation_up.sh` | Start postgres + redpanda |
 | `bintrans_ct_staging_foundation_health.sh` | Foundation health |
 | `bintrans_ct_staging_backup.sh` | pg_dump backup |
 | `bintrans_ct_staging_foundation_up_selfcheck.sh` | Foundation script static contract |
 | `staging.env.example` | Protected env template |
-| `bintrans_ct_staging_migrate_gate.sh` | Migration to version 19 gate (fresh DB: chain 000001–000019) |
-| `registry.images.template.env` | Digest pinning template |
+| `runtime.images.digest.env.example` | Digest-pinned image template |
+| `bintrans_ct_staging_migrate_gate.sh` | Migration to version 19 gate |
+| `registry.images.template.env` | Legacy digest pinning template |
+| `docs/BINTRANS_STAGING_JWT_AUDIT.md` | JWT trace documentation |
 
 ## Explicitly forbidden in this runbook path
 
