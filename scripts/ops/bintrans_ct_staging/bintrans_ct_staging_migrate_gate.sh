@@ -48,27 +48,42 @@ bintrans_migrate_version_raw() {
     version 2>&1
 }
 
+bintrans_read_migration_version() {
+  local output="$1"
+  local parsed version dirty parse_rc
+
+  if ! parsed="$(bintrans_parse_migrate_version "${output}")"; then
+    parse_rc=$?
+    if [[ "${parse_rc}" -eq 2 ]]; then
+      bintrans_fail "conflicting migration version lines in migrate version output"
+    fi
+    bintrans_fail "unable to parse migration version from migrate output"
+  fi
+
+  version="${parsed%% *}"
+  dirty="${parsed#* }"
+  if [[ "${dirty}" == yes ]]; then
+    bintrans_fail "database migration state is dirty — manual intervention required before goto ${MIGRATION_VERSION}"
+  fi
+
+  if ! [[ "${version}" =~ ^[0-9]+$ ]]; then
+    bintrans_fail "parsed migration version is not numeric: ${version}"
+  fi
+
+  printf '%s\n' "${version}"
+}
+
 echo "=== Current migration version ==="
 version_output="$(bintrans_migrate_version_raw)" || version_rc=$?
 version_rc="${version_rc:-0}"
 echo "${version_output}"
 
-if [[ "${version_rc}" -ne 0 ]]; then
-  if echo "${version_output}" | grep -qi 'no migration'; then
-    current_version=0
-    dirty_state=no
-  else
-    bintrans_fail "unable to determine migration version (migrate version failed)"
-  fi
-elif echo "${version_output}" | grep -q '(dirty)'; then
-  bintrans_fail "database migration state is dirty — manual intervention required before goto ${MIGRATION_VERSION}"
-else
-  current_version="$(echo "${version_output}" | tr -d '\r' | awk 'NF{print $1; exit}')"
-  dirty_state=no
-  if ! [[ "${current_version}" =~ ^[0-9]+$ ]]; then
-    bintrans_fail "unable to parse migration version from: ${version_output}"
-  fi
+if [[ "${version_rc}" -ne 0 ]] && ! echo "${version_output}" | grep -qi 'no migration'; then
+  bintrans_fail "unable to determine migration version (migrate version failed)"
 fi
+
+current_version="$(bintrans_read_migration_version "${version_output}")"
+dirty_state=no
 
 echo "PARSED_CURRENT_VERSION=${current_version}"
 echo "PARSED_DIRTY_STATE=${dirty_state}"
@@ -105,10 +120,8 @@ BINTRANS_INCLUDE_SHADOW=0 BINTRANS_INCLUDE_IMAGES=0 \
 echo "=== Post-migration version (expect ${MIGRATION_VERSION}) ==="
 post_output="$(bintrans_migrate_version_raw)"
 echo "${post_output}"
-if echo "${post_output}" | grep -q '(dirty)'; then
-  bintrans_fail "post-migration state is dirty"
-fi
-post_version="$(echo "${post_output}" | tr -d '\r' | awk 'NF{print $1; exit}')"
+
+post_version="$(bintrans_read_migration_version "${post_output}")"
 [[ "${post_version}" == "${MIGRATION_VERSION}" ]] \
   || bintrans_fail "post-migration version ${post_version} != ${MIGRATION_VERSION}"
 

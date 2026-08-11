@@ -112,14 +112,6 @@ BINTRANS_INCLUDE_SHADOW=1 BINTRANS_INCLUDE_IMAGES=1 \
 
 echo "OK: docker compose config rendered (foundation + runtime + observability)"
 
-bintrans_extract_gateway_mode() {
-  awk '
-    /^  api-gateway:/ { in_gw=1; next }
-    in_gw && /^  [a-zA-Z0-9_-]+:/ { exit }
-    in_gw && $1 == "CONTROL_TOWER_READ_MODEL_MODE:" { print $2; exit }
-  ' "$1"
-}
-
 gateway_mode="$(bintrans_extract_gateway_mode "${render_runtime}")"
 [[ "${gateway_mode}" == "shadow" ]] \
   || bintrans_fail "effective api-gateway CONTROL_TOWER_READ_MODEL_MODE must be shadow (found: ${gateway_mode:-<unset>})"

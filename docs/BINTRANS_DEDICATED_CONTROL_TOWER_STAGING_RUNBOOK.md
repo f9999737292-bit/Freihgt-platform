@@ -10,6 +10,31 @@ Control Tower mode: **shadow** — **PRIMARY MUST REMAIN DISABLED**
 
 ---
 
+## Operator-supplied verified state (staging VM)
+
+> Cursor did **not** independently re-verify the live database in repository-only hardening tasks.  
+> The following reflects operator-supplied evidence from the dedicated staging VM.
+
+| Gate | State |
+|------|-------|
+| FOUNDATION_STARTED | YES |
+| FOUNDATION_HEALTHY | YES |
+| BACKUP_VERIFIED | YES |
+| MIGRATION_19_EXECUTED | YES (chain 000001–000019 on fresh DB) |
+| SCHEMA_VERSION | 19 |
+| SCHEMA_DIRTY | false |
+| RUNTIME_DEPLOYED | NO |
+| CONTROL_TOWER_STARTED | NO |
+| COHORT_APPROVED | NO |
+| DAY_0_STARTED | NO |
+| PRIMARY_ENABLED | NO |
+
+**Migration tooling note:** The migrate gate script previously returned exit code 1 after a successful `goto 19` because post-migration version parsing captured Docker Compose lifecycle noise (`Container ...`) instead of the numeric `19` line. Independent DB verification (`schema_migrations.version=19`, `dirty=false`) confirmed success. **Do not rerun migration.** Parser hardened in staging-pack commit after `4dfc158`.
+
+**Next gates before runtime:** JWT_SECRET in protected env, digest-pinned `BINTRANS_*_IMAGE` refs, `./scripts/ops/bintrans_ct_staging/bintrans_ct_staging_runtime_preflight.sh`.
+
+---
+
 ## Target environment
 
 | Field | Value |
@@ -283,6 +308,12 @@ Service → registry path (tag baseline):
 
 ## PHASE H — Runtime shadow deployment (NOT executed yet)
 
+Prerequisites beyond foundation/migration:
+
+1. `JWT_SECRET` set in protected env (non-placeholder; externalized via `docker-compose.bintrans-ct-staging.yml`)
+2. Digest-pinned `BINTRANS_*_IMAGE` for all 10 runtime services
+3. `./scripts/ops/bintrans_ct_staging/bintrans_ct_staging_runtime_preflight.sh` PASS
+
 After migration version 19 + digest-pinned images:
 
 ```bash
@@ -347,7 +378,10 @@ See also (on `a1c246d`):
 
 | Script | Purpose |
 |--------|---------|
-| `bintrans_ct_staging_preflight.sh` | Static validation |
+| `bintrans_ct_staging_preflight.sh` | Static validation (foundation + compose; no JWT required) |
+| `bintrans_ct_staging_runtime_preflight.sh` | Runtime deploy gate (JWT + digest images + shadow mode) |
+| `bintrans_ct_staging_migrate_version_parser_selfcheck.sh` | Parser regression (no DB) |
+| `bintrans_ct_staging_runtime_preflight_selfcheck.sh` | Runtime preflight regression (no DB) |
 | `bintrans_ct_staging_foundation_up.sh` | Start postgres + redpanda |
 | `bintrans_ct_staging_foundation_health.sh` | Foundation health |
 | `bintrans_ct_staging_backup.sh` | pg_dump backup |
