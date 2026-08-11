@@ -61,6 +61,12 @@ assert_parse_fail "CASE_E_noise_only" $'Container bintrans-ct-staging-migrate-1 
 # CASE F
 assert_parse_fail "CASE_F_conflicting_versions" $'18\n19\n' 2
 
+# CASE G: duplicate identical version lines are unambiguous (accepted)
+assert_parse "CASE_G_duplicate_identical_19" $'19\n19\n' 19 no
+
+# Container line with numeric suffix must not be parsed as version
+assert_parse_fail "CASE_H_container_id_not_version" $'Container bintrans-ct-staging-migrate-run-b59dd298c0e3 Creating\n' 1
+
 # ALREADY_AT_19 parser path
 assert_parse "ALREADY_AT_19" $'Container bintrans-ct-staging-migrate-run-b59dd298c0e3 Created\n19\n' 19 no
 

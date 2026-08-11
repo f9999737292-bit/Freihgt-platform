@@ -121,6 +121,23 @@ bintrans_runtime_image_vars=(
   BINTRANS_API_GATEWAY_IMAGE
 )
 
+# Expected registry repository suffix per env var (must match digest ref path).
+bintrans_expected_image_repo() {
+  case "$1" in
+    BINTRANS_IDENTITY_IMAGE) printf '%s' 'identity-service' ;;
+    BINTRANS_COMPANY_IMAGE) printf '%s' 'company-service' ;;
+    BINTRANS_TRANSPORT_ORDER_IMAGE) printf '%s' 'transport-order-service' ;;
+    BINTRANS_RFX_IMAGE) printf '%s' 'rfx-service' ;;
+    BINTRANS_SHIPMENT_IMAGE) printf '%s' 'shipment-service' ;;
+    BINTRANS_DOCUMENT_IMAGE) printf '%s' 'document-service' ;;
+    BINTRANS_BILLING_REGISTER_IMAGE) printf '%s' 'billing-register-service' ;;
+    BINTRANS_LOW_CODE_IMAGE) printf '%s' 'low-code-service' ;;
+    BINTRANS_CONTROL_TOWER_READ_MODEL_IMAGE) printf '%s' 'control-tower-read-model-service' ;;
+    BINTRANS_API_GATEWAY_IMAGE) printf '%s' 'api-gateway' ;;
+    *) return 1 ;;
+  esac
+}
+
 bintrans_extract_gateway_mode() {
   awk '
     /^  api-gateway:/ { in_gw=1; next }
@@ -153,6 +170,7 @@ bintrans_runtime_forbidden_up_services=(
 bintrans_validate_digest_image_ref() {
   local var="$1"
   local value="$2"
+  local expected_repo actual_repo
   [[ -n "${value}" ]] || bintrans_fail "${var} must be set to a digest-pinned image reference for runtime deploy"
   if [[ "${value}" == *":git-"* ]] || [[ "${value}" == *":${BINTRANS_IMAGE_TAG:-git-b75eb3d}" ]]; then
     bintrans_fail "${var} must be digest-pinned (@sha256:...), not mutable tag-only"
@@ -160,15 +178,25 @@ bintrans_validate_digest_image_ref() {
   if [[ "${value}" =~ ^@sha256: ]]; then
     bintrans_fail "${var} must include full registry/repository path, not bare @sha256:..."
   fi
-  if [[ "${value}" == *REPLACE_WITH_VERIFIED_DIGEST* ]]; then
+  if [[ "${value}" == *REPLACE_WITH_VERIFIED_DIGEST* ]] || [[ "${value}" == *"<digest>"* ]] || [[ "${value}" == *"<verified_digest>"* ]]; then
     bintrans_fail "${var} placeholder digest must be replaced before runtime deploy"
   fi
   if [[ "${value}" =~ @sha256:[A-F] ]]; then
     bintrans_fail "${var} digest must use lowercase hex sha256"
   fi
-  if [[ ! "${value}" =~ ^cr\.selcloud\.ru/bintrans-staging/[a-z0-9-]+@sha256:[0-9a-f]{64}$ ]]; then
+  if [[ ! "${value}" =~ ^cr\.selcloud\.ru/bintrans-staging/([a-z0-9-]+)@sha256:[0-9a-f]{64}$ ]]; then
     bintrans_fail "${var} must match cr.selcloud.ru/bintrans-staging/<service>@sha256:<64-hex>"
   fi
+  expected_repo="$(bintrans_expected_image_repo "${var}")" \
+    || bintrans_fail "internal: unknown runtime image var ${var}"
+  actual_repo="${BASH_REMATCH[1]}"
+  [[ "${actual_repo}" == "${expected_repo}" ]] \
+    || bintrans_fail "${var} repository must be ${expected_repo} (found ${actual_repo})"
+}
+
+bintrans_digest_image_ref_ok() {
+  local var="$1" value="$2"
+  ( bintrans_validate_digest_image_ref "${var}" "${value}" ) >/dev/null 2>&1
 }
 
 bintrans_validate_all_runtime_digest_images() {
@@ -189,6 +217,7 @@ bintrans_require_runtime_env_contract() {
     MIGRATION_TARGET 000019
     BACKUP_VERIFIED YES
     BINTRANS_REGISTRY cr.selcloud.ru/bintrans-staging
+    BINTRANS_IMAGE_TAG git-b75eb3d
   )
   local i=0
   while [[ $i -lt ${#pairs[@]} ]]; do
