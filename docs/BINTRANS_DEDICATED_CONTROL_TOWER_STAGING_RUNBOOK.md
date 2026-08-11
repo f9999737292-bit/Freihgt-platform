@@ -29,9 +29,35 @@ Control Tower mode: **shadow** — **PRIMARY MUST REMAIN DISABLED**
 | DAY_0_STARTED | NO |
 | PRIMARY_ENABLED | NO |
 
-**Migration tooling note:** The migrate gate script previously returned exit code 1 after a successful `goto 19` because post-migration version parsing captured Docker Compose lifecycle noise (`Container ...`) instead of the numeric `19` line. Independent DB verification (`schema_migrations.version=19`, `dirty=false`) confirmed success. **Do not rerun migration.** Parser hardened in staging-pack commit after `4dfc158`.
+**Migration tooling note:** Migration chain **000001–000019** applied successfully (schema version **19**, dirty **false**). An earlier migrate gate exit code 1 was caused by **parser verification logic** parsing Docker Compose lifecycle noise — **not** a failed DB migration. **Do not rerun migration.**
 
 **Next gates before runtime:** JWT_SECRET in protected env, digest-pinned `BINTRANS_*_IMAGE` refs, `./scripts/ops/bintrans_ct_staging/bintrans_ct_staging_runtime_preflight.sh`.
+
+---
+
+## Future live operator sequence (after Git push + operator review)
+
+1. Operator reviews and pushes `ops/bintrans-ct-staging-pack` branch
+2. VM checkout updated to reviewed commit
+3. Provision real `JWT_SECRET` in protected env
+4. Re-run runtime preflight (digest gate may skip until step 8)
+5. `docker login cr.selcloud.ru` (operator credentials)
+6. Publish 10 runtime images with tag `git-b75eb3d` (`bintrans_ct_staging_registry_publish.sh` prepare-only)
+7. Retrieve canonical registry digests
+8. Populate protected `BINTRANS_*_IMAGE=@sha256:...` entries
+9. `bintrans_ct_staging_runtime_images_validate.sh` PASS
+10. Final `bintrans_ct_staging_runtime_preflight.sh` PASS
+11. `bintrans_ct_staging_runtime_up.sh`
+12. `bintrans_ct_staging_runtime_health.sh` PASS
+13. Authentication smoke (see `docs/BINTRANS_STAGING_AUTH_SMOKE.md`) — **OPERATOR_DATA_REQUIRED**
+14. Control Tower shadow smoke (see `docs/BINTRANS_STAGING_SHADOW_SMOKE.md`)
+15. `bintrans_ct_staging_observability_up.sh`
+16. `bintrans_ct_staging_observability_health.sh` PASS
+17. Real approved cohort manifest; `COHORT_APPROVED=YES`
+18. Day 0 pre-checks (schema 19, shadow, consumer, outbox, primary disabled)
+19. Observation window (`scripts/ops/control_tower_shadow_observation/`)
+
+**Never enable primary mode in this sequence.**
 
 ---
 
@@ -83,13 +109,14 @@ SHA-256: `c04d993fedc70b9627b773a367f0a62872fd6feed6ccce7990793bd7e66c6c9b`
 | **K** | Update staging-pack commit on VM (`git fetch` + checkout latest `ops/bintrans-ct-staging-pack`) |
 | **L** | Provision strong `JWT_SECRET` in protected env (see `docs/BINTRANS_STAGING_JWT_AUDIT.md`) |
 | **M** | Registry login (`docker login cr.selcloud.ru`) — operator credentials only |
-| **N** | Push runtime images (`git-b75eb3d` tag per service) — see `bintrans_ct_staging_registry_publish_guide.sh` |
-| **O** | Capture and verify digests (`docker inspect --format='{{index .RepoDigests 0}}' ...`) |
+| **N** | Push runtime images — `bintrans_ct_staging_registry_publish.sh` (prepare) + manual push |
+| **O** | Capture digests; validate with `bintrans_ct_staging_runtime_images_validate.sh` |
 | **P** | Write digest-pinned `BINTRANS_*_IMAGE=` lines to protected env (template: `runtime.images.digest.env.example`) |
 | **Q** | `./scripts/ops/bintrans_ct_staging/bintrans_ct_staging_runtime_preflight.sh` |
 | **R** | `./scripts/ops/bintrans_ct_staging/bintrans_ct_staging_runtime_up.sh` |
 | **S** | `./scripts/ops/bintrans_ct_staging/bintrans_ct_staging_runtime_health.sh` |
-| **T** | `./scripts/ops/bintrans_ct_staging/bintrans_ct_staging_observability_up.sh` (after gateway healthy) |
+| **T** | `./scripts/ops/bintrans_ct_staging/bintrans_ct_staging_observability_up.sh` |
+| **T2** | `./scripts/ops/bintrans_ct_staging/bintrans_ct_staging_observability_health.sh` |
 | **U** | Operator-approved cohort at `/protected/bintrans/control-tower-cohort.json`; set `COHORT_APPROVED=YES` |
 | **V** | Day 0 shadow observation (`scripts/ops/control_tower_shadow_observation/`) |
 
@@ -418,6 +445,10 @@ Optional observability (separate script — requires api-gateway healthy first):
 
 Manual equivalent:
 
+```bash
+docker compose ... --profile observability up -d --no-build prometheus grafana
+```
+
 ---
 
 ## PHASE I — Cohort approval (NOT ready)
@@ -458,9 +489,13 @@ See also (on `a1c246d`):
 | `bintrans_ct_staging_migrate_version_parser_selfcheck.sh` | Parser regression (no DB) |
 | `bintrans_ct_staging_migration_parser_selfcheck.sh` | Alias for parser selfcheck |
 | `bintrans_ct_staging_runtime_preflight_selfcheck.sh` | Runtime preflight regression (no DB) |
-| `bintrans_ct_staging_registry_digest_validate.sh` | Digest manifest completeness |
-| `bintrans_ct_staging_registry_digest_validate_selfcheck.sh` | Digest validator regression |
-| `bintrans_ct_staging_registry_publish_guide.sh` | Operator registry push steps (no login/push) |
+| `bintrans_ct_staging_runtime_images_validate.sh` | Canonical digest validator (10 services + repo name match) |
+| `bintrans_ct_staging_runtime_images_validate_selfcheck.sh` | Digest validator regression |
+| `bintrans_ct_staging_registry_digest_validate.sh` | Alias for runtime_images_validate |
+| `bintrans_ct_staging_registry_publish.sh` | Registry publish prepare (no login/push) |
+| `bintrans_ct_staging_registry_publish_guide.sh` | Operator registry push steps (text) |
+| `bintrans_ct_staging_image_provenance_check.sh` | Local publish-tag presence check |
+| `bintrans_ct_staging_observability_health.sh` | Observability health (read-only) |
 | `bintrans_ct_staging_foundation_up.sh` | Start postgres + redpanda |
 | `bintrans_ct_staging_foundation_health.sh` | Foundation health |
 | `bintrans_ct_staging_backup.sh` | pg_dump backup |
@@ -470,6 +505,9 @@ See also (on `a1c246d`):
 | `bintrans_ct_staging_migrate_gate.sh` | Migration to version 19 gate |
 | `registry.images.template.env` | Legacy digest pinning template |
 | `docs/BINTRANS_STAGING_JWT_AUDIT.md` | JWT trace documentation |
+| `docs/BINTRANS_STAGING_AUTH_SMOKE.md` | Authentication smoke design |
+| `docs/BINTRANS_STAGING_SHADOW_SMOKE.md` | Control Tower shadow smoke design |
+| `docs/BINTRANS_STAGING_IMAGE_PROVENANCE.md` | Image provenance limitations |
 
 ## Explicitly forbidden in this runbook path
 
