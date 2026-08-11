@@ -1,58 +1,41 @@
-# 7Rights Freight Platform — AI Working Rules
+# BINTRANS Control Tower Staging Pack — AI Working Rules
 
 ## Project root
 
 Always work from:
 
-D:\Projects\freight-platform
+```
+D:\Projects\freight-platform-staging-pack
+```
+
+Branch: `ops/bintrans-ct-staging-pack`
+
+Do **not** modify `D:\Projects\freight-platform` (read-only comparison only if explicitly needed).
+
+## Autonomous local scope
+
+Agent may proceed without operator prompts for local inspection, static validation, tests, docs, and local commits.
+
+Stop and request approval before: SSH, live staging deploy, database/registry mutations, protected env changes, `git push`, primary Control Tower mode, or cohort creation.
+
+See `.cursor/rules/` and `.cursor/permissions.json` for full policy.
 
 ## Safety rules
 
-- Do not commit .env or secrets.
-- Do not run docker volume prune.
-- Do not change backend business logic unless explicitly requested.
-- Do not change API contracts without a diagnostic report first.
-- Do not rewrite working services without approval.
-- Prefer small changes and small commits.
-- Before changes run: git status --short.
-- After changes run relevant checks.
-
-## Runtime commands
-
-Prefer Makefile targets:
-
-- make health-check
-- make seed-dev-admin
-- make seed-demo-data
-- make integration-smoke-test
-- make platform-up-no-build
-- make platform-up-safe
+- Do not commit secrets, populated `staging.env`, or digest-pinned production image refs.
+- Do not run `docker compose up`, migrations, or registry push/pull/login autonomously.
+- Schema version 19 is verified on staging — **do not rerun migration**.
+- `CONTROL_TOWER_READ_MODEL_MODE=primary` is forbidden.
+- Never print secret values; report classifications only.
 
 ## Windows compatibility
 
-- Prefer Git Bash for .sh scripts.
-- Use curl with stdin / --data-binary @- for UTF-8 JSON.
-- Avoid curl -d with Cyrillic on Windows Git Bash.
-- Do not assume WSL bash works the same as Git Bash.
+- Prefer Git Bash for `.sh` scripts.
+- Do not assume WSL bash matches Git Bash.
 
 ## Workflow
 
-For every task:
-
 1. Diagnose first.
-2. Explain the root cause.
-3. Change the minimum number of files.
-4. Run checks.
-5. Report changed files.
-6. Commit only when requested.
-7. Push only when requested.
-
-## Forbidden without explicit approval
-
-- Docker volume prune
-- destructive cleanup
-- database wipe
-- API contract rewrite
-- backend business logic rewrite
-- mass formatting of whole repository
-- changing generated files without need
+2. Minimum scoped change.
+3. Run safe static checks / selftests.
+4. Commit when requested; push only when explicitly authorized.
