@@ -42,9 +42,12 @@ BINTRANS_INCLUDE_SHADOW=1 BINTRANS_INCLUDE_IMAGES=1 \
   bintrans_compose --profile messaging --profile read-model --profile observability config > "${render_observability}"
 
 gateway_mode="$(bintrans_extract_gateway_mode "${render_runtime}")"
-[[ "${gateway_mode}" == "shadow" ]] \
-  || bintrans_fail "effective api-gateway CONTROL_TOWER_READ_MODEL_MODE must be shadow (found: ${gateway_mode:-<unset>})"
-[[ "${gateway_mode}" == "primary" ]] && bintrans_fail "PRIMARY mode is forbidden on BINTRANS staging"
+case "${gateway_mode}" in
+  shadow) ;;
+  primary) bintrans_fail "PRIMARY mode is forbidden on BINTRANS staging" ;;
+  disabled|"") bintrans_fail "effective api-gateway CONTROL_TOWER_READ_MODEL_MODE must be shadow (found: ${gateway_mode:-<unset>})" ;;
+  *) bintrans_fail "unexpected api-gateway CONTROL_TOWER_READ_MODEL_MODE: ${gateway_mode}" ;;
+esac
 echo "OK: effective api-gateway mode=shadow"
 
 if grep -q 'JWT_SECRET: dev_secret_change_me' "${render_runtime}"; then

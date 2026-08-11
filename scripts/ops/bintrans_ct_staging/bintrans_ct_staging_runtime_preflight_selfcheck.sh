@@ -130,7 +130,17 @@ echo 'JWT_SECRET=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcde
 digest_images "${FAKE_DIGEST}" >> "${env_d}"
 run_expect_fail "PRIMARY_MODE" "${env_d}"
 
-# H: valid shadow + digest + strong JWT
+# H: wrong registry
+env_h="${tmpdir}/wrong_registry.env"
+base_env > "${env_h}"
+echo 'JWT_SECRET=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' >> "${env_h}"
+digest_images "${FAKE_DIGEST}" >> "${env_h}"
+grep -v 'BINTRANS_' "${env_h}" > /dev/null 2>&1 || true
+sed 's|cr.selcloud.ru/bintrans-staging|registry.example.com/bintrans-staging|g' "${env_h}" > "${env_h}.tmp"
+mv "${env_h}.tmp" "${env_h}"
+run_expect_fail "WRONG_REGISTRY" "${env_h}"
+
+# I: valid shadow + digest + strong JWT
 env_e="${tmpdir}/valid.env"
 base_env > "${env_e}"
 echo 'JWT_SECRET=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' >> "${env_e}"
