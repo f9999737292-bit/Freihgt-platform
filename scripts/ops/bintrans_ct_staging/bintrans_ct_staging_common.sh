@@ -101,6 +101,9 @@ bintrans_require_nonplaceholder_jwt_secret() {
   if bintrans_jwt_secret_placeholder "${val}"; then
     bintrans_fail "JWT_SECRET must not use an obvious placeholder value"
   fi
+  if [[ "${#val}" -lt 32 ]]; then
+    bintrans_fail "JWT_SECRET must be at least 32 characters for staging runtime"
+  fi
 }
 
 bintrans_digest_image_pattern='^cr\.selcloud\.ru/bintrans-staging/[a-z0-9-]+@sha256:[0-9a-f]{64}$'
@@ -124,4 +127,97 @@ bintrans_extract_gateway_mode() {
     in_gw && /^  [a-zA-Z0-9_-]+:/ { exit }
     in_gw && $1 == "CONTROL_TOWER_READ_MODEL_MODE:" { print $2; exit }
   ' "$1"
+}
+
+bintrans_runtime_service_names=(
+  identity-service
+  company-service
+  transport-order-service
+  rfx-service
+  shipment-service
+  document-service
+  billing-register-service
+  low-code-service
+  control-tower-read-model-service
+  api-gateway
+)
+
+bintrans_runtime_forbidden_up_services=(
+  migrate
+  prometheus
+  grafana
+  postgres
+  redpanda
+)
+
+bintrans_validate_digest_image_ref() {
+  local var="$1"
+  local value="$2"
+  [[ -n "${value}" ]] || bintrans_fail "${var} must be set to a digest-pinned image reference for runtime deploy"
+  if [[ "${value}" == *":git-"* ]] || [[ "${value}" == *":${BINTRANS_IMAGE_TAG:-git-b75eb3d}" ]]; then
+    bintrans_fail "${var} must be digest-pinned (@sha256:...), not mutable tag-only"
+  fi
+  if [[ "${value}" =~ ^@sha256: ]]; then
+    bintrans_fail "${var} must include full registry/repository path, not bare @sha256:..."
+  fi
+  if [[ "${value}" == *REPLACE_WITH_VERIFIED_DIGEST* ]]; then
+    bintrans_fail "${var} placeholder digest must be replaced before runtime deploy"
+  fi
+  if [[ "${value}" =~ @sha256:[A-F] ]]; then
+    bintrans_fail "${var} digest must use lowercase hex sha256"
+  fi
+  if [[ ! "${value}" =~ ^cr\.selcloud\.ru/bintrans-staging/[a-z0-9-]+@sha256:[0-9a-f]{64}$ ]]; then
+    bintrans_fail "${var} must match cr.selcloud.ru/bintrans-staging/<service>@sha256:<64-hex>"
+  fi
+}
+
+bintrans_validate_all_runtime_digest_images() {
+  local var value
+  for var in "${bintrans_runtime_image_vars[@]}"; do
+    value="$(bintrans_env_value "${var}")"
+    bintrans_validate_digest_image_ref "${var}" "${value}"
+  done
+}
+
+bintrans_require_runtime_env_contract() {
+  local key expected actual
+  local -a pairs=(
+    AUTH_ENABLED true
+    CONTROL_TOWER_READ_MODEL_MODE shadow
+    CONTROL_TOWER_CONSUMER_ENABLED true
+    SHIPMENT_OUTBOX_ENABLED true
+    MIGRATION_TARGET 000019
+    BACKUP_VERIFIED YES
+    BINTRANS_REGISTRY cr.selcloud.ru/bintrans-staging
+  )
+  local i=0
+  while [[ $i -lt ${#pairs[@]} ]]; do
+    key="${pairs[$i]}"
+    expected="${pairs[$((i + 1))]}"
+    actual="$(bintrans_env_value "${key}")"
+    [[ "${actual}" == "${expected}" ]] \
+      || bintrans_fail "${key} must be ${expected} (found: ${actual:-<unset>})"
+    i=$((i + 2))
+  done
+  bintrans_require_nonplaceholder_jwt_secret
+  local pg
+  pg="$(bintrans_env_value POSTGRES_PASSWORD)"
+  [[ -n "${pg}" ]] || bintrans_fail "POSTGRES_PASSWORD must be set in protected env"
+  [[ "${pg}" != "freight_password" ]] || bintrans_fail "POSTGRES_PASSWORD must not use dev default freight_password"
+}
+
+bintrans_check_no_wide_bind() {
+  local cfg="$1"
+  local label="$2"
+  if grep -E 'published: "(5432|19092|9090|8080|8081|8082|8083|8084|8085|8086|8087|8088|3000|3001)"' "${cfg}" >/dev/null; then
+    while IFS= read -r pub_line; do
+      local port block
+      port="${pub_line#*published: \"}"
+      port="${port%%\"*}"
+      block="$(grep -B6 "published: \"${port}\"" "${cfg}" | tail -n7)"
+      if ! echo "${block}" | grep -q 'host_ip: 127.0.0.1'; then
+        bintrans_fail "dangerous host bind ${port} without 127.0.0.1 in ${label}"
+      fi
+    done < <(grep -E 'published: "(5432|19092|9090|8080|8081|8082|8083|8084|8085|8086|8087|8088|3000|3001)"' "${cfg}" || true)
+  fi
 }

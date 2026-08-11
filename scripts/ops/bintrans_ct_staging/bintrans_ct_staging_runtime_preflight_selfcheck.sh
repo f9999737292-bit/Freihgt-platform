@@ -87,27 +87,50 @@ base_env > "${env_a}"
 digest_images "${FAKE_DIGEST}" >> "${env_a}"
 run_expect_fail "MISSING_JWT_SECRET" "${env_a}"
 
-# B: placeholder JWT_SECRET
+# B: empty JWT_SECRET
+env_b_empty="${tmpdir}/empty_jwt.env"
+base_env > "${env_b_empty}"
+echo 'JWT_SECRET=' >> "${env_b_empty}"
+digest_images "${FAKE_DIGEST}" >> "${env_b_empty}"
+run_expect_fail "EMPTY_JWT_SECRET" "${env_b_empty}"
+
+# C: placeholder JWT_SECRET
 env_b="${tmpdir}/placeholder_jwt.env"
 base_env > "${env_b}"
 echo 'JWT_SECRET=dev_secret_change_me' >> "${env_b}"
 digest_images "${FAKE_DIGEST}" >> "${env_b}"
 run_expect_fail "PLACEHOLDER_JWT_SECRET" "${env_b}"
 
-# C: mutable tag-only images (no digest vars)
+# D: mutable tag-only images (no digest vars)
 env_c="${tmpdir}/tag_only.env"
 base_env > "${env_c}"
 echo 'JWT_SECRET=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' >> "${env_c}"
 run_expect_fail "MUTABLE_TAG_ONLY" "${env_c}"
 
-# D: primary mode
+# E: malformed digest
+env_e_bad="${tmpdir}/bad_digest.env"
+base_env > "${env_e_bad}"
+echo 'JWT_SECRET=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' >> "${env_e_bad}"
+digest_images "NOT_A_VALID_DIGEST" >> "${env_e_bad}"
+run_expect_fail "MALFORMED_DIGEST" "${env_e_bad}"
+
+# F: missing one service image
+env_f="${tmpdir}/missing_one.env"
+base_env > "${env_f}"
+echo 'JWT_SECRET=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' >> "${env_f}"
+digest_images "${FAKE_DIGEST}" >> "${env_f}"
+grep -v 'BINTRANS_API_GATEWAY_IMAGE' "${env_f}" > "${env_f}.tmp"
+mv "${env_f}.tmp" "${env_f}"
+run_expect_fail "MISSING_ONE_IMAGE" "${env_f}"
+
+# G: primary mode
 env_d="${tmpdir}/primary.env"
 base_env | sed 's/CONTROL_TOWER_READ_MODEL_MODE=shadow/CONTROL_TOWER_READ_MODEL_MODE=primary/' > "${env_d}"
 echo 'JWT_SECRET=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' >> "${env_d}"
 digest_images "${FAKE_DIGEST}" >> "${env_d}"
 run_expect_fail "PRIMARY_MODE" "${env_d}"
 
-# E: valid shadow + digest + strong JWT
+# H: valid shadow + digest + strong JWT
 env_e="${tmpdir}/valid.env"
 base_env > "${env_e}"
 echo 'JWT_SECRET=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' >> "${env_e}"
