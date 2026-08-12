@@ -1,0 +1,11 @@
+{
+  "login": {
+    "title": "Вход в систему",
+    "tenantId": "Tenant ID",
+    "email": "Email",
+    "password": "Пароль",
+    "submit": "Войти",
+    "hint": "Tenant ID используется только при входе. API-запросы выполняются с JWT из сессии.",
+    "tenantRequired": "Tenant ID обязателен"
+  }
+}

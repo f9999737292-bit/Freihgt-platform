@@ -1,3 +1,13 @@
+const localeFiles = [
+  'common.json',
+  'login.json',
+  'home.json',
+  'nav.json',
+  'bid.json',
+  'freightRequests.list.json',
+  'freightRequests.detail.json',
+]
+
 export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',
   devtools: { enabled: true },
@@ -18,9 +28,24 @@ export default defineNuxtConfig({
   i18n: {
     restructureDir: false,
     locales: [
-      { code: 'ru-RU', name: 'RU', iso: 'ru-RU', file: 'ru-RU.json' },
-      { code: 'en-US', name: 'EN', iso: 'en-US', file: 'en-US.json' },
-      { code: 'zh-CN', name: '中文', iso: 'zh-CN', file: 'zh-CN.json' },
+      {
+        code: 'ru-RU',
+        name: 'RU',
+        iso: 'ru-RU',
+        files: localeFiles.map((file) => `ru-RU/${file}`),
+      },
+      {
+        code: 'en-US',
+        name: 'EN',
+        iso: 'en-US',
+        files: localeFiles.map((file) => `en-US/${file}`),
+      },
+      {
+        code: 'zh-CN',
+        name: '中文',
+        iso: 'zh-CN',
+        files: localeFiles.map((file) => `zh-CN/${file}`),
+      },
     ],
     lazy: true,
     langDir: 'i18n',

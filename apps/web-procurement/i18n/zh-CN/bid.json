@@ -1,29 +1,4 @@
 {
-  "common": {
-    "welcome": "欢迎使用采购门户",
-    "home": "首页",
-    "health": "状态",
-    "language": "语言",
-    "loading": "加载中…",
-    "error": "错误",
-    "status": "状态",
-    "login": "登录",
-    "logout": "退出"
-  },
-  "login": {
-    "title": "登录",
-    "tenantId": "租户 ID",
-    "email": "邮箱",
-    "password": "密码",
-    "submit": "登录",
-    "hint": "租户 ID 仅用于登录。API 请求依赖已认证的 JWT。",
-    "tenantRequired": "租户 ID 为必填项"
-  },
-  "home": {
-    "title": "采购门户",
-    "description": "只读投标详情可通过 /bids/{id} 访问。",
-    "bidRouteHint": "使用 UUID 打开投标，例如 /bids/00000000-0000-4000-8000-000000000001。"
-  },
   "bid": {
     "title": "投标详情",
     "readOnlyHint": "只读视图",

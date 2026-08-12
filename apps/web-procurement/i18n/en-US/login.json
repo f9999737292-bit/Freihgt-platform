@@ -1,0 +1,11 @@
+{
+  "login": {
+    "title": "Sign in",
+    "tenantId": "Tenant ID",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "hint": "Tenant ID is used only for login. API requests rely on the authenticated JWT.",
+    "tenantRequired": "Tenant ID is required"
+  }
+}
