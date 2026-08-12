@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -97,7 +98,7 @@ func (h *BidHandler) ListBids(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, err)
 		return
 	}
-	tenantID, err := domain.ParseUUID(r.URL.Query().Get("tenant_id"), "tenant_id")
+	tenantID, err := resolveVerifiedTenant(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -152,7 +153,7 @@ func (h *BidHandler) AcceptBid(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, err)
 		return
 	}
-	tenantID, err := domain.ParseUUID(r.URL.Query().Get("tenant_id"), "tenant_id")
+	tenantID, err := resolveVerifiedTenant(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -160,7 +161,7 @@ func (h *BidHandler) AcceptBid(w http.ResponseWriter, r *http.Request) {
 
 	bid, err := h.service.AcceptBid(r.Context(), id, tenantID)
 	if err != nil {
-		respond.Error(w, err)
+		respondAcceptBidError(w, err)
 		return
 	}
 
@@ -168,6 +169,19 @@ func (h *BidHandler) AcceptBid(w http.ResponseWriter, r *http.Request) {
 		"id":     bid.ID.String(),
 		"status": bid.Status,
 	})
+}
+
+func respondAcceptBidError(w http.ResponseWriter, err error) {
+	var appErr *apperrors.AppError
+	if errors.As(err, &appErr) &&
+		appErr.Code == apperrors.CodeValidation &&
+		appErr.Message == "bid can only be accepted from SUBMITTED status" {
+		if field, ok := appErr.Details["field"].(string); ok && field == "status" {
+			respond.Error(w, apperrors.Conflict(appErr.Message, appErr.Details))
+			return
+		}
+	}
+	respond.Error(w, err)
 }
 
 func parseCreateBidRequest(req createBidRequest) (domain.CreateBidInput, error) {
