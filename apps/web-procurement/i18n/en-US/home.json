@@ -1,0 +1,10 @@
+{
+  "home": {
+    "title": "Procurement portal",
+    "description": "Manage freight requests and review carrier bids.",
+    "freightRequestsCardTitle": "Freight requests",
+    "freightRequestsCardDescription": "Open the request list to browse published RFx and related bids.",
+    "freightRequestsAction": "Go to freight requests",
+    "bidRouteHint": "Read-only bid detail by UUID is available at /bids/{id}, for example /bids/00000000-0000-4000-8000-000000000001."
+  }
+}

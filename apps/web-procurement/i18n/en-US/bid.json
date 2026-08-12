@@ -1,0 +1,30 @@
+{
+  "bid": {
+    "title": "Bid details",
+    "readOnlyHint": "Read-only view",
+    "summary": "Bid summary",
+    "lineItems": "Line items",
+    "bidNumber": "Bid number",
+    "carrierCompanyId": "Carrier company ID",
+    "totalAmount": "Total amount",
+    "currency": "Currency",
+    "vatRate": "VAT rate",
+    "vatAmount": "VAT amount",
+    "totalAmountWithVat": "Total amount with VAT",
+    "validUntil": "Valid until",
+    "submittedAt": "Submitted at",
+    "description": "Description",
+    "baseAmount": "Base amount",
+    "fuelSurcharge": "Fuel surcharge",
+    "tollAmount": "Toll amount",
+    "extraCharges": "Extra charges",
+    "amountWithoutVat": "Amount without VAT",
+    "amountWithVat": "Amount with VAT",
+    "comment": "Comment",
+    "invalidId": "Invalid bid ID",
+    "unauthorized": "Authentication required",
+    "notFound": "Bid not found",
+    "serverError": "Backend is temporarily unavailable",
+    "networkError": "Network error while loading bid"
+  }
+}

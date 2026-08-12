@@ -1,0 +1,30 @@
+---
+description: Multi-tenant security and trust-boundary rules
+alwaysApply: true
+---
+
+# Security and Tenancy
+
+Align with verified repository conventions:
+
+## Trust boundary
+
+- External clients authenticate at `services/api-gateway` (JWT Bearer).
+- Trusted downstream identity uses gateway-set headers, not raw client-supplied values.
+- `X-Tenant-ID` and `X-User-ID` are trusted only when established by gateway auth middleware from JWT claims.
+- Client spoofing of `X-Tenant-ID`, `X-User-ID`, or role headers must be rejected (see `services/api-gateway/internal/shipmentrbac/` tests).
+- `packages/shared-go/lowcode/headers.go` defines `HeaderTenantID = "X-Tenant-ID"`.
+
+## Tenant isolation
+
+- Tenant-owned resources must use tenant-scoped repository access (`tenant_id` predicates, `ExistsInTenant`, filtered list queries).
+- Avoid unscoped `GetByID`-style access for tenant-owned entities.
+- Never expose foreign-tenant objects through missing predicates or IDOR-prone lookups.
+- Do not add query-parameter tenant fallback where trusted header/context is required.
+
+## General security
+
+- Authentication and authorization are separate concerns; verify both.
+- No secrets in source; do not commit `.env` files.
+- Preserve auditability for security-sensitive changes.
+- Security-sensitive changes require explicit verification and independent review when authorized.

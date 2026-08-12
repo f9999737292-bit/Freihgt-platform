@@ -1,0 +1,11 @@
+{
+  "login": {
+    "title": "登录",
+    "tenantId": "租户 ID",
+    "email": "邮箱",
+    "password": "密码",
+    "submit": "登录",
+    "hint": "租户 ID 仅用于登录。API 请求依赖已认证的 JWT。",
+    "tenantRequired": "租户 ID 为必填项"
+  }
+}

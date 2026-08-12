@@ -531,6 +531,10 @@ paths:
     get:
       tags: [Freight Requests]
       summary: List freight requests
+      description: |
+        Returns tenant-scoped freight requests (C1). Public clients authenticate with Bearer JWT only.
+        API Gateway validates the token and injects trusted X-Tenant-ID for downstream rfx-service.
+        Caller-supplied tenant_id query is not authorization authority and is ignored when present.
       operationId: get_list_freight_requests
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -538,16 +542,59 @@ paths:
         - $ref: '#/components/parameters/XCompanyID'
         - $ref: '#/components/parameters/XLocale'
         - $ref: '#/components/parameters/Authorization'
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: request_type
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: shipper_company_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
       security:
         - bearerAuth: []
       responses:
         '200':
-          description: Successful response
+          description: Paginated freight requests
           content:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                required: [items, total, limit, offset]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
         '400':
           description: Validation error
           content:
@@ -582,8 +629,18 @@ paths:
     get:
       tags: [Freight Requests]
       summary: Get freight request by ID
+      description: |
+        Returns a tenant-scoped freight request (C2). Public clients authenticate with Bearer JWT only.
+        API Gateway validates the token and injects trusted X-Tenant-ID for downstream rfx-service.
+        Caller-supplied tenant_id query is not authorization authority and is ignored when present.
       operationId: get_get_freight_request_by_id
       parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
         - $ref: '#/components/parameters/XCompanyID'
@@ -593,7 +650,7 @@ paths:
         - bearerAuth: []
       responses:
         '200':
-          description: Successful response
+          description: Freight request
           content:
             application/json:
               schema:
@@ -748,8 +805,80 @@ paths:
     get:
       tags: [Freight Requests]
       summary: List bids for freight request
+      description: |
+        Returns tenant-scoped bids for a freight request (C3). Public clients authenticate with Bearer JWT only.
+        API Gateway validates the token and injects trusted X-Tenant-ID for downstream rfx-service.
+        Caller-supplied tenant_id query is not authorization authority and is ignored when present.
+        Runtime implementation is owned by PILOT002 Task B.
       operationId: get_list_bids_for_freight_request
       parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Bids for freight request
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/bids/{id}:
+    get:
+      tags: [Bids]
+      summary: Get bid by ID
+      description: |
+        Returns a tenant-scoped bid. Public clients authenticate with Bearer JWT only.
+        API Gateway validates the token and injects trusted X-Tenant-ID for downstream rfx-service.
+        Do not use tenant_id query on this endpoint.
+      operationId: get_bid_by_id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
         - $ref: '#/components/parameters/XCompanyID'
@@ -779,12 +908,6 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
           content:
             application/json:
               schema:
@@ -857,8 +980,19 @@ paths:
     post:
       tags: [Bids]
       summary: Accept bid
+      description: |
+        Accepts a tenant-scoped bid (C4). Public clients authenticate with Bearer JWT only.
+        API Gateway validates the token and injects trusted X-Tenant-ID for downstream rfx-service.
+        Caller-supplied tenant_id query is not authorization authority and is ignored when present.
+        Runtime implementation is owned by PILOT002 Task B.
       operationId: post_accept_bid
       parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
         - $ref: '#/components/parameters/XCompanyID'
@@ -874,7 +1008,7 @@ paths:
       security:
         - bearerAuth: []
       responses:
-        '201':
+        '200':
           description: Successful response
           content:
             application/json:
@@ -933,7 +1067,7 @@ components:
       schema:
         type: string
         format: uuid
-      description: Tenant context
+      description: Trusted tenant identifier injected by API Gateway after JWT validation. Not client-authoritative.
     XCompanyID:
       name: X-Company-ID
       in: header

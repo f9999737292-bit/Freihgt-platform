@@ -1,0 +1,30 @@
+{
+  "bid": {
+    "title": "Карточка ставки",
+    "readOnlyHint": "Только просмотр",
+    "summary": "Сводка по ставке",
+    "lineItems": "Позиции ставки",
+    "bidNumber": "Номер ставки",
+    "carrierCompanyId": "ID компании перевозчика",
+    "totalAmount": "Итоговая сумма",
+    "currency": "Валюта",
+    "vatRate": "Ставка НДС",
+    "vatAmount": "Сумма НДС",
+    "totalAmountWithVat": "Итого с НДС",
+    "validUntil": "Действует до",
+    "submittedAt": "Дата подачи",
+    "description": "Описание",
+    "baseAmount": "Базовая сумма",
+    "fuelSurcharge": "Топливная надбавка",
+    "tollAmount": "Платные дороги",
+    "extraCharges": "Доп. расходы",
+    "amountWithoutVat": "Без НДС",
+    "amountWithVat": "С НДС",
+    "comment": "Комментарий",
+    "invalidId": "Некорректный ID ставки",
+    "unauthorized": "Требуется авторизация",
+    "notFound": "Ставка не найдена",
+    "serverError": "Backend временно недоступен",
+    "networkError": "Сетевая ошибка при загрузке ставки"
+  }
+}

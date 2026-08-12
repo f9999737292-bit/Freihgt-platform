@@ -1,0 +1,37 @@
+{
+  "freightRequests": {
+    "detail": {
+      "title": "Детали заявки на перевозку",
+      "summary": "Сводка",
+      "freightRequestNumber": "Номер заявки",
+      "requestType": "Тип заявки",
+      "shipperCompanyId": "ID компании грузоотправителя",
+      "responseDeadline": "Срок подачи предложений",
+      "currency": "Валюта",
+      "createdAt": "Создана",
+      "updatedAt": "Обновлена",
+      "invalidId": "Некорректный ID заявки",
+      "unauthorized": "Требуется авторизация",
+      "notFound": "Заявка не найдена",
+      "serverError": "Сервер временно недоступен",
+      "networkError": "Сетевая ошибка при загрузке заявки",
+      "bidsTitle": "Предложения",
+      "bidsEmpty": "Предложений пока нет",
+      "bidsLoadError": "Не удалось загрузить предложения",
+      "bidNumber": "Номер предложения",
+      "carrierCompanyId": "ID компании перевозчика",
+      "totalAmount": "Сумма",
+      "actions": "Действия",
+      "viewBid": "Открыть",
+      "acceptBid": "Принять",
+      "acceptConfirm": "Принять это предложение? Действие нельзя отменить.",
+      "acceptSuccess": "Предложение принято",
+      "acceptConflict": "Это предложение нельзя принять в текущем состоянии. Возможно, оно уже принято или отклонено.",
+      "acceptNotFound": "Предложение не найдено",
+      "acceptUnauthorized": "Требуется авторизация",
+      "acceptServerError": "Не удалось принять предложение из-за ошибки сервера",
+      "acceptNetworkError": "Сетевая ошибка при принятии предложения",
+      "backToFreightRequest": "Заявка на перевозку"
+    }
+  }
+}

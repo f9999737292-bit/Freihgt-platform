@@ -1,0 +1,24 @@
+---
+description: OpenAPI and public API contract alignment rules
+globs: packages/openapi/**/*
+alwaysApply: false
+---
+
+# API Contract Rules
+
+Public specifications live under `packages/openapi/`:
+
+- Root aggregate: `packages/openapi/openapi.yaml`
+- Service specs: `identity-service.yaml`, `company-service.yaml`, `transport-order-service.yaml`, `rfx-service.yaml`, `shipment-service.yaml`, `document-service.yaml`, `billing-register-service.yaml`
+- Shared schemas: `packages/openapi/schemas/`
+
+When a public API contract changes:
+
+- Update OpenAPI alongside implementation.
+- Keep implementation and specification aligned; avoid undocumented endpoints.
+- Avoid silent response-shape or status-code changes.
+- Maintain backwards compatibility by default; explicitly report breaking changes.
+- Run `make openapi-validate` or `make openapi-check` when contract files change.
+- Gateway and downstream contract changes require coordinated verification.
+
+Do not rewrite API contracts without a diagnostic report and explicit task authorization.

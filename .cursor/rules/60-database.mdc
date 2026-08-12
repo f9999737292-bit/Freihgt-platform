@@ -1,0 +1,17 @@
+---
+description: PostgreSQL migration and tenant data rules
+globs: infrastructure/migrations/**/*.sql
+alwaysApply: false
+---
+
+# Database Rules
+
+- PostgreSQL is the sole primary database; schemas include `core`, `transport`, `rfx`, `documents`, `billing`, and control-tower projections per migrations.
+- Migrations live in `infrastructure/migrations/` as numbered `*.up.sql` / `*.down.sql` pairs.
+- No destructive schema change without explicit authorization.
+- Migrations must be forward-safe and reversible where down files exist.
+- Never rewrite already-applied migration history casually.
+- Tenant-owned tables require correct tenant isolation (`tenant_id`, scoped indexes, scoped queries).
+- Add indexes that support new critical tenant-scoped access patterns.
+- Keep migration + model + repository changes synchronized.
+- Apply migrations via Makefile (`make migrate-up`, `make migrate-down`, `make migrate-version`); do not run destructive migrate targets without explicit approval.

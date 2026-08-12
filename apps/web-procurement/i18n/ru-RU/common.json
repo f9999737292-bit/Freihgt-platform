@@ -1,0 +1,13 @@
+{
+  "common": {
+    "welcome": "Добро пожаловать в Procurement Portal",
+    "home": "Главная",
+    "health": "Статус",
+    "language": "Язык",
+    "loading": "Загрузка…",
+    "error": "Ошибка",
+    "status": "Статус",
+    "login": "Войти",
+    "logout": "Выйти"
+  }
+}

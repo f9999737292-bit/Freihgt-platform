@@ -1,0 +1,13 @@
+{
+  "common": {
+    "welcome": "Welcome to Freight Platform Procurement",
+    "home": "Home",
+    "health": "Status",
+    "language": "Language",
+    "loading": "Loading…",
+    "error": "Error",
+    "status": "Status",
+    "login": "Sign in",
+    "logout": "Sign out"
+  }
+}

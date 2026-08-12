@@ -1,0 +1,10 @@
+{
+  "home": {
+    "title": "采购门户",
+    "description": "管理货运请求并查看承运商投标。",
+    "freightRequestsCardTitle": "货运请求",
+    "freightRequestsCardDescription": "打开请求列表以浏览已发布的 RFx 及相关投标。",
+    "freightRequestsAction": "前往货运请求",
+    "bidRouteHint": "只读投标详情可通过 UUID 访问 /bids/{id}，例如 /bids/00000000-0000-4000-8000-000000000001。"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "freightRequests": {
+    "detail": {
+      "title": "Freight request details",
+      "summary": "Summary",
+      "freightRequestNumber": "Request number",
+      "requestType": "Request type",
+      "shipperCompanyId": "Shipper company ID",
+      "responseDeadline": "Response deadline",
+      "currency": "Currency",
+      "createdAt": "Created at",
+      "updatedAt": "Updated at",
+      "invalidId": "Invalid freight request ID",
+      "unauthorized": "Authentication required",
+      "notFound": "Freight request not found",
+      "serverError": "Backend is temporarily unavailable",
+      "networkError": "Network error while loading freight request",
+      "bidsTitle": "Bids",
+      "bidsEmpty": "No bids yet",
+      "bidsLoadError": "Failed to load bids",
+      "bidNumber": "Bid number",
+      "carrierCompanyId": "Carrier company ID",
+      "totalAmount": "Total amount",
+      "actions": "Actions",
+      "viewBid": "View bid",
+      "acceptBid": "Accept bid",
+      "acceptConfirm": "Accept this bid? This action cannot be undone.",
+      "acceptSuccess": "Bid accepted",
+      "acceptConflict": "This bid cannot be accepted in its current state. It may already have been accepted or rejected.",
+      "acceptNotFound": "Bid not found",
+      "acceptUnauthorized": "Authentication required",
+      "acceptServerError": "Failed to accept bid due to a server error",
+      "acceptNetworkError": "Network error while accepting bid",
+      "backToFreightRequest": "Freight request"
+    }
+  }
+}

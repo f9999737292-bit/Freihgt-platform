@@ -1,0 +1,18 @@
+---
+description: Core engineering principles for 7Rights Freight Platform
+alwaysApply: true
+---
+
+# Project Core Principles
+
+- Preserve existing architecture unless the task explicitly authorizes change.
+- Inspect relevant code, docs, and Makefile targets before editing.
+- Make the smallest safe diff that satisfies the task.
+- One task = one responsibility; avoid unrelated cleanup or drive-by refactors.
+- No speculative refactors or hidden compatibility breaks.
+- Do not silently introduce dependencies, endpoints, or configuration.
+- Report unresolved assumptions instead of guessing.
+- The repository is the technical source of truth over generic preferences.
+- Public contracts remain compatible unless the task explicitly changes them.
+- Never commit `.env`, secrets, or credentials.
+- Commit and push only when explicitly requested.

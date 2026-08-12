@@ -1,0 +1,20 @@
+---
+description: Parallel-agent Git and worktree workflow policy
+alwaysApply: true
+---
+
+# Git Workflow for Parallel Agents
+
+- One implementation task = one branch and one worktree when possible.
+- Agents never modify another agent's branch or worktree.
+- Never force push, `reset --hard`, or rewrite shared history.
+- No unrequested merge or rebase of shared branches (`main`, `develop`, or another agent's branch).
+- Commits contain only task-related changes.
+- Always report base SHA, final SHA, changed files, and `git status --short`.
+- Reviewer does not silently fix implementation; report findings instead.
+- Integrator integrates only reviewed work at approved SHAs.
+- Conflicts are reported; do not guess through ambiguous merges.
+- Do not push unless explicitly requested.
+- Do not stash, reset, or discard another worktree's changes from a bootstrap or integration task.
+
+Branch naming examples: `feat/<domain>-<topic>`, `fix/<topic>`, `chore/<topic>`, `test/<topic>`, `ops/<topic>`.

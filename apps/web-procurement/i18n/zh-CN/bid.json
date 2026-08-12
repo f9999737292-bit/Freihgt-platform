@@ -1,0 +1,30 @@
+{
+  "bid": {
+    "title": "投标详情",
+    "readOnlyHint": "只读视图",
+    "summary": "投标摘要",
+    "lineItems": "明细项",
+    "bidNumber": "投标编号",
+    "carrierCompanyId": "承运商公司 ID",
+    "totalAmount": "总金额",
+    "currency": "货币",
+    "vatRate": "增值税率",
+    "vatAmount": "增值税金额",
+    "totalAmountWithVat": "含税总金额",
+    "validUntil": "有效期至",
+    "submittedAt": "提交时间",
+    "description": "描述",
+    "baseAmount": "基础金额",
+    "fuelSurcharge": "燃油附加费",
+    "tollAmount": "过路费",
+    "extraCharges": "额外费用",
+    "amountWithoutVat": "不含税金额",
+    "amountWithVat": "含税金额",
+    "comment": "备注",
+    "invalidId": "无效的投标 ID",
+    "unauthorized": "需要登录",
+    "notFound": "未找到投标",
+    "serverError": "后端暂时不可用",
+    "networkError": "加载投标时发生网络错误"
+  }
+}

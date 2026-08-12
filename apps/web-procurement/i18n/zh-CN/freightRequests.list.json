@@ -1,0 +1,19 @@
+{
+  "freightRequests": {
+    "list": {
+      "title": "货运需求",
+      "number": "编号",
+      "requestType": "需求类型",
+      "status": "状态",
+      "responseDeadline": "响应截止时间",
+      "actions": "操作",
+      "details": "详情",
+      "all": "全部",
+      "loadFailed": "加载货运需求失败",
+      "noRequestsFound": "未找到货运需求",
+      "unauthorized": "需要登录",
+      "serverError": "后端暂时不可用",
+      "networkError": "加载货运需求时发生网络错误"
+    }
+  }
+}

@@ -60,6 +60,7 @@ func NewRouter(
 	})
 
 	r.Route("/v1/bids", func(r chi.Router) {
+		r.Get("/{id}", bidHandler.GetByID)
 		r.Post("/{id}/submit", bidHandler.SubmitBid)
 		r.Post("/{id}/accept", bidHandler.AcceptBid)
 	})

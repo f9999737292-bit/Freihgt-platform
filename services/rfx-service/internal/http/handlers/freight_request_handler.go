@@ -60,7 +60,7 @@ func (h *FreightRequestHandler) GetByID(w http.ResponseWriter, r *http.Request) 
 		respond.Error(w, err)
 		return
 	}
-	tenantID, err := domain.ParseUUID(r.URL.Query().Get("tenant_id"), "tenant_id")
+	tenantID, err := resolveVerifiedTenant(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -76,7 +76,7 @@ func (h *FreightRequestHandler) GetByID(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *FreightRequestHandler) List(w http.ResponseWriter, r *http.Request) {
-	tenantID, err := domain.ParseUUID(r.URL.Query().Get("tenant_id"), "tenant_id")
+	tenantID, err := resolveVerifiedTenant(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
