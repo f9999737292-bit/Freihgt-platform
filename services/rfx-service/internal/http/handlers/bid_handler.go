@@ -70,6 +70,27 @@ func (h *BidHandler) CreateBid(w http.ResponseWriter, r *http.Request) {
 	respond.JSON(w, http.StatusCreated, toBidResponse(bid))
 }
 
+func (h *BidHandler) GetByID(w http.ResponseWriter, r *http.Request) {
+	id, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	tenantID, err := resolveVerifiedTenant(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	bid, err := h.service.GetByID(r.Context(), tenantID, id)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	respond.JSON(w, http.StatusOK, toBidResponse(bid))
+}
+
 func (h *BidHandler) ListBids(w http.ResponseWriter, r *http.Request) {
 	freightRequestID, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
 	if err != nil {
