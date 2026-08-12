@@ -1204,8 +1204,18 @@
     },
     "/api/v1/bids/{id}/accept": {
       "post": {
+        "description": "Accepts a tenant-scoped bid (C4). Public clients authenticate with Bearer JWT only.\nAPI Gateway validates the token and injects trusted X-Tenant-ID for downstream rfx-service.\nCaller-supplied tenant_id query is not authorization authority and is ignored when present.\nRuntime implementation is owned by PILOT002 Task B.\n",
         "operationId": "post_accept_bid",
         "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
           {
             "$ref": "#/components/parameters/XRequestID"
           },
@@ -5471,6 +5481,7 @@
     },
     "/api/v1/freight-requests": {
       "get": {
+        "description": "Returns tenant-scoped freight requests (C1). Public clients authenticate with Bearer JWT only.\nAPI Gateway validates the token and injects trusted X-Tenant-ID for downstream rfx-service.\nCaller-supplied tenant_id query is not authorization authority and is ignored when present.\n",
         "operationId": "get_list_freight_requests",
         "parameters": [
           {
@@ -5487,6 +5498,52 @@
           },
           {
             "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "request_type",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "shipper_company_id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -5494,12 +5551,35 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "properties": {
+                    "items": {
+                      "items": {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "offset": {
+                      "type": "integer"
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "total",
+                    "limit",
+                    "offset"
+                  ],
                   "type": "object"
                 }
               }
             },
-            "description": "Successful response"
+            "description": "Paginated freight requests"
           },
           "400": {
             "content": {
@@ -5670,8 +5750,18 @@
     },
     "/api/v1/freight-requests/{id}": {
       "get": {
+        "description": "Returns a tenant-scoped freight request (C2). Public clients authenticate with Bearer JWT only.\nAPI Gateway validates the token and injects trusted X-Tenant-ID for downstream rfx-service.\nCaller-supplied tenant_id query is not authorization authority and is ignored when present.\n",
         "operationId": "get_get_freight_request_by_id",
         "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
           {
             "$ref": "#/components/parameters/XRequestID"
           },
@@ -5698,7 +5788,7 @@
                 }
               }
             },
-            "description": "Successful response"
+            "description": "Freight request"
           },
           "400": {
             "content": {
@@ -5764,8 +5854,18 @@
     },
     "/api/v1/freight-requests/{id}/bids": {
       "get": {
+        "description": "Returns tenant-scoped bids for a freight request (C3). Public clients authenticate with Bearer JWT only.\nAPI Gateway validates the token and injects trusted X-Tenant-ID for downstream rfx-service.\nCaller-supplied tenant_id query is not authorization authority and is ignored when present.\nRuntime implementation is owned by PILOT002 Task B.\n",
         "operationId": "get_list_bids_for_freight_request",
         "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
           {
             "$ref": "#/components/parameters/XRequestID"
           },
@@ -5792,7 +5892,7 @@
                 }
               }
             },
-            "description": "Successful response"
+            "description": "Bids for freight request"
           },
           "400": {
             "content": {
