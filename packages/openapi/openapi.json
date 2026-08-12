@@ -39,7 +39,7 @@
         }
       },
       "XTenantID": {
-        "description": "Tenant context",
+        "description": "Internal trusted tenant context set by API Gateway after JWT validation. Not a client-selectable parameter on shipment mutations.",
         "in": "header",
         "name": "X-Tenant-ID",
         "required": false,
@@ -50,6 +50,539 @@
       }
     },
     "schemas": {
+      "AssignDriverRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "driver_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "driver_id"
+        ],
+        "type": "object"
+      },
+      "AssignVehicleRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "vehicle_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vehicle_id"
+        ],
+        "type": "object"
+      },
+      "CancelShipmentRequest": {
+        "additionalProperties": false,
+        "description": "Tenant scope and actor identity are derived from authenticated gateway context and cannot be selected through request body or query parameters.",
+        "properties": {
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "type": "object"
+      },
+      "ControlTowerEvent": {
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "occurredAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/ControlTowerEventSeverity"
+          },
+          "shipmentId": {
+            "type": "string"
+          },
+          "shipmentNumber": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ControlTowerEventType"
+          }
+        },
+        "type": "object"
+      },
+      "ControlTowerEventSeverity": {
+        "enum": [
+          "INFO",
+          "WARNING",
+          "CRITICAL"
+        ],
+        "type": "string"
+      },
+      "ControlTowerEventType": {
+        "enum": [
+          "PICKUP_DELAY",
+          "DELIVERY_DELAY",
+          "STALE_UPDATES",
+          "MISSING_DOCUMENTS",
+          "SHIPMENT_CANCELLED",
+          "TECHNICAL_PROBLEM",
+          "UNKNOWN_CRITICAL_EVENT"
+        ],
+        "type": "string"
+      },
+      "ControlTowerFilterOption": {
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ControlTowerSLAStatus": {
+        "enum": [
+          "ON_TIME",
+          "AT_RISK",
+          "DELAYED",
+          "CRITICAL",
+          "UNKNOWN"
+        ],
+        "type": "string"
+      },
+      "ControlTowerShipment": {
+        "properties": {
+          "actualDeliveryAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "actualPickupAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "carrierId": {
+            "type": "string"
+          },
+          "carrierName": {
+            "type": "string"
+          },
+          "delayMinutes": {
+            "type": "integer"
+          },
+          "destinationId": {
+            "type": "string"
+          },
+          "destinationName": {
+            "type": "string"
+          },
+          "documentsComplete": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "lastEvent": {
+            "type": "string"
+          },
+          "lastUpdatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "originId": {
+            "type": "string"
+          },
+          "originName": {
+            "type": "string"
+          },
+          "plannedDeliveryAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "plannedPickupAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "readyForBilling": {
+            "type": "boolean"
+          },
+          "shipmentNumber": {
+            "type": "string"
+          },
+          "shipperId": {
+            "type": "string"
+          },
+          "shipperName": {
+            "type": "string"
+          },
+          "slaReason": {
+            "type": "string"
+          },
+          "slaStatus": {
+            "$ref": "#/components/schemas/ControlTowerSLAStatus"
+          },
+          "status": {
+            "type": "string"
+          },
+          "transportOrderId": {
+            "type": "string"
+          },
+          "transportOrderNumber": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ControlTowerStatusSummary": {
+        "properties": {
+          "byStatus": {
+            "additionalProperties": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "description": "When limitedDataset is true, counts cover countedShipments rather than the full totalShipments population.",
+            "type": "object"
+          },
+          "countedShipments": {
+            "description": "Number of shipments included in byStatus counts.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "incompleteProjections": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "limitedDataset": {
+            "description": "True when byStatus was calculated from a limited fetched dataset.",
+            "type": "boolean"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ControlTowerStatusSummarySource"
+          },
+          "totalShipments": {
+            "description": "Total tenant shipment population for the summary scope.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "ControlTowerStatusSummaryFreshness": {
+        "properties": {
+          "consumerRunning": {
+            "type": "boolean"
+          },
+          "fallbackUsed": {
+            "type": "boolean"
+          },
+          "lastProjectionAppliedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "lastRecordReceivedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "loaded": {
+            "type": "boolean"
+          },
+          "partial": {
+            "type": "boolean"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ControlTowerStatusSummarySource"
+          }
+        },
+        "type": "object"
+      },
+      "ControlTowerStatusSummarySource": {
+        "enum": [
+          "LEGACY",
+          "READ_MODEL"
+        ],
+        "type": "string"
+      },
+      "ControlTowerSummaryResponse": {
+        "properties": {
+          "criticalEvents": {
+            "items": {
+              "$ref": "#/components/schemas/ControlTowerEvent"
+            },
+            "type": "array"
+          },
+          "dataFreshness": {
+            "properties": {
+              "companiesLoaded": {
+                "type": "boolean"
+              },
+              "documentsLoaded": {
+                "type": "boolean"
+              },
+              "partial": {
+                "type": "boolean"
+              },
+              "shipmentsLoaded": {
+                "type": "boolean"
+              },
+              "transportOrdersLoaded": {
+                "type": "boolean"
+              },
+              "warnings": {
+                "items": {
+                  "enum": [
+                    "TRANSPORT_ORDERS_UNAVAILABLE",
+                    "COMPANIES_UNAVAILABLE",
+                    "DOCUMENTS_UNAVAILABLE",
+                    "KPI_CALCULATED_FROM_LIMITED_DATASET",
+                    "FILTER_OPTIONS_INCOMPLETE",
+                    "CONTROL_TOWER_READ_MODEL_UNAVAILABLE",
+                    "CONTROL_TOWER_READ_MODEL_CONSUMER_NOT_RUNNING",
+                    "CONTROL_TOWER_READ_MODEL_PARTIAL",
+                    "CONTROL_TOWER_READ_MODEL_FALLBACK_USED",
+                    "CONTROL_TOWER_LEGACY_STATUS_SUMMARY_LIMITED"
+                  ],
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "type": "object"
+          },
+          "filters": {
+            "properties": {
+              "carriers": {
+                "items": {
+                  "$ref": "#/components/schemas/ControlTowerFilterOption"
+                },
+                "type": "array"
+              },
+              "shippers": {
+                "items": {
+                  "$ref": "#/components/schemas/ControlTowerFilterOption"
+                },
+                "type": "array"
+              },
+              "statuses": {
+                "items": {
+                  "$ref": "#/components/schemas/ControlTowerFilterOption"
+                },
+                "type": "array"
+              }
+            },
+            "type": "object"
+          },
+          "generatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "kpi": {
+            "properties": {
+              "active": {
+                "type": "integer"
+              },
+              "atRisk": {
+                "type": "integer"
+              },
+              "awaitingDocuments": {
+                "type": "integer"
+              },
+              "critical": {
+                "type": "integer"
+              },
+              "delayed": {
+                "type": "integer"
+              },
+              "onTime": {
+                "type": "integer"
+              },
+              "readyForBilling": {
+                "type": "integer"
+              }
+            },
+            "type": "object"
+          },
+          "shipments": {
+            "properties": {
+              "hasNext": {
+                "type": "boolean"
+              },
+              "items": {
+                "items": {
+                  "$ref": "#/components/schemas/ControlTowerShipment"
+                },
+                "type": "array"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "page": {
+                "type": "integer"
+              },
+              "total": {
+                "type": "integer"
+              }
+            },
+            "type": "object"
+          },
+          "statusSummary": {
+            "$ref": "#/components/schemas/ControlTowerStatusSummary"
+          },
+          "statusSummaryFreshness": {
+            "$ref": "#/components/schemas/ControlTowerStatusSummaryFreshness"
+          }
+        },
+        "required": [
+          "generatedAt",
+          "dataFreshness",
+          "kpi",
+          "shipments",
+          "criticalEvents",
+          "filters"
+        ],
+        "type": "object"
+      },
+      "CreateDriverRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "carrier_company_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "full_name": {
+            "type": "string"
+          },
+          "license_country": {
+            "type": "string"
+          },
+          "license_number": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "preferred_locale": {
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "carrier_company_id",
+          "full_name"
+        ],
+        "type": "object"
+      },
+      "CreateShipmentFromBidRequest": {
+        "additionalProperties": false,
+        "description": "Tenant scope and actor identity are derived from authenticated gateway context and cannot be selected through request body or query parameters.",
+        "properties": {
+          "bid_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "planned_delivery_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "planned_pickup_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "shipment_number": {
+            "type": "string"
+          },
+          "transport_order_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "shipment_number",
+          "bid_id",
+          "transport_order_id"
+        ],
+        "type": "object"
+      },
+      "CreateShipmentFromTransportOrderRequest": {
+        "additionalProperties": false,
+        "description": "Tenant scope and actor identity are derived from authenticated gateway context and cannot be selected through request body or query parameters.",
+        "properties": {
+          "carrier_company_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "forwarder_company_id": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "planned_delivery_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "planned_pickup_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "shipment_number": {
+            "type": "string"
+          },
+          "transport_order_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "shipment_number",
+          "transport_order_id",
+          "carrier_company_id"
+        ],
+        "type": "object"
+      },
+      "CreateVehicleRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "capacity_volume": {
+            "type": "number"
+          },
+          "capacity_weight": {
+            "type": "number"
+          },
+          "carrier_company_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "equipment_type": {
+            "type": "string"
+          },
+          "plate_number": {
+            "type": "string"
+          },
+          "registration_country": {
+            "type": "string"
+          },
+          "vehicle_type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "carrier_company_id",
+          "plate_number"
+        ],
+        "type": "object"
+      },
       "ErrorResponse": {
         "properties": {
           "error": {
@@ -117,6 +650,269 @@
             "type": "integer"
           }
         },
+        "type": "object"
+      },
+      "ShipmentEventActor": {
+        "description": "USER indicates a verified authenticated user from persisted status history.\nSYSTEM indicates an explicit server-side transition; never inferred from missing user context on HTTP mutations.\n",
+        "properties": {
+          "id": {
+            "description": "Present for USER canonical history events.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "description": "Not populated from status history in v0.1.",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "USER",
+              "SYSTEM"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ShipmentEventCategory": {
+        "enum": [
+          "SHIPMENT",
+          "OPERATION",
+          "DOCUMENT",
+          "SLA",
+          "BILLING",
+          "TECHNICAL",
+          "GEOLOCATION",
+          "SYSTEM"
+        ],
+        "type": "string"
+      },
+      "ShipmentEventSeverity": {
+        "enum": [
+          "INFO",
+          "WARNING",
+          "CRITICAL"
+        ],
+        "type": "string"
+      },
+      "ShipmentEventSource": {
+        "description": "BFF-generated timeline events from current entity state use *_STATE or SLA_CALCULATOR sources and are always derived=true.\nPersisted shipment status transitions use SHIPMENT_STATUS_HISTORY with derived=false and sourceEventId set to the history row ID.\n",
+        "enum": [
+          "SHIPMENT_STATE",
+          "SHIPMENT_STATUS_HISTORY",
+          "SLA_CALCULATOR",
+          "DOCUMENT_STATE",
+          "BILLING_STATE"
+        ],
+        "type": "string"
+      },
+      "ShipmentEventsResponse": {
+        "properties": {
+          "dataFreshness": {
+            "properties": {
+              "billingLoaded": {
+                "type": "boolean"
+              },
+              "documentsLoaded": {
+                "type": "boolean"
+              },
+              "partial": {
+                "type": "boolean"
+              },
+              "shipmentEventsLoaded": {
+                "description": "True when persisted shipment status history was loaded; false only when the internal history source is unavailable. Empty history for a legacy shipment still sets this to true.",
+                "type": "boolean"
+              },
+              "shipmentLoaded": {
+                "type": "boolean"
+              },
+              "technicalEventsLoaded": {
+                "type": "boolean"
+              },
+              "warnings": {
+                "items": {
+                  "enum": [
+                    "SHIPMENT_EVENTS_UNAVAILABLE",
+                    "SHIPMENT_HISTORY_DERIVED_FROM_CURRENT_STATE",
+                    "SHIPMENT_STATUS_HISTORY_PARTIAL",
+                    "SHIPMENT_STATUS_HISTORY_UNAVAILABLE",
+                    "DOCUMENT_EVENTS_UNAVAILABLE",
+                    "BILLING_EVENTS_UNAVAILABLE",
+                    "TECHNICAL_EVENTS_UNAVAILABLE",
+                    "GEOLOCATION_EVENTS_UNAVAILABLE",
+                    "TIMELINE_CALCULATED_FROM_LIMITED_DATASET",
+                    "FILTER_OPTIONS_INCOMPLETE"
+                  ],
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "type": "object"
+          },
+          "filters": {
+            "properties": {
+              "categories": {
+                "items": {
+                  "$ref": "#/components/schemas/ControlTowerFilterOption"
+                },
+                "type": "array"
+              },
+              "severities": {
+                "items": {
+                  "$ref": "#/components/schemas/ControlTowerFilterOption"
+                },
+                "type": "array"
+              },
+              "sources": {
+                "items": {
+                  "$ref": "#/components/schemas/ControlTowerFilterOption"
+                },
+                "type": "array"
+              },
+              "types": {
+                "items": {
+                  "$ref": "#/components/schemas/ControlTowerFilterOption"
+                },
+                "type": "array"
+              }
+            },
+            "type": "object"
+          },
+          "generatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "shipment": {
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "number": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "timeline": {
+            "properties": {
+              "hasNext": {
+                "type": "boolean"
+              },
+              "items": {
+                "items": {
+                  "$ref": "#/components/schemas/ShipmentTimelineEvent"
+                },
+                "type": "array"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "page": {
+                "type": "integer"
+              },
+              "total": {
+                "type": "integer"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "shipment",
+          "generatedAt",
+          "dataFreshness",
+          "timeline",
+          "filters"
+        ],
+        "type": "object"
+      },
+      "ShipmentTimelineEvent": {
+        "properties": {
+          "actor": {
+            "$ref": "#/components/schemas/ShipmentEventActor"
+          },
+          "category": {
+            "$ref": "#/components/schemas/ShipmentEventCategory"
+          },
+          "correlationId": {
+            "type": "string"
+          },
+          "derived": {
+            "type": "boolean"
+          },
+          "descriptionCode": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "occurredAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "recordedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/ShipmentEventSeverity"
+          },
+          "shipmentId": {
+            "type": "string"
+          },
+          "shipmentNumber": {
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ShipmentEventSource"
+          },
+          "sourceEventId": {
+            "type": "string"
+          },
+          "titleCode": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "shipmentId",
+          "shipmentNumber",
+          "type",
+          "category",
+          "source",
+          "severity",
+          "titleCode",
+          "occurredAt",
+          "derived"
+        ],
+        "type": "object"
+      },
+      "UpdateShipmentStatusRequest": {
+        "additionalProperties": false,
+        "description": "Tenant scope and actor identity are derived from authenticated gateway context and cannot be selected through request body or query parameters.",
+        "properties": {
+          "actual_time": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
         "type": "object"
       }
     },
@@ -309,6 +1105,100 @@
         "summary": "Get current authenticated user",
         "tags": [
           "Auth"
+        ]
+      }
+    },
+    "/api/v1/bids/{id}": {
+      "get": {
+        "description": "Returns a tenant-scoped bid. Public clients authenticate with Bearer JWT only.\nAPI Gateway validates the token and injects trusted X-Tenant-ID for downstream rfx-service.\nDo not use tenant_id query on this endpoint.\n",
+        "operationId": "get_bid_by_id",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XTenantID"
+          },
+          {
+            "$ref": "#/components/parameters/XCompanyID"
+          },
+          {
+            "$ref": "#/components/parameters/XLocale"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get bid by ID",
+        "tags": [
+          "Bids"
         ]
       }
     },
@@ -3141,6 +4031,165 @@
         ]
       }
     },
+    "/api/v1/control-tower/summary": {
+      "get": {
+        "description": "BFF endpoint that aggregates shipments, transport orders, companies, and documents\nfor the Control Tower dashboard. Supports server-side filtering and pagination.\nOptional dependencies may return partial responses with machine-readable warning codes.\nTenant context is derived from the verified JWT bearer token only.\n",
+        "operationId": "get_control_tower_summary",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XLocale"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "description": "Search by shipment number, transport order number, shipper or carrier name",
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Shipment status filter",
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sla_status",
+            "schema": {
+              "$ref": "#/components/schemas/ControlTowerSLAStatus"
+            }
+          },
+          {
+            "in": "query",
+            "name": "shipper_id",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "carrier_id",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date_from",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date_to",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "critical_only",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlTowerSummaryResponse"
+                }
+              }
+            },
+            "description": "Control Tower summary"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Required shipment data source is temporarily unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Control Tower aggregated summary",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
     "/api/v1/documents": {
       "get": {
         "operationId": "get_list_documents",
@@ -4064,6 +5113,7 @@
     },
     "/api/v1/drivers": {
       "get": {
+        "description": "Tenant scope is derived from authenticated gateway context and cannot be selected through query parameters.\n",
         "operationId": "get_list_drivers",
         "parameters": [
           {
@@ -4080,6 +5130,41 @@
           },
           {
             "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "query",
+            "name": "carrier_company_id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -4113,6 +5198,16 @@
               }
             },
             "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Insufficient permission"
           },
           "404": {
             "content": {
@@ -4156,6 +5251,7 @@
         ]
       },
       "post": {
+        "description": "Tenant scope is derived from authenticated gateway context and cannot be selected in the request body.\n",
         "operationId": "post_create_driver",
         "parameters": [
           {
@@ -4178,8 +5274,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/CreateDriverRequest"
               }
             }
           },
@@ -4216,6 +5311,16 @@
               }
             },
             "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Insufficient permission"
           },
           "404": {
             "content": {
@@ -4261,6 +5366,7 @@
     },
     "/api/v1/drivers/{id}": {
       "get": {
+        "description": "Returns driver details for the authenticated tenant. Foreign-tenant drivers are indistinguishable from missing drivers (404). Tenant is derived from bearer authentication at the gateway; `tenant_id` is not a query parameter on this endpoint.",
         "operationId": "get_get_driver_by_id",
         "parameters": [
           {
@@ -4310,6 +5416,16 @@
               }
             },
             "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Insufficient permission"
           },
           "404": {
             "content": {
@@ -6042,6 +7158,7 @@
     },
     "/api/v1/shipments": {
       "get": {
+        "description": "Returns shipments for the authenticated tenant only. Tenant is derived from bearer authentication at the gateway; `tenant_id` is not a query parameter on this endpoint. Trusted internal `X-Tenant-ID` is set by API Gateway and is not a public client parameter.",
         "operationId": "get_list_shipments",
         "parameters": [
           {
@@ -6136,6 +7253,7 @@
     },
     "/api/v1/shipments/from-bid": {
       "post": {
+        "description": "Tenant scope and actor identity are derived from authenticated gateway context. Shipment mutation is also protected by gateway route-level authorization.",
         "operationId": "post_create_shipment_from_accepted_bid",
         "parameters": [
           {
@@ -6158,8 +7276,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/CreateShipmentFromBidRequest"
               }
             }
           },
@@ -6197,6 +7314,16 @@
             },
             "description": "Unauthorized"
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Insufficient permission"
+          },
           "404": {
             "content": {
               "application/json": {
@@ -6226,6 +7353,16 @@
               }
             },
             "description": "Internal error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authorization dependency unavailable"
           }
         },
         "security": [
@@ -6241,6 +7378,7 @@
     },
     "/api/v1/shipments/from-transport-order": {
       "post": {
+        "description": "Tenant scope and actor identity are derived from authenticated gateway context. Shipment mutation is also protected by gateway route-level authorization.",
         "operationId": "post_create_shipment_from_transport_order",
         "parameters": [
           {
@@ -6263,8 +7401,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/CreateShipmentFromTransportOrderRequest"
               }
             }
           },
@@ -6302,6 +7439,16 @@
             },
             "description": "Unauthorized"
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Insufficient permission"
+          },
           "404": {
             "content": {
               "application/json": {
@@ -6331,6 +7478,16 @@
               }
             },
             "description": "Internal error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authorization dependency unavailable"
           }
         },
         "security": [
@@ -6346,6 +7503,7 @@
     },
     "/api/v1/shipments/{id}": {
       "get": {
+        "description": "Returns shipment details for the authenticated tenant. Shipments belonging to another tenant are indistinguishable from missing shipments (404). Tenant is derived from bearer authentication at the gateway; `tenant_id` is not a query parameter on this endpoint. Trusted internal `X-Tenant-ID` is set by API Gateway and is not a public client parameter.",
         "operationId": "get_get_shipment_by_id",
         "parameters": [
           {
@@ -6440,6 +7598,7 @@
     },
     "/api/v1/shipments/{id}/accept": {
       "post": {
+        "description": "Tenant scope and actor identity are derived from authenticated gateway context. Shipment mutation is also protected by gateway route-level authorization.",
         "operationId": "post_accept_shipment",
         "parameters": [
           {
@@ -6462,12 +7621,14 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
+                "additionalProperties": false,
+                "maxProperties": 0,
                 "type": "object"
               }
             }
           },
-          "required": true
+          "description": "Optional empty body. If present, must not contain tenant or actor fields; unknown properties are rejected.",
+          "required": false
         },
         "responses": {
           "201": {
@@ -6500,6 +7661,16 @@
               }
             },
             "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Insufficient permission"
           },
           "404": {
             "content": {
@@ -6530,6 +7701,16 @@
               }
             },
             "description": "Internal error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authorization dependency unavailable"
           }
         },
         "security": [
@@ -6545,6 +7726,7 @@
     },
     "/api/v1/shipments/{id}/assign-driver": {
       "post": {
+        "description": "Driver must belong to the same authenticated tenant as the shipment.\nTenant scope is derived from authenticated gateway context and cannot be selected in the request body.\nUnknown, foreign-tenant, or soft-deleted driver returns 404 indistinguishable from a missing driver.\n",
         "operationId": "post_assign_driver_to_shipment",
         "parameters": [
           {
@@ -6567,8 +7749,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/AssignDriverRequest"
               }
             }
           },
@@ -6605,6 +7786,16 @@
               }
             },
             "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Insufficient permission"
           },
           "404": {
             "content": {
@@ -6650,6 +7841,7 @@
     },
     "/api/v1/shipments/{id}/assign-vehicle": {
       "post": {
+        "description": "Vehicle must belong to the same authenticated tenant as the shipment.\nTenant scope is derived from authenticated gateway context and cannot be selected in the request body.\nUnknown, foreign-tenant, or soft-deleted vehicle returns 404 indistinguishable from a missing vehicle.\n",
         "operationId": "post_assign_vehicle_to_shipment",
         "parameters": [
           {
@@ -6672,8 +7864,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/AssignVehicleRequest"
               }
             }
           },
@@ -6710,6 +7901,16 @@
               }
             },
             "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Insufficient permission"
           },
           "404": {
             "content": {
@@ -6755,6 +7956,7 @@
     },
     "/api/v1/shipments/{id}/cancel": {
       "post": {
+        "description": "Tenant scope and actor identity are derived from authenticated gateway context. Shipment mutation is also protected by gateway route-level authorization.",
         "operationId": "post_cancel_shipment",
         "parameters": [
           {
@@ -6777,8 +7979,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/CancelShipmentRequest"
               }
             }
           },
@@ -6816,6 +8017,16 @@
             },
             "description": "Unauthorized"
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Insufficient permission"
+          },
           "404": {
             "content": {
               "application/json": {
@@ -6845,6 +8056,16 @@
               }
             },
             "description": "Internal error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authorization dependency unavailable"
           }
         },
         "security": [
@@ -6860,6 +8081,7 @@
     },
     "/api/v1/shipments/{id}/status": {
       "patch": {
+        "description": "Tenant scope and actor identity are derived from authenticated gateway context. Shipment mutation is also protected by gateway route-level authorization.",
         "operationId": "patch_update_shipment_status",
         "parameters": [
           {
@@ -6882,8 +8104,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/UpdateShipmentStatusRequest"
               }
             }
           },
@@ -6921,6 +8142,16 @@
             },
             "description": "Unauthorized"
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Insufficient permission"
+          },
           "404": {
             "content": {
               "application/json": {
@@ -6950,6 +8181,16 @@
               }
             },
             "description": "Internal error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authorization dependency unavailable"
           }
         },
         "security": [
@@ -6958,6 +8199,185 @@
           }
         ],
         "summary": "Update shipment status",
+        "tags": [
+          "Shipments"
+        ]
+      }
+    },
+    "/api/v1/shipments/{shipmentId}/events": {
+      "get": {
+        "description": "BFF endpoint that aggregates shipment state, documents, billing registers, and SLA signals\ninto a unified event timeline. Optional dependencies may return partial responses with\nmachine-readable warning codes. Tenant context is derived from the verified JWT bearer token only.\nDerived events are explicitly marked with `derived: true`.\n",
+        "operationId": "get_shipment_events",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XLocale"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "shipmentId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "type",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "category",
+            "schema": {
+              "$ref": "#/components/schemas/ShipmentEventCategory"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source",
+            "schema": {
+              "$ref": "#/components/schemas/ShipmentEventSource"
+            }
+          },
+          {
+            "in": "query",
+            "name": "severity",
+            "schema": {
+              "$ref": "#/components/schemas/ShipmentEventSeverity"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date_from",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date_to",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "derived",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "order",
+            "schema": {
+              "default": "desc",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShipmentEventsResponse"
+                }
+              }
+            },
+            "description": "Shipment event timeline"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Shipment not found"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Required shipment data source is temporarily unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Shipment event history timeline",
         "tags": [
           "Shipments"
         ]
@@ -8431,6 +9851,7 @@
     },
     "/api/v1/vehicles": {
       "get": {
+        "description": "Tenant scope is derived from authenticated gateway context and cannot be selected through query parameters.\n",
         "operationId": "get_list_vehicles",
         "parameters": [
           {
@@ -8447,6 +9868,41 @@
           },
           {
             "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "query",
+            "name": "carrier_company_id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -8480,6 +9936,16 @@
               }
             },
             "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Insufficient permission"
           },
           "404": {
             "content": {
@@ -8523,6 +9989,7 @@
         ]
       },
       "post": {
+        "description": "Tenant scope is derived from authenticated gateway context and cannot be selected in the request body.\n",
         "operationId": "post_create_vehicle",
         "parameters": [
           {
@@ -8545,8 +10012,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/CreateVehicleRequest"
               }
             }
           },
@@ -8583,6 +10049,16 @@
               }
             },
             "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Insufficient permission"
           },
           "404": {
             "content": {
@@ -8628,6 +10104,7 @@
     },
     "/api/v1/vehicles/{id}": {
       "get": {
+        "description": "Returns vehicle details for the authenticated tenant. Foreign-tenant vehicles are indistinguishable from missing vehicles (404). Tenant is derived from bearer authentication at the gateway; `tenant_id` is not a query parameter on this endpoint.",
         "operationId": "get_get_vehicle_by_id",
         "parameters": [
           {
@@ -8677,6 +10154,16 @@
               }
             },
             "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Insufficient permission"
           },
           "404": {
             "content": {
@@ -9288,6 +10775,9 @@
     },
     {
       "name": "Closing Documents"
+    },
+    {
+      "name": "Control Tower"
     }
   ]
 }
