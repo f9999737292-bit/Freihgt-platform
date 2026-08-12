@@ -6,6 +6,15 @@ export interface ApiErrorBody {
   }
 }
 
+export interface PaginatedResponse<T> {
+  items: T[]
+  total: number
+  limit: number
+  offset: number
+}
+
+export type { Bid, BidItem } from './bid'
+
 export interface LoginRequest {
   tenant_id: string
   email: string

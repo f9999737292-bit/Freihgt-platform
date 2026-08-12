@@ -1,0 +1,13 @@
+{
+  "common": {
+    "welcome": "欢迎使用采购门户",
+    "home": "首页",
+    "health": "状态",
+    "language": "语言",
+    "loading": "加载中…",
+    "error": "错误",
+    "status": "状态",
+    "login": "登录",
+    "logout": "退出"
+  }
+}

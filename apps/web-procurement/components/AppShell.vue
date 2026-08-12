@@ -10,6 +10,7 @@ defineProps<{
       <h1>{{ title }}</h1>
       <slot name="actions" />
     </header>
+    <LayoutAppNav />
     <main class="app-shell__main">
       <slot />
     </main>

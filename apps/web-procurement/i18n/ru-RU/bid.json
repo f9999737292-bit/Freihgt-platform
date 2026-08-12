@@ -1,29 +1,4 @@
 {
-  "common": {
-    "welcome": "Добро пожаловать в Procurement Portal",
-    "home": "Главная",
-    "health": "Статус",
-    "language": "Язык",
-    "loading": "Загрузка…",
-    "error": "Ошибка",
-    "status": "Статус",
-    "login": "Войти",
-    "logout": "Выйти"
-  },
-  "login": {
-    "title": "Вход в систему",
-    "tenantId": "Tenant ID",
-    "email": "Email",
-    "password": "Пароль",
-    "submit": "Войти",
-    "hint": "Tenant ID используется только при входе. API-запросы выполняются с JWT из сессии.",
-    "tenantRequired": "Tenant ID обязателен"
-  },
-  "home": {
-    "title": "Портал закупок",
-    "description": "Read-only карточка ставки доступна по маршруту /bids/{id}.",
-    "bidRouteHint": "Откройте ставку по UUID, например /bids/00000000-0000-4000-8000-000000000001."
-  },
   "bid": {
     "title": "Карточка ставки",
     "readOnlyHint": "Только просмотр",
