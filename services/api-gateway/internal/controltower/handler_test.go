@@ -109,12 +109,17 @@ func TestSummaryDownstreamReceivesTrustedHeaders(t *testing.T) {
 	userA := "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
 	requestID := "req-trusted-123"
 
-	var gotTenant, gotUser, gotAuth, gotRequestID string
+	var gotQueryTenant, gotHeaderTenant, gotUser, gotAuth, gotRequestID string
 	shipmentServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotTenant = r.URL.Query().Get("tenant_id")
+		gotQueryTenant = r.URL.Query().Get("tenant_id")
+		gotHeaderTenant = r.Header.Get("X-Tenant-ID")
 		gotUser = r.Header.Get("X-User-ID")
 		gotAuth = r.Header.Get("Authorization")
 		gotRequestID = r.Header.Get("X-Request-ID")
+		if gotHeaderTenant == "" {
+			http.Error(w, "tenant context is required", http.StatusUnauthorized)
+			return
+		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"items": []any{}, "total": 0})
 	}))
 	defer shipmentServer.Close()
@@ -139,8 +144,11 @@ func TestSummaryDownstreamReceivesTrustedHeaders(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
 	}
-	if gotTenant != tenantA {
-		t.Fatalf("tenant header/query=%q want %q", gotTenant, tenantA)
+	if gotQueryTenant != tenantA {
+		t.Fatalf("query tenant_id=%q want %q", gotQueryTenant, tenantA)
+	}
+	if gotHeaderTenant != tenantA {
+		t.Fatalf("header X-Tenant-ID=%q want %q", gotHeaderTenant, tenantA)
 	}
 	if gotUser != userA {
 		t.Fatalf("user header=%q want %q", gotUser, userA)

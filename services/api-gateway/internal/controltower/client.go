@@ -210,7 +210,7 @@ func (c *DownstreamClient) applyHeaders(req *http.Request, reqCtx RequestContext
 	if reqCtx.AuthToken != "" {
 		req.Header.Set("Authorization", reqCtx.AuthToken)
 	}
-	if reqCtx.TenantID != "" && !requestHasTenantQuery(req) {
+	if reqCtx.TenantID != "" {
 		req.Header.Set("X-Tenant-ID", reqCtx.TenantID)
 	}
 	if reqCtx.UserID != "" {
@@ -219,13 +219,6 @@ func (c *DownstreamClient) applyHeaders(req *http.Request, reqCtx RequestContext
 	if reqCtx.RequestID != "" {
 		req.Header.Set(sharedmiddleware.RequestIDHeader, reqCtx.RequestID)
 	}
-}
-
-func requestHasTenantQuery(req *http.Request) bool {
-	if req == nil || req.URL == nil {
-		return false
-	}
-	return strings.Contains(req.URL.RawQuery, "tenant_id=")
 }
 
 func parseRawShipment(item map[string]any) (rawShipment, bool) {
