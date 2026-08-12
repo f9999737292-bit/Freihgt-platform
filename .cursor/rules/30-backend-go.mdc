@@ -1,0 +1,20 @@
+---
+description: Go backend conventions for services and shared-go
+globs: services/**/*.go,packages/shared-go/**/*.go,packages/statussnapshot/**/*.go,scripts/openapi/**/*.go
+alwaysApply: false
+---
+
+# Backend Go Rules
+
+Apply to modules listed in `go.work`.
+
+- Write idiomatic Go with explicit error handling; propagate `context.Context`.
+- Follow existing handler → service → repository separation where present.
+- Do not use `panic` for normal request failures.
+- Apply tenant predicates on tenant-owned data paths.
+- Preserve stable HTTP semantics and validate inputs at boundaries.
+- Use structured logging conventions from `packages/shared-go/logger` when adding logs.
+- Add or update tests near changed behavior (`*_test.go` alongside changed packages).
+- Avoid new global mutable state unless the architecture already requires it.
+- Do not change backend business logic or API contracts unless the task explicitly authorizes it.
+- Prefer `make health-check`, targeted `go test`, and service-scoped checks over full-stack startup for isolated tasks.

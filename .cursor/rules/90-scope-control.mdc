@@ -1,0 +1,23 @@
+---
+description: Hard scope boundaries for autonomous agent work
+alwaysApply: true
+---
+
+# Scope Control
+
+Agents MUST NOT independently:
+
+- Change service boundaries or move domain logic between services
+- Replace PostgreSQL or introduce another primary database
+- Replace API Gateway or change authentication architecture
+- Change tenant architecture or trust-boundary model
+- Replace the Go backend stack or Vue/Nuxt frontend stack
+- Introduce Kafka, RabbitMQ, or similar messaging unless explicitly authorized
+- Rename broad public APIs or remove existing services
+- Perform repository-wide refactors or mass formatting
+- Change deployment architecture or run destructive cleanup (`docker volume prune`, database wipe)
+- Modify generated files without need
+
+Such changes require an explicit architecture task or ADR.
+
+Allowed routine work stays within assigned paths and frozen contracts defined in the agent task template.

@@ -1,0 +1,17 @@
+---
+description: Vue/Nuxt frontend conventions for apps and shared UI packages
+globs: apps/**/*.{vue,ts,js,mjs},packages/ui/**/*.{vue,ts},packages/shared-ts/**/*.ts,packages/i18n/**/*
+alwaysApply: false
+---
+
+# Frontend Vue / Nuxt Rules
+
+- Follow existing Nuxt 3 conventions in each `apps/web-*` project.
+- Preserve composable, component, page, and layout structure already in use.
+- Respect the current RBAC/permission model; do not bypass UI guards.
+- Reuse shared components from `packages/ui` and types from `packages/shared-ts`.
+- Do not duplicate API clients; align with gateway-facing contracts.
+- Handle loading, error, and backend-unavailable states explicitly.
+- Maintain i18n via `packages/i18n` (`ru-RU`, `en-US`, `zh-CN`).
+- Do not move backend or security logic into the frontend.
+- Do not hardcode tenant identity; rely on authenticated session/context patterns already used in the app.

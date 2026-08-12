@@ -1,0 +1,23 @@
+---
+description: Verification hierarchy and honest result reporting
+alwaysApply: true
+---
+
+# Verification Discipline
+
+Use this order unless the task specifies otherwise:
+
+1. Inspect the changed diff.
+2. Run targeted static checks (e.g. `make openapi-validate`, linters on touched paths).
+3. Run targeted unit tests (`go test ./...` scoped to changed packages).
+4. Run package or service tests for affected modules.
+5. Build where relevant (`make platform-build-service`, frontend build for touched apps).
+6. Run integration tests only when the task authorizes them (`make integration-smoke-test`, `tests/integration/*.sh`).
+7. Full-stack validation only in integration or release phases.
+
+Rules:
+
+- Do not start full Docker stacks for ordinary isolated tasks unless explicitly required.
+- Never claim **PASS** for a check that was not actually executed.
+- Report each result as **PASS**, **FAIL**, **NOT_RUN**, or **BLOCKED**.
+- Prefer Makefile targets documented in `Makefile` and `AGENTS.md`.

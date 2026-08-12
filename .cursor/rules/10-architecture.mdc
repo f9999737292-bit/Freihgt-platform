@@ -1,0 +1,36 @@
+---
+description: Verified monorepo architecture boundaries for Freight Platform
+alwaysApply: true
+---
+
+# Architecture Discipline
+
+This repository is a Go + Nuxt monorepo. Respect verified boundaries:
+
+## Backend (`services/`, `go.work`)
+
+- `api-gateway` — HTTP entry point, auth/RBAC, reverse proxy (port 8080)
+- `identity-service`, `company-service`, `transport-order-service`, `rfx-service`, `shipment-service`, `document-service`, `billing-register-service`
+- `control-tower-read-model-service`, `localization-service`, `low-code-service`
+- Shared Go libraries: `packages/shared-go`, `packages/statussnapshot`
+
+## Frontend (`apps/`, `packages/ui`, `packages/shared-ts`, `packages/i18n`)
+
+- Nuxt 3 apps: `web-admin` (3000), `web-shipper` (3001), `web-carrier` (3002), `web-consignee` (3003), `web-finance` (3004), `web-procurement` (3005)
+- Locales: `ru-RU`, `en-US`, `zh-CN`
+
+## Contracts and data
+
+- OpenAPI: `packages/openapi/`
+- PostgreSQL migrations: `infrastructure/migrations/`
+- Docker Compose: `infrastructure/docker-compose/`
+- Observability: `infrastructure/monitoring/` (Prometheus, Grafana)
+
+## Rules
+
+- Do not move responsibilities between services without ADR or explicit architecture task authorization.
+- Do not introduce new primary database technology without explicit authorization.
+- Do not replace Go, Nuxt/Vue, or PostgreSQL without explicit authorization.
+- Preserve API Gateway / BFF boundaries; downstream services must not become public entry points.
+- Keep cross-service dependencies explicit; avoid circular dependencies.
+- Prefer Makefile targets (`make health-check`, `make platform-up-safe`, etc.) over ad hoc commands.
