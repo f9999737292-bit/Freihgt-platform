@@ -1,18 +1,30 @@
 import type { Bid } from '~/types/bid'
+import type { FreightRequest } from '~/types/rfx'
 import { ApiError } from '~/composables/useApi'
 
-export function useBidsApi() {
-  const { apiGet, apiPost } = useApi()
+export interface ListFreightRequestBidsParams {
+  status?: string
+}
 
-  async function getBid(id: string) {
-    return apiGet<Bid>(`/api/v1/bids/${encodeURIComponent(id)}`)
+export function useFreightRequestDetailApi() {
+  const { apiGet } = useApi()
+
+  async function getFreightRequest(id: string) {
+    return apiGet<FreightRequest>(`/api/v1/freight-requests/${encodeURIComponent(id)}`)
   }
 
-  async function acceptBid(id: string) {
-    return apiPost<{ id: string; status: string }>(
-      `/api/v1/bids/${encodeURIComponent(id)}/accept`,
-      {},
+  async function listFreightRequestBids(
+    id: string,
+    params: ListFreightRequestBidsParams = {},
+  ) {
+    const query: Record<string, string | number | undefined> = {}
+    if (params.status) query.status = params.status
+
+    const data = await apiGet<{ items?: Bid[] }>(
+      `/api/v1/freight-requests/${encodeURIComponent(id)}/bids`,
+      { query },
     )
+    return data.items ?? []
   }
 
   function isUnauthorizedError(error: unknown): boolean {
@@ -34,17 +46,12 @@ export function useBidsApi() {
     return error instanceof TypeError
   }
 
-  function isConflictError(error: unknown): boolean {
-    return error instanceof ApiError && error.status === 409
-  }
-
   return {
-    getBid,
-    acceptBid,
+    getFreightRequest,
+    listFreightRequestBids,
     isUnauthorizedError,
     isNotFoundError,
     isServerError,
     isNetworkError,
-    isConflictError,
   }
 }

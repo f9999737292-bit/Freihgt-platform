@@ -71,6 +71,12 @@ watch(bidId, loadBid, { immediate: true })
   <div class="bid-page">
     <nav class="breadcrumbs" aria-label="Breadcrumb">
       <NuxtLink to="/">{{ $t('common.home') }}</NuxtLink>
+      <template v-if="bid?.freight_request_id">
+        <span class="breadcrumbs__sep">/</span>
+        <NuxtLink :to="`/freight-requests/${bid.freight_request_id}`">
+          {{ $t('freightRequests.detail.backToFreightRequest') }}
+        </NuxtLink>
+      </template>
       <span class="breadcrumbs__sep">/</span>
       <span>{{ $t('bid.title') }}</span>
     </nav>
