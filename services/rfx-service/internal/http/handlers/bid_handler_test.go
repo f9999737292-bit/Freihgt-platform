@@ -520,7 +520,7 @@ func TestAcceptBidForeignTenantReturns404(t *testing.T) {
 	}
 }
 
-func TestAcceptBidNonSubmittedReturns400(t *testing.T) {
+func TestAcceptBidNonSubmittedReturns409(t *testing.T) {
 	t.Parallel()
 	acceptCalled := false
 	router := newAcceptBidTestRouter(t, &mockBidStore{
@@ -536,7 +536,7 @@ func TestAcceptBidNonSubmittedReturns400(t *testing.T) {
 	req.Header.Set("X-Tenant-ID", "11111111-1111-1111-1111-111111111111")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
-	if rec.Code != http.StatusBadRequest || acceptCalled {
+	if rec.Code != http.StatusConflict || acceptCalled {
 		t.Fatalf("status=%d acceptCalled=%v body=%s", rec.Code, acceptCalled, rec.Body.String())
 	}
 }
