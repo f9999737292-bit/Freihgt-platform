@@ -1,5 +1,19 @@
 {
   "freightRequests": {
-    "list": {}
+    "list": {
+      "title": "Заявки на перевозку",
+      "number": "Номер",
+      "requestType": "Тип заявки",
+      "status": "Статус",
+      "responseDeadline": "Срок ответа",
+      "actions": "Действия",
+      "details": "Подробнее",
+      "all": "Все",
+      "loadFailed": "Не удалось загрузить заявки на перевозку",
+      "noRequestsFound": "Заявки на перевозку не найдены",
+      "unauthorized": "Требуется авторизация",
+      "serverError": "Backend временно недоступен",
+      "networkError": "Сетевая ошибка при загрузке заявок"
+    }
   }
 }

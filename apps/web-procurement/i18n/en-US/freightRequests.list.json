@@ -1,5 +1,19 @@
 {
   "freightRequests": {
-    "list": {}
+    "list": {
+      "title": "Freight requests",
+      "number": "Number",
+      "requestType": "Request type",
+      "status": "Status",
+      "responseDeadline": "Response deadline",
+      "actions": "Actions",
+      "details": "Details",
+      "all": "All",
+      "loadFailed": "Failed to load freight requests",
+      "noRequestsFound": "No freight requests found",
+      "unauthorized": "Authentication required",
+      "serverError": "Backend is temporarily unavailable",
+      "networkError": "Network error while loading freight requests"
+    }
   }
 }
