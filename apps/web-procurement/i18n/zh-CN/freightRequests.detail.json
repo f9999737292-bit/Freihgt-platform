@@ -1,5 +1,37 @@
 {
   "freightRequests": {
-    "detail": {}
+    "detail": {
+      "title": "货运需求详情",
+      "summary": "概要",
+      "freightRequestNumber": "需求编号",
+      "requestType": "需求类型",
+      "shipperCompanyId": "托运方公司 ID",
+      "responseDeadline": "响应截止时间",
+      "currency": "货币",
+      "createdAt": "创建时间",
+      "updatedAt": "更新时间",
+      "invalidId": "无效的货运需求 ID",
+      "unauthorized": "需要登录",
+      "notFound": "未找到货运需求",
+      "serverError": "后端暂时不可用",
+      "networkError": "加载货运需求时发生网络错误",
+      "bidsTitle": "报价",
+      "bidsEmpty": "暂无报价",
+      "bidsLoadError": "加载报价失败",
+      "bidNumber": "报价编号",
+      "carrierCompanyId": "承运方公司 ID",
+      "totalAmount": "总金额",
+      "actions": "操作",
+      "viewBid": "查看报价",
+      "acceptBid": "接受报价",
+      "acceptConfirm": "确定接受此报价？此操作无法撤销。",
+      "acceptSuccess": "报价已接受",
+      "acceptConflict": "当前状态下无法接受此报价。该报价可能已被接受或拒绝。",
+      "acceptNotFound": "未找到报价",
+      "acceptUnauthorized": "需要登录",
+      "acceptServerError": "因服务器错误无法接受报价",
+      "acceptNetworkError": "接受报价时发生网络错误",
+      "backToFreightRequest": "货运需求"
+    }
   }
 }
