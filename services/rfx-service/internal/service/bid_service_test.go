@@ -154,3 +154,68 @@ func TestBidServiceAcceptOnlyFromSubmitted(t *testing.T) {
 		t.Fatalf("expected validation error")
 	}
 }
+
+func TestBidServiceGetByIDPassesTenantToRepository(t *testing.T) {
+	t.Parallel()
+	tenantID := uuid.New()
+	bidID := uuid.New()
+	svc := NewBidService(&mockBidStore{
+		getByIDFn: func(_ context.Context, id, tenant uuid.UUID) (*domain.Bid, error) {
+			if id != bidID || tenant != tenantID {
+				t.Fatalf("unexpected scoped lookup id=%s tenant=%s", id, tenant)
+			}
+			return &domain.Bid{ID: id, TenantID: tenant, BidNumber: "BID-1"}, nil
+		},
+	}, &mockFreightRequestStoreForBid{})
+	bid, err := svc.GetByID(context.Background(), tenantID, bidID)
+	if err != nil || bid.BidNumber != "BID-1" {
+		t.Fatalf("unexpected result bid=%v err=%v", bid, err)
+	}
+}
+
+func TestBidServiceGetByIDNotFound(t *testing.T) {
+	t.Parallel()
+	svc := NewBidService(&mockBidStore{
+		getByIDFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.Bid, error) {
+			return nil, apperrors.NotFound("bid not found")
+		},
+	}, &mockFreightRequestStoreForBid{})
+	_, err := svc.GetByID(context.Background(), uuid.New(), uuid.New())
+	var appErr *apperrors.AppError
+	if !errors.As(err, &appErr) || appErr.Code != apperrors.CodeNotFound {
+		t.Fatalf("expected not found, got %v", err)
+	}
+}
+
+func TestBidServiceGetByIDForeignSameAsNotFound(t *testing.T) {
+	t.Parallel()
+	svc := NewBidService(&mockBidStore{
+		getByIDFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.Bid, error) {
+			return nil, apperrors.NotFound("bid not found")
+		},
+	}, &mockFreightRequestStoreForBid{})
+	_, err := svc.GetByID(context.Background(), uuid.New(), uuid.New())
+	var appErr *apperrors.AppError
+	if !errors.As(err, &appErr) || appErr.Code != apperrors.CodeNotFound {
+		t.Fatalf("foreign tenant must surface as not found, got %v", err)
+	}
+}
+
+func TestBidServiceGetByIDMissingTenantSkipsRepository(t *testing.T) {
+	t.Parallel()
+	called := false
+	svc := NewBidService(&mockBidStore{
+		getByIDFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.Bid, error) {
+			called = true
+			return nil, nil
+		},
+	}, &mockFreightRequestStoreForBid{})
+	_, err := svc.GetByID(context.Background(), uuid.Nil, uuid.New())
+	if called {
+		t.Fatal("repository must not be called")
+	}
+	var appErr *apperrors.AppError
+	if !errors.As(err, &appErr) || appErr.Code != apperrors.CodeUnauthorized {
+		t.Fatalf("expected unauthorized, got %v", err)
+	}
+}

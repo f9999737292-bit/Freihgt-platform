@@ -90,3 +90,10 @@ func (s *BidService) AcceptBid(ctx context.Context, id, tenantID uuid.UUID) (*do
 	}
 	return s.bids.AcceptBid(ctx, id, tenantID)
 }
+
+func (s *BidService) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*domain.Bid, error) {
+	if tenantID == uuid.Nil {
+		return nil, apperrors.Unauthorized("tenant context is required")
+	}
+	return s.bids.GetByID(ctx, id, tenantID)
+}

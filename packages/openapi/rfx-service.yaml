@@ -795,6 +795,61 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/bids/{id}:
+    get:
+      tags: [Bids]
+      summary: Get bid by ID
+      description: |
+        Returns a tenant-scoped bid. Public clients authenticate with Bearer JWT only.
+        API Gateway validates the token and injects trusted X-Tenant-ID for downstream rfx-service.
+        Do not use tenant_id query on this endpoint.
+      operationId: get_bid_by_id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/bids/{id}/submit:
     post:
       tags: [Bids]
@@ -933,7 +988,7 @@ components:
       schema:
         type: string
         format: uuid
-      description: Tenant context
+      description: Trusted tenant identifier injected by API Gateway after JWT validation. Not client-authoritative.
     XCompanyID:
       name: X-Company-ID
       in: header
