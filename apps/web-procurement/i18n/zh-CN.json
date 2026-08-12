@@ -1,0 +1,55 @@
+{
+  "common": {
+    "welcome": "欢迎使用采购门户",
+    "home": "首页",
+    "health": "状态",
+    "language": "语言",
+    "loading": "加载中…",
+    "error": "错误",
+    "status": "状态",
+    "login": "登录",
+    "logout": "退出"
+  },
+  "login": {
+    "title": "登录",
+    "tenantId": "租户 ID",
+    "email": "邮箱",
+    "password": "密码",
+    "submit": "登录",
+    "hint": "租户 ID 仅用于登录。API 请求依赖已认证的 JWT。",
+    "tenantRequired": "租户 ID 为必填项"
+  },
+  "home": {
+    "title": "采购门户",
+    "description": "只读投标详情可通过 /bids/{id} 访问。",
+    "bidRouteHint": "使用 UUID 打开投标，例如 /bids/00000000-0000-4000-8000-000000000001。"
+  },
+  "bid": {
+    "title": "投标详情",
+    "readOnlyHint": "只读视图",
+    "summary": "投标摘要",
+    "lineItems": "明细项",
+    "bidNumber": "投标编号",
+    "carrierCompanyId": "承运商公司 ID",
+    "totalAmount": "总金额",
+    "currency": "货币",
+    "vatRate": "增值税率",
+    "vatAmount": "增值税金额",
+    "totalAmountWithVat": "含税总金额",
+    "validUntil": "有效期至",
+    "submittedAt": "提交时间",
+    "description": "描述",
+    "baseAmount": "基础金额",
+    "fuelSurcharge": "燃油附加费",
+    "tollAmount": "过路费",
+    "extraCharges": "额外费用",
+    "amountWithoutVat": "不含税金额",
+    "amountWithVat": "含税金额",
+    "comment": "备注",
+    "invalidId": "无效的投标 ID",
+    "unauthorized": "需要登录",
+    "notFound": "未找到投标",
+    "serverError": "后端暂时不可用",
+    "networkError": "加载投标时发生网络错误"
+  }
+}

@@ -9,9 +9,6 @@
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
-    "@freight-platform/i18n": "workspace:*",
-    "@freight-platform/shared-ts": "workspace:*",
-    "@freight-platform/ui": "workspace:*",
     "@nuxtjs/i18n": "^9.0.0",
     "nuxt": "^3.15.0",
     "vue": "^3.5.0"
