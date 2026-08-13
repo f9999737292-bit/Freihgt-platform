@@ -8,7 +8,7 @@
 | Agent role | architect |
 | Branch | arch/control-tower-alert-ack-contract-v0.1 |
 | Worktree | D:\Projects\freight-platform-wt\ct-alert-ack-contract |
-| Status | PLANNED |
+| Status | INTEGRATED |
 | Base branch | chore/control-tower-alert-ack-orchestration-v0.1 |
 | Base SHA | ORCHESTRATION_BASE_SHA (not origin/main) |
 | PRODUCT_BASE_SHA | 02208106e494afcaa46372e44b417761d6613daf |

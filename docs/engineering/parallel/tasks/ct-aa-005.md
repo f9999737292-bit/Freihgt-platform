@@ -8,7 +8,7 @@
 | Agent role | qa-verification |
 | Branch | test/control-tower-alert-ack-qa-v0.1 |
 | Worktree | D:\Projects\freight-platform-wt\ct-alert-ack-qa |
-| Status | PLANNED |
+| Status | INTEGRATED |
 | Base branch | int/control-tower-alert-ack-v0.1 |
 | Base SHA | (set at QA time) |
 | Integration order | 4 |

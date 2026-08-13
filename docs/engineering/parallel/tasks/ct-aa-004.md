@@ -8,7 +8,7 @@
 | Agent role | security-auditor |
 | Branch | review/control-tower-alert-ack-security-v0.1 |
 | Worktree | D:\Projects\freight-platform-wt\ct-alert-ack-security |
-| Status | PLANNED |
+| Status | INTEGRATED |
 | Base branch | int/control-tower-alert-ack-v0.1 |
 | Base SHA | (set at review time) |
 | Integration order | 3 |

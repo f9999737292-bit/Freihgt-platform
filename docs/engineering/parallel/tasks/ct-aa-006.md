@@ -8,7 +8,7 @@
 | Agent role | integrator |
 | Branch | int/control-tower-alert-ack-v0.1 |
 | Worktree | D:\Projects\freight-platform-wt\ct-alert-ack-integration |
-| Status | PLANNED |
+| Status | INTEGRATED |
 | Base branch | origin/main |
 | Base SHA | (latest at integration start) |
 | Integration order | 5 |

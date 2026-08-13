@@ -8,7 +8,7 @@
 | Agent role | backend-engineer |
 | Branch | feat/control-tower-alert-ack-backend-v0.1 |
 | Worktree | D:\Projects\freight-platform-wt\ct-alert-ack-backend |
-| Status | PLANNED |
+| Status | INTEGRATED |
 | Base branch | CONTRACT_FREEZE_SHA |
 | Base SHA | (from CT-AA-001 handoff) |
 | Integration order | 2 |
