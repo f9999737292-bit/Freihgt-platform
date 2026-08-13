@@ -5,6 +5,13 @@ alwaysApply: true
 
 # Verification Discipline
 
+Task Contracts specify validation **Level 0–3** (`docs/engineering/VALIDATION_LEVELS.md`):
+
+- **Level 0** — static sanity (diff, status, syntax)
+- **Level 1** — targeted unit/module tests
+- **Level 2** — integration / contract tests
+- **Level 3** — runtime / compose / smoke / E2E (authorized only)
+
 Use this order unless the task specifies otherwise:
 
 1. Inspect the changed diff.
