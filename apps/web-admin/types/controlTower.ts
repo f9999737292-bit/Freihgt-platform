@@ -122,6 +122,24 @@ export type ControlTowerEventType =
   | 'UNKNOWN_CRITICAL'
   | 'UNKNOWN_CRITICAL_EVENT'
 
+export interface ControlTowerEventAcknowledgedBy {
+  userId: string
+  displayName?: string
+}
+
+export interface ControlTowerEventAcknowledgementSummary {
+  acknowledgedAt: string
+  acknowledgedBy: ControlTowerEventAcknowledgedBy
+}
+
+export interface ControlTowerEventAcknowledgement extends ControlTowerEventAcknowledgementSummary {
+  eventId: string
+  shipmentId: string
+  eventType: ControlTowerEventType
+  occurredAt: string
+  source?: 'control-tower'
+}
+
 export interface ControlTowerEvent {
   id: string
   shipmentId: string
@@ -131,6 +149,7 @@ export interface ControlTowerEvent {
   occurredAt: string
   description?: string
   descriptionKey?: string
+  acknowledgement?: ControlTowerEventAcknowledgementSummary
 }
 
 export interface ControlTowerShipment {

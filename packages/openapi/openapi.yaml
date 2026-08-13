@@ -897,6 +897,79 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/control-tower/critical-events/{eventId}/acknowledge:
+    post:
+      tags: [Control Tower]
+      summary: Acknowledge a critical Control Tower event
+      description: |
+        Records an idempotent acknowledgement for a currently active derived critical event.
+        The request body must be empty; tenant and actor identity are derived from the verified
+        JWT bearer token only (no client-supplied tenant_id, user_id, or acknowledged_by).
+        The gateway validates that `eventId` matches a currently derived critical event for the
+        authenticated tenant before persisting acknowledgement state in the read model.
+        Repeating the request returns HTTP 200 with the original acknowledgement (first ack wins).
+      operationId: post_control_tower_critical_event_acknowledge
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: eventId
+          in: path
+          required: true
+          description: |
+            Opaque deterministic event identifier from `ControlTowerEvent.id` (32 lowercase hex characters).
+          schema:
+            type: string
+            pattern: '^[0-9a-f]{32}$'
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              maxProperties: 0
+              additionalProperties: false
+      responses:
+        '200':
+          description: Acknowledgement recorded (or returned idempotently if already acknowledged)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerEventAcknowledgement'
+        '400':
+          description: Invalid eventId format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden — caller lacks Control Tower access
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: |
+            Event not found for the authenticated tenant (unknown eventId, resolved/non-current
+            derived event, or cross-tenant probe — no existence leak).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Required Control Tower dependency is temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/shipments/{shipmentId}/events:
     get:
       tags: [Shipments]
@@ -5952,6 +6025,42 @@ components:
         lastUpdatedAt: { type: string, format: date-time }
         documentsComplete: { type: boolean }
         readyForBilling: { type: boolean }
+    ControlTowerEventAcknowledgedBy:
+      type: object
+      required: [userId]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+          description: Optional display name resolved by the gateway for UI convenience.
+    ControlTowerEventAcknowledgement:
+      type: object
+      required: [eventId, shipmentId, eventType, occurredAt, acknowledgedAt, acknowledgedBy]
+      properties:
+        eventId:
+          type: string
+          description: Deterministic critical event identifier (matches path parameter and `ControlTowerEvent.id`).
+          pattern: '^[0-9a-f]{32}$'
+        shipmentId:
+          type: string
+          format: uuid
+        eventType:
+          $ref: '#/components/schemas/ControlTowerEventType'
+        occurredAt:
+          type: string
+          format: date-time
+          description: Canonical occurrence timestamp used in event identity (see architecture doc).
+        source:
+          type: string
+          enum: [control-tower]
+          default: control-tower
+        acknowledgedAt:
+          type: string
+          format: date-time
+        acknowledgedBy:
+          $ref: '#/components/schemas/ControlTowerEventAcknowledgedBy'
     ControlTowerEvent:
       type: object
       properties:
@@ -5967,6 +6076,18 @@ components:
           format: date-time
         description: { type: string }
         source: { type: string }
+        acknowledgement:
+          $ref: '#/components/schemas/ControlTowerEventAcknowledgementSummary'
+          description: Present when the event has been acknowledged; omitted otherwise.
+    ControlTowerEventAcknowledgementSummary:
+      type: object
+      required: [acknowledgedAt, acknowledgedBy]
+      properties:
+        acknowledgedAt:
+          type: string
+          format: date-time
+        acknowledgedBy:
+          $ref: '#/components/schemas/ControlTowerEventAcknowledgedBy'
     ShipmentEventCategory:
       type: string
       enum: [SHIPMENT, OPERATION, DOCUMENT, SLA, BILLING, TECHNICAL, GEOLOCATION, SYSTEM]

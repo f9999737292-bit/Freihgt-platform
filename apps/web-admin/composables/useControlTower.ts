@@ -1,11 +1,10 @@
-import type { PaginatedResponse } from '~/types/api'
+import type { AuthUser, PaginatedResponse } from '~/types/api'
 import type { BillingRegister } from '~/types/billing'
 import type { Company } from '~/types/company'
 import type { DocumentRecord } from '~/types/document'
 import type { FreightRequest, RfxEvent } from '~/types/rfx'
 import type { Shipment } from '~/types/shipment'
 import type { TransportOrder } from '~/types/transportOrder'
-import type { AuthUser } from '~/types/api'
 import {
   CONTROL_TOWER_SHIPMENT_BOARD_STATUSES,
   createDefaultControlTowerFilters,
@@ -15,6 +14,7 @@ import {
   type ControlTowerDataFreshness,
   type ControlTowerDocumentsSummary,
   type ControlTowerEvent,
+  type ControlTowerEventAcknowledgement,
   type ControlTowerFetchResult,
   type ControlTowerFilterOption,
   type ControlTowerFilters,
@@ -30,7 +30,7 @@ import {
   type ControlTowerStatusSummary,
   type ControlTowerStatusSummaryFreshness,
 } from '~/types/controlTower'
-import { ApiError } from '~/composables/useApi'
+import { ApiError, formatApiErrorForUser } from '~/composables/useApi'
 import {
   applyControlTowerFilters,
   buildCriticalEvents,
@@ -105,7 +105,8 @@ function parseTimestamp(value?: string | null): number {
 
 export function useControlTower() {
   const config = useRuntimeConfig()
-  const { apiGet, checkGatewayHealth } = useApi()
+  const { apiGet, apiPost, checkGatewayHealth } = useApi()
+  const { pushToast } = useToast()
   const tenantStore = useTenantStore()
   const uiStore = useUiStore()
   const { t } = useI18n()
@@ -131,6 +132,7 @@ export function useControlTower() {
   const summaryShipments = ref<ControlTowerShipment[]>([])
   const summaryKpi = ref<ControlTowerSummaryKpi | null>(null)
   const summaryEvents = ref<ControlTowerEvent[]>([])
+  const acknowledgingEventId = ref<string | null>(null)
   const statusSummary = ref<ControlTowerStatusSummary | null>(null)
   const statusSummaryFreshness = ref<ControlTowerStatusSummaryFreshness | null>(null)
 
@@ -266,6 +268,47 @@ export function useControlTower() {
     statusSummary.value = summary.statusSummary ?? null
     statusSummaryFreshness.value = summary.statusSummaryFreshness ?? null
     lastUpdatedAt.value = summary.generatedAt
+  }
+
+  function acknowledgeErrorMessage(error: unknown): string {
+    if (error instanceof ApiError) {
+      if (error.status === 403) {
+        return t('controlTower.events.acknowledgeError.forbidden')
+      }
+      if (error.status === 404) {
+        return t('controlTower.events.acknowledgeError.notFound')
+      }
+      if (error.status === 503 || error.status >= 500) {
+        return t('controlTower.events.acknowledgeError.unavailable')
+      }
+    }
+    return formatApiErrorForUser(error)
+  }
+
+  async function acknowledgeCriticalEvent(eventId: string): Promise<boolean> {
+    if (demoMode.value || !summaryMode.value) {
+      return false
+    }
+    if (acknowledgingEventId.value) {
+      return false
+    }
+
+    acknowledgingEventId.value = eventId
+    try {
+      await apiPost<ControlTowerEventAcknowledgement>(
+        `/api/v1/control-tower/critical-events/${encodeURIComponent(eventId)}/acknowledge`,
+        undefined,
+        { skipTenant: true },
+      )
+      pushToast('success', t('controlTower.events.acknowledgeSuccess'))
+      await loadSummaryData()
+      return true
+    } catch (error) {
+      pushToast('error', acknowledgeErrorMessage(error))
+      return false
+    } finally {
+      acknowledgingEventId.value = null
+    }
   }
 
   async function loadSummaryData(): Promise<boolean> {
@@ -952,6 +995,8 @@ export function useControlTower() {
     filteredShipments,
     kpiMetrics,
     criticalEvents,
+    acknowledgingEventId,
+    acknowledgeCriticalEvent,
     apiUnavailable,
     statusSummary,
     statusSummaryFreshness,

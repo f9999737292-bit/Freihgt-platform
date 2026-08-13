@@ -2,9 +2,15 @@
 import { formatShipmentDate } from '~/types/shipment'
 import type { ControlTowerEvent } from '~/types/controlTower'
 
-defineProps<{
+const props = defineProps<{
   events: ControlTowerEvent[]
   loading?: boolean
+  canAcknowledge?: boolean
+  acknowledgingEventId?: string | null
+}>()
+
+const emit = defineEmits<{
+  acknowledge: [eventId: string]
 }>()
 
 const { t } = useI18n()
@@ -15,6 +21,26 @@ function severityClass(severity: string) {
 
 function eventTypeKey(type: string) {
   return `controlTower.events.types.${type}`
+}
+
+function isAcknowledged(event: ControlTowerEvent): boolean {
+  return Boolean(event.acknowledgement)
+}
+
+function isAcknowledging(eventId: string): boolean {
+  return props.acknowledgingEventId === eventId
+}
+
+function acknowledgedByLabel(event: ControlTowerEvent): string {
+  const ack = event.acknowledgement
+  if (!ack) return ''
+  const name = ack.acknowledgedBy.displayName?.trim()
+  if (name) return name
+  return t('controlTower.events.acknowledgedByUser', { userId: ack.acknowledgedBy.userId })
+}
+
+function onAcknowledge(eventId: string) {
+  emit('acknowledge', eventId)
 }
 </script>
 
@@ -40,20 +66,48 @@ function eventTypeKey(type: string) {
         <p v-else-if="event.description" class="critical-events__description">
           {{ event.description }}
         </p>
-        <NuxtLink
-          v-if="event.shipmentId"
-          :to="`/shipments/${event.shipmentId}/events`"
-          class="critical-events__link"
+
+        <div
+          v-if="isAcknowledged(event)"
+          class="critical-events__ack"
+          data-testid="critical-event-acknowledged"
         >
-          {{ $t('controlTower.actions.eventHistory') }}
-        </NuxtLink>
-        <NuxtLink
-          v-if="event.shipmentId"
-          :to="`/shipments/${event.shipmentId}`"
-          class="critical-events__link"
-        >
-          {{ $t('controlTower.actions.openShipment') }}
-        </NuxtLink>
+          <span class="critical-events__ack-badge">{{ $t('controlTower.events.acknowledged') }}</span>
+          <span class="critical-events__ack-meta">
+            {{ formatShipmentDate(event.acknowledgement!.acknowledgedAt) }}
+            ·
+            {{ acknowledgedByLabel(event) }}
+          </span>
+        </div>
+
+        <div class="critical-events__actions">
+          <NuxtLink
+            v-if="event.shipmentId"
+            :to="`/shipments/${event.shipmentId}/events`"
+            class="critical-events__link"
+          >
+            {{ $t('controlTower.actions.eventHistory') }}
+          </NuxtLink>
+          <NuxtLink
+            v-if="event.shipmentId"
+            :to="`/shipments/${event.shipmentId}`"
+            class="critical-events__link"
+          >
+            {{ $t('controlTower.actions.openShipment') }}
+          </NuxtLink>
+          <UiButton
+            v-if="canAcknowledge && !isAcknowledged(event)"
+            size="sm"
+            variant="secondary"
+            class="critical-events__ack-button"
+            :loading="isAcknowledging(event.id)"
+            :disabled="Boolean(acknowledgingEventId)"
+            data-testid="critical-event-acknowledge"
+            @click="onAcknowledge(event.id)"
+          >
+            {{ $t('controlTower.events.acknowledge') }}
+          </UiButton>
+        </div>
       </li>
     </ul>
   </div>
@@ -122,9 +176,43 @@ function eventTypeKey(type: string) {
   color: var(--color-text-muted);
 }
 
-.critical-events__link {
-  display: inline-block;
+.critical-events__ack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
   margin-top: 0.5rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-info) 8%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-info) 25%, var(--color-border));
+}
+
+.critical-events__ack-badge {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-info);
+}
+
+.critical-events__ack-meta {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.critical-events__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.critical-events__link {
   font-size: 0.8125rem;
+}
+
+.critical-events__ack-button {
+  margin-left: auto;
 }
 </style>
