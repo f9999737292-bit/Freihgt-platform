@@ -638,6 +638,15 @@
     },
     "events": {
       "empty": "无关键事件",
+      "acknowledged": "已确认",
+      "acknowledgedByUser": "用户 {userId}",
+      "acknowledge": "确认",
+      "acknowledgeSuccess": "事件已确认",
+      "acknowledgeError": {
+        "forbidden": "无权确认此事件",
+        "notFound": "事件未找到或已不再活跃",
+        "unavailable": "确认服务暂时不可用"
+      },
       "types": {
         "PICKUP_DELAY": "提货延迟",
         "DELIVERY_DELAY": "交付延迟",

@@ -638,6 +638,15 @@
     },
     "events": {
       "empty": "Критических событий нет",
+      "acknowledged": "Подтверждено",
+      "acknowledgedByUser": "Пользователь {userId}",
+      "acknowledge": "Подтвердить",
+      "acknowledgeSuccess": "Событие подтверждено",
+      "acknowledgeError": {
+        "forbidden": "Недостаточно прав для подтверждения события",
+        "notFound": "Событие не найдено или больше не активно",
+        "unavailable": "Сервис подтверждения временно недоступен"
+      },
       "types": {
         "PICKUP_DELAY": "Опоздание на погрузку",
         "DELIVERY_DELAY": "Опоздание на доставку",

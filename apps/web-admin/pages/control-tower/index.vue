@@ -17,6 +17,8 @@ const {
   controlTowerShipments,
   kpiMetrics,
   criticalEvents,
+  acknowledgingEventId,
+  acknowledgeCriticalEvent,
   apiUnavailable,
   dataFreshness,
   summaryPagination,
@@ -59,6 +61,12 @@ const showLegacyLimitedBanner = computed(
 )
 
 const hasAccess = computed(() => canAccessControlTower())
+
+const canAcknowledgeEvents = computed(() => hasAccess.value && !demoMode.value)
+
+function onAcknowledgeEvent(eventId: string) {
+  void acknowledgeCriticalEvent(eventId)
+}
 
 const isEmptyDataset = computed(
   () => !loading.value && !demoMode.value && controlTowerShipments.value.length === 0,
@@ -229,7 +237,13 @@ onBeforeUnmount(() => {
             <h2 class="control-tower-v01__section-title">
               {{ $t('controlTower.sections.criticalEvents') }}
             </h2>
-            <ControlTowerCriticalEventsPanel :events="criticalEvents" :loading="loading" />
+            <ControlTowerCriticalEventsPanel
+              :events="criticalEvents"
+              :loading="loading"
+              :can-acknowledge="canAcknowledgeEvents"
+              :acknowledging-event-id="acknowledgingEventId"
+              @acknowledge="onAcknowledgeEvent"
+            />
           </UiCard>
         </div>
       </template>

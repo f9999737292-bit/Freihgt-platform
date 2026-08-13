@@ -638,6 +638,15 @@
     },
     "events": {
       "empty": "No critical events",
+      "acknowledged": "Acknowledged",
+      "acknowledgedByUser": "User {userId}",
+      "acknowledge": "Acknowledge",
+      "acknowledgeSuccess": "Event acknowledged",
+      "acknowledgeError": {
+        "forbidden": "You do not have permission to acknowledge this event",
+        "notFound": "Event not found or no longer active",
+        "unavailable": "Acknowledgement service is temporarily unavailable"
+      },
       "types": {
         "PICKUP_DELAY": "Pickup delay",
         "DELIVERY_DELAY": "Delivery delay",
