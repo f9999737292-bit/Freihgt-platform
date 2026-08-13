@@ -18,7 +18,7 @@ All pilot workstreams (contract, backend, frontend, security review, QA) are mer
 
 | Artifact | SHA | Notes |
 |----------|-----|-------|
-| Integration branch head | `0c79136d68892b1674d9c23fbc5ac6ee470a204e` | After backend + frontend merges |
+| Integration branch head | `3830d9cb7bea3dc52baae635a84cd3636de79b1d` | After backend + frontend merges + handoff docs |
 | Base (`origin/main`) | `02208106e494afcaa46372e44b417761d6613daf` | At integration start |
 | Contract freeze (CT-AA-001) | `4167b0fba849350cbd633330d39ad01d4567d4ce` | Already on branch before merge |
 | Backend merge (CT-AA-002) | `00aab44` | `merge(pilot): integrate control tower alert acknowledgement backend v0.1` |
@@ -79,7 +79,7 @@ All pilot workstreams (contract, backend, frontend, security review, QA) are mer
 |-------|-------|
 | Source | `int/control-tower-alert-ack-v0.1` |
 | Target | `main` |
-| PR URL | _(set after push — see commit message / gh output)_ |
+| PR URL | https://github.com/f9999737292-bit/Freihgt-platform/pull/8 |
 | CI status | _(pending PR checks)_ |
 
 ---
