@@ -1,11 +1,10 @@
-import type { PaginatedResponse } from '~/types/api'
+import type { AuthUser, PaginatedResponse } from '~/types/api'
 import type { BillingRegister } from '~/types/billing'
 import type { Company } from '~/types/company'
 import type { DocumentRecord } from '~/types/document'
 import type { FreightRequest, RfxEvent } from '~/types/rfx'
 import type { Shipment } from '~/types/shipment'
 import type { TransportOrder } from '~/types/transportOrder'
-import type { AuthUser } from '~/types/api'
 import {
   CONTROL_TOWER_SHIPMENT_BOARD_STATUSES,
   createDefaultControlTowerFilters,
