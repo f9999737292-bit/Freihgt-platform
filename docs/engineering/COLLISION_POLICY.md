@@ -82,12 +82,22 @@ NNNNNN_<description>.up.sql
 NNNNNN_<description>.down.sql
 ```
 
-Ordering is by numeric prefix (`000001` … `000019` current max in bootstrap baseline).
+Ordering is by numeric prefix (`000001`, `000002`, …). **Do not hard-code the current maximum** — it changes as migrations merge to `main`.
+
+Determine the next number dynamically before assigning work:
+
+```powershell
+# PowerShell — highest existing migration prefix
+(Get-ChildItem infrastructure/migrations/*.up.sql |
+  ForEach-Object { if ($_.BaseName -match '^(\d{6})_') { [int]$Matches[1] } } |
+  Measure-Object -Maximum).Maximum
+# Next migration = maximum + 1, zero-padded to 6 digits (e.g. 000020)
+```
 
 Rules:
 
 1. **One migration coordinator task** per integration batch when multiple features need schema changes.
-2. Coordinator reads `git ls-files infrastructure/migrations/*.up.sql`, finds highest `NNNNNN`, assigns next number to each pending migration **before** parallel implementation starts.
+2. Coordinator runs the discovery step above on the task **base branch/SHA**, finds highest `NNNNNN`, assigns next number to each pending migration **before** parallel implementation starts.
 3. Parallel agents do **not** independently pick migration numbers.
 4. Never rewrite applied migration history or renumber merged migrations.
 5. Service-local migration tests (e.g. `migration_000014_test.go`) must reference the assigned central migration ID.
