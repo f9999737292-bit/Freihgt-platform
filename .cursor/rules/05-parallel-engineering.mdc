@@ -1,0 +1,93 @@
+---
+description: Parallel Engineering System v1 — task isolation, ownership, and evidence rules
+alwaysApply: true
+---
+
+# Parallel Engineering System v1
+
+Model-independent orchestration rules for multi-agent work via Git worktrees and Task Contracts.
+
+## Rule A — Repository safety
+
+Before any edit:
+
+1. Run `git rev-parse --show-toplevel` and confirm you are in the assigned worktree.
+2. Run `git branch --show-current` and confirm the assigned branch.
+3. Run `git status --short` and report dirty state; do not discard foreign changes.
+4. Never use destructive Git: `reset --hard`, `clean -fd`, `clean -fdx`, `checkout -- .`, `restore .`, `push --force`, `push --force-with-lease`.
+5. Never modify another agent's worktree, branch, or uncommitted work.
+6. Never delete existing branches or worktrees from an agent task.
+
+## Rule B — Task isolation
+
+Every implementation task MUST have an explicit Task Contract (`docs/engineering/TASK_CONTRACT_TEMPLATE.md`) with:
+
+- task id, owner, role
+- branch, worktree, base branch, base SHA
+- allowed paths, forbidden paths, scope, out-of-scope
+- dependencies, security invariants
+- acceptance criteria, required validation level, deliverables
+
+Do not edit paths outside Allowed Paths. If scope is unclear, stop and ask the orchestrator.
+
+## Rule C — Minimal change
+
+- Change only what the Task Contract requires.
+- No unrelated refactoring, mass formatting, dependency bumps, or drive-by fixes.
+- Do not change public API, DB schema, auth/tenant boundaries, or deployment topology without explicit Task Contract authorization.
+- Do not change business features unrelated to the assigned task.
+
+## Rule D — Tenant and security protection
+
+Never:
+
+- use untrusted query/body/header tenant or user identity as authorization source
+- weaken tenant isolation, RBAC, ABAC, or gateway trust boundaries
+- disable auth to pass a task
+- trust client-supplied identity headers without gateway validation
+- expose foreign-tenant object existence via IDOR-prone lookups
+
+Security-boundary changes require Security Review (`docs/engineering/REVIEW_TRIGGERS.md`).
+
+## Rule E — Contract-first
+
+Public API changes require coordinated updates to:
+
+- OpenAPI (`packages/openapi/**`)
+- backend implementation
+- frontend consumers (when applicable)
+- tests and docs
+
+Shared OpenAPI and migrations are high-collision zones; see `docs/engineering/COLLISION_POLICY.md`.
+
+## Rule F — Evidence
+
+Never claim **PASS**, **works**, **fixed**, **verified**, or **production-ready** without executing the check.
+
+If a check was not run, report **NOT_RUN**.
+
+Handoff must include actual commands, results, and `git status --short`.
+
+## Agent startup checklist
+
+1. Verify repo root
+2. Verify branch
+3. Verify HEAD/base SHA
+4. Verify clean/dirty status
+5. Read Task Contract
+6. Read applicable Cursor rules
+7. Confirm allowed paths
+8. Inspect relevant code
+9. Only then modify
+
+## Agent completion checklist
+
+1. `git diff --check`
+2. Inspect `git diff`
+3. Run required validation level
+4. `git status --short`
+5. Ensure no unrelated files
+6. Document tests actually run
+7. Document tests NOT run
+8. Commit only task scope (when authorized)
+9. Produce handoff (`docs/engineering/HANDOFF_TEMPLATE.md`)

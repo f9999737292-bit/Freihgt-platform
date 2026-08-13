@@ -17,4 +17,6 @@ alwaysApply: true
 - Do not push unless explicitly requested.
 - Do not stash, reset, or discard another worktree's changes from a bootstrap or integration task.
 
-Branch naming examples: `feat/<domain>-<topic>`, `fix/<topic>`, `chore/<topic>`, `test/<topic>`, `ops/<topic>`.
+Branch naming: `<type>/<domain>-<task>-v<version>` — e.g. `feat/control-tower-alert-ack-v0.1`, `fix/shipment-tenant-isolation-v0.2`, `chore/parallel-agent-system-v0.2`.
+
+Worktrees: sibling paths only — `D:\Projects\freight-platform-<name>` or `D:\Projects\freight-platform-wt\<name>`. Never inside the main repo directory. See `docs/engineering/WORKTREE_PROCEDURE.md`.

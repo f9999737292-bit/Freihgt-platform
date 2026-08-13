@@ -52,14 +52,21 @@ Deliver minimal, safe, verifiable changes to the 7Rights Freight Platform while 
 
 Before review, complete `docs/engineering/HANDOFF_TEMPLATE.md` with SHAs, files changed, API/DB/security impact, and verification results.
 
-Parallel workflow templates:
+Parallel workflow (start here for owners):
 
+- `docs/engineering/QUICK_START.md`
+- `docs/engineering/PARALLEL_ENGINEERING_SYSTEM_V1.md`
+- `docs/engineering/TASK_CONTRACT_TEMPLATE.md`
+- `docs/engineering/AGENT_PROMPT_TEMPLATE.md`
+- `docs/engineering/ORCHESTRATOR_PROMPT_TEMPLATE.md`
 - `docs/engineering/MASTER_TASK_TEMPLATE.md`
-- `docs/engineering/AGENT_TASK_TEMPLATE.md`
 - `docs/engineering/REVIEW_PROTOCOL.md`
 - `docs/engineering/INTEGRATION_PROTOCOL.md`
+- `docs/engineering/WORKTREE_PROCEDURE.md`
 
-Subagents: `.cursor/agents/` (architect, backend-engineer, frontend-engineer, security-auditor, reviewer, integrator).
+Subagents: `.cursor/agents/` — orchestrator, architect, backend-engineer, frontend-engineer, security-auditor, qa-verification, devops-engineer, documentation-engineer, reviewer, integrator.
+
+Parallel rules: `.cursor/rules/05-parallel-engineering.mdc`.
 
 ## 9. Forbidden autonomous actions
 
