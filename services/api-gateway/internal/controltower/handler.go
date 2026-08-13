@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+
 	"github.com/freight-platform/api-gateway/internal/config"
 	gwmiddleware "github.com/freight-platform/api-gateway/internal/http/middleware"
 	apperrors "github.com/freight-platform/api-gateway/internal/platform/errors"
@@ -80,6 +82,46 @@ func (h *Handler) Summary(w http.ResponseWriter, r *http.Request) {
 		slog.Int("critical_events_count", len(summary.CriticalEvents)),
 		slog.Bool("partial", summary.DataFreshness.Partial),
 		slog.Any("warning_codes", summary.DataFreshness.Warnings),
+	)
+}
+
+func (h *Handler) AcknowledgeCriticalEvent(w http.ResponseWriter, r *http.Request) {
+	started := time.Now()
+
+	eventID := strings.ToLower(strings.TrimSpace(chi.URLParam(r, "eventId")))
+	rawBody, err := readAcknowledgeRequestBody(r)
+	if err != nil {
+		respond.Error(w, apperrors.Validation("invalid request body", map[string]any{"field": "body"}))
+		return
+	}
+
+	reqCtx, err := buildRequestContext(r, h.authEnabled, h.devTenantID)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	if h.authEnabled {
+		if err := h.ensureAccess(r, reqCtx); err != nil {
+			respond.Error(w, err)
+			return
+		}
+	}
+
+	result, err := h.service.AcknowledgeCriticalEvent(r.Context(), reqCtx, eventID, rawBody)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	respond.JSON(w, http.StatusOK, result)
+
+	h.log.Info("control_tower_acknowledge_completed",
+		slog.String("request_id", requestIDFromRequest(r)),
+		slog.String("tenant_id", reqCtx.TenantID),
+		slog.String("user_id", reqCtx.UserID),
+		slog.String("event_id", eventID),
+		slog.Int64("duration_ms", time.Since(started).Milliseconds()),
 	)
 }
 

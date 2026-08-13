@@ -44,7 +44,7 @@ func Error(w http.ResponseWriter, err error) {
 		status = http.StatusBadRequest
 	case apperrors.CodeServiceUnavailable:
 		status = http.StatusBadGateway
-	case apperrors.CodeControlTowerShipmentsUnavailable, apperrors.CodeShipmentEventsShipmentUnavailable, apperrors.CodeAuthDependencyUnavailable:
+	case apperrors.CodeControlTowerShipmentsUnavailable, apperrors.CodeShipmentEventsShipmentUnavailable, apperrors.CodeAuthDependencyUnavailable, apperrors.CodeControlTowerReadModelUnavailable:
 		status = http.StatusServiceUnavailable
 	case apperrors.CodeRateLimitExceeded:
 		status = http.StatusTooManyRequests

@@ -30,14 +30,35 @@ type ControlTowerShipment struct {
 }
 
 type ControlTowerEvent struct {
-	ID             string    `json:"id"`
-	ShipmentID     string    `json:"shipmentId"`
-	ShipmentNumber string    `json:"shipmentNumber"`
-	Type           string    `json:"type"`
-	Severity       string    `json:"severity"`
-	OccurredAt     time.Time `json:"occurredAt"`
-	Description    *string   `json:"description,omitempty"`
-	Source         string    `json:"source"`
+	ID              string                            `json:"id"`
+	ShipmentID      string                            `json:"shipmentId"`
+	ShipmentNumber  string                            `json:"shipmentNumber"`
+	Type            string                            `json:"type"`
+	Severity        string                            `json:"severity"`
+	OccurredAt      time.Time                         `json:"occurredAt"`
+	Description     *string                           `json:"description,omitempty"`
+	Source          string                            `json:"source"`
+	Acknowledgement *ControlTowerEventAckSummary      `json:"acknowledgement,omitempty"`
+}
+
+type ControlTowerEventAckSummary struct {
+	AcknowledgedAt time.Time                    `json:"acknowledgedAt"`
+	AcknowledgedBy ControlTowerEventAcknowledgedBy `json:"acknowledgedBy"`
+}
+
+type ControlTowerEventAcknowledgedBy struct {
+	UserID      string  `json:"userId"`
+	DisplayName *string `json:"displayName,omitempty"`
+}
+
+type ControlTowerEventAcknowledgement struct {
+	EventID        string                          `json:"eventId"`
+	ShipmentID     string                          `json:"shipmentId"`
+	EventType      string                          `json:"eventType"`
+	OccurredAt     time.Time                       `json:"occurredAt"`
+	Source         string                          `json:"source"`
+	AcknowledgedAt time.Time                       `json:"acknowledgedAt"`
+	AcknowledgedBy ControlTowerEventAcknowledgedBy `json:"acknowledgedBy"`
 }
 
 const (

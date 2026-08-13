@@ -41,10 +41,11 @@ func main() {
 	metrics.RegisterPgxPoolMetrics(cfg.ServiceName, db.Pool)
 
 	repo := repository.NewProjectionRepository(db.Pool)
+	ackRepo := repository.NewAckRepository(db.Pool)
 	freshness := consumer.NewFreshness()
 	consumerMetrics := ctmetrics.NewConsumerMetrics()
 
-	router := httpserver.NewRouter(log, db.Pool, repo, freshness)
+	router := httpserver.NewRouter(log, db.Pool, repo, ackRepo, freshness)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

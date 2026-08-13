@@ -72,3 +72,32 @@ type MergeOutput struct {
 	Comparison             ComparisonResult
 	FailureReason          FailureReason
 }
+
+type AcknowledgeCriticalEventInput struct {
+	TenantID   string
+	UserID     string
+	RequestID  string
+	EventID    string
+	ShipmentID string
+	EventType  string
+	OccurredAt time.Time
+	Source     string
+}
+
+type RemoteAcknowledgement struct {
+	EventID        string    `json:"eventId"`
+	ShipmentID     string    `json:"shipmentId"`
+	EventType      string    `json:"eventType"`
+	OccurredAt     time.Time `json:"occurredAt"`
+	Source         string    `json:"source"`
+	AcknowledgedAt time.Time `json:"acknowledgedAt"`
+	AcknowledgedBy struct {
+		UserID string `json:"userId"`
+	} `json:"acknowledgedBy"`
+}
+
+type RemoteAcknowledgementLookupItem struct {
+	EventID              string    `json:"eventId"`
+	AcknowledgedAt       time.Time `json:"acknowledgedAt"`
+	AcknowledgedByUserID string    `json:"acknowledgedByUserId"`
+}

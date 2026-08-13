@@ -12,6 +12,7 @@ const (
 	CodeValidation                        Code = "VALIDATION_ERROR"
 	CodeServiceUnavailable                Code = "SERVICE_UNAVAILABLE"
 	CodeControlTowerShipmentsUnavailable  Code = "CONTROL_TOWER_SHIPMENTS_UNAVAILABLE"
+	CodeControlTowerReadModelUnavailable  Code = "CONTROL_TOWER_READ_MODEL_UNAVAILABLE"
 	CodeShipmentEventsShipmentUnavailable Code = "SHIPMENT_EVENTS_SHIPMENT_UNAVAILABLE"
 	CodeAuthDependencyUnavailable         Code = "AUTH_DEPENDENCY_UNAVAILABLE"
 	CodeInternal                          Code = "INTERNAL_ERROR"
@@ -69,6 +70,14 @@ func ServiceUnavailable(message string, service string) *AppError {
 func ControlTowerShipmentsUnavailable(message string) *AppError {
 	return &AppError{
 		Code:    CodeControlTowerShipmentsUnavailable,
+		Message: message,
+		Details: map[string]any{},
+	}
+}
+
+func ControlTowerReadModelUnavailable(message string) *AppError {
+	return &AppError{
+		Code:    CodeControlTowerReadModelUnavailable,
 		Message: message,
 		Details: map[string]any{},
 	}
