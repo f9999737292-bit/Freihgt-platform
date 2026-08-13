@@ -2,8 +2,18 @@
 
 **Phase:** 3B.1 orchestration
 **Orchestrator branch:** `chore/control-tower-alert-ack-orchestration-v0.1`
-**Base origin/main SHA:** `02208106e494afcaa46372e44b417761d6613daf`
 **Status:** PLANNED — contract not frozen
+
+### Git lineage (two SHAs)
+
+| Concept | SHA / ref | Meaning |
+|---------|-----------|---------|
+| **PRODUCT_BASE_SHA** | `02208106e494afcaa46372e44b417761d6613daf` | `origin/main` at pilot design time — underlying product code base |
+| **ORCHESTRATION_BASE_SHA** | HEAD of `chore/control-tower-alert-ack-orchestration-v0.1` | Final orchestration commit containing PILOT_PLAN, Task Contracts, prompts, registry |
+
+**CT-AA-001 worktree/branch MUST start from ORCHESTRATION_BASE_SHA**, not `origin/main`, because orchestration artifacts are not yet on main.
+
+Downstream implementation still targets product semantics from PRODUCT_BASE_SHA; orchestration docs travel on the orchestration branch until merged.
 
 ---
 
@@ -23,9 +33,20 @@ Each derived event receives a **deterministic ID**:
 event_id = hex( sha256( "{shipmentId}:{eventType}:{occurredAt.Unix()}" )[:16] )
 ```
 
-Implementation: `deterministicEventID()` in `events.go`. The ID is stable for a given `(tenant shipment, event type, occurrence timestamp)` tuple.
+Implementation: `deterministicEventID()` in `events.go`. The ID is a hash of `(shipmentId, eventType, occurredAt.Unix())`.
 
-**Important:** If underlying shipment state changes such that `occurredAt` changes, the event ID changes. Acknowledgement keys the ID the user saw when acknowledging; v0.1 does not attempt to migrate acks across recomputed IDs.
+**CT-AA-001 guardrail:** Do **not** assume this ID is automatically a permanent acknowledgement identity. `occurredAt` sources differ per event type and may change when shipment state updates:
+
+| Event type | `occurredAt` source | Identity stability concern |
+|------------|---------------------|----------------------------|
+| `SHIPMENT_CANCELLED` | `pickTime(LastUpdatedAt, now)` | ID shifts if `LastUpdatedAt` changes or `now` used as fallback |
+| `PICKUP_DELAY` | `PlannedPickupAt` | Stable while planned pickup unchanged |
+| `DELIVERY_DELAY` | `PlannedDeliveryAt` | Stable while planned delivery unchanged |
+| `STALE_UPDATES` | `LastUpdatedAt` | ID shifts on each shipment update while stale |
+| `MISSING_DOCUMENTS` | `pickTime(LastUpdatedAt, now)` | ID shifts with `LastUpdatedAt` / fallback |
+| `TECHNICAL_PROBLEM` | `pickTime(LastUpdatedAt, now)` | ID shifts with `LastUpdatedAt` / fallback |
+
+CT-AA-001 must classify each type for: (A) same logical occurrence, (B) resolved occurrence, (C) newly re-triggered occurrence — and define intentional acknowledgement key behavior across transitions. Prove safety or define a revised canonical occurrence key **before** contract freeze.
 
 ### Persistence today
 
@@ -130,7 +151,7 @@ Migration is owned by **CT-AA-002** (backend), coordinated after contract freeze
 | Method | `POST` |
 | Path | `/api/v1/control-tower/critical-events/{eventId}/acknowledge` |
 | Auth | Bearer JWT (required) |
-| RBAC | `CanAccessControlTower` (existing roles — no new permission v0.1) |
+| RBAC | **CT-AA-001 must decide:** view-only vs acknowledge permission (see §7) |
 | Request body | Empty (no client-supplied tenant_id, user_id, acknowledged_by) |
 | Success | `200` — `ControlTowerEventAcknowledgement` |
 | Idempotent repeat | `200` — same acknowledgement |
@@ -196,18 +217,44 @@ CT-AA-002  CT-AA-003   ← parallel after freeze
 
 ## 7. Contract freeze strategy
 
-1. **CT-AA-001** branches from `origin/main` @ `02208106e494afcaa46372e44b417761d6613daf`.
-2. Architect commits OpenAPI changes + architecture note in `docs/engineering/parallel/pilots/control-tower-alert-ack-v0.1/ARCHITECTURE.md`.
-3. Handoff records **`CONTRACT_FREEZE_SHA`** = commit hash of contract freeze.
-4. **CT-AA-002** and **CT-AA-003** create worktrees from **`CONTRACT_FREEZE_SHA`**, not floating main:
+1. **ORCHESTRATION_BASE_SHA** = pushed HEAD of `chore/control-tower-alert-ack-orchestration-v0.1` (contains pilot docs).
+2. **CT-AA-001** worktree branches from **ORCHESTRATION_BASE_SHA** (NOT `origin/main`):
 
 ```powershell
 git fetch origin
+git worktree add D:\Projects\freight-platform-wt\ct-alert-ack-contract -b arch/control-tower-alert-ack-contract-v0.1 <ORCHESTRATION_BASE_SHA>
+```
+
+3. **PRODUCT_BASE_SHA** (`02208106…`) remains the documented product-code reference; CT-AA-001 implements contract on top of orchestration lineage.
+4. Architect commits OpenAPI + `ARCHITECTURE.md`; handoff records **`CONTRACT_FREEZE_SHA`** = contract task final commit.
+5. **CT-AA-002** and **CT-AA-003** create worktrees from **`CONTRACT_FREEZE_SHA`**, not floating main:
+
+```powershell
 git worktree add D:\Projects\freight-platform-wt\ct-alert-ack-backend -b feat/control-tower-alert-ack-backend-v0.1 <CONTRACT_FREEZE_SHA>
 git worktree add D:\Projects\freight-platform-wt\ct-alert-ack-frontend -b feat/control-tower-alert-ack-frontend-v0.1 <CONTRACT_FREEZE_SHA>
 ```
 
-5. Integration (**CT-AA-006**) merges: contract → backend → frontend → validation fixes.
+6. Integration (**CT-AA-006**) merges: orchestration branch (or rebased lineage) → contract → backend → frontend.
+
+### Acknowledgement validation boundary (CT-AA-001 must freeze)
+
+Events are derived in api-gateway; persistence is in read-model. POST must **not** blindly persist an opaque `eventId`.
+
+Gateway must define validation — preferred pattern:
+
+1. Rebuild/lookup current derived critical events for authenticated tenant (same derivation as summary).
+2. Match `eventId` against that set (or apply frozen canonical key rules).
+3. Only then call read-model with **gateway-trusted** metadata (`tenant_id`, `user_id`, `shipment_id`, `event_type`, `occurred_at`, `source`).
+
+Read-model must **not** trust client-supplied identity fields on the public API. Cross-tenant / unknown → **404**.
+
+### Mutation authorization (CT-AA-001 must decide)
+
+`CanAccessControlTower()` today gates **view**. CT-AA-001 must explicitly decide whether the same role set may **acknowledge**, or whether acknowledgement requires a narrower permission. Reusing view roles is allowed for v0.1 only with documented rationale; CT-AA-004 Security must verify. No new RBAC seed unless justified.
+
+### Idempotency (CT-AA-001 must freeze)
+
+Define behavior for: first ack; repeat by same user; repeat by different authorized user; ack of resolved/non-current derived event. Prefer safe idempotent **200** responses. **Do not** silently rewrite original `acknowledged_by` / `acknowledged_at` unless contract explicitly chooses that.
 
 ---
 
@@ -240,7 +287,7 @@ git worktree add D:\Projects\freight-platform-wt\ct-alert-ack-frontend -b feat/c
 
 | Workstream | Path | Branch |
 |------------|------|--------|
-| Contract | `D:\Projects\freight-platform-wt\ct-alert-ack-contract` | `arch/control-tower-alert-ack-contract-v0.1` |
+| Contract | `D:\Projects\freight-platform-wt\ct-alert-ack-contract` | `arch/control-tower-alert-ack-contract-v0.1` (from ORCHESTRATION_BASE_SHA) |
 | Backend | `D:\Projects\freight-platform-wt\ct-alert-ack-backend` | `feat/control-tower-alert-ack-backend-v0.1` |
 | Frontend | `D:\Projects\freight-platform-wt\ct-alert-ack-frontend` | `feat/control-tower-alert-ack-frontend-v0.1` |
 | Security | `D:\Projects\freight-platform-wt\ct-alert-ack-security` | `review/control-tower-alert-ack-security-v0.1` |
