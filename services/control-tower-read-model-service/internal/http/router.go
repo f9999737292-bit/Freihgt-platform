@@ -20,9 +20,11 @@ func NewRouter(
 	log *slog.Logger,
 	db observability.DatabasePinger,
 	repo *repository.ProjectionRepository,
+	ackRepo *repository.AckRepository,
 	freshness *consumer.Freshness,
 ) http.Handler {
 	statusHandler := handlers.NewStatusHandler(repo, freshness)
+	ackHandler := handlers.NewAckHandler(ackRepo)
 
 	r := chi.NewRouter()
 	observability.Mount(r, observability.MountOptions{
@@ -37,6 +39,8 @@ func NewRouter(
 		r.Get("/shipments/{shipmentId}/status", statusHandler.GetShipmentStatus)
 		r.Get("/status-summary", statusHandler.GetStatusSummary)
 		r.Get("/shipments/statuses", statusHandler.ListShipmentStatuses)
+		r.Post("/critical-events/{eventId}/acknowledge", ackHandler.AcknowledgeCriticalEvent)
+		r.Post("/critical-events/acknowledgements/lookup", ackHandler.LookupAcknowledgements)
 	})
 
 	return r

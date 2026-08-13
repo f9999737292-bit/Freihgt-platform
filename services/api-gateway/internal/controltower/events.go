@@ -4,8 +4,24 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"regexp"
 	"time"
 )
+
+var criticalEventIDPattern = regexp.MustCompile(`^[0-9a-f]{32}$`)
+
+func ValidateCriticalEventID(eventID string) bool {
+	return criticalEventIDPattern.MatchString(eventID)
+}
+
+func FindCriticalEventByID(events []ControlTowerEvent, eventID string) (ControlTowerEvent, bool) {
+	for _, event := range events {
+		if event.ID == eventID {
+			return event, true
+		}
+	}
+	return ControlTowerEvent{}, false
+}
 
 func BuildCriticalEvents(
 	shipments []ControlTowerShipment,
@@ -23,7 +39,7 @@ func BuildCriticalEvents(
 		if shipment.Status == "CANCELLED" {
 			occurredAt := pickTime(shipment.LastUpdatedAt, now)
 			events = append(events, ControlTowerEvent{
-				ID:             deterministicEventID(shipment.ID, EventTypeShipmentCancelled, occurredAt),
+				ID:             deterministicEventID(shipment.ID, EventTypeShipmentCancelled, canonicalEventAnchor(shipment, EventTypeShipmentCancelled)),
 				ShipmentID:     shipment.ID,
 				ShipmentNumber: shipment.ShipmentNumber,
 				Type:           EventTypeShipmentCancelled,
@@ -36,7 +52,7 @@ func BuildCriticalEvents(
 
 		if shipment.SLAReason != nil && *shipment.SLAReason == SLAReasonPickupOverdue && shipment.PlannedPickupAt != nil {
 			events = append(events, ControlTowerEvent{
-				ID:             deterministicEventID(shipment.ID, EventTypePickupDelay, *shipment.PlannedPickupAt),
+				ID:             deterministicEventID(shipment.ID, EventTypePickupDelay, canonicalEventAnchor(shipment, EventTypePickupDelay)),
 				ShipmentID:     shipment.ID,
 				ShipmentNumber: shipment.ShipmentNumber,
 				Type:           EventTypePickupDelay,
@@ -48,7 +64,7 @@ func BuildCriticalEvents(
 
 		if shipment.SLAReason != nil && *shipment.SLAReason == SLAReasonDeliveryOverdue && shipment.PlannedDeliveryAt != nil {
 			events = append(events, ControlTowerEvent{
-				ID:             deterministicEventID(shipment.ID, EventTypeDeliveryDelay, *shipment.PlannedDeliveryAt),
+				ID:             deterministicEventID(shipment.ID, EventTypeDeliveryDelay, canonicalEventAnchor(shipment, EventTypeDeliveryDelay)),
 				ShipmentID:     shipment.ID,
 				ShipmentNumber: shipment.ShipmentNumber,
 				Type:           EventTypeDeliveryDelay,
@@ -60,7 +76,7 @@ func BuildCriticalEvents(
 
 		if shipment.SLAReason != nil && *shipment.SLAReason == SLAReasonStaleUpdates && shipment.LastUpdatedAt != nil {
 			events = append(events, ControlTowerEvent{
-				ID:             deterministicEventID(shipment.ID, EventTypeStaleUpdates, *shipment.LastUpdatedAt),
+				ID:             deterministicEventID(shipment.ID, EventTypeStaleUpdates, canonicalEventAnchor(shipment, EventTypeStaleUpdates)),
 				ShipmentID:     shipment.ID,
 				ShipmentNumber: shipment.ShipmentNumber,
 				Type:           EventTypeStaleUpdates,
@@ -74,7 +90,7 @@ func BuildCriticalEvents(
 			if _, ok := shipmentIDsWithDocs[shipment.ID]; !ok {
 				occurredAt := pickTime(shipment.LastUpdatedAt, now)
 				events = append(events, ControlTowerEvent{
-					ID:             deterministicEventID(shipment.ID, EventTypeMissingDocuments, occurredAt),
+					ID:             deterministicEventID(shipment.ID, EventTypeMissingDocuments, canonicalEventAnchor(shipment, EventTypeMissingDocuments)),
 					ShipmentID:     shipment.ID,
 					ShipmentNumber: shipment.ShipmentNumber,
 					Type:           EventTypeMissingDocuments,
@@ -88,7 +104,7 @@ func BuildCriticalEvents(
 		if shipment.SLAStatus == SLAStatusCritical && shipment.SLAReason != nil && *shipment.SLAReason == SLAReasonTechnicalProblem {
 			occurredAt := pickTime(shipment.LastUpdatedAt, now)
 			events = append(events, ControlTowerEvent{
-				ID:             deterministicEventID(shipment.ID, EventTypeTechnicalProblem, occurredAt),
+				ID:             deterministicEventID(shipment.ID, EventTypeTechnicalProblem, canonicalEventAnchor(shipment, EventTypeTechnicalProblem)),
 				ShipmentID:     shipment.ID,
 				ShipmentNumber: shipment.ShipmentNumber,
 				Type:           EventTypeTechnicalProblem,
@@ -103,6 +119,22 @@ func BuildCriticalEvents(
 	return events
 }
 
+func canonicalEventAnchor(shipment ControlTowerShipment, eventType string) time.Time {
+	switch eventType {
+	case EventTypePickupDelay:
+		if shipment.PlannedPickupAt != nil {
+			return shipment.PlannedPickupAt.UTC()
+		}
+	case EventTypeDeliveryDelay:
+		if shipment.PlannedDeliveryAt != nil {
+			return shipment.PlannedDeliveryAt.UTC()
+		}
+	case EventTypeShipmentCancelled, EventTypeStaleUpdates, EventTypeMissingDocuments, EventTypeTechnicalProblem:
+		return time.Unix(0, 0).UTC()
+	}
+	return pickTime(shipment.LastUpdatedAt, time.Now().UTC())
+}
+
 func severityForSLA(status SLAStatus) string {
 	switch status {
 	case SLAStatusCritical:
@@ -114,8 +146,8 @@ func severityForSLA(status SLAStatus) string {
 	}
 }
 
-func deterministicEventID(shipmentID, eventType string, at time.Time) string {
-	raw := fmt.Sprintf("%s:%s:%d", shipmentID, eventType, at.UTC().Unix())
+func deterministicEventID(shipmentID, eventType string, anchor time.Time) string {
+	raw := fmt.Sprintf("%s:%s:%d", shipmentID, eventType, anchor.UTC().Unix())
 	sum := sha256.Sum256([]byte(raw))
 	return hex.EncodeToString(sum[:16])
 }

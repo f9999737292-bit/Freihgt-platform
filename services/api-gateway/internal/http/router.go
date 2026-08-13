@@ -66,6 +66,7 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 
 	if controlTower != nil {
 		r.Get("/api/v1/control-tower/summary", controlTower.Summary)
+		r.Post("/api/v1/control-tower/critical-events/{eventId}/acknowledge", controlTower.AcknowledgeCriticalEvent)
 	}
 
 	if shipmentEvents != nil {
