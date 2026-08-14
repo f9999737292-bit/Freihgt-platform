@@ -122,6 +122,55 @@ export type ControlTowerEventType =
   | 'UNKNOWN_CRITICAL'
   | 'UNKNOWN_CRITICAL_EVENT'
 
+export type ControlTowerEventWorkflowStatus = 'open' | 'acknowledged' | 'assigned' | 'resolved'
+
+export type ControlTowerEventResolutionCode =
+  | 'issue_resolved'
+  | 'false_positive'
+  | 'duplicate'
+  | 'cancelled'
+  | 'other'
+
+export const CONTROL_TOWER_RESOLUTION_CODES: ControlTowerEventResolutionCode[] = [
+  'issue_resolved',
+  'false_positive',
+  'duplicate',
+  'cancelled',
+  'other',
+]
+
+export interface ControlTowerEventAssignment {
+  assignedToUserId: string
+  assignedByUserId: string
+  assignedAt: string
+}
+
+export interface ControlTowerEventResolution {
+  resolvedByUserId: string
+  resolvedAt: string
+  resolutionCode: ControlTowerEventResolutionCode
+  comment?: string
+}
+
+export interface ControlTowerEventWorkflow {
+  eventId: string
+  status: ControlTowerEventWorkflowStatus
+  acknowledgement?: ControlTowerEventAcknowledgementSummary
+  assignment?: ControlTowerEventAssignment
+  resolution?: ControlTowerEventResolution
+}
+
+export interface ControlTowerEventAction {
+  actionType: 'acknowledged' | 'assigned' | 'reassigned' | 'resolved' | 'reopened'
+  actorUserId: string
+  occurredAt: string
+  metadata?: Record<string, unknown>
+}
+
+export interface ControlTowerEventActionsResponse {
+  items: ControlTowerEventAction[]
+}
+
 export interface ControlTowerEventAcknowledgedBy {
   userId: string
   displayName?: string
@@ -138,6 +187,7 @@ export interface ControlTowerEventAcknowledgement extends ControlTowerEventAckno
   eventType: ControlTowerEventType
   occurredAt: string
   source?: 'control-tower'
+  status?: ControlTowerEventWorkflowStatus
 }
 
 export interface ControlTowerEvent {
@@ -149,7 +199,10 @@ export interface ControlTowerEvent {
   occurredAt: string
   description?: string
   descriptionKey?: string
+  status?: ControlTowerEventWorkflowStatus
   acknowledgement?: ControlTowerEventAcknowledgementSummary
+  assignment?: ControlTowerEventAssignment
+  resolution?: ControlTowerEventResolution
 }
 
 export interface ControlTowerShipment {

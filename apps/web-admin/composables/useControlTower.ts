@@ -15,6 +15,10 @@ import {
   type ControlTowerDocumentsSummary,
   type ControlTowerEvent,
   type ControlTowerEventAcknowledgement,
+  type ControlTowerEventActionsResponse,
+  type ControlTowerEventResolutionCode,
+  type ControlTowerEventWorkflow,
+  type ControlTowerEventWorkflowStatus,
   type ControlTowerFetchResult,
   type ControlTowerFilterOption,
   type ControlTowerFilters,
@@ -133,6 +137,7 @@ export function useControlTower() {
   const summaryKpi = ref<ControlTowerSummaryKpi | null>(null)
   const summaryEvents = ref<ControlTowerEvent[]>([])
   const acknowledgingEventId = ref<string | null>(null)
+  const workflowActionEventId = ref<string | null>(null)
   const statusSummary = ref<ControlTowerStatusSummary | null>(null)
   const statusSummaryFreshness = ref<ControlTowerStatusSummaryFreshness | null>(null)
 
@@ -252,6 +257,7 @@ export function useControlTower() {
     summaryShipments.value = summary.shipments.items.map(mapSummaryShipment)
     summaryEvents.value = summary.criticalEvents.map((event) => ({
       ...event,
+      status: (event.status ?? 'open') as ControlTowerEventWorkflowStatus,
       occurredAt:
         typeof event.occurredAt === 'string' ? event.occurredAt : String(event.occurredAt),
     }))
@@ -283,6 +289,111 @@ export function useControlTower() {
       }
     }
     return formatApiErrorForUser(error)
+  }
+
+  function workflowErrorMessage(error: unknown, action: 'assign' | 'resolve' | 'reopen' | 'actions'): string {
+    if (error instanceof ApiError) {
+      if (error.status === 403) {
+        return t(`controlTower.events.workflowError.${action}.forbidden`)
+      }
+      if (error.status === 404) {
+        return t(`controlTower.events.workflowError.${action}.notFound`)
+      }
+      if (error.status === 409) {
+        return t(`controlTower.events.workflowError.${action}.conflict`)
+      }
+      if (error.status === 503 || error.status >= 500) {
+        return t(`controlTower.events.workflowError.${action}.unavailable`)
+      }
+    }
+    return formatApiErrorForUser(error)
+  }
+
+  async function runWorkflowMutation<T>(
+    eventId: string,
+    action: 'assign' | 'resolve' | 'reopen',
+    request: () => Promise<T>,
+    successKey: string,
+  ): Promise<T | null> {
+    if (demoMode.value || !summaryMode.value || workflowActionEventId.value) {
+      return null
+    }
+    workflowActionEventId.value = eventId
+    try {
+      const result = await request()
+      pushToast('success', t(successKey))
+      await loadSummaryData()
+      return result
+    } catch (error) {
+      pushToast('error', workflowErrorMessage(error, action))
+      return null
+    } finally {
+      workflowActionEventId.value = null
+    }
+  }
+
+  async function assignCriticalEvent(eventId: string, userId: string): Promise<boolean> {
+    const result = await runWorkflowMutation(
+      eventId,
+      'assign',
+      () =>
+        apiPost<ControlTowerEventWorkflow>(
+          `/api/v1/control-tower/critical-events/${encodeURIComponent(eventId)}/assign`,
+          { userId },
+          { skipTenant: true },
+        ),
+      'controlTower.events.assignSuccess',
+    )
+    return result != null
+  }
+
+  async function resolveCriticalEvent(
+    eventId: string,
+    resolutionCode: ControlTowerEventResolutionCode,
+    comment?: string,
+  ): Promise<boolean> {
+    const result = await runWorkflowMutation(
+      eventId,
+      'resolve',
+      () =>
+        apiPost<ControlTowerEventWorkflow>(
+          `/api/v1/control-tower/critical-events/${encodeURIComponent(eventId)}/resolve`,
+          { resolutionCode, comment: comment?.trim() || undefined },
+          { skipTenant: true },
+        ),
+      'controlTower.events.resolveSuccess',
+    )
+    return result != null
+  }
+
+  async function reopenCriticalEvent(eventId: string): Promise<boolean> {
+    const result = await runWorkflowMutation(
+      eventId,
+      'reopen',
+      () =>
+        apiPost<ControlTowerEventWorkflow>(
+          `/api/v1/control-tower/critical-events/${encodeURIComponent(eventId)}/reopen`,
+          undefined,
+          { skipTenant: true },
+        ),
+      'controlTower.events.reopenSuccess',
+    )
+    return result != null
+  }
+
+  async function fetchCriticalEventActions(eventId: string): Promise<ControlTowerEventActionsResponse | null> {
+    if (demoMode.value || !summaryMode.value) {
+      return null
+    }
+    try {
+      return await apiGet<ControlTowerEventActionsResponse>(
+        `/api/v1/control-tower/critical-events/${encodeURIComponent(eventId)}/actions`,
+        { skipTenant: true },
+      )
+    } catch (error) {
+      pushToast('error', workflowErrorMessage(error, 'actions'))
+      return null
+    }
   }
 
   async function acknowledgeCriticalEvent(eventId: string): Promise<boolean> {
@@ -996,7 +1107,12 @@ export function useControlTower() {
     kpiMetrics,
     criticalEvents,
     acknowledgingEventId,
+    workflowActionEventId,
     acknowledgeCriticalEvent,
+    assignCriticalEvent,
+    resolveCriticalEvent,
+    reopenCriticalEvent,
+    fetchCriticalEventActions,
     apiUnavailable,
     statusSummary,
     statusSummaryFreshness,

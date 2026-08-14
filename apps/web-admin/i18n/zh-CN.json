@@ -642,10 +642,70 @@
       "acknowledgedByUser": "用户 {userId}",
       "acknowledge": "确认",
       "acknowledgeSuccess": "事件已确认",
+      "assign": "分配",
+      "reassign": "重新分配",
+      "resolve": "解决",
+      "reopen": "重新打开",
+      "assignSuccess": "事件已分配",
+      "resolveSuccess": "事件已解决",
+      "reopenSuccess": "事件已重新打开",
+      "assignedTo": "分配给",
+      "assignedToUser": "用户 {userId}",
+      "selectUser": "选择用户",
+      "resolution": "解决方式",
+      "comment": "备注",
+      "actionHistory": "操作历史",
+      "actionHistoryEmpty": "暂无操作历史",
+      "status": {
+        "open": "打开",
+        "acknowledged": "已确认",
+        "assigned": "已分配",
+        "resolved": "已解决"
+      },
+      "actionTypes": {
+        "acknowledged": "已确认",
+        "assigned": "已分配",
+        "reassigned": "已重新分配",
+        "resolved": "已解决",
+        "reopened": "已重新打开"
+      },
+      "resolutionCodes": {
+        "issue_resolved": "问题已解决",
+        "false_positive": "误报",
+        "duplicate": "重复",
+        "cancelled": "已取消",
+        "other": "其他"
+      },
       "acknowledgeError": {
         "forbidden": "无权确认此事件",
         "notFound": "事件未找到或已不再活跃",
         "unavailable": "确认服务暂时不可用"
+      },
+      "workflowError": {
+        "assign": {
+          "forbidden": "无权分配此事件",
+          "notFound": "事件未找到或已不再活跃",
+          "conflict": "当前状态下无法分配事件",
+          "unavailable": "分配服务暂时不可用"
+        },
+        "resolve": {
+          "forbidden": "无权解决此事件",
+          "notFound": "事件未找到或已不再活跃",
+          "conflict": "当前状态下无法解决事件",
+          "unavailable": "解决服务暂时不可用"
+        },
+        "reopen": {
+          "forbidden": "无权重新打开此事件",
+          "notFound": "事件未找到或已不再活跃",
+          "conflict": "当前状态下无法重新打开事件",
+          "unavailable": "重新打开服务暂时不可用"
+        },
+        "actions": {
+          "forbidden": "无权查看操作历史",
+          "notFound": "事件未找到",
+          "conflict": "操作历史不可用",
+          "unavailable": "操作历史服务暂时不可用"
+        }
       },
       "types": {
         "PICKUP_DELAY": "提货延迟",

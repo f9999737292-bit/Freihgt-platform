@@ -1,10 +1,14 @@
 <script setup lang="ts">
 definePageMeta({ middleware: 'auth', layout: 'default' })
 
+import type { User } from '~/types/user'
+import type { ControlTowerEvent, ControlTowerEventAction, ControlTowerEventResolutionCode } from '~/types/controlTower'
+
 const route = useRoute()
 const router = useRouter()
 const { canAccessControlTower } = usePermissions()
 const { backendOnline, checkBackendStatus } = useBackendStatus()
+const { listUsers } = useUsersApi()
 
 const {
   loading,
@@ -18,7 +22,12 @@ const {
   kpiMetrics,
   criticalEvents,
   acknowledgingEventId,
+  workflowActionEventId,
   acknowledgeCriticalEvent,
+  assignCriticalEvent,
+  resolveCriticalEvent,
+  reopenCriticalEvent,
+  fetchCriticalEventActions,
   apiUnavailable,
   dataFreshness,
   summaryPagination,
@@ -63,9 +72,78 @@ const showLegacyLimitedBanner = computed(
 const hasAccess = computed(() => canAccessControlTower())
 
 const canAcknowledgeEvents = computed(() => hasAccess.value && !demoMode.value)
+const canAssignEvents = computed(() => hasAccess.value && !demoMode.value)
+const canResolveEvents = computed(() => hasAccess.value && !demoMode.value)
+
+const assignModalOpen = ref(false)
+const resolveModalOpen = ref(false)
+const detailsModalOpen = ref(false)
+const selectedEventId = ref<string | null>(null)
+const selectedEvent = ref<ControlTowerEvent | null>(null)
+const tenantUsers = ref<User[]>([])
+const usersLoading = ref(false)
+const detailsLoading = ref(false)
+const detailsActions = ref<ControlTowerEventAction[]>([])
+
+const isReassign = computed(() => {
+  if (!selectedEventId.value) return false
+  const event = criticalEvents.value.find((item) => item.id === selectedEventId.value)
+  return event?.status === 'assigned'
+})
+
+async function loadTenantUsers() {
+  usersLoading.value = true
+  try {
+    const response = await listUsers({ limit: 200, offset: 0 })
+    tenantUsers.value = response.items ?? []
+  } catch {
+    tenantUsers.value = []
+  } finally {
+    usersLoading.value = false
+  }
+}
 
 function onAcknowledgeEvent(eventId: string) {
   void acknowledgeCriticalEvent(eventId)
+}
+
+async function onAssignEvent(eventId: string) {
+  selectedEventId.value = eventId
+  assignModalOpen.value = true
+  if (tenantUsers.value.length === 0) {
+    await loadTenantUsers()
+  }
+}
+
+function onResolveEvent(eventId: string) {
+  selectedEventId.value = eventId
+  resolveModalOpen.value = true
+}
+
+function onReopenEvent(eventId: string) {
+  void reopenCriticalEvent(eventId)
+}
+
+async function onAssignSubmit(userId: string) {
+  if (!selectedEventId.value) return
+  const ok = await assignCriticalEvent(selectedEventId.value, userId)
+  if (ok) assignModalOpen.value = false
+}
+
+async function onResolveSubmit(resolutionCode: ControlTowerEventResolutionCode, comment?: string) {
+  if (!selectedEventId.value) return
+  const ok = await resolveCriticalEvent(selectedEventId.value, resolutionCode, comment)
+  if (ok) resolveModalOpen.value = false
+}
+
+async function onShowEventDetails(event: ControlTowerEvent) {
+  selectedEvent.value = event
+  detailsModalOpen.value = true
+  detailsLoading.value = true
+  detailsActions.value = []
+  const response = await fetchCriticalEventActions(event.id)
+  detailsActions.value = response?.items ?? []
+  detailsLoading.value = false
 }
 
 const isEmptyDataset = computed(
@@ -241,12 +319,44 @@ onBeforeUnmount(() => {
               :events="criticalEvents"
               :loading="loading"
               :can-acknowledge="canAcknowledgeEvents"
+              :can-assign="canAssignEvents"
+              :can-resolve="canResolveEvents"
               :acknowledging-event-id="acknowledgingEventId"
+              :workflow-action-event-id="workflowActionEventId"
               @acknowledge="onAcknowledgeEvent"
+              @assign="onAssignEvent"
+              @resolve="onResolveEvent"
+              @reopen="onReopenEvent"
+              @show-details="onShowEventDetails"
             />
           </UiCard>
         </div>
       </template>
+
+      <ControlTowerCriticalEventAssignModal
+        :open="assignModalOpen"
+        :loading="Boolean(workflowActionEventId)"
+        :users="tenantUsers"
+        :users-loading="usersLoading"
+        :reassign="isReassign"
+        @close="assignModalOpen = false"
+        @submit="onAssignSubmit"
+      />
+
+      <ControlTowerCriticalEventResolveModal
+        :open="resolveModalOpen"
+        :loading="Boolean(workflowActionEventId)"
+        @close="resolveModalOpen = false"
+        @submit="onResolveSubmit"
+      />
+
+      <ControlTowerCriticalEventDetailsModal
+        :open="detailsModalOpen"
+        :event="selectedEvent"
+        :actions="detailsActions"
+        :loading="detailsLoading"
+        @close="detailsModalOpen = false"
+      />
     </template>
   </div>
 </template>

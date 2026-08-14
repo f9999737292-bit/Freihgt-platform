@@ -42,6 +42,8 @@ func Error(w http.ResponseWriter, err error) {
 		status = http.StatusForbidden
 	case apperrors.CodeValidation:
 		status = http.StatusBadRequest
+	case apperrors.CodeConflict:
+		status = http.StatusConflict
 	case apperrors.CodeServiceUnavailable:
 		status = http.StatusBadGateway
 	case apperrors.CodeControlTowerShipmentsUnavailable, apperrors.CodeShipmentEventsShipmentUnavailable, apperrors.CodeAuthDependencyUnavailable, apperrors.CodeControlTowerReadModelUnavailable:

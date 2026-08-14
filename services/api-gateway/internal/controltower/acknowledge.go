@@ -165,12 +165,17 @@ func mapRemoteAcknowledgement(remote controltowerreadmodel.RemoteAcknowledgement
 	if source == "" {
 		source = EventSourceControlTower
 	}
+	status := remote.Status
+	if status == "" {
+		status = WorkflowStatusAcknowledged
+	}
 	return ControlTowerEventAcknowledgement{
 		EventID:        remote.EventID,
 		ShipmentID:     remote.ShipmentID,
 		EventType:      remote.EventType,
 		OccurredAt:     remote.OccurredAt.UTC(),
 		Source:         source,
+		Status:         status,
 		AcknowledgedAt: remote.AcknowledgedAt.UTC(),
 		AcknowledgedBy: ControlTowerEventAcknowledgedBy{
 			UserID: remote.AcknowledgedBy.UserID,

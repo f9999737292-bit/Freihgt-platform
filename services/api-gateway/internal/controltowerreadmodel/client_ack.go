@@ -213,6 +213,7 @@ func decodeRemoteAcknowledgement(body io.Reader) (*RemoteAcknowledgement, error)
 		EventType      string `json:"eventType"`
 		OccurredAt     string `json:"occurredAt"`
 		Source         string `json:"source"`
+		Status         string `json:"status"`
 		AcknowledgedAt string `json:"acknowledgedAt"`
 		AcknowledgedBy struct {
 			UserID string `json:"userId"`
@@ -237,6 +238,7 @@ func decodeRemoteAcknowledgement(body io.Reader) (*RemoteAcknowledgement, error)
 		EventType:      wire.EventType,
 		OccurredAt:     occurredAt.UTC(),
 		Source:         wire.Source,
+		Status:         wire.Status,
 		AcknowledgedAt: acknowledgedAt.UTC(),
 		AcknowledgedBy: wire.AcknowledgedBy,
 	}, nil

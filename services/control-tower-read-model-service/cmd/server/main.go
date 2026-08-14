@@ -42,10 +42,11 @@ func main() {
 
 	repo := repository.NewProjectionRepository(db.Pool)
 	ackRepo := repository.NewAckRepository(db.Pool)
+	workflowRepo := repository.NewWorkflowRepository(db.Pool)
 	freshness := consumer.NewFreshness()
 	consumerMetrics := ctmetrics.NewConsumerMetrics()
 
-	router := httpserver.NewRouter(log, db.Pool, repo, ackRepo, freshness)
+	router := httpserver.NewRouter(log, db.Pool, repo, ackRepo, workflowRepo, freshness)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

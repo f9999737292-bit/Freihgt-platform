@@ -30,19 +30,22 @@ type ControlTowerShipment struct {
 }
 
 type ControlTowerEvent struct {
-	ID              string                            `json:"id"`
-	ShipmentID      string                            `json:"shipmentId"`
-	ShipmentNumber  string                            `json:"shipmentNumber"`
-	Type            string                            `json:"type"`
-	Severity        string                            `json:"severity"`
-	OccurredAt      time.Time                         `json:"occurredAt"`
-	Description     *string                           `json:"description,omitempty"`
-	Source          string                            `json:"source"`
-	Acknowledgement *ControlTowerEventAckSummary      `json:"acknowledgement,omitempty"`
+	ID              string                       `json:"id"`
+	ShipmentID      string                       `json:"shipmentId"`
+	ShipmentNumber  string                       `json:"shipmentNumber"`
+	Type            string                       `json:"type"`
+	Severity        string                       `json:"severity"`
+	OccurredAt      time.Time                    `json:"occurredAt"`
+	Description     *string                      `json:"description,omitempty"`
+	Source          string                       `json:"source"`
+	Status          string                       `json:"status"`
+	Acknowledgement *ControlTowerEventAckSummary `json:"acknowledgement,omitempty"`
+	Assignment      *ControlTowerEventAssignment `json:"assignment,omitempty"`
+	Resolution      *ControlTowerEventResolution `json:"resolution,omitempty"`
 }
 
 type ControlTowerEventAckSummary struct {
-	AcknowledgedAt time.Time                    `json:"acknowledgedAt"`
+	AcknowledgedAt time.Time                       `json:"acknowledgedAt"`
 	AcknowledgedBy ControlTowerEventAcknowledgedBy `json:"acknowledgedBy"`
 }
 
@@ -57,9 +60,49 @@ type ControlTowerEventAcknowledgement struct {
 	EventType      string                          `json:"eventType"`
 	OccurredAt     time.Time                       `json:"occurredAt"`
 	Source         string                          `json:"source"`
+	Status         string                          `json:"status"`
 	AcknowledgedAt time.Time                       `json:"acknowledgedAt"`
 	AcknowledgedBy ControlTowerEventAcknowledgedBy `json:"acknowledgedBy"`
 }
+
+type ControlTowerEventAssignment struct {
+	AssignedToUserID string    `json:"assignedToUserId"`
+	AssignedByUserID string    `json:"assignedByUserId"`
+	AssignedAt       time.Time `json:"assignedAt"`
+}
+
+type ControlTowerEventResolution struct {
+	ResolvedByUserID string    `json:"resolvedByUserId"`
+	ResolvedAt       time.Time `json:"resolvedAt"`
+	ResolutionCode   string    `json:"resolutionCode"`
+	Comment          *string   `json:"comment,omitempty"`
+}
+
+type ControlTowerEventWorkflow struct {
+	EventID         string                       `json:"eventId"`
+	Status          string                       `json:"status"`
+	Acknowledgement *ControlTowerEventAckSummary `json:"acknowledgement,omitempty"`
+	Assignment      *ControlTowerEventAssignment `json:"assignment,omitempty"`
+	Resolution      *ControlTowerEventResolution `json:"resolution,omitempty"`
+}
+
+type ControlTowerEventAction struct {
+	ActionType  string         `json:"actionType"`
+	ActorUserID string         `json:"actorUserId"`
+	OccurredAt  time.Time      `json:"occurredAt"`
+	Metadata    map[string]any `json:"metadata,omitempty"`
+}
+
+type ControlTowerEventActionsResponse struct {
+	Items []ControlTowerEventAction `json:"items"`
+}
+
+const (
+	WorkflowStatusOpen         = "open"
+	WorkflowStatusAcknowledged = "acknowledged"
+	WorkflowStatusAssigned     = "assigned"
+	WorkflowStatusResolved     = "resolved"
+)
 
 const (
 	EventTypePickupDelay       = "PICKUP_DELAY"

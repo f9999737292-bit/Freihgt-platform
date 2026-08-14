@@ -14,16 +14,16 @@ import (
 )
 
 type Service struct {
-	client                *DownstreamClient
-	thresholds            SLAThresholds
-	readModel             *controltowerreadmodel.Client
-	readModelCfg          controltowerreadmodel.Config
-	readModelLog          *slog.Logger
-	metrics               *controltowerreadmodel.Metrics
-	legacyAggregate       *legacyaggregate.Client
+	client                 *DownstreamClient
+	thresholds             SLAThresholds
+	readModel              *controltowerreadmodel.Client
+	readModelCfg           controltowerreadmodel.Config
+	readModelLog           *slog.Logger
+	metrics                *controltowerreadmodel.Metrics
+	legacyAggregate        *legacyaggregate.Client
 	legacyAggregateTimeout time.Duration
-	legacyMetrics         *legacyaggregate.Metrics
-	legacyLog             *slog.Logger
+	legacyMetrics          *legacyaggregate.Metrics
+	legacyLog              *slog.Logger
 }
 
 func NewService(cfg config.Config, client *DownstreamClient, log *slog.Logger) *Service {
@@ -162,7 +162,7 @@ func (s *Service) GetSummary(ctx context.Context, reqCtx RequestContext, query L
 	kpi := CalculateKPI(filtered)
 	page := Paginate(filtered, query.Page, query.Limit)
 	criticalEvents := BuildCriticalEvents(filtered, shipmentIDsWithDocs, s.thresholds, now)
-	s.enrichCriticalEventAcknowledgements(ctx, reqCtx, &criticalEvents)
+	s.enrichCriticalEventWorkflows(ctx, reqCtx, &criticalEvents)
 	filters := BuildFilterOptions(allRows, companies, freshness.CompaniesLoaded)
 	if !freshness.CompaniesLoaded {
 		freshness.Warnings = appendUniqueWarning(freshness.Warnings, WarningFilterOptionsIncomplete)

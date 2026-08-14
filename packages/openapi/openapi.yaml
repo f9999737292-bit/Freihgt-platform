@@ -970,6 +970,143 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/control-tower/critical-events/{eventId}/assign:
+    post:
+      tags: [Control Tower]
+      summary: Assign a critical Control Tower event
+      operationId: post_control_tower_critical_event_assign
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[0-9a-f]{32}$'
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ControlTowerEventAssignRequest'
+      responses:
+        '200':
+          description: Event assigned or reassigned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerEventWorkflow'
+        '400': { description: Invalid request, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '401': { description: Unauthorized, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Forbidden, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Event not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '409': { description: Invalid workflow transition, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '503': { description: Dependency unavailable, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /api/v1/control-tower/critical-events/{eventId}/resolve:
+    post:
+      tags: [Control Tower]
+      summary: Resolve a critical Control Tower event
+      operationId: post_control_tower_critical_event_resolve
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[0-9a-f]{32}$'
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ControlTowerEventResolveRequest'
+      responses:
+        '200':
+          description: Event resolved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerEventWorkflow'
+        '400': { description: Invalid request, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '401': { description: Unauthorized, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Forbidden, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Event not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '409': { description: Invalid workflow transition, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '503': { description: Dependency unavailable, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /api/v1/control-tower/critical-events/{eventId}/reopen:
+    post:
+      tags: [Control Tower]
+      summary: Reopen a resolved critical Control Tower event
+      operationId: post_control_tower_critical_event_reopen
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[0-9a-f]{32}$'
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              maxProperties: 0
+              additionalProperties: false
+      responses:
+        '200':
+          description: Event reopened
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerEventWorkflow'
+        '401': { description: Unauthorized, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Forbidden, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Event not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '409': { description: Invalid workflow transition, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '503': { description: Dependency unavailable, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /api/v1/control-tower/critical-events/{eventId}/actions:
+    get:
+      tags: [Control Tower]
+      summary: List workflow action history for a critical event
+      operationId: get_control_tower_critical_event_actions
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[0-9a-f]{32}$'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Chronological workflow actions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerEventActionsResponse'
+        '401': { description: Unauthorized, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Forbidden, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Event not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '503': { description: Dependency unavailable, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
   /api/v1/shipments/{shipmentId}/events:
     get:
       tags: [Shipments]
@@ -6037,7 +6174,7 @@ components:
           description: Optional display name resolved by the gateway for UI convenience.
     ControlTowerEventAcknowledgement:
       type: object
-      required: [eventId, shipmentId, eventType, occurredAt, acknowledgedAt, acknowledgedBy]
+      required: [eventId, shipmentId, eventType, occurredAt, status, acknowledgedAt, acknowledgedBy]
       properties:
         eventId:
           type: string
@@ -6056,11 +6193,100 @@ components:
           type: string
           enum: [control-tower]
           default: control-tower
+        status:
+          $ref: '#/components/schemas/ControlTowerEventWorkflowStatus'
         acknowledgedAt:
           type: string
           format: date-time
         acknowledgedBy:
           $ref: '#/components/schemas/ControlTowerEventAcknowledgedBy'
+    ControlTowerEventWorkflowStatus:
+      type: string
+      enum: [open, acknowledged, assigned, resolved]
+    ControlTowerEventResolutionCode:
+      type: string
+      enum: [issue_resolved, false_positive, duplicate, cancelled, other]
+    ControlTowerEventAssignRequest:
+      type: object
+      required: [userId]
+      properties:
+        userId:
+          type: string
+          format: uuid
+    ControlTowerEventResolveRequest:
+      type: object
+      required: [resolutionCode]
+      properties:
+        resolutionCode:
+          $ref: '#/components/schemas/ControlTowerEventResolutionCode'
+        comment:
+          type: string
+    ControlTowerEventAssignment:
+      type: object
+      required: [assignedToUserId, assignedByUserId, assignedAt]
+      properties:
+        assignedToUserId:
+          type: string
+          format: uuid
+        assignedByUserId:
+          type: string
+          format: uuid
+        assignedAt:
+          type: string
+          format: date-time
+    ControlTowerEventResolution:
+      type: object
+      required: [resolvedByUserId, resolvedAt, resolutionCode]
+      properties:
+        resolvedByUserId:
+          type: string
+          format: uuid
+        resolvedAt:
+          type: string
+          format: date-time
+        resolutionCode:
+          $ref: '#/components/schemas/ControlTowerEventResolutionCode'
+        comment:
+          type: string
+    ControlTowerEventWorkflow:
+      type: object
+      required: [eventId, status]
+      properties:
+        eventId:
+          type: string
+          pattern: '^[0-9a-f]{32}$'
+        status:
+          $ref: '#/components/schemas/ControlTowerEventWorkflowStatus'
+        acknowledgement:
+          $ref: '#/components/schemas/ControlTowerEventAcknowledgementSummary'
+        assignment:
+          $ref: '#/components/schemas/ControlTowerEventAssignment'
+        resolution:
+          $ref: '#/components/schemas/ControlTowerEventResolution'
+    ControlTowerEventAction:
+      type: object
+      required: [actionType, actorUserId, occurredAt]
+      properties:
+        actionType:
+          type: string
+          enum: [acknowledged, assigned, reassigned, resolved, reopened]
+        actorUserId:
+          type: string
+          format: uuid
+        occurredAt:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+          additionalProperties: true
+    ControlTowerEventActionsResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ControlTowerEventAction'
     ControlTowerEvent:
       type: object
       properties:
@@ -6076,9 +6302,15 @@ components:
           format: date-time
         description: { type: string }
         source: { type: string }
+        status:
+          $ref: '#/components/schemas/ControlTowerEventWorkflowStatus'
         acknowledgement:
           $ref: '#/components/schemas/ControlTowerEventAcknowledgementSummary'
           description: Present when the event has been acknowledged; omitted otherwise.
+        assignment:
+          $ref: '#/components/schemas/ControlTowerEventAssignment'
+        resolution:
+          $ref: '#/components/schemas/ControlTowerEventResolution'
     ControlTowerEventAcknowledgementSummary:
       type: object
       required: [acknowledgedAt, acknowledgedBy]

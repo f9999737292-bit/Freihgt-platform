@@ -642,10 +642,70 @@
       "acknowledgedByUser": "User {userId}",
       "acknowledge": "Acknowledge",
       "acknowledgeSuccess": "Event acknowledged",
+      "assign": "Assign",
+      "reassign": "Reassign",
+      "resolve": "Resolve",
+      "reopen": "Reopen",
+      "assignSuccess": "Event assigned",
+      "resolveSuccess": "Event resolved",
+      "reopenSuccess": "Event reopened",
+      "assignedTo": "Assigned to",
+      "assignedToUser": "User {userId}",
+      "selectUser": "Select a user",
+      "resolution": "Resolution",
+      "comment": "Comment",
+      "actionHistory": "Action history",
+      "actionHistoryEmpty": "No workflow actions yet",
+      "status": {
+        "open": "Open",
+        "acknowledged": "Acknowledged",
+        "assigned": "Assigned",
+        "resolved": "Resolved"
+      },
+      "actionTypes": {
+        "acknowledged": "Acknowledged",
+        "assigned": "Assigned",
+        "reassigned": "Reassigned",
+        "resolved": "Resolved",
+        "reopened": "Reopened"
+      },
+      "resolutionCodes": {
+        "issue_resolved": "Issue resolved",
+        "false_positive": "False positive",
+        "duplicate": "Duplicate",
+        "cancelled": "Cancelled",
+        "other": "Other"
+      },
       "acknowledgeError": {
         "forbidden": "You do not have permission to acknowledge this event",
         "notFound": "Event not found or no longer active",
         "unavailable": "Acknowledgement service is temporarily unavailable"
+      },
+      "workflowError": {
+        "assign": {
+          "forbidden": "You do not have permission to assign this event",
+          "notFound": "Event not found or no longer active",
+          "conflict": "Cannot assign event in its current status",
+          "unavailable": "Assignment service is temporarily unavailable"
+        },
+        "resolve": {
+          "forbidden": "You do not have permission to resolve this event",
+          "notFound": "Event not found or no longer active",
+          "conflict": "Cannot resolve event in its current status",
+          "unavailable": "Resolution service is temporarily unavailable"
+        },
+        "reopen": {
+          "forbidden": "You do not have permission to reopen this event",
+          "notFound": "Event not found or no longer active",
+          "conflict": "Cannot reopen event in its current status",
+          "unavailable": "Reopen service is temporarily unavailable"
+        },
+        "actions": {
+          "forbidden": "You do not have permission to view action history",
+          "notFound": "Event not found",
+          "conflict": "Action history is unavailable",
+          "unavailable": "Action history service is temporarily unavailable"
+        }
       },
       "types": {
         "PICKUP_DELAY": "Pickup delay",

@@ -90,6 +90,7 @@ type RemoteAcknowledgement struct {
 	EventType      string    `json:"eventType"`
 	OccurredAt     time.Time `json:"occurredAt"`
 	Source         string    `json:"source"`
+	Status         string    `json:"status"`
 	AcknowledgedAt time.Time `json:"acknowledgedAt"`
 	AcknowledgedBy struct {
 		UserID string `json:"userId"`
