@@ -14,7 +14,7 @@ const { createCaseFromWorkItem, findDuplicateCandidates, addWorkItemToCase, acti
 
 const title = ref('')
 const summary = ref('')
-const duplicates = ref<{ id: string; reference: string; title: string }[]>([])
+const duplicates = ref<import('~/types/controlTower').ControlTowerOperationalCase[]>([])
 const selectedCaseId = ref('')
 
 watch(
@@ -55,7 +55,12 @@ async function onAddExisting() {
     </p>
     <ul v-if="duplicates.length" class="case-create-modal__dupes">
       <li v-for="dup in duplicates" :key="dup.id">
-        {{ dup.reference }} — {{ dup.title }}
+        <strong>{{ dup.reference }}</strong> — {{ dup.title }}
+        <span class="case-create-modal__dupe-meta">
+          · {{ $t(`controlTower.cases.statuses.${dup.status}`) }}
+          · {{ $t(`controlTower.cases.severities.${dup.effectiveSeverity}`) }}
+          · {{ dup.ownerDisplayName || $t('controlTower.cases.unassigned') }}
+        </span>
       </li>
     </ul>
 
@@ -113,6 +118,11 @@ async function onAddExisting() {
   margin: 0 0 1rem;
   padding-left: 1.25rem;
   font-size: 0.875rem;
+}
+.case-create-modal__dupe-meta {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted, #666);
 }
 .case-create-modal__add-existing {
   display: flex;

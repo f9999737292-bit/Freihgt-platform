@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/freight-platform/api-gateway/internal/controltowerreadmodel"
 )
@@ -22,7 +23,7 @@ func (s *Service) ListCases(ctx context.Context, reqCtx RequestContext, r *http.
 		Page: parseIntQuery(q.Get("page"), 1), Limit: parseIntQuery(q.Get("limit"), 50),
 		MyCases: q.Get("myCases") == "true", Unassigned: q.Get("unassigned") == "true",
 		IncludeClosed: q.Get("includeClosed") == "true",
-		HasSlaBreach:  q.Get("hasSlaBreach") == "true", HasSlaWarning: q.Get("hasSlaWarning") == "true",
+		HasSlaBreach: q.Get("hasSlaBreach") == "true", HasSlaWarning: q.Get("hasSlaWarning") == "true",
 		OverdueActions: q.Get("overdueActions") == "true" || q.Get("hasOverdueActions") == "true",
 		HasOpenActions: q.Get("hasOpenActions") == "true",
 	}
@@ -107,11 +108,97 @@ func enrichCasePayload(ctx context.Context, s *Service, reqCtx RequestContext, p
 			doc["createdByDisplayName"] = name
 		}
 	}
+	if participants, ok := doc["participants"].([]any); ok {
+		for _, p := range participants {
+			if pm, ok := p.(map[string]any); ok {
+				if uid, ok := pm["userId"].(string); ok {
+					if name, ok := userNames[uid]; ok {
+						pm["displayName"] = name
+					}
+				}
+			}
+		}
+	}
+	shipmentsRaw, _, _ := s.client.FetchShipments(ctx, reqCtx)
+	shipmentByID := map[string]rawShipment{}
+	orderByID := map[string]rawTransportOrder{}
+	for _, sh := range shipmentsRaw {
+		shipmentByID[sh.ID] = sh
+	}
+	if orders, err := s.client.FetchTransportOrders(ctx, reqCtx); err == nil {
+		for _, o := range orders {
+			orderByID[o.ID] = o
+		}
+	}
+	if links, ok := doc["links"].([]any); ok {
+		linkedShipments := make([]map[string]any, 0)
+		linkedOrders := make([]map[string]any, 0)
+		for _, link := range links {
+			lm, ok := link.(map[string]any)
+			if !ok {
+				continue
+			}
+			entityType, _ := lm["entityType"].(string)
+			entityID, _ := lm["entityId"].(string)
+			switch entityType {
+			case "shipment":
+				if sh, found := shipmentByID[entityID]; found {
+					linkedShipments = append(linkedShipments, mapShipmentSummary(sh))
+				} else {
+					linkedShipments = append(linkedShipments, map[string]any{"id": entityID})
+				}
+			case "transport_order":
+				if ord, found := orderByID[entityID]; found {
+					linkedOrders = append(linkedOrders, map[string]any{
+						"id": ord.ID, "reference": ord.OrderNumber,
+					})
+				} else {
+					linkedOrders = append(linkedOrders, map[string]any{"id": entityID})
+				}
+			}
+		}
+		if len(linkedShipments) > 0 {
+			doc["linkedShipments"] = linkedShipments
+		}
+		if len(linkedOrders) > 0 {
+			doc["linkedTransportOrders"] = linkedOrders
+		}
+	}
 	out, err := json.Marshal(doc)
 	if err != nil {
 		return payload, nil
 	}
 	return out, nil
+}
+
+func mapShipmentSummary(sh rawShipment) map[string]any {
+	item := map[string]any{
+		"id": sh.ID, "reference": sh.ShipmentNumber, "status": sh.Status,
+	}
+	if sh.PlannedPickupAt != nil {
+		item["plannedPickupAt"] = sh.PlannedPickupAt.UTC().Format(time.RFC3339)
+	}
+	if sh.PlannedDeliveryAt != nil {
+		item["plannedDeliveryAt"] = sh.PlannedDeliveryAt.UTC().Format(time.RFC3339)
+	}
+	if sh.ActualPickupAt != nil {
+		item["actualPickupAt"] = sh.ActualPickupAt.UTC().Format(time.RFC3339)
+	}
+	if sh.ActualDeliveryAt != nil {
+		item["actualDeliveryAt"] = sh.ActualDeliveryAt.UTC().Format(time.RFC3339)
+	}
+	if sh.DriverID != nil {
+		item["driverId"] = *sh.DriverID
+	}
+	if sh.VehicleID != nil {
+		item["vehicleId"] = *sh.VehicleID
+	}
+	if sh.CarrierCompanyID != nil {
+		item["carrierCompanyId"] = *sh.CarrierCompanyID
+	}
+	item["originLocationId"] = sh.OriginLocationID
+	item["destinationLocationId"] = sh.DestinationLocationID
+	return item
 }
 
 func parseIntQuery(raw string, fallback int) int {

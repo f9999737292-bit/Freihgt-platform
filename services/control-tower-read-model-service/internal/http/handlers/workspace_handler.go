@@ -169,7 +169,7 @@ func (h *WorkspaceHandler) ListViews(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	views, err := h.views.ListViews(r.Context(), tenantID, userID)
+	views, err := h.views.ListViews(r.Context(), tenantID, userID, strings.TrimSpace(r.URL.Query().Get("workspaceScope")))
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -183,10 +183,11 @@ func (h *WorkspaceHandler) CreateView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		Name    string         `json:"name"`
-		Scope   string         `json:"scope"`
-		Filters map[string]any `json:"filters"`
-		Sort    map[string]any `json:"sort"`
+		Name            string         `json:"name"`
+		Scope           string         `json:"scope"`
+		WorkspaceScope  string         `json:"workspaceScope"`
+		Filters         map[string]any `json:"filters"`
+		Sort            map[string]any `json:"sort"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || strings.TrimSpace(body.Name) == "" {
 		respond.Error(w, apperrors.Validation("name is required", map[string]any{"field": "name"}))
@@ -196,9 +197,17 @@ func (h *WorkspaceHandler) CreateView(w http.ResponseWriter, r *http.Request) {
 	if scope == "" {
 		scope = domain.ViewScopePrivate
 	}
+	wsScope := body.WorkspaceScope
+	if wsScope == "" {
+		wsScope = domain.WorkspaceScopeWorkItems
+	}
+	schemaVersion := domain.FilterSchemaVersion
+	if wsScope == domain.WorkspaceScopeCases {
+		schemaVersion = domain.CaseFilterSchemaVersion
+	}
 	view, err := h.views.CreateViewChecked(r.Context(), domain.SavedView{
 		TenantID: tenantID, OwnerUserID: userID, Name: body.Name, Scope: scope,
-		FilterSchemaVersion: domain.FilterSchemaVersion, Filters: body.Filters, Sort: body.Sort,
+		WorkspaceScope: wsScope, FilterSchemaVersion: schemaVersion, Filters: body.Filters, Sort: body.Sort,
 	})
 	if err != nil {
 		respond.Error(w, err)
@@ -571,7 +580,7 @@ func toViewResponse(v domain.SavedView) map[string]any {
 	return map[string]any{
 		"id": v.ID.String(), "name": v.Name, "scope": v.Scope,
 		"filterSchemaVersion": v.FilterSchemaVersion, "filters": v.Filters, "sort": v.Sort,
-		"isDefault": v.IsDefault,
+		"workspaceScope": v.WorkspaceScope, "isDefault": v.IsDefault,
 		"createdAt": v.CreatedAt.UTC().Format(time.RFC3339),
 		"updatedAt": v.UpdatedAt.UTC().Format(time.RFC3339),
 	}

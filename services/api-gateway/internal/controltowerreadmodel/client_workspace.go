@@ -149,6 +149,7 @@ type RemoteSavedView struct {
 	Filters             map[string]any `json:"filters"`
 	Sort                map[string]any `json:"sort"`
 	IsDefault           bool           `json:"isDefault"`
+	WorkspaceScope      string         `json:"workspaceScope"`
 	CreatedAt           string         `json:"createdAt"`
 	UpdatedAt           string         `json:"updatedAt"`
 }
@@ -158,8 +159,9 @@ type CreateViewInput struct {
 	UserID    string
 	RequestID string
 	Name      string
-	Scope     string
-	Filters   map[string]any
+	Scope           string
+	WorkspaceScope  string
+	Filters         map[string]any
 	Sort      map[string]any
 }
 
@@ -326,20 +328,28 @@ func (c *Client) GetWorkload(ctx context.Context, tenantID, userID, requestID st
 	return &payload, nil
 }
 
-func (c *Client) ListViews(ctx context.Context, tenantID, userID, requestID string) ([]RemoteSavedView, *DependencyError) {
+func (c *Client) ListViews(ctx context.Context, tenantID, userID, requestID, workspaceScope string) ([]RemoteSavedView, *DependencyError) {
+	path := listViewsPath
+	if strings.TrimSpace(workspaceScope) != "" {
+		path += "?workspaceScope=" + url.QueryEscape(strings.TrimSpace(workspaceScope))
+	}
 	var payload struct {
 		Items []RemoteSavedView `json:"items"`
 	}
-	if err := c.doWorkspaceJSON(ctx, http.MethodGet, c.baseURL+listViewsPath, tenantID, userID, requestID, nil, &payload); err != nil {
+	if err := c.doWorkspaceJSON(ctx, http.MethodGet, c.baseURL+path, tenantID, userID, requestID, nil, &payload); err != nil {
 		return nil, err
 	}
 	return payload.Items, nil
 }
 
 func (c *Client) CreateView(ctx context.Context, input CreateViewInput) (*RemoteSavedView, *DependencyError) {
-	body, _ := json.Marshal(map[string]any{
+	bodyMap := map[string]any{
 		"name": input.Name, "scope": input.Scope, "filters": input.Filters, "sort": input.Sort,
-	})
+	}
+	if strings.TrimSpace(input.WorkspaceScope) != "" {
+		bodyMap["workspaceScope"] = input.WorkspaceScope
+	}
+	body, _ := json.Marshal(bodyMap)
 	var payload RemoteSavedView
 	if err := c.doWorkspaceJSON(ctx, http.MethodPost, c.baseURL+listViewsPath, input.TenantID, input.UserID, input.RequestID, body, &payload); err != nil {
 		return nil, err

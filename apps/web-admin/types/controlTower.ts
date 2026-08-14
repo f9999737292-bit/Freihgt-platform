@@ -668,6 +668,7 @@ export interface ControlTowerSavedView {
   id: string
   name: string
   scope: 'private' | 'shared'
+  workspaceScope?: 'work_items' | 'cases'
   filterSchemaVersion: number
   filters: Record<string, unknown>
   sort: Record<string, unknown>
@@ -777,9 +778,60 @@ export interface ControlTowerActiveCaseRef {
 export interface ControlTowerCaseHealth {
   hasSlaBreach?: boolean
   hasSlaWarning?: boolean
+  nearestSlaDueAt?: string
+  highestExceptionPriority?: string
+  highestRiskLevel?: string
   openActionCount?: number
   overdueActionCount?: number
+  nearestActionDueAt?: string
   activeWorkItemCount?: number
+  activeExceptionCount?: number
+  activeRiskCount?: number
+}
+
+export interface ControlTowerCaseParticipant {
+  userId: string
+  role: 'owner' | 'collaborator' | 'observer'
+  displayName?: string
+  addedAt: string
+}
+
+export interface ControlTowerCaseTimelineEntry {
+  id: number
+  source: string
+  actionType: string
+  actorUserId?: string
+  occurredAt: string
+  metadata?: Record<string, unknown>
+}
+
+export interface ControlTowerCaseTimelineResponse {
+  items: ControlTowerCaseTimelineEntry[]
+  page: number
+  limit: number
+  total: number
+  hasNext: boolean
+}
+
+export interface ControlTowerLinkedShipment {
+  id: string
+  reference?: string
+  status?: string
+  originLocationId?: string
+  destinationLocationId?: string
+  plannedPickupAt?: string
+  actualPickupAt?: string
+  plannedDeliveryAt?: string
+  actualDeliveryAt?: string
+  driverId?: string
+  vehicleId?: string
+  carrierCompanyId?: string
+}
+
+export interface ControlTowerLinkedTransportOrder {
+  id: string
+  reference?: string
+  status?: string
 }
 
 export interface ControlTowerCaseLink {
@@ -843,10 +895,13 @@ export interface ControlTowerOperationalCase {
   resolvedAt?: string
   closedAt?: string
   links?: ControlTowerCaseLink[]
+  participants?: ControlTowerCaseParticipant[]
   notes?: ControlTowerCaseNote[]
   actionItems?: ControlTowerCaseActionItem[]
   decisions?: ControlTowerCaseDecision[]
   health?: ControlTowerCaseHealth
+  linkedShipments?: ControlTowerLinkedShipment[]
+  linkedTransportOrders?: ControlTowerLinkedTransportOrder[]
 }
 
 export interface ControlTowerCasesResponse {
@@ -862,6 +917,10 @@ export interface ControlTowerCaseKpi {
   myOpenCases: number
   criticalCases: number
   unassignedCases: number
+  casesWithSlaBreach?: number
+  casesWithSlaWarning?: number
+  slaAtRiskCases?: number
+  casesWithOverdueActions?: number
   resolvedCases: number
 }
 
@@ -871,8 +930,11 @@ export const CONTROL_TOWER_CASE_PRESETS = [
   'critical',
   'action_required',
   'monitoring',
+  'sla_at_risk',
+  'overdue_actions',
   'resolved',
   'closed',
+  'all_active',
 ] as const
 
 export type ControlTowerCasePreset = (typeof CONTROL_TOWER_CASE_PRESETS)[number]

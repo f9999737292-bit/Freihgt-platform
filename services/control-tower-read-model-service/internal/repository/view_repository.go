@@ -22,33 +22,47 @@ func NewViewRepository(pool *pgxpool.Pool) *ViewRepository {
 	return &ViewRepository{pool: pool}
 }
 
-var allowedViewFilterKeys = map[string]struct{}{
+var allowedWorkItemViewFilterKeys = map[string]struct{}{
 	"itemType": {}, "workflowStatus": {}, "priority": {}, "businessImpact": {},
 	"slaStatus": {}, "escalationLevel": {}, "riskLevel": {}, "riskStatus": {},
 	"predictedExceptionType": {}, "owner": {}, "assigned": {}, "shipmentReference": {},
 	"exceptionCategory": {}, "preset": {},
 }
 
-func validateViewFilters(filters map[string]any) error {
+var allowedCaseViewFilterKeys = map[string]struct{}{
+	"status": {}, "severity": {}, "owner": {}, "participant": {},
+	"hasOpenActions": {}, "hasOverdueActions": {}, "hasSlaBreach": {}, "hasSlaWarning": {},
+	"shipment": {}, "search": {}, "preset": {},
+}
+
+func validateViewFilters(filters map[string]any, workspaceScope string) error {
 	if filters == nil {
 		return nil
 	}
+	allowed := allowedWorkItemViewFilterKeys
+	if workspaceScope == domain.WorkspaceScopeCases {
+		allowed = allowedCaseViewFilterKeys
+	}
 	for key := range filters {
-		if _, ok := allowedViewFilterKeys[key]; !ok {
+		if _, ok := allowed[key]; !ok {
 			return apperrors.Validation("unsupported filter key", map[string]any{"field": key})
 		}
 	}
 	return nil
 }
 
-func (r *ViewRepository) ListViews(ctx context.Context, tenantID, userID uuid.UUID) ([]domain.SavedView, error) {
+func (r *ViewRepository) ListViews(ctx context.Context, tenantID, userID uuid.UUID, workspaceScope string) ([]domain.SavedView, error) {
+	if workspaceScope == "" {
+		workspaceScope = domain.WorkspaceScopeWorkItems
+	}
 	rows, err := r.pool.Query(ctx, `
 		SELECT v.id, v.tenant_id, v.owner_user_id, v.name, v.scope, v.filter_schema_version,
-		       v.filters, v.sort, v.is_default, v.created_at, v.updated_at
+		       v.filters, v.sort, v.is_default, v.created_at, v.updated_at, v.workspace_scope
 		FROM control_tower.saved_view v
 		WHERE v.tenant_id = $1 AND (v.owner_user_id = $2 OR v.scope = 'shared')
+		  AND v.workspace_scope = $3
 		ORDER BY v.name ASC
-	`, tenantID, userID)
+	`, tenantID, userID, workspaceScope)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +71,10 @@ func (r *ViewRepository) ListViews(ctx context.Context, tenantID, userID uuid.UU
 }
 
 func (r *ViewRepository) CreateView(ctx context.Context, view domain.SavedView) (domain.SavedView, error) {
-	if err := validateViewFilters(view.Filters); err != nil {
+	if view.WorkspaceScope == "" {
+		view.WorkspaceScope = domain.WorkspaceScopeWorkItems
+	}
+	if err := validateViewFilters(view.Filters, view.WorkspaceScope); err != nil {
 		return domain.SavedView{}, err
 	}
 	if view.Scope != domain.ViewScopePrivate && view.Scope != domain.ViewScopeShared {
@@ -66,15 +83,19 @@ func (r *ViewRepository) CreateView(ctx context.Context, view domain.SavedView) 
 	filtersRaw, _ := json.Marshal(view.Filters)
 	sortRaw, _ := json.Marshal(view.Sort)
 	if view.FilterSchemaVersion == 0 {
-		view.FilterSchemaVersion = domain.FilterSchemaVersion
+		if view.WorkspaceScope == domain.WorkspaceScopeCases {
+			view.FilterSchemaVersion = domain.CaseFilterSchemaVersion
+		} else {
+			view.FilterSchemaVersion = domain.FilterSchemaVersion
+		}
 	}
 	row := r.pool.QueryRow(ctx, `
 		INSERT INTO control_tower.saved_view
-		    (tenant_id, owner_user_id, name, scope, filter_schema_version, filters, sort, is_default)
-		VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8)
-		RETURNING id, tenant_id, owner_user_id, name, scope, filter_schema_version, filters, sort, is_default, created_at, updated_at
+		    (tenant_id, owner_user_id, name, scope, filter_schema_version, filters, sort, is_default, workspace_scope)
+		VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9)
+		RETURNING id, tenant_id, owner_user_id, name, scope, filter_schema_version, filters, sort, is_default, created_at, updated_at, workspace_scope
 	`, view.TenantID, view.OwnerUserID, strings.TrimSpace(view.Name), view.Scope,
-		view.FilterSchemaVersion, string(filtersRaw), string(sortRaw), view.IsDefault)
+		view.FilterSchemaVersion, string(filtersRaw), string(sortRaw), view.IsDefault, view.WorkspaceScope)
 	return scanSavedViewRow(row)
 }
 
@@ -96,7 +117,7 @@ func (r *ViewRepository) UpdateView(ctx context.Context, tenantID, userID, viewI
 	}
 	filters := existing.Filters
 	if patch.Filters != nil {
-		if err := validateViewFilters(patch.Filters); err != nil {
+		if err := validateViewFilters(patch.Filters, existing.WorkspaceScope); err != nil {
 			return domain.SavedView{}, err
 		}
 		filters = patch.Filters
@@ -151,6 +172,10 @@ func (r *ViewRepository) SetDefaultView(ctx context.Context, tenantID, userID, v
 }
 
 func (r *ViewRepository) setDefaultView(ctx context.Context, tenantID, userID, viewID uuid.UUID) error {
+	view, err := r.getView(ctx, tenantID, viewID)
+	if err != nil {
+		return err
+	}
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -158,8 +183,8 @@ func (r *ViewRepository) setDefaultView(ctx context.Context, tenantID, userID, v
 	defer tx.Rollback(ctx)
 	_, err = tx.Exec(ctx, `
 		UPDATE control_tower.saved_view SET is_default = FALSE
-		WHERE tenant_id = $1 AND owner_user_id = $2
-	`, tenantID, userID)
+		WHERE tenant_id = $1 AND owner_user_id = $2 AND workspace_scope = $3
+	`, tenantID, userID, view.WorkspaceScope)
 	if err != nil {
 		return err
 	}
@@ -198,7 +223,7 @@ func (r *ViewRepository) GetDefaultViewID(ctx context.Context, tenantID, userID 
 
 func (r *ViewRepository) getView(ctx context.Context, tenantID, viewID uuid.UUID) (domain.SavedView, error) {
 	row := r.pool.QueryRow(ctx, `
-		SELECT id, tenant_id, owner_user_id, name, scope, filter_schema_version, filters, sort, is_default, created_at, updated_at
+		SELECT id, tenant_id, owner_user_id, name, scope, filter_schema_version, filters, sort, is_default, created_at, updated_at, workspace_scope
 		FROM control_tower.saved_view WHERE tenant_id = $1 AND id = $2
 	`, tenantID, viewID)
 	item, err := scanSavedViewRow(row)
@@ -237,7 +262,7 @@ func scanSavedViews(rows savedViewRows) ([]domain.SavedView, error) {
 		var filtersRaw, sortRaw []byte
 		var createdAt, updatedAt time.Time
 		if err := rows.Scan(&item.ID, &item.TenantID, &item.OwnerUserID, &item.Name, &item.Scope,
-			&item.FilterSchemaVersion, &filtersRaw, &sortRaw, &item.IsDefault, &createdAt, &updatedAt); err != nil {
+			&item.FilterSchemaVersion, &filtersRaw, &sortRaw, &item.IsDefault, &createdAt, &updatedAt, &item.WorkspaceScope); err != nil {
 			return nil, err
 		}
 		item.Filters = map[string]any{}
@@ -260,7 +285,7 @@ func scanSavedViewRow(row pgx.Row) (domain.SavedView, error) {
 	var filtersRaw, sortRaw []byte
 	var createdAt, updatedAt time.Time
 	if err := row.Scan(&item.ID, &item.TenantID, &item.OwnerUserID, &item.Name, &item.Scope,
-		&item.FilterSchemaVersion, &filtersRaw, &sortRaw, &item.IsDefault, &createdAt, &updatedAt); err != nil {
+		&item.FilterSchemaVersion, &filtersRaw, &sortRaw, &item.IsDefault, &createdAt, &updatedAt, &item.WorkspaceScope); err != nil {
 		return domain.SavedView{}, err
 	}
 	item.Filters = map[string]any{}
@@ -274,6 +299,38 @@ func scanSavedViewRow(row pgx.Row) (domain.SavedView, error) {
 	item.CreatedAt = createdAt.UTC()
 	item.UpdatedAt = updatedAt.UTC()
 	return item, nil
+}
+
+func FilterFromSavedViewForCases(view domain.SavedView) domain.CaseListFilter {
+	filter := domain.CaseListFilter{Page: 1, Limit: 50}
+	if view.Filters == nil {
+		return filter
+	}
+	if v, ok := view.Filters["status"].(string); ok {
+		filter.Status = v
+	}
+	if v, ok := view.Filters["severity"].(string); ok {
+		filter.Severity = v
+	}
+	if v, ok := view.Filters["search"].(string); ok {
+		filter.Search = v
+	}
+	if v, ok := view.Filters["preset"].(string); ok {
+		filter.Preset = v
+	}
+	if v, ok := view.Filters["hasSlaBreach"].(bool); ok && v {
+		filter.HasSLABreach = true
+	}
+	if v, ok := view.Filters["hasSlaWarning"].(bool); ok && v {
+		filter.HasSLAWarning = true
+	}
+	if v, ok := view.Filters["hasOverdueActions"].(bool); ok && v {
+		filter.OverdueActions = true
+	}
+	if v, ok := view.Filters["hasOpenActions"].(bool); ok && v {
+		filter.HasOpenActions = true
+	}
+	return filter
 }
 
 func FilterFromSavedView(view domain.SavedView) domain.WorkItemFilter {
@@ -359,6 +416,7 @@ func (r *ViewRepository) DuplicateView(ctx context.Context, tenantID, userID, vi
 		FilterSchemaVersion: source.FilterSchemaVersion,
 		Filters:             source.Filters,
 		Sort:                source.Sort,
+		WorkspaceScope:      source.WorkspaceScope,
 	}
 	return r.CreateViewChecked(ctx, copy)
 }

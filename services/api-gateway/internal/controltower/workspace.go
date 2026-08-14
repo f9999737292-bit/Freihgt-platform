@@ -99,6 +99,7 @@ type SavedViewResponse struct {
 	Filters             map[string]any `json:"filters"`
 	Sort                map[string]any `json:"sort"`
 	IsDefault           bool           `json:"isDefault"`
+	WorkspaceScope      string         `json:"workspaceScope"`
 	CreatedAt           string         `json:"createdAt"`
 	UpdatedAt           string         `json:"updatedAt"`
 }
@@ -344,13 +345,13 @@ func (s *Service) GetWorkload(ctx context.Context, reqCtx RequestContext) (Workl
 	}, nil
 }
 
-func (s *Service) ListSavedViews(ctx context.Context, reqCtx RequestContext) (SavedViewsListResponse, error) {
+func (s *Service) ListSavedViews(ctx context.Context, reqCtx RequestContext, workspaceScope string) (SavedViewsListResponse, error) {
 	if err := s.requireReadModel(); err != nil {
 		return SavedViewsListResponse{}, err
 	}
 	rmCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), s.readModelCfg.Timeout)
 	defer cancel()
-	items, depErr := s.readModel.ListViews(rmCtx, reqCtx.TenantID, reqCtx.UserID, reqCtx.RequestID)
+	items, depErr := s.readModel.ListViews(rmCtx, reqCtx.TenantID, reqCtx.UserID, reqCtx.RequestID, workspaceScope)
 	if depErr != nil {
 		return SavedViewsListResponse{}, mapWorkspaceDependencyError(depErr)
 	}
@@ -366,10 +367,11 @@ func (s *Service) CreateSavedView(ctx context.Context, reqCtx RequestContext, ra
 		return SavedViewResponse{}, err
 	}
 	var payload struct {
-		Name    string         `json:"name"`
-		Scope   string         `json:"scope"`
-		Filters map[string]any `json:"filters"`
-		Sort    map[string]any `json:"sort"`
+		Name           string         `json:"name"`
+		Scope          string         `json:"scope"`
+		WorkspaceScope string         `json:"workspaceScope"`
+		Filters        map[string]any `json:"filters"`
+		Sort           map[string]any `json:"sort"`
 	}
 	if err := json.Unmarshal(rawBody, &payload); err != nil || strings.TrimSpace(payload.Name) == "" {
 		return SavedViewResponse{}, apperrors.Validation("name is required", map[string]any{"field": "name"})
@@ -378,7 +380,8 @@ func (s *Service) CreateSavedView(ctx context.Context, reqCtx RequestContext, ra
 	defer cancel()
 	item, depErr := s.readModel.CreateView(rmCtx, controltowerreadmodel.CreateViewInput{
 		TenantID: reqCtx.TenantID, UserID: reqCtx.UserID, RequestID: reqCtx.RequestID,
-		Name: payload.Name, Scope: payload.Scope, Filters: payload.Filters, Sort: payload.Sort,
+		Name: payload.Name, Scope: payload.Scope, WorkspaceScope: payload.WorkspaceScope,
+		Filters: payload.Filters, Sort: payload.Sort,
 	})
 	if depErr != nil {
 		return SavedViewResponse{}, mapWorkspaceDependencyError(depErr)
@@ -584,7 +587,8 @@ func mapSavedView(item controltowerreadmodel.RemoteSavedView) SavedViewResponse 
 	return SavedViewResponse{
 		ID: item.ID, Name: item.Name, Scope: item.Scope,
 		FilterSchemaVersion: item.FilterSchemaVersion, Filters: item.Filters, Sort: item.Sort,
-		IsDefault: item.IsDefault, CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt,
+		IsDefault: item.IsDefault, WorkspaceScope: item.WorkspaceScope,
+		CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt,
 	}
 }
 

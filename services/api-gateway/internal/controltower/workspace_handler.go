@@ -138,7 +138,7 @@ func (h *Handler) ListSavedViews(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	result, err := h.service.ListSavedViews(r.Context(), reqCtx)
+	result, err := h.service.ListSavedViews(r.Context(), reqCtx, strings.TrimSpace(r.URL.Query().Get("workspaceScope")))
 	if err != nil {
 		respond.Error(w, err)
 		return

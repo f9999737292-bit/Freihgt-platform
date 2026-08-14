@@ -169,7 +169,9 @@ export function useOperatorWorkspace() {
 
   async function loadSavedViews() {
     try {
-      const response = await apiGet<{ items: ControlTowerSavedView[] }>('/api/v1/control-tower/views')
+      const response = await apiGet<{ items: ControlTowerSavedView[] }>('/api/v1/control-tower/views', {
+        query: { workspaceScope: 'work_items' },
+      })
       savedViews.value = response.items ?? []
     } catch {
       savedViews.value = []
@@ -374,6 +376,7 @@ export function useOperatorWorkspace() {
     const view = await apiPost<ControlTowerSavedView>('/api/v1/control-tower/views', {
       name: payload.name.trim(),
       scope: payload.scope,
+      workspaceScope: 'work_items',
       filters: { preset: activePreset.value, queueMode: queueMode.value },
       sort: {},
     })
@@ -404,6 +407,7 @@ export function useOperatorWorkspace() {
     await apiPost<ControlTowerSavedView>('/api/v1/control-tower/views', {
       name: `${view.name} (${t('controlTower.workspace.duplicateSuffix')})`,
       scope: 'private',
+      workspaceScope: view.workspaceScope ?? 'work_items',
       filters: view.filters ?? { preset: activePreset.value, queueMode: queueMode.value },
       sort: view.sort ?? {},
     })

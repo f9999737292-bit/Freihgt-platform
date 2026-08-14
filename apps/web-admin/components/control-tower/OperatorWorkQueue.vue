@@ -248,13 +248,11 @@ function onCreateCaseFromWorkItem(item: import('~/types/controlTower').ControlTo
 
 
 function onCaseFromWorkItemDone(caseId: string) {
-
   caseFromWorkItemOpen.value = false
-
   caseFromWorkItem.value = null
-
+  void refreshWorkspace({ keepSelection: true })
+  void casesUi.refreshCaseWorkspace()
   void onOpenCase(caseId)
-
 }
 
 

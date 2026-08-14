@@ -105,6 +105,7 @@ type SavedView struct {
 	Filters             map[string]any
 	Sort                map[string]any
 	IsDefault           bool
+	WorkspaceScope      string
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 }

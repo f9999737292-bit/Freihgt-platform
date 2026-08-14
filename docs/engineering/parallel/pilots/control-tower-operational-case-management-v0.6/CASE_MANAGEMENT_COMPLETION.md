@@ -113,3 +113,44 @@ No new migration. Uses existing v0.6 schema (`000025` unapplied): participants, 
 - Case list/detail: `health` object, severity fields
 - Filters: `preset=sla_at_risk`, `preset=overdue_actions`, `hasSlaBreach`, `hasSlaWarning`, `overdueActions`
 - KPI: `casesWithSlaBreach`, `casesWithSlaWarning`, `slaAtRiskCases`, `casesWithOverdueActions`
+
+## v0.6.1 Workspace UI Completion
+
+### Participants
+- Tabbed case drawer with owner / collaborators / observers groups
+- Tenant user picker (no raw ID entry); owner invariant enforced in UI
+- Add, role change (collaborator ↔ observer), remove via public participant APIs
+
+### Case Health UI
+- List rows show SLA badge, open/overdue action counts, active work (from backend `health`)
+- Detail overview shows effective/derived severity, override state, SLA, priorities, risks
+
+### Severity Override UX
+- Override severity select + apply; separate clear override
+- Confirmation dialog when lowering severity (critical/high → lower)
+
+### Filters & Presets
+- Built-in presets include `sla_at_risk`, `overdue_actions`, `all_active`
+- SLA filter dropdown (breached / warning / at risk) uses server-side query params
+- Case search uses server `search` param
+
+### Case Saved Views
+- Reuses v0.5 saved-view subsystem with `workspaceScope=cases`
+- Work saved views isolated via `workspaceScope=work_items`
+- Create / apply / rename / update / duplicate / delete / set default
+
+### Shipment / Order Enrichment
+- Gateway enriches case detail with `linkedShipments` and `linkedTransportOrders`
+- Enrichment only on opened case detail (not list N+1)
+- Honest limitation banner: no GPS / ETA / slot windows
+
+### Timeline
+- Dedicated timeline section consuming `GET /cases/{id}/timeline`
+- Server pagination with “Load older”; categorized RU/EN/ZH labels
+
+### Mutation Refresh
+- After mutations: refresh case list, KPI, open drawer, work queue (work-item → case flows)
+
+### Remaining Limitations
+- Document linking, GPS, ETA, slot windows, external alerts, ML not implemented
+- Read-model dependency required for mutations
