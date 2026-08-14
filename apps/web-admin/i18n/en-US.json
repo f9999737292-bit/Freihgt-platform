@@ -357,6 +357,64 @@
       "poor": "Poor"
     }
   },
+  "eta": {
+    "title": "ETA Intelligence",
+    "predictedArrival": "Predicted arrival",
+    "plannedArrival": "Planned arrival",
+    "projectedDeviation": "Projected deviation",
+    "projectedDelayMinutes": "+{minutes} min",
+    "projectedEarlyMinutes": "−{minutes} min",
+    "arrivalProjection": "Arrival projection",
+    "sourceLabel": "ETA source",
+    "freshnessLabel": "ETA freshness",
+    "qualityLabel": "ETA quality",
+    "statusLabel": "ETA status",
+    "lastUpdate": "Last ETA update",
+    "updatedAgo": "Updated {age} ago",
+    "estimatedArrival": "Predicted arrival",
+    "history": "ETA history",
+    "hideHistory": "Hide history",
+    "noHistory": "No ETA history",
+    "unavailable": "ETA unavailable",
+    "compactWithDelay": "ETA {eta} · Planned {planned} · +{minutes} min · {projection}",
+    "compactWithPlanned": "ETA {eta} · Planned {planned}",
+    "compactEtaOnly": "ETA {eta}",
+    "compactStale": "ETA {eta} · Stale · updated {age} ago",
+    "compactStaleShort": "ETA {eta} · Stale",
+    "status": {
+      "unavailable": "ETA unavailable",
+      "available": "ETA available",
+      "stale": "ETA stale",
+      "expired": "ETA expired",
+      "completed": "Delivery completed"
+    },
+    "freshness": {
+      "unknown": "Unknown",
+      "fresh": "Fresh",
+      "stale": "Stale",
+      "expired": "Expired"
+    },
+    "quality": {
+      "unknown": "Unknown",
+      "good": "Good",
+      "degraded": "Degraded",
+      "poor": "Poor"
+    },
+    "projection": {
+      "early": "Early",
+      "on_time": "On time",
+      "at_risk": "At risk",
+      "late": "Late",
+      "unknown": "Unknown"
+    },
+    "source": {
+      "provider_eta": "Provider ETA",
+      "carrier_eta": "Carrier ETA",
+      "driver_eta": "Driver ETA",
+      "manual_operator": "Manual ETA",
+      "calculated": "Calculated ETA"
+    }
+  },
   "documents": {
     "title": "Documents",
     "details": "Document details",
@@ -1316,6 +1374,10 @@
         "telemetry_stale": "Telemetry stale ({telemetryAgeSeconds}s since last fix)",
         "telemetry_lost": "Telemetry lost ({telemetryAgeSeconds}s since last fix)",
         "telemetry_quality_degraded": "Telemetry quality degraded ({qualityStatus})",
+        "eta_stale": "ETA is stale — reduced trust in prediction",
+        "eta_quality_degraded": "ETA quality degraded ({qualityStatus})",
+        "eta_delivery_at_risk": "Predicted arrival at risk (+{projectedDeviationMinutes} min vs plan)",
+        "eta_after_planned_delivery": "Predicted arrival is {projectedDeviationMinutes} min after planned delivery",
         "stale_updates_at_risk": "Stale updates (SLA at risk)",
         "missing_driver": "No driver assigned, pickup in {minutesUntilPickup} min",
         "missing_vehicle": "No vehicle assigned, pickup in {minutesUntilPickup} min"

@@ -126,6 +126,8 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	if trackingHandler != nil {
 		r.Get("/api/v1/shipments/{shipmentId}/tracking", trackingHandler.GetCurrent)
 		r.Get("/api/v1/shipments/{shipmentId}/tracking/locations", trackingHandler.ListLocations)
+		r.Get("/api/v1/shipments/{shipmentId}/eta", trackingHandler.GetETA)
+		r.Get("/api/v1/shipments/{shipmentId}/eta/history", trackingHandler.ListETAHistory)
 	}
 
 	fleetGuard := fleetrbac.NewGuard(cfg, proxy)

@@ -18,6 +18,8 @@ func NewRouter(
 	log *slog.Logger,
 	db observability.DatabasePinger,
 	trackingHandler *handlers.TrackingHandler,
+	etaHandler *handlers.ETAHandler,
+	etaInternal *handlers.ETAInternalHandler,
 	ingestHandler *handlers.IngestHandler,
 	internalHandler *handlers.InternalHandler,
 	metricsCollector *metrics.Collector,
@@ -34,11 +36,15 @@ func NewRouter(
 	r.Route("/v1/shipments/{shipmentId}", func(r chi.Router) {
 		r.Get("/tracking", trackingHandler.GetCurrent)
 		r.Get("/tracking/locations", trackingHandler.ListLocations)
+		r.Get("/eta", etaHandler.GetCurrent)
+		r.Get("/eta/history", etaHandler.ListHistory)
 	})
 
 	r.Route("/internal/v1/tracking", func(r chi.Router) {
 		r.Post("/providers/{provider}/locations", ingestHandler.Ingest)
+		r.Post("/providers/{provider}/eta", ingestHandler.IngestETA)
 		r.Post("/states/lookup", internalHandler.LookupStates)
+		r.Post("/eta/lookup", etaInternal.LookupDelivery)
 	})
 
 	return r

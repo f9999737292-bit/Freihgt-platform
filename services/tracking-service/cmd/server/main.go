@@ -42,19 +42,26 @@ func main() {
 	defer db.Close()
 	metrics.RegisterPgxPoolMetrics(cfg.ServiceName, db.Pool)
 
-	repo := repository.NewTrackingRepository(db.Pool)
+	trackingRepo := repository.NewTrackingRepository(db.Pool)
+	etaRepo := repository.NewETARepository(db.Pool)
 	registry := provider.NewRegistry(provider.GenericAdapter{}, provider.DriverMobileAdapter{})
-	evaluator := service.NewStateEvaluator(repo, cfg)
-	querySvc := service.NewTrackingQueryService(repo, evaluator, cfg)
+	etaRegistry := provider.NewETARegistry(provider.GenericETAAdapter{})
+	evaluator := service.NewStateEvaluator(trackingRepo, cfg)
+	etaEvaluator := service.NewETAStateEvaluator(etaRepo, cfg)
+	querySvc := service.NewTrackingQueryService(trackingRepo, evaluator, cfg)
+	etaQuerySvc := service.NewETAQueryService(etaRepo, etaEvaluator)
 	telemetryMetrics := trackingmetrics.New(cfg.ServiceName)
-	ingestSvc := service.NewIngestService(repo, registry, cfg, evaluator, log, telemetryMetrics)
+	ingestSvc := service.NewIngestService(trackingRepo, registry, cfg, evaluator, log, telemetryMetrics)
+	etaIngestSvc := service.NewETAIngestService(trackingRepo, etaRepo, etaRegistry, cfg, etaEvaluator, log, telemetryMetrics)
 
 	trackingHandler := handlers.NewTrackingHandler(querySvc)
-	ingestHandler := handlers.NewIngestHandler(ingestSvc, cfg.ProviderSecrets)
+	etaHandler := handlers.NewETAHandler(etaQuerySvc)
+	etaInternal := handlers.NewETAInternalHandler(etaQuerySvc, cfg.InternalServiceToken)
+	ingestHandler := handlers.NewIngestHandler(ingestSvc, etaIngestSvc, cfg.ProviderSecrets)
 	internalHandler := handlers.NewInternalHandler(querySvc, cfg.InternalServiceToken)
 	metricsCollector := metrics.New(cfg.ServiceName)
 
-	router := httpserver.NewRouter(log, db.Pool, trackingHandler, ingestHandler, internalHandler, metricsCollector)
+	router := httpserver.NewRouter(log, db.Pool, trackingHandler, etaHandler, etaInternal, ingestHandler, internalHandler, metricsCollector)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

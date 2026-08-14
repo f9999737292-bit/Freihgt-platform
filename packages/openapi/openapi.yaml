@@ -4651,6 +4651,111 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ShipmentLocationHistoryPage'
+  /api/v1/shipments/{shipmentId}/eta:
+    get:
+      tags: [Shipments, ETA]
+      summary: Get current shipment ETA state
+      operationId: get_shipment_eta
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/Authorization'
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: plannedPickupAt
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: plannedDeliveryAt
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: actualPickupAt
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: actualDeliveryAt
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: shipmentStatus
+          in: query
+          schema:
+            type: string
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current ETA summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShipmentETASummary'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/shipments/{shipmentId}/eta/history:
+    get:
+      tags: [Shipments, ETA]
+      summary: List bounded shipment ETA observation history
+      operationId: get_shipment_eta_history
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/Authorization'
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: targetType
+          in: query
+          schema:
+            type: string
+            enum: [pickup, delivery]
+            default: delivery
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            maximum: 200
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: ETA history page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShipmentETAHistoryPage'
   /api/v1/drivers:
     post:
       tags: [Drivers]
@@ -7039,6 +7144,22 @@ components:
         lastKnownLatitude: { type: number, format: double }
         lastKnownLongitude: { type: number, format: double }
         trackingProvider: { type: string }
+        etaStatus:
+          type: string
+          enum: [unavailable, available, stale, expired, completed]
+        estimatedDeliveryAt: { type: string, format: date-time }
+        etaFreshness:
+          type: string
+          enum: [unknown, fresh, stale, expired]
+        etaQuality:
+          type: string
+          enum: [unknown, good, degraded, poor]
+        projectedDelaySeconds: { type: integer, format: int64 }
+        arrivalProjection:
+          type: string
+          enum: [early, on_time, at_risk, late, unknown]
+        etaAgeSeconds: { type: integer, format: int64 }
+        lastEtaObservedAt: { type: string, format: date-time }
     ShipmentTrackingSummary:
       type: object
       required: [shipmentId, trackingStatus, freshness, quality]
@@ -7107,6 +7228,73 @@ components:
         accuracyMeters: { type: number }
         quality:
           $ref: '#/components/schemas/ShipmentTrackingQuality'
+    ShipmentETASummary:
+      type: object
+      required: [shipmentId]
+      properties:
+        shipmentId: { type: string, format: uuid }
+        delivery:
+          $ref: '#/components/schemas/ShipmentETATargetSummary'
+        pickup:
+          $ref: '#/components/schemas/ShipmentETATargetSummary'
+    ShipmentETATargetSummary:
+      type: object
+      required: [status, freshnessStatus, qualityStatus, arrivalProjection]
+      properties:
+        status:
+          type: string
+          enum: [unavailable, available, stale, expired, completed]
+        estimatedArrivalAt: { type: string, format: date-time }
+        sourceType:
+          type: string
+          enum: [provider_eta, carrier_eta, driver_eta, manual_operator, calculated]
+        provider: { type: string }
+        sourceObservedAt: { type: string, format: date-time }
+        receivedAt: { type: string, format: date-time }
+        ageSeconds: { type: integer, format: int64 }
+        freshnessStatus:
+          type: string
+          enum: [unknown, fresh, stale, expired]
+        qualityStatus:
+          type: string
+          enum: [unknown, good, degraded, poor]
+        qualityReasons:
+          type: array
+          items: { type: string }
+        providerConfidence: { type: number, format: double }
+        deliveryLagSeconds: { type: integer, format: int64 }
+        plannedArrivalAt: { type: string, format: date-time }
+        projectedDeviationSeconds: { type: integer, format: int64 }
+        arrivalProjection:
+          type: string
+          enum: [early, on_time, at_risk, late, unknown]
+    ShipmentETAHistoryPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShipmentETAObservation'
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+    ShipmentETAObservation:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        shipmentId: { type: string, format: uuid }
+        targetType: { type: string }
+        estimatedArrivalAt: { type: string, format: date-time }
+        sourceType: { type: string }
+        provider: { type: string }
+        providerEventId: { type: string }
+        sourceObservedAt: { type: string, format: date-time }
+        receivedAt: { type: string, format: date-time }
+        qualityStatus: { type: string }
+        qualityReasons:
+          type: array
+          items: { type: string }
+        providerConfidence: { type: number, format: double }
     ControlTowerEventAcknowledgedBy:
       type: object
       required: [userId]

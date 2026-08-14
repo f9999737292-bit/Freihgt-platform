@@ -37,6 +37,14 @@ type ControlTowerShipment struct {
 	LastKnownLatitude    *float64   `json:"lastKnownLatitude,omitempty"`
 	LastKnownLongitude   *float64   `json:"lastKnownLongitude,omitempty"`
 	TrackingProvider     *string    `json:"trackingProvider,omitempty"`
+	ETAStatus            *string    `json:"etaStatus,omitempty"`
+	EstimatedDeliveryAt  *time.Time `json:"estimatedDeliveryAt,omitempty"`
+	ETAFreshness         *string    `json:"etaFreshness,omitempty"`
+	ETAQuality           *string    `json:"etaQuality,omitempty"`
+	ProjectedDelaySeconds *int64    `json:"projectedDelaySeconds,omitempty"`
+	ArrivalProjection    *string    `json:"arrivalProjection,omitempty"`
+	ETAAgeSeconds        *int64     `json:"etaAgeSeconds,omitempty"`
+	LastETAObservedAt    *time.Time `json:"lastEtaObservedAt,omitempty"`
 }
 
 type ControlTowerEvent struct {

@@ -88,7 +88,27 @@ type ShipmentInput struct {
 	SLAStatus         string
 	SLAReason         *string
 	Telemetry         *TelemetryContext
+	ETA               *ETAContext
 }
+
+type ETAContext struct {
+	HasUsableETA              bool
+	Status                    string
+	FreshnessStatus           string
+	QualityStatus             string
+	ArrivalProjection         string
+	ProjectedDeviationSeconds *int64
+	EstimatedArrivalAt        *time.Time
+	AgeSeconds                *int64
+}
+
+const (
+	ETAStatusUnavailable = "unavailable"
+	ETAStatusAvailable   = "available"
+	ETAStatusStale       = "stale"
+	ETAStatusExpired     = "expired"
+	ETAStatusCompleted   = "completed"
+)
 
 type TelemetryContext struct {
 	HasBinding       bool
@@ -332,6 +352,60 @@ func (e Evaluator) evaluateDeliveryDelayRisk(s ShipmentInput) Assessment {
 	if s.SLAReason != nil && *s.SLAReason == "DELIVERY_OVERDUE" {
 		return buildAssessment(s, TypeDeliveryDelayRisk, signals, s.PlannedDeliveryAt, e.Now)
 	}
+
+	if s.ETA != nil && s.ETA.HasUsableETA {
+		weightMultiplier := 1.0
+		if s.ETA.QualityStatus == "degraded" {
+			weightMultiplier = 0.7
+		}
+		if s.ETA.FreshnessStatus == "stale" {
+			weightMultiplier *= 0.75
+			signals = append(signals, Signal{
+				Code: "eta_stale", Severity: "low", Weight: 15,
+				ObservedAt: e.Now, Source: SourceControlTower,
+				ExplanationKey: "controlTower.risk.signals.eta_stale",
+			})
+		}
+		if s.ETA.QualityStatus == "degraded" || s.ETA.QualityStatus == "poor" {
+			signals = append(signals, Signal{
+				Code: "eta_quality_degraded", Severity: "low", Weight: 12,
+				ObservedAt: e.Now, Source: SourceControlTower,
+				Value:          map[string]any{"qualityStatus": s.ETA.QualityStatus},
+				ExplanationKey: "controlTower.risk.signals.eta_quality_degraded",
+			})
+		}
+		deviationMins := int64(0)
+		if s.ETA.ProjectedDeviationSeconds != nil {
+			deviationMins = *s.ETA.ProjectedDeviationSeconds / 60
+		}
+		switch s.ETA.ArrivalProjection {
+		case "at_risk":
+			weight := int(float64(35) * weightMultiplier)
+			signals = append(signals, Signal{
+				Code: "eta_delivery_at_risk", Severity: "medium", Weight: weight,
+				ObservedAt: e.Now, Source: SourceControlTower,
+				Value:          map[string]any{"projectedDeviationMinutes": deviationMins},
+				ExplanationKey: "controlTower.risk.signals.eta_delivery_at_risk",
+			})
+		case "late":
+			severity := "high"
+			weight := int(float64(45) * weightMultiplier)
+			if deviationMins > 60 {
+				severity = "critical"
+				weight = int(float64(60) * weightMultiplier)
+			} else if deviationMins > 30 {
+				weight = int(float64(55) * weightMultiplier)
+			}
+			signals = append(signals, Signal{
+				Code: "eta_after_planned_delivery", Severity: severity, Weight: weight,
+				ObservedAt: e.Now, Source: SourceControlTower,
+				Value:          map[string]any{"projectedDeviationMinutes": deviationMins},
+				ExplanationKey: "controlTower.risk.signals.eta_after_planned_delivery",
+			})
+		}
+		return buildAssessment(s, TypeDeliveryDelayRisk, signals, s.PlannedDeliveryAt, e.Now)
+	}
+
 	mins := minutesUntil(*s.PlannedDeliveryAt, e.Now)
 	if mins <= 30 && isInTransit(s.Status) {
 		signals = append(signals, Signal{

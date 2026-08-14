@@ -357,6 +357,64 @@
       "poor": "Низкое"
     }
   },
+  "eta": {
+    "title": "Прогноз прибытия (ETA)",
+    "predictedArrival": "Прогноз прибытия",
+    "plannedArrival": "Плановое прибытие",
+    "projectedDeviation": "Прогноз отклонения",
+    "projectedDelayMinutes": "+{minutes} мин",
+    "projectedEarlyMinutes": "−{minutes} мин",
+    "arrivalProjection": "Прогноз относительно плана",
+    "sourceLabel": "Источник ETA",
+    "freshnessLabel": "Актуальность ETA",
+    "qualityLabel": "Качество ETA",
+    "statusLabel": "Статус ETA",
+    "lastUpdate": "Последнее обновление ETA",
+    "updatedAgo": "Обновлено {age} назад",
+    "estimatedArrival": "Прогноз прибытия",
+    "history": "История ETA",
+    "hideHistory": "Скрыть историю",
+    "noHistory": "История ETA отсутствует",
+    "unavailable": "ETA недоступен",
+    "compactWithDelay": "ETA {eta} · План {planned} · +{minutes} мин · {projection}",
+    "compactWithPlanned": "ETA {eta} · План {planned}",
+    "compactEtaOnly": "ETA {eta}",
+    "compactStale": "ETA {eta} · Устарело · обновлено {age} назад",
+    "compactStaleShort": "ETA {eta} · Устарело",
+    "status": {
+      "unavailable": "ETA недоступен",
+      "available": "ETA доступен",
+      "stale": "ETA устарел",
+      "expired": "ETA истёк",
+      "completed": "Доставка завершена"
+    },
+    "freshness": {
+      "unknown": "Неизвестно",
+      "fresh": "Актуально",
+      "stale": "Устарело",
+      "expired": "Истёк"
+    },
+    "quality": {
+      "unknown": "Неизвестно",
+      "good": "Хорошее",
+      "degraded": "Сниженное",
+      "poor": "Низкое"
+    },
+    "projection": {
+      "early": "Раньше плана",
+      "on_time": "В срок",
+      "at_risk": "Риск опоздания",
+      "late": "Опоздание",
+      "unknown": "Неизвестно"
+    },
+    "source": {
+      "provider_eta": "ETA провайдера",
+      "carrier_eta": "ETA перевозчика",
+      "driver_eta": "ETA водителя",
+      "manual_operator": "ETA оператора",
+      "calculated": "Расчётный ETA"
+    }
+  },
   "documents": {
     "title": "Документы",
     "details": "Карточка документа",
@@ -1316,6 +1374,10 @@
         "telemetry_stale": "Телеметрия устарела ({telemetryAgeSeconds} с с последней точки)",
         "telemetry_lost": "Телеметрия потеряна ({telemetryAgeSeconds} с с последней точки)",
         "telemetry_quality_degraded": "Снижено качество телеметрии ({qualityStatus})",
+        "eta_stale": "ETA устарел — снижено доверие к прогнозу",
+        "eta_quality_degraded": "Снижено качество ETA ({qualityStatus})",
+        "eta_delivery_at_risk": "Прогноз прибытия в зоне риска (+{projectedDeviationMinutes} мин к плану)",
+        "eta_after_planned_delivery": "Прогноз прибытия на {projectedDeviationMinutes} мин позже плановой доставки",
         "stale_updates_at_risk": "Длительное отсутствие обновлений (SLA at risk)",
         "missing_driver": "Водитель не назначен, до погрузки {minutesUntilPickup} мин",
         "missing_vehicle": "ТС не назначено, до погрузки {minutesUntilPickup} мин"

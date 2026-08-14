@@ -427,6 +427,14 @@ export interface ControlTowerShipment {
   lastKnownLatitude?: number
   lastKnownLongitude?: number
   trackingProvider?: string
+  etaStatus?: string
+  estimatedDeliveryAt?: string
+  etaFreshness?: string
+  etaQuality?: string
+  projectedDelaySeconds?: number
+  arrivalProjection?: string
+  etaAgeSeconds?: number
+  lastEtaObservedAt?: string
 }
 
 export interface ControlTowerFilters {

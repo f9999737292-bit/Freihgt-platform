@@ -17,6 +17,7 @@ type Config struct {
 	ProviderSecrets      map[string]string
 	InternalServiceToken string
 	FreshnessPolicy      FreshnessConfig
+	ETAFreshnessPolicy   FreshnessConfig
 }
 
 type FreshnessConfig struct {
@@ -43,6 +44,12 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("TRACKING_STALE_THRESHOLD_MINUTES must be greater than TRACKING_FRESH_THRESHOLD_MINUTES")
 	}
 
+	etaFreshMin := intEnv("ETA_FRESH_THRESHOLD_MINUTES", 15)
+	etaStaleMin := intEnv("ETA_STALE_THRESHOLD_MINUTES", 60)
+	if etaStaleMin <= etaFreshMin {
+		return Config{}, fmt.Errorf("ETA_STALE_THRESHOLD_MINUTES must be greater than ETA_FRESH_THRESHOLD_MINUTES")
+	}
+
 	return Config{
 		ServiceName:          "tracking-service",
 		Environment:          getEnv("ENVIRONMENT", "development"),
@@ -54,6 +61,10 @@ func Load() (Config, error) {
 		FreshnessPolicy: FreshnessConfig{
 			FreshThreshold: time.Duration(freshMin) * time.Minute,
 			StaleThreshold: time.Duration(staleMin) * time.Minute,
+		},
+		ETAFreshnessPolicy: FreshnessConfig{
+			FreshThreshold: time.Duration(etaFreshMin) * time.Minute,
+			StaleThreshold: time.Duration(etaStaleMin) * time.Minute,
 		},
 	}, nil
 }

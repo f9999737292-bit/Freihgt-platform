@@ -59,6 +59,51 @@ func (h *Handler) GetCurrent(w http.ResponseWriter, r *http.Request) {
 	respond.JSON(w, http.StatusOK, summary)
 }
 
+func (h *Handler) GetETA(w http.ResponseWriter, r *http.Request) {
+	reqCtx, err := buildRequestContext(r, h.authEnabled, h.devTenantID)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	shipmentID := strings.TrimSpace(chi.URLParam(r, "shipmentId"))
+	if shipmentID == "" {
+		respond.Error(w, apperrors.Validation("shipment id is required", nil))
+		return
+	}
+	summary, err := h.client.GetETA(r.Context(), reqCtx.TenantID, reqCtx.RequestID, shipmentID, r.URL.RawQuery)
+	if err != nil {
+		respond.Error(w, apperrors.ServiceUnavailable("tracking service is temporarily unavailable", "tracking-service"))
+		return
+	}
+	if summary == nil {
+		respond.Error(w, apperrors.NotFound("eta not found"))
+		return
+	}
+	respond.JSON(w, http.StatusOK, summary)
+}
+
+func (h *Handler) ListETAHistory(w http.ResponseWriter, r *http.Request) {
+	reqCtx, err := buildRequestContext(r, h.authEnabled, h.devTenantID)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	shipmentID := strings.TrimSpace(chi.URLParam(r, "shipmentId"))
+	if shipmentID == "" {
+		respond.Error(w, apperrors.Validation("shipment id is required", nil))
+		return
+	}
+	path := "/v1/shipments/" + shipmentID + "/eta/history"
+	body, status, err := h.client.ProxyJSON(r.Context(), reqCtx.TenantID, reqCtx.RequestID, http.MethodGet, path, r.URL.RawQuery)
+	if err != nil {
+		respond.Error(w, apperrors.ServiceUnavailable("tracking service is temporarily unavailable", "tracking-service"))
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_, _ = w.Write(body)
+}
+
 func (h *Handler) ListLocations(w http.ResponseWriter, r *http.Request) {
 	reqCtx, err := buildRequestContext(r, h.authEnabled, h.devTenantID)
 	if err != nil {

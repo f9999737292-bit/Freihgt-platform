@@ -168,6 +168,7 @@ func (s *Service) GetSummary(ctx context.Context, reqCtx RequestContext, query L
 	}
 
 	s.enrichShipmentsWithTracking(ctx, reqCtx, allRows)
+	s.enrichShipmentsWithETA(ctx, reqCtx, allRows)
 
 	filtered := ApplyFilters(allRows, query)
 	kpi := CalculateKPI(filtered)

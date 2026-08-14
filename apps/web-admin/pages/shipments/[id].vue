@@ -226,6 +226,16 @@ onMounted(async () => {
 
       <ShipmentsShipmentDetailsCard :shipment="shipment" />
       <ShipmentsShipmentTrackingCard :shipment-id="shipmentId" />
+      <ShipmentsShipmentETACard
+        :shipment-id="shipmentId"
+        :planned-context="{
+          plannedPickupAt: shipment.planned_pickup_at ?? undefined,
+          plannedDeliveryAt: shipment.planned_delivery_at ?? undefined,
+          actualPickupAt: shipment.actual_pickup_at ?? undefined,
+          actualDeliveryAt: shipment.actual_delivery_at ?? undefined,
+          shipmentStatus: shipment.status,
+        }"
+      />
       <ShipmentsShipmentPartiesCard :shipment="shipment" :company-name="companyName" />
       <ShipmentsShipmentRouteCard
         :origin="origin"

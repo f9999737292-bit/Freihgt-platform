@@ -357,6 +357,64 @@
       "poor": "较差"
     }
   },
+  "eta": {
+    "title": "ETA 智能",
+    "predictedArrival": "预测到达",
+    "plannedArrival": "计划到达",
+    "projectedDeviation": "预测偏差",
+    "projectedDelayMinutes": "+{minutes} 分钟",
+    "projectedEarlyMinutes": "−{minutes} 分钟",
+    "arrivalProjection": "到达预测",
+    "sourceLabel": "ETA 来源",
+    "freshnessLabel": "ETA 时效",
+    "qualityLabel": "ETA 质量",
+    "statusLabel": "ETA 状态",
+    "lastUpdate": "最后 ETA 更新",
+    "updatedAgo": "{age} 前更新",
+    "estimatedArrival": "预测到达",
+    "history": "ETA 历史",
+    "hideHistory": "隐藏历史",
+    "noHistory": "暂无 ETA 历史",
+    "unavailable": "ETA 不可用",
+    "compactWithDelay": "ETA {eta} · 计划 {planned} · +{minutes} 分钟 · {projection}",
+    "compactWithPlanned": "ETA {eta} · 计划 {planned}",
+    "compactEtaOnly": "ETA {eta}",
+    "compactStale": "ETA {eta} · 过期 · {age} 前更新",
+    "compactStaleShort": "ETA {eta} · 过期",
+    "status": {
+      "unavailable": "ETA 不可用",
+      "available": "ETA 可用",
+      "stale": "ETA 过期",
+      "expired": "ETA 已失效",
+      "completed": "交付已完成"
+    },
+    "freshness": {
+      "unknown": "未知",
+      "fresh": "新鲜",
+      "stale": "过期",
+      "expired": "已失效"
+    },
+    "quality": {
+      "unknown": "未知",
+      "good": "良好",
+      "degraded": "下降",
+      "poor": "较差"
+    },
+    "projection": {
+      "early": "提前",
+      "on_time": "准时",
+      "at_risk": "有风险",
+      "late": "延迟",
+      "unknown": "未知"
+    },
+    "source": {
+      "provider_eta": "提供商 ETA",
+      "carrier_eta": "承运商 ETA",
+      "driver_eta": "司机 ETA",
+      "manual_operator": "操作员 ETA",
+      "calculated": "计算 ETA"
+    }
+  },
   "documents": {
     "title": "文档",
     "details": "文档详情",
@@ -1316,6 +1374,10 @@
         "telemetry_stale": "遥测过期（距最后定位 {telemetryAgeSeconds} 秒）",
         "telemetry_lost": "遥测丢失（距最后定位 {telemetryAgeSeconds} 秒）",
         "telemetry_quality_degraded": "遥测质量下降（{qualityStatus}）",
+        "eta_stale": "ETA 已过期 — 预测可信度降低",
+        "eta_quality_degraded": "ETA 质量下降（{qualityStatus}）",
+        "eta_delivery_at_risk": "预测到达存在风险（较计划 +{projectedDeviationMinutes} 分钟）",
+        "eta_after_planned_delivery": "预测到达比计划交付晚 {projectedDeviationMinutes} 分钟",
         "stale_updates_at_risk": "长时间无更新（SLA 风险）",
         "missing_driver": "未分配司机，提货 {minutesUntilPickup} 分钟后",
         "missing_vehicle": "未分配车辆，提货 {minutesUntilPickup} 分钟后"
