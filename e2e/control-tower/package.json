@@ -1,0 +1,13 @@
+{
+  "name": "@freight-platform/control-tower-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "install:browsers": "playwright install msedge"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.51.0"
+  }
+}
