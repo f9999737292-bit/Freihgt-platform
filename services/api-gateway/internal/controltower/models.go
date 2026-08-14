@@ -30,18 +30,36 @@ type ControlTowerShipment struct {
 }
 
 type ControlTowerEvent struct {
-	ID              string                       `json:"id"`
-	ShipmentID      string                       `json:"shipmentId"`
-	ShipmentNumber  string                       `json:"shipmentNumber"`
-	Type            string                       `json:"type"`
-	Severity        string                       `json:"severity"`
-	OccurredAt      time.Time                    `json:"occurredAt"`
-	Description     *string                      `json:"description,omitempty"`
-	Source          string                       `json:"source"`
-	Status          string                       `json:"status"`
-	Acknowledgement *ControlTowerEventAckSummary `json:"acknowledgement,omitempty"`
-	Assignment      *ControlTowerEventAssignment `json:"assignment,omitempty"`
-	Resolution      *ControlTowerEventResolution `json:"resolution,omitempty"`
+	ID                string                       `json:"id"`
+	ShipmentID        string                       `json:"shipmentId"`
+	ShipmentNumber    string                       `json:"shipmentNumber"`
+	Type              string                       `json:"type"`
+	Severity          string                       `json:"severity"`
+	OccurredAt        time.Time                    `json:"occurredAt"`
+	Description       *string                      `json:"description,omitempty"`
+	Source            string                       `json:"source"`
+	Status            string                       `json:"status"`
+	Priority          string                       `json:"priority,omitempty"`
+	ExceptionCategory string                       `json:"exceptionCategory,omitempty"`
+	BusinessImpact    string                       `json:"businessImpact,omitempty"`
+	SLA               *ControlTowerEventSLA        `json:"sla,omitempty"`
+	Escalation        *ControlTowerEventEscalation `json:"escalation,omitempty"`
+	Acknowledgement   *ControlTowerEventAckSummary `json:"acknowledgement,omitempty"`
+	Assignment        *ControlTowerEventAssignment `json:"assignment,omitempty"`
+	Resolution        *ControlTowerEventResolution `json:"resolution,omitempty"`
+}
+
+type ControlTowerEventSLA struct {
+	Phase            string    `json:"phase"`
+	Status           string    `json:"status"`
+	AcknowledgeDueAt time.Time `json:"acknowledgeDueAt"`
+	AssignmentDueAt  time.Time `json:"assignmentDueAt"`
+	ResolutionDueAt  time.Time `json:"resolutionDueAt"`
+	RemainingSeconds *int64    `json:"remainingSeconds,omitempty"`
+}
+
+type ControlTowerEventEscalation struct {
+	Level string `json:"level"`
 }
 
 type ControlTowerEventAckSummary struct {
@@ -79,11 +97,16 @@ type ControlTowerEventResolution struct {
 }
 
 type ControlTowerEventWorkflow struct {
-	EventID         string                       `json:"eventId"`
-	Status          string                       `json:"status"`
-	Acknowledgement *ControlTowerEventAckSummary `json:"acknowledgement,omitempty"`
-	Assignment      *ControlTowerEventAssignment `json:"assignment,omitempty"`
-	Resolution      *ControlTowerEventResolution `json:"resolution,omitempty"`
+	EventID           string                       `json:"eventId"`
+	Status            string                       `json:"status"`
+	Priority          string                       `json:"priority,omitempty"`
+	ExceptionCategory string                       `json:"exceptionCategory,omitempty"`
+	BusinessImpact    string                       `json:"businessImpact,omitempty"`
+	SLA               *ControlTowerEventSLA        `json:"sla,omitempty"`
+	Escalation        *ControlTowerEventEscalation `json:"escalation,omitempty"`
+	Acknowledgement   *ControlTowerEventAckSummary `json:"acknowledgement,omitempty"`
+	Assignment        *ControlTowerEventAssignment `json:"assignment,omitempty"`
+	Resolution        *ControlTowerEventResolution `json:"resolution,omitempty"`
 }
 
 type ControlTowerEventAction struct {
@@ -137,6 +160,17 @@ type KPI struct {
 	ReadyForBilling   int `json:"readyForBilling"`
 }
 
+type ExceptionKPI struct {
+	TotalOpenExceptions  int `json:"totalOpenExceptions"`
+	P1Open               int `json:"p1Open"`
+	P2Open               int `json:"p2Open"`
+	SLAWarning           int `json:"slaWarning"`
+	SLABreached          int `json:"slaBreached"`
+	UnassignedExceptions int `json:"unassignedExceptions"`
+	ResolvedWithinSLA    int `json:"resolvedWithinSla"`
+	ResolvedOutsideSLA   int `json:"resolvedOutsideSla"`
+}
+
 type ShipmentsPage struct {
 	Items   []ControlTowerShipment `json:"items"`
 	Page    int                    `json:"page"`
@@ -160,6 +194,7 @@ type SummaryResponse struct {
 	GeneratedAt            time.Time                    `json:"generatedAt"`
 	DataFreshness          DataFreshness                `json:"dataFreshness"`
 	KPI                    KPI                          `json:"kpi"`
+	ExceptionKPI           ExceptionKPI                 `json:"exceptionKpi"`
 	Shipments              ShipmentsPage                `json:"shipments"`
 	CriticalEvents         []ControlTowerEvent          `json:"criticalEvents"`
 	Filters                FiltersResponse              `json:"filters"`
@@ -206,16 +241,23 @@ const (
 )
 
 type ListQuery struct {
-	Q            string
-	Status       string
-	SLAStatus    string
-	ShipperID    string
-	CarrierID    string
-	DateFrom     *time.Time
-	DateTo       *time.Time
-	CriticalOnly bool
-	Page         int
-	Limit        int
+	Q                 string
+	Status            string
+	SLAStatus         string
+	ShipperID         string
+	CarrierID         string
+	DateFrom          *time.Time
+	DateTo            *time.Time
+	CriticalOnly      bool
+	EventStatus       string
+	Priority          string
+	ExceptionCategory string
+	BusinessImpact    string
+	EventSLAStatus    string
+	EscalationLevel   string
+	UnassignedOnly    bool
+	Page              int
+	Limit             int
 }
 
 type RequestContext struct {

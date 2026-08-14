@@ -141,12 +141,7 @@ SET status = $3,
 WHERE tenant_id = $1
   AND event_id = $2
   AND version = $7
-RETURNING
-    tenant_id, event_id, shipment_id, event_type, source, occurred_at, status, version,
-    acknowledged_at, acknowledged_by_user_id,
-    assigned_to_user_id, assigned_by_user_id, assigned_at,
-    resolved_by_user_id, resolved_at, resolution_code, resolution_comment,
-    last_reopened_at, last_reopened_by_user_id, created_at, updated_at`
+RETURNING` + workflowSelectColumns
 
 	updated, err := scanWorkflow(tx.QueryRow(ctx, updateSQL,
 		input.TenantID,
@@ -217,12 +212,7 @@ SET status = $3,
 WHERE tenant_id = $1
   AND event_id = $2
   AND version = $8
-RETURNING
-    tenant_id, event_id, shipment_id, event_type, source, occurred_at, status, version,
-    acknowledged_at, acknowledged_by_user_id,
-    assigned_to_user_id, assigned_by_user_id, assigned_at,
-    resolved_by_user_id, resolved_at, resolution_code, resolution_comment,
-    last_reopened_at, last_reopened_by_user_id, created_at, updated_at`
+RETURNING` + workflowSelectColumns
 
 	updated, err := scanWorkflow(tx.QueryRow(ctx, updateSQL,
 		input.TenantID,
@@ -280,6 +270,7 @@ func (r *WorkflowRepository) ReopenCriticalEvent(
 	}
 
 	now := time.Now().UTC()
+	deadlines := domain.CalculateDeadlines(workflow.Priority, now)
 	const updateSQL = `
 UPDATE control_tower.critical_event_workflow
 SET status = $3,
@@ -292,17 +283,20 @@ SET status = $3,
     resolution_comment = NULL,
     last_reopened_at = $4,
     last_reopened_by_user_id = $5,
+    exception_activated_at = $4,
+    acknowledge_due_at = $6,
+    assignment_due_at = $7,
+    resolution_due_at = $8,
+    escalation_level = 'none',
+    ack_sla_breached_at = NULL,
+    assign_sla_breached_at = NULL,
+    resolve_sla_breached_at = NULL,
     version = version + 1,
     updated_at = $4
 WHERE tenant_id = $1
   AND event_id = $2
-  AND version = $6
-RETURNING
-    tenant_id, event_id, shipment_id, event_type, source, occurred_at, status, version,
-    acknowledged_at, acknowledged_by_user_id,
-    assigned_to_user_id, assigned_by_user_id, assigned_at,
-    resolved_by_user_id, resolved_at, resolution_code, resolution_comment,
-    last_reopened_at, last_reopened_by_user_id, created_at, updated_at`
+  AND version = $9
+RETURNING` + workflowSelectColumns
 
 	updated, err := scanWorkflow(tx.QueryRow(ctx, updateSQL,
 		input.TenantID,
@@ -310,6 +304,9 @@ RETURNING
 		domain.WorkflowStatusOpen,
 		now,
 		input.ActorUserID,
+		deadlines.AcknowledgeDueAt,
+		deadlines.AssignmentDueAt,
+		deadlines.ResolutionDueAt,
 		workflow.Version,
 	))
 	if err != nil {
@@ -371,12 +368,7 @@ func (r *WorkflowRepository) LookupWorkflows(
 	}
 
 	const lookupSQL = `
-SELECT
-    tenant_id, event_id, shipment_id, event_type, source, occurred_at, status, version,
-    acknowledged_at, acknowledged_by_user_id,
-    assigned_to_user_id, assigned_by_user_id, assigned_at,
-    resolved_by_user_id, resolved_at, resolution_code, resolution_comment,
-    last_reopened_at, last_reopened_by_user_id, created_at, updated_at
+SELECT` + workflowSelectColumns + `
 FROM control_tower.critical_event_workflow
 WHERE tenant_id = $1
   AND event_id = ANY($2::text[])`
@@ -407,12 +399,7 @@ func (r *WorkflowRepository) GetWorkflow(
 	eventID string,
 ) (*domain.CriticalEventWorkflow, error) {
 	const selectSQL = `
-SELECT
-    tenant_id, event_id, shipment_id, event_type, source, occurred_at, status, version,
-    acknowledged_at, acknowledged_by_user_id,
-    assigned_to_user_id, assigned_by_user_id, assigned_at,
-    resolved_by_user_id, resolved_at, resolution_code, resolution_comment,
-    last_reopened_at, last_reopened_by_user_id, created_at, updated_at
+SELECT` + workflowSelectColumns + `
 FROM control_tower.critical_event_workflow
 WHERE tenant_id = $1
   AND event_id = $2`
@@ -440,17 +427,20 @@ func (r *WorkflowRepository) ensureAcknowledgedWorkflow(
 
 	now := time.Now().UTC()
 	if workflow == nil {
+		priority := domain.DefaultPriorityForSeverity("")
+		category := domain.DefaultCategoryForEventType(input.EventType)
+		activatedAt := input.OccurredAt.UTC()
+		deadlines := domain.CalculateDeadlines(priority, activatedAt)
+
 		const insertSQL = `
 INSERT INTO control_tower.critical_event_workflow (
     tenant_id, event_id, shipment_id, event_type, source, occurred_at, status, version,
-    acknowledged_at, acknowledged_by_user_id, created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, 1, $8, $9, $8, $8)
-RETURNING
-    tenant_id, event_id, shipment_id, event_type, source, occurred_at, status, version,
     acknowledged_at, acknowledged_by_user_id,
-    assigned_to_user_id, assigned_by_user_id, assigned_at,
-    resolved_by_user_id, resolved_at, resolution_code, resolution_comment,
-    last_reopened_at, last_reopened_by_user_id, created_at, updated_at`
+    priority, exception_category, business_impact, exception_activated_at,
+    acknowledge_due_at, assignment_due_at, resolution_due_at, escalation_level,
+    created_at, updated_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, 1, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'none', $8, $8)
+RETURNING` + workflowSelectColumns
 
 		created, err := scanWorkflow(tx.QueryRow(ctx, insertSQL,
 			input.TenantID,
@@ -462,6 +452,13 @@ RETURNING
 			domain.WorkflowStatusAcknowledged,
 			now,
 			input.UserID,
+			priority,
+			category,
+			domain.BusinessImpactNone,
+			activatedAt,
+			deadlines.AcknowledgeDueAt,
+			deadlines.AssignmentDueAt,
+			deadlines.ResolutionDueAt,
 		))
 		if err != nil {
 			return domain.CriticalEventWorkflow{}, false, fmt.Errorf("insert workflow: %w", err)
@@ -481,12 +478,7 @@ SET status = $3,
 WHERE tenant_id = $1
   AND event_id = $2
   AND version = $6
-RETURNING
-    tenant_id, event_id, shipment_id, event_type, source, occurred_at, status, version,
-    acknowledged_at, acknowledged_by_user_id,
-    assigned_to_user_id, assigned_by_user_id, assigned_at,
-    resolved_by_user_id, resolved_at, resolution_code, resolution_comment,
-    last_reopened_at, last_reopened_by_user_id, created_at, updated_at`
+RETURNING` + workflowSelectColumns
 
 		updated, err := scanWorkflow(tx.QueryRow(ctx, updateSQL,
 			input.TenantID,
@@ -515,12 +507,7 @@ func (r *WorkflowRepository) lockWorkflow(
 	eventID string,
 ) (*domain.CriticalEventWorkflow, error) {
 	const selectSQL = `
-SELECT
-    tenant_id, event_id, shipment_id, event_type, source, occurred_at, status, version,
-    acknowledged_at, acknowledged_by_user_id,
-    assigned_to_user_id, assigned_by_user_id, assigned_at,
-    resolved_by_user_id, resolved_at, resolution_code, resolution_comment,
-    last_reopened_at, last_reopened_by_user_id, created_at, updated_at
+SELECT` + workflowSelectColumns + `
 FROM control_tower.critical_event_workflow
 WHERE tenant_id = $1
   AND event_id = $2
@@ -595,20 +582,27 @@ type workflowScanner interface {
 func scanWorkflow(row workflowScanner) (domain.CriticalEventWorkflow, error) {
 	var item domain.CriticalEventWorkflow
 	var (
-		occurredAt time.Time
-		createdAt  time.Time
-		updatedAt  time.Time
-		ackAt      *time.Time
-		ackBy      *uuid.UUID
-		assignTo   *uuid.UUID
-		assignBy   *uuid.UUID
-		assignAt   *time.Time
-		resolvedBy *uuid.UUID
-		resolvedAt *time.Time
-		resCode    *string
-		resComment *string
-		reopenedAt *time.Time
-		reopenedBy *uuid.UUID
+		occurredAt           time.Time
+		createdAt            time.Time
+		updatedAt            time.Time
+		ackAt                *time.Time
+		ackBy                *uuid.UUID
+		assignTo             *uuid.UUID
+		assignBy             *uuid.UUID
+		assignAt             *time.Time
+		resolvedBy           *uuid.UUID
+		resolvedAt           *time.Time
+		resCode              *string
+		resComment           *string
+		reopenedAt           *time.Time
+		reopenedBy           *uuid.UUID
+		exceptionActivatedAt time.Time
+		ackDueAt             time.Time
+		assignDueAt          time.Time
+		resolveDueAt         time.Time
+		ackBreachedAt        *time.Time
+		assignBreachedAt     *time.Time
+		resolveBreachedAt    *time.Time
 	)
 	if err := row.Scan(
 		&item.TenantID,
@@ -630,6 +624,17 @@ func scanWorkflow(row workflowScanner) (domain.CriticalEventWorkflow, error) {
 		&resComment,
 		&reopenedAt,
 		&reopenedBy,
+		&item.Priority,
+		&item.ExceptionCategory,
+		&item.BusinessImpact,
+		&exceptionActivatedAt,
+		&ackDueAt,
+		&assignDueAt,
+		&resolveDueAt,
+		&item.EscalationLevel,
+		&ackBreachedAt,
+		&assignBreachedAt,
+		&resolveBreachedAt,
 		&createdAt,
 		&updatedAt,
 	); err != nil {
@@ -647,6 +652,13 @@ func scanWorkflow(row workflowScanner) (domain.CriticalEventWorkflow, error) {
 	item.ResolutionComment = resComment
 	item.LastReopenedAt = reopenedAt
 	item.LastReopenedByUserID = reopenedBy
+	item.ExceptionActivatedAt = exceptionActivatedAt.UTC()
+	item.AcknowledgeDueAt = ackDueAt.UTC()
+	item.AssignmentDueAt = assignDueAt.UTC()
+	item.ResolutionDueAt = resolveDueAt.UTC()
+	item.AckSLABreachedAt = ackBreachedAt
+	item.AssignSLABreachedAt = assignBreachedAt
+	item.ResolveSLABreachedAt = resolveBreachedAt
 	item.CreatedAt = createdAt.UTC()
 	item.UpdatedAt = updatedAt.UTC()
 	return item, nil

@@ -60,6 +60,17 @@ type CriticalEventWorkflow struct {
 	ResolutionComment    *string
 	LastReopenedAt       *time.Time
 	LastReopenedByUserID *uuid.UUID
+	Priority             string
+	ExceptionCategory    string
+	BusinessImpact       string
+	ExceptionActivatedAt time.Time
+	AcknowledgeDueAt     time.Time
+	AssignmentDueAt      time.Time
+	ResolutionDueAt      time.Time
+	EscalationLevel      string
+	AckSLABreachedAt     *time.Time
+	AssignSLABreachedAt  *time.Time
+	ResolveSLABreachedAt *time.Time
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
 }

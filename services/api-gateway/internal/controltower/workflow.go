@@ -21,6 +21,81 @@ type resolveRequestPayload struct {
 	Comment        *string `json:"comment,omitempty"`
 }
 
+type updateExceptionRequestPayload struct {
+	Priority       *string `json:"priority"`
+	Category       *string `json:"category"`
+	BusinessImpact *string `json:"businessImpact"`
+}
+
+func (s *Service) UpdateCriticalEventException(
+	ctx context.Context,
+	reqCtx RequestContext,
+	eventID string,
+	rawBody []byte,
+) (ControlTowerEventWorkflow, error) {
+	event, err := s.validateCriticalEventMutation(ctx, reqCtx, eventID, rawBody, true)
+	if err != nil {
+		return ControlTowerEventWorkflow{}, err
+	}
+	_ = event
+
+	var payload updateExceptionRequestPayload
+	if err := json.Unmarshal(rawBody, &payload); err != nil {
+		return ControlTowerEventWorkflow{}, apperrors.Validation("invalid request body", map[string]any{"field": "body"})
+	}
+	if payload.Priority == nil && payload.Category == nil && payload.BusinessImpact == nil {
+		return ControlTowerEventWorkflow{}, apperrors.Validation("at least one exception field is required", map[string]any{"field": "body"})
+	}
+
+	rmCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), s.readModelCfg.Timeout)
+	defer cancel()
+
+	remote, depErr := s.readModel.UpdateException(rmCtx, controltowerreadmodel.UpdateExceptionInput{
+		TenantID:       reqCtx.TenantID,
+		UserID:         reqCtx.UserID,
+		RequestID:      reqCtx.RequestID,
+		EventID:        eventID,
+		Priority:       payload.Priority,
+		Category:       payload.Category,
+		BusinessImpact: payload.BusinessImpact,
+	})
+	if depErr != nil {
+		return ControlTowerEventWorkflow{}, mapWorkflowDependencyError(depErr)
+	}
+
+	return mapRemoteWorkflowWithException(*remote), nil
+}
+
+func mapRemoteWorkflowWithException(remote controltowerreadmodel.RemoteWorkflow) ControlTowerEventWorkflow {
+	result := mapRemoteWorkflow(remote)
+	if remote.Exception.Priority != "" {
+		result.Priority = remote.Exception.Priority
+		result.ExceptionCategory = remote.Exception.ExceptionCategory
+		result.BusinessImpact = remote.Exception.BusinessImpact
+		if remote.Exception.Escalation.Level != "" {
+			result.Escalation = &ControlTowerEventEscalation{Level: remote.Exception.Escalation.Level}
+		}
+		if remote.Exception.SLA.Phase != "" {
+			sla := &ControlTowerEventSLA{
+				Phase:            remote.Exception.SLA.Phase,
+				Status:           remote.Exception.SLA.Status,
+				RemainingSeconds: remote.Exception.SLA.RemainingSeconds,
+			}
+			if ackDue, err := time.Parse(time.RFC3339, remote.Exception.SLA.AcknowledgeDueAt); err == nil {
+				sla.AcknowledgeDueAt = ackDue.UTC()
+			}
+			if assignDue, err := time.Parse(time.RFC3339, remote.Exception.SLA.AssignmentDueAt); err == nil {
+				sla.AssignmentDueAt = assignDue.UTC()
+			}
+			if resolveDue, err := time.Parse(time.RFC3339, remote.Exception.SLA.ResolutionDueAt); err == nil {
+				sla.ResolutionDueAt = resolveDue.UTC()
+			}
+			result.SLA = sla
+		}
+	}
+	return result
+}
+
 func (s *Service) AssignCriticalEvent(
 	ctx context.Context,
 	reqCtx RequestContext,
@@ -195,8 +270,21 @@ func (s *Service) enrichCriticalEventWorkflows(
 			if (*events)[i].Acknowledgement != nil && (*events)[i].Status == WorkflowStatusOpen {
 				(*events)[i].Status = WorkflowStatusAcknowledged
 			}
+			applyDefaultException(&(*events)[i], time.Now().UTC())
 		}
 		return
+	}
+
+	seeds := make([]controltowerreadmodel.EnsureExceptionSeed, 0, len(*events))
+	for _, event := range *events {
+		seeds = append(seeds, controltowerreadmodel.EnsureExceptionSeed{
+			EventID:    event.ID,
+			ShipmentID: event.ShipmentID,
+			EventType:  event.Type,
+			Source:     event.Source,
+			OccurredAt: event.OccurredAt,
+			Severity:   event.Severity,
+		})
 	}
 
 	eventIDs := make([]string, 0, len(*events))
@@ -207,15 +295,21 @@ func (s *Service) enrichCriticalEventWorkflows(
 	rmCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), s.readModelCfg.Timeout)
 	defer cancel()
 
+	_ = s.readModel.EnsureExceptionWorkflows(rmCtx, reqCtx.TenantID, reqCtx.RequestID, seeds)
+
 	lookup, depErr := s.readModel.LookupWorkflows(rmCtx, reqCtx.TenantID, reqCtx.RequestID, eventIDs)
 	if depErr != nil {
 		s.enrichCriticalEventAcknowledgements(ctx, reqCtx, events)
+		for i := range *events {
+			applyDefaultException(&(*events)[i], time.Now().UTC())
+		}
 		return
 	}
 
 	for i := range *events {
 		item, ok := lookup[(*events)[i].ID]
 		if !ok {
+			applyDefaultException(&(*events)[i], time.Now().UTC())
 			continue
 		}
 		applyWorkflowLookup(&(*events)[i], item)
@@ -255,6 +349,41 @@ func applyWorkflowLookup(event *ControlTowerEvent, item controltowerreadmodel.Re
 				Comment:          item.Resolution.Comment,
 			}
 		}
+	}
+	applyExceptionLookup(event, item.Exception)
+}
+
+func applyExceptionLookup(event *ControlTowerEvent, details controltowerreadmodel.RemoteExceptionDetails) {
+	if details.Priority != "" {
+		event.Priority = details.Priority
+	}
+	if details.ExceptionCategory != "" {
+		event.ExceptionCategory = details.ExceptionCategory
+	}
+	if details.BusinessImpact != "" {
+		event.BusinessImpact = details.BusinessImpact
+	}
+	if details.Escalation.Level != "" {
+		event.Escalation = &ControlTowerEventEscalation{Level: details.Escalation.Level}
+	} else if event.Escalation == nil {
+		event.Escalation = &ControlTowerEventEscalation{Level: "none"}
+	}
+	if details.SLA.Phase != "" {
+		sla := &ControlTowerEventSLA{
+			Phase:  details.SLA.Phase,
+			Status: details.SLA.Status,
+		}
+		if ackDue, err := time.Parse(time.RFC3339, details.SLA.AcknowledgeDueAt); err == nil {
+			sla.AcknowledgeDueAt = ackDue.UTC()
+		}
+		if assignDue, err := time.Parse(time.RFC3339, details.SLA.AssignmentDueAt); err == nil {
+			sla.AssignmentDueAt = assignDue.UTC()
+		}
+		if resolveDue, err := time.Parse(time.RFC3339, details.SLA.ResolutionDueAt); err == nil {
+			sla.ResolutionDueAt = resolveDue.UTC()
+		}
+		sla.RemainingSeconds = details.SLA.RemainingSeconds
+		event.SLA = sla
 	}
 }
 

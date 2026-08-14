@@ -70,6 +70,7 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 		r.Post("/api/v1/control-tower/critical-events/{eventId}/assign", controlTower.AssignCriticalEvent)
 		r.Post("/api/v1/control-tower/critical-events/{eventId}/resolve", controlTower.ResolveCriticalEvent)
 		r.Post("/api/v1/control-tower/critical-events/{eventId}/reopen", controlTower.ReopenCriticalEvent)
+		r.Patch("/api/v1/control-tower/critical-events/{eventId}/exception", controlTower.UpdateCriticalEventException)
 		r.Get("/api/v1/control-tower/critical-events/{eventId}/actions", controlTower.GetCriticalEventActions)
 	}
 

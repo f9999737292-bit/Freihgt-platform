@@ -62,6 +62,7 @@ type RemoteWorkflow struct {
 	EventID string `json:"eventId"`
 	Status  string `json:"status"`
 	RemoteWorkflowSummary
+	Exception RemoteExceptionDetails `json:"exception,omitempty"`
 }
 
 type RemoteWorkflowAction struct {
@@ -75,6 +76,7 @@ type RemoteWorkflowLookupItem struct {
 	EventID string
 	Status  string
 	RemoteWorkflowSummary
+	Exception            RemoteExceptionDetails
 	AcknowledgedAt       time.Time
 	AcknowledgedByUserID string
 }

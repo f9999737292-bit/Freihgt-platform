@@ -616,6 +616,13 @@
       "carrier": "Carrier",
       "date": "Date",
       "criticalOnly": "Critical only",
+      "eventStatus": "Exception status",
+      "priority": "Priority",
+      "exceptionCategory": "Exception category",
+      "businessImpact": "Business impact",
+      "eventSlaStatus": "Exception SLA",
+      "escalationLevel": "Escalation level",
+      "unassignedOnly": "Unassigned only",
       "reset": "Reset filters"
     },
     "table": {
@@ -667,7 +674,12 @@
         "assigned": "Assigned",
         "reassigned": "Reassigned",
         "resolved": "Resolved",
-        "reopened": "Reopened"
+        "reopened": "Reopened",
+        "exception_updated": "Exception updated",
+        "ack_sla_breached": "Acknowledgement SLA breached",
+        "assign_sla_breached": "Assignment SLA breached",
+        "resolve_sla_breached": "Resolution SLA breached",
+        "escalation_changed": "Escalation changed"
       },
       "resolutionCodes": {
         "issue_resolved": "Issue resolved",
@@ -705,6 +717,12 @@
           "notFound": "Event not found",
           "conflict": "Action history is unavailable",
           "unavailable": "Action history service is temporarily unavailable"
+        },
+        "exception": {
+          "forbidden": "You do not have permission to manage this exception",
+          "notFound": "Event not found or no longer active",
+          "conflict": "Cannot update exception in its current status",
+          "unavailable": "Exception service is temporarily unavailable"
         }
       },
       "types": {
@@ -728,6 +746,82 @@
         "missingDocuments": "Delivered shipment has no linked documents",
         "shipmentCancelled": "Shipment was cancelled",
         "technicalIssue": "Backend or integration issue detected"
+      }
+    },
+    "exceptions": {
+      "edit": "Edit exception",
+      "editTitle": "Operational exception settings",
+      "updateSuccess": "Exception updated",
+      "detailsTitle": "Exception & SLA",
+      "priority": "Priority",
+      "category": "Category",
+      "businessImpactLabel": "Business impact",
+      "sla": "SLA",
+      "escalationLabel": "Escalation",
+      "slaCompleted": "SLA completed",
+      "remainingMinutes": "{count}m remaining",
+      "remainingHours": "{count}h remaining",
+      "remainingHoursMinutes": "{hours}h {minutes}m remaining",
+      "overdueMinutes": "Overdue by {count}m",
+      "overdueHours": "Overdue by {count}h",
+      "overdueHoursMinutes": "Overdue by {hours}h {minutes}m",
+      "priorities": {
+        "p1": "P1 — critical",
+        "p2": "P2 — high",
+        "p3": "P3 — normal",
+        "p4": "P4 — low"
+      },
+      "categories": {
+        "delay": "Delay",
+        "route_deviation": "Route deviation",
+        "document_issue": "Document issue",
+        "vehicle_issue": "Vehicle issue",
+        "driver_issue": "Driver issue",
+        "slot_issue": "Slot issue",
+        "delivery_issue": "Delivery issue",
+        "pickup_issue": "Pickup issue",
+        "billing_issue": "Billing issue",
+        "integration_issue": "Integration issue",
+        "data_quality": "Data quality",
+        "other": "Other"
+      },
+      "businessImpact": {
+        "none": "None",
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High",
+        "critical": "Critical"
+      },
+      "slaStatus": {
+        "within_sla": "Within SLA",
+        "warning": "SLA warning",
+        "breached": "SLA breached",
+        "completed": "SLA completed"
+      },
+      "slaPhase": {
+        "acknowledgement": "Acknowledgement phase",
+        "assignment": "Assignment phase",
+        "resolution": "Resolution phase"
+      },
+      "escalation": {
+        "none": "No escalation",
+        "level_1": "Escalation 1",
+        "level_2": "Escalation 2",
+        "level_3": "Escalation 3"
+      },
+      "kpi": {
+        "totalOpen": "Open exceptions",
+        "totalOpenDesc": "Unresolved operational exceptions",
+        "p1Open": "P1 open",
+        "p1OpenDesc": "Critical open exceptions",
+        "p2Open": "P2 open",
+        "p2OpenDesc": "High-priority open exceptions",
+        "slaWarning": "SLA warning",
+        "slaWarningDesc": "Exceptions nearing SLA deadline",
+        "slaBreached": "SLA breached",
+        "slaBreachedDesc": "Exceptions with breached SLA",
+        "unassigned": "Unassigned",
+        "unassignedDesc": "Acknowledged but not assigned"
       }
     },
     "states": {

@@ -29,6 +29,9 @@ type WorkflowStore interface {
 	ReopenCriticalEvent(ctx context.Context, input domain.ReopenCriticalEventInput) (domain.CriticalEventWorkflow, error)
 	ListActions(ctx context.Context, tenantID uuid.UUID, eventID string) ([]domain.CriticalEventAction, error)
 	LookupWorkflows(ctx context.Context, tenantID uuid.UUID, eventIDs []string) ([]domain.CriticalEventWorkflow, error)
+	EnsureExceptionWorkflows(ctx context.Context, tenantID uuid.UUID, seeds []domain.EnsureExceptionSeed) error
+	UpdateException(ctx context.Context, input domain.UpdateExceptionInput) (domain.CriticalEventWorkflow, error)
+	LookupWorkflowsWithExceptionProcessing(ctx context.Context, tenantID uuid.UUID, eventIDs []string, actorUserID uuid.UUID) ([]domain.CriticalEventWorkflow, error)
 }
 
 type AckHandler struct {
@@ -84,6 +87,7 @@ type workflowLookupItemResponse struct {
 	EventID string `json:"eventId"`
 	Status  string `json:"status"`
 	WorkflowSummaryResponse
+	Exception exceptionDetailsResponse `json:"exception"`
 }
 
 type workflowLookupResponse struct {
@@ -243,6 +247,7 @@ func (h *AckHandler) LookupWorkflows(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, err)
 		return
 	}
+	userID, _ := resolveVerifiedUser(r)
 
 	var payload workflowLookupRequest
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
@@ -250,18 +255,20 @@ func (h *AckHandler) LookupWorkflows(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, err := h.workflowRepo.LookupWorkflows(r.Context(), tenantID, payload.EventIDs)
+	items, err := h.workflowRepo.LookupWorkflowsWithExceptionProcessing(r.Context(), tenantID, payload.EventIDs, userID)
 	if err != nil {
 		respond.Error(w, apperrors.Internal("failed to lookup workflows", err))
 		return
 	}
 
+	now := time.Now().UTC()
 	resp := workflowLookupResponse{Items: make([]workflowLookupItemResponse, 0, len(items))}
 	for _, item := range items {
 		resp.Items = append(resp.Items, workflowLookupItemResponse{
 			EventID:                 item.EventID,
 			Status:                  item.Status,
 			WorkflowSummaryResponse: toWorkflowSummaryResponse(item),
+			Exception:               toExceptionDetailsResponse(item, now),
 		})
 	}
 	respond.JSON(w, http.StatusOK, resp)

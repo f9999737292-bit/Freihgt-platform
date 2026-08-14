@@ -138,6 +138,10 @@ func (h *Handler) ReopenCriticalEvent(w http.ResponseWriter, r *http.Request) {
 	h.handleWorkflowMutation(w, r, "reopen", h.service.ReopenCriticalEvent, h.ensureAssignAccess)
 }
 
+func (h *Handler) UpdateCriticalEventException(w http.ResponseWriter, r *http.Request) {
+	h.handleWorkflowMutation(w, r, "exception", h.service.UpdateCriticalEventException, h.ensureManageExceptionAccess)
+}
+
 func (h *Handler) GetCriticalEventActions(w http.ResponseWriter, r *http.Request) {
 	started := time.Now()
 	eventID := strings.ToLower(strings.TrimSpace(chi.URLParam(r, "eventId")))
@@ -232,6 +236,10 @@ func (h *Handler) ensureAssignAccess(r *http.Request, reqCtx RequestContext) err
 
 func (h *Handler) ensureResolveAccess(r *http.Request, reqCtx RequestContext) error {
 	return h.ensureRoleAccess(r, reqCtx, CanResolveControlTower, "resolve control tower events denied")
+}
+
+func (h *Handler) ensureManageExceptionAccess(r *http.Request, reqCtx RequestContext) error {
+	return h.ensureRoleAccess(r, reqCtx, CanManageException, "manage control tower exceptions denied")
 }
 
 func (h *Handler) ensureRoleAccess(

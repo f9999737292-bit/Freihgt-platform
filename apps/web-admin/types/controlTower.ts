@@ -124,6 +124,67 @@ export type ControlTowerEventType =
 
 export type ControlTowerEventWorkflowStatus = 'open' | 'acknowledged' | 'assigned' | 'resolved'
 
+export type ControlTowerExceptionPriority = 'p1' | 'p2' | 'p3' | 'p4'
+export type ControlTowerExceptionSLAStatus = 'within_sla' | 'warning' | 'breached' | 'completed'
+export type ControlTowerEscalationLevel = 'none' | 'level_1' | 'level_2' | 'level_3'
+
+export const CONTROL_TOWER_PRIORITIES: ControlTowerExceptionPriority[] = ['p1', 'p2', 'p3', 'p4']
+
+export const CONTROL_TOWER_EXCEPTION_CATEGORIES = [
+  'delay',
+  'route_deviation',
+  'document_issue',
+  'vehicle_issue',
+  'driver_issue',
+  'slot_issue',
+  'delivery_issue',
+  'pickup_issue',
+  'billing_issue',
+  'integration_issue',
+  'data_quality',
+  'other',
+] as const
+
+export const CONTROL_TOWER_BUSINESS_IMPACTS = ['none', 'low', 'medium', 'high', 'critical'] as const
+
+export const CONTROL_TOWER_EVENT_SLA_STATUSES: ControlTowerExceptionSLAStatus[] = [
+  'within_sla',
+  'warning',
+  'breached',
+  'completed',
+]
+
+export const CONTROL_TOWER_ESCALATION_LEVELS: ControlTowerEscalationLevel[] = [
+  'none',
+  'level_1',
+  'level_2',
+  'level_3',
+]
+
+export interface ControlTowerEventSLA {
+  phase: 'acknowledgement' | 'assignment' | 'resolution'
+  status: ControlTowerExceptionSLAStatus
+  acknowledgeDueAt: string
+  assignmentDueAt: string
+  resolutionDueAt: string
+  remainingSeconds?: number
+}
+
+export interface ControlTowerEventEscalation {
+  level: ControlTowerEscalationLevel
+}
+
+export interface ControlTowerExceptionKpi {
+  totalOpenExceptions: number
+  p1Open: number
+  p2Open: number
+  slaWarning: number
+  slaBreached: number
+  unassignedExceptions: number
+  resolvedWithinSla: number
+  resolvedOutsideSla: number
+}
+
 export type ControlTowerEventResolutionCode =
   | 'issue_resolved'
   | 'false_positive'
@@ -161,7 +222,17 @@ export interface ControlTowerEventWorkflow {
 }
 
 export interface ControlTowerEventAction {
-  actionType: 'acknowledged' | 'assigned' | 'reassigned' | 'resolved' | 'reopened'
+  actionType:
+    | 'acknowledged'
+    | 'assigned'
+    | 'reassigned'
+    | 'resolved'
+    | 'reopened'
+    | 'exception_updated'
+    | 'ack_sla_breached'
+    | 'assign_sla_breached'
+    | 'resolve_sla_breached'
+    | 'escalation_changed'
   actorUserId: string
   occurredAt: string
   metadata?: Record<string, unknown>
@@ -200,6 +271,11 @@ export interface ControlTowerEvent {
   description?: string
   descriptionKey?: string
   status?: ControlTowerEventWorkflowStatus
+  priority?: ControlTowerExceptionPriority
+  exceptionCategory?: string
+  businessImpact?: string
+  sla?: ControlTowerEventSLA
+  escalation?: ControlTowerEventEscalation
   acknowledgement?: ControlTowerEventAcknowledgementSummary
   assignment?: ControlTowerEventAssignment
   resolution?: ControlTowerEventResolution
@@ -239,6 +315,13 @@ export interface ControlTowerFilters {
   carrierCompanyId: string
   date: string
   criticalOnly: boolean
+  eventStatus: string
+  priority: string
+  exceptionCategory: string
+  businessImpact: string
+  eventSlaStatus: string
+  escalationLevel: string
+  unassignedOnly: boolean
 }
 
 export type ControlTowerKpiTone = 'ok' | 'warning' | 'danger' | 'neutral'
@@ -327,6 +410,7 @@ export interface ControlTowerSummaryResponse {
   generatedAt: string
   dataFreshness: ControlTowerDataFreshness
   kpi: ControlTowerSummaryKpi
+  exceptionKpi?: ControlTowerExceptionKpi
   shipments: ControlTowerSummaryPagination
   criticalEvents: ControlTowerEvent[]
   filters: ControlTowerSummaryFilters
@@ -364,6 +448,13 @@ export function createDefaultControlTowerFilters(): ControlTowerFilters {
     carrierCompanyId: '',
     date: '',
     criticalOnly: false,
+    eventStatus: '',
+    priority: '',
+    exceptionCategory: '',
+    businessImpact: '',
+    eventSlaStatus: '',
+    escalationLevel: '',
+    unassignedOnly: false,
   }
 }
 

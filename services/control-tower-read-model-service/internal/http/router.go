@@ -46,7 +46,9 @@ func NewRouter(
 		r.Post("/critical-events/{eventId}/reopen", ackHandler.ReopenCriticalEvent)
 		r.Get("/critical-events/{eventId}/actions", ackHandler.ListCriticalEventActions)
 		r.Post("/critical-events/acknowledgements/lookup", ackHandler.LookupAcknowledgements)
+		r.Post("/critical-events/workflows/ensure", ackHandler.EnsureExceptionWorkflows)
 		r.Post("/critical-events/workflows/lookup", ackHandler.LookupWorkflows)
+		r.Patch("/critical-events/{eventId}/exception", ackHandler.UpdateException)
 	})
 
 	return r

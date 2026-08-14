@@ -20,6 +20,7 @@ const {
   filteredShipments,
   controlTowerShipments,
   kpiMetrics,
+  exceptionKpiMetrics,
   criticalEvents,
   acknowledgingEventId,
   workflowActionEventId,
@@ -27,6 +28,7 @@ const {
   assignCriticalEvent,
   resolveCriticalEvent,
   reopenCriticalEvent,
+  updateCriticalEventException,
   fetchCriticalEventActions,
   apiUnavailable,
   dataFreshness,
@@ -74,9 +76,11 @@ const hasAccess = computed(() => canAccessControlTower())
 const canAcknowledgeEvents = computed(() => hasAccess.value && !demoMode.value)
 const canAssignEvents = computed(() => hasAccess.value && !demoMode.value)
 const canResolveEvents = computed(() => hasAccess.value && !demoMode.value)
+const canManageExceptions = computed(() => hasAccess.value && !demoMode.value)
 
 const assignModalOpen = ref(false)
 const resolveModalOpen = ref(false)
+const exceptionModalOpen = ref(false)
 const detailsModalOpen = ref(false)
 const selectedEventId = ref<string | null>(null)
 const selectedEvent = ref<ControlTowerEvent | null>(null)
@@ -144,6 +148,22 @@ async function onShowEventDetails(event: ControlTowerEvent) {
   const response = await fetchCriticalEventActions(event.id)
   detailsActions.value = response?.items ?? []
   detailsLoading.value = false
+}
+
+function onEditException(event: ControlTowerEvent) {
+  selectedEvent.value = event
+  selectedEventId.value = event.id
+  exceptionModalOpen.value = true
+}
+
+async function onExceptionSubmit(payload: {
+  priority?: string
+  category?: string
+  businessImpact?: string
+}) {
+  if (!selectedEventId.value) return
+  const ok = await updateCriticalEventException(selectedEventId.value, payload)
+  if (ok) exceptionModalOpen.value = false
 }
 
 const isEmptyDataset = computed(
@@ -278,6 +298,17 @@ onBeforeUnmount(() => {
           <ControlTowerMetricCard v-for="metric in kpiMetrics" :key="metric.key" :metric="metric" />
         </section>
 
+        <section
+          v-if="exceptionKpiMetrics.length > 0"
+          class="control-tower-v01__kpi-grid control-tower-v01__kpi-grid--exceptions"
+        >
+          <ControlTowerMetricCard
+            v-for="metric in exceptionKpiMetrics"
+            :key="metric.key"
+            :metric="metric"
+          />
+        </section>
+
         <UiCard>
           <h2 class="control-tower-v01__section-title">{{ $t('controlTower.sections.filters') }}</h2>
           <ControlTowerFiltersBar
@@ -321,12 +352,14 @@ onBeforeUnmount(() => {
               :can-acknowledge="canAcknowledgeEvents"
               :can-assign="canAssignEvents"
               :can-resolve="canResolveEvents"
+              :can-manage-exception="canManageExceptions"
               :acknowledging-event-id="acknowledgingEventId"
               :workflow-action-event-id="workflowActionEventId"
               @acknowledge="onAcknowledgeEvent"
               @assign="onAssignEvent"
               @resolve="onResolveEvent"
               @reopen="onReopenEvent"
+              @edit-exception="onEditException"
               @show-details="onShowEventDetails"
             />
           </UiCard>
@@ -356,6 +389,14 @@ onBeforeUnmount(() => {
         :actions="detailsActions"
         :loading="detailsLoading"
         @close="detailsModalOpen = false"
+      />
+
+      <ControlTowerCriticalEventExceptionModal
+        :open="exceptionModalOpen"
+        :event="selectedEvent"
+        :loading="Boolean(workflowActionEventId)"
+        @close="exceptionModalOpen = false"
+        @submit="onExceptionSubmit"
       />
     </template>
   </div>

@@ -163,6 +163,9 @@ func (s *Service) GetSummary(ctx context.Context, reqCtx RequestContext, query L
 	page := Paginate(filtered, query.Page, query.Limit)
 	criticalEvents := BuildCriticalEvents(filtered, shipmentIDsWithDocs, s.thresholds, now)
 	s.enrichCriticalEventWorkflows(ctx, reqCtx, &criticalEvents)
+	SortCriticalEvents(criticalEvents)
+	criticalEvents = FilterCriticalEvents(criticalEvents, query)
+	exceptionKPI := CalculateExceptionKPI(criticalEvents)
 	filters := BuildFilterOptions(allRows, companies, freshness.CompaniesLoaded)
 	if !freshness.CompaniesLoaded {
 		freshness.Warnings = appendUniqueWarning(freshness.Warnings, WarningFilterOptionsIncomplete)
@@ -174,6 +177,7 @@ func (s *Service) GetSummary(ctx context.Context, reqCtx RequestContext, query L
 		GeneratedAt:    now,
 		DataFreshness:  freshness,
 		KPI:            kpi,
+		ExceptionKPI:   exceptionKPI,
 		Shipments:      page,
 		CriticalEvents: criticalEvents,
 		Filters:        filters,

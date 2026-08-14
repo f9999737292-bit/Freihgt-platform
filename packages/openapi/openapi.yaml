@@ -851,6 +851,34 @@ paths:
           in: query
           schema:
             type: boolean
+        - name: event_status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ControlTowerEventWorkflowStatus'
+        - name: priority
+          in: query
+          schema:
+            $ref: '#/components/schemas/ControlTowerExceptionPriority'
+        - name: exception_category
+          in: query
+          schema:
+            $ref: '#/components/schemas/ControlTowerExceptionCategory'
+        - name: business_impact
+          in: query
+          schema:
+            $ref: '#/components/schemas/ControlTowerBusinessImpact'
+        - name: event_sla_status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ControlTowerExceptionSLAStatus'
+        - name: escalation_level
+          in: query
+          schema:
+            $ref: '#/components/schemas/ControlTowerEscalationLevel'
+        - name: unassigned_only
+          in: query
+          schema:
+            type: boolean
         - name: page
           in: query
           schema:
@@ -1078,6 +1106,41 @@ paths:
         '403': { description: Forbidden, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
         '404': { description: Event not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
         '409': { description: Invalid workflow transition, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '503': { description: Dependency unavailable, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /api/v1/control-tower/critical-events/{eventId}/exception:
+    patch:
+      tags: [Control Tower]
+      summary: Update operational exception attributes
+      operationId: patch_control_tower_critical_event_exception
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[0-9a-f]{32}$'
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ControlTowerExceptionUpdateRequest'
+      responses:
+        '200':
+          description: Exception attributes updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerEventWorkflow'
+        '400': { description: Invalid request, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '401': { description: Unauthorized, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Forbidden, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Event not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
         '503': { description: Dependency unavailable, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
   /api/v1/control-tower/critical-events/{eventId}/actions:
     get:
@@ -6048,6 +6111,8 @@ components:
             critical: { type: integer }
             awaitingDocuments: { type: integer }
             readyForBilling: { type: integer }
+        exceptionKpi:
+          $ref: '#/components/schemas/ControlTowerExceptionKPI'
         shipments:
           type: object
           properties:
@@ -6203,6 +6268,81 @@ components:
     ControlTowerEventWorkflowStatus:
       type: string
       enum: [open, acknowledged, assigned, resolved]
+    ControlTowerExceptionPriority:
+      type: string
+      enum: [p1, p2, p3, p4]
+    ControlTowerExceptionCategory:
+      type: string
+      enum:
+        - delay
+        - route_deviation
+        - document_issue
+        - vehicle_issue
+        - driver_issue
+        - slot_issue
+        - delivery_issue
+        - pickup_issue
+        - billing_issue
+        - integration_issue
+        - data_quality
+        - other
+    ControlTowerBusinessImpact:
+      type: string
+      enum: [none, low, medium, high, critical]
+    ControlTowerExceptionSLAStatus:
+      type: string
+      enum: [within_sla, warning, breached, completed]
+    ControlTowerEscalationLevel:
+      type: string
+      enum: [none, level_1, level_2, level_3]
+    ControlTowerExceptionSLA:
+      type: object
+      required: [phase, status, acknowledgeDueAt, assignmentDueAt, resolutionDueAt]
+      properties:
+        phase:
+          type: string
+          enum: [acknowledgement, assignment, resolution]
+        status:
+          $ref: '#/components/schemas/ControlTowerExceptionSLAStatus'
+        acknowledgeDueAt:
+          type: string
+          format: date-time
+        assignmentDueAt:
+          type: string
+          format: date-time
+        resolutionDueAt:
+          type: string
+          format: date-time
+        remainingSeconds:
+          type: integer
+          format: int64
+    ControlTowerEventEscalation:
+      type: object
+      required: [level]
+      properties:
+        level:
+          $ref: '#/components/schemas/ControlTowerEscalationLevel'
+    ControlTowerExceptionUpdateRequest:
+      type: object
+      minProperties: 1
+      properties:
+        priority:
+          $ref: '#/components/schemas/ControlTowerExceptionPriority'
+        category:
+          $ref: '#/components/schemas/ControlTowerExceptionCategory'
+        businessImpact:
+          $ref: '#/components/schemas/ControlTowerBusinessImpact'
+    ControlTowerExceptionKPI:
+      type: object
+      properties:
+        totalOpenExceptions: { type: integer }
+        p1Open: { type: integer }
+        p2Open: { type: integer }
+        slaWarning: { type: integer }
+        slaBreached: { type: integer }
+        unassignedExceptions: { type: integer }
+        resolvedWithinSla: { type: integer }
+        resolvedOutsideSla: { type: integer }
     ControlTowerEventResolutionCode:
       type: string
       enum: [issue_resolved, false_positive, duplicate, cancelled, other]
@@ -6257,6 +6397,16 @@ components:
           pattern: '^[0-9a-f]{32}$'
         status:
           $ref: '#/components/schemas/ControlTowerEventWorkflowStatus'
+        priority:
+          $ref: '#/components/schemas/ControlTowerExceptionPriority'
+        exceptionCategory:
+          $ref: '#/components/schemas/ControlTowerExceptionCategory'
+        businessImpact:
+          $ref: '#/components/schemas/ControlTowerBusinessImpact'
+        sla:
+          $ref: '#/components/schemas/ControlTowerExceptionSLA'
+        escalation:
+          $ref: '#/components/schemas/ControlTowerEventEscalation'
         acknowledgement:
           $ref: '#/components/schemas/ControlTowerEventAcknowledgementSummary'
         assignment:
@@ -6269,7 +6419,17 @@ components:
       properties:
         actionType:
           type: string
-          enum: [acknowledged, assigned, reassigned, resolved, reopened]
+          enum:
+            - acknowledged
+            - assigned
+            - reassigned
+            - resolved
+            - reopened
+            - exception_updated
+            - ack_sla_breached
+            - assign_sla_breached
+            - resolve_sla_breached
+            - escalation_changed
         actorUserId:
           type: string
           format: uuid
@@ -6304,6 +6464,16 @@ components:
         source: { type: string }
         status:
           $ref: '#/components/schemas/ControlTowerEventWorkflowStatus'
+        priority:
+          $ref: '#/components/schemas/ControlTowerExceptionPriority'
+        exceptionCategory:
+          $ref: '#/components/schemas/ControlTowerExceptionCategory'
+        businessImpact:
+          $ref: '#/components/schemas/ControlTowerBusinessImpact'
+        sla:
+          $ref: '#/components/schemas/ControlTowerExceptionSLA'
+        escalation:
+          $ref: '#/components/schemas/ControlTowerEventEscalation'
         acknowledgement:
           $ref: '#/components/schemas/ControlTowerEventAcknowledgementSummary'
           description: Present when the event has been acknowledged; omitted otherwise.

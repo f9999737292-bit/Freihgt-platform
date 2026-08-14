@@ -170,6 +170,7 @@ func (c *Client) LookupWorkflows(
 			EventID string `json:"eventId"`
 			Status  string `json:"status"`
 			RemoteWorkflowSummary
+			Exception RemoteExceptionDetails `json:"exception"`
 		} `json:"items"`
 	}
 	if err := decodeJSON(resp.Body, c.maxBytes, &payload); err != nil {
@@ -184,6 +185,7 @@ func (c *Client) LookupWorkflows(
 			EventID:               item.EventID,
 			Status:                item.Status,
 			RemoteWorkflowSummary: item.RemoteWorkflowSummary,
+			Exception:             item.Exception,
 		}
 		if item.Acknowledgement != nil {
 			if ackAt, err := time.Parse(time.RFC3339, item.Acknowledgement.AcknowledgedAt); err == nil {

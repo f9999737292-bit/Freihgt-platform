@@ -616,6 +616,13 @@
       "carrier": "Перевозчик",
       "date": "Дата",
       "criticalOnly": "Только критические",
+      "eventStatus": "Статус исключения",
+      "priority": "Приоритет",
+      "exceptionCategory": "Категория исключения",
+      "businessImpact": "Бизнес-влияние",
+      "eventSlaStatus": "SLA исключения",
+      "escalationLevel": "Уровень эскалации",
+      "unassignedOnly": "Только без назначения",
       "reset": "Сбросить фильтры"
     },
     "table": {
@@ -667,7 +674,12 @@
         "assigned": "Назначено",
         "reassigned": "Переназначено",
         "resolved": "Закрыто",
-        "reopened": "Переоткрыто"
+        "reopened": "Переоткрыто",
+        "exception_updated": "Изменены параметры исключения",
+        "ack_sla_breached": "Нарушен SLA подтверждения",
+        "assign_sla_breached": "Нарушен SLA назначения",
+        "resolve_sla_breached": "Нарушен SLA закрытия",
+        "escalation_changed": "Изменён уровень эскалации"
       },
       "resolutionCodes": {
         "issue_resolved": "Проблема устранена",
@@ -705,6 +717,12 @@
           "notFound": "Событие не найдено",
           "conflict": "История действий недоступна",
           "unavailable": "Сервис истории временно недоступен"
+        },
+        "exception": {
+          "forbidden": "Недостаточно прав для изменения исключения",
+          "notFound": "Событие не найдено или больше не активно",
+          "conflict": "Нельзя изменить исключение в текущем статусе",
+          "unavailable": "Сервис исключений временно недоступен"
         }
       },
       "types": {
@@ -728,6 +746,82 @@
         "missingDocuments": "Доставленная перевозка без связанных документов",
         "shipmentCancelled": "Перевозка отменена",
         "technicalIssue": "Обнаружена проблема backend или интеграции"
+      }
+    },
+    "exceptions": {
+      "edit": "Изменить исключение",
+      "editTitle": "Параметры операционного исключения",
+      "updateSuccess": "Параметры исключения обновлены",
+      "detailsTitle": "Исключение и SLA",
+      "priority": "Приоритет",
+      "category": "Категория",
+      "businessImpactLabel": "Бизнес-влияние",
+      "sla": "SLA",
+      "escalationLabel": "Эскалация",
+      "slaCompleted": "SLA выполнен",
+      "remainingMinutes": "{count} мин осталось",
+      "remainingHours": "{count} ч осталось",
+      "remainingHoursMinutes": "{hours} ч {minutes} мин осталось",
+      "overdueMinutes": "Просрочено на {count} мин",
+      "overdueHours": "Просрочено на {count} ч",
+      "overdueHoursMinutes": "Просрочено на {hours} ч {minutes} мин",
+      "priorities": {
+        "p1": "P1 — критический",
+        "p2": "P2 — высокий",
+        "p3": "P3 — нормальный",
+        "p4": "P4 — низкий"
+      },
+      "categories": {
+        "delay": "Задержка",
+        "route_deviation": "Отклонение маршрута",
+        "document_issue": "Проблема с документами",
+        "vehicle_issue": "Проблема с ТС",
+        "driver_issue": "Проблема с водителем",
+        "slot_issue": "Проблема со слотом",
+        "delivery_issue": "Проблема доставки",
+        "pickup_issue": "Проблема погрузки",
+        "billing_issue": "Проблема биллинга",
+        "integration_issue": "Проблема интеграции",
+        "data_quality": "Качество данных",
+        "other": "Другое"
+      },
+      "businessImpact": {
+        "none": "Нет",
+        "low": "Низкое",
+        "medium": "Среднее",
+        "high": "Высокое",
+        "critical": "Критическое"
+      },
+      "slaStatus": {
+        "within_sla": "В пределах SLA",
+        "warning": "Предупреждение SLA",
+        "breached": "Нарушение SLA",
+        "completed": "SLA выполнен"
+      },
+      "slaPhase": {
+        "acknowledgement": "Фаза подтверждения",
+        "assignment": "Фаза назначения",
+        "resolution": "Фаза закрытия"
+      },
+      "escalation": {
+        "none": "Без эскалации",
+        "level_1": "Эскалация 1",
+        "level_2": "Эскалация 2",
+        "level_3": "Эскалация 3"
+      },
+      "kpi": {
+        "totalOpen": "Открытые исключения",
+        "totalOpenDesc": "Незакрытые операционные исключения",
+        "p1Open": "P1 открытые",
+        "p1OpenDesc": "Критические открытые исключения",
+        "p2Open": "P2 открытые",
+        "p2OpenDesc": "Высокоприоритетные открытые исключения",
+        "slaWarning": "SLA предупреждение",
+        "slaWarningDesc": "Исключения с истекающим SLA",
+        "slaBreached": "SLA нарушено",
+        "slaBreachedDesc": "Исключения с нарушенным SLA",
+        "unassigned": "Без назначения",
+        "unassignedDesc": "Подтверждённые, но не назначенные"
       }
     },
     "states": {

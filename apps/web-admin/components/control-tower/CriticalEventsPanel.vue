@@ -8,6 +8,7 @@ const props = defineProps<{
   canAcknowledge?: boolean
   canAssign?: boolean
   canResolve?: boolean
+  canManageException?: boolean
   acknowledgingEventId?: string | null
   workflowActionEventId?: string | null
 }>()
@@ -17,6 +18,7 @@ const emit = defineEmits<{
   assign: [eventId: string]
   resolve: [eventId: string]
   reopen: [eventId: string]
+  editException: [event: ControlTowerEvent]
   showDetails: [event: ControlTowerEvent]
 }>()
 
@@ -90,6 +92,8 @@ function assignedToLabel(event: ControlTowerEvent): string {
           {{ event.description }}
         </p>
 
+        <ControlTowerCriticalEventExceptionBadges :event="event" />
+
         <div v-if="event.acknowledgement" class="critical-events__info-block">
           <span class="critical-events__info-label">{{ $t('controlTower.events.acknowledged') }}</span>
           <span class="critical-events__info-meta">
@@ -118,6 +122,14 @@ function assignedToLabel(event: ControlTowerEvent): string {
         </div>
 
         <div class="critical-events__actions">
+          <UiButton
+            v-if="canManageException && eventStatus(event) !== 'resolved'"
+            size="sm"
+            variant="ghost"
+            @click="emit('editException', event)"
+          >
+            {{ $t('controlTower.exceptions.edit') }}
+          </UiButton>
           <UiButton
             size="sm"
             variant="ghost"
