@@ -143,6 +143,7 @@ func (h *WorkspaceHandler) GetWorkload(w http.ResponseWriter, r *http.Request) {
 	for _, s := range summaries {
 		items = append(items, map[string]any{
 			"userId": s.UserID.String(), "activeWorkItems": s.ActiveWork,
+			"criticalWork": s.CriticalWork,
 			"unacknowledged": s.Unacknowledged, "p1": s.P1, "p2": s.P2,
 			"slaBreached": s.SLABreached, "slaWarning": s.SLAWarning,
 			"criticalRisks": s.CriticalRisks, "highRisks": s.HighRisks,

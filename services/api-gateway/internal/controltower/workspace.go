@@ -75,6 +75,7 @@ type OperatorWorkload struct {
 	UserID          string  `json:"userId"`
 	DisplayName     *string `json:"displayName,omitempty"`
 	ActiveWorkItems int     `json:"activeWorkItems"`
+	CriticalWork    int     `json:"criticalWork"`
 	Unacknowledged  int     `json:"unacknowledged"`
 	P1              int     `json:"p1"`
 	P2              int     `json:"p2"`
@@ -322,7 +323,8 @@ func (s *Service) GetWorkload(ctx context.Context, reqCtx RequestContext) (Workl
 	operators := make([]OperatorWorkload, 0, len(remote.Operators))
 	for _, op := range remote.Operators {
 		entry := OperatorWorkload{
-			UserID: op.UserID, ActiveWorkItems: op.ActiveWorkItems, Unacknowledged: op.Unacknowledged,
+			UserID: op.UserID, ActiveWorkItems: op.ActiveWorkItems, CriticalWork: op.CriticalWork,
+			Unacknowledged: op.Unacknowledged,
 			P1: op.P1, P2: op.P2, SLABreached: op.SLABreached, SLAWarning: op.SLAWarning,
 			CriticalRisks: op.CriticalRisks, HighRisks: op.HighRisks,
 		}

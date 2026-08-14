@@ -705,3 +705,53 @@ export const CONTROL_TOWER_WORKSPACE_PRESETS = [
 ] as const
 
 export type ControlTowerWorkspacePreset = (typeof CONTROL_TOWER_WORKSPACE_PRESETS)[number]
+
+export type ControlTowerQueueMode = 'active' | 'completed'
+
+export interface ControlTowerOperatorWorkload {
+  userId: string
+  displayName?: string
+  activeWorkItems: number
+  criticalWork?: number
+  unacknowledged: number
+  p1: number
+  p2: number
+  slaBreached: number
+  slaWarning: number
+  criticalRisks: number
+  highRisks: number
+}
+
+export interface ControlTowerWorkloadResponse {
+  operators: ControlTowerOperatorWorkload[]
+  unassignedPool: number
+  kpi: ControlTowerWorkspaceKpi
+}
+
+export interface ControlTowerHandoffItem {
+  id: string
+  itemType: ControlTowerWorkItemType
+  sourceId: string
+  shipmentId?: string
+  outcome: 'transferred' | 'failed'
+  errorCode?: string
+}
+
+export interface ControlTowerHandoff {
+  id: string
+  fromUserId: string
+  toUserId?: string
+  title?: string
+  note?: string
+  createdAt: string
+  items: ControlTowerHandoffItem[]
+}
+
+export interface ControlTowerHandoffCreateResult {
+  handoff: ControlTowerHandoff
+  outcome: ControlTowerBulkActionOutcome
+}
+
+export type ControlTowerBulkActionType = 'claim' | 'assign' | 'unassign' | 'acknowledge'
+
+export const CONTROL_TOWER_ACTIVE_PRESETS = CONTROL_TOWER_WORKSPACE_PRESETS.filter((p) => p !== 'completed')

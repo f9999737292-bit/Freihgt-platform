@@ -323,6 +323,7 @@ onBeforeUnmount(() => {
           <ControlTowerOperatorWorkQueue
             :disabled="demoMode"
             :tenant-users="tenantUsers"
+            :can-view-team-workload="hasAccess"
           />
         </section>
 

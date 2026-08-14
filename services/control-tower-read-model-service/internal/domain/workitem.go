@@ -151,6 +151,7 @@ type BulkActionOutcome struct {
 type WorkloadSummary struct {
 	UserID         uuid.UUID
 	ActiveWork     int
+	CriticalWork   int
 	Unacknowledged int
 	P1             int
 	P2             int

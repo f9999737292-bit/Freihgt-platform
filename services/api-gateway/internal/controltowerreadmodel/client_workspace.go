@@ -201,6 +201,7 @@ type RemoteWorkloadResponse struct {
 type RemoteOperatorWorkload struct {
 	UserID          string `json:"userId"`
 	ActiveWorkItems int    `json:"activeWorkItems"`
+	CriticalWork    int    `json:"criticalWork"`
 	Unacknowledged  int    `json:"unacknowledged"`
 	P1              int    `json:"p1"`
 	P2              int    `json:"p2"`

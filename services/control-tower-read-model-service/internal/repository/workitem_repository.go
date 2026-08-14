@@ -658,6 +658,9 @@ func (r *WorkItemRepository) CountWorkload(ctx context.Context, tenantID uuid.UU
 			byUser[uid] = s
 		}
 		s.ActiveWork++
+		if item.Urgency == domain.UrgencyCritical {
+			s.CriticalWork++
+		}
 		if item.ItemType == domain.WorkItemTypeException {
 			if item.WorkflowStatus == domain.WorkflowStatusOpen {
 				s.Unacknowledged++
