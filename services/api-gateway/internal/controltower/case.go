@@ -164,6 +164,9 @@ func enrichCasePayload(ctx context.Context, s *Service, reqCtx RequestContext, p
 			doc["linkedTransportOrders"] = linkedOrders
 		}
 	}
+	if caseID, ok := doc["id"].(string); ok && caseID != "" {
+		s.enrichCaseAutomation(ctx, reqCtx, caseID, doc)
+	}
 	out, err := json.Marshal(doc)
 	if err != nil {
 		return payload, nil

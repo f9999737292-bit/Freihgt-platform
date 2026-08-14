@@ -134,6 +134,7 @@ func (s *Service) evaluateAndPersistRisks(
 		Evaluations:      syncEvaluations,
 		Materializations: materializations,
 	})
+	s.triggerRiskAutomation(reqCtx, assessments)
 }
 
 func buildRiskShipmentInputs(rows []ControlTowerShipment, rawByID map[string]rawShipment) []risk.ShipmentInput {

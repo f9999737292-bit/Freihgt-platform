@@ -1888,6 +1888,144 @@ paths:
           description: Participant removed
         '409':
           description: Cannot remove canonical case owner
+  /api/v1/control-tower/automation/rules:
+    get:
+      tags: [Control Tower]
+      summary: List automation rules
+      operationId: list_control_tower_automation_rules
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Automation rules page
+    post:
+      tags: [Control Tower]
+      summary: Create automation rule
+      operationId: create_control_tower_automation_rule
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Rule created
+  /api/v1/control-tower/automation/rules/{ruleId}:
+    get:
+      tags: [Control Tower]
+      summary: Get automation rule
+      operationId: get_control_tower_automation_rule
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: ruleId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Rule detail
+    patch:
+      tags: [Control Tower]
+      summary: Update automation rule
+      operationId: patch_control_tower_automation_rule
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: ruleId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Rule updated
+  /api/v1/control-tower/automation/rules/{ruleId}/dry-run:
+    post:
+      tags: [Control Tower]
+      summary: Dry-run automation rule evaluation
+      operationId: post_control_tower_automation_rule_dry_run
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: ruleId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Dry-run result without side effects
+  /api/v1/control-tower/automation/recommendations:
+    get:
+      tags: [Control Tower]
+      summary: List automation recommendations
+      operationId: list_control_tower_automation_recommendations
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Recommendations page
+  /api/v1/control-tower/automation/recommendations/{recommendationId}/accept:
+    post:
+      tags: [Control Tower]
+      summary: Accept playbook recommendation
+      operationId: post_control_tower_automation_recommendation_accept
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: recommendationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Recommendation accepted and execution created
+  /api/v1/control-tower/playbooks:
+    get:
+      tags: [Control Tower]
+      summary: List operational playbooks
+      operationId: list_control_tower_playbooks
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Playbooks page
+    post:
+      tags: [Control Tower]
+      summary: Create operational playbook
+      operationId: create_control_tower_playbook
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Playbook created
+  /api/v1/control-tower/playbook-executions/{executionId}:
+    get:
+      tags: [Control Tower]
+      summary: Get playbook execution
+      operationId: get_control_tower_playbook_execution
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: executionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Playbook execution detail
+  /api/v1/shipments/{shipmentId}/events:
     get:
       tags: [Shipments]
       summary: Shipment event history timeline

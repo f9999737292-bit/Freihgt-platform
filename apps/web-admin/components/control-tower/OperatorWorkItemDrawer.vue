@@ -18,6 +18,36 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const { acceptRecommendation, dismissRecommendation, getExecution } = useAutomationApi()
+
+const parsedRecommendations = computed(() => {
+  const raw = (props.item as ControlTowerWorkItem & { recommendations?: unknown })?.recommendations
+  if (!raw) return []
+  if (Array.isArray(raw)) return raw as import('~/types/automation').AutomationRecommendation[]
+  return []
+})
+
+const activeExecution = ref<import('~/types/automation').PlaybookExecution | null>(null)
+const automationLoading = ref(false)
+
+async function onAccept(rec: import('~/types/automation').AutomationRecommendation) {
+  automationLoading.value = true
+  try {
+    const result = await acceptRecommendation(rec.id)
+    activeExecution.value = result.execution
+  } finally {
+    automationLoading.value = false
+  }
+}
+
+async function onDismiss(rec: import('~/types/automation').AutomationRecommendation, reason: import('~/types/automation').DismissReason) {
+  automationLoading.value = true
+  try {
+    await dismissRecommendation(rec.id, reason)
+  } finally {
+    automationLoading.value = false
+  }
+}
 
 function itemTypeLabel(item: ControlTowerWorkItem): string {
   return item.itemType === 'risk'
@@ -103,6 +133,18 @@ function timelineLabel(source: string, actionType: string): string {
         <dd v-if="item.predictedExceptionType">{{ item.predictedExceptionType }}</dd>
       </template>
     </dl>
+
+    <ControlTowerRecommendationCard
+      :recommendations="parsedRecommendations"
+      :loading="automationLoading"
+      @accept="onAccept"
+      @dismiss="onDismiss"
+    />
+    <ControlTowerPlaybookExecutionPanel
+      :execution="activeExecution"
+      :loading="automationLoading"
+      @refresh="() => activeExecution && getExecution(activeExecution.id).then((e) => (activeExecution = e))"
+    />
 
     <section v-if="item.itemType === 'risk' && item.linkedEventId" class="work-item-drawer__materialized">
       <p>{{ $t('controlTower.workspace.materializedAs') }}</p>

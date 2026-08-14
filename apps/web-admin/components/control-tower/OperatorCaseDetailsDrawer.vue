@@ -40,7 +40,7 @@ const {
   loadOlderTimeline,
 } = useOperationalCases()
 
-type DrawerSection = 'overview' | 'linkedWork' | 'shipments' | 'actions' | 'notes' | 'decisions' | 'participants' | 'timeline'
+type DrawerSection = 'overview' | 'linkedWork' | 'shipments' | 'actions' | 'notes' | 'decisions' | 'participants' | 'timeline' | 'playbooks'
 const activeSection = ref<DrawerSection>('overview')
 
 const noteBody = ref('')
@@ -65,6 +65,7 @@ const sections: { id: DrawerSection; labelKey: string }[] = [
   { id: 'decisions', labelKey: 'controlTower.cases.decisions' },
   { id: 'participants', labelKey: 'controlTower.cases.participants' },
   { id: 'timeline', labelKey: 'controlTower.cases.timeline' },
+  { id: 'playbooks', labelKey: 'controlTower.automation.playbooksSection' },
 ]
 
 const ownerUserId = computed(() => props.caseItem?.ownerUserId)
@@ -459,6 +460,23 @@ watch(
       <UiButton v-if="timelineHasNext" size="sm" variant="secondary" :loading="timelineLoading" @click="loadOlderTimeline(caseItem.id)">
         {{ $t('controlTower.cases.loadOlderTimeline') }}
       </UiButton>
+    </section>
+
+    <section v-else-if="activeSection === 'playbooks'" class="case-drawer__section">
+      <h4>{{ $t('controlTower.automation.playbooksSection') }}</h4>
+      <ControlTowerRecommendationCard
+        :recommendations="(caseItem as any)?.playbookRecommendations ?? []"
+        :loading="actionLoading"
+      />
+      <ControlTowerPlaybookExecutionPanel
+        v-for="exec in ((caseItem as any)?.playbookExecutions ?? [])"
+        :key="exec.id"
+        :execution="exec"
+        :loading="actionLoading"
+      />
+      <p v-if="!(caseItem as any)?.playbookRecommendations?.length && !(caseItem as any)?.playbookExecutions?.length">
+        {{ $t('controlTower.automation.noRecommendations') }}
+      </p>
     </section>
   </aside>
 </template>

@@ -17,6 +17,7 @@ import (
 	"github.com/freight-platform/control-tower-read-model-service/internal/platform/logger"
 	ctmetrics "github.com/freight-platform/control-tower-read-model-service/internal/platform/metrics"
 	"github.com/freight-platform/control-tower-read-model-service/internal/repository"
+	"github.com/freight-platform/control-tower-read-model-service/internal/service"
 	"github.com/freight-platform/shared-go/metrics"
 )
 
@@ -48,10 +49,12 @@ func main() {
 	viewRepo := repository.NewViewRepository(db.Pool)
 	handoffRepo := repository.NewHandoffRepository(db.Pool, workItemRepo, workflowRepo, riskRepo)
 	caseRepo := repository.NewCaseRepository(db.Pool)
+	automationRepo := repository.NewAutomationRepository(db.Pool)
+	automationSvc := service.NewAutomationService(automationRepo)
 	freshness := consumer.NewFreshness()
 	consumerMetrics := ctmetrics.NewConsumerMetrics()
 
-	router := httpserver.NewRouter(log, db.Pool, repo, ackRepo, workflowRepo, riskRepo, workItemRepo, viewRepo, handoffRepo, caseRepo, freshness)
+	router := httpserver.NewRouter(log, db.Pool, repo, ackRepo, workflowRepo, riskRepo, workItemRepo, viewRepo, handoffRepo, caseRepo, automationRepo, automationSvc, freshness)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

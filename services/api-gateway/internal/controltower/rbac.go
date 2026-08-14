@@ -100,6 +100,30 @@ func CanManageCaseParticipants(roles []string) bool {
 	return CanAccessControlTower(roles)
 }
 
+func CanViewAutomation(roles []string) bool {
+	return CanAccessControlTower(roles)
+}
+
+func CanManageAutomationRules(roles []string) bool {
+	return hasAnyRole(roles, map[string]struct{}{"PLATFORM_ADMIN": {}})
+}
+
+func CanManagePlaybooks(roles []string) bool {
+	return hasAnyRole(roles, map[string]struct{}{"PLATFORM_ADMIN": {}})
+}
+
+func CanViewRecommendations(roles []string) bool {
+	return CanAccessControlTower(roles)
+}
+
+func CanStartPlaybook(roles []string) bool {
+	return CanAccessControlTower(roles)
+}
+
+func CanManagePlaybookExecution(roles []string) bool {
+	return CanAccessControlTower(roles)
+}
+
 func hasAnyRole(roles []string, allowed map[string]struct{}) bool {
 	for _, role := range roles {
 		if _, ok := allowed[role]; ok {

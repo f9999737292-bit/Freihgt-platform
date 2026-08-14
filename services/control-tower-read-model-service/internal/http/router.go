@@ -9,6 +9,7 @@ import (
 	"github.com/freight-platform/control-tower-read-model-service/internal/consumer"
 	"github.com/freight-platform/control-tower-read-model-service/internal/http/handlers"
 	"github.com/freight-platform/control-tower-read-model-service/internal/repository"
+	"github.com/freight-platform/control-tower-read-model-service/internal/service"
 	"github.com/freight-platform/shared-go/metrics"
 	"github.com/freight-platform/shared-go/observability"
 	sharedpprof "github.com/freight-platform/shared-go/pprof"
@@ -27,6 +28,8 @@ func NewRouter(
 	viewRepo *repository.ViewRepository,
 	handoffRepo *repository.HandoffRepository,
 	caseRepo *repository.CaseRepository,
+	automationRepo *repository.AutomationRepository,
+	automationSvc *service.AutomationService,
 	freshness *consumer.Freshness,
 ) http.Handler {
 	statusHandler := handlers.NewStatusHandler(repo, freshness)
@@ -34,6 +37,7 @@ func NewRouter(
 	riskHandler := handlers.NewRiskHandler(riskRepo)
 	workspaceHandler := handlers.NewWorkspaceHandler(workItemRepo, viewRepo, handoffRepo, caseRepo)
 	caseHandler := handlers.NewCaseHandler(caseRepo)
+	automationHandler := handlers.NewAutomationHandler(automationRepo, automationSvc)
 
 	r := chi.NewRouter()
 	observability.Mount(r, observability.MountOptions{
@@ -104,6 +108,36 @@ func NewRouter(
 		r.Post("/cases/{caseId}/participants", caseHandler.AddParticipant)
 		r.Patch("/cases/{caseId}/participants/{userId}", caseHandler.UpdateParticipant)
 		r.Delete("/cases/{caseId}/participants/{userId}", caseHandler.RemoveParticipant)
+
+		r.Get("/automation/kpi", automationHandler.GetAutomationKPI)
+		r.Get("/automation/rules", automationHandler.ListRules)
+		r.Post("/automation/rules", automationHandler.CreateRule)
+		r.Get("/automation/rules/{ruleId}", automationHandler.GetRule)
+		r.Patch("/automation/rules/{ruleId}", automationHandler.UpdateRule)
+		r.Post("/automation/rules/{ruleId}/activate", automationHandler.ActivateRule)
+		r.Post("/automation/rules/{ruleId}/disable", automationHandler.DisableRule)
+		r.Post("/automation/rules/{ruleId}/retire", automationHandler.RetireRule)
+		r.Post("/automation/rules/{ruleId}/dry-run", automationHandler.DryRunRule)
+		r.Post("/automation/evaluate", automationHandler.Evaluate)
+
+		r.Get("/playbooks", automationHandler.ListPlaybooks)
+		r.Post("/playbooks", automationHandler.CreatePlaybook)
+		r.Get("/playbooks/{playbookId}", automationHandler.GetPlaybook)
+		r.Patch("/playbooks/{playbookId}", automationHandler.UpdatePlaybook)
+
+		r.Get("/automation/recommendations", automationHandler.ListRecommendations)
+		r.Get("/automation/recommendations/{recommendationId}", automationHandler.GetRecommendation)
+		r.Post("/automation/recommendations/{recommendationId}/accept", automationHandler.AcceptRecommendation)
+		r.Post("/automation/recommendations/{recommendationId}/dismiss", automationHandler.DismissRecommendation)
+
+		r.Get("/playbook-executions", automationHandler.ListExecutions)
+		r.Get("/playbook-executions/{executionId}", automationHandler.GetExecution)
+		r.Post("/playbook-executions/{executionId}/start", automationHandler.StartExecution)
+		r.Post("/playbook-executions/{executionId}/complete", automationHandler.CompleteExecution)
+		r.Post("/playbook-executions/{executionId}/cancel", automationHandler.CancelExecution)
+		r.Post("/playbook-executions/{executionId}/steps/{stepId}/start", automationHandler.StartExecutionStep)
+		r.Post("/playbook-executions/{executionId}/steps/{stepId}/complete", automationHandler.CompleteExecutionStep)
+		r.Post("/playbook-executions/{executionId}/steps/{stepId}/skip", automationHandler.SkipExecutionStep)
 	})
 
 	return r

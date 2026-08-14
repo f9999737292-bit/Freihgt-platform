@@ -41,6 +41,7 @@ type ControlTowerWorkItem struct {
 	LinkedEventID      *string                             `json:"linkedEventId,omitempty"`
 	EventType          *string                             `json:"eventType,omitempty"`
 	Timeline           []ControlTowerWorkItemTimelineEntry `json:"timeline,omitempty"`
+	Recommendations    json.RawMessage                     `json:"recommendations,omitempty"`
 }
 
 type ControlTowerWorkItemTimelineEntry struct {
@@ -69,6 +70,8 @@ type WorkspaceKPIResponse struct {
 	SLABreachedWork  int `json:"slaBreachedWork"`
 	SLAWarningWork   int `json:"slaWarningWork"`
 	CriticalRiskWork int `json:"criticalRiskWork"`
+	PendingRecommendations   int `json:"pendingRecommendations"`
+	ActivePlaybookExecutions int `json:"activePlaybookExecutions"`
 }
 
 type OperatorWorkload struct {
@@ -183,6 +186,19 @@ func (s *Service) ListWorkItems(ctx context.Context, reqCtx RequestContext, quer
 			CriticalRiskWork: wl.KPI.CriticalRiskWork,
 		}
 	}
+	if kpiRaw, depErr := s.readModel.GetAutomationKPI(rmCtx, reqCtx.TenantID, reqCtx.UserID, reqCtx.RequestID); depErr == nil && len(kpiRaw) > 0 {
+		var autoKPI struct {
+			PendingRecommendations   int `json:"pendingRecommendations"`
+			ActivePlaybookExecutions int `json:"activePlaybookExecutions"`
+		}
+		if json.Unmarshal(kpiRaw, &autoKPI) == nil {
+			if resp.KPI == nil {
+				resp.KPI = &WorkspaceKPIResponse{}
+			}
+			resp.KPI.PendingRecommendations = autoKPI.PendingRecommendations
+			resp.KPI.ActivePlaybookExecutions = autoKPI.ActivePlaybookExecutions
+		}
+	}
 	return resp, nil
 }
 
@@ -203,7 +219,19 @@ func (s *Service) GetWorkItem(ctx context.Context, reqCtx RequestContext, itemTy
 		}
 		return ControlTowerWorkItem{}, mapWorkspaceDependencyError(depErr)
 	}
-	return mapRemoteWorkItem(*remote, shipmentNumbers, userNames), nil
+	item := mapRemoteWorkItem(*remote, shipmentNumbers, userNames)
+	recFilter := controltowerreadmodel.AutomationListFilter{
+		Status: "pending", WorkItemType: itemType, WorkItemID: itemID, Limit: 10,
+	}
+	if recRaw, depErr := s.readModel.ListRecommendations(rmCtx, reqCtx.TenantID, reqCtx.UserID, reqCtx.RequestID, recFilter); depErr == nil && len(recRaw) > 0 {
+		var page struct {
+			Items json.RawMessage `json:"items"`
+		}
+		if json.Unmarshal(recRaw, &page) == nil && len(page.Items) > 0 {
+			item.Recommendations = page.Items
+		}
+	}
+	return item, nil
 }
 
 func (s *Service) ClaimWorkItem(ctx context.Context, reqCtx RequestContext, itemType, itemID string) (ControlTowerWorkItem, error) {
