@@ -20,6 +20,7 @@ type ServiceURLs struct {
 	Document        string
 	BillingRegister string
 	LowCode         string
+	Tracking        string
 }
 
 type ControlTowerConfig struct {
@@ -50,6 +51,7 @@ type Config struct {
 	RateLimitRPS        float64
 	RateLimitBurst      int
 	MaxRequestBodyBytes int64
+	TrackingInternalToken string
 }
 
 func Load() (Config, error) {
@@ -162,6 +164,7 @@ func Load() (Config, error) {
 			Document:        getEnv("DOCUMENT_SERVICE_URL", "http://localhost:8086"),
 			BillingRegister: getEnv("BILLING_REGISTER_SERVICE_URL", "http://localhost:8087"),
 			LowCode:         getEnv("LOW_CODE_SERVICE_URL", "http://localhost:8088"),
+			Tracking:        getEnv("TRACKING_SERVICE_URL", "http://localhost:8089"),
 		},
 		AuthEnabled:         authEnabled,
 		JWTSecret:           jwtSecret,
@@ -173,6 +176,7 @@ func Load() (Config, error) {
 		RateLimitRPS:        rateLimitRPS,
 		RateLimitBurst:      rateLimitBurst,
 		MaxRequestBodyBytes: maxBodyBytes,
+		TrackingInternalToken: getEnv("TRACKING_INTERNAL_SERVICE_TOKEN", getEnv("INTERNAL_SERVICE_TOKEN", "dev_internal_tracking_token")),
 	}, nil
 }
 

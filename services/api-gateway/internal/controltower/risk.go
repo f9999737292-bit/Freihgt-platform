@@ -160,6 +160,7 @@ func buildRiskShipmentInputs(rows []ControlTowerShipment, rawByID map[string]raw
 			DocumentsComplete: row.DocumentsComplete,
 			SLAStatus:         string(row.SLAStatus),
 			SLAReason:         row.SLAReason,
+			Telemetry:         telemetryContextFromShipment(row),
 		})
 	}
 	return inputs

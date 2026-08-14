@@ -11,6 +11,7 @@ import (
 	"github.com/freight-platform/api-gateway/internal/controltower/legacyaggregate"
 	"github.com/freight-platform/api-gateway/internal/controltowerreadmodel"
 	apperrors "github.com/freight-platform/api-gateway/internal/platform/errors"
+	"github.com/freight-platform/api-gateway/internal/tracking"
 )
 
 type Service struct {
@@ -24,6 +25,7 @@ type Service struct {
 	legacyAggregateTimeout time.Duration
 	legacyMetrics          *legacyaggregate.Metrics
 	legacyLog              *slog.Logger
+	trackingClient         *tracking.Client
 }
 
 func NewService(cfg config.Config, client *DownstreamClient, log *slog.Logger) *Service {
@@ -66,6 +68,11 @@ func NewService(cfg config.Config, client *DownstreamClient, log *slog.Logger) *
 		legacyAggregateTimeout: legacyTimeout,
 		legacyMetrics:          legacyMetrics,
 		legacyLog:              log,
+		trackingClient: tracking.NewClient(
+			&http.Client{Timeout: time.Duration(cfg.ProxyTimeoutSeconds) * time.Second},
+			cfg.Services.Tracking,
+			cfg.TrackingInternalToken,
+		),
 	}
 }
 
@@ -159,6 +166,8 @@ func (s *Service) GetSummary(ctx context.Context, reqCtx RequestContext, query L
 		rawByID[raw.ID] = raw
 		allRows = append(allRows, s.mapShipment(raw, orderByID, companyByID, shipmentIDsWithDocs, now))
 	}
+
+	s.enrichShipmentsWithTracking(ctx, reqCtx, allRows)
 
 	filtered := ApplyFilters(allRows, query)
 	kpi := CalculateKPI(filtered)

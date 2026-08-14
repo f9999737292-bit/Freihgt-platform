@@ -225,6 +225,7 @@ onMounted(async () => {
       />
 
       <ShipmentsShipmentDetailsCard :shipment="shipment" />
+      <ShipmentsShipmentTrackingCard :shipment-id="shipmentId" />
       <ShipmentsShipmentPartiesCard :shipment="shipment" :company-name="companyName" />
       <ShipmentsShipmentRouteCard
         :origin="origin"

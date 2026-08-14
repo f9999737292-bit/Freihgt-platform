@@ -419,6 +419,14 @@ export interface ControlTowerShipment {
   slaStatus: SlaStatus
   lastEvent?: string
   lastUpdatedAt?: string
+  trackingStatus?: string
+  trackingFreshness?: string
+  lastPositionRecordedAt?: string
+  telemetryAgeSeconds?: number
+  trackingQuality?: string
+  lastKnownLatitude?: number
+  lastKnownLongitude?: number
+  trackingProvider?: string
 }
 
 export interface ControlTowerFilters {

@@ -29,6 +29,14 @@ type ControlTowerShipment struct {
 	ReadyForBilling      bool       `json:"readyForBilling"`
 	DriverID             *string    `json:"driverId,omitempty"`
 	VehicleID            *string    `json:"vehicleId,omitempty"`
+	TrackingStatus       *string    `json:"trackingStatus,omitempty"`
+	TrackingFreshness    *string    `json:"trackingFreshness,omitempty"`
+	LastPositionRecordedAt *time.Time `json:"lastPositionRecordedAt,omitempty"`
+	TelemetryAgeSeconds  *int64     `json:"telemetryAgeSeconds,omitempty"`
+	TrackingQuality      *string    `json:"trackingQuality,omitempty"`
+	LastKnownLatitude    *float64   `json:"lastKnownLatitude,omitempty"`
+	LastKnownLongitude   *float64   `json:"lastKnownLongitude,omitempty"`
+	TrackingProvider     *string    `json:"trackingProvider,omitempty"`
 }
 
 type ControlTowerEvent struct {

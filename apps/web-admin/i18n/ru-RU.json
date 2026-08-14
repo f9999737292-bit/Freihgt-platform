@@ -317,6 +317,46 @@
       "deliveryRange": "Плановая доставка не может быть раньше плановой погрузки"
     }
   },
+  "tracking": {
+    "title": "Отслеживание",
+    "statusLabel": "Статус отслеживания",
+    "freshnessLabel": "Актуальность телеметрии",
+    "qualityLabel": "Качество телеметрии",
+    "provider": "Провайдер",
+    "lastKnownPosition": "Последнее известное местоположение",
+    "lastTelemetry": "Последняя телеметрия",
+    "lastTelemetryAgo": "Последняя телеметрия {age} назад",
+    "locationHistory": "История местоположений",
+    "hideHistory": "Скрыть историю",
+    "noHistory": "История местоположений отсутствует",
+    "recordedAt": "Зафиксировано",
+    "receivedAt": "Получено",
+    "coordinates": "Координаты",
+    "speed": "Скорость",
+    "unavailable": "Данные отслеживания временно недоступны",
+    "notConfiguredShort": "Отслеживание не настроено",
+    "compactSummaryWithAge": "Отслеживание: {status}. Последняя телеметрия {age} назад",
+    "status": {
+      "not_configured": "Отслеживание не настроено",
+      "awaiting_data": "Ожидание данных телеметрии",
+      "active": "Отслеживание активно",
+      "stale": "Телеметрия устарела",
+      "lost": "Телеметрия потеряна",
+      "ended": "Отслеживание завершено"
+    },
+    "freshness": {
+      "unknown": "Неизвестно",
+      "fresh": "Актуально",
+      "stale": "Устарело",
+      "lost": "Потеряно"
+    },
+    "quality": {
+      "unknown": "Неизвестно",
+      "good": "Хорошее",
+      "degraded": "Сниженное",
+      "poor": "Низкое"
+    }
+  },
   "documents": {
     "title": "Документы",
     "details": "Карточка документа",
@@ -1272,6 +1312,10 @@
         "pickup_slot_not_booked": "Слот погрузки не забронирован, до дедлайна {minutesRemaining} мин",
         "delivery_slot_not_booked": "Слот доставки не забронирован, до дедлайна {minutesRemaining} мин",
         "no_tracking_update": "Нет обновлений {minutesSinceUpdate} мин",
+        "telemetry_awaiting_data": "Привязка телеметрии активна, но координаты ещё не получены",
+        "telemetry_stale": "Телеметрия устарела ({telemetryAgeSeconds} с с последней точки)",
+        "telemetry_lost": "Телеметрия потеряна ({telemetryAgeSeconds} с с последней точки)",
+        "telemetry_quality_degraded": "Снижено качество телеметрии ({qualityStatus})",
         "stale_updates_at_risk": "Длительное отсутствие обновлений (SLA at risk)",
         "missing_driver": "Водитель не назначен, до погрузки {minutesUntilPickup} мин",
         "missing_vehicle": "ТС не назначено, до погрузки {minutesUntilPickup} мин"

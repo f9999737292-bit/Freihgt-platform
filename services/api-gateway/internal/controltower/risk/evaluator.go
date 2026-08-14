@@ -87,6 +87,16 @@ type ShipmentInput struct {
 	DocumentsComplete bool
 	SLAStatus         string
 	SLAReason         *string
+	Telemetry         *TelemetryContext
+}
+
+type TelemetryContext struct {
+	HasBinding       bool
+	TrackingStatus   string
+	LastRecordedAt   *time.Time
+	FreshnessStatus  string
+	QualityStatus    string
+	TelemetryAgeSecs *int64
 }
 
 type Thresholds struct {
@@ -388,36 +398,70 @@ func (e Evaluator) evaluateSlotMissRisk(s ShipmentInput) Assessment {
 
 func (e Evaluator) evaluateTrackingLossRisk(s ShipmentInput) Assessment {
 	signals := make([]Signal, 0)
-	if s.LastUpdatedAt == nil || !isInTransit(s.Status) {
+	if !isInTransit(s.Status) {
 		return buildAssessment(s, TypeTrackingLossRisk, signals, nil, e.Now)
 	}
-	staleFor := e.Now.Sub(s.LastUpdatedAt.UTC())
-	warning := time.Duration(e.Thresholds.StaleWarningMinutes) * time.Minute
-	critical := time.Duration(e.Thresholds.StaleCriticalMinutes) * time.Minute
-	if staleFor >= warning && staleFor < critical {
-		mins := int64(staleFor.Minutes())
-		weight := 25
-		severity := "medium"
-		if staleFor >= warning+(critical-warning)/2 {
-			weight = 40
-			severity = "high"
+
+	if s.Telemetry == nil || !s.Telemetry.HasBinding {
+		return buildAssessment(s, TypeTrackingLossRisk, signals, nil, e.Now)
+	}
+
+	telemetry := *s.Telemetry
+	switch telemetry.TrackingStatus {
+	case TrackingStatusNotConfigured, TrackingStatusEnded:
+		return buildAssessment(s, TypeTrackingLossRisk, signals, nil, e.Now)
+	case TrackingStatusAwaitingData:
+		if isInTransit(s.Status) {
+			signals = append(signals, Signal{
+				Code: "telemetry_awaiting_data", Severity: "low", Weight: 15,
+				ObservedAt: e.Now, Source: SourceControlTower,
+				ExplanationKey: "controlTower.risk.signals.telemetry_awaiting_data",
+			})
+		}
+	case TrackingStatusStale:
+		age := int64(0)
+		if telemetry.TelemetryAgeSecs != nil {
+			age = *telemetry.TelemetryAgeSecs
 		}
 		signals = append(signals, Signal{
-			Code: "no_tracking_update", Severity: severity, Weight: weight,
+			Code: "telemetry_stale", Severity: "medium", Weight: 30,
 			ObservedAt: e.Now, Source: SourceControlTower,
-			Value:          map[string]any{"minutesSinceUpdate": mins},
-			ExplanationKey: "controlTower.risk.signals.no_tracking_update",
+			Value:          map[string]any{"telemetryAgeSeconds": age},
+			ExplanationKey: "controlTower.risk.signals.telemetry_stale",
 		})
-	}
-	if s.SLAReason != nil && *s.SLAReason == "STALE_UPDATES" && s.SLAStatus == "AT_RISK" {
+	case TrackingStatusLost:
+		age := int64(0)
+		if telemetry.TelemetryAgeSecs != nil {
+			age = *telemetry.TelemetryAgeSecs
+		}
 		signals = append(signals, Signal{
-			Code: "stale_updates_at_risk", Severity: "medium", Weight: 30,
+			Code: "telemetry_lost", Severity: "high", Weight: 45,
 			ObservedAt: e.Now, Source: SourceControlTower,
-			ExplanationKey: "controlTower.risk.signals.stale_updates_at_risk",
+			Value:          map[string]any{"telemetryAgeSeconds": age},
+			ExplanationKey: "controlTower.risk.signals.telemetry_lost",
 		})
 	}
+
+	if telemetry.QualityStatus == "degraded" || telemetry.QualityStatus == "poor" {
+		signals = append(signals, Signal{
+			Code: "telemetry_quality_degraded", Severity: "medium", Weight: 20,
+			ObservedAt: e.Now, Source: SourceControlTower,
+			Value:          map[string]any{"qualityStatus": telemetry.QualityStatus},
+			ExplanationKey: "controlTower.risk.signals.telemetry_quality_degraded",
+		})
+	}
+
 	return buildAssessment(s, TypeTrackingLossRisk, signals, nil, e.Now)
 }
+
+const (
+	TrackingStatusNotConfigured = "not_configured"
+	TrackingStatusAwaitingData  = "awaiting_data"
+	TrackingStatusActive        = "active"
+	TrackingStatusStale         = "stale"
+	TrackingStatusLost          = "lost"
+	TrackingStatusEnded         = "ended"
+)
 
 func (e Evaluator) evaluateDriverAssignmentRisk(s ShipmentInput) Assessment {
 	signals := make([]Signal, 0)

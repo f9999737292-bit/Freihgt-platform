@@ -317,6 +317,46 @@
       "deliveryRange": "Planned delivery cannot be earlier than planned pickup"
     }
   },
+  "tracking": {
+    "title": "Tracking",
+    "statusLabel": "Tracking status",
+    "freshnessLabel": "Tracking freshness",
+    "qualityLabel": "Tracking quality",
+    "provider": "Provider",
+    "lastKnownPosition": "Last known position",
+    "lastTelemetry": "Last telemetry",
+    "lastTelemetryAgo": "Last telemetry {age} ago",
+    "locationHistory": "Location history",
+    "hideHistory": "Hide history",
+    "noHistory": "No location history",
+    "recordedAt": "Recorded at",
+    "receivedAt": "Received at",
+    "coordinates": "Coordinates",
+    "speed": "Speed",
+    "unavailable": "Tracking temporarily unavailable",
+    "notConfiguredShort": "Tracking not configured",
+    "compactSummaryWithAge": "Tracking: {status}. Last telemetry {age} ago",
+    "status": {
+      "not_configured": "Tracking not configured",
+      "awaiting_data": "Awaiting tracking data",
+      "active": "Tracking active",
+      "stale": "Tracking stale",
+      "lost": "Tracking lost",
+      "ended": "Tracking ended"
+    },
+    "freshness": {
+      "unknown": "Unknown",
+      "fresh": "Fresh",
+      "stale": "Stale",
+      "lost": "Lost"
+    },
+    "quality": {
+      "unknown": "Unknown",
+      "good": "Good",
+      "degraded": "Degraded",
+      "poor": "Poor"
+    }
+  },
   "documents": {
     "title": "Documents",
     "details": "Document details",
@@ -1272,6 +1312,10 @@
         "pickup_slot_not_booked": "Pickup slot not booked, {minutesRemaining} min to deadline",
         "delivery_slot_not_booked": "Delivery slot not booked, {minutesRemaining} min to deadline",
         "no_tracking_update": "No update for {minutesSinceUpdate} min",
+        "telemetry_awaiting_data": "Telemetry binding active but no location received yet",
+        "telemetry_stale": "Telemetry stale ({telemetryAgeSeconds}s since last fix)",
+        "telemetry_lost": "Telemetry lost ({telemetryAgeSeconds}s since last fix)",
+        "telemetry_quality_degraded": "Telemetry quality degraded ({qualityStatus})",
         "stale_updates_at_risk": "Stale updates (SLA at risk)",
         "missing_driver": "No driver assigned, pickup in {minutesUntilPickup} min",
         "missing_vehicle": "No vehicle assigned, pickup in {minutesUntilPickup} min"

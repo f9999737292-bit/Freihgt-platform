@@ -4576,6 +4576,81 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/shipments/{shipmentId}/tracking:
+    get:
+      tags: [Shipments, Tracking]
+      summary: Get current shipment tracking state
+      operationId: get_shipment_tracking
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/Authorization'
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current tracking summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShipmentTrackingSummary'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/shipments/{shipmentId}/tracking/locations:
+    get:
+      tags: [Shipments, Tracking]
+      summary: List bounded shipment location history
+      operationId: get_shipment_tracking_locations
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/Authorization'
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            maximum: 500
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Location history page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShipmentLocationHistoryPage'
   /api/v1/drivers:
     post:
       tags: [Drivers]
@@ -6950,6 +7025,88 @@ components:
         lastUpdatedAt: { type: string, format: date-time }
         documentsComplete: { type: boolean }
         readyForBilling: { type: boolean }
+        trackingStatus:
+          type: string
+          enum: [not_configured, awaiting_data, active, stale, lost, ended]
+        trackingFreshness:
+          type: string
+          enum: [unknown, fresh, stale, lost]
+        lastPositionRecordedAt: { type: string, format: date-time }
+        telemetryAgeSeconds: { type: integer, format: int64 }
+        trackingQuality:
+          type: string
+          enum: [unknown, good, degraded, poor]
+        lastKnownLatitude: { type: number, format: double }
+        lastKnownLongitude: { type: number, format: double }
+        trackingProvider: { type: string }
+    ShipmentTrackingSummary:
+      type: object
+      required: [shipmentId, trackingStatus, freshness, quality]
+      properties:
+        shipmentId: { type: string, format: uuid }
+        trackingStatus:
+          type: string
+          enum: [not_configured, awaiting_data, active, stale, lost, ended]
+        provider: { type: string }
+        lastKnownPosition:
+          $ref: '#/components/schemas/ShipmentTrackingPosition'
+        freshness:
+          $ref: '#/components/schemas/ShipmentTrackingFreshness'
+        quality:
+          $ref: '#/components/schemas/ShipmentTrackingQuality'
+        lastRecordedAt: { type: string, format: date-time }
+        lastReceivedAt: { type: string, format: date-time }
+        speedKph: { type: number }
+        headingDegrees: { type: number }
+        deliveryDelaySeconds: { type: integer, format: int64 }
+    ShipmentTrackingPosition:
+      type: object
+      properties:
+        latitude: { type: number }
+        longitude: { type: number }
+        recordedAt: { type: string, format: date-time }
+        ageSeconds: { type: integer, format: int64 }
+    ShipmentTrackingFreshness:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [unknown, fresh, stale, lost]
+        ageSeconds: { type: integer, format: int64 }
+    ShipmentTrackingQuality:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [unknown, good, degraded, poor]
+        reason: { type: string }
+    ShipmentLocationHistoryPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShipmentLocationHistoryItem'
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+    ShipmentLocationHistoryItem:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        shipmentId: { type: string, format: uuid }
+        provider: { type: string }
+        providerDeviceId: { type: string }
+        latitude: { type: number }
+        longitude: { type: number }
+        recordedAt: { type: string, format: date-time }
+        receivedAt: { type: string, format: date-time }
+        sourceType: { type: string }
+        speedKph: { type: number }
+        headingDegrees: { type: number }
+        accuracyMeters: { type: number }
+        quality:
+          $ref: '#/components/schemas/ShipmentTrackingQuality'
     ControlTowerEventAcknowledgedBy:
       type: object
       required: [userId]

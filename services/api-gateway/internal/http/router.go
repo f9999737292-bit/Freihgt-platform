@@ -14,6 +14,7 @@ import (
 	apperrors "github.com/freight-platform/api-gateway/internal/platform/errors"
 	"github.com/freight-platform/api-gateway/internal/platform/respond"
 	"github.com/freight-platform/api-gateway/internal/shipmentevents"
+	"github.com/freight-platform/api-gateway/internal/tracking"
 	"github.com/freight-platform/api-gateway/internal/shipmentrbac"
 	"github.com/freight-platform/shared-go/metrics"
 	sharedmiddleware "github.com/freight-platform/shared-go/middleware"
@@ -23,7 +24,7 @@ import (
 
 const serviceName = "api-gateway"
 
-func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, controlTower *controltower.Handler, shipmentEvents *shipmentevents.Handler) http.Handler {
+func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, controlTower *controltower.Handler, shipmentEvents *shipmentevents.Handler, trackingHandler *tracking.Handler) http.Handler {
 	metricsCollector := metrics.New(serviceName)
 
 	r := chi.NewRouter()
@@ -120,6 +121,11 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 
 	if shipmentEvents != nil {
 		r.Get("/api/v1/shipments/{shipmentId}/events", shipmentEvents.Events)
+	}
+
+	if trackingHandler != nil {
+		r.Get("/api/v1/shipments/{shipmentId}/tracking", trackingHandler.GetCurrent)
+		r.Get("/api/v1/shipments/{shipmentId}/tracking/locations", trackingHandler.ListLocations)
 	}
 
 	fleetGuard := fleetrbac.NewGuard(cfg, proxy)

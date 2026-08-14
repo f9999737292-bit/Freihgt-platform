@@ -317,6 +317,46 @@
       "deliveryRange": "计划交付不能早于计划提货"
     }
   },
+  "tracking": {
+    "title": "跟踪",
+    "statusLabel": "跟踪状态",
+    "freshnessLabel": "遥测时效",
+    "qualityLabel": "遥测质量",
+    "provider": "提供商",
+    "lastKnownPosition": "最后已知位置",
+    "lastTelemetry": "最后遥测",
+    "lastTelemetryAgo": "最后遥测 {age} 前",
+    "locationHistory": "位置历史",
+    "hideHistory": "隐藏历史",
+    "noHistory": "暂无位置历史",
+    "recordedAt": "记录时间",
+    "receivedAt": "接收时间",
+    "coordinates": "坐标",
+    "speed": "速度",
+    "unavailable": "跟踪数据暂时不可用",
+    "notConfiguredShort": "未配置跟踪",
+    "compactSummaryWithAge": "跟踪：{status}。最后遥测 {age} 前",
+    "status": {
+      "not_configured": "未配置跟踪",
+      "awaiting_data": "等待跟踪数据",
+      "active": "跟踪活跃",
+      "stale": "跟踪过期",
+      "lost": "跟踪丢失",
+      "ended": "跟踪已结束"
+    },
+    "freshness": {
+      "unknown": "未知",
+      "fresh": "新鲜",
+      "stale": "过期",
+      "lost": "丢失"
+    },
+    "quality": {
+      "unknown": "未知",
+      "good": "良好",
+      "degraded": "下降",
+      "poor": "较差"
+    }
+  },
   "documents": {
     "title": "文档",
     "details": "文档详情",
@@ -1272,6 +1312,10 @@
         "pickup_slot_not_booked": "提货时段未预订，截止 {minutesRemaining} 分钟",
         "delivery_slot_not_booked": "交付时段未预订，截止 {minutesRemaining} 分钟",
         "no_tracking_update": "{minutesSinceUpdate} 分钟无更新",
+        "telemetry_awaiting_data": "遥测绑定已激活，但尚未收到位置数据",
+        "telemetry_stale": "遥测过期（距最后定位 {telemetryAgeSeconds} 秒）",
+        "telemetry_lost": "遥测丢失（距最后定位 {telemetryAgeSeconds} 秒）",
+        "telemetry_quality_degraded": "遥测质量下降（{qualityStatus}）",
         "stale_updates_at_risk": "长时间无更新（SLA 风险）",
         "missing_driver": "未分配司机，提货 {minutesUntilPickup} 分钟后",
         "missing_vehicle": "未分配车辆，提货 {minutesUntilPickup} 分钟后"
