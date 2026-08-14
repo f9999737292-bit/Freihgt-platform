@@ -91,6 +91,28 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 		r.Get("/api/v1/control-tower/handoffs", controlTower.ListHandoffs)
 		r.Post("/api/v1/control-tower/handoffs", controlTower.CreateHandoff)
 		r.Get("/api/v1/control-tower/handoffs/{handoffId}", controlTower.GetHandoff)
+
+		r.Get("/api/v1/control-tower/cases/kpi", controlTower.GetCaseKPI)
+		r.Get("/api/v1/control-tower/cases/duplicates", controlTower.FindCaseDuplicates)
+		r.Get("/api/v1/control-tower/cases", controlTower.ListCases)
+		r.Post("/api/v1/control-tower/cases", controlTower.CreateCase)
+		r.Get("/api/v1/control-tower/cases/{caseId}", controlTower.GetCase)
+		r.Patch("/api/v1/control-tower/cases/{caseId}", controlTower.UpdateCase)
+		r.Post("/api/v1/control-tower/cases/{caseId}/claim", controlTower.ClaimCase)
+		r.Post("/api/v1/control-tower/cases/{caseId}/assign", controlTower.AssignCase)
+		r.Post("/api/v1/control-tower/cases/{caseId}/unassign", controlTower.UnassignCase)
+		r.Post("/api/v1/control-tower/cases/{caseId}/links", controlTower.AddCaseLink)
+		r.Delete("/api/v1/control-tower/cases/{caseId}/links/{linkId}", controlTower.RemoveCaseLink)
+		r.Post("/api/v1/control-tower/cases/{caseId}/notes", controlTower.CreateCaseNote)
+		r.Patch("/api/v1/control-tower/cases/{caseId}/notes/{noteId}", controlTower.UpdateCaseNote)
+		r.Post("/api/v1/control-tower/cases/{caseId}/actions", controlTower.CreateCaseAction)
+		r.Patch("/api/v1/control-tower/cases/{caseId}/actions/{actionId}", controlTower.UpdateCaseAction)
+		r.Post("/api/v1/control-tower/cases/{caseId}/actions/{actionId}/complete", controlTower.CompleteCaseAction)
+		r.Post("/api/v1/control-tower/cases/{caseId}/decisions", controlTower.CreateCaseDecision)
+		r.Post("/api/v1/control-tower/cases/{caseId}/resolve", controlTower.ResolveCase)
+		r.Post("/api/v1/control-tower/cases/{caseId}/close", controlTower.CloseCase)
+		r.Post("/api/v1/control-tower/cases/{caseId}/reopen", controlTower.ReopenCase)
+		r.Get("/api/v1/control-tower/cases/{caseId}/timeline", controlTower.GetCaseTimeline)
 	}
 
 	if shipmentEvents != nil {

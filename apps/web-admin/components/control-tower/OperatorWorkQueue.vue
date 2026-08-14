@@ -2,7 +2,7 @@
 
 import type { User } from '~/types/user'
 
-import type { ControlTowerHandoffCreateResult, ControlTowerSavedView, ControlTowerWorkspacePreset } from '~/types/controlTower'
+import type { ControlTowerHandoffCreateResult, ControlTowerSavedView, ControlTowerWorkspacePreset, ControlTowerWorkspaceSection } from '~/types/controlTower'
 
 import { CONTROL_TOWER_ACTIVE_PRESETS } from '~/types/controlTower'
 
@@ -145,6 +145,11 @@ const saveViewModalOpen = ref(false)
 const assignUserId = ref('')
 
 const handoffResult = ref<ControlTowerHandoffCreateResult | null>(null)
+const workspaceSection = ref<ControlTowerWorkspaceSection>('work')
+const caseFromWorkItemOpen = ref(false)
+const caseFromWorkItem = ref<import('~/types/controlTower').ControlTowerWorkItem | null>(null)
+
+const casesUi = useOperationalCases()
 
 
 
@@ -217,6 +222,46 @@ function dismissBulkOutcome() {
 function closeDrawer() {
 
   drawerOpen.value = false
+
+}
+
+
+
+function onOpenCase(caseId: string) {
+
+  workspaceSection.value = 'cases'
+
+  void casesUi.openCase(caseId)
+
+}
+
+
+
+function onCreateCaseFromWorkItem(item: import('~/types/controlTower').ControlTowerWorkItem) {
+
+  caseFromWorkItem.value = item
+
+  caseFromWorkItemOpen.value = true
+
+}
+
+
+
+function onCaseFromWorkItemDone(caseId: string) {
+
+  caseFromWorkItemOpen.value = false
+
+  caseFromWorkItem.value = null
+
+  void onOpenCase(caseId)
+
+}
+
+
+
+function closeCaseDrawer() {
+
+  casesUi.drawerOpen = false
 
 }
 
@@ -349,6 +394,33 @@ watch(
     </div>
 
 
+
+    <div class="operator-workspace__section-tabs" role="tablist">
+      <button
+        type="button"
+        role="tab"
+        :aria-selected="workspaceSection === 'work'"
+        class="operator-workspace__mode-tab"
+        :class="{ 'operator-workspace__mode-tab--active': workspaceSection === 'work' }"
+        @click="workspaceSection = 'work'"
+      >
+        {{ $t('controlTower.cases.sections.work') }}
+      </button>
+      <button
+        type="button"
+        role="tab"
+        :aria-selected="workspaceSection === 'cases'"
+        class="operator-workspace__mode-tab"
+        :class="{ 'operator-workspace__mode-tab--active': workspaceSection === 'cases' }"
+        @click="workspaceSection = 'cases'"
+      >
+        {{ $t('controlTower.cases.sections.cases') }}
+      </button>
+    </div>
+
+
+
+    <template v-if="workspaceSection === 'work'">
 
     <div v-if="kpi" class="operator-workspace__kpi">
 
@@ -870,6 +942,42 @@ watch(
 
       @open-linked-exception="openLinkedException"
 
+      @open-case="onOpenCase"
+
+      @create-case="onCreateCaseFromWorkItem"
+
+    />
+
+
+
+    <ControlTowerOperatorCaseDetailsDrawer
+
+      :open="casesUi.drawerOpen"
+
+      :case-item="casesUi.selectedCase"
+
+      :action-loading="casesUi.actionLoading"
+
+      :tenant-users="tenantUsers ?? []"
+
+      @close="closeCaseDrawer"
+
+    />
+
+
+
+    <ControlTowerOperatorCaseFromWorkItemModal
+
+      :open="caseFromWorkItemOpen"
+
+      :item="caseFromWorkItem"
+
+      @close="caseFromWorkItemOpen = false"
+
+      @created="onCaseFromWorkItemDone"
+
+      @added="onCaseFromWorkItemDone"
+
     />
 
 
@@ -921,6 +1029,20 @@ watch(
       @close="saveViewModalOpen = false"
 
       @submit="onSaveViewSubmit"
+
+    />
+
+    </template>
+
+
+
+    <ControlTowerOperatorCasesPanel
+
+      v-else-if="workspaceSection === 'cases'"
+
+      :disabled="disabled"
+
+      @open="onOpenCase"
 
     />
 

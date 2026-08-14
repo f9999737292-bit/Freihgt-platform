@@ -68,6 +68,34 @@ func CanCreateHandoff(roles []string) bool {
 	return CanAccessControlTower(roles)
 }
 
+func CanViewCase(roles []string) bool {
+	return CanAccessControlTower(roles)
+}
+
+func CanCreateCase(roles []string) bool {
+	return CanAccessControlTower(roles)
+}
+
+func CanManageCase(roles []string) bool {
+	return CanAccessControlTower(roles)
+}
+
+func CanAssignCase(roles []string) bool {
+	return CanAccessControlTower(roles)
+}
+
+func CanAddCaseNote(roles []string) bool {
+	return CanAccessControlTower(roles)
+}
+
+func CanManageCaseActions(roles []string) bool {
+	return CanAccessControlTower(roles)
+}
+
+func CanResolveCase(roles []string) bool {
+	return CanAccessControlTower(roles)
+}
+
 func hasAnyRole(roles []string, allowed map[string]struct{}) bool {
 	for _, role := range roles {
 		if _, ok := allowed[role]; ok {

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -20,14 +21,16 @@ type WorkspaceHandler struct {
 	workItems *repository.WorkItemRepository
 	views     *repository.ViewRepository
 	handoffs  *repository.HandoffRepository
+	cases     *repository.CaseRepository
 }
 
 func NewWorkspaceHandler(
 	workItems *repository.WorkItemRepository,
 	views *repository.ViewRepository,
 	handoffs *repository.HandoffRepository,
+	cases *repository.CaseRepository,
 ) *WorkspaceHandler {
-	return &WorkspaceHandler{workItems: workItems, views: views, handoffs: handoffs}
+	return &WorkspaceHandler{workItems: workItems, views: views, handoffs: handoffs, cases: cases}
 }
 
 func (h *WorkspaceHandler) ListWorkItems(w http.ResponseWriter, r *http.Request) {
@@ -44,7 +47,7 @@ func (h *WorkspaceHandler) ListWorkItems(w http.ResponseWriter, r *http.Request)
 		respond.Error(w, err)
 		return
 	}
-	respond.JSON(w, http.StatusOK, toWorkItemPageResponse(page))
+	respond.JSON(w, http.StatusOK, toWorkItemPageResponse(r.Context(), tenantID, page, h.cases))
 }
 
 func (h *WorkspaceHandler) GetWorkItem(w http.ResponseWriter, r *http.Request) {
@@ -60,7 +63,7 @@ func (h *WorkspaceHandler) GetWorkItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	timeline, _ := h.workItems.GetWorkItemTimeline(r.Context(), tenantID, itemType, itemID)
-	resp := toWorkItemResponse(item)
+	resp := h.enrichWorkItemResponse(r.Context(), tenantID, toWorkItemResponse(item))
 	resp["timeline"] = toTimelineResponse(timeline)
 	respond.JSON(w, http.StatusOK, resp)
 }
@@ -446,15 +449,39 @@ func parseIntDefault(raw string, fallback int) int {
 	return n
 }
 
-func toWorkItemPageResponse(page domain.WorkItemPage) map[string]any {
+func toWorkItemPageResponse(ctx context.Context, tenantID uuid.UUID, page domain.WorkItemPage, cases *repository.CaseRepository) map[string]any {
 	items := make([]map[string]any, 0, len(page.Items))
 	for _, item := range page.Items {
-		items = append(items, toWorkItemResponse(item))
+		resp := toWorkItemResponse(item)
+		if cases != nil {
+			if ref, err := cases.LookupActiveCaseForWorkItem(ctx, tenantID, item.ItemType, item.SourceID); err == nil && ref != nil {
+				resp["activeCase"] = map[string]any{
+					"caseId": ref.CaseID.String(), "reference": ref.Reference,
+					"title": ref.Title, "status": ref.Status,
+				}
+			}
+		}
+		items = append(items, resp)
 	}
 	return map[string]any{
 		"items": items, "page": page.Page, "limit": page.Limit,
 		"total": page.Total, "hasNext": page.HasNext,
 	}
+}
+
+func (h *WorkspaceHandler) enrichWorkItemResponse(ctx context.Context, tenantID uuid.UUID, resp map[string]any) map[string]any {
+	if h.cases == nil {
+		return resp
+	}
+	itemType, _ := resp["itemType"].(string)
+	sourceID, _ := resp["sourceId"].(string)
+	if ref, err := h.cases.LookupActiveCaseForWorkItem(ctx, tenantID, itemType, sourceID); err == nil && ref != nil {
+		resp["activeCase"] = map[string]any{
+			"caseId": ref.CaseID.String(), "reference": ref.Reference,
+			"title": ref.Title, "status": ref.Status,
+		}
+	}
+	return resp
 }
 
 func toWorkItemResponse(item domain.WorkItem) map[string]any {

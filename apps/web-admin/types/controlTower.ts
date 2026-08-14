@@ -633,6 +633,7 @@ export interface ControlTowerWorkItem {
   linkedEventId?: string
   eventType?: string
   timeline?: ControlTowerWorkItemTimelineEntry[]
+  activeCase?: ControlTowerActiveCaseRef
 }
 
 export interface ControlTowerWorkItemTimelineEntry {
@@ -755,3 +756,139 @@ export interface ControlTowerHandoffCreateResult {
 export type ControlTowerBulkActionType = 'claim' | 'assign' | 'unassign' | 'acknowledge'
 
 export const CONTROL_TOWER_ACTIVE_PRESETS = CONTROL_TOWER_WORKSPACE_PRESETS.filter((p) => p !== 'completed')
+
+export type ControlTowerCaseStatus =
+  | 'open'
+  | 'investigating'
+  | 'action_required'
+  | 'monitoring'
+  | 'resolved'
+  | 'closed'
+
+export type ControlTowerCaseSeverity = 'critical' | 'high' | 'medium' | 'low'
+
+export interface ControlTowerActiveCaseRef {
+  caseId: string
+  reference: string
+  title: string
+  status: ControlTowerCaseStatus
+}
+
+export interface ControlTowerCaseHealth {
+  hasSlaBreach?: boolean
+  hasSlaWarning?: boolean
+  openActionCount?: number
+  overdueActionCount?: number
+  activeWorkItemCount?: number
+}
+
+export interface ControlTowerCaseLink {
+  id: string
+  entityType: string
+  entityId: string
+  linkedAt: string
+  linkedByUserId: string
+}
+
+export interface ControlTowerCaseNote {
+  id: string
+  authorUserId: string
+  body: string
+  visibility: string
+  createdAt: string
+  updatedAt: string
+  editedAt?: string
+}
+
+export interface ControlTowerCaseActionItem {
+  id: string
+  title: string
+  description?: string
+  status: 'open' | 'in_progress' | 'done' | 'cancelled'
+  assigneeUserId?: string
+  dueAt?: string
+  createdByUserId: string
+  createdAt: string
+  updatedAt: string
+  completedAt?: string
+}
+
+export interface ControlTowerCaseDecision {
+  id: string
+  decision: string
+  rationale?: string
+  decidedByUserId: string
+  decidedAt: string
+}
+
+export interface ControlTowerOperationalCase {
+  id: string
+  reference: string
+  title: string
+  summary?: string
+  status: ControlTowerCaseStatus
+  derivedSeverity: ControlTowerCaseSeverity
+  effectiveSeverity: ControlTowerCaseSeverity
+  severityOverride: boolean
+  ownerUserId?: string
+  ownerDisplayName?: string
+  createdByUserId: string
+  createdByDisplayName?: string
+  resolutionCode?: string
+  resolutionSummary?: string
+  version: number
+  lastActivityAt: string
+  createdAt: string
+  updatedAt: string
+  resolvedAt?: string
+  closedAt?: string
+  links?: ControlTowerCaseLink[]
+  notes?: ControlTowerCaseNote[]
+  actionItems?: ControlTowerCaseActionItem[]
+  decisions?: ControlTowerCaseDecision[]
+  health?: ControlTowerCaseHealth
+}
+
+export interface ControlTowerCasesResponse {
+  items: ControlTowerOperationalCase[]
+  page: number
+  limit: number
+  total: number
+  hasNext: boolean
+}
+
+export interface ControlTowerCaseKpi {
+  openCases: number
+  myOpenCases: number
+  criticalCases: number
+  unassignedCases: number
+  resolvedCases: number
+}
+
+export const CONTROL_TOWER_CASE_PRESETS = [
+  'my_cases',
+  'unassigned',
+  'critical',
+  'action_required',
+  'monitoring',
+  'resolved',
+  'closed',
+] as const
+
+export type ControlTowerCasePreset = (typeof CONTROL_TOWER_CASE_PRESETS)[number]
+
+export const CONTROL_TOWER_CASE_RESOLUTION_CODES = [
+  'operational_issue_resolved',
+  'risk_cleared',
+  'shipment_replanned',
+  'carrier_action_completed',
+  'customer_accepted',
+  'duplicate_case',
+  'false_positive',
+  'cancelled',
+  'other',
+] as const
+
+export type ControlTowerCaseResolutionCode = (typeof CONTROL_TOWER_CASE_RESOLUTION_CODES)[number]
+
+export type ControlTowerWorkspaceSection = 'work' | 'cases' | 'workload' | 'handoffs'

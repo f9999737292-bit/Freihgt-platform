@@ -13,6 +13,8 @@ const emit = defineEmits<{
   close: []
   claim: [item: ControlTowerWorkItem]
   openLinkedException: [eventId: string]
+  openCase: [caseId: string]
+  createCase: [item: ControlTowerWorkItem]
 }>()
 
 const { t } = useI18n()
@@ -53,6 +55,18 @@ function timelineLabel(source: string, actionType: string): string {
     <p class="work-item-drawer__badge" :data-ownership="ownershipLabel(item)">
       {{ ownerBadge(item) }}
     </p>
+
+    <section v-if="item.activeCase" class="work-item-drawer__case">
+      <p>{{ $t('controlTower.cases.activeCaseBadge', { reference: item.activeCase.reference }) }}</p>
+      <UiButton size="sm" variant="secondary" @click="emit('openCase', item.activeCase!.caseId)">
+        {{ $t('controlTower.cases.openCase') }}
+      </UiButton>
+    </section>
+    <section v-else class="work-item-drawer__case">
+      <UiButton size="sm" variant="secondary" @click="emit('createCase', item)">
+        {{ $t('controlTower.cases.createCaseFromWorkItem') }}
+      </UiButton>
+    </section>
 
     <dl class="work-item-drawer__meta">
       <dt>{{ $t('controlTower.workspace.type') }}</dt>
@@ -171,5 +185,12 @@ function timelineLabel(source: string, actionType: string): string {
   padding: 0.75rem;
   background: var(--color-surface-muted, #f8f9fb);
   border-radius: var(--radius-sm, 4px);
+}
+.work-item-drawer__case {
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background: var(--color-surface-muted, #f8f9fb);
+  border-radius: var(--radius-sm, 4px);
+  font-size: 0.875rem;
 }
 </style>

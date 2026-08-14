@@ -1493,6 +1493,313 @@ paths:
       responses:
         '200':
           description: Handoff result
+  /api/v1/control-tower/cases:
+    get:
+      tags: [Control Tower]
+      summary: List operational cases
+      operationId: get_control_tower_cases
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: preset
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: severity
+          in: query
+          schema: { type: string }
+        - name: owner
+          in: query
+          schema: { type: string, format: uuid }
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Case page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerCasesPage'
+    post:
+      tags: [Control Tower]
+      summary: Create operational case
+      operationId: post_control_tower_cases
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ControlTowerCreateCaseRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Created case
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerOperationalCase'
+        '409':
+          description: Active case conflict for work item
+  /api/v1/control-tower/cases/kpi:
+    get:
+      tags: [Control Tower]
+      summary: Operational case KPI summary
+      operationId: get_control_tower_cases_kpi
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Case KPI
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerCaseKpi'
+  /api/v1/control-tower/cases/duplicates:
+    get:
+      tags: [Control Tower]
+      summary: Find likely duplicate active cases
+      operationId: get_control_tower_case_duplicates
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: itemType
+          in: query
+          schema: { type: string, enum: [exception, risk] }
+        - name: itemId
+          in: query
+          required: true
+          schema: { type: string }
+        - name: shipmentId
+          in: query
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Duplicate candidates
+  /api/v1/control-tower/cases/{caseId}:
+    get:
+      tags: [Control Tower]
+      summary: Get operational case details
+      operationId: get_control_tower_case
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Case details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerOperationalCase'
+    patch:
+      tags: [Control Tower]
+      summary: Update operational case
+      operationId: patch_control_tower_case
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Updated case
+        '409':
+          description: Version conflict
+  /api/v1/control-tower/cases/{caseId}/claim:
+    post:
+      tags: [Control Tower]
+      summary: Claim case for current operator
+      operationId: post_control_tower_case_claim
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Claimed case
+        '409':
+          description: Already owned
+  /api/v1/control-tower/cases/{caseId}/links:
+    post:
+      tags: [Control Tower]
+      summary: Add typed link to case
+      operationId: post_control_tower_case_link
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Link created
+        '409':
+          description: Work item already in active case
+  /api/v1/control-tower/cases/{caseId}/notes:
+    post:
+      tags: [Control Tower]
+      summary: Add case note
+      operationId: post_control_tower_case_note
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Note created
+  /api/v1/control-tower/cases/{caseId}/actions:
+    post:
+      tags: [Control Tower]
+      summary: Create case action item
+      operationId: post_control_tower_case_action
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Action item created
+  /api/v1/control-tower/cases/{caseId}/actions/{actionId}/complete:
+    post:
+      tags: [Control Tower]
+      summary: Complete case action item
+      operationId: post_control_tower_case_action_complete
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: actionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Action completed
+  /api/v1/control-tower/cases/{caseId}/decisions:
+    post:
+      tags: [Control Tower]
+      summary: Record case decision
+      operationId: post_control_tower_case_decision
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Decision recorded
+  /api/v1/control-tower/cases/{caseId}/resolve:
+    post:
+      tags: [Control Tower]
+      summary: Resolve operational case
+      operationId: post_control_tower_case_resolve
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Case resolved
+  /api/v1/control-tower/cases/{caseId}/close:
+    post:
+      tags: [Control Tower]
+      summary: Close resolved case
+      operationId: post_control_tower_case_close
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Case closed
+  /api/v1/control-tower/cases/{caseId}/reopen:
+    post:
+      tags: [Control Tower]
+      summary: Reopen case
+      operationId: post_control_tower_case_reopen
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Case reopened
+  /api/v1/control-tower/cases/{caseId}/timeline:
+    get:
+      tags: [Control Tower]
+      summary: Paginated case timeline
+      operationId: get_control_tower_case_timeline
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Timeline page
   /api/v1/shipments/{shipmentId}/events:
     get:
       tags: [Shipments]
@@ -6813,6 +7120,68 @@ components:
         limit: { type: integer }
         total: { type: integer }
         hasNext: { type: boolean }
+    ControlTowerCreateCaseRequest:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string, maxLength: 256 }
+        summary: { type: string }
+        severity: { type: string, enum: [critical, high, medium, low] }
+        shipmentIds:
+          type: array
+          items: { type: string, format: uuid }
+        workItems:
+          type: array
+          items:
+            type: object
+            required: [itemType, itemId]
+            properties:
+              itemType: { type: string, enum: [exception, risk] }
+              itemId: { type: string }
+    ControlTowerOperationalCase:
+      type: object
+      required: [id, reference, title, status, effectiveSeverity, version, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        reference: { type: string, example: CT-2026-000184 }
+        title: { type: string }
+        summary: { type: string }
+        status:
+          type: string
+          enum: [open, investigating, action_required, monitoring, resolved, closed]
+        derivedSeverity: { type: string, enum: [critical, high, medium, low] }
+        effectiveSeverity: { type: string, enum: [critical, high, medium, low] }
+        severityOverride: { type: boolean }
+        ownerUserId: { type: string, format: uuid }
+        ownerDisplayName: { type: string }
+        version: { type: integer }
+        lastActivityAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        resolvedAt: { type: string, format: date-time }
+        closedAt: { type: string, format: date-time }
+        resolutionCode: { type: string }
+        resolutionSummary: { type: string }
+    ControlTowerCasesPage:
+      type: object
+      required: [items, page, limit, total, hasNext]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ControlTowerOperationalCase'
+        page: { type: integer }
+        limit: { type: integer }
+        total: { type: integer }
+        hasNext: { type: boolean }
+    ControlTowerCaseKpi:
+      type: object
+      properties:
+        openCases: { type: integer }
+        myOpenCases: { type: integer }
+        criticalCases: { type: integer }
+        unassignedCases: { type: integer }
+        resolvedCases: { type: integer }
     ControlTowerBulkWorkActionRequest:
       type: object
       required: [action, items]

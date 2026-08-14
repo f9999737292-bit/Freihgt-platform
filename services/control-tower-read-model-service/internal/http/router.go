@@ -26,12 +26,14 @@ func NewRouter(
 	workItemRepo *repository.WorkItemRepository,
 	viewRepo *repository.ViewRepository,
 	handoffRepo *repository.HandoffRepository,
+	caseRepo *repository.CaseRepository,
 	freshness *consumer.Freshness,
 ) http.Handler {
 	statusHandler := handlers.NewStatusHandler(repo, freshness)
 	ackHandler := handlers.NewAckHandler(ackRepo, workflowRepo)
 	riskHandler := handlers.NewRiskHandler(riskRepo)
-	workspaceHandler := handlers.NewWorkspaceHandler(workItemRepo, viewRepo, handoffRepo)
+	workspaceHandler := handlers.NewWorkspaceHandler(workItemRepo, viewRepo, handoffRepo, caseRepo)
+	caseHandler := handlers.NewCaseHandler(caseRepo)
 
 	r := chi.NewRouter()
 	observability.Mount(r, observability.MountOptions{
@@ -77,6 +79,28 @@ func NewRouter(
 		r.Get("/handoffs", workspaceHandler.ListHandoffs)
 		r.Post("/handoffs", workspaceHandler.CreateHandoff)
 		r.Get("/handoffs/{handoffId}", workspaceHandler.GetHandoff)
+
+		r.Get("/cases/kpi", caseHandler.GetKPI)
+		r.Get("/cases/duplicates", caseHandler.FindDuplicates)
+		r.Get("/cases", caseHandler.ListCases)
+		r.Post("/cases", caseHandler.CreateCase)
+		r.Get("/cases/{caseId}", caseHandler.GetCase)
+		r.Patch("/cases/{caseId}", caseHandler.UpdateCase)
+		r.Post("/cases/{caseId}/claim", caseHandler.ClaimCase)
+		r.Post("/cases/{caseId}/assign", caseHandler.AssignCase)
+		r.Post("/cases/{caseId}/unassign", caseHandler.UnassignCase)
+		r.Post("/cases/{caseId}/links", caseHandler.AddLink)
+		r.Delete("/cases/{caseId}/links/{linkId}", caseHandler.RemoveLink)
+		r.Post("/cases/{caseId}/notes", caseHandler.CreateNote)
+		r.Patch("/cases/{caseId}/notes/{noteId}", caseHandler.UpdateNote)
+		r.Post("/cases/{caseId}/actions", caseHandler.CreateActionItem)
+		r.Patch("/cases/{caseId}/actions/{actionId}", caseHandler.UpdateActionItem)
+		r.Post("/cases/{caseId}/actions/{actionId}/complete", caseHandler.CompleteActionItem)
+		r.Post("/cases/{caseId}/decisions", caseHandler.CreateDecision)
+		r.Post("/cases/{caseId}/resolve", caseHandler.ResolveCase)
+		r.Post("/cases/{caseId}/close", caseHandler.CloseCase)
+		r.Post("/cases/{caseId}/reopen", caseHandler.ReopenCase)
+		r.Get("/cases/{caseId}/timeline", caseHandler.GetTimeline)
 	})
 
 	return r
