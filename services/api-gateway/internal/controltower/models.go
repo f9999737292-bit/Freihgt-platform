@@ -27,6 +27,8 @@ type ControlTowerShipment struct {
 	LastUpdatedAt        *time.Time `json:"lastUpdatedAt,omitempty"`
 	DocumentsComplete    bool       `json:"documentsComplete"`
 	ReadyForBilling      bool       `json:"readyForBilling"`
+	DriverID             *string    `json:"driverId,omitempty"`
+	VehicleID            *string    `json:"vehicleId,omitempty"`
 }
 
 type ControlTowerEvent struct {
@@ -195,8 +197,10 @@ type SummaryResponse struct {
 	DataFreshness          DataFreshness                `json:"dataFreshness"`
 	KPI                    KPI                          `json:"kpi"`
 	ExceptionKPI           ExceptionKPI                 `json:"exceptionKpi"`
+	RiskKPI                RiskKPI                      `json:"riskKpi,omitempty"`
 	Shipments              ShipmentsPage                `json:"shipments"`
 	CriticalEvents         []ControlTowerEvent          `json:"criticalEvents"`
+	ShipmentRisks          []ControlTowerShipmentRisk   `json:"shipmentRisks,omitempty"`
 	Filters                FiltersResponse              `json:"filters"`
 	StatusSummary          *StatusSummaryBlock          `json:"statusSummary,omitempty"`
 	StatusSummaryFreshness *StatusSummaryFreshnessBlock `json:"statusSummaryFreshness,omitempty"`
@@ -241,23 +245,30 @@ const (
 )
 
 type ListQuery struct {
-	Q                 string
-	Status            string
-	SLAStatus         string
-	ShipperID         string
-	CarrierID         string
-	DateFrom          *time.Time
-	DateTo            *time.Time
-	CriticalOnly      bool
-	EventStatus       string
-	Priority          string
-	ExceptionCategory string
-	BusinessImpact    string
-	EventSLAStatus    string
-	EscalationLevel   string
-	UnassignedOnly    bool
-	Page              int
-	Limit             int
+	Q                     string
+	Status                string
+	SLAStatus             string
+	ShipperID             string
+	CarrierID             string
+	DateFrom              *time.Time
+	DateTo                *time.Time
+	CriticalOnly          bool
+	EventStatus           string
+	Priority              string
+	ExceptionCategory     string
+	BusinessImpact        string
+	EventSLAStatus        string
+	EscalationLevel       string
+	UnassignedOnly        bool
+	RiskLevel             string
+	RiskStatus            string
+	RiskPredictedType     string
+	RiskShipmentID        string
+	RiskMitigatingOnly    bool
+	RiskNonMitigatingOnly bool
+	RiskActiveOnly        bool
+	Page                  int
+	Limit                 int
 }
 
 type RequestContext struct {
@@ -282,6 +293,8 @@ type rawShipment struct {
 	ActualDeliveryAt      *time.Time
 	UpdatedAt             *time.Time
 	CreatedAt             *time.Time
+	DriverID              *string
+	VehicleID             *string
 }
 
 type rawTransportOrder struct {

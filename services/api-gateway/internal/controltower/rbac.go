@@ -28,6 +28,18 @@ func CanManageException(roles []string) bool {
 	return CanAccessControlTower(roles)
 }
 
+func CanViewRisk(roles []string) bool {
+	return CanAccessControlTower(roles)
+}
+
+func CanAckRisk(roles []string) bool {
+	return CanAccessControlTower(roles)
+}
+
+func CanMitigateRisk(roles []string) bool {
+	return CanAccessControlTower(roles)
+}
+
 func hasAnyRole(roles []string, allowed map[string]struct{}) bool {
 	for _, role := range roles {
 		if _, ok := allowed[role]; ok {

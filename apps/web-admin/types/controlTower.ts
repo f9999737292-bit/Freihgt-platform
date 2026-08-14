@@ -185,6 +185,120 @@ export interface ControlTowerExceptionKpi {
   resolvedOutsideSla: number
 }
 
+export type ControlTowerRiskLevel = 'none' | 'low' | 'medium' | 'high' | 'critical'
+
+export type ControlTowerRiskStatus =
+  | 'active'
+  | 'acknowledged'
+  | 'mitigating'
+  | 'cleared'
+  | 'materialized'
+
+export type ControlTowerPredictedExceptionType =
+  | 'pickup_delay_risk'
+  | 'delivery_delay_risk'
+  | 'slot_miss_risk'
+  | 'route_deviation_risk'
+  | 'tracking_loss_risk'
+  | 'document_readiness_risk'
+  | 'vehicle_assignment_risk'
+  | 'driver_assignment_risk'
+
+export const CONTROL_TOWER_RISK_LEVELS: ControlTowerRiskLevel[] = [
+  'critical',
+  'high',
+  'medium',
+  'low',
+]
+
+export const CONTROL_TOWER_RISK_STATUSES: ControlTowerRiskStatus[] = [
+  'active',
+  'acknowledged',
+  'mitigating',
+  'cleared',
+  'materialized',
+]
+
+export const CONTROL_TOWER_PREDICTED_EXCEPTION_TYPES: ControlTowerPredictedExceptionType[] = [
+  'pickup_delay_risk',
+  'delivery_delay_risk',
+  'slot_miss_risk',
+  'tracking_loss_risk',
+  'driver_assignment_risk',
+  'vehicle_assignment_risk',
+]
+
+export const CONTROL_TOWER_MITIGATION_CODES = [
+  'contact_carrier',
+  'contact_driver',
+  'reschedule_slot',
+  'request_documents',
+  'reassign_driver',
+  'reassign_vehicle',
+  'adjust_plan',
+  'monitor',
+  'other',
+] as const
+
+export type ControlTowerMitigationCode = (typeof CONTROL_TOWER_MITIGATION_CODES)[number]
+
+export interface ControlTowerRiskSignal {
+  signalCode: string
+  severity: string
+  weight: number
+  observedAt: string
+  source: string
+  value?: Record<string, unknown>
+  explanationKey: string
+}
+
+export interface ControlTowerRiskAction {
+  actionType: string
+  actorUserId?: string
+  occurredAt: string
+  metadata?: Record<string, unknown>
+}
+
+export interface ControlTowerShipmentRisk {
+  riskId: string
+  shipmentId: string
+  shipmentNumber: string
+  predictedExceptionType: ControlTowerPredictedExceptionType | string
+  score: number
+  level: ControlTowerRiskLevel
+  status: ControlTowerRiskStatus
+  signals: ControlTowerRiskSignal[]
+  firstDetectedAt: string
+  evaluatedAt: string
+  nextEvaluationAt?: string
+  threatenedDeadlineAt?: string
+  mitigationCode?: string
+  mitigationComment?: string
+  actualEventId?: string
+  materializedAt?: string
+  clearedAt?: string
+  clearReason?: string
+  leadTimeSeconds?: number
+  actions?: ControlTowerRiskAction[]
+}
+
+export interface ControlTowerRiskKpi {
+  activeRisks: number
+  criticalRisks: number
+  highRisks: number
+  deliveryDelayRisks: number
+  pickupDelayRisks: number
+  slotMissRisks: number
+  mitigatingRisks: number
+  risksMaterialized: number
+  risksCleared: number
+  clearedBeforeMaterialization: number
+}
+
+export interface ControlTowerRisksListResponse {
+  items: ControlTowerShipmentRisk[]
+}
+
 export type ControlTowerEventResolutionCode =
   | 'issue_resolved'
   | 'false_positive'
@@ -322,6 +436,12 @@ export interface ControlTowerFilters {
   eventSlaStatus: string
   escalationLevel: string
   unassignedOnly: boolean
+  riskLevel: string
+  riskStatus: string
+  predictedExceptionType: string
+  riskShipmentId: string
+  riskMitigatingOnly: boolean
+  riskNonMitigatingOnly: boolean
 }
 
 export type ControlTowerKpiTone = 'ok' | 'warning' | 'danger' | 'neutral'
@@ -411,8 +531,10 @@ export interface ControlTowerSummaryResponse {
   dataFreshness: ControlTowerDataFreshness
   kpi: ControlTowerSummaryKpi
   exceptionKpi?: ControlTowerExceptionKpi
+  riskKpi?: ControlTowerRiskKpi
   shipments: ControlTowerSummaryPagination
   criticalEvents: ControlTowerEvent[]
+  shipmentRisks?: ControlTowerShipmentRisk[]
   filters: ControlTowerSummaryFilters
   statusSummary?: ControlTowerStatusSummary
   statusSummaryFreshness?: ControlTowerStatusSummaryFreshness
@@ -455,6 +577,12 @@ export function createDefaultControlTowerFilters(): ControlTowerFilters {
     eventSlaStatus: '',
     escalationLevel: '',
     unassignedOnly: false,
+    riskLevel: '',
+    riskStatus: '',
+    predictedExceptionType: '',
+    riskShipmentId: '',
+    riskMitigatingOnly: false,
+    riskNonMitigatingOnly: false,
   }
 }
 

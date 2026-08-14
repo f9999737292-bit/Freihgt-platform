@@ -879,6 +879,31 @@ paths:
           in: query
           schema:
             type: boolean
+        - name: risk_level
+          in: query
+          schema:
+            $ref: '#/components/schemas/ControlTowerRiskLevel'
+        - name: risk_status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ControlTowerRiskStatus'
+        - name: predicted_exception_type
+          in: query
+          schema:
+            $ref: '#/components/schemas/ControlTowerPredictedExceptionType'
+        - name: risk_shipment_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: risk_mitigating_only
+          in: query
+          schema:
+            type: boolean
+        - name: risk_non_mitigating_only
+          in: query
+          schema:
+            type: boolean
         - name: page
           in: query
           schema:
@@ -1169,6 +1194,145 @@ paths:
         '401': { description: Unauthorized, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
         '403': { description: Forbidden, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
         '404': { description: Event not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '503': { description: Dependency unavailable, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /api/v1/control-tower/risks:
+    get:
+      tags: [Control Tower]
+      summary: List predictive shipment risks
+      operationId: get_control_tower_risks
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: risk_level
+          in: query
+          schema:
+            $ref: '#/components/schemas/ControlTowerRiskLevel'
+        - name: risk_status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ControlTowerRiskStatus'
+        - name: predicted_exception_type
+          in: query
+          schema:
+            $ref: '#/components/schemas/ControlTowerPredictedExceptionType'
+        - name: risk_shipment_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: risk_mitigating_only
+          in: query
+          schema:
+            type: boolean
+        - name: risk_non_mitigating_only
+          in: query
+          schema:
+            type: boolean
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Predictive risks
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerRisksListResponse'
+        '401': { description: Unauthorized, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Forbidden, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '503': { description: Dependency unavailable, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /api/v1/control-tower/risks/{riskId}:
+    get:
+      tags: [Control Tower]
+      summary: Get predictive risk details
+      operationId: get_control_tower_risk
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: riskId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[0-9a-f]{32}$'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Risk details with signals and action history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerShipmentRisk'
+        '401': { description: Unauthorized, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Forbidden, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Risk not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '503': { description: Dependency unavailable, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /api/v1/control-tower/risks/{riskId}/acknowledge:
+    post:
+      tags: [Control Tower]
+      summary: Acknowledge a predictive risk
+      operationId: post_control_tower_risk_acknowledge
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: riskId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[0-9a-f]{32}$'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Updated risk
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerShipmentRisk'
+        '401': { description: Unauthorized, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Forbidden, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Risk not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '409': { description: Invalid transition, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '503': { description: Dependency unavailable, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /api/v1/control-tower/risks/{riskId}/mitigate:
+    post:
+      tags: [Control Tower]
+      summary: Start or update risk mitigation
+      operationId: post_control_tower_risk_mitigate
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: riskId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[0-9a-f]{32}$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ControlTowerMitigateRiskRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Updated risk
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerShipmentRisk'
+        '400': { description: Validation error, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '401': { description: Unauthorized, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Forbidden, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Risk not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '409': { description: Invalid transition, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
         '503': { description: Dependency unavailable, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
   /api/v1/shipments/{shipmentId}/events:
     get:
@@ -6113,6 +6277,8 @@ components:
             readyForBilling: { type: integer }
         exceptionKpi:
           $ref: '#/components/schemas/ControlTowerExceptionKPI'
+        riskKpi:
+          $ref: '#/components/schemas/ControlTowerRiskKPI'
         shipments:
           type: object
           properties:
@@ -6128,6 +6294,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ControlTowerEvent'
+        shipmentRisks:
+          type: array
+          items:
+            $ref: '#/components/schemas/ControlTowerShipmentRisk'
         filters:
           type: object
           properties:
@@ -6343,6 +6513,127 @@ components:
         unassignedExceptions: { type: integer }
         resolvedWithinSla: { type: integer }
         resolvedOutsideSla: { type: integer }
+    ControlTowerRiskLevel:
+      type: string
+      enum: [none, low, medium, high, critical]
+    ControlTowerRiskStatus:
+      type: string
+      enum: [active, acknowledged, mitigating, cleared, materialized]
+    ControlTowerPredictedExceptionType:
+      type: string
+      enum:
+        - pickup_delay_risk
+        - delivery_delay_risk
+        - slot_miss_risk
+        - route_deviation_risk
+        - tracking_loss_risk
+        - document_readiness_risk
+        - vehicle_assignment_risk
+        - driver_assignment_risk
+    ControlTowerMitigationCode:
+      type: string
+      enum:
+        - contact_carrier
+        - contact_driver
+        - reschedule_slot
+        - request_documents
+        - reassign_driver
+        - reassign_vehicle
+        - adjust_plan
+        - monitor
+        - other
+    ControlTowerRiskSignal:
+      type: object
+      required: [signalCode, severity, weight, observedAt, source, explanationKey]
+      properties:
+        signalCode: { type: string }
+        severity: { type: string }
+        weight: { type: integer }
+        observedAt: { type: string, format: date-time }
+        source: { type: string }
+        value: { type: object, additionalProperties: true }
+        explanationKey: { type: string }
+    ControlTowerRiskAction:
+      type: object
+      required: [actionType, occurredAt]
+      properties:
+        actionType: { type: string }
+        actorUserId: { type: string, format: uuid }
+        occurredAt: { type: string, format: date-time }
+        metadata: { type: object, additionalProperties: true }
+    ControlTowerShipmentRisk:
+      type: object
+      required:
+        - riskId
+        - shipmentId
+        - shipmentNumber
+        - predictedExceptionType
+        - score
+        - level
+        - status
+        - signals
+        - firstDetectedAt
+        - evaluatedAt
+      properties:
+        riskId: { type: string, pattern: '^[0-9a-f]{32}$' }
+        shipmentId: { type: string, format: uuid }
+        shipmentNumber: { type: string }
+        predictedExceptionType:
+          $ref: '#/components/schemas/ControlTowerPredictedExceptionType'
+        score: { type: integer, minimum: 0, maximum: 100 }
+        level:
+          $ref: '#/components/schemas/ControlTowerRiskLevel'
+        status:
+          $ref: '#/components/schemas/ControlTowerRiskStatus'
+        signals:
+          type: array
+          items:
+            $ref: '#/components/schemas/ControlTowerRiskSignal'
+        firstDetectedAt: { type: string, format: date-time }
+        evaluatedAt: { type: string, format: date-time }
+        nextEvaluationAt: { type: string, format: date-time }
+        threatenedDeadlineAt: { type: string, format: date-time }
+        mitigationCode:
+          $ref: '#/components/schemas/ControlTowerMitigationCode'
+        mitigationComment: { type: string }
+        actualEventId: { type: string }
+        materializedAt: { type: string, format: date-time }
+        clearedAt: { type: string, format: date-time }
+        clearReason: { type: string }
+        leadTimeSeconds: { type: integer, format: int64 }
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ControlTowerRiskAction'
+    ControlTowerRiskKPI:
+      type: object
+      properties:
+        activeRisks: { type: integer }
+        criticalRisks: { type: integer }
+        highRisks: { type: integer }
+        deliveryDelayRisks: { type: integer }
+        pickupDelayRisks: { type: integer }
+        slotMissRisks: { type: integer }
+        mitigatingRisks: { type: integer }
+        risksMaterialized: { type: integer }
+        risksCleared: { type: integer }
+        clearedBeforeMaterialization: { type: integer }
+    ControlTowerRisksListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ControlTowerShipmentRisk'
+    ControlTowerMitigateRiskRequest:
+      type: object
+      required: [mitigationCode]
+      properties:
+        mitigationCode:
+          $ref: '#/components/schemas/ControlTowerMitigationCode'
+        comment:
+          type: string
     ControlTowerEventResolutionCode:
       type: string
       enum: [issue_resolved, false_positive, duplicate, cancelled, other]

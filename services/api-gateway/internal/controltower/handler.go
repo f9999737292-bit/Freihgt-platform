@@ -177,6 +177,155 @@ func (h *Handler) GetCriticalEventActions(w http.ResponseWriter, r *http.Request
 	)
 }
 
+func (h *Handler) ListRisks(w http.ResponseWriter, r *http.Request) {
+	started := time.Now()
+
+	query, err := ParseListQuery(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	reqCtx, err := buildRequestContext(r, h.authEnabled, h.devTenantID)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	if h.authEnabled {
+		if err := h.ensureRiskViewAccess(r, reqCtx); err != nil {
+			respond.Error(w, err)
+			return
+		}
+	}
+
+	result, err := h.service.ListRisks(r.Context(), reqCtx, query)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	respond.JSON(w, http.StatusOK, result)
+
+	h.log.Info("control_tower_risks_list_completed",
+		slog.String("request_id", requestIDFromRequest(r)),
+		slog.String("tenant_id", reqCtx.TenantID),
+		slog.String("user_id", reqCtx.UserID),
+		slog.Int("risks_count", len(result.Items)),
+		slog.Int64("duration_ms", time.Since(started).Milliseconds()),
+	)
+}
+
+func (h *Handler) GetRisk(w http.ResponseWriter, r *http.Request) {
+	started := time.Now()
+	riskID := strings.ToLower(strings.TrimSpace(chi.URLParam(r, "riskId")))
+
+	reqCtx, err := buildRequestContext(r, h.authEnabled, h.devTenantID)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	if h.authEnabled {
+		if err := h.ensureRiskViewAccess(r, reqCtx); err != nil {
+			respond.Error(w, err)
+			return
+		}
+	}
+
+	result, err := h.service.GetRisk(r.Context(), reqCtx, riskID)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	respond.JSON(w, http.StatusOK, result)
+
+	h.log.Info("control_tower_risk_get_completed",
+		slog.String("request_id", requestIDFromRequest(r)),
+		slog.String("tenant_id", reqCtx.TenantID),
+		slog.String("user_id", reqCtx.UserID),
+		slog.String("risk_id", riskID),
+		slog.Int64("duration_ms", time.Since(started).Milliseconds()),
+	)
+}
+
+func (h *Handler) AcknowledgeRisk(w http.ResponseWriter, r *http.Request) {
+	h.handleRiskMutation(w, r, "acknowledge", func(ctx context.Context, reqCtx RequestContext, riskID string, _ []byte) (ControlTowerShipmentRisk, error) {
+		return h.service.AcknowledgeRisk(ctx, reqCtx, riskID)
+	}, h.ensureAckRiskAccess, false)
+}
+
+func (h *Handler) MitigateRisk(w http.ResponseWriter, r *http.Request) {
+	h.handleRiskMutation(w, r, "mitigate", h.service.MitigateRisk, h.ensureMitigateRiskAccess, true)
+}
+
+type riskMutation func(context.Context, RequestContext, string, []byte) (ControlTowerShipmentRisk, error)
+
+func (h *Handler) handleRiskMutation(
+	w http.ResponseWriter,
+	r *http.Request,
+	action string,
+	mutate riskMutation,
+	check accessChecker,
+	readBody bool,
+) {
+	started := time.Now()
+	riskID := strings.ToLower(strings.TrimSpace(chi.URLParam(r, "riskId")))
+
+	var rawBody []byte
+	var err error
+	if readBody {
+		rawBody, err = readRiskRequestBody(r)
+		if err != nil {
+			respond.Error(w, apperrors.Validation("invalid request body", map[string]any{"field": "body"}))
+			return
+		}
+	}
+
+	reqCtx, err := buildRequestContext(r, h.authEnabled, h.devTenantID)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	if h.authEnabled {
+		if err := check(r, reqCtx); err != nil {
+			respond.Error(w, err)
+			return
+		}
+	}
+
+	result, err := mutate(r.Context(), reqCtx, riskID, rawBody)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	respond.JSON(w, http.StatusOK, result)
+
+	h.log.Info("control_tower_risk_"+action+"_completed",
+		slog.String("request_id", requestIDFromRequest(r)),
+		slog.String("tenant_id", reqCtx.TenantID),
+		slog.String("user_id", reqCtx.UserID),
+		slog.String("risk_id", riskID),
+		slog.String("status", result.Status),
+		slog.Int64("duration_ms", time.Since(started).Milliseconds()),
+	)
+}
+
+func (h *Handler) ensureRiskViewAccess(r *http.Request, reqCtx RequestContext) error {
+	return h.ensureRoleAccess(r, reqCtx, CanViewRisk, "view control tower risks denied")
+}
+
+func (h *Handler) ensureAckRiskAccess(r *http.Request, reqCtx RequestContext) error {
+	return h.ensureRoleAccess(r, reqCtx, CanAckRisk, "acknowledge control tower risks denied")
+}
+
+func (h *Handler) ensureMitigateRiskAccess(r *http.Request, reqCtx RequestContext) error {
+	return h.ensureRoleAccess(r, reqCtx, CanMitigateRisk, "mitigate control tower risks denied")
+}
+
 type workflowMutation func(context.Context, RequestContext, string, []byte) (ControlTowerEventWorkflow, error)
 type accessChecker func(*http.Request, RequestContext) error
 

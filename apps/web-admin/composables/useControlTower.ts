@@ -26,9 +26,13 @@ import {
   type ControlTowerFunnelStep,
   type ControlTowerKpiCard,
   type ControlTowerKpiMetric,
+  type ControlTowerMitigationCode,
   type ControlTowerOperationRow,
   type ControlTowerRiskAlert,
+  type ControlTowerRiskKpi,
+  type ControlTowerRisksListResponse,
   type ControlTowerShipment,
+  type ControlTowerShipmentRisk,
   type ControlTowerShipmentStatusRow,
   type ControlTowerSummaryKpi,
   type ControlTowerSummaryResponse,
@@ -137,9 +141,13 @@ export function useControlTower() {
   const summaryShipments = ref<ControlTowerShipment[]>([])
   const summaryKpi = ref<ControlTowerSummaryKpi | null>(null)
   const summaryExceptionKpi = ref<ControlTowerExceptionKpi | null>(null)
+  const summaryRiskKpi = ref<ControlTowerRiskKpi | null>(null)
+  const summaryRisks = ref<ControlTowerShipmentRisk[]>([])
   const summaryEvents = ref<ControlTowerEvent[]>([])
   const acknowledgingEventId = ref<string | null>(null)
+  const acknowledgingRiskId = ref<string | null>(null)
   const workflowActionEventId = ref<string | null>(null)
+  const riskActionId = ref<string | null>(null)
   const statusSummary = ref<ControlTowerStatusSummary | null>(null)
   const statusSummaryFreshness = ref<ControlTowerStatusSummaryFreshness | null>(null)
 
@@ -199,7 +207,60 @@ export function useControlTower() {
     if (filters.eventSlaStatus) query.event_sla_status = filters.eventSlaStatus
     if (filters.escalationLevel) query.escalation_level = filters.escalationLevel
     if (filters.unassignedOnly) query.unassigned_only = true
+    if (filters.riskLevel) query.risk_level = filters.riskLevel
+    if (filters.riskStatus) query.risk_status = filters.riskStatus
+    if (filters.predictedExceptionType) query.predicted_exception_type = filters.predictedExceptionType
+    if (filters.riskShipmentId) query.risk_shipment_id = filters.riskShipmentId
+    if (filters.riskMitigatingOnly) query.risk_mitigating_only = true
+    if (filters.riskNonMitigatingOnly) query.risk_non_mitigating_only = true
     return query
+  }
+
+  function buildRiskKpiMetrics(kpi: ControlTowerRiskKpi): ControlTowerKpiMetric[] {
+    return [
+      {
+        key: 'activeRisks',
+        titleKey: 'controlTower.risk.kpi.activeRisks',
+        descriptionKey: 'controlTower.risk.kpi.activeRisksDesc',
+        value: kpi.activeRisks,
+        tone: kpi.activeRisks > 0 ? 'warning' : 'ok',
+      },
+      {
+        key: 'criticalRisks',
+        titleKey: 'controlTower.risk.kpi.criticalRisks',
+        descriptionKey: 'controlTower.risk.kpi.criticalRisksDesc',
+        value: kpi.criticalRisks,
+        tone: kpi.criticalRisks > 0 ? 'danger' : 'neutral',
+      },
+      {
+        key: 'highRisks',
+        titleKey: 'controlTower.risk.kpi.highRisks',
+        descriptionKey: 'controlTower.risk.kpi.highRisksDesc',
+        value: kpi.highRisks,
+        tone: kpi.highRisks > 0 ? 'warning' : 'neutral',
+      },
+      {
+        key: 'mitigatingRisks',
+        titleKey: 'controlTower.risk.kpi.mitigatingRisks',
+        descriptionKey: 'controlTower.risk.kpi.mitigatingRisksDesc',
+        value: kpi.mitigatingRisks,
+        tone: kpi.mitigatingRisks > 0 ? 'ok' : 'neutral',
+      },
+      {
+        key: 'clearedBeforeMaterialization',
+        titleKey: 'controlTower.risk.kpi.clearedBeforeMaterialization',
+        descriptionKey: 'controlTower.risk.kpi.clearedBeforeMaterializationDesc',
+        value: kpi.clearedBeforeMaterialization,
+        tone: 'neutral',
+      },
+      {
+        key: 'risksMaterialized',
+        titleKey: 'controlTower.risk.kpi.materialized',
+        descriptionKey: 'controlTower.risk.kpi.materializedDesc',
+        value: kpi.risksMaterialized,
+        tone: kpi.risksMaterialized > 0 ? 'warning' : 'neutral',
+      },
+    ]
   }
 
   function buildExceptionKpiMetrics(kpi: ControlTowerExceptionKpi): ControlTowerKpiMetric[] {
@@ -311,6 +372,12 @@ export function useControlTower() {
     dataFreshness.value = summary.dataFreshness
     summaryKpi.value = summary.kpi
     summaryExceptionKpi.value = summary.exceptionKpi ?? null
+    summaryRiskKpi.value = summary.riskKpi ?? null
+    summaryRisks.value = (summary.shipmentRisks ?? []).map((risk) => ({
+      ...risk,
+      firstDetectedAt: String(risk.firstDetectedAt),
+      evaluatedAt: String(risk.evaluatedAt),
+    }))
     summaryShipments.value = summary.shipments.items.map(mapSummaryShipment)
     summaryEvents.value = summary.criticalEvents.map((event) => ({
       ...event,
@@ -457,6 +524,106 @@ export function useControlTower() {
       'controlTower.exceptions.updateSuccess',
     )
     return result != null
+  }
+
+  async function fetchShipmentRisks(shipmentId?: string): Promise<ControlTowerShipmentRisk[]> {
+    if (demoMode.value || !summaryMode.value) {
+      return []
+    }
+    try {
+      const query: Record<string, string> = {}
+      if (shipmentId) {
+        query.risk_shipment_id = shipmentId
+      }
+      const response = await apiGet<ControlTowerRisksListResponse>('/api/v1/control-tower/risks', {
+        skipTenant: true,
+        query,
+      })
+      return response.items ?? []
+    } catch {
+      return []
+    }
+  }
+
+  async function fetchRiskDetails(riskId: string): Promise<ControlTowerShipmentRisk | null> {
+    if (demoMode.value || !summaryMode.value) {
+      return null
+    }
+    try {
+      return await apiGet<ControlTowerShipmentRisk>(
+        `/api/v1/control-tower/risks/${encodeURIComponent(riskId)}`,
+        { skipTenant: true },
+      )
+    } catch (error) {
+      pushToast('error', riskErrorMessage(error, 'details'))
+      return null
+    }
+  }
+
+  function riskErrorMessage(error: unknown, action: 'acknowledge' | 'mitigate' | 'details'): string {
+    if (error instanceof ApiError) {
+      if (error.status === 403) {
+        return t(`controlTower.risk.errors.${action}.forbidden`)
+      }
+      if (error.status === 404) {
+        return t(`controlTower.risk.errors.${action}.notFound`)
+      }
+      if (error.status === 409) {
+        return t(`controlTower.risk.errors.${action}.conflict`)
+      }
+      if (error.status === 503 || error.status >= 500) {
+        return t(`controlTower.risk.errors.${action}.unavailable`)
+      }
+    }
+    return formatApiErrorForUser(error)
+  }
+
+  async function acknowledgeRisk(riskId: string): Promise<boolean> {
+    if (demoMode.value || !summaryMode.value || acknowledgingRiskId.value) {
+      return false
+    }
+    acknowledgingRiskId.value = riskId
+    try {
+      await apiPost<ControlTowerShipmentRisk>(
+        `/api/v1/control-tower/risks/${encodeURIComponent(riskId)}/acknowledge`,
+        undefined,
+        { skipTenant: true },
+      )
+      pushToast('success', t('controlTower.risk.ackSuccess'))
+      await loadSummaryData()
+      return true
+    } catch (error) {
+      pushToast('error', riskErrorMessage(error, 'acknowledge'))
+      return false
+    } finally {
+      acknowledgingRiskId.value = null
+    }
+  }
+
+  async function mitigateRisk(
+    riskId: string,
+    mitigationCode: ControlTowerMitigationCode,
+    comment?: string,
+  ): Promise<boolean> {
+    if (demoMode.value || !summaryMode.value || riskActionId.value) {
+      return false
+    }
+    riskActionId.value = riskId
+    try {
+      await apiPost<ControlTowerShipmentRisk>(
+        `/api/v1/control-tower/risks/${encodeURIComponent(riskId)}/mitigate`,
+        { mitigationCode, comment: comment?.trim() || undefined },
+        { skipTenant: true },
+      )
+      pushToast('success', t('controlTower.risk.mitigateSuccess'))
+      await loadSummaryData()
+      return true
+    } catch (error) {
+      pushToast('error', riskErrorMessage(error, 'mitigate'))
+      return false
+    } finally {
+      riskActionId.value = null
+    }
   }
 
   async function fetchCriticalEventActions(eventId: string): Promise<ControlTowerEventActionsResponse | null> {
@@ -1085,6 +1252,20 @@ export function useControlTower() {
     return []
   })
 
+  const riskKpiMetrics = computed<ControlTowerKpiMetric[]>(() => {
+    if (summaryMode.value && summaryRiskKpi.value) {
+      return buildRiskKpiMetrics(summaryRiskKpi.value)
+    }
+    return []
+  })
+
+  const shipmentRisks = computed<ControlTowerShipmentRisk[]>(() => {
+    if (summaryMode.value) {
+      return summaryRisks.value
+    }
+    return []
+  })
+
   const criticalEvents = computed<ControlTowerEvent[]>(() => {
     if (summaryMode.value) {
       return summaryEvents.value
@@ -1162,6 +1343,16 @@ export function useControlTower() {
     filters.eventSlaStatus = String(query.event_sla_status ?? query.eventSlaStatus ?? '')
     filters.escalationLevel = String(query.escalation_level ?? query.escalationLevel ?? '')
     filters.unassignedOnly = query.unassigned_only === 'true' || query.unassignedOnly === 'true'
+    filters.riskLevel = String(query.risk_level ?? query.riskLevel ?? '')
+    filters.riskStatus = String(query.risk_status ?? query.riskStatus ?? '')
+    filters.predictedExceptionType = String(
+      query.predicted_exception_type ?? query.predictedExceptionType ?? '',
+    )
+    filters.riskShipmentId = String(query.risk_shipment_id ?? query.riskShipmentId ?? '')
+    filters.riskMitigatingOnly =
+      query.risk_mitigating_only === 'true' || query.riskMitigatingOnly === 'true'
+    filters.riskNonMitigatingOnly =
+      query.risk_non_mitigating_only === 'true' || query.riskNonMitigatingOnly === 'true'
   }
 
   function filtersToQuery(): Record<string, string> {
@@ -1180,6 +1371,12 @@ export function useControlTower() {
     if (filters.eventSlaStatus) query.event_sla_status = filters.eventSlaStatus
     if (filters.escalationLevel) query.escalation_level = filters.escalationLevel
     if (filters.unassignedOnly) query.unassigned_only = 'true'
+    if (filters.riskLevel) query.risk_level = filters.riskLevel
+    if (filters.riskStatus) query.risk_status = filters.riskStatus
+    if (filters.predictedExceptionType) query.predicted_exception_type = filters.predictedExceptionType
+    if (filters.riskShipmentId) query.risk_shipment_id = filters.riskShipmentId
+    if (filters.riskMitigatingOnly) query.risk_mitigating_only = 'true'
+    if (filters.riskNonMitigatingOnly) query.risk_non_mitigating_only = 'true'
     return query
   }
 
@@ -1205,6 +1402,14 @@ export function useControlTower() {
     filteredShipments,
     kpiMetrics,
     exceptionKpiMetrics,
+    riskKpiMetrics,
+    shipmentRisks,
+    acknowledgingRiskId,
+    riskActionId,
+    acknowledgeRisk,
+    mitigateRisk,
+    fetchRiskDetails,
+    fetchShipmentRisks,
     criticalEvents,
     acknowledgingEventId,
     workflowActionEventId,

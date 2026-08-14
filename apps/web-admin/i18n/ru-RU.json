@@ -430,7 +430,8 @@
       "systemLinks": "Системные ссылки",
       "filters": "Фильтры",
       "activeShipments": "Активные перевозки",
-      "criticalEvents": "Критические события"
+      "criticalEvents": "Критические события",
+      "shipmentRisks": "Прогнозные риски перевозок"
     },
     "kpi": {
       "companies": "Companies",
@@ -623,6 +624,11 @@
       "eventSlaStatus": "SLA исключения",
       "escalationLevel": "Уровень эскалации",
       "unassignedOnly": "Только без назначения",
+      "riskLevel": "Уровень риска",
+      "riskStatus": "Статус риска",
+      "predictedExceptionType": "Тип прогноза",
+      "riskMitigatingOnly": "Только в митигации",
+      "riskNonMitigatingOnly": "Без митигации",
       "reset": "Сбросить фильтры"
     },
     "table": {
@@ -823,6 +829,106 @@
         "unassigned": "Без назначения",
         "unassignedDesc": "Подтверждённые, но не назначенные"
       }
+    },
+    "risk": {
+      "empty": "Нет активных прогнозных рисков",
+      "acknowledge": "Подтвердить",
+      "startMitigation": "Начать митигацию",
+      "mitigateTitle": "Митигация риска",
+      "mitigationCode": "Код митигации",
+      "comment": "Комментарий",
+      "ackSuccess": "Риск подтверждён",
+      "mitigateSuccess": "Митигация начата",
+      "reasons": "Причины",
+      "deadline": "Угрожаемый срок",
+      "materializedLink": "Материализовано в событие {eventId}",
+      "levels": {
+        "none": "Нет риска",
+        "low": "Низкий",
+        "medium": "Средний",
+        "high": "Высокий",
+        "critical": "Критический"
+      },
+      "status": {
+        "active": "Активен",
+        "acknowledged": "Подтверждён",
+        "mitigating": "Митигация",
+        "cleared": "Снят",
+        "materialized": "Материализован"
+      },
+      "types": {
+        "pickup_delay_risk": "Риск опоздания на погрузку",
+        "delivery_delay_risk": "Риск опоздания на доставку",
+        "slot_miss_risk": "Риск пропуска слота",
+        "route_deviation_risk": "Риск отклонения маршрута",
+        "tracking_loss_risk": "Риск потери трекинга",
+        "document_readiness_risk": "Риск неготовности документов",
+        "vehicle_assignment_risk": "Риск без назначенного ТС",
+        "driver_assignment_risk": "Риск без назначенного водителя"
+      },
+      "mitigationCodes": {
+        "contact_carrier": "Связаться с перевозчиком",
+        "contact_driver": "Связаться с водителем",
+        "reschedule_slot": "Перенести слот",
+        "request_documents": "Запросить документы",
+        "reassign_driver": "Переназначить водителя",
+        "reassign_vehicle": "Переназначить ТС",
+        "adjust_plan": "Скорректировать план",
+        "monitor": "Наблюдать",
+        "other": "Другое"
+      },
+      "signals": {
+        "pickup_deadline_imminent": "До плановой погрузки осталось {minutesRemaining} мин",
+        "pickup_time_near_without_started_state": "Погрузка через {minutesRemaining} мин, перевозка не начата",
+        "pickup_window_approaching": "Окно погрузки через {minutesRemaining} мин",
+        "pickup_at_risk_sla": "SLA погрузки в зоне риска",
+        "delivery_deadline_imminent": "До плановой доставки осталось {minutesRemaining} мин",
+        "delivery_time_near_without_completion": "Доставка через {minutesRemaining} мин, перевозка не завершена",
+        "delivery_window_approaching": "Окно доставки через {minutesRemaining} мин",
+        "delivery_at_risk_sla": "SLA доставки в зоне риска",
+        "pickup_slot_not_booked": "Слот погрузки не забронирован, до дедлайна {minutesRemaining} мин",
+        "delivery_slot_not_booked": "Слот доставки не забронирован, до дедлайна {minutesRemaining} мин",
+        "no_tracking_update": "Нет обновлений {minutesSinceUpdate} мин",
+        "stale_updates_at_risk": "Длительное отсутствие обновлений (SLA at risk)",
+        "missing_driver": "Водитель не назначен, до погрузки {minutesUntilPickup} мин",
+        "missing_vehicle": "ТС не назначено, до погрузки {minutesUntilPickup} мин"
+      },
+      "kpi": {
+        "activeRisks": "Активные риски",
+        "activeRisksDesc": "Прогнозные риски в работе",
+        "criticalRisks": "Критические риски",
+        "criticalRisksDesc": "Риски уровня critical",
+        "highRisks": "Высокие риски",
+        "highRisksDesc": "Риски уровня high",
+        "mitigatingRisks": "В митигации",
+        "mitigatingRisksDesc": "Операторы активно работают с риском",
+        "clearedBeforeMaterialization": "Снято до инцидента",
+        "clearedBeforeMaterializationDesc": "Риски, снятые до материализации",
+        "materialized": "Материализовано",
+        "materializedDesc": "Риски, ставшие фактическими исключениями"
+      },
+      "errors": {
+        "acknowledge": {
+          "forbidden": "Недостаточно прав для подтверждения риска",
+          "notFound": "Риск не найден",
+          "conflict": "Нельзя подтвердить риск в текущем статусе",
+          "unavailable": "Сервис рисков временно недоступен"
+        },
+        "mitigate": {
+          "forbidden": "Недостаточно прав для митигации риска",
+          "notFound": "Риск не найден",
+          "conflict": "Нельзя начать митигацию в текущем статусе",
+          "unavailable": "Сервис митигации временно недоступен"
+        },
+        "details": {
+          "forbidden": "Недостаточно прав для просмотра риска",
+          "notFound": "Риск не найден",
+          "conflict": "Детали риска недоступны",
+          "unavailable": "Сервис рисков временно недоступен"
+        }
+      },
+      "shipmentSectionTitle": "Риски и прогнозы",
+      "shipmentSectionHint": "Прогнозные операционные риски по перевозке"
     },
     "states": {
       "noActiveShipments": "Нет активных перевозок",

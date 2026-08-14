@@ -22,10 +22,12 @@ func NewRouter(
 	repo *repository.ProjectionRepository,
 	ackRepo *repository.AckRepository,
 	workflowRepo *repository.WorkflowRepository,
+	riskRepo *repository.RiskRepository,
 	freshness *consumer.Freshness,
 ) http.Handler {
 	statusHandler := handlers.NewStatusHandler(repo, freshness)
 	ackHandler := handlers.NewAckHandler(ackRepo, workflowRepo)
+	riskHandler := handlers.NewRiskHandler(riskRepo)
 
 	r := chi.NewRouter()
 	observability.Mount(r, observability.MountOptions{
@@ -49,6 +51,12 @@ func NewRouter(
 		r.Post("/critical-events/workflows/ensure", ackHandler.EnsureExceptionWorkflows)
 		r.Post("/critical-events/workflows/lookup", ackHandler.LookupWorkflows)
 		r.Patch("/critical-events/{eventId}/exception", ackHandler.UpdateException)
+		r.Post("/risks/sync", riskHandler.SyncRisks)
+		r.Get("/risks/kpi", riskHandler.GetRiskKPI)
+		r.Get("/risks", riskHandler.ListRisks)
+		r.Get("/risks/{riskKey}", riskHandler.GetRisk)
+		r.Post("/risks/{riskKey}/acknowledge", riskHandler.AcknowledgeRisk)
+		r.Post("/risks/{riskKey}/mitigate", riskHandler.MitigateRisk)
 	})
 
 	return r

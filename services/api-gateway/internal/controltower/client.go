@@ -248,6 +248,8 @@ func parseRawShipment(item map[string]any) (rawShipment, bool) {
 		ActualDeliveryAt:      timePtrField(item, "actual_delivery_at"),
 		UpdatedAt:             timePtrField(item, "updated_at"),
 		CreatedAt:             timePtrField(item, "created_at"),
+		DriverID:              stringPtrField(item, "driver_id"),
+		VehicleID:             stringPtrField(item, "vehicle_id"),
 	}, true
 }
 

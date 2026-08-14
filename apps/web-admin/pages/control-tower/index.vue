@@ -2,7 +2,7 @@
 definePageMeta({ middleware: 'auth', layout: 'default' })
 
 import type { User } from '~/types/user'
-import type { ControlTowerEvent, ControlTowerEventAction, ControlTowerEventResolutionCode } from '~/types/controlTower'
+import type { ControlTowerEvent, ControlTowerEventAction, ControlTowerEventResolutionCode, ControlTowerShipmentRisk } from '~/types/controlTower'
 
 const route = useRoute()
 const router = useRouter()
@@ -21,6 +21,12 @@ const {
   controlTowerShipments,
   kpiMetrics,
   exceptionKpiMetrics,
+  riskKpiMetrics,
+  shipmentRisks,
+  acknowledgingRiskId,
+  riskActionId,
+  acknowledgeRisk,
+  mitigateRisk,
   criticalEvents,
   acknowledgingEventId,
   workflowActionEventId,
@@ -88,6 +94,9 @@ const tenantUsers = ref<User[]>([])
 const usersLoading = ref(false)
 const detailsLoading = ref(false)
 const detailsActions = ref<ControlTowerEventAction[]>([])
+
+const riskMitigateModalOpen = ref(false)
+const selectedRisk = ref<ControlTowerShipmentRisk | null>(null)
 
 const isReassign = computed(() => {
   if (!selectedEventId.value) return false
@@ -164,6 +173,21 @@ async function onExceptionSubmit(payload: {
   if (!selectedEventId.value) return
   const ok = await updateCriticalEventException(selectedEventId.value, payload)
   if (ok) exceptionModalOpen.value = false
+}
+
+function onAcknowledgeRisk(riskId: string) {
+  void acknowledgeRisk(riskId)
+}
+
+function onMitigateRisk(risk: ControlTowerShipmentRisk) {
+  selectedRisk.value = risk
+  riskMitigateModalOpen.value = true
+}
+
+async function onMitigateSubmit(code: string, comment?: string) {
+  if (!selectedRisk.value) return
+  const ok = await mitigateRisk(selectedRisk.value.riskId, code as never, comment)
+  if (ok) riskMitigateModalOpen.value = false
 }
 
 const isEmptyDataset = computed(
@@ -309,6 +333,13 @@ onBeforeUnmount(() => {
           />
         </section>
 
+        <section
+          v-if="riskKpiMetrics.length > 0"
+          class="control-tower-v01__kpi-grid control-tower-v01__kpi-grid--risks"
+        >
+          <ControlTowerMetricCard v-for="metric in riskKpiMetrics" :key="metric.key" :metric="metric" />
+        </section>
+
         <UiCard>
           <h2 class="control-tower-v01__section-title">{{ $t('controlTower.sections.filters') }}</h2>
           <ControlTowerFiltersBar
@@ -363,6 +394,22 @@ onBeforeUnmount(() => {
               @show-details="onShowEventDetails"
             />
           </UiCard>
+
+          <UiCard class="control-tower-v01__risks-card">
+            <h2 class="control-tower-v01__section-title">
+              {{ $t('controlTower.sections.shipmentRisks') }}
+            </h2>
+            <ControlTowerShipmentRiskPanel
+              :risks="shipmentRisks"
+              :loading="loading"
+              :can-acknowledge="canAcknowledgeEvents"
+              :can-mitigate="canAcknowledgeEvents"
+              :acknowledging-risk-id="acknowledgingRiskId"
+              :risk-action-id="riskActionId"
+              @acknowledge="onAcknowledgeRisk"
+              @mitigate="onMitigateRisk"
+            />
+          </UiCard>
         </div>
       </template>
 
@@ -397,6 +444,14 @@ onBeforeUnmount(() => {
         :loading="Boolean(workflowActionEventId)"
         @close="exceptionModalOpen = false"
         @submit="onExceptionSubmit"
+      />
+
+      <ControlTowerRiskMitigateModal
+        :open="riskMitigateModalOpen"
+        :risk="selectedRisk"
+        :loading="Boolean(riskActionId)"
+        @close="riskMitigateModalOpen = false"
+        @submit="onMitigateSubmit"
       />
     </template>
   </div>

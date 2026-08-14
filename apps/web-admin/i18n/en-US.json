@@ -430,7 +430,8 @@
       "systemLinks": "System links",
       "filters": "Filters",
       "activeShipments": "Active shipments",
-      "criticalEvents": "Critical events"
+      "criticalEvents": "Critical events",
+      "shipmentRisks": "Predictive shipment risks"
     },
     "kpi": {
       "companies": "Companies",
@@ -623,6 +624,11 @@
       "eventSlaStatus": "Exception SLA",
       "escalationLevel": "Escalation level",
       "unassignedOnly": "Unassigned only",
+      "riskLevel": "Risk level",
+      "riskStatus": "Risk status",
+      "predictedExceptionType": "Predicted exception",
+      "riskMitigatingOnly": "Mitigating only",
+      "riskNonMitigatingOnly": "Not mitigating",
       "reset": "Reset filters"
     },
     "table": {
@@ -823,6 +829,106 @@
         "unassigned": "Unassigned",
         "unassignedDesc": "Acknowledged but not assigned"
       }
+    },
+    "risk": {
+      "empty": "No active predictive risks",
+      "acknowledge": "Acknowledge",
+      "startMitigation": "Start mitigation",
+      "mitigateTitle": "Risk mitigation",
+      "mitigationCode": "Mitigation code",
+      "comment": "Comment",
+      "ackSuccess": "Risk acknowledged",
+      "mitigateSuccess": "Mitigation started",
+      "reasons": "Reasons",
+      "deadline": "Threatened deadline",
+      "materializedLink": "Materialized into event {eventId}",
+      "levels": {
+        "none": "None",
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High",
+        "critical": "Critical"
+      },
+      "status": {
+        "active": "Active",
+        "acknowledged": "Acknowledged",
+        "mitigating": "Mitigating",
+        "cleared": "Cleared",
+        "materialized": "Materialized"
+      },
+      "types": {
+        "pickup_delay_risk": "Pickup delay risk",
+        "delivery_delay_risk": "Delivery delay risk",
+        "slot_miss_risk": "Slot miss risk",
+        "route_deviation_risk": "Route deviation risk",
+        "tracking_loss_risk": "Tracking loss risk",
+        "document_readiness_risk": "Document readiness risk",
+        "vehicle_assignment_risk": "Vehicle assignment risk",
+        "driver_assignment_risk": "Driver assignment risk"
+      },
+      "mitigationCodes": {
+        "contact_carrier": "Contact carrier",
+        "contact_driver": "Contact driver",
+        "reschedule_slot": "Reschedule slot",
+        "request_documents": "Request documents",
+        "reassign_driver": "Reassign driver",
+        "reassign_vehicle": "Reassign vehicle",
+        "adjust_plan": "Adjust plan",
+        "monitor": "Monitor",
+        "other": "Other"
+      },
+      "signals": {
+        "pickup_deadline_imminent": "Planned pickup in {minutesRemaining} min",
+        "pickup_time_near_without_started_state": "Pickup in {minutesRemaining} min, shipment not started",
+        "pickup_window_approaching": "Pickup window in {minutesRemaining} min",
+        "pickup_at_risk_sla": "Pickup SLA at risk",
+        "delivery_deadline_imminent": "Planned delivery in {minutesRemaining} min",
+        "delivery_time_near_without_completion": "Delivery in {minutesRemaining} min, not completed",
+        "delivery_window_approaching": "Delivery window in {minutesRemaining} min",
+        "delivery_at_risk_sla": "Delivery SLA at risk",
+        "pickup_slot_not_booked": "Pickup slot not booked, {minutesRemaining} min to deadline",
+        "delivery_slot_not_booked": "Delivery slot not booked, {minutesRemaining} min to deadline",
+        "no_tracking_update": "No update for {minutesSinceUpdate} min",
+        "stale_updates_at_risk": "Stale updates (SLA at risk)",
+        "missing_driver": "No driver assigned, pickup in {minutesUntilPickup} min",
+        "missing_vehicle": "No vehicle assigned, pickup in {minutesUntilPickup} min"
+      },
+      "kpi": {
+        "activeRisks": "Active risks",
+        "activeRisksDesc": "Predictive risks in progress",
+        "criticalRisks": "Critical risks",
+        "criticalRisksDesc": "Critical-level risks",
+        "highRisks": "High risks",
+        "highRisksDesc": "High-level risks",
+        "mitigatingRisks": "Mitigating",
+        "mitigatingRisksDesc": "Operators actively handling risks",
+        "clearedBeforeMaterialization": "Cleared before incident",
+        "clearedBeforeMaterializationDesc": "Risks cleared before materialization",
+        "materialized": "Materialized",
+        "materializedDesc": "Risks that became actual exceptions"
+      },
+      "errors": {
+        "acknowledge": {
+          "forbidden": "Not allowed to acknowledge risk",
+          "notFound": "Risk not found",
+          "conflict": "Cannot acknowledge risk in current status",
+          "unavailable": "Risk service temporarily unavailable"
+        },
+        "mitigate": {
+          "forbidden": "Not allowed to mitigate risk",
+          "notFound": "Risk not found",
+          "conflict": "Cannot start mitigation in current status",
+          "unavailable": "Mitigation service temporarily unavailable"
+        },
+        "details": {
+          "forbidden": "Not allowed to view risk",
+          "notFound": "Risk not found",
+          "conflict": "Risk details unavailable",
+          "unavailable": "Risk service temporarily unavailable"
+        }
+      },
+      "shipmentSectionTitle": "Risks & predictions",
+      "shipmentSectionHint": "Predictive operational risks for this shipment"
     },
     "states": {
       "noActiveShipments": "No active shipments",

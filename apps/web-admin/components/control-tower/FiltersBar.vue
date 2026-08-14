@@ -7,7 +7,10 @@ import {
   CONTROL_TOWER_ESCALATION_LEVELS,
   CONTROL_TOWER_EVENT_SLA_STATUSES,
   CONTROL_TOWER_EXCEPTION_CATEGORIES,
+  CONTROL_TOWER_PREDICTED_EXCEPTION_TYPES,
   CONTROL_TOWER_PRIORITIES,
+  CONTROL_TOWER_RISK_LEVELS,
+  CONTROL_TOWER_RISK_STATUSES,
   type ControlTowerEventWorkflowStatus,
 } from '~/types/controlTower'
 
@@ -103,6 +106,30 @@ const escalationOptions = computed(() => [
   { label: t('common.all'), value: '' },
   ...CONTROL_TOWER_ESCALATION_LEVELS.filter((value) => value !== 'none').map((value) => ({
     label: t(`controlTower.exceptions.escalation.${value}`),
+    value,
+  })),
+])
+
+const riskLevelOptions = computed(() => [
+  { label: t('common.all'), value: '' },
+  ...CONTROL_TOWER_RISK_LEVELS.map((value) => ({
+    label: t(`controlTower.risk.levels.${value}`),
+    value,
+  })),
+])
+
+const riskStatusOptions = computed(() => [
+  { label: t('common.all'), value: '' },
+  ...CONTROL_TOWER_RISK_STATUSES.map((value) => ({
+    label: t(`controlTower.risk.status.${value}`),
+    value,
+  })),
+])
+
+const predictedTypeOptions = computed(() => [
+  { label: t('common.all'), value: '' },
+  ...CONTROL_TOWER_PREDICTED_EXCEPTION_TYPES.map((value) => ({
+    label: t(`controlTower.risk.types.${value}`),
     value,
   })),
 ])
@@ -214,6 +241,43 @@ function onFilterChange() {
         @change="filters.unassignedOnly = ($event.target as HTMLInputElement).checked; onFilterChange()"
       />
       {{ $t('controlTower.filters.unassignedOnly') }}
+    </label>
+  </div>
+
+  <div class="filters-row filters-row--risks">
+    <UiSelect
+      :model-value="filters.riskLevel"
+      :label="$t('controlTower.filters.riskLevel')"
+      :options="riskLevelOptions"
+      @update:model-value="filters.riskLevel = $event; onFilterChange()"
+    />
+    <UiSelect
+      :model-value="filters.riskStatus"
+      :label="$t('controlTower.filters.riskStatus')"
+      :options="riskStatusOptions"
+      @update:model-value="filters.riskStatus = $event; onFilterChange()"
+    />
+    <UiSelect
+      :model-value="filters.predictedExceptionType"
+      :label="$t('controlTower.filters.predictedExceptionType')"
+      :options="predictedTypeOptions"
+      @update:model-value="filters.predictedExceptionType = $event; onFilterChange()"
+    />
+    <label class="filters-row__checkbox">
+      <input
+        type="checkbox"
+        :checked="filters.riskMitigatingOnly"
+        @change="filters.riskMitigatingOnly = ($event.target as HTMLInputElement).checked; onFilterChange()"
+      />
+      {{ $t('controlTower.filters.riskMitigatingOnly') }}
+    </label>
+    <label class="filters-row__checkbox">
+      <input
+        type="checkbox"
+        :checked="filters.riskNonMitigatingOnly"
+        @change="filters.riskNonMitigatingOnly = ($event.target as HTMLInputElement).checked; onFilterChange()"
+      />
+      {{ $t('controlTower.filters.riskNonMitigatingOnly') }}
     </label>
   </div>
   </div>

@@ -154,7 +154,9 @@ func (s *Service) GetSummary(ctx context.Context, reqCtx RequestContext, query L
 	shipmentIDsWithDocs := shipmentDocumentIDs(documents)
 
 	allRows := make([]ControlTowerShipment, 0, len(shipmentsRaw))
+	rawByID := make(map[string]rawShipment, len(shipmentsRaw))
 	for _, raw := range shipmentsRaw {
+		rawByID[raw.ID] = raw
 		allRows = append(allRows, s.mapShipment(raw, orderByID, companyByID, shipmentIDsWithDocs, now))
 	}
 
@@ -166,6 +168,14 @@ func (s *Service) GetSummary(ctx context.Context, reqCtx RequestContext, query L
 	SortCriticalEvents(criticalEvents)
 	criticalEvents = FilterCriticalEvents(criticalEvents, query)
 	exceptionKPI := CalculateExceptionKPI(criticalEvents)
+
+	s.evaluateAndPersistRisks(ctx, reqCtx, allRows, rawByID, criticalEvents, now)
+	shipmentNumbers := make(map[string]string, len(allRows))
+	for _, row := range allRows {
+		shipmentNumbers[row.ID] = row.ShipmentNumber
+	}
+	shipmentRisks, riskKPI := s.loadShipmentRisks(ctx, reqCtx, query, shipmentNumbers)
+
 	filters := BuildFilterOptions(allRows, companies, freshness.CompaniesLoaded)
 	if !freshness.CompaniesLoaded {
 		freshness.Warnings = appendUniqueWarning(freshness.Warnings, WarningFilterOptionsIncomplete)
@@ -178,8 +188,10 @@ func (s *Service) GetSummary(ctx context.Context, reqCtx RequestContext, query L
 		DataFreshness:  freshness,
 		KPI:            kpi,
 		ExceptionKPI:   exceptionKPI,
+		RiskKPI:        riskKPI,
 		Shipments:      page,
 		CriticalEvents: criticalEvents,
+		ShipmentRisks:  shipmentRisks,
 		Filters:        filters,
 	}
 
@@ -224,6 +236,8 @@ func (s *Service) mapShipment(
 		LastUpdatedAt:     lastUpdated,
 		DocumentsComplete: isDocumentsComplete(raw, shipmentIDsWithDocs),
 		ReadyForBilling:   raw.Status == "READY_FOR_BILLING",
+		DriverID:          raw.DriverID,
+		VehicleID:         raw.VehicleID,
 	}
 
 	if raw.TransportOrderID != nil {

@@ -430,7 +430,8 @@
       "systemLinks": "系统链接",
       "filters": "筛选",
       "activeShipments": "活跃运输",
-      "criticalEvents": "关键事件"
+      "criticalEvents": "关键事件",
+      "shipmentRisks": "预测性运输风险"
     },
     "kpi": {
       "companies": "Companies",
@@ -623,6 +624,11 @@
       "eventSlaStatus": "异常 SLA",
       "escalationLevel": "升级级别",
       "unassignedOnly": "仅未分配",
+      "riskLevel": "风险级别",
+      "riskStatus": "风险状态",
+      "predictedExceptionType": "预测异常类型",
+      "riskMitigatingOnly": "仅缓解中",
+      "riskNonMitigatingOnly": "非缓解中",
       "reset": "重置筛选"
     },
     "table": {
@@ -823,6 +829,106 @@
         "unassigned": "未分配",
         "unassignedDesc": "已确认但未分配"
       }
+    },
+    "risk": {
+      "empty": "无活跃预测风险",
+      "acknowledge": "确认",
+      "startMitigation": "开始缓解",
+      "mitigateTitle": "风险缓解",
+      "mitigationCode": "缓解代码",
+      "comment": "备注",
+      "ackSuccess": "风险已确认",
+      "mitigateSuccess": "已开始缓解",
+      "reasons": "原因",
+      "deadline": "受威胁截止",
+      "materializedLink": "已物化为事件 {eventId}",
+      "levels": {
+        "none": "无",
+        "low": "低",
+        "medium": "中",
+        "high": "高",
+        "critical": "严重"
+      },
+      "status": {
+        "active": "活跃",
+        "acknowledged": "已确认",
+        "mitigating": "缓解中",
+        "cleared": "已清除",
+        "materialized": "已物化"
+      },
+      "types": {
+        "pickup_delay_risk": "提货延迟风险",
+        "delivery_delay_risk": "交付延迟风险",
+        "slot_miss_risk": "时段错过风险",
+        "route_deviation_risk": "路线偏离风险",
+        "tracking_loss_risk": "跟踪丢失风险",
+        "document_readiness_risk": "文档就绪风险",
+        "vehicle_assignment_risk": "车辆未分配风险",
+        "driver_assignment_risk": "司机未分配风险"
+      },
+      "mitigationCodes": {
+        "contact_carrier": "联系承运商",
+        "contact_driver": "联系司机",
+        "reschedule_slot": "改期时段",
+        "request_documents": "请求文档",
+        "reassign_driver": "重新分配司机",
+        "reassign_vehicle": "重新分配车辆",
+        "adjust_plan": "调整计划",
+        "monitor": "监控",
+        "other": "其他"
+      },
+      "signals": {
+        "pickup_deadline_imminent": "计划提货剩余 {minutesRemaining} 分钟",
+        "pickup_time_near_without_started_state": "提货 {minutesRemaining} 分钟后，运输未开始",
+        "pickup_window_approaching": "提货窗口 {minutesRemaining} 分钟后",
+        "pickup_at_risk_sla": "提货 SLA 处于风险",
+        "delivery_deadline_imminent": "计划交付剩余 {minutesRemaining} 分钟",
+        "delivery_time_near_without_completion": "交付 {minutesRemaining} 分钟后，未完成",
+        "delivery_window_approaching": "交付窗口 {minutesRemaining} 分钟后",
+        "delivery_at_risk_sla": "交付 SLA 处于风险",
+        "pickup_slot_not_booked": "提货时段未预订，截止 {minutesRemaining} 分钟",
+        "delivery_slot_not_booked": "交付时段未预订，截止 {minutesRemaining} 分钟",
+        "no_tracking_update": "{minutesSinceUpdate} 分钟无更新",
+        "stale_updates_at_risk": "长时间无更新（SLA 风险）",
+        "missing_driver": "未分配司机，提货 {minutesUntilPickup} 分钟后",
+        "missing_vehicle": "未分配车辆，提货 {minutesUntilPickup} 分钟后"
+      },
+      "kpi": {
+        "activeRisks": "活跃风险",
+        "activeRisksDesc": "进行中的预测风险",
+        "criticalRisks": "严重风险",
+        "criticalRisksDesc": "critical 级别风险",
+        "highRisks": "高风险",
+        "highRisksDesc": "high 级别风险",
+        "mitigatingRisks": "缓解中",
+        "mitigatingRisksDesc": "操作员正在处理",
+        "clearedBeforeMaterialization": "事件前清除",
+        "clearedBeforeMaterializationDesc": "物化前已清除的风险",
+        "materialized": "已物化",
+        "materializedDesc": "变为实际异常的风险"
+      },
+      "errors": {
+        "acknowledge": {
+          "forbidden": "无权确认风险",
+          "notFound": "未找到风险",
+          "conflict": "当前状态无法确认",
+          "unavailable": "风险服务暂时不可用"
+        },
+        "mitigate": {
+          "forbidden": "无权缓解风险",
+          "notFound": "未找到风险",
+          "conflict": "当前状态无法开始缓解",
+          "unavailable": "缓解服务暂时不可用"
+        },
+        "details": {
+          "forbidden": "无权查看风险",
+          "notFound": "未找到风险",
+          "conflict": "风险详情不可用",
+          "unavailable": "风险服务暂时不可用"
+        }
+      },
+      "shipmentSectionTitle": "风险与预测",
+      "shipmentSectionHint": "该运输的预测性运营风险"
     },
     "states": {
       "noActiveShipments": "无活跃运输",
