@@ -10,39 +10,44 @@ import (
 )
 
 const (
-	listCasesPath       = "/internal/v1/control-tower/cases"
-	casePath            = "/internal/v1/control-tower/cases/%s"
-	caseClaimPath       = "/internal/v1/control-tower/cases/%s/claim"
-	caseAssignPath      = "/internal/v1/control-tower/cases/%s/assign"
-	caseUnassignPath    = "/internal/v1/control-tower/cases/%s/unassign"
-	caseLinksPath       = "/internal/v1/control-tower/cases/%s/links"
-	caseLinkPath        = "/internal/v1/control-tower/cases/%s/links/%s"
-	caseNotesPath       = "/internal/v1/control-tower/cases/%s/notes"
-	caseNotePath        = "/internal/v1/control-tower/cases/%s/notes/%s"
-	caseActionsPath     = "/internal/v1/control-tower/cases/%s/actions"
-	caseActionPath      = "/internal/v1/control-tower/cases/%s/actions/%s"
-	caseActionComplete  = "/internal/v1/control-tower/cases/%s/actions/%s/complete"
-	caseDecisionsPath   = "/internal/v1/control-tower/cases/%s/decisions"
-	caseResolvePath     = "/internal/v1/control-tower/cases/%s/resolve"
-	caseClosePath       = "/internal/v1/control-tower/cases/%s/close"
-	caseReopenPath      = "/internal/v1/control-tower/cases/%s/reopen"
-	CaseTimelinePath    = "/internal/v1/control-tower/cases/%s/timeline"
-	CaseKPIPath         = "/internal/v1/control-tower/cases/kpi"
-	CaseDuplicatesPath  = "/internal/v1/control-tower/cases/duplicates"
+	listCasesPath      = "/internal/v1/control-tower/cases"
+	casePath           = "/internal/v1/control-tower/cases/%s"
+	caseClaimPath      = "/internal/v1/control-tower/cases/%s/claim"
+	caseAssignPath     = "/internal/v1/control-tower/cases/%s/assign"
+	caseUnassignPath   = "/internal/v1/control-tower/cases/%s/unassign"
+	caseLinksPath      = "/internal/v1/control-tower/cases/%s/links"
+	caseLinkPath       = "/internal/v1/control-tower/cases/%s/links/%s"
+	caseNotesPath      = "/internal/v1/control-tower/cases/%s/notes"
+	caseNotePath       = "/internal/v1/control-tower/cases/%s/notes/%s"
+	caseActionsPath    = "/internal/v1/control-tower/cases/%s/actions"
+	caseActionPath     = "/internal/v1/control-tower/cases/%s/actions/%s"
+	caseActionComplete = "/internal/v1/control-tower/cases/%s/actions/%s/complete"
+	caseDecisionsPath  = "/internal/v1/control-tower/cases/%s/decisions"
+	caseResolvePath    = "/internal/v1/control-tower/cases/%s/resolve"
+	caseClosePath      = "/internal/v1/control-tower/cases/%s/close"
+	caseReopenPath     = "/internal/v1/control-tower/cases/%s/reopen"
+	CaseTimelinePath   = "/internal/v1/control-tower/cases/%s/timeline"
+	CaseKPIPath        = "/internal/v1/control-tower/cases/kpi"
+	CaseDuplicatesPath = "/internal/v1/control-tower/cases/duplicates"
 )
 
 type CasesFilter struct {
-	Status        string
-	Severity      string
-	OwnerUserID   string
-	ShipmentID    string
-	Search        string
-	Preset        string
-	MyCases       bool
-	Unassigned    bool
-	IncludeClosed bool
-	Page          int
-	Limit         int
+	Status         string
+	Severity       string
+	OwnerUserID    string
+	ShipmentID     string
+	Search         string
+	Preset         string
+	SlaState       string
+	MyCases        bool
+	Unassigned     bool
+	IncludeClosed  bool
+	HasSlaBreach   bool
+	HasSlaWarning  bool
+	OverdueActions bool
+	HasOpenActions bool
+	Page           int
+	Limit          int
 }
 
 func (c *Client) ListCases(ctx context.Context, tenantID, userID, requestID string, filter CasesFilter) (json.RawMessage, *DependencyError) {
@@ -62,6 +67,19 @@ func (c *Client) ListCases(ctx context.Context, tenantID, userID, requestID stri
 	if filter.IncludeClosed {
 		q.Set("includeClosed", "true")
 	}
+	if filter.HasSlaBreach {
+		q.Set("hasSlaBreach", "true")
+	}
+	if filter.HasSlaWarning {
+		q.Set("hasSlaWarning", "true")
+	}
+	if filter.OverdueActions {
+		q.Set("overdueActions", "true")
+	}
+	if filter.HasOpenActions {
+		q.Set("hasOpenActions", "true")
+	}
+	setIf(q, "slaState", filter.SlaState)
 	if filter.Page > 0 {
 		q.Set("page", fmt.Sprintf("%d", filter.Page))
 	}

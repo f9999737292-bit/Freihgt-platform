@@ -152,6 +152,14 @@ func (r *CaseRepository) ListCases(ctx context.Context, tenantID, userID uuid.UU
 		where = append(where, "c.status = 'resolved'")
 	case "closed":
 		where = append(where, "c.status = 'closed'")
+	case "all_active":
+		where = append(where, "c.status NOT IN ('resolved','closed')")
+	case "sla_at_risk":
+		where = append(where, "c.status NOT IN ('resolved','closed')")
+		where = append(where, slaAtRiskSQL("c.id"))
+	case "overdue_actions":
+		where = append(where, "c.status NOT IN ('resolved','closed')")
+		where = append(where, overdueActionsSQL("c.id"))
 	}
 
 	if filter.MyCases {
@@ -179,9 +187,31 @@ func (r *CaseRepository) ListCases(ctx context.Context, tenantID, userID uuid.UU
 	}
 	if filter.Search != "" {
 		search := "%" + strings.TrimSpace(filter.Search) + "%"
-		where = append(where, fmt.Sprintf("(c.reference ILIKE $%d OR c.title ILIKE $%d)", argN, argN))
+		where = append(where, fmt.Sprintf(`(
+			c.reference ILIKE $%d OR c.title ILIKE $%d OR EXISTS (
+				SELECT 1 FROM control_tower.operational_case_link l
+				WHERE l.case_id = c.id AND l.tenant_id = c.tenant_id
+				  AND l.entity_type IN ('shipment','transport_order')
+				  AND l.entity_id ILIKE $%d
+			)
+		)`, argN, argN, argN))
 		args = append(args, search)
 		argN++
+	}
+	if filter.HasSLABreach {
+		where = append(where, slaBreachSQL("c.id"))
+	}
+	if filter.HasSLAWarning {
+		where = append(where, slaWarningSQL("c.id"))
+	}
+	if filter.OverdueActions {
+		where = append(where, overdueActionsSQL("c.id"))
+	}
+	if filter.HasOpenActions {
+		where = append(where, fmt.Sprintf(`EXISTS (
+			SELECT 1 FROM control_tower.operational_case_action_item ai
+			WHERE ai.case_id = c.id AND ai.status IN ('open','in_progress')
+		)`))
 	}
 	if filter.ShipmentID != nil {
 		where = append(where, fmt.Sprintf(`EXISTS (
@@ -250,21 +280,44 @@ func (r *CaseRepository) UpdateCase(ctx context.Context, tenantID, userID, caseI
 	}
 	effectiveSeverity := existing.EffectiveSeverity
 	severityOverride := existing.SeverityOverride
-	if v, ok := patch["severity"].(string); ok && v != "" {
+	derivedSeverity := existing.DerivedSeverity
+	if v, ok := patch["clearSeverityOverride"].(bool); ok && v {
+		derived, derr := r.computeDerivedSeverity(ctx, tenantID, caseID)
+		if derr != nil {
+			derived = domain.CaseSeverityMedium
+		}
+		derivedSeverity = derived
+		effectiveSeverity = derived
+		severityOverride = false
+		_ = r.recordEvent(ctx, tenantID, caseID, domain.CaseEventSourceCase, "case_severity_override_cleared", &userID, map[string]any{
+			"previousDerivedSeverity":   existing.DerivedSeverity,
+			"previousEffectiveSeverity": existing.EffectiveSeverity,
+			"previousOverride":          existing.SeverityOverride,
+			"newOverride":               nil,
+			"newEffectiveSeverity":      derived,
+		})
+	} else if v, ok := patch["severity"].(string); ok && v != "" {
 		if !isValidSeverity(v) {
 			return domain.OperationalCase{}, apperrors.Validation("invalid severity", map[string]any{"field": "severity"})
 		}
 		effectiveSeverity = v
 		severityOverride = true
+		_ = r.recordEvent(ctx, tenantID, caseID, domain.CaseEventSourceCase, "case_severity_overridden", &userID, map[string]any{
+			"previousDerivedSeverity":   existing.DerivedSeverity,
+			"previousEffectiveSeverity": existing.EffectiveSeverity,
+			"previousOverride":          existing.SeverityOverride,
+			"newOverride":               v,
+			"newEffectiveSeverity":      effectiveSeverity,
+		})
 	}
 
 	row := r.pool.QueryRow(ctx, `
 		UPDATE control_tower.operational_case
-		SET title = $4, summary = $5, status = $6, effective_severity = $7, severity_override = $8,
+		SET title = $4, summary = $5, status = $6, derived_severity = $7, effective_severity = $8, severity_override = $9,
 		    version = version + 1, updated_at = NOW(), last_activity_at = NOW()
 		WHERE tenant_id = $1 AND id = $2 AND version = $3
 		RETURNING `+caseSelectColumns,
-		tenantID, caseID, expectedVersion, title, nullIfEmpty(summary), status, effectiveSeverity, severityOverride)
+		tenantID, caseID, expectedVersion, title, nullIfEmpty(summary), status, derivedSeverity, effectiveSeverity, severityOverride)
 	c, err := scanCase(row)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -631,6 +684,16 @@ func (r *CaseRepository) ListParticipants(ctx context.Context, tenantID, caseID 
 }
 
 func (r *CaseRepository) AddParticipant(ctx context.Context, tenantID, actorID, caseID, targetID uuid.UUID, role string) error {
+	if err := r.validateParticipantRole(role); err != nil {
+		return err
+	}
+	exists, err := r.tenantUserExists(ctx, tenantID, targetID)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return apperrors.Validation("user not found in tenant", map[string]any{"field": "userId"})
+	}
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -639,12 +702,21 @@ func (r *CaseRepository) AddParticipant(ctx context.Context, tenantID, actorID, 
 	if err := r.addParticipantTx(ctx, tx, tenantID, caseID, actorID, targetID, role); err != nil {
 		return err
 	}
-	_ = r.insertEvent(ctx, tx, tenantID, caseID, domain.CaseEventSourceCase, "participant_added", &actorID, map[string]any{"userId": targetID.String()})
+	_ = r.insertEvent(ctx, tx, tenantID, caseID, domain.CaseEventSourceCase, "participant_added", &actorID, map[string]any{
+		"participantUserId": targetID.String(), "role": role,
+	})
 	_ = r.touchCaseTx(ctx, tx, tenantID, caseID)
 	return tx.Commit(ctx)
 }
 
 func (r *CaseRepository) RemoveParticipant(ctx context.Context, tenantID, actorID, caseID, targetID uuid.UUID) error {
+	c, err := r.GetCase(ctx, tenantID, caseID)
+	if err != nil {
+		return err
+	}
+	if c.OwnerUserID != nil && *c.OwnerUserID == targetID {
+		return apperrors.Conflict("cannot remove case owner via participant API; use ownership commands", map[string]any{"field": "userId"})
+	}
 	tag, err := r.pool.Exec(ctx, `
 		DELETE FROM control_tower.operational_case_participant
 		WHERE tenant_id = $1 AND case_id = $2 AND user_id = $3
@@ -655,7 +727,9 @@ func (r *CaseRepository) RemoveParticipant(ctx context.Context, tenantID, actorI
 	if tag.RowsAffected() == 0 {
 		return apperrors.NotFound("participant not found")
 	}
-	_ = r.recordEvent(ctx, tenantID, caseID, domain.CaseEventSourceCase, "participant_removed", &actorID, map[string]any{"userId": targetID.String()})
+	_ = r.recordEvent(ctx, tenantID, caseID, domain.CaseEventSourceCase, "participant_removed", &actorID, map[string]any{
+		"participantUserId": targetID.String(),
+	})
 	return r.touchCase(ctx, tenantID, caseID)
 }
 
@@ -727,41 +801,6 @@ func (r *CaseRepository) ListDecisions(ctx context.Context, tenantID, caseID uui
 	return out, nil
 }
 
-func (r *CaseRepository) ListTimeline(ctx context.Context, tenantID, caseID uuid.UUID, page, limit int) ([]domain.CaseEvent, int, error) {
-	if page < 1 {
-		page = 1
-	}
-	if limit < 1 {
-		limit = 50
-	}
-	var total int
-	if err := r.pool.QueryRow(ctx, `
-		SELECT COUNT(*) FROM control_tower.operational_case_event WHERE tenant_id = $1 AND case_id = $2
-	`, tenantID, caseID).Scan(&total); err != nil {
-		return nil, 0, err
-	}
-	offset := (page - 1) * limit
-	rows, err := r.pool.Query(ctx, `
-		SELECT id, tenant_id, case_id, source, action_type, actor_user_id, occurred_at, metadata
-		FROM control_tower.operational_case_event
-		WHERE tenant_id = $1 AND case_id = $2
-		ORDER BY occurred_at DESC, id DESC LIMIT $3 OFFSET $4
-	`, tenantID, caseID, limit, offset)
-	if err != nil {
-		return nil, 0, err
-	}
-	defer rows.Close()
-	out := make([]domain.CaseEvent, 0)
-	for rows.Next() {
-		e, err := scanEvent(rows)
-		if err != nil {
-			return nil, 0, err
-		}
-		out = append(out, e)
-	}
-	return out, total, nil
-}
-
 func (r *CaseRepository) GetKPI(ctx context.Context, tenantID, userID uuid.UUID) (domain.CaseKPI, error) {
 	var kpi domain.CaseKPI
 	err := r.pool.QueryRow(ctx, `
@@ -775,7 +814,49 @@ func (r *CaseRepository) GetKPI(ctx context.Context, tenantID, userID uuid.UUID)
 		  COUNT(*) FILTER (WHERE status = 'resolved')
 		FROM control_tower.operational_case c WHERE tenant_id = $1
 	`, tenantID, userID).Scan(&kpi.OpenCases, &kpi.MyOpenCases, &kpi.CriticalCases, &kpi.UnassignedCases, &kpi.ResolvedCases)
-	return kpi, err
+	if err != nil {
+		return kpi, err
+	}
+
+	rows, err := r.pool.Query(ctx, `
+		SELECT id FROM control_tower.operational_case
+		WHERE tenant_id = $1 AND status NOT IN ('resolved','closed')
+	`, tenantID)
+	if err != nil {
+		return kpi, err
+	}
+	caseIDs := make([]uuid.UUID, 0)
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return kpi, err
+		}
+		caseIDs = append(caseIDs, id)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return kpi, err
+	}
+	healthMap, err := r.BatchCaseHealth(ctx, tenantID, caseIDs)
+	if err != nil {
+		return kpi, err
+	}
+	for _, h := range healthMap {
+		if h.HasSLABreach {
+			kpi.CasesWithSLABreach++
+		}
+		if h.HasSLAWarning {
+			kpi.CasesWithSLAWarning++
+		}
+		if h.HasSLABreach || h.HasSLAWarning {
+			kpi.SlaAtRiskCases++
+		}
+		if h.OverdueActionCount > 0 {
+			kpi.CasesWithOverdueActions++
+		}
+	}
+	return kpi, nil
 }
 
 func (r *CaseRepository) LookupActiveCaseForWorkItem(ctx context.Context, tenantID uuid.UUID, itemType, itemID string) (*domain.ActiveCaseRef, error) {
@@ -826,37 +907,6 @@ func (r *CaseRepository) FindDuplicateCandidates(ctx context.Context, tenantID u
 		}
 	}
 	return refs, nil
-}
-
-func (r *CaseRepository) GetCaseHealth(ctx context.Context, tenantID, caseID uuid.UUID) (domain.CaseHealth, error) {
-	var health domain.CaseHealth
-	// Simplified derived health from linked exceptions/risks and open actions
-	err := r.pool.QueryRow(ctx, `
-		SELECT
-		  (SELECT COUNT(*) FROM control_tower.operational_case_action_item ai
-		   WHERE ai.case_id = $2 AND ai.status IN ('open','in_progress')),
-		  (SELECT COUNT(*) FROM control_tower.operational_case_action_item ai
-		   WHERE ai.case_id = $2 AND ai.status IN ('open','in_progress') AND ai.due_at IS NOT NULL AND ai.due_at < NOW())
-	`, tenantID, caseID).Scan(&health.OpenActionCount, &health.OverdueActionCount)
-	if err != nil {
-		return health, err
-	}
-	rows, err := r.pool.Query(ctx, `
-		SELECT entity_type, entity_id FROM control_tower.operational_case_link
-		WHERE tenant_id = $1 AND case_id = $2 AND entity_type IN ('exception','risk')
-	`, tenantID, caseID)
-	if err != nil {
-		return health, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var entityType, entityID string
-		if err := rows.Scan(&entityType, &entityID); err != nil {
-			return health, err
-		}
-		health.ActiveWorkItemCount++
-	}
-	return health, nil
 }
 
 // --- helpers ---
@@ -975,13 +1025,18 @@ func (r *CaseRepository) refreshDerivedSeverity(ctx context.Context, tenantID, c
 	if c.SeverityOverride {
 		return c, nil
 	}
-	derived := domain.CaseSeverityMedium
-	// keep medium default for v0.6; linked item severity enrichment follow-up
-	_, _ = r.pool.Exec(ctx, `
+	derived, err := r.computeDerivedSeverity(ctx, tenantID, caseID)
+	if err != nil {
+		derived = domain.CaseSeverityMedium
+	}
+	_, err = r.pool.Exec(ctx, `
 		UPDATE control_tower.operational_case SET derived_severity = $3,
 		    effective_severity = CASE WHEN severity_override THEN effective_severity ELSE $3 END
 		WHERE tenant_id = $1 AND id = $2
 	`, tenantID, caseID, derived)
+	if err != nil {
+		return c, err
+	}
 	return r.GetCase(ctx, tenantID, caseID)
 }
 

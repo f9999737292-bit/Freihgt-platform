@@ -96,6 +96,10 @@ func CanResolveCase(roles []string) bool {
 	return CanAccessControlTower(roles)
 }
 
+func CanManageCaseParticipants(roles []string) bool {
+	return CanAccessControlTower(roles)
+}
+
 func hasAnyRole(roles []string, allowed map[string]struct{}) bool {
 	for _, role := range roles {
 		if _, ok := allowed[role]; ok {

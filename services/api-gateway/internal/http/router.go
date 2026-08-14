@@ -113,6 +113,9 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 		r.Post("/api/v1/control-tower/cases/{caseId}/close", controlTower.CloseCase)
 		r.Post("/api/v1/control-tower/cases/{caseId}/reopen", controlTower.ReopenCase)
 		r.Get("/api/v1/control-tower/cases/{caseId}/timeline", controlTower.GetCaseTimeline)
+		r.Post("/api/v1/control-tower/cases/{caseId}/participants", controlTower.AddCaseParticipant)
+		r.Patch("/api/v1/control-tower/cases/{caseId}/participants/{userId}", controlTower.UpdateCaseParticipant)
+		r.Delete("/api/v1/control-tower/cases/{caseId}/participants/{userId}", controlTower.RemoveCaseParticipant)
 	}
 
 	if shipmentEvents != nil {

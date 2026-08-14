@@ -101,6 +101,9 @@ func NewRouter(
 		r.Post("/cases/{caseId}/close", caseHandler.CloseCase)
 		r.Post("/cases/{caseId}/reopen", caseHandler.ReopenCase)
 		r.Get("/cases/{caseId}/timeline", caseHandler.GetTimeline)
+		r.Post("/cases/{caseId}/participants", caseHandler.AddParticipant)
+		r.Patch("/cases/{caseId}/participants/{userId}", caseHandler.UpdateParticipant)
+		r.Delete("/cases/{caseId}/participants/{userId}", caseHandler.RemoveParticipant)
 	})
 
 	return r

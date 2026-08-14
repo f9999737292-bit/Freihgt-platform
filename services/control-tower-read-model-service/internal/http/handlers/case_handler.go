@@ -35,7 +35,12 @@ func (h *CaseHandler) ListCases(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, err)
 		return
 	}
-	respond.JSON(w, http.StatusOK, toCasePageResponse(page))
+	caseIDs := make([]uuid.UUID, 0, len(page.Items))
+	for _, c := range page.Items {
+		caseIDs = append(caseIDs, c.ID)
+	}
+	healthMap, _ := h.cases.BatchCaseHealth(r.Context(), tenantID, caseIDs)
+	respond.JSON(w, http.StatusOK, toCasePageResponse(page, healthMap))
 }
 
 func (h *CaseHandler) GetCase(w http.ResponseWriter, r *http.Request) {
@@ -75,13 +80,13 @@ func (h *CaseHandler) CreateCase(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		Title              string   `json:"title"`
-		Summary            string   `json:"summary"`
-		Severity           string   `json:"severity"`
-		OwnerUserID        *string  `json:"ownerUserId"`
-		ShipmentIDs        []string `json:"shipmentIds"`
+		Title              string                  `json:"title"`
+		Summary            string                  `json:"summary"`
+		Severity           string                  `json:"severity"`
+		OwnerUserID        *string                 `json:"ownerUserId"`
+		ShipmentIDs        []string                `json:"shipmentIds"`
 		WorkItems          []domain.BulkActionItem `json:"workItems"`
-		ParticipantUserIDs []string `json:"participantUserIds"`
+		ParticipantUserIDs []string                `json:"participantUserIds"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		respond.Error(w, apperrors.Validation("invalid request body", nil))
@@ -242,7 +247,7 @@ func (h *CaseHandler) CreateNote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		Body            string   `json:"body"`
+		Body             string   `json:"body"`
 		MentionedUserIDs []string `json:"mentionedUserIds"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -304,10 +309,10 @@ func (h *CaseHandler) CreateActionItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		Title           string  `json:"title"`
-		Description     string  `json:"description"`
-		AssigneeUserID  *string `json:"assigneeUserId"`
-		DueAt           *string `json:"dueAt"`
+		Title          string  `json:"title"`
+		Description    string  `json:"description"`
+		AssigneeUserID *string `json:"assigneeUserId"`
+		DueAt          *string `json:"dueAt"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		respond.Error(w, apperrors.Validation("invalid request body", nil))
@@ -484,8 +489,99 @@ func (h *CaseHandler) GetKPI(w http.ResponseWriter, r *http.Request) {
 	respond.JSON(w, http.StatusOK, map[string]any{
 		"openCases": kpi.OpenCases, "myOpenCases": kpi.MyOpenCases,
 		"criticalCases": kpi.CriticalCases, "unassignedCases": kpi.UnassignedCases,
+		"casesWithSlaBreach": kpi.CasesWithSLABreach, "casesWithSlaWarning": kpi.CasesWithSLAWarning,
+		"slaAtRiskCases": kpi.SlaAtRiskCases, "casesWithOverdueActions": kpi.CasesWithOverdueActions,
 		"resolvedCases": kpi.ResolvedCases,
 	})
+}
+
+func (h *CaseHandler) AddParticipant(w http.ResponseWriter, r *http.Request) {
+	tenantID, actorID, ok := resolveWorkspaceContext(w, r)
+	if !ok {
+		return
+	}
+	caseID, err := parseCaseID(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	var body struct {
+		UserID string `json:"userId"`
+		Role   string `json:"role"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || strings.TrimSpace(body.UserID) == "" {
+		respond.Error(w, apperrors.Validation("userId is required", map[string]any{"field": "userId"}))
+		return
+	}
+	targetID, err := uuid.Parse(strings.TrimSpace(body.UserID))
+	if err != nil {
+		respond.Error(w, apperrors.Validation("invalid userId", map[string]any{"field": "userId"}))
+		return
+	}
+	role := strings.TrimSpace(body.Role)
+	if role == "" {
+		role = domain.ParticipantRoleCollaborator
+	}
+	if _, err := h.cases.GetCase(r.Context(), tenantID, caseID); err != nil {
+		respond.Error(w, err)
+		return
+	}
+	if err := h.cases.AddParticipant(r.Context(), tenantID, actorID, caseID, targetID, role); err != nil {
+		respond.Error(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+}
+
+func (h *CaseHandler) UpdateParticipant(w http.ResponseWriter, r *http.Request) {
+	tenantID, actorID, ok := resolveWorkspaceContext(w, r)
+	if !ok {
+		return
+	}
+	caseID, err := parseCaseID(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	targetID, err := uuid.Parse(strings.TrimSpace(chi.URLParam(r, "userId")))
+	if err != nil {
+		respond.Error(w, apperrors.Validation("invalid userId", map[string]any{"field": "userId"}))
+		return
+	}
+	var body struct {
+		Role string `json:"role"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || strings.TrimSpace(body.Role) == "" {
+		respond.Error(w, apperrors.Validation("role is required", map[string]any{"field": "role"}))
+		return
+	}
+	if err := h.cases.UpdateParticipantRole(r.Context(), tenantID, actorID, caseID, targetID, strings.TrimSpace(body.Role)); err != nil {
+		respond.Error(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *CaseHandler) RemoveParticipant(w http.ResponseWriter, r *http.Request) {
+	tenantID, actorID, ok := resolveWorkspaceContext(w, r)
+	if !ok {
+		return
+	}
+	caseID, err := parseCaseID(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	targetID, err := uuid.Parse(strings.TrimSpace(chi.URLParam(r, "userId")))
+	if err != nil {
+		respond.Error(w, apperrors.Validation("invalid userId", map[string]any{"field": "userId"}))
+		return
+	}
+	if err := h.cases.RemoveParticipant(r.Context(), tenantID, actorID, caseID, targetID); err != nil {
+		respond.Error(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *CaseHandler) FindDuplicates(w http.ResponseWriter, r *http.Request) {
@@ -548,7 +644,7 @@ func parseCaseFilter(r *http.Request, userID uuid.UUID) domain.CaseListFilter {
 	filter := domain.CaseListFilter{
 		Status: q.Get("status"), Severity: q.Get("severity"),
 		Search: q.Get("search"), Preset: q.Get("preset"),
-		Page: parseIntDefault(q.Get("page"), 1),
+		Page:  parseIntDefault(q.Get("page"), 1),
 		Limit: parseIntDefault(q.Get("limit"), 50),
 	}
 	if q.Get("myCases") == "true" {
@@ -559,6 +655,24 @@ func parseCaseFilter(r *http.Request, userID uuid.UUID) domain.CaseListFilter {
 	}
 	if q.Get("includeClosed") == "true" {
 		filter.IncludeClosed = true
+	}
+	if q.Get("hasSlaBreach") == "true" {
+		filter.HasSLABreach = true
+	}
+	if q.Get("hasSlaWarning") == "true" {
+		filter.HasSLAWarning = true
+	}
+	if q.Get("overdueActions") == "true" || q.Get("hasOverdueActions") == "true" {
+		filter.OverdueActions = true
+	}
+	if q.Get("hasOpenActions") == "true" {
+		filter.HasOpenActions = true
+	}
+	switch strings.TrimSpace(q.Get("slaState")) {
+	case "breached":
+		filter.HasSLABreach = true
+	case "warning":
+		filter.HasSLAWarning = true
 	}
 	if v := strings.TrimSpace(q.Get("ownerUserId")); v != "" {
 		if id, err := uuid.Parse(v); err == nil {
@@ -573,10 +687,14 @@ func parseCaseFilter(r *http.Request, userID uuid.UUID) domain.CaseListFilter {
 	return filter
 }
 
-func toCasePageResponse(page domain.CasePage) map[string]any {
+func toCasePageResponse(page domain.CasePage, healthMap map[uuid.UUID]domain.CaseHealth) map[string]any {
 	items := make([]map[string]any, 0, len(page.Items))
 	for _, c := range page.Items {
-		items = append(items, toCaseResponse(c))
+		item := toCaseResponse(c)
+		if health, ok := healthMap[c.ID]; ok {
+			item["health"] = toHealthResponse(health)
+		}
+		items = append(items, item)
 	}
 	return map[string]any{
 		"items": items, "page": page.Page, "limit": page.Limit,
@@ -589,7 +707,7 @@ func toCaseResponse(c domain.OperationalCase) map[string]any {
 		"id": c.ID.String(), "reference": c.Reference, "title": c.Title, "summary": c.Summary,
 		"status": c.Status, "derivedSeverity": c.DerivedSeverity, "effectiveSeverity": c.EffectiveSeverity,
 		"severityOverride": c.SeverityOverride, "createdByUserId": c.CreatedByUserID.String(),
-		"version": c.Version,
+		"version":        c.Version,
 		"lastActivityAt": c.LastActivityAt.UTC().Format(time.RFC3339),
 		"createdAt":      c.CreatedAt.UTC().Format(time.RFC3339),
 		"updatedAt":      c.UpdatedAt.UTC().Format(time.RFC3339),
@@ -642,8 +760,8 @@ func toNoteResponse(n domain.CaseNote) map[string]any {
 	resp := map[string]any{
 		"id": n.ID.String(), "authorUserId": n.AuthorUserID.String(), "body": n.Body,
 		"visibility": n.Visibility,
-		"createdAt": n.CreatedAt.UTC().Format(time.RFC3339),
-		"updatedAt": n.UpdatedAt.UTC().Format(time.RFC3339),
+		"createdAt":  n.CreatedAt.UTC().Format(time.RFC3339),
+		"updatedAt":  n.UpdatedAt.UTC().Format(time.RFC3339),
 	}
 	if n.EditedAt != nil {
 		resp["editedAt"] = n.EditedAt.UTC().Format(time.RFC3339)
@@ -703,11 +821,25 @@ func toDecisionsResponse(decisions []domain.CaseDecision) []map[string]any {
 }
 
 func toHealthResponse(h domain.CaseHealth) map[string]any {
-	return map[string]any{
+	resp := map[string]any{
 		"hasSlaBreach": h.HasSLABreach, "hasSlaWarning": h.HasSLAWarning,
 		"openActionCount": h.OpenActionCount, "overdueActionCount": h.OverdueActionCount,
-		"activeWorkItemCount": h.ActiveWorkItemCount,
+		"activeWorkItemCount":  h.ActiveWorkItemCount,
+		"activeExceptionCount": h.ActiveExceptionCount, "activeRiskCount": h.ActiveRiskCount,
 	}
+	if h.NearestSLADueAt != nil {
+		resp["nearestSlaDueAt"] = h.NearestSLADueAt.UTC().Format(time.RFC3339)
+	}
+	if h.NearestActionDueAt != nil {
+		resp["nearestActionDueAt"] = h.NearestActionDueAt.UTC().Format(time.RFC3339)
+	}
+	if h.HighestExceptionPriority != nil {
+		resp["highestExceptionPriority"] = *h.HighestExceptionPriority
+	}
+	if h.HighestRiskLevel != nil {
+		resp["highestRiskLevel"] = *h.HighestRiskLevel
+	}
+	return resp
 }
 
 func toCaseTimelineResponse(events []domain.CaseEvent) []map[string]any {

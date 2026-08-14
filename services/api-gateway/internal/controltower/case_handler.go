@@ -203,6 +203,39 @@ func (h *Handler) FindCaseDuplicates(w http.ResponseWriter, r *http.Request) {
 	respond.JSONRaw(w, http.StatusOK, result)
 }
 
+func (h *Handler) AddCaseParticipant(w http.ResponseWriter, r *http.Request) {
+	h.handleCaseMutation(w, r, CanManageCaseParticipants, "add case participant denied", http.MethodPost, "participants", http.StatusCreated)
+}
+
+func (h *Handler) UpdateCaseParticipant(w http.ResponseWriter, r *http.Request) {
+	caseID := chi.URLParam(r, "caseId")
+	userID := chi.URLParam(r, "userId")
+	h.handleCaseMutationWithPath(w, r, CanManageCaseParticipants, "update case participant denied", http.MethodPatch, "participants/"+userID, http.StatusNoContent, caseID)
+}
+
+func (h *Handler) RemoveCaseParticipant(w http.ResponseWriter, r *http.Request) {
+	caseID := chi.URLParam(r, "caseId")
+	userID := chi.URLParam(r, "userId")
+	reqCtx, err := buildRequestContext(r, h.authEnabled, h.devTenantID)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	if h.authEnabled {
+		if err := h.ensureRoleAccess(r, reqCtx, CanManageCaseParticipants, "remove case participant denied"); err != nil {
+			respond.Error(w, err)
+			return
+		}
+	}
+	path := "/internal/v1/control-tower/cases/" + caseID + "/participants/" + userID
+	depErr := h.service.readModel.ProxyCaseNoContent(r.Context(), http.MethodDelete, reqCtx.TenantID, reqCtx.UserID, reqCtx.RequestID, path, nil)
+	if depErr != nil {
+		respond.Error(w, mapWorkspaceDependencyError(depErr))
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (h *Handler) handleCaseMutation(w http.ResponseWriter, r *http.Request, access func([]string) bool, denied, method, suffix string, status int) {
 	h.handleCaseMutationWithPath(w, r, access, denied, method, suffix, status, chi.URLParam(r, "caseId"))
 }

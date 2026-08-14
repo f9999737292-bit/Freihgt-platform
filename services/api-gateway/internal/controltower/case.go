@@ -18,10 +18,13 @@ func (s *Service) ListCases(ctx context.Context, reqCtx RequestContext, r *http.
 	filter := controltowerreadmodel.CasesFilter{
 		Status: q.Get("status"), Severity: q.Get("severity"),
 		OwnerUserID: q.Get("ownerUserId"), ShipmentID: q.Get("shipmentId"),
-		Search: q.Get("search"), Preset: q.Get("preset"),
+		Search: q.Get("search"), Preset: q.Get("preset"), SlaState: q.Get("slaState"),
 		Page: parseIntQuery(q.Get("page"), 1), Limit: parseIntQuery(q.Get("limit"), 50),
 		MyCases: q.Get("myCases") == "true", Unassigned: q.Get("unassigned") == "true",
 		IncludeClosed: q.Get("includeClosed") == "true",
+		HasSlaBreach:  q.Get("hasSlaBreach") == "true", HasSlaWarning: q.Get("hasSlaWarning") == "true",
+		OverdueActions: q.Get("overdueActions") == "true" || q.Get("hasOverdueActions") == "true",
+		HasOpenActions: q.Get("hasOpenActions") == "true",
 	}
 	rmCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), s.readModelCfg.Timeout)
 	defer cancel()

@@ -1502,7 +1502,10 @@ paths:
         - $ref: '#/components/parameters/Authorization'
         - name: preset
           in: query
-          schema: { type: string }
+          description: Includes sla_at_risk and overdue_actions presets
+          schema:
+            type: string
+            enum: [my_cases, unassigned, critical, action_required, monitoring, resolved, closed, all_active, sla_at_risk, overdue_actions]
         - name: status
           in: query
           schema: { type: string }
@@ -1521,6 +1524,18 @@ paths:
         - name: limit
           in: query
           schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - name: hasSlaBreach
+          in: query
+          schema: { type: boolean }
+        - name: hasSlaWarning
+          in: query
+          schema: { type: boolean }
+        - name: overdueActions
+          in: query
+          schema: { type: boolean }
+        - name: slaState
+          in: query
+          schema: { type: string, enum: [breached, warning] }
       security:
         - bearerAuth: []
       responses:
@@ -1800,7 +1815,79 @@ paths:
       responses:
         '200':
           description: Timeline page
-  /api/v1/shipments/{shipmentId}/events:
+  /api/v1/control-tower/cases/{caseId}/participants:
+    post:
+      tags: [Control Tower]
+      summary: Add case participant
+      operationId: post_control_tower_case_participant
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ControlTowerAddCaseParticipantRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Participant added
+        '409':
+          description: Participant conflict
+  /api/v1/control-tower/cases/{caseId}/participants/{userId}:
+    patch:
+      tags: [Control Tower]
+      summary: Change case participant role
+      operationId: patch_control_tower_case_participant
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ControlTowerUpdateCaseParticipantRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Participant role updated
+        '409':
+          description: Cannot promote to owner via participant API
+    delete:
+      tags: [Control Tower]
+      summary: Remove case participant
+      operationId: delete_control_tower_case_participant
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Participant removed
+        '409':
+          description: Cannot remove canonical case owner
     get:
       tags: [Shipments]
       summary: Shipment event history timeline
@@ -7162,6 +7249,33 @@ components:
         closedAt: { type: string, format: date-time }
         resolutionCode: { type: string }
         resolutionSummary: { type: string }
+        health:
+          $ref: '#/components/schemas/ControlTowerCaseHealth'
+    ControlTowerCaseHealth:
+      type: object
+      properties:
+        hasSlaBreach: { type: boolean }
+        hasSlaWarning: { type: boolean }
+        nearestSlaDueAt: { type: string, format: date-time }
+        highestExceptionPriority: { type: string, enum: [p1, p2, p3, p4] }
+        highestRiskLevel: { type: string, enum: [critical, high, medium, low, none] }
+        openActionCount: { type: integer }
+        overdueActionCount: { type: integer }
+        nearestActionDueAt: { type: string, format: date-time }
+        activeWorkItemCount: { type: integer }
+        activeExceptionCount: { type: integer }
+        activeRiskCount: { type: integer }
+    ControlTowerAddCaseParticipantRequest:
+      type: object
+      required: [userId, role]
+      properties:
+        userId: { type: string, format: uuid }
+        role: { type: string, enum: [collaborator, observer] }
+    ControlTowerUpdateCaseParticipantRequest:
+      type: object
+      required: [role]
+      properties:
+        role: { type: string, enum: [collaborator, observer] }
     ControlTowerCasesPage:
       type: object
       required: [items, page, limit, total, hasNext]
@@ -7181,6 +7295,10 @@ components:
         myOpenCases: { type: integer }
         criticalCases: { type: integer }
         unassignedCases: { type: integer }
+        casesWithSlaBreach: { type: integer }
+        casesWithSlaWarning: { type: integer }
+        slaAtRiskCases: { type: integer }
+        casesWithOverdueActions: { type: integer }
         resolvedCases: { type: integer }
     ControlTowerBulkWorkActionRequest:
       type: object

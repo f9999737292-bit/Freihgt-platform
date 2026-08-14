@@ -84,36 +84,36 @@ type OperationalCase struct {
 }
 
 type CaseLink struct {
-	ID              uuid.UUID
-	TenantID        uuid.UUID
-	CaseID          uuid.UUID
-	EntityType      string
-	EntityID        string
-	LinkedAt        time.Time
-	LinkedByUserID  uuid.UUID
+	ID             uuid.UUID
+	TenantID       uuid.UUID
+	CaseID         uuid.UUID
+	EntityType     string
+	EntityID       string
+	LinkedAt       time.Time
+	LinkedByUserID uuid.UUID
 }
 
 type CaseParticipant struct {
-	CaseID         uuid.UUID
-	TenantID       uuid.UUID
-	UserID         uuid.UUID
-	Role           string
-	AddedAt        time.Time
-	AddedByUserID  uuid.UUID
+	CaseID        uuid.UUID
+	TenantID      uuid.UUID
+	UserID        uuid.UUID
+	Role          string
+	AddedAt       time.Time
+	AddedByUserID uuid.UUID
 }
 
 type CaseNote struct {
-	ID            uuid.UUID
-	TenantID      uuid.UUID
-	CaseID        uuid.UUID
-	AuthorUserID  uuid.UUID
-	Body          string
-	Visibility    string
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
-	EditedAt      *time.Time
-	DeletedAt     *time.Time
-	MentionedIDs  []uuid.UUID
+	ID           uuid.UUID
+	TenantID     uuid.UUID
+	CaseID       uuid.UUID
+	AuthorUserID uuid.UUID
+	Body         string
+	Visibility   string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	EditedAt     *time.Time
+	DeletedAt    *time.Time
+	MentionedIDs []uuid.UUID
 }
 
 type CaseActionItem struct {
@@ -153,32 +153,37 @@ type CaseEvent struct {
 }
 
 type CaseHealth struct {
-	HasSLABreach            bool
-	HasSLAWarning           bool
+	HasSLABreach             bool
+	HasSLAWarning            bool
+	NearestSLADueAt          *time.Time
 	HighestExceptionPriority *string
-	HighestRiskLevel        *string
-	OpenActionCount         int
-	OverdueActionCount      int
-	ActiveWorkItemCount     int
+	HighestRiskLevel         *string
+	OpenActionCount          int
+	OverdueActionCount       int
+	NearestActionDueAt       *time.Time
+	ActiveWorkItemCount      int
+	ActiveExceptionCount     int
+	ActiveRiskCount          int
 }
 
 type CaseListFilter struct {
-	Status           string
-	Severity         string
-	OwnerUserID      *uuid.UUID
+	Status            string
+	Severity          string
+	OwnerUserID       *uuid.UUID
 	ParticipantUserID *uuid.UUID
-	ShipmentID       *uuid.UUID
-	Search           string
-	MyCases          bool
-	Unassigned       bool
-	HasOpenActions   bool
-	HasSLABreach     bool
-	HasCriticalRisk  bool
-	OverdueActions   bool
-	IncludeClosed    bool
-	Preset           string
-	Page             int
-	Limit            int
+	ShipmentID        *uuid.UUID
+	Search            string
+	MyCases           bool
+	Unassigned        bool
+	HasOpenActions    bool
+	HasSLABreach      bool
+	HasSLAWarning     bool
+	HasCriticalRisk   bool
+	OverdueActions    bool
+	IncludeClosed     bool
+	Preset            string
+	Page              int
+	Limit             int
 }
 
 type CasePage struct {
@@ -190,22 +195,24 @@ type CasePage struct {
 }
 
 type CaseKPI struct {
-	OpenCases              int
-	MyOpenCases            int
-	CriticalCases          int
-	UnassignedCases        int
-	CasesWithSLABreach     int
+	OpenCases               int
+	MyOpenCases             int
+	CriticalCases           int
+	UnassignedCases         int
+	CasesWithSLABreach      int
+	CasesWithSLAWarning     int
 	CasesWithOverdueActions int
-	ResolvedCases          int
+	SlaAtRiskCases          int
+	ResolvedCases           int
 }
 
 type CreateCaseInput struct {
-	Title       string
-	Summary     string
-	Severity    string
-	OwnerUserID *uuid.UUID
-	ShipmentIDs []uuid.UUID
-	WorkItems   []BulkActionItem
+	Title              string
+	Summary            string
+	Severity           string
+	OwnerUserID        *uuid.UUID
+	ShipmentIDs        []uuid.UUID
+	WorkItems          []BulkActionItem
 	ParticipantUserIDs []uuid.UUID
 }
 
