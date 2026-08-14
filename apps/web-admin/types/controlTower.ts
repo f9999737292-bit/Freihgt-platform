@@ -598,3 +598,110 @@ export const CONTROL_TOWER_PARTIAL_WARNING_CODES = [
   'CONTROL_TOWER_READ_MODEL_FALLBACK_USED',
   'CONTROL_TOWER_LEGACY_STATUS_SUMMARY_LIMITED',
 ] as const
+
+export type ControlTowerWorkItemType = 'exception' | 'risk'
+
+export type ControlTowerWorkItemUrgency = 'critical' | 'high' | 'normal' | 'low'
+
+export interface ControlTowerWorkItem {
+  id: string
+  itemType: ControlTowerWorkItemType
+  sourceId: string
+  shipmentId: string
+  shipmentNumber?: string
+  title: string
+  summary: string
+  workflowStatus: string
+  priority?: string
+  businessImpact?: string
+  exceptionCategory?: string
+  slaStatus?: string
+  slaPhase?: string
+  slaDueAt?: string
+  riskLevel?: string
+  riskScore?: number
+  riskStatus?: string
+  predictedExceptionType?: string
+  escalationLevel?: string
+  urgency: ControlTowerWorkItemUrgency
+  ownerUserId?: string
+  ownerDisplayName?: string
+  createdAt: string
+  updatedAt: string
+  threatenedDeadlineAt?: string
+  availableActions: string[]
+  linkedEventId?: string
+  eventType?: string
+  timeline?: ControlTowerWorkItemTimelineEntry[]
+}
+
+export interface ControlTowerWorkItemTimelineEntry {
+  source: string
+  actionType: string
+  actorUserId?: string
+  actorDisplayName?: string
+  occurredAt: string
+  metadata?: Record<string, unknown>
+}
+
+export interface ControlTowerWorkItemsResponse {
+  items: ControlTowerWorkItem[]
+  page: number
+  limit: number
+  total: number
+  hasNext: boolean
+  kpi?: ControlTowerWorkspaceKpi
+}
+
+export interface ControlTowerWorkspaceKpi {
+  myActiveWork: number
+  myCriticalWork: number
+  unassignedWork: number
+  teamActiveWork: number
+  slaBreachedWork: number
+  slaWarningWork: number
+  criticalRiskWork: number
+}
+
+export interface ControlTowerSavedView {
+  id: string
+  name: string
+  scope: 'private' | 'shared'
+  filterSchemaVersion: number
+  filters: Record<string, unknown>
+  sort: Record<string, unknown>
+  isDefault: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ControlTowerBulkActionResult {
+  itemType: string
+  itemId: string
+  success: boolean
+  error?: string
+}
+
+export interface ControlTowerBulkActionOutcome {
+  requested: number
+  succeeded: number
+  failed: number
+  results: ControlTowerBulkActionResult[]
+}
+
+export const CONTROL_TOWER_WORKSPACE_PRESETS = [
+  'my_work',
+  'unassigned',
+  'all_active',
+  'critical',
+  'sla_breached',
+  'sla_warning',
+  'p1_exceptions',
+  'p2_exceptions',
+  'critical_risks',
+  'high_risks',
+  'mitigating_risks',
+  'completed',
+] as const
+
+export type ControlTowerWorkspacePreset = (typeof CONTROL_TOWER_WORKSPACE_PRESETS)[number]

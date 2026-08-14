@@ -17,6 +17,8 @@ const (
 	ActionTypeReassigned   = "reassigned"
 	ActionTypeResolved     = "resolved"
 	ActionTypeReopened     = "reopened"
+	ActionTypeClaimed      = "claimed"
+	ActionTypeUnassigned   = "unassigned"
 
 	ResolutionCodeIssueResolved = "issue_resolved"
 	ResolutionCodeFalsePositive = "false_positive"

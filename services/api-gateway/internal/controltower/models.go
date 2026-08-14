@@ -267,6 +267,11 @@ type ListQuery struct {
 	RiskMitigatingOnly    bool
 	RiskNonMitigatingOnly bool
 	RiskActiveOnly        bool
+	WorkItemType          string
+	Search                string
+	Preset                string
+	MyWorkOnly            bool
+	IncludeCompleted      bool
 	Page                  int
 	Limit                 int
 }

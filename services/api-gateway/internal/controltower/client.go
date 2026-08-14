@@ -54,6 +54,24 @@ type meResponse struct {
 	Roles []string `json:"roles"`
 }
 
+type tenantUser struct {
+	ID       string `json:"id"`
+	TenantID string `json:"tenant_id"`
+	FullName string `json:"full_name"`
+}
+
+func (c *DownstreamClient) FetchTenantUsers(ctx context.Context, reqCtx RequestContext) ([]tenantUser, error) {
+	endpoint, err := c.listURL(c.identity+"/v1/users", reqCtx.TenantID, c.maxFetch, 0)
+	if err != nil {
+		return nil, err
+	}
+	var payload listResult[tenantUser]
+	if err := c.getJSON(ctx, endpoint, reqCtx, &payload); err != nil {
+		return nil, err
+	}
+	return payload.Items, nil
+}
+
 func (c *DownstreamClient) FetchUserRoles(ctx context.Context, reqCtx RequestContext) ([]string, error) {
 	endpoint := c.identity + "/v1/auth/me"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)

@@ -19,6 +19,13 @@ type RiskRepository struct {
 	pool *pgxpool.Pool
 }
 
+const riskSelectColumns = `
+    id, tenant_id, risk_key, shipment_id, predicted_exception_type, score, risk_level, status,
+    first_detected_at, evaluated_at, next_evaluation_at, threatened_deadline_at,
+    cleared_at, clear_reason, materialized_at, actual_event_id,
+    mitigation_code, mitigation_comment, acknowledged_at, acknowledged_by_user_id,
+    mitigating_at, mitigating_by_user_id, owner_user_id, owned_at, owned_by_user_id, version`
+
 func NewRiskRepository(pool *pgxpool.Pool) *RiskRepository {
 	return &RiskRepository{pool: pool}
 }
@@ -259,11 +266,7 @@ func (r *RiskRepository) autoClearMissing(ctx context.Context, tx pgx.Tx, tenant
 
 func (r *RiskRepository) ListRisks(ctx context.Context, tenantID uuid.UUID, filter RiskListFilter) ([]domain.ShipmentRisk, error) {
 	query := `
-		SELECT id, tenant_id, risk_key, shipment_id, predicted_exception_type, score, risk_level, status,
-		       first_detected_at, evaluated_at, next_evaluation_at, threatened_deadline_at,
-		       cleared_at, clear_reason, materialized_at, actual_event_id,
-		       mitigation_code, mitigation_comment, acknowledged_at, acknowledged_by_user_id,
-		       mitigating_at, mitigating_by_user_id, version
+		SELECT` + riskSelectColumns + `
 		FROM control_tower.shipment_risk
 		WHERE tenant_id = $1`
 	args := []any{tenantID}
@@ -319,11 +322,7 @@ func (r *RiskRepository) ListRisks(ctx context.Context, tenantID uuid.UUID, filt
 
 func (r *RiskRepository) GetRisk(ctx context.Context, tenantID uuid.UUID, riskKey string) (domain.ShipmentRisk, error) {
 	row := r.pool.QueryRow(ctx, `
-		SELECT id, tenant_id, risk_key, shipment_id, predicted_exception_type, score, risk_level, status,
-		       first_detected_at, evaluated_at, next_evaluation_at, threatened_deadline_at,
-		       cleared_at, clear_reason, materialized_at, actual_event_id,
-		       mitigation_code, mitigation_comment, acknowledged_at, acknowledged_by_user_id,
-		       mitigating_at, mitigating_by_user_id, version
+		SELECT`+riskSelectColumns+`
 		FROM control_tower.shipment_risk
 		WHERE tenant_id = $1 AND risk_key = $2
 	`, tenantID, strings.ToLower(strings.TrimSpace(riskKey)))
@@ -403,11 +402,7 @@ func (r *RiskRepository) AcknowledgeRisk(ctx context.Context, input domain.Ackno
 
 	var risk domain.ShipmentRisk
 	row := tx.QueryRow(ctx, `
-		SELECT id, tenant_id, risk_key, shipment_id, predicted_exception_type, score, risk_level, status,
-		       first_detected_at, evaluated_at, next_evaluation_at, threatened_deadline_at,
-		       cleared_at, clear_reason, materialized_at, actual_event_id,
-		       mitigation_code, mitigation_comment, acknowledged_at, acknowledged_by_user_id,
-		       mitigating_at, mitigating_by_user_id, version
+		SELECT`+riskSelectColumns+`
 		FROM control_tower.shipment_risk
 		WHERE tenant_id = $1 AND risk_key = $2
 		FOR UPDATE
@@ -457,11 +452,7 @@ func (r *RiskRepository) MitigateRisk(ctx context.Context, input domain.Mitigate
 
 	var risk domain.ShipmentRisk
 	row := tx.QueryRow(ctx, `
-		SELECT id, tenant_id, risk_key, shipment_id, predicted_exception_type, score, risk_level, status,
-		       first_detected_at, evaluated_at, next_evaluation_at, threatened_deadline_at,
-		       cleared_at, clear_reason, materialized_at, actual_event_id,
-		       mitigation_code, mitigation_comment, acknowledged_at, acknowledged_by_user_id,
-		       mitigating_at, mitigating_by_user_id, version
+		SELECT`+riskSelectColumns+`
 		FROM control_tower.shipment_risk
 		WHERE tenant_id = $1 AND risk_key = $2
 		FOR UPDATE
@@ -525,7 +516,7 @@ func scanShipmentRiskRow(row riskScannable) (domain.ShipmentRisk, error) {
 		&item.NextEvaluationAt, &item.ThreatenedDeadlineAt, &item.ClearedAt, &item.ClearReason,
 		&item.MaterializedAt, &item.ActualEventID, &item.MitigationCode, &item.MitigationComment,
 		&item.AcknowledgedAt, &item.AcknowledgedByUserID, &item.MitigatingAt, &item.MitigatingByUserID,
-		&item.Version,
+		&item.OwnerUserID, &item.OwnedAt, &item.OwnedByUserID, &item.Version,
 	)
 	return item, err
 }

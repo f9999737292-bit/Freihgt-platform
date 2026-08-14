@@ -238,6 +238,7 @@ watch(
 
 onMounted(async () => {
   parseFiltersFromQuery(route.query as Record<string, unknown>)
+  await loadTenantUsers()
   await refreshAll()
 })
 
@@ -318,6 +319,13 @@ onBeforeUnmount(() => {
       />
 
       <template v-else>
+        <section class="control-tower-v01__workspace">
+          <ControlTowerOperatorWorkQueue
+            :disabled="demoMode"
+            :tenant-users="tenantUsers"
+          />
+        </section>
+
         <section class="control-tower-v01__kpi-grid">
           <ControlTowerMetricCard v-for="metric in kpiMetrics" :key="metric.key" :metric="metric" />
         </section>

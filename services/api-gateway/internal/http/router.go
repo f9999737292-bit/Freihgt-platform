@@ -76,6 +76,21 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 		r.Get("/api/v1/control-tower/risks/{riskId}", controlTower.GetRisk)
 		r.Post("/api/v1/control-tower/risks/{riskId}/acknowledge", controlTower.AcknowledgeRisk)
 		r.Post("/api/v1/control-tower/risks/{riskId}/mitigate", controlTower.MitigateRisk)
+		r.Get("/api/v1/control-tower/work-items", controlTower.ListWorkItems)
+		r.Get("/api/v1/control-tower/work-items/{itemType}/{itemId}", controlTower.GetWorkItem)
+		r.Post("/api/v1/control-tower/work-items/{itemType}/{itemId}/claim", controlTower.ClaimWorkItem)
+		r.Post("/api/v1/control-tower/work-items/{itemType}/{itemId}/assign", controlTower.AssignWorkItem)
+		r.Post("/api/v1/control-tower/work-items/{itemType}/{itemId}/unassign", controlTower.UnassignWorkItem)
+		r.Post("/api/v1/control-tower/work-items/bulk-action", controlTower.BulkWorkItemsAction)
+		r.Get("/api/v1/control-tower/workload", controlTower.GetWorkload)
+		r.Get("/api/v1/control-tower/views", controlTower.ListSavedViews)
+		r.Post("/api/v1/control-tower/views", controlTower.CreateSavedView)
+		r.Patch("/api/v1/control-tower/views/{viewId}", controlTower.UpdateSavedView)
+		r.Delete("/api/v1/control-tower/views/{viewId}", controlTower.DeleteSavedView)
+		r.Post("/api/v1/control-tower/views/{viewId}/set-default", controlTower.SetDefaultSavedView)
+		r.Get("/api/v1/control-tower/handoffs", controlTower.ListHandoffs)
+		r.Post("/api/v1/control-tower/handoffs", controlTower.CreateHandoff)
+		r.Get("/api/v1/control-tower/handoffs/{handoffId}", controlTower.GetHandoff)
 	}
 
 	if shipmentEvents != nil {

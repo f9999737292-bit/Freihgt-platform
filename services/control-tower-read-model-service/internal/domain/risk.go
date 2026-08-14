@@ -61,6 +61,9 @@ type ShipmentRisk struct {
 	AcknowledgedByUserID   *uuid.UUID
 	MitigatingAt           *time.Time
 	MitigatingByUserID     *uuid.UUID
+	OwnerUserID            *uuid.UUID
+	OwnedAt                *time.Time
+	OwnedByUserID          *uuid.UUID
 	Version                int
 }
 

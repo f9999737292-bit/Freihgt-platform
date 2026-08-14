@@ -690,3 +690,113 @@ func scanAction(row workflowScanner) (domain.CriticalEventAction, error) {
 	}
 	return item, nil
 }
+
+func (r *WorkflowRepository) ClaimCriticalEvent(ctx context.Context, tenantID, actorUserID uuid.UUID, eventID string) (domain.CriticalEventWorkflow, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return domain.CriticalEventWorkflow{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	workflow, err := r.lockWorkflow(ctx, tx, tenantID, eventID)
+	if err != nil {
+		return domain.CriticalEventWorkflow{}, err
+	}
+	if workflow == nil {
+		return domain.CriticalEventWorkflow{}, apperrors.NotFound("workflow not found")
+	}
+	if workflow.Status == domain.WorkflowStatusResolved {
+		return domain.CriticalEventWorkflow{}, apperrors.Conflict("cannot claim resolved event", map[string]any{"status": workflow.Status})
+	}
+	if workflow.AssignedToUserID != nil && *workflow.AssignedToUserID != actorUserID {
+		return domain.CriticalEventWorkflow{}, apperrors.Conflict("work item already claimed", map[string]any{"field": "owner"})
+	}
+	if workflow.AssignedToUserID != nil && *workflow.AssignedToUserID == actorUserID {
+		if err := tx.Commit(ctx); err != nil {
+			return domain.CriticalEventWorkflow{}, err
+		}
+		wf, err := r.GetWorkflow(ctx, tenantID, eventID)
+		if err != nil || wf == nil {
+			return domain.CriticalEventWorkflow{}, err
+		}
+		return *wf, nil
+	}
+
+	now := time.Now().UTC()
+	status := domain.WorkflowStatusAssigned
+	var updated domain.CriticalEventWorkflow
+	if workflow.Status == domain.WorkflowStatusOpen {
+		const updateSQL = `
+UPDATE control_tower.critical_event_workflow
+SET status = $3, acknowledged_at = COALESCE(acknowledged_at, $4), acknowledged_by_user_id = COALESCE(acknowledged_by_user_id, $5),
+    assigned_to_user_id = $5, assigned_by_user_id = $5, assigned_at = $4, version = version + 1, updated_at = $4
+WHERE tenant_id = $1 AND event_id = $2 AND version = $6
+RETURNING` + workflowSelectColumns
+		updated, err = scanWorkflow(tx.QueryRow(ctx, updateSQL, tenantID, eventID, status, now, actorUserID, workflow.Version))
+	} else {
+		const updateSQL = `
+UPDATE control_tower.critical_event_workflow
+SET status = $3, assigned_to_user_id = $4, assigned_by_user_id = $5, assigned_at = $6, version = version + 1, updated_at = $6
+WHERE tenant_id = $1 AND event_id = $2 AND version = $7
+RETURNING` + workflowSelectColumns
+		updated, err = scanWorkflow(tx.QueryRow(ctx, updateSQL, tenantID, eventID, status, actorUserID, actorUserID, now, workflow.Version))
+	}
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.CriticalEventWorkflow{}, apperrors.Conflict("workflow was updated concurrently", map[string]any{"field": "version"})
+		}
+		return domain.CriticalEventWorkflow{}, err
+	}
+	if err := r.insertAction(ctx, tx, tenantID, eventID, domain.ActionTypeClaimed, actorUserID, map[string]any{"ownerUserId": actorUserID.String()}); err != nil {
+		return domain.CriticalEventWorkflow{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.CriticalEventWorkflow{}, err
+	}
+	return updated, nil
+}
+
+func (r *WorkflowRepository) UnassignCriticalEvent(ctx context.Context, tenantID, actorUserID uuid.UUID, eventID string) (domain.CriticalEventWorkflow, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return domain.CriticalEventWorkflow{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	workflow, err := r.lockWorkflow(ctx, tx, tenantID, eventID)
+	if err != nil {
+		return domain.CriticalEventWorkflow{}, err
+	}
+	if workflow == nil {
+		return domain.CriticalEventWorkflow{}, apperrors.NotFound("workflow not found")
+	}
+	if workflow.Status != domain.WorkflowStatusAssigned {
+		return domain.CriticalEventWorkflow{}, apperrors.Conflict("cannot unassign in current status", map[string]any{"status": workflow.Status})
+	}
+	if workflow.AssignedToUserID == nil {
+		return domain.CriticalEventWorkflow{}, apperrors.Conflict("event is not assigned", map[string]any{"field": "owner"})
+	}
+
+	prevOwner := workflow.AssignedToUserID.String()
+	now := time.Now().UTC()
+	const updateSQL = `
+UPDATE control_tower.critical_event_workflow
+SET status = $3, assigned_to_user_id = NULL, assigned_by_user_id = NULL, assigned_at = NULL,
+    version = version + 1, updated_at = $4
+WHERE tenant_id = $1 AND event_id = $2 AND version = $5
+RETURNING` + workflowSelectColumns
+	updated, err := scanWorkflow(tx.QueryRow(ctx, updateSQL, tenantID, eventID, domain.WorkflowStatusAcknowledged, now, workflow.Version))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.CriticalEventWorkflow{}, apperrors.Conflict("workflow was updated concurrently", map[string]any{"field": "version"})
+		}
+		return domain.CriticalEventWorkflow{}, err
+	}
+	if err := r.insertAction(ctx, tx, tenantID, eventID, domain.ActionTypeUnassigned, actorUserID, map[string]any{"previousOwnerUserId": prevOwner}); err != nil {
+		return domain.CriticalEventWorkflow{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.CriticalEventWorkflow{}, err
+	}
+	return updated, nil
+}

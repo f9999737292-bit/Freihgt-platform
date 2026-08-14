@@ -44,10 +44,13 @@ func main() {
 	ackRepo := repository.NewAckRepository(db.Pool)
 	workflowRepo := repository.NewWorkflowRepository(db.Pool)
 	riskRepo := repository.NewRiskRepository(db.Pool)
+	workItemRepo := repository.NewWorkItemRepository(db.Pool, workflowRepo, riskRepo)
+	viewRepo := repository.NewViewRepository(db.Pool)
+	handoffRepo := repository.NewHandoffRepository(db.Pool, workItemRepo, workflowRepo, riskRepo)
 	freshness := consumer.NewFreshness()
 	consumerMetrics := ctmetrics.NewConsumerMetrics()
 
-	router := httpserver.NewRouter(log, db.Pool, repo, ackRepo, workflowRepo, riskRepo, freshness)
+	router := httpserver.NewRouter(log, db.Pool, repo, ackRepo, workflowRepo, riskRepo, workItemRepo, viewRepo, handoffRepo, freshness)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

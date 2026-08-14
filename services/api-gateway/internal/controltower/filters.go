@@ -133,6 +133,30 @@ func ParseListQuery(r *http.Request) (ListQuery, error) {
 		q.RiskActiveOnly = parsed
 	}
 
+	q.WorkItemType = strings.TrimSpace(r.URL.Query().Get("item_type"))
+	q.Search = strings.TrimSpace(r.URL.Query().Get("search"))
+	if q.Search == "" {
+		q.Search = q.Q
+	}
+	q.Preset = strings.TrimSpace(r.URL.Query().Get("preset"))
+	if raw := strings.TrimSpace(r.URL.Query().Get("my_work")); raw != "" {
+		parsed, err := strconv.ParseBool(raw)
+		if err != nil {
+			return ListQuery{}, apperrors.Validation("my_work must be a boolean", map[string]any{"field": "my_work"})
+		}
+		q.MyWorkOnly = parsed
+	}
+	if raw := strings.TrimSpace(r.URL.Query().Get("include_completed")); raw != "" {
+		parsed, err := strconv.ParseBool(raw)
+		if err != nil {
+			return ListQuery{}, apperrors.Validation("include_completed must be a boolean", map[string]any{"field": "include_completed"})
+		}
+		q.IncludeCompleted = parsed
+	}
+	if q.Limit > 100 && strings.Contains(r.URL.Path, "work-items") {
+		return ListQuery{}, apperrors.Validation("limit must be <= 100", map[string]any{"field": "limit"})
+	}
+
 	return q, nil
 }
 

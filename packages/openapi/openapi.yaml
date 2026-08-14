@@ -1334,6 +1334,165 @@ paths:
         '404': { description: Risk not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
         '409': { description: Invalid transition, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
         '503': { description: Dependency unavailable, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /api/v1/control-tower/work-items:
+    get:
+      tags: [Control Tower]
+      summary: List unified operator work items
+      operationId: get_control_tower_work_items
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: preset
+          in: query
+          schema: { type: string }
+        - name: my_work
+          in: query
+          schema: { type: boolean }
+        - name: unassigned
+          in: query
+          schema: { type: boolean }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Work item page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerWorkItemsPage'
+  /api/v1/control-tower/work-items/{itemType}/{itemId}:
+    get:
+      tags: [Control Tower]
+      summary: Get work item details
+      operationId: get_control_tower_work_item
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: itemType
+          in: path
+          required: true
+          schema: { type: string, enum: [exception, risk] }
+        - name: itemId
+          in: path
+          required: true
+          schema: { type: string }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Work item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerWorkItem'
+  /api/v1/control-tower/work-items/{itemType}/{itemId}/claim:
+    post:
+      tags: [Control Tower]
+      summary: Claim work item for current operator
+      operationId: post_control_tower_work_item_claim
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: itemType
+          in: path
+          required: true
+          schema: { type: string, enum: [exception, risk] }
+        - name: itemId
+          in: path
+          required: true
+          schema: { type: string }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Updated work item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerWorkItem'
+        '409':
+          description: Already claimed
+  /api/v1/control-tower/work-items/bulk-action:
+    post:
+      tags: [Control Tower]
+      summary: Bulk operator work actions
+      operationId: post_control_tower_work_items_bulk_action
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ControlTowerBulkWorkActionRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Per-item outcomes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerBulkWorkActionOutcome'
+  /api/v1/control-tower/workload:
+    get:
+      tags: [Control Tower]
+      summary: Operator workload summary
+      operationId: get_control_tower_workload
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Workload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerWorkloadResponse'
+  /api/v1/control-tower/views:
+    get:
+      tags: [Control Tower]
+      summary: List saved workspace views
+      operationId: get_control_tower_views
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Saved views
+    post:
+      tags: [Control Tower]
+      summary: Create saved workspace view
+      operationId: post_control_tower_views
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Created view
+  /api/v1/control-tower/handoffs:
+    get:
+      tags: [Control Tower]
+      summary: List shift handoffs
+      operationId: get_control_tower_handoffs
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Handoffs
+    post:
+      tags: [Control Tower]
+      summary: Create shift handoff
+      operationId: post_control_tower_handoffs
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Handoff result
   /api/v1/shipments/{shipmentId}/events:
     get:
       tags: [Shipments]
@@ -6626,6 +6785,75 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ControlTowerShipmentRisk'
+    ControlTowerWorkItem:
+      type: object
+      required: [id, itemType, sourceId, shipmentId, title, urgency, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        itemType: { type: string, enum: [exception, risk] }
+        sourceId: { type: string }
+        shipmentId: { type: string, format: uuid }
+        shipmentNumber: { type: string }
+        title: { type: string }
+        urgency: { type: string, enum: [critical, high, normal, low] }
+        ownerUserId: { type: string, format: uuid }
+        ownerDisplayName: { type: string }
+        availableActions:
+          type: array
+          items: { type: string }
+    ControlTowerWorkItemsPage:
+      type: object
+      required: [items, page, limit, total, hasNext]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ControlTowerWorkItem'
+        page: { type: integer }
+        limit: { type: integer }
+        total: { type: integer }
+        hasNext: { type: boolean }
+    ControlTowerBulkWorkActionRequest:
+      type: object
+      required: [action, items]
+      properties:
+        action: { type: string, enum: [claim, assign, unassign, acknowledge] }
+        targetUserId: { type: string, format: uuid }
+        items:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            required: [itemType, itemId]
+            properties:
+              itemType: { type: string, enum: [exception, risk] }
+              itemId: { type: string }
+    ControlTowerBulkWorkActionOutcome:
+      type: object
+      required: [requested, succeeded, failed, results]
+      properties:
+        requested: { type: integer }
+        succeeded: { type: integer }
+        failed: { type: integer }
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              itemType: { type: string }
+              itemId: { type: string }
+              success: { type: boolean }
+              error: { type: string }
+    ControlTowerWorkloadResponse:
+      type: object
+      properties:
+        operators:
+          type: array
+          items:
+            type: object
+        unassignedPool: { type: integer }
+        kpi:
+          type: object
     ControlTowerMitigateRiskRequest:
       type: object
       required: [mitigationCode]
