@@ -44,24 +44,31 @@ func main() {
 
 	trackingRepo := repository.NewTrackingRepository(db.Pool)
 	etaRepo := repository.NewETARepository(db.Pool)
+	slotRepo := repository.NewSlotRepository(db.Pool)
 	registry := provider.NewRegistry(provider.GenericAdapter{}, provider.DriverMobileAdapter{})
 	etaRegistry := provider.NewETARegistry(provider.GenericETAAdapter{})
+	slotRegistry := provider.NewSlotRegistry(provider.GenericSlotAdapter{})
 	evaluator := service.NewStateEvaluator(trackingRepo, cfg)
 	etaEvaluator := service.NewETAStateEvaluator(etaRepo, cfg)
+	slotEvaluator := service.NewSlotStateEvaluator(slotRepo)
 	querySvc := service.NewTrackingQueryService(trackingRepo, evaluator, cfg)
 	etaQuerySvc := service.NewETAQueryService(etaRepo, etaEvaluator)
+	slotQuerySvc := service.NewSlotQueryService(slotRepo)
 	telemetryMetrics := trackingmetrics.New(cfg.ServiceName)
 	ingestSvc := service.NewIngestService(trackingRepo, registry, cfg, evaluator, log, telemetryMetrics)
 	etaIngestSvc := service.NewETAIngestService(trackingRepo, etaRepo, etaRegistry, cfg, etaEvaluator, log, telemetryMetrics)
+	slotIngestSvc := service.NewSlotIngestService(trackingRepo, slotRepo, slotRegistry, slotEvaluator, log, telemetryMetrics)
 
 	trackingHandler := handlers.NewTrackingHandler(querySvc)
 	etaHandler := handlers.NewETAHandler(etaQuerySvc)
 	etaInternal := handlers.NewETAInternalHandler(etaQuerySvc, cfg.InternalServiceToken)
-	ingestHandler := handlers.NewIngestHandler(ingestSvc, etaIngestSvc, cfg.ProviderSecrets)
+	slotHandler := handlers.NewSlotHandler(slotQuerySvc)
+	slotInternal := handlers.NewSlotInternalHandler(slotQuerySvc, cfg.InternalServiceToken)
+	ingestHandler := handlers.NewIngestHandler(ingestSvc, etaIngestSvc, slotIngestSvc, cfg.ProviderSecrets)
 	internalHandler := handlers.NewInternalHandler(querySvc, cfg.InternalServiceToken)
 	metricsCollector := metrics.New(cfg.ServiceName)
 
-	router := httpserver.NewRouter(log, db.Pool, trackingHandler, etaHandler, etaInternal, ingestHandler, internalHandler, metricsCollector)
+	router := httpserver.NewRouter(log, db.Pool, trackingHandler, etaHandler, etaInternal, slotHandler, slotInternal, ingestHandler, internalHandler, metricsCollector)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

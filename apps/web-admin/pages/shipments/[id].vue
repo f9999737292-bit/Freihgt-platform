@@ -236,6 +236,15 @@ onMounted(async () => {
           shipmentStatus: shipment.status,
         }"
       />
+      <ShipmentsShipmentSlotCard
+        :shipment-id="shipmentId"
+        :booking-status="shipment.status"
+        :slot-context="{
+          shipmentStatus: shipment.status,
+          actualPickupAt: shipment.actual_pickup_at ?? undefined,
+          actualDeliveryAt: shipment.actual_delivery_at ?? undefined,
+        }"
+      />
       <ShipmentsShipmentPartiesCard :shipment="shipment" :company-name="companyName" />
       <ShipmentsShipmentRouteCard
         :origin="origin"

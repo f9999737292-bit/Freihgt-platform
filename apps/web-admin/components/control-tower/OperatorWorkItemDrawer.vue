@@ -75,6 +75,7 @@ function timelineLabel(source: string, actionType: string): string {
       <dd>{{ item.shipmentNumber || item.shipmentId }}</dd>
       <ControlTowerTrackingSummary :shipment-id="item.shipmentId" />
       <ControlTowerETASummary :shipment-id="item.shipmentId" />
+      <ControlTowerSlotSummary :shipment-id="item.shipmentId" />
       <dt>{{ $t('controlTower.workspace.urgencyColumn') }}</dt>
       <dd>{{ $t(`controlTower.workspace.urgencyLevels.${item.urgency}`) }}</dd>
       <template v-if="item.itemType === 'exception'">

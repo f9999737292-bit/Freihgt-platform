@@ -89,6 +89,22 @@ type ShipmentInput struct {
 	SLAReason         *string
 	Telemetry         *TelemetryContext
 	ETA               *ETAContext
+	Slot              *SlotContext
+}
+
+type SlotContext struct {
+	Pickup   *SlotTargetContext
+	Delivery *SlotTargetContext
+}
+
+type SlotTargetContext struct {
+	HasRealWindow          bool
+	HasUsableETA           bool
+	ArrivalProjection      string
+	ProjectedLateBySeconds *int64
+	MarginSeconds          *int64
+	WindowEnd              *time.Time
+	ETAFreshness           string
 }
 
 type ETAContext struct {
@@ -441,6 +457,23 @@ func (e Evaluator) evaluateDeliveryDelayRisk(s ShipmentInput) Assessment {
 
 func (e Evaluator) evaluateSlotMissRisk(s ShipmentInput) Assessment {
 	signals := make([]Signal, 0)
+	deadline := s.PlannedPickupAt
+	if s.PlannedDeliveryAt != nil && (deadline == nil || s.PlannedDeliveryAt.Before(*deadline)) {
+		deadline = s.PlannedDeliveryAt
+	}
+
+	if s.Slot != nil {
+		if pickup := evaluateSlotTargetRisk(s.Slot.Pickup, isPrePickupStatus(s.Status)); pickup != nil {
+			signals = append(signals, *pickup)
+		}
+		if delivery := evaluateSlotTargetRisk(s.Slot.Delivery, isInTransit(s.Status) || s.Status == "DELIVERY_SLOT_BOOKED"); delivery != nil {
+			signals = append(signals, *delivery)
+		}
+		if len(signals) > 0 {
+			return buildAssessment(s, TypeSlotMissRisk, signals, deadline, e.Now)
+		}
+	}
+
 	if s.PlannedPickupAt != nil && isPrePickupStatus(s.Status) && s.Status != "PICKUP_SLOT_BOOKED" {
 		mins := minutesUntil(*s.PlannedPickupAt, e.Now)
 		if mins > 0 && mins <= 120 {
@@ -463,11 +496,65 @@ func (e Evaluator) evaluateSlotMissRisk(s ShipmentInput) Assessment {
 			})
 		}
 	}
-	deadline := s.PlannedPickupAt
-	if s.PlannedDeliveryAt != nil && (deadline == nil || s.PlannedDeliveryAt.Before(*deadline)) {
-		deadline = s.PlannedDeliveryAt
-	}
 	return buildAssessment(s, TypeSlotMissRisk, signals, deadline, e.Now)
+}
+
+func evaluateSlotTargetRisk(slot *SlotTargetContext, relevantPhase bool) *Signal {
+	if slot == nil || !relevantPhase || !slot.HasRealWindow {
+		return nil
+	}
+	if !slot.HasUsableETA {
+		return nil
+	}
+	weightMultiplier := 1.0
+	if slot.ETAFreshness == "stale" {
+		weightMultiplier = 0.75
+	}
+	lateMins := int64(0)
+	if slot.ProjectedLateBySeconds != nil {
+		lateMins = *slot.ProjectedLateBySeconds / 60
+	}
+	switch slot.ArrivalProjection {
+	case "missed":
+		return &Signal{
+			Code: "slot_actual_missed", Severity: "critical", Weight: 60,
+			ObservedAt: time.Now().UTC(), Source: SourceControlTower,
+			Value:          map[string]any{"projectedLateMinutes": lateMins},
+			ExplanationKey: "controlTower.risk.signals.slot_actual_missed",
+		}
+	case "projected_miss":
+		severity := "high"
+		weight := int(float64(50) * weightMultiplier)
+		if lateMins > 60 {
+			severity = "critical"
+			weight = int(float64(65) * weightMultiplier)
+		} else if lateMins > 15 {
+			weight = int(float64(55) * weightMultiplier)
+		} else {
+			weight = int(float64(40) * weightMultiplier)
+		}
+		return &Signal{
+			Code: "slot_projected_miss", Severity: severity, Weight: weight,
+			ObservedAt: time.Now().UTC(), Source: SourceControlTower,
+			Value:          map[string]any{"projectedLateMinutes": lateMins},
+			ExplanationKey: "controlTower.risk.signals.slot_projected_miss",
+		}
+	case "at_risk":
+		return &Signal{
+			Code: "slot_eta_at_risk", Severity: "medium", Weight: int(float64(35) * weightMultiplier),
+			ObservedAt: time.Now().UTC(), Source: SourceControlTower,
+			Value:          map[string]any{"marginSeconds": slot.MarginSeconds},
+			ExplanationKey: "controlTower.risk.signals.slot_eta_at_risk",
+		}
+	}
+	if slot.ETAFreshness == "stale" {
+		return &Signal{
+			Code: "slot_eta_stale", Severity: "low", Weight: 12,
+			ObservedAt: time.Now().UTC(), Source: SourceControlTower,
+			ExplanationKey: "controlTower.risk.signals.slot_eta_stale",
+		}
+	}
+	return nil
 }
 
 func (e Evaluator) evaluateTrackingLossRisk(s ShipmentInput) Assessment {

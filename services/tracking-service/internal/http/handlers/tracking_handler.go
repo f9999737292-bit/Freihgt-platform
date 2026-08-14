@@ -81,13 +81,14 @@ func (h *TrackingHandler) ListLocations(w http.ResponseWriter, r *http.Request) 
 }
 
 type IngestHandler struct {
-	ingest    *service.IngestService
-	etaIngest *service.ETAIngestService
-	secrets   map[string]string
+	ingest     *service.IngestService
+	etaIngest  *service.ETAIngestService
+	slotIngest *service.SlotIngestService
+	secrets    map[string]string
 }
 
-func NewIngestHandler(ingest *service.IngestService, etaIngest *service.ETAIngestService, secrets map[string]string) *IngestHandler {
-	return &IngestHandler{ingest: ingest, etaIngest: etaIngest, secrets: secrets}
+func NewIngestHandler(ingest *service.IngestService, etaIngest *service.ETAIngestService, slotIngest *service.SlotIngestService, secrets map[string]string) *IngestHandler {
+	return &IngestHandler{ingest: ingest, etaIngest: etaIngest, slotIngest: slotIngest, secrets: secrets}
 }
 
 func (h *IngestHandler) Ingest(w http.ResponseWriter, r *http.Request) {
@@ -125,6 +126,27 @@ func (h *IngestHandler) IngestETA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, err := h.etaIngest.IngestProviderETA(r.Context(), providerCode, provider.ProviderPayload(body))
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusOK, result)
+}
+
+func (h *IngestHandler) IngestSlots(w http.ResponseWriter, r *http.Request) {
+	providerCode := chi.URLParam(r, "provider")
+	secret := r.Header.Get("X-Provider-Secret")
+	expected, ok := h.secrets[providerCode]
+	if !ok || expected == "" || secret == "" || secret != expected {
+		respond.Error(w, errors.Unauthorized("provider authentication failed"))
+		return
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+	if err != nil {
+		respond.Error(w, errors.Validation("invalid request body", nil))
+		return
+	}
+	result, err := h.slotIngest.IngestProviderSlots(r.Context(), providerCode, provider.ProviderPayload(body))
 	if err != nil {
 		respond.Error(w, err)
 		return

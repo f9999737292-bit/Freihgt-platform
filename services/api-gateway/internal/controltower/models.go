@@ -45,6 +45,20 @@ type ControlTowerShipment struct {
 	ArrivalProjection    *string    `json:"arrivalProjection,omitempty"`
 	ETAAgeSeconds        *int64     `json:"etaAgeSeconds,omitempty"`
 	LastETAObservedAt    *time.Time `json:"lastEtaObservedAt,omitempty"`
+	PickupSlotWindowStatus       *string    `json:"pickupSlotWindowStatus,omitempty"`
+	PickupSlotWindowStart        *time.Time `json:"pickupSlotWindowStart,omitempty"`
+	PickupSlotWindowEnd          *time.Time `json:"pickupSlotWindowEnd,omitempty"`
+	PickupSlotStatus             *string    `json:"pickupSlotStatus,omitempty"`
+	PickupSlotArrivalProjection  *string    `json:"pickupSlotArrivalProjection,omitempty"`
+	PickupSlotProjectedLateSeconds *int64   `json:"pickupSlotProjectedLateSeconds,omitempty"`
+	PickupSlotMarginSeconds      *int64     `json:"pickupSlotMarginSeconds,omitempty"`
+	DeliverySlotWindowStatus       *string    `json:"deliverySlotWindowStatus,omitempty"`
+	DeliverySlotWindowStart        *time.Time `json:"deliverySlotWindowStart,omitempty"`
+	DeliverySlotWindowEnd          *time.Time `json:"deliverySlotWindowEnd,omitempty"`
+	DeliverySlotStatus             *string    `json:"deliverySlotStatus,omitempty"`
+	DeliverySlotArrivalProjection  *string    `json:"deliverySlotArrivalProjection,omitempty"`
+	DeliverySlotProjectedLateSeconds *int64   `json:"deliverySlotProjectedLateSeconds,omitempty"`
+	DeliverySlotMarginSeconds      *int64     `json:"deliverySlotMarginSeconds,omitempty"`
 }
 
 type ControlTowerEvent struct {

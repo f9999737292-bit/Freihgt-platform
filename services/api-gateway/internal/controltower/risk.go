@@ -162,6 +162,7 @@ func buildRiskShipmentInputs(rows []ControlTowerShipment, rawByID map[string]raw
 			SLAReason:         row.SLAReason,
 			Telemetry:         telemetryContextFromShipment(row),
 			ETA:               etaContextFromShipment(row),
+			Slot:              slotContextFromShipment(row),
 		})
 	}
 	return inputs

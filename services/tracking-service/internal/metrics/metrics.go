@@ -16,6 +16,10 @@ type Collector struct {
 	etaRejected        prometheus.Counter
 	etaDeduplicated    prometheus.Counter
 	etaIngestionLag    prometheus.Histogram
+	slotReceived       prometheus.Counter
+	slotRejected       prometheus.Counter
+	slotDeduplicated   prometheus.Counter
+	slotReschedule     prometheus.Counter
 }
 
 func New(serviceName string) *Collector {
@@ -55,11 +59,24 @@ func New(serviceName string) *Collector {
 			Namespace: "eta_ingest", Name: "eta_ingestion_lag_seconds", Help: "Lag between sourceObservedAt and ingestion",
 			Buckets: prometheus.DefBuckets,
 		}),
+		slotReceived: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: "slot_ingest", Name: "slot_observations_received_total", Help: "Accepted slot observations",
+		}),
+		slotRejected: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: "slot_ingest", Name: "slot_observations_rejected_total", Help: "Rejected slot observations",
+		}),
+		slotDeduplicated: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: "slot_ingest", Name: "slot_observations_deduplicated_total", Help: "Deduplicated slot observations",
+		}),
+		slotReschedule: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: "slot_ingest", Name: "slot_reschedule_total", Help: "Slot reschedule transitions",
+		}),
 	}
 	prometheus.MustRegister(
 		c.eventsReceived, c.eventsRejected, c.eventsDeduplicated, c.ingestionLag,
 		c.activeShipments, c.staleShipments, c.lostShipments,
 		c.etaReceived, c.etaRejected, c.etaDeduplicated, c.etaIngestionLag,
+		c.slotReceived, c.slotRejected, c.slotDeduplicated, c.slotReschedule,
 	)
 	return c
 }
@@ -77,3 +94,8 @@ func (c *Collector) IncETADeduplicated() { c.etaDeduplicated.Inc() }
 func (c *Collector) ObserveETAIngestionLag(d interface{ Seconds() float64 }) {
 	c.etaIngestionLag.Observe(d.Seconds())
 }
+
+func (c *Collector) IncSlotReceived()     { c.slotReceived.Inc() }
+func (c *Collector) IncSlotRejected()     { c.slotRejected.Inc() }
+func (c *Collector) IncSlotDeduplicated() { c.slotDeduplicated.Inc() }
+func (c *Collector) IncSlotReschedule()   { c.slotReschedule.Inc() }

@@ -415,6 +415,51 @@
       "calculated": "计算 ETA"
     }
   },
+  "slot": {
+    "title": "时段",
+    "deliverySlot": "交付时段",
+    "pickupSlot": "提货时段",
+    "window": "时段窗口",
+    "status": "时段状态",
+    "arrivalProjection": "到达预测",
+    "source": "来源",
+    "history": "时段历史",
+    "hideHistory": "隐藏历史",
+    "noHistory": "暂无时段历史",
+    "rescheduledAt": "变更时间",
+    "unavailable": "时段不可用",
+    "timeUnavailable": "时段已预订 · 时间窗口不可用",
+    "bookedTimeUnavailable": "时段已预订 · 时间窗口不可用",
+    "intelligenceUnavailable": "时段智能暂时不可用",
+    "compactWithWindow": "窗口 {window} · {projection}",
+    "compactAtRisk": "窗口 {window} · {projection} · 余量 {mins} 分钟",
+    "compactProjectedMiss": "窗口 {window} · {projection} · +{mins} 分钟",
+    "lifecycle": {
+      "proposed": "提议",
+      "booked": "已预订",
+      "confirmed": "已确认",
+      "cancelled": "已取消",
+      "completed": "已完成",
+      "missed": "已错过"
+    },
+    "projection": {
+      "unknown": "未知",
+      "early": "提前到达",
+      "on_time": "在窗口内",
+      "at_risk": "窗口风险",
+      "projected_miss": "预测错过窗口",
+      "missed": "窗口已错过",
+      "completed": "窗口内完成"
+    },
+    "source": {
+      "internal_booking": "内部预订",
+      "warehouse_api": "仓库 API",
+      "carrier_api": "承运商 API",
+      "shipper_api": "发货方 API",
+      "manual_operator": "操作员",
+      "system_import": "导入"
+    }
+  },
   "documents": {
     "title": "文档",
     "details": "文档详情",
@@ -1378,6 +1423,10 @@
         "eta_quality_degraded": "ETA 质量下降（{qualityStatus}）",
         "eta_delivery_at_risk": "预测到达存在风险（较计划 +{projectedDeviationMinutes} 分钟）",
         "eta_after_planned_delivery": "预测到达比计划交付晚 {projectedDeviationMinutes} 分钟",
+        "slot_eta_at_risk": "预测到达相对时段窗口存在风险",
+        "slot_projected_miss": "预测错过窗口：延迟 {projectedLateMinutes} 分钟",
+        "slot_actual_missed": "时段窗口已错过（延迟 {projectedLateMinutes} 分钟）",
+        "slot_eta_stale": "ETA 已过期 — 窗口错过预测可信度降低",
         "stale_updates_at_risk": "长时间无更新（SLA 风险）",
         "missing_driver": "未分配司机，提货 {minutesUntilPickup} 分钟后",
         "missing_vehicle": "未分配车辆，提货 {minutesUntilPickup} 分钟后"

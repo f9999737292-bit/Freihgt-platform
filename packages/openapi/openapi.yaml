@@ -4756,6 +4756,108 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ShipmentETAHistoryPage'
+  /api/v1/shipments/{shipmentId}/slots:
+    get:
+      tags: [Shipments, Slots]
+      summary: Get current shipment slot state
+      operationId: get_shipment_slots
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/Authorization'
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: shipmentStatus
+          in: query
+          schema:
+            type: string
+        - name: actualPickupAt
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: actualDeliveryAt
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: deliveryEtaStatus
+          in: query
+          schema:
+            type: string
+        - name: deliveryEtaFreshness
+          in: query
+          schema:
+            type: string
+        - name: deliveryEstimatedArrivalAt
+          in: query
+          schema:
+            type: string
+            format: date-time
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current slot summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShipmentSlotSummary'
+  /api/v1/shipments/{shipmentId}/slots/history:
+    get:
+      tags: [Shipments, Slots]
+      summary: List bounded shipment slot revision history
+      operationId: get_shipment_slot_history
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/Authorization'
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: slotType
+          in: query
+          schema:
+            type: string
+            enum: [pickup, delivery]
+            default: delivery
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            maximum: 200
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Slot history page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShipmentSlotHistoryPage'
   /api/v1/drivers:
     post:
       tags: [Drivers]
@@ -7160,6 +7262,20 @@ components:
           enum: [early, on_time, at_risk, late, unknown]
         etaAgeSeconds: { type: integer, format: int64 }
         lastEtaObservedAt: { type: string, format: date-time }
+        pickupSlotWindowStatus:
+          type: string
+          enum: [unavailable, available]
+        pickupSlotWindowStart: { type: string, format: date-time }
+        pickupSlotWindowEnd: { type: string, format: date-time }
+        pickupSlotArrivalProjection: { type: string }
+        deliverySlotWindowStatus:
+          type: string
+          enum: [unavailable, available]
+        deliverySlotWindowStart: { type: string, format: date-time }
+        deliverySlotWindowEnd: { type: string, format: date-time }
+        deliverySlotArrivalProjection: { type: string }
+        deliverySlotProjectedLateSeconds: { type: integer, format: int64 }
+        deliverySlotMarginSeconds: { type: integer, format: int64 }
     ShipmentTrackingSummary:
       type: object
       required: [shipmentId, trackingStatus, freshness, quality]
@@ -7295,6 +7411,63 @@ components:
           type: array
           items: { type: string }
         providerConfidence: { type: number, format: double }
+    ShipmentSlotSummary:
+      type: object
+      required: [shipmentId]
+      properties:
+        shipmentId: { type: string, format: uuid }
+        pickup:
+          $ref: '#/components/schemas/ShipmentSlotTargetSummary'
+        delivery:
+          $ref: '#/components/schemas/ShipmentSlotTargetSummary'
+    ShipmentSlotTargetSummary:
+      type: object
+      required: [windowStatus, qualityStatus, arrivalProjection]
+      properties:
+        windowStatus:
+          type: string
+          enum: [unavailable, available]
+        slotStatus:
+          type: string
+          enum: [proposed, booked, confirmed, cancelled, completed, missed]
+        windowStart: { type: string, format: date-time }
+        windowEnd: { type: string, format: date-time }
+        timezone: { type: string }
+        sourceType: { type: string }
+        provider: { type: string }
+        qualityStatus: { type: string }
+        arrivalProjection:
+          type: string
+          enum: [unknown, early, on_time, at_risk, projected_miss, missed, completed]
+        projectedLateBySeconds: { type: integer, format: int64 }
+        earlyBySeconds: { type: integer, format: int64 }
+        marginSeconds: { type: integer, format: int64 }
+        etaRelation: { type: string }
+    ShipmentSlotHistoryPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShipmentSlotRevision'
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+    ShipmentSlotRevision:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        shipmentId: { type: string, format: uuid }
+        slotType: { type: string }
+        windowStart: { type: string, format: date-time }
+        windowEnd: { type: string, format: date-time }
+        slotStatus: { type: string }
+        sourceType: { type: string }
+        sourceObservedAt: { type: string, format: date-time }
+        receivedAt: { type: string, format: date-time }
+        qualityStatus: { type: string }
+        timezone: { type: string }
+        provider: { type: string }
     ControlTowerEventAcknowledgedBy:
       type: object
       required: [userId]

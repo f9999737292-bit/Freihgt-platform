@@ -20,6 +20,8 @@ func NewRouter(
 	trackingHandler *handlers.TrackingHandler,
 	etaHandler *handlers.ETAHandler,
 	etaInternal *handlers.ETAInternalHandler,
+	slotHandler *handlers.SlotHandler,
+	slotInternal *handlers.SlotInternalHandler,
 	ingestHandler *handlers.IngestHandler,
 	internalHandler *handlers.InternalHandler,
 	metricsCollector *metrics.Collector,
@@ -38,13 +40,17 @@ func NewRouter(
 		r.Get("/tracking/locations", trackingHandler.ListLocations)
 		r.Get("/eta", etaHandler.GetCurrent)
 		r.Get("/eta/history", etaHandler.ListHistory)
+		r.Get("/slots", slotHandler.GetCurrent)
+		r.Get("/slots/history", slotHandler.ListHistory)
 	})
 
 	r.Route("/internal/v1/tracking", func(r chi.Router) {
 		r.Post("/providers/{provider}/locations", ingestHandler.Ingest)
 		r.Post("/providers/{provider}/eta", ingestHandler.IngestETA)
+		r.Post("/providers/{provider}/slots", ingestHandler.IngestSlots)
 		r.Post("/states/lookup", internalHandler.LookupStates)
 		r.Post("/eta/lookup", etaInternal.LookupDelivery)
+		r.Post("/slots/lookup", slotInternal.Lookup)
 	})
 
 	return r

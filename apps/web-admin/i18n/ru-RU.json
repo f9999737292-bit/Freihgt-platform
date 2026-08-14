@@ -415,6 +415,51 @@
       "calculated": "Расчётный ETA"
     }
   },
+  "slot": {
+    "title": "Слоты",
+    "deliverySlot": "Слот доставки",
+    "pickupSlot": "Слот погрузки",
+    "window": "Окно слота",
+    "status": "Статус слота",
+    "arrivalProjection": "Прогноз относительно окна",
+    "source": "Источник",
+    "history": "История слотов",
+    "hideHistory": "Скрыть историю",
+    "noHistory": "История слотов отсутствует",
+    "rescheduledAt": "Изменено",
+    "unavailable": "Слот недоступен",
+    "timeUnavailable": "Слот забронирован · окно времени недоступно",
+    "bookedTimeUnavailable": "Слот забронирован · окно времени недоступно",
+    "intelligenceUnavailable": "Slot Intelligence временно недоступен",
+    "compactWithWindow": "Окно {window} · {projection}",
+    "compactAtRisk": "Окно {window} · {projection} · запас {mins} мин",
+    "compactProjectedMiss": "Окно {window} · {projection} · +{mins} мин",
+    "lifecycle": {
+      "proposed": "Предложен",
+      "booked": "Забронирован",
+      "confirmed": "Подтверждён",
+      "cancelled": "Отменён",
+      "completed": "Выполнен",
+      "missed": "Пропущен"
+    },
+    "projection": {
+      "unknown": "Неизвестно",
+      "early": "Раннее прибытие",
+      "on_time": "В окне",
+      "at_risk": "Риск срыва окна",
+      "projected_miss": "Прогноз срыва окна",
+      "missed": "Окно пропущено",
+      "completed": "Выполнено в окне"
+    },
+    "source": {
+      "internal_booking": "Внутреннее бронирование",
+      "warehouse_api": "API склада",
+      "carrier_api": "API перевозчика",
+      "shipper_api": "API грузоотправителя",
+      "manual_operator": "Оператор",
+      "system_import": "Импорт"
+    }
+  },
   "documents": {
     "title": "Документы",
     "details": "Карточка документа",
@@ -1378,6 +1423,10 @@
         "eta_quality_degraded": "Снижено качество ETA ({qualityStatus})",
         "eta_delivery_at_risk": "Прогноз прибытия в зоне риска (+{projectedDeviationMinutes} мин к плану)",
         "eta_after_planned_delivery": "Прогноз прибытия на {projectedDeviationMinutes} мин позже плановой доставки",
+        "slot_eta_at_risk": "Прогноз прибытия в зоне риска относительно окна слота",
+        "slot_projected_miss": "Прогноз срыва окна: опоздание {projectedLateMinutes} мин",
+        "slot_actual_missed": "Окно слота пропущено (опоздание {projectedLateMinutes} мин)",
+        "slot_eta_stale": "ETA устарел — снижено доверие к прогнозу срыва окна",
         "stale_updates_at_risk": "Длительное отсутствие обновлений (SLA at risk)",
         "missing_driver": "Водитель не назначен, до погрузки {minutesUntilPickup} мин",
         "missing_vehicle": "ТС не назначено, до погрузки {minutesUntilPickup} мин"

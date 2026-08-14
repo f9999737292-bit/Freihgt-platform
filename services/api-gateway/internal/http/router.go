@@ -128,6 +128,8 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 		r.Get("/api/v1/shipments/{shipmentId}/tracking/locations", trackingHandler.ListLocations)
 		r.Get("/api/v1/shipments/{shipmentId}/eta", trackingHandler.GetETA)
 		r.Get("/api/v1/shipments/{shipmentId}/eta/history", trackingHandler.ListETAHistory)
+		r.Get("/api/v1/shipments/{shipmentId}/slots", trackingHandler.GetSlots)
+		r.Get("/api/v1/shipments/{shipmentId}/slots/history", trackingHandler.ListSlotHistory)
 	}
 
 	fleetGuard := fleetrbac.NewGuard(cfg, proxy)

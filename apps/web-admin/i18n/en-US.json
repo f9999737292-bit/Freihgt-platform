@@ -415,6 +415,51 @@
       "calculated": "Calculated ETA"
     }
   },
+  "slot": {
+    "title": "Slots",
+    "deliverySlot": "Delivery slot",
+    "pickupSlot": "Pickup slot",
+    "window": "Slot window",
+    "status": "Slot status",
+    "arrivalProjection": "Arrival projection",
+    "source": "Source",
+    "history": "Slot history",
+    "hideHistory": "Hide history",
+    "noHistory": "No slot history",
+    "rescheduledAt": "Changed at",
+    "unavailable": "Slot unavailable",
+    "timeUnavailable": "Slot booked · time window unavailable",
+    "bookedTimeUnavailable": "Slot booked · time window unavailable",
+    "intelligenceUnavailable": "Slot intelligence temporarily unavailable",
+    "compactWithWindow": "Window {window} · {projection}",
+    "compactAtRisk": "Window {window} · {projection} · {mins} min margin",
+    "compactProjectedMiss": "Window {window} · {projection} · +{mins} min",
+    "lifecycle": {
+      "proposed": "Proposed",
+      "booked": "Booked",
+      "confirmed": "Confirmed",
+      "cancelled": "Cancelled",
+      "completed": "Completed",
+      "missed": "Missed"
+    },
+    "projection": {
+      "unknown": "Unknown",
+      "early": "Early arrival",
+      "on_time": "Within window",
+      "at_risk": "At risk",
+      "projected_miss": "Projected slot miss",
+      "missed": "Slot missed",
+      "completed": "Completed in window"
+    },
+    "source": {
+      "internal_booking": "Internal booking",
+      "warehouse_api": "Warehouse API",
+      "carrier_api": "Carrier API",
+      "shipper_api": "Shipper API",
+      "manual_operator": "Manual entry",
+      "system_import": "Import"
+    }
+  },
   "documents": {
     "title": "Documents",
     "details": "Document details",
@@ -1378,6 +1423,10 @@
         "eta_quality_degraded": "ETA quality degraded ({qualityStatus})",
         "eta_delivery_at_risk": "Predicted arrival at risk (+{projectedDeviationMinutes} min vs plan)",
         "eta_after_planned_delivery": "Predicted arrival is {projectedDeviationMinutes} min after planned delivery",
+        "slot_eta_at_risk": "Predicted arrival at risk relative to slot window",
+        "slot_projected_miss": "Projected slot miss: {projectedLateMinutes} min late",
+        "slot_actual_missed": "Slot window missed ({projectedLateMinutes} min late)",
+        "slot_eta_stale": "ETA is stale — reduced trust in slot miss projection",
         "stale_updates_at_risk": "Stale updates (SLA at risk)",
         "missing_driver": "No driver assigned, pickup in {minutesUntilPickup} min",
         "missing_vehicle": "No vehicle assigned, pickup in {minutesUntilPickup} min"
