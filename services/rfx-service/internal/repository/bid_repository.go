@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"strings"
 
@@ -330,6 +331,7 @@ func (r *BidRepository) listBidItems(ctx context.Context, bidID, tenantID uuid.U
 
 func scanBid(row pgx.Row) (*domain.Bid, error) {
 	var bid domain.Bid
+	var vatAmount, totalWithVAT sql.NullFloat64
 	err := row.Scan(
 		&bid.ID,
 		&bid.TenantID,
@@ -340,8 +342,8 @@ func scanBid(row pgx.Row) (*domain.Bid, error) {
 		&bid.TotalAmount,
 		&bid.CurrencyCode,
 		&bid.VATRate,
-		&bid.VATAmount,
-		&bid.TotalAmountWithVAT,
+		&vatAmount,
+		&totalWithVAT,
 		&bid.ValidUntil,
 		&bid.SubmittedAt,
 		&bid.CreatedAt,
@@ -350,6 +352,12 @@ func scanBid(row pgx.Row) (*domain.Bid, error) {
 	)
 	if err != nil {
 		return nil, err
+	}
+	if vatAmount.Valid {
+		bid.VATAmount = vatAmount.Float64
+	}
+	if totalWithVAT.Valid {
+		bid.TotalAmountWithVAT = totalWithVAT.Float64
 	}
 	return &bid, nil
 }

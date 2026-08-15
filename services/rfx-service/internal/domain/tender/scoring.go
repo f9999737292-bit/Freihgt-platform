@@ -91,6 +91,7 @@ type FactorContribution struct {
 type CarrierScoreResult struct {
 	CarrierCompanyID string               `json:"carrier_company_id"`
 	LotID            string               `json:"lot_id,omitempty"`
+	BidRevisionID    string               `json:"bid_revision_id,omitempty"`
 	TotalScore       float64              `json:"total_score"`
 	Contributions    []FactorContribution `json:"contributions"`
 	PriceScore       float64              `json:"price_score"`
@@ -255,6 +256,7 @@ func ScoreCandidates(template ScoringTemplateSnapshot, candidates []BidCandidate
 		results = append(results, CarrierScoreResult{
 			CarrierCompanyID: c.CarrierCompanyID,
 			LotID:            c.LotID,
+			BidRevisionID:    c.BidRevisionID,
 			TotalScore:       roundScore(total),
 			Contributions:    contributions,
 			PriceScore:       priceScore,

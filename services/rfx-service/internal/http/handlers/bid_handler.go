@@ -82,8 +82,9 @@ func (h *BidHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, err)
 		return
 	}
+	carrierScope, _ := resolveOptionalCarrierScope(r)
 
-	bid, err := h.service.GetByID(r.Context(), tenantID, id)
+	bid, err := h.service.GetByID(r.Context(), tenantID, id, carrierScope)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -103,13 +104,14 @@ func (h *BidHandler) ListBids(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, err)
 		return
 	}
+	carrierScope, _ := resolveOptionalCarrierScope(r)
 
 	var status *string
 	if raw := strings.TrimSpace(r.URL.Query().Get("status")); raw != "" {
 		status = &raw
 	}
 
-	bids, err := h.service.ListBids(r.Context(), freightRequestID, tenantID, status)
+	bids, err := h.service.ListBids(r.Context(), freightRequestID, tenantID, status, carrierScope)
 	if err != nil {
 		respond.Error(w, err)
 		return

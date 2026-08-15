@@ -11,7 +11,9 @@ import (
 	"time"
 
 	"github.com/freight-platform/rfx-service/internal/config"
+	"github.com/freight-platform/rfx-service/internal/client"
 	httpserver "github.com/freight-platform/rfx-service/internal/http"
+	"github.com/freight-platform/rfx-service/internal/http/handlers"
 	"github.com/freight-platform/rfx-service/internal/platform/database"
 	"github.com/freight-platform/rfx-service/internal/platform/logger"
 	"github.com/freight-platform/rfx-service/internal/repository"
@@ -42,15 +44,23 @@ func main() {
 	rfxRepo := repository.NewRfxRepository(db.Pool)
 	frRepo := repository.NewFreightRequestRepository(db.Pool)
 	bidRepo := repository.NewBidRepository(db.Pool)
+	bidRevRepo := repository.NewBidRevisionRepository(db.Pool, bidRepo)
+	respRevRepo := repository.NewResponseRevisionRepository(db.Pool)
 
 	tenderRepo := repository.NewTenderRepository(db.Pool)
+	permRepo := repository.NewPermissionRepository(db.Pool)
 
 	rfxSvc := service.NewRfxService(rfxRepo)
 	frSvc := service.NewFreightRequestService(frRepo)
 	bidSvc := service.NewBidService(bidRepo, frRepo)
-	evalSvc := service.NewEvaluationService(tenderRepo, nil)
+	bidRevSvc := service.NewBidRevisionService(bidRepo, bidRevRepo)
+	respBidSvc := service.NewResponseBidService(respRevRepo)
+	shipmentClient := client.NewShipmentClient(cfg.ShipmentServiceURL)
+	awardConvSvc := service.NewAwardConversionService(tenderRepo, bidRepo, shipmentClient)
+	evalSvc := service.NewEvaluationService(tenderRepo, nil, awardConvSvc)
+	authz := handlers.PermissionCheckerFrom(permRepo)
 
-	router := httpserver.NewRouter(log, db.Pool, rfxSvc, frSvc, bidSvc, evalSvc)
+	router := httpserver.NewRouter(log, db.Pool, rfxSvc, frSvc, bidSvc, bidRevSvc, respBidSvc, evalSvc, authz)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

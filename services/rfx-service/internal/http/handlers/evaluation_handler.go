@@ -9,16 +9,19 @@ import (
 
 	"github.com/freight-platform/rfx-service/internal/domain/tender"
 	apperrors "github.com/freight-platform/rfx-service/internal/platform/errors"
+	rfxmetrics "github.com/freight-platform/rfx-service/internal/platform/metrics"
 	"github.com/freight-platform/rfx-service/internal/platform/respond"
+	"github.com/freight-platform/rfx-service/internal/repository"
 	"github.com/freight-platform/rfx-service/internal/service"
 )
 
 type EvaluationHandler struct {
-	svc *service.EvaluationService
+	svc  *service.EvaluationService
+	auth PermissionChecker
 }
 
-func NewEvaluationHandler(svc *service.EvaluationService) *EvaluationHandler {
-	return &EvaluationHandler{svc: svc}
+func NewEvaluationHandler(svc *service.EvaluationService, auth PermissionChecker) *EvaluationHandler {
+	return &EvaluationHandler{svc: svc, auth: auth}
 }
 
 type createScoringTemplateRequest struct {
@@ -29,6 +32,10 @@ type createScoringTemplateRequest struct {
 }
 
 func (h *EvaluationHandler) CreateScoringTemplate(w http.ResponseWriter, r *http.Request) {
+	if err := h.auth.UserHasPermission(r, repository.PermissionRfxEvaluate); err != nil {
+		respond.Error(w, err)
+		return
+	}
 	var req createScoringTemplateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
@@ -58,6 +65,10 @@ type runEvaluationRequest struct {
 }
 
 func (h *EvaluationHandler) RunEvaluation(w http.ResponseWriter, r *http.Request) {
+	if err := h.auth.UserHasPermission(r, repository.PermissionRfxEvaluate); err != nil {
+		respond.Error(w, err)
+		return
+	}
 	eventID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
 		respond.Error(w, apperrors.Validation("invalid rfx event id", map[string]any{"field": "id"}))
@@ -86,9 +97,11 @@ func (h *EvaluationHandler) RunEvaluation(w http.ResponseWriter, r *http.Request
 		RequiredVolume:           req.RequiredVolume,
 	})
 	if err != nil {
+		rfxmetrics.IncEvaluation("error")
 		respond.Error(w, err)
 		return
 	}
+	rfxmetrics.IncEvaluation("success")
 	respond.JSON(w, http.StatusOK, result)
 }
 
@@ -103,6 +116,10 @@ type runAllocationScenarioRequest struct {
 }
 
 func (h *EvaluationHandler) RunAllocationScenario(w http.ResponseWriter, r *http.Request) {
+	if err := h.auth.UserHasPermission(r, repository.PermissionRfxEvaluate); err != nil {
+		respond.Error(w, err)
+		return
+	}
 	var req runAllocationScenarioRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
@@ -128,9 +145,11 @@ func (h *EvaluationHandler) RunAllocationScenario(w http.ResponseWriter, r *http
 		ActualShares: req.ActualShares,
 	})
 	if err != nil {
+		rfxmetrics.IncAllocation("error")
 		respond.Error(w, err)
 		return
 	}
+	rfxmetrics.IncAllocation(string(outcome.Status))
 	respond.JSON(w, http.StatusOK, map[string]any{
 		"scenario_id": scenarioID.String(),
 		"outcome":     outcome,
@@ -147,6 +166,10 @@ type awardProposalRequest struct {
 }
 
 func (h *EvaluationHandler) CreateAwardProposal(w http.ResponseWriter, r *http.Request) {
+	if err := h.auth.UserHasPermission(r, repository.PermissionRfxEvaluate); err != nil {
+		respond.Error(w, err)
+		return
+	}
 	var req awardProposalRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
@@ -174,9 +197,11 @@ func (h *EvaluationHandler) CreateAwardProposal(w http.ResponseWriter, r *http.R
 	}
 	id, err := h.svc.CreateAwardProposal(r.Context(), tenantID, eventID, evalID, scenarioID, nil, req.IdempotencyKey)
 	if err != nil {
+		rfxmetrics.IncAwardProposal("error")
 		respond.Error(w, err)
 		return
 	}
+	rfxmetrics.IncAwardProposal("success")
 	respond.JSON(w, http.StatusCreated, map[string]string{"proposal_id": id.String()})
 }
 
@@ -187,12 +212,22 @@ func (h *EvaluationHandler) SubmitAwardProposal(w http.ResponseWriter, r *http.R
 }
 
 func (h *EvaluationHandler) ApproveAwardProposal(w http.ResponseWriter, r *http.Request) {
-	h.proposalAction(w, r, func(id, tenantID uuid.UUID) error {
-		return h.svc.ApproveAwardProposal(r.Context(), id, tenantID, uuid.Nil)
+	h.proposalActionWithUser(w, r, repository.PermissionRfxApproveAward, func(id, tenantID, userID uuid.UUID) error {
+		return h.svc.ApproveAwardProposal(r.Context(), id, tenantID, userID)
+	})
+}
+
+func (h *EvaluationHandler) RejectAwardProposal(w http.ResponseWriter, r *http.Request) {
+	h.proposalActionWithUser(w, r, repository.PermissionRfxApproveAward, func(id, tenantID, userID uuid.UUID) error {
+		return h.svc.RejectAwardProposal(r.Context(), id, tenantID, userID)
 	})
 }
 
 func (h *EvaluationHandler) FinalizeAward(w http.ResponseWriter, r *http.Request) {
+	if err := h.auth.UserHasPermission(r, repository.PermissionRfxAward); err != nil {
+		respond.Error(w, err)
+		return
+	}
 	proposalID, err := uuid.Parse(chi.URLParam(r, "proposal_id"))
 	if err != nil {
 		respond.Error(w, apperrors.Validation("invalid proposal id", map[string]any{"field": "proposal_id"}))
@@ -211,12 +246,26 @@ func (h *EvaluationHandler) FinalizeAward(w http.ResponseWriter, r *http.Request
 		respond.Error(w, apperrors.Validation("invalid tenant_id", map[string]any{"field": "tenant_id"}))
 		return
 	}
-	awardID, err := h.svc.FinalizeAward(r.Context(), proposalID, tenantID, uuid.Nil, body.IdempotencyKey)
+	userID, err := resolveVerifiedUser(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
-	respond.JSON(w, http.StatusOK, map[string]string{"award_id": awardID.String()})
+	awardID, conversion, err := h.svc.FinalizeAward(r.Context(), proposalID, tenantID, userID, body.IdempotencyKey)
+	if err != nil {
+		rfxmetrics.IncAward("error")
+		respond.Error(w, err)
+		return
+	}
+	rfxmetrics.IncAward("success")
+	if conversion != nil {
+		rfxmetrics.IncAwardConversion(conversion.Status)
+	}
+	resp := map[string]any{"award_id": awardID.String()}
+	if conversion != nil {
+		resp["conversion"] = conversion
+	}
+	respond.JSON(w, http.StatusOK, resp)
 }
 
 func (h *EvaluationHandler) proposalAction(w http.ResponseWriter, r *http.Request, fn func(uuid.UUID, uuid.UUID) error) {
@@ -238,6 +287,40 @@ func (h *EvaluationHandler) proposalAction(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if err := fn(proposalID, tenantID); err != nil {
+		respond.Error(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (h *EvaluationHandler) proposalActionWithUser(w http.ResponseWriter, r *http.Request, permission string, fn func(uuid.UUID, uuid.UUID, uuid.UUID) error) {
+	if err := h.auth.UserHasPermission(r, permission); err != nil {
+		respond.Error(w, err)
+		return
+	}
+	proposalID, err := uuid.Parse(chi.URLParam(r, "proposal_id"))
+	if err != nil {
+		respond.Error(w, apperrors.Validation("invalid proposal id", map[string]any{"field": "proposal_id"}))
+		return
+	}
+	var body struct {
+		TenantID string `json:"tenant_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
+		return
+	}
+	tenantID, err := uuid.Parse(body.TenantID)
+	if err != nil {
+		respond.Error(w, apperrors.Validation("invalid tenant_id", map[string]any{"field": "tenant_id"}))
+		return
+	}
+	userID, err := resolveVerifiedUser(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	if err := fn(proposalID, tenantID, userID); err != nil {
 		respond.Error(w, err)
 		return
 	}

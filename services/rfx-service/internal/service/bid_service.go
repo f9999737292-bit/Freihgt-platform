@@ -49,7 +49,7 @@ func (s *BidService) CreateBid(ctx context.Context, freightRequestID uuid.UUID, 
 	return s.bids.CreateBid(ctx, in)
 }
 
-func (s *BidService) ListBids(ctx context.Context, freightRequestID, tenantID uuid.UUID, status *string) ([]domain.Bid, error) {
+func (s *BidService) ListBids(ctx context.Context, freightRequestID, tenantID uuid.UUID, status *string, carrierScope *uuid.UUID) ([]domain.Bid, error) {
 	if _, err := s.requests.GetByID(ctx, freightRequestID, tenantID); err != nil {
 		return nil, err
 	}
@@ -57,14 +57,15 @@ func (s *BidService) ListBids(ctx context.Context, freightRequestID, tenantID uu
 	if err != nil {
 		return nil, err
 	}
-	if status == nil {
-		return bids, nil
-	}
-	filtered := make([]domain.Bid, 0)
+	filtered := make([]domain.Bid, 0, len(bids))
 	for _, b := range bids {
-		if b.Status == *status {
-			filtered = append(filtered, b)
+		if carrierScope != nil && b.CarrierCompanyID != *carrierScope {
+			continue
 		}
+		if status != nil && b.Status != *status {
+			continue
+		}
+		filtered = append(filtered, b)
 	}
 	return filtered, nil
 }
@@ -91,9 +92,16 @@ func (s *BidService) AcceptBid(ctx context.Context, id, tenantID uuid.UUID) (*do
 	return s.bids.AcceptBid(ctx, id, tenantID)
 }
 
-func (s *BidService) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*domain.Bid, error) {
+func (s *BidService) GetByID(ctx context.Context, tenantID, id uuid.UUID, carrierScope *uuid.UUID) (*domain.Bid, error) {
 	if tenantID == uuid.Nil {
 		return nil, apperrors.Unauthorized("tenant context is required")
 	}
-	return s.bids.GetByID(ctx, id, tenantID)
+	bid, err := s.bids.GetByID(ctx, id, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	if carrierScope != nil && bid.CarrierCompanyID != *carrierScope {
+		return nil, apperrors.Forbidden("cannot access another carrier bid")
+	}
+	return bid, nil
 }

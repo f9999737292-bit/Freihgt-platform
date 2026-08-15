@@ -12,6 +12,7 @@ import (
 	"github.com/freight-platform/api-gateway/internal/driver"
 	"github.com/freight-platform/api-gateway/internal/fleetrbac"
 	gwmiddleware "github.com/freight-platform/api-gateway/internal/http/middleware"
+	"github.com/freight-platform/api-gateway/internal/rfxrbac"
 	apperrors "github.com/freight-platform/api-gateway/internal/platform/errors"
 	"github.com/freight-platform/api-gateway/internal/platform/respond"
 	"github.com/freight-platform/api-gateway/internal/shipmentevents"
@@ -197,6 +198,15 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	r.Post("/api/v1/shipments/{id}/accept", shipmentGuard.WithPolicy(shipmentrbac.PolicyAccept))
 	r.Patch("/api/v1/shipments/{id}/status", shipmentGuard.WithPolicy(shipmentrbac.PolicyUpdateStatus))
 	r.Post("/api/v1/shipments/{id}/cancel", shipmentGuard.WithPolicy(shipmentrbac.PolicyCancel))
+
+	rfxGuard := rfxrbac.NewGuard(cfg, proxy)
+	r.Post("/api/v1/scoring-templates", rfxGuard.WithPolicy(rfxrbac.PolicyEvaluate))
+	r.Post("/api/v1/allocation-scenarios", rfxGuard.WithPolicy(rfxrbac.PolicyEvaluate))
+	r.Post("/api/v1/award-proposals", rfxGuard.WithPolicy(rfxrbac.PolicyEvaluate))
+	r.Post("/api/v1/award-proposals/{proposal_id}/approve", rfxGuard.WithPolicy(rfxrbac.PolicyApproveAward))
+	r.Post("/api/v1/award-proposals/{proposal_id}/reject", rfxGuard.WithPolicy(rfxrbac.PolicyApproveAward))
+	r.Post("/api/v1/award-proposals/{proposal_id}/finalize", rfxGuard.WithPolicy(rfxrbac.PolicyFinalizeAward))
+	r.Post("/api/v1/rfx-events/{id}/evaluate", rfxGuard.WithPolicy(rfxrbac.PolicyEvaluate))
 
 	r.Handle("/api/*", proxy)
 	r.Handle("/api", proxy)

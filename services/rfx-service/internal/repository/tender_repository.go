@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -90,17 +91,18 @@ func (r *TenderRepository) CreateScoringTemplate(ctx context.Context, tenantID u
 func (r *TenderRepository) ListEvaluationCandidates(ctx context.Context, rfxEventID, tenantID uuid.UUID) ([]tender.BidCandidate, error) {
 	const q = `
 		SELECT rr.participant_company_id::text,
-			COALESCE(rr.price_amount, 0),
-			COALESCE(rr.currency_code, 'RUB'),
-			COALESCE(rr.capacity_units, 0),
-			COALESCE(rr.transit_hours, 0),
-			COALESCE(rr.sla_score_input, 0),
-			COALESCE(rr.carrier_kpi_score_input, 0),
-			COALESCE(rr.reliability_score_input, 0),
+			COALESCE(rev.price_amount, rr.price_amount, 0),
+			COALESCE(rev.currency_code, rr.currency_code, 'RUB'),
+			COALESCE(rev.capacity_units, rr.capacity_units, 0),
+			COALESCE(rev.transit_hours, rr.transit_hours, 0),
+			COALESCE(rev.sla_score_input, rr.sla_score_input, 0),
+			COALESCE(rev.carrier_kpi_score_input, rr.carrier_kpi_score_input, 0),
+			COALESCE(rev.reliability_score_input, rr.reliability_score_input, 0),
 			COALESCE(c.status = 'ACTIVE', false),
-			COALESCE(rr.active_revision_number, 1),
-			rr.id::text
+			COALESCE(rev.revision_number, rr.active_revision_number, 1),
+			COALESCE(rev.id::text, '')
 		FROM rfx.rfx_responses rr
+		LEFT JOIN rfx.rfx_response_revisions rev ON rev.rfx_response_id = rr.id AND rev.is_active = true
 		LEFT JOIN core.companies c ON c.id = rr.participant_company_id AND c.tenant_id = rr.tenant_id
 		WHERE rr.rfx_event_id = $1 AND rr.tenant_id = $2 AND rr.status = 'SUBMITTED' AND rr.deleted_at IS NULL
 	`
@@ -161,12 +163,13 @@ func (r *TenderRepository) CreateEvaluation(ctx context.Context, in service.RunE
 	}
 	for _, s := range scores {
 		breakdown, _ := json.Marshal(s.Contributions)
+		bidRevID := nullIfEmpty(s.BidRevisionID)
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO rfx.tender_carrier_scores (
-				tenant_id, evaluation_id, rfx_lot_id, carrier_company_id, total_score,
+				tenant_id, evaluation_id, rfx_lot_id, carrier_company_id, bid_revision_id, total_score,
 				price_score, sla_score, carrier_kpi_score, capacity_score, reliability_score, transit_time_score, breakdown
-			) VALUES ($1, $2, NULLIF($3, '')::uuid, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-		`, in.TenantID, evalID, nullIfEmpty(s.LotID), s.CarrierCompanyID, s.TotalScore,
+			) VALUES ($1, $2, NULLIF($3, '')::uuid, $4, NULLIF($5, '')::uuid, $6, $7, $8, $9, $10, $11, $12, $13)
+		`, in.TenantID, evalID, nullIfEmpty(s.LotID), s.CarrierCompanyID, bidRevID, s.TotalScore,
 			s.PriceScore, s.SLAScore, s.CarrierKPIScore, s.CapacityScore, s.ReliabilityScore, s.TransitScore, breakdown); err != nil {
 			return uuid.Nil, mapDBError(err)
 		}
@@ -426,6 +429,18 @@ func (r *TenderRepository) FinalizeAward(ctx context.Context, proposalID, tenant
 			return uuid.Nil, mapDBError(err)
 		}
 	}
+
+	var existingAward uuid.UUID
+	err := r.pool.QueryRow(ctx, `
+		SELECT id FROM rfx.awards WHERE award_proposal_id = $1 AND tenant_id = $2
+	`, proposalID, tenantID).Scan(&existingAward)
+	if err == nil {
+		return existingAward, nil
+	}
+	if err != pgx.ErrNoRows {
+		return uuid.Nil, mapDBError(err)
+	}
+
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return uuid.Nil, mapDBError(err)
@@ -439,6 +454,17 @@ func (r *TenderRepository) FinalizeAward(ctx context.Context, proposalID, tenant
 		RETURNING rfx_event_id
 	`, proposalID, tenantID, tender.AwardProposalAwarded, tender.AwardProposalApproved).Scan(&eventID)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			if rbErr := tx.Rollback(ctx); rbErr != nil {
+				return uuid.Nil, mapDBError(rbErr)
+			}
+			var existing uuid.UUID
+			if err2 := r.pool.QueryRow(ctx, `
+				SELECT id FROM rfx.awards WHERE award_proposal_id = $1 AND tenant_id = $2
+			`, proposalID, tenantID).Scan(&existing); err2 == nil {
+				return existing, nil
+			}
+		}
 		return uuid.Nil, mapDBError(err)
 	}
 
@@ -470,9 +496,11 @@ func (r *TenderRepository) transitionProposal(ctx context.Context, proposalID, t
 		return apperrors.Validation(err.Error(), map[string]any{"field": "status"})
 	}
 	tag, err := r.pool.Exec(ctx, `
-		UPDATE rfx.award_proposals SET status = $3, submitted_at = CASE WHEN $3 = 'PENDING_APPROVAL' THEN now() ELSE submitted_at END
+		UPDATE rfx.award_proposals
+		SET status = $3,
+		    submitted_at = CASE WHEN $5::text = 'PENDING_APPROVAL' THEN now() ELSE submitted_at END
 		WHERE id = $1 AND tenant_id = $2 AND status = $4
-	`, proposalID, tenantID, to, from)
+	`, proposalID, tenantID, to, from, to)
 	if err != nil {
 		return mapDBError(err)
 	}

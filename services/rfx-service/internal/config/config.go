@@ -7,11 +7,12 @@ import (
 )
 
 type Config struct {
-	ServiceName string
-	Environment string
-	HTTPPort    int
-	LogLevel    string
-	DatabaseURL string
+	ServiceName        string
+	Environment        string
+	HTTPPort           int
+	LogLevel           string
+	DatabaseURL        string
+	ShipmentServiceURL string
 }
 
 func Load() (Config, error) {
@@ -34,11 +35,12 @@ func Load() (Config, error) {
 	}
 
 	return Config{
-		ServiceName: "rfx-service",
-		Environment: getEnv("ENVIRONMENT", "development"),
-		HTTPPort:    port,
-		LogLevel:    getEnv("LOG_LEVEL", "info"),
-		DatabaseURL: databaseURL,
+		ServiceName:        "rfx-service",
+		Environment:        getEnv("ENVIRONMENT", "development"),
+		HTTPPort:           port,
+		LogLevel:           getEnv("LOG_LEVEL", "info"),
+		DatabaseURL:        databaseURL,
+		ShipmentServiceURL: getEnv("SHIPMENT_SERVICE_URL", "http://localhost:8085"),
 	}, nil
 }
 

@@ -167,7 +167,7 @@ func TestBidServiceGetByIDPassesTenantToRepository(t *testing.T) {
 			return &domain.Bid{ID: id, TenantID: tenant, BidNumber: "BID-1"}, nil
 		},
 	}, &mockFreightRequestStoreForBid{})
-	bid, err := svc.GetByID(context.Background(), tenantID, bidID)
+	bid, err := svc.GetByID(context.Background(), tenantID, bidID, nil)
 	if err != nil || bid.BidNumber != "BID-1" {
 		t.Fatalf("unexpected result bid=%v err=%v", bid, err)
 	}
@@ -180,7 +180,7 @@ func TestBidServiceGetByIDNotFound(t *testing.T) {
 			return nil, apperrors.NotFound("bid not found")
 		},
 	}, &mockFreightRequestStoreForBid{})
-	_, err := svc.GetByID(context.Background(), uuid.New(), uuid.New())
+	_, err := svc.GetByID(context.Background(), uuid.New(), uuid.New(), nil)
 	var appErr *apperrors.AppError
 	if !errors.As(err, &appErr) || appErr.Code != apperrors.CodeNotFound {
 		t.Fatalf("expected not found, got %v", err)
@@ -194,7 +194,7 @@ func TestBidServiceGetByIDForeignSameAsNotFound(t *testing.T) {
 			return nil, apperrors.NotFound("bid not found")
 		},
 	}, &mockFreightRequestStoreForBid{})
-	_, err := svc.GetByID(context.Background(), uuid.New(), uuid.New())
+	_, err := svc.GetByID(context.Background(), uuid.New(), uuid.New(), nil)
 	var appErr *apperrors.AppError
 	if !errors.As(err, &appErr) || appErr.Code != apperrors.CodeNotFound {
 		t.Fatalf("foreign tenant must surface as not found, got %v", err)
@@ -210,7 +210,7 @@ func TestBidServiceGetByIDMissingTenantSkipsRepository(t *testing.T) {
 			return nil, nil
 		},
 	}, &mockFreightRequestStoreForBid{})
-	_, err := svc.GetByID(context.Background(), uuid.Nil, uuid.New())
+	_, err := svc.GetByID(context.Background(), uuid.Nil, uuid.New(), nil)
 	if called {
 		t.Fatal("repository must not be called")
 	}

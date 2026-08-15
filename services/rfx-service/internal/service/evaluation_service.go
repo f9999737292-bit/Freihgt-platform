@@ -41,10 +41,10 @@ type RunEvaluationInput struct {
 }
 
 type RunEvaluationResult struct {
-	EvaluationID       uuid.UUID
-	Qualification      []tender.QualificationResult
-	Scores             []tender.CarrierScoreResult
-	ScoringSnapshot    tender.ScoringTemplateSnapshot
+	EvaluationID    uuid.UUID                      `json:"evaluation_id"`
+	Qualification   []tender.QualificationResult   `json:"qualification"`
+	Scores          []tender.CarrierScoreResult    `json:"scores"`
+	ScoringSnapshot tender.ScoringTemplateSnapshot `json:"scoring_snapshot"`
 }
 
 type CreateAllocationScenarioInput struct {
@@ -71,18 +71,24 @@ type TenderEvaluationStore interface {
 	RejectAwardProposal(ctx context.Context, proposalID, tenantID uuid.UUID, rejectedBy uuid.UUID) error
 	FinalizeAward(ctx context.Context, proposalID, tenantID uuid.UUID, finalizedBy uuid.UUID, idempotencyKey *string) (uuid.UUID, error)
 	GetAwardProposal(ctx context.Context, proposalID, tenantID uuid.UUID) (status string, rfxEventID uuid.UUID, err error)
+	GetAwardByProposal(ctx context.Context, proposalID, tenantID uuid.UUID) (uuid.UUID, error)
+}
+
+type AwardFinalizer interface {
+	ConvertApprovedAward(ctx context.Context, proposalID, awardID, tenantID, userID uuid.UUID) (*AwardConversionResult, error)
 }
 
 type EvaluationService struct {
 	store       TenderEvaluationStore
 	performance CarrierPerformanceProvider
+	conversion  AwardFinalizer
 }
 
-func NewEvaluationService(store TenderEvaluationStore, performance CarrierPerformanceProvider) *EvaluationService {
+func NewEvaluationService(store TenderEvaluationStore, performance CarrierPerformanceProvider, conversion AwardFinalizer) *EvaluationService {
 	if performance == nil {
 		performance = StaticCarrierPerformanceProvider{}
 	}
-	return &EvaluationService{store: store, performance: performance}
+	return &EvaluationService{store: store, performance: performance, conversion: conversion}
 }
 
 func (s *EvaluationService) CreateScoringTemplate(ctx context.Context, tenantID uuid.UUID, code, name string, factors []tender.ScoringFactorWeight, createdBy *uuid.UUID) (uuid.UUID, uuid.UUID, error) {
@@ -152,9 +158,13 @@ func (s *EvaluationService) RunAllocationScenario(ctx context.Context, in Create
 		return uuid.Nil, tender.AllocationOutcome{}, nil, err
 	}
 	_ = outcome
-	positions, err := tender.ComputeQuotaPositions(in.QuotaPolicy, in.QuotaTargets, in.ActualShares)
-	if err != nil {
-		return uuid.Nil, tender.AllocationOutcome{}, nil, apperrors.Validation(err.Error(), map[string]any{"field": "quota_targets"})
+	var positions []tender.QuotaPosition
+	if len(in.QuotaTargets) > 0 {
+		var err error
+		positions, err = tender.ComputeQuotaPositions(in.QuotaPolicy, in.QuotaTargets, in.ActualShares)
+		if err != nil {
+			return uuid.Nil, tender.AllocationOutcome{}, nil, apperrors.Validation(err.Error(), map[string]any{"field": "quota_targets"})
+		}
 	}
 	qualified := make(map[string]struct{}, len(scores))
 	for _, sc := range scores {
@@ -192,13 +202,36 @@ func (s *EvaluationService) RejectAwardProposal(ctx context.Context, proposalID,
 	return s.store.RejectAwardProposal(ctx, proposalID, tenantID, rejectedBy)
 }
 
-func (s *EvaluationService) FinalizeAward(ctx context.Context, proposalID, tenantID, finalizedBy uuid.UUID, idempotencyKey *string) (uuid.UUID, error) {
+func (s *EvaluationService) FinalizeAward(ctx context.Context, proposalID, tenantID, finalizedBy uuid.UUID, idempotencyKey *string) (uuid.UUID, *AwardConversionResult, error) {
 	status, _, err := s.store.GetAwardProposal(ctx, proposalID, tenantID)
 	if err != nil {
-		return uuid.Nil, err
+		return uuid.Nil, nil, err
+	}
+	if status == tender.AwardProposalAwarded {
+		awardID, err := s.store.GetAwardByProposal(ctx, proposalID, tenantID)
+		if err != nil {
+			return uuid.Nil, nil, err
+		}
+		return s.completeFinalize(ctx, proposalID, awardID, tenantID, finalizedBy)
 	}
 	if err := tender.ValidateFinalizeAward(status); err != nil {
-		return uuid.Nil, apperrors.Validation(err.Error(), map[string]any{"field": "status"})
+		return uuid.Nil, nil, apperrors.Validation(err.Error(), map[string]any{"field": "status"})
 	}
-	return s.store.FinalizeAward(ctx, proposalID, tenantID, finalizedBy, idempotencyKey)
+	awardID, err := s.store.FinalizeAward(ctx, proposalID, tenantID, finalizedBy, idempotencyKey)
+	if err != nil {
+		return uuid.Nil, nil, err
+	}
+	return s.completeFinalize(ctx, proposalID, awardID, tenantID, finalizedBy)
+}
+
+func (s *EvaluationService) completeFinalize(ctx context.Context, proposalID, awardID, tenantID, finalizedBy uuid.UUID) (uuid.UUID, *AwardConversionResult, error) {
+	var conversion *AwardConversionResult
+	if s.conversion != nil && finalizedBy != uuid.Nil {
+		var err error
+		conversion, err = s.conversion.ConvertApprovedAward(ctx, proposalID, awardID, tenantID, finalizedBy)
+		if err != nil {
+			return awardID, conversion, err
+		}
+	}
+	return awardID, conversion, nil
 }

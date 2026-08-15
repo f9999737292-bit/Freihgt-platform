@@ -20,12 +20,17 @@ func NewRouter(
 	rfxSvc *service.RfxService,
 	frSvc *service.FreightRequestService,
 	bidSvc *service.BidService,
+	bidRevSvc *service.BidRevisionService,
+	respBidSvc *service.ResponseBidService,
 	evalSvc *service.EvaluationService,
+	authz handlers.PermissionChecker,
 ) http.Handler {
 	rfxHandler := handlers.NewRfxHandler(rfxSvc)
 	frHandler := handlers.NewFreightRequestHandler(frSvc)
 	bidHandler := handlers.NewBidHandler(bidSvc)
-	evalHandler := handlers.NewEvaluationHandler(evalSvc)
+	bidRevHandler := handlers.NewBidRevisionHandler(bidRevSvc)
+	respBidHandler := handlers.NewResponseBidHandler(respBidSvc)
+	evalHandler := handlers.NewEvaluationHandler(evalSvc, authz)
 
 	r := chi.NewRouter()
 	observability.Mount(r, observability.MountOptions{
@@ -47,6 +52,10 @@ func NewRouter(
 		r.Post("/{id}/participants", rfxHandler.AddParticipant)
 		r.Get("/{id}/participants", rfxHandler.ListParticipants)
 		r.Post("/{id}/responses", rfxHandler.CreateResponse)
+		r.Get("/{id}/bids", respBidHandler.ListEventBids)
+		r.Get("/{id}/responses/mine", respBidHandler.GetCurrent)
+		r.Post("/{id}/responses/{response_id}/revisions", respBidHandler.SubmitRevision)
+		r.Get("/{id}/responses/{response_id}/revisions", respBidHandler.ListRevisions)
 		r.Post("/{id}/evaluate", evalHandler.RunEvaluation)
 	})
 
@@ -55,6 +64,7 @@ func NewRouter(
 	r.Post("/v1/award-proposals", evalHandler.CreateAwardProposal)
 	r.Post("/v1/award-proposals/{proposal_id}/submit", evalHandler.SubmitAwardProposal)
 	r.Post("/v1/award-proposals/{proposal_id}/approve", evalHandler.ApproveAwardProposal)
+	r.Post("/v1/award-proposals/{proposal_id}/reject", evalHandler.RejectAwardProposal)
 	r.Post("/v1/award-proposals/{proposal_id}/finalize", evalHandler.FinalizeAward)
 
 	r.Post("/v1/rfx-lots/{lot_id}/lanes", rfxHandler.CreateLane)
@@ -73,6 +83,9 @@ func NewRouter(
 		r.Get("/{id}", bidHandler.GetByID)
 		r.Post("/{id}/submit", bidHandler.SubmitBid)
 		r.Post("/{id}/accept", bidHandler.AcceptBid)
+		r.Post("/{id}/revisions", bidRevHandler.SubmitRevision)
+		r.Get("/{id}/revisions/current", bidRevHandler.GetCurrent)
+		r.Get("/{id}/revisions", bidRevHandler.ListRevisions)
 	})
 
 	return r
