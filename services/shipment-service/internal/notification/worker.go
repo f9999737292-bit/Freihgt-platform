@@ -23,6 +23,7 @@ type WorkerConfig struct {
 type Worker struct {
 	cfg      WorkerConfig
 	devices  *repository.DriverDeviceRepository
+	tasks    *repository.DriverTaskRepository
 	provider push.Provider
 	log      *slog.Logger
 	done     chan struct{}
@@ -30,7 +31,7 @@ type Worker struct {
 	wg       sync.WaitGroup
 }
 
-func NewWorker(cfg WorkerConfig, devices *repository.DriverDeviceRepository, provider push.Provider, log *slog.Logger) *Worker {
+func NewWorker(cfg WorkerConfig, devices *repository.DriverDeviceRepository, tasks *repository.DriverTaskRepository, provider push.Provider, log *slog.Logger) *Worker {
 	if cfg.PollInterval <= 0 {
 		cfg.PollInterval = 2 * time.Second
 	}
@@ -46,7 +47,7 @@ func NewWorker(cfg WorkerConfig, devices *repository.DriverDeviceRepository, pro
 	if cfg.MaxAttempts <= 0 {
 		cfg.MaxAttempts = 3
 	}
-	return &Worker{cfg: cfg, devices: devices, provider: provider, log: log, done: make(chan struct{})}
+	return &Worker{cfg: cfg, devices: devices, tasks: tasks, provider: provider, log: log, done: make(chan struct{})}
 }
 
 func (w *Worker) Start(ctx context.Context) {
@@ -74,6 +75,11 @@ func (w *Worker) Start(ctx context.Context) {
 func (w *Worker) Wait() { <-w.done }
 
 func (w *Worker) pollOnce(ctx context.Context) {
+	if w.tasks != nil {
+		if _, err := w.tasks.ExpireDueTasks(ctx, w.cfg.BatchSize); err != nil && w.log != nil {
+			w.log.Warn("expire driver tasks failed", slog.String("error", err.Error()))
+		}
+	}
 	now := time.Now().UTC()
 	_ = w.devices.ReleaseStaleClaims(ctx, now)
 	deliveries, err := w.devices.ClaimPendingDeliveries(ctx, w.cfg.WorkerID, w.cfg.BatchSize, now, w.cfg.LeaseTimeout)

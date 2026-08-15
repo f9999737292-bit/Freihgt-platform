@@ -75,7 +75,7 @@ func main() {
 		LeaseTimeout: cfg.Notification.LeaseTimeout,
 		MaxAttempts:  cfg.Notification.MaxAttempts,
 		RetryBackoff: cfg.Notification.RetryBackoff,
-	}, driverDeviceRepo, pushProvider, log)
+	}, driverDeviceRepo, driverTaskRepo, pushProvider, log)
 	notificationWorker.Start(ctx)
 
 	var outboxWorker *outbox.Worker

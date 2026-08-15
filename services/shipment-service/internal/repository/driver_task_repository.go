@@ -358,7 +358,7 @@ RETURNING id, tenant_id, driver_id, shipment_id, task_type, status, priority, ti
 	if err != nil {
 		return nil, uuid.Nil, err
 	}
-	outboxID, err := insertTaskOutbox(ctx, tx, *updated, domain.OutboxEventTypeDriverTaskCancelled, shipmentVersion, nil, updated.ID)
+	outboxID, err := insertTaskOutbox(ctx, tx, *updated, domain.OutboxEventTypeDriverTaskCancelled, shipmentVersion, nil, uuid.New())
 	if err != nil {
 		return nil, uuid.Nil, err
 	}
@@ -369,27 +369,73 @@ RETURNING id, tenant_id, driver_id, shipment_id, task_type, status, priority, ti
 }
 
 func (r *DriverTaskRepository) ExpireDueTasks(ctx context.Context, limit int) (int, error) {
+	if limit <= 0 {
+		limit = 50
+	}
 	now := time.Now().UTC()
-	const q = `
-UPDATE transport.driver_task SET status='EXPIRED', version=version+1
-WHERE id IN (
-	SELECT id FROM transport.driver_task
-	WHERE status IN ('PENDING','DELIVERED','READ','ACKNOWLEDGED')
-	  AND expires_at IS NOT NULL AND expires_at <= $1
-	ORDER BY expires_at ASC
-	LIMIT $2
-	FOR UPDATE SKIP LOCKED
-) RETURNING id`
-	rows, err := r.pool.Query(ctx, q, now, limit)
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return 0, mapDBError(err)
+	}
+	defer tx.Rollback(ctx)
+
+	const selectQ = `
+SELECT id, tenant_id, driver_id, shipment_id, task_type, status, priority, title, payload,
+	created_at, available_at, expires_at, delivered_at, read_at, acknowledged_at, completed_at, cancelled_at,
+	created_by_type, created_by_id, source, correlation_id, source_event_id, idempotency_key, version
+FROM transport.driver_task
+WHERE status IN ('PENDING','DELIVERED','READ','ACKNOWLEDGED')
+  AND expires_at IS NOT NULL AND expires_at <= $1
+ORDER BY expires_at ASC
+LIMIT $2
+FOR UPDATE SKIP LOCKED`
+	rows, err := tx.Query(ctx, selectQ, now, limit)
 	if err != nil {
 		return 0, mapDBError(err)
 	}
 	defer rows.Close()
-	count := 0
+	tasks := make([]domain.DriverTask, 0)
 	for rows.Next() {
-		count++
+		task, err := scanTaskRows(rows)
+		if err != nil {
+			return 0, err
+		}
+		tasks = append(tasks, *task)
 	}
-	return count, mapDBError(rows.Err())
+	if err := rows.Err(); err != nil {
+		return 0, mapDBError(err)
+	}
+	expired := 0
+	for _, task := range tasks {
+		if err := r.expireTaskTx(ctx, tx, task); err != nil {
+			return expired, err
+		}
+		expired++
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return 0, mapDBError(err)
+	}
+	return expired, nil
+}
+
+func (r *DriverTaskRepository) expireTaskTx(ctx context.Context, tx pgx.Tx, task domain.DriverTask) error {
+	const q = `
+UPDATE transport.driver_task SET status='EXPIRED', version=version+1
+WHERE tenant_id=$1 AND id=$2 AND status IN ('PENDING','DELIVERED','READ','ACKNOWLEDGED') AND version=$3
+RETURNING id, tenant_id, driver_id, shipment_id, task_type, status, priority, title, payload,
+	created_at, available_at, expires_at, delivered_at, read_at, acknowledged_at, completed_at, cancelled_at,
+	created_by_type, created_by_id, source, correlation_id, source_event_id, idempotency_key, version`
+	updated, err := scanTaskRow(tx.QueryRow(ctx, q, task.TenantID, task.ID, task.Version))
+	if err != nil {
+		return err
+	}
+	version := 0
+	if updated.ShipmentID != nil {
+		const sv = `SELECT version FROM transport.shipments WHERE tenant_id=$1 AND id=$2`
+		_ = tx.QueryRow(ctx, sv, updated.TenantID, *updated.ShipmentID).Scan(&version)
+	}
+	_, err = insertTaskOutbox(ctx, tx, *updated, domain.OutboxEventTypeDriverTaskExpired, version, nil, uuid.New())
+	return err
 }
 
 func insertTaskOutbox(ctx context.Context, tx pgx.Tx, task domain.DriverTask, eventType string, shipmentVersion int, response *domain.DriverTaskResponse, sourceEventID uuid.UUID) (uuid.UUID, error) {

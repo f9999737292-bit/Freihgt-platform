@@ -31,7 +31,7 @@ func setupTaskEnv(t *testing.T) (*testEnv, *service.DriverTaskService, *push.Fak
 	worker := notification.NewWorker(notification.WorkerConfig{
 		Enabled: true, WorkerID: "test-worker", PollInterval: time.Second,
 		BatchSize: 10, LeaseTimeout: 30 * time.Second, MaxAttempts: 3, RetryBackoff: time.Millisecond,
-	}, deviceRepo, fakePush, nil)
+	}, deviceRepo, taskRepo, fakePush, nil)
 	return env, taskSvc, fakePush, worker
 }
 
@@ -173,6 +173,43 @@ func TestDriverTaskNoDeviceStillWorks(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, domain.DriverTaskStatusCompleted, completed.Status)
+}
+
+func TestDriverTaskExpiration(t *testing.T) {
+	env, taskSvc, _, _ := setupTaskEnv(t)
+	fix := seedDriverFixture(t, env.pool)
+	ctx := context.Background()
+	future := time.Now().UTC().Add(time.Hour)
+	task, err := taskSvc.CreateTaskInternal(ctx, domain.CreateDriverTaskInput{
+		TenantID: fix.TenantID, DriverID: fix.DriverID, ShipmentID: &fix.ShipmentID,
+		TaskType: domain.DriverTaskTypeRequestDelayReason, Source: domain.DriverTaskSourceControlTower,
+		ExpiresAt: &future, IdempotencyKey: "expire-task-1", CreatedByType: domain.DriverTaskCreatorControlTower,
+	})
+	require.NoError(t, err)
+	past := time.Now().UTC().Add(-time.Minute)
+	_, err = env.pool.Exec(ctx, `UPDATE transport.driver_task SET expires_at=$1 WHERE id=$2`, past, task.ID)
+	require.NoError(t, err)
+	var eligible int
+	require.NoError(t, env.pool.QueryRow(ctx, `
+SELECT COUNT(*) FROM transport.driver_task
+WHERE id=$1 AND status IN ('PENDING','DELIVERED','READ','ACKNOWLEDGED') AND expires_at IS NOT NULL AND expires_at <= now()`, task.ID).Scan(&eligible))
+	require.Equal(t, 1, eligible)
+
+	taskRepo := repository.NewDriverTaskRepository(env.pool)
+	n, err := taskRepo.ExpireDueTasks(ctx, 10)
+	require.NoError(t, err)
+	require.Equal(t, 1, n)
+
+	expired, err := taskSvc.GetTask(ctx, fix.TenantID, fix.UserID, task.ID)
+	require.NoError(t, err)
+	require.Equal(t, domain.DriverTaskStatusExpired, expired.Status)
+
+	body, _ := json.Marshal(domain.DelayReasonResponse{Reason: "TRAFFIC"})
+	_, _, err = taskSvc.SubmitResponse(ctx, service.SubmitTaskResponseInput{
+		TenantID: fix.TenantID, UserID: fix.UserID, TaskID: task.ID,
+		IdempotencyKey: "expire-resp", Body: body,
+	})
+	require.Error(t, err)
 }
 
 func TestControlTowerCompatibilityChain(t *testing.T) {
