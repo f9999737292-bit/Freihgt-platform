@@ -3,6 +3,7 @@ module github.com/freight-platform/control-tower-read-model-service
 go 1.25.0
 
 require (
+	github.com/fergusstrange/embedded-postgres v1.29.0
 	github.com/freight-platform/shared-go v0.0.0
 	github.com/freight-platform/statussnapshot v0.0.0
 	github.com/go-chi/chi/v5 v5.2.1
@@ -23,6 +24,7 @@ require (
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/klauspost/compress v1.18.6 // indirect
 	github.com/kr/text v0.2.0 // indirect
+	github.com/lib/pq v1.10.4 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/pierrec/lz4/v4 v4.1.26 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
@@ -30,6 +32,7 @@ require (
 	github.com/prometheus/common v0.55.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/twmb/franz-go/pkg/kmsg v1.13.1 // indirect
+	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	golang.org/x/crypto v0.51.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.44.0 // indirect

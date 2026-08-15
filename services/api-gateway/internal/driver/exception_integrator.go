@@ -39,7 +39,7 @@ func (i *ExceptionIntegrator) Integrate(ctx context.Context, reqCtx RequestConte
 
 	severity := mapDriverExceptionSeverity(input.Category)
 	seed := controltowerreadmodel.EnsureExceptionSeed{
-		EventID:    input.ExceptionID,
+		EventID:    normalizeDriverExceptionEventID(input.ExceptionID),
 		ShipmentID: input.ShipmentID,
 		EventType:  mapDriverExceptionEventType(input.Category),
 		Source:     "driver",
@@ -123,4 +123,8 @@ func mapDriverExceptionSeverity(category string) string {
 	default:
 		return "low"
 	}
+}
+
+func normalizeDriverExceptionEventID(id string) string {
+	return strings.ReplaceAll(strings.ToLower(strings.TrimSpace(id)), "-", "")
 }

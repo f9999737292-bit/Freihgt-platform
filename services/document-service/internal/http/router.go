@@ -19,9 +19,11 @@ func NewRouter(
 	db observability.DatabasePinger,
 	documentSvc *service.DocumentService,
 	signingSvc *service.SigningService,
+	podSvc *service.PODUploadService,
 ) http.Handler {
 	documentHandler := handlers.NewDocumentHandler(documentSvc)
 	signingHandler := handlers.NewSigningHandler(signingSvc)
+	podHandler := handlers.NewPODUploadHandler(podSvc)
 
 	r := chi.NewRouter()
 	observability.Mount(r, observability.MountOptions{
@@ -46,6 +48,12 @@ func NewRouter(
 	r.Route("/v1/signing-sessions", func(r chi.Router) {
 		r.Get("/{id}", signingHandler.GetSession)
 		r.Post("/{id}/signatures", signingHandler.AddSignature)
+	})
+
+	r.Route("/internal/v1/pod-uploads", func(r chi.Router) {
+		r.Post("/", podHandler.CreateIntent)
+		r.Put("/{uploadId}/content", podHandler.UploadContent)
+		r.Post("/{uploadId}/complete", podHandler.Complete)
 	})
 
 	return r

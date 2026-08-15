@@ -166,6 +166,9 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 		r.Post("/api/v1/driver/me/shipments/{shipmentId}/events", driverHandler.RecordEvent)
 		r.Post("/api/v1/driver/me/shipments/{shipmentId}/exceptions", driverHandler.ReportException)
 		r.Post("/api/v1/driver/me/shipments/{shipmentId}/locations", driverHandler.IngestLocation)
+		r.Post("/api/v1/driver/me/shipments/{shipmentId}/pod/uploads", driverHandler.InitiatePODUpload)
+		r.Put("/api/v1/driver/me/shipments/{shipmentId}/pod/uploads/{uploadId}/content", driverHandler.UploadPODContent)
+		r.Post("/api/v1/driver/me/shipments/{shipmentId}/pod/uploads/{uploadId}/complete", driverHandler.CompletePODUpload)
 	}
 
 	fleetGuard := fleetrbac.NewGuard(cfg, proxy)

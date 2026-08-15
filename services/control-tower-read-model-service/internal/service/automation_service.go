@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -147,5 +149,10 @@ func buildIdempotencyKey(tenantID uuid.UUID, rule domain.AutomationRule, trigger
 	if stateVersion != "" {
 		parts = append(parts, stateVersion)
 	}
-	return strings.Join(parts, "|")
+	key := strings.Join(parts, "|")
+	if len(key) > 256 {
+		sum := sha256.Sum256([]byte(key))
+		key = "sha256:" + hex.EncodeToString(sum[:])
+	}
+	return key
 }

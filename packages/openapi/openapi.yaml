@@ -5594,6 +5594,113 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
+  /api/v1/driver/me/shipments/{shipmentId}/pod/uploads:
+    post:
+      tags: [Driver Mobile]
+      summary: Initiate secure POD upload for assigned shipment
+      operationId: post_driver_me_shipment_pod_upload
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverPODUploadRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Upload intent created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverPODUploadIntent'
+        '403':
+          description: Driver not assigned to shipment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/driver/me/shipments/{shipmentId}/pod/uploads/{uploadId}/content:
+    put:
+      tags: [Driver Mobile]
+      summary: Upload POD file bytes using server-issued upload token
+      operationId: put_driver_me_shipment_pod_upload_content
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: uploadId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-Upload-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '200':
+          description: Content stored
+  /api/v1/driver/me/shipments/{shipmentId}/pod/uploads/{uploadId}/complete:
+    post:
+      tags: [Driver Mobile]
+      summary: Finalize POD upload after object storage write
+      operationId: post_driver_me_shipment_pod_upload_complete
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: uploadId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverPODUploadCompleteRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: POD finalized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverPODUploadCompleteResponse'
   /api/v1/vehicles:
     post:
       tags: [Vehicles]
@@ -7529,6 +7636,56 @@ components:
           type: string
         replayed:
           type: boolean
+    DriverPODUploadRequest:
+      type: object
+      required: [mimeType]
+      properties:
+        mimeType:
+          type: string
+          example: image/jpeg
+        fileName:
+          type: string
+        idempotencyKey:
+          type: string
+          maxLength: 128
+    DriverPODUploadIntent:
+      type: object
+      properties:
+        uploadId:
+          type: string
+          format: uuid
+        documentId:
+          type: string
+          format: uuid
+        uploadToken:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        mimeType:
+          type: string
+        maxBytes:
+          type: integer
+          format: int64
+    DriverPODUploadCompleteRequest:
+      type: object
+      properties:
+        checksumSha256:
+          type: string
+    DriverPODUploadCompleteResponse:
+      type: object
+      properties:
+        documentId:
+          type: string
+          format: uuid
+        uploadId:
+          type: string
+          format: uuid
+        fileId:
+          type: string
+          format: uuid
+        status:
+          type: string
     DriverLocationRequest:
       type: object
       additionalProperties: true

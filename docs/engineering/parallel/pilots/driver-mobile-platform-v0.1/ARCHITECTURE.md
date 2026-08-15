@@ -24,6 +24,9 @@ Drivers cannot supply trusted `tenant_id`, `driver_id`, or cross-shipment identi
 | POST | `/api/v1/driver/me/shipments/{id}/events` | Operational FSM events |
 | POST | `/api/v1/driver/me/shipments/{id}/exceptions` | Exception reporting |
 | POST | `/api/v1/driver/me/shipments/{id}/locations` | GPS ingest |
+| POST | `/api/v1/driver/me/shipments/{id}/pod/uploads` | POD upload intent |
+| PUT | `/api/v1/driver/me/shipments/{id}/pod/uploads/{uploadId}/content` | POD bytes (token) |
+| POST | `/api/v1/driver/me/shipments/{id}/pod/uploads/{uploadId}/complete` | POD finalize |
 
 Shipment-service mirrors routes under `/v1/driver/me/*` for trusted internal calls.
 
@@ -57,6 +60,16 @@ Gateway validates driver/shipment assignment, resolves driver ID from `/driver/m
 - No mobile UI, push, driver inbox, or CT→driver reverse channel
 - POD driver workflow deferred (document upload architecture requires separate upload token flow)
 - Batch location offline sync not implemented (single-point ingest with idempotency only)
+
+## v0.1.1 Verification Evidence
+
+- Migration `000030` verified on embedded PostgreSQL (schema, uniqueness, concurrent idempotency)
+- Migration `000031` relaxes outbox FK so `driver.exception_reported` can reference `driver_reported_exception.id`
+- Migration `000032` allows `critical_event_workflow.source=driver`
+- Full automation E2E: persisted rule → playbook → recommendation → execution → steps (`internal/integration/automation`)
+- Shipment driver DB tests: concurrent exception idempotency, wrong-driver denial, status idempotency
+- POD v0.1.1: document-service upload intent + local object storage + gateway driver wrapper (migrations `000033`)
+- Exception event IDs normalized to 32-char hex before Control Tower ingress
 
 ## Security
 

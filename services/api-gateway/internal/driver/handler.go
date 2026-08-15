@@ -12,6 +12,7 @@ import (
 
 	"github.com/freight-platform/api-gateway/internal/config"
 	"github.com/freight-platform/api-gateway/internal/controltowerreadmodel"
+	"github.com/freight-platform/api-gateway/internal/document"
 	"github.com/freight-platform/api-gateway/internal/driverrbac"
 	gwmiddleware "github.com/freight-platform/api-gateway/internal/http/middleware"
 	apperrors "github.com/freight-platform/api-gateway/internal/platform/errors"
@@ -25,6 +26,7 @@ type Handler struct {
 	log         *slog.Logger
 	client      *Client
 	tracking    *tracking.Client
+	documents   *document.Client
 	integrator  *ExceptionIntegrator
 	identity    *routeauth.IdentityClient
 	authEnabled bool
@@ -38,6 +40,7 @@ func NewHandler(log *slog.Logger, cfg config.Config) *Handler {
 		log: log,
 		client: NewClient(httpClient, cfg.Services.Shipment),
 		tracking: tracking.NewClient(httpClient, cfg.Services.Tracking, cfg.TrackingInternalToken),
+		documents: document.NewClient(httpClient, cfg.Services.Document),
 		integrator: NewExceptionIntegrator(
 			readModel,
 			cfg.ControlTower.ReadModel.Mode.Enabled(),

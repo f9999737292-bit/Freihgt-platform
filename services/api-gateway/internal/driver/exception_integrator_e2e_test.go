@@ -16,7 +16,7 @@ func TestExceptionIntegrator_E2EAdapterFlow(t *testing.T) {
 		switch r.URL.Path {
 		case "/internal/v1/control-tower/critical-events/workflows/ensure":
 			ensureCalled = true
-			_ = json.NewEncoder(w).Encode(map[string]any{"createdEventIds": []string{"exc-1"}})
+			_ = json.NewEncoder(w).Encode(map[string]any{"createdEventIds": []string{"a1b2c3d4e5f67890abcdef1234567890"}})
 		case "/internal/v1/control-tower/automation/evaluate":
 			automationCalled = true
 			_, _ = w.Write([]byte(`{"matches":[]}`))
@@ -35,7 +35,7 @@ func TestExceptionIntegrator_E2EAdapterFlow(t *testing.T) {
 	err := integrator.Integrate(t.Context(), RequestContext{
 		TenantID: "tenant-1", UserID: "user-1", RequestID: "req-1",
 	}, ExceptionIntegrationInput{
-		ExceptionID: "exc-1",
+		ExceptionID: "a1b2c3d4e5f67890abcdef1234567890",
 		ShipmentID:  "ship-1",
 		Category:    "VEHICLE_BREAKDOWN",
 		OccurredAt:  time.Now().UTC(),
