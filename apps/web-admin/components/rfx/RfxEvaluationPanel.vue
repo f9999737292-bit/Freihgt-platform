@@ -1,42 +1,81 @@
 <script setup lang="ts">
-import { DEFAULT_SCORING_TEMPLATE } from '~/types/tender'
+import { formatApiErrorForUser } from '~/composables/useApi'
+import { useTenderEvaluationApi } from '~/composables/useTenderEvaluationApi'
+import { useTenderWorkspaceState } from '~/composables/useTenderWorkspaceState'
+import { TENDER_SCORING_FACTORS } from '~/types/tender'
+import { validateScoringWeights } from '~/utils/tenderValidation'
 
-const props = defineProps<{ rfxEventId: string }>()
+const props = defineProps<{
+  rfxEventId: string
+  companyName?: (id: string) => string
+}>()
 
 const { createScoringTemplate, runEvaluation } = useTenderEvaluationApi()
 const { pushToast } = useToast()
 const { t } = useI18n()
+const { canEvaluateTender } = usePermissions()
+const workspace = useTenderWorkspaceState()
 
 const loading = ref(false)
-const templateVersionId = ref('')
-const evaluation = ref<Awaited<ReturnType<typeof runEvaluation>> | null>(null)
+const expandedCarrier = ref<string | null>(null)
 
-async function ensureTemplateAndEvaluate() {
+const weightValidation = computed(() => validateScoringWeights(workspace.value.scoringFactors))
+const weightTotal = computed(() => weightValidation.value.totalWeight.toFixed(2))
+
+function carrierLabel(id: string) {
+  return props.companyName?.(id) || id
+}
+
+function qualificationFor(carrierId: string) {
+  return workspace.value.evaluation?.qualification.find((q) => q.carrier_company_id === carrierId)
+}
+
+async function saveTemplateAndEvaluate() {
+  if (!canEvaluateTender()) {
+    pushToast('error', t('common.insufficientPermission'))
+    return
+  }
+  if (!weightValidation.value.valid) {
+    pushToast('error', t('tender.scoringValidationFailed'))
+    return
+  }
+
   loading.value = true
   try {
-    if (!templateVersionId.value) {
+    if (!workspace.value.templateVersionId) {
       const created = await createScoringTemplate(
-        `default-${props.rfxEventId.slice(0, 8)}`,
-        'Default Enterprise Template',
-        DEFAULT_SCORING_TEMPLATE,
+        `rfx-${props.rfxEventId.slice(0, 8)}`,
+        t('tender.defaultTemplateName'),
+        workspace.value.scoringFactors,
       )
-      templateVersionId.value = created.version_id
+      workspace.value.templateVersionId = created.version_id
     }
-    evaluation.value = await runEvaluation(props.rfxEventId, {
-      scoring_template_version_id: templateVersionId.value,
-      qualification_rules: {
-        minimum_sla_score: 75,
-        minimum_capacity: 100,
-        require_carrier_active: true,
-      },
-      required_volume: 500,
+
+    const result = await runEvaluation(props.rfxEventId, {
+      scoring_template_version_id: workspace.value.templateVersionId,
+      qualification_rules: workspace.value.qualificationRules,
+      required_volume: workspace.value.requiredVolume,
     })
+    workspace.value.evaluation = result
+    workspace.value.evaluationId = result.evaluation_id
     pushToast('success', t('tender.evaluationComplete'))
   } catch (error) {
-    pushToast('error', error instanceof Error ? error.message : t('common.error'))
+    pushToast('error', formatApiErrorForUser(error))
   } finally {
     loading.value = false
   }
+}
+
+function addFactorRow() {
+  const unused = TENDER_SCORING_FACTORS.find(
+    (factor) => !workspace.value.scoringFactors.some((row) => row.factor === factor),
+  )
+  if (!unused) return
+  workspace.value.scoringFactors.push({ factor: unused, weight: 0 })
+}
+
+function removeFactorRow(index: number) {
+  workspace.value.scoringFactors.splice(index, 1)
 }
 </script>
 
@@ -44,14 +83,82 @@ async function ensureTemplateAndEvaluate() {
   <section class="rfx-evaluation">
     <header class="rfx-evaluation__header">
       <h3>{{ $t('tender.evaluationTitle') }}</h3>
-      <UiButton :loading="loading" size="sm" @click="ensureTemplateAndEvaluate">
+      <UiButton v-if="canEvaluateTender()" :loading="loading" size="sm" @click="saveTemplateAndEvaluate">
         {{ $t('tender.runEvaluation') }}
       </UiButton>
     </header>
 
-    <p v-if="!evaluation" class="rfx-evaluation__hint">{{ $t('tender.evaluationHint') }}</p>
+    <section class="rfx-evaluation__builder">
+      <h4>{{ $t('tender.scoringBuilder') }}</h4>
+      <table class="rfx-evaluation__table">
+        <thead>
+          <tr>
+            <th>{{ $t('tender.factor') }}</th>
+            <th>{{ $t('tender.weight') }}</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(row, index) in workspace.scoringFactors" :key="`${row.factor}-${index}`">
+            <td>
+              <UiSelect
+                v-model="row.factor"
+                :options="TENDER_SCORING_FACTORS.map((factor) => ({ value: factor, label: factor }))"
+              />
+            </td>
+            <td>
+              <UiInput
+                :model-value="String(row.weight)"
+                type="number"
+                @update:model-value="row.weight = Number($event)"
+              />
+            </td>
+            <td>
+              <UiButton size="sm" variant="secondary" @click="removeFactorRow(index)">
+                {{ $t('tender.removeFactor') }}
+              </UiButton>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="rfx-evaluation__builder-actions">
+        <UiButton size="sm" variant="secondary" @click="addFactorRow">{{ $t('tender.addFactor') }}</UiButton>
+        <span :class="{ 'rfx-evaluation__total--invalid': !weightValidation.valid }">
+          {{ $t('tender.weightTotal') }}: {{ weightTotal }}%
+        </span>
+      </div>
+      <p v-if="!weightValidation.valid" class="rfx-evaluation__error">
+        {{ $t('tender.scoringValidationFailed') }}
+      </p>
+    </section>
 
-    <table v-if="evaluation?.scores?.length" class="rfx-evaluation__table">
+    <section class="rfx-evaluation__rules">
+      <h4>{{ $t('tender.qualificationRules') }}</h4>
+      <div class="rfx-evaluation__rules-grid">
+        <UiInput
+          :model-value="String(workspace.qualificationRules.minimum_sla_score ?? '')"
+          type="number"
+          :label="$t('tender.minimumSla')"
+          @update:model-value="workspace.qualificationRules.minimum_sla_score = Number($event)"
+        />
+        <UiInput
+          :model-value="String(workspace.qualificationRules.minimum_capacity ?? '')"
+          type="number"
+          :label="$t('tender.minimumCapacity')"
+          @update:model-value="workspace.qualificationRules.minimum_capacity = Number($event)"
+        />
+        <UiInput
+          :model-value="String(workspace.requiredVolume)"
+          type="number"
+          :label="$t('tender.requiredVolume')"
+          @update:model-value="workspace.requiredVolume = Number($event)"
+        />
+      </div>
+    </section>
+
+    <p v-if="!workspace.evaluation" class="rfx-evaluation__hint">{{ $t('tender.evaluationHint') }}</p>
+
+    <table v-if="workspace.evaluation?.scores?.length" class="rfx-evaluation__table">
       <thead>
         <tr>
           <th>{{ $t('tender.carrier') }}</th>
@@ -60,34 +167,46 @@ async function ensureTemplateAndEvaluate() {
           <th>{{ $t('tender.price') }}</th>
           <th>{{ $t('tender.sla') }}</th>
           <th>{{ $t('tender.kpi') }}</th>
+          <th />
         </tr>
       </thead>
       <tbody>
-        <tr v-for="row in evaluation.scores" :key="row.carrier_company_id">
-          <td>{{ row.carrier_company_id }}</td>
-          <td>
-            {{
-              evaluation.qualification.find((q) => q.carrier_company_id === row.carrier_company_id)?.result
-            }}
-          </td>
-          <td>{{ row.total_score.toFixed(2) }}</td>
-          <td>{{ row.price_score.toFixed(2) }}</td>
-          <td>{{ row.sla_score.toFixed(2) }}</td>
-          <td>{{ row.carrier_kpi_score.toFixed(2) }}</td>
-        </tr>
+        <template v-for="row in workspace.evaluation.scores" :key="row.carrier_company_id">
+          <tr>
+            <td>{{ carrierLabel(row.carrier_company_id) }}</td>
+            <td>{{ qualificationFor(row.carrier_company_id)?.result }}</td>
+            <td>{{ row.total_score.toFixed(2) }}</td>
+            <td>{{ row.price_score.toFixed(2) }}</td>
+            <td>{{ row.sla_score.toFixed(2) }}</td>
+            <td>{{ row.carrier_kpi_score.toFixed(2) }}</td>
+            <td>
+              <UiButton
+                size="sm"
+                variant="secondary"
+                @click="
+                  expandedCarrier =
+                    expandedCarrier === row.carrier_company_id ? null : row.carrier_company_id
+                "
+              >
+                {{ $t('tender.scoreBreakdown') }}
+              </UiButton>
+            </td>
+          </tr>
+          <tr v-if="expandedCarrier === row.carrier_company_id">
+            <td colspan="7">
+              <RfxTenderScoreBreakdown
+                :score="row"
+                :qualification="qualificationFor(row.carrier_company_id)"
+              />
+            </td>
+          </tr>
+        </template>
       </tbody>
     </table>
   </section>
 </template>
 
 <style scoped>
-.rfx-evaluation {
-  margin-top: 1.5rem;
-  padding: 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-}
-
 .rfx-evaluation__header {
   display: flex;
   align-items: center;
@@ -95,9 +214,36 @@ async function ensureTemplateAndEvaluate() {
   gap: 1rem;
 }
 
+.rfx-evaluation__builder,
+.rfx-evaluation__rules {
+  margin-top: 1rem;
+}
+
+.rfx-evaluation__builder-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+.rfx-evaluation__total--invalid {
+  color: var(--color-danger, #b91c1c);
+}
+
+.rfx-evaluation__error {
+  color: var(--color-danger, #b91c1c);
+  margin-top: 0.5rem;
+}
+
 .rfx-evaluation__hint {
   color: var(--color-text-muted);
   margin-top: 0.75rem;
+}
+
+.rfx-evaluation__rules-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.75rem;
 }
 
 .rfx-evaluation__table {
@@ -111,5 +257,6 @@ async function ensureTemplateAndEvaluate() {
   padding: 0.5rem;
   border-bottom: 1px solid var(--color-border);
   text-align: left;
+  vertical-align: top;
 }
 </style>

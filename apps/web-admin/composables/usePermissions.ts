@@ -303,6 +303,30 @@ export function usePermissions() {
     return hasAnyRole([...SHIPMENT_CANCEL_ROLES])
   }
 
+  function canEvaluateTender(): boolean {
+    if (hasAdminAccess() || isDevPlatformAdminFallback()) {
+      return true
+    }
+    return (
+      hasPermission('rfx.evaluate')
+      || hasAnyRole(['SHIPPER_ADMIN', 'SHIPPER_LOGIST', 'PROCUREMENT_MANAGER'])
+    )
+  }
+
+  function canApproveAward(): boolean {
+    if (hasAdminAccess() || isDevPlatformAdminFallback()) {
+      return true
+    }
+    return hasPermission('rfx.approve_award')
+  }
+
+  function canFinalizeAward(): boolean {
+    if (hasAdminAccess() || isDevPlatformAdminFallback()) {
+      return true
+    }
+    return hasPermission('rfx.award')
+  }
+
   function getLandingRoute(): string {
     if (hasAdminAccess() || isDevPlatformAdminFallback()) {
       return LANDING_ROUTES.admin
@@ -340,6 +364,9 @@ export function usePermissions() {
     canAcceptShipment,
     canUpdateShipmentStatus,
     canCancelShipment,
+    canEvaluateTender,
+    canApproveAward,
+    canFinalizeAward,
     getLandingRoute,
   }
 }

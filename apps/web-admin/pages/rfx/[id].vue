@@ -106,8 +106,7 @@ onMounted(async () => {
     <template v-else>
       <RfxRfxActions :event="event" @updated="loadEvent" @edit="openEdit" />
       <RfxRfxDetailsCard :event="event" :company-name="companyName" @edit="openEdit" />
-      <RfxRfxParticipantsTable :rfx-event-id="event.id" :company-name="companyNameById" />
-      <RfxEvaluationPanel :rfx-event-id="event.id" />
+      <RfxTenderWorkspace :event="event" :company-name="companyNameById" />
       <LowCodeCustomFieldsPanel
         entity-type="RFX"
         :entity-id="event.id"
