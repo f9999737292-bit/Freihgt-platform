@@ -174,7 +174,7 @@ func applyMigrations(ctx context.Context, pool *pgxpool.Pool, fullPlatform bool)
 		}
 		if !fullPlatform {
 			num := migrationNumber(base)
-			if num > 14 && num != 30 && num != 31 {
+			if num > 14 && num != 30 && num != 31 && num != 34 {
 				continue
 			}
 		}

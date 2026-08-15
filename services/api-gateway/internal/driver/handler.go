@@ -83,6 +83,64 @@ func (h *Handler) RecordEvent(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *Handler) ListTasks(w http.ResponseWriter, r *http.Request) {
+	h.proxy(w, r, func(ctx RequestContext) (json.RawMessage, int, error) {
+		return h.client.ListTasks(r.Context(), ctx, r.URL.RawQuery)
+	})
+}
+
+func (h *Handler) GetTask(w http.ResponseWriter, r *http.Request) {
+	taskID := strings.TrimSpace(chi.URLParam(r, "taskId"))
+	h.proxy(w, r, func(ctx RequestContext) (json.RawMessage, int, error) {
+		return h.client.GetTask(r.Context(), ctx, taskID)
+	})
+}
+
+func (h *Handler) MarkTaskRead(w http.ResponseWriter, r *http.Request) {
+	taskID := strings.TrimSpace(chi.URLParam(r, "taskId"))
+	h.proxy(w, r, func(ctx RequestContext) (json.RawMessage, int, error) {
+		return h.client.MarkTaskRead(r.Context(), ctx, taskID)
+	})
+}
+
+func (h *Handler) AcknowledgeTask(w http.ResponseWriter, r *http.Request) {
+	taskID := strings.TrimSpace(chi.URLParam(r, "taskId"))
+	h.proxy(w, r, func(ctx RequestContext) (json.RawMessage, int, error) {
+		return h.client.AcknowledgeTask(r.Context(), ctx, taskID)
+	})
+}
+
+func (h *Handler) SubmitTaskResponse(w http.ResponseWriter, r *http.Request) {
+	taskID := strings.TrimSpace(chi.URLParam(r, "taskId"))
+	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	idem := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+	h.proxy(w, r, func(ctx RequestContext) (json.RawMessage, int, error) {
+		return h.client.SubmitTaskResponse(r.Context(), ctx, taskID, body, idem)
+	})
+}
+
+func (h *Handler) RegisterDevice(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	h.proxy(w, r, func(ctx RequestContext) (json.RawMessage, int, error) {
+		return h.client.RegisterDevice(r.Context(), ctx, body)
+	})
+}
+
+func (h *Handler) RevokeDevice(w http.ResponseWriter, r *http.Request) {
+	deviceID := strings.TrimSpace(chi.URLParam(r, "deviceId"))
+	h.proxy(w, r, func(ctx RequestContext) (json.RawMessage, int, error) {
+		return h.client.RevokeDevice(r.Context(), ctx, deviceID)
+	})
+}
+
 func (h *Handler) ReportException(w http.ResponseWriter, r *http.Request) {
 	shipmentID := strings.TrimSpace(chi.URLParam(r, "shipmentId"))
 	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))

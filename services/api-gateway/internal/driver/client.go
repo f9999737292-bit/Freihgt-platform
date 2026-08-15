@@ -55,7 +55,39 @@ func (c *Client) ReportException(ctx context.Context, reqCtx RequestContext, shi
 	return c.doJSON(ctx, reqCtx, http.MethodPost, "/v1/driver/me/shipments/"+shipmentID+"/exceptions", body)
 }
 
-func (c *Client) doJSON(ctx context.Context, reqCtx RequestContext, method, path string, body []byte) (json.RawMessage, int, error) {
+func (c *Client) ListTasks(ctx context.Context, reqCtx RequestContext, query string) (json.RawMessage, int, error) {
+	path := "/v1/driver/me/tasks"
+	if query != "" {
+		path += "?" + query
+	}
+	return c.doJSON(ctx, reqCtx, http.MethodGet, path, nil)
+}
+
+func (c *Client) GetTask(ctx context.Context, reqCtx RequestContext, taskID string) (json.RawMessage, int, error) {
+	return c.doJSON(ctx, reqCtx, http.MethodGet, "/v1/driver/me/tasks/"+taskID, nil)
+}
+
+func (c *Client) MarkTaskRead(ctx context.Context, reqCtx RequestContext, taskID string) (json.RawMessage, int, error) {
+	return c.doJSON(ctx, reqCtx, http.MethodPost, "/v1/driver/me/tasks/"+taskID+"/read", nil)
+}
+
+func (c *Client) AcknowledgeTask(ctx context.Context, reqCtx RequestContext, taskID string) (json.RawMessage, int, error) {
+	return c.doJSON(ctx, reqCtx, http.MethodPost, "/v1/driver/me/tasks/"+taskID+"/acknowledge", nil)
+}
+
+func (c *Client) SubmitTaskResponse(ctx context.Context, reqCtx RequestContext, taskID string, body []byte, idempotencyKey string) (json.RawMessage, int, error) {
+	return c.doJSONWithIdempotency(ctx, reqCtx, http.MethodPost, "/v1/driver/me/tasks/"+taskID+"/responses", body, idempotencyKey)
+}
+
+func (c *Client) RegisterDevice(ctx context.Context, reqCtx RequestContext, body []byte) (json.RawMessage, int, error) {
+	return c.doJSON(ctx, reqCtx, http.MethodPost, "/v1/driver/me/devices", body)
+}
+
+func (c *Client) RevokeDevice(ctx context.Context, reqCtx RequestContext, deviceID string) (json.RawMessage, int, error) {
+	return c.doJSON(ctx, reqCtx, http.MethodDelete, "/v1/driver/me/devices/"+deviceID, nil)
+}
+
+func (c *Client) doJSONWithIdempotency(ctx context.Context, reqCtx RequestContext, method, path string, body []byte, idempotencyKey string) (json.RawMessage, int, error) {
 	var reader io.Reader
 	if body != nil {
 		reader = bytes.NewReader(body)
@@ -77,6 +109,9 @@ func (c *Client) doJSON(ctx context.Context, reqCtx RequestContext, method, path
 	if reqCtx.RequestID != "" {
 		req.Header.Set(sharedmiddleware.RequestIDHeader, reqCtx.RequestID)
 	}
+	if idempotencyKey != "" {
+		req.Header.Set("Idempotency-Key", idempotencyKey)
+	}
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, 0, err
@@ -90,6 +125,10 @@ func (c *Client) doJSON(ctx context.Context, reqCtx RequestContext, method, path
 		return json.RawMessage("{}"), resp.StatusCode, nil
 	}
 	return json.RawMessage(raw), resp.StatusCode, nil
+}
+
+func (c *Client) doJSON(ctx context.Context, reqCtx RequestContext, method, path string, body []byte) (json.RawMessage, int, error) {
+	return c.doJSONWithIdempotency(ctx, reqCtx, method, path, body, "")
 }
 
 func MapDependencyStatus(status int) error {

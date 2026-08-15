@@ -5701,6 +5701,241 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DriverPODUploadCompleteResponse'
+  /api/v1/driver/me/tasks:
+    get:
+      tags: [Driver Mobile]
+      summary: List driver inbox tasks
+      operationId: get_driver_me_tasks
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, DELIVERED, READ, ACKNOWLEDGED, COMPLETED, EXPIRED, CANCELLED]
+        - name: unread
+          in: query
+          schema:
+            type: boolean
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Driver task inbox
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverTaskList'
+  /api/v1/driver/me/tasks/{taskId}:
+    get:
+      tags: [Driver Mobile]
+      summary: Get driver task detail
+      operationId: get_driver_me_task_detail
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Task detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverTaskDetail'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/driver/me/tasks/{taskId}/read:
+    post:
+      tags: [Driver Mobile]
+      summary: Mark driver task as read
+      operationId: post_driver_me_task_read
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Task marked read
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverTaskDetail'
+  /api/v1/driver/me/tasks/{taskId}/acknowledge:
+    post:
+      tags: [Driver Mobile]
+      summary: Acknowledge driver task receipt
+      operationId: post_driver_me_task_acknowledge
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Task acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverTaskDetail'
+  /api/v1/driver/me/tasks/{taskId}/responses:
+    post:
+      tags: [Driver Mobile]
+      summary: Submit structured driver task response
+      operationId: post_driver_me_task_response
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverTaskResponseRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Task response accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverTaskResponseResult'
+  /api/v1/driver/me/devices:
+    post:
+      tags: [Driver Mobile]
+      summary: Register driver device for push delivery
+      operationId: post_driver_me_device_register
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverDeviceRegistrationRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Device registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverDevice'
+  /api/v1/driver/me/devices/{deviceId}:
+    delete:
+      tags: [Driver Mobile]
+      summary: Revoke driver device registration
+      operationId: delete_driver_me_device
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Device revoked
+  /internal/v1/driver/tasks:
+    post:
+      tags: [Internal Driver Tasks]
+      summary: Create driver task (trusted internal)
+      description: Trusted internal boundary for Control Tower and platform services. Requires X-Internal-Service-Token.
+      operationId: post_internal_driver_task
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - name: X-Internal-Service-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InternalCreateDriverTaskRequest'
+      responses:
+        '201':
+          description: Task created or idempotently returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalCreateDriverTaskResponse'
+  /internal/v1/driver/tasks/{taskId}/cancel:
+    post:
+      tags: [Internal Driver Tasks]
+      summary: Cancel driver task (trusted internal)
+      operationId: post_internal_driver_task_cancel
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - name: X-Internal-Service-Token
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Task cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalCreateDriverTaskResponse'
   /api/v1/vehicles:
     post:
       tags: [Vehicles]
@@ -7685,6 +7920,177 @@ components:
           type: string
           format: uuid
         status:
+          type: string
+    DriverTaskSummary:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        taskType:
+          type: string
+          enum: [REQUEST_DELAY_REASON, REQUEST_STATUS_CONFIRMATION, REQUEST_ARRIVAL_CONFIRMATION, REQUEST_DOCUMENT_ACTION, GENERAL_OPERATIONAL_NOTICE]
+        status:
+          type: string
+        priority:
+          type: string
+        title:
+          type: string
+        shipmentId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+    DriverTaskDetail:
+      allOf:
+        - $ref: '#/components/schemas/DriverTaskSummary'
+        - type: object
+          properties:
+            payload:
+              type: object
+              additionalProperties: true
+            expiresAt:
+              type: string
+              format: date-time
+            readAt:
+              type: string
+              format: date-time
+            acknowledgedAt:
+              type: string
+              format: date-time
+            completedAt:
+              type: string
+              format: date-time
+    DriverTaskList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverTaskSummary'
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+    DriverTaskResponseRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          enum: [TRAFFIC, VEHICLE_BREAKDOWN, LOADING_DELAY, UNLOADING_DELAY, ROUTE_BLOCKED, CUSTOMER_UNAVAILABLE, OTHER]
+        comment:
+          type: string
+          maxLength: 4000
+        occurredAt:
+          type: string
+          format: date-time
+    DriverTaskResponseResult:
+      type: object
+      properties:
+        task:
+          $ref: '#/components/schemas/DriverTaskDetail'
+        response:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            taskId:
+              type: string
+              format: uuid
+            responseType:
+              type: string
+            responseBody:
+              type: object
+              additionalProperties: true
+            receivedAt:
+              type: string
+              format: date-time
+    DriverDeviceRegistrationRequest:
+      type: object
+      required: [platform, deviceInstanceId, pushToken]
+      additionalProperties: false
+      properties:
+        platform:
+          type: string
+          enum: [ANDROID, IOS, WEB]
+        deviceInstanceId:
+          type: string
+        pushToken:
+          type: string
+        appVersion:
+          type: string
+        locale:
+          type: string
+    DriverDevice:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        platform:
+          type: string
+        deviceInstanceId:
+          type: string
+        appVersion:
+          type: string
+        locale:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    InternalCreateDriverTaskRequest:
+      type: object
+      required: [tenantId, driverId, type, source, idempotencyKey]
+      additionalProperties: false
+      properties:
+        tenantId:
+          type: string
+          format: uuid
+        driverId:
+          type: string
+          format: uuid
+        shipmentId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [REQUEST_DELAY_REASON, REQUEST_STATUS_CONFIRMATION, REQUEST_ARRIVAL_CONFIRMATION, REQUEST_DOCUMENT_ACTION, GENERAL_OPERATIONAL_NOTICE]
+        priority:
+          type: string
+          enum: [NORMAL, HIGH, CRITICAL]
+        expiresAt:
+          type: string
+          format: date-time
+        source:
+          type: string
+          enum: [SYSTEM, CONTROL_TOWER, OPERATOR]
+        sourceEventId:
+          type: string
+        correlationId:
+          type: string
+        idempotencyKey:
+          type: string
+        createdByType:
+          type: string
+        createdById:
+          type: string
+          format: uuid
+    InternalCreateDriverTaskResponse:
+      type: object
+      properties:
+        taskId:
+          type: string
+          format: uuid
+        status:
+          type: string
+        taskType:
           type: string
     DriverLocationRequest:
       type: object
