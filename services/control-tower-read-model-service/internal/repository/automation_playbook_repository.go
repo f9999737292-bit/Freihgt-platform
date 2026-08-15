@@ -208,9 +208,10 @@ func (r *AutomationRepository) createPlaybookVersionTx(ctx context.Context, tx p
 			stepType = domain.StepTypeInstruction
 		}
 		if stepType == domain.StepTypeSystemAction {
-			return domain.PlaybookVersion{}, apperrors.Validation("system_action is not supported in v0.8.0", map[string]any{"stepType": stepType})
-		}
-		if err := domain.ValidateActionCode(step.ActionCode); err != nil {
+			if err := domain.ValidateGuardedActionCode(step.ActionCode); err != nil {
+				return domain.PlaybookVersion{}, err
+			}
+		} else if err := domain.ValidateActionCode(step.ActionCode); err != nil {
 			return domain.PlaybookVersion{}, err
 		}
 		title := strings.TrimSpace(step.Title)
@@ -455,6 +456,31 @@ func (r *AutomationRepository) CancelExecution(ctx context.Context, tenantID, us
 		_ = r.insertAudit(ctx, tenantID, "playbook_cancelled", domain.ActorTypeUser, &userID, nil, &exec.PlaybookID, nil, &execID, nil)
 	}
 	return exec, err
+}
+
+func (r *AutomationRepository) CompleteExecutionIfReady(ctx context.Context, tenantID, execID uuid.UUID) error {
+	var incomplete int
+	if err := r.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM control_tower.playbook_execution_step
+		WHERE tenant_id=$1 AND execution_id=$2 AND required=TRUE
+		  AND status NOT IN ('done','skipped')
+	`, tenantID, execID).Scan(&incomplete); err != nil {
+		return err
+	}
+	if incomplete > 0 {
+		return nil
+	}
+	_, err := r.pool.Exec(ctx, `
+		UPDATE control_tower.playbook_execution
+		SET status='completed', completed_at=NOW(), updated_at=NOW()
+		WHERE tenant_id=$1 AND id=$2 AND status IN ('not_started','in_progress')
+	`, tenantID, execID)
+	return err
+}
+
+func (r *AutomationRepository) AutoAcceptRecommendation(ctx context.Context, tenantID, recID uuid.UUID) (domain.AutomationRecommendation, domain.PlaybookExecution, error) {
+	systemUser := uuid.Nil
+	return r.AcceptRecommendation(ctx, tenantID, systemUser, recID)
 }
 
 func (r *AutomationRepository) CountPlaybookSteps(ctx context.Context, tenantID, playbookID uuid.UUID) (int, error) {

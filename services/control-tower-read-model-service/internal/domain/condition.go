@@ -111,10 +111,8 @@ func ValidateActionCode(code string) error {
 func ValidateExecutionMode(mode string) error {
 	mode = strings.TrimSpace(mode)
 	switch mode {
-	case ExecutionModeObserve, ExecutionModeRecommend:
+	case ExecutionModeObserve, ExecutionModeRecommend, ExecutionModeGuardedAuto:
 		return nil
-	case ExecutionModeGuardedAuto:
-		return apperrors.Validation("guarded_auto is not supported in v0.8.0", map[string]any{"executionMode": mode})
 	default:
 		return apperrors.Validation("invalid execution mode", map[string]any{"executionMode": mode})
 	}

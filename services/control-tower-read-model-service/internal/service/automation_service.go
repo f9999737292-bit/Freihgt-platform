@@ -16,10 +16,15 @@ import (
 type AutomationService struct {
 	repo      *repository.AutomationRepository
 	evaluator *RuleEvaluator
+	guarded   *GuardedAutoRunner
 }
 
 func NewAutomationService(repo *repository.AutomationRepository) *AutomationService {
 	return &AutomationService{repo: repo, evaluator: NewRuleEvaluator()}
+}
+
+func (s *AutomationService) SetGuardedAutoRunner(runner *GuardedAutoRunner) {
+	s.guarded = runner
 }
 
 type DryRunResult struct {
@@ -115,6 +120,11 @@ func (s *AutomationService) EvaluateTrigger(ctx context.Context, tenantID uuid.U
 		}
 		if created {
 			out.Recommendations = append(out.Recommendations, createdRec)
+			if rule.ExecutionMode == domain.ExecutionModeGuardedAuto && s.guarded != nil {
+				if err := s.guarded.RunRecommendation(ctx, tenantID, createdRec, trigger); err != nil {
+					return out, err
+				}
+			}
 		} else {
 			out.Deduplicated++
 		}

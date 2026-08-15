@@ -5,6 +5,7 @@ go 1.25.0
 require (
 	github.com/fergusstrange/embedded-postgres v1.29.0
 	github.com/freight-platform/shared-go v0.0.0
+	github.com/freight-platform/shipment-service v0.0.0
 	github.com/freight-platform/statussnapshot v0.0.0
 	github.com/go-chi/chi/v5 v5.2.1
 	github.com/google/uuid v1.6.0
@@ -44,3 +45,5 @@ require (
 replace github.com/freight-platform/shared-go => ../../packages/shared-go
 
 replace github.com/freight-platform/statussnapshot => ../../packages/statussnapshot
+
+replace github.com/freight-platform/shipment-service => ../shipment-service

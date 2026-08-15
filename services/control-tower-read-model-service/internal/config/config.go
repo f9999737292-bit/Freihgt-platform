@@ -9,13 +9,15 @@ import (
 )
 
 type Config struct {
-	ServiceName string
-	Environment string
-	HTTPPort    int
-	LogLevel    string
-	DatabaseURL string
-	Consumer    ConsumerConfig
-	Kafka       KafkaConfig
+	ServiceName           string
+	Environment           string
+	HTTPPort              int
+	LogLevel              string
+	DatabaseURL           string
+	DriverTaskServiceURL  string
+	InternalServiceToken  string
+	Consumer              ConsumerConfig
+	Kafka                 KafkaConfig
 }
 
 type ConsumerConfig struct {
@@ -72,13 +74,15 @@ func Load() (Config, error) {
 	}
 
 	cfg := Config{
-		ServiceName: "control-tower-read-model-service",
-		Environment: getEnv("ENVIRONMENT", "development"),
-		HTTPPort:    port,
-		LogLevel:    getEnv("LOG_LEVEL", "info"),
-		DatabaseURL: databaseURL,
-		Consumer:    consumer,
-		Kafka:       kafka,
+		ServiceName:          "control-tower-read-model-service",
+		Environment:          getEnv("ENVIRONMENT", "development"),
+		HTTPPort:             port,
+		LogLevel:             getEnv("LOG_LEVEL", "info"),
+		DatabaseURL:          databaseURL,
+		DriverTaskServiceURL: strings.TrimSpace(getEnv("DRIVER_TASK_SERVICE_URL", getEnv("SHIPMENT_SERVICE_URL", ""))),
+		InternalServiceToken: strings.TrimSpace(getEnv("INTERNAL_SERVICE_TOKEN", "")),
+		Consumer:             consumer,
+		Kafka:                kafka,
 	}
 	if err := cfg.Validate(); err != nil {
 		return Config{}, err

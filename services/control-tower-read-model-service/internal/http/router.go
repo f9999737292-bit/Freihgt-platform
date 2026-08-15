@@ -31,6 +31,9 @@ func NewRouter(
 	automationRepo *repository.AutomationRepository,
 	automationSvc *service.AutomationService,
 	automationIngress *service.AutomationTriggerIngress,
+	guardedActionRepo *repository.GuardedActionRepository,
+	guardedActionSvc *service.GuardedActionService,
+	internalServiceToken string,
 	freshness *consumer.Freshness,
 ) http.Handler {
 	statusHandler := handlers.NewStatusHandler(repo, freshness)
@@ -39,6 +42,7 @@ func NewRouter(
 	workspaceHandler := handlers.NewWorkspaceHandler(workItemRepo, viewRepo, handoffRepo, caseRepo)
 	caseHandler := handlers.NewCaseHandler(caseRepo, automationIngress)
 	automationHandler := handlers.NewAutomationHandler(automationRepo, automationSvc, automationIngress)
+	guardedActionHandler := handlers.NewGuardedActionHandler(guardedActionRepo, guardedActionSvc, internalServiceToken)
 
 	r := chi.NewRouter()
 	observability.Mount(r, observability.MountOptions{
@@ -139,6 +143,11 @@ func NewRouter(
 		r.Post("/playbook-executions/{executionId}/steps/{stepId}/start", automationHandler.StartExecutionStep)
 		r.Post("/playbook-executions/{executionId}/steps/{stepId}/complete", automationHandler.CompleteExecutionStep)
 		r.Post("/playbook-executions/{executionId}/steps/{stepId}/skip", automationHandler.SkipExecutionStep)
+
+		r.Get("/automation/executions/{executionId}/actions", guardedActionHandler.ListExecutionActions)
+		r.Post("/automation/executions/{executionId}/actions/{actionId}/approve", guardedActionHandler.ApproveAction)
+		r.Post("/automation/executions/{executionId}/actions/{actionId}/reject", guardedActionHandler.RejectAction)
+		r.Post("/automation/driver-task-events", guardedActionHandler.IngestDriverTaskEvent)
 	})
 
 	return r

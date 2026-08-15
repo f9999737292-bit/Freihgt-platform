@@ -38,7 +38,7 @@ func (i *AutomationTriggerIngress) HandleTrigger(ctx context.Context, tenantID u
 		}
 		return EvaluateOutcome{}, nil
 	}
-	if trigger.SourceOrigin == "automation" {
+	if trigger.SourceOrigin == "automation" || trigger.SourceOrigin == "driver_task_response" || trigger.SourceOrigin == "driver_task" {
 		if i.metrics != nil {
 			i.metrics.ObserveSkipped("automation_source")
 		}

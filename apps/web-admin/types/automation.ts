@@ -1,5 +1,17 @@
 export type AutomationRuleStatus = 'draft' | 'active' | 'disabled' | 'retired'
-export type AutomationExecutionMode = 'observe' | 'recommend'
+export type AutomationExecutionMode = 'observe' | 'recommend' | 'guarded_auto'
+export type GuardedActionStatus =
+  | 'pending'
+  | 'waiting_approval'
+  | 'running'
+  | 'waiting_response'
+  | 'succeeded'
+  | 'failed'
+  | 'denied'
+  | 'rejected'
+  | 'timed_out'
+  | 'skipped'
+export type GuardDecision = 'allow' | 'require_approval' | 'deny' | 'skip'
 export type PlaybookStatus = 'draft' | 'active' | 'retired'
 export type RecommendationStatus = 'pending' | 'accepted' | 'dismissed' | 'expired' | 'completed'
 export type PlaybookExecutionStatus = 'not_started' | 'in_progress' | 'completed' | 'cancelled'
@@ -39,7 +51,7 @@ export interface PlaybookStep {
   sequence: number
   title: string
   description?: string
-  stepType: 'instruction' | 'checklist' | 'operator_action'
+  stepType: 'instruction' | 'checklist' | 'operator_action' | 'system_action'
   required: boolean
   actionCode?: string
   estimatedDurationMinutes?: number

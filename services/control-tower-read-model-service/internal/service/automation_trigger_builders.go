@@ -79,3 +79,20 @@ func BuildExceptionSLATrigger(tenantID uuid.UUID, workflow domain.CriticalEventW
 		},
 	}
 }
+
+func BuildEtaAtRiskTrigger(tenantID uuid.UUID, shipmentID uuid.UUID, triggerID, correlationID string, projectedDelaySeconds int64) domain.AutomationTrigger {
+	stateVersion := fmt.Sprintf("%s:%d", shipmentID.String(), projectedDelaySeconds)
+	return domain.AutomationTrigger{
+		TenantID:      tenantID,
+		TriggerType:   "eta_at_risk",
+		TriggerID:     triggerID,
+		ShipmentID:    &shipmentID,
+		CorrelationID: correlationID,
+		OccurredAt:    time.Now().UTC(),
+		Attributes: domain.TriggerAttributes{
+			ETAStatus:             "at_risk",
+			ProjectedDelaySeconds: &projectedDelaySeconds,
+			StateVersion:          stateVersion,
+		},
+	}
+}

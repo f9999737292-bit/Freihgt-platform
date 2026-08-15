@@ -12,6 +12,7 @@ import (
 
 	"github.com/freight-platform/control-tower-read-model-service/internal/config"
 	"github.com/freight-platform/control-tower-read-model-service/internal/consumer"
+	"github.com/freight-platform/control-tower-read-model-service/internal/client"
 	httpserver "github.com/freight-platform/control-tower-read-model-service/internal/http"
 	"github.com/freight-platform/control-tower-read-model-service/internal/platform/database"
 	"github.com/freight-platform/control-tower-read-model-service/internal/platform/logger"
@@ -50,13 +51,20 @@ func main() {
 	handoffRepo := repository.NewHandoffRepository(db.Pool, workItemRepo, workflowRepo, riskRepo)
 	caseRepo := repository.NewCaseRepository(db.Pool)
 	automationRepo := repository.NewAutomationRepository(db.Pool)
+	guardedActionRepo := repository.NewGuardedActionRepository(db.Pool)
+	shipmentLookupRepo := repository.NewShipmentLookupRepository(db.Pool)
 	automationSvc := service.NewAutomationService(automationRepo)
+	driverTaskClient := client.NewHTTPDriverTaskClient(cfg.DriverTaskServiceURL, cfg.InternalServiceToken)
+	guardEvaluator := service.NewGuardEvaluator(shipmentLookupRepo, guardedActionRepo)
+	guardedActionSvc := service.NewGuardedActionService(guardedActionRepo, shipmentLookupRepo, automationRepo, guardEvaluator, driverTaskClient)
+	guardedAutoRunner := service.NewGuardedAutoRunner(automationRepo, guardedActionSvc)
+	automationSvc.SetGuardedAutoRunner(guardedAutoRunner)
 	automationMetrics := ctmetrics.NewAutomationMetrics()
 	automationIngress := service.NewAutomationTriggerIngress(automationSvc, automationMetrics, log)
 	freshness := consumer.NewFreshness()
 	consumerMetrics := ctmetrics.NewConsumerMetrics()
 
-	router := httpserver.NewRouter(log, db.Pool, repo, ackRepo, workflowRepo, riskRepo, workItemRepo, viewRepo, handoffRepo, caseRepo, automationRepo, automationSvc, automationIngress, freshness)
+	router := httpserver.NewRouter(log, db.Pool, repo, ackRepo, workflowRepo, riskRepo, workItemRepo, viewRepo, handoffRepo, caseRepo, automationRepo, automationSvc, automationIngress, guardedActionRepo, guardedActionSvc, cfg.InternalServiceToken, freshness)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),
