@@ -2009,6 +2009,213 @@ paths:
       responses:
         '201':
           description: Playbook created
+  /api/v1/control-tower/automation/rules/{ruleId}/activate:
+    post:
+      tags: [Control Tower]
+      summary: Activate automation rule
+      operationId: post_control_tower_automation_rule_activate
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: ruleId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Rule activated
+  /api/v1/control-tower/automation/rules/{ruleId}/disable:
+    post:
+      tags: [Control Tower]
+      summary: Disable automation rule
+      operationId: post_control_tower_automation_rule_disable
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: ruleId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Rule disabled
+  /api/v1/control-tower/automation/rules/{ruleId}/retire:
+    post:
+      tags: [Control Tower]
+      summary: Retire automation rule
+      operationId: post_control_tower_automation_rule_retire
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: ruleId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Rule retired
+  /api/v1/control-tower/automation/kpi:
+    get:
+      tags: [Control Tower]
+      summary: Automation KPI summary
+      operationId: get_control_tower_automation_kpi
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Automation KPI counts
+  /api/v1/control-tower/automation/recommendations/{recommendationId}/dismiss:
+    post:
+      tags: [Control Tower]
+      summary: Dismiss automation recommendation
+      operationId: post_control_tower_automation_recommendation_dismiss
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: recommendationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Recommendation dismissed
+  /api/v1/control-tower/playbooks/{playbookId}:
+    get:
+      tags: [Control Tower]
+      summary: Get operational playbook
+      operationId: get_control_tower_playbook
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: playbookId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Playbook detail with steps
+    patch:
+      tags: [Control Tower]
+      summary: Update operational playbook
+      operationId: patch_control_tower_playbook
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: playbookId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Playbook updated
+  /api/v1/control-tower/playbook-executions:
+    get:
+      tags: [Control Tower]
+      summary: List playbook executions
+      operationId: list_control_tower_playbook_executions
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Playbook executions page
+  /api/v1/control-tower/playbook-executions/{executionId}/start:
+    post:
+      tags: [Control Tower]
+      summary: Start playbook execution
+      operationId: post_control_tower_playbook_execution_start
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: executionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Execution started
+  /api/v1/control-tower/playbook-executions/{executionId}/complete:
+    post:
+      tags: [Control Tower]
+      summary: Complete playbook execution
+      operationId: post_control_tower_playbook_execution_complete
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: executionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Execution completed
+  /api/v1/control-tower/playbook-executions/{executionId}/cancel:
+    post:
+      tags: [Control Tower]
+      summary: Cancel playbook execution
+      operationId: post_control_tower_playbook_execution_cancel
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: executionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Execution cancelled
+  /api/v1/control-tower/playbook-executions/{executionId}/steps/{stepId}/complete:
+    post:
+      tags: [Control Tower]
+      summary: Complete playbook execution step
+      operationId: post_control_tower_playbook_execution_step_complete
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: executionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: stepId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Step completed
+  /api/v1/control-tower/playbook-executions/{executionId}/steps/{stepId}/skip:
+    post:
+      tags: [Control Tower]
+      summary: Skip playbook execution step
+      operationId: post_control_tower_playbook_execution_step_skip
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: executionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: stepId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Step skipped
   /api/v1/control-tower/playbook-executions/{executionId}:
     get:
       tags: [Control Tower]

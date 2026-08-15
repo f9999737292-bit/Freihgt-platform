@@ -62,9 +62,9 @@ func (c *Client) EnsureExceptionWorkflows(
 	ctx context.Context,
 	tenantID, requestID string,
 	seeds []EnsureExceptionSeed,
-) *DependencyError {
+) ([]string, *DependencyError) {
 	if c == nil || len(seeds) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	events := make([]map[string]string, 0, len(seeds))
@@ -80,13 +80,13 @@ func (c *Client) EnsureExceptionWorkflows(
 	}
 	body, err := json.Marshal(map[string]any{"events": events})
 	if err != nil {
-		return &DependencyError{Reason: ReasonUnknown, Err: err}
+		return nil, &DependencyError{Reason: ReasonUnknown, Err: err}
 	}
 
 	endpoint := c.baseURL + ensureExceptionWorkflowsPath
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
-		return &DependencyError{Reason: ReasonUnknown, Err: err}
+		return nil, &DependencyError{Reason: ReasonUnknown, Err: err}
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Tenant-ID", tenantID)
@@ -96,14 +96,20 @@ func (c *Client) EnsureExceptionWorkflows(
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return &DependencyError{Reason: classifyRequestError(ctx, err), Err: err}
+		return nil, &DependencyError{Reason: classifyRequestError(ctx, err), Err: err}
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
-		return &DependencyError{Reason: classifyHTTPStatus(resp.StatusCode), Status: resp.StatusCode}
+		return nil, &DependencyError{Reason: classifyHTTPStatus(resp.StatusCode), Status: resp.StatusCode}
 	}
-	return nil
+	var payload struct {
+		CreatedEventIDs []string `json:"createdEventIds"`
+	}
+	if err := decodeJSON(resp.Body, c.maxBytes, &payload); err != nil {
+		return nil, &DependencyError{Reason: ReasonMalformedResponse, Err: err}
+	}
+	return payload.CreatedEventIDs, nil
 }
 
 func (c *Client) UpdateException(

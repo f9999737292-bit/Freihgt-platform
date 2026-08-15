@@ -17,12 +17,13 @@ import (
 )
 
 type AutomationHandler struct {
-	repo    *repository.AutomationRepository
-	service *service.AutomationService
+	repo     *repository.AutomationRepository
+	service  *service.AutomationService
+	ingress  *service.AutomationTriggerIngress
 }
 
-func NewAutomationHandler(repo *repository.AutomationRepository, svc *service.AutomationService) *AutomationHandler {
-	return &AutomationHandler{repo: repo, service: svc}
+func NewAutomationHandler(repo *repository.AutomationRepository, svc *service.AutomationService, ingress *service.AutomationTriggerIngress) *AutomationHandler {
+	return &AutomationHandler{repo: repo, service: svc, ingress: ingress}
 }
 
 func (h *AutomationHandler) ListRules(w http.ResponseWriter, r *http.Request) {
@@ -192,7 +193,12 @@ func (h *AutomationHandler) Evaluate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	persist := body.Persist == nil || *body.Persist
-	out, err := h.service.EvaluateTrigger(r.Context(), tenantID, trigger, persist)
+	var out service.EvaluateOutcome
+	if h.ingress != nil {
+		out, err = h.ingress.HandleTrigger(r.Context(), tenantID, trigger, persist)
+	} else {
+		out, err = h.service.EvaluateTrigger(r.Context(), tenantID, trigger, persist)
+	}
 	if err != nil {
 		respond.Error(w, err)
 		return

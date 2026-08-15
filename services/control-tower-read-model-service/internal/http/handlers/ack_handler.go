@@ -15,6 +15,7 @@ import (
 	apperrors "github.com/freight-platform/control-tower-read-model-service/internal/platform/errors"
 	"github.com/freight-platform/control-tower-read-model-service/internal/platform/respond"
 	"github.com/freight-platform/control-tower-read-model-service/internal/repository"
+	"github.com/freight-platform/control-tower-read-model-service/internal/service"
 )
 
 type AckStore interface {
@@ -29,7 +30,7 @@ type WorkflowStore interface {
 	ReopenCriticalEvent(ctx context.Context, input domain.ReopenCriticalEventInput) (domain.CriticalEventWorkflow, error)
 	ListActions(ctx context.Context, tenantID uuid.UUID, eventID string) ([]domain.CriticalEventAction, error)
 	LookupWorkflows(ctx context.Context, tenantID uuid.UUID, eventIDs []string) ([]domain.CriticalEventWorkflow, error)
-	EnsureExceptionWorkflows(ctx context.Context, tenantID uuid.UUID, seeds []domain.EnsureExceptionSeed) error
+	EnsureExceptionWorkflows(ctx context.Context, tenantID uuid.UUID, seeds []domain.EnsureExceptionSeed) ([]string, error)
 	UpdateException(ctx context.Context, input domain.UpdateExceptionInput) (domain.CriticalEventWorkflow, error)
 	LookupWorkflowsWithExceptionProcessing(ctx context.Context, tenantID uuid.UUID, eventIDs []string, actorUserID uuid.UUID) ([]domain.CriticalEventWorkflow, error)
 }
@@ -37,10 +38,11 @@ type WorkflowStore interface {
 type AckHandler struct {
 	repo         AckStore
 	workflowRepo WorkflowStore
+	automation   *service.AutomationTriggerIngress
 }
 
-func NewAckHandler(repo *repository.AckRepository, workflowRepo *repository.WorkflowRepository) *AckHandler {
-	return &AckHandler{repo: repo, workflowRepo: workflowRepo}
+func NewAckHandler(repo *repository.AckRepository, workflowRepo *repository.WorkflowRepository, automation *service.AutomationTriggerIngress) *AckHandler {
+	return &AckHandler{repo: repo, workflowRepo: workflowRepo, automation: automation}
 }
 
 type acknowledgeRequest struct {

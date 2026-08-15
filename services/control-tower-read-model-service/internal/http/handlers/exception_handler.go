@@ -9,6 +9,7 @@ import (
 	"github.com/freight-platform/control-tower-read-model-service/internal/domain"
 	apperrors "github.com/freight-platform/control-tower-read-model-service/internal/platform/errors"
 	"github.com/freight-platform/control-tower-read-model-service/internal/platform/respond"
+	"github.com/freight-platform/control-tower-read-model-service/internal/service"
 )
 
 type ensureExceptionRequest struct {
@@ -102,12 +103,27 @@ func (h *AckHandler) EnsureExceptionWorkflows(w http.ResponseWriter, r *http.Req
 		})
 	}
 
-	if err := h.workflowRepo.EnsureExceptionWorkflows(r.Context(), tenantID, seeds); err != nil {
+	created, err := h.workflowRepo.EnsureExceptionWorkflows(r.Context(), tenantID, seeds)
+	if err != nil {
 		respond.Error(w, apperrors.Internal("failed to ensure exception workflows", err))
 		return
 	}
 
-	respond.JSON(w, http.StatusOK, map[string]any{"ensured": len(seeds)})
+	if h.automation != nil {
+		for _, id := range created {
+			for _, seed := range seeds {
+				if seed.EventID == id {
+					trigger := service.BuildExceptionCreatedTrigger(tenantID, seed)
+					_, _ = h.automation.HandleTrigger(r.Context(), tenantID, trigger, true)
+				}
+			}
+		}
+	}
+
+	respond.JSON(w, http.StatusOK, map[string]any{
+		"ensured":         len(seeds),
+		"createdEventIds": created,
+	})
 }
 
 func (h *AckHandler) UpdateException(w http.ResponseWriter, r *http.Request) {

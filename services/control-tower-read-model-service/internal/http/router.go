@@ -30,14 +30,15 @@ func NewRouter(
 	caseRepo *repository.CaseRepository,
 	automationRepo *repository.AutomationRepository,
 	automationSvc *service.AutomationService,
+	automationIngress *service.AutomationTriggerIngress,
 	freshness *consumer.Freshness,
 ) http.Handler {
 	statusHandler := handlers.NewStatusHandler(repo, freshness)
-	ackHandler := handlers.NewAckHandler(ackRepo, workflowRepo)
+	ackHandler := handlers.NewAckHandler(ackRepo, workflowRepo, automationIngress)
 	riskHandler := handlers.NewRiskHandler(riskRepo)
 	workspaceHandler := handlers.NewWorkspaceHandler(workItemRepo, viewRepo, handoffRepo, caseRepo)
-	caseHandler := handlers.NewCaseHandler(caseRepo)
-	automationHandler := handlers.NewAutomationHandler(automationRepo, automationSvc)
+	caseHandler := handlers.NewCaseHandler(caseRepo, automationIngress)
+	automationHandler := handlers.NewAutomationHandler(automationRepo, automationSvc, automationIngress)
 
 	r := chi.NewRouter()
 	observability.Mount(r, observability.MountOptions{

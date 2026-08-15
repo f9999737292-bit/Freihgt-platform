@@ -172,3 +172,60 @@ Tables:
 - `control_tower.automation_recommendation`
 - `control_tower.playbook_execution` / `playbook_execution_step`
 - `control_tower.automation_audit_event`
+
+---
+
+## v0.8.0.1 — Runtime completion
+
+### Runtime flow
+
+```text
+Domain signal (risk/ETA/slot/tracking/SLA/exception/case)
+      ↓
+TriggerAdapter (api-gateway or read-model ingress)
+      ↓
+AutomationTriggerIngress (loop guard + metrics)
+      ↓
+EvaluateTrigger → active rules by triggerType
+      ↓
+Condition evaluation (fail-closed)
+      ↓
+Recommendation (idempotent UNIQUE tenant+key)
+      ↓
+Operator accept → PlaybookExecution
+      ↓
+automation_audit_event
+```
+
+### Wired trigger types (v0.8.0.1)
+
+| Trigger | Source |
+|---|---|
+| `risk_created` | Risk sync (high/critical) |
+| `eta_at_risk` | Risk evaluator ETA signals |
+| `eta_projected_late` | Risk evaluator late ETA signals |
+| `slot_at_risk` / `slot_projected_miss` / `slot_actual_missed` | Risk evaluator slot signals |
+| `tracking_stale` / `tracking_lost` | Risk evaluator telemetry signals |
+| `sla_warning` / `sla_breached` | Shipment SLA + exception workflow SLA |
+| `exception_created` | Exception workflow ensure (new only) |
+| `case_created` | Case create (read-model, skips automation causation) |
+
+### Idempotency
+
+Pipe-delimited `idempotency_key` includes tenant, rule, rule version, trigger type/id, entity IDs, and `stateVersion`. DB constraint `UNIQUE (tenant_id, idempotency_key)` with `ON CONFLICT DO NOTHING`.
+
+### Loop protection
+
+Triggers with `causationId` prefix `automation:` or `sourceOrigin=automation` are skipped. Case create honors `X-Causation-ID` header.
+
+### Observability
+
+Prometheus metrics: `automation_triggers_total`, `automation_trigger_duplicates_total`, `automation_rule_evaluations_total`, `automation_rule_matches_total`, `automation_executions_total`, `automation_execution_duration_seconds`.
+
+### Known limitations
+
+- No Kafka consumer for automation (synchronous HTTP ingress only)
+- `guarded_auto` and `system_action` remain disabled
+- Playbook actions are operator-guided; no autonomous side effects
+- `work_item_created` / `case_status_changed` triggers defined but not yet wired
+- Audit read API not exposed

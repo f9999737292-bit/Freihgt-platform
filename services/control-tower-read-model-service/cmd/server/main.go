@@ -51,10 +51,12 @@ func main() {
 	caseRepo := repository.NewCaseRepository(db.Pool)
 	automationRepo := repository.NewAutomationRepository(db.Pool)
 	automationSvc := service.NewAutomationService(automationRepo)
+	automationMetrics := ctmetrics.NewAutomationMetrics()
+	automationIngress := service.NewAutomationTriggerIngress(automationSvc, automationMetrics, log)
 	freshness := consumer.NewFreshness()
 	consumerMetrics := ctmetrics.NewConsumerMetrics()
 
-	router := httpserver.NewRouter(log, db.Pool, repo, ackRepo, workflowRepo, riskRepo, workItemRepo, viewRepo, handoffRepo, caseRepo, automationRepo, automationSvc, freshness)
+	router := httpserver.NewRouter(log, db.Pool, repo, ackRepo, workflowRepo, riskRepo, workItemRepo, viewRepo, handoffRepo, caseRepo, automationRepo, automationSvc, automationIngress, freshness)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

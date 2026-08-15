@@ -14,14 +14,16 @@ import (
 	apperrors "github.com/freight-platform/control-tower-read-model-service/internal/platform/errors"
 	"github.com/freight-platform/control-tower-read-model-service/internal/platform/respond"
 	"github.com/freight-platform/control-tower-read-model-service/internal/repository"
+	"github.com/freight-platform/control-tower-read-model-service/internal/service"
 )
 
 type CaseHandler struct {
-	cases *repository.CaseRepository
+	cases      *repository.CaseRepository
+	automation *service.AutomationTriggerIngress
 }
 
-func NewCaseHandler(cases *repository.CaseRepository) *CaseHandler {
-	return &CaseHandler{cases: cases}
+func NewCaseHandler(cases *repository.CaseRepository, automation *service.AutomationTriggerIngress) *CaseHandler {
+	return &CaseHandler{cases: cases, automation: automation}
 }
 
 func (h *CaseHandler) ListCases(w http.ResponseWriter, r *http.Request) {
@@ -115,6 +117,10 @@ func (h *CaseHandler) CreateCase(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		respond.Error(w, err)
 		return
+	}
+	if h.automation != nil && !service.IsAutomationOrigin(r.Header.Get("X-Causation-ID")) {
+		trigger := service.BuildCaseCreatedTrigger(tenantID, c, input.ShipmentIDs, r.Header.Get("X-Causation-ID"))
+		_, _ = h.automation.HandleTrigger(r.Context(), tenantID, trigger, true)
 	}
 	respond.JSON(w, http.StatusCreated, toCaseResponse(c))
 }

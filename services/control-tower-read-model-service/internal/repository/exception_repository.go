@@ -28,18 +28,19 @@ func (r *WorkflowRepository) EnsureExceptionWorkflows(
 	ctx context.Context,
 	tenantID uuid.UUID,
 	seeds []domain.EnsureExceptionSeed,
-) error {
+) ([]string, error) {
 	if len(seeds) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("begin tx: %w", err)
+		return nil, fmt.Errorf("begin tx: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
 	now := time.Now().UTC()
+	created := make([]string, 0, len(seeds))
 	for _, seed := range seeds {
 		priority := domain.DefaultPriorityForSeverity(seed.Severity)
 		category := domain.DefaultCategoryForEventType(seed.EventType)
@@ -66,9 +67,11 @@ INSERT INTO control_tower.critical_event_workflow (
     $11, $12, $13, 'none',
     $14, $14
 )
-ON CONFLICT (tenant_id, event_id) DO NOTHING`
+ON CONFLICT (tenant_id, event_id) DO NOTHING
+RETURNING event_id`
 
-		if _, err := tx.Exec(ctx, insertSQL,
+		var insertedID string
+		err = tx.QueryRow(ctx, insertSQL,
 			tenantID,
 			seed.EventID,
 			shipmentID,
@@ -83,15 +86,20 @@ ON CONFLICT (tenant_id, event_id) DO NOTHING`
 			deadlines.AssignmentDueAt,
 			deadlines.ResolutionDueAt,
 			now,
-		); err != nil {
-			return fmt.Errorf("ensure exception workflow: %w", err)
+		).Scan(&insertedID)
+		if err != nil {
+			if err == pgx.ErrNoRows {
+				continue
+			}
+			return nil, fmt.Errorf("ensure exception workflow: %w", err)
 		}
+		created = append(created, insertedID)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit ensure exception workflows: %w", err)
+		return nil, fmt.Errorf("commit ensure exception workflows: %w", err)
 	}
-	return nil
+	return created, nil
 }
 
 func (r *WorkflowRepository) UpdateException(

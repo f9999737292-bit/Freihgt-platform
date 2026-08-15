@@ -238,19 +238,20 @@ type PlaybookExecutionStep struct {
 }
 
 type AutomationTrigger struct {
-	TriggerID    string
-	TriggerType  string
-	TenantID     uuid.UUID
-	OccurredAt   time.Time
-	ShipmentID   *uuid.UUID
-	WorkItemType string
-	WorkItemID   string
-	CaseID       *uuid.UUID
-	RiskID       string
-	ExceptionID  string
-	Attributes   TriggerAttributes
-	CorrelationID string
-	CausationID   string
+	TriggerID             string
+	TriggerType           string
+	TenantID              uuid.UUID
+	OccurredAt            time.Time
+	ShipmentID            *uuid.UUID
+	WorkItemType          string
+	WorkItemID            string
+	CaseID                *uuid.UUID
+	RiskID                string
+	ExceptionID           string
+	Attributes            TriggerAttributes
+	CorrelationID         string
+	CausationID           string
+	SourceOrigin          string
 	AutomationExecutionID *uuid.UUID
 }
 

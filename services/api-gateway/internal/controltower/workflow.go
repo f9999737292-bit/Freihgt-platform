@@ -295,7 +295,8 @@ func (s *Service) enrichCriticalEventWorkflows(
 	rmCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), s.readModelCfg.Timeout)
 	defer cancel()
 
-	_ = s.readModel.EnsureExceptionWorkflows(rmCtx, reqCtx.TenantID, reqCtx.RequestID, seeds)
+	createdIDs, _ := s.readModel.EnsureExceptionWorkflows(rmCtx, reqCtx.TenantID, reqCtx.RequestID, seeds)
+	s.triggerExceptionAutomation(reqCtx, seeds, createdIDs)
 
 	lookup, depErr := s.readModel.LookupWorkflows(rmCtx, reqCtx.TenantID, reqCtx.RequestID, eventIDs)
 	if depErr != nil {
@@ -313,6 +314,7 @@ func (s *Service) enrichCriticalEventWorkflows(
 			continue
 		}
 		applyWorkflowLookup(&(*events)[i], item)
+		s.triggerExceptionSLAAutomation(reqCtx, (*events)[i])
 	}
 }
 
