@@ -19,6 +19,8 @@ const (
 	playbookPathFmt               = "/internal/v1/control-tower/playbooks/%s"
 	PlaybookExecutionsPath        = "/internal/v1/control-tower/playbook-executions"
 	playbookExecutionPathFmt      = "/internal/v1/control-tower/playbook-executions/%s"
+	guardedExecutionActionsFmt    = "/internal/v1/control-tower/automation/executions/%s/actions"
+	guardedExecutionActionFmt     = "/internal/v1/control-tower/automation/executions/%s/actions/%s"
 	AutomationKPIPath             = "/internal/v1/control-tower/automation/kpi"
 )
 
@@ -34,8 +36,12 @@ type AutomationListFilter struct {
 }
 
 func (c *Client) ProxyAutomationJSON(ctx context.Context, method, tenantID, userID, requestID, path string, body []byte) (json.RawMessage, *DependencyError) {
+	return c.ProxyAutomationJSONWithPermissions(ctx, method, tenantID, userID, requestID, path, body, nil)
+}
+
+func (c *Client) ProxyAutomationJSONWithPermissions(ctx context.Context, method, tenantID, userID, requestID, path string, body []byte, permissions []string) (json.RawMessage, *DependencyError) {
 	var payload json.RawMessage
-	if err := c.doWorkspaceJSON(ctx, method, c.baseURL+path, tenantID, userID, requestID, body, &payload); err != nil {
+	if err := c.doWorkspaceJSONWithPermissions(ctx, method, c.baseURL+path, tenantID, userID, requestID, body, permissions, &payload); err != nil {
 		return nil, err
 	}
 	return payload, nil
@@ -139,6 +145,18 @@ func FormatPlaybookPath(playbookID string) string {
 
 func PlaybookExecutionPath(executionID, suffix string) string {
 	base := fmt.Sprintf(playbookExecutionPathFmt, url.PathEscape(executionID))
+	if suffix == "" {
+		return base
+	}
+	return base + "/" + strings.TrimPrefix(suffix, "/")
+}
+
+func GuardedExecutionActionsPath(executionID string) string {
+	return fmt.Sprintf(guardedExecutionActionsFmt, url.PathEscape(executionID))
+}
+
+func GuardedExecutionActionPath(executionID, actionID, suffix string) string {
+	base := fmt.Sprintf(guardedExecutionActionFmt, url.PathEscape(executionID), url.PathEscape(actionID))
 	if suffix == "" {
 		return base
 	}

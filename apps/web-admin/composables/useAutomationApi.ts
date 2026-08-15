@@ -3,6 +3,7 @@ import type {
   AutomationRecommendation,
   AutomationRule,
   ConditionGroup,
+  GuardedAction,
   OperationalPlaybook,
   PlaybookExecution,
   PlaybookStep,
@@ -108,6 +109,18 @@ export function useAutomationApi() {
     return apiPost<PlaybookExecution>(`/api/v1/control-tower/playbook-executions/${executionId}/complete`)
   }
 
+  async function listGuardedActions(executionId: string) {
+    return apiGet<{ items: GuardedAction[] }>(`/api/v1/control-tower/automation/executions/${executionId}/actions`)
+  }
+
+  async function approveGuardedAction(executionId: string, actionId: string) {
+    return apiPost<GuardedAction>(`/api/v1/control-tower/automation/executions/${executionId}/actions/${actionId}/approve`)
+  }
+
+  async function rejectGuardedAction(executionId: string, actionId: string, reason?: string) {
+    return apiPost<GuardedAction>(`/api/v1/control-tower/automation/executions/${executionId}/actions/${actionId}/reject`, { reason })
+  }
+
   return {
     listRules,
     getRule,
@@ -130,5 +143,8 @@ export function useAutomationApi() {
     completeExecutionStep,
     skipExecutionStep,
     completeExecution,
+    listGuardedActions,
+    approveGuardedAction,
+    rejectGuardedAction,
   }
 }

@@ -10,7 +10,6 @@ const emit = defineEmits<{
   refresh: []
 }>()
 
-const { t } = useI18n()
 const { startExecution, completeExecutionStep, skipExecutionStep, completeExecution } = useAutomationApi()
 
 async function onStart() {
@@ -85,6 +84,11 @@ async function onCompleteExecution() {
         {{ $t('controlTower.automation.completed') }}
       </UiButton>
     </div>
+    <ControlTowerGuardedActionsPanel
+      v-if="execution"
+      :execution-id="execution.id"
+      @refresh="emit('refresh')"
+    />
   </section>
 </template>
 

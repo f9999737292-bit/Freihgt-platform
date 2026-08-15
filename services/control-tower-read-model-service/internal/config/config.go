@@ -16,6 +16,7 @@ type Config struct {
 	DatabaseURL           string
 	DriverTaskServiceURL  string
 	InternalServiceToken  string
+	GuardedActionsEnabled bool
 	Consumer              ConsumerConfig
 	Kafka                 KafkaConfig
 }
@@ -81,6 +82,7 @@ func Load() (Config, error) {
 		DatabaseURL:          databaseURL,
 		DriverTaskServiceURL: strings.TrimSpace(getEnv("DRIVER_TASK_SERVICE_URL", getEnv("SHIPMENT_SERVICE_URL", ""))),
 		InternalServiceToken: strings.TrimSpace(getEnv("INTERNAL_SERVICE_TOKEN", "")),
+		GuardedActionsEnabled: parseBool(getEnv("GLOBAL_GUARDED_ACTIONS_ENABLED", "false")),
 		Consumer:             consumer,
 		Kafka:                kafka,
 	}

@@ -9,12 +9,16 @@ import (
 )
 
 func (s *Service) proxyAutomation(ctx context.Context, reqCtx RequestContext, method, path string, raw []byte) (json.RawMessage, error) {
+	return s.proxyAutomationWithPermissions(ctx, reqCtx, method, path, raw, nil)
+}
+
+func (s *Service) proxyAutomationWithPermissions(ctx context.Context, reqCtx RequestContext, method, path string, raw []byte, permissions []string) (json.RawMessage, error) {
 	if err := s.requireReadModel(); err != nil {
 		return nil, err
 	}
 	rmCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), s.readModelCfg.Timeout)
 	defer cancel()
-	payload, depErr := s.readModel.ProxyAutomationJSON(rmCtx, method, reqCtx.TenantID, reqCtx.UserID, reqCtx.RequestID, path, raw)
+	payload, depErr := s.readModel.ProxyAutomationJSONWithPermissions(rmCtx, method, reqCtx.TenantID, reqCtx.UserID, reqCtx.RequestID, path, raw, permissions)
 	if depErr != nil {
 		return nil, mapWorkspaceDependencyError(depErr)
 	}

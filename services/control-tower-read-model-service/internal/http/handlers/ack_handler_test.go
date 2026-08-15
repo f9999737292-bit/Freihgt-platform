@@ -66,6 +66,18 @@ func (s *stubWorkflowStore) LookupWorkflows(context.Context, uuid.UUID, []string
 	return nil, nil
 }
 
+func (s *stubWorkflowStore) EnsureExceptionWorkflows(context.Context, uuid.UUID, []domain.EnsureExceptionSeed) ([]string, error) {
+	return nil, nil
+}
+
+func (s *stubWorkflowStore) UpdateException(context.Context, domain.UpdateExceptionInput) (domain.CriticalEventWorkflow, error) {
+	return domain.CriticalEventWorkflow{}, nil
+}
+
+func (s *stubWorkflowStore) LookupWorkflowsWithExceptionProcessing(context.Context, uuid.UUID, []string, uuid.UUID) ([]domain.CriticalEventWorkflow, error) {
+	return nil, nil
+}
+
 func TestAckHandlerAcknowledgeUsesTrustedHeaders(t *testing.T) {
 	t.Parallel()
 	tenantID := uuid.MustParse("11111111-1111-1111-1111-111111111111")

@@ -35,6 +35,9 @@ func NewGuardEvaluator(shipments *repository.ShipmentLookupRepository, actions *
 }
 
 func (g *GuardEvaluator) EvaluateAction(ctx context.Context, in GuardEvaluationInput) (GuardEvaluationResult, error) {
+	if !GuardedActionsGlobalEnabled() {
+		return GuardEvaluationResult{Decision: domain.GuardDecisionDeny, Reason: "GUARDED_ACTIONS_DISABLED"}, nil
+	}
 	actionType := domain.NormalizeGuardedActionCode(in.ActionType)
 	if domain.IsForbiddenAutomationAction(actionType) {
 		return GuardEvaluationResult{Decision: domain.GuardDecisionDeny, Reason: "FORBIDDEN_ACTION"}, nil

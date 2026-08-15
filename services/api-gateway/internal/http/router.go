@@ -144,6 +144,9 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 		r.Post("/api/v1/control-tower/playbook-executions/{executionId}/steps/{stepId}/start", controlTower.StartPlaybookExecutionStep)
 		r.Post("/api/v1/control-tower/playbook-executions/{executionId}/steps/{stepId}/complete", controlTower.CompletePlaybookExecutionStep)
 		r.Post("/api/v1/control-tower/playbook-executions/{executionId}/steps/{stepId}/skip", controlTower.SkipPlaybookExecutionStep)
+		r.Get("/api/v1/control-tower/automation/executions/{executionId}/actions", controlTower.ListGuardedActions)
+		r.Post("/api/v1/control-tower/automation/executions/{executionId}/actions/{actionId}/approve", controlTower.ApproveGuardedAction)
+		r.Post("/api/v1/control-tower/automation/executions/{executionId}/actions/{actionId}/reject", controlTower.RejectGuardedAction)
 	}
 
 	if shipmentEvents != nil {

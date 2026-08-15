@@ -28,6 +28,7 @@ type guardedStack struct {
 
 func setupGuardedStack(t *testing.T, pool *pgxpool.Pool) guardedStack {
 	t.Helper()
+	service.SetGuardedActionsGlobalEnabled(true)
 	driverEnv := drivertaskserver.New(pool, "test-internal-token")
 	t.Cleanup(driverEnv.Close)
 	autoRepo := repository.NewAutomationRepository(pool)

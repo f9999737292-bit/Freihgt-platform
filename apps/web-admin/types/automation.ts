@@ -123,6 +123,40 @@ export interface PlaybookExecution {
   updatedAt: string
 }
 
+export interface GuardedActionApproval {
+  id: string
+  requiredLevel: string
+  status: 'pending' | 'approved' | 'rejected'
+  requestedAt: string
+  approvedAt?: string
+  approvedBy?: string
+  rejectedAt?: string
+  rejectedBy?: string
+  reason?: string
+}
+
+export interface GuardedAction {
+  id: string
+  executionId: string
+  executionStepId: string
+  actionType: string
+  safetyClass: string
+  guardDecision: GuardDecision
+  guardReason?: string
+  status: GuardedActionStatus
+  driverId?: string
+  shipmentId?: string
+  driverTaskId?: string
+  correlationId?: string
+  sourceEventId?: string
+  errorReason?: string
+  response?: Record<string, unknown>
+  expiresAt?: string
+  createdAt?: string
+  updatedAt?: string
+  approval?: GuardedActionApproval
+}
+
 export interface AutomationListPage<T> {
   items: T[]
   page: number

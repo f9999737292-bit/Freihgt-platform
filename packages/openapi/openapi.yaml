@@ -2233,6 +2233,93 @@ paths:
       responses:
         '200':
           description: Playbook execution detail
+  /api/v1/control-tower/automation/executions/{executionId}/actions:
+    get:
+      tags: [Control Tower]
+      summary: List guarded actions for an automation execution
+      operationId: list_control_tower_guarded_actions
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: executionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Guarded actions for execution
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GuardedAction'
+  /api/v1/control-tower/automation/executions/{executionId}/actions/{actionId}/approve:
+    post:
+      tags: [Control Tower]
+      summary: Approve a guarded action awaiting operator approval
+      operationId: post_control_tower_guarded_action_approve
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: executionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: actionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Guarded action approved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuardedAction'
+        '403':
+          description: Approval permission denied
+        '409':
+          description: Action not pending approval
+  /api/v1/control-tower/automation/executions/{executionId}/actions/{actionId}/reject:
+    post:
+      tags: [Control Tower]
+      summary: Reject a guarded action awaiting operator approval
+      operationId: post_control_tower_guarded_action_reject
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: executionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: actionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Guarded action rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuardedAction'
+        '403':
+          description: Approval permission denied
   /api/v1/shipments/{shipmentId}/events:
     get:
       tags: [Shipments]
@@ -7766,6 +7853,44 @@ components:
         maxLength: 128
       description: Client-generated idempotency identity for mobile-safe retries
   schemas:
+    GuardedAction:
+      type: object
+      additionalProperties: true
+      properties:
+        id: { type: string, format: uuid }
+        executionId: { type: string, format: uuid }
+        executionStepId: { type: string, format: uuid }
+        actionType: { type: string }
+        safetyClass: { type: string }
+        guardDecision: { type: string, enum: [allow, require_approval, deny, skip] }
+        guardReason: { type: string }
+        status:
+          type: string
+          enum: [pending, waiting_approval, running, waiting_response, succeeded, failed, denied, rejected, timed_out, skipped]
+        driverId: { type: string, format: uuid }
+        shipmentId: { type: string, format: uuid }
+        driverTaskId: { type: string, format: uuid }
+        correlationId: { type: string }
+        sourceEventId: { type: string }
+        errorReason: { type: string }
+        expiresAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        response: { type: object, additionalProperties: true }
+        approval:
+          $ref: '#/components/schemas/GuardedActionApproval'
+    GuardedActionApproval:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        requiredLevel: { type: string }
+        status: { type: string, enum: [pending, approved, rejected] }
+        requestedAt: { type: string, format: date-time }
+        approvedAt: { type: string, format: date-time }
+        approvedBy: { type: string, format: uuid }
+        rejectedAt: { type: string, format: date-time }
+        rejectedBy: { type: string, format: uuid }
+        reason: { type: string }
     DriverMe:
       type: object
       additionalProperties: false

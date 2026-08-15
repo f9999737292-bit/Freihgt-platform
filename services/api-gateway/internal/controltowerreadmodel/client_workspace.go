@@ -417,6 +417,16 @@ func (c *Client) doWorkspaceJSON(
 	body []byte,
 	out any,
 ) *DependencyError {
+	return c.doWorkspaceJSONWithPermissions(ctx, method, endpoint, tenantID, userID, requestID, body, nil, out)
+}
+
+func (c *Client) doWorkspaceJSONWithPermissions(
+	ctx context.Context,
+	method, endpoint, tenantID, userID, requestID string,
+	body []byte,
+	permissions []string,
+	out any,
+) *DependencyError {
 	if c == nil {
 		return &DependencyError{Reason: ReasonUnknown, Err: fmt.Errorf("read model client is nil")}
 	}
@@ -443,6 +453,9 @@ func (c *Client) doWorkspaceJSON(
 	req.Header.Set("X-Tenant-ID", tenantID)
 	if strings.TrimSpace(userID) != "" {
 		req.Header.Set("X-User-ID", userID)
+	}
+	if len(permissions) > 0 {
+		req.Header.Set("X-User-Permissions", strings.Join(permissions, ","))
 	}
 	if strings.TrimSpace(requestID) != "" {
 		req.Header.Set(sharedmiddleware.RequestIDHeader, requestID)

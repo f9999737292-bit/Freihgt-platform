@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -45,21 +46,25 @@ type DispatchGuardedStepInput struct {
 
 func (s *GuardedActionService) DispatchSystemStep(ctx context.Context, in DispatchGuardedStepInput) (domain.GuardedAction, error) {
 	actionType := domain.NormalizeGuardedActionCode(in.Step.ActionCode)
-	spec, ok := domain.LookupGuardedActionSpec(actionType)
-	if !ok {
-		return domain.GuardedAction{}, fmt.Errorf("unknown guarded action: %s", actionType)
+	spec, hasSpec := domain.LookupGuardedActionSpec(actionType)
+	safetyClass := domain.ActionSafetyForbidden
+	if hasSpec {
+		safetyClass = spec.SafetyClass
 	}
 	var driverID *uuid.UUID
 	shipmentID := in.Execution.ShipmentID
 	if shipmentID == nil {
 		shipmentID = in.Trigger.ShipmentID
 	}
-	if spec.RequiresShipment && shipmentID != nil {
+	if shipmentID != nil {
 		assignment, err := s.shipments.GetAssignedDriver(ctx, in.TenantID, *shipmentID)
 		if err != nil {
-			return s.persistDenied(ctx, in, actionType, spec.SafetyClass, "SHIPMENT_LOOKUP_FAILED")
+			if hasSpec && (spec.RequiresShipment || spec.RequiresDriver) {
+				return s.persistDenied(ctx, in, actionType, safetyClass, "SHIPMENT_LOOKUP_FAILED")
+			}
+		} else {
+			driverID = assignment.DriverID
 		}
-		driverID = assignment.DriverID
 	}
 	guardResult, err := s.guard.EvaluateAction(ctx, GuardEvaluationInput{
 		TenantID: in.TenantID, Trigger: in.Trigger, ActionType: actionType,
@@ -72,7 +77,7 @@ func (s *GuardedActionService) DispatchSystemStep(ctx context.Context, in Dispat
 	expiresAt := time.Now().UTC().Add(time.Duration(domain.DefaultDriverTaskExpiryMinutes) * time.Minute)
 	action, inserted, err := s.actions.CreateAction(ctx, repository.CreateGuardedActionParams{
 		TenantID: in.TenantID, ExecutionID: in.Execution.ID, ExecutionStepID: in.Step.ID,
-		ActionType: actionType, SafetyClass: spec.SafetyClass, GuardDecision: guardResult.Decision,
+		ActionType: actionType, SafetyClass: safetyClass, GuardDecision: guardResult.Decision,
 		GuardReason: guardResult.Reason, Status: initialGuardedActionStatus(guardResult.Decision),
 		DriverID: driverID, ShipmentID: shipmentID, CorrelationID: in.Trigger.CorrelationID,
 		SourceEventID: in.Trigger.TriggerID, IdempotencyKey: idempotencyKey, ExpiresAt: &expiresAt,
@@ -85,14 +90,24 @@ func (s *GuardedActionService) DispatchSystemStep(ctx context.Context, in Dispat
 			return action, nil
 		}
 	}
-	_ = s.actions.UpdateExecutionStepStatus(ctx, in.TenantID, in.Step.ID, stepStatusForGuard(guardResult.Decision, spec))
+	stepSpec := spec
+	if !hasSpec {
+		stepSpec = domain.GuardedActionSpec{}
+	}
+	_ = s.actions.UpdateExecutionStepStatus(ctx, in.TenantID, in.Step.ID, stepStatusForGuard(guardResult.Decision, stepSpec))
 	switch guardResult.Decision {
 	case domain.GuardDecisionDeny, domain.GuardDecisionSkip:
 		return action, nil
 	case domain.GuardDecisionRequireApproval:
+		if !hasSpec {
+			return action, nil
+		}
 		_, _, _ = s.actions.CreateApproval(ctx, in.TenantID, action.ID, domain.EffectiveApprovalLevel(actionType, nil))
 		return action, nil
 	case domain.GuardDecisionAllow:
+		if !hasSpec {
+			return s.persistDenied(ctx, in, actionType, safetyClass, "UNKNOWN_ACTION")
+		}
 		return s.executeDriverTaskAction(ctx, in, action, spec, driverID, shipmentID)
 	default:
 		return action, nil
@@ -108,12 +123,19 @@ func (s *GuardedActionService) ApproveAction(ctx context.Context, tenantID, user
 		return domain.GuardedAction{}, err
 	}
 	if action.Status != domain.GuardedActionStatusWaitingApproval {
-		if action.DriverTaskID != nil {
+		if action.DriverTaskID != nil || domain.IsTerminalGuardedActionStatus(action.Status) {
 			return action, nil
 		}
 		return domain.GuardedAction{}, apperrors.Conflict("action is not waiting for approval", nil)
 	}
 	if _, err := s.actions.Approve(ctx, tenantID, actionID, userID); err != nil {
+		var appErr *apperrors.AppError
+		if errors.As(err, &appErr) && appErr.Code == apperrors.CodeConflict {
+			refreshed, getErr := s.actions.GetAction(ctx, tenantID, actionID)
+			if getErr == nil && (refreshed.DriverTaskID != nil || refreshed.Status != domain.GuardedActionStatusWaitingApproval) {
+				return refreshed, nil
+			}
+		}
 		return domain.GuardedAction{}, err
 	}
 	spec, _ := domain.LookupGuardedActionSpec(action.ActionType)
@@ -187,12 +209,15 @@ func (s *GuardedActionService) executeDriverTaskAction(ctx context.Context, in D
 	if s.driverTask == nil {
 		return s.failAction(ctx, in.TenantID, action, "DRIVER_TASK_CLIENT_UNAVAILABLE")
 	}
-	if spec.RequiresShipment && shipmentID != nil {
+	if shipmentID != nil {
 		assignment, err := s.shipments.GetAssignedDriver(ctx, in.TenantID, *shipmentID)
 		if err != nil || assignment.DriverID == nil {
-			return s.failAction(ctx, in.TenantID, action, "NO_ASSIGNED_DRIVER")
+			if spec.RequiresShipment || spec.RequiresDriver {
+				return s.failAction(ctx, in.TenantID, action, "NO_ASSIGNED_DRIVER")
+			}
+		} else {
+			driverID = assignment.DriverID
 		}
-		driverID = assignment.DriverID
 	}
 	if driverID == nil {
 		return s.failAction(ctx, in.TenantID, action, "MISSING_DRIVER")
@@ -351,11 +376,11 @@ func WithAutomationPermissions(ctx context.Context, perms ...string) context.Con
 
 func hasAutomationPermission(ctx context.Context, perm string) bool {
 	raw, ok := ctx.Value(permissionContextKey{}).([]string)
-	if !ok {
-		return true
+	if !ok || len(raw) == 0 {
+		return false
 	}
 	for _, p := range raw {
-		if p == perm || p == "automation.manage" {
+		if strings.TrimSpace(p) == perm || strings.TrimSpace(p) == "automation.manage" {
 			return true
 		}
 	}

@@ -167,6 +167,54 @@ func (h *Handler) SkipPlaybookExecutionStep(w http.ResponseWriter, r *http.Reque
 		controltowerreadmodel.PlaybookExecutionPath(execID, "steps/"+stepID+"/skip"), body, http.StatusOK)
 }
 
+func (h *Handler) ListGuardedActions(w http.ResponseWriter, r *http.Request) {
+	execID := chi.URLParam(r, "executionId")
+	h.handleAutomationProxy(w, r, http.MethodGet, CanViewAutomation, "view guarded actions denied",
+		controltowerreadmodel.GuardedExecutionActionsPath(execID), nil, http.StatusOK)
+}
+
+func (h *Handler) ApproveGuardedAction(w http.ResponseWriter, r *http.Request) {
+	execID := chi.URLParam(r, "executionId")
+	actionID := chi.URLParam(r, "actionId")
+	h.handleGuardedActionMutation(w, r, http.MethodPost, execID, actionID, "approve")
+}
+
+func (h *Handler) RejectGuardedAction(w http.ResponseWriter, r *http.Request) {
+	execID := chi.URLParam(r, "executionId")
+	actionID := chi.URLParam(r, "actionId")
+	body, _ := io.ReadAll(r.Body)
+	h.handleGuardedActionMutationWithBody(w, r, http.MethodPost, execID, actionID, "reject", body)
+}
+
+func (h *Handler) handleGuardedActionMutation(w http.ResponseWriter, r *http.Request, method, executionID, actionID, suffix string) {
+	h.handleGuardedActionMutationWithBody(w, r, method, executionID, actionID, suffix, nil)
+}
+
+func (h *Handler) handleGuardedActionMutationWithBody(w http.ResponseWriter, r *http.Request, method, executionID, actionID, suffix string, body []byte) {
+	reqCtx, err := buildRequestContext(r, h.authEnabled, h.devTenantID)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	if h.authEnabled {
+		if err := h.ensureRoleAccess(r, reqCtx, CanApproveGuardedActions, "guarded action approval denied"); err != nil {
+			respond.Error(w, err)
+			return
+		}
+	}
+	payload, err := h.service.proxyAutomationWithPermissions(r.Context(), reqCtx, method,
+		controltowerreadmodel.GuardedExecutionActionPath(executionID, actionID, suffix), body, []string{"automation.approve"})
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	if len(payload) == 0 {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	respond.JSONRaw(w, http.StatusOK, payload)
+}
+
 func (h *Handler) GetAutomationKPI(w http.ResponseWriter, r *http.Request) {
 	h.handleAutomationRead(w, r, CanViewAutomation, "view automation kpi denied", func(reqCtx RequestContext) (json.RawMessage, int, error) {
 		payload, err := h.service.GetAutomationKPI(r.Context(), reqCtx)

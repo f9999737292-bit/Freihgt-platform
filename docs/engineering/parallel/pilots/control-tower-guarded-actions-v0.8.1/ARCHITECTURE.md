@@ -40,7 +40,16 @@ Forbidden actions (CHANGE_ROUTE, CANCEL_SHIPMENT, payment mutations, arbitrary c
 
 ## Known limitations (v0.8.1)
 
-- Approval UI minimal; backend approve/reject API present
 - Timeout escalation uses case timeline event (no separate operator task entity)
-- OpenAPI partial update deferred where routes mirror internal patterns
-- Full concurrency matrix not yet complete for all replay scenarios
+
+## v0.8.1.1 verification remediation
+
+- Approval RBAC fail-closed: missing `X-User-Permissions` / empty permission context → deny
+- Gateway strips client `X-User-Permissions`; approve/reject injects trusted `automation.approve` for PLATFORM_ADMIN
+- Global kill switch: `GLOBAL_GUARDED_ACTIONS_ENABLED` (default false)
+- Tenant/action kill switches via `automation_tenant_action_policy`
+- Real PostgreSQL concurrency/replay matrix: approval, approve/reject race, completion replay/concurrency, timeout replay, completion vs timeout race
+- Runtime forbidden-action proof (playbook steps persisted, guard DENY at runtime)
+- Full audit chain reconstructable from persistence
+- OpenAPI guarded action + approval schemas validated
+- Control Tower UI: guarded action panel with DENIED/WAITING_APPROVAL/WAITING_RESPONSE/SUCCEEDED/TIMED_OUT/REJECTED + RBAC-aware approve/reject

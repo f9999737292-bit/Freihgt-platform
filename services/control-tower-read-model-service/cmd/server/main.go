@@ -56,6 +56,7 @@ func main() {
 	automationSvc := service.NewAutomationService(automationRepo)
 	driverTaskClient := client.NewHTTPDriverTaskClient(cfg.DriverTaskServiceURL, cfg.InternalServiceToken)
 	guardEvaluator := service.NewGuardEvaluator(shipmentLookupRepo, guardedActionRepo)
+	service.SetGuardedActionsGlobalEnabled(cfg.GuardedActionsEnabled)
 	guardedActionSvc := service.NewGuardedActionService(guardedActionRepo, shipmentLookupRepo, automationRepo, guardEvaluator, driverTaskClient)
 	guardedAutoRunner := service.NewGuardedAutoRunner(automationRepo, guardedActionSvc)
 	automationSvc.SetGuardedAutoRunner(guardedAutoRunner)

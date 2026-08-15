@@ -124,6 +124,10 @@ func CanManagePlaybookExecution(roles []string) bool {
 	return CanAccessControlTower(roles)
 }
 
+func CanApproveGuardedActions(roles []string) bool {
+	return hasAnyRole(roles, map[string]struct{}{"PLATFORM_ADMIN": {}})
+}
+
 func hasAnyRole(roles []string, allowed map[string]struct{}) bool {
 	for _, role := range roles {
 		if _, ok := allowed[role]; ok {

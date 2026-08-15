@@ -41,7 +41,7 @@ func (h *GuardedActionHandler) ApproveAction(w http.ResponseWriter, r *http.Requ
 		respond.Error(w, err)
 		return
 	}
-	respond.JSON(w, http.StatusOK, toGuardedActionResponse(action))
+	respond.JSON(w, http.StatusOK, toGuardedActionResponse(action, nil))
 }
 
 func (h *GuardedActionHandler) RejectAction(w http.ResponseWriter, r *http.Request) {
@@ -64,7 +64,7 @@ func (h *GuardedActionHandler) RejectAction(w http.ResponseWriter, r *http.Reque
 		respond.Error(w, err)
 		return
 	}
-	respond.JSON(w, http.StatusOK, toGuardedActionResponse(action))
+	respond.JSON(w, http.StatusOK, toGuardedActionResponse(action, nil))
 }
 
 func (h *GuardedActionHandler) ListExecutionActions(w http.ResponseWriter, r *http.Request) {
@@ -84,7 +84,11 @@ func (h *GuardedActionHandler) ListExecutionActions(w http.ResponseWriter, r *ht
 	}
 	out := make([]map[string]any, 0, len(items))
 	for _, item := range items {
-		out = append(out, toGuardedActionResponse(item))
+		var approvalPtr *domain.ActionApproval
+		if approval, err := h.actions.GetApprovalByAction(r.Context(), tenantID, item.ID); err == nil {
+			approvalPtr = &approval
+		}
+		out = append(out, toGuardedActionResponse(item, approvalPtr))
 	}
 	respond.JSON(w, http.StatusOK, map[string]any{"items": out})
 }
@@ -134,13 +138,14 @@ func parseAutomationPermissions(r *http.Request) []string {
 	return strings.Split(raw, ",")
 }
 
-func toGuardedActionResponse(action domain.GuardedAction) map[string]any {
+func toGuardedActionResponse(action domain.GuardedAction, approval *domain.ActionApproval) map[string]any {
 	out := map[string]any{
 		"id": action.ID.String(), "executionId": action.ExecutionID.String(),
 		"executionStepId": action.ExecutionStepID.String(), "actionType": action.ActionType,
 		"safetyClass": action.SafetyClass, "guardDecision": action.GuardDecision,
 		"guardReason": action.GuardReason, "status": action.Status,
 		"correlationId": action.CorrelationID, "sourceEventId": action.SourceEventID,
+		"createdAt": action.CreatedAt, "updatedAt": action.UpdatedAt,
 	}
 	if action.DriverID != nil {
 		out["driverId"] = action.DriverID.String()
@@ -156,6 +161,30 @@ func toGuardedActionResponse(action domain.GuardedAction) map[string]any {
 	}
 	if len(action.ResponsePayload) > 0 {
 		out["response"] = json.RawMessage(action.ResponsePayload)
+	}
+	if action.ExpiresAt != nil {
+		out["expiresAt"] = action.ExpiresAt
+	}
+	if approval != nil {
+		out["approval"] = map[string]any{
+			"id": approval.ID.String(), "requiredLevel": approval.RequiredLevel, "status": approval.Status,
+			"requestedAt": approval.RequestedAt,
+		}
+		if approval.ApprovedAt != nil {
+			out["approval"].(map[string]any)["approvedAt"] = approval.ApprovedAt
+		}
+		if approval.ApprovedBy != nil {
+			out["approval"].(map[string]any)["approvedBy"] = approval.ApprovedBy.String()
+		}
+		if approval.RejectedAt != nil {
+			out["approval"].(map[string]any)["rejectedAt"] = approval.RejectedAt
+		}
+		if approval.RejectedBy != nil {
+			out["approval"].(map[string]any)["rejectedBy"] = approval.RejectedBy.String()
+		}
+		if approval.Reason != "" {
+			out["approval"].(map[string]any)["reason"] = approval.Reason
+		}
 	}
 	return out
 }
