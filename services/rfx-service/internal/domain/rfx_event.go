@@ -10,9 +10,15 @@ import (
 )
 
 const (
-	RfxStatusDraft     = "DRAFT"
-	RfxStatusPublished = "PUBLISHED"
-	RfxStatusCancelled = "CANCELLED"
+	RfxStatusDraft                  = "DRAFT"
+	RfxStatusPublished              = "PUBLISHED"
+	RfxStatusResponsesOpen          = "RESPONSES_OPEN"
+	RfxStatusResponsesClosed        = "RESPONSES_CLOSED"
+	RfxStatusEvaluationInProgress   = "EVALUATION_IN_PROGRESS"
+	RfxStatusAwardPendingApproval   = "AWARD_PENDING_APPROVAL"
+	RfxStatusAwarded                = "AWARDED"
+	RfxStatusClosed                 = "CLOSED"
+	RfxStatusCancelled              = "CANCELLED"
 )
 
 var allowedRfxTypes = map[string]struct{}{
@@ -120,9 +126,48 @@ func ValidatePublishRfxEvent(status string) error {
 	return nil
 }
 
+func ValidateOpenBidding(status string) error {
+	if status != RfxStatusPublished {
+		return apperrors.Validation("bidding can only open from PUBLISHED status", map[string]any{"field": "status", "status": status})
+	}
+	return nil
+}
+
+func ValidateCloseBidding(status string) error {
+	if status != RfxStatusResponsesOpen {
+		return apperrors.Validation("bidding can only close from RESPONSES_OPEN status", map[string]any{"field": "status", "status": status})
+	}
+	return nil
+}
+
+func ValidateStartEvaluation(status string) error {
+	if status != RfxStatusResponsesClosed && status != RfxStatusPublished {
+		return apperrors.Validation("evaluation can start from RESPONSES_CLOSED or PUBLISHED", map[string]any{"field": "status", "status": status})
+	}
+	return nil
+}
+
+func ValidateAwardPendingApproval(status string) error {
+	if status != RfxStatusEvaluationInProgress {
+		return apperrors.Validation("award proposal requires EVALUATION_IN_PROGRESS status", map[string]any{"field": "status", "status": status})
+	}
+	return nil
+}
+
+func ValidateFinalizeAwardEvent(status string) error {
+	if status != RfxStatusAwardPendingApproval {
+		return apperrors.Validation("award can only finalize from AWARD_PENDING_APPROVAL", map[string]any{"field": "status", "status": status})
+	}
+	return nil
+}
+
 func ValidateCancelRfxEvent(status string) error {
-	if status != RfxStatusDraft && status != RfxStatusPublished {
-		return apperrors.Validation("rfx event can only be cancelled from DRAFT or PUBLISHED status", map[string]any{"field": "status", "status": status})
+	if status == RfxStatusAwarded || status == RfxStatusClosed {
+		return apperrors.Validation("awarded or closed rfx event cannot be cancelled", map[string]any{"field": "status", "status": status})
+	}
+	if status != RfxStatusDraft && status != RfxStatusPublished && status != RfxStatusResponsesOpen &&
+		status != RfxStatusResponsesClosed && status != RfxStatusEvaluationInProgress {
+		return apperrors.Validation("rfx event cannot be cancelled from current status", map[string]any{"field": "status", "status": status})
 	}
 	return nil
 }

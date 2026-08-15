@@ -206,6 +206,18 @@
       "validToRange": "Дата окончания не может быть раньше даты начала"
     }
   },
+  "tender": {
+    "evaluationTitle": "Оценка и скоринг",
+    "runEvaluation": "Запустить оценку",
+    "evaluationComplete": "Оценка завершена",
+    "evaluationHint": "Запустите оценку для расчёта квалификации и взвешенного скоринга по шаблону.",
+    "carrier": "Перевозчик",
+    "qualification": "Квалификация",
+    "totalScore": "Итоговый балл",
+    "price": "Цена",
+    "sla": "SLA",
+    "kpi": "KPI"
+  },
   "freightRequests": {
     "title": "Freight Requests",
     "details": "Карточка freight request",

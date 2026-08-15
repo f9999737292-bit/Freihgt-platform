@@ -43,11 +43,14 @@ func main() {
 	frRepo := repository.NewFreightRequestRepository(db.Pool)
 	bidRepo := repository.NewBidRepository(db.Pool)
 
+	tenderRepo := repository.NewTenderRepository(db.Pool)
+
 	rfxSvc := service.NewRfxService(rfxRepo)
 	frSvc := service.NewFreightRequestService(frRepo)
 	bidSvc := service.NewBidService(bidRepo, frRepo)
+	evalSvc := service.NewEvaluationService(tenderRepo, nil)
 
-	router := httpserver.NewRouter(log, db.Pool, rfxSvc, frSvc, bidSvc)
+	router := httpserver.NewRouter(log, db.Pool, rfxSvc, frSvc, bidSvc, evalSvc)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

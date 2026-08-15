@@ -20,10 +20,12 @@ func NewRouter(
 	rfxSvc *service.RfxService,
 	frSvc *service.FreightRequestService,
 	bidSvc *service.BidService,
+	evalSvc *service.EvaluationService,
 ) http.Handler {
 	rfxHandler := handlers.NewRfxHandler(rfxSvc)
 	frHandler := handlers.NewFreightRequestHandler(frSvc)
 	bidHandler := handlers.NewBidHandler(bidSvc)
+	evalHandler := handlers.NewEvaluationHandler(evalSvc)
 
 	r := chi.NewRouter()
 	observability.Mount(r, observability.MountOptions{
@@ -45,7 +47,15 @@ func NewRouter(
 		r.Post("/{id}/participants", rfxHandler.AddParticipant)
 		r.Get("/{id}/participants", rfxHandler.ListParticipants)
 		r.Post("/{id}/responses", rfxHandler.CreateResponse)
+		r.Post("/{id}/evaluate", evalHandler.RunEvaluation)
 	})
+
+	r.Post("/v1/scoring-templates", evalHandler.CreateScoringTemplate)
+	r.Post("/v1/allocation-scenarios", evalHandler.RunAllocationScenario)
+	r.Post("/v1/award-proposals", evalHandler.CreateAwardProposal)
+	r.Post("/v1/award-proposals/{proposal_id}/submit", evalHandler.SubmitAwardProposal)
+	r.Post("/v1/award-proposals/{proposal_id}/approve", evalHandler.ApproveAwardProposal)
+	r.Post("/v1/award-proposals/{proposal_id}/finalize", evalHandler.FinalizeAward)
 
 	r.Post("/v1/rfx-lots/{lot_id}/lanes", rfxHandler.CreateLane)
 	r.Post("/v1/rfx-responses/{response_id}/submit", rfxHandler.SubmitResponse)

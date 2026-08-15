@@ -11,8 +11,6 @@ import (
 const (
 	RfxResponseStatusDraft     = "DRAFT"
 	RfxResponseStatusSubmitted = "SUBMITTED"
-
-	RfxStatusResponsesOpen = "RESPONSES_OPEN"
 )
 
 type RfxResponse struct {
