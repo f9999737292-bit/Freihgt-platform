@@ -2,10 +2,11 @@
 import {
   COMPANY_TYPES,
   PREFERRED_LOCALES,
+  clearCompanyFormErrors,
   emptyCreateForm,
   hasFormErrors,
   validateCompanyForm,
-  type CreateCompanyPayload,
+  type CreateCompanyFormState,
   type CompanyFormErrors,
 } from '~/types/company'
 
@@ -20,7 +21,7 @@ const { pushToast } = useToast()
 const { t } = useI18n()
 
 const saving = ref(false)
-const form = reactive<CreateCompanyPayload>(emptyCreateForm())
+const form = reactive<CreateCompanyFormState>(emptyCreateForm())
 const errors = reactive<CompanyFormErrors>({})
 
 const companyTypeOptions = computed(() =>
@@ -35,7 +36,7 @@ watch(
   (open) => {
     if (!open) return
     Object.assign(form, emptyCreateForm())
-    Object.keys(errors).forEach((key) => delete errors[key as keyof CompanyFormErrors])
+    clearCompanyFormErrors(errors)
   },
 )
 

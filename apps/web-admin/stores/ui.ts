@@ -3,7 +3,7 @@ import type { ApiGatewayStatus } from '~/types/api'
 
 export interface ToastMessage {
   id: string
-  type: 'success' | 'error' | 'info'
+  type: 'success' | 'error' | 'info' | 'warning'
   message: string
 }
 

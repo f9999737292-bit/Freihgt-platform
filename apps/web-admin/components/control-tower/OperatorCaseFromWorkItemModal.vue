@@ -9,12 +9,11 @@ const props = defineProps<{
 
 const emit = defineEmits<{ close: []; created: [caseId: string]; added: [caseId: string] }>()
 
-const { t } = useI18n()
 const { createCaseFromWorkItem, findDuplicateCandidates, addWorkItemToCase, actionLoading } = useOperationalCases()
 
 const title = ref('')
 const summary = ref('')
-const duplicates = ref<import('~/types/controlTower').ControlTowerOperationalCase[]>([])
+const duplicates = ref<import('~/types/controlTower').ControlTowerCaseDuplicateCandidate[]>([])
 const selectedCaseId = ref('')
 
 watch(

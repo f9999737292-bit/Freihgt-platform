@@ -50,6 +50,27 @@ export interface CreateCompanyPayload {
   preferred_locale: string
 }
 
+/** Required string fields for company create/edit form v-model bindings. */
+export interface CompanyFormState {
+  legal_name: string
+  short_name: string
+  legal_name_en: string
+  legal_name_zh: string
+  company_type: string
+  tax_id: string
+  registration_number: string
+  country_code: string
+  preferred_locale: string
+}
+
+export interface CreateCompanyFormState extends CompanyFormState {
+  tenant_id: string
+}
+
+export interface CompanyEditFormState extends CompanyFormState {
+  status: string
+}
+
 export interface UpdateCompanyPayload {
   legal_name?: string
   short_name?: string
@@ -103,7 +124,14 @@ export interface CompanyFormErrors {
   preferred_locale?: string
 }
 
-export function emptyCreateForm(): CreateCompanyPayload {
+export function clearCompanyFormErrors(errors: CompanyFormErrors): void {
+  errors.legal_name = undefined
+  errors.company_type = undefined
+  errors.country_code = undefined
+  errors.preferred_locale = undefined
+}
+
+export function emptyCreateForm(): CreateCompanyFormState {
   return {
     tenant_id: '',
     legal_name: '',

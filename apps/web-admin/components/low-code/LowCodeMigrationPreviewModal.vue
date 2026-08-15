@@ -276,7 +276,7 @@ watch(
           <pre>{{ formatJsonValue(preview) }}</pre>
         </details>
 
-        <p v-if="errorMessage && phase !== 'error'" class="migration-modal__error-inline">
+        <p v-if="errorMessage" class="migration-modal__error-inline">
           {{ errorMessage }}
         </p>
 

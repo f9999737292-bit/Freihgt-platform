@@ -159,10 +159,14 @@ async function resolveTemplateCodeForType(entityType: LowCodeEntityType) {
 
 async function resolveTemplateCodeForEntity() {
   if (!loadedEntity.entity_id) {
-    await resolveTemplateCodeForType(form.entity_type)
+    if (form.entity_type) {
+      await resolveTemplateCodeForType(form.entity_type)
+    }
     return
   }
-  await resolveTemplateCodeForType(loadedEntity.entity_type)
+  if (loadedEntity.entity_type) {
+    await resolveTemplateCodeForType(loadedEntity.entity_type)
+  }
 }
 
 function openMigrationModal() {

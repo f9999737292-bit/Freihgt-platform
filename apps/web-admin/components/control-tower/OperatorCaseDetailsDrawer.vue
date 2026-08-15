@@ -112,7 +112,7 @@ function timelineLabel(entry: { source: string; actionType: string }): string {
 
 function userName(userId?: string): string {
   if (!userId) return '—'
-  return props.tenantUsers?.find((u) => u.id === userId)?.displayName ?? userId
+  return props.tenantUsers?.find((u) => u.id === userId)?.full_name ?? userId
 }
 
 async function onAddNote() {
@@ -357,7 +357,7 @@ watch(
         <input v-model="actionDueAt" type="datetime-local" :aria-label="$t('controlTower.cases.actionDueAt')" />
         <select v-model="actionAssigneeId" :aria-label="$t('controlTower.cases.actionAssignee')">
           <option value="">{{ $t('controlTower.cases.unassigned') }}</option>
-          <option v-for="user in tenantUsers ?? []" :key="user.id" :value="user.id">{{ user.displayName }}</option>
+          <option v-for="user in tenantUsers ?? []" :key="user.id" :value="user.id">{{ user.full_name }}</option>
         </select>
         <UiButton size="sm" :disabled="!actionTitle.trim() || actionLoading" @click="onAddAction">{{ $t('common.create') }}</UiButton>
       </div>
@@ -433,7 +433,7 @@ watch(
               :value="user.id"
               :disabled="user.id === ownerUserId"
             >
-              {{ user.displayName }}
+              {{ user.full_name }}
             </option>
           </select>
         </label>

@@ -301,7 +301,7 @@ function previewStatusLabel(status: MigrationPreviewStatus) {
   }
 }
 
-function itemCount(fields: string[] | undefined): number {
+function itemCount(fields: ReadonlyArray<unknown> | undefined): number {
   return Array.isArray(fields) ? fields.length : 0
 }
 
@@ -514,7 +514,7 @@ watch(skipBlocked, (value) => {
             <UiButton
               size="sm"
               :disabled="!canProceedFromSelect || isRequestInFlight"
-              :loading="phase === 'loadingPreview'"
+              :loading="isRequestInFlight"
               @click="loadPreview"
             >
               {{ $t('lowCode.batchMigrationRetryPreview') }}
@@ -775,7 +775,7 @@ watch(skipBlocked, (value) => {
           <UiButton
             variant="secondary"
             :disabled="isRequestInFlight"
-            :loading="phase === 'loadingPreview'"
+            :loading="isRequestInFlight"
             @click="loadPreview"
           >
             {{ $t('lowCode.batchMigrationRetryPreview') }}

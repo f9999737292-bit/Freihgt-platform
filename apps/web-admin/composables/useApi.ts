@@ -45,7 +45,7 @@ interface RequestOptions {
   skipAuth?: boolean
   skipTenant?: boolean
   headers?: Record<string, string>
-  query?: Record<string, string | number | undefined>
+  query?: Record<string, string | number | boolean | undefined>
 }
 
 function isNetworkFetchError(error: unknown): boolean {
@@ -249,6 +249,7 @@ export function useApi() {
     ApiError,
     TenantRequiredError,
     isBackendUnavailableError,
+    isApiUnavailableError,
   }
 }
 

@@ -2,11 +2,12 @@
 import {
   COMPANY_STATUSES,
   PREFERRED_LOCALES,
+  clearCompanyFormErrors,
   hasFormErrors,
   validateCompanyForm,
   type Company,
+  type CompanyEditFormState,
   type CompanyFormErrors,
-  type UpdateCompanyPayload,
 } from '~/types/company'
 
 const props = defineProps<{ open: boolean; company: Company | null }>()
@@ -20,7 +21,18 @@ const { pushToast } = useToast()
 const { t } = useI18n()
 
 const saving = ref(false)
-const form = reactive<UpdateCompanyPayload>({})
+const form = reactive<CompanyEditFormState>({
+  legal_name: '',
+  short_name: '',
+  legal_name_en: '',
+  legal_name_zh: '',
+  company_type: 'SHIPPER',
+  tax_id: '',
+  registration_number: '',
+  country_code: 'RU',
+  preferred_locale: 'ru-RU',
+  status: 'ACTIVE',
+})
 const errors = reactive<CompanyFormErrors>({})
 
 const localeOptions = computed(() =>
@@ -42,8 +54,9 @@ watch(
     form.registration_number = props.company.registration_number ?? ''
     form.country_code = props.company.country_code
     form.preferred_locale = props.company.preferred_locale
+    form.company_type = props.company.company_type
     form.status = props.company.status
-    Object.keys(errors).forEach((key) => delete errors[key as keyof CompanyFormErrors])
+    clearCompanyFormErrors(errors)
   },
 )
 

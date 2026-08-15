@@ -75,17 +75,17 @@ export function compactValidationContextForPut(
   if (!context) return undefined
 
   const out: LowCodeValidationContext = {}
-  assignTrimmed(out, 'entity_type', context.entity_type)
-  assignTrimmed(out, 'entity_id', context.entity_id)
+  if ('entity_type' in context) assignTrimmed(out, 'entity_type', context.entity_type)
+  if ('entity_id' in context) assignTrimmed(out, 'entity_id', context.entity_id)
   assignTrimmed(out, 'entity_status', context.entity_status)
   assignTrimmed(out, 'role', context.role)
-  assignTrimmed(out, 'cargo_type', context.cargo_type)
-  assignTrimmed(out, 'transport_order_id', context.transport_order_id)
-  assignTrimmed(out, 'carrier_id', context.carrier_id)
-  assignTrimmed(out, 'driver_id', context.driver_id)
-  assignTrimmed(out, 'vehicle_id', context.vehicle_id)
-  assignTrimmed(out, 'period', context.period)
-  assignTrimmed(out, 'currency', context.currency)
+  if ('cargo_type' in context) assignTrimmed(out, 'cargo_type', context.cargo_type)
+  if ('transport_order_id' in context) assignTrimmed(out, 'transport_order_id', context.transport_order_id)
+  if ('carrier_id' in context) assignTrimmed(out, 'carrier_id', context.carrier_id)
+  if ('driver_id' in context) assignTrimmed(out, 'driver_id', context.driver_id)
+  if ('vehicle_id' in context) assignTrimmed(out, 'vehicle_id', context.vehicle_id)
+  if ('period' in context) assignTrimmed(out, 'period', context.period)
+  if ('currency' in context) assignTrimmed(out, 'currency', context.currency)
 
   if ('amount' in context && context.amount != null && context.amount !== '') {
     const amount =
@@ -128,8 +128,8 @@ export function mergeLowCodeValidationContext(
 
   for (const context of contexts) {
     if (!context) continue
-    if (context.entity_type?.trim()) merged.entity_type = context.entity_type.trim()
-    if (context.entity_id?.trim()) merged.entity_id = context.entity_id.trim()
+    if ('entity_type' in context && context.entity_type?.trim()) merged.entity_type = context.entity_type.trim()
+    if ('entity_id' in context && context.entity_id?.trim()) merged.entity_id = context.entity_id.trim()
     if (context.entity_status?.trim()) merged.entity_status = context.entity_status.trim()
     if (context.role?.trim()) merged.role = context.role.trim()
     if ('cargo_type' in context && context.cargo_type?.trim()) {

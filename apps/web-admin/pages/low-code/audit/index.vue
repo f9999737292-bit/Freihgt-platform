@@ -30,7 +30,7 @@ const filters = reactive({
   entity_id: '',
   action: '',
   batch_id: '',
-  limit: 50,
+  limit: '50',
 })
 
 const quickFilter = ref<LowCodeAuditQuickFilter>('all')
@@ -59,10 +59,10 @@ const quickFilterOptions = computed(() => [
 ])
 
 const limitOptions = [
-  { label: '10', value: 10 },
-  { label: '25', value: 25 },
-  { label: '50', value: 50 },
-  { label: '100', value: 100 },
+  { label: '10', value: '10' },
+  { label: '25', value: '25' },
+  { label: '50', value: '50' },
+  { label: '100', value: '100' },
 ]
 
 const displayedItems = computed(() => {
@@ -95,7 +95,7 @@ const hasActiveFilters = computed(() =>
     || filters.action.trim()
     || filters.batch_id.trim()
     || quickFilter.value !== 'all'
-    || filters.limit !== 50,
+    || filters.limit !== '50',
   ),
 )
 
@@ -122,7 +122,7 @@ async function load() {
       entity_type: filters.entity_type || undefined,
       entity_id: filters.entity_id.trim() || undefined,
       action: resolveActionForLoad(),
-      limit: filters.limit,
+      limit: Number(filters.limit),
     })
     items.value = data.items
   } catch (error) {
@@ -154,7 +154,7 @@ function clearFilters() {
   filters.entity_id = ''
   filters.action = ''
   filters.batch_id = ''
-  filters.limit = 50
+  filters.limit = '50'
   quickFilter.value = 'all'
   load()
 }
@@ -180,7 +180,7 @@ onMounted(() => {
   if (typeof q.category === 'string') quickFilter.value = parseCategory(q.category)
   if (typeof q.limit === 'string') {
     const parsed = Number.parseInt(q.limit, 10)
-    if (!Number.isNaN(parsed)) filters.limit = parsed
+    if (!Number.isNaN(parsed)) filters.limit = String(parsed)
   }
   if (filters.action === LOW_CODE_AUDIT_ACTION_MIGRATED_TO_ACTIVE) {
     quickFilter.value = filters.batch_id.trim() ? 'batch_migrations' : 'migrations'

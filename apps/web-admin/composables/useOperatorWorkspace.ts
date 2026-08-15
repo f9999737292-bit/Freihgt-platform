@@ -137,7 +137,7 @@ export function useOperatorWorkspace() {
       }
     } catch (error) {
       workItems.value = []
-      pushToast(formatApiErrorForUser(error), 'error')
+      pushToast('error', formatApiErrorForUser(error))
     } finally {
       loading.value = false
     }
@@ -217,7 +217,7 @@ export function useOperatorWorkspace() {
         `/api/v1/control-tower/work-items/${item.itemType}/${item.sourceId}`,
       )
     } catch (error) {
-      pushToast(formatApiErrorForUser(error), 'error')
+      pushToast('error', formatApiErrorForUser(error))
     }
   }
 
@@ -236,7 +236,7 @@ export function useOperatorWorkspace() {
         `/api/v1/control-tower/work-items/exception/${eventId}`,
       )
     } catch (error) {
-      pushToast(formatApiErrorForUser(error), 'error')
+      pushToast('error', formatApiErrorForUser(error))
     }
   }
 
@@ -294,17 +294,17 @@ export function useOperatorWorkspace() {
       )
       lastBulkOutcome.value = outcome
       pushToast(
+        outcome.failed > 0 ? 'warning' : 'success',
         t('controlTower.workspace.bulkSummary', {
           requested: outcome.requested,
           succeeded: outcome.succeeded,
           failed: outcome.failed,
         }),
-        outcome.failed > 0 ? 'warning' : 'success',
       )
       await refreshWorkspace()
       return outcome
     } catch (error) {
-      pushToast(formatApiErrorForUser(error), 'error')
+      pushToast('error', formatApiErrorForUser(error))
       return null
     } finally {
       actionLoading.value = false
@@ -331,7 +331,7 @@ export function useOperatorWorkspace() {
     actionLoading.value = true
     try {
       await apiPost(`/api/v1/control-tower/work-items/${item.itemType}/${item.sourceId}/claim`)
-      pushToast(t('controlTower.workspace.claimSuccess'), 'success')
+      pushToast('success', t('controlTower.workspace.claimSuccess'))
       await refreshWorkspace({ keepSelection: true })
     } catch (error) {
       handleOwnershipConflict(error)
@@ -342,11 +342,11 @@ export function useOperatorWorkspace() {
 
   function handleOwnershipConflict(error: unknown) {
     if (error instanceof ApiError && error.status === 409) {
-      pushToast(t('controlTower.workspace.ownershipChanged'), 'warning')
+      pushToast('warning', t('controlTower.workspace.ownershipChanged'))
       void refreshWorkspace()
       return
     }
-    pushToast(formatApiErrorForUser(error), 'error')
+    pushToast('error', formatApiErrorForUser(error))
   }
 
   async function createHandoff(toUserId: string, note: string | undefined, items: ControlTowerWorkItem[]) {
@@ -361,7 +361,7 @@ export function useOperatorWorkspace() {
       await refreshWorkspace()
       return result
     } catch (error) {
-      pushToast(formatApiErrorForUser(error), 'error')
+      pushToast('error', formatApiErrorForUser(error))
       return null
     } finally {
       actionLoading.value = false
@@ -384,13 +384,13 @@ export function useOperatorWorkspace() {
       await apiPost(`/api/v1/control-tower/views/${view.id}/set-default`)
     }
     await loadSavedViews()
-    pushToast(t('controlTower.workspace.savedViewCreated'), 'success')
+    pushToast('success', t('controlTower.workspace.savedViewCreated'))
   }
 
   async function updateSavedView(viewId: string, patch: Record<string, unknown>) {
     await apiPatch<ControlTowerSavedView>(`/api/v1/control-tower/views/${viewId}`, patch)
     await loadSavedViews()
-    pushToast(t('controlTower.workspace.savedViewUpdated'), 'success')
+    pushToast('success', t('controlTower.workspace.savedViewUpdated'))
   }
 
   async function updateSavedViewWithCurrentFilters(viewId: string) {
@@ -412,7 +412,7 @@ export function useOperatorWorkspace() {
       sort: view.sort ?? {},
     })
     await loadSavedViews()
-    pushToast(t('controlTower.workspace.savedViewCreated'), 'success')
+    pushToast('success', t('controlTower.workspace.savedViewCreated'))
   }
 
   async function deleteSavedView(viewId: string) {
@@ -421,13 +421,13 @@ export function useOperatorWorkspace() {
     if (defaultSavedView.value?.id === viewId) {
       await loadWorkItems({ preset: 'my_work', resetPage: true })
     }
-    pushToast(t('controlTower.workspace.savedViewDeleted'), 'success')
+    pushToast('success', t('controlTower.workspace.savedViewDeleted'))
   }
 
   async function setDefaultSavedView(viewId: string) {
     await apiPost(`/api/v1/control-tower/views/${viewId}/set-default`)
     await loadSavedViews()
-    pushToast(t('controlTower.workspace.defaultViewSet'), 'success')
+    pushToast('success', t('controlTower.workspace.defaultViewSet'))
   }
 
   async function applySavedView(view: ControlTowerSavedView) {

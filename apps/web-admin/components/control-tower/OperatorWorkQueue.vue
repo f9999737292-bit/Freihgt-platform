@@ -149,7 +149,13 @@ const workspaceSection = ref<ControlTowerWorkspaceSection>('work')
 const caseFromWorkItemOpen = ref(false)
 const caseFromWorkItem = ref<import('~/types/controlTower').ControlTowerWorkItem | null>(null)
 
-const casesUi = useOperationalCases()
+const {
+  openCase: openOperationalCase,
+  refreshCaseWorkspace: refreshOperationalCaseWorkspace,
+  drawerOpen: caseDrawerOpen,
+  selectedCase,
+  actionLoading: caseActionLoading,
+} = useOperationalCases()
 
 
 
@@ -231,7 +237,7 @@ function onOpenCase(caseId: string) {
 
   workspaceSection.value = 'cases'
 
-  void casesUi.openCase(caseId)
+  void openOperationalCase(caseId)
 
 }
 
@@ -251,7 +257,7 @@ function onCaseFromWorkItemDone(caseId: string) {
   caseFromWorkItemOpen.value = false
   caseFromWorkItem.value = null
   void refreshWorkspace({ keepSelection: true })
-  void casesUi.refreshCaseWorkspace()
+  void refreshOperationalCaseWorkspace()
   void onOpenCase(caseId)
 }
 
@@ -259,7 +265,7 @@ function onCaseFromWorkItemDone(caseId: string) {
 
 function closeCaseDrawer() {
 
-  casesUi.drawerOpen = false
+  caseDrawerOpen.value = false
 
 }
 
@@ -950,11 +956,11 @@ watch(
 
     <ControlTowerOperatorCaseDetailsDrawer
 
-      :open="casesUi.drawerOpen"
+      :open="caseDrawerOpen"
 
-      :case-item="casesUi.selectedCase"
+      :case-item="selectedCase"
 
-      :action-loading="casesUi.actionLoading"
+      :action-loading="caseActionLoading"
 
       :tenant-users="tenantUsers ?? []"
 

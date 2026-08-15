@@ -889,6 +889,15 @@ export interface ControlTowerCaseDecision {
   decidedAt: string
 }
 
+export interface ControlTowerCaseDuplicateCandidate {
+  id: string
+  reference?: string
+  title?: string
+  status?: ControlTowerCaseStatus
+  effectiveSeverity?: ControlTowerCaseSeverity
+  ownerDisplayName?: string
+}
+
 export interface ControlTowerOperationalCase {
   id: string
   reference: string

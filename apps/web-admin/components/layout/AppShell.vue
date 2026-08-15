@@ -1,5 +1,4 @@
 <script setup lang="ts">
-const uiStore = useUiStore()
 const { toasts } = useToast()
 </script>
 
@@ -73,5 +72,9 @@ const { toasts } = useToast()
 
 .toast--info {
   background: var(--color-info);
+}
+
+.toast--warning {
+  background: var(--color-warning, #c9870a);
 }
 </style>

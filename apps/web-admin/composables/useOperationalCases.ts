@@ -7,6 +7,7 @@ import type {
   ControlTowerCaseTimelineEntry,
   ControlTowerCaseTimelineResponse,
   ControlTowerCasesResponse,
+  ControlTowerCaseDuplicateCandidate,
   ControlTowerOperationalCase,
   ControlTowerSavedView,
   ControlTowerWorkItem,
@@ -56,8 +57,8 @@ export function useOperationalCases() {
   }
 
   function handleConflict(error: unknown, refreshFn?: () => Promise<void>) {
-    if (error instanceof ApiError && error.statusCode === 409) {
-      pushToast(t('controlTower.cases.conflictRefresh'), 'warning')
+    if (error instanceof ApiError && error.status === 409) {
+      pushToast('warning', t('controlTower.cases.conflictRefresh'))
       if (refreshFn) void refreshFn()
       return true
     }
@@ -79,7 +80,7 @@ export function useOperationalCases() {
       hasNext.value = response.hasNext ?? false
     } catch (error) {
       cases.value = []
-      pushToast(formatApiErrorForUser(error), 'error')
+      pushToast('error', formatApiErrorForUser(error))
     } finally {
       loading.value = false
     }
@@ -119,7 +120,7 @@ export function useOperationalCases() {
       selectedCase.value = await apiGet<ControlTowerOperationalCase>(`/api/v1/control-tower/cases/${caseId}`)
       await loadTimeline(caseId, 1, false)
     } catch (error) {
-      pushToast(formatApiErrorForUser(error), 'error')
+      pushToast('error', formatApiErrorForUser(error))
       drawerOpen.value = false
     }
   }
@@ -137,7 +138,7 @@ export function useOperationalCases() {
       timelineHasNext.value = response.hasNext ?? false
     } catch (error) {
       if (!append) timelineEntries.value = []
-      pushToast(formatApiErrorForUser(error), 'error')
+      pushToast('error', formatApiErrorForUser(error))
     } finally {
       timelineLoading.value = false
     }
@@ -159,12 +160,12 @@ export function useOperationalCases() {
     actionLoading.value = true
     try {
       const created = await apiPost<ControlTowerOperationalCase>('/api/v1/control-tower/cases', payload)
-      pushToast(t('controlTower.cases.created'), 'success')
+      pushToast('success', t('controlTower.cases.created'))
       await refreshCaseWorkspace({ keepDrawer: false })
       return created
     } catch (error) {
       if (!handleConflict(error, () => refreshCaseWorkspace({ keepDrawer: false }))) {
-        pushToast(formatApiErrorForUser(error), 'error')
+        pushToast('error', formatApiErrorForUser(error))
       }
       return null
     } finally {
@@ -188,12 +189,12 @@ export function useOperationalCases() {
         entityType: item.itemType,
         entityId: item.sourceId,
       })
-      pushToast(t('controlTower.cases.linked'), 'success')
+      pushToast('success', t('controlTower.cases.linked'))
       await refreshCaseWorkspace()
       return true
     } catch (error) {
       if (!handleConflict(error, () => refreshCaseWorkspace())) {
-        pushToast(formatApiErrorForUser(error), 'error')
+        pushToast('error', formatApiErrorForUser(error))
       }
       return false
     } finally {
@@ -201,7 +202,7 @@ export function useOperationalCases() {
     }
   }
 
-  async function findDuplicateCandidates(item: ControlTowerWorkItem) {
+  async function findDuplicateCandidates(item: ControlTowerWorkItem): Promise<ControlTowerCaseDuplicateCandidate[]> {
     try {
       const response = await apiGet<{ items: ControlTowerOperationalCase[] }>(
         '/api/v1/control-tower/cases/duplicates',
@@ -238,7 +239,7 @@ export function useOperationalCases() {
       return updated
     } catch (error) {
       if (!handleConflict(error, () => openCase(caseId))) {
-        pushToast(formatApiErrorForUser(error), 'error')
+        pushToast('error', formatApiErrorForUser(error))
       }
       return null
     } finally {
@@ -264,12 +265,12 @@ export function useOperationalCases() {
     actionLoading.value = true
     try {
       await apiPost(`/api/v1/control-tower/cases/${caseId}/participants`, { userId, role })
-      pushToast(t('controlTower.cases.participantAdded'), 'success')
+      pushToast('success', t('controlTower.cases.participantAdded'))
       await refreshCaseWorkspace()
       return true
     } catch (error) {
       if (!handleConflict(error, () => openCase(caseId))) {
-        pushToast(formatApiErrorForUser(error), 'error')
+        pushToast('error', formatApiErrorForUser(error))
       }
       return false
     } finally {
@@ -281,12 +282,12 @@ export function useOperationalCases() {
     actionLoading.value = true
     try {
       await apiPatch(`/api/v1/control-tower/cases/${caseId}/participants/${userId}`, { role })
-      pushToast(t('controlTower.cases.participantRoleChanged'), 'success')
+      pushToast('success', t('controlTower.cases.participantRoleChanged'))
       await refreshCaseWorkspace()
       return true
     } catch (error) {
       if (!handleConflict(error, () => openCase(caseId))) {
-        pushToast(formatApiErrorForUser(error), 'error')
+        pushToast('error', formatApiErrorForUser(error))
       }
       return false
     } finally {
@@ -298,12 +299,12 @@ export function useOperationalCases() {
     actionLoading.value = true
     try {
       await apiDelete(`/api/v1/control-tower/cases/${caseId}/participants/${userId}`)
-      pushToast(t('controlTower.cases.participantRemoved'), 'success')
+      pushToast('success', t('controlTower.cases.participantRemoved'))
       await refreshCaseWorkspace()
       return true
     } catch (error) {
       if (!handleConflict(error, () => openCase(caseId))) {
-        pushToast(formatApiErrorForUser(error), 'error')
+        pushToast('error', formatApiErrorForUser(error))
       }
       return false
     } finally {
@@ -316,10 +317,10 @@ export function useOperationalCases() {
     try {
       await apiPost(`/api/v1/control-tower/cases/${caseId}/claim`)
       await refreshCaseWorkspace()
-      pushToast(t('controlTower.cases.claimSuccess'), 'success')
+      pushToast('success', t('controlTower.cases.claimSuccess'))
     } catch (error) {
       if (!handleConflict(error, () => refreshCaseWorkspace())) {
-        pushToast(formatApiErrorForUser(error), 'error')
+        pushToast('error', formatApiErrorForUser(error))
       }
     } finally {
       actionLoading.value = false
@@ -334,10 +335,10 @@ export function useOperationalCases() {
         resolutionSummary: summary?.trim() || undefined,
       })
       await refreshCaseWorkspace()
-      pushToast(t('controlTower.cases.resolveSuccess'), 'success')
+      pushToast('success', t('controlTower.cases.resolveSuccess'))
     } catch (error) {
       if (!handleConflict(error, () => refreshCaseWorkspace())) {
-        pushToast(formatApiErrorForUser(error), 'error')
+        pushToast('error', formatApiErrorForUser(error))
       }
     } finally {
       actionLoading.value = false
@@ -349,9 +350,9 @@ export function useOperationalCases() {
     try {
       await apiPost(`/api/v1/control-tower/cases/${caseId}/close`)
       await refreshCaseWorkspace()
-      pushToast(t('controlTower.cases.closeSuccess'), 'success')
+      pushToast('success', t('controlTower.cases.closeSuccess'))
     } catch (error) {
-      pushToast(formatApiErrorForUser(error), 'error')
+      pushToast('error', formatApiErrorForUser(error))
     } finally {
       actionLoading.value = false
     }
@@ -362,9 +363,9 @@ export function useOperationalCases() {
     try {
       await apiPost(`/api/v1/control-tower/cases/${caseId}/reopen`)
       await refreshCaseWorkspace()
-      pushToast(t('controlTower.cases.reopenSuccess'), 'success')
+      pushToast('success', t('controlTower.cases.reopenSuccess'))
     } catch (error) {
-      pushToast(formatApiErrorForUser(error), 'error')
+      pushToast('error', formatApiErrorForUser(error))
     } finally {
       actionLoading.value = false
     }
@@ -376,7 +377,7 @@ export function useOperationalCases() {
       await apiPost(`/api/v1/control-tower/cases/${caseId}/notes`, { body, mentionedUserIds })
       await refreshCaseWorkspace()
     } catch (error) {
-      pushToast(formatApiErrorForUser(error), 'error')
+      pushToast('error', formatApiErrorForUser(error))
     } finally {
       actionLoading.value = false
     }
@@ -399,7 +400,7 @@ export function useOperationalCases() {
       })
       await refreshCaseWorkspace()
     } catch (error) {
-      pushToast(formatApiErrorForUser(error), 'error')
+      pushToast('error', formatApiErrorForUser(error))
     } finally {
       actionLoading.value = false
     }
@@ -411,7 +412,7 @@ export function useOperationalCases() {
       await apiPatch(`/api/v1/control-tower/cases/${caseId}/actions/${actionId}`, patch)
       await refreshCaseWorkspace()
     } catch (error) {
-      pushToast(formatApiErrorForUser(error), 'error')
+      pushToast('error', formatApiErrorForUser(error))
     } finally {
       actionLoading.value = false
     }
@@ -423,7 +424,7 @@ export function useOperationalCases() {
       await apiPost(`/api/v1/control-tower/cases/${caseId}/actions/${actionId}/complete`)
       await refreshCaseWorkspace()
     } catch (error) {
-      pushToast(formatApiErrorForUser(error), 'error')
+      pushToast('error', formatApiErrorForUser(error))
     } finally {
       actionLoading.value = false
     }
@@ -434,9 +435,9 @@ export function useOperationalCases() {
     try {
       await apiPost(`/api/v1/control-tower/cases/${caseId}/decisions`, { decision, rationale })
       await refreshCaseWorkspace()
-      pushToast(t('controlTower.cases.decisionRecorded'), 'success')
+      pushToast('success', t('controlTower.cases.decisionRecorded'))
     } catch (error) {
-      pushToast(formatApiErrorForUser(error), 'error')
+      pushToast('error', formatApiErrorForUser(error))
     } finally {
       actionLoading.value = false
     }
@@ -454,13 +455,13 @@ export function useOperationalCases() {
       await apiPost(`/api/v1/control-tower/views/${view.id}/set-default`)
     }
     await loadSavedViews()
-    pushToast(t('controlTower.workspace.savedViewCreated'), 'success')
+    pushToast('success', t('controlTower.workspace.savedViewCreated'))
   }
 
   async function updateSavedView(viewId: string, patch: Record<string, unknown>) {
     await apiPatch<ControlTowerSavedView>(`/api/v1/control-tower/views/${viewId}`, patch)
     await loadSavedViews()
-    pushToast(t('controlTower.workspace.savedViewUpdated'), 'success')
+    pushToast('success', t('controlTower.workspace.savedViewUpdated'))
   }
 
   async function updateSavedViewWithCurrentFilters(viewId: string) {
@@ -482,19 +483,19 @@ export function useOperationalCases() {
       sort: view.sort ?? {},
     })
     await loadSavedViews()
-    pushToast(t('controlTower.workspace.savedViewCreated'), 'success')
+    pushToast('success', t('controlTower.workspace.savedViewCreated'))
   }
 
   async function deleteSavedView(viewId: string) {
     await apiDelete(`/api/v1/control-tower/views/${viewId}`)
     await loadSavedViews()
-    pushToast(t('controlTower.workspace.savedViewDeleted'), 'success')
+    pushToast('success', t('controlTower.workspace.savedViewDeleted'))
   }
 
   async function setDefaultSavedView(viewId: string) {
     await apiPost(`/api/v1/control-tower/views/${viewId}/set-default`)
     await loadSavedViews()
-    pushToast(t('controlTower.workspace.defaultViewSet'), 'success')
+    pushToast('success', t('controlTower.workspace.defaultViewSet'))
   }
 
   async function applySavedView(view: ControlTowerSavedView) {
