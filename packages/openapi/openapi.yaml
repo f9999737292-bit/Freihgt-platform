@@ -3842,6 +3842,421 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/rfx-events/{id}/bids:
+    get:
+      tags: [RFx]
+      summary: List tender bids (shipper comparison or carrier-scoped)
+      operationId: get_list_rfx_event_bids
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCarrierCompanyID'
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Bid list
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/rfx-events/{id}/responses/mine:
+    get:
+      tags: [RFx]
+      summary: Carrier current response and active revision
+      operationId: get_rfx_event_my_response
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCarrierCompanyID'
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current carrier response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /api/v1/rfx-events/{id}/responses/{response_id}/revisions:
+    post:
+      tags: [RFx]
+      summary: Submit enterprise response bid revision
+      operationId: post_rfx_response_revision
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: response_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCarrierCompanyID'
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '201':
+          description: Revision created
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+    get:
+      tags: [RFx]
+      summary: List response bid revisions
+      operationId: get_rfx_response_revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: response_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCarrierCompanyID'
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Revision history
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /api/v1/rfx-events/{id}/evaluate:
+    post:
+      tags: [RFx]
+      summary: Run tender evaluation
+      operationId: post_rfx_event_evaluate
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Evaluation result
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /api/v1/scoring-templates:
+    post:
+      tags: [RFx]
+      summary: Create scoring template
+      operationId: post_scoring_template
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '201':
+          description: Template created
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /api/v1/allocation-scenarios:
+    post:
+      tags: [RFx]
+      summary: Run allocation scenario
+      operationId: post_allocation_scenario
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Allocation outcome
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /api/v1/award-proposals:
+    post:
+      tags: [RFx]
+      summary: Create award proposal
+      operationId: post_award_proposal
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '201':
+          description: Proposal created
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /api/v1/award-proposals/{proposal_id}/submit:
+    post:
+      tags: [RFx]
+      summary: Submit award proposal for approval
+      operationId: post_award_proposal_submit
+      parameters:
+        - name: proposal_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /api/v1/award-proposals/{proposal_id}/approve:
+    post:
+      tags: [RFx]
+      summary: Approve award proposal
+      operationId: post_award_proposal_approve
+      parameters:
+        - name: proposal_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Approved
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /api/v1/award-proposals/{proposal_id}/reject:
+    post:
+      tags: [RFx]
+      summary: Reject award proposal
+      operationId: post_award_proposal_reject
+      parameters:
+        - name: proposal_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Rejected
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /api/v1/award-proposals/{proposal_id}/finalize:
+    post:
+      tags: [RFx]
+      summary: Finalize award and optional transport conversion
+      operationId: post_award_proposal_finalize
+      parameters:
+        - name: proposal_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Finalized
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /api/v1/bids/{id}/revisions:
+    post:
+      tags: [Bids]
+      summary: Submit freight-request bid revision
+      operationId: post_bid_revision
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCarrierCompanyID'
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '201':
+          description: Revision created
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+    get:
+      tags: [Bids]
+      summary: List bid revisions
+      operationId: get_bid_revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCarrierCompanyID'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Revision list
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /api/v1/bids/{id}/revisions/current:
+    get:
+      tags: [Bids]
+      summary: Get active bid revision
+      operationId: get_bid_revision_current
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCarrierCompanyID'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Active revision
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
   /api/v1/freight-requests/from-transport-order:
     post:
       tags: [Freight Requests]
@@ -7844,6 +8259,14 @@ components:
       schema:
         type: string
       description: Bearer JWT access token
+    XCarrierCompanyID:
+      name: X-Carrier-Company-ID
+      in: header
+      required: false
+      schema:
+        type: string
+        format: uuid
+      description: Trusted carrier company scope for carrier-context reads
     IdempotencyKey:
       name: Idempotency-Key
       in: header
