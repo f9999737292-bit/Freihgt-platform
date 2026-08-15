@@ -35,7 +35,7 @@ type AutomationListFilter struct {
 
 func (c *Client) ProxyAutomationJSON(ctx context.Context, method, tenantID, userID, requestID, path string, body []byte) (json.RawMessage, *DependencyError) {
 	var payload json.RawMessage
-	if err := c.doWorkspaceJSON(ctx, method, path, tenantID, userID, requestID, body, &payload); err != nil {
+	if err := c.doWorkspaceJSON(ctx, method, c.baseURL+path, tenantID, userID, requestID, body, &payload); err != nil {
 		return nil, err
 	}
 	return payload, nil

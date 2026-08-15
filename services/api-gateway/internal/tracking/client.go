@@ -154,6 +154,34 @@ func (c *Client) LookupStates(ctx context.Context, tenantID, requestID string, s
 	return out, nil
 }
 
+func (c *Client) IngestDriverLocation(ctx context.Context, tenantID, requestID, shipmentID, driverID, vehicleID string, body []byte) (json.RawMessage, int, error) {
+	endpoint := fmt.Sprintf("%s/internal/v1/tracking/driver/shipments/%s/locations", c.baseURL, shipmentID)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return nil, 0, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Tenant-ID", tenantID)
+	req.Header.Set("X-Driver-ID", driverID)
+	if vehicleID != "" {
+		req.Header.Set("X-Vehicle-ID", vehicleID)
+	}
+	req.Header.Set("X-Internal-Service-Token", c.token)
+	if requestID != "" {
+		req.Header.Set(sharedmiddleware.RequestIDHeader, requestID)
+	}
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer resp.Body.Close()
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return nil, resp.StatusCode, err
+	}
+	return json.RawMessage(raw), resp.StatusCode, nil
+}
+
 type summaryDTO struct {
 	ShipmentID         string             `json:"shipmentId"`
 	TrackingStatus     string             `json:"trackingStatus"`

@@ -64,7 +64,7 @@ func main() {
 	etaInternal := handlers.NewETAInternalHandler(etaQuerySvc, cfg.InternalServiceToken)
 	slotHandler := handlers.NewSlotHandler(slotQuerySvc)
 	slotInternal := handlers.NewSlotInternalHandler(slotQuerySvc, cfg.InternalServiceToken)
-	ingestHandler := handlers.NewIngestHandler(ingestSvc, etaIngestSvc, slotIngestSvc, cfg.ProviderSecrets)
+	ingestHandler := handlers.NewIngestHandler(ingestSvc, etaIngestSvc, slotIngestSvc, cfg.ProviderSecrets, cfg.InternalServiceToken)
 	internalHandler := handlers.NewInternalHandler(querySvc, cfg.InternalServiceToken)
 	metricsCollector := metrics.New(cfg.ServiceName)
 

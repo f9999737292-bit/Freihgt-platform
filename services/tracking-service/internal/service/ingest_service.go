@@ -44,6 +44,18 @@ type IngestResult struct {
 	Rejected   int `json:"rejected"`
 }
 
+func (s *IngestService) IngestDriverMobileLocation(
+	ctx context.Context,
+	tenantID, shipmentID, driverID uuid.UUID,
+	vehicleID *uuid.UUID,
+	payload provider.ProviderPayload,
+) (IngestResult, error) {
+	if err := s.repo.EnsureActiveDriverMobileBinding(ctx, tenantID, shipmentID, driverID, vehicleID); err != nil {
+		return IngestResult{}, apperrors.Validation("tracking binding failed", map[string]any{"reason": err.Error()})
+	}
+	return s.IngestProviderLocations(ctx, "driver_mobile", payload)
+}
+
 func (s *IngestService) IngestProviderLocations(ctx context.Context, providerCode string, payload provider.ProviderPayload) (IngestResult, error) {
 	adapter, ok := s.registry.Get(providerCode)
 	if !ok {

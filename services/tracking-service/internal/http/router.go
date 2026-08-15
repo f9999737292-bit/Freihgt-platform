@@ -46,6 +46,7 @@ func NewRouter(
 
 	r.Route("/internal/v1/tracking", func(r chi.Router) {
 		r.Post("/providers/{provider}/locations", ingestHandler.Ingest)
+		r.Post("/driver/shipments/{shipmentId}/locations", ingestHandler.IngestDriverLocation)
 		r.Post("/providers/{provider}/eta", ingestHandler.IngestETA)
 		r.Post("/providers/{provider}/slots", ingestHandler.IngestSlots)
 		r.Post("/states/lookup", internalHandler.LookupStates)

@@ -23,12 +23,14 @@ func NewRouter(
 	statusSummarySvc *service.StatusSummaryService,
 	driverSvc *service.DriverService,
 	vehicleSvc *service.VehicleService,
+	driverOpsSvc *service.DriverOperationsService,
 ) http.Handler {
 	shipmentHandler := handlers.NewShipmentHandler(shipmentSvc)
 	statusHistoryHandler := handlers.NewStatusHistoryHandler(statusHistorySvc)
 	statusSummaryHandler := handlers.NewStatusSummaryHandler(statusSummarySvc)
 	driverHandler := handlers.NewDriverHandler(driverSvc)
 	vehicleHandler := handlers.NewVehicleHandler(vehicleSvc)
+	driverOpsHandler := handlers.NewDriverOperationsHandler(driverOpsSvc)
 
 	r := chi.NewRouter()
 	observability.Mount(r, observability.MountOptions{
@@ -55,6 +57,14 @@ func NewRouter(
 		r.Post("/", driverHandler.Create)
 		r.Get("/", driverHandler.List)
 		r.Get("/{id}", driverHandler.GetByID)
+	})
+
+	r.Route("/v1/driver/me", func(r chi.Router) {
+		r.Get("/", driverOpsHandler.GetMe)
+		r.Get("/shipments", driverOpsHandler.ListShipments)
+		r.Get("/shipments/{id}", driverOpsHandler.GetShipment)
+		r.Post("/shipments/{id}/events", driverOpsHandler.RecordEvent)
+		r.Post("/shipments/{id}/exceptions", driverOpsHandler.ReportException)
 	})
 
 	r.Route("/v1/vehicles", func(r chi.Router) {

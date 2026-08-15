@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -85,10 +86,53 @@ type IngestHandler struct {
 	etaIngest  *service.ETAIngestService
 	slotIngest *service.SlotIngestService
 	secrets    map[string]string
+	token      string
 }
 
-func NewIngestHandler(ingest *service.IngestService, etaIngest *service.ETAIngestService, slotIngest *service.SlotIngestService, secrets map[string]string) *IngestHandler {
-	return &IngestHandler{ingest: ingest, etaIngest: etaIngest, slotIngest: slotIngest, secrets: secrets}
+func NewIngestHandler(ingest *service.IngestService, etaIngest *service.ETAIngestService, slotIngest *service.SlotIngestService, secrets map[string]string, token string) *IngestHandler {
+	return &IngestHandler{ingest: ingest, etaIngest: etaIngest, slotIngest: slotIngest, secrets: secrets, token: token}
+}
+
+func (h *IngestHandler) IngestDriverLocation(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get("X-Internal-Service-Token") != h.token || h.token == "" {
+		respond.Error(w, errors.Unauthorized("internal authentication failed"))
+		return
+	}
+	tenantID, err := tenantFromRequest(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	shipmentID, err := repository.ParseUUID(chi.URLParam(r, "shipmentId"))
+	if err != nil {
+		respond.Error(w, errors.Validation("invalid shipment id", nil))
+		return
+	}
+	driverID, err := repository.ParseUUID(r.Header.Get("X-Driver-ID"))
+	if err != nil {
+		respond.Error(w, errors.Validation("driver id is required", map[string]any{"header": "X-Driver-ID"}))
+		return
+	}
+	var vehicleID *uuid.UUID
+	if raw := strings.TrimSpace(r.Header.Get("X-Vehicle-ID")); raw != "" {
+		parsed, parseErr := repository.ParseUUID(raw)
+		if parseErr != nil {
+			respond.Error(w, errors.Validation("invalid vehicle id", nil))
+			return
+		}
+		vehicleID = &parsed
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+	if err != nil {
+		respond.Error(w, errors.Validation("invalid request body", nil))
+		return
+	}
+	result, err := h.ingest.IngestDriverMobileLocation(r.Context(), tenantID, shipmentID, driverID, vehicleID, provider.ProviderPayload(body))
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusOK, result)
 }
 
 func (h *IngestHandler) Ingest(w http.ResponseWriter, r *http.Request) {

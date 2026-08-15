@@ -417,3 +417,28 @@ func ParseUUID(raw string) (uuid.UUID, error) {
 	}
 	return uuid.Parse(raw)
 }
+
+func (r *TrackingRepository) EnsureActiveDriverMobileBinding(
+	ctx context.Context,
+	tenantID, shipmentID, driverID uuid.UUID,
+	vehicleID *uuid.UUID,
+) error {
+	deviceID := driverID.String()
+	existing, err := r.FindActiveBindingByDevice(ctx, tenantID, "driver_mobile", deviceID)
+	if err == nil && existing != nil {
+		if existing.ShipmentID == shipmentID {
+			return nil
+		}
+		return fmt.Errorf("device bound to another shipment")
+	}
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	const q = `
+INSERT INTO tracking.shipment_tracking_binding (
+	tenant_id, shipment_id, vehicle_id, driver_id, provider_code, provider_device_id, status
+) VALUES ($1,$2,$3,$4,'driver_mobile',$5,'active')
+ON CONFLICT DO NOTHING`
+	_, err = r.pool.Exec(ctx, q, tenantID, shipmentID, vehicleID, driverID, deviceID)
+	return err
+}

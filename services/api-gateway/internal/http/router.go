@@ -9,6 +9,7 @@ import (
 
 	"github.com/freight-platform/api-gateway/internal/config"
 	"github.com/freight-platform/api-gateway/internal/controltower"
+	"github.com/freight-platform/api-gateway/internal/driver"
 	"github.com/freight-platform/api-gateway/internal/fleetrbac"
 	gwmiddleware "github.com/freight-platform/api-gateway/internal/http/middleware"
 	apperrors "github.com/freight-platform/api-gateway/internal/platform/errors"
@@ -24,7 +25,7 @@ import (
 
 const serviceName = "api-gateway"
 
-func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, controlTower *controltower.Handler, shipmentEvents *shipmentevents.Handler, trackingHandler *tracking.Handler) http.Handler {
+func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, controlTower *controltower.Handler, shipmentEvents *shipmentevents.Handler, trackingHandler *tracking.Handler, driverHandler *driver.Handler) http.Handler {
 	metricsCollector := metrics.New(serviceName)
 
 	r := chi.NewRouter()
@@ -156,6 +157,15 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 		r.Get("/api/v1/shipments/{shipmentId}/eta/history", trackingHandler.ListETAHistory)
 		r.Get("/api/v1/shipments/{shipmentId}/slots", trackingHandler.GetSlots)
 		r.Get("/api/v1/shipments/{shipmentId}/slots/history", trackingHandler.ListSlotHistory)
+	}
+
+	if driverHandler != nil {
+		r.Get("/api/v1/driver/me", driverHandler.GetMe)
+		r.Get("/api/v1/driver/me/shipments", driverHandler.ListShipments)
+		r.Get("/api/v1/driver/me/shipments/{shipmentId}", driverHandler.GetShipment)
+		r.Post("/api/v1/driver/me/shipments/{shipmentId}/events", driverHandler.RecordEvent)
+		r.Post("/api/v1/driver/me/shipments/{shipmentId}/exceptions", driverHandler.ReportException)
+		r.Post("/api/v1/driver/me/shipments/{shipmentId}/locations", driverHandler.IngestLocation)
 	}
 
 	fleetGuard := fleetrbac.NewGuard(cfg, proxy)

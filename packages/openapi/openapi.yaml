@@ -22,6 +22,7 @@ tags:
   - name: Bids
   - name: Shipments
   - name: Drivers
+  - name: Driver Mobile
   - name: Vehicles
   - name: Documents
   - name: Signing
@@ -5407,6 +5408,192 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/driver/me:
+    get:
+      tags: [Driver Mobile]
+      summary: Get authenticated driver profile
+      operationId: get_driver_me
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Driver profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverMe'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/driver/me/shipments:
+    get:
+      tags: [Driver Mobile]
+      summary: List shipments assigned to authenticated driver
+      operationId: get_driver_me_shipments
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Assigned shipments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverShipmentList'
+  /api/v1/driver/me/shipments/{shipmentId}:
+    get:
+      tags: [Driver Mobile]
+      summary: Get assigned shipment detail for driver
+      operationId: get_driver_me_shipment_detail
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Shipment detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverShipmentDetail'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/driver/me/shipments/{shipmentId}/events:
+    post:
+      tags: [Driver Mobile]
+      summary: Record driver operational shipment event
+      operationId: post_driver_me_shipment_event
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverOperationalEventRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Event accepted or replayed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverOperationalEventResponse'
+  /api/v1/driver/me/shipments/{shipmentId}/exceptions:
+    post:
+      tags: [Driver Mobile]
+      summary: Report driver shipment exception
+      operationId: post_driver_me_shipment_exception
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverExceptionRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Exception created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverExceptionResponse'
+        '200':
+          description: Idempotent replay
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverExceptionResponse'
+  /api/v1/driver/me/shipments/{shipmentId}/locations:
+    post:
+      tags: [Driver Mobile]
+      summary: Ingest driver GPS location for assigned shipment
+      operationId: post_driver_me_shipment_location
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverLocationRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Location ingest result
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
   /api/v1/vehicles:
     post:
       tags: [Vehicles]
@@ -7228,7 +7415,145 @@ components:
       schema:
         type: string
       description: Bearer JWT access token
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema:
+        type: string
+        maxLength: 128
+      description: Client-generated idempotency identity for mobile-safe retries
   schemas:
+    DriverMe:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        companyId:
+          type: string
+          format: uuid
+        status:
+          type: string
+        preferredLocale:
+          type: string
+        phone:
+          type: string
+    DriverShipmentList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverShipmentSummary'
+        total:
+          type: integer
+    DriverShipmentSummary:
+      type: object
+      additionalProperties: true
+      properties:
+        id:
+          type: string
+          format: uuid
+        shipmentNumber:
+          type: string
+        status:
+          type: string
+    DriverShipmentDetail:
+      allOf:
+        - $ref: '#/components/schemas/DriverShipmentSummary'
+        - type: object
+          properties:
+            transportMode:
+              type: string
+            version:
+              type: integer
+    DriverOperationalEventRequest:
+      type: object
+      required: [type]
+      additionalProperties: false
+      properties:
+        type:
+          type: string
+          enum: [ARRIVED_AT_PICKUP, LOADING_STARTED, PICKUP_COMPLETED, DEPARTED_PICKUP, ARRIVED_AT_DELIVERY, UNLOADING_STARTED, DELIVERY_COMPLETED]
+        occurredAt:
+          type: string
+          format: date-time
+        idempotencyKey:
+          type: string
+          maxLength: 128
+    DriverOperationalEventResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        shipmentId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+        shipmentStatus:
+          type: string
+        replayed:
+          type: boolean
+    DriverExceptionRequest:
+      type: object
+      required: [category]
+      additionalProperties: false
+      properties:
+        category:
+          type: string
+          enum: [TRAFFIC, VEHICLE_BREAKDOWN, ACCIDENT, LOADING_DELAY, UNLOADING_DELAY, CARGO_ISSUE, DOCUMENT_ISSUE, CUSTOMER_UNAVAILABLE, ROUTE_BLOCKED, OTHER]
+        comment:
+          type: string
+          maxLength: 4000
+        occurredAt:
+          type: string
+          format: date-time
+        idempotencyKey:
+          type: string
+          maxLength: 128
+    DriverExceptionResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        id:
+          type: string
+          format: uuid
+        shipmentId:
+          type: string
+          format: uuid
+        category:
+          type: string
+        replayed:
+          type: boolean
+    DriverLocationRequest:
+      type: object
+      additionalProperties: true
+      description: Wraps tracking provider generic event payload; providerDeviceId is resolved server-side.
+      properties:
+        events:
+          type: array
+          items:
+            type: object
+            properties:
+              latitude:
+                type: number
+              longitude:
+                type: number
+              recordedAt:
+                type: string
+                format: date-time
+              providerEventId:
+                type: string
+              accuracyMeters:
+                type: number
+              speedKph:
+                type: number
+              headingDegrees:
+                type: number
     CreateDriverRequest:
       type: object
       required: [carrier_company_id, full_name]

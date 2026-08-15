@@ -12,6 +12,7 @@ import (
 
 	"github.com/freight-platform/api-gateway/internal/config"
 	"github.com/freight-platform/api-gateway/internal/controltower"
+	"github.com/freight-platform/api-gateway/internal/driver"
 	httpserver "github.com/freight-platform/api-gateway/internal/http"
 	"github.com/freight-platform/api-gateway/internal/platform/logger"
 	"github.com/freight-platform/api-gateway/internal/shipmentevents"
@@ -33,7 +34,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	router := httpserver.NewRouter(log, cfg, proxy, controltower.NewHandler(log, cfg), shipmentevents.NewHandler(log, cfg), tracking.NewHandler(log, cfg))
+	router := httpserver.NewRouter(log, cfg, proxy, controltower.NewHandler(log, cfg), shipmentevents.NewHandler(log, cfg), tracking.NewHandler(log, cfg), driver.NewHandler(log, cfg))
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

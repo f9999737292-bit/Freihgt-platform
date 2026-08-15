@@ -50,6 +50,8 @@ func main() {
 	statusSummarySvc := service.NewStatusSummaryService(statusSummaryRepo)
 	driverSvc := service.NewDriverService(driverRepo)
 	vehicleSvc := service.NewVehicleService(vehicleRepo)
+	driverOpsRepo := repository.NewDriverOperationsRepository(db.Pool)
+	driverOpsSvc := service.NewDriverOperationsService(driverRepo, shipmentRepo, driverOpsRepo)
 
 	var outboxWorker *outbox.Worker
 	var outboxPublisher outbox.EventPublisher
@@ -68,7 +70,7 @@ func main() {
 		)
 	}
 
-	router := httpserver.NewRouter(log, db.Pool, shipmentSvc, statusHistorySvc, statusSummarySvc, driverSvc, vehicleSvc)
+	router := httpserver.NewRouter(log, db.Pool, shipmentSvc, statusHistorySvc, statusSummarySvc, driverSvc, vehicleSvc, driverOpsSvc)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

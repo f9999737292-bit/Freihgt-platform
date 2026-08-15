@@ -79,6 +79,17 @@ func (r *DriverRepository) GetByIDAndTenant(ctx context.Context, id, tenantID uu
 	return scanDriver(r.pool.QueryRow(ctx, getDriverByIDAndTenantQuery, id, tenantID))
 }
 
+const getDriverByUserIDAndTenantQuery = `
+		SELECT id, tenant_id, carrier_company_id, user_id, full_name, phone,
+			license_number, license_country, preferred_locale, status
+		FROM transport.drivers
+		WHERE user_id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+	`
+
+func (r *DriverRepository) GetByUserIDAndTenant(ctx context.Context, userID, tenantID uuid.UUID) (*domain.Driver, error) {
+	return scanDriver(r.pool.QueryRow(ctx, getDriverByUserIDAndTenantQuery, userID, tenantID))
+}
+
 func (r *DriverRepository) List(ctx context.Context, tenantID uuid.UUID, filter domain.ListDriversFilter) ([]domain.Driver, int, error) {
 	var drivers []domain.Driver
 	var total int
