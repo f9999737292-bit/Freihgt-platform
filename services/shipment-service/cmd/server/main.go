@@ -13,9 +13,11 @@ import (
 	"github.com/freight-platform/shared-go/metrics"
 	"github.com/freight-platform/shipment-service/internal/config"
 	httpserver "github.com/freight-platform/shipment-service/internal/http"
+	"github.com/freight-platform/shipment-service/internal/notification"
 	"github.com/freight-platform/shipment-service/internal/outbox"
 	"github.com/freight-platform/shipment-service/internal/platform/database"
 	"github.com/freight-platform/shipment-service/internal/platform/logger"
+	"github.com/freight-platform/shipment-service/internal/push"
 	"github.com/freight-platform/shipment-service/internal/repository"
 	"github.com/freight-platform/shipment-service/internal/service"
 )
@@ -52,6 +54,29 @@ func main() {
 	vehicleSvc := service.NewVehicleService(vehicleRepo)
 	driverOpsRepo := repository.NewDriverOperationsRepository(db.Pool)
 	driverOpsSvc := service.NewDriverOperationsService(driverRepo, shipmentRepo, driverOpsRepo)
+	driverTaskRepo := repository.NewDriverTaskRepository(db.Pool)
+	driverDeviceRepo := repository.NewDriverDeviceRepository(db.Pool)
+	driverTaskSvc := service.NewDriverTaskService(driverRepo, shipmentRepo, driverTaskRepo, driverDeviceRepo)
+
+	var pushProvider push.Provider
+	if cfg.FCM.ProjectID != "" && cfg.FCM.AccessToken != "" {
+		pushProvider = push.NewFCMProvider(push.FCMConfig{ProjectID: cfg.FCM.ProjectID, AccessToken: cfg.FCM.AccessToken})
+		log.Info("FCM push provider configured")
+	} else {
+		pushProvider = push.NewFakeProvider()
+		log.Info("FCM credentials absent; using fake push provider")
+	}
+
+	notificationWorker := notification.NewWorker(notification.WorkerConfig{
+		Enabled:      cfg.Notification.Enabled,
+		WorkerID:     cfg.Notification.WorkerID,
+		PollInterval: cfg.Notification.PollInterval,
+		BatchSize:    cfg.Notification.BatchSize,
+		LeaseTimeout: cfg.Notification.LeaseTimeout,
+		MaxAttempts:  cfg.Notification.MaxAttempts,
+		RetryBackoff: cfg.Notification.RetryBackoff,
+	}, driverDeviceRepo, pushProvider, log)
+	notificationWorker.Start(ctx)
 
 	var outboxWorker *outbox.Worker
 	var outboxPublisher outbox.EventPublisher
@@ -70,7 +95,7 @@ func main() {
 		)
 	}
 
-	router := httpserver.NewRouter(log, db.Pool, shipmentSvc, statusHistorySvc, statusSummarySvc, driverSvc, vehicleSvc, driverOpsSvc)
+	router := httpserver.NewRouter(log, db.Pool, shipmentSvc, statusHistorySvc, statusSummarySvc, driverSvc, vehicleSvc, driverOpsSvc, driverTaskSvc, cfg.InternalServiceToken)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),
@@ -107,6 +132,7 @@ func main() {
 			log.Warn("outbox worker shutdown timed out", slog.String("error", err.Error()))
 		}
 	}
+	notificationWorker.Wait()
 
 	if closer, ok := outboxPublisher.(outbox.CloseablePublisher); ok {
 		closeCtx, closeCancel := context.WithTimeout(context.Background(), 5*time.Second)

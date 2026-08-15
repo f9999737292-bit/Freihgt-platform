@@ -24,6 +24,8 @@ func NewRouter(
 	driverSvc *service.DriverService,
 	vehicleSvc *service.VehicleService,
 	driverOpsSvc *service.DriverOperationsService,
+	driverTaskSvc *service.DriverTaskService,
+	internalToken string,
 ) http.Handler {
 	shipmentHandler := handlers.NewShipmentHandler(shipmentSvc)
 	statusHistoryHandler := handlers.NewStatusHistoryHandler(statusHistorySvc)
@@ -31,6 +33,8 @@ func NewRouter(
 	driverHandler := handlers.NewDriverHandler(driverSvc)
 	vehicleHandler := handlers.NewVehicleHandler(vehicleSvc)
 	driverOpsHandler := handlers.NewDriverOperationsHandler(driverOpsSvc)
+	driverTaskHandler := handlers.NewDriverTaskHandler(driverTaskSvc)
+	internalTaskHandler := handlers.NewInternalDriverTaskHandler(driverTaskSvc, internalToken)
 
 	r := chi.NewRouter()
 	observability.Mount(r, observability.MountOptions{
@@ -65,6 +69,13 @@ func NewRouter(
 		r.Get("/shipments/{id}", driverOpsHandler.GetShipment)
 		r.Post("/shipments/{id}/events", driverOpsHandler.RecordEvent)
 		r.Post("/shipments/{id}/exceptions", driverOpsHandler.ReportException)
+		r.Get("/tasks", driverTaskHandler.ListTasks)
+		r.Get("/tasks/{taskId}", driverTaskHandler.GetTask)
+		r.Post("/tasks/{taskId}/read", driverTaskHandler.MarkRead)
+		r.Post("/tasks/{taskId}/acknowledge", driverTaskHandler.Acknowledge)
+		r.Post("/tasks/{taskId}/responses", driverTaskHandler.SubmitResponse)
+		r.Post("/devices", driverTaskHandler.RegisterDevice)
+		r.Delete("/devices/{deviceId}", driverTaskHandler.RevokeDevice)
 	})
 
 	r.Route("/v1/vehicles", func(r chi.Router) {
@@ -76,6 +87,11 @@ func NewRouter(
 	r.Route("/internal/v1/shipments", func(r chi.Router) {
 		r.Get("/status-summary", statusSummaryHandler.GetStatusSummary)
 		r.Get("/{shipmentId}/status-history", statusHistoryHandler.List)
+	})
+
+	r.Route("/internal/v1/driver", func(r chi.Router) {
+		r.Post("/tasks", internalTaskHandler.CreateTask)
+		r.Post("/tasks/{taskId}/cancel", internalTaskHandler.CancelTask)
 	})
 
 	return r
