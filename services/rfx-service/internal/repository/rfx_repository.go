@@ -247,6 +247,46 @@ func (r *RfxRepository) CloseExpiredResponses(ctx context.Context, tenantID uuid
 	return affected, err
 }
 
+func (r *RfxRepository) ListExpiredResponseOpenEvents(ctx context.Context, now time.Time, limit int) ([]domain.ExpiredResponseOpenEvent, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	var result []domain.ExpiredResponseOpenEvent
+	err := measureDB("rfx_repository", "list_expired_response_open_events", func() error {
+		const query = `
+			SELECT id, tenant_id, status, response_deadline
+			FROM rfx.rfx_events
+			WHERE deleted_at IS NULL
+				AND status = $2
+				AND response_deadline IS NOT NULL
+				AND response_deadline <= $1
+			ORDER BY response_deadline ASC, id ASC
+			LIMIT $3
+		`
+		rows, err := r.pool.Query(ctx, query, now.UTC(), domain.RfxStatusResponsesOpen, limit)
+		if err != nil {
+			return mapDBError(err)
+		}
+		defer rows.Close()
+		items := make([]domain.ExpiredResponseOpenEvent, 0)
+		for rows.Next() {
+			var item domain.ExpiredResponseOpenEvent
+			var deadline *time.Time
+			if err := rows.Scan(&item.ID, &item.TenantID, &item.Status, &deadline); err != nil {
+				return mapDBError(err)
+			}
+			item.ResponseDeadline = deadline
+			items = append(items, item)
+		}
+		if err := rows.Err(); err != nil {
+			return mapDBError(err)
+		}
+		result = items
+		return nil
+	})
+	return result, err
+}
+
 func (r *RfxRepository) UpdateEventResponseDeadline(ctx context.Context, id, tenantID uuid.UUID, deadline *time.Time, expectedVersion int) (*domain.RfxEvent, error) {
 	const query = `
 		UPDATE rfx.rfx_events SET

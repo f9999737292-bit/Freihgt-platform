@@ -17,6 +17,23 @@ RFx, freight request, and bid management service for the freight platform.
 | `DATABASE_URL` | local postgres URL | PostgreSQL connection string |
 | `LOG_LEVEL` | `info` | Log level |
 | `ENVIRONMENT` | `development` | Runtime environment |
+| `RFX_DEADLINE_WORKER_ENABLED` | `false` | Enable automatic RESPONSES_OPEN → RESPONSES_CLOSED worker |
+| `RFX_DEADLINE_WORKER_INTERVAL_SECONDS` | `60` | Worker scan interval in seconds |
+| `RFX_DEADLINE_WORKER_BATCH_SIZE` | `50` | Maximum expired events processed per scan batch (max 500) |
+
+## Deadline worker
+
+The rfx-service runtime can automatically close RFx events whose `response_deadline` has passed while status is `RESPONSES_OPEN`.
+
+- Worker is **disabled by default** (`RFX_DEADLINE_WORKER_ENABLED=false`).
+- Uses **server time only**; client timestamps are never trusted for closure.
+- Each successful auto-close writes a **SYSTEM** audit event (`auto_close_responses`).
+- Multi-instance safe via conditional status/version updates; duplicate transitions are benign.
+- Failed scans are logged and retried on the next interval; worker-disabled deployments remain healthy.
+
+Rollout: verify migration `000037` on target database → enable on isolated/staging → observe metrics/logs → enable production later.
+
+Health/readiness endpoints do **not** fail when the worker is disabled. A transient failed scan does not mark the HTTP service unhealthy.
 
 ## Run locally
 
@@ -155,6 +172,14 @@ curl http://localhost:8084/health
 
 ```bash
 make test-rfx-service
+```
+
+Integration tests for the deadline worker (require disposable PostgreSQL via `TEST_DATABASE_URL`):
+
+```bash
+cd services/rfx-service
+TEST_DATABASE_URL=postgres://freight:freight_password@localhost:5432/postgres?sslmode=disable \
+  go test -tags=integration ./internal/integration/deadlineworker/... -count=1 -v
 ```
 
 ## Docker

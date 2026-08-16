@@ -16,6 +16,7 @@ import (
 	"github.com/freight-platform/rfx-service/internal/platform/logger"
 	"github.com/freight-platform/rfx-service/internal/repository"
 	"github.com/freight-platform/rfx-service/internal/service"
+	"github.com/freight-platform/rfx-service/internal/worker"
 	"github.com/freight-platform/shared-go/metrics"
 )
 
@@ -49,6 +50,9 @@ func main() {
 	frSvc := service.NewFreightRequestService(frRepo)
 	bidSvc := service.NewBidService(bidRepo, frRepo, membershipRepo, auditRepo)
 
+	deadlineMetrics := worker.NewMetrics(cfg.ServiceName)
+	deadlineWorker := worker.NewDeadlineWorker(cfg.DeadlineWorker, rfxSvc, worker.RealClock(), log, deadlineMetrics)
+
 	router := httpserver.NewRouter(log, db.Pool, rfxSvc, frSvc, bidSvc)
 
 	server := &http.Server{
@@ -67,6 +71,12 @@ func main() {
 			os.Exit(1)
 		}
 	}()
+
+	if cfg.DeadlineWorker.Enabled {
+		go deadlineWorker.Start(ctx)
+	} else {
+		log.Info("deadline worker disabled by configuration")
+	}
 
 	<-ctx.Done()
 	log.Info("shutdown signal received")
