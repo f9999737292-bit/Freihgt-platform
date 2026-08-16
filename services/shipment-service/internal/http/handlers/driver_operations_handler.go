@@ -37,7 +37,15 @@ type driverExceptionRequest struct {
 	IdempotencyKey string  `json:"idempotencyKey"`
 	Severity       *string `json:"severity"`
 	RuleID         *string `json:"ruleId"`
-	PlaybookID     *string `json:"playbookId"`
+	IdempotencyKey string  `json:"idempotencyKey"`
+}
+
+type driverDelayRequest struct {
+	ReasonCode     string  `json:"reasonCode"`
+	ReasonText     *string `json:"reasonText"`
+	NewETA         *string `json:"newEta"`
+	OccurredAt     *string `json:"occurredAt"`
+	IdempotencyKey string  `json:"idempotencyKey"`
 }
 
 func (h *DriverOperationsHandler) GetMe(w http.ResponseWriter, r *http.Request) {
@@ -203,6 +211,63 @@ func (h *DriverOperationsHandler) ReportException(w http.ResponseWriter, r *http
 	respond.JSON(w, status, mapDriverExceptionResult(result))
 }
 
+func (h *DriverOperationsHandler) ReportDelay(w http.ResponseWriter, r *http.Request) {
+	tenantID, userID, err := resolveDriverContext(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	shipmentID, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	var req driverDelayRequest
+	if err := decodeStrictJSON(r, &req); err != nil {
+		respond.Error(w, err)
+		return
+	}
+	idempotencyKey := strings.TrimSpace(req.IdempotencyKey)
+	if idempotencyKey == "" {
+		idempotencyKey = strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+	}
+	input := domain.DriverDelayInput{
+		ReasonCode:     req.ReasonCode,
+		ReasonText:     req.ReasonText,
+		IdempotencyKey: idempotencyKey,
+	}
+	if req.NewETA != nil {
+		parsed, parseErr := time.Parse(time.RFC3339, strings.TrimSpace(*req.NewETA))
+		if parseErr != nil {
+			respond.Error(w, apperrors.Validation("newEta must be RFC3339", map[string]any{"field": "newEta"}))
+			return
+		}
+		input.NewETA = &parsed
+	}
+	if req.OccurredAt != nil {
+		parsed, parseErr := time.Parse(time.RFC3339, strings.TrimSpace(*req.OccurredAt))
+		if parseErr != nil {
+			respond.Error(w, apperrors.Validation("occurredAt must be RFC3339", map[string]any{"field": "occurredAt"}))
+			return
+		}
+		input.OccurredAt = &parsed
+	}
+	var correlationID *string
+	if requestID := strings.TrimSpace(sharedmiddleware.RequestIDFromContext(r.Context())); requestID != "" {
+		correlationID = &requestID
+	}
+	result, err := h.service.ReportDelay(r.Context(), tenantID, userID, shipmentID, input, correlationID)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	status := http.StatusCreated
+	if result.Replayed {
+		status = http.StatusOK
+	}
+	respond.JSON(w, status, mapDriverDelayResult(result))
+}
+
 func resolveDriverContext(r *http.Request) (tenantID, userID uuid.UUID, err error) {
 	tid, err := resolveVerifiedTenant(r)
 	if err != nil {
@@ -292,6 +357,30 @@ func mapDriverExceptionResult(result service.DriverExceptionResult) map[string]a
 	}
 	if exc.Comment != nil {
 		out["comment"] = *exc.Comment
+	}
+	if result.OutboxEventID != nil {
+		out["outboxEventId"] = result.OutboxEventID.String()
+	}
+	return out
+}
+
+func mapDriverDelayResult(result service.DriverDelayResult) map[string]any {
+	delay := result.Delay
+	out := map[string]any{
+		"id":             delay.ID.String(),
+		"shipmentId":     delay.ShipmentID.String(),
+		"driverId":       delay.DriverID.String(),
+		"reasonCode":     delay.ReasonCode,
+		"occurredAt":     delay.OccurredAt.UTC().Format(time.RFC3339),
+		"receivedAt":     delay.ReceivedAt.UTC().Format(time.RFC3339),
+		"idempotencyKey": delay.IdempotencyKey,
+		"replayed":       result.Replayed,
+	}
+	if delay.ReasonText != nil {
+		out["reasonText"] = *delay.ReasonText
+	}
+	if delay.NewETA != nil {
+		out["newEta"] = delay.NewETA.UTC().Format(time.RFC3339)
 	}
 	if result.OutboxEventID != nil {
 		out["outboxEventId"] = result.OutboxEventID.String()

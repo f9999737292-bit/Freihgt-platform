@@ -23,6 +23,7 @@ var allowedConditionFields = map[string]struct{}{
 	"etaStatus": {}, "arrivalProjection": {}, "projectedDelaySeconds": {},
 	"slotType": {}, "slotArrivalProjection": {}, "slotProjectedLateSeconds": {},
 	"caseStatus": {}, "caseSeverity": {}, "assigned": {}, "hasActiveCase": {},
+	"eventType": {}, "severity": {}, "reasonCode": {}, "source": {},
 }
 
 var allowedActionCodes = map[string]struct{}{
@@ -260,6 +261,14 @@ func fieldValue(field string, ctx AutomationContext) any {
 			return nil
 		}
 		return *a.HasActiveCase
+	case "eventType":
+		return a.EventType
+	case "severity":
+		return a.Severity
+	case "reasonCode":
+		return a.ReasonCode
+	case "source":
+		return a.Source
 	default:
 		return nil
 	}

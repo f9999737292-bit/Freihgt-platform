@@ -55,6 +55,10 @@ func (c *Client) ReportException(ctx context.Context, reqCtx RequestContext, shi
 	return c.doJSON(ctx, reqCtx, http.MethodPost, "/v1/driver/me/shipments/"+shipmentID+"/exceptions", body)
 }
 
+func (c *Client) ReportDelay(ctx context.Context, reqCtx RequestContext, shipmentID string, body []byte) (json.RawMessage, int, error) {
+	return c.doJSON(ctx, reqCtx, http.MethodPost, "/v1/driver/me/shipments/"+shipmentID+"/delays", body)
+}
+
 func (c *Client) ListTasks(ctx context.Context, reqCtx RequestContext, query string) (json.RawMessage, int, error) {
 	path := "/v1/driver/me/tasks"
 	if query != "" {

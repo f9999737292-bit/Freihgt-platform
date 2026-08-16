@@ -229,6 +229,30 @@ func (h *Handler) proxy(w http.ResponseWriter, r *http.Request, call func(Reques
 	respond.JSONRaw(w, status, raw)
 }
 
+func (h *Handler) ReportDelay(w http.ResponseWriter, r *http.Request) {
+	shipmentID := strings.TrimSpace(chi.URLParam(r, "shipmentId"))
+	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	reqCtx, err := h.buildRequestContext(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	if err := h.ensureDriverAccess(r, reqCtx); err != nil {
+		respond.Error(w, err)
+		return
+	}
+	raw, status, err := h.client.ReportDelay(r.Context(), reqCtx, shipmentID, body)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	respond.JSONRaw(w, status, raw)
+}
+
 func (h *Handler) integrateException(r *http.Request, reqCtx RequestContext, raw json.RawMessage) {
 	var payload struct {
 		ID         string `json:"id"`

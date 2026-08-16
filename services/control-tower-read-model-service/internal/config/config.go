@@ -16,6 +16,23 @@ type Config struct {
 	DatabaseURL string
 	Consumer    ConsumerConfig
 	Kafka       KafkaConfig
+	DriverConsumer DriverConsumerConfig
+}
+
+type DriverConsumerConfig struct {
+	Enabled        bool
+	PollTimeout    time.Duration
+	ProcessTimeout time.Duration
+	CommitTimeout  time.Duration
+	Kafka          DriverKafkaConfig
+}
+
+type DriverKafkaConfig struct {
+	Brokers     []string
+	Topic       string
+	GroupID     string
+	ClientID    string
+	DialTimeout time.Duration
 }
 
 type ConsumerConfig struct {
@@ -70,6 +87,10 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	driverConsumer, err := loadDriverConsumerConfig()
+	if err != nil {
+		return Config{}, err
+	}
 
 	cfg := Config{
 		ServiceName: "control-tower-read-model-service",
@@ -79,6 +100,7 @@ func Load() (Config, error) {
 		DatabaseURL: databaseURL,
 		Consumer:    consumer,
 		Kafka:       kafka,
+		DriverConsumer: driverConsumer,
 	}
 	if err := cfg.Validate(); err != nil {
 		return Config{}, err
@@ -137,6 +159,73 @@ func loadKafkaConfig() (KafkaConfig, error) {
 	}, nil
 }
 
+func loadDriverConsumerConfig() (DriverConsumerConfig, error) {
+	enabled := parseBool(getEnv("CONTROL_TOWER_DRIVER_EVENTS_ENABLED", "false"))
+	pollTimeout, err := parseDuration(getEnv("CONTROL_TOWER_DRIVER_KAFKA_POLL_TIMEOUT", "1s"))
+	if err != nil {
+		return DriverConsumerConfig{}, fmt.Errorf("invalid CONTROL_TOWER_DRIVER_KAFKA_POLL_TIMEOUT: %w", err)
+	}
+	processTimeout, err := parseDuration(getEnv("CONTROL_TOWER_DRIVER_KAFKA_PROCESS_TIMEOUT", "10s"))
+	if err != nil {
+		return DriverConsumerConfig{}, fmt.Errorf("invalid CONTROL_TOWER_DRIVER_KAFKA_PROCESS_TIMEOUT: %w", err)
+	}
+	commitTimeout, err := parseDuration(getEnv("CONTROL_TOWER_DRIVER_KAFKA_COMMIT_TIMEOUT", "5s"))
+	if err != nil {
+		return DriverConsumerConfig{}, fmt.Errorf("invalid CONTROL_TOWER_DRIVER_KAFKA_COMMIT_TIMEOUT: %w", err)
+	}
+	var brokers []string
+	for _, part := range strings.Split(strings.TrimSpace(os.Getenv("CONTROL_TOWER_DRIVER_KAFKA_BROKERS")), ",") {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			brokers = append(brokers, part)
+		}
+	}
+	if len(brokers) == 0 {
+		for _, part := range strings.Split(strings.TrimSpace(os.Getenv("CONTROL_TOWER_KAFKA_BROKERS")), ",") {
+			part = strings.TrimSpace(part)
+			if part != "" {
+				brokers = append(brokers, part)
+			}
+		}
+	}
+	dialTimeout, err := parseDuration(getEnv("CONTROL_TOWER_DRIVER_KAFKA_DIAL_TIMEOUT", "10s"))
+	if err != nil {
+		return DriverConsumerConfig{}, fmt.Errorf("invalid CONTROL_TOWER_DRIVER_KAFKA_DIAL_TIMEOUT: %w", err)
+	}
+	return DriverConsumerConfig{
+		Enabled:        enabled,
+		PollTimeout:    pollTimeout,
+		ProcessTimeout: processTimeout,
+		CommitTimeout:  commitTimeout,
+		Kafka: DriverKafkaConfig{
+			Brokers:     brokers,
+			Topic:       strings.TrimSpace(getEnv("CONTROL_TOWER_DRIVER_KAFKA_TOPIC", "driver.events.v1")),
+			GroupID:     strings.TrimSpace(getEnv("CONTROL_TOWER_DRIVER_KAFKA_GROUP_ID", "control-tower-driver-events-v1")),
+			ClientID:    strings.TrimSpace(getEnv("CONTROL_TOWER_DRIVER_KAFKA_CLIENT_ID", "control-tower-driver-events-consumer")),
+			DialTimeout: dialTimeout,
+		},
+	}, nil
+}
+
+func (c DriverKafkaConfig) ValidateRequired() error {
+	if len(c.Brokers) == 0 {
+		return fmt.Errorf("CONTROL_TOWER_DRIVER_KAFKA_BROKERS must not be empty when driver consumer enabled")
+	}
+	if strings.TrimSpace(c.Topic) == "" {
+		return fmt.Errorf("CONTROL_TOWER_DRIVER_KAFKA_TOPIC must not be empty")
+	}
+	if strings.TrimSpace(c.GroupID) == "" {
+		return fmt.Errorf("CONTROL_TOWER_DRIVER_KAFKA_GROUP_ID must not be empty")
+	}
+	if strings.TrimSpace(c.ClientID) == "" {
+		return fmt.Errorf("CONTROL_TOWER_DRIVER_KAFKA_CLIENT_ID must not be empty")
+	}
+	if c.DialTimeout <= 0 {
+		return fmt.Errorf("CONTROL_TOWER_DRIVER_KAFKA_DIAL_TIMEOUT must be > 0")
+	}
+	return nil
+}
+
 func (c Config) Validate() error {
 	if c.HTTPPort <= 0 {
 		return fmt.Errorf("CONTROL_TOWER_HTTP_PORT must be > 0")
@@ -146,6 +235,11 @@ func (c Config) Validate() error {
 	}
 	if c.Consumer.Enabled {
 		if err := c.Kafka.ValidateRequired(); err != nil {
+			return err
+		}
+	}
+	if c.DriverConsumer.Enabled {
+		if err := c.DriverConsumer.Kafka.ValidateRequired(); err != nil {
 			return err
 		}
 	}

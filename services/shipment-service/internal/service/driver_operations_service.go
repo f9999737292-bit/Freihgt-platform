@@ -187,6 +187,28 @@ func (s *DriverOperationsService) RecordOperationalEvent(
 	}
 	result.ShipmentStatus = updated.Status
 
+	if mappedType, ok := domain.MapOperationalEventType(strings.TrimSpace(in.Type)); ok {
+		eventID := uuid.New()
+		sourceEventID := uuid.New()
+		outboxID, outboxErr := s.operations.InsertDriverEventOutbox(ctx, domain.BuildDriverEventParams{
+			EventID:         eventID,
+			EventType:       mappedType,
+			TenantID:        tenantID,
+			ShipmentID:      shipment.ID,
+			ShipmentVersion: updated.Version,
+			DriverID:        resolved.Driver.ID,
+			VehicleID:       shipment.VehicleID,
+			ActorID:         &userID,
+			SourceEventID:   sourceEventID,
+			OccurredAt:      occurredAt,
+			ReasonCode:      strings.TrimSpace(in.Type),
+		})
+		if outboxErr != nil {
+			return DriverOperationalEventResult{}, outboxErr
+		}
+		result.OutboxEventID = &outboxID
+	}
+
 	if err := s.saveStatusEventIdempotency(ctx, tenantID, resolved.Driver.ID, idempotencyKey, shipmentID, result); err != nil {
 		return DriverOperationalEventResult{}, err
 	}
@@ -318,6 +340,103 @@ func (s *DriverOperationsService) ReportException(
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return DriverExceptionResult{}, err
+	}
+	return result, nil
+}
+
+type DriverDelayResult struct {
+	Delay         domain.DriverReportedDelay
+	OutboxEventID *uuid.UUID
+	Replayed      bool
+}
+
+func (s *DriverOperationsService) ReportDelay(
+	ctx context.Context,
+	tenantID, userID, shipmentID uuid.UUID,
+	in domain.DriverDelayInput,
+	correlationID *string,
+) (DriverDelayResult, error) {
+	if err := domain.ValidateDriverDelayInput(in); err != nil {
+		return DriverDelayResult{}, err
+	}
+	resolved, err := s.ResolveDriver(ctx, tenantID, userID)
+	if err != nil {
+		return DriverDelayResult{}, err
+	}
+
+	idempotencyKey := strings.TrimSpace(in.IdempotencyKey)
+	if existing, err := s.operations.GetIdempotencyRecord(ctx, tenantID, resolved.Driver.ID, domain.DriverOperationTypeDelay, idempotencyKey); err != nil {
+		return DriverDelayResult{}, err
+	} else if existing != nil {
+		var cached DriverDelayResult
+		if err := json.Unmarshal(existing.ResponseBody, &cached); err == nil {
+			cached.Replayed = true
+			return cached, nil
+		}
+	}
+
+	shipment, err := s.shipments.GetByIDAndDriver(ctx, shipmentID, tenantID, resolved.Driver.ID)
+	if err != nil {
+		return DriverDelayResult{}, err
+	}
+
+	receivedAt := time.Now().UTC()
+	occurredAt := receivedAt
+	if in.OccurredAt != nil {
+		occurredAt = in.OccurredAt.UTC()
+	}
+	reasonCode := strings.TrimSpace(strings.ToUpper(in.ReasonCode))
+	delayInput := domain.DriverReportedDelay{
+		TenantID:       tenantID,
+		ShipmentID:     shipmentID,
+		DriverID:       resolved.Driver.ID,
+		ReasonCode:     reasonCode,
+		ReasonText:     domain.SanitizeDriverExceptionComment(in.ReasonText),
+		NewETA:         in.NewETA,
+		OccurredAt:     occurredAt,
+		ReceivedAt:     receivedAt,
+		IdempotencyKey: idempotencyKey,
+	}
+
+	delay, outboxID, err := s.operations.ReportDelay(ctx, repository.ReportDriverDelayParams{
+		Delay:           delayInput,
+		ShipmentVersion: shipment.Version,
+		CorrelationID:   correlationID,
+	})
+	if err != nil {
+		return DriverDelayResult{}, err
+	}
+
+	result := DriverDelayResult{Delay: *delay}
+	if outboxID != uuid.Nil {
+		result.OutboxEventID = &outboxID
+	} else {
+		result.Replayed = true
+	}
+
+	body, err := json.Marshal(result)
+	if err != nil {
+		return DriverDelayResult{}, err
+	}
+	tx, err := s.operations.Begin(ctx)
+	if err != nil {
+		return DriverDelayResult{}, err
+	}
+	defer tx.Rollback(ctx)
+	if err := s.operations.SaveIdempotencyRecord(ctx, tx, domain.DriverOperationIdempotencyRecord{
+		TenantID:           tenantID,
+		DriverID:           resolved.Driver.ID,
+		OperationType:      domain.DriverOperationTypeDelay,
+		IdempotencyKey:     idempotencyKey,
+		ResourceType:       "shipment",
+		ResourceID:         shipmentID,
+		ResponseStatusCode: 201,
+		ResponseBody:       body,
+	}); err != nil {
+		return DriverDelayResult{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return DriverDelayResult{}, err
 	}
 	return result, nil
 }

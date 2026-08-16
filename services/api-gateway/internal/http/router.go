@@ -165,6 +165,7 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 		r.Get("/api/v1/driver/me/shipments/{shipmentId}", driverHandler.GetShipment)
 		r.Post("/api/v1/driver/me/shipments/{shipmentId}/events", driverHandler.RecordEvent)
 		r.Post("/api/v1/driver/me/shipments/{shipmentId}/exceptions", driverHandler.ReportException)
+		r.Post("/api/v1/driver/me/shipments/{shipmentId}/delays", driverHandler.ReportDelay)
 		r.Post("/api/v1/driver/me/shipments/{shipmentId}/locations", driverHandler.IngestLocation)
 		r.Post("/api/v1/driver/me/shipments/{shipmentId}/pod/uploads", driverHandler.InitiatePODUpload)
 		r.Put("/api/v1/driver/me/shipments/{shipmentId}/pod/uploads/{uploadId}/content", driverHandler.UploadPODContent)

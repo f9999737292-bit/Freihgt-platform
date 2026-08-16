@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"encoding/json"
 	"strings"
 	"time"
 
@@ -11,11 +10,9 @@ import (
 )
 
 const (
-	OutboxEventTypeDriverExceptionReported = "driver.exception_reported"
-	OutboxEventTypeDriverShipmentEvent      = "driver.shipment_event_recorded"
-
 	DriverOperationTypeStatusEvent = "status_event"
 	DriverOperationTypeException   = "exception"
+	DriverOperationTypeDelay       = "delay"
 
 	DriverExceptionSource = "driver"
 )
@@ -130,6 +127,65 @@ func MapDriverEventToTargetStatus(eventType string) (string, bool, bool) {
 		return "", false, true
 	}
 	return "", false, false
+}
+
+type DriverDelayInput struct {
+	ReasonCode     string
+	ReasonText     *string
+	NewETA         *time.Time
+	OccurredAt     *time.Time
+	IdempotencyKey string
+}
+
+type DriverReportedDelay struct {
+	ID             uuid.UUID
+	TenantID       uuid.UUID
+	ShipmentID     uuid.UUID
+	DriverID       uuid.UUID
+	ReasonCode     string
+	ReasonText     *string
+	NewETA         *time.Time
+	OccurredAt     time.Time
+	ReceivedAt     time.Time
+	IdempotencyKey string
+	CreatedAt      time.Time
+}
+
+var allowedDriverDelayReasonCodes = map[string]struct{}{
+	"TRAFFIC":           {},
+	"VEHICLE_BREAKDOWN": {},
+	"LOADING_DELAY":     {},
+	"UNLOADING_DELAY":   {},
+	"ROUTE_BLOCKED":     {},
+	"CUSTOMER_DELAY":    {},
+	"OTHER":             {},
+}
+
+func ValidateDriverDelayInput(in DriverDelayInput) error {
+	key := strings.TrimSpace(in.IdempotencyKey)
+	if key == "" {
+		return apperrors.Validation("idempotency_key is required", map[string]any{"field": "idempotencyKey"})
+	}
+	if len(key) > 128 {
+		return apperrors.Validation("idempotency_key must be at most 128 characters", map[string]any{"field": "idempotencyKey"})
+	}
+	reason := strings.TrimSpace(strings.ToUpper(in.ReasonCode))
+	if reason == "" {
+		return apperrors.Validation("reason_code is required", map[string]any{"field": "reasonCode"})
+	}
+	if _, ok := allowedDriverDelayReasonCodes[reason]; !ok {
+		return apperrors.Validation("unsupported delay reason_code", map[string]any{"field": "reasonCode", "value": reason})
+	}
+	if in.ReasonText != nil && len(strings.TrimSpace(*in.ReasonText)) > 4000 {
+		return apperrors.Validation("reason_text must be at most 4000 characters", map[string]any{"field": "reasonText"})
+	}
+	if in.OccurredAt != nil {
+		now := time.Now().UTC()
+		if in.OccurredAt.After(now.Add(5 * time.Minute)) {
+			return apperrors.Validation("occurred_at cannot be more than 5 minutes in the future", map[string]any{"field": "occurredAt"})
+		}
+	}
+	return nil
 }
 
 func ValidateDriverOperationalEventInput(in DriverOperationalEventInput) error {
@@ -258,30 +314,3 @@ func SanitizeDriverExceptionComment(comment *string) *string {
 	return &trimmed
 }
 
-func BuildDriverExceptionOutboxPayload(exc DriverReportedException, shipmentVersion int, correlationID *string) ([]byte, error) {
-	payload := map[string]any{
-		"eventId":        exc.ID.String(),
-		"eventType":      OutboxEventTypeDriverExceptionReported,
-		"schemaVersion":  OutboxSchemaVersion,
-		"occurredAt":     exc.OccurredAt.UTC().Format(time.RFC3339Nano),
-		"receivedAt":     exc.ReceivedAt.UTC().Format(time.RFC3339Nano),
-		"tenantId":       exc.TenantID.String(),
-		"shipmentId":     exc.ShipmentID.String(),
-		"driverId":       exc.DriverID.String(),
-		"category":       exc.Category,
-		"source":         exc.Source,
-		"idempotencyKey": exc.IdempotencyKey,
-		"aggregate": map[string]any{
-			"type":    OutboxAggregateTypeShipment,
-			"id":      exc.ShipmentID.String(),
-			"version": shipmentVersion,
-		},
-	}
-	if correlationID != nil {
-		payload["correlationId"] = *correlationID
-	}
-	if exc.Comment != nil {
-		payload["comment"] = *exc.Comment
-	}
-	return json.Marshal(payload)
-}

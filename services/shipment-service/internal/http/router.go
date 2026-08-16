@@ -69,6 +69,7 @@ func NewRouter(
 		r.Get("/shipments/{id}", driverOpsHandler.GetShipment)
 		r.Post("/shipments/{id}/events", driverOpsHandler.RecordEvent)
 		r.Post("/shipments/{id}/exceptions", driverOpsHandler.ReportException)
+		r.Post("/shipments/{id}/delays", driverOpsHandler.ReportDelay)
 		r.Get("/tasks", driverTaskHandler.ListTasks)
 		r.Get("/tasks/{taskId}", driverTaskHandler.GetTask)
 		r.Post("/tasks/{taskId}/read", driverTaskHandler.MarkRead)

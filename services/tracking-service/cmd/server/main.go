@@ -18,6 +18,7 @@ import (
 	"github.com/freight-platform/tracking-service/internal/platform/database"
 	"github.com/freight-platform/tracking-service/internal/platform/logger"
 	"github.com/freight-platform/tracking-service/internal/provider"
+	"github.com/freight-platform/tracking-service/internal/outbox"
 	"github.com/freight-platform/tracking-service/internal/repository"
 	"github.com/freight-platform/tracking-service/internal/service"
 )
@@ -67,6 +68,15 @@ func main() {
 	ingestHandler := handlers.NewIngestHandler(ingestSvc, etaIngestSvc, slotIngestSvc, cfg.ProviderSecrets, cfg.InternalServiceToken)
 	internalHandler := handlers.NewInternalHandler(querySvc, cfg.InternalServiceToken)
 	metricsCollector := metrics.New(cfg.ServiceName)
+	outboxPublisher := outbox.NewPublisher(db.Pool)
+	lossDetector := service.NewTrackingLossDetector(
+		trackingRepo,
+		outboxPublisher,
+		cfg.TrackingLossDetector.Threshold,
+		cfg.TrackingLossDetector.Interval,
+		cfg.TrackingLossDetector.BatchSize,
+		log,
+	)
 
 	router := httpserver.NewRouter(log, db.Pool, trackingHandler, etaHandler, etaInternal, slotHandler, slotInternal, ingestHandler, internalHandler, metricsCollector)
 
@@ -86,6 +96,14 @@ func main() {
 			os.Exit(1)
 		}
 	}()
+
+	if cfg.TrackingLossDetector.Enabled {
+		go lossDetector.Start(ctx)
+		log.Info("tracking loss detector started",
+			slog.Duration("threshold", cfg.TrackingLossDetector.Threshold),
+			slog.Duration("interval", cfg.TrackingLossDetector.Interval),
+		)
+	}
 
 	<-ctx.Done()
 	log.Info("shutdown signal received")

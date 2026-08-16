@@ -9,20 +9,28 @@ import (
 )
 
 type Config struct {
-	ServiceName          string
-	Environment          string
-	HTTPPort             int
-	LogLevel             string
-	DatabaseURL          string
-	ProviderSecrets      map[string]string
-	InternalServiceToken string
-	FreshnessPolicy      FreshnessConfig
-	ETAFreshnessPolicy   FreshnessConfig
+	ServiceName            string
+	Environment            string
+	HTTPPort               int
+	LogLevel               string
+	DatabaseURL            string
+	ProviderSecrets        map[string]string
+	InternalServiceToken   string
+	FreshnessPolicy        FreshnessConfig
+	ETAFreshnessPolicy     FreshnessConfig
+	TrackingLossDetector   TrackingLossDetectorConfig
 }
 
 type FreshnessConfig struct {
 	FreshThreshold time.Duration
 	StaleThreshold time.Duration
+}
+
+type TrackingLossDetectorConfig struct {
+	Enabled   bool
+	Threshold time.Duration
+	Interval  time.Duration
+	BatchSize int
 }
 
 func Load() (Config, error) {
@@ -66,7 +74,26 @@ func Load() (Config, error) {
 			FreshThreshold: time.Duration(etaFreshMin) * time.Minute,
 			StaleThreshold: time.Duration(etaStaleMin) * time.Minute,
 		},
+		TrackingLossDetector: loadTrackingLossDetectorConfig(staleMin),
 	}, nil
+}
+
+func loadTrackingLossDetectorConfig(defaultStaleMinutes int) TrackingLossDetectorConfig {
+	thresholdMin := intEnv("CONTROL_TOWER_DRIVER_TRACKING_LOST_AFTER_MINUTES", defaultStaleMinutes)
+	if thresholdMin <= 0 {
+		thresholdMin = defaultStaleMinutes
+	}
+	intervalSec := intEnv("TRACKING_LOSS_DETECTOR_INTERVAL_SECONDS", 60)
+	if intervalSec <= 0 {
+		intervalSec = 60
+	}
+	batchSize := intEnv("TRACKING_LOSS_DETECTOR_BATCH_SIZE", 100)
+	return TrackingLossDetectorConfig{
+		Enabled:   parseBool(getEnv("TRACKING_LOSS_DETECTOR_ENABLED", "true")),
+		Threshold: time.Duration(thresholdMin) * time.Minute,
+		Interval:  time.Duration(intervalSec) * time.Second,
+		BatchSize: batchSize,
+	}
 }
 
 func parseProviderSecrets(raw string) map[string]string {
@@ -91,6 +118,15 @@ func parseProviderSecrets(raw string) map[string]string {
 		out[strings.TrimSpace(kv[0])] = strings.TrimSpace(kv[1])
 	}
 	return out
+}
+
+func parseBool(raw string) bool {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
 }
 
 func getEnv(key, fallback string) string {

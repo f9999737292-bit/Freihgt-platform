@@ -105,6 +105,9 @@ var AllowedTriggerTypes = map[string]struct{}{
 	"work_item_unassigned":        {},
 	"case_created":                {},
 	"case_status_changed":         {},
+	"driver_delay_reported":       {},
+	"driver_problem_reported":     {},
+	"driver_tracking_restored":    {},
 }
 
 type AutomationRule struct {
@@ -278,6 +281,10 @@ type TriggerAttributes struct {
 	CaseSeverity           string `json:"caseSeverity,omitempty"`
 	Assigned               *bool  `json:"assigned,omitempty"`
 	HasActiveCase          *bool  `json:"hasActiveCase,omitempty"`
+	EventType              string `json:"eventType,omitempty"`
+	Severity               string `json:"severity,omitempty"`
+	ReasonCode             string `json:"reasonCode,omitempty"`
+	Source                 string `json:"source,omitempty"`
 	StateVersion           string `json:"stateVersion,omitempty"`
 }
 
