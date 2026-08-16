@@ -32,7 +32,7 @@ SELECT s.tenant_id, s.shipment_id, b.driver_id, sh.version,
        s.last_recorded_at, COALESCE(a.automation_state, 'TRACKING_OK'), s.tracking_status
 FROM tracking.shipment_tracking_state s
 JOIN tracking.shipment_tracking_binding b
-  ON b.tenant_id = s.tenant_id AND b.shipment_id = s.shipment_id AND b.active = true
+  ON b.tenant_id = s.tenant_id AND b.shipment_id = s.shipment_id AND b.status = 'active'
 JOIN transport.shipments sh
   ON sh.id = s.shipment_id AND sh.tenant_id = s.tenant_id
 LEFT JOIN tracking.driver_tracking_automation_state a

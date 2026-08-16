@@ -70,6 +70,11 @@ func (s *Service) Run(ctx context.Context) error {
 	}
 }
 
+// ProcessRecordForIntegration exposes record handling for integration tests.
+func (s *Service) ProcessRecordForIntegration(ctx context.Context, record *kgo.Record) {
+	s.processRecord(ctx, record)
+}
+
 func (s *Service) processRecord(ctx context.Context, record *kgo.Record) {
 	start := time.Now().UTC()
 	meta := domain.KafkaRecordMeta{

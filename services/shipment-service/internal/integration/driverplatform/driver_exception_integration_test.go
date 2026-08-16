@@ -98,7 +98,7 @@ func TestConcurrentExceptionIdempotency(t *testing.T) {
 
 	outboxCount := countRows(ctx, env.pool, `
 		SELECT COUNT(*) FROM transport.shipment_event_outbox
-		WHERE tenant_id=$1 AND event_type='driver.exception_reported' AND aggregate_id=$2`,
+		WHERE tenant_id=$1 AND event_type='driver.problem.reported' AND aggregate_id=$2`,
 		fix.TenantID, fix.ShipmentID)
 	require.Equal(t, int64(1), outboxCount)
 }
@@ -111,15 +111,9 @@ func TestSameTenantWrongDriverDenied(t *testing.T) {
 	userB := uuid.New()
 	driverB := uuid.New()
 	shipmentB := uuid.New()
-	_, err := env.pool.Exec(ctx, `
-		INSERT INTO transport.drivers (id, tenant_id, carrier_company_id, user_id, full_name, status)
-		VALUES ($1,$2,$3,$4,$5,'ACTIVE')`,
-		driverB, fix.TenantID, fix.CarrierID, userB, "Driver B")
-	require.NoError(t, err)
-
 	fixB := seedSecondDriverShipment(t, env.pool, fix.TenantID, fix.CarrierID, driverB, userB, shipmentB)
 
-	_, err = env.driverOps.ReportException(ctx, fix.TenantID, fix.UserID, fixB.ShipmentID, domain.DriverExceptionInput{
+	_, err := env.driverOps.ReportException(ctx, fix.TenantID, fix.UserID, fixB.ShipmentID, domain.DriverExceptionInput{
 		Category:       "TRAFFIC",
 		IdempotencyKey: "wrong-driver-key",
 	}, nil)
@@ -165,6 +159,11 @@ func seedSecondDriverShipment(t *testing.T, pool *pgxpool.Pool, tenantID, carrie
 		INSERT INTO transport.transport_orders (id, tenant_id, order_number, status, shipper_company_id, consignee_company_id, origin_location_id, destination_location_id, transport_mode)
 		VALUES ($1,$2,$3,'ASSIGNED',$4,$5,$6,$7,'ROAD')`,
 		orderID, tenantID, "TO-B", shipperID, consigneeID, originID, destID)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `
+		INSERT INTO transport.drivers (id, tenant_id, carrier_company_id, user_id, full_name, status)
+		VALUES ($1,$2,$3,$4,$5,'ACTIVE')`,
+		driverID, tenantID, carrierID, userID, "Driver B")
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `
 		INSERT INTO transport.shipments (id, tenant_id, shipment_number, transport_order_id, shipper_company_id, consignee_company_id, carrier_company_id, driver_id, origin_location_id, destination_location_id, transport_mode, status, version)

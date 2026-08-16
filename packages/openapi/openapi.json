@@ -10,6 +10,16 @@
           "type": "string"
         }
       },
+      "IdempotencyKey": {
+        "description": "Client-generated idempotency identity for mobile-safe retries",
+        "in": "header",
+        "name": "Idempotency-Key",
+        "required": false,
+        "schema": {
+          "maxLength": 128,
+          "type": "string"
+        }
+      },
       "XCompanyID": {
         "description": "Active company context",
         "in": "header",
@@ -89,10 +99,318 @@
         ],
         "type": "object"
       },
+      "ControlTowerAddCaseParticipantRequest": {
+        "properties": {
+          "role": {
+            "enum": [
+              "collaborator",
+              "observer"
+            ],
+            "type": "string"
+          },
+          "userId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId",
+          "role"
+        ],
+        "type": "object"
+      },
+      "ControlTowerBulkWorkActionOutcome": {
+        "properties": {
+          "failed": {
+            "type": "integer"
+          },
+          "requested": {
+            "type": "integer"
+          },
+          "results": {
+            "items": {
+              "properties": {
+                "error": {
+                  "type": "string"
+                },
+                "itemId": {
+                  "type": "string"
+                },
+                "itemType": {
+                  "type": "string"
+                },
+                "success": {
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "succeeded": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "requested",
+          "succeeded",
+          "failed",
+          "results"
+        ],
+        "type": "object"
+      },
+      "ControlTowerBulkWorkActionRequest": {
+        "properties": {
+          "action": {
+            "enum": [
+              "claim",
+              "assign",
+              "unassign",
+              "acknowledge"
+            ],
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "properties": {
+                "itemId": {
+                  "type": "string"
+                },
+                "itemType": {
+                  "enum": [
+                    "exception",
+                    "risk"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "itemType",
+                "itemId"
+              ],
+              "type": "object"
+            },
+            "maxItems": 100,
+            "type": "array"
+          },
+          "targetUserId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "items"
+        ],
+        "type": "object"
+      },
+      "ControlTowerBusinessImpact": {
+        "enum": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "critical"
+        ],
+        "type": "string"
+      },
+      "ControlTowerCaseHealth": {
+        "properties": {
+          "activeExceptionCount": {
+            "type": "integer"
+          },
+          "activeRiskCount": {
+            "type": "integer"
+          },
+          "activeWorkItemCount": {
+            "type": "integer"
+          },
+          "hasSlaBreach": {
+            "type": "boolean"
+          },
+          "hasSlaWarning": {
+            "type": "boolean"
+          },
+          "highestExceptionPriority": {
+            "enum": [
+              "p1",
+              "p2",
+              "p3",
+              "p4"
+            ],
+            "type": "string"
+          },
+          "highestRiskLevel": {
+            "enum": [
+              "critical",
+              "high",
+              "medium",
+              "low",
+              "none"
+            ],
+            "type": "string"
+          },
+          "nearestActionDueAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "nearestSlaDueAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "openActionCount": {
+            "type": "integer"
+          },
+          "overdueActionCount": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "ControlTowerCaseKpi": {
+        "properties": {
+          "casesWithOverdueActions": {
+            "type": "integer"
+          },
+          "casesWithSlaBreach": {
+            "type": "integer"
+          },
+          "casesWithSlaWarning": {
+            "type": "integer"
+          },
+          "criticalCases": {
+            "type": "integer"
+          },
+          "myOpenCases": {
+            "type": "integer"
+          },
+          "openCases": {
+            "type": "integer"
+          },
+          "resolvedCases": {
+            "type": "integer"
+          },
+          "slaAtRiskCases": {
+            "type": "integer"
+          },
+          "unassignedCases": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "ControlTowerCasesPage": {
+        "properties": {
+          "hasNext": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ControlTowerOperationalCase"
+            },
+            "type": "array"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "limit",
+          "total",
+          "hasNext"
+        ],
+        "type": "object"
+      },
+      "ControlTowerCreateCaseRequest": {
+        "properties": {
+          "severity": {
+            "enum": [
+              "critical",
+              "high",
+              "medium",
+              "low"
+            ],
+            "type": "string"
+          },
+          "shipmentIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 256,
+            "type": "string"
+          },
+          "workItems": {
+            "items": {
+              "properties": {
+                "itemId": {
+                  "type": "string"
+                },
+                "itemType": {
+                  "enum": [
+                    "exception",
+                    "risk"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "itemType",
+                "itemId"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "type": "object"
+      },
+      "ControlTowerEscalationLevel": {
+        "enum": [
+          "none",
+          "level_1",
+          "level_2",
+          "level_3"
+        ],
+        "type": "string"
+      },
       "ControlTowerEvent": {
         "properties": {
+          "acknowledgement": {
+            "$ref": "#/components/schemas/ControlTowerEventAcknowledgementSummary",
+            "description": "Present when the event has been acknowledged; omitted otherwise."
+          },
+          "assignment": {
+            "$ref": "#/components/schemas/ControlTowerEventAssignment"
+          },
+          "businessImpact": {
+            "$ref": "#/components/schemas/ControlTowerBusinessImpact"
+          },
           "description": {
             "type": "string"
+          },
+          "escalation": {
+            "$ref": "#/components/schemas/ControlTowerEventEscalation"
+          },
+          "exceptionCategory": {
+            "$ref": "#/components/schemas/ControlTowerExceptionCategory"
           },
           "id": {
             "type": "string"
@@ -100,6 +418,12 @@
           "occurredAt": {
             "format": "date-time",
             "type": "string"
+          },
+          "priority": {
+            "$ref": "#/components/schemas/ControlTowerExceptionPriority"
+          },
+          "resolution": {
+            "$ref": "#/components/schemas/ControlTowerEventResolution"
           },
           "severity": {
             "$ref": "#/components/schemas/ControlTowerEventSeverity"
@@ -110,13 +434,243 @@
           "shipmentNumber": {
             "type": "string"
           },
+          "sla": {
+            "$ref": "#/components/schemas/ControlTowerExceptionSLA"
+          },
           "source": {
             "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ControlTowerEventWorkflowStatus"
           },
           "type": {
             "$ref": "#/components/schemas/ControlTowerEventType"
           }
         },
+        "type": "object"
+      },
+      "ControlTowerEventAcknowledgedBy": {
+        "properties": {
+          "displayName": {
+            "description": "Optional display name resolved by the gateway for UI convenience.",
+            "type": "string"
+          },
+          "userId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId"
+        ],
+        "type": "object"
+      },
+      "ControlTowerEventAcknowledgement": {
+        "properties": {
+          "acknowledgedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "acknowledgedBy": {
+            "$ref": "#/components/schemas/ControlTowerEventAcknowledgedBy"
+          },
+          "eventId": {
+            "description": "Deterministic critical event identifier (matches path parameter and `ControlTowerEvent.id`).",
+            "pattern": "^[0-9a-f]{32}$",
+            "type": "string"
+          },
+          "eventType": {
+            "$ref": "#/components/schemas/ControlTowerEventType"
+          },
+          "occurredAt": {
+            "description": "Canonical occurrence timestamp used in event identity (see architecture doc).",
+            "format": "date-time",
+            "type": "string"
+          },
+          "shipmentId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "source": {
+            "default": "control-tower",
+            "enum": [
+              "control-tower"
+            ],
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ControlTowerEventWorkflowStatus"
+          }
+        },
+        "required": [
+          "eventId",
+          "shipmentId",
+          "eventType",
+          "occurredAt",
+          "status",
+          "acknowledgedAt",
+          "acknowledgedBy"
+        ],
+        "type": "object"
+      },
+      "ControlTowerEventAcknowledgementSummary": {
+        "properties": {
+          "acknowledgedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "acknowledgedBy": {
+            "$ref": "#/components/schemas/ControlTowerEventAcknowledgedBy"
+          }
+        },
+        "required": [
+          "acknowledgedAt",
+          "acknowledgedBy"
+        ],
+        "type": "object"
+      },
+      "ControlTowerEventAction": {
+        "properties": {
+          "actionType": {
+            "enum": [
+              "acknowledged",
+              "assigned",
+              "reassigned",
+              "resolved",
+              "reopened",
+              "exception_updated",
+              "ack_sla_breached",
+              "assign_sla_breached",
+              "resolve_sla_breached",
+              "escalation_changed"
+            ],
+            "type": "string"
+          },
+          "actorUserId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "occurredAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "actionType",
+          "actorUserId",
+          "occurredAt"
+        ],
+        "type": "object"
+      },
+      "ControlTowerEventActionsResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ControlTowerEventAction"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "ControlTowerEventAssignRequest": {
+        "properties": {
+          "userId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId"
+        ],
+        "type": "object"
+      },
+      "ControlTowerEventAssignment": {
+        "properties": {
+          "assignedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "assignedByUserId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "assignedToUserId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "assignedToUserId",
+          "assignedByUserId",
+          "assignedAt"
+        ],
+        "type": "object"
+      },
+      "ControlTowerEventEscalation": {
+        "properties": {
+          "level": {
+            "$ref": "#/components/schemas/ControlTowerEscalationLevel"
+          }
+        },
+        "required": [
+          "level"
+        ],
+        "type": "object"
+      },
+      "ControlTowerEventResolution": {
+        "properties": {
+          "comment": {
+            "type": "string"
+          },
+          "resolutionCode": {
+            "$ref": "#/components/schemas/ControlTowerEventResolutionCode"
+          },
+          "resolvedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "resolvedByUserId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "resolvedByUserId",
+          "resolvedAt",
+          "resolutionCode"
+        ],
+        "type": "object"
+      },
+      "ControlTowerEventResolutionCode": {
+        "enum": [
+          "issue_resolved",
+          "false_positive",
+          "duplicate",
+          "cancelled",
+          "other"
+        ],
+        "type": "string"
+      },
+      "ControlTowerEventResolveRequest": {
+        "properties": {
+          "comment": {
+            "type": "string"
+          },
+          "resolutionCode": {
+            "$ref": "#/components/schemas/ControlTowerEventResolutionCode"
+          }
+        },
+        "required": [
+          "resolutionCode"
+        ],
         "type": "object"
       },
       "ControlTowerEventSeverity": {
@@ -139,6 +693,173 @@
         ],
         "type": "string"
       },
+      "ControlTowerEventWorkflow": {
+        "properties": {
+          "acknowledgement": {
+            "$ref": "#/components/schemas/ControlTowerEventAcknowledgementSummary"
+          },
+          "assignment": {
+            "$ref": "#/components/schemas/ControlTowerEventAssignment"
+          },
+          "businessImpact": {
+            "$ref": "#/components/schemas/ControlTowerBusinessImpact"
+          },
+          "escalation": {
+            "$ref": "#/components/schemas/ControlTowerEventEscalation"
+          },
+          "eventId": {
+            "pattern": "^[0-9a-f]{32}$",
+            "type": "string"
+          },
+          "exceptionCategory": {
+            "$ref": "#/components/schemas/ControlTowerExceptionCategory"
+          },
+          "priority": {
+            "$ref": "#/components/schemas/ControlTowerExceptionPriority"
+          },
+          "resolution": {
+            "$ref": "#/components/schemas/ControlTowerEventResolution"
+          },
+          "sla": {
+            "$ref": "#/components/schemas/ControlTowerExceptionSLA"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ControlTowerEventWorkflowStatus"
+          }
+        },
+        "required": [
+          "eventId",
+          "status"
+        ],
+        "type": "object"
+      },
+      "ControlTowerEventWorkflowStatus": {
+        "enum": [
+          "open",
+          "acknowledged",
+          "assigned",
+          "resolved"
+        ],
+        "type": "string"
+      },
+      "ControlTowerExceptionCategory": {
+        "enum": [
+          "delay",
+          "route_deviation",
+          "document_issue",
+          "vehicle_issue",
+          "driver_issue",
+          "slot_issue",
+          "delivery_issue",
+          "pickup_issue",
+          "billing_issue",
+          "integration_issue",
+          "data_quality",
+          "other"
+        ],
+        "type": "string"
+      },
+      "ControlTowerExceptionKPI": {
+        "properties": {
+          "p1Open": {
+            "type": "integer"
+          },
+          "p2Open": {
+            "type": "integer"
+          },
+          "resolvedOutsideSla": {
+            "type": "integer"
+          },
+          "resolvedWithinSla": {
+            "type": "integer"
+          },
+          "slaBreached": {
+            "type": "integer"
+          },
+          "slaWarning": {
+            "type": "integer"
+          },
+          "totalOpenExceptions": {
+            "type": "integer"
+          },
+          "unassignedExceptions": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "ControlTowerExceptionPriority": {
+        "enum": [
+          "p1",
+          "p2",
+          "p3",
+          "p4"
+        ],
+        "type": "string"
+      },
+      "ControlTowerExceptionSLA": {
+        "properties": {
+          "acknowledgeDueAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "assignmentDueAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "phase": {
+            "enum": [
+              "acknowledgement",
+              "assignment",
+              "resolution"
+            ],
+            "type": "string"
+          },
+          "remainingSeconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "resolutionDueAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ControlTowerExceptionSLAStatus"
+          }
+        },
+        "required": [
+          "phase",
+          "status",
+          "acknowledgeDueAt",
+          "assignmentDueAt",
+          "resolutionDueAt"
+        ],
+        "type": "object"
+      },
+      "ControlTowerExceptionSLAStatus": {
+        "enum": [
+          "within_sla",
+          "warning",
+          "breached",
+          "completed"
+        ],
+        "type": "string"
+      },
+      "ControlTowerExceptionUpdateRequest": {
+        "minProperties": 1,
+        "properties": {
+          "businessImpact": {
+            "$ref": "#/components/schemas/ControlTowerBusinessImpact"
+          },
+          "category": {
+            "$ref": "#/components/schemas/ControlTowerExceptionCategory"
+          },
+          "priority": {
+            "$ref": "#/components/schemas/ControlTowerExceptionPriority"
+          }
+        },
+        "type": "object"
+      },
       "ControlTowerFilterOption": {
         "properties": {
           "label": {
@@ -148,6 +869,276 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "ControlTowerMitigateRiskRequest": {
+        "properties": {
+          "comment": {
+            "type": "string"
+          },
+          "mitigationCode": {
+            "$ref": "#/components/schemas/ControlTowerMitigationCode"
+          }
+        },
+        "required": [
+          "mitigationCode"
+        ],
+        "type": "object"
+      },
+      "ControlTowerMitigationCode": {
+        "enum": [
+          "contact_carrier",
+          "contact_driver",
+          "reschedule_slot",
+          "request_documents",
+          "reassign_driver",
+          "reassign_vehicle",
+          "adjust_plan",
+          "monitor",
+          "other"
+        ],
+        "type": "string"
+      },
+      "ControlTowerOperationalCase": {
+        "properties": {
+          "closedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "derivedSeverity": {
+            "enum": [
+              "critical",
+              "high",
+              "medium",
+              "low"
+            ],
+            "type": "string"
+          },
+          "effectiveSeverity": {
+            "enum": [
+              "critical",
+              "high",
+              "medium",
+              "low"
+            ],
+            "type": "string"
+          },
+          "health": {
+            "$ref": "#/components/schemas/ControlTowerCaseHealth"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "lastActivityAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "ownerDisplayName": {
+            "type": "string"
+          },
+          "ownerUserId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "reference": {
+            "example": "CT-2026-000184",
+            "type": "string"
+          },
+          "resolutionCode": {
+            "type": "string"
+          },
+          "resolutionSummary": {
+            "type": "string"
+          },
+          "resolvedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "severityOverride": {
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "open",
+              "investigating",
+              "action_required",
+              "monitoring",
+              "resolved",
+              "closed"
+            ],
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "reference",
+          "title",
+          "status",
+          "effectiveSeverity",
+          "version",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
+      "ControlTowerPredictedExceptionType": {
+        "enum": [
+          "pickup_delay_risk",
+          "delivery_delay_risk",
+          "slot_miss_risk",
+          "route_deviation_risk",
+          "tracking_loss_risk",
+          "document_readiness_risk",
+          "vehicle_assignment_risk",
+          "driver_assignment_risk"
+        ],
+        "type": "string"
+      },
+      "ControlTowerRiskAction": {
+        "properties": {
+          "actionType": {
+            "type": "string"
+          },
+          "actorUserId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "occurredAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "actionType",
+          "occurredAt"
+        ],
+        "type": "object"
+      },
+      "ControlTowerRiskKPI": {
+        "properties": {
+          "activeRisks": {
+            "type": "integer"
+          },
+          "clearedBeforeMaterialization": {
+            "type": "integer"
+          },
+          "criticalRisks": {
+            "type": "integer"
+          },
+          "deliveryDelayRisks": {
+            "type": "integer"
+          },
+          "highRisks": {
+            "type": "integer"
+          },
+          "mitigatingRisks": {
+            "type": "integer"
+          },
+          "pickupDelayRisks": {
+            "type": "integer"
+          },
+          "risksCleared": {
+            "type": "integer"
+          },
+          "risksMaterialized": {
+            "type": "integer"
+          },
+          "slotMissRisks": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "ControlTowerRiskLevel": {
+        "enum": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "critical"
+        ],
+        "type": "string"
+      },
+      "ControlTowerRiskSignal": {
+        "properties": {
+          "explanationKey": {
+            "type": "string"
+          },
+          "observedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "severity": {
+            "type": "string"
+          },
+          "signalCode": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "value": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "weight": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "signalCode",
+          "severity",
+          "weight",
+          "observedAt",
+          "source",
+          "explanationKey"
+        ],
+        "type": "object"
+      },
+      "ControlTowerRiskStatus": {
+        "enum": [
+          "active",
+          "acknowledged",
+          "mitigating",
+          "cleared",
+          "materialized"
+        ],
+        "type": "string"
+      },
+      "ControlTowerRisksListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ControlTowerShipmentRisk"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
         "type": "object"
       },
       "ControlTowerSLAStatus": {
@@ -170,6 +1161,16 @@
             "format": "date-time",
             "type": "string"
           },
+          "arrivalProjection": {
+            "enum": [
+              "early",
+              "on_time",
+              "at_risk",
+              "late",
+              "unknown"
+            ],
+            "type": "string"
+          },
           "carrierId": {
             "type": "string"
           },
@@ -178,6 +1179,32 @@
           },
           "delayMinutes": {
             "type": "integer"
+          },
+          "deliverySlotArrivalProjection": {
+            "type": "string"
+          },
+          "deliverySlotMarginSeconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "deliverySlotProjectedLateSeconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "deliverySlotWindowEnd": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "deliverySlotWindowStart": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "deliverySlotWindowStatus": {
+            "enum": [
+              "unavailable",
+              "available"
+            ],
+            "type": "string"
           },
           "destinationId": {
             "type": "string"
@@ -188,10 +1215,62 @@
           "documentsComplete": {
             "type": "boolean"
           },
+          "estimatedDeliveryAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "etaAgeSeconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "etaFreshness": {
+            "enum": [
+              "unknown",
+              "fresh",
+              "stale",
+              "expired"
+            ],
+            "type": "string"
+          },
+          "etaQuality": {
+            "enum": [
+              "unknown",
+              "good",
+              "degraded",
+              "poor"
+            ],
+            "type": "string"
+          },
+          "etaStatus": {
+            "enum": [
+              "unavailable",
+              "available",
+              "stale",
+              "expired",
+              "completed"
+            ],
+            "type": "string"
+          },
           "id": {
             "type": "string"
           },
+          "lastEtaObservedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
           "lastEvent": {
+            "type": "string"
+          },
+          "lastKnownLatitude": {
+            "format": "double",
+            "type": "number"
+          },
+          "lastKnownLongitude": {
+            "format": "double",
+            "type": "number"
+          },
+          "lastPositionRecordedAt": {
+            "format": "date-time",
             "type": "string"
           },
           "lastUpdatedAt": {
@@ -204,6 +1283,24 @@
           "originName": {
             "type": "string"
           },
+          "pickupSlotArrivalProjection": {
+            "type": "string"
+          },
+          "pickupSlotWindowEnd": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "pickupSlotWindowStart": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "pickupSlotWindowStatus": {
+            "enum": [
+              "unavailable",
+              "available"
+            ],
+            "type": "string"
+          },
           "plannedDeliveryAt": {
             "format": "date-time",
             "type": "string"
@@ -211,6 +1308,10 @@
           "plannedPickupAt": {
             "format": "date-time",
             "type": "string"
+          },
+          "projectedDelaySeconds": {
+            "format": "int64",
+            "type": "integer"
           },
           "readyForBilling": {
             "type": "boolean"
@@ -233,6 +1334,42 @@
           "status": {
             "type": "string"
           },
+          "telemetryAgeSeconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "trackingFreshness": {
+            "enum": [
+              "unknown",
+              "fresh",
+              "stale",
+              "lost"
+            ],
+            "type": "string"
+          },
+          "trackingProvider": {
+            "type": "string"
+          },
+          "trackingQuality": {
+            "enum": [
+              "unknown",
+              "good",
+              "degraded",
+              "poor"
+            ],
+            "type": "string"
+          },
+          "trackingStatus": {
+            "enum": [
+              "not_configured",
+              "awaiting_data",
+              "active",
+              "stale",
+              "lost",
+              "ended"
+            ],
+            "type": "string"
+          },
           "transportOrderId": {
             "type": "string"
           },
@@ -240,6 +1377,100 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "ControlTowerShipmentRisk": {
+        "properties": {
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/ControlTowerRiskAction"
+            },
+            "type": "array"
+          },
+          "actualEventId": {
+            "type": "string"
+          },
+          "clearReason": {
+            "type": "string"
+          },
+          "clearedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "evaluatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "firstDetectedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "leadTimeSeconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "level": {
+            "$ref": "#/components/schemas/ControlTowerRiskLevel"
+          },
+          "materializedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "mitigationCode": {
+            "$ref": "#/components/schemas/ControlTowerMitigationCode"
+          },
+          "mitigationComment": {
+            "type": "string"
+          },
+          "nextEvaluationAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "predictedExceptionType": {
+            "$ref": "#/components/schemas/ControlTowerPredictedExceptionType"
+          },
+          "riskId": {
+            "pattern": "^[0-9a-f]{32}$",
+            "type": "string"
+          },
+          "score": {
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "shipmentId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "shipmentNumber": {
+            "type": "string"
+          },
+          "signals": {
+            "items": {
+              "$ref": "#/components/schemas/ControlTowerRiskSignal"
+            },
+            "type": "array"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ControlTowerRiskStatus"
+          },
+          "threatenedDeadlineAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "riskId",
+          "shipmentId",
+          "shipmentNumber",
+          "predictedExceptionType",
+          "score",
+          "level",
+          "status",
+          "signals",
+          "firstDetectedAt",
+          "evaluatedAt"
+        ],
         "type": "object"
       },
       "ControlTowerStatusSummary": {
@@ -357,6 +1588,9 @@
             },
             "type": "object"
           },
+          "exceptionKpi": {
+            "$ref": "#/components/schemas/ControlTowerExceptionKPI"
+          },
           "filters": {
             "properties": {
               "carriers": {
@@ -410,6 +1644,15 @@
             },
             "type": "object"
           },
+          "riskKpi": {
+            "$ref": "#/components/schemas/ControlTowerRiskKPI"
+          },
+          "shipmentRisks": {
+            "items": {
+              "$ref": "#/components/schemas/ControlTowerShipmentRisk"
+            },
+            "type": "array"
+          },
           "shipments": {
             "properties": {
               "hasNext": {
@@ -448,6 +1691,128 @@
           "criticalEvents",
           "filters"
         ],
+        "type": "object"
+      },
+      "ControlTowerUpdateCaseParticipantRequest": {
+        "properties": {
+          "role": {
+            "enum": [
+              "collaborator",
+              "observer"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "type": "object"
+      },
+      "ControlTowerWorkItem": {
+        "properties": {
+          "availableActions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "id": {
+            "type": "string"
+          },
+          "itemType": {
+            "enum": [
+              "exception",
+              "risk"
+            ],
+            "type": "string"
+          },
+          "ownerDisplayName": {
+            "type": "string"
+          },
+          "ownerUserId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "shipmentId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "shipmentNumber": {
+            "type": "string"
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "urgency": {
+            "enum": [
+              "critical",
+              "high",
+              "normal",
+              "low"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "itemType",
+          "sourceId",
+          "shipmentId",
+          "title",
+          "urgency",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
+      "ControlTowerWorkItemsPage": {
+        "properties": {
+          "hasNext": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ControlTowerWorkItem"
+            },
+            "type": "array"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "limit",
+          "total",
+          "hasNext"
+        ],
+        "type": "object"
+      },
+      "ControlTowerWorkloadResponse": {
+        "properties": {
+          "kpi": {
+            "type": "object"
+          },
+          "operators": {
+            "items": {
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "unassignedPool": {
+            "type": "integer"
+          }
+        },
         "type": "object"
       },
       "CreateDriverRequest": {
@@ -583,6 +1948,583 @@
         ],
         "type": "object"
       },
+      "DriverDelayRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotencyKey": {
+            "maxLength": 128,
+            "type": "string"
+          },
+          "newEta": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "occurredAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "reasonCode": {
+            "enum": [
+              "TRAFFIC",
+              "VEHICLE_BREAKDOWN",
+              "LOADING_DELAY",
+              "UNLOADING_DELAY",
+              "ROUTE_BLOCKED",
+              "CUSTOMER_DELAY",
+              "OTHER"
+            ],
+            "type": "string"
+          },
+          "reasonText": {
+            "maxLength": 4000,
+            "type": "string"
+          }
+        },
+        "required": [
+          "reasonCode",
+          "idempotencyKey"
+        ],
+        "type": "object"
+      },
+      "DriverDelayResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "driverId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "newEta": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "occurredAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "outboxEventId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "reasonCode": {
+            "type": "string"
+          },
+          "reasonText": {
+            "type": "string"
+          },
+          "receivedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "shipmentId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DriverDevice": {
+        "additionalProperties": false,
+        "properties": {
+          "appVersion": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "deviceInstanceId": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "locale": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DriverDeviceRegistrationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "appVersion": {
+            "type": "string"
+          },
+          "deviceInstanceId": {
+            "type": "string"
+          },
+          "locale": {
+            "type": "string"
+          },
+          "platform": {
+            "enum": [
+              "ANDROID",
+              "IOS",
+              "WEB"
+            ],
+            "type": "string"
+          },
+          "pushToken": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "platform",
+          "deviceInstanceId",
+          "pushToken"
+        ],
+        "type": "object"
+      },
+      "DriverExceptionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "enum": [
+              "TRAFFIC",
+              "VEHICLE_BREAKDOWN",
+              "ACCIDENT",
+              "LOADING_DELAY",
+              "UNLOADING_DELAY",
+              "CARGO_ISSUE",
+              "DOCUMENT_ISSUE",
+              "CUSTOMER_UNAVAILABLE",
+              "ROUTE_BLOCKED",
+              "OTHER"
+            ],
+            "type": "string"
+          },
+          "comment": {
+            "maxLength": 4000,
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "maxLength": 128,
+            "type": "string"
+          },
+          "occurredAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "category"
+        ],
+        "type": "object"
+      },
+      "DriverExceptionResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "category": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "shipmentId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DriverLocationRequest": {
+        "additionalProperties": true,
+        "description": "Wraps tracking provider generic event payload; providerDeviceId is resolved server-side.",
+        "properties": {
+          "events": {
+            "items": {
+              "properties": {
+                "accuracyMeters": {
+                  "type": "number"
+                },
+                "headingDegrees": {
+                  "type": "number"
+                },
+                "latitude": {
+                  "type": "number"
+                },
+                "longitude": {
+                  "type": "number"
+                },
+                "providerEventId": {
+                  "type": "string"
+                },
+                "recordedAt": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "speedKph": {
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "DriverMe": {
+        "additionalProperties": false,
+        "properties": {
+          "companyId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "preferredLocale": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DriverOperationalEventRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotencyKey": {
+            "maxLength": 128,
+            "type": "string"
+          },
+          "occurredAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "ARRIVED_AT_PICKUP",
+              "LOADING_STARTED",
+              "PICKUP_COMPLETED",
+              "DEPARTED_PICKUP",
+              "ARRIVED_AT_DELIVERY",
+              "UNLOADING_STARTED",
+              "DELIVERY_COMPLETED"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
+      "DriverOperationalEventResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "eventType": {
+            "type": "string"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "shipmentId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "shipmentStatus": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DriverPODUploadCompleteRequest": {
+        "properties": {
+          "checksumSha256": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DriverPODUploadCompleteResponse": {
+        "properties": {
+          "documentId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "fileId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "uploadId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DriverPODUploadIntent": {
+        "properties": {
+          "documentId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "maxBytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "mimeType": {
+            "type": "string"
+          },
+          "uploadId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "uploadToken": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DriverPODUploadRequest": {
+        "properties": {
+          "fileName": {
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "maxLength": 128,
+            "type": "string"
+          },
+          "mimeType": {
+            "example": "image/jpeg",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mimeType"
+        ],
+        "type": "object"
+      },
+      "DriverShipmentDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DriverShipmentSummary"
+          },
+          {
+            "properties": {
+              "transportMode": {
+                "type": "string"
+              },
+              "version": {
+                "type": "integer"
+              }
+            },
+            "type": "object"
+          }
+        ]
+      },
+      "DriverShipmentList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DriverShipmentSummary"
+            },
+            "type": "array"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "DriverShipmentSummary": {
+        "additionalProperties": true,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "shipmentNumber": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DriverTaskDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DriverTaskSummary"
+          },
+          {
+            "properties": {
+              "acknowledgedAt": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "completedAt": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "expiresAt": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "payload": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "readAt": {
+                "format": "date-time",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        ]
+      },
+      "DriverTaskList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DriverTaskSummary"
+            },
+            "type": "array"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "DriverTaskResponseRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "comment": {
+            "maxLength": 4000,
+            "type": "string"
+          },
+          "occurredAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "reason": {
+            "enum": [
+              "TRAFFIC",
+              "VEHICLE_BREAKDOWN",
+              "LOADING_DELAY",
+              "UNLOADING_DELAY",
+              "ROUTE_BLOCKED",
+              "CUSTOMER_UNAVAILABLE",
+              "OTHER"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DriverTaskResponseResult": {
+        "properties": {
+          "response": {
+            "properties": {
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "receivedAt": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "responseBody": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "responseType": {
+                "type": "string"
+              },
+              "taskId": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "task": {
+            "$ref": "#/components/schemas/DriverTaskDetail"
+          }
+        },
+        "type": "object"
+      },
+      "DriverTaskSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "priority": {
+            "type": "string"
+          },
+          "shipmentId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "taskType": {
+            "enum": [
+              "REQUEST_DELAY_REASON",
+              "REQUEST_STATUS_CONFIRMATION",
+              "REQUEST_ARRIVAL_CONFIRMATION",
+              "REQUEST_DOCUMENT_ACTION",
+              "GENERAL_OPERATIONAL_NOTICE"
+            ],
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "ErrorResponse": {
         "properties": {
           "error": {
@@ -632,6 +2574,92 @@
         },
         "type": "object"
       },
+      "InternalCreateDriverTaskRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "correlationId": {
+            "type": "string"
+          },
+          "createdById": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "createdByType": {
+            "type": "string"
+          },
+          "driverId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "priority": {
+            "enum": [
+              "NORMAL",
+              "HIGH",
+              "CRITICAL"
+            ],
+            "type": "string"
+          },
+          "shipmentId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "SYSTEM",
+              "CONTROL_TOWER",
+              "OPERATOR"
+            ],
+            "type": "string"
+          },
+          "sourceEventId": {
+            "type": "string"
+          },
+          "tenantId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "REQUEST_DELAY_REASON",
+              "REQUEST_STATUS_CONFIRMATION",
+              "REQUEST_ARRIVAL_CONFIRMATION",
+              "REQUEST_DOCUMENT_ACTION",
+              "GENERAL_OPERATIONAL_NOTICE"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenantId",
+          "driverId",
+          "type",
+          "source",
+          "idempotencyKey"
+        ],
+        "type": "object"
+      },
+      "InternalCreateDriverTaskResponse": {
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "taskId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "taskType": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "PaginatedResponse": {
         "properties": {
           "items": {
@@ -650,6 +2678,194 @@
             "type": "integer"
           }
         },
+        "type": "object"
+      },
+      "ShipmentETAHistoryPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ShipmentETAObservation"
+            },
+            "type": "array"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "ShipmentETAObservation": {
+        "properties": {
+          "estimatedArrivalAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "providerConfidence": {
+            "format": "double",
+            "type": "number"
+          },
+          "providerEventId": {
+            "type": "string"
+          },
+          "qualityReasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "qualityStatus": {
+            "type": "string"
+          },
+          "receivedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "shipmentId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "sourceObservedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "sourceType": {
+            "type": "string"
+          },
+          "targetType": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ShipmentETASummary": {
+        "properties": {
+          "delivery": {
+            "$ref": "#/components/schemas/ShipmentETATargetSummary"
+          },
+          "pickup": {
+            "$ref": "#/components/schemas/ShipmentETATargetSummary"
+          },
+          "shipmentId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "shipmentId"
+        ],
+        "type": "object"
+      },
+      "ShipmentETATargetSummary": {
+        "properties": {
+          "ageSeconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "arrivalProjection": {
+            "enum": [
+              "early",
+              "on_time",
+              "at_risk",
+              "late",
+              "unknown"
+            ],
+            "type": "string"
+          },
+          "deliveryLagSeconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "estimatedArrivalAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "freshnessStatus": {
+            "enum": [
+              "unknown",
+              "fresh",
+              "stale",
+              "expired"
+            ],
+            "type": "string"
+          },
+          "plannedArrivalAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "projectedDeviationSeconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "providerConfidence": {
+            "format": "double",
+            "type": "number"
+          },
+          "qualityReasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "qualityStatus": {
+            "enum": [
+              "unknown",
+              "good",
+              "degraded",
+              "poor"
+            ],
+            "type": "string"
+          },
+          "receivedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "sourceObservedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "sourceType": {
+            "enum": [
+              "provider_eta",
+              "carrier_eta",
+              "driver_eta",
+              "manual_operator",
+              "calculated"
+            ],
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "unavailable",
+              "available",
+              "stale",
+              "expired",
+              "completed"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "freshnessStatus",
+          "qualityStatus",
+          "arrivalProjection"
+        ],
         "type": "object"
       },
       "ShipmentEventActor": {
@@ -830,6 +3046,234 @@
         ],
         "type": "object"
       },
+      "ShipmentLocationHistoryItem": {
+        "properties": {
+          "accuracyMeters": {
+            "type": "number"
+          },
+          "headingDegrees": {
+            "type": "number"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "providerDeviceId": {
+            "type": "string"
+          },
+          "quality": {
+            "$ref": "#/components/schemas/ShipmentTrackingQuality"
+          },
+          "receivedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "recordedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "shipmentId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "sourceType": {
+            "type": "string"
+          },
+          "speedKph": {
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
+      "ShipmentLocationHistoryPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ShipmentLocationHistoryItem"
+            },
+            "type": "array"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "ShipmentSlotHistoryPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ShipmentSlotRevision"
+            },
+            "type": "array"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "ShipmentSlotRevision": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "qualityStatus": {
+            "type": "string"
+          },
+          "receivedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "shipmentId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "slotStatus": {
+            "type": "string"
+          },
+          "slotType": {
+            "type": "string"
+          },
+          "sourceObservedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "sourceType": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "windowEnd": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "windowStart": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ShipmentSlotSummary": {
+        "properties": {
+          "delivery": {
+            "$ref": "#/components/schemas/ShipmentSlotTargetSummary"
+          },
+          "pickup": {
+            "$ref": "#/components/schemas/ShipmentSlotTargetSummary"
+          },
+          "shipmentId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "shipmentId"
+        ],
+        "type": "object"
+      },
+      "ShipmentSlotTargetSummary": {
+        "properties": {
+          "arrivalProjection": {
+            "enum": [
+              "unknown",
+              "early",
+              "on_time",
+              "at_risk",
+              "projected_miss",
+              "missed",
+              "completed"
+            ],
+            "type": "string"
+          },
+          "earlyBySeconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "etaRelation": {
+            "type": "string"
+          },
+          "marginSeconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "projectedLateBySeconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "qualityStatus": {
+            "type": "string"
+          },
+          "slotStatus": {
+            "enum": [
+              "proposed",
+              "booked",
+              "confirmed",
+              "cancelled",
+              "completed",
+              "missed"
+            ],
+            "type": "string"
+          },
+          "sourceType": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "windowEnd": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "windowStart": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "windowStatus": {
+            "enum": [
+              "unavailable",
+              "available"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "windowStatus",
+          "qualityStatus",
+          "arrivalProjection"
+        ],
+        "type": "object"
+      },
       "ShipmentTimelineEvent": {
         "properties": {
           "actor": {
@@ -895,6 +3339,116 @@
           "titleCode",
           "occurredAt",
           "derived"
+        ],
+        "type": "object"
+      },
+      "ShipmentTrackingFreshness": {
+        "properties": {
+          "ageSeconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "unknown",
+              "fresh",
+              "stale",
+              "lost"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ShipmentTrackingPosition": {
+        "properties": {
+          "ageSeconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
+          },
+          "recordedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ShipmentTrackingQuality": {
+        "properties": {
+          "reason": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "unknown",
+              "good",
+              "degraded",
+              "poor"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ShipmentTrackingSummary": {
+        "properties": {
+          "deliveryDelaySeconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "freshness": {
+            "$ref": "#/components/schemas/ShipmentTrackingFreshness"
+          },
+          "headingDegrees": {
+            "type": "number"
+          },
+          "lastKnownPosition": {
+            "$ref": "#/components/schemas/ShipmentTrackingPosition"
+          },
+          "lastReceivedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "lastRecordedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "quality": {
+            "$ref": "#/components/schemas/ShipmentTrackingQuality"
+          },
+          "shipmentId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "speedKph": {
+            "type": "number"
+          },
+          "trackingStatus": {
+            "enum": [
+              "not_configured",
+              "awaiting_data",
+              "active",
+              "stale",
+              "lost",
+              "ended"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "shipmentId",
+          "trackingStatus",
+          "freshness",
+          "quality"
         ],
         "type": "object"
       },
@@ -4041,6 +6595,2630 @@
         ]
       }
     },
+    "/api/v1/control-tower/automation/kpi": {
+      "get": {
+        "operationId": "get_control_tower_automation_kpi",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Automation KPI counts"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Automation KPI summary",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/automation/recommendations": {
+      "get": {
+        "operationId": "list_control_tower_automation_recommendations",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recommendations page"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List automation recommendations",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/automation/recommendations/{recommendationId}/accept": {
+      "post": {
+        "operationId": "post_control_tower_automation_recommendation_accept",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "recommendationId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recommendation accepted and execution created"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Accept playbook recommendation",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/automation/recommendations/{recommendationId}/dismiss": {
+      "post": {
+        "operationId": "post_control_tower_automation_recommendation_dismiss",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "recommendationId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recommendation dismissed"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Dismiss automation recommendation",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/automation/rules": {
+      "get": {
+        "operationId": "list_control_tower_automation_rules",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Automation rules page"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List automation rules",
+        "tags": [
+          "Control Tower"
+        ]
+      },
+      "post": {
+        "operationId": "create_control_tower_automation_rule",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Rule created"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Create automation rule",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/automation/rules/{ruleId}": {
+      "get": {
+        "operationId": "get_control_tower_automation_rule",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "ruleId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rule detail"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get automation rule",
+        "tags": [
+          "Control Tower"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_control_tower_automation_rule",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "ruleId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rule updated"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Update automation rule",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/automation/rules/{ruleId}/activate": {
+      "post": {
+        "operationId": "post_control_tower_automation_rule_activate",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "ruleId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rule activated"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Activate automation rule",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/automation/rules/{ruleId}/disable": {
+      "post": {
+        "operationId": "post_control_tower_automation_rule_disable",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "ruleId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rule disabled"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Disable automation rule",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/automation/rules/{ruleId}/dry-run": {
+      "post": {
+        "operationId": "post_control_tower_automation_rule_dry_run",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "ruleId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dry-run result without side effects"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Dry-run automation rule evaluation",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/automation/rules/{ruleId}/retire": {
+      "post": {
+        "operationId": "post_control_tower_automation_rule_retire",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "ruleId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rule retired"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Retire automation rule",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/cases": {
+      "get": {
+        "operationId": "get_control_tower_cases",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "description": "Includes sla_at_risk and overdue_actions presets",
+            "in": "query",
+            "name": "preset",
+            "schema": {
+              "enum": [
+                "my_cases",
+                "unassigned",
+                "critical",
+                "action_required",
+                "monitoring",
+                "resolved",
+                "closed",
+                "all_active",
+                "sla_at_risk",
+                "overdue_actions"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "severity",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "owner",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "hasSlaBreach",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "hasSlaWarning",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "overdueActions",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "slaState",
+            "schema": {
+              "enum": [
+                "breached",
+                "warning"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlTowerCasesPage"
+                }
+              }
+            },
+            "description": "Case page"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List operational cases",
+        "tags": [
+          "Control Tower"
+        ]
+      },
+      "post": {
+        "operationId": "post_control_tower_cases",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ControlTowerCreateCaseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlTowerOperationalCase"
+                }
+              }
+            },
+            "description": "Created case"
+          },
+          "409": {
+            "description": "Active case conflict for work item"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Create operational case",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/cases/duplicates": {
+      "get": {
+        "operationId": "get_control_tower_case_duplicates",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "query",
+            "name": "itemType",
+            "schema": {
+              "enum": [
+                "exception",
+                "risk"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "itemId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "shipmentId",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Duplicate candidates"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Find likely duplicate active cases",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/cases/kpi": {
+      "get": {
+        "operationId": "get_control_tower_cases_kpi",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlTowerCaseKpi"
+                }
+              }
+            },
+            "description": "Case KPI"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Operational case KPI summary",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/cases/{caseId}": {
+      "get": {
+        "operationId": "get_control_tower_case",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "caseId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlTowerOperationalCase"
+                }
+              }
+            },
+            "description": "Case details"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get operational case details",
+        "tags": [
+          "Control Tower"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_control_tower_case",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "caseId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated case"
+          },
+          "409": {
+            "description": "Version conflict"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Update operational case",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/cases/{caseId}/actions": {
+      "post": {
+        "operationId": "post_control_tower_case_action",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "caseId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Action item created"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Create case action item",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/cases/{caseId}/actions/{actionId}/complete": {
+      "post": {
+        "operationId": "post_control_tower_case_action_complete",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "caseId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "actionId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Action completed"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Complete case action item",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/cases/{caseId}/claim": {
+      "post": {
+        "operationId": "post_control_tower_case_claim",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "caseId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Claimed case"
+          },
+          "409": {
+            "description": "Already owned"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Claim case for current operator",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/cases/{caseId}/close": {
+      "post": {
+        "operationId": "post_control_tower_case_close",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "caseId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Case closed"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Close resolved case",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/cases/{caseId}/decisions": {
+      "post": {
+        "operationId": "post_control_tower_case_decision",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "caseId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Decision recorded"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Record case decision",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/cases/{caseId}/links": {
+      "post": {
+        "operationId": "post_control_tower_case_link",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "caseId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Link created"
+          },
+          "409": {
+            "description": "Work item already in active case"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Add typed link to case",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/cases/{caseId}/notes": {
+      "post": {
+        "operationId": "post_control_tower_case_note",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "caseId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Note created"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Add case note",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/cases/{caseId}/participants": {
+      "post": {
+        "operationId": "post_control_tower_case_participant",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "caseId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ControlTowerAddCaseParticipantRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Participant added"
+          },
+          "409": {
+            "description": "Participant conflict"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Add case participant",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/cases/{caseId}/participants/{userId}": {
+      "delete": {
+        "operationId": "delete_control_tower_case_participant",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "caseId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Participant removed"
+          },
+          "409": {
+            "description": "Cannot remove canonical case owner"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Remove case participant",
+        "tags": [
+          "Control Tower"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_control_tower_case_participant",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "caseId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ControlTowerUpdateCaseParticipantRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Participant role updated"
+          },
+          "409": {
+            "description": "Cannot promote to owner via participant API"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Change case participant role",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/cases/{caseId}/reopen": {
+      "post": {
+        "operationId": "post_control_tower_case_reopen",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "caseId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Case reopened"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Reopen case",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/cases/{caseId}/resolve": {
+      "post": {
+        "operationId": "post_control_tower_case_resolve",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "caseId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Case resolved"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Resolve operational case",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/cases/{caseId}/timeline": {
+      "get": {
+        "operationId": "get_control_tower_case_timeline",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "caseId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Timeline page"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Paginated case timeline",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/critical-events/{eventId}/acknowledge": {
+      "post": {
+        "description": "Records an idempotent acknowledgement for a currently active derived critical event.\nThe request body must be empty; tenant and actor identity are derived from the verified\nJWT bearer token only (no client-supplied tenant_id, user_id, or acknowledged_by).\nThe gateway validates that `eventId` matches a currently derived critical event for the\nauthenticated tenant before persisting acknowledgement state in the read model.\nRepeating the request returns HTTP 200 with the original acknowledgement (first ack wins).\n",
+        "operationId": "post_control_tower_critical_event_acknowledge",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XLocale"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "description": "Opaque deterministic event identifier from `ControlTowerEvent.id` (32 lowercase hex characters).\n",
+            "in": "path",
+            "name": "eventId",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{32}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "maxProperties": 0,
+                "type": "object"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlTowerEventAcknowledgement"
+                }
+              }
+            },
+            "description": "Acknowledgement recorded (or returned idempotently if already acknowledged)"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid eventId format"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden — caller lacks Control Tower access"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Event not found for the authenticated tenant (unknown eventId, resolved/non-current\nderived event, or cross-tenant probe — no existence leak).\n"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Required Control Tower dependency is temporarily unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Acknowledge a critical Control Tower event",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/critical-events/{eventId}/actions": {
+      "get": {
+        "operationId": "get_control_tower_critical_event_actions",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XLocale"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "eventId",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{32}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlTowerEventActionsResponse"
+                }
+              }
+            },
+            "description": "Chronological workflow actions"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Event not found"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List workflow action history for a critical event",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/critical-events/{eventId}/assign": {
+      "post": {
+        "operationId": "post_control_tower_critical_event_assign",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XLocale"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "eventId",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{32}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ControlTowerEventAssignRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlTowerEventWorkflow"
+                }
+              }
+            },
+            "description": "Event assigned or reassigned"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Event not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid workflow transition"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Assign a critical Control Tower event",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/critical-events/{eventId}/exception": {
+      "patch": {
+        "operationId": "patch_control_tower_critical_event_exception",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XLocale"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "eventId",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{32}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ControlTowerExceptionUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlTowerEventWorkflow"
+                }
+              }
+            },
+            "description": "Exception attributes updated"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Event not found"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Update operational exception attributes",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/critical-events/{eventId}/reopen": {
+      "post": {
+        "operationId": "post_control_tower_critical_event_reopen",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XLocale"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "eventId",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{32}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "maxProperties": 0,
+                "type": "object"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlTowerEventWorkflow"
+                }
+              }
+            },
+            "description": "Event reopened"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Event not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid workflow transition"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Reopen a resolved critical Control Tower event",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/critical-events/{eventId}/resolve": {
+      "post": {
+        "operationId": "post_control_tower_critical_event_resolve",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XLocale"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "eventId",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{32}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ControlTowerEventResolveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlTowerEventWorkflow"
+                }
+              }
+            },
+            "description": "Event resolved"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Event not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid workflow transition"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Resolve a critical Control Tower event",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/handoffs": {
+      "get": {
+        "operationId": "get_control_tower_handoffs",
+        "responses": {
+          "200": {
+            "description": "Handoffs"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List shift handoffs",
+        "tags": [
+          "Control Tower"
+        ]
+      },
+      "post": {
+        "operationId": "post_control_tower_handoffs",
+        "responses": {
+          "200": {
+            "description": "Handoff result"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Create shift handoff",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/playbook-executions": {
+      "get": {
+        "operationId": "list_control_tower_playbook_executions",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Playbook executions page"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List playbook executions",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/playbook-executions/{executionId}": {
+      "get": {
+        "operationId": "get_control_tower_playbook_execution",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "executionId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Playbook execution detail"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get playbook execution",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/playbook-executions/{executionId}/cancel": {
+      "post": {
+        "operationId": "post_control_tower_playbook_execution_cancel",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "executionId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Execution cancelled"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Cancel playbook execution",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/playbook-executions/{executionId}/complete": {
+      "post": {
+        "operationId": "post_control_tower_playbook_execution_complete",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "executionId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Execution completed"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Complete playbook execution",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/playbook-executions/{executionId}/start": {
+      "post": {
+        "operationId": "post_control_tower_playbook_execution_start",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "executionId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Execution started"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Start playbook execution",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/playbook-executions/{executionId}/steps/{stepId}/complete": {
+      "post": {
+        "operationId": "post_control_tower_playbook_execution_step_complete",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "executionId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "stepId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Step completed"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Complete playbook execution step",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/playbook-executions/{executionId}/steps/{stepId}/skip": {
+      "post": {
+        "operationId": "post_control_tower_playbook_execution_step_skip",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "executionId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "stepId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Step skipped"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Skip playbook execution step",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/playbooks": {
+      "get": {
+        "operationId": "list_control_tower_playbooks",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Playbooks page"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List operational playbooks",
+        "tags": [
+          "Control Tower"
+        ]
+      },
+      "post": {
+        "operationId": "create_control_tower_playbook",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Playbook created"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Create operational playbook",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/playbooks/{playbookId}": {
+      "get": {
+        "operationId": "get_control_tower_playbook",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "playbookId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Playbook detail with steps"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get operational playbook",
+        "tags": [
+          "Control Tower"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_control_tower_playbook",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "playbookId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Playbook updated"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Update operational playbook",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/risks": {
+      "get": {
+        "operationId": "get_control_tower_risks",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XLocale"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "query",
+            "name": "risk_level",
+            "schema": {
+              "$ref": "#/components/schemas/ControlTowerRiskLevel"
+            }
+          },
+          {
+            "in": "query",
+            "name": "risk_status",
+            "schema": {
+              "$ref": "#/components/schemas/ControlTowerRiskStatus"
+            }
+          },
+          {
+            "in": "query",
+            "name": "predicted_exception_type",
+            "schema": {
+              "$ref": "#/components/schemas/ControlTowerPredictedExceptionType"
+            }
+          },
+          {
+            "in": "query",
+            "name": "risk_shipment_id",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "risk_mitigating_only",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "risk_non_mitigating_only",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlTowerRisksListResponse"
+                }
+              }
+            },
+            "description": "Predictive risks"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List predictive shipment risks",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/risks/{riskId}": {
+      "get": {
+        "operationId": "get_control_tower_risk",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XLocale"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "riskId",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{32}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlTowerShipmentRisk"
+                }
+              }
+            },
+            "description": "Risk details with signals and action history"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Risk not found"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get predictive risk details",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/risks/{riskId}/acknowledge": {
+      "post": {
+        "operationId": "post_control_tower_risk_acknowledge",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XLocale"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "riskId",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{32}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlTowerShipmentRisk"
+                }
+              }
+            },
+            "description": "Updated risk"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Risk not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid transition"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Acknowledge a predictive risk",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/risks/{riskId}/mitigate": {
+      "post": {
+        "operationId": "post_control_tower_risk_mitigate",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XLocale"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "riskId",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{32}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ControlTowerMitigateRiskRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlTowerShipmentRisk"
+                }
+              }
+            },
+            "description": "Updated risk"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Risk not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid transition"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Start or update risk mitigation",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
     "/api/v1/control-tower/summary": {
       "get": {
         "description": "BFF endpoint that aggregates shipments, transport orders, companies, and documents\nfor the Control Tower dashboard. Supports server-side filtering and pagination.\nOptional dependencies may return partial responses with machine-readable warning codes.\nTenant context is derived from the verified JWT bearer token only.\n",
@@ -4113,6 +9291,98 @@
           {
             "in": "query",
             "name": "critical_only",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "event_status",
+            "schema": {
+              "$ref": "#/components/schemas/ControlTowerEventWorkflowStatus"
+            }
+          },
+          {
+            "in": "query",
+            "name": "priority",
+            "schema": {
+              "$ref": "#/components/schemas/ControlTowerExceptionPriority"
+            }
+          },
+          {
+            "in": "query",
+            "name": "exception_category",
+            "schema": {
+              "$ref": "#/components/schemas/ControlTowerExceptionCategory"
+            }
+          },
+          {
+            "in": "query",
+            "name": "business_impact",
+            "schema": {
+              "$ref": "#/components/schemas/ControlTowerBusinessImpact"
+            }
+          },
+          {
+            "in": "query",
+            "name": "event_sla_status",
+            "schema": {
+              "$ref": "#/components/schemas/ControlTowerExceptionSLAStatus"
+            }
+          },
+          {
+            "in": "query",
+            "name": "escalation_level",
+            "schema": {
+              "$ref": "#/components/schemas/ControlTowerEscalationLevel"
+            }
+          },
+          {
+            "in": "query",
+            "name": "unassigned_only",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "risk_level",
+            "schema": {
+              "$ref": "#/components/schemas/ControlTowerRiskLevel"
+            }
+          },
+          {
+            "in": "query",
+            "name": "risk_status",
+            "schema": {
+              "$ref": "#/components/schemas/ControlTowerRiskStatus"
+            }
+          },
+          {
+            "in": "query",
+            "name": "predicted_exception_type",
+            "schema": {
+              "$ref": "#/components/schemas/ControlTowerPredictedExceptionType"
+            }
+          },
+          {
+            "in": "query",
+            "name": "risk_shipment_id",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "risk_mitigating_only",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "risk_non_mitigating_only",
             "schema": {
               "type": "boolean"
             }
@@ -4195,6 +9465,296 @@
           }
         ],
         "summary": "Control Tower aggregated summary",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/views": {
+      "get": {
+        "operationId": "get_control_tower_views",
+        "responses": {
+          "200": {
+            "description": "Saved views"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List saved workspace views",
+        "tags": [
+          "Control Tower"
+        ]
+      },
+      "post": {
+        "operationId": "post_control_tower_views",
+        "responses": {
+          "201": {
+            "description": "Created view"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Create saved workspace view",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/work-items": {
+      "get": {
+        "operationId": "get_control_tower_work_items",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XLocale"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "query",
+            "name": "preset",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "my_work",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "unassigned",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlTowerWorkItemsPage"
+                }
+              }
+            },
+            "description": "Work item page"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List unified operator work items",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/work-items/bulk-action": {
+      "post": {
+        "operationId": "post_control_tower_work_items_bulk_action",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ControlTowerBulkWorkActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlTowerBulkWorkActionOutcome"
+                }
+              }
+            },
+            "description": "Per-item outcomes"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Bulk operator work actions",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/work-items/{itemType}/{itemId}": {
+      "get": {
+        "operationId": "get_control_tower_work_item",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "itemType",
+            "required": true,
+            "schema": {
+              "enum": [
+                "exception",
+                "risk"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "itemId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlTowerWorkItem"
+                }
+              }
+            },
+            "description": "Work item"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get work item details",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/work-items/{itemType}/{itemId}/claim": {
+      "post": {
+        "operationId": "post_control_tower_work_item_claim",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "itemType",
+            "required": true,
+            "schema": {
+              "enum": [
+                "exception",
+                "risk"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "itemId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlTowerWorkItem"
+                }
+              }
+            },
+            "description": "Updated work item"
+          },
+          "409": {
+            "description": "Already claimed"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Claim work item for current operator",
+        "tags": [
+          "Control Tower"
+        ]
+      }
+    },
+    "/api/v1/control-tower/workload": {
+      "get": {
+        "operationId": "get_control_tower_workload",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlTowerWorkloadResponse"
+                }
+              }
+            },
+            "description": "Workload"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Operator workload summary",
         "tags": [
           "Control Tower"
         ]
@@ -5118,6 +10678,966 @@
         "summary": "Create document version",
         "tags": [
           "Documents"
+        ]
+      }
+    },
+    "/api/v1/driver/me": {
+      "get": {
+        "operationId": "get_driver_me",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriverMe"
+                }
+              }
+            },
+            "description": "Driver profile"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get authenticated driver profile",
+        "tags": [
+          "Driver Mobile"
+        ]
+      }
+    },
+    "/api/v1/driver/me/devices": {
+      "post": {
+        "operationId": "post_driver_me_device_register",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriverDeviceRegistrationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriverDevice"
+                }
+              }
+            },
+            "description": "Device registered"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Register driver device for push delivery",
+        "tags": [
+          "Driver Mobile"
+        ]
+      }
+    },
+    "/api/v1/driver/me/devices/{deviceId}": {
+      "delete": {
+        "operationId": "delete_driver_me_device",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "in": "path",
+            "name": "deviceId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Device revoked"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Revoke driver device registration",
+        "tags": [
+          "Driver Mobile"
+        ]
+      }
+    },
+    "/api/v1/driver/me/shipments": {
+      "get": {
+        "operationId": "get_driver_me_shipments",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriverShipmentList"
+                }
+              }
+            },
+            "description": "Assigned shipments"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List shipments assigned to authenticated driver",
+        "tags": [
+          "Driver Mobile"
+        ]
+      }
+    },
+    "/api/v1/driver/me/shipments/{shipmentId}": {
+      "get": {
+        "operationId": "get_driver_me_shipment_detail",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "in": "path",
+            "name": "shipmentId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriverShipmentDetail"
+                }
+              }
+            },
+            "description": "Shipment detail"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get assigned shipment detail for driver",
+        "tags": [
+          "Driver Mobile"
+        ]
+      }
+    },
+    "/api/v1/driver/me/shipments/{shipmentId}/delays": {
+      "post": {
+        "operationId": "post_driver_me_shipment_delay",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "in": "path",
+            "name": "shipmentId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriverDelayRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriverDelayResponse"
+                }
+              }
+            },
+            "description": "Idempotent replay"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriverDelayResponse"
+                }
+              }
+            },
+            "description": "Delay reported"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Report driver shipment delay",
+        "tags": [
+          "Driver Mobile"
+        ]
+      }
+    },
+    "/api/v1/driver/me/shipments/{shipmentId}/events": {
+      "post": {
+        "operationId": "post_driver_me_shipment_event",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "in": "path",
+            "name": "shipmentId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriverOperationalEventRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriverOperationalEventResponse"
+                }
+              }
+            },
+            "description": "Event accepted or replayed"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Record driver operational shipment event",
+        "tags": [
+          "Driver Mobile"
+        ]
+      }
+    },
+    "/api/v1/driver/me/shipments/{shipmentId}/exceptions": {
+      "post": {
+        "operationId": "post_driver_me_shipment_exception",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "in": "path",
+            "name": "shipmentId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriverExceptionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriverExceptionResponse"
+                }
+              }
+            },
+            "description": "Idempotent replay"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriverExceptionResponse"
+                }
+              }
+            },
+            "description": "Exception created"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Report driver shipment exception",
+        "tags": [
+          "Driver Mobile"
+        ]
+      }
+    },
+    "/api/v1/driver/me/shipments/{shipmentId}/locations": {
+      "post": {
+        "operationId": "post_driver_me_shipment_location",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "in": "path",
+            "name": "shipmentId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriverLocationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Location ingest result"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Ingest driver GPS location for assigned shipment",
+        "tags": [
+          "Driver Mobile"
+        ]
+      }
+    },
+    "/api/v1/driver/me/shipments/{shipmentId}/pod/uploads": {
+      "post": {
+        "operationId": "post_driver_me_shipment_pod_upload",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "in": "path",
+            "name": "shipmentId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriverPODUploadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriverPODUploadIntent"
+                }
+              }
+            },
+            "description": "Upload intent created"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Driver not assigned to shipment"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Initiate secure POD upload for assigned shipment",
+        "tags": [
+          "Driver Mobile"
+        ]
+      }
+    },
+    "/api/v1/driver/me/shipments/{shipmentId}/pod/uploads/{uploadId}/complete": {
+      "post": {
+        "operationId": "post_driver_me_shipment_pod_upload_complete",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "in": "path",
+            "name": "shipmentId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "uploadId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriverPODUploadCompleteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriverPODUploadCompleteResponse"
+                }
+              }
+            },
+            "description": "POD finalized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Finalize POD upload after object storage write",
+        "tags": [
+          "Driver Mobile"
+        ]
+      }
+    },
+    "/api/v1/driver/me/shipments/{shipmentId}/pod/uploads/{uploadId}/content": {
+      "put": {
+        "operationId": "put_driver_me_shipment_pod_upload_content",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "in": "path",
+            "name": "shipmentId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "uploadId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Upload-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "format": "binary",
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Content stored"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Upload POD file bytes using server-issued upload token",
+        "tags": [
+          "Driver Mobile"
+        ]
+      }
+    },
+    "/api/v1/driver/me/tasks": {
+      "get": {
+        "operationId": "get_driver_me_tasks",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "enum": [
+                "PENDING",
+                "DELIVERED",
+                "READ",
+                "ACKNOWLEDGED",
+                "COMPLETED",
+                "EXPIRED",
+                "CANCELLED"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "unread",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriverTaskList"
+                }
+              }
+            },
+            "description": "Driver task inbox"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List driver inbox tasks",
+        "tags": [
+          "Driver Mobile"
+        ]
+      }
+    },
+    "/api/v1/driver/me/tasks/{taskId}": {
+      "get": {
+        "operationId": "get_driver_me_task_detail",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "in": "path",
+            "name": "taskId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriverTaskDetail"
+                }
+              }
+            },
+            "description": "Task detail"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get driver task detail",
+        "tags": [
+          "Driver Mobile"
+        ]
+      }
+    },
+    "/api/v1/driver/me/tasks/{taskId}/acknowledge": {
+      "post": {
+        "operationId": "post_driver_me_task_acknowledge",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "in": "path",
+            "name": "taskId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriverTaskDetail"
+                }
+              }
+            },
+            "description": "Task acknowledged"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Acknowledge driver task receipt",
+        "tags": [
+          "Driver Mobile"
+        ]
+      }
+    },
+    "/api/v1/driver/me/tasks/{taskId}/read": {
+      "post": {
+        "operationId": "post_driver_me_task_read",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "in": "path",
+            "name": "taskId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriverTaskDetail"
+                }
+              }
+            },
+            "description": "Task marked read"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Mark driver task as read",
+        "tags": [
+          "Driver Mobile"
+        ]
+      }
+    },
+    "/api/v1/driver/me/tasks/{taskId}/responses": {
+      "post": {
+        "operationId": "post_driver_me_task_response",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "in": "path",
+            "name": "taskId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriverTaskResponseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriverTaskResponseResult"
+                }
+              }
+            },
+            "description": "Task response accepted"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Submit structured driver task response",
+        "tags": [
+          "Driver Mobile"
         ]
       }
     },
@@ -8304,6 +14824,194 @@
         ]
       }
     },
+    "/api/v1/shipments/{shipmentId}/eta": {
+      "get": {
+        "operationId": "get_shipment_eta",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XTenantID"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "shipmentId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "plannedPickupAt",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "plannedDeliveryAt",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "actualPickupAt",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "actualDeliveryAt",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "shipmentStatus",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShipmentETASummary"
+                }
+              }
+            },
+            "description": "Current ETA summary"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get current shipment ETA state",
+        "tags": [
+          "Shipments",
+          "ETA"
+        ]
+      }
+    },
+    "/api/v1/shipments/{shipmentId}/eta/history": {
+      "get": {
+        "operationId": "get_shipment_eta_history",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XTenantID"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "shipmentId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "targetType",
+            "schema": {
+              "default": "delivery",
+              "enum": [
+                "pickup",
+                "delivery"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShipmentETAHistoryPage"
+                }
+              }
+            },
+            "description": "ETA history page"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List bounded shipment ETA observation history",
+        "tags": [
+          "Shipments",
+          "ETA"
+        ]
+      }
+    },
     "/api/v1/shipments/{shipmentId}/events": {
       "get": {
         "description": "BFF endpoint that aggregates shipment state, documents, billing registers, and SLA signals\ninto a unified event timeline. Optional dependencies may return partial responses with\nmachine-readable warning codes. Tenant context is derived from the verified JWT bearer token only.\nDerived events are explicitly marked with `derived: true`.\n",
@@ -8480,6 +15188,327 @@
         "summary": "Shipment event history timeline",
         "tags": [
           "Shipments"
+        ]
+      }
+    },
+    "/api/v1/shipments/{shipmentId}/slots": {
+      "get": {
+        "operationId": "get_shipment_slots",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XTenantID"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "shipmentId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "shipmentStatus",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "actualPickupAt",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "actualDeliveryAt",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "deliveryEtaStatus",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "deliveryEtaFreshness",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "deliveryEstimatedArrivalAt",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShipmentSlotSummary"
+                }
+              }
+            },
+            "description": "Current slot summary"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get current shipment slot state",
+        "tags": [
+          "Shipments",
+          "Slots"
+        ]
+      }
+    },
+    "/api/v1/shipments/{shipmentId}/slots/history": {
+      "get": {
+        "operationId": "get_shipment_slot_history",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XTenantID"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "shipmentId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "slotType",
+            "schema": {
+              "default": "delivery",
+              "enum": [
+                "pickup",
+                "delivery"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShipmentSlotHistoryPage"
+                }
+              }
+            },
+            "description": "Slot history page"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List bounded shipment slot revision history",
+        "tags": [
+          "Shipments",
+          "Slots"
+        ]
+      }
+    },
+    "/api/v1/shipments/{shipmentId}/tracking": {
+      "get": {
+        "operationId": "get_shipment_tracking",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XTenantID"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "shipmentId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShipmentTrackingSummary"
+                }
+              }
+            },
+            "description": "Current tracking summary"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get current shipment tracking state",
+        "tags": [
+          "Shipments",
+          "Tracking"
+        ]
+      }
+    },
+    "/api/v1/shipments/{shipmentId}/tracking/locations": {
+      "get": {
+        "operationId": "get_shipment_tracking_locations",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XTenantID"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "in": "path",
+            "name": "shipmentId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "maximum": 500,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShipmentLocationHistoryPage"
+                }
+              }
+            },
+            "description": "Location history page"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List bounded shipment location history",
+        "tags": [
+          "Shipments",
+          "Tracking"
         ]
       }
     },
@@ -10451,6 +17480,97 @@
         ]
       }
     },
+    "/internal/v1/driver/tasks": {
+      "post": {
+        "description": "Trusted internal boundary for Control Tower and platform services. Requires X-Internal-Service-Token.",
+        "operationId": "post_internal_driver_task",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "in": "header",
+            "name": "X-Internal-Service-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InternalCreateDriverTaskRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternalCreateDriverTaskResponse"
+                }
+              }
+            },
+            "description": "Task created or idempotently returned"
+          }
+        },
+        "summary": "Create driver task (trusted internal)",
+        "tags": [
+          "Internal Driver Tasks"
+        ]
+      }
+    },
+    "/internal/v1/driver/tasks/{taskId}/cancel": {
+      "post": {
+        "operationId": "post_internal_driver_task_cancel",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XTenantID"
+          },
+          {
+            "in": "header",
+            "name": "X-Internal-Service-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "taskId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternalCreateDriverTaskResponse"
+                }
+              }
+            },
+            "description": "Task cancelled"
+          }
+        },
+        "summary": "Cancel driver task (trusted internal)",
+        "tags": [
+          "Internal Driver Tasks"
+        ]
+      }
+    },
     "/openapi": {
       "get": {
         "operationId": "get_list_available_openapi_documents",
@@ -10860,6 +17980,9 @@
     },
     {
       "name": "Drivers"
+    },
+    {
+      "name": "Driver Mobile"
     },
     {
       "name": "Vehicles"

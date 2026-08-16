@@ -5563,6 +5563,50 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DriverExceptionResponse'
+  /api/v1/driver/me/shipments/{shipmentId}/delays:
+    post:
+      tags: [Driver Mobile]
+      summary: Report driver shipment delay
+      operationId: post_driver_me_shipment_delay
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverDelayRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Delay reported
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverDelayResponse'
+        '200':
+          description: Idempotent replay
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverDelayResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/driver/me/shipments/{shipmentId}/locations:
     post:
       tags: [Driver Mobile]
@@ -7869,6 +7913,59 @@ components:
           format: uuid
         category:
           type: string
+        replayed:
+          type: boolean
+    DriverDelayRequest:
+      type: object
+      required: [reasonCode, idempotencyKey]
+      additionalProperties: false
+      properties:
+        reasonCode:
+          type: string
+          enum: [TRAFFIC, VEHICLE_BREAKDOWN, LOADING_DELAY, UNLOADING_DELAY, ROUTE_BLOCKED, CUSTOMER_DELAY, OTHER]
+        reasonText:
+          type: string
+          maxLength: 4000
+        newEta:
+          type: string
+          format: date-time
+        occurredAt:
+          type: string
+          format: date-time
+        idempotencyKey:
+          type: string
+          maxLength: 128
+    DriverDelayResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        id:
+          type: string
+          format: uuid
+        shipmentId:
+          type: string
+          format: uuid
+        driverId:
+          type: string
+          format: uuid
+        reasonCode:
+          type: string
+        reasonText:
+          type: string
+        newEta:
+          type: string
+          format: date-time
+        occurredAt:
+          type: string
+          format: date-time
+        receivedAt:
+          type: string
+          format: date-time
+        idempotencyKey:
+          type: string
+        outboxEventId:
+          type: string
+          format: uuid
         replayed:
           type: boolean
     DriverPODUploadRequest:

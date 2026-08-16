@@ -93,6 +93,9 @@ func setupTestEnvWithMigrations(t *testing.T, fullPlatform bool) *testEnv {
 	} else if err := applyAllMigrations(ctx, pool); err != nil {
 		t.Fatalf("apply migrations: %v", err)
 	}
+	if err := applyDriverReportedDelayTable(ctx, pool); err != nil {
+		t.Fatalf("apply driver delay schema: %v", err)
+	}
 
 	driverRepo := repository.NewDriverRepository(pool)
 	shipmentRepo := repository.NewShipmentRepository(pool)
@@ -177,6 +180,9 @@ func applyMigrations(ctx context.Context, pool *pgxpool.Pool, fullPlatform bool)
 			if num > 14 && num != 30 && num != 31 && num != 34 {
 				continue
 			}
+			if num == 35 {
+				continue
+			}
 		}
 		content, readErr := os.ReadFile(file)
 		if readErr != nil {
@@ -187,6 +193,28 @@ func applyMigrations(ctx context.Context, pool *pgxpool.Pool, fullPlatform bool)
 		}
 	}
 	return nil
+}
+
+func applyDriverReportedDelayTable(ctx context.Context, pool *pgxpool.Pool) error {
+	const q = `
+CREATE TABLE IF NOT EXISTS transport.driver_reported_delay (
+	id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	tenant_id           UUID NOT NULL REFERENCES core.tenants(id),
+	shipment_id         UUID NOT NULL REFERENCES transport.shipments(id),
+	driver_id           UUID NOT NULL REFERENCES transport.drivers(id),
+	reason_code         VARCHAR(64) NOT NULL,
+	reason_text         TEXT,
+	new_eta             TIMESTAMPTZ,
+	occurred_at         TIMESTAMPTZ NOT NULL,
+	received_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	idempotency_key     VARCHAR(128) NOT NULL,
+	created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	CONSTRAINT uq_driver_reported_delay_idempotency UNIQUE (tenant_id, driver_id, idempotency_key)
+);
+CREATE INDEX IF NOT EXISTS idx_driver_reported_delay_shipment
+	ON transport.driver_reported_delay (tenant_id, shipment_id, occurred_at DESC);`
+	_, err := pool.Exec(ctx, q)
+	return err
 }
 
 func migrationNumber(filename string) int {

@@ -47,24 +47,28 @@ func (d *TrackingLossDetector) Start(ctx context.Context) {
 	}
 	ticker := time.NewTicker(d.interval)
 	defer ticker.Stop()
-	d.runOnce(ctx)
+	d.runOnceAt(ctx, time.Now().UTC())
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			d.runOnce(ctx)
+			d.runOnceAt(ctx, time.Now().UTC())
 		}
 	}
 }
 
-func (d *TrackingLossDetector) runOnce(ctx context.Context) {
+// RunOnceAt executes one detector pass at the supplied time (for deterministic tests).
+func (d *TrackingLossDetector) RunOnceAt(ctx context.Context, now time.Time) {
+	d.runOnceAt(ctx, now.UTC())
+}
+
+func (d *TrackingLossDetector) runOnceAt(ctx context.Context, now time.Time) {
 	candidates, err := d.repo.ListTrackingAutomationCandidates(ctx, d.batchSize)
 	if err != nil {
 		d.log.Warn("tracking loss detector query failed", slog.String("error", err.Error()))
 		return
 	}
-	now := time.Now().UTC()
 	for _, item := range candidates {
 		lost := isTrackingLost(item.LastLocationRecorded, now, d.threshold, item.TrackingStatus)
 		current := item.AutomationState
