@@ -10,6 +10,7 @@ const (
 	CodeConflict     Code = "CONFLICT"
 	CodeInternal     Code = "INTERNAL_ERROR"
 	CodeUnauthorized Code = "UNAUTHORIZED"
+	CodeForbidden    Code = "FORBIDDEN"
 )
 
 type AppError struct {
@@ -46,6 +47,10 @@ func Internal(message string, err error) *AppError {
 
 func Unauthorized(message string) *AppError {
 	return &AppError{Code: CodeUnauthorized, Message: message, Details: map[string]any{}}
+}
+
+func Forbidden(message string) *AppError {
+	return &AppError{Code: CodeForbidden, Message: message, Details: map[string]any{}}
 }
 
 func detailsOrEmpty(details map[string]any) map[string]any {
