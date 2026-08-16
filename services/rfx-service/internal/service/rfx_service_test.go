@@ -77,6 +77,9 @@ func (m *mockRfxStore) CountLotsByEvent(context.Context, uuid.UUID, uuid.UUID) (
 func (m *mockRfxStore) CloseExpiredResponses(context.Context, uuid.UUID, time.Time) (int, error) {
 	return 0, nil
 }
+func (m *mockRfxStore) ListExpiredResponseOpenEvents(context.Context, time.Time, int) ([]domain.ExpiredResponseOpenEvent, error) {
+	return nil, nil
+}
 func (m *mockRfxStore) UpdateEventResponseDeadline(context.Context, uuid.UUID, uuid.UUID, *time.Time, int) (*domain.RfxEvent, error) {
 	return nil, nil
 }

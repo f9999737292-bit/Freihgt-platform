@@ -113,6 +113,9 @@ services:
       RFX_SERVICE_PORT: 8084
       DATABASE_URL: postgres://freight:freight_password@postgres:5432/freight_platform?sslmode=disable
       LOG_LEVEL: info
+      RFX_DEADLINE_WORKER_ENABLED: ${RFX_DEADLINE_WORKER_ENABLED:-false}
+      RFX_DEADLINE_WORKER_INTERVAL_SECONDS: ${RFX_DEADLINE_WORKER_INTERVAL_SECONDS:-60}
+      RFX_DEADLINE_WORKER_BATCH_SIZE: ${RFX_DEADLINE_WORKER_BATCH_SIZE:-50}
     ports:
       - "8084:8084"
     depends_on:

@@ -40,6 +40,24 @@ func recordAudit(ctx context.Context, audit AuditRecorder, actor domain.ActorCon
 	})
 }
 
+func recordSystemAudit(ctx context.Context, audit AuditRecorder, tenantID uuid.UUID, entityType string, entityID uuid.UUID, action string, metadata map[string]any) {
+	if audit == nil {
+		return
+	}
+	if metadata == nil {
+		metadata = map[string]any{}
+	}
+	metadata["actor_type"] = domain.AuditActorTypeSystem
+	metadata["source"] = "deadline_worker"
+	_ = audit.Record(ctx, repository.AuditRecord{
+		TenantID:   tenantID,
+		EntityType: entityType,
+		EntityID:   entityID,
+		Action:     action,
+		Metadata:   metadata,
+	})
+}
+
 func nowUTC() time.Time {
 	return time.Now().UTC()
 }

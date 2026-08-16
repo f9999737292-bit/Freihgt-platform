@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,6 +21,7 @@ type RfxStore interface {
 	UpdateEventResponseDeadline(ctx context.Context, id, tenantID uuid.UUID, deadline *time.Time, expectedVersion int) (*domain.RfxEvent, error)
 	CountLotsByEvent(ctx context.Context, eventID, tenantID uuid.UUID) (int, error)
 	CloseExpiredResponses(ctx context.Context, tenantID uuid.UUID, now time.Time) (int, error)
+	ListExpiredResponseOpenEvents(ctx context.Context, now time.Time, limit int) ([]domain.ExpiredResponseOpenEvent, error)
 	CreateLot(ctx context.Context, in domain.CreateRfxLotInput) (*domain.RfxLot, error)
 	ListLotsByEvent(ctx context.Context, eventID, tenantID uuid.UUID) ([]domain.RfxLot, error)
 	CreateLane(ctx context.Context, in domain.CreateRfxLaneInput) (*domain.RfxLane, error)
@@ -218,6 +220,62 @@ func (s *RfxService) CloseExpiredResponses(ctx context.Context, tenantID uuid.UU
 		return 0, apperrors.Unauthorized("tenant context is required")
 	}
 	return s.repo.CloseExpiredResponses(ctx, tenantID, now)
+}
+
+const autoCloseAuditAction = "auto_close_responses"
+
+// ProcessExpiredResponseDeadlines scans and closes expired RESPONSES_OPEN events in one bounded batch.
+// Returns examined count, closed count, per-event failure count, and a query-level error if listing fails.
+func (s *RfxService) ProcessExpiredResponseDeadlines(ctx context.Context, now time.Time, batchSize int) (examined int, closed int, failures int, err error) {
+	if batchSize <= 0 {
+		batchSize = 50
+	}
+	events, err := s.repo.ListExpiredResponseOpenEvents(ctx, now, batchSize)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	for _, event := range events {
+		if ctx.Err() != nil {
+			break
+		}
+		examined++
+		didClose, closeErr := s.autoCloseExpiredResponseEvent(ctx, event, now)
+		if closeErr != nil {
+			failures++
+			continue
+		}
+		if didClose {
+			closed++
+		}
+	}
+	return examined, closed, failures, nil
+}
+
+func (s *RfxService) autoCloseExpiredResponseEvent(ctx context.Context, event domain.ExpiredResponseOpenEvent, now time.Time) (bool, error) {
+	if event.Status != domain.RfxStatusResponsesOpen {
+		return false, nil
+	}
+	if event.ResponseDeadline == nil || event.ResponseDeadline.After(now.UTC()) {
+		return false, nil
+	}
+	_, err := s.repo.UpdateEventStatus(ctx, event.ID, event.TenantID, domain.RfxStatusResponsesOpen, domain.RfxStatusResponsesClosed)
+	if err != nil {
+		var appErr *apperrors.AppError
+		if errors.As(err, &appErr) && appErr.Code == apperrors.CodeConflict {
+			return false, nil
+		}
+		return false, err
+	}
+	metadata := map[string]any{
+		"from_status": domain.RfxStatusResponsesOpen,
+		"to_status":   domain.RfxStatusResponsesClosed,
+		"actor_type":  domain.AuditActorTypeSystem,
+	}
+	if event.ResponseDeadline != nil {
+		metadata["response_deadline"] = event.ResponseDeadline.UTC().Format(time.RFC3339)
+	}
+	recordSystemAudit(ctx, s.audit, event.TenantID, "rfx_event", event.ID, autoCloseAuditAction, metadata)
+	return true, nil
 }
 
 func (s *RfxService) CreateLot(ctx context.Context, actor domain.ActorContext, eventID uuid.UUID, in domain.CreateRfxLotInput) (*domain.RfxLot, error) {
