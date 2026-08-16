@@ -32,12 +32,23 @@ type RfxStore interface {
 }
 
 type RfxService struct {
-	repo  RfxStore
-	audit AuditRecorder
+	repo   RfxStore
+	audit  AuditRecorder
+	actors ActorResolver
 }
 
-func NewRfxService(repo RfxStore, audit AuditRecorder) *RfxService {
-	return &RfxService{repo: repo, audit: audit}
+func NewRfxService(repo RfxStore, audit AuditRecorder, actors ActorResolver) *RfxService {
+	return &RfxService{repo: repo, audit: audit, actors: actors}
+}
+
+func (s *RfxService) resolveActor(ctx context.Context, actor domain.ActorContext) (domain.ActorKind, []uuid.UUID, error) {
+	if err := actor.Validate(); err != nil {
+		return domain.ActorKindUnknown, nil, err
+	}
+	if s.actors == nil {
+		return domain.ActorKindBuyer, nil, nil
+	}
+	return s.actors.ResolveActorKind(ctx, actor)
 }
 
 func (s *RfxService) CreateEvent(ctx context.Context, actor domain.ActorContext, in domain.CreateRfxEventInput) (*domain.RfxEvent, error) {
@@ -317,6 +328,15 @@ func (s *RfxService) CreateResponse(ctx context.Context, actor domain.ActorConte
 	if err := domain.ValidateResponseDeadlineOpen(event.ResponseDeadline, nowUTC()); err != nil {
 		return nil, err
 	}
+	_, carrierIDs, err := s.resolveActor(ctx, actor)
+	if err != nil {
+		return nil, err
+	}
+	participantCompanyID, err := domain.ResolveCarrierCompanyID(in.ParticipantCompanyID, carrierIDs)
+	if err != nil {
+		return nil, err
+	}
+	in.ParticipantCompanyID = participantCompanyID
 	exists, err := s.repo.ParticipantExists(ctx, eventID, in.ParticipantCompanyID, in.TenantID)
 	if err != nil {
 		return nil, err
@@ -341,6 +361,13 @@ func (s *RfxService) SubmitResponse(ctx context.Context, actor domain.ActorConte
 	response, err := s.repo.GetResponseByID(ctx, id, actor.TenantID)
 	if err != nil {
 		return nil, err
+	}
+	_, carrierIDs, err := s.resolveActor(ctx, actor)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := domain.ResolveCarrierCompanyID(response.ParticipantCompanyID, carrierIDs); err != nil {
+		return nil, apperrors.NotFound("rfx response not found")
 	}
 	if err := domain.ValidateSubmitRfxResponse(response.Status); err != nil {
 		return nil, err

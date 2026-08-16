@@ -45,7 +45,7 @@ func main() {
 	membershipRepo := repository.NewMembershipRepository(db.Pool)
 	auditRepo := repository.NewAuditRepository(db.Pool)
 
-	rfxSvc := service.NewRfxService(rfxRepo, auditRepo)
+	rfxSvc := service.NewRfxService(rfxRepo, auditRepo, membershipRepo)
 	frSvc := service.NewFreightRequestService(frRepo)
 	bidSvc := service.NewBidService(bidRepo, frRepo, membershipRepo, auditRepo)
 

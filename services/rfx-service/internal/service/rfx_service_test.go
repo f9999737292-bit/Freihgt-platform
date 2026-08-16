@@ -13,9 +13,11 @@ import (
 )
 
 type mockRfxStore struct {
-	getEventFn func(ctx context.Context, id, tenantID uuid.UUID) (*domain.RfxEvent, error)
-	updateStatusFn func(ctx context.Context, id, tenantID uuid.UUID, expected, newStatus string) (*domain.RfxEvent, error)
-	addParticipantFn func(ctx context.Context, in domain.AddRfxParticipantInput) (*domain.RfxParticipant, error)
+	getEventFn          func(ctx context.Context, id, tenantID uuid.UUID) (*domain.RfxEvent, error)
+	updateStatusFn      func(ctx context.Context, id, tenantID uuid.UUID, expected, newStatus string) (*domain.RfxEvent, error)
+	addParticipantFn    func(ctx context.Context, in domain.AddRfxParticipantInput) (*domain.RfxParticipant, error)
+	participantExistsFn func(ctx context.Context, eventID, companyID, tenantID uuid.UUID) (bool, error)
+	getResponseFn       func(ctx context.Context, id, tenantID uuid.UUID) (*domain.RfxResponse, error)
 }
 
 func (m *mockRfxStore) CompanyExists(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
@@ -51,13 +53,19 @@ func (m *mockRfxStore) AddParticipant(ctx context.Context, in domain.AddRfxParti
 func (m *mockRfxStore) ListParticipants(context.Context, uuid.UUID, uuid.UUID) ([]domain.RfxParticipant, error) {
 	return nil, nil
 }
-func (m *mockRfxStore) ParticipantExists(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (bool, error) {
+func (m *mockRfxStore) ParticipantExists(ctx context.Context, eventID, companyID, tenantID uuid.UUID) (bool, error) {
+	if m.participantExistsFn != nil {
+		return m.participantExistsFn(ctx, eventID, companyID, tenantID)
+	}
 	return true, nil
 }
 func (m *mockRfxStore) CreateResponse(context.Context, domain.CreateRfxResponseInput) (*domain.RfxResponse, error) {
 	return nil, nil
 }
-func (m *mockRfxStore) GetResponseByID(context.Context, uuid.UUID, uuid.UUID) (*domain.RfxResponse, error) {
+func (m *mockRfxStore) GetResponseByID(ctx context.Context, id, tenantID uuid.UUID) (*domain.RfxResponse, error) {
+	if m.getResponseFn != nil {
+		return m.getResponseFn(ctx, id, tenantID)
+	}
 	return nil, nil
 }
 func (m *mockRfxStore) SubmitResponse(context.Context, uuid.UUID, uuid.UUID, *uuid.UUID) (*domain.RfxResponse, error) {
@@ -79,7 +87,7 @@ func TestRfxServicePublishOnlyFromDraft(t *testing.T) {
 		getEventFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.RfxEvent, error) {
 			return &domain.RfxEvent{Status: domain.RfxStatusPublished}, nil
 		},
-	}, nil)
+	}, nil, nil)
 	_, err := svc.PublishEvent(context.Background(), domain.ActorContext{TenantID: uuid.New()}, uuid.New())
 	if err == nil {
 		t.Fatalf("expected validation error")
@@ -95,7 +103,7 @@ func TestRfxServiceAddParticipantDuplicateConflict(t *testing.T) {
 		addParticipantFn: func(context.Context, domain.AddRfxParticipantInput) (*domain.RfxParticipant, error) {
 			return nil, apperrors.Conflict("record already exists", map[string]any{"detail": "uq_rfx_participant"})
 		},
-	}, nil)
+	}, nil, nil)
 	_, err := svc.AddParticipant(context.Background(), domain.ActorContext{TenantID: uuid.New()}, uuid.New(), domain.AddRfxParticipantInput{
 		TenantID: uuid.New(), CompanyID: uuid.New(), ParticipantType: "CARRIER",
 	})

@@ -55,7 +55,7 @@ func TestRfxServiceTransitionEvent(t *testing.T) {
 			},
 		},
 	}
-	svc := NewRfxService(store, nil)
+	svc := NewRfxService(store, nil, nil)
 	event, err := svc.TransitionEvent(context.Background(), domain.ActorContext{TenantID: tenantID}, eventID, domain.RfxCommandOpenResponses)
 	if err != nil || event.Status != domain.RfxStatusResponsesOpen {
 		t.Fatalf("event=%+v err=%v", event, err)
@@ -74,7 +74,7 @@ func TestRfxServicePublishRequiresLotsForLongForm(t *testing.T) {
 		},
 		countLotsFn: func(context.Context, uuid.UUID, uuid.UUID) (int, error) { return 0, nil },
 	}
-	svc := NewRfxService(store, nil)
+	svc := NewRfxService(store, nil, nil)
 	_, err := svc.PublishEvent(context.Background(), domain.ActorContext{TenantID: tenantID}, eventID)
 	if err == nil {
 		t.Fatal("expected validation for missing lots")
@@ -92,7 +92,7 @@ func TestRfxServiceCloseExpiredResponses(t *testing.T) {
 			return 2, nil
 		},
 	}
-	svc := NewRfxService(store, nil)
+	svc := NewRfxService(store, nil, nil)
 	count, err := svc.CloseExpiredResponses(context.Background(), tenantID, time.Now().UTC())
 	if err != nil || count != 2 {
 		t.Fatalf("count=%d err=%v", count, err)
