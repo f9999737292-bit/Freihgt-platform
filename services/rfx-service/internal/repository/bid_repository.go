@@ -15,6 +15,7 @@ import (
 
 type BidRepository struct {
 	pool *pgxpool.Pool
+	exec dbExecutor
 }
 
 func NewBidRepository(pool *pgxpool.Pool) *BidRepository {
@@ -29,7 +30,7 @@ func (r *BidRepository) CompanyExists(ctx context.Context, companyID, tenantID u
 		)
 	`
 	var exists bool
-	if err := r.pool.QueryRow(ctx, query, companyID, tenantID).Scan(&exists); err != nil {
+	if err := r.db().QueryRow(ctx, query, companyID, tenantID).Scan(&exists); err != nil {
 		return false, mapDBError(err)
 	}
 	return exists, nil
@@ -124,7 +125,7 @@ func (r *BidRepository) GetByID(ctx context.Context, id, tenantID uuid.UUID) (*d
 		FROM rfx.bids
 		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
 	`
-	row := r.pool.QueryRow(ctx, bidQuery, id, tenantID)
+	row := r.db().QueryRow(ctx, bidQuery, id, tenantID)
 	bid, err := scanBid(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -152,7 +153,7 @@ func (r *BidRepository) ListByFreightRequest(ctx context.Context, freightRequest
 		WHERE freight_request_id = $1 AND tenant_id = $2 AND deleted_at IS NULL
 		ORDER BY created_at DESC
 	`
-		rows, err := r.pool.Query(ctx, query, freightRequestID, tenantID)
+		rows, err := r.db().Query(ctx, query, freightRequestID, tenantID)
 		if err != nil {
 			return mapDBError(err)
 		}
@@ -194,7 +195,7 @@ func (r *BidRepository) SubmitBid(ctx context.Context, id, tenantID uuid.UUID, s
 			total_amount, currency_code, vat_rate, vat_amount, total_amount_with_vat,
 			valid_until, submitted_at, created_at, updated_at, version
 	`
-		row := r.pool.QueryRow(ctx, query,
+		row := r.db().QueryRow(ctx, query,
 			id,
 			tenantID,
 			domain.BidStatusSubmitted,
@@ -216,7 +217,7 @@ func (r *BidRepository) SubmitBid(ctx context.Context, id, tenantID uuid.UUID, s
 	return result, err
 }
 
-func (r *BidRepository) AcceptBid(ctx context.Context, id, tenantID uuid.UUID) (*domain.Bid, error) {
+func (r *BidRepository) AcceptBid(ctx context.Context, id, tenantID uuid.UUID, preCommit func(context.Context, pgx.Tx) error) (*domain.Bid, error) {
 	var result *domain.Bid
 	err := measureDB("bid_repository", "accept_bid", func() error {
 		current, err := r.GetByID(ctx, id, tenantID)
@@ -309,6 +310,12 @@ func (r *BidRepository) AcceptBid(ctx context.Context, id, tenantID uuid.UUID) (
 			return apperrors.Conflict("freight request is already awarded", map[string]any{"field": "status"})
 		}
 
+		if preCommit != nil {
+			if err := preCommit(ctx, tx); err != nil {
+				return err
+			}
+		}
+
 		if err := tx.Commit(ctx); err != nil {
 			return mapDBError(err)
 		}
@@ -328,7 +335,7 @@ func (r *BidRepository) listBidItems(ctx context.Context, bidID, tenantID uuid.U
 		WHERE bid_id = $1 AND tenant_id = $2
 		ORDER BY created_at
 	`
-	rows, err := r.pool.Query(ctx, query, bidID, tenantID)
+	rows, err := r.db().Query(ctx, query, bidID, tenantID)
 	if err != nil {
 		return nil, mapDBError(err)
 	}

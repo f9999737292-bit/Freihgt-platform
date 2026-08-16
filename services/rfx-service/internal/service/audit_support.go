@@ -26,30 +26,48 @@ func auditUser(actor domain.ActorContext) *uuid.UUID {
 	return &id
 }
 
-func recordAudit(ctx context.Context, audit AuditRecorder, actor domain.ActorContext, entityType string, entityID uuid.UUID, action string, metadata map[string]any) {
+func recordAudit(
+	ctx context.Context,
+	audit AuditRecorder,
+	actor domain.ActorContext,
+	verifiedCompanyID uuid.UUID,
+	entityType string,
+	entityID uuid.UUID,
+	action string,
+	metadata map[string]any,
+) error {
 	if audit == nil {
-		return
+		return nil
 	}
-	_ = audit.Record(ctx, repository.AuditRecord{
-		TenantID:    actor.TenantID,
-		EntityType:  entityType,
-		EntityID:    entityID,
-		Action:      action,
-		ActorUserID: auditUser(actor),
-		Metadata:    metadata,
+	return audit.Record(ctx, repository.AuditRecord{
+		TenantID:       actor.TenantID,
+		EntityType:     entityType,
+		EntityID:       entityID,
+		Action:         action,
+		ActorUserID:    auditUser(actor),
+		ActorCompanyID: verifiedActorCompany(actor, verifiedCompanyID),
+		Metadata:       metadata,
 	})
 }
 
-func recordSystemAudit(ctx context.Context, audit AuditRecorder, tenantID uuid.UUID, entityType string, entityID uuid.UUID, action string, metadata map[string]any) {
+func recordSystemAudit(
+	ctx context.Context,
+	audit AuditRecorder,
+	tenantID uuid.UUID,
+	entityType string,
+	entityID uuid.UUID,
+	action string,
+	metadata map[string]any,
+) error {
 	if audit == nil {
-		return
+		return nil
 	}
 	if metadata == nil {
 		metadata = map[string]any{}
 	}
 	metadata["actor_type"] = domain.AuditActorTypeSystem
 	metadata["source"] = "deadline_worker"
-	_ = audit.Record(ctx, repository.AuditRecord{
+	return audit.Record(ctx, repository.AuditRecord{
 		TenantID:   tenantID,
 		EntityType: entityType,
 		EntityID:   entityID,
