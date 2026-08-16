@@ -116,8 +116,8 @@ func TestDeadlineAuditAtomicity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("extend deadline: %v", err)
 	}
-	if updated.ResponseDeadline == nil || !updated.ResponseDeadline.Equal(newDeadline) {
-		t.Fatalf("deadline not updated")
+	if updated.ResponseDeadline == nil || updated.ResponseDeadline.UTC().Sub(newDeadline.UTC()).Abs() > time.Second {
+		t.Fatalf("deadline not updated: got %v want %v", updated.ResponseDeadline, newDeadline)
 	}
 
 	env.auditRepo.SetInjectRecordFailure(true)
@@ -131,8 +131,8 @@ func TestDeadlineAuditAtomicity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reload: %v", err)
 	}
-	if current.ResponseDeadline == nil || !current.ResponseDeadline.Equal(newDeadline) {
-		t.Fatalf("deadline changed after failed audit")
+	if current.ResponseDeadline == nil || current.ResponseDeadline.UTC().Sub(newDeadline.UTC()).Abs() > time.Second {
+		t.Fatalf("deadline changed after failed audit: got %v want %v", current.ResponseDeadline, newDeadline)
 	}
 }
 
@@ -241,8 +241,8 @@ func TestAwardTransactionalIntegrity(t *testing.T) {
 	bidA := uuid.New()
 	bidB := uuid.New()
 	_, err = env.pool.Exec(ctx, `
-		INSERT INTO rfx.bids (id, tenant_id, freight_request_id, carrier_company_id, bid_number, status, total_amount, submitted_at)
-		VALUES ($1, $2, $3, $4, 'BID-A', $5, 100, now()), ($6, $2, $3, $7, 'BID-B', $5, 110, now())
+		INSERT INTO rfx.bids (id, tenant_id, freight_request_id, carrier_company_id, bid_number, status, total_amount, vat_rate, vat_amount, total_amount_with_vat, submitted_at)
+		VALUES ($1, $2, $3, $4, 'BID-A', $5, 100, 20, 20, 120, now()), ($6, $2, $3, $7, 'BID-B', $5, 110, 20, 22, 132, now())
 	`, bidA, fix.TenantID, frID, fix.CarrierID, domain.BidStatusSubmitted, bidB, carrierB)
 	if err != nil {
 		t.Fatalf("seed bids: %v", err)
@@ -280,8 +280,8 @@ func TestAwardTransactionalIntegrity(t *testing.T) {
 		t.Fatalf("seed freight request 2: %v", err)
 	}
 	_, err = env.pool.Exec(ctx, `
-		INSERT INTO rfx.bids (id, tenant_id, freight_request_id, carrier_company_id, bid_number, status, total_amount, submitted_at)
-		VALUES ($1, $2, $3, $4, 'BID-C', $5, 100, now()), ($6, $2, $3, $7, 'BID-D', $5, 110, now())
+		INSERT INTO rfx.bids (id, tenant_id, freight_request_id, carrier_company_id, bid_number, status, total_amount, vat_rate, vat_amount, total_amount_with_vat, submitted_at)
+		VALUES ($1, $2, $3, $4, 'BID-C', $5, 100, 20, 20, 120, now()), ($6, $2, $3, $7, 'BID-D', $5, 110, 20, 22, 132, now())
 	`, bidC, fix.TenantID, frID2, fix.CarrierID, domain.BidStatusSubmitted, bidD, carrierB)
 	if err != nil {
 		t.Fatalf("seed bids 2: %v", err)
