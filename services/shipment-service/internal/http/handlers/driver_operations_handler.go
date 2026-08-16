@@ -37,7 +37,6 @@ type driverExceptionRequest struct {
 	IdempotencyKey string  `json:"idempotencyKey"`
 	Severity       *string `json:"severity"`
 	RuleID         *string `json:"ruleId"`
-	IdempotencyKey string  `json:"idempotencyKey"`
 }
 
 type driverDelayRequest struct {
@@ -176,7 +175,6 @@ func (h *DriverOperationsHandler) ReportException(w http.ResponseWriter, r *http
 	}
 	_ = req.Severity
 	_ = req.RuleID
-	_ = req.PlaybookID
 
 	idempotencyKey := strings.TrimSpace(req.IdempotencyKey)
 	if idempotencyKey == "" {
