@@ -84,17 +84,20 @@ grant_role AS (
   INSERT INTO core.user_roles (id, tenant_id, user_id, role_id)
   SELECT gen_random_uuid(), user_row.tenant_id, user_row.id, driver_role.role_id
   FROM user_row, driver_role
-  ON CONFLICT DO NOTHING
+  WHERE NOT EXISTS (
+    SELECT 1 FROM core.user_roles ur
+    WHERE ur.user_id = user_row.id AND ur.role_id = driver_role.role_id AND ur.company_id IS NULL
+  )
   RETURNING user_id
 ),
 upsert_driver AS (
   INSERT INTO transport.drivers (id, tenant_id, carrier_company_id, user_id, full_name, status)
   SELECT gen_random_uuid(), user_row.tenant_id, carrier.carrier_id, user_row.id, :'pilot_name', 'ACTIVE'
   FROM user_row, carrier
-  ON CONFLICT ON CONSTRAINT uq_drivers_tenant_user_active DO UPDATE
-    SET full_name = EXCLUDED.full_name,
-        status = 'ACTIVE',
-        updated_at = now()
+  WHERE NOT EXISTS (
+    SELECT 1 FROM transport.drivers d
+    WHERE d.tenant_id = user_row.tenant_id AND d.user_id = user_row.id AND d.deleted_at IS NULL
+  )
   RETURNING id, tenant_id, user_id
 ),
 driver_row AS (
