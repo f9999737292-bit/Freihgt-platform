@@ -4,6 +4,8 @@ info:
   version: 0.1.0
   description: |
     OpenAPI specification for RFx Service.
+    Tenant scope is derived from trusted `X-Tenant-ID` injected by API Gateway after JWT validation.
+    Do not send `tenant_id` as a query parameter; it is rejected with HTTP 403.
 servers:
   - url: http://localhost:8080
     description: Local API Gateway
@@ -343,6 +345,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Not found
           content:
@@ -357,6 +365,221 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/rfx-events/{id}/transitions/{command}:
+    post:
+      tags: [RFx]
+      summary: Transition RFx event lifecycle
+      description: |
+        Applies a lifecycle command (`publish`, `send-invitations`, `open-questions`, `open-responses`,
+        `close-responses`, `start-evaluation`, `shortlist`, `award`, `archive`, `cancel`, `reopen-responses`).
+        Requires trusted `X-Tenant-ID` header. `tenant_id` query is rejected with 403.
+      operationId: post_rfx_event_transition
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: command
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Transition applied
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/rfx-events/{id}/open-questions:
+    post:
+      tags: [RFx]
+      summary: Open questions phase
+      operationId: post_rfx_open_questions
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successful response
+  /api/v1/rfx-events/{id}/open-responses:
+    post:
+      tags: [RFx]
+      summary: Open responses phase
+      operationId: post_rfx_open_responses
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successful response
+  /api/v1/rfx-events/{id}/close-responses:
+    post:
+      tags: [RFx]
+      summary: Close responses phase
+      operationId: post_rfx_close_responses
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successful response
+  /api/v1/rfx-events/{id}/start-evaluation:
+    post:
+      tags: [RFx]
+      summary: Start evaluation phase
+      operationId: post_rfx_start_evaluation
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successful response
+  /api/v1/rfx-events/{id}/shortlist:
+    post:
+      tags: [RFx]
+      summary: Shortlist participants
+      operationId: post_rfx_shortlist
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successful response
+  /api/v1/rfx-events/{id}/award:
+    post:
+      tags: [RFx]
+      summary: Award RFx event
+      operationId: post_rfx_award_event
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successful response
+  /api/v1/rfx-events/{id}/archive:
+    post:
+      tags: [RFx]
+      summary: Archive RFx event
+      operationId: post_rfx_archive_event
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successful response
+  /api/v1/rfx-events/{id}/send-invitations:
+    post:
+      tags: [RFx]
+      summary: Send RFx invitations
+      operationId: post_rfx_send_invitations
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successful response
+  /api/v1/rfx-events/{id}/extend-deadline:
+    post:
+      tags: [RFx]
+      summary: Extend RFx response deadline
+      operationId: post_rfx_extend_deadline
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/Authorization'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [response_deadline]
+              properties:
+                response_deadline:
+                  type: string
+                  format: date-time
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successful response
+        '403':
+          description: Forbidden
           content:
             application/json:
               schema:

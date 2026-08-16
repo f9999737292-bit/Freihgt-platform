@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -62,6 +63,15 @@ func (m *mockRfxStore) GetResponseByID(context.Context, uuid.UUID, uuid.UUID) (*
 func (m *mockRfxStore) SubmitResponse(context.Context, uuid.UUID, uuid.UUID, *uuid.UUID) (*domain.RfxResponse, error) {
 	return nil, nil
 }
+func (m *mockRfxStore) CountLotsByEvent(context.Context, uuid.UUID, uuid.UUID) (int, error) {
+	return 0, nil
+}
+func (m *mockRfxStore) CloseExpiredResponses(context.Context, uuid.UUID, time.Time) (int, error) {
+	return 0, nil
+}
+func (m *mockRfxStore) UpdateEventResponseDeadline(context.Context, uuid.UUID, uuid.UUID, *time.Time, int) (*domain.RfxEvent, error) {
+	return nil, nil
+}
 
 func TestRfxServicePublishOnlyFromDraft(t *testing.T) {
 	t.Parallel()
@@ -69,8 +79,8 @@ func TestRfxServicePublishOnlyFromDraft(t *testing.T) {
 		getEventFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.RfxEvent, error) {
 			return &domain.RfxEvent{Status: domain.RfxStatusPublished}, nil
 		},
-	})
-	_, err := svc.PublishEvent(context.Background(), uuid.New(), uuid.New())
+	}, nil)
+	_, err := svc.PublishEvent(context.Background(), domain.ActorContext{TenantID: uuid.New()}, uuid.New())
 	if err == nil {
 		t.Fatalf("expected validation error")
 	}
@@ -85,8 +95,8 @@ func TestRfxServiceAddParticipantDuplicateConflict(t *testing.T) {
 		addParticipantFn: func(context.Context, domain.AddRfxParticipantInput) (*domain.RfxParticipant, error) {
 			return nil, apperrors.Conflict("record already exists", map[string]any{"detail": "uq_rfx_participant"})
 		},
-	})
-	_, err := svc.AddParticipant(context.Background(), uuid.New(), domain.AddRfxParticipantInput{
+	}, nil)
+	_, err := svc.AddParticipant(context.Background(), domain.ActorContext{TenantID: uuid.New()}, uuid.New(), domain.AddRfxParticipantInput{
 		TenantID: uuid.New(), CompanyID: uuid.New(), ParticipantType: "CARRIER",
 	})
 	var appErr *apperrors.AppError

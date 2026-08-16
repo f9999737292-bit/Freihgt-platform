@@ -16,7 +16,7 @@ import (
 
 func newBidGetByIDTestRouter(t *testing.T, store *mockBidStore) http.Handler {
 	t.Helper()
-	handler := NewBidHandler(service.NewBidService(store, &mockFreightRequestStoreForBid{}))
+	handler := NewBidHandler(service.NewBidService(store, &mockFreightRequestStoreForBid{}, nil, nil))
 	r := chi.NewRouter()
 	r.Get("/v1/bids/{id}", handler.GetByID)
 	return r
@@ -60,7 +60,7 @@ func TestGetBidByIDMissingTenantReturns401(t *testing.T) {
 	}
 }
 
-func TestGetBidByIDQueryOnlyReturns401(t *testing.T) {
+func TestGetBidByIDQueryOnlyReturns403(t *testing.T) {
 	t.Parallel()
 	called := false
 	router := newBidGetByIDTestRouter(t, &mockBidStore{
@@ -72,7 +72,7 @@ func TestGetBidByIDQueryOnlyReturns401(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/v1/bids/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb?tenant_id=11111111-1111-1111-1111-111111111111", nil)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
-	if rec.Code != http.StatusUnauthorized || called {
+	if rec.Code != http.StatusForbidden || called {
 		t.Fatalf("status=%d called=%v body=%s", rec.Code, called, rec.Body.String())
 	}
 }
@@ -94,7 +94,7 @@ func TestGetBidByIDHeaderIgnoresConflictingQuery(t *testing.T) {
 	req.Header.Set("X-Tenant-ID", headerTenant)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
+	if rec.Code != http.StatusForbidden {
 		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
 	}
 }
@@ -184,7 +184,7 @@ func TestGetBidByIDServiceReceivesScopedTenant(t *testing.T) {
 
 func newListBidsTestRouter(t *testing.T, bids *mockBidStore, requests *mockFreightRequestStoreForBid) http.Handler {
 	t.Helper()
-	handler := NewBidHandler(service.NewBidService(bids, requests))
+	handler := NewBidHandler(service.NewBidService(bids, requests, nil, nil))
 	r := chi.NewRouter()
 	r.Get("/v1/freight-requests/{id}/bids", handler.ListBids)
 	return r
@@ -192,7 +192,7 @@ func newListBidsTestRouter(t *testing.T, bids *mockBidStore, requests *mockFreig
 
 func newAcceptBidTestRouter(t *testing.T, bids *mockBidStore, requests *mockFreightRequestStoreForBid) http.Handler {
 	t.Helper()
-	handler := NewBidHandler(service.NewBidService(bids, requests))
+	handler := NewBidHandler(service.NewBidService(bids, requests, nil, nil))
 	r := chi.NewRouter()
 	r.Post("/v1/bids/{id}/accept", handler.AcceptBid)
 	return r
@@ -243,7 +243,7 @@ func TestListBidsMissingTenantReturns401(t *testing.T) {
 	}
 }
 
-func TestListBidsQueryOnlyTenantReturns401(t *testing.T) {
+func TestListBidsQueryOnlyTenantReturns403(t *testing.T) {
 	t.Parallel()
 	called := false
 	router := newListBidsTestRouter(t, &mockBidStore{
@@ -260,12 +260,12 @@ func TestListBidsQueryOnlyTenantReturns401(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/v1/freight-requests/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/bids?tenant_id=11111111-1111-1111-1111-111111111111", nil)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
-	if rec.Code != http.StatusUnauthorized || called {
+	if rec.Code != http.StatusForbidden || called {
 		t.Fatalf("status=%d called=%v body=%s", rec.Code, called, rec.Body.String())
 	}
 }
 
-func TestListBidsHeaderIgnoresConflictingQuery(t *testing.T) {
+func TestListBidsHeaderRejectsConflictingQuery(t *testing.T) {
 	t.Parallel()
 	headerTenant := "11111111-1111-1111-1111-111111111111"
 	queryTenant := "22222222-2222-2222-2222-222222222222"
@@ -289,7 +289,7 @@ func TestListBidsHeaderIgnoresConflictingQuery(t *testing.T) {
 	req.Header.Set("X-Tenant-ID", headerTenant)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
+	if rec.Code != http.StatusForbidden {
 		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
 	}
 }
@@ -302,7 +302,11 @@ func TestListBidsInvalidTenantHeaderReturns400(t *testing.T) {
 			called = true
 			return nil, nil
 		},
-	}, &mockFreightRequestStoreForBid{})
+	}, &mockFreightRequestStoreForBid{
+		getByIDFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.FreightRequest, error) {
+			return &domain.FreightRequest{Status: domain.FreightRequestStatusPublished}, nil
+		},
+	})
 	req := httptest.NewRequest(http.MethodGet, "/v1/freight-requests/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/bids", nil)
 	req.Header.Set("X-Tenant-ID", "not-a-uuid")
 	rec := httptest.NewRecorder()
@@ -379,7 +383,11 @@ func TestAcceptBidTrustedHeaderReturns200(t *testing.T) {
 		acceptBidFn: func(_ context.Context, id, tenant uuid.UUID) (*domain.Bid, error) {
 			return &domain.Bid{ID: id, TenantID: tenant, Status: domain.BidStatusAccepted}, nil
 		},
-	}, &mockFreightRequestStoreForBid{})
+	}, &mockFreightRequestStoreForBid{
+		getByIDFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.FreightRequest, error) {
+			return &domain.FreightRequest{Status: domain.FreightRequestStatusPublished}, nil
+		},
+	})
 	req := httptest.NewRequest(http.MethodPost, "/v1/bids/"+bidID+"/accept", nil)
 	req.Header.Set("X-Tenant-ID", tenantID)
 	rec := httptest.NewRecorder()
@@ -397,7 +405,11 @@ func TestAcceptBidMissingTenantReturns401(t *testing.T) {
 			called = true
 			return nil, nil
 		},
-	}, &mockFreightRequestStoreForBid{})
+	}, &mockFreightRequestStoreForBid{
+		getByIDFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.FreightRequest, error) {
+			return &domain.FreightRequest{Status: domain.FreightRequestStatusPublished}, nil
+		},
+	})
 	req := httptest.NewRequest(http.MethodPost, "/v1/bids/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/accept", nil)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
@@ -406,7 +418,7 @@ func TestAcceptBidMissingTenantReturns401(t *testing.T) {
 	}
 }
 
-func TestAcceptBidQueryOnlyTenantReturns401(t *testing.T) {
+func TestAcceptBidQueryOnlyTenantReturns403(t *testing.T) {
 	t.Parallel()
 	called := false
 	router := newAcceptBidTestRouter(t, &mockBidStore{
@@ -414,16 +426,20 @@ func TestAcceptBidQueryOnlyTenantReturns401(t *testing.T) {
 			called = true
 			return nil, nil
 		},
-	}, &mockFreightRequestStoreForBid{})
+	}, &mockFreightRequestStoreForBid{
+		getByIDFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.FreightRequest, error) {
+			return &domain.FreightRequest{Status: domain.FreightRequestStatusPublished}, nil
+		},
+	})
 	req := httptest.NewRequest(http.MethodPost, "/v1/bids/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/accept?tenant_id=11111111-1111-1111-1111-111111111111", nil)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
-	if rec.Code != http.StatusUnauthorized || called {
+	if rec.Code != http.StatusForbidden || called {
 		t.Fatalf("status=%d called=%v body=%s", rec.Code, called, rec.Body.String())
 	}
 }
 
-func TestAcceptBidHeaderIgnoresConflictingQuery(t *testing.T) {
+func TestAcceptBidHeaderRejectsConflictingQuery(t *testing.T) {
 	t.Parallel()
 	headerTenant := "11111111-1111-1111-1111-111111111111"
 	queryTenant := "22222222-2222-2222-2222-222222222222"
@@ -438,12 +454,16 @@ func TestAcceptBidHeaderIgnoresConflictingQuery(t *testing.T) {
 		acceptBidFn: func(_ context.Context, id, tenant uuid.UUID) (*domain.Bid, error) {
 			return &domain.Bid{ID: id, TenantID: tenant, Status: domain.BidStatusAccepted}, nil
 		},
-	}, &mockFreightRequestStoreForBid{})
+	}, &mockFreightRequestStoreForBid{
+		getByIDFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.FreightRequest, error) {
+			return &domain.FreightRequest{Status: domain.FreightRequestStatusPublished}, nil
+		},
+	})
 	req := httptest.NewRequest(http.MethodPost, "/v1/bids/"+bidID+"/accept?tenant_id="+queryTenant, nil)
 	req.Header.Set("X-Tenant-ID", headerTenant)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
+	if rec.Code != http.StatusForbidden {
 		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
 	}
 }
@@ -456,7 +476,11 @@ func TestAcceptBidInvalidTenantHeaderReturns400(t *testing.T) {
 			called = true
 			return nil, nil
 		},
-	}, &mockFreightRequestStoreForBid{})
+	}, &mockFreightRequestStoreForBid{
+		getByIDFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.FreightRequest, error) {
+			return &domain.FreightRequest{Status: domain.FreightRequestStatusPublished}, nil
+		},
+	})
 	req := httptest.NewRequest(http.MethodPost, "/v1/bids/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/accept", nil)
 	req.Header.Set("X-Tenant-ID", "not-a-uuid")
 	rec := httptest.NewRecorder()
@@ -489,7 +513,11 @@ func TestAcceptBidNotFoundReturns404(t *testing.T) {
 			acceptCalled = true
 			return nil, nil
 		},
-	}, &mockFreightRequestStoreForBid{})
+	}, &mockFreightRequestStoreForBid{
+		getByIDFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.FreightRequest, error) {
+			return &domain.FreightRequest{Status: domain.FreightRequestStatusPublished}, nil
+		},
+	})
 	req := httptest.NewRequest(http.MethodPost, "/v1/bids/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/accept", nil)
 	req.Header.Set("X-Tenant-ID", "11111111-1111-1111-1111-111111111111")
 	rec := httptest.NewRecorder()
@@ -510,7 +538,11 @@ func TestAcceptBidForeignTenantReturns404(t *testing.T) {
 			acceptCalled = true
 			return nil, nil
 		},
-	}, &mockFreightRequestStoreForBid{})
+	}, &mockFreightRequestStoreForBid{
+		getByIDFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.FreightRequest, error) {
+			return &domain.FreightRequest{Status: domain.FreightRequestStatusPublished}, nil
+		},
+	})
 	req := httptest.NewRequest(http.MethodPost, "/v1/bids/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/accept", nil)
 	req.Header.Set("X-Tenant-ID", "11111111-1111-1111-1111-111111111111")
 	rec := httptest.NewRecorder()
@@ -531,7 +563,11 @@ func TestAcceptBidNonSubmittedReturns409(t *testing.T) {
 			acceptCalled = true
 			return nil, nil
 		},
-	}, &mockFreightRequestStoreForBid{})
+	}, &mockFreightRequestStoreForBid{
+		getByIDFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.FreightRequest, error) {
+			return &domain.FreightRequest{Status: domain.FreightRequestStatusPublished}, nil
+		},
+	})
 	req := httptest.NewRequest(http.MethodPost, "/v1/bids/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/accept", nil)
 	req.Header.Set("X-Tenant-ID", "11111111-1111-1111-1111-111111111111")
 	rec := httptest.NewRecorder()
