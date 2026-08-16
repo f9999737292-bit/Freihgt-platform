@@ -286,7 +286,6 @@ func TestDeadlineBoundary(t *testing.T) {
 	insert(equalID, now)
 	insert(futureID, now.Add(time.Minute))
 
-	fix := seededEvents{Now: now}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	cfg := config.DeadlineWorkerConfig{Enabled: true, Interval: time.Second, BatchSize: 10}
 	worker.NewDeadlineWorker(cfg, env.rfxSvc, worker.NewFixedClock(now), log, worker.NewMetrics("rfx-service-boundary")).RunOnce(context.Background())
