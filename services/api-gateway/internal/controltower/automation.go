@@ -160,7 +160,11 @@ func (s *Service) fireAutomationTrigger(ctx context.Context, reqCtx RequestConte
 	if s.readModel == nil || !s.readModelCfg.Mode.Enabled() {
 		return
 	}
-	rmCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), s.readModelCfg.Timeout)
+	parent := ctx
+	if parent == nil {
+		parent = context.Background()
+	}
+	rmCtx, cancel := context.WithTimeout(context.WithoutCancel(parent), s.readModelCfg.Timeout)
 	defer cancel()
 	_, _ = s.readModel.EvaluateAutomation(rmCtx, reqCtx.TenantID, reqCtx.UserID, reqCtx.RequestID, body)
 }

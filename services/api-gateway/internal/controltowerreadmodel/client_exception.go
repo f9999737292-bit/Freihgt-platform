@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	ensureExceptionWorkflowsPath = "/internal/v1/control-tower/critical-events/workflows/ensure"
-	updateExceptionPath          = "/internal/v1/control-tower/critical-events/%s/exception"
+	ensureExceptionWorkflowsPath   = "/internal/v1/control-tower/critical-events/workflows/ensure"
+	listOpenWorkflowsBySourcePath  = "/internal/v1/control-tower/critical-events/workflows/list-open"
+	updateExceptionPath            = "/internal/v1/control-tower/critical-events/%s/exception"
 )
 
 type EnsureExceptionSeed struct {
@@ -150,4 +151,103 @@ func (c *Client) UpdateException(
 		return nil, &DependencyError{Reason: ReasonMalformedResponse, Err: err}
 	}
 	return &payload, nil
+}
+
+type RemoteOpenWorkflow struct {
+	EventID           string
+	ShipmentID        string
+	EventType         string
+	Source            string
+	OccurredAt        time.Time
+	Status            string
+	Priority          string
+	ExceptionCategory string
+	BusinessImpact    string
+}
+
+func (c *Client) ListOpenWorkflowsBySource(
+	ctx context.Context,
+	tenantID, requestID, source string,
+) ([]RemoteOpenWorkflow, *DependencyError) {
+	if c == nil {
+		return nil, &DependencyError{Reason: ReasonUnknown, Err: fmt.Errorf("read model client is nil")}
+	}
+
+	start := time.Now()
+	result := "SUCCESS"
+	var reason FailureReason
+	defer func() {
+		c.metrics.ObserveRequest("WORKFLOW_LIST_OPEN", result, string(reason), time.Since(start))
+	}()
+
+	body, err := json.Marshal(map[string]string{"source": strings.TrimSpace(source)})
+	if err != nil {
+		reason = ReasonUnknown
+		result = "ERROR"
+		return nil, &DependencyError{Reason: reason, Err: err}
+	}
+
+	endpoint := c.baseURL + listOpenWorkflowsBySourcePath
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		reason = ReasonUnknown
+		result = "ERROR"
+		return nil, &DependencyError{Reason: reason, Err: err}
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Tenant-ID", tenantID)
+	if strings.TrimSpace(requestID) != "" {
+		req.Header.Set(sharedmiddleware.RequestIDHeader, requestID)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		reason = classifyRequestError(ctx, err)
+		result = "ERROR"
+		return nil, &DependencyError{Reason: reason, Err: err}
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		reason = classifyHTTPStatus(resp.StatusCode)
+		result = "ERROR"
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
+		return nil, &DependencyError{Reason: reason, Status: resp.StatusCode}
+	}
+
+	var payload struct {
+		Items []struct {
+			EventID           string `json:"eventId"`
+			ShipmentID        string `json:"shipmentId"`
+			EventType         string `json:"eventType"`
+			Source            string `json:"source"`
+			OccurredAt        string `json:"occurredAt"`
+			Status            string `json:"status"`
+			Priority          string `json:"priority"`
+			ExceptionCategory string `json:"exceptionCategory"`
+			BusinessImpact    string `json:"businessImpact"`
+		} `json:"items"`
+	}
+	if err := decodeJSON(resp.Body, c.maxBytes, &payload); err != nil {
+		reason = ReasonMalformedResponse
+		result = "ERROR"
+		return nil, &DependencyError{Reason: reason, Err: err}
+	}
+
+	out := make([]RemoteOpenWorkflow, 0, len(payload.Items))
+	for _, item := range payload.Items {
+		occurredAt, _ := time.Parse(time.RFC3339, item.OccurredAt)
+		out = append(out, RemoteOpenWorkflow{
+			EventID:           item.EventID,
+			ShipmentID:        item.ShipmentID,
+			EventType:         item.EventType,
+			Source:            item.Source,
+			OccurredAt:        occurredAt.UTC(),
+			Status:            item.Status,
+			Priority:          item.Priority,
+			ExceptionCategory: item.ExceptionCategory,
+			BusinessImpact:    item.BusinessImpact,
+		})
+	}
+	return out, nil
 }

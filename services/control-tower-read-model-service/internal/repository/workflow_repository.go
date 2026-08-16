@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -34,6 +35,14 @@ func (r *WorkflowRepository) AcknowledgeWithWorkflow(
 		return domain.CriticalEventAcknowledgement{}, domain.CriticalEventWorkflow{}, fmt.Errorf("begin tx: %w", err)
 	}
 	defer tx.Rollback(ctx)
+
+	existingWorkflow, err := r.lockWorkflow(ctx, tx, ackInput.TenantID, ackInput.EventID)
+	if err != nil {
+		return domain.CriticalEventAcknowledgement{}, domain.CriticalEventWorkflow{}, err
+	}
+	if existingWorkflow == nil {
+		return domain.CriticalEventAcknowledgement{}, domain.CriticalEventWorkflow{}, apperrors.NotFound("critical event not found")
+	}
 
 	source := ackInput.Source
 	if source == "" {
@@ -393,6 +402,44 @@ WHERE tenant_id = $1
 	return items, nil
 }
 
+func (r *WorkflowRepository) ListOpenWorkflowsBySource(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	source string,
+) ([]domain.CriticalEventWorkflow, error) {
+	source = strings.TrimSpace(source)
+	if source == "" {
+		return nil, nil
+	}
+
+	const listSQL = `
+SELECT` + workflowSelectColumns + `
+FROM control_tower.critical_event_workflow
+WHERE tenant_id = $1
+  AND source = $2
+  AND status IN ('open', 'acknowledged', 'assigned')
+ORDER BY occurred_at DESC`
+
+	rows, err := r.pool.Query(ctx, listSQL, tenantID, source)
+	if err != nil {
+		return nil, fmt.Errorf("list open workflows by source: %w", err)
+	}
+	defer rows.Close()
+
+	items := make([]domain.CriticalEventWorkflow, 0)
+	for rows.Next() {
+		item, err := scanActionWorkflow(rows)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 func (r *WorkflowRepository) GetWorkflow(
 	ctx context.Context,
 	tenantID uuid.UUID,
@@ -427,43 +474,7 @@ func (r *WorkflowRepository) ensureAcknowledgedWorkflow(
 
 	now := time.Now().UTC()
 	if workflow == nil {
-		priority := domain.DefaultPriorityForSeverity("")
-		category := domain.DefaultCategoryForEventType(input.EventType)
-		activatedAt := input.OccurredAt.UTC()
-		deadlines := domain.CalculateDeadlines(priority, activatedAt)
-
-		const insertSQL = `
-INSERT INTO control_tower.critical_event_workflow (
-    tenant_id, event_id, shipment_id, event_type, source, occurred_at, status, version,
-    acknowledged_at, acknowledged_by_user_id,
-    priority, exception_category, business_impact, exception_activated_at,
-    acknowledge_due_at, assignment_due_at, resolution_due_at, escalation_level,
-    created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, 1, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'none', $8, $8)
-RETURNING` + workflowSelectColumns
-
-		created, err := scanWorkflow(tx.QueryRow(ctx, insertSQL,
-			input.TenantID,
-			input.EventID,
-			input.ShipmentID,
-			input.EventType,
-			input.Source,
-			input.OccurredAt.UTC(),
-			domain.WorkflowStatusAcknowledged,
-			now,
-			input.UserID,
-			priority,
-			category,
-			domain.BusinessImpactNone,
-			activatedAt,
-			deadlines.AcknowledgeDueAt,
-			deadlines.AssignmentDueAt,
-			deadlines.ResolutionDueAt,
-		))
-		if err != nil {
-			return domain.CriticalEventWorkflow{}, false, fmt.Errorf("insert workflow: %w", err)
-		}
-		return created, true, nil
+		return domain.CriticalEventWorkflow{}, false, apperrors.NotFound("critical event not found")
 	}
 
 	switch workflow.Status {

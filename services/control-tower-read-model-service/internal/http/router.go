@@ -61,6 +61,7 @@ func NewRouter(
 		r.Post("/critical-events/acknowledgements/lookup", ackHandler.LookupAcknowledgements)
 		r.Post("/critical-events/workflows/ensure", ackHandler.EnsureExceptionWorkflows)
 		r.Post("/critical-events/workflows/lookup", ackHandler.LookupWorkflows)
+		r.Post("/critical-events/workflows/list-open", ackHandler.ListOpenWorkflowsBySource)
 		r.Patch("/critical-events/{eventId}/exception", ackHandler.UpdateException)
 		r.Post("/risks/sync", riskHandler.SyncRisks)
 		r.Get("/risks/kpi", riskHandler.GetRiskKPI)

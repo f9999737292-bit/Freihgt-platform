@@ -171,6 +171,7 @@ const (
 	EventSeverityWarning       = "WARNING"
 	EventSeverityCritical      = "CRITICAL"
 	EventSourceControlTower    = "control-tower"
+	EventSourceDriver          = "driver"
 )
 
 type DataFreshness struct {

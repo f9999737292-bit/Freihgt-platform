@@ -30,6 +30,7 @@ type WorkflowStore interface {
 	ReopenCriticalEvent(ctx context.Context, input domain.ReopenCriticalEventInput) (domain.CriticalEventWorkflow, error)
 	ListActions(ctx context.Context, tenantID uuid.UUID, eventID string) ([]domain.CriticalEventAction, error)
 	LookupWorkflows(ctx context.Context, tenantID uuid.UUID, eventIDs []string) ([]domain.CriticalEventWorkflow, error)
+	ListOpenWorkflowsBySource(ctx context.Context, tenantID uuid.UUID, source string) ([]domain.CriticalEventWorkflow, error)
 	EnsureExceptionWorkflows(ctx context.Context, tenantID uuid.UUID, seeds []domain.EnsureExceptionSeed) ([]string, error)
 	UpdateException(ctx context.Context, input domain.UpdateExceptionInput) (domain.CriticalEventWorkflow, error)
 	LookupWorkflowsWithExceptionProcessing(ctx context.Context, tenantID uuid.UUID, eventIDs []string, actorUserID uuid.UUID) ([]domain.CriticalEventWorkflow, error)
@@ -271,6 +272,74 @@ func (h *AckHandler) LookupWorkflows(w http.ResponseWriter, r *http.Request) {
 			Status:                  item.Status,
 			WorkflowSummaryResponse: toWorkflowSummaryResponse(item),
 			Exception:               toExceptionDetailsResponse(item, now),
+		})
+	}
+	respond.JSON(w, http.StatusOK, resp)
+}
+
+type listOpenWorkflowsRequest struct {
+	Source string `json:"source"`
+}
+
+type openWorkflowItemResponse struct {
+	EventID           string `json:"eventId"`
+	ShipmentID        string `json:"shipmentId"`
+	EventType         string `json:"eventType"`
+	Source            string `json:"source"`
+	OccurredAt        string `json:"occurredAt"`
+	Status            string `json:"status"`
+	Priority          string `json:"priority"`
+	ExceptionCategory string `json:"exceptionCategory"`
+	BusinessImpact    string `json:"businessImpact"`
+}
+
+type listOpenWorkflowsResponse struct {
+	Items []openWorkflowItemResponse `json:"items"`
+}
+
+func (h *AckHandler) ListOpenWorkflowsBySource(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := resolveVerifiedTenant(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	body, err := readOptionalJSONBody(r)
+	if err != nil {
+		respond.Error(w, apperrors.Validation("invalid request body", map[string]any{"field": "body"}))
+		return
+	}
+	var payload listOpenWorkflowsRequest
+	if len(body) > 0 {
+		if err := json.Unmarshal(body, &payload); err != nil {
+			respond.Error(w, apperrors.Validation("invalid request body", map[string]any{"field": "body"}))
+			return
+		}
+	}
+	source := strings.TrimSpace(payload.Source)
+	if source == "" {
+		respond.Error(w, apperrors.Validation("source is required", map[string]any{"field": "source"}))
+		return
+	}
+
+	items, err := h.workflowRepo.ListOpenWorkflowsBySource(r.Context(), tenantID, source)
+	if err != nil {
+		respond.Error(w, apperrors.Internal("failed to list open workflows", err))
+		return
+	}
+
+	resp := listOpenWorkflowsResponse{Items: make([]openWorkflowItemResponse, 0, len(items))}
+	for _, item := range items {
+		resp.Items = append(resp.Items, openWorkflowItemResponse{
+			EventID:           item.EventID,
+			ShipmentID:        item.ShipmentID.String(),
+			EventType:         item.EventType,
+			Source:            item.Source,
+			OccurredAt:        item.OccurredAt.UTC().Format(time.RFC3339),
+			Status:            item.Status,
+			Priority:          item.Priority,
+			ExceptionCategory: item.ExceptionCategory,
+			BusinessImpact:    item.BusinessImpact,
 		})
 	}
 	respond.JSON(w, http.StatusOK, resp)

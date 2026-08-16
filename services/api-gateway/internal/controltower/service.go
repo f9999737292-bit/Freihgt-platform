@@ -174,7 +174,12 @@ func (s *Service) GetSummary(ctx context.Context, reqCtx RequestContext, query L
 	filtered := ApplyFilters(allRows, query)
 	kpi := CalculateKPI(filtered)
 	page := Paginate(filtered, query.Page, query.Limit)
+	shipmentByID := make(map[string]ControlTowerShipment, len(allRows))
+	for _, row := range allRows {
+		shipmentByID[row.ID] = row
+	}
 	criticalEvents := BuildCriticalEvents(filtered, shipmentIDsWithDocs, s.thresholds, now)
+	s.mergeDriverCriticalEvents(ctx, reqCtx, &criticalEvents, shipmentByID)
 	s.enrichCriticalEventWorkflows(ctx, reqCtx, &criticalEvents)
 	SortCriticalEvents(criticalEvents)
 	criticalEvents = FilterCriticalEvents(criticalEvents, query)
