@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/freight-platform/rfx-service/internal/domain"
 	apperrors "github.com/freight-platform/rfx-service/internal/platform/errors"
@@ -33,13 +34,22 @@ type createFreightRequestFromOrderRequest struct {
 }
 
 func (h *FreightRequestHandler) CreateFromTransportOrder(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireActor(w, r)
+	if !ok {
+		return
+	}
+
 	var req createFreightRequestFromOrderRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
 		return
 	}
+	if err := rejectBodyTenantMismatch(req.TenantID, actor.TenantID); err != nil {
+		respond.Error(w, err)
+		return
+	}
 
-	input, err := parseCreateFreightRequestFromOrderRequest(req)
+	input, err := parseCreateFreightRequestFromOrderRequest(req, actor.TenantID)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -55,18 +65,18 @@ func (h *FreightRequestHandler) CreateFromTransportOrder(w http.ResponseWriter, 
 }
 
 func (h *FreightRequestHandler) GetByID(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireActor(w, r)
+	if !ok {
+		return
+	}
+
 	id, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
-	tenantID, err := resolveVerifiedTenant(r)
-	if err != nil {
-		respond.Error(w, err)
-		return
-	}
 
-	fr, err := h.service.GetByID(r.Context(), id, tenantID)
+	fr, err := h.service.GetByID(r.Context(), id, actor.TenantID)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -76,13 +86,12 @@ func (h *FreightRequestHandler) GetByID(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *FreightRequestHandler) List(w http.ResponseWriter, r *http.Request) {
-	tenantID, err := resolveVerifiedTenant(r)
-	if err != nil {
-		respond.Error(w, err)
+	actor, ok := requireActor(w, r)
+	if !ok {
 		return
 	}
 
-	filter := domain.ListFreightRequestsFilter{TenantID: tenantID, Limit: parseLimit(r), Offset: parseOffset(r)}
+	filter := domain.ListFreightRequestsFilter{TenantID: actor.TenantID, Limit: parseLimit(r), Offset: parseOffset(r)}
 	if raw := strings.TrimSpace(r.URL.Query().Get("request_type")); raw != "" {
 		filter.RequestType = &raw
 	}
@@ -118,18 +127,18 @@ func (h *FreightRequestHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *FreightRequestHandler) Publish(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireActor(w, r)
+	if !ok {
+		return
+	}
+
 	id, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
-	tenantID, err := domain.ParseUUID(r.URL.Query().Get("tenant_id"), "tenant_id")
-	if err != nil {
-		respond.Error(w, err)
-		return
-	}
 
-	fr, err := h.service.Publish(r.Context(), id, tenantID)
+	fr, err := h.service.Publish(r.Context(), id, actor.TenantID)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -141,11 +150,7 @@ func (h *FreightRequestHandler) Publish(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
-func parseCreateFreightRequestFromOrderRequest(req createFreightRequestFromOrderRequest) (domain.CreateFreightRequestFromOrderInput, error) {
-	tenantID, err := domain.ParseUUID(req.TenantID, "tenant_id")
-	if err != nil {
-		return domain.CreateFreightRequestFromOrderInput{}, err
-	}
+func parseCreateFreightRequestFromOrderRequest(req createFreightRequestFromOrderRequest, tenantID uuid.UUID) (domain.CreateFreightRequestFromOrderInput, error) {
 	transportOrderID, err := domain.ParseUUID(req.TransportOrderID, "transport_order_id")
 	if err != nil {
 		return domain.CreateFreightRequestFromOrderInput{}, err

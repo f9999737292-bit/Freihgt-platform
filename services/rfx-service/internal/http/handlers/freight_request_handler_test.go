@@ -77,7 +77,7 @@ func TestListFreightRequestsMissingTenantReturns401(t *testing.T) {
 	}
 }
 
-func TestListFreightRequestsQueryOnlyReturns401(t *testing.T) {
+func TestListFreightRequestsQueryOnlyReturns403(t *testing.T) {
 	t.Parallel()
 	called := false
 	router := newFreightRequestTestRouter(t, &mockFreightRequestHandlerStore{
@@ -89,12 +89,12 @@ func TestListFreightRequestsQueryOnlyReturns401(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/v1/freight-requests?tenant_id=11111111-1111-1111-1111-111111111111", nil)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
-	if rec.Code != http.StatusUnauthorized || called {
+	if rec.Code != http.StatusForbidden || called {
 		t.Fatalf("status=%d called=%v body=%s", rec.Code, called, rec.Body.String())
 	}
 }
 
-func TestListFreightRequestsHeaderIgnoresConflictingQuery(t *testing.T) {
+func TestListFreightRequestsHeaderRejectsConflictingQuery(t *testing.T) {
 	t.Parallel()
 	headerTenant := "11111111-1111-1111-1111-111111111111"
 	queryTenant := "22222222-2222-2222-2222-222222222222"
@@ -110,7 +110,7 @@ func TestListFreightRequestsHeaderIgnoresConflictingQuery(t *testing.T) {
 	req.Header.Set("X-Tenant-ID", headerTenant)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
+	if rec.Code != http.StatusForbidden {
 		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
 	}
 }
@@ -204,7 +204,7 @@ func TestGetFreightRequestByIDMissingTenantReturns401(t *testing.T) {
 	}
 }
 
-func TestGetFreightRequestByIDQueryOnlyReturns401(t *testing.T) {
+func TestGetFreightRequestByIDQueryOnlyReturns403(t *testing.T) {
 	t.Parallel()
 	called := false
 	router := newFreightRequestTestRouter(t, &mockFreightRequestHandlerStore{
@@ -216,12 +216,12 @@ func TestGetFreightRequestByIDQueryOnlyReturns401(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/v1/freight-requests/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa?tenant_id=11111111-1111-1111-1111-111111111111", nil)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
-	if rec.Code != http.StatusUnauthorized || called {
+	if rec.Code != http.StatusForbidden || called {
 		t.Fatalf("status=%d called=%v body=%s", rec.Code, called, rec.Body.String())
 	}
 }
 
-func TestGetFreightRequestByIDHeaderIgnoresConflictingQuery(t *testing.T) {
+func TestGetFreightRequestByIDHeaderRejectsConflictingQuery(t *testing.T) {
 	t.Parallel()
 	headerTenant := "11111111-1111-1111-1111-111111111111"
 	queryTenant := "22222222-2222-2222-2222-222222222222"
@@ -238,7 +238,7 @@ func TestGetFreightRequestByIDHeaderIgnoresConflictingQuery(t *testing.T) {
 	req.Header.Set("X-Tenant-ID", headerTenant)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
+	if rec.Code != http.StatusForbidden {
 		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
 	}
 }

@@ -62,8 +62,9 @@ func TestFreightRequestServiceCreateFromTransportOrder(t *testing.T) {
 }
 
 type mockBidStore struct {
-	createFn func(ctx context.Context, in domain.CreateBidInput) (*domain.Bid, error)
-	getByIDFn func(ctx context.Context, id, tenantID uuid.UUID) (*domain.Bid, error)
+	createFn               func(ctx context.Context, in domain.CreateBidInput) (*domain.Bid, error)
+	getByIDFn              func(ctx context.Context, id, tenantID uuid.UUID) (*domain.Bid, error)
+	listByFreightRequestFn func(ctx context.Context, freightRequestID, tenantID uuid.UUID) ([]domain.Bid, error)
 }
 
 func (m *mockBidStore) CompanyExists(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
@@ -75,7 +76,10 @@ func (m *mockBidStore) CreateBid(ctx context.Context, in domain.CreateBidInput) 
 func (m *mockBidStore) GetByID(ctx context.Context, id, tenantID uuid.UUID) (*domain.Bid, error) {
 	return m.getByIDFn(ctx, id, tenantID)
 }
-func (m *mockBidStore) ListByFreightRequest(context.Context, uuid.UUID, uuid.UUID) ([]domain.Bid, error) {
+func (m *mockBidStore) ListByFreightRequest(ctx context.Context, freightRequestID, tenantID uuid.UUID) ([]domain.Bid, error) {
+	if m.listByFreightRequestFn != nil {
+		return m.listByFreightRequestFn(ctx, freightRequestID, tenantID)
+	}
 	return nil, nil
 }
 func (m *mockBidStore) SubmitBid(context.Context, uuid.UUID, uuid.UUID, *uuid.UUID) (*domain.Bid, error) {
@@ -110,6 +114,7 @@ func (m *mockFreightRequestStoreForBid) UpdateStatus(context.Context, uuid.UUID,
 
 func TestBidServiceDuplicateBidConflict(t *testing.T) {
 	t.Parallel()
+	carrierID := uuid.New()
 	svc := NewBidService(&mockBidStore{
 		createFn: func(context.Context, domain.CreateBidInput) (*domain.Bid, error) {
 			return nil, apperrors.Conflict("record already exists", map[string]any{"detail": "uq_bid_carrier_request"})
@@ -118,9 +123,9 @@ func TestBidServiceDuplicateBidConflict(t *testing.T) {
 		getByIDFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.FreightRequest, error) {
 			return &domain.FreightRequest{Status: domain.FreightRequestStatusPublished}, nil
 		},
-	})
-	_, err := svc.CreateBid(context.Background(), uuid.New(), domain.CreateBidInput{
-		TenantID: uuid.New(), CarrierCompanyID: uuid.New(), BidNumber: "BID-1",
+	}, &mockActorResolver{kind: domain.ActorKindCarrier, carrierIDs: []uuid.UUID{carrierID}}, nil)
+	_, err := svc.CreateBid(context.Background(), domain.ActorContext{TenantID: uuid.New()}, uuid.New(), domain.CreateBidInput{
+		TenantID: uuid.New(), CarrierCompanyID: carrierID, BidNumber: "BID-1",
 		Items: []domain.CreateBidItemInput{{BaseAmount: 100}},
 	})
 	var appErr *apperrors.AppError
@@ -133,10 +138,14 @@ func TestBidServiceSubmitOnlyFromDraft(t *testing.T) {
 	t.Parallel()
 	svc := NewBidService(&mockBidStore{
 		getByIDFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.Bid, error) {
-			return &domain.Bid{Status: domain.BidStatusSubmitted}, nil
+			return &domain.Bid{Status: domain.BidStatusSubmitted, FreightRequestID: uuid.New()}, nil
 		},
-	}, &mockFreightRequestStoreForBid{})
-	_, err := svc.SubmitBid(context.Background(), uuid.New(), uuid.New())
+	}, &mockFreightRequestStoreForBid{
+		getByIDFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.FreightRequest, error) {
+			return &domain.FreightRequest{Status: domain.FreightRequestStatusPublished}, nil
+		},
+	}, nil, nil)
+	_, err := svc.SubmitBid(context.Background(), domain.ActorContext{TenantID: uuid.New()}, uuid.New())
 	if err == nil {
 		t.Fatalf("expected validation error")
 	}
@@ -148,8 +157,8 @@ func TestBidServiceAcceptOnlyFromSubmitted(t *testing.T) {
 		getByIDFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.Bid, error) {
 			return &domain.Bid{Status: domain.BidStatusDraft}, nil
 		},
-	}, &mockFreightRequestStoreForBid{})
-	_, err := svc.AcceptBid(context.Background(), uuid.New(), uuid.New())
+	}, &mockFreightRequestStoreForBid{}, nil, nil)
+	_, err := svc.AcceptBid(context.Background(), domain.ActorContext{TenantID: uuid.New()}, uuid.New())
 	if err == nil {
 		t.Fatalf("expected validation error")
 	}
@@ -166,8 +175,8 @@ func TestBidServiceGetByIDPassesTenantToRepository(t *testing.T) {
 			}
 			return &domain.Bid{ID: id, TenantID: tenant, BidNumber: "BID-1"}, nil
 		},
-	}, &mockFreightRequestStoreForBid{})
-	bid, err := svc.GetByID(context.Background(), tenantID, bidID)
+	}, &mockFreightRequestStoreForBid{}, nil, nil)
+	bid, err := svc.GetByID(context.Background(), domain.ActorContext{TenantID: tenantID}, bidID)
 	if err != nil || bid.BidNumber != "BID-1" {
 		t.Fatalf("unexpected result bid=%v err=%v", bid, err)
 	}
@@ -179,8 +188,8 @@ func TestBidServiceGetByIDNotFound(t *testing.T) {
 		getByIDFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.Bid, error) {
 			return nil, apperrors.NotFound("bid not found")
 		},
-	}, &mockFreightRequestStoreForBid{})
-	_, err := svc.GetByID(context.Background(), uuid.New(), uuid.New())
+	}, &mockFreightRequestStoreForBid{}, nil, nil)
+	_, err := svc.GetByID(context.Background(), domain.ActorContext{TenantID: uuid.New()}, uuid.New())
 	var appErr *apperrors.AppError
 	if !errors.As(err, &appErr) || appErr.Code != apperrors.CodeNotFound {
 		t.Fatalf("expected not found, got %v", err)
@@ -193,8 +202,8 @@ func TestBidServiceGetByIDForeignSameAsNotFound(t *testing.T) {
 		getByIDFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.Bid, error) {
 			return nil, apperrors.NotFound("bid not found")
 		},
-	}, &mockFreightRequestStoreForBid{})
-	_, err := svc.GetByID(context.Background(), uuid.New(), uuid.New())
+	}, &mockFreightRequestStoreForBid{}, nil, nil)
+	_, err := svc.GetByID(context.Background(), domain.ActorContext{TenantID: uuid.New()}, uuid.New())
 	var appErr *apperrors.AppError
 	if !errors.As(err, &appErr) || appErr.Code != apperrors.CodeNotFound {
 		t.Fatalf("foreign tenant must surface as not found, got %v", err)
@@ -209,8 +218,8 @@ func TestBidServiceGetByIDMissingTenantSkipsRepository(t *testing.T) {
 			called = true
 			return nil, nil
 		},
-	}, &mockFreightRequestStoreForBid{})
-	_, err := svc.GetByID(context.Background(), uuid.Nil, uuid.New())
+	}, &mockFreightRequestStoreForBid{}, nil, nil)
+	_, err := svc.GetByID(context.Background(), domain.ActorContext{}, uuid.New())
 	if called {
 		t.Fatal("repository must not be called")
 	}

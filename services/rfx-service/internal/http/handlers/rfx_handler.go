@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/freight-platform/rfx-service/internal/domain"
 	apperrors "github.com/freight-platform/rfx-service/internal/platform/errors"
@@ -54,6 +55,10 @@ type updateRfxEventRequest struct {
 	ResponseDeadline *string `json:"response_deadline"`
 }
 
+type extendDeadlineRequest struct {
+	ResponseDeadline string `json:"response_deadline"`
+}
+
 type createRfxLotRequest struct {
 	TenantID       string   `json:"tenant_id"`
 	LotNumber      string   `json:"lot_number"`
@@ -87,19 +92,28 @@ type createRfxResponseRequest struct {
 }
 
 func (h *RfxHandler) CreateEvent(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireActor(w, r)
+	if !ok {
+		return
+	}
+
 	var req createRfxEventRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
 		return
 	}
+	if err := rejectBodyTenantMismatch(req.TenantID, actor.TenantID); err != nil {
+		respond.Error(w, err)
+		return
+	}
 
-	input, err := parseCreateRfxEventRequest(req)
+	input, err := parseCreateRfxEventRequest(req, actor.TenantID)
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
 
-	event, err := h.service.CreateEvent(r.Context(), input)
+	event, err := h.service.CreateEvent(r.Context(), actor, input)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -109,18 +123,18 @@ func (h *RfxHandler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *RfxHandler) GetEvent(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireActor(w, r)
+	if !ok {
+		return
+	}
+
 	id, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
-	tenantID, err := domain.ParseUUID(r.URL.Query().Get("tenant_id"), "tenant_id")
-	if err != nil {
-		respond.Error(w, err)
-		return
-	}
 
-	event, err := h.service.GetEvent(r.Context(), id, tenantID)
+	event, err := h.service.GetEvent(r.Context(), actor, id)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -130,13 +144,12 @@ func (h *RfxHandler) GetEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *RfxHandler) ListEvents(w http.ResponseWriter, r *http.Request) {
-	tenantID, err := domain.ParseUUID(r.URL.Query().Get("tenant_id"), "tenant_id")
-	if err != nil {
-		respond.Error(w, err)
+	actor, ok := requireActor(w, r)
+	if !ok {
 		return
 	}
 
-	filter := domain.ListRfxEventsFilter{TenantID: tenantID, Limit: parseLimit(r), Offset: parseOffset(r)}
+	filter := domain.ListRfxEventsFilter{TenantID: actor.TenantID, Limit: parseLimit(r), Offset: parseOffset(r)}
 	if raw := strings.TrimSpace(r.URL.Query().Get("rfx_type")); raw != "" {
 		filter.RfxType = &raw
 	}
@@ -155,7 +168,7 @@ func (h *RfxHandler) ListEvents(w http.ResponseWriter, r *http.Request) {
 		filter.OwnerCompanyID = &parsed
 	}
 
-	events, total, err := h.service.ListEvents(r.Context(), filter)
+	events, total, err := h.service.ListEvents(r.Context(), actor, filter)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -175,12 +188,12 @@ func (h *RfxHandler) ListEvents(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *RfxHandler) UpdateEvent(w http.ResponseWriter, r *http.Request) {
-	id, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
-	if err != nil {
-		respond.Error(w, err)
+	actor, ok := requireActor(w, r)
+	if !ok {
 		return
 	}
-	tenantID, err := domain.ParseUUID(r.URL.Query().Get("tenant_id"), "tenant_id")
+
+	id, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -202,7 +215,7 @@ func (h *RfxHandler) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		input.ResponseDeadline = deadline
 	}
 
-	event, err := h.service.UpdateEvent(r.Context(), id, tenantID, input)
+	event, err := h.service.UpdateEvent(r.Context(), actor, id, input)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -212,18 +225,18 @@ func (h *RfxHandler) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *RfxHandler) PublishEvent(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireActor(w, r)
+	if !ok {
+		return
+	}
+
 	id, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
-	tenantID, err := domain.ParseUUID(r.URL.Query().Get("tenant_id"), "tenant_id")
-	if err != nil {
-		respond.Error(w, err)
-		return
-	}
 
-	event, err := h.service.PublishEvent(r.Context(), id, tenantID)
+	event, err := h.service.PublishEvent(r.Context(), actor, id)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -236,18 +249,133 @@ func (h *RfxHandler) PublishEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *RfxHandler) CancelEvent(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireActor(w, r)
+	if !ok {
+		return
+	}
+
 	id, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
-	tenantID, err := domain.ParseUUID(r.URL.Query().Get("tenant_id"), "tenant_id")
+
+	event, err := h.service.CancelEvent(r.Context(), actor, id)
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
 
-	event, err := h.service.CancelEvent(r.Context(), id, tenantID)
+	respond.JSON(w, http.StatusOK, map[string]any{
+		"id":     event.ID.String(),
+		"status": event.Status,
+	})
+}
+
+func (h *RfxHandler) TransitionEvent(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireActor(w, r)
+	if !ok {
+		return
+	}
+
+	id, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	command := domain.RfxTransitionCommand(strings.TrimSpace(chi.URLParam(r, "command")))
+	event, err := h.service.TransitionEvent(r.Context(), actor, id, command)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusOK, map[string]any{
+		"id":     event.ID.String(),
+		"status": event.Status,
+	})
+}
+
+func (h *RfxHandler) OpenQuestions(w http.ResponseWriter, r *http.Request) {
+	h.transition(w, r, domain.RfxCommandOpenQuestions)
+}
+
+func (h *RfxHandler) OpenResponses(w http.ResponseWriter, r *http.Request) {
+	h.transition(w, r, domain.RfxCommandOpenResponses)
+}
+
+func (h *RfxHandler) CloseResponses(w http.ResponseWriter, r *http.Request) {
+	h.transition(w, r, domain.RfxCommandCloseResponses)
+}
+
+func (h *RfxHandler) StartEvaluation(w http.ResponseWriter, r *http.Request) {
+	h.transition(w, r, domain.RfxCommandStartEvaluation)
+}
+
+func (h *RfxHandler) Shortlist(w http.ResponseWriter, r *http.Request) {
+	h.transition(w, r, domain.RfxCommandShortlist)
+}
+
+func (h *RfxHandler) AwardEvent(w http.ResponseWriter, r *http.Request) {
+	h.transition(w, r, domain.RfxCommandAward)
+}
+
+func (h *RfxHandler) ArchiveEvent(w http.ResponseWriter, r *http.Request) {
+	h.transition(w, r, domain.RfxCommandArchive)
+}
+
+func (h *RfxHandler) SendInvitations(w http.ResponseWriter, r *http.Request) {
+	h.transition(w, r, domain.RfxCommandSendInvitations)
+}
+
+func (h *RfxHandler) ExtendDeadline(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireActor(w, r)
+	if !ok {
+		return
+	}
+
+	id, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	var req extendDeadlineRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
+		return
+	}
+	deadline, err := domain.ParseDateTime(req.ResponseDeadline, "response_deadline")
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	event, err := h.service.ExtendDeadline(r.Context(), actor, id, *deadline)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	respond.JSON(w, http.StatusOK, map[string]any{
+		"id":                event.ID.String(),
+		"status":            event.Status,
+		"response_deadline": formatDateTime(event.ResponseDeadline),
+	})
+}
+
+func (h *RfxHandler) transition(w http.ResponseWriter, r *http.Request, command domain.RfxTransitionCommand) {
+	actor, ok := requireActor(w, r)
+	if !ok {
+		return
+	}
+
+	id, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	event, err := h.service.TransitionEvent(r.Context(), actor, id, command)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -260,6 +388,11 @@ func (h *RfxHandler) CancelEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *RfxHandler) CreateLot(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireActor(w, r)
+	if !ok {
+		return
+	}
+
 	eventID, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
 	if err != nil {
 		respond.Error(w, err)
@@ -271,15 +404,13 @@ func (h *RfxHandler) CreateLot(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
 		return
 	}
-
-	tenantID, err := domain.ParseUUID(req.TenantID, "tenant_id")
-	if err != nil {
+	if err := rejectBodyTenantMismatch(req.TenantID, actor.TenantID); err != nil {
 		respond.Error(w, err)
 		return
 	}
 
-	lot, err := h.service.CreateLot(r.Context(), eventID, domain.CreateRfxLotInput{
-		TenantID:       tenantID,
+	lot, err := h.service.CreateLot(r.Context(), actor, eventID, domain.CreateRfxLotInput{
+		TenantID:       actor.TenantID,
 		LotNumber:      req.LotNumber,
 		Name:           req.Name,
 		Description:    req.Description,
@@ -296,18 +427,18 @@ func (h *RfxHandler) CreateLot(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *RfxHandler) ListLots(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireActor(w, r)
+	if !ok {
+		return
+	}
+
 	eventID, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
-	tenantID, err := domain.ParseUUID(r.URL.Query().Get("tenant_id"), "tenant_id")
-	if err != nil {
-		respond.Error(w, err)
-		return
-	}
 
-	lots, err := h.service.ListLots(r.Context(), eventID, tenantID)
+	lots, err := h.service.ListLots(r.Context(), actor, eventID)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -322,6 +453,11 @@ func (h *RfxHandler) ListLots(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *RfxHandler) CreateLane(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireActor(w, r)
+	if !ok {
+		return
+	}
+
 	lotID, err := domain.ParseUUID(chi.URLParam(r, "lot_id"), "lot_id")
 	if err != nil {
 		respond.Error(w, err)
@@ -333,9 +469,7 @@ func (h *RfxHandler) CreateLane(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
 		return
 	}
-
-	tenantID, err := domain.ParseUUID(req.TenantID, "tenant_id")
-	if err != nil {
+	if err := rejectBodyTenantMismatch(req.TenantID, actor.TenantID); err != nil {
 		respond.Error(w, err)
 		return
 	}
@@ -350,8 +484,8 @@ func (h *RfxHandler) CreateLane(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	lane, err := h.service.CreateLane(r.Context(), lotID, domain.CreateRfxLaneInput{
-		TenantID:              tenantID,
+	lane, err := h.service.CreateLane(r.Context(), actor, lotID, domain.CreateRfxLaneInput{
+		TenantID:              actor.TenantID,
 		OriginLocationID:      originID,
 		DestinationLocationID: destinationID,
 		TransportMode:         domain.NormalizeTransportMode(req.TransportMode),
@@ -369,6 +503,11 @@ func (h *RfxHandler) CreateLane(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *RfxHandler) AddParticipant(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireActor(w, r)
+	if !ok {
+		return
+	}
+
 	eventID, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
 	if err != nil {
 		respond.Error(w, err)
@@ -380,9 +519,7 @@ func (h *RfxHandler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
 		return
 	}
-
-	tenantID, err := domain.ParseUUID(req.TenantID, "tenant_id")
-	if err != nil {
+	if err := rejectBodyTenantMismatch(req.TenantID, actor.TenantID); err != nil {
 		respond.Error(w, err)
 		return
 	}
@@ -392,8 +529,8 @@ func (h *RfxHandler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	participant, err := h.service.AddParticipant(r.Context(), eventID, domain.AddRfxParticipantInput{
-		TenantID:        tenantID,
+	participant, err := h.service.AddParticipant(r.Context(), actor, eventID, domain.AddRfxParticipantInput{
+		TenantID:        actor.TenantID,
 		CompanyID:       companyID,
 		ParticipantType: req.ParticipantType,
 	})
@@ -406,12 +543,12 @@ func (h *RfxHandler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *RfxHandler) ListParticipants(w http.ResponseWriter, r *http.Request) {
-	eventID, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
-	if err != nil {
-		respond.Error(w, err)
+	actor, ok := requireActor(w, r)
+	if !ok {
 		return
 	}
-	tenantID, err := domain.ParseUUID(r.URL.Query().Get("tenant_id"), "tenant_id")
+
+	eventID, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -422,7 +559,7 @@ func (h *RfxHandler) ListParticipants(w http.ResponseWriter, r *http.Request) {
 		status = &raw
 	}
 
-	participants, err := h.service.ListParticipants(r.Context(), eventID, tenantID, status)
+	participants, err := h.service.ListParticipants(r.Context(), actor, eventID, status)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -437,6 +574,11 @@ func (h *RfxHandler) ListParticipants(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *RfxHandler) CreateResponse(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireActor(w, r)
+	if !ok {
+		return
+	}
+
 	eventID, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
 	if err != nil {
 		respond.Error(w, err)
@@ -448,9 +590,7 @@ func (h *RfxHandler) CreateResponse(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
 		return
 	}
-
-	tenantID, err := domain.ParseUUID(req.TenantID, "tenant_id")
-	if err != nil {
+	if err := rejectBodyTenantMismatch(req.TenantID, actor.TenantID); err != nil {
 		respond.Error(w, err)
 		return
 	}
@@ -460,8 +600,8 @@ func (h *RfxHandler) CreateResponse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response, err := h.service.CreateResponse(r.Context(), eventID, domain.CreateRfxResponseInput{
-		TenantID:             tenantID,
+	response, err := h.service.CreateResponse(r.Context(), actor, eventID, domain.CreateRfxResponseInput{
+		TenantID:             actor.TenantID,
 		ParticipantCompanyID: participantCompanyID,
 	})
 	if err != nil {
@@ -473,18 +613,18 @@ func (h *RfxHandler) CreateResponse(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *RfxHandler) SubmitResponse(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireActor(w, r)
+	if !ok {
+		return
+	}
+
 	responseID, err := domain.ParseUUID(chi.URLParam(r, "response_id"), "response_id")
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
-	tenantID, err := domain.ParseUUID(r.URL.Query().Get("tenant_id"), "tenant_id")
-	if err != nil {
-		respond.Error(w, err)
-		return
-	}
 
-	response, err := h.service.SubmitResponse(r.Context(), responseID, tenantID)
+	response, err := h.service.SubmitResponse(r.Context(), actor, responseID)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -496,11 +636,7 @@ func (h *RfxHandler) SubmitResponse(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func parseCreateRfxEventRequest(req createRfxEventRequest) (domain.CreateRfxEventInput, error) {
-	tenantID, err := domain.ParseUUID(req.TenantID, "tenant_id")
-	if err != nil {
-		return domain.CreateRfxEventInput{}, err
-	}
+func parseCreateRfxEventRequest(req createRfxEventRequest, tenantID uuid.UUID) (domain.CreateRfxEventInput, error) {
 	ownerCompanyID, err := domain.ParseUUID(req.OwnerCompanyID, "owner_company_id")
 	if err != nil {
 		return domain.CreateRfxEventInput{}, err

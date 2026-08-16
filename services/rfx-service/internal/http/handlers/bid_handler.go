@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/freight-platform/rfx-service/internal/domain"
 	apperrors "github.com/freight-platform/rfx-service/internal/platform/errors"
@@ -44,6 +45,11 @@ type createBidRequest struct {
 }
 
 func (h *BidHandler) CreateBid(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireActor(w, r)
+	if !ok {
+		return
+	}
+
 	freightRequestID, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
 	if err != nil {
 		respond.Error(w, err)
@@ -55,14 +61,18 @@ func (h *BidHandler) CreateBid(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
 		return
 	}
+	if err := rejectBodyTenantMismatch(req.TenantID, actor.TenantID); err != nil {
+		respond.Error(w, err)
+		return
+	}
 
-	input, err := parseCreateBidRequest(req)
+	input, err := parseCreateBidRequest(req, actor.TenantID)
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
 
-	bid, err := h.service.CreateBid(r.Context(), freightRequestID, input)
+	bid, err := h.service.CreateBid(r.Context(), actor, freightRequestID, input)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -72,18 +82,18 @@ func (h *BidHandler) CreateBid(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *BidHandler) GetByID(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireActor(w, r)
+	if !ok {
+		return
+	}
+
 	id, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
-	tenantID, err := resolveVerifiedTenant(r)
-	if err != nil {
-		respond.Error(w, err)
-		return
-	}
 
-	bid, err := h.service.GetByID(r.Context(), tenantID, id)
+	bid, err := h.service.GetByID(r.Context(), actor, id)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -93,12 +103,12 @@ func (h *BidHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *BidHandler) ListBids(w http.ResponseWriter, r *http.Request) {
-	freightRequestID, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
-	if err != nil {
-		respond.Error(w, err)
+	actor, ok := requireActor(w, r)
+	if !ok {
 		return
 	}
-	tenantID, err := resolveVerifiedTenant(r)
+
+	freightRequestID, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -109,7 +119,7 @@ func (h *BidHandler) ListBids(w http.ResponseWriter, r *http.Request) {
 		status = &raw
 	}
 
-	bids, err := h.service.ListBids(r.Context(), freightRequestID, tenantID, status)
+	bids, err := h.service.ListBids(r.Context(), actor, freightRequestID, status)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -124,18 +134,18 @@ func (h *BidHandler) ListBids(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *BidHandler) SubmitBid(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireActor(w, r)
+	if !ok {
+		return
+	}
+
 	id, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
-	tenantID, err := domain.ParseUUID(r.URL.Query().Get("tenant_id"), "tenant_id")
-	if err != nil {
-		respond.Error(w, err)
-		return
-	}
 
-	bid, err := h.service.SubmitBid(r.Context(), id, tenantID)
+	bid, err := h.service.SubmitBid(r.Context(), actor, id)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -148,18 +158,18 @@ func (h *BidHandler) SubmitBid(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *BidHandler) AcceptBid(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireActor(w, r)
+	if !ok {
+		return
+	}
+
 	id, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
-	tenantID, err := resolveVerifiedTenant(r)
-	if err != nil {
-		respond.Error(w, err)
-		return
-	}
 
-	bid, err := h.service.AcceptBid(r.Context(), id, tenantID)
+	bid, err := h.service.AcceptBid(r.Context(), actor, id)
 	if err != nil {
 		respondAcceptBidError(w, err)
 		return
@@ -184,22 +194,23 @@ func respondAcceptBidError(w http.ResponseWriter, err error) {
 	respond.Error(w, err)
 }
 
-func parseCreateBidRequest(req createBidRequest) (domain.CreateBidInput, error) {
-	tenantID, err := domain.ParseUUID(req.TenantID, "tenant_id")
-	if err != nil {
-		return domain.CreateBidInput{}, err
-	}
-	carrierCompanyID, err := domain.ParseUUID(req.CarrierCompanyID, "carrier_company_id")
-	if err != nil {
-		return domain.CreateBidInput{}, err
+func parseCreateBidRequest(req createBidRequest, tenantID uuid.UUID) (domain.CreateBidInput, error) {
+	var carrierCompanyID uuid.UUID
+	if strings.TrimSpace(req.CarrierCompanyID) != "" {
+		parsed, err := domain.ParseUUID(req.CarrierCompanyID, "carrier_company_id")
+		if err != nil {
+			return domain.CreateBidInput{}, err
+		}
+		carrierCompanyID = parsed
 	}
 
 	var validUntil *time.Time
 	if req.ValidUntil != nil {
-		validUntil, err = domain.ParseDateTime(*req.ValidUntil, "valid_until")
+		parsed, err := domain.ParseDateTime(*req.ValidUntil, "valid_until")
 		if err != nil {
 			return domain.CreateBidInput{}, err
 		}
+		validUntil = parsed
 	}
 
 	items := make([]domain.CreateBidItemInput, 0, len(req.Items))

@@ -1,0 +1,45 @@
+package service
+
+import (
+	"context"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/freight-platform/rfx-service/internal/domain"
+	"github.com/freight-platform/rfx-service/internal/repository"
+)
+
+type AuditRecorder interface {
+	Record(ctx context.Context, rec repository.AuditRecord) error
+}
+
+type ActorResolver interface {
+	ResolveActorKind(ctx context.Context, actor domain.ActorContext) (domain.ActorKind, []uuid.UUID, error)
+}
+
+func auditUser(actor domain.ActorContext) *uuid.UUID {
+	if actor.UserID == uuid.Nil {
+		return nil
+	}
+	id := actor.UserID
+	return &id
+}
+
+func recordAudit(ctx context.Context, audit AuditRecorder, actor domain.ActorContext, entityType string, entityID uuid.UUID, action string, metadata map[string]any) {
+	if audit == nil {
+		return
+	}
+	_ = audit.Record(ctx, repository.AuditRecord{
+		TenantID:    actor.TenantID,
+		EntityType:  entityType,
+		EntityID:    entityID,
+		Action:      action,
+		ActorUserID: auditUser(actor),
+		Metadata:    metadata,
+	})
+}
+
+func nowUTC() time.Time {
+	return time.Now().UTC()
+}

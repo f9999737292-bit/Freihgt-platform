@@ -230,6 +230,22 @@ func (r *BidRepository) AcceptBid(ctx context.Context, id, tenantID uuid.UUID) (
 		}
 		defer tx.Rollback(ctx)
 
+		const lockFreightRequest = `
+		SELECT status FROM rfx.freight_requests
+		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+		FOR UPDATE
+	`
+		var freightRequestStatus string
+		if err := tx.QueryRow(ctx, lockFreightRequest, current.FreightRequestID, tenantID).Scan(&freightRequestStatus); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return apperrors.NotFound("freight request not found")
+			}
+			return mapDBError(err)
+		}
+		if freightRequestStatus == domain.FreightRequestStatusAwarded {
+			return apperrors.Conflict("freight request is already awarded", map[string]any{"field": "status"})
+		}
+
 		const acceptBid = `
 		UPDATE rfx.bids SET
 			status = $3,
@@ -278,15 +294,19 @@ func (r *BidRepository) AcceptBid(ctx context.Context, id, tenantID uuid.UUID) (
 			status = $3,
 			updated_at = now(),
 			version = version + 1
-		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL AND status <> $3
 	`
 		// TODO: also update linked transport order status when transport-order integration is available.
-		if _, err := tx.Exec(ctx, updateFreightRequest,
+		tag, err := tx.Exec(ctx, updateFreightRequest,
 			bid.FreightRequestID,
 			tenantID,
 			domain.FreightRequestStatusAwarded,
-		); err != nil {
+		)
+		if err != nil {
 			return mapDBError(err)
+		}
+		if tag.RowsAffected() == 0 {
+			return apperrors.Conflict("freight request is already awarded", map[string]any{"field": "status"})
 		}
 
 		if err := tx.Commit(ctx); err != nil {
