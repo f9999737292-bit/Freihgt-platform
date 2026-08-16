@@ -36,15 +36,17 @@ PY
 
 JWT="$(cat /tmp/pilot.jwt)"
 
-for label path in \
-  "DRIVER_ME /api/v1/driver/me" \
-  "MY_SHIPMENTS /api/v1/driver/me/shipments" \
-  "SHIPMENT_DETAIL /api/v1/driver/me/shipments/${SHIP}"; do
-  name="${label%% *}"
-  route="${label#* }"
+check_route() {
+  local name="$1"
+  local route="$2"
+  local code
   code="$(curl -sS -o "/tmp/${name}.json" -w "%{http_code}" -H "Authorization: Bearer ${JWT}" "${GATEWAY}${route}")"
   echo "${name}_HTTP=${code}"
-done
+}
+
+check_route DRIVER_ME /api/v1/driver/me
+check_route MY_SHIPMENTS /api/v1/driver/me/shipments
+check_route SHIPMENT_DETAIL "/api/v1/driver/me/shipments/${SHIP}"
 
 DELAY_KEY="driver-mobile-op:delay:e2e-v092-$(date +%s)"
 DELAY_HTTP="$(curl -sS -o /tmp/delay.json -w "%{http_code}" -X POST \
