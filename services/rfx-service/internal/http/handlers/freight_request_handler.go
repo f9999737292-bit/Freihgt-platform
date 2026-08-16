@@ -55,7 +55,7 @@ func (h *FreightRequestHandler) CreateFromTransportOrder(w http.ResponseWriter, 
 		return
 	}
 
-	fr, err := h.service.CreateFromTransportOrder(r.Context(), input)
+	fr, err := h.service.CreateFromTransportOrder(r.Context(), actor, input)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -76,7 +76,7 @@ func (h *FreightRequestHandler) GetByID(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	fr, err := h.service.GetByID(r.Context(), id, actor.TenantID)
+	fr, err := h.service.GetByID(r.Context(), actor, id)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -107,7 +107,7 @@ func (h *FreightRequestHandler) List(w http.ResponseWriter, r *http.Request) {
 		filter.ShipperCompanyID = &parsed
 	}
 
-	requests, total, err := h.service.List(r.Context(), filter)
+	requests, total, err := h.service.List(r.Context(), actor, filter)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -138,7 +138,7 @@ func (h *FreightRequestHandler) Publish(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	fr, err := h.service.Publish(r.Context(), id, actor.TenantID)
+	fr, err := h.service.Publish(r.Context(), actor, id)
 	if err != nil {
 		respond.Error(w, err)
 		return

@@ -46,9 +46,9 @@ func main() {
 	membershipRepo := repository.NewMembershipRepository(db.Pool)
 	auditRepo := repository.NewAuditRepository(db.Pool)
 
-	rfxSvc := service.NewRfxService(rfxRepo, auditRepo, membershipRepo)
-	frSvc := service.NewFreightRequestService(frRepo)
-	bidSvc := service.NewBidService(bidRepo, frRepo, membershipRepo, auditRepo)
+	rfxSvc := service.NewRfxServiceWithAtomic(db.Pool, rfxRepo, auditRepo, membershipRepo)
+	frSvc := service.NewFreightRequestServiceWithAuth(frRepo, membershipRepo)
+	bidSvc := service.NewBidServiceWithAtomic(db.Pool, bidRepo, frRepo, membershipRepo, auditRepo)
 
 	deadlineMetrics := worker.NewMetrics(cfg.ServiceName)
 	deadlineWorker := worker.NewDeadlineWorker(cfg.DeadlineWorker, rfxSvc, worker.RealClock(), log, deadlineMetrics)

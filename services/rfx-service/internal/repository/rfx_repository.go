@@ -17,6 +17,7 @@ import (
 
 type RfxRepository struct {
 	pool *pgxpool.Pool
+	exec dbExecutor
 }
 
 func NewRfxRepository(pool *pgxpool.Pool) *RfxRepository {
@@ -31,7 +32,7 @@ func (r *RfxRepository) CompanyExists(ctx context.Context, companyID, tenantID u
 		)
 	`
 	var exists bool
-	if err := r.pool.QueryRow(ctx, query, companyID, tenantID).Scan(&exists); err != nil {
+	if err := r.db().QueryRow(ctx, query, companyID, tenantID).Scan(&exists); err != nil {
 		return false, mapDBError(err)
 	}
 	return exists, nil
@@ -49,7 +50,7 @@ func (r *RfxRepository) CreateEvent(ctx context.Context, in domain.CreateRfxEven
 			owner_company_id, status, currency_code, valid_from, valid_to, response_deadline,
 			created_at, updated_at, version
 	`
-		row := r.pool.QueryRow(ctx, query,
+		row := r.db().QueryRow(ctx, query,
 			in.TenantID,
 			strings.TrimSpace(in.RfxNumber),
 			strings.TrimSpace(in.RfxType),
@@ -83,7 +84,7 @@ func (r *RfxRepository) GetEventByID(ctx context.Context, id, tenantID uuid.UUID
 		FROM rfx.rfx_events
 		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
 	`
-		row := r.pool.QueryRow(ctx, query, id, tenantID)
+		row := r.db().QueryRow(ctx, query, id, tenantID)
 		event, err := scanRfxEvent(row)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -125,10 +126,18 @@ func (r *RfxRepository) ListEvents(ctx context.Context, filter domain.ListRfxEve
 			where.WriteString(fmt.Sprintf(" AND owner_company_id = $%d", argIdx))
 			args = append(args, *filter.OwnerCompanyID)
 			argIdx++
+		} else if len(filter.OwnerCompanyIDs) > 0 {
+			if len(filter.OwnerCompanyIDs) == 1 && filter.OwnerCompanyIDs[0] == uuid.Nil {
+				where.WriteString(" AND 1=0")
+			} else {
+				where.WriteString(fmt.Sprintf(" AND owner_company_id = ANY($%d)", argIdx))
+				args = append(args, filter.OwnerCompanyIDs)
+				argIdx++
+			}
 		}
 
 		countQuery := "SELECT COUNT(*)" + where.String()
-		if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+		if err := r.db().QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 			return mapDBError(err)
 		}
 
@@ -139,7 +148,7 @@ func (r *RfxRepository) ListEvents(ctx context.Context, filter domain.ListRfxEve
 	` + where.String() + fmt.Sprintf(" ORDER BY created_at DESC LIMIT $%d OFFSET $%d", argIdx, argIdx+1)
 		args = append(args, filter.Limit, filter.Offset)
 
-		rows, err := r.pool.Query(ctx, listQuery, args...)
+		rows, err := r.db().Query(ctx, listQuery, args...)
 		if err != nil {
 			return mapDBError(err)
 		}
@@ -192,7 +201,7 @@ func (r *RfxRepository) UpdateEvent(ctx context.Context, id, tenantID uuid.UUID,
 			owner_company_id, status, currency_code, valid_from, valid_to, response_deadline,
 			created_at, updated_at, version
 	`
-	row := r.pool.QueryRow(ctx, query,
+	row := r.db().QueryRow(ctx, query,
 		id,
 		tenantID,
 		title,
@@ -218,7 +227,7 @@ func (r *RfxRepository) CountLotsByEvent(ctx context.Context, eventID, tenantID 
 		WHERE rfx_event_id = $1 AND tenant_id = $2 AND deleted_at IS NULL
 	`
 	var count int
-	if err := r.pool.QueryRow(ctx, query, eventID, tenantID).Scan(&count); err != nil {
+	if err := r.db().QueryRow(ctx, query, eventID, tenantID).Scan(&count); err != nil {
 		return 0, mapDBError(err)
 	}
 	return count, nil
@@ -237,7 +246,7 @@ func (r *RfxRepository) CloseExpiredResponses(ctx context.Context, tenantID uuid
 			AND response_deadline IS NOT NULL
 			AND response_deadline <= $2
 	`
-		tag, err := r.pool.Exec(ctx, query, tenantID, now.UTC(), domain.RfxStatusResponsesClosed, domain.RfxStatusResponsesOpen)
+		tag, err := r.db().Exec(ctx, query, tenantID, now.UTC(), domain.RfxStatusResponsesClosed, domain.RfxStatusResponsesOpen)
 		if err != nil {
 			return mapDBError(err)
 		}
@@ -263,7 +272,7 @@ func (r *RfxRepository) ListExpiredResponseOpenEvents(ctx context.Context, now t
 			ORDER BY response_deadline ASC, id ASC
 			LIMIT $3
 		`
-		rows, err := r.pool.Query(ctx, query, now.UTC(), domain.RfxStatusResponsesOpen, limit)
+		rows, err := r.db().Query(ctx, query, now.UTC(), domain.RfxStatusResponsesOpen, limit)
 		if err != nil {
 			return mapDBError(err)
 		}
@@ -298,7 +307,7 @@ func (r *RfxRepository) UpdateEventResponseDeadline(ctx context.Context, id, ten
 			owner_company_id, status, currency_code, valid_from, valid_to, response_deadline,
 			created_at, updated_at, version
 	`
-	row := r.pool.QueryRow(ctx, query, id, tenantID, optionalDate(deadline), expectedVersion)
+	row := r.db().QueryRow(ctx, query, id, tenantID, optionalDate(deadline), expectedVersion)
 	event, err := scanRfxEvent(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -332,7 +341,7 @@ func (r *RfxRepository) UpdateEventStatus(ctx context.Context, id, tenantID uuid
 			owner_company_id, status, currency_code, valid_from, valid_to, response_deadline,
 			created_at, updated_at, version
 	`
-		row := r.pool.QueryRow(ctx, query, id, tenantID, expectedStatus, newStatus, current.Version)
+		row := r.db().QueryRow(ctx, query, id, tenantID, expectedStatus, newStatus, current.Version)
 		event, err := scanRfxEvent(row)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -355,7 +364,7 @@ func (r *RfxRepository) CreateLot(ctx context.Context, in domain.CreateRfxLotInp
 		RETURNING id, tenant_id, rfx_event_id, lot_number, name, description,
 			category, estimated_value, currency_code, status
 	`
-	row := r.pool.QueryRow(ctx, query,
+	row := r.db().QueryRow(ctx, query,
 		in.TenantID,
 		in.RfxEventID,
 		strings.TrimSpace(in.LotNumber),
@@ -381,7 +390,7 @@ func (r *RfxRepository) ListLotsByEvent(ctx context.Context, eventID, tenantID u
 		WHERE rfx_event_id = $1 AND tenant_id = $2 AND deleted_at IS NULL
 		ORDER BY lot_number
 	`
-	rows, err := r.pool.Query(ctx, query, eventID, tenantID)
+	rows, err := r.db().Query(ctx, query, eventID, tenantID)
 	if err != nil {
 		return nil, mapDBError(err)
 	}
@@ -409,7 +418,7 @@ func (r *RfxRepository) CreateLane(ctx context.Context, in domain.CreateRfxLaneI
 		)
 	`
 	var lotExists bool
-	if err := r.pool.QueryRow(ctx, lotExistsQuery, in.RfxLotID, in.TenantID).Scan(&lotExists); err != nil {
+	if err := r.db().QueryRow(ctx, lotExistsQuery, in.RfxLotID, in.TenantID).Scan(&lotExists); err != nil {
 		return nil, mapDBError(err)
 	}
 	if !lotExists {
@@ -424,7 +433,7 @@ func (r *RfxRepository) CreateLane(ctx context.Context, in domain.CreateRfxLaneI
 		RETURNING id, tenant_id, rfx_lot_id, origin_location_id, destination_location_id,
 			transport_mode, equipment_type, estimated_volume, volume_unit, required_service_level
 	`
-	row := r.pool.QueryRow(ctx, query,
+	row := r.db().QueryRow(ctx, query,
 		in.TenantID,
 		in.RfxLotID,
 		in.OriginLocationID,
@@ -451,7 +460,7 @@ func (r *RfxRepository) AddParticipant(ctx context.Context, in domain.AddRfxPart
 		) VALUES ($1, $2, $3, $4, $5, now())
 		RETURNING id, tenant_id, rfx_event_id, company_id, participant_type, status, invited_at
 	`
-		row := r.pool.QueryRow(ctx, query,
+		row := r.db().QueryRow(ctx, query,
 			in.TenantID,
 			in.RfxEventID,
 			in.CompanyID,
@@ -477,7 +486,7 @@ func (r *RfxRepository) ListParticipants(ctx context.Context, eventID, tenantID 
 		WHERE rfx_event_id = $1 AND tenant_id = $2
 		ORDER BY created_at
 	`
-		rows, err := r.pool.Query(ctx, query, eventID, tenantID)
+		rows, err := r.db().Query(ctx, query, eventID, tenantID)
 		if err != nil {
 			return mapDBError(err)
 		}
@@ -507,7 +516,7 @@ func (r *RfxRepository) ParticipantExists(ctx context.Context, eventID, companyI
 		)
 	`
 	var exists bool
-	if err := r.pool.QueryRow(ctx, query, eventID, companyID, tenantID).Scan(&exists); err != nil {
+	if err := r.db().QueryRow(ctx, query, eventID, companyID, tenantID).Scan(&exists); err != nil {
 		return false, mapDBError(err)
 	}
 	return exists, nil
@@ -521,7 +530,7 @@ func (r *RfxRepository) CreateResponse(ctx context.Context, in domain.CreateRfxR
 		RETURNING id, tenant_id, rfx_event_id, participant_company_id, status,
 			submitted_at, created_at, updated_at, version
 	`
-	row := r.pool.QueryRow(ctx, query,
+	row := r.db().QueryRow(ctx, query,
 		in.TenantID,
 		in.RfxEventID,
 		in.ParticipantCompanyID,
@@ -541,7 +550,7 @@ func (r *RfxRepository) GetResponseByID(ctx context.Context, id, tenantID uuid.U
 		FROM rfx.rfx_responses
 		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
 	`
-	row := r.pool.QueryRow(ctx, query, id, tenantID)
+	row := r.db().QueryRow(ctx, query, id, tenantID)
 	response, err := scanRfxResponse(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

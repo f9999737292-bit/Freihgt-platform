@@ -66,13 +66,14 @@ type UpdateRfxEventInput struct {
 }
 
 type ListRfxEventsFilter struct {
-	TenantID       uuid.UUID
-	RfxType        *string
-	Category       *string
-	Status         *string
-	OwnerCompanyID *uuid.UUID
-	Limit          int
-	Offset         int
+	TenantID         uuid.UUID
+	RfxType          *string
+	Category         *string
+	Status           *string
+	OwnerCompanyID   *uuid.UUID
+	OwnerCompanyIDs  []uuid.UUID
+	Limit            int
+	Offset           int
 }
 
 func ValidateCreateRfxEventInput(in CreateRfxEventInput) error {
