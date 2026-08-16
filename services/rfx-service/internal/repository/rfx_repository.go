@@ -211,6 +211,64 @@ func (r *RfxRepository) UpdateEvent(ctx context.Context, id, tenantID uuid.UUID,
 	return event, nil
 }
 
+func (r *RfxRepository) CountLotsByEvent(ctx context.Context, eventID, tenantID uuid.UUID) (int, error) {
+	const query = `
+		SELECT COUNT(*)
+		FROM rfx.rfx_lots
+		WHERE rfx_event_id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+	`
+	var count int
+	if err := r.pool.QueryRow(ctx, query, eventID, tenantID).Scan(&count); err != nil {
+		return 0, mapDBError(err)
+	}
+	return count, nil
+}
+
+func (r *RfxRepository) CloseExpiredResponses(ctx context.Context, tenantID uuid.UUID, now time.Time) (int, error) {
+	var affected int
+	err := measureDB("rfx_repository", "close_expired_responses", func() error {
+		const query = `
+		UPDATE rfx.rfx_events SET
+			status = $3,
+			updated_at = now(),
+			version = version + 1
+		WHERE tenant_id = $1 AND deleted_at IS NULL
+			AND status = $4
+			AND response_deadline IS NOT NULL
+			AND response_deadline <= $2
+	`
+		tag, err := r.pool.Exec(ctx, query, tenantID, now.UTC(), domain.RfxStatusResponsesClosed, domain.RfxStatusResponsesOpen)
+		if err != nil {
+			return mapDBError(err)
+		}
+		affected = int(tag.RowsAffected())
+		return nil
+	})
+	return affected, err
+}
+
+func (r *RfxRepository) UpdateEventResponseDeadline(ctx context.Context, id, tenantID uuid.UUID, deadline *time.Time, expectedVersion int) (*domain.RfxEvent, error) {
+	const query = `
+		UPDATE rfx.rfx_events SET
+			response_deadline = $3,
+			updated_at = now(),
+			version = version + 1
+		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL AND version = $4
+		RETURNING id, tenant_id, rfx_number, rfx_type, category, title, description,
+			owner_company_id, status, currency_code, valid_from, valid_to, response_deadline,
+			created_at, updated_at, version
+	`
+	row := r.pool.QueryRow(ctx, query, id, tenantID, optionalDate(deadline), expectedVersion)
+	event, err := scanRfxEvent(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperrors.Conflict("rfx event was updated by another request", map[string]any{"field": "version"})
+		}
+		return nil, mapDBError(err)
+	}
+	return event, nil
+}
+
 func (r *RfxRepository) UpdateEventStatus(ctx context.Context, id, tenantID uuid.UUID, expectedStatus, newStatus string) (*domain.RfxEvent, error) {
 	operation := "update_rfx_event_status"
 	if newStatus == domain.RfxStatusPublished {

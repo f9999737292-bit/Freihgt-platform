@@ -42,10 +42,12 @@ func main() {
 	rfxRepo := repository.NewRfxRepository(db.Pool)
 	frRepo := repository.NewFreightRequestRepository(db.Pool)
 	bidRepo := repository.NewBidRepository(db.Pool)
+	membershipRepo := repository.NewMembershipRepository(db.Pool)
+	auditRepo := repository.NewAuditRepository(db.Pool)
 
-	rfxSvc := service.NewRfxService(rfxRepo)
+	rfxSvc := service.NewRfxService(rfxRepo, auditRepo)
 	frSvc := service.NewFreightRequestService(frRepo)
-	bidSvc := service.NewBidService(bidRepo, frRepo)
+	bidSvc := service.NewBidService(bidRepo, frRepo, membershipRepo, auditRepo)
 
 	router := httpserver.NewRouter(log, db.Pool, rfxSvc, frSvc, bidSvc)
 
