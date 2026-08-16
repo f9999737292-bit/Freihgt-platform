@@ -28,6 +28,7 @@ func TestNewPublisherKafkaTransport(t *testing.T) {
 		Kafka: config.KafkaConfig{
 			Brokers:      []string{"localhost:19092"},
 			Topic:        "shipment.status.v1",
+			DriverTopic:  "driver.events.v1",
 			ClientID:     "shipment-service-test",
 			DialTimeout:  time.Second,
 			WriteTimeout: time.Second,
@@ -260,7 +261,7 @@ func TestKafkaPublisherDoesNotLogPayload(t *testing.T) {
 func TestBuildKafkaRecordHeadersAllowlistOnly(t *testing.T) {
 	event := sampleKafkaOutboxEvent(t)
 	event.Headers = []byte(`{"Authorization":"Bearer secret","contentType":"application/json","actorType":"USER"}`)
-	record, err := buildKafkaRecord("shipment.status.v1", event)
+	record, err := buildKafkaRecord("shipment.status.v1", "driver.events.v1", event)
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}

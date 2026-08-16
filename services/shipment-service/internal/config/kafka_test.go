@@ -18,8 +18,9 @@ func TestKafkaConfigValidationTLSAndSASL(t *testing.T) {
 		{
 			name: "tls disabled no cert required",
 			cfg: KafkaConfig{
-				Brokers:      []string{"localhost:19092"},
-				Topic:        "shipment.status.v1",
+				Brokers:     []string{"localhost:19092"},
+				Topic:       "shipment.status.v1",
+				DriverTopic: "driver.events.v1",
 				ClientID:     "shipment-service",
 				DialTimeout:  time.Second,
 				WriteTimeout: time.Second,
@@ -28,8 +29,9 @@ func TestKafkaConfigValidationTLSAndSASL(t *testing.T) {
 		{
 			name: "tls ca only allowed",
 			cfg: KafkaConfig{
-				Brokers:      []string{"localhost:19092"},
-				Topic:        "shipment.status.v1",
+				Brokers:     []string{"localhost:19092"},
+				Topic:       "shipment.status.v1",
+				DriverTopic: "driver.events.v1",
 				ClientID:     "shipment-service",
 				DialTimeout:  time.Second,
 				WriteTimeout: time.Second,
@@ -40,8 +42,9 @@ func TestKafkaConfigValidationTLSAndSASL(t *testing.T) {
 		{
 			name: "cert without key",
 			cfg: KafkaConfig{
-				Brokers:      []string{"localhost:19092"},
-				Topic:        "shipment.status.v1",
+				Brokers:     []string{"localhost:19092"},
+				Topic:       "shipment.status.v1",
+				DriverTopic: "driver.events.v1",
 				ClientID:     "shipment-service",
 				DialTimeout:  time.Second,
 				WriteTimeout: time.Second,
@@ -53,8 +56,9 @@ func TestKafkaConfigValidationTLSAndSASL(t *testing.T) {
 		{
 			name: "key without cert",
 			cfg: KafkaConfig{
-				Brokers:      []string{"localhost:19092"},
-				Topic:        "shipment.status.v1",
+				Brokers:     []string{"localhost:19092"},
+				Topic:       "shipment.status.v1",
+				DriverTopic: "driver.events.v1",
 				ClientID:     "shipment-service",
 				DialTimeout:  time.Second,
 				WriteTimeout: time.Second,
@@ -68,6 +72,7 @@ func TestKafkaConfigValidationTLSAndSASL(t *testing.T) {
 			cfg: KafkaConfig{
 				Brokers:       []string{"localhost:19092"},
 				Topic:         "shipment.status.v1",
+				DriverTopic:   "driver.events.v1",
 				ClientID:      "shipment-service",
 				DialTimeout:   time.Second,
 				WriteTimeout:  time.Second,
@@ -80,6 +85,7 @@ func TestKafkaConfigValidationTLSAndSASL(t *testing.T) {
 			cfg: KafkaConfig{
 				Brokers:       []string{"localhost:19092"},
 				Topic:         "shipment.status.v1",
+				DriverTopic:   "driver.events.v1",
 				ClientID:      "shipment-service",
 				DialTimeout:   time.Second,
 				WriteTimeout:  time.Second,
@@ -139,6 +145,7 @@ func TestLoadOutboxKafkaValidationWhenEnabled(t *testing.T) {
 	t.Setenv("SHIPMENT_OUTBOX_TRANSPORT", "kafka")
 	t.Setenv("SHIPMENT_KAFKA_BROKERS", "")
 	t.Setenv("SHIPMENT_KAFKA_TOPIC", "shipment.status.v1")
+	t.Setenv("SHIPMENT_KAFKA_DRIVER_TOPIC", "driver.events.v1")
 	t.Setenv("SHIPMENT_KAFKA_CLIENT_ID", "shipment-service")
 
 	_, err := loadOutboxConfig()
