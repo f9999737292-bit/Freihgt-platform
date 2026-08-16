@@ -12,11 +12,13 @@ import (
 
 	"github.com/freight-platform/control-tower-read-model-service/internal/config"
 	"github.com/freight-platform/control-tower-read-model-service/internal/consumer"
+	"github.com/freight-platform/control-tower-read-model-service/internal/driverconsumer"
 	httpserver "github.com/freight-platform/control-tower-read-model-service/internal/http"
 	"github.com/freight-platform/control-tower-read-model-service/internal/platform/database"
 	"github.com/freight-platform/control-tower-read-model-service/internal/platform/logger"
 	ctmetrics "github.com/freight-platform/control-tower-read-model-service/internal/platform/metrics"
 	"github.com/freight-platform/control-tower-read-model-service/internal/repository"
+	"github.com/freight-platform/control-tower-read-model-service/internal/service"
 	"github.com/freight-platform/shared-go/metrics"
 )
 
@@ -42,10 +44,23 @@ func main() {
 
 	repo := repository.NewProjectionRepository(db.Pool)
 	ackRepo := repository.NewAckRepository(db.Pool)
+	workflowRepo := repository.NewWorkflowRepository(db.Pool)
+	riskRepo := repository.NewRiskRepository(db.Pool)
+	workItemRepo := repository.NewWorkItemRepository(db.Pool, workflowRepo, riskRepo)
+	viewRepo := repository.NewViewRepository(db.Pool)
+	handoffRepo := repository.NewHandoffRepository(db.Pool, workItemRepo, workflowRepo, riskRepo)
+	caseRepo := repository.NewCaseRepository(db.Pool)
+	automationRepo := repository.NewAutomationRepository(db.Pool)
+	driverEventRepo := repository.NewDriverEventRepository(db.Pool)
+	automationSvc := service.NewAutomationService(automationRepo)
+	automationMetrics := ctmetrics.NewAutomationMetrics()
+	automationIngress := service.NewAutomationTriggerIngress(automationSvc, automationMetrics, log)
+	driverEventSvc := service.NewDriverEventService(driverEventRepo, workflowRepo, automationSvc, automationIngress, log)
+	driverEventMetrics := driverconsumer.NewMetrics()
 	freshness := consumer.NewFreshness()
 	consumerMetrics := ctmetrics.NewConsumerMetrics()
 
-	router := httpserver.NewRouter(log, db.Pool, repo, ackRepo, freshness)
+	router := httpserver.NewRouter(log, db.Pool, repo, ackRepo, workflowRepo, riskRepo, workItemRepo, viewRepo, handoffRepo, caseRepo, automationRepo, automationSvc, automationIngress, freshness)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),
@@ -83,6 +98,27 @@ func main() {
 		}()
 	} else {
 		log.Info("shipment status consumer disabled")
+	}
+
+	var driverConsumerSvc *driverconsumer.Service
+	if cfg.DriverConsumer.Enabled {
+		kafkaClient, err := driverconsumer.NewKafkaClient(cfg.DriverConsumer.Kafka)
+		if err != nil {
+			log.Error("failed to create driver events kafka consumer", slog.String("error", err.Error()))
+			os.Exit(1)
+		}
+		driverConsumerSvc = driverconsumer.NewService(kafkaClient, driverEventSvc, cfg, log, driverEventMetrics)
+		go func() {
+			log.Info("starting driver events consumer",
+				slog.String("topic", cfg.DriverConsumer.Kafka.Topic),
+				slog.String("group_id", cfg.DriverConsumer.Kafka.GroupID),
+			)
+			if err := driverConsumerSvc.Run(ctx); err != nil && ctx.Err() == nil {
+				log.Error("driver events consumer stopped with error", slog.String("error", err.Error()))
+			}
+		}()
+	} else {
+		log.Info("driver events consumer disabled")
 	}
 
 	<-ctx.Done()

@@ -122,6 +122,240 @@ export type ControlTowerEventType =
   | 'UNKNOWN_CRITICAL'
   | 'UNKNOWN_CRITICAL_EVENT'
 
+export type ControlTowerEventWorkflowStatus = 'open' | 'acknowledged' | 'assigned' | 'resolved'
+
+export type ControlTowerExceptionPriority = 'p1' | 'p2' | 'p3' | 'p4'
+export type ControlTowerExceptionSLAStatus = 'within_sla' | 'warning' | 'breached' | 'completed'
+export type ControlTowerEscalationLevel = 'none' | 'level_1' | 'level_2' | 'level_3'
+
+export const CONTROL_TOWER_PRIORITIES: ControlTowerExceptionPriority[] = ['p1', 'p2', 'p3', 'p4']
+
+export const CONTROL_TOWER_EXCEPTION_CATEGORIES = [
+  'delay',
+  'route_deviation',
+  'document_issue',
+  'vehicle_issue',
+  'driver_issue',
+  'slot_issue',
+  'delivery_issue',
+  'pickup_issue',
+  'billing_issue',
+  'integration_issue',
+  'data_quality',
+  'other',
+] as const
+
+export const CONTROL_TOWER_BUSINESS_IMPACTS = ['none', 'low', 'medium', 'high', 'critical'] as const
+
+export const CONTROL_TOWER_EVENT_SLA_STATUSES: ControlTowerExceptionSLAStatus[] = [
+  'within_sla',
+  'warning',
+  'breached',
+  'completed',
+]
+
+export const CONTROL_TOWER_ESCALATION_LEVELS: ControlTowerEscalationLevel[] = [
+  'none',
+  'level_1',
+  'level_2',
+  'level_3',
+]
+
+export interface ControlTowerEventSLA {
+  phase: 'acknowledgement' | 'assignment' | 'resolution'
+  status: ControlTowerExceptionSLAStatus
+  acknowledgeDueAt: string
+  assignmentDueAt: string
+  resolutionDueAt: string
+  remainingSeconds?: number
+}
+
+export interface ControlTowerEventEscalation {
+  level: ControlTowerEscalationLevel
+}
+
+export interface ControlTowerExceptionKpi {
+  totalOpenExceptions: number
+  p1Open: number
+  p2Open: number
+  slaWarning: number
+  slaBreached: number
+  unassignedExceptions: number
+  resolvedWithinSla: number
+  resolvedOutsideSla: number
+}
+
+export type ControlTowerRiskLevel = 'none' | 'low' | 'medium' | 'high' | 'critical'
+
+export type ControlTowerRiskStatus =
+  | 'active'
+  | 'acknowledged'
+  | 'mitigating'
+  | 'cleared'
+  | 'materialized'
+
+export type ControlTowerPredictedExceptionType =
+  | 'pickup_delay_risk'
+  | 'delivery_delay_risk'
+  | 'slot_miss_risk'
+  | 'route_deviation_risk'
+  | 'tracking_loss_risk'
+  | 'document_readiness_risk'
+  | 'vehicle_assignment_risk'
+  | 'driver_assignment_risk'
+
+export const CONTROL_TOWER_RISK_LEVELS: ControlTowerRiskLevel[] = [
+  'critical',
+  'high',
+  'medium',
+  'low',
+]
+
+export const CONTROL_TOWER_RISK_STATUSES: ControlTowerRiskStatus[] = [
+  'active',
+  'acknowledged',
+  'mitigating',
+  'cleared',
+  'materialized',
+]
+
+export const CONTROL_TOWER_PREDICTED_EXCEPTION_TYPES: ControlTowerPredictedExceptionType[] = [
+  'pickup_delay_risk',
+  'delivery_delay_risk',
+  'slot_miss_risk',
+  'tracking_loss_risk',
+  'driver_assignment_risk',
+  'vehicle_assignment_risk',
+]
+
+export const CONTROL_TOWER_MITIGATION_CODES = [
+  'contact_carrier',
+  'contact_driver',
+  'reschedule_slot',
+  'request_documents',
+  'reassign_driver',
+  'reassign_vehicle',
+  'adjust_plan',
+  'monitor',
+  'other',
+] as const
+
+export type ControlTowerMitigationCode = (typeof CONTROL_TOWER_MITIGATION_CODES)[number]
+
+export interface ControlTowerRiskSignal {
+  signalCode: string
+  severity: string
+  weight: number
+  observedAt: string
+  source: string
+  value?: Record<string, unknown>
+  explanationKey: string
+}
+
+export interface ControlTowerRiskAction {
+  actionType: string
+  actorUserId?: string
+  occurredAt: string
+  metadata?: Record<string, unknown>
+}
+
+export interface ControlTowerShipmentRisk {
+  riskId: string
+  shipmentId: string
+  shipmentNumber: string
+  predictedExceptionType: ControlTowerPredictedExceptionType | string
+  score: number
+  level: ControlTowerRiskLevel
+  status: ControlTowerRiskStatus
+  signals: ControlTowerRiskSignal[]
+  firstDetectedAt: string
+  evaluatedAt: string
+  nextEvaluationAt?: string
+  threatenedDeadlineAt?: string
+  mitigationCode?: string
+  mitigationComment?: string
+  actualEventId?: string
+  materializedAt?: string
+  clearedAt?: string
+  clearReason?: string
+  leadTimeSeconds?: number
+  actions?: ControlTowerRiskAction[]
+}
+
+export interface ControlTowerRiskKpi {
+  activeRisks: number
+  criticalRisks: number
+  highRisks: number
+  deliveryDelayRisks: number
+  pickupDelayRisks: number
+  slotMissRisks: number
+  mitigatingRisks: number
+  risksMaterialized: number
+  risksCleared: number
+  clearedBeforeMaterialization: number
+}
+
+export interface ControlTowerRisksListResponse {
+  items: ControlTowerShipmentRisk[]
+}
+
+export type ControlTowerEventResolutionCode =
+  | 'issue_resolved'
+  | 'false_positive'
+  | 'duplicate'
+  | 'cancelled'
+  | 'other'
+
+export const CONTROL_TOWER_RESOLUTION_CODES: ControlTowerEventResolutionCode[] = [
+  'issue_resolved',
+  'false_positive',
+  'duplicate',
+  'cancelled',
+  'other',
+]
+
+export interface ControlTowerEventAssignment {
+  assignedToUserId: string
+  assignedByUserId: string
+  assignedAt: string
+}
+
+export interface ControlTowerEventResolution {
+  resolvedByUserId: string
+  resolvedAt: string
+  resolutionCode: ControlTowerEventResolutionCode
+  comment?: string
+}
+
+export interface ControlTowerEventWorkflow {
+  eventId: string
+  status: ControlTowerEventWorkflowStatus
+  acknowledgement?: ControlTowerEventAcknowledgementSummary
+  assignment?: ControlTowerEventAssignment
+  resolution?: ControlTowerEventResolution
+}
+
+export interface ControlTowerEventAction {
+  actionType:
+    | 'acknowledged'
+    | 'assigned'
+    | 'reassigned'
+    | 'resolved'
+    | 'reopened'
+    | 'exception_updated'
+    | 'ack_sla_breached'
+    | 'assign_sla_breached'
+    | 'resolve_sla_breached'
+    | 'escalation_changed'
+  actorUserId: string
+  occurredAt: string
+  metadata?: Record<string, unknown>
+}
+
+export interface ControlTowerEventActionsResponse {
+  items: ControlTowerEventAction[]
+}
+
 export interface ControlTowerEventAcknowledgedBy {
   userId: string
   displayName?: string
@@ -138,6 +372,7 @@ export interface ControlTowerEventAcknowledgement extends ControlTowerEventAckno
   eventType: ControlTowerEventType
   occurredAt: string
   source?: 'control-tower'
+  status?: ControlTowerEventWorkflowStatus
 }
 
 export interface ControlTowerEvent {
@@ -149,7 +384,15 @@ export interface ControlTowerEvent {
   occurredAt: string
   description?: string
   descriptionKey?: string
+  status?: ControlTowerEventWorkflowStatus
+  priority?: ControlTowerExceptionPriority
+  exceptionCategory?: string
+  businessImpact?: string
+  sla?: ControlTowerEventSLA
+  escalation?: ControlTowerEventEscalation
   acknowledgement?: ControlTowerEventAcknowledgementSummary
+  assignment?: ControlTowerEventAssignment
+  resolution?: ControlTowerEventResolution
 }
 
 export interface ControlTowerShipment {
@@ -176,6 +419,22 @@ export interface ControlTowerShipment {
   slaStatus: SlaStatus
   lastEvent?: string
   lastUpdatedAt?: string
+  trackingStatus?: string
+  trackingFreshness?: string
+  lastPositionRecordedAt?: string
+  telemetryAgeSeconds?: number
+  trackingQuality?: string
+  lastKnownLatitude?: number
+  lastKnownLongitude?: number
+  trackingProvider?: string
+  etaStatus?: string
+  estimatedDeliveryAt?: string
+  etaFreshness?: string
+  etaQuality?: string
+  projectedDelaySeconds?: number
+  arrivalProjection?: string
+  etaAgeSeconds?: number
+  lastEtaObservedAt?: string
 }
 
 export interface ControlTowerFilters {
@@ -186,6 +445,19 @@ export interface ControlTowerFilters {
   carrierCompanyId: string
   date: string
   criticalOnly: boolean
+  eventStatus: string
+  priority: string
+  exceptionCategory: string
+  businessImpact: string
+  eventSlaStatus: string
+  escalationLevel: string
+  unassignedOnly: boolean
+  riskLevel: string
+  riskStatus: string
+  predictedExceptionType: string
+  riskShipmentId: string
+  riskMitigatingOnly: boolean
+  riskNonMitigatingOnly: boolean
 }
 
 export type ControlTowerKpiTone = 'ok' | 'warning' | 'danger' | 'neutral'
@@ -274,8 +546,11 @@ export interface ControlTowerSummaryResponse {
   generatedAt: string
   dataFreshness: ControlTowerDataFreshness
   kpi: ControlTowerSummaryKpi
+  exceptionKpi?: ControlTowerExceptionKpi
+  riskKpi?: ControlTowerRiskKpi
   shipments: ControlTowerSummaryPagination
   criticalEvents: ControlTowerEvent[]
+  shipmentRisks?: ControlTowerShipmentRisk[]
   filters: ControlTowerSummaryFilters
   statusSummary?: ControlTowerStatusSummary
   statusSummaryFreshness?: ControlTowerStatusSummaryFreshness
@@ -311,6 +586,19 @@ export function createDefaultControlTowerFilters(): ControlTowerFilters {
     carrierCompanyId: '',
     date: '',
     criticalOnly: false,
+    eventStatus: '',
+    priority: '',
+    exceptionCategory: '',
+    businessImpact: '',
+    eventSlaStatus: '',
+    escalationLevel: '',
+    unassignedOnly: false,
+    riskLevel: '',
+    riskStatus: '',
+    predictedExceptionType: '',
+    riskShipmentId: '',
+    riskMitigatingOnly: false,
+    riskNonMitigatingOnly: false,
   }
 }
 
@@ -326,3 +614,359 @@ export const CONTROL_TOWER_PARTIAL_WARNING_CODES = [
   'CONTROL_TOWER_READ_MODEL_FALLBACK_USED',
   'CONTROL_TOWER_LEGACY_STATUS_SUMMARY_LIMITED',
 ] as const
+
+export type ControlTowerWorkItemType = 'exception' | 'risk'
+
+export type ControlTowerWorkItemUrgency = 'critical' | 'high' | 'normal' | 'low'
+
+export interface ControlTowerWorkItem {
+  id: string
+  itemType: ControlTowerWorkItemType
+  sourceId: string
+  shipmentId: string
+  shipmentNumber?: string
+  title: string
+  summary: string
+  workflowStatus: string
+  priority?: string
+  businessImpact?: string
+  exceptionCategory?: string
+  slaStatus?: string
+  slaPhase?: string
+  slaDueAt?: string
+  riskLevel?: string
+  riskScore?: number
+  riskStatus?: string
+  predictedExceptionType?: string
+  escalationLevel?: string
+  urgency: ControlTowerWorkItemUrgency
+  ownerUserId?: string
+  ownerDisplayName?: string
+  createdAt: string
+  updatedAt: string
+  threatenedDeadlineAt?: string
+  availableActions: string[]
+  linkedEventId?: string
+  eventType?: string
+  timeline?: ControlTowerWorkItemTimelineEntry[]
+  activeCase?: ControlTowerActiveCaseRef
+}
+
+export interface ControlTowerWorkItemTimelineEntry {
+  source: string
+  actionType: string
+  actorUserId?: string
+  actorDisplayName?: string
+  occurredAt: string
+  metadata?: Record<string, unknown>
+}
+
+export interface ControlTowerWorkItemsResponse {
+  items: ControlTowerWorkItem[]
+  page: number
+  limit: number
+  total: number
+  hasNext: boolean
+  kpi?: ControlTowerWorkspaceKpi
+}
+
+export interface ControlTowerWorkspaceKpi {
+  myActiveWork: number
+  myCriticalWork: number
+  unassignedWork: number
+  teamActiveWork: number
+  slaBreachedWork: number
+  slaWarningWork: number
+  criticalRiskWork: number
+}
+
+export interface ControlTowerSavedView {
+  id: string
+  name: string
+  scope: 'private' | 'shared'
+  workspaceScope?: 'work_items' | 'cases'
+  filterSchemaVersion: number
+  filters: Record<string, unknown>
+  sort: Record<string, unknown>
+  isDefault: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ControlTowerBulkActionResult {
+  itemType: string
+  itemId: string
+  success: boolean
+  error?: string
+}
+
+export interface ControlTowerBulkActionOutcome {
+  requested: number
+  succeeded: number
+  failed: number
+  results: ControlTowerBulkActionResult[]
+}
+
+export const CONTROL_TOWER_WORKSPACE_PRESETS = [
+  'my_work',
+  'unassigned',
+  'all_active',
+  'critical',
+  'sla_breached',
+  'sla_warning',
+  'p1_exceptions',
+  'p2_exceptions',
+  'critical_risks',
+  'high_risks',
+  'mitigating_risks',
+  'completed',
+] as const
+
+export type ControlTowerWorkspacePreset = (typeof CONTROL_TOWER_WORKSPACE_PRESETS)[number]
+
+export type ControlTowerQueueMode = 'active' | 'completed'
+
+export interface ControlTowerOperatorWorkload {
+  userId: string
+  displayName?: string
+  activeWorkItems: number
+  criticalWork?: number
+  unacknowledged: number
+  p1: number
+  p2: number
+  slaBreached: number
+  slaWarning: number
+  criticalRisks: number
+  highRisks: number
+}
+
+export interface ControlTowerWorkloadResponse {
+  operators: ControlTowerOperatorWorkload[]
+  unassignedPool: number
+  kpi: ControlTowerWorkspaceKpi
+}
+
+export interface ControlTowerHandoffItem {
+  id: string
+  itemType: ControlTowerWorkItemType
+  sourceId: string
+  shipmentId?: string
+  outcome: 'transferred' | 'failed'
+  errorCode?: string
+}
+
+export interface ControlTowerHandoff {
+  id: string
+  fromUserId: string
+  toUserId?: string
+  title?: string
+  note?: string
+  createdAt: string
+  items: ControlTowerHandoffItem[]
+}
+
+export interface ControlTowerHandoffCreateResult {
+  handoff: ControlTowerHandoff
+  outcome: ControlTowerBulkActionOutcome
+}
+
+export type ControlTowerBulkActionType = 'claim' | 'assign' | 'unassign' | 'acknowledge'
+
+export const CONTROL_TOWER_ACTIVE_PRESETS = CONTROL_TOWER_WORKSPACE_PRESETS.filter((p) => p !== 'completed')
+
+export type ControlTowerCaseStatus =
+  | 'open'
+  | 'investigating'
+  | 'action_required'
+  | 'monitoring'
+  | 'resolved'
+  | 'closed'
+
+export type ControlTowerCaseSeverity = 'critical' | 'high' | 'medium' | 'low'
+
+export interface ControlTowerActiveCaseRef {
+  caseId: string
+  reference: string
+  title: string
+  status: ControlTowerCaseStatus
+}
+
+export interface ControlTowerCaseHealth {
+  hasSlaBreach?: boolean
+  hasSlaWarning?: boolean
+  nearestSlaDueAt?: string
+  highestExceptionPriority?: string
+  highestRiskLevel?: string
+  openActionCount?: number
+  overdueActionCount?: number
+  nearestActionDueAt?: string
+  activeWorkItemCount?: number
+  activeExceptionCount?: number
+  activeRiskCount?: number
+}
+
+export interface ControlTowerCaseParticipant {
+  userId: string
+  role: 'owner' | 'collaborator' | 'observer'
+  displayName?: string
+  addedAt: string
+}
+
+export interface ControlTowerCaseTimelineEntry {
+  id: number
+  source: string
+  actionType: string
+  actorUserId?: string
+  occurredAt: string
+  metadata?: Record<string, unknown>
+}
+
+export interface ControlTowerCaseTimelineResponse {
+  items: ControlTowerCaseTimelineEntry[]
+  page: number
+  limit: number
+  total: number
+  hasNext: boolean
+}
+
+export interface ControlTowerLinkedShipment {
+  id: string
+  reference?: string
+  status?: string
+  originLocationId?: string
+  destinationLocationId?: string
+  plannedPickupAt?: string
+  actualPickupAt?: string
+  plannedDeliveryAt?: string
+  actualDeliveryAt?: string
+  driverId?: string
+  vehicleId?: string
+  carrierCompanyId?: string
+}
+
+export interface ControlTowerLinkedTransportOrder {
+  id: string
+  reference?: string
+  status?: string
+}
+
+export interface ControlTowerCaseLink {
+  id: string
+  entityType: string
+  entityId: string
+  linkedAt: string
+  linkedByUserId: string
+}
+
+export interface ControlTowerCaseNote {
+  id: string
+  authorUserId: string
+  body: string
+  visibility: string
+  createdAt: string
+  updatedAt: string
+  editedAt?: string
+}
+
+export interface ControlTowerCaseActionItem {
+  id: string
+  title: string
+  description?: string
+  status: 'open' | 'in_progress' | 'done' | 'cancelled'
+  assigneeUserId?: string
+  dueAt?: string
+  createdByUserId: string
+  createdAt: string
+  updatedAt: string
+  completedAt?: string
+}
+
+export interface ControlTowerCaseDecision {
+  id: string
+  decision: string
+  rationale?: string
+  decidedByUserId: string
+  decidedAt: string
+}
+
+export interface ControlTowerOperationalCase {
+  id: string
+  reference: string
+  title: string
+  summary?: string
+  status: ControlTowerCaseStatus
+  derivedSeverity: ControlTowerCaseSeverity
+  effectiveSeverity: ControlTowerCaseSeverity
+  severityOverride: boolean
+  ownerUserId?: string
+  ownerDisplayName?: string
+  createdByUserId: string
+  createdByDisplayName?: string
+  resolutionCode?: string
+  resolutionSummary?: string
+  version: number
+  lastActivityAt: string
+  createdAt: string
+  updatedAt: string
+  resolvedAt?: string
+  closedAt?: string
+  links?: ControlTowerCaseLink[]
+  participants?: ControlTowerCaseParticipant[]
+  notes?: ControlTowerCaseNote[]
+  actionItems?: ControlTowerCaseActionItem[]
+  decisions?: ControlTowerCaseDecision[]
+  health?: ControlTowerCaseHealth
+  linkedShipments?: ControlTowerLinkedShipment[]
+  linkedTransportOrders?: ControlTowerLinkedTransportOrder[]
+}
+
+export interface ControlTowerCasesResponse {
+  items: ControlTowerOperationalCase[]
+  page: number
+  limit: number
+  total: number
+  hasNext: boolean
+}
+
+export interface ControlTowerCaseKpi {
+  openCases: number
+  myOpenCases: number
+  criticalCases: number
+  unassignedCases: number
+  casesWithSlaBreach?: number
+  casesWithSlaWarning?: number
+  slaAtRiskCases?: number
+  casesWithOverdueActions?: number
+  resolvedCases: number
+}
+
+export const CONTROL_TOWER_CASE_PRESETS = [
+  'my_cases',
+  'unassigned',
+  'critical',
+  'action_required',
+  'monitoring',
+  'sla_at_risk',
+  'overdue_actions',
+  'resolved',
+  'closed',
+  'all_active',
+] as const
+
+export type ControlTowerCasePreset = (typeof CONTROL_TOWER_CASE_PRESETS)[number]
+
+export const CONTROL_TOWER_CASE_RESOLUTION_CODES = [
+  'operational_issue_resolved',
+  'risk_cleared',
+  'shipment_replanned',
+  'carrier_action_completed',
+  'customer_accepted',
+  'duplicate_case',
+  'false_positive',
+  'cancelled',
+  'other',
+] as const
+
+export type ControlTowerCaseResolutionCode = (typeof CONTROL_TOWER_CASE_RESOLUTION_CODES)[number]
+
+export type ControlTowerWorkspaceSection = 'work' | 'cases' | 'workload' | 'handoffs'

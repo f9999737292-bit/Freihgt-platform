@@ -14,6 +14,7 @@ import (
 	httpserver "github.com/freight-platform/document-service/internal/http"
 	"github.com/freight-platform/document-service/internal/platform/database"
 	"github.com/freight-platform/document-service/internal/platform/logger"
+	"github.com/freight-platform/document-service/internal/platform/storage"
 	"github.com/freight-platform/document-service/internal/repository"
 	"github.com/freight-platform/document-service/internal/service"
 	"github.com/freight-platform/shared-go/metrics"
@@ -44,8 +45,14 @@ func main() {
 
 	docSvc := service.NewDocumentService(docRepo)
 	signingSvc := service.NewSigningService(signingRepo, docRepo)
+	store, err := storage.NewLocalObjectStore(cfg.StorageRoot)
+	if err != nil {
+		log.Error("failed to init object storage", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+	podSvc := service.NewPODUploadService(db.Pool, docSvc, store, 10<<20)
 
-	router := httpserver.NewRouter(log, db.Pool, docSvc, signingSvc)
+	router := httpserver.NewRouter(log, db.Pool, docSvc, signingSvc, podSvc)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

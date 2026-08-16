@@ -94,3 +94,39 @@ const oldestPendingOutboxAgeQuery = `
 	FROM transport.shipment_event_outbox
 	WHERE status = 'PENDING'
 `
+
+const listFailedOutboxForReplayQuery = `
+	SELECT id, tenant_id, aggregate_id, event_type, status, attempts, last_error_code
+	FROM transport.shipment_event_outbox
+	WHERE tenant_id = $1
+	  AND status = 'FAILED'
+	  AND ($2::uuid[] IS NULL OR id = ANY($2::uuid[]))
+	  AND ($3::uuid[] IS NULL OR aggregate_id = ANY($3::uuid[]))
+	  AND (
+	    ($2::uuid[] IS NOT NULL AND cardinality($2::uuid[]) > 0)
+	    OR ($3::uuid[] IS NOT NULL AND cardinality($3::uuid[]) > 0)
+	  )
+	ORDER BY aggregate_id ASC, created_at ASC, id ASC
+`
+
+const listOutboxReplayOrderingQuery = `
+	SELECT id, status, created_at, aggregate_version
+	FROM transport.shipment_event_outbox
+	WHERE tenant_id = $1
+	  AND aggregate_id = $2
+	ORDER BY created_at ASC, id ASC
+`
+
+const replayFailedOutboxRowsQuery = `
+	UPDATE transport.shipment_event_outbox
+	SET status = 'PENDING',
+	    attempts = 0,
+	    available_at = $1,
+	    locked_at = NULL,
+	    locked_by = NULL,
+	    last_error_code = NULL,
+	    published_at = NULL
+	WHERE tenant_id = $2
+	  AND status = 'FAILED'
+	  AND id = ANY($3::uuid[])
+`

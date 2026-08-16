@@ -54,6 +54,24 @@ type meResponse struct {
 	Roles []string `json:"roles"`
 }
 
+type tenantUser struct {
+	ID       string `json:"id"`
+	TenantID string `json:"tenant_id"`
+	FullName string `json:"full_name"`
+}
+
+func (c *DownstreamClient) FetchTenantUsers(ctx context.Context, reqCtx RequestContext) ([]tenantUser, error) {
+	endpoint, err := c.listURL(c.identity+"/v1/users", reqCtx.TenantID, c.maxFetch, 0)
+	if err != nil {
+		return nil, err
+	}
+	var payload listResult[tenantUser]
+	if err := c.getJSON(ctx, endpoint, reqCtx, &payload); err != nil {
+		return nil, err
+	}
+	return payload.Items, nil
+}
+
 func (c *DownstreamClient) FetchUserRoles(ctx context.Context, reqCtx RequestContext) ([]string, error) {
 	endpoint := c.identity + "/v1/auth/me"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
@@ -210,7 +228,7 @@ func (c *DownstreamClient) applyHeaders(req *http.Request, reqCtx RequestContext
 	if reqCtx.AuthToken != "" {
 		req.Header.Set("Authorization", reqCtx.AuthToken)
 	}
-	if reqCtx.TenantID != "" && !requestHasTenantQuery(req) {
+	if reqCtx.TenantID != "" {
 		req.Header.Set("X-Tenant-ID", reqCtx.TenantID)
 	}
 	if reqCtx.UserID != "" {
@@ -219,13 +237,6 @@ func (c *DownstreamClient) applyHeaders(req *http.Request, reqCtx RequestContext
 	if reqCtx.RequestID != "" {
 		req.Header.Set(sharedmiddleware.RequestIDHeader, reqCtx.RequestID)
 	}
-}
-
-func requestHasTenantQuery(req *http.Request) bool {
-	if req == nil || req.URL == nil {
-		return false
-	}
-	return strings.Contains(req.URL.RawQuery, "tenant_id=")
 }
 
 func parseRawShipment(item map[string]any) (rawShipment, bool) {
@@ -248,6 +259,8 @@ func parseRawShipment(item map[string]any) (rawShipment, bool) {
 		ActualDeliveryAt:      timePtrField(item, "actual_delivery_at"),
 		UpdatedAt:             timePtrField(item, "updated_at"),
 		CreatedAt:             timePtrField(item, "created_at"),
+		DriverID:              stringPtrField(item, "driver_id"),
+		VehicleID:             stringPtrField(item, "vehicle_id"),
 	}, true
 }
 

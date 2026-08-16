@@ -1,0 +1,59 @@
+{
+  "terminalAllowlist": [
+    "git status",
+    "git diff",
+    "git log",
+    "git show",
+    "git branch",
+    "git rev-parse",
+    "git ls-files",
+    "git grep",
+    "git add",
+    "git commit",
+    "grep",
+    "rg",
+    "find",
+    "cat",
+    "head",
+    "tail",
+    "sort",
+    "uniq",
+    "wc",
+    "test",
+    "printf",
+    "bash:-n*",
+    "shellcheck",
+    "go test",
+    "go vet",
+    "gofmt",
+    "npm test",
+    "npm run lint",
+    "npm run typecheck",
+    "npm run build",
+    "docker compose config",
+    "docker images",
+    "docker image inspect",
+    "./scripts/ops/bintrans_ct_staging/"
+  ],
+  "autoRun": {
+    "allow_instructions": [
+      "Local read-only inspection and static validation inside D:\\Projects\\freight-platform-staging-pack is allowed.",
+      "Offline BINTRANS selfcheck scripts under scripts/ops/bintrans_ct_staging/*_selfcheck.sh and bintrans_ct_staging_preflight.sh (with test-only env files) are allowed.",
+      "docker compose config static rendering without starting containers is allowed."
+    ],
+    "block_instructions": [
+      "Block ssh, scp, sftp, rsync to remote hosts, remote PowerShell, and remote Docker contexts.",
+      "Block Selectel/cloud/firewall/iptables/nft/ufw/security-group/network mutations.",
+      "Block docker compose up/down/restart/stop/start/rm, docker rm, docker volume rm, docker system prune, and docker network rm.",
+      "Block docker login, docker logout, docker push, and docker pull from live BINTRANS registry (cr.selcloud.ru/bintrans-staging).",
+      "Block migrate up/down/goto/force/drop and any command containing CONFIRM_MIGRATION_000019=true. Staging schema is already version 19; do not rerun migration.",
+      "Block psql/sql writes (CREATE/ALTER/DROP/INSERT/UPDATE/DELETE), pg_restore into live DB, and database create/delete.",
+      "Block git push, git push --force, git merge, git rebase, git reset --hard, git clean, and branch deletion.",
+      "Block rm -rf, git clean -fd, broad git restore ., backup deletion, and worktree deletion.",
+      "Block reading or printing protected secrets: paths under /protected/, populated staging.env, JWT_SECRET, POSTGRES_PASSWORD, JWT_TOKEN, registry credentials, DATABASE_URL/CONTROL_TOWER_DATABASE_URL with credentials.",
+      "Block set -x on secret-bearing workflows.",
+      "Block CONTROL_TOWER_READ_MODEL_MODE=primary, cohort creation/approval, and fabricated tenant IDs.",
+      "Block production, old shared VPS, and live staging runtime/observability deployment."
+    ]
+  }
+}

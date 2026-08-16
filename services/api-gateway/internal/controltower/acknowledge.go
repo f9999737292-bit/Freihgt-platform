@@ -98,7 +98,14 @@ func (s *Service) buildTenantCriticalEvents(ctx context.Context, reqCtx RequestC
 		allRows = append(allRows, s.mapShipment(raw, orderByID, companyByID, shipmentIDsWithDocs, now))
 	}
 
-	return BuildCriticalEvents(allRows, shipmentIDsWithDocs, s.thresholds, now), nil
+	shipmentByID := make(map[string]ControlTowerShipment, len(allRows))
+	for _, row := range allRows {
+		shipmentByID[row.ID] = row
+	}
+
+	events := BuildCriticalEvents(allRows, shipmentIDsWithDocs, s.thresholds, now)
+	s.mergeDriverCriticalEvents(ctx, reqCtx, &events, shipmentByID)
+	return events, nil
 }
 
 func (s *Service) enrichCriticalEventAcknowledgements(
@@ -165,12 +172,17 @@ func mapRemoteAcknowledgement(remote controltowerreadmodel.RemoteAcknowledgement
 	if source == "" {
 		source = EventSourceControlTower
 	}
+	status := remote.Status
+	if status == "" {
+		status = WorkflowStatusAcknowledged
+	}
 	return ControlTowerEventAcknowledgement{
 		EventID:        remote.EventID,
 		ShipmentID:     remote.ShipmentID,
 		EventType:      remote.EventType,
 		OccurredAt:     remote.OccurredAt.UTC(),
 		Source:         source,
+		Status:         status,
 		AcknowledgedAt: remote.AcknowledgedAt.UTC(),
 		AcknowledgedBy: ControlTowerEventAcknowledgedBy{
 			UserID: remote.AcknowledgedBy.UserID,

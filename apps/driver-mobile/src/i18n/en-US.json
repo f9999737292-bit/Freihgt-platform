@@ -1,0 +1,100 @@
+{
+  "app": {
+    "title": "Freight Driver"
+  },
+  "common": {
+    "login": "Sign in",
+    "logout": "Sign out",
+    "loading": "Loading…",
+    "retry": "Retry",
+    "back": "Back",
+    "submit": "Submit",
+    "cancel": "Cancel",
+    "offline": "Offline",
+    "online": "Back online",
+    "error": "Error",
+    "refresh": "Refresh"
+  },
+  "login": {
+    "title": "Driver sign in",
+    "email": "Email",
+    "password": "Password",
+    "hint": "Use credentials provided by your carrier",
+    "tenantNotConfigured": "Pilot tenant is not configured. Contact dispatch."
+  },
+  "shipments": {
+    "title": "My shipments",
+    "empty": "No assigned shipments",
+    "loadError": "Could not load shipments",
+    "unauthorized": "Please sign in again",
+    "shipmentNumber": "Shipment",
+    "status": "Status",
+    "pickup": "Pickup",
+    "delivery": "Delivery",
+    "open": "Open"
+  },
+  "shipmentDetail": {
+    "title": "Shipment",
+    "reportDelay": "Report delay",
+    "reportProblem": "Report problem",
+    "transportMode": "Transport mode",
+    "notFound": "Shipment not found"
+  },
+  "delay": {
+    "title": "Delay",
+    "reason": "Delay reason",
+    "comment": "Comment (optional)",
+    "newEta": "New ETA (optional)",
+    "submit": "Submit delay",
+    "successTitle": "Report accepted",
+    "successBody": "Delay was sent to dispatch.",
+    "accepted": "Report accepted",
+    "failed": "Could not submit delay",
+    "unknown": "Submission result unknown — safe to retry",
+    "offline": "Offline. Form kept locally — retry when online.",
+    "reasons": {
+      "TRAFFIC": "Traffic",
+      "VEHICLE_BREAKDOWN": "Breakdown",
+      "LOADING_DELAY": "Loading delay",
+      "UNLOADING_DELAY": "Unloading delay",
+      "ROUTE_BLOCKED": "Route blocked",
+      "CUSTOMER_DELAY": "Customer delay",
+      "OTHER": "Other"
+    }
+  },
+  "problem": {
+    "title": "Problem",
+    "category": "Problem type",
+    "comment": "Description (optional)",
+    "submit": "Submit problem",
+    "successTitle": "Report accepted",
+    "successBody": "Problem was sent to dispatch.",
+    "accepted": "Report accepted",
+    "failed": "Could not submit problem",
+    "unknown": "Submission result unknown — safe to retry",
+    "offline": "Offline. Form kept locally — retry when online.",
+    "categories": {
+      "TRAFFIC": "Traffic",
+      "VEHICLE_BREAKDOWN": "Vehicle breakdown",
+      "ACCIDENT": "Accident",
+      "LOADING_DELAY": "Loading delay",
+      "UNLOADING_DELAY": "Unloading delay",
+      "CARGO_ISSUE": "Cargo issue",
+      "DOCUMENT_ISSUE": "Documents",
+      "CUSTOMER_UNAVAILABLE": "Customer unavailable",
+      "ROUTE_BLOCKED": "Route blocked",
+      "OTHER": "Other"
+    }
+  },
+  "result": {
+    "title": "Result",
+    "success": "Report accepted",
+    "failure": "Submission failed",
+    "unknown": "Status unknown",
+    "backToShipment": "Back to shipment",
+    "backToList": "Back to shipments"
+  },
+  "network": {
+    "offlineBanner": "No internet connection"
+  }
+}

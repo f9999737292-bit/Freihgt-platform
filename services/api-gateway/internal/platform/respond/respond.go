@@ -26,6 +26,14 @@ func JSON(w http.ResponseWriter, status int, payload any) {
 	}
 }
 
+func JSONRaw(w http.ResponseWriter, status int, raw json.RawMessage) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if len(raw) > 0 {
+		_, _ = w.Write(raw)
+	}
+}
+
 func Error(w http.ResponseWriter, err error) {
 	var appErr *apperrors.AppError
 	if !errors.As(err, &appErr) {
@@ -42,6 +50,8 @@ func Error(w http.ResponseWriter, err error) {
 		status = http.StatusForbidden
 	case apperrors.CodeValidation:
 		status = http.StatusBadRequest
+	case apperrors.CodeConflict:
+		status = http.StatusConflict
 	case apperrors.CodeServiceUnavailable:
 		status = http.StatusBadGateway
 	case apperrors.CodeControlTowerShipmentsUnavailable, apperrors.CodeShipmentEventsShipmentUnavailable, apperrors.CodeAuthDependencyUnavailable, apperrors.CodeControlTowerReadModelUnavailable:

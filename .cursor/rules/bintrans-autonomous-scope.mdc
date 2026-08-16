@@ -1,0 +1,36 @@
+---
+description: BINTRANS staging-pack autonomous local scope and live-action gates
+alwaysApply: true
+---
+
+# BINTRANS autonomous scope
+
+Work only in `D:\Projects\freight-platform-staging-pack` on branch `ops/bintrans-ct-staging-pack` unless the operator directs otherwise.
+
+This repository may be worked on autonomously for local development, static analysis, tests, documentation, and **local commits**.
+
+Any action that changes remote infrastructure, staging runtime, database, registry, protected secrets, production, Control Tower primary mode, or remote Git state requires explicit operator authorization.
+
+## Autonomous (local, no prompt expected when Run Mode + allowlists are active)
+
+- Repository inspection: `git status`, `git diff`, `git log`, `git show`, `git branch`, `grep`, `rg`
+- Static validation: `bash -n`, offline `*_selfcheck.sh`, `docker compose config`
+- Local tests: `go test`, `go vet`, applicable `npm` scripts
+- Edits under this worktree; `git add` + `git commit` when requested
+
+## Stop at live gates (require operator approval)
+
+- VM update / SSH
+- JWT_SECRET provisioning
+- Registry login / push / live digest collection
+- `docker compose up` (runtime or observability)
+- Cohort approval / Day 0 observation
+- `CONTROL_TOWER_READ_MODEL_MODE=primary`
+- `git push`, merge, force push
+
+## Never autonomous
+
+- Rerun migration (schema already at version 19)
+- Create cohort manifests or fabricate tenant IDs
+- Touch production or old shared VPS
+- Modify `/protected/` staging env or print secrets

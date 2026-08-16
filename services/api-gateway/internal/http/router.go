@@ -9,11 +9,13 @@ import (
 
 	"github.com/freight-platform/api-gateway/internal/config"
 	"github.com/freight-platform/api-gateway/internal/controltower"
+	"github.com/freight-platform/api-gateway/internal/driver"
 	"github.com/freight-platform/api-gateway/internal/fleetrbac"
 	gwmiddleware "github.com/freight-platform/api-gateway/internal/http/middleware"
 	apperrors "github.com/freight-platform/api-gateway/internal/platform/errors"
 	"github.com/freight-platform/api-gateway/internal/platform/respond"
 	"github.com/freight-platform/api-gateway/internal/shipmentevents"
+	"github.com/freight-platform/api-gateway/internal/tracking"
 	"github.com/freight-platform/api-gateway/internal/shipmentrbac"
 	"github.com/freight-platform/shared-go/metrics"
 	sharedmiddleware "github.com/freight-platform/shared-go/middleware"
@@ -23,7 +25,7 @@ import (
 
 const serviceName = "api-gateway"
 
-func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, controlTower *controltower.Handler, shipmentEvents *shipmentevents.Handler) http.Handler {
+func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, controlTower *controltower.Handler, shipmentEvents *shipmentevents.Handler, trackingHandler *tracking.Handler, driverHandler *driver.Handler) http.Handler {
 	metricsCollector := metrics.New(serviceName)
 
 	r := chi.NewRouter()
@@ -67,10 +69,114 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	if controlTower != nil {
 		r.Get("/api/v1/control-tower/summary", controlTower.Summary)
 		r.Post("/api/v1/control-tower/critical-events/{eventId}/acknowledge", controlTower.AcknowledgeCriticalEvent)
+		r.Post("/api/v1/control-tower/critical-events/{eventId}/assign", controlTower.AssignCriticalEvent)
+		r.Post("/api/v1/control-tower/critical-events/{eventId}/resolve", controlTower.ResolveCriticalEvent)
+		r.Post("/api/v1/control-tower/critical-events/{eventId}/reopen", controlTower.ReopenCriticalEvent)
+		r.Patch("/api/v1/control-tower/critical-events/{eventId}/exception", controlTower.UpdateCriticalEventException)
+		r.Get("/api/v1/control-tower/critical-events/{eventId}/actions", controlTower.GetCriticalEventActions)
+		r.Get("/api/v1/control-tower/risks", controlTower.ListRisks)
+		r.Get("/api/v1/control-tower/risks/{riskId}", controlTower.GetRisk)
+		r.Post("/api/v1/control-tower/risks/{riskId}/acknowledge", controlTower.AcknowledgeRisk)
+		r.Post("/api/v1/control-tower/risks/{riskId}/mitigate", controlTower.MitigateRisk)
+		r.Get("/api/v1/control-tower/work-items", controlTower.ListWorkItems)
+		r.Get("/api/v1/control-tower/work-items/{itemType}/{itemId}", controlTower.GetWorkItem)
+		r.Post("/api/v1/control-tower/work-items/{itemType}/{itemId}/claim", controlTower.ClaimWorkItem)
+		r.Post("/api/v1/control-tower/work-items/{itemType}/{itemId}/assign", controlTower.AssignWorkItem)
+		r.Post("/api/v1/control-tower/work-items/{itemType}/{itemId}/unassign", controlTower.UnassignWorkItem)
+		r.Post("/api/v1/control-tower/work-items/bulk-action", controlTower.BulkWorkItemsAction)
+		r.Get("/api/v1/control-tower/workload", controlTower.GetWorkload)
+		r.Get("/api/v1/control-tower/views", controlTower.ListSavedViews)
+		r.Post("/api/v1/control-tower/views", controlTower.CreateSavedView)
+		r.Patch("/api/v1/control-tower/views/{viewId}", controlTower.UpdateSavedView)
+		r.Delete("/api/v1/control-tower/views/{viewId}", controlTower.DeleteSavedView)
+		r.Post("/api/v1/control-tower/views/{viewId}/set-default", controlTower.SetDefaultSavedView)
+		r.Get("/api/v1/control-tower/handoffs", controlTower.ListHandoffs)
+		r.Post("/api/v1/control-tower/handoffs", controlTower.CreateHandoff)
+		r.Get("/api/v1/control-tower/handoffs/{handoffId}", controlTower.GetHandoff)
+
+		r.Get("/api/v1/control-tower/cases/kpi", controlTower.GetCaseKPI)
+		r.Get("/api/v1/control-tower/cases/duplicates", controlTower.FindCaseDuplicates)
+		r.Get("/api/v1/control-tower/cases", controlTower.ListCases)
+		r.Post("/api/v1/control-tower/cases", controlTower.CreateCase)
+		r.Get("/api/v1/control-tower/cases/{caseId}", controlTower.GetCase)
+		r.Patch("/api/v1/control-tower/cases/{caseId}", controlTower.UpdateCase)
+		r.Post("/api/v1/control-tower/cases/{caseId}/claim", controlTower.ClaimCase)
+		r.Post("/api/v1/control-tower/cases/{caseId}/assign", controlTower.AssignCase)
+		r.Post("/api/v1/control-tower/cases/{caseId}/unassign", controlTower.UnassignCase)
+		r.Post("/api/v1/control-tower/cases/{caseId}/links", controlTower.AddCaseLink)
+		r.Delete("/api/v1/control-tower/cases/{caseId}/links/{linkId}", controlTower.RemoveCaseLink)
+		r.Post("/api/v1/control-tower/cases/{caseId}/notes", controlTower.CreateCaseNote)
+		r.Patch("/api/v1/control-tower/cases/{caseId}/notes/{noteId}", controlTower.UpdateCaseNote)
+		r.Post("/api/v1/control-tower/cases/{caseId}/actions", controlTower.CreateCaseAction)
+		r.Patch("/api/v1/control-tower/cases/{caseId}/actions/{actionId}", controlTower.UpdateCaseAction)
+		r.Post("/api/v1/control-tower/cases/{caseId}/actions/{actionId}/complete", controlTower.CompleteCaseAction)
+		r.Post("/api/v1/control-tower/cases/{caseId}/decisions", controlTower.CreateCaseDecision)
+		r.Post("/api/v1/control-tower/cases/{caseId}/resolve", controlTower.ResolveCase)
+		r.Post("/api/v1/control-tower/cases/{caseId}/close", controlTower.CloseCase)
+		r.Post("/api/v1/control-tower/cases/{caseId}/reopen", controlTower.ReopenCase)
+		r.Get("/api/v1/control-tower/cases/{caseId}/timeline", controlTower.GetCaseTimeline)
+		r.Post("/api/v1/control-tower/cases/{caseId}/participants", controlTower.AddCaseParticipant)
+		r.Patch("/api/v1/control-tower/cases/{caseId}/participants/{userId}", controlTower.UpdateCaseParticipant)
+		r.Delete("/api/v1/control-tower/cases/{caseId}/participants/{userId}", controlTower.RemoveCaseParticipant)
+
+		r.Get("/api/v1/control-tower/automation/kpi", controlTower.GetAutomationKPI)
+		r.Get("/api/v1/control-tower/automation/rules", controlTower.ListAutomationRules)
+		r.Post("/api/v1/control-tower/automation/rules", controlTower.CreateAutomationRule)
+		r.Get("/api/v1/control-tower/automation/rules/{ruleId}", controlTower.GetAutomationRule)
+		r.Patch("/api/v1/control-tower/automation/rules/{ruleId}", controlTower.UpdateAutomationRule)
+		r.Post("/api/v1/control-tower/automation/rules/{ruleId}/activate", controlTower.ActivateAutomationRule)
+		r.Post("/api/v1/control-tower/automation/rules/{ruleId}/disable", controlTower.DisableAutomationRule)
+		r.Post("/api/v1/control-tower/automation/rules/{ruleId}/retire", controlTower.RetireAutomationRule)
+		r.Post("/api/v1/control-tower/automation/rules/{ruleId}/dry-run", controlTower.DryRunAutomationRule)
+		r.Get("/api/v1/control-tower/automation/recommendations", controlTower.ListRecommendations)
+		r.Get("/api/v1/control-tower/automation/recommendations/{recommendationId}", controlTower.GetRecommendation)
+		r.Post("/api/v1/control-tower/automation/recommendations/{recommendationId}/accept", controlTower.AcceptRecommendation)
+		r.Post("/api/v1/control-tower/automation/recommendations/{recommendationId}/dismiss", controlTower.DismissRecommendation)
+		r.Get("/api/v1/control-tower/playbooks", controlTower.ListPlaybooks)
+		r.Post("/api/v1/control-tower/playbooks", controlTower.CreatePlaybook)
+		r.Get("/api/v1/control-tower/playbooks/{playbookId}", controlTower.GetPlaybook)
+		r.Patch("/api/v1/control-tower/playbooks/{playbookId}", controlTower.UpdatePlaybook)
+		r.Get("/api/v1/control-tower/playbook-executions", controlTower.ListPlaybookExecutions)
+		r.Get("/api/v1/control-tower/playbook-executions/{executionId}", controlTower.GetPlaybookExecution)
+		r.Post("/api/v1/control-tower/playbook-executions/{executionId}/start", controlTower.StartPlaybookExecution)
+		r.Post("/api/v1/control-tower/playbook-executions/{executionId}/complete", controlTower.CompletePlaybookExecution)
+		r.Post("/api/v1/control-tower/playbook-executions/{executionId}/cancel", controlTower.CancelPlaybookExecution)
+		r.Post("/api/v1/control-tower/playbook-executions/{executionId}/steps/{stepId}/start", controlTower.StartPlaybookExecutionStep)
+		r.Post("/api/v1/control-tower/playbook-executions/{executionId}/steps/{stepId}/complete", controlTower.CompletePlaybookExecutionStep)
+		r.Post("/api/v1/control-tower/playbook-executions/{executionId}/steps/{stepId}/skip", controlTower.SkipPlaybookExecutionStep)
 	}
 
 	if shipmentEvents != nil {
 		r.Get("/api/v1/shipments/{shipmentId}/events", shipmentEvents.Events)
+	}
+
+	if trackingHandler != nil {
+		r.Get("/api/v1/shipments/{shipmentId}/tracking", trackingHandler.GetCurrent)
+		r.Get("/api/v1/shipments/{shipmentId}/tracking/locations", trackingHandler.ListLocations)
+		r.Get("/api/v1/shipments/{shipmentId}/eta", trackingHandler.GetETA)
+		r.Get("/api/v1/shipments/{shipmentId}/eta/history", trackingHandler.ListETAHistory)
+		r.Get("/api/v1/shipments/{shipmentId}/slots", trackingHandler.GetSlots)
+		r.Get("/api/v1/shipments/{shipmentId}/slots/history", trackingHandler.ListSlotHistory)
+	}
+
+	if driverHandler != nil {
+		r.Get("/api/v1/driver/me", driverHandler.GetMe)
+		r.Get("/api/v1/driver/me/shipments", driverHandler.ListShipments)
+		r.Get("/api/v1/driver/me/shipments/{shipmentId}", driverHandler.GetShipment)
+		r.Post("/api/v1/driver/me/shipments/{shipmentId}/events", driverHandler.RecordEvent)
+		r.Post("/api/v1/driver/me/shipments/{shipmentId}/exceptions", driverHandler.ReportException)
+		r.Post("/api/v1/driver/me/shipments/{shipmentId}/delays", driverHandler.ReportDelay)
+		r.Post("/api/v1/driver/me/shipments/{shipmentId}/locations", driverHandler.IngestLocation)
+		r.Post("/api/v1/driver/me/shipments/{shipmentId}/pod/uploads", driverHandler.InitiatePODUpload)
+		r.Put("/api/v1/driver/me/shipments/{shipmentId}/pod/uploads/{uploadId}/content", driverHandler.UploadPODContent)
+		r.Post("/api/v1/driver/me/shipments/{shipmentId}/pod/uploads/{uploadId}/complete", driverHandler.CompletePODUpload)
+		r.Get("/api/v1/driver/me/tasks", driverHandler.ListTasks)
+		r.Get("/api/v1/driver/me/tasks/{taskId}", driverHandler.GetTask)
+		r.Post("/api/v1/driver/me/tasks/{taskId}/read", driverHandler.MarkTaskRead)
+		r.Post("/api/v1/driver/me/tasks/{taskId}/acknowledge", driverHandler.AcknowledgeTask)
+		r.Post("/api/v1/driver/me/tasks/{taskId}/responses", driverHandler.SubmitTaskResponse)
+		r.Post("/api/v1/driver/me/devices", driverHandler.RegisterDevice)
+		r.Delete("/api/v1/driver/me/devices/{deviceId}", driverHandler.RevokeDevice)
 	}
 
 	fleetGuard := fleetrbac.NewGuard(cfg, proxy)

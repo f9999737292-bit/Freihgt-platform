@@ -11,12 +11,30 @@ import (
 )
 
 type Config struct {
-	ServiceName string
-	Environment string
-	HTTPPort    int
-	LogLevel    string
-	DatabaseURL string
-	Outbox      OutboxConfig
+	ServiceName          string
+	Environment          string
+	HTTPPort             int
+	LogLevel             string
+	DatabaseURL          string
+	Outbox               OutboxConfig
+	InternalServiceToken string
+	Notification         NotificationConfig
+	FCM                  FCMConfig
+}
+
+type NotificationConfig struct {
+	Enabled      bool
+	WorkerID     string
+	PollInterval time.Duration
+	BatchSize    int
+	LeaseTimeout time.Duration
+	MaxAttempts  int
+	RetryBackoff time.Duration
+}
+
+type FCMConfig struct {
+	ProjectID   string
+	AccessToken string
 }
 
 type OutboxConfig struct {
@@ -54,14 +72,54 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	notification, err := loadNotificationConfig()
+	if err != nil {
+		return Config{}, err
+	}
 
 	return Config{
-		ServiceName: "shipment-service",
-		Environment: getEnv("ENVIRONMENT", "development"),
-		HTTPPort:    port,
-		LogLevel:    getEnv("LOG_LEVEL", "info"),
-		DatabaseURL: databaseURL,
-		Outbox:      outbox,
+		ServiceName:          "shipment-service",
+		Environment:          getEnv("ENVIRONMENT", "development"),
+		HTTPPort:             port,
+		LogLevel:             getEnv("LOG_LEVEL", "info"),
+		DatabaseURL:          databaseURL,
+		Outbox:               outbox,
+		InternalServiceToken: strings.TrimSpace(os.Getenv("INTERNAL_SERVICE_TOKEN")),
+		Notification:         notification,
+		FCM: FCMConfig{
+			ProjectID:   strings.TrimSpace(os.Getenv("FCM_PROJECT_ID")),
+			AccessToken: strings.TrimSpace(os.Getenv("FCM_ACCESS_TOKEN")),
+		},
+	}, nil
+}
+
+func loadNotificationConfig() (NotificationConfig, error) {
+	pollInterval, err := parseDuration(getEnv("DRIVER_NOTIFICATION_POLL_INTERVAL", "2s"))
+	if err != nil {
+		return NotificationConfig{}, err
+	}
+	leaseTimeout, err := parseDuration(getEnv("DRIVER_NOTIFICATION_LEASE_TIMEOUT", "30s"))
+	if err != nil {
+		return NotificationConfig{}, err
+	}
+	retryBackoff, err := parseDuration(getEnv("DRIVER_NOTIFICATION_RETRY_BACKOFF", "5s"))
+	if err != nil {
+		return NotificationConfig{}, err
+	}
+	batchSize, _ := strconv.Atoi(getEnv("DRIVER_NOTIFICATION_BATCH_SIZE", "10"))
+	maxAttempts, _ := strconv.Atoi(getEnv("DRIVER_NOTIFICATION_MAX_ATTEMPTS", "3"))
+	workerID := strings.TrimSpace(os.Getenv("DRIVER_NOTIFICATION_WORKER_ID"))
+	if workerID == "" {
+		workerID = "driver-notification-" + uuid.NewString()
+	}
+	return NotificationConfig{
+		Enabled:      parseBool(getEnv("DRIVER_NOTIFICATION_ENABLED", "true")),
+		WorkerID:     workerID,
+		PollInterval: pollInterval,
+		BatchSize:    batchSize,
+		LeaseTimeout: leaseTimeout,
+		MaxAttempts:  maxAttempts,
+		RetryBackoff: retryBackoff,
 	}, nil
 }
 

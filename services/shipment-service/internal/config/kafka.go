@@ -8,8 +8,9 @@ import (
 )
 
 type KafkaConfig struct {
-	Brokers       []string
-	Topic         string
+	Brokers     []string
+	Topic       string
+	DriverTopic string
 	ClientID      string
 	DialTimeout   time.Duration
 	WriteTimeout  time.Duration
@@ -43,8 +44,9 @@ func loadKafkaConfig() (KafkaConfig, error) {
 	}
 
 	cfg := KafkaConfig{
-		Brokers:       brokers,
-		Topic:         strings.TrimSpace(getEnv("SHIPMENT_KAFKA_TOPIC", "shipment.status.v1")),
+		Brokers:     brokers,
+		Topic:       strings.TrimSpace(getEnv("SHIPMENT_KAFKA_TOPIC", "shipment.status.v1")),
+		DriverTopic: strings.TrimSpace(getEnv("SHIPMENT_KAFKA_DRIVER_TOPIC", "driver.events.v1")),
 		ClientID:      strings.TrimSpace(getEnv("SHIPMENT_KAFKA_CLIENT_ID", "shipment-service")),
 		DialTimeout:   dialTimeout,
 		WriteTimeout:  writeTimeout,
@@ -66,6 +68,9 @@ func (c KafkaConfig) ValidateRequired() error {
 	}
 	if strings.TrimSpace(c.Topic) == "" {
 		return fmt.Errorf("SHIPMENT_KAFKA_TOPIC must not be empty when SHIPMENT_OUTBOX_TRANSPORT=kafka")
+	}
+	if strings.TrimSpace(c.DriverTopic) == "" {
+		return fmt.Errorf("SHIPMENT_KAFKA_DRIVER_TOPIC must not be empty when SHIPMENT_OUTBOX_TRANSPORT=kafka")
 	}
 	if strings.TrimSpace(c.ClientID) == "" {
 		return fmt.Errorf("SHIPMENT_KAFKA_CLIENT_ID must not be empty when SHIPMENT_OUTBOX_TRANSPORT=kafka")

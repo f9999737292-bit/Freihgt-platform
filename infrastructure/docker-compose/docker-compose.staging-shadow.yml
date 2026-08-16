@@ -26,6 +26,11 @@ services:
       CONTROL_TOWER_KAFKA_TOPIC: shipment.status.v1
       CONTROL_TOWER_KAFKA_GROUP_ID: control-tower-shipment-status-v1
       CONTROL_TOWER_KAFKA_CLIENT_ID: control-tower-read-model-service
+      CONTROL_TOWER_DRIVER_EVENTS_ENABLED: ${CONTROL_TOWER_DRIVER_EVENTS_ENABLED:-false}
+      CONTROL_TOWER_DRIVER_KAFKA_BROKERS: redpanda:9092
+      CONTROL_TOWER_DRIVER_KAFKA_TOPIC: ${CONTROL_TOWER_DRIVER_KAFKA_TOPIC:-driver.events.v1}
+      CONTROL_TOWER_DRIVER_KAFKA_GROUP_ID: ${CONTROL_TOWER_DRIVER_KAFKA_GROUP_ID:-control-tower-driver-events-v1}
+      CONTROL_TOWER_DRIVER_KAFKA_CLIENT_ID: ${CONTROL_TOWER_DRIVER_KAFKA_CLIENT_ID:-control-tower-driver-events-consumer}
 
   shipment-service:
     environment:
@@ -33,6 +38,7 @@ services:
       SHIPMENT_OUTBOX_TRANSPORT: kafka
       SHIPMENT_KAFKA_BROKERS: redpanda:9092
       SHIPMENT_KAFKA_TOPIC: shipment.status.v1
+      SHIPMENT_KAFKA_DRIVER_TOPIC: ${SHIPMENT_KAFKA_DRIVER_TOPIC:-driver.events.v1}
       SHIPMENT_KAFKA_CLIENT_ID: shipment-service
     depends_on:
       redpanda:

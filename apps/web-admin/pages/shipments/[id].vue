@@ -7,6 +7,7 @@ import type {
   Shipment,
   Vehicle,
 } from '~/types/shipment'
+import type { ControlTowerShipmentRisk } from '~/types/controlTower'
 import { buildShipmentValidationContext } from '~/utils/lowCodeValidationContext'
 
 definePageMeta({ middleware: 'auth', layout: 'default' })
@@ -21,6 +22,10 @@ const { listCompanies } = useCompanies()
 const { apiGet } = useApi()
 const { pushToast } = useToast()
 const { t } = useI18n()
+const { fetchShipmentRisks } = useControlTower()
+
+const shipmentRisks = ref<Awaited<ReturnType<typeof fetchShipmentRisks>>>([])
+const shipmentRisksLoading = ref(false)
 
 const shipment = ref<Shipment | null>(null)
 const companies = ref<Company[]>([])
@@ -151,12 +156,22 @@ async function loadRelated() {
   loadingRelated.value = false
 }
 
+async function loadShipmentRisks() {
+  shipmentRisksLoading.value = true
+  try {
+    shipmentRisks.value = await fetchShipmentRisks(shipmentId.value)
+  } finally {
+    shipmentRisksLoading.value = false
+  }
+}
+
 async function loadShipment() {
   loading.value = true
   apiUnavailable.value = false
   try {
     shipment.value = await getShipment(shipmentId.value)
     await loadRelated()
+    await loadShipmentRisks()
   } catch (error) {
     shipment.value = null
     apiUnavailable.value = isApiUnavailableError(error)
@@ -210,6 +225,26 @@ onMounted(async () => {
       />
 
       <ShipmentsShipmentDetailsCard :shipment="shipment" />
+      <ShipmentsShipmentTrackingCard :shipment-id="shipmentId" />
+      <ShipmentsShipmentETACard
+        :shipment-id="shipmentId"
+        :planned-context="{
+          plannedPickupAt: shipment.planned_pickup_at ?? undefined,
+          plannedDeliveryAt: shipment.planned_delivery_at ?? undefined,
+          actualPickupAt: shipment.actual_pickup_at ?? undefined,
+          actualDeliveryAt: shipment.actual_delivery_at ?? undefined,
+          shipmentStatus: shipment.status,
+        }"
+      />
+      <ShipmentsShipmentSlotCard
+        :shipment-id="shipmentId"
+        :booking-status="shipment.status"
+        :slot-context="{
+          shipmentStatus: shipment.status,
+          actualPickupAt: shipment.actual_pickup_at ?? undefined,
+          actualDeliveryAt: shipment.actual_delivery_at ?? undefined,
+        }"
+      />
       <ShipmentsShipmentPartiesCard :shipment="shipment" :company-name="companyName" />
       <ShipmentsShipmentRouteCard
         :origin="origin"
@@ -227,6 +262,19 @@ onMounted(async () => {
         @assign-vehicle="showVehicleSelect = true"
       />
       <ShipmentsShipmentStatusTimeline :status="shipment.status" />
+
+      <UiCard>
+        <template #header>
+          <h3 class="card-title">{{ $t('controlTower.risk.shipmentSectionTitle') }}</h3>
+        </template>
+        <p class="text-muted">{{ $t('controlTower.risk.shipmentSectionHint') }}</p>
+        <ControlTowerShipmentRiskPanel
+          :risks="shipmentRisks"
+          :loading="shipmentRisksLoading"
+          :can-acknowledge="false"
+          :can-mitigate="false"
+        />
+      </UiCard>
 
       <LowCodeCustomFieldsPanel
         entity-type="SHIPMENT"

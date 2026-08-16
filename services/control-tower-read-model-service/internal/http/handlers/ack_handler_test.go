@@ -32,6 +32,56 @@ func (s *stubAckStore) LookupAcknowledgements(_ context.Context, _ uuid.UUID, _ 
 	return s.lookupOut, nil
 }
 
+type stubWorkflowStore struct {
+	ackInput domain.AcknowledgeCriticalEventInput
+	ackOut   domain.CriticalEventAcknowledgement
+	workflow domain.CriticalEventWorkflow
+}
+
+func (s *stubWorkflowStore) AcknowledgeWithWorkflow(_ context.Context, input domain.AcknowledgeCriticalEventInput) (domain.CriticalEventAcknowledgement, domain.CriticalEventWorkflow, error) {
+	s.ackInput = input
+	if s.workflow.Status == "" {
+		s.workflow.Status = domain.WorkflowStatusAcknowledged
+	}
+	return s.ackOut, s.workflow, nil
+}
+
+func (s *stubWorkflowStore) AssignCriticalEvent(context.Context, domain.AssignCriticalEventInput) (domain.CriticalEventWorkflow, error) {
+	return domain.CriticalEventWorkflow{}, nil
+}
+
+func (s *stubWorkflowStore) ResolveCriticalEvent(context.Context, domain.ResolveCriticalEventInput) (domain.CriticalEventWorkflow, error) {
+	return domain.CriticalEventWorkflow{}, nil
+}
+
+func (s *stubWorkflowStore) ReopenCriticalEvent(context.Context, domain.ReopenCriticalEventInput) (domain.CriticalEventWorkflow, error) {
+	return domain.CriticalEventWorkflow{}, nil
+}
+
+func (s *stubWorkflowStore) ListActions(context.Context, uuid.UUID, string) ([]domain.CriticalEventAction, error) {
+	return nil, nil
+}
+
+func (s *stubWorkflowStore) LookupWorkflows(context.Context, uuid.UUID, []string) ([]domain.CriticalEventWorkflow, error) {
+	return nil, nil
+}
+
+func (s *stubWorkflowStore) ListOpenWorkflowsBySource(context.Context, uuid.UUID, string) ([]domain.CriticalEventWorkflow, error) {
+	return nil, nil
+}
+
+func (s *stubWorkflowStore) EnsureExceptionWorkflows(context.Context, uuid.UUID, []domain.EnsureExceptionSeed) ([]string, error) {
+	return nil, nil
+}
+
+func (s *stubWorkflowStore) UpdateException(context.Context, domain.UpdateExceptionInput) (domain.CriticalEventWorkflow, error) {
+	return domain.CriticalEventWorkflow{}, nil
+}
+
+func (s *stubWorkflowStore) LookupWorkflowsWithExceptionProcessing(context.Context, uuid.UUID, []string, uuid.UUID) ([]domain.CriticalEventWorkflow, error) {
+	return nil, nil
+}
+
 func TestAckHandlerAcknowledgeUsesTrustedHeaders(t *testing.T) {
 	t.Parallel()
 	tenantID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
@@ -39,8 +89,9 @@ func TestAckHandlerAcknowledgeUsesTrustedHeaders(t *testing.T) {
 	shipmentID := uuid.MustParse("33333333-3333-3333-3333-333333333333")
 	occurredAt := time.Date(2026, 8, 13, 10, 0, 0, 0, time.UTC)
 
-	store := &stubAckStore{
-		upsertOut: domain.CriticalEventAcknowledgement{
+	store := &stubAckStore{}
+	workflowStore := &stubWorkflowStore{
+		ackOut: domain.CriticalEventAcknowledgement{
 			TenantID:             tenantID,
 			EventID:              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 			ShipmentID:           shipmentID,
@@ -50,8 +101,9 @@ func TestAckHandlerAcknowledgeUsesTrustedHeaders(t *testing.T) {
 			AcknowledgedAt:       occurredAt.Add(time.Minute),
 			AcknowledgedByUserID: userID,
 		},
+		workflow: domain.CriticalEventWorkflow{Status: domain.WorkflowStatusAcknowledged},
 	}
-	handler := &AckHandler{repo: store}
+	handler := &AckHandler{repo: store, workflowRepo: workflowStore}
 
 	body, _ := json.Marshal(map[string]string{
 		"shipmentId": shipmentID.String(),
@@ -70,9 +122,9 @@ func TestAckHandlerAcknowledgeUsesTrustedHeaders(t *testing.T) {
 	handler.AcknowledgeCriticalEvent(rec, req)
 
 	require.Equal(t, http.StatusOK, rec.Code)
-	assert.Equal(t, tenantID, store.upsertInput.TenantID)
-	assert.Equal(t, userID, store.upsertInput.UserID)
-	assert.Equal(t, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", store.upsertInput.EventID)
+	assert.Equal(t, tenantID, workflowStore.ackInput.TenantID)
+	assert.Equal(t, userID, workflowStore.ackInput.UserID)
+	assert.Equal(t, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", workflowStore.ackInput.EventID)
 }
 
 func TestAckHandlerLookupReturnsItems(t *testing.T) {

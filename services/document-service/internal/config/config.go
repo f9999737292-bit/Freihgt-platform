@@ -12,6 +12,7 @@ type Config struct {
 	HTTPPort    int
 	LogLevel    string
 	DatabaseURL string
+	StorageRoot string
 }
 
 func Load() (Config, error) {
@@ -39,6 +40,7 @@ func Load() (Config, error) {
 		HTTPPort:    port,
 		LogLevel:    getEnv("LOG_LEVEL", "info"),
 		DatabaseURL: databaseURL,
+		StorageRoot: getEnv("DOCUMENT_STORAGE_ROOT", "./data/document-storage"),
 	}, nil
 }
 

@@ -1,16 +1,25 @@
 <script setup lang="ts">
 import { formatShipmentDate } from '~/types/shipment'
-import type { ControlTowerEvent } from '~/types/controlTower'
+import type { ControlTowerEvent, ControlTowerEventWorkflowStatus } from '~/types/controlTower'
 
 const props = defineProps<{
   events: ControlTowerEvent[]
   loading?: boolean
   canAcknowledge?: boolean
+  canAssign?: boolean
+  canResolve?: boolean
+  canManageException?: boolean
   acknowledgingEventId?: string | null
+  workflowActionEventId?: string | null
 }>()
 
 const emit = defineEmits<{
   acknowledge: [eventId: string]
+  assign: [eventId: string]
+  resolve: [eventId: string]
+  reopen: [eventId: string]
+  editException: [event: ControlTowerEvent]
+  showDetails: [event: ControlTowerEvent]
 }>()
 
 const { t } = useI18n()
@@ -23,12 +32,21 @@ function eventTypeKey(type: string) {
   return `controlTower.events.types.${type}`
 }
 
-function isAcknowledged(event: ControlTowerEvent): boolean {
-  return Boolean(event.acknowledgement)
+function eventStatus(event: ControlTowerEvent): ControlTowerEventWorkflowStatus {
+  return event.status ?? 'open'
 }
 
-function isAcknowledging(eventId: string): boolean {
-  return props.acknowledgingEventId === eventId
+function statusClass(status: ControlTowerEventWorkflowStatus) {
+  return `critical-events__status--${status}`
+}
+
+function isBusy(eventId: string): boolean {
+  return Boolean(props.acknowledgingEventId || props.workflowActionEventId) &&
+    (props.acknowledgingEventId === eventId || props.workflowActionEventId === eventId)
+}
+
+function isAnyActionInProgress(): boolean {
+  return Boolean(props.acknowledgingEventId || props.workflowActionEventId)
 }
 
 function acknowledgedByLabel(event: ControlTowerEvent): string {
@@ -39,8 +57,10 @@ function acknowledgedByLabel(event: ControlTowerEvent): string {
   return t('controlTower.events.acknowledgedByUser', { userId: ack.acknowledgedBy.userId })
 }
 
-function onAcknowledge(eventId: string) {
-  emit('acknowledge', eventId)
+function assignedToLabel(event: ControlTowerEvent): string {
+  const assignment = event.assignment
+  if (!assignment) return ''
+  return t('controlTower.events.assignedToUser', { userId: assignment.assignedToUserId })
 }
 </script>
 
@@ -54,9 +74,14 @@ function onAcknowledge(eventId: string) {
       <li v-for="event in events" :key="event.id" class="critical-events__item">
         <div class="critical-events__header">
           <strong>{{ event.shipmentNumber }}</strong>
-          <span class="critical-events__severity" :class="severityClass(event.severity)">
-            {{ event.severity }}
-          </span>
+          <div class="critical-events__badges">
+            <span class="critical-events__status" :class="statusClass(eventStatus(event))">
+              {{ $t(`controlTower.events.status.${eventStatus(event)}`) }}
+            </span>
+            <span class="critical-events__severity" :class="severityClass(event.severity)">
+              {{ event.severity }}
+            </span>
+          </div>
         </div>
         <p class="critical-events__type">{{ $t(eventTypeKey(event.type)) }}</p>
         <p class="critical-events__time">{{ formatShipmentDate(event.occurredAt) }}</p>
@@ -67,20 +92,51 @@ function onAcknowledge(eventId: string) {
           {{ event.description }}
         </p>
 
-        <div
-          v-if="isAcknowledged(event)"
-          class="critical-events__ack"
-          data-testid="critical-event-acknowledged"
-        >
-          <span class="critical-events__ack-badge">{{ $t('controlTower.events.acknowledged') }}</span>
-          <span class="critical-events__ack-meta">
-            {{ formatShipmentDate(event.acknowledgement!.acknowledgedAt) }}
+        <ControlTowerCriticalEventExceptionBadges :event="event" />
+
+        <div v-if="event.acknowledgement" class="critical-events__info-block">
+          <span class="critical-events__info-label">{{ $t('controlTower.events.acknowledged') }}</span>
+          <span class="critical-events__info-meta">
+            {{ formatShipmentDate(event.acknowledgement.acknowledgedAt) }}
             ·
             {{ acknowledgedByLabel(event) }}
           </span>
         </div>
 
+        <div v-if="event.assignment" class="critical-events__info-block">
+          <span class="critical-events__info-label">{{ $t('controlTower.events.assignedTo') }}</span>
+          <span class="critical-events__info-meta">
+            {{ assignedToLabel(event) }}
+            ·
+            {{ formatShipmentDate(event.assignment.assignedAt) }}
+          </span>
+        </div>
+
+        <div v-if="event.resolution" class="critical-events__info-block">
+          <span class="critical-events__info-label">{{ $t('controlTower.events.resolution') }}</span>
+          <span class="critical-events__info-meta">
+            {{ $t(`controlTower.events.resolutionCodes.${event.resolution.resolutionCode}`) }}
+            ·
+            {{ formatShipmentDate(event.resolution.resolvedAt) }}
+          </span>
+        </div>
+
         <div class="critical-events__actions">
+          <UiButton
+            v-if="canManageException && eventStatus(event) !== 'resolved'"
+            size="sm"
+            variant="ghost"
+            @click="emit('editException', event)"
+          >
+            {{ $t('controlTower.exceptions.edit') }}
+          </UiButton>
+          <UiButton
+            size="sm"
+            variant="ghost"
+            @click="emit('showDetails', event)"
+          >
+            {{ $t('controlTower.events.actionHistory') }}
+          </UiButton>
           <NuxtLink
             v-if="event.shipmentId"
             :to="`/shipments/${event.shipmentId}/events`"
@@ -95,17 +151,63 @@ function onAcknowledge(eventId: string) {
           >
             {{ $t('controlTower.actions.openShipment') }}
           </NuxtLink>
+
           <UiButton
-            v-if="canAcknowledge && !isAcknowledged(event)"
+            v-if="canAcknowledge && eventStatus(event) === 'open'"
             size="sm"
             variant="secondary"
-            class="critical-events__ack-button"
-            :loading="isAcknowledging(event.id)"
-            :disabled="Boolean(acknowledgingEventId)"
+            class="critical-events__action-button"
+            :loading="isBusy(event.id)"
+            :disabled="isAnyActionInProgress()"
             data-testid="critical-event-acknowledge"
-            @click="onAcknowledge(event.id)"
+            @click="emit('acknowledge', event.id)"
           >
             {{ $t('controlTower.events.acknowledge') }}
+          </UiButton>
+          <UiButton
+            v-if="canAssign && eventStatus(event) === 'acknowledged'"
+            size="sm"
+            variant="secondary"
+            class="critical-events__action-button"
+            :loading="isBusy(event.id)"
+            :disabled="isAnyActionInProgress()"
+            @click="emit('assign', event.id)"
+          >
+            {{ $t('controlTower.events.assign') }}
+          </UiButton>
+          <template v-if="canAssign && eventStatus(event) === 'assigned'">
+            <UiButton
+              size="sm"
+              variant="secondary"
+              class="critical-events__action-button"
+              :loading="isBusy(event.id)"
+              :disabled="isAnyActionInProgress()"
+              @click="emit('assign', event.id)"
+            >
+              {{ $t('controlTower.events.reassign') }}
+            </UiButton>
+            <UiButton
+              v-if="canResolve"
+              size="sm"
+              variant="primary"
+              class="critical-events__action-button"
+              :loading="isBusy(event.id)"
+              :disabled="isAnyActionInProgress()"
+              @click="emit('resolve', event.id)"
+            >
+              {{ $t('controlTower.events.resolve') }}
+            </UiButton>
+          </template>
+          <UiButton
+            v-if="canAssign && eventStatus(event) === 'resolved'"
+            size="sm"
+            variant="secondary"
+            class="critical-events__action-button"
+            :loading="isBusy(event.id)"
+            :disabled="isAnyActionInProgress()"
+            @click="emit('reopen', event.id)"
+          >
+            {{ $t('controlTower.events.reopen') }}
           </UiButton>
         </div>
       </li>
@@ -144,6 +246,38 @@ function onAcknowledge(eventId: string) {
   gap: 0.5rem;
 }
 
+.critical-events__badges {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.critical-events__status {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.4rem;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-info) 10%, var(--color-surface));
+  color: var(--color-info);
+}
+
+.critical-events__status--open {
+  background: color-mix(in srgb, var(--color-warning) 12%, var(--color-surface));
+  color: var(--color-warning);
+}
+
+.critical-events__status--assigned {
+  background: color-mix(in srgb, var(--color-info) 12%, var(--color-surface));
+  color: var(--color-info);
+}
+
+.critical-events__status--resolved {
+  background: color-mix(in srgb, var(--color-success, #16a34a) 12%, var(--color-surface));
+  color: var(--color-success, #16a34a);
+}
+
 .critical-events__severity {
   font-size: 0.6875rem;
   font-weight: 700;
@@ -176,18 +310,18 @@ function onAcknowledge(eventId: string) {
   color: var(--color-text-muted);
 }
 
-.critical-events__ack {
+.critical-events__info-block {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.15rem;
   margin-top: 0.5rem;
   padding: 0.5rem 0.625rem;
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--color-info) 8%, var(--color-surface));
-  border: 1px solid color-mix(in srgb, var(--color-info) 25%, var(--color-border));
+  background: color-mix(in srgb, var(--color-info) 6%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-info) 18%, var(--color-border));
 }
 
-.critical-events__ack-badge {
+.critical-events__info-label {
   font-size: 0.6875rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -195,7 +329,7 @@ function onAcknowledge(eventId: string) {
   color: var(--color-info);
 }
 
-.critical-events__ack-meta {
+.critical-events__info-meta {
   font-size: 0.75rem;
   color: var(--color-text-muted);
 }
@@ -212,7 +346,7 @@ function onAcknowledge(eventId: string) {
   font-size: 0.8125rem;
 }
 
-.critical-events__ack-button {
+.critical-events__action-button {
   margin-left: auto;
 }
 </style>

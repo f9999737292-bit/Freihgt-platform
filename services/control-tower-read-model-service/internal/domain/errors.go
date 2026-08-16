@@ -32,6 +32,21 @@ const (
 	ErrorEventSchemaViolation     = "EVENT_SCHEMA_VIOLATION"
 )
 
+// PermanentErrorCodes lists safe permanent validation error codes recorded in dead-letter metrics.
+func PermanentErrorCodes() []string {
+	return []string{
+		ErrorInvalidJSON,
+		ErrorUnsupportedSchemaVersion,
+		ErrorInvalidEventType,
+		ErrorInvalidEventID,
+		ErrorInvalidSourceEventID,
+		ErrorInvalidTenantID,
+		ErrorInvalidAggregate,
+		ErrorInvalidEventData,
+		ErrorEventSchemaViolation,
+	}
+}
+
 func Permanent(code string, err error) *PermanentError {
 	return &PermanentError{Code: code, Err: err}
 }

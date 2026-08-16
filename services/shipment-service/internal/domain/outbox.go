@@ -210,6 +210,9 @@ func ValidateOutboxAgainstHistory(outbox ShipmentOutboxEvent, history ShipmentSt
 }
 
 func isKnownOutboxEventType(eventType string) bool {
+	if IsDriverKafkaEventType(eventType) {
+		return true
+	}
 	switch eventType {
 	case OutboxEventTypeCreated,
 		OutboxEventTypeStatusChanged,

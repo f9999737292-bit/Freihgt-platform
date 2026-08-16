@@ -184,6 +184,71 @@ func (r *ShipmentRepository) GetByIDAndTenant(ctx context.Context, id, tenantID 
 	return result, err
 }
 
+func (r *ShipmentRepository) GetByIDAndDriver(ctx context.Context, id, tenantID, driverID uuid.UUID) (*domain.Shipment, error) {
+	shipment, err := r.GetByIDAndTenant(ctx, id, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	if !domain.CanDriverAccessShipment(tenantID, driverID, shipment) {
+		return nil, apperrors.NotFound("shipment not found")
+	}
+	return shipment, nil
+}
+
+func (r *ShipmentRepository) ListByDriverID(ctx context.Context, filter domain.ListDriverShipmentsFilter) ([]domain.Shipment, int, error) {
+	var shipments []domain.Shipment
+	var total int
+	err := measureDB("shipment_repository", "list_shipments_by_driver", func() error {
+		args := []any{filter.TenantID, filter.DriverID}
+		where := []string{"tenant_id = $1", "driver_id = $2", "deleted_at IS NULL"}
+
+		if filter.Status != nil {
+			args = append(args, *filter.Status)
+			where = append(where, fmt.Sprintf("status = $%d", len(args)))
+		}
+
+		whereClause := strings.Join(where, " AND ")
+		countQuery := fmt.Sprintf("SELECT COUNT(*) FROM transport.shipments WHERE %s", whereClause)
+		if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+			return mapDBError(err)
+		}
+
+		args = append(args, filter.Limit, filter.Offset)
+		listQuery := fmt.Sprintf(`
+		SELECT id, tenant_id, shipment_number, transport_order_id,
+			shipper_company_id, consignee_company_id, carrier_company_id, forwarder_company_id,
+			driver_id, vehicle_id, origin_location_id, destination_location_id, cargo_id,
+			transport_mode, status, planned_pickup_at, planned_delivery_at,
+			actual_pickup_at, actual_delivery_at, created_at, updated_at, version
+		FROM transport.shipments
+		WHERE %s
+		ORDER BY planned_pickup_at ASC NULLS LAST, created_at DESC
+		LIMIT $%d OFFSET $%d
+	`, whereClause, len(args)-1, len(args))
+
+		rows, err := r.pool.Query(ctx, listQuery, args...)
+		if err != nil {
+			return mapDBError(err)
+		}
+		defer rows.Close()
+
+		items := make([]domain.Shipment, 0)
+		for rows.Next() {
+			shipment, err := scanShipmentRows(rows)
+			if err != nil {
+				return err
+			}
+			items = append(items, *shipment)
+		}
+		if err := rows.Err(); err != nil {
+			return mapDBError(err)
+		}
+		shipments = items
+		return nil
+	})
+	return shipments, total, err
+}
+
 func (r *ShipmentRepository) List(ctx context.Context, filter domain.ListShipmentsFilter) ([]domain.Shipment, int, error) {
 	var shipments []domain.Shipment
 	var total int

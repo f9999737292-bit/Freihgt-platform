@@ -11,19 +11,21 @@ import (
 	"github.com/freight-platform/api-gateway/internal/controltower/legacyaggregate"
 	"github.com/freight-platform/api-gateway/internal/controltowerreadmodel"
 	apperrors "github.com/freight-platform/api-gateway/internal/platform/errors"
+	"github.com/freight-platform/api-gateway/internal/tracking"
 )
 
 type Service struct {
-	client                *DownstreamClient
-	thresholds            SLAThresholds
-	readModel             *controltowerreadmodel.Client
-	readModelCfg          controltowerreadmodel.Config
-	readModelLog          *slog.Logger
-	metrics               *controltowerreadmodel.Metrics
-	legacyAggregate       *legacyaggregate.Client
+	client                 *DownstreamClient
+	thresholds             SLAThresholds
+	readModel              *controltowerreadmodel.Client
+	readModelCfg           controltowerreadmodel.Config
+	readModelLog           *slog.Logger
+	metrics                *controltowerreadmodel.Metrics
+	legacyAggregate        *legacyaggregate.Client
 	legacyAggregateTimeout time.Duration
-	legacyMetrics         *legacyaggregate.Metrics
-	legacyLog             *slog.Logger
+	legacyMetrics          *legacyaggregate.Metrics
+	legacyLog              *slog.Logger
+	trackingClient         *tracking.Client
 }
 
 func NewService(cfg config.Config, client *DownstreamClient, log *slog.Logger) *Service {
@@ -66,6 +68,11 @@ func NewService(cfg config.Config, client *DownstreamClient, log *slog.Logger) *
 		legacyAggregateTimeout: legacyTimeout,
 		legacyMetrics:          legacyMetrics,
 		legacyLog:              log,
+		trackingClient: tracking.NewClient(
+			&http.Client{Timeout: time.Duration(cfg.ProxyTimeoutSeconds) * time.Second},
+			cfg.Services.Tracking,
+			cfg.TrackingInternalToken,
+		),
 	}
 }
 
@@ -154,15 +161,37 @@ func (s *Service) GetSummary(ctx context.Context, reqCtx RequestContext, query L
 	shipmentIDsWithDocs := shipmentDocumentIDs(documents)
 
 	allRows := make([]ControlTowerShipment, 0, len(shipmentsRaw))
+	rawByID := make(map[string]rawShipment, len(shipmentsRaw))
 	for _, raw := range shipmentsRaw {
+		rawByID[raw.ID] = raw
 		allRows = append(allRows, s.mapShipment(raw, orderByID, companyByID, shipmentIDsWithDocs, now))
 	}
+
+	s.enrichShipmentsWithTracking(ctx, reqCtx, allRows)
+	s.enrichShipmentsWithETA(ctx, reqCtx, allRows)
+	s.enrichShipmentsWithSlots(ctx, reqCtx, allRows)
 
 	filtered := ApplyFilters(allRows, query)
 	kpi := CalculateKPI(filtered)
 	page := Paginate(filtered, query.Page, query.Limit)
+	shipmentByID := make(map[string]ControlTowerShipment, len(allRows))
+	for _, row := range allRows {
+		shipmentByID[row.ID] = row
+	}
 	criticalEvents := BuildCriticalEvents(filtered, shipmentIDsWithDocs, s.thresholds, now)
-	s.enrichCriticalEventAcknowledgements(ctx, reqCtx, &criticalEvents)
+	s.mergeDriverCriticalEvents(ctx, reqCtx, &criticalEvents, shipmentByID)
+	s.enrichCriticalEventWorkflows(ctx, reqCtx, &criticalEvents)
+	SortCriticalEvents(criticalEvents)
+	criticalEvents = FilterCriticalEvents(criticalEvents, query)
+	exceptionKPI := CalculateExceptionKPI(criticalEvents)
+
+	s.evaluateAndPersistRisks(ctx, reqCtx, allRows, rawByID, criticalEvents, now)
+	shipmentNumbers := make(map[string]string, len(allRows))
+	for _, row := range allRows {
+		shipmentNumbers[row.ID] = row.ShipmentNumber
+	}
+	shipmentRisks, riskKPI := s.loadShipmentRisks(ctx, reqCtx, query, shipmentNumbers)
+
 	filters := BuildFilterOptions(allRows, companies, freshness.CompaniesLoaded)
 	if !freshness.CompaniesLoaded {
 		freshness.Warnings = appendUniqueWarning(freshness.Warnings, WarningFilterOptionsIncomplete)
@@ -174,8 +203,11 @@ func (s *Service) GetSummary(ctx context.Context, reqCtx RequestContext, query L
 		GeneratedAt:    now,
 		DataFreshness:  freshness,
 		KPI:            kpi,
+		ExceptionKPI:   exceptionKPI,
+		RiskKPI:        riskKPI,
 		Shipments:      page,
 		CriticalEvents: criticalEvents,
+		ShipmentRisks:  shipmentRisks,
 		Filters:        filters,
 	}
 
@@ -220,6 +252,8 @@ func (s *Service) mapShipment(
 		LastUpdatedAt:     lastUpdated,
 		DocumentsComplete: isDocumentsComplete(raw, shipmentIDsWithDocs),
 		ReadyForBilling:   raw.Status == "READY_FOR_BILLING",
+		DriverID:          raw.DriverID,
+		VehicleID:         raw.VehicleID,
 	}
 
 	if raw.TransportOrderID != nil {

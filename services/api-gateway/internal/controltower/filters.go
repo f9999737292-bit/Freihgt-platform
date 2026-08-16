@@ -86,6 +86,77 @@ func ParseListQuery(r *http.Request) (ListQuery, error) {
 		q.CriticalOnly = parsed
 	}
 
+	q.EventStatus = strings.TrimSpace(r.URL.Query().Get("event_status"))
+	q.Priority = strings.ToLower(strings.TrimSpace(r.URL.Query().Get("priority")))
+	q.ExceptionCategory = strings.TrimSpace(r.URL.Query().Get("exception_category"))
+	q.BusinessImpact = strings.ToLower(strings.TrimSpace(r.URL.Query().Get("business_impact")))
+	q.EventSLAStatus = strings.TrimSpace(r.URL.Query().Get("event_sla_status"))
+	q.EscalationLevel = strings.TrimSpace(r.URL.Query().Get("escalation_level"))
+	if raw := strings.TrimSpace(r.URL.Query().Get("unassigned_only")); raw != "" {
+		parsed, err := strconv.ParseBool(raw)
+		if err != nil {
+			return ListQuery{}, apperrors.Validation("unassigned_only must be a boolean", map[string]any{"field": "unassigned_only"})
+		}
+		q.UnassignedOnly = parsed
+	}
+
+	if q.Priority != "" && q.Priority != PriorityP1 && q.Priority != PriorityP2 && q.Priority != PriorityP3 && q.Priority != PriorityP4 {
+		return ListQuery{}, apperrors.Validation("unknown priority", map[string]any{"field": "priority"})
+	}
+	if q.EventSLAStatus != "" && q.EventSLAStatus != SLAStatusWithinSLA && q.EventSLAStatus != SLAStatusWarning && q.EventSLAStatus != SLAStatusBreached && q.EventSLAStatus != SLAStatusCompleted {
+		return ListQuery{}, apperrors.Validation("unknown event_sla_status", map[string]any{"field": "event_sla_status"})
+	}
+
+	q.RiskLevel = strings.TrimSpace(r.URL.Query().Get("risk_level"))
+	q.RiskStatus = strings.TrimSpace(r.URL.Query().Get("risk_status"))
+	q.RiskPredictedType = strings.TrimSpace(r.URL.Query().Get("predicted_exception_type"))
+	q.RiskShipmentID = strings.TrimSpace(r.URL.Query().Get("risk_shipment_id"))
+	if raw := strings.TrimSpace(r.URL.Query().Get("risk_mitigating_only")); raw != "" {
+		parsed, err := strconv.ParseBool(raw)
+		if err != nil {
+			return ListQuery{}, apperrors.Validation("risk_mitigating_only must be a boolean", map[string]any{"field": "risk_mitigating_only"})
+		}
+		q.RiskMitigatingOnly = parsed
+	}
+	if raw := strings.TrimSpace(r.URL.Query().Get("risk_non_mitigating_only")); raw != "" {
+		parsed, err := strconv.ParseBool(raw)
+		if err != nil {
+			return ListQuery{}, apperrors.Validation("risk_non_mitigating_only must be a boolean", map[string]any{"field": "risk_non_mitigating_only"})
+		}
+		q.RiskNonMitigatingOnly = parsed
+	}
+	if raw := strings.TrimSpace(r.URL.Query().Get("risk_active_only")); raw != "" {
+		parsed, err := strconv.ParseBool(raw)
+		if err != nil {
+			return ListQuery{}, apperrors.Validation("risk_active_only must be a boolean", map[string]any{"field": "risk_active_only"})
+		}
+		q.RiskActiveOnly = parsed
+	}
+
+	q.WorkItemType = strings.TrimSpace(r.URL.Query().Get("item_type"))
+	q.Search = strings.TrimSpace(r.URL.Query().Get("search"))
+	if q.Search == "" {
+		q.Search = q.Q
+	}
+	q.Preset = strings.TrimSpace(r.URL.Query().Get("preset"))
+	if raw := strings.TrimSpace(r.URL.Query().Get("my_work")); raw != "" {
+		parsed, err := strconv.ParseBool(raw)
+		if err != nil {
+			return ListQuery{}, apperrors.Validation("my_work must be a boolean", map[string]any{"field": "my_work"})
+		}
+		q.MyWorkOnly = parsed
+	}
+	if raw := strings.TrimSpace(r.URL.Query().Get("include_completed")); raw != "" {
+		parsed, err := strconv.ParseBool(raw)
+		if err != nil {
+			return ListQuery{}, apperrors.Validation("include_completed must be a boolean", map[string]any{"field": "include_completed"})
+		}
+		q.IncludeCompleted = parsed
+	}
+	if q.Limit > 100 && strings.Contains(r.URL.Path, "work-items") {
+		return ListQuery{}, apperrors.Validation("limit must be <= 100", map[string]any{"field": "limit"})
+	}
+
 	return q, nil
 }
 

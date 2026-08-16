@@ -27,22 +27,75 @@ type ControlTowerShipment struct {
 	LastUpdatedAt        *time.Time `json:"lastUpdatedAt,omitempty"`
 	DocumentsComplete    bool       `json:"documentsComplete"`
 	ReadyForBilling      bool       `json:"readyForBilling"`
+	DriverID             *string    `json:"driverId,omitempty"`
+	VehicleID            *string    `json:"vehicleId,omitempty"`
+	TrackingStatus       *string    `json:"trackingStatus,omitempty"`
+	TrackingFreshness    *string    `json:"trackingFreshness,omitempty"`
+	LastPositionRecordedAt *time.Time `json:"lastPositionRecordedAt,omitempty"`
+	TelemetryAgeSeconds  *int64     `json:"telemetryAgeSeconds,omitempty"`
+	TrackingQuality      *string    `json:"trackingQuality,omitempty"`
+	LastKnownLatitude    *float64   `json:"lastKnownLatitude,omitempty"`
+	LastKnownLongitude   *float64   `json:"lastKnownLongitude,omitempty"`
+	TrackingProvider     *string    `json:"trackingProvider,omitempty"`
+	ETAStatus            *string    `json:"etaStatus,omitempty"`
+	EstimatedDeliveryAt  *time.Time `json:"estimatedDeliveryAt,omitempty"`
+	ETAFreshness         *string    `json:"etaFreshness,omitempty"`
+	ETAQuality           *string    `json:"etaQuality,omitempty"`
+	ProjectedDelaySeconds *int64    `json:"projectedDelaySeconds,omitempty"`
+	ArrivalProjection    *string    `json:"arrivalProjection,omitempty"`
+	ETAAgeSeconds        *int64     `json:"etaAgeSeconds,omitempty"`
+	LastETAObservedAt    *time.Time `json:"lastEtaObservedAt,omitempty"`
+	PickupSlotWindowStatus       *string    `json:"pickupSlotWindowStatus,omitempty"`
+	PickupSlotWindowStart        *time.Time `json:"pickupSlotWindowStart,omitempty"`
+	PickupSlotWindowEnd          *time.Time `json:"pickupSlotWindowEnd,omitempty"`
+	PickupSlotStatus             *string    `json:"pickupSlotStatus,omitempty"`
+	PickupSlotArrivalProjection  *string    `json:"pickupSlotArrivalProjection,omitempty"`
+	PickupSlotProjectedLateSeconds *int64   `json:"pickupSlotProjectedLateSeconds,omitempty"`
+	PickupSlotMarginSeconds      *int64     `json:"pickupSlotMarginSeconds,omitempty"`
+	DeliverySlotWindowStatus       *string    `json:"deliverySlotWindowStatus,omitempty"`
+	DeliverySlotWindowStart        *time.Time `json:"deliverySlotWindowStart,omitempty"`
+	DeliverySlotWindowEnd          *time.Time `json:"deliverySlotWindowEnd,omitempty"`
+	DeliverySlotStatus             *string    `json:"deliverySlotStatus,omitempty"`
+	DeliverySlotArrivalProjection  *string    `json:"deliverySlotArrivalProjection,omitempty"`
+	DeliverySlotProjectedLateSeconds *int64   `json:"deliverySlotProjectedLateSeconds,omitempty"`
+	DeliverySlotMarginSeconds      *int64     `json:"deliverySlotMarginSeconds,omitempty"`
 }
 
 type ControlTowerEvent struct {
-	ID              string                            `json:"id"`
-	ShipmentID      string                            `json:"shipmentId"`
-	ShipmentNumber  string                            `json:"shipmentNumber"`
-	Type            string                            `json:"type"`
-	Severity        string                            `json:"severity"`
-	OccurredAt      time.Time                         `json:"occurredAt"`
-	Description     *string                           `json:"description,omitempty"`
-	Source          string                            `json:"source"`
-	Acknowledgement *ControlTowerEventAckSummary      `json:"acknowledgement,omitempty"`
+	ID                string                       `json:"id"`
+	ShipmentID        string                       `json:"shipmentId"`
+	ShipmentNumber    string                       `json:"shipmentNumber"`
+	Type              string                       `json:"type"`
+	Severity          string                       `json:"severity"`
+	OccurredAt        time.Time                    `json:"occurredAt"`
+	Description       *string                      `json:"description,omitempty"`
+	Source            string                       `json:"source"`
+	Status            string                       `json:"status"`
+	Priority          string                       `json:"priority,omitempty"`
+	ExceptionCategory string                       `json:"exceptionCategory,omitempty"`
+	BusinessImpact    string                       `json:"businessImpact,omitempty"`
+	SLA               *ControlTowerEventSLA        `json:"sla,omitempty"`
+	Escalation        *ControlTowerEventEscalation `json:"escalation,omitempty"`
+	Acknowledgement   *ControlTowerEventAckSummary `json:"acknowledgement,omitempty"`
+	Assignment        *ControlTowerEventAssignment `json:"assignment,omitempty"`
+	Resolution        *ControlTowerEventResolution `json:"resolution,omitempty"`
+}
+
+type ControlTowerEventSLA struct {
+	Phase            string    `json:"phase"`
+	Status           string    `json:"status"`
+	AcknowledgeDueAt time.Time `json:"acknowledgeDueAt"`
+	AssignmentDueAt  time.Time `json:"assignmentDueAt"`
+	ResolutionDueAt  time.Time `json:"resolutionDueAt"`
+	RemainingSeconds *int64    `json:"remainingSeconds,omitempty"`
+}
+
+type ControlTowerEventEscalation struct {
+	Level string `json:"level"`
 }
 
 type ControlTowerEventAckSummary struct {
-	AcknowledgedAt time.Time                    `json:"acknowledgedAt"`
+	AcknowledgedAt time.Time                       `json:"acknowledgedAt"`
 	AcknowledgedBy ControlTowerEventAcknowledgedBy `json:"acknowledgedBy"`
 }
 
@@ -57,9 +110,54 @@ type ControlTowerEventAcknowledgement struct {
 	EventType      string                          `json:"eventType"`
 	OccurredAt     time.Time                       `json:"occurredAt"`
 	Source         string                          `json:"source"`
+	Status         string                          `json:"status"`
 	AcknowledgedAt time.Time                       `json:"acknowledgedAt"`
 	AcknowledgedBy ControlTowerEventAcknowledgedBy `json:"acknowledgedBy"`
 }
+
+type ControlTowerEventAssignment struct {
+	AssignedToUserID string    `json:"assignedToUserId"`
+	AssignedByUserID string    `json:"assignedByUserId"`
+	AssignedAt       time.Time `json:"assignedAt"`
+}
+
+type ControlTowerEventResolution struct {
+	ResolvedByUserID string    `json:"resolvedByUserId"`
+	ResolvedAt       time.Time `json:"resolvedAt"`
+	ResolutionCode   string    `json:"resolutionCode"`
+	Comment          *string   `json:"comment,omitempty"`
+}
+
+type ControlTowerEventWorkflow struct {
+	EventID           string                       `json:"eventId"`
+	Status            string                       `json:"status"`
+	Priority          string                       `json:"priority,omitempty"`
+	ExceptionCategory string                       `json:"exceptionCategory,omitempty"`
+	BusinessImpact    string                       `json:"businessImpact,omitempty"`
+	SLA               *ControlTowerEventSLA        `json:"sla,omitempty"`
+	Escalation        *ControlTowerEventEscalation `json:"escalation,omitempty"`
+	Acknowledgement   *ControlTowerEventAckSummary `json:"acknowledgement,omitempty"`
+	Assignment        *ControlTowerEventAssignment `json:"assignment,omitempty"`
+	Resolution        *ControlTowerEventResolution `json:"resolution,omitempty"`
+}
+
+type ControlTowerEventAction struct {
+	ActionType  string         `json:"actionType"`
+	ActorUserID string         `json:"actorUserId"`
+	OccurredAt  time.Time      `json:"occurredAt"`
+	Metadata    map[string]any `json:"metadata,omitempty"`
+}
+
+type ControlTowerEventActionsResponse struct {
+	Items []ControlTowerEventAction `json:"items"`
+}
+
+const (
+	WorkflowStatusOpen         = "open"
+	WorkflowStatusAcknowledged = "acknowledged"
+	WorkflowStatusAssigned     = "assigned"
+	WorkflowStatusResolved     = "resolved"
+)
 
 const (
 	EventTypePickupDelay       = "PICKUP_DELAY"
@@ -73,6 +171,7 @@ const (
 	EventSeverityWarning       = "WARNING"
 	EventSeverityCritical      = "CRITICAL"
 	EventSourceControlTower    = "control-tower"
+	EventSourceDriver          = "driver"
 )
 
 type DataFreshness struct {
@@ -92,6 +191,17 @@ type KPI struct {
 	Critical          int `json:"critical"`
 	AwaitingDocuments int `json:"awaitingDocuments"`
 	ReadyForBilling   int `json:"readyForBilling"`
+}
+
+type ExceptionKPI struct {
+	TotalOpenExceptions  int `json:"totalOpenExceptions"`
+	P1Open               int `json:"p1Open"`
+	P2Open               int `json:"p2Open"`
+	SLAWarning           int `json:"slaWarning"`
+	SLABreached          int `json:"slaBreached"`
+	UnassignedExceptions int `json:"unassignedExceptions"`
+	ResolvedWithinSLA    int `json:"resolvedWithinSla"`
+	ResolvedOutsideSLA   int `json:"resolvedOutsideSla"`
 }
 
 type ShipmentsPage struct {
@@ -117,8 +227,11 @@ type SummaryResponse struct {
 	GeneratedAt            time.Time                    `json:"generatedAt"`
 	DataFreshness          DataFreshness                `json:"dataFreshness"`
 	KPI                    KPI                          `json:"kpi"`
+	ExceptionKPI           ExceptionKPI                 `json:"exceptionKpi"`
+	RiskKPI                RiskKPI                      `json:"riskKpi,omitempty"`
 	Shipments              ShipmentsPage                `json:"shipments"`
 	CriticalEvents         []ControlTowerEvent          `json:"criticalEvents"`
+	ShipmentRisks          []ControlTowerShipmentRisk   `json:"shipmentRisks,omitempty"`
 	Filters                FiltersResponse              `json:"filters"`
 	StatusSummary          *StatusSummaryBlock          `json:"statusSummary,omitempty"`
 	StatusSummaryFreshness *StatusSummaryFreshnessBlock `json:"statusSummaryFreshness,omitempty"`
@@ -163,16 +276,35 @@ const (
 )
 
 type ListQuery struct {
-	Q            string
-	Status       string
-	SLAStatus    string
-	ShipperID    string
-	CarrierID    string
-	DateFrom     *time.Time
-	DateTo       *time.Time
-	CriticalOnly bool
-	Page         int
-	Limit        int
+	Q                     string
+	Status                string
+	SLAStatus             string
+	ShipperID             string
+	CarrierID             string
+	DateFrom              *time.Time
+	DateTo                *time.Time
+	CriticalOnly          bool
+	EventStatus           string
+	Priority              string
+	ExceptionCategory     string
+	BusinessImpact        string
+	EventSLAStatus        string
+	EscalationLevel       string
+	UnassignedOnly        bool
+	RiskLevel             string
+	RiskStatus            string
+	RiskPredictedType     string
+	RiskShipmentID        string
+	RiskMitigatingOnly    bool
+	RiskNonMitigatingOnly bool
+	RiskActiveOnly        bool
+	WorkItemType          string
+	Search                string
+	Preset                string
+	MyWorkOnly            bool
+	IncludeCompleted      bool
+	Page                  int
+	Limit                 int
 }
 
 type RequestContext struct {
@@ -197,6 +329,8 @@ type rawShipment struct {
 	ActualDeliveryAt      *time.Time
 	UpdatedAt             *time.Time
 	CreatedAt             *time.Time
+	DriverID              *string
+	VehicleID             *string
 }
 
 type rawTransportOrder struct {

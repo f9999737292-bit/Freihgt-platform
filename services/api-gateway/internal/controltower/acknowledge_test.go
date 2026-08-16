@@ -15,8 +15,8 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/freight-platform/api-gateway/internal/config"
-	gwmiddleware "github.com/freight-platform/api-gateway/internal/http/middleware"
 	"github.com/freight-platform/api-gateway/internal/controltowerreadmodel"
+	gwmiddleware "github.com/freight-platform/api-gateway/internal/http/middleware"
 )
 
 func TestAcknowledgeCriticalEventInvalidEventIDReturns400(t *testing.T) {

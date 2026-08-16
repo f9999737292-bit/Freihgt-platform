@@ -35,10 +35,11 @@ var allowedKafkaHeaderKeys = map[string]struct{}{
 }
 
 type KafkaPublisher struct {
-	client    *kgo.Client
-	topic     string
-	clock     Clock
-	closeOnce sync.Once
+	client      *kgo.Client
+	topic       string
+	driverTopic string
+	clock       Clock
+	closeOnce   sync.Once
 }
 
 type CloseablePublisher interface {
@@ -65,9 +66,10 @@ func NewKafkaPublisher(cfg config.KafkaConfig, clock Clock) (*KafkaPublisher, er
 	}
 
 	return &KafkaPublisher{
-		client: client,
-		topic:  cfg.Topic,
-		clock:  clock,
+		client:      client,
+		topic:       cfg.Topic,
+		driverTopic: cfg.DriverTopic,
+		clock:       clock,
 	}, nil
 }
 
@@ -149,7 +151,7 @@ func (p *KafkaPublisher) Publish(ctx context.Context, event domain.ShipmentOutbo
 		return err
 	}
 
-	record, err := buildKafkaRecord(p.topic, event)
+	record, err := buildKafkaRecord(p.topic, p.driverTopic, event)
 	if err != nil {
 		shipmentmetrics.ObserveKafkaPublish(event.EventType, "error", ErrorCodePayloadRejected, p.clock.Now().Sub(start))
 		return err
@@ -202,6 +204,9 @@ func validateKafkaPublishEvent(event domain.ShipmentOutboxEvent) error {
 }
 
 func isKnownKafkaEventType(eventType string) bool {
+	if domain.IsDriverKafkaEventType(eventType) {
+		return true
+	}
 	switch eventType {
 	case domain.OutboxEventTypeCreated,
 		domain.OutboxEventTypeStatusChanged,
@@ -215,10 +220,31 @@ func isKnownKafkaEventType(eventType string) bool {
 	}
 }
 
-func buildKafkaRecord(topic string, event domain.ShipmentOutboxEvent) (*kgo.Record, error) {
-	var envelope domain.ShipmentStatusEventEnvelope
-	if err := json.Unmarshal(event.Payload, &envelope); err != nil {
-		return nil, &PublishError{Code: ErrorCodePayloadRejected, Retryable: false, Err: fmt.Errorf("invalid event envelope: %w", err)}
+func resolveKafkaTopic(cfgTopic, driverTopic, eventType string) string {
+	if domain.IsDriverKafkaEventType(eventType) {
+		return driverTopic
+	}
+	return cfgTopic
+}
+
+func buildKafkaRecord(topic, driverTopic string, event domain.ShipmentOutboxEvent) (*kgo.Record, error) {
+	selectedTopic := resolveKafkaTopic(topic, driverTopic, event.EventType)
+	var correlationID *string
+	if domain.IsDriverKafkaEventType(event.EventType) {
+		var envelope domain.DriverEventEnvelope
+		if err := json.Unmarshal(event.Payload, &envelope); err != nil {
+			return nil, &PublishError{Code: ErrorCodePayloadRejected, Retryable: false, Err: fmt.Errorf("invalid driver event envelope: %w", err)}
+		}
+		if strings.TrimSpace(envelope.EventID) == "" || strings.TrimSpace(envelope.TenantID) == "" {
+			return nil, &PublishError{Code: ErrorCodePayloadRejected, Retryable: false, Err: errors.New("driver event envelope missing required identifiers")}
+		}
+		correlationID = envelope.CorrelationID
+	} else {
+		var envelope domain.ShipmentStatusEventEnvelope
+		if err := json.Unmarshal(event.Payload, &envelope); err != nil {
+			return nil, &PublishError{Code: ErrorCodePayloadRejected, Retryable: false, Err: fmt.Errorf("invalid event envelope: %w", err)}
+		}
+		correlationID = envelope.CorrelationID
 	}
 
 	headers := []kgo.RecordHeader{
@@ -227,8 +253,8 @@ func buildKafkaRecord(topic string, event domain.ShipmentOutboxEvent) (*kgo.Reco
 		{Key: "source_event_id", Value: []byte(event.SourceEventID.String())},
 		{Key: "content_type", Value: []byte(kafkaContentType)},
 	}
-	if envelope.CorrelationID != nil && strings.TrimSpace(*envelope.CorrelationID) != "" {
-		headers = append(headers, kgo.RecordHeader{Key: "correlation_id", Value: []byte(*envelope.CorrelationID)})
+	if correlationID != nil && strings.TrimSpace(*correlationID) != "" {
+		headers = append(headers, kgo.RecordHeader{Key: "correlation_id", Value: []byte(*correlationID)})
 	}
 
 	for _, header := range headers {
@@ -238,7 +264,7 @@ func buildKafkaRecord(topic string, event domain.ShipmentOutboxEvent) (*kgo.Reco
 	}
 
 	return &kgo.Record{
-		Topic:   topic,
+		Topic:   selectedTopic,
 		Key:     []byte(event.AggregateID.String()),
 		Value:   append([]byte(nil), event.Payload...),
 		Headers: headers,
@@ -302,5 +328,5 @@ func NewKafkaPublisherWithClient(client *kgo.Client, topic string, clock Clock) 
 	if clock == nil {
 		clock = NewRealClock()
 	}
-	return &KafkaPublisher{client: client, topic: topic, clock: clock}
+	return &KafkaPublisher{client: client, topic: topic, driverTopic: topic, clock: clock}
 }

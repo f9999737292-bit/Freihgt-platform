@@ -10,6 +10,7 @@ const (
 	CodeUnauthorized                      Code = "UNAUTHORIZED"
 	CodeForbidden                         Code = "FORBIDDEN"
 	CodeValidation                        Code = "VALIDATION_ERROR"
+	CodeConflict                          Code = "CONFLICT"
 	CodeServiceUnavailable                Code = "SERVICE_UNAVAILABLE"
 	CodeControlTowerShipmentsUnavailable  Code = "CONTROL_TOWER_SHIPMENTS_UNAVAILABLE"
 	CodeControlTowerReadModelUnavailable  Code = "CONTROL_TOWER_READ_MODEL_UNAVAILABLE"
@@ -57,6 +58,13 @@ func Validation(message string, details map[string]any) *AppError {
 		details = map[string]any{}
 	}
 	return &AppError{Code: CodeValidation, Message: message, Details: details}
+}
+
+func Conflict(message string, details map[string]any) *AppError {
+	if details == nil {
+		details = map[string]any{}
+	}
+	return &AppError{Code: CodeConflict, Message: message, Details: details}
 }
 
 func ServiceUnavailable(message string, service string) *AppError {

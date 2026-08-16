@@ -22,6 +22,7 @@ tags:
   - name: Bids
   - name: Shipments
   - name: Drivers
+  - name: Driver Mobile
   - name: Vehicles
   - name: Documents
   - name: Signing
@@ -851,6 +852,59 @@ paths:
           in: query
           schema:
             type: boolean
+        - name: event_status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ControlTowerEventWorkflowStatus'
+        - name: priority
+          in: query
+          schema:
+            $ref: '#/components/schemas/ControlTowerExceptionPriority'
+        - name: exception_category
+          in: query
+          schema:
+            $ref: '#/components/schemas/ControlTowerExceptionCategory'
+        - name: business_impact
+          in: query
+          schema:
+            $ref: '#/components/schemas/ControlTowerBusinessImpact'
+        - name: event_sla_status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ControlTowerExceptionSLAStatus'
+        - name: escalation_level
+          in: query
+          schema:
+            $ref: '#/components/schemas/ControlTowerEscalationLevel'
+        - name: unassigned_only
+          in: query
+          schema:
+            type: boolean
+        - name: risk_level
+          in: query
+          schema:
+            $ref: '#/components/schemas/ControlTowerRiskLevel'
+        - name: risk_status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ControlTowerRiskStatus'
+        - name: predicted_exception_type
+          in: query
+          schema:
+            $ref: '#/components/schemas/ControlTowerPredictedExceptionType'
+        - name: risk_shipment_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: risk_mitigating_only
+          in: query
+          schema:
+            type: boolean
+        - name: risk_non_mitigating_only
+          in: query
+          schema:
+            type: boolean
         - name: page
           in: query
           schema:
@@ -970,6 +1024,1215 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/control-tower/critical-events/{eventId}/assign:
+    post:
+      tags: [Control Tower]
+      summary: Assign a critical Control Tower event
+      operationId: post_control_tower_critical_event_assign
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[0-9a-f]{32}$'
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ControlTowerEventAssignRequest'
+      responses:
+        '200':
+          description: Event assigned or reassigned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerEventWorkflow'
+        '400': { description: Invalid request, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '401': { description: Unauthorized, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Forbidden, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Event not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '409': { description: Invalid workflow transition, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '503': { description: Dependency unavailable, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /api/v1/control-tower/critical-events/{eventId}/resolve:
+    post:
+      tags: [Control Tower]
+      summary: Resolve a critical Control Tower event
+      operationId: post_control_tower_critical_event_resolve
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[0-9a-f]{32}$'
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ControlTowerEventResolveRequest'
+      responses:
+        '200':
+          description: Event resolved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerEventWorkflow'
+        '400': { description: Invalid request, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '401': { description: Unauthorized, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Forbidden, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Event not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '409': { description: Invalid workflow transition, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '503': { description: Dependency unavailable, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /api/v1/control-tower/critical-events/{eventId}/reopen:
+    post:
+      tags: [Control Tower]
+      summary: Reopen a resolved critical Control Tower event
+      operationId: post_control_tower_critical_event_reopen
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[0-9a-f]{32}$'
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              maxProperties: 0
+              additionalProperties: false
+      responses:
+        '200':
+          description: Event reopened
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerEventWorkflow'
+        '401': { description: Unauthorized, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Forbidden, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Event not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '409': { description: Invalid workflow transition, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '503': { description: Dependency unavailable, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /api/v1/control-tower/critical-events/{eventId}/exception:
+    patch:
+      tags: [Control Tower]
+      summary: Update operational exception attributes
+      operationId: patch_control_tower_critical_event_exception
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[0-9a-f]{32}$'
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ControlTowerExceptionUpdateRequest'
+      responses:
+        '200':
+          description: Exception attributes updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerEventWorkflow'
+        '400': { description: Invalid request, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '401': { description: Unauthorized, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Forbidden, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Event not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '503': { description: Dependency unavailable, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /api/v1/control-tower/critical-events/{eventId}/actions:
+    get:
+      tags: [Control Tower]
+      summary: List workflow action history for a critical event
+      operationId: get_control_tower_critical_event_actions
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[0-9a-f]{32}$'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Chronological workflow actions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerEventActionsResponse'
+        '401': { description: Unauthorized, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Forbidden, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Event not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '503': { description: Dependency unavailable, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /api/v1/control-tower/risks:
+    get:
+      tags: [Control Tower]
+      summary: List predictive shipment risks
+      operationId: get_control_tower_risks
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: risk_level
+          in: query
+          schema:
+            $ref: '#/components/schemas/ControlTowerRiskLevel'
+        - name: risk_status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ControlTowerRiskStatus'
+        - name: predicted_exception_type
+          in: query
+          schema:
+            $ref: '#/components/schemas/ControlTowerPredictedExceptionType'
+        - name: risk_shipment_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: risk_mitigating_only
+          in: query
+          schema:
+            type: boolean
+        - name: risk_non_mitigating_only
+          in: query
+          schema:
+            type: boolean
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Predictive risks
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerRisksListResponse'
+        '401': { description: Unauthorized, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Forbidden, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '503': { description: Dependency unavailable, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /api/v1/control-tower/risks/{riskId}:
+    get:
+      tags: [Control Tower]
+      summary: Get predictive risk details
+      operationId: get_control_tower_risk
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: riskId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[0-9a-f]{32}$'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Risk details with signals and action history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerShipmentRisk'
+        '401': { description: Unauthorized, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Forbidden, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Risk not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '503': { description: Dependency unavailable, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /api/v1/control-tower/risks/{riskId}/acknowledge:
+    post:
+      tags: [Control Tower]
+      summary: Acknowledge a predictive risk
+      operationId: post_control_tower_risk_acknowledge
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: riskId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[0-9a-f]{32}$'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Updated risk
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerShipmentRisk'
+        '401': { description: Unauthorized, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Forbidden, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Risk not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '409': { description: Invalid transition, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '503': { description: Dependency unavailable, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /api/v1/control-tower/risks/{riskId}/mitigate:
+    post:
+      tags: [Control Tower]
+      summary: Start or update risk mitigation
+      operationId: post_control_tower_risk_mitigate
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: riskId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[0-9a-f]{32}$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ControlTowerMitigateRiskRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Updated risk
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerShipmentRisk'
+        '400': { description: Validation error, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '401': { description: Unauthorized, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Forbidden, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Risk not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '409': { description: Invalid transition, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '503': { description: Dependency unavailable, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /api/v1/control-tower/work-items:
+    get:
+      tags: [Control Tower]
+      summary: List unified operator work items
+      operationId: get_control_tower_work_items
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: preset
+          in: query
+          schema: { type: string }
+        - name: my_work
+          in: query
+          schema: { type: boolean }
+        - name: unassigned
+          in: query
+          schema: { type: boolean }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Work item page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerWorkItemsPage'
+  /api/v1/control-tower/work-items/{itemType}/{itemId}:
+    get:
+      tags: [Control Tower]
+      summary: Get work item details
+      operationId: get_control_tower_work_item
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: itemType
+          in: path
+          required: true
+          schema: { type: string, enum: [exception, risk] }
+        - name: itemId
+          in: path
+          required: true
+          schema: { type: string }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Work item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerWorkItem'
+  /api/v1/control-tower/work-items/{itemType}/{itemId}/claim:
+    post:
+      tags: [Control Tower]
+      summary: Claim work item for current operator
+      operationId: post_control_tower_work_item_claim
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: itemType
+          in: path
+          required: true
+          schema: { type: string, enum: [exception, risk] }
+        - name: itemId
+          in: path
+          required: true
+          schema: { type: string }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Updated work item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerWorkItem'
+        '409':
+          description: Already claimed
+  /api/v1/control-tower/work-items/bulk-action:
+    post:
+      tags: [Control Tower]
+      summary: Bulk operator work actions
+      operationId: post_control_tower_work_items_bulk_action
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ControlTowerBulkWorkActionRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Per-item outcomes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerBulkWorkActionOutcome'
+  /api/v1/control-tower/workload:
+    get:
+      tags: [Control Tower]
+      summary: Operator workload summary
+      operationId: get_control_tower_workload
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Workload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerWorkloadResponse'
+  /api/v1/control-tower/views:
+    get:
+      tags: [Control Tower]
+      summary: List saved workspace views
+      operationId: get_control_tower_views
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Saved views
+    post:
+      tags: [Control Tower]
+      summary: Create saved workspace view
+      operationId: post_control_tower_views
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Created view
+  /api/v1/control-tower/handoffs:
+    get:
+      tags: [Control Tower]
+      summary: List shift handoffs
+      operationId: get_control_tower_handoffs
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Handoffs
+    post:
+      tags: [Control Tower]
+      summary: Create shift handoff
+      operationId: post_control_tower_handoffs
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Handoff result
+  /api/v1/control-tower/cases:
+    get:
+      tags: [Control Tower]
+      summary: List operational cases
+      operationId: get_control_tower_cases
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: preset
+          in: query
+          description: Includes sla_at_risk and overdue_actions presets
+          schema:
+            type: string
+            enum: [my_cases, unassigned, critical, action_required, monitoring, resolved, closed, all_active, sla_at_risk, overdue_actions]
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: severity
+          in: query
+          schema: { type: string }
+        - name: owner
+          in: query
+          schema: { type: string, format: uuid }
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - name: hasSlaBreach
+          in: query
+          schema: { type: boolean }
+        - name: hasSlaWarning
+          in: query
+          schema: { type: boolean }
+        - name: overdueActions
+          in: query
+          schema: { type: boolean }
+        - name: slaState
+          in: query
+          schema: { type: string, enum: [breached, warning] }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Case page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerCasesPage'
+    post:
+      tags: [Control Tower]
+      summary: Create operational case
+      operationId: post_control_tower_cases
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ControlTowerCreateCaseRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Created case
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerOperationalCase'
+        '409':
+          description: Active case conflict for work item
+  /api/v1/control-tower/cases/kpi:
+    get:
+      tags: [Control Tower]
+      summary: Operational case KPI summary
+      operationId: get_control_tower_cases_kpi
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Case KPI
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerCaseKpi'
+  /api/v1/control-tower/cases/duplicates:
+    get:
+      tags: [Control Tower]
+      summary: Find likely duplicate active cases
+      operationId: get_control_tower_case_duplicates
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: itemType
+          in: query
+          schema: { type: string, enum: [exception, risk] }
+        - name: itemId
+          in: query
+          required: true
+          schema: { type: string }
+        - name: shipmentId
+          in: query
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Duplicate candidates
+  /api/v1/control-tower/cases/{caseId}:
+    get:
+      tags: [Control Tower]
+      summary: Get operational case details
+      operationId: get_control_tower_case
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Case details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlTowerOperationalCase'
+    patch:
+      tags: [Control Tower]
+      summary: Update operational case
+      operationId: patch_control_tower_case
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Updated case
+        '409':
+          description: Version conflict
+  /api/v1/control-tower/cases/{caseId}/claim:
+    post:
+      tags: [Control Tower]
+      summary: Claim case for current operator
+      operationId: post_control_tower_case_claim
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Claimed case
+        '409':
+          description: Already owned
+  /api/v1/control-tower/cases/{caseId}/links:
+    post:
+      tags: [Control Tower]
+      summary: Add typed link to case
+      operationId: post_control_tower_case_link
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Link created
+        '409':
+          description: Work item already in active case
+  /api/v1/control-tower/cases/{caseId}/notes:
+    post:
+      tags: [Control Tower]
+      summary: Add case note
+      operationId: post_control_tower_case_note
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Note created
+  /api/v1/control-tower/cases/{caseId}/actions:
+    post:
+      tags: [Control Tower]
+      summary: Create case action item
+      operationId: post_control_tower_case_action
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Action item created
+  /api/v1/control-tower/cases/{caseId}/actions/{actionId}/complete:
+    post:
+      tags: [Control Tower]
+      summary: Complete case action item
+      operationId: post_control_tower_case_action_complete
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: actionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Action completed
+  /api/v1/control-tower/cases/{caseId}/decisions:
+    post:
+      tags: [Control Tower]
+      summary: Record case decision
+      operationId: post_control_tower_case_decision
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Decision recorded
+  /api/v1/control-tower/cases/{caseId}/resolve:
+    post:
+      tags: [Control Tower]
+      summary: Resolve operational case
+      operationId: post_control_tower_case_resolve
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Case resolved
+  /api/v1/control-tower/cases/{caseId}/close:
+    post:
+      tags: [Control Tower]
+      summary: Close resolved case
+      operationId: post_control_tower_case_close
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Case closed
+  /api/v1/control-tower/cases/{caseId}/reopen:
+    post:
+      tags: [Control Tower]
+      summary: Reopen case
+      operationId: post_control_tower_case_reopen
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Case reopened
+  /api/v1/control-tower/cases/{caseId}/timeline:
+    get:
+      tags: [Control Tower]
+      summary: Paginated case timeline
+      operationId: get_control_tower_case_timeline
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Timeline page
+  /api/v1/control-tower/cases/{caseId}/participants:
+    post:
+      tags: [Control Tower]
+      summary: Add case participant
+      operationId: post_control_tower_case_participant
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ControlTowerAddCaseParticipantRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Participant added
+        '409':
+          description: Participant conflict
+  /api/v1/control-tower/cases/{caseId}/participants/{userId}:
+    patch:
+      tags: [Control Tower]
+      summary: Change case participant role
+      operationId: patch_control_tower_case_participant
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ControlTowerUpdateCaseParticipantRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Participant role updated
+        '409':
+          description: Cannot promote to owner via participant API
+    delete:
+      tags: [Control Tower]
+      summary: Remove case participant
+      operationId: delete_control_tower_case_participant
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Participant removed
+        '409':
+          description: Cannot remove canonical case owner
+  /api/v1/control-tower/automation/rules:
+    get:
+      tags: [Control Tower]
+      summary: List automation rules
+      operationId: list_control_tower_automation_rules
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Automation rules page
+    post:
+      tags: [Control Tower]
+      summary: Create automation rule
+      operationId: create_control_tower_automation_rule
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Rule created
+  /api/v1/control-tower/automation/rules/{ruleId}:
+    get:
+      tags: [Control Tower]
+      summary: Get automation rule
+      operationId: get_control_tower_automation_rule
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: ruleId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Rule detail
+    patch:
+      tags: [Control Tower]
+      summary: Update automation rule
+      operationId: patch_control_tower_automation_rule
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: ruleId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Rule updated
+  /api/v1/control-tower/automation/rules/{ruleId}/dry-run:
+    post:
+      tags: [Control Tower]
+      summary: Dry-run automation rule evaluation
+      operationId: post_control_tower_automation_rule_dry_run
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: ruleId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Dry-run result without side effects
+  /api/v1/control-tower/automation/recommendations:
+    get:
+      tags: [Control Tower]
+      summary: List automation recommendations
+      operationId: list_control_tower_automation_recommendations
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Recommendations page
+  /api/v1/control-tower/automation/recommendations/{recommendationId}/accept:
+    post:
+      tags: [Control Tower]
+      summary: Accept playbook recommendation
+      operationId: post_control_tower_automation_recommendation_accept
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: recommendationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Recommendation accepted and execution created
+  /api/v1/control-tower/playbooks:
+    get:
+      tags: [Control Tower]
+      summary: List operational playbooks
+      operationId: list_control_tower_playbooks
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Playbooks page
+    post:
+      tags: [Control Tower]
+      summary: Create operational playbook
+      operationId: create_control_tower_playbook
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Playbook created
+  /api/v1/control-tower/automation/rules/{ruleId}/activate:
+    post:
+      tags: [Control Tower]
+      summary: Activate automation rule
+      operationId: post_control_tower_automation_rule_activate
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: ruleId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Rule activated
+  /api/v1/control-tower/automation/rules/{ruleId}/disable:
+    post:
+      tags: [Control Tower]
+      summary: Disable automation rule
+      operationId: post_control_tower_automation_rule_disable
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: ruleId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Rule disabled
+  /api/v1/control-tower/automation/rules/{ruleId}/retire:
+    post:
+      tags: [Control Tower]
+      summary: Retire automation rule
+      operationId: post_control_tower_automation_rule_retire
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: ruleId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Rule retired
+  /api/v1/control-tower/automation/kpi:
+    get:
+      tags: [Control Tower]
+      summary: Automation KPI summary
+      operationId: get_control_tower_automation_kpi
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Automation KPI counts
+  /api/v1/control-tower/automation/recommendations/{recommendationId}/dismiss:
+    post:
+      tags: [Control Tower]
+      summary: Dismiss automation recommendation
+      operationId: post_control_tower_automation_recommendation_dismiss
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: recommendationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Recommendation dismissed
+  /api/v1/control-tower/playbooks/{playbookId}:
+    get:
+      tags: [Control Tower]
+      summary: Get operational playbook
+      operationId: get_control_tower_playbook
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: playbookId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Playbook detail with steps
+    patch:
+      tags: [Control Tower]
+      summary: Update operational playbook
+      operationId: patch_control_tower_playbook
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: playbookId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Playbook updated
+  /api/v1/control-tower/playbook-executions:
+    get:
+      tags: [Control Tower]
+      summary: List playbook executions
+      operationId: list_control_tower_playbook_executions
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Playbook executions page
+  /api/v1/control-tower/playbook-executions/{executionId}/start:
+    post:
+      tags: [Control Tower]
+      summary: Start playbook execution
+      operationId: post_control_tower_playbook_execution_start
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: executionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Execution started
+  /api/v1/control-tower/playbook-executions/{executionId}/complete:
+    post:
+      tags: [Control Tower]
+      summary: Complete playbook execution
+      operationId: post_control_tower_playbook_execution_complete
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: executionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Execution completed
+  /api/v1/control-tower/playbook-executions/{executionId}/cancel:
+    post:
+      tags: [Control Tower]
+      summary: Cancel playbook execution
+      operationId: post_control_tower_playbook_execution_cancel
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: executionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Execution cancelled
+  /api/v1/control-tower/playbook-executions/{executionId}/steps/{stepId}/complete:
+    post:
+      tags: [Control Tower]
+      summary: Complete playbook execution step
+      operationId: post_control_tower_playbook_execution_step_complete
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: executionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: stepId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Step completed
+  /api/v1/control-tower/playbook-executions/{executionId}/steps/{stepId}/skip:
+    post:
+      tags: [Control Tower]
+      summary: Skip playbook execution step
+      operationId: post_control_tower_playbook_execution_step_skip
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: executionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: stepId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Step skipped
+  /api/v1/control-tower/playbook-executions/{executionId}:
+    get:
+      tags: [Control Tower]
+      summary: Get playbook execution
+      operationId: get_control_tower_playbook_execution
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - name: executionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Playbook execution detail
   /api/v1/shipments/{shipmentId}/events:
     get:
       tags: [Shipments]
@@ -3659,6 +4922,288 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/shipments/{shipmentId}/tracking:
+    get:
+      tags: [Shipments, Tracking]
+      summary: Get current shipment tracking state
+      operationId: get_shipment_tracking
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/Authorization'
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current tracking summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShipmentTrackingSummary'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/shipments/{shipmentId}/tracking/locations:
+    get:
+      tags: [Shipments, Tracking]
+      summary: List bounded shipment location history
+      operationId: get_shipment_tracking_locations
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/Authorization'
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            maximum: 500
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Location history page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShipmentLocationHistoryPage'
+  /api/v1/shipments/{shipmentId}/eta:
+    get:
+      tags: [Shipments, ETA]
+      summary: Get current shipment ETA state
+      operationId: get_shipment_eta
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/Authorization'
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: plannedPickupAt
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: plannedDeliveryAt
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: actualPickupAt
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: actualDeliveryAt
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: shipmentStatus
+          in: query
+          schema:
+            type: string
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current ETA summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShipmentETASummary'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/shipments/{shipmentId}/eta/history:
+    get:
+      tags: [Shipments, ETA]
+      summary: List bounded shipment ETA observation history
+      operationId: get_shipment_eta_history
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/Authorization'
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: targetType
+          in: query
+          schema:
+            type: string
+            enum: [pickup, delivery]
+            default: delivery
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            maximum: 200
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: ETA history page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShipmentETAHistoryPage'
+  /api/v1/shipments/{shipmentId}/slots:
+    get:
+      tags: [Shipments, Slots]
+      summary: Get current shipment slot state
+      operationId: get_shipment_slots
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/Authorization'
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: shipmentStatus
+          in: query
+          schema:
+            type: string
+        - name: actualPickupAt
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: actualDeliveryAt
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: deliveryEtaStatus
+          in: query
+          schema:
+            type: string
+        - name: deliveryEtaFreshness
+          in: query
+          schema:
+            type: string
+        - name: deliveryEstimatedArrivalAt
+          in: query
+          schema:
+            type: string
+            format: date-time
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current slot summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShipmentSlotSummary'
+  /api/v1/shipments/{shipmentId}/slots/history:
+    get:
+      tags: [Shipments, Slots]
+      summary: List bounded shipment slot revision history
+      operationId: get_shipment_slot_history
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/Authorization'
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: slotType
+          in: query
+          schema:
+            type: string
+            enum: [pickup, delivery]
+            default: delivery
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            maximum: 200
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Slot history page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShipmentSlotHistoryPage'
   /api/v1/drivers:
     post:
       tags: [Drivers]
@@ -3863,6 +5408,570 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/driver/me:
+    get:
+      tags: [Driver Mobile]
+      summary: Get authenticated driver profile
+      operationId: get_driver_me
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Driver profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverMe'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/driver/me/shipments:
+    get:
+      tags: [Driver Mobile]
+      summary: List shipments assigned to authenticated driver
+      operationId: get_driver_me_shipments
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Assigned shipments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverShipmentList'
+  /api/v1/driver/me/shipments/{shipmentId}:
+    get:
+      tags: [Driver Mobile]
+      summary: Get assigned shipment detail for driver
+      operationId: get_driver_me_shipment_detail
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Shipment detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverShipmentDetail'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/driver/me/shipments/{shipmentId}/events:
+    post:
+      tags: [Driver Mobile]
+      summary: Record driver operational shipment event
+      operationId: post_driver_me_shipment_event
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverOperationalEventRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Event accepted or replayed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverOperationalEventResponse'
+  /api/v1/driver/me/shipments/{shipmentId}/exceptions:
+    post:
+      tags: [Driver Mobile]
+      summary: Report driver shipment exception
+      operationId: post_driver_me_shipment_exception
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverExceptionRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Exception created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverExceptionResponse'
+        '200':
+          description: Idempotent replay
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverExceptionResponse'
+  /api/v1/driver/me/shipments/{shipmentId}/delays:
+    post:
+      tags: [Driver Mobile]
+      summary: Report driver shipment delay
+      operationId: post_driver_me_shipment_delay
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverDelayRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Delay created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverDelayResponse'
+        '200':
+          description: Idempotent replay
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverDelayResponse'
+  /api/v1/driver/me/shipments/{shipmentId}/locations:
+    post:
+      tags: [Driver Mobile]
+      summary: Ingest driver GPS location for assigned shipment
+      operationId: post_driver_me_shipment_location
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverLocationRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Location ingest result
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /api/v1/driver/me/shipments/{shipmentId}/pod/uploads:
+    post:
+      tags: [Driver Mobile]
+      summary: Initiate secure POD upload for assigned shipment
+      operationId: post_driver_me_shipment_pod_upload
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverPODUploadRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Upload intent created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverPODUploadIntent'
+        '403':
+          description: Driver not assigned to shipment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/driver/me/shipments/{shipmentId}/pod/uploads/{uploadId}/content:
+    put:
+      tags: [Driver Mobile]
+      summary: Upload POD file bytes using server-issued upload token
+      operationId: put_driver_me_shipment_pod_upload_content
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: uploadId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-Upload-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '200':
+          description: Content stored
+  /api/v1/driver/me/shipments/{shipmentId}/pod/uploads/{uploadId}/complete:
+    post:
+      tags: [Driver Mobile]
+      summary: Finalize POD upload after object storage write
+      operationId: post_driver_me_shipment_pod_upload_complete
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: uploadId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverPODUploadCompleteRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: POD finalized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverPODUploadCompleteResponse'
+  /api/v1/driver/me/tasks:
+    get:
+      tags: [Driver Mobile]
+      summary: List driver inbox tasks
+      operationId: get_driver_me_tasks
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, DELIVERED, READ, ACKNOWLEDGED, COMPLETED, EXPIRED, CANCELLED]
+        - name: unread
+          in: query
+          schema:
+            type: boolean
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Driver task inbox
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverTaskList'
+  /api/v1/driver/me/tasks/{taskId}:
+    get:
+      tags: [Driver Mobile]
+      summary: Get driver task detail
+      operationId: get_driver_me_task_detail
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Task detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverTaskDetail'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/driver/me/tasks/{taskId}/read:
+    post:
+      tags: [Driver Mobile]
+      summary: Mark driver task as read
+      operationId: post_driver_me_task_read
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Task marked read
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverTaskDetail'
+  /api/v1/driver/me/tasks/{taskId}/acknowledge:
+    post:
+      tags: [Driver Mobile]
+      summary: Acknowledge driver task receipt
+      operationId: post_driver_me_task_acknowledge
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Task acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverTaskDetail'
+  /api/v1/driver/me/tasks/{taskId}/responses:
+    post:
+      tags: [Driver Mobile]
+      summary: Submit structured driver task response
+      operationId: post_driver_me_task_response
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverTaskResponseRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Task response accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverTaskResponseResult'
+  /api/v1/driver/me/devices:
+    post:
+      tags: [Driver Mobile]
+      summary: Register driver device for push delivery
+      operationId: post_driver_me_device_register
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverDeviceRegistrationRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Device registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverDevice'
+  /api/v1/driver/me/devices/{deviceId}:
+    delete:
+      tags: [Driver Mobile]
+      summary: Revoke driver device registration
+      operationId: delete_driver_me_device
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/XRequestID'
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Device revoked
+  /internal/v1/driver/tasks:
+    post:
+      tags: [Internal Driver Tasks]
+      summary: Create driver task (trusted internal)
+      description: Trusted internal boundary for Control Tower and platform services. Requires X-Internal-Service-Token.
+      operationId: post_internal_driver_task
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - name: X-Internal-Service-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InternalCreateDriverTaskRequest'
+      responses:
+        '201':
+          description: Task created or idempotently returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalCreateDriverTaskResponse'
+  /internal/v1/driver/tasks/{taskId}/cancel:
+    post:
+      tags: [Internal Driver Tasks]
+      summary: Cancel driver task (trusted internal)
+      operationId: post_internal_driver_task_cancel
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - name: X-Internal-Service-Token
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Task cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalCreateDriverTaskResponse'
   /api/v1/vehicles:
     post:
       tags: [Vehicles]
@@ -5684,7 +7793,402 @@ components:
       schema:
         type: string
       description: Bearer JWT access token
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema:
+        type: string
+        maxLength: 128
+      description: Client-generated idempotency identity for mobile-safe retries
   schemas:
+    DriverMe:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        companyId:
+          type: string
+          format: uuid
+        status:
+          type: string
+        preferredLocale:
+          type: string
+        phone:
+          type: string
+    DriverShipmentList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverShipmentSummary'
+        total:
+          type: integer
+    DriverShipmentSummary:
+      type: object
+      additionalProperties: true
+      properties:
+        id:
+          type: string
+          format: uuid
+        shipmentNumber:
+          type: string
+        status:
+          type: string
+    DriverShipmentDetail:
+      allOf:
+        - $ref: '#/components/schemas/DriverShipmentSummary'
+        - type: object
+          properties:
+            transportMode:
+              type: string
+            version:
+              type: integer
+    DriverOperationalEventRequest:
+      type: object
+      required: [type]
+      additionalProperties: false
+      properties:
+        type:
+          type: string
+          enum: [ARRIVED_AT_PICKUP, LOADING_STARTED, PICKUP_COMPLETED, DEPARTED_PICKUP, ARRIVED_AT_DELIVERY, UNLOADING_STARTED, DELIVERY_COMPLETED]
+        occurredAt:
+          type: string
+          format: date-time
+        idempotencyKey:
+          type: string
+          maxLength: 128
+    DriverOperationalEventResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        shipmentId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+        shipmentStatus:
+          type: string
+        replayed:
+          type: boolean
+    DriverExceptionRequest:
+      type: object
+      required: [category]
+      additionalProperties: false
+      properties:
+        category:
+          type: string
+          enum: [TRAFFIC, VEHICLE_BREAKDOWN, ACCIDENT, LOADING_DELAY, UNLOADING_DELAY, CARGO_ISSUE, DOCUMENT_ISSUE, CUSTOMER_UNAVAILABLE, ROUTE_BLOCKED, OTHER]
+        comment:
+          type: string
+          maxLength: 4000
+        occurredAt:
+          type: string
+          format: date-time
+        idempotencyKey:
+          type: string
+          maxLength: 128
+    DriverExceptionResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        id:
+          type: string
+          format: uuid
+        shipmentId:
+          type: string
+          format: uuid
+        category:
+          type: string
+        replayed:
+          type: boolean
+    DriverDelayRequest:
+      type: object
+      required: [reasonCode, idempotencyKey]
+      additionalProperties: false
+      properties:
+        reasonCode:
+          type: string
+          enum: [TRAFFIC, VEHICLE_BREAKDOWN, LOADING_DELAY, UNLOADING_DELAY, ROUTE_BLOCKED, CUSTOMER_DELAY, OTHER]
+        reasonText:
+          type: string
+          maxLength: 4000
+        newEta:
+          type: string
+          format: date-time
+        occurredAt:
+          type: string
+          format: date-time
+        idempotencyKey:
+          type: string
+          maxLength: 128
+    DriverDelayResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        id:
+          type: string
+          format: uuid
+        shipmentId:
+          type: string
+          format: uuid
+        reasonCode:
+          type: string
+        replayed:
+          type: boolean
+        idempotencyKey:
+          type: string
+    DriverPODUploadRequest:
+      type: object
+      required: [mimeType]
+      properties:
+        mimeType:
+          type: string
+          example: image/jpeg
+        fileName:
+          type: string
+        idempotencyKey:
+          type: string
+          maxLength: 128
+    DriverPODUploadIntent:
+      type: object
+      properties:
+        uploadId:
+          type: string
+          format: uuid
+        documentId:
+          type: string
+          format: uuid
+        uploadToken:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        mimeType:
+          type: string
+        maxBytes:
+          type: integer
+          format: int64
+    DriverPODUploadCompleteRequest:
+      type: object
+      properties:
+        checksumSha256:
+          type: string
+    DriverPODUploadCompleteResponse:
+      type: object
+      properties:
+        documentId:
+          type: string
+          format: uuid
+        uploadId:
+          type: string
+          format: uuid
+        fileId:
+          type: string
+          format: uuid
+        status:
+          type: string
+    DriverTaskSummary:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        taskType:
+          type: string
+          enum: [REQUEST_DELAY_REASON, REQUEST_STATUS_CONFIRMATION, REQUEST_ARRIVAL_CONFIRMATION, REQUEST_DOCUMENT_ACTION, GENERAL_OPERATIONAL_NOTICE]
+        status:
+          type: string
+        priority:
+          type: string
+        title:
+          type: string
+        shipmentId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+    DriverTaskDetail:
+      allOf:
+        - $ref: '#/components/schemas/DriverTaskSummary'
+        - type: object
+          properties:
+            payload:
+              type: object
+              additionalProperties: true
+            expiresAt:
+              type: string
+              format: date-time
+            readAt:
+              type: string
+              format: date-time
+            acknowledgedAt:
+              type: string
+              format: date-time
+            completedAt:
+              type: string
+              format: date-time
+    DriverTaskList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverTaskSummary'
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+    DriverTaskResponseRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          enum: [TRAFFIC, VEHICLE_BREAKDOWN, LOADING_DELAY, UNLOADING_DELAY, ROUTE_BLOCKED, CUSTOMER_UNAVAILABLE, OTHER]
+        comment:
+          type: string
+          maxLength: 4000
+        occurredAt:
+          type: string
+          format: date-time
+    DriverTaskResponseResult:
+      type: object
+      properties:
+        task:
+          $ref: '#/components/schemas/DriverTaskDetail'
+        response:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            taskId:
+              type: string
+              format: uuid
+            responseType:
+              type: string
+            responseBody:
+              type: object
+              additionalProperties: true
+            receivedAt:
+              type: string
+              format: date-time
+    DriverDeviceRegistrationRequest:
+      type: object
+      required: [platform, deviceInstanceId, pushToken]
+      additionalProperties: false
+      properties:
+        platform:
+          type: string
+          enum: [ANDROID, IOS, WEB]
+        deviceInstanceId:
+          type: string
+        pushToken:
+          type: string
+        appVersion:
+          type: string
+        locale:
+          type: string
+    DriverDevice:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        platform:
+          type: string
+        deviceInstanceId:
+          type: string
+        appVersion:
+          type: string
+        locale:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    InternalCreateDriverTaskRequest:
+      type: object
+      required: [tenantId, driverId, type, source, idempotencyKey]
+      additionalProperties: false
+      properties:
+        tenantId:
+          type: string
+          format: uuid
+        driverId:
+          type: string
+          format: uuid
+        shipmentId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [REQUEST_DELAY_REASON, REQUEST_STATUS_CONFIRMATION, REQUEST_ARRIVAL_CONFIRMATION, REQUEST_DOCUMENT_ACTION, GENERAL_OPERATIONAL_NOTICE]
+        priority:
+          type: string
+          enum: [NORMAL, HIGH, CRITICAL]
+        expiresAt:
+          type: string
+          format: date-time
+        source:
+          type: string
+          enum: [SYSTEM, CONTROL_TOWER, OPERATOR]
+        sourceEventId:
+          type: string
+        correlationId:
+          type: string
+        idempotencyKey:
+          type: string
+        createdByType:
+          type: string
+        createdById:
+          type: string
+          format: uuid
+    InternalCreateDriverTaskResponse:
+      type: object
+      properties:
+        taskId:
+          type: string
+          format: uuid
+        status:
+          type: string
+        taskType:
+          type: string
+    DriverLocationRequest:
+      type: object
+      additionalProperties: true
+      description: Wraps tracking provider generic event payload; providerDeviceId is resolved server-side.
+      properties:
+        events:
+          type: array
+          items:
+            type: object
+            properties:
+              latitude:
+                type: number
+              longitude:
+                type: number
+              recordedAt:
+                type: string
+                format: date-time
+              providerEventId:
+                type: string
+              accuracyMeters:
+                type: number
+              speedKph:
+                type: number
+              headingDegrees:
+                type: number
     CreateDriverRequest:
       type: object
       required: [carrier_company_id, full_name]
@@ -5911,6 +8415,10 @@ components:
             critical: { type: integer }
             awaitingDocuments: { type: integer }
             readyForBilling: { type: integer }
+        exceptionKpi:
+          $ref: '#/components/schemas/ControlTowerExceptionKPI'
+        riskKpi:
+          $ref: '#/components/schemas/ControlTowerRiskKPI'
         shipments:
           type: object
           properties:
@@ -5926,6 +8434,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ControlTowerEvent'
+        shipmentRisks:
+          type: array
+          items:
+            $ref: '#/components/schemas/ControlTowerShipmentRisk'
         filters:
           type: object
           properties:
@@ -6025,6 +8537,242 @@ components:
         lastUpdatedAt: { type: string, format: date-time }
         documentsComplete: { type: boolean }
         readyForBilling: { type: boolean }
+        trackingStatus:
+          type: string
+          enum: [not_configured, awaiting_data, active, stale, lost, ended]
+        trackingFreshness:
+          type: string
+          enum: [unknown, fresh, stale, lost]
+        lastPositionRecordedAt: { type: string, format: date-time }
+        telemetryAgeSeconds: { type: integer, format: int64 }
+        trackingQuality:
+          type: string
+          enum: [unknown, good, degraded, poor]
+        lastKnownLatitude: { type: number, format: double }
+        lastKnownLongitude: { type: number, format: double }
+        trackingProvider: { type: string }
+        etaStatus:
+          type: string
+          enum: [unavailable, available, stale, expired, completed]
+        estimatedDeliveryAt: { type: string, format: date-time }
+        etaFreshness:
+          type: string
+          enum: [unknown, fresh, stale, expired]
+        etaQuality:
+          type: string
+          enum: [unknown, good, degraded, poor]
+        projectedDelaySeconds: { type: integer, format: int64 }
+        arrivalProjection:
+          type: string
+          enum: [early, on_time, at_risk, late, unknown]
+        etaAgeSeconds: { type: integer, format: int64 }
+        lastEtaObservedAt: { type: string, format: date-time }
+        pickupSlotWindowStatus:
+          type: string
+          enum: [unavailable, available]
+        pickupSlotWindowStart: { type: string, format: date-time }
+        pickupSlotWindowEnd: { type: string, format: date-time }
+        pickupSlotArrivalProjection: { type: string }
+        deliverySlotWindowStatus:
+          type: string
+          enum: [unavailable, available]
+        deliverySlotWindowStart: { type: string, format: date-time }
+        deliverySlotWindowEnd: { type: string, format: date-time }
+        deliverySlotArrivalProjection: { type: string }
+        deliverySlotProjectedLateSeconds: { type: integer, format: int64 }
+        deliverySlotMarginSeconds: { type: integer, format: int64 }
+    ShipmentTrackingSummary:
+      type: object
+      required: [shipmentId, trackingStatus, freshness, quality]
+      properties:
+        shipmentId: { type: string, format: uuid }
+        trackingStatus:
+          type: string
+          enum: [not_configured, awaiting_data, active, stale, lost, ended]
+        provider: { type: string }
+        lastKnownPosition:
+          $ref: '#/components/schemas/ShipmentTrackingPosition'
+        freshness:
+          $ref: '#/components/schemas/ShipmentTrackingFreshness'
+        quality:
+          $ref: '#/components/schemas/ShipmentTrackingQuality'
+        lastRecordedAt: { type: string, format: date-time }
+        lastReceivedAt: { type: string, format: date-time }
+        speedKph: { type: number }
+        headingDegrees: { type: number }
+        deliveryDelaySeconds: { type: integer, format: int64 }
+    ShipmentTrackingPosition:
+      type: object
+      properties:
+        latitude: { type: number }
+        longitude: { type: number }
+        recordedAt: { type: string, format: date-time }
+        ageSeconds: { type: integer, format: int64 }
+    ShipmentTrackingFreshness:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [unknown, fresh, stale, lost]
+        ageSeconds: { type: integer, format: int64 }
+    ShipmentTrackingQuality:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [unknown, good, degraded, poor]
+        reason: { type: string }
+    ShipmentLocationHistoryPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShipmentLocationHistoryItem'
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+    ShipmentLocationHistoryItem:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        shipmentId: { type: string, format: uuid }
+        provider: { type: string }
+        providerDeviceId: { type: string }
+        latitude: { type: number }
+        longitude: { type: number }
+        recordedAt: { type: string, format: date-time }
+        receivedAt: { type: string, format: date-time }
+        sourceType: { type: string }
+        speedKph: { type: number }
+        headingDegrees: { type: number }
+        accuracyMeters: { type: number }
+        quality:
+          $ref: '#/components/schemas/ShipmentTrackingQuality'
+    ShipmentETASummary:
+      type: object
+      required: [shipmentId]
+      properties:
+        shipmentId: { type: string, format: uuid }
+        delivery:
+          $ref: '#/components/schemas/ShipmentETATargetSummary'
+        pickup:
+          $ref: '#/components/schemas/ShipmentETATargetSummary'
+    ShipmentETATargetSummary:
+      type: object
+      required: [status, freshnessStatus, qualityStatus, arrivalProjection]
+      properties:
+        status:
+          type: string
+          enum: [unavailable, available, stale, expired, completed]
+        estimatedArrivalAt: { type: string, format: date-time }
+        sourceType:
+          type: string
+          enum: [provider_eta, carrier_eta, driver_eta, manual_operator, calculated]
+        provider: { type: string }
+        sourceObservedAt: { type: string, format: date-time }
+        receivedAt: { type: string, format: date-time }
+        ageSeconds: { type: integer, format: int64 }
+        freshnessStatus:
+          type: string
+          enum: [unknown, fresh, stale, expired]
+        qualityStatus:
+          type: string
+          enum: [unknown, good, degraded, poor]
+        qualityReasons:
+          type: array
+          items: { type: string }
+        providerConfidence: { type: number, format: double }
+        deliveryLagSeconds: { type: integer, format: int64 }
+        plannedArrivalAt: { type: string, format: date-time }
+        projectedDeviationSeconds: { type: integer, format: int64 }
+        arrivalProjection:
+          type: string
+          enum: [early, on_time, at_risk, late, unknown]
+    ShipmentETAHistoryPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShipmentETAObservation'
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+    ShipmentETAObservation:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        shipmentId: { type: string, format: uuid }
+        targetType: { type: string }
+        estimatedArrivalAt: { type: string, format: date-time }
+        sourceType: { type: string }
+        provider: { type: string }
+        providerEventId: { type: string }
+        sourceObservedAt: { type: string, format: date-time }
+        receivedAt: { type: string, format: date-time }
+        qualityStatus: { type: string }
+        qualityReasons:
+          type: array
+          items: { type: string }
+        providerConfidence: { type: number, format: double }
+    ShipmentSlotSummary:
+      type: object
+      required: [shipmentId]
+      properties:
+        shipmentId: { type: string, format: uuid }
+        pickup:
+          $ref: '#/components/schemas/ShipmentSlotTargetSummary'
+        delivery:
+          $ref: '#/components/schemas/ShipmentSlotTargetSummary'
+    ShipmentSlotTargetSummary:
+      type: object
+      required: [windowStatus, qualityStatus, arrivalProjection]
+      properties:
+        windowStatus:
+          type: string
+          enum: [unavailable, available]
+        slotStatus:
+          type: string
+          enum: [proposed, booked, confirmed, cancelled, completed, missed]
+        windowStart: { type: string, format: date-time }
+        windowEnd: { type: string, format: date-time }
+        timezone: { type: string }
+        sourceType: { type: string }
+        provider: { type: string }
+        qualityStatus: { type: string }
+        arrivalProjection:
+          type: string
+          enum: [unknown, early, on_time, at_risk, projected_miss, missed, completed]
+        projectedLateBySeconds: { type: integer, format: int64 }
+        earlyBySeconds: { type: integer, format: int64 }
+        marginSeconds: { type: integer, format: int64 }
+        etaRelation: { type: string }
+    ShipmentSlotHistoryPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShipmentSlotRevision'
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+    ShipmentSlotRevision:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        shipmentId: { type: string, format: uuid }
+        slotType: { type: string }
+        windowStart: { type: string, format: date-time }
+        windowEnd: { type: string, format: date-time }
+        slotStatus: { type: string }
+        sourceType: { type: string }
+        sourceObservedAt: { type: string, format: date-time }
+        receivedAt: { type: string, format: date-time }
+        qualityStatus: { type: string }
+        timezone: { type: string }
+        provider: { type: string }
     ControlTowerEventAcknowledgedBy:
       type: object
       required: [userId]
@@ -6037,7 +8785,7 @@ components:
           description: Optional display name resolved by the gateway for UI convenience.
     ControlTowerEventAcknowledgement:
       type: object
-      required: [eventId, shipmentId, eventType, occurredAt, acknowledgedAt, acknowledgedBy]
+      required: [eventId, shipmentId, eventType, occurredAt, status, acknowledgedAt, acknowledgedBy]
       properties:
         eventId:
           type: string
@@ -6056,11 +8804,478 @@ components:
           type: string
           enum: [control-tower]
           default: control-tower
+        status:
+          $ref: '#/components/schemas/ControlTowerEventWorkflowStatus'
         acknowledgedAt:
           type: string
           format: date-time
         acknowledgedBy:
           $ref: '#/components/schemas/ControlTowerEventAcknowledgedBy'
+    ControlTowerEventWorkflowStatus:
+      type: string
+      enum: [open, acknowledged, assigned, resolved]
+    ControlTowerExceptionPriority:
+      type: string
+      enum: [p1, p2, p3, p4]
+    ControlTowerExceptionCategory:
+      type: string
+      enum:
+        - delay
+        - route_deviation
+        - document_issue
+        - vehicle_issue
+        - driver_issue
+        - slot_issue
+        - delivery_issue
+        - pickup_issue
+        - billing_issue
+        - integration_issue
+        - data_quality
+        - other
+    ControlTowerBusinessImpact:
+      type: string
+      enum: [none, low, medium, high, critical]
+    ControlTowerExceptionSLAStatus:
+      type: string
+      enum: [within_sla, warning, breached, completed]
+    ControlTowerEscalationLevel:
+      type: string
+      enum: [none, level_1, level_2, level_3]
+    ControlTowerExceptionSLA:
+      type: object
+      required: [phase, status, acknowledgeDueAt, assignmentDueAt, resolutionDueAt]
+      properties:
+        phase:
+          type: string
+          enum: [acknowledgement, assignment, resolution]
+        status:
+          $ref: '#/components/schemas/ControlTowerExceptionSLAStatus'
+        acknowledgeDueAt:
+          type: string
+          format: date-time
+        assignmentDueAt:
+          type: string
+          format: date-time
+        resolutionDueAt:
+          type: string
+          format: date-time
+        remainingSeconds:
+          type: integer
+          format: int64
+    ControlTowerEventEscalation:
+      type: object
+      required: [level]
+      properties:
+        level:
+          $ref: '#/components/schemas/ControlTowerEscalationLevel'
+    ControlTowerExceptionUpdateRequest:
+      type: object
+      minProperties: 1
+      properties:
+        priority:
+          $ref: '#/components/schemas/ControlTowerExceptionPriority'
+        category:
+          $ref: '#/components/schemas/ControlTowerExceptionCategory'
+        businessImpact:
+          $ref: '#/components/schemas/ControlTowerBusinessImpact'
+    ControlTowerExceptionKPI:
+      type: object
+      properties:
+        totalOpenExceptions: { type: integer }
+        p1Open: { type: integer }
+        p2Open: { type: integer }
+        slaWarning: { type: integer }
+        slaBreached: { type: integer }
+        unassignedExceptions: { type: integer }
+        resolvedWithinSla: { type: integer }
+        resolvedOutsideSla: { type: integer }
+    ControlTowerRiskLevel:
+      type: string
+      enum: [none, low, medium, high, critical]
+    ControlTowerRiskStatus:
+      type: string
+      enum: [active, acknowledged, mitigating, cleared, materialized]
+    ControlTowerPredictedExceptionType:
+      type: string
+      enum:
+        - pickup_delay_risk
+        - delivery_delay_risk
+        - slot_miss_risk
+        - route_deviation_risk
+        - tracking_loss_risk
+        - document_readiness_risk
+        - vehicle_assignment_risk
+        - driver_assignment_risk
+    ControlTowerMitigationCode:
+      type: string
+      enum:
+        - contact_carrier
+        - contact_driver
+        - reschedule_slot
+        - request_documents
+        - reassign_driver
+        - reassign_vehicle
+        - adjust_plan
+        - monitor
+        - other
+    ControlTowerRiskSignal:
+      type: object
+      required: [signalCode, severity, weight, observedAt, source, explanationKey]
+      properties:
+        signalCode: { type: string }
+        severity: { type: string }
+        weight: { type: integer }
+        observedAt: { type: string, format: date-time }
+        source: { type: string }
+        value: { type: object, additionalProperties: true }
+        explanationKey: { type: string }
+    ControlTowerRiskAction:
+      type: object
+      required: [actionType, occurredAt]
+      properties:
+        actionType: { type: string }
+        actorUserId: { type: string, format: uuid }
+        occurredAt: { type: string, format: date-time }
+        metadata: { type: object, additionalProperties: true }
+    ControlTowerShipmentRisk:
+      type: object
+      required:
+        - riskId
+        - shipmentId
+        - shipmentNumber
+        - predictedExceptionType
+        - score
+        - level
+        - status
+        - signals
+        - firstDetectedAt
+        - evaluatedAt
+      properties:
+        riskId: { type: string, pattern: '^[0-9a-f]{32}$' }
+        shipmentId: { type: string, format: uuid }
+        shipmentNumber: { type: string }
+        predictedExceptionType:
+          $ref: '#/components/schemas/ControlTowerPredictedExceptionType'
+        score: { type: integer, minimum: 0, maximum: 100 }
+        level:
+          $ref: '#/components/schemas/ControlTowerRiskLevel'
+        status:
+          $ref: '#/components/schemas/ControlTowerRiskStatus'
+        signals:
+          type: array
+          items:
+            $ref: '#/components/schemas/ControlTowerRiskSignal'
+        firstDetectedAt: { type: string, format: date-time }
+        evaluatedAt: { type: string, format: date-time }
+        nextEvaluationAt: { type: string, format: date-time }
+        threatenedDeadlineAt: { type: string, format: date-time }
+        mitigationCode:
+          $ref: '#/components/schemas/ControlTowerMitigationCode'
+        mitigationComment: { type: string }
+        actualEventId: { type: string }
+        materializedAt: { type: string, format: date-time }
+        clearedAt: { type: string, format: date-time }
+        clearReason: { type: string }
+        leadTimeSeconds: { type: integer, format: int64 }
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ControlTowerRiskAction'
+    ControlTowerRiskKPI:
+      type: object
+      properties:
+        activeRisks: { type: integer }
+        criticalRisks: { type: integer }
+        highRisks: { type: integer }
+        deliveryDelayRisks: { type: integer }
+        pickupDelayRisks: { type: integer }
+        slotMissRisks: { type: integer }
+        mitigatingRisks: { type: integer }
+        risksMaterialized: { type: integer }
+        risksCleared: { type: integer }
+        clearedBeforeMaterialization: { type: integer }
+    ControlTowerRisksListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ControlTowerShipmentRisk'
+    ControlTowerWorkItem:
+      type: object
+      required: [id, itemType, sourceId, shipmentId, title, urgency, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        itemType: { type: string, enum: [exception, risk] }
+        sourceId: { type: string }
+        shipmentId: { type: string, format: uuid }
+        shipmentNumber: { type: string }
+        title: { type: string }
+        urgency: { type: string, enum: [critical, high, normal, low] }
+        ownerUserId: { type: string, format: uuid }
+        ownerDisplayName: { type: string }
+        availableActions:
+          type: array
+          items: { type: string }
+    ControlTowerWorkItemsPage:
+      type: object
+      required: [items, page, limit, total, hasNext]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ControlTowerWorkItem'
+        page: { type: integer }
+        limit: { type: integer }
+        total: { type: integer }
+        hasNext: { type: boolean }
+    ControlTowerCreateCaseRequest:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string, maxLength: 256 }
+        summary: { type: string }
+        severity: { type: string, enum: [critical, high, medium, low] }
+        shipmentIds:
+          type: array
+          items: { type: string, format: uuid }
+        workItems:
+          type: array
+          items:
+            type: object
+            required: [itemType, itemId]
+            properties:
+              itemType: { type: string, enum: [exception, risk] }
+              itemId: { type: string }
+    ControlTowerOperationalCase:
+      type: object
+      required: [id, reference, title, status, effectiveSeverity, version, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        reference: { type: string, example: CT-2026-000184 }
+        title: { type: string }
+        summary: { type: string }
+        status:
+          type: string
+          enum: [open, investigating, action_required, monitoring, resolved, closed]
+        derivedSeverity: { type: string, enum: [critical, high, medium, low] }
+        effectiveSeverity: { type: string, enum: [critical, high, medium, low] }
+        severityOverride: { type: boolean }
+        ownerUserId: { type: string, format: uuid }
+        ownerDisplayName: { type: string }
+        version: { type: integer }
+        lastActivityAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        resolvedAt: { type: string, format: date-time }
+        closedAt: { type: string, format: date-time }
+        resolutionCode: { type: string }
+        resolutionSummary: { type: string }
+        health:
+          $ref: '#/components/schemas/ControlTowerCaseHealth'
+    ControlTowerCaseHealth:
+      type: object
+      properties:
+        hasSlaBreach: { type: boolean }
+        hasSlaWarning: { type: boolean }
+        nearestSlaDueAt: { type: string, format: date-time }
+        highestExceptionPriority: { type: string, enum: [p1, p2, p3, p4] }
+        highestRiskLevel: { type: string, enum: [critical, high, medium, low, none] }
+        openActionCount: { type: integer }
+        overdueActionCount: { type: integer }
+        nearestActionDueAt: { type: string, format: date-time }
+        activeWorkItemCount: { type: integer }
+        activeExceptionCount: { type: integer }
+        activeRiskCount: { type: integer }
+    ControlTowerAddCaseParticipantRequest:
+      type: object
+      required: [userId, role]
+      properties:
+        userId: { type: string, format: uuid }
+        role: { type: string, enum: [collaborator, observer] }
+    ControlTowerUpdateCaseParticipantRequest:
+      type: object
+      required: [role]
+      properties:
+        role: { type: string, enum: [collaborator, observer] }
+    ControlTowerCasesPage:
+      type: object
+      required: [items, page, limit, total, hasNext]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ControlTowerOperationalCase'
+        page: { type: integer }
+        limit: { type: integer }
+        total: { type: integer }
+        hasNext: { type: boolean }
+    ControlTowerCaseKpi:
+      type: object
+      properties:
+        openCases: { type: integer }
+        myOpenCases: { type: integer }
+        criticalCases: { type: integer }
+        unassignedCases: { type: integer }
+        casesWithSlaBreach: { type: integer }
+        casesWithSlaWarning: { type: integer }
+        slaAtRiskCases: { type: integer }
+        casesWithOverdueActions: { type: integer }
+        resolvedCases: { type: integer }
+    ControlTowerBulkWorkActionRequest:
+      type: object
+      required: [action, items]
+      properties:
+        action: { type: string, enum: [claim, assign, unassign, acknowledge] }
+        targetUserId: { type: string, format: uuid }
+        items:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            required: [itemType, itemId]
+            properties:
+              itemType: { type: string, enum: [exception, risk] }
+              itemId: { type: string }
+    ControlTowerBulkWorkActionOutcome:
+      type: object
+      required: [requested, succeeded, failed, results]
+      properties:
+        requested: { type: integer }
+        succeeded: { type: integer }
+        failed: { type: integer }
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              itemType: { type: string }
+              itemId: { type: string }
+              success: { type: boolean }
+              error: { type: string }
+    ControlTowerWorkloadResponse:
+      type: object
+      properties:
+        operators:
+          type: array
+          items:
+            type: object
+        unassignedPool: { type: integer }
+        kpi:
+          type: object
+    ControlTowerMitigateRiskRequest:
+      type: object
+      required: [mitigationCode]
+      properties:
+        mitigationCode:
+          $ref: '#/components/schemas/ControlTowerMitigationCode'
+        comment:
+          type: string
+    ControlTowerEventResolutionCode:
+      type: string
+      enum: [issue_resolved, false_positive, duplicate, cancelled, other]
+    ControlTowerEventAssignRequest:
+      type: object
+      required: [userId]
+      properties:
+        userId:
+          type: string
+          format: uuid
+    ControlTowerEventResolveRequest:
+      type: object
+      required: [resolutionCode]
+      properties:
+        resolutionCode:
+          $ref: '#/components/schemas/ControlTowerEventResolutionCode'
+        comment:
+          type: string
+    ControlTowerEventAssignment:
+      type: object
+      required: [assignedToUserId, assignedByUserId, assignedAt]
+      properties:
+        assignedToUserId:
+          type: string
+          format: uuid
+        assignedByUserId:
+          type: string
+          format: uuid
+        assignedAt:
+          type: string
+          format: date-time
+    ControlTowerEventResolution:
+      type: object
+      required: [resolvedByUserId, resolvedAt, resolutionCode]
+      properties:
+        resolvedByUserId:
+          type: string
+          format: uuid
+        resolvedAt:
+          type: string
+          format: date-time
+        resolutionCode:
+          $ref: '#/components/schemas/ControlTowerEventResolutionCode'
+        comment:
+          type: string
+    ControlTowerEventWorkflow:
+      type: object
+      required: [eventId, status]
+      properties:
+        eventId:
+          type: string
+          pattern: '^[0-9a-f]{32}$'
+        status:
+          $ref: '#/components/schemas/ControlTowerEventWorkflowStatus'
+        priority:
+          $ref: '#/components/schemas/ControlTowerExceptionPriority'
+        exceptionCategory:
+          $ref: '#/components/schemas/ControlTowerExceptionCategory'
+        businessImpact:
+          $ref: '#/components/schemas/ControlTowerBusinessImpact'
+        sla:
+          $ref: '#/components/schemas/ControlTowerExceptionSLA'
+        escalation:
+          $ref: '#/components/schemas/ControlTowerEventEscalation'
+        acknowledgement:
+          $ref: '#/components/schemas/ControlTowerEventAcknowledgementSummary'
+        assignment:
+          $ref: '#/components/schemas/ControlTowerEventAssignment'
+        resolution:
+          $ref: '#/components/schemas/ControlTowerEventResolution'
+    ControlTowerEventAction:
+      type: object
+      required: [actionType, actorUserId, occurredAt]
+      properties:
+        actionType:
+          type: string
+          enum:
+            - acknowledged
+            - assigned
+            - reassigned
+            - resolved
+            - reopened
+            - exception_updated
+            - ack_sla_breached
+            - assign_sla_breached
+            - resolve_sla_breached
+            - escalation_changed
+        actorUserId:
+          type: string
+          format: uuid
+        occurredAt:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+          additionalProperties: true
+    ControlTowerEventActionsResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ControlTowerEventAction'
     ControlTowerEvent:
       type: object
       properties:
@@ -6076,9 +9291,25 @@ components:
           format: date-time
         description: { type: string }
         source: { type: string }
+        status:
+          $ref: '#/components/schemas/ControlTowerEventWorkflowStatus'
+        priority:
+          $ref: '#/components/schemas/ControlTowerExceptionPriority'
+        exceptionCategory:
+          $ref: '#/components/schemas/ControlTowerExceptionCategory'
+        businessImpact:
+          $ref: '#/components/schemas/ControlTowerBusinessImpact'
+        sla:
+          $ref: '#/components/schemas/ControlTowerExceptionSLA'
+        escalation:
+          $ref: '#/components/schemas/ControlTowerEventEscalation'
         acknowledgement:
           $ref: '#/components/schemas/ControlTowerEventAcknowledgementSummary'
           description: Present when the event has been acknowledged; omitted otherwise.
+        assignment:
+          $ref: '#/components/schemas/ControlTowerEventAssignment'
+        resolution:
+          $ref: '#/components/schemas/ControlTowerEventResolution'
     ControlTowerEventAcknowledgementSummary:
       type: object
       required: [acknowledgedAt, acknowledgedBy]

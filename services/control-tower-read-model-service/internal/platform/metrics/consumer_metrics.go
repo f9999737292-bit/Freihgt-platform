@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/freight-platform/control-tower-read-model-service/internal/domain"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -85,8 +86,15 @@ func NewConsumerMetrics() *ConsumerMetrics {
 			m.lastRecordTimestamp,
 			m.lastAppliedTimestamp,
 		)
+		initDeadLetterSeries(m.deadLetterTotal)
 	})
 	return m
+}
+
+func initDeadLetterSeries(deadLetterTotal *prometheus.CounterVec) {
+	for _, code := range domain.PermanentErrorCodes() {
+		deadLetterTotal.WithLabelValues(code)
+	}
 }
 
 func (m *ConsumerMetrics) ObserveRecord(eventType, outcome string, duration time.Duration) {

@@ -1,10 +1,14 @@
 <script setup lang="ts">
 definePageMeta({ middleware: 'auth', layout: 'default' })
 
+import type { User } from '~/types/user'
+import type { ControlTowerEvent, ControlTowerEventAction, ControlTowerEventResolutionCode, ControlTowerShipmentRisk } from '~/types/controlTower'
+
 const route = useRoute()
 const router = useRouter()
 const { canAccessControlTower } = usePermissions()
 const { backendOnline, checkBackendStatus } = useBackendStatus()
+const { listUsers } = useUsersApi()
 
 const {
   loading,
@@ -16,9 +20,22 @@ const {
   filteredShipments,
   controlTowerShipments,
   kpiMetrics,
+  exceptionKpiMetrics,
+  riskKpiMetrics,
+  shipmentRisks,
+  acknowledgingRiskId,
+  riskActionId,
+  acknowledgeRisk,
+  mitigateRisk,
   criticalEvents,
   acknowledgingEventId,
+  workflowActionEventId,
   acknowledgeCriticalEvent,
+  assignCriticalEvent,
+  resolveCriticalEvent,
+  reopenCriticalEvent,
+  updateCriticalEventException,
+  fetchCriticalEventActions,
   apiUnavailable,
   dataFreshness,
   summaryPagination,
@@ -63,9 +80,114 @@ const showLegacyLimitedBanner = computed(
 const hasAccess = computed(() => canAccessControlTower())
 
 const canAcknowledgeEvents = computed(() => hasAccess.value && !demoMode.value)
+const canAssignEvents = computed(() => hasAccess.value && !demoMode.value)
+const canResolveEvents = computed(() => hasAccess.value && !demoMode.value)
+const canManageExceptions = computed(() => hasAccess.value && !demoMode.value)
+
+const assignModalOpen = ref(false)
+const resolveModalOpen = ref(false)
+const exceptionModalOpen = ref(false)
+const detailsModalOpen = ref(false)
+const selectedEventId = ref<string | null>(null)
+const selectedEvent = ref<ControlTowerEvent | null>(null)
+const tenantUsers = ref<User[]>([])
+const usersLoading = ref(false)
+const detailsLoading = ref(false)
+const detailsActions = ref<ControlTowerEventAction[]>([])
+
+const riskMitigateModalOpen = ref(false)
+const selectedRisk = ref<ControlTowerShipmentRisk | null>(null)
+
+const isReassign = computed(() => {
+  if (!selectedEventId.value) return false
+  const event = criticalEvents.value.find((item) => item.id === selectedEventId.value)
+  return event?.status === 'assigned'
+})
+
+async function loadTenantUsers() {
+  usersLoading.value = true
+  try {
+    const response = await listUsers({ limit: 200, offset: 0 })
+    tenantUsers.value = response.items ?? []
+  } catch {
+    tenantUsers.value = []
+  } finally {
+    usersLoading.value = false
+  }
+}
 
 function onAcknowledgeEvent(eventId: string) {
   void acknowledgeCriticalEvent(eventId)
+}
+
+async function onAssignEvent(eventId: string) {
+  selectedEventId.value = eventId
+  assignModalOpen.value = true
+  if (tenantUsers.value.length === 0) {
+    await loadTenantUsers()
+  }
+}
+
+function onResolveEvent(eventId: string) {
+  selectedEventId.value = eventId
+  resolveModalOpen.value = true
+}
+
+function onReopenEvent(eventId: string) {
+  void reopenCriticalEvent(eventId)
+}
+
+async function onAssignSubmit(userId: string) {
+  if (!selectedEventId.value) return
+  const ok = await assignCriticalEvent(selectedEventId.value, userId)
+  if (ok) assignModalOpen.value = false
+}
+
+async function onResolveSubmit(resolutionCode: ControlTowerEventResolutionCode, comment?: string) {
+  if (!selectedEventId.value) return
+  const ok = await resolveCriticalEvent(selectedEventId.value, resolutionCode, comment)
+  if (ok) resolveModalOpen.value = false
+}
+
+async function onShowEventDetails(event: ControlTowerEvent) {
+  selectedEvent.value = event
+  detailsModalOpen.value = true
+  detailsLoading.value = true
+  detailsActions.value = []
+  const response = await fetchCriticalEventActions(event.id)
+  detailsActions.value = response?.items ?? []
+  detailsLoading.value = false
+}
+
+function onEditException(event: ControlTowerEvent) {
+  selectedEvent.value = event
+  selectedEventId.value = event.id
+  exceptionModalOpen.value = true
+}
+
+async function onExceptionSubmit(payload: {
+  priority?: string
+  category?: string
+  businessImpact?: string
+}) {
+  if (!selectedEventId.value) return
+  const ok = await updateCriticalEventException(selectedEventId.value, payload)
+  if (ok) exceptionModalOpen.value = false
+}
+
+function onAcknowledgeRisk(riskId: string) {
+  void acknowledgeRisk(riskId)
+}
+
+function onMitigateRisk(risk: ControlTowerShipmentRisk) {
+  selectedRisk.value = risk
+  riskMitigateModalOpen.value = true
+}
+
+async function onMitigateSubmit(code: string, comment?: string) {
+  if (!selectedRisk.value) return
+  const ok = await mitigateRisk(selectedRisk.value.riskId, code as never, comment)
+  if (ok) riskMitigateModalOpen.value = false
 }
 
 const isEmptyDataset = computed(
@@ -116,6 +238,7 @@ watch(
 
 onMounted(async () => {
   parseFiltersFromQuery(route.query as Record<string, unknown>)
+  await loadTenantUsers()
   await refreshAll()
 })
 
@@ -196,8 +319,34 @@ onBeforeUnmount(() => {
       />
 
       <template v-else>
+        <section class="control-tower-v01__workspace">
+          <ControlTowerOperatorWorkQueue
+            :disabled="demoMode"
+            :tenant-users="tenantUsers"
+            :can-view-team-workload="hasAccess"
+          />
+        </section>
+
         <section class="control-tower-v01__kpi-grid">
           <ControlTowerMetricCard v-for="metric in kpiMetrics" :key="metric.key" :metric="metric" />
+        </section>
+
+        <section
+          v-if="exceptionKpiMetrics.length > 0"
+          class="control-tower-v01__kpi-grid control-tower-v01__kpi-grid--exceptions"
+        >
+          <ControlTowerMetricCard
+            v-for="metric in exceptionKpiMetrics"
+            :key="metric.key"
+            :metric="metric"
+          />
+        </section>
+
+        <section
+          v-if="riskKpiMetrics.length > 0"
+          class="control-tower-v01__kpi-grid control-tower-v01__kpi-grid--risks"
+        >
+          <ControlTowerMetricCard v-for="metric in riskKpiMetrics" :key="metric.key" :metric="metric" />
         </section>
 
         <UiCard>
@@ -241,12 +390,78 @@ onBeforeUnmount(() => {
               :events="criticalEvents"
               :loading="loading"
               :can-acknowledge="canAcknowledgeEvents"
+              :can-assign="canAssignEvents"
+              :can-resolve="canResolveEvents"
+              :can-manage-exception="canManageExceptions"
               :acknowledging-event-id="acknowledgingEventId"
+              :workflow-action-event-id="workflowActionEventId"
               @acknowledge="onAcknowledgeEvent"
+              @assign="onAssignEvent"
+              @resolve="onResolveEvent"
+              @reopen="onReopenEvent"
+              @edit-exception="onEditException"
+              @show-details="onShowEventDetails"
+            />
+          </UiCard>
+
+          <UiCard class="control-tower-v01__risks-card">
+            <h2 class="control-tower-v01__section-title">
+              {{ $t('controlTower.sections.shipmentRisks') }}
+            </h2>
+            <ControlTowerShipmentRiskPanel
+              :risks="shipmentRisks"
+              :loading="loading"
+              :can-acknowledge="canAcknowledgeEvents"
+              :can-mitigate="canAcknowledgeEvents"
+              :acknowledging-risk-id="acknowledgingRiskId"
+              :risk-action-id="riskActionId"
+              @acknowledge="onAcknowledgeRisk"
+              @mitigate="onMitigateRisk"
             />
           </UiCard>
         </div>
       </template>
+
+      <ControlTowerCriticalEventAssignModal
+        :open="assignModalOpen"
+        :loading="Boolean(workflowActionEventId)"
+        :users="tenantUsers"
+        :users-loading="usersLoading"
+        :reassign="isReassign"
+        @close="assignModalOpen = false"
+        @submit="onAssignSubmit"
+      />
+
+      <ControlTowerCriticalEventResolveModal
+        :open="resolveModalOpen"
+        :loading="Boolean(workflowActionEventId)"
+        @close="resolveModalOpen = false"
+        @submit="onResolveSubmit"
+      />
+
+      <ControlTowerCriticalEventDetailsModal
+        :open="detailsModalOpen"
+        :event="selectedEvent"
+        :actions="detailsActions"
+        :loading="detailsLoading"
+        @close="detailsModalOpen = false"
+      />
+
+      <ControlTowerCriticalEventExceptionModal
+        :open="exceptionModalOpen"
+        :event="selectedEvent"
+        :loading="Boolean(workflowActionEventId)"
+        @close="exceptionModalOpen = false"
+        @submit="onExceptionSubmit"
+      />
+
+      <ControlTowerRiskMitigateModal
+        :open="riskMitigateModalOpen"
+        :risk="selectedRisk"
+        :loading="Boolean(riskActionId)"
+        @close="riskMitigateModalOpen = false"
+        @submit="onMitigateSubmit"
+      />
     </template>
   </div>
 </template>
