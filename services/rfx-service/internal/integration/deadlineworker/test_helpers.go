@@ -165,6 +165,26 @@ func locateMigrationsDir() (string, error) {
 	return "", fmt.Errorf("migrations dir not found from %s", wd)
 }
 
+func locateRfxServiceRoot() (string, error) {
+	candidates := []string{
+		".",
+		filepath.Join("..", "..", ".."),
+		filepath.Join("..", "..", "..", ".."),
+	}
+	for _, candidate := range candidates {
+		serverPath := filepath.Join(candidate, "cmd", "server")
+		if st, err := os.Stat(serverPath); err == nil && st.IsDir() {
+			abs, err := filepath.Abs(candidate)
+			if err != nil {
+				return candidate, nil
+			}
+			return abs, nil
+		}
+	}
+	wd, _ := os.Getwd()
+	return "", fmt.Errorf("rfx-service root not found from %s", wd)
+}
+
 func pollUntil(t *testing.T, timeout time.Duration, fn func() bool) {
 	t.Helper()
 	deadline := time.Now().Add(timeout)

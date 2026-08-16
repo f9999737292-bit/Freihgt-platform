@@ -301,12 +301,35 @@ func TestDeadlineBoundary(t *testing.T) {
 	}
 }
 
+func TestFailureSafetyAlreadyClosedRace(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedEvents(t, env)
+	ctx := context.Background()
+	_, err := env.pool.Exec(ctx, `UPDATE rfx.rfx_events SET status = $1 WHERE id = $2`,
+		domain.RfxStatusResponsesClosed, fix.EventA)
+	if err != nil {
+		t.Fatalf("pre-close event: %v", err)
+	}
+	newTestWorker(t, env, fix, 10).RunOnce(ctx)
+	if autoCloseAuditCount(t, env, fix.EventA) != 0 {
+		t.Fatal("expected no audit when event already closed before worker")
+	}
+	if got := eventStatus(t, env, fix.EventA); got != domain.RfxStatusResponsesClosed {
+		t.Fatalf("status=%s", got)
+	}
+}
+
 func TestServiceProcessRuntime(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedEvents(t, env)
 
+	serviceRoot, err := locateRfxServiceRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
 	binaryPath := filepath.Join(t.TempDir(), "rfx-service")
 	build := exec.Command("go", "build", "-o", binaryPath, "./cmd/server")
+	build.Dir = serviceRoot
 	build.Env = append(os.Environ(), "CGO_ENABLED=0")
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build rfx-service: %v\n%s", err, string(out))
