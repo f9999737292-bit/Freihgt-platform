@@ -9,6 +9,7 @@
     "dev:consignee": "pnpm --filter @freight-platform/web-consignee dev",
     "dev:finance": "pnpm --filter @freight-platform/web-finance dev",
     "dev:procurement": "pnpm --filter @freight-platform/web-procurement dev",
+    "dev:driver-mobile": "pnpm --filter @freight-platform/driver-mobile dev",
     "build:apps": "pnpm --filter './apps/*' build",
     "typecheck:packages": "pnpm --filter './packages/*' typecheck"
   },
