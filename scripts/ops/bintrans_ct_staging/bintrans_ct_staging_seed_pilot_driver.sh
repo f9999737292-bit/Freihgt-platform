@@ -32,10 +32,10 @@ password_hash="$(
   PILOT_DRIVER_PASSWORD="${PILOT_DRIVER_PASSWORD}" docker run --rm -i \
     -e PILOT_DRIVER_PASSWORD \
     python:3.12-slim \
-    python - <<'PY'
+    sh -c 'pip install -q bcrypt && python - <<'"'"'PY'"'"'
 import bcrypt, os
 print(bcrypt.hashpw(os.environ["PILOT_DRIVER_PASSWORD"].encode(), bcrypt.gensalt(rounds=12)).decode())
-PY
+PY'
 )"
 
 echo "=== BINTRANS pilot driver seed (idempotent) ==="
