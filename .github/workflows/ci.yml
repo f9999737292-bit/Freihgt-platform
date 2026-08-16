@@ -229,11 +229,17 @@ jobs:
       - name: Sync Capacitor iOS
         run: npm run cap:sync:ios
 
+      - name: Install CocoaPods dependencies
+        run: |
+          cd ios/App
+          pod install
+
       - name: Build iOS app for simulator
         run: |
           xcodebuild \
             -workspace ios/App/App.xcworkspace \
             -scheme App \
-            -destination 'platform=iOS Simulator,name=iPhone 15' \
+            -destination 'generic/platform=iOS Simulator' \
             -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
             build
