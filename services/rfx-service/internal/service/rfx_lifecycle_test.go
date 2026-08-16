@@ -42,10 +42,12 @@ func TestRfxServiceTransitionEvent(t *testing.T) {
 	t.Parallel()
 	eventID := uuid.New()
 	tenantID := uuid.New()
+	userID := uuid.New()
+	ownerCompanyID := uuid.New()
 	store := &mockRfxStoreExtended{
 		mockRfxStore: mockRfxStore{
 			getEventFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.RfxEvent, error) {
-				return &domain.RfxEvent{ID: eventID, TenantID: tenantID, Status: domain.RfxStatusPublished, RfxType: "SPOT_RFQ"}, nil
+				return &domain.RfxEvent{ID: eventID, TenantID: tenantID, Status: domain.RfxStatusPublished, RfxType: "SPOT_RFQ", OwnerCompanyID: ownerCompanyID}, nil
 			},
 			updateStatusFn: func(_ context.Context, id, tenant uuid.UUID, expected, newStatus string) (*domain.RfxEvent, error) {
 				if expected != domain.RfxStatusPublished || newStatus != domain.RfxStatusResponsesOpen {
@@ -55,8 +57,8 @@ func TestRfxServiceTransitionEvent(t *testing.T) {
 			},
 		},
 	}
-	svc := NewRfxService(store, nil, nil)
-	event, err := svc.TransitionEvent(context.Background(), domain.ActorContext{TenantID: tenantID}, eventID, domain.RfxCommandOpenResponses)
+	svc := NewRfxService(store, nil, buyerMembershipResolver(ownerCompanyID))
+	event, err := svc.TransitionEvent(context.Background(), buyerTestActor(tenantID, userID, ownerCompanyID), eventID, domain.RfxCommandOpenResponses)
 	if err != nil || event.Status != domain.RfxStatusResponsesOpen {
 		t.Fatalf("event=%+v err=%v", event, err)
 	}
@@ -66,16 +68,18 @@ func TestRfxServicePublishRequiresLotsForLongForm(t *testing.T) {
 	t.Parallel()
 	eventID := uuid.New()
 	tenantID := uuid.New()
+	userID := uuid.New()
+	ownerCompanyID := uuid.New()
 	store := &mockRfxStoreExtended{
 		mockRfxStore: mockRfxStore{
 			getEventFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.RfxEvent, error) {
-				return &domain.RfxEvent{ID: eventID, Status: domain.RfxStatusDraft, Title: "T", OwnerCompanyID: uuid.New(), RfxType: "RFQ"}, nil
+				return &domain.RfxEvent{ID: eventID, Status: domain.RfxStatusDraft, Title: "T", OwnerCompanyID: ownerCompanyID, RfxType: "RFQ"}, nil
 			},
 		},
 		countLotsFn: func(context.Context, uuid.UUID, uuid.UUID) (int, error) { return 0, nil },
 	}
-	svc := NewRfxService(store, nil, nil)
-	_, err := svc.PublishEvent(context.Background(), domain.ActorContext{TenantID: tenantID}, eventID)
+	svc := NewRfxService(store, nil, buyerMembershipResolver(ownerCompanyID))
+	_, err := svc.PublishEvent(context.Background(), buyerTestActor(tenantID, userID, ownerCompanyID), eventID)
 	if err == nil {
 		t.Fatal("expected validation for missing lots")
 	}

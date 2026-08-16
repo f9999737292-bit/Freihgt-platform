@@ -8,15 +8,24 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/freight-platform/rfx-service/internal/domain"
 	apperrors "github.com/freight-platform/rfx-service/internal/platform/errors"
 	"github.com/freight-platform/rfx-service/internal/service"
 )
 
+var testCarrierCompanyID = uuid.MustParse("cccccccc-cccc-cccc-cccc-cccccccccccc")
+
+type testCarrierActorResolver struct{}
+
+func (testCarrierActorResolver) ResolveActorKind(context.Context, domain.ActorContext) (domain.ActorKind, []uuid.UUID, error) {
+	return domain.ActorKindCarrier, []uuid.UUID{testCarrierCompanyID}, nil
+}
+
 func newBidGetByIDTestRouter(t *testing.T, store *mockBidStore) http.Handler {
 	t.Helper()
-	handler := NewBidHandler(service.NewBidService(store, &mockFreightRequestStoreForBid{}, nil, nil))
+	handler := NewBidHandler(service.NewBidService(store, &mockFreightRequestStoreForBid{}, testCarrierActorResolver{}, nil))
 	r := chi.NewRouter()
 	r.Get("/v1/bids/{id}", handler.GetByID)
 	return r
@@ -30,7 +39,8 @@ func TestGetBidByIDTrustedHeaderReturns200(t *testing.T) {
 		getByIDFn: func(_ context.Context, id, tenant uuid.UUID) (*domain.Bid, error) {
 			return &domain.Bid{
 				ID: id, TenantID: tenant, BidNumber: "BID-1", Status: domain.BidStatusDraft,
-				Items: []domain.BidItem{},
+				CarrierCompanyID: testCarrierCompanyID,
+				Items:            []domain.BidItem{},
 			}, nil
 		},
 	})
@@ -170,7 +180,7 @@ func TestGetBidByIDServiceReceivesScopedTenant(t *testing.T) {
 			if id != bidID || tenant != tenantID {
 				t.Fatalf("unexpected scoped lookup id=%s tenant=%s", id, tenant)
 			}
-			return &domain.Bid{ID: id, TenantID: tenant, BidNumber: "BID-1", Status: domain.BidStatusDraft}, nil
+			return &domain.Bid{ID: id, TenantID: tenant, BidNumber: "BID-1", Status: domain.BidStatusDraft, CarrierCompanyID: testCarrierCompanyID}, nil
 		},
 	})
 	req := httptest.NewRequest(http.MethodGet, "/v1/bids/"+bidID.String(), nil)
@@ -184,7 +194,7 @@ func TestGetBidByIDServiceReceivesScopedTenant(t *testing.T) {
 
 func newListBidsTestRouter(t *testing.T, bids *mockBidStore, requests *mockFreightRequestStoreForBid) http.Handler {
 	t.Helper()
-	handler := NewBidHandler(service.NewBidService(bids, requests, nil, nil))
+	handler := NewBidHandler(service.NewBidService(bids, requests, defaultBuyerMembershipResolver(), nil))
 	r := chi.NewRouter()
 	r.Get("/v1/freight-requests/{id}/bids", handler.ListBids)
 	return r
@@ -192,7 +202,7 @@ func newListBidsTestRouter(t *testing.T, bids *mockBidStore, requests *mockFreig
 
 func newAcceptBidTestRouter(t *testing.T, bids *mockBidStore, requests *mockFreightRequestStoreForBid) http.Handler {
 	t.Helper()
-	handler := NewBidHandler(service.NewBidService(bids, requests, nil, nil))
+	handler := NewBidHandler(service.NewBidService(bids, requests, defaultBuyerMembershipResolver(), nil))
 	r := chi.NewRouter()
 	r.Post("/v1/bids/{id}/accept", handler.AcceptBid)
 	return r
@@ -209,11 +219,15 @@ func TestListBidsTrustedHeaderReturns200(t *testing.T) {
 		},
 	}, &mockFreightRequestStoreForBid{
 		getByIDFn: func(_ context.Context, id, tenant uuid.UUID) (*domain.FreightRequest, error) {
-			return &domain.FreightRequest{ID: id, TenantID: tenant, Status: domain.FreightRequestStatusPublished}, nil
+			return &domain.FreightRequest{
+				ID: id, TenantID: tenant, Status: domain.FreightRequestStatusPublished,
+				ShipperCompanyID: uuid.MustParse(testBuyerShipperCompanyID),
+			}, nil
 		},
 	})
 	req := httptest.NewRequest(http.MethodGet, "/v1/freight-requests/"+frID+"/bids", nil)
 	req.Header.Set("X-Tenant-ID", tenantID)
+	withBuyerHeaders(req)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -282,7 +296,7 @@ func TestListBidsHeaderRejectsConflictingQuery(t *testing.T) {
 			if tenant.String() != headerTenant {
 				t.Fatalf("expected header tenant, got %s", tenant)
 			}
-			return &domain.FreightRequest{Status: domain.FreightRequestStatusPublished}, nil
+			return &domain.FreightRequest{Status: domain.FreightRequestStatusPublished, ShipperCompanyID: uuid.MustParse(testBuyerShipperCompanyID)}, nil
 		},
 	})
 	req := httptest.NewRequest(http.MethodGet, "/v1/freight-requests/"+frID+"/bids?tenant_id="+queryTenant, nil)
@@ -304,7 +318,7 @@ func TestListBidsInvalidTenantHeaderReturns400(t *testing.T) {
 		},
 	}, &mockFreightRequestStoreForBid{
 		getByIDFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.FreightRequest, error) {
-			return &domain.FreightRequest{Status: domain.FreightRequestStatusPublished}, nil
+			return &domain.FreightRequest{Status: domain.FreightRequestStatusPublished, ShipperCompanyID: uuid.MustParse(testBuyerShipperCompanyID)}, nil
 		},
 	})
 	req := httptest.NewRequest(http.MethodGet, "/v1/freight-requests/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/bids", nil)
@@ -385,11 +399,12 @@ func TestAcceptBidTrustedHeaderReturns200(t *testing.T) {
 		},
 	}, &mockFreightRequestStoreForBid{
 		getByIDFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.FreightRequest, error) {
-			return &domain.FreightRequest{Status: domain.FreightRequestStatusPublished}, nil
+			return &domain.FreightRequest{Status: domain.FreightRequestStatusPublished, ShipperCompanyID: uuid.MustParse(testBuyerShipperCompanyID)}, nil
 		},
 	})
 	req := httptest.NewRequest(http.MethodPost, "/v1/bids/"+bidID+"/accept", nil)
 	req.Header.Set("X-Tenant-ID", tenantID)
+	withBuyerHeaders(req)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -407,7 +422,7 @@ func TestAcceptBidMissingTenantReturns401(t *testing.T) {
 		},
 	}, &mockFreightRequestStoreForBid{
 		getByIDFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.FreightRequest, error) {
-			return &domain.FreightRequest{Status: domain.FreightRequestStatusPublished}, nil
+			return &domain.FreightRequest{Status: domain.FreightRequestStatusPublished, ShipperCompanyID: uuid.MustParse(testBuyerShipperCompanyID)}, nil
 		},
 	})
 	req := httptest.NewRequest(http.MethodPost, "/v1/bids/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/accept", nil)
@@ -428,7 +443,7 @@ func TestAcceptBidQueryOnlyTenantReturns403(t *testing.T) {
 		},
 	}, &mockFreightRequestStoreForBid{
 		getByIDFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.FreightRequest, error) {
-			return &domain.FreightRequest{Status: domain.FreightRequestStatusPublished}, nil
+			return &domain.FreightRequest{Status: domain.FreightRequestStatusPublished, ShipperCompanyID: uuid.MustParse(testBuyerShipperCompanyID)}, nil
 		},
 	})
 	req := httptest.NewRequest(http.MethodPost, "/v1/bids/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/accept?tenant_id=11111111-1111-1111-1111-111111111111", nil)
@@ -456,7 +471,7 @@ func TestAcceptBidHeaderRejectsConflictingQuery(t *testing.T) {
 		},
 	}, &mockFreightRequestStoreForBid{
 		getByIDFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.FreightRequest, error) {
-			return &domain.FreightRequest{Status: domain.FreightRequestStatusPublished}, nil
+			return &domain.FreightRequest{Status: domain.FreightRequestStatusPublished, ShipperCompanyID: uuid.MustParse(testBuyerShipperCompanyID)}, nil
 		},
 	})
 	req := httptest.NewRequest(http.MethodPost, "/v1/bids/"+bidID+"/accept?tenant_id="+queryTenant, nil)
@@ -478,7 +493,7 @@ func TestAcceptBidInvalidTenantHeaderReturns400(t *testing.T) {
 		},
 	}, &mockFreightRequestStoreForBid{
 		getByIDFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.FreightRequest, error) {
-			return &domain.FreightRequest{Status: domain.FreightRequestStatusPublished}, nil
+			return &domain.FreightRequest{Status: domain.FreightRequestStatusPublished, ShipperCompanyID: uuid.MustParse(testBuyerShipperCompanyID)}, nil
 		},
 	})
 	req := httptest.NewRequest(http.MethodPost, "/v1/bids/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/accept", nil)
@@ -515,7 +530,7 @@ func TestAcceptBidNotFoundReturns404(t *testing.T) {
 		},
 	}, &mockFreightRequestStoreForBid{
 		getByIDFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.FreightRequest, error) {
-			return &domain.FreightRequest{Status: domain.FreightRequestStatusPublished}, nil
+			return &domain.FreightRequest{Status: domain.FreightRequestStatusPublished, ShipperCompanyID: uuid.MustParse(testBuyerShipperCompanyID)}, nil
 		},
 	})
 	req := httptest.NewRequest(http.MethodPost, "/v1/bids/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/accept", nil)
@@ -540,7 +555,7 @@ func TestAcceptBidForeignTenantReturns404(t *testing.T) {
 		},
 	}, &mockFreightRequestStoreForBid{
 		getByIDFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.FreightRequest, error) {
-			return &domain.FreightRequest{Status: domain.FreightRequestStatusPublished}, nil
+			return &domain.FreightRequest{Status: domain.FreightRequestStatusPublished, ShipperCompanyID: uuid.MustParse(testBuyerShipperCompanyID)}, nil
 		},
 	})
 	req := httptest.NewRequest(http.MethodPost, "/v1/bids/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/accept", nil)
@@ -565,7 +580,7 @@ func TestAcceptBidNonSubmittedReturns409(t *testing.T) {
 		},
 	}, &mockFreightRequestStoreForBid{
 		getByIDFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.FreightRequest, error) {
-			return &domain.FreightRequest{Status: domain.FreightRequestStatusPublished}, nil
+			return &domain.FreightRequest{Status: domain.FreightRequestStatusPublished, ShipperCompanyID: uuid.MustParse(testBuyerShipperCompanyID)}, nil
 		},
 	})
 	req := httptest.NewRequest(http.MethodPost, "/v1/bids/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/accept", nil)
@@ -608,7 +623,7 @@ func (m *mockBidStore) ListByFreightRequest(ctx context.Context, freightRequestI
 func (m *mockBidStore) SubmitBid(context.Context, uuid.UUID, uuid.UUID, *uuid.UUID) (*domain.Bid, error) {
 	return nil, nil
 }
-func (m *mockBidStore) AcceptBid(ctx context.Context, id, tenantID uuid.UUID) (*domain.Bid, error) {
+func (m *mockBidStore) AcceptBid(ctx context.Context, id, tenantID uuid.UUID, preCommit func(context.Context, pgx.Tx) error) (*domain.Bid, error) {
 	if m.acceptBidFn != nil {
 		return m.acceptBidFn(ctx, id, tenantID)
 	}

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/freight-platform/rfx-service/internal/domain"
 	apperrors "github.com/freight-platform/rfx-service/internal/platform/errors"
@@ -39,7 +40,9 @@ func TestFreightRequestServiceCreateFromTransportOrder(t *testing.T) {
 	t.Parallel()
 	tenantID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
 	orderID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
-	svc := NewFreightRequestService(&mockFreightRequestStore{
+	shipperID := uuid.MustParse("33333333-3333-3333-3333-333333333333")
+	userID := uuid.MustParse("44444444-4444-4444-4444-444444444444")
+	svc := NewFreightRequestServiceWithAuth(&mockFreightRequestStore{
 		getTransportOrderFn: func(context.Context, uuid.UUID, uuid.UUID) (string, error) {
 			return domain.TransportOrderStatusReadyForSourcing, nil
 		},
@@ -48,10 +51,10 @@ func TestFreightRequestServiceCreateFromTransportOrder(t *testing.T) {
 				ID: in.TenantID, FreightRequestNumber: in.FreightRequestNumber, Status: domain.FreightRequestStatusDraft,
 			}, nil
 		},
-	})
-	fr, err := svc.CreateFromTransportOrder(context.Background(), domain.CreateFreightRequestFromOrderInput{
+	}, &mockMembershipResolver{buyerIDs: []uuid.UUID{shipperID}})
+	fr, err := svc.CreateFromTransportOrder(context.Background(), buyerTestActor(tenantID, userID, shipperID), domain.CreateFreightRequestFromOrderInput{
 		TenantID: tenantID, TransportOrderID: orderID, FreightRequestNumber: "FR-1",
-		RequestType: "MINI_TENDER", ShipperCompanyID: uuid.New(),
+		RequestType: "MINI_TENDER", ShipperCompanyID: shipperID,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -85,7 +88,7 @@ func (m *mockBidStore) ListByFreightRequest(ctx context.Context, freightRequestI
 func (m *mockBidStore) SubmitBid(context.Context, uuid.UUID, uuid.UUID, *uuid.UUID) (*domain.Bid, error) {
 	return nil, nil
 }
-func (m *mockBidStore) AcceptBid(context.Context, uuid.UUID, uuid.UUID) (*domain.Bid, error) {
+func (m *mockBidStore) AcceptBid(context.Context, uuid.UUID, uuid.UUID, func(context.Context, pgx.Tx) error) (*domain.Bid, error) {
 	return nil, nil
 }
 
@@ -168,14 +171,17 @@ func TestBidServiceGetByIDPassesTenantToRepository(t *testing.T) {
 	t.Parallel()
 	tenantID := uuid.New()
 	bidID := uuid.New()
+	carrierID := uuid.New()
 	svc := NewBidService(&mockBidStore{
 		getByIDFn: func(_ context.Context, id, tenant uuid.UUID) (*domain.Bid, error) {
 			if id != bidID || tenant != tenantID {
 				t.Fatalf("unexpected scoped lookup id=%s tenant=%s", id, tenant)
 			}
-			return &domain.Bid{ID: id, TenantID: tenant, BidNumber: "BID-1"}, nil
+			return &domain.Bid{ID: id, TenantID: tenant, BidNumber: "BID-1", CarrierCompanyID: carrierID}, nil
 		},
-	}, &mockFreightRequestStoreForBid{}, nil, nil)
+	}, &mockFreightRequestStoreForBid{}, &mockActorResolver{
+		kind: domain.ActorKindCarrier, carrierIDs: []uuid.UUID{carrierID},
+	}, nil)
 	bid, err := svc.GetByID(context.Background(), domain.ActorContext{TenantID: tenantID}, bidID)
 	if err != nil || bid.BidNumber != "BID-1" {
 		t.Fatalf("unexpected result bid=%v err=%v", bid, err)
