@@ -14,6 +14,7 @@ import (
 	gwmiddleware "github.com/freight-platform/api-gateway/internal/http/middleware"
 	apperrors "github.com/freight-platform/api-gateway/internal/platform/errors"
 	"github.com/freight-platform/api-gateway/internal/platform/respond"
+	"github.com/freight-platform/api-gateway/internal/rfxrbac"
 	"github.com/freight-platform/api-gateway/internal/shipmentevents"
 	"github.com/freight-platform/api-gateway/internal/tracking"
 	"github.com/freight-platform/api-gateway/internal/shipmentrbac"
@@ -195,6 +196,40 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	r.Post("/api/v1/shipments/{id}/accept", shipmentGuard.WithPolicy(shipmentrbac.PolicyAccept))
 	r.Patch("/api/v1/shipments/{id}/status", shipmentGuard.WithPolicy(shipmentrbac.PolicyUpdateStatus))
 	r.Post("/api/v1/shipments/{id}/cancel", shipmentGuard.WithPolicy(shipmentrbac.PolicyCancel))
+
+	rfxGuard := rfxrbac.NewGuard(cfg, proxy)
+	r.Post("/api/v1/rfx-events", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
+	r.Get("/api/v1/rfx-events", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerRead))
+	r.Get("/api/v1/rfx-events/{id}", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerRead))
+	r.Patch("/api/v1/rfx-events/{id}", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
+	r.Post("/api/v1/rfx-events/{id}/publish", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
+	r.Post("/api/v1/rfx-events/{id}/cancel", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
+	r.Post("/api/v1/rfx-events/{id}/transitions/{command}", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
+	r.Post("/api/v1/rfx-events/{id}/send-invitations", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
+	r.Post("/api/v1/rfx-events/{id}/open-questions", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
+	r.Post("/api/v1/rfx-events/{id}/open-responses", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
+	r.Post("/api/v1/rfx-events/{id}/close-responses", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
+	r.Post("/api/v1/rfx-events/{id}/start-evaluation", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
+	r.Post("/api/v1/rfx-events/{id}/shortlist", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
+	r.Post("/api/v1/rfx-events/{id}/award", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
+	r.Post("/api/v1/rfx-events/{id}/archive", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
+	r.Post("/api/v1/rfx-events/{id}/extend-deadline", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
+	r.Post("/api/v1/rfx-events/{id}/lots", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
+	r.Get("/api/v1/rfx-events/{id}/lots", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerRead))
+	r.Post("/api/v1/rfx-lots/{lot_id}/lanes", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
+	r.Post("/api/v1/rfx-events/{id}/participants", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
+	r.Get("/api/v1/rfx-events/{id}/participants", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerRead))
+	r.Post("/api/v1/rfx-events/{id}/responses", rfxGuard.WithPolicy(rfxrbac.PolicyCarrierRespond))
+	r.Post("/api/v1/rfx-responses/{response_id}/submit", rfxGuard.WithPolicy(rfxrbac.PolicyCarrierRespond))
+	r.Post("/api/v1/freight-requests/from-transport-order", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
+	r.Get("/api/v1/freight-requests", rfxGuard.WithPolicy(rfxrbac.PolicyCombinedRead))
+	r.Get("/api/v1/freight-requests/{id}", rfxGuard.WithPolicy(rfxrbac.PolicyCombinedRead))
+	r.Post("/api/v1/freight-requests/{id}/publish", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
+	r.Post("/api/v1/freight-requests/{id}/bids", rfxGuard.WithPolicy(rfxrbac.PolicyCarrierRespond))
+	r.Get("/api/v1/freight-requests/{id}/bids", rfxGuard.WithPolicy(rfxrbac.PolicyCombinedRead))
+	r.Get("/api/v1/bids/{id}", rfxGuard.WithPolicy(rfxrbac.PolicyCombinedRead))
+	r.Post("/api/v1/bids/{id}/submit", rfxGuard.WithPolicy(rfxrbac.PolicyCarrierRespond))
+	r.Post("/api/v1/bids/{id}/accept", rfxGuard.WithPolicy(rfxrbac.PolicyAcceptBid))
 
 	r.Handle("/api/*", proxy)
 	r.Handle("/api", proxy)
