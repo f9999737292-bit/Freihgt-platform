@@ -1,0 +1,48 @@
+# BINTRANS dedicated staging — registry runtime image references.
+#
+# Use ONLY after images are pushed to cr.selcloud.ru/bintrans-staging.
+# Tag baseline: git-b75eb3d (runtime source b75eb3d).
+# Prefer digest pinning via BINTRANS_*_IMAGE variables (see registry.images.template.env).
+#
+# Do not commit registry credentials.
+
+services:
+  identity-service:
+    image: ${BINTRANS_IDENTITY_IMAGE:-${BINTRANS_REGISTRY}/identity-service:${BINTRANS_IMAGE_TAG}}
+    pull_policy: always
+
+  company-service:
+    image: ${BINTRANS_COMPANY_IMAGE:-${BINTRANS_REGISTRY}/company-service:${BINTRANS_IMAGE_TAG}}
+    pull_policy: always
+
+  transport-order-service:
+    image: ${BINTRANS_TRANSPORT_ORDER_IMAGE:-${BINTRANS_REGISTRY}/transport-order-service:${BINTRANS_IMAGE_TAG}}
+    pull_policy: always
+
+  rfx-service:
+    image: ${BINTRANS_RFX_IMAGE:-${BINTRANS_REGISTRY}/rfx-service:${BINTRANS_IMAGE_TAG}}
+    pull_policy: always
+
+  shipment-service:
+    image: ${BINTRANS_SHIPMENT_IMAGE:-${BINTRANS_REGISTRY}/shipment-service:${BINTRANS_IMAGE_TAG}}
+    pull_policy: always
+
+  document-service:
+    image: ${BINTRANS_DOCUMENT_IMAGE:-${BINTRANS_REGISTRY}/document-service:${BINTRANS_IMAGE_TAG}}
+    pull_policy: always
+
+  billing-register-service:
+    image: ${BINTRANS_BILLING_REGISTER_IMAGE:-${BINTRANS_REGISTRY}/billing-register-service:${BINTRANS_IMAGE_TAG}}
+    pull_policy: always
+
+  low-code-service:
+    image: ${BINTRANS_LOW_CODE_IMAGE:-${BINTRANS_REGISTRY}/low-code-service:${BINTRANS_IMAGE_TAG}}
+    pull_policy: always
+
+  control-tower-read-model-service:
+    image: ${BINTRANS_CONTROL_TOWER_READ_MODEL_IMAGE:-${BINTRANS_REGISTRY}/control-tower-read-model-service:${BINTRANS_IMAGE_TAG}}
+    pull_policy: always
+
+  api-gateway:
+    image: ${BINTRANS_API_GATEWAY_IMAGE:-${BINTRANS_REGISTRY}/api-gateway:${BINTRANS_IMAGE_TAG}}
+    pull_policy: always
