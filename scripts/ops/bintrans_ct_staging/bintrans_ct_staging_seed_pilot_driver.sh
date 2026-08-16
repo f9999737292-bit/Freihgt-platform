@@ -28,7 +28,11 @@ if ! command -v python3 >/dev/null 2>&1; then
   bintrans_fail "python3 required to hash PILOT_DRIVER_PASSWORD without logging it"
 fi
 
-password_hash="$(PILOT_DRIVER_PASSWORD="${PILOT_DRIVER_PASSWORD}" python3 - <<'PY'
+password_hash="$(
+  PILOT_DRIVER_PASSWORD="${PILOT_DRIVER_PASSWORD}" docker run --rm -i \
+    -e PILOT_DRIVER_PASSWORD \
+    python:3.12-slim \
+    python - <<'PY'
 import bcrypt, os
 print(bcrypt.hashpw(os.environ["PILOT_DRIVER_PASSWORD"].encode(), bcrypt.gensalt(rounds=12)).decode())
 PY
