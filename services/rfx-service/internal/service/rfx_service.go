@@ -26,6 +26,7 @@ type RfxStore interface {
 	ListExpiredResponseOpenEvents(ctx context.Context, now time.Time, limit int) ([]domain.ExpiredResponseOpenEvent, error)
 	CreateLot(ctx context.Context, in domain.CreateRfxLotInput) (*domain.RfxLot, error)
 	ListLotsByEvent(ctx context.Context, eventID, tenantID uuid.UUID) ([]domain.RfxLot, error)
+	GetLotOwnerContext(ctx context.Context, lotID, tenantID uuid.UUID) (*domain.LotOwnerContext, error)
 	CreateLane(ctx context.Context, in domain.CreateRfxLaneInput) (*domain.RfxLane, error)
 	AddParticipant(ctx context.Context, in domain.AddRfxParticipantInput) (*domain.RfxParticipant, error)
 	ListParticipants(ctx context.Context, eventID, tenantID uuid.UUID) ([]domain.RfxParticipant, error)
@@ -426,6 +427,17 @@ func (s *RfxService) ListLots(ctx context.Context, actor domain.ActorContext, ev
 	return s.repo.ListLotsByEvent(ctx, eventID, actor.TenantID)
 }
 
+func (s *RfxService) requireLotOwnerCompanyAccess(ctx context.Context, actor domain.ActorContext, lotID uuid.UUID) (*domain.LotOwnerContext, error) {
+	lotCtx, err := s.repo.GetLotOwnerContext(ctx, lotID, actor.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := s.requireOwnerCompanyAccess(ctx, actor, lotCtx.OwnerCompanyID); err != nil {
+		return nil, err
+	}
+	return lotCtx, nil
+}
+
 func (s *RfxService) CreateLane(ctx context.Context, actor domain.ActorContext, lotID uuid.UUID, in domain.CreateRfxLaneInput) (*domain.RfxLane, error) {
 	if err := actor.Validate(); err != nil {
 		return nil, err
@@ -433,6 +445,9 @@ func (s *RfxService) CreateLane(ctx context.Context, actor domain.ActorContext, 
 	in.TenantID = actor.TenantID
 	in.RfxLotID = lotID
 	if err := domain.ValidateCreateRfxLaneInput(in); err != nil {
+		return nil, err
+	}
+	if _, err := s.requireLotOwnerCompanyAccess(ctx, actor, lotID); err != nil {
 		return nil, err
 	}
 	return s.repo.CreateLane(ctx, in)

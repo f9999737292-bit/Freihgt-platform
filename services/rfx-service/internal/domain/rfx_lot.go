@@ -32,6 +32,14 @@ type CreateRfxLotInput struct {
 	CurrencyCode   *string
 }
 
+// LotOwnerContext binds a lot to its persisted RFx owner company for authorization.
+type LotOwnerContext struct {
+	LotID          uuid.UUID
+	TenantID       uuid.UUID
+	RfxEventID     uuid.UUID
+	OwnerCompanyID uuid.UUID
+}
+
 type RfxLane struct {
 	ID                   uuid.UUID
 	TenantID             uuid.UUID
