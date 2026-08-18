@@ -35,6 +35,13 @@ export interface CarrierRfxResponse {
   created_at?: string
   updated_at?: string
   version?: number
+  offer_lines?: Array<{
+    id?: string
+    rfx_lot_id?: string | null
+    amount: number
+    currency_code: string
+    comment?: string | null
+  }>
 }
 
 export function isDeadlineExpired(deadline?: string | null, now = Date.now()): boolean {
@@ -57,6 +64,10 @@ export function formatDeadlineRemaining(deadline?: string | null, now = Date.now
   }
   if (hours > 0) return `${hours}h ${minutes}m`
   return `${minutes}m`
+}
+
+export function canEditCommercial(status: string): boolean {
+  return status === 'DRAFT'
 }
 
 export function canCreateResponse(

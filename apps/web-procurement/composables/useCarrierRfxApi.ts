@@ -13,7 +13,7 @@ export interface ListCarrierTendersParams {
 }
 
 export function useCarrierRfxApi() {
-  const { apiGet, apiPost } = useApi()
+  const { apiGet, apiPost, apiPatch } = useApi()
 
   function carrierQuery(carrierCompanyId?: string) {
     return carrierCompanyId ? { carrier_company_id: carrierCompanyId } : {}
@@ -59,6 +59,22 @@ export function useCarrierRfxApi() {
     return apiPost<CarrierRfxResponse>(`/api/v1/rfx-responses/${encodeURIComponent(responseId)}/submit`, {})
   }
 
+  async function updateResponseCommercial(
+    responseId: string,
+    offerLines: Array<{ rfx_lot_id?: string | null; amount: number; currency_code: string; comment?: string | null }>,
+  ) {
+    return apiPatch<CarrierRfxResponse>(`/api/v1/rfx-responses/${encodeURIComponent(responseId)}`, {
+      offer_lines: offerLines,
+    })
+  }
+
+  async function getOwnAward(eventId: string, carrierCompanyId?: string) {
+    return apiGet<{ id: string; rfx_response_id: string; total_amount?: number; currency_code?: string }>(
+      `/api/v1/rfx-events/${encodeURIComponent(eventId)}/own-award`,
+      { query: carrierQuery(carrierCompanyId) },
+    )
+  }
+
   async function listLots(eventId: string) {
     const data = await apiGet<{ items: RfxLot[] }>(`/api/v1/rfx-events/${encodeURIComponent(eventId)}/lots`)
     return data.items ?? []
@@ -78,6 +94,8 @@ export function useCarrierRfxApi() {
     getOwnResponse,
     createResponse,
     submitResponse,
+    updateResponseCommercial,
+    getOwnAward,
     listLots,
     listLanes,
     isApiUnavailableError,

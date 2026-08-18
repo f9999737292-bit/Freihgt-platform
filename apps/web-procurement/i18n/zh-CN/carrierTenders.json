@@ -53,7 +53,11 @@
       "volume": "运量",
       "serviceLevel": "服务等级",
       "origin": "起点",
-      "destination": "终点"
+      "destination": "终点",
+      "offerAmount": "商业报价",
+      "saveOffer": "保存报价",
+      "offerSaved": "报价已保存",
+      "awarded": "您已中标"
     },
     "status": {
       "NOT_STARTED": "未开始",

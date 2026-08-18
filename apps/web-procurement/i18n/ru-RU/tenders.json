@@ -70,6 +70,32 @@
       "participantRequired": "Выберите участника",
       "publishNotReady": "Тендер не готов к публикации",
       "noPermission": "Недостаточно прав для публикации"
+    },
+    "evaluation": {
+      "title": "Оценка и награждение",
+      "comparison": "Сравнение предложений",
+      "carrier": "Перевозчик",
+      "submitted": "Подано",
+      "price": "Цена",
+      "score": "Балл",
+      "rank": "Ранг",
+      "shortlist": "Шорт-лист",
+      "award": "Наградить",
+      "addShortlist": "В шорт-лист",
+      "removeShortlist": "Убрать",
+      "notComparable": "Несопоставимо",
+      "incomplete": "Неполное",
+      "empty": "Нет поданных ответов",
+      "loadFailed": "Не удалось загрузить оценку",
+      "recalculate": "Пересчитать",
+      "recalculated": "Оценка пересчитана",
+      "awardConfirmTitle": "Подтверждение награждения",
+      "awardConfirmBody": "Наградить {carrier} с предложением {amount}? Это решение необратимо.",
+      "confirmAward": "Подтвердить награждение",
+      "awardSuccess": "Победитель определён",
+      "awardFailed": "Не удалось наградить",
+      "decisionHistory": "История решений",
+      "noHistory": "Событий пока нет"
     }
   }
 }

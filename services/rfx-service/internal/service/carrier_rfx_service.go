@@ -40,6 +40,17 @@ func (s *RfxService) GetOwnResponse(ctx context.Context, actor domain.ActorConte
 	if err != nil {
 		return nil, err
 	}
+	return s.attachOfferLines(ctx, response)
+}
+
+func (s *RfxService) attachOfferLines(ctx context.Context, response *domain.RfxResponse) (*domain.RfxResponse, error) {
+	if store := s.evalStore(); store != nil {
+		lines, err := store.ListOfferLinesByResponse(ctx, response.ID, response.TenantID)
+		if err != nil {
+			return nil, err
+		}
+		response.OfferLines = lines
+	}
 	return response, nil
 }
 
@@ -63,13 +74,13 @@ func (s *RfxService) GetResponse(ctx context.Context, actor domain.ActorContext,
 		if _, err := s.requireOwnerCompanyAccess(ctx, actor, event.OwnerCompanyID); err != nil {
 			return nil, err
 		}
-		return response, nil
+		return s.attachOfferLines(ctx, response)
 	}
 	if kind == domain.ActorKindCarrier {
 		if !carrierCanViewResponse(carrierIDs, response.ParticipantCompanyID) {
 			return nil, apperrors.NotFound("rfx response not found")
 		}
-		return response, nil
+		return s.attachOfferLines(ctx, response)
 	}
 	return nil, apperrors.Forbidden("authorization required")
 }

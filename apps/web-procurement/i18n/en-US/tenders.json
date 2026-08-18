@@ -70,6 +70,32 @@
       "participantRequired": "Select a participant",
       "publishNotReady": "Tender is not ready to publish",
       "noPermission": "Insufficient permissions to publish"
+    },
+    "evaluation": {
+      "title": "Evaluation & Award",
+      "comparison": "Offer comparison",
+      "carrier": "Carrier",
+      "submitted": "Submitted",
+      "price": "Price",
+      "score": "Score",
+      "rank": "Rank",
+      "shortlist": "Shortlist",
+      "award": "Award",
+      "addShortlist": "Shortlist",
+      "removeShortlist": "Remove",
+      "notComparable": "Not comparable",
+      "incomplete": "Incomplete",
+      "empty": "No submitted responses",
+      "loadFailed": "Failed to load evaluation",
+      "recalculate": "Recalculate",
+      "recalculated": "Scores recalculated",
+      "awardConfirmTitle": "Confirm award",
+      "awardConfirmBody": "Award {carrier} with offer {amount}? This decision is final.",
+      "confirmAward": "Confirm award",
+      "awardSuccess": "Winner awarded",
+      "awardFailed": "Award failed",
+      "decisionHistory": "Decision history",
+      "noHistory": "No events yet"
     }
   }
 }

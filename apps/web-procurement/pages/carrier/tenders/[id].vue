@@ -6,6 +6,7 @@ import type { CarrierRfxResponse } from '~/types/carrierRfx'
 import {
   canCreateResponse,
   canSubmitResponse,
+  canEditCommercial,
   formatDeadlineRemaining,
   isDeadlineExpired,
 } from '~/types/carrierRfx'
@@ -27,6 +28,8 @@ const {
   getOwnResponse,
   createResponse,
   submitResponse,
+  updateResponseCommercial,
+  getOwnAward,
   listLots,
   listLanes,
   isApiUnavailableError: isCarrierApiUnavailable,
@@ -48,6 +51,8 @@ const acting = ref(false)
 const event = ref<Awaited<ReturnType<typeof getTender>> | null>(null)
 const participant = ref<Awaited<ReturnType<typeof getOwnParticipant>> | null>(null)
 const response = ref<CarrierRfxResponse | null>(null)
+const ownAward = ref<Awaited<ReturnType<typeof getOwnAward>> | null>(null)
+const offerAmount = ref<number | null>(null)
 const lots = ref<RfxLot[]>([])
 const lanesByLot = ref<Record<string, RfxLane[]>>({})
 const companies = ref<Company[]>([])
@@ -74,6 +79,8 @@ const showSubmit = computed(() =>
     ? canSubmitResponse(response.value.status, event.value.status, event.value.response_deadline)
     : false,
 )
+const showOfferEdit = computed(() => response.value ? canEditCommercial(response.value.status) : false)
+const defaultCurrency = computed(() => event.value?.currency_code || 'RUB')
 
 function statusLabel(status: string) {
   const key = `carrierTenders.status.${status}`
@@ -109,6 +116,8 @@ async function loadResponse() {
   }
   try {
     response.value = await getOwnResponse(eventId.value, selectedCarrierCompanyId.value)
+    const line = response.value.offer_lines?.[0]
+    offerAmount.value = line?.amount ?? null
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
       response.value = null
@@ -130,6 +139,11 @@ async function loadWorkspace() {
     event.value = await getTender(eventId.value)
     participant.value = await getOwnParticipant(eventId.value, selectedCarrierCompanyId.value || undefined)
     await loadResponse()
+    try {
+      ownAward.value = await getOwnAward(eventId.value, selectedCarrierCompanyId.value || undefined)
+    } catch {
+      ownAward.value = null
+    }
     lots.value = await listLots(eventId.value)
     const laneEntries: Record<string, RfxLane[]> = {}
     for (const lot of lots.value) {
@@ -164,6 +178,26 @@ async function handleCreateResponse() {
     response.value = await createResponse(eventId.value, selectedCarrierCompanyId.value)
     pushToast('success', t('carrierTenders.detail.responseCreated'))
     await loadWorkspace()
+  } catch (error) {
+    pushToast('error', error instanceof Error ? error.message : t('common.error'))
+  } finally {
+    acting.value = false
+  }
+}
+
+async function handleSaveOffer() {
+  if (!response.value?.id || offerAmount.value == null) return
+  acting.value = true
+  try {
+    const lines = lots.value.length
+      ? lots.value.map((lot) => ({
+          rfx_lot_id: lot.id,
+          amount: offerAmount.value ?? 0,
+          currency_code: defaultCurrency.value,
+        }))
+      : [{ amount: offerAmount.value ?? 0, currency_code: defaultCurrency.value }]
+    response.value = await updateResponseCommercial(response.value.id, lines)
+    pushToast('success', t('carrierTenders.detail.offerSaved'))
   } catch (error) {
     pushToast('error', error instanceof Error ? error.message : t('common.error'))
   } finally {
@@ -303,8 +337,21 @@ onUnmounted(() => {
           <dd>{{ statusLabel(response.status) }}</dd>
           <dt>{{ t('carrierTenders.status.SUBMITTED') }}</dt>
           <dd>{{ formatRfxDate(response.submitted_at) }}</dd>
+          <dt>{{ t('carrierTenders.detail.offerAmount') }}</dt>
+          <dd v-if="!showOfferEdit">{{ response.offer_lines?.[0]?.amount ?? '—' }} {{ response.offer_lines?.[0]?.currency_code || defaultCurrency }}</dd>
+          <dd v-else>
+            <Input v-model.number="offerAmount" type="number" min="0" step="0.01" :label="t('carrierTenders.detail.offerAmount')" />
+            <span class="muted">{{ defaultCurrency }}</span>
+          </dd>
         </dl>
+        <div v-if="ownAward" class="award-result">
+          <Badge status="AWARDED" />
+          <span>{{ t('carrierTenders.detail.awarded') }}</span>
+        </div>
         <div class="actions">
+          <Button v-if="showOfferEdit" :disabled="acting" variant="secondary" @click="handleSaveOffer">
+            {{ t('carrierTenders.detail.saveOffer') }}
+          </Button>
           <Button v-if="showCreate" :disabled="acting" @click="handleCreateResponse">
             {{ t('carrierTenders.detail.createResponse') }}
           </Button>

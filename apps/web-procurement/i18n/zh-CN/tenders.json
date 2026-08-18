@@ -70,6 +70,32 @@
       "participantRequired": "请选择参与者",
       "publishNotReady": "招标尚未准备好发布",
       "noPermission": "无权发布"
+    },
+    "evaluation": {
+      "title": "评估与授标",
+      "comparison": "报价比较",
+      "carrier": "承运商",
+      "submitted": "已提交",
+      "price": "价格",
+      "score": "得分",
+      "rank": "排名",
+      "shortlist": "候选",
+      "award": "授标",
+      "addShortlist": "加入候选",
+      "removeShortlist": "移除",
+      "notComparable": "不可比较",
+      "incomplete": "不完整",
+      "empty": "暂无已提交应答",
+      "loadFailed": "加载评估失败",
+      "recalculate": "重新计算",
+      "recalculated": "分数已更新",
+      "awardConfirmTitle": "确认授标",
+      "awardConfirmBody": "将 {carrier} 的报价 {amount} 授标？此决定不可撤销。",
+      "confirmAward": "确认授标",
+      "awardSuccess": "已确定中标方",
+      "awardFailed": "授标失败",
+      "decisionHistory": "决策历史",
+      "noHistory": "暂无事件"
     }
   }
 }
