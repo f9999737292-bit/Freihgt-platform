@@ -30,7 +30,7 @@ func Test06CTProjectionReceivesActualPickup(t *testing.T) {
 		PlannedDeliveryAt: &plannedDelivery,
 		ActualPickupAt:    &actualPickup,
 	})
-	processOutboxPayload(t, ctEnv, payload, tenantID, shipmentID, 1)
+	processOutboxPayload(t, ctEnv, payload, tenantID, shipmentID)
 
 	projection, err := ctEnv.repo.GetProjection(context.Background(), tenantID, shipmentID)
 	if err != nil || projection == nil {
@@ -61,13 +61,13 @@ func Test07CTDuplicateEventFirstWriteWins(t *testing.T) {
 		TenantID: tenantID, ShipmentID: shipmentID, Version: 1,
 		ToStatus: domain.StatusLoaded, ActualPickupAt: &firstActual,
 	})
-	processOutboxPayload(t, ctEnv, payload1, tenantID, shipmentID, 1)
+	processOutboxPayload(t, ctEnv, payload1, tenantID, shipmentID)
 
 	payload2 := buildStatusOutboxPayload(t, outboxPayloadInput{
 		TenantID: tenantID, ShipmentID: shipmentID, Version: 2,
 		ToStatus: domain.StatusInTransit, ActualPickupAt: &secondActual,
 	})
-	processOutboxPayload(t, ctEnv, payload2, tenantID, shipmentID, 2)
+	processOutboxPayload(t, ctEnv, payload2, tenantID, shipmentID)
 
 	projection, err := ctEnv.repo.GetProjection(context.Background(), tenantID, shipmentID)
 	if err != nil || projection == nil {
@@ -86,22 +86,21 @@ func Test19CTActualDeliveryProjection(t *testing.T) {
 	actualDelivery := time.Date(2026, 8, 10, 17, 0, 0, 0, time.UTC)
 
 	steps := []struct {
-		version int
-		status  string
-		pickup  *time.Time
+		version  int
+		status   string
+		pickup   *time.Time
 		delivery *time.Time
-		offset  int64
 	}{
-		{1, domain.StatusLoaded, &actualPickup, nil, 1},
-		{2, domain.StatusInTransit, nil, nil, 2},
-		{3, domain.StatusDelivered, nil, &actualDelivery, 3},
+		{1, domain.StatusLoaded, &actualPickup, nil},
+		{2, domain.StatusInTransit, nil, nil},
+		{3, domain.StatusDelivered, nil, &actualDelivery},
 	}
 	for _, step := range steps {
 		payload := buildStatusOutboxPayload(t, outboxPayloadInput{
 			TenantID: tenantID, ShipmentID: shipmentID, Version: step.version,
 			ToStatus: step.status, ActualPickupAt: step.pickup, ActualDeliveryAt: step.delivery,
 		})
-		processOutboxPayload(t, ctEnv, payload, tenantID, shipmentID, step.offset)
+		processOutboxPayload(t, ctEnv, payload, tenantID, shipmentID)
 	}
 
 	projection, err := ctEnv.repo.GetProjection(context.Background(), tenantID, shipmentID)
@@ -185,7 +184,7 @@ func TestCTOutboxToProjectionChainMatchesShipmentEnvelope(t *testing.T) {
 		"sourceEventId":"` + uuid.New().String() + `",
 		"data":{"toStatus":"LOADED","actorType":"DRIVER","actualPickupAt":"2026-08-11T08:00:00Z"}
 	}`)
-	processOutboxPayload(t, ctEnv, payload, tenantID, shipmentID, 1)
+	processOutboxPayload(t, ctEnv, payload, tenantID, shipmentID)
 	projection, err := ctEnv.repo.GetProjection(context.Background(), tenantID, shipmentID)
 	if err != nil || projection == nil || projection.ActualPickupAt == nil {
 		t.Fatalf("projection from shipment-style envelope: err=%v projection=%v", err, projection)

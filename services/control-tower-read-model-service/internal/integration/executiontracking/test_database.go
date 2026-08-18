@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -21,6 +22,12 @@ import (
 )
 
 const maxMigrationNumber = 41
+
+var testKafkaOffset int64
+
+func nextTestKafkaOffset() int64 {
+	return atomic.AddInt64(&testKafkaOffset, 1)
+}
 
 type ctEnv struct {
 	pool *pgxpool.Pool
@@ -92,7 +99,7 @@ func locateCTMigrationsDir() (string, error) {
 	return "", os.ErrNotExist
 }
 
-func processOutboxPayload(t *testing.T, env *ctEnv, payload []byte, tenantID, shipmentID uuid.UUID, offset int64) {
+func processOutboxPayload(t *testing.T, env *ctEnv, payload []byte, tenantID, shipmentID uuid.UUID) {
 	t.Helper()
 	event, permErr := ctprojection.ParseAndValidate(payload, domain.KafkaRecordMeta{
 		Topic: "shipment.status.v1", Key: shipmentID.String(),
@@ -103,15 +110,18 @@ func processOutboxPayload(t *testing.T, env *ctEnv, payload []byte, tenantID, sh
 	result, err := env.repo.ProcessEvent(context.Background(), repository.ProcessInput{
 		Event: event,
 		Meta: domain.KafkaRecordMeta{
-			Topic: "shipment.status.v1", Partition: 0, Offset: offset, Key: shipmentID.String(),
+			Topic: "shipment.status.v1", Partition: 0, Offset: nextTestKafkaOffset(), Key: shipmentID.String(),
 		},
 		ReceivedAt: time.Now().UTC(),
 	})
 	if err != nil {
 		t.Fatalf("process event: %v", err)
 	}
-	if !result.Applied {
-		t.Fatalf("event not applied: %s", result.Outcome)
+	if result.Outcome != domain.OutcomeApplied && result.Outcome != domain.OutcomeGapApplied {
+		t.Fatalf("unexpected outcome: %s (duplicate=%v)", result.Outcome, result.Duplicate)
+	}
+	if !result.Applied && !result.Duplicate {
+		t.Fatalf("event not applied: outcome=%s duplicate=%v", result.Outcome, result.Duplicate)
 	}
 	if event.TenantID != tenantID {
 		t.Fatalf("tenant mismatch")
