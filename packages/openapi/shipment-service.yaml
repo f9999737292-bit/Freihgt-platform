@@ -1074,7 +1074,12 @@ paths:
       security:
         - bearerAuth: []
       responses:
-        '200': { description: Execution view }
+        '200':
+          description: Execution view
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderExecutionView'
 
   /api/v1/order-execution/transport-orders/{id}/start:
     post:
@@ -1427,4 +1432,67 @@ components:
           type: integer
         offset:
           type: integer
+    OrderExecutionView:
+      type: object
+      properties:
+        transport_order_id: { type: string, format: uuid }
+        transport_order_number: { type: string }
+        transport_order_status: { type: string }
+        carrier_company_id: { type: string, format: uuid }
+        buyer_company_id: { type: string, format: uuid }
+        readiness:
+          type: object
+          properties:
+            carrier_accepted: { type: boolean }
+            driver_assigned: { type: boolean }
+            vehicle_assigned: { type: boolean }
+            ready_to_start: { type: boolean }
+            missing_requirements:
+              type: array
+              items: { type: string }
+        provenance:
+          type: object
+          properties:
+            rfx_event_id: { type: string, format: uuid }
+            rfx_award_id: { type: string, format: uuid }
+            rfx_response_id: { type: string, format: uuid }
+            amount: { type: number }
+            currency_code: { type: string }
+        shipment:
+          type: object
+          properties:
+            id: { type: string, format: uuid }
+            shipment_number: { type: string }
+            status: { type: string }
+            planned_pickup_at: { type: string, format: date-time }
+            planned_delivery_at: { type: string, format: date-time }
+            actual_pickup_at: { type: string, format: date-time }
+            actual_delivery_at: { type: string, format: date-time }
+        milestones:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              to_status: { type: string }
+              from_status: { type: string }
+              occurred_at: { type: string, format: date-time }
+        sla_signals:
+          type: array
+          items:
+            type: object
+            properties:
+              code: { type: string }
+              severity: { type: string }
+              message: { type: string }
+              at: { type: string, format: date-time }
+        pod_documents:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              document_number: { type: string }
+              status: { type: string }
+              created_at: { type: string, format: date-time }
 
