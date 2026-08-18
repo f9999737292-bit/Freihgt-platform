@@ -21,7 +21,7 @@ func TestCarrierInvitedListAndIsolation(t *testing.T) {
 	deadline := time.Now().UTC().Add(24 * time.Hour)
 	event, err := env.rfxSvc.CreateEvent(ctx, fix.BuyerA, domain.CreateRfxEventInput{
 		TenantID: fix.TenantID, OwnerCompanyID: fix.CompanyA, Title: "Carrier Tender",
-		RfxType: "LANE_TENDER", Category: "FREIGHT", RfxNumber: "RFX-C-1",
+		RfxType: "SPOT_RFQ", Category: "FREIGHT", RfxNumber: "RFX-C-1",
 		ResponseDeadline: &deadline,
 	})
 	if err != nil {
@@ -74,7 +74,7 @@ func TestCarrierOwnResponseCreateSubmitAndCompetitorIsolation(t *testing.T) {
 	deadline := time.Now().UTC().Add(24 * time.Hour)
 	event, err := env.rfxSvc.CreateEvent(ctx, fix.BuyerA, domain.CreateRfxEventInput{
 		TenantID: fix.TenantID, OwnerCompanyID: fix.CompanyA, Title: "Bid Isolation",
-		RfxType: "LANE_TENDER", Category: "FREIGHT", RfxNumber: "RFX-C-2",
+		RfxType: "SPOT_RFQ", Category: "FREIGHT", RfxNumber: "RFX-C-2",
 		ResponseDeadline: &deadline,
 	})
 	if err != nil {
