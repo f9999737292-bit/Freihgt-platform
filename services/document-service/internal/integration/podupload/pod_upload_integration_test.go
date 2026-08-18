@@ -175,19 +175,19 @@ func TestPODEndToEndExecutionReadModel(t *testing.T) {
 	}
 
 	var docID uuid.UUID
-	var docNumber, status string
+	var docNumber, docStatus string
 	err = env.pool.QueryRow(ctx, `
-		SELECT id, document_number, status
+		SELECT id, document_number, document_status
 		FROM documents.documents
 		WHERE tenant_id = $1 AND related_entity_type = 'SHIPMENT' AND related_entity_id = $2
 		  AND document_type = 'POD' AND deleted_at IS NULL
 		ORDER BY created_at DESC LIMIT 1`,
-		fix.TenantA, fix.ShipmentA).Scan(&docID, &docNumber, &status)
+		fix.TenantA, fix.ShipmentA).Scan(&docID, &docNumber, &docStatus)
 	if err != nil {
 		t.Fatalf("execution read query: %v", err)
 	}
-	if docID != result.DocumentID || status == "" {
-		t.Fatalf("execution read model mismatch: docID=%s result=%s status=%s", docID, result.DocumentID, status)
+	if docID != result.DocumentID || docStatus == "" {
+		t.Fatalf("execution read model mismatch: docID=%s result=%s status=%s", docID, result.DocumentID, docStatus)
 	}
 }
 

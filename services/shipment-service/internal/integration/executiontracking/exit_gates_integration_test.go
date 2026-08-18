@@ -129,7 +129,7 @@ func Test13PODAppearsInExecutionDetail(t *testing.T) {
 	fix := seedFixture(t, env.pool)
 	ctx := context.Background()
 	started := prepareStartedShipment(t, env, fix, "SHP-EG-13")
-	docID := seedPODDocument(t, env.pool, fix.TenantID, started.shipmentID, "POD-EG-13")
+	docID := seedPODDocument(t, env.pool, fix.TenantID, fix.CarrierA, started.shipmentID, "POD-EG-13")
 
 	view, err := env.orderExecution.GetExecution(ctx, fix.TenantID, started.orderID, fix.BuyerID, domain.ExecutionActorBuyer)
 	if err != nil {
@@ -145,7 +145,7 @@ func Test14ForeignPODReadDeny(t *testing.T) {
 	fix := seedFixture(t, env.pool)
 	ctx := context.Background()
 	started := prepareStartedShipment(t, env, fix, "SHP-EG-14")
-	seedPODDocument(t, env.pool, fix.TenantID, started.shipmentID, "POD-EG-14")
+	seedPODDocument(t, env.pool, fix.TenantID, fix.CarrierA, started.shipmentID, "POD-EG-14")
 
 	otherBuyer := uuid.New()
 	_, err := env.pool.Exec(ctx, `INSERT INTO core.companies (id, tenant_id, company_type, legal_name, status)

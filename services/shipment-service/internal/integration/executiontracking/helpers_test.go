@@ -80,16 +80,16 @@ func advanceToUnloading(t *testing.T, env *env, fix fixture, shipmentID uuid.UUI
 	}
 }
 
-func seedPODDocument(t *testing.T, pool *pgxpool.Pool, tenantID, shipmentID uuid.UUID, docNumber string) uuid.UUID {
+func seedPODDocument(t *testing.T, pool *pgxpool.Pool, tenantID, ownerCompanyID, shipmentID uuid.UUID, docNumber string) uuid.UUID {
 	t.Helper()
 	ctx := context.Background()
 	docID := uuid.New()
 	_, err := pool.Exec(ctx, `
 		INSERT INTO documents.documents (
-			id, tenant_id, document_number, document_type, status,
-			related_entity_type, related_entity_id, created_at, updated_at
-		) VALUES ($1,$2,$3,'POD','COMPLETED','SHIPMENT',$4,now(),now())`,
-		docID, tenantID, docNumber, shipmentID)
+			id, tenant_id, document_number, document_type, document_status,
+			owner_company_id, related_entity_type, related_entity_id, created_at, updated_at
+		) VALUES ($1,$2,$3,'POD','SIGNED',$4,'SHIPMENT',$5,now(),now())`,
+		docID, tenantID, docNumber, ownerCompanyID, shipmentID)
 	if err != nil {
 		t.Fatalf("seed pod document: %v", err)
 	}

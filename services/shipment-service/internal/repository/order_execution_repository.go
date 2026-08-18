@@ -389,7 +389,7 @@ func (r *OrderExecutionRepository) ListShipmentMilestones(ctx context.Context, t
 
 func (r *OrderExecutionRepository) ListShipmentPODDocuments(ctx context.Context, tenantID, shipmentID uuid.UUID) ([]domain.PODDocumentSummary, error) {
 	const query = `
-		SELECT id, document_number, status, created_at
+		SELECT id, document_number, document_status, created_at
 		FROM documents.documents
 		WHERE tenant_id = $1 AND related_entity_type = 'SHIPMENT' AND related_entity_id = $2
 			AND document_type = 'POD' AND deleted_at IS NULL
