@@ -10,6 +10,7 @@ import (
 	"github.com/freight-platform/api-gateway/internal/config"
 	"github.com/freight-platform/api-gateway/internal/controltower"
 	"github.com/freight-platform/api-gateway/internal/driver"
+	"github.com/freight-platform/api-gateway/internal/executionrbac"
 	"github.com/freight-platform/api-gateway/internal/fleetrbac"
 	gwmiddleware "github.com/freight-platform/api-gateway/internal/http/middleware"
 	apperrors "github.com/freight-platform/api-gateway/internal/platform/errors"
@@ -196,6 +197,13 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	r.Post("/api/v1/shipments/{id}/accept", shipmentGuard.WithPolicy(shipmentrbac.PolicyAccept))
 	r.Patch("/api/v1/shipments/{id}/status", shipmentGuard.WithPolicy(shipmentrbac.PolicyUpdateStatus))
 	r.Post("/api/v1/shipments/{id}/cancel", shipmentGuard.WithPolicy(shipmentrbac.PolicyCancel))
+
+	executionGuard := executionrbac.NewGuard(cfg, proxy)
+	r.Post("/api/v1/order-execution/transport-orders/{id}/execute", executionGuard.WithPolicy(executionrbac.PolicyExecute))
+	r.Get("/api/v1/order-execution/transport-orders/{id}", executionGuard.WithPolicy(executionrbac.PolicyRead))
+	r.Post("/api/v1/order-execution/transport-orders/{id}/start", executionGuard.WithPolicy(executionrbac.PolicyStart))
+	r.Get("/api/v1/order-execution/carrier/transport-orders", executionGuard.WithPolicy(executionrbac.PolicyRead))
+	r.Get("/api/v1/carrier/transport-orders", executionGuard.WithPolicy(executionrbac.PolicyRead))
 
 	rfxGuard := rfxrbac.NewGuard(cfg, proxy)
 	r.Post("/api/v1/rfx-events", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))

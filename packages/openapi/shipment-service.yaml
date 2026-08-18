@@ -23,6 +23,7 @@ tags:
   - name: Shipments
   - name: Drivers
   - name: Vehicles
+  - name: Order Execution
   - name: Documents
   - name: Signing
   - name: Billing Registers
@@ -1013,6 +1014,105 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/order-execution/transport-orders/{id}/execute:
+    post:
+      tags: [Order Execution]
+      summary: Execute awarded transport order (create shipment)
+      operationId: post_execute_transport_order
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/Authorization'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: carrier_company_id
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [shipment_number]
+              properties:
+                shipment_number: { type: string }
+                planned_pickup_at: { type: string, format: date-time }
+                planned_delivery_at: { type: string, format: date-time }
+      security:
+        - bearerAuth: []
+      responses:
+        '201': { description: Shipment created }
+        '200': { description: Existing shipment returned (idempotent) }
+        '403': { description: Forbidden }
+
+  /api/v1/order-execution/transport-orders/{id}:
+    get:
+      tags: [Order Execution]
+      summary: Get transport order execution view
+      operationId: get_transport_order_execution
+      parameters:
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/Authorization'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: company_id
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: actor
+          in: query
+          required: true
+          schema: { type: string, enum: [BUYER, CARRIER] }
+      security:
+        - bearerAuth: []
+      responses:
+        '200': { description: Execution view }
+
+  /api/v1/order-execution/transport-orders/{id}/start:
+    post:
+      tags: [Order Execution]
+      summary: Start shipment execution after assignments
+      operationId: post_start_transport_order_execution
+      parameters:
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/Authorization'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: carrier_company_id
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200': { description: Execution started }
+
+  /api/v1/carrier/transport-orders:
+    get:
+      tags: [Order Execution]
+      summary: List carrier awarded transport orders
+      operationId: get_carrier_transport_orders
+      parameters:
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/Authorization'
+        - name: carrier_company_id
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - bearerAuth: []
+      responses:
+        '200': { description: Carrier order list }
 
 components:
   securitySchemes:

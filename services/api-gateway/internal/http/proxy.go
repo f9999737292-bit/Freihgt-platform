@@ -39,6 +39,8 @@ func NewProxyHandler(cfg config.Config) (*ProxyHandler, error) {
 		{"/api/v1/locations", "transport-order-service", cfg.Services.TransportOrder},
 		{"/api/v1/cargoes", "transport-order-service", cfg.Services.TransportOrder},
 		{"/api/v1/transport-orders", "transport-order-service", cfg.Services.TransportOrder},
+		{"/api/v1/order-execution", "shipment-service", cfg.Services.Shipment},
+		{"/api/v1/carrier/transport-orders", "shipment-service", cfg.Services.Shipment},
 		{"/api/v1/rfx-events", "rfx-service", cfg.Services.RFX},
 		{"/api/v1/carrier", "rfx-service", cfg.Services.RFX},
 		{"/api/v1/rfx-lots", "rfx-service", cfg.Services.RFX},

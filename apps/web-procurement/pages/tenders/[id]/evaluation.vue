@@ -257,6 +257,7 @@ onMounted(loadCompanies)
               t('tenders.evaluation.orderStatus'),
               t('tenders.evaluation.price'),
               t('tenders.evaluation.lotScope'),
+              '',
             ]"
           >
             <tr v-for="order in transportOrders" :key="order.id">
@@ -264,6 +265,11 @@ onMounted(loadCompanies)
               <td><Badge :status="order.transport_order_status" /></td>
               <td>{{ formatMoney(order.amount, order.currency_code) }}</td>
               <td>{{ order.rfx_lot_id || t('tenders.evaluation.eventScope') }}</td>
+              <td>
+                <NuxtLink :to="`/transport-orders/${order.transport_order_id}`">
+                  {{ t('orderExecution.title') }}
+                </NuxtLink>
+              </td>
             </tr>
           </Table>
         </div>

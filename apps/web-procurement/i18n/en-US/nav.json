@@ -2,6 +2,7 @@
   "nav": {
     "appTitle": "Freight Platform Procurement",
     "tenders": "Tenders",
-    "carrierTenders": "Carrier tenders"
+    "carrierTenders": "Carrier tenders",
+    "carrierOrders": "Order execution"
   }
 }
