@@ -4,6 +4,8 @@
     "tenders": "Tenders",
     "carrierTenders": "Carrier tenders",
     "carrierOrders": "Order execution",
-    "buyerOrders": "Transport orders"
+    "buyerOrders": "Transport orders",
+    "settlements": "Settlements",
+    "billingRegisters": "Billing registers"
   }
 }

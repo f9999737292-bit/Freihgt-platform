@@ -4,6 +4,8 @@
     "tenders": "Тендеры",
     "carrierTenders": "Тендеры перевозчика",
     "carrierOrders": "Исполнение заказов",
-    "buyerOrders": "Транспортные заказы"
+    "buyerOrders": "Транспортные заказы",
+    "settlements": "Расчёты",
+    "billingRegisters": "Реестры"
   }
 }
