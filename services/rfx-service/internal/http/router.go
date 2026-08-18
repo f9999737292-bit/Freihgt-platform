@@ -55,10 +55,19 @@ func NewRouter(
 		r.Post("/{id}/participants", rfxHandler.AddParticipant)
 		r.Get("/{id}/participants", rfxHandler.ListParticipants)
 		r.Post("/{id}/responses", rfxHandler.CreateResponse)
+		r.Get("/{id}/own-response", rfxHandler.GetOwnResponse)
+		r.Get("/{id}/own-participant", rfxHandler.GetCarrierParticipant)
+	})
+
+	r.Route("/v1/carrier/rfx-events", func(r chi.Router) {
+		r.Get("/", rfxHandler.ListCarrierInvitedEvents)
 	})
 
 	r.Post("/v1/rfx-lots/{lot_id}/lanes", rfxHandler.CreateLane)
+	r.Get("/v1/rfx-lots/{lot_id}/lanes", rfxHandler.ListLanes)
+
 	r.Post("/v1/rfx-responses/{response_id}/submit", rfxHandler.SubmitResponse)
+	r.Get("/v1/rfx-responses/{response_id}", rfxHandler.GetResponse)
 
 	r.Route("/v1/freight-requests", func(r chi.Router) {
 		r.Post("/from-transport-order", frHandler.CreateFromTransportOrder)

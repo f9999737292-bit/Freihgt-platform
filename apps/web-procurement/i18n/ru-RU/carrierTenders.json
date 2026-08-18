@@ -1,0 +1,66 @@
+{
+  "carrierTenders": {
+    "title": "Приглашённые тендеры",
+    "subtitle": "RFx, на которые приглашена ваша транспортная компания",
+    "companyLabel": "Компания перевозчика",
+    "selectCompany": "Выберите компанию перевозчика",
+    "noMembership": "Нет активного членства в компании перевозчика",
+    "loadFailed": "Не удалось загрузить список тендеров",
+    "empty": "Нет доступных тендеров",
+    "emptyHint": "Когда заказчик пригласит вашу компанию, тендеры появятся здесь",
+    "notAvailable": "Тендер недоступен",
+    "permissionDenied": "Нет доступа",
+    "filters": {
+      "responseFilter": "Статус ответа",
+      "search": "Поиск по номеру или названию",
+      "openForResponse": "Открыт для ответа",
+      "responded": "Ответ отправлен",
+      "notResponded": "Без ответа",
+      "closed": "Закрыт"
+    },
+    "columns": {
+      "reference": "Номер",
+      "title": "Название",
+      "buyer": "Заказчик",
+      "status": "Статус тендера",
+      "deadline": "Дедлайн ответа",
+      "lots": "Лоты",
+      "ownResponse": "Ваш ответ"
+    },
+    "detail": {
+      "title": "Тендер",
+      "overview": "Обзор",
+      "lots": "Лоты",
+      "lanes": "Направления",
+      "response": "Ваш ответ",
+      "buyer": "Заказчик",
+      "deadline": "Дедлайн ответа",
+      "deadlineExpired": "Срок ответа истёк",
+      "timeRemaining": "Осталось: {value}",
+      "participantStatus": "Статус участия",
+      "createResponse": "Начать ответ",
+      "submitResponse": "Отправить ответ",
+      "submitConfirm": "Отправить ответ? После отправки изменения могут быть ограничены.",
+      "responseCreated": "Черновик ответа создан",
+      "responseSubmitted": "Ответ отправлен",
+      "responseReadOnly": "Ответ отправлен и доступен только для просмотра",
+      "noResponse": "Ответ ещё не начат",
+      "declineNotSupported": "Отказ от участия пока не поддерживается API",
+      "noLots": "Лоты не добавлены",
+      "noLanes": "Направления не добавлены",
+      "transportMode": "Режим перевозки",
+      "equipment": "Тип ТС",
+      "volume": "Объём",
+      "serviceLevel": "Уровень сервиса",
+      "origin": "Отправление",
+      "destination": "Назначение"
+    },
+    "status": {
+      "NOT_STARTED": "Не начат",
+      "DRAFT": "Черновик",
+      "SUBMITTED": "Отправлен",
+      "INVITED": "Приглашён",
+      "RESPONSE_SUBMITTED": "Ответ отправлен"
+    }
+  }
+}

@@ -643,6 +643,153 @@ func (r *RfxRepository) SubmitResponse(ctx context.Context, id, tenantID uuid.UU
 	return response, nil
 }
 
+func (r *RfxRepository) GetResponseByEventAndCompany(ctx context.Context, eventID, companyID, tenantID uuid.UUID) (*domain.RfxResponse, error) {
+	const query = `
+		SELECT id, tenant_id, rfx_event_id, participant_company_id, status,
+			submitted_at, created_at, updated_at, version
+		FROM rfx.rfx_responses
+		WHERE rfx_event_id = $1 AND participant_company_id = $2 AND tenant_id = $3 AND deleted_at IS NULL
+	`
+	row := r.db().QueryRow(ctx, query, eventID, companyID, tenantID)
+	response, err := scanRfxResponse(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperrors.NotFound("rfx response not found")
+		}
+		return nil, mapDBError(err)
+	}
+	return response, nil
+}
+
+func (r *RfxRepository) GetParticipantByEventAndCompany(ctx context.Context, eventID, companyID, tenantID uuid.UUID) (*domain.RfxParticipant, error) {
+	const query = `
+		SELECT id, tenant_id, rfx_event_id, company_id, participant_type, status, invited_at
+		FROM rfx.rfx_participants
+		WHERE rfx_event_id = $1 AND company_id = $2 AND tenant_id = $3
+	`
+	row := r.db().QueryRow(ctx, query, eventID, companyID, tenantID)
+	participant, err := scanRfxParticipant(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperrors.NotFound("participant not found")
+		}
+		return nil, mapDBError(err)
+	}
+	return participant, nil
+}
+
+func (r *RfxRepository) ListLanesByLot(ctx context.Context, lotID, tenantID uuid.UUID) ([]domain.RfxLane, error) {
+	const query = `
+		SELECT id, tenant_id, rfx_lot_id, origin_location_id, destination_location_id,
+			transport_mode, equipment_type, estimated_volume, volume_unit, required_service_level
+		FROM rfx.rfx_lanes
+		WHERE rfx_lot_id = $1 AND tenant_id = $2
+		ORDER BY created_at
+	`
+	rows, err := r.db().Query(ctx, query, lotID, tenantID)
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	defer rows.Close()
+
+	lanes := make([]domain.RfxLane, 0)
+	for rows.Next() {
+		lane, err := scanRfxLane(rows)
+		if err != nil {
+			return nil, mapDBError(err)
+		}
+		lanes = append(lanes, *lane)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, mapDBError(err)
+	}
+	return lanes, nil
+}
+
+func (r *RfxRepository) ListCarrierInvitedEvents(ctx context.Context, filter domain.ListCarrierInvitedEventsFilter, now time.Time) ([]domain.CarrierInvitedRfxEvent, int, error) {
+	var items []domain.CarrierInvitedRfxEvent
+	var total int
+	err := measureDB("rfx_repository", "list_carrier_invited_events", func() error {
+		where := strings.Builder{}
+		where.WriteString(`
+		 FROM rfx.rfx_events e
+		 INNER JOIN rfx.rfx_participants p ON p.rfx_event_id = e.id AND p.tenant_id = e.tenant_id AND p.company_id = $2
+		 LEFT JOIN rfx.rfx_responses resp ON resp.rfx_event_id = e.id
+		   AND resp.participant_company_id = p.company_id AND resp.tenant_id = e.tenant_id AND resp.deleted_at IS NULL
+		 WHERE e.tenant_id = $1 AND e.deleted_at IS NULL`)
+		args := []any{filter.TenantID, filter.CarrierCompanyID}
+		argIdx := 3
+
+		if filter.Status != nil && strings.TrimSpace(*filter.Status) != "" {
+			where.WriteString(fmt.Sprintf(" AND e.status = $%d", argIdx))
+			args = append(args, strings.TrimSpace(*filter.Status))
+			argIdx++
+		}
+		if filter.Search != nil && strings.TrimSpace(*filter.Search) != "" {
+			where.WriteString(fmt.Sprintf(" AND (e.title ILIKE $%d OR e.rfx_number ILIKE $%d)", argIdx, argIdx))
+			pattern := "%" + strings.TrimSpace(*filter.Search) + "%"
+			args = append(args, pattern)
+			argIdx++
+		}
+		if filter.ResponseFilter != nil {
+			switch strings.ToUpper(strings.TrimSpace(*filter.ResponseFilter)) {
+			case domain.CarrierResponseFilterOpen:
+				where.WriteString(fmt.Sprintf(" AND e.status IN ('PUBLISHED', 'RESPONSES_OPEN') AND (e.response_deadline IS NULL OR e.response_deadline > $%d)", argIdx))
+				args = append(args, now.UTC())
+				argIdx++
+			case domain.CarrierResponseFilterResponded:
+				where.WriteString(" AND (resp.status = 'SUBMITTED' OR p.status = 'RESPONSE_SUBMITTED')")
+			case domain.CarrierResponseFilterNotResponded:
+				where.WriteString(" AND (resp.id IS NULL OR resp.status = 'DRAFT') AND NOT (resp.status = 'SUBMITTED' OR p.status = 'RESPONSE_SUBMITTED')")
+			case domain.CarrierResponseFilterClosed:
+				where.WriteString(fmt.Sprintf(" AND (e.status IN ('RESPONSES_CLOSED', 'CANCELLED', 'ARCHIVED') OR (e.response_deadline IS NOT NULL AND e.response_deadline <= $%d))", argIdx))
+				args = append(args, now.UTC())
+				argIdx++
+			}
+		}
+
+		countQuery := "SELECT COUNT(*)" + where.String()
+		if err := r.db().QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+			return mapDBError(err)
+		}
+
+		listQuery := `
+		SELECT e.id, e.tenant_id, e.rfx_number, e.rfx_type, e.category, e.title, e.description,
+			e.owner_company_id, e.status, e.currency_code, e.valid_from, e.valid_to, e.response_deadline,
+			e.created_at, e.updated_at, e.version,
+			p.status, p.company_id, resp.id, resp.status,
+			(SELECT COUNT(*) FROM rfx.rfx_lots l WHERE l.rfx_event_id = e.id AND l.tenant_id = e.tenant_id AND l.deleted_at IS NULL)
+	` + where.String() + fmt.Sprintf(" ORDER BY e.response_deadline NULLS LAST, e.created_at DESC LIMIT $%d OFFSET $%d", argIdx, argIdx+1)
+		args = append(args, filter.Limit, filter.Offset)
+
+		rows, err := r.db().Query(ctx, listQuery, args...)
+		if err != nil {
+			return mapDBError(err)
+		}
+		defer rows.Close()
+
+		items = make([]domain.CarrierInvitedRfxEvent, 0)
+		for rows.Next() {
+			var item domain.CarrierInvitedRfxEvent
+			var responseID *uuid.UUID
+			var responseStatus *string
+			if err := rows.Scan(
+				&item.Event.ID, &item.Event.TenantID, &item.Event.RfxNumber, &item.Event.RfxType, &item.Event.Category, &item.Event.Title, &item.Event.Description,
+				&item.Event.OwnerCompanyID, &item.Event.Status, &item.Event.CurrencyCode, &item.Event.ValidFrom, &item.Event.ValidTo, &item.Event.ResponseDeadline,
+				&item.Event.CreatedAt, &item.Event.UpdatedAt, &item.Event.Version,
+				&item.ParticipantStatus, &item.ParticipantCompanyID, &responseID, &responseStatus, &item.LotCount,
+			); err != nil {
+				return mapDBError(err)
+			}
+			item.OwnResponseStatus = domain.DeriveOwnResponseStatus(responseStatus)
+			item.OwnResponseID = responseID
+			items = append(items, item)
+		}
+		return rows.Err()
+	})
+	return items, total, err
+}
+
 func scanRfxEvent(row pgx.Row) (*domain.RfxEvent, error) {
 	var event domain.RfxEvent
 	err := row.Scan(

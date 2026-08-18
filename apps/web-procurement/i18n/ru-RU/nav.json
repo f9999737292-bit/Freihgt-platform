@@ -1,6 +1,7 @@
 {
   "nav": {
     "appTitle": "Freight Platform Procurement",
-    "tenders": "Тендеры"
+    "tenders": "Тендеры",
+    "carrierTenders": "Тендеры перевозчика"
   }
 }

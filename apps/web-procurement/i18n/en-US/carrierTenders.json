@@ -1,0 +1,66 @@
+{
+  "carrierTenders": {
+    "title": "Invited tenders",
+    "subtitle": "RFx events your carrier company is invited to",
+    "companyLabel": "Carrier company",
+    "selectCompany": "Select carrier company",
+    "noMembership": "No active carrier company membership",
+    "loadFailed": "Failed to load tender list",
+    "empty": "No accessible tenders",
+    "emptyHint": "When a buyer invites your company, tenders will appear here",
+    "notAvailable": "Tender not available",
+    "permissionDenied": "Permission denied",
+    "filters": {
+      "responseFilter": "Response status",
+      "search": "Search by number or title",
+      "openForResponse": "Open for response",
+      "responded": "Responded",
+      "notResponded": "Not responded",
+      "closed": "Closed"
+    },
+    "columns": {
+      "reference": "Reference",
+      "title": "Title",
+      "buyer": "Buyer",
+      "status": "Tender status",
+      "deadline": "Response deadline",
+      "lots": "Lots",
+      "ownResponse": "Your response"
+    },
+    "detail": {
+      "title": "Tender",
+      "overview": "Overview",
+      "lots": "Lots",
+      "lanes": "Lanes",
+      "response": "Your response",
+      "buyer": "Buyer",
+      "deadline": "Response deadline",
+      "deadlineExpired": "Response deadline has passed",
+      "timeRemaining": "Time remaining: {value}",
+      "participantStatus": "Participation status",
+      "createResponse": "Start response",
+      "submitResponse": "Submit response",
+      "submitConfirm": "Submit your response? Changes may be limited after submission.",
+      "responseCreated": "Response draft created",
+      "responseSubmitted": "Response submitted",
+      "responseReadOnly": "Response submitted — read only",
+      "noResponse": "Response not started yet",
+      "declineNotSupported": "Declining participation is not supported by the API yet",
+      "noLots": "No lots added",
+      "noLanes": "No lanes added",
+      "transportMode": "Transport mode",
+      "equipment": "Equipment",
+      "volume": "Volume",
+      "serviceLevel": "Service level",
+      "origin": "Origin",
+      "destination": "Destination"
+    },
+    "status": {
+      "NOT_STARTED": "Not started",
+      "DRAFT": "Draft",
+      "SUBMITTED": "Submitted",
+      "INVITED": "Invited",
+      "RESPONSE_SUBMITTED": "Response submitted"
+    }
+  }
+}

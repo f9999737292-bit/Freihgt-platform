@@ -1,0 +1,66 @@
+{
+  "carrierTenders": {
+    "title": "受邀招标",
+    "subtitle": "您的承运商公司受邀参与的 RFx",
+    "companyLabel": "承运商公司",
+    "selectCompany": "选择承运商公司",
+    "noMembership": "无有效的承运商公司成员资格",
+    "loadFailed": "加载招标列表失败",
+    "empty": "暂无可用招标",
+    "emptyHint": "当采购方邀请您的公司后，招标将显示在此处",
+    "notAvailable": "招标不可用",
+    "permissionDenied": "无权限",
+    "filters": {
+      "responseFilter": "响应状态",
+      "search": "按编号或标题搜索",
+      "openForResponse": "可响应",
+      "responded": "已响应",
+      "notResponded": "未响应",
+      "closed": "已关闭"
+    },
+    "columns": {
+      "reference": "编号",
+      "title": "标题",
+      "buyer": "采购方",
+      "status": "招标状态",
+      "deadline": "响应截止",
+      "lots": "标段",
+      "ownResponse": "您的响应"
+    },
+    "detail": {
+      "title": "招标",
+      "overview": "概览",
+      "lots": "标段",
+      "lanes": "线路",
+      "response": "您的响应",
+      "buyer": "采购方",
+      "deadline": "响应截止",
+      "deadlineExpired": "响应截止时间已过",
+      "timeRemaining": "剩余：{value}",
+      "participantStatus": "参与状态",
+      "createResponse": "开始响应",
+      "submitResponse": "提交响应",
+      "submitConfirm": "提交响应？提交后可能无法修改。",
+      "responseCreated": "响应草稿已创建",
+      "responseSubmitted": "响应已提交",
+      "responseReadOnly": "响应已提交，仅可查看",
+      "noResponse": "尚未开始响应",
+      "declineNotSupported": "API 暂不支持拒绝参与",
+      "noLots": "暂无标段",
+      "noLanes": "暂无线路",
+      "transportMode": "运输方式",
+      "equipment": "设备类型",
+      "volume": "运量",
+      "serviceLevel": "服务等级",
+      "origin": "起点",
+      "destination": "终点"
+    },
+    "status": {
+      "NOT_STARTED": "未开始",
+      "DRAFT": "草稿",
+      "SUBMITTED": "已提交",
+      "INVITED": "已邀请",
+      "RESPONSE_SUBMITTED": "响应已提交"
+    }
+  }
+}
