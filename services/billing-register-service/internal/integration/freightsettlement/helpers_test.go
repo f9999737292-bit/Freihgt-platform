@@ -249,7 +249,23 @@ func seedIneligibleShipment(t *testing.T, pool *pgxpool.Pool, fix fixture, statu
 	t.Helper()
 	shipmentID := uuid.New()
 	orderID := uuid.New()
+	eventID := uuid.New()
+	responseID := uuid.New()
+	awardID := uuid.New()
 	ctx := context.Background()
+	if _, err := pool.Exec(ctx, `INSERT INTO rfx.rfx_events (id, tenant_id, owner_company_id, title, rfx_type, category, rfx_number, status)
+		VALUES ($1,$2,$3,'Ineligible Event','SPOT_RFQ','FREIGHT',$4,'AWARDED')`,
+		eventID, fix.TenantID, fix.BuyerID, "RFX-"+eventID.String()[:8]); err != nil {
+		t.Fatalf("ineligible event: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO rfx.rfx_responses (id, tenant_id, rfx_event_id, participant_company_id, status)
+		VALUES ($1,$2,$3,$4,'SUBMITTED')`, responseID, fix.TenantID, eventID, fix.CarrierA); err != nil {
+		t.Fatalf("ineligible response: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO rfx.rfx_awards (id, tenant_id, rfx_event_id, rfx_response_id, carrier_company_id, total_amount, currency_code, awarded_at)
+		VALUES ($1,$2,$3,$4,$5,$6,'RUB',now())`, awardID, fix.TenantID, eventID, responseID, fix.CarrierA, fix.AwardAmount); err != nil {
+		t.Fatalf("ineligible award: %v", err)
+	}
 	if _, err := pool.Exec(ctx, `INSERT INTO transport.transport_orders (
 		id, tenant_id, order_number, shipper_company_id, consignee_company_id,
 		origin_location_id, destination_location_id, cargo_id, transport_mode, status, source_system
@@ -261,7 +277,7 @@ func seedIneligibleShipment(t *testing.T, pool *pgxpool.Pool, fix fixture, statu
 		tenant_id, rfx_event_id, rfx_award_id, rfx_response_id, transport_order_id,
 		carrier_company_id, buyer_company_id, amount, currency_code
 	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'RUB')`,
-		fix.TenantID, fix.EventID, fix.AwardID, fix.ResponseID, orderID, fix.CarrierA, fix.BuyerID, fix.AwardAmount); err != nil {
+		fix.TenantID, eventID, awardID, responseID, orderID, fix.CarrierA, fix.BuyerID, fix.AwardAmount); err != nil {
 		t.Fatalf("ineligible award link: %v", err)
 	}
 	if _, err := pool.Exec(ctx, `INSERT INTO transport.shipments (
