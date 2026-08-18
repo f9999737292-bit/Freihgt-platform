@@ -1661,6 +1661,172 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      tags: [RFx]
+      summary: Update own draft RFx response commercial offer lines
+      description: Carrier may update offer lines only while response status is DRAFT and for own participant company.
+      operationId: patch_rfx_response_commercial
+      parameters:
+        - name: response_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                offer_lines:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: true
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Updated response with offer lines
+        '409':
+          description: Submitted response is immutable
+  /api/v1/rfx-events/{id}/responses:
+    get:
+      tags: [RFx]
+      summary: List submitted responses for buyer evaluation
+      operationId: get_rfx_event_evaluation_responses
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Evaluation comparison items
+  /api/v1/rfx-events/{id}/evaluation/recalculate:
+    post:
+      tags: [RFx]
+      summary: Recalculate commercial scores and ranks
+      operationId: post_rfx_event_recalculate_evaluation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Updated evaluation items
+  /api/v1/rfx-events/{id}/award-response:
+    post:
+      tags: [RFx]
+      summary: Award winning RFx response
+      operationId: post_rfx_event_award_response
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [response_id]
+              properties:
+                response_id:
+                  type: string
+                  format: uuid
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Award record
+        '409':
+          description: Event already awarded
+  /api/v1/rfx-events/{id}/audit-events:
+    get:
+      tags: [RFx]
+      summary: List buyer-visible RFx audit events
+      operationId: get_rfx_event_audit_events
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Audit timeline
+  /api/v1/rfx-events/{id}/own-award:
+    get:
+      tags: [RFx]
+      summary: Get carrier own award result for RFx event
+      operationId: get_rfx_event_own_award
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: carrier_company_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Own award when carrier won
+        '404':
+          description: Not found or not awarded to caller
 
 components:
   securitySchemes:

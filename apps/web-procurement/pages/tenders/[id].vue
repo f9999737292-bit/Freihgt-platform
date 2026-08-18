@@ -251,6 +251,13 @@ onMounted(loadCompanies)
           {{ $t('common.edit') }}
         </Button>
         <Button
+          v-if="event && canManageTenders()"
+          variant="secondary"
+          @click="$router.push(`/tenders/${eventId}/evaluation`)"
+        >
+          {{ $t('tenders.evaluation.title') }}
+        </Button>
+        <Button
           v-if="event && canPublishStatus(event.status) && canPublishTenders()"
           :disabled="!publishReadiness.ready"
           :loading="saving"

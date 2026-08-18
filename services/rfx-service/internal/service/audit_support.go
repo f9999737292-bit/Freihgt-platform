@@ -14,6 +14,10 @@ type AuditRecorder interface {
 	Record(ctx context.Context, rec repository.AuditRecord) error
 }
 
+type AuditReader interface {
+	ListByEntity(ctx context.Context, tenantID uuid.UUID, entityType string, entityID uuid.UUID, limit int) ([]repository.AuditEvent, error)
+}
+
 type ActorResolver interface {
 	ResolveActorKind(ctx context.Context, actor domain.ActorContext) (domain.ActorKind, []uuid.UUID, error)
 }

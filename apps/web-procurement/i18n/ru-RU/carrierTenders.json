@@ -53,7 +53,11 @@
       "volume": "Объём",
       "serviceLevel": "Уровень сервиса",
       "origin": "Отправление",
-      "destination": "Назначение"
+      "destination": "Назначение",
+      "offerAmount": "Коммерческое предложение",
+      "saveOffer": "Сохранить предложение",
+      "offerSaved": "Предложение сохранено",
+      "awarded": "Вы выиграли тендер"
     },
     "status": {
       "NOT_STARTED": "Не начат",

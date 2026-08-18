@@ -22,9 +22,25 @@ type RfxResponse struct {
 	ParticipantCompanyID uuid.UUID
 	Status               string
 	SubmittedAt          *time.Time
+	CommercialScore      *float64
+	ManualScore          *float64
+	TotalScore           *float64
+	EvaluationRank       *int
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
 	Version              int
+	OfferLines           []RfxResponseOfferLine
+}
+
+type EvaluationResponseView struct {
+	Response            RfxResponse
+	ParticipantStatus   string
+	TotalAmount         float64
+	CurrencyCode        string
+	Comparable          bool
+	Shortlisted         bool
+	Awarded             bool
+	OfferComplete       bool
 }
 
 type CreateRfxResponseInput struct {
@@ -43,6 +59,13 @@ func ValidateCreateRfxResponse(eventStatus string) error {
 func ValidateSubmitRfxResponse(status string) error {
 	if status != RfxResponseStatusDraft {
 		return apperrors.Validation("rfx response can only be submitted from DRAFT status", map[string]any{"field": "status", "status": status})
+	}
+	return nil
+}
+
+func ValidateUpdateDraftResponse(status string) error {
+	if status != RfxResponseStatusDraft {
+		return apperrors.Validation("rfx response commercial data can only be updated in DRAFT status", map[string]any{"field": "status", "status": status})
 	}
 	return nil
 }

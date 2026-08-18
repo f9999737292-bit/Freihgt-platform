@@ -57,6 +57,11 @@ func NewRouter(
 		r.Post("/{id}/responses", rfxHandler.CreateResponse)
 		r.Get("/{id}/own-response", rfxHandler.GetOwnResponse)
 		r.Get("/{id}/own-participant", rfxHandler.GetCarrierParticipant)
+		r.Get("/{id}/responses", rfxHandler.ListEvaluationResponses)
+		r.Post("/{id}/evaluation/recalculate", rfxHandler.RecalculateEvaluation)
+		r.Post("/{id}/award-response", rfxHandler.AwardResponse)
+		r.Get("/{id}/audit-events", rfxHandler.ListEventAuditEvents)
+		r.Get("/{id}/own-award", rfxHandler.GetOwnAward)
 	})
 
 	r.Route("/v1/carrier/rfx-events", func(r chi.Router) {
@@ -68,6 +73,10 @@ func NewRouter(
 
 	r.Post("/v1/rfx-responses/{response_id}/submit", rfxHandler.SubmitResponse)
 	r.Get("/v1/rfx-responses/{response_id}", rfxHandler.GetResponse)
+	r.Patch("/v1/rfx-responses/{response_id}", rfxHandler.UpdateResponseCommercial)
+	r.Patch("/v1/rfx-responses/{response_id}/evaluation", rfxHandler.UpdateManualScore)
+	r.Post("/v1/rfx-responses/{response_id}/shortlist", rfxHandler.AddResponseToShortlist)
+	r.Delete("/v1/rfx-responses/{response_id}/shortlist", rfxHandler.RemoveResponseFromShortlist)
 
 	r.Route("/v1/freight-requests", func(r chi.Router) {
 		r.Post("/from-transport-order", frHandler.CreateFromTransportOrder)
