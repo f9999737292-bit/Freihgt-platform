@@ -66,7 +66,8 @@ func applyMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 			return readErr
 		}
 		if _, execErr := pool.Exec(ctx, string(content)); execErr != nil {
-			if strings.Contains(execErr.Error(), "already exists") {
+			msg := execErr.Error()
+			if strings.Contains(msg, "already exists") || strings.Contains(msg, "duplicate key") {
 				continue
 			}
 			return execErr
@@ -199,8 +200,8 @@ func seedFixture(t *testing.T, pool *pgxpool.Pool) fixture {
 	if err != nil {
 		t.Fatalf("drivers: %v", err)
 	}
-	_, err = pool.Exec(ctx, `INSERT INTO transport.vehicles (id, tenant_id, carrier_company_id, plate_number, status)
-		VALUES ($1,$2,$3,'A123BC77','ACTIVE')`, fix.VehicleA, fix.TenantID, fix.CarrierA)
+	_, err = pool.Exec(ctx, `INSERT INTO transport.vehicles (id, tenant_id, carrier_company_id, plate_number, vehicle_type, status)
+		VALUES ($1,$2,$3,'A123BC77','TRUCK','ACTIVE')`, fix.VehicleA, fix.TenantID, fix.CarrierA)
 	if err != nil {
 		t.Fatalf("vehicle: %v", err)
 	}
