@@ -33,7 +33,11 @@ type RfxStore interface {
 	ParticipantExists(ctx context.Context, eventID, companyID, tenantID uuid.UUID) (bool, error)
 	CreateResponse(ctx context.Context, in domain.CreateRfxResponseInput) (*domain.RfxResponse, error)
 	GetResponseByID(ctx context.Context, id, tenantID uuid.UUID) (*domain.RfxResponse, error)
+	GetResponseByEventAndCompany(ctx context.Context, eventID, companyID, tenantID uuid.UUID) (*domain.RfxResponse, error)
 	SubmitResponse(ctx context.Context, id, tenantID uuid.UUID, submittedBy *uuid.UUID) (*domain.RfxResponse, error)
+	ListCarrierInvitedEvents(ctx context.Context, filter domain.ListCarrierInvitedEventsFilter, now time.Time) ([]domain.CarrierInvitedRfxEvent, int, error)
+	ListLanesByLot(ctx context.Context, lotID, tenantID uuid.UUID) ([]domain.RfxLane, error)
+	GetParticipantByEventAndCompany(ctx context.Context, eventID, companyID, tenantID uuid.UUID) (*domain.RfxParticipant, error)
 }
 
 type RfxService struct {
@@ -126,8 +130,30 @@ func (s *RfxService) GetEvent(ctx context.Context, actor domain.ActorContext, id
 		if _, err := s.requireOwnerCompanyAccess(ctx, actor, event.OwnerCompanyID); err != nil {
 			return nil, err
 		}
+		return event, nil
 	}
-	return event, nil
+	if kind == domain.ActorKindCarrier {
+		carrierIDs, err := s.requireCarrierActor(ctx, actor)
+		if err != nil {
+			return nil, err
+		}
+		allowed := false
+		for _, carrierID := range carrierIDs {
+			exists, existsErr := s.repo.ParticipantExists(ctx, id, carrierID, actor.TenantID)
+			if existsErr != nil {
+				return nil, existsErr
+			}
+			if exists {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			return nil, apperrors.NotFound("rfx event not found")
+		}
+		return event, nil
+	}
+	return nil, apperrors.Forbidden("authorization required")
 }
 
 func (s *RfxService) ListEvents(ctx context.Context, actor domain.ActorContext, filter domain.ListRfxEventsFilter) ([]domain.RfxEvent, int, error) {
@@ -423,6 +449,27 @@ func (s *RfxService) ListLots(ctx context.Context, actor domain.ActorContext, ev
 		if _, err := s.requireOwnerCompanyAccess(ctx, actor, event.OwnerCompanyID); err != nil {
 			return nil, err
 		}
+		return s.repo.ListLotsByEvent(ctx, eventID, actor.TenantID)
+	}
+	if kind == domain.ActorKindCarrier {
+		carrierIDs, err := s.requireCarrierActor(ctx, actor)
+		if err != nil {
+			return nil, err
+		}
+		allowed := false
+		for _, carrierID := range carrierIDs {
+			exists, existsErr := s.repo.ParticipantExists(ctx, eventID, carrierID, actor.TenantID)
+			if existsErr != nil {
+				return nil, existsErr
+			}
+			if exists {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			return nil, apperrors.NotFound("rfx event not found")
+		}
 	}
 	return s.repo.ListLotsByEvent(ctx, eventID, actor.TenantID)
 }
@@ -510,6 +557,8 @@ func (s *RfxService) ListParticipants(ctx context.Context, actor domain.ActorCon
 		if _, err := s.requireOwnerCompanyAccess(ctx, actor, event.OwnerCompanyID); err != nil {
 			return nil, err
 		}
+	} else if kind == domain.ActorKindCarrier {
+		return nil, apperrors.Forbidden("carrier cannot list all participants")
 	}
 	participants, err := s.repo.ListParticipants(ctx, eventID, actor.TenantID)
 	if err != nil {

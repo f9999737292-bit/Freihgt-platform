@@ -10,6 +10,11 @@ const TENDER_MANAGE_ROLES = [
 
 const TENDER_READ_ROLES = [...TENDER_MANAGE_ROLES] as const
 
+const CARRIER_TENDER_ROLES = [
+  'CARRIER_ADMIN',
+  'CARRIER_DISPATCHER',
+] as const
+
 function currentUser(): AuthUser | null {
   return useAuthStore().user
 }
@@ -56,6 +61,14 @@ export function usePermissions() {
     return userRoles().includes('PROCUREMENT_MANAGER')
   }
 
+  function canReadCarrierTenders(): boolean {
+    return isPlatformAdmin() || hasAnyRole(CARRIER_TENDER_ROLES)
+  }
+
+  function isCarrierRole(): boolean {
+    return canReadCarrierTenders()
+  }
+
   return {
     hasAnyRole,
     isPlatformAdmin,
@@ -64,5 +77,7 @@ export function usePermissions() {
     canPublishTenders,
     isBuyerRole,
     isProcurementRole,
+    canReadCarrierTenders,
+    isCarrierRole,
   }
 }

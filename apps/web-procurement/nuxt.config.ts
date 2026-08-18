@@ -3,6 +3,7 @@ const localeFiles = [
   'login.json',
   'nav.json',
   'tenders.json',
+  'carrierTenders.json',
 ]
 
 export default defineNuxtConfig({

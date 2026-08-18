@@ -1,6 +1,7 @@
 {
   "nav": {
     "appTitle": "Freight Platform Procurement",
-    "tenders": "招标"
+    "tenders": "招标",
+    "carrierTenders": "承运商招标"
   }
 }

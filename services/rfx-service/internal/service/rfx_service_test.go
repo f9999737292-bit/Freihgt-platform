@@ -83,8 +83,20 @@ func (m *mockRfxStore) GetResponseByID(ctx context.Context, id, tenantID uuid.UU
 	}
 	return nil, nil
 }
+func (m *mockRfxStore) GetResponseByEventAndCompany(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (*domain.RfxResponse, error) {
+	return nil, apperrors.NotFound("rfx response not found")
+}
 func (m *mockRfxStore) SubmitResponse(context.Context, uuid.UUID, uuid.UUID, *uuid.UUID) (*domain.RfxResponse, error) {
 	return nil, nil
+}
+func (m *mockRfxStore) ListCarrierInvitedEvents(context.Context, domain.ListCarrierInvitedEventsFilter, time.Time) ([]domain.CarrierInvitedRfxEvent, int, error) {
+	return nil, 0, nil
+}
+func (m *mockRfxStore) ListLanesByLot(context.Context, uuid.UUID, uuid.UUID) ([]domain.RfxLane, error) {
+	return nil, nil
+}
+func (m *mockRfxStore) GetParticipantByEventAndCompany(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (*domain.RfxParticipant, error) {
+	return nil, apperrors.NotFound("participant not found")
 }
 func (m *mockRfxStore) CountLotsByEvent(context.Context, uuid.UUID, uuid.UUID) (int, error) {
 	return 0, nil
