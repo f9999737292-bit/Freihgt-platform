@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Company } from '~/types/company'
 import type { RfxEvent } from '~/types/rfx'
-import type { EvaluationResponseItem, AuditEventItem } from '~/types/evaluation'
+import type { EvaluationResponseItem, AuditEventItem, AwardTransportOrderItem } from '~/types/evaluation'
 import { formatMoney, sortEvaluationItems } from '~/types/evaluation'
 import { formatRfxDate } from '~/types/rfx'
 import { shouldShowNotFound, isApiUnavailableError } from '~/utils/apiError'
@@ -20,6 +20,8 @@ const {
   removeFromShortlist,
   awardResponse,
   listAuditEvents,
+  listAwardTransportOrders,
+  convertAwardToTransportOrders,
 } = useRfxEvaluationApi()
 const { pushToast } = useToast()
 const { t } = useI18n()
@@ -34,9 +36,14 @@ const acting = ref(false)
 const notFound = ref(false)
 const apiUnavailable = ref(false)
 const showAwardModal = ref(false)
+const showConversionModal = ref(false)
 const awardTarget = ref<EvaluationResponseItem | null>(null)
+const transportOrders = ref<AwardTransportOrderItem[]>([])
 
 const sortedItems = computed(() => sortEvaluationItems(items.value))
+const awardedItem = computed(() => items.value.find((item) => item.awarded) ?? null)
+const isAwarded = computed(() => event.value?.status === 'AWARDED')
+const hasTransportOrders = computed(() => transportOrders.value.length > 0)
 
 function companyName(id: string) {
   return companies.value.find((c) => c.id === id)?.legal_name || id
@@ -64,10 +71,16 @@ async function loadWorkspace() {
     setCompany(event.value.owner_company_id)
     items.value = await listEvaluationResponses(eventId.value)
     auditEvents.value = await listAuditEvents(eventId.value)
+    if (event.value.status === 'AWARDED') {
+      transportOrders.value = await listAwardTransportOrders(eventId.value)
+    } else {
+      transportOrders.value = []
+    }
   } catch (error) {
     event.value = null
     items.value = []
     auditEvents.value = []
+    transportOrders.value = []
     if (shouldShowNotFound(error)) notFound.value = true
     else {
       apiUnavailable.value = isApiUnavailableError(error)
@@ -120,6 +133,24 @@ async function confirmAward() {
     await loadWorkspace()
   } catch (error) {
     pushToast('error', error instanceof Error ? error.message : t('tenders.evaluation.awardFailed'))
+  } finally {
+    acting.value = false
+  }
+}
+
+async function confirmConversion() {
+  acting.value = true
+  try {
+    const result = await convertAwardToTransportOrders(eventId.value)
+    transportOrders.value = result.items
+    auditEvents.value = await listAuditEvents(eventId.value)
+    pushToast(
+      'success',
+      result.created ? t('tenders.evaluation.conversionCreated') : t('tenders.evaluation.conversionExisting'),
+    )
+    showConversionModal.value = false
+  } catch (error) {
+    pushToast('error', error instanceof Error ? error.message : t('tenders.evaluation.conversionFailed'))
   } finally {
     acting.value = false
   }
@@ -210,6 +241,39 @@ onMounted(loadCompanies)
         </div>
       </Card>
 
+      <Card v-if="isAwarded">
+        <template #header>
+          <h3>{{ t('tenders.evaluation.transportOrders') }}</h3>
+        </template>
+        <p v-if="awardedItem" class="muted">
+          {{ t('tenders.evaluation.winningCarrier') }}: {{ companyName(awardedItem.participant_company_id) }}
+          — {{ comparableLabel(awardedItem) }}
+        </p>
+        <EmptyState v-if="!hasTransportOrders" :title="t('tenders.evaluation.noTransportOrders')" />
+        <div v-else class="table-scroll">
+          <Table
+            :columns="[
+              t('tenders.evaluation.orderNumber'),
+              t('tenders.evaluation.orderStatus'),
+              t('tenders.evaluation.price'),
+              t('tenders.evaluation.lotScope'),
+            ]"
+          >
+            <tr v-for="order in transportOrders" :key="order.id">
+              <td>{{ order.order_number }}</td>
+              <td><Badge :status="order.transport_order_status" /></td>
+              <td>{{ formatMoney(order.amount, order.currency_code) }}</td>
+              <td>{{ order.rfx_lot_id || t('tenders.evaluation.eventScope') }}</td>
+            </tr>
+          </Table>
+        </div>
+        <div v-if="canManageTenders()" class="actions">
+          <Button :loading="acting" @click="showConversionModal = true">
+            {{ hasTransportOrders ? t('tenders.evaluation.retryConversion') : t('tenders.evaluation.createTransportOrder') }}
+          </Button>
+        </div>
+      </Card>
+
       <Card>
         <template #header>
           <h3>{{ t('tenders.evaluation.decisionHistory') }}</h3>
@@ -236,6 +300,26 @@ onMounted(loadCompanies)
         <Button variant="danger" :loading="acting" @click="confirmAward">{{ t('tenders.evaluation.confirmAward') }}</Button>
       </template>
     </Modal>
+
+    <Modal v-model="showConversionModal" :title="t('tenders.evaluation.conversionConfirmTitle')">
+      <p v-if="awardedItem">
+        {{ t('tenders.evaluation.conversionConfirmBody', {
+          carrier: companyName(awardedItem.participant_company_id),
+          amount: comparableLabel(awardedItem),
+          tender: event?.rfx_number || eventId,
+        }) }}
+      </p>
+      <ul v-if="awardedItem?.offer_lines?.length" class="offer-lines">
+        <li v-for="line in awardedItem.offer_lines" :key="line.rfx_lot_id || line.id || line.amount">
+          {{ line.rfx_lot_id ? `${t('tenders.evaluation.lotScope')}: ${line.rfx_lot_id}` : t('tenders.evaluation.eventScope') }}
+          — {{ formatMoney(line.amount, line.currency_code) }}
+        </li>
+      </ul>
+      <template #footer>
+        <Button variant="secondary" @click="showConversionModal = false">{{ t('common.cancel') }}</Button>
+        <Button :loading="acting" @click="confirmConversion">{{ t('tenders.evaluation.confirmConversion') }}</Button>
+      </template>
+    </Modal>
   </div>
 </template>
 
@@ -256,5 +340,14 @@ onMounted(loadCompanies)
 
 .muted {
   color: var(--color-text-muted);
+}
+
+.actions {
+  margin-top: 1rem;
+}
+
+.offer-lines {
+  margin: 0.75rem 0 0;
+  padding-left: 1.25rem;
 }
 </style>

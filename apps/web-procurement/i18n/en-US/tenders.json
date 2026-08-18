@@ -95,7 +95,22 @@
       "awardSuccess": "Winner awarded",
       "awardFailed": "Award failed",
       "decisionHistory": "Decision history",
-      "noHistory": "No events yet"
+      "noHistory": "No events yet",
+      "transportOrders": "Transport orders",
+      "winningCarrier": "Winning carrier",
+      "noTransportOrders": "No transport orders generated yet",
+      "createTransportOrder": "Create transport order",
+      "retryConversion": "View / regenerate orders",
+      "conversionConfirmTitle": "Confirm transport order conversion",
+      "conversionConfirmBody": "Convert tender {tender} award to transport orders for {carrier} ({amount})?",
+      "confirmConversion": "Confirm conversion",
+      "conversionCreated": "Transport orders created",
+      "conversionExisting": "Existing transport orders returned",
+      "conversionFailed": "Transport order conversion failed",
+      "orderNumber": "Order number",
+      "orderStatus": "Order status",
+      "lotScope": "Lot",
+      "eventScope": "Event"
     }
   }
 }

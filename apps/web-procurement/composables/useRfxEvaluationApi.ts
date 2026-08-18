@@ -1,4 +1,4 @@
-import type { AuditEventItem, EvaluationResponseItem, RfxAwardResult } from '~/types/evaluation'
+import type { AuditEventItem, EvaluationResponseItem, RfxAwardResult, AwardTransportOrderItem, ConvertTransportOrdersResult } from '~/types/evaluation'
 
 export function useRfxEvaluationApi() {
   const { apiGet, apiPost, apiPatch, apiDelete } = useApi()
@@ -45,6 +45,20 @@ export function useRfxEvaluationApi() {
     return data.items ?? []
   }
 
+  async function listAwardTransportOrders(eventId: string) {
+    const data = await apiGet<{ items: AwardTransportOrderItem[] }>(
+      `/api/v1/rfx-events/${encodeURIComponent(eventId)}/transport-orders`,
+    )
+    return data.items ?? []
+  }
+
+  async function convertAwardToTransportOrders(eventId: string) {
+    return apiPost<ConvertTransportOrdersResult>(
+      `/api/v1/rfx-events/${encodeURIComponent(eventId)}/transport-orders`,
+      {},
+    )
+  }
+
   return {
     listEvaluationResponses,
     recalculateEvaluation,
@@ -53,5 +67,7 @@ export function useRfxEvaluationApi() {
     removeFromShortlist,
     awardResponse,
     listAuditEvents,
+    listAwardTransportOrders,
+    convertAwardToTransportOrders,
   }
 }

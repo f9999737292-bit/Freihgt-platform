@@ -95,7 +95,22 @@
       "awardSuccess": "已确定中标方",
       "awardFailed": "授标失败",
       "decisionHistory": "决策历史",
-      "noHistory": "暂无事件"
+      "noHistory": "暂无事件",
+      "transportOrders": "运输订单",
+      "winningCarrier": "中标承运商",
+      "noTransportOrders": "尚未生成运输订单",
+      "createTransportOrder": "创建运输订单",
+      "retryConversion": "查看 / 重新生成订单",
+      "conversionConfirmTitle": "确认转换为运输订单",
+      "conversionConfirmBody": "将招标 {tender} 的授标结果转换为 {carrier} 的运输订单（{amount}）？",
+      "confirmConversion": "确认转换",
+      "conversionCreated": "运输订单已创建",
+      "conversionExisting": "返回已有运输订单",
+      "conversionFailed": "运输订单转换失败",
+      "orderNumber": "订单号",
+      "orderStatus": "订单状态",
+      "lotScope": "批次",
+      "eventScope": "整标"
     }
   }
 }
