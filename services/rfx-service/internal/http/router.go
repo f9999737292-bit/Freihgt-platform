@@ -62,6 +62,8 @@ func NewRouter(
 		r.Post("/{id}/award-response", rfxHandler.AwardResponse)
 		r.Get("/{id}/audit-events", rfxHandler.ListEventAuditEvents)
 		r.Get("/{id}/own-award", rfxHandler.GetOwnAward)
+		r.Post("/{id}/transport-orders", rfxHandler.ConvertAwardToTransportOrders)
+		r.Get("/{id}/transport-orders", rfxHandler.ListAwardTransportOrders)
 	})
 
 	r.Route("/v1/carrier/rfx-events", func(r chi.Router) {

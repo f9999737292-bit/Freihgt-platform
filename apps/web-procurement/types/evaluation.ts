@@ -47,6 +47,27 @@ export interface RfxAwardResult {
   awarded_at: string
 }
 
+export interface AwardTransportOrderItem {
+  id: string
+  rfx_event_id: string
+  rfx_award_id: string
+  rfx_response_id: string
+  rfx_lot_id?: string
+  transport_order_id: string
+  transport_order_status: string
+  order_number: string
+  carrier_company_id: string
+  buyer_company_id: string
+  amount: number
+  currency_code: string
+  converted_at: string
+}
+
+export interface ConvertTransportOrdersResult {
+  created: boolean
+  items: AwardTransportOrderItem[]
+}
+
 export function formatMoney(amount?: number, currency?: string): string {
   if (amount == null || Number.isNaN(amount)) return '—'
   const formatted = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)

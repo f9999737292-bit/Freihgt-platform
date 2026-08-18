@@ -1697,6 +1697,49 @@ paths:
           description: Updated response with offer lines
         '409':
           description: Submitted response is immutable
+  /api/v1/rfx-responses/{response_id}/shortlist:
+    post:
+      tags: [RFx]
+      summary: Add submitted response to shortlist
+      operationId: post_rfx_response_shortlist
+      parameters:
+        - name: response_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Response shortlisted
+    delete:
+      tags: [RFx]
+      summary: Remove response from shortlist
+      operationId: delete_rfx_response_shortlist
+      parameters:
+        - name: response_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Response removed from shortlist
   /api/v1/rfx-events/{id}/responses:
     get:
       tags: [RFx]
@@ -1776,6 +1819,60 @@ paths:
           description: Award record
         '409':
           description: Event already awarded
+  /api/v1/rfx-events/{id}/transport-orders:
+    post:
+      tags: [RFx]
+      summary: Convert awarded RFx to transport orders
+      description: |
+        Idempotent buyer operation. Derives winner, commercial values, parties, and route from persisted award state.
+        Repeated calls return existing transport order links without creating duplicates.
+      operationId: post_rfx_event_transport_orders
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Transport orders created
+        '200':
+          description: Existing transport orders returned (idempotent)
+        '403':
+          description: Forbidden
+        '404':
+          description: Not found
+        '422':
+          description: Business validation failed
+    get:
+      tags: [RFx]
+      summary: List transport orders generated from awarded RFx
+      operationId: get_rfx_event_transport_orders
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Transport order linkage items
   /api/v1/rfx-events/{id}/audit-events:
     get:
       tags: [RFx]

@@ -95,7 +95,22 @@
       "awardSuccess": "Победитель определён",
       "awardFailed": "Не удалось наградить",
       "decisionHistory": "История решений",
-      "noHistory": "Событий пока нет"
+      "noHistory": "Событий пока нет",
+      "transportOrders": "Транспортные заказы",
+      "winningCarrier": "Победивший перевозчик",
+      "noTransportOrders": "Транспортные заказы ещё не созданы",
+      "createTransportOrder": "Создать транспортный заказ",
+      "retryConversion": "Просмотр / повторное создание",
+      "conversionConfirmTitle": "Подтверждение конвертации в заказ",
+      "conversionConfirmBody": "Создать транспортные заказы по тендеру {tender} для {carrier} ({amount})?",
+      "confirmConversion": "Подтвердить конвертацию",
+      "conversionCreated": "Транспортные заказы созданы",
+      "conversionExisting": "Возвращены существующие заказы",
+      "conversionFailed": "Не удалось создать транспортные заказы",
+      "orderNumber": "Номер заказа",
+      "orderStatus": "Статус заказа",
+      "lotScope": "Лот",
+      "eventScope": "Событие"
     }
   }
 }

@@ -55,6 +55,10 @@
       "origin": "起点",
       "destination": "终点",
       "offerAmount": "商业报价",
+      "offerAmountForLot": "批次 {lot} 报价",
+      "lotOffer": "批次商业报价",
+      "lotOfferHint": "请在上方为每个批次分别填写金额",
+      "offerLotRequired": "请为每个批次填写金额",
       "saveOffer": "保存报价",
       "offerSaved": "报价已保存",
       "awarded": "您已中标"

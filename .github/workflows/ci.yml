@@ -252,6 +252,43 @@ jobs:
         working-directory: services/rfx-service
         run: go test -tags=integration ./internal/integration/enterprise/... -count=1 -run 'Evaluation|Commercial|Award|Concurrent|Competitor|AuditFailure' -v
 
+  rfx-award-to-transport-order-integration:
+    name: rfx-award-to-transport-order-integration
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: mirror.gcr.io/library/postgres:16
+        env:
+          POSTGRES_USER: rfx_test
+          POSTGRES_PASSWORD: rfx_test
+          POSTGRES_DB: freight_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CI: true
+      TEST_DATABASE_URL: postgres://rfx_test:rfx_test@localhost:5432/freight_test?sslmode=disable
+      REQUIRE_TEST_DATABASE: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache-dependency-path: |
+            packages/shared-go/go.sum
+            services/rfx-service/go.sum
+
+      - name: Run award-to-transport-order integration tests
+        working-directory: services/rfx-service
+        run: go test -tags=integration ./internal/integration/enterprise/... -count=1 -run 'Conversion|TransportOrder|MultiLotPrice|ConcurrentConversion|RepeatedConversion|BuyerOwnAwarded' -v
+
   frontend-web-admin-build:
     name: frontend-web-admin-build
     runs-on: ubuntu-latest

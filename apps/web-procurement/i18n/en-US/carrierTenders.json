@@ -55,6 +55,10 @@
       "origin": "Origin",
       "destination": "Destination",
       "offerAmount": "Commercial offer",
+      "offerAmountForLot": "Offer for lot {lot}",
+      "lotOffer": "Lot commercial offer",
+      "lotOfferHint": "Enter a separate amount for each lot above",
+      "offerLotRequired": "Enter an amount for every lot",
       "saveOffer": "Save offer",
       "offerSaved": "Offer saved",
       "awarded": "You won this tender"

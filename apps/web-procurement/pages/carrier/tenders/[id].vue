@@ -11,6 +11,7 @@ import {
   isDeadlineExpired,
 } from '~/types/carrierRfx'
 import { formatRfxDate } from '~/types/rfx'
+import { formatMoney } from '~/types/evaluation'
 import {
   filterCarrierMemberships,
   membershipSelectOptions,
@@ -53,6 +54,7 @@ const participant = ref<Awaited<ReturnType<typeof getOwnParticipant>> | null>(nu
 const response = ref<CarrierRfxResponse | null>(null)
 const ownAward = ref<Awaited<ReturnType<typeof getOwnAward>> | null>(null)
 const offerAmount = ref<number | null>(null)
+const offerAmountByLot = ref<Record<string, number | null>>({})
 const lots = ref<RfxLot[]>([])
 const lanesByLot = ref<Record<string, RfxLane[]>>({})
 const companies = ref<Company[]>([])
@@ -116,8 +118,16 @@ async function loadResponse() {
   }
   try {
     response.value = await getOwnResponse(eventId.value, selectedCarrierCompanyId.value)
-    const line = response.value.offer_lines?.[0]
-    offerAmount.value = line?.amount ?? null
+    offerAmountByLot.value = {}
+    if (lots.value.length > 0) {
+      for (const lot of lots.value) {
+        const line = response.value.offer_lines?.find((item) => item.rfx_lot_id === lot.id)
+        offerAmountByLot.value[lot.id] = line?.amount ?? null
+      }
+    } else {
+      const line = response.value.offer_lines?.[0]
+      offerAmount.value = line?.amount ?? null
+    }
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
       response.value = null
@@ -138,18 +148,18 @@ async function loadWorkspace() {
     }
     event.value = await getTender(eventId.value)
     participant.value = await getOwnParticipant(eventId.value, selectedCarrierCompanyId.value || undefined)
-    await loadResponse()
-    try {
-      ownAward.value = await getOwnAward(eventId.value, selectedCarrierCompanyId.value || undefined)
-    } catch {
-      ownAward.value = null
-    }
     lots.value = await listLots(eventId.value)
     const laneEntries: Record<string, RfxLane[]> = {}
     for (const lot of lots.value) {
       laneEntries[lot.id] = await listLanes(lot.id, selectedCarrierCompanyId.value || undefined)
     }
     lanesByLot.value = laneEntries
+    await loadResponse()
+    try {
+      ownAward.value = await getOwnAward(eventId.value, selectedCarrierCompanyId.value || undefined)
+    } catch {
+      ownAward.value = null
+    }
   } catch (error) {
     event.value = null
     lots.value = []
@@ -186,16 +196,27 @@ async function handleCreateResponse() {
 }
 
 async function handleSaveOffer() {
-  if (!response.value?.id || offerAmount.value == null) return
+  if (!response.value?.id) return
   acting.value = true
   try {
+    if (lots.value.length > 0) {
+      const missing = lots.value.some((lot) => {
+        const amount = offerAmountByLot.value[lot.id]
+        return amount == null || Number.isNaN(amount)
+      })
+      if (missing) {
+        pushToast('error', t('carrierTenders.detail.offerLotRequired'))
+        return
+      }
+    }
     const lines = lots.value.length
       ? lots.value.map((lot) => ({
           rfx_lot_id: lot.id,
-          amount: offerAmount.value ?? 0,
+          amount: offerAmountByLot.value[lot.id] as number,
           currency_code: defaultCurrency.value,
         }))
       : [{ amount: offerAmount.value ?? 0, currency_code: defaultCurrency.value }]
+    if (!lots.value.length && offerAmount.value == null) return
     response.value = await updateResponseCommercial(response.value.id, lines)
     pushToast('success', t('carrierTenders.detail.offerSaved'))
   } catch (error) {
@@ -203,6 +224,10 @@ async function handleSaveOffer() {
   } finally {
     acting.value = false
   }
+}
+
+function offerLineForLot(lotId: string) {
+  return response.value?.offer_lines?.find((line) => line.rfx_lot_id === lotId)
 }
 
 async function handleSubmitResponse() {
@@ -323,6 +348,20 @@ onUnmounted(() => {
               <td>{{ lane.required_service_level || '—' }}</td>
             </tr>
           </Table>
+          <div v-if="response && lots.length > 0" class="lot-offer">
+            <h4>{{ t('carrierTenders.detail.lotOffer') }}</h4>
+            <p v-if="!showOfferEdit" class="muted">
+              {{ formatMoney(offerLineForLot(lot.id)?.amount, offerLineForLot(lot.id)?.currency_code || defaultCurrency) }}
+            </p>
+            <Input
+              v-else
+              v-model.number="offerAmountByLot[lot.id]"
+              type="number"
+              min="0"
+              step="0.01"
+              :label="t('carrierTenders.detail.offerAmountForLot', { lot: lot.lot_number })"
+            />
+          </div>
         </div>
       </Card>
 
@@ -338,11 +377,12 @@ onUnmounted(() => {
           <dt>{{ t('carrierTenders.status.SUBMITTED') }}</dt>
           <dd>{{ formatRfxDate(response.submitted_at) }}</dd>
           <dt>{{ t('carrierTenders.detail.offerAmount') }}</dt>
-          <dd v-if="!showOfferEdit">{{ response.offer_lines?.[0]?.amount ?? '—' }} {{ response.offer_lines?.[0]?.currency_code || defaultCurrency }}</dd>
-          <dd v-else>
+          <dd v-if="!showOfferEdit && lots.length === 0">{{ formatMoney(response.offer_lines?.[0]?.amount, response.offer_lines?.[0]?.currency_code || defaultCurrency) }}</dd>
+          <dd v-else-if="showOfferEdit && lots.length === 0">
             <Input v-model.number="offerAmount" type="number" min="0" step="0.01" :label="t('carrierTenders.detail.offerAmount')" />
             <span class="muted">{{ defaultCurrency }}</span>
           </dd>
+          <dd v-else-if="lots.length > 0" class="muted">{{ t('carrierTenders.detail.lotOfferHint') }}</dd>
         </dl>
         <div v-if="ownAward" class="award-result">
           <Badge status="AWARDED" />
@@ -391,6 +431,10 @@ onUnmounted(() => {
   margin-top: 1.5rem;
   padding-top: 1rem;
   border-top: 1px solid var(--color-border);
+}
+
+.lot-offer {
+  margin-top: 1rem;
 }
 
 .actions {
