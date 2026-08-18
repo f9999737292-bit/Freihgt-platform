@@ -154,8 +154,8 @@ func seedFixture(t *testing.T, pool *pgxpool.Pool) fixture {
 			t.Fatalf("location: %v", err)
 		}
 	}
-	_, err = pool.Exec(ctx, `INSERT INTO transport.cargoes (id, tenant_id, description, weight_kg)
-		VALUES ($1,$2,'Cargo',1000)`, fix.CargoID, fix.TenantID)
+	_, err = pool.Exec(ctx, `INSERT INTO transport.cargoes (id, tenant_id, cargo_type, description, gross_weight)
+		VALUES ($1,$2,'GENERAL','Cargo',1000)`, fix.CargoID, fix.TenantID)
 	if err != nil {
 		t.Fatalf("cargo: %v", err)
 	}
