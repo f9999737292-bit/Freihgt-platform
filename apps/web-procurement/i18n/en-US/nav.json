@@ -3,6 +3,7 @@
     "appTitle": "Freight Platform Procurement",
     "tenders": "Tenders",
     "carrierTenders": "Carrier tenders",
-    "carrierOrders": "Order execution"
+    "carrierOrders": "Order execution",
+    "buyerOrders": "Transport orders"
   }
 }

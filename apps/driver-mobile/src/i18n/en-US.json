@@ -38,7 +38,37 @@
     "reportDelay": "Report delay",
     "reportProblem": "Report problem",
     "transportMode": "Transport mode",
+    "actualPickup": "Actual pickup",
+    "actualDelivery": "Actual delivery",
     "notFound": "Shipment not found"
+  },
+  "milestone": {
+    "title": "Milestones",
+    "successTitle": "Milestone recorded",
+    "successBody": "Status update was sent to dispatch.",
+    "failed": "Could not record milestone",
+    "unknown": "Submission result unknown — safe to retry",
+    "actions": {
+      "ARRIVED_AT_PICKUP": "Arrived at pickup",
+      "LOADING_STARTED": "Loading started",
+      "PICKUP_COMPLETED": "Pickup completed",
+      "DEPARTED_PICKUP": "Departed pickup",
+      "ARRIVED_AT_DELIVERY": "Arrived at delivery",
+      "UNLOADING_STARTED": "Unloading started",
+      "DELIVERY_COMPLETED": "Delivery completed"
+    }
+  },
+  "pod": {
+    "title": "Upload POD",
+    "upload": "Upload proof of delivery",
+    "hint": "Take a photo or select a PDF of the signed delivery document.",
+    "submit": "Upload document",
+    "noFile": "Select a file first",
+    "successTitle": "POD uploaded",
+    "successBody": "Proof of delivery was submitted.",
+    "failed": "Could not upload POD",
+    "unknown": "Upload result unknown — safe to retry",
+    "offline": "Offline. Retry when online."
   },
   "delay": {
     "title": "Delay",

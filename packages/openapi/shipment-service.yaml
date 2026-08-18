@@ -1114,6 +1114,29 @@ paths:
       responses:
         '200': { description: Carrier order list }
 
+  /api/v1/order-execution/buyer/transport-orders:
+    get:
+      tags: [Order Execution]
+      summary: List buyer awarded transport orders
+      operationId: get_buyer_transport_orders
+      parameters:
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/Authorization'
+        - name: buyer_company_id
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 0 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0 }
+      security:
+        - bearerAuth: []
+      responses:
+        '200': { description: Buyer order list }
+
 components:
   securitySchemes:
     bearerAuth:

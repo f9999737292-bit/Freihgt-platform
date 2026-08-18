@@ -2,7 +2,10 @@ import { randomUUID } from '@/utils/uuid'
 
 const OPERATION_PREFIX = 'driver-mobile-op:'
 
-export function createOperationId(kind: 'delay' | 'problem', shipmentId: string): string {
+export function createOperationId(
+  kind: 'delay' | 'problem' | 'milestone' | 'pod',
+  shipmentId: string,
+): string {
   return `${OPERATION_PREFIX}${kind}:${shipmentId}:${randomUUID()}`
 }
 

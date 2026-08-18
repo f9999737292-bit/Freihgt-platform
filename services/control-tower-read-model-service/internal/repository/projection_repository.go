@@ -126,7 +126,9 @@ func lockProjection(ctx context.Context, tx pgx.Tx, tenantID, shipmentID uuid.UU
 	const q = `
 SELECT tenant_id, shipment_id, shipment_version, current_status, previous_status,
        last_event_id, last_source_event_id, last_event_type,
-       last_occurred_at, last_consumed_at, complete, gap_detected,
+       last_occurred_at, last_consumed_at,
+       planned_pickup_at, planned_delivery_at, actual_pickup_at, actual_delivery_at,
+       complete, gap_detected,
        gap_from_version, gap_to_version, created_at, updated_at
 FROM control_tower.shipment_status_projection
 WHERE tenant_id = $1 AND shipment_id = $2
@@ -177,13 +179,17 @@ func upsertProjection(ctx context.Context, tx pgx.Tx, p domain.ShipmentStatusPro
 INSERT INTO control_tower.shipment_status_projection (
     tenant_id, shipment_id, shipment_version, current_status, previous_status,
     last_event_id, last_source_event_id, last_event_type,
-    last_occurred_at, last_consumed_at, complete, gap_detected,
+    last_occurred_at, last_consumed_at,
+    planned_pickup_at, planned_delivery_at, actual_pickup_at, actual_delivery_at,
+    complete, gap_detected,
     gap_from_version, gap_to_version, projection_source, created_at, updated_at
 ) VALUES (
     $1, $2, $3, $4, $5,
     $6, $7, $8,
-    $9, $10, $11, $12,
-    $13, $14, $15, $16, $17
+    $9, $10,
+    $11, $12, $13, $14,
+    $15, $16,
+    $17, $18, $19, $20, $21
 )
 ON CONFLICT (tenant_id, shipment_id) DO UPDATE SET
     shipment_version = EXCLUDED.shipment_version,
@@ -194,18 +200,24 @@ ON CONFLICT (tenant_id, shipment_id) DO UPDATE SET
     last_event_type = EXCLUDED.last_event_type,
     last_occurred_at = EXCLUDED.last_occurred_at,
     last_consumed_at = EXCLUDED.last_consumed_at,
+    planned_pickup_at = COALESCE(EXCLUDED.planned_pickup_at, control_tower.shipment_status_projection.planned_pickup_at),
+    planned_delivery_at = COALESCE(EXCLUDED.planned_delivery_at, control_tower.shipment_status_projection.planned_delivery_at),
+    actual_pickup_at = COALESCE(control_tower.shipment_status_projection.actual_pickup_at, EXCLUDED.actual_pickup_at),
+    actual_delivery_at = COALESCE(control_tower.shipment_status_projection.actual_delivery_at, EXCLUDED.actual_delivery_at),
     complete = EXCLUDED.complete,
     gap_detected = EXCLUDED.gap_detected,
     gap_from_version = EXCLUDED.gap_from_version,
     gap_to_version = EXCLUDED.gap_to_version,
-    projection_source = $15,
+    projection_source = $19,
     snapshot_id = NULL,
     authoritative_as_of = NULL,
     updated_at = EXCLUDED.updated_at`
 	_, err := tx.Exec(ctx, q,
 		p.TenantID, p.ShipmentID, p.ShipmentVersion, p.CurrentStatus, p.PreviousStatus,
 		p.LastEventID, p.LastSourceEventID, p.LastEventType,
-		p.LastOccurredAt, p.LastConsumedAt, p.Complete, p.GapDetected,
+		p.LastOccurredAt, p.LastConsumedAt,
+		p.PlannedPickupAt, p.PlannedDeliveryAt, p.ActualPickupAt, p.ActualDeliveryAt,
+		p.Complete, p.GapDetected,
 		p.GapFromVersion, p.GapToVersion, rebuild.ProjectionSourceLiveEvent, p.CreatedAt, p.UpdatedAt,
 	)
 	return err
@@ -251,7 +263,9 @@ func (r *ProjectionRepository) GetProjection(ctx context.Context, tenantID, ship
 	const q = `
 SELECT tenant_id, shipment_id, shipment_version, current_status, previous_status,
        last_event_id, last_source_event_id, last_event_type,
-       last_occurred_at, last_consumed_at, complete, gap_detected,
+       last_occurred_at, last_consumed_at,
+       planned_pickup_at, planned_delivery_at, actual_pickup_at, actual_delivery_at,
+       complete, gap_detected,
        gap_from_version, gap_to_version, created_at, updated_at
 FROM control_tower.shipment_status_projection
 WHERE tenant_id = $1 AND shipment_id = $2`
@@ -373,7 +387,9 @@ func (r *ProjectionRepository) ListProjections(ctx context.Context, filter ListF
 	query := fmt.Sprintf(`
 SELECT tenant_id, shipment_id, shipment_version, current_status, previous_status,
        last_event_id, last_source_event_id, last_event_type,
-       last_occurred_at, last_consumed_at, complete, gap_detected,
+       last_occurred_at, last_consumed_at,
+       planned_pickup_at, planned_delivery_at, actual_pickup_at, actual_delivery_at,
+       complete, gap_detected,
        gap_from_version, gap_to_version, created_at, updated_at
 FROM control_tower.shipment_status_projection
 WHERE %s
@@ -416,7 +432,9 @@ func scanProjection(row scannable) (domain.ShipmentStatusProjection, error) {
 	err := row.Scan(
 		&p.TenantID, &p.ShipmentID, &p.ShipmentVersion, &p.CurrentStatus, &p.PreviousStatus,
 		&p.LastEventID, &p.LastSourceEventID, &p.LastEventType,
-		&p.LastOccurredAt, &p.LastConsumedAt, &p.Complete, &p.GapDetected,
+		&p.LastOccurredAt, &p.LastConsumedAt,
+		&p.PlannedPickupAt, &p.PlannedDeliveryAt, &p.ActualPickupAt, &p.ActualDeliveryAt,
+		&p.Complete, &p.GapDetected,
 		&p.GapFromVersion, &p.GapToVersion, &p.CreatedAt, &p.UpdatedAt,
 	)
 	return p, err

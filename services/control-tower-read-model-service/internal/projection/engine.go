@@ -52,7 +52,7 @@ func applyNewProjection(event domain.ShipmentStatusEvent, now time.Time) ApplyRe
 
 func newProjectionFromEvent(event domain.ShipmentStatusEvent, now time.Time, complete, gap bool, gapFrom, gapTo *int) domain.ShipmentStatusProjection {
 	prev := event.Data.FromStatus
-	return domain.ShipmentStatusProjection{
+	p := domain.ShipmentStatusProjection{
 		TenantID:          event.TenantID,
 		ShipmentID:        event.Aggregate.ID,
 		ShipmentVersion:   event.Aggregate.Version,
@@ -70,6 +70,8 @@ func newProjectionFromEvent(event domain.ShipmentStatusEvent, now time.Time, com
 		CreatedAt:         now,
 		UpdatedAt:         now,
 	}
+	mergeActuals(&p, event.Data)
+	return p
 }
 
 func buildUpdatedProjection(existing domain.ShipmentStatusProjection, event domain.ShipmentStatusEvent, now time.Time, complete, gap bool, gapFrom, gapTo *int) domain.ShipmentStatusProjection {
@@ -88,5 +90,24 @@ func buildUpdatedProjection(existing domain.ShipmentStatusProjection, event doma
 	updated.GapFromVersion = gapFrom
 	updated.GapToVersion = gapTo
 	updated.UpdatedAt = now
+	mergeActuals(&updated, event.Data)
 	return updated
+}
+
+func mergeActuals(projection *domain.ShipmentStatusProjection, data domain.ShipmentStatusEventData) {
+	if projection == nil {
+		return
+	}
+	if data.PlannedPickupAt != nil {
+		projection.PlannedPickupAt = data.PlannedPickupAt
+	}
+	if data.PlannedDeliveryAt != nil {
+		projection.PlannedDeliveryAt = data.PlannedDeliveryAt
+	}
+	if data.ActualPickupAt != nil && projection.ActualPickupAt == nil {
+		projection.ActualPickupAt = data.ActualPickupAt
+	}
+	if data.ActualDeliveryAt != nil && projection.ActualDeliveryAt == nil {
+		projection.ActualDeliveryAt = data.ActualDeliveryAt
+	}
 }

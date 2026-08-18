@@ -219,7 +219,7 @@ func TestRollbackWhenOutboxInsertFails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("insert history: %v", err)
 	}
-	outbox, err := domain.BuildOutboxEventFromStatusHistory(history)
+	outbox, err := domain.BuildOutboxEventFromStatusHistory(history, nil)
 	if err != nil {
 		t.Fatalf("build outbox: %v", err)
 	}
@@ -369,7 +369,7 @@ func TestUniqueSourceEventConstraint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("insert history: %v", err)
 	}
-	outbox1, err := domain.BuildOutboxEventFromStatusHistory(history)
+	outbox1, err := domain.BuildOutboxEventFromStatusHistory(history, nil)
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}

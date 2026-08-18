@@ -202,6 +202,7 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	r.Post("/api/v1/order-execution/transport-orders/{id}/execute", executionGuard.WithPolicy(executionrbac.PolicyExecute))
 	r.Get("/api/v1/order-execution/transport-orders/{id}", executionGuard.WithPolicy(executionrbac.PolicyRead))
 	r.Post("/api/v1/order-execution/transport-orders/{id}/start", executionGuard.WithPolicy(executionrbac.PolicyStart))
+	r.Get("/api/v1/order-execution/buyer/transport-orders", executionGuard.WithPolicy(executionrbac.PolicyRead))
 	r.Get("/api/v1/order-execution/carrier/transport-orders", executionGuard.WithPolicy(executionrbac.PolicyRead))
 	r.Get("/api/v1/carrier/transport-orders", executionGuard.WithPolicy(executionrbac.PolicyRead))
 

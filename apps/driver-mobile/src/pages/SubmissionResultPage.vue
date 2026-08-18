@@ -14,6 +14,8 @@ const shipmentId = computed(() => String(route.query.shipmentId || ''))
 
 const title = computed(() => {
   if (status.value === 'success') {
+    if (kind.value === 'pod') return t('pod.successTitle')
+    if (kind.value === 'milestone') return t('milestone.successTitle')
     return kind.value === 'problem' ? t('problem.successTitle') : t('delay.successTitle')
   }
   if (status.value === 'unknown') {
@@ -24,11 +26,17 @@ const title = computed(() => {
 
 const body = computed(() => {
   if (status.value === 'success') {
+    if (kind.value === 'pod') return t('pod.successBody')
+    if (kind.value === 'milestone') return t('milestone.successBody')
     return kind.value === 'problem' ? t('problem.successBody') : t('delay.successBody')
   }
   if (status.value === 'unknown') {
+    if (kind.value === 'pod') return t('pod.unknown')
+    if (kind.value === 'milestone') return t('milestone.unknown')
     return kind.value === 'problem' ? t('problem.unknown') : t('delay.unknown')
   }
+  if (kind.value === 'pod') return t('pod.failed')
+  if (kind.value === 'milestone') return t('milestone.failed')
   return kind.value === 'problem' ? t('problem.failed') : t('delay.failed')
 })
 

@@ -48,6 +48,7 @@ func NewRouter(
 	sharedpprof.Mount(r)
 
 	r.Route("/v1/order-execution", func(r chi.Router) {
+		r.Get("/buyer/transport-orders", orderExecutionHandler.ListBuyerOrders)
 		r.Get("/carrier/transport-orders", orderExecutionHandler.ListCarrierOrders)
 		r.Route("/transport-orders/{id}", func(r chi.Router) {
 			r.Post("/execute", orderExecutionHandler.Execute)

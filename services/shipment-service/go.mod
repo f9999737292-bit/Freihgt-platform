@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	github.com/fergusstrange/embedded-postgres v1.29.0
+	github.com/freight-platform/control-tower-read-model-service v0.0.0
 	github.com/freight-platform/shared-go v0.0.0
 	github.com/freight-platform/statussnapshot v0.0.0
 	github.com/go-chi/chi/v5 v5.2.1
@@ -18,6 +19,8 @@ require (
 )
 
 replace github.com/freight-platform/shared-go => ../../packages/shared-go
+
+replace github.com/freight-platform/control-tower-read-model-service => ../control-tower-read-model-service
 
 replace github.com/freight-platform/statussnapshot => ../../packages/statussnapshot
 

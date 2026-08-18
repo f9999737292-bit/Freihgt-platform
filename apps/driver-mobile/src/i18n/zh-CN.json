@@ -1,0 +1,130 @@
+{
+  "app": {
+    "title": "Freight Driver"
+  },
+  "common": {
+    "login": "登录",
+    "logout": "退出",
+    "loading": "加载中…",
+    "retry": "重试",
+    "back": "返回",
+    "submit": "提交",
+    "cancel": "取消",
+    "offline": "离线",
+    "online": "已恢复连接",
+    "error": "错误",
+    "refresh": "刷新"
+  },
+  "login": {
+    "title": "司机登录",
+    "email": "邮箱",
+    "password": "密码",
+    "hint": "使用承运商提供的凭据",
+    "tenantNotConfigured": "试点租户未配置，请联系调度。"
+  },
+  "shipments": {
+    "title": "我的运单",
+    "empty": "暂无分配的运单",
+    "loadError": "无法加载运单",
+    "unauthorized": "请重新登录",
+    "shipmentNumber": "运单",
+    "status": "状态",
+    "pickup": "提货",
+    "delivery": "送达",
+    "open": "打开"
+  },
+  "shipmentDetail": {
+    "title": "运单",
+    "reportDelay": "报告延误",
+    "reportProblem": "报告问题",
+    "transportMode": "运输方式",
+    "actualPickup": "实际提货",
+    "actualDelivery": "实际送达",
+    "notFound": "未找到运单"
+  },
+  "milestone": {
+    "title": "里程碑",
+    "successTitle": "里程碑已记录",
+    "successBody": "状态更新已发送给调度。",
+    "failed": "无法记录里程碑",
+    "unknown": "提交结果未知 — 可安全重试",
+    "actions": {
+      "ARRIVED_AT_PICKUP": "到达提货点",
+      "LOADING_STARTED": "开始装货",
+      "PICKUP_COMPLETED": "提货完成",
+      "DEPARTED_PICKUP": "离开提货点",
+      "ARRIVED_AT_DELIVERY": "到达卸货点",
+      "UNLOADING_STARTED": "开始卸货",
+      "DELIVERY_COMPLETED": "送达完成"
+    }
+  },
+  "pod": {
+    "title": "上传 POD",
+    "upload": "上传签收证明",
+    "hint": "拍摄或选择已签名的送达文件（PDF/照片）。",
+    "submit": "上传文件",
+    "noFile": "请先选择文件",
+    "successTitle": "POD 已上传",
+    "successBody": "签收证明已提交。",
+    "failed": "无法上传 POD",
+    "unknown": "上传结果未知 — 可安全重试",
+    "offline": "离线，请联网后重试。"
+  },
+  "delay": {
+    "title": "延误",
+    "reason": "延误原因",
+    "comment": "备注（可选）",
+    "newEta": "新 ETA（可选）",
+    "submit": "提交延误",
+    "successTitle": "报告已接受",
+    "successBody": "延误信息已发送给调度。",
+    "accepted": "报告已接受",
+    "failed": "无法提交延误",
+    "unknown": "提交结果未知 — 可安全重试",
+    "offline": "离线，表单已保存，联网后重试。",
+    "reasons": {
+      "TRAFFIC": "交通拥堵",
+      "VEHICLE_BREAKDOWN": "车辆故障",
+      "LOADING_DELAY": "装货延误",
+      "UNLOADING_DELAY": "卸货延误",
+      "ROUTE_BLOCKED": "路线受阻",
+      "CUSTOMER_DELAY": "客户延误",
+      "OTHER": "其他"
+    }
+  },
+  "problem": {
+    "title": "问题",
+    "category": "问题类型",
+    "comment": "描述（可选）",
+    "submit": "提交问题",
+    "successTitle": "报告已接受",
+    "successBody": "问题已发送给调度。",
+    "accepted": "报告已接受",
+    "failed": "无法提交问题",
+    "unknown": "提交结果未知 — 可安全重试",
+    "offline": "离线，表单已保存，联网后重试。",
+    "categories": {
+      "TRAFFIC": "交通",
+      "VEHICLE_BREAKDOWN": "车辆故障",
+      "ACCIDENT": "事故",
+      "LOADING_DELAY": "装货延误",
+      "UNLOADING_DELAY": "卸货延误",
+      "CARGO_ISSUE": "货物问题",
+      "DOCUMENT_ISSUE": "单据问题",
+      "CUSTOMER_UNAVAILABLE": "客户不在",
+      "ROUTE_BLOCKED": "路线受阻",
+      "OTHER": "其他"
+    }
+  },
+  "result": {
+    "title": "结果",
+    "success": "报告已接受",
+    "failure": "提交失败",
+    "unknown": "状态未知",
+    "backToShipment": "返回运单",
+    "backToList": "返回运单列表"
+  },
+  "network": {
+    "offlineBanner": "无网络连接"
+  }
+}

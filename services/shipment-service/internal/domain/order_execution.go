@@ -54,6 +54,10 @@ type OrderExecutionView struct {
 	Shipment       *Shipment
 	Readiness      ExecutionReadiness
 	Provenance     ExecutionProvenance
+	Milestones     []ShipmentStatusHistory
+	SLASignals     []ExecutionSignal
+	PODDocuments   []PODDocumentSummary
+	AllowedActions []DriverMilestoneAction
 }
 
 type ExecutionReadiness struct {

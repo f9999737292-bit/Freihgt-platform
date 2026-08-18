@@ -15,7 +15,7 @@ func insertStatusHistoryAndOutbox(ctx context.Context, tx pgx.Tx, write statusHi
 	if err != nil {
 		return err
 	}
-	outbox, err := domain.BuildOutboxEventFromStatusHistory(history)
+	outbox, err := domain.BuildOutboxEventFromStatusHistory(history, write.snapshot)
 	if err != nil {
 		return err
 	}

@@ -17,6 +17,21 @@ const loading = ref(true)
 const notFound = ref(false)
 const apiUnavailable = ref(false)
 
+function formatWhen(value?: string) {
+  if (!value) return '—'
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(value))
+  } catch {
+    return value
+  }
+}
+
 async function loadExecution() {
   loading.value = true
   notFound.value = false
@@ -42,7 +57,7 @@ watch(orderId, loadExecution, { immediate: true })
 <template>
   <div class="page-stack">
     <nav class="breadcrumbs" aria-label="Breadcrumb">
-      <NuxtLink to="/tenders">{{ t('nav.tenders') }}</NuxtLink>
+      <NuxtLink to="/transport-orders">{{ t('orderExecution.buyerTitle') }}</NuxtLink>
       <span class="breadcrumbs__sep">/</span>
       <NuxtLink v-if="execution" :to="`/tenders/${execution.provenance.rfx_event_id}/evaluation`">
         {{ t('orderExecution.backToTender') }}
@@ -51,7 +66,11 @@ watch(orderId, loadExecution, { immediate: true })
       <span>{{ t('orderExecution.title') }}</span>
     </nav>
 
-    <PageHeader :title="t('orderExecution.title')" :subtitle="execution?.transport_order_number" />
+    <PageHeader :title="t('orderExecution.title')" :subtitle="execution?.transport_order_number">
+      <template #actions>
+        <Button variant="secondary" @click="$router.push('/transport-orders')">{{ t('orderExecution.backToList') }}</Button>
+      </template>
+    </PageHeader>
 
     <div v-if="loading" role="status">{{ t('common.loading') }}</div>
     <EmptyState v-else-if="notFound" :title="t('orderExecution.notFound')" />
@@ -70,19 +89,55 @@ watch(orderId, loadExecution, { immediate: true })
       <Card v-if="execution.shipment">
         <template #header><h3>{{ t('orderExecution.shipment') }}</h3></template>
         <p>{{ execution.shipment.shipment_number }} — <Badge :status="execution.shipment.status" /></p>
+        <dl class="detail-grid">
+          <div><dt>{{ t('orderExecution.plannedPickup') }}</dt><dd>{{ formatWhen(execution.shipment.planned_pickup_at) }}</dd></div>
+          <div><dt>{{ t('orderExecution.plannedDelivery') }}</dt><dd>{{ formatWhen(execution.shipment.planned_delivery_at) }}</dd></div>
+          <div><dt>{{ t('orderExecution.actualPickup') }}</dt><dd>{{ formatWhen(execution.shipment.actual_pickup_at) }}</dd></div>
+          <div><dt>{{ t('orderExecution.actualDelivery') }}</dt><dd>{{ formatWhen(execution.shipment.actual_delivery_at) }}</dd></div>
+        </dl>
         <p class="muted">{{ t('orderExecution.readiness') }}:
           {{ execution.readiness.ready_to_start ? t('orderExecution.readyToStart') : execution.readiness.missing_requirements.join(', ') }}
         </p>
+      </Card>
+
+      <Card v-if="execution.sla_signals?.length">
+        <template #header><h3>{{ t('orderExecution.slaSignals') }}</h3></template>
+        <ul class="signal-list">
+          <li v-for="signal in execution.sla_signals" :key="`${signal.code}-${signal.at}`">
+            <Badge :status="signal.severity" /> {{ signal.message }}
+            <span v-if="signal.at" class="muted">({{ formatWhen(signal.at) }})</span>
+          </li>
+        </ul>
+      </Card>
+
+      <Card v-if="execution.milestones?.length">
+        <template #header><h3>{{ t('orderExecution.milestones') }}</h3></template>
+        <ol class="timeline">
+          <li v-for="m in execution.milestones" :key="m.id">
+            <strong>{{ m.to_status }}</strong>
+            <span class="muted">{{ formatWhen(m.occurred_at) }}</span>
+            <span v-if="m.from_status" class="muted">← {{ m.from_status }}</span>
+          </li>
+        </ol>
+      </Card>
+
+      <Card v-if="execution.pod_documents?.length">
+        <template #header><h3>{{ t('orderExecution.podDocuments') }}</h3></template>
+        <ul class="pod-list">
+          <li v-for="doc in execution.pod_documents" :key="doc.id">
+            {{ doc.document_number }} — <Badge :status="doc.status" />
+            <span class="muted">{{ formatWhen(doc.created_at) }}</span>
+          </li>
+        </ul>
       </Card>
     </template>
   </div>
 </template>
 
 <style scoped>
-.detail-grid {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-}
+.detail-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 .detail-grid dt { font-weight: 600; margin-bottom: 0.25rem; }
+.muted { color: var(--color-muted, #666); }
+.signal-list, .pod-list, .timeline { margin: 0; padding-left: 1.25rem; }
+.timeline li, .signal-list li, .pod-list li { margin-bottom: 0.5rem; }
 </style>

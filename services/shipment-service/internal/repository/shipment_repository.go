@@ -137,10 +137,8 @@ func (r *ShipmentRepository) CreateShipment(ctx context.Context, params CreateSh
 			return err
 		}
 
-		write := statusHistoryWriteFromTransition(
-			params.TenantID,
-			shipment.ID,
-			shipment.Version,
+		write := statusHistoryWriteFromShipmentTransition(
+			shipment,
 			nil,
 			shipment.Status,
 			transition,
@@ -340,7 +338,7 @@ func (r *ShipmentRepository) AssignDriver(ctx context.Context, id, tenantID, dri
 		}
 
 		if shouldRecordStatusHistory(stringPtr(fromStatus), newStatus) {
-			write := statusHistoryWriteFromTransition(tenantID, id, shipment.Version, stringPtr(fromStatus), newStatus, transition)
+			write := statusHistoryWriteFromShipmentTransition(shipment, stringPtr(fromStatus), newStatus, transition)
 			if err := insertStatusHistoryAndOutbox(ctx, tx, write); err != nil {
 				return err
 			}
@@ -380,7 +378,7 @@ func (r *ShipmentRepository) AssignVehicle(ctx context.Context, id, tenantID, ve
 		}
 
 		if shouldRecordStatusHistory(stringPtr(fromStatus), newStatus) {
-			write := statusHistoryWriteFromTransition(tenantID, id, shipment.Version, stringPtr(fromStatus), newStatus, transition)
+			write := statusHistoryWriteFromShipmentTransition(shipment, stringPtr(fromStatus), newStatus, transition)
 			if err := insertStatusHistoryAndOutbox(ctx, tx, write); err != nil {
 				return err
 			}
@@ -428,7 +426,7 @@ func (r *ShipmentRepository) UpdateStatus(ctx context.Context, id, tenantID uuid
 			return err
 		}
 
-		write := statusHistoryWriteFromTransition(tenantID, id, shipment.Version, stringPtr(fromStatus), newStatus, transition)
+		write := statusHistoryWriteFromShipmentTransition(shipment, stringPtr(fromStatus), newStatus, transition)
 		if err := insertStatusHistoryAndOutbox(ctx, tx, write); err != nil {
 			return err
 		}
@@ -466,10 +464,8 @@ func (r *ShipmentRepository) Accept(ctx context.Context, id, tenantID uuid.UUID,
 			return err
 		}
 
-		write := statusHistoryWriteFromTransition(
-			tenantID,
-			id,
-			shipment.Version,
+		write := statusHistoryWriteFromShipmentTransition(
+			shipment,
 			stringPtr(fromStatus),
 			domain.ShipmentStatusAcceptedByCarrier,
 			transition,
@@ -511,10 +507,8 @@ func (r *ShipmentRepository) Cancel(ctx context.Context, id, tenantID uuid.UUID,
 			return err
 		}
 
-		write := statusHistoryWriteFromTransition(
-			tenantID,
-			id,
-			shipment.Version,
+		write := statusHistoryWriteFromShipmentTransition(
+			shipment,
 			stringPtr(fromStatus),
 			domain.ShipmentStatusCancelled,
 			transition,

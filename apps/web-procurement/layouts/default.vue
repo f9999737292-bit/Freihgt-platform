@@ -20,6 +20,7 @@ const { t } = useI18n()
 
     <nav class="procurement-nav" aria-label="Main navigation">
       <NuxtLink to="/tenders" class="procurement-nav__link">{{ t('nav.tenders') }}</NuxtLink>
+      <NuxtLink to="/transport-orders" class="procurement-nav__link">{{ t('nav.buyerOrders') }}</NuxtLink>
       <NuxtLink to="/carrier/tenders" class="procurement-nav__link">{{ t('nav.carrierTenders') }}</NuxtLink>
       <NuxtLink to="/carrier/transport-orders" class="procurement-nav__link">{{ t('nav.carrierOrders') }}</NuxtLink>
     </nav>

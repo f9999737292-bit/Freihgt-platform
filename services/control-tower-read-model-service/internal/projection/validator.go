@@ -29,10 +29,14 @@ type aggJSON struct {
 }
 
 type dataJSON struct {
-	FromStatus *string `json:"fromStatus"`
-	ToStatus   string  `json:"toStatus"`
-	ReasonCode *string `json:"reasonCode"`
-	ActorType  string  `json:"actorType"`
+	FromStatus        *string `json:"fromStatus"`
+	ToStatus          string  `json:"toStatus"`
+	ReasonCode        *string `json:"reasonCode"`
+	ActorType         string  `json:"actorType"`
+	PlannedPickupAt   *string `json:"plannedPickupAt"`
+	PlannedDeliveryAt *string `json:"plannedDeliveryAt"`
+	ActualPickupAt    *string `json:"actualPickupAt"`
+	ActualDeliveryAt  *string `json:"actualDeliveryAt"`
 }
 
 func ParseAndValidate(payload []byte, meta domain.KafkaRecordMeta, configuredTopic string) (domain.ShipmentStatusEvent, *domain.PermanentError) {
@@ -101,12 +105,32 @@ func ParseAndValidate(payload []byte, meta domain.KafkaRecordMeta, configuredTop
 		SourceEventID: sourceEventID,
 		CorrelationID: env.CorrelationID,
 		Data: domain.ShipmentStatusEventData{
-			FromStatus: env.Data.FromStatus,
-			ToStatus:   env.Data.ToStatus,
-			ReasonCode: env.Data.ReasonCode,
-			ActorType:  env.Data.ActorType,
+			FromStatus:        env.Data.FromStatus,
+			ToStatus:          env.Data.ToStatus,
+			ReasonCode:        env.Data.ReasonCode,
+			ActorType:         env.Data.ActorType,
+			PlannedPickupAt:   parseOptionalTime(env.Data.PlannedPickupAt),
+			PlannedDeliveryAt: parseOptionalTime(env.Data.PlannedDeliveryAt),
+			ActualPickupAt:    parseOptionalTime(env.Data.ActualPickupAt),
+			ActualDeliveryAt:  parseOptionalTime(env.Data.ActualDeliveryAt),
 		},
 	}, nil
+}
+
+func parseOptionalTime(raw *string) *time.Time {
+	if raw == nil || strings.TrimSpace(*raw) == "" {
+		return nil
+	}
+	value := strings.TrimSpace(*raw)
+	if t, err := time.Parse(time.RFC3339Nano, value); err == nil {
+		utc := t.UTC()
+		return &utc
+	}
+	if t, err := time.Parse(time.RFC3339, value); err == nil {
+		utc := t.UTC()
+		return &utc
+	}
+	return nil
 }
 
 func validateEventTypeConsistency(env envelope) *domain.PermanentError {

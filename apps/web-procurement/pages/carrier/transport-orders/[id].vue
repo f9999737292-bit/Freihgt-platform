@@ -35,6 +35,20 @@ const apiUnavailable = ref(false)
 const driverId = ref('')
 const vehicleId = ref('')
 
+function formatWhen(value?: string) {
+  if (!value) return '—'
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(value))
+  } catch {
+    return value
+  }
+}
+
 const carrierOptions = computed(() => membershipSelectOptions(filterCarrierMemberships(memberships.value)))
 
 async function loadExecution() {
@@ -163,6 +177,12 @@ watch(selectedCarrierId, loadExecution)
       <Card v-if="execution.shipment">
         <template #header><h3>{{ t('orderExecution.shipment') }}</h3></template>
         <p>{{ execution.shipment.shipment_number }} — <Badge :status="execution.shipment.status" /></p>
+        <dl class="detail-grid">
+          <div><dt>{{ t('orderExecution.plannedPickup') }}</dt><dd>{{ formatWhen(execution.shipment.planned_pickup_at) }}</dd></div>
+          <div><dt>{{ t('orderExecution.plannedDelivery') }}</dt><dd>{{ formatWhen(execution.shipment.planned_delivery_at) }}</dd></div>
+          <div><dt>{{ t('orderExecution.actualPickup') }}</dt><dd>{{ formatWhen(execution.shipment.actual_pickup_at) }}</dd></div>
+          <div><dt>{{ t('orderExecution.actualDelivery') }}</dt><dd>{{ formatWhen(execution.shipment.actual_delivery_at) }}</dd></div>
+        </dl>
         <div class="form-row">
           <label for="driver-id">{{ t('orderExecution.driverId') }}</label>
           <input id="driver-id" v-model="driverId" class="input" type="text" />
@@ -174,6 +194,34 @@ watch(selectedCarrierId, loadExecution)
           <Button size="sm" :loading="acting" @click="handleAssignVehicle">{{ t('orderExecution.assignVehicle') }}</Button>
         </div>
       </Card>
+
+      <Card v-if="execution.sla_signals?.length">
+        <template #header><h3>{{ t('orderExecution.slaSignals') }}</h3></template>
+        <ul class="signal-list">
+          <li v-for="signal in execution.sla_signals" :key="`${signal.code}-${signal.at}`">
+            <Badge :status="signal.severity" /> {{ signal.message }}
+          </li>
+        </ul>
+      </Card>
+
+      <Card v-if="execution.milestones?.length">
+        <template #header><h3>{{ t('orderExecution.milestones') }}</h3></template>
+        <ol class="timeline">
+          <li v-for="m in execution.milestones" :key="m.id">
+            <strong>{{ m.to_status }}</strong>
+            <span class="muted">{{ formatWhen(m.occurred_at) }}</span>
+          </li>
+        </ol>
+      </Card>
+
+      <Card v-if="execution.pod_documents?.length">
+        <template #header><h3>{{ t('orderExecution.podDocuments') }}</h3></template>
+        <ul class="pod-list">
+          <li v-for="doc in execution.pod_documents" :key="doc.id">
+            {{ doc.document_number }} — <Badge :status="doc.status" />
+          </li>
+        </ul>
+      </Card>
     </template>
   </div>
 </template>
@@ -183,4 +231,7 @@ watch(selectedCarrierId, loadExecution)
 .detail-grid dt { font-weight: 600; margin-bottom: 0.25rem; }
 .actions-row, .form-row { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: end; margin-top: 1rem; }
 .form-row label { min-width: 120px; }
+.signal-list, .pod-list, .timeline { margin: 0; padding-left: 1.25rem; }
+.timeline li, .signal-list li, .pod-list li { margin-bottom: 0.5rem; }
+.muted { color: var(--color-muted, #666); }
 </style>

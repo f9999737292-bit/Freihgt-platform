@@ -1,4 +1,5 @@
 import type {
+  BuyerTransportOrderItem,
   CarrierTransportOrderItem,
   ExecuteTransportOrderResult,
   OrderExecutionView,
@@ -22,6 +23,18 @@ export function useOrderExecutionApi() {
     })
     const data = await apiGet<{ items: CarrierTransportOrderItem[]; total: number }>(
       `/api/v1/carrier/transport-orders?${params.toString()}`,
+    )
+    return data.items ?? []
+  }
+
+  async function listBuyerTransportOrders(buyerCompanyId: string, limit = 50, offset = 0) {
+    const params = new URLSearchParams({
+      buyer_company_id: buyerCompanyId,
+      limit: String(limit),
+      offset: String(offset),
+    })
+    const data = await apiGet<{ items: BuyerTransportOrderItem[]; total: number }>(
+      `/api/v1/order-execution/buyer/transport-orders?${params.toString()}`,
     )
     return data.items ?? []
   }
@@ -53,6 +66,7 @@ export function useOrderExecutionApi() {
   return {
     getOrderExecution,
     listCarrierTransportOrders,
+    listBuyerTransportOrders,
     executeTransportOrder,
     startExecution,
     assignDriver,
