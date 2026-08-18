@@ -61,11 +61,8 @@ func (r *OrderExecutionRepository) GetShipmentByTransportOrderID(ctx context.Con
 		LIMIT 1
 	`
 	shipment, err := scanShipment(r.pool.QueryRow(ctx, query, tenantID, transportOrderID))
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, apperrors.NotFound("shipment not found")
-	}
 	if err != nil {
-		return nil, mapDBError(err)
+		return nil, err
 	}
 	return shipment, nil
 }
@@ -406,11 +403,8 @@ func getShipmentByTransportOrderTx(ctx context.Context, tx pgx.Tx, tenantID, tra
 		LIMIT 1
 	`
 	shipment, err := scanShipment(tx.QueryRow(ctx, query, tenantID, transportOrderID))
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, apperrors.NotFound("shipment not found")
-	}
 	if err != nil {
-		return nil, mapDBError(err)
+		return nil, err
 	}
 	return shipment, nil
 }
@@ -469,6 +463,12 @@ func isUniqueViolation(err error) bool {
 }
 
 func isNotFound(err error) bool {
-	var appErr *apperrors.AppError
-	return errors.As(err, &appErr) && appErr.Code == apperrors.CodeNotFound
+	for err != nil {
+		var appErr *apperrors.AppError
+		if errors.As(err, &appErr) && appErr.Code == apperrors.CodeNotFound {
+			return true
+		}
+		err = errors.Unwrap(err)
+	}
+	return false
 }
