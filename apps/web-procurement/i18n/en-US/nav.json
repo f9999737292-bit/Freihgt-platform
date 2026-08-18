@@ -1,6 +1,6 @@
 {
   "nav": {
-    "home": "Home",
-    "freightRequests": "Freight requests"
+    "appTitle": "Freight Platform Procurement",
+    "tenders": "Tenders"
   }
 }

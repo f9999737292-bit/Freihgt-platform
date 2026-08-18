@@ -1,32 +1,48 @@
 export function useAuth() {
-  const router = useRouter()
-  const session = useSession()
+  const authStore = useAuthStore()
+  const tenantStore = useTenantStore()
+  const { pushToast } = useToast()
+  const { t } = useI18n()
 
   async function login(tenantId: string, email: string, password: string) {
-    const result = await session.login({
+    if (!tenantId.trim()) {
+      pushToast('error', t('login.tenantRequired'))
+      throw new Error(t('login.tenantRequired'))
+    }
+
+    const result = await authStore.login({
       tenant_id: tenantId.trim(),
       email: email.trim(),
       password,
     })
+
+    tenantStore.setTenant(tenantId.trim())
 
     const { setLocale } = useI18n()
     if (result.user.preferred_locale) {
       await setLocale(result.user.preferred_locale as 'ru-RU' | 'en-US' | 'zh-CN')
     }
 
+    pushToast('success', t('login.success'))
     return result
   }
 
   async function logout() {
-    session.clearSession()
-    await router.push('/login')
+    authStore.logout()
+    tenantStore.clearTenant()
+    await navigateTo('/login')
+  }
+
+  function clearSession() {
+    authStore.clearSession()
   }
 
   return {
-    user: computed(() => session.user.value),
-    isAuthenticated: session.isAuthenticated,
+    user: computed(() => authStore.user),
+    isAuthenticated: computed(() => authStore.isAuthenticated),
     login,
     logout,
-    restoreSession: session.restoreSession,
+    clearSession,
+    restoreSession: authStore.restoreSession,
   }
 }

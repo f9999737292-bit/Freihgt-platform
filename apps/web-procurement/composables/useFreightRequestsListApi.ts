@@ -1,6 +1,6 @@
 import type { PaginatedResponse } from '~/types/api'
 import type { FreightRequest, ListFreightRequestsFilters } from '~/types/rfx'
-import { ApiError } from '~/composables/useApi'
+import { ApiError } from '~/utils/apiClient'
 
 export function useFreightRequestsListApi() {
   const { apiGet } = useApi()

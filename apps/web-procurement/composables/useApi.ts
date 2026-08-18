@@ -1,27 +1,23 @@
 import type { ApiErrorBody } from '~/types/api'
-
-export class ApiError extends Error {
-  code: string
-  details: Record<string, unknown>
-  status: number
-
-  constructor(status: number, body: ApiErrorBody['error']) {
-    super(body.message)
-    this.name = 'ApiError'
-    this.code = body.code
-    this.details = body.details ?? {}
-    this.status = status
-  }
-}
+import {
+  API_HEADER_AUTHORIZATION,
+  API_HEADER_REQUEST_ID,
+  API_HEADER_TENANT_ID,
+  API_HEADER_USER_ID,
+} from '~/constants/apiHeaders'
+import { ApiError, TenantRequiredError } from '~/utils/apiClient'
 
 interface RequestOptions {
   skipAuth?: boolean
+  skipTenant?: boolean
   headers?: Record<string, string>
   query?: Record<string, string | number | undefined>
 }
 
 function isNetworkFetchError(error: unknown): boolean {
-  return error instanceof TypeError
+  if (error instanceof TypeError) return true
+  if (error instanceof DOMException && error.name === 'AbortError') return true
+  return false
 }
 
 function buildUrl(path: string, query?: RequestOptions['query']) {
@@ -30,7 +26,7 @@ function buildUrl(path: string, query?: RequestOptions['query']) {
   const url = new URL(path.startsWith('http') ? path : `${base}${path}`)
   if (query) {
     for (const [key, value] of Object.entries(query)) {
-      if (value !== undefined) {
+      if (value !== undefined && value !== '') {
         url.searchParams.set(key, String(value))
       }
     }
@@ -38,20 +34,39 @@ function buildUrl(path: string, query?: RequestOptions['query']) {
   return url.toString()
 }
 
+function ensureTenant(options: RequestOptions) {
+  if (options.skipTenant) return
+
+  const tenantStore = useTenantStore()
+  if (!tenantStore.tenantId?.trim()) {
+    throw new TenantRequiredError()
+  }
+}
+
 function buildHeaders(options: RequestOptions = {}) {
-  const { token } = useSession()
+  const authStore = useAuthStore()
+  const tenantStore = useTenantStore()
   const { locale } = useI18n()
   const headers: Record<string, string> = {
     Accept: 'application/json',
     'Content-Type': 'application/json',
+    [API_HEADER_REQUEST_ID]: crypto.randomUUID(),
     'X-Locale': locale.value,
     ...options.headers,
   }
 
-  if (!options.skipAuth && token.value) {
-    headers.Authorization = `Bearer ${token.value}`
+  if (!options.skipAuth && authStore.token) {
+    headers[API_HEADER_AUTHORIZATION] = `Bearer ${authStore.token}`
   }
-
+  if (!options.skipAuth && authStore.user?.id) {
+    headers[API_HEADER_USER_ID] = authStore.user.id
+  }
+  if (!options.skipTenant && tenantStore.tenantId) {
+    headers[API_HEADER_TENANT_ID] = tenantStore.tenantId
+  }
+  if (tenantStore.currentCompanyId) {
+    headers['X-Company-ID'] = tenantStore.currentCompanyId
+  }
   return headers
 }
 
@@ -61,8 +76,8 @@ async function fetchWithNetworkHandling(input: string, init?: RequestInit): Prom
   } catch (error) {
     if (isNetworkFetchError(error)) {
       throw new ApiError(0, {
-        code: 'NETWORK_ERROR',
-        message: 'Network error',
+        code: 'BACKEND_UNAVAILABLE',
+        message: 'Backend unavailable',
         details: {},
       })
     }
@@ -95,6 +110,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
 
 export function useApi() {
   async function apiGet<T>(path: string, options: RequestOptions = {}) {
+    ensureTenant(options)
     const response = await fetchWithNetworkHandling(buildUrl(path, options.query), {
       method: 'GET',
       headers: buildHeaders(options),
@@ -103,6 +119,7 @@ export function useApi() {
   }
 
   async function apiPost<T>(path: string, body?: unknown, options: RequestOptions = {}) {
+    ensureTenant(options)
     const response = await fetchWithNetworkHandling(buildUrl(path, options.query), {
       method: 'POST',
       headers: buildHeaders(options),
@@ -111,9 +128,40 @@ export function useApi() {
     return handleResponse<T>(response)
   }
 
+  async function apiPut<T>(path: string, body?: unknown, options: RequestOptions = {}) {
+    ensureTenant(options)
+    const response = await fetchWithNetworkHandling(buildUrl(path, options.query), {
+      method: 'PUT',
+      headers: buildHeaders(options),
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    })
+    return handleResponse<T>(response)
+  }
+
+  async function apiPatch<T>(path: string, body?: unknown, options: RequestOptions = {}) {
+    ensureTenant(options)
+    const response = await fetchWithNetworkHandling(buildUrl(path, options.query), {
+      method: 'PATCH',
+      headers: buildHeaders(options),
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    })
+    return handleResponse<T>(response)
+  }
+
+  async function apiDelete<T>(path: string, options: RequestOptions = {}) {
+    ensureTenant(options)
+    const response = await fetchWithNetworkHandling(buildUrl(path, options.query), {
+      method: 'DELETE',
+      headers: buildHeaders(options),
+    })
+    return handleResponse<T>(response)
+  }
+
   return {
     apiGet,
     apiPost,
-    ApiError,
+    apiPut,
+    apiPatch,
+    apiDelete,
   }
 }

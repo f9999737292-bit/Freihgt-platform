@@ -1,13 +1,24 @@
 {
   "common": {
-    "welcome": "Welcome to Freight Platform Procurement",
-    "home": "Home",
-    "health": "Status",
-    "language": "Language",
+    "welcome": "Welcome",
+    "all": "All",
     "loading": "Loading…",
     "error": "Error",
     "status": "Status",
     "login": "Sign in",
-    "logout": "Sign out"
+    "logout": "Sign out",
+    "cancel": "Cancel",
+    "save": "Save",
+    "edit": "Edit",
+    "back": "Back",
+    "next": "Next",
+    "details": "Details",
+    "actions": "Actions",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "tenant": {
+    "required": "Tenant ID is required",
+    "cleared": "Tenant cleared"
   }
 }

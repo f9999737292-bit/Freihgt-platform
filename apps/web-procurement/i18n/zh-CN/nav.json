@@ -1,6 +1,6 @@
 {
   "nav": {
-    "home": "首页",
-    "freightRequests": "货运请求"
+    "appTitle": "Freight Platform Procurement",
+    "tenders": "招标"
   }
 }

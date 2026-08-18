@@ -1,13 +1,13 @@
 <script setup lang="ts">
-definePageMeta({ middleware: 'guest' })
+definePageMeta({ middleware: 'guest', layout: false })
 
 const config = useRuntimeConfig()
 const route = useRoute()
-const router = useRouter()
 const { login } = useAuth()
+const { resolveInitialTenantId } = useTenantContext()
 const { t } = useI18n()
 
-const tenantId = ref(config.public.defaultTenantId || '')
+const tenantId = ref(resolveInitialTenantId())
 const email = ref(import.meta.dev ? 'procurement@bintrans.local' : '')
 const password = ref(import.meta.dev ? '123456' : '')
 const loading = ref(false)
@@ -23,8 +23,8 @@ async function onSubmit() {
   loading.value = true
   try {
     await login(tenantId.value, email.value, password.value)
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
-    await router.replace(redirect)
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/tenders'
+    await navigateTo(redirect, { replace: true })
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : t('common.error')
   } finally {
@@ -39,22 +39,13 @@ async function onSubmit() {
     <p class="login-page__hint">{{ $t('login.hint') }}</p>
 
     <form class="login-form" @submit.prevent="onSubmit">
-      <label class="field">
-        <span>{{ $t('login.tenantId') }}</span>
-        <input v-model="tenantId" type="text" required autocomplete="organization" />
-      </label>
-      <label class="field">
-        <span>{{ $t('login.email') }}</span>
-        <input v-model="email" type="email" required autocomplete="username" />
-      </label>
-      <label class="field">
-        <span>{{ $t('login.password') }}</span>
-        <input v-model="password" type="password" required autocomplete="current-password" />
-      </label>
+      <Input v-model="tenantId" :label="$t('login.tenantId')" required />
+      <Input v-model="email" type="email" :label="$t('login.email')" required />
+      <Input v-model="password" type="password" :label="$t('login.password')" required />
       <p v-if="errorMessage" class="login-page__error">{{ errorMessage }}</p>
-      <button type="submit" class="btn" :disabled="loading">
+      <Button type="submit" :loading="loading" :disabled="loading">
         {{ loading ? $t('common.loading') : $t('login.submit') }}
-      </button>
+      </Button>
     </form>
   </div>
 </template>
@@ -62,6 +53,8 @@ async function onSubmit() {
 <style scoped>
 .login-page {
   max-width: 28rem;
+  margin: 4rem auto;
+  padding: 0 1rem;
 }
 
 .login-page h2 {
@@ -70,7 +63,7 @@ async function onSubmit() {
 
 .login-page__hint {
   margin: 0 0 1.25rem;
-  color: #6b7280;
+  color: var(--color-text-muted);
   font-size: 0.875rem;
 }
 
@@ -80,38 +73,9 @@ async function onSubmit() {
   gap: 1rem;
 }
 
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-  font-size: 0.875rem;
-}
-
-.field input {
-  padding: 0.625rem 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
-  font: inherit;
-}
-
 .login-page__error {
   margin: 0;
   color: #b91c1c;
   font-size: 0.875rem;
-}
-
-.btn {
-  padding: 0.625rem 1rem;
-  border: none;
-  border-radius: 0.375rem;
-  background: #2563eb;
-  color: #fff;
-  font: inherit;
-  cursor: pointer;
-}
-
-.btn:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
 }
 </style>

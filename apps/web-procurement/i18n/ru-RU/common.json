@@ -1,13 +1,24 @@
 {
   "common": {
-    "welcome": "Добро пожаловать в Procurement Portal",
-    "home": "Главная",
-    "health": "Статус",
-    "language": "Язык",
+    "welcome": "Добро пожаловать",
+    "all": "Все",
     "loading": "Загрузка…",
     "error": "Ошибка",
     "status": "Статус",
     "login": "Войти",
-    "logout": "Выйти"
+    "logout": "Выйти",
+    "cancel": "Отмена",
+    "save": "Сохранить",
+    "edit": "Изменить",
+    "back": "Назад",
+    "next": "Далее",
+    "details": "Подробнее",
+    "actions": "Действия",
+    "yes": "Да",
+    "no": "Нет"
+  },
+  "tenant": {
+    "required": "Укажите tenant ID",
+    "cleared": "Tenant сброшен"
   }
 }

@@ -1,5 +1,5 @@
 import type { Bid } from '~/types/bid'
-import { ApiError } from '~/composables/useApi'
+import { ApiError } from '~/utils/apiClient'
 
 export function useBidsApi() {
   const { apiGet, apiPost } = useApi()
