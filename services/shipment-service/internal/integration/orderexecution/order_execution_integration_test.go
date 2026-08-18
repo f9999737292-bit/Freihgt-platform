@@ -220,8 +220,11 @@ func TestExecuteCreatesShipmentAndIsIdempotent(t *testing.T) {
 	first, err := env.orderExecution.ExecuteAwardOrder(ctx, fix.TenantID, fix.OrderID, fix.CarrierA, domain.ExecuteTransportOrderInput{
 		ShipmentNumber: "SHP-EXEC-1",
 	}, transition(fix.UserID))
-	if err != nil || !first.Created || first.Shipment == nil {
-		t.Fatalf("execute: err=%v created=%v shipment=%v", err, first.Created, first.Shipment)
+	if err != nil {
+		t.Fatalf("execute failed: %v", err)
+	}
+	if first == nil || !first.Created || first.Shipment == nil {
+		t.Fatalf("execute result invalid: created=%v shipment=%v", first != nil && first.Created, first != nil && first.Shipment != nil)
 	}
 	if first.Shipment.Status != domain.ShipmentStatusAcceptedByCarrier {
 		t.Fatalf("expected implicit accept, got %s", first.Shipment.Status)
