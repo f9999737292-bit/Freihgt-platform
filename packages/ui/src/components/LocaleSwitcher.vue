@@ -1,11 +1,16 @@
 <script setup lang="ts">
 const { locale, locales, setLocale } = useI18n()
+
+async function onLocaleChange(event: Event) {
+  const value = (event.target as HTMLSelectElement).value
+  await setLocale(value as typeof locale.value)
+}
 </script>
 
 <template>
   <label class="locale-switcher">
     <span>{{ $t('common.language') }}</span>
-    <select :value="locale" @change="setLocale(($event.target as HTMLSelectElement).value)">
+    <select :value="locale" @change="onLocaleChange">
       <option v-for="item in locales" :key="item.code" :value="item.code">
         {{ item.name }}
       </option>

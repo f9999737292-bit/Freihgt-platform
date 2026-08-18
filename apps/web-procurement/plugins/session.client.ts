@@ -1,3 +1,6 @@
 export default defineNuxtPlugin(() => {
-  useSession().restoreSession()
+  const authStore = useAuthStore()
+  const tenantStore = useTenantStore()
+  authStore.restoreSession()
+  tenantStore.restoreTenant()
 })

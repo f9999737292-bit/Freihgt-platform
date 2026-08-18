@@ -1,11 +1,12 @@
 {
   "login": {
-    "title": "Вход в систему",
+    "title": "Вход в Procurement Portal",
+    "hint": "Используйте учётные данные закупщика вашей организации.",
     "tenantId": "Tenant ID",
     "email": "Email",
     "password": "Пароль",
     "submit": "Войти",
-    "hint": "Tenant ID используется только при входе. API-запросы выполняются с JWT из сессии.",
-    "tenantRequired": "Tenant ID обязателен"
+    "tenantRequired": "Tenant ID обязателен",
+    "success": "Вход выполнен"
   }
 }

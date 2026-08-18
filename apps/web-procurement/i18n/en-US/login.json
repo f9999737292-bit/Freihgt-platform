@@ -1,11 +1,12 @@
 {
   "login": {
-    "title": "Sign in",
+    "title": "Procurement Portal Sign In",
+    "hint": "Use your organization buyer credentials.",
     "tenantId": "Tenant ID",
     "email": "Email",
     "password": "Password",
     "submit": "Sign in",
-    "hint": "Tenant ID is used only for login. API requests rely on the authenticated JWT.",
-    "tenantRequired": "Tenant ID is required"
+    "tenantRequired": "Tenant ID is required",
+    "success": "Signed in successfully"
   }
 }

@@ -1,11 +1,12 @@
 export default defineNuxtRouteMiddleware((to) => {
-  const { restoreSession, isAuthenticated, restored } = useSession()
+  const authStore = useAuthStore()
 
-  if (!restored.value) {
-    restoreSession()
+  if (!authStore.restored) {
+    authStore.restoreSession()
+    useTenantStore().restoreTenant()
   }
 
-  if (!isAuthenticated.value) {
+  if (!authStore.isAuthenticated) {
     return navigateTo({
       path: '/login',
       query: { redirect: to.fullPath },

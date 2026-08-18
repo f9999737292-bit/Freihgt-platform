@@ -1,11 +1,8 @@
 const localeFiles = [
   'common.json',
   'login.json',
-  'home.json',
   'nav.json',
-  'bid.json',
-  'freightRequests.list.json',
-  'freightRequests.detail.json',
+  'tenders.json',
 ]
 
 export default defineNuxtConfig({
@@ -17,12 +14,13 @@ export default defineNuxtConfig({
   typescript: {
     strict: true,
   },
-  modules: ['@nuxtjs/i18n'],
+  modules: ['@pinia/nuxt', '@nuxtjs/i18n'],
+  css: ['~/assets/css/variables.css', '~/assets/css/main.css'],
   runtimeConfig: {
     public: {
-      apiBaseUrl: 'http://localhost:8080',
-      defaultTenantId: '',
-      mockAuth: false,
+      apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || 'http://localhost:8080',
+      defaultTenantId: process.env.NUXT_PUBLIC_DEFAULT_TENANT_ID || '',
+      mockAuth: process.env.NUXT_PUBLIC_MOCK_AUTH === 'true',
     },
   },
   i18n: {
@@ -60,6 +58,7 @@ export default defineNuxtConfig({
   app: {
     head: {
       title: 'Freight Platform Procurement',
+      meta: [{ name: 'viewport', content: 'width=device-width, initial-scale=1' }],
     },
   },
 })

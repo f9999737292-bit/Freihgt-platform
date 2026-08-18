@@ -1,11 +1,12 @@
 export default defineNuxtRouteMiddleware(() => {
-  const { restoreSession, isAuthenticated, restored } = useSession()
+  const authStore = useAuthStore()
 
-  if (!restored.value) {
-    restoreSession()
+  if (!authStore.restored) {
+    authStore.restoreSession()
+    useTenantStore().restoreTenant()
   }
 
-  if (isAuthenticated.value) {
-    return navigateTo('/')
+  if (authStore.isAuthenticated) {
+    return navigateTo('/tenders')
   }
 })

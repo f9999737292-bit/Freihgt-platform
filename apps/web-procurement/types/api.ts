@@ -13,8 +13,6 @@ export interface PaginatedResponse<T> {
   offset: number
 }
 
-export type { Bid, BidItem } from './bid'
-
 export interface LoginRequest {
   tenant_id: string
   email: string
@@ -36,4 +34,5 @@ export interface AuthUser {
   preferred_locale: string
   status?: string
   roles?: string[]
+  permissions?: string[]
 }

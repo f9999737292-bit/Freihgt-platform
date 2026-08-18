@@ -1,6 +1,6 @@
 import type { Bid } from '~/types/bid'
 import type { FreightRequest } from '~/types/rfx'
-import { ApiError } from '~/composables/useApi'
+import { ApiError } from '~/utils/apiClient'
 
 export interface ListFreightRequestBidsParams {
   status?: string
