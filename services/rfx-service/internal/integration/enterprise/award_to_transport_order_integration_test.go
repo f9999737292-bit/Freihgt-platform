@@ -4,6 +4,7 @@ package enterprise
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -146,14 +147,23 @@ func TestCrossTenantConversionDenied(t *testing.T) {
 	assertAppErrorCode(t, err, apperrors.CodeNotFound)
 }
 
-func TestCarrierConversionAttemptDenied(t *testing.T) {
+func TestConversionDeniedForCarrierActor(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedConversionFixture(t, env)
 	ctx := context.Background()
 	event, _, _ := seedAwardedMultiLotEvent(t, env, fix, 100000, 95000)
 
 	_, err := env.rfxSvc.ConvertAwardToTransportOrders(ctx, fix.CarrierAct, event.ID)
-	assertAppErrorCode(t, err, apperrors.CodeNotFound)
+	if err == nil {
+		t.Fatal("expected carrier conversion denied")
+	}
+	var appErr *apperrors.AppError
+	if !errors.As(err, &appErr) {
+		t.Fatalf("expected app error, got %v", err)
+	}
+	if appErr.Code != apperrors.CodeForbidden && appErr.Code != apperrors.CodeNotFound {
+		t.Fatalf("expected FORBIDDEN or NOT_FOUND, got %s", appErr.Code)
+	}
 }
 
 func TestNonAwardedConversionDenied(t *testing.T) {

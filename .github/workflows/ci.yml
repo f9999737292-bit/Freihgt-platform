@@ -287,7 +287,7 @@ jobs:
 
       - name: Run award-to-transport-order integration tests
         working-directory: services/rfx-service
-        run: go test -tags=integration ./internal/integration/enterprise/... -count=1 -run 'Conversion|TransportOrder|MultiLotPrice|ConcurrentConversion|RepeatedConversion|BuyerOwnAwarded' -v
+        run: go test -tags=integration ./internal/integration/enterprise/... -count=1 -run 'AwardedConversion|ConversionDenied|RepeatedConversion|ConcurrentConversion|MultiLotPrice|ConversionAudit|CompetitorDataIsolationAfterConversion|BuyerOwnAwarded|SameTenantForeign|CrossTenant|NonAwarded' -v
 
   frontend-web-admin-build:
     name: frontend-web-admin-build
