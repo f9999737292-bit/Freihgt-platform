@@ -3,6 +3,7 @@
     "appTitle": "Freight Platform Procurement",
     "tenders": "Тендеры",
     "carrierTenders": "Тендеры перевозчика",
-    "carrierOrders": "Исполнение заказов"
+    "carrierOrders": "Исполнение заказов",
+    "buyerOrders": "Транспортные заказы"
   }
 }

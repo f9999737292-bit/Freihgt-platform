@@ -65,7 +65,7 @@ func TestBuildOutboxEventFromStatusHistory(t *testing.T) {
 	correlation := "req-123"
 	history := sampleHistory(nil, ShipmentStatusCarrierAssigned)
 	history.CorrelationID = &correlation
-	outbox, err := BuildOutboxEventFromStatusHistory(history)
+	outbox, err := BuildOutboxEventFromStatusHistory(history, nil)
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}
@@ -105,11 +105,11 @@ func TestBuildOutboxEventFromStatusHistory(t *testing.T) {
 func TestBuildOutboxEventStableSerialization(t *testing.T) {
 	t.Parallel()
 	history := sampleHistory(nil, ShipmentStatusCarrierAssigned)
-	first, err := BuildOutboxEventFromStatusHistory(history)
+	first, err := BuildOutboxEventFromStatusHistory(history, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := BuildOutboxEventFromStatusHistory(history)
+	second, err := BuildOutboxEventFromStatusHistory(history, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +121,7 @@ func TestBuildOutboxEventStableSerialization(t *testing.T) {
 func TestValidateOutboxAgainstHistoryRejectsMismatch(t *testing.T) {
 	t.Parallel()
 	history := sampleHistory(nil, ShipmentStatusCarrierAssigned)
-	outbox, err := BuildOutboxEventFromStatusHistory(history)
+	outbox, err := BuildOutboxEventFromStatusHistory(history, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

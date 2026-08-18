@@ -1,6 +1,7 @@
 {
   "orderExecution": {
     "title": "运输订单",
+    "buyerTitle": "我的运输订单",
     "carrierTitle": "订单执行",
     "loadFailed": "无法加载订单",
     "notFound": "未找到订单",
@@ -31,6 +32,13 @@
     "driverId": "司机 ID",
     "vehicleId": "车辆 ID",
     "empty": "暂无可执行订单",
-    "openShipment": "打开运单"
+    "openShipment": "打开运单",
+    "plannedPickup": "计划提货",
+    "plannedDelivery": "计划送达",
+    "actualPickup": "实际提货",
+    "actualDelivery": "实际送达",
+    "milestones": "里程碑",
+    "slaSignals": "SLA 信号",
+    "podDocuments": "POD 文档"
   }
 }

@@ -1,6 +1,7 @@
 {
   "orderExecution": {
     "title": "Транспортный заказ",
+    "buyerTitle": "Мои транспортные заказы",
     "carrierTitle": "Исполнение заказов",
     "loadFailed": "Не удалось загрузить заказ",
     "notFound": "Заказ не найден",
@@ -31,6 +32,13 @@
     "driverId": "ID водителя",
     "vehicleId": "ID ТС",
     "empty": "Нет заказов для исполнения",
-    "openShipment": "Открыть отправление"
+    "openShipment": "Открыть отправление",
+    "plannedPickup": "План. погрузка",
+    "plannedDelivery": "План. выгрузка",
+    "actualPickup": "Факт. погрузка",
+    "actualDelivery": "Факт. выгрузка",
+    "milestones": "Этапы",
+    "slaSignals": "SLA-сигналы",
+    "podDocuments": "Документы POD"
   }
 }

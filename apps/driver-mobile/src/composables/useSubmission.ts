@@ -19,7 +19,7 @@ export function useSubmissionLock() {
   return { submitting, runOnce }
 }
 
-export function draftKey(kind: 'delay' | 'problem', shipmentId: string) {
+export function draftKey(kind: 'delay' | 'problem' | 'milestone' | 'pod', shipmentId: string) {
   return `freight-driver-draft:${kind}:${shipmentId}`
 }
 

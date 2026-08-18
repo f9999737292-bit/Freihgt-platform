@@ -136,6 +136,75 @@ func (h *OrderExecutionHandler) ListCarrierOrders(w http.ResponseWriter, r *http
 	})
 }
 
+func (h *OrderExecutionHandler) ListBuyerOrders(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := resolveVerifiedTenant(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	buyerCompanyID, err := parseBuyerCompanyIDQuery(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	limit := parseLimit(r)
+	offset := parseOffset(r)
+	items, total, err := h.service.ListBuyerTransportOrders(r.Context(), domain.ListBuyerTransportOrdersFilter{
+		TenantID:       tenantID,
+		BuyerCompanyID: buyerCompanyID,
+		Limit:          limit,
+		Offset:         offset,
+	})
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	responseItems := make([]map[string]any, 0, len(items))
+	for i := range items {
+		responseItems = append(responseItems, toBuyerTransportOrderItemResponse(&items[i]))
+	}
+	respond.JSON(w, http.StatusOK, map[string]any{
+		"items":  responseItems,
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
+	})
+}
+
+func parseBuyerCompanyIDQuery(r *http.Request) (uuid.UUID, error) {
+	raw := strings.TrimSpace(r.URL.Query().Get("buyer_company_id"))
+	if raw == "" {
+		return uuid.Nil, apperrors.Validation("buyer_company_id is required", map[string]any{"field": "buyer_company_id"})
+	}
+	return domain.ParseUUID(raw, "buyer_company_id")
+}
+
+func toBuyerTransportOrderItemResponse(item *domain.BuyerTransportOrderListItem) map[string]any {
+	payload := map[string]any{
+		"transport_order_id":     item.Link.TransportOrderID.String(),
+		"transport_order_number": item.OrderNumber,
+		"transport_order_status": item.OrderStatus,
+		"rfx_event_id":           item.Link.RfxEventID.String(),
+		"carrier_company_id":     item.Link.CarrierCompanyID.String(),
+		"buyer_company_id":       item.Link.BuyerCompanyID.String(),
+		"amount":                 item.Link.Amount,
+		"currency_code":          item.Link.CurrencyCode,
+		"converted_at":           item.Link.ConvertedAt.Format(time.RFC3339),
+	}
+	if item.Link.RfxLotID != nil {
+		payload["rfx_lot_id"] = item.Link.RfxLotID.String()
+	}
+	if item.ShipmentID != nil {
+		payload["shipment_id"] = item.ShipmentID.String()
+	}
+	if item.ShipmentStatus != nil {
+		payload["shipment_status"] = *item.ShipmentStatus
+	}
+	return payload
+}
+
 func (h *OrderExecutionHandler) StartExecution(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := resolveVerifiedTenant(r)
 	if err != nil {
@@ -268,7 +337,42 @@ func toOrderExecutionViewResponse(view *domain.OrderExecutionView) map[string]an
 	if view.Shipment != nil {
 		payload["shipment"] = toShipmentResponse(view.Shipment)
 	}
+	if len(view.Milestones) > 0 {
+		payload["milestones"] = toStatusHistoryItems(view.Milestones)
+	}
+	if len(view.SLASignals) > 0 {
+		payload["sla_signals"] = view.SLASignals
+	}
+	if len(view.PODDocuments) > 0 {
+		payload["pod_documents"] = view.PODDocuments
+	}
+	if len(view.AllowedActions) > 0 {
+		payload["allowed_actions"] = view.AllowedActions
+	}
 	return payload
+}
+
+func toStatusHistoryItems(items []domain.ShipmentStatusHistory) []map[string]any {
+	out := make([]map[string]any, 0, len(items))
+	for _, item := range items {
+		entry := map[string]any{
+			"id":               item.ID.String(),
+			"shipment_version": item.ShipmentVersion,
+			"to_status":        item.ToStatus,
+			"source":           item.Source,
+			"actor_type":       item.ActorType,
+			"occurred_at":      item.OccurredAt.Format(time.RFC3339),
+			"recorded_at":      item.RecordedAt.Format(time.RFC3339),
+		}
+		if item.FromStatus != nil {
+			entry["from_status"] = *item.FromStatus
+		}
+		if item.ReasonCode != nil {
+			entry["reason_code"] = *item.ReasonCode
+		}
+		out = append(out, entry)
+	}
+	return out
 }
 
 func toCarrierTransportOrderItemResponse(item *domain.CarrierTransportOrderListItem) map[string]any {

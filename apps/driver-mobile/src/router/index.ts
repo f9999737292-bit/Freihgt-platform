@@ -36,6 +36,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/shipments/:shipmentId/pod',
+      name: 'pod-upload',
+      component: () => import('@/pages/PODUploadPage.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/result',
       name: 'submission-result',
       component: () => import('@/pages/SubmissionResultPage.vue'),

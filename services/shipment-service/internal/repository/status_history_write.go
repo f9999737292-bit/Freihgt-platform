@@ -22,6 +22,7 @@ type statusHistoryWrite struct {
 	actorID         *uuid.UUID
 	correlationID   *string
 	occurredAt      time.Time
+	snapshot        *domain.ShipmentOutboxSnapshot
 }
 
 func statusHistoryWriteFromTransition(
@@ -82,4 +83,34 @@ func stringPtr(value string) *string {
 	}
 	v := value
 	return &v
+}
+
+func outboxSnapshotFromShipment(shipment *domain.Shipment) *domain.ShipmentOutboxSnapshot {
+	if shipment == nil {
+		return nil
+	}
+	return &domain.ShipmentOutboxSnapshot{
+		PlannedPickupAt:   shipment.PlannedPickupAt,
+		PlannedDeliveryAt: shipment.PlannedDeliveryAt,
+		ActualPickupAt:    shipment.ActualPickupAt,
+		ActualDeliveryAt:  shipment.ActualDeliveryAt,
+	}
+}
+
+func statusHistoryWriteFromShipmentTransition(
+	shipment *domain.Shipment,
+	fromStatus *string,
+	toStatus string,
+	transition domain.StatusTransitionContext,
+) statusHistoryWrite {
+	write := statusHistoryWriteFromTransition(
+		shipment.TenantID,
+		shipment.ID,
+		shipment.Version,
+		fromStatus,
+		toStatus,
+		transition,
+	)
+	write.snapshot = outboxSnapshotFromShipment(shipment)
+	return write
 }

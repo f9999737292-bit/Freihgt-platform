@@ -171,3 +171,27 @@ func TestApplyEventExistingGapNotSilentlyClearedOnNextVersion(t *testing.T) {
 	assert.Equal(t, 2, *result.Projection.GapToVersion)
 	assert.Equal(t, 4, result.Projection.ShipmentVersion)
 }
+
+func TestApplyEventMergeActualsIdempotent(t *testing.T) {
+	t.Parallel()
+	existing := existingProjection(2, domain.StatusInPickup, true, false, nil, nil)
+	firstActual := time.Date(2026, 8, 1, 10, 0, 0, 0, time.UTC)
+	secondActual := time.Date(2026, 8, 1, 11, 0, 0, 0, time.UTC)
+	event := testEvent(3, domain.StatusLoaded)
+	event.TenantID = existing.TenantID
+	event.Aggregate.ID = existing.ShipmentID
+	event.Data.ActualPickupAt = &firstActual
+
+	result := ApplyEvent(ApplyInput{Event: event, Existing: existing, Now: time.Now().UTC()})
+	require.True(t, result.Updated)
+	require.NotNil(t, result.Projection.ActualPickupAt)
+	assert.Equal(t, firstActual, result.Projection.ActualPickupAt.UTC())
+
+	later := testEvent(4, domain.StatusInTransit)
+	later.TenantID = existing.TenantID
+	later.Aggregate.ID = existing.ShipmentID
+	later.Data.ActualPickupAt = &secondActual
+	replay := ApplyEvent(ApplyInput{Event: later, Existing: &result.Projection, Now: time.Now().UTC()})
+	require.NotNil(t, replay.Projection.ActualPickupAt)
+	assert.Equal(t, firstActual, replay.Projection.ActualPickupAt.UTC())
+}

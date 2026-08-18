@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -17,6 +18,9 @@ type OrderExecutionStore interface {
 	GetTransportOrderMeta(ctx context.Context, tenantID, orderID uuid.UUID) (orderNumber, status string, err error)
 	ExecuteAwardOrder(ctx context.Context, params repository.ExecuteAwardOrderParams) (*repository.ExecuteAwardOrderResult, error)
 	ListCarrierTransportOrders(ctx context.Context, filter domain.ListCarrierTransportOrdersFilter) ([]domain.CarrierTransportOrderListItem, int, error)
+	ListBuyerTransportOrders(ctx context.Context, filter domain.ListBuyerTransportOrdersFilter) ([]domain.BuyerTransportOrderListItem, int, error)
+	ListShipmentMilestones(ctx context.Context, tenantID, shipmentID uuid.UUID, limit int) ([]domain.ShipmentStatusHistory, error)
+	ListShipmentPODDocuments(ctx context.Context, tenantID, shipmentID uuid.UUID) ([]domain.PODDocumentSummary, error)
 }
 
 type OrderExecutionService struct {
@@ -100,7 +104,7 @@ func (s *OrderExecutionService) GetExecution(
 		shipment = nil
 	}
 
-	return &domain.OrderExecutionView{
+	view := &domain.OrderExecutionView{
 		Link:        *link,
 		OrderNumber: orderNumber,
 		OrderStatus: orderStatus,
@@ -114,7 +118,34 @@ func (s *OrderExecutionService) GetExecution(
 			Amount:        link.Amount,
 			CurrencyCode:  link.CurrencyCode,
 		},
-	}, nil
+	}
+	if shipment != nil {
+		milestones, mErr := s.execution.ListShipmentMilestones(ctx, tenantID, shipment.ID, 100)
+		if mErr != nil {
+			return nil, mErr
+		}
+		view.Milestones = milestones
+		view.SLASignals = domain.BuildExecutionSLASignals(shipment, time.Now().UTC())
+		pods, pErr := s.execution.ListShipmentPODDocuments(ctx, tenantID, shipment.ID)
+		if pErr != nil {
+			return nil, pErr
+		}
+		view.PODDocuments = pods
+		if actorKind == domain.ExecutionActorCarrier {
+			view.AllowedActions = domain.AllowedDriverMilestoneActions(shipment.Status)
+		}
+	}
+	return view, nil
+}
+
+func (s *OrderExecutionService) ListBuyerTransportOrders(ctx context.Context, filter domain.ListBuyerTransportOrdersFilter) ([]domain.BuyerTransportOrderListItem, int, error) {
+	if filter.Limit == 0 {
+		filter.Limit = 20
+	}
+	if err := domain.ValidateListBuyerTransportOrdersFilter(filter); err != nil {
+		return nil, 0, err
+	}
+	return s.execution.ListBuyerTransportOrders(ctx, filter)
 }
 
 func (s *OrderExecutionService) ListCarrierTransportOrders(ctx context.Context, filter domain.ListCarrierTransportOrdersFilter) ([]domain.CarrierTransportOrderListItem, int, error) {

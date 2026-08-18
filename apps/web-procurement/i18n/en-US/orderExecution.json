@@ -1,6 +1,7 @@
 {
   "orderExecution": {
     "title": "Transport Order",
+    "buyerTitle": "My transport orders",
     "carrierTitle": "Order Execution",
     "loadFailed": "Failed to load order",
     "notFound": "Order not found",
@@ -31,6 +32,13 @@
     "driverId": "Driver ID",
     "vehicleId": "Vehicle ID",
     "empty": "No orders to execute",
-    "openShipment": "Open shipment"
+    "openShipment": "Open shipment",
+    "plannedPickup": "Planned pickup",
+    "plannedDelivery": "Planned delivery",
+    "actualPickup": "Actual pickup",
+    "actualDelivery": "Actual delivery",
+    "milestones": "Milestones",
+    "slaSignals": "SLA signals",
+    "podDocuments": "POD documents"
   }
 }

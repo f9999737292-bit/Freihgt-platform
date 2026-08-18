@@ -78,10 +78,14 @@ type ShipmentAggregate struct {
 }
 
 type ShipmentStatusEventData struct {
-	FromStatus *string
-	ToStatus   string
-	ReasonCode *string
-	ActorType  string
+	FromStatus        *string
+	ToStatus          string
+	ReasonCode        *string
+	ActorType         string
+	PlannedPickupAt   *time.Time
+	PlannedDeliveryAt *time.Time
+	ActualPickupAt    *time.Time
+	ActualDeliveryAt  *time.Time
 }
 
 type KafkaRecordMeta struct {
@@ -102,6 +106,10 @@ type ShipmentStatusProjection struct {
 	LastEventType     string
 	LastOccurredAt    time.Time
 	LastConsumedAt    time.Time
+	PlannedPickupAt   *time.Time
+	PlannedDeliveryAt *time.Time
+	ActualPickupAt    *time.Time
+	ActualDeliveryAt  *time.Time
 	Complete          bool
 	GapDetected       bool
 	GapFromVersion    *int

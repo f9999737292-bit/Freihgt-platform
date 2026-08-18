@@ -31,6 +31,12 @@ async function parseErrorResponse(response: Response): Promise<DriverApiError> {
   })
 }
 
+function toBodyInit(raw: Blob | ArrayBuffer | Uint8Array): BodyInit {
+  if (raw instanceof Blob) return raw
+  if (raw instanceof ArrayBuffer) return raw
+  return new Blob([Uint8Array.from(raw)])
+}
+
 export class HttpClient {
   constructor(private readonly options: HttpClientOptions) {}
 
@@ -39,9 +45,11 @@ export class HttpClient {
     path: string,
     init?: {
       body?: unknown
+      rawBody?: Blob | ArrayBuffer | Uint8Array
       idempotencyKey?: string
       skipAuth?: boolean
       query?: Record<string, string | number | undefined>
+      extraHeaders?: Record<string, string>
     },
   ): Promise<RequestResult<T>> {
     if (!this.options.isOnline()) {
@@ -65,6 +73,7 @@ export class HttpClient {
       const headers: Record<string, string> = {
         Accept: 'application/json',
         'X-Request-ID': newRequestId(),
+        ...init?.extraHeaders,
       }
 
       if (init?.body !== undefined) {
@@ -90,10 +99,16 @@ export class HttpClient {
       }
 
       sent = true
+      const requestBody: BodyInit | undefined =
+        init?.rawBody !== undefined
+          ? toBodyInit(init.rawBody)
+          : init?.body !== undefined
+            ? JSON.stringify(init.body)
+            : undefined
       const response = await fetch(url.toString(), {
         method,
         headers,
-        body: init?.body !== undefined ? JSON.stringify(init.body) : undefined,
+        body: requestBody,
         signal: controller.signal,
       })
 

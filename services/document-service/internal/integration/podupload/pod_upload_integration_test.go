@@ -154,6 +154,51 @@ func TestPODInvalidUploadTokenRejected(t *testing.T) {
 	}
 }
 
+func TestPODEndToEndExecutionReadModel(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedFixtures(t, env.pool)
+	ctx := context.Background()
+
+	intent, err := env.pod.CreateUploadIntent(ctx, createInput(fix, fix.ShipmentA, fix.DriverA, "pod-exec-read"))
+	if err != nil {
+		t.Fatalf("create intent: %v", err)
+	}
+	body := []byte("fake-jpeg-content")
+	if err := env.pod.UploadContent(ctx, fix.TenantA, intent.UploadID, intent.UploadToken, bytes.NewReader(body)); err != nil {
+		t.Fatalf("upload content: %v", err)
+	}
+	result, err := env.pod.CompleteUpload(ctx, service.CompletePODUploadInput{
+		TenantID: fix.TenantA, UploadID: intent.UploadID, DriverID: fix.DriverA,
+	})
+	if err != nil {
+		t.Fatalf("complete: %v", err)
+	}
+
+	var docID uuid.UUID
+	var docNumber, docStatus string
+	err = env.pool.QueryRow(ctx, `
+		SELECT id, document_number, document_status
+		FROM documents.documents
+		WHERE tenant_id = $1 AND related_entity_type = 'SHIPMENT' AND related_entity_id = $2
+		  AND document_type = 'POD' AND deleted_at IS NULL
+		ORDER BY created_at DESC LIMIT 1`,
+		fix.TenantA, fix.ShipmentA).Scan(&docID, &docNumber, &docStatus)
+	if err != nil {
+		t.Fatalf("execution read query: %v", err)
+	}
+	if docID != result.DocumentID || docStatus == "" {
+		t.Fatalf("execution read model mismatch: docID=%s result=%s status=%s", docID, result.DocumentID, docStatus)
+	}
+}
+
+func Test11PODOwnUploadAllow(t *testing.T) {
+	TestPODUploadFullFlow(t)
+}
+
+func Test12ForeignDriverPODDeny(t *testing.T) {
+	TestPODWrongDriverDenied(t)
+}
+
 func createInput(fix fixture, shipmentID, driverID uuid.UUID, idem string) service.CreatePODUploadInput {
 	return service.CreatePODUploadInput{
 		TenantID: fix.TenantA, ShipmentID: shipmentID, DriverID: driverID,

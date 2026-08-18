@@ -290,6 +290,131 @@ func (r *OrderExecutionRepository) ListCarrierTransportOrders(ctx context.Contex
 	return items, total, err
 }
 
+func (r *OrderExecutionRepository) ListBuyerTransportOrders(ctx context.Context, filter domain.ListBuyerTransportOrdersFilter) ([]domain.BuyerTransportOrderListItem, int, error) {
+	var items []domain.BuyerTransportOrderListItem
+	var total int
+	err := measureDB("order_execution_repository", "list_buyer_transport_orders", func() error {
+		countQuery := `
+			SELECT COUNT(*)
+			FROM rfx.rfx_award_transport_orders l
+			JOIN transport.transport_orders o ON o.id = l.transport_order_id AND o.tenant_id = l.tenant_id AND o.deleted_at IS NULL
+			WHERE l.tenant_id = $1 AND l.buyer_company_id = $2
+		`
+		if err := r.pool.QueryRow(ctx, countQuery, filter.TenantID, filter.BuyerCompanyID).Scan(&total); err != nil {
+			return mapDBError(err)
+		}
+
+		listQuery := `
+			SELECT l.id, l.tenant_id, l.rfx_event_id, l.rfx_award_id, l.rfx_response_id, l.rfx_lot_id,
+				l.transport_order_id, l.carrier_company_id, l.buyer_company_id,
+				l.amount::float8, l.currency_code, l.converted_at,
+				o.order_number, o.status,
+				s.id, s.status
+			FROM rfx.rfx_award_transport_orders l
+			JOIN transport.transport_orders o ON o.id = l.transport_order_id AND o.tenant_id = l.tenant_id AND o.deleted_at IS NULL
+			LEFT JOIN transport.shipments s ON s.transport_order_id = l.transport_order_id AND s.tenant_id = l.tenant_id AND s.deleted_at IS NULL
+			WHERE l.tenant_id = $1 AND l.buyer_company_id = $2
+			ORDER BY l.converted_at DESC
+			LIMIT $3 OFFSET $4
+		`
+		rows, err := r.pool.Query(ctx, listQuery, filter.TenantID, filter.BuyerCompanyID, filter.Limit, filter.Offset)
+		if err != nil {
+			return mapDBError(err)
+		}
+		defer rows.Close()
+
+		result := make([]domain.BuyerTransportOrderListItem, 0)
+		for rows.Next() {
+			var item domain.BuyerTransportOrderListItem
+			var lotID *uuid.UUID
+			var shipmentID *uuid.UUID
+			var shipmentStatus *string
+			if err := rows.Scan(
+				&item.Link.ID, &item.Link.TenantID, &item.Link.RfxEventID, &item.Link.RfxAwardID, &item.Link.RfxResponseID, &lotID,
+				&item.Link.TransportOrderID, &item.Link.CarrierCompanyID, &item.Link.BuyerCompanyID,
+				&item.Link.Amount, &item.Link.CurrencyCode, &item.Link.ConvertedAt,
+				&item.OrderNumber, &item.OrderStatus,
+				&shipmentID, &shipmentStatus,
+			); err != nil {
+				return mapDBError(err)
+			}
+			item.Link.RfxLotID = lotID
+			item.ShipmentID = shipmentID
+			item.ShipmentStatus = shipmentStatus
+			result = append(result, item)
+		}
+		if err := rows.Err(); err != nil {
+			return mapDBError(err)
+		}
+		items = result
+		return nil
+	})
+	return items, total, err
+}
+
+func (r *OrderExecutionRepository) ListShipmentMilestones(ctx context.Context, tenantID, shipmentID uuid.UUID, limit int) ([]domain.ShipmentStatusHistory, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	const query = `
+		SELECT id, tenant_id, shipment_id, shipment_version, from_status, to_status,
+			reason_code, source, actor_type, actor_id, correlation_id, occurred_at, recorded_at
+		FROM transport.shipment_status_history
+		WHERE tenant_id = $1 AND shipment_id = $2
+		ORDER BY occurred_at ASC, shipment_version ASC
+		LIMIT $3
+	`
+	rows, err := r.pool.Query(ctx, query, tenantID, shipmentID, limit)
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	defer rows.Close()
+
+	items := make([]domain.ShipmentStatusHistory, 0)
+	for rows.Next() {
+		var h domain.ShipmentStatusHistory
+		if err := rows.Scan(
+			&h.ID, &h.TenantID, &h.ShipmentID, &h.ShipmentVersion, &h.FromStatus, &h.ToStatus,
+			&h.ReasonCode, &h.Source, &h.ActorType, &h.ActorID, &h.CorrelationID, &h.OccurredAt, &h.RecordedAt,
+		); err != nil {
+			return nil, mapDBError(err)
+		}
+		items = append(items, h)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, mapDBError(err)
+	}
+	return items, nil
+}
+
+func (r *OrderExecutionRepository) ListShipmentPODDocuments(ctx context.Context, tenantID, shipmentID uuid.UUID) ([]domain.PODDocumentSummary, error) {
+	const query = `
+		SELECT id, document_number, document_status, created_at
+		FROM documents.documents
+		WHERE tenant_id = $1 AND related_entity_type = 'SHIPMENT' AND related_entity_id = $2
+			AND document_type = 'POD' AND deleted_at IS NULL
+		ORDER BY created_at DESC
+	`
+	rows, err := r.pool.Query(ctx, query, tenantID, shipmentID)
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	defer rows.Close()
+
+	items := make([]domain.PODDocumentSummary, 0)
+	for rows.Next() {
+		var item domain.PODDocumentSummary
+		if err := rows.Scan(&item.ID, &item.DocumentNumber, &item.Status, &item.CreatedAt); err != nil {
+			return nil, mapDBError(err)
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, mapDBError(err)
+	}
+	return items, nil
+}
+
 func lockAwardLink(ctx context.Context, tx pgx.Tx, tenantID, transportOrderID uuid.UUID) (*domain.AwardTransportOrderLink, error) {
 	const query = `
 		SELECT id, tenant_id, rfx_event_id, rfx_award_id, rfx_response_id, rfx_lot_id,
@@ -443,10 +568,8 @@ func insertShipmentTx(ctx context.Context, tx pgx.Tx, params CreateShipmentParam
 		return nil, mapDBError(err)
 	}
 
-	write := statusHistoryWriteFromTransition(
-		params.TenantID,
-		shipment.ID,
-		shipment.Version,
+	write := statusHistoryWriteFromShipmentTransition(
+		shipment,
 		nil,
 		shipment.Status,
 		transition,

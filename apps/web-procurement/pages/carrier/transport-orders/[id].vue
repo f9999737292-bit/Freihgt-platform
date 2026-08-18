@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { UserCompanyMembership } from '~/types/company'
-import type { CarrierTransportOrderItem, OrderExecutionView } from '~/types/orderExecution'
+import type { OrderExecutionView } from '~/types/orderExecution'
 import { formatMoney } from '~/types/evaluation'
 import {
   filterCarrierMemberships,
@@ -126,13 +126,15 @@ watch(selectedCarrierId, loadExecution)
   <div class="page-stack">
     <nav class="breadcrumbs" aria-label="Breadcrumb">
       <NuxtLink to="/carrier/transport-orders">{{ t('orderExecution.carrierTitle') }}</NuxtLink>
-      <span class="breadcrumbs__sep">/</span>
-      <span>{{ execution?.transport_order_number || orderId }}</span>
+      <span class="breadcrumbs__sep" aria-hidden="true">/</span>
+      <span aria-current="page">{{ execution?.transport_order_number || orderId }}</span>
     </nav>
 
     <PageHeader :title="t('orderExecution.title')" :subtitle="execution?.transport_order_number">
       <template #actions>
-        <Button variant="secondary" @click="$router.push('/carrier/transport-orders')">{{ t('orderExecution.backToList') }}</Button>
+        <Button variant="secondary" @click="$router.push('/carrier/transport-orders')">
+          {{ t('orderExecution.backToList') }}
+        </Button>
       </template>
     </PageHeader>
 
@@ -143,44 +145,87 @@ watch(selectedCarrierId, loadExecution)
       </select>
     </Card>
 
-    <div v-if="loading" role="status">{{ t('common.loading') }}</div>
+    <div v-if="loading" role="status" aria-live="polite">{{ t('common.loading') }}</div>
     <EmptyState v-else-if="notFound" :title="t('orderExecution.notFound')" />
     <EmptyState v-else-if="apiUnavailable" :title="t('orderExecution.loadFailed')" />
 
     <template v-else-if="execution">
       <Card>
         <dl class="detail-grid">
-          <div><dt>{{ t('orderExecution.orderStatus') }}</dt><dd><Badge :status="execution.transport_order_status" /></dd></div>
-          <div><dt>{{ t('orderExecution.awardAmount') }}</dt><dd>{{ formatMoney(execution.provenance.amount, execution.provenance.currency_code) }}</dd></div>
-          <div><dt>{{ t('orderExecution.readiness') }}</dt><dd>{{ execution.readiness.ready_to_start ? t('orderExecution.readyToStart') : execution.readiness.missing_requirements.join(', ') }}</dd></div>
+          <div>
+            <dt>{{ t('orderExecution.orderStatus') }}</dt>
+            <dd><Badge :status="execution.transport_order_status" /></dd>
+          </div>
+          <div>
+            <dt>{{ t('orderExecution.awardAmount') }}</dt>
+            <dd>{{ formatMoney(execution.provenance.amount, execution.provenance.currency_code) }}</dd>
+          </div>
+          <div>
+            <dt>{{ t('orderExecution.readiness') }}</dt>
+            <dd>
+              {{
+                execution.readiness.ready_to_start
+                  ? t('orderExecution.readyToStart')
+                  : execution.readiness.missing_requirements.join(', ')
+              }}
+            </dd>
+          </div>
         </dl>
         <div class="actions-row">
-          <Button v-if="!execution.shipment" :loading="acting" @click="handleExecute">{{ t('orderExecution.execute') }}</Button>
-          <Button v-if="execution.readiness.ready_to_start" :loading="acting" @click="handleStart">{{ t('orderExecution.startExecution') }}</Button>
+          <Button v-if="!execution.shipment" :loading="acting" @click="handleExecute">
+            {{ t('orderExecution.execute') }}
+          </Button>
+          <Button v-if="execution.readiness.ready_to_start" :loading="acting" @click="handleStart">
+            {{ t('orderExecution.startExecution') }}
+          </Button>
         </div>
       </Card>
 
       <Card v-if="execution.shipment">
         <template #header><h3>{{ t('orderExecution.shipment') }}</h3></template>
-        <p>{{ execution.shipment.shipment_number }} — <Badge :status="execution.shipment.status" /></p>
+        <p>
+          {{ execution.shipment.shipment_number }} —
+          <Badge :status="execution.shipment.status" />
+        </p>
         <div class="form-row">
           <label for="driver-id">{{ t('orderExecution.driverId') }}</label>
-          <input id="driver-id" v-model="driverId" class="input" type="text" />
+          <input id="driver-id" v-model="driverId" class="input" type="text" autocomplete="off" />
           <Button size="sm" :loading="acting" @click="handleAssignDriver">{{ t('orderExecution.assignDriver') }}</Button>
         </div>
         <div class="form-row">
           <label for="vehicle-id">{{ t('orderExecution.vehicleId') }}</label>
-          <input id="vehicle-id" v-model="vehicleId" class="input" type="text" />
+          <input id="vehicle-id" v-model="vehicleId" class="input" type="text" autocomplete="off" />
           <Button size="sm" :loading="acting" @click="handleAssignVehicle">{{ t('orderExecution.assignVehicle') }}</Button>
         </div>
       </Card>
+
+      <ExecutionTrackingPanel :execution="execution" />
     </template>
   </div>
 </template>
 
 <style scoped>
-.detail-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
-.detail-grid dt { font-weight: 600; margin-bottom: 0.25rem; }
-.actions-row, .form-row { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: end; margin-top: 1rem; }
-.form-row label { min-width: 120px; }
+.detail-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.detail-grid dt {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.actions-row,
+.form-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: end;
+  margin-top: 1rem;
+}
+
+.form-row label {
+  min-width: 120px;
+}
 </style>

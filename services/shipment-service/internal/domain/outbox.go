@@ -78,10 +78,21 @@ type ShipmentStatusAggregate struct {
 }
 
 type ShipmentStatusEventData struct {
-	FromStatus *string `json:"fromStatus"`
-	ToStatus   string  `json:"toStatus"`
-	ReasonCode *string `json:"reasonCode"`
-	ActorType  string  `json:"actorType"`
+	FromStatus        *string    `json:"fromStatus"`
+	ToStatus          string     `json:"toStatus"`
+	ReasonCode        *string    `json:"reasonCode"`
+	ActorType         string     `json:"actorType"`
+	PlannedPickupAt   *time.Time `json:"plannedPickupAt,omitempty"`
+	PlannedDeliveryAt *time.Time `json:"plannedDeliveryAt,omitempty"`
+	ActualPickupAt    *time.Time `json:"actualPickupAt,omitempty"`
+	ActualDeliveryAt  *time.Time `json:"actualDeliveryAt,omitempty"`
+}
+
+type ShipmentOutboxSnapshot struct {
+	PlannedPickupAt   *time.Time
+	PlannedDeliveryAt *time.Time
+	ActualPickupAt    *time.Time
+	ActualDeliveryAt  *time.Time
 }
 
 func MapOutboxEventType(history ShipmentStatusHistory) string {
@@ -102,7 +113,7 @@ func MapOutboxEventType(history ShipmentStatusHistory) string {
 	}
 }
 
-func BuildOutboxEventFromStatusHistory(history ShipmentStatusHistory) (ShipmentOutboxEvent, error) {
+func BuildOutboxEventFromStatusHistory(history ShipmentStatusHistory, snapshot *ShipmentOutboxSnapshot) (ShipmentOutboxEvent, error) {
 	if history.ID == uuid.Nil {
 		return ShipmentOutboxEvent{}, apperrors.Internal("status history id is required for outbox", nil)
 	}
@@ -141,6 +152,12 @@ func BuildOutboxEventFromStatusHistory(history ShipmentStatusHistory) (ShipmentO
 			ReasonCode: history.ReasonCode,
 			ActorType:  string(history.ActorType),
 		},
+	}
+	if snapshot != nil {
+		envelope.Data.PlannedPickupAt = snapshot.PlannedPickupAt
+		envelope.Data.PlannedDeliveryAt = snapshot.PlannedDeliveryAt
+		envelope.Data.ActualPickupAt = snapshot.ActualPickupAt
+		envelope.Data.ActualDeliveryAt = snapshot.ActualDeliveryAt
 	}
 
 	payload, err := json.Marshal(envelope)

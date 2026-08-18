@@ -6,6 +6,12 @@ import type {
   DriverExceptionRequest,
   DriverExceptionResponse,
   DriverMe,
+  DriverOperationalEventRequest,
+  DriverOperationalEventResponse,
+  DriverPODUploadCompleteRequest,
+  DriverPODUploadCompleteResponse,
+  DriverPODUploadIntent,
+  DriverPODUploadRequest,
   DriverShipmentDetail,
   DriverShipmentListResponse,
 } from '@/types/driver'
@@ -49,6 +55,54 @@ export function createDriverApi(http: HttpClient) {
         'POST',
         `/api/v1/driver/me/shipments/${encodeURIComponent(shipmentId)}/exceptions`,
         { body, idempotencyKey: body.idempotencyKey },
+      )
+    },
+
+    recordEvent(shipmentId: string, body: DriverOperationalEventRequest) {
+      return http.request<DriverOperationalEventResponse>(
+        'POST',
+        `/api/v1/driver/me/shipments/${encodeURIComponent(shipmentId)}/events`,
+        { body, idempotencyKey: body.idempotencyKey },
+      )
+    },
+
+    initiatePODUpload(shipmentId: string, body: DriverPODUploadRequest) {
+      return http.request<DriverPODUploadIntent>(
+        'POST',
+        `/api/v1/driver/me/shipments/${encodeURIComponent(shipmentId)}/pod/uploads`,
+        { body, idempotencyKey: body.idempotencyKey },
+      )
+    },
+
+    uploadPODContent(
+      shipmentId: string,
+      uploadId: string,
+      uploadToken: string,
+      content: Blob | ArrayBuffer | Uint8Array,
+      mimeType: string,
+    ) {
+      return http.request<{ status: string }>(
+        'PUT',
+        `/api/v1/driver/me/shipments/${encodeURIComponent(shipmentId)}/pod/uploads/${encodeURIComponent(uploadId)}/content`,
+        {
+          rawBody: content,
+          extraHeaders: {
+            'X-Upload-Token': uploadToken,
+            'Content-Type': mimeType,
+          },
+        },
+      )
+    },
+
+    completePODUpload(
+      shipmentId: string,
+      uploadId: string,
+      body: DriverPODUploadCompleteRequest = {},
+    ) {
+      return http.request<DriverPODUploadCompleteResponse>(
+        'POST',
+        `/api/v1/driver/me/shipments/${encodeURIComponent(shipmentId)}/pod/uploads/${encodeURIComponent(uploadId)}/complete`,
+        { body },
       )
     },
   }
