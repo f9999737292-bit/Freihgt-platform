@@ -17,7 +17,7 @@ import (
 
 func newFreightRequestTestRouter(t *testing.T, store *mockFreightRequestHandlerStore) http.Handler {
 	t.Helper()
-	handler := NewFreightRequestHandler(service.NewFreightRequestService(store))
+	handler := NewFreightRequestHandler(service.NewFreightRequestServiceWithAuth(store, defaultBuyerMembershipResolver()))
 	r := chi.NewRouter()
 	r.Get("/v1/freight-requests", handler.List)
 	r.Get("/v1/freight-requests/{id}", handler.GetByID)
@@ -53,6 +53,7 @@ func TestListFreightRequestsTrustedHeaderReturns200(t *testing.T) {
 	})
 	req := httptest.NewRequest(http.MethodGet, "/v1/freight-requests", nil)
 	req.Header.Set("X-Tenant-ID", tenantID)
+	withBuyerHeaders(req)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -162,6 +163,7 @@ func TestListFreightRequestsFiltersRemainFunctional(t *testing.T) {
 	url := "/v1/freight-requests?limit=10&offset=5&request_type=SPOT&status=DRAFT&shipper_company_id=" + shipperID.String()
 	req := httptest.NewRequest(http.MethodGet, url, nil)
 	req.Header.Set("X-Tenant-ID", tenantID.String())
+	withBuyerHeaders(req)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -180,6 +182,7 @@ func TestGetFreightRequestByIDTrustedHeaderReturns200(t *testing.T) {
 	})
 	req := httptest.NewRequest(http.MethodGet, "/v1/freight-requests/"+frID, nil)
 	req.Header.Set("X-Tenant-ID", tenantID)
+	withBuyerHeaders(req)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {

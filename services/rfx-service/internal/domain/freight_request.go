@@ -50,12 +50,13 @@ type CreateFreightRequestFromOrderInput struct {
 }
 
 type ListFreightRequestsFilter struct {
-	TenantID         uuid.UUID
-	RequestType      *string
-	Status           *string
-	ShipperCompanyID *uuid.UUID
-	Limit            int
-	Offset           int
+	TenantID           uuid.UUID
+	RequestType        *string
+	Status             *string
+	ShipperCompanyID   *uuid.UUID
+	ShipperCompanyIDs  []uuid.UUID
+	Limit              int
+	Offset             int
 }
 
 func ValidateCreateFreightRequestInput(in CreateFreightRequestFromOrderInput) error {

@@ -13,6 +13,7 @@ import (
 )
 
 type mockRfxStore struct {
+	createEventFn       func(ctx context.Context, in domain.CreateRfxEventInput) (*domain.RfxEvent, error)
 	getEventFn          func(ctx context.Context, id, tenantID uuid.UUID) (*domain.RfxEvent, error)
 	updateStatusFn      func(ctx context.Context, id, tenantID uuid.UUID, expected, newStatus string) (*domain.RfxEvent, error)
 	addParticipantFn    func(ctx context.Context, in domain.AddRfxParticipantInput) (*domain.RfxParticipant, error)
@@ -23,7 +24,10 @@ type mockRfxStore struct {
 func (m *mockRfxStore) CompanyExists(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
 	return true, nil
 }
-func (m *mockRfxStore) CreateEvent(context.Context, domain.CreateRfxEventInput) (*domain.RfxEvent, error) {
+func (m *mockRfxStore) CreateEvent(ctx context.Context, in domain.CreateRfxEventInput) (*domain.RfxEvent, error) {
+	if m.createEventFn != nil {
+		return m.createEventFn(ctx, in)
+	}
 	return nil, nil
 }
 func (m *mockRfxStore) GetEventByID(ctx context.Context, id, tenantID uuid.UUID) (*domain.RfxEvent, error) {
@@ -99,16 +103,20 @@ func TestRfxServicePublishOnlyFromDraft(t *testing.T) {
 
 func TestRfxServiceAddParticipantDuplicateConflict(t *testing.T) {
 	t.Parallel()
+	tenantID := uuid.New()
+	userID := uuid.New()
+	ownerCompanyID := uuid.New()
+	eventID := uuid.New()
 	svc := NewRfxService(&mockRfxStore{
 		getEventFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.RfxEvent, error) {
-			return &domain.RfxEvent{Status: domain.RfxStatusDraft}, nil
+			return &domain.RfxEvent{Status: domain.RfxStatusDraft, OwnerCompanyID: ownerCompanyID}, nil
 		},
 		addParticipantFn: func(context.Context, domain.AddRfxParticipantInput) (*domain.RfxParticipant, error) {
 			return nil, apperrors.Conflict("record already exists", map[string]any{"detail": "uq_rfx_participant"})
 		},
-	}, nil, nil)
-	_, err := svc.AddParticipant(context.Background(), domain.ActorContext{TenantID: uuid.New()}, uuid.New(), domain.AddRfxParticipantInput{
-		TenantID: uuid.New(), CompanyID: uuid.New(), ParticipantType: "CARRIER",
+	}, nil, buyerMembershipResolver(ownerCompanyID))
+	_, err := svc.AddParticipant(context.Background(), buyerTestActor(tenantID, userID, ownerCompanyID), eventID, domain.AddRfxParticipantInput{
+		TenantID: tenantID, CompanyID: uuid.New(), ParticipantType: "CARRIER",
 	})
 	var appErr *apperrors.AppError
 	if !errors.As(err, &appErr) || appErr.Code != apperrors.CodeConflict {

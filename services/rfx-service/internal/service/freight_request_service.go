@@ -19,14 +19,62 @@ type FreightRequestStore interface {
 }
 
 type FreightRequestService struct {
-	repo FreightRequestStore
+	repo   FreightRequestStore
+	actors ActorResolver
 }
 
 func NewFreightRequestService(repo FreightRequestStore) *FreightRequestService {
 	return &FreightRequestService{repo: repo}
 }
 
-func (s *FreightRequestService) CreateFromTransportOrder(ctx context.Context, in domain.CreateFreightRequestFromOrderInput) (*domain.FreightRequest, error) {
+func NewFreightRequestServiceWithAuth(repo FreightRequestStore, actors ActorResolver) *FreightRequestService {
+	return &FreightRequestService{repo: repo, actors: actors}
+}
+
+func (s *FreightRequestService) applyBuyerListScope(ctx context.Context, actor domain.ActorContext, filter *domain.ListFreightRequestsFilter) error {
+	if s.actors == nil {
+		return apperrors.Forbidden("buyer company membership is required")
+	}
+	kind, _, err := s.actors.ResolveActorKind(ctx, actor)
+	if err != nil {
+		return err
+	}
+	if kind != domain.ActorKindBuyer {
+		return apperrors.Forbidden("buyer authorization required")
+	}
+	resolver, ok := s.actors.(CompanyMembershipResolver)
+	if !ok {
+		return apperrors.Forbidden("buyer company membership is required")
+	}
+	buyerCompanyIDs, err := resolver.ListBuyerCompanyIDs(ctx, actor)
+	if err != nil {
+		return err
+	}
+	if len(buyerCompanyIDs) == 0 {
+		return apperrors.Forbidden("buyer company membership is required")
+	}
+	if filter.ShipperCompanyID != nil {
+		if !domain.ContainsCompanyID(buyerCompanyIDs, *filter.ShipperCompanyID) {
+			filter.ShipperCompanyIDs = []uuid.UUID{uuid.Nil}
+			return nil
+		}
+		filter.ShipperCompanyIDs = []uuid.UUID{*filter.ShipperCompanyID}
+		return nil
+	}
+	filter.ShipperCompanyIDs = buyerCompanyIDs
+	return nil
+}
+
+func (s *FreightRequestService) CreateFromTransportOrder(ctx context.Context, actor domain.ActorContext, in domain.CreateFreightRequestFromOrderInput) (*domain.FreightRequest, error) {
+	if err := actor.Validate(); err != nil {
+		return nil, err
+	}
+	in.TenantID = actor.TenantID
+	shipperCompanyID, err := requireBuyerCompanyAccess(ctx, s.actors, actor, in.ShipperCompanyID)
+	if err != nil {
+		return nil, err
+	}
+	in.ShipperCompanyID = shipperCompanyID
 	if err := domain.ValidateCreateFreightRequestInput(in); err != nil {
 		return nil, err
 	}
@@ -47,16 +95,35 @@ func (s *FreightRequestService) CreateFromTransportOrder(ctx context.Context, in
 	return s.repo.CreateFromTransportOrder(ctx, in)
 }
 
-func (s *FreightRequestService) GetByID(ctx context.Context, id, tenantID uuid.UUID) (*domain.FreightRequest, error) {
-	if id == uuid.Nil || tenantID == uuid.Nil {
-		return nil, apperrors.Validation("id and tenant_id are required", map[string]any{})
+func (s *FreightRequestService) GetByID(ctx context.Context, actor domain.ActorContext, id uuid.UUID) (*domain.FreightRequest, error) {
+	if err := actor.Validate(); err != nil {
+		return nil, err
 	}
-	return s.repo.GetByID(ctx, id, tenantID)
+	if id == uuid.Nil {
+		return nil, apperrors.Validation("id is required", map[string]any{"field": "id"})
+	}
+	fr, err := s.repo.GetByID(ctx, id, actor.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	if s.actors != nil {
+		if _, err := requireBuyerCompanyAccess(ctx, s.actors, actor, fr.ShipperCompanyID); err != nil {
+			return nil, err
+		}
+	}
+	return fr, nil
 }
 
-func (s *FreightRequestService) List(ctx context.Context, filter domain.ListFreightRequestsFilter) ([]domain.FreightRequest, int, error) {
+func (s *FreightRequestService) List(ctx context.Context, actor domain.ActorContext, filter domain.ListFreightRequestsFilter) ([]domain.FreightRequest, int, error) {
+	if err := actor.Validate(); err != nil {
+		return nil, 0, err
+	}
+	filter.TenantID = actor.TenantID
 	if filter.Limit == 0 {
 		filter.Limit = 20
+	}
+	if err := s.applyBuyerListScope(ctx, actor, &filter); err != nil {
+		return nil, 0, err
 	}
 	if err := domain.ValidateListFreightRequestsFilter(filter); err != nil {
 		return nil, 0, err
@@ -64,13 +131,19 @@ func (s *FreightRequestService) List(ctx context.Context, filter domain.ListFrei
 	return s.repo.List(ctx, filter)
 }
 
-func (s *FreightRequestService) Publish(ctx context.Context, id, tenantID uuid.UUID) (*domain.FreightRequest, error) {
-	fr, err := s.repo.GetByID(ctx, id, tenantID)
+func (s *FreightRequestService) Publish(ctx context.Context, actor domain.ActorContext, id uuid.UUID) (*domain.FreightRequest, error) {
+	if err := actor.Validate(); err != nil {
+		return nil, err
+	}
+	fr, err := s.repo.GetByID(ctx, id, actor.TenantID)
 	if err != nil {
+		return nil, err
+	}
+	if _, err := requireBuyerCompanyAccess(ctx, s.actors, actor, fr.ShipperCompanyID); err != nil {
 		return nil, err
 	}
 	if err := domain.ValidatePublishFreightRequest(fr.Status); err != nil {
 		return nil, err
 	}
-	return s.repo.UpdateStatus(ctx, id, tenantID, domain.FreightRequestStatusDraft, domain.FreightRequestStatusPublished)
+	return s.repo.UpdateStatus(ctx, id, actor.TenantID, domain.FreightRequestStatusDraft, domain.FreightRequestStatusPublished)
 }

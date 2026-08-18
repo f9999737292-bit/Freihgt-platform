@@ -16,6 +16,7 @@ import (
 
 type FreightRequestRepository struct {
 	pool *pgxpool.Pool
+	exec dbExecutor
 }
 
 func NewFreightRequestRepository(pool *pgxpool.Pool) *FreightRequestRepository {
@@ -30,7 +31,7 @@ func (r *FreightRequestRepository) CompanyExists(ctx context.Context, companyID,
 		)
 	`
 	var exists bool
-	if err := r.pool.QueryRow(ctx, query, companyID, tenantID).Scan(&exists); err != nil {
+	if err := r.db().QueryRow(ctx, query, companyID, tenantID).Scan(&exists); err != nil {
 		return false, mapDBError(err)
 	}
 	return exists, nil
@@ -43,7 +44,7 @@ func (r *FreightRequestRepository) GetTransportOrder(ctx context.Context, id, te
 		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
 	`
 	var status string
-	if err := r.pool.QueryRow(ctx, query, id, tenantID).Scan(&status); err != nil {
+	if err := r.db().QueryRow(ctx, query, id, tenantID).Scan(&status); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return "", apperrors.NotFound("transport order not found")
 		}
@@ -64,7 +65,7 @@ func (r *FreightRequestRepository) CreateFromTransportOrder(ctx context.Context,
 			shipper_company_id, status, response_deadline, currency_code,
 			created_at, updated_at, version
 	`
-		row := r.pool.QueryRow(ctx, query,
+		row := r.db().QueryRow(ctx, query,
 			in.TenantID,
 			strings.TrimSpace(in.FreightRequestNumber),
 			in.TransportOrderID,
@@ -94,7 +95,7 @@ func (r *FreightRequestRepository) GetByID(ctx context.Context, id, tenantID uui
 		FROM rfx.freight_requests
 		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
 	`
-		row := r.pool.QueryRow(ctx, query, id, tenantID)
+		row := r.db().QueryRow(ctx, query, id, tenantID)
 		request, err := scanFreightRequest(row)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -131,10 +132,18 @@ func (r *FreightRequestRepository) List(ctx context.Context, filter domain.ListF
 			where.WriteString(fmt.Sprintf(" AND shipper_company_id = $%d", argIdx))
 			args = append(args, *filter.ShipperCompanyID)
 			argIdx++
+		} else if len(filter.ShipperCompanyIDs) > 0 {
+			if len(filter.ShipperCompanyIDs) == 1 && filter.ShipperCompanyIDs[0] == uuid.Nil {
+				where.WriteString(" AND 1=0")
+			} else {
+				where.WriteString(fmt.Sprintf(" AND shipper_company_id = ANY($%d)", argIdx))
+				args = append(args, filter.ShipperCompanyIDs)
+				argIdx++
+			}
 		}
 
 		countQuery := "SELECT COUNT(*)" + where.String()
-		if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+		if err := r.db().QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 			return mapDBError(err)
 		}
 
@@ -145,7 +154,7 @@ func (r *FreightRequestRepository) List(ctx context.Context, filter domain.ListF
 	` + where.String() + fmt.Sprintf(" ORDER BY created_at DESC LIMIT $%d OFFSET $%d", argIdx, argIdx+1)
 		args = append(args, filter.Limit, filter.Offset)
 
-		rows, err := r.pool.Query(ctx, listQuery, args...)
+		rows, err := r.db().Query(ctx, listQuery, args...)
 		if err != nil {
 			return mapDBError(err)
 		}
@@ -190,7 +199,7 @@ func (r *FreightRequestRepository) UpdateStatus(ctx context.Context, id, tenantI
 			shipper_company_id, status, response_deadline, currency_code,
 			created_at, updated_at, version
 	`
-		row := r.pool.QueryRow(ctx, query, id, tenantID, expectedStatus, newStatus, current.Version)
+		row := r.db().QueryRow(ctx, query, id, tenantID, expectedStatus, newStatus, current.Version)
 		request, err := scanFreightRequest(row)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
