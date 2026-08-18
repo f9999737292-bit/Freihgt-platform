@@ -172,6 +172,10 @@ func (r *OrderExecutionRepository) ExecuteAwardOrder(ctx context.Context, params
 			return err
 		}
 
+		initialStatus := domain.ShipmentStatusCarrierAssigned
+		if params.ImplicitCarrierAccept {
+			initialStatus = domain.ShipmentStatusAcceptedByCarrier
+		}
 		shipment, err := insertShipmentTx(ctx, tx, CreateShipmentParams{
 			TenantID:              params.TenantID,
 			ShipmentNumber:        params.ShipmentNumber,
@@ -185,7 +189,7 @@ func (r *OrderExecutionRepository) ExecuteAwardOrder(ctx context.Context, params
 			TransportMode:         orderSnapshot.TransportMode,
 			PlannedPickupAt:       params.PlannedPickupAt,
 			PlannedDeliveryAt:     params.PlannedDeliveryAt,
-		}, params.Transition)
+		}, initialStatus, params.Transition)
 		if err != nil {
 			var appErr *apperrors.AppError
 			if errors.As(err, &appErr) && appErr.Code == apperrors.CodeConflict {
@@ -205,14 +209,6 @@ func (r *OrderExecutionRepository) ExecuteAwardOrder(ctx context.Context, params
 				}
 			}
 			return err
-		}
-
-		if params.ImplicitCarrierAccept {
-			fromStatus := shipment.Status
-			shipment, err = acceptShipmentTx(ctx, tx, params.TenantID, shipment.ID, fromStatus, params.Transition)
-			if err != nil {
-				return err
-			}
 		}
 
 		orderStatus, err = updateTransportOrderStatusTx(ctx, tx, params.TenantID, params.TransportOrderID, orderStatus, domain.TransportOrderStatusConverted)
@@ -419,7 +415,7 @@ func getShipmentByTransportOrderTx(ctx context.Context, tx pgx.Tx, tenantID, tra
 	return shipment, nil
 }
 
-func insertShipmentTx(ctx context.Context, tx pgx.Tx, params CreateShipmentParams, transition domain.StatusTransitionContext) (*domain.Shipment, error) {
+func insertShipmentTx(ctx context.Context, tx pgx.Tx, params CreateShipmentParams, initialStatus string, transition domain.StatusTransitionContext) (*domain.Shipment, error) {
 	const query = `
 		INSERT INTO transport.shipments (
 			tenant_id, shipment_number, transport_order_id,
@@ -445,7 +441,7 @@ func insertShipmentTx(ctx context.Context, tx pgx.Tx, params CreateShipmentParam
 		params.DestinationLocationID,
 		optionalUUID(params.CargoID),
 		params.TransportMode,
-		domain.ShipmentStatusCarrierAssigned,
+		initialStatus,
 		optionalTime(params.PlannedPickupAt),
 		optionalTime(params.PlannedDeliveryAt),
 	))
@@ -459,36 +455,6 @@ func insertShipmentTx(ctx context.Context, tx pgx.Tx, params CreateShipmentParam
 		shipment.Version,
 		nil,
 		shipment.Status,
-		transition,
-	)
-	if err := insertStatusHistoryAndOutbox(ctx, tx, write); err != nil {
-		return nil, err
-	}
-	return shipment, nil
-}
-
-func acceptShipmentTx(ctx context.Context, tx pgx.Tx, tenantID, shipmentID uuid.UUID, fromStatus string, transition domain.StatusTransitionContext) (*domain.Shipment, error) {
-	const query = `
-		UPDATE transport.shipments
-		SET status = $1, version = version + 1, updated_at = now()
-		WHERE id = $2 AND tenant_id = $3 AND deleted_at IS NULL AND status = $4
-		RETURNING id, tenant_id, shipment_number, transport_order_id,
-			shipper_company_id, consignee_company_id, carrier_company_id, forwarder_company_id,
-			driver_id, vehicle_id, origin_location_id, destination_location_id, cargo_id,
-			transport_mode, status, planned_pickup_at, planned_delivery_at,
-			actual_pickup_at, actual_delivery_at, created_at, updated_at, version
-	`
-	shipment, err := scanShipmentUpdate(tx.QueryRow(ctx, query, domain.ShipmentStatusAcceptedByCarrier, shipmentID, tenantID, fromStatus))
-	if err != nil {
-		return nil, err
-	}
-
-	write := statusHistoryWriteFromTransition(
-		tenantID,
-		shipmentID,
-		shipment.Version,
-		stringPtr(fromStatus),
-		domain.ShipmentStatusAcceptedByCarrier,
 		transition,
 	)
 	if err := insertStatusHistoryAndOutbox(ctx, tx, write); err != nil {
