@@ -8,6 +8,8 @@ info:
     Do not send `tenant_id` as a query parameter; it is rejected with HTTP 403.
     `owner_company_id` and `shipper_company_id` may be supplied as selectors only; the server validates
     authenticated buyer company membership and rejects cross-company mutations within the same tenant.
+    Lane creation on `/v1/rfx-lots/{lot_id}/lanes` requires buyer membership on the persisted RFx owner
+    company resolved via lot → RFx hierarchy; cross-company and cross-tenant attempts return HTTP 404.
 servers:
   - url: http://localhost:8080
     description: Local API Gateway

@@ -13,12 +13,14 @@ import (
 )
 
 type mockRfxStore struct {
-	createEventFn       func(ctx context.Context, in domain.CreateRfxEventInput) (*domain.RfxEvent, error)
-	getEventFn          func(ctx context.Context, id, tenantID uuid.UUID) (*domain.RfxEvent, error)
-	updateStatusFn      func(ctx context.Context, id, tenantID uuid.UUID, expected, newStatus string) (*domain.RfxEvent, error)
-	addParticipantFn    func(ctx context.Context, in domain.AddRfxParticipantInput) (*domain.RfxParticipant, error)
-	participantExistsFn func(ctx context.Context, eventID, companyID, tenantID uuid.UUID) (bool, error)
-	getResponseFn       func(ctx context.Context, id, tenantID uuid.UUID) (*domain.RfxResponse, error)
+	createEventFn         func(ctx context.Context, in domain.CreateRfxEventInput) (*domain.RfxEvent, error)
+	getEventFn            func(ctx context.Context, id, tenantID uuid.UUID) (*domain.RfxEvent, error)
+	updateStatusFn        func(ctx context.Context, id, tenantID uuid.UUID, expected, newStatus string) (*domain.RfxEvent, error)
+	addParticipantFn      func(ctx context.Context, in domain.AddRfxParticipantInput) (*domain.RfxParticipant, error)
+	participantExistsFn   func(ctx context.Context, eventID, companyID, tenantID uuid.UUID) (bool, error)
+	getResponseFn         func(ctx context.Context, id, tenantID uuid.UUID) (*domain.RfxResponse, error)
+	getLotOwnerContextFn  func(ctx context.Context, lotID, tenantID uuid.UUID) (*domain.LotOwnerContext, error)
+	createLaneFn          func(ctx context.Context, in domain.CreateRfxLaneInput) (*domain.RfxLane, error)
 }
 
 func (m *mockRfxStore) CompanyExists(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
@@ -48,7 +50,16 @@ func (m *mockRfxStore) CreateLot(context.Context, domain.CreateRfxLotInput) (*do
 func (m *mockRfxStore) ListLotsByEvent(context.Context, uuid.UUID, uuid.UUID) ([]domain.RfxLot, error) {
 	return nil, nil
 }
-func (m *mockRfxStore) CreateLane(context.Context, domain.CreateRfxLaneInput) (*domain.RfxLane, error) {
+func (m *mockRfxStore) GetLotOwnerContext(ctx context.Context, lotID, tenantID uuid.UUID) (*domain.LotOwnerContext, error) {
+	if m.getLotOwnerContextFn != nil {
+		return m.getLotOwnerContextFn(ctx, lotID, tenantID)
+	}
+	return nil, apperrors.NotFound("rfx lot not found")
+}
+func (m *mockRfxStore) CreateLane(ctx context.Context, in domain.CreateRfxLaneInput) (*domain.RfxLane, error) {
+	if m.createLaneFn != nil {
+		return m.createLaneFn(ctx, in)
+	}
 	return nil, nil
 }
 func (m *mockRfxStore) AddParticipant(ctx context.Context, in domain.AddRfxParticipantInput) (*domain.RfxParticipant, error) {

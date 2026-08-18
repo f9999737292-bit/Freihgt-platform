@@ -382,6 +382,28 @@ func (r *RfxRepository) CreateLot(ctx context.Context, in domain.CreateRfxLotInp
 	return lot, nil
 }
 
+func (r *RfxRepository) GetLotOwnerContext(ctx context.Context, lotID, tenantID uuid.UUID) (*domain.LotOwnerContext, error) {
+	const query = `
+		SELECT l.id, l.tenant_id, l.rfx_event_id, e.owner_company_id
+		FROM rfx.rfx_lots l
+		INNER JOIN rfx.rfx_events e ON e.id = l.rfx_event_id AND e.tenant_id = l.tenant_id
+		WHERE l.id = $1 AND l.tenant_id = $2 AND l.deleted_at IS NULL AND e.deleted_at IS NULL
+	`
+	var lotCtx domain.LotOwnerContext
+	if err := r.db().QueryRow(ctx, query, lotID, tenantID).Scan(
+		&lotCtx.LotID,
+		&lotCtx.TenantID,
+		&lotCtx.RfxEventID,
+		&lotCtx.OwnerCompanyID,
+	); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperrors.NotFound("rfx lot not found")
+		}
+		return nil, mapDBError(err)
+	}
+	return &lotCtx, nil
+}
+
 func (r *RfxRepository) ListLotsByEvent(ctx context.Context, eventID, tenantID uuid.UUID) ([]domain.RfxLot, error) {
 	const query = `
 		SELECT id, tenant_id, rfx_event_id, lot_number, name, description,
