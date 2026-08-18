@@ -19,6 +19,7 @@ func NewRouter(
 	log *slog.Logger,
 	db observability.DatabasePinger,
 	shipmentSvc *service.ShipmentService,
+	orderExecutionSvc *service.OrderExecutionService,
 	statusHistorySvc *service.StatusHistoryService,
 	statusSummarySvc *service.StatusSummaryService,
 	driverSvc *service.DriverService,
@@ -28,6 +29,7 @@ func NewRouter(
 	internalToken string,
 ) http.Handler {
 	shipmentHandler := handlers.NewShipmentHandler(shipmentSvc)
+	orderExecutionHandler := handlers.NewOrderExecutionHandler(orderExecutionSvc)
 	statusHistoryHandler := handlers.NewStatusHistoryHandler(statusHistorySvc)
 	statusSummaryHandler := handlers.NewStatusSummaryHandler(statusSummarySvc)
 	driverHandler := handlers.NewDriverHandler(driverSvc)
@@ -44,6 +46,16 @@ func NewRouter(
 		DB:          db,
 	})
 	sharedpprof.Mount(r)
+
+	r.Route("/v1/order-execution", func(r chi.Router) {
+		r.Get("/carrier/transport-orders", orderExecutionHandler.ListCarrierOrders)
+		r.Route("/transport-orders/{id}", func(r chi.Router) {
+			r.Post("/execute", orderExecutionHandler.Execute)
+			r.Get("/", orderExecutionHandler.GetExecution)
+			r.Post("/start", orderExecutionHandler.StartExecution)
+		})
+	})
+	r.Get("/v1/carrier/transport-orders", orderExecutionHandler.ListCarrierOrders)
 
 	r.Route("/v1/shipments", func(r chi.Router) {
 		r.Post("/from-transport-order", shipmentHandler.CreateFromTransportOrder)

@@ -43,10 +43,12 @@ func main() {
 	metrics.RegisterPgxPoolMetrics(cfg.ServiceName, db.Pool)
 
 	shipmentRepo := repository.NewShipmentRepository(db.Pool)
+	orderExecutionRepo := repository.NewOrderExecutionRepository(db.Pool)
 	driverRepo := repository.NewDriverRepository(db.Pool)
 	vehicleRepo := repository.NewVehicleRepository(db.Pool)
 
 	shipmentSvc := service.NewShipmentService(shipmentRepo, driverRepo, vehicleRepo)
+	orderExecutionSvc := service.NewOrderExecutionService(orderExecutionRepo, shipmentSvc)
 	statusHistorySvc := service.NewStatusHistoryService(shipmentRepo)
 	statusSummaryRepo := repository.NewShipmentStatusSummaryRepository(db.Pool)
 	statusSummarySvc := service.NewStatusSummaryService(statusSummaryRepo)
@@ -95,7 +97,7 @@ func main() {
 		)
 	}
 
-	router := httpserver.NewRouter(log, db.Pool, shipmentSvc, statusHistorySvc, statusSummarySvc, driverSvc, vehicleSvc, driverOpsSvc, driverTaskSvc, cfg.InternalServiceToken)
+	router := httpserver.NewRouter(log, db.Pool, shipmentSvc, orderExecutionSvc, statusHistorySvc, statusSummarySvc, driverSvc, vehicleSvc, driverOpsSvc, driverTaskSvc, cfg.InternalServiceToken)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),
