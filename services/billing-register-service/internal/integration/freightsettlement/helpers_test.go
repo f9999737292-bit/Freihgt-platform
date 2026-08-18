@@ -248,12 +248,27 @@ func seedPODDocument(t *testing.T, pool *pgxpool.Pool, tenantID, ownerCompanyID,
 func seedIneligibleShipment(t *testing.T, pool *pgxpool.Pool, fix fixture, status string, withPOD bool) uuid.UUID {
 	t.Helper()
 	shipmentID := uuid.New()
+	orderID := uuid.New()
 	ctx := context.Background()
+	if _, err := pool.Exec(ctx, `INSERT INTO transport.transport_orders (
+		id, tenant_id, order_number, shipper_company_id, consignee_company_id,
+		origin_location_id, destination_location_id, cargo_id, transport_mode, status, source_system
+	) VALUES ($1,$2,$3,$4,$4,$5,$6,$7,'ROAD','CONVERTED_TO_SHIPMENT','rfx_award')`,
+		orderID, fix.TenantID, "TO-"+orderID.String()[:8], fix.BuyerID, fix.OriginID, fix.DestID, fix.CargoID); err != nil {
+		t.Fatalf("ineligible order: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO rfx.rfx_award_transport_orders (
+		tenant_id, rfx_event_id, rfx_award_id, rfx_response_id, transport_order_id,
+		carrier_company_id, buyer_company_id, amount, currency_code
+	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'RUB')`,
+		fix.TenantID, fix.EventID, fix.AwardID, fix.ResponseID, orderID, fix.CarrierA, fix.BuyerID, fix.AwardAmount); err != nil {
+		t.Fatalf("ineligible award link: %v", err)
+	}
 	if _, err := pool.Exec(ctx, `INSERT INTO transport.shipments (
 		id, tenant_id, shipment_number, transport_order_id, shipper_company_id, consignee_company_id,
 		carrier_company_id, origin_location_id, destination_location_id, cargo_id, transport_mode, status
 	) VALUES ($1,$2,$3,$4,$5,$5,$6,$7,$8,$9,'ROAD',$10)`,
-		shipmentID, fix.TenantID, "SHP-"+shipmentID.String()[:8], fix.OrderID, fix.BuyerID, fix.CarrierA,
+		shipmentID, fix.TenantID, "SHP-"+shipmentID.String()[:8], orderID, fix.BuyerID, fix.CarrierA,
 		fix.OriginID, fix.DestID, fix.CargoID, status); err != nil {
 		t.Fatalf("ineligible shipment: %v", err)
 	}
