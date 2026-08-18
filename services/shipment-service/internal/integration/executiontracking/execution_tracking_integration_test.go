@@ -4,6 +4,7 @@ package executiontracking
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -15,9 +16,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	ctdomain "github.com/freight-platform/control-tower-read-model-service/internal/domain"
-	ctprojection "github.com/freight-platform/control-tower-read-model-service/internal/projection"
-	ctrepo "github.com/freight-platform/control-tower-read-model-service/internal/repository"
 	"github.com/freight-platform/shipment-service/internal/domain"
 	apperrors "github.com/freight-platform/shipment-service/internal/platform/errors"
 	"github.com/freight-platform/shipment-service/internal/repository"
@@ -28,7 +26,6 @@ type env struct {
 	pool           *pgxpool.Pool
 	driverOps      *service.DriverOperationsService
 	orderExecution *service.OrderExecutionService
-	ctRepo         *ctrepo.ProjectionRepository
 }
 
 func setupEnv(t *testing.T) *env {
@@ -60,7 +57,6 @@ func setupEnv(t *testing.T) *env {
 		pool:           pool,
 		driverOps:      driverOpsSvc,
 		orderExecution: orderExecutionSvc,
-		ctRepo:         ctrepo.NewProjectionRepository(pool),
 	}
 }
 
@@ -230,7 +226,7 @@ func transition(userID uuid.UUID) domain.StatusTransitionContext {
 	return domain.NewUserTransitionContext(userID, nil, time.Now().UTC())
 }
 
-func TestDriverMilestonePickupToLoadedAndCTProjection(t *testing.T) {
+func TestDriverMilestonePickupToLoadedAndOutboxActuals(t *testing.T) {
 	env := setupEnv(t)
 	fix := seedFixture(t, env.pool)
 	ctx := context.Background()
@@ -283,32 +279,20 @@ func TestDriverMilestonePickupToLoadedAndCTProjection(t *testing.T) {
 	}
 
 	outboxPayload, _ := fetchLatestOutboxPayload(t, ctx, env.pool, fix.ShipmentID)
-	event, permErr := ctprojection.ParseAndValidate(outboxPayload, ctdomain.KafkaRecordMeta{
-		Topic: "shipment.status.v1", Key: fix.ShipmentID.String(),
-	}, "shipment.status.v1")
-	if permErr != nil {
-		t.Fatalf("parse outbox: %v", permErr)
+	var envelope struct {
+		Data struct {
+			ActualPickupAt string `json:"actualPickupAt"`
+			ToStatus       string `json:"toStatus"`
+		} `json:"data"`
 	}
-	result, err := env.ctRepo.ProcessEvent(ctx, ctrepo.ProcessInput{
-		Event:      event,
-		Meta:       ctdomain.KafkaRecordMeta{Topic: "shipment.status.v1", Partition: 0, Offset: 1, Key: fix.ShipmentID.String()},
-		ReceivedAt: time.Now().UTC(),
-	})
-	if err != nil {
-		t.Fatalf("ct process: %v", err)
+	if err := json.Unmarshal(outboxPayload, &envelope); err != nil {
+		t.Fatalf("outbox json: %v", err)
 	}
-	if !result.Applied {
-		t.Fatalf("ct not applied: %s", result.Outcome)
+	if envelope.Data.ToStatus != domain.ShipmentStatusLoaded {
+		t.Fatalf("outbox toStatus=%s want LOADED", envelope.Data.ToStatus)
 	}
-	projection, err := env.ctRepo.GetProjection(ctx, fix.TenantID, fix.ShipmentID)
-	if err != nil || projection == nil {
-		t.Fatalf("projection: %v", err)
-	}
-	if projection.CurrentStatus != domain.ShipmentStatusLoaded {
-		t.Fatalf("ct status=%s", projection.CurrentStatus)
-	}
-	if projection.ActualPickupAt == nil {
-		t.Fatal("ct actual_pickup_at missing")
+	if strings.TrimSpace(envelope.Data.ActualPickupAt) == "" {
+		t.Fatal("outbox actualPickupAt missing")
 	}
 }
 

@@ -15,18 +15,6 @@ export function useOrderExecutionApi() {
     )
   }
 
-  async function listCarrierTransportOrders(carrierCompanyId: string, limit = 50, offset = 0) {
-    const params = new URLSearchParams({
-      carrier_company_id: carrierCompanyId,
-      limit: String(limit),
-      offset: String(offset),
-    })
-    const data = await apiGet<{ items: CarrierTransportOrderItem[]; total: number }>(
-      `/api/v1/carrier/transport-orders?${params.toString()}`,
-    )
-    return data.items ?? []
-  }
-
   async function listBuyerTransportOrders(buyerCompanyId: string, limit = 50, offset = 0) {
     const params = new URLSearchParams({
       buyer_company_id: buyerCompanyId,
@@ -35,6 +23,21 @@ export function useOrderExecutionApi() {
     })
     const data = await apiGet<{ items: BuyerTransportOrderItem[]; total: number }>(
       `/api/v1/order-execution/buyer/transport-orders?${params.toString()}`,
+    )
+    return {
+      items: data.items ?? [],
+      total: data.total ?? data.items?.length ?? 0,
+    }
+  }
+
+  async function listCarrierTransportOrders(carrierCompanyId: string, limit = 50, offset = 0) {
+    const params = new URLSearchParams({
+      carrier_company_id: carrierCompanyId,
+      limit: String(limit),
+      offset: String(offset),
+    })
+    const data = await apiGet<{ items: CarrierTransportOrderItem[]; total: number }>(
+      `/api/v1/carrier/transport-orders?${params.toString()}`,
     )
     return data.items ?? []
   }
@@ -65,8 +68,8 @@ export function useOrderExecutionApi() {
 
   return {
     getOrderExecution,
-    listCarrierTransportOrders,
     listBuyerTransportOrders,
+    listCarrierTransportOrders,
     executeTransportOrder,
     startExecution,
     assignDriver,

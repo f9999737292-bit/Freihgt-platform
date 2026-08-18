@@ -4,7 +4,6 @@ go 1.25.0
 
 require (
 	github.com/fergusstrange/embedded-postgres v1.29.0
-	github.com/freight-platform/control-tower-read-model-service v0.0.0
 	github.com/freight-platform/shared-go v0.0.0
 	github.com/freight-platform/statussnapshot v0.0.0
 	github.com/go-chi/chi/v5 v5.2.1
@@ -20,8 +19,6 @@ require (
 
 replace github.com/freight-platform/shared-go => ../../packages/shared-go
 
-replace github.com/freight-platform/control-tower-read-model-service => ../control-tower-read-model-service
-
 replace github.com/freight-platform/statussnapshot => ../../packages/statussnapshot
 
 require (
@@ -32,6 +29,7 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/klauspost/compress v1.18.6 // indirect
+	github.com/kr/text v0.2.0 // indirect
 	github.com/lib/pq v1.10.4 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/pierrec/lz4/v4 v4.1.26 // indirect

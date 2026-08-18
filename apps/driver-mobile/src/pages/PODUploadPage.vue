@@ -1,13 +1,18 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import OfflineBanner from '@/components/OfflineBanner.vue'
+import { clearDraft, draftKey, loadDraft, saveDraft } from '@/composables/useSubmission'
 import { useAuthStore } from '@/stores/auth'
 import { useNetworkStore } from '@/stores/network'
 import type { RequestResult } from '@/types/api'
 import { sha256Hex } from '@/utils/checksum'
 import { createOperationId } from '@/utils/idempotency'
+
+interface PODDraft {
+  operationId: string
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -16,9 +21,22 @@ const network = useNetworkStore()
 const { t } = useI18n()
 
 const shipmentId = String(route.params.shipmentId)
+const draftStorageKey = draftKey('pod', shipmentId)
 const errorMessage = ref('')
 const selectedFile = ref<File | null>(null)
 const submitting = ref(false)
+const operationId = ref(createOperationId('pod', shipmentId))
+
+onMounted(() => {
+  const saved = loadDraft<PODDraft>(draftStorageKey)
+  if (saved?.operationId) {
+    operationId.value = saved.operationId
+  }
+})
+
+function persistDraft() {
+  saveDraft<PODDraft>(draftStorageKey, { operationId: operationId.value })
+}
 
 function onFileSelected(event: Event) {
   const input = event.target as HTMLInputElement
@@ -36,7 +54,7 @@ async function submit() {
 
   const file = selectedFile.value
   const mimeType = file.type || 'application/octet-stream'
-  const operationId = createOperationId('pod', shipmentId)
+  persistDraft()
   const api = auth.createApi(() => network.online)
 
   let result: RequestResult<unknown> = { outcome: 'REQUEST_NOT_SENT' }
@@ -44,7 +62,7 @@ async function submit() {
     const intent = await api.initiatePODUpload(shipmentId, {
       mimeType,
       fileName: file.name,
-      idempotencyKey: operationId,
+      idempotencyKey: operationId.value,
     })
     if (intent.outcome !== 'SUCCESS' || !intent.data) {
       result = intent
@@ -69,6 +87,7 @@ async function submit() {
   }
 
   if (result.outcome === 'SUCCESS') {
+    clearDraft(draftStorageKey)
     await router.replace({
       name: 'submission-result',
       query: { kind: 'pod', status: 'success', shipmentId },

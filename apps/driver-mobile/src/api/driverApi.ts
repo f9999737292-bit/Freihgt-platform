@@ -97,7 +97,7 @@ export function createDriverApi(http: HttpClient) {
     completePODUpload(
       shipmentId: string,
       uploadId: string,
-      body: DriverPODUploadCompleteRequest,
+      body: DriverPODUploadCompleteRequest = {},
     ) {
       return http.request<DriverPODUploadCompleteResponse>(
         'POST',

@@ -22,11 +22,23 @@ const loading = ref(true)
 const errorMessage = ref('')
 const actionError = ref('')
 const shipment = ref<DriverShipmentDetail | null>(null)
+const operationIds = ref<Partial<Record<DriverMilestoneEventType, string>>>({})
 
 const milestoneActions = computed(() =>
   shipment.value ? allowedMilestoneActions(shipment.value.status) : [],
 )
 const showPodUpload = computed(() => (shipment.value ? canUploadPOD(shipment.value.status) : false))
+
+function getOperationId(type: DriverMilestoneEventType): string {
+  if (!operationIds.value[type]) {
+    operationIds.value[type] = createOperationId('milestone', `${shipmentId.value}:${type}`)
+  }
+  return operationIds.value[type]!
+}
+
+function clearOperationId(type: DriverMilestoneEventType) {
+  delete operationIds.value[type]
+}
 
 function formatWhen(value?: string) {
   if (!value) return '—'
@@ -74,13 +86,14 @@ async function loadShipment() {
 
 async function recordMilestone(type: DriverMilestoneEventType) {
   actionError.value = ''
-  const operationId = createOperationId('milestone', `${shipmentId.value}:${type}`)
+  const operationId = getOperationId(type)
   const api = auth.createApi(() => network.online)
   const result = await runOnce(() =>
     api.recordEvent(shipmentId.value, { type, idempotencyKey: operationId }),
   )
 
   if (result.outcome === 'SUCCESS') {
+    clearOperationId(type)
     await loadShipment()
     return
   }
@@ -125,10 +138,10 @@ onMounted(loadShipment)
         <p><strong>{{ t('shipments.status') }}:</strong> {{ shipment.status }}</p>
         <p><strong>{{ t('shipments.pickup') }}:</strong> {{ formatWhen(shipment.plannedPickupAt) }}</p>
         <p><strong>{{ t('shipments.delivery') }}:</strong> {{ formatWhen(shipment.plannedDeliveryAt) }}</p>
-        <p v-if="shipment.actualPickupAt">
+        <p>
           <strong>{{ t('shipmentDetail.actualPickup') }}:</strong> {{ formatWhen(shipment.actualPickupAt) }}
         </p>
-        <p v-if="shipment.actualDeliveryAt">
+        <p>
           <strong>{{ t('shipmentDetail.actualDelivery') }}:</strong> {{ formatWhen(shipment.actualDeliveryAt) }}
         </p>
         <p v-if="shipment.transportMode">
@@ -147,7 +160,7 @@ onMounted(loadShipment)
             :disabled="submitting"
             @click="recordMilestone(action)"
           >
-            {{ milestoneLabel(action) }}
+            {{ submitting ? t('common.loading') : milestoneLabel(action) }}
           </ion-button>
           <ion-text v-if="actionError" color="danger">
             <p class="inline-error">{{ actionError }}</p>

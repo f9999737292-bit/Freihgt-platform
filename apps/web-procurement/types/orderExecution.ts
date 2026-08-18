@@ -68,7 +68,7 @@ export interface OrderExecutionView {
   pod_documents?: ExecutionPODDocument[]
 }
 
-export interface CarrierTransportOrderItem {
+export interface BuyerTransportOrderItem {
   transport_order_id: string
   transport_order_number: string
   transport_order_status: string
@@ -83,7 +83,20 @@ export interface CarrierTransportOrderItem {
   shipment_status?: string
 }
 
-export interface BuyerTransportOrderItem extends CarrierTransportOrderItem {}
+export interface CarrierTransportOrderItem {
+  transport_order_id: string
+  transport_order_number: string
+  transport_order_status: string
+  rfx_event_id: string
+  rfx_lot_id?: string
+  carrier_company_id: string
+  buyer_company_id: string
+  amount: number
+  currency_code: string
+  converted_at: string
+  shipment_id?: string
+  shipment_status?: string
+}
 
 export interface ExecuteTransportOrderResult {
   created: boolean
