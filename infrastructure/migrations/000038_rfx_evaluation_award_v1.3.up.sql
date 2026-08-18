@@ -42,5 +42,3 @@ CREATE INDEX idx_rfx_awards_response ON rfx.rfx_awards(rfx_response_id);
 
 ALTER TABLE rfx.rfx_responses
     ADD COLUMN IF NOT EXISTS evaluation_rank INTEGER;
-
-CREATE INDEX idx_rfx_audit_events_entity ON rfx.audit_events(tenant_id, entity_type, entity_id, created_at DESC);

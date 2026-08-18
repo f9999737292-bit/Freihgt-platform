@@ -53,10 +53,10 @@ func (r *AuditRepository) ListByEntity(ctx context.Context, tenantID uuid.UUID, 
 		limit = 100
 	}
 	const query = `
-		SELECT id, tenant_id, entity_type, entity_id, action, actor_user_id, actor_company_id, metadata, created_at
+		SELECT id, tenant_id, entity_type, entity_id, action, actor_user_id, actor_company_id, metadata, occurred_at
 		FROM rfx.audit_events
 		WHERE tenant_id = $1 AND entity_type = $2 AND entity_id = $3
-		ORDER BY created_at DESC
+		ORDER BY occurred_at DESC
 		LIMIT $4
 	`
 	rows, err := r.db().Query(ctx, query, tenantID, entityType, entityID, limit)
