@@ -44,6 +44,22 @@ func TestValidateFirstReconcileInvariants(t *testing.T) {
 	if err := ValidateFirstReconcileInvariants(&unallocated, snapshot); err == nil {
 		t.Fatal("expected unallocated mismatch deny")
 	}
+
+	voidedAt := time.Now().UTC()
+	for _, corrupt := range []struct {
+		name string
+		mut  func(*Payment)
+	}{
+		{"voided_at only", func(p *Payment) { p.VoidedAt = &voidedAt }},
+		{"voided_by only", func(p *Payment) { by := uuid.New(); p.VoidedBy = &by }},
+		{"void_reason only", func(p *Payment) { reason := "orphan"; p.VoidReason = &reason }},
+	} {
+		bad := *payment
+		corrupt.mut(&bad)
+		if err := ValidateFirstReconcileInvariants(&bad, snapshot); err == nil {
+			t.Fatalf("expected deny for %s", corrupt.name)
+		}
+	}
 }
 
 func TestValidateReconciledIntegrity(t *testing.T) {
@@ -80,11 +96,36 @@ func TestValidateReconciledIntegrity(t *testing.T) {
 	if err := ValidateReconciledIntegrity(payment, sumMismatch); err == nil {
 		t.Fatal("expected corrupt reconciled active sum deny")
 	}
+
+	voidedAt := time.Now().UTC()
+	for _, corrupt := range []struct {
+		name string
+		mut  func(*Payment)
+	}{
+		{"voided_at only", func(p *Payment) { p.VoidedAt = &voidedAt }},
+		{"voided_by only", func(p *Payment) { by := uuid.New(); p.VoidedBy = &by }},
+		{"void_reason only", func(p *Payment) { reason := "orphan"; p.VoidReason = &reason }},
+	} {
+		bad := *payment
+		corrupt.mut(&bad)
+		if err := ValidateReconciledIntegrity(&bad, snapshot); err == nil {
+			t.Fatalf("expected deny for reconciled %s", corrupt.name)
+		}
+	}
 }
 
 func TestValidateReconciliationSnapshotIntegrity(t *testing.T) {
-	snapshot := ReconciliationSnapshot{InvalidCurrencyCount: 1}
-	if err := ValidateReconciliationSnapshotIntegrity(snapshot); err == nil {
-		t.Fatal("expected relational violation deny")
+	for _, tc := range []struct {
+		name     string
+		snapshot ReconciliationSnapshot
+	}{
+		{"invalid currency", ReconciliationSnapshot{InvalidCurrencyCount: 1}},
+		{"invalid obligation tenant", ReconciliationSnapshot{InvalidObligationTenantCount: 1}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := ValidateReconciliationSnapshotIntegrity(tc.snapshot); err == nil {
+				t.Fatal("expected relational violation deny")
+			}
+		})
 	}
 }

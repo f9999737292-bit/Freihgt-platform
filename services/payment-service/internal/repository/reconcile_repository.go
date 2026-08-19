@@ -25,6 +25,7 @@ func (r *PaymentRepository) loadReconciliationSnapshotTx(
 			COUNT(*) FILTER (WHERE a.tenant_id <> $2),
 			COUNT(*) FILTER (WHERE a.currency_code <> $3),
 			COUNT(*) FILTER (WHERE o.id IS NULL),
+			COUNT(*) FILTER (WHERE o.id IS NOT NULL AND o.tenant_id <> $2),
 			COUNT(*) FILTER (WHERE o.id IS NOT NULL AND (o.payer_company_id <> $4 OR o.payee_company_id <> $5 OR o.currency_code <> $3)),
 			COUNT(*) FILTER (WHERE o.status IN ('CANCELLED', 'VOIDED')),
 			COUNT(*) FILTER (WHERE a.allocated_amount <= 0)
@@ -42,6 +43,7 @@ func (r *PaymentRepository) loadReconciliationSnapshotTx(
 		&snapshot.InvalidTenantCount,
 		&snapshot.InvalidCurrencyCount,
 		&snapshot.MissingObligationCount,
+		&snapshot.InvalidObligationTenantCount,
 		&snapshot.InvalidPartyCount,
 		&snapshot.InvalidObligationStateCount,
 		&snapshot.NonPositiveAmountCount,

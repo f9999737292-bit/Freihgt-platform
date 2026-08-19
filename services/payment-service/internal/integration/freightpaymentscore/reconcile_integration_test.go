@@ -227,16 +227,35 @@ func TestConcurrentDoubleReconcile(t *testing.T) {
 	fullyAllocatePayment(t, env, fix, payment, obligation, "100.00")
 	start := make(chan struct{})
 	var wg sync.WaitGroup
-	for range 2 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			<-start
-			_, _ = env.payments.ReconcilePayment(ctx, payment.ID, buyerActor(fix))
-		}()
-	}
+	var err1, err2 error
+	var result1, result2 *domain.Payment
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		<-start
+		result1, err1 = env.payments.ReconcilePayment(ctx, payment.ID, buyerActor(fix))
+	}()
+	go func() {
+		defer wg.Done()
+		<-start
+		result2, err2 = env.payments.ReconcilePayment(ctx, payment.ID, buyerActor(fix))
+	}()
 	close(start)
 	wg.Wait()
+	if err1 != nil || err2 != nil {
+		t.Fatalf("CONCURRENT_RECONCILE_REQUEST: err1=%v err2=%v", err1, err2)
+	}
+	if result1 == nil || result2 == nil ||
+		result1.Status != domain.PaymentStatusReconciled || result2.Status != domain.PaymentStatusReconciled {
+		t.Fatal("CONCURRENT_RECONCILE_REQUEST: both must succeed with RECONCILED")
+	}
+	if result1.ReconciledAt == nil || result2.ReconciledAt == nil ||
+		!result1.ReconciledAt.Equal(*result2.ReconciledAt) ||
+		result1.ReconciledBy == nil || result2.ReconciledBy == nil ||
+		*result1.ReconciledBy != *result2.ReconciledBy ||
+		result1.Version != result2.Version {
+		t.Fatal("CONCURRENT_DOUBLE_RECONCILE_SAFE=FAIL metadata mismatch between requests")
+	}
 	reloaded, _ := env.paymentRepo.GetPaymentByID(ctx, fix.TenantID, payment.ID)
 	if reloaded.Status != domain.PaymentStatusReconciled || countReconcileAudit(t, env, fix.TenantID, payment.ID) != 1 {
 		t.Fatal("CONCURRENT_DOUBLE_RECONCILE_SAFE=FAIL")
@@ -379,7 +398,8 @@ func TestCorruptReconciledRepeatRejected(t *testing.T) {
 	obligation, _ := env.payments.EnsurePaymentObligationForBillingRegister(ctx, fix.TenantID, fix.RegisterID)
 	payment := createManualPayment(t, env, fix, "100.00")
 	fullyAllocatePayment(t, env, fix, payment, obligation, "100.00")
-	if _, err := env.payments.ReconcilePayment(ctx, payment.ID, buyerActor(fix)); err != nil {
+	first, err := env.payments.ReconcilePayment(ctx, payment.ID, buyerActor(fix))
+	if err != nil {
 		t.Fatalf("reconcile: %v", err)
 	}
 	if _, err := env.pool.Exec(ctx, `
@@ -390,6 +410,100 @@ func TestCorruptReconciledRepeatRejected(t *testing.T) {
 	}
 	if _, err := env.payments.ReconcilePayment(ctx, payment.ID, buyerActor(fix)); err == nil {
 		t.Fatal("CORRUPT_RECONCILED_REPEAT_REJECTED=FAIL")
+	}
+	reloaded, _ := env.paymentRepo.GetPaymentByID(ctx, fix.TenantID, payment.ID)
+	if reloaded.Version != first.Version ||
+		reloaded.ReconciledAt == nil || !reloaded.ReconciledAt.Equal(*first.ReconciledAt) ||
+		reloaded.ReconciledBy == nil || *reloaded.ReconciledBy != *first.ReconciledBy {
+		t.Fatal("CORRUPT_RECONCILED_REPEAT=FAIL metadata rewritten")
+	}
+	if countReconcileAudit(t, env, fix.TenantID, payment.ID) != 1 {
+		t.Fatal("CORRUPT_RECONCILED_REPEAT=FAIL duplicate audit")
+	}
+}
+
+func TestCrossTenantObligationLinkReconcileDenied(t *testing.T) {
+	env := setupEnv(t)
+	fix := seedFixture(t, env.pool)
+	ctx := context.Background()
+	obligationA, _ := env.payments.EnsurePaymentObligationForBillingRegister(ctx, fix.TenantID, fix.RegisterID)
+	payment := createManualPayment(t, env, fix, "100.00")
+	fullyAllocatePayment(t, env, fix, payment, obligationA, "100.00")
+	obligationB := seedCrossTenantObligation(t, env.pool, fix, "100.00")
+	if _, err := env.pool.Exec(ctx, `
+		UPDATE billing.payment_allocations
+		SET obligation_id = $1
+		WHERE payment_id = $2 AND voided_at IS NULL`, obligationB, payment.ID); err != nil {
+		t.Fatalf("corrupt obligation link: %v", err)
+	}
+	if _, err := env.payments.ReconcilePayment(ctx, payment.ID, buyerActor(fix)); err == nil {
+		t.Fatal("CROSS_TENANT_OBLIGATION_LINK_RECONCILE=DENY")
+	}
+	reloaded, _ := env.paymentRepo.GetPaymentByID(ctx, fix.TenantID, payment.ID)
+	if reloaded.Status != domain.PaymentStatusFullyAllocated ||
+		reloaded.ReconciledAt != nil || reloaded.ReconciledBy != nil {
+		t.Fatal("CROSS_TENANT_OBLIGATION_LINK_RECONCILE=FAIL payment state changed")
+	}
+	if countReconcileAudit(t, env, fix.TenantID, payment.ID) != 0 {
+		t.Fatal("CROSS_TENANT_OBLIGATION_LINK_RECONCILE=FAIL audit created")
+	}
+}
+
+func TestCorruptReconciledCrossTenantRepeatDenied(t *testing.T) {
+	env := setupEnv(t)
+	fix := seedFixture(t, env.pool)
+	ctx := context.Background()
+	obligationA, _ := env.payments.EnsurePaymentObligationForBillingRegister(ctx, fix.TenantID, fix.RegisterID)
+	payment := createManualPayment(t, env, fix, "100.00")
+	fullyAllocatePayment(t, env, fix, payment, obligationA, "100.00")
+	first, err := env.payments.ReconcilePayment(ctx, payment.ID, buyerActor(fix))
+	if err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+	obligationB := seedCrossTenantObligation(t, env.pool, fix, "100.00")
+	if _, err := env.pool.Exec(ctx, `
+		UPDATE billing.payment_allocations
+		SET obligation_id = $1
+		WHERE payment_id = $2 AND voided_at IS NULL`, obligationB, payment.ID); err != nil {
+		t.Fatalf("corrupt obligation link: %v", err)
+	}
+	if _, err := env.payments.ReconcilePayment(ctx, payment.ID, buyerActor(fix)); err == nil {
+		t.Fatal("CORRUPT_RECONCILED_CROSS_TENANT_REPEAT=DENY")
+	}
+	reloaded, _ := env.paymentRepo.GetPaymentByID(ctx, fix.TenantID, payment.ID)
+	if reloaded.Version != first.Version ||
+		reloaded.ReconciledAt == nil || !reloaded.ReconciledAt.Equal(*first.ReconciledAt) ||
+		reloaded.ReconciledBy == nil || *reloaded.ReconciledBy != *first.ReconciledBy {
+		t.Fatal("CORRUPT_RECONCILED_CROSS_TENANT_REPEAT=FAIL metadata rewritten")
+	}
+	if countReconcileAudit(t, env, fix.TenantID, payment.ID) != 1 {
+		t.Fatal("CORRUPT_RECONCILED_CROSS_TENANT_REPEAT=FAIL duplicate audit")
+	}
+}
+
+func TestOrphanVoidedByReconcileDenied(t *testing.T) {
+	env := setupEnv(t)
+	fix := seedFixture(t, env.pool)
+	ctx := context.Background()
+	obligation, _ := env.payments.EnsurePaymentObligationForBillingRegister(ctx, fix.TenantID, fix.RegisterID)
+	payment := createManualPayment(t, env, fix, "100.00")
+	fullyAllocatePayment(t, env, fix, payment, obligation, "100.00")
+	orphanBy := uuid.New()
+	if _, err := env.pool.Exec(ctx, `
+		UPDATE billing.payments
+		SET voided_by = $1, voided_at = NULL, status = 'FULLY_ALLOCATED'
+		WHERE id = $2`, orphanBy, payment.ID); err != nil {
+		t.Fatalf("corrupt void metadata: %v", err)
+	}
+	if _, err := env.payments.ReconcilePayment(ctx, payment.ID, buyerActor(fix)); err == nil {
+		t.Fatal("ORPHAN_VOIDED_BY_RECONCILE=DENY")
+	}
+	reloaded, _ := env.paymentRepo.GetPaymentByID(ctx, fix.TenantID, payment.ID)
+	if reloaded.ReconciledAt != nil || reloaded.ReconciledBy != nil {
+		t.Fatal("ORPHAN_VOIDED_BY_RECONCILE=FAIL reconciliation metadata set")
+	}
+	if countReconcileAudit(t, env, fix.TenantID, payment.ID) != 0 {
+		t.Fatal("ORPHAN_VOIDED_BY_RECONCILE=FAIL audit created")
 	}
 }
 
