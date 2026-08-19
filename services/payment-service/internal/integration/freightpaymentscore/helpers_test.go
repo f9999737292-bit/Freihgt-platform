@@ -112,6 +112,10 @@ func seedFixture(t *testing.T, pool *pgxpool.Pool) fixture {
 		RegisterID:    uuid.New(),
 		RegisterTotal: decimal.RequireFromString("100.00"),
 	}
+	if _, err := pool.Exec(ctx, `INSERT INTO core.tenants (id, code, name) VALUES ($1,$2,$3)`,
+		fix.TenantID, "T-"+fix.TenantID.String()[:8], "Test Tenant"); err != nil {
+		t.Fatalf("tenant: %v", err)
+	}
 	for _, row := range []struct {
 		id, tenant uuid.UUID
 		typ, name  string
