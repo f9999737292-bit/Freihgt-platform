@@ -20,7 +20,7 @@ import (
 	"github.com/freight-platform/payment-service/internal/service"
 )
 
-const maxMigrationFile = "000046_payment_paid_projection_outbox_v1.9.2A.up.sql"
+const maxMigrationFile = "000047_payment_allocation_void_metadata_v1.9.2B.up.sql"
 
 type env struct {
 	pool        *pgxpool.Pool

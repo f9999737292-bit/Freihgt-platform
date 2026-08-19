@@ -524,6 +524,150 @@ post:
             $ref: '#/components/schemas/ErrorResponse'
 
 
+  /api/v1/payment-allocations/{id}/void:
+
+post:
+  tags: [Payments]
+  summary: Void payment allocation (append-only reversal)
+  operationId: post_void_payment_allocation
+  description: |
+    Voids an active allocation and recomputes payment/obligation balances from remaining active allocations.
+    PAID obligations cannot be reversed through this endpoint. Repeat void is idempotent.
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/VoidRequest'
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '200':
+      description: Allocation voided or idempotent success
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '403':
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Financial finality conflict (e.g. PAID obligation)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
+  /api/v1/payments/{id}/void:
+
+post:
+  tags: [Payments]
+  summary: Void received payment with zero active allocations
+  operationId: post_void_payment
+  description: |
+    Voids a RECEIVED payment with zero active allocations. Repeat void is idempotent.
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/VoidRequest'
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '200':
+      description: Payment voided or idempotent success
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '403':
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict (active allocations or non-RECEIVED status)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
 
 components:
   securitySchemes:
@@ -614,3 +758,11 @@ components:
           type: integer
         offset:
           type: integer
+    VoidRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          maxLength: 255
+          description: Required human-readable void reason
