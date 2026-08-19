@@ -295,6 +295,8 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	r.Get("/api/v1/payments/{id}", paymentGuard.WithPolicy(paymentrbac.PolicyRead))
 	r.Post("/api/v1/payments/{id}/allocations", paymentGuard.WithPolicy(paymentrbac.PolicyAllocate))
 	r.Post("/api/v1/payments/{id}/reconcile", paymentGuard.WithPolicy(paymentrbac.PolicyReconcile))
+	r.Post("/api/v1/payment-allocations/{id}/void", paymentGuard.WithPolicy(paymentrbac.PolicyVoid))
+	r.Post("/api/v1/payments/{id}/void", paymentGuard.WithPolicy(paymentrbac.PolicyVoid))
 
 	r.Handle("/api/*", proxy)
 	r.Handle("/api", proxy)

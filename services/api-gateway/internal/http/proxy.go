@@ -55,6 +55,7 @@ func NewProxyHandler(cfg config.Config) (*ProxyHandler, error) {
 		{"/api/v1/billing-registers", "billing-register-service", cfg.Services.BillingRegister},
 		{"/api/v1/freight-settlements", "billing-register-service", cfg.Services.BillingRegister},
 		{"/api/v1/payment-obligations", "payment-service", cfg.Services.Payment},
+		{"/api/v1/payment-allocations", "payment-service", cfg.Services.Payment},
 		{"/api/v1/payments", "payment-service", cfg.Services.Payment},
 		{"/api/v1/low-code", "low-code-service", cfg.Services.LowCode},
 	}
