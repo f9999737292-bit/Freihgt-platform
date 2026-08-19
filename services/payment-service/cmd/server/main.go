@@ -13,6 +13,7 @@ import (
 	"github.com/freight-platform/payment-service/internal/config"
 	httpserver "github.com/freight-platform/payment-service/internal/http"
 	"github.com/freight-platform/payment-service/internal/http/handlers"
+	"github.com/freight-platform/payment-service/internal/outbox"
 	"github.com/freight-platform/payment-service/internal/platform/database"
 	"github.com/freight-platform/payment-service/internal/platform/logger"
 	"github.com/freight-platform/payment-service/internal/repository"
@@ -41,12 +42,21 @@ func main() {
 	metrics.RegisterPgxPoolMetrics(cfg.ServiceName, db.Pool)
 
 	paymentRepo := repository.NewPaymentRepository(db.Pool)
+	outboxRepo := repository.NewOutboxRepository(db.Pool)
 	registerLookup := repository.NewBillingRegisterLookupRepository(db.Pool)
 	membershipRepo := repository.NewMembershipRepository(db.Pool)
 	billingClient := service.NewBillingRegisterHTTPClient(cfg.BillingRegisterURL, cfg.InternalServiceToken)
 
-	paymentSvc := service.NewPaymentService(paymentRepo, registerLookup, membershipRepo, billingClient)
+	paymentSvc := service.NewPaymentService(paymentRepo, registerLookup, membershipRepo, billingClient, outboxRepo)
 	actorResolver := handlers.NewPaymentActorResolver(membershipRepo)
+
+	var outboxWorker *outbox.Worker
+	if cfg.Outbox.Enabled {
+		publisher := outbox.NewPublisher(billingClient)
+		outboxWorker = outbox.NewWorker(cfg.Outbox, outboxRepo, publisher, log, outbox.NewRealClock())
+		outboxWorker.Start(ctx)
+		log.Info("payment outbox worker started", slog.String("worker_id", cfg.Outbox.WorkerID))
+	}
 
 	router := httpserver.NewRouter(log, db.Pool, cfg, paymentSvc, actorResolver)
 
@@ -70,12 +80,18 @@ func main() {
 	<-ctx.Done()
 	log.Info("shutdown signal received")
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Outbox.PublishTimeout+cfg.Outbox.PollInterval+5*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Error("graceful shutdown failed", slog.String("error", err.Error()))
 		os.Exit(1)
+	}
+
+	if outboxWorker != nil {
+		if err := outboxWorker.Wait(shutdownCtx); err != nil {
+			log.Warn("payment outbox worker shutdown wait ended", slog.String("error", err.Error()))
+		}
 	}
 
 	log.Info("shutdown complete")

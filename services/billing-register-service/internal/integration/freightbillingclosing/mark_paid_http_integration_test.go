@@ -196,3 +196,42 @@ func TestLegacyMarkPaidHTTPRepeatIdempotent(t *testing.T) {
 		t.Fatalf("register must remain PAID, got %s", status)
 	}
 }
+
+func postSyncPaidHTTP(router http.Handler, registerID, tenantID uuid.UUID, token string) *httptest.ResponseRecorder {
+	body, _ := json.Marshal(map[string]string{"tenant_id": tenantID.String()})
+	path := "/internal/v1/billing-registers/" + registerID.String() + "/sync-paid"
+	req := httptest.NewRequest(http.MethodPost, path, bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Tenant-ID", tenantID.String())
+	req.Header.Set("X-Internal-Service-Token", token)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestSyncPaidClosedAlreadySatisfied(t *testing.T) {
+	env := setupEnv(t)
+	fix := seedFixture(t, env.pool)
+	registerID := seedSignedRegister(t, env.pool, fix)
+	seedObligationForRegister(t, env.pool, fix, registerID, "PAID")
+	ctx := context.Background()
+	if _, err := env.pool.Exec(ctx, `UPDATE billing.billing_registers SET status='PAID' WHERE id=$1`, registerID); err != nil {
+		t.Fatalf("set paid: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `UPDATE billing.billing_registers SET status='CLOSED' WHERE id=$1`, registerID); err != nil {
+		t.Fatalf("set closed: %v", err)
+	}
+	router := setupMarkPaidHTTPRouter(t, env.pool)
+	auditBefore := countMarkPaidAuditEvents(t, env.pool, registerID)
+
+	rec := postSyncPaidHTTP(router, registerID, fix.TenantID, "test-token")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("F6_SYNC_PAID_CLOSED expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if status := loadRegisterStatus(t, env.pool, registerID, fix.TenantID); status != domain.RegisterStatusClosed {
+		t.Fatalf("register must remain CLOSED, got %s", status)
+	}
+	if auditAfter := countMarkPaidAuditEvents(t, env.pool, registerID); auditAfter != auditBefore {
+		t.Fatalf("CLOSED sync must not create duplicate MARKED_PAID audit")
+	}
+}

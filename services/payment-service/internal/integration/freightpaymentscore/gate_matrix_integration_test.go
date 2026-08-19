@@ -171,7 +171,7 @@ func TestPaidSyncFailureVisibleAndRetry(t *testing.T) {
 	env := setupEnv(t)
 	fix := seedFixture(t, env.pool)
 	ctx := context.Background()
-	env.payments = service.NewPaymentService(env.paymentRepo, repository.NewBillingRegisterLookupRepository(env.pool), repository.NewMembershipRepository(env.pool), failingBillingSync{})
+	env.payments = service.NewPaymentService(env.paymentRepo, repository.NewBillingRegisterLookupRepository(env.pool), repository.NewMembershipRepository(env.pool), failingBillingSync{}, env.outboxRepo)
 
 	obligation, _ := env.payments.EnsurePaymentObligationForBillingRegister(ctx, fix.TenantID, fix.RegisterID)
 	payment := createManualPayment(t, env, fix, "100.00")
@@ -189,7 +189,7 @@ func TestPaidSyncFailureVisibleAndRetry(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer billingServer.Close()
-	env.payments = service.NewPaymentService(env.paymentRepo, repository.NewBillingRegisterLookupRepository(env.pool), repository.NewMembershipRepository(env.pool), service.NewBillingRegisterHTTPClient(billingServer.URL, "token"))
+	env.payments = service.NewPaymentService(env.paymentRepo, repository.NewBillingRegisterLookupRepository(env.pool), repository.NewMembershipRepository(env.pool), service.NewBillingRegisterHTTPClient(billingServer.URL, "token"), env.outboxRepo)
 	if err := env.payments.EnsureBillingRegisterPaidProjection(ctx, fix.TenantID, fix.RegisterID); err != nil {
 		t.Fatalf("PAID_SYNC_RETRY=FAIL: %v", err)
 	}

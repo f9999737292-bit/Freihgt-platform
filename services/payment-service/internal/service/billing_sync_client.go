@@ -12,6 +12,21 @@ import (
 	"github.com/google/uuid"
 )
 
+type BillingSyncHTTPError struct {
+	StatusCode int
+	Body       string
+}
+
+func (e *BillingSyncHTTPError) Error() string {
+	if e == nil {
+		return "billing sync-paid failed"
+	}
+	if e.Body == "" {
+		return fmt.Sprintf("billing sync-paid failed: status=%d", e.StatusCode)
+	}
+	return fmt.Sprintf("billing sync-paid failed: status=%d body=%s", e.StatusCode, e.Body)
+}
+
 type BillingRegisterHTTPClient struct {
 	baseURL string
 	token   string
@@ -50,8 +65,8 @@ func (c *BillingRegisterHTTPClient) SyncRegisterPaid(ctx context.Context, tenant
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
-		raw, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("billing sync-paid failed: status=%d body=%s", resp.StatusCode, string(raw))
+		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return &BillingSyncHTTPError{StatusCode: resp.StatusCode, Body: string(raw)}
 	}
 	return nil
 }
