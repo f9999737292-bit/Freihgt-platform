@@ -57,11 +57,17 @@ func (s *FreightSettlementService) List(ctx context.Context, filter domain.ListF
 	}
 	switch actor.ActorKind {
 	case domain.SettlementActorBuyer:
+		if filter.CarrierCompanyID != nil {
+			return nil, 0, apperrors.Forbidden("buyer cannot filter settlements by carrier company")
+		}
 		if filter.BuyerCompanyID != nil && *filter.BuyerCompanyID != actor.ActorCompanyID {
 			return nil, 0, apperrors.Forbidden("buyer cannot list another buyer's settlements")
 		}
 		filter.BuyerCompanyID = &actor.ActorCompanyID
 	case domain.SettlementActorCarrier:
+		if filter.BuyerCompanyID != nil {
+			return nil, 0, apperrors.Forbidden("carrier cannot filter settlements by buyer company")
+		}
 		if filter.CarrierCompanyID != nil && *filter.CarrierCompanyID != actor.ActorCompanyID {
 			return nil, 0, apperrors.Forbidden("carrier cannot list another carrier's settlements")
 		}
