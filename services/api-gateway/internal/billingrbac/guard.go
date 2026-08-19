@@ -3,6 +3,7 @@ package billingrbac
 import (
 	"net/http"
 
+	"github.com/freight-platform/api-gateway/internal/companycontext"
 	"github.com/freight-platform/api-gateway/internal/config"
 	"github.com/freight-platform/api-gateway/internal/routeauth"
 )
@@ -19,7 +20,8 @@ type Guard struct {
 }
 
 func NewGuard(cfg config.Config, proxy http.Handler) *Guard {
-	return &Guard{inner: routeauth.NewGuard(cfg, proxy)}
+	enforced := companycontext.NewEnforcer(cfg).Middleware(proxy)
+	return &Guard{inner: routeauth.NewGuard(cfg, enforced)}
 }
 
 func (g *Guard) WithPolicy(policy Policy) http.HandlerFunc {

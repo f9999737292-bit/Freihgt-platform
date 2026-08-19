@@ -1,9 +1,9 @@
 openapi: 3.0.3
 info:
-  title: Freight Platform API - Shipment Service
+  title: Freight Platform API - Shipment
   version: 0.1.0
   description: |
-    OpenAPI specification for Shipment Service.
+    OpenAPI specification for Shipment.
 servers:
   - url: http://localhost:8080
     description: Local API Gateway
@@ -23,1124 +23,949 @@ tags:
   - name: Shipments
   - name: Drivers
   - name: Vehicles
-  - name: Order Execution
   - name: Documents
   - name: Signing
   - name: Billing Registers
   - name: Closing Documents
-
 paths:
   /api/v1/shipments/from-transport-order:
-    post:
-      tags: [Shipments]
-      summary: Create shipment from transport order
-      operationId: post_create_shipment_from_transport_order
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateShipmentFromTransportOrderRequest'
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+
+post:
+  tags: [Shipments]
+  summary: Create shipment from transport order
+  operationId: post_create_shipment_from_transport_order
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '201':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/shipments/from-bid:
-    post:
-      tags: [Shipments]
-      summary: Create shipment from accepted bid
-      operationId: post_create_shipment_from_accepted_bid
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateShipmentFromBidRequest'
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+
+post:
+  tags: [Shipments]
+  summary: Create shipment from accepted bid
+  operationId: post_create_shipment_from_accepted_bid
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '201':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/shipments:
-    get:
-      tags: [Shipments]
-      summary: List shipments
-      description: Returns shipments for the authenticated tenant only. Tenant is derived from bearer authentication at the gateway; `tenant_id` is not a query parameter on this endpoint. Trusted internal `X-Tenant-ID` is set by API Gateway and is not a public client parameter.
-      operationId: get_list_shipments
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+
+get:
+  tags: [Shipments]
+  summary: List shipments
+  operationId: get_list_shipments
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '200':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/shipments/{id}:
-    get:
-      tags: [Shipments]
-      summary: Get shipment by ID
-      description: Returns shipment details for the authenticated tenant. Shipments belonging to another tenant are indistinguishable from missing shipments (404). Tenant is derived from bearer authentication at the gateway; `tenant_id` is not a query parameter on this endpoint. Trusted internal `X-Tenant-ID` is set by API Gateway and is not a public client parameter.
-      operationId: get_get_shipment_by_id
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+
+get:
+  tags: [Shipments]
+  summary: Get shipment by ID
+  operationId: get_get_shipment_by_id
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '200':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/shipments/{id}/assign-driver:
-    post:
-      tags: [Shipments]
-      summary: Assign driver to shipment
-      description: |
-        Driver must belong to the same authenticated tenant as the shipment.
-        Tenant scope is derived from authenticated gateway context and cannot be selected in the request body.
-        Unknown, foreign-tenant, or soft-deleted driver returns 404 indistinguishable from a missing driver.
-      operationId: post_assign_driver_to_shipment
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AssignDriverRequest'
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+
+post:
+  tags: [Shipments]
+  summary: Assign driver to shipment
+  operationId: post_assign_driver_to_shipment
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '201':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/shipments/{id}/assign-vehicle:
-    post:
-      tags: [Shipments]
-      summary: Assign vehicle to shipment
-      description: |
-        Vehicle must belong to the same authenticated tenant as the shipment.
-        Tenant scope is derived from authenticated gateway context and cannot be selected in the request body.
-        Unknown, foreign-tenant, or soft-deleted vehicle returns 404 indistinguishable from a missing vehicle.
-      operationId: post_assign_vehicle_to_shipment
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AssignVehicleRequest'
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+
+post:
+  tags: [Shipments]
+  summary: Assign vehicle to shipment
+  operationId: post_assign_vehicle_to_shipment
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '201':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/shipments/{id}/accept:
-    post:
-      tags: [Shipments]
-      summary: Accept shipment
-      operationId: post_accept_shipment
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: false
-        description: Optional empty body. If present, must not contain tenant or actor fields; unknown properties are rejected.
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              maxProperties: 0
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+
+post:
+  tags: [Shipments]
+  summary: Accept shipment
+  operationId: post_accept_shipment
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '201':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/shipments/{id}/status:
-    patch:
-      tags: [Shipments]
-      summary: Update shipment status
-      operationId: patch_update_shipment_status
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateShipmentStatusRequest'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+
+patch:
+  tags: [Shipments]
+  summary: Update shipment status
+  operationId: patch_update_shipment_status
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '200':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/shipments/{id}/cancel:
-    post:
-      tags: [Shipments]
-      summary: Cancel shipment
-      operationId: post_cancel_shipment
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CancelShipmentRequest'
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /internal/v1/shipments/status-summary:
-    get:
-      tags: [Shipments]
-      summary: Tenant-scoped full shipment status aggregate (internal)
-      description: |
-        Internal-only endpoint for Control Tower legacy baseline and shadow comparison.
-        Not exposed as a public browser route through API Gateway catch-all.
-        Tenant scope is required via trusted `X-Tenant-ID` header only.
-        Returns complete tenant-wide status counts when `complete=true`.
-      operationId: get_internal_shipment_status_summary
-      parameters:
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XRequestID'
-      responses:
-        '200':
-          description: Status aggregate
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ShipmentStatusSummaryResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /internal/v1/shipments/{shipmentId}/status-history:
-    get:
-      tags: [Shipments]
-      summary: List persisted shipment status history (internal)
-      description: |
-        Internal-only endpoint for BFF aggregation. Not exposed as a public browser route through API Gateway catch-all.
-        Tenant scope is required via trusted `X-Tenant-ID` header only.
-      operationId: get_internal_shipment_status_history
-      parameters:
-        - name: shipmentId
-          in: path
-          required: true
+
+post:
+  tags: [Shipments]
+  summary: Cancel shipment
+  operationId: post_cancel_shipment
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '201':
+      description: Successful response
+      content:
+        application/json:
           schema:
-            type: string
-            format: uuid
-        - $ref: '#/components/parameters/XTenantID'
-        - name: page
-          in: query
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
           schema:
-            type: integer
-            minimum: 1
-            default: 1
-        - name: limit
-          in: query
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
           schema:
-            type: integer
-            minimum: 1
-            maximum: 200
-            default: 50
-        - name: order
-          in: query
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
           schema:
-            type: string
-            enum: [asc, desc]
-            default: desc
-      responses:
-        '200':
-          description: Status history page
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ShipmentStatusHistoryResponse'
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Shipment not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/drivers:
-    post:
-      tags: [Drivers]
-      summary: Create driver
-      description: |
-        Tenant scope is derived from authenticated gateway context and cannot be selected in the request body.
-      operationId: post_create_driver
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateDriverRequest'
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    get:
-      tags: [Drivers]
-      summary: List drivers
-      description: |
-        Tenant scope is derived from authenticated gateway context and cannot be selected through query parameters.
-      operationId: get_list_drivers
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-        - name: carrier_company_id
-          in: query
-          required: false
+
+post:
+  tags: [Drivers]
+  summary: Create driver
+  operationId: post_create_driver
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '201':
+      description: Successful response
+      content:
+        application/json:
           schema:
-            type: string
-            format: uuid
-        - name: status
-          in: query
-          required: false
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
           schema:
-            type: string
-        - name: limit
-          in: query
-          required: false
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
           schema:
-            type: integer
-            default: 20
-        - name: offset
-          in: query
-          required: false
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
           schema:
-            type: integer
-            default: 0
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
+get:
+  tags: [Drivers]
+  summary: List drivers
+  operationId: get_list_drivers
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '200':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/drivers/{id}:
-    get:
-      tags: [Drivers]
-      summary: Get driver by ID
-      description: Returns driver details for the authenticated tenant. Foreign-tenant drivers are indistinguishable from missing drivers (404). Tenant is derived from bearer authentication at the gateway; `tenant_id` is not a query parameter on this endpoint.
-      operationId: get_get_driver_by_id
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+
+get:
+  tags: [Drivers]
+  summary: Get driver by ID
+  operationId: get_get_driver_by_id
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '200':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/vehicles:
-    post:
-      tags: [Vehicles]
-      summary: Create vehicle
-      description: |
-        Tenant scope is derived from authenticated gateway context and cannot be selected in the request body.
-      operationId: post_create_vehicle
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateVehicleRequest'
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    get:
-      tags: [Vehicles]
-      summary: List vehicles
-      description: |
-        Tenant scope is derived from authenticated gateway context and cannot be selected through query parameters.
-      operationId: get_list_vehicles
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-        - name: carrier_company_id
-          in: query
-          required: false
+
+post:
+  tags: [Vehicles]
+  summary: Create vehicle
+  operationId: post_create_vehicle
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '201':
+      description: Successful response
+      content:
+        application/json:
           schema:
-            type: string
-            format: uuid
-        - name: status
-          in: query
-          required: false
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
           schema:
-            type: string
-        - name: limit
-          in: query
-          required: false
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
           schema:
-            type: integer
-            default: 20
-        - name: offset
-          in: query
-          required: false
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
           schema:
-            type: integer
-            default: 0
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
+get:
+  tags: [Vehicles]
+  summary: List vehicles
+  operationId: get_list_vehicles
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '200':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/vehicles/{id}:
-    get:
-      tags: [Vehicles]
-      summary: Get vehicle by ID
-      description: Returns vehicle details for the authenticated tenant. Foreign-tenant vehicles are indistinguishable from missing vehicles (404). Tenant is derived from bearer authentication at the gateway; `tenant_id` is not a query parameter on this endpoint.
-      operationId: get_get_vehicle_by_id
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
 
-  /api/v1/order-execution/transport-orders/{id}/execute:
-    post:
-      tags: [Order Execution]
-      summary: Execute awarded transport order (create shipment)
-      operationId: post_execute_transport_order
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/Authorization'
-        - name: id
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-        - name: carrier_company_id
-          in: query
-          required: true
-          schema: { type: string, format: uuid }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [shipment_number]
-              properties:
-                shipment_number: { type: string }
-                planned_pickup_at: { type: string, format: date-time }
-                planned_delivery_at: { type: string, format: date-time }
-      security:
-        - bearerAuth: []
-      responses:
-        '201': { description: Shipment created }
-        '200': { description: Existing shipment returned (idempotent) }
-        '403': { description: Forbidden }
+get:
+  tags: [Vehicles]
+  summary: Get vehicle by ID
+  operationId: get_get_vehicle_by_id
 
-  /api/v1/order-execution/transport-orders/{id}:
-    get:
-      tags: [Order Execution]
-      summary: Get transport order execution view
-      operationId: get_transport_order_execution
-      parameters:
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/Authorization'
-        - name: id
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-        - name: company_id
-          in: query
-          required: true
-          schema: { type: string, format: uuid }
-        - name: actor
-          in: query
-          required: true
-          schema: { type: string, enum: [BUYER, CARRIER] }
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Execution view
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OrderExecutionView'
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
 
-  /api/v1/order-execution/transport-orders/{id}/start:
-    post:
-      tags: [Order Execution]
-      summary: Start shipment execution after assignments
-      operationId: post_start_transport_order_execution
-      parameters:
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/Authorization'
-        - name: id
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-        - name: carrier_company_id
-          in: query
-          required: true
-          schema: { type: string, format: uuid }
-      security:
-        - bearerAuth: []
-      responses:
-        '200': { description: Execution started }
+  security:
+    - bearerAuth: []
 
-  /api/v1/carrier/transport-orders:
-    get:
-      tags: [Order Execution]
-      summary: List carrier awarded transport orders
-      operationId: get_carrier_transport_orders
-      parameters:
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/Authorization'
-        - name: carrier_company_id
-          in: query
-          required: true
-          schema: { type: string, format: uuid }
-      security:
-        - bearerAuth: []
-      responses:
-        '200': { description: Carrier order list }
+  responses:
+    '200':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
 
-  /api/v1/order-execution/buyer/transport-orders:
-    get:
-      tags: [Order Execution]
-      summary: List buyer awarded transport orders
-      operationId: get_buyer_transport_orders
-      parameters:
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/Authorization'
-        - name: buyer_company_id
-          in: query
-          required: true
-          schema: { type: string, format: uuid }
-        - name: limit
-          in: query
-          schema: { type: integer, minimum: 0 }
-        - name: offset
-          in: query
-          schema: { type: integer, minimum: 0 }
-      security:
-        - bearerAuth: []
-      responses:
-        '200': { description: Buyer order list }
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
 
 components:
   securitySchemes:
@@ -1163,7 +988,7 @@ components:
       schema:
         type: string
         format: uuid
-      description: Internal trusted tenant context set by API Gateway after JWT validation. Not a client-selectable parameter on shipment mutations.
+      description: Tenant context
     XCompanyID:
       name: X-Company-ID
       in: header
@@ -1187,207 +1012,6 @@ components:
         type: string
       description: Bearer JWT access token
   schemas:
-    CreateDriverRequest:
-      type: object
-      required: [carrier_company_id, full_name]
-      additionalProperties: false
-      properties:
-        carrier_company_id:
-          type: string
-          format: uuid
-        user_id:
-          type: string
-          format: uuid
-          nullable: true
-        full_name:
-          type: string
-        phone:
-          type: string
-        license_number:
-          type: string
-        license_country:
-          type: string
-        preferred_locale:
-          type: string
-    CreateVehicleRequest:
-      type: object
-      required: [carrier_company_id, plate_number]
-      additionalProperties: false
-      properties:
-        carrier_company_id:
-          type: string
-          format: uuid
-        plate_number:
-          type: string
-        vehicle_type:
-          type: string
-        equipment_type:
-          type: string
-        capacity_weight:
-          type: number
-        capacity_volume:
-          type: number
-        registration_country:
-          type: string
-    CreateShipmentFromTransportOrderRequest:
-      type: object
-      required: [shipment_number, transport_order_id, carrier_company_id]
-      additionalProperties: false
-      description: Tenant scope and actor identity are derived from authenticated gateway context and cannot be selected through request body or query parameters.
-      properties:
-        shipment_number:
-          type: string
-        transport_order_id:
-          type: string
-          format: uuid
-        carrier_company_id:
-          type: string
-          format: uuid
-        forwarder_company_id:
-          type: string
-          format: uuid
-          nullable: true
-        planned_pickup_at:
-          type: string
-          format: date-time
-        planned_delivery_at:
-          type: string
-          format: date-time
-    CreateShipmentFromBidRequest:
-      type: object
-      required: [shipment_number, bid_id, transport_order_id]
-      additionalProperties: false
-      description: Tenant scope and actor identity are derived from authenticated gateway context and cannot be selected through request body or query parameters.
-      properties:
-        shipment_number:
-          type: string
-        bid_id:
-          type: string
-          format: uuid
-        transport_order_id:
-          type: string
-          format: uuid
-        planned_pickup_at:
-          type: string
-          format: date-time
-        planned_delivery_at:
-          type: string
-          format: date-time
-    UpdateShipmentStatusRequest:
-      type: object
-      required: [status]
-      additionalProperties: false
-      description: Tenant scope and actor identity are derived from authenticated gateway context and cannot be selected through request body or query parameters.
-      properties:
-        status:
-          type: string
-        actual_time:
-          type: string
-          format: date-time
-    CancelShipmentRequest:
-      type: object
-      required: [reason]
-      additionalProperties: false
-      description: Tenant scope and actor identity are derived from authenticated gateway context and cannot be selected through request body or query parameters.
-      properties:
-        reason:
-          type: string
-    AssignDriverRequest:
-      type: object
-      required: [driver_id]
-      additionalProperties: false
-      properties:
-        driver_id:
-          type: string
-          format: uuid
-    AssignVehicleRequest:
-      type: object
-      required: [vehicle_id]
-      additionalProperties: false
-      properties:
-        vehicle_id:
-          type: string
-          format: uuid
-    ShipmentStatusSummaryResponse:
-      type: object
-      required: [totalShipments, countedShipments, byStatus, complete, calculatedAt]
-      properties:
-        totalShipments:
-          type: integer
-          format: int64
-          description: Total non-deleted shipments for the tenant.
-        countedShipments:
-          type: integer
-          format: int64
-          description: Sum of counts in byStatus included in this response.
-        byStatus:
-          type: object
-          additionalProperties:
-            type: integer
-            format: int64
-          description: Shipment count per status code.
-        complete:
-          type: boolean
-          description: |
-            True when the aggregate is safe for exact shadow comparison
-            (totalShipments equals countedShipments and all rows are valid).
-        calculatedAt:
-          type: string
-          format: date-time
-          description: Aggregate calculation timestamp (UTC).
-        warnings:
-          type: array
-          items:
-            type: string
-            enum: [UNKNOWN_SHIPMENT_STATUS]
-    ShipmentStatusHistoryItem:
-      type: object
-      required: [id, shipmentId, shipmentVersion, toStatus, source, actor, occurredAt, recordedAt]
-      properties:
-        id: { type: string, format: uuid }
-        shipmentId: { type: string, format: uuid }
-        shipmentVersion: { type: integer }
-        fromStatus: { type: string }
-        toStatus: { type: string }
-        reasonCode: { type: string }
-        source: { type: string }
-        actor:
-          type: object
-          required: [type]
-          description: |
-            USER means a verified authenticated user (gateway-set X-User-ID from JWT sub).
-            SYSTEM means an explicit server-side process; never inferred from missing user context on HTTP mutations.
-            Actor id is not accepted in mutation request bodies.
-          properties:
-            type: { type: string, enum: [USER, SYSTEM] }
-            id: { type: string, format: uuid, description: Present for USER; omitted for SYSTEM. }
-        correlationId: { type: string }
-        occurredAt: { type: string, format: date-time }
-        recordedAt: { type: string, format: date-time }
-    ShipmentStatusHistoryResponse:
-      type: object
-      required: [shipment, complete, items, page, limit, total, hasNext, warnings]
-      properties:
-        shipment:
-          type: object
-          properties:
-            id: { type: string, format: uuid }
-            number: { type: string }
-            currentStatus: { type: string }
-        complete: { type: boolean, description: True when initial creation transition (fromStatus null) exists. }
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/ShipmentStatusHistoryItem'
-        page: { type: integer }
-        limit: { type: integer }
-        total: { type: integer }
-        hasNext: { type: boolean }
-        warnings:
-          type: array
-          items:
-            type: string
-            enum: [SHIPMENT_STATUS_HISTORY_PARTIAL]
     ErrorResponse:
       type: object
       required: [error]
@@ -1432,67 +1056,3 @@ components:
           type: integer
         offset:
           type: integer
-    OrderExecutionView:
-      type: object
-      properties:
-        transport_order_id: { type: string, format: uuid }
-        transport_order_number: { type: string }
-        transport_order_status: { type: string }
-        carrier_company_id: { type: string, format: uuid }
-        buyer_company_id: { type: string, format: uuid }
-        readiness:
-          type: object
-          properties:
-            carrier_accepted: { type: boolean }
-            driver_assigned: { type: boolean }
-            vehicle_assigned: { type: boolean }
-            ready_to_start: { type: boolean }
-            missing_requirements:
-              type: array
-              items: { type: string }
-        provenance:
-          type: object
-          properties:
-            rfx_event_id: { type: string, format: uuid }
-            rfx_award_id: { type: string, format: uuid }
-            rfx_response_id: { type: string, format: uuid }
-            amount: { type: number }
-            currency_code: { type: string }
-        shipment:
-          type: object
-          properties:
-            id: { type: string, format: uuid }
-            shipment_number: { type: string }
-            status: { type: string }
-            planned_pickup_at: { type: string, format: date-time }
-            planned_delivery_at: { type: string, format: date-time }
-            actual_pickup_at: { type: string, format: date-time }
-            actual_delivery_at: { type: string, format: date-time }
-        milestones:
-          type: array
-          items:
-            type: object
-            properties:
-              id: { type: string, format: uuid }
-              to_status: { type: string }
-              from_status: { type: string }
-              occurred_at: { type: string, format: date-time }
-        sla_signals:
-          type: array
-          items:
-            type: object
-            properties:
-              code: { type: string }
-              severity: { type: string }
-              message: { type: string }
-              at: { type: string, format: date-time }
-        pod_documents:
-          type: array
-          items:
-            type: object
-            properties:
-              id: { type: string, format: uuid }
-              document_number: { type: string }
-              status: { type: string }
-              created_at: { type: string, format: date-time }
-

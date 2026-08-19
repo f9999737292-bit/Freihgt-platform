@@ -12,6 +12,7 @@ import (
 
 	"github.com/freight-platform/billing-register-service/internal/config"
 	httpserver "github.com/freight-platform/billing-register-service/internal/http"
+	"github.com/freight-platform/billing-register-service/internal/http/handlers"
 	"github.com/freight-platform/billing-register-service/internal/platform/database"
 	"github.com/freight-platform/billing-register-service/internal/platform/logger"
 	"github.com/freight-platform/billing-register-service/internal/repository"
@@ -42,12 +43,14 @@ func main() {
 	registerRepo := repository.NewBillingRegisterRepository(db.Pool)
 	closingRepo := repository.NewClosingDocumentRepository(db.Pool)
 	settlementRepo := repository.NewFreightSettlementRepository(db.Pool)
+	membershipRepo := repository.NewMembershipRepository(db.Pool)
 
 	registerSvc := service.NewBillingRegisterService(registerRepo)
 	closingSvc := service.NewClosingDocumentService(registerRepo, closingRepo)
 	settlementSvc := service.NewFreightSettlementService(settlementRepo)
+	actorResolver := handlers.NewSettlementActorResolver(membershipRepo)
 
-	router := httpserver.NewRouter(log, db.Pool, registerSvc, closingSvc, settlementSvc)
+	router := httpserver.NewRouter(log, db.Pool, registerSvc, closingSvc, settlementSvc, actorResolver)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

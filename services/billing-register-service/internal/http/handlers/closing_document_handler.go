@@ -15,10 +15,11 @@ import (
 
 type ClosingDocumentHandler struct {
 	closing *service.ClosingDocumentService
+	actor   *SettlementActorResolver
 }
 
-func NewClosingDocumentHandler(closing *service.ClosingDocumentService) *ClosingDocumentHandler {
-	return &ClosingDocumentHandler{closing: closing}
+func NewClosingDocumentHandler(closing *service.ClosingDocumentService, actor *SettlementActorResolver) *ClosingDocumentHandler {
+	return &ClosingDocumentHandler{closing: closing, actor: actor}
 }
 
 type createPackageRequest struct {
@@ -62,7 +63,7 @@ type createUPDRequest struct {
 }
 
 func (h *ClosingDocumentHandler) CreatePackage(w http.ResponseWriter, r *http.Request) {
-	actor, err := settlementActorInput(r)
+	actor, err := h.actor.FromRequest(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -98,7 +99,7 @@ func (h *ClosingDocumentHandler) CreatePackage(w http.ResponseWriter, r *http.Re
 }
 
 func (h *ClosingDocumentHandler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
-	actor, err := settlementActorInput(r)
+	actor, err := h.actor.FromRequest(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -131,7 +132,7 @@ func (h *ClosingDocumentHandler) CreateInvoice(w http.ResponseWriter, r *http.Re
 }
 
 func (h *ClosingDocumentHandler) CreateAct(w http.ResponseWriter, r *http.Request) {
-	actor, err := settlementActorInput(r)
+	actor, err := h.actor.FromRequest(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -164,7 +165,7 @@ func (h *ClosingDocumentHandler) CreateAct(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *ClosingDocumentHandler) CreateVATInvoice(w http.ResponseWriter, r *http.Request) {
-	actor, err := settlementActorInput(r)
+	actor, err := h.actor.FromRequest(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -197,7 +198,7 @@ func (h *ClosingDocumentHandler) CreateVATInvoice(w http.ResponseWriter, r *http
 }
 
 func (h *ClosingDocumentHandler) CreateUPD(w http.ResponseWriter, r *http.Request) {
-	actor, err := settlementActorInput(r)
+	actor, err := h.actor.FromRequest(r)
 	if err != nil {
 		respond.Error(w, err)
 		return

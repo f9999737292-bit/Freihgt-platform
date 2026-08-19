@@ -18,10 +18,11 @@ import (
 
 type BillingRegisterHandler struct {
 	registers *service.BillingRegisterService
+	actor     *SettlementActorResolver
 }
 
-func NewBillingRegisterHandler(registers *service.BillingRegisterService) *BillingRegisterHandler {
-	return &BillingRegisterHandler{registers: registers}
+func NewBillingRegisterHandler(registers *service.BillingRegisterService, actor *SettlementActorResolver) *BillingRegisterHandler {
+	return &BillingRegisterHandler{registers: registers, actor: actor}
 }
 
 func (h *BillingRegisterHandler) Health(w http.ResponseWriter, _ *http.Request) {
@@ -66,7 +67,7 @@ type createItemRequest struct {
 }
 
 func (h *BillingRegisterHandler) Create(w http.ResponseWriter, r *http.Request) {
-	actor, err := settlementActorInput(r)
+	actor, err := h.actor.FromRequest(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -94,7 +95,7 @@ func (h *BillingRegisterHandler) Create(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *BillingRegisterHandler) GetByID(w http.ResponseWriter, r *http.Request) {
-	actor, err := settlementActorInput(r)
+	actor, err := h.actor.FromRequest(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -113,7 +114,7 @@ func (h *BillingRegisterHandler) GetByID(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *BillingRegisterHandler) List(w http.ResponseWriter, r *http.Request) {
-	actor, err := settlementActorInput(r)
+	actor, err := h.actor.FromRequest(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -167,7 +168,7 @@ func (h *BillingRegisterHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *BillingRegisterHandler) AddItem(w http.ResponseWriter, r *http.Request) {
-	actor, err := settlementActorInput(r)
+	actor, err := h.actor.FromRequest(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -200,7 +201,7 @@ func (h *BillingRegisterHandler) AddItem(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *BillingRegisterHandler) ListItems(w http.ResponseWriter, r *http.Request) {
-	actor, err := settlementActorInput(r)
+	actor, err := h.actor.FromRequest(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -223,7 +224,7 @@ func (h *BillingRegisterHandler) ListItems(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *BillingRegisterHandler) DeleteItem(w http.ResponseWriter, r *http.Request) {
-	actor, err := settlementActorInput(r)
+	actor, err := h.actor.FromRequest(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -261,7 +262,7 @@ func (h *BillingRegisterHandler) Calculate(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *BillingRegisterHandler) Approve(w http.ResponseWriter, r *http.Request) {
-	actor, err := settlementActorInput(r)
+	actor, err := h.actor.FromRequest(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -333,7 +334,7 @@ func (h *BillingRegisterHandler) Close(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *BillingRegisterHandler) actorMutation(w http.ResponseWriter, r *http.Request, fn func(uuid.UUID, domain.SettlementActorInput) (any, error)) {
-	actor, err := settlementActorInput(r)
+	actor, err := h.actor.FromRequest(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -498,7 +499,7 @@ type includeSettlementRequest struct {
 }
 
 func (h *BillingRegisterHandler) IncludeSettlement(w http.ResponseWriter, r *http.Request) {
-	actor, err := settlementActorInput(r)
+	actor, err := h.actor.FromRequest(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -535,7 +536,7 @@ func (h *BillingRegisterHandler) IncludeSettlement(w http.ResponseWriter, r *htt
 }
 
 func (h *BillingRegisterHandler) RemoveSettlement(w http.ResponseWriter, r *http.Request) {
-	actor, err := settlementActorInput(r)
+	actor, err := h.actor.FromRequest(r)
 	if err != nil {
 		respond.Error(w, err)
 		return

@@ -1,15 +1,9 @@
 openapi: 3.0.3
 info:
-  title: Freight Platform API - RFx Service
+  title: Freight Platform API - Rfx
   version: 0.1.0
   description: |
-    OpenAPI specification for RFx Service.
-    Tenant scope is derived from trusted `X-Tenant-ID` injected by API Gateway after JWT validation.
-    Do not send `tenant_id` as a query parameter; it is rejected with HTTP 403.
-    `owner_company_id` and `shipper_company_id` may be supplied as selectors only; the server validates
-    authenticated buyer company membership and rejects cross-company mutations within the same tenant.
-    Lane creation on `/v1/rfx-lots/{lot_id}/lanes` requires buyer membership on the persisted RFx owner
-    company resolved via lot → RFx hierarchy; cross-company and cross-tenant attempts return HTTP 404.
+    OpenAPI specification for Rfx.
 servers:
   - url: http://localhost:8080
     description: Local API Gateway
@@ -33,1897 +27,1007 @@ tags:
   - name: Signing
   - name: Billing Registers
   - name: Closing Documents
-
 paths:
   /api/v1/rfx-events:
-    post:
-      tags: [RFx]
-      summary: Create RFx event
-      operationId: post_create_rfx_event
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    get:
-      tags: [RFx]
-      summary: List RFx events
-      operationId: get_list_rfx_events
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+
+post:
+  tags: [RFx]
+  summary: Create RFx event
+  operationId: post_create_rfx_event
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '201':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
+get:
+  tags: [RFx]
+  summary: List RFx events
+  operationId: get_list_rfx_events
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '200':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/rfx-events/{id}:
-    get:
-      tags: [RFx]
-      summary: Get RFx event by ID
-      operationId: get_get_rfx_event_by_id
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    patch:
-      tags: [RFx]
-      summary: Update RFx event
-      operationId: patch_update_rfx_event
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+
+get:
+  tags: [RFx]
+  summary: Get RFx event by ID
+  operationId: get_get_rfx_event_by_id
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '200':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
+patch:
+  tags: [RFx]
+  summary: Update RFx event
+  operationId: patch_update_rfx_event
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '200':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/rfx-events/{id}/publish:
-    post:
-      tags: [RFx]
-      summary: Publish RFx event
-      operationId: post_publish_rfx_event
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+
+post:
+  tags: [RFx]
+  summary: Publish RFx event
+  operationId: post_publish_rfx_event
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '201':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/rfx-events/{id}/cancel:
-    post:
-      tags: [RFx]
-      summary: Cancel RFx event
-      operationId: post_cancel_rfx_event
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /api/v1/rfx-events/{id}/transitions/{command}:
-    post:
-      tags: [RFx]
-      summary: Transition RFx event lifecycle
-      description: |
-        Applies a lifecycle command (`publish`, `send-invitations`, `open-questions`, `open-responses`,
-        `close-responses`, `start-evaluation`, `shortlist`, `award`, `archive`, `cancel`, `reopen-responses`).
-        Requires trusted `X-Tenant-ID` header. `tenant_id` query is rejected with 403.
-      operationId: post_rfx_event_transition
-      parameters:
-        - name: id
-          in: path
-          required: true
+
+post:
+  tags: [RFx]
+  summary: Cancel RFx event
+  operationId: post_cancel_rfx_event
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '201':
+      description: Successful response
+      content:
+        application/json:
           schema:
-            type: string
-            format: uuid
-        - name: command
-          in: path
-          required: true
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
           schema:
-            type: string
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Transition applied
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /api/v1/rfx-events/{id}/open-questions:
-    post:
-      tags: [RFx]
-      summary: Open questions phase
-      operationId: post_rfx_open_questions
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Successful response
-  /api/v1/rfx-events/{id}/open-responses:
-    post:
-      tags: [RFx]
-      summary: Open responses phase
-      operationId: post_rfx_open_responses
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Successful response
-  /api/v1/rfx-events/{id}/close-responses:
-    post:
-      tags: [RFx]
-      summary: Close responses phase
-      operationId: post_rfx_close_responses
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Successful response
-  /api/v1/rfx-events/{id}/start-evaluation:
-    post:
-      tags: [RFx]
-      summary: Start evaluation phase
-      operationId: post_rfx_start_evaluation
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Successful response
-  /api/v1/rfx-events/{id}/shortlist:
-    post:
-      tags: [RFx]
-      summary: Shortlist participants
-      operationId: post_rfx_shortlist
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Successful response
-  /api/v1/rfx-events/{id}/award:
-    post:
-      tags: [RFx]
-      summary: Award RFx event
-      operationId: post_rfx_award_event
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Successful response
-  /api/v1/rfx-events/{id}/archive:
-    post:
-      tags: [RFx]
-      summary: Archive RFx event
-      operationId: post_rfx_archive_event
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Successful response
-  /api/v1/rfx-events/{id}/send-invitations:
-    post:
-      tags: [RFx]
-      summary: Send RFx invitations
-      operationId: post_rfx_send_invitations
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Successful response
-  /api/v1/rfx-events/{id}/extend-deadline:
-    post:
-      tags: [RFx]
-      summary: Extend RFx response deadline
-      operationId: post_rfx_extend_deadline
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [response_deadline]
-              properties:
-                response_deadline:
-                  type: string
-                  format: date-time
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Successful response
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/rfx-events/{id}/participants:
-    post:
-      tags: [RFx]
-      summary: Add RFx participant
-      operationId: post_add_rfx_participant
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    get:
-      tags: [RFx]
-      summary: List RFx participants
-      operationId: get_list_rfx_participants
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /api/v1/rfx-events/{id}/lots:
-    post:
-      tags: [RFx]
-      summary: Create RFx lot
-      description: Requires buyer membership on the RFx owner company. Cross-company attempts return 404.
-      operationId: post_create_rfx_lot
-      parameters:
-        - name: id
-          in: path
-          required: true
+
+post:
+  tags: [RFx]
+  summary: Add RFx participant
+  operationId: post_add_rfx_participant
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '201':
+      description: Successful response
+      content:
+        application/json:
           schema:
-            type: string
-            format: uuid
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Lot created
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    get:
-      tags: [RFx]
-      summary: List RFx lots
-      description: Buyer-scoped list for an RFx event. Cross-company access returns 404.
-      operationId: get_list_rfx_lots
-      parameters:
-        - name: id
-          in: path
-          required: true
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
           schema:
-            type: string
-            format: uuid
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Lots list
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /api/v1/rfx-lots/{lot_id}/lanes:
-    post:
-      tags: [RFx]
-      summary: Create RFx lane on lot
-      description: |
-        Requires buyer membership on persisted RFx owner company resolved via lot → RFx hierarchy.
-        Cross-company and cross-tenant attempts return 404.
-      operationId: post_create_rfx_lane
-      parameters:
-        - name: lot_id
-          in: path
-          required: true
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
           schema:
-            type: string
-            format: uuid
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Lane created
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    get:
-      tags: [RFx]
-      summary: List RFx lanes on lot
-      description: Buyer owner or invited carrier participant access. Cross-company attempts return 404.
-      operationId: get_list_rfx_lanes
-      parameters:
-        - name: lot_id
-          in: path
-          required: true
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
           schema:
-            type: string
-            format: uuid
-        - name: carrier_company_id
-          in: query
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
           schema:
-            type: string
-            format: uuid
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Lanes list
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
+get:
+  tags: [RFx]
+  summary: List RFx participants
+  operationId: get_list_rfx_participants
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '200':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/freight-requests/from-transport-order:
-    post:
-      tags: [Freight Requests]
-      summary: Create freight request from transport order
-      operationId: post_create_freight_request_from_transport_order
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+
+post:
+  tags: [Freight Requests]
+  summary: Create freight request from transport order
+  operationId: post_create_freight_request_from_transport_order
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '201':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/freight-requests:
-    get:
-      tags: [Freight Requests]
-      summary: List freight requests
-      description: |
-        Returns tenant-scoped freight requests (C1). Public clients authenticate with Bearer JWT only.
-        API Gateway validates the token and injects trusted X-Tenant-ID for downstream rfx-service.
-        Caller-supplied tenant_id query is not authorization authority and is ignored when present.
-      operationId: get_list_freight_requests
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-        - name: limit
-          in: query
-          required: false
+
+get:
+  tags: [Freight Requests]
+  summary: List freight requests
+  operationId: get_list_freight_requests
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '200':
+      description: Successful response
+      content:
+        application/json:
           schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 20
-        - name: offset
-          in: query
-          required: false
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
           schema:
-            type: integer
-            minimum: 0
-            default: 0
-        - name: request_type
-          in: query
-          required: false
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
           schema:
-            type: string
-        - name: status
-          in: query
-          required: false
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
           schema:
-            type: string
-        - name: shipper_company_id
-          in: query
-          required: false
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
           schema:
-            type: string
-            format: uuid
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Paginated freight requests
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [items, total, limit, offset]
-                properties:
-                  items:
-                    type: array
-                    items:
-                      type: object
-                      additionalProperties: true
-                  total:
-                    type: integer
-                  limit:
-                    type: integer
-                  offset:
-                    type: integer
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/freight-requests/{id}:
-    get:
-      tags: [Freight Requests]
-      summary: Get freight request by ID
-      description: |
-        Returns a tenant-scoped freight request (C2). Public clients authenticate with Bearer JWT only.
-        API Gateway validates the token and injects trusted X-Tenant-ID for downstream rfx-service.
-        Caller-supplied tenant_id query is not authorization authority and is ignored when present.
-      operationId: get_get_freight_request_by_id
-      parameters:
-        - name: id
-          in: path
-          required: true
+
+get:
+  tags: [Freight Requests]
+  summary: Get freight request by ID
+  operationId: get_get_freight_request_by_id
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '200':
+      description: Successful response
+      content:
+        application/json:
           schema:
-            type: string
-            format: uuid
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Freight request
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/freight-requests/{id}/publish:
-    post:
-      tags: [Freight Requests]
-      summary: Publish freight request
-      operationId: post_publish_freight_request
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+
+post:
+  tags: [Freight Requests]
+  summary: Publish freight request
+  operationId: post_publish_freight_request
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '201':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/freight-requests/{id}/bids:
-    post:
-      tags: [Bids]
-      summary: Create bid for freight request
-      operationId: post_create_bid_for_freight_request
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    get:
-      tags: [Freight Requests]
-      summary: List bids for freight request
-      description: |
-        Returns tenant-scoped bids for a freight request (C3). Public clients authenticate with Bearer JWT only.
-        API Gateway validates the token and injects trusted X-Tenant-ID for downstream rfx-service.
-        Caller-supplied tenant_id query is not authorization authority and is ignored when present.
-        Runtime implementation is owned by PILOT002 Task B.
-      operationId: get_list_bids_for_freight_request
-      parameters:
-        - name: id
-          in: path
-          required: true
+
+post:
+  tags: [Bids]
+  summary: Create bid for freight request
+  operationId: post_create_bid_for_freight_request
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '201':
+      description: Successful response
+      content:
+        application/json:
           schema:
-            type: string
-            format: uuid
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Bids for freight request
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /api/v1/bids/{id}:
-    get:
-      tags: [Bids]
-      summary: Get bid by ID
-      description: |
-        Returns a tenant-scoped bid. Public clients authenticate with Bearer JWT only.
-        API Gateway validates the token and injects trusted X-Tenant-ID for downstream rfx-service.
-        Do not use tenant_id query on this endpoint.
-      operationId: get_bid_by_id
-      parameters:
-        - name: id
-          in: path
-          required: true
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
           schema:
-            type: string
-            format: uuid
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
+get:
+  tags: [Freight Requests]
+  summary: List bids for freight request
+  operationId: get_list_bids_for_freight_request
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '200':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/bids/{id}/submit:
-    post:
-      tags: [Bids]
-      summary: Submit bid
-      operationId: post_submit_bid
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+
+post:
+  tags: [Bids]
+  summary: Submit bid
+  operationId: post_submit_bid
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '201':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/bids/{id}/accept:
-    post:
-      tags: [Bids]
-      summary: Accept bid
-      description: |
-        Accepts a tenant-scoped bid (C4). Public clients authenticate with Bearer JWT only.
-        API Gateway validates the token and injects trusted X-Tenant-ID for downstream rfx-service.
-        Caller-supplied tenant_id query is not authorization authority and is ignored when present.
-        Runtime implementation is owned by PILOT002 Task B.
-      operationId: post_accept_bid
-      parameters:
-        - name: id
-          in: path
-          required: true
+
+post:
+  tags: [Bids]
+  summary: Accept bid
+  operationId: post_accept_bid
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '201':
+      description: Successful response
+      content:
+        application/json:
           schema:
-            type: string
-            format: uuid
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /api/v1/carrier/rfx-events:
-    get:
-      tags: [RFx]
-      summary: List carrier-invited RFx events
-      description: |
-        Returns RFx events where the authenticated carrier user is an invited participant.
-        Requires verified carrier company membership; `carrier_company_id` selects membership when multiple exist.
-        Response payloads include only the caller's own response metadata — never competitor responses.
-      operationId: get_list_carrier_invited_rfx_events
-      parameters:
-        - name: carrier_company_id
-          in: query
-          required: false
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
           schema:
-            type: string
-            format: uuid
-        - name: status
-          in: query
-          required: false
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
           schema:
-            type: string
-        - name: response_filter
-          in: query
-          required: false
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
           schema:
-            type: string
-            enum: [OPEN_FOR_RESPONSE, RESPONDED, NOT_RESPONDED, CLOSED]
-        - name: search
-          in: query
-          required: false
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
           schema:
-            type: string
-        - name: limit
-          in: query
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
           schema:
-            type: integer
-            default: 20
-        - name: offset
-          in: query
-          schema:
-            type: integer
-            default: 0
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Carrier-invited RFx list
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /api/v1/rfx-events/{id}/own-response:
-    get:
-      tags: [RFx]
-      summary: Get own RFx response for event
-      description: Returns the authenticated carrier company's response for an invited RFx event. Competitor responses return 404.
-      operationId: get_own_rfx_response
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - name: carrier_company_id
-          in: query
-          schema:
-            type: string
-            format: uuid
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Own RFx response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /api/v1/rfx-events/{id}/own-participant:
-    get:
-      tags: [RFx]
-      summary: Get own participant record for RFx event
-      operationId: get_own_rfx_participant
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - name: carrier_company_id
-          in: query
-          schema:
-            type: string
-            format: uuid
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Own participant
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /api/v1/rfx-responses/{response_id}:
-    get:
-      tags: [RFx]
-      summary: Get RFx response by ID
-      description: Carrier callers receive only their own company's response; competitor IDs return 404.
-      operationId: get_rfx_response_by_id
-      parameters:
-        - name: response_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: RFx response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    patch:
-      tags: [RFx]
-      summary: Update own draft RFx response commercial offer lines
-      description: Carrier may update offer lines only while response status is DRAFT and for own participant company.
-      operationId: patch_rfx_response_commercial
-      parameters:
-        - name: response_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                offer_lines:
-                  type: array
-                  items:
-                    type: object
-                    additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Updated response with offer lines
-        '409':
-          description: Submitted response is immutable
-  /api/v1/rfx-responses/{response_id}/shortlist:
-    post:
-      tags: [RFx]
-      summary: Add submitted response to shortlist
-      operationId: post_rfx_response_shortlist
-      parameters:
-        - name: response_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Response shortlisted
-    delete:
-      tags: [RFx]
-      summary: Remove response from shortlist
-      operationId: delete_rfx_response_shortlist
-      parameters:
-        - name: response_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Response removed from shortlist
-  /api/v1/rfx-events/{id}/responses:
-    get:
-      tags: [RFx]
-      summary: List submitted responses for buyer evaluation
-      operationId: get_rfx_event_evaluation_responses
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Evaluation comparison items
-  /api/v1/rfx-events/{id}/evaluation/recalculate:
-    post:
-      tags: [RFx]
-      summary: Recalculate commercial scores and ranks
-      operationId: post_rfx_event_recalculate_evaluation
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Updated evaluation items
-  /api/v1/rfx-events/{id}/award-response:
-    post:
-      tags: [RFx]
-      summary: Award winning RFx response
-      operationId: post_rfx_event_award_response
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [response_id]
-              properties:
-                response_id:
-                  type: string
-                  format: uuid
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Award record
-        '409':
-          description: Event already awarded
-  /api/v1/rfx-events/{id}/transport-orders:
-    post:
-      tags: [RFx]
-      summary: Convert awarded RFx to transport orders
-      description: |
-        Idempotent buyer operation. Derives winner, commercial values, parties, and route from persisted award state.
-        Repeated calls return existing transport order links without creating duplicates.
-      operationId: post_rfx_event_transport_orders
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Transport orders created
-        '200':
-          description: Existing transport orders returned (idempotent)
-        '403':
-          description: Forbidden
-        '404':
-          description: Not found
-        '422':
-          description: Business validation failed
-    get:
-      tags: [RFx]
-      summary: List transport orders generated from awarded RFx
-      operationId: get_rfx_event_transport_orders
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Transport order linkage items
-  /api/v1/rfx-events/{id}/audit-events:
-    get:
-      tags: [RFx]
-      summary: List buyer-visible RFx audit events
-      operationId: get_rfx_event_audit_events
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Audit timeline
-  /api/v1/rfx-events/{id}/own-award:
-    get:
-      tags: [RFx]
-      summary: Get carrier own award result for RFx event
-      operationId: get_rfx_event_own_award
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - name: carrier_company_id
-          in: query
-          schema:
-            type: string
-            format: uuid
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Own award when carrier won
-        '404':
-          description: Not found or not awarded to caller
+            $ref: '#/components/schemas/ErrorResponse'
+
+
 
 components:
   securitySchemes:
@@ -1946,7 +1050,7 @@ components:
       schema:
         type: string
         format: uuid
-      description: Trusted tenant identifier injected by API Gateway after JWT validation. Not client-authoritative.
+      description: Tenant context
     XCompanyID:
       name: X-Company-ID
       in: header
@@ -2014,4 +1118,3 @@ components:
           type: integer
         offset:
           type: integer
-

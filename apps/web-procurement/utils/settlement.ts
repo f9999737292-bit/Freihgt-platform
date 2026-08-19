@@ -73,9 +73,8 @@ export function filterSettlementsByRegister<T extends { billing_register_id?: st
   return items.filter((item) => item.billing_register_id === registerId)
 }
 
-export function settlementActorQuery(actor: SettlementActor, companyId: string) {
+export function settlementActorQuery(companyId: string) {
   return {
     company_id: companyId,
-    actor,
   }
 }

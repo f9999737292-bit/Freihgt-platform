@@ -21,10 +21,11 @@ func NewRouter(
 	registerSvc *service.BillingRegisterService,
 	closingSvc *service.ClosingDocumentService,
 	settlementSvc *service.FreightSettlementService,
+	actor *handlers.SettlementActorResolver,
 ) http.Handler {
-	registerHandler := handlers.NewBillingRegisterHandler(registerSvc)
-	closingHandler := handlers.NewClosingDocumentHandler(closingSvc)
-	settlementHandler := handlers.NewFreightSettlementHandler(settlementSvc)
+	registerHandler := handlers.NewBillingRegisterHandler(registerSvc, actor)
+	closingHandler := handlers.NewClosingDocumentHandler(closingSvc, actor)
+	settlementHandler := handlers.NewFreightSettlementHandler(settlementSvc, actor)
 
 	r := chi.NewRouter()
 	observability.Mount(r, observability.MountOptions{

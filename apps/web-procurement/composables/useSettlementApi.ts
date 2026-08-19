@@ -26,8 +26,8 @@ export function useSettlementApi() {
   const { apiGet, apiPost } = useApi()
   const tenantStore = useTenantStore()
 
-  function actorQuery(actor: SettlementActor) {
-    return settlementActorQuery(actor, requireCompanyId(tenantStore.currentCompanyId))
+  function actorQuery(_actor: SettlementActor) {
+    return settlementActorQuery(requireCompanyId(tenantStore.currentCompanyId))
   }
 
   async function listSettlements(

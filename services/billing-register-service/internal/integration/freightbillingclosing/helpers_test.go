@@ -223,7 +223,52 @@ func seedFixture(t *testing.T, pool *pgxpool.Pool) fixture {
 	}
 	seedDeliveredShipment(t, pool, fix)
 	seedPODDocument(t, pool, fix.TenantID, fix.CarrierA, fix.ShipmentID, "POD-"+fix.ShipmentID.String()[:8])
+	seedBillingMemberships(t, pool, fix)
 	return fix
+}
+
+func seedBillingMemberships(t *testing.T, pool *pgxpool.Pool, fix fixture) {
+	t.Helper()
+	ctx := context.Background()
+	for _, row := range []struct {
+		id    uuid.UUID
+		email string
+	}{
+		{fix.UserID, "carrier-user@" + fix.TenantID.String()[:8] + ".test"},
+		{fix.BuyerUserID, "buyer-user@" + fix.TenantID.String()[:8] + ".test"},
+	} {
+		if _, err := pool.Exec(ctx, `INSERT INTO core.users (id, tenant_id, email, full_name, status)
+			VALUES ($1,$2,$3,$4,'ACTIVE') ON CONFLICT (id) DO NOTHING`, row.id, fix.TenantID, row.email, row.email); err != nil {
+			t.Fatalf("user: %v", err)
+		}
+	}
+	for _, row := range []struct {
+		userID, companyID uuid.UUID
+	}{
+		{fix.UserID, fix.CarrierA},
+		{fix.BuyerUserID, fix.BuyerID},
+	} {
+		if _, err := pool.Exec(ctx, `INSERT INTO core.company_memberships (tenant_id, company_id, user_id, status)
+			VALUES ($1,$2,$3,'ACTIVE') ON CONFLICT (company_id, user_id) DO NOTHING`,
+			fix.TenantID, row.companyID, row.userID); err != nil {
+			t.Fatalf("membership: %v", err)
+		}
+	}
+	var carrierRoleID, buyerRoleID uuid.UUID
+	if err := pool.QueryRow(ctx, `SELECT id FROM core.roles WHERE tenant_id IS NULL AND code='CARRIER_ADMIN' LIMIT 1`).Scan(&carrierRoleID); err != nil {
+		t.Fatalf("carrier role: %v", err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT id FROM core.roles WHERE tenant_id IS NULL AND code='SHIPPER_ADMIN' LIMIT 1`).Scan(&buyerRoleID); err != nil {
+		t.Fatalf("buyer role: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO core.user_roles (tenant_id, user_id, company_id, role_id)
+		VALUES ($1,$2,$3,$4) ON CONFLICT (user_id, company_id, role_id) DO NOTHING`, fix.TenantID, fix.UserID, fix.CarrierA, carrierRoleID); err != nil {
+		t.Fatalf("carrier user role: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO core.user_roles (tenant_id, user_id, company_id, role_id)
+		VALUES ($1,$2,$3,$4) ON CONFLICT (user_id, company_id, role_id) DO NOTHING`, fix.TenantID, fix.BuyerUserID, fix.BuyerID, buyerRoleID); err != nil {
+		t.Fatalf("buyer user role: %v", err)
+	}
 }
 
 func seedDeliveredShipment(t *testing.T, pool *pgxpool.Pool, fix fixture) {
