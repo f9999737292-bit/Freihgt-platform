@@ -20,12 +20,13 @@ import (
 	"github.com/freight-platform/payment-service/internal/service"
 )
 
-const maxMigrationFile = "000045_freight_payments_core_v1.9.1.up.sql"
+const maxMigrationFile = "000046_payment_paid_projection_outbox_v1.9.2A.up.sql"
 
 type env struct {
 	pool        *pgxpool.Pool
 	payments    *service.PaymentService
 	paymentRepo *repository.PaymentRepository
+	outboxRepo  *repository.OutboxRepository
 }
 
 type fixture struct {
@@ -55,8 +56,9 @@ func setupEnv(t *testing.T) *env {
 	paymentRepo := repository.NewPaymentRepository(pool)
 	registerLookup := repository.NewBillingRegisterLookupRepository(pool)
 	membershipRepo := repository.NewMembershipRepository(pool)
-	paymentSvc := service.NewPaymentService(paymentRepo, registerLookup, membershipRepo, nil)
-	return &env{pool: pool, payments: paymentSvc, paymentRepo: paymentRepo}
+	outboxRepo := repository.NewOutboxRepository(pool)
+	paymentSvc := service.NewPaymentService(paymentRepo, registerLookup, membershipRepo, nil, outboxRepo)
+	return &env{pool: pool, payments: paymentSvc, paymentRepo: paymentRepo, outboxRepo: outboxRepo}
 }
 
 func applyMigrations(ctx context.Context, pool *pgxpool.Pool) error {

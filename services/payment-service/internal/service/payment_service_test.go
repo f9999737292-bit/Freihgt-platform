@@ -63,7 +63,7 @@ func testPaymentActor() domain.PaymentActorInput {
 
 func TestCreateManualPaymentRejectsOverPrecision(t *testing.T) {
 	t.Parallel()
-	svc := NewPaymentService(precisionGuardStore{}, nil, alwaysMemberStore{}, nil)
+	svc := NewPaymentService(precisionGuardStore{}, nil, alwaysMemberStore{}, nil, nil)
 	actor := testPaymentActor()
 	_, err := svc.CreateManualPayment(context.Background(), domain.CreateManualPaymentInput{
 		Amount: decimal.RequireFromString("1.234"), CurrencyCode: "RUB", PaymentDate: time.Now().UTC(),
@@ -77,7 +77,7 @@ func TestCreateManualPaymentRejectsOverPrecision(t *testing.T) {
 
 func TestCreateManualPaymentAllowsTrailingZeroPrecision(t *testing.T) {
 	t.Parallel()
-	svc := NewPaymentService(precisionGuardStore{}, nil, alwaysMemberStore{}, nil)
+	svc := NewPaymentService(precisionGuardStore{}, nil, alwaysMemberStore{}, nil, nil)
 	actor := testPaymentActor()
 	_, err := svc.CreateManualPayment(context.Background(), domain.CreateManualPaymentInput{
 		Amount: decimal.RequireFromString("1.230"), CurrencyCode: "RUB", PaymentDate: time.Now().UTC(),
@@ -90,7 +90,7 @@ func TestCreateManualPaymentAllowsTrailingZeroPrecision(t *testing.T) {
 
 func TestAllocateRejectsOverPrecision(t *testing.T) {
 	t.Parallel()
-	svc := NewPaymentService(precisionGuardStore{}, nil, alwaysMemberStore{}, nil)
+	svc := NewPaymentService(precisionGuardStore{}, nil, alwaysMemberStore{}, nil, nil)
 	_, err := svc.Allocate(context.Background(), domain.CreateAllocationInput{
 		PaymentID: uuid.New(), ObligationID: uuid.New(),
 		AllocatedAmount: decimal.RequireFromString("1.234"),
