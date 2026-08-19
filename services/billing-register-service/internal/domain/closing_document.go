@@ -44,11 +44,10 @@ func ValidateCreateClosingDocumentPackageInput(in CreateClosingDocumentPackageIn
 	if in.TenantID == uuid.Nil {
 		return apperrors.Validation("tenant_id is required", map[string]any{"field": "tenant_id"})
 	}
-	if strings.TrimSpace(in.PackageNumber) == "" {
-		return apperrors.Validation("package_number is required", map[string]any{"field": "package_number"})
-	}
-	if _, ok := allowedPackageTypes[strings.TrimSpace(in.PackageType)]; !ok {
-		return apperrors.Validation("invalid package_type", map[string]any{"field": "package_type", "value": in.PackageType})
+	if pkgType := strings.TrimSpace(in.PackageType); pkgType != "" {
+		if _, ok := allowedPackageTypes[pkgType]; !ok {
+			return apperrors.Validation("invalid package_type", map[string]any{"field": "package_type", "value": in.PackageType})
+		}
 	}
 	return nil
 }
