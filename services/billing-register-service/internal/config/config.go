@@ -7,11 +7,13 @@ import (
 )
 
 type Config struct {
-	ServiceName string
-	Environment string
-	HTTPPort    int
-	LogLevel    string
-	DatabaseURL string
+	ServiceName          string
+	Environment          string
+	HTTPPort             int
+	LogLevel             string
+	DatabaseURL          string
+	PaymentServiceURL    string
+	InternalServiceToken string
 }
 
 func Load() (Config, error) {
@@ -34,11 +36,13 @@ func Load() (Config, error) {
 	}
 
 	return Config{
-		ServiceName: "billing-register-service",
-		Environment: getEnv("ENVIRONMENT", "development"),
-		HTTPPort:    port,
-		LogLevel:    getEnv("LOG_LEVEL", "info"),
-		DatabaseURL: databaseURL,
+		ServiceName:          "billing-register-service",
+		Environment:          getEnv("ENVIRONMENT", "development"),
+		HTTPPort:             port,
+		LogLevel:             getEnv("LOG_LEVEL", "info"),
+		DatabaseURL:          databaseURL,
+		PaymentServiceURL:    getEnv("PAYMENT_SERVICE_URL", "http://localhost:8090"),
+		InternalServiceToken: os.Getenv("INTERNAL_SERVICE_TOKEN"),
 	}, nil
 }
 

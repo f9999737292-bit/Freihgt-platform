@@ -17,6 +17,7 @@ import (
 	"github.com/freight-platform/api-gateway/internal/platform/respond"
 	"github.com/freight-platform/api-gateway/internal/rfxrbac"
 	"github.com/freight-platform/api-gateway/internal/billingrbac"
+	"github.com/freight-platform/api-gateway/internal/paymentrbac"
 	"github.com/freight-platform/api-gateway/internal/settlementrbac"
 	"github.com/freight-platform/api-gateway/internal/shipmentevents"
 	"github.com/freight-platform/api-gateway/internal/tracking"
@@ -284,6 +285,16 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	r.Post("/api/v1/billing-registers/{id}/mark-signed", billingGuard.WithPolicy(billingrbac.PolicyMutate))
 	r.Post("/api/v1/billing-registers/{id}/mark-paid", billingGuard.WithPolicy(billingrbac.PolicyMutate))
 	r.Post("/api/v1/billing-registers/{id}/close", billingGuard.WithPolicy(billingrbac.PolicyMutate))
+
+	paymentGuard := paymentrbac.NewGuard(cfg, proxy)
+	r.Get("/api/v1/payment-obligations", paymentGuard.WithPolicy(paymentrbac.PolicyRead))
+	r.Get("/api/v1/payment-obligations/{id}", paymentGuard.WithPolicy(paymentrbac.PolicyRead))
+	r.Patch("/api/v1/payment-obligations/{id}/due-date", paymentGuard.WithPolicy(paymentrbac.PolicyCreate))
+	r.Post("/api/v1/payments", paymentGuard.WithPolicy(paymentrbac.PolicyCreate))
+	r.Get("/api/v1/payments", paymentGuard.WithPolicy(paymentrbac.PolicyRead))
+	r.Get("/api/v1/payments/{id}", paymentGuard.WithPolicy(paymentrbac.PolicyRead))
+	r.Post("/api/v1/payments/{id}/allocations", paymentGuard.WithPolicy(paymentrbac.PolicyAllocate))
+	r.Post("/api/v1/payments/{id}/reconcile", paymentGuard.WithPolicy(paymentrbac.PolicyReconcile))
 
 	r.Handle("/api/*", proxy)
 	r.Handle("/api", proxy)

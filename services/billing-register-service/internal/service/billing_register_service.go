@@ -28,6 +28,7 @@ type BillingRegisterStore interface {
 	ApproveForActor(ctx context.Context, registerID uuid.UUID, actor domain.SettlementActorInput) (*domain.BillingRegister, error)
 	UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, status string, expectedVersion int) (*domain.BillingRegister, error)
 	TransitionStatusForActor(ctx context.Context, registerID uuid.UUID, actor domain.SettlementActorInput, nextStatus, auditEvent string, validate func(string) error) (*domain.BillingRegister, error)
+	SyncPaidFromPaymentObligation(ctx context.Context, registerID, tenantID uuid.UUID) (*domain.BillingRegister, error)
 	IncludeSettlement(ctx context.Context, registerID, settlementID uuid.UUID, actor domain.SettlementActorInput) (*repository.IncludeSettlementResult, error)
 	RemoveSettlement(ctx context.Context, registerID, settlementID uuid.UUID, actor domain.SettlementActorInput) (*domain.BillingRegister, error)
 	GetDetailByTenant(ctx context.Context, id, tenantID uuid.UUID) (*repository.RegisterDetail, error)
@@ -35,12 +36,26 @@ type BillingRegisterStore interface {
 	SimulateCalculateAuditFailureForTest(ctx context.Context, registerID, tenantID uuid.UUID) error
 }
 
+type PaymentObligationLookup interface {
+	ValidateRegisterPaidPreconditions(ctx context.Context, tenantID, registerID uuid.UUID) error
+}
+
+type PaymentObligationEnsurer interface {
+	EnsurePaymentObligation(ctx context.Context, tenantID, registerID uuid.UUID) error
+}
+
 type BillingRegisterService struct {
-	registers BillingRegisterStore
+	registers   BillingRegisterStore
+	obligations PaymentObligationLookup
+	payments    PaymentObligationEnsurer
 }
 
 func NewBillingRegisterService(registers BillingRegisterStore) *BillingRegisterService {
 	return &BillingRegisterService{registers: registers}
+}
+
+func NewBillingRegisterServiceWithPayments(registers BillingRegisterStore, obligations PaymentObligationLookup, payments PaymentObligationEnsurer) *BillingRegisterService {
+	return &BillingRegisterService{registers: registers, obligations: obligations, payments: payments}
 }
 
 func (s *BillingRegisterService) Create(ctx context.Context, in domain.CreateBillingRegisterInput) (*domain.BillingRegister, error) {
@@ -251,11 +266,44 @@ func (s *BillingRegisterService) MarkSentToEDO(ctx context.Context, registerID u
 }
 
 func (s *BillingRegisterService) MarkSigned(ctx context.Context, registerID uuid.UUID, actor domain.SettlementActorInput) (*domain.BillingRegister, error) {
-	return s.transitionForActor(ctx, registerID, actor, domain.ValidateMarkSignedStatus, domain.RegisterStatusSignedByCounterparty, domain.RegisterAuditMarkedSigned)
+	reg, err := s.transitionForActor(ctx, registerID, actor, domain.ValidateMarkSignedStatus, domain.RegisterStatusSignedByCounterparty, domain.RegisterAuditMarkedSigned)
+	if err != nil {
+		return nil, err
+	}
+	if s.payments != nil {
+		if ensureErr := s.payments.EnsurePaymentObligation(ctx, actor.TenantID, registerID); ensureErr != nil {
+			return reg, nil
+		}
+	}
+	return reg, nil
 }
 
 func (s *BillingRegisterService) MarkPaid(ctx context.Context, registerID uuid.UUID, actor domain.SettlementActorInput) (*domain.BillingRegister, error) {
+	if registerID == uuid.Nil {
+		return nil, apperrors.Validation("id is required", map[string]any{"field": "id"})
+	}
+	if err := domain.ValidateSettlementActor(actor); err != nil {
+		return nil, err
+	}
+	if s.obligations != nil {
+		if err := s.obligations.ValidateRegisterPaidPreconditions(ctx, actor.TenantID, registerID); err != nil {
+			return nil, err
+		}
+	}
 	return s.transitionForActor(ctx, registerID, actor, domain.ValidateMarkPaidStatus, domain.RegisterStatusPaid, domain.RegisterAuditMarkedPaid)
+}
+
+func (s *BillingRegisterService) SyncPaidFromObligation(ctx context.Context, registerID, tenantID uuid.UUID) (*domain.BillingRegister, error) {
+	if registerID == uuid.Nil || tenantID == uuid.Nil {
+		return nil, apperrors.Validation("id and tenant_id are required", nil)
+	}
+	if s.obligations == nil {
+		return nil, apperrors.Internal("payment obligation lookup is not configured", nil)
+	}
+	if err := s.obligations.ValidateRegisterPaidPreconditions(ctx, tenantID, registerID); err != nil {
+		return nil, err
+	}
+	return s.registers.SyncPaidFromPaymentObligation(ctx, registerID, tenantID)
 }
 
 func (s *BillingRegisterService) Close(ctx context.Context, registerID uuid.UUID, actor domain.SettlementActorInput) (*domain.BillingRegister, error) {

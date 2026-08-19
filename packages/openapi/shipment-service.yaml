@@ -27,6 +27,8 @@ tags:
   - name: Signing
   - name: Billing Registers
   - name: Closing Documents
+  - name: Payment Obligations
+  - name: Payments
 paths:
   /api/v1/shipments/from-transport-order:
 

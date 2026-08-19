@@ -74,5 +74,9 @@ func NewRouter(
 		r.Post("/{id}/include-in-register", settlementHandler.IncludeInRegister)
 	})
 
+	r.Route("/internal/v1/billing-registers", func(r chi.Router) {
+		r.Post("/{id}/sync-paid", registerHandler.SyncPaid)
+	})
+
 	return r
 }

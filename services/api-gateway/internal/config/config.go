@@ -19,6 +19,7 @@ type ServiceURLs struct {
 	Shipment        string
 	Document        string
 	BillingRegister string
+	Payment         string
 	LowCode         string
 	Tracking        string
 }
@@ -163,6 +164,7 @@ func Load() (Config, error) {
 			Shipment:        getEnv("SHIPMENT_SERVICE_URL", "http://localhost:8085"),
 			Document:        getEnv("DOCUMENT_SERVICE_URL", "http://localhost:8086"),
 			BillingRegister: getEnv("BILLING_REGISTER_SERVICE_URL", "http://localhost:8087"),
+			Payment:         getEnv("PAYMENT_SERVICE_URL", "http://localhost:8090"),
 			LowCode:         getEnv("LOW_CODE_SERVICE_URL", "http://localhost:8088"),
 			Tracking:        getEnv("TRACKING_SERVICE_URL", "http://localhost:8089"),
 		},
