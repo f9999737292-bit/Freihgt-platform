@@ -134,13 +134,13 @@ func TestCrashAfterBillingSuccessF3(t *testing.T) {
 		PublishTimeout: 5 * time.Second, LeaseTimeout: leaseTimeout,
 	}, failRepo, publisher, nil, outbox.NewRealClock())
 
-	eventsA, err := env.outboxRepo.ClaimPendingForPublisher(ctx, "worker-a", 10, now, leaseTimeout)
+	eventsA, err := env.outboxRepo.ClaimPendingForPublisher(ctx, "worker-a", 100, now, leaseTimeout)
 	if err != nil {
 		t.Fatalf("claim A: %v", err)
 	}
 	target := findEventByAggregate(eventsA, obligation.ID)
 	if target == nil {
-		t.Fatalf("expected claimed event for obligation %s", obligation.ID)
+		target = claimAggregateEvent(t, env, ctx, fix.TenantID, "worker-a", now, leaseTimeout, obligation.ID)
 	}
 	workerA.ProcessEventForIntegration(ctx, *target)
 
@@ -160,14 +160,7 @@ func TestCrashAfterBillingSuccessF3(t *testing.T) {
 	}
 
 	reclaimAt := now.Add(leaseTimeout + time.Second)
-	eventsB, err := env.outboxRepo.ClaimPendingForPublisher(ctx, "worker-b", 10, reclaimAt, leaseTimeout)
-	if err != nil {
-		t.Fatalf("claim B: %v", err)
-	}
-	reclaimed := findEventByAggregate(eventsB, obligation.ID)
-	if reclaimed == nil {
-		t.Fatal("LEASE_RECOVERY=FAIL worker B must reclaim stale event")
-	}
+	reclaimed := claimAggregateEvent(t, env, ctx, fix.TenantID, "worker-b", reclaimAt, leaseTimeout, obligation.ID)
 	workerB := outbox.NewWorker(config.OutboxConfig{
 		Enabled: true, WorkerID: "worker-b", BatchSize: 10, MaxAttempts: 5,
 		PublishTimeout: 5 * time.Second, LeaseTimeout: leaseTimeout,
@@ -376,5 +369,26 @@ func findEventByAggregate(events []domain.PaymentOutboxEvent, aggregateID uuid.U
 			return &events[i]
 		}
 	}
+	return nil
+}
+
+func claimAggregateEvent(t *testing.T, env *env, ctx context.Context, tenantID uuid.UUID, workerID string, at time.Time, lease time.Duration, aggregateID uuid.UUID) *domain.PaymentOutboxEvent {
+	t.Helper()
+	for attempt := 0; attempt < 8; attempt++ {
+		events, err := env.outboxRepo.ClaimPendingForPublisher(ctx, workerID, 100, at, lease)
+		if err != nil {
+			t.Fatalf("claim %s: %v", workerID, err)
+		}
+		if target := findEventByAggregate(events, aggregateID); target != nil {
+			return target
+		}
+		for _, event := range events {
+			if err := env.outboxRepo.ReleaseWithRetry(ctx, event.ID, workerID, at, outbox.ErrorCodeUnknownPublishError); err != nil {
+				t.Fatalf("release unrelated event: %v", err)
+			}
+		}
+	}
+	row, _ := env.outboxRepo.GetOutboxByAggregate(ctx, tenantID, domain.PaymentEventObligationPaid, aggregateID)
+	t.Fatalf("could not claim aggregate %s status=%v locked_by=%v", aggregateID, row.Status, row.LockedBy)
 	return nil
 }
