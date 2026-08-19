@@ -963,9 +963,18 @@ insurance payments / crypto
 | Risk | Medium — financial invariants |
 | DoD | Obligation from signed register; manual payment; full allocation; tenant/company deny |
 
-### v1.9.2 Reconciliation & Partial Payments
+### v1.9.2 Reconciliation Integrity & Reliable Projection
 
-Partial/multi allocation, overpayment unallocated remainder, reconciliation confirm, concurrent tests.
+> **Scope refined (2026-08-19):** Partial/multi allocation, unallocated remainder,
+> explicit reconciliation, and concurrent allocation protection were **delivered in v1.9.1**
+> (merged PR #27). See `FREIGHT_PAYMENTS_RECONCILIATION_v1.9.2_ARCHITECTURE.md`.
+
+Remaining v1.9.2 focus:
+
+- Transactional outbox for obligation PAID → register PAID delivery
+- Allocation reversal + payment void (append-only)
+- Reconciliation hardening + idempotent repeat
+- Import/API idempotency preparation
 
 ### v1.9.3 Payment Workspace UI
 
