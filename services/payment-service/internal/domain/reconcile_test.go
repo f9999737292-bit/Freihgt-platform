@@ -72,6 +72,14 @@ func TestValidateReconciledIntegrity(t *testing.T) {
 	if err := ValidateReconciledIntegrity(&corrupt, snapshot); err == nil {
 		t.Fatal("expected corrupt reconciled metadata deny")
 	}
+
+	sumMismatch := ReconciliationSnapshot{
+		ActiveAllocationCount: 1,
+		ActiveAllocationSum:   decimal.RequireFromString("50.00"),
+	}
+	if err := ValidateReconciledIntegrity(payment, sumMismatch); err == nil {
+		t.Fatal("expected corrupt reconciled active sum deny")
+	}
 }
 
 func TestValidateReconciliationSnapshotIntegrity(t *testing.T) {
