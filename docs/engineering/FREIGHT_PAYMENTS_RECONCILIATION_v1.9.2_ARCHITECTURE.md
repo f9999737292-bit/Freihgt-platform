@@ -142,16 +142,19 @@ persisted. Operator/client must invoke retry. Obligation correctly remains PAID 
 |--------|------|
 | `PaymentObligation` | **Payment SSOT** — paid amounts, status |
 | `billing.payment_outbox` | **Delivery intent** — not second payment truth |
-| `BillingRegister.status == PAID` | **Projection** — must re-validate obligation |
+| `BillingRegister.status IN (PAID, CLOSED)` | **Projection** — must re-validate obligation |
 
-**Invariant (unchanged from v1.9.1):**
+**Invariant (frozen v1.9.2):**
 
 ```
-REGISTER.status == PAID
+REGISTER.status IN (PAID, CLOSED)
   ⇒ obligation.status == PAID
   AND obligation.paid_amount == obligation.original_amount
   AND obligation.outstanding_amount == 0
 ```
+
+`CLOSED` semantically subsumes successful PAID projection (`SIGNED_BY_COUNTERPARTY → PAID → CLOSED`).
+Do **not** reopen or mutate a CLOSED register back to PAID.
 
 Outbox payload must **NOT** carry authoritative paid amounts for billing. Billing
 `SyncPaidFromObligation` continues to read obligation from DB via
@@ -215,6 +218,9 @@ reduces dependence on it.
   `POST /internal/v1/billing-registers/{register_id}/sync-paid`
   with `X-Internal-Service-Token`; tenant from persisted event/obligation
 - On success → `MarkPublished`
+- On register already **PAID** → idempotent success → `MarkPublished`
+- On register already **CLOSED** + canonical obligation **PAID** → **ALREADY_SATISFIED** →
+  `MarkPublished`; **no register mutation**, no retry loop, no duplicate `MARKED_PAID` audit
 - On transient failure → `ReleaseWithRetry` with shipment backoff table
 - On permanent failure / max attempts → `MarkFailed`
 - Graceful shutdown; multi-instance safe
@@ -222,18 +228,51 @@ reduces dependence on it.
 **Env flags (proposed):** `PAYMENT_OUTBOX_ENABLED`, `PAYMENT_OUTBOX_POLL_INTERVAL`,
 `PAYMENT_OUTBOX_BATCH_SIZE`, `PAYMENT_OUTBOX_MAX_ATTEMPTS`, `PAYMENT_OUTBOX_LEASE_TIMEOUT`
 
-### 5.5 Delivery idempotency (FROZEN)
+### 5.5 Event creation idempotency (FROZEN)
 
 | Field | Value |
 |-------|-------|
-| `DELIVERY_SEMANTICS` | **AT_LEAST_ONCE** |
+| `DELIVERY_SEMANTICS` | **AT_LEAST_ONCE** (applies to **delivery**, not duplicate event creation) |
 | `EXACTLY_ONCE_CLAIM` | **NO** |
 | `event_type` | `payment_obligation.paid` |
 | `aggregate_type` | `PAYMENT_OBLIGATION` |
 | `aggregate_id` | `obligation_id` |
-| Idempotency key | Unique constraint on `(tenant_id, event_type, aggregate_id, source_transition)` OR one outbox row per obligation PAID transition |
+
+**Exact idempotency key (database constraint):**
+
+```sql
+UNIQUE (tenant_id, event_type, aggregate_id)
+```
+
+**Rationale:**
+
+- Obligation ordinary PAID → unpaid rollback is forbidden (ADR-13).
+- One obligation therefore has **one** canonical `payment_obligation.paid` transition.
+- Duplicate insert attempts in the same or retried business flow resolve to the existing
+  outbox row (conflict / upsert-noop — implementation choice; constraint is authoritative).
+- At-least-once applies to **worker delivery**, not duplicate event row creation.
+
+**Required columns (no `source_transition`):**
+
+| Column | Notes |
+|--------|-------|
+| `id` | UUID PRIMARY KEY |
+| `tenant_id` | Tenant scope |
+| `aggregate_type` | `PAYMENT_OBLIGATION` |
+| `aggregate_id` | `obligation_id` |
+| `event_type` | `payment_obligation.paid` |
+| `payload` | Identifiers only (no authoritative amounts) |
+| `status` | `PENDING` / `PUBLISHED` / `FAILED` |
+| `attempts` | Delivery attempt counter |
+| `available_at` | Retry schedule |
+| `locked_at`, `locked_by` | Worker lease |
+| `published_at` | Success marker |
+| `last_error_code` | Last delivery failure |
+| `created_at` | Insert time |
 
 Billing consumer (`SyncPaidFromPaymentObligation`) already idempotent when register is PAID.
+When register is CLOSED and obligation is canonically PAID, treat projection as
+**ALREADY_SATISFIED** (see F6).
 
 ### 5.6 Failure matrix
 
@@ -244,7 +283,7 @@ Billing consumer (`SyncPaidFromPaymentObligation`) already idempotent when regis
 | F3 | Billing succeeds; worker crashes before publish mark | Retry duplicate → idempotent success |
 | F4 | Two workers claim queue | SKIP LOCKED + lease → one owner |
 | F5 | Billing already PAID | Idempotent success; mark published |
-| F6 | Billing already CLOSED | **Reject sync** (409); outbox → FAILED or operator alert; **do not reopen** |
+| F6 | Billing already **CLOSED** + canonical obligation **PAID** | **ALREADY_SATISFIED** — validate obligation; **do not** reopen or mutate register; mark outbox **PUBLISHED**; no retry loop / poison event; no duplicate `MARKED_PAID` audit. If obligation validation fails → financial integrity error → **FAILED** / alert |
 | F7 | Obligation missing/invalid | Mark failed; alert; no fabricated register state |
 | F8 | Poison event | Backoff → FAILED after max attempts; metrics + logs |
 
@@ -256,7 +295,8 @@ Billing consumer (`SyncPaidFromPaymentObligation`) already idempotent when regis
 
 `billing.payment_allocations.voided_at` — **EXISTS**  
 `billing.payments.voided_at`, `voided_by`, `void_reason` — **EXISTS**  
-No `voided_by` on allocations — **add in v1.9.2 migration if needed**
+No `voided_by` on allocations — **add in v1.9.2B migration** (next available migration
+number at implementation time; not in 000046)
 
 ### 6.2 Proposed API (implementation deferred to v1.9.2B)
 
@@ -412,7 +452,7 @@ not mandatory if index `idx_payments_tenant_unallocated` suffices.
 ### 10.3 Migration change required?
 
 **Likely NO** for v1.9.2 if 000045 indexes match above. Verify at implementation time.
-If gap found → amend via `000046` alongside outbox table.
+If gap found → address in v1.9.2D or a dedicated idempotency migration (not 000046).
 
 ### 10.4 Implementation scope
 
@@ -471,6 +511,14 @@ Reserved: `PAYMENT_OVERDUE`, `PAYMENT_UNALLOCATED`, `PAYMENT_PARTIALLY_PAID`,
 - Payment correction must **never** silently reopen PAID or CLOSED register
 - Legally finalized register → future correction workflow, not status rollback
 
+**PAID projection when register is already CLOSED (FROZEN):**
+
+| Condition | Worker action |
+|-----------|---------------|
+| Register **CLOSED** + obligation canonically **PAID** | **ALREADY_SATISFIED** — mark outbox **PUBLISHED**; no register mutation |
+| Register **CLOSED** + obligation **not** canonically PAID | Financial integrity error — **FAILED** / alert |
+| Any scenario | **Never** reopen CLOSED → PAID or mutate finalized register |
+
 ---
 
 ## 14. Migration Discovery
@@ -480,12 +528,20 @@ Reserved: `PAYMENT_OVERDUE`, `PAYMENT_UNALLOCATED`, `PAYMENT_PARTIALLY_PAID`,
 | `CURRENT_MAX_MIGRATION` | **000045** (`000045_freight_payments_core_v1.9.1`) |
 | `V1_9_2_MIGRATION_REQUIRED` | **YES** |
 
-**Proposed `000046` contents (implementation phase):**
+**Proposed `000046` scope (v1.9.2A — implementation phase):**
+
+**PAYMENT OUTBOX ONLY.** Do not bundle reversal/void schema changes.
 
 1. `billing.payment_outbox` table (shipment-aligned columns adapted for billing schema)
-2. Partial index on `(status, available_at, created_at) WHERE status='PENDING'`
-3. Optional: `payment_allocations.voided_by`, `void_reason` if not added manually
-4. No change to obligation amount constraints unless defect found
+2. `UNIQUE (tenant_id, event_type, aggregate_id)` idempotency constraint
+3. Partial index on `(status, available_at, created_at) WHERE status='PENDING'`
+4. Indexes required by worker claim/poll queries
+
+**Deferred to v1.9.2B** (next available migration number at implementation time — do not
+permanently reserve `000047`; main may advance):
+
+- `payment_allocations.voided_by`
+- `payment_allocations.void_reason`
 
 **Do not create migration in this architecture task.**
 
@@ -609,12 +665,32 @@ No auto due-date until canonical payment-term clock exists in repository.
 
 ## 20. CI / Test Matrix (implementation phase)
 
-Extend existing gates — do not replace:
+Extend existing gates — do not replace.
+
+**Required scenarios for v1.9.2A:**
+
+| ID | Scenario | Expected |
+|----|----------|----------|
+| F1 | Obligation PAID tx rolls back | No outbox row |
+| F2 | PAID commits; billing down | Outbox PENDING; worker retries |
+| F3 | Duplicate delivery after billing success | Idempotent; mark published |
+| F4 | Concurrent workers claim queue | SKIP LOCKED + lease → safe single owner |
+| F5 | Billing already PAID | Published success |
+| F6 | Billing already CLOSED + obligation PAID | **ALREADY_SATISFIED**; mark outbox PUBLISHED; **no register mutation** |
+| F7 | Invalid/missing obligation | FAILED / alert |
+| F8 | Poison event | Backoff → FAILED after max attempts |
+
+**Required idempotency test:**
+
+```
+OUTBOX_DUPLICATE_INSERT =
+  only one row for (tenant_id, payment_obligation.paid, obligation_id)
+```
 
 | Gate | New scenarios |
 |------|---------------|
-| `freight-payments-core-integration` | Outbox atomic insert; worker delivery; F1–F5 |
-| `freight-billing-closing-integration` | F6 CLOSED register behavior |
+| `freight-payments-core-integration` | Outbox atomic insert; worker delivery; F1–F8; `OUTBOX_DUPLICATE_INSERT` |
+| `freight-billing-closing-integration` | F6 CLOSED + obligation PAID → ALREADY_SATISFIED |
 | `backend-go-check payment-service` | Worker unit tests |
 
 ---
@@ -633,7 +709,7 @@ Extend existing gates — do not replace:
 | ID | Question | Status |
 |----|----------|--------|
 | OQ-001 | Legal payment-term clock start | Open (inherited) |
-| OQ-002 | Billing CLOSED + failed outbox operator playbook | Document in runbook during 2A impl |
+| OQ-002 | Billing CLOSED + outbox delivery semantics | **RESOLVED** — CLOSED + canonical obligation PAID = **ALREADY_SATISFIED** / delivery success; mark outbox PUBLISHED; no register mutation |
 | OQ-003 | One payment → many obligations integration test | Add during 2B/2C |
 
 ---
