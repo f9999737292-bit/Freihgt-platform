@@ -7,6 +7,7 @@ import (
 	"errors"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
@@ -57,7 +58,7 @@ func TestRepeatAllocationVoidIdempotent(t *testing.T) {
 	obligation, _ := env.payments.EnsurePaymentObligationForBillingRegister(ctx, fix.TenantID, fix.RegisterID)
 	payment := createManualPayment(t, env, fix, "100.00")
 	outcome, _ := env.payments.Allocate(ctx, domain.CreateAllocationInput{
-		PaymentID: payment.ID, ObligationID: obligation.ID, AllocatedAmount: decimal.RequireFromString("100.00"),
+		PaymentID: payment.ID, ObligationID: obligation.ID, AllocatedAmount: decimal.RequireFromString("40.00"),
 	}, buyerActor(fix))
 	allocID := outcome.Result.Allocation.ID
 	first, err := env.payments.VoidAllocation(ctx, allocID, "mistake", buyerActor(fix))
@@ -235,13 +236,16 @@ func TestConcurrentMultiAllocationVoid(t *testing.T) {
 	env := setupEnv(t)
 	fix := seedFixture(t, env.pool)
 	ctx := context.Background()
-	obligation, _ := env.payments.EnsurePaymentObligationForBillingRegister(ctx, fix.TenantID, fix.RegisterID)
+	registerB := uuid.New()
+	seedBillingRegister(t, env.pool, fix, registerB, "REG-B", "100.00")
+	obligationA, _ := env.payments.EnsurePaymentObligationForBillingRegister(ctx, fix.TenantID, fix.RegisterID)
+	obligationB, _ := env.payments.EnsurePaymentObligationForBillingRegister(ctx, fix.TenantID, registerB)
 	payment := createManualPayment(t, env, fix, "100.00")
 	a, _ := env.payments.Allocate(ctx, domain.CreateAllocationInput{
-		PaymentID: payment.ID, ObligationID: obligation.ID, AllocatedAmount: decimal.RequireFromString("40.00"),
+		PaymentID: payment.ID, ObligationID: obligationA.ID, AllocatedAmount: decimal.RequireFromString("40.00"),
 	}, buyerActor(fix))
 	b, _ := env.payments.Allocate(ctx, domain.CreateAllocationInput{
-		PaymentID: payment.ID, ObligationID: obligation.ID, AllocatedAmount: decimal.RequireFromString("60.00"),
+		PaymentID: payment.ID, ObligationID: obligationB.ID, AllocatedAmount: decimal.RequireFromString("60.00"),
 	}, buyerActor(fix))
 	var wg sync.WaitGroup
 	for _, allocID := range []uuid.UUID{a.Result.Allocation.ID, b.Result.Allocation.ID} {
@@ -290,4 +294,204 @@ func TestVoidVsAllocateRace(t *testing.T) {
 		t.Fatal("VOID_VS_ALLOCATE_RACE_SAFE=FAIL allocated with voided payment")
 	}
 	_ = voidErr
+}
+
+func TestClosedRegisterPaidObligationReversalDenied(t *testing.T) {
+	env := setupEnv(t)
+	fix := seedFixture(t, env.pool)
+	ctx := context.Background()
+	obligation, _ := env.payments.EnsurePaymentObligationForBillingRegister(ctx, fix.TenantID, fix.RegisterID)
+	payment := createManualPayment(t, env, fix, "100.00")
+	outcome, _ := env.payments.Allocate(ctx, domain.CreateAllocationInput{
+		PaymentID: payment.ID, ObligationID: obligation.ID, AllocatedAmount: decimal.RequireFromString("100.00"),
+	}, buyerActor(fix))
+	if _, err := env.pool.Exec(ctx, `UPDATE billing.billing_registers SET status='CLOSED' WHERE id=$1`, fix.RegisterID); err != nil {
+		t.Fatalf("close register: %v", err)
+	}
+	_, err := env.payments.VoidAllocation(ctx, outcome.Result.Allocation.ID, "attempt", buyerActor(fix))
+	if err == nil {
+		t.Fatal("CLOSED_REGISTER_REVERSAL=FAIL must deny PAID obligation reversal")
+	}
+}
+
+func TestReconciledPaymentAllocationVoidDenied(t *testing.T) {
+	env := setupEnv(t)
+	fix := seedFixture(t, env.pool)
+	ctx := context.Background()
+	registerB := uuid.New()
+	seedBillingRegister(t, env.pool, fix, registerB, "REG-REC", "100.00")
+	obligationA, _ := env.payments.EnsurePaymentObligationForBillingRegister(ctx, fix.TenantID, fix.RegisterID)
+	obligationB, _ := env.payments.EnsurePaymentObligationForBillingRegister(ctx, fix.TenantID, registerB)
+	payment := createManualPayment(t, env, fix, "100.00")
+	outcome, _ := env.payments.Allocate(ctx, domain.CreateAllocationInput{
+		PaymentID: payment.ID, ObligationID: obligationA.ID, AllocatedAmount: decimal.RequireFromString("40.00"),
+	}, buyerActor(fix))
+	_, _ = env.payments.Allocate(ctx, domain.CreateAllocationInput{
+		PaymentID: payment.ID, ObligationID: obligationB.ID, AllocatedAmount: decimal.RequireFromString("60.00"),
+	}, buyerActor(fix))
+	if _, err := env.payments.ReconcilePayment(ctx, payment.ID, buyerActor(fix)); err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+	_, err := env.payments.VoidAllocation(ctx, outcome.Result.Allocation.ID, "attempt", buyerActor(fix))
+	if err == nil {
+		t.Fatal("RECONCILED_ALLOCATION_REVERSAL=FAIL must deny")
+	}
+}
+
+func TestReconciledPaymentVoidDenied(t *testing.T) {
+	env := setupEnv(t)
+	fix := seedFixture(t, env.pool)
+	ctx := context.Background()
+	obligation, _ := env.payments.EnsurePaymentObligationForBillingRegister(ctx, fix.TenantID, fix.RegisterID)
+	payment := createManualPayment(t, env, fix, "100.00")
+	_, _ = env.payments.Allocate(ctx, domain.CreateAllocationInput{
+		PaymentID: payment.ID, ObligationID: obligation.ID, AllocatedAmount: decimal.RequireFromString("100.00"),
+	}, buyerActor(fix))
+	if _, err := env.payments.ReconcilePayment(ctx, payment.ID, buyerActor(fix)); err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+	_, err := env.payments.VoidPayment(ctx, payment.ID, "attempt", buyerActor(fix))
+	if err == nil {
+		t.Fatal("RECONCILED_PAYMENT_VOID=FAIL must deny")
+	}
+}
+
+func TestCrossTenantVoidDenied(t *testing.T) {
+	env := setupEnv(t)
+	fix := seedFixture(t, env.pool)
+	ctx := context.Background()
+	obligation, _ := env.payments.EnsurePaymentObligationForBillingRegister(ctx, fix.TenantID, fix.RegisterID)
+	payment := createManualPayment(t, env, fix, "100.00")
+	outcome, _ := env.payments.Allocate(ctx, domain.CreateAllocationInput{
+		PaymentID: payment.ID, ObligationID: obligation.ID, AllocatedAmount: decimal.RequireFromString("40.00"),
+	}, buyerActor(fix))
+	actor := buyerActor(fix)
+	actor.TenantID = uuid.New()
+	_, err := env.payments.VoidAllocation(ctx, outcome.Result.Allocation.ID, "attempt", actor)
+	if err == nil {
+		t.Fatal("CROSS_TENANT_VOID=FAIL must deny")
+	}
+	actor = buyerActor(fix)
+	actor.TenantID = uuid.New()
+	_, err = env.payments.VoidPayment(ctx, payment.ID, "attempt", actor)
+	if err == nil {
+		t.Fatal("CROSS_TENANT_VOID=FAIL payment void must deny")
+	}
+}
+
+func TestCrossCompanyVoidDenied(t *testing.T) {
+	env := setupEnv(t)
+	fix := seedFixture(t, env.pool)
+	ctx := context.Background()
+	obligation, _ := env.payments.EnsurePaymentObligationForBillingRegister(ctx, fix.TenantID, fix.RegisterID)
+	payment := createManualPayment(t, env, fix, "100.00")
+	outcome, _ := env.payments.Allocate(ctx, domain.CreateAllocationInput{
+		PaymentID: payment.ID, ObligationID: obligation.ID, AllocatedAmount: decimal.RequireFromString("40.00"),
+	}, buyerActor(fix))
+	wrongActor := domain.PaymentActorInput{
+		TenantID: fix.TenantID, ActorCompanyID: uuid.New(),
+		ActorKind: domain.PaymentActorBuyer, ActorUserID: fix.BuyerUserID,
+	}
+	_, err := env.payments.VoidAllocation(ctx, outcome.Result.Allocation.ID, "attempt", wrongActor)
+	var appErr *apperrors.AppError
+	if !errors.As(err, &appErr) || appErr.Code != apperrors.CodeForbidden {
+		t.Fatalf("CROSS_COMPANY_VOID=FAIL expected forbidden, got %v", err)
+	}
+	_, err = env.payments.VoidPayment(ctx, payment.ID, "attempt", wrongActor)
+	if !errors.As(err, &appErr) || appErr.Code != apperrors.CodeForbidden {
+		t.Fatalf("CROSS_COMPANY_VOID=FAIL payment void expected forbidden, got %v", err)
+	}
+}
+
+func TestDoubleConcurrentAllocationVoid(t *testing.T) {
+	env := setupEnv(t)
+	fix := seedFixture(t, env.pool)
+	ctx := context.Background()
+	obligation, _ := env.payments.EnsurePaymentObligationForBillingRegister(ctx, fix.TenantID, fix.RegisterID)
+	payment := createManualPayment(t, env, fix, "100.00")
+	outcome, _ := env.payments.Allocate(ctx, domain.CreateAllocationInput{
+		PaymentID: payment.ID, ObligationID: obligation.ID, AllocatedAmount: decimal.RequireFromString("40.00"),
+	}, buyerActor(fix))
+	allocID := outcome.Result.Allocation.ID
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for range 2 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			_, _ = env.payments.VoidAllocation(ctx, allocID, "concurrent", buyerActor(fix))
+		}()
+	}
+	close(start)
+	wg.Wait()
+	if count := countPaymentAudit(t, env, fix.TenantID, "PAYMENT_ALLOCATION", allocID, domain.AuditAllocationVoided); count != 1 {
+		t.Fatalf("DOUBLE_ALLOCATION_VOID_SAFE=FAIL audit count=%d", count)
+	}
+	alloc, _ := env.paymentRepo.GetAllocationByID(ctx, fix.TenantID, allocID)
+	if alloc.VoidedAt == nil {
+		t.Fatal("DOUBLE_ALLOCATION_VOID_SAFE=FAIL allocation must be voided")
+	}
+}
+
+func TestProviderExternalIDReuseAfterVoidDenied(t *testing.T) {
+	env := setupEnv(t)
+	fix := seedFixture(t, env.pool)
+	ctx := context.Background()
+	externalID := "import-ext-" + uuid.NewString()[:8]
+	paymentID := uuid.New()
+	if _, err := env.pool.Exec(ctx, `
+		INSERT INTO billing.payments (
+			id, tenant_id, payment_number, payer_company_id, payee_company_id,
+			amount, currency_code, payment_date, source, external_id, status,
+			allocated_amount, unallocated_amount, created_by
+		) VALUES ($1,$2,$3,$4,$5,'100.00','RUB',$6,'IMPORT',$7,'RECEIVED','0.00','100.00',$8)`,
+		paymentID, fix.TenantID, "PAY-IMP-"+paymentID.String()[:8], fix.BuyerID, fix.CarrierID,
+		time.Now().UTC(), externalID, fix.BuyerUserID); err != nil {
+		t.Fatalf("seed import payment: %v", err)
+	}
+	if _, err := env.payments.VoidPayment(ctx, paymentID, "duplicate import", buyerActor(fix)); err != nil {
+		t.Fatalf("void import payment: %v", err)
+	}
+	dupID := uuid.New()
+	_, err := env.pool.Exec(ctx, `
+		INSERT INTO billing.payments (
+			id, tenant_id, payment_number, payer_company_id, payee_company_id,
+			amount, currency_code, payment_date, source, external_id, status,
+			allocated_amount, unallocated_amount, created_by
+		) VALUES ($1,$2,$3,$4,$5,'50.00','RUB',$6,'IMPORT',$7,'RECEIVED','0.00','50.00',$8)`,
+		dupID, fix.TenantID, "PAY-IMP2-"+dupID.String()[:8], fix.BuyerID, fix.CarrierID,
+		time.Now().UTC(), externalID, fix.BuyerUserID)
+	if err == nil {
+		t.Fatal("PROVIDER_EXTERNAL_ID_REUSE_AFTER_VOID=DENY expected unique violation")
+	}
+}
+
+func TestManualExternalIDReuseAfterVoidAllowed(t *testing.T) {
+	env := setupEnv(t)
+	fix := seedFixture(t, env.pool)
+	ctx := context.Background()
+	externalID := "manual-ext-" + uuid.NewString()[:8]
+	first, err := env.payments.CreateManualPayment(ctx, domain.CreateManualPaymentInput{
+		Amount: decimal.RequireFromString("100.00"), CurrencyCode: "RUB", PaymentDate: time.Now().UTC(),
+		PayerCompanyID: fix.BuyerID, PayeeCompanyID: fix.CarrierID, ExternalID: &externalID,
+		TenantID: fix.TenantID, CreatedBy: fix.BuyerUserID,
+	}, buyerActor(fix))
+	if err != nil {
+		t.Fatalf("create manual with external id: %v", err)
+	}
+	if _, err := env.payments.VoidPayment(ctx, first.ID, "duplicate manual", buyerActor(fix)); err != nil {
+		t.Fatalf("void manual payment: %v", err)
+	}
+	second, err := env.payments.CreateManualPayment(ctx, domain.CreateManualPaymentInput{
+		Amount: decimal.RequireFromString("50.00"), CurrencyCode: "RUB", PaymentDate: time.Now().UTC(),
+		PayerCompanyID: fix.BuyerID, PayeeCompanyID: fix.CarrierID, ExternalID: &externalID,
+		TenantID: fix.TenantID, CreatedBy: fix.BuyerUserID,
+	}, buyerActor(fix))
+	if err != nil {
+		t.Fatalf("MANUAL_EXTERNAL_ID_POLICY=PRESERVED_ACTIVE_ONLY expected reuse allowed, got %v", err)
+	}
+	if second.ExternalID == nil || *second.ExternalID != externalID {
+		t.Fatal("MANUAL_EXTERNAL_ID_POLICY=FAIL external id not preserved on new active payment")
+	}
 }

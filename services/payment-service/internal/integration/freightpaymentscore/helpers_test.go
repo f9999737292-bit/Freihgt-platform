@@ -158,6 +158,21 @@ func buyerActor(fix fixture) domain.PaymentActorInput {
 	}
 }
 
+func seedBillingRegister(t *testing.T, pool *pgxpool.Pool, fix fixture, registerID uuid.UUID, registerNumber, total string) {
+	t.Helper()
+	ctx := context.Background()
+	period := time.Now().UTC()
+	if _, err := pool.Exec(ctx, `INSERT INTO billing.billing_registers (
+		id, tenant_id, register_number, customer_company_id, contractor_company_id,
+		period_from, period_to, currency_code, status,
+		total_without_vat, vat_amount, total_with_vat
+	) VALUES ($1,$2,$3,$4,$5,$6,$7,'RUB','SIGNED_BY_COUNTERPARTY',$8,$9,$10)`,
+		registerID, fix.TenantID, registerNumber, fix.BuyerID, fix.CarrierID,
+		period, period, total, "0.00", total); err != nil {
+		t.Fatalf("register %s: %v", registerNumber, err)
+	}
+}
+
 func createManualPayment(t *testing.T, env *env, fix fixture, amount string) *domain.Payment {
 	t.Helper()
 	p, err := env.payments.CreateManualPayment(context.Background(), domain.CreateManualPaymentInput{
