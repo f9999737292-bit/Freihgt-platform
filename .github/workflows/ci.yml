@@ -30,6 +30,17 @@ jobs:
       - name: Git status
         run: git status --short
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install OpenAPI validation dependencies
+        run: pip install pyyaml
+
+      - name: OpenAPI check
+        run: make openapi-check
+
   backend-go-check:
     name: backend-go-check (${{ matrix.module }})
     runs-on: ubuntu-latest
