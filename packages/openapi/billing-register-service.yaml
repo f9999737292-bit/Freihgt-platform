@@ -352,6 +352,9 @@ paths:
     post:
       tags: [Billing Registers]
       summary: Calculate billing register totals
+      description: |
+        Buyer-only mutation. Tenant and actor identity come from verified gateway headers (`X-Tenant-ID`, `X-User-ID`, query `company_id`/`actor`).
+        Optional body `tenant_id` must match the authenticated tenant or be omitted; mismatch returns 403.
       operationId: post_calculate_billing_register_totals
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -410,6 +413,9 @@ paths:
     post:
       tags: [Billing Registers]
       summary: Approve billing register
+      description: |
+        Buyer-only mutation. `approved_by` is derived from verified `X-User-ID`; client-supplied `approved_by` must match or be omitted.
+        Optional body `tenant_id` must match authenticated tenant or be omitted (403 on mismatch).
       operationId: post_approve_billing_register
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -541,6 +547,9 @@ paths:
     post:
       tags: [Closing Documents]
       summary: Create closing document package
+      description: |
+        Idempotent per `(tenant_id, register_id)`: retry returns the existing canonical package (HTTP 201) without creating duplicates.
+        Concurrent requests resolve to one package row. Optional body `tenant_id` must match authenticated tenant or be omitted.
       operationId: post_create_closing_document_package
       parameters:
         - $ref: '#/components/parameters/XRequestID'

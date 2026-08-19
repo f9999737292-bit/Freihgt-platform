@@ -14,6 +14,7 @@ type BillingRegisterStore interface {
 	CompanyExists(ctx context.Context, companyID, tenantID uuid.UUID) (bool, error)
 	GetShipmentStatus(ctx context.Context, shipmentID, tenantID uuid.UUID) (string, error)
 	Create(ctx context.Context, in domain.CreateBillingRegisterInput) (*domain.BillingRegister, error)
+	CreateWithAudit(ctx context.Context, in domain.CreateBillingRegisterInput, actor domain.SettlementActorInput) (*domain.BillingRegister, error)
 	GetDetail(ctx context.Context, id uuid.UUID) (*repository.RegisterDetail, error)
 	List(ctx context.Context, filter domain.ListBillingRegistersFilter) ([]domain.BillingRegister, int, error)
 	GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.BillingRegister, error)
@@ -21,13 +22,17 @@ type BillingRegisterStore interface {
 	ListItems(ctx context.Context, registerID, tenantID uuid.UUID) ([]domain.BillingRegisterItem, error)
 	DeleteItem(ctx context.Context, registerID, itemID, tenantID uuid.UUID) error
 	Calculate(ctx context.Context, id, tenantID uuid.UUID, expectedVersion int) (*domain.BillingRegister, error)
+	CalculateForActor(ctx context.Context, registerID uuid.UUID, actor domain.SettlementActorInput) (*domain.BillingRegister, error)
 	RecalculateAfterItemChange(ctx context.Context, id, tenantID uuid.UUID, expectedVersion int) (*domain.BillingRegister, error)
 	Approve(ctx context.Context, id, tenantID, approvedBy uuid.UUID, expectedVersion int) (*domain.BillingRegister, error)
+	ApproveForActor(ctx context.Context, registerID uuid.UUID, actor domain.SettlementActorInput) (*domain.BillingRegister, error)
 	UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, status string, expectedVersion int) (*domain.BillingRegister, error)
+	TransitionStatusForActor(ctx context.Context, registerID uuid.UUID, actor domain.SettlementActorInput, nextStatus, auditEvent string, validate func(string) error) (*domain.BillingRegister, error)
 	IncludeSettlement(ctx context.Context, registerID, settlementID uuid.UUID, actor domain.SettlementActorInput) (*repository.IncludeSettlementResult, error)
 	RemoveSettlement(ctx context.Context, registerID, settlementID uuid.UUID, actor domain.SettlementActorInput) (*domain.BillingRegister, error)
 	GetDetailByTenant(ctx context.Context, id, tenantID uuid.UUID) (*repository.RegisterDetail, error)
 	SimulateRegisterAuditFailureForTest(ctx context.Context, registerID, tenantID uuid.UUID) error
+	SimulateCalculateAuditFailureForTest(ctx context.Context, registerID, tenantID uuid.UUID) error
 }
 
 type BillingRegisterService struct {
@@ -66,7 +71,20 @@ func (s *BillingRegisterService) CreateForActor(ctx context.Context, in domain.C
 		return nil, apperrors.Forbidden("buyer cannot create register for another buyer")
 	}
 	in.TenantID = actor.TenantID
-	return s.Create(ctx, in)
+	in.CurrencyCode = domain.NormalizeCurrencyCode(in.CurrencyCode)
+	if err := domain.ValidateCreateBillingRegisterInput(in); err != nil {
+		return nil, err
+	}
+	for _, companyID := range []uuid.UUID{in.CustomerCompanyID, in.ContractorCompanyID} {
+		exists, err := s.registers.CompanyExists(ctx, companyID, actor.TenantID)
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			return nil, apperrors.NotFound("company not found")
+		}
+	}
+	return s.registers.CreateWithAudit(ctx, in, actor)
 }
 
 func (s *BillingRegisterService) GetByID(ctx context.Context, id, tenantID uuid.UUID, actor domain.SettlementActorInput) (*repository.RegisterDetail, error) {
@@ -102,6 +120,7 @@ func (s *BillingRegisterService) List(ctx context.Context, filter domain.ListBil
 		}
 		filter.ContractorCompanyID = &actor.ActorCompanyID
 	}
+	filter.TenantID = actor.TenantID
 	if filter.Limit == 0 {
 		filter.Limit = 20
 	}
@@ -131,22 +150,28 @@ func (s *BillingRegisterService) RemoveSettlement(ctx context.Context, registerI
 	return s.registers.RemoveSettlement(ctx, registerID, settlementID, actor)
 }
 
-
-func (s *BillingRegisterService) AddItem(ctx context.Context, registerID uuid.UUID, in domain.CreateBillingRegisterItemInput) (*domain.BillingRegisterItem, error) {
+func (s *BillingRegisterService) AddItem(ctx context.Context, registerID uuid.UUID, in domain.CreateBillingRegisterItemInput, actor domain.SettlementActorInput) (*domain.BillingRegisterItem, error) {
 	if registerID == uuid.Nil {
 		return nil, apperrors.Validation("id is required", map[string]any{"field": "id"})
 	}
+	if err := domain.ValidateSettlementActor(actor); err != nil {
+		return nil, err
+	}
+	in.TenantID = actor.TenantID
 	if err := domain.ValidateCreateBillingRegisterItemInput(in); err != nil {
 		return nil, err
 	}
-	reg, err := s.registers.GetByIDAndTenant(ctx, registerID, in.TenantID)
+	reg, err := s.registers.GetByIDAndTenant(ctx, registerID, actor.TenantID)
 	if err != nil {
+		return nil, err
+	}
+	if err := domain.ValidateRegisterBuyerMutation(reg, actor); err != nil {
 		return nil, err
 	}
 	if err := domain.ValidateAddItemRegisterStatus(reg.Status); err != nil {
 		return nil, err
 	}
-	status, err := s.registers.GetShipmentStatus(ctx, in.ShipmentID, in.TenantID)
+	status, err := s.registers.GetShipmentStatus(ctx, in.ShipmentID, actor.TenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -161,108 +186,94 @@ func (s *BillingRegisterService) AddItem(ctx context.Context, registerID uuid.UU
 	return s.registers.AddItem(ctx, registerID, amounts, in)
 }
 
-func (s *BillingRegisterService) ListItems(ctx context.Context, registerID, tenantID uuid.UUID) ([]domain.BillingRegisterItem, error) {
+func (s *BillingRegisterService) ListItems(ctx context.Context, registerID uuid.UUID, actor domain.SettlementActorInput) ([]domain.BillingRegisterItem, error) {
 	if registerID == uuid.Nil {
 		return nil, apperrors.Validation("id is required", map[string]any{"field": "id"})
 	}
-	if err := domain.ValidateTenantActionInput(domain.TenantActionInput{TenantID: tenantID}); err != nil {
+	if err := domain.ValidateSettlementActor(actor); err != nil {
 		return nil, err
 	}
-	if _, err := s.registers.GetByIDAndTenant(ctx, registerID, tenantID); err != nil {
+	reg, err := s.registers.GetByIDAndTenant(ctx, registerID, actor.TenantID)
+	if err != nil {
 		return nil, err
 	}
-	return s.registers.ListItems(ctx, registerID, tenantID)
+	if err := domain.ValidateBillingRegisterAccess(reg, actor.ActorCompanyID, actor.ActorKind); err != nil {
+		return nil, err
+	}
+	return s.registers.ListItems(ctx, registerID, actor.TenantID)
 }
 
-func (s *BillingRegisterService) DeleteItem(ctx context.Context, registerID, itemID uuid.UUID, tenantID uuid.UUID) (*domain.BillingRegister, error) {
+func (s *BillingRegisterService) DeleteItem(ctx context.Context, registerID, itemID uuid.UUID, actor domain.SettlementActorInput) (*domain.BillingRegister, error) {
 	if registerID == uuid.Nil || itemID == uuid.Nil {
 		return nil, apperrors.Validation("id is required", map[string]any{"field": "id"})
 	}
-	reg, err := s.registers.GetByIDAndTenant(ctx, registerID, tenantID)
+	if err := domain.ValidateSettlementActor(actor); err != nil {
+		return nil, err
+	}
+	reg, err := s.registers.GetByIDAndTenant(ctx, registerID, actor.TenantID)
 	if err != nil {
+		return nil, err
+	}
+	if err := domain.ValidateRegisterBuyerMutation(reg, actor); err != nil {
 		return nil, err
 	}
 	if err := domain.ValidateDeleteItemRegisterStatus(reg.Status); err != nil {
 		return nil, err
 	}
-	if err := s.registers.DeleteItem(ctx, registerID, itemID, tenantID); err != nil {
+	if err := s.registers.DeleteItem(ctx, registerID, itemID, actor.TenantID); err != nil {
 		return nil, err
 	}
-	return s.registers.RecalculateAfterItemChange(ctx, registerID, tenantID, reg.Version)
+	return s.registers.RecalculateAfterItemChange(ctx, registerID, actor.TenantID, reg.Version)
 }
 
-func (s *BillingRegisterService) Calculate(ctx context.Context, registerID uuid.UUID, in domain.TenantActionInput) (*domain.BillingRegister, error) {
+func (s *BillingRegisterService) Calculate(ctx context.Context, registerID uuid.UUID, actor domain.SettlementActorInput) (*domain.BillingRegister, error) {
 	if registerID == uuid.Nil {
 		return nil, apperrors.Validation("id is required", map[string]any{"field": "id"})
 	}
-	if err := domain.ValidateTenantActionInput(in); err != nil {
+	if err := domain.ValidateSettlementActor(actor); err != nil {
 		return nil, err
 	}
-	reg, err := s.registers.GetByIDAndTenant(ctx, registerID, in.TenantID)
-	if err != nil {
-		return nil, err
-	}
-	if err := domain.ValidateCalculateRegisterStatus(reg.Status); err != nil {
-		return nil, err
-	}
-	return s.registers.Calculate(ctx, registerID, in.TenantID, reg.Version)
+	return s.registers.CalculateForActor(ctx, registerID, actor)
 }
 
-func (s *BillingRegisterService) Approve(ctx context.Context, registerID uuid.UUID, in domain.ApproveRegisterInput) (*domain.BillingRegister, error) {
+func (s *BillingRegisterService) Approve(ctx context.Context, registerID uuid.UUID, actor domain.SettlementActorInput) (*domain.BillingRegister, error) {
 	if registerID == uuid.Nil {
 		return nil, apperrors.Validation("id is required", map[string]any{"field": "id"})
 	}
-	if err := domain.ValidateApproveRegisterInput(in); err != nil {
+	if err := domain.ValidateSettlementActor(actor); err != nil {
 		return nil, err
 	}
-	reg, err := s.registers.GetByIDAndTenant(ctx, registerID, in.TenantID)
-	if err != nil {
-		return nil, err
-	}
-	if err := domain.ValidateApproveRegisterStatus(reg.Status); err != nil {
-		return nil, err
-	}
-	if err := domain.ValidateApproveRegisterTotals(reg.TotalWithVAT); err != nil {
-		return nil, err
-	}
-	return s.registers.Approve(ctx, registerID, in.TenantID, in.ApprovedBy, reg.Version)
+	return s.registers.ApproveForActor(ctx, registerID, actor)
 }
 
-func (s *BillingRegisterService) MarkSentToEDO(ctx context.Context, registerID uuid.UUID, in domain.TenantActionInput) (*domain.BillingRegister, error) {
-	return s.transition(ctx, registerID, in, domain.ValidateMarkSentToEDOStatus, domain.RegisterStatusSentToEDO)
+func (s *BillingRegisterService) MarkSentToEDO(ctx context.Context, registerID uuid.UUID, actor domain.SettlementActorInput) (*domain.BillingRegister, error) {
+	return s.transitionForActor(ctx, registerID, actor, domain.ValidateMarkSentToEDOStatus, domain.RegisterStatusSentToEDO, domain.RegisterAuditMarkedSent)
 }
 
-func (s *BillingRegisterService) MarkSigned(ctx context.Context, registerID uuid.UUID, in domain.TenantActionInput) (*domain.BillingRegister, error) {
-	return s.transition(ctx, registerID, in, domain.ValidateMarkSignedStatus, domain.RegisterStatusSignedByCounterparty)
+func (s *BillingRegisterService) MarkSigned(ctx context.Context, registerID uuid.UUID, actor domain.SettlementActorInput) (*domain.BillingRegister, error) {
+	return s.transitionForActor(ctx, registerID, actor, domain.ValidateMarkSignedStatus, domain.RegisterStatusSignedByCounterparty, domain.RegisterAuditMarkedSigned)
 }
 
-func (s *BillingRegisterService) MarkPaid(ctx context.Context, registerID uuid.UUID, in domain.TenantActionInput) (*domain.BillingRegister, error) {
-	return s.transition(ctx, registerID, in, domain.ValidateMarkPaidStatus, domain.RegisterStatusPaid)
+func (s *BillingRegisterService) MarkPaid(ctx context.Context, registerID uuid.UUID, actor domain.SettlementActorInput) (*domain.BillingRegister, error) {
+	return s.transitionForActor(ctx, registerID, actor, domain.ValidateMarkPaidStatus, domain.RegisterStatusPaid, domain.RegisterAuditMarkedPaid)
 }
 
-func (s *BillingRegisterService) Close(ctx context.Context, registerID uuid.UUID, in domain.TenantActionInput) (*domain.BillingRegister, error) {
-	return s.transition(ctx, registerID, in, domain.ValidateCloseRegisterStatus, domain.RegisterStatusClosed)
+func (s *BillingRegisterService) Close(ctx context.Context, registerID uuid.UUID, actor domain.SettlementActorInput) (*domain.BillingRegister, error) {
+	return s.transitionForActor(ctx, registerID, actor, domain.ValidateCloseRegisterStatus, domain.RegisterStatusClosed, domain.RegisterAuditClosed)
 }
 
-func (s *BillingRegisterService) transition(
+func (s *BillingRegisterService) transitionForActor(
 	ctx context.Context,
 	registerID uuid.UUID,
-	in domain.TenantActionInput,
+	actor domain.SettlementActorInput,
 	validate func(string) error,
-	nextStatus string,
+	nextStatus, auditEvent string,
 ) (*domain.BillingRegister, error) {
 	if registerID == uuid.Nil {
 		return nil, apperrors.Validation("id is required", map[string]any{"field": "id"})
 	}
-	if err := domain.ValidateTenantActionInput(in); err != nil {
+	if err := domain.ValidateSettlementActor(actor); err != nil {
 		return nil, err
 	}
-	reg, err := s.registers.GetByIDAndTenant(ctx, registerID, in.TenantID)
-	if err != nil {
-		return nil, err
-	}
-	if err := validate(reg.Status); err != nil {
-		return nil, err
-	}
-	return s.registers.UpdateStatus(ctx, registerID, in.TenantID, nextStatus, reg.Version)
+	return s.registers.TransitionStatusForActor(ctx, registerID, actor, nextStatus, auditEvent, validate)
 }

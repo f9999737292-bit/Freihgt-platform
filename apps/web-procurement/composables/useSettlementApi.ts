@@ -197,15 +197,15 @@ export function useSettlementApi() {
   async function calculateBillingRegister(registerId: string, actor: SettlementActor) {
     return apiPost<BillingRegister>(
       `/api/v1/billing-registers/${encodeURIComponent(registerId)}/calculate`,
-      { tenant_id: tenantStore.tenantId },
+      {},
       { query: actorQuery(actor) },
     )
   }
 
-  async function approveBillingRegister(registerId: string, actor: SettlementActor, approvedBy: string) {
+  async function approveBillingRegister(registerId: string, actor: SettlementActor) {
     return apiPost<BillingRegister>(
       `/api/v1/billing-registers/${encodeURIComponent(registerId)}/approve`,
-      { tenant_id: tenantStore.tenantId, approved_by: approvedBy },
+      {},
       { query: actorQuery(actor) },
     )
   }
@@ -213,7 +213,7 @@ export function useSettlementApi() {
   async function createClosingDocumentPackage(registerId: string, actor: SettlementActor, packageNumber: string) {
     return apiPost(
       `/api/v1/billing-registers/${encodeURIComponent(registerId)}/closing-document-package`,
-      { tenant_id: tenantStore.tenantId, package_number: packageNumber, package_type: 'STANDARD' },
+      { package_number: packageNumber, package_type: 'ACT_PLUS_VAT_INVOICE' },
       { query: actorQuery(actor) },
     )
   }

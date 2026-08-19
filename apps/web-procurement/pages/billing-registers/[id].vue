@@ -107,9 +107,9 @@ async function onCalculate() {
 }
 
 async function onApprove() {
-  if (!actor.value || !authStore.user?.id) return
+  if (!actor.value) return
   await runAction(
-    () => approveBillingRegister(registerId.value, actor.value!, authStore.user!.id),
+    () => approveBillingRegister(registerId.value, actor.value!),
     'settlements.registerApproved',
   )
 }

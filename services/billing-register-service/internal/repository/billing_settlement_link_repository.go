@@ -111,7 +111,7 @@ func (r *BillingRegisterRepository) IncludeSettlement(
 		}
 		result.Register = updatedReg
 		result.Item = item
-		if err := insertRegisterAuditEvent(ctx, tx, actor.TenantID, registerID, "SETTLEMENT_INCLUDED", actor.ActorUserID, actor.ActorCompanyID, map[string]any{
+		if err := insertRegisterAuditEvent(ctx, tx, actor.TenantID, registerID, domain.RegisterAuditSettlementIncluded, actor.ActorUserID, actor.ActorCompanyID, map[string]any{
 			"settlement_id": settlementID.String(), "register_item_id": item.ID.String(),
 			"base_amount": settlement.BaseFreightAmount, "approved_accessorial_total": settlement.ApprovedAccessorialTotal,
 		}); err != nil {
@@ -173,7 +173,7 @@ func (r *BillingRegisterRepository) RemoveSettlement(
 			return err
 		}
 		result = updated
-		return insertRegisterAuditEvent(ctx, tx, actor.TenantID, registerID, "SETTLEMENT_REMOVED", actor.ActorUserID, actor.ActorCompanyID, map[string]any{
+		return insertRegisterAuditEvent(ctx, tx, actor.TenantID, registerID, domain.RegisterAuditSettlementRemoved, actor.ActorUserID, actor.ActorCompanyID, map[string]any{
 			"settlement_id": settlementID.String(),
 		})
 	})

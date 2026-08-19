@@ -76,6 +76,10 @@ func (h *BillingRegisterHandler) Create(w http.ResponseWriter, r *http.Request) 
 		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
 		return
 	}
+	if err := domain.EnforceOptionalBodyTenant(actor.TenantID, req.TenantID); err != nil {
+		respond.Error(w, err)
+		return
+	}
 	input, err := parseCreateRegisterRequest(req)
 	if err != nil {
 		respond.Error(w, err)
@@ -163,6 +167,11 @@ func (h *BillingRegisterHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *BillingRegisterHandler) AddItem(w http.ResponseWriter, r *http.Request) {
+	actor, err := settlementActorInput(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
 	registerID, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
 	if err != nil {
 		respond.Error(w, err)
@@ -173,12 +182,16 @@ func (h *BillingRegisterHandler) AddItem(w http.ResponseWriter, r *http.Request)
 		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
 		return
 	}
+	if err := domain.EnforceOptionalBodyTenant(actor.TenantID, req.TenantID); err != nil {
+		respond.Error(w, err)
+		return
+	}
 	input, err := parseCreateItemRequest(req)
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
-	item, err := h.registers.AddItem(r.Context(), registerID, input)
+	item, err := h.registers.AddItem(r.Context(), registerID, input, actor)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -187,17 +200,17 @@ func (h *BillingRegisterHandler) AddItem(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *BillingRegisterHandler) ListItems(w http.ResponseWriter, r *http.Request) {
+	actor, err := settlementActorInput(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
 	registerID, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
-	tenantID, err := domain.ParseUUID(r.URL.Query().Get("tenant_id"), "tenant_id")
-	if err != nil {
-		respond.Error(w, err)
-		return
-	}
-	items, err := h.registers.ListItems(r.Context(), registerID, tenantID)
+	items, err := h.registers.ListItems(r.Context(), registerID, actor)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -210,6 +223,11 @@ func (h *BillingRegisterHandler) ListItems(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *BillingRegisterHandler) DeleteItem(w http.ResponseWriter, r *http.Request) {
+	actor, err := settlementActorInput(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
 	registerID, err := domain.ParseUUID(chi.URLParam(r, "register_id"), "register_id")
 	if err != nil {
 		respond.Error(w, err)
@@ -220,12 +238,11 @@ func (h *BillingRegisterHandler) DeleteItem(w http.ResponseWriter, r *http.Reque
 		respond.Error(w, err)
 		return
 	}
-	tenantID, err := domain.ParseUUID(r.URL.Query().Get("tenant_id"), "tenant_id")
-	if err != nil {
+	if err := domain.EnforceOptionalBodyTenant(actor.TenantID, r.URL.Query().Get("tenant_id")); err != nil {
 		respond.Error(w, err)
 		return
 	}
-	reg, err := h.registers.DeleteItem(r.Context(), registerID, itemID, tenantID)
+	reg, err := h.registers.DeleteItem(r.Context(), registerID, itemID, actor)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -234,8 +251,8 @@ func (h *BillingRegisterHandler) DeleteItem(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *BillingRegisterHandler) Calculate(w http.ResponseWriter, r *http.Request) {
-	h.tenantAction(w, r, func(id uuid.UUID, in domain.TenantActionInput) (any, error) {
-		reg, err := h.registers.Calculate(r.Context(), id, in)
+	h.actorMutation(w, r, func(id uuid.UUID, actor domain.SettlementActorInput) (any, error) {
+		reg, err := h.registers.Calculate(r.Context(), id, actor)
 		if err != nil {
 			return nil, err
 		}
@@ -244,6 +261,11 @@ func (h *BillingRegisterHandler) Calculate(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *BillingRegisterHandler) Approve(w http.ResponseWriter, r *http.Request) {
+	actor, err := settlementActorInput(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
 	id, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
 	if err != nil {
 		respond.Error(w, err)
@@ -254,17 +276,15 @@ func (h *BillingRegisterHandler) Approve(w http.ResponseWriter, r *http.Request)
 		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
 		return
 	}
-	tenantID, err := domain.ParseUUID(req.TenantID, "tenant_id")
-	if err != nil {
+	if err := domain.EnforceOptionalBodyTenant(actor.TenantID, req.TenantID); err != nil {
 		respond.Error(w, err)
 		return
 	}
-	approvedBy, err := domain.ParseUUID(req.ApprovedBy, "approved_by")
-	if err != nil {
+	if _, err := domain.ResolveApprovedBy(actor.ActorUserID, req.ApprovedBy); err != nil {
 		respond.Error(w, err)
 		return
 	}
-	reg, err := h.registers.Approve(r.Context(), id, domain.ApproveRegisterInput{TenantID: tenantID, ApprovedBy: approvedBy})
+	reg, err := h.registers.Approve(r.Context(), id, actor)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -273,8 +293,8 @@ func (h *BillingRegisterHandler) Approve(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *BillingRegisterHandler) MarkSentToEDO(w http.ResponseWriter, r *http.Request) {
-	h.tenantAction(w, r, func(id uuid.UUID, in domain.TenantActionInput) (any, error) {
-		reg, err := h.registers.MarkSentToEDO(r.Context(), id, in)
+	h.actorMutation(w, r, func(id uuid.UUID, actor domain.SettlementActorInput) (any, error) {
+		reg, err := h.registers.MarkSentToEDO(r.Context(), id, actor)
 		if err != nil {
 			return nil, err
 		}
@@ -283,8 +303,8 @@ func (h *BillingRegisterHandler) MarkSentToEDO(w http.ResponseWriter, r *http.Re
 }
 
 func (h *BillingRegisterHandler) MarkSigned(w http.ResponseWriter, r *http.Request) {
-	h.tenantAction(w, r, func(id uuid.UUID, in domain.TenantActionInput) (any, error) {
-		reg, err := h.registers.MarkSigned(r.Context(), id, in)
+	h.actorMutation(w, r, func(id uuid.UUID, actor domain.SettlementActorInput) (any, error) {
+		reg, err := h.registers.MarkSigned(r.Context(), id, actor)
 		if err != nil {
 			return nil, err
 		}
@@ -293,8 +313,8 @@ func (h *BillingRegisterHandler) MarkSigned(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *BillingRegisterHandler) MarkPaid(w http.ResponseWriter, r *http.Request) {
-	h.tenantAction(w, r, func(id uuid.UUID, in domain.TenantActionInput) (any, error) {
-		reg, err := h.registers.MarkPaid(r.Context(), id, in)
+	h.actorMutation(w, r, func(id uuid.UUID, actor domain.SettlementActorInput) (any, error) {
+		reg, err := h.registers.MarkPaid(r.Context(), id, actor)
 		if err != nil {
 			return nil, err
 		}
@@ -303,8 +323,8 @@ func (h *BillingRegisterHandler) MarkPaid(w http.ResponseWriter, r *http.Request
 }
 
 func (h *BillingRegisterHandler) Close(w http.ResponseWriter, r *http.Request) {
-	h.tenantAction(w, r, func(id uuid.UUID, in domain.TenantActionInput) (any, error) {
-		reg, err := h.registers.Close(r.Context(), id, in)
+	h.actorMutation(w, r, func(id uuid.UUID, actor domain.SettlementActorInput) (any, error) {
+		reg, err := h.registers.Close(r.Context(), id, actor)
 		if err != nil {
 			return nil, err
 		}
@@ -312,23 +332,29 @@ func (h *BillingRegisterHandler) Close(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *BillingRegisterHandler) tenantAction(w http.ResponseWriter, r *http.Request, fn func(uuid.UUID, domain.TenantActionInput) (any, error)) {
+func (h *BillingRegisterHandler) actorMutation(w http.ResponseWriter, r *http.Request, fn func(uuid.UUID, domain.SettlementActorInput) (any, error)) {
+	actor, err := settlementActorInput(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
 	id, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
 	var req tenantRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
-		return
+	if r.ContentLength > 0 {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
+			return
+		}
+		if err := domain.EnforceOptionalBodyTenant(actor.TenantID, req.TenantID); err != nil {
+			respond.Error(w, err)
+			return
+		}
 	}
-	tenantID, err := domain.ParseUUID(req.TenantID, "tenant_id")
-	if err != nil {
-		respond.Error(w, err)
-		return
-	}
-	result, err := fn(id, domain.TenantActionInput{TenantID: tenantID})
+	result, err := fn(id, actor)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -373,9 +399,13 @@ func parseCreateRegisterRequest(req createRegisterRequest) (domain.CreateBilling
 }
 
 func parseCreateItemRequest(req createItemRequest) (domain.CreateBillingRegisterItemInput, error) {
-	tenantID, err := domain.ParseUUID(req.TenantID, "tenant_id")
-	if err != nil {
-		return domain.CreateBillingRegisterItemInput{}, err
+	var tenantID uuid.UUID
+	if strings.TrimSpace(req.TenantID) != "" {
+		parsed, err := domain.ParseUUID(req.TenantID, "tenant_id")
+		if err != nil {
+			return domain.CreateBillingRegisterItemInput{}, err
+		}
+		tenantID = parsed
 	}
 	shipmentID, err := domain.ParseUUID(req.ShipmentID, "shipment_id")
 	if err != nil {
