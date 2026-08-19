@@ -1,6 +1,6 @@
 # Freight Payments & Reconciliation Architecture (v1.9.0)
 
-**Status:** Architecture freeze — design only, no production implementation in v1.9.0  
+**Status:** Architecture freeze **finalized** — design only, no production implementation in v1.9.0  
 **Base:** `main` @ Freight Billing & Closing Documents v1.8.2  
 **Next slice:** v1.9.1 Payment Backend Core
 
@@ -154,6 +154,7 @@ Idempotency: one package + one of each doc type per register (migration 000044).
 | Payment record | **NEW** `payment-service` | Fact of payment (manual/import/API) |
 | Allocation | **NEW** `payment-service` | N:M bridge |
 | Reconciliation state | **NEW** `payment-service` | Derived from allocations + business rules |
+| **Actual payment completion** | **`payment-service`** | **Canonical SSOT** — not billing register `PAID` |
 
 **Critical rule — no duplicated editable money:**
 
@@ -161,7 +162,53 @@ Idempotency: one package + one of each doc type per register (migration 000044).
 Settlement amount  ≠  editable payment field
 Register total     →  snapshotted into obligation.original_amount (immutable)
 Payment.amount     →  recorded fact, not derived from client JSON without validation
+Register PAID      →  projection synchronized from payment obligation (see §3.1)
 ```
+
+### 3.1 Payment SSOT & elimination of dual payment truth
+
+**`payment-service` is the canonical SSOT for actual payment state.**
+
+`billing-register-service` register status `PAID` must **not** remain an independent
+financial truth after v1.9.1 is deployed. There is **no dual mutable SSOT** for payment completion.
+
+| Layer | Role |
+|-------|------|
+| `payment-service` | SSOT: obligations, payments, allocations, paid/outstanding amounts |
+| `billing-register-service` | SSOT: closing batch, documents, EDO workflow; `PAID` is a **projection** |
+
+**Compatibility period (v1.9.1 – v1.9.2):**
+
+- The existing `POST /billing-registers/{id}/mark-paid` route may remain callable **only**
+  if required for backward compatibility during migration.
+- It must **NOT** independently assert payment completion contrary to `payment-service`.
+- Preferred implementation: deprecate direct manual `mark-paid`; route becomes a thin
+  compatibility shim or returns `409` when obligation is not `PAID`.
+- `mark-paid` must **never** set register `PAID` unless payment obligation preconditions are met.
+
+**Register PAID projection invariant:**
+
+```
+REGISTER.status == PAID
+  ⇒ corresponding PaymentObligation exists (source_type=BILLING_REGISTER, source_id=register.id)
+  AND obligation.status == PAID
+  AND obligation.paid_amount == obligation.original_amount
+  AND obligation.outstanding_amount == 0
+```
+
+**Inverse synchronization (canonical direction):**
+
+When `PaymentObligation` transitions to `PAID`, payment-service (or coordinated handler)
+may set register status to `PAID`. Register `PAID` is a **consequence**, not a source.
+
+**v1.9.3:** frontend removes dependence on legacy `mark-paid`; all payment completion flows
+through payment-service APIs.
+
+**Forbidden after v1.9.1:**
+
+- Operator marks register paid without payment obligation reaching `PAID`.
+- Two independent paths both mutating financial paid state.
+- Register `PAID` implying payment when no obligation/allocation exists.
 
 ---
 
@@ -207,26 +254,42 @@ Forwarder participation exists via company type/roles but not as separate payabl
 
 **v1.9.1 scope:** obligation mirrors register payer/payee only.
 
-### 4.3 Obligation creation trigger
+### 4.3 Obligation creation trigger (ADR-02 — FROZEN)
 
-**ADR-02 recommendation (PROPOSED — NOT CONFIRMED with product):**
+**Decision (frozen):** Create exactly **one** `PaymentObligation` when billing register
+reaches **`SIGNED_BY_COUNTERPARTY`**.
 
-Create obligation when register reaches **`SIGNED_BY_COUNTERPARTY`**.
+| Rule | Value |
+|------|-------|
+| Trigger event | Register status transition → `SIGNED_BY_COUNTERPARTY` |
+| Granularity (v1.9.1) | **Exactly one obligation per billing register** |
+| Idempotency key | `UNIQUE (tenant_id, source_type, source_id)` where `source_type=BILLING_REGISTER` |
+| Settlement-level obligations | **Out of scope v1.9.1** (future extension only) |
 
-Rationale from existing lifecycle:
+**Important distinction — obligation creation ≠ due-date start:**
+
+- **Obligation creation** is triggered by register reaching `SIGNED_BY_COUNTERPARTY`.
+- **Due-date start / payment term clock** is a separate business rule and is **NOT**
+  automatically defined by ADR-02 in v1.9.1.
+- `SIGNED_BY_COUNTERPARTY` date may be recorded as metadata on the obligation
+  (`source_signed_at` or audit payload) but does **not** auto-populate `due_date`.
+
+Rationale:
 
 | Trigger candidate | Assessment |
 |-------------------|------------|
 | Settlement `APPROVED` | Too early — not yet in closing batch |
 | Register `APPROVED` | Payable basis exists but docs may not be accepted |
 | Closing package generation | Docs exist; counterparty may not have accepted |
-| **`SIGNED_BY_COUNTERPARTY`** | Matches v1.8 precondition for `mark-paid`; legal acceptance implied |
-| Manual `mark-paid` | Today a mock flag; v1.9 replaces with real payment flow |
+| **`SIGNED_BY_COUNTERPARTY`** | **Selected** — counterparty acceptance; aligns with closing lifecycle |
+| Manual `mark-paid` | Legacy mock; **not** obligation trigger (see §3.1) |
 
-Alternative supported by architecture: create at register `APPROVED` with `due_date` starting
-from approval date if product prefers earlier AP visibility.
+**Cross-service reference (no FK):**
 
-**Idempotency:** `UNIQUE (tenant_id, source_type, source_id)` — one obligation per register.
+- **No database FK** from `payment_obligations.source_id` to `billing.billing_registers.id`.
+- Reference via: `tenant_id` + `source_type=BILLING_REGISTER` + `source_id` (register UUID).
+- `payment-service` validates register existence, tenant, status, and parties via
+  **server-side application lookup** (internal HTTP or read-only query) at obligation creation.
 
 ### 4.4 Due date source
 
@@ -239,12 +302,14 @@ from approval date if product prefers earlier AP visibility.
 | Register override | NOT_FOUND |
 | Platform default | NOT_FOUND |
 
-**ADR-05 decision:**
+**ADR-05 decision (frozen for v1.9.1):**
 
-- v1.9.1: `due_date` **nullable** on obligation creation.
-- Manual assignment via API allowed for pilot (`PATCH` due_date before any allocation).
+- `due_date` is **nullable** on obligation creation.
+- Manual assignment via API allowed for pilot (`PATCH …/due-date` before any allocation).
+- **No automatic +N-day default** (e.g. no implicit `signed_at + 30 days`).
 - Fail-safe: overdue detection skipped when `due_date IS NULL`.
-- Future: payment terms entity or company-service extension — **OPEN_QUESTION_001**.
+- Future: payment terms entity or company-service extension — legal term start remains
+  **OPEN_QUESTION_001** (separate from ADR-02 obligation creation trigger).
 
 ### 4.5 Immutability & corrections
 
@@ -290,11 +355,26 @@ validated server-side; never trusted from client without authorization checks.
 
 ### 5.2 External ID & duplicates
 
-**ADR policy:**
+**External identity uniqueness (frozen):**
+
+Bank/provider external identities must remain **historically unique per tenant**, even after void.
+Voiding must **not** allow re-insert of the same bank/provider transaction ID.
 
 ```sql
-UNIQUE (tenant_id, source, external_id) WHERE external_id IS NOT NULL AND voided_at IS NULL
+-- IMPORT / API / BANK_* sources: permanent uniqueness
+UNIQUE (tenant_id, source, external_id)
+  WHERE external_id IS NOT NULL
+  AND source IN ('IMPORT', 'API', 'BANK_STATEMENT', 'BANK_API', 'ERP_1C', 'ERP_SAP')
 ```
+
+**MANUAL source semantics:**
+
+- `external_id` is optional for manual pilot payments.
+- When provided on `source=MANUAL`, it is an operator-supplied reference, not a bank transaction ID.
+- Manual `external_id` uniqueness: `UNIQUE (tenant_id, source, external_id) WHERE external_id IS NOT NULL`
+  applies among **active (non-voided)** manual payments only — allows re-entry after void for
+  operator typos, but **does not** apply to bank import sources above.
+- Re-import of a voided bank transaction must remain blocked; use explicit reversal workflow instead.
 
 Fallback duplicate **warning** (not hard constraint): same payer + payee + date + amount + reference.
 
@@ -328,20 +408,26 @@ No hard DELETE after first allocation.
 
 Do **not** use `payment.obligation_id` as sole link.
 
-### 6.2 Reconciliation semantics
+### 6.2 Reconciliation semantics (ADR-06 — FROZEN)
 
-**ADR-06:**
+**Exact definitions:**
 
-| Term | Meaning |
-|------|---------|
-| Payment registration | Payment row created (`RECEIVED`) |
-| Allocation | Link created with amount |
-| Reconciliation | Payment `allocated_amount == payment.amount` AND all linked obligations satisfied OR explicit partial reconciliation accepted |
+| Term | Definition |
+|------|------------|
+| Payment registration | Payment row created with status `RECEIVED` |
+| Allocation | Active `payment_allocations` row linking payment ↔ obligation |
+| **Payment `FULLY_ALLOCATED`** | `allocated_amount == payment.amount` (exact equality) |
+| **Payment `RECONCILED`** | Payment is `FULLY_ALLOCATED` **AND** reconciliation explicitly confirmed by authorized actor (`POST …/reconcile`) |
+| **Obligation `PAID`** | `paid_amount == original_amount` (exact equality); `outstanding_amount == 0` |
 
-`RECONCILED` on payment means: **no unresolved allocation work for that payment** (fully allocated).
-Partially allocated payments remain `PARTIALLY_ALLOCATED`.
+**Over-allocation is impossible:**
 
-Obligation `PAID` means: `paid_amount >= original_amount` (exact match; overpayment handled separately).
+- `paid_amount` must **never** exceed `original_amount`.
+- `paid_amount == original_amount` is required for `PAID` status (not `>=`).
+- Allocation requests where `allocated_amount > obligation.outstanding_amount` are **rejected**.
+
+Partially allocated payments remain `PARTIALLY_ALLOCATED` until `allocated_amount == payment.amount`.
+Only then may an authorized actor confirm `RECONCILED`.
 
 ### 6.3 Overpayment / underpayment
 
@@ -381,14 +467,17 @@ v1.9.1: **manual allocation only**.
 1. allocated_amount > 0 for each active allocation
 2. SUM(active allocations for payment) <= payment.amount
 3. SUM(active allocations for obligation) <= obligation.original_amount
-   (unless explicit overpayment policy enabled — default: reject)
-4. payment.currency == obligation.currency
-5. tenant(payment) == tenant(obligation)
-6. payer/payee on allocation must match both payment and obligation parties
-7. obligation.original_amount is immutable after creation
-8. no hard DELETE of payments/allocations after reconciliation
-9. UNIQUE (tenant_id, source_type, source_id) on obligations
-10. UNIQUE (tenant_id, source, external_id) on payments where external_id set
+4. Obligation PAID ⇔ paid_amount == original_amount AND outstanding_amount == 0
+   (paid_amount > original_amount is FORBIDDEN)
+5. Payment FULLY_ALLOCATED ⇔ allocated_amount == payment.amount (exact equality)
+6. payment.currency == obligation.currency (no FX; mismatch → reject)
+7. tenant(payment) == tenant(obligation)
+8. payer/payee on allocation must match both payment and obligation parties
+9. obligation.original_amount is immutable after creation
+10. no hard DELETE of payments/allocations after financial use; VOID only
+11. UNIQUE (tenant_id, source_type, source_id) on obligations — one per register (v1.9.1)
+12. Bank/provider external_id permanently unique per (tenant_id, source) — void does not release
+13. REGISTER PAID ⇒ obligation PAID with exact amount match (§3.1); no independent register paid truth
 ```
 
 **Money types (ADR-03):** new payment-service persistence uses **NUMERIC(18,2)** exclusively.
@@ -418,7 +507,7 @@ stateDiagram-v2
 |--------|-----------|-------|
 | `OPEN` | YES | No payments allocated |
 | `PARTIALLY_PAID` | YES | `0 < paid_amount < original_amount` |
-| `PAID` | YES | `paid_amount >= original_amount` |
+| `PAID` | YES | `paid_amount == original_amount` AND `outstanding_amount == 0` |
 | `CANCELLED` | YES | Upstream cancelled |
 | `VOIDED` | YES | Admin correction |
 | `OVERDUE` | **DERIVED** | `due_date < today AND outstanding > 0 AND status IN (OPEN, PARTIALLY_PAID)` |
@@ -546,13 +635,12 @@ sequenceDiagram
 
 **Decision: YES — create `payment-service`**
 
-Payment lifecycle (registration, allocation, reconciliation, bank import) differs materially
-from billing register / closing document lifecycle. v1.8 mock `mark-paid` remains for
-backward compatibility until v1.9.3 UI migration; payment-service becomes SSOT for actual payments.
+Payment lifecycle differs materially from billing register / closing document lifecycle.
+`payment-service` is SSOT for actual payment state (§3.1).
 
-**Integration:** payment-service reads register data via **internal HTTP API** or shared DB read
-(same PostgreSQL pattern as today). **No cross-service FK** on obligation → register;
-store `source_type` + `source_id` only.
+**Integration:** payment-service reads register data via internal HTTP API or read-only DB query.
+**No cross-service FK** on obligation → register; store `tenant_id` + `source_type` + `source_id`
+with server-side application validation only.
 
 ---
 
@@ -575,11 +663,17 @@ Optional (v1.9.2+): `billing.payment_reconciliation_runs` — only if batch reco
 ### Proposed unique constraints
 
 ```sql
--- obligation idempotency
+-- obligation idempotency (v1.9.1: one obligation per register)
 UNIQUE (tenant_id, source_type, source_id)
 
--- external payment idempotency
-UNIQUE (tenant_id, source, external_id) WHERE external_id IS NOT NULL AND voided_at IS NULL
+-- bank/provider external payment idempotency (permanent; void does not release)
+UNIQUE (tenant_id, source, external_id)
+  WHERE external_id IS NOT NULL
+  AND source IN ('IMPORT', 'API', 'BANK_STATEMENT', 'BANK_API', 'ERP_1C', 'ERP_SAP')
+
+-- manual external_id: active-only uniqueness (operator reference, not bank SSOT)
+UNIQUE (tenant_id, source, external_id)
+  WHERE external_id IS NOT NULL AND source = 'MANUAL' AND voided_at IS NULL
 
 -- obligation number
 UNIQUE (tenant_id, obligation_number)
@@ -596,11 +690,24 @@ UNIQUE (tenant_id, obligation_number)
 (tenant_id, unallocated_amount) WHERE unallocated_amount > 0  -- via partial index on payments
 ```
 
-### Cross-service FK policy
+### Cross-service FK policy (frozen)
 
-**Avoid** FK from `payment_obligations.source_id` → `billing_registers.id` across service boundaries
-if payment-service gets separate deploy ownership. Use application-level validation + idempotent lookup.
-Within same DB (current monolith DB), optional FK acceptable for v1.9.1 simplicity — **OPEN_QUESTION_002**.
+**No FK** from `payment_obligations.source_id` → `billing_registers.id`.
+
+Reference model:
+
+```text
+tenant_id + source_type=BILLING_REGISTER + source_id=<register_uuid>
+```
+
+Validation at obligation creation:
+
+1. Register exists in tenant.
+2. Register status is `SIGNED_BY_COUNTERPARTY` (or later compatible state).
+3. Payer/payee derived server-side from register parties.
+4. Amount snapshotted server-side from register totals.
+
+This preserves service boundary even when services share one PostgreSQL instance today.
 
 ---
 
@@ -700,18 +807,20 @@ Payer/payee on payment must align with actor's authorized company context:
 
 Follow `billingrbac` naming — permissions via role maps, not new framework.
 
-| Permission | Roles (proposed) |
-|------------|------------------|
-| `payment.read` | PLATFORM_ADMIN, SHIPPER_ADMIN, SHIPPER_LOGIST, CARRIER_ADMIN, CARRIER_ACCOUNTANT, FORWARDER_MANAGER |
-| `payment.create` | PLATFORM_ADMIN, SHIPPER_ADMIN, CARRIER_ACCOUNTANT |
-| `payment.allocate` | PLATFORM_ADMIN, SHIPPER_ADMIN, CARRIER_ACCOUNTANT |
-| `payment.reconcile` | PLATFORM_ADMIN, SHIPPER_ADMIN, CARRIER_ACCOUNTANT |
-| `payment.void` | PLATFORM_ADMIN, SHIPPER_ADMIN, CARRIER_ACCOUNTANT |
-| `payment.export` | PLATFORM_ADMIN, SHIPPER_ADMIN, CARRIER_ACCOUNTANT |
+| Permission | Roles (frozen for v1.9.1) |
+|------------|---------------------------|
+| `payment.read` | PLATFORM_ADMIN, SHIPPER_ADMIN, SHIPPER_LOGIST, **FINANCE_MANAGER**, CARRIER_ADMIN, CARRIER_ACCOUNTANT, FORWARDER_MANAGER |
+| `payment.create` | PLATFORM_ADMIN, SHIPPER_ADMIN, **FINANCE_MANAGER**, CARRIER_ADMIN, CARRIER_ACCOUNTANT |
+| `payment.allocate` | PLATFORM_ADMIN, SHIPPER_ADMIN, **FINANCE_MANAGER**, CARRIER_ADMIN, CARRIER_ACCOUNTANT |
+| `payment.reconcile` | PLATFORM_ADMIN, SHIPPER_ADMIN, **FINANCE_MANAGER**, CARRIER_ADMIN, CARRIER_ACCOUNTANT |
+| `payment.void` | PLATFORM_ADMIN, SHIPPER_ADMIN, **FINANCE_MANAGER**, CARRIER_ADMIN, CARRIER_ACCOUNTANT |
+| `payment.export` | PLATFORM_ADMIN, SHIPPER_ADMIN, **FINANCE_MANAGER**, CARRIER_ADMIN, CARRIER_ACCOUNTANT |
 
-**Gap:** `SHIPPER_ACCOUNTANT` role **NOT_FOUND** in seed roles. Existing: `FINANCE_MANAGER`
-(seed exists) but **not wired** into billingrbac/settlementrbac guards. v1.9.1 should add
-`FINANCE_MANAGER` to payment mutate roles or introduce explicit accountant roles — **OPEN_QUESTION_003**.
+**FINANCE_MANAGER** (seed role `000009_seed_roles.up.sql`) is **required** in all payment
+financial mutation permissions for v1.9.1. It aligns with seed description:
+*"Manages billing registers and closing documents"*.
+
+**SHIPPER_ACCOUNTANT** does **not** exist in seed roles — **not invented** for v1.9.1.
 
 **Segregation of duties:** separate `payment.create`, `payment.reconcile`, `payment.void` permissions
 (enable enterprise policy; single `payment.manage` avoided).
@@ -860,7 +969,8 @@ Partial/multi allocation, overpayment unallocated remainder, reconciliation conf
 
 ### v1.9.3 Payment Workspace UI
 
-web-procurement screens; deprecate direct reliance on register `mark-paid` for ops.
+web-procurement payment screens; **remove frontend dependence on legacy `mark-paid`** (§3.1).
+Register `PAID` displayed only when obligation projection is `PAID`.
 
 ### v1.9.4 Overdue / Exceptions / Control Tower
 
@@ -881,12 +991,13 @@ Full security matrix, penetration of company spoof cases, CI gate.
 - **Reason:** Independent lifecycle, reconciliation complexity, adapter boundary
 - **Consequences:** New deployable; integration with billing via source reference
 
-### ADR-02 Obligation source
+### ADR-02 Obligation source (FROZEN)
 
-- **Decision:** Create from `BILLING_REGISTER` at `SIGNED_BY_COUNTERPARTY` (**PROPOSED**)
-- **Alternatives:** Register `APPROVED`; closing package created
-- **Reason:** Aligns with v1.8 mark-paid precondition; counterparty acceptance
-- **Consequences:** Requires event/hook from billing or polling; product confirmation needed
+- **Decision:** Create exactly one obligation from `BILLING_REGISTER` when register reaches `SIGNED_BY_COUNTERPARTY`
+- **Alternatives rejected:** Register `APPROVED`; settlement-level obligation in v1.9.1
+- **Reason:** Counterparty acceptance; one batch = one payable obligation
+- **Consequences:** Event/hook from billing on sign transition; obligation creation date ≠ due-date start
+- **Reference:** No FK; `tenant_id` + `source_type` + `source_id` + server-side validation
 
 ### ADR-03 Amount policy
 
@@ -909,11 +1020,12 @@ Full security matrix, penetration of company spoof cases, CI gate.
 - **Reason:** No payment terms entity exists
 - **Consequences:** Overdue detection limited until terms exist
 
-### ADR-06 Reconciliation
+### ADR-06 Reconciliation (FROZEN)
 
-- **Decision:** `RECONCILED` = payment fully allocated and confirmed
-- **Alternatives:** Reconciled = any allocation
-- **Reason:** Clear operator semantics
+- **Decision:** `FULLY_ALLOCATED` ⇔ `allocated_amount == payment.amount`; `RECONCILED` ⇔ fully allocated + explicit actor confirmation; obligation `PAID` ⇔ `paid_amount == original_amount`
+- **Alternatives rejected:** `paid_amount >= original_amount`; reconciled = any allocation
+- **Reason:** Exact financial equality; no over-allocation; clear operator confirmation step
+- **Consequences:** Separate reconcile action; overpayment stays unallocated on payment
 
 ### ADR-07 Status model
 
@@ -943,13 +1055,13 @@ Full security matrix, penetration of company spoof cases, CI gate.
 
 ## 22. Open Questions
 
-| ID | Question | Proposed default |
-|----|----------|------------------|
-| OPEN_QUESTION_001 | What legally starts payment term clock? | **PROPOSED:** `SIGNED_BY_COUNTERPARTY` date — NOT CONFIRMED |
-| OPEN_QUESTION_002 | FK obligation → register in same DB? | Application validation only for service boundary cleanliness |
-| OPEN_QUESTION_003 | Wire `FINANCE_MANAGER` into payment RBAC? | YES for mutate; aligns with seed role description |
-| OPEN_QUESTION_004 | Replace register `mark-paid` or coexist? | Coexist v1.9.1–v1.9.2; UI migration v1.9.3 |
-| OPEN_QUESTION_005 | Obligation per register vs per settlement? | Per register (batch payment); settlement-level optional future |
+| ID | Question | Status |
+|----|----------|--------|
+| OPEN_QUESTION_001 | What legally starts payment **term clock** for due_date? | **OPEN** — separate from ADR-02 obligation creation; no auto +N days in v1.9.1 |
+| OPEN_QUESTION_002 | ~~FK obligation → register?~~ | **RESOLVED:** No FK; application validation |
+| OPEN_QUESTION_003 | ~~FINANCE_MANAGER in payment RBAC?~~ | **RESOLVED:** YES — all financial mutation permissions |
+| OPEN_QUESTION_004 | ~~mark-paid coexistence?~~ | **RESOLVED:** Compatibility shim only; payment-service SSOT (§3.1); UI removed v1.9.3 |
+| OPEN_QUESTION_005 | ~~Obligation granularity?~~ | **RESOLVED:** One obligation per billing register in v1.9.1 |
 
 ---
 
