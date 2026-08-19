@@ -53,14 +53,32 @@ Settlements are eligible for billing inclusion when:
 
 Server exposes `eligible_for_billing` and `billing_block_reason` on settlement detail.
 
-## Security boundary
+## Security boundary (v1.8.2)
 
-Public clients reach billing APIs through **api-gateway** with JWT auth.
-Gateway sets trusted `X-Tenant-ID`, `X-User-ID` headers after authentication.
-Actor company and role come from verified query params (`actor`, `company_id`) aligned with v1.7 settlement RBAC.
+Public clients reach billing APIs through **api-gateway** with JWT authentication.
 
-Financial amounts and party IDs are **never** accepted as authoritative from browser JSON for inclusion;
-inclusion is driven by `settlement_id` and persisted settlement state.
+**Client-supplied identity is not trusted.** The gateway strips spoofed
+`X-Tenant-ID`, `X-User-ID`, `X-Company-ID`, and `X-Actor-Kind` headers before
+downstream handling.
+
+**Canonical identity flow:**
+
+1. Gateway validates JWT and injects trusted `X-Tenant-ID` and `X-User-ID`.
+2. Client may pass `company_id` and `actor` query parameters as **requested context only**.
+3. Gateway `companycontext.Enforcer` validates company membership against identity-service SSOT
+   (`core.company_memberships` and role codes).
+4. Gateway injects trusted downstream headers:
+   - `X-Company-ID` — validated membership company
+   - `X-Actor-Kind` — derived from company type + roles (`BUYER` or `CARRIER`)
+5. Query `actor` must match the derived actor kind or the request is denied.
+6. **billing-register-service** re-validates membership via `SettlementActorResolver`
+   and rejects query/header mismatches.
+
+**PLATFORM_ADMIN** does not bypass company membership. Platform admins must act within
+a validated company context; arbitrary company impersonation is denied.
+
+Financial amounts and party IDs are **never** accepted as authoritative from browser JSON
+for inclusion; inclusion is driven by `settlement_id` and persisted settlement state.
 
 ## Money
 
