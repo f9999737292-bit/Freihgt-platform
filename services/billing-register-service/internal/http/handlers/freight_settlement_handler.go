@@ -99,12 +99,12 @@ func (h *FreightSettlementHandler) GetByID(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *FreightSettlementHandler) List(w http.ResponseWriter, r *http.Request) {
-	tenantID, err := resolveVerifiedTenant(r)
+	actor, err := settlementActorInput(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
-	filter := domain.ListFreightSettlementsFilter{TenantID: tenantID, Limit: parseLimit(r), Offset: parseOffset(r)}
+	filter := domain.ListFreightSettlementsFilter{TenantID: actor.TenantID, Limit: parseLimit(r), Offset: parseOffset(r)}
 	if raw := strings.TrimSpace(r.URL.Query().Get("buyer_company_id")); raw != "" {
 		id, parseErr := domain.ParseUUID(raw, "buyer_company_id")
 		if parseErr != nil {
@@ -124,7 +124,7 @@ func (h *FreightSettlementHandler) List(w http.ResponseWriter, r *http.Request) 
 	if raw := strings.TrimSpace(r.URL.Query().Get("status")); raw != "" {
 		filter.Status = &raw
 	}
-	items, total, err := h.settlements.List(r.Context(), filter)
+	items, total, err := h.settlements.List(r.Context(), filter, actor)
 	if err != nil {
 		respond.Error(w, err)
 		return

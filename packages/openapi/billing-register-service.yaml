@@ -1026,6 +1026,14 @@ paths:
       parameters:
         - $ref: '#/components/parameters/XTenantID'
         - $ref: '#/components/parameters/Authorization'
+        - name: company_id
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: actor
+          in: query
+          required: true
+          schema: { type: string, enum: [BUYER, CARRIER] }
         - name: buyer_company_id
           in: query
           schema: { type: string, format: uuid }

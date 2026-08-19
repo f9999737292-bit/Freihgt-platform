@@ -32,17 +32,12 @@ export function useSettlementApi() {
     actor: SettlementActor,
     options: { status?: string; limit?: number; offset?: number } = {},
   ) {
-    const companyId = requireCompanyId(tenantStore.currentCompanyId)
     const query: Record<string, string | number | undefined> = {
+      ...actorQuery(actor),
       limit: options.limit ?? 50,
       offset: options.offset ?? 0,
     }
     if (options.status) query.status = options.status
-    if (actor === 'BUYER') {
-      query.buyer_company_id = companyId
-    } else {
-      query.carrier_company_id = companyId
-    }
     const data = await apiGet<SettlementListResponse>('/api/v1/freight-settlements', { query })
     return {
       items: data.items ?? [],

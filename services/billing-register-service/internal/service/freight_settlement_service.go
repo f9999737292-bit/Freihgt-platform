@@ -51,7 +51,22 @@ func (s *FreightSettlementService) GetDetail(ctx context.Context, id, tenantID u
 	return detail, nil
 }
 
-func (s *FreightSettlementService) List(ctx context.Context, filter domain.ListFreightSettlementsFilter) ([]domain.FreightSettlement, int, error) {
+func (s *FreightSettlementService) List(ctx context.Context, filter domain.ListFreightSettlementsFilter, actor domain.SettlementActorInput) ([]domain.FreightSettlement, int, error) {
+	if err := domain.ValidateSettlementActor(actor); err != nil {
+		return nil, 0, err
+	}
+	switch actor.ActorKind {
+	case domain.SettlementActorBuyer:
+		if filter.BuyerCompanyID != nil && *filter.BuyerCompanyID != actor.ActorCompanyID {
+			return nil, 0, apperrors.Forbidden("buyer cannot list another buyer's settlements")
+		}
+		filter.BuyerCompanyID = &actor.ActorCompanyID
+	case domain.SettlementActorCarrier:
+		if filter.CarrierCompanyID != nil && *filter.CarrierCompanyID != actor.ActorCompanyID {
+			return nil, 0, apperrors.Forbidden("carrier cannot list another carrier's settlements")
+		}
+		filter.CarrierCompanyID = &actor.ActorCompanyID
+	}
 	if filter.Limit == 0 {
 		filter.Limit = 20
 	}

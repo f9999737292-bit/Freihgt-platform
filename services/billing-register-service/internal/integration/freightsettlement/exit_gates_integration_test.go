@@ -494,6 +494,9 @@ func Test23CompetitorFinancialIsolation(t *testing.T) {
 	carrierBFilter := fix.CarrierB
 	items, total, err := env.settlements.List(ctx, domain.ListFreightSettlementsFilter{
 		TenantID: fix.TenantID, CarrierCompanyID: &carrierBFilter, Limit: 20,
+	}, domain.SettlementActorInput{
+		TenantID: fix.TenantID, ActorCompanyID: fix.CarrierB,
+		ActorKind: domain.SettlementActorCarrier, ActorUserID: fix.UserID,
 	})
 	if err != nil {
 		t.Fatalf("list carrier B: %v", err)
@@ -501,6 +504,15 @@ func Test23CompetitorFinancialIsolation(t *testing.T) {
 	if total != 0 || len(items) != 0 {
 		t.Fatalf("competitor carrier must not see settlements: total=%d len=%d", total, len(items))
 	}
+
+	buyerFilter := fix.BuyerID
+	_, err = env.settlements.List(ctx, domain.ListFreightSettlementsFilter{
+		TenantID: fix.TenantID, BuyerCompanyID: &buyerFilter, Limit: 20,
+	}, domain.SettlementActorInput{
+		TenantID: fix.TenantID, ActorCompanyID: fix.CarrierB,
+		ActorKind: domain.SettlementActorCarrier, ActorUserID: fix.UserID,
+	})
+	assertForbidden(t, err)
 
 	_, err = env.settlements.GetDetail(ctx, settlement.ID, fix.TenantID, fix.CarrierB, domain.SettlementActorCarrier)
 	assertForbidden(t, err)
