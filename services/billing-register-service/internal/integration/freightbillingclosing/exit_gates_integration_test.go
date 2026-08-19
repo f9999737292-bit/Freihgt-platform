@@ -135,7 +135,7 @@ func Test07CrossCompanyInclusionDenied(t *testing.T) {
 		t.Fatalf("create register: %v", err)
 	}
 	_, err = env.registers.IncludeSettlement(context.Background(), reg.ID, settlement.ID, buyerActor(fix))
-	assertValidation(t, err)
+	assertForbidden(t, err)
 }
 
 func Test08UnrelatedBuyerDenied(t *testing.T) {

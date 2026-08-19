@@ -68,7 +68,7 @@ func (s *ClosingDocumentService) CreatePackageForActor(ctx context.Context, regi
 	if err := domain.ValidateRegisterBuyerMutation(reg, actor); err != nil {
 		return nil, err
 	}
-	if err := domain.ValidateClosingDocumentRegisterStatus(reg.Status); err != nil {
+	if err := domain.ValidateCreateClosingDocumentRegisterStatus(reg.Status); err != nil {
 		return nil, err
 	}
 	return s.closing.CreatePackageForActor(ctx, registerID, in, actor)

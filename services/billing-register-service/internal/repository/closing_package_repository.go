@@ -55,7 +55,7 @@ func (r *ClosingDocumentRepository) createPackageWithDocuments(
 		if err := domain.ValidateRegisterBuyerMutation(reg, actor); err != nil {
 			return err
 		}
-		if err := domain.ValidateClosingDocumentRegisterStatus(reg.Status); err != nil {
+		if err := domain.ValidateCreateClosingDocumentRegisterStatus(reg.Status); err != nil {
 			return err
 		}
 
