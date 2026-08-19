@@ -323,6 +323,31 @@ func (h *BillingRegisterHandler) MarkPaid(w http.ResponseWriter, r *http.Request
 	})
 }
 
+func (h *BillingRegisterHandler) SyncPaid(w http.ResponseWriter, r *http.Request) {
+	registerID, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	tenantRaw := strings.TrimSpace(r.Header.Get("X-Tenant-ID"))
+	if tenantRaw == "" {
+		var body tenantRequest
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		tenantRaw = strings.TrimSpace(body.TenantID)
+	}
+	tenantID, err := domain.ParseUUID(tenantRaw, "tenant_id")
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	reg, err := h.registers.SyncPaidFromObligation(r.Context(), registerID, tenantID)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusOK, toRegisterResponse(reg))
+}
+
 func (h *BillingRegisterHandler) Close(w http.ResponseWriter, r *http.Request) {
 	h.actorMutation(w, r, func(id uuid.UUID, actor domain.SettlementActorInput) (any, error) {
 		reg, err := h.registers.Close(r.Context(), id, actor)

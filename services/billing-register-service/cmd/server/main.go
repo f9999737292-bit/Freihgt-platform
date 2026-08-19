@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/freight-platform/billing-register-service/internal/client"
 	"github.com/freight-platform/billing-register-service/internal/config"
 	httpserver "github.com/freight-platform/billing-register-service/internal/http"
 	"github.com/freight-platform/billing-register-service/internal/http/handlers"
@@ -44,13 +45,15 @@ func main() {
 	closingRepo := repository.NewClosingDocumentRepository(db.Pool)
 	settlementRepo := repository.NewFreightSettlementRepository(db.Pool)
 	membershipRepo := repository.NewMembershipRepository(db.Pool)
+	obligationLookup := repository.NewPaymentObligationLookupRepository(db.Pool)
+	paymentClient := client.NewPaymentServiceClient(cfg.PaymentServiceURL, cfg.InternalServiceToken)
 
-	registerSvc := service.NewBillingRegisterService(registerRepo)
+	registerSvc := service.NewBillingRegisterServiceWithPayments(registerRepo, obligationLookup, paymentClient)
 	closingSvc := service.NewClosingDocumentService(registerRepo, closingRepo)
 	settlementSvc := service.NewFreightSettlementService(settlementRepo)
 	actorResolver := handlers.NewSettlementActorResolver(membershipRepo)
 
-	router := httpserver.NewRouter(log, db.Pool, registerSvc, closingSvc, settlementSvc, actorResolver)
+	router := httpserver.NewRouter(log, db.Pool, cfg, registerSvc, closingSvc, settlementSvc, actorResolver)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

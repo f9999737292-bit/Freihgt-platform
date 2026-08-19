@@ -30,6 +30,7 @@ BACKEND_SERVICES := \
 	shipment-service \
 	document-service \
 	billing-register-service \
+	payment-service \
 	low-code-service
 PYTHON ?= python
 MIGRATIONS_PATH=infrastructure/migrations
@@ -44,7 +45,7 @@ DB_URL?=postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:$(POSTGRES_PO
 MIGRATE_RUN=$(COMPOSE) --profile tools run --rm migrate
 
 GO_SERVICES := api-gateway identity-service company-service localization-service \
-	transport-order-service shipment-service rfx-service document-service billing-register-service low-code-service
+	transport-order-service shipment-service rfx-service document-service billing-register-service payment-service low-code-service
 
 K6 ?= k6
 
@@ -68,10 +69,10 @@ K6 ?= k6
 	go-build go-test \
 	run-api-gateway run-identity-service run-company-service run-localization-service \
 	run-transport-order-service run-shipment-service run-rfx-service \
-	run-document-service run-billing-register-service run-low-code-service \
+	run-document-service run-billing-register-service run-payment-service run-low-code-service \
 	test-company-service test-identity-service test-transport-order-service test-rfx-service test-shipment-service outbox-integration-test outbox-kafka-integration-test outbox-end-to-end-test \
 	messaging-up messaging-down messaging-status shipment-kafka-topic-create \
-	test-document-service test-billing-register-service test-low-code-service test-api-gateway \
+	test-document-service test-billing-register-service test-payment-service test-low-code-service test-api-gateway \
 	integration-smoke-test full-flow-smoke-test lowcode-runtime-compliance-test check-lowcode-headers seed-dev-admin seed-demo-data seed-lowcode-demo create-lowcode-draft-template \
 	project-map tree-project find-service find-text \
 	openapi-generate openapi-generate-json openapi-validate openapi-check api-docs-open \
@@ -423,6 +424,7 @@ go-test:
 		./services/rfx-service/... \
 		./services/document-service/... \
 		./services/billing-register-service/... \
+		./services/payment-service/... \
 		./services/low-code-service/...
 
 run-api-gateway:
@@ -496,6 +498,12 @@ run-billing-register-service:
 
 test-billing-register-service:
 	@cd services/billing-register-service && go test ./...
+
+run-payment-service:
+	@cd services/payment-service && go run ./cmd/server
+
+test-payment-service:
+	@cd services/payment-service && go test ./...
 
 run-control-tower-read-model-service:
 	@cd services/control-tower-read-model-service && go run ./cmd/server

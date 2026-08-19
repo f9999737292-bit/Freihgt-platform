@@ -163,6 +163,39 @@ func (r *BillingRegisterRepository) TransitionStatusForActor(
 	return result, err
 }
 
+func (r *BillingRegisterRepository) SyncPaidFromPaymentObligation(ctx context.Context, registerID, tenantID uuid.UUID) (*domain.BillingRegister, error) {
+	var result *domain.BillingRegister
+	err := r.withRegisterAuditTx(ctx, func(tx pgx.Tx) error {
+		reg, err := getRegisterByIDTx(ctx, tx, registerID, tenantID)
+		if err != nil {
+			return err
+		}
+		if reg.Status == domain.RegisterStatusPaid {
+			result = reg
+			return nil
+		}
+		if err := domain.ValidateMarkPaidStatus(reg.Status); err != nil {
+			return err
+		}
+		const query = `
+			UPDATE billing.billing_registers
+			SET status = $1, version = version + 1, updated_at = now()
+			WHERE id = $2 AND tenant_id = $3 AND deleted_at IS NULL AND version = $4
+			RETURNING id, tenant_id, register_number, customer_company_id, contractor_company_id,
+				contract_id, period_from, period_to, currency_code, vat_rate, status,
+				total_without_vat, vat_amount, total_with_vat, created_at, approved_at, approved_by, updated_at, version`
+		updated, err := scanRegister(tx.QueryRow(ctx, query, domain.RegisterStatusPaid, registerID, tenantID, reg.Version))
+		if err != nil {
+			return err
+		}
+		result = updated
+		return insertRegisterAuditEvent(ctx, tx, tenantID, registerID, domain.RegisterAuditMarkedPaid, uuid.Nil, reg.CustomerCompanyID, map[string]any{
+			"from": reg.Status, "to": updated.Status, "sync_source": "payment_obligation",
+		})
+	})
+	return result, err
+}
+
 func sumItemTotalsTx(ctx context.Context, tx pgx.Tx, registerID uuid.UUID) (registerTotals, error) {
 	const query = `
 		SELECT COALESCE(SUM(amount_without_vat),0), COALESCE(SUM(vat_amount),0), COALESCE(SUM(amount_with_vat),0)

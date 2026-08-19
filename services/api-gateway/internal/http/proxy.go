@@ -54,6 +54,8 @@ func NewProxyHandler(cfg config.Config) (*ProxyHandler, error) {
 		{"/api/v1/signing-sessions", "document-service", cfg.Services.Document},
 		{"/api/v1/billing-registers", "billing-register-service", cfg.Services.BillingRegister},
 		{"/api/v1/freight-settlements", "billing-register-service", cfg.Services.BillingRegister},
+		{"/api/v1/payment-obligations", "payment-service", cfg.Services.Payment},
+		{"/api/v1/payments", "payment-service", cfg.Services.Payment},
 		{"/api/v1/low-code", "low-code-service", cfg.Services.LowCode},
 	}
 
@@ -170,6 +172,7 @@ func downstreamServices(cfg config.Config) []downstreamService {
 		{name: "shipment-service", url: cfg.Services.Shipment},
 		{name: "document-service", url: cfg.Services.Document},
 		{name: "billing-register-service", url: cfg.Services.BillingRegister},
+		{name: "payment-service", url: cfg.Services.Payment},
 		{name: "low-code-service", url: cfg.Services.LowCode},
 	}
 }

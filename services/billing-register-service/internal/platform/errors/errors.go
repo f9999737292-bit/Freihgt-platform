@@ -11,6 +11,7 @@ const (
 	CodeUnauthorized  Code = "UNAUTHORIZED"
 	CodeForbidden     Code = "FORBIDDEN"
 	CodeInternal      Code = "INTERNAL_ERROR"
+	CodeUnavailable   Code = "SERVICE_UNAVAILABLE"
 )
 
 type AppError struct {
@@ -51,6 +52,10 @@ func Forbidden(message string) *AppError {
 
 func Internal(message string, err error) *AppError {
 	return &AppError{Code: CodeInternal, Message: message, Details: map[string]any{}, Err: err}
+}
+
+func Unavailable(message string, err error) *AppError {
+	return &AppError{Code: CodeUnavailable, Message: message, Details: map[string]any{}, Err: err}
 }
 
 func detailsOrEmpty(details map[string]any) map[string]any {

@@ -29,6 +29,8 @@ TAGS = [
     "Signing",
     "Billing Registers",
     "Closing Documents",
+    "Payment Obligations",
+    "Payments",
 ]
 
 COMMON_HEADER = """
@@ -172,6 +174,14 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool]] = [
     ("/api/v1/billing-registers/{id}/mark-signed", "post", "Mark billing register signed (mock)", "Billing Registers", True, True),
     ("/api/v1/billing-registers/{id}/mark-paid", "post", "Mark billing register paid", "Billing Registers", True, True),
     ("/api/v1/billing-registers/{id}/close", "post", "Close billing register", "Billing Registers", True, True),
+    ("/api/v1/payment-obligations", "get", "List payment obligations", "Payment Obligations", True, True),
+    ("/api/v1/payment-obligations/{id}", "get", "Get payment obligation by ID", "Payment Obligations", True, True),
+    ("/api/v1/payment-obligations/{id}/due-date", "patch", "Update payment obligation due date", "Payment Obligations", True, True),
+    ("/api/v1/payments", "post", "Create manual payment", "Payments", True, True),
+    ("/api/v1/payments", "get", "List payments", "Payments", True, True),
+    ("/api/v1/payments/{id}", "get", "Get payment by ID", "Payments", True, True),
+    ("/api/v1/payments/{id}/allocations", "post", "Allocate payment to obligation", "Payments", True, True),
+    ("/api/v1/payments/{id}/reconcile", "post", "Reconcile fully allocated payment", "Payments", True, True),
 ]
 
 SERVICE_TAGS = {
@@ -182,6 +192,7 @@ SERVICE_TAGS = {
     "shipment-service.yaml": {"Shipments", "Drivers", "Vehicles"},
     "document-service.yaml": {"Documents", "Signing"},
     "billing-register-service.yaml": {"Billing Registers", "Closing Documents"},
+    "payment-service.yaml": {"Payment Obligations", "Payments"},
 }
 
 

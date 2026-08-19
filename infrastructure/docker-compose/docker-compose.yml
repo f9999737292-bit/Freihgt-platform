@@ -189,6 +189,7 @@ services:
     environment:
       BILLING_REGISTER_SERVICE_PORT: 8087
       DATABASE_URL: postgres://freight:freight_password@postgres:5432/freight_platform?sslmode=disable
+      PAYMENT_SERVICE_URL: http://payment-service:8090
       LOG_LEVEL: info
     ports:
       - "8087:8087"
@@ -199,6 +200,31 @@ services:
       - freight-platform-network
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8087/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  payment-service:
+    build:
+      context: ../..
+      dockerfile: services/payment-service/Dockerfile
+    container_name: freight_payment_service
+    restart: unless-stopped
+    environment:
+      PAYMENT_SERVICE_PORT: 8090
+      DATABASE_URL: postgres://freight:freight_password@postgres:5432/freight_platform?sslmode=disable
+      BILLING_REGISTER_SERVICE_URL: http://billing-register-service:8087
+      LOG_LEVEL: info
+    ports:
+      - "8090:8090"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - freight-platform-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8090/health"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -284,6 +310,7 @@ services:
       SHIPMENT_SERVICE_URL: http://shipment-service:8085
       DOCUMENT_SERVICE_URL: http://document-service:8086
       BILLING_REGISTER_SERVICE_URL: http://billing-register-service:8087
+      PAYMENT_SERVICE_URL: http://payment-service:8090
       LOW_CODE_SERVICE_URL: http://low-code-service:8088
       AUTH_ENABLED: "false"
       JWT_SECRET: dev_secret_change_me
