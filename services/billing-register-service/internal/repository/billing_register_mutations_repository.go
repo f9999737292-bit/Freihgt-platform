@@ -174,6 +174,10 @@ func (r *BillingRegisterRepository) SyncPaidFromPaymentObligation(ctx context.Co
 			result = reg
 			return nil
 		}
+		if reg.Status == domain.RegisterStatusClosed {
+			result = reg
+			return nil
+		}
 		if err := domain.ValidateMarkPaidStatus(reg.Status); err != nil {
 			return err
 		}

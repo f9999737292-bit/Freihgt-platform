@@ -36,15 +36,20 @@ type BillingRegisterSync interface {
 	SyncRegisterPaid(ctx context.Context, tenantID, registerID uuid.UUID) error
 }
 
+type OutboxProjectionStore interface {
+	MarkPublishedByAggregate(ctx context.Context, tenantID uuid.UUID, eventType string, aggregateID uuid.UUID, publishedAt time.Time) error
+}
+
 type PaymentService struct {
 	payments   PaymentStore
 	registers  RegisterLookup
 	membership MembershipStore
 	billing    BillingRegisterSync
+	outbox     OutboxProjectionStore
 }
 
-func NewPaymentService(payments PaymentStore, registers RegisterLookup, membership MembershipStore, billing BillingRegisterSync) *PaymentService {
-	return &PaymentService{payments: payments, registers: registers, membership: membership, billing: billing}
+func NewPaymentService(payments PaymentStore, registers RegisterLookup, membership MembershipStore, billing BillingRegisterSync, outbox OutboxProjectionStore) *PaymentService {
+	return &PaymentService{payments: payments, registers: registers, membership: membership, billing: billing, outbox: outbox}
 }
 
 func (s *PaymentService) EnsurePaymentObligationForBillingRegister(ctx context.Context, tenantID, registerID uuid.UUID) (*domain.PaymentObligation, error) {
@@ -184,9 +189,17 @@ func (s *PaymentService) Allocate(ctx context.Context, in domain.CreateAllocatio
 			}
 		} else {
 			outcome.RegisterPaidProjection = &RegisterPaidProjection{Status: RegisterPaidProjectionSynced}
+			s.markOutboxPublishedIfNeeded(ctx, actor.TenantID, result.Obligation.ID)
 		}
 	}
 	return outcome, nil
+}
+
+func (s *PaymentService) markOutboxPublishedIfNeeded(ctx context.Context, tenantID, obligationID uuid.UUID) {
+	if s.outbox == nil {
+		return
+	}
+	_ = s.outbox.MarkPublishedByAggregate(ctx, tenantID, domain.PaymentEventObligationPaid, obligationID, time.Now().UTC())
 }
 
 func (s *PaymentService) EnsureBillingRegisterPaidProjection(ctx context.Context, tenantID, registerID uuid.UUID) error {
@@ -209,5 +222,10 @@ func (s *PaymentService) EnsureBillingRegisterPaidProjection(ctx context.Context
 	if s.billing == nil {
 		return apperrors.Internal("billing register sync is not configured", nil)
 	}
-	return s.billing.SyncRegisterPaid(ctx, tenantID, registerID)
+	if err := s.billing.SyncRegisterPaid(ctx, tenantID, registerID); err != nil {
+		return err
+	}
+	obligationID := obligation.ID
+	s.markOutboxPublishedIfNeeded(ctx, tenantID, obligationID)
+	return nil
 }
