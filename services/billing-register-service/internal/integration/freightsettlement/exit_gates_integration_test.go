@@ -506,7 +506,7 @@ func Test23CompetitorFinancialIsolation(t *testing.T) {
 	}
 
 	buyerFilter := fix.BuyerID
-	_, err = env.settlements.List(ctx, domain.ListFreightSettlementsFilter{
+	_, _, err = env.settlements.List(ctx, domain.ListFreightSettlementsFilter{
 		TenantID: fix.TenantID, BuyerCompanyID: &buyerFilter, Limit: 20,
 	}, domain.SettlementActorInput{
 		TenantID: fix.TenantID, ActorCompanyID: fix.CarrierB,
