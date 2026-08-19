@@ -20,6 +20,7 @@ type PaymentRepository struct {
 	pool                           *pgxpool.Pool
 	simulateObligationAuditFailure bool
 	simulatePaymentAuditFailure    bool
+	simulateOutboxInsertFailure    bool
 }
 
 func NewPaymentRepository(pool *pgxpool.Pool) *PaymentRepository {
@@ -179,6 +180,13 @@ func (r *PaymentRepository) SimulatePaymentAuditFailureForTest(ctx context.Conte
 	r.simulatePaymentAuditFailure = true
 	defer func() { r.simulatePaymentAuditFailure = false }()
 	_, err := r.CreateManualPayment(ctx, in)
+	return err
+}
+
+func (r *PaymentRepository) SimulateOutboxInsertFailureForTest(ctx context.Context, in domain.CreateAllocationInput) error {
+	r.simulateOutboxInsertFailure = true
+	defer func() { r.simulateOutboxInsertFailure = false }()
+	_, err := r.Allocate(ctx, in)
 	return err
 }
 
@@ -409,6 +417,8 @@ func (r *PaymentRepository) Allocate(ctx context.Context, in domain.CreateAlloca
 			return err
 		}
 
+		wasPaid := obligation.Status == domain.ObligationStatusPaid
+
 		const insertAlloc = `
 			INSERT INTO billing.payment_allocations (
 				tenant_id, payment_id, obligation_id, allocated_amount, currency_code, created_by
@@ -479,6 +489,15 @@ func (r *PaymentRepository) Allocate(ctx context.Context, in domain.CreateAlloca
 				"status": obligationStatus,
 			}); err != nil {
 			return err
+		}
+
+		if !wasPaid && updatedObligation.Status == domain.ObligationStatusPaid {
+			if r.simulateOutboxInsertFailure {
+				return errors.New("simulated outbox insert failure")
+			}
+			if err := insertPaymentObligationPaidOutboxTx(ctx, tx, in.TenantID, updatedObligation); err != nil {
+				return err
+			}
 		}
 
 		result = &AllocateResult{Payment: updatedPayment, Obligation: updatedObligation, Allocation: &alloc}
