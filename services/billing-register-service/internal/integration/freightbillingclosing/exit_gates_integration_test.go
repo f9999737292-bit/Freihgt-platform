@@ -9,8 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/freight-platform/billing-register-service/internal/domain"
 	apperrors "github.com/freight-platform/billing-register-service/internal/platform/errors"
 )
@@ -247,7 +245,7 @@ func Test15CalculateTotals(t *testing.T) {
 	settlement := approvedSettlement(t, env, fix, "bc-15")
 	reg := createRegister(t, env, fix, "BR-BC-15")
 	includeSettlement(t, env, fix, reg.ID, settlement.ID)
-	calculated, err := env.registers.Calculate(context.Background(), reg.ID, domain.TenantActionInput{TenantID: fix.TenantID})
+	calculated, err := env.registers.Calculate(context.Background(), reg.ID, buyerActor(fix))
 	if err != nil {
 		t.Fatalf("calculate: %v", err)
 	}
@@ -265,12 +263,10 @@ func Test16ApprovalTransition(t *testing.T) {
 	settlement := approvedSettlement(t, env, fix, "bc-16")
 	reg := createRegister(t, env, fix, "BR-BC-16")
 	includeSettlement(t, env, fix, reg.ID, settlement.ID)
-	if _, err := env.registers.Calculate(context.Background(), reg.ID, domain.TenantActionInput{TenantID: fix.TenantID}); err != nil {
+	if _, err := env.registers.Calculate(context.Background(), reg.ID, buyerActor(fix)); err != nil {
 		t.Fatalf("calculate: %v", err)
 	}
-	approved, err := env.registers.Approve(context.Background(), reg.ID, domain.ApproveRegisterInput{
-		TenantID: fix.TenantID, ApprovedBy: fix.BuyerUserID,
-	})
+	approved, err := env.registers.Approve(context.Background(), reg.ID, buyerActor(fix))
 	if err != nil {
 		t.Fatalf("approve: %v", err)
 	}
@@ -283,9 +279,7 @@ func Test17IllegalApprovalTransitionDenied(t *testing.T) {
 	env := setupEnv(t)
 	fix := seedFixture(t, env.pool)
 	reg := createRegister(t, env, fix, "BR-BC-17")
-	_, err := env.registers.Approve(context.Background(), reg.ID, domain.ApproveRegisterInput{
-		TenantID: fix.TenantID, ApprovedBy: fix.BuyerUserID,
-	})
+	_, err := env.registers.Approve(context.Background(), reg.ID, buyerActor(fix))
 	assertValidation(t, err)
 }
 
@@ -295,21 +289,19 @@ func Test18ClosingPackageCreation(t *testing.T) {
 	settlement := approvedSettlement(t, env, fix, "bc-18")
 	reg := createRegister(t, env, fix, "BR-BC-18")
 	includeSettlement(t, env, fix, reg.ID, settlement.ID)
-	if _, err := env.registers.Calculate(context.Background(), reg.ID, domain.TenantActionInput{TenantID: fix.TenantID}); err != nil {
+	if _, err := env.registers.Calculate(context.Background(), reg.ID, buyerActor(fix)); err != nil {
 		t.Fatalf("calculate: %v", err)
 	}
-	if _, err := env.registers.Approve(context.Background(), reg.ID, domain.ApproveRegisterInput{
-		TenantID: fix.TenantID, ApprovedBy: fix.BuyerUserID,
-	}); err != nil {
+	if _, err := env.registers.Approve(context.Background(), reg.ID, buyerActor(fix)); err != nil {
 		t.Fatalf("approve: %v", err)
 	}
-	pkg, err := env.closing.CreatePackage(context.Background(), reg.ID, domain.CreateClosingDocumentPackageInput{
-		TenantID: fix.TenantID, PackageNumber: "PKG-BC-18", PackageType: "STANDARD",
-	})
+	pkgResult, err := env.closing.CreatePackageForActor(context.Background(), reg.ID, domain.CreateClosingDocumentPackageInput{
+		TenantID: fix.TenantID, PackageNumber: "PKG-BC-18", PackageType: domain.ClosingPackageTypeActPlusVATInvoice,
+	}, buyerActor(fix))
 	if err != nil {
 		t.Fatalf("create package: %v", err)
 	}
-	if pkg.RegisterID != reg.ID {
+	if pkgResult.Package.RegisterID != reg.ID {
 		t.Fatal("package register mismatch")
 	}
 }
@@ -320,25 +312,26 @@ func Test19DuplicateClosingPackageRetry(t *testing.T) {
 	settlement := approvedSettlement(t, env, fix, "bc-19")
 	reg := createRegister(t, env, fix, "BR-BC-19")
 	includeSettlement(t, env, fix, reg.ID, settlement.ID)
-	if _, err := env.registers.Calculate(context.Background(), reg.ID, domain.TenantActionInput{TenantID: fix.TenantID}); err != nil {
+	if _, err := env.registers.Calculate(context.Background(), reg.ID, buyerActor(fix)); err != nil {
 		t.Fatalf("calculate: %v", err)
 	}
-	if _, err := env.registers.Approve(context.Background(), reg.ID, domain.ApproveRegisterInput{
-		TenantID: fix.TenantID, ApprovedBy: fix.BuyerUserID,
-	}); err != nil {
+	if _, err := env.registers.Approve(context.Background(), reg.ID, buyerActor(fix)); err != nil {
 		t.Fatalf("approve: %v", err)
 	}
-	in := domain.CreateClosingDocumentPackageInput{TenantID: fix.TenantID, PackageNumber: "PKG-BC-19", PackageType: "STANDARD"}
-	first, err := env.closing.CreatePackage(context.Background(), reg.ID, in)
+	in := domain.CreateClosingDocumentPackageInput{TenantID: fix.TenantID, PackageNumber: "PKG-BC-19", PackageType: domain.ClosingPackageTypeCustom}
+	first, err := env.closing.CreatePackageForActor(context.Background(), reg.ID, in, buyerActor(fix))
 	if err != nil {
 		t.Fatalf("first package: %v", err)
 	}
-	second, err := env.closing.CreatePackage(context.Background(), reg.ID, in)
+	second, err := env.closing.CreatePackageForActor(context.Background(), reg.ID, in, buyerActor(fix))
 	if err != nil {
 		t.Fatalf("retry package: %v", err)
 	}
-	if first.ID == second.ID {
-		t.Fatal("expected distinct package rows on retry unless idempotent")
+	if first.Package.ID != second.Package.ID {
+		t.Fatal("expected same canonical package on retry")
+	}
+	if countPackages(t, env.pool, reg.ID) != 1 {
+		t.Fatal("retry created duplicate package row")
 	}
 }
 
@@ -348,18 +341,16 @@ func Test20InvoicePartyDerivation(t *testing.T) {
 	settlement := approvedSettlement(t, env, fix, "bc-20")
 	reg := createRegister(t, env, fix, "BR-BC-20")
 	includeSettlement(t, env, fix, reg.ID, settlement.ID)
-	if _, err := env.registers.Calculate(context.Background(), reg.ID, domain.TenantActionInput{TenantID: fix.TenantID}); err != nil {
+	if _, err := env.registers.Calculate(context.Background(), reg.ID, buyerActor(fix)); err != nil {
 		t.Fatalf("calculate: %v", err)
 	}
-	if _, err := env.registers.Approve(context.Background(), reg.ID, domain.ApproveRegisterInput{
-		TenantID: fix.TenantID, ApprovedBy: fix.BuyerUserID,
-	}); err != nil {
+	if _, err := env.registers.Approve(context.Background(), reg.ID, buyerActor(fix)); err != nil {
 		t.Fatalf("approve: %v", err)
 	}
 	inv, err := env.closing.CreateInvoice(context.Background(), reg.ID, domain.CreateInvoiceInput{
-		TenantID: fix.TenantID, InvoiceNumber: "INV-BC-20", InvoiceDate: time.Now(),
+		InvoiceNumber: "INV-BC-20", InvoiceDate: time.Now(),
 		SellerCompanyID: fix.CarrierA, BuyerCompanyID: fix.BuyerID,
-	})
+	}, buyerActor(fix))
 	if err != nil {
 		t.Fatalf("create invoice: %v", err)
 	}
@@ -374,19 +365,17 @@ func Test21DocumentAmountDerivation(t *testing.T) {
 	settlement := approvedSettlement(t, env, fix, "bc-21")
 	reg := createRegister(t, env, fix, "BR-BC-21")
 	includeSettlement(t, env, fix, reg.ID, settlement.ID)
-	calculated, err := env.registers.Calculate(context.Background(), reg.ID, domain.TenantActionInput{TenantID: fix.TenantID})
+	calculated, err := env.registers.Calculate(context.Background(), reg.ID, buyerActor(fix))
 	if err != nil {
 		t.Fatalf("calculate: %v", err)
 	}
-	if _, err := env.registers.Approve(context.Background(), reg.ID, domain.ApproveRegisterInput{
-		TenantID: fix.TenantID, ApprovedBy: fix.BuyerUserID,
-	}); err != nil {
+	if _, err := env.registers.Approve(context.Background(), reg.ID, buyerActor(fix)); err != nil {
 		t.Fatalf("approve: %v", err)
 	}
 	inv, err := env.closing.CreateInvoice(context.Background(), reg.ID, domain.CreateInvoiceInput{
-		TenantID: fix.TenantID, InvoiceNumber: "INV-BC-21", InvoiceDate: time.Now(),
+		InvoiceNumber: "INV-BC-21", InvoiceDate: time.Now(),
 		SellerCompanyID: fix.CarrierA, BuyerCompanyID: fix.BuyerID,
-	})
+	}, buyerActor(fix))
 	if err != nil {
 		t.Fatalf("create invoice: %v", err)
 	}
@@ -448,7 +437,7 @@ func Test26MarkSignedTransitionValidation(t *testing.T) {
 	env := setupEnv(t)
 	fix := seedFixture(t, env.pool)
 	reg := createRegister(t, env, fix, "BR-BC-26")
-	_, err := env.registers.MarkSigned(context.Background(), reg.ID, domain.TenantActionInput{TenantID: fix.TenantID})
+	_, err := env.registers.MarkSigned(context.Background(), reg.ID, buyerActor(fix))
 	assertValidation(t, err)
 }
 
@@ -456,7 +445,7 @@ func Test27MarkPaidTransitionValidation(t *testing.T) {
 	env := setupEnv(t)
 	fix := seedFixture(t, env.pool)
 	reg := createRegister(t, env, fix, "BR-BC-27")
-	_, err := env.registers.MarkPaid(context.Background(), reg.ID, domain.TenantActionInput{TenantID: fix.TenantID})
+	_, err := env.registers.MarkPaid(context.Background(), reg.ID, buyerActor(fix))
 	assertValidation(t, err)
 }
 
@@ -464,7 +453,7 @@ func Test28CloseTransitionValidation(t *testing.T) {
 	env := setupEnv(t)
 	fix := seedFixture(t, env.pool)
 	reg := createRegister(t, env, fix, "BR-BC-28")
-	_, err := env.registers.Close(context.Background(), reg.ID, domain.TenantActionInput{TenantID: fix.TenantID})
+	_, err := env.registers.Close(context.Background(), reg.ID, buyerActor(fix))
 	assertValidation(t, err)
 }
 

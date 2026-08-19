@@ -19,7 +19,7 @@ import (
 	"github.com/freight-platform/billing-register-service/internal/service"
 )
 
-const maxMigrationFile = "000043_freight_billing_closing_v1.8.up.sql"
+const maxMigrationFile = "000044_billing_closing_idempotency_v1.8.1.up.sql"
 
 type env struct {
 	pool        *pgxpool.Pool
@@ -377,4 +377,63 @@ func scanRegisterStatus(t *testing.T, pool *pgxpool.Pool, registerID uuid.UUID) 
 		t.Fatalf("register status: %v", err)
 	}
 	return status
+}
+
+func prepareApprovedRegister(t *testing.T, env *env, fix fixture, key, registerNumber string) *domain.BillingRegister {
+	t.Helper()
+	settlement := approvedSettlement(t, env, fix, key)
+	reg := createRegister(t, env, fix, registerNumber)
+	includeSettlement(t, env, fix, reg.ID, settlement.ID)
+	if _, err := env.registers.Calculate(context.Background(), reg.ID, buyerActor(fix)); err != nil {
+		t.Fatalf("calculate: %v", err)
+	}
+	approved, err := env.registers.Approve(context.Background(), reg.ID, buyerActor(fix))
+	if err != nil {
+		t.Fatalf("approve: %v", err)
+	}
+	return approved
+}
+
+func countPackages(t *testing.T, pool *pgxpool.Pool, registerID uuid.UUID) int {
+	t.Helper()
+	var count int
+	if err := pool.QueryRow(context.Background(), `
+		SELECT COUNT(*) FROM billing.closing_document_packages WHERE register_id=$1`, registerID).Scan(&count); err != nil {
+		t.Fatalf("count packages: %v", err)
+	}
+	return count
+}
+
+func countDocuments(t *testing.T, pool *pgxpool.Pool, table string, registerID uuid.UUID) int {
+	t.Helper()
+	var count int
+	query := "SELECT COUNT(*) FROM billing." + table + " WHERE register_id=$1"
+	if err := pool.QueryRow(context.Background(), query, registerID).Scan(&count); err != nil {
+		t.Fatalf("count %s: %v", table, err)
+	}
+	return count
+}
+
+func hasAuditEvent(t *testing.T, pool *pgxpool.Pool, registerID uuid.UUID, eventType string) bool {
+	t.Helper()
+	var count int
+	err := pool.QueryRow(context.Background(), `
+		SELECT COUNT(*) FROM billing.billing_register_audit_events
+		WHERE register_id=$1 AND event_type=$2`, registerID, eventType).Scan(&count)
+	if err != nil {
+		t.Fatalf("audit lookup: %v", err)
+	}
+	return count > 0
+}
+
+func scanApprovedBy(t *testing.T, pool *pgxpool.Pool, registerID uuid.UUID) uuid.UUID {
+	t.Helper()
+	var approvedBy uuid.UUID
+	err := pool.QueryRow(context.Background(), `
+		SELECT COALESCE(approved_by, '00000000-0000-0000-0000-000000000000'::uuid)
+		FROM billing.billing_registers WHERE id=$1`, registerID).Scan(&approvedBy)
+	if err != nil {
+		t.Fatalf("approved_by: %v", err)
+	}
+	return approvedBy
 }
