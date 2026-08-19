@@ -48,7 +48,7 @@ func main() {
 	paymentSvc := service.NewPaymentService(paymentRepo, registerLookup, membershipRepo, billingClient)
 	actorResolver := handlers.NewPaymentActorResolver(membershipRepo)
 
-	router := httpserver.NewRouter(log, db.Pool, paymentSvc, actorResolver)
+	router := httpserver.NewRouter(log, db.Pool, cfg, paymentSvc, actorResolver)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

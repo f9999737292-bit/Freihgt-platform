@@ -148,6 +148,7 @@ func ResolveTrustedPaymentActor(
 	memberships []UserCompanyMembership,
 	platformAdmin bool,
 ) (PaymentActorInput, error) {
+	_ = platformAdmin
 	if tenantID == uuid.Nil || userID == uuid.Nil {
 		return PaymentActorInput{}, apperrors.Unauthorized("authenticated identity is required")
 	}
@@ -158,17 +159,15 @@ func ResolveTrustedPaymentActor(
 	if kind != PaymentActorBuyer && kind != PaymentActorCarrier {
 		return PaymentActorInput{}, apperrors.Forbidden("verified actor context is required")
 	}
-	if !platformAdmin {
-		found := false
-		for _, m := range memberships {
-			if m.CompanyID == companyID {
-				found = true
-				break
-			}
+	found := false
+	for _, m := range memberships {
+		if m.CompanyID == companyID {
+			found = true
+			break
 		}
-		if !found {
-			return PaymentActorInput{}, apperrors.Forbidden("company membership is required")
-		}
+	}
+	if !found {
+		return PaymentActorInput{}, apperrors.Forbidden("company membership is required")
 	}
 	return PaymentActorInput{
 		TenantID: tenantID, ActorCompanyID: companyID, ActorKind: kind, ActorUserID: userID,

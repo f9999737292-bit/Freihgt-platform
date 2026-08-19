@@ -54,11 +54,11 @@ func TestManualPaymentAllocateAndPaid(t *testing.T) {
 	if err != nil {
 		t.Fatalf("allocate: %v", err)
 	}
-	if result.Obligation.Status != domain.ObligationStatusPaid {
-		t.Fatalf("expected PAID obligation, got %s", result.Obligation.Status)
+	if result.Result.Obligation.Status != domain.ObligationStatusPaid {
+		t.Fatalf("expected PAID obligation, got %s", result.Result.Obligation.Status)
 	}
-	if result.Payment.Status != domain.PaymentStatusFullyAllocated {
-		t.Fatalf("expected FULLY_ALLOCATED payment, got %s", result.Payment.Status)
+	if result.Result.Payment.Status != domain.PaymentStatusFullyAllocated {
+		t.Fatalf("expected FULLY_ALLOCATED payment, got %s", result.Result.Payment.Status)
 	}
 }
 

@@ -6,8 +6,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/freight-platform/billing-register-service/internal/config"
 	"github.com/freight-platform/billing-register-service/internal/http/handlers"
 	"github.com/freight-platform/billing-register-service/internal/service"
+	"github.com/freight-platform/shared-go/internalauth"
 	"github.com/freight-platform/shared-go/metrics"
 	"github.com/freight-platform/shared-go/observability"
 	sharedpprof "github.com/freight-platform/shared-go/pprof"
@@ -18,6 +20,7 @@ const serviceName = "billing-register-service"
 func NewRouter(
 	log *slog.Logger,
 	db observability.DatabasePinger,
+	cfg config.Config,
 	registerSvc *service.BillingRegisterService,
 	closingSvc *service.ClosingDocumentService,
 	settlementSvc *service.FreightSettlementService,
@@ -26,6 +29,7 @@ func NewRouter(
 	registerHandler := handlers.NewBillingRegisterHandler(registerSvc, actor)
 	closingHandler := handlers.NewClosingDocumentHandler(closingSvc, actor)
 	settlementHandler := handlers.NewFreightSettlementHandler(settlementSvc, actor)
+	internalAuth := internalauth.Config{Token: cfg.InternalServiceToken, Environment: cfg.Environment}
 
 	r := chi.NewRouter()
 	observability.Mount(r, observability.MountOptions{
@@ -75,6 +79,7 @@ func NewRouter(
 	})
 
 	r.Route("/internal/v1/billing-registers", func(r chi.Router) {
+		r.Use(internalAuth.Middleware)
 		r.Post("/{id}/sync-paid", registerHandler.SyncPaid)
 	})
 

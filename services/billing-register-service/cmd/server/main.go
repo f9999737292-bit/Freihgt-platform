@@ -53,7 +53,7 @@ func main() {
 	settlementSvc := service.NewFreightSettlementService(settlementRepo)
 	actorResolver := handlers.NewSettlementActorResolver(membershipRepo)
 
-	router := httpserver.NewRouter(log, db.Pool, registerSvc, closingSvc, settlementSvc, actorResolver)
+	router := httpserver.NewRouter(log, db.Pool, cfg, registerSvc, closingSvc, settlementSvc, actorResolver)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

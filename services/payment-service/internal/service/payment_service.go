@@ -155,7 +155,7 @@ func (s *PaymentService) ReconcilePayment(ctx context.Context, paymentID uuid.UU
 	return s.payments.ReconcilePayment(ctx, actor.TenantID, paymentID, actor)
 }
 
-func (s *PaymentService) Allocate(ctx context.Context, in domain.CreateAllocationInput, actor domain.PaymentActorInput) (*repository.AllocateResult, error) {
+func (s *PaymentService) Allocate(ctx context.Context, in domain.CreateAllocationInput, actor domain.PaymentActorInput) (*AllocateOutcome, error) {
 	if err := domain.ValidatePaymentActor(actor); err != nil {
 		return nil, err
 	}
@@ -168,8 +168,40 @@ func (s *PaymentService) Allocate(ctx context.Context, in domain.CreateAllocatio
 	if err != nil {
 		return nil, err
 	}
+	outcome := &AllocateOutcome{Result: result}
 	if result.Obligation.Status == domain.ObligationStatusPaid && s.billing != nil {
-		_ = s.billing.SyncRegisterPaid(ctx, actor.TenantID, result.Obligation.SourceID)
+		if syncErr := s.billing.SyncRegisterPaid(ctx, actor.TenantID, result.Obligation.SourceID); syncErr != nil {
+			outcome.RegisterPaidProjection = &RegisterPaidProjection{
+				Status:    RegisterPaidProjectionFailed,
+				Retryable: true,
+				Message:   syncErr.Error(),
+			}
+		} else {
+			outcome.RegisterPaidProjection = &RegisterPaidProjection{Status: RegisterPaidProjectionSynced}
+		}
 	}
-	return result, nil
+	return outcome, nil
+}
+
+func (s *PaymentService) EnsureBillingRegisterPaidProjection(ctx context.Context, tenantID, registerID uuid.UUID) error {
+	if tenantID == uuid.Nil || registerID == uuid.Nil {
+		return apperrors.Validation("tenant_id and register_id are required", nil)
+	}
+	obligation, err := s.payments.GetObligationBySource(ctx, tenantID, domain.ObligationSourceBillingRegister, registerID)
+	if err != nil {
+		return err
+	}
+	if obligation.Status != domain.ObligationStatusPaid {
+		return apperrors.Conflict("payment obligation is not PAID", map[string]any{"obligation_status": obligation.Status})
+	}
+	if !domain.MoneyEqual(obligation.PaidAmount, obligation.OriginalAmount) {
+		return apperrors.Conflict("payment obligation paid_amount does not match original_amount", nil)
+	}
+	if !obligation.OutstandingAmount.IsZero() {
+		return apperrors.Conflict("payment obligation outstanding_amount must be zero", nil)
+	}
+	if s.billing == nil {
+		return apperrors.Internal("billing register sync is not configured", nil)
+	}
+	return s.billing.SyncRegisterPaid(ctx, tenantID, registerID)
 }

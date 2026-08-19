@@ -368,3 +368,86 @@ func TestBillingRegisterServiceCloseOnlyAfterPaid(t *testing.T) {
 		t.Fatalf("expected validation error")
 	}
 }
+
+type mockPaymentEnsurer struct {
+	calls int
+	err   error
+}
+
+func (m *mockPaymentEnsurer) EnsurePaymentObligation(context.Context, uuid.UUID, uuid.UUID) error {
+	m.calls++
+	return m.err
+}
+
+func TestMarkSignedEnsureFailureReturnsUnavailable(t *testing.T) {
+	t.Parallel()
+	registerID := uuid.New()
+	tenantID := uuid.New()
+	signed := &domain.BillingRegister{ID: registerID, TenantID: tenantID, Status: domain.RegisterStatusSignedByCounterparty}
+	payments := &mockPaymentEnsurer{err: errors.New("payment service down")}
+	svc := NewBillingRegisterServiceWithPayments(&mockRegisterStore{
+		transitionStatusForActorFn: func(_ context.Context, _ uuid.UUID, _ domain.SettlementActorInput, nextStatus, _ string, _ func(string) error) (*domain.BillingRegister, error) {
+			if nextStatus != domain.RegisterStatusSignedByCounterparty {
+				t.Fatalf("unexpected status transition")
+			}
+			return signed, nil
+		},
+	}, nil, payments)
+	_, err := svc.MarkSigned(context.Background(), registerID, testBuyerActor(tenantID, uuid.New(), uuid.New()))
+	var appErr *apperrors.AppError
+	if !errors.As(err, &appErr) || appErr.Code != apperrors.CodeUnavailable {
+		t.Fatalf("expected unavailable error, got %v", err)
+	}
+	if payments.calls != 1 {
+		t.Fatalf("expected one ensure attempt")
+	}
+}
+
+func TestMarkSignedRetryAfterSignedEnsuresObligation(t *testing.T) {
+	t.Parallel()
+	registerID := uuid.New()
+	tenantID := uuid.New()
+	signed := &domain.BillingRegister{ID: registerID, TenantID: tenantID, Status: domain.RegisterStatusSignedByCounterparty}
+	payments := &mockPaymentEnsurer{}
+	transitions := 0
+	svc := NewBillingRegisterServiceWithPayments(&mockRegisterStore{
+		transitionStatusForActorFn: func(_ context.Context, _ uuid.UUID, _ domain.SettlementActorInput, _, _ string, _ func(string) error) (*domain.BillingRegister, error) {
+			transitions++
+			return signed, nil
+		},
+	}, nil, payments)
+	actor := testBuyerActor(tenantID, uuid.New(), uuid.New())
+	if _, err := svc.MarkSigned(context.Background(), registerID, actor); err != nil {
+		t.Fatalf("first mark signed: %v", err)
+	}
+	payments.err = nil
+	if _, err := svc.MarkSigned(context.Background(), registerID, actor); err != nil {
+		t.Fatalf("retry mark signed: %v", err)
+	}
+	if payments.calls != 2 {
+		t.Fatalf("expected ensure called twice, got %d", payments.calls)
+	}
+	if transitions != 2 {
+		t.Fatalf("expected transition helper invoked twice without duplicate audit requirement")
+	}
+}
+
+type mockObligationLookup struct {
+	validateErr error
+}
+
+func (m *mockObligationLookup) ValidateRegisterPaidPreconditions(context.Context, uuid.UUID, uuid.UUID) error {
+	return m.validateErr
+}
+
+func TestMarkPaidFailsClosedWhenObligationNotPaid(t *testing.T) {
+	t.Parallel()
+	svc := NewBillingRegisterServiceWithPayments(&mockRegisterStore{}, &mockObligationLookup{
+		validateErr: apperrors.Conflict("payment obligation is not PAID", map[string]any{"obligation_status": "OPEN"}),
+	}, nil)
+	_, err := svc.MarkPaid(context.Background(), uuid.New(), testBuyerActor(uuid.New(), uuid.New(), uuid.New()))
+	var appErr *apperrors.AppError
+	if !errors.As(err, &appErr) || appErr.Code != apperrors.CodeConflict {
+		t.Fatalf("LEGACY_MARK_PAID_FAILS_CLOSED=FAIL got %v", err)
+	}
+}

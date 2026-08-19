@@ -266,16 +266,23 @@ func (s *BillingRegisterService) MarkSentToEDO(ctx context.Context, registerID u
 }
 
 func (s *BillingRegisterService) MarkSigned(ctx context.Context, registerID uuid.UUID, actor domain.SettlementActorInput) (*domain.BillingRegister, error) {
-	reg, err := s.transitionForActor(ctx, registerID, actor, domain.ValidateMarkSignedStatus, domain.RegisterStatusSignedByCounterparty, domain.RegisterAuditMarkedSigned)
+	if registerID == uuid.Nil {
+		return nil, apperrors.Validation("id is required", map[string]any{"field": "id"})
+	}
+	if err := domain.ValidateSettlementActor(actor); err != nil {
+		return nil, err
+	}
+	signedReg, err := s.transitionForActor(ctx, registerID, actor, domain.ValidateMarkSignedStatus, domain.RegisterStatusSignedByCounterparty, domain.RegisterAuditMarkedSigned)
 	if err != nil {
 		return nil, err
 	}
-	if s.payments != nil {
-		if ensureErr := s.payments.EnsurePaymentObligation(ctx, actor.TenantID, registerID); ensureErr != nil {
-			return reg, nil
-		}
+	if s.payments == nil {
+		return signedReg, nil
 	}
-	return reg, nil
+	if ensureErr := s.payments.EnsurePaymentObligation(ctx, actor.TenantID, registerID); ensureErr != nil {
+		return signedReg, apperrors.Unavailable("payment obligation ensure failed; register remains signed", ensureErr)
+	}
+	return signedReg, nil
 }
 
 func (s *BillingRegisterService) MarkPaid(ctx context.Context, registerID uuid.UUID, actor domain.SettlementActorInput) (*domain.BillingRegister, error) {

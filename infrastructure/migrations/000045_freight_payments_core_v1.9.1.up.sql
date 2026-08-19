@@ -25,7 +25,7 @@ CREATE TABLE billing.payment_obligations (
         source_type IN ('BILLING_REGISTER')
     ),
     CONSTRAINT chk_payment_obligation_amounts CHECK (
-        original_amount >= 0
+        original_amount > 0
         AND paid_amount >= 0
         AND outstanding_amount >= 0
         AND paid_amount <= original_amount

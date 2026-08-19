@@ -51,6 +51,31 @@ func (h *PaymentHandler) EnsureObligation(w http.ResponseWriter, r *http.Request
 	respond.JSON(w, http.StatusOK, toObligationResponse(obligation))
 }
 
+func (h *PaymentHandler) EnsurePaidProjection(w http.ResponseWriter, r *http.Request) {
+	registerID, err := parseID(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	var body struct {
+		TenantID string `json:"tenant_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		respond.Error(w, domainValidation("invalid request body"))
+		return
+	}
+	tenantID, err := domain.ParseUUID(body.TenantID, "tenant_id")
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	if err := h.payments.EnsureBillingRegisterPaidProjection(r.Context(), tenantID, registerID); err != nil {
+		respond.Error(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusOK, map[string]any{"status": service.RegisterPaidProjectionSynced, "register_id": registerID.String()})
+}
+
 func (h *PaymentHandler) ListObligations(w http.ResponseWriter, r *http.Request) {
 	h.withActor(w, r, func(actor domain.PaymentActorInput) (any, error) {
 		limit, offset := parsePagination(r)
@@ -222,20 +247,25 @@ func (h *PaymentHandler) CreateAllocation(w http.ResponseWriter, r *http.Request
 		if err != nil {
 			return nil, err
 		}
-		result, err := h.payments.Allocate(r.Context(), domain.CreateAllocationInput{
+		outcome, err := h.payments.Allocate(r.Context(), domain.CreateAllocationInput{
 			PaymentID: paymentID, ObligationID: obligationID, AllocatedAmount: amount,
 		}, actor)
 		if err != nil {
 			return nil, err
 		}
-		return map[string]any{
+		result := outcome.Result
+		resp := map[string]any{
 			"payment": toPaymentResponse(result.Payment),
 			"obligation": toObligationResponse(result.Obligation),
 			"allocation": map[string]any{
 				"id": result.Allocation.ID.String(),
 				"allocated_amount": result.Allocation.AllocatedAmount.StringFixed(domain.MoneyScale),
 			},
-		}, nil
+		}
+		if outcome.RegisterPaidProjection != nil {
+			resp["register_paid_projection"] = outcome.RegisterPaidProjection
+		}
+		return resp, nil
 	})
 }
 

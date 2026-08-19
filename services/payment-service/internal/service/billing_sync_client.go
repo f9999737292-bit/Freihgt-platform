@@ -28,7 +28,7 @@ func NewBillingRegisterHTTPClient(baseURL, token string) *BillingRegisterHTTPCli
 
 func (c *BillingRegisterHTTPClient) SyncRegisterPaid(ctx context.Context, tenantID, registerID uuid.UUID) error {
 	if c == nil || c.baseURL == "" {
-		return nil
+		return fmt.Errorf("billing register service url is not configured")
 	}
 	body, err := json.Marshal(map[string]string{"tenant_id": tenantID.String()})
 	if err != nil {

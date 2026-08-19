@@ -68,6 +68,12 @@
     },
     {
       "name": "Closing Documents"
+    },
+    {
+      "name": "Payment Obligations"
+    },
+    {
+      "name": "Payments"
     }
   ],
   "paths": {
@@ -75,10 +81,10 @@
   },
   "get": {
     "tags": [
-      "Billing Registers"
+      "Payments"
     ],
-    "summary": "List billing register items",
-    "operationId": "get_list_billing_register_items",
+    "summary": "Get payment by ID",
+    "operationId": "get_get_payment_by_id",
     "parameters": [
       {
         "$ref": "#/components/parameters/XRequestID"
@@ -164,14 +170,14 @@
         }
       }
     },
-    "/api/v1/billing-registers/{register_id}/items/{item_id}": null
+    "/api/v1/payments/{id}/allocations": null
   },
   "post": {
     "tags": [
-      "Billing Registers"
+      "Payments"
     ],
-    "summary": "Close billing register",
-    "operationId": "post_close_billing_register",
+    "summary": "Reconcile fully allocated payment",
+    "operationId": "post_reconcile_fully_allocated_payment",
     "parameters": [
       {
         "$ref": "#/components/parameters/XRequestID"
@@ -271,10 +277,10 @@
   },
   "patch": {
     "tags": [
-      "Shipments"
+      "Payment Obligations"
     ],
-    "summary": "Update shipment status",
-    "operationId": "patch_update_shipment_status",
+    "summary": "Update payment obligation due date",
+    "operationId": "patch_update_payment_obligation_due_date",
     "parameters": [
       {
         "$ref": "#/components/parameters/XRequestID"
@@ -371,7 +377,7 @@
         }
       }
     },
-    "/api/v1/shipments/{id}/cancel": null
+    "/api/v1/payments": null
   },
   "delete": {
     "tags": [

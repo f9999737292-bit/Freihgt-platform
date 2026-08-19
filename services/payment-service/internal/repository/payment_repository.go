@@ -17,7 +17,9 @@ import (
 )
 
 type PaymentRepository struct {
-	pool *pgxpool.Pool
+	pool                           *pgxpool.Pool
+	simulateObligationAuditFailure bool
+	simulatePaymentAuditFailure    bool
 }
 
 func NewPaymentRepository(pool *pgxpool.Pool) *PaymentRepository {
@@ -100,35 +102,84 @@ func (r *PaymentRepository) EnsureObligationForBillingRegister(ctx context.Conte
 	}
 
 	original := snap.TotalWithVAT
+	if original.LessThanOrEqual(decimal.Zero) {
+		return nil, apperrors.Validation("register total must be greater than zero for obligation", map[string]any{"field": "total_with_vat"})
+	}
 	outstanding := domain.DeriveOutstanding(original, decimal.Zero)
 	number := obligationNumber(snap.RegisterNumber, registerID)
 
-	const insert = `
-		INSERT INTO billing.payment_obligations (
-			tenant_id, obligation_number, payer_company_id, payee_company_id,
-			source_type, source_id, currency_code, original_amount, paid_amount, outstanding_amount, status
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-		ON CONFLICT (tenant_id, source_type, source_id) DO NOTHING
-		RETURNING ` + obligationSelectCols
+	var obligation *domain.PaymentObligation
+	err = r.withTx(ctx, func(tx pgx.Tx) error {
+		if existingTx, lookupErr := r.getObligationBySourceTx(ctx, tx, tenantID, domain.ObligationSourceBillingRegister, registerID); lookupErr == nil {
+			obligation = existingTx
+			return nil
+		} else {
+			var lookupAppErr *apperrors.AppError
+			if !errors.As(lookupErr, &lookupAppErr) || lookupAppErr.Code != apperrors.CodeNotFound {
+				return lookupErr
+			}
+		}
 
-	row := r.pool.QueryRow(ctx, insert,
-		tenantID, number, snap.CustomerCompanyID, snap.ContractorCompanyID,
-		domain.ObligationSourceBillingRegister, registerID, snap.CurrencyCode,
-		original.StringFixed(domain.MoneyScale), decimal.Zero.StringFixed(domain.MoneyScale),
-		outstanding.StringFixed(domain.MoneyScale), domain.ObligationStatusOpen,
-	)
-	obligation, insertErr := scanObligation(row)
-	if insertErr == nil {
-		_ = r.insertAudit(ctx, tenantID, "PAYMENT_OBLIGATION", obligation.ID, "OBLIGATION_CREATED", nil, nil, map[string]any{
+		const insert = `
+			INSERT INTO billing.payment_obligations (
+				tenant_id, obligation_number, payer_company_id, payee_company_id,
+				source_type, source_id, currency_code, original_amount, paid_amount, outstanding_amount, status
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+			ON CONFLICT (tenant_id, source_type, source_id) DO NOTHING
+			RETURNING ` + obligationSelectCols
+
+		row := tx.QueryRow(ctx, insert,
+			tenantID, number, snap.CustomerCompanyID, snap.ContractorCompanyID,
+			domain.ObligationSourceBillingRegister, registerID, snap.CurrencyCode,
+			original.StringFixed(domain.MoneyScale), decimal.Zero.StringFixed(domain.MoneyScale),
+			outstanding.StringFixed(domain.MoneyScale), domain.ObligationStatusOpen,
+		)
+		inserted, insertErr := scanObligation(row)
+		if insertErr != nil {
+			if errors.Is(insertErr, pgx.ErrNoRows) {
+				fetched, fetchErr := r.getObligationBySourceTx(ctx, tx, tenantID, domain.ObligationSourceBillingRegister, registerID)
+				if fetchErr != nil {
+					return fetchErr
+				}
+				obligation = fetched
+				return nil
+			}
+			return insertErr
+		}
+		if r.simulateObligationAuditFailure {
+			return errors.New("simulated obligation audit failure")
+		}
+		if auditErr := r.insertAuditTx(ctx, tx, tenantID, "PAYMENT_OBLIGATION", inserted.ID, "OBLIGATION_CREATED", nil, nil, map[string]any{
 			"source_type": domain.ObligationSourceBillingRegister, "source_id": registerID.String(),
 			"original_amount": original.StringFixed(domain.MoneyScale),
-		})
-		return obligation, nil
-	}
-	if !errors.Is(insertErr, pgx.ErrNoRows) {
-		return nil, insertErr
-	}
-	return r.GetObligationBySource(ctx, tenantID, domain.ObligationSourceBillingRegister, registerID)
+		}); auditErr != nil {
+			return auditErr
+		}
+		obligation = inserted
+		return nil
+	})
+	return obligation, err
+}
+
+func (r *PaymentRepository) getObligationBySourceTx(ctx context.Context, tx pgx.Tx, tenantID uuid.UUID, sourceType string, sourceID uuid.UUID) (*domain.PaymentObligation, error) {
+	query := `SELECT ` + obligationSelectCols + `
+		FROM billing.payment_obligations
+		WHERE tenant_id = $1 AND source_type = $2 AND source_id = $3`
+	return scanObligation(tx.QueryRow(ctx, query, tenantID, sourceType, sourceID))
+}
+
+func (r *PaymentRepository) SimulateObligationAuditFailureForTest(ctx context.Context, tenantID, registerID uuid.UUID, snap *BillingRegisterSnapshot) error {
+	r.simulateObligationAuditFailure = true
+	defer func() { r.simulateObligationAuditFailure = false }()
+	_, err := r.EnsureObligationForBillingRegister(ctx, tenantID, registerID, snap)
+	return err
+}
+
+func (r *PaymentRepository) SimulatePaymentAuditFailureForTest(ctx context.Context, in domain.CreateManualPaymentInput) error {
+	r.simulatePaymentAuditFailure = true
+	defer func() { r.simulatePaymentAuditFailure = false }()
+	_, err := r.CreateManualPayment(ctx, in)
+	return err
 }
 
 func (r *PaymentRepository) UpdateObligationDueDate(ctx context.Context, tenantID, obligationID uuid.UUID, dueDate *time.Time, actor domain.PaymentActorInput) (*domain.PaymentObligation, error) {
@@ -238,28 +289,38 @@ func (r *PaymentRepository) GetPaymentByID(ctx context.Context, tenantID, id uui
 func (r *PaymentRepository) CreateManualPayment(ctx context.Context, in domain.CreateManualPaymentInput) (*domain.Payment, error) {
 	unallocated := domain.DeriveUnallocated(in.Amount, decimal.Zero)
 	number := fmt.Sprintf("PAY-%s", uuid.New().String()[:8])
-	const insert = `
-		INSERT INTO billing.payments (
-			tenant_id, payment_number, payer_company_id, payee_company_id,
-			amount, currency_code, payment_date, reference, external_reference,
-			source, external_id, status, allocated_amount, unallocated_amount, created_by
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
-		RETURNING ` + paymentSelectCols
-	payment, err := scanPayment(r.pool.QueryRow(ctx, insert,
-		in.TenantID, number, in.PayerCompanyID, in.PayeeCompanyID,
-		in.Amount.StringFixed(domain.MoneyScale), domain.NormalizeCurrencyCode(in.CurrencyCode),
-		in.PaymentDate, optionalString(in.Reference), optionalString(in.ExternalReference),
-		domain.PaymentSourceManual, optionalString(in.ExternalID),
-		domain.PaymentStatusReceived, decimal.Zero.StringFixed(domain.MoneyScale),
-		unallocated.StringFixed(domain.MoneyScale), in.CreatedBy,
-	))
-	if err != nil {
-		return nil, err
-	}
-	_ = r.insertAudit(ctx, in.TenantID, "PAYMENT", payment.ID, "PAYMENT_CREATED", &in.CreatedBy, &in.PayerCompanyID, map[string]any{
-		"amount": payment.Amount.StringFixed(domain.MoneyScale), "source": domain.PaymentSourceManual,
+	var payment *domain.Payment
+	err := r.withTx(ctx, func(tx pgx.Tx) error {
+		const insert = `
+			INSERT INTO billing.payments (
+				tenant_id, payment_number, payer_company_id, payee_company_id,
+				amount, currency_code, payment_date, reference, external_reference,
+				source, external_id, status, allocated_amount, unallocated_amount, created_by
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+			RETURNING ` + paymentSelectCols
+		created, err := scanPayment(tx.QueryRow(ctx, insert,
+			in.TenantID, number, in.PayerCompanyID, in.PayeeCompanyID,
+			in.Amount.StringFixed(domain.MoneyScale), domain.NormalizeCurrencyCode(in.CurrencyCode),
+			in.PaymentDate, optionalString(in.Reference), optionalString(in.ExternalReference),
+			domain.PaymentSourceManual, optionalString(in.ExternalID),
+			domain.PaymentStatusReceived, decimal.Zero.StringFixed(domain.MoneyScale),
+			unallocated.StringFixed(domain.MoneyScale), in.CreatedBy,
+		))
+		if err != nil {
+			return err
+		}
+		if r.simulatePaymentAuditFailure {
+			return errors.New("simulated payment audit failure")
+		}
+		if auditErr := r.insertAuditTx(ctx, tx, in.TenantID, "PAYMENT", created.ID, "PAYMENT_CREATED", &in.CreatedBy, &in.PayerCompanyID, map[string]any{
+			"amount": created.Amount.StringFixed(domain.MoneyScale), "source": domain.PaymentSourceManual,
+		}); auditErr != nil {
+			return auditErr
+		}
+		payment = created
+		return nil
 	})
-	return payment, nil
+	return payment, err
 }
 
 func (r *PaymentRepository) ReconcilePayment(ctx context.Context, tenantID, paymentID uuid.UUID, actor domain.PaymentActorInput) (*domain.Payment, error) {
