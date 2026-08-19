@@ -26,6 +26,9 @@ func NewWorker(cfg config.OutboxConfig, repo OutboxRepository, publisher EventPu
 	if clock == nil {
 		clock = NewRealClock()
 	}
+	if log == nil {
+		log = slog.Default()
+	}
 	return &Worker{
 		cfg:       cfg,
 		repo:      repo,
