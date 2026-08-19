@@ -18,10 +18,11 @@ import (
 
 type FreightSettlementHandler struct {
 	settlements *service.FreightSettlementService
+	actor       *SettlementActorResolver
 }
 
-func NewFreightSettlementHandler(settlements *service.FreightSettlementService) *FreightSettlementHandler {
-	return &FreightSettlementHandler{settlements: settlements}
+func NewFreightSettlementHandler(settlements *service.FreightSettlementService, actor *SettlementActorResolver) *FreightSettlementHandler {
+	return &FreightSettlementHandler{settlements: settlements, actor: actor}
 }
 
 type createSettlementRequest struct {
@@ -52,7 +53,7 @@ type includeRegisterRequest struct {
 }
 
 func (h *FreightSettlementHandler) Create(w http.ResponseWriter, r *http.Request) {
-	actor, err := settlementActorInput(r)
+	actor, err := h.actor.FromRequest(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -80,7 +81,7 @@ func (h *FreightSettlementHandler) Create(w http.ResponseWriter, r *http.Request
 }
 
 func (h *FreightSettlementHandler) GetByID(w http.ResponseWriter, r *http.Request) {
-	actor, err := settlementActorInput(r)
+	actor, err := h.actor.FromRequest(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -99,7 +100,7 @@ func (h *FreightSettlementHandler) GetByID(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *FreightSettlementHandler) List(w http.ResponseWriter, r *http.Request) {
-	actor, err := settlementActorInput(r)
+	actor, err := h.actor.FromRequest(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -137,7 +138,7 @@ func (h *FreightSettlementHandler) List(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *FreightSettlementHandler) ProposeAccessorial(w http.ResponseWriter, r *http.Request) {
-	actor, err := settlementActorInput(r)
+	actor, err := h.actor.FromRequest(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -185,7 +186,7 @@ func (h *FreightSettlementHandler) RejectAccessorial(w http.ResponseWriter, r *h
 }
 
 func (h *FreightSettlementHandler) reviewAccessorial(w http.ResponseWriter, r *http.Request, approve bool) {
-	actor, err := settlementActorInput(r)
+	actor, err := h.actor.FromRequest(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -214,7 +215,7 @@ func (h *FreightSettlementHandler) reviewAccessorial(w http.ResponseWriter, r *h
 }
 
 func (h *FreightSettlementHandler) RaiseDispute(w http.ResponseWriter, r *http.Request) {
-	actor, err := settlementActorInput(r)
+	actor, err := h.actor.FromRequest(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -249,7 +250,7 @@ func (h *FreightSettlementHandler) RaiseDispute(w http.ResponseWriter, r *http.R
 }
 
 func (h *FreightSettlementHandler) ResolveDispute(w http.ResponseWriter, r *http.Request) {
-	actor, err := settlementActorInput(r)
+	actor, err := h.actor.FromRequest(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -304,7 +305,7 @@ func (h *FreightSettlementHandler) MarkReadyForPayment(w http.ResponseWriter, r 
 }
 
 func (h *FreightSettlementHandler) IncludeInRegister(w http.ResponseWriter, r *http.Request) {
-	actor, err := settlementActorInput(r)
+	actor, err := h.actor.FromRequest(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -325,7 +326,7 @@ func (h *FreightSettlementHandler) IncludeInRegister(w http.ResponseWriter, r *h
 }
 
 func (h *FreightSettlementHandler) transition(w http.ResponseWriter, r *http.Request, fn func(uuid.UUID, domain.SettlementActorInput) (any, error)) {
-	actor, err := settlementActorInput(r)
+	actor, err := h.actor.FromRequest(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -373,6 +374,18 @@ func toSettlementDetailResponse(d *repository.SettlementDetail) map[string]any {
 	}
 	resp["accessorials"] = accessorials
 	resp["disputes"] = disputes
+	hasOpenDispute := false
+	for i := range d.Disputes {
+		if d.Disputes[i].Status == domain.DisputeStatusOpen {
+			hasOpenDispute = true
+			break
+		}
+	}
+	eligibility := domain.EvaluateSettlementBillingEligibility(&d.Settlement, hasOpenDispute, "")
+	resp["eligible_for_billing"] = eligibility.Eligible
+	if !eligibility.Eligible && eligibility.BlockReason != "" {
+		resp["billing_block_reason"] = eligibility.BlockReason
+	}
 	resp["reconciliation"] = map[string]any{
 		"base_freight_amount":        d.Settlement.BaseFreightAmount,
 		"approved_accessorial_total": d.Settlement.ApprovedAccessorialTotal,

@@ -21,10 +21,11 @@ func NewRouter(
 	registerSvc *service.BillingRegisterService,
 	closingSvc *service.ClosingDocumentService,
 	settlementSvc *service.FreightSettlementService,
+	actor *handlers.SettlementActorResolver,
 ) http.Handler {
-	registerHandler := handlers.NewBillingRegisterHandler(registerSvc)
-	closingHandler := handlers.NewClosingDocumentHandler(closingSvc)
-	settlementHandler := handlers.NewFreightSettlementHandler(settlementSvc)
+	registerHandler := handlers.NewBillingRegisterHandler(registerSvc, actor)
+	closingHandler := handlers.NewClosingDocumentHandler(closingSvc, actor)
+	settlementHandler := handlers.NewFreightSettlementHandler(settlementSvc, actor)
 
 	r := chi.NewRouter()
 	observability.Mount(r, observability.MountOptions{
@@ -41,6 +42,8 @@ func NewRouter(
 		r.Get("/{id}", registerHandler.GetByID)
 		r.Post("/{id}/items", registerHandler.AddItem)
 		r.Get("/{id}/items", registerHandler.ListItems)
+		r.Post("/{id}/settlements", registerHandler.IncludeSettlement)
+		r.Delete("/{register_id}/settlements/{settlementId}", registerHandler.RemoveSettlement)
 		r.Delete("/{register_id}/items/{item_id}", registerHandler.DeleteItem)
 		r.Post("/{id}/calculate", registerHandler.Calculate)
 		r.Post("/{id}/approve", registerHandler.Approve)

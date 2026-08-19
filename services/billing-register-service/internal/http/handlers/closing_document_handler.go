@@ -15,10 +15,11 @@ import (
 
 type ClosingDocumentHandler struct {
 	closing *service.ClosingDocumentService
+	actor   *SettlementActorResolver
 }
 
-func NewClosingDocumentHandler(closing *service.ClosingDocumentService) *ClosingDocumentHandler {
-	return &ClosingDocumentHandler{closing: closing}
+func NewClosingDocumentHandler(closing *service.ClosingDocumentService, actor *SettlementActorResolver) *ClosingDocumentHandler {
+	return &ClosingDocumentHandler{closing: closing, actor: actor}
 }
 
 type createPackageRequest struct {
@@ -62,6 +63,11 @@ type createUPDRequest struct {
 }
 
 func (h *ClosingDocumentHandler) CreatePackage(w http.ResponseWriter, r *http.Request) {
+	actor, err := h.actor.FromRequest(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
 	registerID, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
 	if err != nil {
 		respond.Error(w, err)
@@ -72,22 +78,32 @@ func (h *ClosingDocumentHandler) CreatePackage(w http.ResponseWriter, r *http.Re
 		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
 		return
 	}
-	tenantID, err := domain.ParseUUID(req.TenantID, "tenant_id")
+	if err := domain.EnforceOptionalBodyTenant(actor.TenantID, req.TenantID); err != nil {
+		respond.Error(w, err)
+		return
+	}
+	result, err := h.closing.CreatePackageForActor(r.Context(), registerID, domain.CreateClosingDocumentPackageInput{
+		TenantID: actor.TenantID, PackageNumber: req.PackageNumber, PackageType: req.PackageType,
+	}, actor)
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
-	pkg, err := h.closing.CreatePackage(r.Context(), registerID, domain.CreateClosingDocumentPackageInput{
-		TenantID: tenantID, PackageNumber: req.PackageNumber, PackageType: req.PackageType,
+	respond.JSON(w, http.StatusCreated, map[string]any{
+		"package": toPackageResponse(result.Package),
+		"invoice": optionalInvoiceResponse(result.Invoice),
+		"act":     optionalActResponse(result.Act),
+		"vat_invoice": optionalVATInvoiceResponse(result.VATInvoice),
+		"upd":     optionalUPDResponse(result.UPD),
 	})
-	if err != nil {
-		respond.Error(w, err)
-		return
-	}
-	respond.JSON(w, http.StatusCreated, toPackageResponse(pkg))
 }
 
 func (h *ClosingDocumentHandler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
+	actor, err := h.actor.FromRequest(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
 	registerID, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
 	if err != nil {
 		respond.Error(w, err)
@@ -98,12 +114,16 @@ func (h *ClosingDocumentHandler) CreateInvoice(w http.ResponseWriter, r *http.Re
 		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
 		return
 	}
+	if err := domain.EnforceOptionalBodyTenant(actor.TenantID, req.TenantID); err != nil {
+		respond.Error(w, err)
+		return
+	}
 	input, err := parseInvoiceRequest(req)
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
-	inv, err := h.closing.CreateInvoice(r.Context(), registerID, input)
+	inv, err := h.closing.CreateInvoice(r.Context(), registerID, input, actor)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -112,6 +132,11 @@ func (h *ClosingDocumentHandler) CreateInvoice(w http.ResponseWriter, r *http.Re
 }
 
 func (h *ClosingDocumentHandler) CreateAct(w http.ResponseWriter, r *http.Request) {
+	actor, err := h.actor.FromRequest(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
 	registerID, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
 	if err != nil {
 		respond.Error(w, err)
@@ -122,12 +147,16 @@ func (h *ClosingDocumentHandler) CreateAct(w http.ResponseWriter, r *http.Reques
 		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
 		return
 	}
+	if err := domain.EnforceOptionalBodyTenant(actor.TenantID, req.TenantID); err != nil {
+		respond.Error(w, err)
+		return
+	}
 	input, err := parseActRequest(req)
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
-	act, err := h.closing.CreateAct(r.Context(), registerID, input)
+	act, err := h.closing.CreateAct(r.Context(), registerID, input, actor)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -136,6 +165,11 @@ func (h *ClosingDocumentHandler) CreateAct(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *ClosingDocumentHandler) CreateVATInvoice(w http.ResponseWriter, r *http.Request) {
+	actor, err := h.actor.FromRequest(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
 	registerID, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
 	if err != nil {
 		respond.Error(w, err)
@@ -146,12 +180,16 @@ func (h *ClosingDocumentHandler) CreateVATInvoice(w http.ResponseWriter, r *http
 		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
 		return
 	}
+	if err := domain.EnforceOptionalBodyTenant(actor.TenantID, req.TenantID); err != nil {
+		respond.Error(w, err)
+		return
+	}
 	input, err := parseVATInvoiceRequest(req)
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
-	inv, err := h.closing.CreateVATInvoice(r.Context(), registerID, input)
+	inv, err := h.closing.CreateVATInvoice(r.Context(), registerID, input, actor)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -160,6 +198,11 @@ func (h *ClosingDocumentHandler) CreateVATInvoice(w http.ResponseWriter, r *http
 }
 
 func (h *ClosingDocumentHandler) CreateUPD(w http.ResponseWriter, r *http.Request) {
+	actor, err := h.actor.FromRequest(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
 	registerID, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
 	if err != nil {
 		respond.Error(w, err)
@@ -170,12 +213,16 @@ func (h *ClosingDocumentHandler) CreateUPD(w http.ResponseWriter, r *http.Reques
 		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
 		return
 	}
+	if err := domain.EnforceOptionalBodyTenant(actor.TenantID, req.TenantID); err != nil {
+		respond.Error(w, err)
+		return
+	}
 	input, err := parseUPDRequest(req)
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
-	upd, err := h.closing.CreateUPD(r.Context(), registerID, input)
+	upd, err := h.closing.CreateUPD(r.Context(), registerID, input, actor)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -363,4 +410,32 @@ func mapUPDs(items []domain.UPDDocument) []map[string]any {
 		result = append(result, toUPDResponse(&items[i]))
 	}
 	return result
+}
+
+func optionalInvoiceResponse(inv *domain.Invoice) any {
+	if inv == nil {
+		return nil
+	}
+	return toInvoiceResponse(inv)
+}
+
+func optionalActResponse(act *domain.Act) any {
+	if act == nil {
+		return nil
+	}
+	return toActResponse(act)
+}
+
+func optionalVATInvoiceResponse(inv *domain.VATInvoice) any {
+	if inv == nil {
+		return nil
+	}
+	return toVATInvoiceResponse(inv)
+}
+
+func optionalUPDResponse(upd *domain.UPDDocument) any {
+	if upd == nil {
+		return nil
+	}
+	return toUPDResponse(upd)
 }

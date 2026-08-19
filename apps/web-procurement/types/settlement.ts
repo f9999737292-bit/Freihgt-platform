@@ -82,6 +82,34 @@ export interface FreightSettlementDetail extends FreightSettlement {
   accessorials: SettlementAccessorial[]
   disputes: SettlementDispute[]
   reconciliation: SettlementReconciliation
+  eligible_for_billing?: boolean
+  billing_block_reason?: string
+}
+
+export interface BillingRegisterItem {
+  id: string
+  register_id: string
+  settlement_id?: string | null
+  shipment_id: string
+  transport_order_id?: string | null
+  base_amount: number
+  extra_charges: number
+  penalties: number
+  amount_without_vat: number
+  vat_rate?: number | null
+  vat_amount: number
+  amount_with_vat: number
+  status: string
+  created_at: string
+}
+
+export interface BillingRegisterDetail extends BillingRegister {
+  items: BillingRegisterItem[]
+  closing_document_packages?: Array<{ id: string; package_number: string; status: string }>
+  invoices?: Array<{ id: string; invoice_number: string; total_amount: number; status: string }>
+  acts?: Array<{ id: string; act_number: string; total_amount: number; status: string }>
+  vat_invoices?: Array<{ id: string; vat_invoice_number: string; amount_with_vat: number; status: string }>
+  upd_documents?: Array<{ id: string; upd_number: string; amount_with_vat: number; status: string }>
 }
 
 export interface SettlementListResponse {

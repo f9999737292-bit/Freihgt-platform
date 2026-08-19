@@ -36,10 +36,9 @@ describe('settlement utilities', () => {
     expect(resolveSettlementActor('unknown', [buyer, carrier])).toBeNull()
   })
 
-  it('builds actor query params for API calls', () => {
-    expect(settlementActorQuery('BUYER', 'company-1')).toEqual({
+  it('builds company context query params for API calls', () => {
+    expect(settlementActorQuery('company-1')).toEqual({
       company_id: 'company-1',
-      actor: 'BUYER',
     })
   })
 

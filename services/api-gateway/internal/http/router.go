@@ -16,6 +16,7 @@ import (
 	apperrors "github.com/freight-platform/api-gateway/internal/platform/errors"
 	"github.com/freight-platform/api-gateway/internal/platform/respond"
 	"github.com/freight-platform/api-gateway/internal/rfxrbac"
+	"github.com/freight-platform/api-gateway/internal/billingrbac"
 	"github.com/freight-platform/api-gateway/internal/settlementrbac"
 	"github.com/freight-platform/api-gateway/internal/shipmentevents"
 	"github.com/freight-platform/api-gateway/internal/tracking"
@@ -268,6 +269,21 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	r.Post("/api/v1/freight-settlements/{id}/mark-documents-ready", settlementGuard.WithPolicy(settlementrbac.PolicyMutate))
 	r.Post("/api/v1/freight-settlements/{id}/mark-ready-for-payment", settlementGuard.WithPolicy(settlementrbac.PolicyMutate))
 	r.Post("/api/v1/freight-settlements/{id}/include-in-register", settlementGuard.WithPolicy(settlementrbac.PolicyMutate))
+
+	billingGuard := billingrbac.NewGuard(cfg, proxy)
+	r.Post("/api/v1/billing-registers", billingGuard.WithPolicy(billingrbac.PolicyMutate))
+	r.Get("/api/v1/billing-registers", billingGuard.WithPolicy(billingrbac.PolicyRead))
+	r.Get("/api/v1/billing-registers/{id}", billingGuard.WithPolicy(billingrbac.PolicyRead))
+	r.Post("/api/v1/billing-registers/{id}/settlements", billingGuard.WithPolicy(billingrbac.PolicyMutate))
+	r.Delete("/api/v1/billing-registers/{id}/settlements/{settlementId}", billingGuard.WithPolicy(billingrbac.PolicyMutate))
+	r.Post("/api/v1/billing-registers/{id}/calculate", billingGuard.WithPolicy(billingrbac.PolicyMutate))
+	r.Post("/api/v1/billing-registers/{id}/approve", billingGuard.WithPolicy(billingrbac.PolicyMutate))
+	r.Post("/api/v1/billing-registers/{id}/closing-document-package", billingGuard.WithPolicy(billingrbac.PolicyMutate))
+	r.Get("/api/v1/billing-registers/{id}/items", billingGuard.WithPolicy(billingrbac.PolicyRead))
+	r.Post("/api/v1/billing-registers/{id}/mark-sent-to-edo", billingGuard.WithPolicy(billingrbac.PolicyMutate))
+	r.Post("/api/v1/billing-registers/{id}/mark-signed", billingGuard.WithPolicy(billingrbac.PolicyMutate))
+	r.Post("/api/v1/billing-registers/{id}/mark-paid", billingGuard.WithPolicy(billingrbac.PolicyMutate))
+	r.Post("/api/v1/billing-registers/{id}/close", billingGuard.WithPolicy(billingrbac.PolicyMutate))
 
 	r.Handle("/api/*", proxy)
 	r.Handle("/api", proxy)

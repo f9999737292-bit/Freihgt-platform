@@ -1,9 +1,9 @@
 openapi: 3.0.3
 info:
-  title: Freight Platform API - Billing Register Service
+  title: Freight Platform API - Billing Register
   version: 0.1.0
   description: |
-    OpenAPI specification for Billing Register Service.
+    OpenAPI specification for Billing Register.
 servers:
   - url: http://localhost:8080
     description: Local API Gateway
@@ -27,1114 +27,1093 @@ tags:
   - name: Signing
   - name: Billing Registers
   - name: Closing Documents
-  - name: Freight Settlements
-
 paths:
   /api/v1/billing-registers:
-    post:
-      tags: [Billing Registers]
-      summary: Create billing register
-      operationId: post_create_billing_register
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    get:
-      tags: [Billing Registers]
-      summary: List billing registers
-      operationId: get_list_billing_registers
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+
+post:
+  tags: [Billing Registers]
+  summary: Create billing register
+  operationId: post_create_billing_register
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '201':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
+get:
+  tags: [Billing Registers]
+  summary: List billing registers
+  operationId: get_list_billing_registers
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '200':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/billing-registers/{id}:
-    get:
-      tags: [Billing Registers]
-      summary: Get billing register by ID
-      operationId: get_get_billing_register_by_id
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+
+get:
+  tags: [Billing Registers]
+  summary: Get billing register by ID
+  operationId: get_get_billing_register_by_id
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '200':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/billing-registers/{id}/items:
-    post:
-      tags: [Billing Registers]
-      summary: Add shipment item to billing register
-      operationId: post_add_shipment_item_to_billing_register
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    get:
-      tags: [Billing Registers]
-      summary: List billing register items
-      operationId: get_list_billing_register_items
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+
+post:
+  tags: [Billing Registers]
+  summary: Add shipment item to billing register
+  operationId: post_add_shipment_item_to_billing_register
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '201':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
+get:
+  tags: [Billing Registers]
+  summary: List billing register items
+  operationId: get_list_billing_register_items
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '200':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/billing-registers/{register_id}/items/{item_id}:
-    delete:
-      tags: [Billing Registers]
-      summary: Delete billing register item
-      operationId: delete_delete_billing_register_item
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+
+delete:
+  tags: [Billing Registers]
+  summary: Delete billing register item
+  operationId: delete_delete_billing_register_item
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '200':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/billing-registers/{id}/calculate:
-    post:
-      tags: [Billing Registers]
-      summary: Calculate billing register totals
-      operationId: post_calculate_billing_register_totals
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+
+post:
+  tags: [Billing Registers]
+  summary: Calculate billing register totals
+  operationId: post_calculate_billing_register_totals
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '201':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/billing-registers/{id}/approve:
-    post:
-      tags: [Billing Registers]
-      summary: Approve billing register
-      operationId: post_approve_billing_register
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+
+post:
+  tags: [Billing Registers]
+  summary: Approve billing register
+  operationId: post_approve_billing_register
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '201':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/billing-registers/{id}/closing-document-package:
-    post:
-      tags: [Closing Documents]
-      summary: Create closing document package
-      operationId: post_create_closing_document_package
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+
+post:
+  tags: [Closing Documents]
+  summary: Create closing document package
+  operationId: post_create_closing_document_package
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '201':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/billing-registers/{id}/invoices:
-    post:
-      tags: [Closing Documents]
-      summary: Create invoice
-      operationId: post_create_invoice
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+
+post:
+  tags: [Closing Documents]
+  summary: Create invoice
+  operationId: post_create_invoice
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '201':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/billing-registers/{id}/acts:
-    post:
-      tags: [Closing Documents]
-      summary: Create act
-      operationId: post_create_act
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+
+post:
+  tags: [Closing Documents]
+  summary: Create act
+  operationId: post_create_act
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '201':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/billing-registers/{id}/vat-invoices:
-    post:
-      tags: [Closing Documents]
-      summary: Create VAT invoice
-      operationId: post_create_vat_invoice
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+
+post:
+  tags: [Closing Documents]
+  summary: Create VAT invoice
+  operationId: post_create_vat_invoice
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '201':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/billing-registers/{id}/upd:
-    post:
-      tags: [Closing Documents]
-      summary: Create UPD document
-      operationId: post_create_upd_document
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+
+post:
+  tags: [Closing Documents]
+  summary: Create UPD document
+  operationId: post_create_upd_document
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '201':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/billing-registers/{id}/mark-sent-to-edo:
-    post:
-      tags: [Billing Registers]
-      summary: Mark billing register sent to EDO (mock)
-      operationId: post_mark_billing_register_sent_to_edo__mock
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+
+post:
+  tags: [Billing Registers]
+  summary: Mark billing register sent to EDO (mock)
+  operationId: post_mark_billing_register_sent_to_edo__mock
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '201':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/billing-registers/{id}/mark-signed:
-    post:
-      tags: [Billing Registers]
-      summary: Mark billing register signed (mock)
-      operationId: post_mark_billing_register_signed__mock
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+
+post:
+  tags: [Billing Registers]
+  summary: Mark billing register signed (mock)
+  operationId: post_mark_billing_register_signed__mock
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '201':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/billing-registers/{id}/mark-paid:
-    post:
-      tags: [Billing Registers]
-      summary: Mark billing register paid
-      operationId: post_mark_billing_register_paid
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+
+post:
+  tags: [Billing Registers]
+  summary: Mark billing register paid
+  operationId: post_mark_billing_register_paid
+
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
+
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
+
+  security:
+    - bearerAuth: []
+
+  responses:
+    '201':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   /api/v1/billing-registers/{id}/close:
-    post:
-      tags: [Billing Registers]
-      summary: Close billing register
-      operationId: post_close_billing_register
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
 
-  /api/v1/freight-settlements:
-    post:
-      tags: [Freight Settlements]
-      summary: Create freight settlement from delivered shipment
-      operationId: post_create_freight_settlement
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/Authorization'
-        - name: company_id
-          in: query
-          required: true
-          schema: { type: string, format: uuid }
-        - name: actor
-          in: query
-          required: true
-          schema: { type: string, enum: [BUYER, CARRIER] }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [shipment_id]
-              properties:
-                shipment_id: { type: string, format: uuid }
-                idempotency_key: { type: string }
-                settlement_number: { type: string }
-      security:
-        - bearerAuth: []
-      responses:
-        '201': { description: Settlement created }
-    get:
-      tags: [Freight Settlements]
-      summary: List freight settlements
-      operationId: get_freight_settlements
-      parameters:
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/Authorization'
-        - name: company_id
-          in: query
-          required: true
-          schema: { type: string, format: uuid }
-        - name: actor
-          in: query
-          required: true
-          schema: { type: string, enum: [BUYER, CARRIER] }
-        - name: buyer_company_id
-          in: query
-          schema: { type: string, format: uuid }
-        - name: carrier_company_id
-          in: query
-          schema: { type: string, format: uuid }
-        - name: status
-          in: query
-          schema: { type: string }
-      security:
-        - bearerAuth: []
-      responses:
-        '200': { description: Settlement list }
+post:
+  tags: [Billing Registers]
+  summary: Close billing register
+  operationId: post_close_billing_register
 
-  /api/v1/freight-settlements/{id}:
-    get:
-      tags: [Freight Settlements]
-      summary: Get freight settlement detail with reconciliation
-      operationId: get_freight_settlement
-      parameters:
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/Authorization'
-        - name: id
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-        - name: company_id
-          in: query
-          required: true
-          schema: { type: string, format: uuid }
-        - name: actor
-          in: query
-          required: true
-          schema: { type: string, enum: [BUYER, CARRIER] }
-      security:
-        - bearerAuth: []
-      responses:
-        '200': { description: Settlement detail }
+  parameters:
+    - $ref: '#/components/parameters/XRequestID'
+    - $ref: '#/components/parameters/XTenantID'
+    - $ref: '#/components/parameters/XCompanyID'
+    - $ref: '#/components/parameters/XLocale'
+    - $ref: '#/components/parameters/Authorization'
 
-  /api/v1/freight-settlements/{id}/accessorials:
-    post:
-      tags: [Freight Settlements]
-      summary: Propose settlement accessorial charge
-      operationId: post_settlement_accessorial
-      parameters:
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/Authorization'
-        - name: company_id
-          in: query
-          required: true
-          schema: { type: string, format: uuid }
-        - name: actor
-          in: query
-          required: true
-          schema: { type: string, enum: [CARRIER] }
-      security:
-        - bearerAuth: []
-      responses:
-        '201': { description: Accessorial proposed }
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
 
-  /api/v1/freight-settlements/{id}/approve:
-    post:
-      tags: [Freight Settlements]
-      summary: Buyer service acceptance / settlement approval
-      operationId: post_approve_freight_settlement
-      parameters:
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/Authorization'
-        - name: company_id
-          in: query
-          required: true
-          schema: { type: string, format: uuid }
-        - name: actor
-          in: query
-          required: true
-          schema: { type: string, enum: [BUYER] }
-      security:
-        - bearerAuth: []
-      responses:
-        '200': { description: Settlement approved }
+  security:
+    - bearerAuth: []
 
-  /api/v1/freight-settlements/{id}/include-in-register:
-    post:
-      tags: [Freight Settlements]
-      summary: Include approved settlement in billing register
-      operationId: post_include_settlement_in_register
-      parameters:
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/Authorization'
-        - name: company_id
-          in: query
-          required: true
-          schema: { type: string, format: uuid }
-        - name: actor
-          in: query
-          required: true
-          schema: { type: string, enum: [BUYER] }
-      security:
-        - bearerAuth: []
-      responses:
-        '200': { description: Settlement included in register }
+  responses:
+    '201':
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    '500':
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
 
 components:
   securitySchemes:
@@ -1225,4 +1204,3 @@ components:
           type: integer
         offset:
           type: integer
-

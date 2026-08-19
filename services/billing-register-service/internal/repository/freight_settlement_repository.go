@@ -657,13 +657,13 @@ func includeSettlementInRegisterTx(ctx context.Context, tx pgx.Tx, settlement *d
 	amounts := domain.CalculateItemAmounts(settlement.BaseFreightAmount, settlement.ApprovedAccessorialTotal, 0, settlement.VATRate)
 	const insertItem = `
 		INSERT INTO billing.billing_register_items (
-			tenant_id, register_id, shipment_id, transport_order_id, carrier_company_id,
+			tenant_id, register_id, settlement_id, shipment_id, transport_order_id, carrier_company_id,
 			base_amount, extra_charges, penalties, amount_without_vat, vat_rate, vat_amount, amount_with_vat, status, created_by
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
 		RETURNING id`
 	var itemID uuid.UUID
 	if err := tx.QueryRow(ctx, insertItem,
-		settlement.TenantID, regID, settlement.ShipmentID, settlement.TransportOrderID, settlement.CarrierCompanyID,
+		settlement.TenantID, regID, settlement.ID, settlement.ShipmentID, settlement.TransportOrderID, settlement.CarrierCompanyID,
 		settlement.BaseFreightAmount, settlement.ApprovedAccessorialTotal, 0,
 		amounts.AmountWithoutVAT, optionalFloat(settlement.VATRate), amounts.VATAmount, amounts.AmountWithVAT,
 		domain.RegisterItemStatusDraft, actor,

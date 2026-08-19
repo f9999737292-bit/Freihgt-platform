@@ -1,4 +1,6 @@
 import type {
+  BillingRegister,
+  BillingRegisterDetail,
   BillingRegisterListResponse,
   CreateSettlementRequest,
   FreightSettlement,
@@ -24,8 +26,8 @@ export function useSettlementApi() {
   const { apiGet, apiPost } = useApi()
   const tenantStore = useTenantStore()
 
-  function actorQuery(actor: SettlementActor) {
-    return settlementActorQuery(actor, requireCompanyId(tenantStore.currentCompanyId))
+  function actorQuery(_actor: SettlementActor) {
+    return settlementActorQuery(requireCompanyId(tenantStore.currentCompanyId))
   }
 
   async function listSettlements(
@@ -148,24 +150,72 @@ export function useSettlementApi() {
     )
   }
 
-  async function listBillingRegisters(options: {
-    customerCompanyId?: string
-    contractorCompanyId?: string
-    limit?: number
-    offset?: number
-  } = {}) {
+  async function listBillingRegisters(actor: SettlementActor, options: { limit?: number; offset?: number } = {}) {
     const query: Record<string, string | number | undefined> = {
-      tenant_id: tenantStore.tenantId,
+      ...actorQuery(actor),
       limit: options.limit ?? 50,
       offset: options.offset ?? 0,
     }
-    if (options.customerCompanyId) query.customer_company_id = options.customerCompanyId
-    if (options.contractorCompanyId) query.contractor_company_id = options.contractorCompanyId
     const data = await apiGet<BillingRegisterListResponse>('/api/v1/billing-registers', { query })
     return {
       items: data.items ?? [],
       total: data.total ?? data.items?.length ?? 0,
     }
+  }
+
+  async function getBillingRegister(id: string, actor: SettlementActor) {
+    return apiGet<BillingRegisterDetail>(`/api/v1/billing-registers/${encodeURIComponent(id)}`, {
+      query: actorQuery(actor),
+    })
+  }
+
+  async function createBillingRegister(
+    actor: SettlementActor,
+    body: {
+      register_number: string
+      contractor_company_id: string
+      period_from: string
+      period_to: string
+      currency_code: string
+      vat_rate?: number
+    },
+  ) {
+    return apiPost<BillingRegister>('/api/v1/billing-registers', {
+      customer_company_id: requireCompanyId(tenantStore.currentCompanyId),
+      ...body,
+    }, { query: actorQuery(actor) })
+  }
+
+  async function includeSettlementInRegister(registerId: string, actor: SettlementActor, settlementId: string) {
+    return apiPost<BillingRegisterDetail>(
+      `/api/v1/billing-registers/${encodeURIComponent(registerId)}/settlements`,
+      { settlement_id: settlementId },
+      { query: actorQuery(actor) },
+    )
+  }
+
+  async function calculateBillingRegister(registerId: string, actor: SettlementActor) {
+    return apiPost<BillingRegister>(
+      `/api/v1/billing-registers/${encodeURIComponent(registerId)}/calculate`,
+      {},
+      { query: actorQuery(actor) },
+    )
+  }
+
+  async function approveBillingRegister(registerId: string, actor: SettlementActor) {
+    return apiPost<BillingRegister>(
+      `/api/v1/billing-registers/${encodeURIComponent(registerId)}/approve`,
+      {},
+      { query: actorQuery(actor) },
+    )
+  }
+
+  async function createClosingDocumentPackage(registerId: string, actor: SettlementActor, packageNumber: string) {
+    return apiPost(
+      `/api/v1/billing-registers/${encodeURIComponent(registerId)}/closing-document-package`,
+      { package_number: packageNumber, package_type: 'ACT_PLUS_VAT_INVOICE' },
+      { query: actorQuery(actor) },
+    )
   }
 
   return {
@@ -183,5 +233,11 @@ export function useSettlementApi() {
     markReadyForPayment,
     includeInRegister,
     listBillingRegisters,
+    getBillingRegister,
+    createBillingRegister,
+    includeSettlementInRegister,
+    calculateBillingRegister,
+    approveBillingRegister,
+    createClosingDocumentPackage,
   }
 }
