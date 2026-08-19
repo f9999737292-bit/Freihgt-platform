@@ -373,6 +373,18 @@ func toSettlementDetailResponse(d *repository.SettlementDetail) map[string]any {
 	}
 	resp["accessorials"] = accessorials
 	resp["disputes"] = disputes
+	hasOpenDispute := false
+	for i := range d.Disputes {
+		if d.Disputes[i].Status == domain.DisputeStatusOpen {
+			hasOpenDispute = true
+			break
+		}
+	}
+	eligibility := domain.EvaluateSettlementBillingEligibility(&d.Settlement, hasOpenDispute, "")
+	resp["eligible_for_billing"] = eligibility.Eligible
+	if !eligibility.Eligible && eligibility.BlockReason != "" {
+		resp["billing_block_reason"] = eligibility.BlockReason
+	}
 	resp["reconciliation"] = map[string]any{
 		"base_freight_amount":        d.Settlement.BaseFreightAmount,
 		"approved_accessorial_total": d.Settlement.ApprovedAccessorialTotal,

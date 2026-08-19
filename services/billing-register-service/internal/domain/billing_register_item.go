@@ -15,6 +15,7 @@ type BillingRegisterItem struct {
 	ID                uuid.UUID
 	TenantID          uuid.UUID
 	RegisterID        uuid.UUID
+	SettlementID      *uuid.UUID
 	ShipmentID        uuid.UUID
 	TransportOrderID  *uuid.UUID
 	RouteDescription  *string

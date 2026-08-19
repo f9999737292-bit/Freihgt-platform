@@ -66,6 +66,11 @@ type createItemRequest struct {
 }
 
 func (h *BillingRegisterHandler) Create(w http.ResponseWriter, r *http.Request) {
+	actor, err := settlementActorInput(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
 	var req createRegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
@@ -76,7 +81,7 @@ func (h *BillingRegisterHandler) Create(w http.ResponseWriter, r *http.Request) 
 		respond.Error(w, err)
 		return
 	}
-	reg, err := h.registers.Create(r.Context(), input)
+	reg, err := h.registers.CreateForActor(r.Context(), input, actor)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -85,12 +90,17 @@ func (h *BillingRegisterHandler) Create(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *BillingRegisterHandler) GetByID(w http.ResponseWriter, r *http.Request) {
+	actor, err := settlementActorInput(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
 	id, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
-	detail, err := h.registers.GetByID(r.Context(), id)
+	detail, err := h.registers.GetByID(r.Context(), id, actor.TenantID, actor)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -99,12 +109,12 @@ func (h *BillingRegisterHandler) GetByID(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *BillingRegisterHandler) List(w http.ResponseWriter, r *http.Request) {
-	tenantID, err := domain.ParseUUID(r.URL.Query().Get("tenant_id"), "tenant_id")
+	actor, err := settlementActorInput(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
-	filter := domain.ListBillingRegistersFilter{TenantID: tenantID, Limit: parseLimit(r), Offset: parseOffset(r)}
+	filter := domain.ListBillingRegistersFilter{TenantID: actor.TenantID, Limit: parseLimit(r), Offset: parseOffset(r)}
 	if raw := strings.TrimSpace(r.URL.Query().Get("customer_company_id")); raw != "" {
 		id, err := domain.ParseUUID(raw, "customer_company_id")
 		if err != nil {
@@ -140,7 +150,7 @@ func (h *BillingRegisterHandler) List(w http.ResponseWriter, r *http.Request) {
 		}
 		filter.PeriodTo = &d
 	}
-	regs, total, err := h.registers.List(r.Context(), filter)
+	regs, total, err := h.registers.List(r.Context(), filter, actor)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -327,9 +337,13 @@ func (h *BillingRegisterHandler) tenantAction(w http.ResponseWriter, r *http.Req
 }
 
 func parseCreateRegisterRequest(req createRegisterRequest) (domain.CreateBillingRegisterInput, error) {
-	tenantID, err := domain.ParseUUID(req.TenantID, "tenant_id")
-	if err != nil {
-		return domain.CreateBillingRegisterInput{}, err
+	var tenantID uuid.UUID
+	if strings.TrimSpace(req.TenantID) != "" {
+		parsed, err := domain.ParseUUID(req.TenantID, "tenant_id")
+		if err != nil {
+			return domain.CreateBillingRegisterInput{}, err
+		}
+		tenantID = parsed
 	}
 	customerID, err := domain.ParseUUID(req.CustomerCompanyID, "customer_company_id")
 	if err != nil {
@@ -430,7 +444,8 @@ func toRegisterDetailResponse(detail *repository.RegisterDetail) map[string]any 
 
 func toItemResponse(item *domain.BillingRegisterItem) map[string]any {
 	return map[string]any{
-		"id": item.ID.String(), "register_id": item.RegisterID.String(), "shipment_id": item.ShipmentID.String(),
+		"id": item.ID.String(), "register_id": item.RegisterID.String(),
+		"settlement_id": optionalUUIDString(item.SettlementID), "shipment_id": item.ShipmentID.String(),
 		"transport_order_id": optionalUUIDString(item.TransportOrderID), "route_description": item.RouteDescription,
 		"pickup_date": domain.FormatOptionalDate(item.PickupDate), "delivery_date": domain.FormatOptionalDate(item.DeliveryDate),
 		"shipper_company_id": optionalUUIDString(item.ShipperCompanyID), "consignee_company_id": optionalUUIDString(item.ConsigneeCompanyID),
@@ -446,4 +461,69 @@ func deref(v *string) string {
 		return ""
 	}
 	return *v
+}
+
+type includeSettlementRequest struct {
+	SettlementID string `json:"settlement_id"`
+}
+
+func (h *BillingRegisterHandler) IncludeSettlement(w http.ResponseWriter, r *http.Request) {
+	actor, err := settlementActorInput(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	registerID, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	var req includeSettlementRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
+		return
+	}
+	settlementID, err := domain.ParseUUID(req.SettlementID, "settlement_id")
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	result, err := h.registers.IncludeSettlement(r.Context(), registerID, settlementID, actor)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	detail, err := h.registers.GetByID(r.Context(), registerID, actor.TenantID, actor)
+	if err != nil {
+		respond.JSON(w, http.StatusOK, map[string]any{
+			"register": toRegisterResponse(result.Register),
+			"item":     toItemResponse(result.Item),
+		})
+		return
+	}
+	respond.JSON(w, http.StatusOK, toRegisterDetailResponse(detail))
+}
+
+func (h *BillingRegisterHandler) RemoveSettlement(w http.ResponseWriter, r *http.Request) {
+	actor, err := settlementActorInput(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	registerID, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	settlementID, err := domain.ParseUUID(chi.URLParam(r, "settlementId"), "settlement_id")
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	reg, err := h.registers.RemoveSettlement(r.Context(), registerID, settlementID, actor)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusOK, toRegisterResponse(reg))
 }

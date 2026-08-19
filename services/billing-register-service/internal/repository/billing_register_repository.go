@@ -113,6 +113,41 @@ func (r *BillingRegisterRepository) GetByIDAndTenant(ctx context.Context, id, te
 	return reg, err
 }
 
+func (r *BillingRegisterRepository) GetDetailByTenant(ctx context.Context, id, tenantID uuid.UUID) (*RegisterDetail, error) {
+	reg, err := r.GetByIDAndTenant(ctx, id, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	items, err := r.ListItems(ctx, id, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	packages, err := r.listPackages(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	invoices, err := r.listInvoices(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	acts, err := r.listActs(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	vatInvoices, err := r.listVATInvoices(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	upds, err := r.listUPDs(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return &RegisterDetail{
+		Register: reg, Items: items, ClosingDocumentPackages: packages,
+		Invoices: invoices, Acts: acts, VATInvoices: vatInvoices, UPDDocuments: upds,
+	}, nil
+}
+
 func (r *BillingRegisterRepository) GetDetail(ctx context.Context, id uuid.UUID) (*RegisterDetail, error) {
 	reg, err := r.GetByID(ctx, id)
 	if err != nil {
@@ -240,7 +275,7 @@ func (r *BillingRegisterRepository) ListItems(ctx context.Context, registerID, t
 	var result []domain.BillingRegisterItem
 	err := measureDB("billing_register_repository", "list_billing_register_items", func() error {
 		const query = `
-		SELECT id, tenant_id, register_id, shipment_id, transport_order_id, route_description,
+		SELECT id, tenant_id, register_id, settlement_id, shipment_id, transport_order_id, route_description,
 			pickup_date, delivery_date, shipper_company_id, consignee_company_id, carrier_company_id,
 			base_amount, extra_charges, penalties, amount_without_vat, vat_rate, vat_amount, amount_with_vat, status, created_at
 		FROM billing.billing_register_items WHERE register_id = $1 AND tenant_id = $2 ORDER BY created_at ASC
@@ -252,7 +287,7 @@ func (r *BillingRegisterRepository) ListItems(ctx context.Context, registerID, t
 		defer rows.Close()
 		items := make([]domain.BillingRegisterItem, 0)
 		for rows.Next() {
-			item, err := scanItemRows(rows)
+			item, err := scanItemWithSettlement(rows)
 			if err != nil {
 				return err
 			}

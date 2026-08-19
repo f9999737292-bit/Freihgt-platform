@@ -24,6 +24,10 @@ type BillingRegisterStore interface {
 	RecalculateAfterItemChange(ctx context.Context, id, tenantID uuid.UUID, expectedVersion int) (*domain.BillingRegister, error)
 	Approve(ctx context.Context, id, tenantID, approvedBy uuid.UUID, expectedVersion int) (*domain.BillingRegister, error)
 	UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, status string, expectedVersion int) (*domain.BillingRegister, error)
+	IncludeSettlement(ctx context.Context, registerID, settlementID uuid.UUID, actor domain.SettlementActorInput) (*repository.IncludeSettlementResult, error)
+	RemoveSettlement(ctx context.Context, registerID, settlementID uuid.UUID, actor domain.SettlementActorInput) (*domain.BillingRegister, error)
+	GetDetailByTenant(ctx context.Context, id, tenantID uuid.UUID) (*repository.RegisterDetail, error)
+	SimulateRegisterAuditFailureForTest(ctx context.Context, registerID, tenantID uuid.UUID) error
 }
 
 type BillingRegisterService struct {
@@ -51,14 +55,53 @@ func (s *BillingRegisterService) Create(ctx context.Context, in domain.CreateBil
 	return s.registers.Create(ctx, in)
 }
 
-func (s *BillingRegisterService) GetByID(ctx context.Context, id uuid.UUID) (*repository.RegisterDetail, error) {
+func (s *BillingRegisterService) CreateForActor(ctx context.Context, in domain.CreateBillingRegisterInput, actor domain.SettlementActorInput) (*domain.BillingRegister, error) {
+	if err := domain.ValidateSettlementActor(actor); err != nil {
+		return nil, err
+	}
+	if actor.ActorKind != domain.SettlementActorBuyer {
+		return nil, apperrors.Forbidden("only buyer can create billing register")
+	}
+	if in.CustomerCompanyID != actor.ActorCompanyID {
+		return nil, apperrors.Forbidden("buyer cannot create register for another buyer")
+	}
+	in.TenantID = actor.TenantID
+	return s.Create(ctx, in)
+}
+
+func (s *BillingRegisterService) GetByID(ctx context.Context, id, tenantID uuid.UUID, actor domain.SettlementActorInput) (*repository.RegisterDetail, error) {
 	if id == uuid.Nil {
 		return nil, apperrors.Validation("id is required", map[string]any{"field": "id"})
 	}
-	return s.registers.GetDetail(ctx, id)
+	if err := domain.ValidateSettlementActor(actor); err != nil {
+		return nil, err
+	}
+	detail, err := s.registers.GetDetailByTenant(ctx, id, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	if err := domain.ValidateBillingRegisterAccess(detail.Register, actor.ActorCompanyID, actor.ActorKind); err != nil {
+		return nil, err
+	}
+	return detail, nil
 }
 
-func (s *BillingRegisterService) List(ctx context.Context, filter domain.ListBillingRegistersFilter) ([]domain.BillingRegister, int, error) {
+func (s *BillingRegisterService) List(ctx context.Context, filter domain.ListBillingRegistersFilter, actor domain.SettlementActorInput) ([]domain.BillingRegister, int, error) {
+	if err := domain.ValidateSettlementActor(actor); err != nil {
+		return nil, 0, err
+	}
+	switch actor.ActorKind {
+	case domain.SettlementActorBuyer:
+		if filter.CustomerCompanyID != nil && *filter.CustomerCompanyID != actor.ActorCompanyID {
+			return nil, 0, apperrors.Forbidden("buyer cannot list another buyer's billing registers")
+		}
+		filter.CustomerCompanyID = &actor.ActorCompanyID
+	case domain.SettlementActorCarrier:
+		if filter.ContractorCompanyID != nil && *filter.ContractorCompanyID != actor.ActorCompanyID {
+			return nil, 0, apperrors.Forbidden("carrier cannot list another carrier's billing registers")
+		}
+		filter.ContractorCompanyID = &actor.ActorCompanyID
+	}
 	if filter.Limit == 0 {
 		filter.Limit = 20
 	}
@@ -67,6 +110,27 @@ func (s *BillingRegisterService) List(ctx context.Context, filter domain.ListBil
 	}
 	return s.registers.List(ctx, filter)
 }
+
+func (s *BillingRegisterService) IncludeSettlement(ctx context.Context, registerID, settlementID uuid.UUID, actor domain.SettlementActorInput) (*repository.IncludeSettlementResult, error) {
+	if registerID == uuid.Nil || settlementID == uuid.Nil {
+		return nil, apperrors.Validation("id is required", map[string]any{"field": "id"})
+	}
+	if err := domain.ValidateSettlementActor(actor); err != nil {
+		return nil, err
+	}
+	return s.registers.IncludeSettlement(ctx, registerID, settlementID, actor)
+}
+
+func (s *BillingRegisterService) RemoveSettlement(ctx context.Context, registerID, settlementID uuid.UUID, actor domain.SettlementActorInput) (*domain.BillingRegister, error) {
+	if registerID == uuid.Nil || settlementID == uuid.Nil {
+		return nil, apperrors.Validation("id is required", map[string]any{"field": "id"})
+	}
+	if err := domain.ValidateSettlementActor(actor); err != nil {
+		return nil, err
+	}
+	return s.registers.RemoveSettlement(ctx, registerID, settlementID, actor)
+}
+
 
 func (s *BillingRegisterService) AddItem(ctx context.Context, registerID uuid.UUID, in domain.CreateBillingRegisterItemInput) (*domain.BillingRegisterItem, error) {
 	if registerID == uuid.Nil {

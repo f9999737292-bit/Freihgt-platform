@@ -62,6 +62,18 @@ func (m *mockRegisterStore) Approve(ctx context.Context, id, tenantID, approvedB
 func (m *mockRegisterStore) UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, status string, expectedVersion int) (*domain.BillingRegister, error) {
 	return m.updateStatusFn(ctx, id, tenantID, status, expectedVersion)
 }
+func (m *mockRegisterStore) IncludeSettlement(context.Context, uuid.UUID, uuid.UUID, domain.SettlementActorInput) (*repository.IncludeSettlementResult, error) {
+	return nil, nil
+}
+func (m *mockRegisterStore) RemoveSettlement(context.Context, uuid.UUID, uuid.UUID, domain.SettlementActorInput) (*domain.BillingRegister, error) {
+	return nil, nil
+}
+func (m *mockRegisterStore) GetDetailByTenant(context.Context, uuid.UUID, uuid.UUID) (*repository.RegisterDetail, error) {
+	return nil, nil
+}
+func (m *mockRegisterStore) SimulateRegisterAuditFailureForTest(context.Context, uuid.UUID, uuid.UUID) error {
+	return nil
+}
 
 type mockClosingStore struct {
 	createInvoiceFn   func(ctx context.Context, register *domain.BillingRegister, in domain.CreateInvoiceInput) (*domain.Invoice, error)
