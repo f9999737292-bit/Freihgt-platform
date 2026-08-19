@@ -27,6 +27,7 @@ tags:
   - name: Signing
   - name: Billing Registers
   - name: Closing Documents
+  - name: Freight Settlements
 
 paths:
   /api/v1/billing-registers:
@@ -985,6 +986,155 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/freight-settlements:
+    post:
+      tags: [Freight Settlements]
+      summary: Create freight settlement from delivered shipment
+      operationId: post_create_freight_settlement
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/Authorization'
+        - name: company_id
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: actor
+          in: query
+          required: true
+          schema: { type: string, enum: [BUYER, CARRIER] }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [shipment_id]
+              properties:
+                shipment_id: { type: string, format: uuid }
+                idempotency_key: { type: string }
+                settlement_number: { type: string }
+      security:
+        - bearerAuth: []
+      responses:
+        '201': { description: Settlement created }
+    get:
+      tags: [Freight Settlements]
+      summary: List freight settlements
+      operationId: get_freight_settlements
+      parameters:
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/Authorization'
+        - name: company_id
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: actor
+          in: query
+          required: true
+          schema: { type: string, enum: [BUYER, CARRIER] }
+        - name: buyer_company_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: carrier_company_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          schema: { type: string }
+      security:
+        - bearerAuth: []
+      responses:
+        '200': { description: Settlement list }
+
+  /api/v1/freight-settlements/{id}:
+    get:
+      tags: [Freight Settlements]
+      summary: Get freight settlement detail with reconciliation
+      operationId: get_freight_settlement
+      parameters:
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/Authorization'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: company_id
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: actor
+          in: query
+          required: true
+          schema: { type: string, enum: [BUYER, CARRIER] }
+      security:
+        - bearerAuth: []
+      responses:
+        '200': { description: Settlement detail }
+
+  /api/v1/freight-settlements/{id}/accessorials:
+    post:
+      tags: [Freight Settlements]
+      summary: Propose settlement accessorial charge
+      operationId: post_settlement_accessorial
+      parameters:
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/Authorization'
+        - name: company_id
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: actor
+          in: query
+          required: true
+          schema: { type: string, enum: [CARRIER] }
+      security:
+        - bearerAuth: []
+      responses:
+        '201': { description: Accessorial proposed }
+
+  /api/v1/freight-settlements/{id}/approve:
+    post:
+      tags: [Freight Settlements]
+      summary: Buyer service acceptance / settlement approval
+      operationId: post_approve_freight_settlement
+      parameters:
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/Authorization'
+        - name: company_id
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: actor
+          in: query
+          required: true
+          schema: { type: string, enum: [BUYER] }
+      security:
+        - bearerAuth: []
+      responses:
+        '200': { description: Settlement approved }
+
+  /api/v1/freight-settlements/{id}/include-in-register:
+    post:
+      tags: [Freight Settlements]
+      summary: Include approved settlement in billing register
+      operationId: post_include_settlement_in_register
+      parameters:
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/Authorization'
+        - name: company_id
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: actor
+          in: query
+          required: true
+          schema: { type: string, enum: [BUYER] }
+      security:
+        - bearerAuth: []
+      responses:
+        '200': { description: Settlement included in register }
 
 components:
   securitySchemes:

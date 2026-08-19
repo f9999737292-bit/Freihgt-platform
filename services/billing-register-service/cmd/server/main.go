@@ -41,11 +41,13 @@ func main() {
 
 	registerRepo := repository.NewBillingRegisterRepository(db.Pool)
 	closingRepo := repository.NewClosingDocumentRepository(db.Pool)
+	settlementRepo := repository.NewFreightSettlementRepository(db.Pool)
 
 	registerSvc := service.NewBillingRegisterService(registerRepo)
 	closingSvc := service.NewClosingDocumentService(registerRepo, closingRepo)
+	settlementSvc := service.NewFreightSettlementService(settlementRepo)
 
-	router := httpserver.NewRouter(log, db.Pool, registerSvc, closingSvc)
+	router := httpserver.NewRouter(log, db.Pool, registerSvc, closingSvc, settlementSvc)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

@@ -5,6 +5,7 @@ const localeFiles = [
   'tenders.json',
   'carrierTenders.json',
   'orderExecution.json',
+  'settlements.json',
 ]
 
 export default defineNuxtConfig({

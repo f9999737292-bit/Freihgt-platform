@@ -16,6 +16,7 @@ import (
 	apperrors "github.com/freight-platform/api-gateway/internal/platform/errors"
 	"github.com/freight-platform/api-gateway/internal/platform/respond"
 	"github.com/freight-platform/api-gateway/internal/rfxrbac"
+	"github.com/freight-platform/api-gateway/internal/settlementrbac"
 	"github.com/freight-platform/api-gateway/internal/shipmentevents"
 	"github.com/freight-platform/api-gateway/internal/tracking"
 	"github.com/freight-platform/api-gateway/internal/shipmentrbac"
@@ -252,6 +253,21 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	r.Get("/api/v1/bids/{id}", rfxGuard.WithPolicy(rfxrbac.PolicyCombinedRead))
 	r.Post("/api/v1/bids/{id}/submit", rfxGuard.WithPolicy(rfxrbac.PolicyCarrierRespond))
 	r.Post("/api/v1/bids/{id}/accept", rfxGuard.WithPolicy(rfxrbac.PolicyAcceptBid))
+
+	settlementGuard := settlementrbac.NewGuard(cfg, proxy)
+	r.Post("/api/v1/freight-settlements", settlementGuard.WithPolicy(settlementrbac.PolicyMutate))
+	r.Get("/api/v1/freight-settlements", settlementGuard.WithPolicy(settlementrbac.PolicyRead))
+	r.Get("/api/v1/freight-settlements/{id}", settlementGuard.WithPolicy(settlementrbac.PolicyRead))
+	r.Post("/api/v1/freight-settlements/{id}/accessorials", settlementGuard.WithPolicy(settlementrbac.PolicyMutate))
+	r.Post("/api/v1/freight-settlements/{id}/accessorials/{accessorialId}/approve", settlementGuard.WithPolicy(settlementrbac.PolicyMutate))
+	r.Post("/api/v1/freight-settlements/{id}/accessorials/{accessorialId}/reject", settlementGuard.WithPolicy(settlementrbac.PolicyMutate))
+	r.Post("/api/v1/freight-settlements/{id}/disputes", settlementGuard.WithPolicy(settlementrbac.PolicyMutate))
+	r.Post("/api/v1/freight-settlements/{id}/disputes/{disputeId}/resolve", settlementGuard.WithPolicy(settlementrbac.PolicyMutate))
+	r.Post("/api/v1/freight-settlements/{id}/submit-for-review", settlementGuard.WithPolicy(settlementrbac.PolicyMutate))
+	r.Post("/api/v1/freight-settlements/{id}/approve", settlementGuard.WithPolicy(settlementrbac.PolicyMutate))
+	r.Post("/api/v1/freight-settlements/{id}/mark-documents-ready", settlementGuard.WithPolicy(settlementrbac.PolicyMutate))
+	r.Post("/api/v1/freight-settlements/{id}/mark-ready-for-payment", settlementGuard.WithPolicy(settlementrbac.PolicyMutate))
+	r.Post("/api/v1/freight-settlements/{id}/include-in-register", settlementGuard.WithPolicy(settlementrbac.PolicyMutate))
 
 	r.Handle("/api/*", proxy)
 	r.Handle("/api", proxy)

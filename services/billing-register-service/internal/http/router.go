@@ -20,9 +20,11 @@ func NewRouter(
 	db observability.DatabasePinger,
 	registerSvc *service.BillingRegisterService,
 	closingSvc *service.ClosingDocumentService,
+	settlementSvc *service.FreightSettlementService,
 ) http.Handler {
 	registerHandler := handlers.NewBillingRegisterHandler(registerSvc)
 	closingHandler := handlers.NewClosingDocumentHandler(closingSvc)
+	settlementHandler := handlers.NewFreightSettlementHandler(settlementSvc)
 
 	r := chi.NewRouter()
 	observability.Mount(r, observability.MountOptions{
@@ -51,6 +53,22 @@ func NewRouter(
 		r.Post("/{id}/mark-signed", registerHandler.MarkSigned)
 		r.Post("/{id}/mark-paid", registerHandler.MarkPaid)
 		r.Post("/{id}/close", registerHandler.Close)
+	})
+
+	r.Route("/v1/freight-settlements", func(r chi.Router) {
+		r.Post("/", settlementHandler.Create)
+		r.Get("/", settlementHandler.List)
+		r.Get("/{id}", settlementHandler.GetByID)
+		r.Post("/{id}/accessorials", settlementHandler.ProposeAccessorial)
+		r.Post("/{id}/accessorials/{accessorialId}/approve", settlementHandler.ApproveAccessorial)
+		r.Post("/{id}/accessorials/{accessorialId}/reject", settlementHandler.RejectAccessorial)
+		r.Post("/{id}/disputes", settlementHandler.RaiseDispute)
+		r.Post("/{id}/disputes/{disputeId}/resolve", settlementHandler.ResolveDispute)
+		r.Post("/{id}/submit-for-review", settlementHandler.SubmitForReview)
+		r.Post("/{id}/approve", settlementHandler.Approve)
+		r.Post("/{id}/mark-documents-ready", settlementHandler.MarkDocumentsReady)
+		r.Post("/{id}/mark-ready-for-payment", settlementHandler.MarkReadyForPayment)
+		r.Post("/{id}/include-in-register", settlementHandler.IncludeInRegister)
 	})
 
 	return r

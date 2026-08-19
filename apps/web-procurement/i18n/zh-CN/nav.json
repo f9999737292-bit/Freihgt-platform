@@ -4,6 +4,8 @@
     "tenders": "招标",
     "carrierTenders": "承运商招标",
     "carrierOrders": "订单执行",
-    "buyerOrders": "运输订单"
+    "buyerOrders": "运输订单",
+    "settlements": "结算",
+    "billingRegisters": "登记册"
   }
 }
