@@ -3,6 +3,7 @@ module github.com/freight-platform/payment-service
 go 1.22
 
 require (
+	github.com/freight-platform/billing-register-service v0.0.0
 	github.com/freight-platform/shared-go v0.0.0
 	github.com/go-chi/chi/v5 v5.2.1
 	github.com/google/uuid v1.6.0
@@ -30,3 +31,5 @@ require (
 )
 
 replace github.com/freight-platform/shared-go => ../../packages/shared-go
+
+replace github.com/freight-platform/billing-register-service => ../billing-register-service

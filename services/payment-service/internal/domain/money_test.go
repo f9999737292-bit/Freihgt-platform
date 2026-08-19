@@ -6,6 +6,27 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+func TestValidateMoneyScale(t *testing.T) {
+	t.Parallel()
+	pass := []string{"1.23", "1.230", "0.01", "100000.99"}
+	for _, raw := range pass {
+		value, err := decimal.NewFromString(raw)
+		if err != nil {
+			t.Fatalf("parse %q: %v", raw, err)
+		}
+		if err := ValidateMoneyScale(value, "amount"); err != nil {
+			t.Fatalf("ValidateMoneyScale(%q) expected pass, got %v", raw, err)
+		}
+	}
+	reject := []string{"1.234", "0.001", "100000.999"}
+	for _, raw := range reject {
+		value := decimal.RequireFromString(raw)
+		if err := ValidateMoneyScale(value, "amount"); err == nil {
+			t.Fatalf("ValidateMoneyScale(%q) expected reject", raw)
+		}
+	}
+}
+
 func TestParseMoneyPrecisionValidation(t *testing.T) {
 	t.Parallel()
 	pass := []string{"1", "1.2", "1.20", "1.230", "0.01", "100000.99"}

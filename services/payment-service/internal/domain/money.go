@@ -25,11 +25,18 @@ func ParseMoney(raw string, field string) (decimal.Decimal, error) {
 	if value.LessThanOrEqual(decimal.Zero) {
 		return decimal.Decimal{}, apperrors.Validation("amount must be greater than zero", map[string]any{"field": field})
 	}
+	if err := ValidateMoneyScale(value, field); err != nil {
+		return decimal.Decimal{}, err
+	}
+	return value.Round(MoneyScale), nil
+}
+
+func ValidateMoneyScale(value decimal.Decimal, field string) error {
 	normalized := value.Round(MoneyScale)
 	if !value.Equal(normalized) {
-		return decimal.Decimal{}, apperrors.Validation("amount exceeds allowed precision of two decimal places", map[string]any{"field": field})
+		return apperrors.Validation("amount exceeds allowed precision of two decimal places", map[string]any{"field": field})
 	}
-	return normalized, nil
+	return nil
 }
 
 func RoundMoney(value decimal.Decimal) decimal.Decimal {

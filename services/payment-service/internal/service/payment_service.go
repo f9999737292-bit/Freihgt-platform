@@ -102,6 +102,9 @@ func (s *PaymentService) CreateManualPayment(ctx context.Context, in domain.Crea
 	if err := domain.ValidateCurrencyCode(in.CurrencyCode); err != nil {
 		return nil, err
 	}
+	if err := domain.ValidateMoneyScale(in.Amount, "amount"); err != nil {
+		return nil, err
+	}
 	in.Amount = domain.RoundMoney(in.Amount)
 	in.Source = domain.PaymentSourceManual
 	in.TenantID = actor.TenantID
@@ -163,6 +166,9 @@ func (s *PaymentService) Allocate(ctx context.Context, in domain.CreateAllocatio
 	in.CreatedBy = actor.ActorUserID
 	in.ActorCompanyID = actor.ActorCompanyID
 	in.ActorKind = actor.ActorKind
+	if err := domain.ValidateMoneyScale(in.AllocatedAmount, "allocated_amount"); err != nil {
+		return nil, err
+	}
 	in.AllocatedAmount = domain.RoundMoney(in.AllocatedAmount)
 	result, err := s.payments.Allocate(ctx, in)
 	if err != nil {
