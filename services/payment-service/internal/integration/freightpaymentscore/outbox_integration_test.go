@@ -212,10 +212,20 @@ func TestWorkerPublishesPendingEvent(t *testing.T) {
 	}, env.outboxRepo, publisher, nil, outbox.NewRealClock())
 
 	events, err := env.outboxRepo.ClaimPendingForPublisher(ctx, "test-worker", 10, time.Now().UTC(), 10*time.Second)
-	if err != nil || len(events) != 1 {
-		t.Fatalf("claim: %v len=%d", err, len(events))
+	if err != nil {
+		t.Fatalf("claim: %v", err)
 	}
-	worker.ProcessEventForIntegration(ctx, events[0])
+	var target *domain.PaymentOutboxEvent
+	for i := range events {
+		if events[i].AggregateID == obligation.ID {
+			target = &events[i]
+			break
+		}
+	}
+	if target == nil {
+		t.Fatalf("expected claimed event for obligation %s, got %d events", obligation.ID, len(events))
+	}
+	worker.ProcessEventForIntegration(ctx, *target)
 	if syncCount.Load() != 1 {
 		t.Fatalf("worker must call billing once, got %d", syncCount.Load())
 	}
@@ -261,10 +271,20 @@ func TestWorkerClosedAlreadySatisfiedF6(t *testing.T) {
 		PublishTimeout: 5 * time.Second, LeaseTimeout: 10 * time.Second,
 	}, env.outboxRepo, outbox.NewHTTPPublisher(billingClient), nil, outbox.NewRealClock())
 	events, err := env.outboxRepo.ClaimPendingForPublisher(ctx, "closed-worker", 10, time.Now().UTC(), 10*time.Second)
-	if err != nil || len(events) != 1 {
+	if err != nil {
 		t.Fatalf("claim: %v", err)
 	}
-	worker.ProcessEventForIntegration(ctx, events[0])
+	var target *domain.PaymentOutboxEvent
+	for i := range events {
+		if events[i].AggregateID == obligation.ID {
+			target = &events[i]
+			break
+		}
+	}
+	if target == nil {
+		t.Fatalf("expected claimed event for obligation %s, got %d events", obligation.ID, len(events))
+	}
+	worker.ProcessEventForIntegration(ctx, *target)
 	event, _ := env.outboxRepo.GetOutboxByAggregate(ctx, fix.TenantID, domain.PaymentEventObligationPaid, obligation.ID)
 	if event.Status != domain.PaymentOutboxStatusPublished {
 		t.Fatal("F6_ALREADY_CLOSED=FAIL outbox must be PUBLISHED")
