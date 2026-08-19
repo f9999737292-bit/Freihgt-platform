@@ -39,11 +39,7 @@ async function loadRegisters() {
       total.value = 0
       return
     }
-    const filters =
-      actor.value === 'BUYER'
-        ? { customerCompanyId: currentCompanyId.value }
-        : { contractorCompanyId: currentCompanyId.value }
-    const data = await listBillingRegisters(filters)
+    const data = await listBillingRegisters(actor.value, { limit: 50 })
     items.value = data.items
     total.value = data.total
   } catch (error) {
@@ -89,8 +85,8 @@ watch([currentCompanyId, tenantId], loadRegisters, { immediate: true })
             <td>{{ item.period_from }} — {{ item.period_to }}</td>
             <td>{{ formatMoney(item.total_with_vat, item.currency_code) }}</td>
             <td>
-              <NuxtLink :to="`/settlements?register=${item.id}`">
-                {{ t('settlements.viewSettlements') }}
+              <NuxtLink :to="`/billing-registers/${item.id}`">
+                {{ t('settlements.viewRegister') }}
               </NuxtLink>
             </td>
           </tr>

@@ -48,7 +48,7 @@ const showApproveSettlement = computed(() =>
 const showMarkDocumentsReady = computed(() => detail.value?.status === 'APPROVED')
 const showMarkReadyForPayment = computed(() => detail.value?.status === 'DOCUMENTS_READY')
 const showIncludeInRegister = computed(() =>
-  Boolean(detail.value?.billing_register_id == null && detail.value?.status === 'APPROVED'),
+  Boolean(detail.value?.eligible_for_billing && detail.value?.billing_register_id == null),
 )
 
 const accessorialForm = reactive({
