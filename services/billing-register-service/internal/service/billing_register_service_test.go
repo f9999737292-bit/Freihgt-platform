@@ -83,6 +83,9 @@ func (m *mockRegisterStore) TransitionStatusForActor(ctx context.Context, regist
 	}
 	return m.transitionStatusForActorFn(ctx, registerID, actor, nextStatus, auditEvent, validate)
 }
+func (m *mockRegisterStore) SyncPaidFromPaymentObligation(context.Context, uuid.UUID, uuid.UUID) (*domain.BillingRegister, error) {
+	return nil, nil
+}
 func (m *mockRegisterStore) CreateWithAudit(ctx context.Context, in domain.CreateBillingRegisterInput, actor domain.SettlementActorInput) (*domain.BillingRegister, error) {
 	return m.Create(ctx, in)
 }

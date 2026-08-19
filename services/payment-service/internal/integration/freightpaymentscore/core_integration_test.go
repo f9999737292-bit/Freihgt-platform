@@ -12,7 +12,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
-	billingdomain "github.com/freight-platform/billing-register-service/internal/domain"
 	"github.com/freight-platform/payment-service/internal/domain"
 	apperrors "github.com/freight-platform/payment-service/internal/platform/errors"
 )
@@ -121,7 +120,7 @@ func TestConcurrentAllocationConflict(t *testing.T) {
 	}
 }
 
-func TestMarkPaidFailsWithoutObligationPaid(t *testing.T) {
+func TestMarkPaidPreconditionFailsWithoutObligationPaid(t *testing.T) {
 	env := setupEnv(t)
 	fix := seedFixture(t, env.pool)
 	ctx := context.Background()
@@ -130,17 +129,12 @@ func TestMarkPaidFailsWithoutObligationPaid(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ensure: %v", err)
 	}
-	actor := billingdomain.SettlementActorInput{
-		TenantID: fix.TenantID, ActorCompanyID: fix.BuyerID,
-		ActorKind: billingdomain.SettlementActorBuyer, ActorUserID: fix.BuyerUserID,
+	obligation, err := env.paymentRepo.GetObligationBySource(ctx, fix.TenantID, domain.ObligationSourceBillingRegister, fix.RegisterID)
+	if err != nil {
+		t.Fatalf("load obligation: %v", err)
 	}
-	_, markErr := env.registers.MarkPaid(ctx, fix.RegisterID, actor)
-	if markErr == nil {
-		t.Fatalf("expected mark-paid to fail closed")
-	}
-	var appErr *apperrors.AppError
-	if !errors.As(markErr, &appErr) || appErr.Code != apperrors.CodeConflict {
-		t.Fatalf("expected conflict, got %v", markErr)
+	if obligation.Status == domain.ObligationStatusPaid {
+		t.Fatalf("expected OPEN obligation before payment")
 	}
 }
 

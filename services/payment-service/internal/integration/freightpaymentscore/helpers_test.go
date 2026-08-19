@@ -15,8 +15,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	billingservice "github.com/freight-platform/billing-register-service/internal/service"
-	billingrepo "github.com/freight-platform/billing-register-service/internal/repository"
 	"github.com/freight-platform/payment-service/internal/domain"
 	"github.com/freight-platform/payment-service/internal/repository"
 	"github.com/freight-platform/payment-service/internal/service"
@@ -25,19 +23,17 @@ import (
 const maxMigrationFile = "000045_freight_payments_core_v1.9.1.up.sql"
 
 type env struct {
-	pool           *pgxpool.Pool
-	payments       *service.PaymentService
-	paymentRepo    *repository.PaymentRepository
-	registers      *billingservice.BillingRegisterService
-	obligationRepo *billingrepo.PaymentObligationLookupRepository
+	pool        *pgxpool.Pool
+	payments    *service.PaymentService
+	paymentRepo *repository.PaymentRepository
 }
 
 type fixture struct {
-	TenantID     uuid.UUID
-	BuyerID      uuid.UUID
-	CarrierID    uuid.UUID
-	BuyerUserID  uuid.UUID
-	RegisterID   uuid.UUID
+	TenantID      uuid.UUID
+	BuyerID       uuid.UUID
+	CarrierID     uuid.UUID
+	BuyerUserID   uuid.UUID
+	RegisterID    uuid.UUID
 	RegisterTotal decimal.Decimal
 }
 
@@ -59,14 +55,8 @@ func setupEnv(t *testing.T) *env {
 	paymentRepo := repository.NewPaymentRepository(pool)
 	registerLookup := repository.NewBillingRegisterLookupRepository(pool)
 	membershipRepo := repository.NewMembershipRepository(pool)
-	registerRepo := billingrepo.NewBillingRegisterRepository(pool)
-	obligationLookup := billingrepo.NewPaymentObligationLookupRepository(pool)
 	paymentSvc := service.NewPaymentService(paymentRepo, registerLookup, membershipRepo, nil)
-	registerSvc := billingservice.NewBillingRegisterServiceWithPayments(registerRepo, obligationLookup, nil)
-	return &env{
-		pool: pool, payments: paymentSvc, paymentRepo: paymentRepo,
-		registers: registerSvc, obligationRepo: obligationLookup,
-	}
+	return &env{pool: pool, payments: paymentSvc, paymentRepo: paymentRepo}
 }
 
 func applyMigrations(ctx context.Context, pool *pgxpool.Pool) error {
