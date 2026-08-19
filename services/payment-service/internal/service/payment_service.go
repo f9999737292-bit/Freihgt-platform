@@ -25,6 +25,9 @@ type PaymentStore interface {
 	GetPaymentByID(ctx context.Context, tenantID, id uuid.UUID) (*domain.Payment, error)
 	ReconcilePayment(ctx context.Context, tenantID, paymentID uuid.UUID, actor domain.PaymentActorInput) (*domain.Payment, error)
 	Allocate(ctx context.Context, in domain.CreateAllocationInput) (*repository.AllocateResult, error)
+	GetAllocationByID(ctx context.Context, tenantID, id uuid.UUID) (*domain.PaymentAllocation, error)
+	VoidAllocation(ctx context.Context, in domain.VoidAllocationInput) (*repository.VoidAllocationResult, error)
+	VoidPayment(ctx context.Context, in domain.VoidPaymentInput) (*domain.Payment, error)
 	ListObligations(ctx context.Context, tenantID uuid.UUID, actor domain.PaymentActorInput, limit, offset int) ([]domain.PaymentObligation, error)
 	ListPayments(ctx context.Context, tenantID uuid.UUID, actor domain.PaymentActorInput, limit, offset int) ([]domain.Payment, error)
 }
@@ -201,6 +204,50 @@ func (s *PaymentService) Allocate(ctx context.Context, in domain.CreateAllocatio
 		}
 	}
 	return outcome, nil
+}
+
+func (s *PaymentService) VoidAllocation(ctx context.Context, allocationID uuid.UUID, reason string, actor domain.PaymentActorInput) (*repository.VoidAllocationResult, error) {
+	if allocationID == uuid.Nil {
+		return nil, apperrors.Validation("id is required", map[string]any{"field": "id"})
+	}
+	if err := domain.ValidatePaymentActor(actor); err != nil {
+		return nil, err
+	}
+	alloc, err := s.payments.GetAllocationByID(ctx, actor.TenantID, allocationID)
+	if err != nil {
+		return nil, err
+	}
+	payment, err := s.payments.GetPaymentByID(ctx, actor.TenantID, alloc.PaymentID)
+	if err != nil {
+		return nil, err
+	}
+	if err := domain.ValidatePaymentAccess(payment.PayerCompanyID, payment.PayeeCompanyID, actor.ActorCompanyID, actor.ActorKind); err != nil {
+		return nil, err
+	}
+	return s.payments.VoidAllocation(ctx, domain.VoidAllocationInput{
+		TenantID: actor.TenantID, AllocationID: allocationID, Reason: reason,
+		ActorUserID: actor.ActorUserID, ActorCompanyID: actor.ActorCompanyID, ActorKind: actor.ActorKind,
+	})
+}
+
+func (s *PaymentService) VoidPayment(ctx context.Context, paymentID uuid.UUID, reason string, actor domain.PaymentActorInput) (*domain.Payment, error) {
+	if paymentID == uuid.Nil {
+		return nil, apperrors.Validation("id is required", map[string]any{"field": "id"})
+	}
+	if err := domain.ValidatePaymentActor(actor); err != nil {
+		return nil, err
+	}
+	payment, err := s.payments.GetPaymentByID(ctx, actor.TenantID, paymentID)
+	if err != nil {
+		return nil, err
+	}
+	if err := domain.ValidatePaymentAccess(payment.PayerCompanyID, payment.PayeeCompanyID, actor.ActorCompanyID, actor.ActorKind); err != nil {
+		return nil, err
+	}
+	return s.payments.VoidPayment(ctx, domain.VoidPaymentInput{
+		TenantID: actor.TenantID, PaymentID: paymentID, Reason: reason,
+		ActorUserID: actor.ActorUserID, ActorCompanyID: actor.ActorCompanyID, ActorKind: actor.ActorKind,
+	})
 }
 
 func (s *PaymentService) markOutboxPublishedIfNeeded(ctx context.Context, tenantID, obligationID uuid.UUID) error {

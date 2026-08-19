@@ -226,6 +226,50 @@ func (h *PaymentHandler) ReconcilePayment(w http.ResponseWriter, r *http.Request
 	})
 }
 
+func (h *PaymentHandler) VoidAllocation(w http.ResponseWriter, r *http.Request) {
+	h.withActor(w, r, func(actor domain.PaymentActorInput) (any, error) {
+		id, err := parseID(r)
+		if err != nil {
+			return nil, err
+		}
+		var body struct {
+			Reason string `json:"reason"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			return nil, domainValidation("invalid request body")
+		}
+		result, err := h.payments.VoidAllocation(r.Context(), id, body.Reason, actor)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{
+			"allocation": toAllocationResponse(result.Allocation),
+			"payment":    toPaymentResponse(result.Payment),
+			"obligation": toObligationResponse(result.Obligation),
+		}, nil
+	})
+}
+
+func (h *PaymentHandler) VoidPayment(w http.ResponseWriter, r *http.Request) {
+	h.withActor(w, r, func(actor domain.PaymentActorInput) (any, error) {
+		id, err := parseID(r)
+		if err != nil {
+			return nil, err
+		}
+		var body struct {
+			Reason string `json:"reason"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			return nil, domainValidation("invalid request body")
+		}
+		p, err := h.payments.VoidPayment(r.Context(), id, body.Reason, actor)
+		if err != nil {
+			return nil, err
+		}
+		return toPaymentResponse(p), nil
+	})
+}
+
 func (h *PaymentHandler) CreateAllocation(w http.ResponseWriter, r *http.Request) {
 	h.withActor(w, r, func(actor domain.PaymentActorInput) (any, error) {
 		paymentID, err := parseID(r)
@@ -257,10 +301,7 @@ func (h *PaymentHandler) CreateAllocation(w http.ResponseWriter, r *http.Request
 		resp := map[string]any{
 			"payment": toPaymentResponse(result.Payment),
 			"obligation": toObligationResponse(result.Obligation),
-			"allocation": map[string]any{
-				"id": result.Allocation.ID.String(),
-				"allocated_amount": result.Allocation.AllocatedAmount.StringFixed(domain.MoneyScale),
-			},
+			"allocation": toAllocationResponse(result.Allocation),
 		}
 		if outcome.RegisterPaidProjection != nil {
 			resp["register_paid_projection"] = outcome.RegisterPaidProjection
@@ -323,7 +364,7 @@ func toObligationResponse(o *domain.PaymentObligation) map[string]any {
 }
 
 func toPaymentResponse(p *domain.Payment) map[string]any {
-	return map[string]any{
+	resp := map[string]any{
 		"id": p.ID.String(), "tenant_id": p.TenantID.String(),
 		"payment_number": p.PaymentNumber,
 		"payer_company_id": p.PayerCompanyID.String(), "payee_company_id": p.PayeeCompanyID.String(),
@@ -334,6 +375,36 @@ func toPaymentResponse(p *domain.Payment) map[string]any {
 		"unallocated_amount": p.UnallocatedAmount.StringFixed(domain.MoneyScale),
 		"version": p.Version, "created_at": p.CreatedAt, "updated_at": p.UpdatedAt,
 	}
+	if p.VoidedAt != nil {
+		resp["voided_at"] = p.VoidedAt
+	}
+	if p.VoidedBy != nil {
+		resp["voided_by"] = p.VoidedBy.String()
+	}
+	if p.VoidReason != nil {
+		resp["void_reason"] = *p.VoidReason
+	}
+	return resp
+}
+
+func toAllocationResponse(a *domain.PaymentAllocation) map[string]any {
+	resp := map[string]any{
+		"id": a.ID.String(), "tenant_id": a.TenantID.String(),
+		"payment_id": a.PaymentID.String(), "obligation_id": a.ObligationID.String(),
+		"allocated_amount": a.AllocatedAmount.StringFixed(domain.MoneyScale),
+		"currency_code": a.CurrencyCode, "created_by": a.CreatedBy.String(),
+		"created_at": a.CreatedAt,
+	}
+	if a.VoidedAt != nil {
+		resp["voided_at"] = a.VoidedAt
+	}
+	if a.VoidedBy != nil {
+		resp["voided_by"] = a.VoidedBy.String()
+	}
+	if a.VoidReason != nil {
+		resp["void_reason"] = *a.VoidReason
+	}
+	return resp
 }
 
 func domainValidation(message string) error {

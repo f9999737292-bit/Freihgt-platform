@@ -42,12 +42,17 @@ func NewRouter(
 		r.Patch("/{id}/due-date", paymentHandler.PatchDueDate)
 	})
 
+	r.Route("/v1/payment-allocations", func(r chi.Router) {
+		r.Post("/{id}/void", paymentHandler.VoidAllocation)
+	})
+
 	r.Route("/v1/payments", func(r chi.Router) {
 		r.Post("/", paymentHandler.CreatePayment)
 		r.Get("/", paymentHandler.ListPayments)
 		r.Get("/{id}", paymentHandler.GetPayment)
 		r.Post("/{id}/allocations", paymentHandler.CreateAllocation)
 		r.Post("/{id}/reconcile", paymentHandler.ReconcilePayment)
+		r.Post("/{id}/void", paymentHandler.VoidPayment)
 	})
 
 	r.Route("/internal/v1", func(r chi.Router) {
