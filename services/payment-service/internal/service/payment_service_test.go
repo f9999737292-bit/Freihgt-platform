@@ -40,6 +40,15 @@ func (precisionGuardStore) ReconcilePayment(context.Context, uuid.UUID, uuid.UUI
 func (precisionGuardStore) Allocate(context.Context, domain.CreateAllocationInput) (*repository.AllocateResult, error) {
 	return &repository.AllocateResult{}, nil
 }
+func (precisionGuardStore) GetAllocationByID(context.Context, uuid.UUID, uuid.UUID) (*domain.PaymentAllocation, error) {
+	return nil, nil
+}
+func (precisionGuardStore) VoidAllocation(context.Context, domain.VoidAllocationInput) (*repository.VoidAllocationResult, error) {
+	return nil, nil
+}
+func (precisionGuardStore) VoidPayment(context.Context, domain.VoidPaymentInput) (*domain.Payment, error) {
+	return nil, nil
+}
 func (precisionGuardStore) ListObligations(context.Context, uuid.UUID, domain.PaymentActorInput, int, int) ([]domain.PaymentObligation, error) {
 	return nil, nil
 }

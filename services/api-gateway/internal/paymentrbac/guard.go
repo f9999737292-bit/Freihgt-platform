@@ -15,6 +15,7 @@ const (
 	PolicyCreate
 	PolicyAllocate
 	PolicyReconcile
+	PolicyVoid
 )
 
 type Guard struct {
@@ -67,6 +68,14 @@ var reconcilePaymentRoles = map[string]struct{}{
 	"CARRIER_ACCOUNTANT": {},
 }
 
+var voidPaymentRoles = map[string]struct{}{
+	"PLATFORM_ADMIN":     {},
+	"SHIPPER_ADMIN":      {},
+	"FINANCE_MANAGER":    {},
+	"CARRIER_ADMIN":      {},
+	"CARRIER_ACCOUNTANT": {},
+}
+
 func policyAllow(policy Policy) func([]string) bool {
 	switch policy {
 	case PolicyRead:
@@ -77,6 +86,8 @@ func policyAllow(policy Policy) func([]string) bool {
 		return func(roles []string) bool { return routeauth.HasAnyRole(roles, allocatePaymentRoles) }
 	case PolicyReconcile:
 		return func(roles []string) bool { return routeauth.HasAnyRole(roles, reconcilePaymentRoles) }
+	case PolicyVoid:
+		return func(roles []string) bool { return routeauth.HasAnyRole(roles, voidPaymentRoles) }
 	default:
 		return func([]string) bool { return false }
 	}
@@ -92,6 +103,8 @@ func policyDenyMessage(policy Policy) string {
 		return "payment allocation access denied"
 	case PolicyReconcile:
 		return "payment reconciliation access denied"
+	case PolicyVoid:
+		return "payment void access denied"
 	default:
 		return "payment access denied"
 	}

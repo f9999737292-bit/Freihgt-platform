@@ -91,6 +91,8 @@ type PaymentAllocation struct {
 	CreatedBy       uuid.UUID
 	CreatedAt       time.Time
 	VoidedAt        *time.Time
+	VoidedBy        *uuid.UUID
+	VoidReason      *string
 }
 
 type CreateManualPaymentInput struct {

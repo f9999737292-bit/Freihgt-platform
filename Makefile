@@ -12,7 +12,7 @@ else
 SHELL := /bin/bash
 endif
 
-include .env
+-include .env
 export
 
 COMPOSE_FILE ?= infrastructure/docker-compose/docker-compose.yml
@@ -158,7 +158,7 @@ help:
 	@echo "  make create-lowcode-draft-template  Create DRAFT form template via admin API (dev-only)"
 	@echo ""
 	@echo "API Documentation:"
-	@echo "  make openapi-check       Validate OpenAPI and regenerate openapi.json"
+	@echo "  make openapi-check       Generate, validate, and verify OpenAPI artifacts"
 	@echo "  make api-docs-open       Print Swagger UI URL"
 	@echo ""
 	@echo "Frontend Admin:"
@@ -175,9 +175,13 @@ openapi-generate-json:
 	python scripts/openapi/yaml_to_json.py packages/openapi/openapi.yaml packages/openapi/openapi.json || (cd scripts/openapi && go run ./cmd/yamltojson ../../packages/openapi/openapi.yaml ../../packages/openapi/openapi.json)
 
 openapi-validate:
-	python scripts/openapi/validate_openapi.py packages/openapi/openapi.yaml || (cd scripts/openapi && go run ./cmd/validate ../../packages/openapi/openapi.yaml)
+	python scripts/openapi/validate_openapi.py --all || (cd scripts/openapi && go run ./cmd/validate --all)
 
-openapi-check: openapi-validate openapi-generate-json
+openapi-path-structure-test:
+	python scripts/openapi/test_path_structure.py
+
+openapi-check: openapi-generate openapi-generate-json openapi-validate openapi-path-structure-test
+	git diff --exit-code -- packages/openapi
 
 api-docs-open:
 	@echo "Open http://localhost:8080/docs"

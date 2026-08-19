@@ -1,22 +1,21 @@
 #!/usr/bin/env python3
-"""Minimal OpenAPI validation."""
+"""Minimal OpenAPI validation with semantic path-structure checks."""
+
+from __future__ import annotations
 
 import sys
 from pathlib import Path
 
+try:
+    import yaml
+except ImportError:
+    print("Please install PyYAML: pip install pyyaml", file=sys.stderr)
+    raise SystemExit(1)
 
-def main() -> int:
-    if len(sys.argv) != 2:
-        print("Usage: validate_openapi.py <openapi.yaml>", file=sys.stderr)
-        return 1
+from validate_spec import validate_openapi_document
 
-    try:
-        import yaml
-    except ImportError:
-        print("Please install PyYAML: pip install pyyaml", file=sys.stderr)
-        return 1
 
-    path = Path(sys.argv[1])
+def validate_file(path: Path) -> int:
     if not path.is_file():
         print(f"File not found: {path}", file=sys.stderr)
         return 1
@@ -24,28 +23,32 @@ def main() -> int:
     with path.open("r", encoding="utf-8") as handle:
         spec = yaml.safe_load(handle)
 
-    if not isinstance(spec, dict):
-        print("Invalid OpenAPI document: root must be a mapping", file=sys.stderr)
+    errors = validate_openapi_document(spec)
+    if errors:
+        print(f"OpenAPI validation failed for {path}:", file=sys.stderr)
+        for err in errors:
+            print(f"  - {err}", file=sys.stderr)
         return 1
 
-    if spec.get("openapi") != "3.0.3":
-        print("Invalid or missing openapi version (expected 3.0.3)", file=sys.stderr)
+    print(f"OpenAPI validation passed: {path}")
+    return 0
+
+
+def main() -> int:
+    root = Path(__file__).resolve().parents[2]
+    openapi_dir = root / "packages" / "openapi"
+
+    if len(sys.argv) == 2 and sys.argv[1] == "--all":
+        paths = [openapi_dir / "openapi.yaml", *sorted(openapi_dir.glob("*-service.yaml"))]
+    elif len(sys.argv) == 2:
+        paths = [Path(sys.argv[1])]
+    else:
+        print("Usage: validate_openapi.py <openapi.yaml>|--all", file=sys.stderr)
         return 1
 
-    info = spec.get("info")
-    if not isinstance(info, dict) or not info.get("title") or not info.get("version"):
-        print("Missing info.title or info.version", file=sys.stderr)
-        return 1
-
-    if not isinstance(spec.get("paths"), dict) or not spec["paths"]:
-        print("Missing or empty paths", file=sys.stderr)
-        return 1
-
-    if not isinstance(spec.get("components"), dict):
-        print("Missing components section", file=sys.stderr)
-        return 1
-
-    print("OpenAPI validation passed")
+    for path in paths:
+        if validate_file(path) != 0:
+            return 1
     return 0
 
 

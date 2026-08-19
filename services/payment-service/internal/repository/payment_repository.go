@@ -18,9 +18,11 @@ import (
 
 type PaymentRepository struct {
 	pool                           *pgxpool.Pool
-	simulateObligationAuditFailure bool
-	simulatePaymentAuditFailure    bool
-	simulateOutboxInsertFailure    bool
+	simulateObligationAuditFailure    bool
+	simulatePaymentAuditFailure       bool
+	simulateOutboxInsertFailure       bool
+	simulateAllocationVoidAuditFailure bool
+	simulatePaymentVoidAuditFailure    bool
 }
 
 func NewPaymentRepository(pool *pgxpool.Pool) *PaymentRepository {
@@ -423,14 +425,15 @@ func (r *PaymentRepository) Allocate(ctx context.Context, in domain.CreateAlloca
 			INSERT INTO billing.payment_allocations (
 				tenant_id, payment_id, obligation_id, allocated_amount, currency_code, created_by
 			) VALUES ($1,$2,$3,$4,$5,$6)
-			RETURNING id, tenant_id, payment_id, obligation_id, allocated_amount, currency_code, created_by, created_at, voided_at`
+			RETURNING id, tenant_id, payment_id, obligation_id, allocated_amount, currency_code, created_by, created_at, voided_at, voided_by, void_reason`
 		var alloc domain.PaymentAllocation
 		var allocAmount string
 		if err := tx.QueryRow(ctx, insertAlloc,
 			in.TenantID, in.PaymentID, in.ObligationID,
 			in.AllocatedAmount.StringFixed(domain.MoneyScale), payment.CurrencyCode, in.CreatedBy,
 		).Scan(&alloc.ID, &alloc.TenantID, &alloc.PaymentID, &alloc.ObligationID,
-			&allocAmount, &alloc.CurrencyCode, &alloc.CreatedBy, &alloc.CreatedAt, &alloc.VoidedAt); err != nil {
+			&allocAmount, &alloc.CurrencyCode, &alloc.CreatedBy, &alloc.CreatedAt,
+			&alloc.VoidedAt, &alloc.VoidedBy, &alloc.VoidReason); err != nil {
 			return mapDBError(err)
 		}
 		alloc.AllocatedAmount, err = decimal.NewFromString(allocAmount)

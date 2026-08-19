@@ -20,7 +20,7 @@ import (
 	"github.com/freight-platform/payment-service/internal/service"
 )
 
-const maxMigrationFile = "000046_payment_paid_projection_outbox_v1.9.2A.up.sql"
+const maxMigrationFile = "000047_payment_allocation_void_metadata_v1.9.2B.up.sql"
 
 type env struct {
 	pool        *pgxpool.Pool
@@ -155,6 +155,21 @@ func buyerActor(fix fixture) domain.PaymentActorInput {
 	return domain.PaymentActorInput{
 		TenantID: fix.TenantID, ActorCompanyID: fix.BuyerID,
 		ActorKind: domain.PaymentActorBuyer, ActorUserID: fix.BuyerUserID,
+	}
+}
+
+func seedBillingRegister(t *testing.T, pool *pgxpool.Pool, fix fixture, registerID uuid.UUID, registerNumber, total string) {
+	t.Helper()
+	ctx := context.Background()
+	period := time.Now().UTC()
+	if _, err := pool.Exec(ctx, `INSERT INTO billing.billing_registers (
+		id, tenant_id, register_number, customer_company_id, contractor_company_id,
+		period_from, period_to, currency_code, status,
+		total_without_vat, vat_amount, total_with_vat
+	) VALUES ($1,$2,$3,$4,$5,$6,$7,'RUB','SIGNED_BY_COUNTERPARTY',$8,$9,$10)`,
+		registerID, fix.TenantID, registerNumber, fix.BuyerID, fix.CarrierID,
+		period, period, total, "0.00", total); err != nil {
+		t.Fatalf("register %s: %v", registerNumber, err)
 	}
 }
 
