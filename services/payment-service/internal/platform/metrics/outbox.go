@@ -14,6 +14,7 @@ var (
 	outboxPublishedTotal        *prometheus.CounterVec
 	outboxPublishFailedTotal    *prometheus.CounterVec
 	outboxMarkedFailedTotal     *prometheus.CounterVec
+	outboxMarkPublishedFailedTotal *prometheus.CounterVec
 	outboxPublishDuration       *prometheus.HistogramVec
 	outboxPendingCount          prometheus.Gauge
 	outboxFailedCount           prometheus.Gauge
@@ -50,6 +51,13 @@ func initOutboxMetrics() {
 			},
 			[]string{"event_type", "error_code"},
 		)
+		outboxMarkPublishedFailedTotal = prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "payment_outbox_mark_published_failed_total",
+				Help: "Total payment outbox mark-published failures after successful billing sync",
+			},
+			[]string{"event_type"},
+		)
 		outboxPublishDuration = prometheus.NewHistogramVec(
 			prometheus.HistogramOpts{
 				Name:    "payment_outbox_publish_duration_seconds",
@@ -75,6 +83,7 @@ func initOutboxMetrics() {
 			outboxPublishedTotal,
 			outboxPublishFailedTotal,
 			outboxMarkedFailedTotal,
+			outboxMarkPublishedFailedTotal,
 			outboxPublishDuration,
 			outboxPendingCount,
 			outboxFailedCount,
@@ -102,6 +111,11 @@ func ObserveOutboxPublishFailed(eventType, errorCode string) {
 func ObserveOutboxMarkedFailed(eventType, errorCode string) {
 	initOutboxMetrics()
 	outboxMarkedFailedTotal.WithLabelValues(eventType, errorCode).Inc()
+}
+
+func ObserveOutboxMarkPublishedFailed(eventType string) {
+	initOutboxMetrics()
+	outboxMarkPublishedFailedTotal.WithLabelValues(eventType).Inc()
 }
 
 func SetOutboxGaugeSnapshot(pending, failed int64, oldestPendingAgeSeconds float64) {

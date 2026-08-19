@@ -9,6 +9,7 @@ import (
 	"github.com/freight-platform/payment-service/internal/domain"
 	"github.com/freight-platform/payment-service/internal/repository"
 	apperrors "github.com/freight-platform/payment-service/internal/platform/errors"
+	paymentmetrics "github.com/freight-platform/payment-service/internal/platform/metrics"
 )
 
 type RegisterLookup interface {
@@ -189,17 +190,24 @@ func (s *PaymentService) Allocate(ctx context.Context, in domain.CreateAllocatio
 			}
 		} else {
 			outcome.RegisterPaidProjection = &RegisterPaidProjection{Status: RegisterPaidProjectionSynced}
-			s.markOutboxPublishedIfNeeded(ctx, actor.TenantID, result.Obligation.ID)
+			if markErr := s.markOutboxPublishedIfNeeded(ctx, actor.TenantID, result.Obligation.ID); markErr != nil {
+				paymentmetrics.ObserveOutboxMarkPublishedFailed(domain.PaymentEventObligationPaid)
+				outcome.OutboxProjection = &OutboxProjection{
+					Status:    OutboxProjectionMarkFailed,
+					Retryable: true,
+					Message:   markErr.Error(),
+				}
+			}
 		}
 	}
 	return outcome, nil
 }
 
-func (s *PaymentService) markOutboxPublishedIfNeeded(ctx context.Context, tenantID, obligationID uuid.UUID) {
+func (s *PaymentService) markOutboxPublishedIfNeeded(ctx context.Context, tenantID, obligationID uuid.UUID) error {
 	if s.outbox == nil {
-		return
+		return nil
 	}
-	_ = s.outbox.MarkPublishedByAggregate(ctx, tenantID, domain.PaymentEventObligationPaid, obligationID, time.Now().UTC())
+	return s.outbox.MarkPublishedByAggregate(ctx, tenantID, domain.PaymentEventObligationPaid, obligationID, time.Now().UTC())
 }
 
 func (s *PaymentService) EnsureBillingRegisterPaidProjection(ctx context.Context, tenantID, registerID uuid.UUID) error {
@@ -225,7 +233,8 @@ func (s *PaymentService) EnsureBillingRegisterPaidProjection(ctx context.Context
 	if err := s.billing.SyncRegisterPaid(ctx, tenantID, registerID); err != nil {
 		return err
 	}
-	obligationID := obligation.ID
-	s.markOutboxPublishedIfNeeded(ctx, tenantID, obligationID)
+	if markErr := s.markOutboxPublishedIfNeeded(ctx, tenantID, obligation.ID); markErr != nil {
+		paymentmetrics.ObserveOutboxMarkPublishedFailed(domain.PaymentEventObligationPaid)
+	}
 	return nil
 }

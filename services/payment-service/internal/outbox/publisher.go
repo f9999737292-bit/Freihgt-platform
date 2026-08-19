@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/freight-platform/payment-service/internal/domain"
+	paymentservice "github.com/freight-platform/payment-service/internal/service"
 )
 
 const (
@@ -88,6 +89,20 @@ func classifyHTTPError(err error) *PublishError {
 	var publishErr *PublishError
 	if errors.As(err, &publishErr) {
 		return publishErr
+	}
+	var httpErr *paymentservice.BillingSyncHTTPError
+	if errors.As(err, &httpErr) {
+		switch {
+		case httpErr.StatusCode >= 500:
+			return &PublishError{Code: ErrorCodeBillingUnavailable, Retryable: true, Err: err}
+		case httpErr.StatusCode == 409:
+			// Billing sync-paid returns 409 when canonical obligation preconditions fail.
+			return &PublishError{Code: ErrorCodeIntegrityViolation, Retryable: false, Err: err}
+		case httpErr.StatusCode == 422:
+			return &PublishError{Code: ErrorCodeIntegrityViolation, Retryable: false, Err: err}
+		case httpErr.StatusCode >= 400:
+			return &PublishError{Code: ErrorCodePayloadRejected, Retryable: false, Err: err}
+		}
 	}
 	msg := strings.ToLower(err.Error())
 	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {

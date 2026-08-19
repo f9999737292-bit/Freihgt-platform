@@ -113,7 +113,9 @@ func (w *Worker) publishOne(parent context.Context, event domain.PaymentOutboxEv
 	publishedAt := w.clock.Now()
 	if err := w.repo.MarkPublished(parent, event.ID, w.cfg.WorkerID, publishedAt); err != nil {
 		classified := ClassifyPublishError(err)
+		paymentmetrics.ObserveOutboxMarkPublishedFailed(event.EventType)
 		w.log.Warn("payment outbox mark published failed",
+			slog.String("tenant_id", event.TenantID.String()),
 			slog.String("event_id", event.ID.String()),
 			slog.String("aggregate_id", event.AggregateID.String()),
 			slog.String("event_type", event.EventType),
@@ -126,6 +128,7 @@ func (w *Worker) publishOne(parent context.Context, event domain.PaymentOutboxEv
 
 	paymentmetrics.ObserveOutboxPublished(event.EventType, "success", w.clock.Now().Sub(start))
 	w.log.Info("payment outbox event published",
+		slog.String("tenant_id", event.TenantID.String()),
 		slog.String("event_id", event.ID.String()),
 		slog.String("aggregate_id", event.AggregateID.String()),
 		slog.String("event_type", event.EventType),
@@ -143,6 +146,7 @@ func (w *Worker) handlePublishFailure(ctx context.Context, event domain.PaymentO
 	if IsPermanentPublishError(classified.Code) || event.Attempts >= w.cfg.MaxAttempts {
 		if markErr := w.repo.MarkFailed(ctx, event.ID, w.cfg.WorkerID, classified.Code); markErr != nil {
 			w.log.Error("payment outbox mark failed error",
+				slog.String("tenant_id", event.TenantID.String()),
 				slog.String("event_id", event.ID.String()),
 				slog.String("error_code", ErrorCodePublishStateConflict),
 			)
@@ -150,6 +154,7 @@ func (w *Worker) handlePublishFailure(ctx context.Context, event domain.PaymentO
 		}
 		paymentmetrics.ObserveOutboxMarkedFailed(event.EventType, classified.Code)
 		w.log.Error("payment outbox event permanently failed",
+			slog.String("tenant_id", event.TenantID.String()),
 			slog.String("event_id", event.ID.String()),
 			slog.String("aggregate_id", event.AggregateID.String()),
 			slog.String("event_type", event.EventType),
@@ -164,6 +169,7 @@ func (w *Worker) handlePublishFailure(ctx context.Context, event domain.PaymentO
 	availableAt := NextRetryAvailableAt(event.Attempts, now)
 	if releaseErr := w.repo.ReleaseWithRetry(ctx, event.ID, w.cfg.WorkerID, availableAt, classified.Code); releaseErr != nil {
 		w.log.Error("payment outbox release retry failed",
+			slog.String("tenant_id", event.TenantID.String()),
 			slog.String("event_id", event.ID.String()),
 			slog.String("error_code", ErrorCodePublishStateConflict),
 		)
@@ -171,6 +177,7 @@ func (w *Worker) handlePublishFailure(ctx context.Context, event domain.PaymentO
 	}
 	paymentmetrics.ObserveOutboxPublishFailed(event.EventType, classified.Code)
 	w.log.Warn("payment outbox publish retry scheduled",
+		slog.String("tenant_id", event.TenantID.String()),
 		slog.String("event_id", event.ID.String()),
 		slog.String("aggregate_id", event.AggregateID.String()),
 		slog.String("event_type", event.EventType),
@@ -188,9 +195,4 @@ func (w *Worker) Wait(ctx context.Context) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
-}
-
-// ProcessEventForIntegration publishes a single claimed event outside the poll loop.
-func (w *Worker) ProcessEventForIntegration(ctx context.Context, event domain.PaymentOutboxEvent) {
-	w.publishOne(ctx, event)
 }
