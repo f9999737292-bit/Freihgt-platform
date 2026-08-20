@@ -31,6 +31,8 @@ This architecture freezes:
 | `CONTRACT_CHANGE_MUTATES_ORDER` | NO |
 | `SETTLEMENT_RECALCULATES_FROM_LATEST_RATE` | NO |
 | `PAYMENT_RECALCULATES_RATE` | NO |
+| `SETTLEMENT_FUEL_DOUBLE_COUNT` | NO — `base_freight_amount` = `snapshot.total_amount` |
+| `CONTRACT_RATE_DIRECT_RFX_DB_READS` | NO |
 
 ---
 
@@ -54,6 +56,8 @@ This architecture freezes:
 | Canonical locations | `transport.locations` UUID refs | **FOUND** |
 | Equipment type on TO/RFx lane | `equipment_type` string field | **FOUND** |
 | Temporal versioning elsewhere | Document versions, settlement status — not rates | **PARTIAL** |
+| Generic Transport Order idempotency | No `Idempotency-Key` on TO create in transport-order-service | **NOT_FOUND** |
+| Award → TO conversion retry safety | Existing link returned per lot/event scope in rfx award conversion | **PARTIAL** |
 
 ### 2.2 System context (current vs target)
 
@@ -80,9 +84,9 @@ flowchart LR
     ST2[Settlement]
     BL2[Billing]
     PY2[Payment]
-    RFx2 -->|optional award rate| CR
-    CR --> RR --> SN --> TO2 --> SH2 --> ST2 --> BL2 --> PY2
-    RFx2 -->|award path| RR
+    RFx2 -->|award/bid pricing facts| RR
+    CR --> RR
+    RR --> SN --> TO2 --> SH2 --> ST2 --> BL2 --> PY2
   end
 ```
 
@@ -479,13 +483,21 @@ stateDiagram-v2
   DRAFT --> [*] : discard draft
 ```
 
-### 8.4 Rules
+### 8.4 Rules (frozen v2.0 MVP)
 
-1. **No in-place edit** of ACTIVE version lines or components
+```
+ONE_ACTIVE_VERSION_PER_RATE_CARD = YES
+FUTURE_SCHEDULED_ACTIVE_VERSION_V2_0 = NO
+```
+
+1. **No in-place edit** of ACTIVE version lines or components — price rows are immutable after activation
 2. Old versions remain **readable** for audit and historical snapshot explanation
-3. **At most one ACTIVE version** per rate card for any given `pricing_date` (see §25)
-4. Activation of version N **supersedes** prior ACTIVE version on same card (sets `SUPERSEDED`, may set previous `valid_to`)
-5. Overlapping ACTIVE versions **across different rate cards** on same contract allowed if lanes differ; same lane scope overlap → **FAIL activation**
+3. **Exactly one ACTIVE version per RateCard at any time** — no simultaneous future-scheduled ACTIVE versions in v2.0 MVP
+4. A RateCard may have: one ACTIVE version; zero or more DRAFT versions; SUPERSEDED historical versions
+5. Activating a new version **atomically supersedes** the current ACTIVE version on the same card (see §8.5)
+6. Lifecycle metadata on a SUPERSEDED version may change only as part of the controlled SUPERSEDE transition — **never** silent edits to historical rate amounts/components
+7. `pricing_date` must fall within the ACTIVE version `[valid_from, valid_to]` to be eligible; otherwise the version is not matched
+8. **Cross-rate-card duplicate lane scope** on the same contract: activation must **FAIL** if duplicate logical lane scope is detectable across ACTIVE cards (see §25.5)
 
 ---
 
@@ -510,6 +522,19 @@ stateDiagram-v2
 **v2.0: EXACT_LOCATION** — UUID pair equality on canonical `transport.locations`.
 
 Future (out of MVP): CITY, REGION, ZONE hierarchy with specificity scoring.
+
+### 8.5 Activation procedure (frozen)
+
+When a DRAFT version activates:
+
+1. `SELECT FOR UPDATE` lock on `rate_card`
+2. Verify new DRAFT version validity (`valid_to >= valid_from`)
+3. Verify no duplicate lane scope conflict across ACTIVE rate cards on the same contract
+4. Mark previous ACTIVE version as `SUPERSEDED` (set `supersedes_version_id` linkage; may set previous `valid_to`)
+5. Activate new version (`status = ACTIVE`, set `activated_at`)
+6. Commit atomically
+
+Duplicate activate requests: idempotent return of current ACTIVE state.
 
 ### 9.3 Ambiguity
 
@@ -597,19 +622,29 @@ Central validation function in contract-rate-service; future extraction to `pack
 
 **Single rule:** Rate resolution executes at **Transport Order CREATE** (including award-generated orders).
 
-- Idempotent: retried CREATE with same idempotency key must not duplicate snapshot
 - SUBMIT transition does **not** re-resolve unless explicit manual re-price command added (out of MVP)
+- Snapshot retry safety is defined in §16.2 and §26 — generic TO command idempotency is a **v2.0C requirement**, not an existing capability
 
-### 12.2 Pricing source precedence
+### 12.2 Pricing source precedence (frozen)
 
 ```
-1. EXPLICIT_AWARD_PRICE     — formal rfx_award_transport_orders OR linked accepted bid
-2. CONTRACT_RATE            — eligible ACTIVE contract + ACTIVE rate version
-3. MANUAL_SPOT              — authorized explicit spot price (requires permission)
-4. RATE_NOT_FOUND           — fail closed, no silent fallback
+PRICING_SOURCE_PRECEDENCE =
+  1. RFQ_AWARD / ACCEPTED_SPOT_BID
+  2. CONTRACT_RATE
+  3. MANUAL_SPOT_FALLBACK
+  4. RATE_NOT_FOUND
 ```
 
-Precedence validated against current flow: formal award path already carries amount; spot bid path needs snapshot bridge in v2.0C.
+Semantics:
+
+- Explicit valid award/bid **always wins** when linked on the request
+- If no award/bid is linked, search eligible contract rate candidates
+- Manual spot is considered **only when zero contract candidates match**
+- Manual spot requires `USE_MANUAL_SPOT_PRICE` permission
+- Manual spot must **not** silently bypass an eligible contract rate
+- Client-supplied award/bid monetary values are **never** authoritative (see §15.4)
+- If an explicitly linked award/bid source is invalid, **fail closed** — no fallback to contract rate
+- Manual override despite an existing contract is a separate repricing capability — **out of scope** for v2.0 MVP
 
 ### 12.3 Pseudocode
 
@@ -618,42 +653,49 @@ function ResolveRate(ctx, request):
   validate tenant from auth context (never trust client tenant header alone)
   validate buyer_company_id, carrier_company_id membership
 
+  // --- Priority 1: Explicit award (RFx service is source of truth) ---
   if request.explicit_award_link_id:
-    award = loadAwardLink(tenant, award_link_id)
-    if not award: return NOT_FOUND
-    return buildResultFromAward(award)
+    awardCtx = rfxPricingProvider.GetAwardPricingContext(tenant, award_link_id)
+    if awardCtx == NOT_FOUND: return SOURCE_NOT_FOUND
+    if awardCtx.tenant_id != tenant OR party mismatch: return SOURCE_FORBIDDEN
+    if lane/currency/equipment mismatch vs request: return PRICING_SOURCE_MISMATCH
+    return buildResultFromAwardContext(awardCtx)
 
+  // --- Priority 1b: Explicit accepted bid ---
   if request.explicit_bid_id:
-    bid = loadAcceptedBid(tenant, bid_id)
-    if bid.status != ACCEPTED: return VALIDATION_ERROR
-    return buildResultFromBid(bid)
+    bidCtx = rfxPricingProvider.GetAcceptedBidPricingContext(tenant, bid_id)
+    if bidCtx == NOT_FOUND: return SOURCE_NOT_FOUND
+    if bidCtx.status != ACCEPTED: return INVALID_PRICING_SOURCE
+    if lane/currency/equipment mismatch vs request: return PRICING_SOURCE_MISMATCH
+    return buildResultFromBidContext(bidCtx)
 
-  if request.manual_spot_amount authorized:
-    validate actor has OVERRIDE_SPOT_PRICE permission
-    return buildResultFromManual(request)
-
+  // --- Priority 2: Contract rate lookup ---
   contracts = findActiveContracts(tenant, buyer, carrier, pricing_date)
   candidates = []
   for contract in contracts:
     for card in contract.rate_cards:
-      version = findActiveVersion(card, pricing_date)
-      if not version: continue
+      version = findActiveVersion(card)   // exactly ONE ACTIVE per card
+      if version == nil: continue
+      if pricing_date not in version.validity window: continue
       lines = matchRateLines(version, origin, dest, equipment, ROAD)
       candidates.addAll(lines with contract+card+version context)
 
-  if len(candidates) == 0:
-    return RATE_NOT_FOUND
+  if len(candidates) == 1:
+    components = calculateComponents(candidates[0])  // decimal arithmetic
+    return RateResolutionResult(MATCHED, CONTRACT_RATE, components, totals, metadata)
 
-  if len(candidates) > 1 AND sameSpecificity(candidates):
+  if len(candidates) > 1:
     return RATE_AMBIGUOUS
 
-  line = deterministicSelect(candidates)  // UUID order tie-break ONLY if specificity differs
-
-  components = calculateComponents(line)  // decimal arithmetic
-  return RateResolutionResult(MATCHED, components, totals, metadata)
+  // --- Priority 3: Manual spot fallback (only when zero contract candidates) ---
+  if len(candidates) == 0:
+    if request.manual_spot_amount supplied:
+      if not authorized(USE_MANUAL_SPOT_PRICE): return FORBIDDEN
+      return buildResultFromManual(request)
+    return RATE_NOT_FOUND
 ```
 
-**Deterministic select:** Prefer highest specificity (future zones); v2.0 all equal → AMBIGUOUS, not row-order wins.
+**No arbitrary DB row ordering.** **No manual check before contract resolution.**
 
 ### 12.4 Sequence diagram
 
@@ -663,33 +705,41 @@ sequenceDiagram
   participant GW as API Gateway
   participant TO as transport-order-service
   participant CR as contract-rate-service
+  participant RFx as rfx-service
   participant DB as PostgreSQL
 
   Client->>GW: POST /transport-orders
   GW->>TO: create order (auth context)
   TO->>CR: POST /rates/resolve
-  CR->>DB: lookup award / contract / versions
-  DB-->>CR: rate lines
+  alt explicit award or bid
+    CR->>RFx: GetAwardPricingContext / GetAcceptedBidPricingContext
+    RFx-->>CR: trusted RFx pricing context
+  else contract path
+    CR->>DB: contract_rate schema lookup only
+    DB-->>CR: rate lines
+  end
   CR->>CR: deterministic match + decimal calc
   CR-->>TO: RateResolutionResult
-  TO->>TO: persist order + immutable snapshot payload
+  TO->>TO: persist order + immutable snapshot (insert-only)
   TO-->>GW: 201 Created
   GW-->>Client: order with pricing snapshot ref
 ```
+
+Note: contract-rate-service reads **only** `contract_rate.*` tables directly. RFx pricing facts come through **rfx-service internal API** — no cross-schema SQL.
 
 ---
 
 ## 13. Pricing Source Precedence
 
-| Priority | Source type | `source_id` | Notes |
-|----------|-------------|-------------|-------|
-| 1 | `RFQ_AWARD` | `rfx_award_transport_orders.id` | Formal RFx conversion |
-| 1b | `SPOT_BID` | `rfx.bids.id` | Accepted mini-tender bid |
+| Priority | Source type (`PricingSource`) | `source_id` | Notes |
+|----------|-----------------------------|-------------|-------|
+| 1 | `RFQ_AWARD` | `rfx_award_transport_orders.id` | Formal RFx conversion; facts from rfx-service |
+| 1b | `SPOT_BID` | `rfx.bids.id` | Accepted mini-tender bid; facts from rfx-service |
 | 2 | `CONTRACT_RATE` | `rate_line.id` + version/card/contract IDs | Active contract path |
-| 3 | `MANUAL_SPOT` | override audit id | Requires permission |
-| — | `RATE_NOT_FOUND` | — | Create order fails or draft-without-price policy (see §16) |
+| 3 | `MANUAL_SPOT` | manual spot audit id | Fallback only when zero contract match; requires `USE_MANUAL_SPOT_PRICE` |
+| — | `RATE_NOT_FOUND` | — | Fail closed; default rejects TO create |
 
-**Award always wins** when explicitly linked on order create.
+**Award/bid always wins** when explicitly linked. **Invalid explicit source never falls through to contract.**
 
 ---
 
@@ -698,9 +748,10 @@ sequenceDiagram
 ### 14.1 Storage decision
 
 ```
-SNAPSHOT_OWNER = transport-order-service (physical storage)
-SNAPSHOT_AUTHORITY = contract-rate-service (resolution logic)
-STORAGE_DECISION = HYBRID_C — values copied into TO, not reference-only
+SNAPSHOT_PHYSICAL_OWNER = transport-order-service
+SNAPSHOT_AUTHORITY = contract-rate-service
+STORAGE_DECISION = HYBRID_C — full immutable value copy, not reference-only
+CONTRACT_RATE_DIRECT_RFX_DB_READS = NO
 ```
 
 | Option | Assessment |
@@ -720,11 +771,36 @@ Proposed: `transport.transport_order_rate_snapshots`
 - `currency_code`
 - `components` (jsonb array with type, method, unit, amount)
 - `base_amount`, `total_amount` NUMERIC(18,2)
+- `component_breakdown_status` (`AVAILABLE` | `UNAVAILABLE`) — see §14.6
 - `resolved_at`, `pricing_date`
-- `resolution_request_hash` (idempotency)
+- `resolution_request_hash` (audit/defense metadata — **not** TO command idempotency substitute)
 - **No UPDATE path** — insert-only repository API
 
-### 14.3 Snapshot fields (minimum)
+### 14.3 Snapshot money semantics (frozen)
+
+| Field | Semantics |
+|-------|-----------|
+| `base_amount` | **BASE_FREIGHT component only** |
+| `total_amount` | BASE_FREIGHT + all **contracted pre-execution** components in the agreed order price |
+
+For v2.0 MVP contracted pre-execution components in `total_amount`:
+
+- `BASE_FREIGHT`
+- `FUEL_SURCHARGE` (when applicable)
+
+Waiting/detention and other execution accessorials are **not** included in `total_amount` until approved at settlement.
+
+```
+RATE_SNAPSHOT_VAT = EXCLUDED
+```
+
+VAT remains owned by Settlement/Billing per existing flow.
+
+**Example (CONTRACT_RATE):** BASE_FREIGHT = 100,000 RUB; FUEL_SURCHARGE = 8% → `base_amount = 100,000.00`, fuel component = 8,000.00, `total_amount = 108,000.00`.
+
+Settlement v2.0C consumes `total_amount` as the agreed pre-execution freight amount (see §18).
+
+### 14.4 Snapshot fields (minimum)
 
 - `pricing_source` (enum)
 - `award_link_id` / `bid_id` / `contract_id` / `rate_card_id` / `rate_version_id` / `rate_line_id` (nullable set)
@@ -736,15 +812,31 @@ Proposed: `transport.transport_order_rate_snapshots`
 - `base_amount`, `total_amount`
 - `resolved_at`, `pricing_date`, `resolved_by_service` = contract-rate-service vX
 
-### 14.4 Invariants
+### 14.5 Invariants
 
 | Rule | Value |
 |------|-------|
 | SNAPSHOT_IMMUTABLE | YES |
 | HISTORICAL_ORDER_REPRICING | NO |
 | CONTRACT_CHANGE_MUTATES_ORDER | NO |
+| SNAPSHOT_REFERENCE_ONLY | NO |
 
-### 14.5 Discovery answers
+### 14.6 Award / bid snapshot normalization
+
+**Formal award (`RFQ_AWARD`):**
+
+- `snapshot.total_amount` = authoritative awarded amount from rfx-service
+- If authoritative component breakdown exists: populate `base_amount` and `components` accurately; `component_breakdown_status = AVAILABLE`
+- If only aggregate awarded amount exists: **do not invent** artificial fuel/base decomposition; set `component_breakdown_status = UNAVAILABLE` and `total_amount = award amount` ( `base_amount` may equal `total_amount` when breakdown unavailable)
+
+**Accepted bid (`SPOT_BID`):**
+
+- Same rules — use rfx-service trusted context
+- When bid has component fields (`base_amount`, `fuel_surcharge_amount`): populate components; otherwise `UNAVAILABLE`
+
+**Never manufacture component splits from aggregate-only sources.**
+
+### 14.7 Discovery answers
 
 | Q | Answer |
 |---|--------|
@@ -761,7 +853,7 @@ Award conversion creates `rfx_award_transport_orders` with frozen `amount` befor
 
 **v2.0 behavior:**
 
-- Resolution precedence 1 uses award link amount
+- Resolution precedence 1 uses award link — pricing facts fetched via **rfx-service internal API**
 - Snapshot **copies award values** into TO payload (not only FK reference)
 - Contract metadata may attach for analytics if award issued under contract (optional `contract_id` on award — future)
 
@@ -772,13 +864,62 @@ Accepted bid has price on `rfx.bids` but shipment/TO path lacks price propagatio
 **v2.0C integration:**
 
 - TO create from bid passes `bid_id`
-- Resolver builds snapshot from bid component breakdown
-- Settlement updated to read base freight from **TO snapshot** (not only award link)
+- Resolver builds snapshot from rfx-service trusted bid context
+- Settlement updated to read agreed freight from **TO snapshot** (not only award link)
 
 ### 15.3 Semantics preserved
 
-- Award amount at conversion time remains immutable in `rfx_award_transport_orders`
+- Award amount at conversion time remains immutable in `rfx.rfx_award_transport_orders`
 - Snapshot duplicates for TO audit — does not mutate award row
+
+### 15.4 RFx pricing-source service boundary (frozen)
+
+```
+CONTRACT_RATE_DIRECT_RFX_DB_READS = NO
+SOURCE_OF_TRUTH = rfx-service
+CROSS_SCHEMA_SQL = NO
+CLIENT_AWARD_AMOUNT_AUTHORITY = NO
+CLIENT_BID_AMOUNT_AUTHORITY = NO
+```
+
+contract-rate-service owns a **pricing-source adapter interface**:
+
+```
+RFXPricingSourceProvider
+  GetAwardPricingContext(tenant_id, award_link_id)
+  GetAcceptedBidPricingContext(tenant_id, bid_id)
+```
+
+Implementation uses **internal service API** (server-side adapter) to rfx-service — not public client-trusted monetary fields, not direct reads of `rfx.*` tables.
+
+Exact internal HTTP paths are v2.0C implementation detail if no endpoint exists today.
+
+**Minimum normalized RFx pricing context** returned by rfx-service:
+
+| Field | Required |
+|-------|----------|
+| `tenant_id` | YES |
+| `source_type` (`RFQ_AWARD` / `SPOT_BID`) | YES |
+| `source_id` | YES |
+| `buyer_company_id`, `carrier_company_id` | YES |
+| `origin_location_id`, `destination_location_id` | YES |
+| `equipment_type`, `transport_mode` | YES |
+| `currency_code` | YES |
+| `total_amount` | YES |
+| `base_amount` | If authoritative |
+| `component_breakdown` | If authoritative |
+| award/bid `status` | YES |
+
+Resolver validates context against its request — source ID alone is insufficient without tenant/party consistency checks.
+
+**Failure semantics (explicit linked source — no contract fallback):**
+
+| Condition | Result |
+|-----------|--------|
+| Linked award not found | `SOURCE_NOT_FOUND` |
+| Wrong tenant/company | `SOURCE_FORBIDDEN` (or `NOT_FOUND` per platform convention) |
+| Bid not ACCEPTED | `INVALID_PRICING_SOURCE` |
+| Currency/lane/equipment mismatch | `PRICING_SOURCE_MISMATCH` |
 
 ---
 
@@ -786,16 +927,30 @@ Accepted bid has price on `rfx.bids` but shipment/TO path lacks price propagatio
 
 ### 16.1 Create flow
 
-1. Client/gateway calls TO create with commercial context (`award_link_id`, `bid_id`, or lane + companies for contract lookup, or `manual_spot` with auth)
+1. Client/gateway calls TO create with commercial context (`award_link_id`, `bid_id`, or lane + companies for contract lookup; `manual_spot` only as authorized fallback when no contract match)
 2. TO calls `contract-rate-service` `/rates/resolve`
 3. On `MATCHED`: persist order + snapshot in single TX
 4. On `RATE_NOT_FOUND`: reject create (default) — alternative `DRAFT_WITHOUT_PRICE` out of MVP
 5. On `AMBIGUOUS`: reject with explicit error
 
-### 16.2 Idempotency
+### 16.2 Idempotency and retry safety
 
-- Same `Idempotency-Key` on TO create returns existing order with same snapshot
-- Snapshot insert tied to order id — unique constraint prevents duplicate pricing
+**Current state (discovery):**
+
+| Mechanism | Status |
+|-----------|--------|
+| Generic TO `Idempotency-Key` on create | **NOT_FOUND** |
+| Award → TO conversion per lot/event scope | **PARTIAL** — existing link returned on retry (`award_conversion_repository.go`) |
+| Snapshot uniqueness | **NOT_FOUND** — proposed in v2.0C |
+
+**v2.0C requirements (future implementation — not current fact):**
+
+1. `UNIQUE (tenant_id, transport_order_id)` on `transport.transport_order_rate_snapshots`
+2. Snapshot repository: **INSERT-ONLY** — same transport order cannot obtain a second different snapshot
+3. Award-generated TO: reuse existing award→TO scope uniqueness where available
+4. Generic/manual TO create: v2.0C must introduce a proper request idempotency contract **or** use a verified repository mechanism — do not assume it exists today
+
+`resolution_request_hash` is audit/defense metadata for correlating resolution inputs — **not** a substitute for Transport Order command idempotency unless implementation explicitly proves equivalence.
 
 ### 16.3 Contract suspended between draft and submit
 
@@ -824,38 +979,61 @@ No duplicate price columns on `transport.shipments` in v2.0.
 
 ## 18. Settlement Boundary
 
-### 18.1 Formula (unchanged conceptually)
+### 18.1 Formula (frozen)
 
 ```
-agreed base freight (from TO snapshot)
-+ approved execution accessorials
-± approved adjustments
-= settlement amount
+settlement total =
+  snapshot.total_amount                    // agreed pre-execution freight
+  + approved execution-time accessorials
+  ± approved settlement adjustments
 ```
 
-### 18.2 v2.0C change
+### 18.2 Field semantics (frozen)
+
+Despite the legacy column name, after v2.0C:
+
+```
+freight_settlements.base_freight_amount =
+  SNAPSHOT_TOTAL_AMOUNT
+  = AGREED_PRE_EXECUTION_FREIGHT_AMOUNT
+```
+
+It is **not** "raw BASE_FREIGHT component only".
+
+| Invariant | Value |
+|-----------|-------|
+| `SETTLEMENT_BASE_FREIGHT_SOURCE` | `snapshot.total_amount` |
+| `SETTLEMENT_BASE_COMPONENT_ADDED_SEPARATELY` | NO |
+| `SETTLEMENT_FUEL_SURCHARGE_ADDED_AGAIN` | NO |
+| `EXECUTION_ACCESSORIALS_ADDED_SEPARATELY` | YES |
+
+**Do not double-count:** settlement must not add fuel surcharge again when it is already included in `snapshot.total_amount`.
+
+### 18.3 v2.0C loader change
 
 `LoadShipmentContext` must evolve:
 
 ```
 Current:  rfx_award_transport_orders.amount only
-Target:   transport_order_rate_snapshots.total_amount (base)
-          with award link as provenance fallback during migration
+Target:   transport_order_rate_snapshots.total_amount
+          with award link as provenance fallback during migration only
 ```
 
-### 18.3 Settlement consumes
+Settlement reads **immutable TO snapshot** — never live RateCard or contract tables.
+
+### 18.4 Settlement consumes
 
 | Field | Source |
 |-------|--------|
-| `base_freight_amount` | TO rate snapshot `total_amount` (or base component sum per policy) |
+| `base_freight_amount` | TO rate snapshot **`total_amount`** (agreed pre-execution freight) |
 | `currency_code` | Snapshot |
 | `buyer_company_id`, `carrier_company_id` | Snapshot / order |
-| Accessorial unit rates | Snapshot contracted rates (optional v2.0C+) |
+| Accessorial unit rates | Snapshot contracted rates (optional v2.0C+) for execution calculation |
 | Approved accessorial qty | Settlement execution |
 
 | Q | Answer |
 |---|--------|
-| Q12. Exact data Settlement consumes? | Base + currency from snapshot; accessorials at execution |
+| Q12. Exact data Settlement consumes? | `snapshot.total_amount` + currency; execution accessorials added separately |
 
 ---
 
@@ -924,7 +1102,9 @@ Gateway pattern: same as paymentGuard — `company_id` query param revalidated a
 | EDIT_DRAFT_RATES | YES | NO | YES |
 | ACTIVATE_RATE_VERSION | YES | NO | YES |
 | RESOLVE_RATE | internal S2S | internal | internal |
-| OVERRIDE_SPOT_PRICE | policy-based | NO | YES |
+| USE_MANUAL_SPOT_PRICE | policy-based | NO | YES |
+
+`USE_MANUAL_SPOT_PRICE` authorizes **manual spot fallback when no contract rate matches** — it does **not** permit bypassing award/bid precedence or eligible contract rates.
 
 Map to existing platform roles where present; extend auth service permission registry in v2.0A.
 
@@ -945,7 +1125,7 @@ Map to existing platform roles where present; extend auth service permission reg
 | `RATE_VERSION_ACTIVATED` | activate version |
 | `RATE_VERSION_SUPERSEDED` | supersession |
 | `RATE_RESOLVED` | each resolution (correlation id) |
-| `MANUAL_SPOT_PRICE_RECORDED` | override used |
+| `MANUAL_SPOT_PRICE_RECORDED` | authorized manual spot fallback used |
 
 Actor: `user_id`, `company_id` from verified context.
 
@@ -1077,17 +1257,28 @@ SCHEMA_NAME = contract_rate
 | valid_to >= valid_from | CHECK |
 | Non-negative amounts | CHECK on component amounts |
 | Currency format | CHECK length = 3 |
-| ACTIVE version lines immutable | Service-layer + no UPDATE API |
-| One ACTIVE version per card per date | Service transaction + partial unique index on `(rate_card_id)` WHERE status='ACTIVE' — activation checks overlap |
+| ACTIVE version lines/components immutable | Service-layer + no UPDATE API |
+| One ACTIVE version per rate card | Partial unique: `UNIQUE (rate_card_id) WHERE status = 'ACTIVE'` |
 | Tenant-safe FKs | All FKs include tenant_id match in service checks |
 
-### 25.5 Temporal overlap policy
+### 25.5 Cross-rate-card lane conflict policy
 
-**FAIL activation** if two ACTIVE versions of the same rate card have overlapping `[valid_from, valid_to]`.
+Multiple ACTIVE RateCards under one contract may exist, but **duplicate logical lane scope is forbidden**:
 
-Cross-card lane overlap on same contract: activation must detect duplicate `(origin, dest, equipment, mode)` across ACTIVE versions → **FAIL**.
+If two ACTIVE rate lines under eligible cards match the same:
 
-PostgreSQL: CHECK for dates; overlap detection in serializable transaction (same pattern as settlement idempotency).
+- tenant, contract, buyer, carrier
+- origin, destination, equipment_type, ROAD mode
+- pricing_date within both versions' validity
+
+Then:
+
+- **Activation:** FAIL with conflict error (preferred v2.0)
+- **Resolution:** return `RATE_AMBIGUOUS` as defense in depth
+
+There is **no** "multiple ACTIVE versions per card by non-overlapping pricing_date" model in v2.0 MVP — only one ACTIVE version per RateCard exists at any time.
+
+PostgreSQL: CHECK for dates; lane conflict detection in serializable activation transaction.
 
 ### 25.6 Concurrency
 
@@ -1106,7 +1297,7 @@ PostgreSQL: CHECK for dates; overlap detection in serializable transaction (same
 | terminate contract | YES |
 | activate rate version | YES |
 | rate resolution | Pure function (read-only) |
-| snapshot creation | YES via order idempotency key + unique (transport_order_id) |
+| snapshot creation | UNIQUE `(tenant_id, transport_order_id)` + INSERT-ONLY; generic TO idempotency deferred to v2.0C |
 
 ---
 
@@ -1145,37 +1336,37 @@ UX: separate view vs mutate permissions; activation confirmations; version diff 
 
 | Item | Detail |
 |------|--------|
-| Scope | contract-rate-service scaffold, contract CRUD/lifecycle, rate card + draft versions, audit |
+| Scope | contract-rate-service scaffold, contract CRUD/lifecycle, rate cards, draft versions, audit, **one-active-version DB invariant** |
 | Dependencies | Auth, company service, location read API |
-| Migrations | `contract_rate.*` tables |
-| Services | New contract-rate-service, gateway stubs |
+| Migrations | `contract_rate.*` tables including partial unique ACTIVE constraint |
+| Services | New contract-rate-service |
 | API | Contract + rate card endpoints |
 | Tests | Unit + integration PG |
-| Gate | Contract lifecycle + draft version CRUD green |
+| Gate | Contract lifecycle + draft version CRUD; at most one ACTIVE version per card |
 
-### v2.0B — Rate Resolution + Immutable Snapshot
+### v2.0B — Rate Lines + Resolution
 
 | Item | Detail |
 |------|--------|
-| Scope | Rate line/components, activation overlap rules, `/rates/resolve`, decimal money |
+| Scope | Rate line/components, activation with lane conflict rejection, **contract-rate resolution**, decimal money, manual spot fallback (after zero contract match) |
 | Dependencies | v2.0A, transport.locations |
 | Migrations | rate_line, rate_component, indexes |
 | Services | contract-rate-service |
 | API | resolve + activate version |
-| Tests | Resolution determinism, ambiguous/overlap failures |
-| Gate | Resolve returns MATCHED/NO_MATCH/AMBIGUOUS correctly |
+| Tests | Precedence order, ambiguous/overlap failures, decimal calc |
+| Gate | Resolve returns MATCHED/NO_MATCH/AMBIGUOUS; manual spot only after zero contract candidates |
 
-### v2.0C — Transport Order / Settlement Integration
+### v2.0C — Pricing Source + TO Snapshot + Settlement
 
 | Item | Detail |
 |------|--------|
-| Scope | TO snapshot persistence, create-time resolution, settlement reads snapshot |
-| Dependencies | v2.0B, transport-order-service, billing-register-service |
-| Migrations | transport_order_rate_snapshots; settlement loader change |
-| Services | transport-order, billing-register, contract-rate |
-| API | TO create extended; internal S2S resolve |
-| Tests | E2E award, contract, bid paths |
-| Gate | Historical order unchanged after contract change |
+| Scope | **RFx pricing-source internal adapter**, award/bid normalization, immutable TO snapshot, **generic TO retry/idempotency requirement**, settlement reads `snapshot.total_amount` |
+| Dependencies | v2.0B, transport-order-service, billing-register-service, rfx-service internal API |
+| Migrations | `transport_order_rate_snapshots`; settlement loader change |
+| Services | transport-order, billing-register, contract-rate, rfx-service (read API) |
+| API | TO create extended; internal S2S resolve + RFx pricing context |
+| Tests | E2E award, contract, bid paths; no fuel double-count; invalid explicit source fails closed |
+| Gate | Historical order unchanged after contract change; settlement uses snapshot.total_amount |
 
 ### v2.0D — Contract & Rate Workspace UI
 
@@ -1185,11 +1376,11 @@ UX: separate view vs mutate permissions; activation confirmations; version diff 
 | Dependencies | v2.0B APIs |
 | Gate | Buyer can activate contract and rate version |
 
-### v2.0E — Hardening / E2E / Final Merge
+### v2.0E — OpenAPI / Gateway / RBAC / E2E Hardening
 
 | Item | Detail |
 |------|--------|
-| Scope | OpenAPI merge, gateway routes, RBAC wiring, load tests, docs |
+| Scope | OpenAPI merge, gateway routes, RBAC wiring (`USE_MANUAL_SPOT_PRICE`), load tests, docs |
 | Gate | Full chain RFx/Contract → TO → Settlement → Billing → Payment |
 
 ---
@@ -1220,7 +1411,9 @@ UX: separate view vs mutate permissions; activation confirmations; version diff 
 | Shared money package | Extract decimal helpers to shared-go during v2.0A? |
 | DRAFT order without price | Product policy for manual orders — default reject |
 | Equipment type enum | Normalize free-text vs catalog — follow TO validation |
-| VAT on snapshot | Settlement keeps VAT; snapshot stores freight ex-VAT |
+| Future scheduled rate versions | Out of v2.0 MVP — one ACTIVE per card only |
+| Zone / hierarchy matching | Future extension beyond EXACT_LOCATION |
+| Explicit manual repricing override | Out of v2.0 MVP — separate capability from `USE_MANUAL_SPOT_PRICE` fallback |
 | Spot bid → settlement without TO | v2.0C aligns bid path through TO snapshot |
 
 ---
@@ -1230,15 +1423,18 @@ UX: separate view vs mutate permissions; activation confirmations; version diff 
 | ADR | Decision |
 |-----|----------|
 | ADR-001 | New `contract-rate-service` owns contract/rate master data |
-| ADR-002 | Exact location UUID lane matching for v2.0 |
-| ADR-003 | Rate card versioning with immutable ACTIVE rows |
-| ADR-004 | Snapshot stored in transport-order DB as value copy |
-| ADR-005 | Award price precedence over contract rate |
+| ADR-002 | Exact location UUID lane matching for v2.0; ROAD only |
+| ADR-003 | **One ACTIVE RateCardVersion per RateCard** in v2.0 MVP; no future-scheduled ACTIVE versions |
+| ADR-004 | Immutable rate snapshot stored by transport-order-service as full value copy |
+| ADR-005 | Pricing precedence: Award/Bid → Contract → Manual fallback → fail; invalid explicit source never falls through |
 | ADR-006 | `shopspring/decimal` + NUMERIC(18,2) for contract-rate money |
 | ADR-007 | Fuel surcharge v2.0 = fixed PERCENT component only |
 | ADR-008 | Settlement owns execution accessorials; contract owns unit rules |
 | ADR-009 | Fail closed on AMBIGUOUS and RATE_NOT_FOUND |
 | ADR-010 | No Kafka outbox in v2.0 MVP |
+| ADR-011 | Settlement `base_freight_amount` consumes `snapshot.total_amount` (agreed pre-execution amount); no fuel double-count |
+| ADR-012 | RFx pricing facts via internal rfx-service API; **no contract-rate direct RFx DB reads** |
+| ADR-013 | Generic TO idempotency is a **v2.0C requirement**, not an assumed existing capability |
 
 ---
 
@@ -1257,7 +1453,7 @@ UX: separate view vs mutate permissions; activation confirmations; version diff 
 | Q9 | Temporal versioning elsewhere? | **PARTIAL** — documents/settlements, not rates |
 | Q10 | Which service owns snapshot creation? | CR resolves; TO persists |
 | Q11 | Snapshot physical DB? | transport-order schema |
-| Q12 | Settlement consumes? | Base + currency from snapshot (post v2.0C) |
+| Q12 | Settlement consumes? | `snapshot.total_amount` as agreed pre-execution freight; accessorials at execution |
 | Q13 | Company roles for contracts? | BUYER manages; CARRIER views party contracts |
 | Q14 | v2.0 calculation methods needed? | FLAT (base), PERCENT (fuel) — PER_HOUR for waiting rules optional |
 
