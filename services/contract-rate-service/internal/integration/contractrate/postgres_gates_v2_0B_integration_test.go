@@ -793,16 +793,10 @@ func TestCRB049_DetentionNotInPreExecTotal(t *testing.T) {
 func TestCRB050_ManualSpotAuthorized(t *testing.T) {
 	env := setupEnv(t)
 	userID := uuid.New()
-	seedGlobalRole(t, context.Background(), env.Pool, env.TenantID, userID, "PROCUREMENT_MANAGER")
+	seedCompanyRole(t, context.Background(), env.Pool, env.TenantID, userID, env.BuyerID, "PROCUREMENT_MANAGER")
 	actor := env.Actor
 	actor.ActorUserID = userID
-	amount := decimal.RequireFromString("5000.00")
-	currency := "RUB"
-	req := env.resolveReq("TAUTLINER")
-	req.Actor = actor
-	req.ManualSpotAmount = &amount
-	req.ManualSpotCurrency = &currency
-	result, err := env.ResolutionSvc.Resolve(context.Background(), req, nil)
+	result, err := resolveManualSpot(t, env, actor)
 	if err != nil || result.Status != domain.ResolveStatusMatched || result.PricingSource != domain.PricingSourceManualSpot {
 		t.Fatalf("expected authorized manual spot, got status=%s err=%v", result.Status, err)
 	}
@@ -824,17 +818,12 @@ func TestCRB051_ManualSpotForbiddenWithoutRole(t *testing.T) {
 func TestCRB052_ManualSpotForbiddenForCarrier(t *testing.T) {
 	env := setupEnv(t)
 	userID := uuid.New()
-	seedGlobalRole(t, context.Background(), env.Pool, env.TenantID, userID, "PROCUREMENT_MANAGER")
-	amount := decimal.RequireFromString("5000.00")
-	currency := "RUB"
-	req := env.resolveReq("TAUTLINER")
-	req.Actor = domain.ActorInput{
+	seedCompanyRole(t, context.Background(), env.Pool, env.TenantID, userID, env.BuyerID, "PROCUREMENT_MANAGER")
+	actor := domain.ActorInput{
 		TenantID: env.TenantID, ActorUserID: userID, ActorCompanyID: env.CarrierID,
 		ActorKind: domain.ActorKindCarrier,
 	}
-	req.ManualSpotAmount = &amount
-	req.ManualSpotCurrency = &currency
-	_, err := env.ResolutionSvc.Resolve(context.Background(), req, nil)
+	_, err := resolveManualSpot(t, env, actor)
 	if !isAppErrorCode(err, apperrors.CodeForbidden) {
 		t.Fatalf("expected carrier forbidden, got %v", err)
 	}

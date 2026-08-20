@@ -23,7 +23,7 @@ import (
 	"github.com/freight-platform/contract-rate-service/internal/service"
 )
 
-const maxMigrationNumber = 49
+const maxMigrationNumber = 50
 
 type testEnv struct {
 	Pool           *pgxpool.Pool
@@ -290,7 +290,7 @@ func seedLocations(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tenant
 	}
 }
 
-func seedGlobalRole(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID, roleCode string) {
+func seedUser(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) {
 	t.Helper()
 	_, err := pool.Exec(ctx, `
 		INSERT INTO core.users (id, tenant_id, email, full_name, status)
@@ -299,8 +299,25 @@ func seedGlobalRole(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tenan
 	if err != nil {
 		t.Fatalf("seed user: %v", err)
 	}
+}
+
+func seedCompanyMembership(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tenantID, userID, companyID uuid.UUID) {
+	t.Helper()
+	seedUser(t, ctx, pool, tenantID, userID)
+	_, err := pool.Exec(ctx, `
+		INSERT INTO core.company_memberships (tenant_id, company_id, user_id, status)
+		VALUES ($1,$2,$3,'ACTIVE')
+		ON CONFLICT (company_id, user_id) DO UPDATE SET status='ACTIVE', deleted_at=NULL`,
+		tenantID, companyID, userID)
+	if err != nil {
+		t.Fatalf("seed company membership: %v", err)
+	}
+}
+
+func resolveRoleID(t *testing.T, ctx context.Context, pool *pgxpool.Pool, roleCode string) uuid.UUID {
+	t.Helper()
 	var roleID uuid.UUID
-	err = pool.QueryRow(ctx, `
+	err := pool.QueryRow(ctx, `
 		INSERT INTO core.roles (code, name, scope, is_system)
 		VALUES ($1,$1,'GLOBAL',true)
 		ON CONFLICT DO NOTHING
@@ -308,16 +325,67 @@ func seedGlobalRole(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tenan
 	if err != nil {
 		err = pool.QueryRow(ctx, `SELECT id FROM core.roles WHERE code=$1 AND tenant_id IS NULL LIMIT 1`, roleCode).Scan(&roleID)
 		if err != nil {
-			t.Fatalf("resolve role: %v", err)
+			t.Fatalf("resolve role %s: %v", roleCode, err)
 		}
 	}
-	_, err = pool.Exec(ctx, `
+	return roleID
+}
+
+func seedCompanyRole(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tenantID, userID, companyID uuid.UUID, roleCode string) {
+	t.Helper()
+	seedCompanyMembership(t, ctx, pool, tenantID, userID, companyID)
+	roleID := resolveRoleID(t, ctx, pool, roleCode)
+	_, err := pool.Exec(ctx, `
+		INSERT INTO core.user_roles (tenant_id, user_id, company_id, role_id)
+		VALUES ($1,$2,$3,$4)
+		ON CONFLICT DO NOTHING`, tenantID, userID, companyID, roleID)
+	if err != nil {
+		t.Fatalf("seed company role: %v", err)
+	}
+}
+
+func seedTenantRole(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID, roleCode string) {
+	t.Helper()
+	seedUser(t, ctx, pool, tenantID, userID)
+	roleID := resolveRoleID(t, ctx, pool, roleCode)
+	_, err := pool.Exec(ctx, `
 		INSERT INTO core.user_roles (tenant_id, user_id, role_id)
 		VALUES ($1,$2,$3)
 		ON CONFLICT DO NOTHING`, tenantID, userID, roleID)
 	if err != nil {
-		t.Fatalf("seed user role: %v", err)
+		t.Fatalf("seed tenant role: %v", err)
 	}
+}
+
+func seedGlobalRole(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID, roleCode string) {
+	t.Helper()
+	seedTenantRole(t, ctx, pool, tenantID, userID, roleCode)
+}
+
+func seedBuyerCompany(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tenantID, companyID uuid.UUID, name string) {
+	t.Helper()
+	_, err := pool.Exec(ctx, `
+		INSERT INTO core.companies (id, tenant_id, company_type, legal_name, status)
+		VALUES ($1,$2,'SHIPPER',$3,'ACTIVE')
+		ON CONFLICT DO NOTHING`, companyID, tenantID, name)
+	if err != nil {
+		t.Fatalf("seed buyer company: %v", err)
+	}
+}
+
+func manualSpotReq(env *testEnv, actor domain.ActorInput) domain.ResolveRateRequest {
+	amount := decimal.RequireFromString("5000.00")
+	currency := "RUB"
+	req := env.resolveReq("TAUTLINER")
+	req.Actor = actor
+	req.ManualSpotAmount = &amount
+	req.ManualSpotCurrency = &currency
+	return req
+}
+
+func resolveManualSpot(t *testing.T, env *testEnv, actor domain.ActorInput) (domain.ResolveRateResult, error) {
+	t.Helper()
+	return env.ResolutionSvc.Resolve(context.Background(), manualSpotReq(env, actor), nil)
 }
 
 func (e *testEnv) createActiveContract(t *testing.T, number string) *domain.TransportContract {

@@ -61,12 +61,24 @@ func (s *ResolutionService) Resolve(ctx context.Context, req domain.ResolveRateR
 		return result, nil
 	}
 
-	roleCodes, err := s.memberships.ListUserGlobalRoleCodes(ctx, validated.TenantID, validated.Actor.ActorUserID)
+	hasCompanyPermission, err := s.memberships.HasCompanyPermission(
+		ctx,
+		validated.TenantID,
+		validated.Actor.ActorUserID,
+		validated.Actor.ActorCompanyID,
+		domain.PermissionManualSpotUse,
+	)
 	if err != nil {
 		s.observeFailure(start, "", "INTERNAL")
 		return domain.ResolveRateResult{}, err
 	}
-	if err := validated.Actor.RequireManualSpotPrice(roleCodes); err != nil {
+	tenantRoleCodes, err := s.memberships.ListUserTenantRoleCodes(ctx, validated.TenantID, validated.Actor.ActorUserID)
+	if err != nil {
+		s.observeFailure(start, "", "INTERNAL")
+		return domain.ResolveRateResult{}, err
+	}
+	hasTenantPlatformAdmin := domain.HasPlatformAdminRole(tenantRoleCodes)
+	if err := validated.Actor.RequireManualSpotPermission(hasCompanyPermission, hasTenantPlatformAdmin); err != nil {
 		s.observeFailure(start, "", domain.ReasonManualSpotForbidden)
 		return domain.ResolveRateResult{}, err
 	}

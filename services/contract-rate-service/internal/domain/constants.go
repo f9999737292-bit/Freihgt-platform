@@ -47,3 +47,8 @@ const (
 	AuditActionRateComponentDeleted = "RATE_COMPONENT_DELETED"
 	AuditActionManualSpotResolved   = "MANUAL_SPOT_RESOLVED"
 )
+
+const (
+	ArchitecturePermissionManualSpotUse = "USE_MANUAL_SPOT_PRICE"
+	PermissionManualSpotUse             = "rates.manual_spot.use"
+)

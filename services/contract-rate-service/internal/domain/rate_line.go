@@ -303,21 +303,14 @@ func dateOnly(t time.Time) time.Time {
 	return time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
 }
 
-func HasManualSpotPriceRole(roleCodes []string) bool {
-	for _, code := range roleCodes {
-		switch strings.ToUpper(strings.TrimSpace(code)) {
-		case RolePlatformAdmin, "SHIPPER_ADMIN", "PROCUREMENT_MANAGER", "FORWARDER_MANAGER":
-			return true
-		}
-	}
-	return false
-}
-
-func (a ActorInput) RequireManualSpotPrice(roleCodes []string) error {
+func (a ActorInput) RequireManualSpotPermission(hasCompanyPermission, hasTenantPlatformAdmin bool) error {
 	if a.ActorKind == ActorKindCarrier {
 		return apperrors.Forbidden("manual spot pricing is not permitted for carrier actors", map[string]any{"code": ReasonManualSpotForbidden})
 	}
-	if a.IsPlatformAdmin || HasManualSpotPriceRole(roleCodes) {
+	if hasTenantPlatformAdmin {
+		return nil
+	}
+	if hasCompanyPermission {
 		return nil
 	}
 	return apperrors.Forbidden("manual spot pricing authorization required", map[string]any{"code": ReasonManualSpotForbidden})
