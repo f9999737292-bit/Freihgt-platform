@@ -14,8 +14,9 @@ import (
 )
 
 type ContractRepository struct {
-	pool  *pgxpool.Pool
-	audit *AuditRepository
+	pool                 *pgxpool.Pool
+	audit                *AuditRepository
+	simulateAuditFailure bool
 }
 
 func NewContractRepository(pool *pgxpool.Pool, audit *AuditRepository) *ContractRepository {
@@ -49,6 +50,9 @@ func (r *ContractRepository) Create(ctx context.Context, in domain.CreateContrac
 		)
 		if err := scanContract(row, &created); err != nil {
 			return err
+		}
+		if r.simulateAuditFailure {
+			return errors.New("simulated contract audit failure")
 		}
 		return r.audit.InsertTx(ctx, tx, auditFromActor(domain.AuditEntityContract, created.ID, domain.AuditActionContractCreated, in.Actor, correlationID, map[string]any{
 			"contract_number": created.ContractNumber,
@@ -312,12 +316,23 @@ func (r *ContractRepository) transition(ctx context.Context, tenantID, contractI
 		if err := scanContract(row, &updated); err != nil {
 			return err
 		}
+		if r.simulateAuditFailure {
+			return errors.New("simulated contract audit failure")
+		}
 		return r.audit.InsertTx(ctx, tx, auditFromActor(domain.AuditEntityContract, updated.ID, action, actor, correlationID, map[string]any{"status": updated.Status}))
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &updated, nil
+}
+
+// SimulateActivateAuditFailureForTest forces rollback when audit insert would succeed after lifecycle mutation.
+func (r *ContractRepository) SimulateActivateAuditFailureForTest(ctx context.Context, tenantID, contractID uuid.UUID, actor domain.ActorInput) error {
+	r.simulateAuditFailure = true
+	defer func() { r.simulateAuditFailure = false }()
+	_, err := r.Activate(ctx, tenantID, contractID, actor, nil)
+	return err
 }
 
 func (r *ContractRepository) maybeExpire(ctx context.Context, contract *domain.TransportContract) (bool, error) {
