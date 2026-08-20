@@ -14,23 +14,24 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/freight-platform/billing-register-service/internal/domain"
+	"github.com/freight-platform/billing-register-service/internal/observability"
 	apperrors "github.com/freight-platform/billing-register-service/internal/platform/errors"
 )
 
 type ShipmentSettlementContext struct {
-	ShipmentID       uuid.UUID
-	TransportOrderID uuid.UUID
-	ShipmentStatus   string
-	BuyerCompanyID   uuid.UUID
-	CarrierCompanyID uuid.UUID
-	AwardLinkID      *uuid.UUID
-	BaseAmount       float64
-	CurrencyCode     string
-	VATRate          *float64
-	HasPOD           bool
+	ShipmentID          uuid.UUID
+	TransportOrderID    uuid.UUID
+	ShipmentStatus      string
+	BuyerCompanyID      uuid.UUID
+	CarrierCompanyID    uuid.UUID
+	AwardLinkID         *uuid.UUID
+	AgreedFreightAmount decimal.Decimal
+	CurrencyCode        string
+	VATRate             *float64
+	HasPOD              bool
 	PricingModelVersion *string
-	RateSnapshotID   *uuid.UUID
-	PricingSource    *string
+	RateSnapshotID      *uuid.UUID
+	PricingSource       *string
 }
 
 type SettlementDetail struct {
@@ -40,11 +41,16 @@ type SettlementDetail struct {
 }
 
 type FreightSettlementRepository struct {
-	pool *pgxpool.Pool
+	pool    *pgxpool.Pool
+	metrics *observability.SettlementMetrics
 }
 
-func NewFreightSettlementRepository(pool *pgxpool.Pool) *FreightSettlementRepository {
-	return &FreightSettlementRepository{pool: pool}
+func NewFreightSettlementRepository(pool *pgxpool.Pool, metrics ...*observability.SettlementMetrics) *FreightSettlementRepository {
+	var m *observability.SettlementMetrics
+	if len(metrics) > 0 {
+		m = metrics[0]
+	}
+	return &FreightSettlementRepository{pool: pool, metrics: m}
 }
 
 func (r *FreightSettlementRepository) LoadShipmentContext(ctx context.Context, tenantID, shipmentID uuid.UUID) (*ShipmentSettlementContext, error) {
@@ -96,14 +102,17 @@ func (r *FreightSettlementRepository) LoadShipmentContext(ctx context.Context, t
 		if err != nil {
 			return nil, mapDBError(err)
 		}
-		baseAmount, err := parseSettlementAmount(totalText)
+		agreedAmount, err := parseSettlementAmountDecimal(totalText)
 		if err != nil {
 			return nil, err
 		}
-		ctxOut.BaseAmount = baseAmount
+		ctxOut.AgreedFreightAmount = agreedAmount
 		ctxOut.AwardLinkID = awardLinkID
 		ctxOut.PricingSource = &pricingSource
 	} else {
+		if r.metrics != nil {
+			r.metrics.IncLegacyPricingFallback()
+		}
 		const awardQuery = `
 			SELECT id, buyer_company_id, carrier_company_id, amount::text, currency_code, NULL::float8
 			FROM rfx.rfx_award_transport_orders
@@ -121,11 +130,11 @@ func (r *FreightSettlementRepository) LoadShipmentContext(ctx context.Context, t
 		if err != nil {
 			return nil, mapDBError(err)
 		}
-		baseAmount, err := parseSettlementAmount(totalText)
+		agreedAmount, err := parseSettlementAmountDecimal(totalText)
 		if err != nil {
 			return nil, err
 		}
-		ctxOut.BaseAmount = baseAmount
+		ctxOut.AgreedFreightAmount = agreedAmount
 		ctxOut.AwardLinkID = &awardLinkID
 		ctxOut.VATRate = vatRate
 	}
@@ -148,17 +157,16 @@ func (r *FreightSettlementRepository) LoadShipmentContext(ctx context.Context, t
 	return &ctxOut, nil
 }
 
-func parseSettlementAmount(raw string) (float64, error) {
+func parseSettlementAmountDecimal(raw string) (decimal.Decimal, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
-		return 0, apperrors.Validation("settlement principal amount is missing", map[string]any{"field": "total_amount"})
+		return decimal.Decimal{}, apperrors.Validation("settlement principal amount is missing", map[string]any{"field": "total_amount"})
 	}
 	d, err := decimal.NewFromString(raw)
 	if err != nil {
-		return 0, apperrors.Validation("invalid settlement principal amount", map[string]any{"field": "total_amount"})
+		return decimal.Decimal{}, apperrors.Validation("invalid settlement principal amount", map[string]any{"field": "total_amount"})
 	}
-	f, _ := d.Float64()
-	return f, nil
+	return d, nil
 }
 
 func (r *FreightSettlementRepository) CreateSettlement(ctx context.Context, in domain.CreateFreightSettlementInput, ctxData *ShipmentSettlementContext) (*domain.FreightSettlement, error) {
@@ -174,7 +182,7 @@ func (r *FreightSettlementRepository) CreateSettlement(ctx context.Context, in d
 	if number == "" {
 		number = fmt.Sprintf("FS-%s", in.ShipmentID.String()[:8])
 	}
-	withoutVAT, vat, withVAT := domain.CalculateSettlementTotals(ctxData.BaseAmount, 0, ctxData.VATRate)
+	withoutVAT, vat, withVAT := domain.CalculateSettlementTotalsDecimal(ctxData.AgreedFreightAmount, decimal.Zero, ctxData.VATRate)
 	var result domain.FreightSettlement
 	err := r.withAuditTx(ctx, func(tx pgx.Tx) error {
 		if strings.TrimSpace(in.IdempotencyKey) != "" {
@@ -213,8 +221,8 @@ func (r *FreightSettlementRepository) CreateSettlement(ctx context.Context, in d
 		}
 		row := tx.QueryRow(ctx, insert,
 			in.TenantID, in.ShipmentID, ctxData.TransportOrderID, ctxData.BuyerCompanyID, ctxData.CarrierCompanyID,
-			ctxData.AwardLinkID, number, ctxData.BaseAmount, ctxData.CurrencyCode, optionalFloat(ctxData.VATRate),
-			0, withoutVAT, vat, withVAT, domain.SettlementStatusDraft, idempotency, in.ActorUserID,
+			ctxData.AwardLinkID, number, ctxData.AgreedFreightAmount.StringFixed(2), ctxData.CurrencyCode, optionalFloat(ctxData.VATRate),
+			0, withoutVAT.StringFixed(2), vat.StringFixed(2), withVAT.StringFixed(2), domain.SettlementStatusDraft, idempotency, in.ActorUserID,
 			ctxData.RateSnapshotID, ctxData.PricingSource,
 		)
 		created, scanErr := scanSettlement(row)
@@ -223,7 +231,7 @@ func (r *FreightSettlementRepository) CreateSettlement(ctx context.Context, in d
 		}
 		result = *created
 		return insertAuditEvent(ctx, tx, in.TenantID, result.ID, "SETTLEMENT_CREATED", in.ActorUserID, in.ActorCompanyID, map[string]any{
-			"shipment_id": in.ShipmentID.String(), "base_freight_amount": ctxData.BaseAmount,
+			"shipment_id": in.ShipmentID.String(), "base_freight_amount": ctxData.AgreedFreightAmount.StringFixed(2),
 		})
 	})
 	if err != nil {

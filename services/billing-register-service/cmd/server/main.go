@@ -18,6 +18,7 @@ import (
 	"github.com/freight-platform/billing-register-service/internal/platform/logger"
 	"github.com/freight-platform/billing-register-service/internal/repository"
 	"github.com/freight-platform/billing-register-service/internal/service"
+	billingobs "github.com/freight-platform/billing-register-service/internal/observability"
 	"github.com/freight-platform/shared-go/metrics"
 )
 
@@ -43,7 +44,8 @@ func main() {
 
 	registerRepo := repository.NewBillingRegisterRepository(db.Pool)
 	closingRepo := repository.NewClosingDocumentRepository(db.Pool)
-	settlementRepo := repository.NewFreightSettlementRepository(db.Pool)
+	settlementMetrics := billingobs.NewSettlementMetrics(cfg.ServiceName)
+	settlementRepo := repository.NewFreightSettlementRepository(db.Pool, settlementMetrics)
 	membershipRepo := repository.NewMembershipRepository(db.Pool)
 	obligationLookup := repository.NewPaymentObligationLookupRepository(db.Pool)
 	paymentClient := client.NewPaymentServiceClient(cfg.PaymentServiceURL, cfg.InternalServiceToken)
