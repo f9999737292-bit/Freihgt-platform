@@ -151,7 +151,7 @@ func TestCSet007ContractChangeDoesNotChangeSettlementPrincipal(t *testing.T) {
 	rateCardID := uuid.New()
 	rateVersionID := uuid.New()
 	rateLineID := uuid.New()
-	orderID, _, shipmentID := seedSnapshotOrderWithShipment(t, env.pool, fix, snapshotOrderOpts{
+	_, _, shipmentID := seedSnapshotOrderWithShipment(t, env.pool, fix, snapshotOrderOpts{
 		PricingSource: "CONTRACT_RATE",
 		TotalAmount:   "55000.00",
 		ContractID:    &contractID,
@@ -159,15 +159,8 @@ func TestCSet007ContractChangeDoesNotChangeSettlementPrincipal(t *testing.T) {
 		RateVersionID: &rateVersionID,
 		RateLineID:    &rateLineID,
 	})
-	awardLinkID := uuid.New()
-	otherEventID := uuid.New()
-	if _, err := env.pool.Exec(ctx, `
-		INSERT INTO rfx.rfx_award_transport_orders (
-			id, tenant_id, rfx_event_id, rfx_award_id, rfx_response_id, transport_order_id,
-			carrier_company_id, buyer_company_id, amount, currency_code
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'RUB')`,
-		awardLinkID, fix.TenantID, otherEventID, fix.AwardID, fix.ResponseID, orderID, fix.CarrierA, fix.BuyerID, 120000.00); err != nil {
-		t.Fatalf("award link: %v", err)
+	if _, err := env.pool.Exec(ctx, `UPDATE rfx.rfx_award_transport_orders SET amount = 120000 WHERE transport_order_id = $1`, fix.OrderID); err != nil {
+		t.Fatalf("update legacy award link amount: %v", err)
 	}
 	ctxData, err := env.repo.LoadShipmentContext(ctx, fix.TenantID, shipmentID)
 	if err != nil {
