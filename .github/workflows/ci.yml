@@ -571,6 +571,7 @@ jobs:
             services/rfx-service/go.sum
             services/transport-order-service/go.sum
             services/billing-register-service/go.sum
+            services/contract-rate-service/go.sum
 
       - name: Run RFx pricing integration tests
         working-directory: services/rfx-service
@@ -580,9 +581,17 @@ jobs:
         working-directory: services/transport-order-service
         run: go test -tags=integration ./internal/integration/pricingsnapshot/... -count=1 -v
 
+      - name: Run contract-rate v2.0C resolution integration tests
+        working-directory: services/contract-rate-service
+        run: go test -tags=integration ./internal/integration/contractrate/... -run 'CRes' -count=1 -v
+
       - name: Run settlement snapshot integration tests
         working-directory: services/billing-register-service
-        run: go test -tags=integration ./internal/integration/freightsettlement/... -count=1 -run 'CSet|Snapshot' -v
+        run: go test -tags=integration ./internal/integration/freightsettlement/... -count=1 -v
+
+      - name: Run RFx award saga integration tests
+        working-directory: services/rfx-service
+        run: go test -tags=integration ./internal/integration/enterprise/... -run 'CAward' -count=1 -v
 
   frontend-web-admin-build:
     name: frontend-web-admin-build

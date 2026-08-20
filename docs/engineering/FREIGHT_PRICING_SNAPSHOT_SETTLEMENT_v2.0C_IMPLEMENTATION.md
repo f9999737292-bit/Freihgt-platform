@@ -85,7 +85,21 @@ Migration `000052`: `billing.freight_settlements.rate_snapshot_id`, `pricing_sou
 
 Loader: snapshot `total_amount` first for `SNAPSHOT_V1`; legacy award fallback when `pricing_model_version IS NULL`; fail closed when snapshot required but missing.
 
-Principal path uses `shopspring/decimal` parse from NUMERIC text (no float8 round-trip on snapshot amount).
+Principal path uses `shopspring/decimal` end-to-end for snapshot-based settlement (`AgreedFreightAmount`); NUMERIC text parse and DB bind via `StringFixed(2)` — **no float64 round-trip on snapshot principal** (`SETTLEMENT_SNAPSHOT_FLOAT_ROUNDTRIP=NO`).
+
+## COMMERCIAL INTEGRITY (PR #38 hardening)
+
+| Gate | Fix |
+|------|-----|
+| Public unpriced TO create | Denied — `POST /v1/transport-orders` requires `Idempotency-Key` + priced path only |
+| Equipment case | TrimSpace only; exact case match (no ToUpper/EqualFold) |
+| RFx fail-closed | No default RUB/TAUTLINER; missing currency/equipment/lane → `MISSING_PRICING_CONTEXT` |
+| Award scope ambiguity | Multi-lot without lot → `PRICING_SOURCE_AMBIGUOUS` |
+| Idempotency concurrency | PostgreSQL advisory lock + unique-violation re-read |
+| Tenant-safe FK | Migration `000053` composite FK on snapshots + idempotency |
+| Observability | `pricing_source_total`, `snapshot_persist_*`, `to_pricing_resolution_total`, `legacy_settlement_pricing_fallback_total` |
+
+Full C-RFX / C-RES / C-SNAP / C-TO / C-AWARD / C-SET matrices in integration tests.
 
 ## TESTS & CI
 
