@@ -62,7 +62,7 @@ func ValidateRFxContextAgainstRequest(req ResolveRateRequest, ctx RFxPricingCont
 	if ctx.DestinationLocationID != req.DestinationLocationID {
 		return apperrors.Validation("pricing source destination mismatch", map[string]any{"code": ReasonPricingSourceMismatch, "field": "destination_location_id"})
 	}
-	if !strings.EqualFold(strings.TrimSpace(ctx.EquipmentType), req.EquipmentType) {
+	if strings.TrimSpace(ctx.EquipmentType) != strings.TrimSpace(req.EquipmentType) {
 		return apperrors.Validation("pricing source equipment mismatch", map[string]any{"code": ReasonPricingSourceMismatch, "field": "equipment_type"})
 	}
 	if !strings.EqualFold(strings.TrimSpace(ctx.TransportMode), req.TransportMode) {

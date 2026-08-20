@@ -66,8 +66,7 @@ func (r *RfxRepository) PrepareAwardConversion(
 	}
 	equipmentType := lane.EquipmentType
 	if equipmentType == nil || strings.TrimSpace(*equipmentType) == "" {
-		defaultEquip := "TAUTLINER"
-		equipmentType = &defaultEquip
+		return nil, apperrors.Validation("lane equipment_type is required for award conversion", map[string]any{"field": "equipment_type"})
 	}
 	return &AwardConversionPrepared{
 		Scope:                 scope,

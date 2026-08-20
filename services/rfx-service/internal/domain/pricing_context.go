@@ -61,7 +61,7 @@ func AggregateOnlyPricingContext(
 		OriginLocationID:         originID,
 		DestinationLocationID:    destID,
 		EquipmentType:            strings.TrimSpace(equipment),
-		TransportMode:            normalizePricingTransportMode(mode),
+		TransportMode:            NormalizePricingTransportMode(mode),
 		CurrencyCode:             NormalizeCurrencyCode(currency),
 		TotalAmount:              totalAmount,
 		BaseAmount:               nil,
@@ -71,7 +71,7 @@ func AggregateOnlyPricingContext(
 	}
 }
 
-func normalizePricingTransportMode(mode string) string {
+func NormalizePricingTransportMode(mode string) string {
 	mode = strings.ToUpper(strings.TrimSpace(mode))
 	if mode == "" {
 		return "ROAD"
