@@ -33,6 +33,9 @@ This architecture freezes:
 | `PAYMENT_RECALCULATES_RATE` | NO |
 | `SETTLEMENT_FUEL_DOUBLE_COUNT` | NO — `base_freight_amount` = `snapshot.total_amount` |
 | `CONTRACT_RATE_DIRECT_RFX_DB_READS` | NO |
+| `INFER_BASE_FROM_TOTAL` | NO |
+| `MANUFACTURE_COMPONENT_SPLIT` | NO |
+| `AGGREGATE_ONLY_BASE_AMOUNT` | NULL — never inferred from total |
 
 ---
 
@@ -366,9 +369,25 @@ Priced component on a rate line (BASE_FREIGHT, FUEL_SURCHARGE, etc.).
 
 Immutable agreed-price payload attached to Transport Order at pricing time.
 
+- `total_amount` is **always required** on MATCHED snapshots
+- `base_amount` is **nullable** when authoritative BASE_FREIGHT is unknown (aggregate-only RFx sources)
+- `component_breakdown_status` (`AVAILABLE` | `UNAVAILABLE`) is authoritative for interpreting `components`
+
 ### 6.7 RateResolutionResult
 
 Transient resolution output; serialized into snapshot.
+
+| Field | CONTRACT_RATE | Aggregate-only RFQ_AWARD / SPOT_BID |
+|-------|---------------|--------------------------------------|
+| `total_amount` | Required | Required (authoritative aggregate) |
+| `base_amount` | Required (BASE_FREIGHT) | **Optional / NULL** when breakdown unavailable |
+| `components` | Authoritative rows | Empty `[]` when breakdown unavailable |
+
+```
+RATE_RESOLUTION_BASE_AMOUNT_REQUIRED_FOR_CONTRACT_RATE = YES
+RATE_RESOLUTION_BASE_AMOUNT_REQUIRED_FOR_AGGREGATE_ONLY_RFX = NO
+RATE_RESOLUTION_TOTAL_AMOUNT_REQUIRED = YES
+```
 
 ### 6.8 Optional v2.0 deferrals
 
@@ -499,6 +518,19 @@ FUTURE_SCHEDULED_ACTIVE_VERSION_V2_0 = NO
 7. `pricing_date` must fall within the ACTIVE version `[valid_from, valid_to]` to be eligible; otherwise the version is not matched
 8. **Cross-rate-card duplicate lane scope** on the same contract: activation must **FAIL** if duplicate logical lane scope is detectable across ACTIVE cards (see §25.5)
 
+### 8.5 Activation procedure (frozen)
+
+When a DRAFT version activates:
+
+1. `SELECT FOR UPDATE` lock on `rate_card`
+2. Verify new DRAFT version validity (`valid_to >= valid_from`)
+3. Verify no duplicate lane scope conflict across ACTIVE rate cards on the same contract
+4. Mark previous ACTIVE version as `SUPERSEDED` (set `supersedes_version_id` linkage; may set previous `valid_to`)
+5. Activate new version (`status = ACTIVE`, set `activated_at`)
+6. Commit atomically
+
+Duplicate activate requests: idempotent return of current ACTIVE state.
+
 ---
 
 ## 9. Lane Matching Model
@@ -522,19 +554,6 @@ FUTURE_SCHEDULED_ACTIVE_VERSION_V2_0 = NO
 **v2.0: EXACT_LOCATION** — UUID pair equality on canonical `transport.locations`.
 
 Future (out of MVP): CITY, REGION, ZONE hierarchy with specificity scoring.
-
-### 8.5 Activation procedure (frozen)
-
-When a DRAFT version activates:
-
-1. `SELECT FOR UPDATE` lock on `rate_card`
-2. Verify new DRAFT version validity (`valid_to >= valid_from`)
-3. Verify no duplicate lane scope conflict across ACTIVE rate cards on the same contract
-4. Mark previous ACTIVE version as `SUPERSEDED` (set `supersedes_version_id` linkage; may set previous `valid_to`)
-5. Activate new version (`status = ACTIVE`, set `activated_at`)
-6. Commit atomically
-
-Duplicate activate requests: idempotent return of current ACTIVE state.
 
 ### 9.3 Ambiguity
 
@@ -601,13 +620,37 @@ Example:
 | Rounding | Half-up to 2 decimals at component total and grand total boundaries |
 | Calculation ownership | Server-side only in contract-rate-service |
 
-### 11.3 Currency validation
+### 11.3 NULL vs ZERO semantics (frozen)
+
+| Value | Meaning |
+|-------|---------|
+| `NULL` | **UNKNOWN** — authoritative source did not provide this value |
+| `0.00` | **KNOWN ZERO** — authoritative source confirmed zero |
+
+These meanings are **not interchangeable**. Do not use `0.00` for unknown base or fuel components.
+
+### 11.4 Aggregate-only snapshot invariants (frozen)
+
+```
+SNAPSHOT_BASE_AMOUNT_SEMANTICS = Authoritative BASE_FREIGHT component only
+SNAPSHOT_TOTAL_AMOUNT_SEMANTICS = Authoritative agreed pre-execution total
+AGGREGATE_ONLY_BASE_AMOUNT = NULL / OMITTED / UNKNOWN
+AGGREGATE_ONLY_TOTAL_AMOUNT = REQUIRED (authoritative aggregate)
+AGGREGATE_ONLY_COMPONENTS = [] (empty — not invented)
+AGGREGATE_ONLY_COMPONENT_BREAKDOWN_STATUS = UNAVAILABLE
+INFER_BASE_FROM_TOTAL = NO
+INFER_FUEL_FROM_TOTAL = NO
+MANUFACTURE_COMPONENT_SPLIT = NO
+ZERO_USED_FOR_UNKNOWN = NO
+```
+
+### 11.5 Currency validation
 
 Reuse pattern from `payment-service/internal/domain/money.go` and billing `NormalizeCurrencyCode`.
 
 Central validation function in contract-rate-service; future extraction to `packages/shared-go` optional.
 
-### 11.4 Discovery answers
+### 11.6 Discovery answers
 
 | Q | Answer |
 |---|--------|
@@ -768,10 +811,11 @@ Proposed: `transport.transport_order_rate_snapshots`
 - `pricing_source`, `source_ids` (jsonb)
 - `contract_number`, `rate_version_number` (denormalized labels)
 - `origin_location_id`, `destination_location_id`, `equipment_type`
-- `currency_code`
-- `components` (jsonb array with type, method, unit, amount)
-- `base_amount`, `total_amount` NUMERIC(18,2)
-- `component_breakdown_status` (`AVAILABLE` | `UNAVAILABLE`) — see §14.6
+- `currency_code` CHAR(3) NOT NULL
+- `components` JSONB NOT NULL — empty array `[]` when breakdown unavailable (see §14.6)
+- `base_amount` NUMERIC(18,2) **NULL** — authoritative BASE_FREIGHT only; NULL when unknown
+- `total_amount` NUMERIC(18,2) **NOT NULL** — authoritative agreed pre-execution total
+- `component_breakdown_status` NOT NULL — `AVAILABLE` | `UNAVAILABLE`
 - `resolved_at`, `pricing_date`
 - `resolution_request_hash` (audit/defense metadata — **not** TO command idempotency substitute)
 - **No UPDATE path** — insert-only repository API
@@ -780,10 +824,24 @@ Proposed: `transport.transport_order_rate_snapshots`
 
 | Field | Semantics |
 |-------|-----------|
-| `base_amount` | **BASE_FREIGHT component only** |
-| `total_amount` | BASE_FREIGHT + all **contracted pre-execution** components in the agreed order price |
+| `base_amount` | Authoritative **BASE_FREIGHT component only**; **NULL when unknown** |
+| `total_amount` | Authoritative **agreed pre-execution total**; always NOT NULL on MATCHED |
+| `component_breakdown_status` | Authoritative for interpreting `components` |
+| `components` | Authoritative component rows when `AVAILABLE`; empty `[]` when `UNAVAILABLE` |
 
-For v2.0 MVP contracted pre-execution components in `total_amount`:
+**When `component_breakdown_status = AVAILABLE`:**
+
+- `base_amount` IS NOT NULL
+- `components` contains authoritative rows (e.g. BASE_FREIGHT, FUEL_SURCHARGE)
+- `total_amount` = sum of contracted pre-execution components
+
+**When `component_breakdown_status = UNAVAILABLE` (aggregate-only RFx):**
+
+- `total_amount` = authoritative aggregate from rfx-service
+- `base_amount` = **NULL** — do **not** set to `total_amount`, do **not** set to `0.00`
+- `components` = **empty `[]`** — no synthetic BASE_FREIGHT or FUEL_SURCHARGE rows
+
+For v2.0 MVP contracted pre-execution components in `total_amount` when `AVAILABLE`:
 
 - `BASE_FREIGHT`
 - `FUEL_SURCHARGE` (when applicable)
@@ -796,9 +854,11 @@ RATE_SNAPSHOT_VAT = EXCLUDED
 
 VAT remains owned by Settlement/Billing per existing flow.
 
-**Example (CONTRACT_RATE):** BASE_FREIGHT = 100,000 RUB; FUEL_SURCHARGE = 8% → `base_amount = 100,000.00`, fuel component = 8,000.00, `total_amount = 108,000.00`.
+**Example (CONTRACT_RATE, AVAILABLE):** BASE_FREIGHT = 100,000 RUB; FUEL_SURCHARGE = 8% → `base_amount = 100,000.00`, fuel component = 8,000.00, `total_amount = 108,000.00`, `component_breakdown_status = AVAILABLE`.
 
-Settlement v2.0C consumes `total_amount` as the agreed pre-execution freight amount (see §18).
+**Example (RFQ_AWARD aggregate-only, UNAVAILABLE):** authoritative total = 108,000 RUB, base/fuel unknown → `base_amount = NULL`, `components = []`, `total_amount = 108,000.00`, `component_breakdown_status = UNAVAILABLE`.
+
+Settlement v2.0C consumes `total_amount` as the agreed pre-execution freight amount (see §18). **NULL `base_amount` does not block settlement.**
 
 ### 14.4 Snapshot fields (minimum)
 
@@ -808,8 +868,9 @@ Settlement v2.0C consumes `total_amount` as the agreed pre-execution freight amo
 - Lane match: origin/dest IDs + display labels optional
 - `equipment_type`, `transport_mode`
 - `currency_code`
-- Per-component: `type`, `calculation_method`, `rate_value`, `calculated_amount`
-- `base_amount`, `total_amount`
+- `component_breakdown_status` (`AVAILABLE` | `UNAVAILABLE`)
+- Per-component (when AVAILABLE): `type`, `calculation_method`, `rate_value`, `calculated_amount`
+- `base_amount` (nullable), `total_amount` (required)
 - `resolved_at`, `pricing_date`, `resolved_by_service` = contract-rate-service vX
 
 ### 14.5 Invariants
@@ -821,22 +882,76 @@ Settlement v2.0C consumes `total_amount` as the agreed pre-execution freight amo
 | CONTRACT_CHANGE_MUTATES_ORDER | NO |
 | SNAPSHOT_REFERENCE_ONLY | NO |
 
-### 14.6 Award / bid snapshot normalization
+### 14.6 Award / bid snapshot normalization (frozen)
 
-**Formal award (`RFQ_AWARD`):**
+#### RFQ_AWARD (`RFQ_AWARD`)
 
-- `snapshot.total_amount` = authoritative awarded amount from rfx-service
-- If authoritative component breakdown exists: populate `base_amount` and `components` accurately; `component_breakdown_status = AVAILABLE`
-- If only aggregate awarded amount exists: **do not invent** artificial fuel/base decomposition; set `component_breakdown_status = UNAVAILABLE` and `total_amount = award amount` ( `base_amount` may equal `total_amount` when breakdown unavailable)
+**Case A — authoritative breakdown available:**
 
-**Accepted bid (`SPOT_BID`):**
+RFx award: base = 100,000; fuel = 8,000; total = 108,000
 
-- Same rules — use rfx-service trusted context
-- When bid has component fields (`base_amount`, `fuel_surcharge_amount`): populate components; otherwise `UNAVAILABLE`
+| Field | Value |
+|-------|-------|
+| `base_amount` | 100,000.00 |
+| `total_amount` | 108,000.00 |
+| `components` | authoritative rows |
+| `component_breakdown_status` | `AVAILABLE` |
 
-**Never manufacture component splits from aggregate-only sources.**
+**Case B — only authoritative aggregate available:**
 
-### 14.7 Discovery answers
+RFx award: total = 108,000; base = unknown; fuel = unknown
+
+| Field | Value |
+|-------|-------|
+| `base_amount` | **NULL** |
+| `total_amount` | 108,000.00 |
+| `components` | **`[]`** |
+| `component_breakdown_status` | `UNAVAILABLE` |
+
+It is unknown whether 108,000 means 100,000+8,000 fuel or 108,000 base-only or another composition — **do not infer**.
+
+#### SPOT_BID (`SPOT_BID`)
+
+Identical semantic rule.
+
+**Case A — authoritative breakdown** (e.g. bid exposes `base_amount`, `fuel_surcharge_amount`, `total_amount`): copy accurately; `component_breakdown_status = AVAILABLE`.
+
+**Case B — aggregate-only:** `base_amount = NULL`, `total_amount = authoritative total`, `components = []`, `component_breakdown_status = UNAVAILABLE`.
+
+#### CONTRACT_RATE
+
+Unchanged — always `AVAILABLE`:
+
+- `base_amount` = BASE_FREIGHT (NOT NULL)
+- components include BASE_FREIGHT + FUEL_SURCHARGE when applicable
+- `total_amount` = sum of pre-execution components
+- `component_breakdown_status = AVAILABLE`
+
+**Never manufacture component splits from aggregate-only sources. Never set `base_amount = total_amount` when breakdown is unavailable.**
+
+### 14.7 Analytics semantics
+
+For aggregate-only RFx snapshots:
+
+| Metric | Value |
+|--------|-------|
+| `TOTAL_CONTRACTED_FREIGHT` | Known — `total_amount` |
+| `BASE_FREIGHT` | **UNKNOWN** (NULL) |
+| `FUEL_SURCHARGE` | **UNKNOWN** (NULL) |
+
+Unknown must remain unknown — not converted to zero, not converted to total.
+
+Future analytical enrichment (if product requires) must use a **separate non-authoritative projection** — it must **not** mutate the commercial snapshot.
+
+### 14.8 Historical immutability
+
+If breakdown was `UNAVAILABLE` at order creation and RFx later gains detailed data:
+
+- **Do NOT mutate** the existing snapshot
+- Historical snapshot represents what was authoritative **at pricing time**
+- `SNAPSHOT_IMMUTABLE = YES` applies regardless of `base_amount` NULL
+
+### 14.9 Discovery answers
 
 | Q | Answer |
 |---|--------|
@@ -1002,10 +1117,14 @@ It is **not** "raw BASE_FREIGHT component only".
 
 | Invariant | Value |
 |-----------|-------|
+| `SETTLEMENT_REQUIRES_BASE_AMOUNT` | NO |
+| `SETTLEMENT_REQUIRES_TOTAL_AMOUNT` | YES |
 | `SETTLEMENT_BASE_FREIGHT_SOURCE` | `snapshot.total_amount` |
 | `SETTLEMENT_BASE_COMPONENT_ADDED_SEPARATELY` | NO |
 | `SETTLEMENT_FUEL_SURCHARGE_ADDED_AGAIN` | NO |
 | `EXECUTION_ACCESSORIALS_ADDED_SEPARATELY` | YES |
+
+**NULL `base_amount` on aggregate-only RFx snapshots does not block settlement** — `total_amount` is the canonical agreed pre-execution freight amount.
 
 **Do not double-count:** settlement must not add fuel surcharge again when it is already included in `snapshot.total_amount`.
 
@@ -1200,6 +1319,13 @@ Base path via gateway: `/api/v1/`
 }
 ```
 
+**RateSnapshot / RateResolutionResult JSON semantics (future OpenAPI — not modified in this PR):**
+
+- `total_amount`: required on MATCHED
+- `base_amount`: nullable/optional — NULL when `component_breakdown_status = UNAVAILABLE`
+- `component_breakdown_status`: required (`AVAILABLE` | `UNAVAILABLE`)
+- `components`: required array; empty when `UNAVAILABLE`
+
 ### 24.4 API versioning
 
 OpenAPI per-service spec `contract-rate-service.yaml` merged in future slice — **no changes in this architecture PR**.
@@ -1229,7 +1355,30 @@ SCHEMA_NAME = contract_rate
 
 | Table | Purpose |
 |-------|---------|
-| `transport.transport_order_rate_snapshots` | Immutable snapshot |
+| `transport.transport_order_rate_snapshots` | Immutable snapshot — see §25.7 |
+
+### 25.7 Snapshot table money columns (proposed)
+
+| Column | Type | Nullable | Notes |
+|--------|------|----------|-------|
+| `base_amount` | NUMERIC(18,2) | **YES** | NULL when breakdown unavailable |
+| `total_amount` | NUMERIC(18,2) | **NO** | Authoritative agreed total; CHECK `>= 0` |
+| `currency_code` | CHAR(3) | NO | ISO 4217 |
+| `component_breakdown_status` | TEXT/ENUM | NO | `AVAILABLE` \| `UNAVAILABLE` |
+| `components` | JSONB | NO | Empty `[]` when unavailable |
+
+**Proposed conceptual CHECK (future migration — not implemented in this PR):**
+
+```sql
+CHECK (
+  (component_breakdown_status = 'AVAILABLE' AND base_amount IS NOT NULL)
+  OR
+  (component_breakdown_status = 'UNAVAILABLE' AND base_amount IS NULL)
+)
+CHECK (total_amount IS NOT NULL AND total_amount >= 0)
+```
+
+Do **not** create migration in architecture task.
 
 ### 25.3 Key columns (transport_contract)
 
@@ -1360,12 +1509,12 @@ UX: separate view vs mutate permissions; activation confirmations; version diff 
 
 | Item | Detail |
 |------|--------|
-| Scope | **RFx pricing-source internal adapter**, award/bid normalization, immutable TO snapshot, **generic TO retry/idempotency requirement**, settlement reads `snapshot.total_amount` |
+| Scope | **RFx pricing-source internal adapter**, award/bid normalization with aggregate-only NULL base semantics, immutable TO snapshot, **generic TO retry/idempotency requirement**, settlement reads `snapshot.total_amount` |
 | Dependencies | v2.0B, transport-order-service, billing-register-service, rfx-service internal API |
 | Migrations | `transport_order_rate_snapshots`; settlement loader change |
 | Services | transport-order, billing-register, contract-rate, rfx-service (read API) |
 | API | TO create extended; internal S2S resolve + RFx pricing context |
-| Tests | E2E award, contract, bid paths; no fuel double-count; invalid explicit source fails closed |
+| Tests | E2E award (AVAILABLE and UNAVAILABLE breakdown), contract, bid paths; no fuel double-count; NULL base does not block settlement |
 | Gate | Historical order unchanged after contract change; settlement uses snapshot.total_amount |
 
 ### v2.0D — Contract & Rate Workspace UI
@@ -1415,6 +1564,7 @@ UX: separate view vs mutate permissions; activation confirmations; version diff 
 | Zone / hierarchy matching | Future extension beyond EXACT_LOCATION |
 | Explicit manual repricing override | Out of v2.0 MVP — separate capability from `USE_MANUAL_SPOT_PRICE` fallback |
 | Spot bid → settlement without TO | v2.0C aligns bid path through TO snapshot |
+| Snapshot analytics enrichment | Separate non-authoritative projection; must not mutate commercial snapshot |
 
 ---
 
@@ -1435,6 +1585,7 @@ UX: separate view vs mutate permissions; activation confirmations; version diff 
 | ADR-011 | Settlement `base_freight_amount` consumes `snapshot.total_amount` (agreed pre-execution amount); no fuel double-count |
 | ADR-012 | RFx pricing facts via internal rfx-service API; **no contract-rate direct RFx DB reads** |
 | ADR-013 | Generic TO idempotency is a **v2.0C requirement**, not an assumed existing capability |
+| ADR-014 | Aggregate-only RFQ_AWARD / SPOT_BID snapshots preserve authoritative `total_amount`; `base_amount` remains **NULL** when component breakdown unavailable — no inferred decomposition |
 
 ---
 
