@@ -314,11 +314,11 @@ func HasManualSpotPriceRole(roleCodes []string) bool {
 }
 
 func (a ActorInput) RequireManualSpotPrice(roleCodes []string) error {
-	if a.IsPlatformAdmin || HasManualSpotPriceRole(roleCodes) {
-		return nil
-	}
 	if a.ActorKind == ActorKindCarrier {
 		return apperrors.Forbidden("manual spot pricing is not permitted for carrier actors", map[string]any{"code": ReasonManualSpotForbidden})
+	}
+	if a.IsPlatformAdmin || HasManualSpotPriceRole(roleCodes) {
+		return nil
 	}
 	return apperrors.Forbidden("manual spot pricing authorization required", map[string]any{"code": ReasonManualSpotForbidden})
 }
