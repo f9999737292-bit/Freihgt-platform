@@ -194,11 +194,13 @@ func sampleCreateInput(tenantID, buyerID, carrierID, originID, destID, cargoID u
 
 func sampleSnapshot(tenantID, buyerID, carrierID, originID, destID uuid.UUID) todomain.RateSnapshot {
 	total := decimal.RequireFromString("1500.00")
+	auditID := uuid.New()
 	return todomain.RateSnapshot{
 		TenantID:                 tenantID,
 		BuyerCompanyID:           buyerID,
 		CarrierCompanyID:         carrierID,
-		PricingSource:            "RFQ_AWARD",
+		PricingSource:            "MANUAL_SPOT",
+		ManualSpotAuditID:        &auditID,
 		OriginLocationID:         originID,
 		DestinationLocationID:    destID,
 		EquipmentType:            "TAUTLINER",
@@ -214,4 +216,8 @@ func sampleSnapshot(tenantID, buyerID, carrierID, originID, destID uuid.UUID) to
 		ResolverVersion:          "v2.0C",
 		ResolutionRequestHash:    strings.Repeat("a", 64),
 	}
+}
+
+func testRequestHash(label string) string {
+	return strings.Repeat("f", 64-len(label)) + label
 }

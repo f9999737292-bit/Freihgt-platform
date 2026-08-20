@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
+
 	todomain "github.com/freight-platform/transport-order-service/internal/domain"
 )
 
@@ -16,18 +18,19 @@ func TestCSnap007SameTOSecondSnapshotDenied(t *testing.T) {
 	tenantID, buyerID, carrierID, originID, destID, cargoID := seedTenantCompanies(t, env.pool)
 	in := sampleCreateInput(tenantID, buyerID, carrierID, originID, destID, cargoID, "key-1")
 	snap := sampleSnapshot(tenantID, buyerID, carrierID, originID, destID)
-	first, err := env.pricedOrders.CreatePricedOrder(ctx, in, snap, "hash-1")
+	first, err := env.pricedOrders.CreatePricedOrder(ctx, in, snap, testRequestHash("snap7"))
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
+	eventID := uuid.New()
 	_, err = env.pool.Exec(ctx, `
 		INSERT INTO transport.transport_order_rate_snapshots (
 			tenant_id, transport_order_id, buyer_company_id, carrier_company_id,
-			pricing_source, origin_location_id, destination_location_id, equipment_type, transport_mode,
+			pricing_source, rfx_event_id, origin_location_id, destination_location_id, equipment_type, transport_mode,
 			currency_code, component_breakdown_status, components, accessorial_rules,
 			total_amount, pricing_date, resolved_at, resolved_by_service, resolver_version, resolution_request_hash
-		) VALUES ($1,$2,$3,$4,'RFQ_AWARD',$5,$6,'TAUTLINER','ROAD','RUB','UNAVAILABLE','[]','[]',2000,CURRENT_DATE,now(),'test','v2.0C',$7)`,
-		tenantID, first.Order.ID, buyerID, carrierID, originID, destID, strings.Repeat("b", 64))
+		) VALUES ($1,$2,$3,$4,'RFQ_AWARD',$5,$6,$7,'TAUTLINER','ROAD','RUB','UNAVAILABLE','[]','[]',2000,CURRENT_DATE,now(),'test','v2.0C',$8)`,
+		tenantID, first.Order.ID, buyerID, carrierID, eventID, originID, destID, strings.Repeat("b", 64))
 	if err == nil {
 		t.Fatal("expected unique constraint violation for second snapshot on same TO")
 	}
@@ -41,7 +44,7 @@ func TestCSnap008SnapshotUpdateDenied(t *testing.T) {
 	ctx := context.Background()
 	tenantID, buyerID, carrierID, originID, destID, cargoID := seedTenantCompanies(t, env.pool)
 	in := sampleCreateInput(tenantID, buyerID, carrierID, originID, destID, cargoID, "key-update")
-	result, err := env.pricedOrders.CreatePricedOrder(ctx, in, sampleSnapshot(tenantID, buyerID, carrierID, originID, destID), "hash-update")
+	result, err := env.pricedOrders.CreatePricedOrder(ctx, in, sampleSnapshot(tenantID, buyerID, carrierID, originID, destID), testRequestHash("update"))
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -56,7 +59,7 @@ func TestCSnap009SnapshotDeleteDenied(t *testing.T) {
 	ctx := context.Background()
 	tenantID, buyerID, carrierID, originID, destID, cargoID := seedTenantCompanies(t, env.pool)
 	in := sampleCreateInput(tenantID, buyerID, carrierID, originID, destID, cargoID, "key-delete")
-	result, err := env.pricedOrders.CreatePricedOrder(ctx, in, sampleSnapshot(tenantID, buyerID, carrierID, originID, destID), "hash-delete")
+	result, err := env.pricedOrders.CreatePricedOrder(ctx, in, sampleSnapshot(tenantID, buyerID, carrierID, originID, destID), testRequestHash("delete"))
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}

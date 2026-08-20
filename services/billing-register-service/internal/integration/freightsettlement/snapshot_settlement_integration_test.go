@@ -72,7 +72,3 @@ func TestCSet003AggregateNullBaseSettlementPass(t *testing.T) {
 		t.Fatalf("expected settlement principal 108000, got %v", ctxData.BaseAmount)
 	}
 }
-
-func strPtr(v string) *string {
-	return &v
-}
