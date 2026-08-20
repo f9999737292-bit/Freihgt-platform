@@ -47,7 +47,7 @@ func (s *ResolutionService) Resolve(ctx context.Context, req domain.ResolveRateR
 
 	result := domain.ResolveRateCandidates(validated, candidates)
 	if result.Status == domain.ResolveStatusMatched || result.Status == domain.ResolveStatusAmbiguous {
-		s.metrics.ObserveResolution(start, result.Status, result.PricingSource, "")
+		s.observeSuccess(start, result.Status, result.PricingSource, "")
 		return result, nil
 	}
 
@@ -57,7 +57,7 @@ func (s *ResolutionService) Resolve(ctx context.Context, req domain.ResolveRateR
 			reason = *result.ReasonCode
 		}
 		result.ReasonCode = &reason
-		s.metrics.ObserveResolution(start, domain.ResolveStatusNoMatch, "", reason)
+		s.observeSuccess(start, domain.ResolveStatusNoMatch, "", reason)
 		return result, nil
 	}
 
@@ -97,8 +97,15 @@ func (s *ResolutionService) Resolve(ctx context.Context, req domain.ResolveRateR
 		return domain.ResolveRateResult{}, err
 	}
 
-	s.metrics.ObserveResolution(start, final.Status, final.PricingSource, "")
+	s.observeSuccess(start, final.Status, final.PricingSource, "")
 	return final, nil
+}
+
+func (s *ResolutionService) observeSuccess(start time.Time, status, sourceType, reason string) {
+	if s.metrics == nil {
+		return
+	}
+	s.metrics.ObserveResolution(start, status, sourceType, reason)
 }
 
 func (s *ResolutionService) observeFailure(start time.Time, status, reason string) {
