@@ -113,7 +113,7 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/locations/{id}", "get", "Get location by ID", "Locations", True, True, None),
     ("/api/v1/cargoes", "post", "Create cargo", "Cargoes", True, True, None),
     ("/api/v1/cargoes/{id}", "get", "Get cargo by ID", "Cargoes", True, True, None),
-    ("/api/v1/transport-orders", "post", "Create transport order", "Transport Orders", True, True, None),
+    ("/api/v1/transport-orders", "post", "Create priced transport order", "Transport Orders", True, True, "priced_transport_order_create"),
     ("/api/v1/transport-orders", "get", "List transport orders", "Transport Orders", True, True, None),
     ("/api/v1/transport-orders/{id}", "get", "Get transport order by ID", "Transport Orders", True, True, None),
     ("/api/v1/transport-orders/{id}", "patch", "Update transport order", "Transport Orders", True, True, None),
@@ -225,6 +225,71 @@ RECONCILE_DESCRIPTIONS = {
         "Repeat reconciliation is idempotent. Ordinary post-reconcile mutations are forbidden."
     ),
 }
+
+PRICED_TRANSPORT_ORDER_DESCRIPTION = (
+    "Creates a transport order with mandatory rate resolution and immutable rate snapshot (v2.0C).\n"
+    "Requires Idempotency-Key header. Unpriced legacy create is not permitted on this route."
+)
+
+PRICED_TRANSPORT_ORDER_REQUEST_BODY = """              type: object
+              required:
+                - order_number
+                - shipper_company_id
+                - consignee_company_id
+                - origin_location_id
+                - destination_location_id
+                - cargo_id
+                - pricing_context
+              properties:
+                order_number:
+                  type: string
+                shipper_company_id:
+                  type: string
+                  format: uuid
+                consignee_company_id:
+                  type: string
+                  format: uuid
+                origin_location_id:
+                  type: string
+                  format: uuid
+                destination_location_id:
+                  type: string
+                  format: uuid
+                cargo_id:
+                  type: string
+                  format: uuid
+                transport_mode:
+                  type: string
+                  default: ROAD
+                equipment_type:
+                  type: string
+                  description: Case-sensitive exact match after TrimSpace (no case coercion).
+                pricing_context:
+                  type: object
+                  description: Explicit pricing source hints for rate resolution.
+                  properties:
+                    carrier_company_id:
+                      type: string
+                      format: uuid
+                    award_link_id:
+                      type: string
+                      format: uuid
+                    award_scope_event_id:
+                      type: string
+                      format: uuid
+                    award_scope_lot_id:
+                      type: string
+                      format: uuid
+                    bid_id:
+                      type: string
+                      format: uuid
+                    manual_spot_amount:
+                      type: string
+                    manual_spot_currency:
+                      type: string
+                    pricing_source:
+                      type: string
+              additionalProperties: true"""
 
 NO_REQUEST_BODY_PROFILES = frozenset({"reconcile_payment"})
 
@@ -380,6 +445,17 @@ def render_parameters(path: str, method: str, with_headers: bool, profile: str |
             "            format: uuid",
         ])
     lines.extend(query_lines)
+    if profile == "priced_transport_order_create":
+        lines.extend([
+            "        - name: Idempotency-Key",
+            "          in: header",
+            "          required: true",
+            "          description: Client-supplied idempotency key for priced order creation (max 128 chars).",
+            "          schema:",
+            "            type: string",
+            "            minLength: 1",
+            "            maxLength: 128",
+        ])
     return "\n".join(lines) + "\n"
 
 
@@ -407,6 +483,10 @@ def render_operation(
         lines.append("      description: |")
         for desc_line in RECONCILE_DESCRIPTIONS[profile].splitlines():
             lines.append(f"        {desc_line}")
+    elif profile == "priced_transport_order_create":
+        lines.append("      description: |")
+        for desc_line in PRICED_TRANSPORT_ORDER_DESCRIPTION.splitlines():
+            lines.append(f"        {desc_line}")
 
     parameters = render_parameters(path, method, with_headers, profile)
     if parameters:
@@ -427,6 +507,8 @@ def render_operation(
         )
         if schema_ref:
             lines.append(f"              $ref: '{schema_ref}'")
+        elif profile == "priced_transport_order_create":
+            lines.append(PRICED_TRANSPORT_ORDER_REQUEST_BODY)
         else:
             lines.extend(
                 [
