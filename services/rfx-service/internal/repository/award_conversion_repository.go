@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -97,6 +98,7 @@ func (r *RfxRepository) LinkAwardTransportOrdersTransactional(
 			return nil, err
 		}
 		result.Items = existing
+		sortAwardTransportOrders(result.Items)
 		return &result, nil
 	}
 
@@ -174,7 +176,14 @@ func (r *RfxRepository) LinkAwardTransportOrdersTransactional(
 	}
 	result.Created = createdAny
 	result.Items = out
+	sortAwardTransportOrders(result.Items)
 	return &result, nil
+}
+
+func sortAwardTransportOrders(items []domain.RfxAwardTransportOrder) {
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].RfxLotID.String() < items[j].RfxLotID.String()
+	})
 }
 
 func linkAwardTransportOrderTx(

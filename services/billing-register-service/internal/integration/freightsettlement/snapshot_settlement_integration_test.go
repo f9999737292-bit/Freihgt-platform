@@ -14,7 +14,7 @@ func TestCSet009NewOrderMissingSnapshotFailClosed(t *testing.T) {
 	env := setupEnv(t)
 	ctx := context.Background()
 	fix := seedFixture(t, env.pool)
-	var orderID, shipmentID uuid.UUID
+	var orderID uuid.UUID
 	if err := env.pool.QueryRow(ctx, `
 		INSERT INTO transport.transport_orders (
 			tenant_id, order_number, shipper_company_id, consignee_company_id,
@@ -24,17 +24,11 @@ func TestCSet009NewOrderMissingSnapshotFailClosed(t *testing.T) {
 		RETURNING id`, fix.TenantID, fix.BuyerID, fix.OriginID, fix.DestID, fix.CargoID).Scan(&orderID); err != nil {
 		t.Fatalf("order: %v", err)
 	}
-	if err := env.pool.QueryRow(ctx, `
-		INSERT INTO transport.shipments (tenant_id, transport_order_id, carrier_company_id, status)
-		VALUES ($1,$2,$3,'DELIVERED') RETURNING id`, fix.TenantID, orderID, fix.CarrierA).Scan(&shipmentID); err != nil {
-		t.Fatalf("shipment: %v", err)
-	}
-	if _, err := env.pool.Exec(ctx, `
-		INSERT INTO documents.documents (tenant_id, related_entity_type, related_entity_id, document_type, status)
-		VALUES ($1,'SHIPMENT',$2,'POD','ACTIVE')`, fix.TenantID, shipmentID); err != nil {
-		t.Fatalf("pod: %v", err)
-	}
-	_, err := env.repo.LoadShipmentContext(ctx, fix.TenantID, shipmentID)
+	fix.OrderID = orderID
+	fix.ShipmentID = uuid.New()
+	seedDeliveredShipment(t, env.pool, fix, "DELIVERED", true)
+	fix.PODDocumentID = seedPODDocument(t, env.pool, fix.TenantID, fix.CarrierA, fix.ShipmentID, "POD-"+fix.ShipmentID.String()[:8])
+	_, err := env.repo.LoadShipmentContext(ctx, fix.TenantID, fix.ShipmentID)
 	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "snapshot") {
 		t.Fatalf("expected fail-closed missing snapshot, got %v", err)
 	}
@@ -44,7 +38,8 @@ func TestCSet003AggregateNullBaseSettlementPass(t *testing.T) {
 	env := setupEnv(t)
 	ctx := context.Background()
 	fix := seedFixture(t, env.pool)
-	var orderID, snapshotID, shipmentID uuid.UUID
+	eventID := uuid.New()
+	var orderID, snapshotID uuid.UUID
 	if err := env.pool.QueryRow(ctx, `
 		INSERT INTO transport.transport_orders (
 			tenant_id, order_number, shipper_company_id, consignee_company_id,
@@ -57,29 +52,27 @@ func TestCSet003AggregateNullBaseSettlementPass(t *testing.T) {
 	if err := env.pool.QueryRow(ctx, `
 		INSERT INTO transport.transport_order_rate_snapshots (
 			tenant_id, transport_order_id, buyer_company_id, carrier_company_id,
-			pricing_source, origin_location_id, destination_location_id, equipment_type, transport_mode,
+			pricing_source, rfx_event_id, origin_location_id, destination_location_id, equipment_type, transport_mode,
 			currency_code, component_breakdown_status, components, accessorial_rules,
 			base_amount, total_amount, pricing_date, resolved_at, resolved_by_service, resolver_version, resolution_request_hash
-		) VALUES ($1,$2,$3,$4,'RFQ_AWARD',$5,$6,'TAUTLINER','ROAD','RUB','UNAVAILABLE','[]','[]',NULL,108000.00,CURRENT_DATE,now(),'test','v2.0C','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
-		RETURNING id`, fix.TenantID, orderID, fix.BuyerID, fix.CarrierA, fix.OriginID, fix.DestID).Scan(&snapshotID); err != nil {
+		) VALUES ($1,$2,$3,$4,'RFQ_AWARD',$5,$6,$7,'TAUTLINER','ROAD','RUB','UNAVAILABLE','[]','[]',NULL,108000.00,CURRENT_DATE,now(),'test','v2.0C','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
+		RETURNING id`, fix.TenantID, orderID, fix.BuyerID, fix.CarrierA, eventID, fix.OriginID, fix.DestID).Scan(&snapshotID); err != nil {
 		t.Fatalf("snapshot: %v", err)
 	}
 	_ = snapshotID
-	if err := env.pool.QueryRow(ctx, `
-		INSERT INTO transport.shipments (tenant_id, transport_order_id, carrier_company_id, status)
-		VALUES ($1,$2,$3,'DELIVERED') RETURNING id`, fix.TenantID, orderID, fix.CarrierA).Scan(&shipmentID); err != nil {
-		t.Fatalf("shipment: %v", err)
-	}
-	if _, err := env.pool.Exec(ctx, `
-		INSERT INTO documents.documents (tenant_id, related_entity_type, related_entity_id, document_type, status)
-		VALUES ($1,'SHIPMENT',$2,'POD','ACTIVE')`, fix.TenantID, shipmentID); err != nil {
-		t.Fatalf("pod: %v", err)
-	}
-	ctxData, err := env.repo.LoadShipmentContext(ctx, fix.TenantID, shipmentID)
+	fix.OrderID = orderID
+	fix.ShipmentID = uuid.New()
+	seedDeliveredShipment(t, env.pool, fix, "DELIVERED", true)
+	fix.PODDocumentID = seedPODDocument(t, env.pool, fix.TenantID, fix.CarrierA, fix.ShipmentID, "POD-"+fix.ShipmentID.String()[:8])
+	ctxData, err := env.repo.LoadShipmentContext(ctx, fix.TenantID, fix.ShipmentID)
 	if err != nil {
 		t.Fatalf("load context: %v", err)
 	}
 	if ctxData.BaseAmount != 108000 {
 		t.Fatalf("expected settlement principal 108000, got %v", ctxData.BaseAmount)
 	}
+}
+
+func strPtr(v string) *string {
+	return &v
 }

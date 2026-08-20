@@ -105,6 +105,38 @@ func seedFixture(t *testing.T, env *testEnv) fixture {
 			t.Fatalf("location: %v", err)
 		}
 	}
+	for _, user := range []struct {
+		id    uuid.UUID
+		email string
+	}{
+		{fix.buyer.UserID, "buyer@test.local"},
+		{fix.carrier.UserID, "carrier@test.local"},
+	} {
+		if _, err := env.pool.Exec(ctx, `INSERT INTO core.users (id, tenant_id, email, full_name) VALUES ($1,$2,$3,$4)`,
+			user.id, fix.tenantID, user.email, user.email); err != nil {
+			t.Fatalf("user: %v", err)
+		}
+	}
+	if _, err := env.pool.Exec(ctx, `INSERT INTO core.company_memberships (tenant_id, company_id, user_id) VALUES ($1,$2,$3), ($1,$4,$5)`,
+		fix.tenantID, fix.buyerCompany, fix.buyer.UserID, fix.carrierCompany, fix.carrier.UserID); err != nil {
+		t.Fatalf("membership: %v", err)
+	}
+	var buyerRoleID uuid.UUID
+	if err := env.pool.QueryRow(ctx, `SELECT id FROM core.roles WHERE tenant_id IS NULL AND code = 'PROCUREMENT_MANAGER' LIMIT 1`).Scan(&buyerRoleID); err != nil {
+		t.Fatalf("buyer role: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `INSERT INTO core.user_roles (tenant_id, user_id, company_id, role_id) VALUES ($1,$2,$3,$4)`,
+		fix.tenantID, fix.buyer.UserID, fix.buyerCompany, buyerRoleID); err != nil {
+		t.Fatalf("buyer role assign: %v", err)
+	}
+	var carrierRoleID uuid.UUID
+	if err := env.pool.QueryRow(ctx, `SELECT id FROM core.roles WHERE tenant_id IS NULL AND code = 'CARRIER_DISPATCHER' LIMIT 1`).Scan(&carrierRoleID); err != nil {
+		t.Fatalf("carrier role: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `INSERT INTO core.user_roles (tenant_id, user_id, company_id, role_id) VALUES ($1,$2,$3,$4)`,
+		fix.tenantID, fix.carrier.UserID, fix.carrierCompany, carrierRoleID); err != nil {
+		t.Fatalf("carrier role assign: %v", err)
+	}
 	return fix
 }
 
