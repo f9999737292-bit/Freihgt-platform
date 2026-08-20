@@ -1,0 +1,100 @@
+{
+  "payments": {
+    "title": "Payments",
+    "detailTitle": "Payment",
+    "loadFailed": "Failed to load payments",
+    "detailLoadFailed": "Failed to load payment",
+    "empty": "No payments found",
+    "missingCompany": "Select a company to view payments",
+    "missingActor": "No payment access for the selected company",
+    "notFound": "Payment not found or unavailable",
+    "search": "Search",
+    "searchPlaceholder": "Number, external ID or reference",
+    "statusFilter": "Status",
+    "currencyFilter": "Currency",
+    "fromDate": "From date",
+    "toDate": "To date",
+    "paymentNumber": "Payment number",
+    "externalId": "External ID",
+    "reference": "Reference",
+    "payer": "Payer",
+    "payee": "Payee",
+    "amount": "Amount",
+    "allocated": "Allocated",
+    "unallocated": "Unallocated",
+    "outstanding": "Outstanding",
+    "paymentDate": "Payment date",
+    "reconciledAt": "Reconciled at",
+    "updatedAt": "Updated",
+    "summary": "Summary",
+    "financial": "Financial state",
+    "parties": "Parties",
+    "obligations": "Payment obligations",
+    "allocations": "Allocations",
+    "audit": "History",
+    "relatedDocuments": "Related documents",
+    "billingRegister": "Register",
+    "activeAllocation": "Active",
+    "voidedAllocation": "Voided",
+    "voidedAt": "Voided at",
+    "voidReason": "Reason",
+    "createdAt": "Created",
+    "actions": {
+      "allocate": "Allocate payment",
+      "voidAllocation": "Void allocation",
+      "voidPayment": "Void payment",
+      "reconcile": "Reconcile payment",
+      "view": "Open"
+    },
+    "allocateModal": {
+      "title": "Allocate payment",
+      "obligation": "Obligation",
+      "amount": "Amount",
+      "submit": "Allocate"
+    },
+    "voidAllocationModal": {
+      "title": "Void allocation",
+      "reason": "Reason",
+      "submit": "Void"
+    },
+    "voidPaymentModal": {
+      "title": "Void payment",
+      "reason": "Reason",
+      "submit": "Void"
+    },
+    "reconcileModal": {
+      "title": "Reconcile payment",
+      "confirm": "Confirm reconciliation",
+      "message": "Reconciliation validates financial integrity on the server."
+    },
+    "success": {
+      "allocated": "Allocation completed",
+      "voidedAllocation": "Allocation voided",
+      "voidedPayment": "Payment voided",
+      "reconciled": "Payment reconciled"
+    },
+    "validation": {
+      "amountRequired": "Enter an amount",
+      "amountPositive": "Amount must be positive",
+      "reasonRequired": "Enter a reason",
+      "obligationRequired": "Select an obligation"
+    },
+    "status": {
+      "RECEIVED": "Received",
+      "PARTIALLY_ALLOCATED": "Partially allocated",
+      "FULLY_ALLOCATED": "Fully allocated",
+      "RECONCILED": "Reconciled",
+      "VOIDED": "Voided"
+    },
+    "eventType": {
+      "PAYMENT_CREATED": "Payment created",
+      "ALLOCATION_CREATED": "Allocation created",
+      "ALLOCATION_VOIDED": "Allocation voided",
+      "PAYMENT_REALLOCATED": "Payment reallocated",
+      "OBLIGATION_ALLOCATED": "Obligation allocated",
+      "OBLIGATION_REALLOCATED": "Obligation reallocated",
+      "PAYMENT_VOIDED": "Payment voided",
+      "PAYMENT_RECONCILED": "Payment reconciled"
+    }
+  }
+}

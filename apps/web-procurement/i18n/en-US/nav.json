@@ -6,6 +6,7 @@
     "carrierOrders": "Order execution",
     "buyerOrders": "Transport orders",
     "settlements": "Settlements",
-    "billingRegisters": "Billing registers"
+    "billingRegisters": "Billing registers",
+    "payments": "Payments"
   }
 }

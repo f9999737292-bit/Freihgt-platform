@@ -1,0 +1,100 @@
+{
+  "payments": {
+    "title": "付款",
+    "detailTitle": "付款",
+    "loadFailed": "无法加载付款",
+    "detailLoadFailed": "无法加载付款详情",
+    "empty": "未找到付款",
+    "missingCompany": "请选择公司以查看付款",
+    "missingActor": "所选公司无权访问付款",
+    "notFound": "未找到或无法访问付款",
+    "search": "搜索",
+    "searchPlaceholder": "编号、外部 ID 或参考",
+    "statusFilter": "状态",
+    "currencyFilter": "货币",
+    "fromDate": "起始日期",
+    "toDate": "结束日期",
+    "paymentNumber": "付款编号",
+    "externalId": "外部 ID",
+    "reference": "参考",
+    "payer": "付款方",
+    "payee": "收款方",
+    "amount": "金额",
+    "allocated": "已分配",
+    "unallocated": "未分配",
+    "outstanding": "未付余额",
+    "paymentDate": "付款日期",
+    "reconciledAt": "对账时间",
+    "updatedAt": "更新时间",
+    "summary": "摘要",
+    "financial": "财务状态",
+    "parties": "参与方",
+    "obligations": "付款义务",
+    "allocations": "分配",
+    "audit": "历史",
+    "relatedDocuments": "相关文档",
+    "billingRegister": "登记册",
+    "activeAllocation": "有效",
+    "voidedAllocation": "已作废",
+    "voidedAt": "作废时间",
+    "voidReason": "原因",
+    "createdAt": "创建时间",
+    "actions": {
+      "allocate": "分配付款",
+      "voidAllocation": "作废分配",
+      "voidPayment": "作废付款",
+      "reconcile": "对账",
+      "view": "打开"
+    },
+    "allocateModal": {
+      "title": "分配付款",
+      "obligation": "义务",
+      "amount": "金额",
+      "submit": "分配"
+    },
+    "voidAllocationModal": {
+      "title": "作废分配",
+      "reason": "原因",
+      "submit": "作废"
+    },
+    "voidPaymentModal": {
+      "title": "作废付款",
+      "reason": "原因",
+      "submit": "作废"
+    },
+    "reconcileModal": {
+      "title": "对账",
+      "confirm": "确认对账",
+      "message": "对账将在服务器上验证财务完整性。"
+    },
+    "success": {
+      "allocated": "分配完成",
+      "voidedAllocation": "分配已作废",
+      "voidedPayment": "付款已作废",
+      "reconciled": "付款已对账"
+    },
+    "validation": {
+      "amountRequired": "请输入金额",
+      "amountPositive": "金额必须为正数",
+      "reasonRequired": "请输入原因",
+      "obligationRequired": "请选择义务"
+    },
+    "status": {
+      "RECEIVED": "已收到",
+      "PARTIALLY_ALLOCATED": "部分分配",
+      "FULLY_ALLOCATED": "全部分配",
+      "RECONCILED": "已对账",
+      "VOIDED": "已作废"
+    },
+    "eventType": {
+      "PAYMENT_CREATED": "付款已创建",
+      "ALLOCATION_CREATED": "分配已创建",
+      "ALLOCATION_VOIDED": "分配已作废",
+      "PAYMENT_REALLOCATED": "付款重新分配",
+      "OBLIGATION_ALLOCATED": "义务已分配",
+      "OBLIGATION_REALLOCATED": "义务重新分配",
+      "PAYMENT_VOIDED": "付款已作废",
+      "PAYMENT_RECONCILED": "付款已对账"
+    }
+  }
+}

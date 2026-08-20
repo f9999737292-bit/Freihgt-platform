@@ -15,6 +15,24 @@ const CARRIER_TENDER_ROLES = [
   'CARRIER_DISPATCHER',
 ] as const
 
+const PAYMENT_READ_ROLES = [
+  'PLATFORM_ADMIN',
+  'SHIPPER_ADMIN',
+  'SHIPPER_LOGIST',
+  'FINANCE_MANAGER',
+  'FORWARDER_MANAGER',
+  'CARRIER_ADMIN',
+  'CARRIER_ACCOUNTANT',
+] as const
+
+const PAYMENT_WRITE_ROLES = [
+  'PLATFORM_ADMIN',
+  'SHIPPER_ADMIN',
+  'FINANCE_MANAGER',
+  'CARRIER_ADMIN',
+  'CARRIER_ACCOUNTANT',
+] as const
+
 function currentUser(): AuthUser | null {
   return useAuthStore().user
 }
@@ -69,6 +87,14 @@ export function usePermissions() {
     return canReadCarrierTenders()
   }
 
+  function canReadPayments(): boolean {
+    return isPlatformAdmin() || hasAnyRole(PAYMENT_READ_ROLES)
+  }
+
+  function canWritePayments(): boolean {
+    return isPlatformAdmin() || hasAnyRole(PAYMENT_WRITE_ROLES)
+  }
+
   return {
     hasAnyRole,
     isPlatformAdmin,
@@ -79,5 +105,7 @@ export function usePermissions() {
     isProcurementRole,
     canReadCarrierTenders,
     isCarrierRole,
+    canReadPayments,
+    canWritePayments,
   }
 }
