@@ -6087,6 +6087,13 @@ paths:
         - $ref: '#/components/parameters/XCompanyID'
         - $ref: '#/components/parameters/XLocale'
         - $ref: '#/components/parameters/Authorization'
+        - name: company_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Active company context requested by the authenticated user. The gateway validates membership and derives trusted internal company/actor context.
       security:
         - bearerAuth: []
       responses:
@@ -6151,6 +6158,13 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: company_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Active company context requested by the authenticated user. The gateway validates membership and derives trusted internal company/actor context.
       security:
         - bearerAuth: []
       responses:
@@ -6215,6 +6229,13 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: company_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Active company context requested by the authenticated user. The gateway validates membership and derives trusted internal company/actor context.
       requestBody:
         required: true
         content:
@@ -6280,6 +6301,13 @@ paths:
         - $ref: '#/components/parameters/XCompanyID'
         - $ref: '#/components/parameters/XLocale'
         - $ref: '#/components/parameters/Authorization'
+        - name: company_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Active company context requested by the authenticated user. The gateway validates membership and derives trusted internal company/actor context.
       requestBody:
         required: true
         content:
@@ -6465,6 +6493,13 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: company_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Active company context requested by the authenticated user. The gateway validates membership and derives trusted internal company/actor context.
       security:
         - bearerAuth: []
       responses:
@@ -6473,8 +6508,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                $ref: '#/components/schemas/PaymentRecord'
         '400':
           description: Validation error
           content:
@@ -6613,6 +6647,13 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: company_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Active company context requested by the authenticated user. The gateway validates membership and derives trusted internal company/actor context.
       requestBody:
         required: true
         content:
@@ -6859,6 +6900,13 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: company_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Active company context requested by the authenticated user. The gateway validates membership and derives trusted internal company/actor context.
       security:
         - bearerAuth: []
       responses:
@@ -6927,6 +6975,13 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: company_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Active company context requested by the authenticated user. The gateway validates membership and derives trusted internal company/actor context.
       requestBody:
         required: true
         content:
@@ -7001,6 +7056,13 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: company_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Active company context requested by the authenticated user. The gateway validates membership and derives trusted internal company/actor context.
       requestBody:
         required: true
         content:

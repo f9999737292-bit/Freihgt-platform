@@ -121,7 +121,7 @@ var endpoints = []endpoint{
 	{"/api/v1/payment-obligations/{id}/due-date", "patch", "Update payment obligation due date", "Payment Obligations", true, true, ""},
 	{"/api/v1/payments", "post", "Create manual payment", "Payments", true, true, ""},
 	{"/api/v1/payments", "get", "List payments", "Payments", true, true, "payment_list"},
-	{"/api/v1/payments/{id}", "get", "Get payment by ID", "Payments", true, true, ""},
+	{"/api/v1/payments/{id}", "get", "Get payment by ID", "Payments", true, true, "payment_detail"},
 	{"/api/v1/payments/{id}/allocations", "get", "List payment allocations", "Payments", true, true, "payment_allocations_list"},
 	{"/api/v1/payments/{id}/allocations", "post", "Allocate payment to obligation", "Payments", true, true, ""},
 	{"/api/v1/payments/{id}/audit-events", "get", "List payment audit events", "Payments", true, true, "payment_audit_list"},
@@ -154,9 +154,26 @@ var noRequestBodyProfiles = map[string]struct{}{
 
 var readResponseSchemas = map[string]string{
 	"payment_list":                       "PaymentListResponse",
+	"payment_detail":                     "PaymentRecord",
 	"payment_allocations_list":           "PaymentAllocationListResponse",
 	"payment_audit_list":                 "PaymentAuditEventListResponse",
 	"payment_eligible_obligations_list": "EligiblePaymentObligationListResponse",
+}
+
+var paymentGuardOperations = map[string]struct{}{
+	"get /api/v1/payment-obligations":                      {},
+	"get /api/v1/payment-obligations/{id}":                 {},
+	"patch /api/v1/payment-obligations/{id}/due-date":      {},
+	"post /api/v1/payments":                                {},
+	"get /api/v1/payments":                                 {},
+	"get /api/v1/payments/{id}":                            {},
+	"get /api/v1/payments/{id}/allocations":                {},
+	"get /api/v1/payments/{id}/audit-events":               {},
+	"get /api/v1/payments/{id}/eligible-obligations":       {},
+	"post /api/v1/payments/{id}/allocations":               {},
+	"post /api/v1/payments/{id}/reconcile":                 {},
+	"post /api/v1/payment-allocations/{id}/void":           {},
+	"post /api/v1/payments/{id}/void":                      {},
 }
 
 var paymentDetailListQueryProfiles = map[string]struct{}{
@@ -328,23 +345,34 @@ func paymentListFilterQueryLines() []string {
 	}
 }
 
-func queryParameterLines(profile string) []string {
-	switch profile {
-	case "payment_list":
-		lines := companyIDQueryLines()
-		lines = append(lines, paymentListFilterQueryLines()...)
-		return append(lines, paginationQueryLines()...)
-	default:
-		if _, ok := paymentDetailListQueryProfiles[profile]; ok {
-			lines := companyIDQueryLines()
-			return append(lines, paginationQueryLines()...)
-		}
-	}
-	return nil
+func paymentGuardOperationKey(method, path string) string {
+	return method + " " + path
 }
 
-func renderParameters(path string, withHeaders bool, profile string) string {
-	queryLines := queryParameterLines(profile)
+func isPaymentGuardOperation(method, path string) bool {
+	_, ok := paymentGuardOperations[paymentGuardOperationKey(method, path)]
+	return ok
+}
+
+func queryParameterLines(method, path, profile string) []string {
+	var lines []string
+	if isPaymentGuardOperation(method, path) {
+		lines = append(lines, companyIDQueryLines()...)
+	}
+	switch profile {
+	case "payment_list":
+		lines = append(lines, paymentListFilterQueryLines()...)
+		lines = append(lines, paginationQueryLines()...)
+	default:
+		if _, ok := paymentDetailListQueryProfiles[profile]; ok {
+			lines = append(lines, paginationQueryLines()...)
+		}
+	}
+	return lines
+}
+
+func renderParameters(path, method string, withHeaders bool, profile string) string {
+	queryLines := queryParameterLines(method, path, profile)
 	pathParams := pathParamPattern.FindAllStringSubmatch(path, -1)
 	if !withHeaders && len(queryLines) == 0 {
 		return ""
@@ -417,8 +445,8 @@ func renderOperation(path string, e endpoint) string {
 			}
 		}
 	}
-	if e.withHeaders || len(queryParameterLines(e.profile)) > 0 {
-		params := renderParameters(path, e.withHeaders, e.profile)
+	if e.withHeaders || len(queryParameterLines(e.method, path, e.profile)) > 0 {
+		params := renderParameters(path, e.method, e.withHeaders, e.profile)
 		if params != "" {
 			sb.WriteString(params)
 		}

@@ -183,7 +183,7 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/payment-obligations/{id}/due-date", "patch", "Update payment obligation due date", "Payment Obligations", True, True, None),
     ("/api/v1/payments", "post", "Create manual payment", "Payments", True, True, None),
     ("/api/v1/payments", "get", "List payments", "Payments", True, True, "payment_list"),
-    ("/api/v1/payments/{id}", "get", "Get payment by ID", "Payments", True, True, None),
+    ("/api/v1/payments/{id}", "get", "Get payment by ID", "Payments", True, True, "payment_detail"),
     ("/api/v1/payments/{id}/allocations", "get", "List payment allocations", "Payments", True, True, "payment_allocations_list"),
     ("/api/v1/payments/{id}/allocations", "post", "Allocate payment to obligation", "Payments", True, True, None),
     ("/api/v1/payments/{id}/audit-events", "get", "List payment audit events", "Payments", True, True, "payment_audit_list"),
@@ -230,10 +230,28 @@ NO_REQUEST_BODY_PROFILES = frozenset({"reconcile_payment"})
 
 READ_RESPONSE_SCHEMAS = {
     "payment_list": "PaymentListResponse",
+    "payment_detail": "PaymentRecord",
     "payment_allocations_list": "PaymentAllocationListResponse",
     "payment_audit_list": "PaymentAuditEventListResponse",
     "payment_eligible_obligations_list": "EligiblePaymentObligationListResponse",
 }
+
+# Public routes protected by paymentGuard / companycontext.Enforcer (router.go).
+PAYMENT_GUARD_OPERATIONS = frozenset({
+    ("get", "/api/v1/payment-obligations"),
+    ("get", "/api/v1/payment-obligations/{id}"),
+    ("patch", "/api/v1/payment-obligations/{id}/due-date"),
+    ("post", "/api/v1/payments"),
+    ("get", "/api/v1/payments"),
+    ("get", "/api/v1/payments/{id}"),
+    ("get", "/api/v1/payments/{id}/allocations"),
+    ("get", "/api/v1/payments/{id}/audit-events"),
+    ("get", "/api/v1/payments/{id}/eligible-obligations"),
+    ("post", "/api/v1/payments/{id}/allocations"),
+    ("post", "/api/v1/payments/{id}/reconcile"),
+    ("post", "/api/v1/payment-allocations/{id}/void"),
+    ("post", "/api/v1/payments/{id}/void"),
+})
 
 PAYMENT_DETAIL_LIST_QUERY_PROFILES = frozenset({
     "payment_allocations_list",
@@ -332,16 +350,20 @@ def _payment_list_filter_query_lines() -> list[str]:
     ]
 
 
-def query_parameter_lines(profile: str | None) -> list[str]:
+def query_parameter_lines(method: str, path: str, profile: str | None) -> list[str]:
+    lines: list[str] = []
+    if (method, path) in PAYMENT_GUARD_OPERATIONS:
+        lines.extend(_company_id_query_lines())
     if profile == "payment_list":
-        return _company_id_query_lines() + _payment_list_filter_query_lines() + _pagination_query_lines()
-    if profile in PAYMENT_DETAIL_LIST_QUERY_PROFILES:
-        return _company_id_query_lines() + _pagination_query_lines()
-    return []
+        lines.extend(_payment_list_filter_query_lines())
+        lines.extend(_pagination_query_lines())
+    elif profile in PAYMENT_DETAIL_LIST_QUERY_PROFILES:
+        lines.extend(_pagination_query_lines())
+    return lines
 
 
-def render_parameters(path: str, with_headers: bool, profile: str | None) -> str:
-    query_lines = query_parameter_lines(profile)
+def render_parameters(path: str, method: str, with_headers: bool, profile: str | None) -> str:
+    query_lines = query_parameter_lines(method, path, profile)
     path_params = re.findall(r"\{([^}]+)\}", path)
     if not with_headers and not query_lines:
         return ""
@@ -386,7 +408,7 @@ def render_operation(
         for desc_line in RECONCILE_DESCRIPTIONS[profile].splitlines():
             lines.append(f"        {desc_line}")
 
-    parameters = render_parameters(path, with_headers, profile)
+    parameters = render_parameters(path, method, with_headers, profile)
     if parameters:
         lines.append(parameters.rstrip("\n"))
     elif with_headers:

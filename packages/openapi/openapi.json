@@ -10676,6 +10676,16 @@
           },
           {
             "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "name": "company_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Active company context requested by the authenticated user. The gateway validates membership and derives trusted internal company/actor context."
           }
         ],
         "security": [
@@ -10789,6 +10799,16 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "company_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Active company context requested by the authenticated user. The gateway validates membership and derives trusted internal company/actor context."
           }
         ],
         "security": [
@@ -10902,6 +10922,16 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "company_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Active company context requested by the authenticated user. The gateway validates membership and derives trusted internal company/actor context."
           }
         ],
         "requestBody": {
@@ -11017,6 +11047,16 @@
           },
           {
             "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "name": "company_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Active company context requested by the authenticated user. The gateway validates membership and derives trusted internal company/actor context."
           }
         ],
         "requestBody": {
@@ -11325,6 +11365,16 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "company_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Active company context requested by the authenticated user. The gateway validates membership and derives trusted internal company/actor context."
           }
         ],
         "security": [
@@ -11338,8 +11388,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/PaymentRecord"
                 }
               }
             }
@@ -11579,6 +11628,16 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "company_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Active company context requested by the authenticated user. The gateway validates membership and derives trusted internal company/actor context."
           }
         ],
         "requestBody": {
@@ -11990,6 +12049,16 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "company_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Active company context requested by the authenticated user. The gateway validates membership and derives trusted internal company/actor context."
           }
         ],
         "security": [
@@ -12104,6 +12173,16 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "company_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Active company context requested by the authenticated user. The gateway validates membership and derives trusted internal company/actor context."
           }
         ],
         "requestBody": {
@@ -12228,6 +12307,16 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "company_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Active company context requested by the authenticated user. The gateway validates membership and derives trusted internal company/actor context."
           }
         ],
         "requestBody": {
