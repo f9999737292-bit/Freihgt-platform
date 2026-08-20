@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/shopspring/decimal"
 
 	"github.com/freight-platform/payment-service/internal/domain"
 )
@@ -95,65 +96,99 @@ func paymentListWhereClause(tenantID uuid.UUID, actor domain.PaymentActorInput, 
 	return strings.Join(clauses, " AND "), args
 }
 
+const allocationReadSelectCols = `
+	a.id, a.tenant_id, a.payment_id, a.obligation_id, a.allocated_amount, a.currency_code,
+	a.created_by, a.created_at, a.voided_at, a.voided_by, a.void_reason,
+	o.obligation_number, o.status, o.source_type, o.source_id, o.outstanding_amount`
+
 func (r *PaymentRepository) ListAllocationsByPaymentID(
 	ctx context.Context,
 	tenantID, paymentID uuid.UUID,
 	limit, offset int,
-) ([]domain.PaymentAllocation, error) {
-	if limit <= 0 {
-		limit = 20
+) (domain.AllocationListResult, error) {
+	limit, offset = domain.NormalizeListPagination(limit, offset)
+	countQuery := `SELECT COUNT(*) FROM billing.payment_allocations WHERE tenant_id = $1 AND payment_id = $2`
+	var total int
+	if err := r.pool.QueryRow(ctx, countQuery, tenantID, paymentID).Scan(&total); err != nil {
+		return domain.AllocationListResult{}, mapDBError(err)
 	}
-	if limit > domain.MaxPaymentListLimit {
-		limit = domain.MaxPaymentListLimit
-	}
-	if offset < 0 {
-		offset = 0
-	}
-	query := `SELECT ` + allocationSelectCols + `
-		FROM billing.payment_allocations
-		WHERE tenant_id = $1 AND payment_id = $2
-		ORDER BY created_at DESC, id DESC
+
+	query := `SELECT ` + allocationReadSelectCols + `
+		FROM billing.payment_allocations a
+		LEFT JOIN billing.payment_obligations o
+			ON o.id = a.obligation_id AND o.tenant_id = a.tenant_id
+		WHERE a.tenant_id = $1 AND a.payment_id = $2
+		ORDER BY a.created_at DESC, a.id DESC
 		LIMIT $3 OFFSET $4`
 	rows, err := r.pool.Query(ctx, query, tenantID, paymentID, limit, offset)
 	if err != nil {
-		return nil, mapDBError(err)
+		return domain.AllocationListResult{}, mapDBError(err)
 	}
 	defer rows.Close()
-	result := make([]domain.PaymentAllocation, 0)
+	result := make([]domain.PaymentAllocationRead, 0)
 	for rows.Next() {
-		alloc, err := scanAllocation(rows)
+		alloc, err := scanAllocationRead(rows)
 		if err != nil {
-			return nil, err
+			return domain.AllocationListResult{}, err
 		}
 		result = append(result, *alloc)
 	}
-	return result, rows.Err()
+	if err := rows.Err(); err != nil {
+		return domain.AllocationListResult{}, mapDBError(err)
+	}
+	return domain.AllocationListResult{
+		Items:  result,
+		Total:  total,
+		Limit:  limit,
+		Offset: offset,
+	}, nil
 }
 
-func (r *PaymentRepository) ListEligibleObligationsForPayment(
-	ctx context.Context,
+func scanAllocationRead(row pgx.Row) (*domain.PaymentAllocationRead, error) {
+	var read domain.PaymentAllocationRead
+	var amount string
+	var obligationNumber, obligationStatus, obligationSourceType *string
+	var obligationSourceID *uuid.UUID
+	var outstanding *string
+	if err := row.Scan(
+		&read.ID, &read.TenantID, &read.PaymentID, &read.ObligationID, &amount, &read.CurrencyCode,
+		&read.CreatedBy, &read.CreatedAt, &read.VoidedAt, &read.VoidedBy, &read.VoidReason,
+		&obligationNumber, &obligationStatus, &obligationSourceType, &obligationSourceID, &outstanding,
+	); err != nil {
+		return nil, mapDBError(err)
+	}
+	parsedAmount, err := decimal.NewFromString(amount)
+	if err != nil {
+		return nil, err
+	}
+	read.AllocatedAmount = parsedAmount
+	read.ObligationNumber = obligationNumber
+	read.ObligationStatus = obligationStatus
+	read.ObligationSourceType = obligationSourceType
+	read.ObligationSourceID = obligationSourceID
+	if outstanding != nil && *outstanding != "" {
+		parsedOutstanding, parseErr := decimal.NewFromString(*outstanding)
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		read.ObligationOutstandingAmount = &parsedOutstanding
+	}
+	return &read, nil
+}
+
+func eligibleObligationsWhere(
 	tenantID uuid.UUID,
 	payment *domain.Payment,
 	actor domain.PaymentActorInput,
-	limit, offset int,
-) ([]domain.PaymentObligation, error) {
-	if limit <= 0 {
-		limit = 20
+) (string, []any) {
+	clauses := []string{
+		"tenant_id = $1",
+		"payer_company_id = $2",
+		"payee_company_id = $3",
+		"currency_code = $4",
+		"status IN ($5, $6)",
+		"outstanding_amount > 0",
 	}
-	if limit > domain.MaxPaymentListLimit {
-		limit = domain.MaxPaymentListLimit
-	}
-	if offset < 0 {
-		offset = 0
-	}
-	query := `SELECT ` + obligationSelectCols + `
-		FROM billing.payment_obligations
-		WHERE tenant_id = $1
-			AND payer_company_id = $2
-			AND payee_company_id = $3
-			AND currency_code = $4
-			AND status IN ($5, $6)
-			AND outstanding_amount > 0`
 	args := []any{
 		tenantID,
 		payment.PayerCompanyID,
@@ -164,48 +199,61 @@ func (r *PaymentRepository) ListEligibleObligationsForPayment(
 	}
 	switch actor.ActorKind {
 	case domain.PaymentActorBuyer:
-		query += ` AND payer_company_id = $7`
 		args = append(args, actor.ActorCompanyID)
+		clauses = append(clauses, fmt.Sprintf("payer_company_id = $%d", len(args)))
 	case domain.PaymentActorCarrier:
-		query += ` AND payee_company_id = $7`
 		args = append(args, actor.ActorCompanyID)
+		clauses = append(clauses, fmt.Sprintf("payee_company_id = $%d", len(args)))
 	}
-	query += ` ORDER BY created_at DESC LIMIT $8 OFFSET $9`
-	args = append(args, limit, offset)
-	rows, err := r.pool.Query(ctx, query, args...)
+	return strings.Join(clauses, " AND "), args
+}
+
+func (r *PaymentRepository) ListEligibleObligationsForPayment(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	payment *domain.Payment,
+	actor domain.PaymentActorInput,
+	limit, offset int,
+) (domain.ObligationListResult, error) {
+	limit, offset = domain.NormalizeListPagination(limit, offset)
+	where, args := eligibleObligationsWhere(tenantID, payment, actor)
+	countQuery := `SELECT COUNT(*) FROM billing.payment_obligations WHERE ` + where
+	var total int
+	if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+		return domain.ObligationListResult{}, mapDBError(err)
+	}
+
+	listArgs := append(append([]any{}, args...), limit, offset)
+	listQuery := fmt.Sprintf(
+		`SELECT %s FROM billing.payment_obligations WHERE %s ORDER BY created_at DESC, id DESC LIMIT $%d OFFSET $%d`,
+		obligationSelectCols, where, len(args)+1, len(args)+2,
+	)
+	rows, err := r.pool.Query(ctx, listQuery, listArgs...)
 	if err != nil {
-		return nil, mapDBError(err)
+		return domain.ObligationListResult{}, mapDBError(err)
 	}
 	defer rows.Close()
 	result := make([]domain.PaymentObligation, 0)
 	for rows.Next() {
 		o, err := scanObligation(rows)
 		if err != nil {
-			return nil, err
+			return domain.ObligationListResult{}, err
 		}
 		result = append(result, *o)
 	}
-	return result, rows.Err()
+	if err := rows.Err(); err != nil {
+		return domain.ObligationListResult{}, mapDBError(err)
+	}
+	return domain.ObligationListResult{
+		Items:  result,
+		Total:  total,
+		Limit:  limit,
+		Offset: offset,
+	}, nil
 }
 
-func (r *PaymentRepository) ListPaymentAuditEvents(
-	ctx context.Context,
-	tenantID, paymentID uuid.UUID,
-	limit, offset int,
-) ([]domain.PaymentAuditEvent, error) {
-	if limit <= 0 {
-		limit = 20
-	}
-	if limit > domain.MaxPaymentListLimit {
-		limit = domain.MaxPaymentListLimit
-	}
-	if offset < 0 {
-		offset = 0
-	}
-	const query = `
-		SELECT id, tenant_id, entity_type, entity_id, event_type, actor_user_id, actor_company_id, payload, created_at
-		FROM billing.payment_audit_events
-		WHERE tenant_id = $1 AND (
+func paymentAuditEventsScopeSQL() string {
+	return `tenant_id = $1 AND (
 			(entity_type = 'PAYMENT' AND entity_id = $2)
 			OR (entity_type = 'PAYMENT_ALLOCATION' AND entity_id IN (
 				SELECT id FROM billing.payment_allocations WHERE tenant_id = $1 AND payment_id = $2
@@ -213,23 +261,49 @@ func (r *PaymentRepository) ListPaymentAuditEvents(
 			OR (entity_type = 'PAYMENT_OBLIGATION' AND entity_id IN (
 				SELECT DISTINCT obligation_id FROM billing.payment_allocations WHERE tenant_id = $1 AND payment_id = $2
 			))
-		)
+		)`
+}
+
+func (r *PaymentRepository) ListPaymentAuditEvents(
+	ctx context.Context,
+	tenantID, paymentID uuid.UUID,
+	limit, offset int,
+) (domain.PaymentAuditEventListResult, error) {
+	limit, offset = domain.NormalizeListPagination(limit, offset)
+	countQuery := `SELECT COUNT(*) FROM billing.payment_audit_events WHERE ` + paymentAuditEventsScopeSQL()
+	var total int
+	if err := r.pool.QueryRow(ctx, countQuery, tenantID, paymentID).Scan(&total); err != nil {
+		return domain.PaymentAuditEventListResult{}, mapDBError(err)
+	}
+
+	query := fmt.Sprintf(`
+		SELECT id, tenant_id, entity_type, entity_id, event_type, actor_user_id, actor_company_id, payload, created_at
+		FROM billing.payment_audit_events
+		WHERE %s
 		ORDER BY created_at DESC, id DESC
-		LIMIT $3 OFFSET $4`
+		LIMIT $3 OFFSET $4`, paymentAuditEventsScopeSQL())
 	rows, err := r.pool.Query(ctx, query, tenantID, paymentID, limit, offset)
 	if err != nil {
-		return nil, mapDBError(err)
+		return domain.PaymentAuditEventListResult{}, mapDBError(err)
 	}
 	defer rows.Close()
 	result := make([]domain.PaymentAuditEvent, 0)
 	for rows.Next() {
 		event, err := scanPaymentAuditEvent(rows)
 		if err != nil {
-			return nil, err
+			return domain.PaymentAuditEventListResult{}, err
 		}
 		result = append(result, event)
 	}
-	return result, rows.Err()
+	if err := rows.Err(); err != nil {
+		return domain.PaymentAuditEventListResult{}, mapDBError(err)
+	}
+	return domain.PaymentAuditEventListResult{
+		Items:  result,
+		Total:  total,
+		Limit:  limit,
+		Offset: offset,
+	}, nil
 }
 
 func scanPaymentAuditEvent(row pgx.Row) (domain.PaymentAuditEvent, error) {

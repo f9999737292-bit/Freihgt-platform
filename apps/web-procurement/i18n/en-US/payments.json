@@ -5,6 +5,8 @@
     "loadFailed": "Failed to load payments",
     "detailLoadFailed": "Failed to load payment",
     "empty": "No payments found",
+    "loadMore": "Load more",
+    "loadMoreEligible": "Load more obligations",
     "missingCompany": "Select a company to view payments",
     "missingActor": "No payment access for the selected company",
     "notFound": "Payment not found or unavailable",

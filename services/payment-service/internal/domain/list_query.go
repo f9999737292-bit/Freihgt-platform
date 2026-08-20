@@ -26,6 +26,40 @@ type PaymentListResult struct {
 	Offset int
 }
 
+type AllocationListResult struct {
+	Items  []PaymentAllocationRead
+	Total  int
+	Limit  int
+	Offset int
+}
+
+type ObligationListResult struct {
+	Items  []PaymentObligation
+	Total  int
+	Limit  int
+	Offset int
+}
+
+type PaymentAuditEventListResult struct {
+	Items  []PaymentAuditEvent
+	Total  int
+	Limit  int
+	Offset int
+}
+
+func NormalizeListPagination(limit, offset int) (int, int) {
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > MaxPaymentListLimit {
+		limit = MaxPaymentListLimit
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	return limit, offset
+}
+
 type PaymentAuditEvent struct {
 	ID             string
 	TenantID       string

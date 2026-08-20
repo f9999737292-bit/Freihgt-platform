@@ -19,6 +19,16 @@ import {
   paymentStatusLabelKey,
   resolvePaymentActor,
 } from '~/utils/payment'
+import {
+  appendPageItems,
+  billingRegisterLinkFromAllocation,
+  fetchAllocationsPage,
+  fetchAuditPage,
+  fetchEligiblePage,
+  fetchPaymentDetailInitial,
+  obligationLabelFromAllocation,
+  PAYMENT_DETAIL_PAGE_SIZE,
+} from '~/utils/paymentWorkspaceFlow'
 import { ApiError } from '~/utils/apiClient'
 import { formatDateTime } from '~/utils/format'
 import { isApiUnavailableError, shouldShowNotFound } from '~/utils/apiError'
@@ -26,17 +36,15 @@ import { isApiUnavailableError, shouldShowNotFound } from '~/utils/apiError'
 definePageMeta({ middleware: 'auth', layout: 'default' })
 
 const route = useRoute()
+const paymentsApi = usePaymentsApi()
 const {
-  getPayment,
-  getObligation,
   listAllocations,
   listEligibleObligations,
-  listAuditEvents,
   allocate,
   voidAllocation,
   voidPayment,
   reconcilePayment,
-} = usePaymentsApi()
+} = paymentsApi
 const { getUserCompanies } = useCompanies()
 const { currentCompanyId } = useTenantContext()
 const { canWritePayments } = usePermissions()
@@ -47,11 +55,15 @@ const { t } = useI18n()
 const paymentId = computed(() => String(route.params.id))
 const payment = ref<PaymentRecord | null>(null)
 const allocations = ref<PaymentAllocationRecord[]>([])
-const obligationsById = ref<Record<string, PaymentObligationRecord>>({})
+const allocationsTotal = ref(0)
 const auditEvents = ref<PaymentAuditEventRecord[]>([])
+const auditTotal = ref(0)
 const memberships = ref<UserCompanyMembership[]>([])
 const actor = ref<PaymentActor | null>(null)
 const loading = ref(true)
+const loadingAllocationsMore = ref(false)
+const loadingAuditMore = ref(false)
+const loadingEligibleMore = ref(false)
 const acting = ref(false)
 const notFound = ref(false)
 const apiUnavailable = ref(false)
@@ -62,6 +74,7 @@ const showVoidPaymentModal = ref(false)
 const showReconcileModal = ref(false)
 const selectedAllocationId = ref('')
 const eligibleObligations = ref<PaymentObligationRecord[]>([])
+const eligibleTotal = ref(0)
 const allocateForm = reactive({ obligationId: '', amount: '' })
 const voidReason = ref('')
 
@@ -69,6 +82,9 @@ const canWrite = computed(() => canWritePayments() && !!actor.value)
 const showAllocate = computed(() => canWrite.value && canShowAllocateAction(payment.value))
 const showVoidPayment = computed(() => canWrite.value && canShowVoidPaymentAction(payment.value))
 const showReconcile = computed(() => canWrite.value && canShowReconcileAction(payment.value))
+const hasMoreAllocations = computed(() => allocations.value.length < allocationsTotal.value)
+const hasMoreAudit = computed(() => auditEvents.value.length < auditTotal.value)
+const hasMoreEligible = computed(() => eligibleObligations.value.length < eligibleTotal.value)
 
 async function loadMemberships() {
   if (!authStore.user?.id) {
@@ -90,28 +106,23 @@ async function loadDetail() {
       payment.value = null
       return
     }
-    payment.value = await getPayment(paymentId.value)
-    allocations.value = await listAllocations(paymentId.value)
-    auditEvents.value = await listAuditEvents(paymentId.value)
+    const snapshot = await fetchPaymentDetailInitial(paymentsApi, paymentId.value, false)
+    payment.value = snapshot.payment
+    allocations.value = snapshot.allocations
+    allocationsTotal.value = snapshot.allocationsTotal
+    auditEvents.value = snapshot.auditEvents
+    auditTotal.value = snapshot.auditTotal
     if (showAllocate.value) {
-      eligibleObligations.value = await listEligibleObligations(paymentId.value)
+      const eligiblePage = await listEligibleObligations(paymentId.value, {
+        limit: PAYMENT_DETAIL_PAGE_SIZE,
+        offset: 0,
+      })
+      eligibleObligations.value = eligiblePage.items
+      eligibleTotal.value = eligiblePage.total
     } else {
       eligibleObligations.value = []
+      eligibleTotal.value = 0
     }
-    const obligationIds = [...new Set(allocations.value.map((a) => a.obligation_id))]
-    const obligationEntries = await Promise.all(
-      obligationIds.map(async (id) => {
-        try {
-          const obligation = await getObligation(id)
-          return [id, obligation] as const
-        } catch {
-          return null
-        }
-      }),
-    )
-    obligationsById.value = Object.fromEntries(
-      obligationEntries.filter((entry): entry is [string, PaymentObligationRecord] => entry !== null),
-    )
   } catch (error) {
     payment.value = null
     allocations.value = []
@@ -123,6 +134,48 @@ async function loadDetail() {
     }
   } finally {
     loading.value = false
+  }
+}
+
+async function loadMoreAllocations() {
+  if (loadingAllocationsMore.value || !hasMoreAllocations.value) return
+  loadingAllocationsMore.value = true
+  try {
+    const page = await fetchAllocationsPage(paymentsApi, paymentId.value, allocations.value.length)
+    allocations.value = appendPageItems(allocations.value, page)
+    allocationsTotal.value = page.total
+  } catch (error) {
+    pushToast('error', error instanceof Error ? error.message : t('common.error'))
+  } finally {
+    loadingAllocationsMore.value = false
+  }
+}
+
+async function loadMoreAudit() {
+  if (loadingAuditMore.value || !hasMoreAudit.value) return
+  loadingAuditMore.value = true
+  try {
+    const page = await fetchAuditPage(paymentsApi, paymentId.value, auditEvents.value.length)
+    auditEvents.value = appendPageItems(auditEvents.value, page)
+    auditTotal.value = page.total
+  } catch (error) {
+    pushToast('error', error instanceof Error ? error.message : t('common.error'))
+  } finally {
+    loadingAuditMore.value = false
+  }
+}
+
+async function loadMoreEligible() {
+  if (loadingEligibleMore.value || !hasMoreEligible.value) return
+  loadingEligibleMore.value = true
+  try {
+    const page = await fetchEligiblePage(paymentsApi, paymentId.value, eligibleObligations.value.length)
+    eligibleObligations.value = appendPageItems(eligibleObligations.value, page)
+    eligibleTotal.value = page.total
+  } catch (error) {
+    pushToast('error', error instanceof Error ? error.message : t('common.error'))
+  } finally {
+    loadingEligibleMore.value = false
   }
 }
 
@@ -208,20 +261,6 @@ function submitReconcile() {
   )
 }
 
-function obligationLabel(obligationId: string) {
-  const obligation = obligationsById.value[obligationId]
-  if (!obligation) return obligationId.slice(0, 8) + '…'
-  return obligation.obligation_number
-}
-
-function billingRegisterLink(obligationId: string) {
-  const obligation = obligationsById.value[obligationId]
-  if (obligation?.source_type === 'BILLING_REGISTER' && obligation.source_id) {
-    return `/billing-registers/${obligation.source_id}`
-  }
-  return null
-}
-
 function auditLabel(eventType: string) {
   const key = `payments.eventType.${eventType}`
   const translated = t(key)
@@ -301,7 +340,7 @@ watch(currentCompanyId, loadDetail, { immediate: true })
             ]"
           >
             <tr v-for="allocation in allocations" :key="allocation.id">
-              <td>{{ obligationLabel(allocation.obligation_id) }}</td>
+              <td>{{ obligationLabelFromAllocation(allocation) }}</td>
               <td>{{ formatPaymentMoney(allocation.allocated_amount, allocation.currency_code) }}</td>
               <td>
                 <Badge
@@ -326,6 +365,11 @@ watch(currentCompanyId, loadDetail, { immediate: true })
             </tr>
           </Table>
         </div>
+        <div v-if="hasMoreAllocations" class="load-more-row">
+          <Button variant="secondary" :disabled="loadingAllocationsMore" @click="loadMoreAllocations">
+            {{ loadingAllocationsMore ? t('common.loading') : t('payments.loadMore') }}
+          </Button>
+        </div>
       </Card>
 
       <Card>
@@ -337,14 +381,19 @@ watch(currentCompanyId, loadDetail, { immediate: true })
             <span class="muted">{{ formatDateTime(event.created_at) }}</span>
           </li>
         </ul>
+        <div v-if="hasMoreAudit" class="load-more-row">
+          <Button variant="secondary" :disabled="loadingAuditMore" @click="loadMoreAudit">
+            {{ loadingAuditMore ? t('common.loading') : t('payments.loadMore') }}
+          </Button>
+        </div>
       </Card>
 
-      <Card v-if="allocations.some((a) => billingRegisterLink(a.obligation_id))">
+      <Card v-if="allocations.some((a) => billingRegisterLinkFromAllocation(a))">
         <h2>{{ t('payments.relatedDocuments') }}</h2>
         <ul>
           <li v-for="allocation in allocations" :key="`link-${allocation.id}`">
-            <NuxtLink v-if="billingRegisterLink(allocation.obligation_id)" :to="billingRegisterLink(allocation.obligation_id)!">
-              {{ t('payments.billingRegister') }} — {{ obligationLabel(allocation.obligation_id) }}
+            <NuxtLink v-if="billingRegisterLinkFromAllocation(allocation)" :to="billingRegisterLinkFromAllocation(allocation)!">
+              {{ t('payments.billingRegister') }} — {{ obligationLabelFromAllocation(allocation) }}
             </NuxtLink>
           </li>
         </ul>
@@ -361,6 +410,11 @@ watch(currentCompanyId, loadDetail, { immediate: true })
         }))"
       />
       <Input v-model="allocateForm.amount" :label="t('payments.allocateModal.amount')" />
+      <div v-if="hasMoreEligible" class="load-more-row">
+        <Button variant="secondary" :disabled="loadingEligibleMore" @click="loadMoreEligible">
+          {{ loadingEligibleMore ? t('common.loading') : t('payments.loadMoreEligible') }}
+        </Button>
+      </div>
       <template #footer>
         <Button variant="secondary" @click="showAllocateModal = false">{{ t('common.cancel') }}</Button>
         <Button :disabled="acting" @click="submitAllocate">{{ t('payments.allocateModal.submit') }}</Button>
@@ -426,6 +480,9 @@ watch(currentCompanyId, loadDetail, { immediate: true })
   display: flex;
   justify-content: space-between;
   gap: 1rem;
+}
+.load-more-row {
+  margin-top: 0.75rem;
 }
 .muted {
   color: var(--color-text-muted);

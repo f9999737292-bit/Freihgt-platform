@@ -68,6 +68,11 @@ export interface PaymentAllocationRecord {
   voided_at?: string
   voided_by?: string
   void_reason?: string
+  obligation_number?: string
+  obligation_status?: string
+  obligation_source_type?: string
+  obligation_source_id?: string
+  obligation_outstanding_amount?: string
 }
 
 export interface PaymentAuditEventRecord {
@@ -89,8 +94,11 @@ export interface PaymentListResponse {
   offset: number
 }
 
-export interface PaymentItemsResponse<T> {
+export interface PaginatedListResponse<T> {
   items: T[]
+  total: number
+  limit: number
+  offset: number
 }
 
 export interface AllocatePaymentResult {

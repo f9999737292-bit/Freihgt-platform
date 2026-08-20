@@ -219,15 +219,20 @@ func (h *PaymentHandler) ListPaymentAllocations(w http.ResponseWriter, r *http.R
 			return nil, err
 		}
 		limit, offset := parsePagination(r)
-		items, err := h.payments.ListPaymentAllocations(r.Context(), id, actor, limit, offset)
+		result, err := h.payments.ListPaymentAllocations(r.Context(), id, actor, limit, offset)
 		if err != nil {
 			return nil, err
 		}
-		out := make([]any, 0, len(items))
-		for i := range items {
-			out = append(out, toAllocationResponse(&items[i]))
+		out := make([]any, 0, len(result.Items))
+		for i := range result.Items {
+			out = append(out, toAllocationReadResponse(&result.Items[i]))
 		}
-		return map[string]any{"items": out}, nil
+		return map[string]any{
+			"items":  out,
+			"total":  result.Total,
+			"limit":  result.Limit,
+			"offset": result.Offset,
+		}, nil
 	})
 }
 
@@ -238,15 +243,20 @@ func (h *PaymentHandler) ListEligibleObligations(w http.ResponseWriter, r *http.
 			return nil, err
 		}
 		limit, offset := parsePagination(r)
-		items, err := h.payments.ListEligibleObligationsForPayment(r.Context(), id, actor, limit, offset)
+		result, err := h.payments.ListEligibleObligationsForPayment(r.Context(), id, actor, limit, offset)
 		if err != nil {
 			return nil, err
 		}
-		out := make([]any, 0, len(items))
-		for i := range items {
-			out = append(out, toObligationResponse(&items[i]))
+		out := make([]any, 0, len(result.Items))
+		for i := range result.Items {
+			out = append(out, toObligationResponse(&result.Items[i]))
 		}
-		return map[string]any{"items": out}, nil
+		return map[string]any{
+			"items":  out,
+			"total":  result.Total,
+			"limit":  result.Limit,
+			"offset": result.Offset,
+		}, nil
 	})
 }
 
@@ -257,15 +267,20 @@ func (h *PaymentHandler) ListPaymentAuditEvents(w http.ResponseWriter, r *http.R
 			return nil, err
 		}
 		limit, offset := parsePagination(r)
-		items, err := h.payments.ListPaymentAuditEvents(r.Context(), id, actor, limit, offset)
+		result, err := h.payments.ListPaymentAuditEvents(r.Context(), id, actor, limit, offset)
 		if err != nil {
 			return nil, err
 		}
-		out := make([]any, 0, len(items))
-		for i := range items {
-			out = append(out, toAuditEventResponse(&items[i]))
+		out := make([]any, 0, len(result.Items))
+		for i := range result.Items {
+			out = append(out, toAuditEventResponse(&result.Items[i]))
 		}
-		return map[string]any{"items": out}, nil
+		return map[string]any{
+			"items":  out,
+			"total":  result.Total,
+			"limit":  result.Limit,
+			"offset": result.Offset,
+		}, nil
 	})
 }
 
@@ -530,6 +545,26 @@ func toAllocationResponse(a *domain.PaymentAllocation) map[string]any {
 	}
 	if a.VoidReason != nil {
 		resp["void_reason"] = *a.VoidReason
+	}
+	return resp
+}
+
+func toAllocationReadResponse(a *domain.PaymentAllocationRead) map[string]any {
+	resp := toAllocationResponse(&a.PaymentAllocation)
+	if a.ObligationNumber != nil {
+		resp["obligation_number"] = *a.ObligationNumber
+	}
+	if a.ObligationStatus != nil {
+		resp["obligation_status"] = *a.ObligationStatus
+	}
+	if a.ObligationSourceType != nil {
+		resp["obligation_source_type"] = *a.ObligationSourceType
+	}
+	if a.ObligationSourceID != nil {
+		resp["obligation_source_id"] = a.ObligationSourceID.String()
+	}
+	if a.ObligationOutstandingAmount != nil {
+		resp["obligation_outstanding_amount"] = a.ObligationOutstandingAmount.StringFixed(domain.MoneyScale)
 	}
 	return resp
 }

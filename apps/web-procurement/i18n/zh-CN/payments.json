@@ -5,6 +5,8 @@
     "loadFailed": "无法加载付款",
     "detailLoadFailed": "无法加载付款详情",
     "empty": "未找到付款",
+    "loadMore": "加载更多",
+    "loadMoreEligible": "加载更多义务",
     "missingCompany": "请选择公司以查看付款",
     "missingActor": "所选公司无权访问付款",
     "notFound": "未找到或无法访问付款",
