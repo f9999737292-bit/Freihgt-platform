@@ -15,23 +15,32 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/shopspring/decimal"
 
 	"github.com/freight-platform/contract-rate-service/internal/domain"
 	apperrors "github.com/freight-platform/contract-rate-service/internal/platform/errors"
 	"github.com/freight-platform/contract-rate-service/internal/repository"
+	"github.com/freight-platform/contract-rate-service/internal/service"
 )
 
-const maxMigrationNumber = 48
+const maxMigrationNumber = 50
 
 type testEnv struct {
-	Pool      *pgxpool.Pool
-	TenantID  uuid.UUID
-	BuyerID   uuid.UUID
-	CarrierID uuid.UUID
-	Contracts *repository.ContractRepository
-	RateCards *repository.RateCardRepository
-	Actor     domain.ActorInput
-	Today     time.Time
+	Pool           *pgxpool.Pool
+	TenantID       uuid.UUID
+	BuyerID        uuid.UUID
+	CarrierID      uuid.UUID
+	OriginID       uuid.UUID
+	DestID         uuid.UUID
+	Contracts      *repository.ContractRepository
+	RateCards      *repository.RateCardRepository
+	RateLines      *repository.RateLineRepository
+	RateComponents *repository.RateComponentRepository
+	Resolutions    *repository.ResolutionRepository
+	Memberships    *repository.MembershipRepository
+	ResolutionSvc  *service.ResolutionService
+	Actor          domain.ActorInput
+	Today          time.Time
 }
 
 func setupEnv(t *testing.T) *testEnv {
@@ -41,17 +50,29 @@ func setupEnv(t *testing.T) *testEnv {
 	tenantID := uuid.New()
 	buyerID := uuid.New()
 	carrierID := uuid.New()
+	originID := uuid.New()
+	destID := uuid.New()
 	seedTenantAndCompanies(t, ctx, pool, tenantID, buyerID, carrierID)
+	seedLocations(t, ctx, pool, tenantID, buyerID, originID, destID)
 	audit := repository.NewAuditRepository()
 	contracts := repository.NewContractRepository(pool, audit)
 	rateCards := repository.NewRateCardRepository(pool, contracts, audit)
+	locations := repository.NewLocationRepository(pool)
+	rateLines := repository.NewRateLineRepository(pool, rateCards, locations, audit)
+	rateComponents := repository.NewRateComponentRepository(pool, rateLines, rateCards, audit)
+	resolutions := repository.NewResolutionRepository(pool, audit)
+	memberships := repository.NewMembershipRepository(pool)
 	actor := domain.ActorInput{
 		TenantID: tenantID, ActorUserID: uuid.New(),
 		ActorCompanyID: buyerID, ActorKind: domain.ActorKindBuyer,
 	}
+	resolutionSvc := service.NewResolutionService(resolutions, memberships, nil)
 	return &testEnv{
 		Pool: pool, TenantID: tenantID, BuyerID: buyerID, CarrierID: carrierID,
-		Contracts: contracts, RateCards: rateCards, Actor: actor,
+		OriginID: originID, DestID: destID,
+		Contracts: contracts, RateCards: rateCards, RateLines: rateLines,
+		RateComponents: rateComponents, Resolutions: resolutions, Memberships: memberships,
+		ResolutionSvc: resolutionSvc, Actor: actor,
 		Today: time.Date(2026, 8, 20, 0, 0, 0, 0, time.UTC),
 	}
 }
@@ -246,5 +267,237 @@ func activateRateVersionSQL(t *testing.T, env *testEnv, versionID uuid.UUID) {
 		WHERE tenant_id=$1 AND id=$2`, env.TenantID, versionID)
 	if err != nil {
 		t.Fatalf("activate version sql: %v", err)
+	}
+}
+
+func seedLocations(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tenantID, companyID, originID, destID uuid.UUID) {
+	t.Helper()
+	for _, row := range []struct {
+		id   uuid.UUID
+		name string
+	}{
+		{originID, "Origin WH"},
+		{destID, "Destination WH"},
+	} {
+		_, err := pool.Exec(ctx, `
+			INSERT INTO transport.locations (
+				id, tenant_id, company_id, location_type, name, country_code, city, status
+			) VALUES ($1,$2,$3,'WAREHOUSE',$4,'RU','Moscow','ACTIVE')`,
+			row.id, tenantID, companyID, row.name)
+		if err != nil {
+			t.Fatalf("seed location: %v", err)
+		}
+	}
+}
+
+func seedUser(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) {
+	t.Helper()
+	_, err := pool.Exec(ctx, `
+		INSERT INTO core.users (id, tenant_id, email, full_name, status)
+		VALUES ($1,$2,$3,'Test User','ACTIVE')
+		ON CONFLICT DO NOTHING`, userID, tenantID, userID.String()+"@example.test")
+	if err != nil {
+		t.Fatalf("seed user: %v", err)
+	}
+}
+
+func seedCompanyMembership(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tenantID, userID, companyID uuid.UUID) {
+	t.Helper()
+	seedUser(t, ctx, pool, tenantID, userID)
+	_, err := pool.Exec(ctx, `
+		INSERT INTO core.company_memberships (tenant_id, company_id, user_id, status)
+		VALUES ($1,$2,$3,'ACTIVE')
+		ON CONFLICT (company_id, user_id) DO UPDATE SET status='ACTIVE', deleted_at=NULL`,
+		tenantID, companyID, userID)
+	if err != nil {
+		t.Fatalf("seed company membership: %v", err)
+	}
+}
+
+func resolveRoleID(t *testing.T, ctx context.Context, pool *pgxpool.Pool, roleCode string) uuid.UUID {
+	t.Helper()
+	var roleID uuid.UUID
+	err := pool.QueryRow(ctx, `
+		INSERT INTO core.roles (code, name, scope, is_system)
+		VALUES ($1,$1,'GLOBAL',true)
+		ON CONFLICT DO NOTHING
+		RETURNING id`, roleCode).Scan(&roleID)
+	if err != nil {
+		err = pool.QueryRow(ctx, `SELECT id FROM core.roles WHERE code=$1 AND tenant_id IS NULL LIMIT 1`, roleCode).Scan(&roleID)
+		if err != nil {
+			t.Fatalf("resolve role %s: %v", roleCode, err)
+		}
+	}
+	return roleID
+}
+
+func seedCompanyRole(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tenantID, userID, companyID uuid.UUID, roleCode string) {
+	t.Helper()
+	seedCompanyMembership(t, ctx, pool, tenantID, userID, companyID)
+	roleID := resolveRoleID(t, ctx, pool, roleCode)
+	_, err := pool.Exec(ctx, `
+		INSERT INTO core.user_roles (tenant_id, user_id, company_id, role_id)
+		VALUES ($1,$2,$3,$4)
+		ON CONFLICT DO NOTHING`, tenantID, userID, companyID, roleID)
+	if err != nil {
+		t.Fatalf("seed company role: %v", err)
+	}
+}
+
+func seedTenantRole(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID, roleCode string) {
+	t.Helper()
+	seedUser(t, ctx, pool, tenantID, userID)
+	roleID := resolveRoleID(t, ctx, pool, roleCode)
+	_, err := pool.Exec(ctx, `
+		INSERT INTO core.user_roles (tenant_id, user_id, role_id)
+		VALUES ($1,$2,$3)
+		ON CONFLICT DO NOTHING`, tenantID, userID, roleID)
+	if err != nil {
+		t.Fatalf("seed tenant role: %v", err)
+	}
+}
+
+func seedGlobalRole(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID, roleCode string) {
+	t.Helper()
+	seedTenantRole(t, ctx, pool, tenantID, userID, roleCode)
+}
+
+func seedBuyerCompany(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tenantID, companyID uuid.UUID, name string) {
+	t.Helper()
+	_, err := pool.Exec(ctx, `
+		INSERT INTO core.companies (id, tenant_id, company_type, legal_name, status)
+		VALUES ($1,$2,'SHIPPER',$3,'ACTIVE')
+		ON CONFLICT DO NOTHING`, companyID, tenantID, name)
+	if err != nil {
+		t.Fatalf("seed buyer company: %v", err)
+	}
+}
+
+func manualSpotReq(env *testEnv, actor domain.ActorInput) domain.ResolveRateRequest {
+	amount := decimal.RequireFromString("5000.00")
+	currency := "RUB"
+	req := env.resolveReq("TAUTLINER")
+	req.Actor = actor
+	req.ManualSpotAmount = &amount
+	req.ManualSpotCurrency = &currency
+	return req
+}
+
+func resolveManualSpot(t *testing.T, env *testEnv, actor domain.ActorInput) (domain.ResolveRateResult, error) {
+	t.Helper()
+	return env.ResolutionSvc.Resolve(context.Background(), manualSpotReq(env, actor), nil)
+}
+
+func (e *testEnv) createActiveContract(t *testing.T, number string) *domain.TransportContract {
+	t.Helper()
+	draft := e.createDraftContract(t, number)
+	active, err := e.Contracts.Activate(context.Background(), e.TenantID, draft.ID, e.Actor, nil)
+	if err != nil {
+		t.Fatalf("activate contract %s: %v", number, err)
+	}
+	return active
+}
+
+func (e *testEnv) createDraftVersion(t *testing.T, contractNumber, cardName string) (*domain.RateCard, *domain.RateCardVersion) {
+	t.Helper()
+	contract := e.createDraftContract(t, contractNumber)
+	card, err := e.RateCards.Create(context.Background(), domain.CreateRateCardInput{
+		TenantID: e.TenantID, ContractID: contract.ID, Name: cardName, Actor: e.Actor,
+	}, nil)
+	if err != nil {
+		t.Fatalf("create card: %v", err)
+	}
+	version, err := e.RateCards.CreateDraftVersion(context.Background(), domain.CreateRateVersionInput{
+		TenantID: e.TenantID, RateCardID: card.ID, ValidFrom: e.Today, Actor: e.Actor,
+	}, nil)
+	if err != nil {
+		t.Fatalf("create version: %v", err)
+	}
+	return card, version
+}
+
+func (e *testEnv) createRateLine(t *testing.T, versionID uuid.UUID, equipment string) *domain.RateLine {
+	t.Helper()
+	line, err := e.RateLines.Create(context.Background(), domain.CreateRateLineInput{
+		TenantID: e.TenantID, RateCardVersionID: versionID,
+		OriginLocationID: e.OriginID, DestinationLocationID: e.DestID,
+		EquipmentType: equipment, TransportMode: domain.TransportModeRoad, Actor: e.Actor,
+	}, nil)
+	if err != nil {
+		t.Fatalf("create rate line: %v", err)
+	}
+	return line
+}
+
+func dec(v string) *decimal.Decimal {
+	d := decimal.RequireFromString(v)
+	return &d
+}
+
+func (e *testEnv) addBaseFreight(t *testing.T, lineID uuid.UUID, amount string) {
+	t.Helper()
+	_, err := e.RateComponents.Create(context.Background(), domain.CreateRateComponentInput{
+		TenantID: e.TenantID, RateLineID: lineID,
+		ComponentType: domain.ComponentTypeBaseFreight, CalculationMethod: domain.CalcMethodFlat,
+		Amount: dec(amount), Actor: e.Actor,
+	}, nil)
+	if err != nil {
+		t.Fatalf("add base freight: %v", err)
+	}
+}
+
+func (e *testEnv) addFuelSurcharge(t *testing.T, lineID uuid.UUID, percent string) {
+	t.Helper()
+	_, err := e.RateComponents.Create(context.Background(), domain.CreateRateComponentInput{
+		TenantID: e.TenantID, RateLineID: lineID,
+		ComponentType: domain.ComponentTypeFuelSurcharge, CalculationMethod: domain.CalcMethodPercent,
+		PercentValue: dec(percent), Actor: e.Actor,
+	}, nil)
+	if err != nil {
+		t.Fatalf("add fuel surcharge: %v", err)
+	}
+}
+
+func (e *testEnv) addWaitingRule(t *testing.T, lineID uuid.UUID, amount string) {
+	t.Helper()
+	unit := domain.UnitCodeHour
+	_, err := e.RateComponents.Create(context.Background(), domain.CreateRateComponentInput{
+		TenantID: e.TenantID, RateLineID: lineID,
+		ComponentType: domain.ComponentTypeWaiting, CalculationMethod: domain.CalcMethodUnitRate,
+		Amount: dec(amount), UnitCode: &unit, Actor: e.Actor,
+	}, nil)
+	if err != nil {
+		t.Fatalf("add waiting: %v", err)
+	}
+}
+
+func (e *testEnv) addDetentionRule(t *testing.T, lineID uuid.UUID, amount string) {
+	t.Helper()
+	unit := domain.UnitCodeHour
+	_, err := e.RateComponents.Create(context.Background(), domain.CreateRateComponentInput{
+		TenantID: e.TenantID, RateLineID: lineID,
+		ComponentType: domain.ComponentTypeDetention, CalculationMethod: domain.CalcMethodUnitRate,
+		Amount: dec(amount), UnitCode: &unit, Actor: e.Actor,
+	}, nil)
+	if err != nil {
+		t.Fatalf("add detention: %v", err)
+	}
+}
+
+func (e *testEnv) activateVersion(t *testing.T, versionID uuid.UUID) *domain.RateCardVersion {
+	t.Helper()
+	version, err := e.RateCards.ActivateVersion(context.Background(), e.TenantID, versionID, e.Actor, nil)
+	if err != nil {
+		t.Fatalf("activate version: %v", err)
+	}
+	return version
+}
+
+func (e *testEnv) resolveReq(equipment string) domain.ResolveRateRequest {
+	return domain.ResolveRateRequest{
+		TenantID: e.TenantID, BuyerCompanyID: e.BuyerID, CarrierCompanyID: e.CarrierID,
+		OriginLocationID: e.OriginID, DestinationLocationID: e.DestID,
+		EquipmentType: equipment, TransportMode: domain.TransportModeRoad,
+		PricingDate: e.Today, Actor: e.Actor,
 	}
 }

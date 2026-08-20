@@ -74,7 +74,7 @@ func DeriveActorKind(companyType string, roleCodes []string) (string, error) {
 	if _, ok := carrierCompanyTypes[typ]; ok {
 		return ActorKindCarrier, nil
 	}
-	return "", apperrors.Forbidden("company type cannot participate in contract rate management")
+	return "", apperrors.Forbidden("company type cannot participate in contract rate management", nil)
 }
 
 func ResolveTrustedActor(
@@ -91,11 +91,11 @@ func ResolveTrustedActor(
 		return ActorInput{}, apperrors.Unauthorized("user context is required")
 	}
 	if trustedCompanyID == uuid.Nil {
-		return ActorInput{}, apperrors.Forbidden("verified company context is required")
+		return ActorInput{}, apperrors.Forbidden("verified company context is required", nil)
 	}
 	headerKind := strings.ToUpper(strings.TrimSpace(trustedActorKind))
 	if headerKind != ActorKindBuyer && headerKind != ActorKindCarrier {
-		return ActorInput{}, apperrors.Forbidden("verified actor context is required")
+		return ActorInput{}, apperrors.Forbidden("verified actor context is required", nil)
 	}
 
 	var matched *UserCompanyMembership
@@ -107,9 +107,9 @@ func ResolveTrustedActor(
 	}
 	if matched == nil {
 		if !isPlatformAdmin {
-			return ActorInput{}, apperrors.Forbidden("company_id does not match authenticated membership")
+			return ActorInput{}, apperrors.Forbidden("company_id does not match authenticated membership", nil)
 		}
-		return ActorInput{}, apperrors.Forbidden("platform admin must act within a validated company membership")
+		return ActorInput{}, apperrors.Forbidden("platform admin must act within a validated company membership", nil)
 	}
 
 	derivedKind, err := DeriveActorKind(matched.CompanyType, matched.RoleCodes)
@@ -117,7 +117,7 @@ func ResolveTrustedActor(
 		return ActorInput{}, err
 	}
 	if derivedKind != headerKind {
-		return ActorInput{}, apperrors.Forbidden("actor kind does not match verified company membership")
+		return ActorInput{}, apperrors.Forbidden("actor kind does not match verified company membership", nil)
 	}
 
 	return ActorInput{
@@ -134,7 +134,7 @@ func (a ActorInput) RequireBuyerMutation() error {
 		return nil
 	}
 	if a.ActorKind != ActorKindBuyer {
-		return apperrors.Forbidden("buyer-side authorization required")
+		return apperrors.Forbidden("buyer-side authorization required", nil)
 	}
 	return nil
 }
@@ -146,14 +146,14 @@ func (a ActorInput) CanReadContract(buyerCompanyID, carrierCompanyID uuid.UUID) 
 	switch a.ActorKind {
 	case ActorKindBuyer:
 		if a.ActorCompanyID != buyerCompanyID {
-			return apperrors.Forbidden("contract is outside buyer scope")
+			return apperrors.Forbidden("contract is outside buyer scope", nil)
 		}
 	case ActorKindCarrier:
 		if a.ActorCompanyID != carrierCompanyID {
-			return apperrors.Forbidden("contract is outside carrier scope")
+			return apperrors.Forbidden("contract is outside carrier scope", nil)
 		}
 	default:
-		return apperrors.Forbidden("verified actor context is required")
+		return apperrors.Forbidden("verified actor context is required", nil)
 	}
 	return nil
 }

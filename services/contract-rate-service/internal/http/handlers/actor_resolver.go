@@ -13,7 +13,7 @@ import (
 
 type MembershipLookup interface {
 	ListUserCompanyMemberships(ctx context.Context, tenantID, userID uuid.UUID) ([]domain.UserCompanyMembership, error)
-	ListUserGlobalRoleCodes(ctx context.Context, tenantID, userID uuid.UUID) ([]string, error)
+	ListUserTenantRoleCodes(ctx context.Context, tenantID, userID uuid.UUID) ([]string, error)
 }
 
 type ActorResolver struct {
@@ -41,11 +41,11 @@ func (a *ActorResolver) FromRequest(r *http.Request) (domain.ActorInput, error) 
 	if err != nil {
 		return domain.ActorInput{}, err
 	}
-	globalRoles, err := a.memberships.ListUserGlobalRoleCodes(r.Context(), tenantID, userID)
+	tenantRoles, err := a.memberships.ListUserTenantRoleCodes(r.Context(), tenantID, userID)
 	if err != nil {
 		return domain.ActorInput{}, err
 	}
-	return domain.ResolveTrustedActor(tenantID, userID, companyID, actorKind, memberships, domain.HasPlatformAdminRole(globalRoles))
+	return domain.ResolveTrustedActor(tenantID, userID, companyID, actorKind, memberships, domain.HasPlatformAdminRole(tenantRoles))
 }
 
 func CorrelationID(r *http.Request) *string {
@@ -75,7 +75,7 @@ func resolveVerifiedUser(r *http.Request) (uuid.UUID, error) {
 func resolveTrustedCompanyContext(r *http.Request) (uuid.UUID, string, error) {
 	companyRaw := strings.TrimSpace(r.Header.Get(domain.HeaderCompanyID))
 	if companyRaw == "" {
-		return uuid.Nil, "", apperrors.Forbidden("verified company context is required")
+		return uuid.Nil, "", apperrors.Forbidden("verified company context is required", nil)
 	}
 	companyID, err := domain.ParseUUID(companyRaw, "company_id")
 	if err != nil {
@@ -83,7 +83,7 @@ func resolveTrustedCompanyContext(r *http.Request) (uuid.UUID, string, error) {
 	}
 	actorKind := strings.ToUpper(strings.TrimSpace(r.Header.Get(domain.HeaderActorKind)))
 	if actorKind != domain.ActorKindBuyer && actorKind != domain.ActorKindCarrier {
-		return uuid.Nil, "", apperrors.Forbidden("verified actor context is required")
+		return uuid.Nil, "", apperrors.Forbidden("verified actor context is required", nil)
 	}
 	return companyID, actorKind, nil
 }

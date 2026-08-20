@@ -13,6 +13,7 @@ import (
 	"github.com/freight-platform/contract-rate-service/internal/config"
 	httpserver "github.com/freight-platform/contract-rate-service/internal/http"
 	"github.com/freight-platform/contract-rate-service/internal/http/handlers"
+	"github.com/freight-platform/contract-rate-service/internal/observability"
 	"github.com/freight-platform/contract-rate-service/internal/platform/database"
 	"github.com/freight-platform/contract-rate-service/internal/platform/logger"
 	"github.com/freight-platform/contract-rate-service/internal/repository"
@@ -43,13 +44,24 @@ func main() {
 	auditRepo := repository.NewAuditRepository()
 	contractRepo := repository.NewContractRepository(db.Pool, auditRepo)
 	rateCardRepo := repository.NewRateCardRepository(db.Pool, contractRepo, auditRepo)
+	locationRepo := repository.NewLocationRepository(db.Pool)
+	rateLineRepo := repository.NewRateLineRepository(db.Pool, rateCardRepo, locationRepo, auditRepo)
+	rateComponentRepo := repository.NewRateComponentRepository(db.Pool, rateLineRepo, rateCardRepo, auditRepo)
+	resolutionRepo := repository.NewResolutionRepository(db.Pool, auditRepo)
 	membershipRepo := repository.NewMembershipRepository(db.Pool)
+	rateMetrics := observability.NewMetrics(cfg.ServiceName)
 
 	contractSvc := service.NewContractService(contractRepo, membershipRepo)
 	rateCardSvc := service.NewRateCardService(rateCardRepo, contractRepo)
+	rateLineSvc := service.NewRateLineService(rateLineRepo, rateCardRepo, contractRepo)
+	rateComponentSvc := service.NewRateComponentService(rateComponentRepo, rateLineRepo, rateCardRepo, contractRepo)
+	resolutionSvc := service.NewResolutionService(resolutionRepo, membershipRepo, rateMetrics)
 	actorResolver := handlers.NewActorResolver(membershipRepo)
 
-	router := httpserver.NewRouter(log, db.Pool, cfg, contractSvc, rateCardSvc, actorResolver)
+	router := httpserver.NewRouter(
+		log, db.Pool, cfg,
+		contractSvc, rateCardSvc, rateLineSvc, rateComponentSvc, resolutionSvc, actorResolver,
+	)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

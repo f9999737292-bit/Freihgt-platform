@@ -48,13 +48,67 @@ func (r *MembershipRepository) ListUserCompanyMemberships(ctx context.Context, t
 	return result, rows.Err()
 }
 
-func (r *MembershipRepository) ListUserGlobalRoleCodes(ctx context.Context, tenantID, userID uuid.UUID) ([]string, error) {
+func (r *MembershipRepository) ListUserTenantRoleCodes(ctx context.Context, tenantID, userID uuid.UUID) ([]string, error) {
 	const query = `
 		SELECT DISTINCT ro.code
 		FROM core.user_roles ur
 		JOIN core.roles ro ON ro.id = ur.role_id AND ro.deleted_at IS NULL
-		WHERE ur.tenant_id = $1 AND ur.user_id = $2
+		WHERE ur.tenant_id = $1 AND ur.user_id = $2 AND ur.company_id IS NULL
 		ORDER BY ro.code ASC`
+	return r.queryRoleCodes(ctx, query, tenantID, userID)
+}
+
+func (r *MembershipRepository) ListUserCompanyRoleCodes(ctx context.Context, tenantID, userID, companyID uuid.UUID) ([]string, error) {
+	const query = `
+		SELECT DISTINCT ro.code
+		FROM core.user_roles ur
+		JOIN core.roles ro ON ro.id = ur.role_id AND ro.deleted_at IS NULL
+		WHERE ur.tenant_id = $1 AND ur.user_id = $2 AND ur.company_id = $3
+		ORDER BY ro.code ASC`
+	rows, err := r.pool.Query(ctx, query, tenantID, userID, companyID)
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	defer rows.Close()
+
+	codes := make([]string, 0)
+	for rows.Next() {
+		var code string
+		if err := rows.Scan(&code); err != nil {
+			return nil, mapDBError(err)
+		}
+		codes = append(codes, code)
+	}
+	return codes, rows.Err()
+}
+
+func (r *MembershipRepository) HasCompanyPermission(ctx context.Context, tenantID, userID, companyID uuid.UUID, permissionCode string) (bool, error) {
+	const query = `
+		SELECT EXISTS (
+			SELECT 1
+			FROM core.company_memberships m
+			JOIN core.user_roles ur
+			  ON ur.tenant_id = m.tenant_id
+			 AND ur.user_id = m.user_id
+			 AND ur.company_id = m.company_id
+			JOIN core.roles ro ON ro.id = ur.role_id AND ro.deleted_at IS NULL
+			JOIN core.role_permissions rp ON rp.role_id = ro.id
+			JOIN core.permissions p ON p.id = rp.permission_id
+			WHERE m.tenant_id = $1
+			  AND m.user_id = $2
+			  AND m.company_id = $3
+			  AND m.deleted_at IS NULL
+			  AND m.status = 'ACTIVE'
+			  AND p.code = $4
+		)`
+	var allowed bool
+	if err := r.pool.QueryRow(ctx, query, tenantID, userID, companyID, permissionCode).Scan(&allowed); err != nil {
+		return false, mapDBError(err)
+	}
+	return allowed, nil
+}
+
+func (r *MembershipRepository) queryRoleCodes(ctx context.Context, query string, tenantID, userID uuid.UUID) ([]string, error) {
 	rows, err := r.pool.Query(ctx, query, tenantID, userID)
 	if err != nil {
 		return nil, mapDBError(err)

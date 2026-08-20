@@ -63,7 +63,7 @@ func (s *ContractService) List(ctx context.Context, tenantID uuid.UUID, actor do
 			}
 			return filtered, nil
 		default:
-			return nil, apperrors.Forbidden("verified actor context is required")
+			return nil, apperrors.Forbidden("verified actor context is required", nil)
 		}
 	}
 	return s.contracts.ListByTenant(ctx, tenantID, buyerFilter)

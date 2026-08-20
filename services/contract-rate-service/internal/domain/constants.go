@@ -33,4 +33,22 @@ const (
 	AuditActionRateVersionCreated   = "RATE_VERSION_DRAFT_CREATED"
 	AuditActionRateVersionUpdated   = "RATE_VERSION_DRAFT_UPDATED"
 	AuditActionRateVersionDiscarded = "RATE_VERSION_DRAFT_DISCARDED"
+	AuditActionRateVersionActivated = "RATE_VERSION_ACTIVATED"
+	AuditActionRateVersionSuperseded = "RATE_VERSION_SUPERSEDED"
+
+	AuditEntityRateLine      = "RATE_LINE"
+	AuditEntityRateComponent = "RATE_COMPONENT"
+
+	AuditActionRateLineCreated   = "RATE_LINE_CREATED"
+	AuditActionRateLineUpdated   = "RATE_LINE_UPDATED"
+	AuditActionRateLineDeleted   = "RATE_LINE_DELETED"
+	AuditActionRateComponentCreated = "RATE_COMPONENT_CREATED"
+	AuditActionRateComponentUpdated = "RATE_COMPONENT_UPDATED"
+	AuditActionRateComponentDeleted = "RATE_COMPONENT_DELETED"
+	AuditActionManualSpotResolved   = "MANUAL_SPOT_RESOLVED"
+)
+
+const (
+	ArchitecturePermissionManualSpotUse = "USE_MANUAL_SPOT_PRICE"
+	PermissionManualSpotUse             = "rates.manual_spot.use"
 )
