@@ -49,6 +49,9 @@ func NewRouter(
 	r.Route("/v1/payments", func(r chi.Router) {
 		r.Post("/", paymentHandler.CreatePayment)
 		r.Get("/", paymentHandler.ListPayments)
+		r.Get("/{id}/allocations", paymentHandler.ListPaymentAllocations)
+		r.Get("/{id}/audit-events", paymentHandler.ListPaymentAuditEvents)
+		r.Get("/{id}/eligible-obligations", paymentHandler.ListEligibleObligations)
 		r.Get("/{id}", paymentHandler.GetPayment)
 		r.Post("/{id}/allocations", paymentHandler.CreateAllocation)
 		r.Post("/{id}/reconcile", paymentHandler.ReconcilePayment)
