@@ -34,6 +34,7 @@ type TransportOrder struct {
 	TransportMode         string
 	EquipmentType         *string
 	Status                string
+	PricingModelVersion   *string
 	SourceSystem          *string
 	ExternalReference     *string
 	CreatedAt             time.Time
@@ -102,6 +103,9 @@ func ValidateCreateTransportOrderInput(in CreateTransportOrderInput) error {
 }
 
 func ValidateUpdateTransportOrderInput(current *TransportOrder, in UpdateTransportOrderInput) error {
+	if err := ValidateUpdateWithSnapshot(current, in); err != nil {
+		return err
+	}
 	pickup := current.RequestedPickupDate
 	if in.RequestedPickupDate != nil {
 		pickup = in.RequestedPickupDate

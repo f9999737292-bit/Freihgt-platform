@@ -9,12 +9,14 @@ import (
 )
 
 type Config struct {
-	ServiceName    string
-	Environment    string
-	HTTPPort       int
-	LogLevel       string
-	DatabaseURL    string
-	DeadlineWorker DeadlineWorkerConfig
+	ServiceName               string
+	Environment               string
+	HTTPPort                  int
+	LogLevel                  string
+	DatabaseURL               string
+	InternalServiceToken      string
+	TransportOrderServiceURL  string
+	DeadlineWorker            DeadlineWorkerConfig
 }
 
 type DeadlineWorkerConfig struct {
@@ -48,12 +50,14 @@ func Load() (Config, error) {
 	}
 
 	return Config{
-		ServiceName:    "rfx-service",
-		Environment:    getEnv("ENVIRONMENT", "development"),
-		HTTPPort:       port,
-		LogLevel:       getEnv("LOG_LEVEL", "info"),
-		DatabaseURL:    databaseURL,
-		DeadlineWorker: deadlineWorker,
+		ServiceName:              "rfx-service",
+		Environment:              getEnv("ENVIRONMENT", "development"),
+		HTTPPort:                 port,
+		LogLevel:                 getEnv("LOG_LEVEL", "info"),
+		DatabaseURL:              databaseURL,
+		InternalServiceToken:     os.Getenv("INTERNAL_SERVICE_TOKEN"),
+		TransportOrderServiceURL: os.Getenv("TRANSPORT_ORDER_SERVICE_URL"),
+		DeadlineWorker:           deadlineWorker,
 	}, nil
 }
 

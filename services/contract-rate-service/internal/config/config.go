@@ -13,6 +13,7 @@ type Config struct {
 	LogLevel             string
 	DatabaseURL          string
 	InternalServiceToken string
+	RFXServiceURL        string
 }
 
 func Load() (Config, error) {
@@ -40,6 +41,7 @@ func Load() (Config, error) {
 		LogLevel:             getEnv("LOG_LEVEL", "info"),
 		DatabaseURL:          databaseURL,
 		InternalServiceToken: os.Getenv("INTERNAL_SERVICE_TOKEN"),
+		RFXServiceURL:        getEnv("RFX_SERVICE_URL", "http://localhost:8084"),
 	}, nil
 }
 

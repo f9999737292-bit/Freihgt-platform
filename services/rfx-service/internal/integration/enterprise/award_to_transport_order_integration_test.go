@@ -117,12 +117,18 @@ func TestBuyerOwnAwardedConversionAllowed(t *testing.T) {
 	if err != nil || !result.Created || len(result.Items) != 2 {
 		t.Fatalf("convert: err=%v created=%v len=%d", err, result.Created, len(result.Items))
 	}
-	var orderCount int
+	var orderCount, snapshotCount int
 	if err := env.pool.QueryRow(ctx, `SELECT COUNT(*) FROM transport.transport_orders WHERE tenant_id = $1`, fix.TenantID).Scan(&orderCount); err != nil {
 		t.Fatalf("count orders: %v", err)
 	}
-	if orderCount != 2 {
-		t.Fatalf("expected 2 transport orders, got %d", orderCount)
+	if err := env.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM transport.transport_order_rate_snapshots s
+		JOIN transport.transport_orders o ON o.id = s.transport_order_id
+		WHERE s.tenant_id = $1 AND o.pricing_model_version = 'SNAPSHOT_V1'`, fix.TenantID).Scan(&snapshotCount); err != nil {
+		t.Fatalf("count snapshots: %v", err)
+	}
+	if orderCount != 2 || snapshotCount != 2 {
+		t.Fatalf("expected 2 orders and 2 snapshots, got orders=%d snapshots=%d", orderCount, snapshotCount)
 	}
 }
 

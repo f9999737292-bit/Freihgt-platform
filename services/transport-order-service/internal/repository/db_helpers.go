@@ -5,7 +5,9 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/shopspring/decimal"
 
+	"github.com/freight-platform/transport-order-service/internal/domain"
 	apperrors "github.com/freight-platform/transport-order-service/internal/platform/errors"
 )
 
@@ -40,6 +42,20 @@ func optionalString(value *string) any {
 }
 
 func optionalFloat(value *float64) any {
+	if value == nil {
+		return nil
+	}
+	return *value
+}
+
+func optionalDecimal(value *decimal.Decimal) any {
+	if value == nil {
+		return nil
+	}
+	return value.StringFixed(domain.MoneyScale)
+}
+
+func optionalInt(value *int) any {
 	if value == nil {
 		return nil
 	}

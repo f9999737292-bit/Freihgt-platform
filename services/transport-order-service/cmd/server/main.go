@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/freight-platform/transport-order-service/internal/client/contractrate"
 	"github.com/freight-platform/transport-order-service/internal/config"
 	httpserver "github.com/freight-platform/transport-order-service/internal/http"
 	"github.com/freight-platform/transport-order-service/internal/platform/database"
@@ -42,8 +43,14 @@ func main() {
 	locationRepo := repository.NewLocationRepository(db.Pool)
 	cargoRepo := repository.NewCargoRepository(db.Pool)
 	orderRepo := repository.NewTransportOrderRepository(db.Pool)
+	pricedOrderRepo := repository.NewPricedOrderRepository(db.Pool)
+	rateClient := contractrate.New(contractrate.Config{
+		BaseURL:              cfg.ContractRateServiceURL,
+		InternalServiceToken: cfg.InternalServiceToken,
+	})
 	svc := service.NewTransportOrderService(locationRepo, cargoRepo, orderRepo, locationRepo)
-	router := httpserver.NewRouter(log, db.Pool, svc)
+	pricedSvc := service.NewPricedTransportOrderService(orderRepo, cargoRepo, locationRepo, pricedOrderRepo, rateClient)
+	router := httpserver.NewRouter(log, db.Pool, cfg, svc, pricedSvc)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

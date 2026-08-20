@@ -41,6 +41,8 @@ type FreightSettlement struct {
 	VATAmount                float64
 	TotalWithVAT             float64
 	Status                   string
+	RateSnapshotID           *uuid.UUID
+	PricingSource            *string
 	ServiceAcceptedAt        *time.Time
 	ServiceAcceptedBy        *uuid.UUID
 	BillingRegisterID        *uuid.UUID

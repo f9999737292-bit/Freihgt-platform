@@ -226,7 +226,7 @@ func getSettlementByIDTx(ctx context.Context, tx pgx.Tx, id, tenantID uuid.UUID)
 			award_link_id, settlement_number, base_freight_amount, currency_code, vat_rate,
 			approved_accessorial_total, total_without_vat, vat_amount, total_with_vat,
 			status, service_accepted_at, service_accepted_by, billing_register_id, billing_register_item_id,
-			idempotency_key, version, created_at, created_by, updated_at
+			idempotency_key, version, created_at, created_by, updated_at, rate_snapshot_id, pricing_source
 		FROM billing.freight_settlements WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`
 	row := tx.QueryRow(ctx, query, id, tenantID)
 	settlement, err := scanSettlement(row)

@@ -81,7 +81,7 @@ func setupTestEnv(t *testing.T) *testEnv {
 	bidRepo := repository.NewBidRepository(pool)
 	frRepo := repository.NewFreightRequestRepository(pool)
 	membershipRepo := repository.NewMembershipRepository(pool)
-	rfxSvc := service.NewRfxServiceWithAtomic(pool, rfxRepo, auditRepo, membershipRepo)
+	rfxSvc := service.NewRfxServiceWithAtomic(pool, rfxRepo, auditRepo, membershipRepo, newAwardConversionTOStub(pool))
 	bidSvc := service.NewBidServiceWithAtomic(pool, bidRepo, frRepo, membershipRepo, auditRepo)
 	frSvc := service.NewFreightRequestServiceWithAuth(frRepo, membershipRepo)
 	t.Logf("isolated database=%s", dbName)

@@ -18,7 +18,7 @@ import (
 	"github.com/freight-platform/billing-register-service/internal/service"
 )
 
-const maxMigrationFile = "000044_billing_closing_idempotency_v1.8.1.up.sql"
+const maxMigrationFile = "000052_freight_settlement_snapshot_v2.0C.up.sql"
 
 type env struct {
 	pool        *pgxpool.Pool
