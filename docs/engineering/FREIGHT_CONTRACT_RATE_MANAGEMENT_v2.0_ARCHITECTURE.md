@@ -462,6 +462,32 @@ New pricing changes require **new rate card version**, never in-place mutation o
 
 - **Final** — no transition out
 - Existing snapshots and historical orders unaffected
+- **Effective immediately** on successful terminate command (`terminated_at = now()` by default)
+- Optional `termination_reason` / external reference only — **no backdated commercial effect**
+- Past `valid_to` alone does not imply TERMINATED; system uses **EXPIRED** for calendar end
+- Terminate while SUSPENDED: **ALLOWED** (same finality as from ACTIVE)
+
+### 7.7 Transition table (frozen)
+
+| FROM | TO | Allowed | Preconditions |
+|------|-----|---------|---------------|
+| DRAFT | ACTIVE | YES | Valid parties, dates, currency; at least one rate card optional for v2.0A |
+| DRAFT | CANCELLED | YES | Draft only |
+| ACTIVE | SUSPENDED | YES | Actor authorized |
+| SUSPENDED | ACTIVE | YES | `current_date <= valid_to`; not EXPIRED |
+| ACTIVE | TERMINATED | YES | Immediate final |
+| SUSPENDED | TERMINATED | YES | Immediate final |
+| ACTIVE | EXPIRED | YES (system) | `current_date > valid_to` |
+| SUSPENDED | EXPIRED | YES (system) | `current_date > valid_to` |
+| EXPIRED | ACTIVE | **NO** | Final |
+| TERMINATED | * | **NO** | Final |
+| CANCELLED | * | **NO** | Final |
+| ACTIVE | DRAFT | **NO** | Immutable activation |
+| Any | edit pricing rows on ACTIVE version | **NO** | New version required |
+
+**Historical TO snapshots:** unchanged by any transition above.
+
+**Resolution eligibility:** only `ACTIVE` contracts within `[valid_from, valid_to]`; SUSPENDED / TERMINATED / EXPIRED / DRAFT → not eligible (fail closed).
 
 ---
 
@@ -561,6 +587,21 @@ If two ACTIVE rate lines match with **equal specificity** (same dimensions), res
 
 Deterministic tie-break **not** used unless explicit priority field added (deferred).
 
+### 9.4 Equipment type normalization (frozen)
+
+Repository today: `equipment_type` is nullable on both `transport.transport_orders` and `rfx.rfx_lanes` with **no shared enum service** (PARTIAL).
+
+| Rule | Value |
+|------|-------|
+| `EQUIPMENT_TYPE_REQUIRED_FOR_RESOLUTION` | YES |
+| Normalization at write + match | `strings.TrimSpace`; reject if empty after trim |
+| Case policy | **Case-sensitive exact match** (no uppercase coercion in v2.0) |
+| NULL / blank after trim | Fail closed with `INVALID_EQUIPMENT_TYPE` — no fuzzy or default wildcard |
+| NULL stored on rate line | **FORBIDDEN** — activation rejects blank equipment on lines |
+| Empty string sentinel | **NOT_USED** — trimmed empty is invalid, not a match key |
+
+Rate resolution and rate-line activation must apply the same normalization function so TO, RFx context, and contract lines compare deterministically.
+
 ---
 
 ## 10. Rate Components
@@ -617,8 +658,35 @@ Example:
 | `float64` for canonical money | **FORBIDDEN** |
 | JS float as source of truth | **FORBIDDEN** |
 | Currency code | ISO 4217, 3 chars, validated centrally |
-| Rounding | Half-up to 2 decimals at component total and grand total boundaries |
+| Rounding | See §11.2.1 — deterministic per-component then total |
 | Calculation ownership | Server-side only in contract-rate-service |
+
+### 11.2.1 Deterministic rounding algorithm (frozen)
+
+```
+ROUNDING_MODE = HALF_UP
+ROUNDING_SCALE = 2
+MONEY_CANONICAL_TYPE = shopspring/decimal (scale 2)
+```
+
+**Order of operations for CONTRACT_RATE resolution:**
+
+1. **FLAT components** (e.g. `BASE_FREIGHT`): `component_amount = RoundMoney(raw_flat_amount)`
+2. **PERCENT components** (e.g. `FUEL_SURCHARGE`): compute against the **already rounded** BASE_FREIGHT:
+   `component_amount = RoundMoney(rounded_base * percent / 100)`
+3. **Grand total**: `total_amount = RoundMoney(sum(component_amount for each pre-execution component))`
+
+**Rules:**
+
+| Rule | Value |
+|------|-------|
+| Each component rounds independently | YES |
+| Total rounds after summed rounded components | YES |
+| `total_amount` may differ from unrounded sum | YES — authoritative value is step 3 |
+| Infer base from total | NO |
+| Use float64 in resolver | NO |
+
+**JSON/API representation:** monetary fields exposed externally use **decimal strings** (e.g. `"108000.00"`), never JSON `number` / `float64`, to avoid silent precision loss. Internal OpenAPI generation follows this in v2.0E.
 
 ### 11.3 NULL vs ZERO semantics (frozen)
 
@@ -1190,6 +1258,16 @@ Forwarder: **PARTIAL** in platform — v2.0 contracts are buyer-carrier dyad; fo
 
 **No separate company master** — use existing company UUIDs.
 
+**Platform field mapping (frozen):**
+
+| Contract / resolution field | Transport Order / award field | Notes |
+|----------------------------|--------------------------------|-------|
+| `buyer_company_id` | `transport_orders.shipper_company_id` | Commercial buyer / shipper |
+| `carrier_company_id` | `shipments.carrier_company_id`, award link | Execution carrier |
+| — | `consignee_company_id` | **Not used** for rate matching or contract party binding |
+
+Award link already stores `buyer_company_id` + `carrier_company_id` (`rfx.rfx_award_transport_orders`) — resolver validates consistency with TO parties.
+
 ### 20.3 Security rules
 
 | Rule | Value |
@@ -1492,6 +1570,7 @@ UX: separate view vs mutate permissions; activation confirmations; version diff 
 | API | Contract + rate card endpoints |
 | Tests | Unit + integration PG |
 | Gate | Contract lifecycle + draft version CRUD; at most one ACTIVE version per card |
+| Security | **Internal S2S only** — no public api-gateway routes until v2.0E minimum RBAC; service auth + tenant from verified gateway/internal token |
 
 ### v2.0B — Rate Lines + Resolution
 
@@ -1504,6 +1583,7 @@ UX: separate view vs mutate permissions; activation confirmations; version diff 
 | API | resolve + activate version |
 | Tests | Precedence order, ambiguous/overlap failures, decimal calc |
 | Gate | Resolve returns MATCHED/NO_MATCH/AMBIGUOUS; manual spot only after zero contract candidates |
+| Security | **Internal S2S only** — `/rates/resolve` not exposed on public gateway until v2.0E RBAC wiring |
 
 ### v2.0C — Pricing Source + TO Snapshot + Settlement
 
@@ -1534,7 +1614,43 @@ UX: separate view vs mutate permissions; activation confirmations; version diff 
 
 ---
 
-## 30. Out of Scope
+## 30. Delete / Mutability Semantics (frozen)
+
+| Entity | Physical DELETE via product API | Notes |
+|--------|--------------------------------|-------|
+| DRAFT contract | ALLOW (soft or hard per service policy) | No commercial history |
+| ACTIVE / SUSPENDED / TERMINATED / EXPIRED contract | **DENY** | Lifecycle terminal states preserved |
+| DRAFT rate version + lines | ALLOW discard | No activation history |
+| ACTIVE / SUPERSEDED rate version | **DENY** | Immutable commercial history |
+| Rate lines on ACTIVE version | **DENY** | New version required |
+| RateSnapshot | **DENY** | Insert-only forever |
+| Audit events | **DENY** | Append-only |
+
+`FINANCIAL_HISTORY_DELETION = DENY` for activated commercial artifacts.
+
+---
+
+## 31. Observability (minimum v2.0 design)
+
+No implementation in architecture/review task. Minimum future telemetry:
+
+| Metric | Type | Labels (low cardinality) |
+|--------|------|--------------------------|
+| `rate_resolution_total` | counter | `status`, `source_type` |
+| `rate_resolution_failed_total` | counter | `reason` |
+| `rate_resolution_ambiguous_total` | counter | — |
+| `rate_resolution_duration_seconds` | histogram | — |
+| `pricing_source_total` | counter | `source_type` |
+| `snapshot_persist_failure_total` | counter | `service` |
+| `rate_version_activation_total` | counter | `result` |
+
+**Forbidden as metric labels:** `tenant_id`, prices, contract text, company names, location addresses.
+
+Structured logs for audit mutations include correlation id + actor; commercial amounts only in audit table, not metrics.
+
+---
+
+## 32. Out of Scope
 
 - RAIL, SEA, AIR, MULTIMODAL
 - AI rate optimization, dynamic market pricing
@@ -1547,13 +1663,13 @@ UX: separate view vs mutate permissions; activation confirmations; version diff 
 
 ---
 
-## 31. Risks / Open Questions
+## 33. Risks / Open Questions
 
-### 31.1 Critical open questions
+### 33.1 Critical open questions
 
 **None blocking architecture freeze.** All Q1–Q14 answered in discovery sections.
 
-### 31.2 Non-blocking questions
+### 33.2 Non-blocking questions
 
 | Topic | Notes |
 |-------|-------|
@@ -1568,7 +1684,7 @@ UX: separate view vs mutate permissions; activation confirmations; version diff 
 
 ---
 
-## 32. Architecture Decision Summary
+## 34. Architecture Decision Summary
 
 | ADR | Decision |
 |-----|----------|
