@@ -75,7 +75,7 @@ func resolveVerifiedUser(r *http.Request) (uuid.UUID, error) {
 func resolveTrustedCompanyContext(r *http.Request) (uuid.UUID, string, error) {
 	companyRaw := strings.TrimSpace(r.Header.Get(domain.HeaderCompanyID))
 	if companyRaw == "" {
-		return uuid.Nil, "", apperrors.Forbidden("verified company context is required")
+		return uuid.Nil, "", apperrors.Forbidden("verified company context is required", nil)
 	}
 	companyID, err := domain.ParseUUID(companyRaw, "company_id")
 	if err != nil {
@@ -83,7 +83,7 @@ func resolveTrustedCompanyContext(r *http.Request) (uuid.UUID, string, error) {
 	}
 	actorKind := strings.ToUpper(strings.TrimSpace(r.Header.Get(domain.HeaderActorKind)))
 	if actorKind != domain.ActorKindBuyer && actorKind != domain.ActorKindCarrier {
-		return uuid.Nil, "", apperrors.Forbidden("verified actor context is required")
+		return uuid.Nil, "", apperrors.Forbidden("verified actor context is required", nil)
 	}
 	return companyID, actorKind, nil
 }

@@ -19,7 +19,10 @@ import (
 func TestInternalAuthMatrix(t *testing.T) {
 	token := "test-internal-token"
 	cfg := config.Config{InternalServiceToken: token, Environment: "test", ServiceName: "contract-rate-service"}
-	router := NewRouter(slog.Default(), nil, cfg, &service.ContractService{}, &service.RateCardService{}, handlers.NewActorResolver(nil))
+	router := NewRouter(slog.Default(), nil, cfg,
+		&service.ContractService{}, &service.RateCardService{},
+		&service.RateLineService{}, &service.RateComponentService{}, &service.ResolutionService{},
+		handlers.NewActorResolver(nil))
 	body, _ := json.Marshal(map[string]string{"buyer_company_id": uuid.New().String()})
 
 	t.Run("NO_S2S_AUTH=DENY", func(t *testing.T) {

@@ -241,6 +241,25 @@ func (h *RateCardHandler) DiscardVersion(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h *RateCardHandler) ActivateVersion(w http.ResponseWriter, r *http.Request) {
+	actor, err := h.actors.FromRequest(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	versionID, err := parsePathUUID(chi.URLParam(r, "versionId"), "version_id")
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	activated, err := h.svc.ActivateVersion(r.Context(), actor.TenantID, versionID, actor, CorrelationID(r))
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusOK, mapRateVersion(activated))
+}
+
 func mapRateCard(c *domain.RateCard) map[string]any {
 	return map[string]any{
 		"id": c.ID, "tenant_id": c.TenantID, "contract_id": c.ContractID,

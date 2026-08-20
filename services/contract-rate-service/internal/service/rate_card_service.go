@@ -104,3 +104,25 @@ func (s *RateCardService) DiscardDraftVersion(ctx context.Context, tenantID, ver
 	}
 	return s.rateCards.DiscardDraftVersion(ctx, tenantID, versionID, actor, correlationID)
 }
+
+func (s *RateCardService) ActivateVersion(ctx context.Context, tenantID, versionID uuid.UUID, actor domain.ActorInput, correlationID *string) (*domain.RateCardVersion, error) {
+	if err := actor.RequireBuyerMutation(); err != nil {
+		return nil, err
+	}
+	version, err := s.rateCards.GetVersionByIDAndTenant(ctx, tenantID, versionID)
+	if err != nil {
+		return nil, err
+	}
+	card, err := s.rateCards.GetByIDAndTenant(ctx, tenantID, version.RateCardID)
+	if err != nil {
+		return nil, err
+	}
+	contract, err := s.contracts.GetByIDAndTenant(ctx, tenantID, card.ContractID)
+	if err != nil {
+		return nil, err
+	}
+	if err := actor.CanReadContract(contract.BuyerCompanyID, contract.CarrierCompanyID); err != nil {
+		return nil, err
+	}
+	return s.rateCards.ActivateVersion(ctx, tenantID, versionID, actor, correlationID)
+}

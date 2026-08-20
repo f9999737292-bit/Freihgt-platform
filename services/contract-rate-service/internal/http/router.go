@@ -23,10 +23,16 @@ func NewRouter(
 	cfg config.Config,
 	contractSvc *service.ContractService,
 	rateCardSvc *service.RateCardService,
+	rateLineSvc *service.RateLineService,
+	rateComponentSvc *service.RateComponentService,
+	resolutionSvc *service.ResolutionService,
 	actors *handlers.ActorResolver,
 ) http.Handler {
 	contractHandler := handlers.NewContractHandler(contractSvc, actors)
 	rateCardHandler := handlers.NewRateCardHandler(rateCardSvc, actors)
+	rateLineHandler := handlers.NewRateLineHandler(rateLineSvc, actors)
+	rateComponentHandler := handlers.NewRateComponentHandler(rateComponentSvc, actors)
+	resolutionHandler := handlers.NewResolutionHandler(resolutionSvc, actors)
 	internalAuth := internalauth.Config{Token: cfg.InternalServiceToken, Environment: cfg.Environment}
 
 	r := chi.NewRouter()
@@ -62,7 +68,22 @@ func NewRouter(
 			r.Get("/{versionId}", rateCardHandler.GetVersion)
 			r.Patch("/{versionId}", rateCardHandler.PatchVersion)
 			r.Delete("/{versionId}", rateCardHandler.DiscardVersion)
+			r.Post("/{versionId}/activate", rateCardHandler.ActivateVersion)
+			r.Post("/{versionId}/rate-lines", rateLineHandler.Create)
+			r.Get("/{versionId}/rate-lines", rateLineHandler.List)
 		})
+		r.Route("/rate-lines", func(r chi.Router) {
+			r.Get("/{id}", rateLineHandler.Get)
+			r.Patch("/{id}", rateLineHandler.Patch)
+			r.Delete("/{id}", rateLineHandler.Delete)
+			r.Post("/{lineId}/components", rateComponentHandler.Create)
+			r.Get("/{lineId}/components", rateComponentHandler.List)
+		})
+		r.Route("/rate-components", func(r chi.Router) {
+			r.Patch("/{id}", rateComponentHandler.Patch)
+			r.Delete("/{id}", rateComponentHandler.Delete)
+		})
+		r.Post("/rates/resolve", resolutionHandler.Resolve)
 	})
 
 	return r

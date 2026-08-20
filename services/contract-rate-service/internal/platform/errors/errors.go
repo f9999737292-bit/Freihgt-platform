@@ -45,8 +45,8 @@ func Unauthorized(message string) *AppError {
 	return &AppError{Code: CodeUnauthorized, Message: message, Details: map[string]any{}}
 }
 
-func Forbidden(message string) *AppError {
-	return &AppError{Code: CodeForbidden, Message: message, Details: map[string]any{}}
+func Forbidden(message string, details map[string]any) *AppError {
+	return &AppError{Code: CodeForbidden, Message: message, Details: detailsOrEmpty(details)}
 }
 
 func Internal(message string, err error) *AppError {

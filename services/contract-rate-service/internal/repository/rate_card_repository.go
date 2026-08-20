@@ -13,9 +13,10 @@ import (
 )
 
 type RateCardRepository struct {
-	pool       *pgxpool.Pool
-	contracts  *ContractRepository
-	audit      *AuditRepository
+	pool                 *pgxpool.Pool
+	contracts            *ContractRepository
+	audit                *AuditRepository
+	simulateAuditFailure bool
 }
 
 func NewRateCardRepository(pool *pgxpool.Pool, contracts *ContractRepository, audit *AuditRepository) *RateCardRepository {
