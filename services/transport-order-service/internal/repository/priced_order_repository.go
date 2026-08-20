@@ -2,7 +2,10 @@ package repository
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -23,6 +26,32 @@ func NewPricedOrderRepository(pool *pgxpool.Pool) *PricedOrderRepository {
 	return &PricedOrderRepository{pool: pool}
 }
 
+func (r *PricedOrderRepository) WithCreateIdempotencyLock(
+	ctx context.Context,
+	tenantID, actorCompanyID uuid.UUID,
+	idempotencyKey string,
+	fn func(context.Context) (*domain.PricedTransportOrderResult, error),
+) (*domain.PricedTransportOrderResult, error) {
+	conn, err := r.pool.Acquire(ctx)
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	defer conn.Release()
+
+	key1, key2 := idempotencyAdvisoryLockKeys(tenantID, actorCompanyID, idempotencyKey)
+	if _, err := conn.Exec(ctx, "SELECT pg_advisory_lock($1, $2)", key1, key2); err != nil {
+		return nil, mapDBError(err)
+	}
+	defer conn.Exec(context.Background(), "SELECT pg_advisory_unlock($1, $2)", key1, key2)
+
+	return fn(ctx)
+}
+
+func idempotencyAdvisoryLockKeys(tenantID, actorCompanyID uuid.UUID, key string) (int32, int32) {
+	sum := sha256.Sum256([]byte(fmt.Sprintf("%s:%s:%s", tenantID, actorCompanyID, strings.TrimSpace(key))))
+	return int32(binary.BigEndian.Uint32(sum[0:4])), int32(binary.BigEndian.Uint32(sum[4:8]))
+}
+
 func (r *PricedOrderRepository) FindCreateIdempotency(
 	ctx context.Context,
 	tenantID, actorCompanyID uuid.UUID,
@@ -34,6 +63,29 @@ func (r *PricedOrderRepository) FindCreateIdempotency(
 		WHERE tenant_id = $1 AND actor_company_id = $2 AND idempotency_key = $3`
 	var record domain.CreateIdempotencyRecord
 	err := r.pool.QueryRow(ctx, query, tenantID, actorCompanyID, strings.TrimSpace(idempotencyKey)).Scan(
+		&record.RequestHash, &record.TransportOrderID, &record.RateSnapshotID,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	return &record, nil
+}
+
+func (r *PricedOrderRepository) findCreateIdempotencyTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	tenantID, actorCompanyID uuid.UUID,
+	idempotencyKey string,
+) (*domain.CreateIdempotencyRecord, error) {
+	const query = `
+		SELECT request_hash, transport_order_id, rate_snapshot_id
+		FROM transport.transport_order_create_idempotency
+		WHERE tenant_id = $1 AND actor_company_id = $2 AND idempotency_key = $3`
+	var record domain.CreateIdempotencyRecord
+	err := tx.QueryRow(ctx, query, tenantID, actorCompanyID, strings.TrimSpace(idempotencyKey)).Scan(
 		&record.RequestHash, &record.TransportOrderID, &record.RateSnapshotID,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -153,6 +205,17 @@ func (r *PricedOrderRepository) CreatePricedOrder(
 		in.TenantID, in.Actor.CompanyID, strings.TrimSpace(in.IdempotencyKey), requestHash,
 		order.ID, createdSnapshot.ID,
 	); err != nil {
+		if pgErr := conflictFromError(err); pgErr != nil {
+			if existing, lookupErr := r.findCreateIdempotencyTx(ctx, tx, in.TenantID, in.Actor.CompanyID, in.IdempotencyKey); lookupErr == nil && existing != nil {
+				if existing.RequestHash != requestHash {
+					return nil, apperrors.Conflict("idempotency key reused with different request payload", map[string]any{"field": "idempotency_key"})
+				}
+				if commitErr := tx.Commit(ctx); commitErr != nil {
+					return nil, mapDBError(commitErr)
+				}
+				return r.GetPricedResult(ctx, in.TenantID, existing.TransportOrderID, existing.RateSnapshotID)
+			}
+		}
 		return nil, mapDBError(err)
 	}
 

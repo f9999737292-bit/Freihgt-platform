@@ -17,6 +17,7 @@ import (
 	"github.com/freight-platform/transport-order-service/internal/platform/logger"
 	"github.com/freight-platform/transport-order-service/internal/repository"
 	"github.com/freight-platform/transport-order-service/internal/service"
+	toobs "github.com/freight-platform/transport-order-service/internal/observability"
 	"github.com/freight-platform/shared-go/metrics"
 )
 
@@ -49,7 +50,8 @@ func main() {
 		InternalServiceToken: cfg.InternalServiceToken,
 	})
 	svc := service.NewTransportOrderService(locationRepo, cargoRepo, orderRepo, locationRepo)
-	pricedSvc := service.NewPricedTransportOrderService(orderRepo, cargoRepo, locationRepo, pricedOrderRepo, rateClient)
+	pricingMetrics := toobs.NewPricingMetrics(cfg.ServiceName)
+	pricedSvc := service.NewPricedTransportOrderService(orderRepo, cargoRepo, locationRepo, pricedOrderRepo, rateClient, pricingMetrics)
 	router := httpserver.NewRouter(log, db.Pool, cfg, svc, pricedSvc)
 
 	server := &http.Server{

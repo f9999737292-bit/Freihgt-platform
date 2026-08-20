@@ -3,7 +3,6 @@ package http
 import (
 	"log/slog"
 	"net/http"
-	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -50,13 +49,7 @@ func NewRouter(
 	})
 
 	r.Route("/v1/transport-orders", func(r chi.Router) {
-		r.Post("/", func(w http.ResponseWriter, r *http.Request) {
-			if strings.TrimSpace(r.Header.Get("Idempotency-Key")) != "" {
-				pricedHandler.CreatePricedTransportOrder(w, r)
-				return
-			}
-			handler.CreateTransportOrder(w, r)
-		})
+		r.Post("/", pricedHandler.CreatePricedTransportOrder)
 		r.Get("/", handler.ListTransportOrders)
 		r.Get("/{id}", handler.GetTransportOrder)
 		r.Patch("/{id}", handler.UpdateTransportOrder)

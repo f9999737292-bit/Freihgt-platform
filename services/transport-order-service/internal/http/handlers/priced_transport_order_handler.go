@@ -57,8 +57,8 @@ type createFromAwardScopeRequest struct {
 
 func (h *PricedTransportOrderHandler) CreatePricedTransportOrder(w http.ResponseWriter, r *http.Request) {
 	idempotencyKey := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
-	if idempotencyKey == "" {
-		respond.Error(w, apperrors.Validation("idempotency key is required", map[string]any{"field": "idempotency_key"}))
+	if err := domain.ValidateIdempotencyKey(idempotencyKey); err != nil {
+		respond.Error(w, err)
 		return
 	}
 	var req createPricedTransportOrderRequest

@@ -227,3 +227,26 @@ func NormalizeTransportMode(value string) string {
 	}
 	return value
 }
+
+const MaxIdempotencyKeyLength = 128
+
+func NormalizeEquipmentType(value string) (string, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return "", apperrors.Validation("equipment_type is required", map[string]any{"field": "equipment_type"})
+	}
+	return trimmed, nil
+}
+
+func ValidateIdempotencyKey(key string) error {
+	trimmed := strings.TrimSpace(key)
+	if trimmed == "" {
+		return apperrors.Validation("idempotency key is required", map[string]any{"field": "idempotency_key"})
+	}
+	if len(trimmed) > MaxIdempotencyKeyLength {
+		return apperrors.Validation("idempotency key exceeds maximum length", map[string]any{
+			"field": "idempotency_key", "max_length": MaxIdempotencyKeyLength,
+		})
+	}
+	return nil
+}

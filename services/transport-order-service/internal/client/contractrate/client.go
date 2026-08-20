@@ -58,7 +58,10 @@ func (c *Client) Resolve(ctx context.Context, in domain.CreatePricedTransportOrd
 	if base == "" {
 		return domain.ResolveRateResult{}, apperrors.Validation("contract rate service url is not configured", nil)
 	}
-	equipment := strings.ToUpper(strings.TrimSpace(domain.DerefString(in.EquipmentType)))
+	equipment, err := domain.NormalizeEquipmentType(domain.DerefString(in.EquipmentType))
+	if err != nil {
+		return domain.ResolveRateResult{}, err
+	}
 	body := resolveRequest{
 		BuyerCompanyID:        in.ShipperCompanyID,
 		CarrierCompanyID:      in.PricingContext.CarrierCompanyID,

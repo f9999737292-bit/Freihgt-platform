@@ -2,13 +2,13 @@ package service
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/freight-platform/transport-order-service/internal/client/contractrate"
 	"github.com/freight-platform/transport-order-service/internal/domain"
+	"github.com/freight-platform/transport-order-service/internal/observability"
 	apperrors "github.com/freight-platform/transport-order-service/internal/platform/errors"
 )
 
@@ -20,6 +20,7 @@ type PricedOrderStore interface {
 	FindCreateIdempotency(ctx context.Context, tenantID, actorCompanyID uuid.UUID, idempotencyKey string) (*domain.CreateIdempotencyRecord, error)
 	GetPricedResult(ctx context.Context, tenantID, orderID, snapshotID uuid.UUID) (*domain.PricedTransportOrderResult, error)
 	CreatePricedOrder(ctx context.Context, in domain.CreatePricedTransportOrderInput, snapshot domain.RateSnapshot, requestHash string) (*domain.PricedTransportOrderResult, error)
+	WithCreateIdempotencyLock(ctx context.Context, tenantID, actorCompanyID uuid.UUID, idempotencyKey string, fn func(context.Context) (*domain.PricedTransportOrderResult, error)) (*domain.PricedTransportOrderResult, error)
 }
 
 type PricedTransportOrderService struct {
@@ -28,6 +29,7 @@ type PricedTransportOrderService struct {
 	locationLookup LocationReferenceStore
 	pricedOrders   PricedOrderStore
 	rates          RateResolver
+	metrics        *observability.PricingMetrics
 }
 
 func NewPricedTransportOrderService(
@@ -36,6 +38,7 @@ func NewPricedTransportOrderService(
 	locationLookup LocationReferenceStore,
 	pricedOrders PricedOrderStore,
 	rates RateResolver,
+	metrics *observability.PricingMetrics,
 ) *PricedTransportOrderService {
 	return &PricedTransportOrderService{
 		orders:         orders,
@@ -43,61 +46,85 @@ func NewPricedTransportOrderService(
 		locationLookup: locationLookup,
 		pricedOrders:   pricedOrders,
 		rates:          rates,
+		metrics:        metrics,
 	}
 }
 
 func (s *PricedTransportOrderService) CreatePricedTransportOrder(ctx context.Context, in domain.CreatePricedTransportOrderInput) (*domain.PricedTransportOrderResult, error) {
 	in.TransportMode = domain.NormalizeTransportMode(in.TransportMode)
 	if in.EquipmentType != nil {
-		trimmed := strings.ToUpper(strings.TrimSpace(*in.EquipmentType))
-		in.EquipmentType = &trimmed
+		normalized, err := domain.NormalizeEquipmentType(*in.EquipmentType)
+		if err != nil {
+			return nil, err
+		}
+		in.EquipmentType = &normalized
 	}
 	if err := domain.ValidateCreatePricedTransportOrderInput(in); err != nil {
+		s.incTOPricingResolution("VALIDATION_ERROR")
 		return nil, err
 	}
 	if err := s.validateOrderReferences(ctx, in.CreateTransportOrderInput); err != nil {
+		s.incTOPricingResolution("REFERENCE_ERROR")
 		return nil, err
 	}
 
 	requestHash, err := domain.ComputeCreateRequestHash(in)
 	if err != nil {
+		s.incTOPricingResolution("HASH_ERROR")
 		return nil, err
 	}
-	if existing, err := s.pricedOrders.FindCreateIdempotency(ctx, in.TenantID, in.Actor.CompanyID, in.IdempotencyKey); err != nil {
-		return nil, err
-	} else if existing != nil {
-		if existing.RequestHash != requestHash {
-			return nil, apperrors.Conflict("idempotency key reused with different request payload", map[string]any{"field": "idempotency_key"})
+	result, err := s.pricedOrders.WithCreateIdempotencyLock(ctx, in.TenantID, in.Actor.CompanyID, in.IdempotencyKey, func(ctx context.Context) (*domain.PricedTransportOrderResult, error) {
+		if existing, err := s.pricedOrders.FindCreateIdempotency(ctx, in.TenantID, in.Actor.CompanyID, in.IdempotencyKey); err != nil {
+			return nil, err
+		} else if existing != nil {
+			if existing.RequestHash != requestHash {
+				return nil, apperrors.Conflict("idempotency key reused with different request payload", map[string]any{"field": "idempotency_key"})
+			}
+			return s.pricedOrders.GetPricedResult(ctx, in.TenantID, existing.TransportOrderID, existing.RateSnapshotID)
 		}
-		return s.pricedOrders.GetPricedResult(ctx, in.TenantID, existing.TransportOrderID, existing.RateSnapshotID)
-	}
 
-	pricingDate := domain.PricingDateForOrder(in.CreateTransportOrderInput)
-	resolutionHash, err := domain.ComputeResolutionRequestHash(in, pricingDate)
+		pricingDate := domain.PricingDateForOrder(in.CreateTransportOrderInput)
+		resolutionHash, err := domain.ComputeResolutionRequestHash(in, pricingDate)
+		if err != nil {
+			return nil, err
+		}
+		resolved, err := s.rates.Resolve(ctx, in, pricingDate)
+		if err != nil {
+			return nil, err
+		}
+		carrierID, err := contractrate.ResolveCarrierID(in, resolved)
+		if err != nil {
+			return nil, err
+		}
+		in.PricingContext.CarrierCompanyID = carrierID
+		snapshot, err := contractrate.BuildSnapshotFromResolve(in, resolved, resolutionHash, carrierID)
+		if err != nil {
+			return nil, err
+		}
+		return s.pricedOrders.CreatePricedOrder(ctx, in, snapshot, requestHash)
+	})
 	if err != nil {
+		s.incTOPricingResolution("FAILURE")
 		return nil, err
 	}
-	resolved, err := s.rates.Resolve(ctx, in, pricingDate)
-	if err != nil {
-		return nil, err
+	s.incTOPricingResolution("SUCCESS")
+	return result, nil
+}
+
+func (s *PricedTransportOrderService) incTOPricingResolution(result string) {
+	if s.metrics != nil {
+		s.metrics.IncTOPricingResolution(result)
 	}
-	carrierID, err := contractrate.ResolveCarrierID(in, resolved)
-	if err != nil {
-		return nil, err
-	}
-	in.PricingContext.CarrierCompanyID = carrierID
-	snapshot, err := contractrate.BuildSnapshotFromResolve(in, resolved, resolutionHash, carrierID)
-	if err != nil {
-		return nil, err
-	}
-	return s.pricedOrders.CreatePricedOrder(ctx, in, snapshot, requestHash)
 }
 
 func (s *PricedTransportOrderService) CreateFromAwardScope(ctx context.Context, in domain.CreateFromAwardScopeInput) (*domain.PricedTransportOrderResult, error) {
 	if err := domain.ValidateCreateFromAwardScopeInput(in); err != nil {
 		return nil, err
 	}
-	equipment := strings.ToUpper(strings.TrimSpace(in.EquipmentType))
+	equipment, err := domain.NormalizeEquipmentType(in.EquipmentType)
+	if err != nil {
+		return nil, err
+	}
 	pricingSource := domain.NormalizePricingSource("RFQ_AWARD")
 	var lotID *uuid.UUID
 	if in.RfxLotID != nil && *in.RfxLotID != uuid.Nil {

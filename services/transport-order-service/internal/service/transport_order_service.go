@@ -106,14 +106,10 @@ func (s *TransportOrderService) GetCargo(ctx context.Context, id uuid.UUID) (*do
 }
 
 func (s *TransportOrderService) CreateTransportOrder(ctx context.Context, in domain.CreateTransportOrderInput) (*domain.TransportOrder, error) {
-	in.TransportMode = domain.NormalizeTransportMode(in.TransportMode)
-	if err := domain.ValidateCreateTransportOrderInput(in); err != nil {
-		return nil, err
-	}
-	if err := s.validateOrderReferences(ctx, in); err != nil {
-		return nil, err
-	}
-	return s.orders.Create(ctx, in)
+	return nil, apperrors.Validation("unpriced transport order creation is not permitted; use priced create with Idempotency-Key", map[string]any{
+		"code":  "UNPRICED_CREATE_DENIED",
+		"field": "pricing_model_version",
+	})
 }
 
 func (s *TransportOrderService) GetTransportOrder(ctx context.Context, id uuid.UUID) (*domain.TransportOrder, error) {
