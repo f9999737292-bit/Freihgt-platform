@@ -6344,6 +6344,64 @@ paths:
         - $ref: '#/components/parameters/XCompanyID'
         - $ref: '#/components/parameters/XLocale'
         - $ref: '#/components/parameters/Authorization'
+        - name: company_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Active company context requested by the authenticated user. The gateway validates membership and derives trusted internal company/actor context.
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - RECEIVED
+              - PARTIALLY_ALLOCATED
+              - FULLY_ALLOCATED
+              - RECONCILED
+              - VOIDED
+        - name: currency_code
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 3
+        - name: from_date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: to_date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Search payment_number, external_id, external_reference, or reference.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+          description: Page size. Non-positive values are normalized to the default.
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
       security:
         - bearerAuth: []
       responses:
@@ -6352,8 +6410,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                $ref: '#/components/schemas/PaymentListResponse'
         '400':
           description: Validation error
           content:
@@ -6472,6 +6529,28 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: company_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Active company context requested by the authenticated user. The gateway validates membership and derives trusted internal company/actor context.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+          description: Page size. Non-positive values are normalized to the default.
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
       security:
         - bearerAuth: []
       responses:
@@ -6480,8 +6559,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                $ref: '#/components/schemas/PaymentAllocationListResponse'
         '400':
           description: Validation error
           content:
@@ -6606,6 +6684,28 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: company_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Active company context requested by the authenticated user. The gateway validates membership and derives trusted internal company/actor context.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+          description: Page size. Non-positive values are normalized to the default.
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
       security:
         - bearerAuth: []
       responses:
@@ -6614,8 +6714,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                $ref: '#/components/schemas/PaymentAuditEventListResponse'
         '400':
           description: Validation error
           content:
@@ -6670,6 +6769,28 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: company_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Active company context requested by the authenticated user. The gateway validates membership and derives trusted internal company/actor context.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+          description: Page size. Non-positive values are normalized to the default.
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
       security:
         - bearerAuth: []
       responses:
@@ -6678,8 +6799,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                $ref: '#/components/schemas/EligiblePaymentObligationListResponse'
         '400':
           description: Validation error
           content:
@@ -7033,15 +7153,117 @@ components:
           type: integer
         offset:
           type: integer
+    PaymentRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        payment_number:
+          type: string
+        payer_company_id:
+          type: string
+          format: uuid
+        payee_company_id:
+          type: string
+          format: uuid
+        amount:
+          type: string
+        currency_code:
+          type: string
+        payment_date:
+          type: string
+          format: date
+        source:
+          type: string
+        status:
+          type: string
+          enum:
+            - RECEIVED
+            - PARTIALLY_ALLOCATED
+            - FULLY_ALLOCATED
+            - RECONCILED
+            - VOIDED
+        allocated_amount:
+          type: string
+        unallocated_amount:
+          type: string
+        version:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        reference:
+          type: string
+        external_reference:
+          type: string
+        external_id:
+          type: string
+        created_by:
+          type: string
+          format: uuid
+        voided_at:
+          type: string
+          format: date-time
+        voided_by:
+          type: string
+          format: uuid
+        void_reason:
+          type: string
+        reconciled_at:
+          type: string
+          format: date-time
+        reconciled_by:
+          type: string
+          format: uuid
+    PaymentListResponse:
+      allOf:
+        - $ref: '#/components/schemas/PaginatedResponse'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/PaymentRecord'
     PaymentAllocationReadRecord:
       type: object
       properties:
         id:
           type: string
           format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        payment_id:
+          type: string
+          format: uuid
         obligation_id:
           type: string
           format: uuid
+        allocated_amount:
+          type: string
+        currency_code:
+          type: string
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        voided_at:
+          type: string
+          format: date-time
+        voided_by:
+          type: string
+          format: uuid
+        void_reason:
+          type: string
         obligation_number:
           type: string
         obligation_status:
@@ -7062,9 +7284,87 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/PaymentAllocationReadRecord'
+    PaymentAuditEventRecord:
+      type: object
+      properties:
+        id:
+          type: string
+        tenant_id:
+          type: string
+        entity_type:
+          type: string
+        entity_id:
+          type: string
+        event_type:
+          type: string
+        actor_user_id:
+          type: string
+        actor_company_id:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
     PaymentAuditEventListResponse:
       allOf:
         - $ref: '#/components/schemas/PaginatedResponse'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/PaymentAuditEventRecord'
+    PaymentObligationRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        obligation_number:
+          type: string
+        payer_company_id:
+          type: string
+          format: uuid
+        payee_company_id:
+          type: string
+          format: uuid
+        source_type:
+          type: string
+        source_id:
+          type: string
+          format: uuid
+        currency_code:
+          type: string
+        original_amount:
+          type: string
+        paid_amount:
+          type: string
+        outstanding_amount:
+          type: string
+        status:
+          type: string
+        version:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        due_date:
+          type: string
+          format: date
     EligiblePaymentObligationListResponse:
       allOf:
         - $ref: '#/components/schemas/PaginatedResponse'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/PaymentObligationRecord'

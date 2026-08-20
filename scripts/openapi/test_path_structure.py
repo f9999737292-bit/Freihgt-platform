@@ -16,9 +16,13 @@ ROOT = Path(__file__).resolve().parents[2]
 OPENAPI_DIR = ROOT / "packages" / "openapi"
 ROOT_FORBIDDEN = frozenset({"get", "post", "put", "patch", "delete"})
 PAYMENT_WORKSPACE_SCHEMAS = frozenset({
+    "PaymentRecord",
+    "PaymentListResponse",
     "PaymentAllocationReadRecord",
     "PaymentAllocationListResponse",
+    "PaymentAuditEventRecord",
     "PaymentAuditEventListResponse",
+    "PaymentObligationRecord",
     "EligiblePaymentObligationListResponse",
 })
 
@@ -55,6 +59,80 @@ def schema_names(spec: dict) -> set[str]:
     if not isinstance(schemas, dict):
         return set()
     return set(schemas.keys())
+
+
+def operation_parameter_names(operation: dict) -> set[str]:
+    params = operation.get("parameters", [])
+    if not isinstance(params, list):
+        return set()
+    names: set[str] = set()
+    for param in params:
+        if isinstance(param, dict) and "name" in param:
+            names.add(param["name"])
+    return names
+
+
+def success_response_schema_ref(operation: dict) -> str | None:
+    responses = operation.get("responses", {})
+    if not isinstance(responses, dict):
+        return None
+    success = responses.get("200")
+    if not isinstance(success, dict):
+        return None
+    content = success.get("content", {})
+    if not isinstance(content, dict):
+        return None
+    json_content = content.get("application/json", {})
+    if not isinstance(json_content, dict):
+        return None
+    schema = json_content.get("schema", {})
+    if not isinstance(schema, dict):
+        return None
+    ref = schema.get("$ref")
+    return ref if isinstance(ref, str) else None
+
+
+def assert_payment_read_operation_contracts(spec: dict, label: str) -> None:
+    paths = spec.get("paths", {})
+    payment_list = paths.get("/api/v1/payments", {}).get("get")
+    if not isinstance(payment_list, dict):
+        raise AssertionError(f"{label}: missing GET /api/v1/payments")
+    if success_response_schema_ref(payment_list) != "#/components/schemas/PaymentListResponse":
+        raise AssertionError(f"{label}: GET /api/v1/payments must reference PaymentListResponse")
+    list_params = operation_parameter_names(payment_list)
+    for name in ("company_id", "status", "currency_code", "from_date", "to_date", "q", "limit", "offset"):
+        if name not in list_params:
+            raise AssertionError(f"{label}: GET /api/v1/payments missing query parameter {name}")
+
+    detail_ops = {
+        "/api/v1/payments/{id}/allocations": "PaymentAllocationListResponse",
+        "/api/v1/payments/{id}/audit-events": "PaymentAuditEventListResponse",
+        "/api/v1/payments/{id}/eligible-obligations": "EligiblePaymentObligationListResponse",
+    }
+    for path, schema_name in detail_ops.items():
+        operation = paths.get(path, {}).get("get")
+        if not isinstance(operation, dict):
+            raise AssertionError(f"{label}: missing GET {path}")
+        expected_ref = f"#/components/schemas/{schema_name}"
+        if success_response_schema_ref(operation) != expected_ref:
+            raise AssertionError(f"{label}: GET {path} must reference {schema_name}")
+        params = operation_parameter_names(operation)
+        for name in ("company_id", "limit", "offset", "id"):
+            if name not in params:
+                raise AssertionError(f"{label}: GET {path} missing parameter {name}")
+
+
+def assert_aggregate_payment_parity(payment_spec: dict, unified_spec: dict) -> None:
+    for path in (
+        "/api/v1/payments",
+        "/api/v1/payments/{id}/allocations",
+        "/api/v1/payments/{id}/audit-events",
+        "/api/v1/payments/{id}/eligible-obligations",
+    ):
+        payment_get = payment_spec.get("paths", {}).get(path, {}).get("get")
+        unified_get = unified_spec.get("paths", {}).get(path, {}).get("get")
+        if payment_get != unified_get:
+            raise AssertionError(f"openapi.yaml GET {path} does not match payment-service.yaml")
 
 
 def assert_payment_schema_isolation() -> None:
@@ -122,6 +200,9 @@ def main() -> int:
         return 1
 
     assert_payment_schema_isolation()
+    assert_payment_read_operation_contracts(payment_spec, "payment-service.yaml")
+    assert_payment_read_operation_contracts(unified_spec, "openapi.yaml")
+    assert_aggregate_payment_parity(payment_spec, unified_spec)
 
     print("OPENAPI_PATH_STRUCTURE_TEST=PASS")
     return 0
