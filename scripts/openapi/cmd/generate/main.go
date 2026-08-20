@@ -123,7 +123,7 @@ var endpoints = []endpoint{
 	{"/api/v1/payments", "get", "List payments", "Payments", true, true, ""},
 	{"/api/v1/payments/{id}", "get", "Get payment by ID", "Payments", true, true, ""},
 	{"/api/v1/payments/{id}/allocations", "post", "Allocate payment to obligation", "Payments", true, true, ""},
-	{"/api/v1/payments/{id}/reconcile", "post", "Reconcile fully allocated payment", "Payments", true, true, ""},
+	{"/api/v1/payments/{id}/reconcile", "post", "Reconcile fully allocated payment", "Payments", true, true, "reconcile_payment"},
 	{"/api/v1/payment-allocations/{id}/void", "post", "Void payment allocation", "Payments", true, true, "void_allocation"},
 	{"/api/v1/payments/{id}/void", "post", "Void payment", "Payments", true, true, "void_payment"},
 }
@@ -140,6 +140,14 @@ var serviceTags = map[string][]string{
 }
 
 var pathParamPattern = regexp.MustCompile(`\{([^}]+)\}`)
+
+var reconcileDescriptions = map[string]string{
+	"reconcile_payment": "Reconciles a payment after canonical financial confirmation.\nRequires FULLY_ALLOCATED status with active allocations recomputed from the database.\nExact equality is required between payment amount, stored allocated amount, and active allocation sum.\nRepeat reconciliation is idempotent. Ordinary post-reconcile mutations are forbidden.",
+}
+
+var noRequestBodyProfiles = map[string]struct{}{
+	"reconcile_payment": {},
+}
 
 var voidDescriptions = map[string]string{
 	"void_allocation": "Voids an active allocation and recomputes payment/obligation balances from remaining active allocations.\nAppend-only reversal. PAID obligation reversal is forbidden. RECONCILED payment mutation is forbidden.\nRepeat void is idempotent. Actor and tenant context are derived from verified request context.",
@@ -261,7 +269,12 @@ func renderOperation(path string, e endpoint) string {
 	sb.WriteString(fmt.Sprintf("      summary: %s\n", e.summary))
 	sb.WriteString(fmt.Sprintf("      operationId: %s_%s\n", e.method, pathToID(e.summary)))
 	if e.profile != "" {
-		if desc, ok := voidDescriptions[e.profile]; ok {
+		var desc string
+		var ok bool
+		if desc, ok = voidDescriptions[e.profile]; !ok {
+			desc, ok = reconcileDescriptions[e.profile]
+		}
+		if ok {
 			sb.WriteString("      description: |\n")
 			for _, line := range strings.Split(desc, "\n") {
 				sb.WriteString("        " + line + "\n")
@@ -271,13 +284,14 @@ func renderOperation(path string, e endpoint) string {
 	if e.withHeaders {
 		sb.WriteString(renderPathParameters(path, e.withHeaders))
 	}
-	if e.method == "post" || e.method == "patch" || e.method == "put" {
+	_, skipBody := noRequestBodyProfiles[e.profile]
+	if (e.method == "post" || e.method == "patch" || e.method == "put") && !skipBody {
 		sb.WriteString("      requestBody:\n")
 		sb.WriteString("        required: true\n")
 		sb.WriteString("        content:\n")
 		sb.WriteString("          application/json:\n")
 		sb.WriteString("            schema:\n")
-		if e.profile != "" {
+		if _, isVoid := voidDescriptions[e.profile]; isVoid {
 			sb.WriteString("              $ref: '#/components/schemas/VoidRequest'\n")
 		} else {
 			sb.WriteString("              type: object\n")
@@ -293,6 +307,8 @@ func renderOperation(path string, e endpoint) string {
 		successDesc = "Allocation voided or idempotent success"
 	} else if e.profile == "void_payment" {
 		successDesc = "Payment voided or idempotent success"
+	} else if e.profile == "reconcile_payment" {
+		successDesc = "Payment reconciled or idempotent success"
 	} else if e.method == "post" && e.tag != "Gateway" && e.tag != "Auth" {
 		successCode = "201"
 	}

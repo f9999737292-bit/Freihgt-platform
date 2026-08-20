@@ -185,7 +185,7 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/payments", "get", "List payments", "Payments", True, True, None),
     ("/api/v1/payments/{id}", "get", "Get payment by ID", "Payments", True, True, None),
     ("/api/v1/payments/{id}/allocations", "post", "Allocate payment to obligation", "Payments", True, True, None),
-    ("/api/v1/payments/{id}/reconcile", "post", "Reconcile fully allocated payment", "Payments", True, True, None),
+    ("/api/v1/payments/{id}/reconcile", "post", "Reconcile fully allocated payment", "Payments", True, True, "reconcile_payment"),
     ("/api/v1/payment-allocations/{id}/void", "post", "Void payment allocation", "Payments", True, True, "void_allocation"),
     ("/api/v1/payments/{id}/void", "post", "Void payment", "Payments", True, True, "void_payment"),
 ]
@@ -213,6 +213,17 @@ VOID_DESCRIPTIONS = {
         "Repeat void is idempotent. Actor and tenant context are derived from verified request context."
     ),
 }
+
+RECONCILE_DESCRIPTIONS = {
+    "reconcile_payment": (
+        "Reconciles a payment after canonical financial confirmation.\n"
+        "Requires FULLY_ALLOCATED status with active allocations recomputed from the database.\n"
+        "Exact equality is required between payment amount, stored allocated amount, and active allocation sum.\n"
+        "Repeat reconciliation is idempotent. Ordinary post-reconcile mutations are forbidden."
+    ),
+}
+
+NO_REQUEST_BODY_PROFILES = frozenset({"reconcile_payment"})
 
 
 def path_to_id(summary: str) -> str:
@@ -254,6 +265,10 @@ def render_operation(
         lines.append("      description: |")
         for desc_line in VOID_DESCRIPTIONS[profile].splitlines():
             lines.append(f"        {desc_line}")
+    elif profile in RECONCILE_DESCRIPTIONS:
+        lines.append("      description: |")
+        for desc_line in RECONCILE_DESCRIPTIONS[profile].splitlines():
+            lines.append(f"        {desc_line}")
 
     if with_headers:
         if re.search(r"\{[^}]+\}", path):
@@ -261,7 +276,7 @@ def render_operation(
         else:
             lines.append(COMMON_HEADER.rstrip("\n"))
 
-    if method in {"post", "patch", "put"}:
+    if method in {"post", "patch", "put"} and profile not in NO_REQUEST_BODY_PROFILES:
         schema_ref = "#/components/schemas/VoidRequest" if profile in VOID_DESCRIPTIONS else None
         lines.extend(
             [
@@ -285,12 +300,14 @@ def render_operation(
     if secured:
         lines.append(SECURITY_BEARER.rstrip("\n"))
 
-    success_code = "200" if profile in VOID_DESCRIPTIONS else ("201" if method == "post" and tag not in {"Gateway", "Auth"} else "200")
+    success_code = "200" if profile in VOID_DESCRIPTIONS or profile in RECONCILE_DESCRIPTIONS else ("201" if method == "post" and tag not in {"Gateway", "Auth"} else "200")
     success_desc = "Successful response"
     if profile == "void_allocation":
         success_desc = "Allocation voided or idempotent success"
     elif profile == "void_payment":
         success_desc = "Payment voided or idempotent success"
+    elif profile == "reconcile_payment":
+        success_desc = "Payment reconciled or idempotent success"
 
     lines.extend(
         [

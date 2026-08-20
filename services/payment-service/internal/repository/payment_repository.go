@@ -23,6 +23,7 @@ type PaymentRepository struct {
 	simulateOutboxInsertFailure       bool
 	simulateAllocationVoidAuditFailure bool
 	simulatePaymentVoidAuditFailure    bool
+	simulateReconcileAuditFailure      bool
 }
 
 func NewPaymentRepository(pool *pgxpool.Pool) *PaymentRepository {
@@ -333,36 +334,6 @@ func (r *PaymentRepository) CreateManualPayment(ctx context.Context, in domain.C
 	return payment, err
 }
 
-func (r *PaymentRepository) ReconcilePayment(ctx context.Context, tenantID, paymentID uuid.UUID, actor domain.PaymentActorInput) (*domain.Payment, error) {
-	var result *domain.Payment
-	err := r.withTx(ctx, func(tx pgx.Tx) error {
-		p, err := r.getPaymentForUpdate(ctx, tx, tenantID, paymentID)
-		if err != nil {
-			return err
-		}
-		if err := domain.ValidatePaymentAccess(p.PayerCompanyID, p.PayeeCompanyID, actor.ActorCompanyID, actor.ActorKind); err != nil {
-			return err
-		}
-		if err := domain.ValidateReconcilePayment(p.Status); err != nil {
-			return err
-		}
-		const query = `
-			UPDATE billing.payments
-			SET status = $1, reconciled_at = now(), reconciled_by = $2, version = version + 1, updated_at = now()
-			WHERE id = $3 AND tenant_id = $4 AND version = $5
-			RETURNING ` + paymentSelectCols
-		updated, err := scanPayment(tx.QueryRow(ctx, query,
-			domain.PaymentStatusReconciled, actor.ActorUserID, paymentID, tenantID, p.Version))
-		if err != nil {
-			return err
-		}
-		result = updated
-		return r.insertAuditTx(ctx, tx, tenantID, "PAYMENT", paymentID, "PAYMENT_RECONCILED",
-			&actor.ActorUserID, &actor.ActorCompanyID, map[string]any{"status": domain.PaymentStatusReconciled})
-	})
-	return result, err
-}
-
 func (r *PaymentRepository) getPaymentForUpdate(ctx context.Context, tx pgx.Tx, tenantID, id uuid.UUID) (*domain.Payment, error) {
 	query := `SELECT ` + paymentSelectCols + ` FROM billing.payments WHERE id = $1 AND tenant_id = $2 FOR UPDATE`
 	return scanPayment(tx.QueryRow(ctx, query, id, tenantID))
@@ -406,6 +377,9 @@ func (r *PaymentRepository) Allocate(ctx context.Context, in domain.CreateAlloca
 		}
 		if payment.Status == domain.PaymentStatusVoided {
 			return apperrors.Conflict("payment is voided", nil)
+		}
+		if err := domain.ValidateAllocateAgainstReconciled(payment.Status); err != nil {
+			return err
 		}
 		if obligation.Status == domain.ObligationStatusCancelled || obligation.Status == domain.ObligationStatusVoided {
 			return apperrors.Conflict("obligation is not allocatable", map[string]any{"status": obligation.Status})

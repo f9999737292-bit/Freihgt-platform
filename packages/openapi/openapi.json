@@ -11456,6 +11456,7 @@
         ],
         "summary": "Reconcile fully allocated payment",
         "operationId": "post_reconcile_fully_allocated_payment",
+        "description": "Reconciles a payment after canonical financial confirmation.\nRequires FULLY_ALLOCATED status with active allocations recomputed from the database.\nExact equality is required between payment amount, stored allocated amount, and active allocation sum.\nRepeat reconciliation is idempotent. Ordinary post-reconcile mutations are forbidden.\n",
         "parameters": [
           {
             "$ref": "#/components/parameters/XRequestID"
@@ -11482,25 +11483,14 @@
             }
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": true
-              }
-            }
-          }
-        },
         "security": [
           {
             "bearerAuth": []
           }
         ],
         "responses": {
-          "201": {
-            "description": "Successful response",
+          "200": {
+            "description": "Payment reconciled or idempotent success",
             "content": {
               "application/json": {
                 "schema": {

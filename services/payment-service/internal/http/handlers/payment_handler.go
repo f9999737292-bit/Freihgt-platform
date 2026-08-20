@@ -384,6 +384,12 @@ func toPaymentResponse(p *domain.Payment) map[string]any {
 	if p.VoidReason != nil {
 		resp["void_reason"] = *p.VoidReason
 	}
+	if p.ReconciledAt != nil {
+		resp["reconciled_at"] = p.ReconciledAt
+	}
+	if p.ReconciledBy != nil {
+		resp["reconciled_by"] = p.ReconciledBy.String()
+	}
 	return resp
 }
 

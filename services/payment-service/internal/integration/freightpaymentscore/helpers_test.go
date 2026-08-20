@@ -187,3 +187,36 @@ func createManualPayment(t *testing.T, env *env, fix fixture, amount string) *do
 	}
 	return p
 }
+
+// seedCrossTenantObligation creates a Tenant B obligation with matching payer/payee/currency
+// so cross-tenant link corruption is detected only by obligation tenant invariant.
+func seedCrossTenantObligation(t *testing.T, pool *pgxpool.Pool, fix fixture, amount string) uuid.UUID {
+	t.Helper()
+	ctx := context.Background()
+	tenantB := uuid.New()
+	registerB := uuid.New()
+	obligationB := uuid.New()
+	if _, err := pool.Exec(ctx, `INSERT INTO core.tenants (id, code, name) VALUES ($1,$2,$3)`,
+		tenantB, "T-"+tenantB.String()[:8], "Tenant B"); err != nil {
+		t.Fatalf("tenant B: %v", err)
+	}
+	period := time.Now().UTC()
+	if _, err := pool.Exec(ctx, `INSERT INTO billing.billing_registers (
+		id, tenant_id, register_number, customer_company_id, contractor_company_id,
+		period_from, period_to, currency_code, status,
+		total_without_vat, vat_amount, total_with_vat
+	) VALUES ($1,$2,$3,$4,$5,$6,$7,'RUB','SIGNED_BY_COUNTERPARTY',$8,$9,$10)`,
+		registerB, tenantB, "REG-B-"+registerB.String()[:8], fix.BuyerID, fix.CarrierID,
+		period, period, amount, "0.00", amount); err != nil {
+		t.Fatalf("register B: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO billing.payment_obligations (
+		id, tenant_id, obligation_number, payer_company_id, payee_company_id,
+		source_type, source_id, currency_code, original_amount, paid_amount, outstanding_amount, status
+	) VALUES ($1,$2,$3,$4,$5,'BILLING_REGISTER',$6,'RUB',$7,$8,$9,'OPEN')`,
+		obligationB, tenantB, "OBL-B-"+obligationB.String()[:8], fix.BuyerID, fix.CarrierID,
+		registerB, amount, "0.00", amount); err != nil {
+		t.Fatalf("obligation B: %v", err)
+	}
+	return obligationB
+}
