@@ -4,6 +4,7 @@ package pricingsnapshot
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
@@ -21,6 +22,15 @@ import (
 	todomain "github.com/freight-platform/transport-order-service/internal/domain"
 	torepo "github.com/freight-platform/transport-order-service/internal/repository"
 )
+
+type tenantFixture struct {
+	tenantID  uuid.UUID
+	buyerID   uuid.UUID
+	carrierID uuid.UUID
+	originID  uuid.UUID
+	destID    uuid.UUID
+	cargoID   uuid.UUID
+}
 
 type testEnv struct {
 	pool         *pgxpool.Pool
@@ -220,4 +230,139 @@ func sampleSnapshot(tenantID, buyerID, carrierID, originID, destID uuid.UUID) to
 
 func testRequestHash(label string) string {
 	return strings.Repeat("f", 64-len(label)) + label
+}
+
+func seedSecondTenantCompanies(t *testing.T, pool *pgxpool.Pool) tenantFixture {
+	t.Helper()
+	tenantID, buyerID, carrierID, originID, destID, cargoID := seedTenantCompanies(t, pool)
+	return tenantFixture{
+		tenantID:  tenantID,
+		buyerID:   buyerID,
+		carrierID: carrierID,
+		originID:  originID,
+		destID:    destID,
+		cargoID:   cargoID,
+	}
+}
+
+func sampleContractSnapshot(tenantID, buyerID, carrierID, originID, destID uuid.UUID) todomain.RateSnapshot {
+	contractID := uuid.New()
+	rateCardID := uuid.New()
+	rateVersionID := uuid.New()
+	rateLineID := uuid.New()
+	contractNumber := "CTR-001"
+	rateCardName := "Moscow Lane"
+	versionNumber := 1
+	base := decimal.RequireFromString("2000.00")
+	total := decimal.RequireFromString("2500.00")
+	return todomain.RateSnapshot{
+		TenantID:                 tenantID,
+		BuyerCompanyID:           buyerID,
+		CarrierCompanyID:         carrierID,
+		PricingSource:            "CONTRACT_RATE",
+		ContractID:               &contractID,
+		RateCardID:               &rateCardID,
+		RateVersionID:            &rateVersionID,
+		RateLineID:               &rateLineID,
+		ContractNumber:           &contractNumber,
+		RateCardName:             &rateCardName,
+		RateVersionNumber:        &versionNumber,
+		OriginLocationID:         originID,
+		DestinationLocationID:    destID,
+		EquipmentType:            "TAUTLINER",
+		TransportMode:            "ROAD",
+		CurrencyCode:             "RUB",
+		ComponentBreakdownStatus: "AVAILABLE",
+		Components:               json.RawMessage(`[{"component_type":"BASE","amount":"2000.00"}]`),
+		AccessorialRules:         todomain.EmptyJSONArray(),
+		BaseAmount:               &base,
+		TotalAmount:              total,
+		PricingDate:              time.Now().UTC(),
+		ResolvedAt:               time.Now().UTC(),
+		ResolvedByService:        todomain.ResolvedServiceContractRate,
+		ResolverVersion:          "v2.0C",
+		ResolutionRequestHash:    strings.Repeat("c", 64),
+	}
+}
+
+func sampleRFQUnavailableSnapshot(tenantID, buyerID, carrierID, originID, destID uuid.UUID) todomain.RateSnapshot {
+	eventID := uuid.New()
+	total := decimal.RequireFromString("108000.00")
+	return todomain.RateSnapshot{
+		TenantID:                 tenantID,
+		BuyerCompanyID:           buyerID,
+		CarrierCompanyID:         carrierID,
+		PricingSource:            "RFQ_AWARD",
+		RfxEventID:               &eventID,
+		OriginLocationID:         originID,
+		DestinationLocationID:    destID,
+		EquipmentType:            "TAUTLINER",
+		TransportMode:            "ROAD",
+		CurrencyCode:             "RUB",
+		ComponentBreakdownStatus: "UNAVAILABLE",
+		Components:               todomain.EmptyJSONArray(),
+		AccessorialRules:         todomain.EmptyJSONArray(),
+		TotalAmount:              total,
+		PricingDate:              time.Now().UTC(),
+		ResolvedAt:               time.Now().UTC(),
+		ResolvedByService:        "test",
+		ResolverVersion:          "v2.0C",
+		ResolutionRequestHash:    strings.Repeat("r", 64),
+	}
+}
+
+func sampleSpotBidUnavailableSnapshot(tenantID, buyerID, carrierID, originID, destID uuid.UUID) todomain.RateSnapshot {
+	bidID := uuid.New()
+	total := decimal.RequireFromString("9200.00")
+	return todomain.RateSnapshot{
+		TenantID:                 tenantID,
+		BuyerCompanyID:           buyerID,
+		CarrierCompanyID:         carrierID,
+		PricingSource:            "SPOT_BID",
+		BidID:                    &bidID,
+		OriginLocationID:         originID,
+		DestinationLocationID:    destID,
+		EquipmentType:            "TAUTLINER",
+		TransportMode:            "ROAD",
+		CurrencyCode:             "RUB",
+		ComponentBreakdownStatus: "UNAVAILABLE",
+		Components:               todomain.EmptyJSONArray(),
+		AccessorialRules:         todomain.EmptyJSONArray(),
+		TotalAmount:              total,
+		PricingDate:              time.Now().UTC(),
+		ResolvedAt:               time.Now().UTC(),
+		ResolvedByService:        "test",
+		ResolverVersion:          "v2.0C",
+		ResolutionRequestHash:    strings.Repeat("s", 64),
+	}
+}
+
+func sampleManualSnapshot(tenantID, buyerID, carrierID, originID, destID uuid.UUID) todomain.RateSnapshot {
+	snap := sampleSnapshot(tenantID, buyerID, carrierID, originID, destID)
+	snap.PricingSource = "MANUAL_SPOT"
+	return snap
+}
+
+func insertBareTransportOrder(
+	t *testing.T,
+	pool *pgxpool.Pool,
+	tenantID, buyerID, originID, destID, cargoID uuid.UUID,
+	orderNumber string,
+) uuid.UUID {
+	t.Helper()
+	ctx := context.Background()
+	var orderID uuid.UUID
+	err := pool.QueryRow(ctx, `
+		INSERT INTO transport.transport_orders (
+			tenant_id, order_number, shipper_company_id, consignee_company_id,
+			origin_location_id, destination_location_id, cargo_id,
+			transport_mode, equipment_type, status, pricing_model_version
+		) VALUES ($1,$2,$3,$3,$4,$5,$6,'ROAD','TAUTLINER','DRAFT','SNAPSHOT_V1')
+		RETURNING id`,
+		tenantID, orderNumber, buyerID, originID, destID, cargoID,
+	).Scan(&orderID)
+	if err != nil {
+		t.Fatalf("insert order: %v", err)
+	}
+	return orderID
 }

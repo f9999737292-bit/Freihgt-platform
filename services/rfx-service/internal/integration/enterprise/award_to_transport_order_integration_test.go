@@ -76,9 +76,11 @@ func seedAwardedMultiLotEvent(t *testing.T, env *testEnv, fix conversionFixture,
 		t.Fatalf("create lot B: %v", err)
 	}
 	for _, lot := range []*domain.RfxLot{lotA, lotB} {
+		equip := "TAUTLINER"
 		if _, err := env.rfxSvc.CreateLane(ctx, fix.BuyerA, lot.ID, domain.CreateRfxLaneInput{
 			TenantID: fix.TenantID, RfxLotID: lot.ID,
 			OriginLocationID: fix.OriginID, DestinationLocationID: fix.DestID, TransportMode: "ROAD",
+			EquipmentType: &equip,
 		}); err != nil {
 			t.Fatalf("create lane: %v", err)
 		}

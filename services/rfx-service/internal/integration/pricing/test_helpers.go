@@ -4,6 +4,7 @@ package pricing
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -18,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/freight-platform/rfx-service/internal/domain"
+	apperrors "github.com/freight-platform/rfx-service/internal/platform/errors"
 	"github.com/freight-platform/rfx-service/internal/repository"
 	"github.com/freight-platform/rfx-service/internal/service"
 )
@@ -179,7 +181,7 @@ func createTempDatabase(ctx context.Context, adminURL string) (string, string, f
 func applyMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 	dir, err := locateMigrationsDir()
 	if err != nil {
-	 return err
+		return err
 	}
 	files, err := filepath.Glob(filepath.Join(dir, "*.up.sql"))
 	if err != nil {
@@ -209,4 +211,253 @@ func locateMigrationsDir() (string, error) {
 		}
 	}
 	return "", fmt.Errorf("migrations dir not found")
+}
+
+func assertAppErrorCode(t *testing.T, err error, code apperrors.Code) {
+	t.Helper()
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var appErr *apperrors.AppError
+	if !errors.As(err, &appErr) || appErr.Code != code {
+		t.Fatalf("expected code %s, got %v", code, err)
+	}
+}
+
+func assertAppErrorDetailCode(t *testing.T, err error, detailCode string) {
+	t.Helper()
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var appErr *apperrors.AppError
+	if !errors.As(err, &appErr) {
+		t.Fatalf("expected app error, got %v", err)
+	}
+	got, _ := appErr.Details["code"].(string)
+	if got != detailCode {
+		t.Fatalf("expected detail code %q, got %q (err=%v)", detailCode, got, err)
+	}
+}
+
+func seedAwardedEvent(t *testing.T, env *testEnv, fix fixture, amount float64) (*domain.RfxEvent, uuid.UUID) {
+	t.Helper()
+	return seedAwardedEventWithEquipment(t, env, fix, amount, "TAUTLINER")
+}
+
+func seedAwardedEventWithEquipment(t *testing.T, env *testEnv, fix fixture, amount float64, equipment string) (*domain.RfxEvent, uuid.UUID) {
+	t.Helper()
+	ctx := context.Background()
+	deadline := time.Now().UTC().Add(24 * time.Hour)
+	currency := "RUB"
+	event, err := env.rfxSvc.CreateEvent(ctx, fix.buyer, domain.CreateRfxEventInput{
+		TenantID: fix.tenantID, OwnerCompanyID: fix.buyerCompany, Title: "Pricing Tender",
+		RfxType: "SPOT_RFQ", Category: "FREIGHT", RfxNumber: "RFX-P-" + uuid.NewString()[:8],
+		ResponseDeadline: &deadline, CurrencyCode: &currency,
+	})
+	if err != nil {
+		t.Fatalf("event: %v", err)
+	}
+	if _, err := env.rfxSvc.AddParticipant(ctx, fix.buyer, event.ID, domain.AddRfxParticipantInput{
+		TenantID: fix.tenantID, RfxEventID: event.ID, CompanyID: fix.carrierCompany, ParticipantType: "CARRIER",
+	}); err != nil {
+		t.Fatalf("participant: %v", err)
+	}
+	lot, err := env.rfxSvc.CreateLot(ctx, fix.buyer, event.ID, domain.CreateRfxLotInput{
+		TenantID: fix.tenantID, RfxEventID: event.ID, LotNumber: "LOT-1", Name: "Lot 1",
+	})
+	if err != nil {
+		t.Fatalf("lot: %v", err)
+	}
+	equip := equipment
+	if _, err := env.rfxSvc.CreateLane(ctx, fix.buyer, lot.ID, domain.CreateRfxLaneInput{
+		TenantID: fix.tenantID, RfxLotID: lot.ID,
+		OriginLocationID: fix.originID, DestinationLocationID: fix.destID,
+		TransportMode: "ROAD", EquipmentType: &equip,
+	}); err != nil {
+		t.Fatalf("lane: %v", err)
+	}
+	if _, err := env.rfxSvc.PublishEvent(ctx, fix.buyer, event.ID); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	resp, err := env.rfxSvc.CreateResponse(ctx, fix.carrier, event.ID, domain.CreateRfxResponseInput{
+		TenantID: fix.tenantID, ParticipantCompanyID: fix.carrierCompany,
+	})
+	if err != nil {
+		t.Fatalf("response: %v", err)
+	}
+	if _, err := env.rfxSvc.UpdateResponseCommercial(ctx, fix.carrier, resp.ID, []domain.UpsertOfferLineInput{
+		{RfxLotID: lot.ID, Amount: amount, CurrencyCode: "RUB"},
+	}); err != nil {
+		t.Fatalf("commercial: %v", err)
+	}
+	if _, err := env.rfxSvc.SubmitResponse(ctx, fix.carrier, resp.ID); err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	if _, err := env.rfxSvc.AwardResponse(ctx, fix.buyer, event.ID, resp.ID); err != nil {
+		t.Fatalf("award: %v", err)
+	}
+	return event, lot.ID
+}
+
+func seedAwardedMultiLotEvent(t *testing.T, env *testEnv, fix fixture, amounts []float64) *domain.RfxEvent {
+	t.Helper()
+	ctx := context.Background()
+	deadline := time.Now().UTC().Add(24 * time.Hour)
+	currency := "RUB"
+	event, err := env.rfxSvc.CreateEvent(ctx, fix.buyer, domain.CreateRfxEventInput{
+		TenantID: fix.tenantID, OwnerCompanyID: fix.buyerCompany, Title: "Multi-lot Pricing Tender",
+		RfxType: "SPOT_RFQ", Category: "FREIGHT", RfxNumber: "RFX-ML-" + uuid.NewString()[:8],
+		ResponseDeadline: &deadline, CurrencyCode: &currency,
+	})
+	if err != nil {
+		t.Fatalf("event: %v", err)
+	}
+	if _, err := env.rfxSvc.AddParticipant(ctx, fix.buyer, event.ID, domain.AddRfxParticipantInput{
+		TenantID: fix.tenantID, RfxEventID: event.ID, CompanyID: fix.carrierCompany, ParticipantType: "CARRIER",
+	}); err != nil {
+		t.Fatalf("participant: %v", err)
+	}
+	equip := "TAUTLINER"
+	offerLines := make([]domain.UpsertOfferLineInput, 0, len(amounts))
+	for i, amount := range amounts {
+		lot, lotErr := env.rfxSvc.CreateLot(ctx, fix.buyer, event.ID, domain.CreateRfxLotInput{
+			TenantID: fix.tenantID, RfxEventID: event.ID,
+			LotNumber: fmt.Sprintf("LOT-%d", i+1), Name: fmt.Sprintf("Lot %d", i+1),
+		})
+		if lotErr != nil {
+			t.Fatalf("lot %d: %v", i+1, lotErr)
+		}
+		if _, laneErr := env.rfxSvc.CreateLane(ctx, fix.buyer, lot.ID, domain.CreateRfxLaneInput{
+			TenantID: fix.tenantID, RfxLotID: lot.ID,
+			OriginLocationID: fix.originID, DestinationLocationID: fix.destID,
+			TransportMode: "ROAD", EquipmentType: &equip,
+		}); laneErr != nil {
+			t.Fatalf("lane %d: %v", i+1, laneErr)
+		}
+		offerLines = append(offerLines, domain.UpsertOfferLineInput{
+			RfxLotID: lot.ID, Amount: amount, CurrencyCode: "RUB",
+		})
+	}
+	if _, err := env.rfxSvc.PublishEvent(ctx, fix.buyer, event.ID); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	resp, err := env.rfxSvc.CreateResponse(ctx, fix.carrier, event.ID, domain.CreateRfxResponseInput{
+		TenantID: fix.tenantID, ParticipantCompanyID: fix.carrierCompany,
+	})
+	if err != nil {
+		t.Fatalf("response: %v", err)
+	}
+	if _, err := env.rfxSvc.UpdateResponseCommercial(ctx, fix.carrier, resp.ID, offerLines); err != nil {
+		t.Fatalf("commercial: %v", err)
+	}
+	if _, err := env.rfxSvc.SubmitResponse(ctx, fix.carrier, resp.ID); err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	if _, err := env.rfxSvc.AwardResponse(ctx, fix.buyer, event.ID, resp.ID); err != nil {
+		t.Fatalf("award: %v", err)
+	}
+	return event
+}
+
+type bidPricingSeed struct {
+	status             string
+	totalAmount        string
+	totalAmountWithVAT string
+	equipmentType      string
+	omitTransportOrder bool
+	omitLocations      bool
+}
+
+func seedBidForPricing(t *testing.T, env *testEnv, fix fixture, seed bidPricingSeed) uuid.UUID {
+	t.Helper()
+	ctx := context.Background()
+	if seed.status == "" {
+		seed.status = domain.BidStatusAccepted
+	}
+	if seed.totalAmount == "" {
+		seed.totalAmount = "100.00"
+	}
+	if seed.totalAmountWithVAT == "" {
+		seed.totalAmountWithVAT = "120.00"
+	}
+	if seed.equipmentType == "" {
+		seed.equipmentType = "TAUTLINER"
+	}
+
+	frID := uuid.New()
+	bidID := uuid.New()
+	deadline := time.Now().UTC().Add(24 * time.Hour)
+
+	var toID *uuid.UUID
+	if !seed.omitTransportOrder {
+		id := uuid.New()
+		toID = &id
+		var originID, destID any = fix.originID, fix.destID
+		if seed.omitLocations {
+			originID, destID = nil, nil
+		}
+		if _, err := env.pool.Exec(ctx, `
+			INSERT INTO transport.transport_orders (
+				id, tenant_id, order_number, shipper_company_id, consignee_company_id,
+				origin_location_id, destination_location_id, transport_mode, equipment_type, status
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, 'ROAD', $8, 'READY_FOR_SOURCING')
+		`, id, fix.tenantID, "TO-"+id.String()[:8], fix.buyerCompany, fix.buyerCompany, originID, destID, seed.equipmentType); err != nil {
+			t.Fatalf("transport order: %v", err)
+		}
+	}
+
+	if _, err := env.pool.Exec(ctx, `
+		INSERT INTO rfx.freight_requests (
+			id, tenant_id, freight_request_number, transport_order_id, request_type,
+			shipper_company_id, status, response_deadline, currency_code
+		) VALUES ($1, $2, $3, $4, 'SPOT', $5, $6, $7, 'RUB')
+	`, frID, fix.tenantID, "FR-"+frID.String()[:8], toID, fix.buyerCompany, domain.FreightRequestStatusPublished, deadline); err != nil {
+		t.Fatalf("freight request: %v", err)
+	}
+
+	if _, err := env.pool.Exec(ctx, `
+		INSERT INTO rfx.bids (
+			id, tenant_id, freight_request_id, carrier_company_id, bid_number, status,
+			total_amount, currency_code, vat_rate, vat_amount, total_amount_with_vat, submitted_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7::numeric, 'RUB', 20, 20, $8::numeric, now())
+	`, bidID, fix.tenantID, frID, fix.carrierCompany, "BID-"+bidID.String()[:8], seed.status, seed.totalAmount, seed.totalAmountWithVAT); err != nil {
+		t.Fatalf("bid: %v", err)
+	}
+	return bidID
+}
+
+func clearAwardScopeCurrency(t *testing.T, env *testEnv, eventID uuid.UUID) {
+	t.Helper()
+	ctx := context.Background()
+	if _, err := env.pool.Exec(ctx, `UPDATE rfx.rfx_events SET currency_code = NULL WHERE id = $1`, eventID); err != nil {
+		t.Fatalf("clear event currency: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `
+		UPDATE rfx.rfx_response_offer_lines ol
+		SET currency_code = NULL
+		FROM rfx.rfx_responses resp
+		WHERE ol.rfx_response_id = resp.id AND resp.rfx_event_id = $1
+	`, eventID); err != nil {
+		t.Fatalf("clear offer line currency: %v", err)
+	}
+}
+
+func clearAwardScopeEquipment(t *testing.T, env *testEnv, lotID uuid.UUID) {
+	t.Helper()
+	ctx := context.Background()
+	if _, err := env.pool.Exec(ctx, `UPDATE rfx.rfx_lanes SET equipment_type = NULL WHERE rfx_lot_id = $1`, lotID); err != nil {
+		t.Fatalf("clear lane equipment: %v", err)
+	}
+}
+
+func clearAwardScopeLocations(t *testing.T, env *testEnv, lotID uuid.UUID) {
+	t.Helper()
+	ctx := context.Background()
+	if _, err := env.pool.Exec(ctx, `
+		UPDATE rfx.rfx_lanes
+		SET origin_location_id = NULL, destination_location_id = NULL
+		WHERE rfx_lot_id = $1
+	`, lotID); err != nil {
+		t.Fatalf("clear lane locations: %v", err)
+	}
 }

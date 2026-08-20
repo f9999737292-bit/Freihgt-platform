@@ -23,7 +23,7 @@ import (
 	"github.com/freight-platform/contract-rate-service/internal/service"
 )
 
-const maxMigrationNumber = 52
+const maxMigrationNumber = 53
 
 type testEnv struct {
 	Pool           *pgxpool.Pool

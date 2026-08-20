@@ -18,7 +18,7 @@ import (
 	"github.com/freight-platform/billing-register-service/internal/service"
 )
 
-const maxMigrationFile = "000052_freight_settlement_snapshot_v2.0C.up.sql"
+const maxMigrationFile = "000053_transport_pricing_tenant_fk_v2.0C.up.sql"
 
 type env struct {
 	pool        *pgxpool.Pool
@@ -392,4 +392,103 @@ func countAuditEvents(t *testing.T, pool *pgxpool.Pool, settlementID uuid.UUID) 
 		t.Fatalf("count audit events: %v", err)
 	}
 	return count
+}
+
+type snapshotOrderOpts struct {
+	PricingSource            string
+	TotalAmount              string
+	BaseAmount               *string
+	ComponentBreakdownStatus string
+	ComponentsJSON           string
+	CurrencyCode             string
+	AwardLinkID              *uuid.UUID
+	RfxEventID               *uuid.UUID
+	BidID                    *uuid.UUID
+	ManualSpotAuditID        *uuid.UUID
+	ContractID               *uuid.UUID
+	RateCardID               *uuid.UUID
+	RateVersionID            *uuid.UUID
+	RateLineID               *uuid.UUID
+	PricingModelVersion      *string
+	OrderNumber              string
+}
+
+func seedSnapshotOrderWithShipment(t *testing.T, pool *pgxpool.Pool, fix fixture, opts snapshotOrderOpts) (orderID, snapshotID, shipmentID uuid.UUID) {
+	t.Helper()
+	ctx := context.Background()
+	if opts.PricingSource == "" {
+		opts.PricingSource = "RFQ_AWARD"
+	}
+	if opts.TotalAmount == "" {
+		opts.TotalAmount = "100000.00"
+	}
+	if opts.ComponentBreakdownStatus == "" {
+		opts.ComponentBreakdownStatus = "UNAVAILABLE"
+	}
+	if opts.ComponentsJSON == "" {
+		opts.ComponentsJSON = "[]"
+	}
+	if opts.CurrencyCode == "" {
+		opts.CurrencyCode = "RUB"
+	}
+	pricingModel := "SNAPSHOT_V1"
+	if opts.PricingModelVersion != nil {
+		pricingModel = *opts.PricingModelVersion
+	}
+	orderNumber := opts.OrderNumber
+	if orderNumber == "" {
+		orderNumber = "SNAP-" + uuid.NewString()[:8]
+	}
+	shipmentID = uuid.New()
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO transport.transport_orders (
+			tenant_id, order_number, shipper_company_id, consignee_company_id,
+			origin_location_id, destination_location_id, cargo_id, transport_mode, equipment_type,
+			status, pricing_model_version
+		) VALUES ($1,$2,$3,$3,$4,$5,$6,'ROAD','TAUTLINER','CONVERTED_TO_SHIPMENT',$7)
+		RETURNING id`, fix.TenantID, orderNumber, fix.BuyerID, fix.OriginID, fix.DestID, fix.CargoID, pricingModel).Scan(&orderID); err != nil {
+		t.Fatalf("order: %v", err)
+	}
+	eventID := opts.RfxEventID
+	if eventID == nil && opts.PricingSource == "RFQ_AWARD" {
+		id := uuid.New()
+		eventID = &id
+	}
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO transport.transport_order_rate_snapshots (
+			tenant_id, transport_order_id, buyer_company_id, carrier_company_id,
+			pricing_source, award_link_id, rfx_event_id, bid_id, manual_spot_audit_id,
+			contract_id, rate_card_id, rate_version_id, rate_line_id,
+			origin_location_id, destination_location_id, equipment_type, transport_mode,
+			currency_code, component_breakdown_status, components, accessorial_rules,
+			base_amount, total_amount, pricing_date, resolved_at, resolved_by_service, resolver_version, resolution_request_hash
+		) VALUES (
+			$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'TAUTLINER','ROAD',$16,$17,$18::jsonb,'[]'::jsonb,
+			$19,$20,CURRENT_DATE,now(),'integration-test','v2.0C','cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc'
+		) RETURNING id`,
+		fix.TenantID, orderID, fix.BuyerID, fix.CarrierA,
+		opts.PricingSource, opts.AwardLinkID, eventID, opts.BidID, opts.ManualSpotAuditID,
+		opts.ContractID, opts.RateCardID, opts.RateVersionID, opts.RateLineID,
+		fix.OriginID, fix.DestID, opts.CurrencyCode, opts.ComponentBreakdownStatus, opts.ComponentsJSON,
+		opts.BaseAmount, opts.TotalAmount,
+	).Scan(&snapshotID); err != nil {
+		t.Fatalf("snapshot: %v", err)
+	}
+	localFix := fix
+	localFix.OrderID = orderID
+	localFix.ShipmentID = shipmentID
+	seedDeliveredShipment(t, pool, localFix, domain.ShipmentStatusDelivered, true)
+	seedPODDocument(t, pool, fix.TenantID, fix.CarrierA, shipmentID, "POD-"+shipmentID.String()[:8])
+	return orderID, snapshotID, shipmentID
+}
+
+func querySettlementBaseAmountText(t *testing.T, pool *pgxpool.Pool, settlementID uuid.UUID) string {
+	t.Helper()
+	var amount string
+	err := pool.QueryRow(context.Background(), `
+		SELECT base_freight_amount::text FROM billing.freight_settlements WHERE id = $1`, settlementID).Scan(&amount)
+	if err != nil {
+		t.Fatalf("query base_freight_amount: %v", err)
+	}
+	return amount
 }

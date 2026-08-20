@@ -5,13 +5,69 @@ package pricing
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/freight-platform/rfx-service/internal/domain"
+	apperrors "github.com/freight-platform/rfx-service/internal/platform/errors"
 	"github.com/freight-platform/rfx-service/internal/repository"
 )
+
+func TestCRFX001ValidAwardContext(t *testing.T) {
+	env := setupEnv(t)
+	fix := seedFixture(t, env)
+	ctx := context.Background()
+	event, lotID := seedAwardedEvent(t, env, fix, 75000)
+
+	repo := repository.NewPricingRepository(env.pool)
+	out, err := repo.GetAwardScopeContext(ctx, fix.tenantID, event.ID, &lotID)
+	if err != nil {
+		t.Fatalf("scope: %v", err)
+	}
+	if out.SourceType != domain.PricingSourceRFQAward {
+		t.Fatalf("expected source type %q, got %q", domain.PricingSourceRFQAward, out.SourceType)
+	}
+	if out.TenantID != fix.tenantID {
+		t.Fatalf("unexpected tenant id")
+	}
+	if out.BuyerCompanyID != fix.buyerCompany || out.CarrierCompanyID != fix.carrierCompany {
+		t.Fatalf("unexpected buyer/carrier companies")
+	}
+	if out.OriginLocationID != fix.originID || out.DestinationLocationID != fix.destID {
+		t.Fatalf("unexpected origin/destination")
+	}
+	if out.EquipmentType != "TAUTLINER" {
+		t.Fatalf("expected equipment TAUTLINER, got %q", out.EquipmentType)
+	}
+	if out.CurrencyCode != "RUB" {
+		t.Fatalf("expected currency RUB, got %q", out.CurrencyCode)
+	}
+	if out.TotalAmount != "75000.00" {
+		t.Fatalf("expected total 75000.00, got %q", out.TotalAmount)
+	}
+	if out.ComponentBreakdownStatus != domain.ComponentBreakdownUnavailable {
+		t.Fatalf("expected aggregate-only breakdown status")
+	}
+	if out.RfxEventID == nil || *out.RfxEventID != event.ID {
+		t.Fatalf("expected rfx event id on context")
+	}
+	if out.RfxLotID == nil || *out.RfxLotID != lotID {
+		t.Fatalf("expected rfx lot id on context")
+	}
+}
+
+func TestCRFX002AwardWrongTenantDenied(t *testing.T) {
+	env := setupEnv(t)
+	fix := seedFixture(t, env)
+	ctx := context.Background()
+	event, lotID := seedAwardedEvent(t, env, fix, 1000)
+
+	repo := repository.NewPricingRepository(env.pool)
+	_, err := repo.GetAwardScopeContext(ctx, uuid.New(), event.ID, &lotID)
+	if err == nil {
+		t.Fatal("expected not found for wrong tenant")
+	}
+}
 
 func TestCRFX003AwardExactDecimalString(t *testing.T) {
 	env := setupEnv(t)
@@ -45,70 +101,166 @@ func TestCRFX004AwardAggregateOnly(t *testing.T) {
 	}
 }
 
-func TestCRFX002AwardWrongTenantDenied(t *testing.T) {
+func TestCRFX005AcceptedBidValid(t *testing.T) {
 	env := setupEnv(t)
 	fix := seedFixture(t, env)
 	ctx := context.Background()
-	event, lotID := seedAwardedEvent(t, env, fix, 1000)
+	bidID := seedBidForPricing(t, env, fix, bidPricingSeed{})
 
 	repo := repository.NewPricingRepository(env.pool)
-	_, err := repo.GetAwardScopeContext(ctx, uuid.New(), event.ID, &lotID)
+	out, err := repo.GetAcceptedBidContext(ctx, fix.tenantID, bidID)
+	if err != nil {
+		t.Fatalf("bid context: %v", err)
+	}
+	if out.SourceType != domain.PricingSourceSpotBid {
+		t.Fatalf("expected source type %q, got %q", domain.PricingSourceSpotBid, out.SourceType)
+	}
+	if out.BidID == nil || *out.BidID != bidID {
+		t.Fatalf("expected bid id on context")
+	}
+	if out.BuyerCompanyID != fix.buyerCompany || out.CarrierCompanyID != fix.carrierCompany {
+		t.Fatalf("unexpected buyer/carrier companies")
+	}
+	if out.OriginLocationID != fix.originID || out.DestinationLocationID != fix.destID {
+		t.Fatalf("unexpected origin/destination")
+	}
+	if out.EquipmentType != "TAUTLINER" || out.CurrencyCode != "RUB" {
+		t.Fatalf("unexpected equipment or currency")
+	}
+	if out.TotalAmount != "100.00" {
+		t.Fatalf("expected total 100.00, got %q", out.TotalAmount)
+	}
+	if out.ComponentBreakdownStatus != domain.ComponentBreakdownUnavailable {
+		t.Fatalf("expected aggregate-only breakdown status")
+	}
+}
+
+func TestCRFX006NonAcceptedBidDeny(t *testing.T) {
+	env := setupEnv(t)
+	fix := seedFixture(t, env)
+	ctx := context.Background()
+	bidID := seedBidForPricing(t, env, fix, bidPricingSeed{status: domain.BidStatusSubmitted})
+
+	repo := repository.NewPricingRepository(env.pool)
+	_, err := repo.GetAcceptedBidContext(ctx, fix.tenantID, bidID)
+	assertAppErrorCode(t, err, apperrors.CodeValidation)
+	assertAppErrorDetailCode(t, err, "INVALID_PRICING_SOURCE")
+}
+
+func TestCRFX007PreVATTTotalAuthoritative(t *testing.T) {
+	env := setupEnv(t)
+	fix := seedFixture(t, env)
+	ctx := context.Background()
+	bidID := seedBidForPricing(t, env, fix, bidPricingSeed{
+		totalAmount:        "100.00",
+		totalAmountWithVAT: "120.00",
+	})
+
+	repo := repository.NewPricingRepository(env.pool)
+	out, err := repo.GetAcceptedBidContext(ctx, fix.tenantID, bidID)
+	if err != nil {
+		t.Fatalf("bid context: %v", err)
+	}
+	if out.TotalAmount != "100.00" {
+		t.Fatalf("expected pre-VAT total 100.00, got %q", out.TotalAmount)
+	}
+}
+
+func TestCRFX008BidWrongTenantDeny(t *testing.T) {
+	env := setupEnv(t)
+	fix := seedFixture(t, env)
+	ctx := context.Background()
+	bidID := seedBidForPricing(t, env, fix, bidPricingSeed{})
+
+	repo := repository.NewPricingRepository(env.pool)
+	_, err := repo.GetAcceptedBidContext(ctx, uuid.New(), bidID)
 	if err == nil {
 		t.Fatal("expected not found for wrong tenant")
 	}
 }
 
-func seedAwardedEvent(t *testing.T, env *testEnv, fix fixture, amount float64) (*domain.RfxEvent, uuid.UUID) {
-	t.Helper()
+func TestCRFX009NoFloatRoundTrip(t *testing.T) {
+	env := setupEnv(t)
+	fix := seedFixture(t, env)
 	ctx := context.Background()
-	deadline := time.Now().UTC().Add(24 * time.Hour)
-	currency := "RUB"
-	event, err := env.rfxSvc.CreateEvent(ctx, fix.buyer, domain.CreateRfxEventInput{
-		TenantID: fix.tenantID, OwnerCompanyID: fix.buyerCompany, Title: "Pricing Tender",
-		RfxType: "SPOT_RFQ", Category: "FREIGHT", RfxNumber: "RFX-P-" + uuid.NewString()[:8],
-		ResponseDeadline: &deadline, CurrencyCode: &currency,
+	bidID := seedBidForPricing(t, env, fix, bidPricingSeed{
+		totalAmount:        "108000.51",
+		totalAmountWithVAT: "129600.61",
 	})
+
+	repo := repository.NewPricingRepository(env.pool)
+	out, err := repo.GetAcceptedBidContext(ctx, fix.tenantID, bidID)
 	if err != nil {
-		t.Fatalf("event: %v", err)
+		t.Fatalf("bid context: %v", err)
 	}
-	if _, err := env.rfxSvc.AddParticipant(ctx, fix.buyer, event.ID, domain.AddRfxParticipantInput{
-		TenantID: fix.tenantID, RfxEventID: event.ID, CompanyID: fix.carrierCompany, ParticipantType: "CARRIER",
-	}); err != nil {
-		t.Fatalf("participant: %v", err)
+	if out.TotalAmount != "108000.51" {
+		t.Fatalf("expected exact decimal string 108000.51, got %q", out.TotalAmount)
 	}
-	lot, err := env.rfxSvc.CreateLot(ctx, fix.buyer, event.ID, domain.CreateRfxLotInput{
-		TenantID: fix.tenantID, RfxEventID: event.ID, LotNumber: "LOT-1", Name: "Lot 1",
-	})
+}
+
+func TestCRFX010MissingSourceContextFailClosed(t *testing.T) {
+	env := setupEnv(t)
+	fix := seedFixture(t, env)
+	ctx := context.Background()
+	event, lotID := seedAwardedEvent(t, env, fix, 5000)
+	clearAwardScopeLocations(t, env, lotID)
+
+	repo := repository.NewPricingRepository(env.pool)
+	_, err := repo.GetAwardScopeContext(ctx, fix.tenantID, event.ID, &lotID)
+	assertAppErrorCode(t, err, apperrors.CodeValidation)
+	assertAppErrorDetailCode(t, err, "MISSING_PRICING_CONTEXT")
+}
+
+func TestCRFX011MissingCurrencyFailClosed(t *testing.T) {
+	env := setupEnv(t)
+	fix := seedFixture(t, env)
+	ctx := context.Background()
+	event, lotID := seedAwardedEvent(t, env, fix, 5000)
+	clearAwardScopeCurrency(t, env, event.ID)
+
+	repo := repository.NewPricingRepository(env.pool)
+	_, err := repo.GetAwardScopeContext(ctx, fix.tenantID, event.ID, &lotID)
+	assertAppErrorCode(t, err, apperrors.CodeValidation)
+	assertAppErrorDetailCode(t, err, "MISSING_PRICING_CONTEXT")
+}
+
+func TestCRFX012MissingEquipmentFailClosed(t *testing.T) {
+	env := setupEnv(t)
+	fix := seedFixture(t, env)
+	ctx := context.Background()
+	event, lotID := seedAwardedEvent(t, env, fix, 5000)
+	clearAwardScopeEquipment(t, env, lotID)
+
+	repo := repository.NewPricingRepository(env.pool)
+	_, err := repo.GetAwardScopeContext(ctx, fix.tenantID, event.ID, &lotID)
+	assertAppErrorCode(t, err, apperrors.CodeValidation)
+	assertAppErrorDetailCode(t, err, "MISSING_PRICING_CONTEXT")
+}
+
+func TestCRFX013AwardScopeMultipleLanesWithoutLotAmbiguous(t *testing.T) {
+	env := setupEnv(t)
+	fix := seedFixture(t, env)
+	ctx := context.Background()
+	event := seedAwardedMultiLotEvent(t, env, fix, []float64{10000, 20000})
+
+	repo := repository.NewPricingRepository(env.pool)
+	_, err := repo.GetAwardScopeContext(ctx, fix.tenantID, event.ID, nil)
+	assertAppErrorCode(t, err, apperrors.CodeValidation)
+	assertAppErrorDetailCode(t, err, "PRICING_SOURCE_AMBIGUOUS")
+}
+
+func TestCRFX014EquipmentCaseMismatchPreserved(t *testing.T) {
+	env := setupEnv(t)
+	fix := seedFixture(t, env)
+	ctx := context.Background()
+	event, lotID := seedAwardedEventWithEquipment(t, env, fix, 42000, "Box")
+
+	repo := repository.NewPricingRepository(env.pool)
+	out, err := repo.GetAwardScopeContext(ctx, fix.tenantID, event.ID, &lotID)
 	if err != nil {
-		t.Fatalf("lot: %v", err)
+		t.Fatalf("scope: %v", err)
 	}
-	equip := "TAUTLINER"
-	if _, err := env.rfxSvc.CreateLane(ctx, fix.buyer, lot.ID, domain.CreateRfxLaneInput{
-		TenantID: fix.tenantID, RfxLotID: lot.ID,
-		OriginLocationID: fix.originID, DestinationLocationID: fix.destID,
-		TransportMode: "ROAD", EquipmentType: &equip,
-	}); err != nil {
-		t.Fatalf("lane: %v", err)
+	if out.EquipmentType != "Box" {
+		t.Fatalf("expected equipment preserved as Box, got %q", out.EquipmentType)
 	}
-	if _, err := env.rfxSvc.PublishEvent(ctx, fix.buyer, event.ID); err != nil {
-		t.Fatalf("publish: %v", err)
-	}
-	resp, err := env.rfxSvc.CreateResponse(ctx, fix.carrier, event.ID, domain.CreateRfxResponseInput{
-		TenantID: fix.tenantID, ParticipantCompanyID: fix.carrierCompany,
-	})
-	if err != nil {
-		t.Fatalf("response: %v", err)
-	}
-	if _, err := env.rfxSvc.UpdateResponseCommercial(ctx, fix.carrier, resp.ID, []domain.UpsertOfferLineInput{
-		{RfxLotID: lot.ID, Amount: amount, CurrencyCode: "RUB"},
-	}); err != nil {
-		t.Fatalf("commercial: %v", err)
-	}
-	if _, err := env.rfxSvc.SubmitResponse(ctx, fix.carrier, resp.ID); err != nil {
-		t.Fatalf("submit: %v", err)
-	}
-	if _, err := env.rfxSvc.AwardResponse(ctx, fix.buyer, event.ID, resp.ID); err != nil {
-		t.Fatalf("award: %v", err)
-	}
-	return event, lot.ID
 }
