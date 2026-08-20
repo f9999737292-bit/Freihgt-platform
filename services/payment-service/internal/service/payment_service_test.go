@@ -55,6 +55,18 @@ func (precisionGuardStore) ListObligations(context.Context, uuid.UUID, domain.Pa
 func (precisionGuardStore) ListPayments(context.Context, uuid.UUID, domain.PaymentActorInput, int, int) ([]domain.Payment, error) {
 	return nil, nil
 }
+func (precisionGuardStore) ListPaymentsFiltered(context.Context, uuid.UUID, domain.PaymentActorInput, domain.PaymentListQuery) (domain.PaymentListResult, error) {
+	return domain.PaymentListResult{}, nil
+}
+func (precisionGuardStore) ListAllocationsByPaymentID(context.Context, uuid.UUID, uuid.UUID, int, int) (domain.AllocationListResult, error) {
+	return domain.AllocationListResult{}, nil
+}
+func (precisionGuardStore) ListEligibleObligationsForPayment(context.Context, uuid.UUID, *domain.Payment, domain.PaymentActorInput, int, int) (domain.ObligationListResult, error) {
+	return domain.ObligationListResult{}, nil
+}
+func (precisionGuardStore) ListPaymentAuditEvents(context.Context, uuid.UUID, uuid.UUID, int, int) (domain.PaymentAuditEventListResult, error) {
+	return domain.PaymentAuditEventListResult{}, nil
+}
 
 type alwaysMemberStore struct{}
 

@@ -7,9 +7,9 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/freight-platform/payment-service/internal/domain"
-	"github.com/freight-platform/payment-service/internal/repository"
 	apperrors "github.com/freight-platform/payment-service/internal/platform/errors"
 	paymentmetrics "github.com/freight-platform/payment-service/internal/platform/metrics"
+	"github.com/freight-platform/payment-service/internal/repository"
 )
 
 type RegisterLookup interface {
@@ -30,6 +30,10 @@ type PaymentStore interface {
 	VoidPayment(ctx context.Context, in domain.VoidPaymentInput) (*domain.Payment, error)
 	ListObligations(ctx context.Context, tenantID uuid.UUID, actor domain.PaymentActorInput, limit, offset int) ([]domain.PaymentObligation, error)
 	ListPayments(ctx context.Context, tenantID uuid.UUID, actor domain.PaymentActorInput, limit, offset int) ([]domain.Payment, error)
+	ListPaymentsFiltered(ctx context.Context, tenantID uuid.UUID, actor domain.PaymentActorInput, query domain.PaymentListQuery) (domain.PaymentListResult, error)
+	ListAllocationsByPaymentID(ctx context.Context, tenantID, paymentID uuid.UUID, limit, offset int) (domain.AllocationListResult, error)
+	ListEligibleObligationsForPayment(ctx context.Context, tenantID uuid.UUID, payment *domain.Payment, actor domain.PaymentActorInput, limit, offset int) (domain.ObligationListResult, error)
+	ListPaymentAuditEvents(ctx context.Context, tenantID, paymentID uuid.UUID, limit, offset int) (domain.PaymentAuditEventListResult, error)
 }
 
 type MembershipStore interface {
@@ -148,13 +152,68 @@ func (s *PaymentService) GetPayment(ctx context.Context, id uuid.UUID, actor dom
 }
 
 func (s *PaymentService) ListPayments(ctx context.Context, actor domain.PaymentActorInput, limit, offset int) ([]domain.Payment, error) {
-	if err := domain.ValidatePaymentActor(actor); err != nil {
+	result, err := s.ListPaymentsFiltered(ctx, actor, domain.PaymentListQuery{Limit: limit, Offset: offset})
+	if err != nil {
 		return nil, err
 	}
-	if limit <= 0 {
-		limit = 20
+	return result.Items, nil
+}
+
+func (s *PaymentService) ListPaymentsFiltered(ctx context.Context, actor domain.PaymentActorInput, query domain.PaymentListQuery) (domain.PaymentListResult, error) {
+	if err := domain.ValidatePaymentActor(actor); err != nil {
+		return domain.PaymentListResult{}, err
 	}
-	return s.payments.ListPayments(ctx, actor.TenantID, actor, limit, offset)
+	query = domain.NormalizePaymentListQuery(query)
+	if err := domain.ValidatePaymentListQuery(query); err != nil {
+		return domain.PaymentListResult{}, err
+	}
+	return s.payments.ListPaymentsFiltered(ctx, actor.TenantID, actor, query)
+}
+
+func (s *PaymentService) ListPaymentAllocations(ctx context.Context, paymentID uuid.UUID, actor domain.PaymentActorInput, limit, offset int) (domain.AllocationListResult, error) {
+	if paymentID == uuid.Nil {
+		return domain.AllocationListResult{}, apperrors.Validation("id is required", map[string]any{"field": "id"})
+	}
+	if err := domain.ValidatePaymentActor(actor); err != nil {
+		return domain.AllocationListResult{}, err
+	}
+	if _, err := s.GetPayment(ctx, paymentID, actor); err != nil {
+		return domain.AllocationListResult{}, err
+	}
+	limit, offset = domain.NormalizeListPagination(limit, offset)
+	return s.payments.ListAllocationsByPaymentID(ctx, actor.TenantID, paymentID, limit, offset)
+}
+
+func (s *PaymentService) ListEligibleObligationsForPayment(ctx context.Context, paymentID uuid.UUID, actor domain.PaymentActorInput, limit, offset int) (domain.ObligationListResult, error) {
+	if paymentID == uuid.Nil {
+		return domain.ObligationListResult{}, apperrors.Validation("id is required", map[string]any{"field": "id"})
+	}
+	if err := domain.ValidatePaymentActor(actor); err != nil {
+		return domain.ObligationListResult{}, err
+	}
+	payment, err := s.GetPayment(ctx, paymentID, actor)
+	if err != nil {
+		return domain.ObligationListResult{}, err
+	}
+	limit, offset = domain.NormalizeListPagination(limit, offset)
+	if payment.Status == domain.PaymentStatusReconciled || payment.Status == domain.PaymentStatusVoided {
+		return domain.ObligationListResult{Items: []domain.PaymentObligation{}, Total: 0, Limit: limit, Offset: offset}, nil
+	}
+	return s.payments.ListEligibleObligationsForPayment(ctx, actor.TenantID, payment, actor, limit, offset)
+}
+
+func (s *PaymentService) ListPaymentAuditEvents(ctx context.Context, paymentID uuid.UUID, actor domain.PaymentActorInput, limit, offset int) (domain.PaymentAuditEventListResult, error) {
+	if paymentID == uuid.Nil {
+		return domain.PaymentAuditEventListResult{}, apperrors.Validation("id is required", map[string]any{"field": "id"})
+	}
+	if err := domain.ValidatePaymentActor(actor); err != nil {
+		return domain.PaymentAuditEventListResult{}, err
+	}
+	if _, err := s.GetPayment(ctx, paymentID, actor); err != nil {
+		return domain.PaymentAuditEventListResult{}, err
+	}
+	limit, offset = domain.NormalizeListPagination(limit, offset)
+	return s.payments.ListPaymentAuditEvents(ctx, actor.TenantID, paymentID, limit, offset)
 }
 
 func (s *PaymentService) ReconcilePayment(ctx context.Context, paymentID uuid.UUID, actor domain.PaymentActorInput) (*domain.Payment, error) {

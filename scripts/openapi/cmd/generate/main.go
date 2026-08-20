@@ -120,9 +120,12 @@ var endpoints = []endpoint{
 	{"/api/v1/payment-obligations/{id}", "get", "Get payment obligation by ID", "Payment Obligations", true, true, ""},
 	{"/api/v1/payment-obligations/{id}/due-date", "patch", "Update payment obligation due date", "Payment Obligations", true, true, ""},
 	{"/api/v1/payments", "post", "Create manual payment", "Payments", true, true, ""},
-	{"/api/v1/payments", "get", "List payments", "Payments", true, true, ""},
-	{"/api/v1/payments/{id}", "get", "Get payment by ID", "Payments", true, true, ""},
+	{"/api/v1/payments", "get", "List payments", "Payments", true, true, "payment_list"},
+	{"/api/v1/payments/{id}", "get", "Get payment by ID", "Payments", true, true, "payment_detail"},
+	{"/api/v1/payments/{id}/allocations", "get", "List payment allocations", "Payments", true, true, "payment_allocations_list"},
 	{"/api/v1/payments/{id}/allocations", "post", "Allocate payment to obligation", "Payments", true, true, ""},
+	{"/api/v1/payments/{id}/audit-events", "get", "List payment audit events", "Payments", true, true, "payment_audit_list"},
+	{"/api/v1/payments/{id}/eligible-obligations", "get", "List eligible obligations for payment", "Payments", true, true, "payment_eligible_obligations_list"},
 	{"/api/v1/payments/{id}/reconcile", "post", "Reconcile fully allocated payment", "Payments", true, true, "reconcile_payment"},
 	{"/api/v1/payment-allocations/{id}/void", "post", "Void payment allocation", "Payments", true, true, "void_allocation"},
 	{"/api/v1/payments/{id}/void", "post", "Void payment", "Payments", true, true, "void_payment"},
@@ -149,6 +152,38 @@ var noRequestBodyProfiles = map[string]struct{}{
 	"reconcile_payment": {},
 }
 
+var readResponseSchemas = map[string]string{
+	"payment_list":                       "PaymentListResponse",
+	"payment_detail":                     "PaymentRecord",
+	"payment_allocations_list":           "PaymentAllocationListResponse",
+	"payment_audit_list":                 "PaymentAuditEventListResponse",
+	"payment_eligible_obligations_list": "EligiblePaymentObligationListResponse",
+}
+
+var paymentGuardOperations = map[string]struct{}{
+	"get /api/v1/payment-obligations":                      {},
+	"get /api/v1/payment-obligations/{id}":                 {},
+	"patch /api/v1/payment-obligations/{id}/due-date":      {},
+	"post /api/v1/payments":                                {},
+	"get /api/v1/payments":                                 {},
+	"get /api/v1/payments/{id}":                            {},
+	"get /api/v1/payments/{id}/allocations":                {},
+	"get /api/v1/payments/{id}/audit-events":               {},
+	"get /api/v1/payments/{id}/eligible-obligations":       {},
+	"post /api/v1/payments/{id}/allocations":               {},
+	"post /api/v1/payments/{id}/reconcile":                 {},
+	"post /api/v1/payment-allocations/{id}/void":           {},
+	"post /api/v1/payments/{id}/void":                      {},
+}
+
+var paymentDetailListQueryProfiles = map[string]struct{}{
+	"payment_allocations_list":           {},
+	"payment_audit_list":                 {},
+	"payment_eligible_obligations_list": {},
+}
+
+const companyIDQueryDescription = "Active company context requested by the authenticated user. The gateway validates membership and derives trusted internal company/actor context."
+
 var voidDescriptions = map[string]string{
 	"void_allocation": "Voids an active allocation and recomputes payment/obligation balances from remaining active allocations.\nAppend-only reversal. PAID obligation reversal is forbidden. RECONCILED payment mutation is forbidden.\nRepeat void is idempotent. Actor and tenant context are derived from verified request context.",
 	"void_payment":    "Voids a RECEIVED payment with zero active allocations.\nRECONCILED and partially or fully allocated payments cannot be voided.\nRepeat void is idempotent. Actor and tenant context are derived from verified request context.",
@@ -162,7 +197,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	unified := buildSpec("", "Unified HTTP API for the Freight Platform exposed via api-gateway.", endpoints)
+	unified := buildSpec("", "Unified HTTP API for the Freight Platform exposed via api-gateway.", endpoints, true)
 	if err := os.WriteFile(filepath.Join(outDir, "openapi.yaml"), []byte(unified), 0o644); err != nil {
 		fmt.Fprintf(os.Stderr, "write openapi.yaml: %v\n", err)
 		os.Exit(1)
@@ -171,7 +206,8 @@ func main() {
 	for filename, tagSet := range serviceTags {
 		filtered := filterByTags(endpoints, tagSet)
 		displayName := serviceDisplayName(filename)
-		spec := buildSpec(" - "+displayName, "OpenAPI specification for "+displayName+".", filtered)
+		includePayment := filename == "payment-service.yaml"
+		spec := buildSpec(" - "+displayName, "OpenAPI specification for "+displayName+".", filtered, includePayment)
 		if err := os.WriteFile(filepath.Join(outDir, filename), []byte(spec), 0o644); err != nil {
 			fmt.Fprintf(os.Stderr, "write %s: %v\n", filename, err)
 			os.Exit(1)
@@ -236,6 +272,134 @@ func pathToID(summary string) string {
 	return strings.Trim(b.String(), "_")
 }
 
+func companyIDQueryLines() []string {
+	return []string{
+		"        - name: company_id",
+		"          in: query",
+		"          required: true",
+		"          schema:",
+		"            type: string",
+		"            format: uuid",
+		"          description: " + companyIDQueryDescription,
+	}
+}
+
+func paginationQueryLines() []string {
+	return []string{
+		"        - name: limit",
+		"          in: query",
+		"          required: false",
+		"          schema:",
+		"            type: integer",
+		"            default: 20",
+		"            maximum: 100",
+		"          description: Page size. Non-positive values are normalized to the default.",
+		"        - name: offset",
+		"          in: query",
+		"          required: false",
+		"          schema:",
+		"            type: integer",
+		"            minimum: 0",
+		"            default: 0",
+	}
+}
+
+func paymentListFilterQueryLines() []string {
+	return []string{
+		"        - name: status",
+		"          in: query",
+		"          required: false",
+		"          schema:",
+		"            type: string",
+		"            enum:",
+		"              - RECEIVED",
+		"              - PARTIALLY_ALLOCATED",
+		"              - FULLY_ALLOCATED",
+		"              - RECONCILED",
+		"              - VOIDED",
+		"        - name: currency_code",
+		"          in: query",
+		"          required: false",
+		"          schema:",
+		"            type: string",
+		"            minLength: 3",
+		"            maxLength: 3",
+		"        - name: from_date",
+		"          in: query",
+		"          required: false",
+		"          schema:",
+		"            type: string",
+		"            format: date",
+		"        - name: to_date",
+		"          in: query",
+		"          required: false",
+		"          schema:",
+		"            type: string",
+		"            format: date",
+		"        - name: q",
+		"          in: query",
+		"          required: false",
+		"          schema:",
+		"            type: string",
+		"          description: Search payment_number, external_id, external_reference, or reference.",
+	}
+}
+
+func paymentGuardOperationKey(method, path string) string {
+	return method + " " + path
+}
+
+func isPaymentGuardOperation(method, path string) bool {
+	_, ok := paymentGuardOperations[paymentGuardOperationKey(method, path)]
+	return ok
+}
+
+func queryParameterLines(method, path, profile string) []string {
+	var lines []string
+	if isPaymentGuardOperation(method, path) {
+		lines = append(lines, companyIDQueryLines()...)
+	}
+	switch profile {
+	case "payment_list":
+		lines = append(lines, paymentListFilterQueryLines()...)
+		lines = append(lines, paginationQueryLines()...)
+	default:
+		if _, ok := paymentDetailListQueryProfiles[profile]; ok {
+			lines = append(lines, paginationQueryLines()...)
+		}
+	}
+	return lines
+}
+
+func renderParameters(path, method string, withHeaders bool, profile string) string {
+	queryLines := queryParameterLines(method, path, profile)
+	pathParams := pathParamPattern.FindAllStringSubmatch(path, -1)
+	if !withHeaders && len(queryLines) == 0 {
+		return ""
+	}
+	var sb strings.Builder
+	sb.WriteString("      parameters:\n")
+	if withHeaders {
+		sb.WriteString("        - $ref: '#/components/parameters/XRequestID'\n")
+		sb.WriteString("        - $ref: '#/components/parameters/XTenantID'\n")
+		sb.WriteString("        - $ref: '#/components/parameters/XCompanyID'\n")
+		sb.WriteString("        - $ref: '#/components/parameters/XLocale'\n")
+		sb.WriteString("        - $ref: '#/components/parameters/Authorization'\n")
+	}
+	for _, match := range pathParams {
+		sb.WriteString(fmt.Sprintf("        - name: %s\n", match[1]))
+		sb.WriteString("          in: path\n")
+		sb.WriteString("          required: true\n")
+		sb.WriteString("          schema:\n")
+		sb.WriteString("            type: string\n")
+		sb.WriteString("            format: uuid\n")
+	}
+	for _, line := range queryLines {
+		sb.WriteString(line + "\n")
+	}
+	return sb.String()
+}
+
 func renderPathParameters(path string, withHeaders bool) string {
 	if !withHeaders {
 		return ""
@@ -281,8 +445,11 @@ func renderOperation(path string, e endpoint) string {
 			}
 		}
 	}
-	if e.withHeaders {
-		sb.WriteString(renderPathParameters(path, e.withHeaders))
+	if e.withHeaders || len(queryParameterLines(e.method, path, e.profile)) > 0 {
+		params := renderParameters(path, e.method, e.withHeaders, e.profile)
+		if params != "" {
+			sb.WriteString(params)
+		}
 	}
 	_, skipBody := noRequestBodyProfiles[e.profile]
 	if (e.method == "post" || e.method == "patch" || e.method == "put") && !skipBody {
@@ -312,7 +479,11 @@ func renderOperation(path string, e endpoint) string {
 	} else if e.method == "post" && e.tag != "Gateway" && e.tag != "Auth" {
 		successCode = "201"
 	}
-	sb.WriteString(fmt.Sprintf("      responses:\n        '%s':\n          description: %s\n          content:\n            application/json:\n              schema:\n                type: object\n                additionalProperties: true\n", successCode, successDesc))
+	if schema, ok := readResponseSchemas[e.profile]; ok {
+		sb.WriteString(fmt.Sprintf("      responses:\n        '%s':\n          description: %s\n          content:\n            application/json:\n              schema:\n                $ref: '#/components/schemas/%s'\n", successCode, successDesc, schema))
+	} else {
+		sb.WriteString(fmt.Sprintf("      responses:\n        '%s':\n          description: %s\n          content:\n            application/json:\n              schema:\n                type: object\n                additionalProperties: true\n", successCode, successDesc))
+	}
 	sb.WriteString(errorResponses)
 	return sb.String()
 }
@@ -336,7 +507,7 @@ func renderPaths(eps []endpoint) string {
 	return sb.String()
 }
 
-func buildSpec(titleSuffix, description string, eps []endpoint) string {
+func buildSpec(titleSuffix, description string, eps []endpoint, includePaymentComponents bool) string {
 	var tagsYAML strings.Builder
 	for _, tag := range tags {
 		tagsYAML.WriteString(fmt.Sprintf("  - name: %s\n", tag))
@@ -355,7 +526,7 @@ tags:
 paths:
 %s
 %s
-`, titleSuffix, description, tagsYAML.String(), renderPaths(eps), componentsBlock)
+`, titleSuffix, description, tagsYAML.String(), renderPaths(eps), componentsBlock(includePaymentComponents))
 }
 
 const commonHeaders = `      parameters:
@@ -408,7 +579,7 @@ const errorResponses = `        '400':
                 $ref: '#/components/schemas/ErrorResponse'
 `
 
-const componentsBlock = `components:
+const globalComponentsBlock = `components:
   securitySchemes:
     bearerAuth:
       type: http
@@ -507,3 +678,227 @@ const componentsBlock = `components:
         offset:
           type: integer
 `
+
+const paymentComponentsBlock = `    PaymentRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        payment_number:
+          type: string
+        payer_company_id:
+          type: string
+          format: uuid
+        payee_company_id:
+          type: string
+          format: uuid
+        amount:
+          type: string
+        currency_code:
+          type: string
+        payment_date:
+          type: string
+          format: date
+        source:
+          type: string
+        status:
+          type: string
+          enum:
+            - RECEIVED
+            - PARTIALLY_ALLOCATED
+            - FULLY_ALLOCATED
+            - RECONCILED
+            - VOIDED
+        allocated_amount:
+          type: string
+        unallocated_amount:
+          type: string
+        version:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        reference:
+          type: string
+        external_reference:
+          type: string
+        external_id:
+          type: string
+        created_by:
+          type: string
+          format: uuid
+        voided_at:
+          type: string
+          format: date-time
+        voided_by:
+          type: string
+          format: uuid
+        void_reason:
+          type: string
+        reconciled_at:
+          type: string
+          format: date-time
+        reconciled_by:
+          type: string
+          format: uuid
+    PaymentListResponse:
+      allOf:
+        - $ref: '#/components/schemas/PaginatedResponse'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/PaymentRecord'
+    PaymentAllocationReadRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        payment_id:
+          type: string
+          format: uuid
+        obligation_id:
+          type: string
+          format: uuid
+        allocated_amount:
+          type: string
+        currency_code:
+          type: string
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        voided_at:
+          type: string
+          format: date-time
+        voided_by:
+          type: string
+          format: uuid
+        void_reason:
+          type: string
+        obligation_number:
+          type: string
+        obligation_status:
+          type: string
+        obligation_source_type:
+          type: string
+        obligation_source_id:
+          type: string
+          format: uuid
+        obligation_outstanding_amount:
+          type: string
+    PaymentAllocationListResponse:
+      allOf:
+        - $ref: '#/components/schemas/PaginatedResponse'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/PaymentAllocationReadRecord'
+    PaymentAuditEventRecord:
+      type: object
+      properties:
+        id:
+          type: string
+        tenant_id:
+          type: string
+        entity_type:
+          type: string
+        entity_id:
+          type: string
+        event_type:
+          type: string
+        actor_user_id:
+          type: string
+        actor_company_id:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+    PaymentAuditEventListResponse:
+      allOf:
+        - $ref: '#/components/schemas/PaginatedResponse'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/PaymentAuditEventRecord'
+    PaymentObligationRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        obligation_number:
+          type: string
+        payer_company_id:
+          type: string
+          format: uuid
+        payee_company_id:
+          type: string
+          format: uuid
+        source_type:
+          type: string
+        source_id:
+          type: string
+          format: uuid
+        currency_code:
+          type: string
+        original_amount:
+          type: string
+        paid_amount:
+          type: string
+        outstanding_amount:
+          type: string
+        status:
+          type: string
+        version:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        due_date:
+          type: string
+          format: date
+    EligiblePaymentObligationListResponse:
+      allOf:
+        - $ref: '#/components/schemas/PaginatedResponse'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/PaymentObligationRecord'
+`
+
+func componentsBlock(includePaymentComponents bool) string {
+	if includePaymentComponents {
+		return strings.TrimRight(globalComponentsBlock, "\n") + "\n" + paymentComponentsBlock
+	}
+	return globalComponentsBlock
+}

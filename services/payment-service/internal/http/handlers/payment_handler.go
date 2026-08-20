@@ -191,16 +191,96 @@ func (h *PaymentHandler) CreatePayment(w http.ResponseWriter, r *http.Request) {
 
 func (h *PaymentHandler) ListPayments(w http.ResponseWriter, r *http.Request) {
 	h.withActor(w, r, func(actor domain.PaymentActorInput) (any, error) {
-		limit, offset := parsePagination(r)
-		items, err := h.payments.ListPayments(r.Context(), actor, limit, offset)
+		query, err := parsePaymentListQuery(r)
 		if err != nil {
 			return nil, err
 		}
-		out := make([]any, 0, len(items))
-		for i := range items {
-			out = append(out, toPaymentResponse(&items[i]))
+		result, err := h.payments.ListPaymentsFiltered(r.Context(), actor, query)
+		if err != nil {
+			return nil, err
 		}
-		return map[string]any{"items": out}, nil
+		out := make([]any, 0, len(result.Items))
+		for i := range result.Items {
+			out = append(out, toPaymentResponse(&result.Items[i]))
+		}
+		return map[string]any{
+			"items":  out,
+			"total":  result.Total,
+			"limit":  result.Limit,
+			"offset": result.Offset,
+		}, nil
+	})
+}
+
+func (h *PaymentHandler) ListPaymentAllocations(w http.ResponseWriter, r *http.Request) {
+	h.withActor(w, r, func(actor domain.PaymentActorInput) (any, error) {
+		id, err := parseID(r)
+		if err != nil {
+			return nil, err
+		}
+		limit, offset := parsePagination(r)
+		result, err := h.payments.ListPaymentAllocations(r.Context(), id, actor, limit, offset)
+		if err != nil {
+			return nil, err
+		}
+		out := make([]any, 0, len(result.Items))
+		for i := range result.Items {
+			out = append(out, toAllocationReadResponse(&result.Items[i]))
+		}
+		return map[string]any{
+			"items":  out,
+			"total":  result.Total,
+			"limit":  result.Limit,
+			"offset": result.Offset,
+		}, nil
+	})
+}
+
+func (h *PaymentHandler) ListEligibleObligations(w http.ResponseWriter, r *http.Request) {
+	h.withActor(w, r, func(actor domain.PaymentActorInput) (any, error) {
+		id, err := parseID(r)
+		if err != nil {
+			return nil, err
+		}
+		limit, offset := parsePagination(r)
+		result, err := h.payments.ListEligibleObligationsForPayment(r.Context(), id, actor, limit, offset)
+		if err != nil {
+			return nil, err
+		}
+		out := make([]any, 0, len(result.Items))
+		for i := range result.Items {
+			out = append(out, toObligationResponse(&result.Items[i]))
+		}
+		return map[string]any{
+			"items":  out,
+			"total":  result.Total,
+			"limit":  result.Limit,
+			"offset": result.Offset,
+		}, nil
+	})
+}
+
+func (h *PaymentHandler) ListPaymentAuditEvents(w http.ResponseWriter, r *http.Request) {
+	h.withActor(w, r, func(actor domain.PaymentActorInput) (any, error) {
+		id, err := parseID(r)
+		if err != nil {
+			return nil, err
+		}
+		limit, offset := parsePagination(r)
+		result, err := h.payments.ListPaymentAuditEvents(r.Context(), id, actor, limit, offset)
+		if err != nil {
+			return nil, err
+		}
+		out := make([]any, 0, len(result.Items))
+		for i := range result.Items {
+			out = append(out, toAuditEventResponse(&result.Items[i]))
+		}
+		return map[string]any{
+			"items":  out,
+			"total":  result.Total,
+			"limit":  result.Limit,
+			"offset": result.Offset,
+		}, nil
 	})
 }
 
@@ -299,7 +379,7 @@ func (h *PaymentHandler) CreateAllocation(w http.ResponseWriter, r *http.Request
 		}
 		result := outcome.Result
 		resp := map[string]any{
-			"payment": toPaymentResponse(result.Payment),
+			"payment":    toPaymentResponse(result.Payment),
 			"obligation": toObligationResponse(result.Obligation),
 			"allocation": toAllocationResponse(result.Allocation),
 		}
@@ -348,13 +428,13 @@ func toObligationResponse(o *domain.PaymentObligation) map[string]any {
 	resp := map[string]any{
 		"id": o.ID.String(), "tenant_id": o.TenantID.String(),
 		"obligation_number": o.ObligationNumber,
-		"payer_company_id": o.PayerCompanyID.String(), "payee_company_id": o.PayeeCompanyID.String(),
+		"payer_company_id":  o.PayerCompanyID.String(), "payee_company_id": o.PayeeCompanyID.String(),
 		"source_type": o.SourceType, "source_id": o.SourceID.String(),
-		"currency_code": o.CurrencyCode,
-		"original_amount": o.OriginalAmount.StringFixed(domain.MoneyScale),
-		"paid_amount": o.PaidAmount.StringFixed(domain.MoneyScale),
+		"currency_code":      o.CurrencyCode,
+		"original_amount":    o.OriginalAmount.StringFixed(domain.MoneyScale),
+		"paid_amount":        o.PaidAmount.StringFixed(domain.MoneyScale),
 		"outstanding_amount": o.OutstandingAmount.StringFixed(domain.MoneyScale),
-		"status": o.Status, "version": o.Version,
+		"status":             o.Status, "version": o.Version,
 		"created_at": o.CreatedAt, "updated_at": o.UpdatedAt,
 	}
 	if o.DueDate != nil {
@@ -366,14 +446,14 @@ func toObligationResponse(o *domain.PaymentObligation) map[string]any {
 func toPaymentResponse(p *domain.Payment) map[string]any {
 	resp := map[string]any{
 		"id": p.ID.String(), "tenant_id": p.TenantID.String(),
-		"payment_number": p.PaymentNumber,
+		"payment_number":   p.PaymentNumber,
 		"payer_company_id": p.PayerCompanyID.String(), "payee_company_id": p.PayeeCompanyID.String(),
-		"amount": p.Amount.StringFixed(domain.MoneyScale),
+		"amount":        p.Amount.StringFixed(domain.MoneyScale),
 		"currency_code": p.CurrencyCode, "payment_date": p.PaymentDate.Format("2006-01-02"),
 		"source": p.Source, "status": p.Status,
-		"allocated_amount": p.AllocatedAmount.StringFixed(domain.MoneyScale),
+		"allocated_amount":   p.AllocatedAmount.StringFixed(domain.MoneyScale),
 		"unallocated_amount": p.UnallocatedAmount.StringFixed(domain.MoneyScale),
-		"version": p.Version, "created_at": p.CreatedAt, "updated_at": p.UpdatedAt,
+		"version":            p.Version, "created_at": p.CreatedAt, "updated_at": p.UpdatedAt,
 	}
 	if p.VoidedAt != nil {
 		resp["voided_at"] = p.VoidedAt
@@ -390,7 +470,63 @@ func toPaymentResponse(p *domain.Payment) map[string]any {
 	if p.ReconciledBy != nil {
 		resp["reconciled_by"] = p.ReconciledBy.String()
 	}
+	if p.Reference != nil {
+		resp["reference"] = *p.Reference
+	}
+	if p.ExternalReference != nil {
+		resp["external_reference"] = *p.ExternalReference
+	}
+	if p.ExternalID != nil {
+		resp["external_id"] = *p.ExternalID
+	}
+	if p.CreatedBy != uuid.Nil {
+		resp["created_by"] = p.CreatedBy.String()
+	}
 	return resp
+}
+
+func toAuditEventResponse(e *domain.PaymentAuditEvent) map[string]any {
+	resp := map[string]any{
+		"id": e.ID, "tenant_id": e.TenantID,
+		"entity_type": e.EntityType, "entity_id": e.EntityID,
+		"event_type": e.EventType, "created_at": e.CreatedAt,
+	}
+	if e.ActorUserID != nil {
+		resp["actor_user_id"] = *e.ActorUserID
+	}
+	if e.ActorCompanyID != nil {
+		resp["actor_company_id"] = *e.ActorCompanyID
+	}
+	if e.Payload != nil {
+		resp["payload"] = e.Payload
+	}
+	return resp
+}
+
+func parsePaymentListQuery(r *http.Request) (domain.PaymentListQuery, error) {
+	limit, offset := parsePagination(r)
+	query := domain.PaymentListQuery{
+		Status:       r.URL.Query().Get("status"),
+		CurrencyCode: r.URL.Query().Get("currency_code"),
+		Search:       r.URL.Query().Get("q"),
+		Limit:        limit,
+		Offset:       offset,
+	}
+	if raw := r.URL.Query().Get("from_date"); raw != "" {
+		parsed, err := time.Parse("2006-01-02", raw)
+		if err != nil {
+			return domain.PaymentListQuery{}, domainValidation("invalid from_date")
+		}
+		query.FromDate = &parsed
+	}
+	if raw := r.URL.Query().Get("to_date"); raw != "" {
+		parsed, err := time.Parse("2006-01-02", raw)
+		if err != nil {
+			return domain.PaymentListQuery{}, domainValidation("invalid to_date")
+		}
+		query.ToDate = &parsed
+	}
+	return query, nil
 }
 
 func toAllocationResponse(a *domain.PaymentAllocation) map[string]any {
@@ -398,7 +534,7 @@ func toAllocationResponse(a *domain.PaymentAllocation) map[string]any {
 		"id": a.ID.String(), "tenant_id": a.TenantID.String(),
 		"payment_id": a.PaymentID.String(), "obligation_id": a.ObligationID.String(),
 		"allocated_amount": a.AllocatedAmount.StringFixed(domain.MoneyScale),
-		"currency_code": a.CurrencyCode, "created_by": a.CreatedBy.String(),
+		"currency_code":    a.CurrencyCode, "created_by": a.CreatedBy.String(),
 		"created_at": a.CreatedAt,
 	}
 	if a.VoidedAt != nil {
@@ -409,6 +545,26 @@ func toAllocationResponse(a *domain.PaymentAllocation) map[string]any {
 	}
 	if a.VoidReason != nil {
 		resp["void_reason"] = *a.VoidReason
+	}
+	return resp
+}
+
+func toAllocationReadResponse(a *domain.PaymentAllocationRead) map[string]any {
+	resp := toAllocationResponse(&a.PaymentAllocation)
+	if a.ObligationNumber != nil {
+		resp["obligation_number"] = *a.ObligationNumber
+	}
+	if a.ObligationStatus != nil {
+		resp["obligation_status"] = *a.ObligationStatus
+	}
+	if a.ObligationSourceType != nil {
+		resp["obligation_source_type"] = *a.ObligationSourceType
+	}
+	if a.ObligationSourceID != nil {
+		resp["obligation_source_id"] = a.ObligationSourceID.String()
+	}
+	if a.ObligationOutstandingAmount != nil {
+		resp["obligation_outstanding_amount"] = a.ObligationOutstandingAmount.StringFixed(domain.MoneyScale)
 	}
 	return resp
 }

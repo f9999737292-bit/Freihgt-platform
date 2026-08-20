@@ -6,6 +6,7 @@
     "carrierOrders": "订单执行",
     "buyerOrders": "运输订单",
     "settlements": "结算",
-    "billingRegisters": "登记册"
+    "billingRegisters": "登记册",
+    "payments": "付款"
   }
 }

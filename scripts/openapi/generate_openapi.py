@@ -182,9 +182,12 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/payment-obligations/{id}", "get", "Get payment obligation by ID", "Payment Obligations", True, True, None),
     ("/api/v1/payment-obligations/{id}/due-date", "patch", "Update payment obligation due date", "Payment Obligations", True, True, None),
     ("/api/v1/payments", "post", "Create manual payment", "Payments", True, True, None),
-    ("/api/v1/payments", "get", "List payments", "Payments", True, True, None),
-    ("/api/v1/payments/{id}", "get", "Get payment by ID", "Payments", True, True, None),
+    ("/api/v1/payments", "get", "List payments", "Payments", True, True, "payment_list"),
+    ("/api/v1/payments/{id}", "get", "Get payment by ID", "Payments", True, True, "payment_detail"),
+    ("/api/v1/payments/{id}/allocations", "get", "List payment allocations", "Payments", True, True, "payment_allocations_list"),
     ("/api/v1/payments/{id}/allocations", "post", "Allocate payment to obligation", "Payments", True, True, None),
+    ("/api/v1/payments/{id}/audit-events", "get", "List payment audit events", "Payments", True, True, "payment_audit_list"),
+    ("/api/v1/payments/{id}/eligible-obligations", "get", "List eligible obligations for payment", "Payments", True, True, "payment_eligible_obligations_list"),
     ("/api/v1/payments/{id}/reconcile", "post", "Reconcile fully allocated payment", "Payments", True, True, "reconcile_payment"),
     ("/api/v1/payment-allocations/{id}/void", "post", "Void payment allocation", "Payments", True, True, "void_allocation"),
     ("/api/v1/payments/{id}/void", "post", "Void payment", "Payments", True, True, "void_payment"),
@@ -225,23 +228,158 @@ RECONCILE_DESCRIPTIONS = {
 
 NO_REQUEST_BODY_PROFILES = frozenset({"reconcile_payment"})
 
+READ_RESPONSE_SCHEMAS = {
+    "payment_list": "PaymentListResponse",
+    "payment_detail": "PaymentRecord",
+    "payment_allocations_list": "PaymentAllocationListResponse",
+    "payment_audit_list": "PaymentAuditEventListResponse",
+    "payment_eligible_obligations_list": "EligiblePaymentObligationListResponse",
+}
+
+# Public routes protected by paymentGuard / companycontext.Enforcer (router.go).
+PAYMENT_GUARD_OPERATIONS = frozenset({
+    ("get", "/api/v1/payment-obligations"),
+    ("get", "/api/v1/payment-obligations/{id}"),
+    ("patch", "/api/v1/payment-obligations/{id}/due-date"),
+    ("post", "/api/v1/payments"),
+    ("get", "/api/v1/payments"),
+    ("get", "/api/v1/payments/{id}"),
+    ("get", "/api/v1/payments/{id}/allocations"),
+    ("get", "/api/v1/payments/{id}/audit-events"),
+    ("get", "/api/v1/payments/{id}/eligible-obligations"),
+    ("post", "/api/v1/payments/{id}/allocations"),
+    ("post", "/api/v1/payments/{id}/reconcile"),
+    ("post", "/api/v1/payment-allocations/{id}/void"),
+    ("post", "/api/v1/payments/{id}/void"),
+})
+
+PAYMENT_DETAIL_LIST_QUERY_PROFILES = frozenset({
+    "payment_allocations_list",
+    "payment_audit_list",
+    "payment_eligible_obligations_list",
+})
+
+COMPANY_ID_QUERY_DESCRIPTION = (
+    "Active company context requested by the authenticated user. "
+    "The gateway validates membership and derives trusted internal company/actor context."
+)
+
+HEADER_PARAMETER_REFS = [
+    "        - $ref: '#/components/parameters/XRequestID'",
+    "        - $ref: '#/components/parameters/XTenantID'",
+    "        - $ref: '#/components/parameters/XCompanyID'",
+    "        - $ref: '#/components/parameters/XLocale'",
+    "        - $ref: '#/components/parameters/Authorization'",
+]
+
 
 def path_to_id(summary: str) -> str:
     return "".join(ch if ch.isalnum() else "_" for ch in summary.lower()).strip("_")
 
 
-def render_path_parameters(path: str) -> str:
-    params = re.findall(r"\{([^}]+)\}", path)
-    if not params:
+def _company_id_query_lines() -> list[str]:
+    return [
+        "        - name: company_id",
+        "          in: query",
+        "          required: true",
+        "          schema:",
+        "            type: string",
+        "            format: uuid",
+        f"          description: {COMPANY_ID_QUERY_DESCRIPTION}",
+    ]
+
+
+def _pagination_query_lines() -> list[str]:
+    return [
+        "        - name: limit",
+        "          in: query",
+        "          required: false",
+        "          schema:",
+        "            type: integer",
+        "            default: 20",
+        "            maximum: 100",
+        "          description: Page size. Non-positive values are normalized to the default.",
+        "        - name: offset",
+        "          in: query",
+        "          required: false",
+        "          schema:",
+        "            type: integer",
+        "            minimum: 0",
+        "            default: 0",
+    ]
+
+
+def _payment_list_filter_query_lines() -> list[str]:
+    return [
+        "        - name: status",
+        "          in: query",
+        "          required: false",
+        "          schema:",
+        "            type: string",
+        "            enum:",
+        "              - RECEIVED",
+        "              - PARTIALLY_ALLOCATED",
+        "              - FULLY_ALLOCATED",
+        "              - RECONCILED",
+        "              - VOIDED",
+        "        - name: currency_code",
+        "          in: query",
+        "          required: false",
+        "          schema:",
+        "            type: string",
+        "            minLength: 3",
+        "            maxLength: 3",
+        "        - name: from_date",
+        "          in: query",
+        "          required: false",
+        "          schema:",
+        "            type: string",
+        "            format: date",
+        "        - name: to_date",
+        "          in: query",
+        "          required: false",
+        "          schema:",
+        "            type: string",
+        "            format: date",
+        "        - name: q",
+        "          in: query",
+        "          required: false",
+        "          schema:",
+        "            type: string",
+        "          description: Search payment_number, external_id, external_reference, or reference.",
+    ]
+
+
+def query_parameter_lines(method: str, path: str, profile: str | None) -> list[str]:
+    lines: list[str] = []
+    if (method, path) in PAYMENT_GUARD_OPERATIONS:
+        lines.extend(_company_id_query_lines())
+    if profile == "payment_list":
+        lines.extend(_payment_list_filter_query_lines())
+        lines.extend(_pagination_query_lines())
+    elif profile in PAYMENT_DETAIL_LIST_QUERY_PROFILES:
+        lines.extend(_pagination_query_lines())
+    return lines
+
+
+def render_parameters(path: str, method: str, with_headers: bool, profile: str | None) -> str:
+    query_lines = query_parameter_lines(method, path, profile)
+    path_params = re.findall(r"\{([^}]+)\}", path)
+    if not with_headers and not query_lines:
         return ""
-    lines = [COMMON_HEADER.rstrip("\n")]
-    for param in params:
-        lines.append(f"        - name: {param}")
-        lines.append("          in: path")
-        lines.append("          required: true")
-        lines.append("          schema:")
-        lines.append("            type: string")
-        lines.append("            format: uuid")
+    lines = ["      parameters:"]
+    if with_headers:
+        lines.extend(HEADER_PARAMETER_REFS)
+    for param in path_params:
+        lines.extend([
+            f"        - name: {param}",
+            "          in: path",
+            "          required: true",
+            "          schema:",
+            "            type: string",
+            "            format: uuid",
+        ])
+    lines.extend(query_lines)
     return "\n".join(lines) + "\n"
 
 
@@ -270,11 +408,11 @@ def render_operation(
         for desc_line in RECONCILE_DESCRIPTIONS[profile].splitlines():
             lines.append(f"        {desc_line}")
 
-    if with_headers:
-        if re.search(r"\{[^}]+\}", path):
-            lines.append(render_path_parameters(path).rstrip("\n"))
-        else:
-            lines.append(COMMON_HEADER.rstrip("\n"))
+    parameters = render_parameters(path, method, with_headers, profile)
+    if parameters:
+        lines.append(parameters.rstrip("\n"))
+    elif with_headers:
+        lines.append(COMMON_HEADER.rstrip("\n"))
 
     if method in {"post", "patch", "put"} and profile not in NO_REQUEST_BODY_PROFILES:
         schema_ref = "#/components/schemas/VoidRequest" if profile in VOID_DESCRIPTIONS else None
@@ -309,6 +447,19 @@ def render_operation(
     elif profile == "reconcile_payment":
         success_desc = "Payment reconciled or idempotent success"
 
+    response_schema = READ_RESPONSE_SCHEMAS.get(profile or "")
+    if response_schema:
+        schema_lines = [
+            "              schema:",
+            f"                $ref: '#/components/schemas/{response_schema}'",
+        ]
+    else:
+        schema_lines = [
+            "              schema:",
+            "                type: object",
+            "                additionalProperties: true",
+        ]
+
     lines.extend(
         [
             "      responses:",
@@ -316,9 +467,7 @@ def render_operation(
             f"          description: {success_desc}",
             "          content:",
             "            application/json:",
-            "              schema:",
-            "                type: object",
-            "                additionalProperties: true",
+            *schema_lines,
             ERROR_RESPONSES.rstrip("\n"),
             "",
         ]
@@ -338,7 +487,7 @@ def render_paths(endpoints: list[tuple[str, str, str, str, bool, bool, str | Non
     return "\n".join(chunks)
 
 
-def components_block() -> str:
+def global_components_block() -> str:
     return """
 components:
   securitySchemes:
@@ -441,7 +590,239 @@ components:
 """
 
 
-def build_spec(title_suffix: str, description: str, endpoints: list[tuple[str, str, str, str, bool, bool, str | None]]) -> str:
+def payment_components_block() -> str:
+    return """    PaymentRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        payment_number:
+          type: string
+        payer_company_id:
+          type: string
+          format: uuid
+        payee_company_id:
+          type: string
+          format: uuid
+        amount:
+          type: string
+        currency_code:
+          type: string
+        payment_date:
+          type: string
+          format: date
+        source:
+          type: string
+        status:
+          type: string
+          enum:
+            - RECEIVED
+            - PARTIALLY_ALLOCATED
+            - FULLY_ALLOCATED
+            - RECONCILED
+            - VOIDED
+        allocated_amount:
+          type: string
+        unallocated_amount:
+          type: string
+        version:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        reference:
+          type: string
+        external_reference:
+          type: string
+        external_id:
+          type: string
+        created_by:
+          type: string
+          format: uuid
+        voided_at:
+          type: string
+          format: date-time
+        voided_by:
+          type: string
+          format: uuid
+        void_reason:
+          type: string
+        reconciled_at:
+          type: string
+          format: date-time
+        reconciled_by:
+          type: string
+          format: uuid
+    PaymentListResponse:
+      allOf:
+        - $ref: '#/components/schemas/PaginatedResponse'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/PaymentRecord'
+    PaymentAllocationReadRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        payment_id:
+          type: string
+          format: uuid
+        obligation_id:
+          type: string
+          format: uuid
+        allocated_amount:
+          type: string
+        currency_code:
+          type: string
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        voided_at:
+          type: string
+          format: date-time
+        voided_by:
+          type: string
+          format: uuid
+        void_reason:
+          type: string
+        obligation_number:
+          type: string
+        obligation_status:
+          type: string
+        obligation_source_type:
+          type: string
+        obligation_source_id:
+          type: string
+          format: uuid
+        obligation_outstanding_amount:
+          type: string
+    PaymentAllocationListResponse:
+      allOf:
+        - $ref: '#/components/schemas/PaginatedResponse'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/PaymentAllocationReadRecord'
+    PaymentAuditEventRecord:
+      type: object
+      properties:
+        id:
+          type: string
+        tenant_id:
+          type: string
+        entity_type:
+          type: string
+        entity_id:
+          type: string
+        event_type:
+          type: string
+        actor_user_id:
+          type: string
+        actor_company_id:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+    PaymentAuditEventListResponse:
+      allOf:
+        - $ref: '#/components/schemas/PaginatedResponse'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/PaymentAuditEventRecord'
+    PaymentObligationRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        obligation_number:
+          type: string
+        payer_company_id:
+          type: string
+          format: uuid
+        payee_company_id:
+          type: string
+          format: uuid
+        source_type:
+          type: string
+        source_id:
+          type: string
+          format: uuid
+        currency_code:
+          type: string
+        original_amount:
+          type: string
+        paid_amount:
+          type: string
+        outstanding_amount:
+          type: string
+        status:
+          type: string
+        version:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        due_date:
+          type: string
+          format: date
+    EligiblePaymentObligationListResponse:
+      allOf:
+        - $ref: '#/components/schemas/PaginatedResponse'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/PaymentObligationRecord'
+"""
+
+
+def components_block(*, include_payment_components: bool = False) -> str:
+    block = global_components_block()
+    if include_payment_components:
+        block = block.rstrip() + "\n" + payment_components_block()
+    return block
+
+
+def build_spec(
+    title_suffix: str,
+    description: str,
+    endpoints: list[tuple[str, str, str, str, bool, bool, str | None]],
+    *,
+    include_payment_components: bool = False,
+) -> str:
     tags_yaml = "\n".join(f"  - name: {tag}" for tag in TAGS)
     return (
         f"""openapi: 3.0.3
@@ -457,7 +838,7 @@ tags:
 {tags_yaml}
 paths:
 {render_paths(endpoints)}
-{components_block()}
+{components_block(include_payment_components=include_payment_components)}
 """
     ).strip() + "\n"
 
@@ -478,13 +859,23 @@ def main() -> None:
     OPENAPI_DIR.mkdir(parents=True, exist_ok=True)
     (OPENAPI_DIR / "schemas").mkdir(exist_ok=True)
 
-    unified = build_spec("", "Unified HTTP API for the Freight Platform exposed via api-gateway.", ENDPOINTS)
+    unified = build_spec(
+        "",
+        "Unified HTTP API for the Freight Platform exposed via api-gateway.",
+        ENDPOINTS,
+        include_payment_components=True,
+    )
     (OPENAPI_DIR / "openapi.yaml").write_text(unified, encoding="utf-8")
 
     for filename, tags in SERVICE_TAGS.items():
         service_endpoints = [item for item in ENDPOINTS if item[3] in tags]
         title = SERVICE_DISPLAY_NAMES.get(filename, filename.replace("-service.yaml", "").replace(".yaml", "").replace("-", " ").title())
-        spec = build_spec(f" - {title}", f"OpenAPI specification for {title}.", service_endpoints)
+        spec = build_spec(
+            f" - {title}",
+            f"OpenAPI specification for {title}.",
+            service_endpoints,
+            include_payment_components=(filename == "payment-service.yaml"),
+        )
         (OPENAPI_DIR / filename).write_text(spec, encoding="utf-8")
 
     print(f"Generated OpenAPI specs in {OPENAPI_DIR}")

@@ -95,6 +95,15 @@ type PaymentAllocation struct {
 	VoidReason      *string
 }
 
+type PaymentAllocationRead struct {
+	PaymentAllocation
+	ObligationNumber            *string
+	ObligationStatus            *string
+	ObligationSourceType        *string
+	ObligationSourceID          *uuid.UUID
+	ObligationOutstandingAmount *decimal.Decimal
+}
+
 type CreateManualPaymentInput struct {
 	TenantID          uuid.UUID
 	Amount            decimal.Decimal

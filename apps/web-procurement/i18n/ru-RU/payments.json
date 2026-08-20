@@ -1,0 +1,102 @@
+{
+  "payments": {
+    "title": "Платежи",
+    "detailTitle": "Платёж",
+    "loadFailed": "Не удалось загрузить платежи",
+    "detailLoadFailed": "Не удалось загрузить платёж",
+    "empty": "Платежи не найдены",
+    "loadMore": "Загрузить ещё",
+    "loadMoreEligible": "Загрузить ещё обязательства",
+    "missingCompany": "Выберите компанию для просмотра платежей",
+    "missingActor": "Нет доступа к платежам для выбранной компании",
+    "notFound": "Платёж не найден или недоступен",
+    "search": "Поиск",
+    "searchPlaceholder": "Номер, внешний ID или ссылка",
+    "statusFilter": "Статус",
+    "currencyFilter": "Валюта",
+    "fromDate": "Дата с",
+    "toDate": "Дата по",
+    "paymentNumber": "Номер платежа",
+    "externalId": "Внешний ID",
+    "reference": "Ссылка",
+    "payer": "Плательщик",
+    "payee": "Получатель",
+    "amount": "Сумма",
+    "allocated": "Распределено",
+    "unallocated": "Нераспределено",
+    "outstanding": "Остаток к оплате",
+    "paymentDate": "Дата платежа",
+    "reconciledAt": "Дата сверки",
+    "updatedAt": "Обновлено",
+    "summary": "Сводка",
+    "financial": "Финансовое состояние",
+    "parties": "Стороны",
+    "obligations": "Обязательства к оплате",
+    "allocations": "Распределения",
+    "audit": "История",
+    "relatedDocuments": "Связанные документы",
+    "billingRegister": "Реестр",
+    "activeAllocation": "Активное",
+    "voidedAllocation": "Отменено",
+    "voidedAt": "Отменено",
+    "voidReason": "Причина",
+    "createdAt": "Создано",
+    "actions": {
+      "allocate": "Распределить платёж",
+      "voidAllocation": "Отменить распределение",
+      "voidPayment": "Аннулировать платёж",
+      "reconcile": "Сверить платёж",
+      "view": "Открыть"
+    },
+    "allocateModal": {
+      "title": "Распределить платёж",
+      "obligation": "Обязательство",
+      "amount": "Сумма",
+      "submit": "Распределить"
+    },
+    "voidAllocationModal": {
+      "title": "Отменить распределение",
+      "reason": "Причина",
+      "submit": "Отменить"
+    },
+    "voidPaymentModal": {
+      "title": "Аннулировать платёж",
+      "reason": "Причина",
+      "submit": "Аннулировать"
+    },
+    "reconcileModal": {
+      "title": "Сверить платёж",
+      "confirm": "Подтвердить сверку",
+      "message": "Сверка проверит финансовую целостность на сервере."
+    },
+    "success": {
+      "allocated": "Распределение выполнено",
+      "voidedAllocation": "Распределение отменено",
+      "voidedPayment": "Платёж аннулирован",
+      "reconciled": "Платёж сверен"
+    },
+    "validation": {
+      "amountRequired": "Укажите сумму",
+      "amountPositive": "Сумма должна быть положительной",
+      "reasonRequired": "Укажите причину",
+      "obligationRequired": "Выберите обязательство"
+    },
+    "status": {
+      "RECEIVED": "Получен",
+      "PARTIALLY_ALLOCATED": "Частично распределён",
+      "FULLY_ALLOCATED": "Полностью распределён",
+      "RECONCILED": "Сверен",
+      "VOIDED": "Аннулирован"
+    },
+    "eventType": {
+      "PAYMENT_CREATED": "Платёж создан",
+      "ALLOCATION_CREATED": "Распределение создано",
+      "ALLOCATION_VOIDED": "Распределение отменено",
+      "PAYMENT_REALLOCATED": "Платёж перераспределён",
+      "OBLIGATION_ALLOCATED": "Обязательство распределено",
+      "OBLIGATION_REALLOCATED": "Обязательство перераспределено",
+      "PAYMENT_VOIDED": "Платёж аннулирован",
+      "PAYMENT_RECONCILED": "Платёж сверен"
+    }
+  }
+}
