@@ -48,7 +48,7 @@ func setupEnv(t *testing.T) *testEnv {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	t.Cleanup(cancel)
-	dbName, testURL, dropDB, err := createTempDatabase(ctx, adminURL)
+	_, testURL, dropDB, err := createTempDatabase(ctx, adminURL)
 	if err != nil {
 		t.Fatalf("postgres unavailable: %v", err)
 	}

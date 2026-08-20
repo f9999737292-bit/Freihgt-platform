@@ -114,8 +114,17 @@ func TestBuyerOwnAwardedConversionAllowed(t *testing.T) {
 	event, _, _ := seedAwardedMultiLotEvent(t, env, fix, 100000, 95000)
 
 	result, err := env.rfxSvc.ConvertAwardToTransportOrders(ctx, fix.BuyerA, event.ID)
-	if err != nil || !result.Created || len(result.Items) != 2 {
-		t.Fatalf("convert: err=%v created=%v len=%d", err, result.Created, len(result.Items))
+	if err != nil {
+		t.Fatalf("convert: %v", err)
+	}
+	if result == nil || !result.Created || len(result.Items) != 2 {
+		created := false
+		itemLen := 0
+		if result != nil {
+			created = result.Created
+			itemLen = len(result.Items)
+		}
+		t.Fatalf("convert: created=%v len=%d", created, itemLen)
 	}
 	var orderCount, snapshotCount int
 	if err := env.pool.QueryRow(ctx, `SELECT COUNT(*) FROM transport.transport_orders WHERE tenant_id = $1`, fix.TenantID).Scan(&orderCount); err != nil {

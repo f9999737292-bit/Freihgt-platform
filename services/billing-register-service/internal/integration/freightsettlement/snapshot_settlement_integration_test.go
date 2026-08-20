@@ -20,7 +20,7 @@ func TestCSet009NewOrderMissingSnapshotFailClosed(t *testing.T) {
 			tenant_id, order_number, shipper_company_id, consignee_company_id,
 			origin_location_id, destination_location_id, cargo_id, transport_mode, equipment_type,
 			status, pricing_model_version
-		) VALUES ($1,'SNAP-MISSING',$2,$2,$3,$4,$5,'ROAD','TAUTLINER','DELIVERED','SNAPSHOT_V1')
+		) VALUES ($1,'SNAP-MISSING',$2,$2,$3,$4,$5,'ROAD','TAUTLINER','CONVERTED_TO_SHIPMENT','SNAPSHOT_V1')
 		RETURNING id`, fix.TenantID, fix.BuyerID, fix.OriginID, fix.DestID, fix.CargoID).Scan(&orderID); err != nil {
 		t.Fatalf("order: %v", err)
 	}
@@ -50,7 +50,7 @@ func TestCSet003AggregateNullBaseSettlementPass(t *testing.T) {
 			tenant_id, order_number, shipper_company_id, consignee_company_id,
 			origin_location_id, destination_location_id, cargo_id, transport_mode, equipment_type,
 			status, pricing_model_version
-		) VALUES ($1,'SNAP-AGG',$2,$2,$3,$4,$5,'ROAD','TAUTLINER','DELIVERED','SNAPSHOT_V1')
+		) VALUES ($1,'SNAP-AGG',$2,$2,$3,$4,$5,'ROAD','TAUTLINER','CONVERTED_TO_SHIPMENT','SNAPSHOT_V1')
 		RETURNING id`, fix.TenantID, fix.BuyerID, fix.OriginID, fix.DestID, fix.CargoID).Scan(&orderID); err != nil {
 		t.Fatalf("order: %v", err)
 	}

@@ -4,6 +4,8 @@ package enterprise
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"strings"
 
@@ -92,7 +94,7 @@ func (s *awardConversionTOStub) CreateFromAwardScope(ctx context.Context, in tra
 			$1,$2,$3,$4,'RFQ_AWARD',$5,$6,$7,$8,$9,$10,$11,'UNAVAILABLE','[]'::jsonb,'[]'::jsonb,
 			NULL,$12, CURRENT_DATE, now(), 'integration-stub', 'v2.0C', $13
 		) RETURNING id`
-	requestHash := in.IdempotencyKey
+	requestHash := hashIntegrationRequestKey(in.IdempotencyKey)
 	if err := tx.QueryRow(ctx, insertSnapshot,
 		in.TenantID, orderID, pricing.BuyerCompanyID, pricing.CarrierCompanyID,
 		in.RfxEventID, in.RfxLotID,
@@ -121,4 +123,9 @@ func (s *awardConversionTOStub) CreateFromAwardScope(ctx context.Context, in tra
 		OrderNumber:      in.OrderNumber,
 		OrderStatus:      "DRAFT",
 	}, nil
+}
+
+func hashIntegrationRequestKey(key string) string {
+	sum := sha256.Sum256([]byte(key))
+	return hex.EncodeToString(sum[:])
 }

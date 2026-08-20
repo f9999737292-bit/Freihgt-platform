@@ -23,7 +23,7 @@ import (
 	"github.com/freight-platform/contract-rate-service/internal/service"
 )
 
-const maxMigrationNumber = 50
+const maxMigrationNumber = 52
 
 type testEnv struct {
 	Pool           *pgxpool.Pool
@@ -66,7 +66,7 @@ func setupEnv(t *testing.T) *testEnv {
 		TenantID: tenantID, ActorUserID: uuid.New(),
 		ActorCompanyID: buyerID, ActorKind: domain.ActorKindBuyer,
 	}
-	resolutionSvc := service.NewResolutionService(resolutions, memberships, nil)
+	resolutionSvc := service.NewResolutionService(resolutions, memberships, nil, nil)
 	return &testEnv{
 		Pool: pool, TenantID: tenantID, BuyerID: buyerID, CarrierID: carrierID,
 		OriginID: originID, DestID: destID,
