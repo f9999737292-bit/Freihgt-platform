@@ -434,7 +434,7 @@ func clearAwardScopeCurrency(t *testing.T, env *testEnv, eventID uuid.UUID) {
 	}
 	if _, err := env.pool.Exec(ctx, `
 		UPDATE rfx.rfx_response_offer_lines ol
-		SET currency_code = NULL
+		SET currency_code = ''
 		FROM rfx.rfx_responses resp
 		WHERE ol.rfx_response_id = resp.id AND resp.rfx_event_id = $1
 	`, eventID); err != nil {

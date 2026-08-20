@@ -160,12 +160,13 @@ func TestCSet007ContractChangeDoesNotChangeSettlementPrincipal(t *testing.T) {
 		RateLineID:    &rateLineID,
 	})
 	awardLinkID := uuid.New()
+	otherEventID := uuid.New()
 	if _, err := env.pool.Exec(ctx, `
 		INSERT INTO rfx.rfx_award_transport_orders (
 			id, tenant_id, rfx_event_id, rfx_award_id, rfx_response_id, transport_order_id,
 			carrier_company_id, buyer_company_id, amount, currency_code
 		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'RUB')`,
-		awardLinkID, fix.TenantID, fix.EventID, fix.AwardID, fix.ResponseID, orderID, fix.CarrierA, fix.BuyerID, 120000.00); err != nil {
+		awardLinkID, fix.TenantID, otherEventID, fix.AwardID, fix.ResponseID, orderID, fix.CarrierA, fix.BuyerID, 120000.00); err != nil {
 		t.Fatalf("award link: %v", err)
 	}
 	ctxData, err := env.repo.LoadShipmentContext(ctx, fix.TenantID, shipmentID)

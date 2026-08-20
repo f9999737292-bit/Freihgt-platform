@@ -348,10 +348,7 @@ paths:
   /api/v1/transport-orders:
     post:
       tags: [Transport Orders]
-      summary: Create priced transport order
-      description: |
-        Creates a transport order with mandatory rate resolution and immutable rate snapshot (v2.0C).
-        Requires Idempotency-Key header. Unpriced legacy create is not permitted on this route.
+      summary: Create transport order
       operationId: post_create_transport_order
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -359,77 +356,12 @@ paths:
         - $ref: '#/components/parameters/XCompanyID'
         - $ref: '#/components/parameters/XLocale'
         - $ref: '#/components/parameters/Authorization'
-        - name: Idempotency-Key
-          in: header
-          required: true
-          description: Client-supplied idempotency key for priced order creation (max 128 chars).
-          schema:
-            type: string
-            minLength: 1
-            maxLength: 128
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required:
-                - order_number
-                - shipper_company_id
-                - consignee_company_id
-                - origin_location_id
-                - destination_location_id
-                - cargo_id
-                - pricing_context
-              properties:
-                order_number:
-                  type: string
-                shipper_company_id:
-                  type: string
-                  format: uuid
-                consignee_company_id:
-                  type: string
-                  format: uuid
-                origin_location_id:
-                  type: string
-                  format: uuid
-                destination_location_id:
-                  type: string
-                  format: uuid
-                cargo_id:
-                  type: string
-                  format: uuid
-                transport_mode:
-                  type: string
-                  default: ROAD
-                equipment_type:
-                  type: string
-                  description: Case-sensitive exact match after TrimSpace (no case coercion).
-                pricing_context:
-                  type: object
-                  description: Explicit pricing source hints for rate resolution.
-                  properties:
-                    carrier_company_id:
-                      type: string
-                      format: uuid
-                    award_link_id:
-                      type: string
-                      format: uuid
-                    award_scope_event_id:
-                      type: string
-                      format: uuid
-                    award_scope_lot_id:
-                      type: string
-                      format: uuid
-                    bid_id:
-                      type: string
-                      format: uuid
-                    manual_spot_amount:
-                      type: string
-                    manual_spot_currency:
-                      type: string
-                    pricing_source:
-                      type: string
               additionalProperties: true
       security:
         - bearerAuth: []
