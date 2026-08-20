@@ -29,7 +29,8 @@ func (r *PaymentRepository) loadReconciliationSnapshotTx(
 			COUNT(*) FILTER (WHERE a.voided_at IS NULL AND o.id IS NOT NULL AND (o.payer_company_id <> $4 OR o.payee_company_id <> $5 OR o.currency_code <> $3)),
 			COUNT(*) FILTER (WHERE a.voided_at IS NULL AND o.status IN ('CANCELLED', 'VOIDED')),
 			COUNT(*) FILTER (WHERE a.voided_at IS NULL AND a.allocated_amount <= 0),
-			COUNT(*) FILTER (WHERE a.voided_at IS NULL AND (a.voided_by IS NOT NULL OR a.void_reason IS NOT NULL))
+			COUNT(*) FILTER (WHERE a.voided_at IS NULL AND (a.voided_by IS NOT NULL OR a.void_reason IS NOT NULL)),
+			COUNT(*) FILTER (WHERE a.voided_at IS NOT NULL AND (a.voided_by IS NULL OR a.void_reason IS NULL))
 		FROM billing.payment_allocations a
 		LEFT JOIN billing.payment_obligations o ON o.id = a.obligation_id
 		WHERE a.payment_id = $1`
@@ -48,7 +49,8 @@ func (r *PaymentRepository) loadReconciliationSnapshotTx(
 		&snapshot.InvalidPartyCount,
 		&snapshot.InvalidObligationStateCount,
 		&snapshot.NonPositiveAmountCount,
-		&snapshot.InvalidAllocationVoidMetadataCount,
+		&snapshot.InvalidActiveAllocationVoidMetadataCount,
+		&snapshot.InvalidVoidedAllocationMetadataCount,
 	); err != nil {
 		return snapshot, mapDBError(err)
 	}

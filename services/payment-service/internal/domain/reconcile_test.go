@@ -121,7 +121,12 @@ func TestValidateReconciliationSnapshotIntegrity(t *testing.T) {
 	}{
 		{"invalid currency", ReconciliationSnapshot{InvalidCurrencyCount: 1}},
 		{"invalid obligation tenant", ReconciliationSnapshot{InvalidObligationTenantCount: 1}},
-		{"active orphan void metadata", ReconciliationSnapshot{InvalidAllocationVoidMetadataCount: 1}},
+		{"active orphan void metadata", ReconciliationSnapshot{InvalidActiveAllocationVoidMetadataCount: 1}},
+		{"voided orphan void metadata", ReconciliationSnapshot{InvalidVoidedAllocationMetadataCount: 1}},
+		{"both void metadata violations", ReconciliationSnapshot{
+			InvalidActiveAllocationVoidMetadataCount: 1,
+			InvalidVoidedAllocationMetadataCount:     1,
+		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if err := ValidateReconciliationSnapshotIntegrity(tc.snapshot); err == nil {
