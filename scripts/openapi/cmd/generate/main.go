@@ -165,7 +165,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	unified := buildSpec("", "Unified HTTP API for the Freight Platform exposed via api-gateway.", endpoints)
+	unified := buildSpec("", "Unified HTTP API for the Freight Platform exposed via api-gateway.", endpoints, true)
 	if err := os.WriteFile(filepath.Join(outDir, "openapi.yaml"), []byte(unified), 0o644); err != nil {
 		fmt.Fprintf(os.Stderr, "write openapi.yaml: %v\n", err)
 		os.Exit(1)
@@ -174,7 +174,8 @@ func main() {
 	for filename, tagSet := range serviceTags {
 		filtered := filterByTags(endpoints, tagSet)
 		displayName := serviceDisplayName(filename)
-		spec := buildSpec(" - "+displayName, "OpenAPI specification for "+displayName+".", filtered)
+		includePayment := filename == "payment-service.yaml"
+		spec := buildSpec(" - "+displayName, "OpenAPI specification for "+displayName+".", filtered, includePayment)
 		if err := os.WriteFile(filepath.Join(outDir, filename), []byte(spec), 0o644); err != nil {
 			fmt.Fprintf(os.Stderr, "write %s: %v\n", filename, err)
 			os.Exit(1)
@@ -339,7 +340,7 @@ func renderPaths(eps []endpoint) string {
 	return sb.String()
 }
 
-func buildSpec(titleSuffix, description string, eps []endpoint) string {
+func buildSpec(titleSuffix, description string, eps []endpoint, includePaymentComponents bool) string {
 	var tagsYAML strings.Builder
 	for _, tag := range tags {
 		tagsYAML.WriteString(fmt.Sprintf("  - name: %s\n", tag))
@@ -358,7 +359,7 @@ tags:
 paths:
 %s
 %s
-`, titleSuffix, description, tagsYAML.String(), renderPaths(eps), componentsBlock)
+`, titleSuffix, description, tagsYAML.String(), renderPaths(eps), componentsBlock(includePaymentComponents))
 }
 
 const commonHeaders = `      parameters:
@@ -411,7 +412,7 @@ const errorResponses = `        '400':
                 $ref: '#/components/schemas/ErrorResponse'
 `
 
-const componentsBlock = `components:
+const globalComponentsBlock = `components:
   securitySchemes:
     bearerAuth:
       type: http
@@ -509,7 +510,9 @@ const componentsBlock = `components:
           type: integer
         offset:
           type: integer
-    PaymentAllocationReadRecord:
+`
+
+const paymentComponentsBlock = `    PaymentAllocationReadRecord:
       type: object
       properties:
         id:
@@ -545,3 +548,10 @@ const componentsBlock = `components:
       allOf:
         - $ref: '#/components/schemas/PaginatedResponse'
 `
+
+func componentsBlock(includePaymentComponents bool) string {
+	if includePaymentComponents {
+		return strings.TrimRight(globalComponentsBlock, "\n") + "\n" + paymentComponentsBlock
+	}
+	return globalComponentsBlock
+}

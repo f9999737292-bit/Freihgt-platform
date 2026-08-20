@@ -341,7 +341,7 @@ def render_paths(endpoints: list[tuple[str, str, str, str, bool, bool, str | Non
     return "\n".join(chunks)
 
 
-def components_block() -> str:
+def global_components_block() -> str:
     return """
 components:
   securitySchemes:
@@ -441,7 +441,11 @@ components:
           type: integer
         offset:
           type: integer
-    PaymentAllocationReadRecord:
+"""
+
+
+def payment_components_block() -> str:
+    return """    PaymentAllocationReadRecord:
       type: object
       properties:
         id:
@@ -479,7 +483,20 @@ components:
 """
 
 
-def build_spec(title_suffix: str, description: str, endpoints: list[tuple[str, str, str, str, bool, bool, str | None]]) -> str:
+def components_block(*, include_payment_components: bool = False) -> str:
+    block = global_components_block()
+    if include_payment_components:
+        block = block.rstrip() + "\n" + payment_components_block()
+    return block
+
+
+def build_spec(
+    title_suffix: str,
+    description: str,
+    endpoints: list[tuple[str, str, str, str, bool, bool, str | None]],
+    *,
+    include_payment_components: bool = False,
+) -> str:
     tags_yaml = "\n".join(f"  - name: {tag}" for tag in TAGS)
     return (
         f"""openapi: 3.0.3
@@ -495,7 +512,7 @@ tags:
 {tags_yaml}
 paths:
 {render_paths(endpoints)}
-{components_block()}
+{components_block(include_payment_components=include_payment_components)}
 """
     ).strip() + "\n"
 
@@ -516,13 +533,23 @@ def main() -> None:
     OPENAPI_DIR.mkdir(parents=True, exist_ok=True)
     (OPENAPI_DIR / "schemas").mkdir(exist_ok=True)
 
-    unified = build_spec("", "Unified HTTP API for the Freight Platform exposed via api-gateway.", ENDPOINTS)
+    unified = build_spec(
+        "",
+        "Unified HTTP API for the Freight Platform exposed via api-gateway.",
+        ENDPOINTS,
+        include_payment_components=True,
+    )
     (OPENAPI_DIR / "openapi.yaml").write_text(unified, encoding="utf-8")
 
     for filename, tags in SERVICE_TAGS.items():
         service_endpoints = [item for item in ENDPOINTS if item[3] in tags]
         title = SERVICE_DISPLAY_NAMES.get(filename, filename.replace("-service.yaml", "").replace(".yaml", "").replace("-", " ").title())
-        spec = build_spec(f" - {title}", f"OpenAPI specification for {title}.", service_endpoints)
+        spec = build_spec(
+            f" - {title}",
+            f"OpenAPI specification for {title}.",
+            service_endpoints,
+            include_payment_components=(filename == "payment-service.yaml"),
+        )
         (OPENAPI_DIR / filename).write_text(spec, encoding="utf-8")
 
     print(f"Generated OpenAPI specs in {OPENAPI_DIR}")

@@ -876,38 +876,3 @@ components:
           type: integer
         offset:
           type: integer
-    PaymentAllocationReadRecord:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        obligation_id:
-          type: string
-          format: uuid
-        obligation_number:
-          type: string
-        obligation_status:
-          type: string
-        obligation_source_type:
-          type: string
-        obligation_source_id:
-          type: string
-          format: uuid
-        obligation_outstanding_amount:
-          type: string
-    PaymentAllocationListResponse:
-      allOf:
-        - $ref: '#/components/schemas/PaginatedResponse'
-        - type: object
-          properties:
-            items:
-              type: array
-              items:
-                $ref: '#/components/schemas/PaymentAllocationReadRecord'
-    PaymentAuditEventListResponse:
-      allOf:
-        - $ref: '#/components/schemas/PaginatedResponse'
-    EligiblePaymentObligationListResponse:
-      allOf:
-        - $ref: '#/components/schemas/PaginatedResponse'

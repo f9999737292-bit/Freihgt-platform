@@ -15,6 +15,12 @@ except ImportError:
 ROOT = Path(__file__).resolve().parents[2]
 OPENAPI_DIR = ROOT / "packages" / "openapi"
 ROOT_FORBIDDEN = frozenset({"get", "post", "put", "patch", "delete"})
+PAYMENT_WORKSPACE_SCHEMAS = frozenset({
+    "PaymentAllocationReadRecord",
+    "PaymentAllocationListResponse",
+    "PaymentAuditEventListResponse",
+    "EligiblePaymentObligationListResponse",
+})
 
 from validate_spec import validate_openapi_document  # noqa: E402
 
@@ -42,6 +48,41 @@ def assert_no_root_http_methods(path: Path, spec: dict) -> None:
     for key in ROOT_FORBIDDEN:
         if key in spec:
             raise AssertionError(f"{path}: root-level HTTP method '{key}' detected")
+
+
+def schema_names(spec: dict) -> set[str]:
+    schemas = spec.get("components", {}).get("schemas", {})
+    if not isinstance(schemas, dict):
+        return set()
+    return set(schemas.keys())
+
+
+def assert_payment_schema_isolation() -> None:
+    payment_spec = load_yaml(OPENAPI_DIR / "payment-service.yaml")
+    payment_schemas = schema_names(payment_spec)
+    for name in PAYMENT_WORKSPACE_SCHEMAS:
+        if name not in payment_schemas:
+            raise AssertionError(f"payment-service.yaml missing required schema {name}")
+
+    for filename in (
+        "rfx-service.yaml",
+        "company-service.yaml",
+        "identity-service.yaml",
+        "document-service.yaml",
+        "shipment-service.yaml",
+        "transport-order-service.yaml",
+        "billing-register-service.yaml",
+    ):
+        spec = load_yaml(OPENAPI_DIR / filename)
+        leaked = PAYMENT_WORKSPACE_SCHEMAS.intersection(schema_names(spec))
+        if leaked:
+            raise AssertionError(f"{filename} contains payment workspace schemas: {sorted(leaked)}")
+
+    unified_spec = load_yaml(OPENAPI_DIR / "openapi.yaml")
+    unified_schemas = schema_names(unified_spec)
+    for name in PAYMENT_WORKSPACE_SCHEMAS:
+        if name not in unified_schemas:
+            raise AssertionError(f"openapi.yaml missing required schema {name}")
 
 
 def main() -> int:
@@ -79,6 +120,8 @@ def main() -> int:
     if reason.get("minLength") != 1 or reason.get("maxLength") != 255:
         print("VoidRequest.reason must enforce minLength=1 maxLength=255", file=sys.stderr)
         return 1
+
+    assert_payment_schema_isolation()
 
     print("OPENAPI_PATH_STRUCTURE_TEST=PASS")
     return 0
