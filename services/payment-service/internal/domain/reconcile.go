@@ -9,15 +9,16 @@ import (
 const AuditPaymentReconciled = "PAYMENT_RECONCILED"
 
 type ReconciliationSnapshot struct {
-	ActiveAllocationCount         int
-	ActiveAllocationSum           decimal.Decimal
-	InvalidTenantCount            int
-	InvalidCurrencyCount          int
-	MissingObligationCount        int
-	InvalidObligationTenantCount  int
-	InvalidPartyCount             int
-	InvalidObligationStateCount   int
-	NonPositiveAmountCount        int
+	ActiveAllocationCount              int
+	ActiveAllocationSum                decimal.Decimal
+	InvalidTenantCount                 int
+	InvalidCurrencyCount               int
+	MissingObligationCount             int
+	InvalidObligationTenantCount       int
+	InvalidPartyCount                  int
+	InvalidObligationStateCount        int
+	NonPositiveAmountCount             int
+	InvalidAllocationVoidMetadataCount int
 }
 
 func (s ReconciliationSnapshot) HasRelationalViolations() bool {
@@ -27,19 +28,21 @@ func (s ReconciliationSnapshot) HasRelationalViolations() bool {
 		s.InvalidObligationTenantCount > 0 ||
 		s.InvalidPartyCount > 0 ||
 		s.InvalidObligationStateCount > 0 ||
-		s.NonPositiveAmountCount > 0
+		s.NonPositiveAmountCount > 0 ||
+		s.InvalidAllocationVoidMetadataCount > 0
 }
 
 func ValidateReconciliationSnapshotIntegrity(snapshot ReconciliationSnapshot) error {
 	if snapshot.HasRelationalViolations() {
 		return apperrors.Conflict("active allocation relational integrity violation", map[string]any{
-			"invalid_tenant_count":             snapshot.InvalidTenantCount,
-			"invalid_currency_count":           snapshot.InvalidCurrencyCount,
-			"missing_obligation_count":         snapshot.MissingObligationCount,
-			"invalid_obligation_tenant_count":  snapshot.InvalidObligationTenantCount,
-			"invalid_party_count":              snapshot.InvalidPartyCount,
-			"invalid_obligation_state_count":   snapshot.InvalidObligationStateCount,
-			"non_positive_amount_count":        snapshot.NonPositiveAmountCount,
+			"invalid_tenant_count":                   snapshot.InvalidTenantCount,
+			"invalid_currency_count":                 snapshot.InvalidCurrencyCount,
+			"missing_obligation_count":               snapshot.MissingObligationCount,
+			"invalid_obligation_tenant_count":        snapshot.InvalidObligationTenantCount,
+			"invalid_party_count":                    snapshot.InvalidPartyCount,
+			"invalid_obligation_state_count":         snapshot.InvalidObligationStateCount,
+			"non_positive_amount_count":              snapshot.NonPositiveAmountCount,
+			"invalid_allocation_void_metadata_count": snapshot.InvalidAllocationVoidMetadataCount,
 		})
 	}
 	return nil

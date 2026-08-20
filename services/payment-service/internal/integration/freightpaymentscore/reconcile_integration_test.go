@@ -540,3 +540,182 @@ func TestPaymentExternalIDUnchangedByReconcile(t *testing.T) {
 		t.Fatal("PAYMENT_EXTERNAL_ID_UNCHANGED_BY_RECONCILE=FAIL")
 	}
 }
+
+func setupFullyAllocatedPayment(t *testing.T, env *env, fix fixture) (*domain.Payment, *domain.PaymentObligation) {
+	t.Helper()
+	ctx := context.Background()
+	obligation, _ := env.payments.EnsurePaymentObligationForBillingRegister(ctx, fix.TenantID, fix.RegisterID)
+	payment := createManualPayment(t, env, fix, "100.00")
+	fullyAllocatePayment(t, env, fix, payment, obligation, "100.00")
+	return payment, obligation
+}
+
+func assertReconcileDeniedUnreconciled(t *testing.T, env *env, fix fixture, paymentID uuid.UUID) {
+	t.Helper()
+	ctx := context.Background()
+	if _, err := env.payments.ReconcilePayment(ctx, paymentID, buyerActor(fix)); err == nil {
+		t.Fatal("expected reconcile deny")
+	}
+	reloaded, err := env.paymentRepo.GetPaymentByID(ctx, fix.TenantID, paymentID)
+	if err != nil {
+		t.Fatalf("reload payment: %v", err)
+	}
+	if reloaded.Status != domain.PaymentStatusFullyAllocated ||
+		reloaded.ReconciledAt != nil || reloaded.ReconciledBy != nil {
+		t.Fatalf("payment state changed: status=%s reconciled_at=%v", reloaded.Status, reloaded.ReconciledAt)
+	}
+	if countReconcileAudit(t, env, fix.TenantID, paymentID) != 0 {
+		t.Fatal("unexpected reconcile audit")
+	}
+}
+
+func TestActiveOrphanVoidedByReconcileDenied(t *testing.T) {
+	env := setupEnv(t)
+	fix := seedFixture(t, env.pool)
+	ctx := context.Background()
+	payment, _ := setupFullyAllocatedPayment(t, env, fix)
+	orphanBy := uuid.New()
+	if _, err := env.pool.Exec(ctx, `
+		UPDATE billing.payment_allocations
+		SET voided_by = $1
+		WHERE payment_id = $2 AND voided_at IS NULL`, orphanBy, payment.ID); err != nil {
+		t.Fatalf("corrupt voided_by: %v", err)
+	}
+	assertReconcileDeniedUnreconciled(t, env, fix, payment.ID)
+}
+
+func TestActiveOrphanVoidReasonReconcileDenied(t *testing.T) {
+	env := setupEnv(t)
+	fix := seedFixture(t, env.pool)
+	ctx := context.Background()
+	payment, _ := setupFullyAllocatedPayment(t, env, fix)
+	if _, err := env.pool.Exec(ctx, `
+		UPDATE billing.payment_allocations
+		SET void_reason = 'corrupt metadata'
+		WHERE payment_id = $1 AND voided_at IS NULL`, payment.ID); err != nil {
+		t.Fatalf("corrupt void_reason: %v", err)
+	}
+	assertReconcileDeniedUnreconciled(t, env, fix, payment.ID)
+}
+
+func TestActiveOrphanBothVoidMetadataReconcileDenied(t *testing.T) {
+	env := setupEnv(t)
+	fix := seedFixture(t, env.pool)
+	ctx := context.Background()
+	payment, _ := setupFullyAllocatedPayment(t, env, fix)
+	orphanBy := uuid.New()
+	if _, err := env.pool.Exec(ctx, `
+		UPDATE billing.payment_allocations
+		SET voided_by = $1, void_reason = 'corrupt metadata'
+		WHERE payment_id = $2 AND voided_at IS NULL`, orphanBy, payment.ID); err != nil {
+		t.Fatalf("corrupt void metadata: %v", err)
+	}
+	assertReconcileDeniedUnreconciled(t, env, fix, payment.ID)
+}
+
+func TestCorruptReconciledAllocationMetadataRepeatDenied(t *testing.T) {
+	env := setupEnv(t)
+	fix := seedFixture(t, env.pool)
+	ctx := context.Background()
+	payment, _ := setupFullyAllocatedPayment(t, env, fix)
+	first, err := env.payments.ReconcilePayment(ctx, payment.ID, buyerActor(fix))
+	if err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+	orphanBy := uuid.New()
+	if _, err := env.pool.Exec(ctx, `
+		UPDATE billing.payment_allocations
+		SET voided_by = $1
+		WHERE payment_id = $2 AND voided_at IS NULL`, orphanBy, payment.ID); err != nil {
+		t.Fatalf("corrupt allocation metadata: %v", err)
+	}
+	if _, err := env.payments.ReconcilePayment(ctx, payment.ID, buyerActor(fix)); err == nil {
+		t.Fatal("CORRUPT_RECONCILED_ALLOCATION_METADATA_REPEAT=DENY")
+	}
+	reloaded, _ := env.paymentRepo.GetPaymentByID(ctx, fix.TenantID, payment.ID)
+	if reloaded.Version != first.Version ||
+		reloaded.ReconciledAt == nil || !reloaded.ReconciledAt.Equal(*first.ReconciledAt) ||
+		reloaded.ReconciledBy == nil || *reloaded.ReconciledBy != *first.ReconciledBy {
+		t.Fatal("CORRUPT_RECONCILED_ALLOCATION_METADATA_REPEAT=FAIL metadata rewritten")
+	}
+	if countReconcileAudit(t, env, fix.TenantID, payment.ID) != 1 {
+		t.Fatal("CORRUPT_RECONCILED_ALLOCATION_METADATA_REPEAT=FAIL duplicate audit")
+	}
+}
+
+func TestValidActiveAllocationReconcilePass(t *testing.T) {
+	env := setupEnv(t)
+	fix := seedFixture(t, env.pool)
+	ctx := context.Background()
+	payment, _ := setupFullyAllocatedPayment(t, env, fix)
+	var voidedBy, voidReason *string
+	if err := env.pool.QueryRow(ctx, `
+		SELECT voided_by::text, void_reason
+		FROM billing.payment_allocations
+		WHERE payment_id = $1 AND voided_at IS NULL`, payment.ID).Scan(&voidedBy, &voidReason); err != nil {
+		t.Fatalf("inspect active allocation metadata: %v", err)
+	}
+	if voidedBy != nil || voidReason != nil {
+		t.Fatalf("expected clean active allocation metadata voided_by=%v void_reason=%v", voidedBy, voidReason)
+	}
+	if _, err := env.payments.ReconcilePayment(ctx, payment.ID, buyerActor(fix)); err != nil {
+		t.Fatalf("VALID_ACTIVE_ALLOCATION=PASS: %v", err)
+	}
+}
+
+func TestValidVoidedAllocationDoesNotFalsePositive(t *testing.T) {
+	env := setupEnv(t)
+	fix := seedFixture(t, env.pool)
+	ctx := context.Background()
+	registerB := uuid.New()
+	seedBillingRegister(t, env.pool, fix, registerB, "REG-VOID", "100.00")
+	obligationA, _ := env.payments.EnsurePaymentObligationForBillingRegister(ctx, fix.TenantID, fix.RegisterID)
+	obligationB, _ := env.payments.EnsurePaymentObligationForBillingRegister(ctx, fix.TenantID, registerB)
+	payment := createManualPayment(t, env, fix, "100.00")
+	outcome, err := env.payments.Allocate(ctx, domain.CreateAllocationInput{
+		PaymentID: payment.ID, ObligationID: obligationA.ID, AllocatedAmount: decimal.RequireFromString("60.00"),
+	}, buyerActor(fix))
+	if err != nil {
+		t.Fatalf("first allocate: %v", err)
+	}
+	if _, err := env.payments.VoidAllocation(ctx, outcome.Result.Allocation.ID, "partial reversal", buyerActor(fix)); err != nil {
+		t.Fatalf("void allocation: %v", err)
+	}
+	if _, err := env.payments.Allocate(ctx, domain.CreateAllocationInput{
+		PaymentID: payment.ID, ObligationID: obligationB.ID, AllocatedAmount: decimal.RequireFromString("100.00"),
+	}, buyerActor(fix)); err != nil {
+		t.Fatalf("second allocate: %v", err)
+	}
+	if _, err := env.payments.ReconcilePayment(ctx, payment.ID, buyerActor(fix)); err != nil {
+		t.Fatalf("VALID_VOIDED_ALLOCATION=PASS: %v", err)
+	}
+}
+
+func TestVoidedRowsExcludedFromActiveSum(t *testing.T) {
+	env := setupEnv(t)
+	fix := seedFixture(t, env.pool)
+	ctx := context.Background()
+	registerB := uuid.New()
+	seedBillingRegister(t, env.pool, fix, registerB, "REG-SUM", "100.00")
+	obligationA, _ := env.payments.EnsurePaymentObligationForBillingRegister(ctx, fix.TenantID, fix.RegisterID)
+	obligationB, _ := env.payments.EnsurePaymentObligationForBillingRegister(ctx, fix.TenantID, registerB)
+	payment := createManualPayment(t, env, fix, "100.00")
+	outcome, err := env.payments.Allocate(ctx, domain.CreateAllocationInput{
+		PaymentID: payment.ID, ObligationID: obligationA.ID, AllocatedAmount: decimal.RequireFromString("40.00"),
+	}, buyerActor(fix))
+	if err != nil {
+		t.Fatalf("first allocate: %v", err)
+	}
+	if _, err := env.payments.VoidAllocation(ctx, outcome.Result.Allocation.ID, "reversal", buyerActor(fix)); err != nil {
+		t.Fatalf("void allocation: %v", err)
+	}
+	if _, err := env.payments.Allocate(ctx, domain.CreateAllocationInput{
+		PaymentID: payment.ID, ObligationID: obligationB.ID, AllocatedAmount: decimal.RequireFromString("100.00"),
+	}, buyerActor(fix)); err != nil {
+		t.Fatalf("second allocate: %v", err)
+	}
+	reconciled, err := env.payments.ReconcilePayment(ctx, payment.ID, buyerActor(fix))
+	if err != nil || reconciled.Status != domain.PaymentStatusReconciled {
+		t.Fatalf("VOIDED_ROWS_EXCLUDED_FROM_SUM=PASS: %v status=%s", err, reconciled.Status)
+	}
+}

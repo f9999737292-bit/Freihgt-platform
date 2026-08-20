@@ -20,18 +20,19 @@ func (r *PaymentRepository) loadReconciliationSnapshotTx(
 ) (domain.ReconciliationSnapshot, error) {
 	const query = `
 		SELECT
-			COUNT(a.id),
-			COALESCE(SUM(a.allocated_amount), 0),
-			COUNT(*) FILTER (WHERE a.tenant_id <> $2),
-			COUNT(*) FILTER (WHERE a.currency_code <> $3),
-			COUNT(*) FILTER (WHERE o.id IS NULL),
-			COUNT(*) FILTER (WHERE o.id IS NOT NULL AND o.tenant_id <> $2),
-			COUNT(*) FILTER (WHERE o.id IS NOT NULL AND (o.payer_company_id <> $4 OR o.payee_company_id <> $5 OR o.currency_code <> $3)),
-			COUNT(*) FILTER (WHERE o.status IN ('CANCELLED', 'VOIDED')),
-			COUNT(*) FILTER (WHERE a.allocated_amount <= 0)
+			COUNT(a.id) FILTER (WHERE a.voided_at IS NULL),
+			COALESCE(SUM(a.allocated_amount) FILTER (WHERE a.voided_at IS NULL), 0),
+			COUNT(*) FILTER (WHERE a.voided_at IS NULL AND a.tenant_id <> $2),
+			COUNT(*) FILTER (WHERE a.voided_at IS NULL AND a.currency_code <> $3),
+			COUNT(*) FILTER (WHERE a.voided_at IS NULL AND o.id IS NULL),
+			COUNT(*) FILTER (WHERE a.voided_at IS NULL AND o.id IS NOT NULL AND o.tenant_id <> $2),
+			COUNT(*) FILTER (WHERE a.voided_at IS NULL AND o.id IS NOT NULL AND (o.payer_company_id <> $4 OR o.payee_company_id <> $5 OR o.currency_code <> $3)),
+			COUNT(*) FILTER (WHERE a.voided_at IS NULL AND o.status IN ('CANCELLED', 'VOIDED')),
+			COUNT(*) FILTER (WHERE a.voided_at IS NULL AND a.allocated_amount <= 0),
+			COUNT(*) FILTER (WHERE a.voided_at IS NULL AND (a.voided_by IS NOT NULL OR a.void_reason IS NOT NULL))
 		FROM billing.payment_allocations a
 		LEFT JOIN billing.payment_obligations o ON o.id = a.obligation_id
-		WHERE a.payment_id = $1 AND a.voided_at IS NULL`
+		WHERE a.payment_id = $1`
 
 	var snapshot domain.ReconciliationSnapshot
 	var sum string
@@ -47,6 +48,7 @@ func (r *PaymentRepository) loadReconciliationSnapshotTx(
 		&snapshot.InvalidPartyCount,
 		&snapshot.InvalidObligationStateCount,
 		&snapshot.NonPositiveAmountCount,
+		&snapshot.InvalidAllocationVoidMetadataCount,
 	); err != nil {
 		return snapshot, mapDBError(err)
 	}
