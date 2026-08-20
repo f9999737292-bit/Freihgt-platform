@@ -374,10 +374,7 @@ func (r *ContractRepository) getByIDAndTenantTx(ctx context.Context, q queryRowP
 		WHERE tenant_id = $1 AND id = $2`
 	var contract domain.TransportContract
 	if err := scanContract(q.QueryRow(ctx, query, tenantID, contractID), &contract); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, apperrors.NotFound("contract not found")
-		}
-		return nil, mapDBError(err)
+		return nil, err
 	}
 	return &contract, nil
 }
@@ -393,10 +390,7 @@ func (r *ContractRepository) getByIDAndTenantForUpdate(ctx context.Context, tx p
 		FOR UPDATE`
 	var contract domain.TransportContract
 	if err := scanContract(tx.QueryRow(ctx, query, tenantID, contractID), &contract); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, apperrors.NotFound("contract not found")
-		}
-		return nil, mapDBError(err)
+		return nil, err
 	}
 	return &contract, nil
 }

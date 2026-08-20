@@ -15,6 +15,10 @@ func mapDBError(err error) error {
 	if err == nil {
 		return nil
 	}
+	var appErr *apperrors.AppError
+	if errors.As(err, &appErr) {
+		return err
+	}
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
 		if pgErr.Code == "23505" {

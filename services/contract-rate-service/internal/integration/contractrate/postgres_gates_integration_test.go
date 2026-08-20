@@ -207,10 +207,11 @@ func TestCRPG012_ExpiredReactivationDenied(t *testing.T) {
 	draft := env.createDraftContract(t, "CR-PG-012")
 	ctx := context.Background()
 	yesterday := env.Today.AddDate(0, 0, -1)
+	validFrom := env.Today.AddDate(0, 0, -30)
 	_, err := env.Pool.Exec(ctx, `
 		UPDATE contract_rate.transport_contract
-		SET valid_to = $1, status = 'EXPIRED', updated_at = NOW()
-		WHERE tenant_id = $2 AND id = $3`, yesterday, env.TenantID, draft.ID)
+		SET valid_from = $1, valid_to = $2, status = 'EXPIRED', updated_at = NOW()
+		WHERE tenant_id = $3 AND id = $4`, validFrom, yesterday, env.TenantID, draft.ID)
 	if err != nil {
 		t.Fatalf("force expired: %v", err)
 	}
