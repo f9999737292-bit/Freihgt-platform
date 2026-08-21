@@ -25,6 +25,7 @@ func Auth(enabled bool, jwtSecret string) func(http.Handler) http.Handler {
 				return
 			}
 
+			requestedCompanyID := strings.TrimSpace(r.Header.Get("X-Company-ID"))
 			StripUntrustedIdentityHeaders(r.Header)
 
 			authHeader := r.Header.Get("Authorization")
@@ -46,7 +47,8 @@ func Auth(enabled bool, jwtSecret string) func(http.Handler) http.Handler {
 			}
 
 			ac := AuthContext{
-				AuthToken: authHeader,
+				AuthToken:          authHeader,
+				RequestedCompanyID: requestedCompanyID,
 			}
 			if claims.Subject != "" {
 				ac.UserID = claims.Subject

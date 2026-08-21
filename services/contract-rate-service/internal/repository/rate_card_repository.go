@@ -209,8 +209,8 @@ func (r *RateCardRepository) UpdateDraftVersion(ctx context.Context, tenantID, v
 			validFrom = *patch.ValidFrom
 		}
 		validTo := current.ValidTo
-		if patch.ValidTo != nil {
-			validTo = patch.ValidTo
+		if patch.ValidTo.Present {
+			validTo = domain.ApplyNullableDatePatch(current.ValidTo, patch.ValidTo)
 		}
 		const query = `
 			UPDATE contract_rate.rate_card_version SET

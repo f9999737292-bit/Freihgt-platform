@@ -52,7 +52,7 @@ type UpdateContractInput struct {
 	ExternalReference *string
 	Name              *string
 	Description       *string
-	ValidTo           *time.Time
+	ValidTo           NullableDatePatch
 	Actor             ActorInput
 }
 
@@ -141,8 +141,8 @@ func ValidateDraftContractUpdate(current *TransportContract, patch UpdateContrac
 		return apperrors.Validation("only DRAFT contracts can be fully updated", map[string]any{"field": "status"})
 	}
 	validTo := current.ValidTo
-	if patch.ValidTo != nil {
-		validTo = patch.ValidTo
+	if patch.ValidTo.Present {
+		validTo = ApplyNullableDatePatch(current.ValidTo, patch.ValidTo)
 	}
 	return ValidateDateRange(current.ValidFrom, validTo)
 }

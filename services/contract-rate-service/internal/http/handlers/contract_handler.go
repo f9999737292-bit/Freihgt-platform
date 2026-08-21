@@ -120,28 +120,24 @@ func (h *ContractHandler) Patch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Name              *string `json:"name"`
-		Description       *string `json:"description"`
-		ExternalReference *string `json:"external_reference"`
-		ValidTo           *string `json:"valid_to"`
+		Name              *string         `json:"name"`
+		Description       *string         `json:"description"`
+		ExternalReference *string         `json:"external_reference"`
+		ValidTo           json.RawMessage `json:"valid_to"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respond.Error(w, domainValidation("invalid request body"))
 		return
 	}
+	validToPatch, err := domain.ParseNullableDatePatch(req.ValidTo, "valid_to")
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
 	corr := CorrelationID(r)
-	if req.Name != nil || req.ValidTo != nil {
-		var validTo *time.Time
-		if req.ValidTo != nil {
-			vt, err := parseDate(*req.ValidTo, "valid_to")
-			if err != nil {
-				respond.Error(w, err)
-				return
-			}
-			validTo = &vt
-		}
+	if req.Name != nil || validToPatch.Present {
 		updated, err := h.svc.UpdateDraft(r.Context(), actor.TenantID, contractID, domain.UpdateContractInput{
-			Name: req.Name, Description: req.Description, ExternalReference: req.ExternalReference, ValidTo: validTo, Actor: actor,
+			Name: req.Name, Description: req.Description, ExternalReference: req.ExternalReference, ValidTo: validToPatch, Actor: actor,
 		}, corr)
 		if err != nil {
 			respond.Error(w, err)

@@ -135,8 +135,8 @@ func (r *ContractRepository) UpdateDraft(ctx context.Context, tenantID, contract
 			ext = patch.ExternalReference
 		}
 		validTo := current.ValidTo
-		if patch.ValidTo != nil {
-			validTo = patch.ValidTo
+		if patch.ValidTo.Present {
+			validTo = domain.ApplyNullableDatePatch(current.ValidTo, patch.ValidTo)
 		}
 		const query = `
 			UPDATE contract_rate.transport_contract SET

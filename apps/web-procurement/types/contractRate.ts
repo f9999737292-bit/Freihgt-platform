@@ -69,6 +69,7 @@ export interface RateCardVersion {
   status: RateCardVersionStatus
   supersedes_version_id?: string | null
   created_at: string
+  activated_at?: string | null
   version: number
 }
 
