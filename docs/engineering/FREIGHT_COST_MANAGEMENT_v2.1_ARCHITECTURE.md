@@ -1,9 +1,11 @@
 # FREIGHT COST MANAGEMENT v2.1 — Architecture & Current-State Discovery
 
-**Status:** Architecture freeze (documentation only)  
-**Branch:** `arch/freight-cost-management-v2.1`  
-**Base SHA:** `ea7721c188b4cf2e10f40f1a8a4dd5e57104a2be` (v2.0E merged)  
+**Status:** Architecture freeze — **review-amended** (documentation only)
+**Branch:** `arch/freight-cost-management-v2.1`
+**Review branch:** `review/freight-cost-management-v2.1`
+**Base SHA:** `ea7721c188b4cf2e10f40f1a8a4dd5e57104a2be` (v2.0E merged)
 **Date:** 2026-08-21
+**Review date:** 2026-08-21 — see `docs/architecture/FREIGHT_COST_MANAGEMENT_v2.1_FINAL_REVIEW.md`
 
 ---
 
@@ -47,7 +49,8 @@ Enable enterprise finance and operations to trace freight money across the lifec
 | Expected cost at order time | Immutable TO pricing snapshot |
 | Liability before invoice | Accrual projection (planned + approved execution charges) |
 | Final commercial liability | Settlement (billing-register-service) |
-| Invoiced amount | Billing register |
+| Billing register aggregate | Billing register (closing basis) |
+| Invoice document amount | `billing.invoices` / `billing.vat_invoices` (when created) |
 | Paid amount | Payment obligation / allocations |
 | Why different | Deterministic variance + reason attribution |
 
@@ -230,20 +233,47 @@ For aggregate-only RFQ awards: `base_amount=NULL`, `component_breakdown_status=U
 
 ---
 
-## 7. Billing / Closing Documents
+## 7. Billing / Closing Documents (review-amended)
 
 | Field | Value |
 |-------|-------|
-| `BILLING_SOURCE_OF_AMOUNT` | Settlement snapshot at **include time** — `base_amount` ← settlement.base_freight; `extra_charges` ← approved_accessorial_total |
-| `BILLING_FINALITY` | Register status machine (calculate → approve → sent → signed → paid → closed) |
-| `BILLING_ADJUSTMENTS` | Manual register items still supported (legacy); settlement path canonical for v2.0 chain |
+| `BILLING_SOURCE_OF_AMOUNT` | Settlement snapshot at **include time** — item `base_amount` ← settlement.base_freight; `extra_charges` ← approved_accessorial_total |
+| `BILLING_FINALITY` | Register status machine through CLOSED |
+| `BILLING_ADJUSTMENTS` | Manual register items still supported (legacy) |
 | `BILLING_CURRENCY` | Register `currency_code`; must match settlement on include |
-| `BILLING_LINK_TO_SETTLEMENT` | `billing_register_items.settlement_id`; reverse link on settlement |
-| `BILLING_LINK_TO_SHIPMENT` | `shipment_id`, `transport_order_id` on item |
-| `BILLING_LINK_TO_ORDER` | `transport_order_id` on item |
-| `CAN_BILLING_RECALCULATE_FREIGHT_PRICE?` | **NO** — does not re-read TO snapshot or contract rates; copies settlement; register totals = SUM(items) |
+| `BILLING_LINK_TO_SETTLEMENT` | `billing_register_items.settlement_id` |
+| `CAN_BILLING_RECALCULATE_FREIGHT_PRICE?` | **NO** — copies settlement at include; register totals = SUM(items) |
 
-**Gap:** If settlement accessorials change **after** register inclusion, register item amounts are **not** auto-updated (**NOT_FOUND** back-sync).
+**Terminology correction:** **Billing register ≠ invoice document.**
+
+| Amount type | Owner | Source |
+|-------------|-------|--------|
+| `BILLING_REGISTER_AMOUNT` (aggregate) | billing-register-service | `billing_registers.total_without_vat` / `total_with_vat` |
+| `BILLED_SNAPSHOT_AMOUNT` (line) | billing-register-service | `billing_register_items` copied at include — **frozen** |
+| `INVOICE_DOCUMENT_AMOUNT` | billing-register-service | `billing.invoices.total_amount`, `billing.vat_invoices.amount_with_vat` created from approved register via closing-document package |
+| `PAYMENT_OBLIGATION_SOURCE` | payment-service | `billing_registers.total_with_vat` only |
+
+Payment obligation is based on **register payable total**, not invoice row directly — but invoice/act/VAT/UPD are separate document metadata SSOT (`FREIGHT_BILLING_CLOSING_v1.8_ARCHITECTURE.md`).
+
+### Settlement ↔ billing divergence (OQ-004 RESOLVED)
+
+Repository behavior verified:
+
+- Inclusion allowed when settlement status ∈ {APPROVED, DOCUMENTS_READY, READY_FOR_PAYMENT} and no open dispute (`settlement_billing_eligibility.go`).
+- Register item amounts are **copied once** at include; **no auto-sync** if settlement later changes.
+- After APPROVED, new accessorials **cannot** be proposed; monetary drift from accessorial workflow is blocked post-approval.
+- **APPROVED → DISPUTED** is allowed **after** register inclusion; register item **stays frozen** unless buyer removes settlement while register still DRAFT/CALCULATED (`ValidateDeleteItemRegisterStatus`).
+- `RemoveSettlement` clears settlement register link and deletes item; only when register status ∈ {DRAFT, CALCULATED}.
+
+**Frozen divergence model:**
+
+| State | Meaning |
+|-------|---------|
+| `SETTLEMENT_BILLING_MATCH` | Linked settlement ex-VAT total equals billed line ex-VAT (`item.amount_without_vat`) |
+| `SETTLEMENT_BILLING_MISMATCH` | Linked but totals differ (e.g. post-include dispute, manual ops) or settlement disputed while register item frozen |
+| `SETTLEMENT_BILLING_UNLINKED` | Settlement not in register |
+
+v2.1 projection must surface `billing_reconciliation_status` — **never silently equate** `CURRENT_SETTLEMENT_AMOUNT` and `BILLED_SNAPSHOT_AMOUNT`.
 
 ---
 
@@ -350,49 +380,76 @@ PLANNED_COST_FROM_IMMUTABLE_PRICING_SNAPSHOT = YES  (verified)
 
 ---
 
-## 13. Actual Cost Definition (FROZEN for v2.1)
+## 13. Actual Cost Definition (FROZEN for v2.1 — review-amended)
 
-**Canonical settled freight cost (ex-VAT):**
+Repository evidence: `ValidateSettlementTransition` (`freight_settlement.go`) allows **APPROVED → DISPUTED**; **DOCUMENTS_READY → READY_FOR_PAYMENT** only (no return to DISPUTED). Accessorial propose/approve is blocked after APPROVED (`ProposeAccessorial` DRAFT/UNDER_REVIEW only). Settlement `base_freight_amount` is immutable after create; `total_without_vat` recalculates only from APPROVED accessorial changes while still PROPOSED.
+
+v2.1 distinguishes **three settlement amount concepts** (do not conflate):
+
+| Concept | Definition | When available |
+|---------|------------|----------------|
+| `CURRENT_SETTLEMENT_AMOUNT` | Live `freight_settlements.total_without_vat` | Settlement exists and status ≠ CANCELLED |
+| `CURRENT_ACTUAL_COST` | Same ex-VAT field when financially accepted | Status ∈ {APPROVED, DOCUMENTS_READY, READY_FOR_PAYMENT} **and** open_disputes = 0 |
+| `FINAL_ACTUAL_COST` | Same ex-VAT field at terminal settlement confidence | Status = **READY_FOR_PAYMENT** only |
+
+**Frozen status semantics (OQ-006 RESOLVED):**
 
 ```text
-SETTLED_FREIGHT_COST = freight_settlements.total_without_vat
-  (when settlement status in final-approved set: APPROVED, DOCUMENTS_READY, READY_FOR_PAYMENT, and not CANCELLED)
+ACTUAL_COST_AVAILABLE_STATUSES = APPROVED, DOCUMENTS_READY, READY_FOR_PAYMENT
+  (requires open_disputes = 0)
+
+FINAL_ACTUAL_COST_STATUSES = READY_FOR_PAYMENT
+
+ACTUAL_COST_NULL_STATUSES = DRAFT, UNDER_REVIEW, DISPUTED (or any status with open dispute), CANCELLED
+
+CANCELLED_ACTUAL_COST_SEMANTICS = NULL for actual/final; planned snapshot remains historical read-only fact
 ```
 
-Before settlement exists: **`ACTUAL_COST = NULL`** (unknown — not zero).
+Before settlement exists: **`CURRENT_ACTUAL_COST = NULL`**, **`FINAL_ACTUAL_COST = NULL`** (not zero).
 
 | Concept | Canonical owner | Field |
 |---------|-----------------|-------|
-| ACTUAL / SETTLED freight (ex-VAT) | billing-register-service | `freight_settlements.total_without_vat` |
-| INVOICED amount (with VAT) | billing-register-service | `billing_registers.total_with_vat` or item `amount_with_vat` |
-| PAID amount | payment-service | `payment_obligations.paid_amount` |
+| CURRENT / FINAL actual freight (ex-VAT) | billing-register-service | `freight_settlements.total_without_vat` |
+| Billing register aggregate (ex-VAT) | billing-register-service | `billing_registers.total_without_vat` |
+| Billing register aggregate (payable) | billing-register-service | `billing_registers.total_with_vat` |
+| Invoice document amount | billing-register-service | `billing.invoices.total_amount` / `billing.vat_invoices.amount_with_vat` |
+| Payment obligation (payable) | payment-service | `payment_obligations.original_amount` ← register `total_with_vat` |
+| Paid amount (cash applied) | payment-service | `payment_obligations.paid_amount` (persisted derived field updated on allocation TX) |
 
-**FMC-INV-014:** Payment status does **not** change settled freight cost.
+**FMC-INV-014:** Payment status / paid amount does **not** change actual freight cost.
 
 ---
 
-## 14. Accrual Model (v2.1 design)
+## 14. Accrual Model (v2.1 design — OQ-001 RESOLVED)
 
-**Current:** `ACCRUAL_MODEL=NOT_FOUND`
+**Current:** `ACCRUAL_MODEL=NOT_FOUND` in runtime.
 
-**Business question:** Shipment executed, settlement not final — what liability should finance expect?
-
-**Recommended v2.1 formula (derived, deterministic):**
+**Frozen financial accrual (conservative):**
 
 ```text
-ACCRUED_FREIGHT_COST =
+FINANCIAL_ACCRUAL (ex-VAT) =
   PLANNED_COST (snapshot.total_amount)
   + SUM(settlement accessorials WHERE status = APPROVED)
-  (same currency; NULL if snapshot missing)
+  when settlement exists and currency matches; else PLANNED only if shipment exists; else NULL
 ```
 
-If no settlement yet but shipment exists: `ACCRUED = PLANNED` (no approved execution charges).
+```text
+ACCRUAL_INCLUDES_PROPOSED = NO
+ACCRUAL_INCLUDES_APPROVED = YES
+ACCRUAL_INCLUDES_DISPUTED = NO
+ACCRUAL_INCLUDES_REJECTED = NO
+```
 
-**Persistence recommendation:** **Option D — immutable ledger entries + rebuildable projection**
+**Separate operational concept (not canonical financial accrual):**
 
-- Append-only `freight_cost.cost_entry` rows referencing source IDs
-- Projection table `freight_cost.transport_order_cost_summary` rebuilt from entries + canonical reads
-- **NOT** a second settlement; entries are **references + derived snapshots**, not mutable money authority
+```text
+FORECAST_EXPOSURE (ex-VAT, non-ledger KPI) =
+  PLANNED_COST + SUM(accessorials WHERE status = PROPOSED)
+```
+
+Forecast is UI/ops only; must not feed payment, billing, or canonical accrual.
+
+**Persistence:** Option D — immutable `freight_cost.cost_entry` + rebuildable projection; accrual is **derived**, not a second settlement.
 
 ---
 
@@ -410,28 +467,37 @@ If no settlement yet but shipment exists: `ACCRUED = PLANNED` (no approved execu
 
 ---
 
-## 16. Ledger Semantics (recommended)
+## 16. Ledger Semantics (recommended — review-amended)
+
+**Ledger authority:** **Option D — derived event journal / reconciliation ledger**. It is **NOT** a canonical financial writer.
+
+```text
+LEDGER_CANONICAL_FINANCIAL_WRITER = NO
+LEDGER_AUTHORITY = DERIVED_EVENT_JOURNAL
+CANONICAL_SOURCE_AUTHORITY = domain services (snapshot, settlement, billing, payment)
+RECONCILIATION_BEHAVIOR = on mismatch, canonical source wins; projection/ledger marked MISMATCH; never mutate canonical
+DERIVED_LEDGER_CAN_CORRECT_CANONICAL_SOURCE = NO
+```
 
 | Field | Value |
 |-------|-------|
 | `LEDGER_ENTRY_IMMUTABLE` | **YES** — append-only |
-| `LEDGER_DELETE_ALLOWED` | **NO** — soft suppression via reversal only |
-| `CORRECTION_MODEL` | Reversal entry + superseding entry referencing original `entry_id` |
-| `IDEMPOTENCY_MODEL` | UNIQUE `(tenant_id, source_service, source_type, source_id, entry_kind)` |
-| `SOURCE_EVENT_UNIQUENESS` | One ledger entry per canonical source event |
+| `LEDGER_DELETE_ALLOWED` | **NO** — reversal entry only |
+| `CORRECTION_MODEL` | `REVERSAL` entry referencing `supersedes_entry_id`; canonical correction remains in source domain |
+| `LEDGER_IDEMPOTENCY_KEY` | **`UNIQUE (tenant_id, source_event_id)`** — NOT `(source_id, entry_kind)` alone |
+| `SOURCE_REVISION_MODEL` | `source_revision` = monotonic domain version (`settlement.version`, allocation id, audit sequence); replays use same `source_event_id`; new revisions get new event id |
+| `REPLAY_DUPLICATE` | **DENY** (same source_event_id) |
+| `NEW_REVISION_ACCEPTED` | **YES** (new source_event_id + optional supersedes link) |
+| `OUT_OF_ORDER_REVISION_SAFE` | **YES** — apply only if `source_revision` > projection `last_source_revision` for aggregate |
 
-Evaluated entry kinds (minimal set):
+**Stored amounts in ledger:** `amount` is **`DERIVED_SNAPSHOT_VALUE`** copied at ingest time for audit/rebuild speed — traceability required:
 
-| Entry kind | Source |
-|------------|--------|
-| `PLANNED_SNAPSHOT` | TO rate snapshot created |
-| `APPROVED_ACCESSORIAL` | settlement accessorial APPROVED |
-| `SETTLEMENT_FINALIZED` | settlement reached approved state |
-| `BILLING_INCLUDED` | register include |
-| `PAYMENT_ALLOCATED` | allocation created |
-| `REVERSAL` | void/correction events |
+```text
+source_service, source_type, source_id, source_version, source_event_id, source_occurred_at
+entry_kind, amount, currency_code, supersedes_entry_id
+```
 
-Do **not** copy full settlement row — store amount + currency + source pointers only.
+Do **not** treat ledger amount as new canonical price if it diverges from canonical read API.
 
 ---
 
@@ -479,24 +545,27 @@ Dashboards: group/filter by currency; never sum mixed currencies.
 
 ---
 
-## 19. Variance Model
+## 19. Variance Model (review-amended)
+
+All variance comparisons use **ex-VAT** amounts only.
 
 ```text
-variance_amount = settled_freight_cost_ex_vat - planned_cost
-variance_percent = variance_amount / planned_cost * 100   (when planned_cost > 0)
+current_variance_amount = current_actual_cost - planned_cost
+final_variance_amount   = final_actual_cost   - planned_cost
+
+current_variance_percent = current_variance_amount / planned_cost * 100  (planned_cost > 0)
+final_variance_percent   = final_variance_amount   / planned_cost * 100  (planned_cost > 0)
 ```
 
 | Edge case | Behavior |
 |-----------|----------|
-| planned_cost = 0 | variance_percent = NULL; flag ZERO_PLANNED |
-| planned_cost NULL | variance = NULL |
-| actual NULL (no settlement) | variance = NULL |
-| currency mismatch | FAIL CLOSED — no variance row |
-| cancelled order | exclude or show NULL with status CANCELLED |
-| partial settlement | use current settlement totals; mark PARTIAL |
-| corrected settlement | use latest settlement totals; preserve history via ledger reversals |
+| planned_cost = 0 | variance_percent = NULL |
+| current/final actual NULL | variance = NULL |
+| currency mismatch | variance = NULL; fail closed |
+| cancelled order | exclude from active variance; historical read retains planned |
+| settlement disputed (open) | current_actual NULL → current_variance NULL |
 
-**Sign convention:** positive = over plan; negative = saving.
+**Sign:** positive = over plan; negative = saving.
 
 ---
 
@@ -611,25 +680,27 @@ Avoid role hardcoding in cost service — follow permission codes pattern from i
 
 ---
 
-## 25. Event / Integration Model
+## 25. Event / Integration Model (OQ-002 RESOLVED)
 
-| Event | Status | Owner | Mechanism |
-|-------|--------|-------|-----------|
-| TO created + snapshot | **PARTIAL** | transport-order-service | No Kafka outbox found; synchronous create |
-| Shipment status changed | **FOUND** | shipment-service | `transport.shipment_event_outbox` |
-| Accessorial approved | **NOT_FOUND** outbox | billing-register-service | Audit event only |
-| Settlement created/finalized | **NOT_FOUND** outbox | billing-register-service | Audit event only |
-| Billing register events | **NOT_FOUND** outbox | billing-register-service | Audit event only |
-| Payment reconciled / paid | **FOUND** | payment-service | `billing.payment_outbox` → `payment_obligation.paid` |
+| Event | Current transport | v2.1 target |
+|-------|-------------------|-------------|
+| TO snapshot created | Sync create; **no outbox** | **Rebuild:** transport-order internal read API; optional outbox in v2.1B |
+| Settlement / accessorial change | Audit append-only | **New transactional outbox** from billing-register-service (v2.1B) |
+| Billing register include/remove | Audit append-only | Same outbox or register audit with `source_event_id` |
+| Payment allocation / paid | `billing.payment_outbox` exists | **Consume existing** `payment_obligation.paid` |
 
-**v2.1 recommendation:** Add outbox events (or poll audit with idempotency) for:
+**Frozen (hybrid D):**
 
-- `transport_order.rate_snapshot.created`
-- `freight_settlement.accessorial.approved`
-- `freight_settlement.finalized`
-- `billing_register.settlement.included`
+```text
+SETTLEMENT_CHANGE_TRANSPORT = transactional outbox (preferred for v2.1B ongoing ingest)
+SNAPSHOT_CHANGE_TRANSPORT   = internal read API + optional future outbox
+PAYMENT_CHANGE_TRANSPORT    = existing payment_outbox
+REBUILD_SOURCE              = canonical domain read APIs (NOT ledger, NOT audit polling alone)
+```
 
-**Principle:** `CROSS_SERVICE_FINANCIAL_READ = internal API or canonical event/projection` — freight-cost-service must not use ad-hoc cross-schema SQL in production (settlement loader cross-schema read is existing exception for create-time copy only).
+Audit tables may bootstrap historical backfill once; ongoing ingest must not rely on polling alone (lost-event risk).
+
+**Principle:** `CROSS_SERVICE_FINANCIAL_READ = internal API or canonical event/projection` — freight-cost-service must not use ad-hoc cross-schema SQL in production.
 
 ---
 
@@ -647,21 +718,26 @@ Avoid role hardcoding in cost service — follow permission codes pattern from i
 
 ---
 
-## 27. Rebuild / Reconciliation
+## 27. Rebuild / Reconciliation (review-amended)
 
-If projection used:
-
-1. Truncate projection tables (tenant-scoped)
-2. Replay ledger entries in `created_at` order
-3. Re-fetch canonical amounts from source services for verification checksum
-4. Compare `SUM(entries)` vs settlement/register/obligations — emit `cost_reconciliation_mismatch_total`
+**Authoritative rebuild procedure (no circular dependency):**
 
 ```text
-EVENT_REPLAY_DOUBLE_COUNT = DENY (idempotency keys)
-DUPLICATE_EVENT_DOUBLE_COUNT = DENY
+REBUILD_ROOT_SOURCE = canonical domain read APIs
+  1. transport-order-service: snapshot by TO id
+  2. billing-register-service: settlement + accessorials + register links
+  3. payment-service: obligation + allocations by register id
+  2→ derive cost_entry journal (idempotent by source_event_id)
+  3→ rebuild transport_order_cost_summary projection
+  4→ reconciliation checksum vs canonical APIs; emit mismatch metric
 ```
 
-Out-of-order: use source fact timestamp + monotonic version per aggregate.
+Ledger is **not** rebuild root — it is rebuilt **from** canonical APIs/events.
+
+```text
+EVENT_REPLAY_DOUBLE_COUNT = DENY
+DUPLICATE_EVENT_DOUBLE_COUNT = DENY
+```
 
 ---
 
@@ -693,17 +769,27 @@ v2.1 ledger: append REVERSAL when settlement totals change materially post-appro
 
 ---
 
-## 30. Tax Boundary
+## 30. Tax Boundary (review-amended)
 
-Settlement and billing carry VAT (`vat_rate`, `vat_amount`, `total_with_vat`).
+Evidence: v2.0 architecture freeze `RATE_SNAPSHOT_VAT = EXCLUDED` — VAT owned by settlement/billing, not snapshot. RFx pricing API uses pre-VAT `total_amount` (`pricing_integration_test.go`). Settlement applies `vat_rate` separately.
 
-**Freight cost analytics (v2.1):** use **ex-VAT** amounts (`total_without_vat`, `amount_without_vat`) unless explicitly reporting tax-inclusive payable views.
+**Frozen tax bases:**
+
+| Amount | Tax basis |
+|--------|-----------|
+| `PLANNED_COST` | **EX-VAT commercial freight** (`snapshot.total_amount`) |
+| `CURRENT_ACTUAL_COST` / `FINAL_ACTUAL_COST` | **EX-VAT** (`settlement.total_without_vat`) |
+| `FINANCIAL_ACCRUAL` | **EX-VAT** |
+| `BILLING_REGISTER_AMOUNT` (freight analytics) | **EX-VAT** when comparing to planned/actual; **with-VAT** for payable views |
+| `PAYMENT_OBLIGATION` / `PAID_AMOUNT` | **WITH-VAT payable** (from register `total_with_vat`) |
 
 ```text
-FREIGHT_COST_ANALYTICS_EXCLUDES_TAX_UNLESS_CANONICAL_TAX_FACT_EXISTS = YES
-```
+PLANNED_ACTUAL_TAX_BASIS_COMPATIBLE = YES
+  (planned vs current/final variance uses ex-VAT fields only)
 
-Payment obligations use **with-VAT** register totals — label separately as payable, not planned/actual freight.
+PAYABLE_ANALYTICS_SEPARATE = YES
+  (do not subtract paid_with_vat from planned_ex_vat)
+```
 
 ---
 
@@ -926,20 +1012,22 @@ No monetary payloads in logs.
 Conceptual schema `freight_cost`:
 
 ```text
-cost_entry (append-only)
+cost_entry (append-only derived journal)
   id, tenant_id, transport_order_id, shipment_id,
   entry_kind, amount NUMERIC(18,2), currency_code,
-  source_service, source_type, source_id,
+  source_service, source_type, source_id, source_version,
+  source_event_id, source_occurred_at,
   supersedes_entry_id, created_at
-  UNIQUE (tenant_id, source_service, source_type, source_id, entry_kind)
+  UNIQUE (tenant_id, source_event_id)
 
 transport_order_cost_summary (projection)
-  tenant_id, transport_order_id, shipment_id,
-  buyer_company_id, carrier_company_id, currency_code,
-  planned_amount, accrued_amount, settled_amount, invoiced_amount, paid_amount,
-  variance_amount, variance_percent,
-  pricing_source, rate_snapshot_id, settlement_id, billing_register_id,
-  cost_updated_at, projection_version
+  ...
+  planned_amount, accrued_amount,
+  current_actual_amount, final_actual_amount,
+  billed_snapshot_amount, invoiced_document_amount, paid_amount,
+  current_variance_amount, final_variance_amount,
+  billing_reconciliation_status,  -- MATCH | MISMATCH | UNLINKED
+  last_source_revision, cost_updated_at
 ```
 
 No cross-service FKs — UUID references only.
@@ -960,34 +1048,31 @@ No cross-service FKs — UUID references only.
 
 ---
 
-## 46. Recommended Implementation Slices
+## 46. Recommended Implementation Slices (review-amended)
 
 ### v2.1A — Freight Cost Foundation
-- Domain types, source reference model, invariants
-- Internal read API skeleton (no public gateway yet)
-- Tenant/company isolation design
-- Idempotency contract for entries
+**Entry gate:** OQ-006, tax basis, ledger authority, idempotency, visibility — frozen in final review.
+
+- Domain types, finality enums, source reference model, invariants
+- Internal read API skeleton; tenant/company isolation design
 
 ### v2.1B — Accrual & Cost Ledger
-- `freight-cost-service` schema + append-only ledger
-- Ingest snapshot + accessorial + settlement events
-- Accrual projection rebuild
-- Decimal-safe boundaries
+**Entry gate:** OQ-002 transport; decimal ingest; rebuild root defined.
+
+- Schema + settlement/billing outbox ingest + payment outbox consumer
+- Ledger with `UNIQUE(tenant_id, source_event_id)`
 
 ### v2.1C — Planned vs Actual / Variance
-- Variance engine (NULL-safe, single currency)
-- Reason attribution (auto + manual tags)
-- Reconciliation job vs settlement totals
+- Current vs final variance (ex-VAT, NULL-safe)
+- Accessorial semantic classification for double-count prevention
+- Canonical API reconciliation
 
 ### v2.1D — Cost Analytics Workspace
-- web-procurement or web-admin workspace (feature flag OFF)
-- Overview, planned vs actual, shipment detail, accessorial spend
-- RU/EN/ZH i18n
+- Feature flag OFF; buyer vs carrier field masks
+- Billing mismatch indicators
 
 ### v2.1E — Public API / RBAC / E2E / Hardening
-- api-gateway public routes (mirror v2.0E pattern)
-- Strict DTOs, OpenAPI, PostgreSQL integration tests
-- Cross-company denial tests, financial E2E
+- Gateway routes, strict DTOs, financial E2E
 
 ---
 
@@ -1004,12 +1089,16 @@ General ledger, chart of accounts, double-entry, bank integration, tax/VAT engin
 | Freight cost bounded context | **HYBRID** (dedicated projection service + existing canonical domains) |
 | Planned cost canonical owner | **transport-order-service** / TO rate snapshot |
 | Accrual canonical owner | **freight-cost-service** (derived ledger) |
-| Actual/settled cost canonical owner | **billing-register-service** / freight_settlements |
-| Invoiced amount owner | **billing-register-service** / billing_registers |
-| Paid amount owner | **payment-service** / payment_obligations |
-| Variance owner | **freight-cost-service** (derived) |
-| Cost ledger required | **YES** |
+| Actual/settled cost canonical owner | **billing-register-service** / `total_without_vat` |
+| Billing register amount owner | **billing-register-service** / register + item snapshot |
+| Invoice document amount owner | **billing-register-service** / `invoices`, `vat_invoices` |
+| Paid amount owner | **payment-service** / `payment_obligations.paid_amount` |
+| Variance owner | **freight-cost-service** (current + final derived) |
+| Cost ledger required | **YES** (derived journal) |
+| Ledger canonical financial writer | **NO** |
 | Ledger immutable | **YES** (append-only + reversal) |
+| Settlement/billing divergence | **MATCH / MISMATCH / UNLINKED** |
+| Planned vs actual tax basis | **COMPATIBLE (EX-VAT)** |
 | Mixed currency aggregation | **NOT_ALLOWED** |
 | FX conversion v2.1 | **NOT_IN_SCOPE** |
 | Cost corrections | **Reversal entries** referencing canonical domain corrections |
@@ -1029,13 +1118,18 @@ General ledger, chart of accounts, double-entry, bank integration, tax/VAT engin
 | RFx award (legacy) | rfx-service | `rfx.rfx_award_transport_orders.amount` | NO | NO |
 | Contract rate (master) | contract-rate-service | `contract_rate.rate_component` | ACTIVE version yes | NO |
 | TO planned price | transport-order-service | `transport.transport_order_rate_snapshots.total_amount` | **YES** | NO |
-| Accrued cost | freight-cost-service (v2.1) | `freight_cost.cost_entry` / projection | YES (entries) | **YES** |
-| Approved accessorial | billing-register-service | `billing.settlement_accessorials` | NO (workflow) | NO |
-| Settlement (ex-VAT) | billing-register-service | `billing.freight_settlements.total_without_vat` | PARTIAL | NO |
-| Invoice/billing amount | billing-register-service | `billing.billing_registers.total_with_vat` | After include | NO |
-| Payment obligation | payment-service | `billing.payment_obligations.original_amount` | YES | NO |
-| Paid amount | payment-service | `billing.payment_obligations.paid_amount` | Derived from allocations | PARTIAL |
-| Planned vs actual variance | freight-cost-service (v2.1) | projection | N/A | **YES** |
+| Approved accessorial (execution) | billing-register-service | `settlement_accessorials` APPROVED | NO | NO |
+| Proposed accessorial | billing-register-service | `settlement_accessorials` PROPOSED | NO | NO |
+| Financial accrual | freight-cost-service | projection | N/A | **YES** |
+| Current actual (ex-VAT) | billing-register-service | `freight_settlements.total_without_vat` | PARTIAL | NO |
+| Final actual (ex-VAT) | billing-register-service | same; status=READY_FOR_PAYMENT | PARTIAL | NO |
+| Billed snapshot (line) | billing-register-service | `billing_register_items` at include | YES | NO |
+| Billing register aggregate | billing-register-service | `billing_registers.total_with_vat` | Until closed | NO |
+| Invoice document | billing-register-service | `billing.invoices` / `vat_invoices` | After issue | NO |
+| Payment obligation | payment-service | `payment_obligations.original_amount` | YES | NO |
+| Paid amount | payment-service | `payment_obligations.paid_amount` | Updated on allocation TX | PARTIAL |
+| Ledger entry | freight-cost-service | `cost_entry` | YES | **YES** (derived snapshot) |
+| Variance | freight-cost-service | projection | N/A | **YES** |
 
 ---
 
@@ -1061,18 +1155,18 @@ General ledger, chart of accounts, double-entry, bank integration, tax/VAT engin
 
 ---
 
-## 51. Open Questions / Blockers
+## 51. Open Questions / Blockers (post-review)
 
-| ID | Severity | Question | Evidence | Decision needed | Blocks v2.1A |
-|----|----------|----------|----------|-----------------|--------------|
-| OQ-001 | MEDIUM | Should accrual include PROPOSED accessorials or only APPROVED? | Settlement workflow exists | Finance policy — recommend APPROVED only | NO |
-| OQ-002 | MEDIUM | Emit outbox from billing-register or poll audit tables? | Audit exists; no settlement outbox | Integration pattern | NO (blocks v2.1B) |
-| OQ-003 | LOW | Migrate settlement domain from float64 to decimal? | float64 in billing-register domain | Parallel tech debt | NO |
-| OQ-004 | MEDIUM | Auto-sync billing register if settlement changes post-include? | **NOT_FOUND** today | Product decision — recommend manual re-include v2.1 | NO |
-| OQ-005 | LOW | Standardize accessorial charge_code enum for WAITING/DETENTION auto attribution? | Free-form string today | Convention doc | NO |
-| OQ-006 | HIGH | Which settlement statuses count as "final" for actual cost? | Status enum in migration 000042 | Freeze set: APPROVED+ | NO — resolve in v2.1A |
+| ID | Status | Resolution |
+|----|--------|------------|
+| OQ-001 | **RESOLVED** | Accrual = planned + APPROVED accessorials only; PROPOSED → forecast_exposure |
+| OQ-002 | **RESOLVED** | Hybrid: outbox for settlement/billing changes; API rebuild root; payment outbox consumed |
+| OQ-003 | **RESOLVED (boundary)** | freight-cost-service decimal-only; float64 legacy remains in billing-register domain until separate migration |
+| OQ-004 | **RESOLVED** | SETTLEMENT_BILLING_MATCH/MISMATCH/UNLINKED; frozen register item at include |
+| OQ-005 | **OPEN (LOW)** | charge_code convention for auto variance — defer to v2.1C |
+| OQ-006 | **RESOLVED** | current_actual vs final_actual status sets frozen (§13) |
 
-No **OPEN_BLOCKER** for architecture review.
+No **OPEN_BLOCKER** or **OPEN_HIGH** for architecture approval.
 
 ---
 
