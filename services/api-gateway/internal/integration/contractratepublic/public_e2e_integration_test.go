@@ -37,7 +37,7 @@ func TestPublicE2E001BuyerContractLifecycle(t *testing.T) {
 	}
 
 	resp = h.request(user, h.buyerID, "PATCH", "/api/v1/transport-contracts/"+contractID, map[string]any{
-		"description": "draft edit",
+		"name": "Updated Draft Name",
 	}, nil)
 	mustStatus(t, "E-E2E-001 patch draft", resp, 200)
 
@@ -337,8 +337,9 @@ func TestPublicE2E005TerminalHistoricalRead(t *testing.T) {
 		mustStatus(t, "historical read "+path, resp, 200)
 	}
 
-	// activated_at must remain truthful on historical version
-	if !strings.Contains(string(resp.Body), `"activated_at"`) {
+	versionResp := h.request(user, h.buyerID, "GET", "/api/v1/rate-card-versions/"+versionID, nil, nil)
+	mustStatus(t, "historical version", versionResp, 200)
+	if !strings.Contains(string(versionResp.Body), `"activated_at"`) {
 		t.Fatalf("historical version must expose activated_at")
 	}
 
@@ -368,7 +369,6 @@ func TestPublicE2E006CrossCompanyRoleBleed(t *testing.T) {
 
 	crtestkit.SeedTenantAndCompanies(t, ctx, pool, tenantID, companyA, carrierID)
 	crtestkit.SeedCompany(t, ctx, pool, tenantID, companyB, "SHIPPER", "Company B")
-	crtestkit.SeedLocations(t, ctx, pool, tenantID, companyB, originID, destID)
 
 	h := newHarness(t, harnessOptions{
 		Pool: pool, TenantID: tenantID, UserID: userID, BuyerID: companyB, CarrierID: carrierID,
