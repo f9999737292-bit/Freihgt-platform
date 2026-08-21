@@ -81,7 +81,6 @@ func (c *Client) GetRateSnapshot(ctx context.Context, tenantID, transportOrderID
 
 	switch resp.StatusCode {
 	case http.StatusOK:
-		c.observe(operation, "success", "")
 	case http.StatusNotFound:
 		c.observe(operation, "not_found", string(apperrors.CodeNotFound))
 		return nil, apperrors.NotFound("transport order not found")
@@ -106,35 +105,52 @@ func (c *Client) GetRateSnapshot(ctx context.Context, tenantID, transportOrderID
 		return nil, apperrors.BadGateway("invalid transport order response", err)
 	}
 
-	fact, err := mapRateSnapshot(payload)
+	fact, err := mapRateSnapshot(payload, tenantID, transportOrderID)
 	if err != nil {
 		c.observe(operation, "error", string(apperrors.CodeBadGateway))
 		return nil, err
 	}
+	c.observe(operation, "success", "")
 	return fact, nil
 }
 
-func mapRateSnapshot(payload rateSnapshotResponse) (*provider.RateSnapshotFact, error) {
-	transportOrderID, err := uuid.Parse(strings.TrimSpace(payload.TransportOrderID))
+func mapRateSnapshot(payload rateSnapshotResponse, requestedTenantID, requestedTransportOrderID uuid.UUID) (*provider.RateSnapshotFact, error) {
+	transportOrderID, err := parseNonZeroUUID("transport_order_id", payload.TransportOrderID)
 	if err != nil {
-		return nil, apperrors.BadGateway("invalid transport order id in downstream response", err)
+		return nil, err
 	}
-	tenantID, err := uuid.Parse(strings.TrimSpace(payload.TenantID))
+	if transportOrderID != requestedTransportOrderID {
+		return nil, apperrors.BadGateway("downstream transport order id does not match request", fmt.Errorf("expected %s", requestedTransportOrderID))
+	}
+
+	tenantID, err := parseNonZeroUUID("tenant_id", payload.TenantID)
 	if err != nil {
-		return nil, apperrors.BadGateway("invalid tenant id in downstream response", err)
+		return nil, err
 	}
-	buyerCompanyID, err := uuid.Parse(strings.TrimSpace(payload.BuyerCompanyID))
+	if tenantID != requestedTenantID {
+		return nil, apperrors.BadGateway("downstream tenant id does not match request", fmt.Errorf("expected %s", requestedTenantID))
+	}
+
+	buyerCompanyID, err := parseNonZeroUUID("buyer_company_id", payload.BuyerCompanyID)
 	if err != nil {
-		return nil, apperrors.BadGateway("invalid buyer company id in downstream response", err)
+		return nil, err
 	}
-	carrierCompanyID, err := uuid.Parse(strings.TrimSpace(payload.CarrierCompanyID))
+	carrierCompanyID, err := parseNonZeroUUID("carrier_company_id", payload.CarrierCompanyID)
 	if err != nil {
-		return nil, apperrors.BadGateway("invalid carrier company id in downstream response", err)
+		return nil, err
 	}
-	snapshotID, err := uuid.Parse(strings.TrimSpace(payload.SnapshotID))
+	snapshotID, err := parseNonZeroUUID("snapshot_id", payload.SnapshotID)
 	if err != nil {
-		return nil, apperrors.BadGateway("invalid snapshot id in downstream response", err)
+		return nil, err
 	}
+
+	if strings.TrimSpace(payload.PricingModelVersion) != domain.PricingModelVersionSnapshot {
+		return nil, apperrors.BadGateway("invalid pricing model version in downstream response", fmt.Errorf("got %q", payload.PricingModelVersion))
+	}
+	if strings.TrimSpace(payload.PricingSource) == "" {
+		return nil, apperrors.BadGateway("missing pricing source in downstream response", fmt.Errorf("empty pricing_source"))
+	}
+
 	if err := domain.ValidateCurrencyCode(payload.CurrencyCode); err != nil {
 		return nil, apperrors.BadGateway("invalid currency code in downstream response", err)
 	}
@@ -142,6 +158,10 @@ func mapRateSnapshot(payload rateSnapshotResponse) (*provider.RateSnapshotFact, 
 	if err != nil {
 		return nil, apperrors.BadGateway("invalid total amount in downstream response", err)
 	}
+	if totalAmount.IsNegative() {
+		return nil, apperrors.BadGateway("negative total amount in downstream response", fmt.Errorf("amount %s", totalAmount))
+	}
+
 	resolvedAt, err := time.Parse(time.RFC3339, strings.TrimSpace(payload.ResolvedAt))
 	if err != nil {
 		return nil, apperrors.BadGateway("invalid resolved_at in downstream response", err)
@@ -155,10 +175,21 @@ func mapRateSnapshot(payload rateSnapshotResponse) (*provider.RateSnapshotFact, 
 		SnapshotID:          snapshotID,
 		CurrencyCode:        strings.ToUpper(strings.TrimSpace(payload.CurrencyCode)),
 		TotalAmount:         totalAmount,
-		PricingSource:       payload.PricingSource,
-		PricingModelVersion: payload.PricingModelVersion,
+		PricingSource:       strings.TrimSpace(payload.PricingSource),
+		PricingModelVersion: domain.PricingModelVersionSnapshot,
 		ResolvedAt:          resolvedAt.UTC(),
 	}, nil
+}
+
+func parseNonZeroUUID(field, raw string) (uuid.UUID, error) {
+	id, err := uuid.Parse(strings.TrimSpace(raw))
+	if err != nil || id == uuid.Nil {
+		return uuid.Nil, apperrors.BadGateway(
+			fmt.Sprintf("invalid %s in downstream response", field),
+			fmt.Errorf("value %q", raw),
+		)
+	}
+	return id, nil
 }
 
 func (c *Client) observe(operation, result, errorCode string) {
@@ -167,6 +198,6 @@ func (c *Client) observe(operation, result, errorCode string) {
 	}
 	c.metrics.ObserveSourceRequest(sourceService, operation, result)
 	if errorCode != "" {
-		c.metrics.ObserveSourceError(sourceService, string(errorCode))
+		c.metrics.ObserveSourceError(sourceService, errorCode)
 	}
 }

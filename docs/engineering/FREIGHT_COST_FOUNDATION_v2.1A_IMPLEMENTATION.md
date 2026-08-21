@@ -15,7 +15,7 @@
 | 3 | Internal API `GET /internal/v1/freight-cost/transport-orders/{transportOrderId}` | DONE |
 | 4 | Transport-order internal `GET /internal/v1/transport-orders/{transportOrderId}/rate-snapshot` | DONE |
 | 5 | Provider interfaces (transport live; settlement/billing/payment stubbed) | DONE |
-| 6 | Tests: FC-A-DOM/SEC/SRC/API/E2E (25) + TO-CR (10) | DONE |
+| 6 | Tests: FC-A-DOM/SEC/SRC/API/E2E (32) + TO-CR (10) | DONE |
 | 7 | CI matrix + `go.work` entry | DONE |
 | 8 | No migrations, no ledger, no gateway/frontend | VERIFIED |
 
@@ -57,9 +57,32 @@ Transport-order additions:
 | Unpriced / missing snapshot (TO) | `409 CONFLICT` |
 | Downstream unavailable | `503 SERVICE_UNAVAILABLE` |
 | Invalid downstream decimal/DTO | `502 BAD_GATEWAY` |
+| Downstream 200 with tenant/order identity mismatch | `502 BAD_GATEWAY` (not 403/404) |
+| Downstream zero UUID canonical facts | `502 BAD_GATEWAY` |
+| Negative planned `total_amount` | `502 BAD_GATEWAY` |
+| Zero planned `total_amount` | **ALLOW** (`"0.00"`) |
 | Money wire format | decimal string, scale 2 |
 | Unknown money | JSON `null` (`*Money == nil`); not `omitempty` |
 | Platform admin HTTP | denied (`400` on actor parse) |
+
+### Downstream canonical snapshot validation
+
+Transport HTTP client (`internal/client/transport_order`) fail-closes on HTTP 200 payloads until all checks pass:
+
+| Gate | Value |
+|------|-------|
+| `DOWNSTREAM_IDENTITY_BINDING` | YES — `tenant_id` and `transport_order_id` must match request |
+| `DOWNSTREAM_INVALID_CANONICAL_FACT` | `502 BAD_GATEWAY` |
+| `NEGATIVE_PLANNED_AMOUNT` | DENY |
+| `ZERO_PLANNED_AMOUNT` | ALLOW |
+| `pricing_model_version` | exactly `SNAPSHOT_V1` |
+| `pricing_source` | non-empty |
+| Source success metric | recorded only after full validation |
+
+Cross-tenant lookup semantics:
+
+- Transport-order returns `404` for absent resource in tenant scope → propagate `404`
+- Transport-order returns `200` but body `tenant_id` ≠ requested tenant → `502` (contract violation, not auth)
 
 ---
 
@@ -75,13 +98,13 @@ Inbound freight-cost and transport internal routes use `packages/shared-go/inter
 
 ## Tests
 
-### freight-cost-service (25)
+### freight-cost-service (32)
 
 | Family | Count | Package |
 |--------|-------|---------|
 | FC-A-DOM-* | 10 | `internal/domain` |
 | FC-A-SEC-* | 5 | `internal/security`, `internal/integration/planned_cost` |
-| FC-A-SRC-* | 4 | `internal/client/transport_order` |
+| FC-A-SRC-* | 11 | `internal/client/transport_order` |
 | FC-A-API-* | 3 | `internal/http/dto` |
 | FC-A-E2E-* | 3 | `internal/integration/planned_cost` |
 
