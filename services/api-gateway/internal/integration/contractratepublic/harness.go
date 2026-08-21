@@ -20,7 +20,6 @@ import (
 
 	crtestkit "github.com/freight-platform/contract-rate-service/testkit"
 	gwconfig "github.com/freight-platform/api-gateway/internal/config"
-	gwhttp "github.com/freight-platform/api-gateway/internal/http"
 )
 
 const internalToken = crtestkit.DefaultInternalToken
@@ -147,11 +146,7 @@ func newHarness(t *testing.T, opts harnessOptions) *harness {
 			ContractRate: crServer.URL,
 		},
 	}
-	proxy, err := gwhttp.NewProxyHandler(cfg)
-	if err != nil {
-		t.Fatalf("proxy: %v", err)
-	}
-	router := gwhttp.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), cfg, proxy, nil, nil, nil, nil)
+	router := newTestGateway(slog.New(slog.NewTextHandler(io.Discard, nil)), cfg)
 	return &harness{
 		pool: pool, tenantID: opts.TenantID, userID: opts.UserID,
 		buyerID: opts.BuyerID, carrierID: opts.CarrierID,

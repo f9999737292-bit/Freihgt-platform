@@ -3,15 +3,12 @@
 package testkit
 
 import (
-	"io"
-	"log/slog"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/freight-platform/contract-rate-service/internal/config"
-	httpserver "github.com/freight-platform/contract-rate-service/internal/http"
 	"github.com/freight-platform/contract-rate-service/internal/http/handlers"
 	"github.com/freight-platform/contract-rate-service/internal/repository"
 	"github.com/freight-platform/contract-rate-service/internal/service"
@@ -55,9 +52,7 @@ func StartServer(t *testing.T, opts ServerOptions) *Server {
 	rateComponentSvc := service.NewRateComponentService(rateComponents, rateLines, rateCards, contracts)
 	resolutionSvc := service.NewResolutionService(resolutions, memberships, nil, nil)
 
-	router := httpserver.NewRouter(
-		slog.New(slog.NewTextHandler(io.Discard, nil)),
-		opts.Pool,
+	router := newIntegrationRouter(
 		config.Config{InternalServiceToken: token, Environment: "test"},
 		contractSvc, rateCardSvc, rateLineSvc, rateComponentSvc, resolutionSvc, actors,
 	)
