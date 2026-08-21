@@ -70,7 +70,26 @@ Tri-state `domain.NullableDatePatch` for contract and rate version `valid_to`:
 
 ## PUBLIC E2E
 
-`services/api-gateway/internal/integration/contractratepublic/` — PostgreSQL 16, real gateway + contract-rate stack, identity mock.
+Cross-module integration harness (build tag `integration`):
+
+```
+services/contract-rate-service/testkit/     ← real router/service/repos (same module, may import internal/*)
+services/api-gateway/internal/integration/contractratepublic/  ← imports testkit ONLY (never internal/*)
+```
+
+| Gate | Test |
+|------|------|
+| E-E2E-001 | Buyer contract lifecycle (create → activate → metadata → suspend → reactivate) |
+| E-E2E-002 | Full rate flow (card, version, lane, 4 components, activate, DB persistence) |
+| E-E2E-003 | Public simulation MATCHED + forbidden manual_spot/RFx fields → 400 at gateway |
+| E-E2E-004 | CARRIER_ADMIN read-only + mutation 403 |
+| E-E2E-005 | Terminated contract historical reads preserved, no repricing |
+| E-E2E-006 | Cross-company role bleed (SHIPPER_ADMIN@A + SHIPPER_LOGIST@B, PATCH real B contract → 403) |
+| Security | Header spoof deny (tenant/user/actor/internal-token), unknown company → 403 |
+
+Stack: PostgreSQL 16, real API gateway (JWT + ratesrbac + contractrates), real contract-rate HTTP via testkit, identity membership HTTP mock.
+
+`PUBLIC_E2E=PASS` after CI job `contract-rate-public-e2e` green on merge head (replaces prior `NOT_EXECUTED_DUE_TO_GO_INTERNAL_IMPORT_FAILURE`).
 
 ## CI
 
