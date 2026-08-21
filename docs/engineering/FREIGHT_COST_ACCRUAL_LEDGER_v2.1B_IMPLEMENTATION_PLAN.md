@@ -164,7 +164,7 @@ v2.1B implementation **SHOULD include:**
 | 1 | `freight_cost` PostgreSQL schema + migrations |
 | 2 | Append-only `cost_entry` derived journal |
 | 3 | Source-event identity + revision handling |
-| 4 | Replay / idempotency (`UNIQUE (tenant_id, source_event_id)`) |
+| 4 | Replay / idempotency — delivery: `UNIQUE (tenant_id, source_event_id)`; canonical fact: `UNIQUE (tenant_id, source_fact_id)` |
 | 5 | `source_cursor` per revision stream |
 | 6 | `cost_summary_projection` persistence |
 | 7 | Accrual persistence / projection |
@@ -487,6 +487,7 @@ Consumer rule: if `(tenant_id, source_fact_id)` already exists → **NO-OP** (su
 ## 12. Ledger model
 
 ```text
+LEDGER_AUTHORITY=DERIVED_EVENT_JOURNAL
 LEDGER_SECOND_SSOT=NO
 LEDGER_APPEND_ONLY=YES
 LEDGER_AMOUNT_MODE=DERIVED_SNAPSHOT_VALUE
@@ -495,7 +496,7 @@ CORRECTION_MODEL=append new entry; optional supersedes_entry_id; never UPDATE/DE
 
 Canonical correction remains in source domain (settlement recalc, allocation void, etc.). freight-cost repairs **only** its derived projection/ledger via new events or rebuild.
 
-## 12. Ledger model
+## 13. Ledger entry kinds
 
 | `entry_kind` | Canonical source | Tax basis | Amount nullable | Triggers new entry | Projection field |
 |--------------|-------------------|-----------|-----------------|--------------------|------------------|
@@ -1074,7 +1075,7 @@ Process:
 
 1. Call transport, settlement, billing, payment internal reads.
 2. Normalize to source facts @ current canonical revision.
-3. Derive deterministic rebuild `source_event_id` per entry kind.
+3. Derive deterministic rebuild **delivery** `source_event_id` and canonical `source_fact_id` per entry kind; ingest is idempotent on `(tenant_id, source_fact_id)`.
 4. Upsert journal (idempotent) + recompute projection from cursors.
 5. Run reconciliation compare.
 
@@ -1275,10 +1276,10 @@ Financial journal append-only indefinitely in v2.1B. Outbox follows existing arc
 | ID | Sev | Risk | Mitigation | Test |
 |----|-----|------|------------|------|
 | RISK-B-001 | HIGH | billing float64 corrupts decimal boundary | internal read scans NUMERIC → decimal string | FC-B-MON-002 |
-| RISK-B-002 | HIGH | missing monotonic revision | use settlement.version; add if gap found | FC-B-LED-003 |
+| RISK-B-002 | HIGH | missing monotonic revision per financial dimension | frozen streams: settlement `version`, billing link `billing_link_revision`, register payable `billing_registers.version`, payment `payment_obligations.version`, TO `IMMUTABLE` | FC-B-LED-003 |
 | RISK-B-003 | HIGH | one mutation → multiple facts vs unique event id | Option A: distinct events per fact | FC-B-OUT-004 |
 | RISK-B-004 | HIGH | thin event + advanced canonical state | VERSIONED_FINANCIAL_SNAPSHOT payload | FC-B-OUT-001 |
-| RISK-B-005 | HIGH | rebuild duplicate journal rows | deterministic rebuild event ids | FC-B-RBL-002 |
+| RISK-B-005 | HIGH | LIVE_OUTBOX / CANONICAL_REBUILD duplicate same canonical financial fact | origin-independent deterministic `source_fact_id` + `UNIQUE(tenant_id, source_fact_id)`; rebuild delivery UUID is delivery identity only | FC-B-LED-009 / FC-B-LED-010 / FC-B-LED-011, FC-B-RBL-006 |
 | RISK-B-006 | HIGH | known→NULL not representable | amount_availability UNAVAILABLE | FC-B-LED-008 |
 | RISK-B-007 | HIGH | out-of-order regresses projection | cursor APPLY_ONLY_IF_GREATER | FC-B-LED-004 |
 | RISK-B-008 | HIGH | ledger becomes SSOT | rebuild from canonical; mismatch flags | FC-B-RBL-004 |
@@ -1299,7 +1300,8 @@ Financial journal append-only indefinitely in v2.1B. Outbox follows existing arc
 | COST_ENTRY_APPEND_ONLY | PASS |
 | DERIVED_LEDGER_NOT_SSOT | PASS |
 | DECIMAL_SAFE_SOURCE_BOUNDARIES | PASS |
-| SOURCE_EVENT_IDEMPOTENCY | PASS |
+| SOURCE_EVENT_IDEMPOTENCY | PASS (delivery: `UNIQUE(tenant_id, source_event_id)`) |
+| SOURCE_FACT_IDEMPOTENCY | PASS (canonical fact: `UNIQUE(tenant_id, source_fact_id)`) |
 | SOURCE_REVISION_MONOTONICITY | PASS |
 | OUT_OF_ORDER_POLICY | PASS |
 | TRANSACTIONAL_OUTBOX | PASS |
