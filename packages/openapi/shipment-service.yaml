@@ -29,6 +29,9 @@ tags:
   - name: Closing Documents
   - name: Payment Obligations
   - name: Payments
+  - name: Transport Contracts
+  - name: Rate Cards
+  - name: Rate Simulation
 paths:
   /api/v1/shipments/from-transport-order:
     post:

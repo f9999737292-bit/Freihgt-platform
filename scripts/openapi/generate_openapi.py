@@ -31,6 +31,9 @@ TAGS = [
     "Closing Documents",
     "Payment Obligations",
     "Payments",
+    "Transport Contracts",
+    "Rate Cards",
+    "Rate Simulation",
 ]
 
 COMMON_HEADER = """      parameters:
@@ -191,6 +194,34 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/payments/{id}/reconcile", "post", "Reconcile fully allocated payment", "Payments", True, True, "reconcile_payment"),
     ("/api/v1/payment-allocations/{id}/void", "post", "Void payment allocation", "Payments", True, True, "void_allocation"),
     ("/api/v1/payments/{id}/void", "post", "Void payment", "Payments", True, True, "void_payment"),
+    ("/api/v1/transport-contracts", "get", "List transport contracts", "Transport Contracts", True, True, None),
+    ("/api/v1/transport-contracts", "post", "Create transport contract", "Transport Contracts", True, True, None),
+    ("/api/v1/transport-contracts/{id}", "get", "Get transport contract", "Transport Contracts", True, True, None),
+    ("/api/v1/transport-contracts/{id}", "patch", "Patch transport contract", "Transport Contracts", True, True, None),
+    ("/api/v1/transport-contracts/{id}/activate", "post", "Activate transport contract", "Transport Contracts", True, True, None),
+    ("/api/v1/transport-contracts/{id}/suspend", "post", "Suspend transport contract", "Transport Contracts", True, True, None),
+    ("/api/v1/transport-contracts/{id}/reactivate", "post", "Reactivate transport contract", "Transport Contracts", True, True, None),
+    ("/api/v1/transport-contracts/{id}/terminate", "post", "Terminate transport contract", "Transport Contracts", True, True, None),
+    ("/api/v1/transport-contracts/{id}/cancel", "post", "Cancel transport contract", "Transport Contracts", True, True, None),
+    ("/api/v1/transport-contracts/{contractId}/rate-cards", "get", "List rate cards for contract", "Rate Cards", True, True, None),
+    ("/api/v1/transport-contracts/{contractId}/rate-cards", "post", "Create rate card", "Rate Cards", True, True, None),
+    ("/api/v1/rate-cards/{id}", "get", "Get rate card", "Rate Cards", True, True, None),
+    ("/api/v1/rate-cards/{id}/versions", "get", "List rate card versions", "Rate Cards", True, True, None),
+    ("/api/v1/rate-cards/{id}/versions", "post", "Create draft rate card version", "Rate Cards", True, True, None),
+    ("/api/v1/rate-card-versions/{id}", "get", "Get rate card version", "Rate Cards", True, True, None),
+    ("/api/v1/rate-card-versions/{id}", "patch", "Patch draft rate card version", "Rate Cards", True, True, None),
+    ("/api/v1/rate-card-versions/{id}", "delete", "Discard draft rate card version", "Rate Cards", True, True, None),
+    ("/api/v1/rate-card-versions/{id}/activate", "post", "Activate rate card version", "Rate Cards", True, True, None),
+    ("/api/v1/rate-card-versions/{id}/rate-lines", "get", "List rate lines", "Rate Cards", True, True, None),
+    ("/api/v1/rate-card-versions/{id}/rate-lines", "post", "Create rate line", "Rate Cards", True, True, None),
+    ("/api/v1/rate-lines/{id}", "get", "Get rate line", "Rate Cards", True, True, None),
+    ("/api/v1/rate-lines/{id}", "patch", "Patch draft rate line", "Rate Cards", True, True, None),
+    ("/api/v1/rate-lines/{id}", "delete", "Delete draft rate line", "Rate Cards", True, True, None),
+    ("/api/v1/rate-lines/{id}/components", "get", "List rate components", "Rate Cards", True, True, None),
+    ("/api/v1/rate-lines/{id}/components", "post", "Create rate component", "Rate Cards", True, True, None),
+    ("/api/v1/rate-components/{id}", "patch", "Patch rate component", "Rate Cards", True, True, None),
+    ("/api/v1/rate-components/{id}", "delete", "Delete rate component", "Rate Cards", True, True, None),
+    ("/api/v1/rates/resolve", "post", "Simulate contract rate resolution", "Rate Simulation", True, True, None),
 ]
 
 SERVICE_TAGS = {
@@ -202,6 +233,7 @@ SERVICE_TAGS = {
     "document-service.yaml": {"Documents", "Signing"},
     "billing-register-service.yaml": {"Billing Registers", "Closing Documents"},
     "payment-service.yaml": {"Payment Obligations", "Payments"},
+    "contract-rate-service.yaml": {"Transport Contracts", "Rate Cards", "Rate Simulation"},
 }
 
 VOID_DESCRIPTIONS = {
@@ -934,6 +966,7 @@ SERVICE_DISPLAY_NAMES = {
     "document-service.yaml": "Document Service",
     "billing-register-service.yaml": "Billing Register Service",
     "payment-service.yaml": "Payment Service",
+    "contract-rate-service.yaml": "Contract Rate Service",
 }
 
 
