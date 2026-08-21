@@ -412,6 +412,61 @@ func TestPublicE2E006CrossCompanyRoleBleed(t *testing.T) {
 	mustStatus(t, "admin mutate A", patchA, 200)
 }
 
+func TestPublicUnknownFieldE2EGatewayDeny(t *testing.T) {
+	h := newHarness(t, harnessOptions{})
+	user := h.userID
+	contractID := createAndActivateContract(t, h, user, h.buyerID, "UNKNOWN-FIELD")
+
+	resp := h.request(user, h.buyerID, "POST", "/api/v1/transport-contracts/"+contractID+"/rate-cards", map[string]any{
+		"name": "Main", "future_internal_field": true,
+	}, nil)
+	if resp.Status != 400 {
+		t.Fatalf("rate card unknown field expected 400 got %d body=%s", resp.Status, string(resp.Body))
+	}
+
+	resp = h.request(user, h.buyerID, "POST", "/api/v1/rate-cards/"+uuid.New().String()+"/versions", map[string]any{
+		"valid_from": "2026-01-01", "status": "ACTIVE",
+	}, nil)
+	if resp.Status != 400 {
+		t.Fatalf("rate version status expected 400 got %d body=%s", resp.Status, string(resp.Body))
+	}
+
+	_, versionID, lineID := createActiveRateStack(t, h, user, h.buyerID, contractID, "Box", "100000.00", "8.00")
+
+	resp = h.request(user, h.buyerID, "POST", "/api/v1/rate-card-versions/"+versionID+"/rate-lines", map[string]any{
+		"origin_location_id": h.originID.String(), "destination_location_id": h.destID.String(),
+		"equipment_type": "Box", "transport_mode": "ROAD", "tenant_id": h.tenantID.String(),
+	}, nil)
+	if resp.Status != 400 {
+		t.Fatalf("rate line tenant_id expected 400 got %d body=%s", resp.Status, string(resp.Body))
+	}
+
+	resp = h.request(user, h.buyerID, "POST", "/api/v1/rate-lines/"+lineID+"/components", map[string]any{
+		"component_type": "BASE_FREIGHT", "calculation_method": "FLAT", "amount": "1.00", "created_by": user.String(),
+	}, nil)
+	if resp.Status != 400 {
+		t.Fatalf("component created_by expected 400 got %d body=%s", resp.Status, string(resp.Body))
+	}
+
+	listResp := h.request(user, h.buyerID, "GET", "/api/v1/rate-lines/"+lineID+"/components", nil, nil)
+	mustStatus(t, "list components", listResp, 200)
+	componentID := firstItemID(t, listResp.Body)
+
+	resp = h.request(user, h.buyerID, "PATCH", "/api/v1/rate-components/"+componentID, map[string]any{
+		"component_type": "WAITING",
+	}, nil)
+	if resp.Status != 400 {
+		t.Fatalf("patch component_type expected 400 got %d body=%s", resp.Status, string(resp.Body))
+	}
+
+	resp = h.request(user, h.buyerID, "POST", "/api/v1/transport-contracts/"+contractID+"/activate", map[string]any{
+		"force": true,
+	}, nil)
+	if resp.Status != 400 {
+		t.Fatalf("lifecycle force expected 400 got %d body=%s", resp.Status, string(resp.Body))
+	}
+}
+
 func TestPublicSecurityHeaderSpoofing(t *testing.T) {
 	h := newHarness(t, harnessOptions{})
 	user := h.userID
