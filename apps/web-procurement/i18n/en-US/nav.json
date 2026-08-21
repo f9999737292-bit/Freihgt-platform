@@ -7,6 +7,7 @@
     "buyerOrders": "Transport orders",
     "settlements": "Settlements",
     "billingRegisters": "Billing registers",
-    "payments": "Payments"
+    "payments": "Payments",
+    "contracts": "Contracts"
   }
 }
