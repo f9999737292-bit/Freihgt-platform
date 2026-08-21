@@ -8,36 +8,52 @@ import type {
   RateLine,
   TransportContract,
 } from '~/types/contractRate'
-import { ApiError } from '~/utils/apiClient'
 import {
+  availableComponentTypes,
   buildCreateRateLinePayload,
+  buildPatchRateComponentPayload,
+  buildPatchRateVersionPayload,
+  buildRateComponentPayload,
   diffRateVersions,
-  expectedCalculationMethod,
   findSupersededPredecessor,
   isVersionEditable,
   validateLaneComponents,
   versionLifecycleActions,
 } from '~/utils/contractRate'
 import { isApiUnavailableError } from '~/utils/apiError'
+import {
+  deleteDraftRateComponent,
+  deleteDraftRateLine,
+  mapContractRateErrorCode,
+  patchDraftRateComponent,
+  patchDraftRateLine,
+} from '~/utils/contractRateWorkspace'
 
 definePageMeta({ middleware: ['auth', 'contract-rate-workspace'], layout: 'default' })
 
 const route = useRoute()
 const contractId = computed(() => String(route.params.id))
 
+const contractRatesApi = useContractRatesApi()
 const {
   getTransportContract,
   listRateCards,
   createRateCard,
   listRateCardVersions,
   createRateCardVersion,
+  patchRateCardVersion,
   discardRateCardVersion,
   activateRateCardVersion,
   listRateLines,
   createRateLine,
+  patchRateLine,
+  deleteRateLine,
   listRateComponents,
   createRateComponent,
-} = useContractRatesApi()
+  patchRateComponent,
+  deleteRateComponent,
+} = contractRatesApi
+
 const { listLocations } = useLocationsApi()
 const { pushToast } = useToast()
 const { t } = useI18n()
@@ -62,14 +78,25 @@ const locations = ref<LocationSummary[]>([])
 
 const showCreateCard = ref(false)
 const showCreateVersion = ref(false)
+const showEditVersion = ref(false)
 const showLaneModal = ref(false)
 const showComponentModal = ref(false)
 const confirmDiscard = ref(false)
 const confirmActivate = ref(false)
+const confirmDeleteLine = ref(false)
+const confirmDeleteComponent = ref(false)
 const saving = ref(false)
+
+const laneModalMode = ref<'create' | 'edit'>('create')
+const componentModalMode = ref<'create' | 'edit'>('create')
+const editingLineId = ref<string | null>(null)
+const editingComponentId = ref<string | null>(null)
+const pendingDeleteLineId = ref<string | null>(null)
+const pendingDeleteComponentId = ref<string | null>(null)
 
 const cardForm = reactive({ name: '', description: '' })
 const versionForm = reactive({ valid_from: '', valid_to: '' })
+const editVersionForm = reactive({ valid_from: '', valid_to: '' })
 const laneForm = reactive({
   origin_location_id: '',
   destination_location_id: '',
@@ -119,6 +146,10 @@ function versionStatusLabel(status: string) {
 function componentSummary(lineId: string): string {
   const components = componentsByLine.value[lineId] ?? []
   return components.map((c) => c.component_type).join(', ') || '—'
+}
+
+function addableComponentTypes(lineId: string): RateComponentType[] {
+  return availableComponentTypes(componentsByLine.value[lineId] ?? [])
 }
 
 async function loadLocations() {
@@ -218,7 +249,34 @@ async function submitCreateVersion() {
   }
 }
 
-function openLaneModal() {
+function openEditVersion() {
+  if (!selectedVersion.value) return
+  editVersionForm.valid_from = selectedVersion.value.valid_from
+  editVersionForm.valid_to = selectedVersion.value.valid_to ?? ''
+  showEditVersion.value = true
+}
+
+async function submitEditVersion() {
+  if (!selectedVersionId.value) return
+  saving.value = true
+  try {
+    const updated = await patchRateCardVersion(
+      selectedVersionId.value,
+      buildPatchRateVersionPayload(editVersionForm),
+    )
+    const index = versions.value.findIndex((v) => v.id === selectedVersionId.value)
+    if (index >= 0) versions.value[index] = updated
+    showEditVersion.value = false
+  } catch (error) {
+    pushToast('error', error instanceof Error ? error.message : t('contracts.loadFailed'))
+  } finally {
+    saving.value = false
+  }
+}
+
+function openCreateLaneModal() {
+  laneModalMode.value = 'create'
+  editingLineId.value = null
   laneForm.origin_location_id = ''
   laneForm.destination_location_id = ''
   laneForm.equipment_type = ''
@@ -226,11 +284,26 @@ function openLaneModal() {
   showLaneModal.value = true
 }
 
+function openEditLaneModal(line: RateLine) {
+  laneModalMode.value = 'edit'
+  editingLineId.value = line.id
+  laneForm.origin_location_id = line.origin_location_id
+  laneForm.destination_location_id = line.destination_location_id
+  laneForm.equipment_type = line.equipment_type
+  laneForm.transport_mode = line.transport_mode
+  showLaneModal.value = true
+}
+
 async function submitLane() {
-  if (!selectedVersionId.value) return
   saving.value = true
   try {
-    await createRateLine(selectedVersionId.value, buildCreateRateLinePayload(laneForm))
+    const payload = buildCreateRateLinePayload(laneForm)
+    if (laneModalMode.value === 'create') {
+      if (!selectedVersionId.value) return
+      await createRateLine(selectedVersionId.value, payload)
+    } else if (editingLineId.value) {
+      await patchDraftRateLine(patchRateLine, editingLineId.value, laneForm)
+    }
     showLaneModal.value = false
     await loadLinesAndComponents()
   } catch (error) {
@@ -240,7 +313,29 @@ async function submitLane() {
   }
 }
 
-function openComponentModal(lineId: string, componentType: RateComponentType) {
+function requestDeleteLine(lineId: string) {
+  pendingDeleteLineId.value = lineId
+  confirmDeleteLine.value = true
+}
+
+async function confirmDeleteLineAction() {
+  if (!pendingDeleteLineId.value) return
+  saving.value = true
+  try {
+    await deleteDraftRateLine(deleteRateLine, pendingDeleteLineId.value)
+    confirmDeleteLine.value = false
+    pendingDeleteLineId.value = null
+    await loadLinesAndComponents()
+  } catch (error) {
+    pushToast('error', error instanceof Error ? error.message : t('contracts.loadFailed'))
+  } finally {
+    saving.value = false
+  }
+}
+
+function openCreateComponentModal(lineId: string, componentType: RateComponentType) {
+  componentModalMode.value = 'create'
+  editingComponentId.value = null
   componentForm.line_id = lineId
   componentForm.component_type = componentType
   componentForm.amount = ''
@@ -249,20 +344,53 @@ function openComponentModal(lineId: string, componentType: RateComponentType) {
   showComponentModal.value = true
 }
 
+function openEditComponentModal(component: RateComponent) {
+  componentModalMode.value = 'edit'
+  editingComponentId.value = component.id
+  componentForm.line_id = component.rate_line_id
+  componentForm.component_type = component.component_type
+  componentForm.amount = component.amount ?? ''
+  componentForm.percent_value = component.percent_value ?? ''
+  componentForm.unit_code = component.unit_code ?? 'HOUR'
+  showComponentModal.value = true
+}
+
 async function submitComponent() {
   saving.value = true
   try {
-    const method = expectedCalculationMethod(componentForm.component_type)
-    await createRateComponent(componentForm.line_id, {
-      component_type: componentForm.component_type,
-      calculation_method: method as 'FLAT' | 'PERCENT' | 'UNIT_RATE',
-      amount: componentForm.component_type === 'BASE_FREIGHT' ? componentForm.amount : null,
-      percent_value: componentForm.component_type === 'FUEL_SURCHARGE' ? componentForm.percent_value : null,
-      unit_code: componentForm.component_type === 'WAITING' || componentForm.component_type === 'DETENTION'
-        ? componentForm.unit_code
-        : null,
-    })
+    if (componentModalMode.value === 'create') {
+      await createRateComponent(
+        componentForm.line_id,
+        buildRateComponentPayload(componentForm),
+      )
+    } else if (editingComponentId.value) {
+      await patchDraftRateComponent(
+        patchRateComponent,
+        editingComponentId.value,
+        buildPatchRateComponentPayload(componentForm),
+      )
+    }
     showComponentModal.value = false
+    await loadLinesAndComponents()
+  } catch (error) {
+    pushToast('error', error instanceof Error ? error.message : t('contracts.loadFailed'))
+  } finally {
+    saving.value = false
+  }
+}
+
+function requestDeleteComponent(componentId: string) {
+  pendingDeleteComponentId.value = componentId
+  confirmDeleteComponent.value = true
+}
+
+async function confirmDeleteComponentAction() {
+  if (!pendingDeleteComponentId.value) return
+  saving.value = true
+  try {
+    await deleteDraftRateComponent(deleteRateComponent, pendingDeleteComponentId.value)
+    confirmDeleteComponent.value = false
+    pendingDeleteComponentId.value = null
     await loadLinesAndComponents()
   } catch (error) {
     pushToast('error', error instanceof Error ? error.message : t('contracts.loadFailed'))
@@ -300,12 +428,8 @@ async function activateVersion() {
     pushToast('success', t('contracts.lifecycleSuccess'))
     await loadVersions()
   } catch (error) {
-    if (error instanceof ApiError) {
-      const detailCode = String(error.details?.code ?? error.code ?? '')
-      pushToast('error', t(`contracts.errors.${detailCode}`) || error.message)
-    } else {
-      pushToast('error', error instanceof Error ? error.message : t('contracts.loadFailed'))
-    }
+    const detailCode = mapContractRateErrorCode(error)
+    pushToast('error', t(`contracts.errors.${detailCode}`) || (error instanceof Error ? error.message : t('contracts.loadFailed')))
   } finally {
     saving.value = false
   }
@@ -396,6 +520,13 @@ onMounted(loadContractAndCards)
             <p v-if="!isVersionEditable(selectedVersion.status)" class="muted">{{ t('rates.readOnlyVersion') }}</p>
             <template v-else-if="canMutate">
               <Button
+                v-if="versionActions.includes('edit')"
+                variant="secondary"
+                @click="openEditVersion"
+              >
+                {{ t('rates.editVersion') }}
+              </Button>
+              <Button
                 v-if="versionActions.includes('discard')"
                 variant="secondary"
                 @click="confirmDiscard = true"
@@ -419,7 +550,7 @@ onMounted(loadContractAndCards)
           <Button
             v-if="canMutate && isVersionEditable(selectedVersion.status)"
             size="sm"
-            @click="openLaneModal"
+            @click="openCreateLaneModal"
           >
             {{ t('rates.addLane') }}
           </Button>
@@ -441,20 +572,37 @@ onMounted(loadContractAndCards)
               <td>{{ locationLabel.get(line.destination_location_id) ?? line.destination_location_id }}</td>
               <td>{{ line.equipment_type }}</td>
               <td>{{ line.transport_mode }}</td>
-              <td>{{ componentSummary(line.id) }}</td>
+              <td>
+                <ul class="component-list">
+                  <li v-for="component in componentsByLine[line.id] ?? []" :key="component.id">
+                    {{ component.component_type }}
+                    <template v-if="canMutate && isVersionEditable(selectedVersion.status)">
+                      <Button size="sm" variant="ghost" @click="openEditComponentModal(component)">
+                        {{ t('rates.editComponent') }}
+                      </Button>
+                      <Button size="sm" variant="ghost" @click="requestDeleteComponent(component.id)">
+                        {{ t('rates.deleteComponent') }}
+                      </Button>
+                    </template>
+                  </li>
+                </ul>
+              </td>
               <td>
                 <template v-if="canMutate && isVersionEditable(selectedVersion.status)">
-                  <Button size="sm" variant="secondary" @click="openComponentModal(line.id, 'BASE_FREIGHT')">
-                    {{ t('rates.baseFreight') }}
+                  <Button size="sm" variant="secondary" @click="openEditLaneModal(line)">
+                    {{ t('rates.editLane') }}
                   </Button>
-                  <Button size="sm" variant="secondary" @click="openComponentModal(line.id, 'FUEL_SURCHARGE')">
-                    {{ t('rates.fuelSurcharge') }}
+                  <Button size="sm" variant="danger" @click="requestDeleteLine(line.id)">
+                    {{ t('rates.deleteLane') }}
                   </Button>
-                  <Button size="sm" variant="secondary" @click="openComponentModal(line.id, 'WAITING')">
-                    {{ t('rates.waiting') }}
-                  </Button>
-                  <Button size="sm" variant="secondary" @click="openComponentModal(line.id, 'DETENTION')">
-                    {{ t('rates.detention') }}
+                  <Button
+                    v-for="componentType in addableComponentTypes(line.id)"
+                    :key="`${line.id}-${componentType}`"
+                    size="sm"
+                    variant="secondary"
+                    @click="openCreateComponentModal(line.id, componentType)"
+                  >
+                    {{ t(`rates.${componentType === 'BASE_FREIGHT' ? 'baseFreight' : componentType === 'FUEL_SURCHARGE' ? 'fuelSurcharge' : componentType === 'WAITING' ? 'waiting' : 'detention'}`) }}
                   </Button>
                 </template>
                 <span v-if="(laneValidationByLine.get(line.id) ?? []).length" class="validation-error">
@@ -495,7 +643,20 @@ onMounted(loadContractAndCards)
       </template>
     </Modal>
 
-    <Modal :open="showLaneModal" :title="t('rates.addLane')" @close="showLaneModal = false">
+    <Modal :open="showEditVersion" :title="t('rates.editVersion')" @close="showEditVersion = false">
+      <Input v-model="editVersionForm.valid_from" type="date" :label="t('rates.validFrom')" required />
+      <Input v-model="editVersionForm.valid_to" type="date" :label="t('rates.validTo')" />
+      <template #footer>
+        <Button variant="secondary" @click="showEditVersion = false">{{ t('common.cancel') }}</Button>
+        <Button :loading="saving" @click="submitEditVersion">{{ t('contracts.save') }}</Button>
+      </template>
+    </Modal>
+
+    <Modal
+      :open="showLaneModal"
+      :title="laneModalMode === 'create' ? t('rates.addLane') : t('rates.editLane')"
+      @close="showLaneModal = false"
+    >
       <Select v-model="laneForm.origin_location_id" :label="t('rates.origin')" required>
         <option value="" disabled>{{ t('rates.origin') }}</option>
         <option v-for="loc in locations" :key="loc.id" :value="loc.id">
@@ -516,7 +677,11 @@ onMounted(loadContractAndCards)
       </template>
     </Modal>
 
-    <Modal :open="showComponentModal" :title="t('rates.components')" @close="showComponentModal = false">
+    <Modal
+      :open="showComponentModal"
+      :title="componentModalMode === 'create' ? t('rates.components') : t('rates.editComponent')"
+      @close="showComponentModal = false"
+    >
       <Input
         v-if="componentForm.component_type === 'BASE_FREIGHT'"
         v-model="componentForm.amount"
@@ -572,6 +737,22 @@ onMounted(loadContractAndCards)
         <Button :loading="saving" @click="activateVersion">{{ t('rates.activate') }}</Button>
       </template>
     </Modal>
+
+    <Modal :open="confirmDeleteLine" :title="t('rates.confirmDeleteLaneTitle')" @close="confirmDeleteLine = false">
+      <p>{{ t('rates.confirmDeleteLaneBody') }}</p>
+      <template #footer>
+        <Button variant="secondary" @click="confirmDeleteLine = false">{{ t('common.cancel') }}</Button>
+        <Button :loading="saving" variant="danger" @click="confirmDeleteLineAction">{{ t('rates.deleteLane') }}</Button>
+      </template>
+    </Modal>
+
+    <Modal :open="confirmDeleteComponent" :title="t('rates.confirmDeleteComponentTitle')" @close="confirmDeleteComponent = false">
+      <p>{{ t('rates.confirmDeleteComponentBody') }}</p>
+      <template #footer>
+        <Button variant="secondary" @click="confirmDeleteComponent = false">{{ t('common.cancel') }}</Button>
+        <Button :loading="saving" variant="danger" @click="confirmDeleteComponentAction">{{ t('rates.deleteComponent') }}</Button>
+      </template>
+    </Modal>
   </div>
 </template>
 
@@ -625,6 +806,7 @@ onMounted(loadContractAndCards)
   padding: 0.5rem;
   border-bottom: 1px solid var(--color-border);
   text-align: left;
+  vertical-align: top;
 }
 
 .simple-table tr.selected {
@@ -636,11 +818,20 @@ onMounted(loadContractAndCards)
   display: flex;
   gap: 0.5rem;
   margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+.component-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
 }
 
 .validation-error {
   color: var(--color-danger);
   font-size: 0.75rem;
+  display: block;
+  margin-top: 0.25rem;
 }
 
 .muted {

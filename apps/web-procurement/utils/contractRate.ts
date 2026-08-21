@@ -1,6 +1,10 @@
 import type {
   ContractStatus,
+  CreateRateComponentInput,
   CreateTransportContractInput,
+  PatchRateComponentInput,
+  PatchRateVersionInput,
+  PatchTransportContractInput,
   RateCardVersion,
   RateCardVersionStatus,
   RateComponent,
@@ -129,6 +133,149 @@ const COMPONENT_METHOD: Record<RateComponentType, string> = {
 
 export function expectedCalculationMethod(componentType: RateComponentType): string {
   return COMPONENT_METHOD[componentType]
+}
+
+export function buildRateComponentPayload(input: {
+  component_type: RateComponentType
+  amount?: string
+  percent_value?: string
+  unit_code?: string
+}): CreateRateComponentInput {
+  switch (input.component_type) {
+    case 'BASE_FREIGHT':
+      return {
+        component_type: 'BASE_FREIGHT',
+        calculation_method: 'FLAT',
+        amount: input.amount?.trim() ?? null,
+        percent_value: null,
+        unit_code: null,
+      }
+    case 'FUEL_SURCHARGE':
+      return {
+        component_type: 'FUEL_SURCHARGE',
+        calculation_method: 'PERCENT',
+        amount: null,
+        percent_value: input.percent_value?.trim() ?? null,
+        unit_code: null,
+      }
+    case 'WAITING':
+    case 'DETENTION':
+      return {
+        component_type: input.component_type,
+        calculation_method: 'UNIT_RATE',
+        amount: input.amount?.trim() ?? null,
+        percent_value: null,
+        unit_code: input.unit_code?.trim() || 'HOUR',
+      }
+  }
+}
+
+export function buildPatchRateComponentPayload(input: {
+  component_type: RateComponentType
+  amount?: string
+  percent_value?: string
+  unit_code?: string
+}): PatchRateComponentInput {
+  switch (input.component_type) {
+    case 'BASE_FREIGHT':
+      return { amount: input.amount?.trim() ?? null }
+    case 'FUEL_SURCHARGE':
+      return { percent_value: input.percent_value?.trim() ?? null }
+    case 'WAITING':
+    case 'DETENTION':
+      return {
+        amount: input.amount?.trim() ?? null,
+        unit_code: input.unit_code?.trim() || 'HOUR',
+      }
+  }
+}
+
+export function buildPatchRateLinePayload(input: {
+  origin_location_id: string
+  destination_location_id: string
+  equipment_type: string
+  transport_mode?: string
+}) {
+  return buildCreateRateLinePayload(input)
+}
+
+export function buildPatchRateVersionPayload(input: {
+  valid_from: string
+  valid_to?: string
+}): PatchRateVersionInput {
+  return {
+    valid_from: input.valid_from,
+    valid_to: input.valid_to?.trim() ? input.valid_to : null,
+  }
+}
+
+export function buildPatchContractPayload(
+  status: ContractStatus,
+  form: {
+    name: string
+    description: string
+    external_reference: string
+    valid_to: string
+  },
+): PatchTransportContractInput {
+  if (isContractDraftEditable(status)) {
+    const payload: PatchTransportContractInput = {}
+    if (canEditContractField(status, 'name')) payload.name = form.name.trim()
+    if (canEditContractField(status, 'description')) payload.description = form.description.trim() || null
+    if (canEditContractField(status, 'external_reference')) {
+      payload.external_reference = form.external_reference.trim() || null
+    }
+    if (canEditContractField(status, 'valid_to')) payload.valid_to = form.valid_to || null
+    return payload
+  }
+  if (isContractMetadataEditable(status)) {
+    return {
+      description: form.description.trim() || null,
+      external_reference: form.external_reference.trim() || null,
+    }
+  }
+  return {}
+}
+
+export function canShowContractEdit(
+  status: ContractStatus,
+  opts: { canEditDraft: boolean; canEditMetadata: boolean; isCarrierReader: boolean },
+): boolean {
+  if (opts.isCarrierReader) return false
+  if (isContractDraftEditable(status)) return opts.canEditDraft
+  if (isContractMetadataEditable(status)) return opts.canEditMetadata
+  return false
+}
+
+export function canShowContractLifecycleAction(
+  action: string,
+  status: ContractStatus,
+  opts: {
+    isCarrierReader: boolean
+    canActivate: boolean
+    canSuspend: boolean
+    canTerminate: boolean
+  },
+): boolean {
+  if (opts.isCarrierReader || isContractTerminal(status)) return false
+  if (!contractLifecycleActions(status).includes(action)) return false
+  if (action === 'activate' || action === 'cancel') return opts.canActivate
+  if (action === 'suspend' || action === 'reactivate') return opts.canSuspend
+  if (action === 'terminate') return opts.canTerminate
+  return false
+}
+
+export function shouldShowRateHistoryNav(_status: ContractStatus): boolean {
+  return true
+}
+
+export function canAddComponentType(components: RateComponent[], type: RateComponentType): boolean {
+  return !components.some((component) => component.component_type === type)
+}
+
+export function availableComponentTypes(components: RateComponent[]): RateComponentType[] {
+  const all: RateComponentType[] = ['BASE_FREIGHT', 'FUEL_SURCHARGE', 'WAITING', 'DETENTION']
+  return all.filter((type) => canAddComponentType(components, type))
 }
 
 export function validateLaneComponents(components: RateComponent[]): string[] {
