@@ -13,7 +13,6 @@ import (
 	"github.com/freight-platform/contract-rate-service/internal/config"
 	httpserver "github.com/freight-platform/contract-rate-service/internal/http"
 	"github.com/freight-platform/contract-rate-service/internal/http/handlers"
-	"github.com/freight-platform/contract-rate-service/internal/observability"
 	"github.com/freight-platform/contract-rate-service/internal/repository"
 	"github.com/freight-platform/contract-rate-service/internal/service"
 )
@@ -49,13 +48,12 @@ func StartServer(t *testing.T, opts ServerOptions) *Server {
 	resolutions := repository.NewResolutionRepository(opts.Pool, audit)
 	memberships := repository.NewMembershipRepository(opts.Pool)
 	actors := handlers.NewActorResolver(memberships)
-	rateMetrics := observability.NewMetrics("contract-rate-service-testkit")
 
 	contractSvc := service.NewContractService(contracts, memberships)
 	rateCardSvc := service.NewRateCardService(rateCards, contracts)
 	rateLineSvc := service.NewRateLineService(rateLines, rateCards, contracts)
 	rateComponentSvc := service.NewRateComponentService(rateComponents, rateLines, rateCards, contracts)
-	resolutionSvc := service.NewResolutionService(resolutions, memberships, nil, rateMetrics)
+	resolutionSvc := service.NewResolutionService(resolutions, memberships, nil, nil)
 
 	router := httpserver.NewRouter(
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
