@@ -118,11 +118,14 @@ Existing ports in `infrastructure/docker-compose/docker-compose.yml`:
 | 8088 | low-code-service |
 | 8089 | control-tower-read-model-service |
 | **8090** | **payment-service** (already allocated) |
+| **8091** | **contract-rate-service** (`services/contract-rate-service/internal/config/config.go`, default `8091`) |
 
 | Field | Frozen value |
 |-------|--------------|
-| `SERVICE_PORT` | **8091** |
-| Env var | `FREIGHT_COST_SERVICE_PORT` (fallback `HTTP_PORT`, default `8091`) |
+| `SERVICE_PORT` | **8092** |
+| Env var | `FREIGHT_COST_SERVICE_PORT` (fallback `HTTP_PORT`, default `8092`) |
+
+**Note:** Do not allocate `8091` — already owned by contract-rate-service per v2.0A implementation docs.
 
 ### 5.3 Routes
 
@@ -154,15 +157,24 @@ Template service: `control-tower-read-model-service` (chi router, observability 
 
 #### `Money` — **IMPLEMENT_V2_1A**
 
+`Money` always represents a **known** monetary fact. Unknown monetary state is **never** embedded inside `Money`.
+
 ```go
 type Money struct {
     Amount   decimal.Decimal // canonical; never float64 in domain
-    Currency string          // ISO 4217, required when Amount is present
+    Currency string          // ISO 4217, required
 }
 ```
 
-- `IsZero()` allowed only when explicitly known-zero (e.g. approved accessorial sum with no lines).
-- `IsUnknown()` when amount pointer is nil — distinct from zero.
+| Rule | Value |
+|------|-------|
+| `MONEY_STRUCT_CAN_BE_UNKNOWN` | **NO** |
+| `OPTIONAL_MONEY_USES_POINTER` | **YES** — use `*Money` at aggregate/function boundaries |
+| `UNKNOWN_MONEY` | `nil` (`*Money == nil`) |
+| `KNOWN_ZERO_MONEY` | `&Money{Amount: decimal.Zero, Currency: "RUB"}` (non-nil) |
+
+- `Money.IsZero()` — known zero amount (distinct from unknown).
+- Optional fields in aggregates: `PlannedAmount *Money`, `AccruedAmount *Money`, etc.
 
 #### `CostSourceRef` (canonical fact pointer) — **IMPLEMENT_V2_1A**
 
@@ -170,12 +182,22 @@ For v2.1A read-only facts (no event identity required yet):
 
 ```go
 type CanonicalSourceRef struct {
-    SourceService string    // e.g. "transport-order-service"
-    SourceType    string    // TO_RATE_SNAPSHOT | FREIGHT_SETTLEMENT | ...
-    SourceID      uuid.UUID
-    SourceVersion int       // aggregate version when available; 0 if N/A
+    SourceService        string     // e.g. "transport-order-service"
+    SourceType           string     // TO_RATE_SNAPSHOT | FREIGHT_SETTLEMENT | ...
+    SourceID             uuid.UUID
+    SourceVersion        *int       // nil = N/A; never invent a synthetic version
+    PricingModelVersion  *string    // e.g. "SNAPSHOT_V1" for TO snapshots; distinct from aggregate revision
 }
 ```
+
+**Source version semantics (frozen):**
+
+| Field | TO rate snapshot |
+|-------|------------------|
+| `SourceVersion` | **nil / omitted** — `RateSnapshot` has no aggregate revision field |
+| `PricingModelVersion` | `"SNAPSHOT_V1"` from `transport_orders.pricing_model_version` |
+
+Do **not** send `"source_version": 1` merely because the pricing model is v1.
 
 #### `EventSourceRef` — **RESERVE_FOR_V2_1B**
 
@@ -195,12 +217,15 @@ Not required in v2.1A HTTP responses or persistence.
 Enum describing settlement-side confidence (local canonical strings — **no import** of billing-register Go package):
 
 ```text
-FINANCIAL_FINALITY_UNKNOWN          // no settlement
-FINANCIAL_FINALITY_DRAFT            // settlement exists, not financially accepted
+FINANCIAL_FINALITY_NOT_EVALUATED    // settlement source not loaded (v2.1A default)
+FINANCIAL_FINALITY_DRAFT            // settlement loaded, not financially accepted
 FINANCIAL_FINALITY_CURRENT_ACTUAL   // CURRENT_ACTUAL available
 FINANCIAL_FINALITY_FINAL_ACTUAL     // FINAL_ACTUAL available
 FINANCIAL_FINALITY_CANCELLED        // settlement cancelled
 ```
+
+**v2.1A HTTP value:** `NOT_EVALUATED` — means settlement provider was **not called**, not that settlement does not exist.
+Do **not** claim absence of settlement unless the settlement provider was queried.
 
 #### `BillingReconciliationStatus` — **IMPLEMENT_V2_1A** (pure function only)
 
@@ -211,8 +236,10 @@ MATCH | MISMATCH | UNLINKED
 #### `CostViewScope` — **IMPLEMENT_V2_1A**
 
 ```text
-BUYER_COST_VIEW | CARRIER_RECEIVABLE_VIEW | PLATFORM_ADMIN_VIEW
+BUYER_COST_VIEW | CARRIER_RECEIVABLE_VIEW
 ```
+
+(`PLATFORM_ADMIN_VIEW` deferred to v2.1E — denied at v2.1A HTTP boundary.)
 
 ### 6.2 Summary aggregate — field disposition
 
@@ -229,7 +256,7 @@ BUYER_COST_VIEW | CARRIER_RECEIVABLE_VIEW | PLATFORM_ADMIN_VIEW
 | `PlannedAmount` | v2.1A | YES (from snapshot `total_amount`) |
 | `PlannedSourceRef` | v2.1A | YES |
 | `DataStage` | v2.1A | YES (`PLANNED_ONLY` in v2.1A) |
-| `FinancialFinality` | v2.1A | YES (`UNKNOWN` until settlement provider wired) |
+| `FinancialFinality` | v2.1A | YES (`NOT_EVALUATED` — settlement source not loaded) |
 | `AccruedAmount` | v2.1B | **null** in v2.1A |
 | `ForecastExposure` | v2.1B | **null** in v2.1A |
 | `CurrentActualAmount` | v2.1B | **null** in v2.1A |
@@ -261,7 +288,7 @@ BUYER_COST_VIEW | CARRIER_RECEIVABLE_VIEW | PLATFORM_ADMIN_VIEW
 
 | Field | Required | Nullable | Known-zero allowed | Unavailable meaning |
 |-------|----------|----------|--------------------|---------------------|
-| `planned_amount` | When TO has snapshot | NO (if TO exists without snapshot → 404/409) | NO | N/A — snapshot mandatory for priced TO |
+| `planned_amount` | When TO has snapshot | NO (TO missing → 404; unpriced TO → 409) | **YES** — DB allows `total_amount >= 0` (`000051` `chk_snapshot_total_nonneg`) | N/A when snapshot present |
 | `accrued_amount` | NO | YES | YES (explicit zero accrual addon) | Settlement/accessorial source not loaded (v2.1A: always unavailable) |
 | `forecast_exposure` | NO | YES | YES | No proposed accessorials |
 | `current_actual_amount` | NO | YES | NO | Settlement missing, wrong status, or open dispute |
@@ -271,9 +298,30 @@ BUYER_COST_VIEW | CARRIER_RECEIVABLE_VIEW | PLATFORM_ADMIN_VIEW
 | `current_variance` | NO | YES | YES (explicit zero variance) | Planned or current actual unavailable |
 | `final_variance` | NO | YES | YES | Planned or final actual unavailable |
 
-**JSON rule:** unavailable → JSON `null` (pointer omitted in Go struct tags `omitempty` only when semantically unknown; never serialize `"0.00"` for unknown).
+**Planned zero (frozen):**
 
-**Domain rule:** functions accepting `*decimal.Decimal` — nil means unknown; never default nil to zero inside financial derivations.
+| Rule | Value |
+|------|-------|
+| `PLANNED_ZERO_ALLOWED` | **YES_AS_CANONICAL_KNOWN_ZERO** |
+| Evidence | Migration `000051`: `chk_snapshot_total_nonneg CHECK (total_amount >= 0)` — zero permitted, not forbidden |
+| Cost service rule | Faithfully reflect canonical snapshot; `0.00` ≠ NULL |
+
+**JSON rule (frozen):**
+
+| Rule | Value |
+|------|-------|
+| `UNKNOWN_AMOUNT_JSON` | explicit JSON `null` |
+| `UNKNOWN_FIELD_OMITTED` | **NO** for reserved monetary fields |
+| `STABLE_SUMMARY_SHAPE` | **YES** — all reserved fields present in every 200 response |
+| `KNOWN_ZERO_JSON` | decimal string `"0.00"` (never null) |
+
+Wire DTO example — **no `omitempty`** on reserved nullable amounts:
+
+```go
+AccruedAmount *string `json:"accrued_amount"` // nil → JSON null
+```
+
+**Domain rule:** use `*Money` for unknown; never default nil to zero inside financial derivations.
 
 ---
 
@@ -289,9 +337,23 @@ BUYER_COST_VIEW | CARRIER_RECEIVABLE_VIEW | PLATFORM_ADMIN_VIEW
 | `DECIMAL_SCALE` | 2 |
 | `ROUNDING_POLICY` | Half-up, 2 dp — `decimal.Round(2)` (matches transport-order `MoneyScale=2` and billing `CalculateSettlementTotalsDecimal`) |
 
-**Downstream boundary:** billing-register settlement HTTP DTOs currently expose `float64`. freight-cost-service **must parse at adapter boundary** into `decimal.Decimal` with fail-closed validation. Log parse failures; never silently round float64 into canonical money without explicit conversion helper.
+### 8.1 Domain vs wire separation (frozen)
 
-Reuse pattern from `transport-order-service/internal/domain/rate_snapshot.go` (`TotalAmount decimal.Decimal`).
+| Layer | Type |
+|-------|------|
+| Domain `Money.Amount` | `decimal.Decimal` |
+| HTTP/API amount fields | `*string` decimal string (e.g. `"1250.00"`) |
+
+**Explicit helpers — IMPLEMENT_V2_1A:**
+
+```go
+func FormatMoneyAmount(d decimal.Decimal) string   // scale 2, no scientific notation
+func ParseMoneyAmount(s string) (decimal.Decimal, error) // fail closed; reject float/scientific
+```
+
+Do **not** rely on `decimal.Decimal` default JSON marshaling as the API contract.
+
+Rules: exact 2 dp formatting; no float64; fail closed on invalid decimal; no scientific notation.
 
 ---
 
@@ -422,8 +484,8 @@ FORECAST_EXPOSURE (non-canonical) =
 ### 12.2 Pure functions — **IMPLEMENT_V2_1A**
 
 ```go
-func CalculateAccrual(planned Money, approvedAccessorials []Money) (*Money, error)
-func CalculateForecastExposure(planned Money, proposedAccessorials []Money) (*Money, error)
+func CalculateAccrual(planned *Money, approvedAccessorials []Money) (*Money, error)
+func CalculateForecastExposure(planned *Money, proposedAccessorials []Money) (*Money, error)
 ```
 
 | Flag | Value |
@@ -480,54 +542,102 @@ No reconciliation job in v2.1A.
 
 ## 14. Security actor model
 
-### 14.1 Trusted context — **IMPLEMENT_V2_1A**
+### 14.1 Internal auth threat model — **FROZEN**
 
-v2.1A is **internal-only**. Pattern matches settlement/billing actor model + S2S gate:
+Repository truth: `packages/shared-go/internalauth/auth.go` validates only `X-Internal-Service-Token` via shared configured token and constant-time comparison. It does **not** cryptographically bind actor headers to caller identity.
 
-| Dimension | Source |
-|-----------|--------|
-| S2S auth | `X-Internal-Service-Token` via `shared-go/internalauth` |
-| `TenantID` | `X-Tenant-ID` header (required) |
-| `UserID` | `X-User-ID` header (required for audited reads) |
-| `CompanyID` | `X-Company-ID` header (required) |
-| `ActorKind` | `X-Actor-Kind` header: `BUYER` \| `CARRIER` \| `PLATFORM_ADMIN` |
+| Rule | Value |
+|------|-------|
+| `S2S_TOKEN_AUTHENTICATES_CALLER_CLASS` | YES — proves caller is trusted internal service class |
+| `S2S_TOKEN_BINDS_ACTOR_HEADERS` | **NO** |
+| `IDENTITY_HEADERS_WITHOUT_VALID_S2S_TOKEN` | **DENY** → 401 |
+| `IDENTITY_HEADERS_WITH_VALID_S2S_TOKEN` | **TRUSTED_FORWARDED_CONTEXT** |
+| `PUBLIC_CLIENT_IDENTITY_HEADERS_TRUSTED` | **NO** |
 
-**Do not trust** identity from query params or request body.
+**Threat model:**
 
-Future public chain (v2.1E): browser → api-gateway (JWT + membership) → server-side internal call with token + derived headers.
+- Browser/public clients **never** reach `/internal/v1/freight-cost/*` directly.
+- Actor headers are trusted **only after** `internalauth.Middleware` succeeds.
+- Authenticity of user/company membership is the **upstream caller's responsibility** (future api-gateway v2.1E derives headers from verified JWT + company membership/RBAC — never client-supplied headers).
+- freight-cost-service **cannot** detect forged actor headers from a caller that already possesses the valid shared S2S token. Do not claim otherwise in tests or docs.
 
-### 14.2 Authorization rules
+### 14.2 Trusted actor headers — **IMPLEMENT_V2_1A**
 
-| Check | Behavior |
-|-------|----------|
-| Cross-tenant | 403 Forbidden |
-| Same-tenant, buyer actor, wrong `buyer_company_id` | **403 Forbidden** (align with `ValidateSettlementAccess`) |
-| Same-tenant, carrier actor, wrong `carrier_company_id` | **403 Forbidden** |
-| Resource not found within tenant | **404 Not Found** |
-| Spoofed token | 401 Unauthorized |
+After successful S2S auth, require:
 
-Platform admin: may read any company within tenant (v2.1E hardening may add explicit permission code `freight_cost.read`).
+| Header | Validation |
+|--------|------------|
+| `X-Tenant-ID` | Valid non-zero UUID |
+| `X-User-ID` | Valid non-zero UUID (required for audit consistency with gateway/settlement contracts even though v2.1A is stateless) |
+| `X-Company-ID` | Valid non-zero UUID |
+| `X-Actor-Kind` | `BUYER` \| `CARRIER` only in v2.1A HTTP |
+
+**Forbidden identity sources:** query params, request body, URL path (except resource IDs).
+
+Malformed/missing actor headers after S2S auth → **400** `VALIDATION_ERROR`.
+
+### 14.3 Platform admin policy — **FROZEN**
+
+| Rule | Value |
+|------|-------|
+| `PLATFORM_ADMIN_DOMAIN_SCOPE` | DEFINED (future v2.1E gateway RBAC) |
+| `PLATFORM_ADMIN_HTTP_ACCESS_V2_1A` | **DENY** |
+
+v2.1A HTTP rejects `X-Actor-Kind: PLATFORM_ADMIN` with **400** — no stronger upstream proof mechanism exists today. Defer platform-admin reads to v2.1E gateway RBAC.
+
+### 14.4 Authorization flow — **FROZEN**
+
+```text
+1. Authenticate S2S token (internalauth middleware)
+2. Parse + validate trusted actor headers
+3. Call tenant-scoped transport provider (tenantID + transportOrderID)
+4. Receive canonical buyer_company_id / carrier_company_id from snapshot
+5. Authorize actor company against canonical facts
+6. Apply view-scope filter
+7. Build response DTO
+```
+
+| Rule | Value |
+|------|-------|
+| `AUTHORIZATION_USES_CANONICAL_COMPANY_FACTS` | YES |
+| `NO_CROSS_TENANT_EXISTENCE_PROBE` | YES — never global unscoped lookup |
+
+### 14.5 HTTP error semantics — **FROZEN**
+
+| Scenario | HTTP | Code |
+|----------|------|------|
+| Missing/invalid S2S token | 401 | UNAUTHORIZED |
+| Malformed/missing actor headers (after S2S) | 400 | VALIDATION_ERROR |
+| Resource UUID belongs to **another tenant** | **404** | NOT_FOUND |
+| Same tenant, wrong buyer/carrier company | **403** | FORBIDDEN |
+| Resource not found within tenant scope | **404** | NOT_FOUND |
+| Invalid `X-Actor-Kind` (incl. PLATFORM_ADMIN) | **400** | VALIDATION_ERROR |
+
+**Cross-tenant → 404**, not 403 — tenant-scoped provider lookup must not distinguish "exists in another tenant" from "does not exist". No global fallback queries.
+
+Future public chain (v2.1E): browser → api-gateway (JWT + membership) → server-side internal call with token + server-derived headers.
 
 ---
 
 ## 15. Buyer vs carrier view matrix
 
-Field visibility for **future** projection/API layers. v2.1A internal API returns full struct; **view filter applied in service layer** before response.
+Field visibility enforced in service layer **before** DTO serialization. Tests must use **populated synthetic fixtures** — v2.1A null fields alone do not prove masking.
 
-| Field | Buyer | Carrier | Platform Admin |
-|-------|-------|---------|----------------|
-| `planned_amount` | YES | YES (agreed freight) | YES |
-| `accrued_amount` | YES | NO | YES |
-| `forecast_exposure` | YES | NO | YES |
-| `current_actual_amount` | YES | YES (receivable context) | YES |
-| `final_actual_amount` | YES | YES | YES |
-| `current_variance_amount` | YES | **NO** | YES |
-| `final_variance_amount` | YES | **NO** | YES |
-| `billing_reconciliation_status` | YES | YES (payable state) | YES |
-| `paid_amount` | YES | YES | YES |
-| Buyer internal benchmark / cross-carrier analytics | YES | **NO** | YES |
+| Field | Buyer | Carrier | v2.1A HTTP |
+|-------|-------|---------|------------|
+| `planned_amount` | YES | YES (only if `actor.company_id == carrier_company_id`) | YES |
+| `accrued_amount` | YES | **NO** (null/stripped) | null in v2.1A |
+| `forecast_exposure` | YES | **NO** | null in v2.1A |
+| `current_actual_amount` | YES | YES (receivable context) | null in v2.1A |
+| `final_actual_amount` | YES | YES | null in v2.1A |
+| `current_variance_amount` | YES | **NO** | null in v2.1A |
+| `final_variance_amount` | YES | **NO** | null in v2.1A |
+| `billing_reconciliation_status` | YES | YES (payable state) | null in v2.1A |
+| `paid_amount` | YES | YES | null in v2.1A |
 
-**Carrier must never receive buyer-internal variance or forecast.**
+**FC-A-SEC-003:** use synthetic `CostSummary` with populated buyer-only values; assert carrier view removes/nulls them.
+
+**Carrier must never receive buyer-internal variance or forecast** — even when values are non-null in domain assembly pre-filter.
 
 ---
 
@@ -568,9 +678,27 @@ Align with billing-register: **403 Forbidden** (not 404) when resource exists bu
 
 ```http
 GET /internal/v1/transport-orders/{transportOrderId}/rate-snapshot
-Authorization: X-Internal-Service-Token
+X-Internal-Service-Token: {shared token}
 X-Tenant-ID: {tenant_uuid}
 ```
+
+**Middleware:** reuse existing `shared-go/internalauth` on `/internal/v1` route group (same as `from-award-scope`).
+
+**Lookup strategy (frozen — enables 404 vs 409):**
+
+1. Tenant-scoped TO lookup by `(tenant_id, transport_order_id)`.
+2. If TO missing → **404** `NOT_FOUND`.
+3. If TO exists, inspect `pricing_model_version`:
+   - `NULL` (legacy) or not `SNAPSHOT_V1` → **409** `CONFLICT` (unpriced TO).
+   - `SNAPSHOT_V1` but snapshot row missing → **409** `CONFLICT` (data inconsistency).
+4. If snapshot found → **200**.
+
+| HTTP | Meaning |
+|------|---------|
+| `TO_MISSING_HTTP` | **404** |
+| `TO_UNPRICED_HTTP` | **409** |
+
+No global cross-tenant fallback. Snapshot query always includes `tenant_id`.
 
 **Response DTO (minimal):**
 
@@ -584,12 +712,16 @@ X-Tenant-ID: {tenant_uuid}
   "currency_code": "RUB",
   "total_amount": "150000.00",
   "pricing_source": "CONTRACT_RATE",
-  "resolved_at": "2026-08-21T12:00:00Z",
-  "version": 1
+  "pricing_model_version": "SNAPSHOT_V1",
+  "resolved_at": "2026-08-21T12:00:00Z"
 }
 ```
 
-Implementation note: reuse `priced_order_repository.getSnapshotByID` / snapshot by transport order lookup.
+`tenant_id` included in body for downstream audit/logging consistency (request is already tenant-scoped via header).
+
+| Field | Value |
+|------|-------|
+| `TO_RATE_SNAPSHOT_SOURCE_VERSION` | **N/A** — omit `source_version`; use `pricing_model_version` separately |
 
 ### 17.2 Settlement — **NOT_FOUND internal read (defer impl to v2.1B)**
 
@@ -623,7 +755,7 @@ X-Internal-Service-Token: ***
 X-Tenant-ID: {uuid}
 X-User-ID: {uuid}
 X-Company-ID: {uuid}
-X-Actor-Kind: BUYER|CARRIER|PLATFORM_ADMIN
+X-Actor-Kind: BUYER|CARRIER
 ```
 
 ### 18.2 Response — planned-only stage
@@ -636,14 +768,14 @@ X-Actor-Kind: BUYER|CARRIER|PLATFORM_ADMIN
   "carrier_company_id": "...",
   "currency_code": "RUB",
   "data_stage": "PLANNED_ONLY",
-  "financial_finality": "UNKNOWN",
+  "financial_finality": "NOT_EVALUATED",
   "sources_available": ["TO_RATE_SNAPSHOT"],
   "planned_amount": "150000.00",
   "planned_source": {
     "source_service": "transport-order-service",
     "source_type": "TO_RATE_SNAPSHOT",
     "source_id": "...",
-    "source_version": 1
+    "pricing_model_version": "SNAPSHOT_V1"
   },
   "accrued_amount": null,
   "forecast_exposure": null,
@@ -664,12 +796,13 @@ Carrier view: same shape but variance/forecast/accrual fields **stripped or null
 | Code | When |
 |------|------|
 | 200 | Success |
-| 400 | Validation (bad UUID, missing headers) |
+| 400 | Validation (bad UUID, missing/malformed actor headers, invalid actor kind) |
 | 401 | Invalid/missing internal token |
-| 403 | Tenant/company authorization failure |
-| 404 | Transport order or snapshot not found in tenant |
-| 409 | TO exists but pricing snapshot missing (unpriced TO) |
-| 503 | Downstream transport-order unavailable |
+| 403 | Same-tenant wrong buyer/carrier company (after canonical facts loaded) |
+| 404 | Transport order not found **within tenant** (includes cross-tenant UUID) |
+| 409 | TO exists but unpriced / snapshot missing (propagate from transport provider) |
+| 502 | Downstream responded but violated trusted contract (invalid decimal, malformed DTO) |
+| 503 | Downstream transport-order unavailable (timeout/connection/5xx) |
 
 ---
 
@@ -677,12 +810,30 @@ Carrier view: same shape but variance/forecast/accrual fields **stripped or null
 
 | `data_stage` | Meaning |
 |--------------|---------|
-| `PLANNED_ONLY` | Snapshot loaded; no settlement chain (v2.1A default) |
+| `PLANNED_ONLY` | Snapshot loaded; settlement chain **not loaded** (v2.1A default) |
 | `ACCRUAL_AVAILABLE` | v2.1B+ |
 | `CURRENT_ACTUAL_AVAILABLE` | v2.1B+ |
 | `FINAL_ACTUAL_AVAILABLE` | v2.1B+ |
 | `BILLING_LINKED` | v2.1B+ |
 | `PAID` | v2.1B+ |
+
+| v2.1A field | Value | Meaning |
+|-------------|-------|---------|
+| `DATA_STAGE_V2_1A` | `PLANNED_ONLY` | Only planned source queried |
+| `FINANCIAL_FINALITY_V2_1A` | `NOT_EVALUATED` | Settlement provider **not called** — does not assert settlement absence |
+
+### 19.1 Domain rules without live orchestration
+
+Pure-domain functions are implemented in v2.1A even though HTTP does not load settlement data:
+
+| Flag | Value |
+|------|-------|
+| `FINALITY_DOMAIN_FUNCTIONS` | YES |
+| `ACCRUAL_DOMAIN_FUNCTIONS` | YES |
+| `RECONCILIATION_DOMAIN_FUNCTIONS` | YES |
+| `LIVE_SETTLEMENT_ORCHESTRATION` | NO |
+| `LIVE_ACCRUAL_HTTP_OUTPUT` | NO |
+| `LIVE_RECONCILIATION_HTTP_OUTPUT` | NO |
 
 Consumers MUST use `data_stage` + `sources_available` — not infer completeness from null fields alone when ambiguous (future stages).
 
@@ -726,11 +877,22 @@ Follow `{SERVICE}_SERVICE_PORT` / `{UPSTREAM}_SERVICE_URL` pattern from docker-c
 
 | Env var | Required v2.1A | Default |
 |---------|----------------|---------|
-| `FREIGHT_COST_SERVICE_PORT` | NO | `8091` |
+| `FREIGHT_COST_SERVICE_PORT` | NO | `8092` |
 | `ENVIRONMENT` | NO | `development` |
 | `LOG_LEVEL` | NO | `info` |
 | `INTERNAL_SERVICE_TOKEN` | YES (non-empty in non-dev) | — |
 | `TRANSPORT_ORDER_SERVICE_URL` | YES | `http://transport-order-service:8083` |
+
+### 22.1 Internal token direction — **FROZEN**
+
+Repository convention: all services use the **same shared** `INTERNAL_SERVICE_TOKEN` env var (`transport-order-service`, `billing-register-service`, `payment-service`, `rfx-service` clients).
+
+| Config | Value |
+|--------|-------|
+| `INBOUND_INTERNAL_TOKEN_CONFIG` | `INTERNAL_SERVICE_TOKEN` — validates incoming `/internal/v1/*` |
+| `OUTBOUND_TRANSPORT_TOKEN_CONFIG` | Same `INTERNAL_SERVICE_TOKEN` sent as `X-Internal-Service-Token` to transport-order-service |
+
+Do not invent per-service downstream tokens unless repository convention changes.
 
 Not required v2.1A:
 - `DATABASE_URL`
@@ -747,12 +909,19 @@ Reuse `internal/platform/errors` + `respond` pattern (copy from control-tower-re
 |-----------|------|------|
 | Validation | `VALIDATION_ERROR` | 400 |
 | Unauthorized token | `UNAUTHORIZED` | 401 |
-| Forbidden tenant/company | `FORBIDDEN` | 403 |
-| Not found | `NOT_FOUND` | 404 |
+| Same-tenant wrong company | `FORBIDDEN` | 403 |
+| Not found (incl. cross-tenant) | `NOT_FOUND` | 404 |
 | Unpriced TO | `CONFLICT` | 409 |
-| Downstream timeout/5xx | `SERVICE_UNAVAILABLE` | 503 |
+| Downstream timeout/unavailable | `SERVICE_UNAVAILABLE` | **503** |
+| Downstream invalid contract (bad decimal/DTO) | `BAD_GATEWAY` | **502** |
 | Currency mismatch | `VALIDATION_ERROR` | 400 |
-| Downstream invalid decimal | `INTERNAL_ERROR` | 502/500 (fail closed, log) |
+
+| Rule | Value |
+|------|-------|
+| `DOWNSTREAM_UNAVAILABLE_HTTP` | **503** |
+| `DOWNSTREAM_INVALID_RESPONSE_HTTP` | **502** |
+
+Do not return ambiguous 500 for downstream contract violations.
 
 **Never leak:** SQL, tokens, cross-tenant existence, raw downstream payloads.
 
@@ -764,28 +933,33 @@ Prefix families: `FC-A-DOM-*`, `FC-A-SEC-*`, `FC-A-API-*`, `FC-A-SRC-*`, `FC-A-E
 
 | ID | Description | Slice |
 |----|-------------|-------|
-| FC-A-DOM-001 | Planned decimal parsing | v2.1A |
-| FC-A-DOM-002 | NULL ≠ zero | v2.1A |
+| FC-A-DOM-001 | Decimal string parse/format helpers | v2.1A |
+| FC-A-DOM-002 | nil `*Money` ≠ known zero `*Money` | v2.1A |
 | FC-A-DOM-003 | Current actual APPROVED, no disputes | v2.1A |
 | FC-A-DOM-004 | Current actual DISPUTED → NULL | v2.1A |
 | FC-A-DOM-005 | Final actual READY_FOR_PAYMENT | v2.1A |
 | FC-A-DOM-006 | APPROVED is not final | v2.1A |
-| FC-A-DOM-007 | Mixed currency deny | v2.1A |
+| FC-A-DOM-007 | Currency mismatch deny | v2.1A |
 | FC-A-DOM-008 | Billing reconciliation MATCH | v2.1A |
 | FC-A-DOM-009 | Billing reconciliation MISMATCH | v2.1A |
 | FC-A-DOM-010 | Billing reconciliation UNLINKED | v2.1A |
-| FC-A-SEC-001 | Cross-tenant deny | v2.1A |
-| FC-A-SEC-002 | Same-tenant cross buyer company deny | v2.1A |
-| FC-A-SEC-003 | Carrier buyer-internal view deny | v2.1A |
-| FC-A-SEC-004 | Spoofed tenant/user/company denied | v2.1A |
-| FC-A-SRC-001 | Transport snapshot canonical total | v2.1A |
+| FC-A-SEC-001 | Wrong-tenant resource UUID → 404 (no existence leak) | v2.1A |
+| FC-A-SEC-002 | Same-tenant wrong buyer/carrier company → 403 | v2.1A |
+| FC-A-SEC-003 | Populated buyer-only fields masked for carrier view | v2.1A |
+| FC-A-SEC-004 | Identity headers without valid S2S token → 401 | v2.1A |
+| FC-A-SEC-005 | Missing/malformed actor headers after S2S → 400 | v2.1A |
+| FC-A-SRC-001 | Snapshot total decimal string preserved exactly | v2.1A |
 | FC-A-SRC-002 | Downstream unavailable → 503 | v2.1A |
-| FC-A-SRC-003 | Invalid decimal from downstream → fail closed | v2.1A |
-| FC-A-API-001 | Planned-only summary; nullable unknown fields | v2.1A |
-| FC-A-API-002 | Unknown amount never serialized as `"0.00"` | v2.1A |
-| FC-A-E2E-001 | Tenant/company scoped planned cost read | v2.1A |
+| FC-A-SRC-003 | Invalid downstream decimal → 502 | v2.1A |
+| FC-A-SRC-004 | TO missing (404) vs unpriced (409) per frozen contract | v2.1A |
+| FC-A-API-001 | Planned summary stable nullable JSON shape | v2.1A |
+| FC-A-API-002 | Unknown financial amounts serialize as JSON `null` | v2.1A |
+| FC-A-API-003 | Known zero serializes `"0.00"`, not null | v2.1A |
+| FC-A-E2E-001 | Buyer same-company planned read success | v2.1A |
+| FC-A-E2E-002 | Carrier same-company planned read success | v2.1A |
+| FC-A-E2E-003 | Wrong-tenant resource indistinguishable from not found | v2.1A |
 
-**Counts:** DOM=10, SEC=4, SRC=3, API=2, E2E=1 (total 20 planned)
+**Counts:** DOM=10, SEC=5, SRC=4, API=3, E2E=3 (**total 25**)
 
 ---
 
@@ -816,27 +990,29 @@ Optional: `go vet ./...` if sibling services run it (CI currently `go test` only
 | `services/freight-cost-service/go.mod` | Module | NEW | — |
 | `cmd/server/main.go` | Bootstrap, HTTP server | NEW | — |
 | `internal/config/config.go` | Env loading | NEW | unit |
-| `internal/domain/money.go` | Money, currency validation | NEW | FC-A-DOM-001,007 |
-| `internal/domain/nullable.go` | NULL vs zero helpers | NEW | FC-A-DOM-002 |
-| `internal/domain/source_ref.go` | CanonicalSourceRef | NEW | — |
+| `internal/domain/money.go` | Money, Format/Parse helpers, currency validation | NEW | FC-A-DOM-001,007 |
+| `internal/domain/money_test.go` | Money semantics | NEW | FC-A-DOM-001,002 |
+| `internal/domain/source_ref.go` | CanonicalSourceRef (no synthetic version) | NEW | — |
 | `internal/domain/finality.go` | Finality pure functions | NEW | FC-A-DOM-003..006 |
-| `internal/domain/accrual.go` | Accrual/forecast calc | NEW | FC-A-DOM-007 |
+| `internal/domain/accrual.go` | Accrual/forecast calc (*Money) | NEW | FC-A-DOM-007 |
 | `internal/domain/reconciliation.go` | MATCH/MISMATCH/UNLINKED | NEW | FC-A-DOM-008..010 |
-| `internal/domain/cost_summary.go` | Aggregate + data_stage | NEW | — |
+| `internal/domain/cost_summary.go` | Domain aggregate (*Money fields) | NEW | — |
 | `internal/domain/view_scope.go` | Buyer/carrier field mask | NEW | FC-A-SEC-003 |
-| `internal/security/actor.go` | TrustedActor from headers | NEW | FC-A-SEC-001..004 |
-| `internal/security/access.go` | Tenant/company checks | NEW | FC-A-SEC-* |
+| `internal/security/actor.go` | TrustedActor from headers | NEW | FC-A-SEC-004,005 |
+| `internal/security/access.go` | Company authorization vs canonical facts | NEW | FC-A-SEC-001,002 |
 | `internal/provider/transport_order.go` | Provider interface + DTO | NEW | — |
 | `internal/client/transport_order/client.go` | HTTP adapter | NEW | FC-A-SRC-* |
 | `internal/service/cost_service.go` | Orchestration | NEW | — |
 | `internal/http/router.go` | chi routes | NEW | — |
-| `internal/http/handlers/cost_handler.go` | Internal API | NEW | FC-A-API-* |
 | `internal/http/handlers/tenant.go` | Header parsing | NEW | — |
+| `internal/http/dto/cost_summary.go` | Wire DTOs (*string amounts, no omitempty on reserved nulls) | NEW | FC-A-API-* |
+| `internal/http/dto/money.go` | DTO money mapping | NEW | FC-A-API-003 |
+| `internal/http/handlers/cost_handler.go` | Internal API | NEW | FC-A-API-* |
 | `internal/platform/errors/errors.go` | AppError | NEW | — |
 | `internal/platform/respond/respond.go` | JSON envelope | NEW | — |
 | `internal/platform/logger/logger.go` | slog setup | NEW | — |
 | `internal/platform/metrics/metrics.go` | Domain counters | NEW | — |
-| `internal/integration/planned_cost/planned_cost_test.go` | E2E with mock TO | NEW | FC-A-E2E-001 |
+| `internal/integration/planned_cost/planned_cost_test.go` | E2E with mock TO | NEW | FC-A-E2E-* |
 | `Dockerfile` | Container build | NEW | — |
 | `README.md` | Service docs | NEW | — |
 
@@ -942,11 +1118,12 @@ Leave for v2.1C:
 | ID | Severity | Description | Mitigation | Gate |
 |----|----------|-------------|------------|------|
 | RISK-A-001 | MEDIUM | billing-register settlement HTTP uses float64 | Parse at adapter boundary; fail closed; v2.1B internal DTO uses decimal strings | FC-A-SRC-003 |
-| RISK-A-002 | HIGH | Transport internal snapshot API missing | Add GET in transport-order-service as v2.1A dependency | Block impl until endpoint exists |
-| RISK-A-003 | MEDIUM | Same-tenant wrong-company authorization | Mirror billing 403 semantics; FC-A-SEC-002 | SEC tests |
-| RISK-A-004 | HIGH | Partial summaries misread as zero | Explicit `data_stage`; null JSON; FC-A-API-002 | API tests |
+| RISK-A-002 | HIGH | Transport internal snapshot API missing | Add GET in transport-order-service as v2.1A dependency | FC-A-SRC-004 |
+| RISK-A-003 | MEDIUM | Same-tenant wrong-company authorization | 403 after canonical facts; FC-A-SEC-002 | SEC tests |
+| RISK-A-004 | HIGH | Partial summaries misread as zero | Explicit `data_stage`; JSON null contract; FC-A-API-002 | API tests |
 | RISK-A-005 | LOW | Premature DB schema | V2_1A_DATABASE_REQUIRED=NO | Planning gate |
-| RISK-A-006 | HIGH | Carrier receives buyer variance | View scope filter in service layer; FC-A-SEC-003 | SEC tests |
+| RISK-A-006 | HIGH | Carrier receives buyer variance | View filter with populated fixtures; FC-A-SEC-003 | SEC tests |
+| RISK-A-007 | MEDIUM | Port 8091 conflict with contract-rate-service | Allocate **8092** for freight-cost-service | Config gate |
 
 **Open for implementation review:** RISK-A-002 blocks E2E until transport endpoint ships (can ship in same v2.1A PR series).
 
@@ -975,34 +1152,73 @@ Leave for v2.1C:
 
 | Decision | Value |
 |----------|-------|
-| New service | **freight-cost-service** @ port **8091** |
+| New service | **freight-cost-service** @ port **8092** |
 | v2.1A persistence | **NO** (stateless) |
 | Ledger in v2.1A | **NO** |
 | Event ingestion in v2.1A | **NO** |
 | Public API in v2.1A | **NO** |
-| Canonical money | **shopspring/decimal.Decimal**, scale 2, JSON string |
+| Canonical money | **shopspring/decimal.Decimal** domain; **string** wire |
+| Optional money | **`*Money`** (nil = unknown) |
 | Planned source | transport-order-service `TO_RATE_SNAPSHOT.total_amount` |
-| Current actual source | billing-register-service `freight_settlements.total_without_vat` (v2.1B) |
+| Current actual source | billing-register-service (v2.1B) |
 | Final actual source | Same field, status READY_FOR_PAYMENT (v2.1B) |
 | Final actual status | **READY_FOR_PAYMENT** |
 | Accrual rule | planned ex-VAT + approved accessorials ex-VAT |
 | Forecast rule | planned + proposed accessorials (non-canonical) |
 | Cross-service DB reads | **NO** |
 | Buyer/carrier projection split | **YES** — service-layer view mask |
-| Internal auth pattern | **X-Internal-Service-Token** + trusted actor headers |
+| Internal auth | **X-Internal-Service-Token** + trusted forwarded actor headers |
+| S2S binds actor headers | **NO** |
+| Platform admin v2.1A HTTP | **DENY** |
+| Cross-tenant lookup | **404** |
+| Same-tenant wrong company | **403** |
 | Mixed currency | **DENY** |
 | Payment provider in v2.1A | **NO** |
-| Transport internal API | **NEW** GET rate-snapshot |
-| OPEN BLOCKER/HIGH | **0** |
+| Transport internal API | **NEW** GET rate-snapshot (404/409 semantics) |
+| Source version | **N/A** (no synthetic version) |
+| Downstream invalid DTO | **502** |
+| Downstream unavailable | **503** |
+| OPEN BLOCKER/HIGH/MEDIUM | **0** |
 
 ---
 
 ## 35. Planning PR metadata
 
 - **Branch:** `arch/freight-cost-foundation-v2.1A-plan`
+- **PR:** #43
 - **Files changed:** this document only
-- **Do not merge** in planning task
-- **Do not implement** v2.1A runtime in planning task
+- **Status after review:** ready for merge to main
+
+---
+
+## 36. Final implementation contract review
+
+Independent review performed 2026-08-21 against PR #43 head and repository evidence.
+
+### Findings register
+
+| ID | Severity | Original issue | Resolution | Final rule |
+|----|----------|----------------|------------|------------|
+| F-A-HIGH-001 | HIGH | FC-A-SEC-004 claimed freight-cost-service could detect spoofed actor headers when caller already has valid S2S token | Rewrote threat model per `internalauth` reality | S2S authenticates caller **class** only; actor headers are trusted forwarded context after token gate; FC-A-SEC-004 → missing token → 401 |
+| F-A-HIGH-002 | HIGH | Cross-tenant → 403 implies existence probe or global lookup | Tenant-scoped provider only | Cross-tenant UUID → **404**; same-tenant wrong company → **403** |
+| F-A-MED-001 | MEDIUM | `Money` struct claimed both non-pointer Amount and nil-unknown semantics | Separated known vs unknown | `Money` = known fact; unknown = `*Money == nil` |
+| F-A-MED-002 | MEDIUM | JSON null vs `omitempty` contradiction | Frozen stable wire shape | Reserved fields always present as explicit JSON `null`; no `omitempty` on nullable amounts |
+| F-A-MED-003 | MEDIUM | `"source_version": 1` synthetic — no domain revision on RateSnapshot | Removed synthetic version | `SourceVersion` = nil/N/A; separate `pricing_model_version` |
+| F-A-MED-004 | MEDIUM | Downstream invalid DTO mapped to 500/502 ambiguously | Single mapping | Invalid contract → **502**; unavailable → **503** |
+| F-A-MED-005 | MEDIUM | Port 8091 assigned to freight-cost but already used by contract-rate-service | Rechecked repo | **8092** for freight-cost-service |
+| F-A-LOW-001 | LOW | Planned known-zero marked NO without source evidence | Cited migration 000051 | `PLANNED_ZERO_ALLOWED=YES`; `total_amount >= 0` |
+| F-A-LOW-002 | LOW | `financial_finality=UNKNOWN` implied no settlement | Renamed semantics | v2.1A → `NOT_EVALUATED` (source not loaded) |
+| F-A-LOW-003 | LOW | PLATFORM_ADMIN accepted without proof mechanism | Denied at HTTP | `PLATFORM_ADMIN_HTTP_ACCESS_V2_1A=DENY`; defer to v2.1E |
+
+### Review gate status
+
+| Gate | Count |
+|------|-------|
+| OPEN_BLOCKER | 0 |
+| OPEN_HIGH | 0 |
+| OPEN_MEDIUM | 0 |
+
+**Review verdict:** APPROVED for merge — implementation may proceed after PR #43 closes.
 
 ---
 
