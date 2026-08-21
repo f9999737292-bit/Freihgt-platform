@@ -9,6 +9,8 @@ import (
 type Metrics struct {
 	resolutionTotal      *prometheus.CounterVec
 	resolutionFailed     *prometheus.CounterVec
+	pricingSourceTotal   *prometheus.CounterVec
+	pricingSourceFailure *prometheus.CounterVec
 	resolutionAmbiguous  prometheus.Counter
 	resolutionDuration   prometheus.Histogram
 	versionActivation    *prometheus.CounterVec
@@ -25,6 +27,16 @@ func NewMetrics(serviceName string) *Metrics {
 			Namespace: serviceName,
 			Name:      "rate_resolution_failed_total",
 			Help:      "Rate resolution failures by reason code",
+		}, []string{"reason"}),
+		pricingSourceTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: serviceName,
+			Name:      "pricing_source_total",
+			Help:      "Successful pricing source resolutions by source type",
+		}, []string{"source_type"}),
+		pricingSourceFailure: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: serviceName,
+			Name:      "pricing_source_failure_total",
+			Help:      "Pricing source resolution failures by reason",
 		}, []string{"reason"}),
 		resolutionAmbiguous: prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: serviceName,
@@ -46,6 +58,8 @@ func NewMetrics(serviceName string) *Metrics {
 	prometheus.MustRegister(
 		m.resolutionTotal,
 		m.resolutionFailed,
+		m.pricingSourceTotal,
+		m.pricingSourceFailure,
 		m.resolutionAmbiguous,
 		m.resolutionDuration,
 		m.versionActivation,
@@ -63,11 +77,15 @@ func (m *Metrics) ObserveResolution(start time.Time, status, sourceType, reason 
 		source = "NONE"
 	}
 	m.resolutionTotal.WithLabelValues(status, source).Inc()
+	if status == "MATCHED" && source != "NONE" {
+		m.pricingSourceTotal.WithLabelValues(source).Inc()
+	}
 	if status == "AMBIGUOUS" {
 		m.resolutionAmbiguous.Inc()
 	}
 	if reason != "" {
 		m.resolutionFailed.WithLabelValues(reason).Inc()
+		m.pricingSourceFailure.WithLabelValues(reason).Inc()
 	}
 }
 

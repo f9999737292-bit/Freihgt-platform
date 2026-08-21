@@ -40,6 +40,8 @@ func (h *ResolutionHandler) Resolve(w http.ResponseWriter, r *http.Request) {
 		ManualSpotCurrency    *string   `json:"manual_spot_currency"`
 		PricingSource         *string   `json:"pricing_source"`
 		AwardLinkID           *uuid.UUID `json:"award_link_id"`
+		AwardScopeEventID     *uuid.UUID `json:"award_scope_event_id"`
+		AwardScopeLotID       *uuid.UUID `json:"award_scope_lot_id"`
 		BidID                 *uuid.UUID `json:"bid_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -64,7 +66,9 @@ func (h *ResolutionHandler) Resolve(w http.ResponseWriter, r *http.Request) {
 		OriginLocationID: req.OriginLocationID, DestinationLocationID: req.DestinationLocationID,
 		EquipmentType: req.EquipmentType, TransportMode: req.TransportMode, PricingDate: pricingDate,
 		CurrencyCode: req.CurrencyCode, ManualSpotAmount: manualSpot, ManualSpotCurrency: req.ManualSpotCurrency,
-		PricingSource: req.PricingSource, AwardLinkID: req.AwardLinkID, BidID: req.BidID, Actor: actor,
+		PricingSource: req.PricingSource, AwardLinkID: req.AwardLinkID,
+		AwardScopeEventID: req.AwardScopeEventID, AwardScopeLotID: req.AwardScopeLotID,
+		BidID: req.BidID, Actor: actor,
 	}, CorrelationID(r))
 	if err != nil {
 		respond.Error(w, err)

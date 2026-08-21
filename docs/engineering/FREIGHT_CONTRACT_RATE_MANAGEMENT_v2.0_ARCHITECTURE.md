@@ -844,7 +844,7 @@ Note: contract-rate-service reads **only** `contract_rate.*` tables directly. RF
 
 | Priority | Source type (`PricingSource`) | `source_id` | Notes |
 |----------|-----------------------------|-------------|-------|
-| 1 | `RFQ_AWARD` | `rfx_award_transport_orders.id` | Formal RFx conversion; facts from rfx-service |
+| 1 | `RFQ_AWARD` | `rfx_award_transport_orders.id` (post-link) / `rfx_event_id` + scoped `rfx_lot_id` (pre-link TO create) | Formal RFx conversion; facts from rfx-service |
 | 1b | `SPOT_BID` | `rfx.bids.id` | Accepted mini-tender bid; facts from rfx-service |
 | 2 | `CONTRACT_RATE` | `rate_line.id` + version/card/contract IDs | Active contract path |
 | 3 | `MANUAL_SPOT` | manual spot audit id | Fallback only when zero contract match; requires `USE_MANUAL_SPOT_PRICE` |
@@ -1055,7 +1055,28 @@ Accepted bid has price on `rfx.bids` but shipment/TO path lacks price propagatio
 - Award amount at conversion time remains immutable in `rfx.rfx_award_transport_orders`
 - Snapshot duplicates for TO audit — does not mutate award row
 
-### 15.4 RFx pricing-source service boundary (frozen)
+### 15.5 Award pre-link provenance (v2.0C clarification)
+
+Award conversion saga creates the transport order and immutable rate snapshot **before** the final
+`rfx_award_transport_orders` link row exists (no distributed transaction; link finalization is a
+separate committed step).
+
+```
+AWARD_PRELINK_SOURCE_IDENTITY = rfx_event_id + scoped rfx_lot_id
+POST_LINK_PROVENANCE            = rfx_award_transport_orders link references same TO/scope
+SNAPSHOT_IMMUTABLE              = YES
+SNAPSHOT_POST_LINK_MUTATION     = NO
+```
+
+| Phase | RFQ_AWARD provenance on snapshot | Notes |
+|-------|----------------------------------|-------|
+| Pre-link TO create | `rfx_event_id` + `rfx_lot_id` (award scope) | Resolver uses rfx-service award-scope internal API |
+| Post-link | Same snapshot row; optional `award_link_id` on link table only | Snapshot is **not** updated to fill `award_link_id` after link creation |
+
+Settlement for `SNAPSHOT_V1` orders reads `transport_order_rate_snapshots.total_amount` — not the
+award link row. Historical orders without `pricing_model_version` continue legacy award-link fallback.
+
+---
 
 ```
 CONTRACT_RATE_DIRECT_RFX_DB_READS = NO

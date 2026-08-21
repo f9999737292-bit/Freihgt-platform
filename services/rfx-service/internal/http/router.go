@@ -6,8 +6,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/freight-platform/rfx-service/internal/config"
 	"github.com/freight-platform/rfx-service/internal/http/handlers"
 	"github.com/freight-platform/rfx-service/internal/service"
+	"github.com/freight-platform/shared-go/internalauth"
 	"github.com/freight-platform/shared-go/metrics"
 	"github.com/freight-platform/shared-go/observability"
 )
@@ -17,13 +19,17 @@ const serviceName = "rfx-service"
 func NewRouter(
 	log *slog.Logger,
 	db observability.DatabasePinger,
+	cfg config.Config,
 	rfxSvc *service.RfxService,
 	frSvc *service.FreightRequestService,
 	bidSvc *service.BidService,
+	pricingSvc *service.PricingService,
 ) http.Handler {
 	rfxHandler := handlers.NewRfxHandler(rfxSvc)
 	frHandler := handlers.NewFreightRequestHandler(frSvc)
 	bidHandler := handlers.NewBidHandler(bidSvc)
+	pricingHandler := handlers.NewPricingHandler(pricingSvc)
+	internalAuth := internalauth.Config{Token: cfg.InternalServiceToken, Environment: cfg.Environment}
 
 	r := chi.NewRouter()
 	observability.Mount(r, observability.MountOptions{
@@ -93,6 +99,13 @@ func NewRouter(
 		r.Get("/{id}", bidHandler.GetByID)
 		r.Post("/{id}/submit", bidHandler.SubmitBid)
 		r.Post("/{id}/accept", bidHandler.AcceptBid)
+	})
+
+	r.Route("/internal/v1/pricing", func(r chi.Router) {
+		r.Use(internalAuth.Middleware)
+		r.Get("/award-context/{sourceId}", pricingHandler.GetAwardLinkContext)
+		r.Get("/award-scope/{eventId}", pricingHandler.GetAwardScopeContext)
+		r.Get("/bid-context/{bidId}", pricingHandler.GetBidContext)
 	})
 
 	return r

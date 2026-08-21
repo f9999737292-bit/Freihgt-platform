@@ -19,7 +19,7 @@ import (
 	"github.com/freight-platform/billing-register-service/internal/service"
 )
 
-const maxMigrationFile = "000045_freight_payments_core_v1.9.1.up.sql"
+const maxMigrationFile = "000053_transport_pricing_tenant_fk_v2.0C.up.sql"
 
 type env struct {
 	pool        *pgxpool.Pool

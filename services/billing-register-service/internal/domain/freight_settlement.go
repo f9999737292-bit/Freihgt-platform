@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 
 	apperrors "github.com/freight-platform/billing-register-service/internal/platform/errors"
 )
@@ -41,6 +42,8 @@ type FreightSettlement struct {
 	VATAmount                float64
 	TotalWithVAT             float64
 	Status                   string
+	RateSnapshotID           *uuid.UUID
+	PricingSource            *string
 	ServiceAcceptedAt        *time.Time
 	ServiceAcceptedBy        *uuid.UUID
 	BillingRegisterID        *uuid.UUID
@@ -166,5 +169,16 @@ func CalculateSettlementTotals(baseFreight, approvedAccessorial float64, vatRate
 		vat = round2(withoutVAT * (*vatRate) / 100)
 	}
 	withVAT = round2(withoutVAT + vat)
+	return withoutVAT, vat, withVAT
+}
+
+func CalculateSettlementTotalsDecimal(baseFreight, approvedAccessorial decimal.Decimal, vatRate *float64) (withoutVAT, vat, withVAT decimal.Decimal) {
+	withoutVAT = baseFreight.Add(approvedAccessorial).Round(2)
+	vat = decimal.Zero
+	if vatRate != nil {
+		rate := decimal.NewFromFloat(*vatRate)
+		vat = withoutVAT.Mul(rate).Div(decimal.NewFromInt(100)).Round(2)
+	}
+	withVAT = withoutVAT.Add(vat).Round(2)
 	return withoutVAT, vat, withVAT
 }

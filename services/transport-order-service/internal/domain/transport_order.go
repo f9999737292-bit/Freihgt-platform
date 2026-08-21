@@ -34,6 +34,7 @@ type TransportOrder struct {
 	TransportMode         string
 	EquipmentType         *string
 	Status                string
+	PricingModelVersion   *string
 	SourceSystem          *string
 	ExternalReference     *string
 	CreatedAt             time.Time
@@ -102,6 +103,9 @@ func ValidateCreateTransportOrderInput(in CreateTransportOrderInput) error {
 }
 
 func ValidateUpdateTransportOrderInput(current *TransportOrder, in UpdateTransportOrderInput) error {
+	if err := ValidateUpdateWithSnapshot(current, in); err != nil {
+		return err
+	}
 	pickup := current.RequestedPickupDate
 	if in.RequestedPickupDate != nil {
 		pickup = in.RequestedPickupDate
@@ -222,4 +226,27 @@ func NormalizeTransportMode(value string) string {
 		return TransportModeRoad
 	}
 	return value
+}
+
+const MaxIdempotencyKeyLength = 128
+
+func NormalizeEquipmentType(value string) (string, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return "", apperrors.Validation("equipment_type is required", map[string]any{"field": "equipment_type"})
+	}
+	return trimmed, nil
+}
+
+func ValidateIdempotencyKey(key string) error {
+	trimmed := strings.TrimSpace(key)
+	if trimmed == "" {
+		return apperrors.Validation("idempotency key is required", map[string]any{"field": "idempotency_key"})
+	}
+	if len(trimmed) > MaxIdempotencyKeyLength {
+		return apperrors.Validation("idempotency key exceeds maximum length", map[string]any{
+			"field": "idempotency_key", "max_length": MaxIdempotencyKeyLength,
+		})
+	}
+	return nil
 }

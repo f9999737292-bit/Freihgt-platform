@@ -127,6 +127,6 @@ func TestValidateResolveRateRequestRejectsRFxIdentifiers(t *testing.T) {
 	src := PricingSourceSpotBid
 	_, err = ValidateResolveRateRequest(ResolveRateRequest{PricingSource: &src, TenantID: uuid.New()})
 	if err == nil {
-		t.Fatal("expected explicit pricing source rejection")
+		t.Fatal("expected explicit pricing source without reference rejection")
 	}
 }

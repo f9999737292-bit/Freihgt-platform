@@ -11,6 +11,7 @@ import (
 	"github.com/freight-platform/rfx-service/internal/domain"
 	apperrors "github.com/freight-platform/rfx-service/internal/platform/errors"
 	"github.com/freight-platform/rfx-service/internal/repository"
+	"github.com/freight-platform/rfx-service/internal/transportorderclient"
 )
 
 type RfxStore interface {
@@ -41,18 +42,24 @@ type RfxStore interface {
 }
 
 type RfxService struct {
-	repo   RfxStore
-	audit  AuditRecorder
-	actors ActorResolver
-	atomic *atomicServices
+	repo            RfxStore
+	audit           AuditRecorder
+	actors          ActorResolver
+	atomic          *atomicServices
+	transportOrders TransportOrderCreator
+}
+
+type TransportOrderCreator interface {
+	CreateFromAwardScope(ctx context.Context, in transportorderclient.CreateFromAwardScopeRequest) (transportorderclient.CreateFromAwardScopeResponse, error)
 }
 
 func NewRfxService(repo RfxStore, audit AuditRecorder, actors ActorResolver) *RfxService {
 	return &RfxService{repo: repo, audit: audit, actors: actors}
 }
 
-func NewRfxServiceWithAtomic(pool *pgxpool.Pool, rfxRepo *repository.RfxRepository, auditRepo *repository.AuditRepository, actors ActorResolver) *RfxService {
+func NewRfxServiceWithAtomic(pool *pgxpool.Pool, rfxRepo *repository.RfxRepository, auditRepo *repository.AuditRepository, actors ActorResolver, transportOrders TransportOrderCreator) *RfxService {
 	s := NewRfxService(rfxRepo, auditRepo, actors)
+	s.transportOrders = transportOrders
 	if pool != nil {
 		s.atomic = newAtomicServices(pool, rfxRepo, auditRepo, nil, nil)
 	}

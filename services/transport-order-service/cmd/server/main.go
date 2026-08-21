@@ -10,12 +10,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/freight-platform/transport-order-service/internal/client/contractrate"
 	"github.com/freight-platform/transport-order-service/internal/config"
 	httpserver "github.com/freight-platform/transport-order-service/internal/http"
 	"github.com/freight-platform/transport-order-service/internal/platform/database"
 	"github.com/freight-platform/transport-order-service/internal/platform/logger"
 	"github.com/freight-platform/transport-order-service/internal/repository"
 	"github.com/freight-platform/transport-order-service/internal/service"
+	toobs "github.com/freight-platform/transport-order-service/internal/observability"
 	"github.com/freight-platform/shared-go/metrics"
 )
 
@@ -42,8 +44,15 @@ func main() {
 	locationRepo := repository.NewLocationRepository(db.Pool)
 	cargoRepo := repository.NewCargoRepository(db.Pool)
 	orderRepo := repository.NewTransportOrderRepository(db.Pool)
+	pricedOrderRepo := repository.NewPricedOrderRepository(db.Pool)
+	rateClient := contractrate.New(contractrate.Config{
+		BaseURL:              cfg.ContractRateServiceURL,
+		InternalServiceToken: cfg.InternalServiceToken,
+	})
 	svc := service.NewTransportOrderService(locationRepo, cargoRepo, orderRepo, locationRepo)
-	router := httpserver.NewRouter(log, db.Pool, svc)
+	pricingMetrics := toobs.NewPricingMetrics(cfg.ServiceName)
+	pricedSvc := service.NewPricedTransportOrderService(orderRepo, cargoRepo, locationRepo, pricedOrderRepo, rateClient, pricingMetrics)
+	router := httpserver.NewRouter(log, db.Pool, cfg, svc, pricedSvc)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

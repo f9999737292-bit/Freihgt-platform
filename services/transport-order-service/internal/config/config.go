@@ -7,11 +7,13 @@ import (
 )
 
 type Config struct {
-	ServiceName string
-	Environment string
-	HTTPPort    int
-	LogLevel    string
-	DatabaseURL string
+	ServiceName              string
+	Environment              string
+	HTTPPort                 int
+	LogLevel                 string
+	DatabaseURL              string
+	ContractRateServiceURL   string
+	InternalServiceToken     string
 }
 
 func Load() (Config, error) {
@@ -34,11 +36,13 @@ func Load() (Config, error) {
 	}
 
 	return Config{
-		ServiceName: "transport-order-service",
-		Environment: getEnv("ENVIRONMENT", "development"),
-		HTTPPort:    port,
-		LogLevel:    getEnv("LOG_LEVEL", "info"),
-		DatabaseURL: databaseURL,
+		ServiceName:            "transport-order-service",
+		Environment:            getEnv("ENVIRONMENT", "development"),
+		HTTPPort:               port,
+		LogLevel:               getEnv("LOG_LEVEL", "info"),
+		DatabaseURL:            databaseURL,
+		ContractRateServiceURL: os.Getenv("CONTRACT_RATE_SERVICE_URL"),
+		InternalServiceToken:   os.Getenv("INTERNAL_SERVICE_TOKEN"),
 	}, nil
 }
 

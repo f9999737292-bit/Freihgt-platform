@@ -24,6 +24,8 @@ type ResolveRateRequest struct {
 	ManualSpotCurrency    *string
 	PricingSource         *string
 	AwardLinkID           *uuid.UUID
+	AwardScopeEventID     *uuid.UUID
+	AwardScopeLotID       *uuid.UUID
 	BidID                 *uuid.UUID
 	Actor                 ActorInput
 }
@@ -68,6 +70,13 @@ type ResolveRateResult struct {
 	ResolvedAt                time.Time           `json:"resolved_at"`
 	ResolverVersion           string              `json:"resolver_version"`
 	ReasonCode                *string             `json:"reason_code,omitempty"`
+	ManualSpotAuditID         *uuid.UUID          `json:"manual_spot_audit_id,omitempty"`
+	AwardLinkID               *uuid.UUID          `json:"award_link_id,omitempty"`
+	BidID                     *uuid.UUID          `json:"bid_id,omitempty"`
+	RfxEventID                *uuid.UUID          `json:"rfx_event_id,omitempty"`
+	RfxLotID                  *uuid.UUID          `json:"rfx_lot_id,omitempty"`
+	CarrierCompanyID          *uuid.UUID          `json:"carrier_company_id,omitempty"`
+	BuyerCompanyID            *uuid.UUID          `json:"buyer_company_id,omitempty"`
 }
 
 type RateCandidate struct {
@@ -97,8 +106,12 @@ func ValidateResolveRateRequest(req ResolveRateRequest) (ResolveRateRequest, err
 	if req.TenantID == uuid.Nil {
 		return req, apperrors.Unauthorized("tenant context is required")
 	}
-	if req.BuyerCompanyID == uuid.Nil || req.CarrierCompanyID == uuid.Nil {
-		return req, apperrors.Validation("buyer_company_id and carrier_company_id are required", nil)
+	if req.BuyerCompanyID == uuid.Nil {
+		return req, apperrors.Validation("buyer_company_id is required", nil)
+	}
+	hasRFxRef := req.AwardLinkID != nil || req.AwardScopeEventID != nil || req.BidID != nil
+	if req.CarrierCompanyID == uuid.Nil && !hasRFxRef {
+		return req, apperrors.Validation("carrier_company_id is required", nil)
 	}
 	if req.OriginLocationID == uuid.Nil || req.DestinationLocationID == uuid.Nil {
 		return req, apperrors.Validation("origin and destination location ids are required", nil)
@@ -120,11 +133,24 @@ func ValidateResolveRateRequest(req ResolveRateRequest) (ResolveRateRequest, err
 		src := strings.ToUpper(strings.TrimSpace(*req.PricingSource))
 		switch src {
 		case PricingSourceRFQAward, PricingSourceSpotBid:
-			return req, apperrors.Validation("explicit RFx pricing source is not available in v2.0B", map[string]any{"code": ReasonPricingSourceNotAvail, "pricing_source": src})
+			req.PricingSource = &src
+		default:
+			return req, apperrors.Validation("unsupported explicit pricing source", map[string]any{"code": ReasonInvalidPricingSource, "pricing_source": src})
 		}
 	}
-	if req.AwardLinkID != nil || req.BidID != nil {
-		return req, apperrors.Validation("explicit RFx pricing identifiers are not available in v2.0B", map[string]any{"code": ReasonPricingSourceNotAvail})
+	hasAward := req.AwardLinkID != nil || req.AwardScopeEventID != nil
+	hasBid := req.BidID != nil
+	if hasAward && hasBid {
+		return req, apperrors.Validation("award and bid pricing identifiers are mutually exclusive", map[string]any{"code": ReasonInvalidPricingSource})
+	}
+	if req.PricingSource != nil {
+		src := *req.PricingSource
+		if src == PricingSourceRFQAward && !hasAward {
+			return req, apperrors.Validation("award pricing source requires award reference", map[string]any{"code": ReasonInvalidPricingSource})
+		}
+		if src == PricingSourceSpotBid && !hasBid {
+			return req, apperrors.Validation("spot bid pricing source requires bid_id", map[string]any{"code": ReasonInvalidPricingSource})
+		}
 	}
 	if req.CurrencyCode != nil {
 		if err := ValidateCurrencyCode(*req.CurrencyCode); err != nil {
@@ -206,11 +232,13 @@ func ApplyManualSpotFallback(req ResolveRateRequest, base ResolveRateResult, aut
 		Status:                   ResolveStatusMatched,
 		PricingSource:            PricingSourceManualSpot,
 		CurrencyCode:             &cur,
-		ComponentBreakdownStatus: "UNKNOWN",
+		ComponentBreakdownStatus: "UNAVAILABLE",
 		TotalAmount:              &amountStr,
 		PricingDate:              req.PricingDate.Format("2006-01-02"),
 		ResolvedAt:               now,
 		ResolverVersion:          ResolverVersion,
+		CarrierCompanyID:         &req.CarrierCompanyID,
+		BuyerCompanyID:           &req.BuyerCompanyID,
 	}, nil
 }
 
@@ -246,6 +274,8 @@ func buildContractMatch(c RateCandidate, pricingDate, resolvedAt time.Time) Reso
 		PricingDate:              pricingDate.Format("2006-01-02"),
 		ResolvedAt:               resolvedAt,
 		ResolverVersion:          ResolverVersion,
+		CarrierCompanyID:         &c.CarrierCompanyID,
+		BuyerCompanyID:           &c.BuyerCompanyID,
 	}
 }
 

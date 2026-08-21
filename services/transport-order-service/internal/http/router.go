@@ -6,8 +6,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/freight-platform/transport-order-service/internal/config"
 	"github.com/freight-platform/transport-order-service/internal/http/handlers"
 	"github.com/freight-platform/transport-order-service/internal/service"
+	"github.com/freight-platform/shared-go/internalauth"
 	"github.com/freight-platform/shared-go/metrics"
 	"github.com/freight-platform/shared-go/observability"
 	sharedpprof "github.com/freight-platform/shared-go/pprof"
@@ -15,8 +17,16 @@ import (
 
 const serviceName = "transport-order-service"
 
-func NewRouter(log *slog.Logger, db observability.DatabasePinger, svc *service.TransportOrderService) http.Handler {
+func NewRouter(
+	log *slog.Logger,
+	db observability.DatabasePinger,
+	cfg config.Config,
+	svc *service.TransportOrderService,
+	pricedSvc *service.PricedTransportOrderService,
+) http.Handler {
 	handler := handlers.NewHandler(svc)
+	pricedHandler := handlers.NewPricedTransportOrderHandler(pricedSvc)
+	internalAuth := internalauth.Config{Token: cfg.InternalServiceToken, Environment: cfg.Environment}
 
 	r := chi.NewRouter()
 	observability.Mount(r, observability.MountOptions{
@@ -39,12 +49,17 @@ func NewRouter(log *slog.Logger, db observability.DatabasePinger, svc *service.T
 	})
 
 	r.Route("/v1/transport-orders", func(r chi.Router) {
-		r.Post("/", handler.CreateTransportOrder)
+		r.Post("/", pricedHandler.CreatePricedTransportOrder)
 		r.Get("/", handler.ListTransportOrders)
 		r.Get("/{id}", handler.GetTransportOrder)
 		r.Patch("/{id}", handler.UpdateTransportOrder)
 		r.Post("/{id}/submit", handler.SubmitTransportOrder)
 		r.Post("/{id}/cancel", handler.CancelTransportOrder)
+	})
+
+	r.Route("/internal/v1", func(r chi.Router) {
+		r.Use(internalAuth.Middleware)
+		r.Post("/transport-orders/from-award-scope", pricedHandler.CreateFromAwardScope)
 	})
 
 	return r

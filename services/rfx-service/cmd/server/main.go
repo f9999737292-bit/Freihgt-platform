@@ -16,6 +16,7 @@ import (
 	"github.com/freight-platform/rfx-service/internal/platform/logger"
 	"github.com/freight-platform/rfx-service/internal/repository"
 	"github.com/freight-platform/rfx-service/internal/service"
+	"github.com/freight-platform/rfx-service/internal/transportorderclient"
 	"github.com/freight-platform/rfx-service/internal/worker"
 	"github.com/freight-platform/shared-go/metrics"
 )
@@ -46,14 +47,22 @@ func main() {
 	membershipRepo := repository.NewMembershipRepository(db.Pool)
 	auditRepo := repository.NewAuditRepository(db.Pool)
 
-	rfxSvc := service.NewRfxServiceWithAtomic(db.Pool, rfxRepo, auditRepo, membershipRepo)
+	toClient := transportorderclient.New(transportorderclient.Config{
+		BaseURL:              cfg.TransportOrderServiceURL,
+		InternalServiceToken: cfg.InternalServiceToken,
+	})
+
+	rfxSvc := service.NewRfxServiceWithAtomic(db.Pool, rfxRepo, auditRepo, membershipRepo, toClient)
 	frSvc := service.NewFreightRequestServiceWithAuth(frRepo, membershipRepo)
 	bidSvc := service.NewBidServiceWithAtomic(db.Pool, bidRepo, frRepo, membershipRepo, auditRepo)
+
+	pricingRepo := repository.NewPricingRepository(db.Pool)
+	pricingSvc := service.NewPricingService(pricingRepo)
 
 	deadlineMetrics := worker.NewMetrics(cfg.ServiceName)
 	deadlineWorker := worker.NewDeadlineWorker(cfg.DeadlineWorker, rfxSvc, worker.RealClock(), log, deadlineMetrics)
 
-	router := httpserver.NewRouter(log, db.Pool, rfxSvc, frSvc, bidSvc)
+	router := httpserver.NewRouter(log, db.Pool, cfg, rfxSvc, frSvc, bidSvc, pricingSvc)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

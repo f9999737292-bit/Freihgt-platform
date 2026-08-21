@@ -17,6 +17,7 @@ import (
 	"github.com/freight-platform/contract-rate-service/internal/platform/database"
 	"github.com/freight-platform/contract-rate-service/internal/platform/logger"
 	"github.com/freight-platform/contract-rate-service/internal/repository"
+	"github.com/freight-platform/contract-rate-service/internal/rfxclient"
 	"github.com/freight-platform/contract-rate-service/internal/service"
 	"github.com/freight-platform/shared-go/metrics"
 )
@@ -55,7 +56,11 @@ func main() {
 	rateCardSvc := service.NewRateCardService(rateCardRepo, contractRepo)
 	rateLineSvc := service.NewRateLineService(rateLineRepo, rateCardRepo, contractRepo)
 	rateComponentSvc := service.NewRateComponentService(rateComponentRepo, rateLineRepo, rateCardRepo, contractRepo)
-	resolutionSvc := service.NewResolutionService(resolutionRepo, membershipRepo, rateMetrics)
+	rfxClient := rfxclient.New(rfxclient.Config{
+		BaseURL:              cfg.RFXServiceURL,
+		InternalServiceToken: cfg.InternalServiceToken,
+	})
+	resolutionSvc := service.NewResolutionService(resolutionRepo, membershipRepo, rfxClient, rateMetrics)
 	actorResolver := handlers.NewActorResolver(membershipRepo)
 
 	router := httpserver.NewRouter(

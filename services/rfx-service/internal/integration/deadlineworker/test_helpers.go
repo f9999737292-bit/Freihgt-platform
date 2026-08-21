@@ -74,7 +74,7 @@ func setupTestEnv(t *testing.T) *testEnv {
 
 	rfxRepo := repository.NewRfxRepository(pool)
 	auditRepo := repository.NewAuditRepository(pool)
-	rfxSvc := service.NewRfxServiceWithAtomic(pool, rfxRepo, auditRepo, nil)
+	rfxSvc := service.NewRfxServiceWithAtomic(pool, rfxRepo, auditRepo, nil, nil)
 	t.Logf("isolated database=%s", dbName)
 	return &testEnv{
 		pool:      pool,
