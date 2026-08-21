@@ -321,7 +321,35 @@ FINANCIAL_ACCRUAL (ex-VAT) =
 | Unknown planned | accrual unknown (`NULL`) |
 | Currency mismatch | fail closed |
 
-Ledger stores **`ACCRUAL_COST_SNAPSHOT`** derived snapshot value, not individual accessorial delta lines (unless future review requires line-level audit — defer).
+Ledger stores **`ACCRUAL_COST_SNAPSHOT`** derived snapshot value, not individual accessorial delta lines.
+
+**Authoritative approved set (F-B-HIGH-003 closed):**
+
+```text
+ACCRUAL_APPROVED_SET_SOURCE=billing.settlement_accessorials WHERE status='APPROVED' AND settlement_id=?
+ACCRUAL_EVENT_MONEY_SOURCE=EXACT_NUMERIC_APPROVED_ACCESSORIAL_SET
+ACCRUAL_USES_LEGACY_FLOAT_AGGREGATE=NO
+FREIGHT_COST_FLOAT_INGEST=NO
+```
+
+billing-register-service MUST compute accrual event money using **NUMERIC/decimal-safe** path:
+
+```sql
+SELECT COALESCE(SUM(amount), 0)::text
+FROM billing.settlement_accessorials
+WHERE tenant_id = $1 AND settlement_id = $2 AND status = 'APPROVED'
+```
+
+→ parse with `shopspring/decimal` inside billing service → emit decimal string in outbox payload.
+
+**Do not trust** legacy `approved_accessorial_total` float aggregate or `::float8` recalculation path for v2.1B financial events.
+
+freight-cost-service MUST NOT query `settlement_accessorials` directly (cross-service DB reads = 0).
+
+**Frozen scenario FC-B-ACC-006:**
+
+- planned = `1000.00`; accessorial A APPROVED `100.00` → accrual `1100.00`
+- accessorial A → DISPUTED → accrual `1000.00` (historical `1100.00` journal row remains)
 
 ---
 
@@ -378,10 +406,87 @@ Proposed accessorial changes must never be interpreted as financial accrual in v
 
 ---
 
+## 11A. Delivery identity vs canonical financial fact identity
+
+Architecture review finding **F-B-HIGH-001** (closed): `UNIQUE(tenant_id, source_event_id)` alone cannot prevent the same canonical financial fact from entering the ledger twice when the same fact arrives via **LIVE_OUTBOX** and later via **CANONICAL_REBUILD** with different delivery IDs.
+
+### A. Delivery identity — `source_event_id`
+
+| Field | Value |
+|-------|-------|
+| Meaning | Identity of **this event delivery** (outbox row / synthetic rebuild delivery) |
+| Live value | Canonical outbox row `id` (UUID) |
+| Rebuild value | Deterministic delivery UUID (distinct namespace from fact id) |
+| Uniqueness | `UNIQUE (tenant_id, source_event_id)` |
+| Purpose | Broker replay, crash-after-commit redelivery, outbox idempotency |
+
+```text
+DELIVERY_IDENTITY=source_event_id
+DELIVERY_UNIQUE_KEY=(tenant_id, source_event_id)
+REBUILD_DELIVERY_ID=UUIDv5(NAMESPACE_FREIGHT_COST_REBUILD_DELIVERY, tenant_id|source_fact_id)
+```
+
+`event_origin` is **metadata only** — never part of delivery or fact identity.
+
+### B. Canonical financial fact identity — `source_fact_id`
+
+| Field | Value |
+|-------|-------|
+| Meaning | Stable identity of **one derived canonical financial fact**, independent of arrival path |
+| Uniqueness | `UNIQUE (tenant_id, source_fact_id)` |
+| Purpose | Live/rebuild semantic dedup; equal-revision duplicate suppression |
+
+**Frozen derivation:**
+
+```text
+source_fact_id = UUIDv5(
+  NAMESPACE_FREIGHT_COST_CANONICAL_FACT,
+  tenant_id
+  | source_service
+  | source_type
+  | source_id
+  | source_revision_semantic
+  | entry_kind
+)
+```
+
+| Rule | Value |
+|------|-------|
+| `SOURCE_FACT_ID_INCLUDES_EVENT_ORIGIN` | **NO** |
+| `LIVE_REBUILD_SEMANTIC_DEDUP` | **YES** |
+| `CANONICAL_FACT_IDEMPOTENCY_KEY` | `(tenant_id, source_fact_id)` |
+
+**`source_revision_semantic` values:**
+
+| Source | Semantic token |
+|--------|----------------|
+| TO rate snapshot (immutable) | literal `IMMUTABLE` |
+| Settlement financial facts | decimal string of `freight_settlements.version` |
+| Billed link facts | decimal string of `freight_settlements.billing_link_revision` |
+| Payment paid facts | decimal string of `payment_obligations.version` |
+
+### C. Live / rebuild convergence
+
+For the **same** canonical fact (same settlement revision 7, same `CURRENT_ACTUAL`):
+
+| Path | `source_event_id` | `source_fact_id` |
+|------|-------------------|------------------|
+| Live outbox | `OUTBOX_UUID_A` | `deterministic(S7\|CURRENT_ACTUAL)` |
+| Later rebuild | `REBUILD_DELIVERY_UUID` | **same** `deterministic(S7\|CURRENT_ACTUAL)` |
+
+```text
+LIVE_THEN_REBUILD_SAME_FACT_LEDGER_ROWS=1
+REBUILD_THEN_LIVE_SAME_FACT_LEDGER_ROWS=1
+LIVE_REBUILD_SEMANTIC_DEDUP=YES
+```
+
+Consumer rule: if `(tenant_id, source_fact_id)` already exists → **NO-OP** (success, no duplicate row) regardless of `source_event_id` or `event_origin`.
+
+---
+
 ## 12. Ledger model
 
 ```text
-LEDGER_AUTHORITY=DERIVED_EVENT_JOURNAL
 LEDGER_SECOND_SSOT=NO
 LEDGER_APPEND_ONLY=YES
 LEDGER_AMOUNT_MODE=DERIVED_SNAPSHOT_VALUE
@@ -390,9 +495,7 @@ CORRECTION_MODEL=append new entry; optional supersedes_entry_id; never UPDATE/DE
 
 Canonical correction remains in source domain (settlement recalc, allocation void, etc.). freight-cost repairs **only** its derived projection/ledger via new events or rebuild.
 
----
-
-## 13. Entry kinds
+## 12. Ledger model
 
 | `entry_kind` | Canonical source | Tax basis | Amount nullable | Triggers new entry | Projection field |
 |--------------|-------------------|-----------|-----------------|--------------------|------------------|
@@ -400,7 +503,7 @@ Canonical correction remains in source domain (settlement recalc, allocation voi
 | `ACCRUAL_COST_SNAPSHOT` | derived from planned + approved accessorials | EX_VAT | YES if inputs unknown | settlement/accessorial revision | `accrued_amount` |
 | `CURRENT_ACTUAL_COST_SNAPSHOT` | settlement totals + status | EX_VAT | YES when unavailable | settlement status/total revision | `current_actual_amount` |
 | `FINAL_ACTUAL_COST_SNAPSHOT` | settlement totals + status | EX_VAT | YES when not final | settlement reaches/loses READY_FOR_PAYMENT | `final_actual_amount` |
-| `BILLED_COST_SNAPSHOT` | register item frozen ex-VAT | EX_VAT | YES when unlinked | include / remove register item | `billing_register_amount` (ex-VAT line snapshot) |
+| `BILLED_COST_SNAPSHOT` | settlement billing link (frozen ex-VAT) | EX_VAT | YES when unlinked | include / remove / relink | `billing_register_amount` (ex-VAT line snapshot) |
 | `PAYABLE_AMOUNT_SNAPSHOT` | register `total_with_vat` | WITH_VAT | YES | register approval/total change | internal payable field (not mixed into ex-VAT variance) |
 | `PAID_AMOUNT_SNAPSHOT` | obligation `paid_amount` | WITH_VAT | YES | allocation / void affecting paid | `paid_amount` |
 
@@ -430,32 +533,32 @@ Table: `freight_cost.cost_entry`
 | `source_service` | VARCHAR | YES | e.g. `billing-register-service` |
 | `source_type` | VARCHAR | YES | e.g. `FREIGHT_SETTLEMENT` |
 | `source_id` | UUID | YES | aggregate id |
-| `source_revision` | BIGINT | YES | monotonic per source aggregate |
-| `source_event_id` | UUID | YES | idempotency key |
+| `source_revision` | BIGINT | YES | monotonic per source aggregate / link dimension |
+| `source_fact_id` | UUID | YES | canonical financial fact identity (§11A) |
+| `source_event_id` | UUID | YES | delivery identity (§11A) |
 | `source_occurred_at` | TIMESTAMPTZ | YES | from canonical event |
-| `supersedes_entry_id` | UUID | NULL | audit chain |
-| `event_origin` | VARCHAR | YES | `LIVE_OUTBOX` / `CANONICAL_REBUILD` |
+| `supersedes_entry_id` | UUID | NULL | audit chain (same entry_kind + source aggregate) |
+| `event_origin` | VARCHAR | YES | `LIVE_OUTBOX` / `CANONICAL_REBUILD` — **not** part of uniqueness |
 | `recorded_at` | TIMESTAMPTZ | YES | ingest time |
-| `metadata` | JSONB | NULL | minimal; no money duplicates |
+| `metadata` | JSONB | NULL | minimal audit; deleted register item id allowed here only |
 
-**Constraints:**
+**Constraints (frozen — no partial origin scope):**
 
 ```sql
 UNIQUE (tenant_id, source_event_id)
+UNIQUE (tenant_id, source_fact_id)
 CHECK (amount_availability <> 'AVAILABLE' OR amount IS NOT NULL)
 CHECK (amount IS NULL OR amount >= 0)
 ```
 
-**Secondary uniqueness (evaluate at implementation):**
+**Removed:** rebuild-only partial unique index on `event_origin`. Origin-independent semantic dedup is enforced by `UNIQUE (tenant_id, source_fact_id)`.
 
-Do **not** add `UNIQUE(tenant_id, source_service, source_type, source_id, source_revision, entry_kind)` globally — same revision may legitimately emit **multiple entry kinds** with **distinct source_event_id** values.
+**Consumer insert order:**
 
-Optional partial unique index for rebuild idempotency:
-
-```sql
-UNIQUE (tenant_id, entry_kind, source_service, source_type, source_id, source_revision, event_origin)
-WHERE event_origin = 'CANONICAL_REBUILD'
-```
+1. Compute `source_fact_id`.
+2. If `(tenant_id, source_fact_id)` exists → NO-OP success.
+3. Else insert `cost_entry` (delivery id may differ from prior attempts).
+4. Update projection only per cursor policy (§17).
 
 ---
 
@@ -477,15 +580,17 @@ SOURCE_EVENT_TO_COST_ENTRY_CARDINALITY=ONE_TO_ONE
 
 Canonical owner publishes **one distinct outbox event per financial fact**, each with its own `source_event_id`, sharing the same `source_revision` on the aggregate.
 
-Example settlement approved @ version 7:
+Example settlement approved @ version 12:
 
-| Outbox event | entry_kind |
-|--------------|------------|
-| `freight_settlement.accrual_snapshot.v1` | ACCRUAL |
-| `freight_settlement.current_actual_snapshot.v1` | CURRENT_ACTUAL |
-| `freight_settlement.final_actual_snapshot.v1` | FINAL_ACTUAL (may be UNAVAILABLE payload) |
+| Outbox event | `source_event_id` | `source_fact_id` | entry_kind |
+|--------------|-------------------|------------------|------------|
+| `freight_settlement.accrual_snapshot.v1` | UUID A | `hash(S\|12\|ACCRUAL)` | ACCRUAL |
+| `freight_settlement.current_actual_snapshot.v1` | UUID B | `hash(S\|12\|CURRENT_ACTUAL)` | CURRENT_ACTUAL |
+| `freight_settlement.final_actual_snapshot.v1` | UUID C | `hash(S\|12\|FINAL_ACTUAL)` | FINAL_ACTUAL |
 
-Do **not** change uniqueness to allow one event → many entries without architecture review.
+Same revision, distinct entry kinds → **three** ledger rows (valid). Same revision + same entry_kind → **one** row (semantic dedup).
+
+**NULLIFICATION:** when actual becomes unavailable (e.g. APPROVED→DISPUTED), emit `CURRENT_ACTUAL` snapshot with `amount_availability=UNAVAILABLE`, `amount=null`, and deterministic `source_fact_id` for that revision/kind — not "no event".
 
 ---
 
@@ -495,27 +600,63 @@ Do **not** change uniqueness to allow one event → many entries without archite
 |--------|------------------------|-----------|-----------------|---------------------|
 | TO rate snapshot | **none** (immutable) | N/A | never | `snapshot_id` only |
 | Freight settlement | `freight_settlements.version` | YES (optimistic) | any successful mutating TX | YES |
-| Settlement accessorial | settlement `version` bump on change | YES (via settlement) | approve/reject/dispute/recalc | via settlement read |
-| Billing register item | register / item version or updated_at sequence | YES | include/remove/recalc | YES |
+| Settlement accessorial (accrual dimension) | settlement `version` after exact recalc | YES (via settlement) | approve/reject/dispute/recalc | via settlement read |
+| Billed link (per settlement) | `freight_settlements.billing_link_revision` | YES | include/remove/relink only | YES |
+| Billing register aggregate (payable) | `billing_registers.version` | YES | register recalc/approval | YES |
 | Payment obligation | `payment_obligations.version` | YES | allocation/void | YES |
-| Payment outbox event | outbox row `id` (UUID) | N/A | each publish | event id |
+| Payment outbox delivery | outbox row `id` (UUID) | N/A | each publish | delivery id only |
 
 ```text
 SOURCE_REVISION_TYPE=BIGINT
 REVISION_SOURCE_SETTLEMENT=freight_settlements.version
-REVISION_SOURCE_ACCESSORIAL=settlement.version (parent)
-REVISION_SOURCE_BILLING=billing_registers.version (or dedicated revision — verify at impl)
+REVISION_SOURCE_ACCESSORIAL=freight_settlements.version (after approved-set change)
+REVISION_SOURCE_BILLING_LINK=freight_settlements.billing_link_revision
+REVISION_SOURCE_REGISTER_PAYABLE=billing_registers.version
 REVISION_SOURCE_PAYMENT=payment_obligations.version
 ```
+
+**Billing link revision (F-B-HIGH-002 closed — Option C):**
+
+Repository fact: `billing_register_items` row is **DELETE**d on `RemoveSettlement`; item id cannot be canonical identity.
+
+| Field | Frozen value |
+|-------|--------------|
+| `BILLED_SOURCE_TYPE` | `FREIGHT_SETTLEMENT_BILLING_LINK` |
+| `BILLED_SOURCE_ID` | `settlement_id` |
+| `BILLED_SOURCE_REVISION` | `freight_settlements.billing_link_revision` |
+| `BILLED_LINK_STATE` | `LINKED` \| `UNLINKED` |
+| `BILLED_CURSOR_DIMENSION` | `(tenant, transport_order_id, source_service, FREIGHT_SETTLEMENT_BILLING_LINK, settlement_id, BILLED_COST_SNAPSHOT)` |
+
+**New column (billing-register migration):**
+
+`billing.freight_settlements.billing_link_revision BIGINT NOT NULL DEFAULT 0`
+
+Increment in **same transaction** as:
+
+- `billing_register_items` INSERT (include / relink)
+- `billing_register_items` DELETE (remove)
+- settlement register link columns update
+
+**Options evaluated (frozen — Option C):**
+
+| Option | Identity | Verdict |
+|--------|----------|---------|
+| A | `source_id=billing_register_item_id`, `revision=billing_registers.version` | **REJECT** — item row deleted on remove; cannot represent UNLINKED rebuild state |
+| B | `source_id=settlement_id`, `revision=freight_settlements.version` | **REJECT** — settlement version bumps on non-billing mutations; false billed history |
+| C | `source_id=settlement_id`, `revision=billing_link_revision` | **SELECT** — survives remove/relink; monotonic per billing-link dimension only |
+
+`billing_registers.version` remains the revision stream for **register-level payable** facts only — not reused for per-settlement billed link facts.
 
 **Rules:**
 
 | Case | Policy |
 |------|--------|
-| Same `source_event_id` replay | **DENY** / no-op (unique constraint) |
-| New event, higher revision | **ACCEPT** — apply projection if cursor allows |
-| New event, equal revision | **NO_PROJECTION_CHANGE**; journal policy §17 |
-| New event, lower revision | **NO_PROJECTION_CHANGE**; reject or audit-only §17 |
+| Same `source_event_id` replay | **NO-OP** (unique constraint) |
+| Same `source_fact_id`, different delivery | **NO-OP** (semantic dedup) |
+| New fact, higher revision | **ACCEPT** — apply projection if cursor allows |
+| New fact, equal revision + same entry_kind | **SEMANTIC DUPLICATE** — same `source_fact_id` → NO-OP |
+| New fact, equal revision + different entry_kind | **ALLOWED** — distinct `source_fact_id` |
+| New fact, lower revision (unseen) | Journal once; projection **NO_CHANGE** (§17) |
 | Timestamp as revision | **DENY** |
 
 ---
@@ -524,16 +665,26 @@ REVISION_SOURCE_PAYMENT=payment_obligations.version
 
 Per source cursor key (§19):
 
-| Condition | Projection | Ledger insert |
-|-----------|------------|---------------|
-| `revision > last_source_revision` | **APPLY** | INSERT |
-| `revision = last_source_revision` | **NO_CHANGE** | INSERT only if new `source_event_id` (distinct fact); otherwise no-op |
-| `revision < last_source_revision` | **NO_CHANGE** | **REJECT** before insert (non-retryable) OR quarantine |
+| Condition | `source_fact_id` already exists? | Ledger | Projection |
+|-----------|----------------------------------|--------|------------|
+| Exact replay (same fact id) | YES | **NO-OP** | **NO_CHANGE** |
+| Equal revision + same entry_kind | YES (by derivation) | **NO-OP** | **NO_CHANGE** |
+| Equal revision + different entry_kind | NO | INSERT | apply if revision > cursor |
+| Higher revision | NO | INSERT | **APPLY** if revision > cursor |
+| Lower revision (valid, unseen fact) | NO | **INSERT once** (audit) | **NO_CHANGE** |
 
 ```text
+REPLAY_POLICY=NO_OP_ON_EXISTING_SOURCE_FACT_ID
+EQUAL_REVISION_SAME_ENTRY_KIND=SEMANTIC_DUPLICATE_NO_NEW_LEDGER_ROW
+EQUAL_REVISION_DIFFERENT_ENTRY_KIND=ALLOWED_DISTINCT_FACT
+HIGHER_REVISION_POLICY=APPLY_IF_REVISION_GREATER_THAN_CURSOR
+LOWER_REVISION_LEDGER_POLICY=JOURNAL_VALID_UNSEEN_FACT_ONCE
+LOWER_REVISION_PROJECTION_POLICY=NO_CHANGE
 OUT_OF_ORDER_PROJECTION_POLICY=APPLY_ONLY_IF_REVISION_GREATER
-OUT_OF_ORDER_LEDGER_POLICY=REJECT_LOWER_REVISION; ALLOW_EQUAL_REVISION_DISTINCT_EVENT_ID
+OUT_OF_ORDER_LEDGER_POLICY=JOURNAL_VALID_UNSEEN_FACT_ONCE
 REPLAY_DOUBLE_COUNT=DENY
+ONE_SOURCE_EVENT_ONE_COST_ENTRY=YES
+ONE_AGGREGATE_REVISION_MULTIPLE_ENTRY_KINDS=YES
 ```
 
 Live consumer ack **after** DB commit:
@@ -636,9 +787,11 @@ SUPERSEDES_USED_FOR_AUDIT=YES
 SUPERSEDES_USED_AS_SSOT=NO
 ```
 
-On ingest, optional `supersedes_entry_id` = latest prior entry for same `(tenant, transport_order, entry_kind, source_id)`.
+On ingest, optional `supersedes_entry_id` = latest prior **`cost_entry.id`** for same semantic dimension:
 
-Current state authority = **projection + source_cursor**, not supersedes walk.
+`(tenant_id, transport_order_id, entry_kind, source_service, source_type, source_id)`
+
+Audit navigation only — **not** current-state authority (projection + cursor wins).
 
 ---
 
@@ -661,18 +814,31 @@ Rebuild must not fabricate live outbox IDs.
 
 TO snapshot is immutable; no revision stream.
 
-**Frozen rebuild strategy:**
+**Frozen fact identity:**
+
+| Field | Value |
+|-------|-------|
+| `source_id` | `rate_snapshot_id` |
+| `source_revision_semantic` | `IMMUTABLE` |
+| `entry_kind` | `PLANNED_COST_SNAPSHOT` |
+| `source_fact_id` | `UUIDv5(NAMESPACE, tenant\|transport-order-service\|TO_RATE_SNAPSHOT\|snapshot_id\|IMMUTABLE\|PLANNED)` |
+
+**Delivery identity:**
+
+| Path | `source_event_id` |
+|------|-------------------|
+| Rebuild | `UUIDv5(NAMESPACE_FREIGHT_COST_REBUILD_DELIVERY, tenant\|source_fact_id)` |
+
+- `source_revision` column stores `1` (constant semantic marker in DB row)
+- Repeated rebuild of unchanged snapshot → **one** ledger fact (same `source_fact_id`)
+
+Live TO outbox: **not required** in v2.1B. First planned fact may arrive via rebuild or lazy ingest.
 
 ```text
-PLANNED_SOURCE_REVISION_STRATEGY=FIXED_REVISION_1 per snapshot_id semantic
-PLANNED_REBUILD_EVENT_ID_STRATEGY=UUIDv5(NAMESPACE_FREIGHT_COST_REBUILD, tenant_id|snapshot_id|entry_kind)
+PLANNED_IMMUTABLE_FACT_ID=YES
+PLANNED_SOURCE_REVISION_STRATEGY=IMMUTABLE
+PLANNED_REBUILD_DELIVERY_ID=deterministic per source_fact_id
 ```
-
-- `source_id` = `snapshot_id`
-- `source_revision` = `1` (constant — snapshot row immutable)
-- Rebuild re-ingest: same deterministic `source_event_id` → idempotent no-op
-
-Live path: first ingest via rebuild on TO link or lazy rebuild job — **no synthetic TO outbox in v2.1B**.
 
 ---
 
@@ -688,17 +854,71 @@ New table (conceptual): `billing.freight_cost_outbox` — follow payment outbox 
 | Settlement status → APPROVED/DOCUMENTS_READY/READY_FOR_PAYMENT | YES | accrual, current_actual, final_actual |
 | Settlement → DISPUTED / CANCELLED | YES | actual snapshots → UNAVAILABLE |
 | Settlement totals recalculated | YES | accrual + actual snapshots |
-| Accessorial proposed | YES (forecast defer) | accrual snapshot only if affects approved set |
 | Accessorial approved/rejected/disputed | YES | accrual (+ actual if settlement totals changed) |
-| Include settlement in register | YES | billed snapshot |
-| Remove register item | YES | billed → UNAVAILABLE / UNLINKED |
+| Include settlement in register | YES | billed snapshot (LINKED) |
+| Remove register item | YES | billed snapshot (UNLINKED) |
 | Register totals recalculated | YES | payable snapshot |
 
-Verify exact method list against `freight_settlement_service.go` / `billing_register_service.go` at implementation — **do not invent mutations**.
+**Propose accessorial:** does **NOT** emit v2.1B accrual event (forecast deferred v2.1C; approved set unchanged).
 
 ```text
 TRANSACTIONAL_OUTBOX=YES
+REGISTER_REMOVE_TOMBSTONE_SEMANTICS=YES
+REGISTER_REMOVE_REBUILDABLE=YES
 ```
+
+---
+
+## 24A. Billing link events (frozen)
+
+**LINKED event** (same TX as include):
+
+- `billing_link_revision` incremented
+- `billing_link_state=LINKED`
+- payload includes: `billing_register_id`, `billing_register_item_id`, `amount_without_vat` (decimal string), `currency_code`, `tax_basis=EX_VAT`
+
+**UNLINKED event** (same TX as remove):
+
+- `billing_link_revision` incremented
+- `billing_link_state=UNLINKED`
+- `amount=null`, `amount_availability=UNAVAILABLE`
+- former `billing_register_item_id` MAY appear in audit `metadata` only — **not** in `source_id` / `source_fact_id`
+
+**Rebuild after item deletion:** internal settlement read returns `billing_link_state=UNLINKED` + last known link revision — reconstructs UNLINKED without requiring live item row.
+
+**Remove → relink:** each include/remove increments `billing_link_revision` monotonically; cursor advances; historical LINKED rows remain immutable.
+
+---
+
+## 24B. Accessorial mutation event matrix (repository-verified)
+
+| MUTATION | OLD→NEW STATUS | CHANGES APPROVED SET | SETTLEMENT VERSION BUMP | ACCRUAL EVENT | CURRENT_ACTUAL EVENT | FINAL_ACTUAL EVENT | FORECAST | v2.1B |
+|----------|----------------|----------------------|-------------------------|---------------|----------------------|--------------------|---------|-------|
+| ProposeAccessorial | → PROPOSED | NO | NO | NO | NO | NO | defer v2.1C | NO |
+| ReviewAccessorial approve | PROPOSED→APPROVED | YES | YES (+ exact recalc) | YES | if actual-available state | if final state | defer | YES |
+| ReviewAccessorial reject | PROPOSED→REJECTED | NO | YES (recalc no-op on sum) | NO | NO | NO | defer | NO |
+| RaiseDispute (accessorial) | *→DISPUTED | YES (removes from APPROVED set) | YES (status) | YES (exact approved set) | YES (→ UNAVAILABLE if disputed) | YES if needed | defer | YES |
+| RaiseDispute (settlement-only) | status→DISPUTED | NO | YES | if totals changed | YES UNAVAILABLE | YES UNAVAILABLE | defer | YES |
+| ResolveDispute | dispute closed | maybe | YES when returning to review | when approved set changes | when re-enabled | when re-enabled | defer | YES |
+| recalculateSettlementTotals | — | — | YES | when emitted by caller TX | when emitted | when emitted | defer | YES |
+
+Repository evidence: `ReviewAccessorial` calls `recalculateSettlementTotals`; `RaiseDispute` with accessorial marks DISPUTED **without** recalc today — v2.1B hardening required (§24C).
+
+---
+
+## 24C. Settlement exact-recalc hardening (v2.1B billing-register)
+
+```text
+RECALCULATE_EXACT_TOTALS_BEFORE_ACTUAL_REENABLE=YES
+```
+
+**Required v2.1B changes in billing-register-service:**
+
+1. Replace `COALESCE(SUM(amount),0)::float8` in `recalculateSettlementTotals` with NUMERIC → decimal string path.
+2. On accessorial APPROVED→DISPUTED (RaiseDispute), invoke exact recalc **before** emitting financial outbox snapshots in the **same transaction**.
+3. Before any transition to APPROVED / DOCUMENTS_READY / READY_FOR_PAYMENT after approved-set membership changed, enforce exact recalc + version bump + snapshot emission in **one transaction**.
+
+This prevents re-enabled actual amounts from using stale pre-dispute totals (FC-B-ACT-006).
 
 ---
 
@@ -745,7 +965,7 @@ Follow `{aggregate}.{fact_snapshot}.v{schema}` pattern:
 | `freight_settlement.accrual_snapshot.v1` | ACCRUAL |
 | `freight_settlement.current_actual_snapshot.v1` | CURRENT_ACTUAL |
 | `freight_settlement.final_actual_snapshot.v1` | FINAL_ACTUAL |
-| `billing_register_item.billed_snapshot.v1` | BILLED |
+| `billing_register.settlement_billing_link_snapshot.v1` | BILLED |
 | `billing_register.payable_snapshot.v1` | PAYABLE |
 | `payment_obligation.paid_snapshot.v1` | PAID (new — extend payment outbox) |
 
@@ -756,16 +976,37 @@ Existing `payment_obligation.paid` remains for billing sync; cost consumer may s
 ## 27. Payment outbox reuse
 
 ```text
-PAYMENT_OUTBOX_REUSABLE=PARTIAL
+PAYMENT_OUTBOX_REUSE=PARTIAL
 ```
+
+**Additive event (frozen):** `payment_obligation.paid_snapshot.v1`
+
+Minimum payload:
+
+- `tenant_id`, `obligation_id`, `register_id`
+- `source_revision` (= `payment_obligations.version` at publish TX)
+- `paid_amount`, `obligation_amount` (decimal strings)
+- `currency_code`, `tax_basis=WITH_VAT`, `occurred_at`
+- unique `source_event_id` (= outbox row id)
+
+**Paid fact identity:**
+
+```text
+source_id=payment_obligation_id
+source_revision=payment_obligations.version
+entry_kind=PAID
+source_fact_id=UUIDv5(NAMESPACE, tenant|payment-service|PAYMENT_OBLIGATION|obligation_id|version|PAID)
+```
+
+Do **not** derive historical payment revision by fetching "latest" after the event.
+
+If PAYABLE is a separate entry_kind, emit separate event/`source_event_id` as required.
 
 | Today | v2.1B delta |
 |-------|-------------|
 | `payment_obligation.paid` thin payload | Add `payment_obligation.paid_snapshot.v1` with revision + decimal paid/obligated amounts |
 | Unique `(tenant, event_type, aggregate_id)` | New event types get distinct type strings |
 | HTTP publish to billing | Keep; cost consumer is separate worker in freight-cost-service |
-
-Alternative if additive event rejected: consumer fetches obligation via internal read **using revision from allocation TX** — still requires new internal read HTTP route.
 
 ---
 
@@ -790,21 +1031,23 @@ X-Tenant-ID
 Response (decimal strings):
 
 - `settlement_id`, `transport_order_id`, `tenant_id`, `buyer_company_id`, `carrier_company_id`
-- `status`, `open_dispute_count`, `version` (source_revision)
+- `status`, `open_dispute_count`, `version` (settlement source_revision)
+- `billing_link_revision`, `billing_link_state` (`LINKED` \| `UNLINKED`)
 - `currency_code`
-- `base_freight_amount`, `approved_accessorial_total`, `total_without_vat` (EX_VAT)
+- `base_freight_amount`, `accrual_amount_ex_vat` (exact decimal from approved set — **not** legacy float aggregate)
+- `total_without_vat` (EX_VAT, for actual snapshots)
 - `rate_snapshot_id`
 - `updated_at`
 
 404 cross-tenant scoped.
 
-### 28.3 Billing (new)
+### 28.3 Settlement billing link (new)
 
 ```http
-GET /internal/v1/billing-register-items/by-transport-order/{transportOrderId}
+GET /internal/v1/freight-settlements/{settlementId}/billing-link
 ```
 
-Returns linked register item frozen ex-VAT snapshot + register id + revision + link state.
+Returns `billing_link_revision`, `billing_link_state` (`LINKED` \| `UNLINKED`), frozen ex-VAT amount (decimal string when LINKED), `billing_register_id`, `currency_code`, `tax_basis=EX_VAT`. Rebuildable after register item deletion.
 
 ### 28.4 Payment (new)
 
@@ -908,7 +1151,7 @@ Align with payment/shipment outbox retry:
 |---------|----------|
 | Malformed envelope / invalid decimal | non-retryable; quarantine + metric |
 | Currency mismatch | non-retryable |
-| Lower revision | non-retryable |
+| Lower revision (unseen valid fact) | journal once; projection unchanged |
 | DB unavailable | retry with backoff |
 | Unknown schema version | non-retryable until upgraded |
 
@@ -921,7 +1164,7 @@ If platform DLQ topic exists for shipment — reuse pattern; else document FAILE
 | Service | Next # | Purpose | Tables | Rollback |
 |---------|--------|---------|--------|----------|
 | freight-cost-service | 000054 | `freight_cost` schema | `cost_entry`, `source_cursor`, `cost_summary_projection` | DROP SCHEMA |
-| billing-register-service | 000054/055 | cost outbox | `billing.freight_cost_outbox` | DROP TABLE |
+| billing-register-service | 000054/055 | cost outbox + billing_link_revision | `billing.freight_cost_outbox`, `freight_settlements.billing_link_revision` | DROP COLUMN/TABLE |
 | payment-service | 000048 optional | paid snapshot event support | none if payload-only | n/a |
 
 **Lock/risk:** freight_cost indexes on `(tenant_id, transport_order_id)` — low contention expected; outbox insert colocated with settlement TX — brief row locks.
@@ -933,6 +1176,7 @@ If platform DLQ topic exists for shipment — reuse pattern; else document FAILE
 **cost_entry:**
 
 - UNIQUE `(tenant_id, source_event_id)`
+- UNIQUE `(tenant_id, source_fact_id)`
 - INDEX `(tenant_id, transport_order_id, recorded_at DESC)`
 - INDEX `(tenant_id, entry_kind, transport_order_id)`
 - INDEX `(tenant_id, source_service, source_type, source_id, source_revision)`
@@ -962,18 +1206,34 @@ Financial journal append-only indefinitely in v2.1B. Outbox follows existing arc
 
 | Family | IDs | Count |
 |--------|-----|-------|
-| FC-B-LED | 001–008 | 8 |
+| FC-B-LED | 001–013 | 13 |
 | FC-B-MON | 001–005 | 5 |
-| FC-B-ACC | 001–005 | 5 |
-| FC-B-ACT | 001–005 | 5 |
-| FC-B-BIL | 001–005 | 5 |
+| FC-B-ACC | 001–007 | 7 |
+| FC-B-ACT | 001–006 | 6 |
+| FC-B-BIL | 001–008 | 8 |
 | FC-B-PAY | 001–003 | 3 |
-| FC-B-RBL | 001–005 | 5 |
+| FC-B-RBL | 001–006 | 6 |
 | FC-B-SEC | 001–004 | 4 |
-| FC-B-OUT | 001–004 | 4 |
-| **Total** | | **44** |
+| FC-B-OUT | 001–005 | 5 |
+| **Total** | | **57** |
 
-See task spec §56 for scenario descriptions — all referenced scenarios MUST be covered.
+**New remediation tests:**
+
+| ID | Scenario |
+|----|----------|
+| FC-B-LED-009 | live event then rebuild same canonical fact → exactly one `cost_entry` |
+| FC-B-LED-010 | rebuild then live same canonical fact → exactly one `cost_entry` |
+| FC-B-LED-011 | different `source_event_id` + same `source_fact_id` → no duplicate |
+| FC-B-LED-012 | equal revision + same entry_kind → semantic duplicate / no new row |
+| FC-B-LED-013 | equal revision + different entry_kind → distinct facts allowed |
+| FC-B-RBL-006 | unchanged rebuild after successful live ingestion adds no journal row |
+| FC-B-BIL-006 | register removal → explicit UNLINKED state; history retained |
+| FC-B-BIL-007 | remove → relink keeps monotonic `billing_link_revision` |
+| FC-B-BIL-008 | rebuild after item deletion reconstructs UNLINKED |
+| FC-B-ACC-006 | APPROVED accessorial → DISPUTED removes from accrual |
+| FC-B-ACC-007 | accrual event uses exact decimal approved-set total |
+| FC-B-ACT-006 | actual cannot re-enable with stale pre-dispute totals |
+| FC-B-OUT-005 | two origins (LIVE + REBUILD) for same fact cannot duplicate ledger |
 
 ---
 
@@ -1064,16 +1324,19 @@ See task spec §56 for scenario descriptions — all referenced scenarios MUST b
 | 1 | What rows in cost_entry? | One row per ingested financial snapshot fact with source metadata |
 | 2 | Snapshot values or deltas? | **DERIVED_SNAPSHOT_VALUE** |
 | 3 | One settlement → several facts? | **Multiple outbox events** (Option A), one entry each |
-| 4 | What is source_event_id? | Outbox row UUID (live) or deterministic UUIDv5 (rebuild) |
-| 5 | How is source_revision produced? | Domain aggregate `version` (BIGINT) |
-| 6 | Duplicate event? | Unique constraint → no-op |
-| 7 | Lower revision? | Reject / no projection change |
-| 8 | Equal revision, different event id? | Allowed for distinct entry_kind; no projection regression |
+| 4 | What is source_event_id? | **Delivery id** — outbox row UUID (live) or deterministic rebuild delivery UUID |
+| 4b | What is source_fact_id? | **Canonical financial fact id** — UUIDv5(tenant, service, type, id, revision_semantic, entry_kind) |
+| 5 | How is source_revision produced? | Domain aggregate `version` or `billing_link_revision` (BIGINT) |
+| 6 | Duplicate delivery? | Unique `(tenant, source_event_id)` → no-op |
+| 6b | Duplicate canonical fact? | Unique `(tenant, source_fact_id)` → no-op |
+| 7 | Lower revision unseen fact? | Journal once; projection NO_CHANGE |
+| 8 | Equal revision, same entry_kind? | Semantic duplicate — no new ledger row |
+| 8b | Equal revision, different entry_kind? | Allowed — distinct source_fact_id |
 | 9 | Actual becomes NULL? | `amount_availability=UNAVAILABLE` entry + projection NULL |
-| 10 | Planned without TO outbox? | Rebuild deterministic id from snapshot_id |
-| 11 | Rebuild idempotent? | YES — deterministic event ids |
+| 10 | Planned without TO outbox? | Rebuild deterministic source_fact_id from snapshot_id + IMMUTABLE |
+| 11 | Rebuild idempotent? | YES — source_fact_id dedup |
 | 12 | Rebuild root? | Canonical HTTP read APIs only |
-| 13 | Live vs rebuild converge? | YES — equivalent current projection |
+| 13 | Live vs rebuild converge? | YES — one row per canonical fact; equivalent projection |
 | 14 | Decimal despite float64? | Internal reads bypass float64 wire |
 | 15 | Which mutations publish outbox? | §24 table |
 | 16 | Payment outbox sufficient? | PARTIAL — extend with paid snapshot event |
@@ -1097,24 +1360,46 @@ See task spec §56 for scenario descriptions — all referenced scenarios MUST b
 | `LEDGER_SECOND_SSOT` | NO |
 | `LEDGER_AMOUNT_MODE` | DERIVED_SNAPSHOT_VALUE |
 | `LEDGER_APPEND_ONLY` | YES |
+| `DELIVERY_IDENTITY` | `source_event_id` |
+| `DELIVERY_UNIQUE_KEY` | `(tenant_id, source_event_id)` |
+| `CANONICAL_FACT_IDENTITY` | `source_fact_id` |
+| `CANONICAL_FACT_UNIQUE_KEY` | `(tenant_id, source_fact_id)` |
+| `SOURCE_FACT_ID_INCLUDES_EVENT_ORIGIN` | **NO** |
+| `LIVE_REBUILD_SEMANTIC_DEDUP` | **YES** |
 | `COST_ENTRY_UNIQUE_EVENT_KEY` | `(tenant_id, source_event_id)` |
+| `COST_ENTRY_UNIQUE_FACT_KEY` | `(tenant_id, source_fact_id)` |
 | `SOURCE_EVENT_TO_COST_ENTRY_CARDINALITY` | ONE_TO_ONE (Option A) |
 | `SOURCE_REVISION_TYPE` | BIGINT |
-| `OUT_OF_ORDER_LEDGER_POLICY` | REJECT_LOWER; distinct event id at equal revision |
+| `OUT_OF_ORDER_LEDGER_POLICY` | JOURNAL_VALID_UNSEEN_FACT_ONCE |
 | `OUT_OF_ORDER_PROJECTION_POLICY` | APPLY_ONLY_IF_REVISION_GREATER |
-| `PLANNED_REBUILD_EVENT_ID_STRATEGY` | UUIDv5 deterministic |
-| `EVENT_ORIGIN_FIELD_REQUIRED` | YES |
+| `EQUAL_REVISION_SAME_ENTRY_KIND` | SEMANTIC_DUPLICATE_NO_NEW_LEDGER_ROW |
+| `EQUAL_REVISION_DIFFERENT_ENTRY_KIND` | ALLOWED_DISTINCT_FACT |
+| `PLANNED_REBUILD_FACT_ID_STRATEGY` | UUIDv5 with IMMUTABLE revision semantic |
+| `REBUILD_DELIVERY_ID_STRATEGY` | UUIDv5(NAMESPACE_REBUILD_DELIVERY, tenant\|source_fact_id) |
+| `EVENT_ORIGIN_FIELD_REQUIRED` | YES (metadata only) |
 | `SETTLEMENT_INTERNAL_WIRE_MONEY` | decimal string |
 | `BILLING_INTERNAL_WIRE_MONEY` | decimal string |
 | `PAYMENT_INTERNAL_WIRE_MONEY` | decimal string |
+| `BILLED_SOURCE_TYPE` | FREIGHT_SETTLEMENT_BILLING_LINK |
+| `BILLED_SOURCE_ID` | settlement_id |
+| `BILLED_SOURCE_REVISION` | freight_settlements.billing_link_revision |
+| `REGISTER_REMOVE_TOMBSTONE` | YES |
+| `ACCRUAL_APPROVED_SET_SOURCE` | billing.settlement_accessorials WHERE status=APPROVED |
+| `ACCRUAL_EVENT_MONEY_SOURCE` | EXACT_NUMERIC |
+| `ACCRUAL_USES_LEGACY_FLOAT_AGGREGATE` | NO |
+| `RECALCULATE_BEFORE_ACTUAL_REENABLE` | YES |
 | `TRANSACTIONAL_OUTBOX` | YES (billing-register) |
 | `EVENT_PAYLOAD_MODE` | VERSIONED_FINANCIAL_SNAPSHOT |
 | `FORECAST_IN_COST_LEDGER` | NO |
 | `FORECAST_PROJECTION_V2_1B` | DEFER_V2_1C |
 | `CURRENT_ACTUAL_SOURCE` | billing-register settlement |
 | `FINAL_ACTUAL_SOURCE` | billing-register settlement |
-| `BILLED_SOURCE` | billing register item snapshot |
+| `BILLED_SOURCE` | settlement billing link snapshot |
 | `PAID_SOURCE` | payment obligation |
+| `PAYMENT_OUTBOX_REUSE` | PARTIAL |
+| `PAID_SNAPSHOT_EVENT` | payment_obligation.paid_snapshot.v1 |
+| `PAYMENT_SOURCE_REVISION` | payment_obligations.version |
+| `PAYMENT_MONEY_WIRE` | decimal string |
 | `REBUILD_ROOT` | canonical read APIs |
 | `LIVE_REBUILD_PROJECTION_EQUIVALENCE` | YES |
 | `CROSS_SERVICE_DB_READS` | 0 |
@@ -1124,14 +1409,30 @@ See task spec §56 for scenario descriptions — all referenced scenarios MUST b
 
 ---
 
-## 44. Findings gate
+## 44. Findings register (final independent review)
+
+### Closed HIGH (remediation pass)
+
+| ID | Finding | Resolution |
+|----|---------|------------|
+| **F-B-HIGH-001** | LIVE_OUTBOX and CANONICAL_REBUILD used different `source_event_id`; same canonical fact could duplicate ledger | §11A — `source_fact_id` + `UNIQUE(tenant_id, source_fact_id)`; live/rebuild semantic dedup |
+| **F-B-HIGH-002** | Billing revision unfrozen; register item deleted on remove | §16, §24A — `billing_link_revision` on settlement; `BILLED_SOURCE_ID=settlement_id` |
+| **F-B-HIGH-003** | Dispute path alters approved set without exact-decimal accrual contract | §9, §24B/C — exact NUMERIC approved-set sum; recalc hardening on dispute |
+
+### Closed MEDIUM
+
+| ID | Finding | Resolution |
+|----|---------|------------|
+| **F-B-MED-001** | Equal/lower revision conflated delivery with semantic fact identity | §11A, §17 — separate keys; equal same-kind = semantic duplicate; lower unseen = journal once |
+
+### Open items
 
 | Class | Count | Notes |
 |-------|-------|-------|
 | BLOCKER | 0 | |
-| HIGH | 0 | all HIGH risks mitigated in plan |
-| MEDIUM | 0 | RISK-B-009..012 mitigated |
-| LOW | 1 | charge_code auto-variance deferred v2.1C (architecture OQ-005) |
+| HIGH | 0 | F-B-HIGH-001..003 closed |
+| MEDIUM | 0 | F-B-MED-001 closed |
+| LOW | 1 | charge_code / variance reason semantics → v2.1C (architecture OQ-005) |
 | NIT | 0 | |
 
 ```text
@@ -1163,12 +1464,12 @@ Do not implement v2.1C in v2.1B PRs.
 | Field | Value |
 |-------|-------|
 | `V2_1A_STATUS` | CLOSED @ `1cc3ca6` |
-| `V2_1B_PLAN_STATUS` | READY_FOR_REVIEW |
-| `V2_1B_IMPLEMENTATION_AUTHORIZATION` | **NOT_AUTHORIZED** (requires planning PR merge) |
+| `V2_1B_PLAN_STATUS` | **READY_FOR_FINAL_REVIEW** |
+| `V2_1B_IMPLEMENTATION_AUTHORIZATION` | **NOT_AUTHORIZED** (requires planning PR merge + final review) |
 | Runtime in this PR | **NO** |
 | Migrations in this PR | **NO** |
 
-**Planning approval criteria met:** all HIGH/BLOCKER resolved; decimal boundary defined; event cardinality resolved; rebuild/idempotency defined; NULL transitions defined.
+**Planning approval criteria met:** delivery vs canonical fact identity frozen; billing link revision frozen; exact-decimal accrual frozen; live/rebuild dedup; out-of-order policy unambiguous; NULL transitions explicit; 57 FC-B-* tests planned.
 
 ---
 
@@ -1178,5 +1479,5 @@ Do not implement v2.1C in v2.1B PRs.
 |-------|-------|
 | Author | v2.1B planning agent |
 | Base SHA | `1cc3ca6c01e981b5fb220811a0f2701b9cf1a4c0` |
-| Review status | Pending independent review |
+| Review status | Final remediation — ready for independent review |
 | Runtime changes | **NONE** |
