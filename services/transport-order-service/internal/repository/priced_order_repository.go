@@ -26,6 +26,30 @@ func NewPricedOrderRepository(pool *pgxpool.Pool) *PricedOrderRepository {
 	return &PricedOrderRepository{pool: pool}
 }
 
+func (r *PricedOrderRepository) GetOrderByID(ctx context.Context, tenantID, orderID uuid.UUID) (*domain.TransportOrder, error) {
+	return r.getOrderByID(ctx, tenantID, orderID)
+}
+
+func (r *PricedOrderRepository) GetSnapshotByTransportOrder(ctx context.Context, tenantID, transportOrderID uuid.UUID) (*domain.RateSnapshot, error) {
+	const query = `
+		SELECT id, tenant_id, transport_order_id, buyer_company_id, carrier_company_id,
+			pricing_source, award_link_id, rfx_event_id, rfx_lot_id, bid_id, manual_spot_audit_id,
+			contract_id, rate_card_id, rate_version_id, rate_line_id,
+			contract_number, rate_card_name, rate_version_number,
+			origin_location_id, destination_location_id, equipment_type, transport_mode,
+			currency_code, component_breakdown_status, components, accessorial_rules,
+			base_amount, total_amount, pricing_date, resolved_at, resolved_by_service,
+			resolver_version, resolution_request_hash, created_at
+		FROM transport.transport_order_rate_snapshots
+		WHERE tenant_id = $1 AND transport_order_id = $2`
+	row := r.pool.QueryRow(ctx, query, tenantID, transportOrderID)
+	snapshot, err := scanRateSnapshot(row)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, apperrors.NotFound("rate snapshot not found")
+	}
+	return snapshot, err
+}
+
 func (r *PricedOrderRepository) WithCreateIdempotencyLock(
 	ctx context.Context,
 	tenantID, actorCompanyID uuid.UUID,

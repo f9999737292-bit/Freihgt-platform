@@ -10,6 +10,7 @@ use (
 	./services/contract-rate-service
 	./services/control-tower-read-model-service
 	./services/document-service
+	./services/freight-cost-service
 	./services/identity-service
 	./services/localization-service
 	./services/low-code-service
