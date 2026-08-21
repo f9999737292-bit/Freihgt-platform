@@ -195,33 +195,33 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/payment-allocations/{id}/void", "post", "Void payment allocation", "Payments", True, True, "void_allocation"),
     ("/api/v1/payments/{id}/void", "post", "Void payment", "Payments", True, True, "void_payment"),
     ("/api/v1/transport-contracts", "get", "List transport contracts", "Transport Contracts", True, True, None),
-    ("/api/v1/transport-contracts", "post", "Create transport contract", "Transport Contracts", True, True, None),
+    ("/api/v1/transport-contracts", "post", "Create transport contract", "Transport Contracts", True, True, "contract_create"),
     ("/api/v1/transport-contracts/{id}", "get", "Get transport contract", "Transport Contracts", True, True, None),
-    ("/api/v1/transport-contracts/{id}", "patch", "Patch transport contract", "Transport Contracts", True, True, None),
-    ("/api/v1/transport-contracts/{id}/activate", "post", "Activate transport contract", "Transport Contracts", True, True, None),
-    ("/api/v1/transport-contracts/{id}/suspend", "post", "Suspend transport contract", "Transport Contracts", True, True, None),
-    ("/api/v1/transport-contracts/{id}/reactivate", "post", "Reactivate transport contract", "Transport Contracts", True, True, None),
-    ("/api/v1/transport-contracts/{id}/terminate", "post", "Terminate transport contract", "Transport Contracts", True, True, None),
-    ("/api/v1/transport-contracts/{id}/cancel", "post", "Cancel transport contract", "Transport Contracts", True, True, None),
+    ("/api/v1/transport-contracts/{id}", "patch", "Patch transport contract", "Transport Contracts", True, True, "contract_patch"),
+    ("/api/v1/transport-contracts/{id}/activate", "post", "Activate transport contract", "Transport Contracts", True, True, "contract_lifecycle"),
+    ("/api/v1/transport-contracts/{id}/suspend", "post", "Suspend transport contract", "Transport Contracts", True, True, "contract_lifecycle"),
+    ("/api/v1/transport-contracts/{id}/reactivate", "post", "Reactivate transport contract", "Transport Contracts", True, True, "contract_lifecycle"),
+    ("/api/v1/transport-contracts/{id}/terminate", "post", "Terminate transport contract", "Transport Contracts", True, True, "contract_terminate"),
+    ("/api/v1/transport-contracts/{id}/cancel", "post", "Cancel transport contract", "Transport Contracts", True, True, "contract_lifecycle"),
     ("/api/v1/transport-contracts/{contractId}/rate-cards", "get", "List rate cards for contract", "Rate Cards", True, True, None),
-    ("/api/v1/transport-contracts/{contractId}/rate-cards", "post", "Create rate card", "Rate Cards", True, True, None),
+    ("/api/v1/transport-contracts/{contractId}/rate-cards", "post", "Create rate card", "Rate Cards", True, True, "rate_card_create"),
     ("/api/v1/rate-cards/{id}", "get", "Get rate card", "Rate Cards", True, True, None),
     ("/api/v1/rate-cards/{id}/versions", "get", "List rate card versions", "Rate Cards", True, True, None),
-    ("/api/v1/rate-cards/{id}/versions", "post", "Create draft rate card version", "Rate Cards", True, True, None),
+    ("/api/v1/rate-cards/{id}/versions", "post", "Create draft rate card version", "Rate Cards", True, True, "rate_version_create"),
     ("/api/v1/rate-card-versions/{id}", "get", "Get rate card version", "Rate Cards", True, True, None),
-    ("/api/v1/rate-card-versions/{id}", "patch", "Patch draft rate card version", "Rate Cards", True, True, None),
+    ("/api/v1/rate-card-versions/{id}", "patch", "Patch draft rate card version", "Rate Cards", True, True, "rate_version_patch"),
     ("/api/v1/rate-card-versions/{id}", "delete", "Discard draft rate card version", "Rate Cards", True, True, None),
-    ("/api/v1/rate-card-versions/{id}/activate", "post", "Activate rate card version", "Rate Cards", True, True, None),
+    ("/api/v1/rate-card-versions/{id}/activate", "post", "Activate rate card version", "Rate Cards", True, True, "contract_lifecycle"),
     ("/api/v1/rate-card-versions/{id}/rate-lines", "get", "List rate lines", "Rate Cards", True, True, None),
-    ("/api/v1/rate-card-versions/{id}/rate-lines", "post", "Create rate line", "Rate Cards", True, True, None),
+    ("/api/v1/rate-card-versions/{id}/rate-lines", "post", "Create rate line", "Rate Cards", True, True, "rate_line_create"),
     ("/api/v1/rate-lines/{id}", "get", "Get rate line", "Rate Cards", True, True, None),
-    ("/api/v1/rate-lines/{id}", "patch", "Patch draft rate line", "Rate Cards", True, True, None),
+    ("/api/v1/rate-lines/{id}", "patch", "Patch draft rate line", "Rate Cards", True, True, "rate_line_patch"),
     ("/api/v1/rate-lines/{id}", "delete", "Delete draft rate line", "Rate Cards", True, True, None),
     ("/api/v1/rate-lines/{id}/components", "get", "List rate components", "Rate Cards", True, True, None),
-    ("/api/v1/rate-lines/{id}/components", "post", "Create rate component", "Rate Cards", True, True, None),
-    ("/api/v1/rate-components/{id}", "patch", "Patch rate component", "Rate Cards", True, True, None),
+    ("/api/v1/rate-lines/{id}/components", "post", "Create rate component", "Rate Cards", True, True, "rate_component_create"),
+    ("/api/v1/rate-components/{id}", "patch", "Patch rate component", "Rate Cards", True, True, "rate_component_patch"),
     ("/api/v1/rate-components/{id}", "delete", "Delete rate component", "Rate Cards", True, True, None),
-    ("/api/v1/rates/resolve", "post", "Simulate contract rate resolution", "Rate Simulation", True, True, None),
+    ("/api/v1/rates/resolve", "post", "Simulate contract rate resolution", "Rate Simulation", True, True, "rate_resolve"),
 ]
 
 SERVICE_TAGS = {
@@ -324,6 +324,24 @@ PRICED_TRANSPORT_ORDER_REQUEST_BODY = """              type: object
               additionalProperties: true"""
 
 NO_REQUEST_BODY_PROFILES = frozenset({"reconcile_payment"})
+
+CONTRACT_RATE_SCHEMA_REFS = {
+    "contract_lifecycle": "EmptyLifecycleRequest",
+}
+
+CONTRACT_RATE_REQUEST_BODIES = {
+    "contract_create": """              $ref: '#/components/schemas/PublicCreateTransportContractRequest'""",
+    "contract_patch": """              $ref: '#/components/schemas/PublicPatchTransportContractRequest'""",
+    "contract_terminate": """              $ref: '#/components/schemas/PublicTerminateTransportContractRequest'""",
+    "rate_card_create": """              $ref: '#/components/schemas/PublicCreateRateCardRequest'""",
+    "rate_version_create": """              $ref: '#/components/schemas/PublicCreateRateVersionRequest'""",
+    "rate_version_patch": """              $ref: '#/components/schemas/PublicPatchRateVersionRequest'""",
+    "rate_line_create": """              $ref: '#/components/schemas/PublicCreateRateLineRequest'""",
+    "rate_line_patch": """              $ref: '#/components/schemas/PublicPatchRateLineRequest'""",
+    "rate_component_create": """              $ref: '#/components/schemas/PublicCreateRateComponentRequest'""",
+    "rate_component_patch": """              $ref: '#/components/schemas/PublicPatchRateComponentRequest'""",
+    "rate_resolve": """              $ref: '#/components/schemas/PublicResolveRateRequest'""",
+}
 
 READ_RESPONSE_SCHEMAS = {
     "payment_list": "PaymentListResponse",
@@ -539,6 +557,10 @@ def render_operation(
         )
         if schema_ref:
             lines.append(f"              $ref: '{schema_ref}'")
+        elif profile in CONTRACT_RATE_SCHEMA_REFS:
+            lines.append(f"              $ref: '#/components/schemas/{CONTRACT_RATE_SCHEMA_REFS[profile]}'")
+        elif profile in CONTRACT_RATE_REQUEST_BODIES:
+            lines.append(CONTRACT_RATE_REQUEST_BODIES[profile])
         elif profile == "priced_transport_order_create":
             lines.append(PRICED_TRANSPORT_ORDER_REQUEST_BODY)
         else:
@@ -681,6 +703,103 @@ components:
           minLength: 1
           maxLength: 255
           description: Required human-readable void reason
+    EmptyLifecycleRequest:
+      type: object
+      additionalProperties: false
+    PublicCreateTransportContractRequest:
+      type: object
+      required: [buyer_company_id, carrier_company_id, contract_number, name, valid_from, currency_code]
+      additionalProperties: false
+      properties:
+        buyer_company_id: {type: string, format: uuid}
+        carrier_company_id: {type: string, format: uuid}
+        contract_number: {type: string}
+        external_reference: {type: string}
+        name: {type: string}
+        description: {type: string}
+        valid_from: {type: string, format: date}
+        valid_to: {type: string, format: date, nullable: true}
+        currency_code: {type: string}
+    PublicPatchTransportContractRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name: {type: string}
+        description: {type: string}
+        external_reference: {type: string}
+        valid_to: {type: string, format: date, nullable: true}
+    PublicTerminateTransportContractRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        termination_reason: {type: string}
+    PublicCreateRateCardRequest:
+      type: object
+      required: [name]
+      additionalProperties: false
+      properties:
+        name: {type: string}
+        description: {type: string}
+    PublicCreateRateVersionRequest:
+      type: object
+      required: [valid_from]
+      additionalProperties: false
+      properties:
+        valid_from: {type: string, format: date}
+        valid_to: {type: string, format: date, nullable: true}
+    PublicPatchRateVersionRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        valid_from: {type: string, format: date}
+        valid_to: {type: string, format: date, nullable: true}
+    PublicCreateRateLineRequest:
+      type: object
+      required: [origin_location_id, destination_location_id, equipment_type, transport_mode]
+      additionalProperties: false
+      properties:
+        origin_location_id: {type: string, format: uuid}
+        destination_location_id: {type: string, format: uuid}
+        equipment_type: {type: string}
+        transport_mode: {type: string}
+    PublicPatchRateLineRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        origin_location_id: {type: string, format: uuid}
+        destination_location_id: {type: string, format: uuid}
+        equipment_type: {type: string}
+        transport_mode: {type: string}
+    PublicCreateRateComponentRequest:
+      type: object
+      required: [component_type, calculation_method]
+      additionalProperties: false
+      properties:
+        component_type: {type: string}
+        calculation_method: {type: string}
+        amount: {type: string}
+        percent_value: {type: string}
+        unit_code: {type: string}
+    PublicPatchRateComponentRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        amount: {type: string}
+        percent_value: {type: string}
+        unit_code: {type: string}
+    PublicResolveRateRequest:
+      type: object
+      required: [buyer_company_id, carrier_company_id, origin_location_id, destination_location_id, equipment_type, transport_mode]
+      additionalProperties: false
+      properties:
+        buyer_company_id: {type: string, format: uuid}
+        carrier_company_id: {type: string, format: uuid}
+        origin_location_id: {type: string, format: uuid}
+        destination_location_id: {type: string, format: uuid}
+        equipment_type: {type: string}
+        transport_mode: {type: string}
+        pricing_date: {type: string, format: date}
+        currency_code: {type: string}
     HealthResponse:
       type: object
       properties:

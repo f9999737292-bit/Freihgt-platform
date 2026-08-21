@@ -91,6 +91,23 @@ Stack: PostgreSQL 16, real API gateway (JWT + ratesrbac + contractrates), real c
 
 `PUBLIC_E2E=PASS` after CI job `contract-rate-public-e2e` green on merge head (replaces prior `NOT_EXECUTED_DUE_TO_GO_INTERNAL_IMPORT_FAILURE`).
 
+## PUBLIC_DTO_FAIL_CLOSED_GATE
+
+Gateway public mutation payloads fail closed via route-specific typed DTOs and `decodeStrictJSON` (DisallowUnknownFields + single-document enforcement).
+
+| Item | Value |
+|------|-------|
+| VALIDATE_STRICT_OBJECT_TARGET_BEFORE | map[string]any |
+| DISALLOW_UNKNOWN_FIELDS_EFFECTIVE_BEFORE | NO |
+| GENERIC_MAP_VALIDATOR_REMOVED | YES |
+| ROUTE_SPECIFIC_PUBLIC_DTOS | YES |
+| PUBLIC_UNKNOWN_FIELDS | DENY |
+| MULTIPLE_JSON_DOCUMENTS | DENY |
+| INVALID_PUBLIC_DTO_DOWNSTREAM_CALLS | 0 |
+| OPENAPI_RUNTIME_STRICTNESS_MATCH | YES |
+
+Unit gates: E-DTO-001..022. E2E gate: `TestPublicUnknownFieldE2EGatewayDeny`.
+
 ## CI
 
 Added job: `contract-rate-public-e2e` with `REQUIRE_TEST_DATABASE=1`.

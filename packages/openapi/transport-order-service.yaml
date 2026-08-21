@@ -893,6 +893,103 @@ components:
           minLength: 1
           maxLength: 255
           description: Required human-readable void reason
+    EmptyLifecycleRequest:
+      type: object
+      additionalProperties: false
+    PublicCreateTransportContractRequest:
+      type: object
+      required: [buyer_company_id, carrier_company_id, contract_number, name, valid_from, currency_code]
+      additionalProperties: false
+      properties:
+        buyer_company_id: {type: string, format: uuid}
+        carrier_company_id: {type: string, format: uuid}
+        contract_number: {type: string}
+        external_reference: {type: string}
+        name: {type: string}
+        description: {type: string}
+        valid_from: {type: string, format: date}
+        valid_to: {type: string, format: date, nullable: true}
+        currency_code: {type: string}
+    PublicPatchTransportContractRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name: {type: string}
+        description: {type: string}
+        external_reference: {type: string}
+        valid_to: {type: string, format: date, nullable: true}
+    PublicTerminateTransportContractRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        termination_reason: {type: string}
+    PublicCreateRateCardRequest:
+      type: object
+      required: [name]
+      additionalProperties: false
+      properties:
+        name: {type: string}
+        description: {type: string}
+    PublicCreateRateVersionRequest:
+      type: object
+      required: [valid_from]
+      additionalProperties: false
+      properties:
+        valid_from: {type: string, format: date}
+        valid_to: {type: string, format: date, nullable: true}
+    PublicPatchRateVersionRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        valid_from: {type: string, format: date}
+        valid_to: {type: string, format: date, nullable: true}
+    PublicCreateRateLineRequest:
+      type: object
+      required: [origin_location_id, destination_location_id, equipment_type, transport_mode]
+      additionalProperties: false
+      properties:
+        origin_location_id: {type: string, format: uuid}
+        destination_location_id: {type: string, format: uuid}
+        equipment_type: {type: string}
+        transport_mode: {type: string}
+    PublicPatchRateLineRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        origin_location_id: {type: string, format: uuid}
+        destination_location_id: {type: string, format: uuid}
+        equipment_type: {type: string}
+        transport_mode: {type: string}
+    PublicCreateRateComponentRequest:
+      type: object
+      required: [component_type, calculation_method]
+      additionalProperties: false
+      properties:
+        component_type: {type: string}
+        calculation_method: {type: string}
+        amount: {type: string}
+        percent_value: {type: string}
+        unit_code: {type: string}
+    PublicPatchRateComponentRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        amount: {type: string}
+        percent_value: {type: string}
+        unit_code: {type: string}
+    PublicResolveRateRequest:
+      type: object
+      required: [buyer_company_id, carrier_company_id, origin_location_id, destination_location_id, equipment_type, transport_mode]
+      additionalProperties: false
+      properties:
+        buyer_company_id: {type: string, format: uuid}
+        carrier_company_id: {type: string, format: uuid}
+        origin_location_id: {type: string, format: uuid}
+        destination_location_id: {type: string, format: uuid}
+        equipment_type: {type: string}
+        transport_mode: {type: string}
+        pricing_date: {type: string, format: date}
+        currency_code: {type: string}
     HealthResponse:
       type: object
       properties:
