@@ -62,7 +62,7 @@ type CreateRateVersionInput struct {
 
 type UpdateRateVersionInput struct {
 	ValidFrom *time.Time
-	ValidTo   *time.Time
+	ValidTo   NullableDatePatch
 	Actor     ActorInput
 }
 
@@ -104,8 +104,8 @@ func ValidateUpdateRateVersionInput(current *RateCardVersion, patch UpdateRateVe
 		validFrom = *patch.ValidFrom
 	}
 	validTo := current.ValidTo
-	if patch.ValidTo != nil {
-		validTo = patch.ValidTo
+	if patch.ValidTo.Present {
+		validTo = ApplyNullableDatePatch(current.ValidTo, patch.ValidTo)
 	}
 	return ValidateDateRange(validFrom, validTo)
 }

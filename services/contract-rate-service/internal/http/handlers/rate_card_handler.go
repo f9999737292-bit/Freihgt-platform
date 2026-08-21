@@ -191,30 +191,33 @@ func (h *RateCardHandler) PatchVersion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		ValidFrom *string `json:"valid_from"`
-		ValidTo   *string `json:"valid_to"`
+		ValidFrom json.RawMessage `json:"valid_from"`
+		ValidTo   json.RawMessage `json:"valid_to"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respond.Error(w, domainValidation("invalid request body"))
 		return
 	}
 	patch := domain.UpdateRateVersionInput{Actor: actor}
-	if req.ValidFrom != nil {
-		vf, err := parseDate(*req.ValidFrom, "valid_from")
+	if len(req.ValidFrom) > 0 {
+		var from string
+		if err := json.Unmarshal(req.ValidFrom, &from); err != nil {
+			respond.Error(w, domainValidation("invalid valid_from"))
+			return
+		}
+		vf, err := parseDate(from, "valid_from")
 		if err != nil {
 			respond.Error(w, err)
 			return
 		}
 		patch.ValidFrom = &vf
 	}
-	if req.ValidTo != nil {
-		vt, err := parseDate(*req.ValidTo, "valid_to")
-		if err != nil {
-			respond.Error(w, err)
-			return
-		}
-		patch.ValidTo = &vt
+	validToPatch, err := domain.ParseNullableDatePatch(req.ValidTo, "valid_to")
+	if err != nil {
+		respond.Error(w, err)
+		return
 	}
+	patch.ValidTo = validToPatch
 	updated, err := h.svc.UpdateDraftVersion(r.Context(), actor.TenantID, versionID, patch, CorrelationID(r))
 	if err != nil {
 		respond.Error(w, err)
@@ -271,8 +274,16 @@ func mapRateVersion(v *domain.RateCardVersion) map[string]any {
 	return map[string]any{
 		"id": v.ID, "tenant_id": v.TenantID, "rate_card_id": v.RateCardID, "version_number": v.VersionNumber,
 		"valid_from": v.ValidFrom.Format("2006-01-02"), "valid_to": datePtr(v.ValidTo), "status": v.Status,
-		"supersedes_version_id": v.SupersedesVersionID, "created_at": v.CreatedAt, "version": v.Version,
+		"supersedes_version_id": v.SupersedesVersionID, "created_at": v.CreatedAt,
+		"activated_at": timePtr(v.ActivatedAt), "version": v.Version,
 	}
+}
+
+func timePtr(v *time.Time) any {
+	if v == nil {
+		return nil
+	}
+	return v.UTC().Format(time.RFC3339)
 }
 
 func parsePathUUID(raw, field string) (uuid.UUID, error) {
