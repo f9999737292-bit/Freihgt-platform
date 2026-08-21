@@ -23,10 +23,10 @@ func NewRouter(
 	cfg config.Config,
 	svc *service.TransportOrderService,
 	pricedSvc *service.PricedTransportOrderService,
+	snapshotReadSvc *service.RateSnapshotReadService,
 ) http.Handler {
 	handler := handlers.NewHandler(svc)
 	pricedHandler := handlers.NewPricedTransportOrderHandler(pricedSvc)
-	snapshotReadSvc := service.NewRateSnapshotReadService(pricedOrderRepo)
 	snapshotInternalHandler := handlers.NewRateSnapshotInternalHandler(snapshotReadSvc)
 	internalAuth := internalauth.Config{Token: cfg.InternalServiceToken, Environment: cfg.Environment}
 

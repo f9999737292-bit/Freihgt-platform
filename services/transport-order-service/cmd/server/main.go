@@ -52,7 +52,8 @@ func main() {
 	svc := service.NewTransportOrderService(locationRepo, cargoRepo, orderRepo, locationRepo)
 	pricingMetrics := toobs.NewPricingMetrics(cfg.ServiceName)
 	pricedSvc := service.NewPricedTransportOrderService(orderRepo, cargoRepo, locationRepo, pricedOrderRepo, rateClient, pricingMetrics)
-	router := httpserver.NewRouter(log, db.Pool, cfg, svc, pricedSvc)
+	snapshotReadSvc := service.NewRateSnapshotReadService(pricedOrderRepo)
+	router := httpserver.NewRouter(log, db.Pool, cfg, svc, pricedSvc, snapshotReadSvc)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),
