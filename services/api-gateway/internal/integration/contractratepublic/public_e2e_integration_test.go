@@ -6,394 +6,499 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"log/slog"
-	"net/http"
-	"net/http/httptest"
-	"os"
-	"path/filepath"
-	"sort"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 
-	crconfig "github.com/freight-platform/contract-rate-service/internal/config"
-	crhttp "github.com/freight-platform/contract-rate-service/internal/http"
-	"github.com/freight-platform/contract-rate-service/internal/http/handlers"
-	"github.com/freight-platform/contract-rate-service/internal/repository"
-	"github.com/freight-platform/contract-rate-service/internal/service"
-
-	gwconfig "github.com/freight-platform/api-gateway/internal/config"
-	gwhttp "github.com/freight-platform/api-gateway/internal/http"
+	crtestkit "github.com/freight-platform/contract-rate-service/testkit"
 )
 
-const internalToken = "integration-internal-token"
-const maxMigrationNumber = 53
+func TestPublicE2E001BuyerContractLifecycle(t *testing.T) {
+	h := newHarness(t, harnessOptions{})
+	user := h.userID
 
-type harness struct {
-	pool      *pgxpool.Pool
-	tenantID  uuid.UUID
-	userID    uuid.UUID
-	buyerID   uuid.UUID
-	carrierID uuid.UUID
-	gateway   http.Handler
-	jwtSecret string
+	createBody := map[string]any{
+		"buyer_company_id":    h.buyerID.String(),
+		"carrier_company_id":  h.carrierID.String(),
+		"contract_number":     "PUB-E2E-001",
+		"name":                "Public E2E Contract",
+		"valid_from":          "2026-01-01",
+		"currency_code":       "RUB",
+	}
+	resp := h.request(user, h.buyerID, "POST", "/api/v1/transport-contracts", createBody, nil)
+	mustStatus(t, "E-E2E-001 create", resp, 201)
+	contractID := parseJSONField(t, resp.Body, "id")
+
+	resp = h.request(user, h.buyerID, "GET", "/api/v1/transport-contracts/"+contractID, nil, nil)
+	mustStatus(t, "E-E2E-001 get", resp, 200)
+	if !strings.Contains(string(resp.Body), `"status":"DRAFT"`) {
+		t.Fatalf("expected DRAFT contract")
+	}
+
+	resp = h.request(user, h.buyerID, "PATCH", "/api/v1/transport-contracts/"+contractID, map[string]any{
+		"description": "draft edit",
+	}, nil)
+	mustStatus(t, "E-E2E-001 patch draft", resp, 200)
+
+	resp = h.request(user, h.buyerID, "POST", "/api/v1/transport-contracts/"+contractID+"/activate", map[string]any{}, nil)
+	mustStatus(t, "E-E2E-001 activate", resp, 200)
+	if !strings.Contains(string(resp.Body), `"status":"ACTIVE"`) {
+		t.Fatalf("expected ACTIVE")
+	}
+
+	resp = h.request(user, h.buyerID, "PATCH", "/api/v1/transport-contracts/"+contractID, map[string]any{
+		"description":        "active metadata",
+		"external_reference": "EXT-001",
+	}, nil)
+	mustStatus(t, "E-E2E-001 patch active metadata", resp, 200)
+	if !strings.Contains(string(resp.Body), `"external_reference":"EXT-001"`) {
+		t.Fatalf("metadata patch failed")
+	}
+
+	resp = h.request(user, h.buyerID, "PATCH", "/api/v1/transport-contracts/"+contractID, map[string]any{
+		"valid_to": "2027-12-31",
+	}, nil)
+	if resp.Status == 200 {
+		t.Fatal("ACTIVE contract valid_to patch must be denied")
+	}
+
+	resp = h.request(user, h.buyerID, "POST", "/api/v1/transport-contracts/"+contractID+"/suspend", map[string]any{}, nil)
+	mustStatus(t, "E-E2E-001 suspend", resp, 200)
+
+	resp = h.request(user, h.buyerID, "POST", "/api/v1/transport-contracts/"+contractID+"/reactivate", map[string]any{}, nil)
+	mustStatus(t, "E-E2E-001 reactivate", resp, 200)
 }
 
-type membership struct {
-	companyID   uuid.UUID
-	companyType string
-	roles       []string
+func TestPublicE2E002CompleteRateFlow(t *testing.T) {
+	h := newHarness(t, harnessOptions{})
+	user := h.userID
+	ctx := context.Background()
+
+	contractID := createAndActivateContract(t, h, user, h.buyerID, "PUB-E2E-002")
+
+	resp := h.request(user, h.buyerID, "POST", "/api/v1/transport-contracts/"+contractID+"/rate-cards", map[string]any{
+		"name": "Main Card",
+	}, nil)
+	mustStatus(t, "create rate card", resp, 201)
+	rateCardID := parseJSONField(t, resp.Body, "id")
+
+	resp = h.request(user, h.buyerID, "POST", "/api/v1/rate-cards/"+rateCardID+"/versions", map[string]any{
+		"valid_from": "2026-01-01",
+	}, nil)
+	mustStatus(t, "create version", resp, 201)
+	versionID := parseJSONField(t, resp.Body, "id")
+
+	resp = h.request(user, h.buyerID, "POST", "/api/v1/rate-card-versions/"+versionID+"/rate-lines", map[string]any{
+		"origin_location_id":      h.originID.String(),
+		"destination_location_id": h.destID.String(),
+		"equipment_type":          "Box",
+		"transport_mode":          "ROAD",
+	}, nil)
+	mustStatus(t, "create lane", resp, 201)
+	lineID := parseJSONField(t, resp.Body, "id")
+	if !strings.Contains(string(resp.Body), `"equipment_type":"Box"`) {
+		t.Fatalf("equipment must remain case-sensitive Box")
+	}
+
+	for _, comp := range []map[string]any{
+		{"component_type": "BASE_FREIGHT", "calculation_method": "FLAT", "amount": "100000.00"},
+		{"component_type": "FUEL_SURCHARGE", "calculation_method": "PERCENT", "percent_value": "8.00"},
+		{"component_type": "WAITING", "calculation_method": "UNIT_RATE", "amount": "500.00", "unit_code": "HOUR"},
+		{"component_type": "DETENTION", "calculation_method": "UNIT_RATE", "amount": "700.00", "unit_code": "HOUR"},
+	} {
+		resp = h.request(user, h.buyerID, "POST", "/api/v1/rate-lines/"+lineID+"/components", comp, nil)
+		mustStatus(t, "create component "+comp["component_type"].(string), resp, 201)
+	}
+
+	resp = h.request(user, h.buyerID, "PATCH", "/api/v1/rate-lines/"+lineID, map[string]any{
+		"transport_mode": "ROAD",
+	}, nil)
+	mustStatus(t, "patch lane", resp, 200)
+
+	resp = h.request(user, h.buyerID, "GET", "/api/v1/rate-lines/"+lineID+"/components", nil, nil)
+	mustStatus(t, "list components", resp, 200)
+	componentID := firstItemID(t, resp.Body)
+	resp = h.request(user, h.buyerID, "PATCH", "/api/v1/rate-components/"+componentID, map[string]any{
+		"amount": "100000.00",
+	}, nil)
+	mustStatus(t, "patch component", resp, 200)
+
+	resp = h.request(user, h.buyerID, "GET", "/api/v1/rate-lines/"+lineID+"/components", nil, nil)
+	mustStatus(t, "verify components", resp, 200)
+	if !strings.Contains(string(resp.Body), `"BASE_FREIGHT"`) || !strings.Contains(string(resp.Body), `"DETENTION"`) {
+		t.Fatalf("components missing")
+	}
+
+	resp = h.request(user, h.buyerID, "POST", "/api/v1/rate-card-versions/"+versionID+"/activate", map[string]any{}, nil)
+	mustStatus(t, "activate version", resp, 200)
+	if !strings.Contains(string(resp.Body), `"status":"ACTIVE"`) {
+		t.Fatalf("expected ACTIVE version")
+	}
+	if !strings.Contains(string(resp.Body), `"created_at"`) || !strings.Contains(string(resp.Body), `"activated_at"`) {
+		t.Fatalf("audit metadata missing")
+	}
+	if strings.Contains(string(resp.Body), `"activated_at":null`) {
+		t.Fatalf("activated_at must be set after activation")
+	}
+
+	resp = h.request(user, h.buyerID, "GET", "/api/v1/rate-card-versions/"+versionID, nil, nil)
+	mustStatus(t, "get version", resp, 200)
+
+	// equipment case sensitivity: BOX must not match Box lane
+	resolveNoMatch := map[string]any{
+		"buyer_company_id":        h.buyerID.String(),
+		"carrier_company_id":      h.carrierID.String(),
+		"origin_location_id":      h.originID.String(),
+		"destination_location_id": h.destID.String(),
+		"equipment_type":          "BOX",
+		"transport_mode":          "ROAD",
+		"pricing_date":            "2026-08-20",
+		"currency_code":           "RUB",
+	}
+	resp = h.request(user, h.buyerID, "POST", "/api/v1/rates/resolve", resolveNoMatch, nil)
+	mustStatus(t, "resolve BOX no match", resp, 200)
+	if strings.Contains(string(resp.Body), `"status":"MATCHED"`) && strings.Contains(string(resp.Body), `"equipment_type":"BOX"`) {
+		t.Fatalf("BOX must not match Box lane")
+	}
+
+	// DB persistence assertions
+	if n := crtestkit.CountRows(ctx, h.pool, `SELECT COUNT(*) FROM contract_rate.transport_contract WHERE tenant_id=$1 AND id=$2`, h.tenantID, contractID); n != 1 {
+		t.Fatalf("contract row missing")
+	}
+	if n := crtestkit.CountRows(ctx, h.pool, `SELECT COUNT(*) FROM contract_rate.rate_card WHERE tenant_id=$1 AND id=$2`, h.tenantID, rateCardID); n != 1 {
+		t.Fatalf("rate card row missing")
+	}
+	if n := crtestkit.CountRows(ctx, h.pool, `SELECT COUNT(*) FROM contract_rate.rate_card_version WHERE tenant_id=$1 AND id=$2 AND status='ACTIVE'`, h.tenantID, versionID); n != 1 {
+		t.Fatalf("active version row missing")
+	}
+	if n := crtestkit.CountRows(ctx, h.pool, `SELECT COUNT(*) FROM contract_rate.rate_line WHERE tenant_id=$1 AND id=$2`, h.tenantID, lineID); n != 1 {
+		t.Fatalf("rate line row missing")
+	}
+	if n := crtestkit.CountRows(ctx, h.pool, `SELECT COUNT(*) FROM contract_rate.rate_component rc JOIN contract_rate.rate_line rl ON rl.id=rc.rate_line_id WHERE rl.tenant_id=$1 AND rl.id=$2`, h.tenantID, lineID); n != 4 {
+		t.Fatalf("expected 4 components, got %d", n)
+	}
 }
 
-func TestPublicE2E001BuyerCreateContract(t *testing.T) {
-	h := newHarness(t)
-	token := h.signToken(t)
-	body := fmt.Sprintf(`{
-		"buyer_company_id":"%s",
-		"carrier_company_id":"%s",
-		"contract_number":"PUB-E2E-001",
-		"name":"Public E2E Contract",
-		"valid_from":"2026-01-01",
-		"currency_code":"RUB"
-	}`, h.buyerID, h.carrierID)
+func TestPublicE2E003PublicSimulation(t *testing.T) {
+	h := newHarness(t, harnessOptions{})
+	user := h.userID
+	contractID := createAndActivateContract(t, h, user, h.buyerID, "PUB-E2E-003")
+	rateCardID, versionID, lineID := createActiveRateStack(t, h, user, h.buyerID, contractID, "Box", "100000.00", "8.00")
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/transport-contracts", strings.NewReader(body))
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("X-Company-ID", h.buyerID.String())
-	req.Header.Set("Content-Type", "application/json")
+	resolveBody := map[string]any{
+		"buyer_company_id":        h.buyerID.String(),
+		"carrier_company_id":      h.carrierID.String(),
+		"origin_location_id":      h.originID.String(),
+		"destination_location_id": h.destID.String(),
+		"equipment_type":          "Box",
+		"transport_mode":          "ROAD",
+		"pricing_date":            "2026-08-20",
+		"currency_code":           "RUB",
+	}
+	resp := h.request(user, h.buyerID, "POST", "/api/v1/rates/resolve", resolveBody, nil)
+	mustStatus(t, "resolve matched", resp, 200)
 
-	rec := httptest.NewRecorder()
-	h.gateway.ServeHTTP(rec, req)
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("E-E2E-001 create expected 201, got %d body=%s", rec.Code, rec.Body.String())
+	var result map[string]any
+	if err := json.Unmarshal(resp.Body, &result); err != nil {
+		t.Fatalf("decode resolve: %v", err)
+	}
+	if result["status"] != "MATCHED" {
+		t.Fatalf("expected MATCHED got %v", result["status"])
+	}
+	if result["pricing_source"] != "CONTRACT_RATE" {
+		t.Fatalf("expected CONTRACT_RATE pricing source")
+	}
+	if fmt.Sprint(result["contract_id"]) != contractID {
+		t.Fatalf("contract id mismatch")
+	}
+	if fmt.Sprint(result["rate_card_id"]) != rateCardID {
+		t.Fatalf("rate card id mismatch")
+	}
+	if fmt.Sprint(result["rate_version_id"]) != versionID {
+		t.Fatalf("rate version id mismatch")
+	}
+	if fmt.Sprint(result["rate_line_id"]) != lineID {
+		t.Fatalf("rate line id mismatch")
+	}
+	if result["base_amount"] != "100000.00" {
+		t.Fatalf("base_amount want 100000.00 got %v", result["base_amount"])
+	}
+	if result["total_amount"] != "108000.00" {
+		t.Fatalf("total_amount want 108000.00 got %v", result["total_amount"])
+	}
+
+	forbidden := []struct {
+		field string
+		body  map[string]any
+	}{
+		{"manual_spot_amount", withField(resolveBody, "manual_spot_amount", "1.00")},
+		{"pricing_source", withField(resolveBody, "pricing_source", "MANUAL_SPOT")},
+		{"award_link_id", withField(resolveBody, "award_link_id", uuid.New().String())},
+		{"award_scope_event_id", withField(resolveBody, "award_scope_event_id", uuid.New().String())},
+		{"bid_id", withField(resolveBody, "bid_id", uuid.New().String())},
+	}
+	for _, tc := range forbidden {
+		resp = h.request(user, h.buyerID, "POST", "/api/v1/rates/resolve", tc.body, nil)
+		if resp.Status != 400 {
+			t.Fatalf("forbidden %s expected 400 got %d body=%s", tc.field, resp.Status, string(resp.Body))
+		}
+	}
+}
+
+func TestPublicE2E004CarrierReadOnly(t *testing.T) {
+	buyerUser := uuid.New()
+	carrierUser := uuid.New()
+	tenantID := uuid.New()
+	buyerID := uuid.New()
+	carrierID := uuid.New()
+	originID := uuid.New()
+	destID := uuid.New()
+
+	h := newHarness(t, harnessOptions{
+		TenantID: tenantID,
+		UserID:   buyerUser,
+		BuyerID:  buyerID,
+		CarrierID: carrierID,
+		OriginID: originID,
+		DestID:   destID,
+		MembershipsByUser: map[uuid.UUID][]identityMembership{
+			buyerUser:   {{CompanyID: buyerID, CompanyType: "SHIPPER", Roles: []string{"PROCUREMENT_MANAGER"}}},
+			carrierUser: {{CompanyID: carrierID, CompanyType: "CARRIER", Roles: []string{"CARRIER_ADMIN"}}},
+		},
+	})
+	contractID := createAndActivateContract(t, h, buyerUser, buyerID, "PUB-E2E-004")
+	rateCardID, versionID, lineID := createActiveRateStack(t, h, buyerUser, buyerID, contractID, "Box", "100000.00", "8.00")
+
+	readPaths := []string{
+		"/api/v1/transport-contracts/" + contractID,
+		"/api/v1/transport-contracts/" + contractID + "/rate-cards",
+		"/api/v1/rate-cards/" + rateCardID + "/versions",
+		"/api/v1/rate-card-versions/" + versionID + "/rate-lines",
+		"/api/v1/rate-lines/" + lineID + "/components",
+	}
+	for _, path := range readPaths {
+		resp := h.request(carrierUser, carrierID, "GET", path, nil, nil)
+		mustStatus(t, "carrier read "+path, resp, 200)
+	}
+
+	resolveBody := map[string]any{
+		"buyer_company_id": h.buyerID.String(), "carrier_company_id": h.carrierID.String(),
+		"origin_location_id": h.originID.String(), "destination_location_id": h.destID.String(),
+		"equipment_type": "Box", "transport_mode": "ROAD", "pricing_date": "2026-08-20",
+	}
+	resp := h.request(carrierUser, carrierID, "POST", "/api/v1/rates/resolve", resolveBody, nil)
+	mustStatus(t, "carrier simulate", resp, 200)
+
+	listResp := h.request(carrierUser, carrierID, "GET", "/api/v1/rate-lines/"+lineID+"/components", nil, nil)
+	mustStatus(t, "list components for delete deny", listResp, 200)
+	componentID := firstItemID(t, listResp.Body)
+
+	mutations := []struct {
+		method string
+		path   string
+		body   any
+	}{
+		{"PATCH", "/api/v1/transport-contracts/" + contractID, map[string]any{"description": "x"}},
+		{"POST", "/api/v1/transport-contracts/" + contractID + "/suspend", map[string]any{}},
+		{"POST", "/api/v1/transport-contracts/" + contractID + "/rate-cards", map[string]any{"name": "x"}},
+		{"POST", "/api/v1/rate-cards/" + rateCardID + "/versions", map[string]any{"valid_from": "2026-01-01"}},
+		{"PATCH", "/api/v1/rate-lines/" + lineID, map[string]any{"transport_mode": "ROAD"}},
+		{"DELETE", "/api/v1/rate-components/" + componentID, nil},
+	}
+	for _, m := range mutations {
+		resp = h.request(carrierUser, carrierID, m.method, m.path, m.body, nil)
+		if resp.Status != 403 {
+			t.Fatalf("carrier mutate %s %s expected 403 got %d body=%s", m.method, m.path, resp.Status, string(resp.Body))
+		}
+	}
+}
+
+func TestPublicE2E005TerminalHistoricalRead(t *testing.T) {
+	h := newHarness(t, harnessOptions{})
+	user := h.userID
+	contractID := createAndActivateContract(t, h, user, h.buyerID, "PUB-E2E-005")
+	rateCardID, versionID, lineID := createActiveRateStack(t, h, user, h.buyerID, contractID, "Box", "50000.00", "0.00")
+
+	resp := h.request(user, h.buyerID, "POST", "/api/v1/transport-contracts/"+contractID+"/terminate", map[string]any{
+		"termination_reason": "E2E terminate",
+	}, nil)
+	mustStatus(t, "terminate", resp, 200)
+
+	for _, path := range []string{
+		"/api/v1/transport-contracts/" + contractID,
+		"/api/v1/transport-contracts/" + contractID + "/rate-cards",
+		"/api/v1/rate-cards/" + rateCardID + "/versions",
+		"/api/v1/rate-card-versions/" + versionID,
+		"/api/v1/rate-card-versions/" + versionID + "/rate-lines",
+		"/api/v1/rate-lines/" + lineID + "/components",
+	} {
+		resp = h.request(user, h.buyerID, "GET", path, nil, nil)
+		mustStatus(t, "historical read "+path, resp, 200)
+	}
+
+	// activated_at must remain truthful on historical version
+	if !strings.Contains(string(resp.Body), `"activated_at"`) {
+		t.Fatalf("historical version must expose activated_at")
+	}
+
+	resolveBody := map[string]any{
+		"buyer_company_id": h.buyerID.String(), "carrier_company_id": h.carrierID.String(),
+		"origin_location_id": h.originID.String(), "destination_location_id": h.destID.String(),
+		"equipment_type": "Box", "transport_mode": "ROAD", "pricing_date": "2026-08-20",
+	}
+	resp = h.request(user, h.buyerID, "POST", "/api/v1/rates/resolve", resolveBody, nil)
+	mustStatus(t, "post-terminate resolve", resp, 200)
+	if strings.Contains(string(resp.Body), `"status":"MATCHED"`) {
+		t.Fatalf("terminated contract must not repricing-match")
 	}
 }
 
 func TestPublicE2E006CrossCompanyRoleBleed(t *testing.T) {
-	pool := setupPool(t)
-	ctx := context.Background()
-	tenantID := uuid.New()
-	adminUser := uuid.New()
-	logistUser := uuid.New()
-	buyerID := uuid.New()
-	carrierID := uuid.New()
-	seedTenantAndCompanies(t, ctx, pool, tenantID, buyerID, carrierID)
-	seedCompanyRole(t, ctx, pool, tenantID, adminUser, buyerID, "SHIPPER_ADMIN")
-	seedCompanyRole(t, ctx, pool, tenantID, logistUser, carrierID, "SHIPPER_LOGIST")
-
-	h := newHarnessWithIdentity(t, pool, tenantID, logistUser, buyerID, carrierID, []membership{
-		{companyID: buyerID, companyType: "SHIPPER", roles: []string{"SHIPPER_ADMIN"}},
-		{companyID: carrierID, companyType: "SHIPPER", roles: []string{"SHIPPER_LOGIST"}},
-	})
-
-	token := h.signTokenFor(logistUser)
-	req := httptest.NewRequest(http.MethodPatch, "/api/v1/transport-contracts/"+uuid.New().String(), strings.NewReader(`{"description":"x"}`))
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("X-Company-ID", carrierID.String())
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
-	h.gateway.ServeHTTP(rec, req)
-	if rec.Code != http.StatusForbidden {
-		t.Fatalf("E-E2E-006 expected 403, got %d body=%s", rec.Code, rec.Body.String())
-	}
-}
-
-func newHarness(t *testing.T) *harness {
-	t.Helper()
-	pool := setupPool(t)
+	pool := crtestkit.SetupPool(t)
 	ctx := context.Background()
 	tenantID := uuid.New()
 	userID := uuid.New()
-	buyerID := uuid.New()
+	managerID := uuid.New()
+	companyA := uuid.New()
+	companyB := uuid.New()
 	carrierID := uuid.New()
-	seedTenantAndCompanies(t, ctx, pool, tenantID, buyerID, carrierID)
-	seedCompanyRole(t, ctx, pool, tenantID, userID, buyerID, "PROCUREMENT_MANAGER")
-	return newHarnessWithIdentity(t, pool, tenantID, userID, buyerID, carrierID, []membership{
-		{companyID: buyerID, companyType: "SHIPPER", roles: []string{"PROCUREMENT_MANAGER"}},
-	})
-}
+	originID := uuid.New()
+	destID := uuid.New()
 
-func newHarnessWithIdentity(t *testing.T, pool *pgxpool.Pool, tenantID, userID, buyerID, carrierID uuid.UUID, memberships []membership) *harness {
-	t.Helper()
-	identityServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case strings.Contains(r.URL.Path, "/companies"):
-			items := make([]map[string]any, 0, len(memberships))
-			for _, m := range memberships {
-				roles := make([]map[string]any, 0, len(m.roles))
-				for _, role := range m.roles {
-					roles = append(roles, map[string]any{"code": role})
-				}
-				items = append(items, map[string]any{
-					"company_id":   m.companyID.String(),
-					"company_type": m.companyType,
-					"roles":        roles,
-				})
-			}
-			writeJSON(w, map[string]any{"items": items})
-		case strings.HasSuffix(r.URL.Path, "/roles"):
-			writeJSON(w, map[string]any{"items": []any{}})
-		default:
-			w.WriteHeader(http.StatusNotFound)
-		}
-	}))
-	t.Cleanup(identityServer.Close)
+	crtestkit.SeedTenantAndCompanies(t, ctx, pool, tenantID, companyA, carrierID)
+	crtestkit.SeedCompany(t, ctx, pool, tenantID, companyB, "SHIPPER", "Company B")
+	crtestkit.SeedLocations(t, ctx, pool, tenantID, companyB, originID, destID)
 
-	audit := repository.NewAuditRepository()
-	contracts := repository.NewContractRepository(pool, audit)
-	rateCards := repository.NewRateCardRepository(pool, contracts, audit)
-	locations := repository.NewLocationRepository(pool)
-	rateLines := repository.NewRateLineRepository(pool, rateCards, locations, audit)
-	rateComponents := repository.NewRateComponentRepository(pool, rateLines, rateCards, audit)
-	resolutions := repository.NewResolutionRepository(pool, audit)
-	membershipsRepo := repository.NewMembershipRepository(pool)
-	actors := handlers.NewActorResolver(membershipsRepo)
-
-	contractSvc := service.NewContractService(contracts, membershipsRepo)
-	rateCardSvc := service.NewRateCardService(rateCards, contracts)
-	rateLineSvc := service.NewRateLineService(rateLines, rateCards, contracts)
-	rateComponentSvc := service.NewRateComponentService(rateComponents, rateLines, rateCards, contracts)
-	resolutionSvc := service.NewResolutionService(resolutions, membershipsRepo, nil, nil)
-
-	crRouter := crhttp.NewRouter(
-		slog.New(slog.NewTextHandler(io.Discard, nil)),
-		pool,
-		crconfig.Config{InternalServiceToken: internalToken, Environment: "test"},
-		contractSvc, rateCardSvc, rateLineSvc, rateComponentSvc, resolutionSvc, actors,
-	)
-	contractRateServer := httptest.NewServer(crRouter)
-	t.Cleanup(contractRateServer.Close)
-
-	cfg := gwconfig.Config{
-		AuthEnabled:          true,
-		JWTSecret:            "integration-jwt-secret",
-		ProxyTimeoutSeconds:  10,
-		InternalServiceToken: internalToken,
-		Services: gwconfig.ServiceURLs{
-			Identity:     identityServer.URL,
-			ContractRate: contractRateServer.URL,
+	h := newHarness(t, harnessOptions{
+		Pool: pool, TenantID: tenantID, UserID: userID, BuyerID: companyB, CarrierID: carrierID,
+		OriginID: originID, DestID: destID,
+		MembershipsByUser: map[uuid.UUID][]identityMembership{
+			userID: {
+				{CompanyID: companyA, CompanyType: "SHIPPER", Roles: []string{"SHIPPER_ADMIN"}},
+				{CompanyID: companyB, CompanyType: "SHIPPER", Roles: []string{"SHIPPER_LOGIST"}},
+			},
+			managerID: {{CompanyID: companyB, CompanyType: "SHIPPER", Roles: []string{"PROCUREMENT_MANAGER"}}},
 		},
+	})
+
+	createResp := h.request(managerID, companyB, "POST", "/api/v1/transport-contracts", map[string]any{
+		"buyer_company_id": companyB.String(), "carrier_company_id": carrierID.String(),
+		"contract_number": "BLEED-006", "name": "Company B Contract", "valid_from": "2026-01-01", "currency_code": "RUB",
+	}, nil)
+	mustStatus(t, "create B contract", createResp, 201)
+	contractID := parseJSONField(t, createResp.Body, "id")
+
+	readResp := h.request(userID, companyB, "GET", "/api/v1/transport-contracts/"+contractID, nil, nil)
+	mustStatus(t, "logist read B", readResp, 200)
+
+	patchResp := h.request(userID, companyB, "PATCH", "/api/v1/transport-contracts/"+contractID, map[string]any{
+		"description": "bleed attempt",
+	}, nil)
+	if patchResp.Status != 403 {
+		t.Fatalf("E-E2E-006 expected 403 got %d body=%s", patchResp.Status, string(patchResp.Body))
 	}
-	proxy, err := gwhttp.NewProxyHandler(cfg)
-	if err != nil {
-		t.Fatalf("proxy: %v", err)
+
+	getAfter := h.request(userID, companyB, "GET", "/api/v1/transport-contracts/"+contractID, nil, nil)
+	mustStatus(t, "re-read after deny", getAfter, 200)
+	if strings.Contains(string(getAfter.Body), `"description":"bleed attempt"`) {
+		t.Fatalf("mutation must not have occurred")
 	}
-	router := gwhttp.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), cfg, proxy, nil, nil, nil, nil)
-	return &harness{
-		pool: pool, tenantID: tenantID, userID: userID, buyerID: buyerID, carrierID: carrierID,
-		gateway: router, jwtSecret: cfg.JWTSecret,
+
+	contractA := createAndActivateContract(t, h, userID, companyA, "BLEED-A")
+	patchA := h.request(userID, companyA, "PATCH", "/api/v1/transport-contracts/"+contractA, map[string]any{
+		"description": "admin on A",
+	}, nil)
+	mustStatus(t, "admin mutate A", patchA, 200)
+}
+
+func TestPublicSecurityHeaderSpoofing(t *testing.T) {
+	h := newHarness(t, harnessOptions{})
+	user := h.userID
+	foreignTenant := uuid.New().String()
+	foreignUser := uuid.New().String()
+
+	resp := h.request(user, h.buyerID, "GET", "/api/v1/transport-contracts", nil, map[string]string{
+		"X-Tenant-ID":              foreignTenant,
+		"X-User-ID":                foreignUser,
+		"X-Actor-Kind":             "CARRIER",
+		"X-Internal-Service-Token": "spoof-token",
+	})
+	mustStatus(t, "list with spoof headers", resp, 200)
+
+	// membership required
+	resp = h.request(user, uuid.New(), "GET", "/api/v1/transport-contracts", nil, nil)
+	if resp.Status != 403 {
+		t.Fatalf("unknown company expected 403 got %d", resp.Status)
 	}
 }
 
-func (h *harness) signToken(t *testing.T) string {
-	return h.signTokenFor(h.userID)
-}
-
-func (h *harness) signTokenFor(userID uuid.UUID) string {
-	claims := jwt.MapClaims{
-		"tenant_id": h.tenantID.String(),
-		"email":     "user@example.test",
-		"sub":       userID.String(),
-		"exp":       time.Now().Add(time.Hour).Unix(),
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	signed, _ := token.SignedString([]byte(h.jwtSecret))
-	return signed
-}
-
-func writeJSON(w http.ResponseWriter, payload any) {
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(payload)
-}
-
-func setupPool(t *testing.T) *pgxpool.Pool {
+func createAndActivateContract(t *testing.T, h *harness, user, buyerCompany uuid.UUID, number string) string {
 	t.Helper()
-	adminURL := strings.TrimSpace(os.Getenv("TEST_DATABASE_URL"))
-	if adminURL == "" {
-		if os.Getenv("REQUIRE_TEST_DATABASE") == "1" || strings.EqualFold(strings.TrimSpace(os.Getenv("CI")), "true") {
-			t.Fatal("TEST_DATABASE_URL is required")
-		}
-		t.Skip("TEST_DATABASE_URL is not set")
-	}
-	ctx := context.Background()
-	pool, cleanup := createTempDB(t, ctx, adminURL)
-	t.Cleanup(cleanup)
-	if err := applyMigrations(ctx, pool); err != nil {
-		t.Fatalf("apply migrations: %v", err)
-	}
-	return pool
+	resp := h.request(user, buyerCompany, "POST", "/api/v1/transport-contracts", map[string]any{
+		"buyer_company_id": buyerCompany.String(), "carrier_company_id": h.carrierID.String(),
+		"contract_number": number, "name": "Contract " + number, "valid_from": "2026-01-01", "currency_code": "RUB",
+	}, nil)
+	mustStatus(t, "create contract", resp, 201)
+	contractID := parseJSONField(t, resp.Body, "id")
+	resp = h.request(user, buyerCompany, "POST", "/api/v1/transport-contracts/"+contractID+"/activate", map[string]any{}, nil)
+	mustStatus(t, "activate contract", resp, 200)
+	return contractID
 }
 
-func createTempDB(t *testing.T, ctx context.Context, adminURL string) (*pgxpool.Pool, func()) {
+func createActiveRateStack(t *testing.T, h *harness, user, buyerCompany uuid.UUID, contractID, equipment, baseAmount, fuelPercent string) (rateCardID, versionID, lineID string) {
 	t.Helper()
-	cfg, err := pgxpool.ParseConfig(adminURL)
-	if err != nil {
-		t.Fatalf("parse url: %v", err)
-	}
-	dbName := "freight_contract_rate_public_" + strings.ReplaceAll(uuid.NewString(), "-", "")[:12]
-	adminCfg := cfg.Copy()
-	adminCfg.ConnConfig.Database = "postgres"
-	adminPool, err := pgxpool.NewWithConfig(ctx, adminCfg)
-	if err != nil {
-		t.Fatalf("admin pool: %v", err)
-	}
-	if _, err := adminPool.Exec(ctx, "CREATE DATABASE "+dbName); err != nil {
-		adminPool.Close()
-		t.Fatalf("create db: %v", err)
-	}
-	adminPool.Close()
+	resp := h.request(user, buyerCompany, "POST", "/api/v1/transport-contracts/"+contractID+"/rate-cards", map[string]any{"name": "Card"}, nil)
+	mustStatus(t, "create card", resp, 201)
+	rateCardID = parseJSONField(t, resp.Body, "id")
 
-	testCfg := cfg.Copy()
-	testCfg.ConnConfig.Database = dbName
-	pool, err := pgxpool.NewWithConfig(ctx, testCfg)
-	if err != nil {
-		t.Fatalf("test pool: %v", err)
-	}
-	cleanup := func() {
-		pool.Close()
-		adminPool, _ = pgxpool.NewWithConfig(context.Background(), adminCfg)
-		if adminPool != nil {
-			_, _ = adminPool.Exec(context.Background(), "DROP DATABASE IF EXISTS "+dbName+" WITH (FORCE)")
-			adminPool.Close()
-		}
-	}
-	return pool, cleanup
-}
+	resp = h.request(user, buyerCompany, "POST", "/api/v1/rate-cards/"+rateCardID+"/versions", map[string]any{"valid_from": "2026-01-01"}, nil)
+	mustStatus(t, "create version", resp, 201)
+	versionID = parseJSONField(t, resp.Body, "id")
 
-func applyMigrations(ctx context.Context, pool *pgxpool.Pool) error {
-	root, err := repoRoot()
-	if err != nil {
-		return err
-	}
-	dir := filepath.Join(root, "infrastructure", "migrations")
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return err
-	}
-	var files []string
-	for _, e := range entries {
-		name := e.Name()
-		if !strings.HasSuffix(name, ".up.sql") {
-			continue
-		}
-		var num int
-		if _, err := fmt.Sscanf(name, "%d", &num); err != nil || num > maxMigrationNumber {
-			continue
-		}
-		files = append(files, filepath.Join(dir, name))
-	}
-	sort.Strings(files)
-	for _, file := range files {
-		sqlBytes, err := os.ReadFile(file)
-		if err != nil {
-			return err
-		}
-		if _, err := pool.Exec(ctx, string(sqlBytes)); err != nil {
-			return fmt.Errorf("%s: %w", file, err)
-		}
-	}
-	return nil
-}
+	resp = h.request(user, buyerCompany, "POST", "/api/v1/rate-card-versions/"+versionID+"/rate-lines", map[string]any{
+		"origin_location_id": h.originID.String(), "destination_location_id": h.destID.String(),
+		"equipment_type": equipment, "transport_mode": "ROAD",
+	}, nil)
+	mustStatus(t, "create line", resp, 201)
+	lineID = parseJSONField(t, resp.Body, "id")
 
-func repoRoot() (string, error) {
-	wd, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	dir := wd
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "infrastructure", "migrations")); err == nil {
-			return dir, nil
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return "", fmt.Errorf("repo root not found")
-		}
-		dir = parent
-	}
-}
-
-func seedTenantAndCompanies(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tenantID, buyerID, carrierID uuid.UUID) {
-	t.Helper()
-	_, err := pool.Exec(ctx, `
-		INSERT INTO core.tenants (id, code, name, status)
-		VALUES ($1, $2, 'Test Tenant', 'ACTIVE')
-		ON CONFLICT DO NOTHING`, tenantID, "T-"+tenantID.String()[:8])
-	if err != nil {
-		t.Fatalf("seed tenant: %v", err)
-	}
-	for _, row := range []struct {
-		id, tenant uuid.UUID
-		typ, name  string
-	}{
-		{buyerID, tenantID, "SHIPPER", "Buyer Co"},
-		{carrierID, tenantID, "CARRIER", "Carrier Co"},
+	for _, comp := range []map[string]any{
+		{"component_type": "BASE_FREIGHT", "calculation_method": "FLAT", "amount": baseAmount},
+		{"component_type": "FUEL_SURCHARGE", "calculation_method": "PERCENT", "percent_value": fuelPercent},
+		{"component_type": "WAITING", "calculation_method": "UNIT_RATE", "amount": "500.00", "unit_code": "HOUR"},
+		{"component_type": "DETENTION", "calculation_method": "UNIT_RATE", "amount": "700.00", "unit_code": "HOUR"},
 	} {
-		_, err := pool.Exec(ctx, `
-			INSERT INTO core.companies (id, tenant_id, company_type, legal_name, status)
-			VALUES ($1,$2,$3,$4,'ACTIVE')
-			ON CONFLICT DO NOTHING`, row.id, row.tenant, row.typ, row.name)
-		if err != nil {
-			t.Fatalf("seed company: %v", err)
-		}
+		resp = h.request(user, buyerCompany, "POST", "/api/v1/rate-lines/"+lineID+"/components", comp, nil)
+		mustStatus(t, "component", resp, 201)
 	}
+
+	resp = h.request(user, buyerCompany, "POST", "/api/v1/rate-card-versions/"+versionID+"/activate", map[string]any{}, nil)
+	mustStatus(t, "activate version", resp, 200)
+	return rateCardID, versionID, lineID
 }
 
-func seedUser(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) {
-	t.Helper()
-	_, err := pool.Exec(ctx, `
-		INSERT INTO core.users (id, tenant_id, email, full_name, status)
-		VALUES ($1,$2,$3,'Test User','ACTIVE')
-		ON CONFLICT DO NOTHING`, userID, tenantID, userID.String()+"@example.test")
-	if err != nil {
-		t.Fatalf("seed user: %v", err)
+func withField(base map[string]any, key string, value any) map[string]any {
+	out := map[string]any{}
+	for k, v := range base {
+		out[k] = v
 	}
+	out[key] = value
+	return out
 }
 
-func seedCompanyMembership(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tenantID, userID, companyID uuid.UUID) {
+func firstItemID(t *testing.T, body []byte) string {
 	t.Helper()
-	seedUser(t, ctx, pool, tenantID, userID)
-	_, err := pool.Exec(ctx, `
-		INSERT INTO core.company_memberships (tenant_id, company_id, user_id, status)
-		VALUES ($1,$2,$3,'ACTIVE')
-		ON CONFLICT (company_id, user_id) DO UPDATE SET status='ACTIVE', deleted_at=NULL`,
-		tenantID, companyID, userID)
-	if err != nil {
-		t.Fatalf("seed company membership: %v", err)
+	var payload struct {
+		Items []struct {
+			ID string `json:"id"`
+		} `json:"items"`
 	}
-}
-
-func resolveRoleID(t *testing.T, ctx context.Context, pool *pgxpool.Pool, roleCode string) uuid.UUID {
-	t.Helper()
-	var roleID uuid.UUID
-	err := pool.QueryRow(ctx, `
-		INSERT INTO core.roles (code, name, scope, is_system)
-		VALUES ($1,$1,'GLOBAL',true)
-		ON CONFLICT DO NOTHING
-		RETURNING id`, roleCode).Scan(&roleID)
-	if err != nil {
-		err = pool.QueryRow(ctx, `SELECT id FROM core.roles WHERE code=$1 AND tenant_id IS NULL LIMIT 1`, roleCode).Scan(&roleID)
-		if err != nil {
-			t.Fatalf("resolve role %s: %v", roleCode, err)
-		}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		t.Fatalf("decode items: %v body=%s", err, string(body))
 	}
-	return roleID
-}
-
-func seedCompanyRole(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tenantID, userID, companyID uuid.UUID, roleCode string) {
-	t.Helper()
-	seedCompanyMembership(t, ctx, pool, tenantID, userID, companyID)
-	roleID := resolveRoleID(t, ctx, pool, roleCode)
-	_, err := pool.Exec(ctx, `
-		INSERT INTO core.user_roles (tenant_id, user_id, company_id, role_id)
-		VALUES ($1,$2,$3,$4)
-		ON CONFLICT DO NOTHING`, tenantID, userID, companyID, roleID)
-	if err != nil {
-		t.Fatalf("seed company role: %v", err)
+	if len(payload.Items) == 0 || payload.Items[0].ID == "" {
+		t.Fatalf("expected items in %s", string(body))
 	}
+	return payload.Items[0].ID
 }
