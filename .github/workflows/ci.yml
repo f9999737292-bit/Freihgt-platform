@@ -52,6 +52,7 @@ jobs:
           - services/api-gateway
           - services/billing-register-service
           - services/payment-service
+          - services/freight-cost-service
           - services/contract-rate-service
           - services/company-service
           - services/control-tower-read-model-service
