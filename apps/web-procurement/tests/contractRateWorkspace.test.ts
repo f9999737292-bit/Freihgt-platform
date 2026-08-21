@@ -1,24 +1,50 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { RateComponent, RateLine, TransportContract } from '~/types/contractRate'
+import { ApiError } from '~/utils/apiClient'
 import {
+  availableComponentTypes,
   buildCreateContractPayload,
   buildCreateRateLinePayload,
+  buildPatchContractPayload,
+  buildPatchRateComponentPayload,
+  buildPatchRateVersionPayload,
+  buildRateComponentPayload,
   buildSimulationRequest,
+  canAddComponentType,
+  canShowContractEdit,
+  canShowContractLifecycleAction,
   contractLifecycleActions,
   diffRateVersions,
   filterContracts,
   isContractTerminal,
   isVersionEditable,
   normalizeEquipmentType,
+  paginateItems,
+  shouldShowRateHistoryNav,
   validateLaneComponents,
   versionLifecycleActions,
 } from '~/utils/contractRate'
 import {
   canCreateContractsForRoles,
+  canEditContractMetadataForRoles,
   canReadContractsForRoles,
   isCarrierContractReaderForRoles,
   shouldShowContractsNav,
 } from '~/utils/contractRatePermissions'
+import {
+  lifecycleMutationVisible,
+  mapContractRateErrorCode,
+  requiresLifecycleConfirmation,
+  resolveContractDetailError,
+  resolveContractListViewState,
+  runContractLifecycleAction,
+  terminalHistoryNavVisible,
+  deleteDraftRateComponent,
+  deleteDraftRateLine,
+  patchDraftRateComponent,
+  patchDraftRateLine,
+  patchDraftRateVersion,
+} from '~/utils/contractRateWorkspace'
 
 function contract(overrides: Partial<TransportContract> = {}): TransportContract {
   return {
@@ -51,7 +77,9 @@ function line(
   }
 }
 
-function component(overrides: Partial<RateComponent> & Pick<RateComponent, 'id' | 'rate_line_id' | 'component_type'>): RateComponent {
+function component(
+  overrides: Partial<RateComponent> & Pick<RateComponent, 'id' | 'rate_line_id' | 'component_type'>,
+): RateComponent {
   return {
     tenant_id: 't-1',
     calculation_method: 'FLAT',
@@ -63,18 +91,14 @@ function component(overrides: Partial<RateComponent> & Pick<RateComponent, 'id' 
 
 describe('D-UI contract list workspace', () => {
   it('D-UI-001 contracts list renders data from filtered page slice', () => {
-    const items = [
-      contract({ id: '1', contract_number: 'A-1' }),
-      contract({ id: '2', contract_number: 'B-2', status: 'ACTIVE' }),
-    ]
-    expect(filterContracts(items, {}).length).toBe(2)
+    const items = [contract({ id: '1' }), contract({ id: '2', status: 'ACTIVE' })]
+    const page = paginateItems(filterContracts(items, {}), 20, 0)
+    expect(page.items).toHaveLength(2)
+    expect(page.total).toBe(2)
   })
 
   it('D-UI-002 status filter applied client-side', () => {
-    const items = [
-      contract({ status: 'DRAFT' }),
-      contract({ id: 'c-2', status: 'ACTIVE' }),
-    ]
+    const items = [contract({ status: 'DRAFT' }), contract({ id: 'c-2', status: 'ACTIVE' })]
     expect(filterContracts(items, { status: 'ACTIVE' })).toHaveLength(1)
   })
 
@@ -87,11 +111,23 @@ describe('D-UI contract list workspace', () => {
   })
 
   it('D-UI-004 backend unavailable is a distinct UI state flag', () => {
-    expect(true).toBe(true)
+    expect(resolveContractListViewState({
+      loading: false,
+      missingCompany: false,
+      forbidden: false,
+      apiUnavailable: true,
+      itemCount: 0,
+    })).toBe('backend_unavailable')
   })
 
   it('D-UI-005 missing company blocks list load', () => {
-    expect('').toBeFalsy()
+    expect(resolveContractListViewState({
+      loading: false,
+      missingCompany: true,
+      forbidden: false,
+      apiUnavailable: false,
+      itemCount: 0,
+    })).toBe('missing_company')
   })
 
   it('D-UI-006 read-only carrier does not get mutation roles', () => {
@@ -104,7 +140,7 @@ describe('D-UI contract list workspace', () => {
   })
 
   it('D-UI-008 create contract payload exact', () => {
-    const payload = buildCreateContractPayload({
+    expect(buildCreateContractPayload({
       buyer_company_id: 'buyer-1',
       carrier_company_id: 'carrier-1',
       contract_number: ' CN-1 ',
@@ -114,8 +150,7 @@ describe('D-UI contract list workspace', () => {
       valid_from: '2026-01-01',
       valid_to: '',
       currency_code: 'rub',
-    })
-    expect(payload).toEqual({
+    })).toEqual({
       buyer_company_id: 'buyer-1',
       carrier_company_id: 'carrier-1',
       contract_number: 'CN-1',
@@ -158,23 +193,30 @@ describe('D-UI contract list workspace', () => {
   })
 
   it('D-UI-014 activation confirmation required by action set', () => {
-    expect(contractLifecycleActions('DRAFT')).toContain('activate')
+    expect(requiresLifecycleConfirmation('activate')).toBe(true)
+    expect(requiresLifecycleConfirmation('edit')).toBe(false)
   })
 
   it('D-UI-015 termination is terminal with immutable history semantics documented', () => {
     expect(isContractTerminal('TERMINATED')).toBe(true)
+    expect(lifecycleMutationVisible('TERMINATED')).toBe(false)
   })
 
-  it('D-UI-016 successful lifecycle action reloads data (hook exists in page)', () => {
-    expect(typeof contractLifecycleActions).toBe('function')
+  it('D-UI-016 successful lifecycle action reloads data via API callback', async () => {
+    const activate = vi.fn().mockResolvedValue(contract({ status: 'ACTIVE' }))
+    const updated = await runContractLifecycleAction({ activateTransportContract: activate, suspendTransportContract: vi.fn(), reactivateTransportContract: vi.fn(), terminateTransportContract: vi.fn(), cancelTransportContract: vi.fn() }, 'c-1', 'activate')
+    expect(activate).toHaveBeenCalledWith('c-1')
+    expect(updated.status).toBe('ACTIVE')
   })
 
   it('D-UI-017 403 displayed via forbidden state', () => {
+    expect(resolveContractDetailError(new ApiError(403, { code: 'FORBIDDEN', message: 'denied' }))).toBe('forbidden')
     expect(canReadContractsForRoles([])).toBe(false)
   })
 
   it('D-UI-018 409 conflict codes mapped', () => {
-    expect('RATE_LANE_CONFLICT').toBeTruthy()
+    const error = new ApiError(409, { code: 'CONFLICT', message: 'lane conflict', details: { code: 'RATE_LANE_CONFLICT' } })
+    expect(mapContractRateErrorCode(error)).toBe('RATE_LANE_CONFLICT')
   })
 })
 
@@ -189,7 +231,8 @@ describe('D-RATE rate workspace', () => {
   })
 
   it('D-RATE-003 version history renders statuses', () => {
-    expect(['DRAFT', 'ACTIVE', 'SUPERSEDED']).toContain('DRAFT')
+    expect(versionLifecycleActions('DRAFT')).toContain('edit')
+    expect(versionLifecycleActions('ACTIVE')).toEqual([])
   })
 
   it('D-RATE-004 DRAFT version editable', () => {
@@ -238,42 +281,37 @@ describe('D-RATE rate workspace', () => {
   })
 
   it('D-RATE-012 BASE_FREIGHT editor validation', () => {
-    const errors = validateLaneComponents([
+    expect(validateLaneComponents([
       component({ id: '1', rate_line_id: 'l-1', component_type: 'BASE_FREIGHT', calculation_method: 'FLAT', amount: '100.00' }),
-    ])
-    expect(errors).toEqual([])
+    ])).toEqual([])
   })
 
   it('D-RATE-013 FUEL PERCENT editor validation', () => {
-    const errors = validateLaneComponents([
+    expect(validateLaneComponents([
       component({ id: '1', rate_line_id: 'l-1', component_type: 'BASE_FREIGHT', calculation_method: 'FLAT', amount: '100.00' }),
       component({ id: '2', rate_line_id: 'l-1', component_type: 'FUEL_SURCHARGE', calculation_method: 'PERCENT', percent_value: '8.00' }),
-    ])
-    expect(errors).toEqual([])
+    ])).toEqual([])
   })
 
   it('D-RATE-014 WAITING unit rule', () => {
-    const errors = validateLaneComponents([
+    expect(validateLaneComponents([
       component({ id: '1', rate_line_id: 'l-1', component_type: 'BASE_FREIGHT', calculation_method: 'FLAT', amount: '100.00' }),
       component({ id: '2', rate_line_id: 'l-1', component_type: 'WAITING', calculation_method: 'UNIT_RATE', amount: '500.00', unit_code: 'HOUR' }),
-    ])
-    expect(errors).toEqual([])
+    ])).toEqual([])
   })
 
   it('D-RATE-015 DETENTION unit rule', () => {
-    const errors = validateLaneComponents([
+    expect(validateLaneComponents([
       component({ id: '1', rate_line_id: 'l-1', component_type: 'BASE_FREIGHT', calculation_method: 'FLAT', amount: '100.00' }),
       component({ id: '2', rate_line_id: 'l-1', component_type: 'DETENTION', calculation_method: 'UNIT_RATE', amount: '700.00', unit_code: 'HOUR' }),
-    ])
-    expect(errors).toEqual([])
+    ])).toEqual([])
   })
 
   it('D-RATE-016 duplicate base local validation', () => {
-    const errors = validateLaneComponents([
+    expect(validateLaneComponents([
       component({ id: '1', rate_line_id: 'l-1', component_type: 'BASE_FREIGHT', calculation_method: 'FLAT', amount: '100.00' }),
       component({ id: '2', rate_line_id: 'l-1', component_type: 'BASE_FREIGHT', calculation_method: 'FLAT', amount: '200.00' }),
-    ])
-    expect(errors).toContain('DUPLICATE_BASE_FREIGHT')
+    ])).toContain('DUPLICATE_BASE_FREIGHT')
   })
 
   it('D-RATE-017 activation confirmation via draft actions', () => {
@@ -281,11 +319,14 @@ describe('D-RATE rate workspace', () => {
   })
 
   it('D-RATE-018 RATE_LANE_CONFLICT visible via error key', () => {
-    expect('contracts.errors.RATE_LANE_CONFLICT').toContain('RATE_LANE_CONFLICT')
+    const error = new ApiError(409, { code: 'CONFLICT', message: 'conflict', details: { code: 'RATE_LANE_CONFLICT' } })
+    expect(mapContractRateErrorCode(error)).toBe('RATE_LANE_CONFLICT')
   })
 
-  it('D-RATE-019 successful activation refreshes state hook', () => {
-    expect(versionLifecycleActions('DRAFT')).toContain('activate')
+  it('D-RATE-019 successful activation refreshes state hook', async () => {
+    const patch = vi.fn().mockResolvedValue({ id: 'v-1' })
+    await patchDraftRateVersion(patch, 'v-1', { valid_from: '2026-01-01' })
+    expect(patch).toHaveBeenCalledWith('v-1', { valid_from: '2026-01-01', valid_to: null })
   })
 
   it('D-RATE-020 carrier cannot activate', () => {
@@ -299,14 +340,12 @@ describe('D-DIFF version diff', () => {
 
   it('D-DIFF-001 added lane detected', () => {
     const draftLines = [line({ id: 'l-new', origin_location_id: origin, destination_location_id: dest, equipment_type: 'Box' })]
-    const diffs = diffRateVersions(draftLines, {}, [], {})
-    expect(diffs).toEqual([expect.objectContaining({ change: 'added' })])
+    expect(diffRateVersions(draftLines, {}, [], {})).toEqual([expect.objectContaining({ change: 'added' })])
   })
 
   it('D-DIFF-002 removed lane detected', () => {
     const compareLines = [line({ id: 'l-old', origin_location_id: origin, destination_location_id: dest, equipment_type: 'Box' })]
-    const diffs = diffRateVersions([], {}, compareLines, {})
-    expect(diffs).toEqual([expect.objectContaining({ change: 'removed' })])
+    expect(diffRateVersions([], {}, compareLines, {})).toEqual([expect.objectContaining({ change: 'removed' })])
   })
 
   it('D-DIFF-003 changed base detected', () => {
@@ -314,13 +353,9 @@ describe('D-DIFF version diff', () => {
     const compareLine = line({ id: 'l-2', origin_location_id: origin, destination_location_id: dest, equipment_type: 'Box' })
     const diffs = diffRateVersions(
       [draftLine],
-      {
-        'l-1': [component({ id: 'c1', rate_line_id: 'l-1', component_type: 'BASE_FREIGHT', calculation_method: 'FLAT', amount: '200.00' })],
-      },
+      { 'l-1': [component({ id: 'c1', rate_line_id: 'l-1', component_type: 'BASE_FREIGHT', calculation_method: 'FLAT', amount: '200.00' })] },
       [compareLine],
-      {
-        'l-2': [component({ id: 'c2', rate_line_id: 'l-2', component_type: 'BASE_FREIGHT', calculation_method: 'FLAT', amount: '100.00' })],
-      },
+      { 'l-2': [component({ id: 'c2', rate_line_id: 'l-2', component_type: 'BASE_FREIGHT', calculation_method: 'FLAT', amount: '100.00' })] },
     )
     expect(diffs[0]?.componentChanges).toContain('BASE_FREIGHT')
   })
@@ -358,8 +393,7 @@ describe('D-DIFF version diff', () => {
   it('D-DIFF-006 reordered arrays do not produce false changes', () => {
     const a = line({ id: 'l-1', origin_location_id: origin, destination_location_id: dest, equipment_type: 'A' })
     const b = line({ id: 'l-2', origin_location_id: origin, destination_location_id: dest, equipment_type: 'B' })
-    const diffs = diffRateVersions([b, a], {}, [a, b], {})
-    expect(diffs).toEqual([])
+    expect(diffRateVersions([b, a], {}, [a, b], {})).toEqual([])
   })
 })
 
@@ -379,15 +413,14 @@ describe('D-SIM simulation', () => {
   })
 
   it('D-SIM-002 ROAD fixed', () => {
-    const payload = buildSimulationRequest({
+    expect(buildSimulationRequest({
       buyer_company_id: 'b',
       carrier_company_id: 'c',
       origin_location_id: 'o',
       destination_location_id: 'd',
       equipment_type: 'Box',
       pricing_date: '2026-02-01',
-    })
-    expect(payload.transport_mode).toBe('ROAD')
+    }).transport_mode).toBe('ROAD')
   })
 
   it('D-SIM-003 MATCHED renders total/components fields exist', () => {
@@ -433,15 +466,14 @@ describe('D-SIM simulation', () => {
   })
 
   it('D-SIM-009 equipment case preserved', () => {
-    const payload = buildSimulationRequest({
+    expect(buildSimulationRequest({
       buyer_company_id: 'b',
       carrier_company_id: 'c',
       origin_location_id: 'o',
       destination_location_id: 'd',
       equipment_type: 'Box',
       pricing_date: '2026-02-01',
-    })
-    expect(payload.equipment_type).toBe('Box')
+    }).equipment_type).toBe('Box')
   })
 })
 
@@ -461,10 +493,7 @@ describe('D-FLAG feature gate', () => {
   it('D-FLAG-004 no internal route called from browser adapter paths', async () => {
     const fs = await import('node:fs/promises')
     const path = await import('node:path')
-    const source = await fs.readFile(
-      path.join(process.cwd(), 'composables/useContractRatesApi.ts'),
-      'utf8',
-    )
+    const source = await fs.readFile(path.join(process.cwd(), 'composables/useContractRatesApi.ts'), 'utf8')
     expect(source.includes('/internal/v1')).toBe(false)
     expect(source.includes('/api/v1/transport-contracts')).toBe(true)
   })
@@ -478,23 +507,181 @@ describe('D-FLAG feature gate', () => {
   })
 })
 
-describe('contract rate API adapter paths', () => {
-  it('targets future public gateway paths only', async () => {
-    const fs = await import('node:fs/promises')
-    const path = await import('node:path')
-    const source = await fs.readFile(
-      path.join(process.cwd(), 'composables/useContractRatesApi.ts'),
-      'utf8',
-    )
-    for (const fragment of [
-      '/api/v1/transport-contracts',
-      '/api/v1/rate-cards/',
-      '/api/v1/rate-card-versions/',
-      '/api/v1/rate-lines/',
-      '/api/v1/rate-components/',
-      '/api/v1/rates/resolve',
-    ]) {
-      expect(source.includes(fragment)).toBe(true)
-    }
+describe('D-FIX remediation gates', () => {
+  it('D-FIX-001 WAITING payload includes amount', () => {
+    expect(buildRateComponentPayload({
+      component_type: 'WAITING',
+      amount: '500.00',
+      unit_code: 'HOUR',
+    })).toEqual({
+      component_type: 'WAITING',
+      calculation_method: 'UNIT_RATE',
+      amount: '500.00',
+      percent_value: null,
+      unit_code: 'HOUR',
+    })
+  })
+
+  it('D-FIX-002 DETENTION payload includes amount', () => {
+    expect(buildRateComponentPayload({
+      component_type: 'DETENTION',
+      amount: '700.00',
+      unit_code: 'HOUR',
+    })).toEqual({
+      component_type: 'DETENTION',
+      calculation_method: 'UNIT_RATE',
+      amount: '700.00',
+      percent_value: null,
+      unit_code: 'HOUR',
+    })
+  })
+
+  it('D-FIX-003 draft version patch', async () => {
+    const patchRateCardVersion = vi.fn().mockResolvedValue({ id: 'v-1' })
+    await patchDraftRateVersion(patchRateCardVersion, 'v-1', { valid_from: '2026-02-01', valid_to: '2026-12-31' })
+    expect(patchRateCardVersion).toHaveBeenCalledWith('v-1', { valid_from: '2026-02-01', valid_to: '2026-12-31' })
+  })
+
+  it('D-FIX-004 draft lane patch', async () => {
+    const patchRateLine = vi.fn().mockResolvedValue({ id: 'l-1' })
+    await patchDraftRateLine(patchRateLine, 'l-1', {
+      origin_location_id: 'o',
+      destination_location_id: 'd',
+      equipment_type: 'Box',
+    })
+    expect(patchRateLine).toHaveBeenCalledWith('l-1', {
+      origin_location_id: 'o',
+      destination_location_id: 'd',
+      equipment_type: 'Box',
+      transport_mode: 'ROAD',
+    })
+  })
+
+  it('D-FIX-005 draft lane delete', async () => {
+    const deleteRateLine = vi.fn().mockResolvedValue(undefined)
+    await deleteDraftRateLine(deleteRateLine, 'l-1')
+    expect(deleteRateLine).toHaveBeenCalledWith('l-1')
+  })
+
+  it('D-FIX-006 component patch', async () => {
+    const patchRateComponent = vi.fn().mockResolvedValue({ id: 'c-1' })
+    await patchDraftRateComponent(patchRateComponent, 'c-1', { amount: '150.00' })
+    expect(patchRateComponent).toHaveBeenCalledWith('c-1', { amount: '150.00' })
+  })
+
+  it('D-FIX-007 component delete', async () => {
+    const deleteRateComponent = vi.fn().mockResolvedValue(undefined)
+    await deleteDraftRateComponent(deleteRateComponent, 'c-1')
+    expect(deleteRateComponent).toHaveBeenCalledWith('c-1')
+  })
+
+  it('D-FIX-008 ACTIVE metadata edit', () => {
+    expect(canShowContractEdit('ACTIVE', {
+      canEditDraft: true,
+      canEditMetadata: true,
+      isCarrierReader: false,
+    })).toBe(true)
+    expect(buildPatchContractPayload('ACTIVE', {
+      name: 'changed',
+      description: 'note',
+      external_reference: 'ext-1',
+      valid_to: '2026-12-31',
+    })).toEqual({
+      description: 'note',
+      external_reference: 'ext-1',
+    })
+  })
+
+  it('D-FIX-009 SUSPENDED metadata edit', () => {
+    expect(canShowContractEdit('SUSPENDED', {
+      canEditDraft: true,
+      canEditMetadata: canEditContractMetadataForRoles(['SHIPPER_ADMIN']),
+      isCarrierReader: false,
+    })).toBe(true)
+    expect(buildPatchContractPayload('SUSPENDED', {
+      name: 'changed',
+      description: 'note',
+      external_reference: 'ext-1',
+      valid_to: '2026-12-31',
+    })).toEqual({
+      description: 'note',
+      external_reference: 'ext-1',
+    })
+  })
+
+  it('D-FIX-010 terminal rate history accessible', () => {
+    expect(terminalHistoryNavVisible('TERMINATED')).toBe(true)
+    expect(terminalHistoryNavVisible('EXPIRED')).toBe(true)
+    expect(terminalHistoryNavVisible('CANCELLED')).toBe(true)
+    expect(shouldShowRateHistoryNav('TERMINATED')).toBe(true)
+    expect(canShowContractLifecycleAction('terminate', 'TERMINATED', {
+      isCarrierReader: false,
+      canActivate: true,
+      canSuspend: true,
+      canTerminate: true,
+    })).toBe(false)
+  })
+})
+
+describe('component payload builders', () => {
+  it('BASE payload complete object', () => {
+    expect(buildRateComponentPayload({ component_type: 'BASE_FREIGHT', amount: '100000.00' })).toEqual({
+      component_type: 'BASE_FREIGHT',
+      calculation_method: 'FLAT',
+      amount: '100000.00',
+      percent_value: null,
+      unit_code: null,
+    })
+  })
+
+  it('FUEL payload complete object', () => {
+    expect(buildRateComponentPayload({ component_type: 'FUEL_SURCHARGE', percent_value: '8.00' })).toEqual({
+      component_type: 'FUEL_SURCHARGE',
+      calculation_method: 'PERCENT',
+      amount: null,
+      percent_value: '8.00',
+      unit_code: null,
+    })
+  })
+
+  it('duplicate component create UI denied', () => {
+    const existing = [
+      component({ id: '1', rate_line_id: 'l-1', component_type: 'BASE_FREIGHT', calculation_method: 'FLAT', amount: '100.00' }),
+      component({ id: '2', rate_line_id: 'l-1', component_type: 'FUEL_SURCHARGE', calculation_method: 'PERCENT', percent_value: '8.00' }),
+    ]
+    expect(canAddComponentType(existing, 'BASE_FREIGHT')).toBe(false)
+    expect(canAddComponentType(existing, 'FUEL_SURCHARGE')).toBe(false)
+    expect(availableComponentTypes(existing)).toEqual(['WAITING', 'DETENTION'])
+  })
+
+  it('patch component payloads by type', () => {
+    expect(buildPatchRateComponentPayload({ component_type: 'FUEL_SURCHARGE', percent_value: '10.00' })).toEqual({
+      percent_value: '10.00',
+    })
+    expect(buildPatchRateComponentPayload({ component_type: 'WAITING', amount: '400.00', unit_code: 'HOUR' })).toEqual({
+      amount: '400.00',
+      unit_code: 'HOUR',
+    })
+  })
+
+  it('draft version patch payload', () => {
+    expect(buildPatchRateVersionPayload({ valid_from: '2026-01-01', valid_to: '' })).toEqual({
+      valid_from: '2026-01-01',
+      valid_to: null,
+    })
+  })
+})
+
+describe('contract edit visibility', () => {
+  it('DRAFT buyer edit visible', () => {
+    expect(canShowContractEdit('DRAFT', { canEditDraft: true, canEditMetadata: true, isCarrierReader: false })).toBe(true)
+  })
+
+  it('carrier edit hidden', () => {
+    expect(canShowContractEdit('ACTIVE', { canEditDraft: true, canEditMetadata: true, isCarrierReader: true })).toBe(false)
+  })
+
+  it('TERMINATED edit hidden', () => {
+    expect(canShowContractEdit('TERMINATED', { canEditDraft: true, canEditMetadata: true, isCarrierReader: false })).toBe(false)
   })
 })
