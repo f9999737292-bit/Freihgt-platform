@@ -107,7 +107,26 @@ Frozen transitions with confirmation modals. Termination warns historical snapsh
 
 ## RATE_CARDS / VERSION_HISTORY / LANE_EDITOR / COMPONENT_EDITOR
 
-Master-detail layout on `/contracts/{id}/rates`. DRAFT-only mutation. Components: BASE_FREIGHT (FLAT), FUEL_SURCHARGE (PERCENT), WAITING/DETENTION (UNIT_RATE).
+Master-detail layout on `/contracts/{id}/rates`. DRAFT-only mutation via:
+
+- `patchRateCardVersion` — draft validity edit
+- `patchRateLine` / `deleteRateLine` — lane edit/delete with confirmation
+- `createRateComponent` / `patchRateComponent` / `deleteRateComponent` — component CRUD
+- `buildRateComponentPayload` — deterministic UNIT_RATE payloads (WAITING/DETENTION include amount + unit_code)
+
+Duplicate component add buttons hidden when type already exists on lane.
+
+## ACTIVE / SUSPENDED METADATA EDIT
+
+`canShowContractEdit` decoupled from lifecycle actions. ACTIVE/SUSPENDED buyers may edit `description` and `external_reference` only via `buildPatchContractPayload`.
+
+## TERMINAL HISTORY ACCESS
+
+Rate and simulation navigation visible for TERMINATED/EXPIRED/CANCELLED contracts. Lifecycle mutation buttons remain hidden.
+
+## TEST HARDENING
+
+Placeholder assertions removed. Added D-FIX-001..010 remediation gates testing production helpers in `utils/contractRate.ts` and `utils/contractRateWorkspace.ts`.
 
 ## VERSION_DIFF
 
