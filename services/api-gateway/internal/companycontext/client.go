@@ -88,6 +88,55 @@ func (c *IdentityClient) ListUserCompanies(ctx context.Context, reqCtx routeauth
 	return result, nil
 }
 
+type listUserRolesResponse struct {
+	Items []struct {
+		Code      string  `json:"code"`
+		CompanyID *string `json:"company_id"`
+	} `json:"items"`
+}
+
+// ListUserTenantRoles returns tenant-global role codes (company_id absent) for PLATFORM_ADMIN semantics.
+func (c *IdentityClient) ListUserTenantRoles(ctx context.Context, reqCtx routeauth.RequestContext, userID string) ([]string, error) {
+	endpoint := fmt.Sprintf("%s/v1/users/%s/roles?tenant_id=%s", c.baseURL, userID, reqCtx.TenantID)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	c.applyHeaders(req, reqCtx)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusUnauthorized:
+		return nil, routeauth.ErrIdentityUnauthorized
+	case http.StatusForbidden:
+		return nil, routeauth.ErrIdentityForbidden
+	}
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("identity service returned %d", resp.StatusCode)
+	}
+
+	var payload listUserRolesResponse
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+
+	codes := make([]string, 0)
+	for _, item := range payload.Items {
+		if item.CompanyID != nil {
+			continue
+		}
+		if code := strings.TrimSpace(item.Code); code != "" {
+			codes = append(codes, code)
+		}
+	}
+	return codes, nil
+}
+
 func (c *IdentityClient) applyHeaders(req *http.Request, reqCtx routeauth.RequestContext) {
 	if reqCtx.AuthToken != "" {
 		req.Header.Set("Authorization", reqCtx.AuthToken)

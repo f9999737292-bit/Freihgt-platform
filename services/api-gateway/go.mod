@@ -3,6 +3,7 @@ module github.com/freight-platform/api-gateway
 go 1.25.0
 
 require (
+	github.com/freight-platform/contract-rate-service v0.0.0
 	github.com/freight-platform/shared-go v0.0.0
 	github.com/go-chi/chi/v5 v5.2.1
 	github.com/golang-jwt/jwt/v5 v5.2.2
@@ -23,6 +24,7 @@ require (
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.55.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
+	github.com/shopspring/decimal v1.4.0 // indirect
 	golang.org/x/crypto v0.51.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.44.0 // indirect
@@ -31,3 +33,5 @@ require (
 )
 
 replace github.com/freight-platform/shared-go => ../../packages/shared-go
+
+replace github.com/freight-platform/contract-rate-service => ../contract-rate-service

@@ -9,10 +9,11 @@ type authContextKey struct{}
 
 // AuthContext holds verified identity data set by auth middleware after JWT validation.
 type AuthContext struct {
-	UserID    string
-	TenantID  string
-	Email     string
-	AuthToken string
+	UserID              string
+	TenantID            string
+	Email               string
+	AuthToken           string
+	RequestedCompanyID  string
 }
 
 var ErrAuthContextMissing = errors.New("verified auth context is missing")
@@ -43,4 +44,5 @@ func StripUntrustedIdentityHeaders(header interface {
 	header.Del("X-User-Roles")
 	header.Del("X-Company-ID")
 	header.Del("X-Actor-Kind")
+	header.Del("X-Internal-Service-Token")
 }

@@ -22,6 +22,7 @@ type ServiceURLs struct {
 	Payment         string
 	LowCode         string
 	Tracking        string
+	ContractRate    string
 }
 
 type ControlTowerConfig struct {
@@ -53,6 +54,7 @@ type Config struct {
 	RateLimitBurst      int
 	MaxRequestBodyBytes int64
 	TrackingInternalToken string
+	InternalServiceToken  string
 }
 
 func Load() (Config, error) {
@@ -167,6 +169,7 @@ func Load() (Config, error) {
 			Payment:         getEnv("PAYMENT_SERVICE_URL", "http://localhost:8090"),
 			LowCode:         getEnv("LOW_CODE_SERVICE_URL", "http://localhost:8088"),
 			Tracking:        getEnv("TRACKING_SERVICE_URL", "http://localhost:8089"),
+			ContractRate:    getEnv("CONTRACT_RATE_SERVICE_URL", "http://localhost:8091"),
 		},
 		AuthEnabled:         authEnabled,
 		JWTSecret:           jwtSecret,
@@ -179,6 +182,7 @@ func Load() (Config, error) {
 		RateLimitBurst:      rateLimitBurst,
 		MaxRequestBodyBytes: maxBodyBytes,
 		TrackingInternalToken: getEnv("TRACKING_INTERNAL_SERVICE_TOKEN", getEnv("INTERNAL_SERVICE_TOKEN", "dev_internal_tracking_token")),
+		InternalServiceToken:  getEnv("INTERNAL_SERVICE_TOKEN", ""),
 	}, nil
 }
 
