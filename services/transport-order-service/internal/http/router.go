@@ -26,6 +26,8 @@ func NewRouter(
 ) http.Handler {
 	handler := handlers.NewHandler(svc)
 	pricedHandler := handlers.NewPricedTransportOrderHandler(pricedSvc)
+	snapshotReadSvc := service.NewRateSnapshotReadService(pricedOrderRepo)
+	snapshotInternalHandler := handlers.NewRateSnapshotInternalHandler(snapshotReadSvc)
 	internalAuth := internalauth.Config{Token: cfg.InternalServiceToken, Environment: cfg.Environment}
 
 	r := chi.NewRouter()
@@ -60,6 +62,7 @@ func NewRouter(
 	r.Route("/internal/v1", func(r chi.Router) {
 		r.Use(internalAuth.Middleware)
 		r.Post("/transport-orders/from-award-scope", pricedHandler.CreateFromAwardScope)
+		r.Get("/transport-orders/{transportOrderId}/rate-snapshot", snapshotInternalHandler.GetRateSnapshot)
 	})
 
 	return r
