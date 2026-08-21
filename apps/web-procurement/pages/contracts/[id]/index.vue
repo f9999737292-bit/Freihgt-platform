@@ -1,15 +1,19 @@
 <script setup lang="ts">
 import type { Company } from '~/types/company'
 import type { ContractStatus, TransportContract } from '~/types/contractRate'
-import { ApiError } from '~/utils/apiClient'
 import {
-  canEditContractField,
-  contractLifecycleActions,
+  buildPatchContractPayload,
+  canShowContractEdit,
+  canShowContractLifecycleAction,
   isContractDraftEditable,
-  isContractMetadataEditable,
   isContractTerminal,
+  shouldShowRateHistoryNav,
 } from '~/utils/contractRate'
-import { isApiUnavailableError, shouldShowNotFound } from '~/utils/apiError'
+import {
+  mapContractRateErrorCode,
+  resolveContractDetailError,
+  runContractLifecycleAction,
+} from '~/utils/contractRateWorkspace'
 
 definePageMeta({ middleware: ['auth', 'contract-rate-workspace'], layout: 'default' })
 
@@ -29,6 +33,7 @@ const { pushToast } = useToast()
 const { t } = useI18n()
 const {
   canEditDraftContracts,
+  canEditContractMetadata,
   canActivateContracts,
   canSuspendContracts,
   canTerminateContracts,
@@ -59,28 +64,28 @@ const companyNameById = computed(() => {
   return map
 })
 
-const lifecycleActions = computed(() =>
-  contract.value ? contractLifecycleActions(contract.value.status) : [],
+const showEditButton = computed(() =>
+  contract.value
+    ? canShowContractEdit(contract.value.status, {
+        canEditDraft: canEditDraftContracts(),
+        canEditMetadata: canEditContractMetadata(),
+        isCarrierReader: isCarrierContractReader(),
+      })
+    : false,
 )
 
-const canMutate = computed(() => !isCarrierContractReader())
+const showRatesLink = computed(() =>
+  contract.value ? shouldShowRateHistoryNav(contract.value.status) : false,
+)
 
-function statusLabel(status: ContractStatus) {
-  return t(`contracts.statuses.${status}`)
-}
-
-function showAction(action: string): boolean {
-  if (!canMutate.value) return false
-  if (!lifecycleActions.value.includes(action)) return false
-  if (action === 'edit') {
-    return contract.value
-      ? isContractDraftEditable(contract.value.status) || isContractMetadataEditable(contract.value.status)
-      : false
-  }
-  if (action === 'activate' || action === 'cancel') return canActivateContracts()
-  if (action === 'suspend' || action === 'reactivate') return canSuspendContracts()
-  if (action === 'terminate') return canTerminateContracts()
-  return false
+function showLifecycleAction(action: string): boolean {
+  if (!contract.value) return false
+  return canShowContractLifecycleAction(action, contract.value.status, {
+    isCarrierReader: isCarrierContractReader(),
+    canActivate: canActivateContracts(),
+    canSuspend: canSuspendContracts(),
+    canTerminate: canTerminateContracts(),
+  })
 }
 
 async function loadContract() {
@@ -97,13 +102,12 @@ async function loadContract() {
     companies.value = companyPage.items
   } catch (error) {
     contract.value = null
-    if (error instanceof ApiError && error.status === 403) forbidden.value = true
-    else if (shouldShowNotFound(error)) notFound.value = true
+    const resolved = resolveContractDetailError(error)
+    if (resolved === 'forbidden') forbidden.value = true
+    else if (resolved === 'not_found') notFound.value = true
+    else if (resolved === 'backend_unavailable') apiUnavailable.value = true
     else {
-      apiUnavailable.value = isApiUnavailableError(error)
-      if (!apiUnavailable.value) {
-        pushToast('error', error instanceof Error ? error.message : t('contracts.loadFailed'))
-      }
+      pushToast('error', error instanceof Error ? error.message : t('contracts.loadFailed'))
     }
   } finally {
     loading.value = false
@@ -123,17 +127,7 @@ async function saveEdit() {
   if (!contract.value) return
   saving.value = true
   try {
-    const payload: Record<string, string | null> = {}
-    if (isContractDraftEditable(contract.value.status) && canEditContractField(contract.value.status, 'name')) {
-      payload.name = editForm.name
-    }
-    if (canEditContractField(contract.value.status, 'description')) payload.description = editForm.description || null
-    if (canEditContractField(contract.value.status, 'external_reference')) {
-      payload.external_reference = editForm.external_reference || null
-    }
-    if (isContractDraftEditable(contract.value.status) && canEditContractField(contract.value.status, 'valid_to')) {
-      payload.valid_to = editForm.valid_to || null
-    }
+    const payload = buildPatchContractPayload(contract.value.status, editForm)
     contract.value = await patchTransportContract(contract.value.id, payload)
     pushToast('success', t('contracts.updateSuccess'))
     showEditModal.value = false
@@ -148,24 +142,26 @@ async function runLifecycle(action: NonNullable<typeof confirmAction.value>) {
   if (!contract.value) return
   lifecycleLoading.value = true
   try {
-    const id = contract.value.id
-    if (action === 'activate') contract.value = await activateTransportContract(id)
-    if (action === 'suspend') contract.value = await suspendTransportContract(id)
-    if (action === 'reactivate') contract.value = await reactivateTransportContract(id)
-    if (action === 'terminate') contract.value = await terminateTransportContract(id)
-    if (action === 'cancel') contract.value = await cancelTransportContract(id)
+    const api = {
+      activateTransportContract,
+      suspendTransportContract,
+      reactivateTransportContract,
+      terminateTransportContract,
+      cancelTransportContract,
+    }
+    contract.value = await runContractLifecycleAction(api, contract.value.id, action)
     pushToast('success', t('contracts.lifecycleSuccess'))
     confirmAction.value = null
   } catch (error) {
-    if (error instanceof ApiError) {
-      const detailCode = String(error.details?.code ?? error.code ?? '')
-      pushToast('error', t(`contracts.errors.${detailCode}`) || error.message)
-    } else {
-      pushToast('error', error instanceof Error ? error.message : t('contracts.loadFailed'))
-    }
+    const detailCode = mapContractRateErrorCode(error)
+    pushToast('error', t(`contracts.errors.${detailCode}`) || (error instanceof Error ? error.message : t('contracts.loadFailed')))
   } finally {
     lifecycleLoading.value = false
   }
+}
+
+function statusLabel(status: ContractStatus) {
+  return t(`contracts.statuses.${status}`)
 }
 
 const confirmTitle = computed(() => {
@@ -201,17 +197,19 @@ onMounted(loadContract)
       <template v-if="contract" #subtitle>
         {{ contract.contract_number }}
       </template>
-      <template v-if="contract && !isContractTerminal(contract.status)" #actions>
-        <NuxtLink :to="`/contracts/${contract.id}/rates`" class="link-button">{{ t('contracts.ratesLink') }}</NuxtLink>
-        <NuxtLink :to="`/contracts/${contract.id}/rates/simulate`" class="link-button">{{ t('contracts.simulateLink') }}</NuxtLink>
-        <Button v-if="showAction('edit') && canEditDraftContracts()" variant="secondary" @click="openEdit">
+      <template v-if="contract" #actions>
+        <NuxtLink v-if="showRatesLink" :to="`/contracts/${contract.id}/rates`" class="link-button">{{ t('contracts.ratesLink') }}</NuxtLink>
+        <NuxtLink v-if="showRatesLink" :to="`/contracts/${contract.id}/rates/simulate`" class="link-button">{{ t('contracts.simulateLink') }}</NuxtLink>
+        <Button v-if="showEditButton" variant="secondary" @click="openEdit">
           {{ t('contracts.edit') }}
         </Button>
-        <Button v-if="showAction('activate')" @click="confirmAction = 'activate'">{{ t('contracts.activate') }}</Button>
-        <Button v-if="showAction('suspend')" variant="secondary" @click="confirmAction = 'suspend'">{{ t('contracts.suspend') }}</Button>
-        <Button v-if="showAction('reactivate')" @click="confirmAction = 'reactivate'">{{ t('contracts.reactivate') }}</Button>
-        <Button v-if="showAction('terminate')" variant="danger" @click="confirmAction = 'terminate'">{{ t('contracts.terminate') }}</Button>
-        <Button v-if="showAction('cancel')" variant="danger" @click="confirmAction = 'cancel'">{{ t('contracts.cancel') }}</Button>
+        <template v-if="!isContractTerminal(contract.status)">
+          <Button v-if="showLifecycleAction('activate')" @click="confirmAction = 'activate'">{{ t('contracts.activate') }}</Button>
+          <Button v-if="showLifecycleAction('suspend')" variant="secondary" @click="confirmAction = 'suspend'">{{ t('contracts.suspend') }}</Button>
+          <Button v-if="showLifecycleAction('reactivate')" @click="confirmAction = 'reactivate'">{{ t('contracts.reactivate') }}</Button>
+          <Button v-if="showLifecycleAction('terminate')" variant="danger" @click="confirmAction = 'terminate'">{{ t('contracts.terminate') }}</Button>
+          <Button v-if="showLifecycleAction('cancel')" variant="danger" @click="confirmAction = 'cancel'">{{ t('contracts.cancel') }}</Button>
+        </template>
       </template>
     </PageHeader>
 

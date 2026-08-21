@@ -36,6 +36,10 @@ export function canCreateContractsForRoles(roles: string[]): boolean {
   return roles.includes('PLATFORM_ADMIN') || CONTRACT_MUTATE_ROLES.some((role) => roles.includes(role))
 }
 
+export function canEditContractMetadataForRoles(roles: string[]): boolean {
+  return canCreateContractsForRoles(roles)
+}
+
 export function isCarrierContractReaderForRoles(roles: string[]): boolean {
   if (roles.includes('PLATFORM_ADMIN')) return false
   return CARRIER_READ_ROLES.some((role) => roles.includes(role))

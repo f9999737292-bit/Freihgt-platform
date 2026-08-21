@@ -138,6 +138,10 @@ export function usePermissions() {
     return canCreateContracts()
   }
 
+  function canEditContractMetadata(): boolean {
+    return canCreateContracts()
+  }
+
   function canActivateContracts(): boolean {
     return isPlatformAdmin() || hasAnyRole(CONTRACT_LIFECYCLE_ROLES)
   }
@@ -186,6 +190,7 @@ export function usePermissions() {
     canReadContracts,
     canCreateContracts,
     canEditDraftContracts,
+    canEditContractMetadata,
     canActivateContracts,
     canSuspendContracts,
     canTerminateContracts,
