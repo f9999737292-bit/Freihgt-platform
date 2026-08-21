@@ -4,6 +4,10 @@ import { AppShell, LocaleSwitcher } from '@freight-platform/ui'
 const { isAuthenticated, logout } = useAuth()
 const { toasts } = useToast()
 const { t } = useI18n()
+const { enabled: contractRateEnabled } = useContractRateFeature()
+const { canReadContracts } = usePermissions()
+
+const showContractsNav = computed(() => contractRateEnabled.value && canReadContracts())
 </script>
 
 <template>
@@ -23,6 +27,7 @@ const { t } = useI18n()
       <NuxtLink to="/transport-orders" class="procurement-nav__link">{{ t('nav.buyerOrders') }}</NuxtLink>
       <NuxtLink to="/carrier/tenders" class="procurement-nav__link">{{ t('nav.carrierTenders') }}</NuxtLink>
       <NuxtLink to="/carrier/transport-orders" class="procurement-nav__link">{{ t('nav.carrierOrders') }}</NuxtLink>
+      <NuxtLink v-if="showContractsNav" to="/contracts" class="procurement-nav__link">{{ t('nav.contracts') }}</NuxtLink>
       <NuxtLink to="/settlements" class="procurement-nav__link">{{ t('nav.settlements') }}</NuxtLink>
       <NuxtLink to="/billing-registers" class="procurement-nav__link">{{ t('nav.billingRegisters') }}</NuxtLink>
       <NuxtLink to="/payments" class="procurement-nav__link">{{ t('nav.payments') }}</NuxtLink>

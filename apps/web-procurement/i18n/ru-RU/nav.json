@@ -7,6 +7,7 @@
     "buyerOrders": "Транспортные заказы",
     "settlements": "Расчёты",
     "billingRegisters": "Реестры",
-    "payments": "Платежи"
+    "payments": "Платежи",
+    "contracts": "Договоры"
   }
 }

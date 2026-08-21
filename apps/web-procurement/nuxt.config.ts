@@ -7,6 +7,7 @@ const localeFiles = [
   'orderExecution.json',
   'settlements.json',
   'payments.json',
+  'contracts.json',
 ]
 
 export default defineNuxtConfig({
@@ -25,6 +26,7 @@ export default defineNuxtConfig({
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || 'http://localhost:8080',
       defaultTenantId: process.env.NUXT_PUBLIC_DEFAULT_TENANT_ID || '',
       mockAuth: process.env.NUXT_PUBLIC_MOCK_AUTH === 'true',
+      contractRateWorkspaceEnabled: process.env.NUXT_PUBLIC_CONTRACT_RATE_WORKSPACE_ENABLED === 'true',
     },
   },
   i18n: {

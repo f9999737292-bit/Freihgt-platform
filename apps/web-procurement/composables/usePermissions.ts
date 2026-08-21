@@ -33,6 +33,37 @@ const PAYMENT_WRITE_ROLES = [
   'CARRIER_ACCOUNTANT',
 ] as const
 
+const CONTRACT_READ_ROLES = [
+  'PLATFORM_ADMIN',
+  'PROCUREMENT_MANAGER',
+  'SHIPPER_ADMIN',
+  'SHIPPER_LOGIST',
+  'FORWARDER_MANAGER',
+  'CARRIER_ADMIN',
+  'CARRIER_DISPATCHER',
+  'CARRIER_ACCOUNTANT',
+] as const
+
+const CONTRACT_MUTATE_ROLES = [
+  'PLATFORM_ADMIN',
+  'PROCUREMENT_MANAGER',
+  'SHIPPER_ADMIN',
+  'FORWARDER_MANAGER',
+] as const
+
+const CONTRACT_LIFECYCLE_ROLES = [
+  'PLATFORM_ADMIN',
+  'PROCUREMENT_MANAGER',
+  'SHIPPER_ADMIN',
+  'FORWARDER_MANAGER',
+] as const
+
+const CARRIER_READ_ROLES = [
+  'CARRIER_ADMIN',
+  'CARRIER_DISPATCHER',
+  'CARRIER_ACCOUNTANT',
+] as const
+
 function currentUser(): AuthUser | null {
   return useAuthStore().user
 }
@@ -95,6 +126,55 @@ export function usePermissions() {
     return isPlatformAdmin() || hasAnyRole(PAYMENT_WRITE_ROLES)
   }
 
+  function canReadContracts(): boolean {
+    return isPlatformAdmin() || hasAnyRole(CONTRACT_READ_ROLES)
+  }
+
+  function canCreateContracts(): boolean {
+    return isPlatformAdmin() || hasAnyRole(CONTRACT_MUTATE_ROLES)
+  }
+
+  function canEditDraftContracts(): boolean {
+    return canCreateContracts()
+  }
+
+  function canEditContractMetadata(): boolean {
+    return canCreateContracts()
+  }
+
+  function canActivateContracts(): boolean {
+    return isPlatformAdmin() || hasAnyRole(CONTRACT_LIFECYCLE_ROLES)
+  }
+
+  function canSuspendContracts(): boolean {
+    return canActivateContracts()
+  }
+
+  function canTerminateContracts(): boolean {
+    return canActivateContracts()
+  }
+
+  function canReadRates(): boolean {
+    return canReadContracts()
+  }
+
+  function canEditDraftRates(): boolean {
+    return canCreateContracts()
+  }
+
+  function canActivateRateVersions(): boolean {
+    return canActivateContracts()
+  }
+
+  function canSimulateRates(): boolean {
+    return canReadRates()
+  }
+
+  function isCarrierContractReader(): boolean {
+    if (isPlatformAdmin()) return false
+    return hasAnyRole(CARRIER_READ_ROLES) && !hasAnyRole(CONTRACT_MUTATE_ROLES)
+  }
+
   return {
     hasAnyRole,
     isPlatformAdmin,
@@ -107,5 +187,17 @@ export function usePermissions() {
     isCarrierRole,
     canReadPayments,
     canWritePayments,
+    canReadContracts,
+    canCreateContracts,
+    canEditDraftContracts,
+    canEditContractMetadata,
+    canActivateContracts,
+    canSuspendContracts,
+    canTerminateContracts,
+    canReadRates,
+    canEditDraftRates,
+    canActivateRateVersions,
+    canSimulateRates,
+    isCarrierContractReader,
   }
 }
