@@ -28,6 +28,7 @@ import {
   patchDraftRateComponent,
   patchDraftRateLine,
 } from '~/utils/contractRateWorkspace'
+import { formatDateTime } from '~/utils/format'
 
 definePageMeta({ middleware: ['auth', 'contract-rate-workspace'], layout: 'default' })
 
@@ -138,6 +139,12 @@ const locationLabel = computed(() => {
   }
   return map
 })
+
+function supersedesLabel(version: RateCardVersion) {
+  if (!version.supersedes_version_id) return '—'
+  const predecessor = versions.value.find((v) => v.id === version.supersedes_version_id)
+  return predecessor ? String(predecessor.version_number) : version.supersedes_version_id
+}
 
 function versionStatusLabel(status: string) {
   return t(`rates.statuses.${status}`)
@@ -500,6 +507,9 @@ onMounted(loadContractAndCards)
                 <th>{{ t('contracts.status') }}</th>
                 <th>{{ t('rates.validFrom') }}</th>
                 <th>{{ t('rates.validTo') }}</th>
+                <th>{{ t('rates.createdAt') }}</th>
+                <th>{{ t('rates.activatedAt') }}</th>
+                <th>{{ t('rates.supersedesVersion') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -513,6 +523,9 @@ onMounted(loadContractAndCards)
                 <td><Badge :status="version.status">{{ versionStatusLabel(version.status) }}</Badge></td>
                 <td>{{ version.valid_from }}</td>
                 <td>{{ version.valid_to ?? '—' }}</td>
+                <td>{{ formatDateTime(version.created_at) }}</td>
+                <td>{{ version.activated_at ? formatDateTime(version.activated_at) : '—' }}</td>
+                <td>{{ supersedesLabel(version) }}</td>
               </tr>
             </tbody>
           </table>
