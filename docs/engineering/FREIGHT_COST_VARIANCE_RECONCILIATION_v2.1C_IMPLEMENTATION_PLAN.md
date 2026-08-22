@@ -5,6 +5,7 @@
 **Base SHA (post-PR #46 merge):** `75994efecb5c96bf6608f891fad3b3d0865a593f`  
 **Merged v2.1B feature HEAD:** `5fc2fa3c1dba5853ebc15a5f43623f964c2371d4`  
 **PR #46 merge commit:** `75994efecb5c96bf6608f891fad3b3d0865a593f`
+**Review gate:** PR #47 independent architecture + financial semantics review (R-001…R-008 closed)
 
 **Architecture baselines:**
 - `docs/engineering/FREIGHT_COST_MANAGEMENT_v2.1_ARCHITECTURE.md`
@@ -18,7 +19,7 @@
 
 ## 1. Executive summary
 
-v2.1B delivered the derived append-only cost ledger, accrual/actual/billed/paid projection persistence, billing/payment outbox integration, and canonical rebuild. v2.1C adds **derived planned-vs-actual variance**, **deterministic variance reason attribution**, **charge_code semantic classification**, **forecast exposure projection** (non-ledger), and **reconciliation drift detection** — all within `freight-cost-service` as derived projections over existing canonical facts.
+v2.1B delivered the derived append-only cost ledger, accrual/actual/billed/paid projection persistence, billing/payment outbox integration, and canonical rebuild. v2.1C adds **derived planned-vs-actual variance**, **three separated explainability classes** (variance driver / availability reason / reconciliation finding), **charge_code semantic classification**, **forecast exposure projection** (non-ledger KPI), and **reconciliation drift detection** — all within `freight-cost-service` as derived projections over existing canonical facts.
 
 v2.1C **does not** add public API, frontend, FX, or ledger canonical writers. All money remains decimal-safe; NULL never becomes zero.
 
@@ -97,7 +98,7 @@ v2.1C **does not** add public API, frontend, FX, or ledger canonical writers. Al
 | Signal | Status |
 |--------|--------|
 | Normalized charge_code taxonomy | NOT_FOUND — must be introduced in v2.1C |
-| Variance reason persistence | NOT_FOUND |
+| Variance driver / availability persistence | NOT_FOUND |
 | Forecast exposure DB column | NOT_FOUND |
 | Variance amount DB columns | NOT_FOUND |
 | Route-change execution cost fact | NOT_FOUND (architecture §20) |
@@ -117,13 +118,13 @@ v2.1C **does not** add public API, frontend, FX, or ledger canonical writers. Al
 | 3 | Optional persist `current_variance_percent`, `final_variance_percent` (derived, NULL-safe) |
 | 4 | Recompute variance on projection update (after ingest/rebuild) |
 | 5 | Populate internal cost summary API fields from projection |
-| 6 | `forecast_exposure` projection: `planned + SUM(PPROPOSED accessorials)` via billing internal read extension |
+| 6 | `forecast_exposure` projection: `planned + SUM(PROPOSED accessorials)` via billing internal read extension |
 | 7 | Persist `forecast_exposure` on projection (non-ledger KPI) |
-| 8 | Deterministic variance reason attribution model + persistence table |
+| 8 | Three-class explainability model + persistence (driver / availability / reconciliation finding) |
 | 9 | `charge_code` → normalized semantic category mapping (versioned rules table) |
 | 10 | Double-count classification guards (analytics-only; no ledger amount mutation) |
 | 11 | Reconciliation drift detection job (read-only findings + metrics) |
-| 12 | Internal admin rebuild-on-drift trigger (reuse v2.1B rebuild route; no auto-destructive repair) |
+| 12 | Manual internal rebuild trigger only (reuse v2.1B rebuild route; **no automatic rebuild on finding**) |
 | 13 | Test matrix FC-C-* |
 | 14 | CI job extension for v2.1C integration suites |
 
@@ -206,15 +207,23 @@ FINAL_VARIANCE_PERCENT =
 
 **Sign:** positive = over plan; negative = under plan (saving).
 
-### 5.3 Forecast exposure (architecture OQ-001 — frozen)
+### 5.3 Forecast exposure (v2.1B plan §11 + architecture OQ-001 — frozen, unchanged)
 
 ```text
-FORECAST_EXPOSURE = planned_amount + EXACT_NUMERIC_SUM(PPROPOSED accessorials)
-  WHEN currency matches
-  ELSE NULL (fail closed)
+FORECAST_EXPOSURE = planned_amount + EXACT_NUMERIC_SUM(PROPOSED accessorials)
+  WHEN currency matches AND proposed source is KNOWN
+  ELSE NULL (fail closed on currency mismatch; NULL on unknown proposed source)
 
+FORECAST_FORMULA_MATCHES_V2_1B_FREEZE=YES
+FORECAST_IN_COST_LEDGER=NO
 FORECAST_IS_NOT_LEDGER_ACTUAL=YES
 FORECAST_NOT_WRITTEN_TO_COST_ENTRY=YES
+```
+
+Runtime pure function (already merged v2.1B):
+
+```go
+CalculateForecastExposure(planned *Money, proposedAccessorials []Money) (*Money, error)
 ```
 
 Proposed accessorials **never** affect accrual (v2.1B invariant preserved).
@@ -226,16 +235,28 @@ Proposed accessorials **never** affect accrual (v2.1B invariant preserved).
 | Condition | planned | accrual | current_actual | final_actual | variance | forecast |
 |-----------|---------|---------|----------------|--------------|----------|----------|
 | Pre-ingest | NULL | NULL | NULL | NULL | NULL | NULL |
-| Planned only | VALUE | NULL/VALUE | NULL | NULL | NULL | VALUE if proposed known |
+| Planned only | VALUE | NULL/VALUE | NULL | NULL | NULL | PLANNED if proposed source known-empty |
 | Disputed settlement | VALUE | VALUE | **NULL** | NULL | **NULL** | per proposed set |
 | Currency mismatch | VALUE | FAIL_CLOSED | — | — | **NULL** | **NULL** |
 | Legacy no snapshot | award-base | derived | per settlement | per finality | per formula | per proposed |
 | Cancelled order | retained historical | — | NULL | NULL | exclude active aggregates | NULL |
+| Proposed source read failed | VALUE | VALUE | per actual rules | per finality | per formula | **NULL** (prior value retained until successful recompute) |
 
 ```text
 NULL_IS_ZERO=NO
 UNKNOWN_USES_NULL=YES
+KNOWN_EMPTY_PROPOSED_SET_IS_ZERO=YES
+FORECAST_WITH_KNOWN_EMPTY_PROPOSED_SET=PLANNED
+UNKNOWN_PROPOSED_SOURCE_IS_ZERO=NO
 ```
+
+**Known-empty vs unknown proposed set:**
+
+| Case | Billing read result | Forecast behavior |
+|------|---------------------|-------------------|
+| A — known empty | HTTP 200; `proposed_accessorial_total_ex_vat` present; zero PROPOSED rows | `FORECAST_EXPOSURE = PLANNED` |
+| B — unknown | HTTP error / timeout / field absent / ambiguous partial failure | `forecast_exposure = NULL`; retain prior projection value; emit stale metric |
+| C — rebuild failure | Non-404 billing error during rebuild | Rebuild fails; projection unchanged (v2.1B `RebuildTransportOrder` convention) |
 
 ---
 
@@ -269,66 +290,248 @@ Variance functions MUST NOT read `payable_amount` or `paid_amount`.
 
 ---
 
-## 9. Variance reason attribution
+## 9. Explainability model — three separated semantic classes (R-001)
 
-Deterministic attribution only. Manual reasons are labels — **never alter canonical money**.
+**Critical boundary:** variance drivers, availability reasons, and reconciliation findings MUST NOT share one mixed enum/table semantics.
 
-### 9.1 Reason codes (frozen set)
+```text
+VARIANCE_DRIVER_REQUIRES_NON_NULL_VARIANCE=YES
+VARIANCE_AVAILABILITY_REASON_CHANGES_MONEY=NO
+RECONCILIATION_FINDING_IS_VARIANCE_DRIVER=NO
+MANUAL_REASON_CHANGES_CANONICAL_MONEY=NO
+```
 
-| Code | Trigger | Auto? |
-|------|---------|-------|
-| `ACCESSORIAL` | Approved accessorial delta explains variance | AUTO |
-| `FUEL` | Snapshot component FUEL + breakdown AVAILABLE | AUTO partial |
-| `DETENTION` | Approved accessorial charge_code maps to DETENTION category | AUTO partial |
-| `WAITING` | Approved accessorial charge_code maps to WAITING category | AUTO partial |
-| `CANCELLATION` | Settlement/order cancelled | AUTO |
-| `BILLING_ADJUSTMENT` | Billing link mismatch while actual available | AUTO |
-| `DISPUTE_UNAVAILABILITY` | Open dispute → actual NULL | AUTO |
-| `LEGACY_PRICING` | Non-SNAPSHOT_V1 settlement principal | AUTO |
-| `MANUAL_ADJUSTMENT` | Accessorial present but no rule match | MANUAL tag allowed |
-| `UNATTRIBUTED` | Variance exists, no rule matched | AUTO fallback |
-| `OTHER` | Operator-provided reason (internal only) | MANUAL |
+### 9.1 Class A — `VARIANCE_DRIVER` (financial explainability)
 
-**NOT_SUPPORTED:** `RATE_CHANGE`, `ROUTE_CHANGE`.
+**Purpose:** Explain a **non-NULL** variance amount.
+**Storage:** `freight_cost.variance_attribution` with `semantic_class = VARIANCE_DRIVER`.
+**Precondition:** `current_variance_amount IS NOT NULL` OR `final_variance_amount IS NOT NULL` (per `variance_kind`).
 
-### 9.2 Persistence
+| Code | Trigger | Auto? | Delta evidence required |
+|------|---------|-------|-------------------------|
+| `ACCESSORIAL` | Approved accessorial amount explains part/all of variance | AUTO | YES — approved accessorial row(s) |
+| `FUEL` | Approved accessorial with `charge_code` mapped to FUEL category | AUTO partial | YES — approved accessorial delta; **NOT snapshot component alone** |
+| `DETENTION` | Approved accessorial mapped to DETENTION | AUTO partial | YES |
+| `WAITING` | Approved accessorial mapped to WAITING | AUTO partial | YES |
+| `LEGACY_PRICING` | Non-SNAPSHOT_V1 settlement principal differs from planned | AUTO | YES — canonical principal delta |
+| `UNATTRIBUTED` | Variance exists; no driver rule matched | AUTO fallback | N/A |
+| `MANUAL_ADJUSTMENT` | Operator label when auto rules insufficient | MANUAL | Optional note only |
+| `OTHER` | Operator-provided internal label | MANUAL | Optional note only |
 
-New table `freight_cost.variance_attribution` (planning schema — migration in implementation slice):
+**Explicitly NOT variance drivers:**
 
-- Append-only finding rows per `(tenant, transport_order_id, variance_kind, source_revision_snapshot)`
-- Stores reason_code, evidence JSON, mapping_rule_version
-- Does **not** replace ledger; audit/explainability only
+| Code / concept | Correct class | Why |
+|----------------|---------------|-----|
+| `OPEN_DISPUTE` | VARIANCE_AVAILABILITY_REASON | actual NULL → variance NULL |
+| `CANCELLED` | VARIANCE_AVAILABILITY_REASON | actual NULL → variance NULL |
+| `MISSING_ACTUAL` | VARIANCE_AVAILABILITY_REASON | no variance to explain |
+| `CURRENCY_MISMATCH` | VARIANCE_AVAILABILITY_REASON | variance NULL |
+| `TAX_BASIS_MISMATCH` | VARIANCE_AVAILABILITY_REASON | variance NULL |
+| `BILLING_LINK_MISMATCH` | RECONCILIATION_FINDING | source/projection consistency |
+| `PROJECTION_DRIFT` | RECONCILIATION_FINDING | rebuild mismatch |
+| `STALE_CURSOR` | RECONCILIATION_FINDING | ingest lag |
+
+**NOT_SUPPORTED drivers:** `RATE_CHANGE`, `ROUTE_CHANGE`.
+
+### 9.2 Class B — `VARIANCE_AVAILABILITY_REASON` (non-financial)
+
+**Purpose:** Explain why variance **cannot** be calculated (variance is NULL).
+**Storage:** same table `freight_cost.variance_attribution` with `semantic_class = VARIANCE_AVAILABILITY_REASON`.
+**Precondition:** corresponding variance amount IS NULL.
+
+| Code | Trigger |
+|------|---------|
+| `OPEN_DISPUTE` | `open_dispute_count > 0` |
+| `CANCELLED` | settlement/order cancelled |
+| `MISSING_ACTUAL` | settlement not in actual-eligible state |
+| `MISSING_PLANNED` | planned fact absent |
+| `CURRENCY_MISMATCH` | planned vs actual currency differ |
+| `TAX_BASIS_MISMATCH` | incompatible tax basis detected (fail closed) |
+
+These rows **never alter** planned, accrual, actual, or variance amounts.
+
+### 9.3 Class C — `RECONCILIATION_FINDING` (source/projection consistency)
+
+**Purpose:** Detect divergence between canonical sources and freight-cost projections.
+**Storage:** `freight_cost.reconciliation_finding` (**separate table**; not variance_attribution).
+**Never** presented as variance driver.
+
+| Kind | Meaning |
+|------|---------|
+| `BILLING_LINK_MISMATCH` | `billing_reconciliation_status = MISMATCH` |
+| `PROJECTION_DRIFT` | live projection ≠ canonical rebuild outcome |
+| `STALE_CURSOR` | source cursor behind canonical revision |
+| `MISSING_PLANNED_FACT` | planned ingest missing |
+| `MISSING_ACCRUAL_FACT` | accrual projection missing when expected |
+| `MISSING_FINAL_ACTUAL` | final actual expected but absent |
+| `ORPHAN_BILLING_LINK` | billing link without settlement |
+| `ORPHAN_PAYMENT_LINK` | payment obligation orphan |
+| `CURRENCY_DRIFT` | projection currency ≠ canonical |
+| `DUPLICATE_ECONOMIC_FACT` | duplicate source delivery detected |
+
+v2.1B `billing_reconciliation_status` (MATCH/MISMATCH/UNLINKED) remains on projection; reconciliation findings extend drift automation.
 
 ---
 
-## 10. Charge code classification
+## 10. Variance driver delta evidence rules (R-002)
 
-### 10.1 Discovery
+```text
+SNAPSHOT_COMPONENT_PRESENCE_ALONE_CAN_CAUSE_VARIANCE_REASON=NO
+FUEL_DOUBLE_COUNT=DENY
+VARIANCE_REASON_REQUIRES_DELTA_EVIDENCE=YES
+```
+
+**FUEL false-positive guard:**
+
+- `transport_order_rate_snapshots` FUEL **component** is already embedded in `total_amount` → `PLANNED_COST`.
+- Presence of a planned FUEL component **alone** MUST NOT create a FUEL variance driver.
+- Acceptable FUEL driver evidence: **approved** settlement accessorial whose source `charge_code` maps to category `FUEL`, with amount contributing to explainable variance delta.
+- Attribution logic MUST NOT add snapshot component amounts on top of `total_amount`.
+
+**General rule:** auto-attribution requires reproducible canonical delta facts (approved accessorial rows, legacy principal delta, etc.).
+
+---
+
+## 11. Charge code classification (R-003)
+
+### 11.1 Discovery
 
 - Source: `billing.settlement_accessorials.charge_code VARCHAR(50) NOT NULL`
 - Validation today: non-empty string only (`domain/settlement_accessorial.go`)
 - Examples in tests/UI: `DETENTION`, `FUEL`, `LUMPER`
 
-### 10.2 v2.1C design
+### 11.2 Mapping scope model (repository convention)
 
-New table `freight_cost.charge_code_mapping` (tenant-scoped optional overrides + platform defaults):
+Repository precedent: platform-global rows use **`tenant_id IS NULL`** (e.g. `core.roles WHERE tenant_id IS NULL`). **No magic platform tenant UUID.**
 
-| Column | Purpose |
-|--------|---------|
-| `normalized_category` | e.g. DETENTION, FUEL, WAITING, LUMPER, OTHER |
-| `source_charge_code` | original uppercase token |
-| `mapping_version` | monotonic rule set version |
-| `effective_from` | timestamp |
+```text
+CHARGE_MAPPING_SCOPE_MODEL=PLATFORM_OR_TENANT
+PLATFORM_DEFAULT_REPRESENTATION=tenant_id IS NULL AND mapping_scope='PLATFORM'
+TENANT_OVERRIDE_REPRESENTATION=tenant_id IS NOT NULL AND mapping_scope='TENANT'
+TENANT_OVERRIDE_PRECEDENCE=TENANT beats PLATFORM for same normalized source key
+CROSS_TENANT_MAPPING_LOOKUP=DENY
+```
 
-Rules:
-- Case-insensitive match on trimmed `charge_code`
-- Unknown → `OTHER` + metric `charge_code_unmapped_total`
-- Classification is **analytics-only** — does not change accrual/actual amounts
-- Mapping version recorded on attribution rows for rebuild reproducibility
+**Table:** `freight_cost.charge_code_mapping`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | UUID PK | |
+| `mapping_scope` | TEXT | `PLATFORM` \| `TENANT` CHECK |
+| `tenant_id` | UUID NULL | NULL iff PLATFORM |
+| `source_charge_code_normalized` | VARCHAR(50) | uppercase trimmed key |
+| `normalized_category` | VARCHAR(50) | DETENTION, FUEL, WAITING, LUMPER, OTHER, … |
+| `mapping_version` | BIGINT | monotonic per scope |
+| `effective_from` | TIMESTAMPTZ | |
+| `effective_to` | TIMESTAMPTZ NULL | optional |
+| `created_at` | TIMESTAMPTZ | |
+
+**CHECK constraints:**
+
+```sql
+CHECK (
+  (mapping_scope = 'PLATFORM' AND tenant_id IS NULL)
+  OR (mapping_scope = 'TENANT' AND tenant_id IS NOT NULL)
+)
+```
+
+**Uniqueness:** no overlapping active mapping for same lookup key:
+
+```sql
+UNIQUE (mapping_scope, tenant_id, source_charge_code_normalized, effective_from)
+-- plus application guard: at most one active row per (scope, tenant, source key) at evaluation time
+```
+
+**Normalization pipeline (frozen):**
+
+1. `TRIM` whitespace
+2. `UPPER` case
+3. max length 50 (reject/truncate policy: **reject** if >50 after trim — matches source column)
+4. unknown/unmapped → category `OTHER` + metric `charge_code_unmapped_total`
+5. preserve original source `charge_code` in attribution evidence JSON
+
+Classification is **analytics-only** — does not change accrual/actual/variance amounts.
+
+**Seed:** platform-default rows (`tenant_id IS NULL`) in migration; no fake tenant UUID.
 
 ---
 
-## 11. Double-count protection
+## 12. Attribution idempotency / append-only identity (R-004)
+
+Follow v2.1B deterministic ID pattern (`DeriveSourceFactID` uses `uuid.NewSHA1` namespace in `domain/ledger.go`).
+
+**New namespace (implementation):** `NamespaceFreightCostVarianceAttribution`
+
+```text
+ATTRIBUTION_IDENTITY_MODEL=UUID_SHA1_CANONICAL_KEY
+ATTRIBUTION_UNIQUE_KEY=(tenant_id, attribution_fact_id)
+ATTRIBUTION_DUPLICATE_REBUILD_ROWS=DENY
+ATTRIBUTION_IDEMPOTENT_RECOMPUTE=YES
+```
+
+**Deterministic identity:**
+
+```text
+attribution_fact_id = UUID-SHA1(
+  NamespaceFreightCostVarianceAttribution,
+  tenant_id |
+  transport_order_id |
+  variance_kind                    -- CURRENT | FINAL
+  semantic_class                   -- VARIANCE_DRIVER | VARIANCE_AVAILABILITY_REASON
+  projection_revision              -- monotonic per TO projection
+  reason_code |
+  evidence_fingerprint             -- stable hash of canonical evidence refs
+  mapping_version                  -- 0 for availability reasons
+)
+```
+
+**Insert semantics:** `INSERT … ON CONFLICT (tenant_id, attribution_fact_id) DO NOTHING`
+
+**Historical vs current:**
+
+- All rows append-only; never DELETE.
+- `is_current BOOLEAN` — set TRUE on insert; prior rows for same `(tenant, transport_order_id, variance_kind, semantic_class)` with lower `projection_revision` flip to FALSE.
+- Audit history preserved.
+
+**Idempotency scenarios:**
+
+| Scenario | Behavior |
+|----------|----------|
+| Normal projection recompute (same inputs) | 0 new rows |
+| Duplicate event delivery | 0 new rows |
+| Repeated rebuild (same canonical state) | 0 new rows |
+| Reconciliation-triggered **manual** rebuild | same as rebuild |
+| Retry after crash mid-insert | ON CONFLICT DO NOTHING |
+
+---
+
+## 13. Mapping version / rebuild semantics (R-005)
+
+Distinguish **financial rebuild** from **analytic reclassification**.
+
+```text
+MAPPING_CHANGE_ALTERS_FINANCIAL_VARIANCE=NO
+FINANCIAL_REBUILD_MAPPING_INDEPENDENT=YES
+ATTRIBUTION_REBUILD_POLICY=PINNED_MAPPING_VERSION_FOR_STANDARD_REBUILD
+HISTORICAL_ATTRIBUTION_PRESERVED=YES
+```
+
+| Operation | Variance amounts | Attribution labels |
+|-----------|------------------|-------------------|
+| **Financial rebuild** (standard v2.1B path) | Recomputed from canonical facts only; **invariant to mapping_version** | Re-derived using `attribution_mapping_version` **pinned on projection** at first v2.1C compute; same pin + same facts ⇒ idempotent rows |
+| **Analytic reclassification** (explicit internal op) | **UNCHANGED** | New attribution rows using **current** mapping_version; old rows `is_current=FALSE` |
+
+**Projection column (proposed):** `attribution_mapping_version BIGINT NULL`
+
+- Set on first attribution compute for transport order.
+- Standard rebuild reuses pinned version — not silent relabel with latest rules.
+- Reclassification endpoint (internal, S2S, buyer-admin scope): `POST /internal/v1/freight-cost/transport-orders/{id}/reclassify-attribution` — creates new attribution revision only.
+
+**Financial rebuild equivalence (FC-C-RBL):** variance amounts match regardless of mapping table changes.
+
+---
+
+## 14. Double-count protection
 
 Classification and variance attribution are **analytics-only**. Financial totals remain governed by v2.1B ledger rules.
 
@@ -344,51 +547,106 @@ DOUBLE_COUNT_CLASSIFICATION_CHANGES_TOTALS=NO
 
 ---
 
-## 12. Forecast exposure
+## 15. Forecast exposure — business meaning (R-007, R-008)
+
+```text
+FORECAST_FORMULA=PLANNED + SUM(PROPOSED accessorials EX_VAT)
+FORECAST_FORMULA_MATCHES_V2_1B_FREEZE=YES
+FORECAST_EXPOSURE_SEMANTICS=planned commercial principal + currently pending proposed accessorial exposure
+FORECAST_IS_TOTAL_EXPECTED_LIABILITY=NO
+FORECAST_IS_LEDGER_FACT=NO
+```
+
+**Interpretation for v2.1D UI labels:**
+
+- Forecast is a **non-ledger potential exposure KPI**, not booked accrual and not ultimate liability estimate.
+- When PROPOSED → APPROVED: accrual increases; forecast_exposure **decreases** (pending proposed exposure falls) — **expected and correct**.
+- Forecast MUST NOT be labeled "expected total cost" or "ultimate liability" without explicit future architecture amendment.
 
 | Rule | Value |
 |------|-------|
 | Owner | freight-cost-service (derived projection) |
 | Inputs | planned + PROPOSED accessorials from billing internal read |
 | Ledger | **NOT written** |
-| Rebuild | YES — from canonical HTTP reads |
+| Rebuild | YES — from canonical HTTP reads when source known |
 | Carrier visibility | **DENY** (extend v2.1A view_scope mask) |
 
-Requires billing internal read extension to expose PROPOSED accessorial sum (decimal string) — **new internal field only**, no public API.
+Requires billing internal read extension:
+
+```http
+GET /internal/v1/freight-settlements/by-transport-order/{id}
+```
+
+Response additions:
+- `proposed_accessorial_total_ex_vat` (decimal string) — present when read succeeds
+- `proposed_accessorial_source_status` — `KNOWN` | `UNKNOWN` (explicit; never infer zero from absence)
 
 ---
 
-## 13. Reconciliation
+## 16. Reconciliation (R-006, R-011)
 
-### 13.1 Already in v2.1B
+### 16.1 Already in v2.1B
 
 `billing_reconciliation_status`: MATCH | MISMATCH | UNLINKED — computed on projection update.
 
-### 13.1 v2.1C extensions
+### 16.2 v2.1C drift detection
 
-New drift detection (read-only):
-
-| Check | Action |
-|-------|--------|
-| Projection vs rebuild canonical mismatch | FINDING + metric |
-| Missing planned fact | FINDING |
-| Stale source_cursor | FINDING |
-| currency_code drift | FINDING |
-| orphan billing/payment link | FINDING |
+Read-only scheduled/on-demand scan producing `reconciliation_finding` rows.
 
 ```text
+RECONCILIATION_DETECTION=YES
 RECONCILIATION_AUTO_REPAIR=PROHIBITED
-RECONCILIATION_AUTO_REBUILD=OPTIONAL_INTERNAL_ONLY
-RECONCILIATION_DEFAULT=READ_ONLY_DETECTION
+RECONCILIATION_AUTO_REBUILD=NO
+MANUAL_INTERNAL_REBUILD_TRIGGER=YES
+AUTOMATIC_REBUILD_ON_FINDING=NO
+AUTOMATIC_DESTRUCTIVE_REPAIR=NO
 ```
 
-Implementation: scheduled job in freight-cost-service (pattern: payment/shipment outbox worker conventions) OR on-demand internal endpoint — **detection only** by default.
+**Manual rebuild:** reuse existing `POST /internal/v1/freight-cost/transport-orders/{id}/rebuild` (v2.1B). Requires existing S2S auth; not triggered by finding worker.
+
+**Finding identity:**
+
+```text
+RECONCILIATION_FINDING_IDENTITY=UUID_SHA1(
+  NamespaceFreightCostReconciliationFinding,
+  tenant_id | transport_order_id | finding_kind |
+  canonical_reference_key | expected_revision | observed_revision
+)
+RECONCILIATION_DUPLICATE_OPEN_FINDINGS=DENY
+```
+
+**Unique constraint:** `(tenant_id, finding_id)` + partial unique index on open findings:
+
+```sql
+UNIQUE (tenant_id, finding_id)
+-- application: at most one OPEN row per finding_id
+```
+
+**Lifecycle:**
+
+| Status | Meaning |
+|--------|---------|
+| `OPEN` | Drift active |
+| `RESOLVED` | Drift cleared (canonical match restored or condition no longer applies) |
+| `REOPENED` | Same finding_id returned after RESOLVED |
+
+**Repeated scan behavior:**
+
+| Event | Action |
+|-------|--------|
+| Same drift, finding OPEN | Update `last_observed_at`; no new row |
+| Drift cleared | Mark OPEN → RESOLVED |
+| Same drift returns after RESOLVED | Mark REOPENED (or OPEN with reopened_count++) |
+| Canonical revision advances, drift persists | Update `observed_revision`; same finding_id if kind+reference unchanged |
+| Manual rebuild resolves mismatch | Next scan → RESOLVED |
+
+**Worker safeguards:** rate limit per tenant; max retries; no rebuild loop — detection emits metrics/findings only.
 
 ---
 
-## 14. Data model proposal (planning — no migrations in this PR)
+## 17. Data model proposal (planning — no migrations in this PR)
 
-### 14.1 Alter `freight_cost.cost_summary_projection`
+### 17.1 Alter `freight_cost.cost_summary_projection`
 
 | Column | Type | Notes |
 |--------|------|-------|
@@ -397,24 +655,47 @@ Implementation: scheduled job in freight-cost-service (pattern: payment/shipment
 | `current_variance_percent` | NUMERIC(9,4) NULL | nullable |
 | `final_variance_percent` | NUMERIC(9,4) NULL | nullable |
 | `forecast_exposure` | NUMERIC(18,2) NULL | EX_VAT KPI |
+| `attribution_mapping_version` | BIGINT NULL | pinned for standard rebuild |
+| `projection_revision` | BIGINT NOT NULL DEFAULT 1 | monotonic per TO |
 
 Migration owner: freight-cost-service — next **000057** (verify sequence at implementation time).
 
-### 14.2 New tables
+### 17.2 New tables
 
-**`freight_cost.variance_attribution`** — append-only explainability  
-**`freight_cost.charge_code_mapping`** — versioned normalization rules  
-**`freight_cost.reconciliation_finding`** — drift detection results (mutable status ok for findings workflow)
+**`freight_cost.variance_attribution`** — append-only explainability (classes A + B)
 
-All tables: `tenant_id` required; indexes on `(tenant_id, transport_order_id)`.
+| Column | Notes |
+|--------|-------|
+| `attribution_fact_id` | deterministic PK component |
+| `semantic_class` | VARIANCE_DRIVER \| VARIANCE_AVAILABILITY_REASON |
+| `variance_kind` | CURRENT \| FINAL |
+| `reason_code` | |
+| `evidence_json` | canonical refs only |
+| `mapping_version` | for driver rows |
+| `projection_revision` | |
+| `is_current` | BOOL |
+
+**`freight_cost.charge_code_mapping`** — see §11.2
+
+**`freight_cost.reconciliation_finding`** — class C
+
+| Column | Notes |
+|--------|-------|
+| `finding_id` | deterministic |
+| `finding_kind` | |
+| `status` | OPEN \| RESOLVED \| REOPENED |
+| `expected_revision` / `observed_revision` | |
+| `first_observed_at` / `last_observed_at` / `resolved_at` | |
+
+Tenant scoping: all tables require `tenant_id` **except** `charge_code_mapping` platform rows where `tenant_id IS NULL`.
 
 ---
 
-## 15. Event contract proposal (planning)
+## 18. Event contract proposal (planning)
 
 v2.1C **does not require new canonical outbox events** for variance — variance is derived on projection update from existing v2.1B ingest paths.
 
-Optional internal observability event (freight-cost-service only, not canonical):
+Optional internal observability events (freight-cost-service only, not canonical):
 
 ```text
 freight_cost.variance_recomputed.v1
@@ -425,7 +706,7 @@ If added: versioned JSON, decimal strings, tenant-scoped, idempotent on `(tenant
 
 ---
 
-## 16. Internal API proposal
+## 19. Internal API proposal
 
 Extend existing (no new public routes):
 
@@ -433,23 +714,24 @@ Extend existing (no new public routes):
 GET /internal/v1/freight-cost/transport-orders/{id}
 ```
 
-Response additions (already in DTO — populate from projection):
+Response additions (populate from projection):
 - `current_variance_amount`, `final_variance_amount`
 - `forecast_exposure`
-- optional `variance_reasons[]` (buyer scope only)
+- `variance_drivers[]` — buyer scope only; VARIANCE_DRIVER class only
+- `variance_availability_reasons[]` — buyer scope only
+- `reconciliation_findings[]` — internal/buyer scope only
 
-New internal read dependency:
+**Mapping management (internal, S2S + platform-admin or buyer-admin per existing actor model):**
 
 ```http
-GET /internal/v1/freight-settlements/by-transport-order/{id}
-  + proposed_accessorial_total_ex_vat  (decimal string)
+PUT /internal/v1/freight-cost/charge-code-mappings
 ```
 
-Billing-register-service change: extend existing internal handler response — **decimal string only**.
+Tenant override requires authenticated tenant context; platform rows require platform-admin S2S role. No client-controlled tenant header.
 
 ---
 
-## 17. Security / visibility
+## 20. Security / visibility
 
 Preserve v2.1A/v2.1B masks (`domain/view_scope.go`):
 
@@ -457,42 +739,47 @@ Preserve v2.1A/v2.1B masks (`domain/view_scope.go`):
 |-------|-------|---------|
 | planned, actual | YES | receivable subset only |
 | accrual, forecast, variance | YES | **DENY** |
-| variance reasons | YES | **DENY** |
+| variance drivers / availability / findings | YES | **DENY** |
+| charge_code_mapping (tenant override) | tenant admin | **DENY** |
 
 ```text
 CARRIER_CAN_VIEW_BUYER_INTERNAL_COST=NO
+CROSS_TENANT_MAPPING=DENY
+CROSS_TENANT_ATTRIBUTION=DENY
+CROSS_TENANT_RECONCILIATION=DENY
 TENANT_ISOLATION=REQUIRED
 S2S_AUTH=REQUIRED
 ```
 
 ---
 
-## 18. Rebuild / replay
+## 21. Rebuild / replay
 
 ```text
 DERIVED_VARIANCE_REBUILDABLE=YES
 DERIVED_FORECAST_REBUILDABLE=YES
-VARIANCE_REASON_REBUILDABLE=YES (with mapping_version pinned in attribution row)
+VARIANCE_ATTRIBUTION_REBUILDABLE=YES
+FINANCIAL_REBUILD_IDEMPOTENT=YES
 ```
 
-Rebuild path: reuse v2.1B `RebuildTransportOrder` → recompute projection fields → recompute variance/forecast → re-derive attribution deterministically.
+Rebuild path: reuse v2.1B `RebuildTransportOrder` → recompute projection fields → recompute variance/forecast → re-derive attribution with pinned mapping version.
 
-Mapping rule changes MUST NOT retroactively alter persisted attribution rows; new rebuild creates new attribution rows with new `mapping_version`.
+Billing read failure during rebuild: return error; projection unchanged (existing v2.1B behavior for non-404 errors).
 
 ---
 
-## 19. Migration strategy (implementation slice)
+## 22. Migration strategy (implementation slice)
 
-1. `000057` freight-cost projection variance/forecast columns
+1. `000057` freight-cost projection variance/forecast/attribution_mapping_version/projection_revision columns
 2. `000058` variance_attribution + charge_code_mapping + reconciliation_finding
-3. Seed default charge_code mappings (platform tenant)
-4. Billing internal read extension (no billing schema change required if sum computed in query)
+3. Seed platform-default charge_code mappings (`tenant_id IS NULL`, `mapping_scope='PLATFORM'`)
+4. Billing internal read extension (`proposed_accessorial_total_ex_vat`, `proposed_accessorial_source_status`)
 
 Rollback: drop new columns/tables; projection reverts to v2.1B shape.
 
 ---
 
-## 20. Rollout / feature flags
+## 23. Rollout / feature flags
 
 ```text
 V2_1C_VARIANCE_PROJECTION_ENABLED=tenant flag optional (default ON after migration)
@@ -503,49 +790,71 @@ No frontend rollout in v2.1C.
 
 ---
 
-## 21. Observability
+## 24. Observability
 
 Metrics (no PII/money in labels):
 
 - `freight_cost_variance_recomputed_total{result}`
 - `freight_cost_forecast_recomputed_total{result}`
+- `freight_cost_forecast_proposed_source_unknown_total`
 - `freight_cost_reconciliation_finding_total{kind,severity}`
 - `freight_cost_charge_code_unmapped_total`
 
 ---
 
-## 22. Failure modes
+## 25. Failure modes
 
 | Failure | Handling |
 |---------|----------|
-| Missing planned | variance NULL; finding OPTIONAL |
-| Billing internal read unavailable | rebuild retry; projection unchanged |
+| Missing planned | variance NULL; availability reason; finding OPTIONAL |
+| Billing internal read unavailable (forecast) | forecast NULL; retain prior; metric |
+| Billing internal read unavailable (rebuild) | rebuild error; projection unchanged |
 | Mapping table empty | unmapped → OTHER |
-| Percent overflow | cap NULL if denominator zero |
+| Percent overflow | NULL if denominator zero |
+| Repeated reconciliation scan | update OPEN finding timestamp; no duplicate |
 
 ---
 
-## 23. Test matrix (frozen IDs)
+## 26. Test matrix (frozen IDs)
 
 | Family | IDs | Count | Focus |
 |--------|-----|------:|-------|
 | FC-C-VAR | 001–012 | 12 | formula, NULL, currency, dispute, sign |
-| FC-C-REA | 001–008 | 8 | reason attribution deterministic |
-| FC-C-CHG | 001–006 | 6 | charge_code mapping |
+| FC-C-REA | 001–016 | 16 | driver vs availability separation; delta evidence; FUEL false positive; idempotent attribution |
+| FC-C-CHG | 001–010 | 10 | platform NULL tenant; tenant override; cross-tenant deny; normalization |
 | FC-C-DUP | 001–004 | 4 | no double-count |
-| FC-C-FOR | 001–005 | 5 | forecast separation |
-| FC-C-REC | 001–006 | 6 | drift detection |
-| FC-C-RBL | 001–004 | 4 | rebuild equivalence |
+| FC-C-FOR | 001–008 | 8 | planned+proposed; known-empty=planned; unknown≠zero; PROPOSED→APPROVED transition |
+| FC-C-REC | 001–010 | 10 | finding identity; OPEN/RESOLVED/REOPENED; no auto-rebuild |
+| FC-C-RBL | 001–008 | 8 | idempotent attribution; mapping-independent variance; pinned vs reclassify |
 | FC-C-MON | 001–004 | 4 | decimal integrity |
-| FC-C-SEC | 001–004 | 4 | tenant/carrier mask |
-| FC-C-OUT | 001–003 | 3 | idempotent recompute |
-| **Total** | | **56** | |
+| FC-C-SEC | 001–008 | 8 | tenant isolation; carrier mask; mapping auth |
+| FC-C-OUT | 001–004 | 4 | idempotent recompute; duplicate event |
+| **Total** | | **84** | |
+
+**New test highlights (PR #47 review):**
+
+| ID | Requirement |
+|----|-------------|
+| FC-C-REA-009 | Snapshot FUEL component alone does NOT create FUEL driver |
+| FC-C-REA-010 | Approved FUEL accessorial CAN create FUEL driver |
+| FC-C-REA-011 | OPEN_DISPUTE → availability reason, not driver |
+| FC-C-REA-012 | BILLING_LINK_MISMATCH → reconciliation finding, not driver |
+| FC-C-REA-013 | Duplicate recompute → 0 new attribution rows |
+| FC-C-FOR-006 | Known-empty PROPOSED set → forecast = planned |
+| FC-C-FOR-007 | Unknown proposed source → forecast NULL, not zero |
+| FC-C-FOR-008 | PROPOSED→APPROVED decreases forecast, increases accrual |
+| FC-C-REC-007 | Repeated scan same drift → one OPEN finding |
+| FC-C-REC-008 | Drift cleared → RESOLVED |
+| FC-C-RBL-005 | Mapping version change → variance unchanged |
+| FC-C-RBL-006 | Standard rebuild uses pinned mapping version |
+| FC-C-CHG-001 | Platform default via tenant_id IS NULL |
+| FC-C-SEC-005 | Tenant A mapping invisible to tenant B |
 
 Every normative requirement maps to ≥1 test.
 
 ---
 
-## 24. Acceptance gates (v2.1C implementation)
+## 27. Acceptance gates (v2.1C implementation)
 
 | Gate | Required |
 |------|----------|
@@ -555,10 +864,14 @@ Every normative requirement maps to ≥1 test.
 | CURRENCY_MISMATCH_FAIL_CLOSED | PASS |
 | TAX_BASIS_EX_VAT_ONLY | PASS |
 | FORECAST_NOT_IN_LEDGER | PASS |
+| FORECAST_KNOWN_EMPTY_VS_UNKNOWN | PASS |
+| VARIANCE_DRIVER_AVAILABILITY_SEPARATED | PASS |
 | CHARGE_CODE_MAPPING_VERSIONED | PASS |
-| VARIANCE_REASONS_DETERMINISTIC | PASS |
+| ATTRIBUTION_IDEMPOTENT | PASS |
+| RECONCILIATION_NO_DUPLICATE_OPEN | PASS |
 | RECONCILIATION_DETECTION | PASS |
 | REBUILD_EQUIVALENCE | PASS |
+| MAPPING_INDEPENDENT_FINANCIAL_REBUILD | PASS |
 | CARRIER_MASK | PASS |
 | CROSS_SERVICE_DB_READS | 0 |
 | PUBLIC_API_ADDED | NO |
@@ -566,30 +879,39 @@ Every normative requirement maps to ≥1 test.
 
 ---
 
-## 25. Deferred v2.1D / v2.1E
+## 28. Deferred v2.1D / v2.1E
 
 See §4. v2.1D owns analytics workspace; v2.1E owns public API and RBAC.
 
 ---
 
-## 26. Adversarial self-review (completed)
+## 29. Adversarial self-review (PR #47 closure)
 
 | Check | Result |
 |-------|--------|
-| billing canonical vs freight-cost derived | OK — variance owner is freight-cost derived |
-| planned = snapshot vs settlement base | OK — F-002 proven equivalence SNAPSHOT_V1 |
-| ex-VAT vs with-VAT mix | OK — variance excludes payable/paid |
-| NULL → zero | OK — explicit NULL rules |
+| R-001 driver vs availability vs reconciliation separated | **PASS** |
+| R-002 FUEL snapshot false positive blocked | **PASS** |
+| R-003 platform mapping uses tenant_id IS NULL (no magic UUID) | **PASS** |
+| R-004 attribution idempotent identity frozen | **PASS** |
+| R-005 financial rebuild mapping-independent | **PASS** |
+| R-006 reconciliation finding dedup lifecycle | **PASS** |
+| R-007 known-empty vs unknown proposed set | **PASS** |
+| R-008 forecast KPI semantics explicit | **PASS** |
+| billing canonical vs freight-cost derived | OK |
+| planned = snapshot vs settlement base | OK — F-002 |
+| ex-VAT vs with-VAT mix | OK |
+| NULL → zero | OK |
 | mixed currency sum | OK — fail closed |
 | forecast in ledger | OK — forbidden |
-| mapping changes historical totals | OK — analytics-only + versioned attribution |
+| mapping changes financial totals | OK — analytics-only |
 | cross-service DB reads | OK — HTTP only |
-| carrier buyer leak | OK — view_scope extended |
-| v2.1D/E scope leak | OK — none in v2.1C deliverables |
+| carrier buyer leak | OK |
+| v2.1D/E scope leak | OK |
+| auto-rebuild on finding | OK — prohibited |
 
 ---
 
-## 27. Open questions
+## 30. Open questions
 
 ```text
 OPEN_IMPLEMENTATION_BLOCKER=0
@@ -597,11 +919,11 @@ OPEN_HIGH=0
 OPEN_MEDIUM=0
 ```
 
-OQ-005 (charge_code convention) **closed in this plan** via versioned mapping table.
+OQ-005 (charge_code convention) **closed** via versioned mapping table + normalization rules.
 
 ---
 
-## 28. Frozen decisions table
+## 31. Frozen decisions table
 
 ```text
 V2_1C_SCOPE_NAME=Planned vs Actual / Variance
@@ -622,6 +944,49 @@ FX_CONVERSION_IN_V2_1C=FORBIDDEN
 
 TAX_BASIS_COMPATIBILITY_POLICY=EX_VAT_ONLY_FOR_VARIANCE
 
+VARIANCE_DRIVER_REQUIRES_NON_NULL_VARIANCE=YES
+VARIANCE_AVAILABILITY_REASON_CHANGES_MONEY=NO
+RECONCILIATION_FINDING_IS_VARIANCE_DRIVER=NO
+MANUAL_REASON_CHANGES_CANONICAL_MONEY=NO
+
+SNAPSHOT_COMPONENT_PRESENCE_ALONE_CAN_CAUSE_VARIANCE_REASON=NO
+VARIANCE_REASON_REQUIRES_DELTA_EVIDENCE=YES
+FUEL_DOUBLE_COUNT=DENY
+
+CHARGE_MAPPING_SCOPE_MODEL=PLATFORM_OR_TENANT
+PLATFORM_DEFAULT_REPRESENTATION=tenant_id IS NULL
+TENANT_OVERRIDE_PRECEDENCE=TENANT_OVER_PLATFORM
+CROSS_TENANT_MAPPING_LOOKUP=DENY
+
+ATTRIBUTION_IDENTITY_MODEL=UUID_SHA1_CANONICAL_KEY
+ATTRIBUTION_UNIQUE_KEY=(tenant_id, attribution_fact_id)
+ATTRIBUTION_IDEMPOTENT_RECOMPUTE=YES
+ATTRIBUTION_DUPLICATE_REBUILD_ROWS=DENY
+
+MAPPING_CHANGE_ALTERS_FINANCIAL_VARIANCE=NO
+FINANCIAL_REBUILD_MAPPING_INDEPENDENT=YES
+ATTRIBUTION_REBUILD_POLICY=PINNED_MAPPING_VERSION_FOR_STANDARD_REBUILD
+HISTORICAL_ATTRIBUTION_PRESERVED=YES
+
+RECONCILIATION_DETECTION=YES
+RECONCILIATION_AUTO_REPAIR=PROHIBITED
+RECONCILIATION_AUTO_REBUILD=NO
+MANUAL_INTERNAL_REBUILD_TRIGGER=YES
+AUTOMATIC_REBUILD_ON_FINDING=NO
+RECONCILIATION_DUPLICATE_OPEN_FINDINGS=DENY
+RECONCILIATION_FINDING_IDENTITY=UUID_SHA1(tenant|to|kind|reference|expected_rev|observed_rev)
+RECONCILIATION_RESOLUTION_POLICY=OPEN_TO_RESOLVED_ON_DRIFT_CLEAR
+RECONCILIATION_REOPEN_POLICY=REOPENED_WHEN_SAME_FINDING_RETURNS
+
+FORECAST_FORMULA=PLANNED + SUM(PROPOSED accessorials EX_VAT)
+FORECAST_FORMULA_MATCHES_V2_1B_FREEZE=YES
+KNOWN_EMPTY_PROPOSED_SET_IS_ZERO=YES
+FORECAST_WITH_KNOWN_EMPTY_PROPOSED_SET=PLANNED
+UNKNOWN_PROPOSED_SOURCE_IS_ZERO=NO
+FORECAST_EXPOSURE_SEMANTICS=planned principal + pending proposed accessorial exposure
+FORECAST_IS_TOTAL_EXPECTED_LIABILITY=NO
+FORECAST_IS_LEDGER_FACT=NO
+
 VARIANCE_REASON_ATTRIBUTION_IN_SCOPE=YES
 CHARGE_CODE_CLASSIFICATION_IN_SCOPE=YES
 DOUBLE_COUNT_CLASSIFICATION_IN_SCOPE=YES
@@ -636,6 +1001,9 @@ CROSS_SERVICE_DB_READS_FROM_FREIGHT_COST=NO
 FLOAT64_MONEY_ON_FREIGHT_COST_BOUNDARY=NO
 
 CARRIER_CAN_VIEW_BUYER_INTERNAL_COST=NO
+CROSS_TENANT_MAPPING=DENY
+CROSS_TENANT_ATTRIBUTION=DENY
+CROSS_TENANT_RECONCILIATION=DENY
 
 DERIVED_VARIANCE_REBUILDABLE=YES
 
@@ -652,7 +1020,7 @@ OPEN_MEDIUM=0
 
 | Field | Value |
 |-------|-------|
-| Author | v2.1C planning agent |
+| Author | v2.1C planning + PR #47 review |
 | Base SHA | `75994efecb5c96bf6608f891fad3b3d0865a593f` |
-| Review status | Ready for independent review |
+| Review status | PR #47 findings R-001…R-008 closed |
 | Runtime changes | **NONE** |
