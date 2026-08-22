@@ -113,7 +113,15 @@ func TestFC_B_RBL_005_LiveAndRebuildProjectionEquivalence(t *testing.T) {
 func TestFC_B_RBL_006_UnchangedRebuildAddsNoJournalRow(t *testing.T) {
 	env := setupEnv(t)
 	fix := seedFixture(t, env.pool)
-	opts := ingestOpts{sourceRevision: 12, amount: decimalAmount("1900.00")}
+	opts := ingestOpts{
+		entryKind:        domain.EntryKindPlannedCostSnapshot,
+		sourceType:       domain.SourceTypeTORateSnapshot,
+		sourceService:    domain.SourceServiceTransportOrder,
+		sourceID:         fix.SnapshotID,
+		sourceRevision:   1,
+		revisionSemantic: domain.RevisionSemanticImmutable,
+		amount:           decimalAmount(fix.PlannedAmount.StringFixed(domain.MoneyScale)),
+	}
 	factID := deriveFactID(fix, opts)
 	ingest(t, env, baseIngestInput(fix, opts.withEvent(uuid.New()).withOrigin(domain.EventOriginLiveOutbox)))
 	if countCostEntriesByFact(t, env.pool, fix.TenantID, factID) != 1 {
