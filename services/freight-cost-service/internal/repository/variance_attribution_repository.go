@@ -64,6 +64,20 @@ func (r *VarianceAttributionRepository) InsertBatch(
 	return inserted, nil
 }
 
+func (r *VarianceAttributionRepository) MarkDriversSuperseded(
+	ctx context.Context,
+	tx pgx.Tx,
+	tenantID, transportOrderID uuid.UUID,
+) error {
+	const query = `
+		UPDATE freight_cost.variance_attribution
+		SET is_current = FALSE
+		WHERE tenant_id = $1 AND transport_order_id = $2
+		  AND semantic_class = 'VARIANCE_DRIVER' AND is_current = TRUE`
+	_, err := tx.Exec(ctx, query, tenantID, transportOrderID)
+	return mapDBError(err)
+}
+
 func (r *VarianceAttributionRepository) CountByTransportOrder(
 	ctx context.Context,
 	tx pgx.Tx,
@@ -72,6 +86,21 @@ func (r *VarianceAttributionRepository) CountByTransportOrder(
 	const query = `
 		SELECT COUNT(*) FROM freight_cost.variance_attribution
 		WHERE tenant_id = $1 AND transport_order_id = $2`
+	var count int
+	if err := tx.QueryRow(ctx, query, tenantID, transportOrderID).Scan(&count); err != nil {
+		return 0, mapDBError(err)
+	}
+	return count, nil
+}
+
+func (r *VarianceAttributionRepository) CountCurrentByTransportOrder(
+	ctx context.Context,
+	tx pgx.Tx,
+	tenantID, transportOrderID uuid.UUID,
+) (int, error) {
+	const query = `
+		SELECT COUNT(*) FROM freight_cost.variance_attribution
+		WHERE tenant_id = $1 AND transport_order_id = $2 AND is_current = TRUE`
 	var count int
 	if err := tx.QueryRow(ctx, query, tenantID, transportOrderID).Scan(&count); err != nil {
 		return 0, mapDBError(err)

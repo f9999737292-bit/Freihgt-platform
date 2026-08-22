@@ -5,6 +5,9 @@ import "github.com/shopspring/decimal"
 const (
 	ProposedSourceKnown   = "KNOWN"
 	ProposedSourceUnknown = "UNKNOWN"
+
+	ForecastSourceKnown   = ProposedSourceKnown
+	ForecastSourceUnknown = ProposedSourceUnknown
 )
 
 type ProposedAccessorialInput struct {
@@ -12,60 +15,58 @@ type ProposedAccessorialInput struct {
 	TotalExVAT   *decimal.Decimal
 }
 
-func RecomputeDerivedProjection(projection *CostSummaryProjection, proposed ProposedAccessorialInput, priorForecast *decimal.Decimal) error {
+// RecomputeDerivedProjection recalculates variance/forecast fields.
+// Returns true when canonical derived input fingerprint changed (attribution refresh required).
+func RecomputeDerivedProjection(projection *CostSummaryProjection, proposed ProposedAccessorialInput) (bool, error) {
 	if projection == nil {
-		return nil
+		return false, nil
 	}
-	projection.ProjectionRevision++
 
 	plannedMoney, err := moneyFromDecimal(projection.PlannedAmount, projection.CurrencyCode)
 	if err != nil {
-		return err
+		return false, err
 	}
 	currentMoney, err := moneyFromDecimal(projection.CurrentActualAmount, projection.CurrencyCode)
 	if err != nil {
-		return err
+		return false, err
 	}
 	finalMoney, err := moneyFromDecimal(projection.FinalActualAmount, projection.CurrencyCode)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	currentVariance, err := CalculateCurrentVariance(plannedMoney, currentMoney)
 	if err != nil {
-		return err
+		return false, err
 	}
 	finalVariance, err := CalculateFinalVariance(plannedMoney, finalMoney)
 	if err != nil {
-		return err
+		return false, err
 	}
 	projection.CurrentVarianceAmount = moneyToDecimal(currentVariance)
 	projection.FinalVarianceAmount = moneyToDecimal(finalVariance)
 
 	currentPercent, err := CalculateVariancePercent(currentVariance, plannedMoney)
 	if err != nil {
-		return err
+		return false, err
 	}
 	finalPercent, err := CalculateVariancePercent(finalVariance, plannedMoney)
 	if err != nil {
-		return err
+		return false, err
 	}
 	projection.CurrentVariancePercent = currentPercent
 	projection.FinalVariancePercent = finalPercent
 
-	projection.ForecastExposure = computeForecastExposure(projection, plannedMoney, proposed, priorForecast)
-	return nil
+	projection.ForecastExposure, projection.ForecastSourceStatus = computeForecastExposure(plannedMoney, proposed)
+	return ApplyDerivedStateRevision(projection, proposed), nil
 }
 
-func computeForecastExposure(projection *CostSummaryProjection, planned *Money, proposed ProposedAccessorialInput, priorForecast *decimal.Decimal) *decimal.Decimal {
+func computeForecastExposure(planned *Money, proposed ProposedAccessorialInput) (*decimal.Decimal, string) {
 	if planned == nil {
-		return nil
+		return nil, ForecastSourceUnknown
 	}
 	if proposed.SourceStatus != ProposedSourceKnown {
-		if priorForecast != nil {
-			return priorForecast
-		}
-		return projection.ForecastExposure
+		return nil, ForecastSourceUnknown
 	}
 	var proposedMonies []Money
 	if proposed.TotalExVAT != nil {
@@ -76,9 +77,9 @@ func computeForecastExposure(projection *CostSummaryProjection, planned *Money, 
 	}
 	forecast, err := CalculateForecastExposure(planned, proposedMonies)
 	if err != nil {
-		return priorForecast
+		return nil, ForecastSourceUnknown
 	}
-	return moneyToDecimal(forecast)
+	return moneyToDecimal(forecast), ForecastSourceKnown
 }
 
 func moneyFromDecimal(amount *decimal.Decimal, currency string) (*Money, error) {

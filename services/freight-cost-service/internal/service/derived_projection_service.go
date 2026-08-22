@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -53,22 +54,32 @@ func (s *DerivedProjectionService) RecomputeInTransaction(
 	if projection == nil {
 		return nil
 	}
-	priorForecast := projection.ForecastExposure
-	priorMappingVersion := projection.AttributionMappingVersion
-
-	if err := domain.RecomputeDerivedProjection(projection, proposed, priorForecast); err != nil {
+	stateChanged, err := domain.RecomputeDerivedProjection(projection, proposed)
+	if err != nil {
 		return err
 	}
+	if !stateChanged {
+		return nil
+	}
 
-	platformMappings, tenantMappings, tableVersion, err := s.mappings.LoadActiveMappings(ctx, tx, projection.TenantID)
+	evalTime := time.Now().UTC()
+	priorMappingVersion := projection.AttributionMappingVersion
+	var (
+		platformMappings []domain.ChargeCodeMapping
+		tenantMappings   []domain.ChargeCodeMapping
+		tableVersion     int64
+	)
+	if priorMappingVersion != nil {
+		platformMappings, tenantMappings, tableVersion, err = s.mappings.LoadPinnedMappings(ctx, tx, projection.TenantID, *priorMappingVersion, evalTime)
+	} else {
+		platformMappings, tenantMappings, tableVersion, err = s.mappings.LoadActiveMappings(ctx, tx, projection.TenantID, evalTime)
+	}
 	if err != nil {
 		return err
 	}
 	mappingVersion := tableVersion
 	if priorMappingVersion != nil {
 		mappingVersion = *priorMappingVersion
-	} else if mappingVersion == 0 {
-		mappingVersion = 1
 	}
 	if projection.AttributionMappingVersion == nil {
 		pinned := mappingVersion
@@ -85,49 +96,156 @@ func (s *DerivedProjectionService) RecomputeInTransaction(
 		return err
 	}
 
-	var attributionRows []domain.VarianceAttribution
-	for _, kind := range []string{domain.VarianceKindCurrent, domain.VarianceKindFinal} {
-		attributionRows = append(attributionRows, domain.BuildAvailabilityReasons(projection, kind)...)
-		attributionRows = append(attributionRows, domain.BuildVarianceDrivers(projection, kind, driverCtx)...)
-	}
+	attributionRows := s.buildAttributionRows(projection, driverCtx)
 	inserted, err := s.attributions.InsertBatch(ctx, tx, attributionRows)
 	if err != nil {
 		return err
 	}
 	_ = inserted
 
+	if _, err := s.persistFindings(ctx, tx, projection); err != nil {
+		return err
+	}
+	s.observeRecompute(projection, proposed, attributionRows)
+	return nil
+}
+
+func (s *DerivedProjectionService) ReconcileTransportOrder(
+	ctx context.Context,
+	tenantID, transportOrderID uuid.UUID,
+) (int, error) {
+	if s == nil || s.pool == nil || s.projections == nil {
+		return 0, nil
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+
+	projection, err := s.projections.GetByTransportOrderTx(ctx, tx, tenantID, transportOrderID)
+	if err != nil {
+		return 0, err
+	}
+	count, err := s.persistFindings(ctx, tx, projection)
+	if err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (s *DerivedProjectionService) ReclassifyAttribution(
+	ctx context.Context,
+	tenantID, transportOrderID uuid.UUID,
+	driverCtx domain.DriverAttributionContext,
+) (int, error) {
+	if s == nil || s.pool == nil {
+		return 0, nil
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+
+	projection, err := s.projections.GetByTransportOrderTx(ctx, tx, tenantID, transportOrderID)
+	if err != nil {
+		return 0, err
+	}
+
+	evalTime := time.Now().UTC()
+	platformMappings, tenantMappings, mappingVersion, err := s.mappings.LoadActiveMappings(ctx, tx, tenantID, evalTime)
+	if err != nil {
+		return 0, err
+	}
+	if driverCtx.MappingVersion == 0 {
+		driverCtx.MappingVersion = mappingVersion
+	}
+	driverCtx.PlatformMappings = platformMappings
+	driverCtx.TenantMappings = tenantMappings
+
+	if err := s.attributions.MarkDriversSuperseded(ctx, tx, tenantID, transportOrderID); err != nil {
+		return 0, err
+	}
+
+	var attributionRows []domain.VarianceAttribution
+	for _, kind := range []string{domain.VarianceKindCurrent, domain.VarianceKindFinal} {
+		attributionRows = append(attributionRows, domain.BuildVarianceDrivers(projection, kind, driverCtx)...)
+	}
+	inserted, err := s.attributions.InsertBatch(ctx, tx, attributionRows)
+	if err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return 0, err
+	}
+	if s.metrics != nil {
+		s.metrics.ObserveVarianceRecomputed("reclassified")
+	}
+	return inserted, nil
+}
+
+func (s *DerivedProjectionService) persistFindings(
+	ctx context.Context,
+	tx pgx.Tx,
+	projection *domain.CostSummaryProjection,
+) (int, error) {
 	detected := domain.DetectReconciliationFindings(projection)
 	activeIDs := make([]uuid.UUID, 0, len(detected))
 	for _, finding := range detected {
 		activeIDs = append(activeIDs, finding.FindingID)
 	}
 	if err := s.findings.UpsertBatch(ctx, tx, detected); err != nil {
-		return err
+		return 0, err
 	}
 	if err := s.findings.ResolveAbsentFindings(ctx, tx, projection.TenantID, projection.TransportOrderID, activeIDs); err != nil {
-		return err
+		return 0, err
 	}
-
 	if s.metrics != nil {
-		s.metrics.ObserveVarianceRecomputed("success")
-		if proposed.SourceStatus == domain.ProposedSourceKnown {
-			s.metrics.ObserveForecastRecomputed("success")
-		} else if proposed.SourceStatus == domain.ProposedSourceUnknown {
-			s.metrics.ObserveForecastProposedSourceUnknown()
-		}
-		for _, row := range attributionRows {
-			if row.ReasonCode == domain.ReasonUnattributed {
-				continue
-			}
-			if category, ok := row.EvidenceJSON["category"].(string); ok && category == domain.CategoryOther {
-				s.metrics.ObserveChargeCodeUnmapped()
-			}
-		}
 		for _, finding := range detected {
 			s.metrics.ObserveReconciliationFinding(finding.FindingKind, "info")
 		}
 	}
-	return nil
+	return len(detected), nil
+}
+
+func (s *DerivedProjectionService) buildAttributionRows(
+	projection *domain.CostSummaryProjection,
+	driverCtx domain.DriverAttributionContext,
+) []domain.VarianceAttribution {
+	var rows []domain.VarianceAttribution
+	for _, kind := range []string{domain.VarianceKindCurrent, domain.VarianceKindFinal} {
+		rows = append(rows, domain.BuildAvailabilityReasons(projection, kind)...)
+		rows = append(rows, domain.BuildVarianceDrivers(projection, kind, driverCtx)...)
+	}
+	return rows
+}
+
+func (s *DerivedProjectionService) observeRecompute(
+	projection *domain.CostSummaryProjection,
+	proposed domain.ProposedAccessorialInput,
+	attributionRows []domain.VarianceAttribution,
+) {
+	if s.metrics == nil {
+		return
+	}
+	s.metrics.ObserveVarianceRecomputed("success")
+	if proposed.SourceStatus == domain.ProposedSourceKnown {
+		s.metrics.ObserveForecastRecomputed("success")
+	} else if proposed.SourceStatus == domain.ProposedSourceUnknown {
+		s.metrics.ObserveForecastProposedSourceUnknown()
+	}
+	for _, row := range attributionRows {
+		if row.ReasonCode == domain.ReasonUnattributed {
+			continue
+		}
+		if category, ok := row.EvidenceJSON["category"].(string); ok && category == domain.CategoryOther {
+			s.metrics.ObserveChargeCodeUnmapped()
+		}
+	}
 }
 
 func (s *DerivedProjectionService) EnrichForecastFromBilling(
@@ -166,11 +284,7 @@ func (s *DerivedProjectionService) enrichForecastFromSettlement(
 	if s == nil || s.projections == nil || settlement == nil {
 		return nil
 	}
-	proposed := domain.ProposedAccessorialInput{SourceStatus: domain.ProposedSourceUnknown}
-	if settlement.ProposedAccessorialSourceStatus == domain.ProposedSourceKnown {
-		proposed.SourceStatus = domain.ProposedSourceKnown
-		proposed.TotalExVAT = settlement.ProposedAccessorialTotalExVAT
-	}
+	proposed := ProposedInputFromSettlement(settlement)
 
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -182,12 +296,20 @@ func (s *DerivedProjectionService) enrichForecastFromSettlement(
 	if err != nil {
 		return err
 	}
-	priorForecast := projection.ForecastExposure
-	if err := domain.RecomputeDerivedProjection(projection, proposed, priorForecast); err != nil {
+	stateChanged, err := domain.RecomputeDerivedProjection(projection, proposed)
+	if err != nil {
 		return err
 	}
 	if err := s.projections.Upsert(ctx, tx, projection); err != nil {
 		return err
+	}
+	if stateChanged {
+		if err := s.RecomputeInTransaction(ctx, tx, projection, proposed, domain.DriverAttributionContext{}); err != nil {
+			return err
+		}
+		if err := s.projections.Upsert(ctx, tx, projection); err != nil {
+			return err
+		}
 	}
 	if s.metrics != nil {
 		if proposed.SourceStatus == domain.ProposedSourceKnown {

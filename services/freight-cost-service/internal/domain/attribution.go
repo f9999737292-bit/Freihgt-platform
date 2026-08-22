@@ -37,14 +37,14 @@ const (
 )
 
 type AttributionInput struct {
-	TenantID           uuid.UUID
-	TransportOrderID   uuid.UUID
-	VarianceKind       string
-	SemanticClass      string
-	ReasonCode         string
+	TenantID            uuid.UUID
+	TransportOrderID    uuid.UUID
+	VarianceKind        string
+	SemanticClass       string
+	ReasonCode          string
 	EvidenceFingerprint string
-	MappingVersion     int64
-	ProjectionRevision int64
+	MappingVersion      int64
+	StateFingerprint    string
 }
 
 type VarianceAttribution struct {
@@ -66,7 +66,7 @@ func DeriveAttributionFactID(input AttributionInput) uuid.UUID {
 		input.TransportOrderID.String(),
 		input.VarianceKind,
 		input.SemanticClass,
-		fmt.Sprintf("%d", input.ProjectionRevision),
+		input.StateFingerprint,
 		input.ReasonCode,
 		input.EvidenceFingerprint,
 		fmt.Sprintf("%d", input.MappingVersion),
@@ -122,7 +122,7 @@ func BuildAvailabilityReasons(projection *CostSummaryProjection, varianceKind st
 			ReasonCode:          code,
 			EvidenceFingerprint: fp,
 			MappingVersion:      0,
-			ProjectionRevision:  projection.ProjectionRevision,
+			StateFingerprint:    stateFingerprint(projection),
 		}
 		out = append(out, VarianceAttribution{
 			TenantID:           input.TenantID,
@@ -133,7 +133,7 @@ func BuildAvailabilityReasons(projection *CostSummaryProjection, varianceKind st
 			ReasonCode:         input.ReasonCode,
 			EvidenceJSON:       map[string]any{"reason": code},
 			MappingVersion:     0,
-			ProjectionRevision: input.ProjectionRevision,
+			ProjectionRevision: projection.ProjectionRevision,
 			IsCurrent:          true,
 		})
 	}
@@ -215,6 +215,20 @@ func BuildVarianceDrivers(
 	return drivers
 }
 
+func stateFingerprint(projection *CostSummaryProjection) string {
+	if projection == nil {
+		return ""
+	}
+	if projection.DerivedStateFingerprint != nil && *projection.DerivedStateFingerprint != "" {
+		return *projection.DerivedStateFingerprint
+	}
+	proposed := ProposedAccessorialInput{SourceStatus: projection.ForecastSourceStatus}
+	if projection.ForecastSourceStatus == ForecastSourceKnown && projection.ForecastExposure != nil {
+		proposed.TotalExVAT = projection.ForecastExposure
+	}
+	return ComputeDerivedStateFingerprint(projection, proposed)
+}
+
 func buildDriverAttribution(
 	projection *CostSummaryProjection,
 	varianceKind, reasonCode, fingerprint string,
@@ -229,7 +243,7 @@ func buildDriverAttribution(
 		ReasonCode:          reasonCode,
 		EvidenceFingerprint: fingerprint,
 		MappingVersion:      mappingVersion,
-		ProjectionRevision:  projection.ProjectionRevision,
+		StateFingerprint:    stateFingerprint(projection),
 	}
 	return VarianceAttribution{
 		TenantID:           input.TenantID,
@@ -240,7 +254,7 @@ func buildDriverAttribution(
 		ReasonCode:         input.ReasonCode,
 		EvidenceJSON:       evidence,
 		MappingVersion:     mappingVersion,
-		ProjectionRevision: input.ProjectionRevision,
+		ProjectionRevision: projection.ProjectionRevision,
 		IsCurrent:          true,
 	}
 }

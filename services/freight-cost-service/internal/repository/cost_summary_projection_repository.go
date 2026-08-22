@@ -29,7 +29,8 @@ const projectionSelectColumns = `
 		billing_register_amount, payable_amount, paid_amount,
 		billing_reconciliation_status, financial_finality, data_stage, sources_available,
 		current_variance_amount, final_variance_amount, current_variance_percent, final_variance_percent,
-		forecast_exposure, attribution_mapping_version, projection_revision`
+		forecast_exposure, forecast_source_status, derived_state_fingerprint,
+		attribution_mapping_version, projection_revision`
 
 func (r *CostSummaryProjectionRepository) GetByTransportOrder(
 	ctx context.Context,
@@ -66,14 +67,15 @@ func (r *CostSummaryProjectionRepository) Upsert(ctx context.Context, tx pgx.Tx,
 			billing_register_amount, payable_amount, paid_amount,
 			billing_reconciliation_status, financial_finality, data_stage, sources_available,
 			current_variance_amount, final_variance_amount, current_variance_percent, final_variance_percent,
-			forecast_exposure, attribution_mapping_version, projection_revision, updated_at
+			forecast_exposure, forecast_source_status, derived_state_fingerprint,
+			attribution_mapping_version, projection_revision, updated_at
 		) VALUES (
 			$1, $2, $3, $4, $5,
 			$6, $7, $8, $9,
 			$10, $11, $12,
 			$13, $14, $15, $16,
 			$17, $18, $19, $20,
-			$21, $22, $23, $24
+			$21, $22, $23, $24, $25, $26
 		)
 		ON CONFLICT (tenant_id, transport_order_id) DO UPDATE SET
 			buyer_company_id = EXCLUDED.buyer_company_id,
@@ -95,6 +97,8 @@ func (r *CostSummaryProjectionRepository) Upsert(ctx context.Context, tx pgx.Tx,
 			current_variance_percent = EXCLUDED.current_variance_percent,
 			final_variance_percent = EXCLUDED.final_variance_percent,
 			forecast_exposure = EXCLUDED.forecast_exposure,
+			forecast_source_status = EXCLUDED.forecast_source_status,
+			derived_state_fingerprint = EXCLUDED.derived_state_fingerprint,
 			attribution_mapping_version = EXCLUDED.attribution_mapping_version,
 			projection_revision = EXCLUDED.projection_revision,
 			updated_at = EXCLUDED.updated_at`
@@ -108,7 +112,8 @@ func (r *CostSummaryProjectionRepository) Upsert(ctx context.Context, tx pgx.Tx,
 		sourcesRaw,
 		decimalArg(projection.CurrentVarianceAmount), decimalArg(projection.FinalVarianceAmount),
 		percentArg(projection.CurrentVariancePercent), percentArg(projection.FinalVariancePercent),
-		decimalArg(projection.ForecastExposure), projection.AttributionMappingVersion, projection.ProjectionRevision,
+		decimalArg(projection.ForecastExposure), nullIfEmpty(projection.ForecastSourceStatus), projection.DerivedStateFingerprint,
+		projection.AttributionMappingVersion, projection.ProjectionRevision,
 		time.Now().UTC(),
 	}
 	if tx != nil {
@@ -151,6 +156,7 @@ func scanProjection(row pgx.Row) (*domain.CostSummaryProjection, error) {
 	var planned, accrued, currentActual, finalActual, billed, payable, paid *string
 	var currentVariance, finalVariance, forecast *string
 	var currentPercent, finalPercent *string
+	var forecastSourceStatus, derivedFingerprint *string
 	var reconciliationStatus, finality, dataStage string
 	var sourcesRaw []byte
 
@@ -161,7 +167,8 @@ func scanProjection(row pgx.Row) (*domain.CostSummaryProjection, error) {
 		&billed, &payable, &paid,
 		&reconciliationStatus, &finality, &dataStage, &sourcesRaw,
 		&currentVariance, &finalVariance, &currentPercent, &finalPercent,
-		&forecast, &projection.AttributionMappingVersion, &projection.ProjectionRevision,
+		&forecast, &forecastSourceStatus, &derivedFingerprint,
+		&projection.AttributionMappingVersion, &projection.ProjectionRevision,
 	)
 	if err != nil {
 		return nil, mapDBError(err)
@@ -181,6 +188,10 @@ func scanProjection(row pgx.Row) (*domain.CostSummaryProjection, error) {
 	projection.CurrentVariancePercent = parsePercentPtr(currentPercent)
 	projection.FinalVariancePercent = parsePercentPtr(finalPercent)
 	projection.ForecastExposure = parseDecimalPtr(forecast)
+	if forecastSourceStatus != nil {
+		projection.ForecastSourceStatus = *forecastSourceStatus
+	}
+	projection.DerivedStateFingerprint = derivedFingerprint
 	projection.BillingReconciliationStatus = domain.BillingReconciliationStatus(reconciliationStatus)
 	projection.FinancialFinality = domain.FinancialFinality(finality)
 	projection.DataStage = domain.DataStage(dataStage)

@@ -32,7 +32,7 @@ import (
 	"github.com/freight-platform/shared-go/internalauth"
 )
 
-const maxMigrationFile = "000058_freight_cost_variance_explainability_v2.1C.up.sql"
+const maxMigrationFile = "000059_freight_cost_variance_remediation_v2.1C.up.sql"
 const testToken = "fc-ledger-test-token"
 
 type env struct {
@@ -145,7 +145,7 @@ func setupEnv(t *testing.T) *env {
 	rebuild := service.NewRebuildService(ingest, derived, transportClient, billingClient, paymentClient, metrics)
 	costs := service.NewCostService(transportClient, projections)
 	log := slog.New(slog.DiscardHandler)
-	router := httpserver.NewRouter(log, pool, cfg, costs, ingest, rebuild, metrics)
+	router := httpserver.NewRouter(log, pool, cfg, costs, ingest, rebuild, derived, mappings, metrics)
 
 	return &env{
 		pool: pool, ingest: ingest, rebuild: rebuild, costs: costs,

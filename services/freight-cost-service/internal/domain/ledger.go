@@ -114,6 +114,8 @@ type CostSummaryProjection struct {
 	CurrentVariancePercent      *decimal.Decimal
 	FinalVariancePercent        *decimal.Decimal
 	ForecastExposure            *decimal.Decimal
+	ForecastSourceStatus        string
+	DerivedStateFingerprint     *string
 	AttributionMappingVersion   *int64
 	ProjectionRevision          int64
 }
