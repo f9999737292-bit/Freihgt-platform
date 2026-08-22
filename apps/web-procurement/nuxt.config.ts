@@ -8,6 +8,7 @@ const localeFiles = [
   'settlements.json',
   'payments.json',
   'contracts.json',
+  'freightCosts.json',
 ]
 
 export default defineNuxtConfig({
@@ -27,6 +28,7 @@ export default defineNuxtConfig({
       defaultTenantId: process.env.NUXT_PUBLIC_DEFAULT_TENANT_ID || '',
       mockAuth: process.env.NUXT_PUBLIC_MOCK_AUTH === 'true',
       contractRateWorkspaceEnabled: process.env.NUXT_PUBLIC_CONTRACT_RATE_WORKSPACE_ENABLED === 'true',
+      freightCostWorkspaceEnabled: process.env.NUXT_PUBLIC_FREIGHT_COST_WORKSPACE_ENABLED === 'true',
     },
   },
   i18n: {

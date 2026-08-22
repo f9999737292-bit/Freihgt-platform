@@ -1,0 +1,110 @@
+{
+  "freightCosts": {
+    "nav": {
+      "overview": "Overview",
+      "plannedVsActual": "Planned vs Actual",
+      "shipments": "Shipments",
+      "variance": "Variance Analysis",
+      "accessorials": "Accessorial Spend",
+      "carriers": "Carrier Performance",
+      "lanes": "Lane Performance"
+    },
+    "overview": {
+      "subtitle": "Freight cost visibility for buyer and carrier actors"
+    },
+    "kpi": {
+      "planned_total": "Planned Freight Cost",
+      "accrued_total": "Financial Accrual",
+      "plannedPlusProposedExposure": "Planned + proposed exposure",
+      "forecast_exposure_total": "Planned + proposed exposure",
+      "current_actual_total": "Current Actual",
+      "final_actual_total": "Final Actual",
+      "current_variance_total": "Current Variance",
+      "final_variance_total": "Final Variance",
+      "reconciliation_mismatch_count": "Billing Mismatch Count"
+    },
+    "finality": {
+      "NOT_EVALUATED": "Not evaluated",
+      "DRAFT": "Draft",
+      "CURRENT_ACTUAL": "Current actual",
+      "FINAL_ACTUAL": "Final actual",
+      "CANCELLED": "Cancelled"
+    },
+    "reconciliation": {
+      "MATCH": "Match",
+      "MISMATCH": "Mismatch",
+      "UNLINKED": "Unlinked"
+    },
+    "variance": {
+      "positive": "Over plan",
+      "negative": "Under plan",
+      "neutral": "On plan"
+    },
+    "categories": {
+      "DETENTION": "Detention",
+      "WAITING": "Waiting",
+      "FUEL": "Fuel",
+      "TOLL": "Toll",
+      "HANDLING": "Handling",
+      "STORAGE": "Storage",
+      "OTHER": "Other",
+      "UNKNOWN": "Unknown"
+    },
+    "filters": {
+      "search": "Search",
+      "from": "From",
+      "to": "To",
+      "currency": "Currency",
+      "carrier": "Carrier",
+      "clear": "Clear filters"
+    },
+    "columns": {
+      "orderReference": "Order",
+      "carrier": "Carrier",
+      "planned": "Planned",
+      "accrued": "Accrued",
+      "currentActual": "Current actual",
+      "finalActual": "Final actual",
+      "currentVariance": "Current variance",
+      "finalVariance": "Final variance",
+      "currency": "Currency",
+      "finality": "Finality",
+      "reconciliation": "Reconciliation",
+      "updatedAt": "Updated"
+    },
+    "detail": {
+      "title": "Shipment cost detail",
+      "summary": "Summary",
+      "plannedSnapshot": "Planned snapshot",
+      "accrualBreakdown": "Accrual breakdown",
+      "actualSettlement": "Actual / settlement",
+      "variance": "Variance",
+      "varianceDrivers": "Variance drivers",
+      "reconciliation": "Reconciliation",
+      "provenance": "Source provenance"
+    },
+    "empty": {
+      "plannedVsActual": "No freight cost rows yet",
+      "shipments": "No shipments to display",
+      "detail": "Shipment cost detail unavailable",
+      "variance": "No variance rows yet",
+      "varianceDrivers": "No variance drivers",
+      "accessorials": "No accessorial spend yet",
+      "carriers": "No carrier performance rows yet",
+      "lanes": "No lane performance rows yet"
+    },
+    "errors": {
+      "apiFailure": "Freight cost API unavailable",
+      "forbidden": "You do not have access to this freight cost view",
+      "missingCompany": "Select a company to view freight costs"
+    },
+    "unavailable": {
+      "money": "Unavailable",
+      "masked": "Hidden for carrier view",
+      "liveData": "Live freight cost data will be available in v2.1E",
+      "featureTitle": "Freight cost workspace unavailable",
+      "featureBody": "This workspace is disabled. Enable NUXT_PUBLIC_FREIGHT_COST_WORKSPACE_ENABLED to access routes."
+    },
+    "mixedCurrencyUnavailable": "Mixed currency — aggregate unavailable"
+  }
+}

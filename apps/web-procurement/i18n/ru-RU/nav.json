@@ -8,6 +8,7 @@
     "settlements": "Расчёты",
     "billingRegisters": "Реестры",
     "payments": "Платежи",
-    "contracts": "Договоры"
+    "contracts": "Договоры",
+    "freightCosts": "Фрахтовые затраты"
   }
 }
