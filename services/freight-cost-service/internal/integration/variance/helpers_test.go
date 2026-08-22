@@ -63,7 +63,17 @@ type fixture struct {
 	PlannedAmount decimal.Decimal
 }
 
+type envConfig struct {
+	billingHandler   http.HandlerFunc
+	transportHandler http.HandlerFunc
+}
+
 func setupEnv(t *testing.T) *env {
+	t.Helper()
+	return setupEnvConfigured(t, envConfig{})
+}
+
+func setupEnvConfigured(t *testing.T, opts envConfig) *env {
 	t.Helper()
 	ctx := context.Background()
 	url := strings.TrimSpace(os.Getenv("TEST_DATABASE_URL"))
@@ -87,7 +97,7 @@ func setupEnv(t *testing.T) *env {
 	findings := repository.NewReconciliationFindingRepository()
 	mappings := repository.NewChargeCodeMappingRepository(pool)
 
-	mockTransport := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	defaultTransport := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/internal/v1/transport-orders/")
 		orderIDStr := strings.TrimSuffix(path, "/rate-snapshot")
 		orderID, parseErr := uuid.Parse(orderIDStr)
@@ -119,12 +129,22 @@ func setupEnv(t *testing.T) *env {
 			"pricing_model_version": "SNAPSHOT_V1",
 			"resolved_at":           time.Now().UTC().Format(time.RFC3339),
 		})
-	}))
+	})
+	transportHandler := opts.transportHandler
+	if transportHandler == nil {
+		transportHandler = defaultTransport
+	}
+	mockTransport := httptest.NewServer(transportHandler)
 	t.Cleanup(mockTransport.Close)
 
-	mockBilling := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	defaultBilling := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
-	}))
+	})
+	billingHandler := opts.billingHandler
+	if billingHandler == nil {
+		billingHandler = defaultBilling
+	}
+	mockBilling := httptest.NewServer(billingHandler)
 	t.Cleanup(mockBilling.Close)
 	mockPayment := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
@@ -142,7 +162,7 @@ func setupEnv(t *testing.T) *env {
 	transportClient := transport_order.NewClient(cfg.TransportOrderURL, cfg.InternalServiceToken, metrics)
 	billingClient := billing_register.NewClient(cfg.BillingRegisterURL, testToken, metrics)
 	paymentClient := payment.NewClient(cfg.PaymentServiceURL, testToken, metrics)
-	derived := service.NewDerivedProjectionService(pool, projections, attributions, findings, mappings, billingClient, metrics)
+	derived := service.NewDerivedProjectionService(pool, projections, attributions, findings, mappings, cursors, billingClient, transportClient, metrics)
 	ingest := service.NewIngestService(pool, entries, cursors, projections, derived, metrics)
 	rebuild := service.NewRebuildService(ingest, derived, transportClient, billingClient, paymentClient, metrics)
 	costs := service.NewCostService(transportClient, projections)
@@ -465,6 +485,125 @@ func decodeJSONBody(t *testing.T, rec *httptest.ResponseRecorder) map[string]any
 	var payload map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode: %v body=%s", err, rec.Body.String())
+	}
+	return payload
+}
+
+func insertChargeMappingRow(
+	t *testing.T,
+	pool *pgxpool.Pool,
+	scope string,
+	tenantID *uuid.UUID,
+	sourceCode, category string,
+	version int64,
+	effectiveFrom time.Time,
+	effectiveTo *time.Time,
+) {
+	t.Helper()
+	ctx := context.Background()
+	normalized, err := domain.NormalizeChargeCode(sourceCode)
+	if err != nil {
+		t.Fatalf("normalize source: %v", err)
+	}
+	target, err := domain.NormalizeMappingCategory(category)
+	if err != nil {
+		t.Fatalf("normalize category: %v", err)
+	}
+	_, err = pool.Exec(ctx, `
+INSERT INTO freight_cost.charge_code_mapping (
+	mapping_scope, tenant_id, source_charge_code_normalized, normalized_category,
+	mapping_version, effective_from, effective_to
+) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		scope, tenantID, normalized, target, version, effectiveFrom, effectiveTo)
+	if err != nil {
+		t.Fatalf("insert mapping row: %v", err)
+	}
+}
+
+func tenantMappingCategory(t *testing.T, mappings []domain.ChargeCodeMapping, sourceCode string) (string, bool) {
+	t.Helper()
+	normalized, err := domain.NormalizeChargeCode(sourceCode)
+	if err != nil {
+		t.Fatalf("normalize: %v", err)
+	}
+	for _, m := range mappings {
+		if m.SourceChargeCodeNormalized == normalized {
+			return m.NormalizedCategory, true
+		}
+	}
+	return "", false
+}
+
+func platformMappingCategory(t *testing.T, mappings []domain.ChargeCodeMapping, sourceCode string) (string, bool) {
+	t.Helper()
+	return tenantMappingCategory(t, mappings, sourceCode)
+}
+
+func putChargeMappingHTTP(t *testing.T, env *env, fix fixture, body string, extraHeaders map[string]string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPut, "/internal/v1/freight-cost/charge-code-mappings", strings.NewReader(body))
+	req.Header.Set(internalauth.HeaderName, testToken)
+	req.Header.Set("X-Tenant-ID", fix.TenantID.String())
+	req.Header.Set("Content-Type", "application/json")
+	for key, value := range extraHeaders {
+		req.Header.Set(key, value)
+	}
+	rec := httptest.NewRecorder()
+	env.router.ServeHTTP(rec, req)
+	return rec
+}
+
+func reclassifyAttributionHTTP(t *testing.T, env *env, fix fixture, body *string, extraHeaders map[string]string) *httptest.ResponseRecorder {
+	t.Helper()
+	var reader *strings.Reader
+	if body != nil {
+		reader = strings.NewReader(*body)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/internal/v1/freight-cost/transport-orders/"+fix.OrderID.String()+"/reclassify-attribution", reader)
+	req.Header.Set(internalauth.HeaderName, testToken)
+	req.Header.Set("X-Tenant-ID", fix.TenantID.String())
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	for key, value := range extraHeaders {
+		req.Header.Set(key, value)
+	}
+	rec := httptest.NewRecorder()
+	env.router.ServeHTTP(rec, req)
+	return rec
+}
+
+func reconcileTransportOrderHTTP(t *testing.T, env *env, fix fixture) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, "/internal/v1/freight-cost/transport-orders/"+fix.OrderID.String()+"/reconcile", nil)
+	req.Header.Set(internalauth.HeaderName, testToken)
+	req.Header.Set("X-Tenant-ID", fix.TenantID.String())
+	rec := httptest.NewRecorder()
+	env.router.ServeHTTP(rec, req)
+	return rec
+}
+
+func settlementJSON(fix fixture, settlementID uuid.UUID, accrual string, accessorials []map[string]string) map[string]any {
+	payload := map[string]any{
+		"settlement_id":                      settlementID.String(),
+		"transport_order_id":                 fix.OrderID.String(),
+		"tenant_id":                          fix.TenantID.String(),
+		"buyer_company_id":                   fix.BuyerID.String(),
+		"carrier_company_id":                 fix.CarrierID.String(),
+		"shipment_id":                        fix.ShipmentID.String(),
+		"status":                             domain.SettlementStatusApproved,
+		"open_dispute_count":                 0,
+		"version":                            1,
+		"billing_link_revision":              0,
+		"billing_link_state":                 domain.BillingLinkStateUnlinked,
+		"currency_code":                      "RUB",
+		"accrual_amount_ex_vat":              accrual,
+		"total_without_vat":                  accrual,
+		"proposed_accessorial_source_status": domain.ProposedSourceUnknown,
+		"updated_at":                         time.Now().UTC().Format(time.RFC3339),
+	}
+	if accessorials != nil {
+		payload["approved_accessorials"] = accessorials
 	}
 	return payload
 }

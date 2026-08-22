@@ -1,6 +1,6 @@
 # Freight Cost Planned vs Actual / Variance v2.1C — Implementation Report
 
-**Status:** RUNTIME COMPLETION (draft PR — adversarial remediation gate)  
+**Status:** RUNTIME COMPLETION (draft PR — F48 independent closure gate)  
 **Planning base:** PR #47 merged @ `db5c0c793a7259bccc4b0c389f3b9e3b23f73a2f`  
 **PR #48 base SHA:** `db5c0c793a7259bccc4b0c389f3b9e3b23f73a2f`  
 **Contract:** `docs/engineering/FREIGHT_COST_VARIANCE_RECONCILIATION_v2.1C_IMPLEMENTATION_PLAN.md`
@@ -31,9 +31,76 @@ v2.1C runtime adds derived variance/forecast projection fields, charge-code clas
 | H-008 | Reclassification missing | `POST .../transport-orders/{id}/reclassify-attribution` |
 | H-009 | Mapping management missing | `PUT /internal/v1/freight-cost/charge-code-mappings` |
 
-### Contract erratum — reconciliation finding identity (H-005)
+## F48 Independent Closure (F48-001 … F48-008)
 
-The merged plan §16.2 originally hashed `expected_revision | observed_revision` into `finding_id`, but lifecycle semantics require the same logical drift to retain one row when observed revision advances. **Normative identity:**
+| ID | Severity | Issue | Resolution |
+|----|----------|-------|------------|
+| F48-001 | HIGH | Pinned rebuild filtered expired rules via current `effective_from/effective_to` | **Split loaders:** `LoadActiveMappings(tenant, evalTime)` applies effective window; `LoadPinnedMappings(tenant, pin)` selects `mapping_version <= pin` only — **time-independent historical ruleset reconstruction** |
+| F48-002 | HIGH | `X-Freight-Cost-Platform-Admin: true` self-asserted privilege | **Fail closed:** `PLATFORM_MAPPING_MUTATION_ENABLED=NO`; unsigned header removed; tenant-scoped PUT only with verified `X-Tenant-ID` |
+| F48-003 | HIGH | Reclassify accepted caller financial evidence | **Intent-only API:** empty body; hydrate `approved_accessorials[]` + `base_freight_amount` from billing-register + transport internal reads |
+| F48-004 | MED/HIGH | Reconciliation local-projection-only | **`detectCanonicalReconciliationFindings`:** read-only compare stored projection vs canonical transport snapshot + billing settlement/link + source cursors; no auto-rebuild/repair |
+| F48-005 | HIGH GATE | Remediation tests outside frozen 84 | **19 bonus tests** in `BONUS_REMEDIATION_TEST_INVENTORY.json` (excluded from FC-C count) |
+| F48-006 | MED | Mapping window / category validation | Reject `effective_to <= effective_from`; validate target category against frozen vocabulary before DB |
+| F48-007 | MED | Reclassify pin semantics | **`RECLASSIFICATION_UPDATES_PINNED_RULESET=YES`:** successful reclassify sets `attribution_mapping_version` to current active mapping version; subsequent standard rebuild reproduces reclassification |
+| F48-008 | MED | Legacy NULL `derived_state_fingerprint` | Bootstrap via `ComputeDerivedStateFingerprint` with `ProposedSourceUnknown` only — **never derive proposed total from `forecast_exposure`** |
+
+### Pinned mapping semantic model (F48-001 / F48-007)
+
+Global monotonic `freight_cost.charge_code_mapping_version_seq` assigns each mapping row a version. Standard rebuild pins `attribution_mapping_version` on first attribution pass.
+
+| Operation | Loader | Effective window |
+|-----------|--------|------------------|
+| Standard rebuild | `LoadPinnedMappings(tenant, pin)` | **Ignored** — version-only historical ruleset |
+| Explicit reclassify | `LoadActiveMappings(tenant, now)` | Applied — advances pin to current ruleset |
+| Mapping admin PUT | Upsert with validation | Applied on future active loads |
+
+**PINNED_MAPPING_REBUILD_TIME_INDEPENDENT=YES**  
+**PINNED_MAPPING_RULESET_RECONSTRUCTABLE=YES**  
+**RECLASSIFICATION_UPDATES_PINNED_RULESET=YES**  
+**STANDARD_REBUILD_AFTER_RECLASSIFICATION_REPRODUCES_RECLASSIFICATION=YES**
+
+### Platform admin authorization (F48-002)
+
+No cryptographically verified platform-admin actor exists in freight-cost internal auth today. Repository and HTTP handler reject `mapping_scope=PLATFORM` mutations.
+
+**SELF_ASSERTED_PLATFORM_ADMIN_HEADER=DENY**  
+**PLATFORM_MAPPING_MUTATION_ENABLED=NO**
+
+Tenant mapping remains: verified tenant only; cross-tenant deny.
+
+### Canonical reclassification (F48-003)
+
+`POST /internal/v1/freight-cost/transport-orders/{id}/reclassify-attribution` — no financial fact payload.
+
+**RECLASSIFICATION_FINANCIAL_EVIDENCE_SOURCE=CANONICAL_INTERNAL_APIS**  
+**CLIENT_SUPPLIED_ACCESSORIAL_AMOUNT_TRUSTED=NO**  
+**CLIENT_SUPPLIED_BASE_FREIGHT_TRUSTED=NO**
+
+Billing internal read extended with `approved_accessorials[]` and `base_freight_amount` (decimal strings).
+
+### Reconciliation finding coverage (F48-004)
+
+| Kind | Status | Notes |
+|------|--------|-------|
+| PROJECTION_DRIFT | **IMPLEMENTED_CANONICALLY** | Compare stored projection amounts vs canonical transport snapshot + billing settlement derived amounts |
+| STALE_CURSOR | **IMPLEMENTED_CANONICALLY** | Compare `source_cursor.last_source_revision` vs canonical settlement version |
+| MISSING_PLANNED_FACT | **IMPLEMENTED_CANONICALLY** | Snapshot absent with stored planned present |
+| MISSING_ACCRUAL_FACT | **IMPLEMENTED_CANONICALLY** | Planned present, settlement accrual present, projection accrual absent |
+| MISSING_FINAL_ACTUAL | **IMPLEMENTED_CANONICALLY** | Ready-for-payment settlement without final actual on projection |
+| ORPHAN_BILLING_LINK | **IMPLEMENTED_CANONICALLY** | Canonical unlinked vs projection linked |
+| ORPHAN_PAYMENT_LINK | **NOT_DETECTABLE_WITH_CURRENT_CANONICAL_DATA** | No payment linkage canonical read on projection in v2.1B/v2.1C |
+| CURRENCY_DRIFT | **IMPLEMENTED_CANONICALLY** | Projection currency vs canonical settlement/snapshot currency |
+| DUPLICATE_ECONOMIC_FACT | **NOT_APPLICABLE** | Prevented by v2.1B `UNIQUE(tenant_id, source_fact_id)` |
+| BILLING_LINK_MISMATCH | **IMPLEMENTED_CANONICALLY** | Canonical link state vs projection billing fields |
+
+**RECONCILIATION_READ_ONLY=YES**  
+**RECONCILIATION_CANONICAL_SOURCE_READ=YES**  
+**AUTO_REBUILD=NO**  
+**AUTO_REPAIR=NO**
+
+Local-only `DetectReconciliationFindings(projection)` retained for domain unit tests (REA-012); runtime reconcile uses canonical path.
+
+### Contract erratum — reconciliation finding identity (H-005)
 
 ```text
 finding_id = UUID_SHA1(Namespace, tenant_id | transport_order_id | finding_kind | canonical_reference_key)
@@ -41,49 +108,29 @@ finding_id = UUID_SHA1(Namespace, tenant_id | transport_order_id | finding_kind 
 
 `expected_revision` / `observed_revision` are mutable observation fields updated in place on repeated scans.
 
-### Mapping rule-set identity (H-003 / §13)
-
-Global monotonic `freight_cost.charge_code_mapping_version_seq` assigns each new mapping row a unique version. Standard rebuild pins `attribution_mapping_version` on the projection; `LoadPinnedMappings(tenant, pin, evalTime)` reconstructs the effective combined PLATFORM+TENANT rule set (`mapping_version <= pin`, tenant wins per source key). **PINNED_MAPPING_RULESET_RECONSTRUCTABLE=YES** — no separate platform/tenant pair required because versions share one sequence and selection is deterministic.
-
 ## Domain
 
 - `CalculateCurrentVariance` / `CalculateFinalVariance` — EX-VAT, NULL-safe, currency-compatible
 - `RecomputeDerivedProjection` — variance, percent, forecast; returns `stateChanged bool`
 - `ComputeDerivedStateFingerprint` / `ApplyDerivedStateRevision` — idempotent projection revision
 - `BuildVarianceDrivers` / `BuildAvailabilityReasons` — separated semantic classes; attribution fact ID uses `StateFingerprint`
-- `DetectReconciliationFindings` — MISSING_PLANNED, MISSING_ACCRUAL, MISSING_FINAL_ACTUAL, BILLING_LINK_MISMATCH, ORPHAN_BILLING_LINK
+- `ValidateMappingCategory` / window validation on upsert
 - `ResolveChargeCategory` — PLATFORM (`tenant_id IS NULL`) + TENANT override
-
-### Reconciliation finding coverage
-
-| Kind | Status |
-|------|--------|
-| PROJECTION_DRIFT | DEFERRED_BY_FROZEN_PLAN — requires projection snapshot diff worker |
-| STALE_CURSOR | DEFERRED_BY_FROZEN_PLAN — requires cursor audit API |
-| MISSING_PLANNED_FACT | IMPLEMENTED |
-| MISSING_ACCRUAL_FACT | IMPLEMENTED |
-| MISSING_FINAL_ACTUAL | IMPLEMENTED |
-| ORPHAN_BILLING_LINK | IMPLEMENTED |
-| ORPHAN_PAYMENT_LINK | NOT_APPLICABLE — payment linkage not on projection in v2.1B |
-| CURRENCY_DRIFT | DEFERRED — no canonical cross-source currency audit API |
-| DUPLICATE_ECONOMIC_FACT | NOT_APPLICABLE — prevented by v2.1B `UNIQUE(tenant_id, source_fact_id)` |
-| BILLING_LINK_MISMATCH | IMPLEMENTED |
 
 ## Internal API (S2S)
 
 | Method | Route | Purpose |
 |--------|-------|---------|
-| POST | `/internal/v1/freight-cost/transport-orders/{id}/reconcile` | On-demand reconciliation scan |
-| POST | `/internal/v1/freight-cost/transport-orders/{id}/reclassify-attribution` | Analytic reclassification (current mappings) |
-| PUT | `/internal/v1/freight-cost/charge-code-mappings` | Mapping administration |
+| POST | `/internal/v1/freight-cost/transport-orders/{id}/reconcile` | On-demand canonical reconciliation scan (read-only) |
+| POST | `/internal/v1/freight-cost/transport-orders/{id}/reclassify-attribution` | Analytic reclassification — intent only, canonical hydration |
+| PUT | `/internal/v1/freight-cost/charge-code-mappings` | Tenant mapping administration (platform denied) |
 
 Existing rebuild: `POST .../rebuild` (unchanged, financial rebuild with pinned mapping).
 
-**RECONCILIATION_AUTO_REBUILD=NO · RECONCILIATION_AUTO_REPAIR=NO**
-
 ## Services
 
-- `DerivedProjectionService` — idempotent recompute in ingest tx; pinned mapping on standard rebuild; post-commit forecast enrich
+- `DerivedProjectionService` — idempotent recompute; pinned vs active mapping loaders; canonical reconcile/reclassify
+- `detectCanonicalReconciliationFindings` — in-memory expected vs stored compare
 - `RebuildService` — canonical rebuild + forecast enrich from settlement proposed total
 
 ## Billing internal read
@@ -92,17 +139,24 @@ Extended `GET /internal/v1/freight-settlements/by-transport-order/{id}`:
 
 - `proposed_accessorial_total_ex_vat` (decimal string)
 - `proposed_accessorial_source_status` (`KNOWN` | `UNKNOWN`)
+- `approved_accessorials[]` — `{accessorial_id, charge_code, amount_ex_vat}`
+- `base_freight_amount` (decimal string, optional)
 
 ## Security / finance audit
 
 - `FLOAT64_MONEY_ON_FREIGHT_COST_BOUNDARY=0`
 - `CROSS_SERVICE_DB_READS_FROM_FREIGHT_COST=0`
 - Carrier mask preserved (`view_scope.go`)
+- No unsigned platform-admin header
+- No caller-supplied reclassification financial evidence
 - No public API / no frontend
 
 ## Test matrix
 
-Machine-readable inventory: `docs/engineering/FC_C_TEST_INVENTORY.json`
+Machine-readable inventories:
+
+- Frozen FC-C: `docs/engineering/FC_C_TEST_INVENTORY.json` (**84 tests — unchanged**)
+- Bonus remediation: `services/freight-cost-service/docs/engineering/BONUS_REMEDIATION_TEST_INVENTORY.json` (**19 tests**)
 
 | Family | Count | Level |
 |--------|------:|-------|
@@ -116,13 +170,15 @@ Machine-readable inventory: `docs/engineering/FC_C_TEST_INVENTORY.json`
 | FC-C-MON | 4 | domain |
 | FC-C-SEC | 8 | domain + integration |
 | FC-C-OUT | 4 | domain + integration |
-| **Total** | **84** | |
+| **Frozen Total** | **84** | |
+| **Bonus Remediation** | **19** | domain + integration |
 
-CI job `freight-cost-ledger-integration` runs `./internal/integration/variance/...` alongside ledger tests.
+CI job `freight-cost-ledger-integration` runs `./internal/integration/variance/...` (frozen + bonus) alongside ledger tests.
 
 ## Deferred (not v2.1C)
 
 - Scheduled reconciliation worker (`V2_1C_RECONCILIATION_JOB_ENABLED`, default OFF)
-- PROJECTION_DRIFT / STALE_CURSOR / CURRENCY_DRIFT finding kinds
+- Platform mapping mutation (await verified platform-admin identity architecture)
+- ORPHAN_PAYMENT_LINK detection (await payment canonical linkage read)
 - v2.1D frontend workspace
 - v2.1E public `/api/v1/freight-cost/*`

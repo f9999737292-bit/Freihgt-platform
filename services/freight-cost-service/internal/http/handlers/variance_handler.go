@@ -62,11 +62,7 @@ func (h *VarianceHandler) ReclassifyAttribution(w http.ResponseWriter, r *http.R
 		respond.Error(w, apperrors.Validation("invalid transport order id", map[string]any{"field": "transport_order_id"}))
 		return
 	}
-	var payload reclassifyRequest
-	if r.Body != nil {
-		_ = json.NewDecoder(r.Body).Decode(&payload)
-	}
-	inserted, err := h.derived.ReclassifyAttribution(r.Context(), tenantID, transportOrderID, payload.toDriverContext())
+	inserted, err := h.derived.ReclassifyAttribution(r.Context(), tenantID, transportOrderID)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -98,32 +94,29 @@ func (h *VarianceHandler) PutChargeCodeMapping(w http.ResponseWriter, r *http.Re
 		return
 	}
 	scope := strings.ToUpper(strings.TrimSpace(payload.MappingScope))
-	if scope == "" {
-		respond.Error(w, apperrors.Validation("mapping_scope required", map[string]any{"field": "mapping_scope"}))
+	if scope == domain.MappingScopePlatform {
+		respond.Error(w, apperrors.Forbidden("platform mapping mutation is disabled until verified platform-admin authorization is available"))
+		return
+	}
+	if scope != domain.MappingScopeTenant {
+		respond.Error(w, apperrors.Validation("mapping_scope must be TENANT", map[string]any{"field": "mapping_scope"}))
 		return
 	}
 
 	var tenantID *uuid.UUID
-	if scope == domain.MappingScopeTenant {
-		if payload.TenantID != nil {
-			parsed, parseErr := uuid.Parse(*payload.TenantID)
-			if parseErr != nil {
-				respond.Error(w, apperrors.Validation("invalid tenant_id", map[string]any{"field": "tenant_id"}))
-				return
-			}
-			if parsed != requestTenantID {
-				respond.Error(w, apperrors.Forbidden("cross-tenant mapping denied"))
-				return
-			}
-			tenantID = &parsed
-		} else {
-			tenantID = &requestTenantID
-		}
-	} else if scope == domain.MappingScopePlatform {
-		if strings.TrimSpace(r.Header.Get("X-Freight-Cost-Platform-Admin")) != "true" {
-			respond.Error(w, apperrors.Forbidden("platform mapping requires platform admin scope"))
+	if payload.TenantID != nil {
+		parsed, parseErr := uuid.Parse(*payload.TenantID)
+		if parseErr != nil {
+			respond.Error(w, apperrors.Validation("invalid tenant_id", map[string]any{"field": "tenant_id"}))
 			return
 		}
+		if parsed != requestTenantID {
+			respond.Error(w, apperrors.Forbidden("cross-tenant mapping denied"))
+			return
+		}
+		tenantID = &parsed
+	} else {
+		tenantID = &requestTenantID
 	}
 
 	effectiveFrom := time.Now().UTC()
@@ -160,6 +153,10 @@ func (h *VarianceHandler) PutChargeCodeMapping(w http.ResponseWriter, r *http.Re
 			respond.Error(w, apperrors.Validation("overlapping active mapping window", map[string]any{"field": "effective_from"}))
 			return
 		}
+		if strings.Contains(err.Error(), "effective_to must be after") || strings.Contains(err.Error(), "invalid target category") {
+			respond.Error(w, apperrors.Validation(err.Error(), map[string]any{"field": "mapping"}))
+			return
+		}
 		respond.Error(w, err)
 		return
 	}
@@ -169,39 +166,4 @@ func (h *VarianceHandler) PutChargeCodeMapping(w http.ResponseWriter, r *http.Re
 		"normalized_category":           mapping.NormalizedCategory,
 		"mapping_version":               mapping.MappingVersion,
 	})
-}
-
-type reclassifyRequest struct {
-	ApprovedAccessorials []struct {
-		AccessorialID string `json:"accessorial_id"`
-		ChargeCode    string `json:"charge_code"`
-		Amount        string `json:"amount"`
-	} `json:"approved_accessorials"`
-	BaseFreightAmount *string `json:"base_freight_amount"`
-}
-
-func (r reclassifyRequest) toDriverContext() domain.DriverAttributionContext {
-	ctx := domain.DriverAttributionContext{}
-	for _, item := range r.ApprovedAccessorials {
-		amount, err := domain.ParseMoneyAmount(item.Amount)
-		if err != nil {
-			continue
-		}
-		accessorialID, err := uuid.Parse(item.AccessorialID)
-		if err != nil {
-			continue
-		}
-		ctx.ApprovedAccessorials = append(ctx.ApprovedAccessorials, domain.ApprovedAccessorialEvidence{
-			AccessorialID: accessorialID,
-			ChargeCode:    item.ChargeCode,
-			Amount:        amount,
-		})
-	}
-	if r.BaseFreightAmount != nil {
-		amount, err := domain.ParseMoneyAmount(*r.BaseFreightAmount)
-		if err == nil {
-			ctx.BaseFreightAmount = &amount
-		}
-	}
-	return ctx
 }

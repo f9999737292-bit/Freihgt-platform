@@ -27,7 +27,7 @@ func (r *ChargeCodeMappingRepository) LoadActiveMappings(
 	tenantID uuid.UUID,
 	evaluationTime time.Time,
 ) (platform []domain.ChargeCodeMapping, tenant []domain.ChargeCodeMapping, maxVersion int64, err error) {
-	return r.loadMappingsAtVersion(ctx, tx, tenantID, nil, evaluationTime)
+	return r.loadMappingsAtVersion(ctx, tx, tenantID, evaluationTime)
 }
 
 func (r *ChargeCodeMappingRepository) LoadPinnedMappings(
@@ -35,16 +35,95 @@ func (r *ChargeCodeMappingRepository) LoadPinnedMappings(
 	tx pgx.Tx,
 	tenantID uuid.UUID,
 	pinnedVersion int64,
-	evaluationTime time.Time,
 ) (platform []domain.ChargeCodeMapping, tenant []domain.ChargeCodeMapping, maxVersion int64, err error) {
-	return r.loadMappingsAtVersion(ctx, tx, tenantID, &pinnedVersion, evaluationTime)
+	return r.loadPinnedMappingsAtVersion(ctx, tx, tenantID, pinnedVersion)
+}
+
+func (r *ChargeCodeMappingRepository) loadPinnedMappingsAtVersion(
+	ctx context.Context,
+	tx pgx.Tx,
+	tenantID uuid.UUID,
+	pinnedVersion int64,
+) (platform []domain.ChargeCodeMapping, tenant []domain.ChargeCodeMapping, maxLoaded int64, err error) {
+	query := `
+WITH eligible AS (
+	SELECT
+		mapping_scope,
+		tenant_id,
+		source_charge_code_normalized,
+		normalized_category,
+		mapping_version
+	FROM freight_cost.charge_code_mapping
+	WHERE (
+		(mapping_scope = 'PLATFORM' AND tenant_id IS NULL)
+		OR (mapping_scope = 'TENANT' AND tenant_id = $1)
+	)
+	AND mapping_version <= $2
+),
+ranked AS (
+	SELECT
+		*,
+		ROW_NUMBER() OVER (
+			PARTITION BY source_charge_code_normalized
+			ORDER BY
+				CASE mapping_scope WHEN 'TENANT' THEN 0 ELSE 1 END,
+				mapping_version DESC
+		) AS rn
+	FROM eligible
+)
+SELECT mapping_scope, tenant_id, source_charge_code_normalized, normalized_category, mapping_version
+FROM ranked
+WHERE rn = 1
+ORDER BY source_charge_code_normalized`
+
+	var rows pgx.Rows
+	if tx != nil {
+		rows, err = tx.Query(ctx, query, tenantID, pinnedVersion)
+	} else {
+		rows, err = r.pool.Query(ctx, query, tenantID, pinnedVersion)
+	}
+	if err != nil {
+		return nil, nil, 0, mapDBError(err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var mapping domain.ChargeCodeMapping
+		var scope string
+		var tenantIDPtr *uuid.UUID
+		if scanErr := rows.Scan(
+			&scope,
+			&tenantIDPtr,
+			&mapping.SourceChargeCodeNormalized,
+			&mapping.NormalizedCategory,
+			&mapping.MappingVersion,
+		); scanErr != nil {
+			return nil, nil, 0, mapDBError(scanErr)
+		}
+		mapping.MappingScope = scope
+		mapping.TenantID = tenantIDPtr
+		if mapping.MappingVersion > maxLoaded {
+			maxLoaded = mapping.MappingVersion
+		}
+		if scope == domain.MappingScopePlatform {
+			platform = append(platform, mapping)
+		} else {
+			tenant = append(tenant, mapping)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, nil, 0, mapDBError(err)
+	}
+	if maxLoaded == 0 {
+		maxLoaded = pinnedVersion
+	}
+	return platform, tenant, maxLoaded, nil
 }
 
 func (r *ChargeCodeMappingRepository) loadMappingsAtVersion(
 	ctx context.Context,
 	tx pgx.Tx,
 	tenantID uuid.UUID,
-	maxVersion *int64,
 	evaluationTime time.Time,
 ) (platform []domain.ChargeCodeMapping, tenant []domain.ChargeCodeMapping, maxLoaded int64, err error) {
 	query := `
@@ -64,13 +143,6 @@ WITH eligible AS (
 	)
 	AND effective_from <= $2
 	AND (effective_to IS NULL OR effective_to > $2)
-`
-	args := []any{tenantID, evaluationTime}
-	if maxVersion != nil {
-		query += ` AND mapping_version <= $3`
-		args = append(args, *maxVersion)
-	}
-	query += `
 ),
 ranked AS (
 	SELECT
@@ -91,9 +163,9 @@ ORDER BY source_charge_code_normalized`
 
 	var rows pgx.Rows
 	if tx != nil {
-		rows, err = tx.Query(ctx, query, args...)
+		rows, err = tx.Query(ctx, query, tenantID, evaluationTime)
 	} else {
-		rows, err = r.pool.Query(ctx, query, args...)
+		rows, err = r.pool.Query(ctx, query, tenantID, evaluationTime)
 	}
 	if err != nil {
 		return nil, nil, 0, mapDBError(err)
@@ -151,18 +223,18 @@ func (r *ChargeCodeMappingRepository) UpsertMapping(
 	if err != nil {
 		return domain.ChargeCodeMapping{}, err
 	}
-	target := strings.ToUpper(strings.TrimSpace(input.TargetCategory))
-	if target == "" {
-		return domain.ChargeCodeMapping{}, fmt.Errorf("target category required")
+	target, err := domain.NormalizeMappingCategory(input.TargetCategory)
+	if err != nil {
+		return domain.ChargeCodeMapping{}, err
+	}
+	if input.EffectiveTo != nil && !input.EffectiveTo.After(input.EffectiveFrom) {
+		return domain.ChargeCodeMapping{}, fmt.Errorf("effective_to must be after effective_from")
 	}
 	scope := strings.ToUpper(strings.TrimSpace(input.MappingScope))
-	if scope != domain.MappingScopePlatform && scope != domain.MappingScopeTenant {
-		return domain.ChargeCodeMapping{}, fmt.Errorf("invalid mapping scope")
+	if scope != domain.MappingScopeTenant {
+		return domain.ChargeCodeMapping{}, fmt.Errorf("platform mapping mutation is disabled until verified platform-admin authorization is available")
 	}
-	if scope == domain.MappingScopePlatform && input.TenantID != nil {
-		return domain.ChargeCodeMapping{}, fmt.Errorf("platform mapping must not have tenant_id")
-	}
-	if scope == domain.MappingScopeTenant && input.TenantID == nil {
+	if input.TenantID == nil {
 		return domain.ChargeCodeMapping{}, fmt.Errorf("tenant mapping requires tenant_id")
 	}
 

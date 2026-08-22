@@ -222,10 +222,7 @@ func stateFingerprint(projection *CostSummaryProjection) string {
 	if projection.DerivedStateFingerprint != nil && *projection.DerivedStateFingerprint != "" {
 		return *projection.DerivedStateFingerprint
 	}
-	proposed := ProposedAccessorialInput{SourceStatus: projection.ForecastSourceStatus}
-	if projection.ForecastSourceStatus == ForecastSourceKnown && projection.ForecastExposure != nil {
-		proposed.TotalExVAT = projection.ForecastExposure
-	}
+	proposed := ProposedAccessorialInput{SourceStatus: ProposedSourceUnknown}
 	return ComputeDerivedStateFingerprint(projection, proposed)
 }
 

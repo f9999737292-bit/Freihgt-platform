@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/freight-platform/freight-cost-service/internal/domain"
 	"github.com/freight-platform/freight-cost-service/internal/repository"
 )
@@ -122,13 +120,7 @@ func TestFC_C_RBL_008_ReclassifyUsesCurrentMappingVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("platform version: %v", err)
 	}
-	inserted, err := env.derived.ReclassifyAttribution(context.Background(), fix.TenantID, fix.OrderID, domain.DriverAttributionContext{
-		ApprovedAccessorials: []domain.ApprovedAccessorialEvidence{{
-			AccessorialID: uuid.New(),
-			ChargeCode:    "DETENTION",
-			Amount:        *decimalAmount("50.00"),
-		}},
-	})
+	inserted, err := env.derived.ReclassifyAttribution(context.Background(), fix.TenantID, fix.OrderID)
 	if err != nil {
 		t.Fatalf("reclassify: %v", err)
 	}

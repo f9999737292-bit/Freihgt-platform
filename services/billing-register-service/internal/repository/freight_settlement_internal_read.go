@@ -33,6 +33,13 @@ type InternalSettlementRead struct {
 	ProposedAccessorialSourceStatus string
 	RateSnapshotID                  *uuid.UUID
 	UpdatedAt           time.Time
+	ApprovedAccessorials []InternalApprovedAccessorial
+}
+
+type InternalApprovedAccessorial struct {
+	AccessorialID uuid.UUID
+	ChargeCode    string
+	Amount        string
 }
 
 type InternalBillingLinkRead struct {
@@ -88,7 +95,43 @@ func (r *FreightSettlementRepository) GetInternalByTransportOrder(ctx context.Co
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, apperrors.NotFound("freight settlement not found")
 	}
-	return read, err
+	if err != nil {
+		return nil, err
+	}
+	approved, err := r.listInternalApprovedAccessorials(ctx, read.SettlementID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	read.ApprovedAccessorials = approved
+	return read, nil
+}
+
+func (r *FreightSettlementRepository) listInternalApprovedAccessorials(ctx context.Context, settlementID, tenantID uuid.UUID) ([]InternalApprovedAccessorial, error) {
+	const query = `
+		SELECT id, charge_code, amount::text
+		FROM billing.settlement_accessorials
+		WHERE settlement_id = $1 AND tenant_id = $2 AND status = $3
+		ORDER BY created_at ASC`
+	rows, err := r.pool.Query(ctx, query, settlementID, tenantID, domain.AccessorialStatusApproved)
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	defer rows.Close()
+	var out []InternalApprovedAccessorial
+	for rows.Next() {
+		var item InternalApprovedAccessorial
+		var amountText string
+		if scanErr := rows.Scan(&item.AccessorialID, &item.ChargeCode, &amountText); scanErr != nil {
+			return nil, mapDBError(scanErr)
+		}
+		normalized, normErr := normalizeDecimalMoneyString(amountText)
+		if normErr != nil {
+			return nil, normErr
+		}
+		item.Amount = normalized
+		out = append(out, item)
+	}
+	return out, rows.Err()
 }
 
 func (r *FreightSettlementRepository) GetInternalBillingLink(ctx context.Context, tenantID, settlementID uuid.UUID) (*InternalBillingLinkRead, error) {

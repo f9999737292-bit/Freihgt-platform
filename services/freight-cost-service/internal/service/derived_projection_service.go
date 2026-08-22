@@ -7,10 +7,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/shopspring/decimal"
 
 	"github.com/freight-platform/freight-cost-service/internal/client/billing_register"
+	"github.com/freight-platform/freight-cost-service/internal/client/transport_order"
 	"github.com/freight-platform/freight-cost-service/internal/domain"
 	fcmetrics "github.com/freight-platform/freight-cost-service/internal/platform/metrics"
+	"github.com/freight-platform/freight-cost-service/internal/provider"
 	"github.com/freight-platform/freight-cost-service/internal/repository"
 )
 
@@ -20,7 +23,9 @@ type DerivedProjectionService struct {
 	attributions *repository.VarianceAttributionRepository
 	findings     *repository.ReconciliationFindingRepository
 	mappings     *repository.ChargeCodeMappingRepository
+	cursors      *repository.SourceCursorRepository
 	billing      *billing_register.Client
+	transport    *transport_order.Client
 	metrics      *fcmetrics.Metrics
 }
 
@@ -30,7 +35,9 @@ func NewDerivedProjectionService(
 	attributions *repository.VarianceAttributionRepository,
 	findings *repository.ReconciliationFindingRepository,
 	mappings *repository.ChargeCodeMappingRepository,
+	cursors *repository.SourceCursorRepository,
 	billing *billing_register.Client,
+	transport *transport_order.Client,
 	metrics *fcmetrics.Metrics,
 ) *DerivedProjectionService {
 	return &DerivedProjectionService{
@@ -39,7 +46,9 @@ func NewDerivedProjectionService(
 		attributions: attributions,
 		findings:     findings,
 		mappings:     mappings,
+		cursors:      cursors,
 		billing:      billing,
+		transport:    transport,
 		metrics:      metrics,
 	}
 }
@@ -70,7 +79,7 @@ func (s *DerivedProjectionService) RecomputeInTransaction(
 		tableVersion     int64
 	)
 	if priorMappingVersion != nil {
-		platformMappings, tenantMappings, tableVersion, err = s.mappings.LoadPinnedMappings(ctx, tx, projection.TenantID, *priorMappingVersion, evalTime)
+		platformMappings, tenantMappings, tableVersion, err = s.mappings.LoadPinnedMappings(ctx, tx, projection.TenantID, *priorMappingVersion)
 	} else {
 		platformMappings, tenantMappings, tableVersion, err = s.mappings.LoadActiveMappings(ctx, tx, projection.TenantID, evalTime)
 	}
@@ -103,9 +112,6 @@ func (s *DerivedProjectionService) RecomputeInTransaction(
 	}
 	_ = inserted
 
-	if _, err := s.persistFindings(ctx, tx, projection); err != nil {
-		return err
-	}
 	s.observeRecompute(projection, proposed, attributionRows)
 	return nil
 }
@@ -127,9 +133,18 @@ func (s *DerivedProjectionService) ReconcileTransportOrder(
 	if err != nil {
 		return 0, err
 	}
-	count, err := s.persistFindings(ctx, tx, projection)
+	beforeRevision := projection.ProjectionRevision
+
+	findings, err := s.detectCanonicalFindings(ctx, tx, projection)
 	if err != nil {
 		return 0, err
+	}
+	count, err := s.persistFindings(ctx, tx, projection, findings)
+	if err != nil {
+		return 0, err
+	}
+	if projection.ProjectionRevision != beforeRevision {
+		return 0, domain.ErrReconciliationMutatedProjection
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return 0, err
@@ -140,7 +155,6 @@ func (s *DerivedProjectionService) ReconcileTransportOrder(
 func (s *DerivedProjectionService) ReclassifyAttribution(
 	ctx context.Context,
 	tenantID, transportOrderID uuid.UUID,
-	driverCtx domain.DriverAttributionContext,
 ) (int, error) {
 	if s == nil || s.pool == nil {
 		return 0, nil
@@ -155,18 +169,23 @@ func (s *DerivedProjectionService) ReclassifyAttribution(
 	if err != nil {
 		return 0, err
 	}
+	beforeVariance := cloneDecimal(projection.CurrentVarianceAmount)
+	beforeFinalVariance := cloneDecimal(projection.FinalVarianceAmount)
 
-	evalTime := time.Now().UTC()
-	platformMappings, tenantMappings, mappingVersion, err := s.mappings.LoadActiveMappings(ctx, tx, tenantID, evalTime)
+	driverCtx, _, err := s.buildCanonicalDriverContext(ctx, tenantID, transportOrderID)
 	if err != nil {
 		return 0, err
 	}
-	if driverCtx.MappingVersion == 0 {
-		driverCtx.MappingVersion = mappingVersion
+
+	evalTime := time.Now().UTC()
+	platformMappings, tenantMappings, currentVersion, err := s.mappings.LoadActiveMappings(ctx, tx, tenantID, evalTime)
+	if err != nil {
+		return 0, err
 	}
+	driverCtx.MappingVersion = currentVersion
 	driverCtx.PlatformMappings = platformMappings
 	driverCtx.TenantMappings = tenantMappings
-
+	projection.AttributionMappingVersion = &currentVersion
 	if err := s.attributions.MarkDriversSuperseded(ctx, tx, tenantID, transportOrderID); err != nil {
 		return 0, err
 	}
@@ -179,6 +198,12 @@ func (s *DerivedProjectionService) ReclassifyAttribution(
 	if err != nil {
 		return 0, err
 	}
+	if err := s.projections.Upsert(ctx, tx, projection); err != nil {
+		return 0, err
+	}
+	if !decimalEqual(beforeVariance, projection.CurrentVarianceAmount) || !decimalEqual(beforeFinalVariance, projection.FinalVarianceAmount) {
+		return 0, domain.ErrReclassificationChangedFinancialAmounts
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return 0, err
 	}
@@ -188,28 +213,107 @@ func (s *DerivedProjectionService) ReclassifyAttribution(
 	return inserted, nil
 }
 
+func (s *DerivedProjectionService) buildCanonicalDriverContext(
+	ctx context.Context,
+	tenantID, transportOrderID uuid.UUID,
+) (domain.DriverAttributionContext, int64, error) {
+	var snapshot *provider.RateSnapshotFact
+	if s.transport != nil {
+		snap, err := s.transport.GetRateSnapshot(ctx, tenantID, transportOrderID)
+		if err != nil && !isNotFoundErr(err) {
+			return domain.DriverAttributionContext{}, 0, err
+		}
+		snapshot = snap
+	}
+	var settlement *billing_register.SettlementFact
+	if s.billing != nil {
+		settle, err := s.billing.GetSettlementByTransportOrder(ctx, tenantID, transportOrderID)
+		if err != nil && !isNotFoundErr(err) {
+			return domain.DriverAttributionContext{}, 0, err
+		}
+		settlement = settle
+	}
+	return buildDriverContextFromCanonical(settlement, snapshot), 0, nil
+}
+
+func (s *DerivedProjectionService) detectCanonicalFindings(
+	ctx context.Context,
+	tx pgx.Tx,
+	projection *domain.CostSummaryProjection,
+) ([]domain.ReconciliationFinding, error) {
+	if projection == nil {
+		return nil, nil
+	}
+	var snapshot *provider.RateSnapshotFact
+	if s.transport != nil {
+		snap, err := s.transport.GetRateSnapshot(ctx, projection.TenantID, projection.TransportOrderID)
+		if err != nil && !isNotFoundErr(err) {
+			return nil, err
+		}
+		snapshot = snap
+	}
+	var settlement *billing_register.SettlementFact
+	var billingLink *billing_register.BillingLinkFact
+	if s.billing != nil {
+		settle, err := s.billing.GetSettlementByTransportOrder(ctx, projection.TenantID, projection.TransportOrderID)
+		if err != nil && !isNotFoundErr(err) {
+			return nil, err
+		}
+		settlement = settle
+		if settlement != nil {
+			link, linkErr := s.billing.GetBillingLink(ctx, projection.TenantID, settlement.SettlementID)
+			if linkErr != nil && !isNotFoundErr(linkErr) {
+				return nil, linkErr
+			}
+			billingLink = link
+		}
+	}
+	var cursors []domain.SourceCursor
+	if s.cursors != nil {
+		listed, err := s.cursors.ListByTransportOrder(ctx, tx, projection.TenantID, projection.TransportOrderID)
+		if err != nil {
+			return nil, err
+		}
+		cursors = listed
+	}
+	return detectCanonicalReconciliationFindings(canonicalReconciliationContext{
+		stored:      projection,
+		snapshot:    snapshot,
+		settlement:  settlement,
+		billingLink: billingLink,
+		cursors:     cursors,
+	}), nil
+}
+
 func (s *DerivedProjectionService) persistFindings(
 	ctx context.Context,
 	tx pgx.Tx,
 	projection *domain.CostSummaryProjection,
+	findings []domain.ReconciliationFinding,
 ) (int, error) {
-	detected := domain.DetectReconciliationFindings(projection)
-	activeIDs := make([]uuid.UUID, 0, len(detected))
-	for _, finding := range detected {
+	if findings == nil {
+		var err error
+		findings, err = s.detectCanonicalFindings(ctx, tx, projection)
+		if err != nil {
+			return 0, err
+		}
+	}
+	activeIDs := make([]uuid.UUID, 0, len(findings))
+	for _, finding := range findings {
 		activeIDs = append(activeIDs, finding.FindingID)
 	}
-	if err := s.findings.UpsertBatch(ctx, tx, detected); err != nil {
+	if err := s.findings.UpsertBatch(ctx, tx, findings); err != nil {
 		return 0, err
 	}
 	if err := s.findings.ResolveAbsentFindings(ctx, tx, projection.TenantID, projection.TransportOrderID, activeIDs); err != nil {
 		return 0, err
 	}
 	if s.metrics != nil {
-		for _, finding := range detected {
+		for _, finding := range findings {
 			s.metrics.ObserveReconciliationFinding(finding.FindingKind, "info")
 		}
 	}
-	return len(detected), nil
+	return len(findings), nil
 }
 
 func (s *DerivedProjectionService) buildAttributionRows(
@@ -329,4 +433,19 @@ func ProposedInputFromSettlement(settlement *billing_register.SettlementFact) do
 		SourceStatus: domain.ProposedSourceKnown,
 		TotalExVAT:   settlement.ProposedAccessorialTotalExVAT,
 	}
+}
+
+func cloneDecimal(value *decimal.Decimal) *decimal.Decimal {
+	if value == nil {
+		return nil
+	}
+	v := value.Round(domain.MoneyScale)
+	return &v
+}
+
+func decimalEqual(a, b *decimal.Decimal) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return a.Round(domain.MoneyScale).Equal(b.Round(domain.MoneyScale))
 }

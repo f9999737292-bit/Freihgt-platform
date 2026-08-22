@@ -41,6 +41,13 @@ type internalSettlementResponse struct {
 	ProposedAccessorialSourceStatus string  `json:"proposed_accessorial_source_status"`
 	RateSnapshotID      *string `json:"rate_snapshot_id,omitempty"`
 	UpdatedAt           string  `json:"updated_at"`
+	ApprovedAccessorials []internalApprovedAccessorialResponse `json:"approved_accessorials"`
+}
+
+type internalApprovedAccessorialResponse struct {
+	AccessorialID string `json:"accessorial_id"`
+	ChargeCode    string `json:"charge_code"`
+	AmountExVAT   string `json:"amount_ex_vat"`
 }
 
 type internalBillingLinkResponse struct {
@@ -127,7 +134,20 @@ func toInternalSettlementResponse(read *repository.InternalSettlementRead) inter
 		ProposedAccessorialSourceStatus: read.ProposedAccessorialSourceStatus,
 		RateSnapshotID:                  rateSnapshotID,
 		UpdatedAt:           read.UpdatedAt.UTC().Format("2006-01-02T15:04:05.999999999Z07:00"),
+		ApprovedAccessorials: toInternalApprovedAccessorialResponses(read.ApprovedAccessorials),
 	}
+}
+
+func toInternalApprovedAccessorialResponses(items []repository.InternalApprovedAccessorial) []internalApprovedAccessorialResponse {
+	out := make([]internalApprovedAccessorialResponse, 0, len(items))
+	for _, item := range items {
+		out = append(out, internalApprovedAccessorialResponse{
+			AccessorialID: item.AccessorialID.String(),
+			ChargeCode:    item.ChargeCode,
+			AmountExVAT:   item.Amount,
+		})
+	}
+	return out
 }
 
 func toInternalBillingLinkResponse(read *repository.InternalBillingLinkRead) internalBillingLinkResponse {
