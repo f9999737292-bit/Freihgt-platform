@@ -50,6 +50,7 @@ type FreightSettlement struct {
 	BillingRegisterItemID    *uuid.UUID
 	IdempotencyKey           *string
 	Version                  int
+	BillingLinkRevision      int64
 	CreatedAt                time.Time
 	CreatedBy                *uuid.UUID
 	UpdatedAt                time.Time

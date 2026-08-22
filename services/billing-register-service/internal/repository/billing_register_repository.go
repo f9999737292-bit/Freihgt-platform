@@ -15,11 +15,16 @@ import (
 )
 
 type BillingRegisterRepository struct {
-	pool *pgxpool.Pool
+	pool   *pgxpool.Pool
+	outbox *FreightCostOutboxEmitter
 }
 
 func NewBillingRegisterRepository(pool *pgxpool.Pool) *BillingRegisterRepository {
 	return &BillingRegisterRepository{pool: pool}
+}
+
+func (r *BillingRegisterRepository) SetOutboxEmitter(emitter *FreightCostOutboxEmitter) {
+	r.outbox = emitter
 }
 
 type RegisterDetail struct {

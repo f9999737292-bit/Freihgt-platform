@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -74,6 +75,9 @@ func (r *BillingRegisterRepository) CalculateForActor(ctx context.Context, regis
 			return err
 		}
 		result = updated
+		if err := r.outbox.EmitPayableSnapshotTx(ctx, tx, updated, time.Now().UTC()); err != nil {
+			return err
+		}
 		return insertRegisterAuditEvent(ctx, tx, actor.TenantID, registerID, domain.RegisterAuditCalculated, actor.ActorUserID, actor.ActorCompanyID, map[string]any{
 			"from": reg.Status, "to": updated.Status,
 			"total_without_vat": updated.TotalWithoutVAT, "total_with_vat": updated.TotalWithVAT,
@@ -114,6 +118,9 @@ func (r *BillingRegisterRepository) ApproveForActor(ctx context.Context, registe
 			return err
 		}
 		result = updated
+		if err := r.outbox.EmitPayableSnapshotTx(ctx, tx, updated, time.Now().UTC()); err != nil {
+			return err
+		}
 		return insertRegisterAuditEvent(ctx, tx, actor.TenantID, registerID, domain.RegisterAuditApproved, actor.ActorUserID, actor.ActorCompanyID, map[string]any{
 			"from": reg.Status, "to": updated.Status, "approved_by": actor.ActorUserID.String(),
 		})

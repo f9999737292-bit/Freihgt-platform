@@ -8,6 +8,7 @@ import (
 
 	"github.com/freight-platform/billing-register-service/internal/config"
 	"github.com/freight-platform/billing-register-service/internal/http/handlers"
+	"github.com/freight-platform/billing-register-service/internal/repository"
 	"github.com/freight-platform/billing-register-service/internal/service"
 	"github.com/freight-platform/shared-go/internalauth"
 	"github.com/freight-platform/shared-go/metrics"
@@ -24,11 +25,15 @@ func NewRouter(
 	registerSvc *service.BillingRegisterService,
 	closingSvc *service.ClosingDocumentService,
 	settlementSvc *service.FreightSettlementService,
+	settlementRepo *repository.FreightSettlementRepository,
+	registerRepo *repository.BillingRegisterRepository,
 	actor *handlers.SettlementActorResolver,
 ) http.Handler {
 	registerHandler := handlers.NewBillingRegisterHandler(registerSvc, actor)
 	closingHandler := handlers.NewClosingDocumentHandler(closingSvc, actor)
 	settlementHandler := handlers.NewFreightSettlementHandler(settlementSvc, actor)
+	settlementInternalHandler := handlers.NewFreightSettlementInternalHandler(settlementRepo)
+	registerInternalHandler := handlers.NewBillingRegisterInternalHandler(registerRepo)
 	internalAuth := internalauth.Config{Token: cfg.InternalServiceToken, Environment: cfg.Environment}
 
 	r := chi.NewRouter()
@@ -81,6 +86,13 @@ func NewRouter(
 	r.Route("/internal/v1/billing-registers", func(r chi.Router) {
 		r.Use(internalAuth.Middleware)
 		r.Post("/{id}/sync-paid", registerHandler.SyncPaid)
+		r.Get("/{registerId}/payable", registerInternalHandler.GetPayable)
+	})
+
+	r.Route("/internal/v1/freight-settlements", func(r chi.Router) {
+		r.Use(internalAuth.Middleware)
+		r.Get("/by-transport-order/{transportOrderId}", settlementInternalHandler.GetByTransportOrder)
+		r.Get("/{settlementId}/billing-link", settlementInternalHandler.GetBillingLink)
 	})
 
 	return r
