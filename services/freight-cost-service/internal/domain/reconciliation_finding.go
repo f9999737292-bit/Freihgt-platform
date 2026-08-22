@@ -9,14 +9,20 @@ import (
 var NamespaceFreightCostReconciliationFinding = uuid.MustParse("f0a1b2c3-d4e5-6789-abcd-ef0123456792")
 
 const (
-	FindingStatusOpen      = "OPEN"
-	FindingStatusResolved  = "RESOLVED"
-	FindingStatusReopened  = "REOPENED"
+	FindingStatusOpen     = "OPEN"
+	FindingStatusResolved = "RESOLVED"
+	FindingStatusReopened = "REOPENED"
 
-	FindingProjectionDrift     = "PROJECTION_DRIFT"
-	FindingMissingPlannedFact  = "MISSING_PLANNED_FACT"
-	FindingStaleCursor         = "STALE_CURSOR"
-	FindingBillingLinkMismatch = "BILLING_LINK_MISMATCH"
+	FindingProjectionDrift      = "PROJECTION_DRIFT"
+	FindingMissingPlannedFact   = "MISSING_PLANNED_FACT"
+	FindingMissingAccrualFact   = "MISSING_ACCRUAL_FACT"
+	FindingMissingFinalActual   = "MISSING_FINAL_ACTUAL"
+	FindingStaleCursor          = "STALE_CURSOR"
+	FindingBillingLinkMismatch  = "BILLING_LINK_MISMATCH"
+	FindingOrphanBillingLink    = "ORPHAN_BILLING_LINK"
+	FindingOrphanPaymentLink    = "ORPHAN_PAYMENT_LINK"
+	FindingCurrencyDrift        = "CURRENCY_DRIFT"
+	FindingDuplicateEconomic    = "DUPLICATE_ECONOMIC_FACT"
 )
 
 type ReconciliationFinding struct {
@@ -34,10 +40,8 @@ type ReconciliationFinding struct {
 func DeriveFindingID(
 	tenantID, transportOrderID uuid.UUID,
 	findingKind, canonicalReferenceKey string,
-	expectedRevision, observedRevision int64,
 ) uuid.UUID {
-	key := tenantID.String() + "|" + transportOrderID.String() + "|" + findingKind + "|" +
-		canonicalReferenceKey + "|" + strconv.FormatInt(expectedRevision, 10) + "|" + strconv.FormatInt(observedRevision, 10)
+	key := tenantID.String() + "|" + transportOrderID.String() + "|" + findingKind + "|" + canonicalReferenceKey
 	return uuid.NewSHA1(NamespaceFreightCostReconciliationFinding, []byte(key))
 }
 
@@ -49,10 +53,19 @@ func DetectReconciliationFindings(projection *CostSummaryProjection) []Reconcili
 	if projection.PlannedAmount == nil {
 		findings = append(findings, newFinding(projection, FindingMissingPlannedFact, "planned", 0, projection.ProjectionRevision, nil))
 	}
+	if projection.PlannedAmount != nil && projection.AccruedAmount == nil && projection.SettlementLinked {
+		findings = append(findings, newFinding(projection, FindingMissingAccrualFact, "accrual", 0, projection.ProjectionRevision, nil))
+	}
+	if projection.FinalActualAmount == nil && projection.SettlementStatus == SettlementStatusReadyForPayment && projection.OpenDisputeCount == 0 {
+		findings = append(findings, newFinding(projection, FindingMissingFinalActual, "final_actual", 0, projection.ProjectionRevision, nil))
+	}
 	if projection.BillingReconciliationStatus == BillingReconciliationMismatch {
 		findings = append(findings, newFinding(projection, FindingBillingLinkMismatch, "billing_link", 0, projection.ProjectionRevision, map[string]any{
 			"status": string(projection.BillingReconciliationStatus),
 		}))
+	}
+	if projection.BillingReconciliationStatus == BillingReconciliationUnlinked && projection.SettlementLinked {
+		findings = append(findings, newFinding(projection, FindingOrphanBillingLink, "billing_link_orphan", 0, projection.ProjectionRevision, nil))
 	}
 	return findings
 }
@@ -66,10 +79,13 @@ func newFinding(
 	if details == nil {
 		details = map[string]any{}
 	}
+	if observedRevision > 0 {
+		details["observed_revision"] = strconv.FormatInt(observedRevision, 10)
+	}
 	return ReconciliationFinding{
 		TenantID:              projection.TenantID,
 		TransportOrderID:      projection.TransportOrderID,
-		FindingID:             DeriveFindingID(projection.TenantID, projection.TransportOrderID, kind, referenceKey, expectedRevision, observedRevision),
+		FindingID:             DeriveFindingID(projection.TenantID, projection.TransportOrderID, kind, referenceKey),
 		FindingKind:           kind,
 		Status:                FindingStatusOpen,
 		ExpectedRevision:      int64Ptr(expectedRevision),
