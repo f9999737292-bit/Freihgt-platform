@@ -16,6 +16,7 @@ v2.1C runtime adds derived variance/forecast projection fields, charge-code clas
 | `000057_freight_cost_variance_projection_v2.1C` | variance + forecast columns on `cost_summary_projection` |
 | `000058_freight_cost_variance_explainability_v2.1C` | `charge_code_mapping`, `variance_attribution`, `reconciliation_finding` + platform seed |
 | `000059_freight_cost_variance_remediation_v2.1C` | `forecast_source_status`, `derived_state_fingerprint`, mapping overlap exclusion, global mapping version sequence |
+| `000060_freight_cost_mapping_evaluated_at_v2.1C` | `attribution_mapping_evaluated_at` on `cost_summary_projection` |
 
 ## Remediation (H-001 … H-009)
 
@@ -39,24 +40,49 @@ v2.1C runtime adds derived variance/forecast projection fields, charge-code clas
 | F48-002 | HIGH | `X-Freight-Cost-Platform-Admin: true` self-asserted privilege | **Fail closed:** `PLATFORM_MAPPING_MUTATION_ENABLED=NO`; unsigned header removed; tenant-scoped PUT only with verified `X-Tenant-ID` |
 | F48-003 | HIGH | Reclassify accepted caller financial evidence | **Intent-only API:** empty body; hydrate `approved_accessorials[]` + `base_freight_amount` from billing-register + transport internal reads |
 | F48-004 | MED/HIGH | Reconciliation local-projection-only | **`detectCanonicalReconciliationFindings`:** read-only compare stored projection vs canonical transport snapshot + billing settlement/link + source cursors; no auto-rebuild/repair |
-| F48-005 | HIGH GATE | Remediation tests outside frozen 84 | **19 bonus tests** in `BONUS_REMEDIATION_TEST_INVENTORY.json` (excluded from FC-C count) |
+| F48-005 | HIGH GATE | Remediation tests outside frozen 84 | **25 bonus tests** in `BONUS_REMEDIATION_TEST_INVENTORY.json` (excluded from FC-C count) |
 | F48-006 | MED | Mapping window / category validation | Reject `effective_to <= effective_from`; validate target category against frozen vocabulary before DB |
 | F48-007 | MED | Reclassify pin semantics | **`RECLASSIFICATION_UPDATES_PINNED_RULESET=YES`:** successful reclassify sets `attribution_mapping_version` to current active mapping version; subsequent standard rebuild reproduces reclassification |
 | F48-008 | MED | Legacy NULL `derived_state_fingerprint` | Bootstrap via `ComputeDerivedStateFingerprint` with `ProposedSourceUnknown` only — **never derive proposed total from `forecast_exposure`** |
+| F48-010 | HIGH | Version-only pinned loader leaked future/expired rules | Pin **version boundary + evaluation timestamp**; `LoadPinnedMappings(tenant, pinVersion, pinEvalTime)` applies historical effective window |
 
-### Pinned mapping semantic model (F48-001 / F48-007)
+### Pinned mapping identity (F48-010)
 
-Global monotonic `freight_cost.charge_code_mapping_version_seq` assigns each mapping row a version. Standard rebuild pins `attribution_mapping_version` on first attribution pass.
+**PINNED_MAPPING_IDENTITY = VERSION_BOUNDARY + EVALUATION_TIMESTAMP**
 
-| Operation | Loader | Effective window |
-|-----------|--------|------------------|
-| Standard rebuild | `LoadPinnedMappings(tenant, pin)` | **Ignored** — version-only historical ruleset |
-| Explicit reclassify | `LoadActiveMappings(tenant, now)` | Applied — advances pin to current ruleset |
-| Mapping admin PUT | Upsert with validation | Applied on future active loads |
+Projection fields:
+- `attribution_mapping_version` — global mapping version boundary at evaluation
+- `attribution_mapping_evaluated_at` — trusted evaluation instant frozen on pin
 
-**PINNED_MAPPING_REBUILD_TIME_INDEPENDENT=YES**  
-**PINNED_MAPPING_RULESET_RECONSTRUCTABLE=YES**  
-**RECLASSIFICATION_UPDATES_PINNED_RULESET=YES**  
+| Operation | Loader | Clock used |
+|-----------|--------|------------|
+| Initial compute | `LoadActiveMappings(tenant, evalTime)` | Current service time (first pin) |
+| Standard rebuild | `LoadPinnedMappings(tenant, pinVersion, pinEvalTime)` | **Pinned** evaluation timestamp only |
+| Explicit reclassify | `LoadActiveMappings(tenant, now)` | Current time; updates both pin fields |
+| Legacy upgrade (version set, time NULL) | `LoadActiveMappings` bootstrap once | Current time — explicit normalization, not historical claim |
+
+**LoadPinnedMappings SQL semantics:**
+
+```text
+mapping_version <= pinnedVersion
+AND effective_from <= pinnedEvaluationTime
+AND (effective_to IS NULL OR effective_to > pinnedEvaluationTime)
+```
+
+Then TENANT-over-PLATFORM precedence per source key.
+
+**PINNED_MAPPING_REBUILD_TIME_INDEPENDENT=YES** — independent of current wall-clock, evaluated against persisted pin timestamp.
+
+**STANDARD_REBUILD_USES_CURRENT_TIME_FOR_MAPPING=NO**
+
+**LEGACY_MAPPING_TIME_PIN_BOOTSTRAP=EXPLICIT** — `EnsureLegacyDerivedStateBootstrapped` re-pins from current active mappings when `attribution_mapping_evaluated_at IS NULL`.
+
+**LEGACY_PIN_USES_WINDOWLESS_RECONSTRUCTION=NO**
+
+**RECLASSIFICATION_UPDATES_MAPPING_VERSION_PIN=YES**
+
+**RECLASSIFICATION_UPDATES_MAPPING_TIME_PIN=YES**
+
 **STANDARD_REBUILD_AFTER_RECLASSIFICATION_REPRODUCES_RECLASSIFICATION=YES**
 
 ### Platform admin authorization (F48-002)
@@ -156,7 +182,7 @@ Extended `GET /internal/v1/freight-settlements/by-transport-order/{id}`:
 Machine-readable inventories:
 
 - Frozen FC-C: `docs/engineering/FC_C_TEST_INVENTORY.json` (**84 tests — unchanged**)
-- Bonus remediation: `services/freight-cost-service/docs/engineering/BONUS_REMEDIATION_TEST_INVENTORY.json` (**19 tests**)
+- Bonus remediation: `services/freight-cost-service/docs/engineering/BONUS_REMEDIATION_TEST_INVENTORY.json` (**25 tests**)
 
 | Family | Count | Level |
 |--------|------:|-------|
@@ -171,7 +197,7 @@ Machine-readable inventories:
 | FC-C-SEC | 8 | domain + integration |
 | FC-C-OUT | 4 | domain + integration |
 | **Frozen Total** | **84** | |
-| **Bonus Remediation** | **19** | domain + integration |
+| **Bonus Remediation** | **25** | domain + integration |
 
 CI job `freight-cost-ledger-integration` runs `./internal/integration/variance/...` (frozen + bonus) alongside ledger tests.
 

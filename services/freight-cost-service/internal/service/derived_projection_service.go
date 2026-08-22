@@ -72,27 +72,9 @@ func (s *DerivedProjectionService) RecomputeInTransaction(
 	}
 
 	evalTime := time.Now().UTC()
-	priorMappingVersion := projection.AttributionMappingVersion
-	var (
-		platformMappings []domain.ChargeCodeMapping
-		tenantMappings   []domain.ChargeCodeMapping
-		tableVersion     int64
-	)
-	if priorMappingVersion != nil {
-		platformMappings, tenantMappings, tableVersion, err = s.mappings.LoadPinnedMappings(ctx, tx, projection.TenantID, *priorMappingVersion)
-	} else {
-		platformMappings, tenantMappings, tableVersion, err = s.mappings.LoadActiveMappings(ctx, tx, projection.TenantID, evalTime)
-	}
+	platformMappings, tenantMappings, mappingVersion, _, err := s.resolveMappingContext(ctx, tx, projection, evalTime)
 	if err != nil {
 		return err
-	}
-	mappingVersion := tableVersion
-	if priorMappingVersion != nil {
-		mappingVersion = *priorMappingVersion
-	}
-	if projection.AttributionMappingVersion == nil {
-		pinned := mappingVersion
-		projection.AttributionMappingVersion = &pinned
 	}
 
 	if driverCtx.MappingVersion == 0 {
@@ -195,6 +177,7 @@ func (s *DerivedProjectionService) ReclassifyAttribution(
 	driverCtx.TenantMappings = tenantMappings
 	pinnedVersion := pinVersion
 	projection.AttributionMappingVersion = &pinnedVersion
+	projection.AttributionMappingEvaluatedAt = &evalTime
 	if err := s.attributions.MarkDriversSuperseded(ctx, tx, tenantID, transportOrderID); err != nil {
 		return 0, err
 	}
@@ -239,18 +222,115 @@ func (s *DerivedProjectionService) EnsureLegacyDerivedStateBootstrapped(
 	if err != nil {
 		return err
 	}
-	if projection.DerivedStateFingerprint != nil && *projection.DerivedStateFingerprint != "" {
-		return nil
+	changed := false
+	if projection.DerivedStateFingerprint == nil || *projection.DerivedStateFingerprint == "" {
+		if _, err := domain.RecomputeDerivedProjection(projection, domain.ProposedAccessorialInput{
+			SourceStatus: domain.ProposedSourceUnknown,
+		}); err != nil {
+			return err
+		}
+		changed = true
 	}
-	if _, err := domain.RecomputeDerivedProjection(projection, domain.ProposedAccessorialInput{
-		SourceStatus: domain.ProposedSourceUnknown,
-	}); err != nil {
-		return err
+	if projection.AttributionMappingVersion != nil && projection.AttributionMappingEvaluatedAt == nil {
+		evalTime := time.Now().UTC()
+		if err := s.bootstrapLegacyMappingPin(ctx, tx, projection, evalTime); err != nil {
+			return err
+		}
+		changed = true
+	}
+	if !changed {
+		return nil
 	}
 	if err := s.projections.Upsert(ctx, tx, projection); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+func (s *DerivedProjectionService) resolveMappingContext(
+	ctx context.Context,
+	tx pgx.Tx,
+	projection *domain.CostSummaryProjection,
+	currentEvalTime time.Time,
+) (platformMappings []domain.ChargeCodeMapping, tenantMappings []domain.ChargeCodeMapping, mappingVersion int64, pinEvalTime time.Time, err error) {
+	if projection == nil {
+		return nil, nil, 0, currentEvalTime, nil
+	}
+
+	if projection.AttributionMappingVersion != nil && projection.AttributionMappingEvaluatedAt != nil {
+		pinEvalTime = projection.AttributionMappingEvaluatedAt.UTC()
+		platformMappings, tenantMappings, _, err = s.mappings.LoadPinnedMappings(
+			ctx, tx, projection.TenantID, *projection.AttributionMappingVersion, pinEvalTime,
+		)
+		if err != nil {
+			return nil, nil, 0, pinEvalTime, err
+		}
+		return platformMappings, tenantMappings, *projection.AttributionMappingVersion, pinEvalTime, nil
+	}
+
+	evalTime := currentEvalTime.UTC()
+	if projection.AttributionMappingVersion != nil && projection.AttributionMappingEvaluatedAt == nil {
+		if err := s.bootstrapLegacyMappingPin(ctx, tx, projection, evalTime); err != nil {
+			return nil, nil, 0, evalTime, err
+		}
+		platformMappings, tenantMappings, _, err = s.mappings.LoadPinnedMappings(
+			ctx, tx, projection.TenantID, *projection.AttributionMappingVersion, evalTime,
+		)
+		if err != nil {
+			return nil, nil, 0, evalTime, err
+		}
+		return platformMappings, tenantMappings, *projection.AttributionMappingVersion, evalTime, nil
+	}
+
+	platformMappings, tenantMappings, loadedVersion, err := s.mappings.LoadActiveMappings(ctx, tx, projection.TenantID, evalTime)
+	if err != nil {
+		return nil, nil, 0, evalTime, err
+	}
+	pinVersion, err := s.mappingPinVersion(ctx, loadedVersion)
+	if err != nil {
+		return nil, nil, 0, evalTime, err
+	}
+	if projection.AttributionMappingVersion == nil {
+		projection.AttributionMappingVersion = &pinVersion
+		projection.AttributionMappingEvaluatedAt = &evalTime
+	}
+	return platformMappings, tenantMappings, pinVersion, evalTime, nil
+}
+
+func (s *DerivedProjectionService) bootstrapLegacyMappingPin(
+	ctx context.Context,
+	tx pgx.Tx,
+	projection *domain.CostSummaryProjection,
+	evalTime time.Time,
+) error {
+	if projection == nil || projection.AttributionMappingVersion == nil || projection.AttributionMappingEvaluatedAt != nil {
+		return nil
+	}
+	platformMappings, tenantMappings, loadedVersion, err := s.mappings.LoadActiveMappings(ctx, tx, projection.TenantID, evalTime)
+	if err != nil {
+		return err
+	}
+	pinVersion, err := s.mappingPinVersion(ctx, loadedVersion)
+	if err != nil {
+		return err
+	}
+	_ = platformMappings
+	_ = tenantMappings
+	projection.AttributionMappingVersion = &pinVersion
+	eval := evalTime.UTC()
+	projection.AttributionMappingEvaluatedAt = &eval
+	return nil
+}
+
+func (s *DerivedProjectionService) mappingPinVersion(ctx context.Context, loadedVersion int64) (int64, error) {
+	platformVersion, err := s.mappings.CurrentPlatformMappingVersion(ctx)
+	if err != nil {
+		return 0, err
+	}
+	if loadedVersion > platformVersion {
+		return loadedVersion, nil
+	}
+	return platformVersion, nil
 }
 
 func (s *DerivedProjectionService) buildCanonicalDriverContext(

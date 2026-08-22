@@ -168,29 +168,30 @@ func TestBonus_MAP_OVERLAP_003_HTTPPutOverlapReturnsValidationError(t *testing.T
 	}
 }
 
-func TestBonus_MAP_PIN_001_PinnedLoadIgnoresEffectiveWindow(t *testing.T) {
+func TestBonus_MAP_PIN_001_PinnedLoadUsesHistoricallyPinnedEffectiveWindow(t *testing.T) {
 	env := setupEnv(t)
 	fix := seedFixture(t, env.pool)
-	now := time.Now().UTC()
-	expiredTo := now.Add(-2 * time.Hour)
+	pinTime := time.Now().UTC()
+	expiredTo := pinTime.Add(24 * time.Hour)
 	insertChargeMappingRow(t, env.pool, domain.MappingScopeTenant, &fix.TenantID,
-		"BONUS_PIN_EXPIRED", "LUMPER", 60, now.Add(-72*time.Hour), &expiredTo)
+		"BONUS_PIN_HISTORIC", "LUMPER", 60, pinTime.Add(-72*time.Hour), &expiredTo)
 
-	_, tenantActive, _, err := env.mappings.LoadActiveMappings(context.Background(), nil, fix.TenantID, now)
+	later := pinTime.Add(72 * time.Hour)
+	_, tenantActive, _, err := env.mappings.LoadActiveMappings(context.Background(), nil, fix.TenantID, later)
 	if err != nil {
 		t.Fatalf("load active: %v", err)
 	}
-	if _, ok := tenantMappingCategory(t, tenantActive, "BONUS_PIN_EXPIRED"); ok {
-		t.Fatal("expired mapping must not appear in active load")
+	if _, ok := tenantMappingCategory(t, tenantActive, "BONUS_PIN_HISTORIC"); ok {
+		t.Fatal("expired mapping must not appear in active load at later wall time")
 	}
 
-	_, tenantPinned, _, err := env.mappings.LoadPinnedMappings(context.Background(), nil, fix.TenantID, 60)
+	_, tenantPinned, _, err := env.mappings.LoadPinnedMappings(context.Background(), nil, fix.TenantID, 60, pinTime)
 	if err != nil {
 		t.Fatalf("load pinned: %v", err)
 	}
-	category, ok := tenantMappingCategory(t, tenantPinned, "BONUS_PIN_EXPIRED")
+	category, ok := tenantMappingCategory(t, tenantPinned, "BONUS_PIN_HISTORIC")
 	if !ok || category != "LUMPER" {
-		t.Fatalf("pinned load must ignore effective window, got ok=%v category=%q", ok, category)
+		t.Fatalf("pinned load must use historical evaluation window, got ok=%v category=%q", ok, category)
 	}
 }
 
@@ -201,7 +202,7 @@ func TestBonus_MAP_PIN_002_PinnedLoadExcludesHigherMappingVersion(t *testing.T) 
 	insertChargeMappingRow(t, env.pool, domain.MappingScopeTenant, &fix.TenantID,
 		"BONUS_PIN_HIGH", "FUEL", 80, now.Add(-24*time.Hour), nil)
 
-	_, tenantPinned, _, err := env.mappings.LoadPinnedMappings(context.Background(), nil, fix.TenantID, 70)
+	_, tenantPinned, _, err := env.mappings.LoadPinnedMappings(context.Background(), nil, fix.TenantID, 70, now)
 	if err != nil {
 		t.Fatalf("load pinned: %v", err)
 	}
@@ -319,6 +320,9 @@ func TestBonus_SEC_RECLASS_002_ReclassifyIgnoresBodyUsesCanonicalAPIs(t *testing
 	if projection.AttributionMappingVersion == nil || *projection.AttributionMappingVersion < currentVersion {
 		t.Fatalf("reclassify must pin attribution_mapping_version to current mapping version, got %v want >= %d",
 			projection.AttributionMappingVersion, currentVersion)
+	}
+	if projection.AttributionMappingEvaluatedAt == nil {
+		t.Fatal("reclassify must pin attribution_mapping_evaluated_at")
 	}
 }
 

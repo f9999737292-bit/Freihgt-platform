@@ -116,8 +116,9 @@ type CostSummaryProjection struct {
 	ForecastExposure            *decimal.Decimal
 	ForecastSourceStatus        string
 	DerivedStateFingerprint     *string
-	AttributionMappingVersion   *int64
-	ProjectionRevision          int64
+	AttributionMappingVersion      *int64
+	AttributionMappingEvaluatedAt  *time.Time
+	ProjectionRevision             int64
 }
 
 func SourceRevisionSemantic(sourceType string, sourceRevision int64) string {

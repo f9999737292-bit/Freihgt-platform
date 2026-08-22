@@ -30,7 +30,7 @@ const projectionSelectColumns = `
 		billing_reconciliation_status, financial_finality, data_stage, sources_available,
 		current_variance_amount, final_variance_amount, current_variance_percent, final_variance_percent,
 		forecast_exposure, forecast_source_status, derived_state_fingerprint,
-		attribution_mapping_version, projection_revision`
+		attribution_mapping_version, attribution_mapping_evaluated_at, projection_revision`
 
 func (r *CostSummaryProjectionRepository) GetByTransportOrder(
 	ctx context.Context,
@@ -68,14 +68,14 @@ func (r *CostSummaryProjectionRepository) Upsert(ctx context.Context, tx pgx.Tx,
 			billing_reconciliation_status, financial_finality, data_stage, sources_available,
 			current_variance_amount, final_variance_amount, current_variance_percent, final_variance_percent,
 			forecast_exposure, forecast_source_status, derived_state_fingerprint,
-			attribution_mapping_version, projection_revision, updated_at
+			attribution_mapping_version, attribution_mapping_evaluated_at, projection_revision, updated_at
 		) VALUES (
 			$1, $2, $3, $4, $5,
 			$6, $7, $8, $9,
 			$10, $11, $12,
 			$13, $14, $15, $16,
 			$17, $18, $19, $20,
-			$21, $22, $23, $24, $25, $26
+			$21, $22, $23, $24, $25, $26, $27
 		)
 		ON CONFLICT (tenant_id, transport_order_id) DO UPDATE SET
 			buyer_company_id = EXCLUDED.buyer_company_id,
@@ -100,6 +100,7 @@ func (r *CostSummaryProjectionRepository) Upsert(ctx context.Context, tx pgx.Tx,
 			forecast_source_status = EXCLUDED.forecast_source_status,
 			derived_state_fingerprint = EXCLUDED.derived_state_fingerprint,
 			attribution_mapping_version = EXCLUDED.attribution_mapping_version,
+			attribution_mapping_evaluated_at = EXCLUDED.attribution_mapping_evaluated_at,
 			projection_revision = EXCLUDED.projection_revision,
 			updated_at = EXCLUDED.updated_at`
 	args := []any{
@@ -113,7 +114,7 @@ func (r *CostSummaryProjectionRepository) Upsert(ctx context.Context, tx pgx.Tx,
 		decimalArg(projection.CurrentVarianceAmount), decimalArg(projection.FinalVarianceAmount),
 		percentArg(projection.CurrentVariancePercent), percentArg(projection.FinalVariancePercent),
 		decimalArg(projection.ForecastExposure), nullIfEmpty(projection.ForecastSourceStatus), projection.DerivedStateFingerprint,
-		projection.AttributionMappingVersion, projection.ProjectionRevision,
+		projection.AttributionMappingVersion, timeArg(projection.AttributionMappingEvaluatedAt), projection.ProjectionRevision,
 		time.Now().UTC(),
 	}
 	if tx != nil {
@@ -157,6 +158,7 @@ func scanProjection(row pgx.Row) (*domain.CostSummaryProjection, error) {
 	var currentVariance, finalVariance, forecast *string
 	var currentPercent, finalPercent *string
 	var forecastSourceStatus, derivedFingerprint *string
+	var mappingEvaluatedAt *time.Time
 	var reconciliationStatus, finality, dataStage string
 	var sourcesRaw []byte
 
@@ -168,7 +170,7 @@ func scanProjection(row pgx.Row) (*domain.CostSummaryProjection, error) {
 		&reconciliationStatus, &finality, &dataStage, &sourcesRaw,
 		&currentVariance, &finalVariance, &currentPercent, &finalPercent,
 		&forecast, &forecastSourceStatus, &derivedFingerprint,
-		&projection.AttributionMappingVersion, &projection.ProjectionRevision,
+		&projection.AttributionMappingVersion, &mappingEvaluatedAt, &projection.ProjectionRevision,
 	)
 	if err != nil {
 		return nil, mapDBError(err)
@@ -192,6 +194,7 @@ func scanProjection(row pgx.Row) (*domain.CostSummaryProjection, error) {
 		projection.ForecastSourceStatus = *forecastSourceStatus
 	}
 	projection.DerivedStateFingerprint = derivedFingerprint
+	projection.AttributionMappingEvaluatedAt = mappingEvaluatedAt
 	projection.BillingReconciliationStatus = domain.BillingReconciliationStatus(reconciliationStatus)
 	projection.FinancialFinality = domain.FinancialFinality(finality)
 	projection.DataStage = domain.DataStage(dataStage)
@@ -245,4 +248,11 @@ func nullIfEmpty(value string) any {
 		return nil
 	}
 	return value
+}
+
+func timeArg(value *time.Time) any {
+	if value == nil {
+		return nil
+	}
+	return value.UTC()
 }

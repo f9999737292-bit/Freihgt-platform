@@ -27,7 +27,7 @@ func (r *ChargeCodeMappingRepository) LoadActiveMappings(
 	tenantID uuid.UUID,
 	evaluationTime time.Time,
 ) (platform []domain.ChargeCodeMapping, tenant []domain.ChargeCodeMapping, maxVersion int64, err error) {
-	return r.loadMappingsAtVersion(ctx, tx, tenantID, evaluationTime)
+	return r.loadMappings(ctx, tx, tenantID, evaluationTime, nil)
 }
 
 func (r *ChargeCodeMappingRepository) LoadPinnedMappings(
@@ -35,96 +35,17 @@ func (r *ChargeCodeMappingRepository) LoadPinnedMappings(
 	tx pgx.Tx,
 	tenantID uuid.UUID,
 	pinnedVersion int64,
+	pinnedEvaluationTime time.Time,
 ) (platform []domain.ChargeCodeMapping, tenant []domain.ChargeCodeMapping, maxVersion int64, err error) {
-	return r.loadPinnedMappingsAtVersion(ctx, tx, tenantID, pinnedVersion)
+	return r.loadMappings(ctx, tx, tenantID, pinnedEvaluationTime, &pinnedVersion)
 }
 
-func (r *ChargeCodeMappingRepository) loadPinnedMappingsAtVersion(
-	ctx context.Context,
-	tx pgx.Tx,
-	tenantID uuid.UUID,
-	pinnedVersion int64,
-) (platform []domain.ChargeCodeMapping, tenant []domain.ChargeCodeMapping, maxLoaded int64, err error) {
-	query := `
-WITH eligible AS (
-	SELECT
-		mapping_scope,
-		tenant_id,
-		source_charge_code_normalized,
-		normalized_category,
-		mapping_version
-	FROM freight_cost.charge_code_mapping
-	WHERE (
-		(mapping_scope = 'PLATFORM' AND tenant_id IS NULL)
-		OR (mapping_scope = 'TENANT' AND tenant_id = $1)
-	)
-	AND mapping_version <= $2
-),
-ranked AS (
-	SELECT
-		*,
-		ROW_NUMBER() OVER (
-			PARTITION BY source_charge_code_normalized
-			ORDER BY
-				CASE mapping_scope WHEN 'TENANT' THEN 0 ELSE 1 END,
-				mapping_version DESC
-		) AS rn
-	FROM eligible
-)
-SELECT mapping_scope, tenant_id, source_charge_code_normalized, normalized_category, mapping_version
-FROM ranked
-WHERE rn = 1
-ORDER BY source_charge_code_normalized`
-
-	var rows pgx.Rows
-	if tx != nil {
-		rows, err = tx.Query(ctx, query, tenantID, pinnedVersion)
-	} else {
-		rows, err = r.pool.Query(ctx, query, tenantID, pinnedVersion)
-	}
-	if err != nil {
-		return nil, nil, 0, mapDBError(err)
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var mapping domain.ChargeCodeMapping
-		var scope string
-		var tenantIDPtr *uuid.UUID
-		if scanErr := rows.Scan(
-			&scope,
-			&tenantIDPtr,
-			&mapping.SourceChargeCodeNormalized,
-			&mapping.NormalizedCategory,
-			&mapping.MappingVersion,
-		); scanErr != nil {
-			return nil, nil, 0, mapDBError(scanErr)
-		}
-		mapping.MappingScope = scope
-		mapping.TenantID = tenantIDPtr
-		if mapping.MappingVersion > maxLoaded {
-			maxLoaded = mapping.MappingVersion
-		}
-		if scope == domain.MappingScopePlatform {
-			platform = append(platform, mapping)
-		} else {
-			tenant = append(tenant, mapping)
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return nil, nil, 0, mapDBError(err)
-	}
-	if maxLoaded == 0 {
-		maxLoaded = pinnedVersion
-	}
-	return platform, tenant, maxLoaded, nil
-}
-
-func (r *ChargeCodeMappingRepository) loadMappingsAtVersion(
+func (r *ChargeCodeMappingRepository) loadMappings(
 	ctx context.Context,
 	tx pgx.Tx,
 	tenantID uuid.UUID,
 	evaluationTime time.Time,
+	maxMappingVersion *int64,
 ) (platform []domain.ChargeCodeMapping, tenant []domain.ChargeCodeMapping, maxLoaded int64, err error) {
 	query := `
 WITH eligible AS (
@@ -143,6 +64,7 @@ WITH eligible AS (
 	)
 	AND effective_from <= $2
 	AND (effective_to IS NULL OR effective_to > $2)
+	AND ($3::bigint IS NULL OR mapping_version <= $3)
 ),
 ranked AS (
 	SELECT
@@ -161,11 +83,16 @@ FROM ranked
 WHERE rn = 1
 ORDER BY source_charge_code_normalized`
 
+	var versionCap any
+	if maxMappingVersion != nil {
+		versionCap = *maxMappingVersion
+	}
+
 	var rows pgx.Rows
 	if tx != nil {
-		rows, err = tx.Query(ctx, query, tenantID, evaluationTime)
+		rows, err = tx.Query(ctx, query, tenantID, evaluationTime, versionCap)
 	} else {
-		rows, err = r.pool.Query(ctx, query, tenantID, evaluationTime)
+		rows, err = r.pool.Query(ctx, query, tenantID, evaluationTime, versionCap)
 	}
 	if err != nil {
 		return nil, nil, 0, mapDBError(err)
@@ -200,19 +127,23 @@ ORDER BY source_charge_code_normalized`
 		return nil, nil, 0, mapDBError(err)
 	}
 	if maxLoaded == 0 {
-		maxLoaded = 1
+		if maxMappingVersion != nil {
+			maxLoaded = *maxMappingVersion
+		} else {
+			maxLoaded = 1
+		}
 	}
 	return platform, tenant, maxLoaded, nil
 }
 
 type UpsertChargeCodeMappingInput struct {
-	MappingScope     string
-	TenantID         *uuid.UUID
-	SourceCode       string
-	TargetCategory   string
-	EffectiveFrom    time.Time
-	EffectiveTo      *time.Time
-	ActorID          string
+	MappingScope   string
+	TenantID       *uuid.UUID
+	SourceCode     string
+	TargetCategory string
+	EffectiveFrom  time.Time
+	EffectiveTo    *time.Time
+	ActorID        string
 }
 
 func (r *ChargeCodeMappingRepository) UpsertMapping(
