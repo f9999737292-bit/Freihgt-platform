@@ -194,7 +194,7 @@ func (s *DerivedProjectionService) ReclassifyAttribution(
 	for _, kind := range []string{domain.VarianceKindCurrent, domain.VarianceKindFinal} {
 		attributionRows = append(attributionRows, domain.BuildVarianceDrivers(projection, kind, driverCtx)...)
 	}
-	inserted, err := s.attributions.InsertBatch(ctx, tx, attributionRows)
+	inserted, err := s.attributions.UpsertReclassifyBatch(ctx, tx, attributionRows)
 	if err != nil {
 		return 0, err
 	}

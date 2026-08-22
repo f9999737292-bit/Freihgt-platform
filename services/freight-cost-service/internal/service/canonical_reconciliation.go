@@ -39,7 +39,7 @@ func detectCanonicalReconciliationFindings(input canonicalReconciliationContext)
 	}
 
 	if input.settlement == nil {
-		if projection.AccruedAmount != nil || projection.CurrentActualAmount != nil {
+		if projection.SettlementLinked && (projection.AccruedAmount != nil || projection.CurrentActualAmount != nil) {
 			findings = append(findings, newCanonicalFinding(projection, domain.FindingProjectionDrift, "settlement_missing", 0, projection.ProjectionRevision, nil))
 		}
 	} else {

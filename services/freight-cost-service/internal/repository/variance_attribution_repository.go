@@ -64,6 +64,45 @@ func (r *VarianceAttributionRepository) InsertBatch(
 	return inserted, nil
 }
 
+func (r *VarianceAttributionRepository) UpsertReclassifyBatch(
+	ctx context.Context,
+	tx pgx.Tx,
+	rows []domain.VarianceAttribution,
+) (int, error) {
+	if len(rows) == 0 {
+		return 0, nil
+	}
+	const query = `
+		INSERT INTO freight_cost.variance_attribution (
+			tenant_id, transport_order_id, attribution_fact_id, semantic_class, variance_kind,
+			reason_code, evidence_json, mapping_version, projection_revision, is_current
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		ON CONFLICT (tenant_id, attribution_fact_id) DO UPDATE SET
+			semantic_class = EXCLUDED.semantic_class,
+			variance_kind = EXCLUDED.variance_kind,
+			reason_code = EXCLUDED.reason_code,
+			evidence_json = EXCLUDED.evidence_json,
+			mapping_version = EXCLUDED.mapping_version,
+			projection_revision = EXCLUDED.projection_revision,
+			is_current = TRUE`
+	upserted := 0
+	for _, row := range rows {
+		evidenceRaw, err := json.Marshal(row.EvidenceJSON)
+		if err != nil {
+			return upserted, apperrors.Internal("marshal evidence_json", err)
+		}
+		tag, err := tx.Exec(ctx, query,
+			row.TenantID, row.TransportOrderID, row.AttributionFactID, row.SemanticClass, row.VarianceKind,
+			row.ReasonCode, evidenceRaw, row.MappingVersion, row.ProjectionRevision, row.IsCurrent,
+		)
+		if err != nil {
+			return upserted, mapDBError(err)
+		}
+		upserted += int(tag.RowsAffected())
+	}
+	return upserted, nil
+}
+
 func (r *VarianceAttributionRepository) MarkDriversSuperseded(
 	ctx context.Context,
 	tx pgx.Tx,

@@ -5,6 +5,7 @@ package variance
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -555,7 +556,7 @@ func putChargeMappingHTTP(t *testing.T, env *env, fix fixture, body string, extr
 
 func reclassifyAttributionHTTP(t *testing.T, env *env, fix fixture, body *string, extraHeaders map[string]string) *httptest.ResponseRecorder {
 	t.Helper()
-	var reader *strings.Reader
+	var reader io.Reader = http.NoBody
 	if body != nil {
 		reader = strings.NewReader(*body)
 	}
