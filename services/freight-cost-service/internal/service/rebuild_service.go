@@ -101,6 +101,12 @@ func (s *RebuildService) RebuildTransportOrder(ctx context.Context, tenantID, tr
 	}
 
 	s.observeRebuild("success")
+	if s.derived != nil {
+		if err := s.derived.EnsureLegacyDerivedStateBootstrapped(ctx, tenantID, transportOrderID); err != nil {
+			s.observeRebuild("error")
+			return result, err
+		}
+	}
 	if settlementErr == nil && s.derived != nil {
 		_ = s.derived.EnrichForecastFromSettlement(ctx, tenantID, transportOrderID, settlement)
 	}

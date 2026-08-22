@@ -178,14 +178,23 @@ func (s *DerivedProjectionService) ReclassifyAttribution(
 	}
 
 	evalTime := time.Now().UTC()
-	platformMappings, tenantMappings, currentVersion, err := s.mappings.LoadActiveMappings(ctx, tx, tenantID, evalTime)
+	platformMappings, tenantMappings, loadedVersion, err := s.mappings.LoadActiveMappings(ctx, tx, tenantID, evalTime)
 	if err != nil {
 		return 0, err
 	}
-	driverCtx.MappingVersion = currentVersion
+	platformVersion, err := s.mappings.CurrentPlatformMappingVersion(ctx)
+	if err != nil {
+		return 0, err
+	}
+	pinVersion := platformVersion
+	if loadedVersion > pinVersion {
+		pinVersion = loadedVersion
+	}
+	driverCtx.MappingVersion = pinVersion
 	driverCtx.PlatformMappings = platformMappings
 	driverCtx.TenantMappings = tenantMappings
-	projection.AttributionMappingVersion = &currentVersion
+	pinnedVersion := pinVersion
+	projection.AttributionMappingVersion = &pinnedVersion
 	if err := s.attributions.MarkDriversSuperseded(ctx, tx, tenantID, transportOrderID); err != nil {
 		return 0, err
 	}
@@ -211,6 +220,37 @@ func (s *DerivedProjectionService) ReclassifyAttribution(
 		s.metrics.ObserveVarianceRecomputed("reclassified")
 	}
 	return inserted, nil
+}
+
+func (s *DerivedProjectionService) EnsureLegacyDerivedStateBootstrapped(
+	ctx context.Context,
+	tenantID, transportOrderID uuid.UUID,
+) error {
+	if s == nil || s.pool == nil || s.projections == nil {
+		return nil
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	projection, err := s.projections.GetByTransportOrderTx(ctx, tx, tenantID, transportOrderID)
+	if err != nil {
+		return err
+	}
+	if projection.DerivedStateFingerprint != nil && *projection.DerivedStateFingerprint != "" {
+		return nil
+	}
+	if _, err := domain.RecomputeDerivedProjection(projection, domain.ProposedAccessorialInput{
+		SourceStatus: domain.ProposedSourceUnknown,
+	}); err != nil {
+		return err
+	}
+	if err := s.projections.Upsert(ctx, tx, projection); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (s *DerivedProjectionService) buildCanonicalDriverContext(
