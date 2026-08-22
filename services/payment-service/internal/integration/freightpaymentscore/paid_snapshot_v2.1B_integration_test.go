@@ -82,7 +82,11 @@ func TestFC_B_PAY_OUTBOX_003_RevisionIncrementCreatesSecondSnapshotEvent(t *test
 	}, buyerActor(fix)); err != nil {
 		t.Fatalf("first allocate: %v", err)
 	}
-	firstVersion := obligation.Version
+	reloadedV1, err := env.paymentRepo.GetObligationByID(ctx, fix.TenantID, obligation.ID)
+	if err != nil {
+		t.Fatalf("reload after first allocate: %v", err)
+	}
+	firstVersion := reloadedV1.Version
 	countV1, _ := env.outboxRepo.CountOutboxByAggregateVersion(ctx, fix.TenantID,
 		domain.PaymentEventObligationPaidSnapshot, obligation.ID, int64(firstVersion))
 	if countV1 != 1 {

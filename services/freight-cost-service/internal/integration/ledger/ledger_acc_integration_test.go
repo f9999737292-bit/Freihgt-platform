@@ -59,8 +59,8 @@ func TestFC_B_ACC_004_DisputedAccessorialExcludedFromAccrual(t *testing.T) {
 		amount: decimalAmount("1000.00"), openDisputeCount: 1, settlementStatus: domain.SettlementStatusDisputed,
 	}))
 	projection := getProjection(t, env, fix)
-	if projection.OpenDisputeCount != 1 {
-		t.Fatalf("open disputes = %d", projection.OpenDisputeCount)
+	if projection.AccruedAmount == nil || !projection.AccruedAmount.Equal(*decimalAmount("1000.00")) {
+		t.Fatalf("disputed accessorial must stay excluded from accrual, got %v", projection.AccruedAmount)
 	}
 }
 

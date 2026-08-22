@@ -56,7 +56,6 @@ func (r *PaymentRepository) GetInternalObligationByBillingRegister(
 				ON fs2.id = bri.settlement_id AND fs2.tenant_id = bri.tenant_id
 			WHERE bri.register_id = br.id
 			  AND bri.tenant_id = br.tenant_id
-			  AND bri.deleted_at IS NULL
 			ORDER BY bri.created_at ASC
 			LIMIT 1
 		) fs ON TRUE

@@ -34,10 +34,10 @@ func ApplyCostEntryToProjection(projection *CostSummaryProjection, entry *CostEn
 		projection.AccruedAmount = amount
 		addSource(projection, SourceTypeFreightSettlement)
 	case EntryKindCurrentActualCostSnapshot:
-		projection.CurrentActualAmount = amount
+		projection.CurrentActualAmount = resolveCurrentActualProjectionAmount(projection, entry)
 		addSource(projection, SourceTypeFreightSettlement)
 	case EntryKindFinalActualCostSnapshot:
-		projection.FinalActualAmount = amount
+		projection.FinalActualAmount = resolveFinalActualProjectionAmount(projection, entry)
 		addSource(projection, SourceTypeFreightSettlement)
 	case EntryKindBilledCostSnapshot:
 		projection.BillingRegisterAmount = amount
@@ -69,6 +69,28 @@ func entryAmount(entry *CostEntry) *decimal.Decimal {
 	}
 	value := entry.Amount.Round(MoneyScale)
 	return &value
+}
+
+func resolveCurrentActualProjectionAmount(projection *CostSummaryProjection, entry *CostEntry) *decimal.Decimal {
+	if entry.AmountAvailability == AmountAvailabilityUnavailable {
+		return nil
+	}
+	return CurrentActualAmount(SettlementFinancialInput{
+		Status:           projection.SettlementStatus,
+		OpenDisputeCount: projection.OpenDisputeCount,
+		TotalWithoutVAT:  entry.Amount,
+	})
+}
+
+func resolveFinalActualProjectionAmount(projection *CostSummaryProjection, entry *CostEntry) *decimal.Decimal {
+	if entry.AmountAvailability == AmountAvailabilityUnavailable {
+		return nil
+	}
+	return FinalActualAmount(SettlementFinancialInput{
+		Status:           projection.SettlementStatus,
+		OpenDisputeCount: projection.OpenDisputeCount,
+		TotalWithoutVAT:  entry.Amount,
+	})
 }
 
 func addSource(projection *CostSummaryProjection, sourceType string) {

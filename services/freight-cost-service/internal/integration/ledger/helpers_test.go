@@ -83,16 +83,34 @@ func setupEnv(t *testing.T) *env {
 	projections := repository.NewCostSummaryProjectionRepository(pool)
 	ingest := service.NewIngestService(pool, entries, cursors, projections, metrics)
 
-	fix := seedFixture(t, pool)
 	mockTransport := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/internal/v1/transport-orders/")
+		orderIDStr := strings.TrimSuffix(path, "/rate-snapshot")
+		orderID, parseErr := uuid.Parse(orderIDStr)
+		if parseErr != nil {
+			http.Error(w, "invalid transport order id", http.StatusBadRequest)
+			return
+		}
+		var tenantID, buyerID, carrierID, snapshotID uuid.UUID
+		var totalAmount string
+		queryErr := pool.QueryRow(context.Background(), `
+			SELECT tenant_id, buyer_company_id, carrier_company_id, id, total_amount::text
+			FROM transport.transport_order_rate_snapshots
+			WHERE transport_order_id = $1
+			ORDER BY resolved_at DESC
+			LIMIT 1`, orderID).Scan(&tenantID, &buyerID, &carrierID, &snapshotID, &totalAmount)
+		if queryErr != nil {
+			http.NotFound(w, r)
+			return
+		}
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"transport_order_id":    fix.OrderID.String(),
-			"tenant_id":             fix.TenantID.String(),
-			"buyer_company_id":      fix.BuyerID.String(),
-			"carrier_company_id":    fix.CarrierID.String(),
-			"snapshot_id":           fix.SnapshotID.String(),
+			"transport_order_id":    orderID.String(),
+			"tenant_id":             tenantID.String(),
+			"buyer_company_id":      buyerID.String(),
+			"carrier_company_id":    carrierID.String(),
+			"snapshot_id":           snapshotID.String(),
 			"currency_code":         "RUB",
-			"total_amount":          fix.PlannedAmount.StringFixed(domain.MoneyScale),
+			"total_amount":          totalAmount,
 			"pricing_source":        "RFQ_AWARD",
 			"pricing_model_version": "SNAPSHOT_V1",
 			"resolved_at":           time.Now().UTC().Format(time.RFC3339),
