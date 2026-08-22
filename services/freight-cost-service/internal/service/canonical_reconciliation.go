@@ -30,7 +30,9 @@ func detectCanonicalReconciliationFindings(input canonicalReconciliationContext)
 		if projection.PlannedAmount != nil {
 			findings = append(findings, newCanonicalFinding(projection, domain.FindingMissingPlannedFact, "planned", 0, projection.ProjectionRevision, nil))
 		}
-	} else if projection.PlannedAmount == nil || !decimalEqualPtr(projection.PlannedAmount, &input.snapshot.TotalAmount) {
+	} else if projection.PlannedAmount == nil {
+		findings = append(findings, newCanonicalFinding(projection, domain.FindingMissingPlannedFact, "planned", 0, projection.ProjectionRevision, nil))
+	} else if !decimalEqualPtr(projection.PlannedAmount, &input.snapshot.TotalAmount) {
 		findings = append(findings, newCanonicalFinding(projection, domain.FindingProjectionDrift, "planned_amount", 1, projection.ProjectionRevision, map[string]any{
 			"canonical_source": "transport_rate_snapshot",
 		}))
