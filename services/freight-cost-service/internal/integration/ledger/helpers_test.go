@@ -140,7 +140,6 @@ func setupEnv(t *testing.T) *env {
 	transportClient := transport_order.NewClient(cfg.TransportOrderURL, cfg.InternalServiceToken, metrics)
 	billingClient := billing_register.NewClient(cfg.BillingRegisterURL, testToken, metrics)
 	paymentClient := payment.NewClient(cfg.PaymentServiceURL, testToken, metrics)
-	cursors := repository.NewSourceCursorRepository(pool)
 	derived := service.NewDerivedProjectionService(pool, projections, attributions, findings, mappings, cursors, billingClient, transportClient, metrics)
 	ingest := service.NewIngestService(pool, entries, cursors, projections, derived, metrics)
 	rebuild := service.NewRebuildService(ingest, derived, transportClient, billingClient, paymentClient, metrics)
