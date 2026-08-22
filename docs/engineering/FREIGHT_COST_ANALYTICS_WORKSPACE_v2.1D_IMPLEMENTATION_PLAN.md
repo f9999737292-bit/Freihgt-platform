@@ -51,9 +51,22 @@ v2.1A/B/C established the derived cost projection, ledger ingest, variance/forec
 |-----|------|------------------------|
 | **`apps/web-procurement`** | Buyer + carrier procurement, settlements, billing, payments, contract rates | **PRIMARY OWNER** — already hosts settlement/billing/payment workspaces with buyer/carrier actor split |
 | `apps/web-admin` | Internal ops (transport orders, shipments, RFx, control tower) | No freight-cost UI; control-tower KPI pattern exists but not cost analytics |
+| `apps/web-finance` | Skeleton portal (`pages/index.vue` only) | **REJECTED** — no finance workspace pattern, no stronger ownership case |
 | `apps/web-shipper` | Minimal scaffold | Not suitable |
 
 **Decision:** `FRONTEND_OWNER_APP = apps/web-procurement` — mirror v2.0D Contract Rate Workspace pattern in the same app.
+
+#### Frontend owner freeze
+
+| Gate | Value |
+|------|-------|
+| `WEB_PROCUREMENT_OWNER` | **YES** |
+| `WEB_FINANCE_OWNER` | **NO** |
+| `WEB_FINANCE_REJECTED_REASON` | Freight-cost workspace continues the existing procurement settlement / billing / payment / contract-rate workflows; no stronger ownership case exists for `apps/web-finance` |
+| New app creation | **PROHIBITED** |
+| App migration / move | **PROHIBITED** |
+
+Do not create or move apps. v2.1D implementation stays under `apps/web-procurement/**` only.
 
 ### 3.2 API / gateway state
 
@@ -83,7 +96,7 @@ GET /internal/v1/freight-cost/transport-orders/{transportOrderId}
 - Provenance: `planned_source`
 - Reconciliation: `billing_reconciliation_status`
 
-**Not exposed on any public DTO today:** variance drivers, availability reasons, attribution rows, reconciliation findings list, charge-code mappings, aggregate KPIs, lane/carrier rollups.
+**Not exposed on any public DTO today:** variance percent fields (present in projection domain only), variance drivers, availability reasons, attribution rows, reconciliation findings list, charge-code mappings, aggregate KPIs, lane/carrier rollups.
 
 ### 3.4 Buyer/carrier masking (backend — v2.1A)
 
@@ -101,6 +114,7 @@ Carrier may see: planned (context), current/final actual (receivable), billing r
 | Feature flag | `NUXT_PUBLIC_CONTRACT_RATE_WORKSPACE_ENABLED` → `useContractRateFeature()` |
 | Flag middleware | `middleware/contract-rate-workspace.ts` → `/contracts/unavailable` |
 | Nav gating | `layouts/default.vue` — `v-if="showContractsNav"` |
+| KPI cards | `apps/web-admin/components/control-tower/MetricCard.vue` (or equivalent shared KPI-card component) |
 | Table + pagination | `components/ui/Table.vue`, client-side `paginateItems` in contract rates |
 | Filters | Reactive filter objects + computed filtered lists |
 | Money display (legacy) | `utils/format.ts` — **uses JS `number`** — **must not be used for v2.1D financial fields** |
@@ -108,6 +122,17 @@ Carrier may see: planned (context), current/final actual (receivable), billing r
 | Permissions UX | `usePermissions()` — **UX only**, not security boundary |
 | Settlement buyer/carrier actor | `utils/settlement.ts` — `resolveSettlementActor` |
 | Empty/loading/error | `EmptyState`, toast pattern, `apiUnavailable` ref |
+
+#### KPI component reuse freeze
+
+Reuse the existing `MetricCard` (or an equivalent shared KPI-card component) when its semantics, accessibility, and layout are sufficient for Overview KPI tiles.
+
+| Rule | Value |
+|------|-------|
+| `FreightCostMetricCard` branding-only wrapper | **PROHIBITED** |
+| `NEW_KPI_COMPONENT_REQUIRES_DOCUMENTED_GAP` | **YES** — a new KPI component may be introduced only when an existing shared component cannot satisfy a documented functional, accessibility, or layout gap |
+
+Do not introduce a new `FreightCostMetricCard` merely for branding.
 
 ### 3.6 Export / download
 
@@ -482,6 +507,8 @@ Align with internal `CostSummaryResponse` + extensions:
   "paid_amount": null,
   "current_variance_amount": "50.00",
   "final_variance_amount": null,
+  "current_variance_percent": "5.00",
+  "final_variance_percent": null,
   "billing_reconciliation_status": "MATCH",
   "cost_updated_at": "2026-08-22T12:00:00Z",
   "availability_reasons": ["FINAL_ACTUAL_PENDING_SETTLEMENT"]
@@ -489,6 +516,21 @@ Align with internal `CostSummaryResponse` + extensions:
 ```
 
 Carrier-scoped responses **omit** buyer-internal fields server-side (null/absent — not error).
+
+**Variance percent fields (v2.1E addition):**
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `current_variance_percent` | decimal string \| null | Backend-derived; buyer-only |
+| `final_variance_percent` | decimal string \| null | Backend-derived; buyer-only |
+
+```text
+VARIANCE_PERCENT_CALCULATED_BY_BACKEND=YES
+FRONTEND_VARIANCE_PERCENT_ARITHMETIC=NO
+JS_NUMBER_FINANCIAL_CALCULATION=NO
+```
+
+Percent values are computed by freight-cost-service (same rules as v2.1C domain variance percent). The frontend displays the wire string with locale-aware formatting only — no `(variance / planned) * 100` in Vue/JS.
 
 ### 20.2 `FreightCostSummaryAggregateDTO`
 
@@ -605,6 +647,14 @@ Total planned: **~82** test IDs across families.
 | Decision | Value |
 |----------|-------|
 | `FRONTEND_OWNER_APP` | `apps/web-procurement` |
+| `WEB_PROCUREMENT_OWNER` | **YES** |
+| `WEB_FINANCE_OWNER` | **NO** |
+| `WEB_FINANCE_REJECTED_REASON` | Continues procurement settlement/billing/payment/contract-rate workflows; no stronger case for `web-finance` |
+| `METRIC_CARD_REUSE` | Reuse `MetricCard` or equivalent shared KPI-card; no branding-only wrapper |
+| `NEW_KPI_COMPONENT_REQUIRES_DOCUMENTED_GAP` | **YES** |
+| `VARIANCE_PERCENT_CALCULATED_BY_BACKEND` | **YES** |
+| `FRONTEND_VARIANCE_PERCENT_ARITHMETIC` | **NO** |
+| `JS_NUMBER_FINANCIAL_CALCULATION` | **NO** |
 | `FEATURE_FLAG` | `NUXT_PUBLIC_FREIGHT_COST_WORKSPACE_ENABLED` |
 | `FEATURE_FLAG_DEFAULT` | `false` |
 | `BROWSER_DIRECT_INTERNAL_SERVICE_CALL` | **NO** |
