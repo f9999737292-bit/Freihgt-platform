@@ -100,15 +100,21 @@ func seedSnapshotOrder(t *testing.T, env *env, fix *accrualFixture, totalAmount 
 	}
 	if _, err := env.pool.Exec(ctx, `
 		INSERT INTO transport.shipments (
-			id, tenant_id, transport_order_id, carrier_company_id, status, deleted_at
-		) VALUES ($1,$2,$3,$4,'DELIVERED',NULL)`, fix.ShipmentID, fix.TenantID, fix.OrderID, fix.CarrierID); err != nil {
+			id, tenant_id, shipment_number, transport_order_id, shipper_company_id, consignee_company_id,
+			carrier_company_id, origin_location_id, destination_location_id, cargo_id, transport_mode, status,
+			actual_delivery_at
+		) VALUES ($1,$2,$3,$4,$5,$5,$6,$7,$8,$9,'ROAD','DELIVERED',now())`,
+		fix.ShipmentID, fix.TenantID, "SHP-"+fix.ShipmentID.String()[:8], fix.OrderID, fix.BuyerID,
+		fix.CarrierID, fix.OriginID, fix.DestID, fix.CargoID); err != nil {
 		t.Fatalf("shipment: %v", err)
 	}
+	podID := uuid.New()
 	if _, err := env.pool.Exec(ctx, `
 		INSERT INTO documents.documents (
-			id, tenant_id, company_id, document_type, related_entity_type, related_entity_id, file_name, deleted_at
-		) VALUES ($1,$2,$3,'POD','SHIPMENT',$4,'pod.pdf',NULL)`,
-		uuid.New(), fix.TenantID, fix.CarrierID, fix.ShipmentID); err != nil {
+			id, tenant_id, document_number, document_type, document_status,
+			owner_company_id, related_entity_type, related_entity_id, created_at, updated_at
+		) VALUES ($1,$2,$3,'POD','SIGNED',$4,'SHIPMENT',$5,now(),now())`,
+		podID, fix.TenantID, "POD-"+fix.ShipmentID.String()[:8], fix.CarrierID, fix.ShipmentID); err != nil {
 		t.Fatalf("pod: %v", err)
 	}
 }
@@ -297,13 +303,21 @@ func TestFC_B_ACC_SEM_E_MissingSnapshotFailClosed(t *testing.T) {
 		t.Fatalf("order: %v", err)
 	}
 	if _, err := env.pool.Exec(ctx, `
-		INSERT INTO transport.shipments (id, tenant_id, transport_order_id, carrier_company_id, status)
-		VALUES ($1,$2,$3,$4,'DELIVERED')`, fix.ShipmentID, fix.TenantID, fix.OrderID, fix.CarrierID); err != nil {
+		INSERT INTO transport.shipments (
+			id, tenant_id, shipment_number, transport_order_id, shipper_company_id, consignee_company_id,
+			carrier_company_id, origin_location_id, destination_location_id, cargo_id, transport_mode, status,
+			actual_delivery_at
+		) VALUES ($1,$2,$3,$4,$5,$5,$6,$7,$8,$9,'ROAD','DELIVERED',now())`,
+		fix.ShipmentID, fix.TenantID, "SHP-MISSING", fix.OrderID, fix.BuyerID,
+		fix.CarrierID, fix.OriginID, fix.DestID, fix.CargoID); err != nil {
 		t.Fatalf("shipment: %v", err)
 	}
 	if _, err := env.pool.Exec(ctx, `
-		INSERT INTO documents.documents (id, tenant_id, company_id, document_type, related_entity_type, related_entity_id, file_name)
-		VALUES ($1,$2,$3,'POD','SHIPMENT',$4,'pod.pdf')`, uuid.New(), fix.TenantID, fix.CarrierID, fix.ShipmentID); err != nil {
+		INSERT INTO documents.documents (
+			id, tenant_id, document_number, document_type, document_status,
+			owner_company_id, related_entity_type, related_entity_id, created_at, updated_at
+		) VALUES ($1,$2,$3,'POD','SIGNED',$4,'SHIPMENT',$5,now(),now())`,
+		uuid.New(), fix.TenantID, "POD-MISSING", fix.CarrierID, fix.ShipmentID); err != nil {
 		t.Fatalf("pod: %v", err)
 	}
 	_, err := env.repo.LoadShipmentContext(ctx, fix.TenantID, fix.ShipmentID)
