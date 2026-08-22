@@ -137,10 +137,12 @@ func TestBonus_MAP_PIN_TIME_004_ReclassificationUsesFutureRuleAndRepins(t *testi
 	})
 	fix := seedFixture(t, env.pool)
 	pinTime := time.Now().UTC().Truncate(time.Second)
+	fuelStart := pinTime.Add(-1 * time.Hour)
+	detentionEnd := fuelStart
 	insertChargeMappingRow(t, env.pool, domain.MappingScopeTenant, &fix.TenantID,
-		"PIN_TIME_FUEL", "DETENTION", 71, pinTime.Add(-24*time.Hour), nil)
+		"PIN_TIME_FUEL", "DETENTION", 71, pinTime.Add(-24*time.Hour), &detentionEnd)
 	insertChargeMappingRow(t, env.pool, domain.MappingScopeTenant, &fix.TenantID,
-		"PIN_TIME_FUEL", "FUEL", 72, pinTime.Add(-1*time.Hour), nil)
+		"PIN_TIME_FUEL", "FUEL", 72, fuelStart, nil)
 
 	ingestPlannedAndActual(t, env, fix)
 	before := getProjection(t, env, fix)
@@ -208,10 +210,12 @@ func TestBonus_MAP_PIN_TIME_005_StandardRebuildAfterReclassificationReproducesRe
 	})
 	fix := seedFixture(t, env.pool)
 	pinTime := time.Now().UTC().Truncate(time.Second)
+	fuelStart := pinTime.Add(-1 * time.Hour)
+	detentionEnd := fuelStart
 	insertChargeMappingRow(t, env.pool, domain.MappingScopeTenant, &fix.TenantID,
-		"PIN_TIME_FUEL", "DETENTION", 81, pinTime.Add(-24*time.Hour), nil)
+		"PIN_TIME_FUEL", "DETENTION", 81, pinTime.Add(-24*time.Hour), &detentionEnd)
 	insertChargeMappingRow(t, env.pool, domain.MappingScopeTenant, &fix.TenantID,
-		"PIN_TIME_FUEL", "FUEL", 82, pinTime.Add(-1*time.Hour), nil)
+		"PIN_TIME_FUEL", "FUEL", 82, fuelStart, nil)
 
 	ingestPlannedAndActual(t, env, fix)
 	if _, err := env.derived.ReclassifyAttribution(context.Background(), fix.TenantID, fix.OrderID); err != nil {
@@ -226,7 +230,7 @@ func TestBonus_MAP_PIN_TIME_005_StandardRebuildAfterReclassificationReproducesRe
 	}
 
 	insertChargeMappingRow(t, env.pool, domain.MappingScopeTenant, &fix.TenantID,
-		"PIN_TIME_FUEL", "OTHER", 99, pinTime.Add(-1*time.Hour), nil)
+		"PIN_TIME_FUEL", "OTHER", 99, pinTime.Add(1*time.Hour), nil)
 
 	if _, err := env.rebuild.RebuildTransportOrder(context.Background(), fix.TenantID, fix.OrderID); err != nil {
 		t.Fatalf("rebuild: %v", err)
