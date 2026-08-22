@@ -59,6 +59,7 @@ type IngestService struct {
 	entries      *repository.CostEntryRepository
 	cursors      *repository.SourceCursorRepository
 	projections  *repository.CostSummaryProjectionRepository
+	derived      *DerivedProjectionService
 	metrics      *fcmetrics.Metrics
 }
 
@@ -67,6 +68,7 @@ func NewIngestService(
 	entries *repository.CostEntryRepository,
 	cursors *repository.SourceCursorRepository,
 	projections *repository.CostSummaryProjectionRepository,
+	derived *DerivedProjectionService,
 	metrics *fcmetrics.Metrics,
 ) *IngestService {
 	return &IngestService{
@@ -74,6 +76,7 @@ func NewIngestService(
 		entries:     entries,
 		cursors:     cursors,
 		projections: projections,
+		derived:     derived,
 		metrics:     metrics,
 	}
 }
@@ -175,6 +178,13 @@ func (s *IngestService) Ingest(ctx context.Context, input SourceEventInput) (Ing
 				"field": "currency_code",
 			})
 		}
+		if s.derived != nil {
+			if err := s.derived.RecomputeInTransaction(ctx, tx, projection, domain.ProposedAccessorialInput{
+				SourceStatus: domain.ProposedSourceUnknown,
+			}, domain.DriverAttributionContext{}); err != nil {
+				return IngestResult{}, err
+			}
+		}
 		if err := s.projections.Upsert(ctx, tx, projection); err != nil {
 			return IngestResult{}, err
 		}
@@ -195,6 +205,9 @@ func (s *IngestService) Ingest(ctx context.Context, input SourceEventInput) (Ing
 	s.observeIngest(input.EntryKind, outcome)
 	if err := tx.Commit(ctx); err != nil {
 		return IngestResult{}, apperrors.Internal("commit transaction", err)
+	}
+	if outcome == IngestOutcomeApplied && s.derived != nil {
+		_ = s.derived.EnrichForecastFromBilling(ctx, input.TenantID, input.TransportOrderID)
 	}
 	return IngestResult{Outcome: outcome, CostEntryID: &entryID}, nil
 }

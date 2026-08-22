@@ -37,6 +37,12 @@ func NewClient(baseURL, token string, metrics *fcmetrics.Metrics) *Client {
 	}
 }
 
+type ApprovedAccessorialFact struct {
+	AccessorialID uuid.UUID
+	ChargeCode    string
+	Amount        decimal.Decimal
+}
+
 type SettlementFact struct {
 	SettlementID        uuid.UUID
 	TransportOrderID    uuid.UUID
@@ -49,11 +55,15 @@ type SettlementFact struct {
 	Version             int64
 	BillingLinkRevision int64
 	BillingLinkState    string
-	CurrencyCode        string
-	AccrualAmountExVAT  *decimal.Decimal
-	TotalWithoutVAT     *decimal.Decimal
-	RateSnapshotID      *uuid.UUID
-	UpdatedAt           time.Time
+	CurrencyCode                    string
+	BaseFreightAmount               *decimal.Decimal
+	AccrualAmountExVAT              *decimal.Decimal
+	TotalWithoutVAT                 *decimal.Decimal
+	ProposedAccessorialTotalExVAT   *decimal.Decimal
+	ProposedAccessorialSourceStatus string
+	ApprovedAccessorials            []ApprovedAccessorialFact
+	RateSnapshotID                  *uuid.UUID
+	UpdatedAt                       time.Time
 }
 
 type BillingLinkFact struct {
@@ -90,10 +100,20 @@ type settlementResponse struct {
 	BillingLinkRevision int64   `json:"billing_link_revision"`
 	BillingLinkState    string  `json:"billing_link_state"`
 	CurrencyCode        string  `json:"currency_code"`
-	AccrualAmountExVAT  string  `json:"accrual_amount_ex_vat"`
-	TotalWithoutVAT     string  `json:"total_without_vat"`
+	BaseFreightAmount   string  `json:"base_freight_amount"`
+	AccrualAmountExVAT              string  `json:"accrual_amount_ex_vat"`
+	TotalWithoutVAT                 string  `json:"total_without_vat"`
+	ProposedAccessorialTotalExVAT   string  `json:"proposed_accessorial_total_ex_vat"`
+	ProposedAccessorialSourceStatus string  `json:"proposed_accessorial_source_status"`
+	ApprovedAccessorials            []approvedAccessorialResponse `json:"approved_accessorials"`
 	RateSnapshotID      *string `json:"rate_snapshot_id,omitempty"`
 	UpdatedAt           string  `json:"updated_at"`
+}
+
+type approvedAccessorialResponse struct {
+	AccessorialID string `json:"accessorial_id"`
+	ChargeCode    string `json:"charge_code"`
+	AmountExVAT   string `json:"amount_ex_vat"`
 }
 
 type billingLinkResponse struct {
@@ -271,9 +291,10 @@ func mapSettlement(payload settlementResponse, requestedTenantID, requestedTrans
 		Version:             int64(payload.Version),
 		BillingLinkRevision: payload.BillingLinkRevision,
 		BillingLinkState:    strings.TrimSpace(payload.BillingLinkState),
-		CurrencyCode:        strings.ToUpper(strings.TrimSpace(payload.CurrencyCode)),
-		RateSnapshotID:      rateSnapshotID,
-		UpdatedAt:           updatedAt.UTC(),
+		CurrencyCode:                    strings.ToUpper(strings.TrimSpace(payload.CurrencyCode)),
+		ProposedAccessorialSourceStatus: strings.ToUpper(strings.TrimSpace(payload.ProposedAccessorialSourceStatus)),
+		RateSnapshotID:                  rateSnapshotID,
+		UpdatedAt:                       updatedAt.UTC(),
 	}
 	if strings.TrimSpace(payload.AccrualAmountExVAT) != "" {
 		amount, err := domain.ParseMoneyAmount(payload.AccrualAmountExVAT)
@@ -288,6 +309,35 @@ func mapSettlement(payload settlementResponse, requestedTenantID, requestedTrans
 			return nil, apperrors.BadGateway("invalid total_without_vat", err)
 		}
 		fact.TotalWithoutVAT = &amount
+	}
+	if strings.TrimSpace(payload.ProposedAccessorialTotalExVAT) != "" && fact.ProposedAccessorialSourceStatus == domain.ProposedSourceKnown {
+		amount, err := domain.ParseMoneyAmount(payload.ProposedAccessorialTotalExVAT)
+		if err != nil {
+			return nil, apperrors.BadGateway("invalid proposed_accessorial_total_ex_vat", err)
+		}
+		fact.ProposedAccessorialTotalExVAT = &amount
+	}
+	if strings.TrimSpace(payload.BaseFreightAmount) != "" {
+		amount, err := domain.ParseMoneyAmount(payload.BaseFreightAmount)
+		if err != nil {
+			return nil, apperrors.BadGateway("invalid base_freight_amount", err)
+		}
+		fact.BaseFreightAmount = &amount
+	}
+	for _, item := range payload.ApprovedAccessorials {
+		accessorialID, err := parseUUID("accessorial_id", item.AccessorialID)
+		if err != nil {
+			return nil, err
+		}
+		amount, err := domain.ParseMoneyAmount(item.AmountExVAT)
+		if err != nil {
+			return nil, apperrors.BadGateway("invalid approved accessorial amount", err)
+		}
+		fact.ApprovedAccessorials = append(fact.ApprovedAccessorials, ApprovedAccessorialFact{
+			AccessorialID: accessorialID,
+			ChargeCode:    item.ChargeCode,
+			Amount:        amount,
+		})
 	}
 	return fact, nil
 }

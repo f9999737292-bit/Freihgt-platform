@@ -9,6 +9,7 @@ import (
 	"github.com/freight-platform/freight-cost-service/internal/config"
 	"github.com/freight-platform/freight-cost-service/internal/http/handlers"
 	fcmetrics "github.com/freight-platform/freight-cost-service/internal/platform/metrics"
+	"github.com/freight-platform/freight-cost-service/internal/repository"
 	"github.com/freight-platform/freight-cost-service/internal/service"
 	"github.com/freight-platform/shared-go/internalauth"
 	"github.com/freight-platform/shared-go/metrics"
@@ -25,10 +26,13 @@ func NewRouter(
 	costSvc *service.CostService,
 	ingestSvc *service.IngestService,
 	rebuildSvc *service.RebuildService,
+	derivedSvc *service.DerivedProjectionService,
+	mappingRepo *repository.ChargeCodeMappingRepository,
 	domainMetrics *fcmetrics.Metrics,
 ) http.Handler {
 	costHandler := handlers.NewCostHandler(costSvc)
 	sourceHandler := handlers.NewSourceEventHandler(ingestSvc, rebuildSvc)
+	varianceHandler := handlers.NewVarianceHandler(derivedSvc, mappingRepo)
 	internalAuth := internalauth.Config{Token: cfg.InternalServiceToken, Environment: cfg.Environment}
 
 	r := chi.NewRouter()
@@ -48,6 +52,9 @@ func NewRouter(
 		r.Get("/transport-orders/{transportOrderId}", costHandler.GetTransportOrderCostSummary)
 		r.Post("/source-events", sourceHandler.PostSourceEvent)
 		r.Post("/transport-orders/{transportOrderId}/rebuild", sourceHandler.RebuildTransportOrder)
+		r.Post("/transport-orders/{transportOrderId}/reconcile", varianceHandler.ReconcileTransportOrder)
+		r.Post("/transport-orders/{transportOrderId}/reclassify-attribution", varianceHandler.ReclassifyAttribution)
+		r.Put("/charge-code-mappings", varianceHandler.PutChargeCodeMapping)
 	})
 
 	return r

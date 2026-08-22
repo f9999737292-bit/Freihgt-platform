@@ -47,16 +47,20 @@ func main() {
 	entryRepo := repository.NewCostEntryRepository(db.Pool)
 	cursorRepo := repository.NewSourceCursorRepository(db.Pool)
 	projectionRepo := repository.NewCostSummaryProjectionRepository(db.Pool)
+	attributionRepo := repository.NewVarianceAttributionRepository()
+	findingRepo := repository.NewReconciliationFindingRepository()
+	mappingRepo := repository.NewChargeCodeMappingRepository(db.Pool)
 
 	transportClient := transport_order.NewClient(cfg.TransportOrderURL, cfg.InternalServiceToken, domainMetrics)
 	billingClient := billing_register.NewClient(cfg.BillingRegisterURL, cfg.InternalServiceToken, domainMetrics)
 	paymentClient := payment.NewClient(cfg.PaymentServiceURL, cfg.InternalServiceToken, domainMetrics)
 
-	ingestSvc := service.NewIngestService(db.Pool, entryRepo, cursorRepo, projectionRepo, domainMetrics)
-	rebuildSvc := service.NewRebuildService(ingestSvc, transportClient, billingClient, paymentClient, domainMetrics)
+	derivedSvc := service.NewDerivedProjectionService(db.Pool, projectionRepo, attributionRepo, findingRepo, mappingRepo, cursorRepo, billingClient, transportClient, domainMetrics)
+	ingestSvc := service.NewIngestService(db.Pool, entryRepo, cursorRepo, projectionRepo, derivedSvc, domainMetrics)
+	rebuildSvc := service.NewRebuildService(ingestSvc, derivedSvc, transportClient, billingClient, paymentClient, domainMetrics)
 	costSvc := service.NewCostService(transportClient, projectionRepo)
 
-	router := httpserver.NewRouter(log, db.Pool, cfg, costSvc, ingestSvc, rebuildSvc, domainMetrics)
+	router := httpserver.NewRouter(log, db.Pool, cfg, costSvc, ingestSvc, rebuildSvc, derivedSvc, mappingRepo, domainMetrics)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

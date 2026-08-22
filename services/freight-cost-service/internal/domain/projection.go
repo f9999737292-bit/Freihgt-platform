@@ -209,6 +209,27 @@ func ProjectionToCostSummary(projection *CostSummaryProjection) (*CostSummary, e
 		}
 		summary.PaidAmount = m
 	}
+	if projection.CurrentVarianceAmount != nil {
+		m, err := NewMoney(*projection.CurrentVarianceAmount, projection.CurrencyCode)
+		if err != nil {
+			return nil, err
+		}
+		summary.CurrentVarianceAmount = m
+	}
+	if projection.FinalVarianceAmount != nil {
+		m, err := NewMoney(*projection.FinalVarianceAmount, projection.CurrencyCode)
+		if err != nil {
+			return nil, err
+		}
+		summary.FinalVarianceAmount = m
+	}
+	if projection.ForecastExposure != nil {
+		m, err := NewMoney(*projection.ForecastExposure, projection.CurrencyCode)
+		if err != nil {
+			return nil, err
+		}
+		summary.ForecastExposure = m
+	}
 	status := projection.BillingReconciliationStatus
 	summary.BillingReconciliationStatus = &status
 	return summary, nil

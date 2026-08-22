@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -16,6 +17,50 @@ type SourceCursorRepository struct {
 
 func NewSourceCursorRepository(pool *pgxpool.Pool) *SourceCursorRepository {
 	return &SourceCursorRepository{pool: pool}
+}
+
+func (r *SourceCursorRepository) ListByTransportOrder(
+	ctx context.Context,
+	tx pgx.Tx,
+	tenantID, transportOrderID uuid.UUID,
+) ([]domain.SourceCursor, error) {
+	const query = `
+		SELECT tenant_id, transport_order_id, source_service, source_type, source_id, entry_kind,
+		       last_source_revision, last_source_event_id, last_cost_entry_id
+		FROM freight_cost.source_cursor
+		WHERE tenant_id = $1 AND transport_order_id = $2`
+	var rows pgx.Rows
+	var err error
+	if tx != nil {
+		rows, err = tx.Query(ctx, query, tenantID, transportOrderID)
+	} else {
+		rows, err = r.pool.Query(ctx, query, tenantID, transportOrderID)
+	}
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	defer rows.Close()
+	var out []domain.SourceCursor
+	for rows.Next() {
+		var cursor domain.SourceCursor
+		if scanErr := rows.Scan(
+			&cursor.TenantID, &cursor.TransportOrderID, &cursor.SourceService, &cursor.SourceType,
+			&cursor.SourceID, &cursor.EntryKind,
+			&cursor.LastSourceRevision, &cursor.LastSourceEventID, &cursor.LastCostEntryID,
+		); scanErr != nil {
+			return nil, mapDBError(scanErr)
+		}
+		cursor.SourceCursorKey = domain.SourceCursorKey{
+			TenantID:         cursor.TenantID,
+			TransportOrderID: cursor.TransportOrderID,
+			SourceService:    cursor.SourceService,
+			SourceType:       cursor.SourceType,
+			SourceID:         cursor.SourceID,
+			EntryKind:        cursor.EntryKind,
+		}
+		out = append(out, cursor)
+	}
+	return out, rows.Err()
 }
 
 func (r *SourceCursorRepository) Get(ctx context.Context, tx pgx.Tx, key domain.SourceCursorKey) (*domain.SourceCursor, error) {
