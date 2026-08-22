@@ -118,15 +118,26 @@ func setupEnv(t *testing.T) *env {
 	}))
 	t.Cleanup(mockTransport.Close)
 
+	mockBilling := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(mockBilling.Close)
+	mockPayment := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(mockPayment.Close)
+
 	cfg := config.Config{
 		ServiceName:          "freight-cost-service",
 		Environment:          "test",
 		InternalServiceToken: testToken,
 		TransportOrderURL:    mockTransport.URL,
+		BillingRegisterURL:   mockBilling.URL,
+		PaymentServiceURL:    mockPayment.URL,
 	}
 	transportClient := transport_order.NewClient(cfg.TransportOrderURL, cfg.InternalServiceToken, metrics)
-	billingClient := billing_register.NewClient("", testToken, metrics)
-	paymentClient := payment.NewClient("", testToken, metrics)
+	billingClient := billing_register.NewClient(cfg.BillingRegisterURL, testToken, metrics)
+	paymentClient := payment.NewClient(cfg.PaymentServiceURL, testToken, metrics)
 	rebuild := service.NewRebuildService(ingest, transportClient, billingClient, paymentClient, metrics)
 	costs := service.NewCostService(transportClient, projections)
 	log := slog.New(slog.DiscardHandler)

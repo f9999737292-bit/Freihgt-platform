@@ -51,6 +51,9 @@ func (s *CostService) buildPlannedOnlyFallback(ctx context.Context, actor securi
 	if err != nil {
 		return nil, err
 	}
+	if snapshot.TenantID != actor.TenantID {
+		return nil, apperrors.NotFound("transport order not found")
+	}
 
 	facts := security.CanonicalCompanyFacts{
 		BuyerCompanyID:   snapshot.BuyerCompanyID,
