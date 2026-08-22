@@ -127,6 +127,17 @@ func TestFC_B_BIL_DB_001_BillingLinkRevisionMonotonicOnRelink(t *testing.T) {
 		t.Fatalf("unlink revision = %d", revision)
 	}
 	registerID := uuid.New()
+	buyerID := uuid.New()
+	carrierID := uuid.New()
+	if _, err := env.pool.Exec(ctx, `
+		INSERT INTO billing.billing_registers (
+			id, tenant_id, register_number, customer_company_id, contractor_company_id,
+			period_from, period_to, currency_code, status,
+			total_without_vat, vat_amount, total_with_vat, version
+		) VALUES ($1,$2,'BR-TEST',$3,$4,CURRENT_DATE,CURRENT_DATE,'RUB','DRAFT',0,0,0,1)`,
+		registerID, tenantID, buyerID, carrierID); err != nil {
+		t.Fatalf("insert register: %v", err)
+	}
 	err = env.pool.QueryRow(ctx, `
 		UPDATE billing.freight_settlements
 		SET billing_register_id = $3, billing_link_revision = billing_link_revision + 1
