@@ -128,7 +128,7 @@ func mapRateSnapshot(payload rateSnapshotResponse, requestedTenantID, requestedT
 		return nil, err
 	}
 	if tenantID != requestedTenantID {
-		return nil, apperrors.NotFound("transport order not found")
+		return nil, apperrors.BadGateway("downstream tenant id does not match request", fmt.Errorf("expected %s", requestedTenantID))
 	}
 
 	buyerCompanyID, err := parseNonZeroUUID("buyer_company_id", payload.BuyerCompanyID)

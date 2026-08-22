@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"errors"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -49,10 +51,7 @@ func (s *CostService) GetCostSummaryByTransportOrder(ctx context.Context, actor 
 func (s *CostService) buildPlannedOnlyFallback(ctx context.Context, actor security.TrustedActor, transportOrderID uuid.UUID) (*domain.CostSummary, error) {
 	snapshot, err := s.transport.GetRateSnapshot(ctx, actor.TenantID, transportOrderID)
 	if err != nil {
-		return nil, err
-	}
-	if snapshot.TenantID != actor.TenantID {
-		return nil, apperrors.NotFound("transport order not found")
+		return nil, maskCrossTenantTransportError(err)
 	}
 
 	facts := security.CanonicalCompanyFacts{
@@ -106,4 +105,15 @@ func authorizeSummary(actor security.TrustedActor, summary *domain.CostSummary) 
 		BuyerCompanyID:   summary.BuyerCompanyID,
 		CarrierCompanyID: summary.CarrierCompanyID,
 	})
+}
+
+func maskCrossTenantTransportError(err error) error {
+	var appErr *apperrors.AppError
+	if errors.As(err, &appErr) && appErr.Code == apperrors.CodeBadGateway {
+		msg := strings.ToLower(appErr.Message)
+		if strings.Contains(msg, "tenant id does not match") || strings.Contains(msg, "transport order id does not match") {
+			return apperrors.NotFound("transport order not found")
+		}
+	}
+	return err
 }
