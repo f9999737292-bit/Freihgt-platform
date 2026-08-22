@@ -217,7 +217,7 @@ func TestWorkerPublishesPendingEvent(t *testing.T) {
 	}
 	var target *domain.PaymentOutboxEvent
 	for i := range events {
-		if events[i].AggregateID == obligation.ID {
+		if events[i].AggregateID == obligation.ID && events[i].EventType == domain.PaymentEventObligationPaid {
 			target = &events[i]
 			break
 		}
@@ -276,7 +276,7 @@ func TestWorkerClosedAlreadySatisfiedF6(t *testing.T) {
 	}
 	var target *domain.PaymentOutboxEvent
 	for i := range events {
-		if events[i].AggregateID == obligation.ID {
+		if events[i].AggregateID == obligation.ID && events[i].EventType == domain.PaymentEventObligationPaid {
 			target = &events[i]
 			break
 		}

@@ -25,13 +25,17 @@ func TestFC_B_PAY_OUTBOX_001_SameObligationRevisionTwoOneSnapshotEvent(t *testin
 	}, buyerActor(fix)); err != nil {
 		t.Fatalf("partial allocate: %v", err)
 	}
+	reloaded, err := env.paymentRepo.GetObligationByID(ctx, fix.TenantID, obligation.ID)
+	if err != nil {
+		t.Fatalf("reload obligation: %v", err)
+	}
 	count, err := env.outboxRepo.CountOutboxByAggregateVersion(ctx, fix.TenantID,
-		domain.PaymentEventObligationPaidSnapshot, obligation.ID, int64(obligation.Version))
+		domain.PaymentEventObligationPaidSnapshot, obligation.ID, int64(reloaded.Version))
 	if err != nil {
 		t.Fatalf("count: %v", err)
 	}
 	if count != 1 {
-		t.Fatalf("expected one paid_snapshot row at obligation version %d, got %d", obligation.Version, count)
+		t.Fatalf("expected one paid_snapshot row at obligation version %d, got %d", reloaded.Version, count)
 	}
 }
 

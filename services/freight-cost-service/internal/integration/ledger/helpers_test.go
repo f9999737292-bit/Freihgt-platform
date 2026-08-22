@@ -57,6 +57,7 @@ type fixture struct {
 	DestID        uuid.UUID
 	CargoID       uuid.UUID
 	SnapshotID    uuid.UUID
+	RfxEventID    uuid.UUID
 	PlannedAmount decimal.Decimal
 }
 
@@ -175,6 +176,7 @@ func seedFixture(t *testing.T, pool *pgxpool.Pool) fixture {
 		DestID:        uuid.New(),
 		CargoID:       uuid.New(),
 		SnapshotID:    uuid.New(),
+		RfxEventID:    uuid.New(),
 		PlannedAmount: decimal.RequireFromString("1000.00"),
 	}
 	for _, row := range []struct {
@@ -227,12 +229,12 @@ func seedFixture(t *testing.T, pool *pgxpool.Pool) fixture {
 	}
 	if _, err := pool.Exec(ctx, `INSERT INTO transport.transport_order_rate_snapshots (
 		id, tenant_id, transport_order_id, buyer_company_id, carrier_company_id,
-		pricing_source, origin_location_id, destination_location_id, equipment_type, transport_mode,
+		pricing_source, rfx_event_id, origin_location_id, destination_location_id, equipment_type, transport_mode,
 		currency_code, component_breakdown_status, components, accessorial_rules,
 		total_amount, pricing_date, resolved_at, resolved_by_service, resolver_version, resolution_request_hash
-	) VALUES ($1,$2,$3,$4,$5,'RFQ_AWARD',$6,$7,'TAUTLINER','ROAD','RUB','UNAVAILABLE','[]'::jsonb,'[]'::jsonb,
-		$8,CURRENT_DATE,now(),'integration-test','v2.1B','cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc')`,
-		fix.SnapshotID, fix.TenantID, fix.OrderID, fix.BuyerID, fix.CarrierID,
+	) VALUES ($1,$2,$3,$4,$5,'RFQ_AWARD',$6,$7,$8,'TAUTLINER','ROAD','RUB','UNAVAILABLE','[]'::jsonb,'[]'::jsonb,
+		$9,CURRENT_DATE,now(),'integration-test','v2.1B','cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc')`,
+		fix.SnapshotID, fix.TenantID, fix.OrderID, fix.BuyerID, fix.CarrierID, fix.RfxEventID,
 		fix.OriginID, fix.DestID, fix.PlannedAmount.StringFixed(domain.MoneyScale)); err != nil {
 		t.Fatalf("snapshot: %v", err)
 	}
