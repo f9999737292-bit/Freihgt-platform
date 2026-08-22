@@ -139,7 +139,7 @@ func TestFC_C_RBL_008_ReclassifyUsesCurrentMappingVersion(t *testing.T) {
 	err = env.pool.QueryRow(context.Background(), `
 		SELECT mapping_version FROM freight_cost.variance_attribution
 		WHERE tenant_id = $1 AND transport_order_id = $2 AND semantic_class = 'VARIANCE_DRIVER' AND is_current = TRUE
-		ORDER BY created_at DESC LIMIT 1`, fix.TenantID, fix.OrderID).Scan(&mappingVersion)
+		ORDER BY recorded_at DESC LIMIT 1`, fix.TenantID, fix.OrderID).Scan(&mappingVersion)
 	if err != nil {
 		t.Fatalf("query mapping version: %v", err)
 	}
