@@ -52,6 +52,35 @@ Transactional emission on settlement/accessorial/billing-link/register mutations
 
 Accrual money uses **exact NUMERIC approved-set sum** from `billing.settlement_accessorials WHERE status='APPROVED'`.
 
+### Accrual semantics (F-002 closure)
+
+Frozen v2.1B accrual formula:
+
+```text
+FINANCIAL_ACCRUAL = rate_snapshot.total_amount + SUM(APPROVED accessorials)
+```
+
+Runtime implementation path:
+
+```text
+ACCRUAL_PRINCIPAL_SOURCE=RATE_SNAPSHOT_TOTAL_AMOUNT
+SETTLEMENT_BASE_FREIGHT_ROLE=IMMUTABLE_COPY_OF_RATE_SNAPSHOT_PRINCIPAL
+ACCRUAL_APPROVED_SET_SOURCE=EXACT_NUMERIC_APPROVED_ACCESSORIALS
+LIVE_ACCRUAL_FORMULA=base_freight_amount + approved_set_sum
+REBUILD_ACCRUAL_FORMULA=base_freight_amount + approved_set_sum (internal settlement read)
+LIVE_REBUILD_SEMANTICS_MATCH=YES
+```
+
+For `SNAPSHOT_V1` settlements:
+
+- `CreateSettlement` copies `transport_order_rate_snapshots.total_amount` into `base_freight_amount` and stores `rate_snapshot_id`.
+- `base_freight_amount` has **no production UPDATE path** after INSERT (`recalculateSettlementTotals` updates totals only).
+- Therefore `base_freight_amount == snapshot.total_amount` for the settlement lifetime, and accrual via `base + approved` is equivalent to `planned + approved`.
+
+Legacy pre-`SNAPSHOT_V1` orders (no rate snapshot) use award-link provenance at settlement create (`LoadShipmentContext` legacy branch). v2.1B ledger accrual for those settlements uses the immutable award-derived `base_freight_amount`, not transport snapshot reads. New `SNAPSHOT_V1` settlement creation **fail-closes** when the rate snapshot is missing.
+
+Regression tests: `freightcostledger/accrual_semantics_integration_test.go` (FC-B-ACC-SEM A–F), `freightsettlement/snapshot_settlement_integration_test.go` (CSet001–011).
+
 `billing_link_revision` monotonic on link/unlink/relink.
 
 ## payment-service

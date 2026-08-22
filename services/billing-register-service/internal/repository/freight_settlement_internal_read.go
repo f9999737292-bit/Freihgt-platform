@@ -193,6 +193,9 @@ func querySettlementSnapshotMoneyTx(
 	tx pgx.Tx,
 	settlementID, tenantID uuid.UUID,
 ) (accrualExVAT, totalWithoutVAT string, err error) {
+	// Accrual principal is settlement.base_freight_amount, an immutable copy of
+	// transport_order_rate_snapshots.total_amount at SNAPSHOT_V1 settlement create.
+	// Accrual = principal + exact NUMERIC SUM(APPROVED accessorials).
 	const query = `
 		SELECT fs.base_freight_amount::text, fs.total_without_vat::text,
 			COALESCE((

@@ -25,6 +25,7 @@ type env struct {
 	pool        *pgxpool.Pool
 	settlements *service.FreightSettlementService
 	repo        *repository.FreightSettlementRepository
+	outboxRepo  *repository.FreightCostOutboxRepository
 }
 
 func setupEnv(t *testing.T) *env {
@@ -42,9 +43,11 @@ func setupEnv(t *testing.T) *env {
 	if err := applyMigrations(ctx, pool); err != nil {
 		t.Fatalf("migrations: %v", err)
 	}
+	outboxRepo := repository.NewFreightCostOutboxRepository(pool)
 	repo := repository.NewFreightSettlementRepository(pool)
+	repo.SetOutboxEmitter(repository.NewFreightCostOutboxEmitter(outboxRepo))
 	settlements := service.NewFreightSettlementService(repo)
-	return &env{pool: pool, settlements: settlements, repo: repo}
+	return &env{pool: pool, settlements: settlements, repo: repo, outboxRepo: outboxRepo}
 }
 
 func applyMigrations(ctx context.Context, pool *pgxpool.Pool) error {

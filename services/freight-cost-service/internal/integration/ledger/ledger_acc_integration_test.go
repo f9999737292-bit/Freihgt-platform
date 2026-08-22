@@ -108,3 +108,27 @@ func TestFC_B_ACC_007_AccrualUsesExactDecimalApprovedSetTotal(t *testing.T) {
 		t.Fatalf("expected exact decimal %s, got %v", exact.StringFixed(2), projection.AccruedAmount)
 	}
 }
+
+func TestFC_B_ACC_008_RebuildAccrualMatchesLiveIngestSemantics(t *testing.T) {
+	env := setupEnv(t)
+	fix := seedFixture(t, env.pool)
+	liveAccrual := decimalAmount("1100.00")
+	ingest(t, env, baseIngestInput(fix, ingestOpts{
+		entryKind: domain.EntryKindAccrualCostSnapshot, sourceRevision: 1, amount: liveAccrual,
+	}))
+	liveProjection := getProjection(t, env, fix)
+	result, err := env.rebuild.RebuildTransportOrder(context.Background(), fix.TenantID, fix.OrderID)
+	if err != nil {
+		t.Fatalf("rebuild: %v", err)
+	}
+	rebuilt := getProjection(t, env, fix)
+	if liveProjection.AccruedAmount == nil || rebuilt.AccruedAmount == nil {
+		t.Fatalf("accrual missing after live/rebuild: live=%v rebuild=%v", liveProjection.AccruedAmount, rebuilt.AccruedAmount)
+	}
+	if !liveProjection.AccruedAmount.Equal(*rebuilt.AccruedAmount) {
+		t.Fatalf("live accrual %s != rebuild accrual %s", liveProjection.AccruedAmount, rebuilt.AccruedAmount)
+	}
+	if len(result.Outcomes) == 0 {
+		t.Fatal("expected rebuild outcomes")
+	}
+}
