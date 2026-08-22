@@ -62,6 +62,7 @@ func NewRouter(
 		r.Use(internalAuth.Middleware)
 		r.Route("/payment-obligations", func(r chi.Router) {
 			r.Post("/ensure", paymentHandler.EnsureObligation)
+			r.Get("/by-billing-register/{billingRegisterId}", paymentHandler.GetObligationByBillingRegister)
 		})
 		r.Route("/billing-registers", func(r chi.Router) {
 			r.Post("/{id}/ensure-paid-projection", paymentHandler.EnsurePaidProjection)

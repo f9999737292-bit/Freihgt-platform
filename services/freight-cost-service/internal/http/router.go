@@ -20,11 +20,15 @@ const serviceName = "freight-cost-service"
 
 func NewRouter(
 	log *slog.Logger,
+	db observability.DatabasePinger,
 	cfg config.Config,
 	costSvc *service.CostService,
+	ingestSvc *service.IngestService,
+	rebuildSvc *service.RebuildService,
 	domainMetrics *fcmetrics.Metrics,
 ) http.Handler {
 	costHandler := handlers.NewCostHandler(costSvc)
+	sourceHandler := handlers.NewSourceEventHandler(ingestSvc, rebuildSvc)
 	internalAuth := internalauth.Config{Token: cfg.InternalServiceToken, Environment: cfg.Environment}
 
 	r := chi.NewRouter()
@@ -35,13 +39,15 @@ func NewRouter(
 		ServiceName: serviceName,
 		Log:         log,
 		Metrics:     metrics.New(serviceName),
-		DB:          nil,
+		DB:          db,
 	})
 	sharedpprof.Mount(r)
 
 	r.Route("/internal/v1/freight-cost", func(r chi.Router) {
 		r.Use(internalAuth.Middleware)
 		r.Get("/transport-orders/{transportOrderId}", costHandler.GetTransportOrderCostSummary)
+		r.Post("/source-events", sourceHandler.PostSourceEvent)
+		r.Post("/transport-orders/{transportOrderId}/rebuild", sourceHandler.RebuildTransportOrder)
 	})
 
 	return r

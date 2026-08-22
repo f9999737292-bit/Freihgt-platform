@@ -28,6 +28,7 @@ const obligationAmount = "100.00"
 func setupMarkPaidHTTPRouter(t *testing.T, pool *pgxpool.Pool) http.Handler {
 	t.Helper()
 	registerRepo := repository.NewBillingRegisterRepository(pool)
+	settlementRepo := repository.NewFreightSettlementRepository(pool)
 	obligationLookup := repository.NewPaymentObligationLookupRepository(pool)
 	membershipRepo := repository.NewMembershipRepository(pool)
 	registerSvc := service.NewBillingRegisterServiceWithPayments(registerRepo, obligationLookup, nil)
@@ -36,7 +37,7 @@ func setupMarkPaidHTTPRouter(t *testing.T, pool *pgxpool.Pool) http.Handler {
 		Environment:          "test",
 		ServiceName:          "billing-register-service",
 	}
-	return billinghttp.NewRouter(slog.Default(), pool, cfg, registerSvc, nil, nil, handlers.NewSettlementActorResolver(membershipRepo))
+	return billinghttp.NewRouter(slog.Default(), pool, cfg, registerSvc, nil, nil, settlementRepo, registerRepo, handlers.NewSettlementActorResolver(membershipRepo))
 }
 
 func seedSignedRegister(t *testing.T, pool *pgxpool.Pool, fix fixture) uuid.UUID {

@@ -138,7 +138,7 @@ func TestCrashAfterBillingSuccessF3(t *testing.T) {
 	if err != nil {
 		t.Fatalf("claim A: %v", err)
 	}
-	target := findEventByAggregate(eventsA, obligation.ID)
+	target := findEventByAggregate(eventsA, obligation.ID, domain.PaymentEventObligationPaid)
 	if target == nil {
 		target = claimAggregateEvent(t, env, ctx, fix.TenantID, "worker-a", now, leaseTimeout, obligation.ID)
 	}
@@ -154,8 +154,8 @@ func TestCrashAfterBillingSuccessF3(t *testing.T) {
 	}
 
 	staleAt := now.Add(-leaseTimeout - time.Second)
-	if _, err := env.pool.Exec(ctx, `UPDATE billing.payment_outbox SET locked_at=$1 WHERE tenant_id=$2 AND aggregate_id=$3`,
-		staleAt, fix.TenantID, obligation.ID); err != nil {
+	if _, err := env.pool.Exec(ctx, `UPDATE billing.payment_outbox SET locked_at=$1 WHERE tenant_id=$2 AND aggregate_id=$3 AND event_type=$4`,
+		staleAt, fix.TenantID, obligation.ID, domain.PaymentEventObligationPaid); err != nil {
 		t.Fatalf("expire lease: %v", err)
 	}
 
@@ -278,7 +278,7 @@ func TestInvalidCanonicalObligationF7(t *testing.T) {
 	if err != nil {
 		t.Fatalf("claim: %v", err)
 	}
-	target := findEventByAggregate(events, obligation.ID)
+	target := findEventByAggregate(events, obligation.ID, domain.PaymentEventObligationPaid)
 	if target == nil {
 		t.Fatal("expected claimed outbox event")
 	}
@@ -335,7 +335,7 @@ func TestBackoffSchedulingIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("claim after: %v", err)
 	}
-	if findEventByAggregate(after, obligation.ID) == nil {
+	if findEventByAggregate(after, obligation.ID, domain.PaymentEventObligationPaid) == nil {
 		t.Fatal("BACKOFF_SCHEDULING=FAIL claim at available_at must succeed")
 	}
 }
@@ -363,9 +363,9 @@ func TestOutboxMigrationUsableInPostgres(t *testing.T) {
 	}
 }
 
-func findEventByAggregate(events []domain.PaymentOutboxEvent, aggregateID uuid.UUID) *domain.PaymentOutboxEvent {
+func findEventByAggregate(events []domain.PaymentOutboxEvent, aggregateID uuid.UUID, eventType string) *domain.PaymentOutboxEvent {
 	for i := range events {
-		if events[i].AggregateID == aggregateID {
+		if events[i].AggregateID == aggregateID && events[i].EventType == eventType {
 			return &events[i]
 		}
 	}
@@ -379,7 +379,7 @@ func claimAggregateEvent(t *testing.T, env *env, ctx context.Context, tenantID u
 		if err != nil {
 			t.Fatalf("claim %s: %v", workerID, err)
 		}
-		if target := findEventByAggregate(events, aggregateID); target != nil {
+		if target := findEventByAggregate(events, aggregateID, domain.PaymentEventObligationPaid); target != nil {
 			return target
 		}
 		for _, event := range events {

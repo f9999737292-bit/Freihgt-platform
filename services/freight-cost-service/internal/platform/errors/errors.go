@@ -13,6 +13,7 @@ const (
 	CodeInternal     Code = "INTERNAL_ERROR"
 	CodeUnavailable  Code = "SERVICE_UNAVAILABLE"
 	CodeBadGateway   Code = "BAD_GATEWAY"
+	CodeIntegrity    Code = "INTEGRITY_ERROR"
 )
 
 type AppError struct {
@@ -61,6 +62,10 @@ func Unavailable(message string, err error) *AppError {
 
 func BadGateway(message string, err error) *AppError {
 	return &AppError{Code: CodeBadGateway, Message: message, Details: map[string]any{}, Err: err}
+}
+
+func Integrity(message string, details map[string]any) *AppError {
+	return &AppError{Code: CodeIntegrity, Message: message, Details: detailsOrEmpty(details)}
 }
 
 func detailsOrEmpty(details map[string]any) map[string]any {

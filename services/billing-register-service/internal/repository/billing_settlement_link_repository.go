@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -73,7 +74,7 @@ func (r *BillingRegisterRepository) IncludeSettlement(
 			}
 			result.Register = reg
 			result.Item = existingItem
-			return linkSettlementToRegisterTx(ctx, tx, settlement, registerID, existingItem.ID)
+			return linkSettlementToRegisterTx(ctx, tx, r.outbox, settlement, registerID, existingItem.ID, existingItem.AmountWithoutVAT)
 		}
 
 		vatRate := settlement.VATRate
@@ -99,10 +100,10 @@ func (r *BillingRegisterRepository) IncludeSettlement(
 		if scanErr != nil {
 			return scanErr
 		}
-		if err := recalculateRegisterTotalsTx(ctx, tx, registerID, actor.TenantID); err != nil {
+		if err := recalculateRegisterTotalsTx(ctx, tx, registerID, actor.TenantID, r.outbox); err != nil {
 			return err
 		}
-		if err := linkSettlementToRegisterTx(ctx, tx, settlement, registerID, item.ID); err != nil {
+		if err := linkSettlementToRegisterTx(ctx, tx, r.outbox, settlement, registerID, item.ID, item.AmountWithoutVAT); err != nil {
 			return err
 		}
 		updatedReg, err := getRegisterByIDTx(ctx, tx, registerID, actor.TenantID)
@@ -160,12 +161,19 @@ func (r *BillingRegisterRepository) RemoveSettlement(
 		}
 		const clear = `
 			UPDATE billing.freight_settlements
-			SET billing_register_id = NULL, billing_register_item_id = NULL, updated_at = now(), version = version + 1
-			WHERE id = $1 AND tenant_id = $2 AND billing_register_id = $3`
-		if _, execErr := tx.Exec(ctx, clear, settlementID, actor.TenantID, registerID); execErr != nil {
-			return mapDBError(execErr)
+			SET billing_register_id = NULL, billing_register_item_id = NULL,
+				billing_link_revision = billing_link_revision + 1,
+				updated_at = now(), version = version + 1
+			WHERE id = $1 AND tenant_id = $2 AND billing_register_id = $3
+			RETURNING ` + freightSettlementSelectColumns
+		unlinked, clearErr := scanSettlement(tx.QueryRow(ctx, clear, settlementID, actor.TenantID, registerID))
+		if clearErr != nil {
+			return mapDBError(clearErr)
 		}
-		if err := recalculateRegisterTotalsTx(ctx, tx, registerID, actor.TenantID); err != nil {
+		if err := r.outbox.EmitBillingLinkSnapshotTx(ctx, tx, unlinked, domain.BillingLinkStateUnlinked, nil, nil, nil, time.Now().UTC()); err != nil {
+			return err
+		}
+		if err := recalculateRegisterTotalsTx(ctx, tx, registerID, actor.TenantID, r.outbox); err != nil {
 			return err
 		}
 		updated, err := getRegisterByIDTx(ctx, tx, registerID, actor.TenantID)
@@ -221,12 +229,8 @@ func getRegisterByIDTx(ctx context.Context, tx pgx.Tx, id, tenantID uuid.UUID) (
 }
 
 func getSettlementByIDTx(ctx context.Context, tx pgx.Tx, id, tenantID uuid.UUID) (*domain.FreightSettlement, error) {
-	const query = `
-		SELECT id, tenant_id, shipment_id, transport_order_id, buyer_company_id, carrier_company_id,
-			award_link_id, settlement_number, base_freight_amount, currency_code, vat_rate,
-			approved_accessorial_total, total_without_vat, vat_amount, total_with_vat,
-			status, service_accepted_at, service_accepted_by, billing_register_id, billing_register_item_id,
-			idempotency_key, version, created_at, created_by, updated_at, rate_snapshot_id, pricing_source
+	query := `
+		SELECT ` + freightSettlementSelectColumns + `
 		FROM billing.freight_settlements WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`
 	row := tx.QueryRow(ctx, query, id, tenantID)
 	settlement, err := scanSettlement(row)
@@ -264,16 +268,33 @@ func findRegisterItemBySettlementAnyTx(ctx context.Context, tx pgx.Tx, settlemen
 	return item, err
 }
 
-func linkSettlementToRegisterTx(ctx context.Context, tx pgx.Tx, settlement *domain.FreightSettlement, registerID, itemID uuid.UUID) error {
+func linkSettlementToRegisterTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	emitter *FreightCostOutboxEmitter,
+	settlement *domain.FreightSettlement,
+	registerID, itemID uuid.UUID,
+	amountWithoutVAT float64,
+) error {
 	const update = `
 		UPDATE billing.freight_settlements
-		SET billing_register_id = $3, billing_register_item_id = $4, updated_at = now(), version = version + 1
-		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`
-	_, err := tx.Exec(ctx, update, settlement.ID, settlement.TenantID, registerID, itemID)
-	return mapDBError(err)
+		SET billing_register_id = $3, billing_register_item_id = $4,
+			billing_link_revision = billing_link_revision + 1,
+			updated_at = now(), version = version + 1
+		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+		RETURNING ` + freightSettlementSelectColumns
+	linked, err := scanSettlement(tx.QueryRow(ctx, update, settlement.ID, settlement.TenantID, registerID, itemID))
+	if err != nil {
+		return mapDBError(err)
+	}
+	amount, err := querySettlementTotalWithoutVATTx(ctx, tx, linked.ID, linked.TenantID)
+	if err != nil {
+		return err
+	}
+	return emitter.EmitBillingLinkSnapshotTx(ctx, tx, linked, domain.BillingLinkStateLinked, &amount, &registerID, &itemID, time.Now().UTC())
 }
 
-func recalculateRegisterTotalsTx(ctx context.Context, tx pgx.Tx, registerID, tenantID uuid.UUID) error {
+func recalculateRegisterTotalsTx(ctx context.Context, tx pgx.Tx, registerID, tenantID uuid.UUID, emitter *FreightCostOutboxEmitter) error {
 	const recalc = `
 		UPDATE billing.billing_registers
 		SET total_without_vat = (
@@ -287,8 +308,17 @@ func recalculateRegisterTotalsTx(ctx context.Context, tx pgx.Tx, registerID, ten
 			),
 			updated_at = now(), version = version + 1
 		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`
-	_, err := tx.Exec(ctx, recalc, registerID, tenantID)
-	return mapDBError(err)
+	if _, err := tx.Exec(ctx, recalc, registerID, tenantID); err != nil {
+		return mapDBError(err)
+	}
+	if emitter == nil {
+		return nil
+	}
+	reg, err := getRegisterByIDTx(ctx, tx, registerID, tenantID)
+	if err != nil {
+		return err
+	}
+	return emitter.EmitPayableSnapshotTx(ctx, tx, reg, time.Now().UTC())
 }
 
 func countOpenSettlementDisputesTx(ctx context.Context, tx pgx.Tx, settlementID, tenantID uuid.UUID) (int, error) {

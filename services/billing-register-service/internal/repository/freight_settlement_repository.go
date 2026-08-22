@@ -43,6 +43,7 @@ type SettlementDetail struct {
 type FreightSettlementRepository struct {
 	pool    *pgxpool.Pool
 	metrics *observability.SettlementMetrics
+	outbox  *FreightCostOutboxEmitter
 }
 
 func NewFreightSettlementRepository(pool *pgxpool.Pool, metrics ...*observability.SettlementMetrics) *FreightSettlementRepository {
@@ -51,6 +52,10 @@ func NewFreightSettlementRepository(pool *pgxpool.Pool, metrics ...*observabilit
 		m = metrics[0]
 	}
 	return &FreightSettlementRepository{pool: pool, metrics: m}
+}
+
+func (r *FreightSettlementRepository) SetOutboxEmitter(emitter *FreightCostOutboxEmitter) {
+	r.outbox = emitter
 }
 
 func (r *FreightSettlementRepository) LoadShipmentContext(ctx context.Context, tenantID, shipmentID uuid.UUID) (*ShipmentSettlementContext, error) {
@@ -210,11 +215,8 @@ func (r *FreightSettlementRepository) CreateSettlement(ctx context.Context, in d
 				approved_accessorial_total, total_without_vat, vat_amount, total_with_vat,
 				status, idempotency_key, created_by, rate_snapshot_id, pricing_source
 			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
-			RETURNING id, tenant_id, shipment_id, transport_order_id, buyer_company_id, carrier_company_id,
-				award_link_id, settlement_number, base_freight_amount, currency_code, vat_rate,
-				approved_accessorial_total, total_without_vat, vat_amount, total_with_vat,
-				status, service_accepted_at, service_accepted_by, billing_register_id, billing_register_item_id,
-				idempotency_key, version, created_at, created_by, updated_at, rate_snapshot_id, pricing_source`
+			RETURNING ` + freightSettlementSelectColumns + `
+		`
 		var idempotency any
 		if strings.TrimSpace(in.IdempotencyKey) != "" {
 			idempotency = in.IdempotencyKey
@@ -230,6 +232,9 @@ func (r *FreightSettlementRepository) CreateSettlement(ctx context.Context, in d
 			return scanErr
 		}
 		result = *created
+		if err := emitAllSettlementSnapshotsAfterMutation(ctx, tx, r.outbox, created); err != nil {
+			return err
+		}
 		return insertAuditEvent(ctx, tx, in.TenantID, result.ID, "SETTLEMENT_CREATED", in.ActorUserID, in.ActorCompanyID, map[string]any{
 			"shipment_id": in.ShipmentID.String(), "base_freight_amount": ctxData.AgreedFreightAmount.StringFixed(2),
 		})
@@ -241,12 +246,8 @@ func (r *FreightSettlementRepository) CreateSettlement(ctx context.Context, in d
 }
 
 func (r *FreightSettlementRepository) GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.FreightSettlement, error) {
-	const query = `
-		SELECT id, tenant_id, shipment_id, transport_order_id, buyer_company_id, carrier_company_id,
-			award_link_id, settlement_number, base_freight_amount, currency_code, vat_rate,
-			approved_accessorial_total, total_without_vat, vat_amount, total_with_vat,
-			status, service_accepted_at, service_accepted_by, billing_register_id, billing_register_item_id,
-			idempotency_key, version, created_at, created_by, updated_at, rate_snapshot_id, pricing_source
+	query := `
+		SELECT ` + freightSettlementSelectColumns + `
 		FROM billing.freight_settlements
 		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`
 	row := r.pool.QueryRow(ctx, query, id, tenantID)
@@ -300,12 +301,8 @@ func (r *FreightSettlementRepository) List(ctx context.Context, filter domain.Li
 		return nil, 0, mapDBError(err)
 	}
 	query := fmt.Sprintf(`
-		SELECT id, tenant_id, shipment_id, transport_order_id, buyer_company_id, carrier_company_id,
-			award_link_id, settlement_number, base_freight_amount, currency_code, vat_rate,
-			approved_accessorial_total, total_without_vat, vat_amount, total_with_vat,
-			status, service_accepted_at, service_accepted_by, billing_register_id, billing_register_item_id,
-			idempotency_key, version, created_at, created_by, updated_at, rate_snapshot_id, pricing_source
-		FROM billing.freight_settlements WHERE %s ORDER BY created_at DESC LIMIT %d OFFSET %d`, where, filter.Limit, filter.Offset)
+		SELECT %s
+		FROM billing.freight_settlements WHERE %s ORDER BY created_at DESC LIMIT %d OFFSET %d`, freightSettlementSelectColumns, where, filter.Limit, filter.Offset)
 	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, 0, mapDBError(err)
@@ -394,6 +391,15 @@ func (r *FreightSettlementRepository) ReviewAccessorial(ctx context.Context, set
 		if err := r.recalculateSettlementTotals(ctx, tx, settlement); err != nil {
 			return err
 		}
+		if approve {
+			updated, getErr := r.getByIDTx(ctx, tx, settlementID, in.TenantID)
+			if getErr != nil {
+				return getErr
+			}
+			if err := emitAllSettlementSnapshotsAfterMutation(ctx, tx, r.outbox, updated); err != nil {
+				return err
+			}
+		}
 		return insertAuditEvent(ctx, tx, in.TenantID, settlementID, eventType, in.ActorUserID, in.ActorCompanyID, map[string]any{
 			"accessorial_id": accessorialID.String(),
 		})
@@ -436,10 +442,28 @@ func (r *FreightSettlementRepository) RaiseDispute(ctx context.Context, settleme
 			return scanErr
 		}
 		result = *dispute
-		if settlement.Status != domain.SettlementStatusDisputed {
-			if err := updateSettlementStatus(ctx, tx, settlement, domain.SettlementStatusDisputed); err != nil {
-				return err
+		var updated *domain.FreightSettlement
+		if in.AccessorialID != nil {
+			if recalcErr := r.recalculateSettlementTotals(ctx, tx, settlement); recalcErr != nil {
+				return recalcErr
 			}
+		}
+		if settlement.Status != domain.SettlementStatusDisputed {
+			statusUpdated, statusErr := updateSettlementStatus(ctx, tx, settlement, domain.SettlementStatusDisputed)
+			if statusErr != nil {
+				return statusErr
+			}
+			updated = statusUpdated
+		}
+		if updated == nil {
+			var getErr error
+			updated, getErr = r.getByIDTx(ctx, tx, settlementID, in.TenantID)
+			if getErr != nil {
+				return getErr
+			}
+		}
+		if err := emitAllSettlementSnapshotsAfterMutation(ctx, tx, r.outbox, updated); err != nil {
+			return err
 		}
 		return insertAuditEvent(ctx, tx, in.TenantID, settlementID, "DISPUTE_RAISED", in.ActorUserID, in.ActorCompanyID, map[string]any{
 			"dispute_id": result.ID.String(),
@@ -474,9 +498,16 @@ func (r *FreightSettlementRepository) ResolveDispute(ctx context.Context, settle
 			return countErr
 		}
 		if openCount == 0 && settlement.Status == domain.SettlementStatusDisputed {
-			if err := updateSettlementStatus(ctx, tx, settlement, domain.SettlementStatusUnderReview); err != nil {
+			if _, err := updateSettlementStatus(ctx, tx, settlement, domain.SettlementStatusUnderReview); err != nil {
 				return err
 			}
+		}
+		updated, getErr := r.getByIDTx(ctx, tx, settlementID, in.TenantID)
+		if getErr != nil {
+			return getErr
+		}
+		if err := emitAllSettlementSnapshotsAfterMutation(ctx, tx, r.outbox, updated); err != nil {
+			return err
 		}
 		return insertAuditEvent(ctx, tx, in.TenantID, settlementID, "DISPUTE_RESOLVED", in.ActorUserID, in.ActorCompanyID, map[string]any{
 			"dispute_id": disputeID.String(),
@@ -525,11 +556,8 @@ func (r *FreightSettlementRepository) TransitionStatus(ctx context.Context, sett
 				UPDATE billing.freight_settlements
 				SET status = $3, service_accepted_at = now(), service_accepted_by = $4, updated_at = now(), version = version + 1
 				WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
-				RETURNING id, tenant_id, shipment_id, transport_order_id, buyer_company_id, carrier_company_id,
-					award_link_id, settlement_number, base_freight_amount, currency_code, vat_rate,
-					approved_accessorial_total, total_without_vat, vat_amount, total_with_vat,
-					status, service_accepted_at, service_accepted_by, billing_register_id, billing_register_item_id,
-					idempotency_key, version, created_at, created_by, updated_at, rate_snapshot_id, pricing_source`
+				RETURNING ` + freightSettlementSelectColumns + `
+			`
 			row := tx.QueryRow(ctx, accept, settlementID, in.TenantID, toStatus, in.ActorUserID)
 			updated, scanErr := scanSettlement(row)
 			if scanErr != nil {
@@ -537,14 +565,14 @@ func (r *FreightSettlementRepository) TransitionStatus(ctx context.Context, sett
 			}
 			result = *updated
 		} else {
-			if err := updateSettlementStatus(ctx, tx, settlement, toStatus); err != nil {
+			updated, err := updateSettlementStatus(ctx, tx, settlement, toStatus)
+			if err != nil {
 				return err
 			}
-			updated, getErr := r.getByIDTx(ctx, tx, settlementID, in.TenantID)
-			if getErr != nil {
-				return getErr
-			}
 			result = *updated
+		}
+		if err := emitAllSettlementSnapshotsAfterMutation(ctx, tx, r.outbox, &result); err != nil {
+			return err
 		}
 		return insertAuditEvent(ctx, tx, in.TenantID, settlementID, "SETTLEMENT_STATUS_"+toStatus, in.ActorUserID, in.ActorCompanyID, map[string]any{
 			"from": settlement.Status, "to": toStatus,
@@ -577,19 +605,25 @@ func (r *FreightSettlementRepository) IncludeInRegister(ctx context.Context, set
 		}
 		const update = `
 			UPDATE billing.freight_settlements
-			SET billing_register_id = $3, billing_register_item_id = $4, updated_at = now(), version = version + 1
+			SET billing_register_id = $3, billing_register_item_id = $4,
+				billing_link_revision = billing_link_revision + 1,
+				updated_at = now(), version = version + 1
 			WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
-			RETURNING id, tenant_id, shipment_id, transport_order_id, buyer_company_id, carrier_company_id,
-				award_link_id, settlement_number, base_freight_amount, currency_code, vat_rate,
-				approved_accessorial_total, total_without_vat, vat_amount, total_with_vat,
-				status, service_accepted_at, service_accepted_by, billing_register_id, billing_register_item_id,
-				idempotency_key, version, created_at, created_by, updated_at, rate_snapshot_id, pricing_source`
+			RETURNING ` + freightSettlementSelectColumns + `
+		`
 		row := tx.QueryRow(ctx, update, settlementID, in.TenantID, regID, itemID)
 		updated, scanErr := scanSettlement(row)
 		if scanErr != nil {
 			return scanErr
 		}
 		result = *updated
+		amount, amountErr := querySettlementTotalWithoutVATTx(ctx, tx, settlementID, in.TenantID)
+		if amountErr != nil {
+			return amountErr
+		}
+		if err := r.outbox.EmitBillingLinkSnapshotTx(ctx, tx, updated, domain.BillingLinkStateLinked, &amount, &regID, &itemID, time.Now().UTC()); err != nil {
+			return err
+		}
 		return insertAuditEvent(ctx, tx, in.TenantID, settlementID, "REGISTER_INCLUDED", in.ActorUserID, in.ActorCompanyID, map[string]any{
 			"billing_register_id": regID.String(), "billing_register_item_id": itemID.String(),
 		})
@@ -627,21 +661,33 @@ func (r *FreightSettlementRepository) validateEvidenceDocument(ctx context.Conte
 }
 
 func (r *FreightSettlementRepository) recalculateSettlementTotals(ctx context.Context, tx pgx.Tx, settlement *domain.FreightSettlement) error {
-	const sumQuery = `
-		SELECT COALESCE(SUM(amount), 0)::float8
-		FROM billing.settlement_accessorials
-		WHERE settlement_id = $1 AND tenant_id = $2 AND status = $3`
-	var approvedTotal float64
-	if err := tx.QueryRow(ctx, sumQuery, settlement.ID, settlement.TenantID, domain.AccessorialStatusApproved).Scan(&approvedTotal); err != nil {
+	const readQuery = `
+		SELECT base_freight_amount::text, COALESCE((
+			SELECT SUM(amount) FROM billing.settlement_accessorials
+			WHERE settlement_id = $1 AND tenant_id = $2 AND status = $3
+		), 0)::text
+		FROM billing.freight_settlements
+		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`
+	var baseText, approvedText string
+	if err := tx.QueryRow(ctx, readQuery, settlement.ID, settlement.TenantID, domain.AccessorialStatusApproved).Scan(&baseText, &approvedText); err != nil {
 		return mapDBError(err)
 	}
-	withoutVAT, vat, withVAT := domain.CalculateSettlementTotals(settlement.BaseFreightAmount, approvedTotal, settlement.VATRate)
+	baseAmount, err := parseSettlementAmountDecimal(baseText)
+	if err != nil {
+		return err
+	}
+	approvedTotal, err := parseSettlementAmountDecimal(approvedText)
+	if err != nil {
+		return err
+	}
+	withoutVAT, vat, withVAT := domain.CalculateSettlementTotalsDecimal(baseAmount, approvedTotal, settlement.VATRate)
 	const update = `
 		UPDATE billing.freight_settlements
 		SET approved_accessorial_total = $3, total_without_vat = $4, vat_amount = $5, total_with_vat = $6,
 			updated_at = now(), version = version + 1
 		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`
-	_, err := tx.Exec(ctx, update, settlement.ID, settlement.TenantID, approvedTotal, withoutVAT, vat, withVAT)
+	_, err = tx.Exec(ctx, update, settlement.ID, settlement.TenantID,
+		approvedTotal.StringFixed(2), withoutVAT.StringFixed(2), vat.StringFixed(2), withVAT.StringFixed(2))
 	return mapDBError(err)
 }
 
@@ -765,12 +811,8 @@ func includeSettlementInRegisterTx(ctx context.Context, tx pgx.Tx, settlement *d
 }
 
 func findSettlementByIdempotency(ctx context.Context, tx pgx.Tx, tenantID uuid.UUID, key string) (*domain.FreightSettlement, error) {
-	const query = `
-		SELECT id, tenant_id, shipment_id, transport_order_id, buyer_company_id, carrier_company_id,
-			award_link_id, settlement_number, base_freight_amount, currency_code, vat_rate,
-			approved_accessorial_total, total_without_vat, vat_amount, total_with_vat,
-			status, service_accepted_at, service_accepted_by, billing_register_id, billing_register_item_id,
-			idempotency_key, version, created_at, created_by, updated_at, rate_snapshot_id, pricing_source
+	query := `
+		SELECT ` + freightSettlementSelectColumns + `
 		FROM billing.freight_settlements
 		WHERE tenant_id = $1 AND idempotency_key = $2 AND deleted_at IS NULL`
 	row := tx.QueryRow(ctx, query, tenantID, key)
@@ -782,12 +824,8 @@ func findSettlementByIdempotency(ctx context.Context, tx pgx.Tx, tenantID uuid.U
 }
 
 func findSettlementByShipment(ctx context.Context, tx pgx.Tx, tenantID, shipmentID uuid.UUID) (*domain.FreightSettlement, error) {
-	const query = `
-		SELECT id, tenant_id, shipment_id, transport_order_id, buyer_company_id, carrier_company_id,
-			award_link_id, settlement_number, base_freight_amount, currency_code, vat_rate,
-			approved_accessorial_total, total_without_vat, vat_amount, total_with_vat,
-			status, service_accepted_at, service_accepted_by, billing_register_id, billing_register_item_id,
-			idempotency_key, version, created_at, created_by, updated_at, rate_snapshot_id, pricing_source
+	query := `
+		SELECT ` + freightSettlementSelectColumns + `
 		FROM billing.freight_settlements
 		WHERE tenant_id = $1 AND shipment_id = $2 AND deleted_at IS NULL`
 	row := tx.QueryRow(ctx, query, tenantID, shipmentID)
@@ -798,28 +836,22 @@ func findSettlementByShipment(ctx context.Context, tx pgx.Tx, tenantID, shipment
 	return settlement, err
 }
 
-func updateSettlementStatus(ctx context.Context, tx pgx.Tx, settlement *domain.FreightSettlement, toStatus string) error {
+func updateSettlementStatus(ctx context.Context, tx pgx.Tx, settlement *domain.FreightSettlement, toStatus string) (*domain.FreightSettlement, error) {
 	const update = `
 		UPDATE billing.freight_settlements
 		SET status = $3, updated_at = now(), version = version + 1
-		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`
-	tag, err := tx.Exec(ctx, update, settlement.ID, settlement.TenantID, toStatus)
-	if err != nil {
-		return mapDBError(err)
+		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+		RETURNING ` + freightSettlementSelectColumns
+	updated, err := scanSettlement(tx.QueryRow(ctx, update, settlement.ID, settlement.TenantID, toStatus))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, apperrors.NotFound("freight settlement not found")
 	}
-	if tag.RowsAffected() == 0 {
-		return apperrors.NotFound("freight settlement not found")
-	}
-	return nil
+	return updated, err
 }
 
 func (r *FreightSettlementRepository) getByIDTx(ctx context.Context, tx pgx.Tx, id, tenantID uuid.UUID) (*domain.FreightSettlement, error) {
-	const query = `
-		SELECT id, tenant_id, shipment_id, transport_order_id, buyer_company_id, carrier_company_id,
-			award_link_id, settlement_number, base_freight_amount, currency_code, vat_rate,
-			approved_accessorial_total, total_without_vat, vat_amount, total_with_vat,
-			status, service_accepted_at, service_accepted_by, billing_register_id, billing_register_item_id,
-			idempotency_key, version, created_at, created_by, updated_at, rate_snapshot_id, pricing_source
+	query := `
+		SELECT ` + freightSettlementSelectColumns + `
 		FROM billing.freight_settlements WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`
 	return scanSettlement(tx.QueryRow(ctx, query, id, tenantID))
 }
@@ -858,7 +890,7 @@ func scanSettlement(row scannable) (*domain.FreightSettlement, error) {
 		&awardLink, &s.SettlementNumber, &s.BaseFreightAmount, &s.CurrencyCode, &s.VATRate,
 		&s.ApprovedAccessorialTotal, &s.TotalWithoutVAT, &s.VATAmount, &s.TotalWithVAT,
 		&s.Status, &serviceAcceptedAt, &serviceAcceptedBy, &billingReg, &billingItem,
-		&idempotency, &s.Version, &s.CreatedAt, &createdBy, &s.UpdatedAt, &s.RateSnapshotID, &s.PricingSource,
+		&idempotency, &s.Version, &s.BillingLinkRevision, &s.CreatedAt, &createdBy, &s.UpdatedAt, &s.RateSnapshotID, &s.PricingSource,
 	)
 	if err != nil {
 		return nil, mapDBError(err)
@@ -917,7 +949,7 @@ func (r *FreightSettlementRepository) SimulateAuditFailureForTest(ctx context.Co
 		if err != nil {
 			return err
 		}
-		if err := updateSettlementStatus(ctx, tx, settlement, domain.SettlementStatusUnderReview); err != nil {
+		if _, err := updateSettlementStatus(ctx, tx, settlement, domain.SettlementStatusUnderReview); err != nil {
 			return err
 		}
 		return fmt.Errorf("simulated audit failure")

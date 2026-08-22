@@ -2,14 +2,14 @@ package repository
 
 const insertPaymentOutboxEventQuery = `
 	INSERT INTO billing.payment_outbox (
-		id, tenant_id, aggregate_type, aggregate_id,
+		id, tenant_id, aggregate_type, aggregate_id, aggregate_version,
 		event_type, schema_version, payload,
 		status, attempts, available_at
-	) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+	) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 `
 
 const claimPendingPaymentOutboxQuery = `
-	SELECT id, tenant_id, aggregate_type, aggregate_id,
+	SELECT id, tenant_id, aggregate_type, aggregate_id, aggregate_version,
 		event_type, schema_version, payload,
 		status, attempts, available_at, locked_at, locked_by,
 		published_at, last_error_code, created_at
@@ -97,4 +97,5 @@ const oldestPendingPaymentOutboxAgeQuery = `
 	WHERE status = 'PENDING'
 `
 
-const paymentOutboxIdempotencyConstraint = "uq_payment_outbox_tenant_event_aggregate"
+const paymentOutboxLegacyPaidConstraint = "uq_payment_outbox_legacy_paid"
+const paymentOutboxPaidSnapshotConstraint = "uq_payment_outbox_paid_snapshot_version"

@@ -33,9 +33,6 @@ func (realClock) Now() time.Time { return time.Now().UTC() }
 
 func NewRealClock() Clock { return realClock{} }
 
-func NewPublisher(client BillingSyncClient) EventPublisher {
-	if client == nil {
-		return nil
-	}
-	return NewHTTPPublisher(client)
+func NewPublisher(billing BillingSyncClient, cost FreightCostPublisher) EventPublisher {
+	return NewRouterPublisher(billing, cost)
 }

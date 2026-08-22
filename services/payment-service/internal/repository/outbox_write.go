@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -21,6 +22,17 @@ func NewOutboxRepository(pool *pgxpool.Pool) *OutboxRepository {
 	return &OutboxRepository{pool: pool}
 }
 
+func isPaymentOutboxDuplicate(err error) bool {
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || pgErr.Code != "23505" {
+		return false
+	}
+	name := pgErr.ConstraintName
+	return name == paymentOutboxLegacyPaidConstraint ||
+		name == paymentOutboxPaidSnapshotConstraint ||
+		strings.Contains(name, "payment_outbox")
+}
+
 func insertPaymentObligationPaidOutboxTx(
 	ctx context.Context,
 	tx pgx.Tx,
@@ -36,6 +48,7 @@ func insertPaymentObligationPaidOutboxTx(
 		tenantID,
 		domain.AggregatePaymentObligation,
 		obligation.ID,
+		int64(0),
 		domain.PaymentEventObligationPaid,
 		domain.PaymentOutboxSchemaVersion,
 		payload,
@@ -44,8 +57,41 @@ func insertPaymentObligationPaidOutboxTx(
 		time.Now().UTC(),
 	)
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == paymentOutboxIdempotencyConstraint {
+		if isPaymentOutboxDuplicate(err) {
+			return nil
+		}
+		return mapDBError(err)
+	}
+	return nil
+}
+
+func insertPaymentObligationPaidSnapshotOutboxTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	tenantID uuid.UUID,
+	obligation *domain.PaymentObligation,
+	occurredAt time.Time,
+) error {
+	eventID := uuid.New()
+	payload, err := domain.BuildObligationPaidSnapshotOutboxPayload(eventID, obligation, occurredAt)
+	if err != nil {
+		return mapDBError(err)
+	}
+	_, err = tx.Exec(ctx, insertPaymentOutboxEventQuery,
+		eventID,
+		tenantID,
+		domain.AggregatePaymentObligation,
+		obligation.ID,
+		int64(obligation.Version),
+		domain.PaymentEventObligationPaidSnapshot,
+		domain.PaymentPaidSnapshotSchemaVersion,
+		payload,
+		domain.PaymentOutboxStatusPending,
+		0,
+		time.Now().UTC(),
+	)
+	if err != nil {
+		if isPaymentOutboxDuplicate(err) {
 			return nil
 		}
 		return mapDBError(err)
@@ -64,6 +110,7 @@ func scanPaymentOutboxEvents(rows pgx.Rows) ([]domain.PaymentOutboxEvent, error)
 			&event.TenantID,
 			&event.AggregateType,
 			&event.AggregateID,
+			&event.AggregateVersion,
 			&event.EventType,
 			&event.SchemaVersion,
 			&event.Payload,
@@ -220,6 +267,22 @@ func (r *OutboxRepository) CountOutboxByAggregate(
 	return count, mapDBError(err)
 }
 
+func (r *OutboxRepository) CountOutboxByAggregateVersion(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	eventType string,
+	aggregateID uuid.UUID,
+	aggregateVersion int64,
+) (int, error) {
+	var count int
+	err := r.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM billing.payment_outbox
+		WHERE tenant_id = $1 AND event_type = $2 AND aggregate_id = $3 AND aggregate_version = $4`,
+		tenantID, eventType, aggregateID, aggregateVersion,
+	).Scan(&count)
+	return count, mapDBError(err)
+}
+
 func (r *OutboxRepository) GetOutboxByAggregate(
 	ctx context.Context,
 	tenantID uuid.UUID,
@@ -227,7 +290,7 @@ func (r *OutboxRepository) GetOutboxByAggregate(
 	aggregateID uuid.UUID,
 ) (*domain.PaymentOutboxEvent, error) {
 	row := r.pool.QueryRow(ctx, `
-		SELECT id, tenant_id, aggregate_type, aggregate_id,
+		SELECT id, tenant_id, aggregate_type, aggregate_id, aggregate_version,
 			event_type, schema_version, payload,
 			status, attempts, available_at, locked_at, locked_by,
 			published_at, last_error_code, created_at
@@ -235,10 +298,14 @@ func (r *OutboxRepository) GetOutboxByAggregate(
 		WHERE tenant_id = $1 AND event_type = $2 AND aggregate_id = $3`,
 		tenantID, eventType, aggregateID,
 	)
+	return scanPaymentOutboxEventRow(row)
+}
+
+func scanPaymentOutboxEventRow(row pgx.Row) (*domain.PaymentOutboxEvent, error) {
 	var event domain.PaymentOutboxEvent
 	var status string
 	if err := row.Scan(
-		&event.ID, &event.TenantID, &event.AggregateType, &event.AggregateID,
+		&event.ID, &event.TenantID, &event.AggregateType, &event.AggregateID, &event.AggregateVersion,
 		&event.EventType, &event.SchemaVersion, &event.Payload,
 		&status, &event.Attempts, &event.AvailableAt, &event.LockedAt, &event.LockedBy,
 		&event.PublishedAt, &event.LastErrorCode, &event.CreatedAt,

@@ -17,6 +17,7 @@ type Config struct {
 	LogLevel               string
 	DatabaseURL            string
 	BillingRegisterURL     string
+	FreightCostServiceURL  string
 	InternalServiceToken   string
 	Outbox                 OutboxConfig
 }
@@ -54,6 +55,10 @@ func Load() (Config, error) {
 	if billingURL == "" {
 		billingURL = "http://localhost:8087"
 	}
+	freightCostURL := os.Getenv("FREIGHT_COST_SERVICE_URL")
+	if freightCostURL == "" {
+		freightCostURL = "http://localhost:8092"
+	}
 
 	outbox, err := loadOutboxConfig()
 	if err != nil {
@@ -67,6 +72,7 @@ func Load() (Config, error) {
 		LogLevel:             getEnv("LOG_LEVEL", "info"),
 		DatabaseURL:          databaseURL,
 		BillingRegisterURL:   billingURL,
+		FreightCostServiceURL: freightCostURL,
 		InternalServiceToken: os.Getenv("INTERNAL_SERVICE_TOKEN"),
 		Outbox:               outbox,
 	}, nil

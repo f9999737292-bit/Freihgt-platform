@@ -476,6 +476,9 @@ func (r *PaymentRepository) Allocate(ctx context.Context, in domain.CreateAlloca
 				return err
 			}
 		}
+		if err := insertPaymentObligationPaidSnapshotOutboxTx(ctx, tx, in.TenantID, updatedObligation, time.Now().UTC()); err != nil {
+			return err
+		}
 
 		result = &AllocateResult{Payment: updatedPayment, Obligation: updatedObligation, Allocation: &alloc}
 		return nil

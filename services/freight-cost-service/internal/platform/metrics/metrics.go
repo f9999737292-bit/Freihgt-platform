@@ -10,10 +10,14 @@ import (
 )
 
 type Metrics struct {
-	httpRequestsTotal     *prometheus.CounterVec
-	sourceRequestsTotal   *prometheus.CounterVec
-	sourceErrorsTotal     *prometheus.CounterVec
-	currencyMismatchTotal *prometheus.CounterVec
+	httpRequestsTotal        *prometheus.CounterVec
+	sourceRequestsTotal      *prometheus.CounterVec
+	sourceErrorsTotal        *prometheus.CounterVec
+	currencyMismatchTotal    *prometheus.CounterVec
+	eventsAppliedTotal       *prometheus.CounterVec
+	projectionUpdatesTotal   *prometheus.CounterVec
+	outOfOrderTotal          *prometheus.CounterVec
+	rebuildTotal             *prometheus.CounterVec
 }
 
 var (
@@ -40,12 +44,32 @@ func New() *Metrics {
 				Name: "freight_cost_currency_mismatch_total",
 				Help: "Currency mismatch validation failures by operation",
 			}, []string{"operation"}),
+			eventsAppliedTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
+				Name: "freight_cost_events_applied_total",
+				Help: "Freight cost ingest outcomes by entry kind and result",
+			}, []string{"entry_kind", "result"}),
+			projectionUpdatesTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
+				Name: "freight_cost_projection_updates_total",
+				Help: "Freight cost projection updates by entry kind",
+			}, []string{"entry_kind"}),
+			outOfOrderTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
+				Name: "freight_cost_events_out_of_order_total",
+				Help: "Freight cost out-of-order journal events by entry kind",
+			}, []string{"entry_kind"}),
+			rebuildTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
+				Name: "freight_cost_rebuild_total",
+				Help: "Freight cost rebuild operations by result",
+			}, []string{"result"}),
 		}
 		prometheus.MustRegister(
 			shared.httpRequestsTotal,
 			shared.sourceRequestsTotal,
 			shared.sourceErrorsTotal,
 			shared.currencyMismatchTotal,
+			shared.eventsAppliedTotal,
+			shared.projectionUpdatesTotal,
+			shared.outOfOrderTotal,
+			shared.rebuildTotal,
 		)
 	})
 	return shared
@@ -73,4 +97,20 @@ func (m *Metrics) ObserveSourceError(sourceService, errorCode string) {
 
 func (m *Metrics) ObserveCurrencyMismatch(operation string) {
 	m.currencyMismatchTotal.WithLabelValues(operation).Inc()
+}
+
+func (m *Metrics) ObserveEventApplied(entryKind, result string) {
+	m.eventsAppliedTotal.WithLabelValues(entryKind, result).Inc()
+}
+
+func (m *Metrics) ObserveProjectionUpdate(entryKind string) {
+	m.projectionUpdatesTotal.WithLabelValues(entryKind).Inc()
+}
+
+func (m *Metrics) ObserveOutOfOrder(entryKind string) {
+	m.outOfOrderTotal.WithLabelValues(entryKind).Inc()
+}
+
+func (m *Metrics) ObserveRebuild(result string) {
+	m.rebuildTotal.WithLabelValues(result).Inc()
 }

@@ -12,6 +12,7 @@ import (
 
 	"github.com/freight-platform/billing-register-service/internal/config"
 	"github.com/freight-platform/billing-register-service/internal/http/handlers"
+	"github.com/freight-platform/billing-register-service/internal/repository"
 	"github.com/freight-platform/billing-register-service/internal/service"
 )
 
@@ -20,7 +21,9 @@ func TestInternalSyncPaidAuthMatrix(t *testing.T) {
 	registerID := uuid.New()
 	cfg := config.Config{InternalServiceToken: token, Environment: "test", ServiceName: "billing-register-service"}
 	registerSvc := &service.BillingRegisterService{}
-	router := NewRouter(slog.Default(), nil, cfg, registerSvc, nil, nil, handlers.NewSettlementActorResolver(nil))
+	settlementRepo := repository.NewFreightSettlementRepository(nil)
+	registerRepo := repository.NewBillingRegisterRepository(nil)
+	router := NewRouter(slog.Default(), nil, cfg, registerSvc, nil, nil, settlementRepo, registerRepo, handlers.NewSettlementActorResolver(nil))
 	body, _ := json.Marshal(map[string]string{"tenant_id": uuid.New().String()})
 	path := "/internal/v1/billing-registers/" + registerID.String() + "/sync-paid"
 
