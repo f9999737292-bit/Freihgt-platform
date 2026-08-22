@@ -3,6 +3,7 @@ package domain
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -153,21 +154,27 @@ func BuildSettlementSnapshotPayloads(
 	settlement *FreightSettlement,
 	openDisputeCount int,
 	occurredAt time.Time,
+	accrualAmountExVAT string,
+	totalWithoutVAT string,
 ) ([]uuid.UUID, []json.RawMessage, error) {
 	if settlement == nil {
 		return nil, nil, errors.New("settlement is required")
 	}
-	accrualAmount := FormatMoneyFloat(settlement.TotalWithoutVAT)
+	if strings.TrimSpace(accrualAmountExVAT) == "" || strings.TrimSpace(totalWithoutVAT) == "" {
+		return nil, nil, errors.New("exact decimal settlement money is required")
+	}
+	accrualAmount := accrualAmountExVAT
+	actualAmount := totalWithoutVAT
 	var currentAmount, finalAmount *string
 	currentAvail := AmountUnavailable
 	finalAvail := AmountUnavailable
 	if CurrentActualAvailable(settlement.Status, openDisputeCount) {
 		currentAvail = AmountAvailable
-		currentAmount = &accrualAmount
+		currentAmount = &actualAmount
 	}
 	if FinalActualAvailable(settlement.Status, openDisputeCount) {
 		finalAvail = AmountAvailable
-		finalAmount = &accrualAmount
+		finalAmount = &actualAmount
 	}
 
 	base := settlementSnapshotPayload{
@@ -271,9 +278,12 @@ func BuildBillingLinkSnapshotPayload(
 	return eventID, raw, nil
 }
 
-func BuildPayableSnapshotPayload(register *BillingRegister, occurredAt time.Time) (uuid.UUID, json.RawMessage, error) {
+func BuildPayableSnapshotPayload(register *BillingRegister, totalWithVAT string, occurredAt time.Time) (uuid.UUID, json.RawMessage, error) {
 	eventID := uuid.New()
-	amount := FormatMoneyFloat(register.TotalWithVAT)
+	if strings.TrimSpace(totalWithVAT) == "" {
+		return uuid.Nil, nil, errors.New("exact decimal payable amount is required")
+	}
+	amount := totalWithVAT
 	payload := payableSnapshotPayload{
 		EventID:            eventID.String(),
 		EventType:          EventBillingRegisterPayableSnapshot,

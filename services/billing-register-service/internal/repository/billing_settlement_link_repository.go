@@ -287,7 +287,10 @@ func linkSettlementToRegisterTx(
 	if err != nil {
 		return mapDBError(err)
 	}
-	amount := domain.FormatMoneyFloat(amountWithoutVAT)
+	amount, err := querySettlementTotalWithoutVATTx(ctx, tx, linked.ID, linked.TenantID)
+	if err != nil {
+		return err
+	}
 	return emitter.EmitBillingLinkSnapshotTx(ctx, tx, linked, domain.BillingLinkStateLinked, &amount, &registerID, &itemID, time.Now().UTC())
 }
 

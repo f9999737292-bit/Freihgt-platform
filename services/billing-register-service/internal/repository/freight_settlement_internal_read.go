@@ -14,23 +14,23 @@ import (
 )
 
 type InternalSettlementRead struct {
-	SettlementID       uuid.UUID
-	TenantID           uuid.UUID
-	TransportOrderID   uuid.UUID
-	ShipmentID         uuid.UUID
-	BuyerCompanyID     uuid.UUID
-	CarrierCompanyID   uuid.UUID
-	Status             string
-	OpenDisputeCount   int
-	Version            int
+	SettlementID        uuid.UUID
+	TenantID            uuid.UUID
+	TransportOrderID    uuid.UUID
+	ShipmentID          uuid.UUID
+	BuyerCompanyID      uuid.UUID
+	CarrierCompanyID    uuid.UUID
+	Status              string
+	OpenDisputeCount    int
+	Version             int
 	BillingLinkRevision int64
-	BillingLinkState   string
-	CurrencyCode       string
-	BaseFreightAmount  string
-	AccrualAmountExVAT string
-	TotalWithoutVAT    string
-	RateSnapshotID     *uuid.UUID
-	UpdatedAt          time.Time
+	BillingLinkState    string
+	CurrencyCode        string
+	BaseFreightAmount   string
+	AccrualAmountExVAT  string
+	TotalWithoutVAT     string
+	RateSnapshotID      *uuid.UUID
+	UpdatedAt           time.Time
 }
 
 type InternalBillingLinkRead struct {
@@ -46,14 +46,14 @@ type InternalBillingLinkRead struct {
 }
 
 type InternalRegisterPayableRead struct {
-	RegisterID     uuid.UUID
-	TenantID       uuid.UUID
-	Status         string
-	Version        int
-	CurrencyCode   string
-	TotalWithVAT   string
-	TaxBasis       string
-	UpdatedAt      time.Time
+	RegisterID   uuid.UUID
+	TenantID     uuid.UUID
+	Status       string
+	Version      int
+	CurrencyCode string
+	TotalWithVAT string
+	TaxBasis     string
+	UpdatedAt    time.Time
 }
 
 func (r *FreightSettlementRepository) GetInternalByTransportOrder(ctx context.Context, tenantID, transportOrderID uuid.UUID) (*InternalSettlementRead, error) {
@@ -186,4 +186,72 @@ func normalizeDecimalMoneyString(raw string) (string, error) {
 		return "", apperrors.Internal("invalid money decimal", err)
 	}
 	return d.StringFixed(domain.MoneyScale), nil
+}
+
+func querySettlementSnapshotMoneyTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	settlementID, tenantID uuid.UUID,
+) (accrualExVAT, totalWithoutVAT string, err error) {
+	const query = `
+		SELECT fs.base_freight_amount::text, fs.total_without_vat::text,
+			COALESCE((
+				SELECT SUM(a.amount)::text FROM billing.settlement_accessorials a
+				WHERE a.settlement_id = fs.id AND a.tenant_id = fs.tenant_id AND a.status = $3
+			), '0')::text
+		FROM billing.freight_settlements fs
+		WHERE fs.id = $1 AND fs.tenant_id = $2 AND fs.deleted_at IS NULL`
+	var baseText, totalText, approvedSumText string
+	if err := tx.QueryRow(ctx, query, settlementID, tenantID, domain.AccessorialStatusApproved).Scan(
+		&baseText, &totalText, &approvedSumText,
+	); err != nil {
+		return "", "", mapDBError(err)
+	}
+	base, err := normalizeDecimalMoneyString(baseText)
+	if err != nil {
+		return "", "", err
+	}
+	total, err := normalizeDecimalMoneyString(totalText)
+	if err != nil {
+		return "", "", err
+	}
+	approvedSum, err := normalizeDecimalMoneyString(approvedSumText)
+	if err != nil {
+		return "", "", err
+	}
+	baseDec, _ := decimal.NewFromString(base)
+	approvedDec, _ := decimal.NewFromString(approvedSum)
+	return baseDec.Add(approvedDec).StringFixed(domain.MoneyScale), total, nil
+}
+
+func queryRegisterPayableAmountTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	registerID, tenantID uuid.UUID,
+) (string, error) {
+	const query = `
+		SELECT total_with_vat::text
+		FROM billing.billing_registers
+		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`
+	var raw string
+	if err := tx.QueryRow(ctx, query, registerID, tenantID).Scan(&raw); err != nil {
+		return "", mapDBError(err)
+	}
+	return normalizeDecimalMoneyString(raw)
+}
+
+func querySettlementTotalWithoutVATTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	settlementID, tenantID uuid.UUID,
+) (string, error) {
+	const query = `
+		SELECT total_without_vat::text
+		FROM billing.freight_settlements
+		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`
+	var raw string
+	if err := tx.QueryRow(ctx, query, settlementID, tenantID).Scan(&raw); err != nil {
+		return "", mapDBError(err)
+	}
+	return normalizeDecimalMoneyString(raw)
 }

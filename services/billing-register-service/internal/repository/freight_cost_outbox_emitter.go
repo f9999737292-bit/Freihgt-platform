@@ -32,7 +32,13 @@ func (e *FreightCostOutboxEmitter) EmitSettlementSnapshotsTx(
 	if e == nil || e.repo == nil || settlement == nil {
 		return nil
 	}
-	ids, payloads, err := domain.BuildSettlementSnapshotPayloads(eventTypes, settlement, openDisputeCount, occurredAt)
+	accrualExVAT, totalWithoutVAT, err := querySettlementSnapshotMoneyTx(ctx, tx, settlement.ID, settlement.TenantID)
+	if err != nil {
+		return err
+	}
+	ids, payloads, err := domain.BuildSettlementSnapshotPayloads(
+		eventTypes, settlement, openDisputeCount, occurredAt, accrualExVAT, totalWithoutVAT,
+	)
 	if err != nil {
 		return err
 	}
@@ -86,7 +92,11 @@ func (e *FreightCostOutboxEmitter) EmitPayableSnapshotTx(
 	if e == nil || e.repo == nil || register == nil {
 		return nil
 	}
-	eventID, payload, err := domain.BuildPayableSnapshotPayload(register, occurredAt)
+	totalWithVAT, err := queryRegisterPayableAmountTx(ctx, tx, register.ID, register.TenantID)
+	if err != nil {
+		return err
+	}
+	eventID, payload, err := domain.BuildPayableSnapshotPayload(register, totalWithVAT, occurredAt)
 	if err != nil {
 		return err
 	}

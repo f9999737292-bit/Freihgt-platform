@@ -617,7 +617,10 @@ func (r *FreightSettlementRepository) IncludeInRegister(ctx context.Context, set
 			return scanErr
 		}
 		result = *updated
-		amount := domain.FormatMoneyFloat(settlement.TotalWithoutVAT)
+		amount, amountErr := querySettlementTotalWithoutVATTx(ctx, tx, settlementID, in.TenantID)
+		if amountErr != nil {
+			return amountErr
+		}
 		if err := r.outbox.EmitBillingLinkSnapshotTx(ctx, tx, updated, domain.BillingLinkStateLinked, &amount, &regID, &itemID, time.Now().UTC()); err != nil {
 			return err
 		}
