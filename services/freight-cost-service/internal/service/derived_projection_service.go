@@ -97,7 +97,7 @@ func (s *DerivedProjectionService) RecomputeInTransaction(
 	}
 
 	attributionRows := s.buildAttributionRows(projection, driverCtx)
-	inserted, err := s.attributions.InsertBatch(ctx, tx, attributionRows)
+	inserted, err := s.attributions.UpsertReclassifyBatch(ctx, tx, attributionRows)
 	if err != nil {
 		return err
 	}
