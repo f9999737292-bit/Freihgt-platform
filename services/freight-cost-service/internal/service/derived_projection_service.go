@@ -83,6 +83,15 @@ func (s *DerivedProjectionService) RecomputeInTransaction(
 	driverCtx.PlatformMappings = platformMappings
 	driverCtx.TenantMappings = tenantMappings
 
+	if len(driverCtx.ApprovedAccessorials) == 0 && driverCtx.BaseFreightAmount == nil {
+		canonical, _, hydrateErr := s.buildCanonicalDriverContext(ctx, projection.TenantID, projection.TransportOrderID)
+		if hydrateErr != nil {
+			return hydrateErr
+		}
+		driverCtx.ApprovedAccessorials = canonical.ApprovedAccessorials
+		driverCtx.BaseFreightAmount = canonical.BaseFreightAmount
+	}
+
 	if err := s.attributions.MarkSuperseded(ctx, tx, projection.TenantID, projection.TransportOrderID, projection.ProjectionRevision); err != nil {
 		return err
 	}
