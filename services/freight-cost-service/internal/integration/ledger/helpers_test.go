@@ -32,7 +32,7 @@ import (
 	"github.com/freight-platform/shared-go/internalauth"
 )
 
-const maxMigrationFile = "000056_payment_outbox_aggregate_version_v2.1B.up.sql"
+const maxMigrationFile = "000058_freight_cost_variance_explainability_v2.1C.up.sql"
 const testToken = "fc-ledger-test-token"
 
 type env struct {
@@ -81,7 +81,9 @@ func setupEnv(t *testing.T) *env {
 	entries := repository.NewCostEntryRepository(pool)
 	cursors := repository.NewSourceCursorRepository(pool)
 	projections := repository.NewCostSummaryProjectionRepository(pool)
-	ingest := service.NewIngestService(pool, entries, cursors, projections, metrics)
+	attributions := repository.NewVarianceAttributionRepository()
+	findings := repository.NewReconciliationFindingRepository()
+	mappings := repository.NewChargeCodeMappingRepository(pool)
 
 	mockTransport := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/internal/v1/transport-orders/")
@@ -138,7 +140,9 @@ func setupEnv(t *testing.T) *env {
 	transportClient := transport_order.NewClient(cfg.TransportOrderURL, cfg.InternalServiceToken, metrics)
 	billingClient := billing_register.NewClient(cfg.BillingRegisterURL, testToken, metrics)
 	paymentClient := payment.NewClient(cfg.PaymentServiceURL, testToken, metrics)
-	rebuild := service.NewRebuildService(ingest, transportClient, billingClient, paymentClient, metrics)
+	derived := service.NewDerivedProjectionService(pool, projections, attributions, findings, mappings, billingClient, metrics)
+	ingest := service.NewIngestService(pool, entries, cursors, projections, derived, metrics)
+	rebuild := service.NewRebuildService(ingest, derived, transportClient, billingClient, paymentClient, metrics)
 	costs := service.NewCostService(transportClient, projections)
 	log := slog.New(slog.DiscardHandler)
 	router := httpserver.NewRouter(log, pool, cfg, costs, ingest, rebuild, metrics)

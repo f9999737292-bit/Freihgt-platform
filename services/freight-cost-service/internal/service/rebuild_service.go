@@ -21,6 +21,7 @@ type RebuildResult struct {
 
 type RebuildService struct {
 	ingest    *IngestService
+	derived   *DerivedProjectionService
 	transport *transport_order.Client
 	billing   *billing_register.Client
 	payment   *payment.Client
@@ -29,6 +30,7 @@ type RebuildService struct {
 
 func NewRebuildService(
 	ingest *IngestService,
+	derived *DerivedProjectionService,
 	transport *transport_order.Client,
 	billing *billing_register.Client,
 	payment *payment.Client,
@@ -36,6 +38,7 @@ func NewRebuildService(
 ) *RebuildService {
 	return &RebuildService{
 		ingest:    ingest,
+		derived:   derived,
 		transport: transport,
 		billing:   billing,
 		payment:   payment,
@@ -98,6 +101,9 @@ func (s *RebuildService) RebuildTransportOrder(ctx context.Context, tenantID, tr
 	}
 
 	s.observeRebuild("success")
+	if settlementErr == nil && s.derived != nil {
+		_ = s.derived.EnrichForecastFromSettlement(ctx, tenantID, transportOrderID, settlement)
+	}
 	return result, nil
 }
 

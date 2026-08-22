@@ -26,10 +26,12 @@ type InternalSettlementRead struct {
 	BillingLinkRevision int64
 	BillingLinkState    string
 	CurrencyCode        string
-	BaseFreightAmount   string
-	AccrualAmountExVAT  string
-	TotalWithoutVAT     string
-	RateSnapshotID      *uuid.UUID
+	BaseFreightAmount               string
+	AccrualAmountExVAT              string
+	TotalWithoutVAT                 string
+	ProposedAccessorialTotalExVAT   string
+	ProposedAccessorialSourceStatus string
+	RateSnapshotID                  *uuid.UUID
 	UpdatedAt           time.Time
 }
 
@@ -72,12 +74,16 @@ func (r *FreightSettlementRepository) GetInternalByTransportOrder(ctx context.Co
 			COALESCE((
 				SELECT SUM(a.amount)::text FROM billing.settlement_accessorials a
 				WHERE a.settlement_id = fs.id AND a.tenant_id = fs.tenant_id AND a.status = $4
+			), '0')::text,
+			COALESCE((
+				SELECT SUM(a.amount)::text FROM billing.settlement_accessorials a
+				WHERE a.settlement_id = fs.id AND a.tenant_id = fs.tenant_id AND a.status = $5
 			), '0')::text
 		FROM billing.freight_settlements fs
 		WHERE fs.transport_order_id = $1 AND fs.tenant_id = $2 AND fs.deleted_at IS NULL
 		ORDER BY fs.created_at DESC
 		LIMIT 1`
-	row := r.pool.QueryRow(ctx, query, transportOrderID, tenantID, domain.DisputeStatusOpen, domain.AccessorialStatusApproved)
+	row := r.pool.QueryRow(ctx, query, transportOrderID, tenantID, domain.DisputeStatusOpen, domain.AccessorialStatusApproved, domain.AccessorialStatusProposed)
 	read, err := scanInternalSettlementRead(row)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, apperrors.NotFound("freight settlement not found")
@@ -148,13 +154,13 @@ type internalSettlementRow interface {
 
 func scanInternalSettlementRead(row internalSettlementRow) (*InternalSettlementRead, error) {
 	var read InternalSettlementRead
-	var baseText, totalText, approvedSumText string
+	var baseText, totalText, approvedSumText, proposedSumText string
 	err := row.Scan(
 		&read.SettlementID, &read.TenantID, &read.TransportOrderID, &read.ShipmentID,
 		&read.BuyerCompanyID, &read.CarrierCompanyID, &read.Status, &read.Version,
 		&read.BillingLinkRevision, &read.BillingLinkState, &read.CurrencyCode,
 		&baseText, &totalText, &read.RateSnapshotID, &read.UpdatedAt,
-		&read.OpenDisputeCount, &approvedSumText,
+		&read.OpenDisputeCount, &approvedSumText, &proposedSumText,
 	)
 	if err != nil {
 		return nil, mapDBError(err)
@@ -177,6 +183,12 @@ func scanInternalSettlementRead(row internalSettlementRow) (*InternalSettlementR
 	read.BaseFreightAmount = base
 	read.TotalWithoutVAT = total
 	read.AccrualAmountExVAT = accrual
+	proposedSum, err := normalizeDecimalMoneyString(proposedSumText)
+	if err != nil {
+		return nil, err
+	}
+	read.ProposedAccessorialTotalExVAT = proposedSum
+	read.ProposedAccessorialSourceStatus = "KNOWN"
 	return &read, nil
 }
 

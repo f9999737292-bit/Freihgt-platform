@@ -18,6 +18,11 @@ type Metrics struct {
 	projectionUpdatesTotal   *prometheus.CounterVec
 	outOfOrderTotal          *prometheus.CounterVec
 	rebuildTotal             *prometheus.CounterVec
+	varianceRecomputedTotal  *prometheus.CounterVec
+	forecastRecomputedTotal  *prometheus.CounterVec
+	forecastProposedUnknown  prometheus.Counter
+	reconciliationFindingTotal *prometheus.CounterVec
+	chargeCodeUnmappedTotal  prometheus.Counter
 }
 
 var (
@@ -60,6 +65,26 @@ func New() *Metrics {
 				Name: "freight_cost_rebuild_total",
 				Help: "Freight cost rebuild operations by result",
 			}, []string{"result"}),
+			varianceRecomputedTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
+				Name: "freight_cost_variance_recomputed_total",
+				Help: "Freight cost variance recomputations by result",
+			}, []string{"result"}),
+			forecastRecomputedTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
+				Name: "freight_cost_forecast_recomputed_total",
+				Help: "Freight cost forecast recomputations by result",
+			}, []string{"result"}),
+			forecastProposedUnknown: prometheus.NewCounter(prometheus.CounterOpts{
+				Name: "freight_cost_forecast_proposed_source_unknown_total",
+				Help: "Forecast recompute with unknown proposed accessorial source",
+			}),
+			reconciliationFindingTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
+				Name: "freight_cost_reconciliation_finding_total",
+				Help: "Reconciliation findings by kind and severity",
+			}, []string{"kind", "severity"}),
+			chargeCodeUnmappedTotal: prometheus.NewCounter(prometheus.CounterOpts{
+				Name: "freight_cost_charge_code_unmapped_total",
+				Help: "Charge codes mapped to OTHER category",
+			}),
 		}
 		prometheus.MustRegister(
 			shared.httpRequestsTotal,
@@ -70,6 +95,11 @@ func New() *Metrics {
 			shared.projectionUpdatesTotal,
 			shared.outOfOrderTotal,
 			shared.rebuildTotal,
+			shared.varianceRecomputedTotal,
+			shared.forecastRecomputedTotal,
+			shared.forecastProposedUnknown,
+			shared.reconciliationFindingTotal,
+			shared.chargeCodeUnmappedTotal,
 		)
 	})
 	return shared
@@ -113,4 +143,24 @@ func (m *Metrics) ObserveOutOfOrder(entryKind string) {
 
 func (m *Metrics) ObserveRebuild(result string) {
 	m.rebuildTotal.WithLabelValues(result).Inc()
+}
+
+func (m *Metrics) ObserveVarianceRecomputed(result string) {
+	m.varianceRecomputedTotal.WithLabelValues(result).Inc()
+}
+
+func (m *Metrics) ObserveForecastRecomputed(result string) {
+	m.forecastRecomputedTotal.WithLabelValues(result).Inc()
+}
+
+func (m *Metrics) ObserveForecastProposedSourceUnknown() {
+	m.forecastProposedUnknown.Inc()
+}
+
+func (m *Metrics) ObserveReconciliationFinding(kind, severity string) {
+	m.reconciliationFindingTotal.WithLabelValues(kind, severity).Inc()
+}
+
+func (m *Metrics) ObserveChargeCodeUnmapped() {
+	m.chargeCodeUnmappedTotal.Inc()
 }

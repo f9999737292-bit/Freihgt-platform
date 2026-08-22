@@ -36,7 +36,9 @@ type internalSettlementResponse struct {
 	CurrencyCode        string  `json:"currency_code"`
 	BaseFreightAmount   string  `json:"base_freight_amount"`
 	AccrualAmountExVAT  string  `json:"accrual_amount_ex_vat"`
-	TotalWithoutVAT     string  `json:"total_without_vat"`
+	TotalWithoutVAT                 string  `json:"total_without_vat"`
+	ProposedAccessorialTotalExVAT   string  `json:"proposed_accessorial_total_ex_vat"`
+	ProposedAccessorialSourceStatus string  `json:"proposed_accessorial_source_status"`
 	RateSnapshotID      *string `json:"rate_snapshot_id,omitempty"`
 	UpdatedAt           string  `json:"updated_at"`
 }
@@ -119,9 +121,11 @@ func toInternalSettlementResponse(read *repository.InternalSettlementRead) inter
 		BillingLinkState:    read.BillingLinkState,
 		CurrencyCode:        read.CurrencyCode,
 		BaseFreightAmount:   read.BaseFreightAmount,
-		AccrualAmountExVAT:  read.AccrualAmountExVAT,
-		TotalWithoutVAT:     read.TotalWithoutVAT,
-		RateSnapshotID:      rateSnapshotID,
+		AccrualAmountExVAT:              read.AccrualAmountExVAT,
+		TotalWithoutVAT:                 read.TotalWithoutVAT,
+		ProposedAccessorialTotalExVAT:   read.ProposedAccessorialTotalExVAT,
+		ProposedAccessorialSourceStatus: read.ProposedAccessorialSourceStatus,
+		RateSnapshotID:                  rateSnapshotID,
 		UpdatedAt:           read.UpdatedAt.UTC().Format("2006-01-02T15:04:05.999999999Z07:00"),
 	}
 }

@@ -109,6 +109,13 @@ type CostSummaryProjection struct {
 	SettlementLinked            bool
 	SettlementStatus            string
 	OpenDisputeCount            int
+	CurrentVarianceAmount       *decimal.Decimal
+	FinalVarianceAmount         *decimal.Decimal
+	CurrentVariancePercent      *decimal.Decimal
+	FinalVariancePercent        *decimal.Decimal
+	ForecastExposure            *decimal.Decimal
+	AttributionMappingVersion   *int64
+	ProjectionRevision          int64
 }
 
 func SourceRevisionSemantic(sourceType string, sourceRevision int64) string {

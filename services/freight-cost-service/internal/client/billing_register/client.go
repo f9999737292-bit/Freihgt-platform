@@ -50,9 +50,11 @@ type SettlementFact struct {
 	BillingLinkRevision int64
 	BillingLinkState    string
 	CurrencyCode        string
-	AccrualAmountExVAT  *decimal.Decimal
-	TotalWithoutVAT     *decimal.Decimal
-	RateSnapshotID      *uuid.UUID
+	AccrualAmountExVAT              *decimal.Decimal
+	TotalWithoutVAT                 *decimal.Decimal
+	ProposedAccessorialTotalExVAT   *decimal.Decimal
+	ProposedAccessorialSourceStatus string
+	RateSnapshotID                  *uuid.UUID
 	UpdatedAt           time.Time
 }
 
@@ -90,8 +92,10 @@ type settlementResponse struct {
 	BillingLinkRevision int64   `json:"billing_link_revision"`
 	BillingLinkState    string  `json:"billing_link_state"`
 	CurrencyCode        string  `json:"currency_code"`
-	AccrualAmountExVAT  string  `json:"accrual_amount_ex_vat"`
-	TotalWithoutVAT     string  `json:"total_without_vat"`
+	AccrualAmountExVAT              string  `json:"accrual_amount_ex_vat"`
+	TotalWithoutVAT                 string  `json:"total_without_vat"`
+	ProposedAccessorialTotalExVAT   string  `json:"proposed_accessorial_total_ex_vat"`
+	ProposedAccessorialSourceStatus string  `json:"proposed_accessorial_source_status"`
 	RateSnapshotID      *string `json:"rate_snapshot_id,omitempty"`
 	UpdatedAt           string  `json:"updated_at"`
 }
@@ -271,9 +275,10 @@ func mapSettlement(payload settlementResponse, requestedTenantID, requestedTrans
 		Version:             int64(payload.Version),
 		BillingLinkRevision: payload.BillingLinkRevision,
 		BillingLinkState:    strings.TrimSpace(payload.BillingLinkState),
-		CurrencyCode:        strings.ToUpper(strings.TrimSpace(payload.CurrencyCode)),
-		RateSnapshotID:      rateSnapshotID,
-		UpdatedAt:           updatedAt.UTC(),
+		CurrencyCode:                    strings.ToUpper(strings.TrimSpace(payload.CurrencyCode)),
+		ProposedAccessorialSourceStatus: strings.ToUpper(strings.TrimSpace(payload.ProposedAccessorialSourceStatus)),
+		RateSnapshotID:                  rateSnapshotID,
+		UpdatedAt:                       updatedAt.UTC(),
 	}
 	if strings.TrimSpace(payload.AccrualAmountExVAT) != "" {
 		amount, err := domain.ParseMoneyAmount(payload.AccrualAmountExVAT)
@@ -288,6 +293,13 @@ func mapSettlement(payload settlementResponse, requestedTenantID, requestedTrans
 			return nil, apperrors.BadGateway("invalid total_without_vat", err)
 		}
 		fact.TotalWithoutVAT = &amount
+	}
+	if strings.TrimSpace(payload.ProposedAccessorialTotalExVAT) != "" && fact.ProposedAccessorialSourceStatus == domain.ProposedSourceKnown {
+		amount, err := domain.ParseMoneyAmount(payload.ProposedAccessorialTotalExVAT)
+		if err != nil {
+			return nil, apperrors.BadGateway("invalid proposed_accessorial_total_ex_vat", err)
+		}
+		fact.ProposedAccessorialTotalExVAT = &amount
 	}
 	return fact, nil
 }
