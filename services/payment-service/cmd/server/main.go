@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/freight-platform/payment-service/internal/client/freight_cost"
 	"github.com/freight-platform/payment-service/internal/config"
 	httpserver "github.com/freight-platform/payment-service/internal/http"
 	"github.com/freight-platform/payment-service/internal/http/handlers"
@@ -52,7 +53,7 @@ func main() {
 
 	var outboxWorker *outbox.Worker
 	if cfg.Outbox.Enabled {
-		publisher := outbox.NewPublisher(billingClient)
+		publisher := outbox.NewPublisher(billingClient, freight_cost.NewClient(cfg.FreightCostServiceURL, cfg.InternalServiceToken))
 		outboxWorker = outbox.NewWorker(cfg.Outbox, outboxRepo, publisher, log, outbox.NewRealClock())
 		outboxWorker.Start(ctx)
 		log.Info("payment outbox worker started", slog.String("worker_id", cfg.Outbox.WorkerID))

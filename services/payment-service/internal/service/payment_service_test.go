@@ -25,6 +25,9 @@ func (precisionGuardStore) GetObligationByID(context.Context, uuid.UUID, uuid.UU
 func (precisionGuardStore) GetObligationBySource(context.Context, uuid.UUID, string, uuid.UUID) (*domain.PaymentObligation, error) {
 	return nil, nil
 }
+func (precisionGuardStore) GetInternalObligationByBillingRegister(context.Context, uuid.UUID, uuid.UUID) (*repository.InternalObligationRead, error) {
+	return nil, nil
+}
 func (precisionGuardStore) UpdateObligationDueDate(context.Context, uuid.UUID, uuid.UUID, *time.Time, domain.PaymentActorInput) (*domain.PaymentObligation, error) {
 	return nil, nil
 }

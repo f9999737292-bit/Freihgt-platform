@@ -20,6 +20,7 @@ type PaymentStore interface {
 	EnsureObligationForBillingRegister(ctx context.Context, tenantID, registerID uuid.UUID, snap *repository.BillingRegisterSnapshot) (*domain.PaymentObligation, error)
 	GetObligationByID(ctx context.Context, tenantID, id uuid.UUID) (*domain.PaymentObligation, error)
 	GetObligationBySource(ctx context.Context, tenantID uuid.UUID, sourceType string, sourceID uuid.UUID) (*domain.PaymentObligation, error)
+	GetInternalObligationByBillingRegister(ctx context.Context, tenantID, billingRegisterID uuid.UUID) (*repository.InternalObligationRead, error)
 	UpdateObligationDueDate(ctx context.Context, tenantID, obligationID uuid.UUID, dueDate *time.Time, actor domain.PaymentActorInput) (*domain.PaymentObligation, error)
 	CreateManualPayment(ctx context.Context, in domain.CreateManualPaymentInput) (*domain.Payment, error)
 	GetPaymentByID(ctx context.Context, tenantID, id uuid.UUID) (*domain.Payment, error)
@@ -69,6 +70,13 @@ func (s *PaymentService) EnsurePaymentObligationForBillingRegister(ctx context.C
 		return nil, err
 	}
 	return s.payments.EnsureObligationForBillingRegister(ctx, tenantID, registerID, snap)
+}
+
+func (s *PaymentService) GetInternalObligationByBillingRegister(ctx context.Context, tenantID, billingRegisterID uuid.UUID) (*repository.InternalObligationRead, error) {
+	if tenantID == uuid.Nil || billingRegisterID == uuid.Nil {
+		return nil, apperrors.Validation("tenant_id and billing_register_id are required", nil)
+	}
+	return s.payments.GetInternalObligationByBillingRegister(ctx, tenantID, billingRegisterID)
 }
 
 func (s *PaymentService) GetObligation(ctx context.Context, id uuid.UUID, actor domain.PaymentActorInput) (*domain.PaymentObligation, error) {

@@ -227,6 +227,9 @@ func (r *PaymentRepository) VoidAllocation(ctx context.Context, in domain.VoidAl
 			}); err != nil {
 			return err
 		}
+		if err := insertPaymentObligationPaidSnapshotOutboxTx(ctx, tx, in.TenantID, updatedObligation, time.Now().UTC()); err != nil {
+			return err
+		}
 
 		result = &VoidAllocationResult{Allocation: updatedAlloc, Payment: updatedPayment, Obligation: updatedObligation}
 		return nil
