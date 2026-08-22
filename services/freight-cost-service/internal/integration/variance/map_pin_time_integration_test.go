@@ -229,8 +229,22 @@ func TestBonus_MAP_PIN_TIME_005_StandardRebuildAfterReclassificationReproducesRe
 		t.Fatal("expected complete mapping pin after reclassify")
 	}
 
+	otherStart := pinTime.Add(1 * time.Hour)
+	normalizedFuel, err := domain.NormalizeChargeCode("PIN_TIME_FUEL")
+	if err != nil {
+		t.Fatalf("normalize source: %v", err)
+	}
+	_, err = env.pool.Exec(context.Background(), `
+		UPDATE freight_cost.charge_code_mapping
+		SET effective_to = $1
+		WHERE mapping_scope = 'TENANT' AND tenant_id = $2
+		  AND source_charge_code_normalized = $3 AND mapping_version = 82`,
+		otherStart, fix.TenantID, normalizedFuel)
+	if err != nil {
+		t.Fatalf("close FUEL window before decoy OTHER insert: %v", err)
+	}
 	insertChargeMappingRow(t, env.pool, domain.MappingScopeTenant, &fix.TenantID,
-		"PIN_TIME_FUEL", "OTHER", 99, pinTime.Add(1*time.Hour), nil)
+		"PIN_TIME_FUEL", "OTHER", 99, otherStart, nil)
 
 	if _, err := env.rebuild.RebuildTransportOrder(context.Background(), fix.TenantID, fix.OrderID); err != nil {
 		t.Fatalf("rebuild: %v", err)
