@@ -18,13 +18,22 @@ const nPlusOneOrderCount = 120
 
 func TestFC22G_NPlusOne001EnrichmentUsesBatchNotPerOrder(t *testing.T) {
 	env := setupAccessorialEnv(t)
-	ctx := context.Background()
 	tenantID := uuid.New()
 	buyerID := uuid.New()
 	carrierID := uuid.New()
 	period := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
 	equipment := "TENT"
 	lcEnv := &laneCarrierEnv{analyticsEnv: env.analyticsEnv}
+
+	ctx := context.Background()
+	if _, err := env.pool.Exec(ctx, `INSERT INTO core.tenants (id, code, name) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+		tenantID, "t-"+tenantID.String()[:8], "N+1 Tenant"); err != nil {
+		t.Fatalf("seed tenant: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `INSERT INTO core.companies (id, tenant_id, company_type, legal_name, status)
+		VALUES ($1, $2, 'SHIPPER', 'Buyer Co', 'ACTIVE') ON CONFLICT DO NOTHING`, buyerID, tenantID); err != nil {
+		t.Fatalf("seed buyer company: %v", err)
+	}
 
 	seedCarrierCompany(t, env, tenantID, carrierID, "Carrier Batch Co", "BatchCo")
 	seedChargeMapping(t, env, tenantID, "DETENTION", "DETENTION", 10, period.Add(-24*time.Hour))
