@@ -86,11 +86,6 @@ test('FC22G1-UI-006 live filters change network query', async ({ page }) => {
   await secondPromise
 })
 
-test('FC22G1-UI-008 feature flag off hides workspace', async ({ page, context }) => {
-  await context.close()
-  test.skip(true, 'flag-off run uses separate process env; covered by dedicated script')
-})
-
 test('FC22G1-UI-007 live pagination issues next request', async ({ page }) => {
   await page.goto('/freight-costs/lanes?limit=1&offset=0')
   const first = await page.waitForResponse((resp) => resp.url().includes('/analytics/lanes'))

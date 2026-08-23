@@ -9,7 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -40,6 +40,7 @@ type browserFixture struct {
 
 type browserLiveStack struct {
 	webURL         string
+	gatewayURL     string
 	fixture        browserFixture
 	freightCostSrv *http.Server
 	gatewaySrv     *http.Server
@@ -50,10 +51,23 @@ func TestFC22G1_BrowserE2E_LiveBuyerFlow(t *testing.T) {
 	if os.Getenv("BROWSER_E2E") != "1" {
 		t.Skip("set BROWSER_E2E=1 to run live browser E2E against local stack")
 	}
+	if strings.TrimSpace(os.Getenv("TEST_DATABASE_URL")) == "" {
+		t.Fatal("TEST_DATABASE_URL is required when BROWSER_E2E=1")
+	}
 	stack := startBrowserLiveStack(t)
 	t.Cleanup(stack.shutdown)
-	if err := runPlaywrightSuite(t, stack); err != nil {
-		t.Fatalf("playwright suite: %v", err)
+	if err := runPlaywrightSuite(t, stack.webURL, "FC22G1-UI-00[1-7]", stack.fixture); err != nil {
+		t.Fatalf("playwright buyer suite: %v", err)
+	}
+	flagOffURL, flagOffCmd := startBrowserWebProcurement(t, stack.gatewayURL, stack.fixture, "3011", false)
+	t.Cleanup(func() {
+		if flagOffCmd != nil && flagOffCmd.Process != nil {
+			_ = flagOffCmd.Process.Kill()
+		}
+	})
+	waitForHTTP200(t, flagOffURL+"/login", 120*time.Second)
+	if err := runPlaywrightSuite(t, flagOffURL, "FC22G1-UI-008", stack.fixture); err != nil {
+		t.Fatalf("playwright feature-flag-off suite: %v", err)
 	}
 }
 
@@ -77,10 +91,11 @@ func startBrowserLiveStack(t *testing.T) *browserLiveStack {
 	fix := seedBrowserE2EFixture(t, env)
 	fcURL, fcServer := startBrowserFreightCostServer(t, env)
 	gwURL, gwServer := startBrowserGatewayProxy(t, fcURL, fix)
-	webURL, webCmd := startBrowserWebProcurement(t, gwURL, fix)
+	webURL, webCmd := startBrowserWebProcurement(t, gwURL, fix, "3010", true)
 	waitForHTTP200(t, webURL+"/login", 120*time.Second)
 	return &browserLiveStack{
 		webURL:         webURL,
+		gatewayURL:     gwURL,
 		fixture:        fix,
 		freightCostSrv: fcServer,
 		gatewaySrv:     gwServer,
@@ -146,17 +161,24 @@ func listenHTTPServer(t *testing.T, handler http.Handler) (string, *http.Server)
 	return "http://" + ln.Addr().String(), srv
 }
 
-func startBrowserWebProcurement(t *testing.T, gatewayURL string, fix browserFixture) (string, *exec.Cmd) {
+func startBrowserWebProcurement(t *testing.T, gatewayURL string, fix browserFixture, port string, workspaceEnabled bool) (string, *exec.Cmd) {
 	t.Helper()
-	root := webProcurementRoot(t)
-	port := "3010"
-	cmd := exec.Command("npm", "run", "dev", "--", "--port", port, "--host", "127.0.0.1")
+	root, err := repoRoot()
+	if err != nil {
+		t.Fatalf("repo root: %v", err)
+	}
+	cmd := exec.Command("pnpm", "--filter", "@freight-platform/web-procurement", "dev", "--", "--port", port, "--host", "127.0.0.1")
 	cmd.Dir = root
-	cmd.Env = append(os.Environ(),
-		"NUXT_PUBLIC_API_BASE_URL="+gatewayURL,
-		"NUXT_PUBLIC_FREIGHT_COST_WORKSPACE_ENABLED=true",
-		"NUXT_PUBLIC_DEFAULT_TENANT_ID="+fix.TenantID.String(),
-	)
+	env := []string{
+		"NUXT_PUBLIC_API_BASE_URL=" + gatewayURL,
+		"NUXT_PUBLIC_DEFAULT_TENANT_ID=" + fix.TenantID.String(),
+	}
+	if workspaceEnabled {
+		env = append(env, "NUXT_PUBLIC_FREIGHT_COST_WORKSPACE_ENABLED=true")
+	} else {
+		env = append(env, "NUXT_PUBLIC_FREIGHT_COST_WORKSPACE_ENABLED=false")
+	}
+	cmd.Env = append(os.Environ(), env...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
@@ -183,37 +205,30 @@ func waitForHTTP200(t *testing.T, targetURL string, timeout time.Duration) {
 
 func webProcurementRoot(t *testing.T) string {
 	t.Helper()
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("runtime caller failed")
+	root, err := repoRoot()
+	if err != nil {
+		t.Fatalf("repo root: %v", err)
 	}
-	dir := filepath.Dir(file)
-	for {
-		candidate := filepath.Join(dir, "apps", "web-procurement")
-		if _, err := os.Stat(filepath.Join(candidate, "package.json")); err == nil {
-			return candidate
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			t.Fatal("web-procurement root not found")
-		}
-		dir = parent
-	}
+	return filepath.Join(root, "apps", "web-procurement")
 }
 
-func runPlaywrightSuite(t *testing.T, stack *browserLiveStack) error {
+func runPlaywrightSuite(t *testing.T, webURL, grep string, fix browserFixture) error {
 	t.Helper()
 	root := webProcurementRoot(t)
 	e2eDir := filepath.Join(root, "e2e", "freight-cost-intelligence")
-	cmd := exec.Command("npx", "playwright", "test")
+	args := []string{"playwright", "test"}
+	if grep != "" {
+		args = append(args, "--grep", grep)
+	}
+	cmd := exec.Command("npx", args...)
 	cmd.Dir = e2eDir
 	cmd.Env = append(os.Environ(),
-		"BROWSER_E2E_WEB_URL="+stack.webURL,
-		"BROWSER_E2E_JWT="+stack.fixture.JWT,
-		"BROWSER_E2E_TENANT_ID="+stack.fixture.TenantID.String(),
-		"BROWSER_E2E_BUYER_COMPANY_ID="+stack.fixture.BuyerID.String(),
-		"BROWSER_E2E_EXPECTED_PLANNED="+stack.fixture.ExpectedPlanned,
-		"BROWSER_E2E_EXPECTED_DELTA="+stack.fixture.ExpectedDelta,
+		"BROWSER_E2E_WEB_URL="+webURL,
+		"BROWSER_E2E_JWT="+fix.JWT,
+		"BROWSER_E2E_TENANT_ID="+fix.TenantID.String(),
+		"BROWSER_E2E_BUYER_COMPANY_ID="+fix.BuyerID.String(),
+		"BROWSER_E2E_EXPECTED_PLANNED="+fix.ExpectedPlanned,
+		"BROWSER_E2E_EXPECTED_DELTA="+fix.ExpectedDelta,
 	)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
