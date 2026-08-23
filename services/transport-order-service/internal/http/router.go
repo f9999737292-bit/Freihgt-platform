@@ -24,10 +24,12 @@ func NewRouter(
 	svc *service.TransportOrderService,
 	pricedSvc *service.PricedTransportOrderService,
 	snapshotReadSvc *service.RateSnapshotReadService,
+	analyticsDimensionSvc *service.TransportOrderAnalyticsDimensionService,
 ) http.Handler {
 	handler := handlers.NewHandler(svc)
 	pricedHandler := handlers.NewPricedTransportOrderHandler(pricedSvc)
 	snapshotInternalHandler := handlers.NewRateSnapshotInternalHandler(snapshotReadSvc)
+	analyticsDimensionHandler := handlers.NewAnalyticsDimensionInternalHandler(analyticsDimensionSvc)
 	internalAuth := internalauth.Config{Token: cfg.InternalServiceToken, Environment: cfg.Environment}
 
 	r := chi.NewRouter()
@@ -63,6 +65,7 @@ func NewRouter(
 		r.Use(internalAuth.Middleware)
 		r.Post("/transport-orders/from-award-scope", pricedHandler.CreateFromAwardScope)
 		r.Get("/transport-orders/{transportOrderId}/rate-snapshot", snapshotInternalHandler.GetRateSnapshot)
+		r.Post("/transport-orders/batch-analytics-dimensions", analyticsDimensionHandler.BatchGetAnalyticsDimensions)
 	})
 
 	return r

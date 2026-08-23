@@ -53,7 +53,9 @@ func main() {
 	pricingMetrics := toobs.NewPricingMetrics(cfg.ServiceName)
 	pricedSvc := service.NewPricedTransportOrderService(orderRepo, cargoRepo, locationRepo, pricedOrderRepo, rateClient, pricingMetrics)
 	snapshotReadSvc := service.NewRateSnapshotReadService(pricedOrderRepo)
-	router := httpserver.NewRouter(log, db.Pool, cfg, svc, pricedSvc, snapshotReadSvc)
+	analyticsDimensionRepo := repository.NewTransportOrderAnalyticsDimensionRepository(db.Pool)
+	analyticsDimensionSvc := service.NewTransportOrderAnalyticsDimensionService(analyticsDimensionRepo)
+	router := httpserver.NewRouter(log, db.Pool, cfg, svc, pricedSvc, snapshotReadSvc, analyticsDimensionSvc)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),
