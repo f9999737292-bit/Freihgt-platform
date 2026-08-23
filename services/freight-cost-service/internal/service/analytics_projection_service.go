@@ -240,7 +240,10 @@ func (s *AnalyticsProjectionService) processDirtyEntry(ctx context.Context, entr
 		return err
 	}
 
-	updatedAt := entry.DirtyAt
+	updatedAt := entry.PeriodStart
+	if updatedAt.IsZero() {
+		updatedAt = entry.DirtyAt
+	}
 	now := time.Now().UTC()
 	fact := domain.OrderFactFromCostSummary(projection, updatedAt, now)
 	if fact == nil {
