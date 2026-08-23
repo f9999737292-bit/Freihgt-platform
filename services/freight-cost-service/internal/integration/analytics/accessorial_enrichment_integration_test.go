@@ -62,7 +62,14 @@ func seedCarrierCompany(t *testing.T, env *accessorialEnv, tenantID, carrierID u
 	}
 }
 
-func seedChargeMapping(t *testing.T, env *accessorialEnv, tenantID uuid.UUID, sourceCode, category string, version int64) {
+func seedChargeMapping(
+	t *testing.T,
+	env *accessorialEnv,
+	tenantID uuid.UUID,
+	sourceCode, category string,
+	version int64,
+	effectiveFrom time.Time,
+) {
 	t.Helper()
 	ctx := context.Background()
 	normalized, err := domain.NormalizeChargeCode(sourceCode)
@@ -77,8 +84,8 @@ func seedChargeMapping(t *testing.T, env *accessorialEnv, tenantID uuid.UUID, so
 		INSERT INTO freight_cost.charge_code_mapping (
 			mapping_scope, tenant_id, source_charge_code_normalized, normalized_category,
 			mapping_version, effective_from
-		) VALUES ('TENANT', $1, $2, $3, $4, NOW() - INTERVAL '1 day')`,
-		tenantID, normalized, categoryNorm, version)
+		) VALUES ('TENANT', $1, $2, $3, $4, $5)`,
+		tenantID, normalized, categoryNorm, version, effectiveFrom.UTC())
 	if err != nil {
 		t.Fatalf("seed mapping: %v", err)
 	}
@@ -171,7 +178,7 @@ func TestFC22DACC001ApprovedAccessorialAggregation(t *testing.T) {
 	lcEnv := &laneCarrierEnv{analyticsEnv: env.analyticsEnv}
 	seedTransportOrderWithLocations(t, lcEnv, tenantID, buyerID, orderID, "Moscow", "SPB", "ROAD", &equipment)
 	seedCarrierCompany(t, env, tenantID, carrierID, "Carrier Legal LLC", "FastCarrier")
-	seedChargeMapping(t, env, tenantID, "DETENTION", "DETENTION", 10)
+	seedChargeMapping(t, env, tenantID, "DETENTION", "DETENTION", 10, period.Add(-24*time.Hour))
 	upsertSummary(t, env.analyticsEnv, tenantID, buyerID, carrierID, orderID, "RUB", "1000.00", "1200.00", period)
 	pinSummaryAttribution(t, env, tenantID, orderID, 10, period)
 
@@ -221,7 +228,7 @@ func TestFC22DREC001ReconciliationWithSettlementApprovedTotal(t *testing.T) {
 	period := time.Date(2026, 7, 5, 0, 0, 0, 0, time.UTC)
 	equipment := "TENT"
 	seedTransportOrderWithLocations(t, lcEnv, tenantID, buyerID, orderID, "Moscow", "Kazan", "ROAD", &equipment)
-	seedChargeMapping(t, env, tenantID, "FUEL", "FUEL", 11)
+	seedChargeMapping(t, env, tenantID, "FUEL", "FUEL", 11, period.Add(-24*time.Hour))
 	upsertSummary(t, env.analyticsEnv, tenantID, buyerID, carrierID, orderID, "RUB", "800.00", "980.00", period)
 	pinSummaryAttribution(t, env, tenantID, orderID, 11, period)
 
@@ -302,7 +309,7 @@ func TestFC22DEQV001RebuildMatchesIncremental(t *testing.T) {
 	period := time.Date(2026, 5, 15, 0, 0, 0, 0, time.UTC)
 	equipment := "TENT"
 	seedTransportOrderWithLocations(t, lcEnv, tenantID, buyerID, orderID, "Moscow", "SPB", "ROAD", &equipment)
-	seedChargeMapping(t, env, tenantID, "WAITING", "WAITING", 12)
+	seedChargeMapping(t, env, tenantID, "WAITING", "WAITING", 12, period.Add(-24*time.Hour))
 	upsertSummary(t, env.analyticsEnv, tenantID, buyerID, carrierID, orderID, "RUB", "300.00", "360.00", period)
 	pinSummaryAttribution(t, env, tenantID, orderID, 12, period)
 
