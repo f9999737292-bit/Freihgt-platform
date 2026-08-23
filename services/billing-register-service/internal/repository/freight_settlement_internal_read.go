@@ -134,6 +134,120 @@ func (r *FreightSettlementRepository) listInternalApprovedAccessorials(ctx conte
 	return out, rows.Err()
 }
 
+const MaxSettlementBatchSize = 500
+
+type InternalAccessorialLine struct {
+	AccessorialID uuid.UUID
+	ChargeCode    string
+	Amount        string
+	Status        string
+	CurrencyCode  string
+}
+
+type InternalSettlementBatchItem struct {
+	TransportOrderID         uuid.UUID
+	SettlementID             uuid.UUID
+	BuyerCompanyID           uuid.UUID
+	CurrencyCode             string
+	ApprovedAccessorialTotal string
+	Accessorials             []InternalAccessorialLine
+}
+
+func (r *FreightSettlementRepository) BatchGetInternalByTransportOrders(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	transportOrderIDs []uuid.UUID,
+) ([]InternalSettlementBatchItem, error) {
+	if len(transportOrderIDs) == 0 {
+		return nil, nil
+	}
+	if len(transportOrderIDs) > MaxSettlementBatchSize {
+		transportOrderIDs = transportOrderIDs[:MaxSettlementBatchSize]
+	}
+	const settlementQuery = `
+		SELECT DISTINCT ON (fs.transport_order_id)
+			fs.transport_order_id, fs.id, fs.buyer_company_id, fs.currency_code,
+			COALESCE((
+				SELECT SUM(a.amount)::text FROM billing.settlement_accessorials a
+				WHERE a.settlement_id = fs.id AND a.tenant_id = fs.tenant_id AND a.status = $3
+			), '0')::text
+		FROM billing.freight_settlements fs
+		WHERE fs.tenant_id = $1
+		  AND fs.transport_order_id = ANY($2)
+		  AND fs.deleted_at IS NULL
+		ORDER BY fs.transport_order_id, fs.created_at DESC`
+	rows, err := r.pool.Query(ctx, settlementQuery, tenantID, transportOrderIDs, domain.AccessorialStatusApproved)
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	defer rows.Close()
+
+	var items []InternalSettlementBatchItem
+	settlementIDs := make([]uuid.UUID, 0)
+	for rows.Next() {
+		var item InternalSettlementBatchItem
+		if err := rows.Scan(
+			&item.TransportOrderID, &item.SettlementID, &item.BuyerCompanyID,
+			&item.CurrencyCode, &item.ApprovedAccessorialTotal,
+		); err != nil {
+			return nil, mapDBError(err)
+		}
+		items = append(items, item)
+		settlementIDs = append(settlementIDs, item.SettlementID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, mapDBError(err)
+	}
+	if len(settlementIDs) == 0 {
+		return items, nil
+	}
+	linesBySettlement, err := r.listInternalAccessorialLinesBySettlements(ctx, tenantID, settlementIDs)
+	if err != nil {
+		return nil, err
+	}
+	for i := range items {
+		items[i].Accessorials = linesBySettlement[items[i].SettlementID]
+	}
+	return items, nil
+}
+
+func (r *FreightSettlementRepository) listInternalAccessorialLinesBySettlements(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	settlementIDs []uuid.UUID,
+) (map[uuid.UUID][]InternalAccessorialLine, error) {
+	const query = `
+		SELECT settlement_id, id, charge_code, amount::text, status, currency_code
+		FROM billing.settlement_accessorials
+		WHERE tenant_id = $1 AND settlement_id = ANY($2)
+		ORDER BY created_at ASC`
+	rows, err := r.pool.Query(ctx, query, tenantID, settlementIDs)
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	defer rows.Close()
+	out := make(map[uuid.UUID][]InternalAccessorialLine)
+	for rows.Next() {
+		var settlementID, accessorialID uuid.UUID
+		var chargeCode, amountText, status, currency string
+		if err := rows.Scan(&settlementID, &accessorialID, &chargeCode, &amountText, &status, &currency); err != nil {
+			return nil, mapDBError(err)
+		}
+		normalized, err := normalizeDecimalMoneyString(amountText)
+		if err != nil {
+			return nil, err
+		}
+		out[settlementID] = append(out[settlementID], InternalAccessorialLine{
+			AccessorialID: accessorialID,
+			ChargeCode:    chargeCode,
+			Amount:        normalized,
+			Status:        status,
+			CurrencyCode:  currency,
+		})
+	}
+	return out, mapDBError(rows.Err())
+}
+
 func (r *FreightSettlementRepository) GetInternalBillingLink(ctx context.Context, tenantID, settlementID uuid.UUID) (*InternalBillingLinkRead, error) {
 	const query = `
 		SELECT id, tenant_id, transport_order_id, billing_link_revision,

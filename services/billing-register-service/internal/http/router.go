@@ -91,6 +91,7 @@ func NewRouter(
 
 	r.Route("/internal/v1/freight-settlements", func(r chi.Router) {
 		r.Use(internalAuth.Middleware)
+		r.Post("/batch-by-transport-order", settlementInternalHandler.BatchByTransportOrders)
 		r.Get("/by-transport-order/{transportOrderId}", settlementInternalHandler.GetByTransportOrder)
 		r.Get("/{settlementId}/billing-link", settlementInternalHandler.GetBillingLink)
 	})
