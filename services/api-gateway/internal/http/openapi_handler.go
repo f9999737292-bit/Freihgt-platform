@@ -75,6 +75,7 @@ func (h *OpenAPIHandler) ServeIndex(w http.ResponseWriter, _ *http.Request) {
 		{"name": "Shipment Service", "format": "yaml", "url": "/openapi/shipment-service.yaml"},
 		{"name": "Document Service", "format": "yaml", "url": "/openapi/document-service.yaml"},
 		{"name": "Billing Register Service", "format": "yaml", "url": "/openapi/billing-register-service.yaml"},
+		{"name": "Freight Cost Service", "format": "yaml", "url": "/openapi/freight-cost-service.yaml"},
 	}
 	respond.JSON(w, http.StatusOK, map[string]any{"documents": documents})
 }

@@ -45,6 +45,16 @@ PAYMENT_GUARD_ROUTES = (
     ("post", "/api/v1/payments/{id}/void"),
 )
 
+FREIGHT_COST_PUBLIC_ROUTES = (
+    ("get", "/api/v1/freight-costs"),
+    ("get", "/api/v1/freight-costs/summary"),
+    ("get", "/api/v1/freight-costs/transport-orders/{transportOrderId}"),
+    ("get", "/api/v1/freight-costs/transport-orders/{transportOrderId}/variance-detail"),
+    ("get", "/api/v1/freight-costs/accessorials/summary"),
+    ("get", "/api/v1/freight-costs/carriers/performance"),
+    ("get", "/api/v1/freight-costs/lanes/performance"),
+)
+
 
 def load_yaml(path: Path) -> dict:
     with path.open("r", encoding="utf-8") as handle:
@@ -186,6 +196,40 @@ def assert_payment_read_operation_contracts(spec: dict, label: str) -> None:
                 raise AssertionError(f"{label}: GET {path} missing parameter {name}")
 
 
+def assert_freight_cost_public_routes_present(spec: dict, label: str) -> None:
+    paths = spec.get("paths", {})
+    for method, path in FREIGHT_COST_PUBLIC_ROUTES:
+        path_item = paths.get(path)
+        if not isinstance(path_item, dict):
+            raise AssertionError(f"{label}: missing path {path}")
+        operation = path_item.get(method)
+        if not isinstance(operation, dict):
+            raise AssertionError(f"{label}: missing {method.upper()} {path}")
+        params = operation.get("parameters", [])
+        if not isinstance(params, list):
+            raise AssertionError(f"{label}: {method.upper()} {path} parameters must be a list")
+        header_names = {
+            param.get("name")
+            for param in params
+            if isinstance(param, dict) and param.get("in") == "header"
+        }
+        ref_headers = {
+            param.get("$ref", "").split("/")[-1]
+            for param in params
+            if isinstance(param, dict) and "$ref" in param
+        }
+        if "XCompanyID" not in ref_headers and "X-Company-ID" not in header_names:
+            raise AssertionError(f"{label}: {method.upper()} {path} must document X-Company-ID header")
+
+
+def assert_aggregate_freight_cost_parity(freight_spec: dict, unified_spec: dict) -> None:
+    for method, path in FREIGHT_COST_PUBLIC_ROUTES:
+        freight_op = freight_spec.get("paths", {}).get(path, {}).get(method)
+        unified_op = unified_spec.get("paths", {}).get(path, {}).get(method)
+        if freight_op != unified_op:
+            raise AssertionError(f"openapi.yaml {method.upper()} {path} does not match freight-cost-service.yaml")
+
+
 def assert_aggregate_payment_parity(payment_spec: dict, unified_spec: dict) -> None:
     for method, path in PAYMENT_GUARD_ROUTES:
         payment_op = payment_spec.get("paths", {}).get(path, {}).get(method)
@@ -225,6 +269,7 @@ def assert_payment_schema_isolation() -> None:
 def main() -> int:
     targets = [
         OPENAPI_DIR / "payment-service.yaml",
+        OPENAPI_DIR / "freight-cost-service.yaml",
         OPENAPI_DIR / "openapi.yaml",
     ]
 
@@ -242,6 +287,7 @@ def main() -> int:
             return 1
 
     payment_spec = load_yaml(OPENAPI_DIR / "payment-service.yaml")
+    freight_spec = load_yaml(OPENAPI_DIR / "freight-cost-service.yaml")
     unified_spec = load_yaml(OPENAPI_DIR / "openapi.yaml")
 
     assert_void_route(payment_spec, "/api/v1/payment-allocations/{id}/void", "payment-service.yaml")
@@ -266,9 +312,13 @@ def main() -> int:
     assert_payment_read_operation_contracts(payment_spec, "payment-service.yaml")
     assert_payment_read_operation_contracts(unified_spec, "openapi.yaml")
     assert_aggregate_payment_parity(payment_spec, unified_spec)
+    assert_freight_cost_public_routes_present(freight_spec, "freight-cost-service.yaml")
+    assert_freight_cost_public_routes_present(unified_spec, "openapi.yaml")
+    assert_aggregate_freight_cost_parity(freight_spec, unified_spec)
 
     print("OPENAPI_PATH_STRUCTURE_TEST=PASS")
     print("PAYMENT_COMPANY_CONTEXT_CONTRACT_TEST=PASS")
+    print("FREIGHT_COST_PUBLIC_ROUTE_PARITY=PASS")
     return 0
 
 

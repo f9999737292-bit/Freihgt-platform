@@ -32,6 +32,7 @@ tags:
   - name: Transport Contracts
   - name: Rate Cards
   - name: Rate Simulation
+  - name: Freight Costs
 paths:
   /api/v1/rfx-events:
     post:

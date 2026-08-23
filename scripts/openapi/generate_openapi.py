@@ -34,6 +34,7 @@ TAGS = [
     "Transport Contracts",
     "Rate Cards",
     "Rate Simulation",
+    "Freight Costs",
 ]
 
 COMMON_HEADER = """      parameters:
@@ -222,6 +223,13 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/rate-components/{id}", "patch", "Patch rate component", "Rate Cards", True, True, "rate_component_patch"),
     ("/api/v1/rate-components/{id}", "delete", "Delete rate component", "Rate Cards", True, True, None),
     ("/api/v1/rates/resolve", "post", "Simulate contract rate resolution", "Rate Simulation", True, True, "rate_resolve"),
+    ("/api/v1/freight-costs", "get", "List freight cost workspace summaries", "Freight Costs", True, True, None),
+    ("/api/v1/freight-costs/summary", "get", "Get freight cost aggregate KPIs", "Freight Costs", True, True, None),
+    ("/api/v1/freight-costs/transport-orders/{transportOrderId}", "get", "Get freight cost order detail", "Freight Costs", True, True, None),
+    ("/api/v1/freight-costs/transport-orders/{transportOrderId}/variance-detail", "get", "Get freight cost variance detail", "Freight Costs", True, True, None),
+    ("/api/v1/freight-costs/accessorials/summary", "get", "Get freight cost accessorial spend summary", "Freight Costs", True, True, None),
+    ("/api/v1/freight-costs/carriers/performance", "get", "Get freight cost carrier performance rollup", "Freight Costs", True, True, None),
+    ("/api/v1/freight-costs/lanes/performance", "get", "Get freight cost lane performance rollup", "Freight Costs", True, True, None),
 ]
 
 SERVICE_TAGS = {
@@ -234,6 +242,7 @@ SERVICE_TAGS = {
     "billing-register-service.yaml": {"Billing Registers", "Closing Documents"},
     "payment-service.yaml": {"Payment Obligations", "Payments"},
     "contract-rate-service.yaml": {"Transport Contracts", "Rate Cards", "Rate Simulation"},
+    "freight-cost-service.yaml": {"Freight Costs"},
 }
 
 VOID_DESCRIPTIONS = {
@@ -473,6 +482,8 @@ def query_parameter_lines(method: str, path: str, profile: str | None) -> list[s
         lines.extend(_payment_list_filter_query_lines())
         lines.extend(_pagination_query_lines())
     elif profile in PAYMENT_DETAIL_LIST_QUERY_PROFILES:
+        lines.extend(_pagination_query_lines())
+    elif method == "get" and path == "/api/v1/freight-costs":
         lines.extend(_pagination_query_lines())
     return lines
 
@@ -1086,6 +1097,7 @@ SERVICE_DISPLAY_NAMES = {
     "billing-register-service.yaml": "Billing Register Service",
     "payment-service.yaml": "Payment Service",
     "contract-rate-service.yaml": "Contract Rate Service",
+    "freight-cost-service.yaml": "Freight Cost Service",
 }
 
 
