@@ -2,6 +2,7 @@ package planned_cost
 
 import (
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -171,7 +172,7 @@ func newTestRouter(
 		InternalServiceToken: testToken,
 		TransportOrderURL:    mockTransport.URL,
 	}
-	log := slog.New(slog.DiscardHandler)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	transportClient := transport_order.NewClient(cfg.TransportOrderURL, cfg.InternalServiceToken, fcmetrics.New())
 	costSvc := service.NewCostService(transportClient, nil)
 	workspaceSvc := service.NewWorkspaceService(nil, nil, costSvc, transportClient)

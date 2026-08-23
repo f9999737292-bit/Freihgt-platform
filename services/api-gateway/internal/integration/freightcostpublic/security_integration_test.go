@@ -261,3 +261,52 @@ func TestFC22F_SEC_AnalyticsUnauthenticated(t *testing.T) {
 		}
 	}
 }
+
+func TestFC_D_SEC_011_CarrierDeniedAnalyticsOverview(t *testing.T) {
+	TestFC22F_SEC_003_CarrierDeniedAnalyticsOverview(t)
+}
+
+func TestFC_D_SEC_012_CarrierDeniedOpportunities(t *testing.T) {
+	h := newHarness(t, harnessOptions{})
+	resp := h.request(h.carrierUserID, h.tenantID, h.carrierID, "GET", "/api/v1/freight-costs/opportunities", nil)
+	mustStatus(t, "FC-D-SEC-012 carrier opportunities", resp, 403)
+}
+
+func TestFC_D_SEC_013_ForeignCompanyDeniedAnalytics(t *testing.T) {
+	TestFC22F_SEC_008_ForeignCompanyMembershipDenied(t)
+}
+
+func TestFC_D_SEC_014_CrossTenantAnalyticsDenied(t *testing.T) {
+	TestFC22F_SEC_009_CrossTenantSpoofDenied(t)
+}
+
+func TestFC_D_SEC_015_CarrierAnalyticsBodyOmitsBenchmarkFields(t *testing.T) {
+	h := newHarness(t, harnessOptions{})
+	for _, route := range analyticsBuyerRoutes {
+		resp := h.request(h.carrierUserID, h.tenantID, h.carrierID, "GET", route, nil)
+		mustStatus(t, "carrier "+route, resp, 403)
+		if strings.Contains(string(resp.Body), `"median"`) ||
+			strings.Contains(string(resp.Body), `"p25"`) ||
+			strings.Contains(string(resp.Body), `"p75"`) ||
+			strings.Contains(string(resp.Body), `"p90"`) ||
+			strings.Contains(string(resp.Body), `"estimated_delta"`) ||
+			strings.Contains(string(resp.Body), `"benchmark"`) {
+			t.Fatalf("carrier must not receive benchmark/opportunity payload on %s: %s", route, string(resp.Body))
+		}
+	}
+}
+
+func TestFC22G_CarrierDeniedInternalAnalyticsRoutes(t *testing.T) {
+	h := newHarness(t, harnessOptions{})
+	internalRoutes := []string{
+		"/internal/v1/freight-cost/analytics/tenants/" + h.tenantID.String() + "/benchmarks",
+		"/internal/v1/freight-cost/analytics/tenants/" + h.tenantID.String() + "/opportunities",
+		"/internal/v1/freight-cost/analytics/tenants/" + h.tenantID.String() + "/rebuild",
+	}
+	for _, route := range internalRoutes {
+		resp := h.request(h.userID, h.tenantID, h.buyerID, "GET", route, nil)
+		if resp.Status != 404 {
+			t.Fatalf("internal route %s must not be public, got %d", route, resp.Status)
+		}
+	}
+}

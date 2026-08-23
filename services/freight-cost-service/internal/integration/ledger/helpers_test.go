@@ -5,6 +5,7 @@ package ledger
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -145,7 +146,7 @@ func setupEnv(t *testing.T) *env {
 	rebuild := service.NewRebuildService(ingest, derived, transportClient, billingClient, paymentClient, metrics)
 	costs := service.NewCostService(transportClient, projections)
 	workspace := service.NewWorkspaceService(projections, nil, costs, transportClient)
-	log := slog.New(slog.DiscardHandler)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	router := httpserver.NewRouter(log, pool, cfg, costs, ingest, rebuild, derived, workspace, mappings, nil, nil, nil, nil, metrics)
 
 	return &env{

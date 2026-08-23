@@ -135,6 +135,11 @@ func ParseAnalyticsPublicQuery(values url.Values, sortAllowlist map[string]strin
 		LaneKey:       strings.TrimSpace(values.Get("lane_key")),
 		Limit:         limit, Offset: offset, Sort: sortField, SortDesc: sortDesc,
 	}
+	if query.Currency != "" {
+		if err := domain.ValidateCurrencyCode(query.Currency); err != nil {
+			return AnalyticsPublicQuery{}, apperrors.Validation("invalid currency", map[string]any{"field": "currency"})
+		}
+	}
 	if raw := strings.TrimSpace(values.Get("carrier_company_id")); raw != "" {
 		id, err := uuid.Parse(raw)
 		if err != nil {
