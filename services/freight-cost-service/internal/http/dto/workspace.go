@@ -1,13 +1,20 @@
 package dto
 
 import (
+	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
 	"github.com/freight-platform/freight-cost-service/internal/domain"
 	"github.com/freight-platform/freight-cost-service/internal/security"
 	"github.com/freight-platform/freight-cost-service/internal/service"
+)
+
+const (
+	DataCapabilityAvailable    = "AVAILABLE"
+	DataCapabilityNotAvailable = "NOT_AVAILABLE"
 )
 
 type WorkspaceSummaryDTO struct {
@@ -20,20 +27,20 @@ type WorkspaceSummaryDTO struct {
 	FinancialFinality           string   `json:"financial_finality"`
 	SourcesAvailable            []string `json:"sources_available"`
 	PlannedAmount               *string  `json:"planned_amount"`
-	AccruedAmount               *string  `json:"accrued_amount"`
-	ForecastExposure            *string  `json:"forecast_exposure"`
+	AccruedAmount               *string  `json:"accrued_amount,omitempty"`
+	ForecastExposure            *string  `json:"forecast_exposure,omitempty"`
 	ForecastSourceStatus        string   `json:"forecast_source_status"`
 	CurrentActualAmount         *string  `json:"current_actual_amount"`
 	FinalActualAmount           *string  `json:"final_actual_amount"`
 	BillingRegisterAmount       *string  `json:"billing_register_amount"`
 	PaidAmount                  *string  `json:"paid_amount"`
-	CurrentVarianceAmount       *string  `json:"current_variance_amount"`
-	FinalVarianceAmount         *string  `json:"final_variance_amount"`
+	CurrentVarianceAmount       *string  `json:"current_variance_amount,omitempty"`
+	FinalVarianceAmount         *string  `json:"final_variance_amount,omitempty"`
 	CurrentVariancePercent      *string  `json:"current_variance_percent"`
 	FinalVariancePercent        *string  `json:"final_variance_percent"`
 	BillingReconciliationStatus *string  `json:"billing_reconciliation_status"`
 	CostUpdatedAt               string   `json:"cost_updated_at"`
-	AvailabilityReasons         []string `json:"availability_reasons"`
+	AvailabilityReasons         []string `json:"availability_reasons,omitempty"`
 }
 
 type WorkspaceListResponse struct {
@@ -51,14 +58,14 @@ type WorkspacePeriodDTO struct {
 
 type WorkspaceKpisDTO struct {
 	PlannedTotal                   *string `json:"planned_total"`
-	AccruedTotal                   *string `json:"accrued_total"`
-	ForecastExposureTotal          *string `json:"forecast_exposure_total"`
-	PendingProposedAccessorialTotal *string `json:"pending_proposed_accessorial_total"`
+	AccruedTotal                   *string `json:"accrued_total,omitempty"`
+	ForecastExposureTotal          *string `json:"forecast_exposure_total,omitempty"`
+	PendingProposedAccessorialTotal *string `json:"pending_proposed_accessorial_total,omitempty"`
 	CurrentActualTotal             *string `json:"current_actual_total"`
 	FinalActualTotal               *string `json:"final_actual_total"`
-	CurrentVarianceTotal           *string `json:"current_variance_total"`
-	FinalVarianceTotal             *string `json:"final_variance_total"`
-	ReconciliationMismatchCount    int     `json:"reconciliation_mismatch_count"`
+	CurrentVarianceTotal           *string `json:"current_variance_total,omitempty"`
+	FinalVarianceTotal             *string `json:"final_variance_total,omitempty"`
+	ReconciliationMismatchCount    int     `json:"reconciliation_mismatch_count,omitempty"`
 }
 
 type WorkspaceAggregateResponse struct {
@@ -105,8 +112,9 @@ type WorkspaceAccessorialRowDTO struct {
 }
 
 type WorkspaceAccessorialResponse struct {
-	Items        []WorkspaceAccessorialRowDTO `json:"items"`
-	CurrencyCode string                       `json:"currency_code"`
+	Items           []WorkspaceAccessorialRowDTO `json:"items"`
+	CurrencyCode    string                       `json:"currency_code"`
+	DataCapability  string                       `json:"data_capability"`
 }
 
 type WorkspaceCarrierPerformanceRowDTO struct {
@@ -138,8 +146,9 @@ type WorkspaceLanePerformanceRowDTO struct {
 }
 
 type WorkspaceLanePerformanceResponse struct {
-	Items        []WorkspaceLanePerformanceRowDTO `json:"items"`
-	CurrencyCode string                           `json:"currency_code"`
+	Items          []WorkspaceLanePerformanceRowDTO `json:"items"`
+	CurrencyCode   string                           `json:"currency_code"`
+	DataCapability string                           `json:"data_capability"`
 }
 
 func DecimalPtrToDTO(value *decimal.Decimal) *string {
@@ -156,6 +165,17 @@ func PercentPtrToDTO(value *decimal.Decimal) *string {
 	}
 	formatted := value.StringFixed(4)
 	return &formatted
+}
+
+func SanitizeDisplayLabel(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	if _, err := uuid.Parse(value); err == nil {
+		return ""
+	}
+	return value
 }
 
 func ToWorkspaceSummaryDTO(projection *domain.CostSummaryProjection, actor security.TrustedActor, updatedAt time.Time) WorkspaceSummaryDTO {
@@ -278,8 +298,8 @@ func MapPricingSourceToPlannedSource(source string) *string {
 func ToWorkspaceDetailResponse(result service.WorkspaceDetailResult, actor security.TrustedActor) WorkspaceDetailResponse {
 	return WorkspaceDetailResponse{
 		Summary:                ToWorkspaceSummaryDTO(result.Summary, actor, result.UpdatedAt),
-		OrderReference:         result.OrderReference,
-		CarrierName:            result.CarrierName,
+		OrderReference:         SanitizeDisplayLabel(result.OrderReference),
+		CarrierName:            SanitizeDisplayLabel(result.CarrierName),
 		PlannedSource:          MapPricingSourceToPlannedSource(result.PlannedSource),
 		VarianceDrivers:        toVarianceDriverDTOs(result.VarianceDrivers),
 		ReconciliationFindings: toReconciliationFindingDTOs(result.ReconciliationFindings),
@@ -299,7 +319,7 @@ func ToWorkspaceCarrierPerformanceResponse(result service.WorkspaceCarrierPerfor
 	for _, row := range result.Rows {
 		item := WorkspaceCarrierPerformanceRowDTO{
 			CarrierCompanyID:     row.CarrierCompanyID.String(),
-			CarrierName:          row.CarrierCompanyID.String(),
+			CarrierName:          SanitizeDisplayLabel(row.CarrierCompanyID.String()),
 			OrderCount:           row.OrderCount,
 			PlannedTotal:         DecimalPtrToDTO(row.PlannedTotal),
 			CurrentActualTotal:   DecimalPtrToDTO(row.CurrentActualTotal),

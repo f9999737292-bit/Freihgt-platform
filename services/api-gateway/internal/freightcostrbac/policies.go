@@ -12,7 +12,17 @@ type Policy int
 
 const (
 	PolicyRead Policy = iota
+	PolicyBuyerAnalytics
 )
+
+var buyerAnalyticsRoles = map[string]struct{}{
+	rolePlatformAdmin:     {},
+	"PROCUREMENT_MANAGER": {},
+	"SHIPPER_ADMIN":       {},
+	"SHIPPER_LOGIST":      {},
+	"FORWARDER_MANAGER":   {},
+	"FINANCE_MANAGER":     {},
+}
 
 var readRoles = map[string]struct{}{
 	rolePlatformAdmin:     {},
@@ -42,10 +52,19 @@ func allowRead(companyRoles []string, isPlatformAdmin bool) bool {
 	return routeauth.HasAnyRole(companyRoles, readRoles)
 }
 
+func allowBuyerAnalytics(companyRoles []string, isPlatformAdmin bool) bool {
+	if isPlatformAdmin {
+		return true
+	}
+	return routeauth.HasAnyRole(companyRoles, buyerAnalyticsRoles)
+}
+
 func policyAllows(policy Policy, companyRoles []string, _ string, isPlatformAdmin bool) bool {
 	switch policy {
 	case PolicyRead:
 		return allowRead(companyRoles, isPlatformAdmin)
+	case PolicyBuyerAnalytics:
+		return allowBuyerAnalytics(companyRoles, isPlatformAdmin)
 	default:
 		return false
 	}
@@ -55,6 +74,8 @@ func policyDenyMessage(policy Policy) string {
 	switch policy {
 	case PolicyRead:
 		return "freight cost read access denied"
+	case PolicyBuyerAnalytics:
+		return "freight cost buyer analytics access denied"
 	default:
 		return "freight cost access denied"
 	}
@@ -64,6 +85,8 @@ func policyMetricName(policy Policy) string {
 	switch policy {
 	case PolicyRead:
 		return "read"
+	case PolicyBuyerAnalytics:
+		return "buyer_analytics"
 	default:
 		return "unknown"
 	}

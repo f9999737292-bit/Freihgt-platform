@@ -149,8 +149,9 @@ func (h *WorkspaceHandler) AccessorialSummary(w http.ResponseWriter, r *http.Req
 		return
 	}
 	respond.JSON(w, http.StatusOK, dto.WorkspaceAccessorialResponse{
-		Items:        []dto.WorkspaceAccessorialRowDTO{},
-		CurrencyCode: currency,
+		Items:          []dto.WorkspaceAccessorialRowDTO{},
+		CurrencyCode:   currency,
+		DataCapability: dto.DataCapabilityNotAvailable,
 	})
 }
 
@@ -183,7 +184,8 @@ func (h *WorkspaceHandler) LanePerformance(w http.ResponseWriter, r *http.Reques
 	}
 	currency := h.workspace.LanePerformanceCurrency(r.URL.Query())
 	respond.JSON(w, http.StatusOK, dto.WorkspaceLanePerformanceResponse{
-		Items:        []dto.WorkspaceLanePerformanceRowDTO{},
-		CurrencyCode: currency,
+		Items:          []dto.WorkspaceLanePerformanceRowDTO{},
+		CurrencyCode:   currency,
+		DataCapability: dto.DataCapabilityNotAvailable,
 	})
 }

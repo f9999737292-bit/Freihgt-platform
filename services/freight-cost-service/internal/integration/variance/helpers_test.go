@@ -167,8 +167,9 @@ func setupEnvConfigured(t *testing.T, opts envConfig) *env {
 	ingest := service.NewIngestService(pool, entries, cursors, projections, derived, metrics)
 	rebuild := service.NewRebuildService(ingest, derived, transportClient, billingClient, paymentClient, metrics)
 	costs := service.NewCostService(transportClient, projections)
+	workspace := service.NewWorkspaceService(projections, costs, transportClient)
 	log := slog.New(slog.DiscardHandler)
-	router := httpserver.NewRouter(log, pool, cfg, costs, ingest, rebuild, derived, mappings, metrics)
+	router := httpserver.NewRouter(log, pool, cfg, costs, ingest, rebuild, derived, workspace, mappings, metrics)
 
 	return &env{
 		pool: pool, ingest: ingest, rebuild: rebuild, derived: derived, costs: costs,

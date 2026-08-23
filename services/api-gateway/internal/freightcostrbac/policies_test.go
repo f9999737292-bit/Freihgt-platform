@@ -13,3 +13,12 @@ func TestPolicyAllowsReadRoles(t *testing.T) {
 		t.Fatal("platform admin must read")
 	}
 }
+
+func TestPolicyBuyerAnalyticsDeniesCarrier(t *testing.T) {
+	if policyAllows(PolicyBuyerAnalytics, []string{"CARRIER_ADMIN"}, "CARRIER", false) {
+		t.Fatal("carrier must not access buyer analytics routes")
+	}
+	if !policyAllows(PolicyBuyerAnalytics, []string{"PROCUREMENT_MANAGER"}, "BUYER", false) {
+		t.Fatal("buyer manager must access buyer analytics routes")
+	}
+}
