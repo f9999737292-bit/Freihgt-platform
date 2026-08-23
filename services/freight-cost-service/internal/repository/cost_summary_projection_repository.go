@@ -48,11 +48,27 @@ func (r *CostSummaryProjectionRepository) GetByTransportOrderTx(
 	tx pgx.Tx,
 	tenantID, transportOrderID uuid.UUID,
 ) (*domain.CostSummaryProjection, error) {
-	query := `SELECT ` + projectionSelectColumns + `
+	row, err := r.GetSummaryRowByTransportOrderTx(ctx, tx, tenantID, transportOrderID)
+	if err != nil {
+		return nil, err
+	}
+	return row.Projection, nil
+}
+
+func (r *CostSummaryProjectionRepository) GetSummaryRowByTransportOrderTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	tenantID, transportOrderID uuid.UUID,
+) (*AnalyticsSummaryRow, error) {
+	query := `SELECT ` + projectionSelectColumns + `, updated_at
 		FROM freight_cost.cost_summary_projection
 		WHERE tenant_id = $1 AND transport_order_id = $2`
 	row := tx.QueryRow(ctx, query, tenantID, transportOrderID)
-	return scanProjection(row)
+	projection, updatedAt, err := scanProjectionRowWithUpdatedAt(row)
+	if err != nil {
+		return nil, err
+	}
+	return &AnalyticsSummaryRow{Projection: projection, UpdatedAt: updatedAt}, nil
 }
 
 func (r *CostSummaryProjectionRepository) Upsert(ctx context.Context, tx pgx.Tx, projection *domain.CostSummaryProjection) error {

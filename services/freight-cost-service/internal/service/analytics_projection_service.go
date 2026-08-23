@@ -168,21 +168,17 @@ func (s *AnalyticsProjectionService) ProcessDirtyBatch(ctx context.Context, limi
 	processed := 0
 	periodSeen := make(map[string]domain.AnalyticsPeriodKey)
 	for _, entry := range entries {
-		if err := s.processDirtyEntry(ctx, entry); err != nil {
+		key, err := s.processDirtyEntry(ctx, entry)
+		if err != nil {
 			s.observeIncremental("error")
 			if stateErr := s.markTenantError(ctx, entry.TenantID, "INCREMENTAL_APPLY_FAILED", sanitizeError(err)); stateErr != nil {
 				return processed, stateErr
 			}
 			continue
 		}
-		key := domain.AnalyticsPeriodKey{
-			TenantID:       entry.TenantID,
-			BuyerCompanyID: entry.BuyerCompanyID,
-			PeriodStart:    entry.PeriodStart,
-			PeriodGrain:    entry.PeriodGrain,
-			CurrencyCode:   entry.CurrencyCode,
+		if key != nil {
+			periodSeen[periodKeyString(*key)] = *key
 		}
-		periodSeen[periodKeyString(key)] = key
 		processed++
 		s.observeIncremental("processed")
 	}
@@ -202,8 +198,7 @@ func (s *AnalyticsProjectionService) ProcessDirtyBatch(ctx context.Context, limi
 			return processed, err
 		}
 		var maxUpdated time.Time
-		agg, aggErr := s.orderFacts.AggregatePeriod(ctx, tx, key)
-		if aggErr == nil && agg != nil {
+		if agg, aggErr := s.orderFacts.AggregatePeriod(ctx, tx, key); aggErr == nil && agg != nil {
 			maxUpdated = agg.MaxSourceUpdatedAt
 		}
 		if err := s.markStateSuccess(ctx, tx, key.TenantID, now, maxUpdated); err != nil {
@@ -217,48 +212,60 @@ func (s *AnalyticsProjectionService) ProcessDirtyBatch(ctx context.Context, limi
 	return processed, nil
 }
 
-func (s *AnalyticsProjectionService) processDirtyEntry(ctx context.Context, entry domain.AnalyticsDirtyEntry) error {
+func (s *AnalyticsProjectionService) processDirtyEntry(ctx context.Context, entry domain.AnalyticsDirtyEntry) (*domain.AnalyticsPeriodKey, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer tx.Rollback(ctx)
 
 	if err := repository.AcquireTenantAnalyticsExclusiveLock(ctx, tx, entry.TenantID); err != nil {
-		return err
+		return nil, err
 	}
 
-	projection, err := s.summaries.GetByTransportOrderTx(ctx, tx, entry.TenantID, entry.TransportOrderID)
+	summaryRow, err := s.summaries.GetSummaryRowByTransportOrderTx(ctx, tx, entry.TenantID, entry.TransportOrderID)
 	if err != nil {
 		var appErr *apperrors.AppError
 		if errors.As(err, &appErr) && appErr.Code == apperrors.CodeNotFound {
 			if err := s.dirty.Delete(ctx, tx, entry); err != nil {
-				return err
+				return nil, err
 			}
-			return tx.Commit(ctx)
+			if err := tx.Commit(ctx); err != nil {
+				return nil, err
+			}
+			return nil, nil
 		}
-		return err
+		return nil, err
 	}
 
-	updatedAt := entry.PeriodStart
-	if updatedAt.IsZero() {
-		updatedAt = entry.DirtyAt
-	}
 	now := time.Now().UTC()
-	fact := domain.OrderFactFromCostSummary(projection, updatedAt, now)
+	fact := domain.OrderFactFromCostSummary(summaryRow.Projection, summaryRow.UpdatedAt, now)
 	if fact == nil {
 		if err := s.dirty.Delete(ctx, tx, entry); err != nil {
-			return err
+			return nil, err
 		}
-		return tx.Commit(ctx)
+		if err := tx.Commit(ctx); err != nil {
+			return nil, err
+		}
+		return nil, nil
 	}
 	if err := s.orderFacts.Upsert(ctx, tx, fact); err != nil {
-		return err
+		return nil, err
 	}
 	if err := s.dirty.Delete(ctx, tx, entry); err != nil {
-		return err
+		return nil, err
 	}
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	key := domain.AnalyticsPeriodKey{
+		TenantID:       fact.TenantID,
+		BuyerCompanyID: fact.BuyerCompanyID,
+		PeriodStart:    fact.PeriodStart,
+		PeriodGrain:    fact.PeriodGrain,
+		CurrencyCode:   fact.CurrencyCode,
+	}
+	return &key, nil
 }
 
 func (s *AnalyticsProjectionService) reaggregatePeriod(
