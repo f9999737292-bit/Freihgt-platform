@@ -7,7 +7,8 @@
       "variance": "差异分析",
       "accessorials": "附加费用",
       "carriers": "承运商绩效",
-      "lanes": "线路绩效"
+      "lanes": "线路绩效",
+      "opportunities": "节省机会"
     },
     "overview": {
       "subtitle": "买方与承运商视角的货运成本可见性"
@@ -91,7 +92,9 @@
       "varianceDrivers": "暂无差异驱动因素",
       "accessorials": "暂无附加费用",
       "carriers": "暂无承运商绩效数据",
-      "lanes": "暂无线路绩效数据"
+      "lanes": "暂无线路绩效数据",
+      "overview": "暂无智能概览数据",
+      "opportunities": "暂无节省机会"
     },
     "errors": {
       "apiFailure": "货运成本 API 不可用",
@@ -107,6 +110,85 @@
       "featureTitle": "货运成本工作区不可用",
       "featureBody": "工作区已禁用。请启用 NUXT_PUBLIC_FREIGHT_COST_WORKSPACE_ENABLED。"
     },
-    "mixedCurrencyUnavailable": "混合货币 — 汇总不可用"
+    "mixedCurrencyUnavailable": "混合货币 — 汇总不可用",
+    "intelligence": {
+      "sections": {
+        "summary": "支出摘要",
+        "topLanes": "支出最高线路",
+        "accessorial": "附加费用",
+        "opportunities": "节省机会"
+      },
+      "summary": {
+        "orderCount": "订单数",
+        "accessorialTotal": "附加费用合计",
+        "accessorialOrders": "含附加费用的订单",
+        "opportunityCount": "机会数量"
+      },
+      "columns": {
+        "lane": "线路",
+        "orderCount": "订单数",
+        "carrierCount": "承运商数",
+        "laneCount": "线路数",
+        "spendTotal": "支出合计",
+        "benchmarkMedian": "基准中位数",
+        "benchmarkSample": "基准样本",
+        "laneNormalizedDelta": "线路归一化差异",
+        "dataQuality": "数据质量",
+        "category": "类别",
+        "totalAmount": "总金额",
+        "lineCount": "行数",
+        "shareOfSpend": "支出占比",
+        "accessorialRate": "附加费用率",
+        "opportunityType": "机会类型",
+        "scope": "范围",
+        "entityKey": "实体",
+        "observedValue": "观测值",
+        "baselineValue": "基准值",
+        "estimatedDelta": "估计差异",
+        "sampleSize": "样本量",
+        "calculatedAt": "计算时间"
+      },
+      "dataQuality": {
+        "AVAILABLE": "可用",
+        "PARTIAL": "部分",
+        "NOT_AVAILABLE": "不可用",
+        "INSUFFICIENT_SAMPLE": "样本不足",
+        "STALE": "已过期",
+        "MIXED_CURRENCY": "混合货币"
+      },
+      "banners": {
+        "partial": "部分订单缺少维度 — 指标可能不完整。",
+        "insufficientSample": "样本量低于可靠基准的最低要求。",
+        "stale": "投影数据已超过 freshness 阈值。",
+        "notAvailable": "此范围的 analytics 投影不可用。",
+        "mixedCurrency": "检测到多种货币 — 请选择货币筛选或查看分货币行。"
+      },
+      "states": {
+        "insufficientSample": "样本不足"
+      },
+      "freshness": {
+        "calculatedAt": "计算于 {at}"
+      },
+      "hints": {
+        "backendSavingsOnly": "节省数字来自服务器 — UI 不计算基准或机会。"
+      },
+      "opportunityTypes": {
+        "LANE_COST_OUTLIER": "线路成本异常",
+        "CARRIER_COST_OUTLIER": "承运商成本异常",
+        "COST_ABOVE_LANE_MEDIAN": "成本高于线路中位数",
+        "HIGH_ACCESSORIAL_RATE": "附加费用率偏高",
+        "REPEATED_VARIANCE": "重复差异",
+        "CLASSIFICATION_ANOMALY": "分类异常"
+      },
+      "opportunityScopes": {
+        "LANE": "线路",
+        "CARRIER": "承运商",
+        "ORDER": "订单",
+        "ACCESSORIAL": "附加费用"
+      },
+      "opportunities": {
+        "subtitle": "基于服务端规则的可解释节省"
+      }
+    }
   }
 }

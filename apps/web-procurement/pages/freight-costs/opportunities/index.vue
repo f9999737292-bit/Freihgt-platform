@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import type { FreightCostAnalyticsOverviewDTO } from '~/types/freightCost'
-import { resolveFreightCostIntelligenceOverviewViewState } from '~/utils/freightCostIntelligence'
+import type { FreightCostAnalyticsOpportunitiesResponse } from '~/types/freightCost'
+import { resolveFreightCostIntelligenceListViewState } from '~/utils/freightCostIntelligence'
 
 definePageMeta({ middleware: ['auth', 'freight-cost-workspace'], layout: 'default' })
 
 const { t } = useI18n()
 const { currentCompanyId } = useTenantContext()
-const { getFreightCostAnalyticsOverview } = useFreightCostAnalyticsApi()
+const { getFreightCostAnalyticsOpportunities } = useFreightCostAnalyticsApi()
 const {
   actor,
   loading,
@@ -17,35 +17,38 @@ const {
   runLoad,
 } = useFreightCostPageContext()
 
-const overview = ref<FreightCostAnalyticsOverviewDTO | null>(null)
+const response = ref<FreightCostAnalyticsOpportunitiesResponse | null>(null)
 
 onMounted(async () => {
   if (!currentCompanyId.value) return
-  overview.value = await runLoad(() => getFreightCostAnalyticsOverview({
+  response.value = await runLoad(() => getFreightCostAnalyticsOpportunities({
     company_id: currentCompanyId.value!,
   }))
 })
 
-const viewState = computed(() => resolveFreightCostIntelligenceOverviewViewState({
+const viewState = computed(() => resolveFreightCostIntelligenceListViewState({
   loading: loading.value,
   missingCompany: missingCompany.value,
   forbidden: forbidden.value,
   liveUnavailable: liveUnavailable.value,
   apiUnavailable: apiUnavailable.value,
-  overview: overview.value,
+  dataQuality: response.value?.data_quality,
+  mixedCurrency: response.value?.mixed_currency ?? false,
+  itemCount: response.value?.items.length ?? 0,
 }))
 </script>
 
 <template>
   <FreightCostShell
-    :title="t('freightCosts.nav.overview')"
-    :subtitle="t('freightCosts.overview.subtitle')"
+    :title="t('freightCosts.nav.opportunities')"
+    :subtitle="t('freightCosts.intelligence.opportunities.subtitle')"
     :actor="actor"
   >
     <FreightCostLiveUnavailableBanner
       v-if="liveUnavailable"
       :message="t('freightCosts.unavailable.liveData')"
     />
+    <p class="opportunities-hint">{{ t('freightCosts.intelligence.hints.backendSavingsOnly') }}</p>
     <div v-if="viewState === 'loading'">{{ t('common.loading') }}</div>
     <EmptyState
       v-else-if="viewState === 'missing_company'"
@@ -71,18 +74,26 @@ const viewState = computed(() => resolveFreightCostIntelligenceOverviewViewState
     />
     <EmptyState
       v-else-if="viewState === 'empty'"
-      :title="t('freightCosts.empty.overview')"
+      :title="t('freightCosts.empty.opportunities')"
     />
-    <template v-else-if="overview">
+    <template v-else-if="response">
       <FreightCostIntelligenceDataQualityBanner
-        :data-quality="overview.data_quality"
-        :mixed-currency="overview.mixed_currency"
-        :freshness="overview.freshness"
+        :data-quality="response.data_quality"
+        :mixed-currency="response.mixed_currency"
+        :freshness="response.freshness"
       />
-      <FreightCostIntelligenceOverviewSections
-        :overview="overview"
+      <FreightCostOpportunitiesTable
+        :items="response.items"
         :live-unavailable="liveUnavailable"
       />
     </template>
   </FreightCostShell>
 </template>
+
+<style scoped>
+.opportunities-hint {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+</style>

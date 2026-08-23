@@ -7,7 +7,8 @@
       "variance": "Анализ отклонений",
       "accessorials": "Доп. расходы",
       "carriers": "Эффективность перевозчиков",
-      "lanes": "Эффективность направлений"
+      "lanes": "Эффективность направлений",
+      "opportunities": "Возможности экономии"
     },
     "overview": {
       "subtitle": "Видимость фрахтовых затрат для заказчика и перевозчика"
@@ -91,7 +92,9 @@
       "varianceDrivers": "Нет драйверов отклонения",
       "accessorials": "Нет доп. расходов",
       "carriers": "Нет данных по перевозчикам",
-      "lanes": "Нет данных по направлениям"
+      "lanes": "Нет данных по направлениям",
+      "overview": "Нет данных аналитического обзора",
+      "opportunities": "Нет возможностей экономии"
     },
     "errors": {
       "apiFailure": "API фрахтовых затрат недоступен",
@@ -107,6 +110,85 @@
       "featureTitle": "Рабочая область фрахтовых затрат недоступна",
       "featureBody": "Область отключена. Включите NUXT_PUBLIC_FREIGHT_COST_WORKSPACE_ENABLED для доступа."
     },
-    "mixedCurrencyUnavailable": "Смешанная валюта — агрегат недоступен"
+    "mixedCurrencyUnavailable": "Смешанная валюта — агрегат недоступен",
+    "intelligence": {
+      "sections": {
+        "summary": "Сводка расходов",
+        "topLanes": "Топ направлений по расходам",
+        "accessorial": "Доп. расходы",
+        "opportunities": "Возможности экономии"
+      },
+      "summary": {
+        "orderCount": "Количество заказов",
+        "accessorialTotal": "Итого доп. расходов",
+        "accessorialOrders": "Заказы с доп. расходами",
+        "opportunityCount": "Количество возможностей"
+      },
+      "columns": {
+        "lane": "Направление",
+        "orderCount": "Заказы",
+        "carrierCount": "Перевозчики",
+        "laneCount": "Направления",
+        "spendTotal": "Итого расходов",
+        "benchmarkMedian": "Медиана бенчмарка",
+        "benchmarkSample": "Выборка бенчмарка",
+        "laneNormalizedDelta": "Дельта по направлению",
+        "dataQuality": "Качество данных",
+        "category": "Категория",
+        "totalAmount": "Сумма",
+        "lineCount": "Строки",
+        "shareOfSpend": "Доля расходов",
+        "accessorialRate": "Доля доп. расходов",
+        "opportunityType": "Тип возможности",
+        "scope": "Область",
+        "entityKey": "Сущность",
+        "observedValue": "Наблюдаемое значение",
+        "baselineValue": "Базовое значение",
+        "estimatedDelta": "Оценочная дельта",
+        "sampleSize": "Размер выборки",
+        "calculatedAt": "Рассчитано"
+      },
+      "dataQuality": {
+        "AVAILABLE": "Доступно",
+        "PARTIAL": "Частично",
+        "NOT_AVAILABLE": "Недоступно",
+        "INSUFFICIENT_SAMPLE": "Недостаточная выборка",
+        "STALE": "Устарело",
+        "MIXED_CURRENCY": "Смешанная валюта"
+      },
+      "banners": {
+        "partial": "У части заказов отсутствуют измерения — метрики могут быть неполными.",
+        "insufficientSample": "Размер выборки ниже минимума для надёжных бенчмарков.",
+        "stale": "Данные проекции старше порога актуальности.",
+        "notAvailable": "Аналитическая проекция недоступна для этой области.",
+        "mixedCurrency": "Обнаружено несколько валют — выберите фильтр валюты или просмотрите строки по валютам."
+      },
+      "states": {
+        "insufficientSample": "Недостаточная выборка"
+      },
+      "freshness": {
+        "calculatedAt": "Рассчитано {at}"
+      },
+      "hints": {
+        "backendSavingsOnly": "Цифры экономии приходят с сервера — UI не вычисляет бенчмарки и возможности."
+      },
+      "opportunityTypes": {
+        "LANE_COST_OUTLIER": "Выброс стоимости направления",
+        "CARRIER_COST_OUTLIER": "Выброс стоимости перевозчика",
+        "COST_ABOVE_LANE_MEDIAN": "Стоимость выше медианы направления",
+        "HIGH_ACCESSORIAL_RATE": "Высокая доля доп. расходов",
+        "REPEATED_VARIANCE": "Повторяющееся отклонение",
+        "CLASSIFICATION_ANOMALY": "Аномалия классификации"
+      },
+      "opportunityScopes": {
+        "LANE": "Направление",
+        "CARRIER": "Перевозчик",
+        "ORDER": "Заказ",
+        "ACCESSORIAL": "Доп. расход"
+      },
+      "opportunities": {
+        "subtitle": "Объяснимая экономия по серверным правилам"
+      }
+    }
   }
 }
