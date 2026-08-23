@@ -17,6 +17,7 @@ type Config struct {
 	InternalServiceToken   string
 	TransportOrderURL      string
 	BillingRegisterURL     string
+	CompanyServiceURL      string
 	PaymentServiceURL      string
 	AnalyticsProjection    AnalyticsProjectionConfig
 }
@@ -57,6 +58,11 @@ func Load() (Config, error) {
 		billingURL = "http://billing-register-service:8087"
 	}
 
+	companyURL := os.Getenv("COMPANY_SERVICE_URL")
+	if companyURL == "" {
+		companyURL = "http://company-service:8082"
+	}
+
 	paymentURL := os.Getenv("PAYMENT_SERVICE_URL")
 	if paymentURL == "" {
 		paymentURL = "http://payment-service:8090"
@@ -71,6 +77,7 @@ func Load() (Config, error) {
 		InternalServiceToken: os.Getenv("INTERNAL_SERVICE_TOKEN"),
 		TransportOrderURL:    transportURL,
 		BillingRegisterURL:   billingURL,
+		CompanyServiceURL:    companyURL,
 		PaymentServiceURL:    paymentURL,
 		AnalyticsProjection:  loadAnalyticsProjectionConfig(),
 	}, nil

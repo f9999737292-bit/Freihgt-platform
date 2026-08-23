@@ -32,7 +32,14 @@ func setupLaneCarrierEnv(t *testing.T) *laneCarrierEnv {
 	carriers := repository.NewAnalyticsCarrierPeriodProjectionRepository(base.pool)
 	coverage := repository.NewAnalyticsProjectionCoverageRepository(base.pool)
 	dimensions := newDBTransportDimensionReader(base.pool)
-	base.analytics = newAnalyticsService(base.pool, base.summaries, base.periods, lanes, carriers, coverage, dimensions)
+	mappings := repository.NewChargeCodeMappingRepository(base.pool)
+	accessorialFacts := repository.NewAnalyticsAccessorialFactRepository(base.pool)
+	accessorialPeriods := repository.NewAnalyticsAccessorialPeriodProjectionRepository(base.pool)
+	base.analytics = newAnalyticsService(
+		base.pool, base.summaries, base.periods, lanes, carriers,
+		accessorialFacts, accessorialPeriods, coverage, mappings,
+		dimensions, nil, nil,
+	)
 	return &laneCarrierEnv{analyticsEnv: base, lanes: lanes, carriers: carriers, coverage: coverage}
 }
 
@@ -42,15 +49,22 @@ func newAnalyticsService(
 	periods *repository.AnalyticsPeriodProjectionRepository,
 	lanes *repository.AnalyticsLanePeriodProjectionRepository,
 	carriers *repository.AnalyticsCarrierPeriodProjectionRepository,
+	accessorialFacts *repository.AnalyticsAccessorialFactRepository,
+	accessorialPeriods *repository.AnalyticsAccessorialPeriodProjectionRepository,
 	coverage *repository.AnalyticsProjectionCoverageRepository,
+	mappings *repository.ChargeCodeMappingRepository,
 	dimensions provider.TransportDimensionReader,
+	companies provider.CompanyDisplayReader,
+	settlements provider.SettlementAccessorialReader,
 ) *service.AnalyticsProjectionService {
 	orderFacts := repository.NewAnalyticsOrderFactRepository(pool)
 	state := repository.NewAnalyticsProjectionStateRepository(pool)
 	dirty := repository.NewAnalyticsDirtyQueueRepository(pool)
 	metrics := fcmetrics.New()
 	return service.NewAnalyticsProjectionService(
-		pool, summaries, orderFacts, periods, lanes, carriers, coverage, state, dirty, dimensions, metrics,
+		pool, summaries, orderFacts, periods, lanes, carriers,
+		accessorialFacts, accessorialPeriods, coverage, state, dirty,
+		mappings, dimensions, companies, settlements, metrics,
 	)
 }
 

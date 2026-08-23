@@ -9,13 +9,20 @@ import (
 
 // Analytics projection tables are derived read models — never authoritative financial sources.
 const (
-	AnalyticsProjectionNamePeriod  = "cost_analytics_period_projection"
-	AnalyticsProjectionNameLane    = "cost_analytics_lane_period_projection"
-	AnalyticsProjectionNameCarrier = "cost_analytics_carrier_period_projection"
-	AnalyticsPeriodGrainMonth        = "MONTH"
-	AnalyticsProjectionVersion       = 1
-	AnalyticsLaneProjectionVersion   = 1
-	AnalyticsCarrierProjectionVersion = 1
+	AnalyticsProjectionNamePeriod      = "cost_analytics_period_projection"
+	AnalyticsProjectionNameLane        = "cost_analytics_lane_period_projection"
+	AnalyticsProjectionNameCarrier     = "cost_analytics_carrier_period_projection"
+	AnalyticsProjectionNameAccessorial = "cost_analytics_accessorial_period_projection"
+	AnalyticsPeriodGrainMonth            = "MONTH"
+	AnalyticsProjectionVersion           = 1
+	AnalyticsLaneProjectionVersion       = 1
+	AnalyticsCarrierProjectionVersion    = 1
+	AnalyticsAccessorialProjectionVersion = 1
+
+	AccessorialStatusApproved = "APPROVED"
+	AccessorialStatusProposed = "PROPOSED"
+	AccessorialStatusRejected = "REJECTED"
+	AccessorialStatusDisputed = "DISPUTED"
 
 	AnalyticsProjectionStatusIdle    = "IDLE"
 	AnalyticsProjectionStatusRunning = "RUNNING"
@@ -55,6 +62,9 @@ type AnalyticsOrderFact struct {
 	TransportMode          *string
 	EquipmentType          *string
 	LaneEligible           bool
+	OrderReference         *string
+	CarrierDisplayName     *string
+	LaneLabel              *string
 }
 
 type AnalyticsPeriodProjection struct {
@@ -171,6 +181,63 @@ type AnalyticsCarrierPeriodProjection struct {
 	ProjectionVersion   int
 }
 
+type AnalyticsAccessorialFact struct {
+	TenantID             uuid.UUID
+	AccessorialID        uuid.UUID
+	CurrencyCode         string
+	TransportOrderID     uuid.UUID
+	BuyerCompanyID       uuid.UUID
+	SettlementID         uuid.UUID
+	ChargeCode           string
+	NormalizedCategory   string
+	Amount               decimal.Decimal
+	Status               string
+	MappingVersion       int64
+	MappingEvaluatedAt   time.Time
+	PeriodStart          time.Time
+	PeriodGrain          string
+	Eligible             bool
+	CalculatedAt         time.Time
+}
+
+type AnalyticsAccessorialPeriodKey struct {
+	TenantID           uuid.UUID
+	BuyerCompanyID     uuid.UUID
+	NormalizedCategory string
+	PeriodStart        time.Time
+	PeriodGrain        string
+	CurrencyCode       string
+}
+
+type AnalyticsAccessorialPeriodProjection struct {
+	TenantID             uuid.UUID
+	BuyerCompanyID       uuid.UUID
+	NormalizedCategory   string
+	PeriodStart          time.Time
+	PeriodGrain          string
+	CurrencyCode         string
+	TotalAmount          *decimal.Decimal
+	OrderCount           int
+	LineCount            int
+	ShareOfSpend         *decimal.Decimal
+	AccessorialOrderRate *decimal.Decimal
+	FreightSpendTotal    *decimal.Decimal
+	CalculatedAt         time.Time
+	DataThrough          time.Time
+	ProjectionVersion    int
+}
+
+func (f *AnalyticsAccessorialFact) PeriodKey() AnalyticsAccessorialPeriodKey {
+	return AnalyticsAccessorialPeriodKey{
+		TenantID:           f.TenantID,
+		BuyerCompanyID:     f.BuyerCompanyID,
+		NormalizedCategory: f.NormalizedCategory,
+		PeriodStart:        f.PeriodStart,
+		PeriodGrain:        f.PeriodGrain,
+		CurrencyCode:       f.CurrencyCode,
+	}
+}
+
 type AnalyticsProjectionCoverage struct {
 	ProjectionName                string
 	TenantID                      uuid.UUID
@@ -183,6 +250,12 @@ type AnalyticsProjectionCoverage struct {
 	ExcludedMissingCountry        int
 	ExcludedMissingMode           int
 	ExcludedMissingCarrierID      int
+	ExcludedProposedCount         int
+	ExcludedRejectedCount         int
+	ExcludedCancelledCount        int
+	UnmappedChargeCodeCount       int
+	MissingCarrierDisplayCount    int
+	MissingOrderReferenceCount    int
 	DataQuality                   string
 }
 

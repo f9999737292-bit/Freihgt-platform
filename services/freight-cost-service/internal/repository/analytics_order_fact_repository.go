@@ -32,10 +32,11 @@ func (r *AnalyticsOrderFactRepository) Upsert(ctx context.Context, tx pgx.Tx, fa
 			data_stage, financial_finality,
 			source_summary_revision, source_summary_updated_at, calculated_at,
 			lane_key, origin_country, origin_city, destination_country, destination_city,
-			transport_mode, equipment_type, lane_eligible
+			transport_mode, equipment_type, lane_eligible,
+			order_reference, carrier_display_name, lane_label
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
-			$19, $20, $21, $22, $23, $24, $25, $26
+			$19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29
 		)
 		ON CONFLICT (tenant_id, transport_order_id, currency_code) DO UPDATE SET
 			buyer_company_id = EXCLUDED.buyer_company_id,
@@ -60,7 +61,10 @@ func (r *AnalyticsOrderFactRepository) Upsert(ctx context.Context, tx pgx.Tx, fa
 			destination_city = EXCLUDED.destination_city,
 			transport_mode = EXCLUDED.transport_mode,
 			equipment_type = EXCLUDED.equipment_type,
-			lane_eligible = EXCLUDED.lane_eligible`
+			lane_eligible = EXCLUDED.lane_eligible,
+			order_reference = EXCLUDED.order_reference,
+			carrier_display_name = EXCLUDED.carrier_display_name,
+			lane_label = EXCLUDED.lane_label`
 	_, err := tx.Exec(ctx, query,
 		fact.TenantID, fact.TransportOrderID, fact.BuyerCompanyID, fact.CarrierCompanyID, fact.CurrencyCode,
 		fact.PeriodStart, fact.PeriodGrain,
@@ -72,6 +76,7 @@ func (r *AnalyticsOrderFactRepository) Upsert(ctx context.Context, tx pgx.Tx, fa
 		nullableString(fact.LaneKey), nullableString(fact.OriginCountry), nullableString(fact.OriginCity),
 		nullableString(fact.DestinationCountry), nullableString(fact.DestinationCity),
 		nullableString(fact.TransportMode), nullableString(fact.EquipmentType), fact.LaneEligible,
+		nullableString(fact.OrderReference), nullableString(fact.CarrierDisplayName), nullableString(fact.LaneLabel),
 	)
 	return mapDBError(err)
 }
@@ -83,24 +88,39 @@ func nullableString(value *string) any {
 	return *value
 }
 
+const analyticsOrderFactSelectColumns = `
+		tenant_id, transport_order_id, buyer_company_id, carrier_company_id, currency_code,
+		period_start, period_grain,
+		planned_amount, accrued_amount, current_actual_amount, final_actual_amount,
+		current_variance_amount, final_variance_amount,
+		data_stage, financial_finality,
+		source_summary_revision, source_summary_updated_at, calculated_at,
+		lane_key, origin_country, origin_city, destination_country, destination_city,
+		transport_mode, equipment_type, lane_eligible,
+		order_reference, carrier_display_name, lane_label`
+
 func (r *AnalyticsOrderFactRepository) GetByKey(
 	ctx context.Context,
 	tx pgx.Tx,
 	tenantID, transportOrderID uuid.UUID,
 	currencyCode string,
 ) (*domain.AnalyticsOrderFact, error) {
-	query := `
-		SELECT tenant_id, transport_order_id, buyer_company_id, carrier_company_id, currency_code,
-			period_start, period_grain,
-			planned_amount, accrued_amount, current_actual_amount, final_actual_amount,
-			current_variance_amount, final_variance_amount,
-			data_stage, financial_finality,
-			source_summary_revision, source_summary_updated_at, calculated_at,
-			lane_key, origin_country, origin_city, destination_country, destination_city,
-			transport_mode, equipment_type, lane_eligible
+	query := `SELECT ` + analyticsOrderFactSelectColumns + `
 		FROM freight_cost.cost_analytics_order_fact
 		WHERE tenant_id = $1 AND transport_order_id = $2 AND currency_code = $3`
 	row := tx.QueryRow(ctx, query, tenantID, transportOrderID, currencyCode)
+	return scanAnalyticsOrderFact(row)
+}
+
+func (r *AnalyticsOrderFactRepository) GetByTransportOrder(
+	ctx context.Context,
+	tenantID, transportOrderID uuid.UUID,
+	currencyCode string,
+) (*domain.AnalyticsOrderFact, error) {
+	query := `SELECT ` + analyticsOrderFactSelectColumns + `
+		FROM freight_cost.cost_analytics_order_fact
+		WHERE tenant_id = $1 AND transport_order_id = $2 AND currency_code = $3`
+	row := r.pool.QueryRow(ctx, query, tenantID, transportOrderID, currencyCode)
 	return scanAnalyticsOrderFact(row)
 }
 
@@ -133,15 +153,7 @@ func (r *AnalyticsOrderFactRepository) ListForTenant(
 	tx pgx.Tx,
 	tenantID uuid.UUID,
 ) ([]*domain.AnalyticsOrderFact, error) {
-	rows, err := tx.Query(ctx, `
-		SELECT tenant_id, transport_order_id, buyer_company_id, carrier_company_id, currency_code,
-			period_start, period_grain,
-			planned_amount, accrued_amount, current_actual_amount, final_actual_amount,
-			current_variance_amount, final_variance_amount,
-			data_stage, financial_finality,
-			source_summary_revision, source_summary_updated_at, calculated_at,
-			lane_key, origin_country, origin_city, destination_country, destination_city,
-			transport_mode, equipment_type, lane_eligible
+	rows, err := tx.Query(ctx, `SELECT `+analyticsOrderFactSelectColumns+`
 		FROM freight_cost.cost_analytics_order_fact
 		WHERE tenant_id = $1`, tenantID)
 	if err != nil {
@@ -364,6 +376,7 @@ func scanAnalyticsOrderFact(row pgx.Row) (*domain.AnalyticsOrderFact, error) {
 	var fact domain.AnalyticsOrderFact
 	var dataStage, finality string
 	var laneKey, originCountry, originCity, destCountry, destCity, mode, equipment *string
+	var orderReference, carrierDisplayName, laneLabel *string
 	err := row.Scan(
 		&fact.TenantID, &fact.TransportOrderID, &fact.BuyerCompanyID, &fact.CarrierCompanyID, &fact.CurrencyCode,
 		&fact.PeriodStart, &fact.PeriodGrain,
@@ -372,6 +385,7 @@ func scanAnalyticsOrderFact(row pgx.Row) (*domain.AnalyticsOrderFact, error) {
 		&dataStage, &finality,
 		&fact.SourceSummaryRevision, &fact.SourceSummaryUpdatedAt, &fact.CalculatedAt,
 		&laneKey, &originCountry, &originCity, &destCountry, &destCity, &mode, &equipment, &fact.LaneEligible,
+		&orderReference, &carrierDisplayName, &laneLabel,
 	)
 	if err != nil {
 		return nil, mapDBError(err)
@@ -385,6 +399,9 @@ func scanAnalyticsOrderFact(row pgx.Row) (*domain.AnalyticsOrderFact, error) {
 	fact.DestinationCity = destCity
 	fact.TransportMode = mode
 	fact.EquipmentType = equipment
+	fact.OrderReference = orderReference
+	fact.CarrierDisplayName = carrierDisplayName
+	fact.LaneLabel = laneLabel
 	return &fact, nil
 }
 

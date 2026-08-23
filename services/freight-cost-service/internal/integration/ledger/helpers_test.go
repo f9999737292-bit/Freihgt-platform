@@ -32,7 +32,7 @@ import (
 	"github.com/freight-platform/shared-go/internalauth"
 )
 
-const maxMigrationFile = "000062_freight_cost_lane_carrier_intelligence_v2.2C.up.sql"
+const maxMigrationFile = "000063_freight_cost_accessorial_enrichment_v2.2D.up.sql"
 const testToken = "fc-ledger-test-token"
 
 type env struct {
@@ -144,7 +144,7 @@ func setupEnv(t *testing.T) *env {
 	ingest := service.NewIngestService(pool, entries, cursors, projections, derived, nil, metrics)
 	rebuild := service.NewRebuildService(ingest, derived, transportClient, billingClient, paymentClient, metrics)
 	costs := service.NewCostService(transportClient, projections)
-	workspace := service.NewWorkspaceService(projections, costs, transportClient)
+	workspace := service.NewWorkspaceService(projections, nil, costs, transportClient)
 	log := slog.New(slog.DiscardHandler)
 	router := httpserver.NewRouter(log, pool, cfg, costs, ingest, rebuild, derived, workspace, mappings, nil, nil, nil, metrics)
 

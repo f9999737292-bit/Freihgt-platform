@@ -31,9 +31,10 @@ type carrierCoverageStats struct {
 }
 
 type dirtyProcessResult struct {
-	periods  []domain.AnalyticsPeriodKey
-	lanes    []domain.AnalyticsLanePeriodKey
-	carriers []domain.AnalyticsCarrierPeriodKey
+	periods      []domain.AnalyticsPeriodKey
+	lanes        []domain.AnalyticsLanePeriodKey
+	carriers     []domain.AnalyticsCarrierPeriodKey
+	accessorials []domain.AnalyticsAccessorialPeriodKey
 }
 
 func (s *AnalyticsProjectionService) hydrateOrderFactDimensions(
@@ -346,6 +347,8 @@ func (s *AnalyticsProjectionService) markProjectionStateSuccess(
 		version = domain.AnalyticsLaneProjectionVersion
 	case domain.AnalyticsProjectionNameCarrier:
 		version = domain.AnalyticsCarrierProjectionVersion
+	case domain.AnalyticsProjectionNameAccessorial:
+		version = domain.AnalyticsAccessorialProjectionVersion
 	}
 	state := &domain.AnalyticsProjectionState{
 		ProjectionName:      projectionName,
