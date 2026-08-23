@@ -233,6 +233,36 @@ func mockFreightCostHandler(t *testing.T, capture *downstreamCapture, resourceTe
 			})
 		case strings.HasSuffix(path, "/carriers/performance"):
 			writeJSON(w, map[string]any{"items": []any{}, "currency_code": "RUB"})
+		case path == "/internal/v1/freight-costs/analytics/overview":
+			if actorKind == "CARRIER" {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			writeJSON(w, analyticsOverviewResponse())
+		case path == "/internal/v1/freight-costs/analytics/lanes":
+			if actorKind == "CARRIER" {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			writeJSON(w, analyticsListResponse("lane"))
+		case path == "/internal/v1/freight-costs/analytics/carriers":
+			if actorKind == "CARRIER" {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			writeJSON(w, analyticsListResponse("carrier"))
+		case path == "/internal/v1/freight-costs/analytics/accessorials":
+			if actorKind == "CARRIER" {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			writeJSON(w, analyticsListResponse("accessorial"))
+		case path == "/internal/v1/freight-costs/opportunities":
+			if actorKind == "CARRIER" {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			writeJSON(w, opportunitiesResponse())
 		case strings.Contains(path, "/transport-orders/"):
 			writeJSON(w, detailResponse(actorKind, orderID))
 		default:
@@ -306,6 +336,53 @@ func detailResponse(actorKind string, orderID uuid.UUID) map[string]any {
 		"planned_source":          nil,
 		"variance_drivers":        []any{},
 		"reconciliation_findings": []any{},
+	}
+}
+
+func analyticsOverviewResponse() map[string]any {
+	now := time.Now().UTC().Format(time.RFC3339)
+	return map[string]any{
+		"summary": map[string]any{
+			"planned_total":        map[string]any{"amount": "1000.00", "currency_code": "RUB"},
+			"current_actual_total": map[string]any{"amount": "950.00", "currency_code": "RUB"},
+			"final_actual_total":   map[string]any{"amount": "950.00", "currency_code": "RUB"},
+			"financial_finality":   "CURRENT_ACTUAL",
+			"data_stage":           "ACCRUAL_AVAILABLE",
+		},
+		"top_lanes":           []any{},
+		"accessorial":         map[string]any{"data_quality": "NOT_AVAILABLE"},
+		"opportunities":       map[string]any{"total": 0, "items": []any{}},
+		"reconciliation":      map[string]any{"mismatch_count": 0},
+		"freshness":           map[string]any{"calculated_at": now, "data_through": now, "projection_version": "v2.2"},
+		"data_quality":        "AVAILABLE",
+		"mixed_currency":      false,
+		"benchmark_cost_basis": "FINAL_ACTUAL_OR_CURRENT_ACTUAL_PER_ORDER",
+	}
+}
+
+func analyticsListResponse(kind string) map[string]any {
+	now := time.Now().UTC().Format(time.RFC3339)
+	return map[string]any{
+		"items":            []any{},
+		"total":            0,
+		"limit":            20,
+		"offset":           0,
+		"data_quality":     "AVAILABLE",
+		"mixed_currency":   false,
+		"freshness":        map[string]any{"calculated_at": now, "data_through": now, "projection_version": "v2.2"},
+		"analytics_kind":   kind,
+	}
+}
+
+func opportunitiesResponse() map[string]any {
+	now := time.Now().UTC().Format(time.RFC3339)
+	return map[string]any{
+		"items":          []any{},
+		"total":          0,
+		"limit":          20,
+		"offset":         0,
+		"data_quality":   "AVAILABLE",
+		"freshness":      map[string]any{"calculated_at": now, "data_through": now, "projection_version": "v2.2"},
 	}
 }
 
