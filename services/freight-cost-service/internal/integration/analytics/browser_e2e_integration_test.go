@@ -106,7 +106,7 @@ func startBrowserLiveStack(t *testing.T) *browserLiveStack {
 func seedBrowserE2EFixture(t *testing.T, env *fullProjectionEnv) browserFixture {
 	t.Helper()
 	base := seedFullProjectionFixture(t, env)
-	userID := uuid.New()
+	userID := uuid.MustParse("8541a3a3-bde7-4fed-9501-37b9953bf904")
 	return browserFixture{
 		TenantID:        base.tenantID,
 		BuyerID:         base.buyerID,

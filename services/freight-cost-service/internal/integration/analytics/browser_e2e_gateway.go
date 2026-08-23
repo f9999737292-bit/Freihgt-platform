@@ -3,7 +3,6 @@
 package analytics
 
 import (
-	"io"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -20,7 +19,13 @@ func startBrowserGatewayProxy(t *testing.T, freightCostURL string, fix browserFi
 	if err != nil {
 		t.Fatalf("parse freight cost url: %v", err)
 	}
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	proxyHandler := func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodOptions {
+			writeBrowserGatewayCORS(w, r)
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		writeBrowserGatewayCORS(w, r)
 		if !validateBrowserJWT(r) {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -43,20 +48,55 @@ func startBrowserGatewayProxy(t *testing.T, freightCostURL string, fix browserFi
 			req.Header.Set("X-Company-ID", fix.BuyerID.String())
 			req.Header.Set("X-Actor-Kind", "BUYER")
 		}
+		proxy.ModifyResponse = func(resp *http.Response) error {
+			applyBrowserGatewayCORS(resp.Header, r)
+			return nil
+		}
 		proxy.ErrorHandler = func(rw http.ResponseWriter, _ *http.Request, _ error) {
 			http.Error(rw, "bad gateway", http.StatusBadGateway)
 		}
 		proxy.ServeHTTP(w, r)
-	})
+	}
+
+	summaryProbeHandler := func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodOptions {
+			writeBrowserGatewayCORS(w, r)
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		writeBrowserGatewayCORS(w, r)
+		if !validateBrowserJWT(r) {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"order_count":0,"planned_total":"0","current_actual_total":"0","currency_code":"RUB","data_quality":"OK"}`))
+	}
 
 	r := chi.NewRouter()
-	r.Get("/api/v1/freight-costs/analytics/overview", handler.ServeHTTP)
-	r.Get("/api/v1/freight-costs/analytics/lanes", handler.ServeHTTP)
-	r.Get("/api/v1/freight-costs/analytics/carriers", handler.ServeHTTP)
-	r.Get("/api/v1/freight-costs/analytics/accessorials", handler.ServeHTTP)
-	r.Get("/api/v1/freight-costs/opportunities", handler.ServeHTTP)
-	_ = io.Discard
+	r.HandleFunc("/api/v1/freight-costs/summary", summaryProbeHandler)
+	r.HandleFunc("/api/v1/freight-costs/analytics/overview", proxyHandler)
+	r.HandleFunc("/api/v1/freight-costs/analytics/lanes", proxyHandler)
+	r.HandleFunc("/api/v1/freight-costs/analytics/carriers", proxyHandler)
+	r.HandleFunc("/api/v1/freight-costs/analytics/accessorials", proxyHandler)
+	r.HandleFunc("/api/v1/freight-costs/opportunities", proxyHandler)
 	return listenHTTPServer(t, r)
+}
+
+func writeBrowserGatewayCORS(w http.ResponseWriter, r *http.Request) {
+	applyBrowserGatewayCORS(w.Header(), r)
+}
+
+func applyBrowserGatewayCORS(h http.Header, r *http.Request) {
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
+	if origin == "" {
+		origin = "*"
+	}
+	h.Set("Access-Control-Allow-Origin", origin)
+	h.Set("Vary", "Origin")
+	h.Set("Access-Control-Allow-Credentials", "true")
+	h.Set("Access-Control-Allow-Headers", "Authorization, Accept, Content-Type, X-Company-ID, X-Tenant-ID, X-User-ID, X-Locale, X-Request-ID")
+	h.Set("Access-Control-Allow-Methods", "GET, OPTIONS")
 }
 
 func validateBrowserJWT(r *http.Request) bool {
