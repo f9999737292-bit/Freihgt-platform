@@ -57,7 +57,7 @@ func newAnalyticsService(
 func seedTransportOrderWithLocations(
 	t *testing.T,
 	env *laneCarrierEnv,
-	tenantID uuid.UUID,
+	tenantID, buyerID uuid.UUID,
 	orderID uuid.UUID,
 	originCity, destCity string,
 	transportMode string,
@@ -67,23 +67,24 @@ func seedTransportOrderWithLocations(
 	ctx := context.Background()
 	originID := uuid.New()
 	destID := uuid.New()
-	shipperID := uuid.New()
-	consigneeID := uuid.New()
 	cargoID := uuid.New()
+	if _, err := env.pool.Exec(ctx, `INSERT INTO core.companies (id, tenant_id, company_type, legal_name, status)
+		VALUES ($1, $2, 'SHIPPER', 'Buyer Co', 'ACTIVE')
+		ON CONFLICT DO NOTHING`, buyerID, tenantID); err != nil {
+		t.Fatalf("seed company: %v", err)
+	}
 	_, err := env.pool.Exec(ctx, `
 		INSERT INTO transport.locations (
-			id, tenant_id, location_type, name, country_code, city, timezone, status, version
-		) VALUES ($1, $2, 'WAREHOUSE', 'Origin', 'RU', $3, 'Europe/Moscow', 'ACTIVE', 1),
-		         ($4, $2, 'WAREHOUSE', 'Destination', 'RU', $5, 'Europe/Moscow', 'ACTIVE', 1)
-		ON CONFLICT DO NOTHING`,
-		originID, tenantID, originCity, destID, destCity)
+			id, tenant_id, company_id, location_type, name, country_code, city, timezone, status, version
+		) VALUES ($1, $2, $3, 'WAREHOUSE', 'Origin', 'RU', $4, 'Europe/Moscow', 'ACTIVE', 1),
+		         ($5, $2, $3, 'WAREHOUSE', 'Destination', 'RU', $6, 'Europe/Moscow', 'ACTIVE', 1)`,
+		originID, tenantID, buyerID, originCity, destID, destCity)
 	if err != nil {
 		t.Fatalf("seed locations: %v", err)
 	}
 	_, err = env.pool.Exec(ctx, `
-		INSERT INTO transport.cargoes (id, tenant_id, description, status, version)
-		VALUES ($1, $2, 'test cargo', 'ACTIVE', 1)
-		ON CONFLICT DO NOTHING`, cargoID, tenantID)
+		INSERT INTO transport.cargoes (id, tenant_id, cargo_type, description, gross_weight)
+		VALUES ($1, $2, 'GENERAL', 'test cargo', 1000)`, cargoID, tenantID)
 	if err != nil {
 		t.Fatalf("seed cargo: %v", err)
 	}
@@ -91,14 +92,14 @@ func seedTransportOrderWithLocations(
 		INSERT INTO transport.transport_orders (
 			id, tenant_id, order_number, shipper_company_id, consignee_company_id,
 			origin_location_id, destination_location_id, cargo_id,
-			transport_mode, equipment_type, status, version
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'DRAFT', 1)
+			transport_mode, equipment_type, status, pricing_model_version
+		) VALUES ($1, $2, $3, $4, $4, $5, $6, $7, $8, $9, 'CONVERTED_TO_SHIPMENT', 'SNAPSHOT_V1')
 		ON CONFLICT (id) DO UPDATE SET
 			origin_location_id = EXCLUDED.origin_location_id,
 			destination_location_id = EXCLUDED.destination_location_id,
 			transport_mode = EXCLUDED.transport_mode,
 			equipment_type = EXCLUDED.equipment_type`,
-		orderID, tenantID, "TO-"+orderID.String()[:8], shipperID, consigneeID,
+		orderID, tenantID, "TO-"+orderID.String()[:8], buyerID,
 		originID, destID, cargoID, transportMode, equipment)
 	if err != nil {
 		t.Fatalf("seed transport order: %v", err)
@@ -113,7 +114,7 @@ func TestFC22CLP001OneLaneOneCurrency(t *testing.T) {
 	orderID := uuid.New()
 	period := time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC)
 	equipment := "TENT"
-	seedTransportOrderWithLocations(t, env, tenantID, orderID, "Moscow", "SPB", "ROAD", &equipment)
+	seedTransportOrderWithLocations(t, env, tenantID, buyerID, orderID, "Moscow", "SPB", "ROAD", &equipment)
 	upsertSummary(t, env.analyticsEnv, tenantID, buyerID, carrierID, orderID, "RUB", "1000.00", "1100.00", period)
 
 	if err := env.analytics.RebuildTenant(context.Background(), tenantID); err != nil {
@@ -151,8 +152,8 @@ func TestFC22CLP004MultipleCurrenciesSeparate(t *testing.T) {
 	orderEUR := uuid.New()
 	period := time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC)
 	equipment := "TENT"
-	seedTransportOrderWithLocations(t, env, tenantID, orderRUB, "Moscow", "SPB", "ROAD", &equipment)
-	seedTransportOrderWithLocations(t, env, tenantID, orderEUR, "Moscow", "SPB", "ROAD", &equipment)
+	seedTransportOrderWithLocations(t, env, tenantID, buyerID, orderRUB, "Moscow", "SPB", "ROAD", &equipment)
+	seedTransportOrderWithLocations(t, env, tenantID, buyerID, orderEUR, "Moscow", "SPB", "ROAD", &equipment)
 	upsertSummary(t, env.analyticsEnv, tenantID, buyerID, carrierID, orderRUB, "RUB", "100.00", "110.00", period)
 	upsertSummary(t, env.analyticsEnv, tenantID, buyerID, carrierID, orderEUR, "EUR", "200.00", "250.00", period)
 
@@ -177,7 +178,7 @@ func TestFC22CEqv001RebuildMatchesIncremental(t *testing.T) {
 	orderID := uuid.New()
 	period := time.Date(2026, 5, 15, 0, 0, 0, 0, time.UTC)
 	equipment := "TENT"
-	seedTransportOrderWithLocations(t, env, tenantID, orderID, "Moscow", "SPB", "ROAD", &equipment)
+	seedTransportOrderWithLocations(t, env, tenantID, buyerID, orderID, "Moscow", "SPB", "ROAD", &equipment)
 	upsertSummary(t, env.analyticsEnv, tenantID, buyerID, carrierID, orderID, "RUB", "300.00", "330.00", period)
 
 	if err := env.analytics.RebuildTenant(context.Background(), tenantID); err != nil {
@@ -243,8 +244,8 @@ func TestFC22CSEC001TenantIsolation(t *testing.T) {
 	orderB := uuid.New()
 	period := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
 	equipment := "TENT"
-	seedTransportOrderWithLocations(t, env, tenantA, orderA, "Moscow", "SPB", "ROAD", &equipment)
-	seedTransportOrderWithLocations(t, env, tenantB, orderB, "Moscow", "Kazan", "ROAD", &equipment)
+	seedTransportOrderWithLocations(t, env, tenantA, buyerA, orderA, "Moscow", "SPB", "ROAD", &equipment)
+	seedTransportOrderWithLocations(t, env, tenantB, buyerB, orderB, "Moscow", "Kazan", "ROAD", &equipment)
 	upsertSummary(t, env.analyticsEnv, tenantA, buyerA, carrier, orderA, "RUB", "100.00", "120.00", period)
 	upsertSummary(t, env.analyticsEnv, tenantB, buyerB, carrier, orderB, "RUB", "200.00", "240.00", period)
 	if err := env.analytics.RebuildTenant(context.Background(), tenantA); err != nil {
