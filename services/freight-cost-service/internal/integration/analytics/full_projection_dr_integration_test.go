@@ -68,6 +68,15 @@ func seedFullProjectionFixture(t *testing.T, env *fullProjectionEnv) fullProject
 	equipment := "TENT"
 	lcEnv := env.laneCarrierEnv
 
+	if _, err := env.pool.Exec(ctx, `INSERT INTO core.tenants (id, code, name) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+		fix.tenantID, "t-"+fix.tenantID.String()[:8], "Full Projection Tenant"); err != nil {
+		t.Fatalf("seed tenant: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `INSERT INTO core.companies (id, tenant_id, company_type, legal_name, status)
+		VALUES ($1, $2, 'SHIPPER', 'Buyer Co', 'ACTIVE') ON CONFLICT DO NOTHING`, fix.buyerID, fix.tenantID); err != nil {
+		t.Fatalf("seed buyer: %v", err)
+	}
+
 	seedCarrierCompany(t, &accessorialEnv{analyticsEnv: env.analyticsEnv, mappings: env.mappings}, fix.tenantID, fix.carrierA, "Carrier Alpha LLC", "AlphaCarrier")
 	seedCarrierCompany(t, &accessorialEnv{analyticsEnv: env.analyticsEnv, mappings: env.mappings}, fix.tenantID, fix.carrierB, "Carrier Beta LLC", "BetaCarrier")
 

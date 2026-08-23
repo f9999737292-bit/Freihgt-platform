@@ -81,6 +81,14 @@ func seedPerf100kCanonical(ctx context.Context, t *testing.T, env *fullProjectio
 	}
 
 	if _, err := env.pool.Exec(ctx, `
+		INSERT INTO transport.cargoes (id, tenant_id, cargo_type, description, gross_weight)
+		SELECT ('c0000000-0000-4000-8000-' || lpad(gs::text, 12, '0'))::uuid, $1, 'GENERAL', 'perf cargo', 1000
+		FROM generate_series(1, $2) gs
+		ON CONFLICT DO NOTHING`, tenantID, perf100kOrderCount); err != nil {
+		t.Fatalf("bulk seed cargoes: %v", err)
+	}
+
+	if _, err := env.pool.Exec(ctx, `
 		INSERT INTO transport.transport_orders (
 			id, tenant_id, order_number, shipper_company_id, consignee_company_id,
 			origin_location_id, destination_location_id, cargo_id,
@@ -111,14 +119,6 @@ func seedPerf100kCanonical(ctx context.Context, t *testing.T, env *fullProjectio
 		perf100kOrderCount,
 	); err != nil {
 		t.Fatalf("bulk seed transport orders: %v", err)
-	}
-
-	if _, err := env.pool.Exec(ctx, `
-		INSERT INTO transport.cargoes (id, tenant_id, cargo_type, description, gross_weight)
-		SELECT ('c0000000-0000-4000-8000-' || lpad(gs::text, 12, '0'))::uuid, $1, 'GENERAL', 'perf cargo', 1000
-		FROM generate_series(1, $2) gs
-		ON CONFLICT DO NOTHING`, tenantID, perf100kOrderCount); err != nil {
-		t.Fatalf("bulk seed cargoes: %v", err)
 	}
 
 	const batchSize = 2000
