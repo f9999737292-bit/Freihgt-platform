@@ -35,6 +35,7 @@ type dirtyProcessResult struct {
 	lanes        []domain.AnalyticsLanePeriodKey
 	carriers     []domain.AnalyticsCarrierPeriodKey
 	accessorials []domain.AnalyticsAccessorialPeriodKey
+	benchmarks   []domain.AnalyticsBenchmarkKey
 }
 
 func (s *AnalyticsProjectionService) hydrateOrderFactDimensions(
@@ -349,6 +350,10 @@ func (s *AnalyticsProjectionService) markProjectionStateSuccess(
 		version = domain.AnalyticsCarrierProjectionVersion
 	case domain.AnalyticsProjectionNameAccessorial:
 		version = domain.AnalyticsAccessorialProjectionVersion
+	case domain.AnalyticsProjectionNameBenchmark:
+		version = domain.AnalyticsBenchmarkProjectionVersion
+	case domain.AnalyticsProjectionNameOpportunity:
+		version = domain.AnalyticsOpportunityProjectionVersion
 	}
 	state := &domain.AnalyticsProjectionState{
 		ProjectionName:      projectionName,

@@ -60,11 +60,19 @@ func newAnalyticsService(
 	orderFacts := repository.NewAnalyticsOrderFactRepository(pool)
 	state := repository.NewAnalyticsProjectionStateRepository(pool)
 	dirty := repository.NewAnalyticsDirtyQueueRepository(pool)
+	benchmarks := repository.NewAnalyticsBenchmarkProjectionRepository(pool)
+	opportunities := repository.NewAnalyticsOpportunityProjectionRepository(pool)
+	attributions := repository.NewVarianceAttributionRepository()
 	metrics := fcmetrics.New()
+	benchmarkConfig := domain.AnalyticsBenchmarkConfig{
+		MinBenchmarkSample:             domain.DefaultMinBenchmarkSample,
+		RepeatedVarianceMinOccurrences: domain.DefaultRepeatedVarianceMinOccurrences,
+	}
 	return service.NewAnalyticsProjectionService(
 		pool, summaries, orderFacts, periods, lanes, carriers,
-		accessorialFacts, accessorialPeriods, coverage, state, dirty,
-		mappings, dimensions, companies, settlements, metrics,
+		accessorialFacts, accessorialPeriods, benchmarks, opportunities, attributions,
+		coverage, state, dirty, mappings, dimensions, companies, settlements,
+		benchmarkConfig, metrics,
 	)
 }
 

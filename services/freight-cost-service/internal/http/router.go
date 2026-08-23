@@ -67,6 +67,8 @@ func NewRouter(
 			r.Get("/tenants/{tenantId}/state", analyticsHandler.GetTenantState)
 			r.Get("/tenants/{tenantId}/lanes", analyticsHandler.ListLaneProjections)
 			r.Get("/tenants/{tenantId}/carriers", analyticsHandler.ListCarrierProjections)
+			r.Get("/tenants/{tenantId}/benchmarks", analyticsHandler.ListBenchmarkProjections)
+			r.Get("/tenants/{tenantId}/opportunities", analyticsHandler.ListOpportunityProjections)
 		})
 	})
 

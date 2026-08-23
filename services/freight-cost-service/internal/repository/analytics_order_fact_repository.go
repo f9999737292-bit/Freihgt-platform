@@ -421,3 +421,36 @@ func chunkUUIDs(ids []uuid.UUID, size int) [][]uuid.UUID {
 	}
 	return chunks
 }
+
+func (r *AnalyticsOrderFactRepository) ListForLaneBenchmarkKey(
+	ctx context.Context,
+	tx pgx.Tx,
+	key domain.AnalyticsBenchmarkKey,
+) ([]*domain.AnalyticsOrderFact, error) {
+	rows, err := tx.Query(ctx, `SELECT `+analyticsOrderFactSelectColumns+`
+		FROM freight_cost.cost_analytics_order_fact
+		WHERE tenant_id = $1 AND buyer_company_id = $2
+		  AND lane_key = $3 AND transport_mode = $4 AND equipment_type = $5
+		  AND period_start = $6 AND period_grain = $7 AND currency_code = $8
+		  AND lane_eligible = TRUE
+		  AND (
+			(financial_finality = 'FINAL_ACTUAL' AND final_actual_amount IS NOT NULL)
+			OR (financial_finality = 'CURRENT_ACTUAL' AND current_actual_amount IS NOT NULL)
+		  )`,
+		key.TenantID, key.BuyerCompanyID, key.LaneKey, key.TransportMode, key.EquipmentType,
+		key.PeriodStart, key.PeriodGrain, key.CurrencyCode,
+	)
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	defer rows.Close()
+	var facts []*domain.AnalyticsOrderFact
+	for rows.Next() {
+		fact, err := scanAnalyticsOrderFact(rows)
+		if err != nil {
+			return nil, err
+		}
+		facts = append(facts, fact)
+	}
+	return facts, mapDBError(rows.Err())
+}

@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -145,4 +146,61 @@ func (r *VarianceAttributionRepository) CountCurrentByTransportOrder(
 		return 0, mapDBError(err)
 	}
 	return count, nil
+}
+
+type RepeatedVarianceGroup struct {
+	BuyerCompanyID   uuid.UUID
+	CarrierCompanyID uuid.UUID
+	LaneKey          string
+	ReasonCode       string
+	PeriodStart      time.Time
+	CurrencyCode     string
+	OccurrenceCount  int
+}
+
+func (r *VarianceAttributionRepository) ListRepeatedVarianceGroups(
+	ctx context.Context,
+	tx pgx.Tx,
+	tenantID uuid.UUID,
+	minOccurrences int,
+) ([]RepeatedVarianceGroup, error) {
+	rows, err := tx.Query(ctx, `
+		SELECT
+			of.buyer_company_id,
+			of.carrier_company_id,
+			of.lane_key,
+			va.reason_code,
+			of.period_start,
+			of.currency_code,
+			COUNT(DISTINCT va.transport_order_id)::int
+		FROM freight_cost.variance_attribution va
+		INNER JOIN freight_cost.cost_analytics_order_fact of
+			ON of.tenant_id = va.tenant_id AND of.transport_order_id = va.transport_order_id
+		WHERE va.tenant_id = $1
+		  AND va.is_current = TRUE
+		  AND va.semantic_class = 'VARIANCE_DRIVER'
+		  AND of.lane_eligible = TRUE
+		  AND of.lane_key IS NOT NULL
+		  AND of.carrier_company_id IS NOT NULL
+		GROUP BY of.buyer_company_id, of.carrier_company_id, of.lane_key,
+			va.reason_code, of.period_start, of.currency_code
+		HAVING COUNT(DISTINCT va.transport_order_id) >= $2`,
+		tenantID, minOccurrences,
+	)
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	defer rows.Close()
+	var groups []RepeatedVarianceGroup
+	for rows.Next() {
+		var g RepeatedVarianceGroup
+		if err := rows.Scan(
+			&g.BuyerCompanyID, &g.CarrierCompanyID, &g.LaneKey, &g.ReasonCode,
+			&g.PeriodStart, &g.CurrencyCode, &g.OccurrenceCount,
+		); err != nil {
+			return nil, mapDBError(err)
+		}
+		groups = append(groups, g)
+	}
+	return groups, mapDBError(rows.Err())
 }

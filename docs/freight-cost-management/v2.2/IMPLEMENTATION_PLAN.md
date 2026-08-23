@@ -112,12 +112,13 @@ Order rationale: projection core must exist before dimension aggregations; enric
 
 ### Deliverables
 
-- [ ] Configurable `min_benchmark_sample` (default 5)
-- [ ] Benchmark calculator: median, p25, p75, p90 per cohort (ADR-22-005)
-- [ ] Migration: `opportunity_projection`
-- [ ] Rule engine: LANE_COST_OUTLIER, COST_ABOVE_LANE_MEDIAN, HIGH_ACCESSORIAL_RATE, REPEATED_VARIANCE, CARRIER_COST_OUTLIER (lane-normalized)
-- [ ] Exclude CLASS C types (no ML, no market benchmark)
-- [ ] `INSUFFICIENT_SAMPLE` semantics on small cohorts
+- [x] Configurable `min_benchmark_sample` (default 5)
+- [x] Benchmark calculator: median, p25, p75, p90 per cohort (ADR-22-005)
+- [x] Migration: `benchmark_projection`, `opportunity_projection` (000064)
+- [x] Rule engine: LANE_COST_OUTLIER, COST_ABOVE_LANE_MEDIAN, HIGH_ACCESSORIAL_RATE, REPEATED_VARIANCE, CARRIER_COST_OUTLIER (lane-normalized)
+- [x] Exclude CLASS C types (no ML, no market benchmark)
+- [x] `INSUFFICIENT_SAMPLE` semantics on small cohorts
+- [x] Internal S2S validation reads for benchmarks and opportunities
 
 ### Dependencies
 
@@ -126,8 +127,11 @@ Order rationale: projection core must exist before dimension aggregations; enric
 
 ### Exit criteria
 
-- Every opportunity has evidence JSON + sample_size + currency
-- No savings percentage without observed/baseline amounts
+- [x] Every opportunity has evidence JSON + sample_size + currency
+- [x] No savings percentage without observed/baseline amounts
+- [x] Full rebuild ≡ incremental equivalence (FC22E-EQV-001)
+
+**Status:** Implemented in v2.2E (see `v2.2E-BENCHMARK-SAVINGS.md`).
 
 ---
 
