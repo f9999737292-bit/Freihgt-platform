@@ -1,0 +1,110 @@
+{
+  "freightCosts": {
+    "nav": {
+      "overview": "概览",
+      "plannedVsActual": "计划与实际",
+      "shipments": "运输单",
+      "variance": "差异分析",
+      "accessorials": "附加费用",
+      "carriers": "承运商绩效",
+      "lanes": "线路绩效"
+    },
+    "overview": {
+      "subtitle": "买方与承运商视角的货运成本可见性"
+    },
+    "kpi": {
+      "planned_total": "计划运费",
+      "accrued_total": "财务应计",
+      "plannedPlusProposedExposure": "计划 + 提议敞口",
+      "forecast_exposure_total": "计划 + 提议敞口",
+      "current_actual_total": "当前实际",
+      "final_actual_total": "最终实际",
+      "current_variance_total": "当前差异",
+      "final_variance_total": "最终差异",
+      "reconciliation_mismatch_count": "账单不匹配数量"
+    },
+    "finality": {
+      "NOT_EVALUATED": "未评估",
+      "DRAFT": "草稿",
+      "CURRENT_ACTUAL": "当前实际",
+      "FINAL_ACTUAL": "最终实际",
+      "CANCELLED": "已取消"
+    },
+    "reconciliation": {
+      "MATCH": "匹配",
+      "MISMATCH": "不匹配",
+      "UNLINKED": "未关联"
+    },
+    "variance": {
+      "positive": "高于计划",
+      "negative": "低于计划",
+      "neutral": "符合计划"
+    },
+    "categories": {
+      "DETENTION": "滞留",
+      "WAITING": "等待",
+      "FUEL": "燃油",
+      "TOLL": "过路费",
+      "HANDLING": "装卸",
+      "STORAGE": "仓储",
+      "OTHER": "其他",
+      "UNKNOWN": "未知"
+    },
+    "filters": {
+      "search": "搜索",
+      "from": "起始",
+      "to": "结束",
+      "currency": "货币",
+      "carrier": "承运商",
+      "clear": "清除筛选"
+    },
+    "columns": {
+      "orderReference": "订单",
+      "carrier": "承运商",
+      "planned": "计划",
+      "accrued": "应计",
+      "currentActual": "当前实际",
+      "finalActual": "最终实际",
+      "currentVariance": "当前差异",
+      "finalVariance": "最终差异",
+      "currency": "货币",
+      "finality": "最终性",
+      "reconciliation": "对账",
+      "updatedAt": "更新时间"
+    },
+    "detail": {
+      "title": "运输单成本详情",
+      "summary": "摘要",
+      "plannedSnapshot": "计划快照",
+      "accrualBreakdown": "应计明细",
+      "actualSettlement": "实际/结算",
+      "variance": "差异",
+      "varianceDrivers": "差异驱动因素",
+      "reconciliation": "对账",
+      "provenance": "数据来源"
+    },
+    "empty": {
+      "plannedVsActual": "暂无货运成本行",
+      "shipments": "暂无运输单",
+      "detail": "详情不可用",
+      "variance": "暂无差异行",
+      "varianceDrivers": "暂无差异驱动因素",
+      "accessorials": "暂无附加费用",
+      "carriers": "暂无承运商绩效数据",
+      "lanes": "暂无线路绩效数据"
+    },
+    "errors": {
+      "apiFailure": "货运成本 API 不可用",
+      "forbidden": "无权访问此视图",
+      "missingCompany": "请选择公司以查看货运成本"
+    },
+    "unavailable": {
+      "money": "不可用",
+      "masked": "承运商视图已隐藏",
+      "liveData": "实时数据将在 v2.1E 提供",
+      "featureTitle": "货运成本工作区不可用",
+      "featureBody": "工作区已禁用。请启用 NUXT_PUBLIC_FREIGHT_COST_WORKSPACE_ENABLED。"
+    },
+    "mixedCurrencyUnavailable": "混合货币 — 汇总不可用"
+  }
+}

@@ -8,6 +8,7 @@
     "settlements": "结算",
     "billingRegisters": "账单登记",
     "payments": "付款",
-    "contracts": "合同"
+    "contracts": "合同",
+    "freightCosts": "货运成本"
   }
 }

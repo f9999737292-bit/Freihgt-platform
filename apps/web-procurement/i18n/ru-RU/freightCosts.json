@@ -1,0 +1,110 @@
+{
+  "freightCosts": {
+    "nav": {
+      "overview": "Обзор",
+      "plannedVsActual": "План vs факт",
+      "shipments": "Отправления",
+      "variance": "Анализ отклонений",
+      "accessorials": "Доп. расходы",
+      "carriers": "Эффективность перевозчиков",
+      "lanes": "Эффективность направлений"
+    },
+    "overview": {
+      "subtitle": "Видимость фрахтовых затрат для заказчика и перевозчика"
+    },
+    "kpi": {
+      "planned_total": "Плановая стоимость",
+      "accrued_total": "Финансовое начисление",
+      "plannedPlusProposedExposure": "План + предложенная экспозиция",
+      "forecast_exposure_total": "План + предложенная экспозиция",
+      "current_actual_total": "Текущий факт",
+      "final_actual_total": "Итоговый факт",
+      "current_variance_total": "Текущее отклонение",
+      "final_variance_total": "Итоговое отклонение",
+      "reconciliation_mismatch_count": "Количество расхождений биллинга"
+    },
+    "finality": {
+      "NOT_EVALUATED": "Не оценено",
+      "DRAFT": "Черновик",
+      "CURRENT_ACTUAL": "Текущий факт",
+      "FINAL_ACTUAL": "Итоговый факт",
+      "CANCELLED": "Отменено"
+    },
+    "reconciliation": {
+      "MATCH": "Совпадает",
+      "MISMATCH": "Расхождение",
+      "UNLINKED": "Не связано"
+    },
+    "variance": {
+      "positive": "Выше плана",
+      "negative": "Ниже плана",
+      "neutral": "По плану"
+    },
+    "categories": {
+      "DETENTION": "Простой",
+      "WAITING": "Ожидание",
+      "FUEL": "Топливо",
+      "TOLL": "Платные дороги",
+      "HANDLING": "Погрузка/разгрузка",
+      "STORAGE": "Хранение",
+      "OTHER": "Прочее",
+      "UNKNOWN": "Неизвестно"
+    },
+    "filters": {
+      "search": "Поиск",
+      "from": "С",
+      "to": "По",
+      "currency": "Валюта",
+      "carrier": "Перевозчик",
+      "clear": "Сбросить фильтры"
+    },
+    "columns": {
+      "orderReference": "Заказ",
+      "carrier": "Перевозчик",
+      "planned": "План",
+      "accrued": "Начисление",
+      "currentActual": "Текущий факт",
+      "finalActual": "Итоговый факт",
+      "currentVariance": "Текущее отклонение",
+      "finalVariance": "Итоговое отклонение",
+      "currency": "Валюта",
+      "finality": "Финальность",
+      "reconciliation": "Сверка",
+      "updatedAt": "Обновлено"
+    },
+    "detail": {
+      "title": "Детализация стоимости отправления",
+      "summary": "Сводка",
+      "plannedSnapshot": "Плановый снимок",
+      "accrualBreakdown": "Разбивка начисления",
+      "actualSettlement": "Факт / расчёт",
+      "variance": "Отклонение",
+      "varianceDrivers": "Драйверы отклонения",
+      "reconciliation": "Сверка",
+      "provenance": "Источники данных"
+    },
+    "empty": {
+      "plannedVsActual": "Нет строк фрахтовых затрат",
+      "shipments": "Нет отправлений",
+      "detail": "Детализация недоступна",
+      "variance": "Нет строк отклонений",
+      "varianceDrivers": "Нет драйверов отклонения",
+      "accessorials": "Нет доп. расходов",
+      "carriers": "Нет данных по перевозчикам",
+      "lanes": "Нет данных по направлениям"
+    },
+    "errors": {
+      "apiFailure": "API фрахтовых затрат недоступен",
+      "forbidden": "Нет доступа к этому представлению",
+      "missingCompany": "Выберите компанию для просмотра затрат"
+    },
+    "unavailable": {
+      "money": "Недоступно",
+      "masked": "Скрыто для перевозчика",
+      "liveData": "Живые данные будут доступны в v2.1E",
+      "featureTitle": "Рабочая область фрахтовых затрат недоступна",
+      "featureBody": "Область отключена. Включите NUXT_PUBLIC_FREIGHT_COST_WORKSPACE_ENABLED для доступа."
+    },
+    "mixedCurrencyUnavailable": "Смешанная валюта — агрегат недоступен"
+  }
+}

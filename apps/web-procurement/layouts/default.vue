@@ -5,9 +5,14 @@ const { isAuthenticated, logout } = useAuth()
 const { toasts } = useToast()
 const { t } = useI18n()
 const { enabled: contractRateEnabled } = useContractRateFeature()
+const { enabled: freightCostEnabled } = useFreightCostFeature()
 const { canReadContracts } = usePermissions()
+const authStore = useAuthStore()
 
 const showContractsNav = computed(() => contractRateEnabled.value && canReadContracts())
+const showFreightCostsNav = computed(() =>
+  shouldShowFreightCostsNav(freightCostEnabled.value, authStore.user?.roles ?? []),
+)
 </script>
 
 <template>
@@ -28,6 +33,7 @@ const showContractsNav = computed(() => contractRateEnabled.value && canReadCont
       <NuxtLink to="/carrier/tenders" class="procurement-nav__link">{{ t('nav.carrierTenders') }}</NuxtLink>
       <NuxtLink to="/carrier/transport-orders" class="procurement-nav__link">{{ t('nav.carrierOrders') }}</NuxtLink>
       <NuxtLink v-if="showContractsNav" to="/contracts" class="procurement-nav__link">{{ t('nav.contracts') }}</NuxtLink>
+      <NuxtLink v-if="showFreightCostsNav" to="/freight-costs" class="procurement-nav__link">{{ t('nav.freightCosts') }}</NuxtLink>
       <NuxtLink to="/settlements" class="procurement-nav__link">{{ t('nav.settlements') }}</NuxtLink>
       <NuxtLink to="/billing-registers" class="procurement-nav__link">{{ t('nav.billingRegisters') }}</NuxtLink>
       <NuxtLink to="/payments" class="procurement-nav__link">{{ t('nav.payments') }}</NuxtLink>
