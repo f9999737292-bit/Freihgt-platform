@@ -789,7 +789,8 @@ describe('FC-D-I18N localization', () => {
   })
 
   it('FC-D-I18N-006 ZH unavailable liveData key present', () => {
-    expect(zhFreightCosts.freightCosts.unavailable.liveData).toContain('v2.1E')
+    expect(zhFreightCosts.freightCosts.unavailable.liveData).toContain('不可用')
+    expect(zhFreightCosts.freightCosts.unavailable.reference).toBeTruthy()
   })
 })
 
