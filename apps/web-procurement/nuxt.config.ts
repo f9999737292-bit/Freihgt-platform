@@ -13,6 +13,7 @@ const localeFiles = [
 
 export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',
+  ssr: process.env.NUXT_E2E_DISABLE_SSR !== 'true',
   devtools: { enabled: true },
   devServer: {
     port: 3005,

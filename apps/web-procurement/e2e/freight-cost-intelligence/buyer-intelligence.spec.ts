@@ -30,24 +30,24 @@ test.beforeEach(async ({ page }) => {
     test.skip(true, 'browser E2E env not configured')
   }
   await seedBuyerSession(page)
-  await page.goto('/login')
-  await page.waitForLoadState('domcontentloaded')
 })
 
 test('FC22G1-UI-001 live buyer overview', async ({ page }) => {
   const overviewResp = page.waitForResponse((resp) =>
     resp.url().includes('/api/v1/freight-costs/analytics/overview') && resp.status() === 200,
   )
-  await page.goto('/freight-costs')
+  await page.goto('/freight-costs', { waitUntil: 'domcontentloaded' })
+  await page.waitForURL('**/freight-costs', { timeout: 30_000 })
   await overviewResp
-  await expect(page.getByText(/190.?000/)).toBeVisible()
+  await expect(page.getByText(new RegExp(expectedPlanned.replace('.', '[.,]?')))).toBeVisible()
 })
 
 test('FC22G1-UI-002 live lanes', async ({ page }) => {
   const lanesResp = page.waitForResponse((resp) =>
     resp.url().includes('/api/v1/freight-costs/analytics/lanes') && resp.status() === 200,
   )
-  await page.goto('/freight-costs/lanes')
+  await page.goto('/freight-costs/lanes', { waitUntil: 'domcontentloaded' })
+  await page.waitForURL('**/freight-costs/lanes', { timeout: 30_000 })
   await lanesResp
   await expect(page.getByRole('heading', { name: /lanes/i })).toBeVisible()
 })
@@ -56,7 +56,8 @@ test('FC22G1-UI-003 live carriers', async ({ page }) => {
   const carriersResp = page.waitForResponse((resp) =>
     resp.url().includes('/api/v1/freight-costs/analytics/carriers') && resp.status() === 200,
   )
-  await page.goto('/freight-costs/carriers')
+  await page.goto('/freight-costs/carriers', { waitUntil: 'domcontentloaded' })
+  await page.waitForURL('**/freight-costs/carriers', { timeout: 30_000 })
   await carriersResp
   await expect(page.getByRole('heading', { name: /carriers/i })).toBeVisible()
 })
@@ -65,7 +66,8 @@ test('FC22G1-UI-004 live accessorials', async ({ page }) => {
   const accessorialsResp = page.waitForResponse((resp) =>
     resp.url().includes('/api/v1/freight-costs/analytics/accessorials') && resp.status() === 200,
   )
-  await page.goto('/freight-costs/accessorials')
+  await page.goto('/freight-costs/accessorials', { waitUntil: 'domcontentloaded' })
+  await page.waitForURL('**/freight-costs/accessorials', { timeout: 30_000 })
   await accessorialsResp
   await expect(page.getByText(/150/)).toBeVisible()
 })
@@ -74,22 +76,30 @@ test('FC22G1-UI-005 live opportunities', async ({ page }) => {
   const opportunitiesResp = page.waitForResponse((resp) =>
     resp.url().includes('/api/v1/freight-costs/opportunities') && resp.status() === 200,
   )
-  await page.goto('/freight-costs/opportunities')
+  await page.goto('/freight-costs/opportunities', { waitUntil: 'domcontentloaded' })
+  await page.waitForURL('**/freight-costs/opportunities', { timeout: 30_000 })
   await opportunitiesResp
   await expect(page.getByText(new RegExp(expectedDelta.replace('.', '[.,]?')))).toBeVisible()
 })
 
 test('FC22G1-UI-006 live filters change network query', async ({ page }) => {
-  await page.goto('/freight-costs/lanes?currency=RUB')
-  const first = page.waitForResponse((resp) => resp.url().includes('/analytics/lanes') && resp.url().includes('currency=RUB'))
+  const first = page.waitForResponse((resp) =>
+    resp.url().includes('/analytics/lanes') && resp.url().includes('currency=RUB') && resp.status() === 200,
+  )
+  await page.goto('/freight-costs/lanes?currency=RUB', { waitUntil: 'domcontentloaded' })
   await first
-  const secondPromise = page.waitForResponse((resp) => resp.url().includes('/analytics/lanes') && resp.url().includes('currency=EUR'))
-  await page.goto('/freight-costs/lanes?currency=EUR')
+  const secondPromise = page.waitForResponse((resp) =>
+    resp.url().includes('/analytics/lanes') && resp.url().includes('currency=EUR') && resp.status() === 200,
+  )
+  await page.goto('/freight-costs/lanes?currency=EUR', { waitUntil: 'domcontentloaded' })
   await secondPromise
 })
 
 test('FC22G1-UI-007 live pagination issues next request', async ({ page }) => {
-  await page.goto('/freight-costs/lanes?limit=1&offset=0')
-  const first = await page.waitForResponse((resp) => resp.url().includes('/analytics/lanes'))
-  expect(first.url()).toContain('limit=1')
+  const first = page.waitForResponse((resp) =>
+    resp.url().includes('/analytics/lanes') && resp.url().includes('limit=1') && resp.status() === 200,
+  )
+  await page.goto('/freight-costs/lanes?limit=1&offset=0', { waitUntil: 'domcontentloaded' })
+  const response = await first
+  expect(response.url()).toContain('limit=1')
 })

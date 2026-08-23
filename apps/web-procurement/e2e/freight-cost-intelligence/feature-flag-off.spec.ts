@@ -33,7 +33,8 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('FC22G1-UI-008 feature flag off hides workspace', async ({ page }) => {
-  await page.goto('/freight-costs')
+  await page.goto('/freight-costs', { waitUntil: 'domcontentloaded' })
+  await page.waitForURL('**/freight-costs/unavailable', { timeout: 30_000 })
   await expect(page.getByText(/Freight cost workspace unavailable/i)).toBeVisible()
   await expect(page.getByText(/NUXT_PUBLIC_FREIGHT_COST_WORKSPACE_ENABLED/i)).toBeVisible()
 })

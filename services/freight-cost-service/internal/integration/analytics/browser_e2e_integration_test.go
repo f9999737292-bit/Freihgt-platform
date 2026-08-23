@@ -178,6 +178,7 @@ func startBrowserWebProcurement(t *testing.T, gatewayURL string, fix browserFixt
 	} else {
 		env = append(env, "NUXT_PUBLIC_FREIGHT_COST_WORKSPACE_ENABLED=false")
 	}
+	env = append(env, "NUXT_E2E_DISABLE_SSR=true")
 	cmd.Env = append(os.Environ(), env...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
