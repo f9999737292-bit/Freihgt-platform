@@ -543,6 +543,10 @@ jobs:
         working-directory: services/freight-cost-service
         run: go test -tags=integration ./internal/integration/variance/... -count=1 -v
 
+      - name: Run freight-cost analytics projection integration tests
+        working-directory: services/freight-cost-service
+        run: go test -tags=integration ./internal/integration/analytics/... -count=1 -v
+
       - name: Run billing v2.1B ledger integration tests
         working-directory: services/billing-register-service
         run: go test -tags=integration ./internal/integration/freightcostledger/... -count=1 -v

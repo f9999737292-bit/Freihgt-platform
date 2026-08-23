@@ -32,7 +32,7 @@ import (
 	"github.com/freight-platform/shared-go/internalauth"
 )
 
-const maxMigrationFile = "000060_freight_cost_mapping_evaluated_at_v2.1C.up.sql"
+const maxMigrationFile = "000061_freight_cost_analytics_projection_v2.2B.up.sql"
 const testToken = "fc-variance-test-token"
 
 type env struct {
@@ -164,12 +164,12 @@ func setupEnvConfigured(t *testing.T, opts envConfig) *env {
 	billingClient := billing_register.NewClient(cfg.BillingRegisterURL, testToken, metrics)
 	paymentClient := payment.NewClient(cfg.PaymentServiceURL, testToken, metrics)
 	derived := service.NewDerivedProjectionService(pool, projections, attributions, findings, mappings, cursors, billingClient, transportClient, metrics)
-	ingest := service.NewIngestService(pool, entries, cursors, projections, derived, metrics)
+	ingest := service.NewIngestService(pool, entries, cursors, projections, derived, nil, metrics)
 	rebuild := service.NewRebuildService(ingest, derived, transportClient, billingClient, paymentClient, metrics)
 	costs := service.NewCostService(transportClient, projections)
 	workspace := service.NewWorkspaceService(projections, costs, transportClient)
 	log := slog.New(slog.DiscardHandler)
-	router := httpserver.NewRouter(log, pool, cfg, costs, ingest, rebuild, derived, workspace, mappings, metrics)
+	router := httpserver.NewRouter(log, pool, cfg, costs, ingest, rebuild, derived, workspace, mappings, nil, nil, nil, metrics)
 
 	return &env{
 		pool: pool, ingest: ingest, rebuild: rebuild, derived: derived, costs: costs,
