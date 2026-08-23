@@ -108,11 +108,15 @@ func TestFC22BEqvRebuildMatchesIncremental(t *testing.T) {
 	}
 
 	// Reset analytics tables and simulate incremental path via dirty processing.
-	if _, err := env.pool.Exec(context.Background(), `
-		DELETE FROM freight_cost.cost_analytics_period_projection WHERE tenant_id = $1;
-		DELETE FROM freight_cost.cost_analytics_order_fact WHERE tenant_id = $1;
-		DELETE FROM freight_cost.analytics_projection_state WHERE tenant_id = $1`, tenantID); err != nil {
-		t.Fatalf("reset analytics: %v", err)
+	ctx := context.Background()
+	if _, err := env.pool.Exec(ctx, `DELETE FROM freight_cost.cost_analytics_period_projection WHERE tenant_id = $1`, tenantID); err != nil {
+		t.Fatalf("reset period projection: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `DELETE FROM freight_cost.cost_analytics_order_fact WHERE tenant_id = $1`, tenantID); err != nil {
+		t.Fatalf("reset order facts: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `DELETE FROM freight_cost.analytics_projection_state WHERE tenant_id = $1`, tenantID); err != nil {
+		t.Fatalf("reset projection state: %v", err)
 	}
 	tx, err := env.pool.Begin(context.Background())
 	if err != nil {
