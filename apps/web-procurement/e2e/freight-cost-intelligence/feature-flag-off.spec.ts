@@ -20,6 +20,7 @@ async function seedBuyerSession(page: Page) {
     }))
     localStorage.setItem('freight_procurement_tenant_id', tenant)
     localStorage.setItem('freight_procurement_company_id', company)
+    document.cookie = 'freight_procurement_locale=en-US; path=/'
   }, { token: jwt, tenant: tenantId, company: companyId })
 }
 
@@ -28,8 +29,6 @@ test.beforeEach(async ({ page }) => {
     test.skip(true, 'browser E2E env not configured')
   }
   await seedBuyerSession(page)
-  await page.goto('/login')
-  await page.waitForLoadState('domcontentloaded')
 })
 
 test('FC22G1-UI-008 feature flag off hides workspace', async ({ page }) => {

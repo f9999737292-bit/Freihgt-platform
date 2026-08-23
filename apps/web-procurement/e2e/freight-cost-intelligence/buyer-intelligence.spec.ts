@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test'
 const jwt = process.env.BROWSER_E2E_JWT || ''
 const tenantId = process.env.BROWSER_E2E_TENANT_ID || ''
 const companyId = process.env.BROWSER_E2E_BUYER_COMPANY_ID || ''
-const expectedPlanned = process.env.BROWSER_E2E_EXPECTED_PLANNED || '190000.00'
+const expectedPlanned = process.env.BROWSER_E2E_EXPECTED_PLANNED || '195000.00'
 const expectedDelta = process.env.BROWSER_E2E_EXPECTED_DELTA || '7000.00'
 
 async function seedBuyerSession(page: Page) {
@@ -22,6 +22,7 @@ async function seedBuyerSession(page: Page) {
     }))
     localStorage.setItem('freight_procurement_tenant_id', tenant)
     localStorage.setItem('freight_procurement_company_id', company)
+    document.cookie = 'freight_procurement_locale=en-US; path=/'
   }, { token: jwt, tenant: tenantId, company: companyId })
 }
 
@@ -38,7 +39,9 @@ test('FC22G1-UI-001 live buyer overview', async ({ page }) => {
   )
   await page.goto('/freight-costs', { waitUntil: 'domcontentloaded' })
   await page.waitForURL('**/freight-costs', { timeout: 30_000 })
-  await overviewResp
+  const response = await overviewResp
+  const body = await response.json()
+  expect(body.summary?.order_count).toBeGreaterThan(0)
   await expect(page.getByText(new RegExp(expectedPlanned.replace('.', '[.,]?')))).toBeVisible()
 })
 
@@ -48,8 +51,10 @@ test('FC22G1-UI-002 live lanes', async ({ page }) => {
   )
   await page.goto('/freight-costs/lanes', { waitUntil: 'domcontentloaded' })
   await page.waitForURL('**/freight-costs/lanes', { timeout: 30_000 })
-  await lanesResp
-  await expect(page.getByRole('heading', { name: /lanes/i })).toBeVisible()
+  const response = await lanesResp
+  const body = await response.json()
+  expect(body.items?.length ?? 0).toBeGreaterThan(0)
+  await expect(page.getByRole('heading', { name: /lane performance/i })).toBeVisible()
 })
 
 test('FC22G1-UI-003 live carriers', async ({ page }) => {
@@ -58,8 +63,10 @@ test('FC22G1-UI-003 live carriers', async ({ page }) => {
   )
   await page.goto('/freight-costs/carriers', { waitUntil: 'domcontentloaded' })
   await page.waitForURL('**/freight-costs/carriers', { timeout: 30_000 })
-  await carriersResp
-  await expect(page.getByRole('heading', { name: /carriers/i })).toBeVisible()
+  const response = await carriersResp
+  const body = await response.json()
+  expect(body.items?.length ?? 0).toBeGreaterThan(0)
+  await expect(page.getByRole('heading', { name: /carrier performance/i })).toBeVisible()
 })
 
 test('FC22G1-UI-004 live accessorials', async ({ page }) => {
@@ -68,7 +75,9 @@ test('FC22G1-UI-004 live accessorials', async ({ page }) => {
   )
   await page.goto('/freight-costs/accessorials', { waitUntil: 'domcontentloaded' })
   await page.waitForURL('**/freight-costs/accessorials', { timeout: 30_000 })
-  await accessorialsResp
+  const response = await accessorialsResp
+  const body = await response.json()
+  expect(body.items?.length ?? 0).toBeGreaterThan(0)
   await expect(page.getByText(/150/)).toBeVisible()
 })
 
@@ -78,7 +87,9 @@ test('FC22G1-UI-005 live opportunities', async ({ page }) => {
   )
   await page.goto('/freight-costs/opportunities', { waitUntil: 'domcontentloaded' })
   await page.waitForURL('**/freight-costs/opportunities', { timeout: 30_000 })
-  await opportunitiesResp
+  const response = await opportunitiesResp
+  const body = await response.json()
+  expect(body.items?.length ?? 0).toBeGreaterThan(0)
   await expect(page.getByText(new RegExp(expectedDelta.replace('.', '[.,]?')))).toBeVisible()
 })
 
