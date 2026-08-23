@@ -65,6 +65,8 @@ func NewRouter(
 		r.Route("/analytics", func(r chi.Router) {
 			r.Post("/tenants/{tenantId}/rebuild", analyticsHandler.RebuildTenant)
 			r.Get("/tenants/{tenantId}/state", analyticsHandler.GetTenantState)
+			r.Get("/tenants/{tenantId}/lanes", analyticsHandler.ListLaneProjections)
+			r.Get("/tenants/{tenantId}/carriers", analyticsHandler.ListCarrierProjections)
 		})
 	})
 

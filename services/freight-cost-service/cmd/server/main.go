@@ -53,6 +53,9 @@ func main() {
 	mappingRepo := repository.NewChargeCodeMappingRepository(db.Pool)
 	orderFactRepo := repository.NewAnalyticsOrderFactRepository(db.Pool)
 	periodProjRepo := repository.NewAnalyticsPeriodProjectionRepository(db.Pool)
+	laneProjRepo := repository.NewAnalyticsLanePeriodProjectionRepository(db.Pool)
+	carrierProjRepo := repository.NewAnalyticsCarrierPeriodProjectionRepository(db.Pool)
+	coverageRepo := repository.NewAnalyticsProjectionCoverageRepository(db.Pool)
 	analyticsStateRepo := repository.NewAnalyticsProjectionStateRepository(db.Pool)
 	dirtyQueueRepo := repository.NewAnalyticsDirtyQueueRepository(db.Pool)
 
@@ -61,7 +64,10 @@ func main() {
 	paymentClient := payment.NewClient(cfg.PaymentServiceURL, cfg.InternalServiceToken, domainMetrics)
 
 	derivedSvc := service.NewDerivedProjectionService(db.Pool, projectionRepo, attributionRepo, findingRepo, mappingRepo, cursorRepo, billingClient, transportClient, domainMetrics)
-	analyticsSvc := service.NewAnalyticsProjectionService(db.Pool, projectionRepo, orderFactRepo, periodProjRepo, analyticsStateRepo, dirtyQueueRepo, domainMetrics)
+	analyticsSvc := service.NewAnalyticsProjectionService(
+		db.Pool, projectionRepo, orderFactRepo, periodProjRepo, laneProjRepo, carrierProjRepo,
+		coverageRepo, analyticsStateRepo, dirtyQueueRepo, transportClient, domainMetrics,
+	)
 	ingestSvc := service.NewIngestService(db.Pool, entryRepo, cursorRepo, projectionRepo, derivedSvc, analyticsSvc, domainMetrics)
 	rebuildSvc := service.NewRebuildService(ingestSvc, derivedSvc, transportClient, billingClient, paymentClient, domainMetrics)
 	costSvc := service.NewCostService(transportClient, projectionRepo)

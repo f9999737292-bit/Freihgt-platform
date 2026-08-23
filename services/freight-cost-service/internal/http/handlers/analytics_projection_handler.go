@@ -18,6 +18,7 @@ type AnalyticsProjectionHandler struct {
 	worker    *worker.AnalyticsProjectionWorker
 	state     *repository.AnalyticsProjectionStateRepository
 }
+
 func NewAnalyticsProjectionHandler(
 	analytics *service.AnalyticsProjectionService,
 	worker *worker.AnalyticsProjectionWorker,
@@ -78,4 +79,50 @@ func (h *AnalyticsProjectionHandler) GetTenantState(w http.ResponseWriter, r *ht
 		"last_error_message":     state.LastErrorMessage,
 		"updated_at":             state.UpdatedAt,
 	})
+}
+
+func (h *AnalyticsProjectionHandler) ListLaneProjections(w http.ResponseWriter, r *http.Request) {
+	if h.analytics == nil {
+		respond.Error(w, apperrors.NotFound("analytics projection service is not available"))
+		return
+	}
+	tenantID, err := uuid.Parse(chi.URLParam(r, "tenantId"))
+	if err != nil {
+		respond.Error(w, apperrors.Validation("invalid tenant id", map[string]any{"field": "tenantId"}))
+		return
+	}
+	filter, err := parseLaneListFilter(r, tenantID)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	items, err := h.analytics.ListLaneProjections(r.Context(), tenantID, filter)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
+func (h *AnalyticsProjectionHandler) ListCarrierProjections(w http.ResponseWriter, r *http.Request) {
+	if h.analytics == nil {
+		respond.Error(w, apperrors.NotFound("analytics projection service is not available"))
+		return
+	}
+	tenantID, err := uuid.Parse(chi.URLParam(r, "tenantId"))
+	if err != nil {
+		respond.Error(w, apperrors.Validation("invalid tenant id", map[string]any{"field": "tenantId"}))
+		return
+	}
+	filter, err := parseCarrierListFilter(r, tenantID)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	items, err := h.analytics.ListCarrierProjections(r.Context(), tenantID, filter)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusOK, map[string]any{"items": items})
 }

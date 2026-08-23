@@ -14,17 +14,22 @@ import (
 	"github.com/freight-platform/freight-cost-service/internal/domain"
 	apperrors "github.com/freight-platform/freight-cost-service/internal/platform/errors"
 	fcmetrics "github.com/freight-platform/freight-cost-service/internal/platform/metrics"
+	"github.com/freight-platform/freight-cost-service/internal/provider"
 	"github.com/freight-platform/freight-cost-service/internal/repository"
 )
 
 type AnalyticsProjectionService struct {
-	pool         *pgxpool.Pool
-	summaries    *repository.CostSummaryProjectionRepository
-	orderFacts   *repository.AnalyticsOrderFactRepository
-	periods      *repository.AnalyticsPeriodProjectionRepository
-	state        *repository.AnalyticsProjectionStateRepository
-	dirty        *repository.AnalyticsDirtyQueueRepository
-	metrics      *fcmetrics.Metrics
+	pool              *pgxpool.Pool
+	summaries         *repository.CostSummaryProjectionRepository
+	orderFacts        *repository.AnalyticsOrderFactRepository
+	periods           *repository.AnalyticsPeriodProjectionRepository
+	lanes             *repository.AnalyticsLanePeriodProjectionRepository
+	carriers          *repository.AnalyticsCarrierPeriodProjectionRepository
+	coverage          *repository.AnalyticsProjectionCoverageRepository
+	state             *repository.AnalyticsProjectionStateRepository
+	dirty             *repository.AnalyticsDirtyQueueRepository
+	dimensions        provider.TransportDimensionReader
+	metrics           *fcmetrics.Metrics
 	projectionVersion int
 }
 
@@ -33,8 +38,12 @@ func NewAnalyticsProjectionService(
 	summaries *repository.CostSummaryProjectionRepository,
 	orderFacts *repository.AnalyticsOrderFactRepository,
 	periods *repository.AnalyticsPeriodProjectionRepository,
+	lanes *repository.AnalyticsLanePeriodProjectionRepository,
+	carriers *repository.AnalyticsCarrierPeriodProjectionRepository,
+	coverage *repository.AnalyticsProjectionCoverageRepository,
 	state *repository.AnalyticsProjectionStateRepository,
 	dirty *repository.AnalyticsDirtyQueueRepository,
+	dimensions provider.TransportDimensionReader,
 	metrics *fcmetrics.Metrics,
 ) *AnalyticsProjectionService {
 	return &AnalyticsProjectionService{
@@ -42,8 +51,12 @@ func NewAnalyticsProjectionService(
 		summaries:         summaries,
 		orderFacts:        orderFacts,
 		periods:           periods,
+		lanes:             lanes,
+		carriers:          carriers,
+		coverage:          coverage,
 		state:             state,
 		dirty:             dirty,
+		dimensions:        dimensions,
 		metrics:           metrics,
 		projectionVersion: domain.AnalyticsProjectionVersion,
 	}
@@ -110,6 +123,21 @@ func (s *AnalyticsProjectionService) RebuildTenant(ctx context.Context, tenantID
 	if err := s.periods.DeleteByTenant(ctx, tx, tenantID); err != nil {
 		return err
 	}
+	if s.lanes != nil {
+		if err := s.lanes.DeleteByTenant(ctx, tx, tenantID); err != nil {
+			return err
+		}
+	}
+	if s.carriers != nil {
+		if err := s.carriers.DeleteByTenant(ctx, tx, tenantID); err != nil {
+			return err
+		}
+	}
+	if s.coverage != nil {
+		if err := s.coverage.DeleteByTenant(ctx, tx, tenantID); err != nil {
+			return err
+		}
+	}
 
 	rows, err := s.summaries.ListSummariesForTenant(ctx, tx, tenantID)
 	if err != nil {
@@ -136,6 +164,16 @@ func (s *AnalyticsProjectionService) RebuildTenant(ctx context.Context, tenantID
 	}
 	for _, key := range periodKeys {
 		if err := s.reaggregatePeriod(ctx, tx, key, now); err != nil {
+			return err
+		}
+	}
+
+	laneStats, carrierStats, err := s.hydrateTenantOrderFacts(ctx, tx, tenantID, now)
+	if err != nil {
+		return err
+	}
+	if s.lanes != nil && s.carriers != nil {
+		if err := s.rebuildLaneCarrierProjections(ctx, tx, tenantID, now, laneStats, carrierStats); err != nil {
 			return err
 		}
 	}
@@ -167,8 +205,10 @@ func (s *AnalyticsProjectionService) ProcessDirtyBatch(ctx context.Context, limi
 
 	processed := 0
 	periodSeen := make(map[string]domain.AnalyticsPeriodKey)
+	laneSeen := make(map[string]domain.AnalyticsLanePeriodKey)
+	carrierSeen := make(map[string]domain.AnalyticsCarrierPeriodKey)
 	for _, entry := range entries {
-		key, err := s.processDirtyEntry(ctx, entry)
+		result, err := s.processDirtyEntry(ctx, entry)
 		if err != nil {
 			s.observeIncremental("error")
 			if stateErr := s.markTenantError(ctx, entry.TenantID, "INCREMENTAL_APPLY_FAILED", sanitizeError(err)); stateErr != nil {
@@ -176,43 +216,28 @@ func (s *AnalyticsProjectionService) ProcessDirtyBatch(ctx context.Context, limi
 			}
 			continue
 		}
-		if key != nil {
-			periodSeen[periodKeyString(*key)] = *key
+		if result != nil {
+			for _, key := range result.periods {
+				periodSeen[periodKeyString(key)] = key
+			}
+			for _, key := range result.lanes {
+				laneSeen[laneSliceID(key)] = key
+			}
+			for _, key := range result.carriers {
+				carrierSeen[carrierSliceID(key)] = key
+			}
 		}
 		processed++
 		s.observeIncremental("processed")
 	}
 
-	for _, key := range periodSeen {
-		tx, err := s.pool.Begin(ctx)
-		if err != nil {
-			return processed, err
-		}
-		if err := repository.AcquireTenantAnalyticsExclusiveLock(ctx, tx, key.TenantID); err != nil {
-			tx.Rollback(ctx)
-			return processed, err
-		}
-		now := time.Now().UTC()
-		if err := s.reaggregatePeriod(ctx, tx, key, now); err != nil {
-			tx.Rollback(ctx)
-			return processed, err
-		}
-		var maxUpdated time.Time
-		if agg, aggErr := s.orderFacts.AggregatePeriod(ctx, tx, key); aggErr == nil && agg != nil {
-			maxUpdated = agg.MaxSourceUpdatedAt
-		}
-		if err := s.markStateSuccess(ctx, tx, key.TenantID, now, maxUpdated); err != nil {
-			tx.Rollback(ctx)
-			return processed, err
-		}
-		if err := tx.Commit(ctx); err != nil {
-			return processed, err
-		}
+	if err := s.reaggregateAffectedSlices(ctx, periodSeen, laneSeen, carrierSeen); err != nil {
+		return processed, err
 	}
 	return processed, nil
 }
 
-func (s *AnalyticsProjectionService) processDirtyEntry(ctx context.Context, entry domain.AnalyticsDirtyEntry) (*domain.AnalyticsPeriodKey, error) {
+func (s *AnalyticsProjectionService) processDirtyEntry(ctx context.Context, entry domain.AnalyticsDirtyEntry) (*dirtyProcessResult, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -221,6 +246,11 @@ func (s *AnalyticsProjectionService) processDirtyEntry(ctx context.Context, entr
 
 	if err := repository.AcquireTenantAnalyticsExclusiveLock(ctx, tx, entry.TenantID); err != nil {
 		return nil, err
+	}
+
+	var previous *domain.AnalyticsOrderFact
+	if prev, prevErr := s.orderFacts.GetByKey(ctx, tx, entry.TenantID, entry.TransportOrderID, entry.CurrencyCode); prevErr == nil {
+		previous = prev
 	}
 
 	summaryRow, err := s.summaries.GetSummaryRowByTransportOrderTx(ctx, tx, entry.TenantID, entry.TransportOrderID)
@@ -249,6 +279,9 @@ func (s *AnalyticsProjectionService) processDirtyEntry(ctx context.Context, entr
 		}
 		return nil, nil
 	}
+	if err := s.hydrateSingleOrderFact(ctx, fact); err != nil {
+		return nil, err
+	}
 	if err := s.orderFacts.Upsert(ctx, tx, fact); err != nil {
 		return nil, err
 	}
@@ -258,14 +291,8 @@ func (s *AnalyticsProjectionService) processDirtyEntry(ctx context.Context, entr
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
-	key := domain.AnalyticsPeriodKey{
-		TenantID:       fact.TenantID,
-		BuyerCompanyID: fact.BuyerCompanyID,
-		PeriodStart:    fact.PeriodStart,
-		PeriodGrain:    fact.PeriodGrain,
-		CurrencyCode:   fact.CurrencyCode,
-	}
-	return &key, nil
+	slices := collectAffectedSlices(previous, fact)
+	return &slices, nil
 }
 
 func (s *AnalyticsProjectionService) reaggregatePeriod(

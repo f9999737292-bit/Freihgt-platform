@@ -21,7 +21,7 @@ import (
 	"github.com/freight-platform/freight-cost-service/internal/service"
 )
 
-const maxMigrationFile = "000061_freight_cost_analytics_projection_v2.2B.up.sql"
+const maxMigrationFile = "000062_freight_cost_lane_carrier_intelligence_v2.2C.up.sql"
 
 type analyticsEnv struct {
 	pool      *pgxpool.Pool
@@ -59,7 +59,7 @@ func setupAnalyticsEnv(t *testing.T) *analyticsEnv {
 	findings := repository.NewReconciliationFindingRepository()
 	mappings := repository.NewChargeCodeMappingRepository(pool)
 	derived := service.NewDerivedProjectionService(pool, summaries, attributions, findings, mappings, cursors, nil, nil, metrics)
-	analytics := service.NewAnalyticsProjectionService(pool, summaries, orderFacts, periods, state, dirty, metrics)
+	analytics := service.NewAnalyticsProjectionService(pool, summaries, orderFacts, periods, nil, nil, nil, state, dirty, nil, metrics)
 	ingest := service.NewIngestService(pool, entries, cursors, summaries, derived, analytics, metrics)
 	return &analyticsEnv{pool: pool, analytics: analytics, summaries: summaries, periods: periods, ingest: ingest}
 }
