@@ -230,6 +230,11 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/freight-costs/accessorials/summary", "get", "Get freight cost accessorial spend summary", "Freight Costs", True, True, None),
     ("/api/v1/freight-costs/carriers/performance", "get", "Get freight cost carrier performance rollup", "Freight Costs", True, True, None),
     ("/api/v1/freight-costs/lanes/performance", "get", "Get freight cost lane performance rollup", "Freight Costs", True, True, None),
+    ("/api/v1/freight-costs/analytics/overview", "get", "Get freight cost intelligence overview", "Freight Costs", True, True, None),
+    ("/api/v1/freight-costs/analytics/lanes", "get", "List lane analytics with tenant benchmarks", "Freight Costs", True, True, None),
+    ("/api/v1/freight-costs/analytics/carriers", "get", "List carrier analytics with lane-normalized comparison", "Freight Costs", True, True, None),
+    ("/api/v1/freight-costs/analytics/accessorials", "get", "List accessorial analytics breakdown", "Freight Costs", True, True, None),
+    ("/api/v1/freight-costs/opportunities", "get", "List explainable savings opportunities", "Freight Costs", True, True, None),
 ]
 
 SERVICE_TAGS = {

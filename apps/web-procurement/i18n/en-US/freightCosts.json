@@ -7,7 +7,8 @@
       "variance": "Variance Analysis",
       "accessorials": "Accessorial Spend",
       "carriers": "Carrier Performance",
-      "lanes": "Lane Performance"
+      "lanes": "Lane Performance",
+      "opportunities": "Savings Opportunities"
     },
     "overview": {
       "subtitle": "Freight cost visibility for buyer and carrier actors"
@@ -91,7 +92,9 @@
       "varianceDrivers": "No variance drivers",
       "accessorials": "No accessorial spend yet",
       "carriers": "No carrier performance rows yet",
-      "lanes": "No lane performance rows yet"
+      "lanes": "No lane performance rows yet",
+      "overview": "No intelligence overview data yet",
+      "opportunities": "No savings opportunities yet"
     },
     "errors": {
       "apiFailure": "Freight cost API unavailable",
@@ -107,6 +110,85 @@
       "featureTitle": "Freight cost workspace unavailable",
       "featureBody": "This workspace is disabled. Enable NUXT_PUBLIC_FREIGHT_COST_WORKSPACE_ENABLED to access routes."
     },
-    "mixedCurrencyUnavailable": "Mixed currency — aggregate unavailable"
+    "mixedCurrencyUnavailable": "Mixed currency — aggregate unavailable",
+    "intelligence": {
+      "sections": {
+        "summary": "Spend summary",
+        "topLanes": "Top lanes by spend",
+        "accessorial": "Accessorial spend",
+        "opportunities": "Savings opportunities"
+      },
+      "summary": {
+        "orderCount": "Order count",
+        "accessorialTotal": "Accessorial total",
+        "accessorialOrders": "Orders with accessorials",
+        "opportunityCount": "Opportunity count"
+      },
+      "columns": {
+        "lane": "Lane",
+        "orderCount": "Orders",
+        "carrierCount": "Carriers",
+        "laneCount": "Lanes",
+        "spendTotal": "Spend total",
+        "benchmarkMedian": "Benchmark median",
+        "benchmarkSample": "Benchmark sample",
+        "laneNormalizedDelta": "Lane-normalized delta",
+        "dataQuality": "Data quality",
+        "category": "Category",
+        "totalAmount": "Total amount",
+        "lineCount": "Line count",
+        "shareOfSpend": "Share of spend",
+        "accessorialRate": "Accessorial rate",
+        "opportunityType": "Opportunity type",
+        "scope": "Scope",
+        "entityKey": "Entity",
+        "observedValue": "Observed value",
+        "baselineValue": "Baseline value",
+        "estimatedDelta": "Estimated delta",
+        "sampleSize": "Sample size",
+        "calculatedAt": "Calculated at"
+      },
+      "dataQuality": {
+        "AVAILABLE": "Available",
+        "PARTIAL": "Partial",
+        "NOT_AVAILABLE": "Not available",
+        "INSUFFICIENT_SAMPLE": "Insufficient sample",
+        "STALE": "Stale",
+        "MIXED_CURRENCY": "Mixed currency"
+      },
+      "banners": {
+        "partial": "Some orders are missing dimensions — metrics may be incomplete.",
+        "insufficientSample": "Sample size is below the minimum for reliable benchmarks.",
+        "stale": "Projection data is older than the freshness threshold.",
+        "notAvailable": "Analytics projection is not available for this scope.",
+        "mixedCurrency": "Multiple currencies detected — select a currency filter or review per-currency rows."
+      },
+      "states": {
+        "insufficientSample": "Insufficient sample"
+      },
+      "freshness": {
+        "calculatedAt": "Calculated at {at}"
+      },
+      "hints": {
+        "backendSavingsOnly": "Savings figures come from the server — the UI does not compute benchmarks or opportunities."
+      },
+      "opportunityTypes": {
+        "LANE_COST_OUTLIER": "Lane cost outlier",
+        "CARRIER_COST_OUTLIER": "Carrier cost outlier",
+        "COST_ABOVE_LANE_MEDIAN": "Cost above lane median",
+        "HIGH_ACCESSORIAL_RATE": "High accessorial rate",
+        "REPEATED_VARIANCE": "Repeated variance",
+        "CLASSIFICATION_ANOMALY": "Classification anomaly"
+      },
+      "opportunityScopes": {
+        "LANE": "Lane",
+        "CARRIER": "Carrier",
+        "ORDER": "Order",
+        "ACCESSORIAL": "Accessorial"
+      },
+      "opportunities": {
+        "subtitle": "Explainable savings from server-side rules"
+      }
+    }
   }
 }

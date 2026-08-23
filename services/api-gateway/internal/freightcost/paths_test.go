@@ -32,4 +32,13 @@ func TestIsAllowlistedPublicPath(t *testing.T) {
 	if !isAllowlistedPublicPath("GET", "/api/v1/freight-costs/transport-orders/id/variance-detail") {
 		t.Fatal("variance detail must be allowlisted")
 	}
+	if !isAllowlistedPublicPath("GET", "/api/v1/freight-costs/analytics/overview") {
+		t.Fatal("analytics overview must be allowlisted")
+	}
+	if !isAllowlistedPublicPath("GET", "/api/v1/freight-costs/opportunities") {
+		t.Fatal("opportunities must be allowlisted")
+	}
+	if isAllowlistedPublicPath("GET", "/internal/v1/freight-cost/analytics/tenants/x/lanes") {
+		t.Fatal("internal analytics path must not be public allowlist")
+	}
 }

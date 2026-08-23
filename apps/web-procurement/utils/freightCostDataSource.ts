@@ -1,5 +1,11 @@
 import type {
   FreightCostAccessorialSpendResponse,
+  FreightCostAnalyticsAccessorialsResponse,
+  FreightCostAnalyticsCarriersResponse,
+  FreightCostAnalyticsLanesResponse,
+  FreightCostAnalyticsOpportunitiesResponse,
+  FreightCostAnalyticsOverviewDTO,
+  FreightCostAnalyticsQuery,
   FreightCostCarrierPerformanceResponse,
   FreightCostDetailVM,
   FreightCostLanePerformanceResponse,
@@ -22,6 +28,11 @@ export interface FreightCostDataSource {
   getAccessorialSummary(query: FreightCostSummaryQuery): Promise<FreightCostAccessorialSpendResponse>
   getCarrierPerformance(query: FreightCostSummaryQuery): Promise<FreightCostCarrierPerformanceResponse>
   getLanePerformance(query: FreightCostSummaryQuery): Promise<FreightCostLanePerformanceResponse>
+  getAnalyticsOverview(query: FreightCostAnalyticsQuery): Promise<FreightCostAnalyticsOverviewDTO>
+  getAnalyticsLanes(query: FreightCostAnalyticsQuery): Promise<FreightCostAnalyticsLanesResponse>
+  getAnalyticsCarriers(query: FreightCostAnalyticsQuery): Promise<FreightCostAnalyticsCarriersResponse>
+  getAnalyticsAccessorials(query: FreightCostAnalyticsQuery): Promise<FreightCostAnalyticsAccessorialsResponse>
+  getAnalyticsOpportunities(query: FreightCostAnalyticsQuery): Promise<FreightCostAnalyticsOpportunitiesResponse>
 }
 
 export class FreightCostLiveUnavailableError extends ApiError {
@@ -67,6 +78,27 @@ function toQueryParams(
   if ('q' in query && query.q) params.q = query.q
   if ('limit' in query && query.limit !== undefined) params.limit = query.limit
   if ('offset' in query && query.offset !== undefined) params.offset = query.offset
+  return params
+}
+
+function toAnalyticsQueryParams(
+  query: FreightCostAnalyticsQuery,
+  companyId?: string,
+): Record<string, string | number | undefined> {
+  const params: Record<string, string | number | undefined> = {}
+  const company = companyId ?? query.company_id
+  if (company) params.company_id = company
+  if (query.from) params.from = query.from
+  if (query.to) params.to = query.to
+  if (query.date_dimension) params.date_dimension = query.date_dimension
+  if (query.currency) params.currency = query.currency
+  if (query.limit !== undefined) params.limit = query.limit
+  if (query.offset !== undefined) params.offset = query.offset
+  if (query.sort) params.sort = query.sort
+  if (query.transport_mode) params.transport_mode = query.transport_mode
+  if (query.equipment_type) params.equipment_type = query.equipment_type
+  if (query.carrier_company_id) params.carrier_company_id = query.carrier_company_id
+  if (query.lane_key) params.lane_key = query.lane_key
   return params
 }
 
@@ -118,6 +150,36 @@ export function createProductionFreightCostDataSource(): FreightCostDataSource {
         query: toQueryParams(query),
       })
     },
+    async getAnalyticsOverview(query) {
+      const { apiGet } = useApi()
+      return apiGet<FreightCostAnalyticsOverviewDTO>('/api/v1/freight-costs/analytics/overview', {
+        query: toAnalyticsQueryParams(query),
+      })
+    },
+    async getAnalyticsLanes(query) {
+      const { apiGet } = useApi()
+      return apiGet<FreightCostAnalyticsLanesResponse>('/api/v1/freight-costs/analytics/lanes', {
+        query: toAnalyticsQueryParams(query),
+      })
+    },
+    async getAnalyticsCarriers(query) {
+      const { apiGet } = useApi()
+      return apiGet<FreightCostAnalyticsCarriersResponse>('/api/v1/freight-costs/analytics/carriers', {
+        query: toAnalyticsQueryParams(query),
+      })
+    },
+    async getAnalyticsAccessorials(query) {
+      const { apiGet } = useApi()
+      return apiGet<FreightCostAnalyticsAccessorialsResponse>('/api/v1/freight-costs/analytics/accessorials', {
+        query: toAnalyticsQueryParams(query),
+      })
+    },
+    async getAnalyticsOpportunities(query) {
+      const { apiGet } = useApi()
+      return apiGet<FreightCostAnalyticsOpportunitiesResponse>('/api/v1/freight-costs/opportunities', {
+        query: toAnalyticsQueryParams(query),
+      })
+    },
   }
 }
 
@@ -137,6 +199,11 @@ export function createMockFreightCostDataSource(
     getAccessorialSummary: handlers.getAccessorialSummary ?? liveUnavailableRejection,
     getCarrierPerformance: handlers.getCarrierPerformance ?? liveUnavailableRejection,
     getLanePerformance: handlers.getLanePerformance ?? liveUnavailableRejection,
+    getAnalyticsOverview: handlers.getAnalyticsOverview ?? liveUnavailableRejection,
+    getAnalyticsLanes: handlers.getAnalyticsLanes ?? liveUnavailableRejection,
+    getAnalyticsCarriers: handlers.getAnalyticsCarriers ?? liveUnavailableRejection,
+    getAnalyticsAccessorials: handlers.getAnalyticsAccessorials ?? liveUnavailableRejection,
+    getAnalyticsOpportunities: handlers.getAnalyticsOpportunities ?? liveUnavailableRejection,
   }
 }
 
@@ -147,6 +214,11 @@ export const FREIGHT_COST_PUBLIC_API_PATHS = [
   '/api/v1/freight-costs/accessorials/summary',
   '/api/v1/freight-costs/carriers/performance',
   '/api/v1/freight-costs/lanes/performance',
+  '/api/v1/freight-costs/analytics/overview',
+  '/api/v1/freight-costs/analytics/lanes',
+  '/api/v1/freight-costs/analytics/carriers',
+  '/api/v1/freight-costs/analytics/accessorials',
+  '/api/v1/freight-costs/opportunities',
 ] as const
 
 export const FREIGHT_COST_FORBIDDEN_BROWSER_PATHS = [

@@ -182,3 +182,82 @@ func TestLaneAndAccessorialNotAvailableSemantics(t *testing.T) {
 		t.Fatalf("accessorials must declare NOT_AVAILABLE, body=%s", string(resp.Body))
 	}
 }
+
+var analyticsBuyerRoutes = []string{
+	"/api/v1/freight-costs/analytics/overview",
+	"/api/v1/freight-costs/analytics/lanes",
+	"/api/v1/freight-costs/analytics/carriers",
+	"/api/v1/freight-costs/analytics/accessorials",
+	"/api/v1/freight-costs/opportunities",
+}
+
+func TestFC22F_SEC_003_CarrierDeniedAnalyticsOverview(t *testing.T) {
+	h := newHarness(t, harnessOptions{})
+	resp := h.request(h.carrierUserID, h.tenantID, h.carrierID, "GET", "/api/v1/freight-costs/analytics/overview", nil)
+	mustStatus(t, "FC22F-SEC-003 carrier overview", resp, 403)
+}
+
+func TestFC22F_SEC_CarrierDeniedAllBuyerAnalyticsRoutes(t *testing.T) {
+	h := newHarness(t, harnessOptions{})
+	for _, route := range analyticsBuyerRoutes {
+		resp := h.request(h.carrierUserID, h.tenantID, h.carrierID, "GET", route, nil)
+		mustStatus(t, "carrier "+route, resp, 403)
+	}
+}
+
+func TestFC22F_SEC_002_ValidBuyerAnalyticsRoutes(t *testing.T) {
+	h := newHarness(t, harnessOptions{})
+	for _, route := range analyticsBuyerRoutes {
+		resp := h.request(h.userID, h.tenantID, h.buyerID, "GET", route, nil)
+		mustStatus(t, "buyer "+route, resp, 200)
+	}
+	down := h.lastDownstream()
+	if down.ActorKind != "BUYER" {
+		t.Fatalf("expected BUYER actor kind downstream, got %q", down.ActorKind)
+	}
+	if down.ServiceToken != internalToken {
+		t.Fatalf("expected S2S token forwarded")
+	}
+}
+
+func TestFC22F_SEC_008_ForeignCompanyMembershipDenied(t *testing.T) {
+	h := newHarness(t, harnessOptions{})
+	foreignCompany := uuid.New()
+	for _, route := range analyticsBuyerRoutes {
+		resp := h.request(h.userID, h.tenantID, foreignCompany, "GET", route, nil)
+		if resp.Status != 403 {
+			t.Fatalf("%s foreign company expected 403 got %d", route, resp.Status)
+		}
+	}
+}
+
+func TestFC22F_SEC_009_CrossTenantSpoofDenied(t *testing.T) {
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+	h := newHarness(t, harnessOptions{
+		TenantID:         tenantB,
+		ResourceTenantID: tenantA,
+	})
+	resp := h.request(h.userID, tenantB, h.buyerID, "GET", "/api/v1/freight-costs/analytics/overview", nil)
+	if resp.Status != 404 {
+		t.Fatalf("cross-tenant analytics expected 404 got %d body=%s", resp.Status, string(resp.Body))
+	}
+}
+
+func TestFC22F_SEC_012_InternalRouteNotPubliclyExposed(t *testing.T) {
+	h := newHarness(t, harnessOptions{})
+	resp := h.request(h.userID, h.tenantID, h.buyerID, "GET", "/internal/v1/freight-costs/analytics/overview", nil)
+	if resp.Status != 404 {
+		t.Fatalf("internal route must not be exposed via gateway, got %d", resp.Status)
+	}
+}
+
+func TestFC22F_SEC_AnalyticsUnauthenticated(t *testing.T) {
+	h := newHarness(t, harnessOptions{})
+	for _, route := range analyticsBuyerRoutes {
+		resp := requestWithoutAuth(h, h.buyerID, route)
+		if resp.Status != 401 {
+			t.Fatalf("%s without JWT expected 401 got %d", route, resp.Status)
+		}
+	}
+}

@@ -87,8 +87,9 @@ func main() {
 	costSvc := service.NewCostService(transportClient, projectionRepo)
 	workspaceSvc := service.NewWorkspaceService(projectionRepo, orderFactRepo, costSvc, transportClient)
 	analyticsWorker := fcworker.NewAnalyticsProjectionWorker(cfg.AnalyticsProjection, analyticsSvc, analyticsStateRepo, log)
+	analyticsPublicSvc := service.NewAnalyticsPublicService(analyticsSvc, orderFactRepo, analyticsStateRepo, cfg.AnalyticsProjection.Enabled)
 
-	router := httpserver.NewRouter(log, db.Pool, cfg, costSvc, ingestSvc, rebuildSvc, derivedSvc, workspaceSvc, mappingRepo, analyticsSvc, analyticsWorker, analyticsStateRepo, domainMetrics)
+	router := httpserver.NewRouter(log, db.Pool, cfg, costSvc, ingestSvc, rebuildSvc, derivedSvc, workspaceSvc, mappingRepo, analyticsSvc, analyticsWorker, analyticsStateRepo, analyticsPublicSvc, domainMetrics)
 
 	analyticsWorker.Start(ctx)
 

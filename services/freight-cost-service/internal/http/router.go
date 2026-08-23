@@ -33,6 +33,7 @@ func NewRouter(
 	analyticsSvc *service.AnalyticsProjectionService,
 	analyticsWorker *worker.AnalyticsProjectionWorker,
 	analyticsState *repository.AnalyticsProjectionStateRepository,
+	analyticsPublicSvc *service.AnalyticsPublicService,
 	domainMetrics *fcmetrics.Metrics,
 ) http.Handler {
 	costHandler := handlers.NewCostHandler(costSvc)
@@ -40,6 +41,7 @@ func NewRouter(
 	varianceHandler := handlers.NewVarianceHandler(derivedSvc, mappingRepo)
 	workspaceHandler := handlers.NewWorkspaceHandler(workspaceSvc)
 	analyticsHandler := handlers.NewAnalyticsProjectionHandler(analyticsSvc, analyticsWorker, analyticsState)
+	analyticsPublicHandler := handlers.NewAnalyticsPublicHandler(analyticsPublicSvc)
 	internalAuth := internalauth.Config{Token: cfg.InternalServiceToken, Environment: cfg.Environment}
 
 	r := chi.NewRouter()
@@ -81,6 +83,11 @@ func NewRouter(
 		r.Get("/accessorials/summary", workspaceHandler.AccessorialSummary)
 		r.Get("/carriers/performance", workspaceHandler.CarrierPerformance)
 		r.Get("/lanes/performance", workspaceHandler.LanePerformance)
+		r.Get("/analytics/overview", analyticsPublicHandler.Overview)
+		r.Get("/analytics/lanes", analyticsPublicHandler.ListLanes)
+		r.Get("/analytics/carriers", analyticsPublicHandler.ListCarriers)
+		r.Get("/analytics/accessorials", analyticsPublicHandler.ListAccessorials)
+		r.Get("/opportunities", analyticsPublicHandler.ListOpportunities)
 	})
 
 	return r

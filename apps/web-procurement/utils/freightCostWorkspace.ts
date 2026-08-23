@@ -150,6 +150,7 @@ export function buildFreightCostNavItems(actor: FreightCostActor): FreightCostNa
     { key: 'accessorials', to: '/freight-costs/accessorials', labelKey: 'freightCosts.nav.accessorials', buyerOnly: true },
     { key: 'carriers', to: '/freight-costs/carriers', labelKey: 'freightCosts.nav.carriers' },
     { key: 'lanes', to: '/freight-costs/lanes', labelKey: 'freightCosts.nav.lanes' },
+    { key: 'opportunities', to: '/freight-costs/opportunities', labelKey: 'freightCosts.nav.opportunities', buyerOnly: true },
   ]
   if (actor === 'CARRIER') {
     return items.filter((item) => !item.buyerOnly)

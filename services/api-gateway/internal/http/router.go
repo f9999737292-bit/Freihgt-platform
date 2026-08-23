@@ -346,6 +346,11 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	r.Get("/api/v1/freight-costs/accessorials/summary", freightCostGuard.WithPolicy(freightcostrbac.PolicyBuyerAnalytics))
 	r.Get("/api/v1/freight-costs/carriers/performance", freightCostGuard.WithPolicy(freightcostrbac.PolicyRead))
 	r.Get("/api/v1/freight-costs/lanes/performance", freightCostGuard.WithPolicy(freightcostrbac.PolicyRead))
+	r.Get("/api/v1/freight-costs/analytics/overview", freightCostGuard.WithPolicy(freightcostrbac.PolicyBuyerAnalytics))
+	r.Get("/api/v1/freight-costs/analytics/lanes", freightCostGuard.WithPolicy(freightcostrbac.PolicyBuyerAnalytics))
+	r.Get("/api/v1/freight-costs/analytics/carriers", freightCostGuard.WithPolicy(freightcostrbac.PolicyBuyerAnalytics))
+	r.Get("/api/v1/freight-costs/analytics/accessorials", freightCostGuard.WithPolicy(freightcostrbac.PolicyBuyerAnalytics))
+	r.Get("/api/v1/freight-costs/opportunities", freightCostGuard.WithPolicy(freightcostrbac.PolicyBuyerAnalytics))
 
 	r.Handle("/api/*", proxy)
 	r.Handle("/api", proxy)

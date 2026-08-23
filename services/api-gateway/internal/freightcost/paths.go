@@ -40,6 +40,21 @@ func isAllowlistedPublicPath(method, path string) bool {
 	if path == "/api/v1/freight-costs/lanes/performance" {
 		return true
 	}
+	if path == "/api/v1/freight-costs/analytics/overview" {
+		return true
+	}
+	if path == "/api/v1/freight-costs/analytics/lanes" {
+		return true
+	}
+	if path == "/api/v1/freight-costs/analytics/carriers" {
+		return true
+	}
+	if path == "/api/v1/freight-costs/analytics/accessorials" {
+		return true
+	}
+	if path == "/api/v1/freight-costs/opportunities" {
+		return true
+	}
 	if strings.HasPrefix(path, "/api/v1/freight-costs/transport-orders/") {
 		parts := strings.Split(strings.TrimPrefix(path, "/api/v1/freight-costs/transport-orders/"), "/")
 		if len(parts) == 1 && parts[0] != "" {
