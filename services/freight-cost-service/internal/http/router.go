@@ -27,12 +27,14 @@ func NewRouter(
 	ingestSvc *service.IngestService,
 	rebuildSvc *service.RebuildService,
 	derivedSvc *service.DerivedProjectionService,
+	workspaceSvc *service.WorkspaceService,
 	mappingRepo *repository.ChargeCodeMappingRepository,
 	domainMetrics *fcmetrics.Metrics,
 ) http.Handler {
 	costHandler := handlers.NewCostHandler(costSvc)
 	sourceHandler := handlers.NewSourceEventHandler(ingestSvc, rebuildSvc)
 	varianceHandler := handlers.NewVarianceHandler(derivedSvc, mappingRepo)
+	workspaceHandler := handlers.NewWorkspaceHandler(workspaceSvc)
 	internalAuth := internalauth.Config{Token: cfg.InternalServiceToken, Environment: cfg.Environment}
 
 	r := chi.NewRouter()
@@ -55,6 +57,17 @@ func NewRouter(
 		r.Post("/transport-orders/{transportOrderId}/reconcile", varianceHandler.ReconcileTransportOrder)
 		r.Post("/transport-orders/{transportOrderId}/reclassify-attribution", varianceHandler.ReclassifyAttribution)
 		r.Put("/charge-code-mappings", varianceHandler.PutChargeCodeMapping)
+	})
+
+	r.Route("/internal/v1/freight-costs", func(r chi.Router) {
+		r.Use(internalAuth.Middleware)
+		r.Get("/", workspaceHandler.List)
+		r.Get("/summary", workspaceHandler.Summary)
+		r.Get("/transport-orders/{transportOrderId}", workspaceHandler.Detail)
+		r.Get("/transport-orders/{transportOrderId}/variance-detail", workspaceHandler.VarianceDetail)
+		r.Get("/accessorials/summary", workspaceHandler.AccessorialSummary)
+		r.Get("/carriers/performance", workspaceHandler.CarrierPerformance)
+		r.Get("/lanes/performance", workspaceHandler.LanePerformance)
 	})
 
 	return r

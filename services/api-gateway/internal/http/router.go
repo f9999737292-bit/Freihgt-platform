@@ -18,6 +18,8 @@ import (
 	"github.com/freight-platform/api-gateway/internal/rfxrbac"
 	"github.com/freight-platform/api-gateway/internal/billingrbac"
 	"github.com/freight-platform/api-gateway/internal/contractrates"
+	"github.com/freight-platform/api-gateway/internal/freightcost"
+	"github.com/freight-platform/api-gateway/internal/freightcostrbac"
 	"github.com/freight-platform/api-gateway/internal/paymentrbac"
 	"github.com/freight-platform/api-gateway/internal/ratesrbac"
 	"github.com/freight-platform/api-gateway/internal/settlementrbac"
@@ -334,6 +336,16 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	r.Patch("/api/v1/rate-components/{id}", ratesGuard.WithPolicy(ratesrbac.PolicyEditDraftRate))
 	r.Delete("/api/v1/rate-components/{id}", ratesGuard.WithPolicy(ratesrbac.PolicyEditDraftRate))
 	r.Post("/api/v1/rates/resolve", ratesGuard.WithPolicy(ratesrbac.PolicySimulate))
+
+	freightCostHandler := freightcost.NewHandler(log, cfg)
+	freightCostGuard := freightcostrbac.NewGuard(cfg, freightCostHandler)
+	r.Get("/api/v1/freight-costs", freightCostGuard.WithPolicy(freightcostrbac.PolicyRead))
+	r.Get("/api/v1/freight-costs/summary", freightCostGuard.WithPolicy(freightcostrbac.PolicyRead))
+	r.Get("/api/v1/freight-costs/transport-orders/{transportOrderId}", freightCostGuard.WithPolicy(freightcostrbac.PolicyRead))
+	r.Get("/api/v1/freight-costs/transport-orders/{transportOrderId}/variance-detail", freightCostGuard.WithPolicy(freightcostrbac.PolicyRead))
+	r.Get("/api/v1/freight-costs/accessorials/summary", freightCostGuard.WithPolicy(freightcostrbac.PolicyRead))
+	r.Get("/api/v1/freight-costs/carriers/performance", freightCostGuard.WithPolicy(freightcostrbac.PolicyRead))
+	r.Get("/api/v1/freight-costs/lanes/performance", freightCostGuard.WithPolicy(freightcostrbac.PolicyRead))
 
 	r.Handle("/api/*", proxy)
 	r.Handle("/api", proxy)
