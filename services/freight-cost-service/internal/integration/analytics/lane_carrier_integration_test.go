@@ -68,6 +68,10 @@ func seedTransportOrderWithLocations(
 	originID := uuid.New()
 	destID := uuid.New()
 	cargoID := uuid.New()
+	if _, err := env.pool.Exec(ctx, `INSERT INTO core.tenants (id, code, name) VALUES ($1, $2, $3)
+		ON CONFLICT DO NOTHING`, tenantID, "t-"+tenantID.String()[:8], "Analytics Tenant"); err != nil {
+		t.Fatalf("seed tenant: %v", err)
+	}
 	if _, err := env.pool.Exec(ctx, `INSERT INTO core.companies (id, tenant_id, company_type, legal_name, status)
 		VALUES ($1, $2, 'SHIPPER', 'Buyer Co', 'ACTIVE')
 		ON CONFLICT DO NOTHING`, buyerID, tenantID); err != nil {
