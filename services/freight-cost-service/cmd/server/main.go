@@ -16,6 +16,7 @@ import (
 	"github.com/freight-platform/freight-cost-service/internal/client/transport_order"
 	"github.com/freight-platform/freight-cost-service/internal/config"
 	httpserver "github.com/freight-platform/freight-cost-service/internal/http"
+	"github.com/freight-platform/freight-cost-service/internal/domain"
 	"github.com/freight-platform/freight-cost-service/internal/platform/database"
 	"github.com/freight-platform/freight-cost-service/internal/platform/logger"
 	fcmetrics "github.com/freight-platform/freight-cost-service/internal/platform/metrics"
@@ -58,6 +59,8 @@ func main() {
 	carrierProjRepo := repository.NewAnalyticsCarrierPeriodProjectionRepository(db.Pool)
 	accessorialFactRepo := repository.NewAnalyticsAccessorialFactRepository(db.Pool)
 	accessorialPeriodRepo := repository.NewAnalyticsAccessorialPeriodProjectionRepository(db.Pool)
+	benchmarkProjRepo := repository.NewAnalyticsBenchmarkProjectionRepository(db.Pool)
+	opportunityProjRepo := repository.NewAnalyticsOpportunityProjectionRepository(db.Pool)
 	coverageRepo := repository.NewAnalyticsProjectionCoverageRepository(db.Pool)
 	analyticsStateRepo := repository.NewAnalyticsProjectionStateRepository(db.Pool)
 	dirtyQueueRepo := repository.NewAnalyticsDirtyQueueRepository(db.Pool)
@@ -67,11 +70,17 @@ func main() {
 	companyClient := company.NewClient(cfg.CompanyServiceURL, cfg.InternalServiceToken, domainMetrics)
 	paymentClient := payment.NewClient(cfg.PaymentServiceURL, cfg.InternalServiceToken, domainMetrics)
 
+	benchmarkConfig := domain.AnalyticsBenchmarkConfig{
+		MinBenchmarkSample:             cfg.AnalyticsProjection.MinBenchmarkSample,
+		RepeatedVarianceMinOccurrences: cfg.AnalyticsProjection.RepeatedVarianceMinOccurrences,
+	}
+
 	derivedSvc := service.NewDerivedProjectionService(db.Pool, projectionRepo, attributionRepo, findingRepo, mappingRepo, cursorRepo, billingClient, transportClient, domainMetrics)
 	analyticsSvc := service.NewAnalyticsProjectionService(
 		db.Pool, projectionRepo, orderFactRepo, periodProjRepo, laneProjRepo, carrierProjRepo,
-		accessorialFactRepo, accessorialPeriodRepo, coverageRepo, analyticsStateRepo, dirtyQueueRepo,
-		mappingRepo, transportClient, companyClient, billingClient, domainMetrics,
+		accessorialFactRepo, accessorialPeriodRepo, benchmarkProjRepo, opportunityProjRepo, attributionRepo,
+		coverageRepo, analyticsStateRepo, dirtyQueueRepo,
+		mappingRepo, transportClient, companyClient, billingClient, benchmarkConfig, domainMetrics,
 	)
 	ingestSvc := service.NewIngestService(db.Pool, entryRepo, cursorRepo, projectionRepo, derivedSvc, analyticsSvc, domainMetrics)
 	rebuildSvc := service.NewRebuildService(ingestSvc, derivedSvc, transportClient, billingClient, paymentClient, domainMetrics)

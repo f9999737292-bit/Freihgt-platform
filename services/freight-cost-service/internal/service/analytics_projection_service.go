@@ -27,6 +27,9 @@ type AnalyticsProjectionService struct {
 	carriers           *repository.AnalyticsCarrierPeriodProjectionRepository
 	accessorialFacts   *repository.AnalyticsAccessorialFactRepository
 	accessorialPeriods *repository.AnalyticsAccessorialPeriodProjectionRepository
+	benchmarks         *repository.AnalyticsBenchmarkProjectionRepository
+	opportunities      *repository.AnalyticsOpportunityProjectionRepository
+	attributions       *repository.VarianceAttributionRepository
 	coverage           *repository.AnalyticsProjectionCoverageRepository
 	state              *repository.AnalyticsProjectionStateRepository
 	dirty              *repository.AnalyticsDirtyQueueRepository
@@ -36,6 +39,7 @@ type AnalyticsProjectionService struct {
 	settlements        provider.SettlementAccessorialReader
 	metrics            *fcmetrics.Metrics
 	projectionVersion  int
+	benchmarkConfig    domain.AnalyticsBenchmarkConfig
 }
 
 func NewAnalyticsProjectionService(
@@ -47,6 +51,9 @@ func NewAnalyticsProjectionService(
 	carriers *repository.AnalyticsCarrierPeriodProjectionRepository,
 	accessorialFacts *repository.AnalyticsAccessorialFactRepository,
 	accessorialPeriods *repository.AnalyticsAccessorialPeriodProjectionRepository,
+	benchmarks *repository.AnalyticsBenchmarkProjectionRepository,
+	opportunities *repository.AnalyticsOpportunityProjectionRepository,
+	attributions *repository.VarianceAttributionRepository,
 	coverage *repository.AnalyticsProjectionCoverageRepository,
 	state *repository.AnalyticsProjectionStateRepository,
 	dirty *repository.AnalyticsDirtyQueueRepository,
@@ -54,6 +61,7 @@ func NewAnalyticsProjectionService(
 	dimensions provider.TransportDimensionReader,
 	companies provider.CompanyDisplayReader,
 	settlements provider.SettlementAccessorialReader,
+	benchmarkConfig domain.AnalyticsBenchmarkConfig,
 	metrics *fcmetrics.Metrics,
 ) *AnalyticsProjectionService {
 	return &AnalyticsProjectionService{
@@ -65,6 +73,9 @@ func NewAnalyticsProjectionService(
 		carriers:           carriers,
 		accessorialFacts:   accessorialFacts,
 		accessorialPeriods: accessorialPeriods,
+		benchmarks:         benchmarks,
+		opportunities:      opportunities,
+		attributions:       attributions,
 		coverage:           coverage,
 		state:              state,
 		dirty:              dirty,
@@ -74,6 +85,7 @@ func NewAnalyticsProjectionService(
 		settlements:        settlements,
 		metrics:            metrics,
 		projectionVersion:  domain.AnalyticsProjectionVersion,
+		benchmarkConfig:    benchmarkConfig,
 	}
 }
 
@@ -158,6 +170,16 @@ func (s *AnalyticsProjectionService) RebuildTenant(ctx context.Context, tenantID
 			return err
 		}
 	}
+	if s.benchmarks != nil {
+		if err := s.benchmarks.DeleteByTenant(ctx, tx, tenantID); err != nil {
+			return err
+		}
+	}
+	if s.opportunities != nil {
+		if err := s.opportunities.DeleteByTenant(ctx, tx, tenantID); err != nil {
+			return err
+		}
+	}
 	if s.coverage != nil {
 		if err := s.coverage.DeleteByTenant(ctx, tx, tenantID); err != nil {
 			return err
@@ -221,6 +243,9 @@ func (s *AnalyticsProjectionService) RebuildTenant(ctx context.Context, tenantID
 			return err
 		}
 	}
+	if err := s.rebuildTenantBenchmarksAndOpportunities(ctx, tx, tenantID, now); err != nil {
+		return err
+	}
 
 	if err := s.dirty.DeleteByTenant(ctx, tx, tenantID); err != nil {
 		return err
@@ -252,6 +277,7 @@ func (s *AnalyticsProjectionService) ProcessDirtyBatch(ctx context.Context, limi
 	laneSeen := make(map[string]domain.AnalyticsLanePeriodKey)
 	carrierSeen := make(map[string]domain.AnalyticsCarrierPeriodKey)
 	accessorialSeen := make(map[string]domain.AnalyticsAccessorialPeriodKey)
+	benchmarkSeen := make(map[string]domain.AnalyticsBenchmarkKey)
 	for _, entry := range entries {
 		result, err := s.processDirtyEntry(ctx, entry)
 		if err != nil {
@@ -274,6 +300,9 @@ func (s *AnalyticsProjectionService) ProcessDirtyBatch(ctx context.Context, limi
 			for _, key := range result.accessorials {
 				accessorialSeen[accessorialSliceID(key)] = key
 			}
+			for _, key := range result.benchmarks {
+				benchmarkSeen[benchmarkSliceID(key)] = key
+			}
 		}
 		processed++
 		s.observeIncremental("processed")
@@ -283,6 +312,9 @@ func (s *AnalyticsProjectionService) ProcessDirtyBatch(ctx context.Context, limi
 		return processed, err
 	}
 	if err := s.reaggregateAffectedAccessorialSlices(ctx, accessorialSeen); err != nil {
+		return processed, err
+	}
+	if err := s.recomputeBenchmarksForLaneKeys(ctx, benchmarkSeen); err != nil {
 		return processed, err
 	}
 	return processed, nil
@@ -363,6 +395,7 @@ func (s *AnalyticsProjectionService) processDirtyEntry(ctx context.Context, entr
 	}
 	slices := collectAffectedSlices(previous, fact)
 	slices.accessorials = collectAffectedAccessorialSlices(previousAccessorials, newAccessorials)
+	slices.benchmarks = collectAffectedBenchmarkKeys(previous, fact)
 	return &slices, nil
 }
 

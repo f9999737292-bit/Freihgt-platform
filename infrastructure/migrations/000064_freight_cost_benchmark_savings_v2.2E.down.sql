@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS freight_cost.cost_analytics_opportunity_projection;
+DROP TABLE IF EXISTS freight_cost.cost_analytics_benchmark_projection;

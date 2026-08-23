@@ -126,3 +126,49 @@ func (h *AnalyticsProjectionHandler) ListCarrierProjections(w http.ResponseWrite
 	}
 	respond.JSON(w, http.StatusOK, map[string]any{"items": items})
 }
+
+func (h *AnalyticsProjectionHandler) ListBenchmarkProjections(w http.ResponseWriter, r *http.Request) {
+	if h.analytics == nil {
+		respond.Error(w, apperrors.NotFound("analytics projection service is not available"))
+		return
+	}
+	tenantID, err := uuid.Parse(chi.URLParam(r, "tenantId"))
+	if err != nil {
+		respond.Error(w, apperrors.Validation("invalid tenant id", map[string]any{"field": "tenantId"}))
+		return
+	}
+	filter, err := parseBenchmarkListFilter(r, tenantID)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	items, err := h.analytics.ListBenchmarkProjections(r.Context(), tenantID, filter)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
+func (h *AnalyticsProjectionHandler) ListOpportunityProjections(w http.ResponseWriter, r *http.Request) {
+	if h.analytics == nil {
+		respond.Error(w, apperrors.NotFound("analytics projection service is not available"))
+		return
+	}
+	tenantID, err := uuid.Parse(chi.URLParam(r, "tenantId"))
+	if err != nil {
+		respond.Error(w, apperrors.Validation("invalid tenant id", map[string]any{"field": "tenantId"}))
+		return
+	}
+	filter, err := parseOpportunityListFilter(r, tenantID)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	items, err := h.analytics.ListOpportunityProjections(r.Context(), tenantID, filter)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusOK, map[string]any{"items": items})
+}

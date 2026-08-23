@@ -23,10 +23,12 @@ type Config struct {
 }
 
 type AnalyticsProjectionConfig struct {
-	Enabled           bool
-	DirtyPollInterval time.Duration
-	DirtyBatchSize    int
-	RebuildInterval   time.Duration
+	Enabled                        bool
+	DirtyPollInterval              time.Duration
+	DirtyBatchSize                 int
+	RebuildInterval                time.Duration
+	MinBenchmarkSample             int
+	RepeatedVarianceMinOccurrences int
 }
 
 func Load() (Config, error) {
@@ -97,11 +99,21 @@ func loadAnalyticsProjectionConfig() AnalyticsProjectionConfig {
 	if err != nil || batchSize <= 0 {
 		batchSize = 50
 	}
+	minBenchmarkSample, err := strconv.Atoi(getEnv("FREIGHT_COST_ANALYTICS_MIN_BENCHMARK_SAMPLE", "5"))
+	if err != nil || minBenchmarkSample <= 0 {
+		minBenchmarkSample = 5
+	}
+	repeatedVarianceMin, err := strconv.Atoi(getEnv("FREIGHT_COST_ANALYTICS_REPEATED_VARIANCE_MIN", "3"))
+	if err != nil || repeatedVarianceMin <= 0 {
+		repeatedVarianceMin = 3
+	}
 	return AnalyticsProjectionConfig{
-		Enabled:           enabled,
-		DirtyPollInterval: dirtyPoll,
-		DirtyBatchSize:    batchSize,
-		RebuildInterval:   rebuildInterval,
+		Enabled:                        enabled,
+		DirtyPollInterval:              dirtyPoll,
+		DirtyBatchSize:                 batchSize,
+		RebuildInterval:                rebuildInterval,
+		MinBenchmarkSample:             minBenchmarkSample,
+		RepeatedVarianceMinOccurrences: repeatedVarianceMin,
 	}
 }
 

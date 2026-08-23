@@ -95,3 +95,65 @@ func parseLimitOffset(r *http.Request, field string, defaultValue int) int {
 	}
 	return value
 }
+
+func parseBenchmarkListFilter(r *http.Request, tenantID uuid.UUID) (repository.AnalyticsBenchmarkListFilter, error) {
+	filter := repository.AnalyticsBenchmarkListFilter{}
+	if raw := strings.TrimSpace(r.URL.Query().Get("buyer_company_id")); raw != "" {
+		id, err := uuid.Parse(raw)
+		if err != nil {
+			return filter, apperrors.Validation("invalid buyer_company_id", map[string]any{"field": "buyer_company_id"})
+		}
+		filter.BuyerCompanyID = &id
+	}
+	filter.CurrencyCode = strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("currency_code")))
+	filter.LaneKey = strings.TrimSpace(r.URL.Query().Get("lane_key"))
+	if raw := strings.TrimSpace(r.URL.Query().Get("period_from")); raw != "" {
+		t, err := time.Parse("2006-01-02", raw)
+		if err != nil {
+			return filter, apperrors.Validation("invalid period_from", map[string]any{"field": "period_from"})
+		}
+		filter.PeriodFrom = &t
+	}
+	if raw := strings.TrimSpace(r.URL.Query().Get("period_to")); raw != "" {
+		t, err := time.Parse("2006-01-02", raw)
+		if err != nil {
+			return filter, apperrors.Validation("invalid period_to", map[string]any{"field": "period_to"})
+		}
+		filter.PeriodTo = &t
+	}
+	filter.Limit = parseLimitOffset(r, "limit", 50)
+	filter.Offset = parseLimitOffset(r, "offset", 0)
+	_ = tenantID
+	return filter, nil
+}
+
+func parseOpportunityListFilter(r *http.Request, tenantID uuid.UUID) (repository.AnalyticsOpportunityListFilter, error) {
+	filter := repository.AnalyticsOpportunityListFilter{}
+	if raw := strings.TrimSpace(r.URL.Query().Get("buyer_company_id")); raw != "" {
+		id, err := uuid.Parse(raw)
+		if err != nil {
+			return filter, apperrors.Validation("invalid buyer_company_id", map[string]any{"field": "buyer_company_id"})
+		}
+		filter.BuyerCompanyID = &id
+	}
+	filter.CurrencyCode = strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("currency_code")))
+	filter.OpportunityType = strings.TrimSpace(r.URL.Query().Get("opportunity_type"))
+	if raw := strings.TrimSpace(r.URL.Query().Get("period_from")); raw != "" {
+		t, err := time.Parse("2006-01-02", raw)
+		if err != nil {
+			return filter, apperrors.Validation("invalid period_from", map[string]any{"field": "period_from"})
+		}
+		filter.PeriodFrom = &t
+	}
+	if raw := strings.TrimSpace(r.URL.Query().Get("period_to")); raw != "" {
+		t, err := time.Parse("2006-01-02", raw)
+		if err != nil {
+			return filter, apperrors.Validation("invalid period_to", map[string]any{"field": "period_to"})
+		}
+		filter.PeriodTo = &t
+	}
+	filter.Limit = parseLimitOffset(r, "limit", 50)
+	filter.Offset = parseLimitOffset(r, "offset", 0)
+	_ = tenantID
+	return filter, nil
+}

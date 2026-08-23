@@ -30,9 +30,12 @@ const (
 	AnalyticsProjectionStatusStale   = "STALE"
 	AnalyticsProjectionStatusError   = "ERROR"
 
-	DataQualityAvailable    = "AVAILABLE"
-	DataQualityPartial      = "PARTIAL"
-	DataQualityNotAvailable = "NOT_AVAILABLE"
+	DataQualityAvailable           = "AVAILABLE"
+	DataQualityPartial             = "PARTIAL"
+	DataQualityNotAvailable        = "NOT_AVAILABLE"
+	DataQualityInsufficientSample  = "INSUFFICIENT_SAMPLE"
+	DataQualityStale               = "STALE"
+	DataQualityMixedCurrency       = "MIXED_CURRENCY"
 )
 
 type AnalyticsOrderFact struct {
