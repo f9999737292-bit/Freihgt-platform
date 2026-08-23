@@ -171,6 +171,58 @@ func (r *AnalyticsOrderFactRepository) ListForTenant(
 	return facts, mapDBError(rows.Err())
 }
 
+func (r *AnalyticsOrderFactRepository) ListLaneLabels(
+	ctx context.Context,
+	tenantID, buyerCompanyID uuid.UUID,
+) (map[string]*string, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT DISTINCT ON (lane_key) lane_key, lane_label
+		FROM freight_cost.cost_analytics_order_fact
+		WHERE tenant_id = $1 AND buyer_company_id = $2 AND lane_key IS NOT NULL
+		ORDER BY lane_key, source_summary_updated_at DESC`, tenantID, buyerCompanyID)
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	defer rows.Close()
+	out := map[string]*string{}
+	for rows.Next() {
+		var laneKey string
+		var label *string
+		if err := rows.Scan(&laneKey, &label); err != nil {
+			return nil, mapDBError(err)
+		}
+		out[laneKey] = label
+	}
+	return out, mapDBError(rows.Err())
+}
+
+func (r *AnalyticsOrderFactRepository) ListCarrierDisplayNames(
+	ctx context.Context,
+	tenantID, buyerCompanyID uuid.UUID,
+) (map[uuid.UUID]string, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT DISTINCT ON (carrier_company_id) carrier_company_id, carrier_display_name
+		FROM freight_cost.cost_analytics_order_fact
+		WHERE tenant_id = $1 AND buyer_company_id = $2
+		ORDER BY carrier_company_id, source_summary_updated_at DESC`, tenantID, buyerCompanyID)
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	defer rows.Close()
+	out := map[uuid.UUID]string{}
+	for rows.Next() {
+		var carrierID uuid.UUID
+		var name *string
+		if err := rows.Scan(&carrierID, &name); err != nil {
+			return nil, mapDBError(err)
+		}
+		if name != nil {
+			out[carrierID] = *name
+		}
+	}
+	return out, mapDBError(rows.Err())
+}
+
 func (r *AnalyticsOrderFactRepository) DeleteByTenant(ctx context.Context, tx pgx.Tx, tenantID uuid.UUID) error {
 	_, err := tx.Exec(ctx, `DELETE FROM freight_cost.cost_analytics_order_fact WHERE tenant_id = $1`, tenantID)
 	return mapDBError(err)

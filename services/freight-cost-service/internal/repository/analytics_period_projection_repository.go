@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -116,4 +118,78 @@ func (r *AnalyticsPeriodProjectionRepository) GetByKey(
 		return nil, mapDBError(err)
 	}
 	return &projection, nil
+}
+
+type AnalyticsPeriodListFilter struct {
+	BuyerCompanyID *uuid.UUID
+	CurrencyCode   string
+	PeriodFrom     *time.Time
+	PeriodTo       *time.Time
+	Limit          int
+	Offset         int
+}
+
+func (r *AnalyticsPeriodProjectionRepository) List(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	filter AnalyticsPeriodListFilter,
+) ([]domain.AnalyticsPeriodProjection, error) {
+	query := `
+		SELECT tenant_id, buyer_company_id, period_start, period_grain, currency_code,
+			order_count, planned_total, accrued_total, current_actual_total, final_actual_total,
+			current_variance_total, final_variance_total, reconciliation_open_count,
+			calculated_at, data_through, projection_version
+		FROM freight_cost.cost_analytics_period_projection
+		WHERE tenant_id = $1`
+	args := []any{tenantID}
+	argIdx := 2
+	if filter.BuyerCompanyID != nil {
+		query += ` AND buyer_company_id = $` + strconv.Itoa(argIdx)
+		args = append(args, *filter.BuyerCompanyID)
+		argIdx++
+	}
+	if filter.CurrencyCode != "" {
+		query += ` AND currency_code = $` + strconv.Itoa(argIdx)
+		args = append(args, filter.CurrencyCode)
+		argIdx++
+	}
+	if filter.PeriodFrom != nil {
+		query += ` AND period_start >= $` + strconv.Itoa(argIdx)
+		args = append(args, *filter.PeriodFrom)
+		argIdx++
+	}
+	if filter.PeriodTo != nil {
+		query += ` AND period_start <= $` + strconv.Itoa(argIdx)
+		args = append(args, *filter.PeriodTo)
+		argIdx++
+	}
+	query += ` ORDER BY period_start DESC LIMIT $` + strconv.Itoa(argIdx) + ` OFFSET $` + strconv.Itoa(argIdx+1)
+	limit := filter.Limit
+	if limit <= 0 {
+		limit = 500
+	}
+	offset := filter.Offset
+	if offset < 0 {
+		offset = 0
+	}
+	args = append(args, limit, offset)
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	defer rows.Close()
+	var items []domain.AnalyticsPeriodProjection
+	for rows.Next() {
+		var p domain.AnalyticsPeriodProjection
+		if err := rows.Scan(
+			&p.TenantID, &p.BuyerCompanyID, &p.PeriodStart, &p.PeriodGrain, &p.CurrencyCode,
+			&p.OrderCount, &p.PlannedTotal, &p.AccruedTotal, &p.CurrentActualTotal, &p.FinalActualTotal,
+			&p.CurrentVarianceTotal, &p.FinalVarianceTotal, &p.ReconciliationOpenCount,
+			&p.CalculatedAt, &p.DataThrough, &p.ProjectionVersion,
+		); err != nil {
+			return nil, mapDBError(err)
+		}
+		items = append(items, p)
+	}
+	return items, mapDBError(rows.Err())
 }

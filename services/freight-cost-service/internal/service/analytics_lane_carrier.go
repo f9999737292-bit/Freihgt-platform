@@ -516,6 +516,17 @@ func (s *AnalyticsProjectionService) ListCarrierProjections(
 	return s.carriers.List(ctx, tenantID, filter)
 }
 
+func (s *AnalyticsProjectionService) ListPeriodProjections(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	filter repository.AnalyticsPeriodListFilter,
+) ([]domain.AnalyticsPeriodProjection, error) {
+	if s.periods == nil {
+		return nil, nil
+	}
+	return s.periods.List(ctx, tenantID, filter)
+}
+
 func (s *AnalyticsProjectionService) GetCoverage(
 	ctx context.Context,
 	projectionName string,

@@ -146,7 +146,7 @@ func setupEnv(t *testing.T) *env {
 	costs := service.NewCostService(transportClient, projections)
 	workspace := service.NewWorkspaceService(projections, nil, costs, transportClient)
 	log := slog.New(slog.DiscardHandler)
-	router := httpserver.NewRouter(log, pool, cfg, costs, ingest, rebuild, derived, workspace, mappings, nil, nil, nil, metrics)
+	router := httpserver.NewRouter(log, pool, cfg, costs, ingest, rebuild, derived, workspace, mappings, nil, nil, nil, nil, metrics)
 
 	return &env{
 		pool: pool, ingest: ingest, rebuild: rebuild, costs: costs,
