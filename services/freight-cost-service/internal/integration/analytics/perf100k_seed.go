@@ -147,7 +147,7 @@ func seedPerf100kCanonical(ctx context.Context, t *testing.T, env *fullProjectio
 			}
 			carrier := carrierIDs[idx%perf100kCarrierCount]
 			amount := perf100kAmount(idx)
-			builder.WriteString(fmt.Sprintf("($%d,$%d,$%d,$%d,$%d,$%d,$%d,'CURRENT_ACTUAL_AVAILABLE','CURRENT_ACTUAL','UNLINKED',ARRAY['FREIGHT_SETTLEMENT'],1,$%d)",
+			builder.WriteString(fmt.Sprintf("($%d,$%d,$%d,$%d,$%d,$%d,$%d,'CURRENT_ACTUAL_AVAILABLE','CURRENT_ACTUAL','UNLINKED','[\"FREIGHT_SETTLEMENT\"]'::jsonb,1,$%d)",
 				argIdx, argIdx+1, argIdx+2, argIdx+3, argIdx+4, argIdx+5, argIdx+6, argIdx+7))
 			args = append(args, tenantID, orderID, buyerID, carrier, currency, amount, amount, period)
 			argIdx += 8

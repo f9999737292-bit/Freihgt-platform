@@ -82,6 +82,13 @@ func seedFullProjectionFixture(t *testing.T, env *fullProjectionEnv) fullProject
 
 	pinTime := fix.period
 	seedChargeMapping(t, &accessorialEnv{analyticsEnv: env.analyticsEnv, mappings: env.mappings}, fix.tenantID, "DETENTION", "DETENTION", 10, pinTime.Add(-72*time.Hour))
+	if _, err := env.pool.Exec(ctx, `
+		UPDATE freight_cost.charge_code_mapping
+		SET effective_to = $2
+		WHERE mapping_scope = 'TENANT' AND tenant_id = $1 AND mapping_version = 10`,
+		fix.tenantID, pinTime.Add(24*time.Hour)); err != nil {
+		t.Fatalf("close mapping v10: %v", err)
+	}
 	seedChargeMapping(t, &accessorialEnv{analyticsEnv: env.analyticsEnv, mappings: env.mappings}, fix.tenantID, "DETENTION", "OTHER", 20, pinTime.Add(24*time.Hour))
 
 	laneBenchmarkAmounts := []string{"38000.00", "38000.00", "38000.00", "38000.00", "45000.00"}
