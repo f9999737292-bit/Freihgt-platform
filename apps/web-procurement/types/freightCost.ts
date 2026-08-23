@@ -199,6 +199,7 @@ export interface FreightCostAccessorialSpendRowVM {
 export interface FreightCostAccessorialSpendResponse {
   items: FreightCostAccessorialSpendRowVM[]
   currency_code: string
+  data_capability?: 'AVAILABLE' | 'NOT_AVAILABLE'
 }
 
 export interface FreightCostCarrierPerformanceRowVM {
@@ -232,6 +233,7 @@ export interface FreightCostLanePerformanceRowVM {
 export interface FreightCostLanePerformanceResponse {
   items: FreightCostLanePerformanceRowVM[]
   currency_code: string
+  data_capability?: 'AVAILABLE' | 'NOT_AVAILABLE'
 }
 
 export interface FreightCostVarianceDetailDTO {

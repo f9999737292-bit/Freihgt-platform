@@ -101,7 +101,9 @@
     "unavailable": {
       "money": "不可用",
       "masked": "承运商视图已隐藏",
-      "liveData": "实时数据将在 v2.1E 提供",
+      "reference": "参考信息不可用",
+      "analytics": "分析投影不可用",
+      "liveData": "实时数据暂时不可用",
       "featureTitle": "货运成本工作区不可用",
       "featureBody": "工作区已禁用。请启用 NUXT_PUBLIC_FREIGHT_COST_WORKSPACE_ENABLED。"
     },

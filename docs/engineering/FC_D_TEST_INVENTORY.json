@@ -111,13 +111,12 @@
     {"TEST_ID": "FC-D-ERR-003", "TEST_FILE": "apps/web-procurement/tests/freightCostWorkspace.test.ts", "TEST_FUNCTION": "FC-D-ERR-003 backend unavailable list state", "LEVEL": "frontend", "STATUS": "implemented", "OWNER": "V2_1D_FRONTEND"},
     {"TEST_ID": "FC-D-ERR-004", "TEST_FILE": "apps/web-procurement/tests/freightCostWorkspace.test.ts", "TEST_FUNCTION": "FC-D-ERR-004 missing company list state", "LEVEL": "frontend", "STATUS": "implemented", "OWNER": "V2_1D_FRONTEND"},
     {"TEST_ID": "FC-D-ERR-005", "TEST_FILE": "apps/web-procurement/tests/freightCostWorkspace.test.ts", "TEST_FUNCTION": "FC-D-ERR-005 production adapter listOrders fail-closed", "LEVEL": "frontend", "STATUS": "implemented", "OWNER": "V2_1D_FRONTEND"},
-    {"TEST_ID": "FC-D-ERR-006", "TEST_FILE": "apps/web-procurement/tests/freightCostWorkspace.test.ts", "TEST_FUNCTION": "FC-D-ERR-006 data source module documents forbidden browser paths", "LEVEL": "frontend", "STATUS": "implemented", "OWNER": "V2_1D_FRONTEND"}
+    {"TEST_ID": "FC-D-ERR-006", "TEST_FILE": "apps/web-procurement/tests/freightCostWorkspace.test.ts", "TEST_FUNCTION": "FC-D-ERR-006 data source module documents forbidden browser paths", "LEVEL": "frontend", "STATUS": "implemented", "OWNER": "V2_1D_FRONTEND"},
+    {"TEST_ID": "FC-D-SEC-006", "TEST_FILE": "services/api-gateway/internal/integration/freightcostpublic/security_integration_test.go", "TEST_FUNCTION": "TestFC_D_SEC_006_CarrierDeniedBuyerAnalyticsEndpoints", "LEVEL": "integration", "STATUS": "implemented", "OWNER": "V2_1E_BACKEND_E2E"},
+    {"TEST_ID": "FC-D-SEC-007", "TEST_FILE": "services/freight-cost-service/internal/http/dto/workspace_display_test.go", "TEST_FUNCTION": "TestFC_D_SEC_007_BuyerReceivesAnalyticsFields + server DTO mask", "LEVEL": "integration", "STATUS": "implemented", "OWNER": "V2_1E_BACKEND_E2E"},
+    {"TEST_ID": "FC-D-SEC-008", "TEST_FILE": "services/api-gateway/internal/integration/freightcostpublic/security_integration_test.go", "TEST_FUNCTION": "TestFC_D_SEC_008_GatewayRBACMembershipAndRole", "LEVEL": "integration", "STATUS": "implemented", "OWNER": "V2_1E_BACKEND_E2E"},
+    {"TEST_ID": "FC-D-SEC-009", "TEST_FILE": "services/api-gateway/internal/integration/freightcostpublic/security_integration_test.go", "TEST_FUNCTION": "TestFC_D_SEC_009_CrossTenantDeny", "LEVEL": "integration", "STATUS": "implemented", "OWNER": "V2_1E_BACKEND_E2E"},
+    {"TEST_ID": "FC-D-SEC-010", "TEST_FILE": "services/freight-cost-service/internal/http/dto/workspace_display_test.go", "TEST_FUNCTION": "TestFC_D_SEC_010_CarrierJSONOmitsBuyerOnlyFields", "LEVEL": "unit", "STATUS": "implemented", "OWNER": "V2_1E_BACKEND_E2E"}
   ],
-  "deferred_tests_v2_1e": [
-    {"TEST_ID": "FC-D-SEC-006", "OWNER": "V2_1E_BACKEND_E2E", "STATUS": "deferred"},
-    {"TEST_ID": "FC-D-SEC-007", "OWNER": "V2_1E_BACKEND_E2E", "STATUS": "deferred"},
-    {"TEST_ID": "FC-D-SEC-008", "OWNER": "V2_1E_BACKEND_E2E", "STATUS": "deferred"},
-    {"TEST_ID": "FC-D-SEC-009", "OWNER": "V2_1E_BACKEND_E2E", "STATUS": "deferred"},
-    {"TEST_ID": "FC-D-SEC-010", "OWNER": "V2_1E_BACKEND_E2E", "STATUS": "deferred"}
-  ]
+  "deferred_tests_v2_1e": []
 }
