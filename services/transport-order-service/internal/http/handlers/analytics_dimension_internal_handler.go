@@ -30,6 +30,7 @@ type batchAnalyticsDimensionsRequest struct {
 
 type batchAnalyticsDimensionItem struct {
 	TransportOrderID   string  `json:"transport_order_id"`
+	OrderNumber        *string `json:"order_number,omitempty"`
 	OriginCountry      string  `json:"origin_country"`
 	OriginCity         *string `json:"origin_city,omitempty"`
 	DestinationCountry string  `json:"destination_country"`
@@ -78,6 +79,7 @@ func (h *AnalyticsDimensionInternalHandler) BatchGetAnalyticsDimensions(w http.R
 	for _, item := range items {
 		responseItems = append(responseItems, batchAnalyticsDimensionItem{
 			TransportOrderID:   item.TransportOrderID.String(),
+			OrderNumber:        item.OrderNumber,
 			OriginCountry:      item.OriginCountry,
 			OriginCity:         item.OriginCity,
 			DestinationCountry: item.DestinationCountry,
