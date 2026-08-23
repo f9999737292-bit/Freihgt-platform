@@ -267,7 +267,6 @@ func TestFC22DENRICH002OrderReference(t *testing.T) {
 	period := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
 	orderNumber := "TO-ENRICH-002"
 	equipment := "TENT"
-	lcEnv := &laneCarrierEnv{analyticsEnv: env.analyticsEnv}
 	seedTransportOrderWithLocations(t, lcEnv, tenantID, buyerID, orderID, "Moscow", "SPB", "ROAD", &equipment)
 	_, err := env.pool.Exec(context.Background(), `
 		UPDATE transport.transport_orders SET order_number = $2 WHERE id = $1`, orderID, orderNumber)
@@ -302,7 +301,6 @@ func TestFC22DEQV001RebuildMatchesIncremental(t *testing.T) {
 	settlementID := uuid.New()
 	period := time.Date(2026, 5, 15, 0, 0, 0, 0, time.UTC)
 	equipment := "TENT"
-	lcEnv := &laneCarrierEnv{analyticsEnv: env.analyticsEnv}
 	seedTransportOrderWithLocations(t, lcEnv, tenantID, buyerID, orderID, "Moscow", "SPB", "ROAD", &equipment)
 	seedChargeMapping(t, env, tenantID, "WAITING", "WAITING", 12)
 	upsertSummary(t, env.analyticsEnv, tenantID, buyerID, carrierID, orderID, "RUB", "300.00", "360.00", period)
