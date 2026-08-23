@@ -32,7 +32,7 @@ import (
 	"github.com/freight-platform/shared-go/internalauth"
 )
 
-const maxMigrationFile = "000061_freight_cost_analytics_projection_v2.2B.up.sql"
+const maxMigrationFile = "000062_freight_cost_lane_carrier_intelligence_v2.2C.up.sql"
 const testToken = "fc-variance-test-token"
 
 type env struct {
