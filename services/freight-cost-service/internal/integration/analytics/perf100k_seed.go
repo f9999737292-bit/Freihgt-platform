@@ -167,7 +167,7 @@ func seedPerf100kCanonical(ctx context.Context, t *testing.T, env *fullProjectio
 		carrier := carrierIDs[i%perf100kCarrierCount]
 		lane := (i - 1) % perf100kLaneCount
 		pinSummaryAttribution(t, accEnv, tenantID, orderID, 10, period)
-		settlementID := uuid.MustParse(fmt.Sprintf("d0000000-0000-4000-8000-%012d", i/perf100kAccessorialEvery))
+		settlementID := uuid.New()
 		seedSettlementWithAccessorials(t, accEnv, tenantID, buyerID, carrier, orderID, settlementID, originIDs[lane], destIDs[lane], []settlementAccessorialSeed{
 			{chargeCode: "DETENTION", amount: decimal.RequireFromString("75.00"), status: domain.AccessorialStatusApproved},
 		})
