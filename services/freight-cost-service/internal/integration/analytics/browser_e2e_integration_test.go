@@ -170,7 +170,8 @@ func startBrowserWebProcurement(t *testing.T, gatewayURL string, fix browserFixt
 	cmd := exec.Command("pnpm", "--filter", "@freight-platform/web-procurement", "exec", "nuxt", "dev", "--port", port, "--host", "127.0.0.1")
 	cmd.Dir = root
 	env := []string{
-		"NUXT_PUBLIC_API_BASE_URL=" + gatewayURL,
+		"NUXT_PUBLIC_API_BASE_URL=http://127.0.0.1:" + port,
+		"NUXT_E2E_GATEWAY_URL=" + gatewayURL,
 		"NUXT_PUBLIC_DEFAULT_TENANT_ID=" + fix.TenantID.String(),
 	}
 	if workspaceEnabled {

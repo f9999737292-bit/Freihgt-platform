@@ -18,6 +18,18 @@ export default defineNuxtConfig({
   devServer: {
     port: 3005,
   },
+  vite: {
+    server: {
+      proxy: process.env.NUXT_E2E_GATEWAY_URL
+        ? {
+            '/api/v1/freight-costs': {
+              target: process.env.NUXT_E2E_GATEWAY_URL,
+              changeOrigin: true,
+            },
+          }
+        : undefined,
+    },
+  },
   typescript: {
     strict: true,
   },
