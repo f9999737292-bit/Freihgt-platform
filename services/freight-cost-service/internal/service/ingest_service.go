@@ -60,6 +60,7 @@ type IngestService struct {
 	cursors      *repository.SourceCursorRepository
 	projections  *repository.CostSummaryProjectionRepository
 	derived      *DerivedProjectionService
+	analytics    *AnalyticsProjectionService
 	metrics      *fcmetrics.Metrics
 }
 
@@ -69,6 +70,7 @@ func NewIngestService(
 	cursors *repository.SourceCursorRepository,
 	projections *repository.CostSummaryProjectionRepository,
 	derived *DerivedProjectionService,
+	analytics *AnalyticsProjectionService,
 	metrics *fcmetrics.Metrics,
 ) *IngestService {
 	return &IngestService{
@@ -77,6 +79,7 @@ func NewIngestService(
 		cursors:     cursors,
 		projections: projections,
 		derived:     derived,
+		analytics:   analytics,
 		metrics:     metrics,
 	}
 }
@@ -195,6 +198,19 @@ func (s *IngestService) Ingest(ctx context.Context, input SourceEventInput) (Ing
 		cursor.LastCostEntryID = &entryID
 		if err := s.cursors.Upsert(ctx, tx, cursor); err != nil {
 			return IngestResult{}, err
+		}
+		if s.analytics != nil && projection.CurrencyCode != "" {
+			summaryUpdatedAt := time.Now().UTC()
+			if err := s.analytics.MarkCostSummaryChanged(ctx, tx, AnalyticsChangeInput{
+				TenantID:         input.TenantID,
+				TransportOrderID: input.TransportOrderID,
+				BuyerCompanyID:   projection.BuyerCompanyID,
+				CurrencyCode:     projection.CurrencyCode,
+				SummaryUpdatedAt: summaryUpdatedAt,
+				SourceEventID:    input.EventID,
+			}); err != nil {
+				return IngestResult{}, err
+			}
 		}
 		outcome = IngestOutcomeApplied
 		s.observeProjectionUpdate(input.EntryKind)

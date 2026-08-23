@@ -11,6 +11,7 @@ import (
 	fcmetrics "github.com/freight-platform/freight-cost-service/internal/platform/metrics"
 	"github.com/freight-platform/freight-cost-service/internal/repository"
 	"github.com/freight-platform/freight-cost-service/internal/service"
+	"github.com/freight-platform/freight-cost-service/internal/worker"
 	"github.com/freight-platform/shared-go/internalauth"
 	"github.com/freight-platform/shared-go/metrics"
 	"github.com/freight-platform/shared-go/observability"
@@ -29,12 +30,16 @@ func NewRouter(
 	derivedSvc *service.DerivedProjectionService,
 	workspaceSvc *service.WorkspaceService,
 	mappingRepo *repository.ChargeCodeMappingRepository,
+	analyticsSvc *service.AnalyticsProjectionService,
+	analyticsWorker *worker.AnalyticsProjectionWorker,
+	analyticsState *repository.AnalyticsProjectionStateRepository,
 	domainMetrics *fcmetrics.Metrics,
 ) http.Handler {
 	costHandler := handlers.NewCostHandler(costSvc)
 	sourceHandler := handlers.NewSourceEventHandler(ingestSvc, rebuildSvc)
 	varianceHandler := handlers.NewVarianceHandler(derivedSvc, mappingRepo)
 	workspaceHandler := handlers.NewWorkspaceHandler(workspaceSvc)
+	analyticsHandler := handlers.NewAnalyticsProjectionHandler(analyticsSvc, analyticsWorker, analyticsState)
 	internalAuth := internalauth.Config{Token: cfg.InternalServiceToken, Environment: cfg.Environment}
 
 	r := chi.NewRouter()
@@ -57,6 +62,10 @@ func NewRouter(
 		r.Post("/transport-orders/{transportOrderId}/reconcile", varianceHandler.ReconcileTransportOrder)
 		r.Post("/transport-orders/{transportOrderId}/reclassify-attribution", varianceHandler.ReclassifyAttribution)
 		r.Put("/charge-code-mappings", varianceHandler.PutChargeCodeMapping)
+		r.Route("/analytics", func(r chi.Router) {
+			r.Post("/tenants/{tenantId}/rebuild", analyticsHandler.RebuildTenant)
+			r.Get("/tenants/{tenantId}/state", analyticsHandler.GetTenantState)
+		})
 	})
 
 	r.Route("/internal/v1/freight-costs", func(r chi.Router) {

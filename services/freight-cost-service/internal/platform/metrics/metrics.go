@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"time"
 
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/prometheus/client_golang/prometheus"
@@ -23,6 +24,9 @@ type Metrics struct {
 	forecastProposedUnknown  prometheus.Counter
 	reconciliationFindingTotal *prometheus.CounterVec
 	chargeCodeUnmappedTotal  prometheus.Counter
+	analyticsRebuildTotal    *prometheus.CounterVec
+	analyticsRebuildDuration prometheus.Histogram
+	analyticsIncrementalTotal *prometheus.CounterVec
 }
 
 var (
@@ -85,6 +89,19 @@ func New() *Metrics {
 				Name: "freight_cost_charge_code_unmapped_total",
 				Help: "Charge codes mapped to OTHER category",
 			}),
+			analyticsRebuildTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
+				Name: "freight_cost_analytics_rebuild_total",
+				Help: "Analytics projection rebuild operations by result",
+			}, []string{"result"}),
+			analyticsRebuildDuration: prometheus.NewHistogram(prometheus.HistogramOpts{
+				Name:    "freight_cost_analytics_rebuild_duration_seconds",
+				Help:    "Analytics projection tenant rebuild duration",
+				Buckets: prometheus.DefBuckets,
+			}),
+			analyticsIncrementalTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
+				Name: "freight_cost_analytics_incremental_total",
+				Help: "Analytics incremental dirty processing by result",
+			}, []string{"result"}),
 		}
 		prometheus.MustRegister(
 			shared.httpRequestsTotal,
@@ -100,6 +117,9 @@ func New() *Metrics {
 			shared.forecastProposedUnknown,
 			shared.reconciliationFindingTotal,
 			shared.chargeCodeUnmappedTotal,
+			shared.analyticsRebuildTotal,
+			shared.analyticsRebuildDuration,
+			shared.analyticsIncrementalTotal,
 		)
 	})
 	return shared
@@ -163,4 +183,16 @@ func (m *Metrics) ObserveReconciliationFinding(kind, severity string) {
 
 func (m *Metrics) ObserveChargeCodeUnmapped() {
 	m.chargeCodeUnmappedTotal.Inc()
+}
+
+func (m *Metrics) ObserveAnalyticsRebuild(result string) {
+	m.analyticsRebuildTotal.WithLabelValues(result).Inc()
+}
+
+func (m *Metrics) ObserveAnalyticsRebuildDuration(d time.Duration) {
+	m.analyticsRebuildDuration.Observe(d.Seconds())
+}
+
+func (m *Metrics) ObserveAnalyticsIncremental(result string) {
+	m.analyticsIncrementalTotal.WithLabelValues(result).Inc()
 }

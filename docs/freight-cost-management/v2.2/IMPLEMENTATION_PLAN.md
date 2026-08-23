@@ -44,9 +44,11 @@ Order rationale: projection core must exist before dimension aggregations; enric
 
 ### Exit criteria
 
-- Full tenant rebuild reproduces identical order facts from canonical sources
-- Superseded ledger rows never double-count
-- CI integration test for rebuild parity
+- [x] Full tenant rebuild reproduces identical order facts from canonical sources
+- [x] Superseded ledger rows never double-count
+- [x] CI integration test for rebuild parity
+
+**Status:** Implemented in v2.2B (see `v2.2B-PROJECTION-CORE.md`).
 
 ---
 
