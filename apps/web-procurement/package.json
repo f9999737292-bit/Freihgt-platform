@@ -8,7 +8,8 @@
     "preview": "nuxt preview",
     "typecheck": "nuxt typecheck",
     "test": "nuxt prepare && vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:browser:freight-cost-intelligence": "playwright test --config e2e/freight-cost-intelligence/playwright.config.ts"
   },
   "dependencies": {
     "@freight-platform/i18n": "workspace:*",
@@ -22,6 +23,7 @@
   },
   "devDependencies": {
     "@nuxt/devtools": "latest",
+    "@playwright/test": "^1.49.0",
     "@vitejs/plugin-vue": "^5.2.0",
     "@vue/test-utils": "^2.4.6",
     "jsdom": "^25.0.1",
