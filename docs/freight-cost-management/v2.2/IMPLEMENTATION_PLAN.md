@@ -141,12 +141,12 @@ Order rationale: projection core must exist before dimension aggregations; enric
 
 ### Deliverables
 
-- [ ] Gateway routes: `/api/v1/freight-costs/analytics/*`, `/opportunities`
-- [ ] RBAC: `PolicyBuyerAnalytics` on all routes
-- [ ] OpenAPI entries + parity gate
-- [ ] Frontend tabs: Overview, Lanes, Carriers, Accessorials, Opportunities (CLASS A/B only)
-- [ ] Preserve `NOT_AVAILABLE` semantics — no screens for CLASS C (budget, cost/km, forecast)
-- [ ] Feature flag: remain default OFF until v2.2G sign-off
+- [x] Gateway routes: `/api/v1/freight-costs/analytics/*`, `/opportunities`
+- [x] RBAC: `PolicyBuyerAnalytics` on all routes
+- [x] OpenAPI entries + parity gate
+- [x] Frontend tabs: Overview, Lanes, Carriers, Accessorials, Opportunities (CLASS A/B only)
+- [x] Preserve `NOT_AVAILABLE` semantics — no screens for CLASS C (budget, cost/km, forecast)
+- [x] Feature flag: remain default OFF until v2.2G sign-off
 
 ### Dependencies
 
@@ -156,6 +156,8 @@ Order rationale: projection core must exist before dimension aggregations; enric
 
 - Contract tests match ANALYTICS_CONTRACT.md
 - Workspace lanes/accessorials return real data (not stub NOT_AVAILABLE)
+
+**Status:** Implemented in v2.2F (see `v2.2F-PUBLIC-API-WORKSPACE.md`).
 
 ---
 
