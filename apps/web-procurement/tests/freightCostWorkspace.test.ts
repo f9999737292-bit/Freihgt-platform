@@ -504,11 +504,9 @@ describe('FC-D-CAR carrier performance layout', () => {
     expect(canSeeBuyerInternalFreightCostFieldsForRoles(['FINANCE_MANAGER'])).toBe(true)
   })
 
-  it('FC-D-CAR-005 production data source fail-closed for carrier performance', async () => {
+  it('FC-D-CAR-005 production data source uses live API v2.1E mode', () => {
     const source = createProductionFreightCostDataSource()
-    await expect(source.getCarrierPerformance({ company_id: 'buyer-1' })).rejects.toMatchObject({
-      code: 'FREIGHT_COST_LIVE_UNAVAILABLE',
-    })
+    expect(source.mode).toBe('LIVE_API_V2_1E')
   })
 })
 
@@ -540,11 +538,9 @@ describe('FC-D-LAN lane performance layout', () => {
     expect(query.destination_location_code).toBe('LED')
   })
 
-  it('FC-D-LAN-004 production data source fail-closed for lane performance', async () => {
+  it('FC-D-LAN-004 production data source uses live API v2.1E mode', () => {
     const source = createProductionFreightCostDataSource()
-    await expect(source.getLanePerformance({ company_id: 'buyer-1' })).rejects.toMatchObject({
-      code: 'FREIGHT_COST_LIVE_UNAVAILABLE',
-    })
+    expect(source.mode).toBe('LIVE_API_V2_1E')
   })
 
   it('FC-D-LAN-005 lane list empty state resolves to empty', () => {
@@ -793,7 +789,8 @@ describe('FC-D-I18N localization', () => {
   })
 
   it('FC-D-I18N-006 ZH unavailable liveData key present', () => {
-    expect(zhFreightCosts.freightCosts.unavailable.liveData).toContain('v2.1E')
+    expect(zhFreightCosts.freightCosts.unavailable.liveData).toContain('不可用')
+    expect(zhFreightCosts.freightCosts.unavailable.reference).toBeTruthy()
   })
 })
 
@@ -868,11 +865,10 @@ describe('FC-D-ERR error and empty states', () => {
     })).toBe('missing_company')
   })
 
-  it('FC-D-ERR-005 production adapter listOrders fail-closed', async () => {
+  it('FC-D-ERR-005 production adapter is live v2.1E (not fail-closed shell)', () => {
     const source = createProductionFreightCostDataSource()
-    await expect(source.listOrders({ company_id: 'buyer-1' })).rejects.toMatchObject({
-      code: 'FREIGHT_COST_LIVE_UNAVAILABLE',
-    })
+    expect(source.mode).toBe('LIVE_API_V2_1E')
+    expect(typeof source.listOrders).toBe('function')
   })
 
   it('FC-D-ERR-006 data source module documents forbidden browser paths', () => {

@@ -626,6 +626,25 @@ jobs:
         working-directory: services/api-gateway
         run: go test -tags=integration ./internal/integration/contractratepublic/... -count=1 -v
 
+  freight-cost-public-e2e:
+    name: freight-cost-public-e2e
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache-dependency-path: |
+            packages/shared-go/go.sum
+            services/api-gateway/go.sum
+
+      - name: Run freight cost public e2e tests
+        working-directory: services/api-gateway
+        run: go test -tags=integration ./internal/integration/freightcostpublic/... -count=1 -v
+
   freight-pricing-snapshot-integration:
     name: freight-pricing-snapshot-integration
     runs-on: ubuntu-latest

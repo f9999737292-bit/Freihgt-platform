@@ -108,6 +108,22 @@ const BUYER_ONLY_SUMMARY_FIELDS = new Set<keyof FreightCostSummaryDTO>([
 
 const FORBIDDEN_KPI_KEYS = new Set(['settled_unpaid_exposure'])
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+export function isFreightCostDataCapabilityUnavailable(
+  capability?: 'AVAILABLE' | 'NOT_AVAILABLE',
+): boolean {
+  return capability === 'NOT_AVAILABLE'
+}
+
+export function formatFreightCostDisplayLabel(value: string | null | undefined): string {
+  const trimmed = String(value ?? '').trim()
+  if (!trimmed || UUID_PATTERN.test(trimmed)) {
+    return ''
+  }
+  return trimmed
+}
+
 export function createDefaultFreightCostFilters(): FreightCostFilterState {
   return {
     from: '',
@@ -237,9 +253,9 @@ export function mapFreightCostSummaryToRowVM(
   return {
     transport_order_id: summary.transport_order_id,
     shipment_id: summary.shipment_id,
-    order_reference: extras.order_reference,
+    order_reference: formatFreightCostDisplayLabel(extras.order_reference),
     carrier_company_id: summary.carrier_company_id,
-    carrier_name: extras.carrier_name,
+    carrier_name: formatFreightCostDisplayLabel(extras.carrier_name),
     planned_amount: summary.planned_amount,
     accrued_amount: summary.accrued_amount,
     forecast_exposure: summary.forecast_exposure,

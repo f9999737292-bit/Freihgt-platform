@@ -1,9 +1,9 @@
 openapi: 3.0.3
 info:
-  title: Freight Platform API - Shipment Service
+  title: Freight Platform API - Freight Cost Service
   version: 0.1.0
   description: |
-    OpenAPI specification for Shipment Service.
+    OpenAPI specification for Freight Cost Service.
 servers:
   - url: http://localhost:8080
     description: Local API Gateway
@@ -34,141 +34,84 @@ tags:
   - name: Rate Simulation
   - name: Freight Costs
 paths:
-  /api/v1/shipments/from-transport-order:
-    post:
-      tags: [Shipments]
-      summary: Create shipment from transport order
-      operationId: post_create_shipment_from_transport_order
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /api/v1/shipments/from-bid:
-    post:
-      tags: [Shipments]
-      summary: Create shipment from accepted bid
-      operationId: post_create_shipment_from_accepted_bid
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /api/v1/shipments:
+  /api/v1/freight-costs:
     get:
-      tags: [Shipments]
-      summary: List shipments
-      operationId: get_list_shipments
+      tags: [Freight Costs]
+      summary: List freight cost workspace summaries
+      operationId: get_list_freight_cost_workspace_summaries
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+          description: Page size. Non-positive values are normalized to the default.
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/freight-costs/summary:
+    get:
+      tags: [Freight Costs]
+      summary: Get freight cost aggregate KPIs
+      operationId: get_get_freight_cost_aggregate_kpis
       parameters:
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
@@ -222,18 +165,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /api/v1/shipments/{id}:
+  /api/v1/freight-costs/transport-orders/{transportOrderId}:
     get:
-      tags: [Shipments]
-      summary: Get shipment by ID
-      operationId: get_get_shipment_by_id
+      tags: [Freight Costs]
+      summary: Get freight cost order detail
+      operationId: get_get_freight_cost_order_detail
       parameters:
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
         - $ref: '#/components/parameters/XCompanyID'
         - $ref: '#/components/parameters/XLocale'
         - $ref: '#/components/parameters/Authorization'
-        - name: id
+        - name: transportOrderId
           in: path
           required: true
           schema:
@@ -286,243 +229,23 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /api/v1/shipments/{id}/assign-driver:
-    post:
-      tags: [Shipments]
-      summary: Assign driver to shipment
-      operationId: post_assign_driver_to_shipment
+  /api/v1/freight-costs/transport-orders/{transportOrderId}/variance-detail:
+    get:
+      tags: [Freight Costs]
+      summary: Get freight cost variance detail
+      operationId: get_get_freight_cost_variance_detail
       parameters:
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
         - $ref: '#/components/parameters/XCompanyID'
         - $ref: '#/components/parameters/XLocale'
         - $ref: '#/components/parameters/Authorization'
-        - name: id
+        - name: transportOrderId
           in: path
           required: true
           schema:
             type: string
             format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /api/v1/shipments/{id}/assign-vehicle:
-    post:
-      tags: [Shipments]
-      summary: Assign vehicle to shipment
-      operationId: post_assign_vehicle_to_shipment
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /api/v1/shipments/{id}/accept:
-    post:
-      tags: [Shipments]
-      summary: Accept shipment
-      operationId: post_accept_shipment
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /api/v1/shipments/{id}/status:
-    patch:
-      tags: [Shipments]
-      summary: Update shipment status
-      operationId: patch_update_shipment_status
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
       security:
         - bearerAuth: []
       responses:
@@ -570,146 +293,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /api/v1/shipments/{id}/cancel:
-    post:
-      tags: [Shipments]
-      summary: Cancel shipment
-      operationId: post_cancel_shipment
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /api/v1/drivers:
-    post:
-      tags: [Drivers]
-      summary: Create driver
-      operationId: post_create_driver
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+  /api/v1/freight-costs/accessorials/summary:
     get:
-      tags: [Drivers]
-      summary: List drivers
-      operationId: get_list_drivers
+      tags: [Freight Costs]
+      summary: Get freight cost accessorial spend summary
+      operationId: get_get_freight_cost_accessorial_spend_summary
       parameters:
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
@@ -763,139 +351,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /api/v1/drivers/{id}:
+  /api/v1/freight-costs/carriers/performance:
     get:
-      tags: [Drivers]
-      summary: Get driver by ID
-      operationId: get_get_driver_by_id
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /api/v1/vehicles:
-    post:
-      tags: [Vehicles]
-      summary: Create vehicle
-      operationId: post_create_vehicle
-      parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-    get:
-      tags: [Vehicles]
-      summary: List vehicles
-      operationId: get_list_vehicles
+      tags: [Freight Costs]
+      summary: Get freight cost carrier performance rollup
+      operationId: get_get_freight_cost_carrier_performance_rollup
       parameters:
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
@@ -949,23 +409,17 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /api/v1/vehicles/{id}:
+  /api/v1/freight-costs/lanes/performance:
     get:
-      tags: [Vehicles]
-      summary: Get vehicle by ID
-      operationId: get_get_vehicle_by_id
+      tags: [Freight Costs]
+      summary: Get freight cost lane performance rollup
+      operationId: get_get_freight_cost_lane_performance_rollup
       parameters:
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
         - $ref: '#/components/parameters/XCompanyID'
         - $ref: '#/components/parameters/XLocale'
         - $ref: '#/components/parameters/Authorization'
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
       security:
         - bearerAuth: []
       responses:

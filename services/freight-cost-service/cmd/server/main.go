@@ -59,8 +59,9 @@ func main() {
 	ingestSvc := service.NewIngestService(db.Pool, entryRepo, cursorRepo, projectionRepo, derivedSvc, domainMetrics)
 	rebuildSvc := service.NewRebuildService(ingestSvc, derivedSvc, transportClient, billingClient, paymentClient, domainMetrics)
 	costSvc := service.NewCostService(transportClient, projectionRepo)
+	workspaceSvc := service.NewWorkspaceService(projectionRepo, costSvc, transportClient)
 
-	router := httpserver.NewRouter(log, db.Pool, cfg, costSvc, ingestSvc, rebuildSvc, derivedSvc, mappingRepo, domainMetrics)
+	router := httpserver.NewRouter(log, db.Pool, cfg, costSvc, ingestSvc, rebuildSvc, derivedSvc, workspaceSvc, mappingRepo, domainMetrics)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

@@ -23,6 +23,7 @@ type ServiceURLs struct {
 	LowCode         string
 	Tracking        string
 	ContractRate    string
+	FreightCost     string
 }
 
 type ControlTowerConfig struct {
@@ -170,6 +171,7 @@ func Load() (Config, error) {
 			LowCode:         getEnv("LOW_CODE_SERVICE_URL", "http://localhost:8088"),
 			Tracking:        getEnv("TRACKING_SERVICE_URL", "http://localhost:8089"),
 			ContractRate:    getEnv("CONTRACT_RATE_SERVICE_URL", "http://localhost:8091"),
+			FreightCost:     getEnv("FREIGHT_COST_SERVICE_URL", "http://localhost:8092"),
 		},
 		AuthEnabled:         authEnabled,
 		JWTSecret:           jwtSecret,

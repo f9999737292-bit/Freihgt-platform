@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { FreightCostActor, FreightCostOrderRowVM } from '~/types/freightCost'
 import type { FreightCostTableColumn } from '~/utils/freightCostWorkspace'
-import { getPlannedVsActualColumns, shouldShowFreightCostField } from '~/utils/freightCostWorkspace'
+import { formatFreightCostDisplayLabel, getPlannedVsActualColumns, shouldShowFreightCostField } from '~/utils/freightCostWorkspace'
 import { formatDecimalMoney, isNullMoney } from '~/utils/freightCostMoney'
 import { finalityLabelKey, reconciliationLabelKey } from '~/utils/freightCostWorkspace'
 
@@ -25,6 +25,10 @@ function cellValue(row: FreightCostOrderRowVM, column: FreightCostTableColumn): 
   if (key === 'financial_finality') return t(finalityLabelKey(raw as FreightCostOrderRowVM['financial_finality']))
   if (key === 'billing_reconciliation_status') {
     return t(reconciliationLabelKey(raw as FreightCostOrderRowVM['billing_reconciliation_status']))
+  }
+  if (typeof raw === 'string' && (key === 'order_reference' || key === 'carrier_name')) {
+    const label = formatFreightCostDisplayLabel(raw)
+    return label || t('freightCosts.unavailable.reference')
   }
   if (typeof raw === 'string' && (key.includes('amount') || key === 'forecast_exposure')) {
     if (isNullMoney(raw)) return t('freightCosts.unavailable.money')

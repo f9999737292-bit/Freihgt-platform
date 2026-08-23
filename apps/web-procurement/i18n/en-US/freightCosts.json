@@ -101,7 +101,9 @@
     "unavailable": {
       "money": "Unavailable",
       "masked": "Hidden for carrier view",
-      "liveData": "Live freight cost data will be available in v2.1E",
+      "reference": "Reference unavailable",
+      "analytics": "Analytics projection unavailable",
+      "liveData": "Live freight cost data is temporarily unavailable",
       "featureTitle": "Freight cost workspace unavailable",
       "featureBody": "This workspace is disabled. Enable NUXT_PUBLIC_FREIGHT_COST_WORKSPACE_ENABLED to access routes."
     },

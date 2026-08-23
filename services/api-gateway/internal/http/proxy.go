@@ -176,6 +176,7 @@ func downstreamServices(cfg config.Config) []downstreamService {
 		{name: "payment-service", url: cfg.Services.Payment},
 		{name: "low-code-service", url: cfg.Services.LowCode},
 		{name: "contract-rate-service", url: cfg.Services.ContractRate},
+		{name: "freight-cost-service", url: cfg.Services.FreightCost},
 	}
 }
 
