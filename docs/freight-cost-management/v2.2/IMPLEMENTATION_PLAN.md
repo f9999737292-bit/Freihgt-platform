@@ -74,7 +74,9 @@ Order rationale: projection core must exist before dimension aggregations; enric
 - Lane/carrier aggregates match manual SQL spot-check on seed data
 - Tenant isolation verified
 
----
+**Status:** Implemented in v2.2C (see `v2.2C-LANE-CARRIER-INTELLIGENCE.md`).
+
+**Note:** v2.2C adds `POST /internal/v1/transport-orders/batch-analytics-dimensions` (dimension-only). v2.2D `batch-summary` with display fields remains planned.
 
 ## 4. v2.2D — Accessorial Intelligence & Dimension Enrichment
 
