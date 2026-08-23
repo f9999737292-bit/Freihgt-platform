@@ -20,6 +20,7 @@ import (
 	fcmetrics "github.com/freight-platform/freight-cost-service/internal/platform/metrics"
 	"github.com/freight-platform/freight-cost-service/internal/repository"
 	"github.com/freight-platform/freight-cost-service/internal/service"
+	fcworker "github.com/freight-platform/freight-cost-service/internal/worker"
 	"github.com/freight-platform/shared-go/metrics"
 )
 
@@ -50,18 +51,26 @@ func main() {
 	attributionRepo := repository.NewVarianceAttributionRepository()
 	findingRepo := repository.NewReconciliationFindingRepository()
 	mappingRepo := repository.NewChargeCodeMappingRepository(db.Pool)
+	orderFactRepo := repository.NewAnalyticsOrderFactRepository(db.Pool)
+	periodProjRepo := repository.NewAnalyticsPeriodProjectionRepository(db.Pool)
+	analyticsStateRepo := repository.NewAnalyticsProjectionStateRepository(db.Pool)
+	dirtyQueueRepo := repository.NewAnalyticsDirtyQueueRepository(db.Pool)
 
 	transportClient := transport_order.NewClient(cfg.TransportOrderURL, cfg.InternalServiceToken, domainMetrics)
 	billingClient := billing_register.NewClient(cfg.BillingRegisterURL, cfg.InternalServiceToken, domainMetrics)
 	paymentClient := payment.NewClient(cfg.PaymentServiceURL, cfg.InternalServiceToken, domainMetrics)
 
 	derivedSvc := service.NewDerivedProjectionService(db.Pool, projectionRepo, attributionRepo, findingRepo, mappingRepo, cursorRepo, billingClient, transportClient, domainMetrics)
-	ingestSvc := service.NewIngestService(db.Pool, entryRepo, cursorRepo, projectionRepo, derivedSvc, domainMetrics)
+	analyticsSvc := service.NewAnalyticsProjectionService(db.Pool, projectionRepo, orderFactRepo, periodProjRepo, analyticsStateRepo, dirtyQueueRepo, domainMetrics)
+	ingestSvc := service.NewIngestService(db.Pool, entryRepo, cursorRepo, projectionRepo, derivedSvc, analyticsSvc, domainMetrics)
 	rebuildSvc := service.NewRebuildService(ingestSvc, derivedSvc, transportClient, billingClient, paymentClient, domainMetrics)
 	costSvc := service.NewCostService(transportClient, projectionRepo)
 	workspaceSvc := service.NewWorkspaceService(projectionRepo, costSvc, transportClient)
+	analyticsWorker := fcworker.NewAnalyticsProjectionWorker(cfg.AnalyticsProjection, analyticsSvc, analyticsStateRepo, log)
 
-	router := httpserver.NewRouter(log, db.Pool, cfg, costSvc, ingestSvc, rebuildSvc, derivedSvc, workspaceSvc, mappingRepo, domainMetrics)
+	router := httpserver.NewRouter(log, db.Pool, cfg, costSvc, ingestSvc, rebuildSvc, derivedSvc, workspaceSvc, mappingRepo, analyticsSvc, analyticsWorker, analyticsStateRepo, domainMetrics)
+
+	analyticsWorker.Start(ctx)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),
@@ -89,6 +98,7 @@ func main() {
 		log.Error("graceful shutdown failed", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
+	analyticsWorker.Wait(shutdownCtx)
 
 	log.Info("shutdown complete")
 }

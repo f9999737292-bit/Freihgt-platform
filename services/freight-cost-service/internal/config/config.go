@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
+	"time"
 )
 
 type Config struct {
@@ -16,6 +18,14 @@ type Config struct {
 	TransportOrderURL      string
 	BillingRegisterURL     string
 	PaymentServiceURL      string
+	AnalyticsProjection    AnalyticsProjectionConfig
+}
+
+type AnalyticsProjectionConfig struct {
+	Enabled           bool
+	DirtyPollInterval time.Duration
+	DirtyBatchSize    int
+	RebuildInterval   time.Duration
 }
 
 func Load() (Config, error) {
@@ -62,7 +72,43 @@ func Load() (Config, error) {
 		TransportOrderURL:    transportURL,
 		BillingRegisterURL:   billingURL,
 		PaymentServiceURL:    paymentURL,
+		AnalyticsProjection:  loadAnalyticsProjectionConfig(),
 	}, nil
+}
+
+func loadAnalyticsProjectionConfig() AnalyticsProjectionConfig {
+	enabled := parseBool(getEnv("FREIGHT_COST_ANALYTICS_PROJECTION_ENABLED", "false"))
+	dirtyPoll, err := parseDuration(getEnv("FREIGHT_COST_ANALYTICS_DIRTY_POLL_INTERVAL", "5s"))
+	if err != nil {
+		dirtyPoll = 5 * time.Second
+	}
+	rebuildInterval, err := parseDuration(getEnv("FREIGHT_COST_ANALYTICS_REBUILD_INTERVAL", "24h"))
+	if err != nil {
+		rebuildInterval = 24 * time.Hour
+	}
+	batchSize, err := strconv.Atoi(getEnv("FREIGHT_COST_ANALYTICS_DIRTY_BATCH_SIZE", "50"))
+	if err != nil || batchSize <= 0 {
+		batchSize = 50
+	}
+	return AnalyticsProjectionConfig{
+		Enabled:           enabled,
+		DirtyPollInterval: dirtyPoll,
+		DirtyBatchSize:    batchSize,
+		RebuildInterval:   rebuildInterval,
+	}
+}
+
+func parseBool(raw string) bool {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
+func parseDuration(raw string) (time.Duration, error) {
+	return time.ParseDuration(strings.TrimSpace(raw))
 }
 
 func getEnv(key, fallback string) string {
