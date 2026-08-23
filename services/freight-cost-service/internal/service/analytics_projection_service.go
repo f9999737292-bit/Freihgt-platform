@@ -1,0 +1,394 @@
+package service
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/freight-platform/freight-cost-service/internal/domain"
+	apperrors "github.com/freight-platform/freight-cost-service/internal/platform/errors"
+	fcmetrics "github.com/freight-platform/freight-cost-service/internal/platform/metrics"
+	"github.com/freight-platform/freight-cost-service/internal/repository"
+)
+
+type AnalyticsProjectionService struct {
+	pool         *pgxpool.Pool
+	summaries    *repository.CostSummaryProjectionRepository
+	orderFacts   *repository.AnalyticsOrderFactRepository
+	periods      *repository.AnalyticsPeriodProjectionRepository
+	state        *repository.AnalyticsProjectionStateRepository
+	dirty        *repository.AnalyticsDirtyQueueRepository
+	metrics      *fcmetrics.Metrics
+	projectionVersion int
+}
+
+func NewAnalyticsProjectionService(
+	pool *pgxpool.Pool,
+	summaries *repository.CostSummaryProjectionRepository,
+	orderFacts *repository.AnalyticsOrderFactRepository,
+	periods *repository.AnalyticsPeriodProjectionRepository,
+	state *repository.AnalyticsProjectionStateRepository,
+	dirty *repository.AnalyticsDirtyQueueRepository,
+	metrics *fcmetrics.Metrics,
+) *AnalyticsProjectionService {
+	return &AnalyticsProjectionService{
+		pool:              pool,
+		summaries:         summaries,
+		orderFacts:        orderFacts,
+		periods:           periods,
+		state:             state,
+		dirty:             dirty,
+		metrics:           metrics,
+		projectionVersion: domain.AnalyticsProjectionVersion,
+	}
+}
+
+type AnalyticsChangeInput struct {
+	TenantID         uuid.UUID
+	TransportOrderID uuid.UUID
+	BuyerCompanyID   uuid.UUID
+	CurrencyCode     string
+	SummaryUpdatedAt time.Time
+	SourceEventID    uuid.UUID
+}
+
+// MarkCostSummaryChanged records a dirty analytics slice in the same transaction as canonical ingest.
+func (s *AnalyticsProjectionService) MarkCostSummaryChanged(
+	ctx context.Context,
+	tx pgx.Tx,
+	input AnalyticsChangeInput,
+) error {
+	if s == nil {
+		return nil
+	}
+	currency := strings.ToUpper(strings.TrimSpace(input.CurrencyCode))
+	if currency == "" {
+		return nil
+	}
+	now := time.Now().UTC()
+	entry := domain.AnalyticsDirtyEntry{
+		TenantID:         input.TenantID,
+		TransportOrderID: input.TransportOrderID,
+		BuyerCompanyID:   input.BuyerCompanyID,
+		CurrencyCode:     currency,
+		PeriodStart:      domain.PeriodStartFromSummaryUpdatedAt(input.SummaryUpdatedAt),
+		PeriodGrain:      domain.AnalyticsPeriodGrainMonth,
+		DirtyAt:          now,
+	}
+	if input.SourceEventID != uuid.Nil {
+		entry.SourceEventID = &input.SourceEventID
+	}
+	return s.dirty.MarkDirty(ctx, tx, entry)
+}
+
+func (s *AnalyticsProjectionService) RebuildTenant(ctx context.Context, tenantID uuid.UUID) error {
+	start := time.Now()
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return apperrors.Internal("begin tenant analytics rebuild", err)
+	}
+	defer tx.Rollback(ctx)
+
+	if err := repository.AcquireTenantAnalyticsExclusiveLock(ctx, tx, tenantID); err != nil {
+		return apperrors.Internal("acquire analytics rebuild lock", err)
+	}
+
+	now := time.Now().UTC()
+	if err := s.setStateRunning(ctx, tx, tenantID, now); err != nil {
+		return err
+	}
+
+	if err := s.orderFacts.DeleteByTenant(ctx, tx, tenantID); err != nil {
+		return err
+	}
+	if err := s.periods.DeleteByTenant(ctx, tx, tenantID); err != nil {
+		return err
+	}
+
+	rows, err := s.summaries.ListSummariesForTenant(ctx, tx, tenantID)
+	if err != nil {
+		return err
+	}
+
+	var maxDataThrough time.Time
+	for _, row := range rows {
+		fact := domain.OrderFactFromCostSummary(row.Projection, row.UpdatedAt, now)
+		if fact == nil {
+			continue
+		}
+		if err := s.orderFacts.Upsert(ctx, tx, fact); err != nil {
+			return err
+		}
+		if row.UpdatedAt.After(maxDataThrough) {
+			maxDataThrough = row.UpdatedAt.UTC()
+		}
+	}
+
+	periodKeys, err := s.orderFacts.ListDistinctPeriodKeysForTenant(ctx, tx, tenantID)
+	if err != nil {
+		return err
+	}
+	for _, key := range periodKeys {
+		if err := s.reaggregatePeriod(ctx, tx, key, now); err != nil {
+			return err
+		}
+	}
+
+	if err := s.dirty.DeleteByTenant(ctx, tx, tenantID); err != nil {
+		return err
+	}
+	if err := s.markStateSuccess(ctx, tx, tenantID, now, maxDataThrough); err != nil {
+		return err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		s.observeRebuild("error")
+		return apperrors.Internal("commit tenant analytics rebuild", err)
+	}
+	s.observeRebuild("success")
+	s.observeRebuildDuration(time.Since(start))
+	return nil
+}
+
+func (s *AnalyticsProjectionService) ProcessDirtyBatch(ctx context.Context, limit int) (int, error) {
+	entries, err := s.dirty.ListBatch(ctx, limit)
+	if err != nil {
+		s.observeIncremental("claim_error")
+		return 0, err
+	}
+	if len(entries) == 0 {
+		return 0, nil
+	}
+
+	processed := 0
+	periodSeen := make(map[string]domain.AnalyticsPeriodKey)
+	for _, entry := range entries {
+		if err := s.processDirtyEntry(ctx, entry); err != nil {
+			s.observeIncremental("error")
+			if stateErr := s.markTenantError(ctx, entry.TenantID, "INCREMENTAL_APPLY_FAILED", sanitizeError(err)); stateErr != nil {
+				return processed, stateErr
+			}
+			continue
+		}
+		key := domain.AnalyticsPeriodKey{
+			TenantID:       entry.TenantID,
+			BuyerCompanyID: entry.BuyerCompanyID,
+			PeriodStart:    entry.PeriodStart,
+			PeriodGrain:    entry.PeriodGrain,
+			CurrencyCode:   entry.CurrencyCode,
+		}
+		periodSeen[periodKeyString(key)] = key
+		processed++
+		s.observeIncremental("processed")
+	}
+
+	for _, key := range periodSeen {
+		tx, err := s.pool.Begin(ctx)
+		if err != nil {
+			return processed, err
+		}
+		if err := repository.AcquireTenantAnalyticsExclusiveLock(ctx, tx, key.TenantID); err != nil {
+			tx.Rollback(ctx)
+			return processed, err
+		}
+		now := time.Now().UTC()
+		if err := s.reaggregatePeriod(ctx, tx, key, now); err != nil {
+			tx.Rollback(ctx)
+			return processed, err
+		}
+		var maxUpdated time.Time
+		agg, aggErr := s.orderFacts.AggregatePeriod(ctx, tx, key)
+		if aggErr == nil && agg != nil {
+			maxUpdated = agg.MaxSourceUpdatedAt
+		}
+		if err := s.markStateSuccess(ctx, tx, key.TenantID, now, maxUpdated); err != nil {
+			tx.Rollback(ctx)
+			return processed, err
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return processed, err
+		}
+	}
+	return processed, nil
+}
+
+func (s *AnalyticsProjectionService) processDirtyEntry(ctx context.Context, entry domain.AnalyticsDirtyEntry) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if err := repository.AcquireTenantAnalyticsExclusiveLock(ctx, tx, entry.TenantID); err != nil {
+		return err
+	}
+
+	projection, err := s.summaries.GetByTransportOrderTx(ctx, tx, entry.TenantID, entry.TransportOrderID)
+	if err != nil {
+		var appErr *apperrors.AppError
+		if errors.As(err, &appErr) && appErr.Code == apperrors.CodeNotFound {
+			if err := s.dirty.Delete(ctx, tx, entry); err != nil {
+				return err
+			}
+			return tx.Commit(ctx)
+		}
+		return err
+	}
+
+	updatedAt := entry.DirtyAt
+	now := time.Now().UTC()
+	fact := domain.OrderFactFromCostSummary(projection, updatedAt, now)
+	if fact == nil {
+		if err := s.dirty.Delete(ctx, tx, entry); err != nil {
+			return err
+		}
+		return tx.Commit(ctx)
+	}
+	if err := s.orderFacts.Upsert(ctx, tx, fact); err != nil {
+		return err
+	}
+	if err := s.dirty.Delete(ctx, tx, entry); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+func (s *AnalyticsProjectionService) reaggregatePeriod(
+	ctx context.Context,
+	tx pgx.Tx,
+	key domain.AnalyticsPeriodKey,
+	now time.Time,
+) error {
+	agg, err := s.orderFacts.AggregatePeriod(ctx, tx, key)
+	if err != nil {
+		return err
+	}
+	reconciliationCount, err := s.periods.CountOpenReconciliations(ctx, tx, key)
+	if err != nil {
+		return err
+	}
+	projection := &domain.AnalyticsPeriodProjection{
+		TenantID:                key.TenantID,
+		BuyerCompanyID:          key.BuyerCompanyID,
+		PeriodStart:             key.PeriodStart,
+		PeriodGrain:             key.PeriodGrain,
+		CurrencyCode:            key.CurrencyCode,
+		OrderCount:              agg.OrderCount,
+		PlannedTotal:            agg.PlannedTotal,
+		AccruedTotal:            agg.AccruedTotal,
+		CurrentActualTotal:      agg.CurrentActualTotal,
+		FinalActualTotal:        agg.FinalActualTotal,
+		CurrentVarianceTotal:    agg.CurrentVarianceTotal,
+		FinalVarianceTotal:      agg.FinalVarianceTotal,
+		ReconciliationOpenCount: reconciliationCount,
+		CalculatedAt:            now.UTC(),
+		DataThrough:             agg.MaxSourceUpdatedAt.UTC(),
+		ProjectionVersion:       s.projectionVersion,
+	}
+	return s.periods.Upsert(ctx, tx, projection)
+}
+
+func (s *AnalyticsProjectionService) setStateRunning(ctx context.Context, tx pgx.Tx, tenantID uuid.UUID, now time.Time) error {
+	state := &domain.AnalyticsProjectionState{
+		ProjectionName:    domain.AnalyticsProjectionNamePeriod,
+		TenantID:          tenantID,
+		ProjectionVersion: s.projectionVersion,
+		Status:            domain.AnalyticsProjectionStatusRunning,
+		UpdatedAt:         now,
+	}
+	return s.state.Upsert(ctx, tx, state)
+}
+
+func (s *AnalyticsProjectionService) markStateSuccess(
+	ctx context.Context,
+	tx pgx.Tx,
+	tenantID uuid.UUID,
+	calculatedAt, dataThrough time.Time,
+) error {
+	var watermark *time.Time
+	if !dataThrough.IsZero() {
+		value := dataThrough.UTC()
+		watermark = &value
+	}
+	calc := calculatedAt.UTC()
+	var dataThroughPtr *time.Time
+	if !dataThrough.IsZero() {
+		value := dataThrough.UTC()
+		dataThroughPtr = &value
+	}
+	state := &domain.AnalyticsProjectionState{
+		ProjectionName:      domain.AnalyticsProjectionNamePeriod,
+		TenantID:            tenantID,
+		ProjectionVersion:   s.projectionVersion,
+		SourceWatermark:     watermark,
+		LastSuccessfulRunAt: &calc,
+		CalculatedAt:        &calc,
+		DataThrough:         dataThroughPtr,
+		Status:              domain.AnalyticsProjectionStatusReady,
+		UpdatedAt:           calc,
+	}
+	return s.state.Upsert(ctx, tx, state)
+}
+
+func (s *AnalyticsProjectionService) markTenantError(ctx context.Context, tenantID uuid.UUID, code, message string) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	now := time.Now().UTC()
+	codeCopy := code
+	msgCopy := message
+	state := &domain.AnalyticsProjectionState{
+		ProjectionName:    domain.AnalyticsProjectionNamePeriod,
+		TenantID:          tenantID,
+		ProjectionVersion: s.projectionVersion,
+		Status:            domain.AnalyticsProjectionStatusError,
+		LastErrorCode:     &codeCopy,
+		LastErrorMessage:  &msgCopy,
+		UpdatedAt:         now,
+	}
+	if err := s.state.Upsert(ctx, tx, state); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+func periodKeyString(key domain.AnalyticsPeriodKey) string {
+	return fmt.Sprintf("%s|%s|%s|%s|%s",
+		key.TenantID, key.BuyerCompanyID, key.PeriodStart.Format("2006-01-02"), key.PeriodGrain, key.CurrencyCode)
+}
+
+func sanitizeError(err error) string {
+	if err == nil {
+		return ""
+	}
+	msg := err.Error()
+	if len(msg) > 500 {
+		return msg[:500]
+	}
+	return msg
+}
+
+func (s *AnalyticsProjectionService) observeRebuild(result string) {
+	if s.metrics != nil {
+		s.metrics.ObserveAnalyticsRebuild(result)
+	}
+}
+
+func (s *AnalyticsProjectionService) observeRebuildDuration(d time.Duration) {
+	if s.metrics != nil {
+		s.metrics.ObserveAnalyticsRebuildDuration(d)
+	}
+}
+
+func (s *AnalyticsProjectionService) observeIncremental(result string) {
+	if s.metrics != nil {
+		s.metrics.ObserveAnalyticsIncremental(result)
+	}
+}
