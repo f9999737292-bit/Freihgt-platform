@@ -1,7 +1,7 @@
 # FREIGHT COST INTELLIGENCE v2.2 — Test Inventory
 
-**Status:** v2.2G complete  
-**Date:** 2026-08-23  
+**Status:** v2.2G.1 remediation  
+**Date:** 2026-08-24  
 **Scope:** FC22B/C/D/E/F/G tests discovered in repository
 
 Legend: **v2.2G** = added or materially extended in v2.2G closure work.
@@ -49,6 +49,11 @@ Legend: **v2.2G** = added or materially extended in v2.2G closure work.
 | FC22G-REBUILD-CONC | Rebuild | `services/freight-cost-service/internal/integration/analytics/rebuild_recovery_integration_test.go` | `TestFC22G_ConcurrentRebuildSameTenantSerialized` | integration | Concurrent tenant rebuilds serialize via advisory lock | `freight-cost-analytics-final-e2e` | implemented **v2.2G** |
 | FC22G-EQV-FULL | Rebuild | same | `TestFC22G_FullStackRebuildIncrementalEquivalence` | integration | Full-stack B→E rebuild ≡ incremental | `freight-cost-analytics-final-e2e` | implemented **v2.2G** |
 | FC22G-MIG-001 | Migration | `services/freight-cost-service/internal/integration/analytics/migration_gate_integration_test.go` | `TestFC22G_MigrationGateV22UpDown` | integration | Migrations 000061–000064 up/down reversible | `freight-cost-analytics-final-e2e` | implemented **v2.2G** |
+| FC22G1-DR-001 | DR recovery | `full_projection_dr_integration_test.go` | `TestFC22G1_FullProjectionLossAndRebuildRestoresBusinessState` | integration | Full derived loss → checksum-equal rebuild | `freight-cost-analytics-final-e2e` | implemented **v2.2G.1** |
+| FC22G1-DR-002 | DR failure | same | `TestFC22G1_FailedRebuildDoesNotPublishPartialFreshState` | integration | Failed rebuild rolls back; no false fresh state | `freight-cost-analytics-final-e2e` | implemented **v2.2G.1** |
+| FC22G1-DR-003 | DR retry | same | `TestFC22G1_RetryAfterFailureRestoresBusinessState` | integration | Retry after injected failure succeeds | `freight-cost-analytics-final-e2e` | implemented **v2.2G.1** |
+| FC22G1-PERF-001 | Performance | `performance_100k_integration_test.go` | `TestFC22G1_PERF001_100kAnalyticsRebuild` | integration | 100k rebuild + public query timing (`PERF_100K=1`) | controlled local | implemented **v2.2G.1** |
+| FC22G1-UI-001..007 | Live browser | `apps/web-procurement/e2e/freight-cost-intelligence/buyer-intelligence.spec.ts` | Playwright buyer flows | browser | Real stack, no HTTP mocks on primary path | `BROWSER_E2E=1` | implemented **v2.2G.1** |
 
 ---
 

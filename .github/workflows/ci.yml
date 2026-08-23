@@ -713,7 +713,7 @@ jobs:
 
       - name: Run v2.2 analytics final gate integration tests
         working-directory: services/freight-cost-service
-        run: go test -tags=integration ./internal/integration/analytics/... -count=1 -run 'FC22G|FC22B|FC22C|FC22D|FC22E|FC22F' -v
+        run: go test -tags=integration ./internal/integration/analytics/... -count=1 -run 'FC22G|FC22B|FC22C|FC22D|FC22E|FC22F|FC22G1' -v
 
       - name: Run freight cost public analytics security e2e
         working-directory: services/api-gateway

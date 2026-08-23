@@ -102,16 +102,33 @@ Date range: default rolling 90 days; max ~24 months (validated in service).
 
 ---
 
-## 6. Synthetic scale (100k deferred)
+## 6. Controlled 100K verification (v2.2G.1)
 
-| Item | CI (integration) | Controlled environment |
-|------|------------------|------------------------|
-| Order count | 120 (N+1 gate) | 100k tenant synthetic load |
-| Purpose | Prove batch enrichment | Pagination latency under large projections |
-| Status | **PASS in CI** | **Deferred** — not run in GitHub Actions |
-| Rationale | CI Postgres + time budget; k6 scripts exist under `tests/performance/k6/` for platform-wide load, not v2.2 analytics-specific 100k gate |
+**Status:** Harness implemented; execution requires `PERF_100K=1` on disposable Postgres (not run in default CI job).
 
-**Operational note:** Before production flag enablement, run controlled-environment load test with `FREIGHT_COST_ANALYTICS_PROJECTION_ENABLED=true` on a synthetic 100k-order tenant and verify p95 list latency within agreed SLA.
+| Item | Value |
+|------|-------|
+| Test ID | `FC22G1-PERF-001` |
+| Test function | `TestFC22G1_PERF001_100kAnalyticsRebuild` |
+| File | `services/freight-cost-service/internal/integration/analytics/performance_100k_integration_test.go` |
+| Generator seed | `220001` |
+| Tenant | `11111111-1111-4111-8111-111111110001` |
+| Order count | **100,000** |
+| Canonical source | Bulk insert into `cost_summary_projection` |
+| Rebuild path | `RebuildTenant` (full analytics service) |
+| Public API timing | In-test warm-up + 10 iterations (overview, lanes 20/100, carriers 20/100, accessorials, opportunities) |
+| EXPLAIN | `FC22G1-PERF-003` — `EXPLAIN (ANALYZE, BUFFERS)` on lane/carrier/accessorial/opportunity/benchmark/period queries |
+| Runbook | `tests/performance/freight-cost-analytics/README.md` |
+
+```powershell
+$env:TEST_DATABASE_URL = "postgres://rfx_test:rfx_test@localhost:5432/freight_test?sslmode=disable"
+$env:PERF_100K = "1"
+go test -tags=integration ./internal/integration/analytics/... -run TestFC22G1_PERF001 -count=1 -timeout 30m -v
+```
+
+**Verdict rule:** `CONTROLLED_100K_VERIFICATION=PASS` only after successful harness run records rebuild duration and bounded public queries. This is **not** a production SLA certification.
+
+Previous §6 “100k deferred” wording is superseded by this harness; actual numbers are recorded at execution time in CI/controlled run logs.
 
 ---
 
