@@ -30,6 +30,8 @@ test.beforeEach(async ({ page }) => {
     test.skip(true, 'browser E2E env not configured')
   }
   await seedBuyerSession(page)
+  await page.goto('/login')
+  await page.waitForLoadState('domcontentloaded')
 })
 
 test('FC22G1-UI-001 live buyer overview', async ({ page }) => {

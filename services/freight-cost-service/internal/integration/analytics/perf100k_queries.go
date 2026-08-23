@@ -79,10 +79,14 @@ func runPerfPublicQueries(
 		p95 := durations[int(float64(len(durations)-1)*0.95)]
 		t.Logf("%s_P50_MS=%d %s_P95_MS=%d", qc.name, p50.Milliseconds(), qc.name, p95.Milliseconds())
 	}
-	_, err := publicSvc.ListLanes(ctx, actor, mustParseQuery(t, base+"&limit=500"))
-	if err == nil {
-		t.Fatal("expected limit=500 to be rejected (MAX_LIMIT_ENFORCED)")
+	overLimit, err := publicSvc.ListLanes(ctx, actor, mustParseQuery(t, base+"&limit=500"))
+	if err != nil {
+		t.Fatalf("limit=500 query failed: %v", err)
 	}
+	if overLimit.Limit != 100 {
+		t.Fatalf("MAX_LIMIT_ENFORCED expected capped limit 100, got %d", overLimit.Limit)
+	}
+	t.Logf("MAX_LIMIT_ENFORCED=YES limit_cap=%d", overLimit.Limit)
 }
 
 func runPerfExplainPlans(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tenantID, buyerID uuid.UUID) {

@@ -28,6 +28,8 @@ test.beforeEach(async ({ page }) => {
     test.skip(true, 'browser E2E env not configured')
   }
   await seedBuyerSession(page)
+  await page.goto('/login')
+  await page.waitForLoadState('domcontentloaded')
 })
 
 test('FC22G1-UI-008 feature flag off hides workspace', async ({ page }) => {
