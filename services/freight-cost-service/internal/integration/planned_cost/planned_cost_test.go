@@ -174,7 +174,7 @@ func newTestRouter(
 	log := slog.New(slog.DiscardHandler)
 	transportClient := transport_order.NewClient(cfg.TransportOrderURL, cfg.InternalServiceToken, fcmetrics.New())
 	costSvc := service.NewCostService(transportClient, nil)
-	workspaceSvc := service.NewWorkspaceService(nil, costSvc, transportClient)
+	workspaceSvc := service.NewWorkspaceService(nil, nil, costSvc, transportClient)
 	return httpserver.NewRouter(log, nil, cfg, costSvc, nil, nil, nil, workspaceSvc, nil, nil, nil, nil, fcmetrics.New())
 }
 

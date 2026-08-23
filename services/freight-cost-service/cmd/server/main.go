@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/freight-platform/freight-cost-service/internal/client/billing_register"
+	"github.com/freight-platform/freight-cost-service/internal/client/company"
 	"github.com/freight-platform/freight-cost-service/internal/client/payment"
 	"github.com/freight-platform/freight-cost-service/internal/client/transport_order"
 	"github.com/freight-platform/freight-cost-service/internal/config"
@@ -55,23 +56,27 @@ func main() {
 	periodProjRepo := repository.NewAnalyticsPeriodProjectionRepository(db.Pool)
 	laneProjRepo := repository.NewAnalyticsLanePeriodProjectionRepository(db.Pool)
 	carrierProjRepo := repository.NewAnalyticsCarrierPeriodProjectionRepository(db.Pool)
+	accessorialFactRepo := repository.NewAnalyticsAccessorialFactRepository(db.Pool)
+	accessorialPeriodRepo := repository.NewAnalyticsAccessorialPeriodProjectionRepository(db.Pool)
 	coverageRepo := repository.NewAnalyticsProjectionCoverageRepository(db.Pool)
 	analyticsStateRepo := repository.NewAnalyticsProjectionStateRepository(db.Pool)
 	dirtyQueueRepo := repository.NewAnalyticsDirtyQueueRepository(db.Pool)
 
 	transportClient := transport_order.NewClient(cfg.TransportOrderURL, cfg.InternalServiceToken, domainMetrics)
 	billingClient := billing_register.NewClient(cfg.BillingRegisterURL, cfg.InternalServiceToken, domainMetrics)
+	companyClient := company.NewClient(cfg.CompanyServiceURL, cfg.InternalServiceToken, domainMetrics)
 	paymentClient := payment.NewClient(cfg.PaymentServiceURL, cfg.InternalServiceToken, domainMetrics)
 
 	derivedSvc := service.NewDerivedProjectionService(db.Pool, projectionRepo, attributionRepo, findingRepo, mappingRepo, cursorRepo, billingClient, transportClient, domainMetrics)
 	analyticsSvc := service.NewAnalyticsProjectionService(
 		db.Pool, projectionRepo, orderFactRepo, periodProjRepo, laneProjRepo, carrierProjRepo,
-		coverageRepo, analyticsStateRepo, dirtyQueueRepo, transportClient, domainMetrics,
+		accessorialFactRepo, accessorialPeriodRepo, coverageRepo, analyticsStateRepo, dirtyQueueRepo,
+		mappingRepo, transportClient, companyClient, billingClient, domainMetrics,
 	)
 	ingestSvc := service.NewIngestService(db.Pool, entryRepo, cursorRepo, projectionRepo, derivedSvc, analyticsSvc, domainMetrics)
 	rebuildSvc := service.NewRebuildService(ingestSvc, derivedSvc, transportClient, billingClient, paymentClient, domainMetrics)
 	costSvc := service.NewCostService(transportClient, projectionRepo)
-	workspaceSvc := service.NewWorkspaceService(projectionRepo, costSvc, transportClient)
+	workspaceSvc := service.NewWorkspaceService(projectionRepo, orderFactRepo, costSvc, transportClient)
 	analyticsWorker := fcworker.NewAnalyticsProjectionWorker(cfg.AnalyticsProjection, analyticsSvc, analyticsStateRepo, log)
 
 	router := httpserver.NewRouter(log, db.Pool, cfg, costSvc, ingestSvc, rebuildSvc, derivedSvc, workspaceSvc, mappingRepo, analyticsSvc, analyticsWorker, analyticsStateRepo, domainMetrics)

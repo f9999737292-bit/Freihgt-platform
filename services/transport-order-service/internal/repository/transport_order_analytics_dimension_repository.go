@@ -13,6 +13,7 @@ const MaxAnalyticsDimensionBatchSize = 500
 
 type TransportOrderAnalyticsDimension struct {
 	TransportOrderID   uuid.UUID
+	OrderNumber        *string
 	OriginCountry      string
 	OriginCity         *string
 	DestinationCountry string
@@ -43,6 +44,7 @@ func (r *TransportOrderAnalyticsDimensionRepository) BatchGetByTransportOrderIDs
 	query := `
 		SELECT
 			orders.id,
+			orders.order_number,
 			orig.country_code,
 			orig.city,
 			dest.country_code,
@@ -68,6 +70,7 @@ func (r *TransportOrderAnalyticsDimensionRepository) BatchGetByTransportOrderIDs
 		var item TransportOrderAnalyticsDimension
 		if err := rows.Scan(
 			&item.TransportOrderID,
+			&item.OrderNumber,
 			&item.OriginCountry,
 			&item.OriginCity,
 			&item.DestinationCountry,

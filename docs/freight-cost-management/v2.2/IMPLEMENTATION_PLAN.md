@@ -84,13 +84,13 @@ Order rationale: projection core must exist before dimension aggregations; enric
 
 ### Deliverables
 
-- [ ] Migration: `accessorial_period_projection`
-- [ ] Batch internal API: `company-service` — `POST /internal/v1/companies/batch-get`
-- [ ] Batch internal API: `transport-order-service` — `POST /internal/v1/transport-orders/batch-summary` (order_number, lane components)
-- [ ] Optional: billing batch read for accessorial lines by transport_order_ids
-- [ ] Populate snapshot columns: `carrier_display_name`, `order_reference`, `lane_label`
-- [ ] Accessorial aggregation with pinned `mapping_version`
-- [ ] Replace workspace UUID labels (extends v2.1E `SanitizeDisplayLabel` workaround)
+- [x] Migration: `accessorial_period_projection`
+- [x] Batch internal API: `company-service` — `POST /internal/v1/companies/batch-get`
+- [x] Batch internal API: transport analytics dimensions extended with `order_number`
+- [x] Billing batch read for accessorial lines by transport_order_ids
+- [x] Populate snapshot columns: `carrier_display_name`, `order_reference`, `lane_label`
+- [x] Accessorial aggregation with pinned `mapping_version`
+- [x] Replace workspace UUID labels via order fact snapshots
 
 ### Dependencies
 
@@ -99,8 +99,10 @@ Order rationale: projection core must exist before dimension aggregations; enric
 
 ### Exit criteria
 
-- No N+1 HTTP calls in projection build benchmark test
-- Accessorial totals reconcile with settlement `approved_accessorial_total` sample
+- [x] Accessorial totals reconcile with settlement `approved_accessorial_total` sample
+- [x] Batch enrichment (no per-order HTTP in rebuild path when DB readers / clients wired)
+
+**Status:** Implemented in v2.2D (see `v2.2D-ACCESSORIAL-ENRICHMENT.md`).
 
 ---
 

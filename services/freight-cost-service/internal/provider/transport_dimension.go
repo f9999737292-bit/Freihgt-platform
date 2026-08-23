@@ -6,10 +6,10 @@ import (
 	"github.com/google/uuid"
 )
 
-// TransportOrderAnalyticsDimension holds authoritative transport dimensions for v2.2C analytics.
-// Display fields (order_number, carrier name, lane_label) are intentionally omitted (v2.2D).
+// TransportOrderAnalyticsDimension holds authoritative transport dimensions for analytics.
 type TransportOrderAnalyticsDimension struct {
 	TransportOrderID   uuid.UUID
+	OrderNumber        *string
 	OriginCountry      string
 	OriginCity         *string
 	DestinationCountry string

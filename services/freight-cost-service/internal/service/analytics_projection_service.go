@@ -19,18 +19,23 @@ import (
 )
 
 type AnalyticsProjectionService struct {
-	pool              *pgxpool.Pool
-	summaries         *repository.CostSummaryProjectionRepository
-	orderFacts        *repository.AnalyticsOrderFactRepository
-	periods           *repository.AnalyticsPeriodProjectionRepository
-	lanes             *repository.AnalyticsLanePeriodProjectionRepository
-	carriers          *repository.AnalyticsCarrierPeriodProjectionRepository
-	coverage          *repository.AnalyticsProjectionCoverageRepository
-	state             *repository.AnalyticsProjectionStateRepository
-	dirty             *repository.AnalyticsDirtyQueueRepository
-	dimensions        provider.TransportDimensionReader
-	metrics           *fcmetrics.Metrics
-	projectionVersion int
+	pool               *pgxpool.Pool
+	summaries          *repository.CostSummaryProjectionRepository
+	orderFacts         *repository.AnalyticsOrderFactRepository
+	periods            *repository.AnalyticsPeriodProjectionRepository
+	lanes              *repository.AnalyticsLanePeriodProjectionRepository
+	carriers           *repository.AnalyticsCarrierPeriodProjectionRepository
+	accessorialFacts   *repository.AnalyticsAccessorialFactRepository
+	accessorialPeriods *repository.AnalyticsAccessorialPeriodProjectionRepository
+	coverage           *repository.AnalyticsProjectionCoverageRepository
+	state              *repository.AnalyticsProjectionStateRepository
+	dirty              *repository.AnalyticsDirtyQueueRepository
+	mappings           *repository.ChargeCodeMappingRepository
+	dimensions         provider.TransportDimensionReader
+	companies          provider.CompanyDisplayReader
+	settlements        provider.SettlementAccessorialReader
+	metrics            *fcmetrics.Metrics
+	projectionVersion  int
 }
 
 func NewAnalyticsProjectionService(
@@ -40,25 +45,35 @@ func NewAnalyticsProjectionService(
 	periods *repository.AnalyticsPeriodProjectionRepository,
 	lanes *repository.AnalyticsLanePeriodProjectionRepository,
 	carriers *repository.AnalyticsCarrierPeriodProjectionRepository,
+	accessorialFacts *repository.AnalyticsAccessorialFactRepository,
+	accessorialPeriods *repository.AnalyticsAccessorialPeriodProjectionRepository,
 	coverage *repository.AnalyticsProjectionCoverageRepository,
 	state *repository.AnalyticsProjectionStateRepository,
 	dirty *repository.AnalyticsDirtyQueueRepository,
+	mappings *repository.ChargeCodeMappingRepository,
 	dimensions provider.TransportDimensionReader,
+	companies provider.CompanyDisplayReader,
+	settlements provider.SettlementAccessorialReader,
 	metrics *fcmetrics.Metrics,
 ) *AnalyticsProjectionService {
 	return &AnalyticsProjectionService{
-		pool:              pool,
-		summaries:         summaries,
-		orderFacts:        orderFacts,
-		periods:           periods,
-		lanes:             lanes,
-		carriers:          carriers,
-		coverage:          coverage,
-		state:             state,
-		dirty:             dirty,
-		dimensions:        dimensions,
-		metrics:           metrics,
-		projectionVersion: domain.AnalyticsProjectionVersion,
+		pool:               pool,
+		summaries:          summaries,
+		orderFacts:         orderFacts,
+		periods:            periods,
+		lanes:              lanes,
+		carriers:           carriers,
+		accessorialFacts:   accessorialFacts,
+		accessorialPeriods: accessorialPeriods,
+		coverage:           coverage,
+		state:              state,
+		dirty:              dirty,
+		mappings:           mappings,
+		dimensions:         dimensions,
+		companies:          companies,
+		settlements:        settlements,
+		metrics:            metrics,
+		projectionVersion:  domain.AnalyticsProjectionVersion,
 	}
 }
 
@@ -133,6 +148,16 @@ func (s *AnalyticsProjectionService) RebuildTenant(ctx context.Context, tenantID
 			return err
 		}
 	}
+	if s.accessorialFacts != nil {
+		if err := s.accessorialFacts.DeleteByTenant(ctx, tx, tenantID); err != nil {
+			return err
+		}
+	}
+	if s.accessorialPeriods != nil {
+		if err := s.accessorialPeriods.DeleteByTenant(ctx, tx, tenantID); err != nil {
+			return err
+		}
+	}
 	if s.coverage != nil {
 		if err := s.coverage.DeleteByTenant(ctx, tx, tenantID); err != nil {
 			return err
@@ -178,6 +203,25 @@ func (s *AnalyticsProjectionService) RebuildTenant(ctx context.Context, tenantID
 		}
 	}
 
+	enrichmentStats, err := s.hydrateTenantOrderFactEnrichment(ctx, tx, tenantID, now)
+	if err != nil {
+		return err
+	}
+	accessorialStats, err := s.rebuildTenantAccessorialFacts(ctx, tx, tenantID, now)
+	if err != nil {
+		return err
+	}
+	if s.accessorialPeriods != nil {
+		if err := s.rebuildAccessorialPeriodProjections(ctx, tx, tenantID, now); err != nil {
+			return err
+		}
+	}
+	if s.accessorialFacts != nil {
+		if err := s.rebuildAccessorialAndEnrichment(ctx, tx, tenantID, now, enrichmentStats, accessorialStats); err != nil {
+			return err
+		}
+	}
+
 	if err := s.dirty.DeleteByTenant(ctx, tx, tenantID); err != nil {
 		return err
 	}
@@ -207,6 +251,7 @@ func (s *AnalyticsProjectionService) ProcessDirtyBatch(ctx context.Context, limi
 	periodSeen := make(map[string]domain.AnalyticsPeriodKey)
 	laneSeen := make(map[string]domain.AnalyticsLanePeriodKey)
 	carrierSeen := make(map[string]domain.AnalyticsCarrierPeriodKey)
+	accessorialSeen := make(map[string]domain.AnalyticsAccessorialPeriodKey)
 	for _, entry := range entries {
 		result, err := s.processDirtyEntry(ctx, entry)
 		if err != nil {
@@ -226,12 +271,18 @@ func (s *AnalyticsProjectionService) ProcessDirtyBatch(ctx context.Context, limi
 			for _, key := range result.carriers {
 				carrierSeen[carrierSliceID(key)] = key
 			}
+			for _, key := range result.accessorials {
+				accessorialSeen[accessorialSliceID(key)] = key
+			}
 		}
 		processed++
 		s.observeIncremental("processed")
 	}
 
 	if err := s.reaggregateAffectedSlices(ctx, periodSeen, laneSeen, carrierSeen); err != nil {
+		return processed, err
+	}
+	if err := s.reaggregateAffectedAccessorialSlices(ctx, accessorialSeen); err != nil {
 		return processed, err
 	}
 	return processed, nil
@@ -251,6 +302,12 @@ func (s *AnalyticsProjectionService) processDirtyEntry(ctx context.Context, entr
 	var previous *domain.AnalyticsOrderFact
 	if prev, prevErr := s.orderFacts.GetByKey(ctx, tx, entry.TenantID, entry.TransportOrderID, entry.CurrencyCode); prevErr == nil {
 		previous = prev
+	}
+	var previousAccessorials []domain.AnalyticsAccessorialFact
+	if s.accessorialFacts != nil {
+		if prevAcc, prevAccErr := s.accessorialFacts.ListByTransportOrder(ctx, tx, entry.TenantID, entry.TransportOrderID); prevAccErr == nil {
+			previousAccessorials = prevAcc
+		}
 	}
 
 	summaryRow, err := s.summaries.GetSummaryRowByTransportOrderTx(ctx, tx, entry.TenantID, entry.TransportOrderID)
@@ -282,8 +339,21 @@ func (s *AnalyticsProjectionService) processDirtyEntry(ctx context.Context, entr
 	if err := s.hydrateSingleOrderFact(ctx, fact); err != nil {
 		return nil, err
 	}
+	if err := s.hydrateSingleOrderFactEnrichment(ctx, fact); err != nil {
+		return nil, err
+	}
 	if err := s.orderFacts.Upsert(ctx, tx, fact); err != nil {
 		return nil, err
+	}
+	if _, err := s.rebuildOrderAccessorialFacts(ctx, tx, fact, now); err != nil {
+		return nil, err
+	}
+	var newAccessorials []domain.AnalyticsAccessorialFact
+	if s.accessorialFacts != nil {
+		newAccessorials, err = s.accessorialFacts.ListByTransportOrder(ctx, tx, entry.TenantID, entry.TransportOrderID)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if err := s.dirty.Delete(ctx, tx, entry); err != nil {
 		return nil, err
@@ -292,6 +362,7 @@ func (s *AnalyticsProjectionService) processDirtyEntry(ctx context.Context, entr
 		return nil, err
 	}
 	slices := collectAffectedSlices(previous, fact)
+	slices.accessorials = collectAffectedAccessorialSlices(previousAccessorials, newAccessorials)
 	return &slices, nil
 }
 

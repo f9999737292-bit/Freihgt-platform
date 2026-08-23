@@ -24,6 +24,7 @@ type batchAnalyticsDimensionsRequest struct {
 
 type batchAnalyticsDimensionItem struct {
 	TransportOrderID   string  `json:"transport_order_id"`
+	OrderNumber        *string `json:"order_number,omitempty"`
 	OriginCountry      string  `json:"origin_country"`
 	OriginCity         *string `json:"origin_city,omitempty"`
 	DestinationCountry string  `json:"destination_country"`
@@ -97,6 +98,7 @@ func (c *Client) BatchGetAnalyticsDimensions(
 			}
 			result[id] = provider.TransportOrderAnalyticsDimension{
 				TransportOrderID:   id,
+				OrderNumber:        item.OrderNumber,
 				OriginCountry:      item.OriginCountry,
 				OriginCity:         item.OriginCity,
 				DestinationCountry: item.DestinationCountry,

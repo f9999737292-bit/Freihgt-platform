@@ -57,16 +57,18 @@ type WorkspaceCarrierPerformanceResult struct {
 
 type WorkspaceService struct {
 	projections *repository.CostSummaryProjectionRepository
+	orderFacts  *repository.AnalyticsOrderFactRepository
 	costs       *CostService
 	transport   provider.TransportOrderPricingProvider
 }
 
 func NewWorkspaceService(
 	projections *repository.CostSummaryProjectionRepository,
+	orderFacts *repository.AnalyticsOrderFactRepository,
 	costs *CostService,
 	transport provider.TransportOrderPricingProvider,
 ) *WorkspaceService {
-	return &WorkspaceService{projections: projections, costs: costs, transport: transport}
+	return &WorkspaceService{projections: projections, orderFacts: orderFacts, costs: costs, transport: transport}
 }
 
 func (s *WorkspaceService) parseFilter(actor security.TrustedActor, values url.Values) repository.WorkspaceListFilter {
@@ -170,6 +172,16 @@ func (s *WorkspaceService) Detail(
 		CarrierName:    summaryView.CarrierCompanyID.String(),
 		UpdatedAt:      now,
 	}
+	if s.orderFacts != nil && summaryView.CurrencyCode != "" {
+		if fact, err := s.orderFacts.GetByTransportOrder(ctx, actor.TenantID, transportOrderID, summaryView.CurrencyCode); err == nil && fact != nil {
+			if fact.OrderReference != nil && strings.TrimSpace(*fact.OrderReference) != "" {
+				result.OrderReference = strings.TrimSpace(*fact.OrderReference)
+			}
+			if fact.CarrierDisplayName != nil && strings.TrimSpace(*fact.CarrierDisplayName) != "" {
+				result.CarrierName = strings.TrimSpace(*fact.CarrierDisplayName)
+			}
+		}
+	}
 	if actor.ActorKind != security.ActorKindCarrier {
 		result.VarianceDrivers = domain.BuildVarianceDrivers(projection, domain.VarianceKindCurrent, domain.DriverAttributionContext{})
 		result.ReconciliationFindings = domain.DetectReconciliationFindings(projection)
@@ -177,8 +189,12 @@ func (s *WorkspaceService) Detail(
 	if s.transport != nil {
 		if snap, err := s.transport.GetRateSnapshot(ctx, actor.TenantID, transportOrderID); err == nil && snap != nil {
 			result.PlannedSource = snap.PricingSource
-			result.OrderReference = snap.TransportOrderID.String()
-			result.CarrierName = snap.CarrierCompanyID.String()
+			if result.OrderReference == transportOrderID.String() {
+				result.OrderReference = snap.TransportOrderID.String()
+			}
+			if result.CarrierName == summaryView.CarrierCompanyID.String() {
+				result.CarrierName = snap.CarrierCompanyID.String()
+			}
 		}
 	}
 	return result, nil

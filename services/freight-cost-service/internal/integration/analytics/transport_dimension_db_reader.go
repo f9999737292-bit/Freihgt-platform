@@ -34,6 +34,7 @@ func (r *dbTransportDimensionReader) BatchGetAnalyticsDimensions(
 	rows, err := r.pool.Query(ctx, `
 		SELECT
 			orders.id,
+			orders.order_number,
 			orig.country_code,
 			orig.city,
 			dest.country_code,
@@ -52,8 +53,10 @@ func (r *dbTransportDimensionReader) BatchGetAnalyticsDimensions(
 	defer rows.Close()
 	for rows.Next() {
 		var item provider.TransportOrderAnalyticsDimension
+		var orderNumber *string
 		if err := rows.Scan(
 			&item.TransportOrderID,
+			&orderNumber,
 			&item.OriginCountry,
 			&item.OriginCity,
 			&item.DestinationCountry,
@@ -63,6 +66,7 @@ func (r *dbTransportDimensionReader) BatchGetAnalyticsDimensions(
 		); err != nil {
 			return nil, err
 		}
+		item.OrderNumber = orderNumber
 		item.TransportMode = strings.ToUpper(strings.TrimSpace(item.TransportMode))
 		result[item.TransportOrderID] = item
 	}

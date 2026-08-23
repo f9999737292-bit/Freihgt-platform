@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -98,6 +99,87 @@ func (h *FreightSettlementInternalHandler) GetBillingLink(w http.ResponseWriter,
 		return
 	}
 	respond.JSON(w, http.StatusOK, toInternalBillingLinkResponse(read))
+}
+
+type batchSettlementsRequest struct {
+	TransportOrderIDs []string `json:"transport_order_ids"`
+}
+
+type batchAccessorialLineResponse struct {
+	AccessorialID string `json:"accessorial_id"`
+	ChargeCode    string `json:"charge_code"`
+	Amount        string `json:"amount"`
+	Status        string `json:"status"`
+	CurrencyCode  string `json:"currency_code"`
+}
+
+type batchSettlementItemResponse struct {
+	TransportOrderID         string                         `json:"transport_order_id"`
+	SettlementID             string                         `json:"settlement_id"`
+	BuyerCompanyID           string                         `json:"buyer_company_id"`
+	CurrencyCode             string                         `json:"currency_code"`
+	ApprovedAccessorialTotal string                         `json:"approved_accessorial_total"`
+	Accessorials             []batchAccessorialLineResponse `json:"accessorials"`
+}
+
+func (h *FreightSettlementInternalHandler) BatchByTransportOrders(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := tenantIDFromInternalRequest(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	var req batchSettlementsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respond.Error(w, apperrors.Validation("invalid request body", map[string]any{"field": "body"}))
+		return
+	}
+	if len(req.TransportOrderIDs) == 0 {
+		respond.Error(w, apperrors.Validation("transport_order_ids is required", map[string]any{"field": "transport_order_ids"}))
+		return
+	}
+	if len(req.TransportOrderIDs) > repository.MaxSettlementBatchSize {
+		respond.Error(w, apperrors.Validation("transport_order_ids exceeds batch limit", map[string]any{
+			"field": "transport_order_ids",
+			"max":   repository.MaxSettlementBatchSize,
+		}))
+		return
+	}
+	ids := make([]uuid.UUID, 0, len(req.TransportOrderIDs))
+	for _, raw := range req.TransportOrderIDs {
+		id, err := domain.ParseUUID(raw, "transport_order_id")
+		if err != nil {
+			respond.Error(w, err)
+			return
+		}
+		ids = append(ids, id)
+	}
+	items, err := h.settlements.BatchGetInternalByTransportOrders(r.Context(), tenantID, ids)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	responseItems := make([]batchSettlementItemResponse, 0, len(items))
+	for _, item := range items {
+		lines := make([]batchAccessorialLineResponse, 0, len(item.Accessorials))
+		for _, line := range item.Accessorials {
+			lines = append(lines, batchAccessorialLineResponse{
+				AccessorialID: line.AccessorialID.String(),
+				ChargeCode:    line.ChargeCode,
+				Amount:        line.Amount,
+				Status:        line.Status,
+				CurrencyCode:  line.CurrencyCode,
+			})
+		}
+		responseItems = append(responseItems, batchSettlementItemResponse{
+			TransportOrderID:         item.TransportOrderID.String(),
+			SettlementID:             item.SettlementID.String(),
+			BuyerCompanyID:           item.BuyerCompanyID.String(),
+			CurrencyCode:             item.CurrencyCode,
+			ApprovedAccessorialTotal: item.ApprovedAccessorialTotal,
+			Accessorials:             lines,
+		})
+	}
+	respond.JSON(w, http.StatusOK, map[string]any{"items": responseItems})
 }
 
 func tenantIDFromInternalRequest(r *http.Request) (uuid.UUID, error) {
