@@ -304,6 +304,37 @@ func scanCompany(row scannable) (*domain.Company, error) {
 	return &company, nil
 }
 
+type CompanyDisplayRow struct {
+	ID        uuid.UUID
+	LegalName string
+	ShortName *string
+	Status    string
+}
+
+func (r *CompanyRepository) BatchGetByIDs(ctx context.Context, tenantID uuid.UUID, companyIDs []uuid.UUID) ([]CompanyDisplayRow, error) {
+	if len(companyIDs) == 0 {
+		return nil, nil
+	}
+	const query = `
+		SELECT id, legal_name, short_name, status
+		FROM core.companies
+		WHERE tenant_id = $1 AND id = ANY($2) AND deleted_at IS NULL`
+	rows, err := r.pool.Query(ctx, query, tenantID, companyIDs)
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	defer rows.Close()
+	var out []CompanyDisplayRow
+	for rows.Next() {
+		var row CompanyDisplayRow
+		if err := rows.Scan(&row.ID, &row.LegalName, &row.ShortName, &row.Status); err != nil {
+			return nil, mapDBError(err)
+		}
+		out = append(out, row)
+	}
+	return out, mapDBError(rows.Err())
+}
+
 func mapDBError(err error) error {
 	if err == nil {
 		return nil

@@ -6,8 +6,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/freight-platform/company-service/internal/config"
 	"github.com/freight-platform/company-service/internal/http/handlers"
+	"github.com/freight-platform/company-service/internal/repository"
 	"github.com/freight-platform/company-service/internal/service"
+	"github.com/freight-platform/shared-go/internalauth"
 	"github.com/freight-platform/shared-go/metrics"
 	"github.com/freight-platform/shared-go/observability"
 	sharedpprof "github.com/freight-platform/shared-go/pprof"
@@ -18,11 +21,15 @@ const serviceName = "company-service"
 func NewRouter(
 	log *slog.Logger,
 	db observability.DatabasePinger,
+	cfg config.Config,
+	companyRepo *repository.CompanyRepository,
 	companyService *service.CompanyService,
 	membershipService *service.MembershipService,
 ) http.Handler {
 	companyHandler := handlers.NewCompanyHandler(companyService)
 	membershipHandler := handlers.NewMembershipHandler(membershipService)
+	companyInternalHandler := handlers.NewCompanyInternalHandler(companyRepo)
+	internalAuth := internalauth.Config{Token: cfg.InternalServiceToken, Environment: cfg.Environment}
 
 	r := chi.NewRouter()
 	observability.Mount(r, observability.MountOptions{
@@ -43,6 +50,11 @@ func NewRouter(
 		r.Get("/{id}", companyHandler.GetByID)
 		r.Patch("/{id}", companyHandler.Update)
 		r.Delete("/{id}", companyHandler.Delete)
+	})
+
+	r.Route("/internal/v1/companies", func(r chi.Router) {
+		r.Use(internalAuth.Middleware)
+		r.Post("/batch-get", companyInternalHandler.BatchGet)
 	})
 
 	return r

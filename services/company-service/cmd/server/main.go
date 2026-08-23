@@ -43,7 +43,7 @@ func main() {
 	membershipRepo := repository.NewMembershipRepository(db.Pool)
 	companyService := service.NewCompanyService(repo)
 	membershipService := service.NewMembershipService(repo, membershipRepo)
-	router := httpserver.NewRouter(log, db.Pool, companyService, membershipService)
+	router := httpserver.NewRouter(log, db.Pool, cfg, repo, companyService, membershipService)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),
