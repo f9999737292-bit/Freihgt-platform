@@ -4,6 +4,7 @@ package analytics
 
 import (
 	"context"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -61,9 +62,7 @@ func TestFC22G1_BrowserE2E_LiveBuyerFlow(t *testing.T) {
 	}
 	flagOffURL, flagOffCmd := startBrowserWebProcurement(t, stack.gatewayURL, stack.fixture, "3011", false)
 	t.Cleanup(func() {
-		if flagOffCmd != nil && flagOffCmd.Process != nil {
-			_ = flagOffCmd.Process.Kill()
-		}
+		stopBrowserWebProcurement(flagOffCmd)
 	})
 	waitForHTTP200(t, flagOffURL+"/login", 120*time.Second)
 	if err := runPlaywrightSuite(t, flagOffURL, "FC22G1-UI-008", stack.fixture); err != nil {
@@ -74,15 +73,22 @@ func TestFC22G1_BrowserE2E_LiveBuyerFlow(t *testing.T) {
 func (s *browserLiveStack) shutdown() {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	if s.webCmd != nil && s.webCmd.Process != nil {
-		_ = s.webCmd.Process.Kill()
-	}
+	stopBrowserWebProcurement(s.webCmd)
 	if s.gatewaySrv != nil {
 		_ = s.gatewaySrv.Shutdown(ctx)
 	}
 	if s.freightCostSrv != nil {
 		_ = s.freightCostSrv.Shutdown(ctx)
 	}
+}
+
+func stopBrowserWebProcurement(cmd *exec.Cmd) {
+	if cmd == nil || cmd.Process == nil {
+		return
+	}
+	cmd.WaitDelay = 0
+	_ = cmd.Process.Kill()
+	_, _ = cmd.Wait()
 }
 
 func startBrowserLiveStack(t *testing.T) *browserLiveStack {
@@ -190,8 +196,9 @@ func startBrowserWebProcurement(t *testing.T, gatewayURL string, fix browserFixt
 	}
 	env = append(env, "NUXT_E2E_DISABLE_SSR=true")
 	cmd.Env = append(os.Environ(), env...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = io.Discard
+	cmd.Stderr = io.Discard
+	cmd.WaitDelay = 0
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("start web dev: %v", err)
 	}
