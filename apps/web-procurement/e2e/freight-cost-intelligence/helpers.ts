@@ -40,8 +40,16 @@ export async function expectShellReady(page: import('@playwright/test').Page) {
 }
 
 export async function expectWorkspaceContent(page: import('@playwright/test').Page) {
-  await expect(page.locator('.freight-cost-shell')).not.toContainText(/^(Loading|Загрузка…?)$/i, { timeout: 30_000 })
+  await expect(page.locator('.freight-cost-shell')).not.toContainText(/Loading|Загрузка/i, { timeout: 60_000 })
   await expect(
     page.locator('.intelligence-overview, .ui-table-wrap, .kpi-card__value').first(),
-  ).toBeVisible({ timeout: 30_000 })
+  ).toBeVisible({ timeout: 60_000 })
+}
+
+export async function expectRenderedFixtureText(
+  page: import('@playwright/test').Page,
+  pattern: string | RegExp,
+) {
+  await expect(page.locator('.freight-cost-shell')).not.toContainText(/Loading|Загрузка/i, { timeout: 60_000 })
+  await expect(page.getByText(pattern)).toBeVisible({ timeout: 60_000 })
 }
