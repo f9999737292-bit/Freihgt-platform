@@ -275,7 +275,7 @@ describe('FC-D-INT list load lifecycle', () => {
     expect(lanes).toContain('onMounted')
     expect(lanes).toContain('watch(')
     expect(lanes).not.toContain('{ immediate: true }')
-    expect(lanes).not.toContain('useFreightCostIntelligenceListLoad')
+    expect(lanes).toContain('FreightCostIntelligenceLaneTable')
     expect(lanes).not.toContain('<ClientOnly>')
   })
 

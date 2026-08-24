@@ -76,7 +76,7 @@ const viewState = computed(() => resolveFreightCostIntelligenceListViewState({
         :mixed-currency="response.mixed_currency"
         :freshness="response.freshness"
       />
-      <FreightCostOpportunitiesTable
+      <FreightCostIntelligenceOpportunitiesTable
         :items="response.items"
         :live-unavailable="liveUnavailable"
       />
