@@ -63,6 +63,7 @@ func TestAuthDisabledAllowsProtectedRoute(t *testing.T) {
 }
 
 func TestAuthEnabledProtectedRouteWithoutTokenReturns401(t *testing.T) {
+	// FP-AUTH-002 missing JWT
 	handler := middleware.Auth(true, "secret")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("handler should not be called")
 	}))
@@ -71,6 +72,66 @@ func TestAuthEnabledProtectedRouteWithoutTokenReturns401(t *testing.T) {
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status=%d want 401", rec.Code)
+	}
+}
+
+func TestFP_AUTH_003_MalformedJWT(t *testing.T) {
+	handler := middleware.Auth(true, "secret")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("handler should not be called")
+	}))
+
+	for _, token := range []string{"not-a-jwt", "Bearer", "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1In0."} {
+		t.Run(token, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/companies", nil)
+			req.Header.Set("Authorization", "Bearer "+token)
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+			if rec.Code != http.StatusUnauthorized {
+				t.Fatalf("status=%d want 401 for malformed token %q", rec.Code, token)
+			}
+		})
+	}
+}
+
+func TestFP_AUTH_004_ExpiredJWT(t *testing.T) {
+	secret := "test-secret"
+	claims := jwt.MapClaims{
+		"tenant_id": "tenant-a",
+		"email":     "user@example.com",
+		"sub":       "user-id",
+		"exp":       time.Now().Add(-time.Hour).Unix(),
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signed, err := token.SignedString([]byte(secret))
+	if err != nil {
+		t.Fatalf("sign token: %v", err)
+	}
+
+	handler := middleware.Auth(true, secret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("handler should not be called")
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/companies", nil)
+	req.Header.Set("Authorization", "Bearer "+signed)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status=%d want 401", rec.Code)
+	}
+}
+
+func TestFP_AUTH_005_InvalidSignature(t *testing.T) {
+	token := signToken(t, "correct-secret", "user-id", "tenant-id", "user@example.com")
+	handler := middleware.Auth(true, "wrong-secret")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("handler should not be called")
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/companies", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status=%d want 401", rec.Code)
 	}
@@ -113,6 +174,7 @@ func TestAuthEnabledOpenAPIDocsRouteAllowed(t *testing.T) {
 }
 
 func TestAuthEnabledValidTokenSetsHeaders(t *testing.T) {
+	// FP-AUTH-001 valid JWT
 	secret := "test-secret"
 	token := signToken(t, secret, "user-id", "tenant-id", "user@example.com")
 
@@ -145,6 +207,7 @@ func TestAuthEnabledValidTokenSetsHeaders(t *testing.T) {
 }
 
 func TestAuthEnabledStripsSpoofedIdentityHeaders(t *testing.T) {
+	// FP-SEC-016 tenant/user header spoof — verified context from JWT only
 	secret := "test-secret"
 	token := signToken(t, secret, "user-id", "tenant-a", "user@example.com")
 
@@ -155,6 +218,12 @@ func TestAuthEnabledStripsSpoofedIdentityHeaders(t *testing.T) {
 		if got := r.Header.Get("X-User-ID"); got != "user-id" {
 			t.Fatalf("user header=%q want user-id", got)
 		}
+		if spoofed := r.Header.Get("X-Platform-Admin"); spoofed != "" {
+			t.Fatalf("X-Platform-Admin must be stripped, got %q", spoofed)
+		}
+		if spoofed := r.Header.Get("X-Role"); spoofed != "" {
+			t.Fatalf("X-Role must be stripped, got %q", spoofed)
+		}
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -164,6 +233,8 @@ func TestAuthEnabledStripsSpoofedIdentityHeaders(t *testing.T) {
 	req.Header.Set("X-User-ID", "spoofed-user")
 	req.Header.Set("X-User-Email", "spoofed@example.com")
 	req.Header.Set("X-Company-ID", "company-b")
+	req.Header.Set("X-Platform-Admin", "true")
+	req.Header.Set("X-Role", "PLATFORM_ADMIN")
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
