@@ -26,7 +26,6 @@ const featureBody = computed(() => {
     <div class="ui-empty">
       <h3>{{ featureTitle }}</h3>
       <p>{{ featureBody }}</p>
-      <p class="feature-flag-env-hint">{{ featureFlagEnvVar }}</p>
     </div>
   </div>
 </template>
@@ -45,10 +44,5 @@ const featureBody = computed(() => {
 .ui-empty h3 {
   margin: 0 0 0.75rem;
   color: var(--color-text);
-}
-
-.feature-flag-env-hint {
-  margin: 1rem 0 0;
-  font-size: 0.8125rem;
 }
 </style>
