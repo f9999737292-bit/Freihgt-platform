@@ -23,21 +23,18 @@ const response = ref<FreightCostAnalyticsAccessorialsResponse | null>(null)
 async function loadAccessorials() {
   if (!currentCompanyId.value) return
   const query = routeQuery.value
-  response.value = await runLoad(() => getFreightCostAnalyticsAccessorials({
+  const result = await runLoad(() => getFreightCostAnalyticsAccessorials({
     company_id: currentCompanyId.value!,
     currency: query.currency,
     limit: query.limit,
     offset: query.offset,
   }))
+  if (result) {
+    response.value = result
+  }
 }
 
-onMounted(() => {
-  void loadAccessorials()
-})
-
-watch(() => routeQuery.value, () => {
-  void loadAccessorials()
-}, { deep: true })
+useFreightCostIntelligenceRouteQueryWatcher(loadAccessorials)
 
 const viewState = computed(() => resolveFreightCostIntelligenceListViewState({
   loading: loading.value,

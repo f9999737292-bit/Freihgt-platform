@@ -46,10 +46,15 @@ export async function expectWorkspaceContent(page: import('@playwright/test').Pa
   ).toBeVisible({ timeout: 60_000 })
 }
 
+export async function expectIntelligenceTableReady(page: import('@playwright/test').Page) {
+  await expect(page.locator('.freight-cost-shell')).not.toContainText(/Loading|Загрузка/i, { timeout: 60_000 })
+  await expect(page.locator('.ui-table-wrap tbody tr').first()).toBeVisible({ timeout: 60_000 })
+}
+
 export async function expectRenderedFixtureText(
   page: import('@playwright/test').Page,
   pattern: string | RegExp,
 ) {
-  await expect(page.locator('.freight-cost-shell')).not.toContainText(/Loading|Загрузка/i, { timeout: 60_000 })
+  await expectIntelligenceTableReady(page)
   await expect(page.getByText(pattern)).toBeVisible({ timeout: 60_000 })
 }

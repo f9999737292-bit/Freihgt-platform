@@ -23,21 +23,18 @@ const response = ref<FreightCostAnalyticsLanesResponse | null>(null)
 async function loadLanes() {
   if (!currentCompanyId.value) return
   const query = routeQuery.value
-  response.value = await runLoad(() => getFreightCostAnalyticsLanes({
+  const result = await runLoad(() => getFreightCostAnalyticsLanes({
     company_id: currentCompanyId.value!,
     currency: query.currency,
     limit: query.limit,
     offset: query.offset,
   }))
+  if (result) {
+    response.value = result
+  }
 }
 
-onMounted(() => {
-  void loadLanes()
-})
-
-watch(() => routeQuery.value, () => {
-  void loadLanes()
-}, { deep: true })
+useFreightCostIntelligenceRouteQueryWatcher(loadLanes)
 
 const viewState = computed(() => resolveFreightCostIntelligenceListViewState({
   loading: loading.value,

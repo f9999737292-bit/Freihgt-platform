@@ -119,7 +119,9 @@ export function resolveFreightCostIntelligenceListViewState(
   if (input.forbidden) return 'forbidden'
   if (input.liveUnavailable) return 'live_unavailable'
   if (input.apiUnavailable) return 'backend_unavailable'
-  if (String(input.dataQuality ?? '').toUpperCase() === 'NOT_AVAILABLE') return 'not_available'
+  if (String(input.dataQuality ?? '').toUpperCase() === 'NOT_AVAILABLE' && input.itemCount === 0) {
+    return 'not_available'
+  }
   if (input.mixedCurrency && input.itemCount === 0) return 'mixed_currency'
   if (input.itemCount === 0) return 'empty'
   return 'ready'

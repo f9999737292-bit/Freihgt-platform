@@ -100,7 +100,7 @@ test('FC22G1-UI-004 live accessorials', async ({ page }) => {
 
 test('FC22G1-UI-005 live opportunities', async ({ page }) => {
   const opportunitiesResp = page.waitForResponse((resp) =>
-    resp.url().includes('/opportunities') && resp.url().includes('currency=RUB') && resp.status() === 200,
+    resp.url().includes('/api/v1/freight-costs/opportunities') && resp.status() === 200,
   )
   await page.goto('/freight-costs/opportunities?currency=RUB', { waitUntil: 'networkidle' })
   const body = await (await opportunitiesResp).json()

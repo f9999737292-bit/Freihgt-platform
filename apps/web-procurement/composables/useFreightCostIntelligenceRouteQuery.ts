@@ -13,3 +13,21 @@ export function useFreightCostIntelligenceRouteQuery() {
     }
   })
 }
+
+export function useFreightCostIntelligenceRouteQueryWatcher(reload: () => void | Promise<void>) {
+  const route = useRoute()
+  const { currentCompanyId } = useTenantContext()
+
+  watch(
+    () => [
+      currentCompanyId.value,
+      route.query.currency,
+      route.query.limit,
+      route.query.offset,
+    ] as const,
+    () => {
+      void reload()
+    },
+    { immediate: true },
+  )
+}

@@ -23,21 +23,18 @@ const response = ref<FreightCostAnalyticsCarriersResponse | null>(null)
 async function loadCarriers() {
   if (!currentCompanyId.value) return
   const query = routeQuery.value
-  response.value = await runLoad(() => getFreightCostAnalyticsCarriers({
+  const result = await runLoad(() => getFreightCostAnalyticsCarriers({
     company_id: currentCompanyId.value!,
     currency: query.currency,
     limit: query.limit,
     offset: query.offset,
   }))
+  if (result) {
+    response.value = result
+  }
 }
 
-onMounted(() => {
-  void loadCarriers()
-})
-
-watch(() => routeQuery.value, () => {
-  void loadCarriers()
-}, { deep: true })
+useFreightCostIntelligenceRouteQueryWatcher(loadCarriers)
 
 const viewState = computed(() => resolveFreightCostIntelligenceListViewState({
   loading: loading.value,

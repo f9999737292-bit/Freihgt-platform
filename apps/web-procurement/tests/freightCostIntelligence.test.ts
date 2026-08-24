@@ -169,6 +169,32 @@ describe('FC-D-INT view states', () => {
     })).toBe('ready')
   })
 
+  it('FC-D-INT-VST-002b list not available with items still ready', () => {
+    expect(resolveFreightCostIntelligenceListViewState({
+      loading: false,
+      missingCompany: false,
+      forbidden: false,
+      liveUnavailable: false,
+      apiUnavailable: false,
+      dataQuality: 'NOT_AVAILABLE',
+      mixedCurrency: false,
+      itemCount: 2,
+    })).toBe('ready')
+  })
+
+  it('FC-D-INT-VST-002c list not available without items', () => {
+    expect(resolveFreightCostIntelligenceListViewState({
+      loading: false,
+      missingCompany: false,
+      forbidden: false,
+      liveUnavailable: false,
+      apiUnavailable: false,
+      dataQuality: 'NOT_AVAILABLE',
+      mixedCurrency: false,
+      itemCount: 0,
+    })).toBe('not_available')
+  })
+
   it('FC-D-INT-VST-003 list mixed currency with no items', () => {
     expect(resolveFreightCostIntelligenceListViewState({
       loading: false,
