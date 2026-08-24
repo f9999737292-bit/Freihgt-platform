@@ -1,9 +1,39 @@
 # FREIGHT COST INTELLIGENCE v2.2 — Controlled Rollout Report
 
-**Date:** 2026-08-24  
+**Date:** 2026-08-24 (updated: pilot infrastructure remediation session)  
 **Release engineer / pilot owner:** Cursor ops session  
 **Approved technical baseline:** `37c2eb62ccf9377359eb5c2fdf6f71eb9d187140` (main, PR #60 merged)  
+**Ops PR:** [#61](https://github.com/f9999737292-bit/Freihgt-platform/pull/61)  
 **Scope:** NON-PRODUCTION validation & release readiness — **no production mutation**
+
+---
+
+## Remediation session (F22R001–F22R003)
+
+| Attempt | Result |
+|---------|--------|
+| SSH → CT VM `161.104.57.152` | **TIMEOUT** (port 22, BatchMode) — no VM access from this workstation |
+| SSH → shared VPS `161.104.53.221` | **TIMEOUT** — not used (prod-adjacency risk) |
+| Disposable migration drill (local Docker) | **BLOCKED** — Docker daemon pipe unavailable (`dockerDesktopLinuxEngine`) |
+| Registry publish | **NOT EXECUTED** — requires operator `docker login cr.selcloud.ru` on trusted host |
+| Live phased pilot on CT | **NOT EXECUTED** — blocked by SSH + incomplete CT runtime |
+
+**Ops artifacts delivered in PR #61 (remediation commit):**
+
+- `apps/web-procurement/Dockerfile` — staging/pilot packaging (F22R003 deploy path)
+- `docker-compose.bintrans-freight-cost-pilot.yml` — CT VM overlay
+- `prometheus.freight-cost-pilot.yml` — freight-cost scrape target
+- `scripts/ops/freight_cost_pilot/{migration_drill,build_v22_images,image_smoke,publish_v22_images_guide,ct_pilot_preflight}.sh`
+
+**Finding status after remediation:**
+
+| ID | Status |
+|----|--------|
+| F22R001 | **OPEN** — runtime not deployed on CT VM |
+| F22R002 | **OPEN** — images not published/digest-pinned to registry |
+| F22R003 | **OPEN** — web-procurement not deployed to staging (Dockerfile + compose path ready) |
+| F22R007 | **NEW HIGH** — CT VM SSH unreachable from operator workstation |
+| F22R008 | **NEW MEDIUM** — local Docker daemon unavailable for disposable drill in session |
 
 ---
 

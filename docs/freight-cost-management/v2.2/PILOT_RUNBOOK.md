@@ -263,4 +263,30 @@ If **dedicated pilot VM** and validation PASS: flags may remain ON per operator 
 
 Pilot PASS requires all gates in `CONTROLLED_ROLLOUT_REPORT.md` § PASS rule, including live deployed API/browser/rollback on approved non-prod target.
 
-**Current status (2026-08-24):** runbook ready; **execution blocked** until CT staging reaches migration 64 + freight-cost runtime (see F22R001–003).
+**Operator execution on CT VM (after SSH + Docker available on trusted host):**
+
+```bash
+# 1. Preflight on VM
+./scripts/ops/freight_cost_pilot/ct_pilot_preflight.sh
+
+# 2. Disposable migration drill (off-VM or lab)
+POSTGRES_PORT=55432 ./scripts/ops/freight_cost_pilot/migration_drill.sh
+
+# 3. Build images
+PILOT_GIT_SHA=37c2eb62ccf9377359eb5c2fdf6f71eb9d187140 ./scripts/ops/freight_cost_pilot/build_v22_images.sh
+
+# 4. Publish (manual push after docker login)
+./scripts/ops/freight_cost_pilot/publish_v22_images_guide.sh
+
+# 5. Deploy Phase 1 (flags OFF) — CT overlay stack
+docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.bintrans-ct-staging.yml \
+  -f docker-compose.bintrans-ct-staging-images.yml \
+  -f docker-compose.freight-cost-pilot.yml \
+  -f docker-compose.bintrans-freight-cost-pilot.yml \
+  --env-file /protected/bintrans/control-tower-observation/staging.env \
+  -p bintrans-ct-staging up -d
+```
+
+**Current status (2026-08-24 remediation):** runbooks and compose paths ready; **live pilot blocked** — see F22R007/F22R008.

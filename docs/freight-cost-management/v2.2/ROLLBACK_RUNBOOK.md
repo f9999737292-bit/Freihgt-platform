@@ -207,5 +207,17 @@ Record timestamps and observer.
 
 - Feature flags: `services/freight-cost-service/internal/config/config.go`, `apps/web-procurement/nuxt.config.ts`
 - Pilot overlay: `infrastructure/docker-compose/docker-compose.freight-cost-pilot.yml`
+- CT overlay: `infrastructure/docker-compose/docker-compose.bintrans-freight-cost-pilot.yml`
 - CT staging ops: `scripts/ops/bintrans_ct_staging/`
+- v2.2 pilot ops: `scripts/ops/freight_cost_pilot/`
 - CI DR proof: main run 32760837345, job `freight-cost-analytics-final-e2e`
+
+### freight-cost-service rollback (new component)
+
+There is **no prior freight-cost image**. Rollback procedure:
+
+1. `FREIGHT_COST_ANALYTICS_PROJECTION_ENABLED=false` + restart service
+2. Stop/remove `freight-cost-service` container
+3. Remove `FREIGHT_COST_SERVICE_URL` dependency from gateway if reverting gateway only
+4. Derived analytics tables remain but worker off → fail-closed semantics
+5. **Do not** roll back canonical `freight_cost.cost_entry` / `cost_summary_projection`
