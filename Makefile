@@ -75,6 +75,7 @@ K6 ?= k6
 	messaging-up messaging-down messaging-status shipment-kafka-topic-create \
 	test-document-service test-billing-register-service test-payment-service test-contract-rate-service test-low-code-service test-api-gateway \
 	integration-smoke-test full-flow-smoke-test lowcode-runtime-compliance-test check-lowcode-headers seed-dev-admin seed-demo-data seed-lowcode-demo create-lowcode-draft-template \
+	system-test-design-check system-test-preflight system-test-smoke system-test-golden-skeleton staging-acceptance-pack \
 	project-map tree-project find-service find-text \
 	openapi-generate openapi-generate-json openapi-validate openapi-check api-docs-open \
 	install-web-admin run-web-admin build-web-admin test-web-admin setup-node
@@ -151,6 +152,11 @@ help:
 	@echo ""
 	@echo "Integration:"
 	@echo "  make integration-smoke-test   Run end-to-end smoke test (all services must be up)"
+	@echo "  make system-test-design-check Validate master test plan artifacts"
+	@echo "  make system-test-preflight    Check disposable stack readiness for system tests"
+	@echo "  make system-test-smoke        Alias for integration-smoke-test"
+	@echo "  make system-test-golden-skeleton  FP-E2E-GOLDEN-001 scaffold (DRY_RUN=1 default)"
+	@echo "  make staging-acceptance-pack  Staging execution checklist (when SSH restored)"
 	@echo "  make lowcode-runtime-compliance-test  Verify low-code runtime does not mutate core entities"
 	@echo "  make check-lowcode-headers            Verify low-code runtime headers contract"
 	@echo "  make seed-dev-admin           Create dev tenant admin (idempotent)"
@@ -677,6 +683,20 @@ check-lowcode-headers:
 
 full-flow-smoke-test:
 	"$(BASH)" tests/integration/full-flow-smoke-test.sh
+
+system-test-design-check:
+	"$(BASH)" scripts/test/system-test-design-check.sh
+
+system-test-preflight:
+	"$(BASH)" scripts/test/system-test-preflight.sh
+
+system-test-smoke: integration-smoke-test
+
+system-test-golden-skeleton:
+	"$(BASH)" tests/system/golden/fp_e2e_golden_001.sh
+
+staging-acceptance-pack:
+	"$(BASH)" scripts/test/staging-acceptance-pack.sh
 
 seed-dev-admin:
 	"$(BASH)" scripts/dev/seed_dev_admin.sh

@@ -939,6 +939,10 @@ jobs:
             tests/integration/run-upd-400-repro.sh
             tests/integration/upd-400-repro.sh
             scripts/dev/seed_dev_admin.sh
+            scripts/test/system-test-design-check.sh
+            scripts/test/system-test-preflight.sh
+            scripts/test/staging-acceptance-pack.sh
+            tests/system/golden/fp_e2e_golden_001.sh
           )
           MISSING=()
           for script in "${SCRIPTS[@]}"; do
