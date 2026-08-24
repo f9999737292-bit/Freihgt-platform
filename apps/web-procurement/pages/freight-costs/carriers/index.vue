@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import type { FreightCostAnalyticsCarriersResponse } from '~/types/freightCost'
 import { resolveFreightCostIntelligenceListViewState } from '~/utils/freightCostIntelligence'
 
 definePageMeta({ middleware: ['auth', 'freight-cost-workspace'], layout: 'default' })
 
 const { t } = useI18n()
+const { currentCompanyId } = useTenantContext()
 const { getFreightCostAnalyticsCarriers } = useFreightCostAnalyticsApi()
 const {
   actor,
@@ -15,10 +17,35 @@ const {
   runLoad,
 } = useFreightCostPageContext()
 
-const { response } = useFreightCostIntelligenceListLoad(
-  (query) => getFreightCostAnalyticsCarriers(query),
-  runLoad,
+const routeQuery = useFreightCostIntelligenceRouteQuery()
+const route = useRoute()
+const response = ref<FreightCostAnalyticsCarriersResponse | null>(null)
+
+async function loadCarriers() {
+  if (!currentCompanyId.value) return
+  const query = routeQuery.value
+  const result = await runLoad(() => getFreightCostAnalyticsCarriers({
+    company_id: currentCompanyId.value!,
+    currency: query.currency,
+    limit: query.limit,
+    offset: query.offset,
+  }))
+  if (result) {
+    response.value = result
+  }
+}
+
+watch(
+  () => [currentCompanyId.value, route.query.currency, route.query.limit, route.query.offset] as const,
+  () => {
+    void loadCarriers()
+  },
+  { immediate: true },
 )
+
+onMounted(() => {
+  void loadCarriers()
+})
 
 const viewState = computed(() => resolveFreightCostIntelligenceListViewState({
   loading: loading.value,
@@ -48,11 +75,13 @@ const viewState = computed(() => resolveFreightCostIntelligenceListViewState({
         :mixed-currency="response.mixed_currency"
         :freshness="response.freshness"
       />
-      <FreightCostCarrierIntelligenceTable
-        :items="response.items"
-        :mixed-currency="response.mixed_currency"
-        :live-unavailable="liveUnavailable"
-      />
+      <ClientOnly>
+        <FreightCostCarrierIntelligenceTable
+          :items="response.items"
+          :mixed-currency="response.mixed_currency"
+          :live-unavailable="liveUnavailable"
+        />
+      </ClientOnly>
     </template>
     <EmptyState
       v-else-if="viewState === 'missing_company'"

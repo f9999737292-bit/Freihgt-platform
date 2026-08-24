@@ -270,10 +270,17 @@ describe('FC-D-INT list load lifecycle', () => {
     expect(source).toContain('restoreTenant')
   })
 
-  it('FC-D-INT-LOAD-004 list pages use shared list load composable', () => {
+  it('FC-D-INT-LOAD-004 list pages use immediate route watch with mounted fallback', () => {
     const lanes = readSource('pages/freight-costs/lanes/index.vue')
-    expect(lanes).toContain('useFreightCostIntelligenceListLoad')
-    expect(lanes).not.toMatch(/immediate:\s*true/)
+    expect(lanes).toContain('{ immediate: true }')
+    expect(lanes).toContain('onMounted')
+    expect(lanes).not.toContain('useFreightCostIntelligenceListLoad')
+  })
+
+  it('FC-D-INT-LOAD-005 page context restores tenant before list fetch', () => {
+    const source = readSource('composables/useFreightCostPageContext.ts')
+    expect(source).toContain('restoreSession')
+    expect(source).toContain('restoreTenant')
   })
 })
 

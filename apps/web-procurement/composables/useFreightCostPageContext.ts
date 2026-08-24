@@ -6,6 +6,8 @@ import { isFreightCostLiveUnavailableError } from '~/utils/freightCostDataSource
 export function useFreightCostPageContext() {
   const { getFreightCostSummary } = useFreightCostsApi()
   const { currentCompanyId } = useTenantContext()
+  const tenantStore = useTenantStore()
+  const authStore = useAuthStore()
   const { user } = useAuth()
   const roles = computed(() => user.value?.roles ?? [])
 
@@ -22,6 +24,12 @@ export function useFreightCostPageContext() {
     apiUnavailable.value = false
     liveUnavailable.value = false
     try {
+      if (!authStore.restored) {
+        authStore.restoreSession()
+      }
+      if (!tenantStore.restored) {
+        tenantStore.restoreTenant()
+      }
       if (!currentCompanyId.value) return null
       return await loader()
     } catch (error) {

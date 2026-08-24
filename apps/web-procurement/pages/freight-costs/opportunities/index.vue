@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import type { FreightCostAnalyticsOpportunitiesResponse } from '~/types/freightCost'
 import { resolveFreightCostIntelligenceListViewState } from '~/utils/freightCostIntelligence'
 
 definePageMeta({ middleware: ['auth', 'freight-cost-workspace'], layout: 'default' })
 
 const { t } = useI18n()
+const { currentCompanyId } = useTenantContext()
 const { getFreightCostAnalyticsOpportunities } = useFreightCostAnalyticsApi()
 const {
   actor,
@@ -15,10 +17,35 @@ const {
   runLoad,
 } = useFreightCostPageContext()
 
-const { response } = useFreightCostIntelligenceListLoad(
-  (query) => getFreightCostAnalyticsOpportunities(query),
-  runLoad,
+const routeQuery = useFreightCostIntelligenceRouteQuery()
+const route = useRoute()
+const response = ref<FreightCostAnalyticsOpportunitiesResponse | null>(null)
+
+async function loadOpportunities() {
+  if (!currentCompanyId.value) return
+  const query = routeQuery.value
+  const result = await runLoad(() => getFreightCostAnalyticsOpportunities({
+    company_id: currentCompanyId.value!,
+    currency: query.currency,
+    limit: query.limit,
+    offset: query.offset,
+  }))
+  if (result) {
+    response.value = result
+  }
+}
+
+watch(
+  () => [currentCompanyId.value, route.query.currency, route.query.limit, route.query.offset] as const,
+  () => {
+    void loadOpportunities()
+  },
+  { immediate: true },
 )
+
+onMounted(() => {
+  void loadOpportunities()
+})
 
 const viewState = computed(() => resolveFreightCostIntelligenceListViewState({
   loading: loading.value,
@@ -50,10 +77,12 @@ const viewState = computed(() => resolveFreightCostIntelligenceListViewState({
         :mixed-currency="response.mixed_currency"
         :freshness="response.freshness"
       />
-      <FreightCostOpportunitiesTable
-        :items="response.items"
-        :live-unavailable="liveUnavailable"
-      />
+      <ClientOnly>
+        <FreightCostOpportunitiesTable
+          :items="response.items"
+          :live-unavailable="liveUnavailable"
+        />
+      </ClientOnly>
     </template>
     <EmptyState
       v-else-if="viewState === 'missing_company'"
