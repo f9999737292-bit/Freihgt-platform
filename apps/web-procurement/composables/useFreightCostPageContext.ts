@@ -10,7 +10,7 @@ export function useFreightCostPageContext() {
   const roles = computed(() => user.value?.roles ?? [])
 
   const actor = computed(() => resolveFreightCostActorFromRoles(roles.value))
-  const loading = ref(true)
+  const loading = ref(false)
   const forbidden = ref(false)
   const apiUnavailable = ref(false)
   const liveUnavailable = ref(false)
@@ -40,10 +40,19 @@ export function useFreightCostPageContext() {
 
   async function probeSummary() {
     if (!currentCompanyId.value) {
-      loading.value = false
       return
     }
-    await runLoad(() => getFreightCostSummary({ company_id: currentCompanyId.value! }))
+    try {
+      await getFreightCostSummary({ company_id: currentCompanyId.value! })
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 403) {
+        forbidden.value = true
+      } else if (isFreightCostLiveUnavailableError(error)) {
+        liveUnavailable.value = true
+      } else if (isApiUnavailableError(error)) {
+        apiUnavailable.value = true
+      }
+    }
   }
 
   onMounted(() => {

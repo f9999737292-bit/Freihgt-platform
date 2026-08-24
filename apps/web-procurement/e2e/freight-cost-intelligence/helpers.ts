@@ -34,24 +34,14 @@ export function expectDecimalClose(actual: string | number | null | undefined, e
   expect(actualNumber).toBeCloseTo(expectedNumber, 2)
 }
 
-export async function expectShellHeading(page: import('@playwright/test').Page, pattern: RegExp) {
-  await expect(page.locator('.freight-cost-shell h1, .page-stack h1').first()).toHaveText(pattern)
-}
-
 export async function expectShellReady(page: import('@playwright/test').Page) {
-  await page.waitForFunction(() => {
-    return Boolean(
-      document.querySelector('.freight-cost-shell')
-      || document.querySelector('.freight-cost-subnav')
-      || document.querySelector('.page-stack h1'),
-    )
-  }, { timeout: 60_000 })
-  await expect(
-    page.locator('.freight-cost-shell h1, .page-stack h1').first(),
-  ).toBeVisible({ timeout: 10_000 })
+  await page.waitForSelector('.freight-cost-subnav', { timeout: 60_000 })
+  await expect(page.locator('.freight-cost-subnav__link').first()).toBeVisible()
 }
 
-export async function expectRenderedData(page: import('@playwright/test').Page) {
-  await expectShellReady(page)
-  await expect(page.locator('.freight-cost-shell')).not.toContainText(/^(Loading|Загрузка…?)$/i)
+export async function expectWorkspaceContent(page: import('@playwright/test').Page) {
+  await expect(page.locator('.freight-cost-shell')).not.toContainText(/^(Loading|Загрузка…?)$/i, { timeout: 30_000 })
+  await expect(
+    page.locator('.intelligence-overview, .ui-table-wrap, .kpi-card__value').first(),
+  ).toBeVisible({ timeout: 30_000 })
 }

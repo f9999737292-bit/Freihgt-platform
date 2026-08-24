@@ -2,8 +2,8 @@ import { expect, test, type Page } from '@playwright/test'
 import {
   decimalAmountPattern,
   expectDecimalClose,
-  expectShellHeading,
   expectShellReady,
+  expectWorkspaceContent,
 } from './helpers'
 
 const jwt = process.env.BROWSER_E2E_JWT || ''
@@ -56,7 +56,7 @@ test('FC22G1-UI-001 live buyer overview', async ({ page }) => {
   expect(body.summary?.order_count).toBeGreaterThan(0)
   const plannedTotal = String(body.summary?.planned_total ?? '')
   expectDecimalClose(plannedTotal, expectedPlanned)
-  await expectShellHeading(page, /overview|сводка/i)
+  await expectWorkspaceContent(page)
   await expect(page.getByText(decimalAmountPattern(plannedTotal))).toBeVisible()
 })
 
@@ -69,7 +69,7 @@ test('FC22G1-UI-002 live lanes', async ({ page }) => {
   const body = await response.json()
   expect(body.items?.length ?? 0).toBeGreaterThan(0)
   expect(body.items[0]?.lane_label).toBeTruthy()
-  await expectShellHeading(page, /lane performance|направлен/i)
+  await expectWorkspaceContent(page)
   await expect(page.getByText(String(body.items[0].lane_label))).toBeVisible()
 })
 
@@ -81,8 +81,11 @@ test('FC22G1-UI-003 live carriers', async ({ page }) => {
   const response = await carriersResp
   const body = await response.json()
   expect(body.items?.length ?? 0).toBeGreaterThan(0)
-  expect(body.items[0]?.carrier_label ?? body.items[0]?.carrier_company_id).toBeTruthy()
-  await expectShellHeading(page, /carrier performance|перевозчик/i)
+  const carrierLabel = String(body.items[0]?.carrier_label ?? '')
+  expect(carrierLabel.length).toBeGreaterThan(0)
+  expect(carrierLabel).not.toMatch(/^[0-9a-f-]{36}$/i)
+  await expectWorkspaceContent(page)
+  await expect(page.getByText(carrierLabel)).toBeVisible()
 })
 
 test('FC22G1-UI-004 live accessorials', async ({ page }) => {
@@ -97,6 +100,7 @@ test('FC22G1-UI-004 live accessorials', async ({ page }) => {
     Number(item.total_amount?.amount ?? 0) >= 150,
   ) ?? body.items[0]
   expect(Number(accessorial.total_amount?.amount ?? 0)).toBeGreaterThanOrEqual(150)
+  await expectWorkspaceContent(page)
   await expect(page.getByText(decimalAmountPattern(String(accessorial.total_amount.amount)))).toBeVisible()
 })
 
@@ -115,6 +119,7 @@ test('FC22G1-UI-005 live opportunities', async ({ page }) => {
   expect(opportunity?.baseline_value?.amount).toBeTruthy()
   expect(opportunity?.estimated_delta?.amount).toBeTruthy()
   expect(opportunity?.estimated_delta?.currency_code).toBeTruthy()
+  await expectWorkspaceContent(page)
   await expect(page.getByText(decimalAmountPattern(String(opportunity.estimated_delta.amount)))).toBeVisible()
 })
 
