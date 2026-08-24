@@ -4,7 +4,6 @@ package analytics
 
 import (
 	"context"
-	"io"
 	"net"
 	"net/http"
 	"os"
@@ -196,8 +195,8 @@ func startBrowserWebProcurement(t *testing.T, gatewayURL string, fix browserFixt
 	}
 	env = append(env, "NUXT_E2E_DISABLE_SSR=true")
 	cmd.Env = append(os.Environ(), env...)
-	cmd.Stdout = io.Discard
-	cmd.Stderr = io.Discard
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	cmd.WaitDelay = 0
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("start web dev: %v", err)
