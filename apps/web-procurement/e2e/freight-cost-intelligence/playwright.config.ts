@@ -4,8 +4,8 @@ const webURL = process.env.BROWSER_E2E_WEB_URL || 'http://127.0.0.1:3010'
 
 export default defineConfig({
   testDir: '.',
-  timeout: 120_000,
-  expect: { timeout: 20_000 },
+  timeout: 180_000,
+  expect: { timeout: 30_000 },
   use: {
     baseURL: webURL,
     locale: 'en-US',

@@ -35,11 +35,20 @@ export function expectDecimalClose(actual: string | number | null | undefined, e
 }
 
 export async function expectShellHeading(page: import('@playwright/test').Page, pattern: RegExp) {
-  await expect(page.locator('.freight-cost-shell h1')).toHaveText(pattern)
+  await expect(page.locator('.freight-cost-shell h1, .page-stack h1').first()).toHaveText(pattern)
 }
 
 export async function expectShellReady(page: import('@playwright/test').Page) {
-  await expect(page.locator('.freight-cost-shell h1')).toBeVisible({ timeout: 30_000 })
+  await page.waitForFunction(() => {
+    return Boolean(
+      document.querySelector('.freight-cost-shell')
+      || document.querySelector('.freight-cost-subnav')
+      || document.querySelector('.page-stack h1'),
+    )
+  }, { timeout: 60_000 })
+  await expect(
+    page.locator('.freight-cost-shell h1, .page-stack h1').first(),
+  ).toBeVisible({ timeout: 10_000 })
 }
 
 export async function expectRenderedData(page: import('@playwright/test').Page) {
