@@ -8,6 +8,7 @@ export default defineConfig({
   expect: { timeout: 20_000 },
   use: {
     baseURL: webURL,
+    locale: 'en-US',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },

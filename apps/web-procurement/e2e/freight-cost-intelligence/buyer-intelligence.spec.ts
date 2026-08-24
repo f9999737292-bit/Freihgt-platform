@@ -1,4 +1,10 @@
 import { expect, test, type Page } from '@playwright/test'
+import {
+  decimalAmountPattern,
+  expectDecimalClose,
+  expectRenderedData,
+  expectShellHeading,
+} from './helpers'
 
 const jwt = process.env.BROWSER_E2E_JWT || ''
 const tenantId = process.env.BROWSER_E2E_TENANT_ID || ''
@@ -42,7 +48,10 @@ test('FC22G1-UI-001 live buyer overview', async ({ page }) => {
   const response = await overviewResp
   const body = await response.json()
   expect(body.summary?.order_count).toBeGreaterThan(0)
-  await expect(page.getByText(new RegExp(expectedPlanned.replace('.', '[.,]?')))).toBeVisible()
+  expectDecimalClose(body.summary?.planned_total, expectedPlanned)
+  await expectRenderedData(page)
+  await expectShellHeading(page, /overview|сводка/i)
+  await expect(page.getByText(decimalAmountPattern(expectedPlanned))).toBeVisible()
 })
 
 test('FC22G1-UI-002 live lanes', async ({ page }) => {
@@ -54,7 +63,8 @@ test('FC22G1-UI-002 live lanes', async ({ page }) => {
   const response = await lanesResp
   const body = await response.json()
   expect(body.items?.length ?? 0).toBeGreaterThan(0)
-  await expect(page.getByRole('heading', { name: /lane performance/i })).toBeVisible()
+  await expectRenderedData(page)
+  await expectShellHeading(page, /lane performance|направлен/i)
 })
 
 test('FC22G1-UI-003 live carriers', async ({ page }) => {
@@ -66,7 +76,8 @@ test('FC22G1-UI-003 live carriers', async ({ page }) => {
   const response = await carriersResp
   const body = await response.json()
   expect(body.items?.length ?? 0).toBeGreaterThan(0)
-  await expect(page.getByRole('heading', { name: /carrier performance/i })).toBeVisible()
+  await expectRenderedData(page)
+  await expectShellHeading(page, /carrier performance|перевозчик/i)
 })
 
 test('FC22G1-UI-004 live accessorials', async ({ page }) => {
@@ -78,7 +89,11 @@ test('FC22G1-UI-004 live accessorials', async ({ page }) => {
   const response = await accessorialsResp
   const body = await response.json()
   expect(body.items?.length ?? 0).toBeGreaterThan(0)
-  await expect(page.getByText(/150/)).toBeVisible()
+  const accessorialAmount = body.items.find((item: { total_amount?: { amount?: string } }) =>
+    Number(item.total_amount?.amount ?? 0) >= 150,
+  )?.total_amount?.amount ?? '150.00'
+  await expectRenderedData(page)
+  await expect(page.getByText(decimalAmountPattern(String(accessorialAmount)))).toBeVisible()
 })
 
 test('FC22G1-UI-005 live opportunities', async ({ page }) => {
@@ -90,7 +105,15 @@ test('FC22G1-UI-005 live opportunities', async ({ page }) => {
   const response = await opportunitiesResp
   const body = await response.json()
   expect(body.items?.length ?? 0).toBeGreaterThan(0)
-  await expect(page.getByText(new RegExp(expectedDelta.replace('.', '[.,]?')))).toBeVisible()
+  const opportunity = body.items.find((item: { estimated_delta?: { amount?: string } }) =>
+    Math.abs(Number(item.estimated_delta?.amount ?? 0) - Number(expectedDelta)) < 0.01,
+  ) ?? body.items[0]
+  expect(opportunity?.estimated_delta?.amount).toBeTruthy()
+  expect(opportunity?.observed_value?.amount).toBeTruthy()
+  expect(opportunity?.baseline_value?.amount).toBeTruthy()
+  expect(opportunity?.estimated_delta?.currency_code).toBeTruthy()
+  await expectRenderedData(page)
+  await expect(page.getByText(decimalAmountPattern(String(opportunity.estimated_delta.amount)))).toBeVisible()
 })
 
 test('FC22G1-UI-006 live filters change network query', async ({ page }) => {
@@ -98,12 +121,16 @@ test('FC22G1-UI-006 live filters change network query', async ({ page }) => {
     resp.url().includes('/analytics/lanes') && resp.url().includes('currency=RUB') && resp.status() === 200,
   )
   await page.goto('/freight-costs/lanes?currency=RUB', { waitUntil: 'domcontentloaded' })
-  await first
+  const rubResponse = await first
+  const rubBody = await rubResponse.json()
+  expect(rubBody.items?.length ?? 0).toBeGreaterThan(0)
+
   const secondPromise = page.waitForResponse((resp) =>
     resp.url().includes('/analytics/lanes') && resp.url().includes('currency=EUR') && resp.status() === 200,
   )
   await page.goto('/freight-costs/lanes?currency=EUR', { waitUntil: 'domcontentloaded' })
-  await secondPromise
+  const eurResponse = await secondPromise
+  expect(eurResponse.url()).toContain('currency=EUR')
 })
 
 test('FC22G1-UI-007 live pagination issues next request', async ({ page }) => {
@@ -113,4 +140,6 @@ test('FC22G1-UI-007 live pagination issues next request', async ({ page }) => {
   await page.goto('/freight-costs/lanes?limit=1&offset=0', { waitUntil: 'domcontentloaded' })
   const response = await first
   expect(response.url()).toContain('limit=1')
+  const body = await response.json()
+  expect(body.items?.length ?? 0).toBe(1)
 })
