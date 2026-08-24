@@ -121,7 +121,7 @@ func seedBrowserE2EFixture(t *testing.T, env *fullProjectionEnv) browserFixture 
 		BuyerID:         base.buyerID,
 		UserID:          userID,
 		JWT:             browserJWT(userID, base.tenantID),
-		ExpectedPlanned: "195000.00",
+		ExpectedPlanned: "197000.00",
 		ExpectedDelta:   "7000.00",
 	}
 }

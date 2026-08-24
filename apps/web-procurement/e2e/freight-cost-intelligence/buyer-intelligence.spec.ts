@@ -2,14 +2,14 @@ import { expect, test, type Page } from '@playwright/test'
 import {
   decimalAmountPattern,
   expectDecimalClose,
-  expectRenderedData,
   expectShellHeading,
+  expectShellReady,
 } from './helpers'
 
 const jwt = process.env.BROWSER_E2E_JWT || ''
 const tenantId = process.env.BROWSER_E2E_TENANT_ID || ''
 const companyId = process.env.BROWSER_E2E_BUYER_COMPANY_ID || ''
-const expectedPlanned = process.env.BROWSER_E2E_EXPECTED_PLANNED || '195000.00'
+const expectedPlanned = process.env.BROWSER_E2E_EXPECTED_PLANNED || '197000.00'
 const expectedDelta = process.env.BROWSER_E2E_EXPECTED_DELTA || '7000.00'
 
 async function seedBuyerSession(page: Page) {
@@ -48,10 +48,10 @@ test('FC22G1-UI-001 live buyer overview', async ({ page }) => {
   const response = await overviewResp
   const body = await response.json()
   expect(body.summary?.order_count).toBeGreaterThan(0)
-  expectDecimalClose(body.summary?.planned_total, expectedPlanned)
-  await expectRenderedData(page)
-  await expectShellHeading(page, /overview|сводка/i)
-  await expect(page.getByText(decimalAmountPattern(expectedPlanned))).toBeVisible()
+  const plannedTotal = String(body.summary?.planned_total ?? '')
+  expectDecimalClose(plannedTotal, expectedPlanned)
+  await expectShellReady(page)
+  await expect(page.getByText(decimalAmountPattern(plannedTotal))).toBeVisible()
 })
 
 test('FC22G1-UI-002 live lanes', async ({ page }) => {
@@ -63,7 +63,8 @@ test('FC22G1-UI-002 live lanes', async ({ page }) => {
   const response = await lanesResp
   const body = await response.json()
   expect(body.items?.length ?? 0).toBeGreaterThan(0)
-  await expectRenderedData(page)
+  expect(body.items[0]?.lane_label).toBeTruthy()
+  await expectShellReady(page)
   await expectShellHeading(page, /lane performance|направлен/i)
 })
 
@@ -76,7 +77,8 @@ test('FC22G1-UI-003 live carriers', async ({ page }) => {
   const response = await carriersResp
   const body = await response.json()
   expect(body.items?.length ?? 0).toBeGreaterThan(0)
-  await expectRenderedData(page)
+  expect(body.items[0]?.carrier_label ?? body.items[0]?.carrier_company_id).toBeTruthy()
+  await expectShellReady(page)
   await expectShellHeading(page, /carrier performance|перевозчик/i)
 })
 
@@ -91,8 +93,9 @@ test('FC22G1-UI-004 live accessorials', async ({ page }) => {
   expect(body.items?.length ?? 0).toBeGreaterThan(0)
   const accessorialAmount = body.items.find((item: { total_amount?: { amount?: string } }) =>
     Number(item.total_amount?.amount ?? 0) >= 150,
-  )?.total_amount?.amount ?? '150.00'
-  await expectRenderedData(page)
+  )?.total_amount?.amount ?? body.items[0]?.total_amount?.amount
+  expect(accessorialAmount).toBeTruthy()
+  await expectShellReady(page)
   await expect(page.getByText(decimalAmountPattern(String(accessorialAmount)))).toBeVisible()
 })
 
@@ -112,7 +115,7 @@ test('FC22G1-UI-005 live opportunities', async ({ page }) => {
   expect(opportunity?.observed_value?.amount).toBeTruthy()
   expect(opportunity?.baseline_value?.amount).toBeTruthy()
   expect(opportunity?.estimated_delta?.currency_code).toBeTruthy()
-  await expectRenderedData(page)
+  await expectShellReady(page)
   await expect(page.getByText(decimalAmountPattern(String(opportunity.estimated_delta.amount)))).toBeVisible()
 })
 

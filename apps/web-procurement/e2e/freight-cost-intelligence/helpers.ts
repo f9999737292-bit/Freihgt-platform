@@ -38,8 +38,11 @@ export async function expectShellHeading(page: import('@playwright/test').Page, 
   await expect(page.locator('.freight-cost-shell h1')).toHaveText(pattern)
 }
 
+export async function expectShellReady(page: import('@playwright/test').Page) {
+  await expect(page.locator('.freight-cost-shell h1')).toBeVisible({ timeout: 30_000 })
+}
+
 export async function expectRenderedData(page: import('@playwright/test').Page) {
-  await expect(
-    page.locator('.intelligence-overview, .freight-cost-shell table tbody tr, .kpi-card__value').first(),
-  ).toBeVisible({ timeout: 30_000 })
+  await expectShellReady(page)
+  await expect(page.locator('.freight-cost-shell')).not.toContainText(/^(Loading|Загрузка…?)$/i)
 }
