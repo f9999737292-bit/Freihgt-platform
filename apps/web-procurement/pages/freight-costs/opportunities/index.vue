@@ -17,14 +17,27 @@ const {
   runLoad,
 } = useFreightCostPageContext()
 
+const routeQuery = useFreightCostIntelligenceRouteQuery()
 const response = ref<FreightCostAnalyticsOpportunitiesResponse | null>(null)
 
-onMounted(async () => {
+async function loadOpportunities() {
   if (!currentCompanyId.value) return
+  const query = routeQuery.value
   response.value = await runLoad(() => getFreightCostAnalyticsOpportunities({
     company_id: currentCompanyId.value!,
+    currency: query.currency,
+    limit: query.limit,
+    offset: query.offset,
   }))
+}
+
+onMounted(() => {
+  void loadOpportunities()
 })
+
+watch(() => routeQuery.value, () => {
+  void loadOpportunities()
+}, { deep: true })
 
 const viewState = computed(() => resolveFreightCostIntelligenceListViewState({
   loading: loading.value,

@@ -40,18 +40,13 @@ async function gotoWorkspacePage(page: Page, path: string) {
 }
 
 async function waitForAnalyticsItems(page: Page, pathSegment: string) {
-  const response = await page.waitForResponse(async (resp) => {
-    if (!resp.url().includes(pathSegment) || resp.status() !== 200) {
-      return false
-    }
-    try {
-      const body = await resp.json()
-      return (body.items?.length ?? 0) > 0
-    } catch {
-      return false
-    }
-  }, { timeout: 60_000 })
-  return response.json()
+  const response = await page.waitForResponse(
+    (resp) => resp.url().includes(pathSegment) && resp.status() === 200,
+    { timeout: 60_000 },
+  )
+  const body = await response.json()
+  expect(body.items?.length ?? 0).toBeGreaterThan(0)
+  return body
 }
 
 test.beforeEach(async ({ page }) => {
@@ -77,7 +72,7 @@ test('FC22G1-UI-001 live buyer overview', async ({ page }) => {
 
 test('FC22G1-UI-002 live lanes', async ({ page }) => {
   const bodyPromise = waitForAnalyticsItems(page, '/api/v1/freight-costs/analytics/lanes')
-  await gotoWorkspacePage(page, '/freight-costs/lanes')
+  await gotoWorkspacePage(page, '/freight-costs/lanes?currency=RUB')
   const body = await bodyPromise
   const laneLabel = String(body.items[0]?.lane_label ?? '')
   expect(laneLabel.length).toBeGreaterThan(0)
@@ -86,7 +81,7 @@ test('FC22G1-UI-002 live lanes', async ({ page }) => {
 
 test('FC22G1-UI-003 live carriers', async ({ page }) => {
   const bodyPromise = waitForAnalyticsItems(page, '/api/v1/freight-costs/analytics/carriers')
-  await gotoWorkspacePage(page, '/freight-costs/carriers')
+  await gotoWorkspacePage(page, '/freight-costs/carriers?currency=RUB')
   const body = await bodyPromise
   const carrierName = String(body.items[0]?.carrier_name ?? '')
   expect(carrierName.length).toBeGreaterThan(0)
@@ -96,7 +91,7 @@ test('FC22G1-UI-003 live carriers', async ({ page }) => {
 
 test('FC22G1-UI-004 live accessorials', async ({ page }) => {
   const bodyPromise = waitForAnalyticsItems(page, '/api/v1/freight-costs/analytics/accessorials')
-  await gotoWorkspacePage(page, '/freight-costs/accessorials')
+  await gotoWorkspacePage(page, '/freight-costs/accessorials?currency=RUB')
   const body = await bodyPromise
   const accessorial = body.items.find((item: { total_amount?: { amount?: string } }) =>
     Number(item.total_amount?.amount ?? 0) >= 150,
@@ -107,7 +102,7 @@ test('FC22G1-UI-004 live accessorials', async ({ page }) => {
 
 test('FC22G1-UI-005 live opportunities', async ({ page }) => {
   const bodyPromise = waitForAnalyticsItems(page, '/api/v1/freight-costs/opportunities')
-  await gotoWorkspacePage(page, '/freight-costs/opportunities')
+  await gotoWorkspacePage(page, '/freight-costs/opportunities?currency=RUB')
   const body = await bodyPromise
   const opportunity = body.items.find((item: { estimated_delta?: { amount?: string } }) =>
     Math.abs(Number(item.estimated_delta?.amount ?? 0) - Number(expectedDelta)) < 0.01,
