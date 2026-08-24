@@ -19,7 +19,8 @@ import {
  * v2.1D: public routes are not live — production data source fail-closes until v2.1E.
  */
 export function useFreightCostsApi(dataSource?: FreightCostDataSource) {
-  const source = dataSource ?? createProductionFreightCostDataSource()
+  const { apiGet } = useApi()
+  const source = dataSource ?? createProductionFreightCostDataSource(apiGet)
 
   async function listFreightCosts(query: FreightCostListQuery): Promise<FreightCostListResponse> {
     return source.listOrders(query)

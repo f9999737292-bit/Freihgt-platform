@@ -26,6 +26,7 @@ import {
   resolveFreightCostIntelligenceOverviewViewState,
   shouldShowIntelligenceDataQualityBanner,
 } from '~/utils/freightCostIntelligence'
+import { shouldApplyFreightCostIntelligenceListLoad } from '~/composables/useFreightCostIntelligenceListLoad'
 import { buildFreightCostNavItems } from '~/utils/freightCostWorkspace'
 
 const CARRIER_UUID = 'a1b2c3d4-e5f6-4789-a012-3456789abcde'
@@ -169,6 +170,45 @@ describe('FC-D-INT view states', () => {
     })).toBe('ready')
   })
 
+  it('FC-D-INT-VST-002b list not available with items still ready', () => {
+    expect(resolveFreightCostIntelligenceListViewState({
+      loading: false,
+      missingCompany: false,
+      forbidden: false,
+      liveUnavailable: false,
+      apiUnavailable: false,
+      dataQuality: 'NOT_AVAILABLE',
+      mixedCurrency: false,
+      itemCount: 2,
+    })).toBe('ready')
+  })
+
+  it('FC-D-INT-VST-002c list not available without items', () => {
+    expect(resolveFreightCostIntelligenceListViewState({
+      loading: false,
+      missingCompany: false,
+      forbidden: false,
+      liveUnavailable: false,
+      apiUnavailable: false,
+      dataQuality: 'NOT_AVAILABLE',
+      mixedCurrency: false,
+      itemCount: 0,
+    })).toBe('not_available')
+  })
+
+  it('FC-D-INT-VST-002d list api unavailable with items still ready', () => {
+    expect(resolveFreightCostIntelligenceListViewState({
+      loading: false,
+      missingCompany: false,
+      forbidden: false,
+      liveUnavailable: false,
+      apiUnavailable: true,
+      dataQuality: 'AVAILABLE',
+      mixedCurrency: false,
+      itemCount: 1,
+    })).toBe('ready')
+  })
+
   it('FC-D-INT-VST-003 list mixed currency with no items', () => {
     expect(resolveFreightCostIntelligenceListViewState({
       loading: false,
@@ -209,6 +249,40 @@ describe('FC-D-INT view states', () => {
     expect(shouldShowIntelligenceDataQualityBanner('INSUFFICIENT_SAMPLE', false)).toBe(true)
     expect(shouldShowIntelligenceDataQualityBanner('AVAILABLE', false)).toBe(false)
     expect(shouldShowIntelligenceDataQualityBanner('AVAILABLE', true)).toBe(true)
+  })
+})
+
+describe('FC-D-INT list load lifecycle', () => {
+  it('FC-D-INT-LOAD-001 stale list response is ignored', () => {
+    expect(shouldApplyFreightCostIntelligenceListLoad(1, 2, { items: [{ lane_key: 'a' }] })).toBe(false)
+    expect(shouldApplyFreightCostIntelligenceListLoad(2, 2, { items: [{ lane_key: 'a' }] })).toBe(true)
+  })
+
+  it('FC-D-INT-LOAD-002 null list response is ignored', () => {
+    expect(shouldApplyFreightCostIntelligenceListLoad(1, 1, null)).toBe(false)
+  })
+
+  it('FC-D-INT-LOAD-003 route watcher restores session and loads immediately', () => {
+    const source = readSource('composables/useFreightCostIntelligenceRouteQuery.ts')
+    expect(source).toContain('ensureSessionAndReload')
+    expect(source).toContain('immediate: true')
+    expect(source).toContain('restoreSession')
+    expect(source).toContain('restoreTenant')
+  })
+
+  it('FC-D-INT-LOAD-004 list pages load on mount and watch route changes without immediate', () => {
+    const lanes = readSource('pages/freight-costs/lanes/index.vue')
+    expect(lanes).toContain('onMounted')
+    expect(lanes).toContain('watch(')
+    expect(lanes).not.toContain('{ immediate: true }')
+    expect(lanes).toContain('FreightCostIntelligenceLaneTable')
+    expect(lanes).not.toContain('<ClientOnly>')
+  })
+
+  it('FC-D-INT-LOAD-005 page context restores tenant before list fetch', () => {
+    const source = readSource('composables/useFreightCostPageContext.ts')
+    expect(source).toContain('restoreSession')
+    expect(source).toContain('restoreTenant')
   })
 })
 

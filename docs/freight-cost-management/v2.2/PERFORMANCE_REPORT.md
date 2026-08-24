@@ -1,7 +1,7 @@
 # FREIGHT COST INTELLIGENCE v2.2G — Performance Report
 
-**Status:** Integration-scale certified; synthetic 100k deferred  
-**Date:** 2026-08-23
+**Status:** Integration-scale certified; controlled 100k PASS on CI  
+**Date:** 2026-08-24
 
 ---
 
@@ -102,16 +102,31 @@ Date range: default rolling 90 days; max ~24 months (validated in service).
 
 ---
 
-## 6. Synthetic scale (100k deferred)
+## 6. Controlled 100K verification (v2.2G.1)
 
-| Item | CI (integration) | Controlled environment |
-|------|------------------|------------------------|
-| Order count | 120 (N+1 gate) | 100k tenant synthetic load |
-| Purpose | Prove batch enrichment | Pagination latency under large projections |
-| Status | **PASS in CI** | **Deferred** — not run in GitHub Actions |
-| Rationale | CI Postgres + time budget; k6 scripts exist under `tests/performance/k6/` for platform-wide load, not v2.2 analytics-specific 100k gate |
+**Status:** PASS on CI job `freight-cost-analytics-100k-gate` — [run 32760275797](https://github.com/f9999737292-bit/Freihgt-platform/actions/runs/32760275797) job `97537223317` @ `1394462`.
 
-**Operational note:** Before production flag enablement, run controlled-environment load test with `FREIGHT_COST_ANALYTICS_PROJECTION_ENABLED=true` on a synthetic 100k-order tenant and verify p95 list latency within agreed SLA.
+| Item | Value |
+|------|-------|
+| Test ID | `FC22G1-PERF-001` |
+| Test function | `TestFC22G1_PERF001_100kAnalyticsRebuild` |
+| File | `services/freight-cost-service/internal/integration/analytics/performance_100k_integration_test.go` |
+| Generator seed | `220001` |
+| Tenant | `11111111-1111-4111-8111-111111110001` |
+| Order count | **100,000** |
+| Rebuild duration | **102,729 ms** |
+| Row counts | order_fact=100000, period=2, lane=11, carrier=11, accessorial=1000, benchmark=11, opportunity=54000 |
+| Public query P50 (ms) | overview=117, lanes20=84, lanes100=84, carriers20=65, carriers100=64, accessorials20=0, opportunities20=30 |
+| EXPLAIN | `FC22G1-PERF-003` — `EXPLAIN (ANALYZE, BUFFERS)` on lane/carrier/accessorial/opportunity/benchmark/period queries |
+| Runbook | `tests/performance/freight-cost-analytics/README.md` |
+
+```powershell
+$env:TEST_DATABASE_URL = "postgres://rfx_test:rfx_test@localhost:5432/freight_test?sslmode=disable"
+$env:PERF_100K = "1"
+go test -tags=integration ./internal/integration/analytics/... -run TestFC22G1_PERF001 -count=1 -timeout 30m -v
+```
+
+**Verdict:** `CONTROLLED_100K_VERIFICATION=PASS` (CI evidence above). This is **not** a production SLA certification.
 
 ---
 

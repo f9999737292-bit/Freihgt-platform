@@ -1,112 +1,82 @@
-# FREIGHT COST INTELLIGENCE v2.2G — Final Closure
+# FREIGHT COST INTELLIGENCE v2.2G.1 — Final Closure Remediation
 
-**Date:** 2026-08-23  
-**Phase:** v2.2G — Security, Performance, Rebuild & E2E Closure
+**Date:** 2026-08-24  
+**Phase:** v2.2G.1 — Corrective closure (DR + 100k + live browser)  
+**PR:** [#60](https://github.com/f9999737292-bit/Freihgt-platform/pull/60)  
+**Green CI:** [run 32760275797](https://github.com/f9999737292-bit/Freihgt-platform/actions/runs/32760275797) @ `13944625bdce72279ffee555acf813c00fd2349a`
 
 ---
 
 ## 1. Executive summary
 
-v2.2G completes the Freight Cost Intelligence increment (v2.2B through v2.2F) without enabling production feature flags. All carried technical debt from v2.2B–F is closed with automated test evidence. Security gates FC-D-SEC-011..015 pass. Performance is certified at integration scale (120-order N+1 proof, batch-500 enrichment, pagination max 100). Full tenant rebuild is documented, advisory-lock safe, and equivalence-tested across the projection stack.
+v2.2G.1 closes three evidence gaps identified after independent review of merged PR #59. **No new business features.** Implementation adds:
 
-**Verdict:**
+1. Full derived-projection loss/rebuild/recovery drill with deterministic checksums  
+2. Controlled 100k synthetic performance harness (`PERF_100K=1`)  
+3. Live browser E2E stack (`BROWSER_E2E=1`) via Playwright  
+
+v2.2G security, race, N+1, migration, and gateway E2E evidence remains valid.
+
+**Verdict (green CI 2026-08-24):**
 
 | Flag | Value |
 |------|-------|
+| `V2_2G1_IMPLEMENTATION` | **YES** |
 | `V2_2_TECHNICAL_COMPLETE` | **YES** |
 | `READY_FOR_CONTROLLED_ROLLOUT` | **YES** |
 | `PRODUCTION_ROLLOUT` | **NO** |
 
-Feature flags remain default OFF pending explicit ops/staging enablement decision.
+---
+
+## 2. Remediation findings
+
+| ID | Gap | Status | Evidence |
+|----|-----|--------|----------|
+| F22G1-001 | Full derived-projection DR drill | **PASS** | `TestFC22G1_FullProjectionLossAndRebuildRestoresBusinessState` — job `97537223216` |
+| F22G1-002 | 100k controlled performance | **PASS** | `TestFC22G1_PERF001_100kAnalyticsRebuild` — job `97537223317`; `REBUILD_DURATION_MS=102729`, `ORDER_COUNT=100000` |
+| F22G1-003 | Live browser E2E | **PASS** | `TestFC22G1_BrowserE2E_LiveBuyerFlow` — job `97537223665`; FC22G1-UI-001..008 all green (36.8s) |
 
 ---
 
-## 2. Debt closure table
+## 3. Gates matrix (v2.2G.1 additions)
 
-| Debt ID | Description | Status | Evidence |
-|---------|-------------|--------|----------|
-| F22B001 | Expanded v2.2B test matrix / full-stack equivalence | **CLOSED** | `TestFC22G_FullStackRebuildIncrementalEquivalence`; FC22B-* in `freight-cost-analytics-final-e2e` |
-| F22B002 | Race-detector CI gate for analytics paths | **CLOSED** | CI job `freight-cost-analytics-race-gate` (`go test -race` service + gateway) |
-| F22C001 | Lane/carrier integration test hardening | **CLOSED** | `lane_carrier_integration_test.go` (FC22C-LP/EQV/SEC); `lane_key_test.go` (FC22C-LANE-001..012) |
-| F22C002 | Prometheus commercial label nits | **CLOSED** | `metrics.go` — no tenant/company/lane labels on benchmark metrics (v2.2E ADR-22-007) |
-| F22D001 | Accessorial enrichment batch path wired | **CLOSED** | FC22D-ACC/REC/ENRICH/EQV integration tests |
-| F22D002 | Full FC22D named test matrix | **CLOSED** | `accessorial_enrichment_integration_test.go` — ACC-001, REC-001, ENRICH-002, EQV-001 |
-| F22D003 | Instrumented N+1 call-count test | **CLOSED** | `TestFC22G_NPlusOne001EnrichmentUsesBatchNotPerOrder` (120 orders) |
-| F22E001 | Benchmark/opportunity integration matrix completion | **CLOSED** | `benchmark_opportunity_integration_test.go` — BM/CUR/SEC/OPP/EQV suite in final-e2e CI |
-| F22E002 | CLASSIFICATION_ANOMALY evaluation | **CLOSED** | Evaluated — remains NOT_AVAILABLE by design (no ML; prerequisites incomplete) |
-| F22E003 | Large-load performance gate | **CLOSED** | Integration-scale PASS; 100k synthetic deferred to controlled environment (`PERFORMANCE_REPORT.md`) |
-| F22E004 | Currency/benchmark isolation hardening | **CLOSED** | `TestFC22ECUR001CurrencyIsolation`, `TestFC22ESEC001/002CrossTenant/CrossCompanyIsolation` |
-| F22F001 | FC-D-SEC-011..015 security closure | **CLOSED** | `security_integration_test.go` — `TestFC_D_SEC_011_*` … `TestFC_D_SEC_015_*` |
-| F22F002 | Public API sort/filter/pagination validation | **CLOSED** | `analytics_public_service_test.go` — FC22G sort/pagination/currency tests; max limit 100 |
+| Gate | Test / artifact | CI job | Run / job ID | Result |
+|------|-----------------|--------|--------------|--------|
+| Full projection loss recovery | FC22G1-DR-001 | `freight-cost-analytics-final-e2e` | 32760275797 / 97537223216 | PASS |
+| Failed rebuild atomicity | FC22G1-DR-002 | same | same | PASS |
+| Retry after failure | FC22G1-DR-003 | same | same | PASS |
+| Controlled 100k | FC22G1-PERF-001 | `freight-cost-analytics-100k-gate` | 32760275797 / 97537223317 | PASS |
+| Live browser buyer E2E | FC22G1-UI-001..008 | `freight-cost-intelligence-browser-e2e` | 32760275797 / 97537223665 | PASS |
+| v2.2G security/race/N+1 | Unchanged | `freight-cost-analytics-final-e2e`, race gate, public e2e | 32760275797 | PASS |
 
 ---
 
-## 3. Gates pass matrix
+## 4. Browser E2E root cause & fix (F22G1-003)
 
-| Gate | CI job / artifact | v2.2G result |
-|------|-------------------|--------------|
-| Analytics integration (B–E) | `freight-cost-ledger-integration` | PASS |
-| Analytics final gate (B–G) | `freight-cost-analytics-final-e2e` | PASS |
-| Public security E2E | `freight-cost-public-e2e` + final-e2e gateway step | PASS |
-| Race detector | `freight-cost-analytics-race-gate` | PASS |
-| Migration up/down | `TestFC22G_MigrationGateV22UpDown` | PASS |
-| N+1 enrichment | `TestFC22G_NPlusOne001EnrichmentUsesBatchNotPerOrder` | PASS |
-| Concurrent rebuild lock | `TestFC22G_ConcurrentRebuildSameTenantSerialized` | PASS |
-| Company batch chunking | `TestFC22G_BatchGetCompanyDisplayChunksAt500` | PASS |
-| Frontend intelligence unit | `freightCostIntelligence.test.ts` | PASS |
-| OpenAPI parity | `make openapi-check` (v2.2F baseline) | PASS |
-| CRITICAL/HIGH security | FC-D-SEC-011..015 + spoofing + internal boundary | **0 open** |
-| 100k synthetic load | Controlled environment | **DEFERRED** (not blocking technical complete) |
+| Symptom | Root cause | Fix (PR #60) |
+|---------|------------|--------------|
+| HTTP 200 + items, no table rows | Nuxt auto-import name mismatch: templates used `FreightCostLaneIntelligenceTable` but registered name was `FreightCostIntelligenceFreightCostLaneIntelligenceTable` | Renamed table components to `FreightCostIntelligence*Table` prefix pattern |
+| List load lifecycle regressions | Abstracted composable/watch refactors broke fetch timing | Restored `onMounted` initial load + non-immediate route watch; session/tenant restore in `runLoad` |
+| UI-008 feature-flag page | Lazy i18n + unresolved `EmptyState`/`PageHeader` on flag-off dev server | Native unavailable markup with English fallback copy |
+| Go test FAIL after Playwright PASS | Nuxt dev stdout pipes blocked `exec.WaitDelay` | Redirect nuxt logs to temp files; `WaitDelay=0` + explicit `Wait()` |
 
 ---
 
-## 4. Deliverables checklist (IMPLEMENTATION_PLAN §7)
+## 5. v2.2G baseline (unchanged, still valid)
 
-| Deliverable | Status | Reference |
-|-------------|--------|-----------|
-| FC-D-SEC-011..015 carrier/benchmark leakage tests | Done | `SECURITY_CLOSURE.md` |
-| Performance: index validation + N+1 proof | Done | `PERFORMANCE_REPORT.md` |
-| Disaster recovery / rebuild runbook | Done | `REBUILD_RUNBOOK.md` |
-| Load test 100k (synthetic) | Deferred to controlled env | `PERFORMANCE_REPORT.md` §6 |
-| FC test inventory | Done | `TEST_INVENTORY.md` |
-| CI job analytics E2E | Done | `freight-cost-analytics-final-e2e` in `.github/workflows/ci.yml` |
-| E2E closure documentation | Done | `E2E_CLOSURE.md` |
+PR #59 merge `39e98ac` — security FC-D-SEC-011..015, N+1 at 120 orders, migration gate, concurrent rebuild, gateway analytics E2E, Vitest intelligence tests.
+
+**Corrected overclaim from v2.2G FINAL_CLOSURE:** `V2_2_TECHNICAL_COMPLETE=YES` was premature before v2.2G.1 green CI on PR #60.
 
 ---
 
-## 5. Rollout constraints (unchanged)
+## 6. Feature flags (unchanged)
 
-| Flag | Default | Notes |
-|------|---------|-------|
-| `FREIGHT_COST_ANALYTICS_PROJECTION_ENABLED` | `false` | Service projection worker |
-| `NUXT_PUBLIC_FREIGHT_COST_WORKSPACE_ENABLED` | off | UI hidden unless explicitly `true` |
+| Flag | Default |
+|------|---------|
+| `FREIGHT_COST_ANALYTICS_PROJECTION_ENABLED` | `false` |
+| `NUXT_PUBLIC_FREIGHT_COST_WORKSPACE_ENABLED` | off |
 
-**PRODUCTION_ROLLOUT=NO** — technical completion does not authorize production enablement. Staging enablement requires ops checklist: rebuild verification, controlled 100k load (if tenant size warrants), and security sign-off.
+Test processes may override; committed defaults remain off.
 
----
-
-## 6. Documentation index
-
-| Document | Purpose |
-|----------|---------|
-| `TEST_INVENTORY.md` | FC22 test matrix and CI mapping |
-| `SECURITY_CLOSURE.md` | Threat model and FC-D-SEC-011..015 |
-| `PERFORMANCE_REPORT.md` | N+1, batch 500, indexes, pagination bounds |
-| `REBUILD_RUNBOOK.md` | Operational rebuild procedure |
-| `E2E_CLOSURE.md` | Buyer/carrier/currency/opportunity E2E evidence |
-| `FINAL_CLOSURE.md` | This document |
-
-Prior phase docs: `v2.2B-PROJECTION-CORE.md` through `v2.2F-PUBLIC-API-WORKSPACE.md`.
-
----
-
-## 7. Sign-off
-
-```
-V2_2_TECHNICAL_COMPLETE=YES
-READY_FOR_CONTROLLED_ROLLOUT=YES
-PRODUCTION_ROLLOUT=NO
-STOP_AFTER_V2_2G=YES
-```
-
-No new business features in v2.2G. Next step (if authorized): controlled staging rollout with feature flags explicitly enabled per tenant.
+**References:** `PERFORMANCE_REPORT.md`, `REBUILD_RUNBOOK.md`, `E2E_CLOSURE.md`, `TEST_INVENTORY.md`.

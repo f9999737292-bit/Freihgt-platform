@@ -2,14 +2,41 @@
 definePageMeta({ middleware: 'auth', layout: 'default' })
 
 const { t } = useI18n()
+
+const featureFlagEnvVar = 'NUXT_PUBLIC_FREIGHT_COST_WORKSPACE_ENABLED'
+
+const featureTitle = computed(() => {
+  const label = t('freightCosts.unavailable.featureTitle')
+  return label.startsWith('freightCosts.') ? 'Freight cost workspace unavailable' : label
+})
+
+const featureBody = computed(() => {
+  const label = t('freightCosts.unavailable.featureBody')
+  return label.startsWith('freightCosts.')
+    ? `This workspace is disabled. Enable ${featureFlagEnvVar} to access routes.`
+    : label
+})
 </script>
 
 <template>
   <div class="page-stack">
-    <PageHeader :title="t('freightCosts.unavailable.featureTitle')" />
-    <EmptyState
-      :title="t('freightCosts.unavailable.featureTitle')"
-      :description="t('freightCosts.unavailable.featureBody')"
-    />
+    <div class="ui-page-header">
+      <h1>{{ featureTitle }}</h1>
+    </div>
+    <div class="ui-empty">
+      <p>{{ featureBody }}</p>
+    </div>
   </div>
 </template>
+
+<style scoped>
+.ui-page-header h1 {
+  font-size: 1.5rem;
+}
+
+.ui-empty {
+  padding: 3rem 1.5rem;
+  text-align: center;
+  color: var(--color-text-muted);
+}
+</style>

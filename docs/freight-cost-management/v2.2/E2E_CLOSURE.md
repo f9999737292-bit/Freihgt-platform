@@ -103,11 +103,29 @@ Key intelligence tests:
 - **Data source:** `FC-D-INT-DS-001/002/003` — production paths include `/analytics/overview`
 - **Carrier display:** `FC-D-INT-CAR-001..003` — UUID not shown as label; snapshot name used
 
-Vitest runs in web-procurement CI; mocked adapters — no live browser required for v2.2G closure.
+Vitest runs in web-procurement CI; mocked adapters — **not** live browser E2E.
 
 ---
 
-## 8. Error handling
+## 8. Live browser E2E (v2.2G.1)
+
+| ID | Route | Framework | Assertion |
+|----|-------|-----------|-----------|
+| FC22G1-UI-001 | Overview | Playwright | Real `/api/v1/freight-costs/analytics/overview` 200; fixture planned total visible |
+| FC22G1-UI-002..005 | Lanes/Carriers/Accessorials/Opportunities | Playwright | Real gateway-backed responses |
+| FC22G1-UI-006 | Filters | Playwright | Currency query changes network request |
+| FC22G1-UI-007 | Pagination | Playwright | `limit=1` honored |
+| FC22G1-UI-008 | Feature flag off | Playwright | `/freight-costs` → `/freight-costs/unavailable`; env hint visible |
+
+**Orchestrator:** `TestFC22G1_BrowserE2E_LiveBuyerFlow` (`BROWSER_E2E=1`).  
+**Specs:** `apps/web-procurement/e2e/freight-cost-intelligence/`.  
+**Mode:** `LIVE_BROWSER_BACKEND_MODE=REAL_LOCAL_STACK` — no HTTP mocks on primary path.
+
+**Green CI evidence:** [run 32760275797](https://github.com/f9999737292-bit/Freihgt-platform/actions/runs/32760275797) job `freight-cost-intelligence-browser-e2e` (`97537223665`) @ `1394462` — UI-001..008 PASS in 36.8s.
+
+---
+
+## 9. Error handling
 
 | ID | Test | Assertion |
 |----|------|-----------|
@@ -117,8 +135,14 @@ Vitest runs in web-procurement CI; mocked adapters — no live browser required 
 
 ---
 
-## 9. Closure verdict
+## 10. Closure verdict (v2.2G.1)
 
-All v2.2G E2E scenarios above are covered by automated integration tests in CI job `freight-cost-analytics-final-e2e`. Live browser E2E against staging remains optional for ops validation; not required for v2.2 technical completion.
+Gateway/service integration E2E from v2.2G remains valid. **Live browser buyer E2E** is green on PR #60 CI.
+
+| Flag | Value |
+|------|-------|
+| `LIVE_BROWSER_E2E_READY` | **YES** |
+| CI run | [32760275797](https://github.com/f9999737292-bit/Freihgt-platform/actions/runs/32760275797) |
+| Browser job | `97537223665` |
 
 **References:** `TEST_INVENTORY.md`, `SECURITY_CLOSURE.md`, `FINAL_CLOSURE.md`.

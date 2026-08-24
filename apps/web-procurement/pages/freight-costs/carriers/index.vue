@@ -17,14 +17,34 @@ const {
   runLoad,
 } = useFreightCostPageContext()
 
+const routeQuery = useFreightCostIntelligenceRouteQuery()
+const route = useRoute()
 const response = ref<FreightCostAnalyticsCarriersResponse | null>(null)
 
-onMounted(async () => {
+async function loadCarriers() {
   if (!currentCompanyId.value) return
-  response.value = await runLoad(() => getFreightCostAnalyticsCarriers({
+  const query = routeQuery.value
+  const result = await runLoad(() => getFreightCostAnalyticsCarriers({
     company_id: currentCompanyId.value!,
+    currency: query.currency,
+    limit: query.limit,
+    offset: query.offset,
   }))
+  if (result) {
+    response.value = result
+  }
+}
+
+onMounted(() => {
+  void loadCarriers()
 })
+
+watch(
+  () => [currentCompanyId.value, route.query.currency, route.query.limit, route.query.offset] as const,
+  () => {
+    void loadCarriers()
+  },
+)
 
 const viewState = computed(() => resolveFreightCostIntelligenceListViewState({
   loading: loading.value,
@@ -34,7 +54,7 @@ const viewState = computed(() => resolveFreightCostIntelligenceListViewState({
   apiUnavailable: apiUnavailable.value,
   dataQuality: response.value?.data_quality,
   mixedCurrency: response.value?.mixed_currency ?? false,
-  itemCount: response.value?.items.length ?? 0,
+  itemCount: response.value?.items?.length ?? 0,
 }))
 </script>
 
@@ -48,6 +68,18 @@ const viewState = computed(() => resolveFreightCostIntelligenceListViewState({
       :message="t('freightCosts.unavailable.liveData')"
     />
     <div v-if="viewState === 'loading'">{{ t('common.loading') }}</div>
+    <template v-else-if="response?.items?.length">
+      <FreightCostIntelligenceDataQualityBanner
+        :data-quality="response.data_quality"
+        :mixed-currency="response.mixed_currency"
+        :freshness="response.freshness"
+      />
+      <FreightCostIntelligenceCarrierTable
+        :items="response.items"
+        :mixed-currency="response.mixed_currency"
+        :live-unavailable="liveUnavailable"
+      />
+    </template>
     <EmptyState
       v-else-if="viewState === 'missing_company'"
       :title="t('freightCosts.errors.missingCompany')"
@@ -74,17 +106,5 @@ const viewState = computed(() => resolveFreightCostIntelligenceListViewState({
       v-else-if="viewState === 'empty'"
       :title="t('freightCosts.empty.carriers')"
     />
-    <template v-else-if="response">
-      <FreightCostIntelligenceDataQualityBanner
-        :data-quality="response.data_quality"
-        :mixed-currency="response.mixed_currency"
-        :freshness="response.freshness"
-      />
-      <FreightCostCarrierIntelligenceTable
-        :items="response.items"
-        :mixed-currency="response.mixed_currency"
-        :live-unavailable="liveUnavailable"
-      />
-    </template>
   </FreightCostShell>
 </template>

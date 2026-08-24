@@ -17,7 +17,9 @@ defineProps<{
         <tr v-if="loading">
           <td :colspan="columns.length" class="ui-table__empty">{{ $t('common.loading') }}</td>
         </tr>
-        <slot v-else />
+        <template v-else>
+          <slot />
+        </template>
       </tbody>
     </table>
   </div>

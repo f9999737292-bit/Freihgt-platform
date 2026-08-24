@@ -141,4 +141,18 @@ After rebuild:
 
 Full rebuild is **deterministic** — repeated runs produce identical projections (`TestFC22BRebuildIdempotent`).
 
+---
+
+## 11. Automated projection-loss drill (v2.2G.1)
+
+| Type | Test | Pass criteria |
+|------|------|---------------|
+| **AUTOMATED_DR_TEST** | `TestFC22G1_FullProjectionLossAndRebuildRestoresBusinessState` | Pre/post `ComputeAnalyticsBusinessChecksum` equal; canonical ledger unchanged; opportunity IDs stable; pinned accessorial mapping restored |
+| **FAILED_REBUILD** | `TestFC22G1_FailedRebuildDoesNotPublishPartialFreshState` | Injected failure; no partial publish; prior checksum preserved |
+| **RETRY** | `TestFC22G1_RetryAfterFailureRestoresBusinessState` | Second rebuild succeeds |
+
+Derived tables cleared in drill: order facts, period/lane/carrier/accessorial facts & periods, benchmark, opportunity, coverage, projection state.
+
+**Not sufficient alone:** `TestFC22G_FullStackRebuildIncrementalEquivalence` (incremental equivalence only).
+
 **References:** `PERFORMANCE_REPORT.md`, `TEST_INVENTORY.md`, `ARCHITECTURE.md` ADR-22-003.
