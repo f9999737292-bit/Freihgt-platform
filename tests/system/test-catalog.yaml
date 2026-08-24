@@ -41,16 +41,20 @@ tests:
     environment: [CI, DISPOSABLE, STAGING]
     automation: SECURITY
     blocking: [PILOT, PRODUCTION]
-    status: PLANNED
+    status: PASS
+    wave: 1
+    ci_job: system-security-wave1
 
   - id: FP-E2E-SEC-002
     domain: security
     priority: P0
     actor: CARRIER_DISPATCHER
-    environment: [DISPOSABLE]
+    environment: [DISPOSABLE, CI]
     automation: SECURITY
     blocking: [PILOT]
-    status: PLANNED
+    status: PASS
+    wave: 1
+    ci_job: system-security-wave1
 
   - id: FP-E2E-DRV-001
     domain: driver
@@ -112,10 +116,11 @@ tests:
     domain: auth
     priority: P0
     actor: any
-    environment: [DISPOSABLE]
-    automation: AUTO_STAGING
+    environment: [CI]
+    automation: AUTO_CI
     blocking: [PILOT]
-    status: PLANNED
+    status: PASS
+    wave: 1
 
   - id: FP-AUTH-003
     domain: auth
@@ -125,6 +130,27 @@ tests:
     automation: AUTO_CI
     blocking: [PILOT]
     status: PASS
+    wave: 1
+
+  - id: FP-AUTH-004
+    domain: auth
+    priority: P0
+    actor: any
+    environment: [CI]
+    automation: AUTO_CI
+    blocking: [PILOT]
+    status: PASS
+    wave: 1
+
+  - id: FP-AUTH-005
+    domain: auth
+    priority: P0
+    actor: any
+    environment: [CI]
+    automation: AUTO_CI
+    blocking: [PILOT]
+    status: PASS
+    wave: 1
 
   - id: FP-TENANT-001
     domain: tenant
@@ -256,7 +282,8 @@ tests:
     environment: [CI, DISPOSABLE]
     automation: SECURITY
     blocking: [PILOT]
-    status: PLANNED
+    status: PASS
+    wave: 1
 
   - id: FP-SEC-016
     domain: security
@@ -265,7 +292,8 @@ tests:
     environment: [CI]
     automation: SECURITY
     blocking: [PILOT, PRODUCTION]
-    status: PLANNED
+    status: PASS
+    wave: 1
 
   - id: FP-PERF-001
     domain: performance

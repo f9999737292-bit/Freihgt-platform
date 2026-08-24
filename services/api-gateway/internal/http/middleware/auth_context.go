@@ -45,4 +45,6 @@ func StripUntrustedIdentityHeaders(header interface {
 	header.Del("X-Company-ID")
 	header.Del("X-Actor-Kind")
 	header.Del("X-Internal-Service-Token")
+	header.Del("X-Platform-Admin")
+	header.Del("X-Role")
 }

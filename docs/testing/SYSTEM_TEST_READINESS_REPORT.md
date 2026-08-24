@@ -6,6 +6,19 @@
 
 ---
 
+## Wave 1 Status (2026-08-24)
+
+| Gate | Status |
+|------|--------|
+| WAVE_1 | **PASS** (CI: `system-security-wave1`) |
+| AUTHENTICATION | PASS |
+| TENANT_ISOLATION | PASS (multi-domain integration) |
+| COMPANY_ISOLATION | PASS |
+| HEADER_SPOOF | PASS (incl. fix: strip X-Platform-Admin, X-Role) |
+| BOLA/IDOR | PASS (domain integration suites) |
+
+FTST002: **PARTIALLY_REMEDIATED** — ephemeral DB per integration test.
+
 ## Executive Summary
 
 Master System Test Plan v1 is **design-complete** and partially **executable now** via CI and disposable integration. Staging/UAT remain blocked by external infrastructure (F22R001–008, SSH).

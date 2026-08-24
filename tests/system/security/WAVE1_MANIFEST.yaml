@@ -1,0 +1,81 @@
+# System Test Wave 1 — Auth, RBAC, Tenant & Company Isolation
+# Maps catalog IDs to executable test suites (see scripts/test/run-system-security-wave1.sh)
+
+wave: 1
+name: auth_rbac_tenant_company_isolation
+staging_dependency: false
+
+auth:
+  FP-AUTH-001:
+    package: services/api-gateway/internal/http/middleware
+    test: TestAuthEnabledValidTokenSetsHeaders
+  FP-AUTH-002:
+    package: services/api-gateway/internal/http/middleware
+    test: TestAuthEnabledProtectedRouteWithoutTokenReturns401
+  FP-AUTH-003:
+    package: services/api-gateway/internal/http/middleware
+    test: TestFP_AUTH_003_MalformedJWT
+  FP-AUTH-004:
+    package: services/api-gateway/internal/http/middleware
+    test: TestFP_AUTH_004_ExpiredJWT
+  FP-AUTH-005:
+    package: services/api-gateway/internal/http/middleware
+    test: TestFP_AUTH_005_InvalidSignature
+
+header_spoof:
+  FP-SEC-016:
+    package: services/api-gateway/internal/http/middleware
+    test: TestAuthEnabledStripsSpoofedIdentityHeaders
+  FP-SEC-TENANT-HEADER:
+    package: services/api-gateway/internal/integration/securitywave1
+    test: TestFP_SEC_TenantHeaderSpoof
+  FP-SEC-USER-HEADER:
+    package: services/api-gateway/internal/integration/securitywave1
+    test: TestFP_SEC_UserHeaderSpoof
+  FP-SEC-ROLE-HEADER:
+    package: services/api-gateway/internal/integration/securitywave1
+    test: TestFP_SEC_RoleHeaderSpoof
+  FP-SEC-ADMIN-SPOOF:
+    package: services/api-gateway/internal/integration/securitywave1
+    test: TestFP_SEC_AdminSpoof
+
+tenant_isolation:
+  FP-E2E-SEC-001:
+    suites:
+      - services/rfx-service/internal/integration/enterprise (CrossTenant)
+      - services/billing-register-service/internal/integration/freightsettlement (CrossTenant)
+      - services/transport-order-service/internal/integration/pricingsnapshot (CrossTenant)
+      - services/contract-rate-service/internal/integration/contractrate (CrossTenant)
+      - services/document-service/internal/integration/podupload (CrossTenant)
+      - services/api-gateway/internal/integration/freightcostpublic (CrossTenant)
+      - services/api-gateway/internal/integration/controltowerreadmodel (TenantIsolation)
+
+company_isolation:
+  FP-E2E-SEC-002:
+    suites:
+      - services/rfx-service/internal/integration/laneownership (CrossCompany)
+      - services/rfx-service/internal/integration/enterprise (CompanyIsolation)
+      - services/api-gateway/internal/integration/freightcostpublic (ForeignCompany)
+
+role_abuse:
+  FP-SEC-010:
+    package: services/api-gateway/internal/shipmentrbac
+    test: TestCreateRBACTable
+  FP-SEC-011:
+    package: services/api-gateway/internal/rfxrbac
+    test: TestAcceptBidBuyerAllowedCarrierDenied
+  FP-SEC-012:
+    package: services/api-gateway/internal/integration/freightcostpublic
+    test: TestFC22F_SEC_CarrierDeniedAllBuyerAnalyticsRoutes
+
+domains_mandatory:
+  - rfx
+  - transport_order
+  - shipment
+  - contract_rate
+  - settlement_billing
+  - freight_cost_intelligence
+  - control_tower
+  - document_pod
+
+entrypoint: make system-test-wave1-security
