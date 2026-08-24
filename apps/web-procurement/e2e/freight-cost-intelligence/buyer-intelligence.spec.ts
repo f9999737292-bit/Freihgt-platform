@@ -33,22 +33,6 @@ async function seedBuyerSession(page: Page) {
   }, { token: jwt, tenant: tenantId, company: companyId })
 }
 
-async function gotoWorkspacePage(page: Page, path: string) {
-  await page.goto(path, { waitUntil: 'networkidle' })
-  await expect(page).not.toHaveURL(/\/login(?:\?|$)/)
-  await expectShellReady(page)
-}
-
-async function waitForAnalyticsItems(page: Page, pathSegment: string) {
-  const response = await page.waitForResponse(
-    (resp) => resp.url().includes(pathSegment) && resp.status() === 200,
-    { timeout: 60_000 },
-  )
-  const body = await response.json()
-  expect(body.items?.length ?? 0).toBeGreaterThan(0)
-  return body
-}
-
 test.beforeEach(async ({ page }) => {
   test.setTimeout(180_000)
   if (!jwt || !tenantId || !companyId) {
@@ -61,7 +45,9 @@ test('FC22G1-UI-001 live buyer overview', async ({ page }) => {
   const overviewResp = page.waitForResponse((resp) =>
     resp.url().includes('/api/v1/freight-costs/analytics/overview') && resp.status() === 200,
   )
-  await gotoWorkspacePage(page, '/freight-costs')
+  await page.goto('/freight-costs', { waitUntil: 'networkidle' })
+  await expect(page).not.toHaveURL(/\/login(?:\?|$)/)
+  await expectShellReady(page)
   const body = await (await overviewResp).json()
   expect(body.summary?.order_count).toBeGreaterThan(0)
   const plannedTotal = String(body.summary?.planned_total ?? '')
@@ -71,39 +57,54 @@ test('FC22G1-UI-001 live buyer overview', async ({ page }) => {
 })
 
 test('FC22G1-UI-002 live lanes', async ({ page }) => {
-  const bodyPromise = waitForAnalyticsItems(page, '/api/v1/freight-costs/analytics/lanes')
-  await gotoWorkspacePage(page, '/freight-costs/lanes?currency=RUB')
-  const body = await bodyPromise
+  const lanesResp = page.waitForResponse((resp) =>
+    resp.url().includes('/analytics/lanes') && resp.url().includes('currency=RUB') && resp.status() === 200,
+  )
+  await page.goto('/freight-costs/lanes?currency=RUB', { waitUntil: 'networkidle' })
+  const body = await (await lanesResp).json()
+  expect(body.items?.length ?? 0).toBeGreaterThan(0)
   const laneLabel = String(body.items[0]?.lane_label ?? '')
   expect(laneLabel.length).toBeGreaterThan(0)
+  await expectShellReady(page)
   await expectRenderedFixtureText(page, laneLabel)
 })
 
 test('FC22G1-UI-003 live carriers', async ({ page }) => {
-  const bodyPromise = waitForAnalyticsItems(page, '/api/v1/freight-costs/analytics/carriers')
-  await gotoWorkspacePage(page, '/freight-costs/carriers?currency=RUB')
-  const body = await bodyPromise
+  const carriersResp = page.waitForResponse((resp) =>
+    resp.url().includes('/analytics/carriers') && resp.url().includes('currency=RUB') && resp.status() === 200,
+  )
+  await page.goto('/freight-costs/carriers?currency=RUB', { waitUntil: 'networkidle' })
+  const body = await (await carriersResp).json()
+  expect(body.items?.length ?? 0).toBeGreaterThan(0)
   const carrierName = String(body.items[0]?.carrier_name ?? '')
   expect(carrierName.length).toBeGreaterThan(0)
   expect(carrierName).not.toMatch(/^[0-9a-f-]{36}$/i)
+  await expectShellReady(page)
   await expectRenderedFixtureText(page, carrierName)
 })
 
 test('FC22G1-UI-004 live accessorials', async ({ page }) => {
-  const bodyPromise = waitForAnalyticsItems(page, '/api/v1/freight-costs/analytics/accessorials')
-  await gotoWorkspacePage(page, '/freight-costs/accessorials?currency=RUB')
-  const body = await bodyPromise
+  const accessorialsResp = page.waitForResponse((resp) =>
+    resp.url().includes('/analytics/accessorials') && resp.url().includes('currency=RUB') && resp.status() === 200,
+  )
+  await page.goto('/freight-costs/accessorials?currency=RUB', { waitUntil: 'networkidle' })
+  const body = await (await accessorialsResp).json()
+  expect(body.items?.length ?? 0).toBeGreaterThan(0)
   const accessorial = body.items.find((item: { total_amount?: { amount?: string } }) =>
     Number(item.total_amount?.amount ?? 0) >= 150,
   ) ?? body.items[0]
   expect(Number(accessorial.total_amount?.amount ?? 0)).toBeGreaterThanOrEqual(150)
+  await expectShellReady(page)
   await expectRenderedFixtureText(page, decimalAmountPattern(String(accessorial.total_amount.amount)))
 })
 
 test('FC22G1-UI-005 live opportunities', async ({ page }) => {
-  const bodyPromise = waitForAnalyticsItems(page, '/api/v1/freight-costs/opportunities')
-  await gotoWorkspacePage(page, '/freight-costs/opportunities?currency=RUB')
-  const body = await bodyPromise
+  const opportunitiesResp = page.waitForResponse((resp) =>
+    resp.url().includes('/opportunities') && resp.url().includes('currency=RUB') && resp.status() === 200,
+  )
+  await page.goto('/freight-costs/opportunities?currency=RUB', { waitUntil: 'networkidle' })
+  const body = await (await opportunitiesResp).json()
+  expect(body.items?.length ?? 0).toBeGreaterThan(0)
   const opportunity = body.items.find((item: { estimated_delta?: { amount?: string } }) =>
     Math.abs(Number(item.estimated_delta?.amount ?? 0) - Number(expectedDelta)) < 0.01,
   ) ?? body.items[0]
@@ -111,6 +112,7 @@ test('FC22G1-UI-005 live opportunities', async ({ page }) => {
   expect(opportunity?.baseline_value?.amount).toBeTruthy()
   expect(opportunity?.estimated_delta?.amount).toBeTruthy()
   expect(opportunity?.estimated_delta?.currency_code).toBeTruthy()
+  await expectShellReady(page)
   await expectRenderedFixtureText(page, decimalAmountPattern(String(opportunity.estimated_delta.amount)))
 })
 
