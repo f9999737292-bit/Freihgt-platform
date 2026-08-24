@@ -1,7 +1,9 @@
 <script setup lang="ts">
 definePageMeta({ middleware: 'auth', layout: 'default' })
 
-const { t } = useI18n()
+const { t, loadLocaleMessages, locale } = useI18n()
+
+await loadLocaleMessages(locale.value)
 </script>
 
 <template>
