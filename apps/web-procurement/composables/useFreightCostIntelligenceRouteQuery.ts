@@ -17,6 +17,19 @@ export function useFreightCostIntelligenceRouteQuery() {
 export function useFreightCostIntelligenceRouteQueryWatcher(reload: () => void | Promise<void>) {
   const route = useRoute()
   const { currentCompanyId } = useTenantContext()
+  const tenantStore = useTenantStore()
+  const authStore = useAuthStore()
+
+  async function ensureSessionAndReload() {
+    if (!authStore.restored) {
+      authStore.restoreSession()
+    }
+    if (!tenantStore.restored) {
+      tenantStore.restoreTenant()
+    }
+    await nextTick()
+    await reload()
+  }
 
   watch(
     () => [
@@ -26,11 +39,11 @@ export function useFreightCostIntelligenceRouteQueryWatcher(reload: () => void |
       route.query.offset,
     ] as const,
     () => {
-      void reload()
+      void ensureSessionAndReload()
     },
   )
 
   onMounted(() => {
-    void reload()
+    void ensureSessionAndReload()
   })
 }
