@@ -44,7 +44,7 @@ type browserLiveStack struct {
 	fixture        browserFixture
 	freightCostSrv *http.Server
 	gatewaySrv     *http.Server
-	webCmd         *exec.Cmd
+	webCmd         *webProcurementCmd
 }
 
 func TestFC22G1_BrowserE2E_LiveBuyerFlow(t *testing.T) {
@@ -81,13 +81,21 @@ func (s *browserLiveStack) shutdown() {
 	}
 }
 
-func stopBrowserWebProcurement(cmd *exec.Cmd) {
-	if cmd == nil || cmd.Process == nil {
+func stopBrowserWebProcurement(proc *webProcurementCmd) {
+	if proc == nil || proc.cmd == nil || proc.cmd.Process == nil {
 		return
 	}
-	cmd.WaitDelay = 0
-	_ = cmd.Process.Kill()
-	_ = cmd.Wait()
+	proc.cmd.WaitDelay = 0
+	_ = proc.cmd.Process.Kill()
+	for _, logFile := range proc.logs {
+		_ = logFile.Close()
+	}
+	_ = proc.cmd.Wait()
+}
+
+type webProcurementCmd struct {
+	cmd  *exec.Cmd
+	logs []*os.File
 }
 
 func startBrowserLiveStack(t *testing.T) *browserLiveStack {
@@ -175,7 +183,7 @@ func listenHTTPServer(t *testing.T, handler http.Handler) (string, *http.Server)
 	return "http://" + ln.Addr().String(), srv
 }
 
-func startBrowserWebProcurement(t *testing.T, gatewayURL string, fix browserFixture, port string, workspaceEnabled bool) (string, *exec.Cmd) {
+func startBrowserWebProcurement(t *testing.T, gatewayURL string, fix browserFixture, port string, workspaceEnabled bool) (string, *webProcurementCmd) {
 	t.Helper()
 	root, err := repoRoot()
 	if err != nil {
@@ -195,13 +203,21 @@ func startBrowserWebProcurement(t *testing.T, gatewayURL string, fix browserFixt
 	}
 	env = append(env, "NUXT_E2E_DISABLE_SSR=true")
 	cmd.Env = append(os.Environ(), env...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	logFile, err := os.CreateTemp("", "fc22g1-nuxt-"+port+"-*.log")
+	if err != nil {
+		t.Fatalf("create nuxt log file: %v", err)
+	}
+	cmd.Stdout = logFile
+	cmd.Stderr = logFile
 	cmd.WaitDelay = 0
 	if err := cmd.Start(); err != nil {
+		_ = logFile.Close()
 		t.Fatalf("start web dev: %v", err)
 	}
-	return "http://127.0.0.1:" + port, cmd
+	return "http://127.0.0.1:" + port, &webProcurementCmd{
+		cmd:  cmd,
+		logs: []*os.File{logFile},
+	}
 }
 
 func waitForHTTP200(t *testing.T, targetURL string, timeout time.Duration) {
