@@ -24,7 +24,6 @@ const featureBody = computed(() => {
       <h1>{{ featureTitle }}</h1>
     </div>
     <div class="ui-empty">
-      <h3>{{ featureTitle }}</h3>
       <p>{{ featureBody }}</p>
     </div>
   </div>
@@ -39,10 +38,5 @@ const featureBody = computed(() => {
   padding: 3rem 1.5rem;
   text-align: center;
   color: var(--color-text-muted);
-}
-
-.ui-empty h3 {
-  margin: 0 0 0.75rem;
-  color: var(--color-text);
 }
 </style>
