@@ -47,19 +47,57 @@ function displayBaseline(item: FreightCostAnalyticsOpportunityItemDTO): string {
 </script>
 
 <template>
-  <Table :columns="columns">
-    <tr v-for="item in items" :key="item.opportunity_id">
-      <td>{{ t(opportunityTypeLabelKey(item.type)) }}</td>
-      <td>{{ t(opportunityScopeLabelKey(item.scope)) }}</td>
-      <td>{{ item.entity_key }}</td>
-      <td>{{ displayObserved(item) }}</td>
-      <td>{{ displayBaseline(item) }}</td>
-      <td>{{ displayDelta(item) }}</td>
-      <td>{{ item.sample_size }}</td>
-      <td>
-        <Badge :status="t(dataQualityLabelKey(item.data_quality))" tone="info" />
-      </td>
-      <td>{{ item.calculated_at }}</td>
-    </tr>
-  </Table>
+  <div class="ui-table-wrap">
+    <table class="ui-table">
+      <thead>
+        <tr>
+          <th v-for="column in columns" :key="column">{{ column }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="item in items" :key="item.opportunity_id">
+          <td>{{ t(opportunityTypeLabelKey(item.type)) }}</td>
+          <td>{{ t(opportunityScopeLabelKey(item.scope)) }}</td>
+          <td>{{ item.entity_key }}</td>
+          <td>{{ displayObserved(item) }}</td>
+          <td>{{ displayBaseline(item) }}</td>
+          <td>{{ displayDelta(item) }}</td>
+          <td>{{ item.sample_size }}</td>
+          <td>
+            <Badge :status="t(dataQualityLabelKey(item.data_quality))" tone="info" />
+          </td>
+          <td>{{ item.calculated_at }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 </template>
+
+<style scoped>
+.ui-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.ui-table th,
+.ui-table td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.ui-table th {
+  background: #f8fafc;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.ui-table tr:last-child td {
+  border-bottom: none;
+}
+</style>

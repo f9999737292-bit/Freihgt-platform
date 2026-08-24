@@ -34,7 +34,18 @@ async function loadCarriers() {
   }
 }
 
-useFreightCostIntelligenceRouteQueryWatcher(loadCarriers)
+const route = useRoute()
+
+onMounted(() => {
+  void loadCarriers()
+})
+
+watch(
+  () => [currentCompanyId.value, route.query.currency, route.query.limit, route.query.offset] as const,
+  () => {
+    void loadCarriers()
+  },
+)
 
 const viewState = computed(() => resolveFreightCostIntelligenceListViewState({
   loading: loading.value,

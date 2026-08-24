@@ -39,11 +39,6 @@ test.beforeEach(async ({ page }) => {
   if (!jwt || !tenantId || !companyId) {
     test.skip(true, 'browser E2E env not configured')
   }
-  page.on('console', (msg) => {
-    if (msg.type() === 'error' || msg.text().includes('FC22G1')) {
-      console.log(`[browser-console] ${msg.text()}`)
-    }
-  })
   await seedBuyerSession(page)
 })
 
