@@ -48,7 +48,9 @@ export async function expectWorkspaceContent(page: import('@playwright/test').Pa
 
 export async function expectIntelligenceTableReady(page: import('@playwright/test').Page) {
   await expect(page.locator('.freight-cost-shell')).not.toContainText(/Loading|Загрузка/i, { timeout: 60_000 })
-  await expect(page.locator('.ui-table-wrap tbody tr').first()).toBeVisible({ timeout: 60_000 })
+  await expect(
+    page.locator('[data-testid="freight-intelligence-list-row"], .ui-table-wrap tbody tr').first(),
+  ).toBeVisible({ timeout: 60_000 })
 }
 
 export async function expectRenderedFixtureText(

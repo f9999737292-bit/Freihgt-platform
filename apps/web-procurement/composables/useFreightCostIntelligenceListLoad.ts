@@ -11,10 +11,10 @@ export function shouldApplyFreightCostIntelligenceListLoad(
 
 export function useFreightCostIntelligenceListLoad<TResponse extends { items?: unknown[] }>(
   fetcher: (query: FreightCostAnalyticsQuery & { company_id: string }) => Promise<TResponse>,
+  runLoad: <T>(loader: () => Promise<T>) => Promise<T | null>,
 ) {
   const { currentCompanyId } = useTenantContext()
   const routeQuery = useFreightCostIntelligenceRouteQuery()
-  const { runLoad } = useFreightCostPageContext()
   const response = ref<TResponse | null>(null) as Ref<TResponse | null>
   let activeGeneration = 0
 

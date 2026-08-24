@@ -262,11 +262,12 @@ describe('FC-D-INT list load lifecycle', () => {
     expect(shouldApplyFreightCostIntelligenceListLoad(1, 1, null)).toBe(false)
   })
 
-  it('FC-D-INT-LOAD-003 route watcher loads on mounted not immediate setup', () => {
+  it('FC-D-INT-LOAD-003 route watcher restores session and loads immediately', () => {
     const source = readSource('composables/useFreightCostIntelligenceRouteQuery.ts')
-    expect(source).toContain('onMounted')
     expect(source).toContain('ensureSessionAndReload')
-    expect(source).not.toMatch(/watch\([\s\S]*immediate:\s*true/)
+    expect(source).toContain('immediate: true')
+    expect(source).toContain('restoreSession')
+    expect(source).toContain('restoreTenant')
   })
 
   it('FC-D-INT-LOAD-004 list pages use shared list load composable', () => {

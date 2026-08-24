@@ -27,11 +27,11 @@ const columns = computed(() => [
 
 function benchmarkMedian(item: FreightCostAnalyticsLaneItemDTO): string {
   if (props.liveUnavailable) return t('freightCosts.unavailable.liveData')
-  const quality = String(item.benchmark.data_quality ?? '').toUpperCase()
+  const quality = String(item.benchmark?.data_quality ?? '').toUpperCase()
   if (quality === 'INSUFFICIENT_SAMPLE' || quality === 'NOT_AVAILABLE') {
     return t('freightCosts.intelligence.states.insufficientSample')
   }
-  return formatAnalyticsMoney(item.benchmark.median, locale.value, unavailableLabel.value, props.mixedCurrency)
+  return formatAnalyticsMoney(item.benchmark?.median, locale.value, unavailableLabel.value, props.mixedCurrency)
 }
 
 function moneyCell(money: Parameters<typeof formatAnalyticsMoney>[0]): string {
@@ -49,7 +49,7 @@ function moneyCell(money: Parameters<typeof formatAnalyticsMoney>[0]): string {
         </tr>
       </thead>
       <tbody>
-        <tr v-for="item in items" :key="item.lane_key">
+        <tr v-for="item in items" :key="item.lane_key" data-testid="freight-intelligence-list-row">
           <td>{{ item.lane_label }}</td>
           <td>{{ item.order_count }}</td>
           <td>{{ item.carrier_count }}</td>
@@ -59,9 +59,9 @@ function moneyCell(money: Parameters<typeof formatAnalyticsMoney>[0]): string {
           <td>{{ moneyCell(item.variance_total) }}</td>
           <td>{{ benchmarkMedian(item) }}</td>
           <td>
-            <span>{{ item.benchmark.sample_size }}</span>
+            <span>{{ item.benchmark?.sample_size ?? '—' }}</span>
             <Badge
-              v-if="item.benchmark.data_quality && item.benchmark.data_quality !== 'AVAILABLE'"
+              v-if="item.benchmark?.data_quality && item.benchmark.data_quality !== 'AVAILABLE'"
               :status="t(dataQualityLabelKey(item.benchmark.data_quality))"
               tone="info"
             />

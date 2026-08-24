@@ -41,9 +41,6 @@ export function useFreightCostIntelligenceRouteQueryWatcher(reload: () => void |
     () => {
       void ensureSessionAndReload()
     },
+    { immediate: true },
   )
-
-  onMounted(() => {
-    void ensureSessionAndReload()
-  })
 }
