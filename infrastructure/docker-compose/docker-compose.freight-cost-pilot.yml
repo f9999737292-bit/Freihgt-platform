@@ -1,0 +1,61 @@
+# Freight Cost Intelligence v2.2 — NON-PRODUCTION pilot overlay.
+#
+# Use ONLY on dedicated non-production hosts (local dev lab or approved staging VM).
+# Do NOT apply to production compose stacks.
+#
+# Phase 1 (flags OFF):
+#   docker compose -f docker-compose.yml -f docker-compose.freight-cost-pilot.yml up -d
+#
+# Phase 2 (analytics ON, workspace OFF):
+#   FREIGHT_COST_ANALYTICS_PROJECTION_ENABLED=true in pilot env, restart freight-cost-service only.
+#
+# Requires migrations 000054–000064 applied (full chain through 000064 for v2.2 analytics).
+
+services:
+  freight-cost-service:
+    build:
+      context: ../..
+      dockerfile: services/freight-cost-service/Dockerfile
+    container_name: freight_cost_service
+    restart: unless-stopped
+    environment:
+      FREIGHT_COST_SERVICE_PORT: 8092
+      DATABASE_URL: postgres://freight:freight_password@postgres:5432/freight_platform?sslmode=disable
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_service_token_change_me}
+      TRANSPORT_ORDER_SERVICE_URL: http://transport-order-service:8083
+      BILLING_REGISTER_SERVICE_URL: http://billing-register-service:8087
+      COMPANY_SERVICE_URL: http://company-service:8082
+      PAYMENT_SERVICE_URL: http://payment-service:8090
+      LOG_LEVEL: info
+      ENVIRONMENT: ${ENVIRONMENT:-staging}
+      FREIGHT_COST_ANALYTICS_PROJECTION_ENABLED: ${FREIGHT_COST_ANALYTICS_PROJECTION_ENABLED:-false}
+      FREIGHT_COST_ANALYTICS_DIRTY_POLL_INTERVAL: ${FREIGHT_COST_ANALYTICS_DIRTY_POLL_INTERVAL:-5s}
+      FREIGHT_COST_ANALYTICS_REBUILD_INTERVAL: ${FREIGHT_COST_ANALYTICS_REBUILD_INTERVAL:-24h}
+      FREIGHT_COST_ANALYTICS_DIRTY_BATCH_SIZE: ${FREIGHT_COST_ANALYTICS_DIRTY_BATCH_SIZE:-50}
+    ports:
+      - "127.0.0.1:8092:8092"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      transport-order-service:
+        condition: service_healthy
+      billing-register-service:
+        condition: service_healthy
+      company-service:
+        condition: service_healthy
+    networks:
+      - freight-platform-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8092/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  api-gateway:
+    environment:
+      FREIGHT_COST_SERVICE_URL: http://freight-cost-service:8092
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev_internal_service_token_change_me}
+    depends_on:
+      freight-cost-service:
+        condition: service_healthy
