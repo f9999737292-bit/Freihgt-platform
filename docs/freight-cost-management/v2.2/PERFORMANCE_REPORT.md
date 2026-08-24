@@ -1,7 +1,7 @@
 # FREIGHT COST INTELLIGENCE v2.2G — Performance Report
 
-**Status:** Integration-scale certified; synthetic 100k deferred  
-**Date:** 2026-08-23
+**Status:** Integration-scale certified; controlled 100k PASS on CI  
+**Date:** 2026-08-24
 
 ---
 
@@ -104,7 +104,7 @@ Date range: default rolling 90 days; max ~24 months (validated in service).
 
 ## 6. Controlled 100K verification (v2.2G.1)
 
-**Status:** Harness implemented; execution requires `PERF_100K=1` on disposable Postgres (not run in default CI job).
+**Status:** PASS on CI job `freight-cost-analytics-100k-gate` — [run 32760275797](https://github.com/f9999737292-bit/Freihgt-platform/actions/runs/32760275797) job `97537223317` @ `1394462`.
 
 | Item | Value |
 |------|-------|
@@ -114,9 +114,9 @@ Date range: default rolling 90 days; max ~24 months (validated in service).
 | Generator seed | `220001` |
 | Tenant | `11111111-1111-4111-8111-111111110001` |
 | Order count | **100,000** |
-| Canonical source | Bulk insert into `cost_summary_projection` |
-| Rebuild path | `RebuildTenant` (full analytics service) |
-| Public API timing | In-test warm-up + 10 iterations (overview, lanes 20/100, carriers 20/100, accessorials, opportunities) |
+| Rebuild duration | **102,729 ms** |
+| Row counts | order_fact=100000, period=2, lane=11, carrier=11, accessorial=1000, benchmark=11, opportunity=54000 |
+| Public query P50 (ms) | overview=117, lanes20=84, lanes100=84, carriers20=65, carriers100=64, accessorials20=0, opportunities20=30 |
 | EXPLAIN | `FC22G1-PERF-003` — `EXPLAIN (ANALYZE, BUFFERS)` on lane/carrier/accessorial/opportunity/benchmark/period queries |
 | Runbook | `tests/performance/freight-cost-analytics/README.md` |
 
@@ -126,9 +126,7 @@ $env:PERF_100K = "1"
 go test -tags=integration ./internal/integration/analytics/... -run TestFC22G1_PERF001 -count=1 -timeout 30m -v
 ```
 
-**Verdict rule:** `CONTROLLED_100K_VERIFICATION=PASS` only after successful harness run records rebuild duration and bounded public queries. This is **not** a production SLA certification.
-
-Previous §6 “100k deferred” wording is superseded by this harness; actual numbers are recorded at execution time in CI/controlled run logs.
+**Verdict:** `CONTROLLED_100K_VERIFICATION=PASS` (CI evidence above). This is **not** a production SLA certification.
 
 ---
 
