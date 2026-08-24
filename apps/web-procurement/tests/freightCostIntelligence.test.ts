@@ -195,6 +195,19 @@ describe('FC-D-INT view states', () => {
     })).toBe('not_available')
   })
 
+  it('FC-D-INT-VST-002d list api unavailable with items still ready', () => {
+    expect(resolveFreightCostIntelligenceListViewState({
+      loading: false,
+      missingCompany: false,
+      forbidden: false,
+      liveUnavailable: false,
+      apiUnavailable: true,
+      dataQuality: 'AVAILABLE',
+      mixedCurrency: false,
+      itemCount: 1,
+    })).toBe('ready')
+  })
+
   it('FC-D-INT-VST-003 list mixed currency with no items', () => {
     expect(resolveFreightCostIntelligenceListViewState({
       loading: false,

@@ -55,6 +55,14 @@ export async function expectRenderedFixtureText(
   page: import('@playwright/test').Page,
   pattern: string | RegExp,
 ) {
+  await expect(page.locator('.freight-cost-shell')).not.toContainText(/Loading|Загрузка/i, { timeout: 60_000 })
+  await expect(page.getByText(pattern)).toBeVisible({ timeout: 60_000 })
+}
+
+export async function expectIntelligenceListFixtureText(
+  page: import('@playwright/test').Page,
+  pattern: string | RegExp,
+) {
   await expectIntelligenceTableReady(page)
   await expect(page.getByText(pattern)).toBeVisible({ timeout: 60_000 })
 }

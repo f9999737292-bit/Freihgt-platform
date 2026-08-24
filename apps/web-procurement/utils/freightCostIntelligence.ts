@@ -117,8 +117,8 @@ export function resolveFreightCostIntelligenceListViewState(
   if (input.loading) return 'loading'
   if (input.missingCompany) return 'missing_company'
   if (input.forbidden) return 'forbidden'
-  if (input.liveUnavailable) return 'live_unavailable'
-  if (input.apiUnavailable) return 'backend_unavailable'
+  if (input.liveUnavailable && input.itemCount === 0) return 'live_unavailable'
+  if (input.apiUnavailable && input.itemCount === 0) return 'backend_unavailable'
   if (String(input.dataQuality ?? '').toUpperCase() === 'NOT_AVAILABLE' && input.itemCount === 0) {
     return 'not_available'
   }
@@ -133,8 +133,8 @@ export function resolveFreightCostIntelligenceOverviewViewState(
   if (input.loading) return 'loading'
   if (input.missingCompany) return 'missing_company'
   if (input.forbidden) return 'forbidden'
-  if (input.liveUnavailable) return 'live_unavailable'
-  if (input.apiUnavailable) return 'backend_unavailable'
+  if (input.liveUnavailable && !input.overview) return 'live_unavailable'
+  if (input.apiUnavailable && !input.overview) return 'backend_unavailable'
   if (!input.overview) return 'empty'
   if (String(input.overview.data_quality ?? '').toUpperCase() === 'NOT_AVAILABLE') return 'not_available'
   if (input.overview.mixed_currency && !input.overview.summary) return 'mixed_currency'

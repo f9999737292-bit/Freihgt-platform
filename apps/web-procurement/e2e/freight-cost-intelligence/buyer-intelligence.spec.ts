@@ -3,6 +3,7 @@ import {
   decimalAmountPattern,
   expectDecimalClose,
   expectRenderedFixtureText,
+  expectIntelligenceListFixtureText,
   expectShellReady,
   expectWorkspaceContent,
 } from './helpers'
@@ -66,7 +67,7 @@ test('FC22G1-UI-002 live lanes', async ({ page }) => {
   const laneLabel = String(body.items[0]?.lane_label ?? '')
   expect(laneLabel.length).toBeGreaterThan(0)
   await expectShellReady(page)
-  await expectRenderedFixtureText(page, laneLabel)
+  await expectIntelligenceListFixtureText(page, laneLabel)
 })
 
 test('FC22G1-UI-003 live carriers', async ({ page }) => {
@@ -80,7 +81,7 @@ test('FC22G1-UI-003 live carriers', async ({ page }) => {
   expect(carrierName.length).toBeGreaterThan(0)
   expect(carrierName).not.toMatch(/^[0-9a-f-]{36}$/i)
   await expectShellReady(page)
-  await expectRenderedFixtureText(page, carrierName)
+  await expectIntelligenceListFixtureText(page, carrierName)
 })
 
 test('FC22G1-UI-004 live accessorials', async ({ page }) => {
@@ -95,7 +96,7 @@ test('FC22G1-UI-004 live accessorials', async ({ page }) => {
   ) ?? body.items[0]
   expect(Number(accessorial.total_amount?.amount ?? 0)).toBeGreaterThanOrEqual(150)
   await expectShellReady(page)
-  await expectRenderedFixtureText(page, decimalAmountPattern(String(accessorial.total_amount.amount)))
+  await expectIntelligenceListFixtureText(page, decimalAmountPattern(String(accessorial.total_amount.amount)))
 })
 
 test('FC22G1-UI-005 live opportunities', async ({ page }) => {
@@ -113,7 +114,7 @@ test('FC22G1-UI-005 live opportunities', async ({ page }) => {
   expect(opportunity?.estimated_delta?.amount).toBeTruthy()
   expect(opportunity?.estimated_delta?.currency_code).toBeTruthy()
   await expectShellReady(page)
-  await expectRenderedFixtureText(page, decimalAmountPattern(String(opportunity.estimated_delta.amount)))
+  await expectIntelligenceListFixtureText(page, decimalAmountPattern(String(opportunity.estimated_delta.amount)))
 })
 
 test('FC22G1-UI-006 live filters change network query', async ({ page }) => {

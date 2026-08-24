@@ -49,8 +49,6 @@ export function useFreightCostPageContext() {
         forbidden.value = true
       } else if (isFreightCostLiveUnavailableError(error)) {
         liveUnavailable.value = true
-      } else if (isApiUnavailableError(error)) {
-        apiUnavailable.value = true
       }
     }
   }

@@ -44,7 +44,7 @@ const viewState = computed(() => resolveFreightCostIntelligenceListViewState({
   apiUnavailable: apiUnavailable.value,
   dataQuality: response.value?.data_quality,
   mixedCurrency: response.value?.mixed_currency ?? false,
-  itemCount: response.value?.items.length ?? 0,
+  itemCount: response.value?.items?.length ?? 0,
 }))
 </script>
 
