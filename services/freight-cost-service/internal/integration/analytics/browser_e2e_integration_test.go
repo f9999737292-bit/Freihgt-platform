@@ -88,7 +88,7 @@ func stopBrowserWebProcurement(cmd *exec.Cmd) {
 	}
 	cmd.WaitDelay = 0
 	_ = cmd.Process.Kill()
-	_, _ = cmd.Wait()
+	_ = cmd.Wait()
 }
 
 func startBrowserLiveStack(t *testing.T) *browserLiveStack {
