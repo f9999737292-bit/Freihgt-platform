@@ -69,7 +69,7 @@ run_suite "FP-E2E-SEC shipment tenant handlers" \
   bash -lc 'cd services/shipment-service && go test ./internal/http/handlers/... -run "Tenant|Actor|BodyTenant" -count=1'
 
 run_suite "FP-E2E-SEC CT read model blackbox" \
-  bash -lc 'cd services/api-gateway && go test -tags=integration ./internal/integration/controltowerreadmodel/... -run "TenantIsolation" -count=1'
+  bash -lc 'cd services/api-gateway && go test -tags=integration ./internal/integration/controltowerreadmodel/... -run "TestBlackBoxTenantIsolation$" -count=1'
 
 run_suite "FP-E2E-SEC freight cost service security" \
   bash -lc 'cd services/freight-cost-service && go test -tags=integration ./internal/integration/variance/... -run "SEC|CrossTenant|TenantA|FakePlatform" -count=1'
