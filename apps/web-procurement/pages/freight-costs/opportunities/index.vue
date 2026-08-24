@@ -59,7 +59,18 @@ const viewState = computed(() => resolveFreightCostIntelligenceListViewState({
       :message="t('freightCosts.unavailable.liveData')"
     />
     <p class="opportunities-hint">{{ t('freightCosts.intelligence.hints.backendSavingsOnly') }}</p>
-    <div v-if="viewState === 'loading'">{{ t('common.loading') }}</div>
+    <div v-if="loading && !response">{{ t('common.loading') }}</div>
+    <template v-else-if="response?.items?.length">
+      <FreightCostIntelligenceDataQualityBanner
+        :data-quality="response.data_quality"
+        :mixed-currency="response.mixed_currency"
+        :freshness="response.freshness"
+      />
+      <FreightCostOpportunitiesTable
+        :items="response.items"
+        :live-unavailable="liveUnavailable"
+      />
+    </template>
     <EmptyState
       v-else-if="viewState === 'missing_company'"
       :title="t('freightCosts.errors.missingCompany')"
@@ -86,17 +97,6 @@ const viewState = computed(() => resolveFreightCostIntelligenceListViewState({
       v-else-if="viewState === 'empty'"
       :title="t('freightCosts.empty.opportunities')"
     />
-    <template v-else-if="response">
-      <FreightCostIntelligenceDataQualityBanner
-        :data-quality="response.data_quality"
-        :mixed-currency="response.mixed_currency"
-        :freshness="response.freshness"
-      />
-      <FreightCostOpportunitiesTable
-        :items="response.items"
-        :live-unavailable="liveUnavailable"
-      />
-    </template>
   </FreightCostShell>
 </template>
 
