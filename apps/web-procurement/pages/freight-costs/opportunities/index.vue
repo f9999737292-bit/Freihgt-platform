@@ -35,17 +35,16 @@ async function loadOpportunities() {
   }
 }
 
+onMounted(() => {
+  void loadOpportunities()
+})
+
 watch(
   () => [currentCompanyId.value, route.query.currency, route.query.limit, route.query.offset] as const,
   () => {
     void loadOpportunities()
   },
-  { immediate: true },
 )
-
-onMounted(() => {
-  void loadOpportunities()
-})
 
 const viewState = computed(() => resolveFreightCostIntelligenceListViewState({
   loading: loading.value,
@@ -77,12 +76,10 @@ const viewState = computed(() => resolveFreightCostIntelligenceListViewState({
         :mixed-currency="response.mixed_currency"
         :freshness="response.freshness"
       />
-      <ClientOnly>
-        <FreightCostOpportunitiesTable
-          :items="response.items"
-          :live-unavailable="liveUnavailable"
-        />
-      </ClientOnly>
+      <FreightCostOpportunitiesTable
+        :items="response.items"
+        :live-unavailable="liveUnavailable"
+      />
     </template>
     <EmptyState
       v-else-if="viewState === 'missing_company'"

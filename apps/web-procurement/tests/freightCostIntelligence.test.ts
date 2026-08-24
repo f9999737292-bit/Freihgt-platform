@@ -270,11 +270,13 @@ describe('FC-D-INT list load lifecycle', () => {
     expect(source).toContain('restoreTenant')
   })
 
-  it('FC-D-INT-LOAD-004 list pages use immediate route watch with mounted fallback', () => {
+  it('FC-D-INT-LOAD-004 list pages load on mount and watch route changes without immediate', () => {
     const lanes = readSource('pages/freight-costs/lanes/index.vue')
-    expect(lanes).toContain('{ immediate: true }')
     expect(lanes).toContain('onMounted')
+    expect(lanes).toContain('watch(')
+    expect(lanes).not.toContain('{ immediate: true }')
     expect(lanes).not.toContain('useFreightCostIntelligenceListLoad')
+    expect(lanes).not.toContain('<ClientOnly>')
   })
 
   it('FC-D-INT-LOAD-005 page context restores tenant before list fetch', () => {

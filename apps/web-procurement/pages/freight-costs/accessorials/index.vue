@@ -35,17 +35,16 @@ async function loadAccessorials() {
   }
 }
 
+onMounted(() => {
+  void loadAccessorials()
+})
+
 watch(
   () => [currentCompanyId.value, route.query.currency, route.query.limit, route.query.offset] as const,
   () => {
     void loadAccessorials()
   },
-  { immediate: true },
 )
-
-onMounted(() => {
-  void loadAccessorials()
-})
 
 const viewState = computed(() => resolveFreightCostIntelligenceListViewState({
   loading: loading.value,
@@ -75,13 +74,11 @@ const viewState = computed(() => resolveFreightCostIntelligenceListViewState({
         :mixed-currency="response.mixed_currency"
         :freshness="response.freshness"
       />
-      <ClientOnly>
-        <FreightCostAccessorialIntelligenceTable
-          :items="response.items"
-          :mixed-currency="response.mixed_currency"
-          :live-unavailable="liveUnavailable"
-        />
-      </ClientOnly>
+      <FreightCostAccessorialIntelligenceTable
+        :items="response.items"
+        :mixed-currency="response.mixed_currency"
+        :live-unavailable="liveUnavailable"
+      />
     </template>
     <EmptyState
       v-else-if="viewState === 'missing_company'"
