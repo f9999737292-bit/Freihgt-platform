@@ -102,80 +102,80 @@ function toAnalyticsQueryParams(
   return params
 }
 
-export function createProductionFreightCostDataSource(): FreightCostDataSource {
+export function createProductionFreightCostDataSource(
+  apiGetFn?: <T>(path: string, options?: { query?: Record<string, string | number | undefined> }) => Promise<T>,
+): FreightCostDataSource {
+  const apiGet = <T>(
+    path: string,
+    options?: { query?: Record<string, string | number | undefined> },
+  ): Promise<T> => {
+    if (apiGetFn) {
+      return apiGetFn<T>(path, options)
+    }
+    return useApi().apiGet<T>(path, options)
+  }
+
   return {
     mode: 'LIVE_API_V2_1E',
     async listOrders(query) {
-      const { apiGet } = useApi()
       return apiGet<FreightCostListResponse>('/api/v1/freight-costs', {
         query: toQueryParams(query),
       })
     },
     async getSummary(query) {
-      const { apiGet } = useApi()
       return apiGet<FreightCostSummaryAggregateDTO>('/api/v1/freight-costs/summary', {
         query: toQueryParams(query),
       })
     },
     async getOrderDetail(transportOrderId, companyId) {
-      const { apiGet } = useApi()
       return apiGet<FreightCostDetailVM>(
         `/api/v1/freight-costs/transport-orders/${encodeURIComponent(transportOrderId)}`,
         { query: toQueryParams({}, companyId) },
       )
     },
     async getVarianceDetail(transportOrderId, companyId) {
-      const { apiGet } = useApi()
       return apiGet<FreightCostVarianceDetailDTO>(
         `/api/v1/freight-costs/transport-orders/${encodeURIComponent(transportOrderId)}/variance-detail`,
         { query: toQueryParams({}, companyId) },
       )
     },
     async getAccessorialSummary(query) {
-      const { apiGet } = useApi()
       return apiGet<FreightCostAccessorialSpendResponse>('/api/v1/freight-costs/accessorials/summary', {
         query: toQueryParams(query),
       })
     },
     async getCarrierPerformance(query) {
-      const { apiGet } = useApi()
       return apiGet<FreightCostCarrierPerformanceResponse>(
         '/api/v1/freight-costs/carriers/performance',
         { query: toQueryParams(query) },
       )
     },
     async getLanePerformance(query) {
-      const { apiGet } = useApi()
       return apiGet<FreightCostLanePerformanceResponse>('/api/v1/freight-costs/lanes/performance', {
         query: toQueryParams(query),
       })
     },
     async getAnalyticsOverview(query) {
-      const { apiGet } = useApi()
       return apiGet<FreightCostAnalyticsOverviewDTO>('/api/v1/freight-costs/analytics/overview', {
         query: toAnalyticsQueryParams(query),
       })
     },
     async getAnalyticsLanes(query) {
-      const { apiGet } = useApi()
       return apiGet<FreightCostAnalyticsLanesResponse>('/api/v1/freight-costs/analytics/lanes', {
         query: toAnalyticsQueryParams(query),
       })
     },
     async getAnalyticsCarriers(query) {
-      const { apiGet } = useApi()
       return apiGet<FreightCostAnalyticsCarriersResponse>('/api/v1/freight-costs/analytics/carriers', {
         query: toAnalyticsQueryParams(query),
       })
     },
     async getAnalyticsAccessorials(query) {
-      const { apiGet } = useApi()
       return apiGet<FreightCostAnalyticsAccessorialsResponse>('/api/v1/freight-costs/analytics/accessorials', {
         query: toAnalyticsQueryParams(query),
       })
     },
     async getAnalyticsOpportunities(query) {
-      const { apiGet } = useApi()
       return apiGet<FreightCostAnalyticsOpportunitiesResponse>('/api/v1/freight-costs/opportunities', {
         query: toAnalyticsQueryParams(query),
       })

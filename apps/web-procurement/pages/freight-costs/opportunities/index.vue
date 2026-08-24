@@ -36,15 +36,12 @@ async function loadOpportunities() {
 
 const route = useRoute()
 
-onMounted(() => {
-  void loadOpportunities()
-})
-
 watch(
   () => [currentCompanyId.value, route.query.currency, route.query.limit, route.query.offset] as const,
   () => {
     void loadOpportunities()
   },
+  { immediate: true },
 )
 
 const viewState = computed(() => resolveFreightCostIntelligenceListViewState({

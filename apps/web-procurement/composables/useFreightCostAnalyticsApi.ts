@@ -16,7 +16,8 @@ import {
  * Displays backend-computed benchmarks and opportunities only — no client-side aggregation.
  */
 export function useFreightCostAnalyticsApi(dataSource?: FreightCostDataSource) {
-  const source = dataSource ?? createProductionFreightCostDataSource()
+  const { apiGet } = useApi()
+  const source = dataSource ?? createProductionFreightCostDataSource(apiGet)
 
   async function getFreightCostAnalyticsOverview(
     query: FreightCostAnalyticsQuery,

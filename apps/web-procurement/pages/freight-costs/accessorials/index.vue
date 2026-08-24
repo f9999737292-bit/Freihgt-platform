@@ -36,15 +36,12 @@ async function loadAccessorials() {
 
 const route = useRoute()
 
-onMounted(() => {
-  void loadAccessorials()
-})
-
 watch(
   () => [currentCompanyId.value, route.query.currency, route.query.limit, route.query.offset] as const,
   () => {
     void loadAccessorials()
   },
+  { immediate: true },
 )
 
 const viewState = computed(() => resolveFreightCostIntelligenceListViewState({

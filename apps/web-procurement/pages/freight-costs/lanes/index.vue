@@ -36,15 +36,12 @@ async function loadLanes() {
 
 const route = useRoute()
 
-onMounted(() => {
-  void loadLanes()
-})
-
 watch(
   () => [currentCompanyId.value, route.query.currency, route.query.limit, route.query.offset] as const,
   () => {
     void loadLanes()
   },
+  { immediate: true },
 )
 
 const viewState = computed(() => resolveFreightCostIntelligenceListViewState({
