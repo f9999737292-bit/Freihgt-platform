@@ -1,0 +1,308 @@
+# Master system test catalog v1
+# Status: PLANNED | IMPLEMENTED_NOT_EXECUTED | BLOCKED_STAGING | PASS
+# Do not mark PASS without execution evidence.
+
+version: "1.0"
+baseline_sha: "37c2eb62ccf9377359eb5c2fdf6f71eb9d187140"
+
+tests:
+  - id: FP-E2E-GOLDEN-001
+    domain: golden_e2e
+    priority: P0
+    actor: multi
+    environment: [DISPOSABLE, STAGING]
+    automation: AUTO_STAGING
+    blocking: [PILOT, PRODUCTION]
+    status: IMPLEMENTED_NOT_EXECUTED
+    script: tests/system/golden/fp_e2e_golden_001.sh
+
+  - id: FP-E2E-GOLDEN-002
+    domain: golden_e2e
+    priority: P1
+    actor: SHIPPER_LOGIST
+    environment: [DISPOSABLE, STAGING]
+    automation: AUTO_STAGING
+    blocking: []
+    status: PLANNED
+
+  - id: FP-E2E-NEG-001
+    domain: rfx
+    priority: P0
+    actor: CARRIER_DISPATCHER
+    environment: [DISPOSABLE]
+    automation: AUTO_STAGING
+    blocking: [PILOT]
+    status: PLANNED
+
+  - id: FP-E2E-SEC-001
+    domain: security
+    priority: P0
+    actor: multi
+    environment: [CI, DISPOSABLE, STAGING]
+    automation: SECURITY
+    blocking: [PILOT, PRODUCTION]
+    status: PLANNED
+
+  - id: FP-E2E-SEC-002
+    domain: security
+    priority: P0
+    actor: CARRIER_DISPATCHER
+    environment: [DISPOSABLE]
+    automation: SECURITY
+    blocking: [PILOT]
+    status: PLANNED
+
+  - id: FP-E2E-DRV-001
+    domain: driver
+    priority: P0
+    actor: DRIVER
+    environment: [STAGING]
+    automation: AUTO_STAGING
+    blocking: [PILOT]
+    status: BLOCKED_STAGING
+
+  - id: FP-E2E-DRV-002
+    domain: driver
+    priority: P1
+    actor: DRIVER
+    environment: [STAGING]
+    automation: AUTO_STAGING
+    blocking: []
+    status: BLOCKED_STAGING
+
+  - id: FP-E2E-FIN-001
+    domain: billing
+    priority: P0
+    actor: FINANCE_MANAGER
+    environment: [DISPOSABLE, STAGING]
+    automation: AUTO_STAGING
+    blocking: [PILOT]
+    status: PLANNED
+
+  - id: FP-E2E-COST-001
+    domain: freight_cost
+    priority: P0
+    actor: FINANCE_MANAGER
+    environment: [CI]
+    automation: AUTO_CI
+    blocking: [PILOT]
+    status: PASS
+    ci_job: freight-cost-public-e2e
+
+  - id: FP-E2E-INTEL-001
+    domain: intelligence
+    priority: P0
+    actor: PROCUREMENT_MANAGER
+    environment: [CI]
+    automation: AUTO_CI
+    blocking: [PILOT]
+    status: PASS
+    ci_job: freight-cost-analytics-final-e2e
+
+  - id: FP-AUTH-001
+    domain: auth
+    priority: P0
+    actor: any
+    environment: [CI]
+    automation: AUTO_CI
+    blocking: [PILOT]
+    status: PASS
+
+  - id: FP-AUTH-002
+    domain: auth
+    priority: P0
+    actor: any
+    environment: [DISPOSABLE]
+    automation: AUTO_STAGING
+    blocking: [PILOT]
+    status: PLANNED
+
+  - id: FP-AUTH-003
+    domain: auth
+    priority: P0
+    actor: any
+    environment: [CI]
+    automation: AUTO_CI
+    blocking: [PILOT]
+    status: PASS
+
+  - id: FP-TENANT-001
+    domain: tenant
+    priority: P0
+    actor: SHIPPER_LOGIST
+    environment: [DISPOSABLE]
+    automation: AUTO_STAGING
+    blocking: [PILOT, PRODUCTION]
+    status: PLANNED
+
+  - id: FP-RFX-001
+    domain: rfx
+    priority: P0
+    actor: PROCUREMENT_MANAGER
+    environment: [DISPOSABLE]
+    automation: AUTO_STAGING
+    blocking: [PILOT]
+    status: PLANNED
+
+  - id: FP-RFX-003
+    domain: rfx
+    priority: P0
+    actor: CARRIER_DISPATCHER
+    environment: [CI]
+    automation: AUTO_CI
+    blocking: [PILOT]
+    status: PASS
+    ci_job: rfx-deadline-worker-integration
+
+  - id: FP-AWARD-001
+    domain: award
+    priority: P0
+    actor: PROCUREMENT_MANAGER
+    environment: [DISPOSABLE]
+    automation: AUTO_STAGING
+    blocking: [PILOT]
+    status: PLANNED
+
+  - id: FP-RATE-001
+    domain: contract_rate
+    priority: P0
+    actor: PROCUREMENT_MANAGER
+    environment: [CI]
+    automation: AUTO_CI
+    blocking: [PILOT]
+    status: PASS
+    ci_job: contract-rate-public-e2e
+
+  - id: FP-ORDER-001
+    domain: transport_order
+    priority: P0
+    actor: SHIPPER_LOGIST
+    environment: [DISPOSABLE]
+    automation: AUTO_STAGING
+    blocking: [PILOT]
+    status: PASS
+    note: integration-smoke-test
+
+  - id: FP-SHIP-001
+    domain: shipment
+    priority: P0
+    actor: CARRIER_DISPATCHER
+    environment: [DISPOSABLE]
+    automation: AUTO_STAGING
+    blocking: [PILOT]
+    status: PLANNED
+
+  - id: FP-CT-001
+    domain: control_tower
+    priority: P1
+    actor: CONTROL_TOWER_OPERATOR
+    environment: [CI, DISPOSABLE]
+    automation: AUTO_CI
+    blocking: []
+    status: PASS
+    note: outbox-end-to-end-test
+
+  - id: FP-CT-003
+    domain: control_tower
+    priority: P1
+    actor: CONTROL_TOWER_OPERATOR
+    environment: [STAGING]
+    automation: AUTO_STAGING
+    blocking: []
+    status: BLOCKED_STAGING
+
+  - id: FP-POD-001
+    domain: document
+    priority: P0
+    actor: DRIVER
+    environment: [DISPOSABLE]
+    automation: AUTO_STAGING
+    blocking: [PILOT]
+    status: PASS
+    note: integration-smoke-test
+
+  - id: FP-SETTLE-001
+    domain: settlement
+    priority: P0
+    actor: FINANCE_MANAGER
+    environment: [DISPOSABLE]
+    automation: AUTO_STAGING
+    blocking: [PILOT]
+    status: PLANNED
+
+  - id: FP-BILL-001
+    domain: billing
+    priority: P0
+    actor: FINANCE_MANAGER
+    environment: [DISPOSABLE]
+    automation: AUTO_STAGING
+    blocking: [PILOT]
+    status: PASS
+    note: integration-smoke-test
+
+  - id: FP-COST-001
+    domain: freight_cost
+    priority: P0
+    actor: FINANCE_MANAGER
+    environment: [CI]
+    automation: AUTO_CI
+    blocking: [PILOT]
+    status: PASS
+
+  - id: FP-SEC-010
+    domain: security
+    priority: P0
+    actor: CARRIER_DISPATCHER
+    environment: [CI, DISPOSABLE]
+    automation: SECURITY
+    blocking: [PILOT]
+    status: PLANNED
+
+  - id: FP-SEC-016
+    domain: security
+    priority: P0
+    actor: any
+    environment: [CI]
+    automation: SECURITY
+    blocking: [PILOT, PRODUCTION]
+    status: PLANNED
+
+  - id: FP-PERF-001
+    domain: performance
+    priority: P2
+    actor: system
+    environment: [STAGING]
+    automation: PERFORMANCE
+    blocking: []
+    status: PLANNED
+
+  - id: FP-DR-001
+    domain: dr
+    priority: P1
+    actor: ops
+    environment: [STAGING]
+    automation: DR
+    blocking: [PRODUCTION]
+    status: BLOCKED_STAGING
+
+  - id: FP-UAT-SHP-001
+    domain: uat
+    priority: P0
+    actor: SHIPPER_LOGIST
+    environment: [UAT]
+    automation: MANUAL_UAT
+    blocking: [PILOT]
+    status: BLOCKED_STAGING
+
+counts:
+  executable_now: 42
+  blocked_staging: 38
+  blocked_device: 12
+  not_implemented: 15
+  total_sample: 30
+
+legacy_id_map:
+  FC-A-E2E-001: FP-E2E-COST-001
+  FC-A-E2E-002: FP-E2E-COST-001
+  FC-A-E2E-003: FP-E2E-SEC-001
+  AUTH-STG-001: FP-AUTH-002

@@ -1,0 +1,56 @@
+# Tenant fixture specification for system tests v1
+
+tenants:
+  - code: tenant-a-fp-test
+    name: FP Test Tenant A
+    companies:
+      - code: SHIPPER_A
+        type: SHIPPER
+        roles: [SHIPPER_ADMIN, SHIPPER_LOGIST, PROCUREMENT_MANAGER]
+      - code: CARRIER_A1
+        type: CARRIER
+        roles: [CARRIER_ADMIN, CARRIER_DISPATCHER]
+        drivers: 2
+        vehicles: 2
+      - code: CARRIER_A2
+        type: CARRIER
+        roles: [CARRIER_DISPATCHER]
+      - code: FORWARDER_A
+        type: FORWARDER
+        roles: [FORWARDER_MANAGER]
+      - code: FINANCE_A
+        type: FINANCE
+        roles: [FINANCE_MANAGER]
+      - code: CONSIGNEE_A
+        type: CONSIGNEE
+        roles: [CONSIGNEE_OPERATOR]
+    lanes:
+      - origin: Moscow
+        destination: Saint Petersburg
+        currency: RUB
+      - origin: Moscow
+        destination: Kazan
+        currency: RUB
+    commercial:
+      winning_carrier: CARRIER_A1
+      losing_carrier: CARRIER_A2
+      accessorial_codes: [DETENTION, LOADING]
+
+  - code: tenant-b-fp-test
+    name: FP Test Tenant B
+    companies:
+      - code: SHIPPER_B
+        type: SHIPPER
+        roles: [SHIPPER_LOGIST, PROCUREMENT_MANAGER]
+      - code: CARRIER_B1
+        type: CARRIER
+        roles: [CARRIER_DISPATCHER]
+
+reset:
+  strategy: ephemeral_db_preferred
+  fallback: unique_run_id
+  env_var_run_id: SMOKE_RUN_ID
+
+analytics:
+  min_completed_orders: 30
+  note: PROPOSED threshold for benchmark eligibility
