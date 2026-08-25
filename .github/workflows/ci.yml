@@ -960,6 +960,42 @@ jobs:
       - name: Run Wave 1 security gate
         run: bash scripts/test/run-system-security-wave1.sh
 
+  system-wave2-core-business-flow:
+    name: system-wave2-core-business-flow
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: mirror.gcr.io/library/postgres:16
+        env:
+          POSTGRES_USER: wave2_test
+          POSTGRES_PASSWORD: wave2_test
+          POSTGRES_DB: freight_wave2_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CI: true
+      REQUIRE_TEST_DATABASE: "1"
+      TEST_DATABASE_URL: postgres://wave2_test:wave2_test@localhost:5432/freight_wave2_test?sslmode=disable
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache-dependency-path: |
+            packages/shared-go/go.sum
+            services/**/go.sum
+
+      - name: Run Wave 2 core business flow gate
+        run: bash scripts/test/run-system-wave2-core-business-flow.sh
+
   scripts-check:
     name: scripts-check
     runs-on: ubuntu-latest
@@ -979,6 +1015,7 @@ jobs:
             scripts/test/system-test-preflight.sh
             scripts/test/staging-acceptance-pack.sh
             scripts/test/run-system-security-wave1.sh
+            scripts/test/run-system-wave2-core-business-flow.sh
             scripts/test/system-test-data-reset.sh
             tests/system/golden/fp_e2e_golden_001.sh
           )
