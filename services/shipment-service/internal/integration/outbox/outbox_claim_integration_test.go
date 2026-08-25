@@ -24,7 +24,16 @@ func TestConcurrentTwoWorkerClaimNoOverlap(t *testing.T) {
 
 	for i := 0; i < 4; i++ {
 		params := repositoryCreateParams(fix, fmt.Sprintf("SHP-CLAIM-%d", i))
-		params.TransportOrderID = uuid.New()
+		orderID := uuid.New()
+		if _, err := env.pool.Exec(ctx, `
+			INSERT INTO transport.transport_orders (
+				id, tenant_id, order_number, status, shipper_company_id, consignee_company_id,
+				origin_location_id, destination_location_id, transport_mode
+			) VALUES ($1, $2, $3, 'ASSIGNED', $4, $5, $6, $7, 'ROAD')
+		`, orderID, fix.TenantID, fmt.Sprintf("TO-CLAIM-%d", i), fix.ShipperID, fix.ConsigneeID, fix.OriginID, fix.DestinationID); err != nil {
+			t.Fatalf("seed transport order %d: %v", i, err)
+		}
+		params.TransportOrderID = orderID
 		_, err := env.repo.CreateShipment(ctx, params, userTransition(fix.UserID))
 		if err != nil {
 			t.Fatalf("create %d: %v", i, err)
