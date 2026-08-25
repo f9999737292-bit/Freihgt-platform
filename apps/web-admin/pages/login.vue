@@ -11,8 +11,8 @@ const { resolveInitialTenantId } = useTenantContext()
 const { backendOnline, backendStatus, checkBackendStatus } = useBackendStatus()
 
 const tenantId = ref('')
-const email = ref(import.meta.dev ? 'demo@7rights.local' : '')
-const password = ref(import.meta.dev ? '123456' : '')
+const email = ref('')
+const password = ref('')
 const loading = ref(false)
 const checkingBackend = ref(false)
 

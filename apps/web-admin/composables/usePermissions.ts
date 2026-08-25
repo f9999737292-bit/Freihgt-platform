@@ -156,7 +156,7 @@ function isDevPlatformAdminFallback(): boolean {
   const config = useRuntimeConfig()
   const user = currentUser()
   if (!user?.email) return false
-  return config.public.mockAuth === true && user.email.toLowerCase() === 'admin@7rights.local'
+  return config.public.mockAuth === true && user.email.toLowerCase() === 'admin@bintrans.local'
 }
 
 function hasAdminAccess(): boolean {
