@@ -1,0 +1,30 @@
+# Isolated validation overlay — does NOT use freight_postgres or freight_postgres_data.
+# Usage:
+#   COMPOSE_FILE=infrastructure/docker-compose/docker-compose.yml:infrastructure/docker-compose/docker-compose.a21-validate.yml
+#   COMPOSE_PROJECT_NAME=bintrans_a21_validate make ...
+
+services:
+  postgres:
+    container_name: bintrans_a21_validate_postgres
+    ports:
+      - "55432:5432"
+    volumes:
+      - bintrans_a21_validate_data:/var/lib/postgresql/data
+
+  identity-service:
+    container_name: bintrans_a21_validate_identity
+    ports:
+      - "18081:8081"
+
+  company-service:
+    container_name: bintrans_a21_validate_company
+    ports:
+      - "18082:8082"
+
+  api-gateway:
+    container_name: bintrans_a21_validate_gateway
+    ports:
+      - "18080:8080"
+
+volumes:
+  bintrans_a21_validate_data:
