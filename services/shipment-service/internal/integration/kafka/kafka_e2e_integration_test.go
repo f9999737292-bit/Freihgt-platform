@@ -165,6 +165,7 @@ func TestWorkerBrokerUnavailableKeepsPendingIntegration(t *testing.T) {
 	publisher, err := shipmentoutbox.NewKafkaPublisher(config.KafkaConfig{
 		Brokers:      []string{"127.0.0.1:59999"},
 		Topic:        "shipment.status.v1.test.unavailable",
+		DriverTopic:  "driver.events.v1",
 		ClientID:     "shipment-service-it",
 		DialTimeout:  500 * time.Millisecond,
 		WriteTimeout: 500 * time.Millisecond,

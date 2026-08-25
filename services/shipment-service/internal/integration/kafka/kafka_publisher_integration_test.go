@@ -22,6 +22,7 @@ func newKafkaPublisher(t *testing.T, brokers []string, topic string) *shipmentou
 	publisher, err := shipmentoutbox.NewKafkaPublisher(config.KafkaConfig{
 		Brokers:      brokers,
 		Topic:        topic,
+		DriverTopic:  "driver.events.v1",
 		ClientID:     "shipment-service-it",
 		DialTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
@@ -368,6 +369,7 @@ func TestKafkaBrokerUnavailableIntegration(t *testing.T) {
 	publisher, err := shipmentoutbox.NewKafkaPublisher(config.KafkaConfig{
 		Brokers:      []string{"127.0.0.1:59999"},
 		Topic:        "shipment.status.v1.test.unavailable",
+		DriverTopic:  "driver.events.v1",
 		ClientID:     "shipment-service-it",
 		DialTimeout:  500 * time.Millisecond,
 		WriteTimeout: 500 * time.Millisecond,

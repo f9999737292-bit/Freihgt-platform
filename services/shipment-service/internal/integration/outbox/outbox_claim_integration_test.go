@@ -23,7 +23,9 @@ func TestConcurrentTwoWorkerClaimNoOverlap(t *testing.T) {
 	lease := 60 * time.Second
 
 	for i := 0; i < 4; i++ {
-		_, err := env.repo.CreateShipment(ctx, repositoryCreateParams(fix, fmt.Sprintf("SHP-CLAIM-%d", i)), userTransition(fix.UserID))
+		params := repositoryCreateParams(fix, fmt.Sprintf("SHP-CLAIM-%d", i))
+		params.TransportOrderID = uuid.New()
+		_, err := env.repo.CreateShipment(ctx, params, userTransition(fix.UserID))
 		if err != nil {
 			t.Fatalf("create %d: %v", i, err)
 		}
