@@ -17,8 +17,9 @@ This plan is not execution evidence and does not close PR-GAP-001.
 
 2. Configure domain:
 
-   * create A record for staging.7rights.ru or pilot.7rights.ru
-   * point it to 161.104.53.221
+   * only if a BINTRANS staging DNS endpoint is verified per `docs/LOW_CODE_PILOT_WEEK3_BINTRANS_DNS_CHECKLIST_V0.1.md`
+   * do **not** use invalid legacy external domain references — unrelated external site; never valid BINTRANS endpoints
+   * interim access may use verified IP `161.104.53.221` until DNS is confirmed
 
 3. Install base packages:
 

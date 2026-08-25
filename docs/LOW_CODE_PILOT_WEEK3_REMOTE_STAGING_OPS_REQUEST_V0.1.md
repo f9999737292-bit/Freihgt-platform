@@ -14,7 +14,7 @@ Ops/Security must provide staging URL, auth-on confirmation, service restart con
 
 | Option | Description | Doc |
 |--------|-------------|-----|
-| **A. VPS + staging.7rights.ru** | Preferred full staging | `LOW_CODE_PILOT_WEEK3_STAGING_DEPLOY_RUNBOOK_V0.1.md` |
+| **A. VPS + verified BINTRANS DNS endpoint** | Preferred full staging | `LOW_CODE_PILOT_WEEK3_STAGING_DEPLOY_RUNBOOK_V0.1.md` |
 | **B. Temporary HTTPS tunnel** | Short-term local Docker exposure | `LOW_CODE_PILOT_WEEK3_TEMPORARY_TUNNEL_OPTION_V0.1.md` |
 
 **Repo now contains:** staging deploy runbook, env example (placeholders), input form, readiness checklist.

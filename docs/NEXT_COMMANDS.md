@@ -183,7 +183,7 @@ docs/ai-team/
 
 **Target IP:** **161.104.53.221**
 
-**Deprecated staging domains:** `staging.bintrans.ru` / `pilot.bintrans.ru` / `staging.7rights.ru` / `pilot.7rights.ru` — not used for new staging path
+**Deprecated / invalid staging domain references:** `staging.bintrans.ru` / `pilot.bintrans.ru` — not used for new staging path; invalid legacy external domain family removed from active docs (unrelated external site)
 
 **Open staging limitations:** **STG-LIM-001..004** (STG-LIM-005/006 **CLOSED**)
 

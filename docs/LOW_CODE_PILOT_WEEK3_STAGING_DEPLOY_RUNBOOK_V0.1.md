@@ -33,7 +33,7 @@ Enable Ops to stand up staging so QA/Security can run **Remote Auth-On Staging R
 
 | Deliverable | Description |
 |-------------|-------------|
-| HTTPS staging URL | e.g. `https://staging.7rights.ru` |
+| HTTPS staging URL | Verified BINTRANS staging DNS endpoint (see DNS checklist) or `NOT VERIFIED / NOT CONFIGURED` |
 | API base | `https://<staging-domain>/api/v1/low-code` |
 | Auth-on | `LOW_CODE_ADMIN_AUTH_ENABLED=true` on low-code-service |
 | Test users | PLATFORM_ADMIN + non-admin |
@@ -44,13 +44,13 @@ Enable Ops to stand up staging so QA/Security can run **Remote Auth-On Staging R
 
 | Option | Description | Use when |
 |--------|-------------|----------|
-| **A. VPS + DNS** | Full staging on VM with `staging.7rights.ru` | Preferred for PR-GAP-001 closure |
+| **A. VPS + DNS** | Full staging on VM with verified BINTRANS DNS endpoint | Preferred for PR-GAP-001 closure |
 | **B. Temporary tunnel** | HTTPS to local Docker via Cloudflare Tunnel / ngrok | Short-term matrix only — see tunnel doc |
 | **C. Local only** | localhost + auth-on override | Already done — does not close PR-GAP-001 remote |
 
 ## Recommended Path
 
-**Option A (VPS + staging.7rights.ru)** for durable staging evidence.
+**Option A (VPS + verified BINTRANS DNS endpoint)** for durable staging evidence.
 
 Option B only with Security approval and explicit note that full staging may still be required.
 
@@ -70,7 +70,7 @@ Option B only with Security approval and explicit note that full staging may sti
 | Record | Value |
 |--------|-------|
 | Type | A or CNAME |
-| Host | `staging.7rights.ru` (or agreed subdomain) |
+| Host | Verified BINTRANS staging DNS name (see DNS checklist) or agreed operator-provided subdomain |
 | Target | VPS public IP or load balancer |
 | TLS | Let's Encrypt or org certificate |
 

@@ -13,7 +13,7 @@ Reference: `LOW_CODE_PILOT_WEEK3_STAGING_DEPLOY_RUNBOOK_V0.1.md`
 | Item | Status | Owner | Evidence | Notes |
 |------|--------|-------|----------|-------|
 | VPS/server available | **MISSING** | Ops | — | Required for Option A |
-| DNS configured | **MISSING** | Ops | — | e.g. `staging.7rights.ru` |
+| DNS configured | **MISSING** | Ops | — | Verified BINTRANS staging DNS endpoint per DNS checklist (latin: NOT VERIFIED / NOT CONFIGURED) |
 | HTTPS configured | **MISSING** | Ops | — | TLS cert valid |
 | Repository deployed | **PENDING** | Ops | — | Clone `main` from GitHub |
 | Docker installed | **PENDING** | Ops | — | Engine + Compose v2 |
