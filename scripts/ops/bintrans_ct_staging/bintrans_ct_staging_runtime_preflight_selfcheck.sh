@@ -12,7 +12,7 @@ base_env() {
   cat <<EOF
 STAGING_ENVIRONMENT=selectel-staging
 DEPLOYED_GIT_SHA=b75eb3d
-MIGRATION_TARGET=000019
+MIGRATION_TARGET=000036
 COHORT_MANIFEST=/protected/bintrans/control-tower-cohort.json
 OBSERVATION_OUTPUT_DIR=/protected/bintrans/control-tower-observation
 POSTGRES_DB=freight_platform

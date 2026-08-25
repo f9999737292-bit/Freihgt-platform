@@ -6,11 +6,19 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 # shellcheck source=scripts/ops/bintrans_ct_staging/bintrans_ct_staging_common.sh
 source "${ROOT}/scripts/ops/bintrans_ct_staging/bintrans_ct_staging_common.sh"
 
-MIGRATION_TARGET="${MIGRATION_TARGET:-000019}"
-
 echo "=== BINTRANS dedicated staging preflight ==="
 
 bintrans_require_env_file
+bintrans_require_migration_target_contract
+
+MIGRATION_TARGET="$(bintrans_read_protected_migration_target)"
+MIGRATION_VERSION="$(bintrans_migration_version_from_target "${MIGRATION_TARGET}")"
+mapfile -t MIGRATION_FILES < <(bintrans_resolve_migration_file_pair "${MIGRATION_TARGET}")
+MIGRATION_UP="${MIGRATION_FILES[0]}"
+MIGRATION_DOWN="${MIGRATION_FILES[1]}"
+echo "OK: migration target=${MIGRATION_TARGET} version=${MIGRATION_VERSION}"
+echo "OK: migration up file=${MIGRATION_UP##*/}"
+echo "OK: migration down file=${MIGRATION_DOWN##*/}"
 
 required_files=(
   "${BINTRANS_COMPOSE_BASE}"
@@ -20,8 +28,8 @@ required_files=(
   "${ROOT}/scripts/ops/bintrans_ct_staging/staging.env.example"
   "${ROOT}/scripts/ops/bintrans_ct_staging/registry.images.template.env"
   "${ROOT}/scripts/ops/bintrans_ct_staging/bintrans_ct_staging_foundation_up_selfcheck.sh"
-  "${ROOT}/infrastructure/migrations/000019_projection_rebuild_backup_last_event_type_nullable_v0.1.up.sql"
-  "${ROOT}/infrastructure/migrations/000019_projection_rebuild_backup_last_event_type_nullable_v0.1.down.sql"
+  "${MIGRATION_UP}"
+  "${MIGRATION_DOWN}"
 )
 
 for f in "${required_files[@]}"; do
@@ -56,8 +64,8 @@ env_check SHIPMENT_OUTBOX_ENABLED true
 env_check AUTH_ENABLED true
 env_present DEPLOYED_GIT_SHA
 env_present MIGRATION_TARGET
-env_check MIGRATION_TARGET "${MIGRATION_TARGET}"
 env_not_placeholder_password
+echo "OK: protected env migration target contract"
 echo "OK: protected env shadow safety fields"
 
 # Digest-pinned image references must be full registry paths, never bare @sha256:...
