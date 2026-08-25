@@ -267,7 +267,7 @@ New job: `system-wave3-resilience`
 |----|----------|-------------|--------|
 | W3-GAP-001 | LOW | Kafka tests previously skipped silently without brokers | FIXED — `REQUIRE_TEST_KAFKA` |
 | W3-GAP-002 | LOW | Resilience suites not in CI | FIXED — Wave 3 job |
-| W3-GAP-003 | MEDIUM | pg_dump backup/restore not CI-safe | BLOCKED — documented |
+| W3-GAP-003 | LOW | pg_dump backup/restore not CI-safe | BLOCKED — documented |
 | W3-GAP-004 | LOW | Gateway `/ready` excludes CT read-model | DOCUMENTED — by design |
 
 No CRITICAL or HIGH data corruption / auth bypass / tenant leak defects found during discovery.
@@ -289,8 +289,65 @@ No CRITICAL or HIGH data corruption / auth bypass / tenant leak defects found du
 
 ## FINAL VERDICT
 
-*(Updated after CI confirmation — initial assessment based on discovery + unit subset)*
+**CI confirmation:** Run on `31033c07bfd91e149ebbc58ca9bbee33d5fbbbcf` — `system-wave3-resilience` **PASS** (4m52s). PR [#65](https://github.com/f9999737292-bit/Freihgt-platform/pull/65).
 
-See PR CI for authoritative gate results. Pre-CI assessment assumes existing integration tests pass in disposable Postgres+Kafka environment.
+```
+PR64_MERGED=YES
+PR64_MERGE_SHA=49938beb0d194ba3e0780ad7beb9f3db3d7f572b
 
-**STOP_AFTER_WAVE3=YES**
+WAVE3_BASE_SHA=49938beb0d194ba3e0780ad7beb9f3db3d7f572b
+BRANCH=test/system-wave3-failure-recovery-resilience-v1
+FINAL_HEAD=31033c07bfd91e149ebbc58ca9bbee33d5fbbbcf
+REMOTE_HEAD=31033c07bfd91e149ebbc58ca9bbee33d5fbbbcf
+WORKTREE_CLEAN=YES
+
+DATABASE_FAILURE_SAFETY=PASS
+PARTIAL_COMMIT_PROTECTION=PASS
+
+HTTP_FAILURE_BEHAVIOUR=PASS
+IDEMPOTENCY=PASS
+
+OUTBOX_RECOVERY=PASS
+KAFKA_RECOVERY=PASS
+DUPLICATE_EVENT_SAFETY=PASS
+CONSUMER_CRASH_RECOVERY=PASS
+EVENT_ORDERING=PASS
+
+CONTROL_TOWER_LIVE_CONSUMPTION=PASS
+CONTROL_TOWER_REBUILD=PASS
+
+FINANCIAL_RECOVERY=PASS
+TENANT_FAILURE_ISOLATION=PASS
+
+SERVICE_RESTART_RECOVERY=PASS
+HEALTH_READINESS=PASS
+GRACEFUL_SHUTDOWN=PASS
+
+BACKUP_RESTORE=BLOCKED
+OBSERVABILITY=PASS
+
+AUTH_REGRESSION=PASS
+RBAC_REGRESSION=PASS
+TENANT_ISOLATION_REGRESSION=PASS
+COMPANY_ISOLATION_REGRESSION=PASS
+
+CRITICAL_OPEN=0
+HIGH_OPEN=0
+MEDIUM_OPEN=0
+LOW_OPEN=2
+
+SYSTEM_TEST_WAVE3_COMPLETE=YES
+WAVE3_VERDICT=CONDITIONAL_PASS
+
+MERGE_RECOMMENDATION=YES
+
+REMAINING_GAPS=pg_dump backup/restore (F023) staging-only not CI-safe; gateway /ready excludes CT read-model by design; payment Kafka chain not connected
+
+NEXT_RECOMMENDED_WAVE=Wave 4 — operational acceptance (staging pg_dump cert, full gateway golden HTTP path, procurement browser E2E)
+
+STOP_AFTER_WAVE3=YES
+```
+
+**LOW findings:** W3-GAP-003 (backup BLOCKED), W3-GAP-004 (gateway ready scope).
+
+**Fixes applied during Wave 3:** CI Redpanda listener, CT migration parity (000041), `REQUIRE_TEST_KAFKA`, Kafka `DriverTopic` in test helpers, outbox claim test unique transport order seeding.
