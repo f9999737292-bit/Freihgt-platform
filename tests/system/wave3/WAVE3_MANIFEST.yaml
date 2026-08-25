@@ -1,0 +1,81 @@
+# System Test Wave 3 manifest — Failure, Recovery, Resilience v1
+version: "1"
+wave: 3
+baseline_required: origin/main
+entrypoint: make system-test-wave3-resilience
+script: scripts/test/run-system-wave3-resilience.sh
+
+environment:
+  required:
+    - TEST_DATABASE_URL
+    - REQUIRE_TEST_DATABASE=1
+    - TEST_KAFKA_BROKERS
+    - REQUIRE_TEST_KAFKA=1
+  optional:
+    - TEST_KAFKA_TOPIC_PREFIX
+
+mandatory_gates:
+  - id: W3-DB-TX
+    scenarios: [F002, F003]
+    suites: [W3-01, W3-02]
+  - id: W3-OUTBOX
+    scenarios: [F010, F011]
+    suites: [W3-03, W3-04, W3-05, W3-06]
+  - id: W3-HTTP
+    scenarios: [F004, F005, F006]
+    suites: [W3-07, W3-08]
+  - id: W3-IDEMPOTENCY
+    scenarios: [F007, F008]
+    suites: [W3-09, W3-10, W3-11]
+  - id: W3-KAFKA
+    scenarios: [F009, F012]
+    suites: [W3-12, W3-13]
+  - id: W3-CONSUMER
+    scenarios: [F013, F014]
+    suites: [W3-14, W3-15]
+  - id: W3-ORDERING
+    scenarios: [F015, F016]
+    suites: [W3-16, W3-17, W3-18]
+  - id: W3-CT-REBUILD
+    scenarios: [F017, F018]
+    suites: [W3-19, W3-20, W3-21]
+  - id: W3-CT-LIVE
+    scenarios: [F021]
+    suites: [W3-22]
+  - id: W3-FINANCIAL
+    scenarios: [F019, F020]
+    suites: [W3-23, W3-24, W3-25]
+  - id: W3-TENANT
+    scenarios: [F022]
+    suites: [W3-26, W3-27]
+  - id: W3-SHUTDOWN
+    scenarios: [F025]
+    suites: [W3-28]
+  - id: W3-SECURITY
+    scenarios: []
+    suites: [W3-30]
+    note: Wave 1 security regression
+
+non_blocking:
+  - id: W3-BACKUP
+    scenarios: [F023]
+    suites: [W3-29]
+    reason: pg_dump tooling is staging-only; rebuild in-DB backup covered by W3-19/W3-20
+
+blocked_operational:
+  - id: F023-pgdump
+    reason: bintrans_ct_staging_backup.sh requires staging credentials; not CI-safe
+
+pass_policy:
+  critical_open: 0
+  high_open: 0
+  mandatory:
+    - DATABASE_FAILURE_SAFETY
+    - PARTIAL_COMMIT_PROTECTION
+    - OUTBOX_RECOVERY
+    - DUPLICATE_EVENT_SAFETY
+    - TENANT_FAILURE_ISOLATION
+    - AUTH_REGRESSION
+    - RBAC_REGRESSION
+    - TENANT_ISOLATION_REGRESSION
+    - COMPANY_ISOLATION_REGRESSION
