@@ -9,6 +9,9 @@ cd "$ROOT"
 export CI="${CI:-true}"
 export REQUIRE_TEST_DATABASE=1
 export REQUIRE_TEST_KAFKA="${REQUIRE_TEST_KAFKA:-1}"
+export SHIPMENT_KAFKA_DRIVER_TOPIC="${SHIPMENT_KAFKA_DRIVER_TOPIC:-driver.events.v1}"
+export SHIPMENT_KAFKA_TOPIC="${SHIPMENT_KAFKA_TOPIC:-shipment.status.v1}"
+export SHIPMENT_KAFKA_BROKERS="${SHIPMENT_KAFKA_BROKERS:-${TEST_KAFKA_BROKERS:-}}"
 
 PASS=0
 FAIL=0
@@ -54,7 +57,7 @@ run_suite "W3-01 DB transaction atomicity (shipment/outbox)" \
   bash -lc 'cd services/shipment-service && go test -tags=integration ./internal/integration/outbox/... -run "TestAtomic|TestRollback|TestOptimisticLock" -count=1'
 
 run_suite "W3-02 DB partial commit protection (CT projection inbox)" \
-  bash -lc 'cd services/control-tower-read-model-service && go test -tags=integration ./internal/integration/postgres/... -run "TestProjectionFailureRollsBackInbox" -count=1'
+  bash -lc 'cd services/control-tower-read-model-service && go test -tags=integration -timeout 3m ./internal/integration/postgres/... -run "TestProjectionFailureRollsBackInbox|TestProcessEventDuplicateEventID" -count=1'
 
 # --- F003/F011 Outbox worker, state, claim, replay ---
 run_suite "W3-03 Outbox worker retry and terminal states" \
