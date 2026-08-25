@@ -12,11 +12,11 @@ BILLING_REGISTER_SERVICE_URL="${BILLING_REGISTER_SERVICE_URL:-http://localhost:8
 
 TENANT_ID="${TENANT_ID:-74519f22-ff9b-4a8b-8fff-a958c689682f}"
 DEMO_PASSWORD="${DEMO_PASSWORD:-Demo123456!}"
-ADMIN_EMAIL="${ADMIN_EMAIL:-admin@7rights.local}"
-SHIPPER_EMAIL="${SHIPPER_EMAIL:-shipper@7rights.local}"
-CARRIER_EMAIL="${CARRIER_EMAIL:-carrier@7rights.local}"
-FORWARDER_EMAIL="${FORWARDER_EMAIL:-forwarder@7rights.local}"
-CONSIGNEE_EMAIL="${CONSIGNEE_EMAIL:-consignee@7rights.local}"
+ADMIN_EMAIL="${ADMIN_EMAIL:-admin@bintrans.local}"
+SHIPPER_EMAIL="${SHIPPER_EMAIL:-shipper@bintrans.local}"
+CARRIER_EMAIL="${CARRIER_EMAIL:-carrier@bintrans.local}"
+FORWARDER_EMAIL="${FORWARDER_EMAIL:-forwarder@bintrans.local}"
+CONSIGNEE_EMAIL="${CONSIGNEE_EMAIL:-consignee@bintrans.local}"
 LIST_LIMIT="${LIST_LIMIT:-100}"
 
 step() { echo "==> $1" >&2; }
@@ -1147,7 +1147,7 @@ main() {
   pass "API Gateway is healthy"
 
   step "Ensure demo companies"
-  platform_id="$(ensure_company "ООО 7Rights Dev" "PLATFORM_OPERATOR" "7Rights Dev")"
+  platform_id="$(ensure_company "ООО Bintrans Dev" "PLATFORM_OPERATOR" "Bintrans Dev")"
   shipper_id="$(ensure_company "ООО Грузовладелец Север" "SHIPPER" "Грузовладелец Север")"
   carrier_id="$(ensure_company "ООО Перевозчик Волга" "CARRIER" "Перевозчик Волга")"
   forwarder_id="$(ensure_company "ООО Экспедитор Логистик" "FORWARDER" "Экспедитор Логистик")"

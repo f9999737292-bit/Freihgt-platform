@@ -6,15 +6,15 @@ IDENTITY_SERVICE_URL="${IDENTITY_SERVICE_URL:-http://localhost:8081}"
 COMPANY_SERVICE_URL="${COMPANY_SERVICE_URL:-http://localhost:8082}"
 
 TENANT_ID="${TENANT_ID:-74519f22-ff9b-4a8b-8fff-a958c689682f}"
-TENANT_CODE="${TENANT_CODE:-dev-7rights}"
-TENANT_NAME="${TENANT_NAME:-7Rights Dev Tenant}"
+TENANT_CODE="${TENANT_CODE:-dev-bintrans}"
+TENANT_NAME="${TENANT_NAME:-Bintrans Dev Tenant}"
 
-ADMIN_EMAIL="${ADMIN_EMAIL:-admin@7rights.local}"
+ADMIN_EMAIL="${ADMIN_EMAIL:-admin@bintrans.local}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-Admin123456!}"
-ADMIN_FULL_NAME="${ADMIN_FULL_NAME:-7Rights Dev Admin}"
+ADMIN_FULL_NAME="${ADMIN_FULL_NAME:-Bintrans Dev Admin}"
 ADMIN_ROLE="${ADMIN_ROLE:-PLATFORM_ADMIN}"
 
-COMPANY_LEGAL_NAME="${COMPANY_LEGAL_NAME:-ООО 7Rights Dev}"
+COMPANY_LEGAL_NAME="${COMPANY_LEGAL_NAME:-ООО Bintrans Dev}"
 COMPANY_TYPE="${COMPANY_TYPE:-PLATFORM_OPERATOR}"
 
 POSTGRES_CONTAINER="${POSTGRES_CONTAINER:-freight_postgres}"
@@ -153,7 +153,7 @@ create_company() {
     '{
       tenant_id: $tenant_id,
       legal_name: $legal_name,
-      short_name: "7Rights Dev",
+      short_name: "Bintrans Dev",
       company_type: $company_type,
       country_code: "RU",
       preferred_locale: "ru-RU"
