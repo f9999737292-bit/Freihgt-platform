@@ -197,7 +197,7 @@ func seedWave2Fixture(t *testing.T, env *testEnv) wave2Fixture {
 		fix.CarrierA1, fix.CarrierA1Act.UserID,
 		fix.CarrierA2, fix.CarrierA2Act.UserID,
 		fix.TenantB, fix.BuyerB, fix.BuyerAdminB.UserID,
-		fix.TenantB, fix.CarrierB1, fix.CarrierB1Act.UserID,
+		fix.CarrierB1, fix.CarrierB1Act.UserID,
 	); err != nil {
 		t.Fatalf("seed memberships: %v", err)
 	}

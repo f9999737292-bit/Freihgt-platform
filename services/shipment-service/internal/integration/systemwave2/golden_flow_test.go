@@ -5,6 +5,7 @@ package systemwave2
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -53,8 +54,13 @@ func TestSYSTEM_WAVE2_GOLDEN_FLOW(t *testing.T) {
 	}
 	current := shipment
 	for _, st := range legalStates {
+		var actualTime *time.Time
+		if st == domain.ShipmentStatusLoaded || st == domain.ShipmentStatusDelivered {
+			now := time.Now().UTC()
+			actualTime = &now
+		}
 		current, err = env.shipmentSvc.UpdateStatus(ctx, fix.TenantA, current.ID, domain.UpdateShipmentStatusInput{
-			Status: st,
+			Status: st, ActualTime: actualTime,
 		}, tr)
 		if err != nil {
 			t.Fatalf("transition to %s: %v", st, err)
