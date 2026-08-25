@@ -2,28 +2,31 @@
 # Usage:
 #   COMPOSE_FILE=infrastructure/docker-compose/docker-compose.yml:infrastructure/docker-compose/docker-compose.a21-validate.yml
 #   COMPOSE_PROJECT_NAME=bintrans_a21_validate make ...
+#
+# ports/volumes use !override so Docker Compose on Windows does not merge inherited
+# dev-stack mappings (5432/8080/etc.) from the base compose file.
 
 services:
   postgres:
     container_name: bintrans_a21_validate_postgres
-    ports:
+    ports: !override
       - "55432:5432"
-    volumes:
+    volumes: !override
       - bintrans_a21_validate_data:/var/lib/postgresql/data
 
   identity-service:
     container_name: bintrans_a21_validate_identity
-    ports:
+    ports: !override
       - "18081:8081"
 
   company-service:
     container_name: bintrans_a21_validate_company
-    ports:
+    ports: !override
       - "18082:8082"
 
   api-gateway:
     container_name: bintrans_a21_validate_gateway
-    ports:
+    ports: !override
       - "18080:8080"
 
 volumes:
