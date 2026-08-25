@@ -144,7 +144,7 @@ npm run dev
 - `http://localhost:3000/billing-registers/cf7dbc77-395f-42a2-9717-476e4cd93796`
 - `http://localhost:3000/low-code/custom-field-values`
 
-Login: `admin@7rights.local` / `Admin123456!`
+Login: `admin@bintrans.local` / `Admin123456!`
 
 ## Stop Conditions
 

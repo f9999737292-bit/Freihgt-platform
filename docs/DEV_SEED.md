@@ -38,9 +38,9 @@ Direct script:
 | Field | Value |
 | ----- | ----- |
 | Tenant ID | `74519f22-ff9b-4a8b-8fff-a958c689682f` |
-| Tenant code | `dev-7rights` |
-| Company | ООО 7Rights Dev (`PLATFORM_OPERATOR`) |
-| Email | `admin@7rights.local` |
+| Tenant code | `dev-bintrans` |
+| Company | ООО Bintrans Dev (`PLATFORM_OPERATOR`) |
+| Email | `admin@bintrans.local` |
 | Password | `Admin123456!` (dev fixture) |
 | Role | `PLATFORM_ADMIN` |
 | Login URL | http://localhost:3000/login |

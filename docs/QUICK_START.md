@@ -36,7 +36,7 @@ http://127.0.0.1:3000
 | Поле | Значение |
 |------|----------|
 | Tenant ID | `74519f22-ff9b-4a8b-8fff-a958c689682f` |
-| Email | `admin@7rights.local` |
+| Email | `admin@bintrans.local` |
 | Password | `Admin123456!` |
 
 Tenant ID также можно задать в **Settings** приложения.

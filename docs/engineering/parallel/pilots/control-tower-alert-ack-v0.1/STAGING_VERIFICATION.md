@@ -73,7 +73,7 @@ Down migration was **not** executed against the shared local database (by design
 
 | Alias | Tenant | User ID | Role / purpose |
 |-------|--------|---------|----------------|
-| AUTHORIZED_USER_A | `74519f22-ff9b-4a8b-8fff-a958c689682f` (dev-7rights) | `8541a3a3-bde7-4fed-9501-37b9953bf904` | PLATFORM_ADMIN |
+| AUTHORIZED_USER_A | `74519f22-ff9b-4a8b-8fff-a958c689682f` (dev-bintrans) | `8541a3a3-bde7-4fed-9501-37b9953bf904` | PLATFORM_ADMIN |
 | AUTHORIZED_USER_B | same tenant | `008e1462-6f67-4246-b7dc-4aae1669c0c5` | SHIPPER_LOGIST |
 | UNAUTHORIZED_USER | same tenant | forwarder demo user | PROCUREMENT_MANAGER (no Control Tower access) |
 | TENANT_B | `91babc18-1fe0-4df3-8d2c-b350e6052b33` (test-tenant) | verification bootstrap user | PLATFORM_ADMIN for cross-tenant probe |

@@ -7,7 +7,7 @@ How web-admin shows mock mode vs real backend availability.
 ### Mock mode (`NUXT_PUBLIC_MOCK_AUTH=true`)
 
 - UI login may work without a running API Gateway.
-- `admin@7rights.local` can be treated as platform admin in the UI (permissions checks).
+- `admin@bintrans.local` can be treated as platform admin in the UI (permissions checks).
 - **API data still requires a real backend** — lists, dashboards, and mutations call `http://localhost:8080`.
 
 ### Real backend
@@ -65,7 +65,7 @@ make seed-dev-admin
 | Field | Value |
 |-------|-------|
 | Tenant ID | `74519f22-ff9b-4a8b-8fff-a958c689682f` |
-| Email | `admin@7rights.local` |
+| Email | `admin@bintrans.local` |
 | Password | `Admin123456!` |
 
 ## Related docs

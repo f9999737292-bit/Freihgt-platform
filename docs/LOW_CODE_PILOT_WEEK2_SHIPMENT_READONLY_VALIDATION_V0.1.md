@@ -148,7 +148,7 @@ curl.exe -H "X-Tenant-ID: 74519f22-ff9b-4a8b-8fff-a958c689682f" `
 
 ### Manual UI spot-check (operator)
 
-Login: `admin@7rights.local` / `Admin123456!`
+Login: `admin@bintrans.local` / `Admin123456!`
 
 1. Open `http://localhost:3000/shipments/14d405e2-0152-4030-b356-eec464a3cc66`
 2. Verify low-code panel renders with 6 fields listed above
