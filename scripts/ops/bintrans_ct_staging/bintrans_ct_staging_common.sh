@@ -50,6 +50,61 @@ bintrans_env_value() {
   grep -E "^${1}=" "${BINTRANS_STAGING_ENV}" | tail -n1 | cut -d= -f2- || true
 }
 
+bintrans_migration_target_format_ok() {
+  [[ "${1}" =~ ^[0-9]{6}$ ]]
+}
+
+bintrans_validate_migration_target_format() {
+  local target="$1"
+  bintrans_migration_target_format_ok "${target}" \
+    || bintrans_fail "MIGRATION_TARGET must be exactly 6 decimal digits (got: ${target:-<empty>})"
+}
+
+bintrans_read_protected_migration_target() {
+  local count target
+  count="$(grep -cE '^MIGRATION_TARGET=' "${BINTRANS_STAGING_ENV}" || true)"
+  [[ "${count}" -eq 1 ]] \
+    || bintrans_fail "MIGRATION_TARGET must appear exactly once in protected env (found ${count})"
+  target="$(bintrans_env_value MIGRATION_TARGET)"
+  [[ -n "${target}" ]] || bintrans_fail "MIGRATION_TARGET must be set in protected env"
+  bintrans_validate_migration_target_format "${target}"
+  printf '%s\n' "${target}"
+}
+
+bintrans_migration_version_from_target() {
+  local target="$1"
+  bintrans_validate_migration_target_format "${target}"
+  printf '%s\n' "$((10#${target}))"
+}
+
+bintrans_resolve_migration_file_pair() {
+  local target="$1"
+  local migrations_dir="${BINTRANS_MIGRATIONS_DIR:-${ROOT}/infrastructure/migrations}"
+  local -a up_files down_files
+  mapfile -t up_files < <(find "${migrations_dir}" -maxdepth 1 -type f -name "${target}_*.up.sql" | sort)
+  mapfile -t down_files < <(find "${migrations_dir}" -maxdepth 1 -type f -name "${target}_*.down.sql" | sort)
+  [[ ${#up_files[@]} -eq 1 ]] \
+    || bintrans_fail "expected exactly one ${target}_*.up.sql in ${migrations_dir}, found ${#up_files[@]}"
+  [[ ${#down_files[@]} -eq 1 ]] \
+    || bintrans_fail "expected exactly one ${target}_*.down.sql in ${migrations_dir}, found ${#down_files[@]}"
+  printf '%s\n' "${up_files[0]}"
+  printf '%s\n' "${down_files[0]}"
+}
+
+bintrans_reject_persistent_migration_confirm() {
+  if grep -qE '^CONFIRM_MIGRATION_TARGET=' "${BINTRANS_STAGING_ENV}"; then
+    bintrans_fail "CONFIRM_MIGRATION_TARGET must not be stored in protected env (invocation-local only)"
+  fi
+  if grep -qE '^CONFIRM_MIGRATION_000019=' "${BINTRANS_STAGING_ENV}"; then
+    bintrans_fail "CONFIRM_MIGRATION_000019 must not be stored in protected env (use CONFIRM_MIGRATION_TARGET invocation-local only)"
+  fi
+}
+
+bintrans_require_migration_target_contract() {
+  bintrans_read_protected_migration_target >/dev/null
+  bintrans_reject_persistent_migration_confirm
+}
+
 # Parse golang-migrate "version" output that may include Docker Compose lifecycle noise.
 # Prints "<version> <dirty>" (dirty: yes|no). Exit 0 ok, 1 unparseable, 2 conflicting.
 bintrans_parse_migrate_version() {
@@ -276,7 +331,6 @@ bintrans_require_runtime_env_contract() {
     CONTROL_TOWER_READ_MODEL_MODE shadow
     CONTROL_TOWER_CONSUMER_ENABLED true
     SHIPMENT_OUTBOX_ENABLED true
-    MIGRATION_TARGET 000019
     BACKUP_VERIFIED YES
     BINTRANS_REGISTRY cr.selcloud.ru/bintrans-staging
     BINTRANS_IMAGE_TAG git-b75eb3d
@@ -290,6 +344,7 @@ bintrans_require_runtime_env_contract() {
       || bintrans_fail "${key} must be ${expected} (found: ${actual:-<unset>})"
     i=$((i + 2))
   done
+  bintrans_require_migration_target_contract
   bintrans_require_nonplaceholder_jwt_secret
   local pg
   pg="$(bintrans_env_value POSTGRES_PASSWORD)"
