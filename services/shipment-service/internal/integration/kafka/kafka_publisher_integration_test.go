@@ -405,6 +405,7 @@ func TestKafkaStartupPublisherCreationWithValidConfig(t *testing.T) {
 		Kafka: config.KafkaConfig{
 			Brokers:      brokers,
 			Topic:        "shipment.status.v1",
+			DriverTopic:  "driver.events.v1",
 			ClientID:     "shipment-service-it",
 			DialTimeout:  5 * time.Second,
 			WriteTimeout: 5 * time.Second,

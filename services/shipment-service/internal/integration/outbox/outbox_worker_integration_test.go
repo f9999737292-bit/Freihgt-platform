@@ -143,6 +143,7 @@ func TestStartupDisabledAndEnabledWithoutTransport(t *testing.T) {
 		Kafka: config.KafkaConfig{
 			Brokers:      []string{"localhost:19092"},
 			Topic:        "shipment.status.v1",
+			DriverTopic:  "driver.events.v1",
 			ClientID:     "shipment-service-it",
 			DialTimeout:  time.Second,
 			WriteTimeout: time.Second,

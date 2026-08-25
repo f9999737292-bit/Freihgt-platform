@@ -85,9 +85,6 @@ func applyMigrationsThrough18(ctx context.Context, pool *pgxpool.Pool) error {
 	sort.Strings(files)
 	for _, file := range files {
 		base := filepath.Base(file)
-		if strings.HasPrefix(base, "000020") {
-			continue
-		}
 		content, err := os.ReadFile(file)
 		if err != nil {
 			return err
