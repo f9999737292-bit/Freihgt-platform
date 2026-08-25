@@ -71,7 +71,7 @@ func TestSYSTEM_WAVE2_GOLDEN_FLOW(t *testing.T) {
 	}
 
 	var outboxCount int
-	if err := env.pool.QueryRow(ctx, `SELECT COUNT(*) FROM transport.shipment_event_outbox WHERE tenant_id=$1 AND shipment_id=$2`,
+	if err := env.pool.QueryRow(ctx, `SELECT COUNT(*) FROM transport.shipment_event_outbox WHERE tenant_id=$1 AND aggregate_id=$2`,
 		fix.TenantA, shipment.ID).Scan(&outboxCount); err != nil {
 		t.Fatalf("outbox count: %v", err)
 	}
