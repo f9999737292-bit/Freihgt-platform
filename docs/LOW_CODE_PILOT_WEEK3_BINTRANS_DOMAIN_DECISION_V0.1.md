@@ -2,38 +2,37 @@
 
 ## Summary
 
-The staging domain direction has been changed from 7rights to Bintrans.
+BINTRANS staging endpoint naming is tracked separately from unrelated external sites. Invalid legacy external domain references from early project naming mistakes have been removed from active documentation.
 
-## Decision
+## Staging endpoint status
 
-Selected staging domain:
-
-```text
-staging.bintrans.ru
-```
-
-Fallback staging domain:
+Public latin DNS endpoint:
 
 ```text
-pilot.bintrans.ru
+staging.bintrans.ru — NOT VERIFIED / NOT CONFIGURED
 ```
 
-Deprecated for this staging path:
+Repository-selected Cyrillic domain (see DNS checklist):
 
 ```text
-staging.7rights.ru
-pilot.7rights.ru
+staging.бинтранс.рф (technical: staging.xn--80abvubqje.xn--p1ai) — status per DNS checklist
 ```
 
-## Target
-
-Selectel staging IP:
+Dedicated Control Tower staging VM (repository evidence):
 
 ```text
-161.104.53.221
+VM: bintrans-control-tower-staging
+Public IP: 161.104.57.152
+Gateway loopback: 127.0.0.1:18080
 ```
 
-Current HTTP staging endpoint:
+Legacy shared Selectel VPS (historical low-code pilot context):
+
+```text
+Public IP: 161.104.53.221
+```
+
+Current HTTP access (legacy shared VPS context):
 
 ```text
 http://161.104.53.221
@@ -42,19 +41,13 @@ http://161.104.53.221
 Future HTTPS staging endpoint:
 
 ```text
-https://staging.bintrans.ru
+NOT VERIFIED / NOT CONFIGURED — depends on verified DNS + TLS operator action
 ```
 
 Future API base:
 
 ```text
-https://staging.bintrans.ru/api/v1
-```
-
-Future low-code API:
-
-```text
-https://staging.bintrans.ru/api/v1/low-code
+NOT VERIFIED / NOT CONFIGURED
 ```
 
 ## DNS Status
@@ -62,19 +55,13 @@ https://staging.bintrans.ru/api/v1/low-code
 DNS A-record:
 
 ```text
-pending operator action
+pending operator action (see BINTRANS DNS checklist)
 ```
 
-Required DNS record:
+Required DNS record (when verified):
 
 ```text
-A staging.bintrans.ru -> 161.104.53.221
-```
-
-Optional fallback record:
-
-```text
-A pilot.bintrans.ru -> 161.104.53.221
+See docs/LOW_CODE_PILOT_WEEK3_BINTRANS_DNS_CHECKLIST_V0.1.md
 ```
 
 ## Scope
@@ -98,5 +85,5 @@ active
 ## Decision Status
 
 ```text
-BINTRANS_STAGING_DOMAIN_SELECTED_DNS_PENDING
+BINTRANS_STAGING_DNS_PENDING_OPERATOR_ACTION
 ```

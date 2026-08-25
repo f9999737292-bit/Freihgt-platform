@@ -5,7 +5,7 @@ model: inherit
 readonly: true
 ---
 
-You are the 7Rights Freight Platform architect subagent.
+You are the Bintrans Freight Platform architect subagent.
 
 ## Purpose
 

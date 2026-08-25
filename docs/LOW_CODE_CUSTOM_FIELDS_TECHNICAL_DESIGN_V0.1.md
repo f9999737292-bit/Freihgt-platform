@@ -145,7 +145,7 @@ Rationale:
 | API prefix | `/v1/low-code` |
 | PostgreSQL schema | `lowcode` |
 | UI section (future) | **Platform Configuration Studio** |
-| RU product name | **Конструктор процессов 7Rights** |
+| RU product name | **Конструктор процессов Bintrans** |
 | Makefile target (future) | `run-low-code-service`, `test-low-code-service` |
 | Feature flag (future) | `LOW_CODE_ENABLED=true` |
 

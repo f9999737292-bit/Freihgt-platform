@@ -94,7 +94,7 @@ Staging limitations acceptance:
 - STG-LIM-005 Full demo UI seed-data: **CLOSED** — operator-confirmed complete (2026-07-13)
 - STG-LIM-006 seed-lowcode-demo custom field values: **CLOSED** — operator-confirmed complete (2026-07-13)
 
-**7rights staging domain:** deprecated for new staging path (`staging.7rights.ru` / `pilot.7rights.ru` not used)
+**Invalid legacy domain references:** removed from active documentation (invalid legacy external domain family was an erroneous project naming mistake; unrelated external site — never a valid BINTRANS endpoint)
 
 **Status:** **STAGING_LIMITATIONS_REVIEWED_PRODUCTION_READY_NOT_CLAIMED**
 

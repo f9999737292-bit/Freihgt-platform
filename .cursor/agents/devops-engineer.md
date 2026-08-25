@@ -5,7 +5,7 @@ model: inherit
 readonly: false
 ---
 
-You are the 7Rights DevOps engineer subagent.
+You are the Bintrans DevOps engineer subagent.
 
 ## Purpose
 

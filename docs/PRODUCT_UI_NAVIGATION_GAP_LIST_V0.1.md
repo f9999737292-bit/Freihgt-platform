@@ -8,7 +8,7 @@ This gap list captures UI/navigation improvements needed before deeper product f
 
 | ID | Gap | Impact | Proposed Next Action |
 | --- | --- | --- | --- |
-| UI-P0-001 | Brand mismatch: sidebar shows "7Rights", production domain is Bintrans | Owner confusion during first review; weak product identity | Brand alignment pack or UI polish iteration |
+| UI-P0-001 | Brand aligned to Bintrans in active UI (wave A1) | Owner confusion reduced | Monitor in next UI review |
 | UI-P0-002 | No role-based navigation filtering in sidebar | All users see full admin/TMS/RFx stack regardless of role | ROLE_BASED_CABINETS_GAP_ANALYSIS_PACK → nav matrix |
 | UI-P0-003 | RBAC not wired: `usePermissions` TODO for roles/permissions from `/auth/me` | Permission checks rely on mock/dev fallback | RBAC integration gap analysis pack |
 | UI-P0-004 | Login pre-fills demo credentials | Production-facing review looks like dev sandbox | Environment-gate demo defaults |

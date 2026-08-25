@@ -8,7 +8,7 @@ Documents **Option B**: temporary HTTPS exposure of **local Docker** via Cloudfl
 
 ## Purpose
 
-When VPS + `staging.7rights.ru` is not ready, Security may approve a **temporary tunnel** so QA can run read-only GET matrix from outside localhost.
+When a verified BINTRANS staging DNS endpoint is not ready, Security may approve a **temporary tunnel** so QA can run read-only GET matrix from outside localhost.
 
 PR-GAP-001 may be **partially** verified; **full staging may still be required** for final closure.
 

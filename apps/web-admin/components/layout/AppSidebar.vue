@@ -26,7 +26,7 @@ const visibleNavItems = computed(() => navItems.filter((item) => canSeeNavItem(i
     <div class="sidebar__brand">
       <span class="sidebar__logo">7R</span>
       <div v-if="!uiStore.sidebarCollapsed" class="sidebar__brand-text">
-        <strong>7Rights</strong>
+        <strong>Bintrans</strong>
         <span>Freight Platform</span>
       </div>
     </div>

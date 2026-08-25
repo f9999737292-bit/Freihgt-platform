@@ -43,8 +43,12 @@ Do not use for new staging path:
 ```text
 staging.bintrans.ru
 pilot.bintrans.ru
-staging.7rights.ru
-pilot.7rights.ru
+```
+
+Invalid erroneous legacy references (never valid BINTRANS endpoints; removed from active docs):
+
+```text
+Invalid legacy external domain family — unrelated external site; must not be used for BINTRANS
 ```
 
 ## Operator Action

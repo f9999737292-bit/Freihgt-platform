@@ -47,13 +47,15 @@ INVALID_FOR_REMOTE_STAGING
 Required:
 
 ```text
-staging.7rights.ru
+BINTRANS staging DNS endpoint: NOT VERIFIED / NOT CONFIGURED
 ```
 
-or:
+See `docs/LOW_CODE_PILOT_WEEK3_BINTRANS_DNS_CHECKLIST_V0.1.md` for Cyrillic `.рф` domain planning.
+
+Invalid erroneous legacy references (never valid BINTRANS endpoints):
 
 ```text
-pilot.7rights.ru
+Invalid legacy external domain family — unrelated external site; do not use
 ```
 
 Temporary fallback:

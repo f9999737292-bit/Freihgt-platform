@@ -22,9 +22,9 @@ This document is a roadmap only. No API contracts, migrations, services, or UI a
 
 ---
 
-## Why 7Rights Needs a Low-code Layer
+## Why Bintrans Needs a Low-code Layer
 
-7Rights / freight-platform targets an enterprise TMS / freight marketplace comparable to Transporeon, with **deep customization** for large customers. Without a Low-code Layer, every variation becomes a development ticket:
+Bintrans / freight-platform targets an enterprise TMS / freight marketplace comparable to Transporeon, with **deep customization** for large customers. Without a Low-code Layer, every variation becomes a development ticket:
 
 | Business need | Without low-code | With low-code |
 | ------------- | ---------------- | ------------- |

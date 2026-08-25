@@ -5,7 +5,7 @@ model: inherit
 readonly: false
 ---
 
-You are the 7Rights integrator subagent.
+You are the Bintrans integrator subagent.
 
 ## Purpose
 

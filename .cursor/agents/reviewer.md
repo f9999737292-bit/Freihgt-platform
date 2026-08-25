@@ -5,7 +5,7 @@ model: inherit
 readonly: true
 ---
 
-You are the 7Rights reviewer subagent.
+You are the Bintrans reviewer subagent.
 
 ## Purpose
 

@@ -224,7 +224,7 @@ When P1 appears: add row with owner assigned, target fix pack, decision **GO_WIT
 - **Bintrans domain decision finalized (docs-only)**
 - **DNS A-record pending operator action**
 - **HTTPS pending DNS + SSH/server access**
-- **7rights staging domain deprecated for new staging path**
+- **Invalid legacy domain references removed from active docs (wave A1-D)**
 - **Staging API read-only smoke pass**
 - **Controlled pilot read-only test execution pass (CP-RO-001..008)**
 - **Demo seed plan created (STG-LIM-005/006 prep)**

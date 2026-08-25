@@ -71,7 +71,7 @@ Auth middleware protects authenticated routes. Low-code admin routes use `low-co
 
 | Finding | Severity | Recommendation |
 | ------- | -------- | -------------- |
-| Sidebar brand shows "7Rights Freight Platform", not Bintrans | P0 | Align brand/domain for owner review and pilot |
+| Sidebar brand aligned to Bintrans Freight Platform (wave A1) | P0 | Resolved in wave A1 branding alignment |
 | Sidebar shows all modules to all users; no role-based nav filtering | P0 | Define role-to-nav matrix; hide irrelevant modules per role |
 | `usePermissions` has TODO — roles/permissions not loaded from `/auth/me` | P0 | Wire RBAC payload before role-based cabinets work |
 | Login form pre-fills demo credentials (`demo@7rights.local`) | P0 | Remove or gate demo defaults for production-facing review |
