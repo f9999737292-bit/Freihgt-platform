@@ -63,11 +63,11 @@ dev-bintrans
 
 | Role | Email | Script default | Staging override |
 | ---- | ----- | -------------- | ---------------- |
-| PLATFORM_ADMIN | admin@bintrans.local | admin@7rights.local | already exists |
-| SHIPPER_LOGIST | shipper@bintrans.local | shipper@7rights.local | already exists |
-| CARRIER_DISPATCHER | carrier@bintrans.local | carrier@7rights.local | create via seed |
-| PROCUREMENT_MANAGER | forwarder@bintrans.local | forwarder@7rights.local | create via seed |
-| CONSIGNEE_OPERATOR | consignee@bintrans.local | consignee@7rights.local | create via seed |
+| PLATFORM_ADMIN | admin@bintrans.local | admin@bintrans.local | already exists |
+| SHIPPER_LOGIST | shipper@bintrans.local | shipper@bintrans.local | already exists |
+| CARRIER_DISPATCHER | carrier@bintrans.local | carrier@bintrans.local | create via seed |
+| PROCUREMENT_MANAGER | forwarder@bintrans.local | forwarder@bintrans.local | create via seed |
+| CONSIGNEE_OPERATOR | consignee@bintrans.local | consignee@bintrans.local | create via seed |
 
 Passwords: **credentials provided separately / not stored in docs**.
 

@@ -74,7 +74,7 @@ Auth middleware protects authenticated routes. Low-code admin routes use `low-co
 | Sidebar brand aligned to Bintrans Freight Platform (wave A1) | P0 | Resolved in wave A1 branding alignment |
 | Sidebar shows all modules to all users; no role-based nav filtering | P0 | Define role-to-nav matrix; hide irrelevant modules per role |
 | `usePermissions` has TODO — roles/permissions not loaded from `/auth/me` | P0 | Wire RBAC payload before role-based cabinets work |
-| Login form pre-fills demo credentials (`demo@7rights.local`) | P0 | Remove or gate demo defaults for production-facing review |
+| Login form no longer pre-fills demo credentials (empty form) | P0 | **Resolved in Wave A2.1** |
 | No public landing page; `/` only redirects | P1 | Decide first-screen strategy: landing vs login vs dashboard |
 | Control tower links to localhost Swagger/Prometheus/Grafana | P1 | Replace with production-safe links or hide in prod |
 | Health page lists localhost service URLs and dev tooling links | P1 | Environment-aware health/dev links |

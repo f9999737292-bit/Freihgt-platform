@@ -23,14 +23,23 @@ Do not include passwords/tokens.
 | billing register | DEMO-BR-001 | 7bcbf89f-de18-42f4-a550-f99f5cda9717 | archive/delete later |
 | document metadata | DEMO-DOC-001 | a8d08846-abcc-487b-bf7c-90b362362378 | archive/delete later |
 
-## Legacy Seed Users (non-alias)
+## Canonical Seed Users (dev tenant)
 
 | Email | Note |
 |---|---|
-| shipper@7rights.local | created by seed_demo_data defaults; not approved alias; keep or disable later |
-| carrier@7rights.local | created by seed_demo_data defaults; not approved alias; keep or disable later |
-| forwarder@7rights.local | optional legacy demo user |
-| consignee@7rights.local | optional legacy demo user |
+| admin@bintrans.local | PLATFORM_ADMIN via `seed-dev-admin` |
+| shipper@bintrans.local | SHIPPER_LOGIST demo user |
+| carrier@bintrans.local | CARRIER_DISPATCHER demo user |
+| forwarder@bintrans.local | PROCUREMENT_MANAGER demo user |
+| consignee@bintrans.local | CONSIGNEE_OPERATOR demo user |
+
+Staging may still contain pre-A2.5 legacy identity rows until controlled migration (Wave A2.5). Use canonical `@bintrans.local` credentials only.
+
+## Legacy staging rows (pre-A2.5)
+
+| Status | Note |
+|---|---|
+| Pending A2.5 migration | Legacy `@7rights.local` rows may still exist on staging alongside approved alias users — see staging execution evidence |
 
 ## Rules
 

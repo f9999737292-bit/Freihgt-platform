@@ -169,7 +169,7 @@ curl.exe -H "X-Tenant-ID: 74519f22-ff9b-4a8b-8fff-a958c689682f" `
 
 ### Manual UI spot-check (operator)
 
-Login: `admin@7rights.local` / `Admin123456!`
+Login: `admin@bintrans.local` / `Admin123456!`
 
 1. Open `http://localhost:3000/billing-registers/cf7dbc77-395f-42a2-9717-476e4cd93796`
 2. Verify low-code panel renders with 3 fields: `cost_allocation_code`, `approval_group`, `payment_priority`

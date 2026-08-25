@@ -166,7 +166,7 @@ From prior pilot packs (not blocking Week 2):
 | Item | Source | Target |
 |------|--------|--------|
 | 15-min browser walkthrough on staging | Fix & polish sprint | Before / during Week 2 pilot open |
-| Non-admin UI login test (`shipper@7rights.local`) | Fix & polish sprint | Staging auth-on |
+| Non-admin UI login test (`shipper@bintrans.local`) | Fix & polish sprint | Staging auth-on |
 | Real operator daily reports + feedback forms | Week-1 feedback plan | Week 2 Day 1+ |
 | i18n deprecation warning | Fix & polish sprint | Post-pilot cleanup |
 | Vitest / E2E automation | Fix & polish sprint | Post-pilot |

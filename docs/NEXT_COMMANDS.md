@@ -2513,7 +2513,7 @@ Login:
 
 ```text
 Tenant ID: 74519f22-ff9b-4a8b-8fff-a958c689682f
-Email: admin@7rights.local
+Email: admin@bintrans.local
 Password: Admin123456!
 ```
 

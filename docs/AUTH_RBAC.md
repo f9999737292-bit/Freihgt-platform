@@ -21,9 +21,9 @@ make seed-dev-admin
 Скрипт: `scripts/dev/seed_dev_admin.sh`
 
 - Tenant: `74519f22-ff9b-4a8b-8fff-a958c689682f`
-- Email: `admin@7rights.local`
+- Email: `admin@bintrans.local`
 - Password: `Admin123456!`
-- Company: «ООО 7Rights Dev» (`PLATFORM_OPERATOR`)
+- Company: «ООО Bintrans Dev» (`PLATFORM_OPERATOR`)
 
 Скрипт идемпотентен: повторный запуск не создаёт дубликаты. Требует доступный API Gateway (`http://localhost:8080/health`). Если gateway недоступен — см. [TROUBLESHOOTING.md](./TROUBLESHOOTING.md).
 
@@ -54,7 +54,7 @@ Low-code permission matrix: `docs/LOW_CODE_PERMISSIONS_MATRIX_V0.1.md` — ис�
 
 ### Dev fallback
 
-В mock auth mode, если `user.email === admin@7rights.local`, `isPlatformAdmin()` и остальные проверки возвращают `true` — только для локальной разработки UI.
+В mock auth mode, если `user.email === admin@bintrans.local`, `isPlatformAdmin()` и остальные проверки возвращают `true` — только для локальной разработки UI.
 
 ## Рекомендации
 

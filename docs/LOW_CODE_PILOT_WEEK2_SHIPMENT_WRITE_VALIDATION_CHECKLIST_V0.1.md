@@ -123,7 +123,7 @@ curl.exe -H "X-Tenant-ID: $T" `
 
 ## UI Spot-check Checklist
 
-Login: `admin@7rights.local` / `Admin123456!`
+Login: `admin@bintrans.local` / `Admin123456!`
 
 - [ ] **SH-UI-01** — `/shipments/14d405e2-0152-4030-b356-eec464a3cc66` — panel renders; save works; reload persists
 - [ ] **SH-UI-02** — Rich editors (date, money, multi-select) save correctly

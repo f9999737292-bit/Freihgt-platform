@@ -38,8 +38,8 @@ NUXT_PUBLIC_MOCK_AUTH=true
 При входе в mock auth укажите:
 
 - **Tenant ID:** `74519f22-ff9b-4a8b-8fff-a958c689682f`
-- **Email:** demo@7rights.local
-- **Password:** any
+- **Email:** `admin@bintrans.local` (real backend seed) or any email when `NUXT_PUBLIC_MOCK_AUTH=true`
+- **Password:** see `docs/AUTH_RBAC.md` for seeded admin, or any value in mock auth
 
 Test company ID: `59a3e6b8-34c0-452a-894c-00938211f9f3` (OOO Virtual Logistics)
 
@@ -187,7 +187,7 @@ When `NUXT_PUBLIC_MOCK_AUTH=true`:
 - POST `/api/v1/auth/login` is not called
 - Any email/password works
 - Tenant ID from the login form is used for API requests (`X-Tenant-ID` header)
-- Mock user: **Demo Admin** / `demo@7rights.local`
+- Mock user: **Platform Admin** / `admin@bintrans.local` (when using real backend seed; mock auth accepts any email)
 
 Use mock mode for UI development when backend is unavailable.
 

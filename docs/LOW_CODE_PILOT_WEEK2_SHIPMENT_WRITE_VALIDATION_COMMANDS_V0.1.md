@@ -83,7 +83,7 @@ npm run dev
 - `http://localhost:3000/shipments/14d405e2-0152-4030-b356-eec464a3cc66`
 - `http://localhost:3000/low-code/custom-field-values`
 
-Login: `admin@7rights.local` / `Admin123456!`
+Login: `admin@bintrans.local` / `Admin123456!`
 
 ## Full checklist
 

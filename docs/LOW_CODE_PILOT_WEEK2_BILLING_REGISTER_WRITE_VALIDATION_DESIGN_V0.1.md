@@ -220,7 +220,7 @@ Save GET outputs as rollback baseline. Update restore payload if values differ f
 
 Execute pack UI check (manual):
 
-1. Login: `admin@7rights.local` / `Admin123456!`
+1. Login: `admin@bintrans.local` / `Admin123456!`
 2. Open `http://localhost:3000/billing-registers/cf7dbc77-395f-42a2-9717-476e4cd93796`
 3. Verify low-code panel renders 3 fields with baseline values
 4. **Perform write only if explicitly approved in Execute Pack**

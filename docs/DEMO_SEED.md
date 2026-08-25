@@ -16,18 +16,18 @@ No backend business logic, API contracts, or production code are modified by thi
 | Field | Value |
 |---|---|
 | Tenant ID | `74519f22-ff9b-4a8b-8fff-a958c689682f` |
-| Tenant code | `dev-7rights` |
-| Name | 7Rights Dev Tenant |
+| Tenant code | `dev-bintrans` |
+| Name | Bintrans Dev Tenant |
 
 ## Demo Login
 
 | Role | Email | Password |
 |---|---|---|
-| Platform admin | admin@7rights.local | Admin123456! |
-| Shipper | shipper@7rights.local | Demo123456! |
-| Carrier | carrier@7rights.local | Demo123456! |
-| Forwarder | forwarder@7rights.local | Demo123456! |
-| Consignee | consignee@7rights.local | Demo123456! |
+| Platform admin | admin@bintrans.local | Admin123456! |
+| Shipper | shipper@bintrans.local | Demo123456! |
+| Carrier | carrier@bintrans.local | Demo123456! |
+| Forwarder | forwarder@bintrans.local | Demo123456! |
+| Consignee | consignee@bintrans.local | Demo123456! |
 
 Login URL: http://localhost:3000/login
 
@@ -37,7 +37,7 @@ Login URL: http://localhost:3000/login
 
 | Legal name | Type | Notes |
 |---|---|---|
-| ООО 7Rights Dev | PLATFORM_OPERATOR | May already exist from `seed-dev-admin` |
+| ООО Bintrans Dev | PLATFORM_OPERATOR | May already exist from `seed-dev-admin` |
 | ООО Грузовладелец Север | SHIPPER | Demo shipper |
 | ООО Перевозчик Волга | CARRIER | Demo carrier |
 | ООО Экспедитор Логистик | FORWARDER | Demo forwarder |
@@ -47,10 +47,10 @@ Login URL: http://localhost:3000/login
 
 Demo users are created in identity-service with company memberships and roles:
 
-- `shipper@7rights.local` → SHIPPER_LOGIST on ООО Грузовладелец Север
-- `carrier@7rights.local` → CARRIER_DISPATCHER on ООО Перевозчик Волга
-- `forwarder@7rights.local` → PROCUREMENT_MANAGER on ООО Экспедитор Логистик
-- `consignee@7rights.local` → CONSIGNEE_OPERATOR on ООО Грузополучатель Центр
+- `shipper@bintrans.local` → SHIPPER_LOGIST on ООО Грузовладелец Север
+- `carrier@bintrans.local` → CARRIER_DISPATCHER on ООО Перевозчик Волга
+- `forwarder@bintrans.local` → PROCUREMENT_MANAGER on ООО Экспедитор Логистик
+- `consignee@bintrans.local` → CONSIGNEE_OPERATOR on ООО Грузополучатель Центр
 
 ### C. Transport orders (5)
 
@@ -163,7 +163,7 @@ Environment overrides: `TENANT_ID`, `DEMO_PASSWORD`, `API_GATEWAY_URL`, service 
 
 ## UI Pages To Check
 
-After seeding, log in as `admin@7rights.local` and verify list pages show demo rows:
+After seeding, log in as `admin@bintrans.local` and verify list pages show demo rows:
 
 | Page | Expected content |
 |---|---|

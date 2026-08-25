@@ -92,8 +92,8 @@ Reference: `LOW_CODE_PILOT_WEEK3_AUTH_ON_STAGING_RUNBOOK_V0.1.md`
 
 | Role | Email | User ID |
 |------|-------|---------|
-| PLATFORM_ADMIN | `admin@7rights.local` | `8541a3a3-bde7-4fed-9501-37b9953bf904` |
-| SHIPPER_LOGIST | `shipper@7rights.local` | `008e1462-6f67-4246-b7dc-4aae1669c0c5` |
+| PLATFORM_ADMIN | `admin@bintrans.local` | `8541a3a3-bde7-4fed-9501-37b9953bf904` |
+| SHIPPER_LOGIST | `shipper@bintrans.local` | `008e1462-6f67-4246-b7dc-4aae1669c0c5` |
 
 ## Required Tenant Data
 

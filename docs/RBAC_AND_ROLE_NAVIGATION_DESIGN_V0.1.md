@@ -29,7 +29,7 @@ Operating mode: event-based monitoring
 | --------- | ---------------- | --- |
 | `AppSidebar.vue` | Static `navItems` — 13 routes shown to all authenticated users | No role filtering |
 | `middleware/auth.ts` | Redirects unauthenticated users to `/login` | No role/permission check on routes |
-| `usePermissions.ts` | Reads `roles[]` / `permissions[]` from authStore; dev mock fallback for `admin@7rights.local` | TODO to wire full RBAC payload from `/auth/me` |
+| `usePermissions.ts` | Reads `roles[]` / `permissions[]` from authStore; dev mock fallback for `admin@bintrans.local` | TODO to wire full RBAC payload from `/auth/me` |
 | `useLowCodePermissions.ts` | Role constants exist (PLATFORM_ADMIN, SHIPPER_*, CARRIER_*, etc.) | Used only in low-code UI, not sidebar |
 | `login.vue` | Pre-fills demo credentials; backend status panel | Production-facing demo defaults |
 | `docs/AUTH_RBAC.md` | Documents login, usePermissions, dev fallback | Reference for implementation pack |
