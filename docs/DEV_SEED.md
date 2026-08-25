@@ -1,6 +1,6 @@
 # Dev Admin Seed
 
-Idempotent development seed for the 7Rights web-admin portal.
+Idempotent development seed for the Bintrans web-admin portal.
 
 ## Prerequisites
 

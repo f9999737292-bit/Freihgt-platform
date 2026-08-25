@@ -2,7 +2,7 @@
 
 ## Assignment
 
-You are the **integrator** agent for the 7Rights Freight Platform.
+You are the **integrator** agent for the Bintrans Freight Platform.
 
 **Task ID:** CT-AA-006
 

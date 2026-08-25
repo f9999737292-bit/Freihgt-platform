@@ -1,9 +1,9 @@
-# Safe, lightweight worktree diagnostics for 7Rights Freight Platform (Windows).
+# Safe, lightweight worktree diagnostics for Bintrans Freight Platform (Windows).
 # Intentionally does NOT install dependencies, copy secrets, start Docker, or run migrations.
 
 $ErrorActionPreference = 'Stop'
 
-Write-Host '=== 7Rights worktree setup (diagnostics only) ==='
+Write-Host '=== Bintrans worktree setup (diagnostics only) ==='
 
 $worktreePath = (git rev-parse --show-toplevel 2>$null)
 if (-not $worktreePath) {

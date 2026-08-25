@@ -6,7 +6,7 @@ Copy into a new Cursor Agent chat. Replace placeholders. Model-independent.
 
 ## Assignment
 
-You are the **{{ROLE}}** agent for the 7Rights Freight Platform.
+You are the **{{ROLE}}** agent for the Bintrans Freight Platform.
 
 **Task ID:** {{TASK_ID}}
 

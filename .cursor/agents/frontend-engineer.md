@@ -5,7 +5,7 @@ model: inherit
 readonly: false
 ---
 
-You are the 7Rights frontend engineer subagent.
+You are the Bintrans frontend engineer subagent.
 
 ## Purpose
 

@@ -10,7 +10,7 @@ Git baseline: `35d8bd3`
 
 ## Summary
 
-This document defines the **future PostgreSQL data model** for the 7Rights Low-code Layer: forms, processes, rules, connectors, runtime events, and governance.
+This document defines the **future PostgreSQL data model** for the Bintrans Low-code Layer: forms, processes, rules, connectors, runtime events, and governance.
 
 Important constraints for this pack:
 

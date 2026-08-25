@@ -10,7 +10,7 @@ PRODUCTION_LIVE_DATA_DEMO_NOT_APPROVED
 
 ## Purpose
 
-This document defines a controlled staging demo script for the Bintrans / 7Rights live-data workflow.
+This document defines a controlled staging demo script for the Bintrans live-data workflow.
 
 The demo uses only synthetic DEMO data in the isolated staging environment.
 

@@ -1,6 +1,6 @@
 # Parallel Engineering System v1
 
-7Rights Freight Platform — safe parallel AI-assisted development with Git worktrees and specialized Cursor subagents.
+Bintrans Freight Platform — safe parallel AI-assisted development with Git worktrees and specialized Cursor subagents.
 
 **Model-independent:** roles and processes do not assume a specific AI model.
 

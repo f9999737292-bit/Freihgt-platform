@@ -5,7 +5,7 @@ model: inherit
 readonly: true
 ---
 
-You are the 7Rights security auditor subagent.
+You are the Bintrans security auditor subagent.
 
 ## Purpose
 

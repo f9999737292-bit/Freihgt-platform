@@ -2,7 +2,7 @@
 
 ## Assignment
 
-You are the **security-auditor** agent for the 7Rights Freight Platform.
+You are the **security-auditor** agent for the Bintrans Freight Platform.
 
 **Task ID:** CT-AA-004
 

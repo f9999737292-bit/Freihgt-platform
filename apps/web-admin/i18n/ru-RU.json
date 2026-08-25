@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "7Rights Freight Platform",
+    "name": "Bintrans Freight Platform",
     "subtitle": "Административная панель"
   },
   "nav": {
@@ -550,7 +550,7 @@
   },
   "controlTower": {
     "title": "Центр управления",
-    "subtitle": "Операционный центр управления логистической платформой 7Rights",
+    "subtitle": "Операционный центр управления логистической платформой Bintrans",
     "refresh": "Обновить",
     "backendOffline": "Backend недоступен. Данные Control Tower недоступны.",
     "apiUnavailable": "API temporarily unavailable",

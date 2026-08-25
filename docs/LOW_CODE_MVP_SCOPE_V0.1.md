@@ -14,7 +14,7 @@ Git baseline: `39690bb`
 
 ## Summary
 
-The full 7Rights Low-code Layer (BPMN Process Builder, Form Builder, Rule Engine, No-code Connectors) is **too large for a single delivery phase**. Attempting everything at once increases security risk, delays value, and threatens Core TMS stability.
+The full Bintrans Low-code Layer (BPMN Process Builder, Form Builder, Rule Engine, No-code Connectors) is **too large for a single delivery phase**. Attempting everything at once increases security risk, delays value, and threatens Core TMS stability.
 
 **MVP v0.1** is deliberately small, safe, and useful:
 

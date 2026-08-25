@@ -1,4 +1,4 @@
-# 7Rights Freight Platform — Web Admin
+# Bintrans Freight Platform — Web Admin
 
 Administrative Nuxt 3 frontend for the Freight Platform logistics system.
 

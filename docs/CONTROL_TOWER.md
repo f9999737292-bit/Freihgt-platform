@@ -1,6 +1,6 @@
 # Control Tower Dashboard v0.1
 
-Operational command center for the 7Rights Freight Platform operator console (`web-admin`).
+Operational command center for the Bintrans Freight Platform operator console (`web-admin`).
 
 ## Purpose
 

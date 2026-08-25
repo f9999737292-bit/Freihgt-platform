@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "7Rights Freight Platform",
+    "name": "Bintrans Freight Platform",
     "subtitle": "管理控制台"
   },
   "nav": {
@@ -550,7 +550,7 @@
   },
   "controlTower": {
     "title": "控制塔",
-    "subtitle": "7Rights 物流平台运营指挥中心",
+    "subtitle": "Bintrans 物流平台运营指挥中心",
     "refresh": "刷新",
     "backendOffline": "后端离线。控制塔数据不可用。",
     "apiUnavailable": "API temporarily unavailable",

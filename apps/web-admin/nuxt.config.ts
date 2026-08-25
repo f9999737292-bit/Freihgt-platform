@@ -40,7 +40,7 @@ export default defineNuxtConfig({
   },
   app: {
     head: {
-      title: '7Rights Freight Platform Admin',
+      title: 'Bintrans Freight Platform Admin',
       meta: [{ name: 'viewport', content: 'width=device-width, initial-scale=1' }],
     },
   },

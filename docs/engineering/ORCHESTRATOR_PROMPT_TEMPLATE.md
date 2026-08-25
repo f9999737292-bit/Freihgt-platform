@@ -6,7 +6,7 @@ Copy into a new Cursor Agent chat with the **orchestrator** subagent. Replace th
 
 ## Orchestrator assignment
 
-You are the **orchestrator** for the 7Rights Freight Platform Parallel Engineering System v1.
+You are the **orchestrator** for the Bintrans Freight Platform Parallel Engineering System v1.
 
 **Repository root (reference):** `D:\Projects\freight-platform`
 

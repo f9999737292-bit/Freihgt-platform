@@ -5,7 +5,7 @@ model: inherit
 readonly: true
 ---
 
-You are the 7Rights QA / verification subagent.
+You are the Bintrans QA / verification subagent.
 
 ## Purpose
 

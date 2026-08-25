@@ -4,7 +4,7 @@
       <div class="auth-layout__brand">
         <span class="auth-layout__logo">7R</span>
         <div>
-          <strong>7Rights Freight Platform</strong>
+          <strong>Bintrans Freight Platform</strong>
           <p>{{ $t('app.subtitle') }}</p>
         </div>
       </div>

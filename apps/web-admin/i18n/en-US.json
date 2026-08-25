@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "7Rights Freight Platform",
+    "name": "Bintrans Freight Platform",
     "subtitle": "Administration Console"
   },
   "nav": {
@@ -550,7 +550,7 @@
   },
   "controlTower": {
     "title": "Control Tower",
-    "subtitle": "Operational command center for the 7Rights logistics platform",
+    "subtitle": "Operational command center for the Bintrans logistics platform",
     "refresh": "Refresh",
     "backendOffline": "Backend is offline. Control Tower data is unavailable.",
     "apiUnavailable": "API temporarily unavailable",
