@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Isolated local validation for BINTRANS identity Wave A2.1
 # Does NOT touch freight_postgres / freight_postgres_data.
+#
+# Windows: use run_local_validation.ps1 (Git Bash path translation breaks migrate
+# bind mounts; local api-gateway image build may also fail on Windows).
+# Unix/Linux/WSL: this script is supported when Docker and api-gateway build succeed.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"

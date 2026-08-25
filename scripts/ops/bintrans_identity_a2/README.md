@@ -123,7 +123,51 @@ After migration, invalidate active sessions or require users to log in again. JW
 | `rollback.sql` | UUID-preserving reverse migration |
 | `fixtures/legacy_dev_identity.sql` | Disposable DB legacy state for local migration tests |
 | `fixtures/collision_extra_user.sql` | Disposable collision scenario |
-| `run_local_validation.sh` | Isolated local seed + migration test orchestration |
+| `run_local_validation.sh` | Isolated local seed + migration test orchestration (Unix/WSL) |
+| `run_local_validation.ps1` | Isolated local seed + migration test orchestration (Windows PowerShell) |
+
+## LOCAL VALIDATION (DISPOSABLE ONLY)
+
+These wrappers validate Wave A2.1 on an isolated Compose project (`bintrans_a21_validate`) with a disposable Postgres volume. They **must not** be pointed at staging or production.
+
+```text
+STAGING_USE=FORBIDDEN
+PRODUCTION_USE=FORBIDDEN
+```
+
+### Windows PowerShell (supported)
+
+Requires Docker Desktop, Git Bash (for repository seed scripts), and ports `55432`, `18080`–`18082` available locally.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File `
+  scripts/ops/bintrans_identity_a2/run_local_validation.ps1
+```
+
+Notes:
+
+- Uses `ports: !override` in `infrastructure/docker-compose/docker-compose.a21-validate.yml` so Windows Compose does not merge dev ports (`5432`, `8080`, etc.).
+- Starts identity/company services plus a localhost mock gateway (`18080`) because the full api-gateway image may not build on all Windows setups.
+- If a rapid disposable reset interrupts golang-migrate, recovery uses `migrate force` **only** when the disposable volume has no `core` schema yet.
+
+### Unix / Linux / WSL (supported when Docker build succeeds)
+
+```bash
+bash scripts/ops/bintrans_identity_a2/run_local_validation.sh
+```
+
+Git Bash on Windows is **not** supported for this Bash wrapper (observed migrate bind-mount failure: `error: open .: no such file or directory`).
+
+### Isolation guarantees
+
+| Resource | Validation stack | Normal dev stack |
+|---|---|---|
+| Compose project | `bintrans_a21_validate` | default / `freight` |
+| Postgres volume | `bintrans_a21_validate_data` | `freight_postgres_data` |
+| Postgres port | `55432` | `5432` |
+| Identity / company / gateway | `18081` / `18082` / `18080` | `8081` / `8082` / `8080` |
+
+Cleanup removes only `bintrans_a21_validate_*` containers/volumes (`docker compose ... down -v` with `COMPOSE_PROJECT_NAME=bintrans_a21_validate`).
 
 ## PRODUCTION_USE
 
