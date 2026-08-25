@@ -1,32 +1,24 @@
 #!/usr/bin/env bash
-# BINTRANS dedicated staging — migration 000019 gate (read-only unless explicitly approved).
+# BINTRANS dedicated staging — target-driven migration gate (read-only unless explicitly approved).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 # shellcheck source=scripts/ops/bintrans_ct_staging/bintrans_ct_staging_common.sh
 source "${ROOT}/scripts/ops/bintrans_ct_staging/bintrans_ct_staging_common.sh"
 
-MIGRATION_TARGET="${MIGRATION_TARGET:-000019}"
-MIGRATION_VERSION=19
-
 bintrans_require_env_file
+bintrans_require_migration_target_contract
+
+MIGRATION_TARGET="$(bintrans_read_protected_migration_target)"
+MIGRATION_VERSION="$(bintrans_migration_version_from_target "${MIGRATION_TARGET}")"
+mapfile -t MIGRATION_FILES < <(bintrans_resolve_migration_file_pair "${MIGRATION_TARGET}")
+MIGRATION_UP="${MIGRATION_FILES[0]}"
+MIGRATION_DOWN="${MIGRATION_FILES[1]}"
 
 set -a
 # shellcheck disable=SC1090
 source "${BINTRANS_STAGING_ENV}"
 set +a
-
-file_target="$(grep -E '^MIGRATION_TARGET=' "${BINTRANS_STAGING_ENV}" | tail -n1 | cut -d= -f2-)"
-[[ "${file_target}" == "${MIGRATION_TARGET}" ]] \
-  || bintrans_fail "MIGRATION_TARGET must be ${MIGRATION_TARGET} (found ${file_target:-<unset>})"
-
-backup_verified="$(grep -E '^BACKUP_VERIFIED=' "${BINTRANS_STAGING_ENV}" | tail -n1 | cut -d= -f2- || echo NO)"
-[[ "${backup_verified}" == "YES" ]] || bintrans_fail "BACKUP_VERIFIED=YES required before migration"
-
-[[ -f "${ROOT}/infrastructure/migrations/000019_projection_rebuild_backup_last_event_type_nullable_v0.1.up.sql" ]] \
-  || bintrans_fail "migration ${MIGRATION_TARGET} files missing at operator checkout"
-[[ -f "${ROOT}/infrastructure/migrations/000019_projection_rebuild_backup_last_event_type_nullable_v0.1.down.sql" ]] \
-  || bintrans_fail "migration ${MIGRATION_TARGET} down file missing at operator checkout"
 
 [[ -n "${POSTGRES_USER:-}" && -n "${POSTGRES_DB:-}" && -n "${POSTGRES_PASSWORD:-}" ]] \
   || bintrans_fail "POSTGRES_* variables must be set in protected env"
@@ -35,6 +27,10 @@ migrate_db_url="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/$
 
 pg_cid="$(bintrans_postgres_container)"
 [[ -n "${pg_cid}" ]] || bintrans_fail "postgres container not running"
+
+echo "=== migration gate target=${MIGRATION_TARGET} version=${MIGRATION_VERSION} ==="
+echo "migration up file=${MIGRATION_UP##*/}"
+echo "migration down file=${MIGRATION_DOWN##*/}"
 
 echo "=== PostgreSQL readiness ==="
 docker exec "${pg_cid}" pg_isready -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" >/dev/null \
@@ -87,28 +83,36 @@ dirty_state=no
 
 echo "PARSED_CURRENT_VERSION=${current_version}"
 echo "PARSED_DIRTY_STATE=${dirty_state}"
+echo "CURRENT_VERSION=${current_version}"
+echo "TARGET_VERSION=${MIGRATION_VERSION}"
 
 if [[ "${current_version}" -gt "${MIGRATION_VERSION}" ]]; then
-  bintrans_fail "current migration version ${current_version} is greater than target ${MIGRATION_VERSION}"
+  bintrans_fail "current migration version ${current_version} is greater than target ${MIGRATION_VERSION} (${MIGRATION_TARGET})"
 fi
 
 if [[ "${current_version}" -eq "${MIGRATION_VERSION}" ]]; then
   echo "ALREADY_AT_TARGET=YES"
+  echo "NO ACTION TAKEN"
   echo "Migration ${MIGRATION_TARGET} (version ${MIGRATION_VERSION}) already applied — no action taken."
   exit 0
 fi
 
-if [[ "${CONFIRM_MIGRATION_000019:-}" != "true" ]]; then
+backup_verified="$(grep -E '^BACKUP_VERIFIED=' "${BINTRANS_STAGING_ENV}" | tail -n1 | cut -d= -f2- || echo NO)"
+echo "BACKUP_VERIFIED=${backup_verified:-<unset>}"
+
+if [[ "${CONFIRM_MIGRATION_TARGET:-}" != "true" ]]; then
   echo
   echo "Migration NOT executed (gate-only mode)."
   echo "Current version: ${current_version}"
   echo "Target version: ${MIGRATION_VERSION} (${MIGRATION_TARGET})"
-  echo "Operator approval required: CONFIRM_MIGRATION_000019=true"
+  echo "Operator approval required: CONFIRM_MIGRATION_TARGET=true (invocation-local only)"
   echo
   echo "Explicit target command (preferred over unbounded 'up'):"
-  echo "  CONFIRM_MIGRATION_000019=true ${0}"
+  echo "  CONFIRM_MIGRATION_TARGET=true ${0}"
   exit 0
 fi
+
+[[ "${backup_verified}" == "YES" ]] || bintrans_fail "BACKUP_VERIFIED=YES required before migration execution"
 
 echo "Applying migration goto ${MIGRATION_VERSION} ..."
 BINTRANS_INCLUDE_SHADOW=0 BINTRANS_INCLUDE_IMAGES=0 \
