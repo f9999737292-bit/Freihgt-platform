@@ -1040,8 +1040,8 @@ jobs:
             --smp 1 \
             --memory 512M \
             --overprovisioned \
-            --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:9092 \
-            --advertise-kafka-addr internal://127.0.0.1:9092,external://localhost:9092
+            --kafka-addr 0.0.0.0:9092 \
+            --advertise-kafka-addr localhost:9092
           for i in $(seq 1 30); do
             if docker exec wave3-redpanda rpk cluster health 2>/dev/null | grep -q "Healthy:.*true"; then
               echo "Redpanda healthy"
