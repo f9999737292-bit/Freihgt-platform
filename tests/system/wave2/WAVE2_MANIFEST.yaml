@@ -1,0 +1,78 @@
+# System Test Wave 2 — Core Business Flow & Cross-Service Integration
+# Maps W2 gate groups to executable suites (see scripts/test/run-system-wave2-core-business-flow.sh)
+
+wave: 2
+name: core_business_flow_cross_service_integration
+staging_dependency: false
+
+golden_flow:
+  SYSTEM_WAVE2_GOLDEN_RFX_TO_AWARD:
+    package: services/rfx-service/internal/integration/systemwave2
+    test: TestSYSTEM_WAVE2_GOLDEN_RFX_TO_AWARD
+  SYSTEM_WAVE2_GOLDEN_FLOW:
+    package: services/shipment-service/internal/integration/systemwave2
+    test: TestSYSTEM_WAVE2_GOLDEN_FLOW
+
+gates:
+  W2-01:
+    name: Golden RFx → Award
+    suites: [services/rfx-service/internal/integration/systemwave2]
+  W2-02:
+    name: Award lineage
+    suites: [services/rfx-service/internal/integration/systemwave2]
+  W2-03:
+    name: Order → Shipment
+    suites: [services/shipment-service/internal/integration/systemwave2]
+  W2-04:
+    name: Driver/Vehicle assignment
+    suites: [services/shipment-service/internal/integration/systemwave2]
+  W2-05:
+    name: Shipment FSM
+    suites: [services/shipment-service/internal/integration/systemwave2]
+  W2-06:
+    name: Cross-tenant procurement
+    suites: [services/rfx-service/internal/integration/systemwave2]
+  W2-07:
+    name: Outbox/Event delivery
+    suites: [services/shipment-service/internal/integration/outbox]
+  W2-08:
+    name: Control Tower projection
+    suites: [services/api-gateway/internal/integration/controltowerreadmodel]
+  W2-09:
+    name: Settlement
+    suites: [services/shipment-service/internal/integration/systemwave2]
+  W2-10:
+    name: Settlement e2e
+    suites: [services/billing-register-service/internal/integration/freightsettlement]
+  W2-11:
+    name: Billing
+    suites: [services/billing-register-service/internal/integration/freightbillingclosing]
+  W2-12:
+    name: Freight Cost
+    suites: [services/freight-cost-service/internal/integration/ledger]
+  W2-13:
+    name: Cross-Tenant Isolation
+    suites: [services/billing-register-service/internal/integration/freightsettlement]
+  W2-14:
+    name: Cross-Company Isolation
+    suites: [services/rfx-service/internal/integration/enterprise]
+  W2-15:
+    name: IDOR
+    suites: [services/rfx-service/internal/integration/systemwave2]
+  W2-16:
+    name: Idempotency
+    suites: [services/shipment-service/internal/integration/orderexecution]
+  W2-17:
+    name: Concurrency
+    suites: [services/rfx-service/internal/integration/enterprise]
+  W2-18:
+    name: Data Integrity
+    suites: [services/shipment-service/internal/integration/systemwave2]
+  W2-19:
+    name: Money Integrity
+    suites: [services/rfx-service/internal/integration/systemwave2]
+  W2-20:
+    name: Header spoof regression
+    suites: [services/api-gateway/internal/integration/systemwave2]
+
+entrypoint: make system-test-wave2-core-business-flow
