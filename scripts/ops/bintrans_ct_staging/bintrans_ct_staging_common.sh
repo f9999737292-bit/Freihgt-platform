@@ -287,6 +287,45 @@ bintrans_validate_release_contract() {
   bintrans_validate_image_tag_for_sha "${sha}" "${tag}"
 }
 
+# Canonical OCI source for BINTRANS application images.
+export BINTRANS_OCI_IMAGE_SOURCE="https://github.com/f9999737292-bit/Freihgt-platform"
+
+bintrans_release_build_services() {
+  bintrans_assert_service_contract_aligned
+  printf '%s\n' "${bintrans_runtime_service_names[@]}"
+}
+
+bintrans_resolve_release_build_sha() {
+  local requested="${BINTRANS_RELEASE_GIT_SHA:-}"
+  local head_sha
+  head_sha="$(git -C "${ROOT}" rev-parse HEAD 2>/dev/null || true)"
+  [[ -n "${head_sha}" ]] || bintrans_fail "unable to resolve git HEAD for release build"
+  if [[ -z "${requested}" ]]; then
+    requested="${head_sha}"
+  fi
+  bintrans_validate_deployed_git_sha "${requested}"
+  [[ "${head_sha}" == "${requested}" ]] \
+    || bintrans_fail "release build requires checkout at ${requested} (HEAD is ${head_sha})"
+  printf '%s\n' "${requested}"
+}
+
+bintrans_validate_release_build_version_for_sha() {
+  local sha="$1" version="$2"
+  local expected
+  expected="$(bintrans_expected_image_tag_for_sha "${sha}")"
+  [[ -n "${version}" ]] || bintrans_fail "release build requires BINTRANS_IMAGE_VERSION"
+  [[ "${version}" != "latest" ]] || bintrans_fail "BINTRANS_IMAGE_VERSION must not be latest"
+  [[ "${version}" == "${expected}" ]] \
+    || bintrans_fail "BINTRANS_IMAGE_VERSION must be ${expected} for release SHA ${sha} (got: ${version})"
+}
+
+bintrans_validate_release_build_args() {
+  local sha="${1:-}" version="${2:-}"
+  [[ -n "${sha}" ]] || bintrans_fail "release build requires BINTRANS_GIT_SHA"
+  bintrans_validate_deployed_git_sha "${sha}"
+  bintrans_validate_release_build_version_for_sha "${sha}" "${version}"
+}
+
 bintrans_image_ref_uses_latest() {
   [[ "${1}" == *:latest ]] || [[ "${1}" == */latest ]]
 }

@@ -52,7 +52,7 @@ K6 ?= k6
 
 .PHONY: help env-init dev-up dev-down dev-restart dev-logs ps db-shell db-check \
 	migrate-up migrate-down migrate-version migrate-force migrate-drop clean \
-	platform-build platform-build-serial platform-build-service \
+	platform-build platform-build-serial platform-build-service bintrans-staging-release-build \
 	platform-up platform-up-no-build platform-up-safe platform-up-backend-only \
 	platform-down platform-restart platform-logs platform-ps platform-health \
 	observability-up observability-down observability-logs metrics-check health-check ready-check \
@@ -92,7 +92,8 @@ help:
 	@echo "  make platform-build    Build all backend container images (parallel)"
 	@echo "  make platform-up       Start PostgreSQL + backend services (parallel build; fast mode)"
 	@echo "  make platform-up-safe  Windows/WSL safe: serial build then start (no rebuild)"
-	@echo "  make platform-build-serial  Build backend images one service at a time"
+	@echo "  make platform-build-serial  Build backend images one service at a time (local dev subset — not staging release)"
+	@echo "  make bintrans-staging-release-build  Build all 13 BINTRANS staging release images (canonical v0.5B path)"
 	@echo "  make platform-build-service SERVICE=name  Build one backend service"
 	@echo "  make platform-up-no-build   Start platform without rebuilding images"
 	@echo "  make platform-up-backend-only  Start postgres + backend only (no rebuild)"
@@ -277,6 +278,12 @@ ifeq ($(strip $(SERVICE)),)
 	@exit 1
 endif
 	$(COMPOSE) build $(BINTRANS_BUILD_ARGS) --progress=plain $(SERVICE)
+
+# Canonical BINTRANS staging release build — all 13 application services via staging compose stack.
+# Optional: BINTRANS_RELEASE_GIT_SHA=<full SHA> (must match current checkout HEAD).
+# Optional: BINTRANS_IMAGE_VERSION=git-<short SHA> (derived automatically when omitted).
+bintrans-staging-release-build:
+	"$(BASH)" scripts/ops/bintrans_ct_staging/bintrans_ct_staging_release_build.sh
 
 platform-up-backend-only:
 	$(COMPOSE) up -d --no-build postgres $(BACKEND_SERVICES)
@@ -699,6 +706,7 @@ check-active-bintrans-naming:
 	"$(BASH)" scripts/test/check-active-bintrans-naming.sh
 
 check-bintrans-staging-release-tooling:
+	"$(BASH)" scripts/ops/bintrans_ct_staging/bintrans_ct_staging_release_build_selfcheck.sh
 	"$(BASH)" scripts/ops/bintrans_ct_staging/bintrans_ct_staging_release_contract_selfcheck.sh
 	"$(BASH)" scripts/ops/bintrans_ct_staging/bintrans_ct_staging_migrate_gate_selfcheck.sh
 	"$(BASH)" scripts/ops/bintrans_ct_staging/bintrans_ct_staging_migrations_static_review.sh

@@ -18,10 +18,13 @@ Control Tower mode: **shadow** — **PRIMARY MUST REMAIN DISABLED**
 
 ### Operator release sequence
 
-1. Select reviewed merge commit on `main` → set `DEPLOYED_GIT_SHA` + matching `BINTRANS_IMAGE_TAG`
-2. Build images with `make platform-build-serial` (passes OCI revision labels from `git rev-parse HEAD`)
-3. Publish to `cr.selcloud.ru/bintrans-staging` (`bintrans_ct_staging_registry_publish.sh` prepare-only)
-4. Capture digests → populate all 13 `BINTRANS_*_IMAGE` vars in protected env
+1. Checkout exact release SHA on operator workstation/VM
+2. Build all 13 application images: `make bintrans-staging-release-build`  
+   (uses `docker-compose.yml` + `docker-compose.bintrans-ct-staging.yml`; passes `BINTRANS_GIT_SHA` + `BINTRANS_IMAGE_VERSION=git-<short SHA>`)
+3. Validate OCI revision on all 13: `bintrans_ct_staging_image_provenance_check.sh`
+4. Publish to `cr.selcloud.ru/bintrans-staging` (`bintrans_ct_staging_registry_publish.sh` prepare-only)
+5. Operator manually tags and pushes release images; capture registry digests
+6. Populate all 13 digest-pinned `BINTRANS_*_IMAGE` vars in protected env
 5. `bintrans_ct_staging_backup.sh` → operator sets `BACKUP_VERIFIED=YES`
 6. `bintrans_ct_staging_migrate_gate.sh` (gate-only) → review target → `CONFIRM_MIGRATION_TARGET=true` only when approved
 7. `bintrans_ct_staging_runtime_preflight.sh` PASS

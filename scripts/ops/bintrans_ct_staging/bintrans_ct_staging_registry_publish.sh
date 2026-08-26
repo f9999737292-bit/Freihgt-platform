@@ -48,8 +48,10 @@ done
 
 if [[ ${#missing_local[@]} -gt 0 ]]; then
   echo
-  echo "Build/publish tag images locally before push, e.g.:"
-  echo "  make platform-build-service SERVICE=<service>"
+  echo "Build release images locally before push:"
+  echo "  git checkout <DEPLOYED_GIT_SHA>"
+  echo "  make bintrans-staging-release-build"
+  echo "  bintrans_ct_staging_image_provenance_check.sh"
   echo "  docker tag <local-compose-image> ${REGISTRY}/<service>:${TAG}"
   bintrans_fail "missing local publish-tag images: ${missing_local[*]}"
 fi

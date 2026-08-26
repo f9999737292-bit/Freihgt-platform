@@ -8,7 +8,7 @@ RUN CGO_ENABLED=0 go build -o /server ./cmd/server
 FROM alpine:3.19
 ARG BINTRANS_GIT_SHA=
 ARG BINTRANS_IMAGE_VERSION=
-ARG BINTRANS_IMAGE_SOURCE=https://github.com/freight-platform/freight-platform
+ARG BINTRANS_IMAGE_SOURCE=https://github.com/f9999737292-bit/Freihgt-platform
 LABEL org.opencontainers.image.revision="${BINTRANS_GIT_SHA}" \
       org.opencontainers.image.version="${BINTRANS_IMAGE_VERSION}" \
       org.opencontainers.image.source="${BINTRANS_IMAGE_SOURCE}"

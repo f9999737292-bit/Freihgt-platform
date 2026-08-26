@@ -12,9 +12,11 @@
 Build with provenance labels:
 
 ```bash
-make platform-build-service SERVICE=api-gateway
-# passes BINTRANS_GIT_SHA and BINTRANS_IMAGE_VERSION from git HEAD
+git checkout <DEPLOYED_GIT_SHA>
+make bintrans-staging-release-build
 ```
+
+This builds all 13 canonical staging application services using the staging compose stack and passes `BINTRANS_GIT_SHA` + `BINTRANS_IMAGE_VERSION` to every build.
 
 ## Validation
 
