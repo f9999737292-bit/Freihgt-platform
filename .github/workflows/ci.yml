@@ -47,6 +47,9 @@ jobs:
       - name: Active BINTRANS naming gate
         run: make check-active-bintrans-naming
 
+      - name: BINTRANS staging release tooling selfchecks
+        run: make check-bintrans-staging-release-tooling
+
   backend-go-check:
     name: backend-go-check (${{ matrix.module }})
     runs-on: ubuntu-latest

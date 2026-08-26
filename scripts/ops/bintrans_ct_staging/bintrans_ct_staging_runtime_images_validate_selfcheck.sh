@@ -24,6 +24,9 @@ BINTRANS_SHIPMENT_IMAGE=cr.selcloud.ru/bintrans-staging/shipment-service@sha256:
 BINTRANS_DOCUMENT_IMAGE=cr.selcloud.ru/bintrans-staging/document-service@sha256:${d}
 BINTRANS_BILLING_REGISTER_IMAGE=cr.selcloud.ru/bintrans-staging/billing-register-service@sha256:${d}
 BINTRANS_LOW_CODE_IMAGE=cr.selcloud.ru/bintrans-staging/low-code-service@sha256:${d}
+BINTRANS_PAYMENT_IMAGE=cr.selcloud.ru/bintrans-staging/payment-service@sha256:${d}
+BINTRANS_CONTRACT_RATE_IMAGE=cr.selcloud.ru/bintrans-staging/contract-rate-service@sha256:${d}
+BINTRANS_FREIGHT_COST_IMAGE=cr.selcloud.ru/bintrans-staging/freight-cost-service@sha256:${d}
 BINTRANS_CONTROL_TOWER_READ_MODEL_IMAGE=cr.selcloud.ru/bintrans-staging/control-tower-read-model-service@sha256:${d}
 BINTRANS_API_GATEWAY_IMAGE=cr.selcloud.ru/bintrans-staging/api-gateway@sha256:${d}
 EOF
@@ -46,20 +49,20 @@ expect_pass() {
   echo "OK: ${label} accepted"
 }
 
-# 10 valid synthetic refs
+# 13 valid synthetic refs
 env_ok="${tmpdir}/complete.env"
 complete_env "${FAKE}" > "${env_ok}"
-expect_pass "TEN_VALID_DIGESTS" "${env_ok}"
+expect_pass "THIRTEEN_VALID_DIGESTS" "${env_ok}"
 
-# 9/10
+# 12/13
 env_nine="${tmpdir}/nine.env"
 complete_env "${FAKE}" > "${env_nine}"
 grep -v 'BINTRANS_API_GATEWAY_IMAGE' "${env_nine}" > "${env_nine}.tmp" && mv "${env_nine}.tmp" "${env_nine}"
-expect_fail "NINE_OF_TEN" "${env_nine}"
+expect_fail "TWELVE_OF_THIRTEEN" "${env_nine}"
 
 # tag-only
 env_tag="${tmpdir}/tag.env"
-echo "BINTRANS_IDENTITY_IMAGE=cr.selcloud.ru/bintrans-staging/identity-service:git-b75eb3d" > "${env_tag}"
+echo "BINTRANS_IDENTITY_IMAGE=cr.selcloud.ru/bintrans-staging/identity-service:git-deadbeef" > "${env_tag}"
 expect_fail "TAG_ONLY" "${env_tag}"
 
 # wrong registry

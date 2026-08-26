@@ -1,0 +1,10 @@
+# Standard OCI provenance labels for BINTRANS application images.
+# Include in the final stage of each application Dockerfile:
+#   ARG BINTRANS_GIT_SHA=
+#   ARG BINTRANS_IMAGE_VERSION=
+#   ARG BINTRANS_IMAGE_SOURCE=https://github.com/f9999737292-bit/Freihgt-platform
+#   LABEL org.opencontainers.image.revision="${BINTRANS_GIT_SHA}" \
+#         org.opencontainers.image.version="${BINTRANS_IMAGE_VERSION}" \
+#         org.opencontainers.image.source="${BINTRANS_IMAGE_SOURCE}"
+
+export BINTRANS_OCI_IMAGE_SOURCE="https://github.com/f9999737292-bit/Freihgt-platform"

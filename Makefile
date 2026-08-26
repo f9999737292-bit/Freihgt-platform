@@ -52,7 +52,7 @@ K6 ?= k6
 
 .PHONY: help env-init dev-up dev-down dev-restart dev-logs ps db-shell db-check \
 	migrate-up migrate-down migrate-version migrate-force migrate-drop clean \
-	platform-build platform-build-serial platform-build-service \
+	platform-build platform-build-serial platform-build-service bintrans-staging-release-build \
 	platform-up platform-up-no-build platform-up-safe platform-up-backend-only \
 	platform-down platform-restart platform-logs platform-ps platform-health \
 	observability-up observability-down observability-logs metrics-check health-check ready-check \
@@ -75,7 +75,7 @@ K6 ?= k6
 	messaging-up messaging-down messaging-status shipment-kafka-topic-create \
 	test-document-service test-billing-register-service test-payment-service test-contract-rate-service test-low-code-service test-api-gateway \
 	integration-smoke-test full-flow-smoke-test lowcode-runtime-compliance-test check-lowcode-headers seed-dev-admin seed-demo-data seed-lowcode-demo create-lowcode-draft-template \
-	system-test-design-check system-test-preflight system-test-smoke system-test-golden-skeleton staging-acceptance-pack system-test-wave1-security system-test-wave2-core-business-flow system-test-data-reset check-active-bintrans-naming \
+	system-test-design-check system-test-preflight system-test-smoke system-test-golden-skeleton staging-acceptance-pack system-test-wave1-security system-test-wave2-core-business-flow system-test-data-reset check-active-bintrans-naming check-bintrans-staging-release-tooling \
 	project-map tree-project find-service find-text \
 	openapi-generate openapi-generate-json openapi-validate openapi-check api-docs-open \
 	install-web-admin run-web-admin build-web-admin test-web-admin setup-node
@@ -92,7 +92,8 @@ help:
 	@echo "  make platform-build    Build all backend container images (parallel)"
 	@echo "  make platform-up       Start PostgreSQL + backend services (parallel build; fast mode)"
 	@echo "  make platform-up-safe  Windows/WSL safe: serial build then start (no rebuild)"
-	@echo "  make platform-build-serial  Build backend images one service at a time"
+	@echo "  make platform-build-serial  Build backend images one service at a time (local dev subset — not staging release)"
+	@echo "  make bintrans-staging-release-build  Build all 13 BINTRANS staging release images (canonical v0.5B path)"
 	@echo "  make platform-build-service SERVICE=name  Build one backend service"
 	@echo "  make platform-up-no-build   Start platform without rebuilding images"
 	@echo "  make platform-up-backend-only  Start postgres + backend only (no rebuild)"
@@ -240,8 +241,12 @@ migrate-drop:
 clean:
 	$(COMPOSE) down -v
 
+GIT_SHA ?= $(shell git rev-parse HEAD 2>/dev/null)
+IMAGE_VERSION ?= git-$(shell git rev-parse --short=7 HEAD 2>/dev/null)
+BINTRANS_BUILD_ARGS = --build-arg BINTRANS_GIT_SHA=$(GIT_SHA) --build-arg BINTRANS_IMAGE_VERSION=$(IMAGE_VERSION)
+
 platform-build:
-	$(COMPOSE) build
+	$(COMPOSE) build $(BINTRANS_BUILD_ARGS)
 
 # platform-up — fast mode: parallel compose build + start (may crash Docker/WSL on Windows).
 platform-up:
@@ -272,7 +277,13 @@ ifeq ($(strip $(SERVICE)),)
 	@echo "SERVICE is required"
 	@exit 1
 endif
-	$(COMPOSE) build --progress=plain $(SERVICE)
+	$(COMPOSE) build $(BINTRANS_BUILD_ARGS) --progress=plain $(SERVICE)
+
+# Canonical BINTRANS staging release build — all 13 application services via staging compose stack.
+# Optional: BINTRANS_RELEASE_GIT_SHA=<full SHA> (must match current checkout HEAD).
+# Optional: BINTRANS_IMAGE_VERSION=git-<short SHA> (derived automatically when omitted).
+bintrans-staging-release-build:
+	"$(BASH)" scripts/ops/bintrans_ct_staging/bintrans_ct_staging_release_build.sh
 
 platform-up-backend-only:
 	$(COMPOSE) up -d --no-build postgres $(BACKEND_SERVICES)
@@ -693,6 +704,18 @@ system-test-design-check:
 
 check-active-bintrans-naming:
 	"$(BASH)" scripts/test/check-active-bintrans-naming.sh
+
+check-bintrans-staging-release-tooling:
+	"$(BASH)" scripts/ops/bintrans_ct_staging/bintrans_ct_staging_release_build_selfcheck.sh
+	"$(BASH)" scripts/ops/bintrans_ct_staging/bintrans_ct_staging_release_contract_selfcheck.sh
+	"$(BASH)" scripts/ops/bintrans_ct_staging/bintrans_ct_staging_migrate_gate_selfcheck.sh
+	"$(BASH)" scripts/ops/bintrans_ct_staging/bintrans_ct_staging_migrations_static_review.sh
+	"$(BASH)" scripts/ops/bintrans_ct_staging/bintrans_ct_staging_foundation_up_selfcheck.sh
+	"$(BASH)" scripts/ops/bintrans_ct_staging/bintrans_ct_staging_runtime_up_selfcheck.sh
+	"$(BASH)" scripts/ops/bintrans_ct_staging/bintrans_ct_staging_runtime_health_selfcheck.sh
+	"$(BASH)" scripts/ops/bintrans_ct_staging/bintrans_ct_staging_runtime_preflight_selfcheck.sh
+	"$(BASH)" scripts/ops/bintrans_ct_staging/bintrans_ct_staging_runtime_images_validate_selfcheck.sh
+	"$(BASH)" scripts/ops/bintrans_ct_staging/bintrans_ct_staging_registry_digest_validate_selfcheck.sh
 
 system-test-preflight:
 	"$(BASH)" scripts/test/system-test-preflight.sh

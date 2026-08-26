@@ -3,54 +3,43 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+# shellcheck source=scripts/ops/bintrans_ct_staging/bintrans_ct_staging_common.sh
+source "${ROOT}/scripts/ops/bintrans_ct_staging/bintrans_ct_staging_common.sh"
+
 REGISTRY="${BINTRANS_REGISTRY:-cr.selcloud.ru/bintrans-staging}"
-TAG="${BINTRANS_IMAGE_TAG:-git-b75eb3d}"
+TAG="${BINTRANS_IMAGE_TAG:-<set-from-DEPLOYED_GIT_SHA>}"
 
 cat <<EOF
 === BINTRANS staging registry publish workflow (operator manual) ===
 
 This script prints steps only. It does NOT docker login, push, or pull.
 
-Runtime source SHA: b75eb3d
-Mutable publish tag: ${TAG}
+Canonical release build command:
+  git checkout <DEPLOYED_GIT_SHA>
+  make bintrans-staging-release-build
+
 Registry: ${REGISTRY}
+Mutable publish tag: ${TAG} (must match DEPLOYED_GIT_SHA)
 
-For EACH of the 10 runtime services:
+For EACH of the 13 canonical runtime services:
 
-  identity-service
-  company-service
-  transport-order-service
-  rfx-service
-  shipment-service
-  document-service
-  billing-register-service
-  low-code-service
-  control-tower-read-model-service
-  api-gateway
+$(printf '  %s\n' "${bintrans_runtime_service_names[@]}")
 
-1. Build or locate local image for runtime source b75eb3d
-2. Tag:
+1. Checkout exact release SHA
+2. Build all 13 via: make bintrans-staging-release-build
+3. Validate OCI revision labels match DEPLOYED_GIT_SHA
+4. Tag for registry:
      docker tag <local-image> ${REGISTRY}/<service>:${TAG}
-3. Operator login (out of band):
+5. Operator login (out of band):
      docker login ${REGISTRY}
-4. Push tag:
+6. Push tag (manual):
      docker push ${REGISTRY}/<service>:${TAG}
-5. Obtain canonical digest:
+7. Obtain canonical digest:
      docker inspect --format='{{index .RepoDigests 0}}' ${REGISTRY}/<service>:${TAG}
-6. Verify digest form:
-     ${REGISTRY}/<service>@sha256:<64-lowercase-hex>
-7. Add to protected staging.env:
+8. Add to protected staging.env:
      BINTRANS_<SERVICE>_IMAGE=${REGISTRY}/<service>@sha256:<digest>
-8. Optional verify pull by digest:
-     docker pull ${REGISTRY}/<service>@sha256:<digest>
+9. Validate protected env:
+     bintrans_ct_staging_runtime_images_validate.sh
 
-After all 10 services pinned, run on VM:
-
-  ./scripts/ops/bintrans_ct_staging/bintrans_ct_staging_registry_digest_validate.sh
-  ./scripts/ops/bintrans_ct_staging/bintrans_ct_staging_runtime_preflight.sh
-
-Template: scripts/ops/bintrans_ct_staging/runtime.images.digest.env.example
-
+Repository tooling remains prepare-only — no automatic push.
 EOF
-
-echo "bintrans-ct-staging-registry-publish-guide: printed"

@@ -6,9 +6,13 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 # shellcheck source=scripts/ops/bintrans_ct_staging/bintrans_ct_staging_common.sh
 source "${ROOT}/scripts/ops/bintrans_ct_staging/bintrans_ct_staging_common.sh"
 
-REGISTRY="${BINTRANS_REGISTRY:-cr.selcloud.ru/bintrans-staging}"
-TAG="${BINTRANS_IMAGE_TAG:-git-b75eb3d}"
-SOURCE_SHA="${DEPLOYED_GIT_SHA:-b75eb3d}"
+bintrans_require_env_file
+bintrans_validate_release_contract
+
+REGISTRY="$(bintrans_env_value BINTRANS_REGISTRY)"
+REGISTRY="${REGISTRY:-cr.selcloud.ru/bintrans-staging}"
+TAG="$(bintrans_env_value BINTRANS_IMAGE_TAG)"
+SOURCE_SHA="$(bintrans_env_value DEPLOYED_GIT_SHA)"
 
 echo "=== BINTRANS registry publish (prepare-only) ==="
 echo "Registry: ${REGISTRY}"
@@ -44,8 +48,10 @@ done
 
 if [[ ${#missing_local[@]} -gt 0 ]]; then
   echo
-  echo "Build/publish tag images locally before push, e.g.:"
-  echo "  make platform-build-service SERVICE=<service>"
+  echo "Build release images locally before push:"
+  echo "  git checkout <DEPLOYED_GIT_SHA>"
+  echo "  make bintrans-staging-release-build"
+  echo "  bintrans_ct_staging_image_provenance_check.sh"
   echo "  docker tag <local-compose-image> ${REGISTRY}/<service>:${TAG}"
   bintrans_fail "missing local publish-tag images: ${missing_local[*]}"
 fi

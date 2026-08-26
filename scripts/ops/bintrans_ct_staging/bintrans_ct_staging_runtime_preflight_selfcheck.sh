@@ -8,10 +8,13 @@ FAKE_DIGEST='0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
 
 fail() { echo "runtime-preflight-selfcheck: $*" >&2; exit 1; }
 
+FIXTURE_SHA="b75eb3de751002da94a3c271fda30d09be1db450"
+FIXTURE_TAG="git-b75eb3d"
+
 base_env() {
   cat <<EOF
 STAGING_ENVIRONMENT=selectel-staging
-DEPLOYED_GIT_SHA=b75eb3d
+DEPLOYED_GIT_SHA=${FIXTURE_SHA}
 MIGRATION_TARGET=000036
 COHORT_MANIFEST=/protected/bintrans/control-tower-cohort.json
 OBSERVATION_OUTPUT_DIR=/protected/bintrans/control-tower-observation
@@ -19,7 +22,8 @@ POSTGRES_DB=freight_platform
 POSTGRES_USER=bintrans_staging
 POSTGRES_PASSWORD=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 BINTRANS_REGISTRY=cr.selcloud.ru/bintrans-staging
-BINTRANS_IMAGE_TAG=git-b75eb3d
+BINTRANS_IMAGE_TAG=${FIXTURE_TAG}
+INTERNAL_SERVICE_TOKEN=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 API_GATEWAY_HOST_PORT=18080
 CONTROL_TOWER_READ_MODEL_HOST_PORT=8089
 PROMETHEUS_PORT=9090
@@ -49,6 +53,9 @@ BINTRANS_SHIPMENT_IMAGE=cr.selcloud.ru/bintrans-staging/shipment-service@sha256:
 BINTRANS_DOCUMENT_IMAGE=cr.selcloud.ru/bintrans-staging/document-service@sha256:${d}
 BINTRANS_BILLING_REGISTER_IMAGE=cr.selcloud.ru/bintrans-staging/billing-register-service@sha256:${d}
 BINTRANS_LOW_CODE_IMAGE=cr.selcloud.ru/bintrans-staging/low-code-service@sha256:${d}
+BINTRANS_PAYMENT_IMAGE=cr.selcloud.ru/bintrans-staging/payment-service@sha256:${d}
+BINTRANS_CONTRACT_RATE_IMAGE=cr.selcloud.ru/bintrans-staging/contract-rate-service@sha256:${d}
+BINTRANS_FREIGHT_COST_IMAGE=cr.selcloud.ru/bintrans-staging/freight-cost-service@sha256:${d}
 BINTRANS_CONTROL_TOWER_READ_MODEL_IMAGE=cr.selcloud.ru/bintrans-staging/control-tower-read-model-service@sha256:${d}
 BINTRANS_API_GATEWAY_IMAGE=cr.selcloud.ru/bintrans-staging/api-gateway@sha256:${d}
 EOF

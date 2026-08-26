@@ -163,44 +163,10 @@ bintrans_require_nonplaceholder_jwt_secret() {
 
 bintrans_digest_image_pattern='^cr\.selcloud\.ru/bintrans-staging/[a-z0-9-]+@sha256:[0-9a-f]{64}$'
 
-bintrans_runtime_image_vars=(
-  BINTRANS_IDENTITY_IMAGE
-  BINTRANS_COMPANY_IMAGE
-  BINTRANS_TRANSPORT_ORDER_IMAGE
-  BINTRANS_RFX_IMAGE
-  BINTRANS_SHIPMENT_IMAGE
-  BINTRANS_DOCUMENT_IMAGE
-  BINTRANS_BILLING_REGISTER_IMAGE
-  BINTRANS_LOW_CODE_IMAGE
-  BINTRANS_CONTROL_TOWER_READ_MODEL_IMAGE
-  BINTRANS_API_GATEWAY_IMAGE
-)
-
-# Expected registry repository suffix per env var (must match digest ref path).
-bintrans_expected_image_repo() {
-  case "$1" in
-    BINTRANS_IDENTITY_IMAGE) printf '%s' 'identity-service' ;;
-    BINTRANS_COMPANY_IMAGE) printf '%s' 'company-service' ;;
-    BINTRANS_TRANSPORT_ORDER_IMAGE) printf '%s' 'transport-order-service' ;;
-    BINTRANS_RFX_IMAGE) printf '%s' 'rfx-service' ;;
-    BINTRANS_SHIPMENT_IMAGE) printf '%s' 'shipment-service' ;;
-    BINTRANS_DOCUMENT_IMAGE) printf '%s' 'document-service' ;;
-    BINTRANS_BILLING_REGISTER_IMAGE) printf '%s' 'billing-register-service' ;;
-    BINTRANS_LOW_CODE_IMAGE) printf '%s' 'low-code-service' ;;
-    BINTRANS_CONTROL_TOWER_READ_MODEL_IMAGE) printf '%s' 'control-tower-read-model-service' ;;
-    BINTRANS_API_GATEWAY_IMAGE) printf '%s' 'api-gateway' ;;
-    *) return 1 ;;
-  esac
-}
-
-bintrans_extract_gateway_mode() {
-  awk '
-    /^  api-gateway:/ { in_gw=1; next }
-    in_gw && /^  [a-zA-Z0-9_-]+:/ { exit }
-    in_gw && $1 == "CONTROL_TOWER_READ_MODEL_MODE:" { print $2; exit }
-  ' "$1"
-}
-
+# ---------------------------------------------------------------------------
+# Canonical BINTRANS staging application service contract (single source).
+# Keep bintrans_runtime_service_names and bintrans_runtime_image_vars aligned.
+# ---------------------------------------------------------------------------
 bintrans_runtime_service_names=(
   identity-service
   company-service
@@ -210,9 +176,279 @@ bintrans_runtime_service_names=(
   document-service
   billing-register-service
   low-code-service
+  payment-service
+  contract-rate-service
+  freight-cost-service
   control-tower-read-model-service
   api-gateway
 )
+
+bintrans_runtime_image_vars=(
+  BINTRANS_IDENTITY_IMAGE
+  BINTRANS_COMPANY_IMAGE
+  BINTRANS_TRANSPORT_ORDER_IMAGE
+  BINTRANS_RFX_IMAGE
+  BINTRANS_SHIPMENT_IMAGE
+  BINTRANS_DOCUMENT_IMAGE
+  BINTRANS_BILLING_REGISTER_IMAGE
+  BINTRANS_LOW_CODE_IMAGE
+  BINTRANS_PAYMENT_IMAGE
+  BINTRANS_CONTRACT_RATE_IMAGE
+  BINTRANS_FREIGHT_COST_IMAGE
+  BINTRANS_CONTROL_TOWER_READ_MODEL_IMAGE
+  BINTRANS_API_GATEWAY_IMAGE
+)
+
+bintrans_runtime_image_var_for_service() {
+  local svc="$1" i
+  for i in "${!bintrans_runtime_service_names[@]}"; do
+    if [[ "${bintrans_runtime_service_names[$i]}" == "${svc}" ]]; then
+      printf '%s\n' "${bintrans_runtime_image_vars[$i]}"
+      return 0
+    fi
+  done
+  return 1
+}
+
+bintrans_service_for_image_var() {
+  local var="$1" i
+  for i in "${!bintrans_runtime_image_vars[@]}"; do
+    if [[ "${bintrans_runtime_image_vars[$i]}" == "${var}" ]]; then
+      printf '%s\n' "${bintrans_runtime_service_names[$i]}"
+      return 0
+    fi
+  done
+  return 1
+}
+
+bintrans_assert_service_contract_aligned() {
+  [[ "${#bintrans_runtime_service_names[@]}" -eq "${#bintrans_runtime_image_vars[@]}" ]] \
+    || bintrans_fail "internal: service/image var contract length mismatch"
+}
+
+# Expected registry repository suffix per env var (must match digest ref path).
+bintrans_expected_image_repo() {
+  local svc
+  svc="$(bintrans_service_for_image_var "$1")" || return 1
+  printf '%s' "${svc}"
+}
+
+# ---------------------------------------------------------------------------
+# Generic immutable release contract (no historical SHA hardcoding).
+# ---------------------------------------------------------------------------
+bintrans_is_full_git_sha() {
+  [[ "${1}" =~ ^[0-9a-f]{40}$ ]]
+}
+
+bintrans_short_git_sha() {
+  printf '%s' "${1:0:7}"
+}
+
+bintrans_expected_image_tag_for_sha() {
+  printf 'git-%s' "$(bintrans_short_git_sha "$1")"
+}
+
+bintrans_release_placeholder_sha() {
+  case "$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')" in
+    changeme|change_me|replace_me|example|0000000000000000000000000000000000000000) return 0 ;;
+  esac
+  [[ "$1" == *REPLACE* || "$1" == *CHANGEME* || "$1" == *TODO* ]]
+}
+
+bintrans_validate_deployed_git_sha() {
+  local sha="$1"
+  [[ -n "${sha}" ]] || bintrans_fail "DEPLOYED_GIT_SHA must be set"
+  bintrans_is_full_git_sha "${sha}" \
+    || bintrans_fail "DEPLOYED_GIT_SHA must be a full 40-character lowercase Git SHA (got: ${sha})"
+  if bintrans_release_placeholder_sha "${sha}"; then
+    bintrans_fail "DEPLOYED_GIT_SHA must not use a placeholder value"
+  fi
+}
+
+bintrans_validate_image_tag_for_sha() {
+  local sha="$1" tag="$2"
+  [[ -n "${tag}" ]] || bintrans_fail "BINTRANS_IMAGE_TAG must be set"
+  [[ "${tag}" != "latest" ]] || bintrans_fail "BINTRANS_IMAGE_TAG must not be 'latest'"
+  if [[ "${tag}" == *REPLACE* || "${tag}" == *CHANGEME* || "${tag}" == *TODO* ]]; then
+    bintrans_fail "BINTRANS_IMAGE_TAG must not use placeholder values"
+  fi
+  [[ "${tag}" =~ ^git-[0-9a-f]{7}$ ]] \
+    || bintrans_fail "BINTRANS_IMAGE_TAG must be git-<7-char SHA> (got: ${tag})"
+  local expected
+  expected="$(bintrans_expected_image_tag_for_sha "${sha}")"
+  [[ "${tag}" == "${expected}" ]] \
+    || bintrans_fail "BINTRANS_IMAGE_TAG ${tag} does not match DEPLOYED_GIT_SHA (expected ${expected})"
+}
+
+bintrans_validate_release_contract() {
+  local sha="${1:-$(bintrans_env_value DEPLOYED_GIT_SHA)}"
+  local tag="${2:-$(bintrans_env_value BINTRANS_IMAGE_TAG)}"
+  bintrans_validate_deployed_git_sha "${sha}"
+  bintrans_validate_image_tag_for_sha "${sha}" "${tag}"
+}
+
+# Canonical OCI source for BINTRANS application images.
+export BINTRANS_OCI_IMAGE_SOURCE="https://github.com/f9999737292-bit/Freihgt-platform"
+
+bintrans_release_build_services() {
+  bintrans_assert_service_contract_aligned
+  printf '%s\n' "${bintrans_runtime_service_names[@]}"
+}
+
+bintrans_resolve_release_build_sha() {
+  local requested="${BINTRANS_RELEASE_GIT_SHA:-}"
+  local head_sha
+  head_sha="$(git -C "${ROOT}" rev-parse HEAD 2>/dev/null || true)"
+  [[ -n "${head_sha}" ]] || bintrans_fail "unable to resolve git HEAD for release build"
+  if [[ -z "${requested}" ]]; then
+    requested="${head_sha}"
+  fi
+  bintrans_validate_deployed_git_sha "${requested}"
+  [[ "${head_sha}" == "${requested}" ]] \
+    || bintrans_fail "release build requires checkout at ${requested} (HEAD is ${head_sha})"
+  printf '%s\n' "${requested}"
+}
+
+bintrans_validate_release_build_version_for_sha() {
+  local sha="$1" version="$2"
+  local expected
+  expected="$(bintrans_expected_image_tag_for_sha "${sha}")"
+  [[ -n "${version}" ]] || bintrans_fail "release build requires BINTRANS_IMAGE_VERSION"
+  [[ "${version}" != "latest" ]] || bintrans_fail "BINTRANS_IMAGE_VERSION must not be latest"
+  [[ "${version}" == "${expected}" ]] \
+    || bintrans_fail "BINTRANS_IMAGE_VERSION must be ${expected} for release SHA ${sha} (got: ${version})"
+}
+
+bintrans_validate_release_build_args() {
+  local sha="${1:-}" version="${2:-}"
+  [[ -n "${sha}" ]] || bintrans_fail "release build requires BINTRANS_GIT_SHA"
+  bintrans_validate_deployed_git_sha "${sha}"
+  bintrans_validate_release_build_version_for_sha "${sha}" "${version}"
+}
+
+bintrans_image_ref_uses_latest() {
+  [[ "${1}" == *:latest ]] || [[ "${1}" == */latest ]]
+}
+
+bintrans_image_ref_is_placeholder() {
+  local value="$1"
+  [[ "${value}" == *REPLACE* || "${value}" == *CHANGEME* || "${value}" == *"<digest>"* || "${value}" == *"<verified_digest>"* ]]
+}
+
+bintrans_image_ref_is_digest_pinned() {
+  [[ "${1}" == *@sha256:[0-9a-f]{64} ]]
+}
+
+bintrans_validate_runtime_image_ref() {
+  local var="$1" value="$2" tag="${3:-$(bintrans_env_value BINTRANS_IMAGE_TAG)}"
+  [[ -n "${value}" ]] || bintrans_fail "${var} must be set for runtime deploy"
+  if bintrans_image_ref_uses_latest "${value}"; then
+    bintrans_fail "${var} must not use mutable 'latest' tag"
+  fi
+  if bintrans_image_ref_is_placeholder "${value}"; then
+    bintrans_fail "${var} placeholder must be replaced before runtime deploy"
+  fi
+  if bintrans_image_ref_is_digest_pinned "${value}"; then
+    bintrans_validate_digest_image_ref "${var}" "${value}"
+    return 0
+  fi
+  if [[ "${value}" == *@sha256:* ]]; then
+    bintrans_fail "${var} digest reference is malformed (expected full cr.selcloud.ru/bintrans-staging/<service>@sha256:<64-hex>)"
+  fi
+  local expected_repo actual_ref
+  expected_repo="$(bintrans_expected_image_repo "${var}")" \
+    || bintrans_fail "internal: unknown runtime image var ${var}"
+  if [[ "${value}" =~ ^cr\.selcloud\.ru/bintrans-staging/([a-z0-9-]+):(.+)$ ]]; then
+    actual_ref="${BASH_REMATCH[1]}"
+    local actual_tag="${BASH_REMATCH[2]}"
+    [[ "${actual_ref}" == "${expected_repo}" ]] \
+      || bintrans_fail "${var} repository must be ${expected_repo} (found ${actual_ref})"
+    [[ "${actual_tag}" == "${tag}" ]] \
+      || bintrans_fail "${var} tag ${actual_tag} must match BINTRANS_IMAGE_TAG ${tag}"
+    return 0
+  fi
+  bintrans_fail "${var} must be digest-pinned or registry tag reference cr.selcloud.ru/bintrans-staging/${expected_repo}:<tag>"
+}
+
+bintrans_collect_runtime_image_tags() {
+  local var value tags=()
+  for var in "${bintrans_runtime_image_vars[@]}"; do
+    value="$(bintrans_env_value "${var}")"
+    if bintrans_image_ref_is_digest_pinned "${value}"; then
+      tags+=("@digest")
+    elif [[ "${value}" =~ :([^@]+)$ ]]; then
+      tags+=("${BASH_REMATCH[1]}")
+    else
+      tags+=("<unknown>")
+    fi
+  done
+  printf '%s\n' "${tags[@]}"
+}
+
+bintrans_validate_no_mixed_release_tags() {
+  local -a tags unique=()
+  mapfile -t tags < <(bintrans_collect_runtime_image_tags)
+  local tag
+  for tag in "${tags[@]}"; do
+    local seen=0 u
+    for u in "${unique[@]:-}"; do
+      [[ "${u}" == "${tag}" ]] && seen=1 && break
+    done
+    [[ "${seen}" -eq 0 ]] && unique+=("${tag}")
+  done
+  [[ "${#unique[@]}" -le 1 ]] \
+    || bintrans_fail "mixed release image tags/digests across services: ${unique[*]}"
+}
+
+bintrans_oci_revision_label() {
+  local ref="$1"
+  docker image inspect --format='{{index .Config.Labels "org.opencontainers.image.revision"}}' "${ref}" 2>/dev/null || true
+}
+
+bintrans_validate_running_image_revision() {
+  local ref="$1" expected_sha="$2" label
+  label="$(bintrans_oci_revision_label "${ref}")"
+  [[ -n "${label}" ]] || bintrans_fail "missing org.opencontainers.image.revision on ${ref}"
+  [[ "${label}" == "${expected_sha}" ]] \
+    || bintrans_fail "OCI revision ${label} on ${ref} != DEPLOYED_GIT_SHA ${expected_sha}"
+}
+
+bintrans_migrations_dir() {
+  printf '%s\n' "${BINTRANS_MIGRATIONS_DIR:-${ROOT}/infrastructure/migrations}"
+}
+
+bintrans_max_migration_target() {
+  local migrations_dir file base max=0 num
+  migrations_dir="$(bintrans_migrations_dir)"
+  while IFS= read -r file; do
+    base="$(basename "${file}")"
+    num="${base%%_*}"
+    if bintrans_migration_target_format_ok "${num}"; then
+      if [[ $((10#${num})) -gt "${max}" ]]; then
+        max=$((10#${num}))
+      fi
+    fi
+  done < <(find "${migrations_dir}" -maxdepth 1 -type f -name '*.up.sql' | sort)
+  printf '%06d\n' "${max}"
+}
+
+bintrans_validate_migration_target_bounded() {
+  local target="$1" max_target max_version target_version
+  bintrans_validate_migration_target_format "${target}"
+  max_target="$(bintrans_max_migration_target)"
+  max_version="$(bintrans_migration_version_from_target "${max_target}")"
+  target_version="$(bintrans_migration_version_from_target "${target}")"
+  [[ "${target_version}" -le "${max_version}" ]] \
+    || bintrans_fail "MIGRATION_TARGET ${target} exceeds repository max ${max_target}"
+}
+
+bintrans_extract_gateway_mode() {
+  awk '
+    /^  api-gateway:/ { in_gw=1; next }
+    in_gw && /^  [a-zA-Z0-9_-]+:/ { exit }
+    in_gw && $1 == "CONTROL_TOWER_READ_MODEL_MODE:" { print $2; exit }
+  ' "$1"
+}
 
 bintrans_foundation_service_names=(
   postgres
@@ -289,7 +525,7 @@ bintrans_validate_digest_image_ref() {
   local value="$2"
   local expected_repo actual_repo
   [[ -n "${value}" ]] || bintrans_fail "${var} must be set to a digest-pinned image reference for runtime deploy"
-  if [[ "${value}" == *":git-"* ]] || [[ "${value}" == *":${BINTRANS_IMAGE_TAG:-git-b75eb3d}" ]]; then
+  if [[ "${value}" == *":git-"* ]] || [[ "${value}" == *":${BINTRANS_IMAGE_TAG:-}" && "${value}" != *@sha256:* ]]; then
     bintrans_fail "${var} must be digest-pinned (@sha256:...), not mutable tag-only"
   fi
   if [[ "${value}" =~ ^@sha256: ]]; then
@@ -331,9 +567,7 @@ bintrans_require_runtime_env_contract() {
     CONTROL_TOWER_READ_MODEL_MODE shadow
     CONTROL_TOWER_CONSUMER_ENABLED true
     SHIPMENT_OUTBOX_ENABLED true
-    BACKUP_VERIFIED YES
     BINTRANS_REGISTRY cr.selcloud.ru/bintrans-staging
-    BINTRANS_IMAGE_TAG git-b75eb3d
   )
   local i=0
   while [[ $i -lt ${#pairs[@]} ]]; do
@@ -344,18 +578,43 @@ bintrans_require_runtime_env_contract() {
       || bintrans_fail "${key} must be ${expected} (found: ${actual:-<unset>})"
     i=$((i + 2))
   done
+  bintrans_validate_release_contract
+  bintrans_validate_no_mixed_release_tags
   bintrans_require_migration_target_contract
+  local migration_target
+  migration_target="$(bintrans_read_protected_migration_target)"
+  bintrans_validate_migration_target_bounded "${migration_target}"
   bintrans_require_nonplaceholder_jwt_secret
-  local pg
+  local pg internal_token
   pg="$(bintrans_env_value POSTGRES_PASSWORD)"
   [[ -n "${pg}" ]] || bintrans_fail "POSTGRES_PASSWORD must be set in protected env"
   [[ "${pg}" != "freight_password" ]] || bintrans_fail "POSTGRES_PASSWORD must not use dev default freight_password"
+  internal_token="$(bintrans_env_value INTERNAL_SERVICE_TOKEN)"
+  [[ -n "${internal_token}" ]] || bintrans_fail "INTERNAL_SERVICE_TOKEN must be set in protected env for S2S services"
+  if bintrans_jwt_secret_placeholder "${internal_token}"; then
+    bintrans_fail "INTERNAL_SERVICE_TOKEN must not use an obvious placeholder value"
+  fi
+}
+
+bintrans_topology_services_present_in_file() {
+  local file="$1"
+  shift
+  local svc
+  for svc in "$@"; do
+    grep -qE "^  ${svc}:" "${file}" \
+      || bintrans_fail "required service missing from ${file}: ${svc}"
+  done
+}
+
+bintrans_validate_staging_topology_files() {
+  bintrans_assert_service_contract_aligned
+  bintrans_topology_services_present_in_file "${BINTRANS_COMPOSE_IMAGES}" "${bintrans_runtime_service_names[@]}"
 }
 
 bintrans_check_no_wide_bind() {
   local cfg="$1"
   local label="$2"
-  if grep -E 'published: "(5432|19092|9090|8080|8081|8082|8083|8084|8085|8086|8087|8088|3000|3001)"' "${cfg}" >/dev/null; then
+  if grep -E 'published: "(5432|19092|9090|8080|8081|8082|8083|8084|8085|8086|8087|8088|8090|8091|8092|3000|3001)"' "${cfg}" >/dev/null; then
     while IFS= read -r pub_line; do
       local port block
       port="${pub_line#*published: \"}"
@@ -364,6 +623,8 @@ bintrans_check_no_wide_bind() {
       if ! echo "${block}" | grep -q 'host_ip: 127.0.0.1'; then
         bintrans_fail "dangerous host bind ${port} without 127.0.0.1 in ${label}"
       fi
-    done < <(grep -E 'published: "(5432|19092|9090|8080|8081|8082|8083|8084|8085|8086|8087|8088|3000|3001)"' "${cfg}" || true)
+    done < <(grep -E 'published: "(5432|19092|9090|8080|8081|8082|8083|8084|8085|8086|8087|8088|8090|8091|8092|3000|3001)"' "${cfg}" || true)
   fi
 }
+
+bintrans_assert_service_contract_aligned
