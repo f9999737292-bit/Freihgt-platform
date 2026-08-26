@@ -1,4 +1,4 @@
-FROM golang:1.22-alpine AS builder
+FROM golang:1.25-alpine AS builder
 WORKDIR /src
 COPY packages/shared-go /src/packages/shared-go
 COPY services/contract-rate-service /src/services/contract-rate-service
