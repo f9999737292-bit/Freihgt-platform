@@ -154,4 +154,17 @@ echo 'JWT_SECRET=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcde
 digest_images "${FAKE_DIGEST}" >> "${env_e}"
 run_expect_pass "VALID_SHADOW_DIGEST_CONFIG" "${env_e}"
 
+# J: distinct digest refs across all 13 services (must not false-positive mixed tags)
+env_j="${tmpdir}/distinct_digest.env"
+base_env > "${env_j}"
+echo 'JWT_SECRET=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' >> "${env_j}"
+idx=1
+while IFS= read -r svc; do
+  var="$(BINTRANS_STAGING_ENV="${env_j}" bash -c 'source "'"${ROOT}"'/scripts/ops/bintrans_ct_staging/bintrans_ct_staging_common.sh"; bintrans_runtime_image_var_for_service "'"${svc}"'"')"
+  d="$(printf '%064x' "${idx}")"
+  echo "${var}=cr.selcloud.ru/bintrans-staging/${svc}@sha256:${d}" >> "${env_j}"
+  idx=$((idx + 1))
+done < <(bash -c 'source "'"${ROOT}"'/scripts/ops/bintrans_ct_staging/bintrans_ct_staging_common.sh"; printf "%s\n" "${bintrans_runtime_service_names[@]}"')
+run_expect_pass "DISTINCT_DIGEST_REFS_ALL_SERVICES" "${env_j}"
+
 echo "bintrans-ct-staging-runtime-preflight-selfcheck: PASS"

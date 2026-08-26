@@ -336,7 +336,7 @@ bintrans_image_ref_is_placeholder() {
 }
 
 bintrans_image_ref_is_digest_pinned() {
-  [[ "${1}" == *@sha256:[0-9a-f]{64} ]]
+  [[ "${1}" =~ @sha256:[0-9a-f]{64}$ ]]
 }
 
 bintrans_validate_runtime_image_ref() {
