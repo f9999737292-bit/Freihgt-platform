@@ -40,7 +40,7 @@ Required fields: `REQUEST_ID`, `FROM`, `TO`, `REASON`, `AFFECTED_AGGREGATE`, `RE
 ### Example
 
 ```text
-REQUEST_ID=CWS-EDO-2026-001
+REQUEST_ID=CWS-EDO-2026-002
 FROM=EDO
 TO=LOG
 REASON=Index shipment_id on document relationships for EPD correlation queries

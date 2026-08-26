@@ -8,6 +8,34 @@ Formal template — EDO-0.2 freeze
 
 Required before any agent modifies paths outside its workstream allowed scope. Submit to orchestrator / integrator for Task Contract issuance.
 
+## REQUEST_ID convention (canonical)
+
+Format:
+
+```text
+CWS-<FROM>-<YEAR>-<NNN>
+```
+
+| Segment | Rule |
+|---------|------|
+| `FROM` | Originating workstream code: `PLAT`, `LOG`, `CT`, `FC`, `EDO`, `TEDO`, `MM`, `FF`, `INFRA` |
+| `YEAR` | Calendar year of request submission, e.g. `2026` |
+| `NNN` | Zero-padded sequence **per FROM workstream per year**, starting at `001` |
+
+Examples: `CWS-EDO-2026-001`, `CWS-MM-2026-001`, `CWS-TEDO-2026-001`.
+
+**Do not use** alternate shapes such as `CWS-MM-001`, `CWS-EDO-FC-001`, or `CWS-EDO-PLAT-001`.
+
+## Planned requests (EDO-0.2 inventory — not yet submitted)
+
+| REQUEST_ID | FROM → TO | Affected aggregate / contract |
+|------------|-----------|-------------------------------|
+| `CWS-MM-2026-001` | MM → LOG | `TransportJourney`, `TransportLeg`, `CargoHandover` on `shipment-service`; events `mm.transport_leg.*`, `mm.cargo_handover.*` |
+| `CWS-EDO-2026-001` | EDO → FC | BillingRegister ↔ legal `Document`; `edo.document.signed` v1 consumer; mandatory `document_id` before operator-facing UPD states |
+| `CWS-EDO-2026-002` | EDO → LOG | Optional `shipment_id` / document correlation indexes in `documents` schema (EDO-owned migration only) |
+| `CWS-EDO-2026-003` | EDO → PLAT | `core.user_roles` canonical write path per ADR-PLAT-001; stop dual-write |
+| `CWS-TEDO-2026-001` | TEDO → INFRA | Operator credentials vault, archive object storage (S3/WORM), crypto session infrastructure |
+
 ---
 
 ```text
