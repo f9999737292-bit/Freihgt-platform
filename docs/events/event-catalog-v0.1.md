@@ -1,34 +1,38 @@
 # Event Catalog v0.1
 
-> Placeholder — domain events for freight-platform.
+> Index — superseded for detail by EDO-0.2 event contracts.
 
 ## Status
 
-Skeleton only. No event bus implementation yet.
+**Audited** against repository implementation (discovery v0.1 + EDO-0.2 freeze). Kafka and outbox events documented in linked catalog.
 
-## Planned event namespaces
+## Canonical catalogs
 
-| Namespace | Examples |
-|-----------|----------|
-| `core.*` | `UserCreated`, `CompanyRegistered` |
-| `transport.*` | `TransportOrderCreated`, `ShipmentDispatched` |
-| `rfx.*` | `RfxPublished`, `BidSubmitted` |
-| `documents.*` | `DocumentUploaded`, `DocumentSigned` |
-| `billing.*` | `InvoiceIssued`, `BillingRegisterClosed` |
+| Document | Scope |
+|----------|-------|
+| [edo-0.2-event-contracts.md](edo-0.2-event-contracts.md) | Full event inventory: EXISTING, NEW, ALIAS, DEPRECATED |
+| [edo-0.2-event-versioning-policy.md](edo-0.2-event-versioning-policy.md) | Compatibility, idempotency, outbox, DLQ |
+| [ADR-EDO-006](../adr/ADR-EDO-006-event-naming-versioning.md) | Naming rules and namespaces |
 
-## Event envelope (draft)
+## Implemented namespaces (summary)
 
-```json
-{
-  "id": "uuid",
-  "type": "transport.TransportOrderCreated",
-  "occurredAt": "2026-06-17T00:00:00Z",
-  "tenantId": "uuid",
-  "payload": {}
-}
-```
+| Namespace | Transport | Producer |
+|-----------|-----------|----------|
+| `shipment.*` | Kafka `shipment.status.v1` | shipment-service |
+| `driver.*` | Kafka `driver.events.v1` | shipment-service |
+| `driver.task_*` | DB outbox (partial) | shipment-service |
+| `payment_obligation.*` | HTTP outbox | payment-service |
+| `freight_settlement.*`, `billing_register.*` | HTTP outbox | billing-register-service |
 
-## Next steps
+## Proposed namespaces (EDO-0.2 freeze)
 
-- Define versioned payloads in `packages/proto` or JSON Schema
-- Document producers and consumers per service
+| Namespace | Producer (future) |
+|-----------|---------------------|
+| `edo.document.*`, `edo.package.*` | document-service |
+| `tedo.epd.*` | transport-edo-service |
+| `mm.transport_leg.*`, `mm.cargo_handover.*` | shipment-service |
+| `ff.receivable.*`, `ff.factoring.*` | payment-service / FF module |
+
+## Event envelope (required fields)
+
+See ADR-EDO-006: `event_name`, `version`, `producer`, `aggregate_id`, `tenant_id`, `occurred_at`, `correlation_id`, `idempotency_key`, payload.
