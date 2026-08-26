@@ -38,6 +38,9 @@ jobs:
       - name: Install OpenAPI validation dependencies
         run: pip install pyyaml
 
+      - name: Install ripgrep for naming gate
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
+
       - name: OpenAPI check
         run: make openapi-check
 
