@@ -13,21 +13,16 @@ fail() { echo "runtime-health-selfcheck: $*" >&2; exit 1; }
 
 runtime_only="$(printf '%s\n' \
   postgres redpanda \
-  identity-service company-service transport-order-service rfx-service \
-  shipment-service document-service billing-register-service low-code-service \
-  control-tower-read-model-service api-gateway | sort -u)"
+  "${bintrans_runtime_service_names[@]}" | sort -u)"
 
 full_stack="$(printf '%s\n' \
-  postgres redpanda \
-  identity-service company-service transport-order-service rfx-service \
-  shipment-service document-service billing-register-service low-code-service \
-  control-tower-read-model-service api-gateway \
-  prometheus grafana | sort -u)"
+  "${bintrans_full_stack_service_names[@]}" | sort -u)"
 
 missing_runtime="$(printf '%s\n' \
   postgres redpanda \
   identity-service company-service transport-order-service rfx-service \
   shipment-service document-service billing-register-service low-code-service \
+  payment-service contract-rate-service freight-cost-service \
   control-tower-read-model-service | sort -u)"
 
 with_migrate="$(printf '%s\n%s\n' "${runtime_only}" migrate | sort -u)"
@@ -71,7 +66,7 @@ if grep -q 'unexpected service running: prometheus' "${target}" \
   fail "runtime health must not treat prometheus/grafana as forbidden when present"
 fi
 
-[[ "${#bintrans_full_stack_service_names[@]}" -eq 14 ]] \
-  || fail "full stack must contain 14 approved services"
+[[ "${#bintrans_full_stack_service_names[@]}" -eq 17 ]] \
+  || fail "full stack must contain 17 approved services"
 
 echo "bintrans-ct-staging-runtime-health-selfcheck: PASS"

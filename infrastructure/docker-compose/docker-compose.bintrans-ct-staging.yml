@@ -63,6 +63,67 @@ services:
     ports: !override []
     environment:
       DATABASE_URL: *bintrans_database_url
+      PAYMENT_SERVICE_URL: http://payment-service:8090
+
+  payment-service:
+    ports: !override []
+    environment:
+      DATABASE_URL: *bintrans_database_url
+      BILLING_REGISTER_SERVICE_URL: http://billing-register-service:8087
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
+
+  contract-rate-service:
+    build:
+      context: ../..
+      dockerfile: services/contract-rate-service/Dockerfile
+    container_name: freight_contract_rate_service
+    restart: unless-stopped
+    ports: !override []
+    environment:
+      CONTRACT_RATE_SERVICE_PORT: 8091
+      DATABASE_URL: *bintrans_database_url
+      RFX_SERVICE_URL: http://rfx-service:8084
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - freight-platform-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8091/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  freight-cost-service:
+    build:
+      context: ../..
+      dockerfile: services/freight-cost-service/Dockerfile
+    container_name: freight_freight_cost_service
+    restart: unless-stopped
+    ports: !override []
+    environment:
+      FREIGHT_COST_SERVICE_PORT: 8092
+      DATABASE_URL: *bintrans_database_url
+      TRANSPORT_ORDER_SERVICE_URL: http://transport-order-service:8083
+      BILLING_REGISTER_SERVICE_URL: http://billing-register-service:8087
+      COMPANY_SERVICE_URL: http://company-service:8082
+      PAYMENT_SERVICE_URL: http://payment-service:8090
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - freight-platform-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8092/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   low-code-service:
     ports: !override []
@@ -80,6 +141,10 @@ services:
       - "127.0.0.1:${API_GATEWAY_HOST_PORT:-18080}:8080"
     environment:
       JWT_SECRET: ${JWT_SECRET}
+      PAYMENT_SERVICE_URL: http://payment-service:8090
+      CONTRACT_RATE_SERVICE_URL: http://contract-rate-service:8091
+      FREIGHT_COST_SERVICE_URL: http://freight-cost-service:8092
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
 
   prometheus:
     ports: !override

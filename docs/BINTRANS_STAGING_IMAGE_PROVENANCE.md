@@ -1,39 +1,38 @@
 # BINTRANS Staging Image Provenance
 
-## Operator metadata (not embedded in images)
+## Contract (v0.5A+)
 
-| Field | Expected value |
-|-------|----------------|
-| Runtime source SHA | `b75eb3d` |
-| Publish tag | `git-b75eb3d` |
-| Registry | `cr.selcloud.ru/bintrans-staging` |
+| Field | Value |
+|-------|-------|
+| Release SHA | `DEPLOYED_GIT_SHA` — full 40-char Git SHA in protected env |
+| Publish tag | `BINTRANS_IMAGE_TAG=git-<short SHA>` — deterministically derived |
+| OCI label | `org.opencontainers.image.revision=<full DEPLOYED_GIT_SHA>` on every application image |
+| Optional labels | `org.opencontainers.image.version`, `org.opencontainers.image.source` |
 
-## Repository facts
+Build with provenance labels:
 
-- Service `Dockerfile`s under `services/*/Dockerfile` contain **no** `LABEL` or `ARG` for GIT SHA / source revision.
-- Local compose builds use project/service names (e.g. `freight-platform-identity-service`), not necessarily the BINTRANS registry tag.
-- **Tag name alone is not cryptographic proof** that an image was built from SHA `b75eb3d`.
+```bash
+make platform-build-service SERVICE=api-gateway
+# passes BINTRANS_GIT_SHA and BINTRANS_IMAGE_VERSION from git HEAD
+```
 
-## What operator tooling can verify locally
+## Validation
 
-`bintrans_ct_staging_image_provenance_check.sh`:
+`bintrans_ct_staging_image_provenance_check.sh` verifies:
 
-- Checks presence of local images tagged `${BINTRANS_REGISTRY}/<service>:git-b75eb3d` for all 10 runtime services.
-- Reports image `Created` timestamp from `docker image inspect`.
-- Does **not** assert git SHA from image metadata (unavailable).
+- All 13 runtime images present locally (or digest refs from protected env)
+- `org.opencontainers.image.revision` **exactly equals** `DEPLOYED_GIT_SHA`
 
-## Recommended live publish flow
+**Target:** `FUTURE_RELEASE_REVISION_EVIDENCE=EXACT` — no LIKELY classification for newly built releases.
 
-1. Build from reviewed commit `b75eb3d` (operator records checkout SHA).
-2. Tag `cr.selcloud.ru/bintrans-staging/<service>:git-b75eb3d`.
-3. Push tag; capture **registry digest** via `docker inspect --format='{{index .RepoDigests 0}}'`.
-4. Pin runtime deploy to `@sha256:<digest>` in protected env.
-5. Run `bintrans_ct_staging_runtime_images_validate.sh`.
+## Digest mode (preferred for runtime deploy)
 
-Digest pinning is the deploy-time integrity gate; mutable tags are publish-only.
+Runtime start requires digest-pinned references:
 
-## Limitation statement
+`cr.selcloud.ru/bintrans-staging/<service>@sha256:<64-hex>`
 
-Until Dockerfiles add reproducible source labels (out of scope for staging-pack), provenance is:
+Tag-only references are rejected by runtime preflight.
 
-**operator checkout SHA + build log + registry digest** — not image self-description.
+## Historical note
+
+Prior releases relied on tag naming (`git-b75eb3d`) without OCI revision labels. That approach is superseded for new releases after v0.5A tooling merge.

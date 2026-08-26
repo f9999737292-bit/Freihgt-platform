@@ -62,7 +62,7 @@ while IFS= read -r line; do
 done < <(
   bintrans_compose --profile messaging --profile read-model ps \
     --format '{{.Service}}|{{.State}}|{{.Health}}' 2>/dev/null \
-    | grep -E '^(postgres|redpanda|identity-service|company-service|transport-order-service|rfx-service|shipment-service|document-service|billing-register-service|low-code-service|control-tower-read-model-service|api-gateway)\|'
+    | grep -E "^($(IFS='|'; echo "${bintrans_runtime_service_names[*]// /|}")|postgres|redpanda)\|"
 )
 
 curl_check() {

@@ -75,7 +75,7 @@ K6 ?= k6
 	messaging-up messaging-down messaging-status shipment-kafka-topic-create \
 	test-document-service test-billing-register-service test-payment-service test-contract-rate-service test-low-code-service test-api-gateway \
 	integration-smoke-test full-flow-smoke-test lowcode-runtime-compliance-test check-lowcode-headers seed-dev-admin seed-demo-data seed-lowcode-demo create-lowcode-draft-template \
-	system-test-design-check system-test-preflight system-test-smoke system-test-golden-skeleton staging-acceptance-pack system-test-wave1-security system-test-wave2-core-business-flow system-test-data-reset check-active-bintrans-naming \
+	system-test-design-check system-test-preflight system-test-smoke system-test-golden-skeleton staging-acceptance-pack system-test-wave1-security system-test-wave2-core-business-flow system-test-data-reset check-active-bintrans-naming check-bintrans-staging-release-tooling \
 	project-map tree-project find-service find-text \
 	openapi-generate openapi-generate-json openapi-validate openapi-check api-docs-open \
 	install-web-admin run-web-admin build-web-admin test-web-admin setup-node
@@ -240,8 +240,12 @@ migrate-drop:
 clean:
 	$(COMPOSE) down -v
 
+GIT_SHA ?= $(shell git rev-parse HEAD 2>/dev/null)
+IMAGE_VERSION ?= git-$(shell git rev-parse --short=7 HEAD 2>/dev/null)
+BINTRANS_BUILD_ARGS = --build-arg BINTRANS_GIT_SHA=$(GIT_SHA) --build-arg BINTRANS_IMAGE_VERSION=$(IMAGE_VERSION)
+
 platform-build:
-	$(COMPOSE) build
+	$(COMPOSE) build $(BINTRANS_BUILD_ARGS)
 
 # platform-up — fast mode: parallel compose build + start (may crash Docker/WSL on Windows).
 platform-up:
@@ -272,7 +276,7 @@ ifeq ($(strip $(SERVICE)),)
 	@echo "SERVICE is required"
 	@exit 1
 endif
-	$(COMPOSE) build --progress=plain $(SERVICE)
+	$(COMPOSE) build $(BINTRANS_BUILD_ARGS) --progress=plain $(SERVICE)
 
 platform-up-backend-only:
 	$(COMPOSE) up -d --no-build postgres $(BACKEND_SERVICES)
@@ -693,6 +697,17 @@ system-test-design-check:
 
 check-active-bintrans-naming:
 	"$(BASH)" scripts/test/check-active-bintrans-naming.sh
+
+check-bintrans-staging-release-tooling:
+	"$(BASH)" scripts/ops/bintrans_ct_staging/bintrans_ct_staging_release_contract_selfcheck.sh
+	"$(BASH)" scripts/ops/bintrans_ct_staging/bintrans_ct_staging_migrate_gate_selfcheck.sh
+	"$(BASH)" scripts/ops/bintrans_ct_staging/bintrans_ct_staging_migrations_static_review.sh
+	"$(BASH)" scripts/ops/bintrans_ct_staging/bintrans_ct_staging_foundation_up_selfcheck.sh
+	"$(BASH)" scripts/ops/bintrans_ct_staging/bintrans_ct_staging_runtime_up_selfcheck.sh
+	"$(BASH)" scripts/ops/bintrans_ct_staging/bintrans_ct_staging_runtime_health_selfcheck.sh
+	"$(BASH)" scripts/ops/bintrans_ct_staging/bintrans_ct_staging_runtime_preflight_selfcheck.sh
+	"$(BASH)" scripts/ops/bintrans_ct_staging/bintrans_ct_staging_runtime_images_validate_selfcheck.sh
+	"$(BASH)" scripts/ops/bintrans_ct_staging/bintrans_ct_staging_registry_digest_validate_selfcheck.sh
 
 system-test-preflight:
 	"$(BASH)" scripts/test/system-test-preflight.sh

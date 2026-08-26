@@ -1,7 +1,7 @@
 # BINTRANS dedicated staging — registry runtime image references.
 #
 # Use ONLY after images are pushed to cr.selcloud.ru/bintrans-staging.
-# Tag baseline: git-b75eb3d (runtime source b75eb3d).
+# Tag baseline: git-<short SHA> derived from DEPLOYED_GIT_SHA (protected env).
 # Prefer digest pinning via BINTRANS_*_IMAGE variables (see registry.images.template.env).
 #
 # Do not commit registry credentials.
@@ -37,6 +37,18 @@ services:
 
   low-code-service:
     image: ${BINTRANS_LOW_CODE_IMAGE:-${BINTRANS_REGISTRY}/low-code-service:${BINTRANS_IMAGE_TAG}}
+    pull_policy: always
+
+  payment-service:
+    image: ${BINTRANS_PAYMENT_IMAGE:-${BINTRANS_REGISTRY}/payment-service:${BINTRANS_IMAGE_TAG}}
+    pull_policy: always
+
+  contract-rate-service:
+    image: ${BINTRANS_CONTRACT_RATE_IMAGE:-${BINTRANS_REGISTRY}/contract-rate-service:${BINTRANS_IMAGE_TAG}}
+    pull_policy: always
+
+  freight-cost-service:
+    image: ${BINTRANS_FREIGHT_COST_IMAGE:-${BINTRANS_REGISTRY}/freight-cost-service:${BINTRANS_IMAGE_TAG}}
     pull_policy: always
 
   control-tower-read-model-service:

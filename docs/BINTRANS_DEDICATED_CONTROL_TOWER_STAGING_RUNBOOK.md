@@ -2,6 +2,40 @@
 
 > **Staging-only.** Do not execute against production or the old shared VPS (`gpt-docker` / `161.104.53.221`).
 
+## Release contract (v0.5A+ — generic immutable releases)
+
+| Field | Rule |
+|-------|------|
+| `DEPLOYED_GIT_SHA` | Full 40-character lowercase Git SHA of the reviewed release |
+| `BINTRANS_IMAGE_TAG` | Must equal `git-<first-7-chars-of-DEPLOYED_GIT_SHA>` exactly |
+| `MIGRATION_TARGET` | Bounded 6-digit target; must exist in repo; must not exceed repository max |
+| Runtime images | Digest-pinned `@sha256:` preferred; OCI `org.opencontainers.image.revision` must match `DEPLOYED_GIT_SHA` |
+| VM checkout | Record `DEPLOY_TOOLING_SHA` (scripts checkout) separately from `RELEASE_SHA` (`DEPLOYED_GIT_SHA`) |
+
+**Application services (13):** identity, company, transport-order, rfx, shipment, document, billing-register, low-code, **payment**, **contract-rate**, **freight-cost**, control-tower-read-model, api-gateway.
+
+Control Tower mode: **shadow** — **PRIMARY MUST REMAIN DISABLED**
+
+### Operator release sequence
+
+1. Select reviewed merge commit on `main` → set `DEPLOYED_GIT_SHA` + matching `BINTRANS_IMAGE_TAG`
+2. Build images with `make platform-build-serial` (passes OCI revision labels from `git rev-parse HEAD`)
+3. Publish to `cr.selcloud.ru/bintrans-staging` (`bintrans_ct_staging_registry_publish.sh` prepare-only)
+4. Capture digests → populate all 13 `BINTRANS_*_IMAGE` vars in protected env
+5. `bintrans_ct_staging_backup.sh` → operator sets `BACKUP_VERIFIED=YES`
+6. `bintrans_ct_staging_migrate_gate.sh` (gate-only) → review target → `CONFIRM_MIGRATION_TARGET=true` only when approved
+7. `bintrans_ct_staging_runtime_preflight.sh` PASS
+8. `bintrans_ct_staging_runtime_up.sh` → `bintrans_ct_staging_runtime_health.sh` PASS
+9. Emit rollback baseline: `bintrans_ct_staging_release_baseline_manifest.sh` (metadata only)
+10. System-test handoff (see staging acceptance pack)
+
+**Application rollback:** redeploy previous digest-pinned images from baseline manifest.  
+**Database rollback:** never automatic after migrations — manual planning only.
+
+---
+
+## Historical operator-supplied state (pre-v0.5A evidence — unchanged)
+
 Operator repository checkout: `a1c246d0629e1cc8be3c0681064a31626f396273`  
 Runtime image source: `b75eb3d` / tag `git-b75eb3d`  
 Migration target: `000019` (schema version **19**)  
@@ -42,7 +76,7 @@ Control Tower mode: **shadow** — **PRIMARY MUST REMAIN DISABLED**
 3. Provision real `JWT_SECRET` in protected env
 4. Re-run runtime preflight (digest gate may skip until step 8)
 5. `docker login cr.selcloud.ru` (operator credentials)
-6. Publish 10 runtime images with tag `git-b75eb3d` (`bintrans_ct_staging_registry_publish.sh` prepare-only)
+6. Publish **13** runtime images with tag `git-<short SHA>` derived from `DEPLOYED_GIT_SHA` (`bintrans_ct_staging_registry_publish.sh` prepare-only)
 7. Retrieve canonical registry digests
 8. Populate protected `BINTRANS_*_IMAGE=@sha256:...` entries
 9. `bintrans_ct_staging_runtime_images_validate.sh` PASS

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Validate all 10 BINTRANS runtime digest-pinned image references in protected env.
+# Validate all 13 BINTRANS runtime digest-pinned image references in protected env.
 # Offline: does not contact registry or start containers.
 set -euo pipefail
 

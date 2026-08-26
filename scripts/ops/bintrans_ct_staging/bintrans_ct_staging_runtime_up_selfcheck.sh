@@ -27,8 +27,8 @@ done
 grep -q 'bintrans_ct_staging_runtime_preflight.sh' "${target}" \
   || fail "must invoke runtime preflight before compose up"
 
-# Verify common.sh service list matches expected 10-service runtime pack.
-[[ "${#bintrans_runtime_service_names[@]}" -eq 10 ]] \
-  || fail "bintrans_runtime_service_names must contain 10 services"
+# Verify common.sh service list matches expected 13-service runtime pack.
+[[ "${#bintrans_runtime_service_names[@]}" -eq 13 ]] \
+  || fail "bintrans_runtime_service_names must contain 13 services"
 
 echo "bintrans-ct-staging-runtime-up-selfcheck: PASS"
