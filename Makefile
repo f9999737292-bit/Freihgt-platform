@@ -75,7 +75,7 @@ K6 ?= k6
 	messaging-up messaging-down messaging-status shipment-kafka-topic-create \
 	test-document-service test-billing-register-service test-payment-service test-contract-rate-service test-low-code-service test-api-gateway \
 	integration-smoke-test full-flow-smoke-test lowcode-runtime-compliance-test check-lowcode-headers seed-dev-admin seed-demo-data seed-lowcode-demo create-lowcode-draft-template \
-	system-test-design-check system-test-preflight system-test-smoke system-test-golden-skeleton staging-acceptance-pack system-test-wave1-security system-test-wave2-core-business-flow system-test-data-reset \
+	system-test-design-check system-test-preflight system-test-smoke system-test-golden-skeleton staging-acceptance-pack system-test-wave1-security system-test-wave2-core-business-flow system-test-wave3-resilience system-test-data-reset \
 	project-map tree-project find-service find-text \
 	openapi-generate openapi-generate-json openapi-validate openapi-check api-docs-open \
 	install-web-admin run-web-admin build-web-admin test-web-admin setup-node
@@ -159,6 +159,7 @@ help:
 	@echo "  make staging-acceptance-pack  Staging execution checklist (when SSH restored)"
 	@echo "  make system-test-wave1-security  Wave 1 auth/RBAC/tenant isolation gate"
 	@echo "  make system-test-wave2-core-business-flow  Wave 2 core business flow gate"
+	@echo "  make system-test-wave3-resilience  Wave 3 failure/recovery/resilience gate"
 	@echo "  make system-test-data-reset   Validate Wave 1 DB reset strategy"
 	@echo "  make lowcode-runtime-compliance-test  Verify low-code runtime does not mutate core entities"
 	@echo "  make check-lowcode-headers            Verify low-code runtime headers contract"
@@ -706,6 +707,9 @@ system-test-wave1-security:
 
 system-test-wave2-core-business-flow:
 	"$(BASH)" scripts/test/run-system-wave2-core-business-flow.sh
+
+system-test-wave3-resilience:
+	"$(BASH)" scripts/test/run-system-wave3-resilience.sh
 
 system-test-data-reset:
 	"$(BASH)" scripts/test/system-test-data-reset.sh

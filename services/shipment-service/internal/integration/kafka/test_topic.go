@@ -28,6 +28,9 @@ func requireKafkaBrokers(t *testing.T) []string {
 	t.Helper()
 	raw := strings.TrimSpace(os.Getenv("TEST_KAFKA_BROKERS"))
 	if raw == "" {
+		if os.Getenv("REQUIRE_TEST_KAFKA") == "1" || strings.EqualFold(strings.TrimSpace(os.Getenv("CI")), "true") {
+			t.Fatalf("TEST_KAFKA_BROKERS is required but not set")
+		}
 		t.Skip("TEST_KAFKA_BROKERS is not set; skipping Kafka integration tests")
 	}
 	var brokers []string
@@ -38,6 +41,9 @@ func requireKafkaBrokers(t *testing.T) []string {
 		}
 	}
 	if len(brokers) == 0 {
+		if os.Getenv("REQUIRE_TEST_KAFKA") == "1" || strings.EqualFold(strings.TrimSpace(os.Getenv("CI")), "true") {
+			t.Fatalf("TEST_KAFKA_BROKERS is required but empty")
+		}
 		t.Skip("TEST_KAFKA_BROKERS is empty; skipping Kafka integration tests")
 	}
 	return brokers
