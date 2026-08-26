@@ -1,6 +1,6 @@
 # Control Tower Automation Rules & Operational Playbooks v0.8.0
 
-Deterministic automation/rules layer and versioned operational playbooks for 7RIGHT Control Tower.
+Deterministic automation/rules layer and versioned operational playbooks for BINTRANS Control Tower.
 
 ## Scope
 

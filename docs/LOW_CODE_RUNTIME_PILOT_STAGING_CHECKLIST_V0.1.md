@@ -100,7 +100,7 @@ Related baseline docs: `LOW_CODE_RUNTIME_PILOT_READINESS_V0.1.md`, `LOW_CODE_PER
 | Item | Dev/staging demo value |
 |------|------------------------|
 | Tenant ID | `74519f22-ff9b-4a8b-8fff-a958c689682f` |
-| Platform admin email | `admin@7rights.local` |
+| Platform admin email | `admin@bintrans.local` |
 | Platform admin password | `Admin123456!` (dev only) |
 | Platform admin user ID (curl auth-on) | `8541a3a3-bde7-4fed-9501-37b9953bf904` |
 | Published TO template ID | `b1111111-1111-4111-8111-111111111102` |
@@ -210,7 +210,7 @@ Expected: **OK**
 ## Manual UI Checklist
 
 **Login (dev/staging only):** http://localhost:3000/login  
-`admin@7rights.local` / `Admin123456!`  
+`admin@bintrans.local` / `Admin123456!`  
 Tenant: `74519f22-ff9b-4a8b-8fff-a958c689682f`
 
 | Page | Checks |

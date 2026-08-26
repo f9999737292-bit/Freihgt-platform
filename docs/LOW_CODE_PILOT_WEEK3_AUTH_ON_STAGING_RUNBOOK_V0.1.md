@@ -19,8 +19,8 @@ Safe operational runbook to verify **auth-on** low-code admin RBAC during Week-3
 
 | Role | User ID | Email | Use |
 |------|---------|-------|-----|
-| `PLATFORM_ADMIN` | `8541a3a3-bde7-4fed-9501-37b9953bf904` | `admin@7rights.local` | Positive admin test |
-| `SHIPPER_LOGIST` (non-admin) | `008e1462-6f67-4246-b7dc-4aae1669c0c5` | `shipper@7rights.local` | Negative admin test |
+| `PLATFORM_ADMIN` | `8541a3a3-bde7-4fed-9501-37b9953bf904` | `admin@bintrans.local` | Positive admin test |
+| `SHIPPER_LOGIST` (non-admin) | `008e1462-6f67-4246-b7dc-4aae1669c0c5` | `shipper@bintrans.local` | Negative admin test |
 
 **Tenant ID:** `74519f22-ff9b-4a8b-8fff-a958c689682f`
 

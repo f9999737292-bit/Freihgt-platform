@@ -134,7 +134,7 @@ Consistent with `docs/LOW_CODE_STAGING_AUTH_ON_VERIFICATION_V0.1.md`.
 | `/transport-orders/2db04b49-665c-469f-bcb1-ffeb1274fedb` | Custom fields panel |
 | `/shipments/[id]`, `/billing-registers/[id]` | Phase 2 — optional in Phase 1 |
 
-Login: `admin@7rights.local` / `Admin123456!` (dev only)
+Login: `admin@bintrans.local` / `Admin123456!` (dev only)
 
 Build verification (proxy for UI compile health): `npm run build` — **PASS**
 

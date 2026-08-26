@@ -138,7 +138,7 @@ All four routes registered under `adminGuard` in `services/low-code-service/inte
 | Smoke/curl without `X-User-ID` | Pass |
 | Admin migration preview | 200 with tenant header only |
 | Runtime PUT | 200 |
-| Mock auth admin UI | `admin@7rights.local` → full admin via dev fallback |
+| Mock auth admin UI | `admin@bintrans.local` → full admin via dev fallback |
 
 ## Pilot Auth-on Mode
 
@@ -198,7 +198,7 @@ curl.exe -X POST -H "X-Tenant-ID: $T" -H "X-User-ID: $ADMIN" -H "Content-Type: a
 | Entity panel edit | `:editable="canEditCustomFieldsRuntime()"` on detail pages |
 | Legacy helper | `composables/usePermissions.ts` — `isPlatformAdmin()` |
 
-**Dev fallback:** mock auth + `admin@7rights.local` grants all checks (see `AUTH_RBAC.md`).
+**Dev fallback:** mock auth + `admin@bintrans.local` grants all checks (see `AUTH_RBAC.md`).
 
 ## Tests
 

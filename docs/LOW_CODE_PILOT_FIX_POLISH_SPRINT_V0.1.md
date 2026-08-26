@@ -79,7 +79,7 @@ From `LOW_CODE_PILOT_MANUAL_UI_VERIFICATION_V0.1.md` and code re-inspection:
 | Item | Owner | When |
 |------|-------|------|
 | 15-min browser walkthrough on staging | Pilot lead / QA | Before pilot users |
-| Non-admin UI test (`shipper@7rights.local`) | Security / QA | Staging auth-on |
+| Non-admin UI test (`shipper@bintrans.local`) | Security / QA | Staging auth-on |
 | Commit batch: release package + manual UI + fix polish docs | Docs / PM | Next approved commit |
 | i18n deprecation warning (`optimizeTranslationDirective`) | Frontend | Post-pilot cleanup |
 | Vitest / E2E automation | Engineering | Post-pilot |

@@ -73,7 +73,7 @@ Session plan executed at technical baseline level; owner action required to sche
 |------|-------|
 | Real operator available | **no** |
 | Reason | No live operator scheduled in this pack execution (AI/docs workflow) |
-| Suggested operator for retry | `shipper@7rights.local` (SHIPPER_LOGIST) or designated pilot operator |
+| Suggested operator for retry | `shipper@bintrans.local` (SHIPPER_LOGIST) or designated pilot operator |
 | Facilitator | Pilot lead / AI team (read-only validation only) |
 
 ## Baseline Checks
@@ -212,7 +212,7 @@ Alternative decisions **not** selected:
 
 1. **Low-code Pilot Week-3 First Operator Feedback Session Retry Pack v0.1**
 2. PM/operator lead: assign operator + calendar slot (~45 min total for 3 scenarios)
-3. Login: `admin@7rights.local` / dev credentials for facilitator; operator uses assigned role account
+3. Login: `admin@bintrans.local` / dev credentials for facilitator; operator uses assigned role account
 4. After retry: update feedback log with real FB-W3-001+ entries
 
 ## Verification Commands

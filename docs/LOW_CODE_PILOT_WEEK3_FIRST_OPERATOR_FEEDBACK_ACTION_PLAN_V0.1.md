@@ -22,7 +22,7 @@ Action plan to obtain **first real operator feedback** for Week-3 low-code pilot
 
 | Role | Suggested participant | Purpose |
 |------|----------------------|---------|
-| Operator / shipper logist | `shipper@7rights.local` or designated pilot operator | Primary feedback |
+| Operator / shipper logist | `shipper@bintrans.local` or designated pilot operator | Primary feedback |
 | Pilot lead | Facilitates walkthrough | Records in feedback log |
 | PM / triage owner | Optional observer | P0/P1 escalation path |
 | Platform admin | Optional for TO baseline | Compare admin vs operator view |
