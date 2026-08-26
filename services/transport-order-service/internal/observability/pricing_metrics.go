@@ -1,6 +1,7 @@
 package observability
 
 import (
+	"github.com/freight-platform/shared-go/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -11,24 +12,29 @@ type PricingMetrics struct {
 }
 
 func NewPricingMetrics(serviceName string) *PricingMetrics {
+	return newPricingMetrics(prometheus.DefaultRegisterer, serviceName)
+}
+
+func newPricingMetrics(reg prometheus.Registerer, serviceName string) *PricingMetrics {
+	namespace := metrics.PrometheusNamespace(serviceName)
 	m := &PricingMetrics{
 		snapshotPersistTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
-			Namespace: serviceName,
+			Namespace: namespace,
 			Name:      "snapshot_persist_total",
 			Help:      "Transport order rate snapshot persistence outcomes",
 		}, []string{"result"}),
 		snapshotPersistFailure: prometheus.NewCounterVec(prometheus.CounterOpts{
-			Namespace: serviceName,
+			Namespace: namespace,
 			Name:      "snapshot_persist_failure_total",
 			Help:      "Transport order rate snapshot persistence failures by reason",
 		}, []string{"reason"}),
 		toPricingResolutionTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
-			Namespace: serviceName,
+			Namespace: namespace,
 			Name:      "to_pricing_resolution_total",
 			Help:      "Transport order priced create resolution outcomes",
 		}, []string{"result"}),
 	}
-	prometheus.MustRegister(m.snapshotPersistTotal, m.snapshotPersistFailure, m.toPricingResolutionTotal)
+	reg.MustRegister(m.snapshotPersistTotal, m.snapshotPersistFailure, m.toPricingResolutionTotal)
 	return m
 }
 
