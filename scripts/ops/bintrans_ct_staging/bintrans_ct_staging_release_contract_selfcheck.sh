@@ -107,6 +107,18 @@ cp "${digest_env}" "${mixed_env}"
 echo "BINTRANS_PAYMENT_IMAGE=cr.selcloud.ru/bintrans-staging/payment-service:git-deadbeef" >> "${mixed_env}"
 assert_fail "G_MIXED_RELEASE" bash -c 'source "'"${ROOT}"'/scripts/ops/bintrans_ct_staging/bintrans_ct_staging_common.sh"; BINTRANS_STAGING_ENV="'"${mixed_env}"'" bintrans_validate_no_mixed_release_tags'
 
+# G2. ALL DIGEST PINNED (distinct digests must not false-positive as mixed tags)
+all_digest_env="${tmpdir}/all_digest.env"
+write_env "${all_digest_env}" \
+  "DEPLOYED_GIT_SHA=${FIXTURE_SHA}" \
+  "BINTRANS_IMAGE_TAG=${FIXTURE_TAG}"
+for svc in "${bintrans_runtime_service_names[@]}"; do
+  var="$(bintrans_runtime_image_var_for_service "${svc}")"
+  svc_digest="$(printf '%064x' "${#svc}")"
+  echo "${var}=cr.selcloud.ru/bintrans-staging/${svc}@sha256:${svc_digest}" >> "${all_digest_env}"
+done
+assert_pass "G2_ALL_DIGEST_PINNED" bash -c 'source "'"${ROOT}"'/scripts/ops/bintrans_ct_staging/bintrans_ct_staging_common.sh"; BINTRANS_STAGING_ENV="'"${all_digest_env}"'" bintrans_validate_no_mixed_release_tags'
+
 # H. OCI REVISION MISMATCH (mock via function contract)
 if ( bintrans_validate_running_image_revision "nonexistent:ref" "${FIXTURE_SHA}" >/dev/null 2>&1 ); then
   fail "H_OCI_MISMATCH: expected missing label failure"
