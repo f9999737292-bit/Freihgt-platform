@@ -6,6 +6,7 @@ RUN apk add --no-cache ca-certificates git
 
 WORKDIR /build
 COPY packages/shared-go /build/packages/shared-go
+COPY services/contract-rate-service /build/services/contract-rate-service
 COPY services/api-gateway /build/services/api-gateway
 COPY packages/openapi /build/packages/openapi
 
