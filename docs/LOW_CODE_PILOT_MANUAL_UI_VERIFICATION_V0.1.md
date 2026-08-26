@@ -35,7 +35,7 @@ Manual UI verification for low-code pilot flows in **web-admin**, executed in **
 
 | Field | Dev value |
 |-------|-----------|
-| Email | `admin@7rights.local` |
+| Email | `admin@bintrans.local` |
 | Password | `Admin123456!` |
 | Role | `PLATFORM_ADMIN` |
 | Tenant | `74519f22-ff9b-4a8b-8fff-a958c689682f` |
@@ -206,7 +206,7 @@ Demo IDs: TO `2db04b49-665c-469f-bcb1-ffeb1274fedb`, SH `14d405e2-0152-4030-b356
 
 No screenshots captured in agent session. Operator checklist for browser sign-off:
 
-1. Login as `admin@7rights.local`
+1. Login as `admin@bintrans.local`
 2. Open `/low-code` — confirm admin link visible
 3. Open custom values → load DEMO-TO-001 → save one field
 4. Open `/transport-orders/2db04b49-665c-469f-bcb1-ffeb1274fedb` — panel + save

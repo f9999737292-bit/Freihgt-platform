@@ -8,7 +8,7 @@ Entity detail pages pass **entity status** and the signed-in user's **role** int
 
 **Composable:** `apps/web-admin/composables/useLowCodePreviewContext.ts`
 
-- Resolves role: `PLATFORM_ADMIN` for dev platform admin (`admin@7rights.local` + mock auth) or first entry from `user.roles` when available
+- Resolves role: `PLATFORM_ADMIN` for dev platform admin (`admin@bintrans.local` + mock auth) or first entry from `user.roles` when available
 - Builds `PreviewRuleContext` from `entityStatus` prop + role
 
 **Panel:** `LowCodeCustomFieldsPanel.vue`

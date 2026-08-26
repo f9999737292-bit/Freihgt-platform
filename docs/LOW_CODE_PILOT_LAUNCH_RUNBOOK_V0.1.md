@@ -46,9 +46,9 @@ See `docs/LOW_CODE_PILOT_GO_NO_GO_REVIEW_V0.1.md` for full criteria matrix.
 | Item | Dev demo value |
 |------|----------------|
 | Tenant ID | `74519f22-ff9b-4a8b-8fff-a958c689682f` |
-| Platform admin | `admin@7rights.local` / `Admin123456!` |
+| Platform admin | `admin@bintrans.local` / `Admin123456!` |
 | Admin user ID (curl) | `8541a3a3-bde7-4fed-9501-37b9953bf904` |
-| Non-admin (negative test) | `shipper@7rights.local` → `008e1462-6f67-4246-b7dc-4aae1669c0c5` |
+| Non-admin (negative test) | `shipper@bintrans.local` → `008e1462-6f67-4246-b7dc-4aae1669c0c5` |
 | Published TO template ID | `b1111111-1111-4111-8111-111111111102` |
 | Demo entity DEMO-TO-001 | `2db04b49-665c-469f-bcb1-ffeb1274fedb` |
 

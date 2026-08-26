@@ -1,6 +1,6 @@
 # Control Tower ETA Intelligence v0.7.1
 
-Provider-neutral ETA intelligence layer for shipment delivery (and optional pickup) predictions in 7RIGHT Control Tower.
+Provider-neutral ETA intelligence layer for shipment delivery (and optional pickup) predictions in BINTRANS Control Tower.
 
 ## Scope
 

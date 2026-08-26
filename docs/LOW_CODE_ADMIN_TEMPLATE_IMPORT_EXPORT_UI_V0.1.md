@@ -96,7 +96,7 @@ npm run build
 npm run dev
 ```
 
-Manual UI (`admin@7rights.local` / `Admin123456!`):
+Manual UI (`admin@bintrans.local` / `Admin123456!`):
 
 1. Export from a PUBLISHED template detail — verify download/copy/preview and `schema_version`.
 2. Import from admin list — paste exported JSON, preview, execute with `NEW_VERSION`, open draft, confirm publish is still manual.

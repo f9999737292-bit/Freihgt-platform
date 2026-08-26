@@ -1,6 +1,6 @@
 # Control Tower Slot Intelligence v0.7.2
 
-Provider-neutral canonical slot window intelligence for pickup/delivery operations in 7RIGHT Control Tower.
+Provider-neutral canonical slot window intelligence for pickup/delivery operations in BINTRANS Control Tower.
 
 ## Scope
 

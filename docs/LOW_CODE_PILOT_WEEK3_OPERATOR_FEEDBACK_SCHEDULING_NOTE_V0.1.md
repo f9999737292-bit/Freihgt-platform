@@ -37,7 +37,7 @@ Without operator input:
 | **Operator** | Primary feedback provider (e.g. shipper logist) |
 | **Optional:** Platform admin | Facilitator login / technical support only |
 
-**Suggested operator account (dev):** `shipper@7rights.local` (SHIPPER_LOGIST) — or production-designated pilot operator.
+**Suggested operator account (dev):** `shipper@bintrans.local` (SHIPPER_LOGIST) — or production-designated pilot operator.
 
 ## Required Sessions
 
@@ -59,7 +59,7 @@ Without operator input:
 
 **Environment:** local dev `http://localhost:3000` or staging when available.
 
-**Login (dev facilitator):** `admin@7rights.local` / see `docs/AUTH_RBAC.md`
+**Login (dev facilitator):** `admin@bintrans.local` / see `docs/AUTH_RBAC.md`
 
 ## Required Evidence
 

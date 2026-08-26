@@ -78,7 +78,7 @@ Second consecutive session without operator input. PM scheduling / escalation re
 |------|-------|
 | Real operator available | **no** |
 | Retry attempt | **2** (after W3-FB-SESSION-001) |
-| Suggested operator | `shipper@7rights.local` (SHIPPER_LOGIST) or designated pilot operator |
+| Suggested operator | `shipper@bintrans.local` (SHIPPER_LOGIST) or designated pilot operator |
 | Facilitator action | Read-only API validation only |
 
 ## Baseline Checks

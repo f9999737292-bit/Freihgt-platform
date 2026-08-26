@@ -126,7 +126,7 @@ Gateway/web-admin must forward `X-User-ID` for admin sessions.
 | Tenant ID | `74519f22-ff9b-4a8b-8fff-a958c689682f` |
 | Template ID (TO) | `b1111111-1111-4111-8111-111111111102` |
 | Demo entity DEMO-TO-001 | `2db04b49-665c-469f-bcb1-ffeb1274fedb` |
-| Platform admin | `admin@7rights.local` / `8541a3a3-bde7-4fed-9501-37b9953bf904` |
+| Platform admin | `admin@bintrans.local` / `8541a3a3-bde7-4fed-9501-37b9953bf904` |
 
 Replace with **staging pilot tenant** values before go-live.
 
@@ -200,7 +200,7 @@ curl.exe -X POST -H "Content-Type: application/json" -H "X-Tenant-ID: $T" -H "X-
 
 Next pack: **Low-code Pilot Manual UI Verification Pack v0.1**.
 
-Login (dev): `admin@7rights.local` / `Admin123456!`
+Login (dev): `admin@bintrans.local` / `Admin123456!`
 
 ## Security Checklist
 

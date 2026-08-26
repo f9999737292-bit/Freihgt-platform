@@ -75,7 +75,7 @@ K6 ?= k6
 	messaging-up messaging-down messaging-status shipment-kafka-topic-create \
 	test-document-service test-billing-register-service test-payment-service test-contract-rate-service test-low-code-service test-api-gateway \
 	integration-smoke-test full-flow-smoke-test lowcode-runtime-compliance-test check-lowcode-headers seed-dev-admin seed-demo-data seed-lowcode-demo create-lowcode-draft-template \
-	system-test-design-check system-test-preflight system-test-smoke system-test-golden-skeleton staging-acceptance-pack system-test-wave1-security system-test-wave2-core-business-flow system-test-data-reset \
+	system-test-design-check system-test-preflight system-test-smoke system-test-golden-skeleton staging-acceptance-pack system-test-wave1-security system-test-wave2-core-business-flow system-test-data-reset check-active-bintrans-naming \
 	project-map tree-project find-service find-text \
 	openapi-generate openapi-generate-json openapi-validate openapi-check api-docs-open \
 	install-web-admin run-web-admin build-web-admin test-web-admin setup-node
@@ -153,6 +153,7 @@ help:
 	@echo "Integration:"
 	@echo "  make integration-smoke-test   Run end-to-end smoke test (all services must be up)"
 	@echo "  make system-test-design-check Validate master test plan artifacts"
+	@echo "  make check-active-bintrans-naming  Fail on active 7rights false-association references"
 	@echo "  make system-test-preflight    Check disposable stack readiness for system tests"
 	@echo "  make system-test-smoke        Alias for integration-smoke-test"
 	@echo "  make system-test-golden-skeleton  FP-E2E-GOLDEN-001 scaffold (DRY_RUN=1 default)"
@@ -689,6 +690,9 @@ full-flow-smoke-test:
 
 system-test-design-check:
 	"$(BASH)" scripts/test/system-test-design-check.sh
+
+check-active-bintrans-naming:
+	"$(BASH)" scripts/test/check-active-bintrans-naming.sh
 
 system-test-preflight:
 	"$(BASH)" scripts/test/system-test-preflight.sh

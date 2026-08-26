@@ -41,6 +41,9 @@ jobs:
       - name: OpenAPI check
         run: make openapi-check
 
+      - name: Active BINTRANS naming gate
+        run: make check-active-bintrans-naming
+
   backend-go-check:
     name: backend-go-check (${{ matrix.module }})
     runs-on: ubuntu-latest

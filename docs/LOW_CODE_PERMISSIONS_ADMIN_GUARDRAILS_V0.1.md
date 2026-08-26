@@ -106,7 +106,7 @@ Applied on:
 
 ### Permissions composable
 
-`composables/usePermissions.ts` reads `AuthUser.roles`. Dev fallback: mock auth + `admin@7rights.local` email grants admin for local UI testing.
+`composables/usePermissions.ts` reads `AuthUser.roles`. Dev fallback: mock auth + `admin@bintrans.local` email grants admin for local UI testing.
 
 ## Enabling admin auth (pilot)
 

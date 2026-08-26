@@ -51,7 +51,7 @@ Login (dev demo — replace with staging credentials):
 
 ```text
 http://localhost:3000/login
-admin@7rights.local / Admin123456!
+admin@bintrans.local / Admin123456!
 Tenant: 74519f22-ff9b-4a8b-8fff-a958c689682f
 ```
 

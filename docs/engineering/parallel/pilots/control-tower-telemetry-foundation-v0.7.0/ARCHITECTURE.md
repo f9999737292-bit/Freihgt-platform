@@ -1,6 +1,6 @@
 # Control Tower Telemetry Foundation v0.7.0
 
-Provider-agnostic telemetry foundation for shipment tracking in 7RIGHT Control Tower.
+Provider-agnostic telemetry foundation for shipment tracking in BINTRANS Control Tower.
 
 ## Scope
 
