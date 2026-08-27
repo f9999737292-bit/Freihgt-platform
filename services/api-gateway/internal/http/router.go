@@ -17,6 +17,7 @@ import (
 	"github.com/freight-platform/api-gateway/internal/platform/respond"
 	"github.com/freight-platform/api-gateway/internal/rfxrbac"
 	"github.com/freight-platform/api-gateway/internal/billingrbac"
+	"github.com/freight-platform/api-gateway/internal/companyrbac"
 	"github.com/freight-platform/api-gateway/internal/contractrates"
 	"github.com/freight-platform/api-gateway/internal/freightcost"
 	"github.com/freight-platform/api-gateway/internal/freightcostrbac"
@@ -351,6 +352,17 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	r.Get("/api/v1/freight-costs/analytics/carriers", freightCostGuard.WithPolicy(freightcostrbac.PolicyBuyerAnalytics))
 	r.Get("/api/v1/freight-costs/analytics/accessorials", freightCostGuard.WithPolicy(freightcostrbac.PolicyBuyerAnalytics))
 	r.Get("/api/v1/freight-costs/opportunities", freightCostGuard.WithPolicy(freightcostrbac.PolicyBuyerAnalytics))
+
+	companyGuard := companyrbac.NewGuard(cfg, proxy)
+	r.Post("/api/v1/companies", companyGuard.WithPolicy(companyrbac.PolicyCreate))
+	r.Get("/api/v1/companies", companyGuard.WithPolicy(companyrbac.PolicyList))
+	r.Get("/api/v1/companies/{id}", companyGuard.WithPolicy(companyrbac.PolicyRead))
+	r.Patch("/api/v1/companies/{id}", companyGuard.WithPolicy(companyrbac.PolicyUpdate))
+	r.Delete("/api/v1/companies/{id}", companyGuard.WithPolicy(companyrbac.PolicyDelete))
+	r.Get("/api/v1/companies/{company_id}/members", companyGuard.WithPolicy(companyrbac.PolicyReadMembers))
+	r.Post("/api/v1/companies/{company_id}/members", companyGuard.WithPolicy(companyrbac.PolicyManageMembers))
+	r.Patch("/api/v1/companies/{company_id}/members/{membership_id}", companyGuard.WithPolicy(companyrbac.PolicyManageMembers))
+	r.Delete("/api/v1/companies/{company_id}/members/{membership_id}", companyGuard.WithPolicy(companyrbac.PolicyManageMembers))
 
 	r.Handle("/api/*", proxy)
 	r.Handle("/api", proxy)

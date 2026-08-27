@@ -39,7 +39,7 @@ func (s *MembershipService) AddMember(ctx context.Context, in domain.CreateMembe
 		return nil, err
 	}
 
-	company, err := s.companies.GetByID(ctx, in.CompanyID)
+	company, err := s.companies.GetByID(ctx, in.TenantID, in.CompanyID)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,7 @@ func (s *MembershipService) ListMembers(ctx context.Context, filter domain.ListC
 	if err := domain.ValidateListCompanyMembersFilter(filter); err != nil {
 		return nil, 0, err
 	}
-	if _, err := s.companies.GetByID(ctx, filter.CompanyID); err != nil {
+	if _, err := s.companies.GetByID(ctx, filter.TenantID, filter.CompanyID); err != nil {
 		return nil, 0, err
 	}
 	return s.memberships.GetCompanyMembers(ctx, filter)

@@ -63,7 +63,7 @@ func (r *CompanyRepository) Create(ctx context.Context, in domain.CreateCompanyI
 	return result, err
 }
 
-func (r *CompanyRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Company, error) {
+func (r *CompanyRepository) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*domain.Company, error) {
 	var result *domain.Company
 	err := measureDB("company_repository", "get_company", func() error {
 		const query = `
@@ -72,10 +72,10 @@ func (r *CompanyRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.
 			company_type, tax_id, registration_number, country_code, preferred_locale,
 			status, created_at, created_by, updated_at, updated_by, deleted_at, version
 		FROM core.companies
-		WHERE id = $1 AND deleted_at IS NULL
+		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
 	`
 
-		row := r.pool.QueryRow(ctx, query, id)
+		row := r.pool.QueryRow(ctx, query, id, tenantID)
 		company, err := scanCompany(row)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -155,10 +155,75 @@ func (r *CompanyRepository) List(ctx context.Context, filter domain.ListCompanie
 	return items, total, err
 }
 
-func (r *CompanyRepository) Update(ctx context.Context, id uuid.UUID, in domain.UpdateCompanyInput) (*domain.Company, error) {
+func (r *CompanyRepository) ListByIDs(ctx context.Context, filter domain.ListCompaniesFilter, companyIDs []uuid.UUID) ([]domain.Company, int, error) {
+	var items []domain.Company
+	var total int
+	err := measureDB("company_repository", "list_companies_by_ids", func() error {
+		where := strings.Builder{}
+		where.WriteString("FROM core.companies WHERE tenant_id = $1 AND deleted_at IS NULL AND id = ANY($2)")
+		args := []any{filter.TenantID, companyIDs}
+		argIdx := 3
+
+		if filter.CompanyType != nil {
+			where.WriteString(fmt.Sprintf(" AND company_type = $%d", argIdx))
+			args = append(args, *filter.CompanyType)
+			argIdx++
+		}
+		if filter.Status != nil {
+			where.WriteString(fmt.Sprintf(" AND status = $%d", argIdx))
+			args = append(args, *filter.Status)
+			argIdx++
+		}
+		if filter.Search != nil && strings.TrimSpace(*filter.Search) != "" {
+			where.WriteString(fmt.Sprintf(` AND (
+			legal_name ILIKE '%%' || $%d || '%%' OR
+			short_name ILIKE '%%' || $%d || '%%' OR
+			tax_id ILIKE '%%' || $%d || '%%'
+		)`, argIdx, argIdx, argIdx))
+			args = append(args, strings.TrimSpace(*filter.Search))
+			argIdx++
+		}
+
+		countQuery := "SELECT COUNT(*) " + where.String()
+		if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+			return mapDBError(err)
+		}
+
+		listQuery := `
+		SELECT
+			id, tenant_id, legal_name, short_name, legal_name_en, legal_name_zh,
+			company_type, tax_id, registration_number, country_code, preferred_locale,
+			status, created_at, created_by, updated_at, updated_by, deleted_at, version
+	` + where.String() + fmt.Sprintf(" ORDER BY created_at DESC LIMIT $%d OFFSET $%d", argIdx, argIdx+1)
+		args = append(args, filter.Limit, filter.Offset)
+
+		rows, err := r.pool.Query(ctx, listQuery, args...)
+		if err != nil {
+			return mapDBError(err)
+		}
+		defer rows.Close()
+
+		companies := make([]domain.Company, 0)
+		for rows.Next() {
+			company, err := scanCompany(rows)
+			if err != nil {
+				return mapDBError(err)
+			}
+			companies = append(companies, *company)
+		}
+		if err := rows.Err(); err != nil {
+			return mapDBError(err)
+		}
+		items = companies
+		return nil
+	})
+	return items, total, err
+}
+
+func (r *CompanyRepository) Update(ctx context.Context, tenantID, id uuid.UUID, in domain.UpdateCompanyInput) (*domain.Company, error) {
 	var result *domain.Company
 	err := measureDB("company_repository", "update_company", func() error {
-		current, err := r.GetByID(ctx, id)
+		current, err := r.GetByID(ctx, tenantID, id)
 		if err != nil {
 			return err
 		}
@@ -218,7 +283,7 @@ func (r *CompanyRepository) Update(ctx context.Context, id uuid.UUID, in domain.
 			status = $11,
 			updated_at = now(),
 			version = version + 1
-		WHERE id = $1 AND deleted_at IS NULL AND version = $12
+		WHERE id = $1 AND tenant_id = $13 AND deleted_at IS NULL AND version = $12
 		RETURNING
 			id, tenant_id, legal_name, short_name, legal_name_en, legal_name_zh,
 			company_type, tax_id, registration_number, country_code, preferred_locale,
@@ -238,6 +303,7 @@ func (r *CompanyRepository) Update(ctx context.Context, id uuid.UUID, in domain.
 			preferredLocale,
 			status,
 			current.Version,
+			tenantID,
 		)
 
 		company, err := scanCompany(row)
@@ -253,15 +319,15 @@ func (r *CompanyRepository) Update(ctx context.Context, id uuid.UUID, in domain.
 	return result, err
 }
 
-func (r *CompanyRepository) SoftDelete(ctx context.Context, id uuid.UUID) error {
+func (r *CompanyRepository) SoftDelete(ctx context.Context, tenantID, id uuid.UUID) error {
 	return measureDB("company_repository", "delete_company", func() error {
 		const query = `
 		UPDATE core.companies
-		SET deleted_at = now(), status = $2, updated_at = now(), version = version + 1
-		WHERE id = $1 AND deleted_at IS NULL
+		SET deleted_at = now(), status = $3, updated_at = now(), version = version + 1
+		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
 	`
 
-		tag, err := r.pool.Exec(ctx, query, id, domain.StatusDeleted)
+		tag, err := r.pool.Exec(ctx, query, id, tenantID, domain.StatusDeleted)
 		if err != nil {
 			return mapDBError(err)
 		}

@@ -12,7 +12,7 @@ import (
 
 type mockCompanyStore struct {
 	createFn  func(ctx context.Context, in domain.CreateCompanyInput) (*domain.Company, error)
-	getByIDFn func(ctx context.Context, id uuid.UUID) (*domain.Company, error)
+	getByIDFn func(ctx context.Context, tenantID, id uuid.UUID) (*domain.Company, error)
 	listFn    func(ctx context.Context, filter domain.ListCompaniesFilter) ([]domain.Company, int, error)
 }
 
@@ -20,9 +20,9 @@ func (m *mockCompanyStore) Create(ctx context.Context, in domain.CreateCompanyIn
 	return m.createFn(ctx, in)
 }
 
-func (m *mockCompanyStore) GetByID(ctx context.Context, id uuid.UUID) (*domain.Company, error) {
+func (m *mockCompanyStore) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*domain.Company, error) {
 	if m.getByIDFn != nil {
-		return m.getByIDFn(ctx, id)
+		return m.getByIDFn(ctx, tenantID, id)
 	}
 	return nil, nil
 }
@@ -31,11 +31,15 @@ func (m *mockCompanyStore) List(ctx context.Context, filter domain.ListCompanies
 	return m.listFn(ctx, filter)
 }
 
-func (m *mockCompanyStore) Update(context.Context, uuid.UUID, domain.UpdateCompanyInput) (*domain.Company, error) {
+func (m *mockCompanyStore) ListByIDs(ctx context.Context, filter domain.ListCompaniesFilter, companyIDs []uuid.UUID) ([]domain.Company, int, error) {
+	return m.listFn(ctx, filter)
+}
+
+func (m *mockCompanyStore) Update(context.Context, uuid.UUID, uuid.UUID, domain.UpdateCompanyInput) (*domain.Company, error) {
 	return nil, nil
 }
 
-func (m *mockCompanyStore) SoftDelete(context.Context, uuid.UUID) error {
+func (m *mockCompanyStore) SoftDelete(context.Context, uuid.UUID, uuid.UUID) error {
 	return nil
 }
 

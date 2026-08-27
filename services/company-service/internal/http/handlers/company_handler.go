@@ -7,19 +7,22 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/freight-platform/company-service/internal/domain"
+	"github.com/freight-platform/company-service/internal/http/authcontext"
 	apperrors "github.com/freight-platform/company-service/internal/platform/errors"
 	"github.com/freight-platform/company-service/internal/platform/respond"
 	"github.com/freight-platform/company-service/internal/service"
 )
 
 type CompanyHandler struct {
-	service *service.CompanyService
+	service    *service.CompanyService
+	authorizer *service.CompanyAuthorizer
 }
 
-func NewCompanyHandler(svc *service.CompanyService) *CompanyHandler {
-	return &CompanyHandler{service: svc}
+func NewCompanyHandler(svc *service.CompanyService, authorizer *service.CompanyAuthorizer) *CompanyHandler {
+	return &CompanyHandler{service: svc, authorizer: authorizer}
 }
 
 type healthResponse struct {
@@ -86,20 +89,39 @@ func (h *CompanyHandler) Health(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (h *CompanyHandler) Create(w http.ResponseWriter, r *http.Request) {
+	caller, err := authcontext.MustCaller(r.Context())
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
 	var req createCompanyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
 		return
 	}
 
-	tenantID, err := domain.ParseUUID(req.TenantID, "tenant_id")
-	if err != nil {
+	if err := authcontext.RejectMismatchedTenant(caller.TenantID, req.TenantID); err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	var bodyTenant uuid.UUID
+	if strings.TrimSpace(req.TenantID) != "" {
+		bodyTenant, err = domain.ParseUUID(req.TenantID, "tenant_id")
+		if err != nil {
+			respond.Error(w, err)
+			return
+		}
+	}
+
+	if err := h.authorizer.AuthorizeCreate(r.Context(), caller.TenantID, caller.UserID, bodyTenant); err != nil {
 		respond.Error(w, err)
 		return
 	}
 
 	company, err := h.service.Create(r.Context(), domain.CreateCompanyInput{
-		TenantID:           tenantID,
+		TenantID:           caller.TenantID,
 		LegalName:          req.LegalName,
 		ShortName:          req.ShortName,
 		LegalNameEN:        req.LegalNameEN,
@@ -119,13 +141,24 @@ func (h *CompanyHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CompanyHandler) GetByID(w http.ResponseWriter, r *http.Request) {
+	caller, err := authcontext.MustCaller(r.Context())
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
 	id, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
 
-	company, err := h.service.GetByID(r.Context(), id)
+	if err := h.authorizer.AuthorizeRead(r.Context(), caller.TenantID, caller.UserID, id); err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	company, err := h.service.GetByID(r.Context(), caller.TenantID, id)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -135,8 +168,13 @@ func (h *CompanyHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CompanyHandler) List(w http.ResponseWriter, r *http.Request) {
-	tenantID, err := domain.ParseUUID(r.URL.Query().Get("tenant_id"), "tenant_id")
+	caller, err := authcontext.MustCaller(r.Context())
 	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	if err := authcontext.RejectMismatchedTenant(caller.TenantID, r.URL.Query().Get("tenant_id")); err != nil {
 		respond.Error(w, err)
 		return
 	}
@@ -162,7 +200,7 @@ func (h *CompanyHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	filter := domain.ListCompaniesFilter{
-		TenantID: tenantID,
+		TenantID: caller.TenantID,
 		Limit:    limit,
 		Offset:   offset,
 	}
@@ -177,7 +215,19 @@ func (h *CompanyHandler) List(w http.ResponseWriter, r *http.Request) {
 		filter.Search = &raw
 	}
 
-	companies, total, err := h.service.List(r.Context(), filter)
+	scopeIDs, allTenant, err := h.authorizer.ListScopeCompanyIDs(r.Context(), caller.TenantID, caller.UserID)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	var companies []domain.Company
+	var total int
+	if allTenant {
+		companies, total, err = h.service.List(r.Context(), filter)
+	} else {
+		companies, total, err = h.service.ListByIDs(r.Context(), filter, scopeIDs)
+	}
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -197,8 +247,19 @@ func (h *CompanyHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CompanyHandler) Update(w http.ResponseWriter, r *http.Request) {
+	caller, err := authcontext.MustCaller(r.Context())
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
 	id, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
 	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	if err := h.authorizer.AuthorizeUpdate(r.Context(), caller.TenantID, caller.UserID, id); err != nil {
 		respond.Error(w, err)
 		return
 	}
@@ -209,7 +270,7 @@ func (h *CompanyHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	company, err := h.service.Update(r.Context(), id, domain.UpdateCompanyInput{
+	company, err := h.service.Update(r.Context(), caller.TenantID, id, domain.UpdateCompanyInput{
 		LegalName:          req.LegalName,
 		ShortName:          req.ShortName,
 		LegalNameEN:        req.LegalNameEN,
@@ -230,13 +291,24 @@ func (h *CompanyHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CompanyHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	caller, err := authcontext.MustCaller(r.Context())
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
 	id, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
 
-	if err := h.service.Delete(r.Context(), id); err != nil {
+	if err := h.authorizer.AuthorizeDelete(r.Context(), caller.TenantID, caller.UserID); err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	if err := h.service.Delete(r.Context(), caller.TenantID, id); err != nil {
 		respond.Error(w, err)
 		return
 	}
