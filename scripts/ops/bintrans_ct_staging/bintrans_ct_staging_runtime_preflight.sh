@@ -13,6 +13,7 @@ bintrans_require_env_file
 required_files=(
   "${BINTRANS_COMPOSE_BASE}"
   "${BINTRANS_COMPOSE_BINTRANS}"
+  "${BINTRANS_COMPOSE_POOL}"
   "${BINTRANS_COMPOSE_SHADOW}"
   "${BINTRANS_COMPOSE_IMAGES}"
 )
@@ -22,6 +23,9 @@ done
 
 bintrans_require_runtime_env_contract
 echo "OK: runtime safety env fields + JWT_SECRET + POSTGRES_PASSWORD"
+
+bintrans_validate_pool_env_contract
+echo "OK: staging pool env contract (DB_MAX_OPEN_CONNS/DB_MAX_IDLE_CONNS/DB_MAX_OPEN_LIGHT)"
 
 bintrans_validate_all_runtime_digest_images
 echo "OK: all runtime services use digest-pinned registry references"
@@ -64,6 +68,9 @@ echo "OK: JWT_SECRET externalized in effective runtime config"
 bintrans_check_no_wide_bind "${render_runtime}" "runtime"
 bintrans_check_no_wide_bind "${render_observability}" "observability"
 echo "OK: runtime port isolation verified"
+
+bintrans_validate_rendered_pool_budget "${render_runtime}"
+echo "OK: rendered aggregate PostgreSQL pool budget=$(bintrans_calculate_rendered_aggregate_pool_budget "${render_runtime}")"
 
 echo "--- Published ports: runtime shadow ---"
 grep -B3 'published:' "${render_runtime}" | grep -E '^(  [a-z0-9-]+:|        published:|        host_ip:)' || echo "(none)"

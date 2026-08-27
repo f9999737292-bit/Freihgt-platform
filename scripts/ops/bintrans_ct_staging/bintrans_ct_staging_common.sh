@@ -10,12 +10,43 @@ export BINTRANS_COMPOSE_BASE="${ROOT}/infrastructure/docker-compose/docker-compo
 export BINTRANS_COMPOSE_BINTRANS="${ROOT}/infrastructure/docker-compose/docker-compose.bintrans-ct-staging.yml"
 export BINTRANS_COMPOSE_SHADOW="${ROOT}/infrastructure/docker-compose/docker-compose.staging-shadow.yml"
 export BINTRANS_COMPOSE_IMAGES="${ROOT}/infrastructure/docker-compose/docker-compose.bintrans-ct-staging-images.yml"
+export BINTRANS_COMPOSE_POOL="${ROOT}/infrastructure/docker-compose/docker-compose.bintrans-ct-staging-pool.yml"
+
+# Staging-specific PostgreSQL pool budget contract (v0.5B6.2 remediation).
+bintrans_staging_postgres_effective_app_capacity() { echo 97; }
+bintrans_staging_expected_aggregate_pool_budget() { echo 80; }
+bintrans_staging_default_pool_max_open() { echo 25; }
+
+bintrans_db_pool_using_service_names=(
+  identity-service
+  company-service
+  transport-order-service
+  rfx-service
+  shipment-service
+  document-service
+  billing-register-service
+  low-code-service
+  payment-service
+  contract-rate-service
+  freight-cost-service
+  control-tower-read-model-service
+)
+
+bintrans_db_pool_light_service_names=(
+  shipment-service
+  control-tower-read-model-service
+)
 
 bintrans_compose() {
   local -a files=(
     -f "${BINTRANS_COMPOSE_BASE}"
     -f "${BINTRANS_COMPOSE_BINTRANS}"
   )
+  if [[ "${BINTRANS_INCLUDE_POOL:-1}" == "1" ]]; then
+    [[ -f "${BINTRANS_COMPOSE_POOL}" ]] \
+      || bintrans_fail "missing required pool overlay: ${BINTRANS_COMPOSE_POOL}"
+    files+=(-f "${BINTRANS_COMPOSE_POOL}")
+  fi
   if [[ "${BINTRANS_INCLUDE_SHADOW:-0}" == "1" ]]; then
     files+=(-f "${BINTRANS_COMPOSE_SHADOW}")
   fi
@@ -625,6 +656,116 @@ bintrans_check_no_wide_bind() {
       fi
     done < <(grep -E 'published: "(5432|19092|9090|8080|8081|8082|8083|8084|8085|8086|8087|8088|8090|8091|8092|3000|3001)"' "${cfg}" || true)
   fi
+}
+
+bintrans_is_positive_int() {
+  [[ "${1}" =~ ^[0-9]+$ ]] && [[ "${1}" -gt 0 ]]
+}
+
+bintrans_env_int_or_default() {
+  local key="$1" fallback="$2" raw
+  raw="$(bintrans_env_value "${key}")"
+  if [[ -z "${raw}" ]]; then
+    echo "${fallback}"
+    return 0
+  fi
+  if ! bintrans_is_positive_int "${raw}"; then
+    return 1
+  fi
+  echo "${raw}"
+}
+
+bintrans_service_is_light_pool() {
+  local svc="$1" light
+  for light in "${bintrans_db_pool_light_service_names[@]}"; do
+    [[ "${svc}" == "${light}" ]] && return 0
+  done
+  return 1
+}
+
+bintrans_validate_pool_env_contract() {
+  local max_open max_idle max_light capacity
+  max_open="$(bintrans_env_int_or_default DB_MAX_OPEN_CONNS 7)" \
+    || bintrans_fail "DB_MAX_OPEN_CONNS must be a positive integer"
+  max_idle="$(bintrans_env_int_or_default DB_MAX_IDLE_CONNS 3)" \
+    || bintrans_fail "DB_MAX_IDLE_CONNS must be a positive integer"
+  max_light="$(bintrans_env_int_or_default DB_MAX_OPEN_LIGHT 5)" \
+    || bintrans_fail "DB_MAX_OPEN_LIGHT must be a positive integer"
+  [[ "${max_idle}" -le "${max_open}" ]] \
+    || bintrans_fail "DB_MAX_IDLE_CONNS (${max_idle}) must be <= DB_MAX_OPEN_CONNS (${max_open})"
+  [[ "${max_light}" -le "${max_open}" ]] \
+    || bintrans_fail "DB_MAX_OPEN_LIGHT (${max_light}) must be <= DB_MAX_OPEN_CONNS (${max_open})"
+  capacity="$(bintrans_staging_postgres_effective_app_capacity)"
+  local expected budget
+  expected="$(bintrans_staging_expected_aggregate_pool_budget)"
+  budget=$(( (12 - ${#bintrans_db_pool_light_service_names[@]}) * max_open + ${#bintrans_db_pool_light_service_names[@]} * max_light ))
+  [[ "${budget}" -le "${capacity}" ]] \
+    || bintrans_fail "aggregate pool budget ${budget} exceeds PostgreSQL effective app capacity ${capacity}"
+  [[ "${budget}" -eq "${expected}" ]] \
+    || bintrans_fail "aggregate pool budget ${budget} != staging contract ${expected} (check DB_MAX_OPEN_CONNS/DB_MAX_OPEN_LIGHT)"
+}
+
+bintrans_rendered_service_env_value() {
+  local cfg="$1" svc="$2" key="$3"
+  awk -v svc="${svc}" -v key="${key}" '
+    $0 ~ "^  " svc ":" { in_svc=1; next }
+    in_svc && $0 ~ "^  [a-z0-9-]+:" && $0 !~ "^  " svc ":" { in_svc=0 }
+    in_svc && $0 ~ "^      " key ":" {
+      line=$0
+      sub(/^      [^:]+: /, "", line)
+      gsub(/"/, "", line)
+      print line
+      exit
+    }
+  ' "${cfg}"
+}
+
+bintrans_calculate_rendered_aggregate_pool_budget() {
+  local cfg="$1" svc max_open sum=0
+  for svc in "${bintrans_db_pool_using_service_names[@]}"; do
+    max_open="$(bintrans_rendered_service_env_value "${cfg}" "${svc}" "DB_MAX_OPEN_CONNS")"
+    if [[ -z "${max_open}" ]]; then
+      max_open="$(bintrans_staging_default_pool_max_open)"
+    fi
+    if ! bintrans_is_positive_int "${max_open}"; then
+      bintrans_fail "invalid rendered DB_MAX_OPEN_CONNS for ${svc}: ${max_open:-<unset>}"
+    fi
+    sum=$((sum + max_open))
+  done
+  echo "${sum}"
+}
+
+bintrans_validate_rendered_pool_budget() {
+  local cfg="$1" svc max_open max_idle default_open light_open capacity aggregate
+  default_open="$(bintrans_env_int_or_default DB_MAX_OPEN_CONNS 7)" \
+    || bintrans_fail "DB_MAX_OPEN_CONNS must be a positive integer"
+  light_open="$(bintrans_env_int_or_default DB_MAX_OPEN_LIGHT 5)" \
+    || bintrans_fail "DB_MAX_OPEN_LIGHT must be a positive integer"
+  capacity="$(bintrans_staging_postgres_effective_app_capacity)"
+  for svc in "${bintrans_db_pool_using_service_names[@]}"; do
+    max_open="$(bintrans_rendered_service_env_value "${cfg}" "${svc}" "DB_MAX_OPEN_CONNS")"
+    max_idle="$(bintrans_rendered_service_env_value "${cfg}" "${svc}" "DB_MAX_IDLE_CONNS")"
+    [[ -n "${max_open}" ]] \
+      || bintrans_fail "rendered config missing DB_MAX_OPEN_CONNS for ${svc} (pool overlay omitted?)"
+    [[ -n "${max_idle}" ]] \
+      || bintrans_fail "rendered config missing DB_MAX_IDLE_CONNS for ${svc} (pool overlay omitted?)"
+    if bintrans_service_is_light_pool "${svc}"; then
+      [[ "${max_open}" == "${light_open}" ]] \
+        || bintrans_fail "rendered ${svc} DB_MAX_OPEN_CONNS=${max_open}, expected light pool ${light_open}"
+    else
+      [[ "${max_open}" == "${default_open}" ]] \
+        || bintrans_fail "rendered ${svc} DB_MAX_OPEN_CONNS=${max_open}, expected ${default_open}"
+    fi
+    [[ "${max_idle}" -le "${max_open}" ]] \
+      || bintrans_fail "rendered ${svc} DB_MAX_IDLE_CONNS (${max_idle}) > DB_MAX_OPEN_CONNS (${max_open})"
+    [[ "${max_open}" -ne "$(bintrans_staging_default_pool_max_open)" ]] \
+      || bintrans_fail "rendered ${svc} still uses unsafe default DB_MAX_OPEN_CONNS=${max_open}"
+  done
+  aggregate="$(bintrans_calculate_rendered_aggregate_pool_budget "${cfg}")"
+  [[ "${aggregate}" -le "${capacity}" ]] \
+    || bintrans_fail "rendered aggregate pool budget ${aggregate} exceeds PostgreSQL effective capacity ${capacity}"
+  [[ "${aggregate}" -eq "$(bintrans_staging_expected_aggregate_pool_budget)" ]] \
+    || bintrans_fail "rendered aggregate pool budget ${aggregate} != staging contract $(bintrans_staging_expected_aggregate_pool_budget)"
 }
 
 bintrans_assert_service_contract_aligned
