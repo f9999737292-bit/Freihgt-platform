@@ -51,6 +51,94 @@ func (r *MembershipRepository) RoleAvailableForTenant(ctx context.Context, roleI
 	return exists, nil
 }
 
+func (r *MembershipRepository) UserHasActiveMembership(ctx context.Context, tenantID, userID, companyID uuid.UUID) (bool, error) {
+	const query = `
+		SELECT EXISTS (
+			SELECT 1 FROM core.company_memberships
+			WHERE tenant_id = $1 AND user_id = $2 AND company_id = $3
+			  AND status = $4 AND deleted_at IS NULL
+		)
+	`
+	var exists bool
+	if err := r.pool.QueryRow(ctx, query, tenantID, userID, companyID, domain.MembershipStatusActive).Scan(&exists); err != nil {
+		return false, mapDBError(err)
+	}
+	return exists, nil
+}
+
+func (r *MembershipRepository) ListActiveCompanyIDsForUser(ctx context.Context, tenantID, userID uuid.UUID) ([]uuid.UUID, error) {
+	const query = `
+		SELECT company_id FROM core.company_memberships
+		WHERE tenant_id = $1 AND user_id = $2 AND status = $3 AND deleted_at IS NULL
+		ORDER BY created_at ASC
+	`
+	rows, err := r.pool.Query(ctx, query, tenantID, userID, domain.MembershipStatusActive)
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	defer rows.Close()
+
+	ids := make([]uuid.UUID, 0)
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, mapDBError(err)
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+func (r *MembershipRepository) ListUserCompanyRoleCodes(ctx context.Context, tenantID, userID, companyID uuid.UUID) ([]string, error) {
+	const query = `
+		SELECT r.code
+		FROM core.user_roles ur
+		INNER JOIN core.roles r ON r.id = ur.role_id
+		WHERE ur.tenant_id = $1 AND ur.user_id = $2 AND ur.company_id = $3 AND r.deleted_at IS NULL
+		ORDER BY r.code ASC
+	`
+	rows, err := r.pool.Query(ctx, query, tenantID, userID, companyID)
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	defer rows.Close()
+
+	codes := make([]string, 0)
+	for rows.Next() {
+		var code string
+		if err := rows.Scan(&code); err != nil {
+			return nil, mapDBError(err)
+		}
+		codes = append(codes, code)
+	}
+	return codes, rows.Err()
+}
+
+func (r *MembershipRepository) ListUserGlobalRoleCodes(ctx context.Context, tenantID, userID uuid.UUID) ([]string, error) {
+	const query = `
+		SELECT r.code
+		FROM core.user_roles ur
+		INNER JOIN core.roles r ON r.id = ur.role_id
+		WHERE ur.tenant_id = $1 AND ur.user_id = $2 AND ur.company_id IS NULL AND r.deleted_at IS NULL
+		ORDER BY r.code ASC
+	`
+	rows, err := r.pool.Query(ctx, query, tenantID, userID)
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	defer rows.Close()
+
+	codes := make([]string, 0)
+	for rows.Next() {
+		var code string
+		if err := rows.Scan(&code); err != nil {
+			return nil, mapDBError(err)
+		}
+		codes = append(codes, code)
+	}
+	return codes, rows.Err()
+}
+
 func (r *MembershipRepository) GetMembershipByCompanyAndUser(ctx context.Context, companyID, userID uuid.UUID) (*domain.Membership, *time.Time, error) {
 	const query = `
 		SELECT id, tenant_id, company_id, user_id, position, status, created_at, updated_at, deleted_at, version

@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/freight-platform/company-service/internal/config"
+	"github.com/freight-platform/company-service/internal/http/authcontext"
 	"github.com/freight-platform/company-service/internal/http/handlers"
 	"github.com/freight-platform/company-service/internal/repository"
 	"github.com/freight-platform/company-service/internal/service"
@@ -23,11 +24,13 @@ func NewRouter(
 	db observability.DatabasePinger,
 	cfg config.Config,
 	companyRepo *repository.CompanyRepository,
+	membershipRepo *repository.MembershipRepository,
 	companyService *service.CompanyService,
 	membershipService *service.MembershipService,
 ) http.Handler {
-	companyHandler := handlers.NewCompanyHandler(companyService)
-	membershipHandler := handlers.NewMembershipHandler(membershipService)
+	authorizer := service.NewCompanyAuthorizer(membershipRepo)
+	companyHandler := handlers.NewCompanyHandler(companyService, authorizer)
+	membershipHandler := handlers.NewMembershipHandler(membershipService, authorizer)
 	companyInternalHandler := handlers.NewCompanyInternalHandler(companyRepo)
 	internalAuth := internalauth.Config{Token: cfg.InternalServiceToken, Environment: cfg.Environment}
 
@@ -41,6 +44,7 @@ func NewRouter(
 	sharedpprof.Mount(r)
 
 	r.Route("/v1/companies", func(r chi.Router) {
+		r.Use(authcontext.Middleware)
 		r.Post("/", companyHandler.Create)
 		r.Get("/", companyHandler.List)
 		r.Get("/{company_id}/members", membershipHandler.ListMembers)

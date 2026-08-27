@@ -72,7 +72,7 @@ func TestMembershipServiceAddMember(t *testing.T) {
 	userID := uuid.MustParse("33333333-3333-3333-3333-333333333333")
 
 	svc := NewMembershipService(&mockCompanyStore{
-		getByIDFn: func(context.Context, uuid.UUID) (*domain.Company, error) {
+		getByIDFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.Company, error) {
 			return &domain.Company{ID: companyID, TenantID: tenantID}, nil
 		},
 	}, &mockMembershipStore{
@@ -123,7 +123,7 @@ func TestMembershipServiceAddMemberDuplicateConflict(t *testing.T) {
 	userID := uuid.MustParse("33333333-3333-3333-3333-333333333333")
 
 	svc := NewMembershipService(&mockCompanyStore{
-		getByIDFn: func(context.Context, uuid.UUID) (*domain.Company, error) {
+		getByIDFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.Company, error) {
 			return &domain.Company{ID: companyID, TenantID: tenantID}, nil
 		},
 	}, &mockMembershipStore{
@@ -166,7 +166,7 @@ func TestMembershipServiceListMembers(t *testing.T) {
 	userID := uuid.MustParse("33333333-3333-3333-3333-333333333333")
 
 	svc := NewMembershipService(&mockCompanyStore{
-		getByIDFn: func(context.Context, uuid.UUID) (*domain.Company, error) {
+		getByIDFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.Company, error) {
 			return &domain.Company{ID: companyID, TenantID: tenantID}, nil
 		},
 	}, &mockMembershipStore{

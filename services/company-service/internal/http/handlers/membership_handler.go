@@ -10,17 +10,19 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/freight-platform/company-service/internal/domain"
+	"github.com/freight-platform/company-service/internal/http/authcontext"
 	apperrors "github.com/freight-platform/company-service/internal/platform/errors"
 	"github.com/freight-platform/company-service/internal/platform/respond"
 	"github.com/freight-platform/company-service/internal/service"
 )
 
 type MembershipHandler struct {
-	service *service.MembershipService
+	service    *service.MembershipService
+	authorizer *service.CompanyAuthorizer
 }
 
-func NewMembershipHandler(svc *service.MembershipService) *MembershipHandler {
-	return &MembershipHandler{service: svc}
+func NewMembershipHandler(svc *service.MembershipService, authorizer *service.CompanyAuthorizer) *MembershipHandler {
+	return &MembershipHandler{service: svc, authorizer: authorizer}
 }
 
 type addMemberRequest struct {
@@ -46,8 +48,19 @@ type membershipResponse struct {
 }
 
 func (h *MembershipHandler) AddMember(w http.ResponseWriter, r *http.Request) {
+	caller, err := authcontext.MustCaller(r.Context())
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
 	companyID, err := domain.ParseUUID(chi.URLParam(r, "company_id"), "company_id")
 	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	if err := h.authorizer.AuthorizeManageMembers(r.Context(), caller.TenantID, caller.UserID, companyID); err != nil {
 		respond.Error(w, err)
 		return
 	}
@@ -58,11 +71,11 @@ func (h *MembershipHandler) AddMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID, err := domain.ParseUUID(req.TenantID, "tenant_id")
-	if err != nil {
+	if err := authcontext.RejectMismatchedTenant(caller.TenantID, req.TenantID); err != nil {
 		respond.Error(w, err)
 		return
 	}
+
 	userID, err := domain.ParseUUID(req.UserID, "user_id")
 	if err != nil {
 		respond.Error(w, err)
@@ -80,7 +93,7 @@ func (h *MembershipHandler) AddMember(w http.ResponseWriter, r *http.Request) {
 	}
 
 	membership, err := h.service.AddMember(r.Context(), domain.CreateMembershipInput{
-		TenantID:  tenantID,
+		TenantID:  caller.TenantID,
 		CompanyID: companyID,
 		UserID:    userID,
 		Position:  req.Position,
@@ -95,13 +108,24 @@ func (h *MembershipHandler) AddMember(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *MembershipHandler) ListMembers(w http.ResponseWriter, r *http.Request) {
+	caller, err := authcontext.MustCaller(r.Context())
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
 	companyID, err := domain.ParseUUID(chi.URLParam(r, "company_id"), "company_id")
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
-	tenantID, err := domain.ParseUUID(r.URL.Query().Get("tenant_id"), "tenant_id")
-	if err != nil {
+
+	if err := authcontext.RejectMismatchedTenant(caller.TenantID, r.URL.Query().Get("tenant_id")); err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	if err := h.authorizer.AuthorizeListMembers(r.Context(), caller.TenantID, caller.UserID, companyID); err != nil {
 		respond.Error(w, err)
 		return
 	}
@@ -126,7 +150,7 @@ func (h *MembershipHandler) ListMembers(w http.ResponseWriter, r *http.Request) 
 	}
 
 	filter := domain.ListCompanyMembersFilter{
-		TenantID:  tenantID,
+		TenantID:  caller.TenantID,
 		CompanyID: companyID,
 		Limit:     limit,
 		Offset:    offset,
@@ -171,16 +195,29 @@ func (h *MembershipHandler) ListMembers(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *MembershipHandler) UpdateMember(w http.ResponseWriter, r *http.Request) {
+	caller, err := authcontext.MustCaller(r.Context())
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
 	companyID, err := domain.ParseUUID(chi.URLParam(r, "company_id"), "company_id")
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
+
+	if err := h.authorizer.AuthorizeManageMembers(r.Context(), caller.TenantID, caller.UserID, companyID); err != nil {
+		respond.Error(w, err)
+		return
+	}
+
 	membershipID, err := domain.ParseUUID(chi.URLParam(r, "membership_id"), "membership_id")
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
+
 	var req updateMemberRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
@@ -200,16 +237,29 @@ func (h *MembershipHandler) UpdateMember(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *MembershipHandler) RemoveMember(w http.ResponseWriter, r *http.Request) {
+	caller, err := authcontext.MustCaller(r.Context())
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
 	companyID, err := domain.ParseUUID(chi.URLParam(r, "company_id"), "company_id")
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
+
+	if err := h.authorizer.AuthorizeManageMembers(r.Context(), caller.TenantID, caller.UserID, companyID); err != nil {
+		respond.Error(w, err)
+		return
+	}
+
 	membershipID, err := domain.ParseUUID(chi.URLParam(r, "membership_id"), "membership_id")
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
+
 	if err := h.service.RemoveMember(r.Context(), membershipID, companyID); err != nil {
 		respond.Error(w, err)
 		return
