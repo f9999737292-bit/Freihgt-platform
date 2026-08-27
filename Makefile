@@ -714,6 +714,7 @@ check-bintrans-staging-release-tooling:
 	"$(BASH)" scripts/ops/bintrans_ct_staging/bintrans_ct_staging_runtime_up_selfcheck.sh
 	"$(BASH)" scripts/ops/bintrans_ct_staging/bintrans_ct_staging_runtime_health_selfcheck.sh
 	"$(BASH)" scripts/ops/bintrans_ct_staging/bintrans_ct_staging_runtime_preflight_selfcheck.sh
+	"$(BASH)" scripts/ops/bintrans_ct_staging/bintrans_ct_staging_pool_budget_selfcheck.sh
 	"$(BASH)" scripts/ops/bintrans_ct_staging/bintrans_ct_staging_runtime_images_validate_selfcheck.sh
 	"$(BASH)" scripts/ops/bintrans_ct_staging/bintrans_ct_staging_registry_digest_validate_selfcheck.sh
 

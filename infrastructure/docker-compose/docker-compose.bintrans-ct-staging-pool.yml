@@ -1,0 +1,57 @@
+# BINTRANS staging PostgreSQL pool budget overlay (v0.5B6.2 proven remediation).
+#
+# Applied automatically by bintrans_compose() for canonical staging runtime paths.
+# Values come from protected staging.env (see scripts/ops/bintrans_ct_staging/staging.env.example).
+#
+# Aggregate budget target (12 DB-using services): 10×DB_MAX_OPEN_CONNS + 2×DB_MAX_OPEN_LIGHT = 80
+# against PostgreSQL effective app capacity 97 (max_connections 100 − superuser_reserved 3).
+
+x-bintrans-pool-default: &bintrans_pool_default
+  DB_MAX_OPEN_CONNS: ${DB_MAX_OPEN_CONNS:-7}
+  DB_MAX_IDLE_CONNS: ${DB_MAX_IDLE_CONNS:-3}
+  DB_CONN_MAX_LIFETIME_SECONDS: ${DB_CONN_MAX_LIFETIME_SECONDS:-300}
+  DB_CONN_MAX_IDLE_TIME_SECONDS: ${DB_CONN_MAX_IDLE_TIME_SECONDS:-60}
+
+x-bintrans-pool-light: &bintrans_pool_light
+  DB_MAX_OPEN_CONNS: ${DB_MAX_OPEN_LIGHT:-5}
+  DB_MAX_IDLE_CONNS: ${DB_MAX_IDLE_CONNS:-3}
+  DB_CONN_MAX_LIFETIME_SECONDS: ${DB_CONN_MAX_LIFETIME_SECONDS:-300}
+  DB_CONN_MAX_IDLE_TIME_SECONDS: ${DB_CONN_MAX_IDLE_TIME_SECONDS:-60}
+
+services:
+  identity-service:
+    environment:
+      <<: *bintrans_pool_default
+  company-service:
+    environment:
+      <<: *bintrans_pool_default
+  transport-order-service:
+    environment:
+      <<: *bintrans_pool_default
+  rfx-service:
+    environment:
+      <<: *bintrans_pool_default
+  shipment-service:
+    environment:
+      <<: *bintrans_pool_light
+  document-service:
+    environment:
+      <<: *bintrans_pool_default
+  billing-register-service:
+    environment:
+      <<: *bintrans_pool_default
+  low-code-service:
+    environment:
+      <<: *bintrans_pool_default
+  payment-service:
+    environment:
+      <<: *bintrans_pool_default
+  contract-rate-service:
+    environment:
+      <<: *bintrans_pool_default
+  freight-cost-service:
+    environment:
+      <<: *bintrans_pool_default
+  control-tower-read-model-service:
+    environment:
+      <<: *bintrans_pool_light
