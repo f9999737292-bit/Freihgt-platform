@@ -341,6 +341,14 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 
 	transportOrderGuard := transportorderrbac.NewGuard(cfg, proxy)
 	r.Post("/api/v1/transport-orders", transportOrderGuard.WithPolicy(transportorderrbac.PolicyCreate))
+	r.Get("/api/v1/transport-orders", transportOrderGuard.WithPolicy(transportorderrbac.PolicyList))
+	r.Get("/api/v1/transport-orders/{id}", transportOrderGuard.WithPolicy(transportorderrbac.PolicyRead))
+	r.Patch("/api/v1/transport-orders/{id}", transportOrderGuard.WithPolicy(transportorderrbac.PolicyMutate))
+	r.Post("/api/v1/transport-orders/{id}/submit", transportOrderGuard.WithPolicy(transportorderrbac.PolicyMutate))
+	r.Post("/api/v1/transport-orders/{id}/cancel", transportOrderGuard.WithPolicy(transportorderrbac.PolicyMutate))
+	r.Get("/api/v1/locations", transportOrderGuard.WithPolicy(transportorderrbac.PolicyList))
+	r.Get("/api/v1/locations/{id}", transportOrderGuard.WithPolicy(transportorderrbac.PolicyRead))
+	r.Get("/api/v1/cargoes/{id}", transportOrderGuard.WithPolicy(transportorderrbac.PolicyRead))
 
 	freightCostHandler := freightcost.NewHandler(log, cfg)
 	freightCostGuard := freightcostrbac.NewGuard(cfg, freightCostHandler)
