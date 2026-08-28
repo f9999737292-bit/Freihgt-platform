@@ -22,7 +22,7 @@ echo "Project: ${BINTRANS_COMPOSE_PROJECT}"
 
 BINTRANS_INCLUDE_SHADOW=1 BINTRANS_INCLUDE_IMAGES=1 \
   bintrans_compose --profile messaging --profile read-model \
-  up -d --no-build \
+  up -d --no-build --pull always --force-recreate \
   "${bintrans_runtime_service_names[@]}"
 
 echo "Runtime services requested. Run bintrans_ct_staging_runtime_health.sh to verify."

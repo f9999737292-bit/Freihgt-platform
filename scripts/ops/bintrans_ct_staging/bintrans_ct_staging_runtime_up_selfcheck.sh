@@ -14,6 +14,8 @@ fail() { echo "runtime-up-selfcheck: $*" >&2; exit 1; }
 grep -q 'bintrans_compose' "${target}" || fail "must invoke bintrans_compose"
 grep -q 'up -d' "${target}" || fail "must include up -d"
 grep -q '\-\-no-build' "${target}" || fail "must include --no-build"
+grep -q '\-\-pull always' "${target}" || fail "must include --pull always"
+grep -q '\-\-force-recreate' "${target}" || fail "must include --force-recreate"
 grep -q '\-\-profile read-model' "${target}" || fail "must include read-model profile"
 grep -q 'bintrans_runtime_service_names' "${target}" \
   || fail "must start canonical bintrans_runtime_service_names set"

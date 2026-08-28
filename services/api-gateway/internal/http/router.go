@@ -7,26 +7,27 @@ import (
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 
+	"github.com/freight-platform/api-gateway/internal/billingrbac"
+	"github.com/freight-platform/api-gateway/internal/companyrbac"
 	"github.com/freight-platform/api-gateway/internal/config"
+	"github.com/freight-platform/api-gateway/internal/contractrates"
 	"github.com/freight-platform/api-gateway/internal/controltower"
 	"github.com/freight-platform/api-gateway/internal/driver"
 	"github.com/freight-platform/api-gateway/internal/executionrbac"
 	"github.com/freight-platform/api-gateway/internal/fleetrbac"
-	gwmiddleware "github.com/freight-platform/api-gateway/internal/http/middleware"
-	apperrors "github.com/freight-platform/api-gateway/internal/platform/errors"
-	"github.com/freight-platform/api-gateway/internal/platform/respond"
-	"github.com/freight-platform/api-gateway/internal/rfxrbac"
-	"github.com/freight-platform/api-gateway/internal/billingrbac"
-	"github.com/freight-platform/api-gateway/internal/companyrbac"
-	"github.com/freight-platform/api-gateway/internal/contractrates"
 	"github.com/freight-platform/api-gateway/internal/freightcost"
 	"github.com/freight-platform/api-gateway/internal/freightcostrbac"
+	gwmiddleware "github.com/freight-platform/api-gateway/internal/http/middleware"
 	"github.com/freight-platform/api-gateway/internal/paymentrbac"
+	apperrors "github.com/freight-platform/api-gateway/internal/platform/errors"
+	"github.com/freight-platform/api-gateway/internal/platform/respond"
 	"github.com/freight-platform/api-gateway/internal/ratesrbac"
+	"github.com/freight-platform/api-gateway/internal/rfxrbac"
 	"github.com/freight-platform/api-gateway/internal/settlementrbac"
 	"github.com/freight-platform/api-gateway/internal/shipmentevents"
-	"github.com/freight-platform/api-gateway/internal/tracking"
 	"github.com/freight-platform/api-gateway/internal/shipmentrbac"
+	"github.com/freight-platform/api-gateway/internal/tracking"
+	"github.com/freight-platform/api-gateway/internal/transportorderrbac"
 	"github.com/freight-platform/shared-go/metrics"
 	sharedmiddleware "github.com/freight-platform/shared-go/middleware"
 	"github.com/freight-platform/shared-go/observability"
@@ -337,6 +338,9 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	r.Patch("/api/v1/rate-components/{id}", ratesGuard.WithPolicy(ratesrbac.PolicyEditDraftRate))
 	r.Delete("/api/v1/rate-components/{id}", ratesGuard.WithPolicy(ratesrbac.PolicyEditDraftRate))
 	r.Post("/api/v1/rates/resolve", ratesGuard.WithPolicy(ratesrbac.PolicySimulate))
+
+	transportOrderGuard := transportorderrbac.NewGuard(cfg, proxy)
+	r.Post("/api/v1/transport-orders", transportOrderGuard.WithPolicy(transportorderrbac.PolicyCreate))
 
 	freightCostHandler := freightcost.NewHandler(log, cfg)
 	freightCostGuard := freightcostrbac.NewGuard(cfg, freightCostHandler)
