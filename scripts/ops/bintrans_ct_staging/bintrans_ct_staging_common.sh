@@ -444,6 +444,60 @@ bintrans_validate_running_image_revision() {
     || bintrans_fail "OCI revision ${label} on ${ref} != DEPLOYED_GIT_SHA ${expected_sha}"
 }
 
+# Extract lowercase sha256 hex from a digest-pinned image reference.
+bintrans_digest_hex_from_image_ref() {
+  local image_ref="$1"
+  if [[ "${image_ref}" =~ @sha256:([0-9a-f]{64})$ ]]; then
+    echo "${BASH_REMATCH[1]}"
+    return 0
+  fi
+  bintrans_fail "expected digest-pinned image ref, got: ${image_ref}"
+}
+
+# Resolve running container digest without aborting on empty RepoDigests (pipefail-safe).
+# Falls back to Config.Image when RepoDigests is empty but image ref is digest-pinned.
+bintrans_container_image_digest_ref() {
+  local cid="$1"
+  local digest repo_line image_ref
+  [[ -n "${cid}" ]] || bintrans_fail "container id required for digest verification"
+
+  repo_line=""
+  while IFS= read -r repo_line || [[ -n "${repo_line}" ]]; do
+    if [[ "${repo_line}" == *@sha256:* ]]; then
+      digest="${repo_line#*@}"
+      echo "${digest}"
+      return 0
+    fi
+  done < <(docker inspect -f '{{range .RepoDigests}}{{.}}{{"\n"}}{{end}}' "${cid}" 2>/dev/null || true)
+
+  image_ref="$(docker inspect -f '{{.Config.Image}}' "${cid}" 2>/dev/null || true)"
+  if [[ "${image_ref}" == *@sha256:* ]]; then
+    digest="${image_ref#*@}"
+    echo "${digest}"
+    return 0
+  fi
+
+  bintrans_fail "digest evidence unavailable for container ${cid} (empty RepoDigests and Config.Image not digest-pinned: ${image_ref:-<unset>})"
+}
+
+bintrans_container_digest_matches_expected() {
+  local cid="$1" expected_hex="$2" running_hex
+  expected_hex="${expected_hex#sha256:}"
+  running_hex="$(bintrans_container_image_digest_ref "${cid}")"
+  running_hex="${running_hex#sha256:}"
+  [[ "${running_hex}" == "${expected_hex}" ]]
+}
+
+bintrans_verify_running_container_digest() {
+  local cid="$1" expected_image_ref="$2"
+  local expected_hex
+  expected_hex="$(bintrans_digest_hex_from_image_ref "${expected_image_ref}")"
+  if bintrans_container_digest_matches_expected "${cid}" "${expected_hex}"; then
+    return 0
+  fi
+  bintrans_fail "running container ${cid} digest mismatch (expected sha256:${expected_hex})"
+}
+
 bintrans_migrations_dir() {
   printf '%s\n' "${BINTRANS_MIGRATIONS_DIR:-${ROOT}/infrastructure/migrations}"
 }

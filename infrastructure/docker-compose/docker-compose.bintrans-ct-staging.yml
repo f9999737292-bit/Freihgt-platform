@@ -43,6 +43,8 @@ services:
     ports: !override []
     environment:
       DATABASE_URL: *bintrans_database_url
+      CONTRACT_RATE_SERVICE_URL: http://contract-rate-service:8091
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
 
   rfx-service:
     ports: !override []
