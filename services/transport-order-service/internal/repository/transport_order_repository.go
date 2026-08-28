@@ -83,7 +83,7 @@ func (r *TransportOrderRepository) Create(ctx context.Context, in domain.CreateT
 	return result, err
 }
 
-func (r *TransportOrderRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.TransportOrder, error) {
+func (r *TransportOrderRepository) GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.TransportOrder, error) {
 	var result *domain.TransportOrder
 	err := measureDB("transport_order_repository", "get_transport_order", func() error {
 		const query = `
@@ -93,9 +93,9 @@ func (r *TransportOrderRepository) GetByID(ctx context.Context, id uuid.UUID) (*
 			transport_mode, equipment_type, status, source_system, external_reference,
 			created_at, updated_at, version
 		FROM transport.transport_orders
-		WHERE id = $1 AND deleted_at IS NULL
+		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
 	`
-		row := r.pool.QueryRow(ctx, query, id)
+		row := r.pool.QueryRow(ctx, query, id, tenantID)
 		order, err := scanTransportOrder(row)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -107,6 +107,31 @@ func (r *TransportOrderRepository) GetByID(ctx context.Context, id uuid.UUID) (*
 		return nil
 	})
 	return result, err
+}
+
+func (r *TransportOrderRepository) GetCarrierCompanyID(ctx context.Context, tenantID, orderID uuid.UUID) (*uuid.UUID, error) {
+	var carrierID *uuid.UUID
+	err := measureDB("transport_order_repository", "get_order_carrier_company", func() error {
+		const query = `
+		SELECT carrier_company_id
+		FROM transport.transport_order_rate_snapshots
+		WHERE tenant_id = $1 AND transport_order_id = $2
+		ORDER BY resolved_at DESC
+		LIMIT 1
+	`
+		var id uuid.UUID
+		err := r.pool.QueryRow(ctx, query, tenantID, orderID).Scan(&id)
+		if errors.Is(err, pgx.ErrNoRows) {
+			carrierID = nil
+			return nil
+		}
+		if err != nil {
+			return mapDBError(err)
+		}
+		carrierID = &id
+		return nil
+	})
+	return carrierID, err
 }
 
 func (r *TransportOrderRepository) List(ctx context.Context, filter domain.ListTransportOrdersFilter) ([]domain.TransportOrder, int, error) {
@@ -171,10 +196,10 @@ func (r *TransportOrderRepository) List(ctx context.Context, filter domain.ListT
 	return items, total, err
 }
 
-func (r *TransportOrderRepository) Update(ctx context.Context, id uuid.UUID, in domain.UpdateTransportOrderInput) (*domain.TransportOrder, error) {
+func (r *TransportOrderRepository) UpdateByIDAndTenant(ctx context.Context, tenantID, id uuid.UUID, in domain.UpdateTransportOrderInput) (*domain.TransportOrder, error) {
 	var result *domain.TransportOrder
 	err := measureDB("transport_order_repository", "update_transport_order", func() error {
-		current, err := r.GetByID(ctx, id)
+		current, err := r.GetByIDAndTenant(ctx, id, tenantID)
 		if err != nil {
 			return err
 		}
@@ -204,7 +229,7 @@ func (r *TransportOrderRepository) Update(ctx context.Context, id uuid.UUID, in 
 			transport_mode = $5,
 			updated_at = now(),
 			version = version + 1
-		WHERE id = $1 AND deleted_at IS NULL AND status = $6 AND version = $7
+		WHERE id = $1 AND tenant_id = $8 AND deleted_at IS NULL AND status = $6 AND version = $7
 		RETURNING id, tenant_id, order_number, shipper_company_id, consignee_company_id,
 			origin_location_id, destination_location_id, cargo_id,
 			requested_pickup_date, requested_delivery_date,
@@ -219,6 +244,7 @@ func (r *TransportOrderRepository) Update(ctx context.Context, id uuid.UUID, in 
 			mode,
 			domain.TransportOrderStatusDraft,
 			current.Version,
+			tenantID,
 		)
 		order, err := scanTransportOrder(row)
 		if err != nil {
@@ -233,11 +259,11 @@ func (r *TransportOrderRepository) Update(ctx context.Context, id uuid.UUID, in 
 	return result, err
 }
 
-func (r *TransportOrderRepository) UpdateStatus(ctx context.Context, id uuid.UUID, expectedStatus, newStatus string) (*domain.TransportOrder, error) {
+func (r *TransportOrderRepository) UpdateStatusByIDAndTenant(ctx context.Context, tenantID, id uuid.UUID, expectedStatus, newStatus string) (*domain.TransportOrder, error) {
 	operation := transportOrderStatusOperation(expectedStatus, newStatus)
 	var result *domain.TransportOrder
 	err := measureDB("transport_order_repository", operation, func() error {
-		current, err := r.GetByID(ctx, id)
+		current, err := r.GetByIDAndTenant(ctx, id, tenantID)
 		if err != nil {
 			return err
 		}
@@ -247,14 +273,14 @@ func (r *TransportOrderRepository) UpdateStatus(ctx context.Context, id uuid.UUI
 			status = $3,
 			updated_at = now(),
 			version = version + 1
-		WHERE id = $1 AND deleted_at IS NULL AND status = $2 AND version = $4
+		WHERE id = $1 AND tenant_id = $5 AND deleted_at IS NULL AND status = $2 AND version = $4
 		RETURNING id, tenant_id, order_number, shipper_company_id, consignee_company_id,
 			origin_location_id, destination_location_id, cargo_id,
 			requested_pickup_date, requested_delivery_date,
 			transport_mode, equipment_type, status, source_system, external_reference,
 			created_at, updated_at, version
 	`
-		row := r.pool.QueryRow(ctx, query, id, expectedStatus, newStatus, current.Version)
+		row := r.pool.QueryRow(ctx, query, id, expectedStatus, newStatus, current.Version, tenantID)
 		order, err := scanTransportOrder(row)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {

@@ -72,6 +72,30 @@ func (r *LocationRepository) Create(ctx context.Context, in domain.CreateLocatio
 	return result, err
 }
 
+func (r *LocationRepository) GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.Location, error) {
+	var result *domain.Location
+	err := measureDB("location_repository", "get_location", func() error {
+		const query = `
+		SELECT id, tenant_id, company_id, location_type, name, country_code,
+			region, city, address_line, postal_code, lat, lon, timezone, status,
+			created_at, updated_at, version
+		FROM transport.locations
+		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+	`
+		row := r.pool.QueryRow(ctx, query, id, tenantID)
+		location, err := scanLocation(row)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return apperrors.NotFound("location not found")
+			}
+			return mapDBError(err)
+		}
+		result = location
+		return nil
+	})
+	return result, err
+}
+
 func (r *LocationRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Location, error) {
 	var result *domain.Location
 	err := measureDB("location_repository", "get_location", func() error {

@@ -65,6 +65,14 @@ func (g *Guard) WithPolicy(policy Policy) http.HandlerFunc {
 
 		companycontext.StripUntrustedCompanyHeaders(r.Header)
 		r.Header.Del("X-Internal-Service-Token")
+		r.Header.Del("X-Platform-Admin")
+
+		if queryTenant := strings.TrimSpace(r.URL.Query().Get("tenant_id")); queryTenant != "" && !strings.EqualFold(queryTenant, ac.TenantID) {
+			recordPublicRequest(operation, "forbidden_tenant_query")
+			recordAuthzDenied(operation, "tenant_query")
+			respond.Error(w, apperrors.Forbidden("tenant_id does not match authenticated tenant"))
+			return
+		}
 
 		reqCtx := routeauth.RequestContext{
 			TenantID:  ac.TenantID,
@@ -127,6 +135,11 @@ func (g *Guard) WithPolicy(policy Policy) http.HandlerFunc {
 
 		r.Header.Set(companycontext.HeaderCompanyID, matched.CompanyID)
 		r.Header.Set(companycontext.HeaderActorKind, derivedKind)
+		r.Header.Set("X-Tenant-ID", ac.TenantID)
+		r.Header.Set("X-User-ID", ac.UserID)
+		if isPlatformAdmin {
+			r.Header.Set("X-Platform-Admin", "true")
+		}
 
 		verified := VerifiedContext{
 			TenantID:        ac.TenantID,

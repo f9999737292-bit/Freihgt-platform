@@ -40,7 +40,7 @@ type batchAnalyticsDimensionItem struct {
 }
 
 func (h *AnalyticsDimensionInternalHandler) BatchGetAnalyticsDimensions(w http.ResponseWriter, r *http.Request) {
-	tenantID, err := parseTrustedTenant(r)
+	tenantID, err := resolveVerifiedTenant(r)
 	if err != nil {
 		respond.Error(w, err)
 		return

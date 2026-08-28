@@ -51,7 +51,7 @@ func TestTO_CR_001_MissingInternalTokenReturns401(t *testing.T) {
 	}
 }
 
-func TestTO_CR_002_MissingTenantIDReturns400(t *testing.T) {
+func TestTO_CR_002_MissingTenantIDReturns401(t *testing.T) {
 	handler := NewRateSnapshotInternalHandler(&stubSnapshotReader{})
 	router := newInternalTestRouter(handler)
 
@@ -60,7 +60,7 @@ func TestTO_CR_002_MissingTenantIDReturns400(t *testing.T) {
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusBadRequest {
+	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d body = %s", rec.Code, rec.Body.String())
 	}
 }

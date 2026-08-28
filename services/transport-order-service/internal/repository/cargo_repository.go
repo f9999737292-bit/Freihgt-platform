@@ -95,6 +95,36 @@ func (r *CargoRepository) Create(ctx context.Context, in domain.CreateCargoInput
 	return result, err
 }
 
+func (r *CargoRepository) GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.Cargo, error) {
+	var result *domain.Cargo
+	err := measureDB("cargo_repository", "get_cargo", func() error {
+		const query = `
+		SELECT id, tenant_id, cargo_type, description, gross_weight, net_weight, volume,
+			temperature_min, temperature_max, dangerous_goods_flag, customs_required,
+			created_at, updated_at, version
+		FROM transport.cargoes
+		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+	`
+		row := r.pool.QueryRow(ctx, query, id, tenantID)
+		cargo, err := scanCargo(row)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return apperrors.NotFound("cargo not found")
+			}
+			return mapDBError(err)
+		}
+
+		items, err := r.listItems(ctx, id)
+		if err != nil {
+			return err
+		}
+		cargo.Items = items
+		result = cargo
+		return nil
+	})
+	return result, err
+}
+
 func (r *CargoRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Cargo, error) {
 	var result *domain.Cargo
 	err := measureDB("cargo_repository", "get_cargo", func() error {

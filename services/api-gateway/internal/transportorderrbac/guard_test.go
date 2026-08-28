@@ -263,3 +263,100 @@ func TestTransportOrderCreateShipperAdminPass(t *testing.T) {
 		t.Fatalf("expected 201, got %d body=%s", rec.Code, rec.Body.String())
 	}
 }
+
+func TestTransportOrderReadCrossTenantQueryDenied(t *testing.T) {
+	t.Parallel()
+	tenantID := uuid.New().String()
+	userID := uuid.New().String()
+	companyID := uuid.New().String()
+	foreignTenant := uuid.New().String()
+
+	identityServer := newIdentityServer(t, []map[string]any{
+		{"company_id": companyID, "company_type": "SHIPPER", "roles": []map[string]any{{"code": "SHIPPER_ADMIN"}}},
+	}, nil)
+	defer identityServer.Close()
+
+	handler := NewGuard(config.Config{
+		AuthEnabled: true, ProxyTimeoutSeconds: 5,
+		Services: config.ServiceURLs{Identity: identityServer.URL},
+	}, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		t.Fatal("downstream must not be called for tenant query spoof")
+	}))
+
+	token := signTestToken(t, "secret", userID, tenantID)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/transport-orders?tenant_id="+foreignTenant, nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("X-Company-ID", companyID)
+	rec := serveThroughAuth(t, handler.WithPolicy(PolicyList), req, "secret")
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("tenant query spoof expected 403, got %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestTransportOrderReadBuyerPass(t *testing.T) {
+	t.Parallel()
+	tenantID := uuid.New().String()
+	userID := uuid.New().String()
+	companyID := uuid.New().String()
+	orderID := uuid.New().String()
+
+	identityServer := newIdentityServer(t, []map[string]any{
+		{"company_id": companyID, "company_type": "SHIPPER", "roles": []map[string]any{{"code": "SHIPPER_ADMIN"}}},
+	}, nil)
+	defer identityServer.Close()
+
+	var gotTenant, gotCompany, gotPlatformAdmin string
+	handler := NewGuard(config.Config{
+		AuthEnabled: true, ProxyTimeoutSeconds: 5,
+		Services: config.ServiceURLs{Identity: identityServer.URL},
+	}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotTenant = r.Header.Get("X-Tenant-ID")
+		gotCompany = r.Header.Get(companycontext.HeaderCompanyID)
+		gotPlatformAdmin = r.Header.Get("X-Platform-Admin")
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	token := signTestToken(t, "secret", userID, tenantID)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/transport-orders/"+orderID, nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("X-Company-ID", companyID)
+	rec := serveThroughAuth(t, handler.WithPolicy(PolicyRead), req, "secret")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if gotTenant != tenantID || gotCompany != companyID {
+		t.Fatalf("verified headers tenant=%q company=%q", gotTenant, gotCompany)
+	}
+	if gotPlatformAdmin != "" {
+		t.Fatalf("platform admin header must not be set without role, got %q", gotPlatformAdmin)
+	}
+}
+
+func TestTransportOrderMutateCarrierDenied(t *testing.T) {
+	t.Parallel()
+	tenantID := uuid.New().String()
+	userID := uuid.New().String()
+	companyID := uuid.New().String()
+
+	identityServer := newIdentityServer(t, []map[string]any{
+		{"company_id": companyID, "company_type": "CARRIER", "roles": []map[string]any{{"code": "CARRIER_ADMIN"}}},
+	}, nil)
+	defer identityServer.Close()
+
+	handler := NewGuard(config.Config{
+		AuthEnabled: true, ProxyTimeoutSeconds: 5,
+		Services: config.ServiceURLs{Identity: identityServer.URL},
+	}, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		t.Fatal("carrier must not mutate transport order")
+	}))
+
+	token := signTestToken(t, "secret", userID, tenantID)
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/transport-orders/"+uuid.NewString(), strings.NewReader(`{}`))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("X-Company-ID", companyID)
+	req.Header.Set("Content-Type", "application/json")
+	rec := serveThroughAuth(t, handler.WithPolicy(PolicyMutate), req, "secret")
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("carrier mutate expected 403, got %d", rec.Code)
+	}
+}

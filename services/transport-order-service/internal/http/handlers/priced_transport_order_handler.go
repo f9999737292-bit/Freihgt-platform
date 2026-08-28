@@ -100,7 +100,7 @@ func (h *PricedTransportOrderHandler) CreateFromAwardScope(w http.ResponseWriter
 		respond.Error(w, apperrors.Validation("idempotency key is required", map[string]any{"field": "idempotency_key"}))
 		return
 	}
-	tenantID, err := parseTrustedTenant(r)
+	tenantID, err := resolveVerifiedTenant(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -256,18 +256,6 @@ func parseActorFromRequest(r *http.Request, tenantID uuid.UUID) (domain.Internal
 		CompanyID: companyID,
 		ActorKind: kind,
 	}, nil
-}
-
-func parseTrustedTenant(r *http.Request) (uuid.UUID, error) {
-	raw := strings.TrimSpace(r.Header.Get("X-Tenant-ID"))
-	if raw == "" {
-		return uuid.Nil, apperrors.Validation("tenant context is required", map[string]any{"field": "tenant_id"})
-	}
-	tenantID, err := uuid.Parse(raw)
-	if err != nil {
-		return uuid.Nil, apperrors.Validation("invalid tenant id", map[string]any{"field": "tenant_id"})
-	}
-	return tenantID, nil
 }
 
 func trimOptional(value *string) *string {

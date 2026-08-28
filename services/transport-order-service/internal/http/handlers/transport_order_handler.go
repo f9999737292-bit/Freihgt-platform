@@ -102,8 +102,13 @@ func (h *Handler) GetLocation(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, err)
 		return
 	}
+	tenantID, err := resolveVerifiedTenant(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
 
-	location, err := h.service.GetLocation(r.Context(), id)
+	location, err := h.service.GetLocation(r.Context(), tenantID, id)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -113,7 +118,7 @@ func (h *Handler) GetLocation(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListLocations(w http.ResponseWriter, r *http.Request) {
-	tenantID, err := domain.ParseUUID(r.URL.Query().Get("tenant_id"), "tenant_id")
+	tenantID, err := resolveVerifiedTenant(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -233,8 +238,13 @@ func (h *Handler) GetCargo(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, err)
 		return
 	}
+	tenantID, err := resolveVerifiedTenant(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
 
-	cargo, err := h.service.GetCargo(r.Context(), id)
+	cargo, err := h.service.GetCargo(r.Context(), tenantID, id)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -294,8 +304,18 @@ func (h *Handler) GetTransportOrder(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, err)
 		return
 	}
+	tenantID, err := resolveVerifiedTenant(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	actor, err := parseOrderAccessActor(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
 
-	order, err := h.service.GetTransportOrder(r.Context(), id)
+	order, err := h.service.GetTransportOrder(r.Context(), tenantID, id, actor)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -305,7 +325,12 @@ func (h *Handler) GetTransportOrder(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListTransportOrders(w http.ResponseWriter, r *http.Request) {
-	tenantID, err := domain.ParseUUID(r.URL.Query().Get("tenant_id"), "tenant_id")
+	tenantID, err := resolveVerifiedTenant(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	actor, err := parseOrderAccessActor(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -332,7 +357,7 @@ func (h *Handler) ListTransportOrders(w http.ResponseWriter, r *http.Request) {
 		filter.Status = &raw
 	}
 
-	orders, total, err := h.service.ListTransportOrders(r.Context(), filter)
+	orders, total, err := h.service.ListTransportOrders(r.Context(), filter, actor)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -353,6 +378,16 @@ func (h *Handler) ListTransportOrders(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) UpdateTransportOrder(w http.ResponseWriter, r *http.Request) {
 	id, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	tenantID, err := resolveVerifiedTenant(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	actor, err := parseOrderAccessActor(r)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -382,7 +417,7 @@ func (h *Handler) UpdateTransportOrder(w http.ResponseWriter, r *http.Request) {
 		input.RequestedDeliveryDate = delivery
 	}
 
-	order, err := h.service.UpdateTransportOrder(r.Context(), id, input)
+	order, err := h.service.UpdateTransportOrder(r.Context(), tenantID, id, input, actor)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -397,8 +432,18 @@ func (h *Handler) SubmitTransportOrder(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, err)
 		return
 	}
+	tenantID, err := resolveVerifiedTenant(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	actor, err := parseOrderAccessActor(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
 
-	order, err := h.service.SubmitTransportOrder(r.Context(), id)
+	order, err := h.service.SubmitTransportOrder(r.Context(), tenantID, id, actor)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -416,8 +461,18 @@ func (h *Handler) CancelTransportOrder(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, err)
 		return
 	}
+	tenantID, err := resolveVerifiedTenant(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	actor, err := parseOrderAccessActor(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
 
-	order, err := h.service.CancelTransportOrder(r.Context(), id)
+	order, err := h.service.CancelTransportOrder(r.Context(), tenantID, id, actor)
 	if err != nil {
 		respond.Error(w, err)
 		return
