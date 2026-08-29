@@ -12,7 +12,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "cap:sync": "cap sync",
-    "cap:sync:android": "cap sync android"
+    "cap:sync:android": "cap sync android",
+    "cap:sync:ios": "cap sync ios",
+    "cap:add:ios": "cap add ios",
+    "android:assembleDebug": "cd android && ./gradlew assembleDebug"
   },
   "dependencies": {
     "@capacitor/app": "^6.0.0",
@@ -30,6 +33,7 @@
   "devDependencies": {
     "@capacitor/android": "^6.0.0",
     "@capacitor/cli": "^6.0.0",
+    "@capacitor/ios": "^6.0.0",
     "@typescript-eslint/eslint-plugin": "^8.67.0",
     "@typescript-eslint/parser": "^8.67.0",
     "@vitejs/plugin-vue": "^5.2.0",
