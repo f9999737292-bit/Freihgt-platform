@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ApiError } from '~/composables/useApi'
+import { ApiError, formatApiErrorForUser } from '~/composables/useApi'
 
 definePageMeta({ layout: 'auth', middleware: 'guest' })
 
@@ -55,15 +55,10 @@ async function onSubmit() {
     await login(tenantId.value, email.value, password.value)
     await router.replace(getLandingRoute())
   } catch (error) {
-    if (error instanceof ApiError) {
-      loginError.value =
-        error.status === 401 || error.code === 'UNAUTHORIZED'
-          ? t('login.invalidCredentials')
-          : error.message
-    } else if (error instanceof Error) {
-      loginError.value = error.message
+    if (error instanceof ApiError && (error.status === 401 || error.code === 'UNAUTHORIZED')) {
+      loginError.value = t('login.invalidCredentials')
     } else {
-      loginError.value = t('common.error')
+      loginError.value = formatApiErrorForUser(error)
     }
   } finally {
     loading.value = false

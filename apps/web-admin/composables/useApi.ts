@@ -61,8 +61,17 @@ export function isBackendUnavailableError(error: unknown): boolean {
   return isNetworkFetchError(error)
 }
 
+function resolveTranslator(): (key: string) => string {
+  const nuxtApp = useNuxtApp()
+  const i18n = nuxtApp.$i18n as { t?: (key: string) => string } | undefined
+  if (typeof i18n?.t === 'function') {
+    return i18n.t.bind(i18n)
+  }
+  return (key: string) => key
+}
+
 export function formatApiErrorForUser(error: unknown): string {
-  const { t } = useI18n()
+  const t = resolveTranslator()
   if (error instanceof ApiError) {
     if (error.status === 403 || error.code === 'FORBIDDEN') {
       return t('common.insufficientPermission')
@@ -76,7 +85,7 @@ export function formatApiErrorForUser(error: unknown): string {
 }
 
 function throwBackendUnavailable() {
-  const { t } = useI18n()
+  const t = resolveTranslator()
   throw new ApiError(0, {
     code: 'BACKEND_UNAVAILABLE',
     message: t('backendStatus.gatewayUnavailableMessage'),
@@ -114,7 +123,7 @@ function ensureTenant(options: RequestOptions) {
 
   const tenantStore = useTenantStore()
   if (!tenantStore.tenantId?.trim()) {
-    const { t } = useI18n()
+    const t = resolveTranslator()
     throw new TenantRequiredError(t('tenant.required'))
   }
 }
