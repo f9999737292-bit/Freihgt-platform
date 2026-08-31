@@ -11,8 +11,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "test": "nuxt prepare && vitest run",
-    "test:watch": "vitest",
-    "test:browser:rfx-detail": "node tests/e2e/rfx-detail-publish-production.mjs"
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@nuxtjs/i18n": "^9.0.0",
@@ -24,7 +23,6 @@
   },
   "devDependencies": {
     "@nuxt/eslint": "^0.7.0",
-    "@playwright/test": "^1.62.1",
     "@types/node": "^22.10.0",
     "eslint": "^9.17.0",
     "prettier": "^3.4.2",
