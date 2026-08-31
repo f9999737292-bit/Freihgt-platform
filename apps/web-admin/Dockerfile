@@ -1,5 +1,6 @@
 # syntax=docker/dockerfile:1
-# BINTRANS CT staging web-admin — Nuxt 3 production Node server (loopback-only publish via compose).
+# BINTRANS CT staging web-admin — Nuxt 3 production Node server.
+# Container listens on 0.0.0.0:13000; host publication is loopback-only via compose.
 
 FROM node:22-alpine AS builder
 
@@ -7,7 +8,7 @@ WORKDIR /app
 
 ARG BINTRANS_GIT_SHA=
 ARG BINTRANS_IMAGE_VERSION=
-ARG NUXT_PUBLIC_API_BASE_URL=http://127.0.0.1:18080
+ARG NUXT_PUBLIC_API_BASE_URL=http://localhost:18080
 ARG NUXT_PUBLIC_APP_NAME=Bintrans Freight Platform Admin
 ARG NUXT_PUBLIC_DEFAULT_LOCALE=ru-RU
 ARG NUXT_PUBLIC_DEFAULT_TENANT_ID=
@@ -41,7 +42,7 @@ LABEL org.opencontainers.image.revision="${BINTRANS_GIT_SHA}" \
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV HOST=127.0.0.1
+ENV HOST=0.0.0.0
 ENV PORT=13000
 
 RUN addgroup -S webadmin && adduser -S webadmin -G webadmin

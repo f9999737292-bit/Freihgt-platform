@@ -1,27 +1,30 @@
 # BINTRANS dedicated Control Tower staging — private loopback web-admin frontend.
 #
 # Target VM: bintrans-control-tower-staging (161.104.57.152)
-# Compose project: bintrans-ct-staging (same project; frontend-only overlay)
+# Compose project: bintrans-ct-staging (frontend-only overlay)
 #
-# Operator access (SSH local forwarding only — no public ingress):
+# Network model:
+#   CONTAINER_LISTEN=0.0.0.0:13000
+#   REMOTE_HOST_PUBLICATION=127.0.0.1:13000:13000
+#
+# Operator SSH (CORS-compatible localhost origin):
 #   ssh -i ~/.ssh/bintrans_selectel_staging \
-#     -L 13000:127.0.0.1:13000 \
+#     -L 3000:127.0.0.1:13000 \
 #     -L 18080:127.0.0.1:18080 \
 #     root@161.104.57.152
 #
-# Browser:
-#   http://127.0.0.1:13000/login
+# Browser (must use localhost, not 127.0.0.1:13000 — api-gateway CORS allowlist):
+#   http://localhost:3000/login
 #
 # Apply with digest-pinned image from protected env (never commit secrets):
 #   --env-file /protected/bintrans/control-tower-observation/staging.env
 #
 # Example (R3.4B):
 #   docker compose \
-#     -f infrastructure/docker-compose/docker-compose.yml \
 #     -f infrastructure/docker-compose/docker-compose.bintrans-ct-staging-web-admin.yml \
 #     --env-file /protected/bintrans/control-tower-observation/staging.env \
 #     -p bintrans-ct-staging \
-#     up -d web-admin
+#     up -d --no-deps web-admin
 
 services:
   web-admin:
@@ -30,9 +33,9 @@ services:
     container_name: bintrans_ct_staging_web_admin
     restart: unless-stopped
     environment:
-      HOST: 127.0.0.1
-      PORT: ${WEB_ADMIN_HOST_PORT:-13000}
-      NUXT_PUBLIC_API_BASE_URL: ${NUXT_PUBLIC_API_BASE_URL:-http://127.0.0.1:18080}
+      HOST: 0.0.0.0
+      PORT: ${WEB_ADMIN_CONTAINER_PORT:-13000}
+      NUXT_PUBLIC_API_BASE_URL: ${NUXT_PUBLIC_API_BASE_URL:-http://localhost:18080}
       NUXT_PUBLIC_APP_NAME: ${NUXT_PUBLIC_APP_NAME:-Bintrans Freight Platform Admin}
       NUXT_PUBLIC_DEFAULT_LOCALE: ${NUXT_PUBLIC_DEFAULT_LOCALE:-ru-RU}
       NUXT_PUBLIC_DEFAULT_TENANT_ID: ${NUXT_PUBLIC_DEFAULT_TENANT_ID:-}
@@ -40,9 +43,9 @@ services:
       BINTRANS_RELEASE_SHA: ${DEPLOYED_GIT_SHA:-}
       BINTRANS_COMPONENT: web-admin
     ports:
-      - "127.0.0.1:${WEB_ADMIN_HOST_PORT:-13000}:${WEB_ADMIN_HOST_PORT:-13000}"
+      - "127.0.0.1:${WEB_ADMIN_REMOTE_HOST_PORT:-13000}:${WEB_ADMIN_CONTAINER_PORT:-13000}"
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:${WEB_ADMIN_HOST_PORT:-13000}/login"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:${WEB_ADMIN_CONTAINER_PORT:-13000}/login"]
       interval: 15s
       timeout: 5s
       retries: 3

@@ -20,7 +20,7 @@ IMAGE_NAME="${REGISTRY}/web-admin"
 LOCAL_TAG="${IMAGE_NAME}:${RELEASE_IMAGE_VERSION}"
 LOCAL_SHA_TAG="${IMAGE_NAME}:${RELEASE_SHA}"
 
-NUXT_PUBLIC_API_BASE_URL="${NUXT_PUBLIC_API_BASE_URL:-http://127.0.0.1:18080}"
+NUXT_PUBLIC_API_BASE_URL="${NUXT_PUBLIC_API_BASE_URL:-http://localhost:18080}"
 NUXT_PUBLIC_MOCK_AUTH="${NUXT_PUBLIC_MOCK_AUTH:-false}"
 
 echo "=== BINTRANS CT staging web-admin release build ==="
@@ -51,11 +51,14 @@ fi
 
 "${build_cmd[@]}"
 
-DIGEST="$(docker image inspect "${LOCAL_TAG}" --format '{{index .RepoDigests 0}}' 2>/dev/null || true)"
-if [[ -z "${DIGEST}" ]]; then
-  DIGEST="$(docker image inspect "${LOCAL_TAG}" --format '{{.Id}}')"
-fi
+LOCAL_IMAGE_ID="$(docker image inspect "${LOCAL_TAG}" --format '{{.Id}}')"
+REPO_DIGEST="$(docker image inspect "${LOCAL_TAG}" --format '{{index .RepoDigests 0}}' 2>/dev/null || true)"
 
-echo "WEB_ADMIN_LOCAL_IMAGE_ID=${LOCAL_TAG}"
-echo "WEB_ADMIN_IMAGE_DIGEST=${DIGEST}"
+echo "WEB_ADMIN_LOCAL_IMAGE_ID=${LOCAL_IMAGE_ID}"
+if [[ -n "${REPO_DIGEST}" ]]; then
+  echo "WEB_ADMIN_REGISTRY_DIGEST=${REPO_DIGEST#*@}"
+else
+  echo "WEB_ADMIN_REGISTRY_DIGEST=NOT_AVAILABLE_PRE_PUSH"
+fi
+echo "RUNTIME_IMAGE_REFERENCE_FORMAT=${IMAGE_NAME}@sha256:<remote-manifest-digest>"
 echo "bintrans-ct-staging-web-admin-release-build: PASS (push/start not performed)"
