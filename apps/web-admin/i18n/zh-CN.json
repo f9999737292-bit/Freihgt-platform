@@ -54,6 +54,8 @@
     "email": "Email",
     "password": "密码",
     "hint": "Mock 模式：任意邮箱和密码",
+    "validationRequired": "请输入邮箱和密码",
+    "invalidCredentials": "邮箱或密码无效",
     "backendOfflineHint": "可在 mock 模式下登录，但后端启动前 API 数据不可用。"
   },
   "dashboard": {

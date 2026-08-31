@@ -1,11 +1,12 @@
 <script setup lang="ts">
+import { ApiError, formatApiErrorForUser } from '~/composables/useApi'
+
 definePageMeta({ layout: 'auth', middleware: 'guest' })
 
 const config = useRuntimeConfig()
 const router = useRouter()
 const { login } = useAuth()
 const { getLandingRoute } = usePermissions()
-const { pushToast } = useToast()
 const { t } = useI18n()
 const { resolveInitialTenantId } = useTenantContext()
 const { backendOnline, backendStatus, checkBackendStatus } = useBackendStatus()
@@ -15,6 +16,7 @@ const email = ref('')
 const password = ref('')
 const loading = ref(false)
 const checkingBackend = ref(false)
+const loginError = ref('')
 
 onMounted(async () => {
   tenantId.value = resolveInitialTenantId()
@@ -36,8 +38,15 @@ async function onRefreshBackendStatus() {
 }
 
 async function onSubmit() {
+  loginError.value = ''
+
   if (!tenantId.value.trim()) {
-    pushToast('error', t('tenant.required'))
+    loginError.value = t('tenant.required')
+    return
+  }
+
+  if (!email.value.trim() || !password.value) {
+    loginError.value = t('login.validationRequired')
     return
   }
 
@@ -46,8 +55,10 @@ async function onSubmit() {
     await login(tenantId.value, email.value, password.value)
     await router.replace(getLandingRoute())
   } catch (error) {
-    if (error instanceof Error && error.message !== t('tenant.required')) {
-      pushToast('error', error.message)
+    if (error instanceof ApiError && (error.status === 401 || error.code === 'UNAUTHORIZED')) {
+      loginError.value = t('login.invalidCredentials')
+    } else {
+      loginError.value = formatApiErrorForUser(error)
     }
   } finally {
     loading.value = false
@@ -84,10 +95,35 @@ async function onSubmit() {
       </p>
     </div>
 
-    <form class="login-form" @submit.prevent="onSubmit">
-      <UiInput v-model="tenantId" :label="$t('tenant.tenantId')" required />
-      <UiInput v-model="email" type="email" :label="$t('login.email')" required />
-      <UiInput v-model="password" type="password" :label="$t('login.password')" required />
+    <p v-if="loginError" class="login-error" role="alert">{{ loginError }}</p>
+
+    <form class="login-form" novalidate @submit.prevent="onSubmit">
+      <UiInput
+        id="login-tenant-id"
+        v-model="tenantId"
+        name="tenant_id"
+        autocomplete="organization"
+        :label="$t('tenant.tenantId')"
+        required
+      />
+      <UiInput
+        id="login-email"
+        v-model="email"
+        name="email"
+        type="email"
+        autocomplete="username"
+        :label="$t('login.email')"
+        required
+      />
+      <UiInput
+        id="login-password"
+        v-model="password"
+        name="password"
+        type="password"
+        autocomplete="current-password"
+        :label="$t('login.password')"
+        required
+      />
       <p v-if="config.public.mockAuth" class="text-sm text-muted">{{ $t('login.hint') }}</p>
       <UiButton type="submit" :loading="loading" style="width: 100%">{{ $t('common.login') }}</UiButton>
     </form>
@@ -99,6 +135,16 @@ async function onSubmit() {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.login-error {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: 0.875rem;
 }
 
 .login-backend-status {
