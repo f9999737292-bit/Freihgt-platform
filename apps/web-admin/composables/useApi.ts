@@ -1,10 +1,5 @@
 import type { ApiErrorBody } from '~/types/api'
-import {
-  API_HEADER_AUTHORIZATION,
-  API_HEADER_REQUEST_ID,
-  API_HEADER_TENANT_ID,
-  API_HEADER_USER_ID,
-} from '~/constants/apiHeaders'
+import { buildApiRequestHeaders } from '~/utils/buildApiRequestHeaders'
 
 export class ApiError extends Error {
   code: string
@@ -137,27 +132,15 @@ function resolveLocaleHeader(): string {
 function buildHeaders(options: RequestOptions = {}) {
   const authStore = useAuthStore()
   const tenantStore = useTenantStore()
-  const headers: Record<string, string> = {
-    Accept: 'application/json',
-    'Content-Type': 'application/json',
-    [API_HEADER_REQUEST_ID]: crypto.randomUUID(),
-    'X-Locale': resolveLocaleHeader(),
-    ...options.headers,
-  }
-
-  if (!options.skipAuth && authStore.token) {
-    headers[API_HEADER_AUTHORIZATION] = `Bearer ${authStore.token}`
-  }
-  if (!options.skipAuth && authStore.user?.id) {
-    headers[API_HEADER_USER_ID] = authStore.user.id
-  }
-  if (!options.skipTenant && tenantStore.tenantId) {
-    headers[API_HEADER_TENANT_ID] = tenantStore.tenantId
-  }
-  if (tenantStore.currentCompanyId) {
-    headers['X-Company-ID'] = tenantStore.currentCompanyId
-  }
-  return headers
+  return buildApiRequestHeaders({
+    token: authStore.token,
+    tenantId: tenantStore.tenantId,
+    companyId: tenantStore.currentCompanyId,
+    locale: resolveLocaleHeader(),
+    extra: options.headers,
+    skipAuth: options.skipAuth,
+    skipTenant: options.skipTenant,
+  })
 }
 
 async function handleResponse<T>(response: Response): Promise<T> {
