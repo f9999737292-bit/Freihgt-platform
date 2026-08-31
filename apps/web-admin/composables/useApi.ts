@@ -119,15 +119,20 @@ function ensureTenant(options: RequestOptions) {
   }
 }
 
+function resolveLocaleHeader(): string {
+  const nuxtApp = useNuxtApp()
+  const i18n = nuxtApp.$i18n as { locale?: { value?: string } } | undefined
+  return i18n?.locale?.value ?? 'ru-RU'
+}
+
 function buildHeaders(options: RequestOptions = {}) {
   const authStore = useAuthStore()
   const tenantStore = useTenantStore()
-  const { locale } = useI18n()
   const headers: Record<string, string> = {
     Accept: 'application/json',
     'Content-Type': 'application/json',
     [API_HEADER_REQUEST_ID]: crypto.randomUUID(),
-    'X-Locale': locale.value,
+    'X-Locale': resolveLocaleHeader(),
     ...options.headers,
   }
 

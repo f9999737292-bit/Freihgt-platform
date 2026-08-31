@@ -54,6 +54,8 @@
     "email": "Email",
     "password": "Пароль",
     "hint": "Mock mode: любой email и пароль",
+    "validationRequired": "Укажите email и пароль",
+    "invalidCredentials": "Неверный email или пароль",
     "backendOfflineHint": "В mock mode вход возможен, но данные API недоступны, пока backend не запущен."
   },
   "dashboard": {

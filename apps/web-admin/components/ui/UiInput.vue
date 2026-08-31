@@ -1,28 +1,32 @@
 <script setup lang="ts">
+const model = defineModel<string>({ default: '' })
+
 defineProps<{
-  modelValue: string
   label?: string
   type?: string
   placeholder?: string
   required?: boolean
   disabled?: boolean
+  name?: string
+  id?: string
+  autocomplete?: string
 }>()
-
-defineEmits<{ 'update:modelValue': [value: string] }>()
 </script>
 
 <template>
   <label class="ui-input">
     <span v-if="label" class="ui-input__label">{{ label }}</span>
     <input
+      :id="id"
+      v-model="model"
       class="ui-input__control"
+      :name="name"
       :type="type || 'text'"
-      :value="modelValue"
       :placeholder="placeholder"
       :required="required"
       :disabled="disabled"
-      @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
-    />
+      :autocomplete="autocomplete"
+    >
   </label>
 </template>
 
