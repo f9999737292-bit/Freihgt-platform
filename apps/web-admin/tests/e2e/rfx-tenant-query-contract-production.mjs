@@ -15,6 +15,9 @@ import { chromium } from 'playwright'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const WEB_ADMIN_ROOT = resolve(__dirname, '..')
 const RFX_ID = '6aa74939-c406-480b-a38f-d5e349d57899'
+const BID_DRAFT_ID = 'a1111111-1111-4111-8111-111111111111'
+const BID_SUBMITTED_ID = 'b2222222-2222-4222-8222-222222222222'
+const CARRIER_COMPANY_ID = 'c3333333-3333-4333-8333-333333333333'
 const TENANT_ID = '285f9447-faf7-423e-96dd-e4c5e2b3fc6c'
 const COMPANY_ID = '83cb2447-75e9-41f2-8e0d-93c70f8506be'
 const PREVIEW_PORT = 3300
@@ -40,6 +43,12 @@ const observed = {
   bidsGet: false,
   bidsStatus: 0,
   bidsTenantQuery: false,
+  submitBidPost: false,
+  submitBidStatus: 0,
+  submitBidTenantQuery: false,
+  acceptBidPost: false,
+  acceptBidStatus: 0,
+  acceptBidTenantQuery: false,
   authorizationSent: false,
   xTenantIdSent: false,
   xUserIdSent: false,
@@ -53,6 +62,34 @@ const observed = {
 
 let currentStatus = 'DRAFT'
 let previewPid = null
+
+function bidFixture(id, status) {
+  return {
+    id,
+    tenant_id: TENANT_ID,
+    freight_request_id: RFX_ID,
+    carrier_company_id: CARRIER_COMPANY_ID,
+    bid_number: status === 'DRAFT' ? 'BID-DRAFT-001' : 'BID-SUBMITTED-001',
+    status,
+    total_amount: 100000,
+    currency_code: 'RUB',
+    vat_amount: 20000,
+    total_amount_with_vat: 120000,
+    submitted_at: status === 'DRAFT' ? null : '2026-08-29T12:00:00Z',
+    items: [{ amount_without_vat: 100000 }],
+    created_at: '2026-08-29T00:00:00Z',
+    updated_at: '2026-08-29T00:00:00Z',
+  }
+}
+
+const bidStore = {
+  [BID_DRAFT_ID]: bidFixture(BID_DRAFT_ID, 'DRAFT'),
+  [BID_SUBMITTED_ID]: bidFixture(BID_SUBMITTED_ID, 'SUBMITTED'),
+}
+
+function listBidsPayload() {
+  return { items: Object.values(bidStore) }
+}
 
 function recordRfxEvidence(pageUrl, req, status, label) {
   const raw = req.url || '/'
@@ -210,7 +247,44 @@ function startMockApi() {
         observed.bidsGet = true
         observed.bidsStatus = 200
         recordRfxEvidence('', req, 200, 'BIDS')
-        return json(res, 200, { items: [] })
+        return json(res, 200, listBidsPayload())
+      }
+
+      const submitMatch = url.pathname.match(/^\/api\/v1\/bids\/([^/]+)\/submit$/)
+      if (req.method === 'POST' && submitMatch) {
+        if (hasTenantQuery) {
+          observed.submitBidTenantQuery = true
+          recordRfxEvidence('', req, 403, 'BID_SUBMIT')
+          return rejectTenantQuery(url, res)
+        }
+        const bidId = submitMatch[1]
+        if (!bidStore[bidId]) {
+          return json(res, 404, { error: { code: 'NOT_FOUND', message: 'not found', details: {} } })
+        }
+        bidStore[bidId].status = 'SUBMITTED'
+        bidStore[bidId].submitted_at = '2026-08-29T12:00:00Z'
+        observed.submitBidPost = true
+        observed.submitBidStatus = 200
+        recordRfxEvidence('', req, 200, 'BID_SUBMIT')
+        return json(res, 200, { id: bidId, status: 'SUBMITTED' })
+      }
+
+      const acceptMatch = url.pathname.match(/^\/api\/v1\/bids\/([^/]+)\/accept$/)
+      if (req.method === 'POST' && acceptMatch) {
+        if (hasTenantQuery) {
+          observed.acceptBidTenantQuery = true
+          recordRfxEvidence('', req, 403, 'BID_ACCEPT')
+          return rejectTenantQuery(url, res)
+        }
+        const bidId = acceptMatch[1]
+        if (!bidStore[bidId]) {
+          return json(res, 404, { error: { code: 'NOT_FOUND', message: 'not found', details: {} } })
+        }
+        bidStore[bidId].status = 'ACCEPTED'
+        observed.acceptBidPost = true
+        observed.acceptBidStatus = 200
+        recordRfxEvidence('', req, 200, 'BID_ACCEPT')
+        return json(res, 200, { id: bidId, status: 'ACCEPTED' })
       }
 
       if (req.method === 'GET' && url.pathname === '/api/v1/companies') {
@@ -261,6 +335,7 @@ async function main() {
     const browser = await chromium.launch({ headless: true })
     const context = await browser.newContext()
     const page = await context.newPage()
+    page.on('dialog', (dialog) => dialog.accept())
 
     page.on('console', (msg) => {
       if (msg.type() === 'error' && /TypeError: .* is not a function/.test(msg.text())) {
@@ -333,6 +408,36 @@ async function main() {
       }
     }
 
+    // BID SUBMIT (DRAFT bid row)
+    const submitBtn = page.getByRole('button', { name: /submit bid|отправить/i })
+    if (await submitBtn.count() > 0) {
+      await submitBtn.first().click()
+      await page.waitForResponse(
+        (response) => response.url().includes(`/api/v1/bids/${BID_DRAFT_ID}/submit`)
+          && response.request().method() === 'POST',
+        { timeout: 30000 },
+      ).catch(() => null)
+      await page.waitForTimeout(500)
+    }
+
+    // BID ACCEPT (SUBMITTED bid row)
+    const acceptBtn = page.getByRole('button', { name: /accept bid|принять ставку/i })
+    if (await acceptBtn.count() > 0) {
+      await acceptBtn.first().click()
+      await page.waitForResponse(
+        (response) => response.url().includes(`/api/v1/bids/${BID_SUBMITTED_ID}/accept`)
+          && response.request().method() === 'POST',
+        { timeout: 30000 },
+      ).catch(() => null)
+      await page.waitForTimeout(500)
+    }
+
+    for (const entry of observed.rfxRequestEvidence) {
+      if (entry.label === 'BID_SUBMIT' || entry.label === 'BID_ACCEPT') {
+        entry.PAGE_URL = page.url()
+      }
+    }
+
     await browser.close()
 
     const evidenceDir = resolve(__dirname, '../../../pilot-browser-evidence/r3.1b')
@@ -358,6 +463,12 @@ async function main() {
       && observed.bidsGet
       && observed.bidsStatus === 200
       && !observed.bidsTenantQuery
+      && observed.submitBidPost
+      && observed.submitBidStatus === 200
+      && !observed.submitBidTenantQuery
+      && observed.acceptBidPost
+      && observed.acceptBidStatus === 200
+      && !observed.acceptBidTenantQuery
       && observed.authorizationSent
       && observed.xTenantIdSent
       && !observed.xUserIdSent
@@ -371,7 +482,13 @@ async function main() {
       RFX_LIST_TENANT_QUERY_AFTER: observed.listTenantQuery ? 'YES' : 'NO',
       RFX_DETAIL_TENANT_QUERY_AFTER: observed.detailTenantQuery ? 'YES' : 'NO',
       RFX_PUBLISH_TENANT_QUERY_AFTER: observed.publishTenantQuery ? 'YES' : 'NO',
-      RFX_BIDS_TENANT_QUERY_AFTER: observed.bidsTenantQuery ? 'YES' : 'NO',
+      RFX_BIDS_LIST_TENANT_QUERY_AFTER: observed.bidsTenantQuery ? 'YES' : 'NO',
+      RFX_BID_SUBMIT_TENANT_QUERY_AFTER: observed.submitBidTenantQuery ? 'YES' : 'NO',
+      RFX_BID_ACCEPT_TENANT_QUERY_AFTER: observed.acceptBidTenantQuery ? 'YES' : 'NO',
+      SUBMIT_BID_REQUEST_OBSERVED: observed.submitBidPost ? 'YES' : 'NO',
+      SUBMIT_BID_TENANT_QUERY_SENT: observed.submitBidTenantQuery ? 'YES' : 'NO',
+      ACCEPT_BID_REQUEST_OBSERVED: observed.acceptBidPost ? 'YES' : 'NO',
+      ACCEPT_BID_TENANT_QUERY_SENT: observed.acceptBidTenantQuery ? 'YES' : 'NO',
       AUTHORIZATION_SENT: observed.authorizationSent ? 'YES' : 'NO',
       X_TENANT_ID_HEADER_SENT: observed.xTenantIdSent ? 'YES' : 'NO',
       CLIENT_X_USER_ID_SENT: observed.xUserIdSent ? 'YES' : 'NO',
