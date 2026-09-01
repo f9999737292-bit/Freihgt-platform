@@ -245,6 +245,7 @@ export function useApi() {
     checkGatewayHealth,
     ApiError,
     TenantRequiredError,
+    isApiUnavailableError,
     isBackendUnavailableError,
   }
 }

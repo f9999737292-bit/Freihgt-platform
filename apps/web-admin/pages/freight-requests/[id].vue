@@ -44,8 +44,10 @@ async function loadRequest() {
   }
 }
 
-watch(requestId, loadRequest, { immediate: true })
+watch(requestId, loadRequest)
+
 onMounted(async () => {
+  await loadRequest()
   try {
     companies.value = (await listCompanies({ limit: 100 })).items
   } catch {
