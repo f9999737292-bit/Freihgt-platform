@@ -32,6 +32,33 @@ func defaultBuyerMembershipResolver() testBuyerMembershipResolver {
 	return testBuyerMembershipResolver{shipperID: uuid.MustParse(testBuyerShipperCompanyID)}
 }
 
+const testCarrierUserID = "55555555-5555-5555-5555-555555555555"
+const testCarrierCompanyIDHeader = "dddddddd-dddd-dddd-dddd-dddddddddddd"
+
+type testCarrierMembershipResolver struct {
+	carrierID uuid.UUID
+}
+
+func (m testCarrierMembershipResolver) ResolveActorKind(context.Context, domain.ActorContext) (domain.ActorKind, []uuid.UUID, error) {
+	return domain.ActorKindCarrier, []uuid.UUID{m.carrierID}, nil
+}
+
+func (m testCarrierMembershipResolver) ListBuyerCompanyIDs(context.Context, domain.ActorContext) ([]uuid.UUID, error) {
+	return nil, nil
+}
+
+func (m testCarrierMembershipResolver) ListUserRoleCodes(context.Context, uuid.UUID, uuid.UUID) ([]string, error) {
+	return []string{"CARRIER_DISPATCHER"}, nil
+}
+
+func defaultCarrierMembershipResolver() testCarrierMembershipResolver {
+	return testCarrierMembershipResolver{carrierID: uuid.MustParse(testCarrierCompanyIDHeader)}
+}
+
 func withBuyerHeaders(req *http.Request) {
 	req.Header.Set("X-User-ID", testBuyerUserID)
+}
+
+func withCarrierHeaders(req *http.Request) {
+	req.Header.Set("X-User-ID", testCarrierUserID)
 }

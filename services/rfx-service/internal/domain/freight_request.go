@@ -53,10 +53,22 @@ type ListFreightRequestsFilter struct {
 	TenantID           uuid.UUID
 	RequestType        *string
 	Status             *string
+	Statuses           []string
 	ShipperCompanyID   *uuid.UUID
 	ShipperCompanyIDs  []uuid.UUID
 	Limit              int
 	Offset             int
+}
+
+func CarrierVisibleFreightRequestStatuses() []string {
+	return []string{
+		FreightRequestStatusPublished,
+		FreightRequestStatusResponsesOpen,
+	}
+}
+
+func IsCarrierVisibleFreightRequestStatus(status string) bool {
+	return status == FreightRequestStatusPublished || status == FreightRequestStatusResponsesOpen
 }
 
 func ValidateCreateFreightRequestInput(in CreateFreightRequestFromOrderInput) error {

@@ -107,7 +107,7 @@ func (s *FreightRequestService) GetByID(ctx context.Context, actor domain.ActorC
 		return nil, err
 	}
 	if s.actors != nil {
-		if _, err := requireBuyerCompanyAccess(ctx, s.actors, actor, fr.ShipperCompanyID); err != nil {
+		if err := s.authorizeFreightRequestRead(ctx, actor, fr); err != nil {
 			return nil, err
 		}
 	}
@@ -122,8 +122,12 @@ func (s *FreightRequestService) List(ctx context.Context, actor domain.ActorCont
 	if filter.Limit == 0 {
 		filter.Limit = 20
 	}
-	if err := s.applyBuyerListScope(ctx, actor, &filter); err != nil {
+	empty, err := s.applyActorListScope(ctx, actor, &filter)
+	if err != nil {
 		return nil, 0, err
+	}
+	if empty {
+		return []domain.FreightRequest{}, 0, nil
 	}
 	if err := domain.ValidateListFreightRequestsFilter(filter); err != nil {
 		return nil, 0, err

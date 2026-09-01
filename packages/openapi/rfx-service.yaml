@@ -635,6 +635,9 @@ paths:
     get:
       tags: [Freight Requests]
       summary: List freight requests
+      description: |
+        Buyer actors receive company-scoped freight requests for their authorized shipper companies.
+        Carrier actors receive tenant-scoped participation reads limited to PUBLISHED and RESPONSES_OPEN statuses.
       operationId: get_list_freight_requests
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -693,6 +696,9 @@ paths:
     get:
       tags: [Freight Requests]
       summary: Get freight request by ID
+      description: |
+        Buyer actors may read freight requests belonging to their authorized shipper companies.
+        Carrier actors may read only PUBLISHED or RESPONSES_OPEN freight requests in their tenant; other statuses return 404.
       operationId: get_get_freight_request_by_id
       parameters:
         - $ref: '#/components/parameters/XRequestID'
