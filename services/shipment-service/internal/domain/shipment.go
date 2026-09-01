@@ -65,6 +65,29 @@ var cancelForbiddenStatuses = map[string]struct{}{
 	ShipmentStatusFinanciallyClosed:         {},
 }
 
+// assignmentOwnedTargetStatuses may only be reached via accept / assign-driver / assign-vehicle.
+var assignmentOwnedTargetStatuses = map[string]struct{}{
+	ShipmentStatusAcceptedByCarrier: {},
+	ShipmentStatusVehicleAssigned:   {},
+	ShipmentStatusDriverAssigned:    {},
+}
+
+// manualStatusTransitions defines statuses reachable via generic PATCH /status only.
+var manualStatusTransitions = map[string][]string{
+	ShipmentStatusDriverAssigned:            {ShipmentStatusPickupSlotBooked},
+	ShipmentStatusPickupSlotBooked:          {ShipmentStatusInPickup},
+	ShipmentStatusInPickup:                  {ShipmentStatusLoaded},
+	ShipmentStatusLoaded:                    {ShipmentStatusInTransit},
+	ShipmentStatusInTransit:                 {ShipmentStatusArrivedAtConsignee},
+	ShipmentStatusArrivedAtConsignee:        {ShipmentStatusUnloading},
+	ShipmentStatusUnloading:                 {ShipmentStatusDelivered},
+	ShipmentStatusDelivered:                 {ShipmentStatusDeliveryConfirmed},
+	ShipmentStatusDeliveryConfirmed:         {ShipmentStatusDocumentsCompleted},
+	ShipmentStatusDocumentsCompleted:        {ShipmentStatusReadyForBilling},
+	ShipmentStatusReadyForBilling:           {ShipmentStatusIncludedInBillingRegister},
+	ShipmentStatusIncludedInBillingRegister: {ShipmentStatusFinanciallyClosed},
+}
+
 type Shipment struct {
 	ID                    uuid.UUID
 	TenantID              uuid.UUID
@@ -307,6 +330,53 @@ func ValidateStatusTransition(current, next string) error {
 		"from":  current,
 		"to":    next,
 	})
+}
+
+// ValidateManualStatusTransition restricts generic PATCH /status to operational progression only.
+// Assignment-owned statuses must be produced by accept / assign-driver / assign-vehicle endpoints.
+func ValidateManualStatusTransition(current, next string) error {
+	if _, forbidden := assignmentOwnedTargetStatuses[next]; forbidden {
+		return apperrors.Validation("status transition is not allowed via manual update", map[string]any{
+			"field": "status",
+			"from":  current,
+			"to":    next,
+		})
+	}
+	allowed, ok := manualStatusTransitions[current]
+	if !ok {
+		return apperrors.Validation("status transition is not allowed", map[string]any{
+			"field": "status",
+			"from":  current,
+			"to":    next,
+		})
+	}
+	for _, candidate := range allowed {
+		if candidate == next {
+			return nil
+		}
+	}
+	return apperrors.Validation("status transition is not allowed", map[string]any{
+		"field": "status",
+		"from":  current,
+		"to":    next,
+	})
+}
+
+// ValidateExecutionAssignmentReadiness blocks operational progression when assignment IDs are missing.
+func ValidateExecutionAssignmentReadiness(shipment *Shipment, next string) error {
+	if shipment == nil {
+		return apperrors.Validation("shipment is required", map[string]any{"field": "shipment"})
+	}
+	if shipment.Status != ShipmentStatusDriverAssigned || next != ShipmentStatusPickupSlotBooked {
+		return nil
+	}
+	if shipment.DriverID == nil {
+		return apperrors.Validation("driver must be assigned before execution can start", map[string]any{"field": "driver_id"})
+	}
+	if shipment.VehicleID == nil {
+		return apperrors.Validation("vehicle must be assigned before execution can start", map[string]any{"field": "vehicle_id"})
+	}
+	return nil
 }
 
 func ValidateCancelShipmentStatus(status string) error {

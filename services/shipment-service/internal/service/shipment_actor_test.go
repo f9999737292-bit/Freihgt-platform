@@ -267,17 +267,19 @@ func TestShipmentServiceUpdateStatusPassesVerifiedTenantToRepository(t *testing.
 	t.Parallel()
 	tenantID := uuid.New()
 	shipmentID := uuid.New()
+	driverID := uuid.New()
+	vehicleID := uuid.New()
 	var repoTenant uuid.UUID
 	svc := NewShipmentService(&mockShipmentStore{
 		getByIDAndTenantFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.Shipment, error) {
 			return &domain.Shipment{
 				ID: shipmentID, TenantID: tenantID,
-				Status: domain.ShipmentStatusAcceptedByCarrier, Version: 3,
+				Status: domain.ShipmentStatusDriverAssigned, DriverID: &driverID, VehicleID: &vehicleID, Version: 3,
 			}, nil
 		},
 		updateStatusFn: func(_ context.Context, id, tenant uuid.UUID, _, newStatus string, _, _ *time.Time, expectedVersion int, _ domain.StatusTransitionContext) (*domain.Shipment, error) {
 			repoTenant = tenant
-			if id != shipmentID || expectedVersion != 3 || newStatus != domain.ShipmentStatusVehicleAssigned {
+			if id != shipmentID || expectedVersion != 3 || newStatus != domain.ShipmentStatusPickupSlotBooked {
 				t.Fatalf("unexpected update args id=%s version=%d status=%s", id, expectedVersion, newStatus)
 			}
 			return &domain.Shipment{Status: newStatus, Version: 4}, nil
@@ -285,7 +287,7 @@ func TestShipmentServiceUpdateStatusPassesVerifiedTenantToRepository(t *testing.
 	}, &mockDriverLookup{}, &mockVehicleLookup{})
 
 	_, err := svc.UpdateStatus(context.Background(), tenantID, shipmentID, domain.UpdateShipmentStatusInput{
-		Status: domain.ShipmentStatusVehicleAssigned,
+		Status: domain.ShipmentStatusPickupSlotBooked,
 	}, testUserTransition())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

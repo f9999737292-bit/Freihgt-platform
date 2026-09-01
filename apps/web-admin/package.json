@@ -7,11 +7,11 @@
     "build": "nuxt build",
     "preview": "nuxt preview",
     "typecheck": "nuxt typecheck",
+    "test": "nuxt prepare && vitest run",
+    "test:watch": "vitest",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "format": "prettier --write .",
-    "test": "nuxt prepare && vitest run",
-    "test:watch": "vitest"
+    "format": "prettier --write ."
   },
   "dependencies": {
     "@nuxtjs/i18n": "^9.0.0",

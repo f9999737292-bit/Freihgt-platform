@@ -248,7 +248,10 @@ func (s *ShipmentService) UpdateStatus(ctx context.Context, tenantID, shipmentID
 	if err != nil {
 		return nil, err
 	}
-	if err := domain.ValidateStatusTransition(shipment.Status, in.Status); err != nil {
+	if err := domain.ValidateManualStatusTransition(shipment.Status, in.Status); err != nil {
+		return nil, err
+	}
+	if err := domain.ValidateExecutionAssignmentReadiness(shipment, in.Status); err != nil {
 		return nil, err
 	}
 
