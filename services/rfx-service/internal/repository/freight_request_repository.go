@@ -127,6 +127,10 @@ func (r *FreightRequestRepository) List(ctx context.Context, filter domain.ListF
 			where.WriteString(fmt.Sprintf(" AND status = $%d", argIdx))
 			args = append(args, *filter.Status)
 			argIdx++
+		} else if len(filter.Statuses) > 0 {
+			where.WriteString(fmt.Sprintf(" AND status = ANY($%d)", argIdx))
+			args = append(args, filter.Statuses)
+			argIdx++
 		}
 		if filter.ShipperCompanyID != nil {
 			where.WriteString(fmt.Sprintf(" AND shipper_company_id = $%d", argIdx))

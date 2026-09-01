@@ -16,8 +16,12 @@ import (
 )
 
 func newFreightRequestTestRouter(t *testing.T, store *mockFreightRequestHandlerStore) http.Handler {
+	return newFreightRequestTestRouterWithResolver(t, store, defaultBuyerMembershipResolver())
+}
+
+func newFreightRequestTestRouterWithResolver(t *testing.T, store *mockFreightRequestHandlerStore, resolver service.ActorResolver) http.Handler {
 	t.Helper()
-	handler := NewFreightRequestHandler(service.NewFreightRequestServiceWithAuth(store, defaultBuyerMembershipResolver()))
+	handler := NewFreightRequestHandler(service.NewFreightRequestServiceWithAuth(store, resolver))
 	r := chi.NewRouter()
 	r.Get("/v1/freight-requests", handler.List)
 	r.Get("/v1/freight-requests/{id}", handler.GetByID)
@@ -301,6 +305,69 @@ func TestGetFreightRequestByIDForeignTenantReturns404(t *testing.T) {
 	})
 	req := httptest.NewRequest(http.MethodGet, "/v1/freight-requests/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", nil)
 	req.Header.Set("X-Tenant-ID", "11111111-1111-1111-1111-111111111111")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestListFreightRequestsCarrierReturns200(t *testing.T) {
+	t.Parallel()
+	tenantID := "11111111-1111-1111-1111-111111111111"
+	router := newFreightRequestTestRouterWithResolver(t, &mockFreightRequestHandlerStore{
+		listFn: func(_ context.Context, filter domain.ListFreightRequestsFilter) ([]domain.FreightRequest, int, error) {
+			if len(filter.Statuses) != 2 {
+				t.Fatalf("expected carrier visible statuses, got %#v", filter.Statuses)
+			}
+			fr := sampleFreightRequest(uuid.MustParse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"), filter.TenantID)
+			fr.Status = domain.FreightRequestStatusPublished
+			return []domain.FreightRequest{*fr}, 1, nil
+		},
+	}, defaultCarrierMembershipResolver())
+	req := httptest.NewRequest(http.MethodGet, "/v1/freight-requests", nil)
+	req.Header.Set("X-Tenant-ID", tenantID)
+	withCarrierHeaders(req)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestGetFreightRequestByIDCarrierPublishedReturns200(t *testing.T) {
+	t.Parallel()
+	tenantID := "11111111-1111-1111-1111-111111111111"
+	frID := "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+	router := newFreightRequestTestRouterWithResolver(t, &mockFreightRequestHandlerStore{
+		getByIDFn: func(_ context.Context, id, tenant uuid.UUID) (*domain.FreightRequest, error) {
+			fr := sampleFreightRequest(id, tenant)
+			fr.Status = domain.FreightRequestStatusPublished
+			return fr, nil
+		},
+	}, defaultCarrierMembershipResolver())
+	req := httptest.NewRequest(http.MethodGet, "/v1/freight-requests/"+frID, nil)
+	req.Header.Set("X-Tenant-ID", tenantID)
+	withCarrierHeaders(req)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestGetFreightRequestByIDCarrierDraftReturns404(t *testing.T) {
+	t.Parallel()
+	tenantID := "11111111-1111-1111-1111-111111111111"
+	frID := "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+	router := newFreightRequestTestRouterWithResolver(t, &mockFreightRequestHandlerStore{
+		getByIDFn: func(_ context.Context, id, tenant uuid.UUID) (*domain.FreightRequest, error) {
+			return sampleFreightRequest(id, tenant), nil
+		},
+	}, defaultCarrierMembershipResolver())
+	req := httptest.NewRequest(http.MethodGet, "/v1/freight-requests/"+frID, nil)
+	req.Header.Set("X-Tenant-ID", tenantID)
+	withCarrierHeaders(req)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusNotFound {

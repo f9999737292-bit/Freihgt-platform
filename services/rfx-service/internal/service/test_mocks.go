@@ -59,6 +59,13 @@ func carrierTestActor(tenantID, userID uuid.UUID) domain.ActorContext {
 	return domain.ActorContext{TenantID: tenantID, UserID: userID}
 }
 
+func carrierMembershipResolver(carrierCompanyIDs ...uuid.UUID) *mockMembershipResolver {
+	return &mockMembershipResolver{
+		kind:       domain.ActorKindCarrier,
+		carrierIDs: carrierCompanyIDs,
+	}
+}
+
 func acceptBidNoop(context.Context, uuid.UUID, uuid.UUID, func(context.Context, pgx.Tx) error) (*domain.Bid, error) {
 	return nil, nil
 }
