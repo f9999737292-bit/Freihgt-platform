@@ -1,26 +1,30 @@
 # BINTRANS Pilot Ownership Approval Pack v1
 
-**Status:** OPEN — no invented acknowledgements  
-**Blocker:** OPS-BLK-002  
-**Full inventory:** `docs/bintrans-pilot/BINTRANS_PILOT_MANAGEMENT_APPROVAL_PACK_V1.md` §1–3
+**Status:** MANAGEMENT APPROVED — owner ACK pending for Марина and Люба
+**Blocker:** OPS-BLK-002 — **OPEN_PENDING_OWNER_ACK**
+**Full register:** `docs/bintrans-pilot/BINTRANS_PILOT_MANAGEMENT_APPROVAL_PACK_V1.md` §1
 
-| Role | CURRENT_VALUE | SOURCE | ACK_STATUS | APPROVED_STATUS |
-|---|---|---|---|---|
-| PILOT_BUSINESS_OWNER | TBD | — | PENDING | NOT_FOUND |
-| PILOT_TECHNICAL_OWNER | Platform team (role label only) | workstream-status-v0.1.md | PENDING | LEGACY_ONLY |
-| PILOT_OPERATIONS_OWNER | Артем Асаev (low-code context) | LOW_CODE_PILOT_WEEK3_SUPPORT_OWNERSHIP_POLICY_V0.1.md | PENDING | LEGACY_ONLY — not verified for BINTRANS |
-| P1_INCIDENT_COMMANDER | TBD | — | PENDING | NOT_FOUND |
-| P2_INCIDENT_OWNER | Support owner (role label only) | escalation matrix | PENDING | LEGACY_ONLY |
-| INFRASTRUCTURE_OWNER | DevOps (role label only) | workstream-status-v0.1.md | PENDING | LEGACY_ONLY |
-| DATABASE_OWNER | TBD | — | PENDING | NOT_FOUND |
-| SECURITY_OWNER | Security/Architecture (role label only) | escalation matrix | PENDING | LEGACY_ONLY |
-| GO_LIVE_AUTHORITY | TBD | — | PENDING | NOT_FOUND |
+| Role | ASSIGNED | MANAGEMENT_APPROVED | OWNER_ACKNOWLEDGED | CONTACT_METHOD | ACK_STATUS |
+|---|---|---|---|---|---|
+| PILOT_BUSINESS_OWNER | Феликс | YES | YES | PENDING | ACKNOWLEDGED |
+| PILOT_TECHNICAL_OWNER | Марина | YES | NO | PENDING | PENDING |
+| PILOT_OPERATIONS_OWNER | Люба | YES | NO | PENDING | PENDING |
+| P1_INCIDENT_COMMANDER | Люба | YES | NO | PENDING | PENDING |
+| INFRASTRUCTURE_OWNER | Люба | YES | NO | PENDING | PENDING |
+| DATABASE_OWNER | Люба | YES | NO | PENDING | PENDING |
+| SECURITY_OWNER | Марина | YES | NO | PENDING | PENDING |
+| GO_LIVE_AUTHORITY | Феликс | YES | YES | PENDING | ACKNOWLEDGED |
 
 ```text
-MULTI_ROLE_ALLOWED=YES_FOR_SMALL_PILOT
-MULTI_ROLE_APPROVAL_STATUS=PROPOSED_NOT_APPROVED
+APPROVED_BY=Феликс
+APPROVAL_DATE=2026-09-03
+FELIX_OWNER_ACK=YES
+MARINA_OWNER_ACK=PENDING
+LYUBA_OWNER_ACK=PENDING
+MULTI_ROLE_APPROVED=YES
 OWNERSHIP_ACK_COMPLETE=NO
-OPS-BLK-002=OPEN_WAITING_FOR_MANAGEMENT_APPROVAL
+OPS-BLK-002=OPEN_PENDING_OWNER_ACK
+OPS-BLK-002_CLOSED=NO
 ```
 
-**Note:** Role labels and low-code pilot names are not substitutes for named, acknowledged BINTRANS operational ownership.
+**Historical (LEGACY_ONLY):** Prior low-code references (e.g. Артем Асаev) superseded by management-approved BINTRANS assignments above.

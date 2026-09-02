@@ -1,117 +1,114 @@
 # BINTRANS Pilot Management Approval Pack v1
 
-**Status:** OPEN — awaiting explicit management/controller approval  
-**Wave:** Management Ownership + Support + RPO/RTO Decision Package v0.1  
-**Base SHA:** `6e4d3e22ec09c91d7d2a57e189918db15c564e69`  
-**Do not mark APPROVED without named individual, contact method, and acknowledgement record.**
+**Status:** MANAGEMENT APPROVAL RECORDED — owner ACK and backup automation pending
+**Wave:** Management Approval Record + Owner ACK Gate v0.2
+**Base SHA:** `6e4d3e22ec09c91d7d2a57e189918db15c564e69`
+**Previous head:** `8f845e03936956b90cd44bef5b5293c72dc41bee`
+
+This document distinguishes **MANAGEMENT_APPROVED**, **OWNER_ACKNOWLEDGED**, **OWNER_ACK_PENDING**, **HISTORICAL**, and **LEGACY_ONLY**.
+
+**Critical:** MANAGEMENT APPROVAL ≠ OWNER ACK. Do not treat management assignment as on-call acceptance by Марина or Люба.
 
 ---
 
 ## Purpose
 
-Single management-facing package for closure prerequisites of:
+Management decision package for BINTRANS controlled pilot blockers:
 
 | Blocker | Topic | Status |
 |---|---|---|
-| OPS-BLK-002 | On-call / ownership | OPEN_WAITING_FOR_MANAGEMENT_APPROVAL |
-| OPS-BLK-003 | Support / escalation | OPEN_WAITING_FOR_MANAGEMENT_APPROVAL |
-| OPS-BLK-004 | RPO / RTO approval | OPEN_WAITING_FOR_MANAGEMENT_APPROVAL |
-| OPS-BLK-005 | Registry / image pinning | OPEN_MEDIUM — **out of scope for this pack** |
-
-This document distinguishes **APPROVED**, **PROPOSED**, **LEGACY_ONLY**, **TBD**, and **NOT_FOUND**.
-
----
-
-## 1. Ownership inventory (OPS-BLK-002)
-
-A name in a legacy low-code pilot document does **not** constitute BINTRANS pilot operational approval or on-call acceptance.
-
-| Role | CURRENT_VALUE | SOURCE | ACK_STATUS | APPROVED_STATUS |
-|---|---|---|---|---|
-| PILOT_BUSINESS_OWNER | TBD | — | PENDING | NOT_FOUND |
-| PILOT_TECHNICAL_OWNER | Platform team (role label only) | `workstream-status-v0.1.md` WS PLAT | PENDING | LEGACY_ONLY |
-| PILOT_OPERATIONS_OWNER | Артем Асаev (low-code support context) | `LOW_CODE_PILOT_WEEK3_SUPPORT_OWNERSHIP_POLICY_V0.1.md` | PENDING | LEGACY_ONLY — **not verified for BINTRANS pilot ops** |
-| P1_INCIDENT_COMMANDER | TBD | — | PENDING | NOT_FOUND |
-| P2_INCIDENT_OWNER | Support owner (role label only) | `LOW_CODE_PILOT_WEEK3_SUPPORT_ESCALATION_MATRIX_V0.1.md` | PENDING | LEGACY_ONLY |
-| INFRASTRUCTURE_OWNER | DevOps (role label only) | `workstream-status-v0.1.md` | PENDING | LEGACY_ONLY |
-| DATABASE_OWNER | TBD | — | PENDING | NOT_FOUND |
-| SECURITY_OWNER | Security/Architecture (role label only) | escalation matrix | PENDING | LEGACY_ONLY |
-| GO_LIVE_AUTHORITY | TBD | — | PENDING | NOT_FOUND |
-
-**Historical note (not operational approval):** Low-code Week-3 governance documents reference individuals in PM / go-no-go contexts. Those records apply to the **low-code controlled pilot documentation track**, not automatically to BINTRANS Control Tower staging operational roles. Do **not** infer BINTRANS on-call ownership from historical mentions alone.
+| OPS-BLK-001 | Telegram alert delivery | **CLOSED** |
+| OPS-BLK-002 | On-call / ownership | **OPEN_PENDING_OWNER_ACK** |
+| OPS-BLK-003 | Support / escalation | **OPEN_PENDING_OWNER_ACK_DEPENDENCY** |
+| OPS-BLK-004 | RPO / RTO | **OPEN_PENDING_DAILY_BACKUP_AUTOMATION** |
+| OPS-BLK-005 | Registry / image pinning | **OPEN_MEDIUM** — out of scope |
 
 ---
 
-## 2. Minimum ownership model (PROPOSED — not approved)
+## 1. Ownership register (management-approved)
 
-Minimum required roles for controlled BINTRANS pilot:
+Recorded **2026-09-03** by controller. Replaces prior TBD / LEGACY_ONLY values for the eight minimum roles.
 
-| ID | Role | Required for pilot |
-|---|---|---|
-| A | PILOT_BUSINESS_OWNER | YES |
-| B | PILOT_TECHNICAL_OWNER | YES |
-| C | PILOT_OPERATIONS_OWNER | YES |
-| D | P1_INCIDENT_COMMANDER | YES |
-| E | INFRASTRUCTURE_OWNER | YES |
-| F | DATABASE_OWNER | YES |
-| G | SECURITY_OWNER | YES |
-| H | GO_LIVE_AUTHORITY | YES |
+| Role | ASSIGNED | MANAGEMENT_APPROVED | OWNER_ACKNOWLEDGED | CONTACT_METHOD | ACK_SOURCE | ACK_DATE |
+|---|---|---|---|---|---|---|
+| PILOT_BUSINESS_OWNER | Феликс | YES | YES | PENDING | CONTROLLER_CHAT | 2026-09-03 |
+| PILOT_TECHNICAL_OWNER | Марина | YES | NO — PENDING | PENDING | — | — |
+| PILOT_OPERATIONS_OWNER | Люба | YES | NO — PENDING | PENDING | — | — |
+| P1_INCIDENT_COMMANDER | Люба | YES | NO — PENDING | PENDING | — | — |
+| INFRASTRUCTURE_OWNER | Люба | YES | NO — PENDING | PENDING | — | — |
+| DATABASE_OWNER | Люба | YES | NO — PENDING | PENDING | — | — |
+| SECURITY_OWNER | Марина | YES | NO — PENDING | PENDING | — | — |
+| GO_LIVE_AUTHORITY | Феликс | YES | YES | PENDING | CONTROLLER_CHAT | 2026-09-03 |
+
+### Per-person ACK summary
+
+| Person | Roles | OWNER_ACK | Notes |
+|---|---|---|---|
+| Феликс | PILOT_BUSINESS_OWNER, GO_LIVE_AUTHORITY | **YES** | Controller provided approval personally (`FELIX_OWNER_ACK=YES`) |
+| Марина | PILOT_TECHNICAL_OWNER, SECURITY_OWNER | **PENDING** | `MARINA_OWNER_ACK=PENDING` — do not fabricate |
+| Люба | PILOT_OPERATIONS_OWNER, P1_INCIDENT_COMMANDER, INFRASTRUCTURE_OWNER, DATABASE_OWNER | **PENDING** | `LYUBA_OWNER_ACK=PENDING` — do not fabricate |
 
 ```text
 MULTI_ROLE_ALLOWED=YES_FOR_SMALL_PILOT
-MULTI_ROLE_APPROVAL_STATUS=PROPOSED_NOT_APPROVED
+MULTI_ROLE_APPROVED=YES
+OWNERSHIP_ACK_COMPLETE=NO
+OPS-BLK-002=OPEN_PENDING_OWNER_ACK
+OPS-BLK-002_CLOSED=NO
 ```
 
-One accountable individual **may** cover multiple roles during a small controlled pilot, but **every role must have an explicit named owner** before OPS-BLK-002 can close. Role labels alone (`Platform team`, `DevOps`) are insufficient.
+**Historical (LEGACY_ONLY — superseded for BINTRANS pilot):** Low-code Week-3 documents referenced other individuals in PM/support contexts. Those records are **not** operational ownership for BINTRANS Control Tower staging.
 
 ---
 
-## 3. Acknowledgement model (PROPOSED — not approved)
+## 2. Minimum ownership model (MANAGEMENT APPROVED)
 
-Each role requires an explicit acknowledgement record before OPS-BLK-002 closure:
+| ID | Role | Assigned | Management approved |
+|---|---|---|---|
+| A | PILOT_BUSINESS_OWNER | Феликс | YES |
+| B | PILOT_TECHNICAL_OWNER | Марина | YES |
+| C | PILOT_OPERATIONS_OWNER | Люба | YES |
+| D | P1_INCIDENT_COMMANDER | Люба | YES |
+| E | INFRASTRUCTURE_OWNER | Люба | YES |
+| F | DATABASE_OWNER | Люба | YES |
+| G | SECURITY_OWNER | Марина | YES |
+| H | GO_LIVE_AUTHORITY | Феликс | YES |
 
-| Field | Required |
+One individual may cover multiple roles during small controlled pilot — **approved** for Феликс, Марина, and Люба as above.
+
+---
+
+## 3. Acknowledgement model
+
+| Field | Rule |
 |---|---|
-| NAME | Named individual |
-| ROLE | From minimum model |
-| CONTACT_METHOD | Email / phone / Telegram / ticket queue — **do not invent** |
-| ACK_STATUS | `PENDING` or `ACKNOWLEDGED` |
-| ACK_TIMESTAMP | UTC ISO-8601 when acknowledged |
-| APPROVED_BY | Management authority who recorded acceptance |
+| MANAGEMENT_APPROVED | Controller assigned named owner (2026-09-03) |
+| OWNER_ACKNOWLEDGED | Individual confirmed on-call acceptance |
+| CONTACT_METHOD | PENDING until supplied — do not invent phone/email/Telegram |
 
 ```text
 ACK_STATUS_ALLOWED=PENDING|ACKNOWLEDGED
-NO_ROLE_MAY_CLOSE_WITH_ACK_STATUS=PENDING
-OWNERSHIP_ACK_COMPLETE=NO
+NO_BLOCKER_CLOSURE_WITH_PENDING_OWNER_ACK=YES
 ```
-
-### Acknowledgement register (empty — management to fill)
-
-| Role | NAME | CONTACT_METHOD | ACK_STATUS | ACK_TIMESTAMP | APPROVED_BY |
-|---|---|---|---|---|---|
-| PILOT_BUSINESS_OWNER | | | PENDING | | |
-| PILOT_TECHNICAL_OWNER | | | PENDING | | |
-| PILOT_OPERATIONS_OWNER | | | PENDING | | |
-| P1_INCIDENT_COMMANDER | | | PENDING | | |
-| INFRASTRUCTURE_OWNER | | | PENDING | | |
-| DATABASE_OWNER | | | PENDING | | |
-| SECURITY_OWNER | | | PENDING | | |
-| GO_LIVE_AUTHORITY | | | PENDING | | |
 
 ---
 
-## 4. Support model (OPS-BLK-003) — PROPOSED
+## 4. Support model (MANAGEMENT APPROVED)
 
-Unless existing approved values are found, propose:
-
-| Field | PROPOSED_VALUE | APPROVAL_STATUS |
+| Field | Value | Status |
 |---|---|---|
-| SUPPORT_WINDOW | 09:00–18:00 MSK, Monday–Friday | PROPOSED_NOT_APPROVED |
-| P1_INITIAL_ACK_TARGET | 15 minutes | PROPOSED_NOT_APPROVED |
-| P2_INITIAL_ACK_TARGET | 30 minutes | PROPOSED_NOT_APPROVED |
-| P3_INITIAL_ACK_TARGET | Next support window / backlog triage | PROPOSED_NOT_APPROVED |
+| SUPPORT_WINDOW | 09:00–18:00 MSK, Monday–Friday | **MANAGEMENT APPROVED** |
+| P1_INITIAL_ACK_TARGET | 15 minutes | **MANAGEMENT APPROVED** |
+| P2_INITIAL_ACK_TARGET | 30 minutes | **MANAGEMENT APPROVED** |
+| P3_INITIAL_ACK_TARGET | Next support window / backlog triage | **MANAGEMENT APPROVED** |
 
-### Incident levels (PROPOSED)
+```text
+SUPPORT_POLICY_MANAGEMENT_APPROVED=YES
+OPS-BLK-003_POLICY_APPROVED=YES
+OPS-BLK-003=OPEN_PENDING_OWNER_ACK_DEPENDENCY
+OPS-BLK-003_CLOSED=NO
+```
+
+### Incident levels (approved)
 
 | Level | Definition |
 |---|---|
@@ -119,19 +116,19 @@ Unless existing approved values are found, propose:
 | **P2** | Major degradation; important workflow unavailable; workaround exists; pilot can continue partially |
 | **P3** | Non-critical defect; UX issue; reporting inconsistency; minor operational issue |
 
-**Current approved support values:** NOT_FOUND for BINTRANS pilot. Low-code pack documents same-business-day / next-business-day targets — treat as **LEGACY_ONLY**, not BINTRANS-approved.
+**Legacy note:** Low-code pack same-business-day / next-business-day targets remain **HISTORICAL / LEGACY_ONLY** — superseded by approved BINTRANS targets above.
 
 ---
 
-## 5. Escalation chain (PROPOSED)
+## 5. Escalation chain (approved policy)
 
 ### P1
 
-Monitoring / Operator → PILOT_OPERATIONS_OWNER → P1_INCIDENT_COMMANDER → PILOT_TECHNICAL_OWNER → PILOT_BUSINESS_OWNER / GO_LIVE_AUTHORITY
+Monitoring / Operator → PILOT_OPERATIONS_OWNER (Люба) → P1_INCIDENT_COMMANDER (Люба) → PILOT_TECHNICAL_OWNER (Марина) → PILOT_BUSINESS_OWNER / GO_LIVE_AUTHORITY (Феликс)
 
 ### P2
 
-Monitoring / Operator → PILOT_OPERATIONS_OWNER → PILOT_TECHNICAL_OWNER
+Monitoring / Operator → PILOT_OPERATIONS_OWNER (Люба) → PILOT_TECHNICAL_OWNER (Марина)
 
 ### P3
 
@@ -141,17 +138,15 @@ Support queue → backlog / responsible product owner
 
 | Field | Value | Status |
 |---|---|---|
-| CHANNEL_NAME | BINTRANS Pilot Ops (Telegram group) | OPERATIONAL — alert delivery proven OPS-BLK-001 |
-| CHANNEL_ROLE | ALERT_AND_INCIDENT_COORDINATION_CHANNEL | PROPOSED_NOT_APPROVED as sole support route |
-| CHAT_ID | `-5081547385` | Configured in Alertmanager (protected env) |
+| ESCALATION_CHANNEL | BINTRANS Pilot Ops | **MANAGEMENT APPROVED** |
+| CHANNEL_ROLE | ALERT_AND_INCIDENT_COORDINATION_CHANNEL | **MANAGEMENT APPROVED** |
+| TELEGRAM_ALERT_DELIVERY | Active | OPS-BLK-001 CLOSED |
 
-Telegram is **not** the only durable audit log. Incidents must also be recorded in operator incident notes / ticket system when assigned.
-
-**Links:** `docs/bintrans-pilot/BINTRANS_PILOT_INCIDENT_RUNBOOK_INDEX_V1.md`, `docs/LOW_CODE_PILOT_WEEK3_SUPPORT_ESCALATION_MATRIX_V0.1.md`
+Telegram is **not** the only durable audit log.
 
 ---
 
-## 6. ACK procedure (PROPOSED — documentation only)
+## 6. ACK procedure (approved policy)
 
 For an incoming alert:
 
@@ -161,151 +156,161 @@ For an incoming alert:
 4. For P1/P2: incident remains owned until resolved or explicit handoff.
 5. Resolution is explicitly recorded.
 
-### Minimal ACK format
-
 ```text
 ACK | <severity> | <alert/incident> | <owner> | <UTC timestamp>
 ```
 
-Example (illustrative only):
-
-```text
-ACK | P1 | BintransPilotServiceDown | <owner> | 2026-09-02T21:00:00Z
-```
-
-No Telegram bot workflow is implemented in this task.
-
 ---
 
-## 7. RPO / RTO (OPS-BLK-004) — PROPOSED
+## 7. RPO / RTO (management-approved targets)
 
-### Observed staging evidence (historical — not approval)
-
-| Field | Value | Source |
-|---|---|---|
-| RESTORE_DRILL | PASS | P0 isolated drill |
-| OBSERVED_TECHNICAL_RESTORE_DURATION | ~6 seconds (DB restore on disposable target) | staging restore drill |
-| LATEST_BACKUP | `freight_platform_20260901T190602Z.dump` | `/protected/bintrans/backups/` |
-| BACKUP_VALIDATION | PASS (`pg_restore -l`, SHA256 recorded) | backup scripts |
-
-### Proposed pilot targets
-
-| Field | PROPOSED_VALUE | APPROVED |
-|---|---|---|
-| RPO | 24 hours (daily validated logical backup) | **NO** |
-| RTO | 30 minutes (committed operational target) | **NO** |
-
-**RPO consequence:** In worst case, up to one day's changes could require reconstruction if only daily backup is available.
-
-**RTO distinction:**
-
-| Term | Meaning |
-|---|---|
-| OBSERVED_TECHNICAL_RESTORE_DURATION | Seconds-level DB restore observed in isolated drill |
-| COMMITTED_OPERATIONAL_RTO | 30 minutes — allows incident recognition, operator action, backup selection, restore, verification, service recovery |
-
-```text
-RPO_APPROVED=NO
-RTO_APPROVED=NO
-RTO_APPROVAL_STATUS=PROPOSED_NOT_APPROVED
-```
-
----
-
-## 8. Backup requirements for RPO
+### Observed staging evidence (HISTORICAL)
 
 | Field | Value |
 |---|---|
-| BACKUP_CURRENT_MODE | Manual operator invocation |
+| RESTORE_DRILL | PASS |
+| OBSERVED_TECHNICAL_RESTORE_DURATION | ~6 seconds (isolated DB restore — **not** operational RTO) |
+| LATEST_BACKUP | `freight_platform_20260901T190602Z.dump` |
+| BACKUP_VALIDATION | PASS |
+
+### Approved targets
+
+| Field | Value | Status |
+|---|---|---|
+| RPO_TARGET | 24 hours (daily validated logical backup) | **MANAGEMENT APPROVED** |
+| RTO_TARGET | 30 minutes (committed operational target) | **MANAGEMENT APPROVED** |
+| COMMITTED_OPERATIONAL_RTO | 30 minutes | **RTO_APPROVED=YES** |
+
+```text
+RPO_TARGET_MANAGEMENT_APPROVED=YES
+RTO_MANAGEMENT_APPROVED=YES
+RTO_APPROVED=YES
+RPO_OPERATIONALLY_SATISFIED=NO
+RPO_GAP_ACCEPTED=NO
+OPS-BLK-004=OPEN_PENDING_DAILY_BACKUP_AUTOMATION
+OPS-BLK-004_CLOSED=NO
+```
+
+**RPO consequence:** Up to one day's changes could require reconstruction if only daily backup is available — target approved, mechanism not yet guaranteed.
+
+---
+
+## 8. Backup requirements and implementation gap
+
+| Field | Value |
+|---|---|
+| BACKUP_CURRENT_MODE | MANUAL_OPERATOR_INVOCATION |
 | BACKUP_SCRIPT | `scripts/ops/bintrans_ct_staging/bintrans_ct_staging_backup.sh` |
-| BACKUP_AUTOMATED | NO — no cron/systemd schedule in repository |
-| BACKUP_SCHEDULE | None automated; operator-run on demand |
-| BACKUP_VALIDATION_AUTOMATED | Partial — freshness metric via `bintrans_pilot_backup_metrics.sh` after manual backup |
-| BACKUP_STORAGE | `/protected/bintrans/backups/` |
-| METADATA_UPDATE | `bintrans_pilot_backup_metadata_update.sh` → protected `staging.env` |
+| BACKUP_AUTOMATED | NO |
+| BACKUP_SCHEDULE | None automated |
+| RPO_IMPLEMENTATION_GAP | **YES** |
+| DAILY_VALIDATED_BACKUP_REQUIRED | **YES** |
+| RPO_GAP_ACCEPTED | **NO** |
+| RPO_GAP_ACCEPTED_BY | — |
+| RPO_GAP_ACCEPTED_DATE | — |
+
+Controller rejected accepting the gap without automated daily backup. Target RPO=24h is approved; operational satisfaction requires backup automation follow-up.
+
+### Backup remediation follow-up (TECHNICAL PROPOSAL — not implemented)
 
 ```text
-RPO_IMPLEMENTATION_GAP=YES
-DAILY_VALIDATED_BACKUP_REQUIRED=YES
+BACKUP_FOLLOWUP_REQUIRED=YES
+DAILY_BACKUP_TIME_PROPOSED=03:00 MSK
 ```
 
-**Gap:** Proposed RPO of 24h requires a **daily validated backup cadence**. Current mechanism is manual. Management may approve RPO=24h only with explicit acceptance of the gap **or** authorization to implement automated daily backup before pilot go-live.
+Required future capability:
 
-Provider snapshot (Selectel VM) may exist separately — not substituted here without verified schedule and retention evidence.
+- Automatic daily PostgreSQL logical backup
+- Fail-closed validation
+- SHA256 generation
+- Backup metadata update
+- Retention policy
+- Failure exit code
+- Failure visible to pilot monitoring (`BintransPilotBackupStale` alert remains meaningful)
+- No secret leakage
+- Restore compatibility preserved
+
+**Do not install cron/systemd in this docs-only task.**
 
 ---
 
-## 9. Decision matrix
+## 9. Decision matrix (updated)
 
-| DECISION_ID | TOPIC | PROPOSED_VALUE | CURRENT_STATUS | MANAGEMENT_INPUT_REQUIRED | BLOCKER |
+| DECISION_ID | TOPIC | APPROVED_VALUE | MANAGEMENT_APPROVED | OWNER_ACK / OPS SATISFIED | BLOCKER |
 |---|---|---|---|---|---|
-| DEC-OPS-001 | Business Owner | Named individual | TBD | YES | OPS-BLK-002 |
-| DEC-OPS-002 | Technical Owner | Named individual | LEGACY_ONLY label | YES | OPS-BLK-002 |
-| DEC-OPS-003 | Operations Owner | Named individual | LEGACY_ONLY (low-code) | YES | OPS-BLK-002 |
-| DEC-OPS-004 | P1 Incident Commander | Named individual | TBD | YES | OPS-BLK-002 |
-| DEC-OPS-005 | Infrastructure Owner | Named individual | LEGACY_ONLY label | YES | OPS-BLK-002 |
-| DEC-OPS-006 | Database Owner | Named individual | TBD | YES | OPS-BLK-002 |
-| DEC-OPS-007 | Security Owner | Named individual | LEGACY_ONLY label | YES | OPS-BLK-002 |
-| DEC-OPS-008 | Go-Live Authority | Named individual | TBD | YES | OPS-BLK-002 |
-| DEC-OPS-009 | Support Window | 09:00–18:00 MSK Mon–Fri | NOT DEFINED | YES | OPS-BLK-003 |
-| DEC-OPS-010 | P1 ACK target | 15 minutes | LEGACY_ONLY (same day) | YES | OPS-BLK-003 |
-| DEC-OPS-011 | P2 ACK target | 30 minutes | LEGACY_ONLY (next day) | YES | OPS-BLK-003 |
-| DEC-OPS-012 | Escalation channel | BINTRANS Pilot Ops (coordination) | Telegram configured; policy not approved | YES | OPS-BLK-003 |
-| DEC-OPS-013 | RPO | 24h daily validated backup | Mechanism manual; gap exists | YES | OPS-BLK-004 |
-| DEC-OPS-014 | RTO | 30 minutes operational | Observed restore seconds; not certified | YES | OPS-BLK-004 |
-
-No row marked APPROVED unless explicit evidence exists. Current evidence supports **PROPOSED** or **LEGACY_ONLY** only.
+| DEC-OPS-001 | Business Owner | Феликс | YES | ACK YES | OPS-BLK-002 pending others |
+| DEC-OPS-002 | Technical Owner | Марина | YES | ACK PENDING | OPS-BLK-002 |
+| DEC-OPS-003 | Operations Owner | Люба | YES | ACK PENDING | OPS-BLK-002 |
+| DEC-OPS-004 | P1 Incident Commander | Люба | YES | ACK PENDING | OPS-BLK-002 |
+| DEC-OPS-005 | Infrastructure Owner | Люба | YES | ACK PENDING | OPS-BLK-002 |
+| DEC-OPS-006 | Database Owner | Люба | YES | ACK PENDING | OPS-BLK-002 |
+| DEC-OPS-007 | Security Owner | Марина | YES | ACK PENDING | OPS-BLK-002 |
+| DEC-OPS-008 | Go-Live Authority | Феликс | YES | ACK YES | OPS-BLK-002 pending others |
+| DEC-OPS-009 | Support Window | 09:00–18:00 MSK Mon–Fri | YES | Policy only | OPS-BLK-003 |
+| DEC-OPS-010 | P1 ACK target | 15 minutes | YES | Policy only | OPS-BLK-003 |
+| DEC-OPS-011 | P2 ACK target | 30 minutes | YES | Policy only | OPS-BLK-003 |
+| DEC-OPS-012 | Escalation channel | BINTRANS Pilot Ops | YES | Policy only | OPS-BLK-003 |
+| DEC-OPS-013 | RPO | 24h | YES (target) | **NOT operationally satisfied** | OPS-BLK-004 |
+| DEC-OPS-014 | RTO | 30 minutes | YES | Approved | OPS-BLK-004 pending backup |
 
 ---
 
-## 10. MANAGEMENT APPROVAL REQUIRED
-
-Controller / management: complete and return (sanitized — no secrets):
+## 10. MANAGEMENT APPROVAL RECORD
 
 ```text
-PILOT_BUSINESS_OWNER=
-PILOT_TECHNICAL_OWNER=
-PILOT_OPERATIONS_OWNER=
-P1_INCIDENT_COMMANDER=
-INFRASTRUCTURE_OWNER=
-DATABASE_OWNER=
-SECURITY_OWNER=
-GO_LIVE_AUTHORITY=
+APPROVED_BY=Феликс
+APPROVAL_DATE=2026-09-03
+APPROVAL_SOURCE=CONTROLLER_CHAT
+MANAGEMENT_APPROVAL_RECORDED=YES
 
-SUPPORT_WINDOW=
-P1_ACK_TARGET=
-P2_ACK_TARGET=
-ESCALATION_CHANNEL=
+PILOT_BUSINESS_OWNER=Феликс
+PILOT_TECHNICAL_OWNER=Марина
+PILOT_OPERATIONS_OWNER=Люба
+P1_INCIDENT_COMMANDER=Люба
+INFRASTRUCTURE_OWNER=Люба
+DATABASE_OWNER=Люба
+SECURITY_OWNER=Марина
+GO_LIVE_AUTHORITY=Феликс
 
-RPO=
-RTO=
+SUPPORT_WINDOW=09:00–18:00 MSK, Monday–Friday
+P1_ACK_TARGET=15 minutes
+P2_ACK_TARGET=30 minutes
+ESCALATION_CHANNEL=BINTRANS Pilot Ops
 
-APPROVED_BY=
-APPROVAL_DATE=
+RPO=24h
+RTO=30 minutes
+
+RPO_GAP_ACCEPTED=NO
 ```
 
-Optional risk acceptance if RPO gap accepted without automated daily backup:
+### Owner ACK record (separate from management approval)
 
 ```text
-RPO_GAP_ACCEPTED=YES|NO
-RPO_GAP_ACCEPTED_BY=
-RPO_GAP_ACCEPTED_DATE=
+FELIX_OWNER_ACK=YES
+FELIX_ACK_SOURCE=CONTROLLER_CHAT
+FELIX_ACK_DATE=2026-09-03
+
+MARINA_OWNER_ACK=PENDING
+LYUBA_OWNER_ACK=PENDING
 ```
 
 ---
 
-## 11. Blocker status summary
+## 11. Blocker and pilot readiness summary
 
 ```text
-OPS-BLK-001=CLOSED (Telegram alert lifecycle PASS — see operational decisions doc)
-OPS-BLK-002=OPEN_WAITING_FOR_MANAGEMENT_APPROVAL
-OPS-BLK-003=OPEN_WAITING_FOR_MANAGEMENT_APPROVAL
-OPS-BLK-004=OPEN_WAITING_FOR_MANAGEMENT_APPROVAL
-OPS-BLK-005=OPEN_MEDIUM (not in scope)
+OPS-BLK-001=CLOSED
+OPS-BLK-002=OPEN_PENDING_OWNER_ACK
+OPS-BLK-003=OPEN_PENDING_OWNER_ACK_DEPENDENCY
+OPS-BLK-004=OPEN_PENDING_DAILY_BACKUP_AUTOMATION
+OPS-BLK-005=OPEN_MEDIUM
+
+OPS_OBS_TELEGRAM_EGRESS_DNS_WORKAROUND=OPEN_NONBLOCKING
+PILOT_REPEAT_INTERVAL_REVIEW=RECOMMENDED
 
 PILOT_OPERATIONAL_READINESS=FAIL
 CONTROLLED_PILOT_GO_LIVE_RECOMMENDATION=NO_GO
 REAL_USER_PILOT_ALLOWED=NO
 ```
 
-**NEXT_ACTION:** CONTROLLER_MANAGEMENT_DECISION
+**NEXT_ACTION:** WAIT_FOR_MARINA_AND_LYUBA_OWNER_ACK + CONTROLLER_REVIEW_FOR_BACKUP_AUTOMATION_TASK

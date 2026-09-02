@@ -1,35 +1,37 @@
 # BINTRANS Pilot Support Model Pack v1
 
-**Status:** OPEN — awaiting management approval  
-**Blocker:** OPS-BLK-003  
-**Full model:** `docs/bintrans-pilot/BINTRANS_PILOT_MANAGEMENT_APPROVAL_PACK_V1.md` §4–6
+**Status:** SUPPORT POLICY MANAGEMENT APPROVED — ops closure pending owner ACK
+**Blocker:** OPS-BLK-003 — **OPEN_PENDING_OWNER_ACK_DEPENDENCY**
 
-## Response targets (PROPOSED)
+## Response targets (MANAGEMENT APPROVED)
 
-| Severity | CURRENT | PROPOSED | APPROVED |
-|---|---|---|---|
-| P1_INITIAL_ACK | LEGACY_ONLY (same business day) | 15 minutes | NO |
-| P2_INITIAL_ACK | LEGACY_ONLY (next business day) | 30 minutes | NO |
-| P3 | — | Next support window / backlog triage | NO |
+| Severity | Target | APPROVED |
+|---|---|---|
+| P1_INITIAL_ACK | 15 minutes | **YES** |
+| P2_INITIAL_ACK | 30 minutes | **YES** |
+| P3 | Next support window / backlog triage | **YES** |
 
-## Support window (PROPOSED)
+## Support window (MANAGEMENT APPROVED)
 
-| Field | CURRENT | PROPOSED | APPROVED |
-|---|---|---|---|
-| PILOT_SUPPORT_WINDOW | NOT DEFINED | 09:00–18:00 MSK, Monday–Friday | NO |
+| Field | Value | APPROVED |
+|---|---|---|
+| PILOT_SUPPORT_WINDOW | 09:00–18:00 MSK, Monday–Friday | **YES** |
 
-## Channels
+## Channels (MANAGEMENT APPROVED)
 
-| Field | CURRENT | PROPOSED | APPROVED |
-|---|---|---|---|
-| PRIMARY_SUPPORT_CHANNEL | NOT ACTIVE | Operator intake TBD | NO |
-| ESCALATION_CHANNEL | NOT_PROVIDED | BINTRANS Pilot Ops (ALERT_AND_INCIDENT_COORDINATION_CHANNEL) | NO |
-| TELEGRAM_ALERT_DELIVERY | ACTIVE (OPS-BLK-001 CLOSED) | Coordination + alerts | Policy not approved |
+| Field | Value | APPROVED |
+|---|---|---|
+| ESCALATION_CHANNEL | BINTRANS Pilot Ops | **YES** |
+| CHANNEL_ROLE | ALERT_AND_INCIDENT_COORDINATION_CHANNEL | **YES** |
+| TELEGRAM_ALERT_DELIVERY | Active (OPS-BLK-001 CLOSED) | — |
 
 ```text
-SUPPORT_WINDOW_APPROVED=NO
-SUPPORT_APPROVED=NO
-OPS-BLK-003=OPEN_WAITING_FOR_MANAGEMENT_APPROVAL
+SUPPORT_POLICY_MANAGEMENT_APPROVED=YES
+OPS-BLK-003_POLICY_APPROVED=YES
+OPS-BLK-003=OPEN_PENDING_OWNER_ACK_DEPENDENCY
+OPS-BLK-003_CLOSED=NO
 ```
 
-**Links:** `docs/bintrans-pilot/BINTRANS_PILOT_INCIDENT_RUNBOOK_INDEX_V1.md`, `docs/LOW_CODE_PILOT_WEEK3_SUPPORT_ESCALATION_MATRIX_V0.1.md`
+Operational escalation depends on Марина / Люба owner ACK for assigned roles.
+
+**Links:** `docs/bintrans-pilot/BINTRANS_PILOT_MANAGEMENT_APPROVAL_PACK_V1.md` §4–5

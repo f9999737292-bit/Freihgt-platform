@@ -1,11 +1,9 @@
 # BINTRANS Pilot Operational Decisions v1
 
-**Status:** OPEN — awaiting management input  
-**Wave:** P0.1 Critical Operations Blocker Closure + Management Decision Package v0.1  
-**Base SHA:** `6e4d3e22ec09c91d7d2a57e189918db15c564e69`  
+**Status:** MANAGEMENT APPROVAL RECORDED — owner ACK and backup automation pending
+**Wave:** Management Approval Record + Owner ACK Gate v0.2
+**Base SHA:** `6e4d3e22ec09c91d7d2a57e189918db15c564e69`
 **Primary management pack:** `docs/bintrans-pilot/BINTRANS_PILOT_MANAGEMENT_APPROVAL_PACK_V1.md`
-
-Sections are labeled **APPROVED**, **PROPOSED**, **OPEN**, or **HISTORICAL**. Do not mark APPROVED without explicit evidence.
 
 ---
 
@@ -13,16 +11,18 @@ Sections are labeled **APPROVED**, **PROPOSED**, **OPEN**, or **HISTORICAL**. Do
 
 | Blocker | Topic | Status | Notes |
 |---|---|---|---|
-| OPS-BLK-001 | Telegram alert delivery | **CLOSED** | FIRING + RESOLVED lifecycle PASS; human confirmation recorded |
-| OPS-BLK-002 | On-call ownership | **OPEN_WAITING_FOR_MANAGEMENT_APPROVAL** | Named owners + ACK required |
-| OPS-BLK-003 | Support / escalation | **OPEN_WAITING_FOR_MANAGEMENT_APPROVAL** | Window + ACK targets not approved |
-| OPS-BLK-004 | RPO / RTO | **OPEN_WAITING_FOR_MANAGEMENT_APPROVAL** | Proposed 24h / 30m; not approved |
-| OPS-BLK-005 | Registry / image pinning | **OPEN_MEDIUM** | Out of scope for management pack v0.1 |
+| OPS-BLK-001 | Telegram alert delivery | **CLOSED** | FIRING + RESOLVED lifecycle PASS |
+| OPS-BLK-002 | On-call ownership | **OPEN_PENDING_OWNER_ACK** | Management approved; Марина/Люба ACK pending |
+| OPS-BLK-003 | Support / escalation | **OPEN_PENDING_OWNER_ACK_DEPENDENCY** | Policy approved; ops ownership ACK pending |
+| OPS-BLK-004 | RPO / RTO | **OPEN_PENDING_DAILY_BACKUP_AUTOMATION** | Targets approved; RPO gap not accepted |
+| OPS-BLK-005 | Registry / image pinning | **OPEN_MEDIUM** | Unchanged |
 
 ```text
 PILOT_OPERATIONAL_READINESS=FAIL
 CONTROLLED_PILOT_GO_LIVE_RECOMMENDATION=NO_GO
 REAL_USER_PILOT_ALLOWED=NO
+OPS_OBS_TELEGRAM_EGRESS_DNS_WORKAROUND=OPEN_NONBLOCKING
+PILOT_REPEAT_INTERVAL_REVIEW=RECOMMENDED
 ```
 
 ---
@@ -32,37 +32,31 @@ REAL_USER_PILOT_ALLOWED=NO
 | Field | Value |
 |---|---|
 | **Status** | **CLOSED** |
-| **Final verdict** | PASS |
 | **Synthetic test** | `telegram-clean-lifecycle-20260902T210510Z` |
-| **Root cause** | Upstream partial Telegram IP blocking (default DNS A-record blocked) |
-| **Remediation** | Alertmanager `extra_hosts` DNS override to reachable Telegram DC (staging compose) |
-| **Human gates** | FIRING confirmation YES; RESOLVED confirmation recorded by controller |
-| **Closure date** | 2026-09-02 (controller state) |
-
-Do not reopen OPS-BLK-001 unless Telegram delivery regresses.
+| **Root cause** | Upstream partial Telegram IP blocking |
+| **Remediation** | Alertmanager `extra_hosts` DNS override (staging) |
+| **Closure date** | 2026-09-02 |
 
 ---
 
-## DECISION-001 — Critical ownership assignments (OPS-BLK-002)
+## DECISION-001 — Critical ownership (OPS-BLK-002)
 
 | Field | Value |
 |---|---|
-| **Decision** | Assign named accountable individuals for pilot-critical roles |
-| **Status** | **OPEN_WAITING_FOR_MANAGEMENT_APPROVAL** |
-| **Approver role** | Management / GO_LIVE_AUTHORITY |
+| **Management approval** | **YES** — 2026-09-03, APPROVED_BY=Феликс |
+| **Status** | **OPEN_PENDING_OWNER_ACK** |
+| **Closed** | **NO** |
 
-See ownership inventory and acknowledgement register in `BINTRANS_PILOT_MANAGEMENT_APPROVAL_PACK_V1.md` §1–3.
-
-| Role | CURRENT | APPROVED |
-|---|---|---|
-| PILOT_BUSINESS_OWNER | TBD | NO |
-| PILOT_TECHNICAL_OWNER | Role label only (LEGACY_ONLY) | NO |
-| PILOT_OPERATIONS_OWNER | Low-code legacy reference (LEGACY_ONLY) | NO |
-| P1_INCIDENT_COMMANDER | TBD | NO |
-| INFRASTRUCTURE_OWNER | Role label only (LEGACY_ONLY) | NO |
-| DATABASE_OWNER | TBD | NO |
-| SECURITY_OWNER | Role label only (LEGACY_ONLY) | NO |
-| GO_LIVE_AUTHORITY | TBD | NO |
+| Role | Assigned | MANAGEMENT_APPROVED | OWNER_ACKNOWLEDGED |
+|---|---|---|---|
+| PILOT_BUSINESS_OWNER | Феликс | YES | YES |
+| PILOT_TECHNICAL_OWNER | Марина | YES | NO — PENDING |
+| PILOT_OPERATIONS_OWNER | Люба | YES | NO — PENDING |
+| P1_INCIDENT_COMMANDER | Люба | YES | NO — PENDING |
+| INFRASTRUCTURE_OWNER | Люба | YES | NO — PENDING |
+| DATABASE_OWNER | Люба | YES | NO — PENDING |
+| SECURITY_OWNER | Марина | YES | NO — PENDING |
+| GO_LIVE_AUTHORITY | Феликс | YES | YES |
 
 ---
 
@@ -70,32 +64,29 @@ See ownership inventory and acknowledgement register in `BINTRANS_PILOT_MANAGEME
 
 | Field | Value |
 |---|---|
-| **Decision** | Approve primary support and escalation route |
-| **Status** | **OPEN_WAITING_FOR_MANAGEMENT_APPROVAL** |
-| **Approver role** | PILOT_BUSINESS_OWNER + PILOT_OPERATIONS_OWNER |
+| **Policy management approved** | **YES** — 2026-09-03 |
+| **Status** | **OPEN_PENDING_OWNER_ACK_DEPENDENCY** |
+| **Closed** | **NO** |
 
-| Field | CURRENT | PROPOSED | APPROVED |
-|---|---|---|---|
-| PRIMARY_SUPPORT_CHANNEL | NOT_PROVIDED | BINTRANS Pilot Ops (coordination) | NO |
-| ESCALATION_CHANNEL | NOT_PROVIDED | Per escalation chain in management pack | NO |
-| CHANNEL_ROLE | Telegram alert delivery active | ALERT_AND_INCIDENT_COORDINATION_CHANNEL | NO |
+| Field | APPROVED |
+|---|---|
+| ESCALATION_CHANNEL | BINTRANS Pilot Ops — **YES** |
+| CHANNEL_ROLE | ALERT_AND_INCIDENT_COORDINATION_CHANNEL — **YES** |
 
 ---
 
 ## DECISION-003 — Support window / SLA (OPS-BLK-003)
 
-| Field | Value |
+| Field | APPROVED |
 |---|---|
-| **Decision** | Approve pilot support window and P1/P2 response targets |
-| **Status** | **OPEN_WAITING_FOR_MANAGEMENT_APPROVAL** |
-| **Approver role** | PILOT_BUSINESS_OWNER |
+| PILOT_SUPPORT_WINDOW | 09:00–18:00 MSK, Mon–Fri — **YES** |
+| P1_INITIAL_ACK_TARGET | 15 minutes — **YES** |
+| P2_INITIAL_ACK_TARGET | 30 minutes — **YES** |
+| P3_INITIAL_ACK_TARGET | Next support window / backlog — **YES** |
 
-| Field | CURRENT | PROPOSED | APPROVED |
-|---|---|---|---|
-| PILOT_SUPPORT_WINDOW | NOT DEFINED | 09:00–18:00 MSK, Mon–Fri | NO |
-| P1_INITIAL_ACK_TARGET | LEGACY_ONLY | 15 minutes | NO |
-| P2_INITIAL_ACK_TARGET | LEGACY_ONLY | 30 minutes | NO |
-| P3_INITIAL_ACK_TARGET | — | Next support window / backlog | NO |
+```text
+SUPPORT_POLICY_MANAGEMENT_APPROVED=YES
+```
 
 ---
 
@@ -103,18 +94,19 @@ See ownership inventory and acknowledgement register in `BINTRANS_PILOT_MANAGEME
 
 | Field | Value |
 |---|---|
-| **Decision** | Approve recovery point objective |
-| **Status** | **OPEN_WAITING_FOR_MANAGEMENT_APPROVAL** |
-| **Approver role** | GO_LIVE_AUTHORITY |
+| **RPO target management approved** | **YES** — 24h |
+| **RPO operationally satisfied** | **NO** |
+| **RPO gap accepted** | **NO** |
+| **Status** | **OPEN_PENDING_DAILY_BACKUP_AUTOMATION** |
 
 | Field | Value |
 |---|---|
-| RPO_PROPOSED | 24 hours (daily validated logical backup) |
-| RPO_APPROVED | **NO** |
-| BACKUP_CURRENT_MODE | Manual operator invocation |
-| RPO_IMPLEMENTATION_GAP | **YES** — automated daily backup not active |
-
-See `BINTRANS_PILOT_RPO_RTO_APPROVAL_PACK_V1.md`.
+| RPO_TARGET | 24 hours |
+| BACKUP_CURRENT_MODE | MANUAL_OPERATOR_INVOCATION |
+| BACKUP_AUTOMATED | NO |
+| RPO_IMPLEMENTATION_GAP | YES |
+| BACKUP_FOLLOWUP_REQUIRED | YES |
+| DAILY_BACKUP_TIME_PROPOSED | 03:00 MSK (technical proposal) |
 
 ---
 
@@ -122,44 +114,25 @@ See `BINTRANS_PILOT_RPO_RTO_APPROVAL_PACK_V1.md`.
 
 | Field | Value |
 |---|---|
-| **Decision** | Approve recovery time objective |
-| **Status** | **OPEN_WAITING_FOR_MANAGEMENT_APPROVAL** |
-| **Approver role** | GO_LIVE_AUTHORITY |
+| **RTO management approved** | **YES** — 30 minutes |
+| **RTO_APPROVED** | **YES** |
 
 | Field | Value |
 |---|---|
-| RTO_PROPOSED | 30 minutes (committed operational target) |
-| RTO_APPROVED | **NO** |
-| OBSERVED_TECHNICAL_RESTORE_DURATION | ~6 seconds (isolated DB restore drill — **not** operational RTO) |
-| RTO_APPROVAL_STATUS | PROPOSED_NOT_APPROVED |
+| COMMITTED_OPERATIONAL_RTO | 30 minutes |
+| OBSERVED_TECHNICAL_RESTORE_DURATION | ~6 seconds (isolated drill — not operational RTO) |
+
+Blocker OPS-BLK-004 remains open pending daily backup automation despite RTO approval.
 
 ---
 
-## DECISION-006 — Local-image acceptance / registry publish (OPS-BLK-005)
+## DECISION-006 — Local-image acceptance (OPS-BLK-005)
 
-| Field | Value |
-|---|---|
-| **Status** | **OPEN_MEDIUM** — not addressed in management pack v0.1 |
-| **Approver role** | PILOT_OPERATIONS_OWNER + GO_LIVE_AUTHORITY |
-
-No change in this task.
-
----
-
-## Supporting documents
-
-| Document | Purpose |
-|---|---|
-| `BINTRANS_PILOT_MANAGEMENT_APPROVAL_PACK_V1.md` | Decision matrix, fill-in block, escalation, ACK model |
-| `BINTRANS_PILOT_OWNERSHIP_APPROVAL_PACK_V1.md` | Ownership summary |
-| `BINTRANS_PILOT_SUPPORT_MODEL_PACK_V1.md` | Support targets summary |
-| `BINTRANS_PILOT_RPO_RTO_APPROVAL_PACK_V1.md` | RPO/RTO evidence summary |
-| `BINTRANS_PILOT_INCIDENT_RUNBOOK_INDEX_V1.md` | Incident navigation |
-| `BINTRANS_PILOT_LOGGING_BASELINE_V1.md` | Logging baseline |
+**Status:** OPEN_MEDIUM — unchanged. No work in v0.2.
 
 ---
 
 ```text
-MANAGEMENT_ACTION_REQUIRED=YES
-NEXT_ACTION=CONTROLLER_MANAGEMENT_DECISION
+MANAGEMENT_APPROVAL_RECORDED=YES
+NEXT_ACTION=WAIT_FOR_MARINA_AND_LYUBA_OWNER_ACK
 ```

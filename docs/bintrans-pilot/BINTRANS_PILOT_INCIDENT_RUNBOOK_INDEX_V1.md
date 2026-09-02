@@ -1,8 +1,8 @@
 # BINTRANS Pilot Incident Runbook Index v1
 
-**Status:** READY (canonical navigation index)  
-**Scope:** Controlled operator-assisted pilot on BINTRANS CT staging (`161.104.57.152`)  
-**Escalation policy:** `docs/bintrans-pilot/BINTRANS_PILOT_MANAGEMENT_APPROVAL_PACK_V1.md` §5–6 (PROPOSED)
+**Status:** READY (canonical navigation index)
+**Scope:** Controlled operator-assisted pilot on BINTRANS CT staging (`161.104.57.152`)
+**Escalation policy:** `docs/bintrans-pilot/BINTRANS_PILOT_MANAGEMENT_APPROVAL_PACK_V1.md` §4–5 (MANAGEMENT APPROVED — owner ACK pending for Марина/Люба)
 
 Use this index to reach the correct procedure. Detailed steps remain in linked runbooks.
 
@@ -38,7 +38,7 @@ Use this index to reach the correct procedure. Detailed steps remain in linked r
 
 **Rollback:** Use `/protected/bintrans/deploy-snapshots/` and wave2r7 digest manifest.
 
-**Escalation:** P1 → P1_INCIDENT_COMMANDER → PILOT_TECHNICAL_OWNER (see management pack)
+**Escalation:** P1 → P1_INCIDENT_COMMANDER (Люба) → PILOT_TECHNICAL_OWNER (Марина) → GO_LIVE_AUTHORITY (Феликс)
 
 **Links:**
 - `docs/BINTRANS_DEDICATED_CONTROL_TOWER_STAGING_RUNBOOK.md`
