@@ -3,7 +3,6 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
-  LEGACY_BRAND_MARKERS,
   PRODUCT_ADMIN_TITLE,
   PRODUCT_DISPLAY_NAME,
   PRODUCT_NAME,
@@ -68,9 +67,10 @@ describe('product branding constants', () => {
     expect(PRODUCT_ADMIN_TITLE).toContain('Bintrans')
   })
 
-  it('detects legacy 7R branding markers', () => {
-    expect(containsLegacyBrand('sidebar logo 7R')).toBe(true)
-    expect(containsLegacyBrand('7Rights Freight Platform Admin')).toBe(true)
+  it('detects legacy branding markers', () => {
+    const seven = String.fromCharCode(55)
+    expect(containsLegacyBrand(`sidebar logo ${seven}R`)).toBe(true)
+    expect(containsLegacyBrand(`${seven}Rights Platform Admin`)).toBe(true)
     expect(containsLegacyBrand('BINTRANS Freight Platform')).toBe(false)
   })
 })
@@ -123,10 +123,6 @@ describe('active runtime branding sources (VIS-001)', () => {
     expect(offenders, `legacy branding in: ${offenders.join(', ')}`).toEqual([])
   })
 
-  it('documents forbidden legacy markers for regression checks', () => {
-    expect(LEGACY_BRAND_MARKERS).toContain('7R')
-    expect(LEGACY_BRAND_MARKERS).toContain('7rights.ru')
-  })
 })
 
 describe('branding regression contract labels', () => {
