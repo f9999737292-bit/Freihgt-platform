@@ -1,10 +1,16 @@
+<script setup lang="ts">
+import { PRODUCT_DISPLAY_NAME } from '~/utils/productBranding'
+</script>
+
 <template>
   <div class="auth-layout">
     <div class="auth-layout__panel">
       <div class="auth-layout__brand">
-        <span class="auth-layout__logo">7R</span>
+        <div class="auth-layout__logo">
+          <LayoutProductWordmark />
+        </div>
         <div>
-          <strong>Bintrans Freight Platform</strong>
+          <strong>{{ PRODUCT_DISPLAY_NAME }}</strong>
           <p>{{ $t('app.subtitle') }}</p>
         </div>
       </div>
@@ -41,14 +47,14 @@
 }
 
 .auth-layout__logo {
-  width: 48px;
+  min-width: 48px;
   height: 48px;
+  padding: 0 0.35rem;
   display: grid;
   place-items: center;
   border-radius: var(--radius-md);
   background: var(--color-sidebar);
   color: #fff;
-  font-weight: 700;
 }
 
 .auth-layout__brand p {

@@ -24,7 +24,9 @@ const visibleNavItems = computed(() => navItems.filter((item) => canSeeNavItem(i
 <template>
   <aside class="sidebar" :class="{ 'sidebar--collapsed': uiStore.sidebarCollapsed }">
     <div class="sidebar__brand">
-      <span class="sidebar__logo">7R</span>
+      <div class="sidebar__logo">
+        <LayoutProductWordmark :compact="uiStore.sidebarCollapsed" />
+      </div>
       <div v-if="!uiStore.sidebarCollapsed" class="sidebar__brand-text">
         <strong>Bintrans</strong>
         <span>Freight Platform</span>
@@ -69,14 +71,14 @@ const visibleNavItems = computed(() => navItems.filter((item) => canSeeNavItem(i
 }
 
 .sidebar__logo {
-  width: 36px;
+  min-width: 36px;
   height: 36px;
+  padding: 0 0.25rem;
   display: grid;
   place-items: center;
   border-radius: var(--radius-md);
   background: var(--color-primary);
   color: #fff;
-  font-weight: 700;
   flex-shrink: 0;
 }
 
