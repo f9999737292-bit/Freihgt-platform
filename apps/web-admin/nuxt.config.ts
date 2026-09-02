@@ -13,7 +13,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || 'http://localhost:8080',
-      appName: process.env.NUXT_PUBLIC_APP_NAME || 'Freight Platform Admin',
+      appName: process.env.NUXT_PUBLIC_APP_NAME || 'Bintrans Freight Platform Admin',
       defaultLocale: process.env.NUXT_PUBLIC_DEFAULT_LOCALE || 'ru-RU',
       defaultTenantId: process.env.NUXT_PUBLIC_DEFAULT_TENANT_ID || '',
       mockAuth: process.env.NUXT_PUBLIC_MOCK_AUTH === 'true',
