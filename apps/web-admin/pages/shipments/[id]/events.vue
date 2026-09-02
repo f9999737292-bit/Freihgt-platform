@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import { shipmentDetailRoute } from '~/utils/shipmentDetailNavigation'
+
 definePageMeta({ middleware: 'auth', layout: 'default' })
 
 const route = useRoute()
-const { t } = useI18n()
+const router = useRouter()
 
 const shipmentId = computed(() => String(route.params.id))
 
@@ -34,6 +36,10 @@ function applyFilters() {
 function handleResetFilters() {
   resetFilters()
 }
+
+function goToShipmentDetail() {
+  router.push(shipmentDetailRoute(shipmentId.value))
+}
 </script>
 
 <template>
@@ -51,7 +57,7 @@ function handleResetFilters() {
         <span v-if="data?.shipment.number">{{ data.shipment.number }}</span>
       </template>
       <template #actions>
-        <UiButton variant="secondary" :to="`/shipments/${shipmentId}`">
+        <UiButton variant="secondary" data-testid="event-history-back-to-shipment" @click="goToShipmentDetail">
           {{ $t('shipmentEvents.backToShipment') }}
         </UiButton>
         <UiButton variant="secondary" @click="fetchEvents">{{ $t('common.refresh') }}</UiButton>
