@@ -148,6 +148,8 @@ bintrans_pilot_create_validated_backup() {
   timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
   partial_file="${backup_dir}/freight_platform_${timestamp}.partial"
   backup_file="${backup_dir}/freight_platform_${timestamp}.dump"
+  local created_utc validated_utc
+  created_utc="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
   pg_cid="$(bintrans_postgres_container)"
   [[ -n "${pg_cid}" ]] || bintrans_fail "postgres container not running — start foundation first"
@@ -171,8 +173,6 @@ bintrans_pilot_create_validated_backup() {
   BINTRANS_LAST_BACKUP_PATH="${backup_file}"
   BINTRANS_LAST_BACKUP_SHA256="${backup_sha256}"
   BINTRANS_LAST_BACKUP_SIZE_BYTES="${backup_size_bytes}"
-  local created_utc validated_utc
-  created_utc="${timestamp}"
   validated_utc="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
   if [[ "${publish}" == "yes" ]]; then
@@ -180,6 +180,5 @@ bintrans_pilot_create_validated_backup() {
       "${backup_file}" "${backup_sha256}" "${backup_size_bytes}" \
       "${created_utc}" "${validated_utc}"
     bintrans_pilot_backup_update_staging_env "${backup_file}" "${backup_sha256}"
-    bintrans_pilot_backup_publish_metrics
   fi
 }

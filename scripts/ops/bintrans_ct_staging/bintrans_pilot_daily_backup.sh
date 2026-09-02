@@ -37,6 +37,7 @@ backup_sha256="${BINTRANS_LAST_BACKUP_SHA256}"
 backup_size_bytes="${BINTRANS_LAST_BACKUP_SIZE_BYTES}"
 
 bintrans_pilot_backup_write_run_state 1 "validated backup complete" "${RUN_UTC}"
+bintrans_pilot_backup_publish_metrics
 trap - ERR
 
 echo "BACKUP_PATH=${backup_file}"
