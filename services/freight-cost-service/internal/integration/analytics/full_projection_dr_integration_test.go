@@ -57,13 +57,18 @@ type fullProjectionFixture struct {
 
 func seedFullProjectionFixture(t *testing.T, env *fullProjectionEnv) fullProjectionFixture {
 	t.Helper()
+	return seedFullProjectionFixtureAt(t, env, time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC))
+}
+
+func seedFullProjectionFixtureAt(t *testing.T, env *fullProjectionEnv, period time.Time) fullProjectionFixture {
+	t.Helper()
 	ctx := context.Background()
 	fix := fullProjectionFixture{
 		tenantID: uuid.New(),
 		buyerID:  uuid.New(),
 		carrierA: uuid.New(),
 		carrierB: uuid.New(),
-		period:   time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC),
+		period:   period.UTC(),
 	}
 	equipment := "TENT"
 	lcEnv := env.laneCarrierEnv
