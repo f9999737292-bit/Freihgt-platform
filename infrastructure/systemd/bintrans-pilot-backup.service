@@ -1,0 +1,16 @@
+[Unit]
+Description=BINTRANS pilot daily validated PostgreSQL backup
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/bintrans/control-tower-staging
+UMask=0077
+ExecStart=/opt/bintrans/control-tower-staging/scripts/ops/bintrans_ct_staging/bintrans_pilot_daily_backup.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
