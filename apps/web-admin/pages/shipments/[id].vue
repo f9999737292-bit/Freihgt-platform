@@ -7,8 +7,8 @@ import type {
   Shipment,
   Vehicle,
 } from '~/types/shipment'
-import type { ControlTowerShipmentRisk } from '~/types/controlTower'
 import { buildShipmentValidationContext } from '~/utils/lowCodeValidationContext'
+import { shipmentEventHistoryRoute, shipmentsListRoute } from '~/utils/shipmentDetailNavigation'
 
 definePageMeta({ middleware: 'auth', layout: 'default' })
 
@@ -68,6 +68,14 @@ function createPod() {
 
 function createEtrn() {
   router.push(`/documents?shipment_id=${shipmentId.value}&document_type=ETRN`)
+}
+
+function goToEventHistory() {
+  router.push(shipmentEventHistoryRoute(shipmentId.value))
+}
+
+function goToShipmentsList() {
+  router.push(shipmentsListRoute())
 }
 
 function companyName(id?: string | null) {
@@ -204,10 +212,10 @@ onMounted(async () => {
 
     <UiPageHeader :title="shipment?.shipment_number || $t('shipments.details')">
       <template #actions>
-        <UiButton variant="secondary" :to="`/shipments/${shipmentId}/events`">
+        <UiButton variant="secondary" data-testid="shipment-event-history" @click="goToEventHistory">
           {{ $t('shipmentEvents.title') }}
         </UiButton>
-        <UiButton variant="secondary" @click="$router.push('/shipments')">
+        <UiButton variant="secondary" data-testid="shipment-back-to-list" @click="goToShipmentsList">
           {{ $t('common.back') }}
         </UiButton>
       </template>
