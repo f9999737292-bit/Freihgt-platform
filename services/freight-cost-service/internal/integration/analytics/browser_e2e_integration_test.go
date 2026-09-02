@@ -116,9 +116,18 @@ func startBrowserLiveStack(t *testing.T) *browserLiveStack {
 	}
 }
 
+// analyticsPublicDefaultWindowAnchor keeps browser fixture projections inside the public
+// analytics default rolling window (now-90d..now). Fixed historical dates eventually fall
+// outside that window because period_start is normalized to month start.
+func analyticsPublicDefaultWindowAnchor(now time.Time) time.Time {
+	now = now.UTC()
+	anchor := now.AddDate(0, 0, -21)
+	return time.Date(anchor.Year(), anchor.Month(), 15, 0, 0, 0, 0, time.UTC)
+}
+
 func seedBrowserE2EFixture(t *testing.T, env *fullProjectionEnv) browserFixture {
 	t.Helper()
-	base := seedFullProjectionFixture(t, env)
+	base := seedFullProjectionFixtureAt(t, env, analyticsPublicDefaultWindowAnchor(time.Now()))
 	ctx := context.Background()
 	if _, err := env.pool.Exec(ctx, `
 		DELETE FROM freight_cost.cost_summary_projection
