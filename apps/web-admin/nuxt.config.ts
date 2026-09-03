@@ -45,6 +45,18 @@ export default defineNuxtConfig({
     },
   },
   routeRules: {
-    '/freight-requests/**': { ssr: false },
+    '/_nuxt/**': {
+      headers: {
+        'Cache-Control': 'public, max-age=31536000, immutable',
+      },
+    },
+    '/**': {
+      // localStorage session is client-only; SSR auth redirects to /login and
+      // hydrates into authenticated routes, corrupting AppShell layout (CASE_D).
+      ssr: false,
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+      },
+    },
   },
 })
