@@ -63,18 +63,22 @@ async function main() {
 
   await page.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle', timeout: 60000 })
   record('DASHBOARD_SHELL_RENDER', (await page.locator('.app-shell').count()) > 0 ? 'PASS' : 'FAIL')
-  record('DASHBOARD_HEADER_VISIBLE', (await page.locator('.app-header').count()) > 0 ? 'PASS' : 'FAIL')
+  record('DASHBOARD_HEADER_VISIBLE', (await page.locator('.header').count()) > 0 ? 'PASS' : 'FAIL')
 
   await page.goto(`${BASE}/rfx`, { waitUntil: 'networkidle', timeout: 60000 })
   const bodyText = await page.locator('body').innerText()
 
+  const appShellMainCount = await page.locator('.app-shell__main').count()
+  const pageStackCount = await page.locator('.page-stack').count()
+  const createButtonCount = await page.getByRole('button', { name: /Создать RFx|Create RFx/i }).count()
+
   record('APP_SHELL_DOM_PRESENT', (await page.locator('.app-shell').count()) > 0 ? 'YES' : 'NO')
   record('SIDEBAR_DOM_PRESENT', (await page.locator('.sidebar').count()) > 0 ? 'YES' : 'NO')
-  record('MAIN_DOM_PRESENT', (await page.locator('.app-shell__main').count()) > 0 ? 'YES' : 'NO')
-  record('HEADER_DOM_PRESENT', (await page.locator('.app-header').count()) > 0 ? 'YES' : 'NO')
+  record('MAIN_DOM_PRESENT', appShellMainCount > 0 ? 'YES' : 'NO')
+  record('HEADER_DOM_PRESENT', (await page.locator('.header').count()) > 0 ? 'YES' : 'NO')
   record('CONTENT_DOM_PRESENT', (await page.locator('.page-stack, .ui-page-header').count()) > 0 ? 'YES' : 'NO')
-  record('CREATE_BUTTON_VISIBLE', (await page.getByRole('button', { name: /Создать RFx|Create RFx/i }).count()) > 0 ? 'PASS' : 'FAIL')
-  record('RFX_SHELL_RENDER', (await page.locator('.page-stack').count()) > 0 ? 'PASS' : 'FAIL')
+  record('CREATE_BUTTON_VISIBLE', createButtonCount > 0 ? 'PASS' : 'FAIL')
+  record('RFX_SHELL_RENDER', pageStackCount > 0 ? 'PASS' : 'FAIL')
   record('RFX_CONTENT_VISIBLE', /RFx|Тендер|Создать RFx|Поиск/i.test(bodyText) ? 'PASS' : 'FAIL')
   record('BODY_HAS_INVALID', /(^|\s)Invalid(\s|$)/i.test(bodyText) ? 'YES' : 'NO')
   record('FIRST_BROWSER_ERROR', firstConsole || 'NONE')
@@ -83,13 +87,13 @@ async function main() {
   record('FAILED_RESOURCE_STATUS', failedStatus || 'NONE')
   record('NUXT_ASSET_FAILURES', failedRequests.length ? failedRequests.slice(0, 5).join(' | ') : 'NONE')
 
-  await browser.close()
-
   const pass =
-    (await page.locator('.app-shell__main').count()) > 0 &&
-    (await page.locator('.page-stack').count()) > 0 &&
+    appShellMainCount > 0 &&
+    pageStackCount > 0 &&
     failedRequests.length === 0 &&
     !firstPage
+
+  await browser.close()
   process.exit(pass ? 0 : 1)
 }
 
