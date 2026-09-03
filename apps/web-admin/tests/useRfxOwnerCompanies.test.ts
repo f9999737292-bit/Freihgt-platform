@@ -47,6 +47,23 @@ describe('RFx owner company authorization semantics', () => {
 
     expect(options).toEqual([])
   })
+
+  it('matches rfx-service buyer company type filter contract', () => {
+    const repoSource = readFileSync(
+      resolve(import.meta.dirname, '../../../services/rfx-service/internal/repository/membership_repository.go'),
+      'utf8',
+    )
+    const actorSource = readFileSync(
+      resolve(import.meta.dirname, '../../../services/rfx-service/internal/domain/actor.go'),
+      'utf8',
+    )
+
+    expect(repoSource).toContain("AND c.company_type IN ('SHIPPER', 'FORWARDER', 'LSP')")
+    for (const companyType of BUYER_OWNER_COMPANY_TYPES) {
+      expect(actorSource).toContain(`"${companyType}"`)
+    }
+    expect(BUYER_OWNER_COMPANY_TYPES).toEqual(['SHIPPER', 'FORWARDER', 'LSP'])
+  })
 })
 
 describe('RfxCreateModal owner load UX (source contract)', () => {

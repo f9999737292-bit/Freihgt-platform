@@ -68,15 +68,16 @@ watch(
   },
 )
 
-watch(
-  () => form.valid_to,
-  () => {
-    if (!errors.valid_to) return
-    if (!form.valid_from || !form.valid_to || form.valid_to >= form.valid_from) {
-      delete errors.valid_to
-    }
-  },
-)
+function clearValidToRangeErrorIfFixed() {
+  if (!errors.valid_to) return
+  if (!form.valid_from || !form.valid_to || form.valid_to >= form.valid_from) {
+    delete errors.valid_to
+  }
+}
+
+watch(() => form.valid_from, clearValidToRangeErrorIfFixed)
+
+watch(() => form.valid_to, clearValidToRangeErrorIfFixed)
 
 function resetFormState() {
   Object.assign(form, emptyCreateRfxForm())

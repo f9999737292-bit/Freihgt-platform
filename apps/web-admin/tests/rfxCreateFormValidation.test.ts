@@ -31,6 +31,22 @@ describe('RFx create form validation state', () => {
     expect(errors.owner_company_id).toBeUndefined()
   })
 
+  it('clears valid_to range error when valid_from fixes an invalid range', () => {
+    const form = emptyCreateRfxForm()
+    form.valid_from = '2026-12-31'
+    form.valid_to = '2026-01-01'
+    const errors: RfxFormErrors = {}
+
+    replaceRfxFormErrors(errors, validateCreateRfxForm(form))
+    expect(errors.valid_to).toBe('range')
+
+    form.valid_from = '2026-01-01'
+    if (!form.valid_from || !form.valid_to || form.valid_to >= form.valid_from) {
+      delete errors.valid_to
+    }
+    expect(errors.valid_to).toBeUndefined()
+  })
+
   it('does not leave prior field keys after Object.assign-style sparse updates', () => {
     const form = emptyCreateRfxForm()
     const errors: RfxFormErrors = {}
@@ -61,5 +77,7 @@ describe('RfxCreateModal validation integration (source contract)', () => {
     expect(source).not.toMatch(/Object\.assign\(errors,\s*validateCreateRfxForm/)
     expect(source).toContain("if (value.trim()) delete errors.title")
     expect(source).toContain("if (value.trim()) delete errors.owner_company_id")
+    expect(source).toContain('clearValidToRangeErrorIfFixed')
+    expect(source).toContain('watch(() => form.valid_from, clearValidToRangeErrorIfFixed)')
   })
 })
