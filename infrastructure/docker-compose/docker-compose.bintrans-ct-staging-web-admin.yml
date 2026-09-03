@@ -7,14 +7,14 @@
 #   CONTAINER_LISTEN=0.0.0.0:13000
 #   REMOTE_HOST_PUBLICATION=127.0.0.1:13000:13000
 #
-# Operator SSH (CORS-compatible localhost origin):
+# Operator SSH (localhost origins for CORS — api-gateway allowlist includes :13000 and :18080 tunnel ports):
 #   ssh -i ~/.ssh/bintrans_selectel_staging \
-#     -L 3000:127.0.0.1:13000 \
+#     -L 13000:127.0.0.1:13000 \
 #     -L 18080:127.0.0.1:18080 \
 #     root@161.104.57.152
 #
-# Browser (must use localhost, not 127.0.0.1:13000 — api-gateway CORS allowlist):
-#   http://localhost:3000/login
+# Browser (use localhost, not 127.0.0.1 — CORS allowlist uses localhost hostnames):
+#   http://localhost:13000/login
 #
 # Apply with digest-pinned image from protected env (never commit secrets):
 #   --env-file /protected/bintrans/control-tower-observation/staging.env
