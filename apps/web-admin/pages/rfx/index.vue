@@ -192,12 +192,12 @@ onMounted(async () => {
           <td>
             <NuxtLink :to="`/rfx/${item.id}`" class="link">{{ item.rfx_number }}</NuxtLink>
           </td>
-          <td><RfxRfxTypeBadge :type="item.rfx_type" /></td>
+          <td><RfxTypeBadge :type="item.rfx_type" /></td>
           <td>{{ item.category }}</td>
           <td>{{ item.title }}</td>
           <td>{{ companyName(item.owner_company_id) }}</td>
           <td>{{ formatRfxDate(item.response_deadline) }}</td>
-          <td><RfxRfxStatusBadge :status="item.status" /></td>
+          <td><RfxStatusBadge :status="item.status" /></td>
           <td><NuxtLink :to="`/rfx/${item.id}`">{{ $t('common.details') }}</NuxtLink></td>
         </tr>
       </UiTable>
@@ -211,7 +211,7 @@ onMounted(async () => {
       </div>
     </UiCard>
 
-    <RfxRfxCreateModal :open="showCreateModal" @close="showCreateModal = false" @created="loadRfx" />
+    <RfxCreateModal :open="showCreateModal" @close="showCreateModal = false" @created="loadRfx" />
   </div>
 </template>
 

@@ -104,9 +104,9 @@ onMounted(async () => {
     <UiEmptyState v-else-if="!event" :title="$t('rfx.noRfxFound')" />
 
     <template v-else>
-      <RfxRfxActions :event="event" @updated="loadEvent" @edit="openEdit" />
-      <RfxRfxDetailsCard :event="event" :company-name="companyName" @edit="openEdit" />
-      <RfxRfxParticipantsTable :rfx-event-id="event.id" :company-name="companyNameById" />
+      <RfxActions :event="event" @updated="loadEvent" @edit="openEdit" />
+      <RfxDetailsCard :event="event" :company-name="companyName" @edit="openEdit" />
+      <RfxParticipantsTable :rfx-event-id="event.id" :company-name="companyNameById" />
       <LowCodeCustomFieldsPanel
         entity-type="RFX"
         :entity-id="event.id"
