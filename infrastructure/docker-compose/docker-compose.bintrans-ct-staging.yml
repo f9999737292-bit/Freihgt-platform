@@ -147,6 +147,8 @@ services:
       CONTRACT_RATE_SERVICE_URL: http://contract-rate-service:8091
       FREIGHT_COST_SERVICE_URL: http://freight-cost-service:8092
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
+      # Pilot operator SSH tunnel serves web-admin at localhost:13000; browser fetch to localhost:18080 requires explicit CORS allow.
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:5173,http://localhost:13000,http://127.0.0.1:13000}
 
   prometheus:
     ports: !override
