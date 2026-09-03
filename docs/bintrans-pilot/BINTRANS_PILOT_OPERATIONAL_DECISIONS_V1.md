@@ -1,138 +1,133 @@
 # BINTRANS Pilot Operational Decisions v1
 
-**Status:** MANAGEMENT APPROVAL RECORDED — owner ACK and backup automation pending
-**Wave:** Management Approval Record + Owner ACK Gate v0.2
-**Base SHA:** `6e4d3e22ec09c91d7d2a57e189918db15c564e69`
-**Primary management pack:** `docs/bintrans-pilot/BINTRANS_PILOT_MANAGEMENT_APPROVAL_PACK_V1.md`
+**Status:** PARTIALLY CLOSED — OPS-BLK-002/003/004 closed; OPS-BLK-005 remains open
+**Wave:** P0.1 Critical Operations Blocker Closure
+**Last updated:** 2026-09-03
 
 ---
 
-## Blocker register
-
-| Blocker | Topic | Status | Notes |
-|---|---|---|---|
-| OPS-BLK-001 | Telegram alert delivery | **CLOSED** | FIRING + RESOLVED lifecycle PASS |
-| OPS-BLK-002 | On-call ownership | **OPEN_PENDING_OWNER_ACK** | Management approved; Марина/Люба ACK pending |
-| OPS-BLK-003 | Support / escalation | **OPEN_PENDING_OWNER_ACK_DEPENDENCY** | Policy approved; ops ownership ACK pending |
-| OPS-BLK-004 | RPO / RTO | **OPEN_PENDING_DAILY_BACKUP_AUTOMATION** | Targets approved; RPO gap not accepted |
-| OPS-BLK-005 | Registry / image pinning | **OPEN_MEDIUM** | Unchanged |
+## Blocker summary
 
 ```text
-PILOT_OPERATIONAL_READINESS=FAIL
-CONTROLLED_PILOT_GO_LIVE_RECOMMENDATION=NO_GO
+OPS_BLK_001=CLOSED
+OPS_BLK_002_STATUS=CLOSED
+OPS_BLK_003_STATUS=CLOSED
+OPS_BLK_004_STATUS=CLOSED
+OPS_BLK_005_STATUS=OPEN_MEDIUM
+CRITICAL_BLOCKERS_REMAINING=0
+HIGH_BLOCKERS_REMAINING=0
+MEDIUM_BLOCKERS_REMAINING=1
+PILOT_OPERATIONAL_READINESS=CONDITIONAL_PENDING_OPS_BLK_005
+CONTROLLED_PILOT_GO_LIVE_RECOMMENDATION=PENDING_CONTROLLER_FINAL_READINESS_REVIEW
 REAL_USER_PILOT_ALLOWED=NO
-OPS_OBS_TELEGRAM_EGRESS_DNS_WORKAROUND=OPEN_NONBLOCKING
-PILOT_REPEAT_INTERVAL_REVIEW=RECOMMENDED
 ```
 
 ---
 
-## HISTORICAL — OPS-BLK-001 (CLOSED)
+## DECISION-001 — Critical ownership assignments
 
 | Field | Value |
 |---|---|
+| **Decision** | Assign named accountable individuals for pilot-critical roles |
 | **Status** | **CLOSED** |
-| **Synthetic test** | `telegram-clean-lifecycle-20260902T210510Z` |
-| **Root cause** | Upstream partial Telegram IP blocking |
-| **Remediation** | Alertmanager `extra_hosts` DNS override (staging) |
-| **Closure date** | 2026-09-02 |
 
----
-
-## DECISION-001 — Critical ownership (OPS-BLK-002)
-
-| Field | Value |
-|---|---|
-| **Management approval** | **YES** — 2026-09-03, APPROVED_BY=Феликс |
-| **Status** | **OPEN_PENDING_OWNER_ACK** |
-| **Closed** | **NO** |
-
-| Role | Assigned | MANAGEMENT_APPROVED | OWNER_ACKNOWLEDGED |
+| Role | ASSIGNED | ACKNOWLEDGED | SOURCE |
 |---|---|---|---|
-| PILOT_BUSINESS_OWNER | Феликс | YES | YES |
-| PILOT_TECHNICAL_OWNER | Марина | YES | NO — PENDING |
-| PILOT_OPERATIONS_OWNER | Люба | YES | NO — PENDING |
-| P1_INCIDENT_COMMANDER | Люба | YES | NO — PENDING |
-| INFRASTRUCTURE_OWNER | Люба | YES | NO — PENDING |
-| DATABASE_OWNER | Люба | YES | NO — PENDING |
-| SECURITY_OWNER | Марина | YES | NO — PENDING |
-| GO_LIVE_AUTHORITY | Феликс | YES | YES |
+| PILOT_BUSINESS_OWNER | Феликс | YES | BINTRANS_PILOT_OPS_TELEGRAM (2026-09-03) |
+| PILOT_TECHNICAL_OWNER | Марина | YES | BINTRANS_PILOT_OPS_TELEGRAM (2026-09-03) |
+| PILOT_OPERATIONS_OWNER | Люба | YES | BINTRANS_PILOT_OPS_TELEGRAM (2026-09-03) |
+| P1_INCIDENT_COMMANDER | Люба | YES | BINTRANS_PILOT_OPS_TELEGRAM (2026-09-03) |
+| INFRASTRUCTURE_OWNER | Люба | YES | BINTRANS_PILOT_OPS_TELEGRAM (2026-09-03) |
+| DATABASE_OWNER | Люба | YES | BINTRANS_PILOT_OPS_TELEGRAM (2026-09-03) |
+| SECURITY_OWNER | Марина | YES | BINTRANS_PILOT_OPS_TELEGRAM (2026-09-03) |
+| GO_LIVE_AUTHORITY | Феликс | YES | BINTRANS_PILOT_OPS_TELEGRAM (2026-09-03) |
 
 ---
 
-## DECISION-002 — Support / escalation channel (OPS-BLK-003)
+## DECISION-002 — Support / escalation channel
 
 | Field | Value |
 |---|---|
-| **Policy management approved** | **YES** — 2026-09-03 |
-| **Status** | **OPEN_PENDING_OWNER_ACK_DEPENDENCY** |
-| **Closed** | **NO** |
+| **Decision** | Activate primary support and escalation contact route for pilot users |
+| **Status** | **CLOSED** |
 
-| Field | APPROVED |
-|---|---|
-| ESCALATION_CHANNEL | BINTRANS Pilot Ops — **YES** |
-| CHANNEL_ROLE | ALERT_AND_INCIDENT_COORDINATION_CHANNEL — **YES** |
-
----
-
-## DECISION-003 — Support window / SLA (OPS-BLK-003)
-
-| Field | APPROVED |
-|---|---|
-| PILOT_SUPPORT_WINDOW | 09:00–18:00 MSK, Mon–Fri — **YES** |
-| P1_INITIAL_ACK_TARGET | 15 minutes — **YES** |
-| P2_INITIAL_ACK_TARGET | 30 minutes — **YES** |
-| P3_INITIAL_ACK_TARGET | Next support window / backlog — **YES** |
-
-```text
-SUPPORT_POLICY_MANAGEMENT_APPROVED=YES
-```
+| Field | CURRENT | APPROVED |
+|---|---|---|
+| PRIMARY_SUPPORT_CHANNEL | BINTRANS Pilot Ops | YES |
+| ESCALATION_CHANNEL | BINTRANS Pilot Ops | YES |
 
 ---
 
-## DECISION-004 — Pilot RPO (OPS-BLK-004)
+## DECISION-003 — Support window / SLA
 
 | Field | Value |
 |---|---|
-| **RPO target management approved** | **YES** — 24h |
-| **RPO operationally satisfied** | **NO** |
-| **RPO gap accepted** | **NO** |
-| **Status** | **OPEN_PENDING_DAILY_BACKUP_AUTOMATION** |
+| **Decision** | Approve pilot support window and P1/P2 response targets |
+| **Status** | **CLOSED** |
 
-| Field | Value |
-|---|---|
-| RPO_TARGET | 24 hours |
-| BACKUP_CURRENT_MODE | MANUAL_OPERATOR_INVOCATION |
-| BACKUP_AUTOMATED | NO |
-| RPO_IMPLEMENTATION_GAP | YES |
-| BACKUP_FOLLOWUP_REQUIRED | YES |
-| DAILY_BACKUP_TIME_PROPOSED | 03:00 MSK (technical proposal) |
+| Field | CURRENT | APPROVED |
+|---|---|---|
+| PILOT_SUPPORT_WINDOW | 09:00–18:00 MSK, Monday–Friday | YES |
+| P1_RESPONSE_TARGET | 15 minutes ACK target | YES |
+| P2_RESPONSE_TARGET | 30 minutes ACK target | YES |
 
 ---
 
-## DECISION-005 — Pilot RTO (OPS-BLK-004)
+## DECISION-004 — Pilot RPO
 
 | Field | Value |
 |---|---|
-| **RTO management approved** | **YES** — 30 minutes |
-| **RTO_APPROVED** | **YES** |
+| **Decision** | Approve recovery point objective for controlled pilot |
+| **Status** | **CLOSED** |
 
 | Field | Value |
 |---|---|
-| COMMITTED_OPERATIONAL_RTO | 30 minutes |
-| OBSERVED_TECHNICAL_RESTORE_DURATION | ~6 seconds (isolated drill — not operational RTO) |
-
-Blocker OPS-BLK-004 remains open pending daily backup automation despite RTO approval.
-
----
-
-## DECISION-006 — Local-image acceptance (OPS-BLK-005)
-
-**Status:** OPEN_MEDIUM — unchanged. No work in v0.2.
+| RPO_TARGET | 24h (daily validated backup via systemd timer) |
+| FIRST_SCHEDULED_BACKUP_PROVEN | YES (2026-09-03T00:00:16Z / 03:00 MSK) |
+| RPO_APPROVED | YES |
+| DAILY_BACKUP_AUTOMATION | ACTIVE |
 
 ---
 
-```text
-MANAGEMENT_APPROVAL_RECORDED=YES
-NEXT_ACTION=WAIT_FOR_MARINA_AND_LYUBA_OWNER_ACK
-```
+## DECISION-005 — Pilot RTO
+
+| Field | Value |
+|---|---|
+| **Decision** | Approve recovery time objective for controlled pilot |
+| **Status** | **CLOSED** |
+
+| Field | Value |
+|---|---|
+| RTO_TARGET | ≤30 minutes |
+| RTO_APPROVED | YES |
+| OBSERVED_DB_RESTORE_DURATION | 6 seconds (P0 isolated drill) |
+
+---
+
+## DECISION-006 — Local-image acceptance / registry publish
+
+| Field | Value |
+|---|---|
+| **Decision** | Accept local-image fallback or publish immutable registry images for targeted deploys |
+| **Status** | **ACTION_REQUIRED_FROM_MANAGEMENT** (OPS-BLK-005) |
+
+| Service | OCI revision | Current image form |
+|---|---|---|
+| rfx-service | `704ecbc3008e228c66046edc856a9de6dd6440c7` | local tag `bintrans-rfx-r3.1c1:704ecbc` |
+| shipment-service | `48ef3e56d428aa1ae53ae83e436fee493d7450a7` | local tag `bintrans-shipment-r3.1e1:48ef3e5` |
+| web-admin | `48ef3e56d428aa1ae53ae83e436fee493d7450a7` | local tag `bintrans-web-admin-r3.1e1:48ef3e5` |
+
+---
+
+## DECISION-007 — Alert external receiver (OPS-BLK-001)
+
+| Field | Value |
+|---|---|
+| **Decision** | Provide approved Alertmanager external receiver |
+| **Status** | **CLOSED** (OPS-BLK-001) |
+
+Protected env keys (when approved): `ALERT_WEBHOOK_URL`, `SLACK_WEBHOOK_URL`, `TELEGRAM_BOT_TOKEN`, `ALERT_EMAIL_TO`
+
+---
+
+**MANAGEMENT_ACTION_REQUIRED=YES** (OPS-BLK-005 registry/local-image acceptance only)

@@ -1,59 +1,43 @@
 # BINTRANS Pilot RPO/RTO Approval Pack v1
 
-**Status:** Targets management approved — RPO not operationally satisfied
-**Blocker:** OPS-BLK-004 — **OPEN_PENDING_DAILY_BACKUP_AUTOMATION**
+**Status:** CLOSED — first scheduled backup proven (2026-09-03)
 
-## Observed mechanism (HISTORICAL)
+## Observed mechanism (P0 + P0.1 + first timer run)
 
 | Field | Value |
 |---|---|
 | RESTORE_DRILL | PASS |
-| OBSERVED_TECHNICAL_RESTORE_DURATION | ~6 seconds (isolated DB restore) |
-| LATEST_BACKUP | `/protected/bintrans/backups/freight_platform_20260901T190602Z.dump` |
+| OBSERVED_DB_RESTORE_DURATION | 6 seconds |
+| LATEST_VALIDATED_BACKUP | `/protected/bintrans/backups/freight_platform_20260903T000016Z.dump` |
+| FIRST_SCHEDULED_TIMER_RUN_UTC | 2026-09-03T00:00:16Z (03:00 MSK) |
 | BACKUP_VALIDATION | PASS |
-| BACKUP_SCRIPT | `scripts/ops/bintrans_ct_staging/bintrans_ct_staging_backup.sh` |
+| DAILY_BACKUP_AUTOMATION | ACTIVE (`bintrans-pilot-backup.timer`) |
 
-## Backup mode
+## Approved pilot targets
 
-| Field | Value |
-|---|---|
-| BACKUP_CURRENT_MODE | MANUAL_OPERATOR_INVOCATION |
-| BACKUP_AUTOMATED | NO |
-| BACKUP_SCHEDULE | None automated |
-| RPO_IMPLEMENTATION_GAP | **YES** |
-| DAILY_VALIDATED_BACKUP_REQUIRED | **YES** |
-| BACKUP_FOLLOWUP_REQUIRED | **YES** |
-| DAILY_BACKUP_TIME_PROPOSED | 03:00 MSK (technical proposal — not implemented) |
-
-## Approved targets
-
-| Field | Value | MANAGEMENT_APPROVED |
+| Field | PROPOSED | APPROVED |
 |---|---|---|
-| RPO_TARGET | 24 hours | **YES** |
-| RTO_TARGET | 30 minutes (committed operational) | **YES** |
+| RPO_TARGET | 24h (daily validated backup) | YES |
+| RTO_TARGET | ≤30 minutes (restore + targeted service recreate) | YES |
 
 ## Approval record
 
 | Field | Value |
 |---|---|
-| APPROVED_BY | Феликс |
+| APPROVED_BY | GO_LIVE_AUTHORITY (Феликс) |
 | APPROVED_AT | 2026-09-03 |
-| APPROVAL_SOURCE | CONTROLLER_CHAT |
-| RPO_TARGET_MANAGEMENT_APPROVED | YES |
-| RTO_MANAGEMENT_APPROVED | YES |
-| RTO_APPROVED | **YES** |
-| RPO_OPERATIONALLY_SATISFIED | **NO** |
-| RPO_GAP_ACCEPTED | **NO** |
-| RPO_GAP_ACCEPTED_BY | — |
-| RPO_GAP_ACCEPTED_DATE | — |
+| FIRST_SCHEDULED_BACKUP_PROVEN | YES |
+| RPO_OPERATIONALLY_SATISFIED | YES |
 
 ```text
 RPO_TARGET=24h
-RTO_TARGET=30 minutes
+RPO_TARGET_APPROVED=YES
+RPO_AUTOMATION_ACTIVE=YES
+RPO_FIRST_SCHEDULED_RUN_PROVEN=YES
+RPO_OPERATIONALLY_SATISFIED=YES
+RTO_TARGET=30m
 RTO_APPROVED=YES
-RPO_OPERATIONALLY_SATISFIED=NO
-OPS-BLK-004=OPEN_PENDING_DAILY_BACKUP_AUTOMATION
-OPS-BLK-004_CLOSED=NO
+OPS_BLK_004_STATUS=CLOSED
+OPS_BLK_004_CLOSED=YES
+OPS_BLK_004_FINAL_VERDICT=PASS
 ```
-
-**Distinction:** OBSERVED_TECHNICAL_RESTORE_DURATION ≈ 6 seconds ≠ COMMITTED_OPERATIONAL_RTO = 30 minutes.
