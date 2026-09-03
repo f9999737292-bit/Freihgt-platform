@@ -2,23 +2,25 @@
 
 **Status:** CLOSED — management-approved roles acknowledged (2026-09-03)
 
-| Role | ASSIGNED | CONTACT_METHOD_PRESENT | ACKNOWLEDGED | SOURCE |
+| Role | ASSIGNED | CONTACT_CHANNEL | ACKNOWLEDGED | SOURCE |
 |---|---|---|---|---|
-| PILOT_BUSINESS_OWNER | Феликс | YES | YES | BINTRANS_PILOT_OPS_TELEGRAM (2026-09-03) |
-| PILOT_TECHNICAL_OWNER | Марина | YES | YES | BINTRANS_PILOT_OPS_TELEGRAM (2026-09-03) |
-| PILOT_OPERATIONS_OWNER | Люба | YES | YES | BINTRANS_PILOT_OPS_TELEGRAM (2026-09-03) |
-| P1_INCIDENT_COMMANDER | Люба | YES | YES | BINTRANS_PILOT_OPS_TELEGRAM (2026-09-03) |
-| P2_OWNER | Support owner (role label only) | NO | NO | escalation matrix |
-| INFRASTRUCTURE_OWNER | Люба | YES | YES | BINTRANS_PILOT_OPS_TELEGRAM (2026-09-03) |
-| DATABASE_OWNER | Люба | YES | YES | BINTRANS_PILOT_OPS_TELEGRAM (2026-09-03) |
-| SECURITY_OWNER | Марина | YES | YES | BINTRANS_PILOT_OPS_TELEGRAM (2026-09-03) |
-| GO_LIVE_AUTHORITY | Феликс | YES | YES | BINTRANS_PILOT_OPS_TELEGRAM (2026-09-03) |
+| PILOT_BUSINESS_OWNER | Феликс | BINTRANS Pilot Ops | YES | CONTROLLER_CHAT (2026-09-03) |
+| PILOT_TECHNICAL_OWNER | Марина | BINTRANS Pilot Ops | YES | BINTRANS_PILOT_OPS_TELEGRAM (2026-09-03) |
+| PILOT_OPERATIONS_OWNER | Люба | BINTRANS Pilot Ops | YES | BINTRANS_PILOT_OPS_TELEGRAM (2026-09-03) |
+| P1_INCIDENT_COMMANDER | Люба | BINTRANS Pilot Ops | YES | BINTRANS_PILOT_OPS_TELEGRAM (2026-09-03) |
+| INFRASTRUCTURE_OWNER | Люба | BINTRANS Pilot Ops | YES | BINTRANS_PILOT_OPS_TELEGRAM (2026-09-03) |
+| DATABASE_OWNER | Люба | BINTRANS Pilot Ops | YES | BINTRANS_PILOT_OPS_TELEGRAM (2026-09-03) |
+| SECURITY_OWNER | Марина | BINTRANS Pilot Ops | YES | BINTRANS_PILOT_OPS_TELEGRAM (2026-09-03) |
+| GO_LIVE_AUTHORITY | Феликс | BINTRANS Pilot Ops | YES | CONTROLLER_CHAT (2026-09-03) |
+
+**LEGACY_ONLY (not required for minimum pilot ownership completeness):** `P2_OWNER` — P2 escalation is covered by PILOT_OPERATIONS_OWNER → PILOT_TECHNICAL_OWNER.
 
 ```text
 OWNERSHIP_ACK_COMPLETE=YES
+ALL_REQUIRED_OWNER_ACK=YES
 OPS_BLK_002_STATUS=CLOSED
 OPS_BLK_002_CLOSED=YES
 OPS_BLK_002_FINAL_VERDICT=PASS
 ```
 
-**Note:** Eight management-approved accountable roles are acknowledged. `P2_OWNER` remains a documented escalation label without a separate named ACK in this pack.
+**Note:** `CONTACT_CHANNEL=BINTRANS Pilot Ops` denotes the shared incident coordination channel, not a verified personal phone/email/Telegram username for any individual.

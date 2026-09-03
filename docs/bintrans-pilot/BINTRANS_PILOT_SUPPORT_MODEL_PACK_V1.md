@@ -4,20 +4,26 @@
 
 ## Response targets
 
-| Severity | CURRENT | PROPOSED | APPROVED |
-|---|---|---|---|
-| P1_RESPONSE_TARGET | 15 minutes ACK target | 15 minutes ACK target | YES |
-| P2_RESPONSE_TARGET | 30 minutes ACK target | 30 minutes ACK target | YES |
+| Severity | CURRENT | APPROVED |
+|---|---|---|
+| P1_ACK_TARGET | 15 minutes | YES |
+| P2_ACK_TARGET | 30 minutes | YES |
 
 ## Channels
 
-| Field | CURRENT | PROPOSED | APPROVED |
-|---|---|---|---|
-| PILOT_SUPPORT_WINDOW | 09:00–18:00 MSK, Monday–Friday | 09:00–18:00 MSK, Monday–Friday | YES |
-| PRIMARY_SUPPORT_CHANNEL | BINTRANS Pilot Ops | BINTRANS Pilot Ops | YES |
-| ESCALATION_CHANNEL | BINTRANS Pilot Ops | BINTRANS Pilot Ops | YES |
+| Field | CURRENT | APPROVED |
+|---|---|---|
+| SUPPORT_WINDOW | 09:00–18:00 MSK, Monday–Friday | YES |
+| PRIMARY_SUPPORT_CHANNEL | BINTRANS Pilot Ops | YES |
+| ESCALATION_CHANNEL | BINTRANS Pilot Ops | YES |
 
 ```text
+SUPPORT_WINDOW=09:00–18:00 MSK, Monday–Friday
+P1_ACK_TARGET=15 minutes
+P2_ACK_TARGET=30 minutes
+ESCALATION_CHANNEL=BINTRANS Pilot Ops
+MARINA_OWNER_ACK=YES
+LYUBA_OWNER_ACK=YES
 SUPPORT_WINDOW_APPROVED=YES
 PRIMARY_SUPPORT_CHANNEL_ACTIVE=YES
 ESCALATION_CHANNEL_ACTIVE=YES
