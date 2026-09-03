@@ -54,7 +54,7 @@ watch(() => props.rfxEventId, load, { immediate: true })
       <tr v-for="item in items" :key="item.id">
         <td>{{ companyName?.(item.company_id) || item.company_id }}</td>
         <td>{{ item.participant_type }}</td>
-        <td><RfxRfxStatusBadge :status="item.status" /></td>
+        <td><RfxStatusBadge :status="item.status" /></td>
         <td>{{ formatRfxDate(item.invited_at) }}</td>
         <td>—</td>
       </tr>
@@ -64,7 +64,7 @@ watch(() => props.rfxEventId, load, { immediate: true })
     <UiEmptyState v-else :title="$t('rfx.noParticipants')" />
   </UiCard>
 
-  <RfxRfxParticipantCreateModal
+  <RfxParticipantCreateModal
     :open="showAddModal"
     :rfx-event-id="rfxEventId"
     @close="showAddModal = false"

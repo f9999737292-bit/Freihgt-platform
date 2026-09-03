@@ -13,14 +13,14 @@ const emit = defineEmits<{ edit: [] }>()
           <h2>{{ event.title }}</h2>
           <p class="text-muted">{{ event.rfx_number }}</p>
         </div>
-        <RfxRfxStatusBadge :status="event.status" />
+        <RfxStatusBadge :status="event.status" />
       </div>
     </template>
 
     <div class="details-grid">
       <div class="details-item">
         <span class="details-item__label">{{ $t('rfx.rfxType') }}</span>
-        <RfxRfxTypeBadge :type="event.rfx_type" />
+        <RfxTypeBadge :type="event.rfx_type" />
       </div>
       <div class="details-item">
         <span class="details-item__label">{{ $t('rfx.category') }}</span>
