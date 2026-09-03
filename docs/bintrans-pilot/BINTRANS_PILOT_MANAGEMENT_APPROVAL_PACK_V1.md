@@ -1,6 +1,6 @@
 # BINTRANS Pilot Management Approval Pack v1
 
-**Status:** CLOSED — management approval and owner ACK recorded; OPS-BLK-002/003/004 closed
+**Status:** CLOSED — all operational blockers OPS-BLK-001 through OPS-BLK-005 closed (technical); controller final gate pending
 **Wave:** Management Approval Record + Owner ACK Gate v0.2
 **Last updated:** 2026-09-03
 
@@ -18,7 +18,7 @@ Management decision package for BINTRANS controlled pilot blockers:
 | OPS-BLK-002 | On-call / ownership | **CLOSED** |
 | OPS-BLK-003 | Support / escalation | **CLOSED** |
 | OPS-BLK-004 | RPO / RTO | **CLOSED** |
-| OPS-BLK-005 | Registry / image pinning | **OPEN_MEDIUM** |
+| OPS-BLK-005 | Registry / image pinning | **CLOSED** |
 
 ---
 
@@ -177,10 +177,31 @@ Automated daily backup is now active via `bintrans-pilot-backup.timer` (03:00 MS
 | DEC-OPS-012 | Escalation channel | BINTRANS Pilot Ops | YES | Approved | CLOSED |
 | DEC-OPS-013 | RPO | 24h | YES | Operationally satisfied | CLOSED |
 | DEC-OPS-014 | RTO | 30 minutes | YES | Approved | CLOSED |
+| DEC-OPS-015 | Registry reproducibility | All 14 app services digest-pinned | YES | Operationally satisfied | CLOSED |
 
 ---
 
-## 7. MANAGEMENT APPROVAL RECORD
+## 7. Registry / image pinning (CLOSED — OPS-BLK-005)
+
+Evidence pack: `BINTRANS_PILOT_OPS_BLK005_CLOSURE_EVIDENCE_V1.md`
+
+| Service | REMOTE_MANIFEST_DIGEST | IMAGE_ID_MATCH |
+|---|---|---|
+| rfx-service | `sha256:f950809d7b99a9f3a16c1d851fdd05c81fb6b6bde57a7949dde5e846c98597e9` | YES |
+| shipment-service | `sha256:0b693de9f12c92e557a0dfb6a33a49d8ee14a600c8783918fa59169c2c46e457` | YES |
+| web-admin | `sha256:e670c6cc4016f2e2ea90543ec03a2a460e3367c54b50da27a89094a7f2086204` | YES |
+
+```text
+REGISTRY_DIGEST_PINNED_SERVICE_COUNT=14
+LOCAL_ONLY_SERVICE_COUNT=0
+OVERALL_REPRODUCIBLE_WITHOUT_LOCAL_CACHE=YES
+OPS_BLK_005=CLOSED
+OPS_BLK_005_CLOSED=YES
+```
+
+---
+
+## 8. MANAGEMENT APPROVAL RECORD
 
 ```text
 APPROVED_BY=Феликс
@@ -226,22 +247,22 @@ ALL_REQUIRED_OWNER_ACK=YES
 
 ---
 
-## 8. Blocker and pilot readiness summary
+## 9. Blocker and pilot readiness summary
 
 ```text
 OPS_BLK_001=CLOSED
 OPS_BLK_002=CLOSED
 OPS_BLK_003=CLOSED
 OPS_BLK_004=CLOSED
-OPS_BLK_005=OPEN_MEDIUM
+OPS_BLK_005=CLOSED
 
 CRITICAL_BLOCKERS_REMAINING=0
 HIGH_BLOCKERS_REMAINING=0
-MEDIUM_BLOCKERS_REMAINING=1
+MEDIUM_BLOCKERS_REMAINING=0
 
-PILOT_OPERATIONAL_READINESS=CONDITIONAL_PENDING_OPS_BLK_005
-CONTROLLED_PILOT_GO_LIVE_RECOMMENDATION=PENDING_CONTROLLER_FINAL_READINESS_REVIEW
+PILOT_OPERATIONAL_READINESS=TECHNICALLY_READY_PENDING_CONTROLLER_FINAL_GATE
+CONTROLLED_PILOT_GO_LIVE_RECOMMENDATION=PENDING_CONTROLLER_FINAL_GATE
 REAL_USER_PILOT_ALLOWED=NO
 ```
 
-**NEXT_ACTION:** CONTROLLER_OPS_BLK_005_REMEDIATION_AUTHORIZATION
+**NEXT_ACTION:** CONTROLLER_FINAL_PILOT_READINESS_GATE

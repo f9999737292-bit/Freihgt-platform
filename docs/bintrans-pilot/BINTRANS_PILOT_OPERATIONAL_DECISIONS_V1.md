@@ -1,6 +1,6 @@
 # BINTRANS Pilot Operational Decisions v1
 
-**Status:** PARTIALLY CLOSED — OPS-BLK-002/003/004 closed; OPS-BLK-005 remains open
+**Status:** TECHNICALLY CLOSED — OPS-BLK-001 through OPS-BLK-005 closed; controller final gate pending
 **Wave:** P0.1 Critical Operations Blocker Closure
 **Last updated:** 2026-09-03
 
@@ -13,12 +13,12 @@ OPS_BLK_001=CLOSED
 OPS_BLK_002_STATUS=CLOSED
 OPS_BLK_003_STATUS=CLOSED
 OPS_BLK_004_STATUS=CLOSED
-OPS_BLK_005_STATUS=OPEN_MEDIUM
+OPS_BLK_005_STATUS=CLOSED
 CRITICAL_BLOCKERS_REMAINING=0
 HIGH_BLOCKERS_REMAINING=0
-MEDIUM_BLOCKERS_REMAINING=1
-PILOT_OPERATIONAL_READINESS=CONDITIONAL_PENDING_OPS_BLK_005
-CONTROLLED_PILOT_GO_LIVE_RECOMMENDATION=PENDING_CONTROLLER_FINAL_READINESS_REVIEW
+MEDIUM_BLOCKERS_REMAINING=0
+PILOT_OPERATIONAL_READINESS=TECHNICALLY_READY_PENDING_CONTROLLER_FINAL_GATE
+CONTROLLED_PILOT_GO_LIVE_RECOMMENDATION=PENDING_CONTROLLER_FINAL_GATE
 REAL_USER_PILOT_ALLOWED=NO
 ```
 
@@ -112,14 +112,23 @@ REAL_USER_PILOT_ALLOWED=NO
 
 | Field | Value |
 |---|---|
-| **Decision** | Accept local-image fallback or publish immutable registry images for targeted deploys |
-| **Status** | **ACTION_REQUIRED_FROM_MANAGEMENT** (OPS-BLK-005) |
+| **Decision** | Publish exact running images to Selectel registry and pin staging by immutable digest |
+| **Status** | **CLOSED** (OPS-BLK-005) |
 
-| Service | OCI revision | Current image form |
-|---|---|---|
-| rfx-service | `704ecbc3008e228c66046edc856a9de6dd6440c7` | local tag `bintrans-rfx-r3.1c1:704ecbc` |
-| shipment-service | `48ef3e56d428aa1ae53ae83e436fee493d7450a7` | local tag `bintrans-shipment-r3.1e1:48ef3e5` |
-| web-admin | `48ef3e56d428aa1ae53ae83e436fee493d7450a7` | local tag `bintrans-web-admin-r3.1e1:48ef3e5` |
+Evidence: `BINTRANS_PILOT_OPS_BLK005_CLOSURE_EVIDENCE_V1.md`
+
+| Service | OCI revision | Published digest | IMAGE_ID_MATCH |
+|---|---|---|---|
+| rfx-service | `704ecbc3008e228c66046edc856a9de6dd6440c7` | `sha256:f950809d7b99a9f3a16c1d851fdd05c81fb6b6bde57a7949dde5e846c98597e9` | YES |
+| shipment-service | `48ef3e56d428aa1ae53ae83e436fee493d7450a7` | `sha256:0b693de9f12c92e557a0dfb6a33a49d8ee14a600c8783918fa59169c2c46e457` | YES |
+| web-admin | `6e4d3e22ec09c91d7d2a57e189918db15c564e69` | `sha256:e670c6cc4016f2e2ea90543ec03a2a460e3367c54b50da27a89094a7f2086204` | YES |
+
+```text
+REGISTRY_DIGEST_PINNED_SERVICE_COUNT=14
+LOCAL_ONLY_SERVICE_COUNT=0
+OVERALL_REPRODUCIBLE_WITHOUT_LOCAL_CACHE=YES
+OPS_BLK_005_TECHNICAL_CLOSURE=PASS
+```
 
 ---
 
@@ -134,4 +143,4 @@ Protected env keys (when approved): `ALERT_WEBHOOK_URL`, `SLACK_WEBHOOK_URL`, `T
 
 ---
 
-**MANAGEMENT_ACTION_REQUIRED=YES** (OPS-BLK-005 registry/local-image acceptance only)
+**MANAGEMENT_ACTION_REQUIRED=NO** (all OPS blockers technically closed; controller final readiness gate pending)
