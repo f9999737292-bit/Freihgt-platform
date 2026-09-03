@@ -1,37 +1,35 @@
 # BINTRANS Pilot Support Model Pack v1
 
-**Status:** SUPPORT POLICY MANAGEMENT APPROVED — ops closure pending owner ACK
-**Blocker:** OPS-BLK-003 — **OPEN_PENDING_OWNER_ACK_DEPENDENCY**
+**Status:** CLOSED — management-approved support policy with owner ACK (2026-09-03)
 
-## Response targets (MANAGEMENT APPROVED)
+## Response targets
 
-| Severity | Target | APPROVED |
+| Severity | CURRENT | APPROVED |
 |---|---|---|
-| P1_INITIAL_ACK | 15 minutes | **YES** |
-| P2_INITIAL_ACK | 30 minutes | **YES** |
-| P3 | Next support window / backlog triage | **YES** |
+| P1_ACK_TARGET | 15 minutes | YES |
+| P2_ACK_TARGET | 30 minutes | YES |
 
-## Support window (MANAGEMENT APPROVED)
+## Channels
 
-| Field | Value | APPROVED |
+| Field | CURRENT | APPROVED |
 |---|---|---|
-| PILOT_SUPPORT_WINDOW | 09:00–18:00 MSK, Monday–Friday | **YES** |
-
-## Channels (MANAGEMENT APPROVED)
-
-| Field | Value | APPROVED |
-|---|---|---|
-| ESCALATION_CHANNEL | BINTRANS Pilot Ops | **YES** |
-| CHANNEL_ROLE | ALERT_AND_INCIDENT_COORDINATION_CHANNEL | **YES** |
-| TELEGRAM_ALERT_DELIVERY | Active (OPS-BLK-001 CLOSED) | — |
+| SUPPORT_WINDOW | 09:00–18:00 MSK, Monday–Friday | YES |
+| PRIMARY_SUPPORT_CHANNEL | BINTRANS Pilot Ops | YES |
+| ESCALATION_CHANNEL | BINTRANS Pilot Ops | YES |
 
 ```text
-SUPPORT_POLICY_MANAGEMENT_APPROVED=YES
-OPS-BLK-003_POLICY_APPROVED=YES
-OPS-BLK-003=OPEN_PENDING_OWNER_ACK_DEPENDENCY
-OPS-BLK-003_CLOSED=NO
+SUPPORT_WINDOW=09:00–18:00 MSK, Monday–Friday
+P1_ACK_TARGET=15 minutes
+P2_ACK_TARGET=30 minutes
+ESCALATION_CHANNEL=BINTRANS Pilot Ops
+MARINA_OWNER_ACK=YES
+LYUBA_OWNER_ACK=YES
+SUPPORT_WINDOW_APPROVED=YES
+PRIMARY_SUPPORT_CHANNEL_ACTIVE=YES
+ESCALATION_CHANNEL_ACTIVE=YES
+OPS_BLK_003_STATUS=CLOSED
+OPS_BLK_003_CLOSED=YES
+OPS_BLK_003_FINAL_VERDICT=PASS
 ```
 
-Operational escalation depends on Марина / Люба owner ACK for assigned roles.
-
-**Links:** `docs/bintrans-pilot/BINTRANS_PILOT_MANAGEMENT_APPROVAL_PACK_V1.md` §4–5
+**Links:** `docs/bintrans-pilot/BINTRANS_PILOT_ESCALATION_SUPPORT_V1.md`, `docs/LOW_CODE_PILOT_WEEK3_SUPPORT_ESCALATION_MATRIX_V0.1.md`
