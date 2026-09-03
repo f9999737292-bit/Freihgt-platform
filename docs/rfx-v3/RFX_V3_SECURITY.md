@@ -9,23 +9,52 @@
 
 - External clients authenticate at API Gateway (JWT Bearer).
 - Tenant and user identity from gateway-verified headers only.
-- Carrier response writes scoped to participant company membership.
-- Buyer writes scoped to RFx owner company / authorized buyer roles.
+- **Company context is server-verified** — never trust client-supplied company ID as authority.
+- Carrier response writes scoped to participant company membership resolved server-side.
+- Buyer writes scoped to RFx owner company / authorized buyer roles resolved server-side.
+
+Mandatory flags:
+
+```text
+CLIENT_SUPPLIED_COMPANY_AUTHORITY=FORBIDDEN
+TENANT_AUTHORITY=SERVER_VERIFIED
+USER_AUTHORITY=SERVER_VERIFIED
+COMPANY_AUTHORITY=SERVER_VERIFIED
+CROSS_COMPANY_SPOOF=DENIED
+CROSS_TENANT_SPOOF=DENIED
+```
+
+If `X-Company-ID` is used internally, it may only reflect membership validated from authenticated user + tenant + participant/owner authorization. Mismatch → `403`.
 
 ---
 
 ## 2. Answer provenance (`AnswerProvenance`)
 
-Every **accepted** persisted answer records:
+Every **accepted production** persisted answer records:
 
 | Field | Required |
 |---|---|
 | `answer_value` | Yes |
 | `answer_version` | Yes |
-| `answer_source` | Yes — `CARRIER`, `BUYER_PREVIEW_TEST`, … |
+| `answer_source` | Yes — authoritative sources only (see §2.1) |
 | `updated_by` | Yes |
 | `updated_at` | Yes |
 | `validation_version` | Yes |
+
+### 2.1 Authoritative `answer_source` values
+
+| Source | Allowed on production `Answer` |
+|---|---|
+| `CARRIER_DECLARED` | Yes |
+| `CARRIER_PROFILE` | Yes |
+| `DOCUMENT_VERIFIED` | Yes |
+| `BINTRANS_OPERATIONAL_DATA` | Yes |
+| `BUYER_REVIEW` | Yes (audited) |
+| `EXTERNAL_VERIFICATION` | Yes |
+| `AI_EXTRACTED_PENDING_REVIEW` | Yes (until confirmed) |
+| `BUYER_PREVIEW_TEST` | **NO — forbidden** |
+
+Preview sandbox data uses ephemeral/isolated storage tagged `PREVIEW_DATA_ONLY=YES`. It must never appear as production provenance.
 
 Qualification-relevant answers also:
 
@@ -44,9 +73,11 @@ Invalid client drafts and preview sandbox values **must not** appear as producti
 |---|---|
 | `PREVIEW_DATA_ONLY` | YES |
 | `REAL_RESPONSE_CREATED` | NO |
+| `PREVIEW_DATA_NOT_IN_PRODUCTION_ANSWER` | YES |
 | Preview answers in audit/scoring history | **Excluded** |
+| `BUYER_PREVIEW_TEST` on production `Answer` | **FORBIDDEN** |
 
-Preview sessions use ephemeral or separately tagged storage; cannot be promoted to carrier evidence without a real authenticated carrier response flow.
+Preview sessions use ephemeral or isolated preview storage; cannot be promoted to carrier evidence without a real authenticated carrier response flow.
 
 ---
 

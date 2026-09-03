@@ -708,7 +708,7 @@ For every **accepted** answer persisted, store:
 |---|---|
 | `answer_value` | Yes |
 | `answer_version` | Yes |
-| `answer_source` | Yes (`CARRIER`, `BUYER_PREVIEW_TEST`, etc.) |
+| `answer_source` | Yes — authoritative production sources only (see domain model §4.4) |
 | `updated_by` | Yes |
 | `updated_at` | Yes |
 | `validation_version` | Yes |
@@ -724,7 +724,7 @@ Rule:
 
 > Never allow a changed rule to retroactively rewrite historical evidence without a new qualification calculation/version.
 
-Preview/test answers must be tagged so they are excluded from audit evidence and scoring history.
+Preview/test answers must remain in ephemeral/isolated preview storage and are **excluded** from audit evidence and scoring history. They must **never** use production `answer_source` on `Answer` rows (`PREVIEW_DATA_NOT_IN_PRODUCTION_ANSWER=YES`).
 
 ---
 

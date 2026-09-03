@@ -55,7 +55,9 @@ INVALID VALUE  ≠  VALID NEGATIVE BUSINESS ANSWER
 | `fleet_count = 15`, min qualification 35 | Valid answer **persisted**; scoring applies penalty/warning |
 | `ADR_AVAILABLE = false`, ADR mandatory | Valid answer **persisted**; `KnockoutResult` recorded as rejection evidence |
 
-Scoring and qualification modules consume **authoritative persisted answers only**. They must not read client `AnswerDraft` or invalid local state.
+Scoring and qualification modules consume **authoritative persisted answers only**. They must not read client `AnswerDraft`, preview sandbox data, or invalid local state.
+
+Full scoring architecture: [RFX_V3_SCORING_ENGINE.md](./RFX_V3_SCORING_ENGINE.md).
 
 ### 4.2 Version binding
 

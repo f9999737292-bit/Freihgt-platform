@@ -1,36 +1,67 @@
 # RFx v3.0A — Implementation Roadmap
 
-**Status:** Architecture draft  
+**Status:** Architecture freeze  
 **Normative companion:** [RFX_V3_RESPONSE_VALIDATION_AND_DRAFT_SAFETY.md](./RFX_V3_RESPONSE_VALIDATION_AND_DRAFT_SAFETY.md)
 
 ---
 
-## 1. Non-deferrable capabilities
+## 1. Release train (v3.0A → v3.0J)
 
-The following are **core enterprise RFx** capabilities — not optional late-phase additions:
+| Release | Name | Scope | Status |
+|---|---|---|---|
+| **v3.0A** | Architecture Freeze | Docs, ADRs, gap matrix, diagrams — **no implementation** | **THIS STREAM** |
+| **v3.0B** | Questionnaire Core | Sections, questions, types, conditional rules, buyer Studio builder | Planned |
+| **v3.0C** | Carrier Response | Autosave, resume, error UX, submit gate | Planned |
+| **v3.0D** | Scoring + Knockout | Score models, knockout, explainability | Planned |
+| **v3.0E** | Templates + Versioning | Template library, immutable published versions, compare/restore | Planned |
+| **v3.0F** | Qualification Pool | Qualification results, pools, RFI→RFQ handoff | Planned |
+| **v3.0G** | Carrier 360 | Profile autofill, freshness, confirmation | Planned |
+| **v3.0H** | Analytics + Explainability | Dashboards, score drill-down, audit views | Planned |
+| **v3.0I** | AI | Bounded assist — extraction, suggestions, explanations | Planned |
+| **v3.0J** | Enterprise Hardening | Approval chains, notifications, outbox, OpenAPI parity, performance | Planned |
 
-| Capability | Wave |
-|---|---|
-| Buyer draft / resume | Wave 1 |
-| Buyer autosave | Wave 1 |
-| Carrier response draft / resume | Wave 1 |
-| Server-authoritative validation | Wave 1 |
-| Atomic autosave safety | Wave 1 |
-| Valid-only persistence | Wave 1 |
-| Carrier error UX (inline, section, global, deep link) | Wave 1 |
-| Preview-as-carrier (read-only) | Wave 1 |
-| Publish readiness gate | Wave 1 |
-| Pre-submit validation gate | Wave 1 |
-| Warning vs validation vs knockout classification | Wave 1 |
-| Interactive preview test mode | Wave 2 |
-| Scoring/knockout on persisted valid answers | Wave 2 |
-| Version history & compare | Wave 2 |
-| Post-publish material change / new version | Wave 3 |
-| Change impact analysis & re-scoring | Wave 3 |
+**STOP_AFTER_V3_0A=YES** — no implementation tasks authorized from this stream.
 
 ---
 
-## 2. Wave 1 — Foundation (MVP enterprise response)
+## 2. Non-deferrable capabilities (must not slip past core)
+
+These are assigned to the **earliest appropriate wave** — not deferred beyond enterprise RFx core:
+
+| Capability | Wave |
+|---|---|
+| Buyer draft / resume | v3.0B |
+| Buyer autosave | v3.0B |
+| Server-authoritative validation | v3.0B |
+| Publish readiness gate | v3.0B |
+| Carrier response draft / resume | v3.0C |
+| Atomic autosave safety | v3.0C |
+| Valid-only persistence | v3.0C |
+| Carrier error UX (inline, section, global, deep link) | v3.0C |
+| Pre-submit validation gate | v3.0C |
+| Preview-as-carrier | v3.0C |
+| Warning vs validation vs knockout classification | v3.0C–D |
+| Scoring/knockout on persisted valid answers | v3.0D |
+| Version history & compare | v3.0E |
+| Post-publish material change / new version | v3.0E |
+| Change impact analysis & re-scoring | v3.0E |
+
+---
+
+## 3. v3.0B — Questionnaire Core
+
+**Goal:** Buyer can define structured questionnaire with conditional logic.
+
+| Deliverable | Architecture refs |
+|---|---|
+| `rfx_sections`, `rfx_questions`, `rfx_question_options`, `rfx_question_rules` | Data model §3.2 |
+| Rule engine (visibility, required, validation) | Questionnaire engine, ADR-003 |
+| Buyer Studio builder UX | UX §8 |
+| Buyer draft autosave | API §5, validation contract |
+
+---
+
+## 4. v3.0C — Carrier Response
 
 **Goal:** End-to-end draft response with safe persistence and error UX.
 
@@ -41,70 +72,94 @@ The following are **core enterprise RFx** capabilities — not optional late-pha
 | 422 structured validation | API §2.3 |
 | Four validation layers (L1–L3 on save, L4 on submit) | Questionnaire §2 |
 | Carrier workspace UX flags | UX §2–6 |
-| Buyer draft autosave (RFx Studio header/metadata) | API §5, UX §8 |
-| Preview-as-carrier (static/read-only draft) | Validation contract §16 |
-| Publish readiness gate (buyer) | Validation contract §18 |
-| Pre-submit gate (carrier) | Validation contract §19 |
+| Preview-as-carrier sandbox | API §6, validation contract §16–17 |
+| Pre-submit gate | Validation contract §19 |
 | State machine: `NOT_STARTED` → `IN_PROGRESS` → `SUBMITTED` | State machines §2 |
 
-**Acceptance tests (minimum):** validation contract §24.1–24.3, submit/publish gate tests §24.4.
-
 ---
 
-## 3. Wave 2 — Qualification & buyer test tooling
-
-**Goal:** Scoring/knockout on valid answers; buyer interactive preview; version history.
+## 5. v3.0D — Scoring + Knockout
 
 | Deliverable | Architecture refs |
 |---|---|
-| `Warning`, `KnockoutResult`, `BusinessRuleResult` persistence | Domain model §3 |
-| Scoring input: valid answers only | Questionnaire §4 |
-| Interactive «Пройти как перевозчик» sandbox | Validation contract §17 |
-| `VERSION_HISTORY`, `COMPARE_VERSIONS`, `RESTORE_DRAFT_VERSION` | Validation contract §21 |
-| Section warning counters | UX §4 |
-
-**Acceptance tests:** `KNOCKOUT_ANSWER_PERSISTED`, `WARNING_ANSWER_PERSISTED`, `PREVIEW_DOES_NOT_CREATE_RESPONSE`.
+| `ScoreModel`, criteria, answer_scores | Scoring engine, data model §3.5 |
+| Knockout on valid answers | Scoring engine §3, §8 |
+| Explainability payload | Scoring engine §7 |
+| `rfx.score.calculated` event | Events §3 |
 
 ---
 
-## 4. Wave 3 — Post-publish evolution
-
-**Goal:** Safe material changes after publication.
+## 6. v3.0E — Templates + Versioning
 
 | Deliverable | Architecture refs |
 |---|---|
-| Immutable published versions | State machines §4 |
-| `NEW_RFX_VERSION` for material edits | Domain model §7 |
-| `CHANGE_IMPACT_ANALYSIS` | API §7 |
-| Reconfirmation / re-scoring workflows | Questionnaire §7 |
-
-**Acceptance tests:** `PUBLISHED_RFX_DIRECT_EDIT_DENIED`, `NEW_VERSION_CREATED_FOR_MATERIAL_CHANGE`.
+| `RfxTemplate`, `RfxVersion` | Data model §3.1, ADR-002, ADR-008 |
+| Immutable published versions | Domain model §7 |
+| `COMPARE_VERSIONS`, `RESTORE_DRAFT_VERSION` | Validation contract §21 |
+| Change impact analysis | API §7 |
 
 ---
 
-## 5. Explicitly out of Wave 1 (but architected)
+## 7. v3.0F — Qualification Pool
 
-| Item | Notes |
+| Deliverable | Architecture refs |
 |---|---|
-| Offline-first mobile carrier app | Local recovery optional; not authoritative |
-| Advanced scoring optimisations | After Wave 2 baseline |
-| Multi-language questionnaire builder | Parallel i18n track |
+| `QualificationResult`, pools, members | Data model §3.5, ADR-005 |
+| RFI qualification flow | Diagrams §3, functional baseline §4 |
+| Pool update on qualify event | Events §3 |
 
 ---
 
-## 6. Dependencies
+## 8. v3.0G — Carrier 360
 
-| Dependency | Notes |
+| Deliverable | Architecture refs |
 |---|---|
-| RFx v1 `rfx-service` | Extend; do not replace gateway boundary |
-| Identity / company membership | Owner and participant scoping |
-| Document service | Attachment validation L1/L2 |
-| OpenAPI error envelope | Shared `422` contract |
+| Aggregation API | Carrier 360 |
+| Autofill + confirmation UX | Carrier 360 §5–6 |
+| Provenance on answers | ADR-007 |
 
 ---
 
-## 7. References
+## 9. v3.0H — Analytics + Explainability
+
+| Deliverable | Architecture refs |
+|---|---|
+| Evaluation dashboards | Gap matrix |
+| Score drill-down from `explanation_json` | Scoring engine §7 |
+| Audit panel in web-admin | Gap matrix §4 |
+
+---
+
+## 10. v3.0I — AI
+
+| Deliverable | Architecture refs |
+|---|---|
+| Bounded assist capabilities | AI doc §2 |
+| AI safety prohibitions | AI doc §3, ADR-010 |
+| Review state on extracted values | AI doc §4 |
+
+---
+
+## 11. v3.0J — Enterprise Hardening
+
+| Deliverable | Architecture refs |
+|---|---|
+| Transactional outbox + Kafka | Events, data model §3.7 |
+| Notifications + reminders | Events, data model §3.6 |
+| Approval gates | ADR-009 |
+| OpenAPI parity with router | Gap matrix §4 |
+| Security hardening, performance | Security |
+
+---
+
+## 12. Gap-driven priorities
+
+See [RFX_V3_GAP_MATRIX.md](./RFX_V3_GAP_MATRIX.md) for repository-backed current vs target assessment.
+
+---
+
+## 13. References
 
 - [README.md](./README.md)
-- [RFX_V3_RESPONSE_VALIDATION_AND_DRAFT_SAFETY.md](./RFX_V3_RESPONSE_VALIDATION_AND_DRAFT_SAFETY.md)
-- [ADR-RFX-011](./adr/ADR-RFX-011-RESPONSE-VALIDATION-AND-DRAFT-SAFETY.md)
+- [RFX_V3_GAP_MATRIX.md](./RFX_V3_GAP_MATRIX.md)
+- [ADR index](./adr/)

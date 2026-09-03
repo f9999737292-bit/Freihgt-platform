@@ -12,6 +12,35 @@
 3. **Atomic autosave batches** — all-or-nothing per logical revision.
 4. **Optimistic concurrency** — stale `save_version` → `409 Conflict`.
 5. **Structured errors** — no stack traces in client-visible payloads.
+6. **Server-verified company context** — client-supplied company authority is forbidden.
+
+---
+
+## 1.1 Identity and company authority
+
+External clients authenticate at API Gateway (JWT Bearer). Trusted identity headers (`X-Tenant-ID`, `X-User-ID`) are gateway-established only.
+
+```
+CLIENT_SUPPLIED_COMPANY_AUTHORITY = FORBIDDEN
+```
+
+| Flag | Value |
+|---|---|
+| `TENANT_AUTHORITY` | SERVER_VERIFIED |
+| `USER_AUTHORITY` | SERVER_VERIFIED |
+| `COMPANY_AUTHORITY` | SERVER_VERIFIED |
+| `CROSS_COMPANY_SPOOF` | DENIED |
+| `CROSS_TENANT_SPOOF` | DENIED |
+
+**Company resolution:**
+
+| Flow | Rule |
+|---|---|
+| Carrier response write | Resolve `participant_company_id` from authenticated user + tenant + **participant membership** for the RFx event |
+| Buyer RFx write | Resolve `owner_company_id` from authenticated user + tenant + **buyer membership** (`SHIPPER`, `FORWARDER`, `LSP`) |
+| Optional `X-Company-ID` | May be echoed **only** when it matches server-resolved membership; otherwise `403` |
+
+Never trust arbitrary browser-supplied company ID as authorization source. See [RFX_V3_SECURITY.md](./RFX_V3_SECURITY.md).
 
 ---
 
@@ -24,7 +53,7 @@
 | Method | `PATCH` (batch) preferred for autosave |
 | Scope | `/api/v1/rfx-events/{id}/responses/{response_id}/answers` (illustrative) |
 | Body | Array of `{ section_id, question_id, field, value, attachment_refs? }` |
-| Headers | JWT; gateway-verified `X-Tenant-ID`, `X-User-ID`; optional `X-Company-ID` |
+| Headers | JWT; gateway-verified `X-Tenant-ID`, `X-User-ID`; company context server-resolved (see §1.1) |
 | Concurrency | `If-Match: save_version` or body `expected_save_version` |
 
 **Processing flow:**
@@ -157,8 +186,18 @@ Buyer draft edits before publish are not carrier responses; preview test data us
 Sandbox endpoints must:
 
 - Accept preview session token scoped to buyer + draft version
-- Never create `Response` / `Answer` production rows
-- Tag any ephemeral storage `answer_source=BUYER_PREVIEW_TEST`
+- Never create `Response` / production `Answer` rows
+- Store preview answers in **ephemeral preview state** or **isolated preview storage** (`rfx_preview_sessions` / TTL cache — see [RFX_V3_DATA_MODEL.md](./RFX_V3_DATA_MODEL.md))
+
+Mandatory flags:
+
+```
+PREVIEW_DATA_ONLY=YES
+REAL_RESPONSE_CREATED=NO
+PREVIEW_DATA_NOT_IN_PRODUCTION_ANSWER=YES
+```
+
+Preview data **must not** use authoritative `answer_source` values. `BUYER_PREVIEW_TEST` is a preview-session tag only — never persisted on production `Answer` rows.
 
 `REAL_RESPONSE_CREATED=NO` — validation contract §16–17.
 

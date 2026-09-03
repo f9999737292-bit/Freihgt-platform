@@ -77,7 +77,9 @@ Pilot and v1 RFx flows use simpler forms; v3 requires enterprise-grade draft saf
 
 ## Security
 
-- `answer_source` distinguishes carrier vs preview vs system.
+- Production `answer_source` distinguishes carrier, profile, document, operational, buyer review, external, and AI-pending sources — **not** preview test data.
+- Preview data is isolated (`PREVIEW_DATA_ONLY=YES`); `BUYER_PREVIEW_TEST` must never appear on production `Answer` rows.
+- Company authority is server-verified (`CLIENT_SUPPLIED_COMPANY_AUTHORITY=FORBIDDEN`).
 - 422 responses must not expose stack traces.
 - Tenant/membership scoping unchanged from platform baseline.
 - `SUBMIT_WITH_ERRORS=FORBIDDEN`, `PUBLISH_WITH_ERRORS=FORBIDDEN`.
