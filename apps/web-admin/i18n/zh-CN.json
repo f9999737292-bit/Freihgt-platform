@@ -203,6 +203,10 @@
     "publishedSuccess": "RFx 已发布",
     "cancelledSuccess": "RFx 已取消",
     "participantAdded": "参与者已添加",
+    "selectOwner": "选择所有者",
+    "ownerLoading": "正在加载公司…",
+    "ownerLoadFailed": "无法加载所有者公司",
+    "noOwnerCompanies": "您的账户没有可用的授权所有者公司",
     "validation": {
       "required": "必填字段",
       "validToRange": "结束日期不能早于开始日期"

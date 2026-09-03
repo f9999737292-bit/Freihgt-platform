@@ -385,6 +385,23 @@ export function hasFormErrors<T extends object>(errors: T): boolean {
   return Object.keys(errors).length > 0
 }
 
+/** Company types allowed as RFx owner per backend buyer membership rules. */
+export const BUYER_OWNER_COMPANY_TYPES = ['SHIPPER', 'FORWARDER', 'LSP'] as const
+
+export type BuyerOwnerCompanyType = (typeof BUYER_OWNER_COMPANY_TYPES)[number]
+
+export function isBuyerOwnerCompanyType(companyType: string): companyType is BuyerOwnerCompanyType {
+  return (BUYER_OWNER_COMPANY_TYPES as readonly string[]).includes(companyType)
+}
+
+/** Replace sparse validation output without leaving stale keys from prior runs. */
+export function replaceRfxFormErrors(target: RfxFormErrors, next: RfxFormErrors) {
+  for (const key of Object.keys(target) as (keyof RfxFormErrors)[]) {
+    delete target[key]
+  }
+  Object.assign(target, next)
+}
+
 export function formatRfxDate(value?: string | null): string {
   if (!value) return '—'
   const date = new Date(value)
