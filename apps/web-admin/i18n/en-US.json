@@ -203,6 +203,10 @@
     "publishedSuccess": "RFx published",
     "cancelledSuccess": "RFx cancelled",
     "participantAdded": "Participant added",
+    "selectOwner": "Select owner",
+    "ownerLoading": "Loading companies…",
+    "ownerLoadFailed": "Unable to load owner companies",
+    "noOwnerCompanies": "No authorized owner companies are available for your account",
     "validation": {
       "required": "Required field",
       "validToRange": "Valid to cannot be earlier than valid from"

@@ -4,46 +4,117 @@ import {
   RFX_TYPES,
   emptyCreateRfxForm,
   hasFormErrors,
+  replaceRfxFormErrors,
   toRFC3339,
   validateCreateRfxForm,
   type RfxFormErrors,
 } from '~/types/rfx'
-import type { Company } from '~/types/company'
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: []; created: [id: string] }>()
 
 const { createRfxEvent } = useRfxApi()
-const { listCompanies } = useCompanies()
+const { loadAuthorizedOwnerCompanies, isApiUnavailableError } = useRfxOwnerCompanies()
 const { pushToast } = useToast()
 const { t } = useI18n()
 const router = useRouter()
 
 const saving = ref(false)
 const errorMessage = ref('')
-const companies = ref<Company[]>([])
+const ownerOptions = ref<Array<{ label: string; value: string }>>([])
+const ownerLoadState = ref<'idle' | 'loading' | 'ready' | 'empty' | 'error'>('idle')
 const form = reactive(emptyCreateRfxForm())
 const errors = reactive<RfxFormErrors>({})
 
 const typeOptions = computed(() => RFX_TYPES.map((v) => ({ label: v, value: v })))
 const categoryOptions = computed(() => RFX_CATEGORIES.map((v) => ({ label: v, value: v })))
-const companyOptions = computed(() =>
-  companies.value.map((c) => ({ label: `${c.legal_name} (${c.company_type})`, value: c.id })),
+
+const ownerPlaceholder = computed(() => {
+  if (ownerLoadState.value === 'loading') return t('rfx.ownerLoading')
+  if (ownerLoadState.value === 'error') return t('rfx.ownerLoadFailed')
+  if (ownerLoadState.value === 'empty') return t('rfx.noOwnerCompanies')
+  return t('rfx.selectOwner')
+})
+
+const ownerSelectDisabled = computed(
+  () => ownerLoadState.value === 'loading' || ownerLoadState.value === 'error' || ownerLoadState.value === 'empty',
 )
+
+watch(
+  () => form.title,
+  (value) => {
+    if (value.trim()) delete errors.title
+  },
+)
+
+watch(
+  () => form.owner_company_id,
+  (value) => {
+    if (value.trim()) delete errors.owner_company_id
+  },
+)
+
+watch(
+  () => form.rfx_number,
+  (value) => {
+    if (value.trim()) delete errors.rfx_number
+  },
+)
+
+watch(
+  () => form.response_deadline,
+  (value) => {
+    if (value?.trim()) delete errors.response_deadline
+  },
+)
+
+function clearValidToRangeErrorIfFixed() {
+  if (!errors.valid_to) return
+  if (!form.valid_from || !form.valid_to || form.valid_to >= form.valid_from) {
+    delete errors.valid_to
+  }
+}
+
+watch(() => form.valid_from, clearValidToRangeErrorIfFixed)
+
+watch(() => form.valid_to, clearValidToRangeErrorIfFixed)
+
+function resetFormState() {
+  Object.assign(form, emptyCreateRfxForm())
+  replaceRfxFormErrors(errors, {})
+  errorMessage.value = ''
+  ownerOptions.value = []
+  ownerLoadState.value = 'idle'
+}
+
+async function loadOwnerCompanies() {
+  ownerLoadState.value = 'loading'
+  ownerOptions.value = []
+  form.owner_company_id = ''
+
+  try {
+    const result = await loadAuthorizedOwnerCompanies()
+    ownerOptions.value = result.options
+    ownerLoadState.value = result.state
+
+    if (result.memberships.length === 1) {
+      form.owner_company_id = result.memberships[0].company_id
+    }
+  } catch (error) {
+    ownerLoadState.value = 'error'
+    ownerOptions.value = []
+    if (!isApiUnavailableError(error)) {
+      pushToast('error', error instanceof Error ? error.message : t('rfx.ownerLoadFailed'))
+    }
+  }
+}
 
 watch(
   () => props.open,
   async (open) => {
     if (!open) return
-    Object.assign(form, emptyCreateRfxForm())
-    Object.keys(errors).forEach((k) => delete errors[k as keyof RfxFormErrors])
-    errorMessage.value = ''
-    try {
-      const data = await listCompanies({ limit: 100 })
-      companies.value = data.items
-    } catch {
-      companies.value = []
-    }
+    resetFormState()
+    await loadOwnerCompanies()
   },
 )
 
@@ -54,8 +125,12 @@ function fieldError(field: keyof RfxFormErrors) {
   return t('rfx.validation.required')
 }
 
+function applyValidation() {
+  replaceRfxFormErrors(errors, validateCreateRfxForm(form))
+}
+
 async function submit() {
-  Object.assign(errors, validateCreateRfxForm(form))
+  applyValidation()
   if (hasFormErrors(errors)) return
 
   saving.value = true
@@ -93,9 +168,18 @@ async function submit() {
       <UiSelect
         v-model="form.owner_company_id"
         :label="$t('rfx.owner')"
-        :options="companyOptions"
+        :options="ownerOptions"
+        :placeholder="ownerPlaceholder"
+        :disabled="ownerSelectDisabled"
+        :loading="ownerLoadState === 'loading'"
         required
       />
+      <p v-if="ownerLoadState === 'error'" class="field-hint field-hint--error">
+        {{ $t('rfx.ownerLoadFailed') }}
+      </p>
+      <p v-else-if="ownerLoadState === 'empty'" class="field-hint">
+        {{ $t('rfx.noOwnerCompanies') }}
+      </p>
       <p v-if="errors.owner_company_id" class="field-error">{{ fieldError('owner_company_id') }}</p>
 
       <UiInput v-model="form.currency_code" :label="$t('rfx.currency')" />
@@ -134,5 +218,15 @@ async function submit() {
   margin: -0.5rem 0 0;
   font-size: 0.8125rem;
   color: #b91c1c;
+}
+
+.field-hint {
+  margin: -0.5rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.field-hint--error {
+  color: #b45309;
 }
 </style>
