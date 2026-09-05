@@ -61,7 +61,7 @@ test('F102-001 RFx Studio live browser acceptance', async ({ page }) => {
 
   const studioLoad = waitForStudioLoad(page)
   await page.goto('/login', { waitUntil: 'domcontentloaded' })
-  await page.goto(studioPath(), { waitUntil: 'networkidle' })
+  await page.goto(studioPath(), { waitUntil: 'domcontentloaded' })
   await expect(page).not.toHaveURL(/\/login(?:\?|$)/)
   await expect(page.getByRole('heading', { name: new RegExp(rfxNumber) })).toBeVisible({ timeout: 120_000 })
   const studioResponse = await studioLoad
