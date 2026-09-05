@@ -58,10 +58,6 @@ export function useRfxQuestionnaireApi(rfxEventId: Ref<string> | string) {
 
   const draftVersion = computed(() => studio.value?.draft_version?.version ?? null)
 
-  function tenantQuery(extra: Record<string, string | number | undefined> = {}) {
-    return { tenant_id: tenantStore.tenantId, ...extra }
-  }
-
   function basePath(suffix = '') {
     return rfxEventApiPath(eventId.value, suffix)
   }
@@ -106,9 +102,6 @@ export function useRfxQuestionnaireApi(rfxEventId: Ref<string> | string) {
     const config = useRuntimeConfig()
     const base = config.public.apiBaseUrl.replace(/\/$/, '')
     const url = new URL(`${base}${path}`)
-    for (const [key, value] of Object.entries(tenantQuery())) {
-      if (value !== undefined && value !== '') url.searchParams.set(key, String(value))
-    }
     const nuxtApp = useNuxtApp()
     const i18n = nuxtApp.$i18n as { locale?: { value?: string } } | undefined
     const response = await fetch(url.toString(), {
@@ -252,11 +245,11 @@ export function useRfxQuestionnaireApi(rfxEventId: Ref<string> | string) {
   }
 
   async function getStudio() {
-    return apiGet<RfxStudioResponse>(basePath('/studio'), { query: tenantQuery() })
+    return apiGet<RfxStudioResponse>(basePath('/studio'))
   }
 
   async function getQuestionnaire() {
-    return apiGet<RfxQuestionnaireDefinition>(basePath('/questionnaire'), { query: tenantQuery() })
+    return apiGet<RfxQuestionnaireDefinition>(basePath('/questionnaire'))
   }
 
   async function loadStudio() {
@@ -303,9 +296,7 @@ export function useRfxQuestionnaireApi(rfxEventId: Ref<string> | string) {
       if (payload.expected_version === undefined && draftVersion.value != null) {
         payload.expected_version = draftVersion.value
       }
-      const result = await apiPost<RfxVersionRecord>(basePath('/save-draft'), payload, {
-        query: tenantQuery(),
-      })
+      const result = await apiPost<RfxVersionRecord>(basePath('/save-draft'), payload)
       if (studio.value?.draft_version) {
         studio.value.draft_version = { ...studio.value.draft_version, ...result }
       } else if (studio.value) {
@@ -323,15 +314,13 @@ export function useRfxQuestionnaireApi(rfxEventId: Ref<string> | string) {
   }
 
   async function validatePublish() {
-    const result = await apiPost<RfxPublishReadinessResult>(basePath('/validate-publish'), undefined, {
-      query: tenantQuery(),
-    })
+    const result = await apiPost<RfxPublishReadinessResult>(basePath('/validate-publish'))
     publishReadiness.value = result
     return result
   }
 
   async function createSection(payload: RfxCreateSectionRequest) {
-    const section = await apiPost<RfxSection>(basePath('/sections'), payload, { query: tenantQuery() })
+    const section = await apiPost<RfxSection>(basePath('/sections'), payload)
     await loadStudio()
     markSavedFromTimestamp(studio.value?.draft_version?.updated_at)
     return section
@@ -344,7 +333,6 @@ export function useRfxQuestionnaireApi(rfxEventId: Ref<string> | string) {
       const section = await apiPatch<RfxSection>(
         basePath(`/sections/${sectionId}`),
         { ...payload, expected_version: expectedVersion },
-        { query: tenantQuery() },
       )
       mergeSectionInStudio(section)
       lastSavedAt.value = section.updated_at ?? lastSavedAt.value
@@ -353,9 +341,7 @@ export function useRfxQuestionnaireApi(rfxEventId: Ref<string> | string) {
 
   async function updateSection(sectionId: string, payload: RfxUpdateSectionRequest) {
     try {
-      const section = await apiPatch<RfxSection>(basePath(`/sections/${sectionId}`), payload, {
-        query: tenantQuery(),
-      })
+      const section = await apiPatch<RfxSection>(basePath(`/sections/${sectionId}`), payload)
       mergeSectionInStudio(section)
       markSavedFromTimestamp(section.updated_at)
       return section
@@ -378,7 +364,7 @@ export function useRfxQuestionnaireApi(rfxEventId: Ref<string> | string) {
 
   async function reorderSections(payload: RfxReorderSectionsRequest) {
     try {
-      await apiPost<void>(basePath('/sections/reorder'), payload, { query: tenantQuery() })
+      await apiPost<void>(basePath('/sections/reorder'), payload)
       await loadStudio()
       markSavedFromTimestamp(studio.value?.draft_version?.updated_at)
     } catch (err) {
@@ -389,7 +375,7 @@ export function useRfxQuestionnaireApi(rfxEventId: Ref<string> | string) {
 
   async function createQuestion(payload: RfxCreateQuestionRequest) {
     try {
-      const question = await apiPost<RfxQuestion>(basePath('/questions'), payload, { query: tenantQuery() })
+      const question = await apiPost<RfxQuestion>(basePath('/questions'), payload)
       await loadStudio()
       markSavedFromTimestamp(studio.value?.draft_version?.updated_at)
       return question
@@ -409,7 +395,6 @@ export function useRfxQuestionnaireApi(rfxEventId: Ref<string> | string) {
       const question = await apiPatch<RfxQuestion>(
         basePath(`/questions/${questionId}`),
         { ...payload, expected_version: expectedVersion },
-        { query: tenantQuery() },
       )
       mergeQuestionInStudio(question)
       lastSavedAt.value = question.updated_at ?? lastSavedAt.value
@@ -418,9 +403,7 @@ export function useRfxQuestionnaireApi(rfxEventId: Ref<string> | string) {
 
   async function updateQuestion(questionId: string, payload: RfxUpdateQuestionRequest) {
     try {
-      const question = await apiPatch<RfxQuestion>(basePath(`/questions/${questionId}`), payload, {
-        query: tenantQuery(),
-      })
+      const question = await apiPatch<RfxQuestion>(basePath(`/questions/${questionId}`), payload)
       mergeQuestionInStudio(question)
       markSavedFromTimestamp(question.updated_at)
       return question
@@ -443,9 +426,7 @@ export function useRfxQuestionnaireApi(rfxEventId: Ref<string> | string) {
 
   async function duplicateQuestion(questionId: string) {
     try {
-      const question = await apiPost<RfxQuestion>(basePath(`/questions/${questionId}/duplicate`), {}, {
-        query: tenantQuery(),
-      })
+      const question = await apiPost<RfxQuestion>(basePath(`/questions/${questionId}/duplicate`), {})
       await loadStudio()
       markSavedFromTimestamp(studio.value?.draft_version?.updated_at)
       return question
@@ -457,7 +438,7 @@ export function useRfxQuestionnaireApi(rfxEventId: Ref<string> | string) {
 
   async function reorderQuestions(payload: RfxReorderQuestionsRequest) {
     try {
-      await apiPost<void>(basePath('/questions/reorder'), payload, { query: tenantQuery() })
+      await apiPost<void>(basePath('/questions/reorder'), payload)
       await loadStudio()
       markSavedFromTimestamp(studio.value?.draft_version?.updated_at)
     } catch (err) {
@@ -468,9 +449,7 @@ export function useRfxQuestionnaireApi(rfxEventId: Ref<string> | string) {
 
   async function createOption(questionId: string, payload: RfxCreateOptionRequest) {
     try {
-      const option = await apiPost<RfxQuestionOption>(basePath(`/questions/${questionId}/options`), payload, {
-        query: tenantQuery(),
-      })
+      const option = await apiPost<RfxQuestionOption>(basePath(`/questions/${questionId}/options`), payload)
       await loadStudio()
       markSavedFromTimestamp(studio.value?.draft_version?.updated_at)
       return option
@@ -491,7 +470,6 @@ export function useRfxQuestionnaireApi(rfxEventId: Ref<string> | string) {
       await apiPatch<RfxQuestionOption>(
         basePath(`/questions/${questionId}/options/${optionId}`),
         { ...payload, expected_version: expectedVersion },
-        { query: tenantQuery() },
       )
       await loadStudio()
       lastSavedAt.value = studio.value?.draft_version?.updated_at ?? lastSavedAt.value
@@ -503,7 +481,6 @@ export function useRfxQuestionnaireApi(rfxEventId: Ref<string> | string) {
       const option = await apiPatch<RfxQuestionOption>(
         basePath(`/questions/${questionId}/options/${optionId}`),
         payload,
-        { query: tenantQuery() },
       )
       await loadStudio()
       markSavedFromTimestamp(studio.value?.draft_version?.updated_at)
@@ -529,7 +506,7 @@ export function useRfxQuestionnaireApi(rfxEventId: Ref<string> | string) {
 
   async function createRule(payload: RfxCreateRuleRequest) {
     try {
-      const rule = await apiPost<RfxQuestionRule>(basePath('/rules'), payload, { query: tenantQuery() })
+      const rule = await apiPost<RfxQuestionRule>(basePath('/rules'), payload)
       await loadStudio()
       markSavedFromTimestamp(studio.value?.draft_version?.updated_at)
       return rule
@@ -546,7 +523,6 @@ export function useRfxQuestionnaireApi(rfxEventId: Ref<string> | string) {
       await apiPatch<RfxQuestionRule>(
         basePath(`/rules/${ruleId}`),
         { ...payload, expected_version: expectedVersion },
-        { query: tenantQuery() },
       )
       await loadStudio()
       lastSavedAt.value = studio.value?.draft_version?.updated_at ?? lastSavedAt.value
@@ -555,9 +531,7 @@ export function useRfxQuestionnaireApi(rfxEventId: Ref<string> | string) {
 
   async function updateRule(ruleId: string, payload: RfxUpdateRuleRequest) {
     try {
-      const rule = await apiPatch<RfxQuestionRule>(basePath(`/rules/${ruleId}`), payload, {
-        query: tenantQuery(),
-      })
+      const rule = await apiPatch<RfxQuestionRule>(basePath(`/rules/${ruleId}`), payload)
       await loadStudio()
       markSavedFromTimestamp(studio.value?.draft_version?.updated_at)
       return rule

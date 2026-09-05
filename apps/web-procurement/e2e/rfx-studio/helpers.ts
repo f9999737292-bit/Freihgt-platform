@@ -47,7 +47,14 @@ export function studioPath(suffix = '') {
 
 export async function waitForStudioLoad(page: Page) {
   return page.waitForResponse(
-    (resp) => resp.url().includes(`/api/v1/rfx-events/${eventId}/studio`) && resp.status() < 500,
+    (resp) => {
+      const url = resp.url()
+      return (
+        url.includes(`/api/v1/rfx-events/${eventId}/studio`)
+        && !url.includes('tenant_id=')
+        && resp.status() < 500
+      )
+    },
     { timeout: 120_000 },
   )
 }

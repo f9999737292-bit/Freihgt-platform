@@ -51,8 +51,30 @@ func TestRfxStudio_BrowserE2E_LiveBuyerFlow(t *testing.T) {
 	}
 	stack := startBrowserLiveStack(t)
 	t.Cleanup(stack.shutdown)
+	verifyStudioGatewayProbe(t, stack)
 	if err := runPlaywrightSuite(t, stack); err != nil {
 		t.Fatalf("playwright rfx studio suite: %v", err)
+	}
+}
+
+func verifyStudioGatewayProbe(t *testing.T, stack *browserLiveStack) {
+	t.Helper()
+	probeURL := stack.gatewayURL + "/api/v1/rfx-events/" + stack.fixture.EventID.String() + "/studio"
+	req, err := http.NewRequest(http.MethodGet, probeURL, nil)
+	if err != nil {
+		t.Fatalf("probe request: %v", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+stack.fixture.JWT)
+	req.Header.Set("X-Tenant-ID", stack.fixture.TenantID.String())
+	req.Header.Set("X-User-ID", stack.fixture.UserID.String())
+	req.Header.Set("X-Company-ID", stack.fixture.CompanyID.String())
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("probe studio gateway: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("probe studio gateway: status=%d url=%s", resp.StatusCode, probeURL)
 	}
 }
 
@@ -138,8 +160,10 @@ func startBrowserWebAdmin(t *testing.T, gatewayURL string, fix browserStudioFixt
 	cmd := exec.Command("pnpm", "--filter", "@freight-platform/web-admin", "exec", "nuxt", "dev", "--port", port, "--host", "127.0.0.1")
 	cmd.Dir = root
 	cmd.Env = append(os.Environ(),
-		"NUXT_PUBLIC_API_BASE_URL="+gatewayURL,
+		"NUXT_PUBLIC_API_BASE_URL=http://127.0.0.1:"+port,
+		"NUXT_E2E_GATEWAY_URL="+gatewayURL,
 		"NUXT_PUBLIC_DEFAULT_TENANT_ID="+fix.TenantID.String(),
+		"NUXT_E2E_DISABLE_SSR=true",
 	)
 	logFile, err := os.CreateTemp("", "rfx-studio-nuxt-"+port+"-*.log")
 	if err != nil {

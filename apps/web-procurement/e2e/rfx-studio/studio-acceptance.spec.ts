@@ -39,6 +39,11 @@ test.beforeEach(async ({ page }) => {
   if (!jwt || !tenantId || !eventId || !userId) {
     test.skip(true, 'browser E2E env not configured')
   }
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') {
+      console.error(`[browser-console] ${msg.text()}`)
+    }
+  })
   await seedBuyerSession(page)
 })
 
@@ -55,9 +60,10 @@ test('F102-001 RFx Studio live browser acceptance', async ({ page }) => {
   })
 
   const studioLoad = waitForStudioLoad(page)
+  await page.goto('/login', { waitUntil: 'domcontentloaded' })
   await page.goto(studioPath(), { waitUntil: 'domcontentloaded' })
   await expect(page).not.toHaveURL(/\/login(?:\?|$)/)
-  await expect(page.getByText('BINTRANS RFx Studio')).toBeVisible({ timeout: 120_000 })
+  await expect(page.getByRole('heading', { name: new RegExp(rfxNumber) })).toBeVisible({ timeout: 120_000 })
   const studioResponse = await studioLoad
   expect(studioResponse.status()).toBe(200)
   const studioBody = await studioResponse.json()
