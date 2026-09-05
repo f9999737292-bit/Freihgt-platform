@@ -196,11 +196,20 @@ func TestStudioQuestionnaireValidationHTTP400(t *testing.T) {
 	router := newStudioTestRouter(env)
 	base := "/v1/rfx-events/" + event.ID.String()
 
+	status, section := studioRequest(t, router, http.MethodPost, base+"/sections", fix, map[string]any{
+		"section_code": "VAL",
+		"title":        "Validation",
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("create section: status=%d body=%v", status, section)
+	}
+	sectionID, _ := section["id"].(string)
+
 	status, body := studioRequest(t, router, http.MethodPost, base+"/questions", fix, map[string]any{
-		"section_id":    uuid.New().String(),
-		"question_code": "ORPHAN",
-		"question_type": "TEXT",
-		"label":         "Orphan",
+		"section_id":    sectionID,
+		"question_code": "BAD",
+		"question_type": "NOT_A_REAL_TYPE",
+		"label":         "Bad type",
 	})
 	if status != http.StatusBadRequest {
 		t.Fatalf("expected HTTP 400 validation, got %d body=%v", status, body)
@@ -211,5 +220,23 @@ func TestStudioQuestionnaireValidationHTTP400(t *testing.T) {
 	}
 	if code, _ := errObj["code"].(string); code == "" {
 		t.Fatalf("expected error code in 400 response, got %v", body)
+	}
+}
+
+func TestStudioQuestionnaireForeignSectionNotFound(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	event := createDraftEvent(t, env, fix, "RFX-STUDIO-VAL-2")
+	router := newStudioTestRouter(env)
+	base := "/v1/rfx-events/" + event.ID.String()
+
+	status, body := studioRequest(t, router, http.MethodPost, base+"/questions", fix, map[string]any{
+		"section_id":    uuid.New().String(),
+		"question_code": "ORPHAN",
+		"question_type": "TEXT",
+		"label":         "Orphan",
+	})
+	if status != http.StatusNotFound {
+		t.Fatalf("expected HTTP 404 not found, got %d body=%v", status, body)
 	}
 }
