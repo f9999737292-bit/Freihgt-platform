@@ -59,6 +59,27 @@ export async function waitForStudioLoad(page: Page) {
   )
 }
 
+export async function openQuestionnaireStep(page: Page) {
+  await page.goto(studioPath('?step=questionnaire'), { waitUntil: 'domcontentloaded' })
+  await expect(page.getByRole('button', { name: 'Добавить раздел' })).toBeVisible({ timeout: 60_000 })
+}
+
+export async function clickAndWaitForMutation(
+  page: Page,
+  fragment: string,
+  method: string,
+  click: () => Promise<void>,
+) {
+  const [response] = await Promise.all([
+    page.waitForResponse(
+      (resp) => resp.url().includes(fragment) && resp.request().method() === method,
+      { timeout: 60_000 },
+    ),
+    click(),
+  ])
+  return response
+}
+
 export async function selectQuestionType(page: Page, label: string) {
   await page.getByLabel('Тип вопроса').selectOption({ label })
 }

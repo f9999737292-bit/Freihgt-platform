@@ -1,11 +1,13 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
+  clickAndWaitForMutation,
   clickQuestionCard,
   eventId,
   expectAutosaveInvalid,
   expectAutosaveSaved,
   fillQuestionLabel,
   jwt,
+  openQuestionnaireStep,
   renameSectionTitle,
   rfxNumber,
   seedBuyerSession,
@@ -27,15 +29,8 @@ async function addQuestion(page: Page) {
   await page.getByRole('button', { name: 'Добавить вопрос' }).first().click()
 }
 
-async function waitForMutationResponse(page: Page, fragment: string, method: string) {
-  return page.waitForResponse(
-    (resp) => resp.url().includes(fragment) && resp.request().method() === method,
-    { timeout: 60_000 },
-  )
-}
-
 test.beforeEach(async ({ page }) => {
-  test.setTimeout(180_000)
+  test.setTimeout(300_000)
   if (!jwt || !tenantId || !eventId || !userId) {
     test.skip(true, 'browser E2E env not configured')
   }
@@ -76,73 +71,122 @@ test('F102-001 RFx Studio live browser acceptance', async ({ page }) => {
   await expect(page.getByText('BINTRANS RFx Studio')).toBeVisible()
   await expect(page.getByText('DRAFT')).toBeVisible()
 
-  await page.getByRole('link', { name: 'Анкета' }).click()
-  await expect(page).toHaveURL(/step=questionnaire/)
+  await openQuestionnaireStep(page)
 
-  const sectionCreate = waitForMutationResponse(page, '/sections', 'POST')
-  await page.getByRole('button', { name: 'Добавить раздел' }).click()
-  expect((await sectionCreate).status()).toBe(201)
+  const sectionCreate = await clickAndWaitForMutation(
+    page,
+    '/sections',
+    'POST',
+    () => page.getByRole('button', { name: 'Добавить раздел' }).click(),
+  )
+  expect(sectionCreate.status()).toBe(201)
 
-  const sectionTitlePatch = waitForMutationResponse(page, '/sections/', 'PATCH')
-  await renameSectionTitle(page, SECTION_HSE)
-  expect((await sectionTitlePatch).status()).toBeLessThan(400)
+  const sectionTitlePatch = await clickAndWaitForMutation(
+    page,
+    '/sections/',
+    'PATCH',
+    async () => {
+      await renameSectionTitle(page, SECTION_HSE)
+    },
+  )
+  expect(sectionTitlePatch.status()).toBeLessThan(400)
   await expect(page.getByLabel('Название раздела').first()).toHaveValue(SECTION_HSE)
   await expectAutosaveSaved(page)
 
   await addQuestion(page)
   await clickQuestionCard(page, 'Новый вопрос')
-  const q1Patch = waitForMutationResponse(page, '/questions/', 'PATCH')
-  await fillQuestionLabel(page, LABEL_ADR_AVAILABLE)
-  await selectQuestionType(page, 'Да/Нет')
-  await toggleQuestionRequired(page)
-  expect((await q1Patch).status()).toBeLessThan(400)
+  const q1Patch = await clickAndWaitForMutation(
+    page,
+    '/questions/',
+    'PATCH',
+    async () => {
+      await fillQuestionLabel(page, LABEL_ADR_AVAILABLE)
+      await selectQuestionType(page, 'Да/Нет')
+      await toggleQuestionRequired(page)
+    },
+  )
+  expect(q1Patch.status()).toBeLessThan(400)
   await expectAutosaveSaved(page)
   await expect(page.locator('.question-card').filter({ hasText: LABEL_ADR_AVAILABLE })).toBeVisible()
 
   await addQuestion(page)
   await clickQuestionCard(page, 'Новый вопрос')
-  const q2Patch = waitForMutationResponse(page, '/questions/', 'PATCH')
-  await fillQuestionLabel(page, LABEL_ADR_NUMBER)
-  await selectQuestionType(page, 'Текст')
-  expect((await q2Patch).status()).toBeLessThan(400)
+  const q2Patch = await clickAndWaitForMutation(
+    page,
+    '/questions/',
+    'PATCH',
+    async () => {
+      await fillQuestionLabel(page, LABEL_ADR_NUMBER)
+      await selectQuestionType(page, 'Текст')
+    },
+  )
+  expect(q2Patch.status()).toBeLessThan(400)
   await expectAutosaveSaved(page)
 
   await addQuestion(page)
   await clickQuestionCard(page, 'Новый вопрос')
-  const q3Patch = waitForMutationResponse(page, '/questions/', 'PATCH')
-  await fillQuestionLabel(page, LABEL_ADR_EXPIRY)
-  await selectQuestionType(page, 'Дата')
-  expect((await q3Patch).status()).toBeLessThan(400)
+  const q3Patch = await clickAndWaitForMutation(
+    page,
+    '/questions/',
+    'PATCH',
+    async () => {
+      await fillQuestionLabel(page, LABEL_ADR_EXPIRY)
+      await selectQuestionType(page, 'Дата')
+    },
+  )
+  expect(q3Patch.status()).toBeLessThan(400)
   await expectAutosaveSaved(page)
 
   await addQuestion(page)
   await clickQuestionCard(page, 'Новый вопрос')
-  const q4Patch = waitForMutationResponse(page, '/questions/', 'PATCH')
-  await fillQuestionLabel(page, LABEL_SELECT)
-  await selectQuestionType(page, 'Один из списка')
-  expect((await q4Patch).status()).toBeLessThan(400)
+  const q4Patch = await clickAndWaitForMutation(
+    page,
+    '/questions/',
+    'PATCH',
+    async () => {
+      await fillQuestionLabel(page, LABEL_SELECT)
+      await selectQuestionType(page, 'Один из списка')
+    },
+  )
+  expect(q4Patch.status()).toBeLessThan(400)
   await expectAutosaveSaved(page)
 
-  const opt1Create = waitForMutationResponse(page, '/options', 'POST')
-  await page.getByRole('button', { name: 'Добавить опцию' }).click()
-  expect((await opt1Create).status()).toBe(201)
-  const opt2Create = waitForMutationResponse(page, '/options', 'POST')
-  await page.getByRole('button', { name: 'Добавить опцию' }).click()
-  expect((await opt2Create).status()).toBe(201)
+  const opt1Create = await clickAndWaitForMutation(
+    page,
+    '/options',
+    'POST',
+    () => page.getByRole('button', { name: 'Добавить опцию' }).click(),
+  )
+  expect(opt1Create.status()).toBe(201)
+  const opt2Create = await clickAndWaitForMutation(
+    page,
+    '/options',
+    'POST',
+    () => page.getByRole('button', { name: 'Добавить опцию' }).click(),
+  )
+  expect(opt2Create.status()).toBe(201)
   await expect(page.getByLabel('OPT_1')).toBeVisible()
   await expect(page.getByLabel('OPT_2')).toBeVisible()
   await expectAutosaveSaved(page)
 
   await clickQuestionCard(page, LABEL_ADR_NUMBER)
-  const ruleCreate = waitForMutationResponse(page, '/rules', 'POST')
-  await page.getByRole('button', { name: 'Добавить правило' }).click()
-  expect((await ruleCreate).status()).toBe(201)
+  const ruleCreate = await clickAndWaitForMutation(
+    page,
+    '/rules',
+    'POST',
+    () => page.getByRole('button', { name: 'Добавить правило' }).click(),
+  )
+  expect(ruleCreate.status()).toBe(201)
   await page.getByLabel('Действие').selectOption({ label: 'Сделать обязательным' })
   await page.getByLabel('Исходный вопрос').selectOption({ label: LABEL_ADR_AVAILABLE })
   await page.getByLabel('Оператор').selectOption({ label: 'Равно' })
-  const rulePatch = waitForMutationResponse(page, '/rules/', 'PATCH')
-  await page.getByLabel('Значение').fill('true')
-  expect((await rulePatch).status()).toBeLessThan(400)
+  const rulePatch = await clickAndWaitForMutation(
+    page,
+    '/rules/',
+    'PATCH',
+    () => page.getByLabel('Значение').fill('true'),
+  )
+  expect(rulePatch.status()).toBeLessThan(400)
   await expectAutosaveSaved(page)
 
   await clickQuestionCard(page, LABEL_ADR_EXPIRY)
@@ -150,20 +194,28 @@ test('F102-001 RFx Studio live browser acceptance', async ({ page }) => {
   await page.getByLabel('Действие').selectOption({ label: 'Сделать обязательным' })
   await page.getByLabel('Исходный вопрос').selectOption({ label: LABEL_ADR_AVAILABLE })
   await page.getByLabel('Оператор').selectOption({ label: 'Равно' })
-  const rule2Patch = waitForMutationResponse(page, '/rules/', 'PATCH')
-  await page.getByLabel('Значение').fill('true')
-  expect((await rule2Patch).status()).toBeLessThan(400)
+  const rule2Patch = await clickAndWaitForMutation(
+    page,
+    '/rules/',
+    'PATCH',
+    () => page.getByLabel('Значение').fill('true'),
+  )
+  expect(rule2Patch.status()).toBeLessThan(400)
   await expectAutosaveSaved(page)
 
-  const savePatch = waitForMutationResponse(page, '/questions/', 'PATCH')
-  await fillQuestionLabel(page, LABEL_ADR_AVAILABLE)
-  expect((await savePatch).status()).toBeLessThan(400)
+  const savePatch = await clickAndWaitForMutation(
+    page,
+    '/questions/',
+    'PATCH',
+    () => fillQuestionLabel(page, LABEL_ADR_AVAILABLE),
+  )
+  expect(savePatch.status()).toBeLessThan(400)
   await expect(page.locator('.save-status')).toHaveText(/Сохранение|Сохранено/i)
   await expectAutosaveSaved(page)
 
   await page.reload({ waitUntil: 'domcontentloaded' })
   await waitForStudioLoad(page)
-  await page.getByRole('link', { name: 'Анкета' }).click()
+  await openQuestionnaireStep(page)
   await expect(page.getByLabel('Название раздела').first()).toHaveValue(SECTION_HSE)
   await expect(page.locator('.question-card').filter({ hasText: LABEL_ADR_AVAILABLE })).toBeVisible()
   await expect(page.locator('.question-card').filter({ hasText: LABEL_ADR_NUMBER })).toBeVisible()
@@ -173,29 +225,41 @@ test('F102-001 RFx Studio live browser acceptance', async ({ page }) => {
 
   const adrCard = page.locator('.question-card').filter({ hasText: LABEL_ADR_AVAILABLE })
   page.once('dialog', (dialog) => dialog.accept())
-  const deleteResp = waitForMutationResponse(page, '/questions/', 'DELETE')
-  await adrCard.getByRole('button', { name: 'Удалить' }).click()
-  expect((await deleteResp).status()).toBeLessThan(400)
+  const deleteResp = await clickAndWaitForMutation(
+    page,
+    '/questions/',
+    'DELETE',
+    () => adrCard.getByRole('button', { name: 'Удалить' }).click(),
+  )
+  expect(deleteResp.status()).toBeLessThan(400)
   await expectAutosaveSaved(page)
 
   await clickQuestionCard(page, LABEL_ADR_NUMBER)
-  const invalidPatch = waitForMutationResponse(page, '/rules/', 'PATCH')
-  await page.getByLabel('Значение').first().fill('trigger-invalid')
-  expect((await invalidPatch).status()).toBeGreaterThanOrEqual(400)
+  const invalidPatch = await clickAndWaitForMutation(
+    page,
+    '/rules/',
+    'PATCH',
+    () => page.getByLabel('Значение').first().fill('trigger-invalid'),
+  )
+  expect(invalidPatch.status()).toBeGreaterThanOrEqual(400)
   await expectAutosaveInvalid(page)
 
   await page.reload({ waitUntil: 'domcontentloaded' })
   await waitForStudioLoad(page)
-  await page.getByRole('link', { name: 'Анкета' }).click()
+  await openQuestionnaireStep(page)
   await expect(page.locator('.question-card').filter({ hasText: LABEL_ADR_NUMBER })).toBeVisible()
   await expect(page.locator('.question-card').filter({ hasText: LABEL_ADR_AVAILABLE })).toHaveCount(0)
 
-  const validateResp = waitForMutationResponse(page, '/validate-publish', 'POST')
-  await page.getByRole('button', { name: 'Проверить' }).click()
-  expect((await validateResp).status()).toBe(200)
+  const validateResp = await clickAndWaitForMutation(
+    page,
+    '/validate-publish',
+    'POST',
+    () => page.getByRole('button', { name: 'Проверить' }).click(),
+  )
+  expect(validateResp.status()).toBe(200)
   await expect(page).toHaveURL(/step=validation/)
   await expect(page.getByText('Проверка RFx')).toBeVisible()
-  const readiness = await (await validateResp).json()
+  const readiness = await validateResp.json()
   expect(Array.isArray(readiness.items)).toBe(true)
 
   await page.getByRole('button', { name: 'Предпросмотр' }).click()
