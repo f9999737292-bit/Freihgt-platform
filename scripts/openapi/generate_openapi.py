@@ -131,6 +131,25 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/rfx-events/{id}/cancel", "post", "Cancel RFx event", "RFx", True, True, None),
     ("/api/v1/rfx-events/{id}/participants", "post", "Add RFx participant", "RFx", True, True, None),
     ("/api/v1/rfx-events/{id}/participants", "get", "List RFx participants", "RFx", True, True, None),
+    ("/api/v1/rfx-events/{id}/studio", "get", "Get RFx studio workspace", "RFx", True, True, "q_studio_get"),
+    ("/api/v1/rfx-events/{id}/questionnaire", "get", "Get RFx questionnaire definition", "RFx", True, True, "q_questionnaire_get"),
+    ("/api/v1/rfx-events/{id}/save-draft", "post", "Save RFx questionnaire draft", "RFx", True, True, "q_save_draft"),
+    ("/api/v1/rfx-events/{id}/validate-publish", "post", "Validate RFx publish readiness", "RFx", True, True, "q_validate_publish"),
+    ("/api/v1/rfx-events/{id}/sections", "post", "Create RFx questionnaire section", "RFx", True, True, "q_section_create"),
+    ("/api/v1/rfx-events/{id}/sections/{section_id}", "patch", "Update RFx questionnaire section", "RFx", True, True, "q_section_update"),
+    ("/api/v1/rfx-events/{id}/sections/{section_id}", "delete", "Delete RFx questionnaire section", "RFx", True, True, "q_section_delete"),
+    ("/api/v1/rfx-events/{id}/sections/reorder", "post", "Reorder RFx questionnaire sections", "RFx", True, True, "q_section_reorder"),
+    ("/api/v1/rfx-events/{id}/questions", "post", "Create RFx questionnaire question", "RFx", True, True, "q_question_create"),
+    ("/api/v1/rfx-events/{id}/questions/{question_id}", "patch", "Update RFx questionnaire question", "RFx", True, True, "q_question_update"),
+    ("/api/v1/rfx-events/{id}/questions/{question_id}", "delete", "Delete RFx questionnaire question", "RFx", True, True, "q_question_delete"),
+    ("/api/v1/rfx-events/{id}/questions/{question_id}/duplicate", "post", "Duplicate RFx questionnaire question", "RFx", True, True, "q_question_duplicate"),
+    ("/api/v1/rfx-events/{id}/questions/reorder", "post", "Reorder RFx questionnaire questions", "RFx", True, True, "q_question_reorder"),
+    ("/api/v1/rfx-events/{id}/questions/{question_id}/options", "post", "Create RFx question option", "RFx", True, True, "q_option_create"),
+    ("/api/v1/rfx-events/{id}/questions/{question_id}/options/{option_id}", "patch", "Update RFx question option", "RFx", True, True, "q_option_update"),
+    ("/api/v1/rfx-events/{id}/questions/{question_id}/options/{option_id}", "delete", "Delete RFx question option", "RFx", True, True, "q_option_delete"),
+    ("/api/v1/rfx-events/{id}/rules", "post", "Create RFx questionnaire rule", "RFx", True, True, "q_rule_create"),
+    ("/api/v1/rfx-events/{id}/rules/{rule_id}", "patch", "Update RFx questionnaire rule", "RFx", True, True, "q_rule_update"),
+    ("/api/v1/rfx-events/{id}/rules/{rule_id}", "delete", "Delete RFx questionnaire rule", "RFx", True, True, "q_rule_delete"),
     ("/api/v1/freight-requests/from-transport-order", "post", "Create freight request from transport order", "Freight Requests", True, True, None),
     ("/api/v1/freight-requests", "get", "List freight requests", "Freight Requests", True, True, None),
     ("/api/v1/freight-requests/{id}", "get", "Get freight request by ID", "Freight Requests", True, True, None),
@@ -337,7 +356,33 @@ PRICED_TRANSPORT_ORDER_REQUEST_BODY = """              type: object
                       type: string
               additionalProperties: true"""
 
-NO_REQUEST_BODY_PROFILES = frozenset({"reconcile_payment"})
+NO_REQUEST_BODY_PROFILES = frozenset({
+    "reconcile_payment",
+    "q_validate_publish",
+    "q_question_duplicate",
+})
+
+QUESTIONNAIRE_NO_CONTENT_PROFILES = frozenset({
+    "q_section_delete",
+    "q_section_reorder",
+    "q_question_delete",
+    "q_question_reorder",
+    "q_option_delete",
+    "q_rule_delete",
+})
+
+QUESTIONNAIRE_CREATED_PROFILES = frozenset({
+    "q_section_create",
+    "q_question_create",
+    "q_option_create",
+    "q_rule_create",
+    "q_question_duplicate",
+})
+
+QUESTIONNAIRE_OK_POST_PROFILES = frozenset({
+    "q_save_draft",
+    "q_validate_publish",
+})
 
 CONTRACT_RATE_SCHEMA_REFS = {
     "contract_lifecycle": "EmptyLifecycleRequest",
@@ -357,12 +402,48 @@ CONTRACT_RATE_REQUEST_BODIES = {
     "rate_resolve": """              $ref: '#/components/schemas/PublicResolveRateRequest'""",
 }
 
+QUESTIONNAIRE_REQUEST_BODIES = {
+    "q_save_draft": """              $ref: '#/components/schemas/RfxSaveDraftRequest'""",
+    "q_section_create": """              $ref: '#/components/schemas/RfxCreateSectionRequest'""",
+    "q_section_update": """              $ref: '#/components/schemas/RfxUpdateSectionRequest'""",
+    "q_section_delete": """              $ref: '#/components/schemas/RfxVersionedMutationRequest'""",
+    "q_section_reorder": """              $ref: '#/components/schemas/RfxReorderSectionsRequest'""",
+    "q_question_create": """              $ref: '#/components/schemas/RfxCreateQuestionRequest'""",
+    "q_question_update": """              $ref: '#/components/schemas/RfxUpdateQuestionRequest'""",
+    "q_question_delete": """              $ref: '#/components/schemas/RfxVersionedMutationRequest'""",
+    "q_question_duplicate": """              $ref: '#/components/schemas/RfxDuplicateQuestionRequest'""",
+    "q_question_reorder": """              $ref: '#/components/schemas/RfxReorderQuestionsRequest'""",
+    "q_option_create": """              $ref: '#/components/schemas/RfxCreateOptionRequest'""",
+    "q_option_update": """              $ref: '#/components/schemas/RfxUpdateOptionRequest'""",
+    "q_option_delete": """              $ref: '#/components/schemas/RfxVersionedMutationRequest'""",
+    "q_rule_create": """              $ref: '#/components/schemas/RfxCreateRuleRequest'""",
+    "q_rule_update": """              $ref: '#/components/schemas/RfxUpdateRuleRequest'""",
+    "q_rule_delete": """              $ref: '#/components/schemas/RfxVersionedMutationRequest'""",
+}
+
+QUESTIONNAIRE_RESPONSE_SCHEMAS = {
+    "q_studio_get": "RfxStudioResponse",
+    "q_questionnaire_get": "RfxQuestionnaireDefinition",
+    "q_save_draft": "RfxVersionRecord",
+    "q_validate_publish": "RfxPublishReadinessResult",
+    "q_section_create": "RfxSection",
+    "q_section_update": "RfxSection",
+    "q_question_create": "RfxQuestion",
+    "q_question_update": "RfxQuestion",
+    "q_question_duplicate": "RfxQuestion",
+    "q_option_create": "RfxQuestionOption",
+    "q_option_update": "RfxQuestionOption",
+    "q_rule_create": "RfxQuestionRule",
+    "q_rule_update": "RfxQuestionRule",
+}
+
 READ_RESPONSE_SCHEMAS = {
     "payment_list": "PaymentListResponse",
     "payment_detail": "PaymentRecord",
     "payment_allocations_list": "PaymentAllocationListResponse",
     "payment_audit_list": "PaymentAuditEventListResponse",
     "payment_eligible_obligations_list": "EligiblePaymentObligationListResponse",
+    **QUESTIONNAIRE_RESPONSE_SCHEMAS,
 }
 
 # Public routes protected by paymentGuard / companycontext.Enforcer (router.go).
@@ -577,6 +658,8 @@ def render_operation(
             lines.append(f"              $ref: '#/components/schemas/{CONTRACT_RATE_SCHEMA_REFS[profile]}'")
         elif profile in CONTRACT_RATE_REQUEST_BODIES:
             lines.append(CONTRACT_RATE_REQUEST_BODIES[profile])
+        elif profile in QUESTIONNAIRE_REQUEST_BODIES:
+            lines.append(QUESTIONNAIRE_REQUEST_BODIES[profile])
         elif profile == "priced_transport_order_create":
             lines.append(PRICED_TRANSPORT_ORDER_REQUEST_BODY)
         else:
@@ -586,11 +669,41 @@ def render_operation(
                     "              additionalProperties: true",
                 ]
             )
+    elif method == "delete" and profile in QUESTIONNAIRE_REQUEST_BODIES:
+        lines.extend(
+            [
+                "      requestBody:",
+                "        required: false",
+                "        content:",
+                "          application/json:",
+                "            schema:",
+                QUESTIONNAIRE_REQUEST_BODIES[profile],
+            ]
+        )
 
     if secured:
         lines.append(SECURITY_BEARER.rstrip("\n"))
 
-    success_code = "200" if profile in VOID_DESCRIPTIONS or profile in RECONCILE_DESCRIPTIONS else ("201" if method == "post" and tag not in {"Gateway", "Auth"} else "200")
+    if profile in QUESTIONNAIRE_NO_CONTENT_PROFILES:
+        lines.extend(
+            [
+                "      responses:",
+                "        '204':",
+                "          description: Successful response",
+                ERROR_RESPONSES.rstrip("\n"),
+                "",
+            ]
+        )
+        return "\n".join(lines)
+
+    if profile in QUESTIONNAIRE_CREATED_PROFILES:
+        success_code = "201"
+    elif profile in VOID_DESCRIPTIONS or profile in RECONCILE_DESCRIPTIONS or profile in QUESTIONNAIRE_OK_POST_PROFILES:
+        success_code = "200"
+    elif method == "post" and tag not in {"Gateway", "Auth"}:
+        success_code = "201"
+    else:
+        success_code = "200"
     success_desc = "Successful response"
     if profile == "void_allocation":
         success_desc = "Allocation voided or idempotent success"
@@ -637,6 +750,349 @@ def render_paths(endpoints: list[tuple[str, str, str, str, bool, bool, str | Non
     for path, operations in grouped.items():
         chunks.append(f"  {path}:\n" + "\n".join(operations))
     return "\n".join(chunks)
+
+
+def questionnaire_components_block() -> str:
+    return """    RfxSaveDraftRequest:
+      type: object
+      properties:
+        expected_version:
+          type: integer
+          description: Optimistic-lock version of the draft questionnaire row
+    RfxQuestionType:
+      type: string
+      enum:
+        - TEXT
+        - LONG_TEXT
+        - NUMBER
+        - MONEY
+        - YES_NO
+        - SINGLE_SELECT
+        - MULTI_SELECT
+        - DATE
+        - DATETIME
+        - FILE
+        - TABLE
+        - ADDRESS
+        - COUNTRY
+        - COMPANY
+        - VEHICLE_CATEGORY
+        - CERTIFICATE
+        - PERCENT
+        - RATING
+      description: Canonical RFx v3.0B question definition type (deterministic rule engine; no arbitrary code execution).
+    RfxRuleAction:
+      type: string
+      enum: [SHOW, HIDE, REQUIRE]
+    RfxConditionOperator:
+      type: string
+      enum:
+        - AND
+        - OR
+        - EQUALS
+        - NOT_EQUALS
+        - IN
+        - NOT_IN
+        - IS_EMPTY
+        - IS_NOT_EMPTY
+        - GREATER_THAN
+        - LESS_THAN
+      description: Deterministic conditional operators supported by v3.0B (no arbitrary executable expressions).
+    RfxVersionedMutationRequest:
+      type: object
+      properties:
+        expected_version:
+          type: integer
+          description: Optimistic-lock version of the entity being deleted
+    RfxCreateSectionRequest:
+      type: object
+      required: [section_code, title]
+      additionalProperties: false
+      properties:
+        section_code: {type: string}
+        title: {type: string}
+        description: {type: string, nullable: true}
+        sort_order: {type: integer}
+    RfxUpdateSectionRequest:
+      type: object
+      required: [expected_version]
+      additionalProperties: false
+      properties:
+        title: {type: string}
+        description: {type: string, nullable: true}
+        sort_order: {type: integer}
+        expected_version: {type: integer}
+    RfxReorderSectionsRequest:
+      type: object
+      required: [ordered_ids]
+      additionalProperties: false
+      properties:
+        ordered_ids:
+          type: array
+          items: {type: string, format: uuid}
+    RfxCreateQuestionRequest:
+      type: object
+      required: [section_id, question_code, question_type, label]
+      additionalProperties: false
+      properties:
+        section_id: {type: string, format: uuid}
+        question_code: {type: string}
+        question_type:
+          $ref: '#/components/schemas/RfxQuestionType'
+        label: {type: string}
+        help_text: {type: string, nullable: true}
+        required: {type: boolean, default: false}
+        validation_rule_json: {type: object, additionalProperties: true}
+        sort_order: {type: integer}
+    RfxUpdateQuestionRequest:
+      type: object
+      required: [expected_version]
+      additionalProperties: false
+      properties:
+        question_type:
+          $ref: '#/components/schemas/RfxQuestionType'
+        label: {type: string}
+        help_text: {type: string, nullable: true}
+        required: {type: boolean}
+        validation_rule_json: {type: object, additionalProperties: true}
+        sort_order: {type: integer}
+        expected_version: {type: integer}
+    RfxDuplicateQuestionRequest:
+      type: object
+      additionalProperties: false
+    RfxReorderQuestionsRequest:
+      type: object
+      required: [section_id, ordered_ids]
+      additionalProperties: false
+      properties:
+        section_id: {type: string, format: uuid}
+        ordered_ids:
+          type: array
+          items: {type: string, format: uuid}
+    RfxCreateOptionRequest:
+      type: object
+      required: [option_code, label]
+      additionalProperties: false
+      properties:
+        option_code: {type: string}
+        label: {type: string}
+        sort_order: {type: integer}
+    RfxUpdateOptionRequest:
+      type: object
+      required: [expected_version]
+      additionalProperties: false
+      properties:
+        label: {type: string}
+        sort_order: {type: integer}
+        expected_version: {type: integer}
+    RfxCreateRuleRequest:
+      type: object
+      required: [rule_code, action]
+      additionalProperties: false
+      properties:
+        rule_code: {type: string}
+        action:
+          type: string
+          enum: [SHOW, HIDE, REQUIRE]
+        target_question_code: {type: string}
+        condition_json: {type: object, additionalProperties: true}
+        sort_order: {type: integer}
+    RfxUpdateRuleRequest:
+      type: object
+      required: [expected_version]
+      additionalProperties: false
+      properties:
+        action:
+          type: string
+          enum: [SHOW, HIDE, REQUIRE]
+        target_question_code: {type: string}
+        condition_json: {type: object, additionalProperties: true}
+        sort_order: {type: integer}
+        expected_version: {type: integer}
+    RfxValidationDefinition:
+      type: object
+      properties:
+        min_length: {type: integer}
+        max_length: {type: integer}
+        min_value: {type: number}
+        max_value: {type: number}
+        pattern: {type: string}
+        allowed_mime:
+          type: array
+          items: {type: string}
+        max_file_size: {type: integer, format: int64}
+    RfxConditionalExpression:
+      type: object
+      required: [operator]
+      properties:
+        operator: {type: string}
+        source_question_code: {type: string}
+        value: {}
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxConditionalExpression'
+    RfxVersionRecord:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        tenant_id: {type: string, format: uuid}
+        rfx_event_id: {type: string, format: uuid}
+        version_number: {type: integer}
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED, SUPERSEDED, ARCHIVED]
+        questionnaire_enabled: {type: boolean}
+        published_at: {type: string, format: date-time, nullable: true}
+        published_by: {type: string, format: uuid, nullable: true}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        version: {type: integer}
+    RfxSection:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        tenant_id: {type: string, format: uuid}
+        rfx_version_id: {type: string, format: uuid}
+        section_code: {type: string}
+        title: {type: string}
+        description: {type: string, nullable: true}
+        sort_order: {type: integer}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        version: {type: integer}
+    RfxQuestionOption:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        tenant_id: {type: string, format: uuid}
+        question_id: {type: string, format: uuid}
+        option_code: {type: string}
+        label: {type: string}
+        sort_order: {type: integer}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        version: {type: integer}
+    RfxQuestion:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        tenant_id: {type: string, format: uuid}
+        section_id: {type: string, format: uuid}
+        question_code: {type: string}
+        question_type:
+          $ref: '#/components/schemas/RfxQuestionType'
+        label: {type: string}
+        help_text: {type: string, nullable: true}
+        required: {type: boolean}
+        validation_rule_json: {type: object, additionalProperties: true}
+        sort_order: {type: integer}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        version: {type: integer}
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxQuestionOption'
+    RfxQuestionRule:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        tenant_id: {type: string, format: uuid}
+        rfx_version_id: {type: string, format: uuid}
+        target_question_id: {type: string, format: uuid, nullable: true}
+        rule_code: {type: string}
+        action:
+          type: string
+          enum: [SHOW, HIDE, REQUIRE]
+        condition_json: {type: object, additionalProperties: true}
+        sort_order: {type: integer}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        version: {type: integer}
+    RfxSectionWithQuestions:
+      type: object
+      properties:
+        section:
+          $ref: '#/components/schemas/RfxSection'
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxQuestion'
+    RfxPublishReadinessItem:
+      type: object
+      properties:
+        code: {type: string}
+        status:
+          type: string
+          enum: [PASS, FAIL, WARN]
+        message: {type: string}
+        details: {type: object, additionalProperties: true}
+    RfxPublishReadinessResult:
+      type: object
+      properties:
+        ready: {type: boolean}
+        blocking_fail_count: {type: integer}
+        warning_count: {type: integer}
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxPublishReadinessItem'
+    RfxQuestionnaireDefinition:
+      type: object
+      properties:
+        event_id: {type: string, format: uuid}
+        rfx_version_id: {type: string, format: uuid}
+        version_number: {type: integer}
+        questionnaire_enabled: {type: boolean}
+        version_status:
+          type: string
+          enum: [DRAFT, PUBLISHED, SUPERSEDED, ARCHIVED]
+        sections:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxSectionWithQuestions'
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxQuestionRule'
+    RfxStudioEventRecord:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        tenant_id: {type: string, format: uuid}
+        rfx_number: {type: string}
+        rfx_type: {type: string}
+        category: {type: string}
+        title: {type: string}
+        description: {type: string, nullable: true}
+        owner_company_id: {type: string, format: uuid}
+        status: {type: string}
+        currency_code: {type: string, nullable: true}
+        valid_from: {type: string, format: date, nullable: true}
+        valid_to: {type: string, format: date, nullable: true}
+        response_deadline: {type: string, format: date-time, nullable: true}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        version: {type: integer}
+    RfxStudioResponse:
+      type: object
+      properties:
+        event:
+          $ref: '#/components/schemas/RfxStudioEventRecord'
+        draft_version:
+          allOf:
+            - $ref: '#/components/schemas/RfxVersionRecord'
+          nullable: true
+        sections:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxSectionWithQuestions'
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxQuestionRule'
+"""
 
 
 def global_components_block() -> str:
@@ -816,7 +1272,7 @@ components:
         transport_mode: {type: string}
         pricing_date: {type: string, format: date}
         currency_code: {type: string}
-    HealthResponse:
+""" + questionnaire_components_block() + """    HealthResponse:
       type: object
       properties:
         status:

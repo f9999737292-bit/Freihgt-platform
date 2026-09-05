@@ -55,6 +55,28 @@ FREIGHT_COST_PUBLIC_ROUTES = (
     ("get", "/api/v1/freight-costs/lanes/performance"),
 )
 
+QUESTIONNAIRE_V3_0B_ROUTES = (
+    ("get", "/api/v1/rfx-events/{id}/studio"),
+    ("get", "/api/v1/rfx-events/{id}/questionnaire"),
+    ("post", "/api/v1/rfx-events/{id}/save-draft"),
+    ("post", "/api/v1/rfx-events/{id}/validate-publish"),
+    ("post", "/api/v1/rfx-events/{id}/sections"),
+    ("patch", "/api/v1/rfx-events/{id}/sections/{section_id}"),
+    ("delete", "/api/v1/rfx-events/{id}/sections/{section_id}"),
+    ("post", "/api/v1/rfx-events/{id}/sections/reorder"),
+    ("post", "/api/v1/rfx-events/{id}/questions"),
+    ("patch", "/api/v1/rfx-events/{id}/questions/{question_id}"),
+    ("delete", "/api/v1/rfx-events/{id}/questions/{question_id}"),
+    ("post", "/api/v1/rfx-events/{id}/questions/{question_id}/duplicate"),
+    ("post", "/api/v1/rfx-events/{id}/questions/reorder"),
+    ("post", "/api/v1/rfx-events/{id}/questions/{question_id}/options"),
+    ("patch", "/api/v1/rfx-events/{id}/questions/{question_id}/options/{option_id}"),
+    ("delete", "/api/v1/rfx-events/{id}/questions/{question_id}/options/{option_id}"),
+    ("post", "/api/v1/rfx-events/{id}/rules"),
+    ("patch", "/api/v1/rfx-events/{id}/rules/{rule_id}"),
+    ("delete", "/api/v1/rfx-events/{id}/rules/{rule_id}"),
+)
+
 
 def load_yaml(path: Path) -> dict:
     with path.open("r", encoding="utf-8") as handle:
@@ -73,6 +95,49 @@ def assert_void_route(spec: dict, path: str, label: str) -> None:
         raise AssertionError(f"{label}: path item for {path} must be an object")
     if "post" not in path_item or not isinstance(path_item["post"], dict):
         raise AssertionError(f"{label}: paths['{path}']['post'] must exist")
+
+
+def assert_questionnaire_routes_present(spec: dict, label: str) -> None:
+    paths = spec.get("paths", {})
+    for method, path in QUESTIONNAIRE_V3_0B_ROUTES:
+        path_item = paths.get(path)
+        if not isinstance(path_item, dict):
+            raise AssertionError(f"{label}: missing path {path}")
+        operation = path_item.get(method)
+        if not isinstance(operation, dict):
+            raise AssertionError(f"{label}: missing {method.upper()} {path}")
+
+
+def assert_rfx_service_questionnaire_routes() -> None:
+    router_path = ROOT / "services" / "rfx-service" / "internal" / "http" / "router.go"
+    content = router_path.read_text(encoding="utf-8")
+    prefix = "/api/v1/rfx-events"
+    for method, path in QUESTIONNAIRE_V3_0B_ROUTES:
+        if not path.startswith(prefix):
+            raise AssertionError(f"unexpected questionnaire path prefix: {path}")
+        relative = path[len(prefix):]
+        chi_method = {"get": "Get", "post": "Post", "patch": "Patch", "delete": "Delete"}[method]
+        needle = f'r.{chi_method}("{relative}"'
+        if needle not in content:
+            raise AssertionError(f"rfx-service router.go missing {method.upper()} {relative}")
+
+
+def assert_gateway_questionnaire_routes() -> None:
+    router_path = ROOT / "services" / "api-gateway" / "internal" / "http" / "router.go"
+    content = router_path.read_text(encoding="utf-8")
+    for method, path in QUESTIONNAIRE_V3_0B_ROUTES:
+        chi_method = {"get": "Get", "post": "Post", "patch": "Patch", "delete": "Delete"}[method]
+        needle = f'r.{chi_method}("{path}"'
+        if needle not in content:
+            raise AssertionError(f"api-gateway router.go missing {method.upper()} {path}")
+
+
+def assert_aggregate_questionnaire_parity(rfx_spec: dict, unified_spec: dict) -> None:
+    for method, path in QUESTIONNAIRE_V3_0B_ROUTES:
+        rfx_op = rfx_spec.get("paths", {}).get(path, {}).get(method)
+        unified_op = unified_spec.get("paths", {}).get(path, {}).get(method)
+        if rfx_op != unified_op:
+            raise AssertionError(f"openapi.yaml {method.upper()} {path} does not match rfx-service.yaml")
 
 
 def assert_no_root_http_methods(path: Path, spec: dict) -> None:
@@ -270,6 +335,7 @@ def main() -> int:
     targets = [
         OPENAPI_DIR / "payment-service.yaml",
         OPENAPI_DIR / "freight-cost-service.yaml",
+        OPENAPI_DIR / "rfx-service.yaml",
         OPENAPI_DIR / "openapi.yaml",
     ]
 
@@ -288,6 +354,7 @@ def main() -> int:
 
     payment_spec = load_yaml(OPENAPI_DIR / "payment-service.yaml")
     freight_spec = load_yaml(OPENAPI_DIR / "freight-cost-service.yaml")
+    rfx_spec = load_yaml(OPENAPI_DIR / "rfx-service.yaml")
     unified_spec = load_yaml(OPENAPI_DIR / "openapi.yaml")
 
     assert_void_route(payment_spec, "/api/v1/payment-allocations/{id}/void", "payment-service.yaml")
@@ -315,10 +382,17 @@ def main() -> int:
     assert_freight_cost_public_routes_present(freight_spec, "freight-cost-service.yaml")
     assert_freight_cost_public_routes_present(unified_spec, "openapi.yaml")
     assert_aggregate_freight_cost_parity(freight_spec, unified_spec)
+    assert_questionnaire_routes_present(rfx_spec, "rfx-service.yaml")
+    assert_questionnaire_routes_present(unified_spec, "openapi.yaml")
+    assert_aggregate_questionnaire_parity(rfx_spec, unified_spec)
+    assert_gateway_questionnaire_routes()
+    assert_rfx_service_questionnaire_routes()
 
     print("OPENAPI_PATH_STRUCTURE_TEST=PASS")
     print("PAYMENT_COMPANY_CONTEXT_CONTRACT_TEST=PASS")
     print("FREIGHT_COST_PUBLIC_ROUTE_PARITY=PASS")
+    print("QUESTIONNAIRE_V3_0B_ROUTE_PARITY=PASS")
+    print("GATEWAY_QUESTIONNAIRE_ROUTE_PARITY=PASS")
     return 0
 
 
