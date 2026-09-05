@@ -96,7 +96,7 @@ export async function toggleQuestionRequired(page: Page) {
 
 export async function clickQuestionCard(page: Page, label: string) {
   const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const card = page.getByRole('button', { name: new RegExp(`^${escaped}`) }).first()
+  const card = page.getByRole('button', { name: new RegExp(`^${escaped}\\s`) }).first()
   await card.scrollIntoViewIfNeeded()
   await card.click()
   await expect(page.locator('.property-panel').getByLabel('Текст вопроса')).toHaveValue(label, { timeout: 30_000 })

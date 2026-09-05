@@ -226,9 +226,7 @@ test('F102-001 RFx Studio live browser acceptance', async ({ page }) => {
   await clickQuestionCard(page, LABEL_ADR_NUMBER)
   await expect(page.getByLabel('Действие')).toHaveValue('REQUIRE')
 
-  const adrCard = page.locator('.question-card').filter({
-    has: page.locator('strong', { hasText: new RegExp(`^${LABEL_ADR_AVAILABLE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) }),
-  })
+  const adrCard = page.getByRole('button', { name: new RegExp(`^${LABEL_ADR_AVAILABLE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s`) })
   page.once('dialog', (dialog) => dialog.accept())
   const deleteResp = await clickAndWaitForMutation(
     page,
