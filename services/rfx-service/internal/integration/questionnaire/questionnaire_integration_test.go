@@ -422,7 +422,7 @@ func TestPublishReadinessPassAndFail(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get studio: %v", err)
 	}
-	enableQuestionnaire(t, env, studio.DraftVersion.ID)
+	enableQuestionnaireByVersionID(t, env, fix.TenantID, studio.DraftVersion.ID)
 
 	failResult, err := env.qSvc.ValidatePublish(ctx, fix.BuyerA, event.ID)
 	if err != nil {
