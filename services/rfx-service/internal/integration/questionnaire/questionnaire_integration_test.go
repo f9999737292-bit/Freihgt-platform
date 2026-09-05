@@ -72,7 +72,8 @@ func TestSectionCRUDAndReorder(t *testing.T) {
 		t.Fatalf("unexpected section order: %s, %s", def.Sections[0].Section.SectionCode, def.Sections[1].Section.SectionCode)
 	}
 
-	if err := env.qSvc.DeleteSection(ctx, fix.BuyerA, event.ID, sec2.ID, sec2.Version); err != nil {
+	sec2Version := def.Sections[0].Section.Version
+	if err := env.qSvc.DeleteSection(ctx, fix.BuyerA, event.ID, sec2.ID, sec2Version); err != nil {
 		t.Fatalf("delete empty section: %v", err)
 	}
 	def, err = env.qSvc.GetQuestionnaire(ctx, fix.BuyerA, event.ID)
@@ -150,7 +151,8 @@ func TestQuestionCRUDDuplicateReorderDelete(t *testing.T) {
 		t.Fatalf("question reorder failed")
 	}
 
-	if err := env.qSvc.DeleteQuestion(ctx, fix.BuyerA, event.ID, dup.ID, dup.Version); err != nil {
+	dupVersion := def.Sections[0].Questions[0].Version
+	if err := env.qSvc.DeleteQuestion(ctx, fix.BuyerA, event.ID, dup.ID, dupVersion); err != nil {
 		t.Fatalf("delete question: %v", err)
 	}
 	def, err = env.qSvc.GetQuestionnaire(ctx, fix.BuyerA, event.ID)
@@ -399,17 +401,52 @@ func TestPublishedVersionMutationDenied(t *testing.T) {
 	ctx := context.Background()
 	event := createDraftEvent(t, env, fix, "RFX-PUB-1")
 
+	if _, err := env.qSvc.CreateSection(ctx, fix.BuyerA, event.ID, domain.CreateSectionInput{
+		SectionCode: "PUBLISHED_SEC",
+		Title:       "Published Section",
+	}); err != nil {
+		t.Fatalf("create section before publish: %v", err)
+	}
+
 	studio, err := env.qSvc.GetStudio(ctx, fix.BuyerA, event.ID)
 	if err != nil {
 		t.Fatalf("get studio: %v", err)
 	}
-	publishVersion(t, env, studio.DraftVersion.ID)
+	publishedVersionID := studio.DraftVersion.ID
+	publishVersion(t, env, publishedVersionID)
 
-	_, err = env.qSvc.CreateSection(ctx, fix.BuyerA, event.ID, domain.CreateSectionInput{
-		SectionCode: "BLOCKED",
-		Title:       "Blocked",
-	})
-	assertAppErrorCode(t, err, apperrors.CodeConflict)
+	var publishedSectionCount int
+	if err := env.pool.QueryRow(ctx, `SELECT COUNT(*) FROM rfx.rfx_sections WHERE rfx_version_id=$1 AND tenant_id=$2 AND deleted_at IS NULL`, publishedVersionID, fix.TenantID).Scan(&publishedSectionCount); err != nil {
+		t.Fatalf("count published sections: %v", err)
+	}
+	if publishedSectionCount != 1 {
+		t.Fatalf("expected 1 section on published version, got %d", publishedSectionCount)
+	}
+
+	studioAfter, err := env.qSvc.GetStudio(ctx, fix.BuyerA, event.ID)
+	if err != nil {
+		t.Fatalf("get studio after publish: %v", err)
+	}
+	if studioAfter.DraftVersion == nil || studioAfter.DraftVersion.ID == publishedVersionID {
+		t.Fatal("expected new draft version after publish")
+	}
+	if studioAfter.DraftVersion.Status != domain.RfxVersionStatusDraft {
+		t.Fatalf("expected draft status, got %s", studioAfter.DraftVersion.Status)
+	}
+
+	if _, err := env.qSvc.CreateSection(ctx, fix.BuyerA, event.ID, domain.CreateSectionInput{
+		SectionCode: "NEW_DRAFT",
+		Title:       "New Draft Section",
+	}); err != nil {
+		t.Fatalf("create section on new draft: %v", err)
+	}
+
+	if err := env.pool.QueryRow(ctx, `SELECT COUNT(*) FROM rfx.rfx_sections WHERE rfx_version_id=$1 AND tenant_id=$2 AND deleted_at IS NULL`, publishedVersionID, fix.TenantID).Scan(&publishedSectionCount); err != nil {
+		t.Fatalf("recount published sections: %v", err)
+	}
+	if publishedSectionCount != 1 {
+		t.Fatalf("published version mutated: section count=%d", publishedSectionCount)
+	}
 }
 
 func TestPublishReadinessPassAndFail(t *testing.T) {

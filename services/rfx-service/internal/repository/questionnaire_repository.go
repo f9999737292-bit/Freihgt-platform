@@ -372,7 +372,11 @@ func (r *QuestionnaireRepository) CreateOption(ctx context.Context, tenantID, qu
 		VALUES ($1,$2,$3,$4,$5)
 		RETURNING id, tenant_id, question_id, option_code, label, sort_order, created_at, updated_at, version`,
 		tenantID, questionID, strings.TrimSpace(in.OptionCode), strings.TrimSpace(in.Label), sortOrder)
-	return scanQuestionOption(row)
+	opt, err := scanQuestionOption(row)
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	return opt, nil
 }
 
 func (r *QuestionnaireRepository) UpdateOption(ctx context.Context, optionID, tenantID uuid.UUID, in domain.UpdateQuestionOptionInput) (*domain.QuestionOption, error) {
