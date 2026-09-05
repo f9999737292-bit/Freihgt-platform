@@ -55,9 +55,11 @@ test('F102-001 RFx Studio live browser acceptance', async ({ page }) => {
   })
 
   const studioLoad = waitForStudioLoad(page)
-  await page.goto(studioPath(), { waitUntil: 'networkidle' })
+  await page.goto(studioPath(), { waitUntil: 'domcontentloaded' })
   await expect(page).not.toHaveURL(/\/login(?:\?|$)/)
-  const studioBody = await (await studioLoad).json()
+  const studioResponse = await studioLoad
+  expect(studioResponse.status()).toBe(200)
+  const studioBody = await studioResponse.json()
   expect(studioBody.event?.status).toBe('DRAFT')
   expect(studioBody.event?.rfx_number).toBe(rfxNumber)
 
@@ -152,7 +154,7 @@ test('F102-001 RFx Studio live browser acceptance', async ({ page }) => {
   await expect(page.locator('.save-status')).toHaveText(/Сохранение|Сохранено/i)
   await expectAutosaveSaved(page)
 
-  await page.reload({ waitUntil: 'networkidle' })
+  await page.reload({ waitUntil: 'domcontentloaded' })
   await waitForStudioLoad(page)
   await page.getByRole('link', { name: 'Анкета' }).click()
   await expect(page.getByLabel('Название раздела').first()).toHaveValue(SECTION_HSE)
@@ -175,7 +177,7 @@ test('F102-001 RFx Studio live browser acceptance', async ({ page }) => {
   expect((await invalidPatch).status()).toBeGreaterThanOrEqual(400)
   await expectAutosaveInvalid(page)
 
-  await page.reload({ waitUntil: 'networkidle' })
+  await page.reload({ waitUntil: 'domcontentloaded' })
   await waitForStudioLoad(page)
   await page.getByRole('link', { name: 'Анкета' }).click()
   await expect(page.locator('.question-card').filter({ hasText: LABEL_ADR_NUMBER })).toBeVisible()

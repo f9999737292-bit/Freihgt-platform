@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -56,10 +55,10 @@ func startBrowserGatewayProxy(t *testing.T, rfxServiceURL string, fix browserStu
 		proxy.ServeHTTP(w, r)
 	}
 
-	r := chi.NewRouter()
-	r.Handle("/api/v1/rfx-events", http.HandlerFunc(proxyHandler))
-	r.Handle("/api/v1/rfx-events/*", http.HandlerFunc(proxyHandler))
-	return listenHTTPServer(t, r)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/rfx-events/", proxyHandler)
+	mux.HandleFunc("/api/v1/rfx-events", proxyHandler)
+	return listenHTTPServer(t, mux)
 }
 
 type browserJWTClaims struct {

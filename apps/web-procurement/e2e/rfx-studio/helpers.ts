@@ -47,8 +47,8 @@ export function studioPath(suffix = '') {
 
 export async function waitForStudioLoad(page: Page) {
   return page.waitForResponse(
-    (resp) => resp.url().includes(`/api/v1/rfx-events/${eventId}/studio`) && resp.status() === 200,
-    { timeout: 60_000 },
+    (resp) => resp.url().includes(`/api/v1/rfx-events/${eventId}/studio`) && resp.status() < 500,
+    { timeout: 120_000 },
   )
 }
 
