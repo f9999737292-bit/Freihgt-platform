@@ -27,7 +27,14 @@ const LABEL_SELECT = 'Transport mode'
 const SECTION_HSE = 'HSE'
 
 async function addQuestion(page: Page) {
-  await page.getByRole('button', { name: 'Добавить вопрос' }).first().click()
+  await Promise.all([
+    page.waitForResponse(
+      (resp) => resp.url().includes('/questions') && resp.request().method() === 'POST' && resp.status() === 201,
+      { timeout: 60_000 },
+    ),
+    page.getByRole('button', { name: 'Добавить вопрос' }).first().click(),
+  ])
+  await expect(page.getByLabel('Текст вопроса')).toHaveValue('Новый вопрос', { timeout: 15_000 })
 }
 
 test.beforeEach(async ({ page }) => {
@@ -95,7 +102,6 @@ test('F102-001 RFx Studio live browser acceptance', async ({ page }) => {
   await expectAutosaveSaved(page)
 
   await addQuestion(page)
-  await clickQuestionCard(page, 'Новый вопрос')
   const q1Patch = await clickAndWaitForMutation(
     page,
     '/questions/',
@@ -112,7 +118,6 @@ test('F102-001 RFx Studio live browser acceptance', async ({ page }) => {
   await expect(page.locator('.question-card').filter({ hasText: LABEL_ADR_AVAILABLE })).toBeVisible()
 
   await addQuestion(page)
-  await clickQuestionCard(page, 'Новый вопрос')
   const q2Patch = await clickAndWaitForMutation(
     page,
     '/questions/',
@@ -126,7 +131,6 @@ test('F102-001 RFx Studio live browser acceptance', async ({ page }) => {
   await expectAutosaveSaved(page)
 
   await addQuestion(page)
-  await clickQuestionCard(page, 'Новый вопрос')
   const q3Patch = await clickAndWaitForMutation(
     page,
     '/questions/',
@@ -140,7 +144,6 @@ test('F102-001 RFx Studio live browser acceptance', async ({ page }) => {
   await expectAutosaveSaved(page)
 
   await addQuestion(page)
-  await clickQuestionCard(page, 'Новый вопрос')
   const q4Patch = await clickAndWaitForMutation(
     page,
     '/questions/',

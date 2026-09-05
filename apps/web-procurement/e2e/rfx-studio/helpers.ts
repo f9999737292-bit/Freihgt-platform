@@ -99,8 +99,9 @@ export async function clickQuestionCard(page: Page, label: string) {
   const exact = cards.filter({
     has: page.locator('strong', { hasText: new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) }),
   })
-  await exact.first().click()
-  await expect(page.getByLabel('Текст вопроса')).toHaveValue(label, { timeout: 15_000 })
+  const card = exact.first()
+  await card.click()
+  await expect(card).toHaveClass(/question-card--selected/, { timeout: 15_000 })
 }
 
 export async function selectRuleSourceQuestion(page: Page, questionLabel: string) {
