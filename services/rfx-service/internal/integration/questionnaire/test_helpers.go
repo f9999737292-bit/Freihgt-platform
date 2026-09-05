@@ -170,10 +170,6 @@ func seedBuyerFixture(t *testing.T, env *testEnv) buyerFixture {
 		fix.TenantID, fix.BuyerA.UserID, fix.CompanyA, buyerRoleID, fix.BuyerB.UserID, fix.CompanyB, fix.NoMembership.UserID, fix.CompanyA); err != nil {
 		t.Fatalf("seed buyer roles: %v", err)
 	}
-	if _, err := env.pool.Exec(ctx, `INSERT INTO core.user_roles (tenant_id, user_id, company_id, role_id) VALUES ($1, $2, $3, $4)`,
-		fix.OtherTenantID, fix.CrossTenant.UserID, uuid.New(), buyerRoleID); err != nil {
-		t.Fatalf("seed cross-tenant role: %v", err)
-	}
 
 	var carrierRoleID uuid.UUID
 	if err := env.pool.QueryRow(ctx, `SELECT id FROM core.roles WHERE tenant_id IS NULL AND code = 'CARRIER_DISPATCHER' LIMIT 1`).Scan(&carrierRoleID); err != nil {
