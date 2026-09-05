@@ -449,8 +449,8 @@ jobs:
         with:
           name: rfx-studio-browser-e2e-artifacts
           path: |
-            apps/web-admin/e2e/rfx-studio/test-results/**
-            apps/web-admin/e2e/rfx-studio/playwright-report/**
+            apps/web-procurement/e2e/rfx-studio/test-results/**
+            apps/web-procurement/e2e/rfx-studio/playwright-report/**
           if-no-files-found: ignore
 
   order-execution-integration:

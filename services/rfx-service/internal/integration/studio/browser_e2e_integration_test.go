@@ -211,12 +211,9 @@ func runPlaywrightSuite(t *testing.T, stack *browserLiveStack) error {
 	if err != nil {
 		return err
 	}
-	configPath := filepath.Join(root, "apps", "web-admin", "e2e", "rfx-studio", "playwright.config.ts")
-	cmd := exec.Command(
-		"pnpm", "--filter", "@freight-platform/web-procurement", "exec", "playwright", "test",
-		"--config", configPath,
-	)
-	cmd.Dir = root
+	e2eDir := filepath.Join(root, "apps", "web-procurement", "e2e", "rfx-studio")
+	cmd := exec.Command("pnpm", "exec", "playwright", "test")
+	cmd.Dir = e2eDir
 	fix := stack.fixture
 	cmd.Env = append(os.Environ(),
 		"BROWSER_E2E_WEB_URL="+stack.webURL,
