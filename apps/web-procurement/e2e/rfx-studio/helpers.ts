@@ -104,8 +104,14 @@ export async function clickQuestionCard(page: Page, label: string) {
 }
 
 export async function selectRuleSourceQuestion(page: Page, questionLabel: string) {
-  const pattern = new RegExp(`— ${questionLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`)
-  await page.getByLabel('Исходный вопрос').selectOption({ label: pattern })
+  const select = page.getByLabel('Исходный вопрос')
+  const option = select.locator('option').filter({ hasText: questionLabel }).first()
+  await expect(option).toHaveCount(1, { timeout: 15_000 })
+  const optionLabel = (await option.textContent())?.trim()
+  if (!optionLabel) {
+    throw new Error(`No rule source option found for ${questionLabel}`)
+  }
+  await select.selectOption({ label: optionLabel })
 }
 
 export async function configureRequireRule(page: Page, sourceQuestionLabel: string, value = 'true') {
