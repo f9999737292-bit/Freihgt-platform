@@ -270,6 +270,20 @@ func TestAuthEnabledStripsSpoofedIdentityHeadersOnPostMutation(t *testing.T) {
 	}
 }
 
+func TestAuthEnabledUserCompaniesRouteRequiresBearerToken(t *testing.T) {
+	handler := middleware.Auth(true, "secret")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("handler should not be called without bearer token")
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/33333333-3333-3333-3333-333333333333/companies", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status=%d want 401", rec.Code)
+	}
+}
+
 func signToken(t *testing.T, secret, userID, tenantID, email string) string {
 	t.Helper()
 	claims := jwt.MapClaims{

@@ -1,9 +1,21 @@
 <script setup lang="ts">
-defineProps<{
-  modelValue: string
-  label?: string
-  options: Array<{ label: string; value: string }>
-}>()
+withDefaults(
+  defineProps<{
+    modelValue: string
+    label?: string
+    options: Array<{ label: string; value: string }>
+    placeholder?: string
+    disabled?: boolean
+    loading?: boolean
+    required?: boolean
+  }>(),
+  {
+    placeholder: '',
+    disabled: false,
+    loading: false,
+    required: false,
+  },
+)
 
 defineEmits<{ 'update:modelValue': [value: string] }>()
 </script>
@@ -13,9 +25,15 @@ defineEmits<{ 'update:modelValue': [value: string] }>()
     <span v-if="label" class="ui-select__label">{{ label }}</span>
     <select
       class="ui-select__control"
+      :class="{ 'ui-select__control--loading': loading }"
       :value="modelValue"
+      :disabled="disabled || loading"
+      :required="required"
       @change="$emit('update:modelValue', ($event.target as HTMLSelectElement).value)"
     >
+      <option v-if="placeholder" value="" disabled hidden>
+        {{ placeholder }}
+      </option>
       <option v-for="option in options" :key="option.value" :value="option.value">
         {{ option.label }}
       </option>
@@ -42,5 +60,14 @@ defineEmits<{ 'update:modelValue': [value: string] }>()
   border-radius: var(--radius-md);
   background: var(--color-surface);
   font: inherit;
+}
+
+.ui-select__control:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.ui-select__control--loading {
+  color: var(--color-text-muted);
 }
 </style>

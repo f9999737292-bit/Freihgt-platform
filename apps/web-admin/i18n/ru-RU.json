@@ -203,6 +203,10 @@
     "publishedSuccess": "RFx опубликован",
     "cancelledSuccess": "RFx отменён",
     "participantAdded": "Участник добавлен",
+    "selectOwner": "Выберите владельца",
+    "ownerLoading": "Загрузка компаний…",
+    "ownerLoadFailed": "Не удалось загрузить компании-владельцы",
+    "noOwnerCompanies": "Нет доступных компаний-владельцев для вашей учётной записи",
     "validation": {
       "required": "Обязательное поле",
       "validToRange": "Дата окончания не может быть раньше даты начала"
