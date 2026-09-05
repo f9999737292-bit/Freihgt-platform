@@ -4,6 +4,7 @@ const webURL = process.env.BROWSER_E2E_WEB_URL || 'http://127.0.0.1:3020'
 
 export default defineConfig({
   testDir: '.',
+  testMatch: '**/*.spec.ts',
   timeout: 180_000,
   expect: { timeout: 30_000 },
   outputDir: 'test-results',
