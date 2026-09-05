@@ -100,6 +100,19 @@ export async function clickQuestionCard(page: Page, label: string) {
     has: page.locator('strong', { hasText: new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) }),
   })
   await exact.first().click()
+  await expect(page.getByLabel('Текст вопроса')).toHaveValue(label, { timeout: 15_000 })
+}
+
+export async function selectRuleSourceQuestion(page: Page, questionLabel: string) {
+  const pattern = new RegExp(`— ${questionLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`)
+  await page.getByLabel('Исходный вопрос').selectOption({ label: pattern })
+}
+
+export async function configureRequireRule(page: Page, sourceQuestionLabel: string, value = 'true') {
+  await page.getByLabel('Действие').selectOption({ label: 'Сделать обязательным' })
+  await selectRuleSourceQuestion(page, sourceQuestionLabel)
+  await page.getByLabel('Оператор').selectOption({ label: 'Равно' })
+  await page.getByLabel('Значение').fill(value)
 }
 
 export async function renameSectionTitle(page: Page, title: string) {

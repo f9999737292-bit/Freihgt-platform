@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
+  configureRequireRule,
   clickAndWaitForMutation,
   clickQuestionCard,
   eventId,
@@ -178,28 +179,26 @@ test('F102-001 RFx Studio live browser acceptance', async ({ page }) => {
     () => page.getByRole('button', { name: 'Добавить правило' }).click(),
   )
   expect(ruleCreate.status()).toBe(201)
-  await page.getByLabel('Действие').selectOption({ label: 'Сделать обязательным' })
-  await page.getByLabel('Исходный вопрос').selectOption({ label: LABEL_ADR_AVAILABLE })
-  await page.getByLabel('Оператор').selectOption({ label: 'Равно' })
   const rulePatch = await clickAndWaitForMutation(
     page,
     '/rules/',
     'PATCH',
-    () => page.getByLabel('Значение').fill('true'),
+    async () => {
+      await configureRequireRule(page, LABEL_ADR_AVAILABLE)
+    },
   )
   expect(rulePatch.status()).toBeLessThan(400)
   await expectAutosaveSaved(page)
 
   await clickQuestionCard(page, LABEL_ADR_EXPIRY)
   await page.getByRole('button', { name: 'Добавить правило' }).click()
-  await page.getByLabel('Действие').selectOption({ label: 'Сделать обязательным' })
-  await page.getByLabel('Исходный вопрос').selectOption({ label: LABEL_ADR_AVAILABLE })
-  await page.getByLabel('Оператор').selectOption({ label: 'Равно' })
   const rule2Patch = await clickAndWaitForMutation(
     page,
     '/rules/',
     'PATCH',
-    () => page.getByLabel('Значение').fill('true'),
+    async () => {
+      await configureRequireRule(page, LABEL_ADR_AVAILABLE)
+    },
   )
   expect(rule2Patch.status()).toBeLessThan(400)
   await expectAutosaveSaved(page)
@@ -224,7 +223,9 @@ test('F102-001 RFx Studio live browser acceptance', async ({ page }) => {
   await clickQuestionCard(page, LABEL_ADR_NUMBER)
   await expect(page.getByLabel('Действие')).toHaveValue('REQUIRE')
 
-  const adrCard = page.locator('.question-card').filter({ hasText: LABEL_ADR_AVAILABLE })
+  const adrCard = page.locator('.question-card').filter({
+    has: page.locator('strong', { hasText: new RegExp(`^${LABEL_ADR_AVAILABLE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) }),
+  })
   page.once('dialog', (dialog) => dialog.accept())
   const deleteResp = await clickAndWaitForMutation(
     page,
