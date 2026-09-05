@@ -282,7 +282,7 @@ async function handleDuplicateQuestion(question: RfxQuestion) {
 
     <div class="questions-list">
 
-      <RfxQuestionCard
+      <RfxStudioRfxQuestionCard
 
         v-for="(question, qIndex) in questions"
 
