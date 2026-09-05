@@ -10,6 +10,7 @@ import {
   jwt,
   openQuestionnaireStep,
   renameSectionTitle,
+  questionCard,
   rfxNumber,
   seedBuyerSession,
   selectQuestionType,
@@ -115,7 +116,7 @@ test('F102-001 RFx Studio live browser acceptance', async ({ page }) => {
   expect(q1Patch.status()).toBeLessThan(400)
   await expectAutosaveSaved(page)
   await expect(page.getByLabel('Текст вопроса')).toHaveValue(LABEL_ADR_AVAILABLE)
-  await expect(page.locator('.question-card').filter({ hasText: LABEL_ADR_AVAILABLE })).toBeVisible()
+  await expect(questionCard(page, LABEL_ADR_AVAILABLE)).toBeVisible()
 
   await addQuestion(page)
   const q2Patch = await clickAndWaitForMutation(
@@ -220,15 +221,13 @@ test('F102-001 RFx Studio live browser acceptance', async ({ page }) => {
   await waitForStudioLoad(page)
   await openQuestionnaireStep(page)
   await expect(page.getByLabel('Название раздела').first()).toHaveValue(SECTION_HSE)
-  await expect(page.locator('.question-card').filter({ hasText: LABEL_ADR_AVAILABLE })).toBeVisible()
-  await expect(page.locator('.question-card').filter({ hasText: LABEL_ADR_NUMBER })).toBeVisible()
-  await expect(page.locator('.question-card').filter({ hasText: LABEL_ADR_EXPIRY })).toBeVisible()
+  await expect(questionCard(page, LABEL_ADR_AVAILABLE)).toBeVisible()
+  await expect(questionCard(page, LABEL_ADR_NUMBER)).toBeVisible()
+  await expect(questionCard(page, LABEL_ADR_EXPIRY)).toBeVisible()
   await clickQuestionCard(page, LABEL_ADR_NUMBER)
   await expect(page.getByLabel('Действие')).toHaveValue('REQUIRE')
 
-  const adrCard = page.locator('.question-card').filter({
-    has: page.locator('strong', { hasText: new RegExp(`^${LABEL_ADR_AVAILABLE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) }),
-  })
+  const adrCard = questionCard(page, LABEL_ADR_AVAILABLE)
   page.once('dialog', (dialog) => dialog.accept())
   const deleteResp = await clickAndWaitForMutation(
     page,
@@ -252,8 +251,8 @@ test('F102-001 RFx Studio live browser acceptance', async ({ page }) => {
   await page.reload({ waitUntil: 'domcontentloaded' })
   await waitForStudioLoad(page)
   await openQuestionnaireStep(page)
-  await expect(page.locator('.question-card').filter({ hasText: LABEL_ADR_NUMBER })).toBeVisible()
-  await expect(page.locator('.question-card').filter({ hasText: LABEL_ADR_AVAILABLE })).toHaveCount(0)
+  await expect(questionCard(page, LABEL_ADR_NUMBER)).toBeVisible()
+  await expect(questionCard(page, LABEL_ADR_AVAILABLE)).toHaveCount(0)
 
   const validateResp = await clickAndWaitForMutation(
     page,

@@ -94,11 +94,15 @@ export async function toggleQuestionRequired(page: Page) {
   await page.getByLabel('Обязательный вопрос').check()
 }
 
-export async function clickQuestionCard(page: Page, label: string) {
+export function questionCard(page: Page, label: string) {
   const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const card = page.locator('.question-card').filter({
+  return page.locator('.question-card').filter({
     has: page.locator('strong', { hasText: new RegExp(`^${escaped}$`) }),
-  }).first()
+  })
+}
+
+export async function clickQuestionCard(page: Page, label: string) {
+  const card = questionCard(page, label).first()
   await card.scrollIntoViewIfNeeded()
   await card.locator('strong').click()
   await expect(card).toHaveClass(/question-card--selected/, { timeout: 15_000 })
