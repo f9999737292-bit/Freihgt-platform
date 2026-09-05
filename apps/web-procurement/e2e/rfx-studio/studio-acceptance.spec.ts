@@ -57,6 +57,7 @@ test('F102-001 RFx Studio live browser acceptance', async ({ page }) => {
   const studioLoad = waitForStudioLoad(page)
   await page.goto(studioPath(), { waitUntil: 'domcontentloaded' })
   await expect(page).not.toHaveURL(/\/login(?:\?|$)/)
+  await expect(page.getByText('BINTRANS RFx Studio')).toBeVisible({ timeout: 120_000 })
   const studioResponse = await studioLoad
   expect(studioResponse.status()).toBe(200)
   const studioBody = await studioResponse.json()
