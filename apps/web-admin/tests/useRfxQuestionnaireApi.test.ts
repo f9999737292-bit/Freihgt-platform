@@ -29,4 +29,10 @@ describe('useRfxQuestionnaireApi tenant query contract', () => {
   it('delete mutations do not append tenant_id to URL search params', () => {
     expect(source).not.toMatch(/searchParams\.set\(key, String\(value\)\)/)
   })
+
+  it('merges debounced question patch payloads before autosave flush', () => {
+    expect(source).toMatch(/function scheduleDebouncedMutation/)
+    expect(source).toMatch(/scheduleQuestionUpdate[\s\S]*scheduleDebouncedMutation\(`question:\$\{questionId\}`/)
+    expect(source).toMatch(/pendingDebouncedPayloads\.set\(key, merged\)/)
+  })
 })

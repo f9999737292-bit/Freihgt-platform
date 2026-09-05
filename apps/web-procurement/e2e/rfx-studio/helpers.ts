@@ -95,7 +95,11 @@ export async function toggleQuestionRequired(page: Page) {
 }
 
 export async function clickQuestionCard(page: Page, label: string) {
-  await page.locator('.question-card').filter({ hasText: label }).click()
+  const cards = page.locator('.question-card')
+  const exact = cards.filter({
+    has: page.locator('strong', { hasText: new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) }),
+  })
+  await exact.first().click()
 }
 
 export async function renameSectionTitle(page: Page, title: string) {

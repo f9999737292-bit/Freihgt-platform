@@ -107,6 +107,7 @@ test('F102-001 RFx Studio live browser acceptance', async ({ page }) => {
   )
   expect(q1Patch.status()).toBeLessThan(400)
   await expectAutosaveSaved(page)
+  await expect(page.getByLabel('Текст вопроса')).toHaveValue(LABEL_ADR_AVAILABLE)
   await expect(page.locator('.question-card').filter({ hasText: LABEL_ADR_AVAILABLE })).toBeVisible()
 
   await addQuestion(page)

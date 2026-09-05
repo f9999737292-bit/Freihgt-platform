@@ -51,6 +51,7 @@ export function useRfxQuestionnaireApi(rfxEventId: Ref<string> | string) {
   const fieldError = ref<string | null>(null)
 
   const patchTimers = new Map<string, ReturnType<typeof setTimeout>>()
+  const pendingDebouncedPayloads = new Map<string, Record<string, unknown>>()
   let inFlightPatch: Promise<void> | null = null
   let pendingPatchKey: string | null = null
 
@@ -194,6 +195,20 @@ export function useRfxQuestionnaireApi(rfxEventId: Ref<string> | string) {
     )
   }
 
+  function scheduleDebouncedMutation<T extends Record<string, unknown>>(
+    key: string,
+    payload: T,
+    mutate: (merged: T) => Promise<void>,
+  ) {
+    const merged = { ...(pendingDebouncedPayloads.get(key) as T | undefined), ...payload }
+    pendingDebouncedPayloads.set(key, merged)
+    schedulePatch(key, async () => {
+      const body = pendingDebouncedPayloads.get(key) as T
+      pendingDebouncedPayloads.delete(key)
+      await mutate(body)
+    })
+  }
+
   function getSectionVersion(sectionId: string): number | null {
     const swq = studio.value?.sections.find((item) => item.section.id === sectionId)
     return swq?.section.version ?? null
@@ -327,12 +342,12 @@ export function useRfxQuestionnaireApi(rfxEventId: Ref<string> | string) {
   }
 
   function scheduleSectionUpdate(sectionId: string, payload: Omit<RfxUpdateSectionRequest, 'expected_version'>) {
-    schedulePatch(`section:${sectionId}`, async () => {
+    scheduleDebouncedMutation(`section:${sectionId}`, payload, async (merged) => {
       const expectedVersion = getSectionVersion(sectionId)
       if (expectedVersion == null) return
       const section = await apiPatch<RfxSection>(
         basePath(`/sections/${sectionId}`),
-        { ...payload, expected_version: expectedVersion },
+        { ...merged, expected_version: expectedVersion },
       )
       mergeSectionInStudio(section)
       lastSavedAt.value = section.updated_at ?? lastSavedAt.value
@@ -389,12 +404,12 @@ export function useRfxQuestionnaireApi(rfxEventId: Ref<string> | string) {
     questionId: string,
     payload: Omit<RfxUpdateQuestionRequest, 'expected_version'>,
   ) {
-    schedulePatch(`question:${questionId}`, async () => {
+    scheduleDebouncedMutation(`question:${questionId}`, payload, async (merged) => {
       const expectedVersion = getQuestionVersion(questionId)
       if (expectedVersion == null) return
       const question = await apiPatch<RfxQuestion>(
         basePath(`/questions/${questionId}`),
-        { ...payload, expected_version: expectedVersion },
+        { ...merged, expected_version: expectedVersion },
       )
       mergeQuestionInStudio(question)
       lastSavedAt.value = question.updated_at ?? lastSavedAt.value
@@ -464,12 +479,12 @@ export function useRfxQuestionnaireApi(rfxEventId: Ref<string> | string) {
     optionId: string,
     payload: Omit<RfxUpdateOptionRequest, 'expected_version'>,
   ) {
-    schedulePatch(`option:${questionId}:${optionId}`, async () => {
+    scheduleDebouncedMutation(`option:${questionId}:${optionId}`, payload, async (merged) => {
       const expectedVersion = getOptionVersion(questionId, optionId)
       if (expectedVersion == null) return
       await apiPatch<RfxQuestionOption>(
         basePath(`/questions/${questionId}/options/${optionId}`),
-        { ...payload, expected_version: expectedVersion },
+        { ...merged, expected_version: expectedVersion },
       )
       await loadStudio()
       lastSavedAt.value = studio.value?.draft_version?.updated_at ?? lastSavedAt.value
@@ -517,12 +532,12 @@ export function useRfxQuestionnaireApi(rfxEventId: Ref<string> | string) {
   }
 
   function scheduleRuleUpdate(ruleId: string, payload: Omit<RfxUpdateRuleRequest, 'expected_version'>) {
-    schedulePatch(`rule:${ruleId}`, async () => {
+    scheduleDebouncedMutation(`rule:${ruleId}`, payload, async (merged) => {
       const expectedVersion = getRuleVersion(ruleId)
       if (expectedVersion == null) return
       await apiPatch<RfxQuestionRule>(
         basePath(`/rules/${ruleId}`),
-        { ...payload, expected_version: expectedVersion },
+        { ...merged, expected_version: expectedVersion },
       )
       await loadStudio()
       lastSavedAt.value = studio.value?.draft_version?.updated_at ?? lastSavedAt.value
