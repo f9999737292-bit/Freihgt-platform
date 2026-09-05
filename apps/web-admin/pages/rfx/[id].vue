@@ -95,6 +95,9 @@ onMounted(async () => {
 
     <UiPageHeader :title="event?.title || $t('rfx.details')">
       <template #actions>
+        <UiButton v-if="event?.status === 'DRAFT'" variant="secondary" @click="$router.push(`/rfx/${eventId}/studio`)">
+          {{ $t('rfx.openStudio') }}
+        </UiButton>
         <UiButton variant="secondary" @click="$router.push('/rfx')">{{ $t('common.back') }}</UiButton>
       </template>
     </UiPageHeader>
