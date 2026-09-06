@@ -57,6 +57,7 @@ test('F103-001 RFx carrier response live browser acceptance', async ({ page }) =
   })
 
   const loadPromise = waitForCarrierWorkspaceLoad(page)
+  await page.goto('/login', { waitUntil: 'domcontentloaded' })
   await page.goto(questionnairePath(), { waitUntil: 'domcontentloaded' })
   await expect(page).not.toHaveURL(/\/login(?:\?|$)/)
   const loadResponse = await loadPromise
@@ -153,6 +154,7 @@ test('F103-001 RFx carrier response live browser acceptance', async ({ page }) =
 })
 
 test('F103-002 RFx carrier response save_version conflict', async ({ page }) => {
+  await page.goto('/login', { waitUntil: 'domcontentloaded' })
   await page.goto(questionnairePath(), { waitUntil: 'domcontentloaded' })
   await waitForCarrierWorkspace(page)
 
