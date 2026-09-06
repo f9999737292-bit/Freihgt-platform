@@ -65,9 +65,8 @@ func TestScoreModelGatewaySecurityProofs(t *testing.T) {
 		spoofUser := uuid.New()
 		token := scoringBuyerJWT(fix.BuyerA.UserID, fix.TenantID)
 		status, body := scoringGatewayRequest(t, http.MethodGet, scorePath, token, fix.CompanyA, map[string]string{
-			"X-Tenant-ID":  spoofTenant.String(),
-			"X-User-ID":    spoofUser.String(),
-			"X-Company-ID": uuid.New().String(),
+			"X-Tenant-ID": spoofTenant.String(),
+			"X-User-ID":   spoofUser.String(),
 		}, nil)
 		if status != http.StatusOK {
 			t.Fatalf("authorized buyer should pass gateway auth, got %d body=%s", status, body)

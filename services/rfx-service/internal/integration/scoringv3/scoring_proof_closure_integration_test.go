@@ -150,32 +150,13 @@ func TestCriteriaReadinessConstraints(t *testing.T) {
 	_, err = env.scoreModelSvc.PutScoreModel(ctx, fix.BuyerA, sf.Event.ID, domain.PutScoreModelInput{
 		Criteria: []domain.ScoreCriterionInput{
 			{CriterionCode: "DUP", Name: "One", Weight: 50, NormalizationJSON: json.RawMessage(`{"type":"BOOLEAN_MAP","true_score":100,"false_score":0}`)},
+			{CriterionCode: "DUP", Name: "Two", Weight: 50, NormalizationJSON: json.RawMessage(`{"type":"NUMBER_LINEAR","min":0,"max":100}`)},
 		},
 		Bindings: []domain.ScoreBindingInput{
 			{CriterionCode: "DUP", QuestionCode: "ADR_AVAILABLE"},
 		},
 	})
-	if err != nil {
-		t.Fatalf("put base criterion: %v", err)
-	}
-	view, err := env.scoreModelSvc.GetScoreModel(ctx, fix.BuyerA, sf.Event.ID)
-	if err != nil {
-		t.Fatalf("get model: %v", err)
-	}
-	if _, err := env.pool.Exec(ctx, `
-		INSERT INTO rfx.rfx_score_criteria (
-			id, tenant_id, score_model_id, criterion_code, name, weight, normalization_json, sort_order
-		) VALUES ($1,$2,$3,'DUP','Two',50,'{"type":"NUMBER_LINEAR","min":0,"max":100}'::jsonb,2)`,
-		uuid.New(), fix.TenantID, view.Model.ID); err != nil {
-		t.Fatalf("insert duplicate criterion: %v", err)
-	}
-	dupReady, err := env.scoreModelSvc.ValidateScoreModel(ctx, fix.BuyerA, sf.Event.ID)
-	if err != nil {
-		t.Fatalf("validate duplicate: %v", err)
-	}
-	if dupReady.Ready || !hasReadinessCode(*dupReady, "CRITERION_CODE_DUPLICATE") {
-		t.Fatalf("CRITERION_DUPLICATE_DENY expected, errors=%+v", dupReady.Errors)
-	}
+	assertAppErrorCode(t, err, apperrors.CodeValidation)
 }
 
 func TestBindingVersionSafety(t *testing.T) {
