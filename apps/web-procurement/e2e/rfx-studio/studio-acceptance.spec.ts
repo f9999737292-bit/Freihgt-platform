@@ -230,26 +230,6 @@ test('F102-001 RFx Studio live browser acceptance', async ({ page }) => {
   await clickQuestionCard(page, LABEL_ADR_NUMBER)
   await expect(page.getByLabel('Действие')).toHaveValue('REQUIRE')
 
-  await clickQuestionCard(page, LABEL_ADR_AVAILABLE)
-  const invalidPatch = await clickAndWaitForMutation(
-    page,
-    '/questions/',
-    'PATCH',
-    async () => {
-      const input = page.getByLabel('Текст вопроса')
-      await input.fill('')
-      await input.blur()
-    },
-  )
-  expect(invalidPatch.status()).toBeGreaterThanOrEqual(400)
-  await expectAutosaveInvalid(page)
-
-  await page.reload({ waitUntil: 'domcontentloaded' })
-  await waitForStudioLoad(page)
-  await openQuestionnaireStep(page)
-  await clickQuestionCard(page, LABEL_ADR_AVAILABLE)
-  await expect(page.getByLabel('Текст вопроса')).toHaveValue(LABEL_ADR_AVAILABLE)
-
   const adrCard = questionCard(page, LABEL_ADR_AVAILABLE)
   page.once('dialog', (dialog) => dialog.accept())
   const deleteResp = await clickAndWaitForMutation(
@@ -261,10 +241,21 @@ test('F102-001 RFx Studio live browser acceptance', async ({ page }) => {
   expect(deleteResp.status()).toBeLessThan(400)
   await expectAutosaveSaved(page)
 
+  await clickQuestionCard(page, LABEL_ADR_NUMBER)
+  const invalidPatch = await clickAndWaitForMutation(
+    page,
+    '/rules/',
+    'PATCH',
+    () => page.getByLabel('Значение').first().fill('false'),
+  )
+  expect(invalidPatch.status()).toBeGreaterThanOrEqual(400)
+  await expectAutosaveInvalid(page)
+
   await page.reload({ waitUntil: 'domcontentloaded' })
   await waitForStudioLoad(page)
   await openQuestionnaireStep(page)
-  await expect(questionCard(page, LABEL_ADR_NUMBER)).toBeVisible()
+  await clickQuestionCard(page, LABEL_ADR_NUMBER)
+  await expect(page.getByLabel('Значение').first()).toHaveValue('true')
   await expect(questionCard(page, LABEL_ADR_AVAILABLE)).toHaveCount(0)
 
   const validateResp = await clickAndWaitForMutation(
