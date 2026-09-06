@@ -31,8 +31,12 @@ type testEnv struct {
 	auditRepo      *repository.AuditRepository
 	membershipRepo *repository.MembershipRepository
 	qRepo          *repository.QuestionnaireRepository
+	answerRepo     *repository.AnswerRepository
+	scoreRepo      *repository.ScoreRepository
 	rfxSvc         *service.RfxService
 	qSvc           *service.QuestionnaireService
+	scoreModelSvc  *service.ScoreModelService
+	scoringSvc     *service.ScoringService
 }
 
 type buyerFixture struct {
@@ -84,8 +88,12 @@ func setupTestEnv(t *testing.T) *testEnv {
 	auditRepo := repository.NewAuditRepository(pool)
 	membershipRepo := repository.NewMembershipRepository(pool)
 	qRepo := repository.NewQuestionnaireRepository(pool)
+	answerRepo := repository.NewAnswerRepository(pool)
+	scoreRepo := repository.NewScoreRepository(pool)
 	rfxSvc := service.NewRfxServiceWithAtomic(pool, rfxRepo, auditRepo, membershipRepo, newAwardConversionStub(pool))
 	qSvc := service.NewQuestionnaireService(rfxRepo, qRepo, auditRepo, membershipRepo)
+	scoringSvc := service.NewScoringService(pool, rfxRepo, answerRepo, qRepo, scoreRepo, auditRepo)
+	scoreModelSvc := service.NewScoreModelService(rfxRepo, scoreRepo, qRepo, auditRepo, membershipRepo, rfxSvc)
 	t.Logf("isolated database=%s", dbName)
 	return &testEnv{
 		pool:           pool,
@@ -93,8 +101,12 @@ func setupTestEnv(t *testing.T) *testEnv {
 		auditRepo:      auditRepo,
 		membershipRepo: membershipRepo,
 		qRepo:          qRepo,
+		answerRepo:     answerRepo,
+		scoreRepo:      scoreRepo,
 		rfxSvc:         rfxSvc,
 		qSvc:           qSvc,
+		scoreModelSvc:  scoreModelSvc,
+		scoringSvc:     scoringSvc,
 	}
 }
 
@@ -423,8 +435,12 @@ func setupLegacyMigrationTestEnv(t *testing.T) (*testEnv, func()) {
 	auditRepo := repository.NewAuditRepository(pool)
 	membershipRepo := repository.NewMembershipRepository(pool)
 	qRepo := repository.NewQuestionnaireRepository(pool)
+	answerRepo := repository.NewAnswerRepository(pool)
+	scoreRepo := repository.NewScoreRepository(pool)
 	rfxSvc := service.NewRfxServiceWithAtomic(pool, rfxRepo, auditRepo, membershipRepo, newAwardConversionStub(pool))
 	qSvc := service.NewQuestionnaireService(rfxRepo, qRepo, auditRepo, membershipRepo)
+	scoringSvc := service.NewScoringService(pool, rfxRepo, answerRepo, qRepo, scoreRepo, auditRepo)
+	scoreModelSvc := service.NewScoreModelService(rfxRepo, scoreRepo, qRepo, auditRepo, membershipRepo, rfxSvc)
 	t.Logf("legacy migration database=%s", dbName)
 	return &testEnv{
 		pool:           pool,
@@ -432,8 +448,12 @@ func setupLegacyMigrationTestEnv(t *testing.T) (*testEnv, func()) {
 		auditRepo:      auditRepo,
 		membershipRepo: membershipRepo,
 		qRepo:          qRepo,
+		answerRepo:     answerRepo,
+		scoreRepo:      scoreRepo,
 		rfxSvc:         rfxSvc,
 		qSvc:           qSvc,
+		scoreModelSvc:  scoreModelSvc,
+		scoringSvc:     scoringSvc,
 	}, cleanup
 }
 

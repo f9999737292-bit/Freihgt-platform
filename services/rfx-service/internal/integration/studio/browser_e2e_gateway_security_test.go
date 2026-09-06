@@ -114,6 +114,38 @@ func TestBrowserProductionGateway_SecurityProofs(t *testing.T) {
 			t.Fatalf("expected 404/403 for unowned company got %d body=%s", resp.StatusCode, resp.body)
 		}
 	})
+
+	scorePath := gatewayURL + "/api/v1/rfx-events/" + event.ID.String() + "/score-model"
+	t.Run("score_model_carrier_deny", func(t *testing.T) {
+		token := browserStudioJWT(fix.CarrierAct.UserID, fix.TenantID)
+		resp := gatewayRequest(t, http.MethodGet, scorePath, token, fix.CarrierID, nil, nil)
+		if resp.StatusCode != http.StatusForbidden {
+			t.Fatalf("expected 403 for carrier score-model got %d body=%s", resp.StatusCode, resp.body)
+		}
+	})
+	t.Run("score_model_buyer_allow", func(t *testing.T) {
+		token := browserStudioJWT(fix.BuyerA.UserID, fix.TenantID)
+		resp := gatewayRequest(t, http.MethodGet, scorePath, token, fix.CompanyA, nil, nil)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected 200 for buyer score-model got %d body=%s", resp.StatusCode, resp.body)
+		}
+	})
+	t.Run("score_model_header_spoof_ignored", func(t *testing.T) {
+		token := browserStudioJWT(fix.BuyerA.UserID, fix.TenantID)
+		resp := gatewayRequest(t, http.MethodGet, scorePath, token, fix.CompanyA, map[string]string{
+			"X-Tenant-ID": uuid.New().String(),
+			"X-User-ID":   uuid.New().String(),
+		}, nil)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected 200 got %d body=%s", resp.StatusCode, resp.body)
+		}
+		if got := lastBrowserDownstreamHeaders().Get("X-Tenant-ID"); got != fix.TenantID.String() {
+			t.Fatalf("score-model downstream tenant=%q want %q", got, fix.TenantID)
+		}
+		if got := lastBrowserDownstreamHeaders().Get("X-User-ID"); got != fix.BuyerA.UserID.String() {
+			t.Fatalf("score-model downstream user=%q want %q", got, fix.BuyerA.UserID)
+		}
+	})
 }
 
 type gatewayHTTPResponse struct {
