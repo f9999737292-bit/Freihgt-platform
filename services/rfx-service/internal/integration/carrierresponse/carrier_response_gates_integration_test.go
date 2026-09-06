@@ -121,7 +121,7 @@ func TestBatchAtomicSuccessAndRollback(t *testing.T) {
 }
 
 func TestRequiredRulePreSubmitAndSubmitDenied(t *testing.T) {
-	env, fix, event, q := seedPublishedQuestionnaire(t)
+	env, fix, event, _ := seedPublishedQuestionnaire(t)
 	ctx := context.Background()
 	ws, err := env.crSvc.StartOrResume(ctx, fix.CarrierAct, event.ID, fix.CarrierID)
 	if err != nil {
@@ -281,13 +281,13 @@ func seedPublishedQuestionnaireWithTextAndNumber(t *testing.T) (*testEnv, buyerF
 	}
 	required := true
 	textQ, err := env.qSvc.CreateQuestion(ctx, fix.BuyerA, event.ID, sec.ID, domain.CreateQuestionInput{
-		QuestionCode: "NOTES", QuestionType: domain.QuestionTypeText, Label: "Notes", Required: &required,
+		QuestionCode: "NOTES", QuestionType: domain.QuestionTypeText, Label: "Notes", Required: required,
 	})
 	if err != nil {
 		t.Fatalf("create text question: %v", err)
 	}
 	numQ, err := env.qSvc.CreateQuestion(ctx, fix.BuyerA, event.ID, sec.ID, domain.CreateQuestionInput{
-		QuestionCode: "AMOUNT", QuestionType: domain.QuestionTypeNumber, Label: "Amount", Required: &required,
+		QuestionCode: "AMOUNT", QuestionType: domain.QuestionTypeNumber, Label: "Amount", Required: required,
 	})
 	if err != nil {
 		t.Fatalf("create number question: %v", err)
@@ -334,10 +334,12 @@ func seedConditionalRequiredQuestionnaire(t *testing.T) (*testEnv, buyerFixture,
 	if err != nil {
 		t.Fatalf("detail question: %v", err)
 	}
-	_, err = env.qSvc.CreateRule(ctx, fix.BuyerA, event.ID, &detailQ.ID, domain.CreateQuestionRuleInput{
-		RuleCode:      "REQ_DETAIL",
-		Action:        domain.RuleActionRequire,
-		ConditionJSON: conditionEquals("NEED_DETAIL", true),
+	targetDetail := "DETAIL"
+	_, err = env.qSvc.CreateRule(ctx, fix.BuyerA, event.ID, domain.CreateQuestionRuleInput{
+		RuleCode:           "REQ_DETAIL",
+		Action:             domain.RuleActionRequire,
+		TargetQuestionCode: &targetDetail,
+		ConditionJSON:      conditionEquals("NEED_DETAIL", true),
 	})
 	if err != nil {
 		t.Fatalf("require rule: %v", err)
@@ -374,7 +376,7 @@ func seedHiddenQuestionnaire(t *testing.T) (*testEnv, buyerFixture, *domain.RfxE
 	}
 	required := true
 	textQ, err := env.qSvc.CreateQuestion(ctx, fix.BuyerA, event.ID, sec.ID, domain.CreateQuestionInput{
-		QuestionCode: "NOTES", QuestionType: domain.QuestionTypeText, Label: "Notes", Required: &required,
+		QuestionCode: "NOTES", QuestionType: domain.QuestionTypeText, Label: "Notes", Required: required,
 	})
 	if err != nil {
 		t.Fatalf("notes question: %v", err)
@@ -392,10 +394,12 @@ func seedHiddenQuestionnaire(t *testing.T) (*testEnv, buyerFixture, *domain.RfxE
 	if err != nil {
 		t.Fatalf("detail question: %v", err)
 	}
-	_, err = env.qSvc.CreateRule(ctx, fix.BuyerA, event.ID, &detailQ.ID, domain.CreateQuestionRuleInput{
-		RuleCode:      "SHOW_DETAIL",
-		Action:        domain.RuleActionShow,
-		ConditionJSON: conditionEquals("SHOW_DETAIL", true),
+	targetDetail := "DETAIL_TEXT"
+	_, err = env.qSvc.CreateRule(ctx, fix.BuyerA, event.ID, domain.CreateQuestionRuleInput{
+		RuleCode:           "SHOW_DETAIL",
+		Action:             domain.RuleActionShow,
+		TargetQuestionCode: &targetDetail,
+		ConditionJSON:      conditionEquals("SHOW_DETAIL", true),
 	})
 	if err != nil {
 		t.Fatalf("show rule: %v", err)

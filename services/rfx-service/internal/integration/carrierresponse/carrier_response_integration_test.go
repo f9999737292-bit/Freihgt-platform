@@ -191,7 +191,7 @@ func seedPublishedQuestionnaire(t *testing.T) (*testEnv, buyerFixture, *domain.R
 	}
 	required := true
 	q, err := env.qSvc.CreateQuestion(ctx, fix.BuyerA, event.ID, sec.ID, domain.CreateQuestionInput{
-		QuestionCode: "NOTES", QuestionType: domain.QuestionTypeText, Label: "Notes", Required: &required,
+		QuestionCode: "NOTES", QuestionType: domain.QuestionTypeText, Label: "Notes", Required: required,
 	})
 	if err != nil {
 		t.Fatalf("create question: %v", err)

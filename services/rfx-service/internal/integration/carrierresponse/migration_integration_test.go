@@ -4,11 +4,8 @@ package carrierresponse
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 	"time"
-
-	"github.com/google/uuid"
 
 	"github.com/freight-platform/rfx-service/internal/domain"
 )

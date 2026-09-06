@@ -251,10 +251,16 @@ func applyMigrationsExcept(ctx context.Context, pool *pgxpool.Pool, excludeBaseN
 		return err
 	}
 	sort.Strings(files)
+	excludeVersion := migrationFileVersion(excludeBaseName)
 	for _, file := range files {
 		base := filepath.Base(file)
-		if excludeBaseName != "" && base == excludeBaseName {
-			continue
+		if excludeBaseName != "" {
+			if base == excludeBaseName {
+				continue
+			}
+			if excludeVersion > 0 && migrationFileVersion(base) >= excludeVersion {
+				continue
+			}
 		}
 		content, readErr := os.ReadFile(file)
 		if readErr != nil {
@@ -265,6 +271,17 @@ func applyMigrationsExcept(ctx context.Context, pool *pgxpool.Pool, excludeBaseN
 		}
 	}
 	return nil
+}
+
+func migrationFileVersion(baseName string) int {
+	if baseName == "" {
+		return 0
+	}
+	var version int
+	if _, err := fmt.Sscanf(baseName, "%06d", &version); err != nil {
+		return 0
+	}
+	return version
 }
 
 func applyMigrationFile(ctx context.Context, pool *pgxpool.Pool, baseName string) error {
