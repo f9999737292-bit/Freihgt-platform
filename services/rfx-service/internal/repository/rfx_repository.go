@@ -594,12 +594,33 @@ func (r *RfxRepository) SubmitResponse(ctx context.Context, id, tenantID uuid.UU
 		return nil, err
 	}
 
+	if r.exec != nil {
+		return r.submitResponseWithExecutor(ctx, r.exec, id, tenantID, submittedBy, current.Version)
+	}
+
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return nil, mapDBError(err)
 	}
 	defer tx.Rollback(ctx)
 
+	response, err := r.submitResponseWithExecutor(ctx, tx, id, tenantID, submittedBy, current.Version)
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, mapDBError(err)
+	}
+	return response, nil
+}
+
+func (r *RfxRepository) submitResponseWithExecutor(
+	ctx context.Context,
+	exec dbExecutor,
+	id, tenantID uuid.UUID,
+	submittedBy *uuid.UUID,
+	expectedVersion int,
+) (*domain.RfxResponse, error) {
 	const updateResponse = `
 		UPDATE rfx.rfx_responses SET
 			status = $3,
@@ -610,13 +631,13 @@ func (r *RfxRepository) SubmitResponse(ctx context.Context, id, tenantID uuid.UU
 		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL AND status = $5 AND version = $6
 		RETURNING ` + rfxResponseSelectColumns + `
 	`
-	row := tx.QueryRow(ctx, updateResponse,
+	row := exec.QueryRow(ctx, updateResponse,
 		id,
 		tenantID,
 		domain.RfxResponseStatusSubmitted,
 		optionalUUID(submittedBy),
 		domain.RfxResponseStatusDraft,
-		current.Version,
+		expectedVersion,
 	)
 	response, err := scanRfxResponse(row)
 	if err != nil {
@@ -632,16 +653,12 @@ func (r *RfxRepository) SubmitResponse(ctx context.Context, id, tenantID uuid.UU
 			responded_at = now()
 		WHERE rfx_event_id = $1 AND company_id = $2 AND tenant_id = $3
 	`
-	if _, err := tx.Exec(ctx, updateParticipant,
+	if _, err := exec.Exec(ctx, updateParticipant,
 		response.RfxEventID,
 		response.ParticipantCompanyID,
 		tenantID,
 		domain.ParticipantStatusResponseSubmitted,
 	); err != nil {
-		return nil, mapDBError(err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
 		return nil, mapDBError(err)
 	}
 	return response, nil
