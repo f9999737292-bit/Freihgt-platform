@@ -8,6 +8,8 @@ export default defineConfig({
   testIgnore: ['**/tests/**', '**/*.test.ts'],
   timeout: 180_000,
   expect: { timeout: 30_000 },
+  fullyParallel: false,
+  workers: 1,
   outputDir: 'test-results',
   use: {
     baseURL: webURL,

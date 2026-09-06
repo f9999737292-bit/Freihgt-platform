@@ -18,10 +18,11 @@ import {
   seedCarrierSession,
   setYesNo,
   stubCarrierEventMetadata,
+  stubCarrierCompanyContext,
   tenantId,
   userId,
   waitForAnswersPatch,
-  waitForCarrierStart,
+  waitForCarrierWorkspaceLoad,
   waitForCarrierWorkspace,
 } from './helpers'
 
@@ -37,6 +38,7 @@ test.beforeEach(async ({ page }) => {
   })
   await seedCarrierSession(page)
   await stubCarrierEventMetadata(page)
+  await stubCarrierCompanyContext(page)
 })
 
 test('F103-001 RFx carrier response live browser acceptance', async ({ page }) => {
@@ -54,12 +56,12 @@ test('F103-001 RFx carrier response live browser acceptance', async ({ page }) =
     }
   })
 
-  const startPromise = waitForCarrierStart(page)
+  const loadPromise = waitForCarrierWorkspaceLoad(page)
   await page.goto(questionnairePath(), { waitUntil: 'domcontentloaded' })
   await expect(page).not.toHaveURL(/\/login(?:\?|$)/)
-  const startResponse = await startPromise
-  assertGatewayHost(startResponse.url())
-  expect(startResponse.status()).toBe(200)
+  const loadResponse = await loadPromise
+  assertGatewayHost(loadResponse.url())
+  expect(loadResponse.status()).toBe(200)
 
   await waitForCarrierWorkspace(page)
   await expect(page.getByText(rfxNumber)).toBeVisible()

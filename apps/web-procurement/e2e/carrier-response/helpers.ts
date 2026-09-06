@@ -69,6 +69,49 @@ export async function stubCarrierEventMetadata(page: Page) {
   })
 }
 
+export async function stubCarrierCompanyContext(page: Page) {
+  await page.route(`**/api/v1/users/${userId}/companies**`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: [
+          {
+            membership_id: `${carrierCompanyId}-membership`,
+            company_id: carrierCompanyId,
+            legal_name: 'Carrier A',
+            company_type: 'CARRIER',
+            membership_status: 'ACTIVE',
+            roles: [{ code: 'CARRIER_DISPATCHER', name: 'Carrier Dispatcher' }],
+          },
+        ],
+      }),
+    })
+  })
+  await page.route('**/api/v1/companies**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: [
+          {
+            id: buyerCompanyId || carrierCompanyId,
+            legal_name: 'Buyer A',
+            company_type: 'SHIPPER',
+            status: 'ACTIVE',
+          },
+          {
+            id: carrierCompanyId,
+            legal_name: 'Carrier A',
+            company_type: 'CARRIER',
+            status: 'ACTIVE',
+          },
+        ],
+      }),
+    })
+  })
+}
+
 export function questionnairePath() {
   return `/carrier/tenders/${eventId}/questionnaire`
 }
@@ -77,12 +120,25 @@ export async function waitForCarrierWorkspace(page: Page) {
   await expect(page.getByTestId('carrier-response-workspace')).toBeVisible({ timeout: 120_000 })
 }
 
-export async function waitForCarrierStart(page: Page) {
+export async function waitForCarrierWorkspaceLoad(page: Page) {
   return page.waitForResponse(
-    (resp) =>
-      resp.url().includes(`/api/v1/rfx-events/${eventId}/carrier-response/start`)
-      && resp.request().method() === 'POST'
-      && resp.status() < 500,
+    (resp) => {
+      const url = resp.url()
+      if (!url.includes(`/api/v1/rfx-events/${eventId}/carrier-response`)) {
+        return false
+      }
+      if (resp.status() >= 500) {
+        return false
+      }
+      const method = resp.request().method()
+      if (method === 'POST' && url.includes('/start')) {
+        return true
+      }
+      return method === 'GET'
+        && !url.includes('/answers')
+        && !url.includes('/validate')
+        && !url.includes('/submit')
+    },
     { timeout: 120_000 },
   )
 }
