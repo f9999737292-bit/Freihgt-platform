@@ -131,12 +131,6 @@ const tableColumns = computed(() => {
 
 async function loadSecondaryWorkspaceData() {
   try {
-    v3ModelPublished.value = await hasPublishedScoreModel(eventId.value)
-  } catch {
-    v3ModelPublished.value = false
-  }
-
-  try {
     auditEvents.value = await listAuditEvents(eventId.value)
   } catch {
     auditEvents.value = []
@@ -163,8 +157,13 @@ async function loadWorkspace() {
   transportOrders.value = []
   v3ModelPublished.value = false
 
+  let responses: EvaluationResponseItem[]
+  let publishedModel = false
   try {
-    items.value = await listEvaluationResponses(eventId.value)
+    ;[responses, publishedModel] = await Promise.all([
+      listEvaluationResponses(eventId.value),
+      hasPublishedScoreModel(eventId.value).catch(() => false),
+    ])
   } catch (error) {
     event.value = null
     items.value = []
@@ -179,6 +178,8 @@ async function loadWorkspace() {
     return
   }
 
+  items.value = responses
+  v3ModelPublished.value = publishedModel
   loading.value = false
 
   void (async () => {
