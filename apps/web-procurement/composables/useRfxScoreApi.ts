@@ -7,19 +7,49 @@ import { ApiError } from '~/utils/apiClient'
 
 export function useRfxScoreApi() {
   const { apiGet } = useApi()
+  const authStore = useAuthStore()
+  const tenantStore = useTenantStore()
   const scoreCache = reactive(new Map<string, { state: V3ScoreLoadState; score?: V3ResponseScoreView | null }>())
 
   function cacheKey(eventId: string, responseId: string) {
     return `${eventId}:${responseId}`
   }
 
+  async function fetchResponseScore(eventId: string, responseId: string): Promise<V3ResponseScoreView> {
+    const config = useRuntimeConfig()
+    const base = config.public.apiBaseUrl.replace(/\/$/, '')
+    const url = `${base}/api/v1/rfx-events/${encodeURIComponent(eventId)}/responses/${encodeURIComponent(responseId)}/score`
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${authStore.token}`,
+        'X-Company-ID': tenantStore.currentCompanyId || '',
+        'X-Tenant-ID': tenantStore.tenantId,
+        'X-User-ID': authStore.user?.id || '',
+        Accept: 'application/json',
+      },
+    })
+    if (!response.ok) {
+      let body: { error?: { code?: string; message?: string } } | null = null
+      try {
+        body = await response.json()
+      } catch {
+        /* ignore */
+      }
+      throw new ApiError(response.status, {
+        code: body?.error?.code || 'INTERNAL_ERROR',
+        message: body?.error?.message || response.statusText || 'Request failed',
+        details: {},
+      })
+    }
+    return response.json() as Promise<V3ResponseScoreView>
+  }
+
   async function getResponseScore(eventId: string, responseId: string): Promise<V3ResponseScoreView | null> {
     const key = cacheKey(eventId, responseId)
     scoreCache.set(key, { state: 'LOADING' })
     try {
-      const data = await apiGet<V3ResponseScoreView>(
-        `/api/v1/rfx-events/${eventId}/responses/${responseId}/score`,
-      )
+      const data = await fetchResponseScore(eventId, responseId)
       scoreCache.set(key, { state: resolveScoreState(data), score: data })
       return data
     } catch (err) {
@@ -36,9 +66,27 @@ export function useRfxScoreApi() {
     eventId: string,
     responseId: string,
   ): Promise<V3ScoreExplanationResponse> {
-    return apiGet<V3ScoreExplanationResponse>(
-      `/api/v1/rfx-events/${eventId}/responses/${responseId}/score/explanation`,
-    )
+    const config = useRuntimeConfig()
+    const base = config.public.apiBaseUrl.replace(/\/$/, '')
+    const url = `${base}/api/v1/rfx-events/${encodeURIComponent(eventId)}/responses/${encodeURIComponent(responseId)}/score/explanation`
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${authStore.token}`,
+        'X-Company-ID': tenantStore.currentCompanyId || '',
+        'X-Tenant-ID': tenantStore.tenantId,
+        'X-User-ID': authStore.user?.id || '',
+        Accept: 'application/json',
+      },
+    })
+    if (!response.ok) {
+      throw new ApiError(response.status, {
+        code: 'INTERNAL_ERROR',
+        message: response.statusText || 'Request failed',
+        details: {},
+      })
+    }
+    return response.json() as Promise<V3ScoreExplanationResponse>
   }
 
   async function hasPublishedScoreModel(eventId: string): Promise<boolean> {
