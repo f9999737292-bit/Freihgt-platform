@@ -100,7 +100,11 @@ test.describe('RFx v3.0D scoring browser acceptance', () => {
     await page.goto(`${procurementURL}/tenders`, { waitUntil: 'domcontentloaded' })
     await assertBrowserResponsesApi(page)
     await page.goto(`${procurementURL}${evaluationPath()}`, { waitUntil: 'domcontentloaded' })
-    await expect(page.getByTestId('evaluation-comparison-table')).toBeVisible({ timeout: 120_000 })
+    await expect(page.getByRole('status')).toHaveCount(0, { timeout: 120_000 })
+    await expect(
+      page.getByTestId('evaluation-comparison-table').or(page.getByTestId('evaluation-responses-empty')),
+    ).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByTestId('evaluation-comparison-table')).toBeVisible({ timeout: 5_000 })
     await expect(page.getByTestId('legacy-commercial-score').first()).toBeVisible({ timeout: 60_000 })
 
     const v3Cells = page.getByTestId('v3-questionnaire-score')

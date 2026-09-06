@@ -129,6 +129,30 @@ const tableColumns = computed(() => {
   return cols
 })
 
+async function loadSecondaryWorkspaceData() {
+  try {
+    v3ModelPublished.value = await hasPublishedScoreModel(eventId.value)
+  } catch {
+    v3ModelPublished.value = false
+  }
+
+  try {
+    auditEvents.value = await listAuditEvents(eventId.value)
+  } catch {
+    auditEvents.value = []
+  }
+
+  if (event.value?.status === 'AWARDED') {
+    try {
+      transportOrders.value = await listAwardTransportOrders(eventId.value)
+    } catch {
+      transportOrders.value = []
+    }
+  }
+
+  void loadV3ScoresForItems()
+}
+
 async function loadWorkspace() {
   loading.value = true
   notFound.value = false
@@ -137,28 +161,7 @@ async function loadWorkspace() {
   items.value = []
   auditEvents.value = []
   transportOrders.value = []
-
-  try {
-    event.value = await getRfxEvent(eventId.value)
-    setCompany(event.value.owner_company_id)
-  } catch (error) {
-    event.value = null
-    if (shouldShowNotFound(error)) notFound.value = true
-    else {
-      apiUnavailable.value = isApiUnavailableError(error)
-      if (!apiUnavailable.value) {
-        pushToast('error', error instanceof Error ? error.message : t('tenders.evaluation.loadFailed'))
-      }
-    }
-    loading.value = false
-    return
-  }
-
-  try {
-    v3ModelPublished.value = await hasPublishedScoreModel(eventId.value)
-  } catch {
-    v3ModelPublished.value = false
-  }
+  v3ModelPublished.value = false
 
   try {
     items.value = await listEvaluationResponses(eventId.value)
@@ -176,22 +179,19 @@ async function loadWorkspace() {
     return
   }
 
-  try {
-    auditEvents.value = await listAuditEvents(eventId.value)
-  } catch {
-    auditEvents.value = []
-  }
-
-  if (event.value?.status === 'AWARDED') {
-    try {
-      transportOrders.value = await listAwardTransportOrders(eventId.value)
-    } catch {
-      transportOrders.value = []
-    }
-  }
-
   loading.value = false
-  void loadV3ScoresForItems()
+
+  void (async () => {
+    try {
+      event.value = await getRfxEvent(eventId.value)
+      setCompany(event.value.owner_company_id)
+    } catch (error) {
+      event.value = null
+      if (shouldShowNotFound(error)) notFound.value = true
+      else if (isApiUnavailableError(error)) apiUnavailable.value = true
+    }
+    await loadSecondaryWorkspaceData()
+  })()
 }
 
 async function handleRecalculate() {
