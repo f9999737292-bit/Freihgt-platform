@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/freight-platform/rfx-service/internal/domain"
 )
 
@@ -62,11 +64,14 @@ func TestMigration000066LegacyDataPreserved(t *testing.T) {
 		t.Fatalf("publish: %v", err)
 	}
 
-	legacy, err := env.rfxSvc.CreateResponse(ctx, fix.CarrierAct, event.ID, domain.CreateRfxResponseInput{
-		TenantID: fix.TenantID, ParticipantCompanyID: fix.CarrierID,
-	})
-	if err != nil {
-		t.Fatalf("create legacy response before 066: %v", err)
+	var legacyID uuid.UUID
+	if err := env.pool.QueryRow(ctx, `
+		INSERT INTO rfx.rfx_responses (tenant_id, rfx_event_id, participant_company_id, status)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id`,
+		fix.TenantID, event.ID, fix.CarrierID, domain.RfxResponseStatusDraft,
+	).Scan(&legacyID); err != nil {
+		t.Fatalf("insert legacy response before 066: %v", err)
 	}
 
 	if err := applyMigrationFile(ctx, env.pool, "000066_rfx_carrier_response_v3_0c.up.sql"); err != nil {
@@ -79,7 +84,7 @@ func TestMigration000066LegacyDataPreserved(t *testing.T) {
 	if err := env.pool.QueryRow(ctx, `
 		SELECT status, save_version, completion_percent
 		FROM rfx.rfx_responses WHERE id=$1 AND tenant_id=$2`,
-		legacy.ID, fix.TenantID).Scan(&status, &saveVersion, &completion); err != nil {
+		legacyID, fix.TenantID).Scan(&status, &saveVersion, &completion); err != nil {
 		t.Fatalf("read legacy response after 066: %v", err)
 	}
 	if status != domain.RfxResponseStatusDraft {
@@ -92,11 +97,11 @@ func TestMigration000066LegacyDataPreserved(t *testing.T) {
 		t.Fatalf("expected default completion_percent=0, got %v", completion)
 	}
 
-	got, err := env.rfxSvc.GetResponse(ctx, fix.CarrierAct, legacy.ID)
+	got, err := env.rfxSvc.GetResponse(ctx, fix.CarrierAct, legacyID)
 	if err != nil {
 		t.Fatalf("legacy response unreadable after 066: %v", err)
 	}
-	if got.ID != legacy.ID {
+	if got.ID != legacyID {
 		t.Fatal("legacy response id not preserved")
 	}
 }
