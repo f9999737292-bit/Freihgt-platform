@@ -86,6 +86,15 @@ CARRIER_RESPONSE_V3_0C_ROUTES = (
     ("get", "/api/v1/rfx-events/{id}/carrier-response/summary"),
 )
 
+SCORING_V3_0D_ROUTES = (
+    ("get", "/api/v1/rfx-events/{id}/score-model"),
+    ("put", "/api/v1/rfx-events/{id}/score-model"),
+    ("post", "/api/v1/rfx-events/{id}/score-model/validate"),
+    ("post", "/api/v1/rfx-events/{id}/score-model/publish"),
+    ("get", "/api/v1/rfx-events/{id}/responses/{response_id}/score"),
+    ("get", "/api/v1/rfx-events/{id}/responses/{response_id}/score/explanation"),
+)
+
 
 def load_yaml(path: Path) -> dict:
     with path.open("r", encoding="utf-8") as handle:
@@ -186,6 +195,49 @@ def assert_gateway_carrier_response_routes() -> None:
 
 def assert_aggregate_carrier_response_parity(rfx_spec: dict, unified_spec: dict) -> None:
     for method, path in CARRIER_RESPONSE_V3_0C_ROUTES:
+        rfx_op = rfx_spec.get("paths", {}).get(path, {}).get(method)
+        unified_op = unified_spec.get("paths", {}).get(path, {}).get(method)
+        if rfx_op != unified_op:
+            raise AssertionError(f"openapi.yaml {method.upper()} {path} does not match rfx-service.yaml")
+
+
+def assert_scoring_routes_present(spec: dict, label: str) -> None:
+    paths = spec.get("paths", {})
+    for method, path in SCORING_V3_0D_ROUTES:
+        path_item = paths.get(path)
+        if not isinstance(path_item, dict):
+            raise AssertionError(f"{label}: missing path {path}")
+        operation = path_item.get(method)
+        if not isinstance(operation, dict):
+            raise AssertionError(f"{label}: missing {method.upper()} {path}")
+
+
+def assert_rfx_service_scoring_routes() -> None:
+    router_path = ROOT / "services" / "rfx-service" / "internal" / "http" / "router.go"
+    content = router_path.read_text(encoding="utf-8")
+    prefix = "/api/v1/rfx-events"
+    for method, path in SCORING_V3_0D_ROUTES:
+        if not path.startswith(prefix):
+            raise AssertionError(f"unexpected scoring path prefix: {path}")
+        relative = path[len(prefix):]
+        chi_method = {"get": "Get", "put": "Put", "post": "Post", "patch": "Patch", "delete": "Delete"}[method]
+        needle = f'r.{chi_method}("{relative}"'
+        if needle not in content:
+            raise AssertionError(f"rfx-service router.go missing {method.upper()} {relative}")
+
+
+def assert_gateway_scoring_routes() -> None:
+    router_path = ROOT / "services" / "api-gateway" / "internal" / "http" / "router.go"
+    content = router_path.read_text(encoding="utf-8")
+    for method, path in SCORING_V3_0D_ROUTES:
+        chi_method = {"get": "Get", "put": "Put", "post": "Post", "patch": "Patch", "delete": "Delete"}[method]
+        needle = f'r.{chi_method}("{path}"'
+        if needle not in content:
+            raise AssertionError(f"api-gateway router.go missing {method.upper()} {path}")
+
+
+def assert_aggregate_scoring_parity(rfx_spec: dict, unified_spec: dict) -> None:
+    for method, path in SCORING_V3_0D_ROUTES:
         rfx_op = rfx_spec.get("paths", {}).get(path, {}).get(method)
         unified_op = unified_spec.get("paths", {}).get(path, {}).get(method)
         if rfx_op != unified_op:
@@ -444,12 +496,18 @@ def main() -> int:
     assert_aggregate_carrier_response_parity(rfx_spec, unified_spec)
     assert_gateway_carrier_response_routes()
     assert_rfx_service_carrier_response_routes()
+    assert_scoring_routes_present(rfx_spec, "rfx-service.yaml")
+    assert_scoring_routes_present(unified_spec, "openapi.yaml")
+    assert_aggregate_scoring_parity(rfx_spec, unified_spec)
+    assert_gateway_scoring_routes()
+    assert_rfx_service_scoring_routes()
 
     print("OPENAPI_PATH_STRUCTURE_TEST=PASS")
     print("PAYMENT_COMPANY_CONTEXT_CONTRACT_TEST=PASS")
     print("FREIGHT_COST_PUBLIC_ROUTE_PARITY=PASS")
     print("QUESTIONNAIRE_V3_0B_ROUTE_PARITY=PASS")
     print("CARRIER_RESPONSE_V3_0C_ROUTE_PARITY=PASS")
+    print("SCORING_V3_0D_ROUTE_PARITY=PASS")
     print("GATEWAY_QUESTIONNAIRE_ROUTE_PARITY=PASS")
     print("GATEWAY_CARRIER_RESPONSE_ROUTE_PARITY=PASS")
     return 0

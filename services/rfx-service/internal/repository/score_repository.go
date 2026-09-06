@@ -164,7 +164,7 @@ func (r *ScoreRepository) ReplaceDraftDefinition(
 		`
 		if _, err := r.db().Exec(ctx, insertBinding,
 			b.ID, tenantID, modelID, b.CriterionID, b.QuestionID, b.BindingType,
-			b.ScoringRuleJSON, nullableJSON(b.KnockoutRuleJSON),
+			defaultJSON(b.ScoringRuleJSON), nullableJSON(b.KnockoutRuleJSON),
 		); err != nil {
 			return mapDBError(err)
 		}
@@ -423,6 +423,13 @@ func (r *ScoreRepository) scanQualification(row pgx.Row) (*domain.QualificationR
 func nullableJSON(raw json.RawMessage) any {
 	if len(raw) == 0 {
 		return nil
+	}
+	return raw
+}
+
+func defaultJSON(raw json.RawMessage) json.RawMessage {
+	if len(raw) == 0 {
+		return json.RawMessage(`{}`)
 	}
 	return raw
 }
