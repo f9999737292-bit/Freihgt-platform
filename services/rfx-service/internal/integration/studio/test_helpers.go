@@ -37,6 +37,7 @@ type testEnv struct {
 	qSvc           *service.QuestionnaireService
 	scoreModelSvc  *service.ScoreModelService
 	scoringSvc     *service.ScoringService
+	crSvc          *service.CarrierResponseService
 }
 
 type buyerFixture struct {
@@ -94,6 +95,7 @@ func setupTestEnv(t *testing.T) *testEnv {
 	qSvc := service.NewQuestionnaireService(rfxRepo, qRepo, auditRepo, membershipRepo)
 	scoringSvc := service.NewScoringService(pool, rfxRepo, answerRepo, qRepo, scoreRepo, auditRepo)
 	scoreModelSvc := service.NewScoreModelService(rfxRepo, scoreRepo, qRepo, auditRepo, membershipRepo, rfxSvc)
+	crSvc := service.NewCarrierResponseService(pool, rfxRepo, answerRepo, qRepo, auditRepo, membershipRepo, rfxSvc)
 	t.Logf("isolated database=%s", dbName)
 	return &testEnv{
 		pool:           pool,
@@ -107,6 +109,7 @@ func setupTestEnv(t *testing.T) *testEnv {
 		qSvc:           qSvc,
 		scoreModelSvc:  scoreModelSvc,
 		scoringSvc:     scoringSvc,
+		crSvc:          crSvc,
 	}
 }
 
