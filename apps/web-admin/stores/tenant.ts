@@ -35,6 +35,10 @@ export const useTenantStore = defineStore('tenant', {
       if (saved?.trim()) {
         this.tenantId = saved.trim()
       }
+      const savedCompany = localStorage.getItem('freight_admin_company_id')
+      if (savedCompany?.trim()) {
+        this.currentCompanyId = savedCompany.trim()
+      }
       this.restored = true
     },
 

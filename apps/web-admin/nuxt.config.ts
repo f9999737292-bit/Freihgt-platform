@@ -5,6 +5,18 @@ export default defineNuxtConfig({
     port: 3000,
     host: '127.0.0.1',
   },
+  vite: {
+    server: {
+      proxy: process.env.NUXT_E2E_GATEWAY_URL
+        ? {
+            '/api/v1/rfx-events': {
+              target: process.env.NUXT_E2E_GATEWAY_URL,
+              changeOrigin: true,
+            },
+          }
+        : undefined,
+    },
+  },
   typescript: {
     strict: true,
   },

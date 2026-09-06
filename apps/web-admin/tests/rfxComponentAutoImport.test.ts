@@ -42,4 +42,35 @@ describe('rfx component auto-import resolution', () => {
     const indexSource = readFileSync(join(root, 'pages/rfx/index.vue'), 'utf8')
     expect(templateSection(indexSource)).toContain('<RfxCreateModal')
   })
+
+  it('uses registered Nuxt auto-import names for RFx Studio components', () => {
+    const registered = new Set(
+      [...componentsDeclaration.matchAll(/export const (RfxStudio[A-Za-z0-9]+):/g)].map((match) => match[1]),
+    )
+    const studioSources = [
+      ...collectVueFiles(join(root, 'components/rfx/studio')),
+      ...collectVueFiles(join(root, 'pages/rfx')).filter((file) => file.includes('studio')),
+    ]
+    const unresolvedShortTags = [
+      'RfxQuestionnaireBuilder',
+      'RfxSectionCard',
+      'RfxQuestionCard',
+      'RfxPublishReadinessPanel',
+      'RfxCarrierPreview',
+      'QuestionPropertyPanel',
+      'QuestionOptionsEditor',
+      'ConditionalRuleEditor',
+    ]
+    for (const file of studioSources) {
+      const template = templateSection(readFileSync(file, 'utf8'))
+      for (const tag of unresolvedShortTags) {
+        expect(template, `${file} must not use unresolved <${tag}`).not.toMatch(new RegExp(`<${tag}[\\s/>]`))
+      }
+      for (const match of template.matchAll(/<(RfxStudio[A-Za-z0-9]+)/g)) {
+        expect(registered, `${file} references unregistered ${match[1]}`).toContain(match[1])
+      }
+    }
+    const studioIndex = readFileSync(join(root, 'pages/rfx/[id]/studio/index.vue'), 'utf8')
+    expect(templateSection(studioIndex)).toContain('<RfxStudioRfxQuestionnaireBuilder')
+  })
 })

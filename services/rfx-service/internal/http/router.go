@@ -21,11 +21,13 @@ func NewRouter(
 	db observability.DatabasePinger,
 	cfg config.Config,
 	rfxSvc *service.RfxService,
+	qSvc *service.QuestionnaireService,
 	frSvc *service.FreightRequestService,
 	bidSvc *service.BidService,
 	pricingSvc *service.PricingService,
 ) http.Handler {
 	rfxHandler := handlers.NewRfxHandler(rfxSvc)
+	qHandler := handlers.NewQuestionnaireHandler(qSvc)
 	frHandler := handlers.NewFreightRequestHandler(frSvc)
 	bidHandler := handlers.NewBidHandler(bidSvc)
 	pricingHandler := handlers.NewPricingHandler(pricingSvc)
@@ -70,6 +72,27 @@ func NewRouter(
 		r.Get("/{id}/own-award", rfxHandler.GetOwnAward)
 		r.Post("/{id}/transport-orders", rfxHandler.ConvertAwardToTransportOrders)
 		r.Get("/{id}/transport-orders", rfxHandler.ListAwardTransportOrders)
+
+		// RFx v3.0B questionnaire studio
+		r.Get("/{id}/studio", qHandler.GetStudio)
+		r.Get("/{id}/questionnaire", qHandler.GetQuestionnaire)
+		r.Post("/{id}/save-draft", qHandler.SaveDraft)
+		r.Post("/{id}/validate-publish", qHandler.ValidatePublish)
+		r.Post("/{id}/sections", qHandler.CreateSection)
+		r.Patch("/{id}/sections/{section_id}", qHandler.UpdateSection)
+		r.Delete("/{id}/sections/{section_id}", qHandler.DeleteSection)
+		r.Post("/{id}/sections/reorder", qHandler.ReorderSections)
+		r.Post("/{id}/questions", qHandler.CreateQuestion)
+		r.Patch("/{id}/questions/{question_id}", qHandler.UpdateQuestion)
+		r.Delete("/{id}/questions/{question_id}", qHandler.DeleteQuestion)
+		r.Post("/{id}/questions/{question_id}/duplicate", qHandler.DuplicateQuestion)
+		r.Post("/{id}/questions/reorder", qHandler.ReorderQuestions)
+		r.Post("/{id}/questions/{question_id}/options", qHandler.CreateOption)
+		r.Patch("/{id}/questions/{question_id}/options/{option_id}", qHandler.UpdateOption)
+		r.Delete("/{id}/questions/{question_id}/options/{option_id}", qHandler.DeleteOption)
+		r.Post("/{id}/rules", qHandler.CreateRule)
+		r.Patch("/{id}/rules/{rule_id}", qHandler.UpdateRule)
+		r.Delete("/{id}/rules/{rule_id}", qHandler.DeleteRule)
 	})
 
 	r.Route("/v1/carrier/rfx-events", func(r chi.Router) {
