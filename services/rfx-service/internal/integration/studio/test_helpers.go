@@ -95,7 +95,7 @@ func setupTestEnv(t *testing.T) *testEnv {
 	qSvc := service.NewQuestionnaireService(rfxRepo, qRepo, auditRepo, membershipRepo)
 	scoringSvc := service.NewScoringService(pool, rfxRepo, answerRepo, qRepo, scoreRepo, auditRepo)
 	scoreModelSvc := service.NewScoreModelService(rfxRepo, scoreRepo, qRepo, auditRepo, membershipRepo, rfxSvc)
-	crSvc := service.NewCarrierResponseService(pool, rfxRepo, answerRepo, qRepo, auditRepo, membershipRepo, rfxSvc)
+	crSvc := service.NewCarrierResponseServiceWithScoring(pool, rfxRepo, answerRepo, qRepo, auditRepo, membershipRepo, rfxSvc, scoringSvc)
 	t.Logf("isolated database=%s", dbName)
 	return &testEnv{
 		pool:           pool,

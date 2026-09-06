@@ -187,6 +187,9 @@ export function useRfxScoreModelApi(rfxEventId: Ref<string> | string) {
     publishing.value = true
     error.value = null
     try {
+      if (dirty.value) {
+        await saveDraft()
+      }
       const data = await apiPost<ScoreModelView>(basePath('/score-model/publish'))
       view.value = data
       readiness.value = data.readiness ?? { ready: true }

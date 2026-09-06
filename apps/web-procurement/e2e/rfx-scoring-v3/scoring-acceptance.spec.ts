@@ -43,12 +43,20 @@ test.describe('RFx v3.0D scoring browser acceptance', () => {
     await bindings.nth(1).selectOption('FLEET_COUNT')
 
     await page.getByTestId('scoring-knockout-boolean-false').check()
+    const saveDraftResp = page.waitForResponse(
+      (resp) => resp.url().includes('/score-model') && resp.request().method() === 'PUT' && resp.ok(),
+    )
     await page.getByTestId('scoring-save-draft').click()
+    await saveDraftResp
     await page.getByTestId('scoring-validate').click()
     await expect(page.getByTestId('scoring-readiness-ready')).toBeVisible({ timeout: 60_000 })
 
+    const publishResp = page.waitForResponse(
+      (resp) => resp.url().includes('/score-model/publish') && resp.ok(),
+    )
     await page.getByTestId('scoring-publish').click()
     await page.getByTestId('scoring-publish-confirm').click()
+    await publishResp
     await expect(page.getByTestId('scoring-published-lock')).toBeVisible({ timeout: 60_000 })
     await expect(page.getByTestId('scoring-model-status')).toContainText(/Published|Опубликована|已发布/i)
 
@@ -71,8 +79,8 @@ test.describe('RFx v3.0D scoring browser acceptance', () => {
 
     const v3Cells = page.getByTestId('v3-questionnaire-score')
     await expect(v3Cells).toHaveCount(2, { timeout: 120_000 })
-    await expect(v3Cells.filter({ hasText: '70' })).toHaveCount(1)
-    await expect(v3Cells.filter({ hasText: '60' })).toHaveCount(1)
+    await expect(v3Cells.filter({ hasText: '70' })).toHaveCount(1, { timeout: 120_000 })
+    await expect(v3Cells.filter({ hasText: '60' })).toHaveCount(1, { timeout: 120_000 })
 
     const knockoutRow = page.locator('tr').filter({
       has: page.getByTestId('v3-questionnaire-score').filter({ hasText: '60' }),
