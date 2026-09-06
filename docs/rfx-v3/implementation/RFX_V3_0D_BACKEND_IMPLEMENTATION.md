@@ -1,8 +1,8 @@
 # RFx v3.0D — Backend Implementation Report
 
-**Status:** `IMPLEMENTED_BACKEND_PENDING_CONTROLLER_ACCEPTANCE`  
+**Status:** `IMPLEMENTED_PENDING_CONTROLLER_ACCEPTANCE`  
 **Branch:** `feat/bintrans-enterprise-rfx-scoring-knockout-v3.0d`  
-**Frontend:** `NOT_STARTED`
+**Frontend:** `IMPLEMENTED` (see `RFX_V3_0D_FRONTEND_IMPLEMENTATION.md`)
 
 ---
 
@@ -27,7 +27,13 @@
 - Qualification pools / RFI→RFQ handoff
 - `rfx_answers.score_model_version` column (**DEFERRED** — authoritative history in `rfx_answer_scores` / `rfx_qualification_results`)
 - Full transactional outbox (`EVENT_TRANSPORT=DEFERRED_V3_0J`; audit records `rfx.score.calculated.v1` / `rfx.knockout.triggered.v1`)
-- Frontend (web-admin Studio scoring, web-procurement evaluation extension)
+- Frontend (web-admin Studio scoring, web-procurement evaluation extension) — **delivered v3.0D frontend stream**
+
+## Controller-approved deferral
+
+`rfx_answers.score_model_version` column remains **DEFERRED_ACCEPTED**. Authoritative pinned history:
+- `rfx_answer_scores.score_model_id` / `score_model_version`
+- `rfx_qualification_results.score_model_id` / `score_model_version`
 
 ## Legacy compatibility
 
@@ -62,8 +68,8 @@ Carrier B `ADR=false` answer remains persisted after submit.
 |---|---|
 | `go test ./...` (rfx-service) | PASS (unit) |
 | `go build ./...` (rfx-service, api-gateway) | PASS |
-| `rfx-scoring-v3-integration` | PENDING CI PostgreSQL gate |
+| `rfx-scoring-v3-integration` | PASS (CI `34040666011`, HEAD `1de8f46`) |
 
 ---
 
-**NEXT_ACTION:** Controller authorize v3.0D frontend after backend CI PASS.
+**NEXT_ACTION:** Controller final review v3.0D (`CONTROLLER_FINAL_REVIEW_V3_0D`).
