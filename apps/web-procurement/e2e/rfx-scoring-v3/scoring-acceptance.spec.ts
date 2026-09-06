@@ -17,6 +17,11 @@ test.describe('RFx v3.0D scoring browser acceptance', () => {
   test.beforeEach(async ({ page }) => {
     await seedBuyerAdminSession(page)
     await seedBuyerProcurementSession(page)
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') {
+        console.log(`[browser-console] ${msg.text()}`)
+      }
+    })
   })
 
   test('studio publish + evaluation scores + legacy regression', async ({ page, request }) => {
@@ -87,9 +92,22 @@ test.describe('RFx v3.0D scoring browser acceptance', () => {
     expect(scoreTotals).toContain(60)
 
     await page.goto(`${procurementURL}/login`, { waitUntil: 'domcontentloaded' })
+    const browserResponses = page.waitForResponse(
+      (resp) =>
+        resp.url().includes(`/rfx-events/${eventId}/responses`) &&
+        resp.request().method() === 'GET' &&
+        resp.ok(),
+      { timeout: 120_000 },
+    )
     await page.goto(`${procurementURL}/tenders/${eventId}/evaluation`, { waitUntil: 'domcontentloaded' })
+    const browserResponsesResp = await browserResponses
+    expect(browserResponsesResp.ok()).toBeTruthy()
+    const browserResponsesBody = await browserResponsesResp.json()
+    expect(Array.isArray(browserResponsesBody.items)).toBeTruthy()
+    expect(browserResponsesBody.items.length).toBeGreaterThanOrEqual(2)
 
-    await expect(page.getByTestId('legacy-commercial-score').first()).toBeVisible({ timeout: 120_000 })
+    await expect(page.getByTestId('evaluation-comparison-table')).toBeVisible({ timeout: 60_000 })
+    await expect(page.getByTestId('legacy-commercial-score').first()).toBeVisible({ timeout: 60_000 })
 
     const v3Cells = page.getByTestId('v3-questionnaire-score')
     await expect(v3Cells).toHaveCount(2, { timeout: 120_000 })
