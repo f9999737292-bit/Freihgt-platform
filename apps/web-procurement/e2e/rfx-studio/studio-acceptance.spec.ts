@@ -9,6 +9,7 @@ import {
   fillQuestionLabel,
   jwt,
   openQuestionnaireStep,
+  patchQuestionValidation,
   renameSectionTitle,
   questionCard,
   rfxNumber,
@@ -25,8 +26,16 @@ import {
 const LABEL_ADR_AVAILABLE = 'ADR available?'
 const LABEL_ADR_NUMBER = 'ADR number'
 const LABEL_ADR_EXPIRY = 'ADR expiry date'
+const LABEL_FLEET_COUNT = 'Fleet count'
 const LABEL_SELECT = 'Transport mode'
 const SECTION_HSE = 'HSE'
+
+const CARRIER_WRITE_FRAGMENTS = [
+  '/carrier-response/start',
+  '/carrier-response/answers',
+  '/carrier-response/validate',
+  '/carrier-response/submit',
+]
 
 async function addQuestion(page: Page) {
   await Promise.all([
@@ -212,6 +221,20 @@ test('F102-001 RFx Studio live browser acceptance', async ({ page }) => {
   expect(rule2Patch.status()).toBeLessThan(400)
   await expectAutosaveSaved(page)
 
+  await addQuestion(page)
+  const q5Patch = await clickAndWaitForMutation(
+    page,
+    '/questions/',
+    'PATCH',
+    async () => {
+      await fillQuestionLabel(page, LABEL_FLEET_COUNT)
+      await selectQuestionType(page, 'Число')
+    },
+  )
+  expect(q5Patch.status()).toBeLessThan(400)
+  await patchQuestionValidation(page, 'Q_5', { min_value: 0 })
+  await expectAutosaveSaved(page)
+
   await clickQuestionCard(page, LABEL_ADR_AVAILABLE)
   const savePatch = await clickAndWaitForMutation(
     page,
@@ -233,6 +256,48 @@ test('F102-001 RFx Studio live browser acceptance', async ({ page }) => {
   await expect(questionCard(page, LABEL_ADR_EXPIRY)).toBeVisible()
   await clickQuestionCard(page, LABEL_ADR_NUMBER)
   await expect(page.getByLabel('Действие')).toHaveValue('REQUIRE')
+
+  const carrierWriteRequests: string[] = []
+  page.on('request', (req) => {
+    const url = req.url()
+    if (CARRIER_WRITE_FRAGMENTS.some((frag) => url.includes(frag))) {
+      carrierWriteRequests.push(`${req.method()} ${url}`)
+    }
+  })
+
+  await page.getByRole('button', { name: 'Предпросмотр' }).click()
+  await expect(page).toHaveURL(new RegExp(`/rfx/${eventId}/studio/preview`))
+  await expect(page.getByText('Предпросмотр для перевозчика')).toBeVisible()
+  await expect(page.getByText('Только просмотр — ответы не сохраняются')).toBeVisible()
+  await page.getByTestId('enter-carrier-preview-sandbox').click()
+  await expect(page.getByTestId('carrier-preview-sandbox')).toBeVisible()
+  await expect(page.getByText('Режим предпросмотра')).toBeVisible()
+
+  const adrSection = page.getByTestId('preview-section-SEC_1')
+  await adrSection.getByTestId('preview-question-Q_1').getByText('Да').click()
+  await expect(adrSection.getByTestId('preview-question-Q_2')).toBeVisible()
+  await expect(adrSection.getByTestId('preview-question-Q_3')).toBeVisible()
+
+  const fleetInput = adrSection.getByTestId('preview-question-Q_5').locator('input[type="number"]')
+  await fleetInput.fill('-1')
+  await fleetInput.blur()
+  await page.getByTestId('preview-check-submit').click()
+  await expect(page.getByTestId('preview-submit-blocked')).toBeVisible()
+  await expect(adrSection.getByTestId('preview-question-Q_5').getByTestId('preview-inline-errors')).toBeVisible()
+
+  await fleetInput.fill('10')
+  await page.getByTestId('preview-check-submit').click()
+  await expect(page.getByTestId('preview-submit-blocked')).toBeVisible()
+  await page.getByTestId('preview-global-summary').getByRole('button', { name: 'Перейти' }).first().click()
+  await adrSection.getByTestId('preview-question-Q_3').locator('input[type="date"]').fill('2026-12-31')
+  await adrSection.getByTestId('preview-question-Q_2').locator('input[type="text"]').fill('ADR-001')
+  await page.getByTestId('preview-check-submit').click()
+  await expect(page.getByTestId('preview-submit-success')).toBeVisible()
+  await page.getByTestId('preview-close').click()
+  expect(carrierWriteRequests).toEqual([])
+
+  await page.goto(studioPath('?step=questionnaire'), { waitUntil: 'domcontentloaded' })
+  await waitForStudioLoad(page)
 
   const adrCard = questionCard(page, LABEL_ADR_AVAILABLE)
   page.once('dialog', (dialog) => dialog.accept())

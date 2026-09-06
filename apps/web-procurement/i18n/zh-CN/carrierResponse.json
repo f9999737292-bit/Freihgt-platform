@@ -1,0 +1,74 @@
+{
+  "carrierResponse": {
+    "title": "承运商问卷",
+    "subtitle": "请在截止时间前完成必填项并提交",
+    "openQuestionnaire": "填写问卷",
+    "backToTender": "返回招标",
+    "rfxNumber": "RFx 编号",
+    "buyer": "采购方",
+    "deadline": "应答截止",
+    "completion": "完成度：{percent}%",
+    "status": {
+      "NOT_STARTED": "未开始",
+      "IN_PROGRESS": "进行中",
+      "SUBMITTED": "已提交"
+    },
+    "autosave": {
+      "empty": "",
+      "dirty": "有未保存的更改",
+      "validating": "校验中…",
+      "valid": "可保存",
+      "saving": "保存中…",
+      "saved": "已保存",
+      "savedAt": "已于 {time} 保存",
+      "invalid": "存在错误，更改未保存",
+      "conflict": "版本冲突，请刷新",
+      "saveFailed": "保存失败，请重试"
+    },
+    "section": {
+      "complete": "已完成",
+      "warning": "警告：{count}",
+      "error": "错误：{count}",
+      "incomplete": "未完成：{count}"
+    },
+    "validation": {
+      "required": "必填项",
+      "type": "值类型无效",
+      "min": "低于最小值 ({min})",
+      "max": "高于最大值 ({max})",
+      "enum": "请选择有效选项",
+      "date": "日期无效",
+      "conditional_required": "当前条件下必填"
+    },
+    "globalSummary": {
+      "title": "阻止提交的错误",
+      "warningsTitle": "警告",
+      "fix": "修正",
+      "empty": "无阻止性错误"
+    },
+    "unsupportedType": "问题类型「{type}」暂不支持",
+    "unsupportedRequired": "必填但不支持的问题类型 — 无法提交",
+    "leaveWarning": {
+      "title": "有未保存的更改",
+      "body": "有未保存的更改。{count} 个答案有错误且未保存。",
+      "stay": "留下并修正",
+      "leaveWithoutInvalid": "离开并丢弃无效更改"
+    },
+    "conflict": {
+      "title": "保存冲突",
+      "body": "响应已在其他会话中更改，请从服务器刷新。",
+      "reload": "从服务器刷新"
+    },
+    "submit": {
+      "action": "提交问卷",
+      "confirm": "提交应答？提交后将无法编辑。",
+      "blocked": "无法提交：请修正 {count} 个错误",
+      "success": "问卷已提交",
+      "locked": "应答已提交并锁定"
+    },
+    "start": "开始应答",
+    "resume": "继续应答",
+    "retrySave": "重试保存",
+    "requiredMark": "必填"
+  }
+}

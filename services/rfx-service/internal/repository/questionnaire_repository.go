@@ -705,3 +705,21 @@ func (r *QuestionnaireRepository) DuplicateQuestion(ctx context.Context, tenantI
 }
 
 func intPtr(v int) *int { return &v }
+
+func (r *QuestionnaireRepository) GetPublishedVersionForEvent(ctx context.Context, eventID, tenantID uuid.UUID) (*domain.RfxVersion, error) {
+	row := r.db().QueryRow(ctx, `
+		SELECT id, tenant_id, rfx_event_id, version_number, status, questionnaire_enabled, published_at, published_by, created_at, updated_at, version
+		FROM rfx.rfx_versions
+		WHERE rfx_event_id = $1 AND tenant_id = $2 AND status = $3 AND deleted_at IS NULL
+		ORDER BY version_number DESC
+		LIMIT 1`, eventID, tenantID, domain.RfxVersionStatusPublished)
+	ver, err := scanRfxVersion(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperrors.NotFound("published questionnaire version not found")
+		}
+		return nil, mapDBError(err)
+	}
+	return ver, nil
+}
+

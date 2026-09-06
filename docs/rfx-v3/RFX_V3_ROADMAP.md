@@ -10,9 +10,9 @@
 | Release | Name | Scope | Status |
 |---|---|---|---|
 | **v3.0A** | Architecture Freeze | Docs, ADRs, gap matrix, diagrams — **no implementation** | **THIS STREAM** |
-| **v3.0B** | Questionnaire Core | Sections, questions, types, conditional rules, buyer Studio builder | Planned |
-| **v3.0C** | Carrier Response | Autosave, resume, error UX, submit gate | Planned |
-| **v3.0D** | Scoring + Knockout | Score models, knockout, explainability | Planned |
+| **v3.0B** | Questionnaire Core | Sections, questions, types, conditional rules, buyer Studio builder | **IMPLEMENTED_ACCEPTED** |
+| **v3.0C** | Carrier Response | Autosave, resume, error UX, submit gate | **IMPLEMENTED_PENDING_CONTROLLER_ACCEPTANCE** |
+| **v3.0D** | Scoring + Knockout | Score models, knockout, explainability | **PLANNED** |
 | **v3.0E** | Templates + Versioning | Template library, immutable published versions, compare/restore | Planned |
 | **v3.0F** | Qualification Pool | Qualification results, pools, RFI→RFQ handoff | Planned |
 | **v3.0G** | Carrier 360 | Profile autofill, freshness, confirmation | Planned |

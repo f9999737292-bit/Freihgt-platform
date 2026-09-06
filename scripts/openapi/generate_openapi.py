@@ -135,6 +135,12 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/rfx-events/{id}/questionnaire", "get", "Get RFx questionnaire definition", "RFx", True, True, "q_questionnaire_get"),
     ("/api/v1/rfx-events/{id}/save-draft", "post", "Save RFx questionnaire draft", "RFx", True, True, "q_save_draft"),
     ("/api/v1/rfx-events/{id}/validate-publish", "post", "Validate RFx publish readiness", "RFx", True, True, "q_validate_publish"),
+    ("/api/v1/rfx-events/{id}/carrier-response", "get", "Get carrier questionnaire response workspace", "RFx", True, True, "cr_workspace_get"),
+    ("/api/v1/rfx-events/{id}/carrier-response/start", "post", "Start or resume carrier questionnaire response", "RFx", True, True, "cr_start"),
+    ("/api/v1/rfx-events/{id}/carrier-response/answers", "patch", "Atomic batch autosave of carrier answers", "RFx", True, True, "cr_answers_patch"),
+    ("/api/v1/rfx-events/{id}/carrier-response/validate", "post", "Pre-submit validation of carrier response", "RFx", True, True, "cr_validate"),
+    ("/api/v1/rfx-events/{id}/carrier-response/submit", "post", "Submit carrier questionnaire response", "RFx", True, True, "cr_submit"),
+    ("/api/v1/rfx-events/{id}/carrier-response/summary", "get", "Carrier response completion summary", "RFx", True, True, "cr_summary_get"),
     ("/api/v1/rfx-events/{id}/sections", "post", "Create RFx questionnaire section", "RFx", True, True, "q_section_create"),
     ("/api/v1/rfx-events/{id}/sections/{section_id}", "patch", "Update RFx questionnaire section", "RFx", True, True, "q_section_update"),
     ("/api/v1/rfx-events/{id}/sections/{section_id}", "delete", "Delete RFx questionnaire section", "RFx", True, True, "q_section_delete"),
@@ -421,6 +427,27 @@ QUESTIONNAIRE_REQUEST_BODIES = {
     "q_rule_delete": """              $ref: '#/components/schemas/RfxVersionedMutationRequest'""",
 }
 
+CARRIER_RESPONSE_REQUEST_BODIES = {
+    "cr_answers_patch": """              $ref: '#/components/schemas/RfxCarrierAnswerBatchPatch'""",
+    "cr_submit": """              type: object
+              required: [save_version]
+              properties:
+                save_version:
+                  type: integer
+                  format: int64""",
+}
+
+CARRIER_RESPONSE_422_PROFILES = frozenset({"cr_answers_patch", "cr_submit"})
+
+CARRIER_RESPONSE_SCHEMAS = {
+    "cr_workspace_get": "RfxCarrierResponseWorkspace",
+    "cr_start": "RfxCarrierResponseWorkspace",
+    "cr_answers_patch": "RfxCarrierResponseSaveResult",
+    "cr_validate": "RfxCarrierResponseValidationResult",
+    "cr_submit": "RfxCarrierResponseSubmitResult",
+    "cr_summary_get": "RfxCarrierResponseValidationResult",
+}
+
 QUESTIONNAIRE_RESPONSE_SCHEMAS = {
     "q_studio_get": "RfxStudioResponse",
     "q_questionnaire_get": "RfxQuestionnaireDefinition",
@@ -444,6 +471,7 @@ READ_RESPONSE_SCHEMAS = {
     "payment_audit_list": "PaymentAuditEventListResponse",
     "payment_eligible_obligations_list": "EligiblePaymentObligationListResponse",
     **QUESTIONNAIRE_RESPONSE_SCHEMAS,
+    **CARRIER_RESPONSE_SCHEMAS,
 }
 
 # Public routes protected by paymentGuard / companycontext.Enforcer (router.go).
@@ -660,6 +688,8 @@ def render_operation(
             lines.append(CONTRACT_RATE_REQUEST_BODIES[profile])
         elif profile in QUESTIONNAIRE_REQUEST_BODIES:
             lines.append(QUESTIONNAIRE_REQUEST_BODIES[profile])
+        elif profile in CARRIER_RESPONSE_REQUEST_BODIES:
+            lines.append(CARRIER_RESPONSE_REQUEST_BODIES[profile])
         elif profile == "priced_transport_order_create":
             lines.append(PRICED_TRANSPORT_ORDER_REQUEST_BODY)
         else:
@@ -698,7 +728,7 @@ def render_operation(
 
     if profile in QUESTIONNAIRE_CREATED_PROFILES:
         success_code = "201"
-    elif profile in VOID_DESCRIPTIONS or profile in RECONCILE_DESCRIPTIONS or profile in QUESTIONNAIRE_OK_POST_PROFILES:
+    elif profile in VOID_DESCRIPTIONS or profile in RECONCILE_DESCRIPTIONS or profile in QUESTIONNAIRE_OK_POST_PROFILES or profile in CARRIER_RESPONSE_SCHEMAS:
         success_code = "200"
     elif method == "post" and tag not in {"Gateway", "Auth"}:
         success_code = "201"
@@ -734,9 +764,20 @@ def render_operation(
             "            application/json:",
             *schema_lines,
             ERROR_RESPONSES.rstrip("\n"),
-            "",
         ]
     )
+    if profile in CARRIER_RESPONSE_422_PROFILES:
+        lines.extend(
+            [
+                "        '422':",
+                "          description: Carrier answer validation failed",
+                "          content:",
+                "            application/json:",
+                "              schema:",
+                "                $ref: '#/components/schemas/RfxCarrierValidationFailed'",
+            ]
+        )
+    lines.append("")
     return "\n".join(lines)
 
 
@@ -1095,6 +1136,113 @@ def questionnaire_components_block() -> str:
 """
 
 
+def carrier_components_block() -> str:
+    return """    RfxCarrierAnswerBatchPatch:
+      type: object
+      required: [save_version, answers]
+      properties:
+        save_version:
+          type: integer
+          format: int64
+        answers:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxCarrierAnswerPatchItem'
+    RfxCarrierAnswerPatchItem:
+      type: object
+      required: [question_id, value]
+      properties:
+        section_id:
+          type: string
+          format: uuid
+        question_id:
+          type: string
+          format: uuid
+        field:
+          type: string
+        value: {}
+    RfxCarrierAnswerRecord:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        question_id: {type: string, format: uuid}
+        value: {}
+        answer_source: {type: string}
+        validation_version: {type: integer}
+        updated_at: {type: string, format: date-time}
+        updated_by: {type: string, format: uuid, nullable: true}
+        version: {type: integer}
+    RfxCarrierResponseWorkspace:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        tenant_id: {type: string, format: uuid}
+        rfx_event_id: {type: string, format: uuid}
+        participant_company_id: {type: string, format: uuid}
+        rfx_version_id: {type: string, format: uuid, nullable: true}
+        status: {type: string}
+        product_status: {type: string}
+        save_version: {type: integer, format: int64}
+        completion_percent: {type: number, format: double}
+        last_saved_at: {type: string, format: date-time, nullable: true}
+        last_saved_by: {type: string, format: uuid, nullable: true}
+        submitted_at: {type: string, format: date-time, nullable: true}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        version: {type: integer}
+        questionnaire:
+          $ref: '#/components/schemas/RfxQuestionnaireDefinition'
+        answers:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxCarrierAnswerRecord'
+    RfxCarrierResponseSaveResult:
+      type: object
+      properties:
+        response_id: {type: string, format: uuid}
+        save_version: {type: integer, format: int64}
+        last_saved_at: {type: string, format: date-time}
+        last_saved_by: {type: string, format: uuid}
+        completion_percent: {type: number, format: double}
+    RfxCarrierValidationErrorItem:
+      type: object
+      properties:
+        section_id: {type: string, format: uuid}
+        question_id: {type: string, format: uuid}
+        field: {type: string}
+        rule: {type: string}
+        message_key: {type: string}
+        params:
+          type: object
+          additionalProperties: true
+    RfxCarrierResponseValidationResult:
+      type: object
+      properties:
+        valid: {type: boolean}
+        blocking_error_count: {type: integer}
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxCarrierValidationErrorItem'
+        completion_percent: {type: number, format: double}
+    RfxCarrierResponseSubmitResult:
+      type: object
+      properties:
+        response_id: {type: string, format: uuid}
+        status: {type: string}
+        submitted_at: {type: string, format: date-time}
+        save_version: {type: integer, format: int64}
+    RfxCarrierValidationFailed:
+      type: object
+      properties:
+        code: {type: string}
+        message: {type: string}
+        details:
+          type: object
+          additionalProperties: true
+"""
+
+
 def global_components_block() -> str:
     return """
 components:
@@ -1272,7 +1420,7 @@ components:
         transport_mode: {type: string}
         pricing_date: {type: string, format: date}
         currency_code: {type: string}
-""" + questionnaire_components_block() + """    HealthResponse:
+""" + questionnaire_components_block() + carrier_components_block() + """    HealthResponse:
       type: object
       properties:
         status:

@@ -279,6 +279,12 @@ onUnmounted(() => {
     >
       <template #actions>
         <Button variant="secondary" @click="$router.push('/carrier/tenders')">{{ t('common.back') }}</Button>
+        <Button
+          variant="primary"
+          @click="$router.push(`/carrier/tenders/${eventId}/questionnaire`)"
+        >
+          {{ t('carrierResponse.openQuestionnaire') }}
+        </Button>
       </template>
     </PageHeader>
 

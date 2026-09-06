@@ -22,12 +22,14 @@ func NewRouter(
 	cfg config.Config,
 	rfxSvc *service.RfxService,
 	qSvc *service.QuestionnaireService,
+	crSvc *service.CarrierResponseService,
 	frSvc *service.FreightRequestService,
 	bidSvc *service.BidService,
 	pricingSvc *service.PricingService,
 ) http.Handler {
 	rfxHandler := handlers.NewRfxHandler(rfxSvc)
 	qHandler := handlers.NewQuestionnaireHandler(qSvc)
+	crHandler := handlers.NewCarrierResponseHandler(crSvc)
 	frHandler := handlers.NewFreightRequestHandler(frSvc)
 	bidHandler := handlers.NewBidHandler(bidSvc)
 	pricingHandler := handlers.NewPricingHandler(pricingSvc)
@@ -93,6 +95,14 @@ func NewRouter(
 		r.Post("/{id}/rules", qHandler.CreateRule)
 		r.Patch("/{id}/rules/{rule_id}", qHandler.UpdateRule)
 		r.Delete("/{id}/rules/{rule_id}", qHandler.DeleteRule)
+
+		// RFx v3.0C carrier questionnaire response
+		r.Get("/{id}/carrier-response", crHandler.GetCarrierResponse)
+		r.Post("/{id}/carrier-response/start", crHandler.StartCarrierResponse)
+		r.Patch("/{id}/carrier-response/answers", crHandler.PatchCarrierAnswers)
+		r.Post("/{id}/carrier-response/validate", crHandler.ValidateCarrierResponse)
+		r.Post("/{id}/carrier-response/submit", crHandler.SubmitCarrierResponse)
+		r.Get("/{id}/carrier-response/summary", crHandler.GetCarrierResponseSummary)
 	})
 
 	r.Route("/v1/carrier/rfx-events", func(r chi.Router) {

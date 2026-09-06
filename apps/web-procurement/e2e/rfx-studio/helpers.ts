@@ -145,3 +145,40 @@ export async function renameSectionTitle(page: Page, title: string) {
   await input.fill(title)
   await input.blur()
 }
+
+export async function patchQuestionValidation(
+  page: Page,
+  questionCode: string,
+  validation: Record<string, unknown>,
+) {
+  if (!gatewayURL || !jwt || !companyId || !eventId) {
+    throw new Error('browser E2E env not configured for patchQuestionValidation')
+  }
+  const studioResp = await page.request.get(`${gatewayURL}/api/v1/rfx-events/${eventId}/studio`, {
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+      'X-Company-ID': companyId,
+    },
+  })
+  if (!studioResp.ok()) {
+    throw new Error(`studio load failed: ${studioResp.status()}`)
+  }
+  const studio = await studioResp.json()
+  const question = studio.sections
+    ?.flatMap((s: { questions: Array<{ id: string; question_code: string; version: number }> }) => s.questions)
+    ?.find((q: { question_code: string }) => q.question_code === questionCode)
+  if (!question?.id) throw new Error(`question ${questionCode} not found`)
+  const patch = await page.request.patch(
+    `${gatewayURL}/api/v1/rfx-events/${eventId}/questions/${question.id}`,
+    {
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+        'X-Company-ID': companyId,
+      },
+      data: { validation_rule_json: validation, expected_version: question.version },
+    },
+  )
+  if (!patch.ok()) {
+    throw new Error(`question patch failed: ${patch.status()}`)
+  }
+}
