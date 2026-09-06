@@ -420,6 +420,11 @@ jobs:
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/rfx-service/go.sum
+            services/api-gateway/go.sum
+
+      - name: Build production api-gateway for browser E2E
+        working-directory: services/api-gateway
+        run: go build -o /tmp/api-gateway-browser-e2e ./cmd/server
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -451,6 +456,7 @@ jobs:
           path: |
             apps/web-procurement/e2e/rfx-studio/test-results/**
             apps/web-procurement/e2e/rfx-studio/playwright-report/**
+            apps/web-procurement/e2e/rfx-studio/test-results/api-gateway.log
           if-no-files-found: ignore
 
   order-execution-integration:

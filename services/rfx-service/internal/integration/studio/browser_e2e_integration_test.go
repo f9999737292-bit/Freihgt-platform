@@ -29,12 +29,12 @@ type browserStudioFixture struct {
 }
 
 type browserLiveStack struct {
-	webURL     string
-	gatewayURL string
-	fixture    browserStudioFixture
-	rfxSrv     *http.Server
-	gatewaySrv *http.Server
-	webCmd     *webAdminCmd
+	webURL      string
+	gatewayURL  string
+	fixture     browserStudioFixture
+	rfxSrv      *http.Server
+	gatewayProc *browserGatewayProcess
+	webCmd      *webAdminCmd
 }
 
 type webAdminCmd struct {
@@ -51,6 +51,10 @@ func TestRfxStudio_BrowserE2E_LiveBuyerFlow(t *testing.T) {
 	}
 	stack := startBrowserLiveStack(t)
 	t.Cleanup(stack.shutdown)
+	t.Cleanup(func() {
+		dumpGatewayLogsOnFailure(t, stack.gatewayProc)
+		writeGatewayFailureArtifact(t, stack.gatewayProc)
+	})
 	verifyStudioGatewayProbe(t, stack)
 	if err := runPlaywrightSuite(t, stack); err != nil {
 		t.Fatalf("playwright rfx studio suite: %v", err)
@@ -65,8 +69,6 @@ func verifyStudioGatewayProbe(t *testing.T, stack *browserLiveStack) {
 		t.Fatalf("probe request: %v", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+stack.fixture.JWT)
-	req.Header.Set("X-Tenant-ID", stack.fixture.TenantID.String())
-	req.Header.Set("X-User-ID", stack.fixture.UserID.String())
 	req.Header.Set("X-Company-ID", stack.fixture.CompanyID.String())
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -82,29 +84,32 @@ func (s *browserLiveStack) shutdown() {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	stopBrowserWebAdmin(s.webCmd)
-	if s.gatewaySrv != nil {
-		_ = s.gatewaySrv.Shutdown(ctx)
-	}
 	if s.rfxSrv != nil {
 		_ = s.rfxSrv.Shutdown(ctx)
+	}
+	if s.gatewayProc != nil {
+		shutdownBrowserGatewayProcess(s.gatewayProc)
 	}
 }
 
 func startBrowserLiveStack(t *testing.T) *browserLiveStack {
 	t.Helper()
+	const webPort = "3020"
 	env := setupTestEnv(t)
 	fix := seedBrowserStudioFixture(t, env)
 	rfxURL, rfxSrv := startBrowserRfxService(t, env)
-	gwURL, gwSrv := startBrowserGatewayProxy(t, rfxURL, fix)
-	webURL, webCmd := startBrowserWebAdmin(t, gwURL, fix, "3020")
+	identity := startBrowserIdentityStub(t, browserIdentityRolesForBuyer(fix.UserID.String()))
+	webOrigin := browserGatewayEnvForStack(t, webPort)
+	gatewayURL, gatewayProc := startBrowserProductionGateway(t, rfxURL, webOrigin, identity)
+	webURL, webCmd := startBrowserWebAdmin(t, gatewayURL, fix, webPort)
 	waitForHTTP200(t, webURL+"/login", 120*time.Second)
 	return &browserLiveStack{
-		webURL:     webURL,
-		gatewayURL: gwURL,
-		fixture:    fix,
-		rfxSrv:     rfxSrv,
-		gatewaySrv: gwSrv,
-		webCmd:     webCmd,
+		webURL:      webURL,
+		gatewayURL:  gatewayURL,
+		fixture:     fix,
+		rfxSrv:      rfxSrv,
+		gatewayProc: gatewayProc,
+		webCmd:      webCmd,
 	}
 }
 
@@ -160,8 +165,7 @@ func startBrowserWebAdmin(t *testing.T, gatewayURL string, fix browserStudioFixt
 	cmd := exec.Command("pnpm", "--filter", "@freight-platform/web-admin", "exec", "nuxt", "dev", "--port", port, "--host", "127.0.0.1")
 	cmd.Dir = root
 	cmd.Env = append(os.Environ(),
-		"NUXT_PUBLIC_API_BASE_URL=http://127.0.0.1:"+port,
-		"NUXT_E2E_GATEWAY_URL="+gatewayURL,
+		"NUXT_PUBLIC_API_BASE_URL="+gatewayURL,
 		"NUXT_PUBLIC_DEFAULT_TENANT_ID="+fix.TenantID.String(),
 		"NUXT_E2E_DISABLE_SSR=true",
 	)

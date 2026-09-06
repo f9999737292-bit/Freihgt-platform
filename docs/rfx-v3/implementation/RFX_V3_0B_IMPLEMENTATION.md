@@ -129,11 +129,40 @@ export REQUIRE_TEST_DATABASE=1
 go test -tags=integration ./internal/integration/studio/... -count=1 -run 'TestStudioQuestionnaire' -v
 ```
 
-### 5.3 CI
+### 5.3 Browser E2E (production api-gateway path)
 
-Job **`rfx-studio-browser-e2e`** in `.github/workflows/ci.yml` — postgres:16, `REQUIRE_TEST_DATABASE=1`, runs studio integration package (HTTP API flow; no Playwright in web-admin CI).
+**Package:** `services/rfx-service/internal/integration/studio/`  
+**Playwright:** `apps/web-procurement/e2e/rfx-studio/`
 
-Related: **`rfx-questionnaire-v3-integration`** runs service-layer questionnaire tests.
+Live stack:
+
+```
+Chromium
+  → web-admin (Nuxt dev, UI + session seed)
+  → production api-gateway (cmd/server: NewRouter + NewProxyHandler + Auth + rfxrbac)
+  → disposable rfx-service questionnaire handlers/service/repository
+  → PostgreSQL 16 (isolated temp DB)
+```
+
+Identity for gateway RBAC uses a contract-accurate HTTP stub for `GET /v1/auth/me` (production `IdentityClient` codepath). JWT is validated by production gateway auth middleware; questionnaire API mocks are forbidden.
+
+**Command (local, requires Postgres + Node + Playwright):**
+
+```bash
+cd services/rfx-service
+export TEST_DATABASE_URL='postgres://rfx_test:rfx_test@localhost:5432/freight_test?sslmode=disable'
+export REQUIRE_TEST_DATABASE=1
+export BROWSER_E2E=1
+go test -tags=integration ./internal/integration/studio/... -count=1 -run TestRfxStudio_BrowserE2E_LiveBuyerFlow -timeout 25m -v
+```
+
+Security proofs (same package, no browser): `TestBrowserProductionGateway_SecurityProofs`.
+
+### 5.4 CI
+
+Job **`rfx-studio-browser-e2e`** — postgres:16, builds production `api-gateway`, runs Playwright buyer studio acceptance through the real gateway process (fail-closed).
+
+Related: **`rfx-questionnaire-v3-integration`** runs service-layer questionnaire tests; **`rfx-studio-api-e2e`** runs Go HTTP studio flow tests.
 
 ---
 
@@ -144,7 +173,7 @@ Related: **`rfx-questionnaire-v3-integration`** runs service-layer questionnaire
 | L0 — vitest static/unit | Run locally (see §5.1) |
 | L1 — Go studio E2E | Run locally when Postgres available (see §5.2) |
 | L2 — full questionnaire integration suite | CI job `rfx-questionnaire-v3-integration` |
-| L3 — browser Playwright | **NOT_RUN** — no Playwright CI harness in web-admin; Go HTTP E2E preferred |
+| L3 — browser Playwright via production api-gateway | CI job `rfx-studio-browser-e2e` |
 
 ---
 
@@ -157,7 +186,7 @@ Related: **`rfx-questionnaire-v3-integration`** runs service-layer questionnaire
 | Option reorder | Add OpenAPI + UI if product approves; remove `OPTION_REORDER_UI` guard |
 | Scoring / qualification | Consume persisted answers only; bind rule versions per engine doc |
 | Publish orchestration | Optional auto-publish after readiness PASS (controller decision) |
-| Browser E2E | Consider Playwright studio walkthrough once auth fixture exists in CI |
+| Browser E2E | Production gateway browser gate closed in F102-002; extend coverage in v3.0C if needed |
 
 **Controller acceptance checklist:**
 

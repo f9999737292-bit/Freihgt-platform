@@ -19,6 +19,7 @@ import {
   toggleQuestionRequired,
   userId,
   waitForStudioLoad,
+  assertGatewayHost,
 } from './helpers'
 
 const LABEL_ADR_AVAILABLE = 'ADR available?'
@@ -69,6 +70,7 @@ test('F102-001 RFx Studio live browser acceptance', async ({ page }) => {
   await expect(page).not.toHaveURL(/\/login(?:\?|$)/)
   await expect(page.getByRole('heading', { name: new RegExp(rfxNumber) })).toBeVisible({ timeout: 120_000 })
   const studioResponse = await studioLoad
+  assertGatewayHost(studioResponse.url())
   expect(studioResponse.status()).toBe(200)
   const studioBody = await studioResponse.json()
   expect(studioBody.event?.status).toBe('DRAFT')
@@ -89,6 +91,7 @@ test('F102-001 RFx Studio live browser acceptance', async ({ page }) => {
     () => page.getByRole('button', { name: 'Добавить раздел' }).click(),
   )
   expect(sectionCreate.status()).toBe(201)
+  assertGatewayHost(sectionCreate.url())
 
   const sectionTitlePatch = await clickAndWaitForMutation(
     page,
@@ -114,6 +117,7 @@ test('F102-001 RFx Studio live browser acceptance', async ({ page }) => {
     },
   )
   expect(q1Patch.status()).toBeLessThan(400)
+  assertGatewayHost(q1Patch.url())
   await expectAutosaveSaved(page)
   await expect(page.getByLabel('Текст вопроса')).toHaveValue(LABEL_ADR_AVAILABLE)
   await expect(questionCard(page, LABEL_ADR_AVAILABLE)).toHaveCount(1)
@@ -265,6 +269,7 @@ test('F102-001 RFx Studio live browser acceptance', async ({ page }) => {
     () => page.getByRole('button', { name: 'Проверить' }).click(),
   )
   expect(validateResp.status()).toBe(200)
+  assertGatewayHost(validateResp.url())
   await expect(page).toHaveURL(/step=validation/)
   await expect(page.getByText('Проверка RFx')).toBeVisible()
   const readiness = await validateResp.json()

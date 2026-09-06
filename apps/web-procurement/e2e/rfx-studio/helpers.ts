@@ -6,6 +6,18 @@ export const companyId = process.env.BROWSER_E2E_BUYER_COMPANY_ID || ''
 export const eventId = process.env.BROWSER_E2E_EVENT_ID || ''
 export const rfxNumber = process.env.BROWSER_E2E_RFX_NUMBER || ''
 export const userId = process.env.BROWSER_E2E_USER_ID || ''
+export const gatewayURL = process.env.BROWSER_E2E_GATEWAY_URL || ''
+
+export function assertGatewayHost(url: string) {
+  if (!gatewayURL) {
+    throw new Error('BROWSER_E2E_GATEWAY_URL is required')
+  }
+  const expected = new URL(gatewayURL)
+  const actual = new URL(url)
+  if (actual.host !== expected.host) {
+    throw new Error(`expected gateway host ${expected.host}, got ${actual.host} for ${url}`)
+  }
+}
 
 export async function seedBuyerSession(page: Page) {
   await page.addInitScript(({ token, tenant, company, user }) => {
