@@ -429,37 +429,34 @@ func TestPersistedValidAnswerOnly(t *testing.T) {
 	sf := seedScoringFixture(t, env, fix)
 	putDeterministicScoreModel(t, env, fix, sf)
 	ctx := context.Background()
+	crNoScore := service.NewCarrierResponseService(env.pool, env.rfxRepo, env.answerRepo, env.qRepo, env.auditRepo, env.membershipRepo, env.rfxSvc)
 
-	ws, err := env.crSvc.StartOrResume(ctx, fix.CarrierAct, sf.Event.ID, fix.CarrierID)
+	ws, err := crNoScore.StartOrResume(ctx, fix.CarrierAct, sf.Event.ID, fix.CarrierID)
 	if err != nil {
 		t.Fatalf("start: %v", err)
 	}
-	adrJSON, _ := json.Marshal(true)
-	fleetJSON, _ := json.Marshal(50.0)
-	saved, err := env.crSvc.SaveAnswers(ctx, fix.CarrierAct, sf.Event.ID, fix.CarrierID, domain.AnswerBatchPatchInput{
+	saved, err := crNoScore.SaveAnswers(ctx, fix.CarrierAct, sf.Event.ID, fix.CarrierID, domain.AnswerBatchPatchInput{
 		ExpectedSaveVersion: ws.Response.SaveVersion,
 		Answers: []domain.AnswerPatchItem{
-			{QuestionID: sf.ADRQuestion.ID, Value: adrJSON},
-			{QuestionID: sf.FleetQuestion.ID, Value: fleetJSON},
+			{QuestionID: sf.ADRQuestion.ID, Value: json.RawMessage(`true`)},
+			{QuestionID: sf.FleetQuestion.ID, Value: json.RawMessage(`50`)},
 		},
 	})
 	if err != nil {
 		t.Fatalf("save: %v", err)
 	}
-	if _, err := env.crSvc.Submit(ctx, fix.CarrierAct, sf.Event.ID, fix.CarrierID, saved.SaveVersion); err != nil {
+	if _, err := crNoScore.Submit(ctx, fix.CarrierAct, sf.Event.ID, fix.CarrierID, saved.SaveVersion); err != nil {
 		t.Fatalf("submit: %v", err)
 	}
 	resp, err := env.rfxRepo.GetResponseByEventAndCompany(ctx, sf.Event.ID, fix.CarrierID, fix.TenantID)
 	if err != nil {
 		t.Fatalf("response: %v", err)
 	}
-	// Authoritative DB value differs from the 50 used at save time.
 	if _, err := env.pool.Exec(ctx, `
 		UPDATE rfx.rfx_answers SET answer_value_json='100'::jsonb
 		WHERE rfx_response_id=$1 AND question_id=$2`, resp.ID, sf.FleetQuestion.ID); err != nil {
 		t.Fatalf("sql update authoritative answer: %v", err)
 	}
-
 	if _, err := env.scoringSvc.CalculateForSubmittedResponse(ctx, fix.TenantID, resp.ID); err != nil {
 		t.Fatalf("recalc: %v", err)
 	}
@@ -467,7 +464,6 @@ func TestPersistedValidAnswerOnly(t *testing.T) {
 	if err != nil {
 		t.Fatalf("score: %v", err)
 	}
-	// ADR true -> 40 + fleet 100 -> normalized 100 -> 60 weighted = 100 total
 	if score.Qualification.TotalScore == nil || *score.Qualification.TotalScore != 100 {
 		t.Fatalf("PERSISTED_VALID_ANSWER_ONLY total=%v want 100 (DB fleet=100 not save-time 50)", score.Qualification.TotalScore)
 	}
@@ -479,28 +475,43 @@ func TestInvalidAndPreviewAnswerSafety(t *testing.T) {
 	sf := seedScoringFixture(t, env, fix)
 	putDeterministicScoreModel(t, env, fix, sf)
 	ctx := context.Background()
+	crNoScore := service.NewCarrierResponseService(env.pool, env.rfxRepo, env.answerRepo, env.qRepo, env.auditRepo, env.membershipRepo, env.rfxSvc)
 
-	responseID := submitCarrierAnswers(t, env, fix, sf, fix.CarrierID, fix.CarrierAct, true, 50)
-	if _, err := env.pool.Exec(ctx, `
-		DELETE FROM rfx.rfx_answer_scores WHERE rfx_response_id=$1 AND tenant_id=$2;
-		DELETE FROM rfx.rfx_qualification_results WHERE rfx_response_id=$1 AND tenant_id=$2`,
-		responseID, fix.TenantID); err != nil {
-		t.Fatalf("clear prior scoring rows: %v", err)
+	ws, err := crNoScore.StartOrResume(ctx, fix.CarrierAct, sf.Event.ID, fix.CarrierID)
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	saved, err := crNoScore.SaveAnswers(ctx, fix.CarrierAct, sf.Event.ID, fix.CarrierID, domain.AnswerBatchPatchInput{
+		ExpectedSaveVersion: ws.Response.SaveVersion,
+		Answers: []domain.AnswerPatchItem{
+			{QuestionID: sf.ADRQuestion.ID, Value: json.RawMessage(`true`)},
+			{QuestionID: sf.FleetQuestion.ID, Value: json.RawMessage(`50`)},
+		},
+	})
+	if err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	if _, err := crNoScore.Submit(ctx, fix.CarrierAct, sf.Event.ID, fix.CarrierID, saved.SaveVersion); err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	resp, err := env.rfxRepo.GetResponseByEventAndCompany(ctx, sf.Event.ID, fix.CarrierID, fix.TenantID)
+	if err != nil {
+		t.Fatalf("response: %v", err)
 	}
 	if _, err := env.pool.Exec(ctx, `
 		UPDATE rfx.rfx_answers SET answer_value_json='"not-a-number"'::jsonb
-		WHERE rfx_response_id=$1 AND question_id=$2`, responseID, sf.FleetQuestion.ID); err != nil {
+		WHERE rfx_response_id=$1 AND question_id=$2`, resp.ID, sf.FleetQuestion.ID); err != nil {
 		t.Fatalf("corrupt fleet answer: %v", err)
 	}
-	_, err := env.scoringSvc.CalculateForSubmittedResponse(ctx, fix.TenantID, responseID)
+	_, err = env.scoringSvc.CalculateForSubmittedResponse(ctx, fix.TenantID, resp.ID)
 	if err == nil {
 		t.Fatal("expected scoring failure for corrupt answer")
 	}
-	qualCount, err := countQualificationResults(ctx, env.pool, responseID, fix.TenantID)
+	qualCount, err := countQualificationResults(ctx, env.pool, resp.ID, fix.TenantID)
 	if err != nil {
 		t.Fatalf("count qualification: %v", err)
 	}
-	scoreCount, err := countAnswerScores(ctx, env.pool, responseID, fix.TenantID)
+	scoreCount, err := countAnswerScores(ctx, env.pool, resp.ID, fix.TenantID)
 	if err != nil {
 		t.Fatalf("count answer scores: %v", err)
 	}
