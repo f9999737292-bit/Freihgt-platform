@@ -3,6 +3,7 @@ package middleware
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -48,6 +49,9 @@ func TestCORS_OptionsPreflightForPilotWebAdminOrigin(t *testing.T) {
 	}
 	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:13000" {
 		t.Fatalf("Access-Control-Allow-Origin=%q want http://localhost:13000", got)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Headers"); got == "" || !strings.Contains(got, "X-User-ID") {
+		t.Fatalf("Access-Control-Allow-Headers=%q must include X-User-ID", got)
 	}
 }
 
