@@ -156,7 +156,7 @@ test('F102-002 buyer preview-as-carrier sandbox is data-only', async ({ page }) 
   await fleetInput.blur()
   await page.getByTestId('preview-check-submit').click()
   await expect(page.getByTestId('preview-submit-blocked')).toBeVisible()
-  await expect(page.getByTestId('preview-inline-errors')).toBeVisible()
+  await expect(adrSection.getByTestId('preview-question-Q_4').getByTestId('preview-inline-errors')).toBeVisible()
 
   await fleetInput.fill('10')
   await page.getByTestId('preview-check-submit').click()

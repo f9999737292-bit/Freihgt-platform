@@ -41,7 +41,7 @@ func TestRfxStudio_BrowserE2E_PreviewSandboxDbIsolation(t *testing.T) {
 	responsesBefore, answersBefore := countCarrierResponseRows(t, env, fix.TenantID.String(), fix.EventID.String())
 	stack := startBrowserLiveStackWithEnv(t, env, fix)
 	t.Cleanup(stack.shutdown)
-	if err := runPlaywrightSpec(t, stack, "preview-sandbox.spec.ts"); err != nil {
+	if err := runPlaywrightSpec(t, stack, "studio-preview-sandbox.spec.ts"); err != nil {
 		t.Fatalf("playwright preview sandbox spec: %v", err)
 	}
 	responsesAfter, answersAfter := countCarrierResponseRows(t, env, fix.TenantID.String(), fix.EventID.String())
