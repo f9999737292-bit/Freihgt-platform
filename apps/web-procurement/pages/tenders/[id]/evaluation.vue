@@ -5,6 +5,8 @@ import type { EvaluationResponseItem, AuditEventItem, AwardTransportOrderItem } 
 import { formatMoney, sortEvaluationItems } from '~/types/evaluation'
 import { formatRfxDate } from '~/types/rfx'
 import { shouldShowNotFound, isApiUnavailableError } from '~/utils/apiError'
+import type { V3ScoreExplanation, V3ScoreLoadState } from '~/types/rfx-score'
+import { useRfxScoreApi } from '~/composables/useRfxScoreApi'
 
 definePageMeta({ middleware: 'auth', layout: 'default' })
 
@@ -23,6 +25,13 @@ const {
   listAwardTransportOrders,
   convertAwardToTransportOrders,
 } = useRfxEvaluationApi()
+const {
+  getResponseScore,
+  getResponseScoreExplanation,
+  hasPublishedScoreModel,
+  getCachedScore,
+  invalidateScores,
+} = useRfxScoreApi()
 const { pushToast } = useToast()
 const { t } = useI18n()
 
@@ -39,6 +48,11 @@ const showAwardModal = ref(false)
 const showConversionModal = ref(false)
 const awardTarget = ref<EvaluationResponseItem | null>(null)
 const transportOrders = ref<AwardTransportOrderItem[]>([])
+const v3ModelPublished = ref(false)
+const showExplainModal = ref(false)
+const explainTargetId = ref<string | null>(null)
+const explainLoading = ref(false)
+const explainRows = ref<V3ScoreExplanation[]>([])
 
 const sortedItems = computed(() => sortEvaluationItems(items.value))
 const awardedItem = computed(() => items.value.find((item) => item.awarded) ?? null)
@@ -62,33 +76,126 @@ async function loadCompanies() {
   }
 }
 
+function v3LoadState(responseId: string): V3ScoreLoadState {
+  return getCachedScore(eventId.value, responseId)?.state ?? 'NOT_AVAILABLE'
+}
+
+function v3ScoreData(responseId: string) {
+  return getCachedScore(eventId.value, responseId)?.score
+}
+
+async function loadV3ScoresForItems() {
+  if (!v3ModelPublished.value) return
+  const batch = sortedItems.value.slice(0, 20)
+  await Promise.all(
+    batch.map(async (item) => {
+      try {
+        await getResponseScore(eventId.value, item.id)
+      } catch {
+        /* cached as FAILED */
+      }
+    }),
+  )
+}
+
+async function openExplanation(responseId: string) {
+  explainTargetId.value = responseId
+  showExplainModal.value = true
+  explainLoading.value = true
+  explainRows.value = []
+  try {
+    const data = await getResponseScoreExplanation(eventId.value, responseId)
+    explainRows.value = data.explanations ?? []
+  } catch (error) {
+    pushToast('error', error instanceof Error ? error.message : t('common.error'))
+  } finally {
+    explainLoading.value = false
+  }
+}
+
+const tableColumns = computed(() => {
+  const cols = [
+    t('tenders.evaluation.carrier'),
+    t('common.status'),
+    t('tenders.evaluation.submitted'),
+    t('tenders.evaluation.price'),
+    t('tenders.evaluation.commercialScore'),
+  ]
+  if (v3ModelPublished.value) {
+    cols.push(t('tenders.evaluation.questionnaireScore'))
+    cols.push(t('tenders.evaluation.qualificationStatus'))
+  }
+  cols.push(t('tenders.evaluation.rank'), t('tenders.evaluation.shortlist'), t('tenders.evaluation.award'), '')
+  return cols
+})
+
+async function loadSecondaryWorkspaceData() {
+  try {
+    auditEvents.value = await listAuditEvents(eventId.value)
+  } catch {
+    auditEvents.value = []
+  }
+
+  if (event.value?.status === 'AWARDED') {
+    try {
+      transportOrders.value = await listAwardTransportOrders(eventId.value)
+    } catch {
+      transportOrders.value = []
+    }
+  }
+}
+
 async function loadWorkspace() {
   loading.value = true
   notFound.value = false
   apiUnavailable.value = false
+  invalidateScores(eventId.value)
+  items.value = []
+  auditEvents.value = []
+  transportOrders.value = []
+  v3ModelPublished.value = false
+
+  let responses: EvaluationResponseItem[]
+  let publishedModel = false
   try {
-    event.value = await getRfxEvent(eventId.value)
-    setCompany(event.value.owner_company_id)
-    items.value = await listEvaluationResponses(eventId.value)
-    auditEvents.value = await listAuditEvents(eventId.value)
-    if (event.value.status === 'AWARDED') {
-      transportOrders.value = await listAwardTransportOrders(eventId.value)
-    } else {
-      transportOrders.value = []
-    }
+    ;[responses, publishedModel] = await Promise.all([
+      listEvaluationResponses(eventId.value),
+      hasPublishedScoreModel(eventId.value).catch(() => false),
+    ])
   } catch (error) {
     event.value = null
     items.value = []
-    auditEvents.value = []
-    transportOrders.value = []
     if (shouldShowNotFound(error)) notFound.value = true
     else {
       apiUnavailable.value = isApiUnavailableError(error)
-      if (!apiUnavailable.value) pushToast('error', error instanceof Error ? error.message : t('tenders.evaluation.loadFailed'))
+      if (!apiUnavailable.value) {
+        pushToast('error', error instanceof Error ? error.message : t('tenders.evaluation.loadFailed'))
+      }
     }
-  } finally {
     loading.value = false
+    return
   }
+
+  items.value = responses
+  v3ModelPublished.value = publishedModel
+
+  if (publishedModel) {
+    await loadV3ScoresForItems()
+  }
+
+  loading.value = false
+
+  void (async () => {
+    try {
+      event.value = await getRfxEvent(eventId.value)
+      setCompany(event.value.owner_company_id)
+    } catch (error) {
+      event.value = null
+      if (shouldShowNotFound(error)) notFound.value = true
+      else if (isApiUnavailableError(error)) apiUnavailable.value = true
+    }
+    await loadSecondaryWorkspaceData()
+  })()
 }
 
 async function handleRecalculate() {
@@ -188,27 +295,38 @@ onMounted(loadCompanies)
         <template #header>
           <h3>{{ t('tenders.evaluation.comparison') }}</h3>
         </template>
-        <EmptyState v-if="sortedItems.length === 0" :title="t('tenders.evaluation.empty')" />
-        <div v-else class="table-scroll">
-          <Table
-            :columns="[
-              t('tenders.evaluation.carrier'),
-              t('common.status'),
-              t('tenders.evaluation.submitted'),
-              t('tenders.evaluation.price'),
-              t('tenders.evaluation.score'),
-              t('tenders.evaluation.rank'),
-              t('tenders.evaluation.shortlist'),
-              t('tenders.evaluation.award'),
-              '',
-            ]"
-          >
+        <EmptyState v-if="sortedItems.length === 0" :title="t('tenders.evaluation.empty')" data-testid="evaluation-responses-empty" />
+        <div v-else class="table-scroll" data-testid="evaluation-comparison-table">
+          <Table :columns="tableColumns">
             <tr v-for="item in sortedItems" :key="item.id">
               <td>{{ companyName(item.participant_company_id) }}</td>
               <td><Badge :status="item.status" /></td>
               <td>{{ formatRfxDate(item.submitted_at) }}</td>
               <td>{{ comparableLabel(item) }}</td>
-              <td>{{ item.total_score ?? '—' }}</td>
+              <td data-testid="legacy-commercial-score">{{ item.total_score ?? '—' }}</td>
+              <td v-if="v3ModelPublished">
+                <TendersV3ScoreCell
+                  :event-id="eventId"
+                  :response-id="item.id"
+                  :load-state="v3LoadState(item.id)"
+                  :questionnaire-score="v3ScoreData(item.id)?.qualification.total_score"
+                  :qualification-status="v3ScoreData(item.id)?.qualification.status"
+                  :calculation-status="v3ScoreData(item.id)?.qualification.calculation_status"
+                  :knockout-triggered="v3ScoreData(item.id)?.qualification.knockout_triggered"
+                  :score-model-version="v3ScoreData(item.id)?.qualification.score_model_version"
+                  @explain="openExplanation(item.id)"
+                />
+              </td>
+              <td v-if="v3ModelPublished">
+                <Badge
+                  v-if="v3LoadState(item.id) === 'AVAILABLE'"
+                  :status="v3ScoreData(item.id)?.qualification.status || 'PENDING'"
+                  data-testid="v3-qualification-badge"
+                />
+                <span v-else-if="v3LoadState(item.id) === 'FAILED'" class="muted">{{ t('tenders.evaluation.v3ScoreFailed') }}</span>
+                <span v-else-if="v3LoadState(item.id) === 'PENDING'" class="muted">{{ t('tenders.evaluation.v3ScorePending') }}</span>
+                <span v-else class="muted">—</span>
+              </td>
               <td>{{ item.rank || '—' }}</td>
               <td>
                 <Button
@@ -294,7 +412,7 @@ onMounted(loadCompanies)
       </Card>
     </template>
 
-    <Modal v-model="showAwardModal" :title="t('tenders.evaluation.awardConfirmTitle')">
+    <Modal :open="showAwardModal" :title="t('tenders.evaluation.awardConfirmTitle')" @close="showAwardModal = false">
       <p v-if="awardTarget">
         {{ t('tenders.evaluation.awardConfirmBody', {
           carrier: companyName(awardTarget.participant_company_id),
@@ -307,7 +425,14 @@ onMounted(loadCompanies)
       </template>
     </Modal>
 
-    <Modal v-model="showConversionModal" :title="t('tenders.evaluation.conversionConfirmTitle')">
+    <Modal :open="showExplainModal" :title="t('tenders.evaluation.explainTitle')" @close="showExplainModal = false">
+      <TendersV3ScoreExplanationPanel :explanations="explainRows" :loading="explainLoading" />
+      <template #footer>
+        <Button variant="secondary" @click="showExplainModal = false">{{ t('common.close') }}</Button>
+      </template>
+    </Modal>
+
+    <Modal :open="showConversionModal" :title="t('tenders.evaluation.conversionConfirmTitle')" @close="showConversionModal = false">
       <p v-if="awardedItem">
         {{ t('tenders.evaluation.conversionConfirmBody', {
           carrier: companyName(awardedItem.participant_company_id),
