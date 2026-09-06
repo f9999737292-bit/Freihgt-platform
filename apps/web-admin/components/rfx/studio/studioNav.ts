@@ -20,6 +20,8 @@ export type StudioStepId =
 
   | 'questionnaire'
 
+  | 'scoring'
+
   | 'participants'
 
   | 'evaluation'
@@ -60,6 +62,18 @@ export function buildStudioNavSteps(
 
     },
 
+    {
+
+      id: 'scoring',
+
+      label: t('rfx.studio.steps.scoring'),
+
+      to: `${base}?step=scoring`,
+
+      active: activeStep === 'scoring',
+
+    },
+
     { id: 'participants', label: t('rfx.studio.steps.participants'), planned: true },
 
     { id: 'evaluation', label: t('rfx.studio.steps.evaluation'), planned: true },
@@ -90,7 +104,7 @@ export function resolveStudioStep(queryStep: unknown): StudioStepId {
 
   const value = String(queryStep ?? 'questionnaire')
 
-  const allowed: StudioStepId[] = ['basics', 'questionnaire', 'validation']
+  const allowed: StudioStepId[] = ['basics', 'questionnaire', 'scoring', 'validation']
 
   return allowed.includes(value as StudioStepId) ? (value as StudioStepId) : 'questionnaire'
 
