@@ -38,7 +38,8 @@ export async function expectAutosaveSaved(page: Page) {
 
 export async function expectAutosaveInvalid(page: Page) {
   const status = page.locator('.save-status')
-  await expect(status).toHaveText(/не прошли проверку|Данные не прошли/i, { timeout: 30_000 })
+  await expect(status).toHaveClass(/save-status--error/, { timeout: 30_000 })
+  await expect(status).not.toHaveText(/Сохранено/i)
 }
 
 export function studioPath(suffix = '') {
