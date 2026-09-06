@@ -229,6 +229,22 @@ func validateFieldValue(q Question, raw json.RawMessage) []ValidationErrorDetail
 		if !jsonNumberValid(raw) {
 			return []ValidationErrorDetail{invalidType(q, secID, "number")}
 		}
+		var rules ValidationDefinition
+		_ = json.Unmarshal(q.ValidationRuleJSON, &rules)
+		var f float64
+		_ = json.Unmarshal(raw, &f)
+		if rules.MinValue != nil && f < *rules.MinValue {
+			errs = append(errs, ValidationErrorDetail{
+				SectionID: secID, QuestionID: q.ID, Field: "value", Rule: "min",
+				MessageKey: "rfx.carrier.validation.min_value", Params: map[string]any{"min": *rules.MinValue},
+			})
+		}
+		if rules.MaxValue != nil && f > *rules.MaxValue {
+			errs = append(errs, ValidationErrorDetail{
+				SectionID: secID, QuestionID: q.ID, Field: "value", Rule: "max",
+				MessageKey: "rfx.carrier.validation.max_value", Params: map[string]any{"max": *rules.MaxValue},
+			})
+		}
 	case QuestionTypeYesNo:
 		var b bool
 		if err := json.Unmarshal(raw, &b); err != nil {

@@ -7,6 +7,29 @@ import (
 	"github.com/google/uuid"
 )
 
+func TestValidateCarrierAnswerPatchesRejectsNumberBelowMin(t *testing.T) {
+	qid := uuid.New()
+	sid := uuid.New()
+	rt := QuestionnaireRuntime{
+		QuestionsByID: map[uuid.UUID]Question{
+			qid: {
+				ID: qid, SectionID: sid, QuestionCode: "FLEET_COUNT", QuestionType: QuestionTypeNumber, Label: "Fleet",
+				ValidationRuleJSON: json.RawMessage(`{"min_value":0}`),
+			},
+		},
+		SectionByQID: map[uuid.UUID]Section{qid: {ID: sid}},
+	}
+	errs := ValidateCarrierAnswerPatches(rt, map[uuid.UUID]json.RawMessage{}, []AnswerPatchItem{
+		{QuestionID: qid, Value: json.RawMessage(`-1`)},
+	}, false)
+	if len(errs) == 0 {
+		t.Fatal("expected min_value validation error")
+	}
+	if errs[0].MessageKey != "rfx.carrier.validation.min_value" {
+		t.Fatalf("unexpected message key: %s", errs[0].MessageKey)
+	}
+}
+
 func TestValidateCarrierAnswerPatchesRejectsInvalidType(t *testing.T) {
 	qid := uuid.New()
 	sid := uuid.New()
