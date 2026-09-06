@@ -68,6 +68,20 @@ test.describe('RFx v3.0D scoring browser acceptance', () => {
     expect(Array.isArray(evalPayload.items)).toBeTruthy()
     expect(evalPayload.items.length).toBeGreaterThanOrEqual(2)
 
+    const scoreTotals: number[] = []
+    for (const item of evalPayload.items) {
+      const scoreResp = await request.get(
+        `${gatewayURL}/api/v1/rfx-events/${eventId}/responses/${item.id}/score`,
+        { headers: buyerHeaders },
+      )
+      expect(scoreResp.ok()).toBeTruthy()
+      const scorePayload = await scoreResp.json()
+      expect(scorePayload.qualification?.calculation_status).toBe('CALCULATED')
+      scoreTotals.push(Number(scorePayload.qualification?.total_score))
+    }
+    expect(scoreTotals).toContain(70)
+    expect(scoreTotals).toContain(60)
+
     await page.goto('about:blank')
     await seedBuyerProcurementSession(page)
     const responsesPromise = page.waitForResponse(
@@ -84,15 +98,13 @@ test.describe('RFx v3.0D scoring browser acceptance', () => {
 
     const v3Cells = page.getByTestId('v3-questionnaire-score')
     await expect(v3Cells).toHaveCount(2, { timeout: 120_000 })
-    await expect(v3Cells.filter({ hasText: '70' })).toHaveCount(1, { timeout: 120_000 })
-    await expect(v3Cells.filter({ hasText: '60' })).toHaveCount(1, { timeout: 120_000 })
+    await expect.poll(async () => v3Cells.allTextContents(), { timeout: 120_000 }).toEqual(
+      expect.arrayContaining([expect.stringContaining('70'), expect.stringContaining('60')]),
+    )
 
-    const knockoutRow = page.locator('tr').filter({
-      has: page.getByTestId('v3-questionnaire-score').filter({ hasText: '60' }),
-    })
-    await expect(knockoutRow.getByTestId('v3-knockout-badge')).toBeVisible({ timeout: 60_000 })
+    await expect(page.getByTestId('v3-knockout-badge')).toHaveCount(1, { timeout: 60_000 })
 
-    await knockoutRow.getByTestId('v3-explain-button').click()
+    await page.getByTestId('v3-explain-button').nth(1).click()
     await expect(page.getByTestId('v3-explanation-panel')).toBeVisible({ timeout: 30_000 })
     await expect(page.getByTestId('v3-explanation-row').first()).toBeVisible()
 

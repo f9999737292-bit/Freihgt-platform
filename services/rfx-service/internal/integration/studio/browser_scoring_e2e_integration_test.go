@@ -186,5 +186,10 @@ func runScoringV3PlaywrightSuite(t *testing.T, stack *browserScoringLiveStack) e
 	if len(output) > 0 {
 		t.Logf("playwright scoring v3 output:\n%s", string(output))
 	}
+	if err != nil {
+		if report, readErr := os.ReadFile(filepath.Join(e2eDir, "test-results", "results.json")); readErr == nil && len(report) > 0 {
+			t.Logf("playwright scoring v3 results.json:\n%s", string(report))
+		}
+	}
 	return err
 }
