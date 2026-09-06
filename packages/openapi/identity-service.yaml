@@ -1116,6 +1116,109 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/RfxQuestionRule'
+    RfxCarrierAnswerBatchPatch:
+      type: object
+      required: [save_version, answers]
+      properties:
+        save_version:
+          type: integer
+          format: int64
+        answers:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxCarrierAnswerPatchItem'
+    RfxCarrierAnswerPatchItem:
+      type: object
+      required: [question_id, value]
+      properties:
+        section_id:
+          type: string
+          format: uuid
+        question_id:
+          type: string
+          format: uuid
+        field:
+          type: string
+        value: {}
+    RfxCarrierAnswerRecord:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        question_id: {type: string, format: uuid}
+        value: {}
+        answer_source: {type: string}
+        validation_version: {type: integer}
+        updated_at: {type: string, format: date-time}
+        updated_by: {type: string, format: uuid, nullable: true}
+        version: {type: integer}
+    RfxCarrierResponseWorkspace:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        tenant_id: {type: string, format: uuid}
+        rfx_event_id: {type: string, format: uuid}
+        participant_company_id: {type: string, format: uuid}
+        rfx_version_id: {type: string, format: uuid, nullable: true}
+        status: {type: string}
+        product_status: {type: string}
+        save_version: {type: integer, format: int64}
+        completion_percent: {type: number, format: double}
+        last_saved_at: {type: string, format: date-time, nullable: true}
+        last_saved_by: {type: string, format: uuid, nullable: true}
+        submitted_at: {type: string, format: date-time, nullable: true}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        version: {type: integer}
+        questionnaire:
+          $ref: '#/components/schemas/RfxQuestionnaireDefinition'
+        answers:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxCarrierAnswerRecord'
+    RfxCarrierResponseSaveResult:
+      type: object
+      properties:
+        response_id: {type: string, format: uuid}
+        save_version: {type: integer, format: int64}
+        last_saved_at: {type: string, format: date-time}
+        last_saved_by: {type: string, format: uuid}
+        completion_percent: {type: number, format: double}
+    RfxCarrierValidationErrorItem:
+      type: object
+      properties:
+        section_id: {type: string, format: uuid}
+        question_id: {type: string, format: uuid}
+        field: {type: string}
+        rule: {type: string}
+        message_key: {type: string}
+        params:
+          type: object
+          additionalProperties: true
+    RfxCarrierResponseValidationResult:
+      type: object
+      properties:
+        valid: {type: boolean}
+        blocking_error_count: {type: integer}
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxCarrierValidationErrorItem'
+        completion_percent: {type: number, format: double}
+    RfxCarrierResponseSubmitResult:
+      type: object
+      properties:
+        response_id: {type: string, format: uuid}
+        status: {type: string}
+        submitted_at: {type: string, format: date-time}
+        save_version: {type: integer, format: int64}
+    RfxCarrierValidationFailed:
+      type: object
+      properties:
+        code: {type: string}
+        message: {type: string}
+        details:
+          type: object
+          additionalProperties: true
     HealthResponse:
       type: object
       properties:

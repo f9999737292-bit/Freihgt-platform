@@ -828,7 +828,7 @@ paths:
     get:
       tags: [RFx]
       summary: Get carrier questionnaire response workspace
-      operationId: get_carrier_rfx_response
+      operationId: get_get_carrier_questionnaire_response_workspace
       parameters:
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
@@ -838,19 +838,24 @@ paths:
         - name: id
           in: path
           required: true
-          schema: {type: string, format: uuid}
-        - name: carrier_company_id
-          in: query
-          schema: {type: string, format: uuid}
+          schema:
+            type: string
+            format: uuid
       security:
         - bearerAuth: []
       responses:
         '200':
-          description: Carrier response workspace
+          description: Successful response
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/RfxCarrierResponseWorkspace'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Unauthorized
           content:
@@ -869,6 +874,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Internal error
           content:
@@ -880,7 +891,7 @@ paths:
     post:
       tags: [RFx]
       summary: Start or resume carrier questionnaire response
-      operationId: post_start_carrier_rfx_response
+      operationId: post_start_or_resume_carrier_questionnaire_response
       parameters:
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
@@ -890,19 +901,31 @@ paths:
         - name: id
           in: path
           required: true
-          schema: {type: string, format: uuid}
-        - name: carrier_company_id
-          in: query
-          schema: {type: string, format: uuid}
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
       security:
         - bearerAuth: []
       responses:
         '200':
-          description: Carrier response workspace
+          description: Successful response
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/RfxCarrierResponseWorkspace'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Unauthorized
           content:
@@ -938,7 +961,7 @@ paths:
     patch:
       tags: [RFx]
       summary: Atomic batch autosave of carrier answers
-      operationId: patch_carrier_rfx_response_answers
+      operationId: patch_atomic_batch_autosave_of_carrier_answers
       parameters:
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
@@ -948,10 +971,9 @@ paths:
         - name: id
           in: path
           required: true
-          schema: {type: string, format: uuid}
-        - name: carrier_company_id
-          in: query
-          schema: {type: string, format: uuid}
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -962,23 +984,17 @@ paths:
         - bearerAuth: []
       responses:
         '200':
-          description: Save result
+          description: Successful response
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/RfxCarrierResponseSaveResult'
-        '409':
-          description: Conflict
+        '400':
+          description: Validation error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '422':
-          description: Carrier answer validation failed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RfxCarrierValidationFailed'
         '401':
           description: Unauthorized
           content:
@@ -993,6 +1009,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
           content:
             application/json:
               schema:
@@ -1003,12 +1025,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Carrier answer validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RfxCarrierValidationFailed'
 
   /api/v1/rfx-events/{id}/carrier-response/validate:
     post:
       tags: [RFx]
       summary: Pre-submit validation of carrier response
-      operationId: post_validate_carrier_rfx_response
+      operationId: post_pre_submit_validation_of_carrier_response
       parameters:
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
@@ -1018,19 +1046,31 @@ paths:
         - name: id
           in: path
           required: true
-          schema: {type: string, format: uuid}
-        - name: carrier_company_id
-          in: query
-          schema: {type: string, format: uuid}
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
       security:
         - bearerAuth: []
       responses:
         '200':
-          description: Validation result
+          description: Successful response
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/RfxCarrierResponseValidationResult'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Unauthorized
           content:
@@ -1045,6 +1085,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
           content:
             application/json:
               schema:
@@ -1060,7 +1106,7 @@ paths:
     post:
       tags: [RFx]
       summary: Submit carrier questionnaire response
-      operationId: post_submit_carrier_rfx_response
+      operationId: post_submit_carrier_questionnaire_response
       parameters:
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
@@ -1070,10 +1116,9 @@ paths:
         - name: id
           in: path
           required: true
-          schema: {type: string, format: uuid}
-        - name: carrier_company_id
-          in: query
-          schema: {type: string, format: uuid}
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -1082,28 +1127,24 @@ paths:
               type: object
               required: [save_version]
               properties:
-                save_version: {type: integer, format: int64}
+                save_version:
+                  type: integer
+                  format: int64
       security:
         - bearerAuth: []
       responses:
         '200':
-          description: Submit result
+          description: Successful response
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/RfxCarrierResponseSubmitResult'
-        '409':
-          description: Conflict
+        '400':
+          description: Validation error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '422':
-          description: Carrier answer validation failed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RfxCarrierValidationFailed'
         '401':
           description: Unauthorized
           content:
@@ -1118,6 +1159,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
           content:
             application/json:
               schema:
@@ -1128,12 +1175,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Carrier answer validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RfxCarrierValidationFailed'
 
   /api/v1/rfx-events/{id}/carrier-response/summary:
     get:
       tags: [RFx]
       summary: Carrier response completion summary
-      operationId: get_carrier_rfx_response_summary
+      operationId: get_carrier_response_completion_summary
       parameters:
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
@@ -1143,19 +1196,24 @@ paths:
         - name: id
           in: path
           required: true
-          schema: {type: string, format: uuid}
-        - name: carrier_company_id
-          in: query
-          schema: {type: string, format: uuid}
+          schema:
+            type: string
+            format: uuid
       security:
         - bearerAuth: []
       responses:
         '200':
-          description: Validation summary
+          description: Successful response
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/RfxCarrierResponseValidationResult'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Unauthorized
           content:
@@ -1170,6 +1228,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
           content:
             application/json:
               schema:
@@ -3307,20 +3371,61 @@ components:
       type: object
       required: [save_version, answers]
       properties:
-        save_version: {type: integer, format: int64}
+        save_version:
+          type: integer
+          format: int64
         answers:
           type: array
           items:
-            type: object
-            required: [question_id, value]
-            properties:
-              section_id: {type: string, format: uuid}
-              question_id: {type: string, format: uuid}
-              field: {type: string}
-              value: {}
+            $ref: '#/components/schemas/RfxCarrierAnswerPatchItem'
+    RfxCarrierAnswerPatchItem:
+      type: object
+      required: [question_id, value]
+      properties:
+        section_id:
+          type: string
+          format: uuid
+        question_id:
+          type: string
+          format: uuid
+        field:
+          type: string
+        value: {}
+    RfxCarrierAnswerRecord:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        question_id: {type: string, format: uuid}
+        value: {}
+        answer_source: {type: string}
+        validation_version: {type: integer}
+        updated_at: {type: string, format: date-time}
+        updated_by: {type: string, format: uuid, nullable: true}
+        version: {type: integer}
     RfxCarrierResponseWorkspace:
       type: object
-      additionalProperties: true
+      properties:
+        id: {type: string, format: uuid}
+        tenant_id: {type: string, format: uuid}
+        rfx_event_id: {type: string, format: uuid}
+        participant_company_id: {type: string, format: uuid}
+        rfx_version_id: {type: string, format: uuid, nullable: true}
+        status: {type: string}
+        product_status: {type: string}
+        save_version: {type: integer, format: int64}
+        completion_percent: {type: number, format: double}
+        last_saved_at: {type: string, format: date-time, nullable: true}
+        last_saved_by: {type: string, format: uuid, nullable: true}
+        submitted_at: {type: string, format: date-time, nullable: true}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        version: {type: integer}
+        questionnaire:
+          $ref: '#/components/schemas/RfxQuestionnaireDefinition'
+        answers:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxCarrierAnswerRecord'
     RfxCarrierResponseSaveResult:
       type: object
       properties:
@@ -3329,16 +3434,6 @@ components:
         last_saved_at: {type: string, format: date-time}
         last_saved_by: {type: string, format: uuid}
         completion_percent: {type: number, format: double}
-    RfxCarrierResponseValidationResult:
-      type: object
-      properties:
-        valid: {type: boolean}
-        blocking_error_count: {type: integer}
-        completion_percent: {type: number, format: double}
-        errors:
-          type: array
-          items:
-            $ref: '#/components/schemas/RfxCarrierValidationErrorItem'
     RfxCarrierValidationErrorItem:
       type: object
       properties:
@@ -3347,19 +3442,19 @@ components:
         field: {type: string}
         rule: {type: string}
         message_key: {type: string}
-        params: {type: object, additionalProperties: true}
-    RfxCarrierValidationFailed:
+        params:
+          type: object
+          additionalProperties: true
+    RfxCarrierResponseValidationResult:
       type: object
-      required: [code, errors]
       properties:
-        code:
-          type: string
-          enum: [VALIDATION_FAILED]
-        message: {type: string}
+        valid: {type: boolean}
+        blocking_error_count: {type: integer}
         errors:
           type: array
           items:
             $ref: '#/components/schemas/RfxCarrierValidationErrorItem'
+        completion_percent: {type: number, format: double}
     RfxCarrierResponseSubmitResult:
       type: object
       properties:
@@ -3367,6 +3462,14 @@ components:
         status: {type: string}
         submitted_at: {type: string, format: date-time}
         save_version: {type: integer, format: int64}
+    RfxCarrierValidationFailed:
+      type: object
+      properties:
+        code: {type: string}
+        message: {type: string}
+        details:
+          type: object
+          additionalProperties: true
     HealthResponse:
       type: object
       properties:
