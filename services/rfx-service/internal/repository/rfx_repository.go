@@ -544,19 +544,25 @@ func (r *RfxRepository) ParticipantExists(ctx context.Context, eventID, companyI
 	return exists, nil
 }
 
+const rfxResponseSelectColumns = `
+	id, tenant_id, rfx_event_id, participant_company_id, rfx_version_id, status,
+	submitted_at, save_version, last_saved_at, last_saved_by, completion_percent,
+	created_at, updated_at, version
+`
+
 func (r *RfxRepository) CreateResponse(ctx context.Context, in domain.CreateRfxResponseInput) (*domain.RfxResponse, error) {
 	const query = `
 		INSERT INTO rfx.rfx_responses (
-			tenant_id, rfx_event_id, participant_company_id, status
-		) VALUES ($1, $2, $3, $4)
-		RETURNING id, tenant_id, rfx_event_id, participant_company_id, status,
-			submitted_at, created_at, updated_at, version
+			tenant_id, rfx_event_id, participant_company_id, status, rfx_version_id
+		) VALUES ($1, $2, $3, $4, $5)
+		RETURNING ` + rfxResponseSelectColumns + `
 	`
 	row := r.db().QueryRow(ctx, query,
 		in.TenantID,
 		in.RfxEventID,
 		in.ParticipantCompanyID,
 		domain.RfxResponseStatusDraft,
+		optionalUUID(in.RfxVersionID),
 	)
 	response, err := scanRfxResponse(row)
 	if err != nil {
@@ -567,8 +573,7 @@ func (r *RfxRepository) CreateResponse(ctx context.Context, in domain.CreateRfxR
 
 func (r *RfxRepository) GetResponseByID(ctx context.Context, id, tenantID uuid.UUID) (*domain.RfxResponse, error) {
 	const query = `
-		SELECT id, tenant_id, rfx_event_id, participant_company_id, status,
-			submitted_at, created_at, updated_at, version
+		SELECT ` + rfxResponseSelectColumns + `
 		FROM rfx.rfx_responses
 		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
 	`
@@ -603,8 +608,7 @@ func (r *RfxRepository) SubmitResponse(ctx context.Context, id, tenantID uuid.UU
 			updated_at = now(),
 			version = version + 1
 		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL AND status = $5 AND version = $6
-		RETURNING id, tenant_id, rfx_event_id, participant_company_id, status,
-			submitted_at, created_at, updated_at, version
+		RETURNING ` + rfxResponseSelectColumns + `
 	`
 	row := tx.QueryRow(ctx, updateResponse,
 		id,
@@ -645,8 +649,7 @@ func (r *RfxRepository) SubmitResponse(ctx context.Context, id, tenantID uuid.UU
 
 func (r *RfxRepository) GetResponseByEventAndCompany(ctx context.Context, eventID, companyID, tenantID uuid.UUID) (*domain.RfxResponse, error) {
 	const query = `
-		SELECT id, tenant_id, rfx_event_id, participant_company_id, status,
-			submitted_at, created_at, updated_at, version
+		SELECT ` + rfxResponseSelectColumns + `
 		FROM rfx.rfx_responses
 		WHERE rfx_event_id = $1 AND participant_company_id = $2 AND tenant_id = $3 AND deleted_at IS NULL
 	`
@@ -880,13 +883,20 @@ func scanRfxParticipant(row pgx.Row) (*domain.RfxParticipant, error) {
 
 func scanRfxResponse(row pgx.Row) (*domain.RfxResponse, error) {
 	var response domain.RfxResponse
+	var rfxVersionID *uuid.UUID
+	var lastSavedBy *uuid.UUID
 	err := row.Scan(
 		&response.ID,
 		&response.TenantID,
 		&response.RfxEventID,
 		&response.ParticipantCompanyID,
+		&rfxVersionID,
 		&response.Status,
 		&response.SubmittedAt,
+		&response.SaveVersion,
+		&response.LastSavedAt,
+		&lastSavedBy,
+		&response.CompletionPercent,
 		&response.CreatedAt,
 		&response.UpdatedAt,
 		&response.Version,
@@ -894,5 +904,86 @@ func scanRfxResponse(row pgx.Row) (*domain.RfxResponse, error) {
 	if err != nil {
 		return nil, err
 	}
+	response.RfxVersionID = rfxVersionID
+	response.LastSavedBy = lastSavedBy
 	return &response, nil
+}
+
+func (r *RfxRepository) LockResponseForUpdate(ctx context.Context, id, tenantID uuid.UUID) (*domain.RfxResponse, error) {
+	const query = `
+		SELECT ` + rfxResponseSelectColumns + `
+		FROM rfx.rfx_responses
+		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+		FOR UPDATE
+	`
+	row := r.db().QueryRow(ctx, query, id, tenantID)
+	response, err := scanRfxResponse(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperrors.NotFound("rfx response not found")
+		}
+		return nil, mapDBError(err)
+	}
+	return response, nil
+}
+
+func (r *RfxRepository) PinResponseVersion(ctx context.Context, id, tenantID, versionID uuid.UUID) (*domain.RfxResponse, error) {
+	const query = `
+		UPDATE rfx.rfx_responses SET
+			rfx_version_id = $3,
+			updated_at = now(),
+			version = version + 1
+		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL AND rfx_version_id IS NULL
+		RETURNING ` + rfxResponseSelectColumns + `
+	`
+	row := r.db().QueryRow(ctx, query, id, tenantID, versionID)
+	response, err := scanRfxResponse(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return r.GetResponseByID(ctx, id, tenantID)
+		}
+		return nil, mapDBError(err)
+	}
+	return response, nil
+}
+
+func (r *RfxRepository) UpdateResponseAfterSave(
+	ctx context.Context,
+	id, tenantID uuid.UUID,
+	expectedSaveVersion int64,
+	lastSavedBy uuid.UUID,
+	completionPercent float64,
+) (*domain.RfxResponse, error) {
+	const query = `
+		UPDATE rfx.rfx_responses SET
+			save_version = save_version + 1,
+			last_saved_at = now(),
+			last_saved_by = $4,
+			completion_percent = $5,
+			updated_at = now(),
+			version = version + 1
+		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+			AND status = $6 AND save_version = $3
+		RETURNING ` + rfxResponseSelectColumns + `
+	`
+	row := r.db().QueryRow(ctx, query,
+		id, tenantID, expectedSaveVersion, optionalUUID(&lastSavedBy), completionPercent, domain.RfxResponseStatusDraft,
+	)
+	response, err := scanRfxResponse(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			current, getErr := r.GetResponseByID(ctx, id, tenantID)
+			if getErr != nil {
+				return nil, getErr
+			}
+			return nil, apperrors.Conflict("save version conflict", map[string]any{
+				"field":                "save_version",
+				"expected_save_version": expectedSaveVersion,
+				"current_save_version":  current.SaveVersion,
+				"last_saved_at":         current.LastSavedAt,
+			})
+		}
+		return nil, mapDBError(err)
+	}
+	return response, nil
 }

@@ -5,18 +5,29 @@ import "fmt"
 type Code string
 
 const (
-	CodeValidation   Code = "VALIDATION_ERROR"
-	CodeNotFound     Code = "NOT_FOUND"
-	CodeConflict     Code = "CONFLICT"
-	CodeInternal     Code = "INTERNAL_ERROR"
-	CodeUnauthorized Code = "UNAUTHORIZED"
-	CodeForbidden    Code = "FORBIDDEN"
+	CodeValidation       Code = "VALIDATION_ERROR"
+	CodeValidationFailed Code = "VALIDATION_FAILED"
+	CodeNotFound         Code = "NOT_FOUND"
+	CodeConflict         Code = "CONFLICT"
+	CodeInternal         Code = "INTERNAL_ERROR"
+	CodeUnauthorized     Code = "UNAUTHORIZED"
+	CodeForbidden        Code = "FORBIDDEN"
 )
+
+type ValidationErrorItem struct {
+	SectionID  string         `json:"section_id,omitempty"`
+	QuestionID string         `json:"question_id,omitempty"`
+	Field      string         `json:"field,omitempty"`
+	Rule       string         `json:"rule,omitempty"`
+	MessageKey string         `json:"message_key"`
+	Params     map[string]any `json:"params,omitempty"`
+}
 
 type AppError struct {
 	Code    Code
 	Message string
 	Details map[string]any
+	Errors  []ValidationErrorItem
 	Err     error
 }
 
@@ -31,6 +42,18 @@ func (e *AppError) Unwrap() error { return e.Err }
 
 func Validation(message string, details map[string]any) *AppError {
 	return &AppError{Code: CodeValidation, Message: message, Details: detailsOrEmpty(details)}
+}
+
+func ValidationFailed(items []ValidationErrorItem) *AppError {
+	if items == nil {
+		items = []ValidationErrorItem{}
+	}
+	return &AppError{
+		Code:    CodeValidationFailed,
+		Message: "validation failed",
+		Errors:  items,
+		Details: map[string]any{},
+	}
 }
 
 func NotFound(message string) *AppError {

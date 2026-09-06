@@ -20,8 +20,13 @@ type RfxResponse struct {
 	TenantID             uuid.UUID
 	RfxEventID           uuid.UUID
 	ParticipantCompanyID uuid.UUID
+	RfxVersionID         *uuid.UUID
 	Status               string
 	SubmittedAt          *time.Time
+	SaveVersion          int64
+	LastSavedAt          *time.Time
+	LastSavedBy          *uuid.UUID
+	CompletionPercent    float64
 	CommercialScore      *float64
 	ManualScore          *float64
 	TotalScore           *float64
@@ -47,6 +52,7 @@ type CreateRfxResponseInput struct {
 	TenantID             uuid.UUID
 	RfxEventID           uuid.UUID
 	ParticipantCompanyID uuid.UUID
+	RfxVersionID         *uuid.UUID
 }
 
 func ValidateCreateRfxResponse(eventStatus string) error {

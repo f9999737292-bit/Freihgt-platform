@@ -59,6 +59,14 @@ func (r *FreightRequestRepository) WithTx(tx pgx.Tx) *FreightRequestRepository {
 	return &FreightRequestRepository{pool: r.pool, exec: tx}
 }
 
+func (r *QuestionnaireRepository) WithTx(tx pgx.Tx) *QuestionnaireRepository {
+	return &QuestionnaireRepository{pool: r.pool, exec: tx}
+}
+
+func (r *AnswerRepository) WithTx(tx pgx.Tx) *AnswerRepository {
+	return &AnswerRepository{pool: r.pool, exec: tx}
+}
+
 // TransactionRunner executes callbacks inside a database transaction.
 type TransactionRunner struct {
 	pool *pgxpool.Pool

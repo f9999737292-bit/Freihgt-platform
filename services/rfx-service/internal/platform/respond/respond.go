@@ -9,7 +9,12 @@ import (
 )
 
 type errorBody struct {
-	Error errorPayload `json:"error"`
+	Error errorPayload `json:"error,omitempty"`
+}
+
+type validationFailedBody struct {
+	Code   string                          `json:"code"`
+	Errors []apperrors.ValidationErrorItem `json:"errors"`
 }
 
 type errorPayload struct {
@@ -35,6 +40,16 @@ func Error(w http.ResponseWriter, err error) {
 	switch appErr.Code {
 	case apperrors.CodeValidation:
 		status = http.StatusBadRequest
+	case apperrors.CodeValidationFailed:
+		errors := appErr.Errors
+		if errors == nil {
+			errors = []apperrors.ValidationErrorItem{}
+		}
+		JSON(w, http.StatusUnprocessableEntity, validationFailedBody{
+			Code:   string(appErr.Code),
+			Errors: errors,
+		})
+		return
 	case apperrors.CodeNotFound:
 		status = http.StatusNotFound
 	case apperrors.CodeConflict:
