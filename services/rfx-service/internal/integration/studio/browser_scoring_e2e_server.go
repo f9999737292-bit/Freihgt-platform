@@ -20,6 +20,9 @@ func newBrowserScoringV3Router(env *testEnv) http.Handler {
 	r.Route("/v1/rfx-events", func(r chi.Router) {
 		r.Get("/{id}", rfxHandler.GetEvent)
 		r.Get("/{id}/responses", rfxHandler.ListEvaluationResponses)
+		r.Get("/{id}/audit-events", rfxHandler.ListEventAuditEvents)
+		r.Post("/{id}/evaluation/recalculate", rfxHandler.RecalculateEvaluation)
+		r.Get("/{id}/transport-orders", rfxHandler.ListAwardTransportOrders)
 		r.Get("/{id}/studio", qHandler.GetStudio)
 		r.Get("/{id}/questionnaire", qHandler.GetQuestionnaire)
 		r.Post("/{id}/save-draft", qHandler.SaveDraft)

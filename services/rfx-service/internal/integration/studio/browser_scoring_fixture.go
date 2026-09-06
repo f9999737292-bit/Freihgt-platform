@@ -120,6 +120,31 @@ func seedBrowserScoringV3Fixture(t *testing.T, env *testEnv) browserScoringFixtu
 
 	legacy := createDraftEvent(t, env, fix, "RFX-LEGACY-NO-SCORE")
 	enableQuestionnaire(t, env, fix.BuyerA, legacy.ID)
+	if _, err := env.rfxSvc.AddParticipant(ctx, fix.BuyerA, legacy.ID, domain.AddRfxParticipantInput{
+		TenantID: fix.TenantID, RfxEventID: legacy.ID, CompanyID: fix.CarrierID, ParticipantType: "CARRIER",
+	}); err != nil {
+		t.Fatalf("legacy participant: %v", err)
+	}
+	if _, err := env.rfxSvc.PublishEvent(ctx, fix.BuyerA, legacy.ID); err != nil {
+		t.Fatalf("publish legacy event: %v", err)
+	}
+	legacyResp, err := env.rfxSvc.CreateResponse(ctx, fix.CarrierAct, legacy.ID, domain.CreateRfxResponseInput{
+		TenantID: fix.TenantID, ParticipantCompanyID: fix.CarrierID,
+	})
+	if err != nil {
+		t.Fatalf("legacy response: %v", err)
+	}
+	if _, err := env.rfxSvc.UpdateResponseCommercial(ctx, fix.CarrierAct, legacyResp.ID, []domain.UpsertOfferLineInput{
+		{Amount: 88000, CurrencyCode: "RUB"},
+	}); err != nil {
+		t.Fatalf("legacy commercial: %v", err)
+	}
+	if _, err := env.rfxSvc.SubmitResponse(ctx, fix.CarrierAct, legacyResp.ID); err != nil {
+		t.Fatalf("legacy submit: %v", err)
+	}
+	if _, err := env.rfxSvc.RecalculateEvaluation(ctx, fix.BuyerA, legacy.ID); err != nil {
+		t.Fatalf("legacy recalculate: %v", err)
+	}
 
 	return browserScoringFixture{
 		browserStudioFixture: browserStudioFixture{

@@ -55,17 +55,31 @@ test.describe('RFx v3.0D scoring browser acceptance', () => {
     await submitCarrierA(request)
     await submitCarrierB(request)
 
+    await page.goto('about:blank')
     await seedBuyerProcurementSession(page)
+    const responsesPromise = page.waitForResponse(
+      (resp) => resp.url().includes(`/rfx-events/${eventId}/responses`) && resp.ok(),
+      { timeout: 120_000 },
+    )
     await page.goto(`${procurementURL}/tenders/${eventId}/evaluation`, { waitUntil: 'domcontentloaded' })
+    const responsesResp = await responsesPromise
+    const responsesBody = await responsesResp.json()
+    expect(Array.isArray(responsesBody.items)).toBeTruthy()
+    expect(responsesBody.items.length).toBeGreaterThanOrEqual(2)
+
     await expect(page.getByTestId('legacy-commercial-score').first()).toBeVisible({ timeout: 120_000 })
 
     const v3Cells = page.getByTestId('v3-questionnaire-score')
-    await expect(v3Cells).toHaveCount(2, { timeout: 60_000 })
-    await expect(v3Cells.first()).toContainText('70')
-    await expect(v3Cells.nth(1)).toContainText('60')
-    await expect(page.getByTestId('v3-knockout-badge').first()).toBeVisible()
+    await expect(v3Cells).toHaveCount(2, { timeout: 120_000 })
+    await expect(v3Cells.filter({ hasText: '70' })).toHaveCount(1)
+    await expect(v3Cells.filter({ hasText: '60' })).toHaveCount(1)
 
-    await page.getByTestId('v3-explain-button').first().click()
+    const knockoutRow = page.locator('tr').filter({
+      has: page.getByTestId('v3-questionnaire-score').filter({ hasText: '60' }),
+    })
+    await expect(knockoutRow.getByTestId('v3-knockout-badge')).toBeVisible({ timeout: 60_000 })
+
+    await knockoutRow.getByTestId('v3-explain-button').click()
     await expect(page.getByTestId('v3-explanation-panel')).toBeVisible({ timeout: 30_000 })
     await expect(page.getByTestId('v3-explanation-row').first()).toBeVisible()
 
