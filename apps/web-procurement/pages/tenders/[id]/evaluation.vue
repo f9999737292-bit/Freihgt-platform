@@ -134,31 +134,64 @@ async function loadWorkspace() {
   notFound.value = false
   apiUnavailable.value = false
   invalidateScores(eventId.value)
+  items.value = []
+  auditEvents.value = []
+  transportOrders.value = []
+
   try {
     event.value = await getRfxEvent(eventId.value)
     setCompany(event.value.owner_company_id)
-    v3ModelPublished.value = await hasPublishedScoreModel(eventId.value)
-    items.value = await listEvaluationResponses(eventId.value)
-    auditEvents.value = await listAuditEvents(eventId.value)
-    if (event.value.status === 'AWARDED') {
-      transportOrders.value = await listAwardTransportOrders(eventId.value)
-    } else {
-      transportOrders.value = []
-    }
-    await loadV3ScoresForItems()
   } catch (error) {
     event.value = null
-    items.value = []
-    auditEvents.value = []
-    transportOrders.value = []
     if (shouldShowNotFound(error)) notFound.value = true
     else {
       apiUnavailable.value = isApiUnavailableError(error)
-      if (!apiUnavailable.value) pushToast('error', error instanceof Error ? error.message : t('tenders.evaluation.loadFailed'))
+      if (!apiUnavailable.value) {
+        pushToast('error', error instanceof Error ? error.message : t('tenders.evaluation.loadFailed'))
+      }
     }
-  } finally {
     loading.value = false
+    return
   }
+
+  try {
+    v3ModelPublished.value = await hasPublishedScoreModel(eventId.value)
+  } catch {
+    v3ModelPublished.value = false
+  }
+
+  try {
+    items.value = await listEvaluationResponses(eventId.value)
+  } catch (error) {
+    event.value = null
+    items.value = []
+    if (shouldShowNotFound(error)) notFound.value = true
+    else {
+      apiUnavailable.value = isApiUnavailableError(error)
+      if (!apiUnavailable.value) {
+        pushToast('error', error instanceof Error ? error.message : t('tenders.evaluation.loadFailed'))
+      }
+    }
+    loading.value = false
+    return
+  }
+
+  try {
+    auditEvents.value = await listAuditEvents(eventId.value)
+  } catch {
+    auditEvents.value = []
+  }
+
+  if (event.value?.status === 'AWARDED') {
+    try {
+      transportOrders.value = await listAwardTransportOrders(eventId.value)
+    } catch {
+      transportOrders.value = []
+    }
+  }
+
+  await loadV3ScoresForItems()
+  loading.value = false
 }
 
 async function handleRecalculate() {
@@ -258,8 +291,8 @@ onMounted(loadCompanies)
         <template #header>
           <h3>{{ t('tenders.evaluation.comparison') }}</h3>
         </template>
-        <EmptyState v-if="sortedItems.length === 0" :title="t('tenders.evaluation.empty')" />
-        <div v-else class="table-scroll">
+        <EmptyState v-if="sortedItems.length === 0" :title="t('tenders.evaluation.empty')" data-testid="evaluation-responses-empty" />
+        <div v-else class="table-scroll" data-testid="evaluation-comparison-table">
           <Table :columns="tableColumns">
             <tr v-for="item in sortedItems" :key="item.id">
               <td>{{ companyName(item.participant_company_id) }}</td>
