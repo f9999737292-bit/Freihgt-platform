@@ -62,7 +62,8 @@ async function carrierSubmit(
     'X-Company-ID': carrierCompany,
     'Content-Type': 'application/json',
   }
-  const start = await request.post(`${gatewayURL}/api/v1/rfx-events/${eventId}/carrier-response/start`, { headers, data: {} })
+  const carrierQuery = `?carrier_company_id=${carrierCompany}`
+  const start = await request.post(`${gatewayURL}/api/v1/rfx-events/${eventId}/carrier-response/start${carrierQuery}`, { headers, data: {} })
   expect(start.ok()).toBeTruthy()
   const ws = await start.json()
   const questions = ws.questionnaire?.sections?.flatMap((s: { questions?: Array<{ id: string; question_code: string }> }) => s.questions ?? []) ?? []
@@ -70,10 +71,10 @@ async function carrierSubmit(
   const fleetQ = questions.find((q: { question_code: string }) => q.question_code === 'FLEET_COUNT')
   expect(adrQ?.id).toBeTruthy()
   expect(fleetQ?.id).toBeTruthy()
-  const patch = await request.patch(`${gatewayURL}/api/v1/rfx-events/${eventId}/carrier-response/answers`, {
+  const patch = await request.patch(`${gatewayURL}/api/v1/rfx-events/${eventId}/carrier-response/answers${carrierQuery}`, {
     headers,
     data: {
-      expected_save_version: ws.save_version,
+      save_version: ws.save_version,
       answers: [
         { question_id: adrQ!.id, value: adr },
         { question_id: fleetQ!.id, value: fleet },
@@ -82,9 +83,9 @@ async function carrierSubmit(
   })
   expect(patch.ok()).toBeTruthy()
   const saved = await patch.json()
-  const submit = await request.post(`${gatewayURL}/api/v1/rfx-events/${eventId}/carrier-response/submit`, {
+  const submit = await request.post(`${gatewayURL}/api/v1/rfx-events/${eventId}/carrier-response/submit${carrierQuery}`, {
     headers,
-    data: { expected_save_version: saved.save_version },
+    data: { save_version: saved.save_version },
   })
   expect(submit.ok()).toBeTruthy()
 }
