@@ -524,7 +524,7 @@ func TestInvalidAndPreviewAnswerSafety(t *testing.T) {
 	previewSF := seedScoringFixture(t, previewEnv, previewFix)
 	putDeterministicScoreModel(t, previewEnv, previewFix, previewSF)
 	previewCtx := context.Background()
-	ws, err := previewEnv.crSvc.StartOrResume(previewCtx, previewFix.CarrierAct, previewSF.Event.ID, previewFix.CarrierID)
+	ws, err = previewEnv.crSvc.StartOrResume(previewCtx, previewFix.CarrierAct, previewSF.Event.ID, previewFix.CarrierID)
 	if err != nil {
 		t.Fatalf("preview start: %v", err)
 	}
