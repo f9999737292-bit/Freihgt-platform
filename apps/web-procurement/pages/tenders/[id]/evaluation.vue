@@ -190,8 +190,8 @@ async function loadWorkspace() {
     }
   }
 
-  await loadV3ScoresForItems()
   loading.value = false
+  void loadV3ScoresForItems()
 }
 
 async function handleRecalculate() {
