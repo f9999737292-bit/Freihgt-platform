@@ -43,6 +43,7 @@ func main() {
 
 	rfxRepo := repository.NewRfxRepository(db.Pool)
 	qRepo := repository.NewQuestionnaireRepository(db.Pool)
+	answerRepo := repository.NewAnswerRepository(db.Pool)
 	frRepo := repository.NewFreightRequestRepository(db.Pool)
 	bidRepo := repository.NewBidRepository(db.Pool)
 	membershipRepo := repository.NewMembershipRepository(db.Pool)
@@ -55,6 +56,7 @@ func main() {
 
 	rfxSvc := service.NewRfxServiceWithAtomic(db.Pool, rfxRepo, auditRepo, membershipRepo, toClient)
 	qSvc := service.NewQuestionnaireService(rfxRepo, qRepo, auditRepo, membershipRepo)
+	crSvc := service.NewCarrierResponseService(db.Pool, rfxRepo, answerRepo, qRepo, auditRepo, membershipRepo, rfxSvc)
 	frSvc := service.NewFreightRequestServiceWithAuth(frRepo, membershipRepo)
 	bidSvc := service.NewBidServiceWithAtomic(db.Pool, bidRepo, frRepo, membershipRepo, auditRepo)
 
@@ -64,7 +66,7 @@ func main() {
 	deadlineMetrics := worker.NewMetrics(cfg.ServiceName)
 	deadlineWorker := worker.NewDeadlineWorker(cfg.DeadlineWorker, rfxSvc, worker.RealClock(), log, deadlineMetrics)
 
-	router := httpserver.NewRouter(log, db.Pool, cfg, rfxSvc, qSvc, frSvc, bidSvc, pricingSvc)
+	router := httpserver.NewRouter(log, db.Pool, cfg, rfxSvc, qSvc, crSvc, frSvc, bidSvc, pricingSvc)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),
