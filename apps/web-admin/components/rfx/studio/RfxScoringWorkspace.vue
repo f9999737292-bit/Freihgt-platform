@@ -28,7 +28,9 @@ const scoreApi = inject(RFX_SCORE_MODEL_API_KEY) ?? useRfxScoreModelApi(toRef(pr
 const showPublishConfirm = ref(false)
 
 const bindableQuestions = computed(() => {
-  const sections = questionnaireApi.studio.value?.sections ?? []
+  const studioSections = questionnaireApi.studio.value?.sections ?? []
+  const questionnaireSections = questionnaireApi.questionnaire.value?.sections ?? []
+  const sections = studioSections.length > 0 ? studioSections : questionnaireSections
   const questions: Array<RfxQuestion & { sectionTitle?: string }> = []
   for (const section of sections) {
     for (const q of section.questions ?? []) {
@@ -59,7 +61,7 @@ const questionByCode = computed(() => {
 const weightTotal = computed(() => totalWeight(scoreApi.draftCriteria.value))
 
 async function loadAll() {
-  await questionnaireApi.loadStudio()
+  await questionnaireApi.loadAll()
   await scoreApi.loadScoreModel()
   if (scoreApi.view.value) {
     scoreApi.bindQuestionCodes(

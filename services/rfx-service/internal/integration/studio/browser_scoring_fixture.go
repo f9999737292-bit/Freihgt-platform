@@ -95,6 +95,29 @@ func seedBrowserScoringV3Fixture(t *testing.T, env *testEnv) browserScoringFixtu
 		t.Fatalf("publish event: %v", err)
 	}
 
+	// Studio loads the current draft version; after publish this draft is empty until re-seeded for UI binding pickers.
+	draft, err := env.qRepo.GetOrCreateDraftVersion(ctx, fix.TenantID, event.ID)
+	if err != nil {
+		t.Fatalf("post-publish draft: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `UPDATE rfx.rfx_versions SET questionnaire_enabled = TRUE WHERE id = $1`, draft.ID); err != nil {
+		t.Fatalf("enable draft questionnaire: %v", err)
+	}
+	draftSec, err := env.qSvc.CreateSection(ctx, fix.BuyerA, event.ID, domain.CreateSectionInput{SectionCode: "MAIN", Title: "Main"})
+	if err != nil {
+		t.Fatalf("draft section: %v", err)
+	}
+	if _, err := env.qSvc.CreateQuestion(ctx, fix.BuyerA, event.ID, draftSec.ID, domain.CreateQuestionInput{
+		QuestionCode: "ADR_AVAILABLE", QuestionType: domain.QuestionTypeYesNo, Label: "ADR Available", Required: true,
+	}); err != nil {
+		t.Fatalf("draft adr question: %v", err)
+	}
+	if _, err := env.qSvc.CreateQuestion(ctx, fix.BuyerA, event.ID, draftSec.ID, domain.CreateQuestionInput{
+		QuestionCode: "FLEET_COUNT", QuestionType: domain.QuestionTypeNumber, Label: "Fleet Count", Required: true,
+	}); err != nil {
+		t.Fatalf("draft fleet question: %v", err)
+	}
+
 	legacy := createDraftEvent(t, env, fix, "RFX-LEGACY-NO-SCORE")
 	enableQuestionnaire(t, env, fix.BuyerA, legacy.ID)
 

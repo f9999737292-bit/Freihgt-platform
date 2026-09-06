@@ -37,6 +37,8 @@ test.describe('RFx v3.0D scoring browser acceptance', () => {
     await page.getByTestId('scoring-criterion-weight').nth(1).fill('60')
 
     const bindings = page.getByTestId('scoring-question-binding')
+    await expect(bindings.nth(0).locator('option[value="ADR_AVAILABLE"]')).toBeVisible({ timeout: 120_000 })
+    await expect(bindings.nth(1).locator('option[value="FLEET_COUNT"]')).toBeVisible({ timeout: 120_000 })
     await bindings.nth(0).selectOption({ value: 'ADR_AVAILABLE' })
     await bindings.nth(1).selectOption({ value: 'FLEET_COUNT' })
 
