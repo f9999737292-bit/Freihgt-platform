@@ -41,6 +41,119 @@ test.beforeEach(async ({ page }) => {
   await stubCarrierCompanyContext(page)
 })
 
+test('F103-002 RFx carrier response save_version conflict', async ({ page }) => {
+  await page.goto('/login', { waitUntil: 'domcontentloaded' })
+  await page.goto(questionnairePath(), { waitUntil: 'domcontentloaded' })
+  await waitForCarrierWorkspace(page)
+
+  await setYesNo(page, 'ADR_AVAILABLE', true)
+  await fillTextQuestion(page, 'ADR_NUMBER', 'ADR-CONFLICT')
+  await fillDateQuestion(page, 'ADR_EXPIRY', '2030-06-15')
+  await fillNumberQuestion(page, 'FLEET_COUNT', '5')
+  await flushAutosave(page)
+
+  const workspace = await page.evaluate(async ({ gw, ev, company, token, tenant, user }) => {
+    const url = `${gw}/api/v1/rfx-events/${ev}/carrier-response?carrier_company_id=${company}`
+    const resp = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'X-Company-ID': company,
+        'X-Tenant-ID': tenant,
+        'X-User-ID': user,
+      },
+    })
+    return resp.json()
+  }, {
+    gw: gatewayURL,
+    ev: eventId,
+    company: carrierCompanyId,
+    token: jwt,
+    tenant: tenantId,
+    user: userId,
+  })
+
+  const fleetMeta = await page.evaluate((ws) => {
+    for (const swq of ws.questionnaire?.sections ?? []) {
+      for (const q of swq.questions ?? []) {
+        if (q.question_code === 'FLEET_COUNT') {
+          return { questionId: q.id, sectionId: swq.section.id }
+        }
+      }
+    }
+    return null
+  }, workspace)
+  expect(fleetMeta).not.toBeNull()
+
+  const currentVersion = Number(workspace.save_version ?? 0)
+  const staleVersion = Math.max(0, currentVersion - 1)
+  const conflictStatus = await page.evaluate(async ({ gw, ev, company, token, tenant, user, version }) => {
+    const url = `${gw}/api/v1/rfx-events/${ev}/carrier-response/answers?carrier_company_id=${company}`
+    const resp = await fetch(url, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'X-Company-ID': company,
+        'X-Tenant-ID': tenant,
+        'X-User-ID': user,
+      },
+      body: JSON.stringify({ save_version: version, answers: [] }),
+    })
+    return resp.status
+  }, {
+    gw: gatewayURL,
+    ev: eventId,
+    company: carrierCompanyId,
+    token: jwt,
+    tenant: tenantId,
+    user: userId,
+    version: staleVersion,
+  })
+  expect(conflictStatus).toBe(409)
+
+  const bumpStatus = await page.evaluate(async ({
+    gw, ev, company, token, tenant, user, version, questionId, sectionId,
+  }) => {
+    const url = `${gw}/api/v1/rfx-events/${ev}/carrier-response/answers?carrier_company_id=${company}`
+    const resp = await fetch(url, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'X-Company-ID': company,
+        'X-Tenant-ID': tenant,
+        'X-User-ID': user,
+      },
+      body: JSON.stringify({
+        save_version: version,
+        answers: [{ question_id: questionId, section_id: sectionId, value: 5 }],
+      }),
+    })
+    return resp.status
+  }, {
+    gw: gatewayURL,
+    ev: eventId,
+    company: carrierCompanyId,
+    token: jwt,
+    tenant: tenantId,
+    user: userId,
+    version: currentVersion,
+    questionId: fleetMeta!.questionId,
+    sectionId: fleetMeta!.sectionId,
+  })
+  expect(bumpStatus).toBe(200)
+
+  const conflictPromise = page.waitForResponse(
+    (resp) =>
+      resp.url().includes('/carrier-response/answers')
+      && resp.status() === 409,
+    { timeout: 60_000 },
+  )
+  await fillNumberQuestion(page, 'FLEET_COUNT', '6')
+  await conflictPromise
+  await expect(page.getByTestId('conflict-banner')).toBeVisible()
+})
+
 test('F103-001 RFx carrier response live browser acceptance', async ({ page }) => {
   const gatewayFailures: string[] = []
   page.on('response', (resp) => {
@@ -106,7 +219,7 @@ test('F103-001 RFx carrier response live browser acceptance', async ({ page }) =
 
   page.once('dialog', (dialog) => dialog.accept())
   await page.getByTestId('submit-questionnaire').click()
-  await expect(page.getByTestId('submit-blocked').or(page.getByTestId('global-error-summary'))).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByTestId('submit-blocked')).toBeVisible({ timeout: 30_000 })
 
   await fillDateQuestion(page, 'ADR_EXPIRY', '2030-12-31')
   await flushAutosave(page)
@@ -151,71 +264,4 @@ test('F103-001 RFx carrier response live browser acceptance', async ({ page }) =
   expect(patchDenied).toBeGreaterThanOrEqual(400)
 
   expect(gatewayFailures).toEqual([])
-})
-
-test('F103-002 RFx carrier response save_version conflict', async ({ page }) => {
-  await page.goto('/login', { waitUntil: 'domcontentloaded' })
-  await page.goto(questionnairePath(), { waitUntil: 'domcontentloaded' })
-  await waitForCarrierWorkspace(page)
-
-  await setYesNo(page, 'ADR_AVAILABLE', true)
-  await fillTextQuestion(page, 'ADR_NUMBER', 'ADR-CONFLICT')
-  await fillDateQuestion(page, 'ADR_EXPIRY', '2030-06-15')
-  await fillNumberQuestion(page, 'FLEET_COUNT', '5')
-  await flushAutosave(page)
-
-  const workspace = await page.evaluate(async ({ gw, ev, company, token, tenant, user }) => {
-    const url = `${gw}/api/v1/rfx-events/${ev}/carrier-response?carrier_company_id=${company}`
-    const resp = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'X-Company-ID': company,
-        'X-Tenant-ID': tenant,
-        'X-User-ID': user,
-      },
-    })
-    return resp.json()
-  }, {
-    gw: gatewayURL,
-    ev: eventId,
-    company: carrierCompanyId,
-    token: jwt,
-    tenant: tenantId,
-    user: userId,
-  })
-
-  const staleVersion = Math.max(0, Number(workspace.save_version ?? 1) - 1)
-  const conflictStatus = await page.evaluate(async ({ gw, ev, company, token, tenant, user, version }) => {
-    const url = `${gw}/api/v1/rfx-events/${ev}/carrier-response/answers?carrier_company_id=${company}`
-    const resp = await fetch(url, {
-      method: 'PATCH',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'X-Company-ID': company,
-        'X-Tenant-ID': tenant,
-        'X-User-ID': user,
-      },
-      body: JSON.stringify({ save_version: version, answers: [] }),
-    })
-    return resp.status
-  }, {
-    gw: gatewayURL,
-    ev: eventId,
-    company: carrierCompanyId,
-    token: jwt,
-    tenant: tenantId,
-    user: userId,
-    version: staleVersion,
-  })
-  expect(conflictStatus).toBe(409)
-
-  await fillNumberQuestion(page, 'FLEET_COUNT', '6')
-  await page.waitForResponse(
-    (resp) =>
-      resp.url().includes('/carrier-response/answers')
-      && resp.status() === 409,
-    { timeout: 60_000 },
-  )
-  await expect(page.getByTestId('conflict-banner')).toBeVisible()
 })
