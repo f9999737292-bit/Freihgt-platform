@@ -129,3 +129,47 @@ func TestCriteriaWeightInvalid(t *testing.T) {
 		t.Fatal("expected not ready")
 	}
 }
+
+func TestScoreNumberLinearBoundaries(t *testing.T) {
+	norm := json.RawMessage(`{"type":"NUMBER_LINEAR","min":0,"max":100}`)
+	cases := []struct {
+		value float64
+		want  float64
+	}{
+		{0, 0}, {50, 50}, {100, 100}, {-10, 0}, {150, 100},
+	}
+	for _, tc := range cases {
+		raw, normalized, err := scoreNumberLinear(json.RawMessage(mustJSONNumber(tc.value)), norm)
+		if err != nil {
+			t.Fatalf("value=%v: %v", tc.value, err)
+		}
+		if raw != tc.value || normalized != tc.want {
+			t.Fatalf("value=%v got raw=%v norm=%v want norm=%v", tc.value, raw, normalized, tc.want)
+		}
+	}
+}
+
+func TestScoreMultiSelectAggregations(t *testing.T) {
+	norm := json.RawMessage(`{"type":"MULTI_SELECT","aggregation":"SUM_CAPPED","cap":100,"option_scores":{"A":30,"B":40,"C":50}}`)
+	_, normalized, err := scoreMultiSelect(json.RawMessage(`["A","B"]`), norm)
+	if err != nil || normalized != 70 {
+		t.Fatalf("SUM_CAPPED got %v err=%v want 70", normalized, err)
+	}
+
+	maxNorm := json.RawMessage(`{"type":"MULTI_SELECT","aggregation":"MAX","option_scores":{"A":30,"B":40,"C":50}}`)
+	_, maxScore, err := scoreMultiSelect(json.RawMessage(`["A","B"]`), maxNorm)
+	if err != nil || maxScore != 40 {
+		t.Fatalf("MAX got %v err=%v want 40", maxScore, err)
+	}
+
+	avgNorm := json.RawMessage(`{"type":"MULTI_SELECT","aggregation":"AVERAGE","option_scores":{"A":30,"B":40,"C":50}}`)
+	_, avgScore, err := scoreMultiSelect(json.RawMessage(`["A","B"]`), avgNorm)
+	if err != nil || avgScore != 35 {
+		t.Fatalf("AVERAGE got %v err=%v want 35", avgScore, err)
+	}
+}
+
+func mustJSONNumber(v float64) []byte {
+	b, _ := json.Marshal(v)
+	return b
+}

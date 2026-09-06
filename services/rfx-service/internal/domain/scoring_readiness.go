@@ -105,6 +105,18 @@ func ValidateScoreModelReadiness(
 				Params: map[string]any{"criterion_code": criterion.CriterionCode, "question_code": question.QuestionCode},
 			})
 		}
+		if err := validateOptionScoresAgainstQuestion(criterion.NormalizationJSON, question); err != nil {
+			errs = append(errs, ScoreModelReadinessError{
+				Code: "OPTION_SCORE_INVALID", Field: "bindings", Message: err.Error(),
+				Params: map[string]any{"criterion_code": criterion.CriterionCode, "question_code": question.QuestionCode},
+			})
+		}
+		if err := validateMultiSelectAggregation(criterion.NormalizationJSON); err != nil {
+			errs = append(errs, ScoreModelReadinessError{
+				Code: "MULTI_SELECT_AGGREGATION_INVALID", Field: "criteria", Message: err.Error(),
+				Params: map[string]any{"criterion_code": criterion.CriterionCode},
+			})
+		}
 		if len(b.KnockoutRuleJSON) > 0 && string(b.KnockoutRuleJSON) != "null" {
 			if err := validateKnockoutCompatibility(question, b.KnockoutRuleJSON); err != nil {
 				errs = append(errs, ScoreModelReadinessError{
@@ -169,6 +181,9 @@ func validateNormalizationJSON(raw json.RawMessage) error {
 		if cfg.Aggregation == "" || len(cfg.OptionScores) == 0 {
 			return fmt.Errorf("MULTI_SELECT requires aggregation and option_scores")
 		}
+		if err := validateMultiSelectAggregation(raw); err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("unsupported normalization type %q", t)
 	}
@@ -203,4 +218,58 @@ func validateKnockoutCompatibility(question Question, knockoutJSON json.RawMessa
 
 func isFiniteWeight(w float64) bool {
 	return !math.IsNaN(w) && !math.IsInf(w, 0)
+}
+
+func validateMultiSelectAggregation(normJSON json.RawMessage) error {
+	t, err := parseNormalizationType(normJSON)
+	if err != nil || t != NormalizationMultiSelect {
+		return nil
+	}
+	var cfg MultiSelectNormalization
+	if err := json.Unmarshal(normJSON, &cfg); err != nil {
+		return err
+	}
+	switch cfg.Aggregation {
+	case MultiSelectAggregationSumCapped, MultiSelectAggregationMax, MultiSelectAggregationAverage:
+		return nil
+	default:
+		return fmt.Errorf("unsupported MULTI_SELECT aggregation %q", cfg.Aggregation)
+	}
+}
+
+func validateOptionScoresAgainstQuestion(normJSON json.RawMessage, question Question) error {
+	t, err := parseNormalizationType(normJSON)
+	if err != nil {
+		return nil
+	}
+	var optionScores map[string]float64
+	switch t {
+	case NormalizationOptionMap:
+		var cfg OptionMapNormalization
+		if err := json.Unmarshal(normJSON, &cfg); err != nil {
+			return err
+		}
+		optionScores = cfg.OptionScores
+	case NormalizationMultiSelect:
+		var cfg MultiSelectNormalization
+		if err := json.Unmarshal(normJSON, &cfg); err != nil {
+			return err
+		}
+		optionScores = cfg.OptionScores
+	default:
+		return nil
+	}
+	if len(optionScores) == 0 {
+		return nil
+	}
+	allowed := map[string]struct{}{}
+	for _, opt := range question.Options {
+		allowed[opt.OptionCode] = struct{}{}
+	}
+	for code := range optionScores {
+		if _, ok := allowed[code]; !ok {
+			return fmt.Errorf("option score references unknown option %q", code)
+		}
+	}
+	return nil
 }

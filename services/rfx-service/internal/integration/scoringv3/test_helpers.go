@@ -52,6 +52,7 @@ type buyerFixture struct {
 	CarrierAct    domain.ActorContext
 	CarrierBAct   domain.ActorContext
 	CrossTenant   domain.ActorContext
+	NonMember     domain.ActorContext
 }
 
 type scoringFixture struct {
@@ -128,6 +129,7 @@ func seedBuyerFixture(t *testing.T, env *testEnv) buyerFixture {
 	fix.CarrierAct = domain.ActorContext{TenantID: fix.TenantID, UserID: uuid.New()}
 	fix.CarrierBAct = domain.ActorContext{TenantID: fix.TenantID, UserID: uuid.New()}
 	fix.CrossTenant = domain.ActorContext{TenantID: fix.OtherTenantID, UserID: uuid.New()}
+	fix.NonMember = domain.ActorContext{TenantID: fix.TenantID, UserID: uuid.New()}
 
 	for _, tenant := range []struct {
 		id   uuid.UUID
@@ -163,6 +165,7 @@ func seedBuyerFixture(t *testing.T, env *testEnv) buyerFixture {
 		{fix.BuyerB.UserID, fix.TenantID, "buyer-b@test.local"},
 		{fix.CarrierAct.UserID, fix.TenantID, "carrier-a@test.local"},
 		{fix.CarrierBAct.UserID, fix.TenantID, "carrier-b@test.local"},
+		{fix.NonMember.UserID, fix.TenantID, "no-member@test.local"},
 	} {
 		if _, err := env.pool.Exec(ctx, `INSERT INTO core.users (id, tenant_id, email, full_name) VALUES ($1, $2, $3, $4)`,
 			user.id, user.tenant, user.email, user.email); err != nil {
@@ -175,6 +178,10 @@ func seedBuyerFixture(t *testing.T, env *testEnv) buyerFixture {
 	}
 	if err := env.pool.QueryRow(ctx, `SELECT id FROM core.roles WHERE tenant_id IS NULL AND code = 'CARRIER_DISPATCHER' LIMIT 1`).Scan(&carrierRoleID); err != nil {
 		t.Fatalf("lookup carrier role: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `INSERT INTO core.user_roles (tenant_id, user_id, company_id, role_id) VALUES ($1, $2, $3, $4)`,
+		fix.TenantID, fix.NonMember.UserID, fix.CompanyA, buyerRoleID); err != nil {
+		t.Fatalf("seed non-member buyer role without membership: %v", err)
 	}
 	for _, m := range []struct {
 		tenant, company, user, role uuid.UUID
@@ -285,6 +292,35 @@ func assertAppErrorCode(t *testing.T, err error, code apperrors.Code) {
 	if !errors.As(err, &appErr) || appErr.Code != code {
 		t.Fatalf("expected code %s, got %v", code, err)
 	}
+}
+
+func countQualificationResults(ctx context.Context, pool *pgxpool.Pool, responseID, tenantID uuid.UUID) (int, error) {
+	var count int
+	err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM rfx.rfx_qualification_results WHERE rfx_response_id=$1 AND tenant_id=$2`, responseID, tenantID).Scan(&count)
+	return count, err
+}
+
+func countAnswerScores(ctx context.Context, pool *pgxpool.Pool, responseID, tenantID uuid.UUID) (int, error) {
+	var count int
+	err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM rfx.rfx_answer_scores WHERE rfx_response_id=$1 AND tenant_id=$2`, responseID, tenantID).Scan(&count)
+	return count, err
+}
+
+func countAuditByAction(ctx context.Context, pool *pgxpool.Pool, tenantID, entityID uuid.UUID, action string) (int, error) {
+	var count int
+	err := pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM rfx.audit_events
+		WHERE tenant_id=$1 AND entity_id=$2 AND action=$3`, tenantID, entityID, action).Scan(&count)
+	return count, err
+}
+
+func hasReadinessCode(result domain.ScoreModelReadinessResult, code string) bool {
+	for _, e := range result.Errors {
+		if e.Code == code {
+			return true
+		}
+	}
+	return false
 }
 
 func createTempDatabase(ctx context.Context, adminURL string) (dbName string, testURL string, cleanup func(context.Context), err error) {

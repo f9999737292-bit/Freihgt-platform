@@ -75,7 +75,10 @@ func (s *ScoringService) CalculateForSubmittedResponse(ctx context.Context, tena
 
 	result, calcErr := s.calculate(ctx, tenantID, response, *model)
 	if calcErr != nil {
-		_ = s.scores.MarkScoringFailed(ctx, tenantID, responseID, *model)
+		var appErr *apperrors.AppError
+		if !errors.As(calcErr, &appErr) || appErr.Code != apperrors.CodeValidation {
+			_ = s.scores.MarkScoringFailed(ctx, tenantID, responseID, *model)
+		}
 		s.log.Error("scoring failed", slog.String("response_id", responseID.String()), slog.String("error", calcErr.Error()))
 		return nil, calcErr
 	}

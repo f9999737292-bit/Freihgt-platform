@@ -26,6 +26,7 @@ type ScoreModelStore interface {
 type scoreQuestionnaireStore interface {
 	CarrierQuestionnaireStore
 	GetOrCreateDraftVersion(ctx context.Context, tenantID, eventID uuid.UUID) (*domain.RfxVersion, error)
+	AssertQuestionBelongsToVersion(ctx context.Context, questionID, versionID, tenantID uuid.UUID) error
 }
 
 type ScoreModelService struct {
@@ -97,7 +98,14 @@ func (s *ScoreModelService) PutScoreModel(ctx context.Context, actor domain.Acto
 
 	criteria := make([]domain.ScoreCriterion, 0, len(input.Criteria))
 	criterionIDs := map[string]uuid.UUID{}
+	seenCriterionCodes := map[string]struct{}{}
 	for i, in := range input.Criteria {
+		if in.CriterionCode != "" {
+			if _, dup := seenCriterionCodes[in.CriterionCode]; dup {
+				return nil, apperrors.Validation("duplicate criterion code", map[string]any{"criterion_code": in.CriterionCode})
+			}
+			seenCriterionCodes[in.CriterionCode] = struct{}{}
+		}
 		id := uuid.New()
 		criterionIDs[in.CriterionCode] = id
 		criteria = append(criteria, domain.ScoreCriterion{
@@ -119,6 +127,9 @@ func (s *ScoreModelService) PutScoreModel(ctx context.Context, actor domain.Acto
 		question, ok := questionByCode[in.QuestionCode]
 		if !ok {
 			return nil, apperrors.Validation("binding references unknown question", map[string]any{"question_code": in.QuestionCode})
+		}
+		if err := s.qRepo.AssertQuestionBelongsToVersion(ctx, question.ID, version.ID, actor.TenantID); err != nil {
+			return nil, err
 		}
 		bindings = append(bindings, domain.ScoreBinding{
 			ID: uuid.New(), TenantID: actor.TenantID, ScoreModelID: model.ID,
