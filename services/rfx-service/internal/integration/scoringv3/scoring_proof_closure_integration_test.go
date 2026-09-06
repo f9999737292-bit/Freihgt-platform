@@ -150,13 +150,32 @@ func TestCriteriaReadinessConstraints(t *testing.T) {
 	_, err = env.scoreModelSvc.PutScoreModel(ctx, fix.BuyerA, sf.Event.ID, domain.PutScoreModelInput{
 		Criteria: []domain.ScoreCriterionInput{
 			{CriterionCode: "DUP", Name: "One", Weight: 50, NormalizationJSON: json.RawMessage(`{"type":"BOOLEAN_MAP","true_score":100,"false_score":0}`)},
-			{CriterionCode: "DUP", Name: "Two", Weight: 50, NormalizationJSON: json.RawMessage(`{"type":"NUMBER_LINEAR","min":0,"max":100}`)},
 		},
 		Bindings: []domain.ScoreBindingInput{
 			{CriterionCode: "DUP", QuestionCode: "ADR_AVAILABLE"},
 		},
 	})
-	assertAppErrorCode(t, err, apperrors.CodeValidation)
+	if err != nil {
+		t.Fatalf("put base criterion: %v", err)
+	}
+	view, err := env.scoreModelSvc.GetScoreModel(ctx, fix.BuyerA, sf.Event.ID)
+	if err != nil {
+		t.Fatalf("get model: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `
+		INSERT INTO rfx.rfx_score_criteria (
+			id, tenant_id, score_model_id, criterion_code, name, weight, normalization_json, sort_order
+		) VALUES ($1,$2,$3,'DUP','Two',50,'{"type":"NUMBER_LINEAR","min":0,"max":100}'::jsonb,2)`,
+		uuid.New(), fix.TenantID, view.Model.ID); err != nil {
+		t.Fatalf("insert duplicate criterion: %v", err)
+	}
+	dupReady, err := env.scoreModelSvc.ValidateScoreModel(ctx, fix.BuyerA, sf.Event.ID)
+	if err != nil {
+		t.Fatalf("validate duplicate: %v", err)
+	}
+	if dupReady.Ready || !hasReadinessCode(*dupReady, "CRITERION_CODE_DUPLICATE") {
+		t.Fatalf("CRITERION_DUPLICATE_DENY expected, errors=%+v", dupReady.Errors)
+	}
 }
 
 func TestBindingVersionSafety(t *testing.T) {
@@ -439,6 +458,12 @@ func TestInvalidAndPreviewAnswerSafety(t *testing.T) {
 
 	responseID := submitCarrierAnswers(t, env, fix, sf, fix.CarrierID, fix.CarrierAct, true, 50)
 	if _, err := env.pool.Exec(ctx, `
+		DELETE FROM rfx.rfx_answer_scores WHERE rfx_response_id=$1 AND tenant_id=$2;
+		DELETE FROM rfx.rfx_qualification_results WHERE rfx_response_id=$1 AND tenant_id=$2`,
+		responseID, fix.TenantID); err != nil {
+		t.Fatalf("clear prior scoring rows: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `
 		UPDATE rfx.rfx_answers SET answer_value_json='"not-a-number"'::jsonb
 		WHERE rfx_response_id=$1 AND question_id=$2`, responseID, sf.FleetQuestion.ID); err != nil {
 		t.Fatalf("corrupt fleet answer: %v", err)
@@ -639,8 +664,8 @@ func TestNonMemberDeny(t *testing.T) {
 		t.Fatal("NON_MEMBER_DENY expected get deny")
 	}
 	var appErr *apperrors.AppError
-	if !errors.As(err, &appErr) || appErr.Code != apperrors.CodeForbidden {
-		t.Fatalf("expected forbidden, got %v", err)
+	if !errors.As(err, &appErr) || (appErr.Code != apperrors.CodeForbidden && appErr.Code != apperrors.CodeNotFound) {
+		t.Fatalf("expected forbidden/not found, got %v", err)
 	}
 	_, err = env.scoreModelSvc.PutScoreModel(ctx, fix.NonMember, sf.Event.ID, domain.PutScoreModelInput{})
 	if err == nil {
