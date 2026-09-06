@@ -152,7 +152,7 @@ func seedBuyerFixture(t *testing.T, env *testEnv) buyerFixture {
 	if err := env.pool.QueryRow(ctx, `SELECT id FROM core.roles WHERE tenant_id IS NULL AND code = 'PROCUREMENT_MANAGER' LIMIT 1`).Scan(&buyerRoleID); err != nil {
 		t.Fatalf("lookup buyer role: %v", err)
 	}
-	if err := env.pool.QueryRow(ctx, `SELECT id FROM core.roles WHERE tenant_id IS NULL AND code = 'CARRIER_USER' LIMIT 1`).Scan(&carrierRoleID); err != nil {
+	if err := env.pool.QueryRow(ctx, `SELECT id FROM core.roles WHERE tenant_id IS NULL AND code = 'CARRIER_DISPATCHER' LIMIT 1`).Scan(&carrierRoleID); err != nil {
 		t.Fatalf("lookup carrier role: %v", err)
 	}
 	for _, m := range []struct {
