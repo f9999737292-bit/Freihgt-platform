@@ -43,8 +43,10 @@ Authoritative score history: `rfx_answer_scores` + `rfx_qualification_results`
 |---|---|
 | web-admin vitest | PASS |
 | web-procurement vitest | PASS |
-| rfx-scoring-v3-integration | PASS (CI run 34040666011 @ `1de8f46`) |
-| rfx-scoring-v3-browser-e2e | PENDING exact-head CI |
+| rfx-scoring-v3-integration | PASS (CI run 34056652061 @ `b964ec8`) |
+| rfx-scoring-v3-browser-e2e | PASS (CI run 34056652061 @ `b964ec8`) |
+
+Recovery fixes (2026-09-06): evaluation workspace progressive load, procurement session bootstrap, browser score fetch header alignment, CORS `X-User-ID` gateway allowlist.
 
 ---
 

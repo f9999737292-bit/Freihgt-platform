@@ -68,7 +68,8 @@ Carrier B `ADR=false` answer remains persisted after submit.
 |---|---|
 | `go test ./...` (rfx-service) | PASS (unit) |
 | `go build ./...` (rfx-service, api-gateway) | PASS |
-| `rfx-scoring-v3-integration` | PASS (CI `34040666011`, HEAD `1de8f46`) |
+| `rfx-scoring-v3-integration` | PASS (CI `34056652061`, HEAD `b964ec8`) |
+| `rfx-scoring-v3-browser-e2e` | PASS (CI `34056652061`, HEAD `b964ec8`) |
 
 ---
 
