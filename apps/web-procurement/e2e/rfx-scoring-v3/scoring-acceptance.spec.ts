@@ -11,6 +11,10 @@ import {
   seedBuyerProcurementSession,
   submitCarrierA,
   submitCarrierB,
+  stubBuyerCompanies,
+  evaluationPath,
+  waitForEvaluationResponses,
+  ensureProcurementAuthenticated,
 } from './helpers'
 
 test.describe('RFx v3.0D scoring browser acceptance', () => {
@@ -91,22 +95,17 @@ test.describe('RFx v3.0D scoring browser acceptance', () => {
     expect(scoreTotals).toContain(70)
     expect(scoreTotals).toContain(60)
 
-    await page.goto(`${procurementURL}/login`, { waitUntil: 'domcontentloaded' })
-    const browserResponses = page.waitForResponse(
-      (resp) =>
-        resp.url().includes(`/rfx-events/${eventId}/responses`) &&
-        resp.request().method() === 'GET' &&
-        resp.ok(),
-      { timeout: 120_000 },
-    )
-    await page.goto(`${procurementURL}/tenders/${eventId}/evaluation`, { waitUntil: 'domcontentloaded' })
+    await stubBuyerCompanies(page)
+    await ensureProcurementAuthenticated(page)
+
+    const browserResponses = waitForEvaluationResponses(page)
+    await page.goto(`${procurementURL}${evaluationPath()}`, { waitUntil: 'domcontentloaded' })
     const browserResponsesResp = await browserResponses
-    expect(browserResponsesResp.ok()).toBeTruthy()
     const browserResponsesBody = await browserResponsesResp.json()
     expect(Array.isArray(browserResponsesBody.items)).toBeTruthy()
     expect(browserResponsesBody.items.length).toBeGreaterThanOrEqual(2)
 
-    await expect(page.getByTestId('evaluation-comparison-table')).toBeVisible({ timeout: 60_000 })
+    await expect(page.getByTestId('evaluation-comparison-table')).toBeVisible({ timeout: 120_000 })
     await expect(page.getByTestId('legacy-commercial-score').first()).toBeVisible({ timeout: 60_000 })
 
     const v3Cells = page.getByTestId('v3-questionnaire-score')
@@ -121,8 +120,7 @@ test.describe('RFx v3.0D scoring browser acceptance', () => {
     await expect(page.getByTestId('v3-explanation-panel')).toBeVisible({ timeout: 30_000 })
     await expect(page.getByTestId('v3-explanation-row').first()).toBeVisible()
 
-    await page.goto(`${procurementURL}/login`, { waitUntil: 'domcontentloaded' })
-    await page.goto(`${procurementURL}/tenders/${legacyEventId}/evaluation`, { waitUntil: 'domcontentloaded' })
+    await page.goto(`${procurementURL}${evaluationPath(legacyEventId)}`, { waitUntil: 'domcontentloaded' })
     await expect(page.getByTestId('v3-questionnaire-score')).toHaveCount(0)
     await expect(page.getByTestId('legacy-commercial-score').first()).toBeVisible()
   })

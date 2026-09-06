@@ -97,3 +97,61 @@ export async function submitCarrierA(request: APIRequestContext) {
 export async function submitCarrierB(request: APIRequestContext) {
   await carrierSubmit(request, carrierBJWT, carrierBCompany, false, 100)
 }
+
+/** Company-service is not part of the scoring browser chain; stub directory lookups for evaluation UI labels. */
+export async function stubBuyerCompanies(page: Page) {
+  await page.route('**/api/v1/companies**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: [
+          {
+            id: companyId,
+            legal_name: 'Buyer A',
+            company_type: 'SHIPPER',
+            status: 'ACTIVE',
+          },
+          {
+            id: carrierACompany,
+            legal_name: 'Carrier A',
+            company_type: 'CARRIER',
+            status: 'ACTIVE',
+          },
+          {
+            id: carrierBCompany,
+            legal_name: 'Carrier B',
+            company_type: 'CARRIER',
+            status: 'ACTIVE',
+          },
+        ],
+      }),
+    })
+  })
+}
+
+export function evaluationPath(forEventId = eventId) {
+  return `/tenders/${forEventId}/evaluation`
+}
+
+export async function waitForEvaluationResponses(page: Page, forEventId = eventId) {
+  return page.waitForResponse(
+    (resp) => {
+      if (resp.request().method() !== 'GET' || !resp.ok()) {
+        return false
+      }
+      try {
+        const pathname = new URL(resp.url()).pathname
+        return pathname.endsWith(`/rfx-events/${forEventId}/responses`)
+      } catch {
+        return false
+      }
+    },
+    { timeout: 120_000 },
+  )
+}
+
+export async function ensureProcurementAuthenticated(page: Page) {
+  await page.goto(`${procurementURL}/tenders`, { waitUntil: 'domcontentloaded' })
+  await expect(page).not.toHaveURL(/\/login(?:\?|$)/, { timeout: 30_000 })
+}
