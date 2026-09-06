@@ -37,8 +37,8 @@ test.describe('RFx v3.0D scoring browser acceptance', () => {
     await page.getByTestId('scoring-criterion-weight').nth(1).fill('60')
 
     const bindings = page.getByTestId('scoring-question-binding')
-    await bindings.nth(0).selectOption({ label: /ADR_AVAILABLE/ })
-    await bindings.nth(1).selectOption({ label: /FLEET_COUNT/ })
+    await bindings.nth(0).selectOption({ value: 'ADR_AVAILABLE' })
+    await bindings.nth(1).selectOption({ value: 'FLEET_COUNT' })
 
     await page.getByTestId('scoring-knockout-boolean-false').check()
     await page.getByTestId('scoring-save-draft').click()

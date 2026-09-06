@@ -3,7 +3,7 @@ import type {
   V3ScoreExplanationResponse,
   V3ScoreLoadState,
 } from '~/types/rfx-score'
-import { ApiError } from '~/composables/useApi'
+import { ApiError } from '~/utils/apiClient'
 
 export function useRfxScoreApi() {
   const { apiGet } = useApi()

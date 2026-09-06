@@ -30,21 +30,25 @@ func seedBrowserScoringV3Fixture(t *testing.T, env *testEnv) browserScoringFixtu
 	fix := seedBuyerFixture(t, env)
 	carrierBCompany := uuid.New()
 	carrierBUser := uuid.New()
-	if _, err := env.pool.Exec(ctx, `INSERT INTO core.companies (id, tenant_id, legal_name, company_type, status) VALUES ($1,$2,$3,'CARRIER','ACTIVE')`,
+	if _, err := env.pool.Exec(ctx, `INSERT INTO core.companies (id, tenant_id, legal_name, company_type) VALUES ($1,$2,$3,'CARRIER')`,
 		carrierBCompany, fix.TenantID, "Carrier B Browser"); err != nil {
 		t.Fatalf("seed carrier b company: %v", err)
 	}
-	if _, err := env.pool.Exec(ctx, `INSERT INTO core.users (id, tenant_id, email, full_name, status) VALUES ($1,$2,$3,$4,'ACTIVE')`,
+	if _, err := env.pool.Exec(ctx, `INSERT INTO core.users (id, tenant_id, email, full_name) VALUES ($1,$2,$3,$4)`,
 		carrierBUser, fix.TenantID, "carrier-b-scoring-e2e@freight.test", "Carrier B E2E"); err != nil {
 		t.Fatalf("seed carrier b user: %v", err)
 	}
+	if _, err := env.pool.Exec(ctx, `INSERT INTO core.company_memberships (tenant_id, company_id, user_id) VALUES ($1,$2,$3)`,
+		fix.TenantID, carrierBCompany, carrierBUser); err != nil {
+		t.Fatalf("carrier b membership: %v", err)
+	}
 	var carrierRoleID uuid.UUID
-	if err := env.pool.QueryRow(ctx, `SELECT id FROM core.roles WHERE tenant_id=$1 AND code='CARRIER_USER'`, fix.TenantID).Scan(&carrierRoleID); err != nil {
+	if err := env.pool.QueryRow(ctx, `SELECT id FROM core.roles WHERE tenant_id IS NULL AND code = 'CARRIER_DISPATCHER' LIMIT 1`).Scan(&carrierRoleID); err != nil {
 		t.Fatalf("carrier role: %v", err)
 	}
-	if _, err := env.pool.Exec(ctx, `INSERT INTO core.user_company_memberships (tenant_id, user_id, company_id, role_id, status) VALUES ($1,$2,$3,$4,'ACTIVE')`,
+	if _, err := env.pool.Exec(ctx, `INSERT INTO core.user_roles (tenant_id, user_id, company_id, role_id) VALUES ($1,$2,$3,$4)`,
 		fix.TenantID, carrierBUser, carrierBCompany, carrierRoleID); err != nil {
-		t.Fatalf("carrier b membership: %v", err)
+		t.Fatalf("carrier b role: %v", err)
 	}
 
 	deadline := time.Now().UTC().Add(48 * time.Hour)

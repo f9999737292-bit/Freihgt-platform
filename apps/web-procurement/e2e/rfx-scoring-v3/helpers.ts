@@ -66,8 +66,8 @@ async function carrierSubmit(
   expect(start.ok()).toBeTruthy()
   const ws = await start.json()
   const questions = ws.questionnaire?.sections?.flatMap((s: { questions?: Array<{ id: string; question_code: string }> }) => s.questions ?? []) ?? []
-  const adrQ = questions.find((q) => q.question_code === 'ADR_AVAILABLE')
-  const fleetQ = questions.find((q) => q.question_code === 'FLEET_COUNT')
+  const adrQ = questions.find((q: { question_code: string }) => q.question_code === 'ADR_AVAILABLE')
+  const fleetQ = questions.find((q: { question_code: string }) => q.question_code === 'FLEET_COUNT')
   expect(adrQ?.id).toBeTruthy()
   expect(fleetQ?.id).toBeTruthy()
   const patch = await request.patch(`${gatewayURL}/api/v1/rfx-events/${eventId}/carrier-response/answers`, {
