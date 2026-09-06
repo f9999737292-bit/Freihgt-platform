@@ -375,7 +375,7 @@ onMounted(loadCompanies)
       </Card>
     </template>
 
-    <Modal v-model="showAwardModal" :title="t('tenders.evaluation.awardConfirmTitle')">
+    <Modal :open="showAwardModal" :title="t('tenders.evaluation.awardConfirmTitle')" @close="showAwardModal = false">
       <p v-if="awardTarget">
         {{ t('tenders.evaluation.awardConfirmBody', {
           carrier: companyName(awardTarget.participant_company_id),
@@ -388,14 +388,14 @@ onMounted(loadCompanies)
       </template>
     </Modal>
 
-    <Modal v-model="showExplainModal" :title="t('tenders.evaluation.explainTitle')">
+    <Modal :open="showExplainModal" :title="t('tenders.evaluation.explainTitle')" @close="showExplainModal = false">
       <TendersV3ScoreExplanationPanel :explanations="explainRows" :loading="explainLoading" />
       <template #footer>
         <Button variant="secondary" @click="showExplainModal = false">{{ t('common.close') }}</Button>
       </template>
     </Modal>
 
-    <Modal v-model="showConversionModal" :title="t('tenders.evaluation.conversionConfirmTitle')">
+    <Modal :open="showConversionModal" :title="t('tenders.evaluation.conversionConfirmTitle')" @close="showConversionModal = false">
       <p v-if="awardedItem">
         {{ t('tenders.evaluation.conversionConfirmBody', {
           carrier: companyName(awardedItem.participant_company_id),
