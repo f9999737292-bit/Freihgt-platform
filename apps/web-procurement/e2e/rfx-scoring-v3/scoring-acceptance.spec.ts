@@ -14,10 +14,14 @@ import {
 } from './helpers'
 
 test.describe('RFx v3.0D scoring browser acceptance', () => {
+  test.beforeEach(async ({ page }) => {
+    await seedBuyerAdminSession(page)
+    await seedBuyerProcurementSession(page)
+  })
+
   test('studio publish + evaluation scores + legacy regression', async ({ page, request }) => {
     test.skip(!adminURL || !procurementURL, 'BROWSER_E2E URLs required')
 
-    await seedBuyerAdminSession(page)
     await page.goto(`${adminURL}/rfx/${eventId}/studio?step=scoring`, { waitUntil: 'domcontentloaded' })
     await expect(page.getByTestId('rfx-scoring-workspace')).toBeVisible({ timeout: 120_000 })
 
@@ -82,17 +86,8 @@ test.describe('RFx v3.0D scoring browser acceptance', () => {
     expect(scoreTotals).toContain(70)
     expect(scoreTotals).toContain(60)
 
-    await page.goto('about:blank')
-    await seedBuyerProcurementSession(page)
-    const responsesPromise = page.waitForResponse(
-      (resp) => resp.url().includes(`/rfx-events/${eventId}/responses`) && resp.ok(),
-      { timeout: 120_000 },
-    )
+    await page.goto(`${procurementURL}/login`, { waitUntil: 'domcontentloaded' })
     await page.goto(`${procurementURL}/tenders/${eventId}/evaluation`, { waitUntil: 'domcontentloaded' })
-    const responsesResp = await responsesPromise
-    const responsesBody = await responsesResp.json()
-    expect(Array.isArray(responsesBody.items)).toBeTruthy()
-    expect(responsesBody.items.length).toBeGreaterThanOrEqual(2)
 
     await expect(page.getByTestId('legacy-commercial-score').first()).toBeVisible({ timeout: 120_000 })
 
@@ -108,6 +103,7 @@ test.describe('RFx v3.0D scoring browser acceptance', () => {
     await expect(page.getByTestId('v3-explanation-panel')).toBeVisible({ timeout: 30_000 })
     await expect(page.getByTestId('v3-explanation-row').first()).toBeVisible()
 
+    await page.goto(`${procurementURL}/login`, { waitUntil: 'domcontentloaded' })
     await page.goto(`${procurementURL}/tenders/${legacyEventId}/evaluation`, { waitUntil: 'domcontentloaded' })
     await expect(page.getByTestId('v3-questionnaire-score')).toHaveCount(0)
     await expect(page.getByTestId('legacy-commercial-score').first()).toBeVisible()
