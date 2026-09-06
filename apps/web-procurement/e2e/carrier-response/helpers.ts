@@ -5,8 +5,11 @@ export const tenantId = process.env.BROWSER_E2E_TENANT_ID || ''
 export const carrierCompanyId = process.env.BROWSER_E2E_CARRIER_COMPANY_ID || ''
 export const buyerCompanyId = process.env.BROWSER_E2E_BUYER_COMPANY_ID || ''
 export const eventId = process.env.BROWSER_E2E_EVENT_ID || ''
+export const conflictEventId = process.env.BROWSER_E2E_CONFLICT_EVENT_ID || eventId
 export const rfxNumber = process.env.BROWSER_E2E_RFX_NUMBER || ''
+export const conflictRfxNumber = process.env.BROWSER_E2E_CONFLICT_RFX_NUMBER || rfxNumber
 export const eventTitle = process.env.BROWSER_E2E_EVENT_TITLE || ''
+export const conflictEventTitle = process.env.BROWSER_E2E_CONFLICT_EVENT_TITLE || eventTitle
 export const userId = process.env.BROWSER_E2E_USER_ID || ''
 export const gatewayURL = process.env.BROWSER_E2E_GATEWAY_URL || ''
 
@@ -45,8 +48,13 @@ export async function seedCarrierSession(page: Page) {
 }
 
 /** GET /api/v1/rfx-events/{id} is buyer-only at gateway; stub minimal event metadata for page shell. */
-export async function stubCarrierEventMetadata(page: Page) {
-  await page.route(`**/api/v1/rfx-events/${eventId}`, async (route) => {
+export async function stubCarrierEventMetadata(
+  page: Page,
+  targetEventId = eventId,
+  title = eventTitle,
+  number = rfxNumber,
+) {
+  await page.route(`**/api/v1/rfx-events/${targetEventId}`, async (route) => {
     if (route.request().method() !== 'GET') {
       await route.continue()
       return
@@ -55,11 +63,11 @@ export async function stubCarrierEventMetadata(page: Page) {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        id: eventId,
+        id: targetEventId,
         tenant_id: tenantId,
         owner_company_id: buyerCompanyId,
-        rfx_number: rfxNumber,
-        title: eventTitle,
+        rfx_number: number,
+        title,
         status: 'PUBLISHED',
         rfx_type: 'SPOT_RFQ',
         category: 'FREIGHT',
@@ -67,6 +75,13 @@ export async function stubCarrierEventMetadata(page: Page) {
       }),
     })
   })
+}
+
+export async function stubAllCarrierEventMetadata(page: Page) {
+  await stubCarrierEventMetadata(page)
+  if (conflictEventId && conflictEventId !== eventId) {
+    await stubCarrierEventMetadata(page, conflictEventId, conflictEventTitle, conflictRfxNumber)
+  }
 }
 
 export async function stubCarrierCompanyContext(page: Page) {
@@ -112,19 +127,19 @@ export async function stubCarrierCompanyContext(page: Page) {
   })
 }
 
-export function questionnairePath() {
-  return `/carrier/tenders/${eventId}/questionnaire`
+export function questionnairePath(forEventId = eventId) {
+  return `/carrier/tenders/${forEventId}/questionnaire`
 }
 
 export async function waitForCarrierWorkspace(page: Page) {
   await expect(page.getByTestId('carrier-response-workspace')).toBeVisible({ timeout: 120_000 })
 }
 
-export async function waitForCarrierWorkspaceLoad(page: Page) {
+export async function waitForCarrierWorkspaceLoad(page: Page, forEventId = eventId) {
   return page.waitForResponse(
     (resp) => {
       const url = resp.url()
-      if (!url.includes(`/api/v1/rfx-events/${eventId}/carrier-response`)) {
+      if (!url.includes(`/api/v1/rfx-events/${forEventId}/carrier-response`)) {
         return false
       }
       if (resp.status() >= 500) {
@@ -182,10 +197,10 @@ export async function fillNumberQuestion(page: Page, code: string, value: string
   await input.blur()
 }
 
-export async function waitForAnswersPatch(page: Page) {
+export async function waitForAnswersPatch(page: Page, forEventId = eventId) {
   return page.waitForResponse(
     (resp) =>
-      resp.url().includes(`/api/v1/rfx-events/${eventId}/carrier-response/answers`)
+      resp.url().includes(`/api/v1/rfx-events/${forEventId}/carrier-response/answers`)
       && resp.request().method() === 'PATCH',
     { timeout: 60_000 },
   )

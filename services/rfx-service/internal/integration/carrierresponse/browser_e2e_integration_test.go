@@ -24,14 +24,17 @@ import (
 const browserE2EJWTSecret = "rfx-carrier-browser-e2e-jwt-secret"
 
 type browserCarrierFixture struct {
-	TenantID        uuid.UUID
-	BuyerCompanyID  uuid.UUID
-	CarrierCompanyID uuid.UUID
-	UserID          uuid.UUID
-	EventID         uuid.UUID
-	JWT             string
-	RfxNumber       string
-	EventTitle      string
+	TenantID           uuid.UUID
+	BuyerCompanyID     uuid.UUID
+	CarrierCompanyID   uuid.UUID
+	UserID             uuid.UUID
+	EventID            uuid.UUID
+	ConflictEventID    uuid.UUID
+	JWT                string
+	RfxNumber          string
+	ConflictRfxNumber  string
+	EventTitle         string
+	ConflictEventTitle string
 }
 
 type browserLiveStack struct {
@@ -132,10 +135,35 @@ func startBrowserLiveStack(t *testing.T) *browserLiveStack {
 func seedBrowserHSEFixture(t *testing.T, env *testEnv) browserCarrierFixture {
 	t.Helper()
 	fix := seedBuyerFixture(t, env)
+	acceptance := seedBrowserHSEPublishedEvent(t, env, fix, "Browser HSE Carrier Response Acceptance")
+	conflict := seedBrowserHSEPublishedEvent(t, env, fix, "Browser HSE Carrier Response Conflict")
+	return browserCarrierFixture{
+		TenantID:           fix.TenantID,
+		BuyerCompanyID:     fix.CompanyA,
+		CarrierCompanyID:   fix.CarrierID,
+		UserID:             fix.CarrierAct.UserID,
+		EventID:            acceptance.ID,
+		ConflictEventID:    conflict.ID,
+		JWT:                browserCarrierJWT(fix.CarrierAct.UserID, fix.TenantID),
+		RfxNumber:          acceptance.RfxNumber,
+		ConflictRfxNumber:  conflict.RfxNumber,
+		EventTitle:         acceptance.Title,
+		ConflictEventTitle: conflict.Title,
+	}
+}
+
+type browserHSEPublishedEvent struct {
+	ID        uuid.UUID
+	RfxNumber string
+	Title     string
+}
+
+func seedBrowserHSEPublishedEvent(t *testing.T, env *testEnv, fix buyerFixture, title string) browserHSEPublishedEvent {
+	t.Helper()
 	ctx := context.Background()
 	deadline := time.Now().UTC().Add(48 * time.Hour)
 	event, err := env.rfxSvc.CreateEvent(ctx, fix.BuyerA, domain.CreateRfxEventInput{
-		TenantID: fix.TenantID, OwnerCompanyID: fix.CompanyA, Title: "Browser HSE Carrier Response",
+		TenantID: fix.TenantID, OwnerCompanyID: fix.CompanyA, Title: title,
 		RfxType: "SPOT_RFQ", Category: "FREIGHT", RfxNumber: "RFX-CR-BROWSER-" + uuid.NewString()[:8],
 		ResponseDeadline: &deadline,
 	})
@@ -204,16 +232,7 @@ func seedBrowserHSEFixture(t *testing.T, env *testEnv) browserCarrierFixture {
 	if _, err := env.rfxSvc.PublishEvent(ctx, fix.BuyerA, event.ID); err != nil {
 		t.Fatalf("publish event: %v", err)
 	}
-	return browserCarrierFixture{
-		TenantID:         fix.TenantID,
-		BuyerCompanyID:   fix.CompanyA,
-		CarrierCompanyID: fix.CarrierID,
-		UserID:           fix.CarrierAct.UserID,
-		EventID:          event.ID,
-		JWT:              browserCarrierJWT(fix.CarrierAct.UserID, fix.TenantID),
-		RfxNumber:        event.RfxNumber,
-		EventTitle:       event.Title,
-	}
+	return browserHSEPublishedEvent{ID: event.ID, RfxNumber: event.RfxNumber, Title: event.Title}
 }
 
 func browserCarrierJWT(userID, tenantID uuid.UUID) string {
@@ -376,8 +395,11 @@ func runPlaywrightSuite(t *testing.T, stack *browserLiveStack) error {
 		"BROWSER_E2E_CARRIER_COMPANY_ID="+fix.CarrierCompanyID.String(),
 		"BROWSER_E2E_BUYER_COMPANY_ID="+fix.BuyerCompanyID.String(),
 		"BROWSER_E2E_EVENT_ID="+fix.EventID.String(),
+		"BROWSER_E2E_CONFLICT_EVENT_ID="+fix.ConflictEventID.String(),
 		"BROWSER_E2E_RFX_NUMBER="+fix.RfxNumber,
+		"BROWSER_E2E_CONFLICT_RFX_NUMBER="+fix.ConflictRfxNumber,
 		"BROWSER_E2E_EVENT_TITLE="+fix.EventTitle,
+		"BROWSER_E2E_CONFLICT_EVENT_TITLE="+fix.ConflictEventTitle,
 		"BROWSER_E2E_USER_ID="+fix.UserID.String(),
 	)
 	cmd.Stdout = os.Stdout

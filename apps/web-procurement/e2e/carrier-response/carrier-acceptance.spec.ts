@@ -18,9 +18,11 @@ import {
   seedCarrierSession,
   setYesNo,
   stubCarrierEventMetadata,
+  stubAllCarrierEventMetadata,
   stubCarrierCompanyContext,
   tenantId,
   userId,
+  conflictEventId,
   waitForAnswersPatch,
   waitForCarrierWorkspaceLoad,
   waitForCarrierWorkspace,
@@ -37,13 +39,13 @@ test.beforeEach(async ({ page }) => {
     }
   })
   await seedCarrierSession(page)
-  await stubCarrierEventMetadata(page)
+  await stubAllCarrierEventMetadata(page)
   await stubCarrierCompanyContext(page)
 })
 
 test('F103-002 RFx carrier response save_version conflict', async ({ page }) => {
   await page.goto('/login', { waitUntil: 'domcontentloaded' })
-  await page.goto(questionnairePath(), { waitUntil: 'domcontentloaded' })
+  await page.goto(questionnairePath(conflictEventId), { waitUntil: 'domcontentloaded' })
   await waitForCarrierWorkspace(page)
 
   await setYesNo(page, 'ADR_AVAILABLE', true)
@@ -65,7 +67,7 @@ test('F103-002 RFx carrier response save_version conflict', async ({ page }) => 
     return resp.json()
   }, {
     gw: gatewayURL,
-    ev: eventId,
+    ev: conflictEventId,
     company: carrierCompanyId,
     token: jwt,
     tenant: tenantId,
@@ -102,7 +104,7 @@ test('F103-002 RFx carrier response save_version conflict', async ({ page }) => 
     return resp.status
   }, {
     gw: gatewayURL,
-    ev: eventId,
+    ev: conflictEventId,
     company: carrierCompanyId,
     token: jwt,
     tenant: tenantId,
@@ -132,7 +134,7 @@ test('F103-002 RFx carrier response save_version conflict', async ({ page }) => 
     return resp.status
   }, {
     gw: gatewayURL,
-    ev: eventId,
+    ev: conflictEventId,
     company: carrierCompanyId,
     token: jwt,
     tenant: tenantId,
