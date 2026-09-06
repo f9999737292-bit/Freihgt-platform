@@ -1,0 +1,74 @@
+{
+  "carrierResponse": {
+    "title": "Carrier questionnaire",
+    "subtitle": "Complete required fields and submit before the deadline",
+    "openQuestionnaire": "Open questionnaire",
+    "backToTender": "Back to tender",
+    "rfxNumber": "RFx number",
+    "buyer": "Buyer",
+    "deadline": "Response deadline",
+    "completion": "Completion: {percent}%",
+    "status": {
+      "NOT_STARTED": "Not started",
+      "IN_PROGRESS": "In progress",
+      "SUBMITTED": "Submitted"
+    },
+    "autosave": {
+      "empty": "",
+      "dirty": "Unsaved changes",
+      "validating": "Validating…",
+      "valid": "Ready to save",
+      "saving": "Saving…",
+      "saved": "Saved",
+      "savedAt": "Saved at {time}",
+      "invalid": "Validation errors — changes not saved",
+      "conflict": "Version conflict — reload required",
+      "saveFailed": "Save failed — retry"
+    },
+    "section": {
+      "complete": "Complete",
+      "warning": "Warnings: {count}",
+      "error": "Errors: {count}",
+      "incomplete": "Incomplete: {count}"
+    },
+    "validation": {
+      "required": "Required field",
+      "type": "Invalid value type",
+      "min": "Value below minimum ({min})",
+      "max": "Value above maximum ({max})",
+      "enum": "Select a valid option",
+      "date": "Invalid date",
+      "conditional_required": "Required under current conditions"
+    },
+    "globalSummary": {
+      "title": "Blocking errors",
+      "warningsTitle": "Warnings",
+      "fix": "Fix",
+      "empty": "No blocking errors"
+    },
+    "unsupportedType": "Question type \"{type}\" is not yet supported in the carrier portal",
+    "unsupportedRequired": "Required unsupported question — submission blocked",
+    "leaveWarning": {
+      "title": "Unsaved changes",
+      "body": "You have unsaved changes. {count} answers have errors and were not saved.",
+      "stay": "Stay and fix",
+      "leaveWithoutInvalid": "Leave without invalid changes"
+    },
+    "conflict": {
+      "title": "Save conflict",
+      "body": "The response was changed in another session. Reload from server.",
+      "reload": "Reload from server"
+    },
+    "submit": {
+      "action": "Submit questionnaire",
+      "confirm": "Submit response? Editing will be locked after submission.",
+      "blocked": "Cannot submit: fix {count} errors",
+      "success": "Questionnaire submitted",
+      "locked": "Response submitted and locked"
+    },
+    "start": "Start response",
+    "resume": "Resume response",
+    "retrySave": "Retry save",
+    "requiredMark": "Required"
+  }
+}
