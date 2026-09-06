@@ -442,10 +442,9 @@ watch(() => props.eventId, loadAll)
       </UiButton>
     </template>
 
-    <UiModal v-if="showPublishConfirm" @close="showPublishConfirm = false">
-      <template #title>{{ t('rfx.studio.scoring.publishConfirmTitle') }}</template>
+    <UiModal :open="showPublishConfirm" :title="t('rfx.studio.scoring.publishConfirmTitle')" @close="showPublishConfirm = false">
       <p>{{ t('rfx.studio.scoring.publishConfirmBody') }}</p>
-      <template #actions>
+      <template #footer>
         <UiButton variant="secondary" @click="showPublishConfirm = false">{{ t('common.cancel') }}</UiButton>
         <UiButton variant="primary" data-testid="scoring-publish-confirm" @click="handlePublish">{{ t('rfx.studio.scoring.publish') }}</UiButton>
       </template>
