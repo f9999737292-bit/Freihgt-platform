@@ -225,6 +225,37 @@
       "previewReadOnly": "Read-only — responses are not saved",
       "previewPlaceholder": "Enter answer…",
       "previewSelect": "Select…",
+      "previewSandbox": {
+        "enter": "Walk through as carrier",
+        "modeBanner": "Preview mode",
+        "modeHint": "Interactive sandbox — answers are not saved and do not create a carrier response.",
+        "simulatedProgress": "Progress (simulated): {percent}%",
+        "reset": "Reset answers",
+        "close": "Close preview",
+        "checkSubmit": "Check submission",
+        "submitSuccess": "Preview completed successfully",
+        "submitBlocked": "Fix {count} errors before submitting",
+        "unsupportedType": "Type \"{type}\" is not supported in preview",
+        "unsupportedRequired": "Required question with unsupported type blocks submission",
+        "section": {
+          "error": "errors: {count}",
+          "incomplete": "incomplete: {count}"
+        },
+        "globalSummary": {
+          "title": "Error summary",
+          "empty": "No errors",
+          "fix": "Go to"
+        },
+        "validation": {
+          "required": "Required field",
+          "invalid_type": "Invalid value type",
+          "min_value": "Value must be at least {min}",
+          "max_value": "Value must be at most {max}",
+          "invalid_option": "Invalid option",
+          "date_format": "Use date format YYYY-MM-DD",
+          "unsupportedRequired": "Unsupported type — answer required"
+        }
+      },
       "saveDraft": "Save draft",
       "validate": "Validate",
       "reloadStudio": "Reload",

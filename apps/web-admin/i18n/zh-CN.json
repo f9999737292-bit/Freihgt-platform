@@ -225,6 +225,37 @@
       "previewReadOnly": "只读 — 回答不会被保存",
       "previewPlaceholder": "输入回答…",
       "previewSelect": "请选择…",
+      "previewSandbox": {
+        "enter": "以承运商身份体验",
+        "modeBanner": "预览模式",
+        "modeHint": "交互式沙盒 — 回答不会保存，也不会创建承运商响应。",
+        "simulatedProgress": "进度（模拟）：{percent}%",
+        "reset": "重置回答",
+        "close": "关闭预览",
+        "checkSubmit": "检查提交",
+        "submitSuccess": "预览已成功完成",
+        "submitBlocked": "提交前请修正 {count} 个错误",
+        "unsupportedType": "预览不支持类型「{type}」",
+        "unsupportedRequired": "必填但不支持的题型会阻止提交",
+        "section": {
+          "error": "错误：{count}",
+          "incomplete": "未完成：{count}"
+        },
+        "globalSummary": {
+          "title": "错误摘要",
+          "empty": "无错误",
+          "fix": "跳转"
+        },
+        "validation": {
+          "required": "必填项",
+          "invalid_type": "值类型无效",
+          "min_value": "值不能小于 {min}",
+          "max_value": "值不能大于 {max}",
+          "invalid_option": "无效选项",
+          "date_format": "请使用 YYYY-MM-DD 日期格式",
+          "unsupportedRequired": "不支持的题型 — 必须填写"
+        }
+      },
       "saveDraft": "保存草稿",
       "validate": "验证",
       "reloadStudio": "重新加载",
