@@ -23,6 +23,8 @@ func NewRouter(
 	rfxSvc *service.RfxService,
 	qSvc *service.QuestionnaireService,
 	crSvc *service.CarrierResponseService,
+	scoreModelSvc *service.ScoreModelService,
+	scoringSvc *service.ScoringService,
 	frSvc *service.FreightRequestService,
 	bidSvc *service.BidService,
 	pricingSvc *service.PricingService,
@@ -30,6 +32,7 @@ func NewRouter(
 	rfxHandler := handlers.NewRfxHandler(rfxSvc)
 	qHandler := handlers.NewQuestionnaireHandler(qSvc)
 	crHandler := handlers.NewCarrierResponseHandler(crSvc)
+	scoreHandler := handlers.NewScoreHandler(scoreModelSvc, scoringSvc, rfxSvc)
 	frHandler := handlers.NewFreightRequestHandler(frSvc)
 	bidHandler := handlers.NewBidHandler(bidSvc)
 	pricingHandler := handlers.NewPricingHandler(pricingSvc)
@@ -103,6 +106,14 @@ func NewRouter(
 		r.Post("/{id}/carrier-response/validate", crHandler.ValidateCarrierResponse)
 		r.Post("/{id}/carrier-response/submit", crHandler.SubmitCarrierResponse)
 		r.Get("/{id}/carrier-response/summary", crHandler.GetCarrierResponseSummary)
+
+		// RFx v3.0D scoring
+		r.Get("/{id}/score-model", scoreHandler.GetScoreModel)
+		r.Put("/{id}/score-model", scoreHandler.PutScoreModel)
+		r.Post("/{id}/score-model/validate", scoreHandler.ValidateScoreModel)
+		r.Post("/{id}/score-model/publish", scoreHandler.PublishScoreModel)
+		r.Get("/{id}/responses/{response_id}/score", scoreHandler.GetResponseScore)
+		r.Get("/{id}/responses/{response_id}/score/explanation", scoreHandler.GetResponseScoreExplanation)
 	})
 
 	r.Route("/v1/carrier/rfx-events", func(r chi.Router) {

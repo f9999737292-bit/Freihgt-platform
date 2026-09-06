@@ -276,6 +276,14 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	r.Post("/api/v1/rfx-events/{id}/carrier-response/submit", rfxGuard.WithPolicy(rfxrbac.PolicyCarrierRespond))
 	r.Get("/api/v1/rfx-events/{id}/carrier-response/summary", rfxGuard.WithPolicy(rfxrbac.PolicyCarrierRead))
 
+	// RFx v3.0D scoring
+	r.Get("/api/v1/rfx-events/{id}/score-model", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerRead))
+	r.Put("/api/v1/rfx-events/{id}/score-model", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
+	r.Post("/api/v1/rfx-events/{id}/score-model/validate", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerRead))
+	r.Post("/api/v1/rfx-events/{id}/score-model/publish", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
+	r.Get("/api/v1/rfx-events/{id}/responses/{response_id}/score", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerRead))
+	r.Get("/api/v1/rfx-events/{id}/responses/{response_id}/score/explanation", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerRead))
+
 	r.Get("/api/v1/rfx-responses/{response_id}", rfxGuard.WithPolicy(rfxrbac.PolicyCombinedRead))
 	r.Patch("/api/v1/rfx-responses/{response_id}", rfxGuard.WithPolicy(rfxrbac.PolicyCarrierRespond))
 	r.Patch("/api/v1/rfx-responses/{response_id}/evaluation", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
