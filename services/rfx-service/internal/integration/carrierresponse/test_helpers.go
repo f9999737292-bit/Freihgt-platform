@@ -1,0 +1,359 @@
+//go:build integration
+
+package carrierresponse
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"net/url"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/freight-platform/rfx-service/internal/domain"
+	apperrors "github.com/freight-platform/rfx-service/internal/platform/errors"
+	"github.com/freight-platform/rfx-service/internal/repository"
+	"github.com/freight-platform/rfx-service/internal/service"
+)
+
+type testEnv struct {
+	pool           *pgxpool.Pool
+	rfxRepo        *repository.RfxRepository
+	auditRepo      *repository.AuditRepository
+	membershipRepo *repository.MembershipRepository
+	qRepo          *repository.QuestionnaireRepository
+	answerRepo     *repository.AnswerRepository
+	rfxSvc         *service.RfxService
+	qSvc           *service.QuestionnaireService
+	crSvc          *service.CarrierResponseService
+}
+
+type buyerFixture struct {
+	TenantID      uuid.UUID
+	OtherTenantID uuid.UUID
+	CompanyA      uuid.UUID
+	CompanyB      uuid.UUID
+	CarrierID     uuid.UUID
+	BuyerA        domain.ActorContext
+	BuyerB        domain.ActorContext
+	CarrierAct    domain.ActorContext
+	CrossTenant   domain.ActorContext
+}
+
+func setupTestEnv(t *testing.T) *testEnv {
+	t.Helper()
+	adminURL := strings.TrimSpace(os.Getenv("TEST_DATABASE_URL"))
+	if adminURL == "" {
+		if os.Getenv("REQUIRE_TEST_DATABASE") == "1" || strings.EqualFold(strings.TrimSpace(os.Getenv("CI")), "true") {
+			t.Fatal("TEST_DATABASE_URL is required in CI")
+		}
+		t.Skip("TEST_DATABASE_URL is not set; skipping PostgreSQL integration tests")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	t.Cleanup(cancel)
+
+	dbName, testURL, dropDB, err := createTempDatabase(ctx, adminURL)
+	if err != nil {
+		t.Fatalf("isolated postgres unavailable: %v", err)
+	}
+
+	pool, err := pgxpool.New(ctx, testURL)
+	if err != nil {
+		dropDB(context.Background())
+		t.Fatalf("connect test database: %v", err)
+	}
+	t.Cleanup(func() {
+		pool.Close()
+		dropDB(context.Background())
+	})
+
+	if err := applyMigrations(ctx, pool); err != nil {
+		t.Fatalf("apply migrations: %v", err)
+	}
+
+	rfxRepo := repository.NewRfxRepository(pool)
+	auditRepo := repository.NewAuditRepository(pool)
+	membershipRepo := repository.NewMembershipRepository(pool)
+	qRepo := repository.NewQuestionnaireRepository(pool)
+	answerRepo := repository.NewAnswerRepository(pool)
+	rfxSvc := service.NewRfxServiceWithAtomic(pool, rfxRepo, auditRepo, membershipRepo, newAwardConversionStub(pool))
+	qSvc := service.NewQuestionnaireService(rfxRepo, qRepo, auditRepo, membershipRepo)
+	crSvc := service.NewCarrierResponseService(pool, rfxRepo, answerRepo, qRepo, auditRepo, membershipRepo, rfxSvc)
+	t.Logf("isolated database=%s", dbName)
+	return &testEnv{
+		pool: pool, rfxRepo: rfxRepo, auditRepo: auditRepo, membershipRepo: membershipRepo,
+		qRepo: qRepo, answerRepo: answerRepo, rfxSvc: rfxSvc, qSvc: qSvc, crSvc: crSvc,
+	}
+}
+
+func seedBuyerFixture(t *testing.T, env *testEnv) buyerFixture {
+	t.Helper()
+	ctx := context.Background()
+	fix := buyerFixture{
+		TenantID:      uuid.New(),
+		OtherTenantID: uuid.New(),
+		CompanyA:      uuid.New(),
+		CompanyB:      uuid.New(),
+		CarrierID:     uuid.New(),
+	}
+	fix.BuyerA = domain.ActorContext{TenantID: fix.TenantID, UserID: uuid.New()}
+	fix.BuyerB = domain.ActorContext{TenantID: fix.TenantID, UserID: uuid.New()}
+	fix.CarrierAct = domain.ActorContext{TenantID: fix.TenantID, UserID: uuid.New()}
+	fix.CrossTenant = domain.ActorContext{TenantID: fix.OtherTenantID, UserID: uuid.New()}
+
+	for _, tenant := range []struct {
+		id   uuid.UUID
+		code string
+	}{
+		{fix.TenantID, "t-main"},
+		{fix.OtherTenantID, "t-other"},
+	} {
+		if _, err := env.pool.Exec(ctx, `INSERT INTO core.tenants (id, code, name) VALUES ($1, $2, $3)`,
+			tenant.id, tenant.code, tenant.code); err != nil {
+			t.Fatalf("seed tenant: %v", err)
+		}
+	}
+	for _, company := range []struct {
+		id, tenant uuid.UUID
+		name, typ  string
+	}{
+		{fix.CompanyA, fix.TenantID, "Buyer A", "SHIPPER"},
+		{fix.CompanyB, fix.TenantID, "Buyer B", "SHIPPER"},
+		{fix.CarrierID, fix.TenantID, "Carrier A", "CARRIER"},
+	} {
+		if _, err := env.pool.Exec(ctx, `INSERT INTO core.companies (id, tenant_id, legal_name, company_type) VALUES ($1, $2, $3, $4)`,
+			company.id, company.tenant, company.name, company.typ); err != nil {
+			t.Fatalf("seed company: %v", err)
+		}
+	}
+	for _, user := range []struct {
+		id, tenant uuid.UUID
+		email      string
+	}{
+		{fix.BuyerA.UserID, fix.TenantID, "buyer-a@test.local"},
+		{fix.BuyerB.UserID, fix.TenantID, "buyer-b@test.local"},
+		{fix.CarrierAct.UserID, fix.TenantID, "carrier@test.local"},
+	} {
+		if _, err := env.pool.Exec(ctx, `INSERT INTO core.users (id, tenant_id, email, full_name) VALUES ($1, $2, $3, $4)`,
+			user.id, user.tenant, user.email, user.email); err != nil {
+			t.Fatalf("seed user: %v", err)
+		}
+	}
+	var buyerRoleID, carrierRoleID uuid.UUID
+	if err := env.pool.QueryRow(ctx, `SELECT id FROM core.roles WHERE tenant_id IS NULL AND code = 'PROCUREMENT_MANAGER' LIMIT 1`).Scan(&buyerRoleID); err != nil {
+		t.Fatalf("lookup buyer role: %v", err)
+	}
+	if err := env.pool.QueryRow(ctx, `SELECT id FROM core.roles WHERE tenant_id IS NULL AND code = 'CARRIER_USER' LIMIT 1`).Scan(&carrierRoleID); err != nil {
+		t.Fatalf("lookup carrier role: %v", err)
+	}
+	for _, m := range []struct {
+		tenant, company, user, role uuid.UUID
+	}{
+		{fix.TenantID, fix.CompanyA, fix.BuyerA.UserID, buyerRoleID},
+		{fix.TenantID, fix.CompanyB, fix.BuyerB.UserID, buyerRoleID},
+		{fix.TenantID, fix.CarrierID, fix.CarrierAct.UserID, carrierRoleID},
+	} {
+		if _, err := env.pool.Exec(ctx, `INSERT INTO core.company_memberships (tenant_id, company_id, user_id) VALUES ($1, $2, $3)`,
+			m.tenant, m.company, m.user); err != nil {
+			t.Fatalf("seed membership: %v", err)
+		}
+		if _, err := env.pool.Exec(ctx, `INSERT INTO core.user_roles (tenant_id, user_id, company_id, role_id) VALUES ($1, $2, $3, $4)`,
+			m.tenant, m.user, m.company, m.role); err != nil {
+			t.Fatalf("seed role: %v", err)
+		}
+	}
+	return fix
+}
+
+func enableQuestionnaire(t *testing.T, env *testEnv, actor domain.ActorContext, eventID uuid.UUID) *domain.RfxVersion {
+	t.Helper()
+	ctx := context.Background()
+	version, err := env.qRepo.GetOrCreateDraftVersion(ctx, actor.TenantID, eventID)
+	if err != nil {
+		t.Fatalf("get draft version: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `UPDATE rfx.rfx_versions SET questionnaire_enabled = TRUE WHERE id = $1 AND tenant_id = $2`,
+		version.ID, actor.TenantID); err != nil {
+		t.Fatalf("enable questionnaire: %v", err)
+	}
+	version.QuestionnaireEnabled = true
+	return version
+}
+
+func publishVersion(t *testing.T, env *testEnv, versionID uuid.UUID) {
+	t.Helper()
+	if _, err := env.pool.Exec(context.Background(), `UPDATE rfx.rfx_versions SET status='PUBLISHED', published_at=now() WHERE id=$1`, versionID); err != nil {
+		t.Fatalf("publish version: %v", err)
+	}
+}
+
+func createTempDatabase(ctx context.Context, adminURL string) (dbName string, testURL string, cleanup func(context.Context), err error) {
+	cfg, err := pgxpool.ParseConfig(adminURL)
+	if err != nil {
+		return "", "", nil, fmt.Errorf("parse database url: %w", err)
+	}
+	adminDB := cfg.ConnConfig.Database
+	if adminDB == "" {
+		adminDB = "postgres"
+	}
+	dbName = "rfx_carrier_response_test_" + strings.ReplaceAll(uuid.NewString(), "-", "")[:16]
+	adminCfg := cfg.Copy()
+	adminCfg.ConnConfig.Database = adminDB
+	adminPool, err := pgxpool.NewWithConfig(ctx, adminCfg)
+	if err != nil {
+		return "", "", nil, err
+	}
+	defer adminPool.Close()
+	if _, err := adminPool.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{dbName}.Sanitize()); err != nil {
+		return "", "", nil, err
+	}
+	testCfg := cfg.Copy()
+	testCfg.ConnConfig.Database = dbName
+	testURL = buildDSN(testCfg)
+	cleanup = func(cctx context.Context) {
+		cadmin, cerr := pgxpool.NewWithConfig(cctx, adminCfg)
+		if cerr != nil {
+			return
+		}
+		defer cadmin.Close()
+		_, _ = cadmin.Exec(cctx, "DROP DATABASE IF EXISTS "+pgx.Identifier{dbName}.Sanitize()+" WITH (FORCE)")
+	}
+	return dbName, testURL, cleanup, nil
+}
+
+func buildDSN(cfg *pgxpool.Config) string {
+	return fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable",
+		url.QueryEscape(cfg.ConnConfig.User),
+		url.QueryEscape(cfg.ConnConfig.Password),
+		cfg.ConnConfig.Host, cfg.ConnConfig.Port, cfg.ConnConfig.Database)
+}
+
+func applyMigrations(ctx context.Context, pool *pgxpool.Pool) error {
+	return applyMigrationsExcept(ctx, pool, "")
+}
+
+func applyMigrationsExcept(ctx context.Context, pool *pgxpool.Pool, excludeBaseName string) error {
+	migrationsDir, err := locateMigrationsDir()
+	if err != nil {
+		return err
+	}
+	files, err := filepath.Glob(filepath.Join(migrationsDir, "*.up.sql"))
+	if err != nil {
+		return err
+	}
+	sort.Strings(files)
+	for _, file := range files {
+		base := filepath.Base(file)
+		if excludeBaseName != "" && base == excludeBaseName {
+			continue
+		}
+		content, readErr := os.ReadFile(file)
+		if readErr != nil {
+			return readErr
+		}
+		if _, execErr := pool.Exec(ctx, string(content)); execErr != nil {
+			return fmt.Errorf("apply %s: %w", base, execErr)
+		}
+	}
+	return nil
+}
+
+func applyMigrationFile(ctx context.Context, pool *pgxpool.Pool, baseName string) error {
+	migrationsDir, err := locateMigrationsDir()
+	if err != nil {
+		return err
+	}
+	content, err := os.ReadFile(filepath.Join(migrationsDir, baseName))
+	if err != nil {
+		return err
+	}
+	if _, execErr := pool.Exec(ctx, string(content)); execErr != nil {
+		return fmt.Errorf("apply %s: %w", baseName, execErr)
+	}
+	return nil
+}
+
+func setupLegacyMigrationTestEnv(t *testing.T) (*testEnv, func()) {
+	t.Helper()
+	adminURL := strings.TrimSpace(os.Getenv("TEST_DATABASE_URL"))
+	if adminURL == "" {
+		if os.Getenv("REQUIRE_TEST_DATABASE") == "1" || strings.EqualFold(strings.TrimSpace(os.Getenv("CI")), "true") {
+			t.Fatal("TEST_DATABASE_URL is required in CI")
+		}
+		t.Skip("TEST_DATABASE_URL is not set; skipping PostgreSQL integration tests")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	t.Cleanup(cancel)
+
+	dbName, testURL, dropDB, err := createTempDatabase(ctx, adminURL)
+	if err != nil {
+		t.Fatalf("isolated postgres unavailable: %v", err)
+	}
+
+	pool, err := pgxpool.New(ctx, testURL)
+	if err != nil {
+		dropDB(context.Background())
+		t.Fatalf("connect test database: %v", err)
+	}
+
+	if err := applyMigrationsExcept(ctx, pool, "000066_rfx_carrier_response_v3_0c.up.sql"); err != nil {
+		pool.Close()
+		dropDB(context.Background())
+		t.Fatalf("apply pre-066 migrations: %v", err)
+	}
+
+	cleanup := func() {
+		pool.Close()
+		dropDB(context.Background())
+	}
+	t.Cleanup(cleanup)
+
+	rfxRepo := repository.NewRfxRepository(pool)
+	auditRepo := repository.NewAuditRepository(pool)
+	membershipRepo := repository.NewMembershipRepository(pool)
+	qRepo := repository.NewQuestionnaireRepository(pool)
+	answerRepo := repository.NewAnswerRepository(pool)
+	rfxSvc := service.NewRfxServiceWithAtomic(pool, rfxRepo, auditRepo, membershipRepo, newAwardConversionStub(pool))
+	qSvc := service.NewQuestionnaireService(rfxRepo, qRepo, auditRepo, membershipRepo)
+	crSvc := service.NewCarrierResponseService(pool, rfxRepo, answerRepo, qRepo, auditRepo, membershipRepo, rfxSvc)
+	t.Logf("legacy migration database=%s", dbName)
+	return &testEnv{
+		pool: pool, rfxRepo: rfxRepo, auditRepo: auditRepo, membershipRepo: membershipRepo,
+		qRepo: qRepo, answerRepo: answerRepo, rfxSvc: rfxSvc, qSvc: qSvc, crSvc: crSvc,
+	}, cleanup
+}
+
+func locateMigrationsDir() (string, error) {
+	candidates := []string{
+		filepath.Join("..", "..", "..", "..", "infrastructure", "migrations"),
+		filepath.Join("..", "..", "..", "..", "..", "infrastructure", "migrations"),
+	}
+	for _, candidate := range candidates {
+		if st, err := os.Stat(candidate); err == nil && st.IsDir() {
+			return candidate, nil
+		}
+	}
+	wd, _ := os.Getwd()
+	return "", fmt.Errorf("migrations dir not found from %s", wd)
+}
+
+func assertAppErrorCode(t *testing.T, err error, code apperrors.Code) {
+	t.Helper()
+	if err == nil {
+		t.Fatalf("expected error code %s", code)
+	}
+	var appErr *apperrors.AppError
+	if !errors.As(err, &appErr) || appErr.Code != code {
+		t.Fatalf("expected code %s, got %v", code, err)
+	}
+}
