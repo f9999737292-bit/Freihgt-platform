@@ -116,7 +116,8 @@ test('F102-001 RFx Studio live browser acceptance', async ({ page }) => {
   expect(q1Patch.status()).toBeLessThan(400)
   await expectAutosaveSaved(page)
   await expect(page.getByLabel('Текст вопроса')).toHaveValue(LABEL_ADR_AVAILABLE)
-  await expect(questionCard(page, LABEL_ADR_AVAILABLE)).toBeVisible()
+  await expect(questionCard(page, LABEL_ADR_AVAILABLE)).toHaveCount(1)
+  await expect(questionCard(page, LABEL_ADR_AVAILABLE).first()).toBeVisible()
 
   await addQuestion(page)
   const q2Patch = await clickAndWaitForMutation(
@@ -207,6 +208,7 @@ test('F102-001 RFx Studio live browser acceptance', async ({ page }) => {
   expect(rule2Patch.status()).toBeLessThan(400)
   await expectAutosaveSaved(page)
 
+  await clickQuestionCard(page, LABEL_ADR_AVAILABLE)
   const savePatch = await clickAndWaitForMutation(
     page,
     '/questions/',
@@ -221,7 +223,8 @@ test('F102-001 RFx Studio live browser acceptance', async ({ page }) => {
   await waitForStudioLoad(page)
   await openQuestionnaireStep(page)
   await expect(page.getByLabel('Название раздела').first()).toHaveValue(SECTION_HSE)
-  await expect(questionCard(page, LABEL_ADR_AVAILABLE)).toBeVisible()
+  await expect(questionCard(page, LABEL_ADR_AVAILABLE)).toHaveCount(1)
+  await expect(questionCard(page, LABEL_ADR_AVAILABLE).first()).toBeVisible()
   await expect(questionCard(page, LABEL_ADR_NUMBER)).toBeVisible()
   await expect(questionCard(page, LABEL_ADR_EXPIRY)).toBeVisible()
   await clickQuestionCard(page, LABEL_ADR_NUMBER)
