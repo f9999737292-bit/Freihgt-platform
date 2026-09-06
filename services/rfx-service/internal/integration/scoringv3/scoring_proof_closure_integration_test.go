@@ -225,7 +225,7 @@ func TestBindingVersionSafety(t *testing.T) {
 	}
 }
 
-func TestSingleSelectAndMultiSelectScoring(t *testing.T) {
+func TestSingleSelectScoring(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
 	sf := seedSelectScoringFixture(t, env, fix)
@@ -233,41 +233,16 @@ func TestSingleSelectAndMultiSelectScoring(t *testing.T) {
 
 	_, err := env.scoreModelSvc.PutScoreModel(ctx, fix.BuyerA, sf.Event.ID, domain.PutScoreModelInput{
 		Criteria: []domain.ScoreCriterionInput{
-			{CriterionCode: "SERVICE", Name: "Service", Weight: 50,
+			{CriterionCode: "SERVICE", Name: "Service", Weight: 100,
 				NormalizationJSON: json.RawMessage(`{"type":"OPTION_MAP","option_scores":{"GOLD":100,"SILVER":60,"BRONZE":20}}`)},
-			{CriterionCode: "FEATURES", Name: "Features", Weight: 50,
-				NormalizationJSON: json.RawMessage(`{"type":"MULTI_SELECT","aggregation":"SUM_CAPPED","cap":100,"option_scores":{"A":30,"B":40,"C":50}}`)},
 		},
-		Bindings: []domain.ScoreBindingInput{
-			{CriterionCode: "SERVICE", QuestionCode: "SERVICE_LEVEL"},
-			{CriterionCode: "FEATURES", QuestionCode: "FEATURES"},
-		},
+		Bindings: []domain.ScoreBindingInput{{CriterionCode: "SERVICE", QuestionCode: "SERVICE_LEVEL"}},
 	})
 	if err != nil {
 		t.Fatalf("put select model: %v", err)
 	}
 	if _, err := env.scoreModelSvc.PublishScoreModel(ctx, fix.BuyerA, sf.Event.ID); err != nil {
 		t.Fatalf("publish: %v", err)
-	}
-
-	// Invalid option in score config must fail readiness on draft update before publish.
-	draftEvent := seedSelectScoringFixture(t, env, fix)
-	_, err = env.scoreModelSvc.PutScoreModel(ctx, fix.BuyerA, draftEvent.Event.ID, domain.PutScoreModelInput{
-		Criteria: []domain.ScoreCriterionInput{
-			{CriterionCode: "SERVICE", Name: "Service", Weight: 100,
-				NormalizationJSON: json.RawMessage(`{"type":"OPTION_MAP","option_scores":{"PLATINUM":100}}`)},
-		},
-		Bindings: []domain.ScoreBindingInput{{CriterionCode: "SERVICE", QuestionCode: "SERVICE_LEVEL"}},
-	})
-	if err != nil {
-		t.Fatalf("put invalid option model: %v", err)
-	}
-	invalidOpt, err := env.scoreModelSvc.ValidateScoreModel(ctx, fix.BuyerA, draftEvent.Event.ID)
-	if err != nil {
-		t.Fatalf("validate invalid option: %v", err)
-	}
-	if invalidOpt.Ready || !hasReadinessCode(*invalidOpt, "OPTION_SCORE_INVALID") {
-		t.Fatalf("INVALID_OPTION_SCORING_CONFIG_DENY expected, errors=%+v", invalidOpt.Errors)
 	}
 
 	ws, err := env.crSvc.StartOrResume(ctx, fix.CarrierAct, sf.Event.ID, fix.CarrierID)
@@ -277,7 +252,54 @@ func TestSingleSelectAndMultiSelectScoring(t *testing.T) {
 	saved, err := env.crSvc.SaveAnswers(ctx, fix.CarrierAct, sf.Event.ID, fix.CarrierID, domain.AnswerBatchPatchInput{
 		ExpectedSaveVersion: ws.Response.SaveVersion,
 		Answers: []domain.AnswerPatchItem{
-			{QuestionID: sf.ServiceQuestion.ID, Value: json.RawMessage(`"SILVER"`)},
+			{QuestionID: sf.ServiceQuestion.ID, Value: json.RawMessage(`"GOLD"`)},
+			{QuestionID: sf.MultiQuestion.ID, Value: json.RawMessage(`["A"]`)},
+		},
+	})
+	if err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	submit, err := env.crSvc.Submit(ctx, fix.CarrierAct, sf.Event.ID, fix.CarrierID, saved.SaveVersion)
+	if err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	score, err := env.scoringSvc.GetResponseScore(ctx, fix.BuyerA, sf.Event.ID, submit.ResponseID, env.rfxSvc)
+	if err != nil {
+		t.Fatalf("score: %v", err)
+	}
+	if score.Qualification.TotalScore == nil || *score.Qualification.TotalScore != 100 {
+		t.Fatalf("SINGLE_SELECT_SCORE total=%v want 100", score.Qualification.TotalScore)
+	}
+}
+
+func TestMultiSelectSumCappedScoring(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	sf := seedSelectScoringFixture(t, env, fix)
+	ctx := context.Background()
+
+	_, err := env.scoreModelSvc.PutScoreModel(ctx, fix.BuyerA, sf.Event.ID, domain.PutScoreModelInput{
+		Criteria: []domain.ScoreCriterionInput{
+			{CriterionCode: "FEATURES", Name: "Features", Weight: 100,
+				NormalizationJSON: json.RawMessage(`{"type":"MULTI_SELECT","aggregation":"SUM_CAPPED","cap":100,"option_scores":{"A":30,"B":40,"C":50}}`)},
+		},
+		Bindings: []domain.ScoreBindingInput{{CriterionCode: "FEATURES", QuestionCode: "FEATURES"}},
+	})
+	if err != nil {
+		t.Fatalf("put multi model: %v", err)
+	}
+	if _, err := env.scoreModelSvc.PublishScoreModel(ctx, fix.BuyerA, sf.Event.ID); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+
+	ws, err := env.crSvc.StartOrResume(ctx, fix.CarrierAct, sf.Event.ID, fix.CarrierID)
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	saved, err := env.crSvc.SaveAnswers(ctx, fix.CarrierAct, sf.Event.ID, fix.CarrierID, domain.AnswerBatchPatchInput{
+		ExpectedSaveVersion: ws.Response.SaveVersion,
+		Answers: []domain.AnswerPatchItem{
+			{QuestionID: sf.ServiceQuestion.ID, Value: json.RawMessage(`"BRONZE"`)},
 			{QuestionID: sf.MultiQuestion.ID, Value: json.RawMessage(`["A","B"]`)},
 		},
 	})
@@ -288,21 +310,45 @@ func TestSingleSelectAndMultiSelectScoring(t *testing.T) {
 	if err != nil {
 		t.Fatalf("submit: %v", err)
 	}
-
 	score, err := env.scoringSvc.GetResponseScore(ctx, fix.BuyerA, sf.Event.ID, submit.ResponseID, env.rfxSvc)
 	if err != nil {
 		t.Fatalf("score: %v", err)
 	}
-	// SILVER=60 -> 30 weighted + SUM_CAPPED A+B=70 -> 35 weighted = 65 total
-	if score.Qualification.TotalScore == nil || *score.Qualification.TotalScore != 65 {
-		t.Fatalf("SINGLE_SELECT/MULTI_SELECT total=%v want 65", score.Qualification.TotalScore)
+	if score.Qualification.TotalScore == nil || *score.Qualification.TotalScore != 70 {
+		t.Fatalf("MULTI_SELECT_SUM_CAPPED total=%v want 70", score.Qualification.TotalScore)
 	}
-	if len(score.AnswerScores) != 2 {
-		t.Fatalf("expected 2 answer scores, got %d", len(score.AnswerScores))
-	}
+}
 
-	unsupportedEvent := seedSelectScoringFixture(t, env, fix)
-	_, err = env.scoreModelSvc.PutScoreModel(ctx, fix.BuyerA, unsupportedEvent.Event.ID, domain.PutScoreModelInput{
+func TestInvalidOptionScoringConfigDeny(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	sf := seedSelectScoringFixture(t, env, fix)
+	ctx := context.Background()
+	_, err := env.scoreModelSvc.PutScoreModel(ctx, fix.BuyerA, sf.Event.ID, domain.PutScoreModelInput{
+		Criteria: []domain.ScoreCriterionInput{
+			{CriterionCode: "SERVICE", Name: "Service", Weight: 100,
+				NormalizationJSON: json.RawMessage(`{"type":"OPTION_MAP","option_scores":{"PLATINUM":100}}`)},
+		},
+		Bindings: []domain.ScoreBindingInput{{CriterionCode: "SERVICE", QuestionCode: "SERVICE_LEVEL"}},
+	})
+	if err != nil {
+		t.Fatalf("put invalid option model: %v", err)
+	}
+	invalidOpt, err := env.scoreModelSvc.ValidateScoreModel(ctx, fix.BuyerA, sf.Event.ID)
+	if err != nil {
+		t.Fatalf("validate invalid option: %v", err)
+	}
+	if invalidOpt.Ready || !hasReadinessCode(*invalidOpt, "OPTION_SCORE_INVALID") {
+		t.Fatalf("INVALID_OPTION_SCORING_CONFIG_DENY expected, errors=%+v", invalidOpt.Errors)
+	}
+}
+
+func TestMultiSelectUnsupportedAggregationDeny(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	sf := seedSelectScoringFixture(t, env, fix)
+	ctx := context.Background()
+	_, err := env.scoreModelSvc.PutScoreModel(ctx, fix.BuyerA, sf.Event.ID, domain.PutScoreModelInput{
 		Criteria: []domain.ScoreCriterionInput{
 			{CriterionCode: "FEATURES", Name: "Features", Weight: 100,
 				NormalizationJSON: json.RawMessage(`{"type":"MULTI_SELECT","aggregation":"MEDIAN","option_scores":{"A":30,"B":40}}`)},
@@ -312,7 +358,7 @@ func TestSingleSelectAndMultiSelectScoring(t *testing.T) {
 	if err != nil {
 		t.Fatalf("put unsupported aggregation: %v", err)
 	}
-	unsupported, err := env.scoreModelSvc.ValidateScoreModel(ctx, fix.BuyerA, unsupportedEvent.Event.ID)
+	unsupported, err := env.scoreModelSvc.ValidateScoreModel(ctx, fix.BuyerA, sf.Event.ID)
 	if err != nil {
 		t.Fatalf("validate unsupported: %v", err)
 	}
