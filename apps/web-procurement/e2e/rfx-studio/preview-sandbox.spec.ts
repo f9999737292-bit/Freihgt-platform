@@ -54,7 +54,7 @@ async function patchQuestionValidation(page: Page, questionCode: string, validat
   expect(studioResp.ok()).toBeTruthy()
   const studio = await studioResp.json()
   const question = studio.sections
-    ?.flatMap((s: { questions: Array<{ id: string; question_code: string }> }) => s.questions)
+    ?.flatMap((s: { questions: Array<{ id: string; question_code: string; version: number }> }) => s.questions)
     ?.find((q: { question_code: string }) => q.question_code === questionCode)
   if (!question?.id) throw new Error(`question ${questionCode} not found`)
   const patch = await page.request.patch(
@@ -64,7 +64,7 @@ async function patchQuestionValidation(page: Page, questionCode: string, validat
         Authorization: `Bearer ${jwt}`,
         'X-Company-ID': companyId,
       },
-      data: { validation_rule_json: validation },
+      data: { validation_rule_json: validation, expected_version: question.version },
     },
   )
   expect(patch.ok()).toBeTruthy()
