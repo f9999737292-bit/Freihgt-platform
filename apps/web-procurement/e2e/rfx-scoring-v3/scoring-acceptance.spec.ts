@@ -1,7 +1,10 @@
 import { test, expect } from '@playwright/test'
 import {
   adminURL,
+  companyId,
   eventId,
+  gatewayURL,
+  jwt,
   legacyEventId,
   procurementURL,
   seedBuyerAdminSession,
@@ -43,25 +46,27 @@ test.describe('RFx v3.0D scoring browser acceptance', () => {
     await bindings.nth(1).selectOption('FLEET_COUNT')
 
     await page.getByTestId('scoring-knockout-boolean-false').check()
-    const saveDraftResp = page.waitForResponse(
-      (resp) => resp.url().includes('/score-model') && resp.request().method() === 'PUT' && resp.ok(),
-    )
     await page.getByTestId('scoring-save-draft').click()
-    await saveDraftResp
     await page.getByTestId('scoring-validate').click()
     await expect(page.getByTestId('scoring-readiness-ready')).toBeVisible({ timeout: 60_000 })
 
-    const publishResp = page.waitForResponse(
-      (resp) => resp.url().includes('/score-model/publish') && resp.ok(),
-    )
     await page.getByTestId('scoring-publish').click()
     await page.getByTestId('scoring-publish-confirm').click()
-    await publishResp
     await expect(page.getByTestId('scoring-published-lock')).toBeVisible({ timeout: 60_000 })
     await expect(page.getByTestId('scoring-model-status')).toContainText(/Published|Опубликована|已发布/i)
 
     await submitCarrierA(request)
     await submitCarrierB(request)
+
+    const buyerHeaders = {
+      Authorization: `Bearer ${jwt}`,
+      'X-Company-ID': companyId,
+    }
+    const evalApi = await request.get(`${gatewayURL}/api/v1/rfx-events/${eventId}/responses`, { headers: buyerHeaders })
+    expect(evalApi.ok()).toBeTruthy()
+    const evalPayload = await evalApi.json()
+    expect(Array.isArray(evalPayload.items)).toBeTruthy()
+    expect(evalPayload.items.length).toBeGreaterThanOrEqual(2)
 
     await page.goto('about:blank')
     await seedBuyerProcurementSession(page)

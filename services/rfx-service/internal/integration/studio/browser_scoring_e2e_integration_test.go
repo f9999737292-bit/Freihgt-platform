@@ -182,7 +182,9 @@ func runScoringV3PlaywrightSuite(t *testing.T, stack *browserScoringLiveStack) e
 		"BROWSER_E2E_LEGACY_EVENT_ID="+fix.LegacyEventID.String(),
 		"BROWSER_E2E_LEGACY_RFX_NUMBER="+fix.LegacyRfxNumber,
 	)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	output, err := cmd.CombinedOutput()
+	if len(output) > 0 {
+		t.Logf("playwright scoring v3 output:\n%s", string(output))
+	}
+	return err
 }
