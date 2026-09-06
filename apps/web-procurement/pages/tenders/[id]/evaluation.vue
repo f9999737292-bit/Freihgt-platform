@@ -143,8 +143,6 @@ async function loadSecondaryWorkspaceData() {
       transportOrders.value = []
     }
   }
-
-  void loadV3ScoresForItems()
 }
 
 async function loadWorkspace() {
@@ -180,6 +178,11 @@ async function loadWorkspace() {
 
   items.value = responses
   v3ModelPublished.value = publishedModel
+
+  if (publishedModel) {
+    await loadV3ScoresForItems()
+  }
+
   loading.value = false
 
   void (async () => {

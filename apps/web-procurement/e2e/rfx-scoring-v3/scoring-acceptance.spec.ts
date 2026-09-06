@@ -15,6 +15,7 @@ import {
   evaluationPath,
   bootstrapProcurementSession,
   assertBrowserResponsesApi,
+  assertBrowserScoresApi,
 } from './helpers'
 
 test.describe('RFx v3.0D scoring browser acceptance', () => {
@@ -99,6 +100,8 @@ test.describe('RFx v3.0D scoring browser acceptance', () => {
 
     await page.goto(`${procurementURL}/tenders`, { waitUntil: 'domcontentloaded' })
     await assertBrowserResponsesApi(page)
+    const responseIds = evalPayload.items.slice(0, 2).map((item: { id: string }) => item.id)
+    await assertBrowserScoresApi(page, responseIds)
     await page.goto(`${procurementURL}${evaluationPath()}`, { waitUntil: 'domcontentloaded' })
     await expect(page.getByRole('status')).toHaveCount(0, { timeout: 120_000 })
     await expect(

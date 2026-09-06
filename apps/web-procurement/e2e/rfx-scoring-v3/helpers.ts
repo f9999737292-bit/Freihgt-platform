@@ -150,6 +150,47 @@ export async function bootstrapProcurementSession(page: Page) {
   }, undefined, { timeout: 30_000 })
 }
 
+export async function assertBrowserScoresApi(page: Page, responseIds: string[], forEventId = eventId) {
+  for (const responseId of responseIds) {
+    const probe = await page.evaluate(
+      async ({ gw, ev, responseId, company, tenantKey, sessionKey }) => {
+        const raw = localStorage.getItem(sessionKey)
+        if (!raw) return { ok: false, status: 0, reason: 'missing-session', responseId }
+        const session = JSON.parse(raw) as { token: string; user: { id: string; tenant_id: string } }
+        const tenant = localStorage.getItem(tenantKey) || session.user.tenant_id
+        const resp = await fetch(`${gw}/api/v1/rfx-events/${ev}/responses/${responseId}/score`, {
+          headers: {
+            Authorization: `Bearer ${session.token}`,
+            'X-Company-ID': company,
+            'X-Tenant-ID': tenant,
+            'X-User-ID': session.user.id,
+            Accept: 'application/json',
+          },
+        })
+        const body = resp.ok ? await resp.json() : await resp.text()
+        return {
+          ok: resp.ok,
+          status: resp.status,
+          reason: resp.ok ? '' : String(body).slice(0, 240),
+          responseId,
+          calculationStatus: resp.ok ? body?.qualification?.calculation_status : undefined,
+          totalScore: resp.ok ? body?.qualification?.total_score : undefined,
+        }
+      },
+      {
+        gw: gatewayURL,
+        ev: forEventId,
+        responseId,
+        company: companyId,
+        tenantKey: 'freight_procurement_tenant_id',
+        sessionKey: 'freight_procurement_session',
+      },
+    )
+    expect(probe.ok, `browser score probe failed for ${responseId}: status=${probe.status} ${probe.reason}`).toBeTruthy()
+    expect(probe.calculationStatus).toBe('CALCULATED')
+  }
+}
+
 export async function assertBrowserResponsesApi(page: Page, forEventId = eventId) {
   const probe = await page.evaluate(
     async ({ gw, ev, company, tenantKey, sessionKey }) => {
