@@ -375,13 +375,10 @@ func TestNumberLinearBoundaries(t *testing.T) {
 
 	_, err := env.scoreModelSvc.PutScoreModel(ctx, fix.BuyerA, sf.Event.ID, domain.PutScoreModelInput{
 		Criteria: []domain.ScoreCriterionInput{
-			{CriterionCode: "HSE", Name: "HSE", Weight: 0,
-				NormalizationJSON: json.RawMessage(`{"type":"BOOLEAN_MAP","true_score":100,"false_score":0}`)},
 			{CriterionCode: "CAPACITY", Name: "Capacity", Weight: 100,
 				NormalizationJSON: json.RawMessage(`{"type":"NUMBER_LINEAR","min":0,"max":100}`)},
 		},
 		Bindings: []domain.ScoreBindingInput{
-			{CriterionCode: "HSE", QuestionCode: "ADR_AVAILABLE"},
 			{CriterionCode: "CAPACITY", QuestionCode: "FLEET_COUNT"},
 		},
 	})
@@ -674,9 +671,18 @@ func TestScoringFailureDoesNotRollbackSubmit(t *testing.T) {
 	if scoreCount != 0 {
 		t.Fatalf("PARTIAL_SCORE_PERSISTENCE expected 0, got %d", scoreCount)
 	}
-	auditCount, err := countAuditByAction(ctx, env.pool, fix.TenantID, submit.ResponseID, "response.scoring_failed")
-	if err != nil || auditCount < 1 {
-		t.Fatalf("SCORING_FAILURE_AUDITED count=%d err=%v", auditCount, err)
+	auditEvents, err := env.auditRepo.ListByEntity(ctx, fix.TenantID, "rfx_response", submit.ResponseID, 20)
+	if err != nil {
+		t.Fatalf("list audit: %v", err)
+	}
+	auditCount := 0
+	for _, ev := range auditEvents {
+		if ev.Action == "response.scoring_failed" {
+			auditCount++
+		}
+	}
+	if auditCount < 1 {
+		t.Fatalf("SCORING_FAILURE_AUDITED count=%d events=%+v", auditCount, auditEvents)
 	}
 }
 
