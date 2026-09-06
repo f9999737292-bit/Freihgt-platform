@@ -268,6 +268,14 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	r.Patch("/api/v1/rfx-events/{id}/rules/{rule_id}", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
 	r.Delete("/api/v1/rfx-events/{id}/rules/{rule_id}", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
 
+	// RFx v3.0C carrier questionnaire response
+	r.Get("/api/v1/rfx-events/{id}/carrier-response", rfxGuard.WithPolicy(rfxrbac.PolicyCarrierRead))
+	r.Post("/api/v1/rfx-events/{id}/carrier-response/start", rfxGuard.WithPolicy(rfxrbac.PolicyCarrierRespond))
+	r.Patch("/api/v1/rfx-events/{id}/carrier-response/answers", rfxGuard.WithPolicy(rfxrbac.PolicyCarrierRespond))
+	r.Post("/api/v1/rfx-events/{id}/carrier-response/validate", rfxGuard.WithPolicy(rfxrbac.PolicyCarrierRespond))
+	r.Post("/api/v1/rfx-events/{id}/carrier-response/submit", rfxGuard.WithPolicy(rfxrbac.PolicyCarrierRespond))
+	r.Get("/api/v1/rfx-events/{id}/carrier-response/summary", rfxGuard.WithPolicy(rfxrbac.PolicyCarrierRead))
+
 	r.Get("/api/v1/rfx-responses/{response_id}", rfxGuard.WithPolicy(rfxrbac.PolicyCombinedRead))
 	r.Patch("/api/v1/rfx-responses/{response_id}", rfxGuard.WithPolicy(rfxrbac.PolicyCarrierRespond))
 	r.Patch("/api/v1/rfx-responses/{response_id}/evaluation", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
