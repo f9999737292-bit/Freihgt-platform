@@ -13,19 +13,21 @@ import {
   submitCarrierB,
   stubBuyerCompanies,
   evaluationPath,
-  waitForEvaluationResponses,
-  ensureProcurementAuthenticated,
+  bootstrapProcurementSession,
+  assertBrowserResponsesApi,
 } from './helpers'
 
 test.describe('RFx v3.0D scoring browser acceptance', () => {
   test.beforeEach(async ({ page }) => {
     await seedBuyerAdminSession(page)
     await seedBuyerProcurementSession(page)
+    await stubBuyerCompanies(page)
     page.on('console', (msg) => {
       if (msg.type() === 'error') {
         console.log(`[browser-console] ${msg.text()}`)
       }
     })
+    await bootstrapProcurementSession(page)
   })
 
   test('studio publish + evaluation scores + legacy regression', async ({ page, request }) => {
@@ -95,16 +97,9 @@ test.describe('RFx v3.0D scoring browser acceptance', () => {
     expect(scoreTotals).toContain(70)
     expect(scoreTotals).toContain(60)
 
-    await stubBuyerCompanies(page)
-    await ensureProcurementAuthenticated(page)
-
-    const browserResponses = waitForEvaluationResponses(page)
+    await page.goto(`${procurementURL}/tenders`, { waitUntil: 'domcontentloaded' })
+    await assertBrowserResponsesApi(page)
     await page.goto(`${procurementURL}${evaluationPath()}`, { waitUntil: 'domcontentloaded' })
-    const browserResponsesResp = await browserResponses
-    const browserResponsesBody = await browserResponsesResp.json()
-    expect(Array.isArray(browserResponsesBody.items)).toBeTruthy()
-    expect(browserResponsesBody.items.length).toBeGreaterThanOrEqual(2)
-
     await expect(page.getByTestId('evaluation-comparison-table')).toBeVisible({ timeout: 120_000 })
     await expect(page.getByTestId('legacy-commercial-score').first()).toBeVisible({ timeout: 60_000 })
 

@@ -134,24 +134,48 @@ export function evaluationPath(forEventId = eventId) {
   return `/tenders/${forEventId}/evaluation`
 }
 
-export async function waitForEvaluationResponses(page: Page, forEventId = eventId) {
-  return page.waitForResponse(
-    (resp) => {
-      if (resp.request().method() !== 'GET' || !resp.ok()) {
-        return false
-      }
-      try {
-        const pathname = new URL(resp.url()).pathname
-        return pathname.endsWith(`/rfx-events/${forEventId}/responses`)
-      } catch {
-        return false
-      }
-    },
-    { timeout: 120_000 },
-  )
-}
-
-export async function ensureProcurementAuthenticated(page: Page) {
+/** Seed procurement-origin localStorage and warm Pinia session before cross-app studio steps. */
+export async function bootstrapProcurementSession(page: Page) {
   await page.goto(`${procurementURL}/tenders`, { waitUntil: 'domcontentloaded' })
   await expect(page).not.toHaveURL(/\/login(?:\?|$)/, { timeout: 30_000 })
+  await page.waitForFunction(() => {
+    const raw = localStorage.getItem('freight_procurement_session')
+    if (!raw) return false
+    try {
+      const data = JSON.parse(raw) as { token?: string }
+      return Boolean(data.token)
+    } catch {
+      return false
+    }
+  }, undefined, { timeout: 30_000 })
+}
+
+export async function assertBrowserResponsesApi(page: Page, forEventId = eventId) {
+  const probe = await page.evaluate(
+    async ({ gw, ev, company, tenantKey, sessionKey }) => {
+      const raw = localStorage.getItem(sessionKey)
+      if (!raw) return { ok: false, status: 0, reason: 'missing-session' }
+      const session = JSON.parse(raw) as { token: string; user: { id: string; tenant_id: string } }
+      const tenant = localStorage.getItem(tenantKey) || session.user.tenant_id
+      const resp = await fetch(`${gw}/api/v1/rfx-events/${ev}/responses`, {
+        headers: {
+          Authorization: `Bearer ${session.token}`,
+          'X-Company-ID': company,
+          'X-Tenant-ID': tenant,
+          'X-User-ID': session.user.id,
+          Accept: 'application/json',
+        },
+      })
+      const body = resp.ok ? '' : await resp.text()
+      return { ok: resp.ok, status: resp.status, reason: body.slice(0, 240) }
+    },
+    {
+      gw: gatewayURL,
+      ev: forEventId,
+      company: companyId,
+      tenantKey: 'freight_procurement_tenant_id',
+      sessionKey: 'freight_procurement_session',
+    },
+  )
+  expect(probe.ok, `browser responses probe failed: status=${probe.status} ${probe.reason}`).toBeTruthy()
 }
