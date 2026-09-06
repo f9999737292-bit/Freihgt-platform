@@ -3,13 +3,22 @@ import { expect, type Page } from '@playwright/test'
 export const jwt = process.env.BROWSER_E2E_JWT || ''
 export const tenantId = process.env.BROWSER_E2E_TENANT_ID || ''
 export const carrierCompanyId = process.env.BROWSER_E2E_CARRIER_COMPANY_ID || ''
+export const buyerCompanyId = process.env.BROWSER_E2E_BUYER_COMPANY_ID || ''
 export const eventId = process.env.BROWSER_E2E_EVENT_ID || ''
 export const rfxNumber = process.env.BROWSER_E2E_RFX_NUMBER || ''
+export const eventTitle = process.env.BROWSER_E2E_EVENT_TITLE || ''
 export const userId = process.env.BROWSER_E2E_USER_ID || ''
 export const gatewayURL = process.env.BROWSER_E2E_GATEWAY_URL || ''
 
-export function questionnairePath() {
-  return `/carrier/tenders/${eventId}/questionnaire`
+export function assertGatewayHost(url: string) {
+  if (!gatewayURL) {
+    throw new Error('BROWSER_E2E_GATEWAY_URL is required')
+  }
+  const expected = new URL(gatewayURL)
+  const actual = new URL(url)
+  if (actual.host !== expected.host) {
+    throw new Error(`expected gateway host ${expected.host}, got ${actual.host} for ${url}`)
+  }
 }
 
 export async function seedCarrierSession(page: Page) {
@@ -21,8 +30,8 @@ export async function seedCarrierSession(page: Page) {
         user: {
           id: user,
           tenant_id: tenant,
-          email: 'carrier-response-e2e@freight.test',
-          full_name: 'Carrier Response E2E',
+          email: 'carrier-browser-e2e@freight.test',
+          full_name: 'Carrier Browser E2E',
           preferred_locale: 'ru-RU',
           status: 'ACTIVE',
           roles: ['CARRIER_DISPATCHER'],
@@ -35,21 +44,98 @@ export async function seedCarrierSession(page: Page) {
   }, { token: jwt, tenant: tenantId, company: carrierCompanyId, user: userId })
 }
 
-export async function waitForSaved(page: Page) {
-  const status = page.getByTestId('autosave-status')
-  await expect(status).toHaveText(/Сохранено/i, { timeout: 60_000 })
+/** GET /api/v1/rfx-events/{id} is buyer-only at gateway; stub minimal event metadata for page shell. */
+export async function stubCarrierEventMetadata(page: Page) {
+  await page.route(`**/api/v1/rfx-events/${eventId}`, async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.continue()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: eventId,
+        tenant_id: tenantId,
+        owner_company_id: buyerCompanyId,
+        rfx_number: rfxNumber,
+        title: eventTitle,
+        status: 'PUBLISHED',
+        rfx_type: 'SPOT_RFQ',
+        category: 'FREIGHT',
+        response_deadline: new Date(Date.now() + 48 * 3600 * 1000).toISOString(),
+      }),
+    })
+  })
 }
 
-export async function waitForInvalid(page: Page) {
-  const status = page.getByTestId('autosave-status')
-  await expect(status).toHaveText(/ошибки/i, { timeout: 60_000 })
+export function questionnairePath() {
+  return `/carrier/tenders/${eventId}/questionnaire`
 }
 
-export function assertGatewayHost(url: string) {
-  if (!gatewayURL) throw new Error('BROWSER_E2E_GATEWAY_URL is required')
-  const expected = new URL(gatewayURL)
-  const actual = new URL(url)
-  if (actual.host !== expected.host) {
-    throw new Error(`expected gateway host ${expected.host}, got ${actual.host}`)
-  }
+export async function waitForCarrierWorkspace(page: Page) {
+  await expect(page.getByTestId('carrier-response-workspace')).toBeVisible({ timeout: 120_000 })
+}
+
+export async function waitForCarrierStart(page: Page) {
+  return page.waitForResponse(
+    (resp) =>
+      resp.url().includes(`/api/v1/rfx-events/${eventId}/carrier-response/start`)
+      && resp.request().method() === 'POST'
+      && resp.status() < 500,
+    { timeout: 120_000 },
+  )
+}
+
+export async function expectAutosaveSaved(page: Page) {
+  const status = page.getByTestId('autosave-status')
+  await expect(status).not.toHaveText(/Есть несохранённые|Сохранение/i, { timeout: 30_000 })
+  await expect(status).toHaveText(/Сохранено/i, { timeout: 30_000 })
+}
+
+export async function expectAutosaveInvalid(page: Page) {
+  const status = page.getByTestId('autosave-status')
+  await expect(status).toHaveText(/ошибки — изменения не сохранены/i, { timeout: 30_000 })
+}
+
+export function questionRoot(page: Page, code: string) {
+  return page.getByTestId(`question-${code}`)
+}
+
+export async function setYesNo(page: Page, code: string, value: boolean) {
+  const root = questionRoot(page, code)
+  const label = value ? 'Да' : 'Нет'
+  await root.getByText(label, { exact: true }).click()
+}
+
+export async function fillTextQuestion(page: Page, code: string, value: string) {
+  const input = questionRoot(page, code).locator('input[type="text"], textarea').first()
+  await input.fill(value)
+  await input.blur()
+}
+
+export async function fillDateQuestion(page: Page, code: string, value: string) {
+  const input = questionRoot(page, code).locator('input[type="date"]').first()
+  await input.fill(value)
+  await input.blur()
+}
+
+export async function fillNumberQuestion(page: Page, code: string, value: string) {
+  const input = questionRoot(page, code).locator('input[type="number"]').first()
+  await input.fill(value)
+  await input.blur()
+}
+
+export async function waitForAnswersPatch(page: Page) {
+  return page.waitForResponse(
+    (resp) =>
+      resp.url().includes(`/api/v1/rfx-events/${eventId}/carrier-response/answers`)
+      && resp.request().method() === 'PATCH',
+    { timeout: 60_000 },
+  )
+}
+
+export async function flushAutosave(page: Page) {
+  await page.waitForTimeout(900)
+  await expectAutosaveSaved(page)
 }

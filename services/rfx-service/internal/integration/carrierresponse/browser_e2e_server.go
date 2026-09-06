@@ -48,8 +48,6 @@ func newBrowserCarrierRouter(env *testEnv) http.Handler {
 		r.Post("/{id}/carrier-response/submit", crHandler.SubmitCarrierResponse)
 		r.Get("/{id}/carrier-response/summary", crHandler.GetCarrierResponseSummary)
 	})
-	r.Route("/v1/carrier/rfx-events", func(r chi.Router) {
-		r.Get("/", rfxHandler.ListCarrierInvitedEvents)
-	})
+	r.Get("/v1/carrier/rfx-events", rfxHandler.ListCarrierInvitedEvents)
 	return r
 }

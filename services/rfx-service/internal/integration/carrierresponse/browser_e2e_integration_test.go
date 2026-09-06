@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,16 +21,17 @@ import (
 	"github.com/freight-platform/rfx-service/internal/domain"
 )
 
-const browserCarrierE2EJWTSecret = "rfx-carrier-browser-e2e-jwt-secret"
+const browserE2EJWTSecret = "rfx-carrier-browser-e2e-jwt-secret"
 
 type browserCarrierFixture struct {
-	TenantID       uuid.UUID
-	BuyerCompanyID uuid.UUID
-	CarrierID      uuid.UUID
-	CarrierUserID  uuid.UUID
-	EventID        uuid.UUID
-	JWT            string
-	RfxNumber      string
+	TenantID        uuid.UUID
+	BuyerCompanyID  uuid.UUID
+	CarrierCompanyID uuid.UUID
+	UserID          uuid.UUID
+	EventID         uuid.UUID
+	JWT             string
+	RfxNumber       string
+	EventTitle      string
 }
 
 type browserLiveStack struct {
@@ -46,6 +48,10 @@ type webProcurementCmd struct {
 	logs []*os.File
 }
 
+type browserCompanyStub struct {
+	server *httptest.Server
+}
+
 func TestRfxCarrierResponse_BrowserE2E_LiveCarrierFlow(t *testing.T) {
 	if os.Getenv("BROWSER_E2E") != "1" {
 		t.Skip("set BROWSER_E2E=1 to run live browser E2E against local stack")
@@ -53,34 +59,35 @@ func TestRfxCarrierResponse_BrowserE2E_LiveCarrierFlow(t *testing.T) {
 	if strings.TrimSpace(os.Getenv("TEST_DATABASE_URL")) == "" {
 		t.Fatal("TEST_DATABASE_URL is required when BROWSER_E2E=1")
 	}
-	stack := startCarrierBrowserLiveStack(t)
+	stack := startBrowserLiveStack(t)
 	t.Cleanup(stack.shutdown)
 	t.Cleanup(func() {
 		dumpGatewayLogsOnFailure(t, stack.gatewayProc)
 		writeGatewayFailureArtifact(t, stack.gatewayProc)
 	})
 	verifyCarrierGatewayProbe(t, stack)
-	if err := runCarrierPlaywrightSuite(t, stack); err != nil {
+	if err := runPlaywrightSuite(t, stack); err != nil {
 		t.Fatalf("playwright carrier response suite: %v", err)
 	}
 }
 
 func verifyCarrierGatewayProbe(t *testing.T, stack *browserLiveStack) {
 	t.Helper()
-	probeURL := stack.gatewayURL + "/api/v1/rfx-events/" + stack.fixture.EventID.String() + "/carrier-response"
-	req, err := http.NewRequest(http.MethodGet, probeURL, nil)
+	probeURL := stack.gatewayURL + "/api/v1/rfx-events/" + stack.fixture.EventID.String() + "/carrier-response/start"
+	req, err := http.NewRequest(http.MethodPost, probeURL, strings.NewReader("{}"))
 	if err != nil {
 		t.Fatalf("probe request: %v", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+stack.fixture.JWT)
-	req.Header.Set("X-Company-ID", stack.fixture.CarrierID.String())
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Company-ID", stack.fixture.CarrierCompanyID.String())
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		t.Fatalf("probe carrier gateway: %v", err)
+		t.Fatalf("probe carrier-response gateway: %v", err)
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNotFound {
-		t.Fatalf("probe carrier gateway: status=%d url=%s", resp.StatusCode, probeURL)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("probe carrier-response gateway: status=%d url=%s", resp.StatusCode, probeURL)
 	}
 }
 
@@ -96,15 +103,20 @@ func (s *browserLiveStack) shutdown() {
 	}
 }
 
-func startCarrierBrowserLiveStack(t *testing.T) *browserLiveStack {
+func startBrowserLiveStack(t *testing.T) *browserLiveStack {
 	t.Helper()
 	const webPort = "3005"
 	env := setupTestEnv(t)
 	fix := seedBrowserHSEFixture(t, env)
-	rfxURL, rfxSrv := startBrowserCarrierRfxService(t, env)
-	identity := startBrowserIdentityStub(t, browserIdentityRolesForCarrier(fix.CarrierUserID.String()))
+	rfxURL, rfxSrv := startBrowserRfxService(t, env)
+	companyStub := startBrowserCompanyStub(t, fix)
+	identity := startBrowserIdentityStub(
+		t,
+		browserIdentityRolesForCarrier(fix.UserID.String()),
+		browserIdentityMembershipForCarrier(fix.UserID.String(), fix.CarrierCompanyID.String(), "Carrier A"),
+	)
 	webOrigin := browserGatewayEnvForStack(t, webPort)
-	gatewayURL, gatewayProc := startBrowserProductionGateway(t, rfxURL, webOrigin, identity)
+	gatewayURL, gatewayProc := startBrowserProductionGateway(t, rfxURL, webOrigin, companyStub.URL(), identity)
 	webURL, webCmd := startBrowserWebProcurement(t, gatewayURL, fix, webPort)
 	waitForHTTP200(t, webURL+"/login", 120*time.Second)
 	return &browserLiveStack{
@@ -121,10 +133,10 @@ func seedBrowserHSEFixture(t *testing.T, env *testEnv) browserCarrierFixture {
 	t.Helper()
 	fix := seedBuyerFixture(t, env)
 	ctx := context.Background()
-	deadline := time.Now().UTC().Add(24 * time.Hour)
+	deadline := time.Now().UTC().Add(48 * time.Hour)
 	event, err := env.rfxSvc.CreateEvent(ctx, fix.BuyerA, domain.CreateRfxEventInput{
-		TenantID: fix.TenantID, OwnerCompanyID: fix.CompanyA, Title: "Carrier Browser HSE",
-		RfxType: "SPOT_RFQ", Category: "FREIGHT", RfxNumber: "RFX-CR-BRW-" + uuid.NewString()[:8],
+		TenantID: fix.TenantID, OwnerCompanyID: fix.CompanyA, Title: "Browser HSE Carrier Response",
+		RfxType: "SPOT_RFQ", Category: "FREIGHT", RfxNumber: "RFX-CR-BROWSER-" + uuid.NewString()[:8],
 		ResponseDeadline: &deadline,
 	})
 	if err != nil {
@@ -142,69 +154,81 @@ func seedBrowserHSEFixture(t *testing.T, env *testEnv) browserCarrierFixture {
 	if err != nil {
 		t.Fatalf("create section: %v", err)
 	}
-	if _, err := env.qSvc.CreateQuestion(ctx, fix.BuyerA, event.ID, sec.ID, domain.CreateQuestionInput{
+	adrAvailable, err := env.qSvc.CreateQuestion(ctx, fix.BuyerA, event.ID, sec.ID, domain.CreateQuestionInput{
 		QuestionCode: "ADR_AVAILABLE", QuestionType: domain.QuestionTypeYesNo, Label: "ADR available?",
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("create ADR_AVAILABLE: %v", err)
 	}
-	if _, err := env.qSvc.CreateQuestion(ctx, fix.BuyerA, event.ID, sec.ID, domain.CreateQuestionInput{
+	adrNumber, err := env.qSvc.CreateQuestion(ctx, fix.BuyerA, event.ID, sec.ID, domain.CreateQuestionInput{
 		QuestionCode: "ADR_NUMBER", QuestionType: domain.QuestionTypeText, Label: "ADR number",
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("create ADR_NUMBER: %v", err)
 	}
-	if _, err := env.qSvc.CreateQuestion(ctx, fix.BuyerA, event.ID, sec.ID, domain.CreateQuestionInput{
-		QuestionCode: "ADR_EXPIRY", QuestionType: domain.QuestionTypeDate, Label: "ADR expiry",
-	}); err != nil {
+	adrExpiry, err := env.qSvc.CreateQuestion(ctx, fix.BuyerA, event.ID, sec.ID, domain.CreateQuestionInput{
+		QuestionCode: "ADR_EXPIRY", QuestionType: domain.QuestionTypeDate, Label: "ADR expiry date",
+	})
+	if err != nil {
 		t.Fatalf("create ADR_EXPIRY: %v", err)
 	}
-	if _, err := env.qSvc.CreateQuestion(ctx, fix.BuyerA, event.ID, sec.ID, domain.CreateQuestionInput{
+	minZero := json.RawMessage(`{"min_value":0}`)
+	fleetCount, err := env.qSvc.CreateQuestion(ctx, fix.BuyerA, event.ID, sec.ID, domain.CreateQuestionInput{
 		QuestionCode: "FLEET_COUNT", QuestionType: domain.QuestionTypeNumber, Label: "Fleet count",
-		ValidationRuleJSON: json.RawMessage(`{"min_value":0}`),
-	}); err != nil {
+		ValidationRuleJSON: minZero,
+	})
+	if err != nil {
 		t.Fatalf("create FLEET_COUNT: %v", err)
 	}
+	_ = adrAvailable
 	targetNumber := "ADR_NUMBER"
+	if _, err := env.qSvc.CreateRule(ctx, fix.BuyerA, event.ID, domain.CreateQuestionRuleInput{
+		RuleCode: "REQ_ADR_NUMBER", Action: domain.RuleActionRequire,
+		TargetQuestionCode: &targetNumber,
+		ConditionJSON:      conditionEquals("ADR_AVAILABLE", true),
+	}); err != nil {
+		t.Fatalf("require ADR_NUMBER rule: %v", err)
+	}
 	targetExpiry := "ADR_EXPIRY"
 	if _, err := env.qSvc.CreateRule(ctx, fix.BuyerA, event.ID, domain.CreateQuestionRuleInput{
-		RuleCode: "REQ_ADR_NUMBER", Action: domain.RuleActionRequire, TargetQuestionCode: &targetNumber,
-		ConditionJSON: conditionEquals("ADR_AVAILABLE", true),
+		RuleCode: "REQ_ADR_EXPIRY", Action: domain.RuleActionRequire,
+		TargetQuestionCode: &targetExpiry,
+		ConditionJSON:      conditionEquals("ADR_AVAILABLE", true),
 	}); err != nil {
-		t.Fatalf("require ADR_NUMBER: %v", err)
+		t.Fatalf("require ADR_EXPIRY rule: %v", err)
 	}
-	if _, err := env.qSvc.CreateRule(ctx, fix.BuyerA, event.ID, domain.CreateQuestionRuleInput{
-		RuleCode: "REQ_ADR_EXPIRY", Action: domain.RuleActionRequire, TargetQuestionCode: &targetExpiry,
-		ConditionJSON: conditionEquals("ADR_AVAILABLE", true),
-	}); err != nil {
-		t.Fatalf("require ADR_EXPIRY: %v", err)
-	}
+	_ = adrNumber
+	_ = adrExpiry
+	_ = fleetCount
 	publishVersion(t, env, version.ID)
 	if _, err := env.rfxSvc.PublishEvent(ctx, fix.BuyerA, event.ID); err != nil {
 		t.Fatalf("publish event: %v", err)
 	}
 	return browserCarrierFixture{
-		TenantID:       fix.TenantID,
-		BuyerCompanyID: fix.CompanyA,
-		CarrierID:      fix.CarrierID,
-		CarrierUserID:  fix.CarrierAct.UserID,
-		EventID:        event.ID,
-		JWT:            browserCarrierJWT(fix.CarrierAct.UserID, fix.TenantID),
-		RfxNumber:      event.RfxNumber,
+		TenantID:         fix.TenantID,
+		BuyerCompanyID:   fix.CompanyA,
+		CarrierCompanyID: fix.CarrierID,
+		UserID:           fix.CarrierAct.UserID,
+		EventID:          event.ID,
+		JWT:              browserCarrierJWT(fix.CarrierAct.UserID, fix.TenantID),
+		RfxNumber:        event.RfxNumber,
+		EventTitle:       event.Title,
 	}
 }
 
 func browserCarrierJWT(userID, tenantID uuid.UUID) string {
 	claims := jwt.MapClaims{
 		"tenant_id": tenantID.String(),
-		"email":     "carrier-response-e2e@freight.test",
+		"email":     "carrier-browser-e2e@freight.test",
 		"sub":       userID.String(),
 		"exp":       time.Now().Add(2 * time.Hour).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	signed, _ := token.SignedString([]byte(browserCarrierE2EJWTSecret))
+	signed, _ := token.SignedString([]byte(browserE2EJWTSecret))
 	return signed
 }
 
-func startBrowserCarrierRfxService(t *testing.T, env *testEnv) (string, *http.Server) {
+func startBrowserRfxService(t *testing.T, env *testEnv) (string, *http.Server) {
 	t.Helper()
 	return listenHTTPServer(t, newBrowserCarrierRouter(env))
 }
@@ -220,6 +244,43 @@ func listenHTTPServer(t *testing.T, handler http.Handler) (string, *http.Server)
 	return "http://" + ln.Addr().String(), srv
 }
 
+func startBrowserCompanyStub(t *testing.T, fix browserCarrierFixture) *browserCompanyStub {
+	t.Helper()
+	stub := &browserCompanyStub{}
+	stub.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/companies":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"items": []map[string]any{
+					{
+						"id": fix.BuyerCompanyID.String(), "tenant_id": fix.TenantID.String(),
+						"legal_name": "Buyer A", "company_type": "SHIPPER", "country_code": "RU",
+						"preferred_locale": "ru-RU", "status": "ACTIVE",
+					},
+					{
+						"id": fix.CarrierCompanyID.String(), "tenant_id": fix.TenantID.String(),
+						"legal_name": "Carrier A", "company_type": "CARRIER", "country_code": "RU",
+						"preferred_locale": "ru-RU", "status": "ACTIVE",
+					},
+				},
+				"total": 2, "limit": 200, "offset": 0,
+			})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(stub.server.Close)
+	return stub
+}
+
+func (s *browserCompanyStub) URL() string {
+	if s == nil || s.server == nil {
+		return ""
+	}
+	return s.server.URL
+}
+
 func startBrowserWebProcurement(t *testing.T, gatewayURL string, fix browserCarrierFixture, port string) (string, *webProcurementCmd) {
 	t.Helper()
 	root, err := repoRoot()
@@ -233,23 +294,28 @@ func startBrowserWebProcurement(t *testing.T, gatewayURL string, fix browserCarr
 		"NUXT_PUBLIC_DEFAULT_TENANT_ID="+fix.TenantID.String(),
 		"NUXT_E2E_DISABLE_SSR=true",
 	)
-	logFile, err := os.CreateTemp("", "rfx-carrier-nuxt-"+port+"-*.log")
+	logFile, err := os.CreateTemp("", "rfx-carrier-response-nuxt-"+port+"-*.log")
 	if err != nil {
 		t.Fatalf("create nuxt log file: %v", err)
 	}
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
+	cmd.WaitDelay = 0
 	if err := cmd.Start(); err != nil {
 		_ = logFile.Close()
 		t.Fatalf("start web-procurement dev: %v", err)
 	}
-	return "http://127.0.0.1:" + port, &webProcurementCmd{cmd: cmd, logs: []*os.File{logFile}}
+	return "http://127.0.0.1:" + port, &webProcurementCmd{
+		cmd:  cmd,
+		logs: []*os.File{logFile},
+	}
 }
 
 func stopBrowserWebProcurement(proc *webProcurementCmd) {
 	if proc == nil || proc.cmd == nil || proc.cmd.Process == nil {
 		return
 	}
+	proc.cmd.WaitDelay = 0
 	_ = proc.cmd.Process.Kill()
 	for _, logFile := range proc.logs {
 		_ = logFile.Close()
@@ -291,7 +357,7 @@ func repoRoot() (string, error) {
 	}
 }
 
-func runCarrierPlaywrightSuite(t *testing.T, stack *browserLiveStack) error {
+func runPlaywrightSuite(t *testing.T, stack *browserLiveStack) error {
 	t.Helper()
 	root, err := repoRoot()
 	if err != nil {
@@ -307,10 +373,12 @@ func runCarrierPlaywrightSuite(t *testing.T, stack *browserLiveStack) error {
 		"BROWSER_E2E_GATEWAY_URL="+stack.gatewayURL,
 		"BROWSER_E2E_JWT="+fix.JWT,
 		"BROWSER_E2E_TENANT_ID="+fix.TenantID.String(),
-		"BROWSER_E2E_CARRIER_COMPANY_ID="+fix.CarrierID.String(),
+		"BROWSER_E2E_CARRIER_COMPANY_ID="+fix.CarrierCompanyID.String(),
+		"BROWSER_E2E_BUYER_COMPANY_ID="+fix.BuyerCompanyID.String(),
 		"BROWSER_E2E_EVENT_ID="+fix.EventID.String(),
 		"BROWSER_E2E_RFX_NUMBER="+fix.RfxNumber,
-		"BROWSER_E2E_USER_ID="+fix.CarrierUserID.String(),
+		"BROWSER_E2E_EVENT_TITLE="+fix.EventTitle,
+		"BROWSER_E2E_USER_ID="+fix.UserID.String(),
 	)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

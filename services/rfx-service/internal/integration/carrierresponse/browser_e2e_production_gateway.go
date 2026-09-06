@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-func startBrowserProductionGateway(t *testing.T, rfxServiceURL, webProcurementOrigin string, identity *browserIdentityStub) (string, *browserGatewayProcess) {
+func startBrowserProductionGateway(t *testing.T, rfxServiceURL, webProcurementOrigin, companyServiceURL string, identity *browserIdentityStub) (string, *browserGatewayProcess) {
 	t.Helper()
 	root, err := repoRoot()
 	if err != nil {
@@ -19,9 +19,10 @@ func startBrowserProductionGateway(t *testing.T, rfxServiceURL, webProcurementOr
 	openAPIDir := filepath.Join(root, "packages", "openapi")
 	env := []string{
 		"AUTH_ENABLED=true",
-		"JWT_SECRET=" + browserCarrierE2EJWTSecret,
+		"JWT_SECRET=" + browserE2EJWTSecret,
 		"RFX_SERVICE_URL=" + strings.TrimRight(rfxServiceURL, "/"),
 		"IDENTITY_SERVICE_URL=" + identity.URL(),
+		"COMPANY_SERVICE_URL=" + strings.TrimRight(companyServiceURL, "/"),
 		"CORS_ALLOWED_ORIGINS=" + webProcurementOrigin,
 		"RATE_LIMIT_ENABLED=false",
 		"OPENAPI_DIR=" + openAPIDir,

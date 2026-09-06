@@ -26,9 +26,9 @@ type browserGatewayProcess struct {
 }
 
 var (
-	apiGatewayBinaryMu     sync.Mutex
-	apiGatewayBinaryOnce   sync.Once
-	apiGatewayBinaryPath   string
+	apiGatewayBinaryMu       sync.Mutex
+	apiGatewayBinaryOnce     sync.Once
+	apiGatewayBinaryPath     string
 	apiGatewayBinaryBuildErr error
 )
 
