@@ -1326,7 +1326,10 @@ def carrier_components_block() -> str:
 """
 
 
-def global_components_block() -> str:
+def global_components_block(*, include_rfx_components: bool = False) -> str:
+    rfx_components = ""
+    if include_rfx_components:
+        rfx_components = questionnaire_components_block() + carrier_components_block()
     return """
 components:
   securitySchemes:
@@ -1503,7 +1506,7 @@ components:
         transport_mode: {type: string}
         pricing_date: {type: string, format: date}
         currency_code: {type: string}
-""" + questionnaire_components_block() + carrier_components_block() + """    HealthResponse:
+""" + rfx_components + """    HealthResponse:
       type: object
       properties:
         status:
@@ -1745,8 +1748,8 @@ def payment_components_block() -> str:
 """
 
 
-def components_block(*, include_payment_components: bool = False) -> str:
-    block = global_components_block()
+def components_block(*, include_payment_components: bool = False, include_rfx_components: bool = False) -> str:
+    block = global_components_block(include_rfx_components=include_rfx_components)
     if include_payment_components:
         block = block.rstrip() + "\n" + payment_components_block()
     return block
@@ -1758,6 +1761,7 @@ def build_spec(
     endpoints: list[tuple[str, str, str, str, bool, bool, str | None]],
     *,
     include_payment_components: bool = False,
+    include_rfx_components: bool = False,
 ) -> str:
     tags_yaml = "\n".join(f"  - name: {tag}" for tag in TAGS)
     return (
@@ -1774,7 +1778,7 @@ tags:
 {tags_yaml}
 paths:
 {render_paths(endpoints)}
-{components_block(include_payment_components=include_payment_components)}
+{components_block(include_payment_components=include_payment_components, include_rfx_components=include_rfx_components)}
 """
     ).strip() + "\n"
 
@@ -1802,6 +1806,7 @@ def main() -> None:
         "Unified HTTP API for the Freight Platform exposed via api-gateway.",
         ENDPOINTS,
         include_payment_components=True,
+        include_rfx_components=True,
     )
     (OPENAPI_DIR / "openapi.yaml").write_text(unified, encoding="utf-8")
 
@@ -1813,6 +1818,7 @@ def main() -> None:
             f"OpenAPI specification for {title}.",
             service_endpoints,
             include_payment_components=(filename == "payment-service.yaml"),
+            include_rfx_components=(filename == "rfx-service.yaml"),
         )
         (OPENAPI_DIR / filename).write_text(spec, encoding="utf-8")
 

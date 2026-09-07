@@ -15,6 +15,7 @@ func newBrowserScoringV3Router(env *testEnv) http.Handler {
 	scoreHandler := handlers.NewScoreHandler(env.scoreModelSvc, env.scoringSvc, env.rfxSvc)
 	rfxHandler := handlers.NewRfxHandler(env.rfxSvc)
 	crHandler := handlers.NewCarrierResponseHandler(env.crSvc)
+	versionHandler := handlers.NewVersionLifecycleHandler(env.versionSvc)
 	r := chi.NewRouter()
 	r.Use(captureBrowserDownstreamHeaders)
 	r.Route("/v1/rfx-events", func(r chi.Router) {
@@ -42,6 +43,10 @@ func newBrowserScoringV3Router(env *testEnv) http.Handler {
 		r.Post("/{id}/rules", qHandler.CreateRule)
 		r.Patch("/{id}/rules/{rule_id}", qHandler.UpdateRule)
 		r.Delete("/{id}/rules/{rule_id}", qHandler.DeleteRule)
+		r.Get("/{id}/versions", versionHandler.ListVersions)
+		r.Get("/{id}/versions/{version_id}", versionHandler.GetVersion)
+		r.Post("/{id}/questionnaire/publish", versionHandler.PublishQuestionnaire)
+		r.Post("/{id}/versions/fork-draft", versionHandler.ForkDraftFromPublished)
 		r.Get("/{id}/score-model", scoreHandler.GetScoreModel)
 		r.Put("/{id}/score-model", scoreHandler.PutScoreModel)
 		r.Post("/{id}/score-model/validate", scoreHandler.ValidateScoreModel)

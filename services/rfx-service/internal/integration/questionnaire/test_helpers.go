@@ -31,8 +31,10 @@ type testEnv struct {
 	auditRepo      *repository.AuditRepository
 	membershipRepo *repository.MembershipRepository
 	qRepo          *repository.QuestionnaireRepository
+	idemRepo       *repository.IdempotencyRepository
 	rfxSvc         *service.RfxService
 	qSvc           *service.QuestionnaireService
+	versionSvc     *service.VersionLifecycleService
 }
 
 type buyerFixture struct {
@@ -84,8 +86,10 @@ func setupTestEnv(t *testing.T) *testEnv {
 	auditRepo := repository.NewAuditRepository(pool)
 	membershipRepo := repository.NewMembershipRepository(pool)
 	qRepo := repository.NewQuestionnaireRepository(pool)
+	idemRepo := repository.NewIdempotencyRepository(pool)
 	rfxSvc := service.NewRfxServiceWithAtomic(pool, rfxRepo, auditRepo, membershipRepo, newAwardConversionStub(pool))
 	qSvc := service.NewQuestionnaireService(rfxRepo, qRepo, auditRepo, membershipRepo)
+	versionSvc := service.NewVersionLifecycleService(pool, rfxRepo, qRepo, idemRepo, auditRepo, rfxSvc)
 	t.Logf("isolated database=%s", dbName)
 	return &testEnv{
 		pool:           pool,
@@ -93,8 +97,10 @@ func setupTestEnv(t *testing.T) *testEnv {
 		auditRepo:      auditRepo,
 		membershipRepo: membershipRepo,
 		qRepo:          qRepo,
+		idemRepo:       idemRepo,
 		rfxSvc:         rfxSvc,
 		qSvc:           qSvc,
+		versionSvc:     versionSvc,
 	}
 }
 

@@ -65,6 +65,7 @@ func startBrowserScoringLiveStack(t *testing.T) *browserScoringLiveStack {
 	adminOrigin := "http://127.0.0.1:" + adminPort
 	procOrigin := "http://127.0.0.1:" + procurementPort
 	gatewayURL, gatewayProc := startBrowserProductionGatewayWithOrigins(t, rfxURL, adminOrigin+","+procOrigin, identity)
+	forkDraftViaProductionGateway(t, gatewayURL, fix)
 	adminURL, adminCmd := startBrowserWebAdmin(t, gatewayURL, fix.browserStudioFixture, adminPort)
 	procURL, procCmd := startBrowserWebProcurement(t, gatewayURL, fix.browserStudioFixture, procurementPort)
 	waitForHTTP200(t, adminURL+"/login", 120*time.Second)

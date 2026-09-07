@@ -4,6 +4,8 @@ package studio
 
 import (
 	"context"
+	"io"
+	"net/http"
 	"testing"
 	"time"
 
@@ -88,34 +90,23 @@ func seedBrowserScoringV3Fixture(t *testing.T, env *testEnv) browserScoringFixtu
 	}); err != nil {
 		t.Fatalf("fleet question: %v", err)
 	}
-	if _, err := env.pool.Exec(ctx, `UPDATE rfx.rfx_versions SET status='PUBLISHED', published_at=now() WHERE id=$1`, version.ID); err != nil {
-		t.Fatalf("publish version: %v", err)
+	eventRecord, err := env.rfxRepo.GetEventByID(ctx, event.ID, fix.TenantID)
+	if err != nil {
+		t.Fatalf("reload event before publish: %v", err)
+	}
+	version, err = env.qRepo.GetVersionByID(ctx, version.ID, fix.TenantID)
+	if err != nil {
+		t.Fatalf("reload draft version before publish: %v", err)
+	}
+	if _, err := env.versionSvc.PublishQuestionnaire(ctx, fix.BuyerA, event.ID, "browser-scoring-fixture-publish", domain.PublishQuestionnaireInput{
+		ExpectedEventVersion: eventRecord.Version,
+		ExpectedDraftVersion: version.Version,
+		ChangeSummary:        "Browser scoring fixture publish",
+	}); err != nil {
+		t.Fatalf("publish questionnaire: %v", err)
 	}
 	if _, err := env.rfxSvc.PublishEvent(ctx, fix.BuyerA, event.ID); err != nil {
 		t.Fatalf("publish event: %v", err)
-	}
-
-	// Studio loads the current draft version; after publish this draft is empty until re-seeded for UI binding pickers.
-	draft, err := env.qRepo.GetOrCreateDraftVersion(ctx, fix.TenantID, event.ID)
-	if err != nil {
-		t.Fatalf("post-publish draft: %v", err)
-	}
-	if _, err := env.pool.Exec(ctx, `UPDATE rfx.rfx_versions SET questionnaire_enabled = TRUE WHERE id = $1`, draft.ID); err != nil {
-		t.Fatalf("enable draft questionnaire: %v", err)
-	}
-	draftSec, err := env.qSvc.CreateSection(ctx, fix.BuyerA, event.ID, domain.CreateSectionInput{SectionCode: "MAIN", Title: "Main"})
-	if err != nil {
-		t.Fatalf("draft section: %v", err)
-	}
-	if _, err := env.qSvc.CreateQuestion(ctx, fix.BuyerA, event.ID, draftSec.ID, domain.CreateQuestionInput{
-		QuestionCode: "ADR_AVAILABLE", QuestionType: domain.QuestionTypeYesNo, Label: "ADR Available", Required: true,
-	}); err != nil {
-		t.Fatalf("draft adr question: %v", err)
-	}
-	if _, err := env.qSvc.CreateQuestion(ctx, fix.BuyerA, event.ID, draftSec.ID, domain.CreateQuestionInput{
-		QuestionCode: "FLEET_COUNT", QuestionType: domain.QuestionTypeNumber, Label: "Fleet Count", Required: true,
-	}); err != nil {
-		t.Fatalf("draft fleet question: %v", err)
 	}
 
 	legacy := createDraftEvent(t, env, fix, "RFX-LEGACY-NO-SCORE")
@@ -163,5 +154,27 @@ func seedBrowserScoringV3Fixture(t *testing.T, env *testEnv) browserScoringFixtu
 		CarrierBJWT:       browserStudioJWT(carrierBUser, fix.TenantID),
 		LegacyEventID:     legacy.ID,
 		LegacyRfxNumber:   legacy.RfxNumber,
+	}
+}
+
+func forkDraftViaProductionGateway(t *testing.T, gatewayURL string, fix browserScoringFixture) {
+	t.Helper()
+	url := gatewayURL + "/api/v1/rfx-events/" + fix.EventID.String() + "/versions/fork-draft"
+	req, err := http.NewRequest(http.MethodPost, url, nil)
+	if err != nil {
+		t.Fatalf("fork-draft request: %v", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+fix.JWT)
+	req.Header.Set("X-Company-ID", fix.CompanyID.String())
+	req.Header.Set("Idempotency-Key", "browser-scoring-v3-fork-draft")
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("fork-draft do: %v", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("fork-draft via gateway: status=%d body=%s", resp.StatusCode, string(body))
 	}
 }
