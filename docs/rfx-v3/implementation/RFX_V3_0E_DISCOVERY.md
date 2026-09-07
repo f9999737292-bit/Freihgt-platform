@@ -163,7 +163,7 @@ v3.0E **must not** break these invariants.
 
 **Gap:** This blocks draft responses from save/resume/submit after a new questionnaire version is published, violating v3.0E continuity requirements.
 
-**Remediation (frozen):** Responses remain pinned to the version selected at creation; workspace/save/submit load questionnaire by **response.rfx_version_id**, not current published. New responses pin the then-current PUBLISHED version. See architecture freeze §3.3.
+**Remediation (frozen):** Responses remain pinned to the version selected at creation; **`rfx_version_id` immutable from creation** (draft, resume, submit, after submit). Workspace/save/submit load questionnaire by **response.rfx_version_id**, not current published. `save_version` is concurrency-only and does not permit re-pinning. See architecture freeze §3.4.
 
 ---
 
@@ -185,7 +185,7 @@ v3.0E **must not** break these invariants.
 
 | ID | Risk | Mitigation (architecture) |
 |---|---|---|
-| CR-E01 | Silent re-bind of responses to new version | Fail-closed: responses keep original `rfx_version_id`; new version for new responses only |
+| CR-E01 | Silent re-bind of responses to new version | Fail-closed: `rfx_version_id` immutable from creation; new responses only on new pin |
 | CR-E02 | Editing published questionnaire in place | Immutable status + DB/service guards + 409 on mutation |
 | CR-E03 | Restore rewinds mutable state | Restore always creates **new** DRAFT row with incremented `version_number` |
 | CR-E04 | Score history loss on material change | Old `score_model_version` rows preserved; no DELETE on publish |
@@ -236,4 +236,4 @@ v3.0E **must not** break these invariants.
 
 ---
 
-**NEXT_ACTION:** Controller final review (`CONTROLLER_FINAL_REVIEW_V3_0E_ARCHITECTURE`).
+**NEXT_ACTION:** `CONTROLLER_ACCEPTANCE_V3_0E_ARCHITECTURE`
