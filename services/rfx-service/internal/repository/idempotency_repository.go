@@ -11,6 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+var ErrIdempotencyRecordActive = errors.New("idempotency record not expired")
+
 type IdempotencyRepository struct {
 	pool *pgxpool.Pool
 	exec dbExecutor
@@ -63,11 +65,19 @@ func (r *IdempotencyRepository) Store(ctx context.Context, record IdempotencyRec
 	if len(record.ResponseBody) == 0 {
 		record.ResponseBody = json.RawMessage(`{}`)
 	}
-	_, err := r.db().Exec(ctx, `
+	tag, err := r.db().Exec(ctx, `
 		INSERT INTO rfx.rfx_idempotency_records (
 			tenant_id, actor_id, operation, aggregate_scope, idempotency_key,
 			request_body_hash, response_status, response_body_json, expires_at
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)
+		ON CONFLICT (tenant_id, actor_id, operation, aggregate_scope, idempotency_key)
+		DO UPDATE SET
+			request_body_hash = EXCLUDED.request_body_hash,
+			response_status = EXCLUDED.response_status,
+			response_body_json = EXCLUDED.response_body_json,
+			created_at = now(),
+			expires_at = EXCLUDED.expires_at
+		WHERE rfx.rfx_idempotency_records.expires_at <= now()
 	`,
 		record.TenantID,
 		record.ActorID,
@@ -79,7 +89,13 @@ func (r *IdempotencyRepository) Store(ctx context.Context, record IdempotencyRec
 		string(record.ResponseBody),
 		record.ExpiresAt,
 	)
-	return mapDBError(err)
+	if err != nil {
+		return mapDBError(err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrIdempotencyRecordActive
+	}
+	return nil
 }
 
 func scanIdempotencyRecord(row interface{ Scan(dest ...any) error }) (*IdempotencyRecord, error) {

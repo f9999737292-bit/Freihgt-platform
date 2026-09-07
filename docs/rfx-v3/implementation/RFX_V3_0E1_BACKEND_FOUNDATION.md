@@ -22,7 +22,7 @@
 | Feature flag `RFX_VERSIONING_V3_ENABLED=false` default | Implemented |
 | OpenAPI + gateway routes | Implemented |
 | Domain unit tests | Implemented |
-| PostgreSQL integration tests E1-INT-01..20 | Implemented (require `TEST_DATABASE_URL`) |
+| PostgreSQL integration tests E1-INT-01..31 | Implemented (require `TEST_DATABASE_URL`) |
 
 ## 2. Deferred (not in E1)
 
@@ -43,13 +43,16 @@
 
 **Up:**
 - Adds `change_summary`, `superseded_at`, `superseded_by_version_id`, `rescoring_required` to `rfx.rfx_versions`
+- Self-supersede CHECK on `superseded_by_version_id`
 - Partial unique indexes: one `DRAFT`, one `PUBLISHED` per event
-- Adds `rfx_events.published_version_id` with FK
+- Supporting unique index `uq_rfx_versions_tenant_event_id` on `(tenant_id, rfx_event_id, id)`
+- Adds `rfx_events.published_version_id` without simple FK; composite FK `(tenant_id, id, published_version_id) → rfx_versions(tenant_id, rfx_event_id, id)`
+- Composite FK for `superseded_by_version_id` within same tenant/event
 - Fail-closed guard when multiple `PUBLISHED` rows exist per event
-- Deterministic backfill of `published_version_id`
-- Creates `rfx.rfx_idempotency_records`
+- Deterministic backfill of `published_version_id` (same tenant/event only)
+- Creates `rfx.rfx_idempotency_records` with atomic expired-key replacement via upsert
 
-**Down:** Drops idempotency table, indexes, and E1-added columns only.
+**Down:** Drops composite FKs, CHECK, supporting unique index, idempotency table, indexes, and E1-added columns only.
 
 ## 4. API surface
 
@@ -83,7 +86,7 @@ Routes are gated by `RFX_VERSIONING_V3_ENABLED` in rfx-service (404 when disable
 | Domain unit tests | `go test ./internal/domain/...` | PASS |
 | rfx-service unit tests | `go test $(go list ./... \| grep -v integration)` | PASS |
 | Integration compile | `go test -tags=integration -c ./internal/integration/versionlifecycle/` | PASS |
-| Integration E1-INT-01..20 | `go test -tags=integration ./internal/integration/versionlifecycle/...` | NOT_RUN locally (`TEST_DATABASE_URL` unset) |
+| Integration E1-INT-01..31 | `go test -tags=integration ./internal/integration/versionlifecycle/...` | NOT_RUN locally (`TEST_DATABASE_URL` unset) |
 | OpenAPI generate/validate | `make openapi-check` | See PR CI |
 
 ## 8. Audit events
