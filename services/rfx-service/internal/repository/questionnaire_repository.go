@@ -20,6 +20,12 @@ type QuestionnaireRepository struct {
 	exec dbExecutor
 }
 
+const rfxVersionSelectColumns = `
+	id, tenant_id, rfx_event_id, version_number, status, questionnaire_enabled,
+	change_summary, published_at, published_by, superseded_at, superseded_by_version_id,
+	rescoring_required, created_at, updated_at, version
+`
+
 func NewQuestionnaireRepository(pool *pgxpool.Pool) *QuestionnaireRepository {
 	return &QuestionnaireRepository{pool: pool}
 }
@@ -32,9 +38,14 @@ func (r *QuestionnaireRepository) db() dbExecutor {
 }
 
 func (r *QuestionnaireRepository) GetOrCreateDraftVersion(ctx context.Context, tenantID, eventID uuid.UUID) (*domain.RfxVersion, error) {
-	const draftQuery = `SELECT draft_version_id FROM rfx.rfx_events WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`
+	const draftQuery = `
+		SELECT draft_version_id, published_version_id
+		FROM rfx.rfx_events
+		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+	`
 	var draftID *uuid.UUID
-	if err := r.db().QueryRow(ctx, draftQuery, eventID, tenantID).Scan(&draftID); err != nil {
+	var publishedID *uuid.UUID
+	if err := r.db().QueryRow(ctx, draftQuery, eventID, tenantID).Scan(&draftID, &publishedID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, apperrors.NotFound("rfx event not found")
 		}
@@ -49,6 +60,17 @@ func (r *QuestionnaireRepository) GetOrCreateDraftVersion(ctx context.Context, t
 			return version, nil
 		}
 	}
+	if publishedID != nil {
+		return r.GetVersionByID(ctx, *publishedID, tenantID)
+	}
+	published, err := r.GetPublishedVersionForEvent(ctx, eventID, tenantID)
+	if err == nil {
+		return published, nil
+	}
+	var publishedErr *apperrors.AppError
+	if !errors.As(err, &publishedErr) || publishedErr.Code != apperrors.CodeNotFound {
+		return nil, err
+	}
 	var maxNum int
 	if err := r.db().QueryRow(ctx, `SELECT COALESCE(MAX(version_number),0) FROM rfx.rfx_versions WHERE rfx_event_id=$1 AND tenant_id=$2 AND deleted_at IS NULL`, eventID, tenantID).Scan(&maxNum); err != nil {
 		return nil, mapDBError(err)
@@ -56,7 +78,7 @@ func (r *QuestionnaireRepository) GetOrCreateDraftVersion(ctx context.Context, t
 	const insert = `
 		INSERT INTO rfx.rfx_versions (tenant_id, rfx_event_id, version_number, status, questionnaire_enabled)
 		VALUES ($1,$2,$3,$4,FALSE)
-		RETURNING id, tenant_id, rfx_event_id, version_number, status, questionnaire_enabled, published_at, published_by, created_at, updated_at, version`
+		RETURNING ` + rfxVersionSelectColumns
 	row := r.db().QueryRow(ctx, insert, tenantID, eventID, maxNum+1, domain.RfxVersionStatusDraft)
 	ver, err := scanRfxVersion(row)
 	if err != nil {
@@ -71,7 +93,7 @@ func (r *QuestionnaireRepository) GetOrCreateDraftVersion(ctx context.Context, t
 
 func (r *QuestionnaireRepository) GetVersionByID(ctx context.Context, id, tenantID uuid.UUID) (*domain.RfxVersion, error) {
 	row := r.db().QueryRow(ctx, `
-		SELECT id, tenant_id, rfx_event_id, version_number, status, questionnaire_enabled, published_at, published_by, created_at, updated_at, version
+		SELECT `+rfxVersionSelectColumns+`
 		FROM rfx.rfx_versions WHERE id=$1 AND tenant_id=$2 AND deleted_at IS NULL`, id, tenantID)
 	ver, err := scanRfxVersion(row)
 	if err != nil {
@@ -87,7 +109,7 @@ func (r *QuestionnaireRepository) TouchDraftVersion(ctx context.Context, version
 	row := r.db().QueryRow(ctx, `
 		UPDATE rfx.rfx_versions SET updated_at=now(), version=version+1
 		WHERE id=$1 AND tenant_id=$2 AND deleted_at IS NULL AND status=$3 AND version=$4
-		RETURNING id, tenant_id, rfx_event_id, version_number, status, questionnaire_enabled, published_at, published_by, created_at, updated_at, version`,
+		RETURNING `+rfxVersionSelectColumns,
 		versionID, tenantID, domain.RfxVersionStatusDraft, expectedVersion)
 	ver, err := scanRfxVersion(row)
 	if err != nil {
@@ -513,7 +535,23 @@ type scannable interface{ Scan(dest ...any) error }
 
 func scanRfxVersion(row scannable) (*domain.RfxVersion, error) {
 	var v domain.RfxVersion
-	if err := row.Scan(&v.ID, &v.TenantID, &v.RfxEventID, &v.VersionNumber, &v.Status, &v.QuestionnaireEnabled, &v.PublishedAt, &v.PublishedBy, &v.CreatedAt, &v.UpdatedAt, &v.Version); err != nil {
+	if err := row.Scan(
+		&v.ID,
+		&v.TenantID,
+		&v.RfxEventID,
+		&v.VersionNumber,
+		&v.Status,
+		&v.QuestionnaireEnabled,
+		&v.ChangeSummary,
+		&v.PublishedAt,
+		&v.PublishedBy,
+		&v.SupersededAt,
+		&v.SupersededByVersionID,
+		&v.RescoringRequired,
+		&v.CreatedAt,
+		&v.UpdatedAt,
+		&v.Version,
+	); err != nil {
 		return nil, err
 	}
 	return &v, nil
@@ -708,7 +746,7 @@ func intPtr(v int) *int { return &v }
 
 func (r *QuestionnaireRepository) GetPublishedVersionForEvent(ctx context.Context, eventID, tenantID uuid.UUID) (*domain.RfxVersion, error) {
 	row := r.db().QueryRow(ctx, `
-		SELECT id, tenant_id, rfx_event_id, version_number, status, questionnaire_enabled, published_at, published_by, created_at, updated_at, version
+		SELECT `+rfxVersionSelectColumns+`
 		FROM rfx.rfx_versions
 		WHERE rfx_event_id = $1 AND tenant_id = $2 AND status = $3 AND deleted_at IS NULL
 		ORDER BY version_number DESC
@@ -722,4 +760,3 @@ func (r *QuestionnaireRepository) GetPublishedVersionForEvent(ctx context.Contex
 	}
 	return ver, nil
 }
-

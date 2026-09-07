@@ -26,17 +26,23 @@ const (
 )
 
 type RfxVersion struct {
-	ID                  uuid.UUID
-	TenantID            uuid.UUID
-	RfxEventID          uuid.UUID
-	VersionNumber       int
-	Status              string
-	QuestionnaireEnabled bool
-	PublishedAt         *time.Time
-	PublishedBy         *uuid.UUID
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
-	Version             int
+	ID                    uuid.UUID
+	TenantID              uuid.UUID
+	RfxEventID            uuid.UUID
+	VersionNumber         int
+	Status                string
+	QuestionnaireEnabled  bool
+	IsCurrentPublished    bool
+	IsActiveDraft         bool
+	ChangeSummary         *string
+	PublishedAt           *time.Time
+	PublishedBy           *uuid.UUID
+	SupersededAt          *time.Time
+	SupersededByVersionID *uuid.UUID
+	RescoringRequired     bool
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+	Version               int
 }
 
 type Section struct {
@@ -53,32 +59,32 @@ type Section struct {
 }
 
 type Question struct {
-	ID                   uuid.UUID
-	TenantID             uuid.UUID
-	SectionID            uuid.UUID
-	QuestionCode         string
-	QuestionType         string
-	Label                string
-	HelpText             *string
-	Required             bool
-	ValidationRuleJSON   json.RawMessage
-	SortOrder            int
-	CreatedAt            time.Time
-	UpdatedAt            time.Time
-	Version              int
-	Options              []QuestionOption
+	ID                 uuid.UUID
+	TenantID           uuid.UUID
+	SectionID          uuid.UUID
+	QuestionCode       string
+	QuestionType       string
+	Label              string
+	HelpText           *string
+	Required           bool
+	ValidationRuleJSON json.RawMessage
+	SortOrder          int
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+	Version            int
+	Options            []QuestionOption
 }
 
 type QuestionOption struct {
-	ID          uuid.UUID
-	TenantID    uuid.UUID
-	QuestionID  uuid.UUID
-	OptionCode  string
-	Label       string
-	SortOrder   int
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	Version     int
+	ID         uuid.UUID
+	TenantID   uuid.UUID
+	QuestionID uuid.UUID
+	OptionCode string
+	Label      string
+	SortOrder  int
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	Version    int
 }
 
 type QuestionRule struct {

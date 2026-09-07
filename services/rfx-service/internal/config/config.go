@@ -9,14 +9,15 @@ import (
 )
 
 type Config struct {
-	ServiceName               string
-	Environment               string
-	HTTPPort                  int
-	LogLevel                  string
-	DatabaseURL               string
-	InternalServiceToken      string
-	TransportOrderServiceURL  string
-	DeadlineWorker            DeadlineWorkerConfig
+	ServiceName              string
+	Environment              string
+	HTTPPort                 int
+	LogLevel                 string
+	DatabaseURL              string
+	InternalServiceToken     string
+	TransportOrderServiceURL string
+	RfxVersioningV3Enabled   bool
+	DeadlineWorker           DeadlineWorkerConfig
 }
 
 type DeadlineWorkerConfig struct {
@@ -57,6 +58,7 @@ func Load() (Config, error) {
 		DatabaseURL:              databaseURL,
 		InternalServiceToken:     os.Getenv("INTERNAL_SERVICE_TOKEN"),
 		TransportOrderServiceURL: os.Getenv("TRANSPORT_ORDER_SERVICE_URL"),
+		RfxVersioningV3Enabled:   parseBool(getEnv("RFX_VERSIONING_V3_ENABLED", "false")),
 		DeadlineWorker:           deadlineWorker,
 	}, nil
 }

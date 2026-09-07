@@ -45,6 +45,7 @@ func main() {
 	qRepo := repository.NewQuestionnaireRepository(db.Pool)
 	answerRepo := repository.NewAnswerRepository(db.Pool)
 	scoreRepo := repository.NewScoreRepository(db.Pool)
+	idemRepo := repository.NewIdempotencyRepository(db.Pool)
 	frRepo := repository.NewFreightRequestRepository(db.Pool)
 	bidRepo := repository.NewBidRepository(db.Pool)
 	membershipRepo := repository.NewMembershipRepository(db.Pool)
@@ -57,6 +58,7 @@ func main() {
 
 	rfxSvc := service.NewRfxServiceWithAtomic(db.Pool, rfxRepo, auditRepo, membershipRepo, toClient)
 	qSvc := service.NewQuestionnaireService(rfxRepo, qRepo, auditRepo, membershipRepo)
+	versionSvc := service.NewVersionLifecycleService(db.Pool, rfxRepo, qRepo, idemRepo, auditRepo, rfxSvc)
 	scoringSvc := service.NewScoringService(db.Pool, rfxRepo, answerRepo, qRepo, scoreRepo, auditRepo)
 	crSvc := service.NewCarrierResponseServiceWithScoring(db.Pool, rfxRepo, answerRepo, qRepo, auditRepo, membershipRepo, rfxSvc, scoringSvc)
 	scoreModelSvc := service.NewScoreModelService(rfxRepo, scoreRepo, qRepo, auditRepo, membershipRepo, rfxSvc)
@@ -69,7 +71,7 @@ func main() {
 	deadlineMetrics := worker.NewMetrics(cfg.ServiceName)
 	deadlineWorker := worker.NewDeadlineWorker(cfg.DeadlineWorker, rfxSvc, worker.RealClock(), log, deadlineMetrics)
 
-	router := httpserver.NewRouter(log, db.Pool, cfg, rfxSvc, qSvc, crSvc, scoreModelSvc, scoringSvc, frSvc, bidSvc, pricingSvc)
+	router := httpserver.NewRouter(log, db.Pool, cfg, rfxSvc, qSvc, versionSvc, crSvc, scoreModelSvc, scoringSvc, frSvc, bidSvc, pricingSvc)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

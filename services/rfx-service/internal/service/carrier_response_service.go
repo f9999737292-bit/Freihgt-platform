@@ -370,22 +370,21 @@ func (s *CarrierResponseService) ensureCarrierResponse(
 	if err := domain.ValidateResponseDeadlineOpen(event.ResponseDeadline, nowUTC()); err != nil {
 		return uuid.Nil, nil, nil, err
 	}
-	published, err := s.q.GetPublishedVersionForEvent(ctx, eventID, actor.TenantID)
-	if err != nil {
-		return uuid.Nil, nil, nil, err
-	}
-	if !published.QuestionnaireEnabled {
-		return uuid.Nil, nil, nil, apperrors.Validation("questionnaire is not enabled for this RFx event", map[string]any{"field": "questionnaire_enabled"})
-	}
-	questionnaire, err := s.q.LoadQuestionnaire(ctx, published.ID, actor.TenantID)
-	if err != nil {
-		return uuid.Nil, nil, nil, err
-	}
-
 	response, err := s.rfx.GetResponseByEventAndCompany(ctx, eventID, carrierCompanyID, actor.TenantID)
 	if err != nil {
 		var appErr *apperrors.AppError
 		if !errors.As(err, &appErr) || appErr.Code != apperrors.CodeNotFound {
+			return uuid.Nil, nil, nil, err
+		}
+		published, err := s.q.GetPublishedVersionForEvent(ctx, eventID, actor.TenantID)
+		if err != nil {
+			return uuid.Nil, nil, nil, err
+		}
+		if !published.QuestionnaireEnabled {
+			return uuid.Nil, nil, nil, apperrors.Validation("questionnaire is not enabled for this RFx event", map[string]any{"field": "questionnaire_enabled"})
+		}
+		questionnaire, err := s.q.LoadQuestionnaire(ctx, published.ID, actor.TenantID)
+		if err != nil {
 			return uuid.Nil, nil, nil, err
 		}
 		versionID := published.ID
@@ -407,19 +406,34 @@ func (s *CarrierResponseService) ensureCarrierResponse(
 			}
 		} else {
 			response = created
+			return carrierCompanyID, response, questionnaire, nil
 		}
 	}
+
 	if response.RfxVersionID == nil {
+		published, err := s.q.GetPublishedVersionForEvent(ctx, eventID, actor.TenantID)
+		if err != nil {
+			return uuid.Nil, nil, nil, err
+		}
+		if !published.QuestionnaireEnabled {
+			return uuid.Nil, nil, nil, apperrors.Validation("questionnaire is not enabled for this RFx event", map[string]any{"field": "questionnaire_enabled"})
+		}
 		response, err = s.rfx.PinResponseVersion(ctx, response.ID, actor.TenantID, published.ID)
 		if err != nil {
 			return uuid.Nil, nil, nil, err
 		}
-	} else if *response.RfxVersionID != published.ID {
-		return uuid.Nil, nil, nil, apperrors.Conflict("response is bound to a different questionnaire version", map[string]any{
-			"field":          "rfx_version_id",
-			"response_version": response.RfxVersionID.String(),
-			"published_version": published.ID.String(),
-		})
+	}
+
+	if response.RfxVersionID == nil {
+		return uuid.Nil, nil, nil, apperrors.Validation("carrier response is not bound to a published questionnaire version", map[string]any{"field": "rfx_version_id"})
+	}
+
+	questionnaire, err := s.q.LoadQuestionnaire(ctx, *response.RfxVersionID, actor.TenantID)
+	if err != nil {
+		return uuid.Nil, nil, nil, err
+	}
+	if !questionnaire.QuestionnaireEnabled {
+		return uuid.Nil, nil, nil, apperrors.Validation("questionnaire is not enabled for this RFx event", map[string]any{"field": "questionnaire_enabled"})
 	}
 	return carrierCompanyID, response, questionnaire, nil
 }
@@ -486,7 +500,7 @@ func validationFailed(details []domain.ValidationErrorDetail) *apperrors.AppErro
 
 func saveVersionConflict(response domain.RfxResponse) *apperrors.AppError {
 	details := map[string]any{
-		"field":               "save_version",
+		"field":                "save_version",
 		"current_save_version": response.SaveVersion,
 	}
 	if response.LastSavedAt != nil {
