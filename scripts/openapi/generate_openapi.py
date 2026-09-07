@@ -843,7 +843,7 @@ def render_paths(endpoints: list[tuple[str, str, str, str, bool, bool, str | Non
     return "\n".join(chunks)
 
 
-def questionnaire_components_block() -> str:
+def questionnaire_prefix_schemas_block() -> str:
     return """    RfxSaveDraftRequest:
       type: object
       properties:
@@ -1023,7 +1023,31 @@ def questionnaire_components_block() -> str:
           type: array
           items:
             $ref: '#/components/schemas/RfxConditionalExpression'
-    RfxPublishQuestionnaireRequest:
+"""
+
+
+def questionnaire_base_version_record_block() -> str:
+    return """    RfxVersionRecord:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        tenant_id: {type: string, format: uuid}
+        rfx_event_id: {type: string, format: uuid}
+        version_number: {type: integer}
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED, SUPERSEDED, ARCHIVED]
+        questionnaire_enabled: {type: boolean}
+        published_at: {type: string, format: date-time, nullable: true}
+        published_by: {type: string, format: uuid, nullable: true}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        version: {type: integer}
+"""
+
+
+def questionnaire_version_lifecycle_e1_schemas_block() -> str:
+    return """    RfxPublishQuestionnaireRequest:
       type: object
       required: [expected_event_version, expected_draft_version, change_summary]
       properties:
@@ -1072,7 +1096,11 @@ def questionnaire_components_block() -> str:
           $ref: '#/components/schemas/RfxVersionRecord'
         questionnaire:
           $ref: '#/components/schemas/RfxQuestionnaireDefinition'
-    RfxSection:
+"""
+
+
+def questionnaire_entity_schemas_block() -> str:
+    return """    RfxSection:
       type: object
       properties:
         id: {type: string, format: uuid}
@@ -1219,6 +1247,18 @@ def questionnaire_components_block() -> str:
 """
 
 
+def questionnaire_components_block(*, include_e1_version_lifecycle: bool = False) -> str:
+    parts = [
+        questionnaire_prefix_schemas_block(),
+    ]
+    if include_e1_version_lifecycle:
+        parts.append(questionnaire_version_lifecycle_e1_schemas_block())
+    else:
+        parts.append(questionnaire_base_version_record_block())
+    parts.append(questionnaire_entity_schemas_block())
+    return "".join(parts)
+
+
 def carrier_components_block() -> str:
     return """    RfxCarrierAnswerBatchPatch:
       type: object
@@ -1326,10 +1366,11 @@ def carrier_components_block() -> str:
 """
 
 
-def global_components_block(*, include_rfx_components: bool = False) -> str:
-    rfx_components = ""
-    if include_rfx_components:
-        rfx_components = questionnaire_components_block() + carrier_components_block()
+def global_components_block(*, include_e1_version_lifecycle: bool = False) -> str:
+    rfx_components = (
+        questionnaire_components_block(include_e1_version_lifecycle=include_e1_version_lifecycle)
+        + carrier_components_block()
+    )
     return """
 components:
   securitySchemes:
@@ -1748,8 +1789,8 @@ def payment_components_block() -> str:
 """
 
 
-def components_block(*, include_payment_components: bool = False, include_rfx_components: bool = False) -> str:
-    block = global_components_block(include_rfx_components=include_rfx_components)
+def components_block(*, include_payment_components: bool = False, include_e1_version_lifecycle: bool = False) -> str:
+    block = global_components_block(include_e1_version_lifecycle=include_e1_version_lifecycle)
     if include_payment_components:
         block = block.rstrip() + "\n" + payment_components_block()
     return block
@@ -1761,7 +1802,7 @@ def build_spec(
     endpoints: list[tuple[str, str, str, str, bool, bool, str | None]],
     *,
     include_payment_components: bool = False,
-    include_rfx_components: bool = False,
+    include_e1_version_lifecycle: bool = False,
 ) -> str:
     tags_yaml = "\n".join(f"  - name: {tag}" for tag in TAGS)
     return (
@@ -1778,7 +1819,7 @@ tags:
 {tags_yaml}
 paths:
 {render_paths(endpoints)}
-{components_block(include_payment_components=include_payment_components, include_rfx_components=include_rfx_components)}
+{components_block(include_payment_components=include_payment_components, include_e1_version_lifecycle=include_e1_version_lifecycle)}
 """
     ).strip() + "\n"
 
@@ -1806,7 +1847,7 @@ def main() -> None:
         "Unified HTTP API for the Freight Platform exposed via api-gateway.",
         ENDPOINTS,
         include_payment_components=True,
-        include_rfx_components=True,
+        include_e1_version_lifecycle=True,
     )
     (OPENAPI_DIR / "openapi.yaml").write_text(unified, encoding="utf-8")
 
@@ -1818,7 +1859,7 @@ def main() -> None:
             f"OpenAPI specification for {title}.",
             service_endpoints,
             include_payment_components=(filename == "payment-service.yaml"),
-            include_rfx_components=(filename == "rfx-service.yaml"),
+            include_e1_version_lifecycle=(filename == "rfx-service.yaml"),
         )
         (OPENAPI_DIR / filename).write_text(spec, encoding="utf-8")
 

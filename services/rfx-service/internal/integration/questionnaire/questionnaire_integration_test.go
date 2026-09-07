@@ -410,11 +410,28 @@ func TestPublishedVersionMutationDenied(t *testing.T) {
 	}
 	enableQuestionnaireByVersionID(t, env, fix.TenantID, studio.DraftVersion.ID)
 
-	if _, err := env.qSvc.CreateSection(ctx, fix.BuyerA, event.ID, domain.CreateSectionInput{
+	sec, err := env.qSvc.CreateSection(ctx, fix.BuyerA, event.ID, domain.CreateSectionInput{
 		SectionCode: "PUBLISHED_SEC",
 		Title:       "Published Section",
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("create section before publish: %v", err)
+	}
+	if _, err := env.qSvc.CreateQuestion(ctx, fix.BuyerA, event.ID, sec.ID, domain.CreateQuestionInput{
+		QuestionCode: "Q1",
+		QuestionType: domain.QuestionTypeText,
+		Label:        "Question 1",
+		Required:     true,
+	}); err != nil {
+		t.Fatalf("create question before publish: %v", err)
+	}
+
+	readiness, err := env.qSvc.ValidatePublish(ctx, fix.BuyerA, event.ID)
+	if err != nil {
+		t.Fatalf("validate publish readiness: %v", err)
+	}
+	if !readiness.Ready {
+		t.Fatalf("expected publish readiness pass, items=%+v", readiness.Items)
 	}
 
 	studio, err = env.qSvc.GetStudio(ctx, fix.BuyerA, event.ID)

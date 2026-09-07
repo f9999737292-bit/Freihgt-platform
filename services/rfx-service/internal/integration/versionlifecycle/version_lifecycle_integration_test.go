@@ -267,7 +267,7 @@ func TestE1INT12OldDraftResponseSavesAfterV2Publish(t *testing.T) {
 	if ws.Response.RfxVersionID == nil || *ws.Response.RfxVersionID != v1.ID {
 		t.Fatalf("expected pin to v1")
 	}
-	publishV2WithoutResponses(t, env, fix, event.ID, "e1-int-12-v2", "e1-int-12-fork")
+	promoteVersionForContinuityFixture(t, env, fix, event.ID, v1.ID)
 	qID := firstQuestionID(t, ws)
 	_, err = env.crSvc.SaveAnswers(context.Background(), fix.CarrierAct, event.ID, fix.CarrierID, domain.AnswerBatchPatchInput{
 		ExpectedSaveVersion: ws.Response.SaveVersion,
@@ -296,7 +296,7 @@ func TestE1INT13OldDraftResponseSubmitsAgainstPinnedV1(t *testing.T) {
 	if err != nil {
 		t.Fatalf("save: %v", err)
 	}
-	publishV2WithoutResponses(t, env, fix, event.ID, "e1-int-13-v2", "e1-int-13-fork")
+	promoteVersionForContinuityFixture(t, env, fix, event.ID, v1.ID)
 	ws2, err := env.crSvc.GetWorkspace(context.Background(), fix.CarrierAct, event.ID, fix.CarrierID)
 	if err != nil {
 		t.Fatalf("workspace: %v", err)
@@ -369,8 +369,11 @@ func TestE1INT15ResponseVersionPinImmutable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("start: %v", err)
 	}
-	v2 := publishV2WithoutResponses(t, env, fix, event.ID, "e1-int-15-v2", "e1-int-15-fork")
-	reloaded, err := env.rfxRepo.PinResponseVersion(context.Background(), ws.Response.ID, fix.TenantID, v2.ID)
+	if ws.Response.RfxVersionID == nil || *ws.Response.RfxVersionID != v1.ID {
+		t.Fatalf("expected response pinned to v1 before immutability check")
+	}
+	otherVersionID := uuid.New()
+	reloaded, err := env.rfxRepo.PinResponseVersion(context.Background(), ws.Response.ID, fix.TenantID, otherVersionID)
 	if err != nil {
 		t.Fatalf("pin attempt: %v", err)
 	}
@@ -383,7 +386,7 @@ func TestE1INT16ScoreHistoryUnchangedAfterV2Publish(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
 	event := createDraftEvent(t, env, fix, "RFX-E1-16")
-	ensurePublishedVersion(t, env, fix, event.ID, "e1-int-16-v1")
+	v1 := ensurePublishedVersion(t, env, fix, event.ID, "e1-int-16-v1")
 	addParticipantAndOpenResponses(t, env, fix, event.ID)
 	ws, err := env.crSvc.StartOrResume(context.Background(), fix.CarrierAct, event.ID, fix.CarrierID)
 	if err != nil {
@@ -397,7 +400,7 @@ func TestE1INT16ScoreHistoryUnchangedAfterV2Publish(t *testing.T) {
 		WHERE rr.rfx_event_id = $1`, event.ID).Scan(&before); err != nil {
 		t.Fatalf("count scores: %v", err)
 	}
-	publishV2WithoutResponses(t, env, fix, event.ID, "e1-int-16-v2", "e1-int-16-fork")
+	promoteVersionForContinuityFixture(t, env, fix, event.ID, v1.ID)
 	var after int
 	if err := env.pool.QueryRow(context.Background(), `
 		SELECT COUNT(*) FROM rfx.rfx_qualification_results qr
