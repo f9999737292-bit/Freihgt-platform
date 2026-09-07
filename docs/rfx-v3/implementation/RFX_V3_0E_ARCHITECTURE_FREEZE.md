@@ -1,9 +1,10 @@
 # RFx v3.0E — Templates + Versioning Architecture Freeze
 
-**Status:** `ARCHITECTURE_FROZEN_PENDING_CONTROLLER_ACCEPTANCE`  
-**Mode:** `DISCOVERY_AND_ARCHITECTURE_FREEZE_ONLY`  
-**Implementation:** **NOT authorized**  
-**Base:** `origin/main` @ `0db472d6a4b79d987cb98f28253383fd4a88821d`  
+**Status:** `ARCHITECTURE_FROZEN_ACCEPTED`
+**Mode:** `DISCOVERY_AND_ARCHITECTURE_FREEZE_ONLY`
+**Implementation:** `NOT_STARTED_PENDING_SEPARATE_AUTHORIZATION`
+**CONTROLLER_ACCEPTANCE:** `YES`
+**Base:** `origin/main` @ `0db472d6a4b79d987cb98f28253383fd4a88821d`
 **Normative:** ADR-002, ADR-008 (extended, not replaced)
 
 ---
@@ -638,5 +639,5 @@ Implementation must **STOP** and escalate if:
 
 ---
 
-**CONTROLLER_ACCEPTANCE:** PENDING  
-**NEXT_ACTION:** `CONTROLLER_ACCEPTANCE_V3_0E_ARCHITECTURE`
+**CONTROLLER_ACCEPTANCE:** `YES`
+**NEXT_ACTION:** `RETURN_TO_CONTROLLER_FOR_V3_0E_IMPLEMENTATION_PLAN`

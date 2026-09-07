@@ -1,8 +1,9 @@
 # RFx v3.0E — Templates + Versioning Test Strategy
 
-**Status:** `TEST_STRATEGY_FROZEN_PENDING_CONTROLLER_ACCEPTANCE`  
+**Status:** `TEST_STRATEGY_FROZEN_ACCEPTED`
 **Mode:** `DISCOVERY_AND_ARCHITECTURE_FREEZE_ONLY` — remediation PR #106
-**Implementation:** **NOT authorized**  
+**Implementation:** `NOT_STARTED_PENDING_SEPARATE_AUTHORIZATION`
+**CONTROLLER_ACCEPTANCE:** `YES`
 **Base:** `origin/main` @ `0db472d6a4b79d987cb98f28253383fd4a88821d`
 
 ---
@@ -229,4 +230,4 @@ Before v3.0E implementation acceptance:
 
 ---
 
-**NEXT_ACTION:** `CONTROLLER_ACCEPTANCE_V3_0E_ARCHITECTURE`
+**NEXT_ACTION:** `RETURN_TO_CONTROLLER_FOR_V3_0E_IMPLEMENTATION_PLAN`

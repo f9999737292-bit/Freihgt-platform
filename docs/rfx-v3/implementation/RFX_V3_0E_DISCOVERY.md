@@ -1,6 +1,9 @@
 # RFx v3.0E — Templates + Versioning Discovery Report
 
-**Status:** `DISCOVERY_COMPLETE` — implementation **NOT authorized**  
+**Status:** `DISCOVERY_COMPLETE` — implementation **NOT authorized**
+**CONTROLLER_ACCEPTANCE:** `YES`
+**ARCHITECTURE_STATUS:** `FROZEN_ACCEPTED`
+**IMPLEMENTATION_AUTHORIZED:** `NO`
 **Mode:** `DISCOVERY_AND_ARCHITECTURE_FREEZE_ONLY`  
 **Base:** `origin/main` @ `0db472d6a4b79d987cb98f28253383fd4a88821d` (PR #105 merged)  
 **Branch:** `discovery/rfx-templates-versioning-v3.0e`  
@@ -236,4 +239,4 @@ v3.0E **must not** break these invariants.
 
 ---
 
-**NEXT_ACTION:** `CONTROLLER_ACCEPTANCE_V3_0E_ARCHITECTURE`
+**NEXT_ACTION:** `RETURN_TO_CONTROLLER_FOR_V3_0E_IMPLEMENTATION_PLAN`
