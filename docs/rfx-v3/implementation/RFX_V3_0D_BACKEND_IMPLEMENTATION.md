@@ -1,8 +1,11 @@
 # RFx v3.0D — Backend Implementation Report
 
-**Status:** `IMPLEMENTED_PENDING_CONTROLLER_ACCEPTANCE`  
+**Status:** `IMPLEMENTED_ACCEPTED`  
 **Branch:** `feat/bintrans-enterprise-rfx-scoring-knockout-v3.0d`  
-**Frontend:** `IMPLEMENTED` (see `RFX_V3_0D_FRONTEND_IMPLEMENTATION.md`)
+**Frontend:** `IMPLEMENTED` (see `RFX_V3_0D_FRONTEND_IMPLEMENTATION.md`)  
+**Controller acceptance:** `YES`  
+**PR104:** merged (`70e621c91d9b45dc5da1d82fc42107bfc6db449a`)  
+**v3.0D:** `IMPLEMENTED_ACCEPTED`
 
 ---
 
@@ -73,4 +76,4 @@ Carrier B `ADR=false` answer remains persisted after submit.
 
 ---
 
-**NEXT_ACTION:** Controller final review v3.0D (`CONTROLLER_FINAL_REVIEW_V3_0D`).
+**NEXT_ACTION:** Post-merge documentation closeout complete; await controller decision on v3.0E authorization.
