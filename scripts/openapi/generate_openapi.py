@@ -135,6 +135,10 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/rfx-events/{id}/questionnaire", "get", "Get RFx questionnaire definition", "RFx", True, True, "q_questionnaire_get"),
     ("/api/v1/rfx-events/{id}/save-draft", "post", "Save RFx questionnaire draft", "RFx", True, True, "q_save_draft"),
     ("/api/v1/rfx-events/{id}/validate-publish", "post", "Validate RFx publish readiness", "RFx", True, True, "q_validate_publish"),
+    ("/api/v1/rfx-events/{id}/questionnaire/publish", "post", "Publish current RFx questionnaire draft", "RFx", True, True, "vl_publish"),
+    ("/api/v1/rfx-events/{id}/versions", "get", "List RFx questionnaire versions", "RFx", True, True, "vl_list"),
+    ("/api/v1/rfx-events/{id}/versions/fork-draft", "post", "Fork draft from published questionnaire", "RFx", True, True, "vl_fork_draft"),
+    ("/api/v1/rfx-events/{id}/versions/{version_id}", "get", "Get RFx questionnaire version detail", "RFx", True, True, "vl_detail"),
     ("/api/v1/rfx-events/{id}/carrier-response", "get", "Get carrier questionnaire response workspace", "RFx", True, True, "cr_workspace_get"),
     ("/api/v1/rfx-events/{id}/carrier-response/start", "post", "Start or resume carrier questionnaire response", "RFx", True, True, "cr_start"),
     ("/api/v1/rfx-events/{id}/carrier-response/answers", "patch", "Atomic batch autosave of carrier answers", "RFx", True, True, "cr_answers_patch"),
@@ -372,6 +376,7 @@ NO_REQUEST_BODY_PROFILES = frozenset({
     "reconcile_payment",
     "q_validate_publish",
     "q_question_duplicate",
+    "vl_fork_draft",
 })
 
 QUESTIONNAIRE_NO_CONTENT_PROFILES = frozenset({
@@ -389,11 +394,21 @@ QUESTIONNAIRE_CREATED_PROFILES = frozenset({
     "q_option_create",
     "q_rule_create",
     "q_question_duplicate",
+    "vl_fork_draft",
 })
 
 QUESTIONNAIRE_OK_POST_PROFILES = frozenset({
     "q_save_draft",
     "q_validate_publish",
+    "vl_publish",
+})
+
+VERSION_LIFECYCLE_422_PROFILES = frozenset({"vl_publish"})
+
+IDEMPOTENCY_HEADER_PROFILES = frozenset({
+    "priced_transport_order_create",
+    "vl_publish",
+    "vl_fork_draft",
 })
 
 CONTRACT_RATE_SCHEMA_REFS = {
@@ -431,6 +446,7 @@ QUESTIONNAIRE_REQUEST_BODIES = {
     "q_rule_create": """              $ref: '#/components/schemas/RfxCreateRuleRequest'""",
     "q_rule_update": """              $ref: '#/components/schemas/RfxUpdateRuleRequest'""",
     "q_rule_delete": """              $ref: '#/components/schemas/RfxVersionedMutationRequest'""",
+    "vl_publish": """              $ref: '#/components/schemas/RfxPublishQuestionnaireRequest'""",
 }
 
 CARRIER_RESPONSE_REQUEST_BODIES = {
@@ -468,6 +484,10 @@ QUESTIONNAIRE_RESPONSE_SCHEMAS = {
     "q_option_update": "RfxQuestionOption",
     "q_rule_create": "RfxQuestionRule",
     "q_rule_update": "RfxQuestionRule",
+    "vl_publish": "RfxVersionRecord",
+    "vl_list": "RfxVersionListResponse",
+    "vl_detail": "RfxVersionDetailResponse",
+    "vl_fork_draft": "RfxVersionRecord",
 }
 
 READ_RESPONSE_SCHEMAS = {
@@ -637,6 +657,17 @@ def render_parameters(path: str, method: str, with_headers: bool, profile: str |
             "            minLength: 1",
             "            maxLength: 128",
         ])
+    elif profile in IDEMPOTENCY_HEADER_PROFILES - {"priced_transport_order_create"}:
+        lines.extend([
+            "        - name: Idempotency-Key",
+            "          in: header",
+            "          required: true",
+            "          description: Client-supplied idempotency key for version lifecycle mutation (max 128 chars).",
+            "          schema:",
+            "            type: string",
+            "            minLength: 1",
+            "            maxLength: 128",
+        ])
     return "\n".join(lines) + "\n"
 
 
@@ -781,6 +812,19 @@ def render_operation(
                 "            application/json:",
                 "              schema:",
                 "                $ref: '#/components/schemas/RfxCarrierValidationFailed'",
+            ]
+        )
+    elif profile in VERSION_LIFECYCLE_422_PROFILES:
+        lines.extend(
+            [
+                "        '422':",
+                "          description: Publish blocked by readiness or impact analysis",
+                "          content:",
+                "            application/json:",
+                "              schema:",
+                "                oneOf:",
+                "                  - $ref: '#/components/schemas/ErrorResponse'",
+                "                  - $ref: '#/components/schemas/ValidationFailedResponse'",
             ]
         )
     lines.append("")
@@ -979,6 +1023,19 @@ def questionnaire_components_block() -> str:
           type: array
           items:
             $ref: '#/components/schemas/RfxConditionalExpression'
+    RfxPublishQuestionnaireRequest:
+      type: object
+      required: [expected_event_version, expected_draft_version, change_summary]
+      properties:
+        expected_event_version:
+          type: integer
+          minimum: 1
+        expected_draft_version:
+          type: integer
+          minimum: 1
+        change_summary:
+          type: string
+          minLength: 1
     RfxVersionRecord:
       type: object
       properties:
@@ -990,11 +1047,31 @@ def questionnaire_components_block() -> str:
           type: string
           enum: [DRAFT, PUBLISHED, SUPERSEDED, ARCHIVED]
         questionnaire_enabled: {type: boolean}
+        is_current_published: {type: boolean}
+        is_active_draft: {type: boolean}
+        change_summary: {type: string, nullable: true}
         published_at: {type: string, format: date-time, nullable: true}
         published_by: {type: string, format: uuid, nullable: true}
+        superseded_at: {type: string, format: date-time, nullable: true}
+        superseded_by_version_id: {type: string, format: uuid, nullable: true}
+        rescoring_required: {type: boolean}
         created_at: {type: string, format: date-time}
         updated_at: {type: string, format: date-time}
         version: {type: integer}
+    RfxVersionListResponse:
+      type: object
+      properties:
+        versions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxVersionRecord'
+    RfxVersionDetailResponse:
+      type: object
+      properties:
+        version:
+          $ref: '#/components/schemas/RfxVersionRecord'
+        questionnaire:
+          $ref: '#/components/schemas/RfxQuestionnaireDefinition'
     RfxSection:
       type: object
       properties:

@@ -1170,6 +1170,19 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/RfxConditionalExpression'
+    RfxPublishQuestionnaireRequest:
+      type: object
+      required: [expected_event_version, expected_draft_version, change_summary]
+      properties:
+        expected_event_version:
+          type: integer
+          minimum: 1
+        expected_draft_version:
+          type: integer
+          minimum: 1
+        change_summary:
+          type: string
+          minLength: 1
     RfxVersionRecord:
       type: object
       properties:
@@ -1181,11 +1194,31 @@ components:
           type: string
           enum: [DRAFT, PUBLISHED, SUPERSEDED, ARCHIVED]
         questionnaire_enabled: {type: boolean}
+        is_current_published: {type: boolean}
+        is_active_draft: {type: boolean}
+        change_summary: {type: string, nullable: true}
         published_at: {type: string, format: date-time, nullable: true}
         published_by: {type: string, format: uuid, nullable: true}
+        superseded_at: {type: string, format: date-time, nullable: true}
+        superseded_by_version_id: {type: string, format: uuid, nullable: true}
+        rescoring_required: {type: boolean}
         created_at: {type: string, format: date-time}
         updated_at: {type: string, format: date-time}
         version: {type: integer}
+    RfxVersionListResponse:
+      type: object
+      properties:
+        versions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxVersionRecord'
+    RfxVersionDetailResponse:
+      type: object
+      properties:
+        version:
+          $ref: '#/components/schemas/RfxVersionRecord'
+        questionnaire:
+          $ref: '#/components/schemas/RfxQuestionnaireDefinition'
     RfxSection:
       type: object
       properties:
