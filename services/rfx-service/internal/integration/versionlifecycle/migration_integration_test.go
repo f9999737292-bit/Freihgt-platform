@@ -58,6 +58,30 @@ func TestE1INT19MigrationBackfillPublishedVersionID(t *testing.T) {
 		t.Fatal("expected one-published constraint after migration up")
 	}
 
+	var compositePublishedFKExists bool
+	if err := env.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM pg_constraint
+			WHERE conname = 'fk_rfx_events_published_version_composite'
+		)`).Scan(&compositePublishedFKExists); err != nil {
+		t.Fatalf("check published composite fk: %v", err)
+	}
+	if !compositePublishedFKExists {
+		t.Fatal("expected published_version composite FK after migration up")
+	}
+
+	var compositeSupersededFKExists bool
+	if err := env.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM pg_constraint
+			WHERE conname = 'fk_rfx_versions_superseded_by_composite'
+		)`).Scan(&compositeSupersededFKExists); err != nil {
+		t.Fatalf("check superseded composite fk: %v", err)
+	}
+	if !compositeSupersededFKExists {
+		t.Fatal("expected superseded_by composite FK after migration up")
+	}
+
 	if err := applyMigrationFile(ctx, env.pool, "000068_rfx_version_lifecycle_v3_0e1.down.sql"); err != nil {
 		t.Fatalf("down migration: %v", err)
 	}
@@ -67,6 +91,42 @@ func TestE1INT19MigrationBackfillPublishedVersionID(t *testing.T) {
 	}
 	if legacyTableExists(t, env, "rfx_idempotency_records") {
 		t.Fatal("idempotency table must be removed after down migration")
+	}
+
+	var compositePublishedFKAfterDown bool
+	if err := env.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM pg_constraint
+			WHERE conname = 'fk_rfx_events_published_version_composite'
+		)`).Scan(&compositePublishedFKAfterDown); err != nil {
+		t.Fatalf("check published composite fk after down: %v", err)
+	}
+	if compositePublishedFKAfterDown {
+		t.Fatal("published_version composite FK must be removed after down migration")
+	}
+
+	var selfSupersedeCheckExists bool
+	if err := env.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM pg_constraint
+			WHERE conname = 'chk_rfx_versions_no_self_supersede'
+		)`).Scan(&selfSupersedeCheckExists); err != nil {
+		t.Fatalf("check self-supersede constraint after down: %v", err)
+	}
+	if selfSupersedeCheckExists {
+		t.Fatal("self-supersede CHECK must be removed after down migration")
+	}
+
+	var tenantEventIDIndexExists bool
+	if err := env.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM pg_indexes
+			WHERE schemaname = 'rfx' AND indexname = 'uq_rfx_versions_tenant_event_id'
+		)`).Scan(&tenantEventIDIndexExists); err != nil {
+		t.Fatalf("check tenant/event/id index after down: %v", err)
+	}
+	if tenantEventIDIndexExists {
+		t.Fatal("tenant/event/id unique index must be removed after down migration")
 	}
 
 	var versionStatus string

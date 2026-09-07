@@ -3,8 +3,12 @@
 ALTER TABLE rfx.rfx_versions
     ADD COLUMN IF NOT EXISTS change_summary TEXT,
     ADD COLUMN IF NOT EXISTS superseded_at TIMESTAMPTZ,
-    ADD COLUMN IF NOT EXISTS superseded_by_version_id UUID REFERENCES rfx.rfx_versions(id) ON DELETE SET NULL,
+    ADD COLUMN IF NOT EXISTS superseded_by_version_id UUID,
     ADD COLUMN IF NOT EXISTS rescoring_required BOOLEAN NOT NULL DEFAULT FALSE;
+
+ALTER TABLE rfx.rfx_versions
+    ADD CONSTRAINT chk_rfx_versions_no_self_supersede
+    CHECK (superseded_by_version_id IS NULL OR superseded_by_version_id <> id);
 
 DROP INDEX IF EXISTS uq_rfx_versions_one_draft_per_event;
 CREATE UNIQUE INDEX uq_rfx_versions_one_draft_per_event
@@ -15,9 +19,6 @@ DROP INDEX IF EXISTS uq_rfx_versions_one_published_per_event;
 CREATE UNIQUE INDEX uq_rfx_versions_one_published_per_event
     ON rfx.rfx_versions (rfx_event_id)
     WHERE status = 'PUBLISHED' AND deleted_at IS NULL;
-
-ALTER TABLE rfx.rfx_events
-    ADD COLUMN IF NOT EXISTS published_version_id UUID REFERENCES rfx.rfx_versions(id) ON DELETE SET NULL;
 
 DO $$
 BEGIN
@@ -32,6 +33,12 @@ BEGIN
     END IF;
 END $$;
 
+CREATE UNIQUE INDEX IF NOT EXISTS uq_rfx_versions_tenant_event_id
+    ON rfx.rfx_versions (tenant_id, rfx_event_id, id);
+
+ALTER TABLE rfx.rfx_events
+    ADD COLUMN IF NOT EXISTS published_version_id UUID;
+
 UPDATE rfx.rfx_events e
 SET published_version_id = v.id
 FROM rfx.rfx_versions v
@@ -43,6 +50,18 @@ WHERE v.rfx_event_id = e.id
 
 CREATE INDEX IF NOT EXISTS idx_rfx_events_published_version_id
     ON rfx.rfx_events(published_version_id);
+
+ALTER TABLE rfx.rfx_events
+    ADD CONSTRAINT fk_rfx_events_published_version_composite
+    FOREIGN KEY (tenant_id, id, published_version_id)
+    REFERENCES rfx.rfx_versions (tenant_id, rfx_event_id, id)
+    ON DELETE SET NULL;
+
+ALTER TABLE rfx.rfx_versions
+    ADD CONSTRAINT fk_rfx_versions_superseded_by_composite
+    FOREIGN KEY (tenant_id, rfx_event_id, superseded_by_version_id)
+    REFERENCES rfx.rfx_versions (tenant_id, rfx_event_id, id)
+    ON DELETE SET NULL;
 
 CREATE TABLE IF NOT EXISTS rfx.rfx_idempotency_records (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
