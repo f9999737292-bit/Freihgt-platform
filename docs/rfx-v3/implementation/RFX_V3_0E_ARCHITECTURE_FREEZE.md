@@ -39,41 +39,63 @@
 | Identifier | `template_id` (UUID) + stable `template_code` per tenant |
 | Version identifier | `template_version_id` + monotonic `version_number` per template |
 
-### 2.2 Lifecycle
+### 2.2 Aggregate lifecycle (`rfx_templates.status`)
 
 ```
-DRAFT → PUBLISHED → ARCHIVED
+ACTIVE ──archive──► ARCHIVED
+```
+
+| Status | Mutability |
+|---|---|
+| ACTIVE | Template metadata editable; version operations allowed |
+| ARCHIVED | Read-only aggregate; **normal clone forbidden** (controller-approved restore workflow excepted) |
+
+**Hard delete:** Forbidden for published template or template version rows. DRAFT-only soft-delete allowed when zero published versions exist.
+
+### 2.3 Template version lifecycle (`rfx_template_versions.status`)
+
+```
+DRAFT ──publish──► PUBLISHED ──supersede──► SUPERSEDED
          ↑
     (immutable)
 ```
 
 | Status | Mutability |
 |---|---|
-| DRAFT | Editable (sections/questions/rules copied into template version draft graph) |
-| PUBLISHED | **Immutable** snapshot |
-| ARCHIVED | Read-only; cannot clone new events |
+| DRAFT | Editable questionnaire graph in template tables |
+| PUBLISHED | **Immutable** snapshot — current published version |
+| SUPERSEDED | **Immutable** historical snapshot — compare/history/clone-with-warning |
 
-**Deletion:** Soft-delete (`deleted_at`) allowed only for DRAFT templates with zero published versions. Published templates **archive**, never hard-delete.
+| Constraint | Rule |
+|---|---|
+| Max one DRAFT | Per template — partial unique index |
+| Max one PUBLISHED | Per template — partial unique index |
+| On publish | Prior PUBLISHED → SUPERSEDED |
 
-### 2.3 Uniqueness
+**ARCHIVED does not apply to template version rows.** Aggregate retirement uses `rfx_templates.status = ARCHIVED`.
+
+### 2.4 Uniqueness and partial indexes
 
 | Constraint | Rule |
 |---|---|
 | Template code | UNIQUE `(tenant_id, template_code)` WHERE `deleted_at IS NULL` |
-| Template version | UNIQUE `(template_id, version_number)` |
-| Published template version | At most **one** PUBLISHED per template at a time (partial unique index) |
+| Template version number | UNIQUE `(template_id, version_number)` |
+| One DRAFT per template | Partial unique `(template_id)` WHERE `status = 'DRAFT' AND deleted_at IS NULL` |
+| One PUBLISHED per template | Partial unique `(template_id)` WHERE `status = 'PUBLISHED' AND deleted_at IS NULL` |
 
-### 2.4 Clone semantics (template → RFx event)
+### 2.5 Clone semantics (template → RFx event)
 
 | Step | Behavior |
 |---|---|
-| Input | `template_version_id` (must be PUBLISHED) + new event metadata |
-| Output | New `rfx_event` + new `rfx_version` DRAFT + copied questionnaire graph |
-| Provenance | Set `rfx_events.source_template_version_id` (nullable FK) |
-| Scoring | **Not copied automatically** — buyer configures scoring in Studio after clone (v3.0D model remains per-event) |
-| Responses | **None** — new event has zero responses |
+| Input (default) | `template_version_id` with status **PUBLISHED** + new event metadata |
+| Input (explicit) | `template_version_id` with status **SUPERSEDED** — allowed only via version-specific clone action; UI shows **warning** |
+| Blocked | Aggregate `ARCHIVED` — clone returns **409** (except controller-approved restore workflow) |
+| Output | New `rfx_event` + new `rfx_version` DRAFT + materialized questionnaire graph |
+| Provenance | Set `rfx_events.source_template_version_id` — **immutable** after create |
+| Scoring | **Not copied** — buyer configures in Studio (v3.0D per-event model) |
+| Responses | **None** |
 
-### 2.5 Multilingual content (RU/EN/ZH)
+### 2.6 Multilingual content (RU/EN/ZH)
 
 | Field | Behavior |
 |---|---|
@@ -87,41 +109,76 @@ DRAFT → PUBLISHED → ARCHIVED
 
 ### 3.1 Lifecycle (extends existing `rfx_versions`)
 
+**Existing DB constraint** includes `ARCHIVED` on version rows; **v3.0E semantics use only** DRAFT / PUBLISHED / SUPERSEDED. Event/aggregate retirement uses `rfx_events.status = ARCHIVED`.
+
 ```
 DRAFT ──publish──► PUBLISHED ──supersede──► SUPERSEDED
-  ▲                      │
-  │                      └── archive ──► ARCHIVED
-  │
-  └── fork from published / restore-as-draft (new DRAFT row, new version_number)
+  ▲
+  └── fork / restore-as-draft (separate command; new DRAFT row after publish)
 ```
 
 | Rule | Detail |
 |---|---|
-| Published immutability | **Absolute** — no UPDATE on sections/questions/options/rules/bindings for PUBLISHED version |
-| Material change | Creates **new** DRAFT version (increment `version_number`) |
-| Historical row | **Never overwritten** — SUPERSEDED rows remain for audit |
-| Restore | Creates **new DRAFT** copied from selected historical version; does **not** revert status of old rows |
-| Active drafts | **One** DRAFT version per event at a time |
-| Version numbering | Monotonic INT per `rfx_event_id`; gaps allowed after failed attempts (use transaction) |
-| Concurrency | `rfx_versions.version` optimistic token on DRAFT row (existing pattern) |
+| Published immutability | **Absolute** — no UPDATE on sections/questions/options/rules/bindings for PUBLISHED/SUPERSEDED |
+| Post-publish change | **Always** creates new DRAFT version (including typo/label) — OD-E06 |
+| Historical row | **Never overwritten** — SUPERSEDED remains immutable |
+| Restore | Creates **new DRAFT** with `version_number = max+1`; does not demote history |
+| Active drafts | **One** DRAFT per event — concurrent fork → **409** |
+| Version numbering | Monotonic INT per `rfx_event_id` |
+| Concurrency | `rfx_versions.version` optimistic token on DRAFT (existing) |
 | Metadata on publish | `published_at`, `published_by`, `change_summary` (required) |
 
-### 3.2 Questionnaire publish (missing today — required in v3.0E)
+### 3.2 Event columns (verified — migration/code)
 
-| Gate | Requirement |
+**Shipped today on `rfx.rfx_events`:**
+
+| Column | Source | Role |
+|---|---|---|
+| `draft_version_id` | migration 000065 | Points to active questionnaire DRAFT |
+| `version` | migration 000004 | Optimistic lock on event aggregate |
+| (no published pointer) | — | Current PUBLISHED resolved by query: `rfx_versions.status = 'PUBLISHED'` (`GetPublishedVersionForEvent`) |
+
+**Proposed in migration 000068 (denormalized pointer — not shipped):**
+
+| Column | Role |
 |---|---|
-| Readiness | Existing `EvaluatePublishReadiness` must pass (no blocking FAIL) |
-| Impact | If prior PUBLISHED exists → `ChangeImpactAnalysis` required |
-| Confirmation | Material impact with submitted responses → explicit buyer confirmation token |
-| Transaction | Publish atomically: mark old PUBLISHED → SUPERSEDED; new → PUBLISHED; set `rfx_events.draft_version_id` to new DRAFT if forking |
+| `published_version_id` | FK to current PUBLISHED `rfx_versions.id`; set in publish TX step 7 |
+| `source_template_version_id` | Provenance FK; immutable after event create (OD-E04) |
 
-### 3.3 Response binding (unchanged — frozen)
+### 3.3 Questionnaire publish transaction (frozen — 10 steps)
 
-| Entity | Pin |
+Single database transaction; **does not** create a new DRAFT implicitly.
+
+| Step | Action |
 |---|---|
-| `rfx_responses.rfx_version_id` | Set at response start to **then-current** published version |
-| Version mismatch on save | **409** if event published version changed and response not refreshed |
-| Submitted responses | **Never** re-bound to new version automatically |
+| 1 | `SELECT … FOR UPDATE` lock `rfx_events` row |
+| 2 | Validate `expected_version` token on event + draft version row |
+| 3 | Run `EvaluatePublishReadiness` — fail → **422** |
+| 4 | If prior PUBLISHED exists: validate change-impact confirmation (§6.4) |
+| 5 | Mark prior PUBLISHED version → **SUPERSEDED** (`superseded_at`, `superseded_by_version_id`) |
+| 6 | Mark current DRAFT → **PUBLISHED** (`published_at`, `published_by`, `change_summary`) |
+| 7 | Set `rfx_events.published_version_id = draft.id` (proposed column) |
+| 8 | Set `rfx_events.draft_version_id = NULL` |
+| 9 | Insert audit `rfx.version.published.v1` (+ `rfx.version.superseded.v1` if applicable) |
+| 10 | Commit |
+
+**Idempotency:** `Idempotency-Key` header **required** (§12). Retry after timeout returns stored result.
+
+**New DRAFT after publish:** Created only by explicit **fork** or **restore-as-draft** command — never inside publish TX.
+
+### 3.4 Carrier response continuity (frozen — replaces unsafe 409 rule)
+
+**Current code gap:** `ensureCarrierResponse` rejects existing responses when `response.rfx_version_id ≠ current published.id` — **must be remediated** in implementation.
+
+| Rule | Detail |
+|---|---|
+| Pin at creation | `rfx_responses.rfx_version_id` set when response is created; **never** re-bound on publish |
+| Workspace load | Questionnaire loaded by **`response.rfx_version_id`**, not current published |
+| Draft response after new publish | **Continues** save/resume/submit against pinned version |
+| New response | Pins **then-current** PUBLISHED version at create time |
+| 409 triggers | Stale `save_version` only; ownership/lifecycle violation on response itself; concurrent draft creation; idempotency/body mismatch — **not** version publish drift |
+| Submitted response | **Immutable** |
+| Closed version for new entrants | New responses use newest PUBLISHED; in-flight draft/submitted responses on older pins **complete normally** |
 
 ---
 
@@ -174,9 +231,12 @@ Diff operates on stable codes within version scope:
 | Operation | `RESTORE_DRAFT_VERSION` |
 | Input | `source_version_id` (PUBLISHED or SUPERSEDED) |
 | Effect | Creates **new** DRAFT with `version_number = max+1`, deep copy of questionnaire (+ scoring draft if present) |
-| Old DRAFT | If exists → **409** unless `force=true` with confirmation (discard draft) |
-| Published rows | **Untouched** |
-| Audit | `rfx.version.restored_as_draft.v1` with source/target version ids |
+| Existing DRAFT | **409 Conflict** — restore blocked |
+| `force=true` | **Removed** — not in architecture or API |
+| Draft destruction | **Forbidden** via restore; user must explicitly cancel/discard draft via future confirmed operation |
+| Published/SUPERSEDED rows | **Untouched** |
+| Audit | `rfx.version.restored_as_draft.v1` |
+| Idempotency | `Idempotency-Key` **required** |
 
 Restore **≠** rollback. No status demotion of published history.
 
@@ -188,11 +248,11 @@ Restore **≠** rollback. No status demotion of published history.
 
 | Class | Trigger | Publish allowed | Confirmation |
 |---|---|---|---|
-| `NON_MATERIAL` | Label/help typo, reorder only | YES (still creates new version if post-publish) | Optional |
+| `NON_MATERIAL` | Label/help/reorder-only diff (still requires new version per OD-E06) | YES | Optional confirmation |
 | `MATERIAL_NO_RESPONSES` | Structural/scoring change; zero responses | YES with preview | Recommended |
-| `MATERIAL_WITH_DRAFT_RESPONSES` | Change affects questions with in-progress answers | YES with confirmation | **Required** |
+| `MATERIAL_WITH_DRAFT_RESPONSES` | Change affects questions with in-progress answers | YES with confirmation | **Required**; pinned drafts **continue** on old version |
 | `MATERIAL_WITH_SUBMITTED_RESPONSES` | Change affects pinned version with submissions | YES with confirmation | **Required** + participant notice flag |
-| `SCORING_AFFECTING` | Criteria/binding/knockout/normalization change | YES | **Required**; `RESCORING_REQUIRED=true` for new submissions only |
+| `SCORING_AFFECTING` | Criteria/binding/knockout/normalization change | YES | **Required**; persist `RESCORING_REQUIRED=true` — **no re-score execution in v3.0E** |
 | `KNOCKOUT_AFFECTING` | Knockout rule change | YES | **Required**; never auto-reject existing submitted answers |
 
 ### 6.2 Per-class behavior
@@ -201,7 +261,7 @@ Restore **≠** rollback. No status demotion of published history.
 |---|---|---|---|---|
 | NON_MATERIAL | Continue on old pin until new publish | Unchanged | Preserved | New PUBLISHED supersedes |
 | MATERIAL_NO_RESPONSES | N/A | Unchanged | Preserved | New PUBLISHED |
-| MATERIAL_WITH_DRAFT_RESPONSES | May invalidate local drafts; server keeps last valid | Unchanged | Preserved | New PUBLISHED; new responses use new pin |
+| MATERIAL_WITH_DRAFT_RESPONSES | **Continue** save/submit on pinned version | Unchanged | Preserved | New PUBLISHED; new responses use new pin |
 | MATERIAL_WITH_SUBMITTED_RESPONSES | — | **Immutable** on old version | **Preserved** | New PUBLISHED for future responses |
 | SCORING_AFFECTING | — | Old scores remain authoritative for old pin | **Preserved** | New score model draft required on new version |
 | KNOCKOUT_AFFECTING | — | No retroactive knockout | **Preserved** | Knockout applies only to responses on new version |
@@ -216,6 +276,38 @@ Restore **≠** rollback. No status demotion of published history.
 | Edit published score model | **FORBIDDEN** (v3.0D frozen) |
 | Map missing/failed/pending to zero/rejected | **FORBIDDEN** (v3.0D frozen) |
 
+### 6.4 Material-change confirmation contract (frozen)
+
+**Impact preview response (`POST …/change-impact/preview`):**
+
+| Field | Type | Notes |
+|---|---|---|
+| `impact_analysis_id` | UUID | Server-generated |
+| `tenant_id` | UUID | |
+| `event_id` | UUID | |
+| `source_version_id` | UUID | Prior PUBLISHED (nullable on first publish) |
+| `candidate_version_id` | UUID | DRAFT being evaluated |
+| `canonical_diff_hash` | string | SHA-256 of normalized diff payload |
+| `impact_classes` | string[] | From §6.1 |
+| `affected_draft_response_count` | int | |
+| `affected_submitted_response_count` | int | |
+| `scoring_affecting` | bool | |
+| `knockout_affecting` | bool | |
+| `expires_at` | timestamp | TTL default 15 minutes |
+
+**Publish request must include:**
+
+| Field | Notes |
+|---|---|
+| `impact_analysis_id` | Required when prior PUBLISHED exists |
+| `canonical_diff_hash` | Must match preview |
+| `expected_version` | Optimistic token on DRAFT |
+| `Idempotency-Key` | Required |
+
+**Confirmation validity:** same tenant; same actor or buyer-manage delegate; same event + candidate version; unchanged diff hash; not expired.
+
+**Invalidation:** Any edit to candidate DRAFT after preview → prior confirmation **void** → publish returns **409** (stale confirmation) or **422** (missing/required confirmation) per case.
+
 ---
 
 ## 7. v3.0D compatibility (frozen FK / pinning rules)
@@ -229,7 +321,7 @@ Restore **≠** rollback. No status demotion of published history.
 | Qualification → model | `rfx_qualification_results.score_model_version` |
 | Cross-version scoring | **DENIED** — scoring engine loads model for response's pinned version only |
 
-Material publish creating new version **does not** alter existing score rows. Re-scoring, if ever triggered, is explicit buyer action on v3.0E+ and produces new rows for new model version only (deferred execution to v3.0E+ controller authorization).
+Material publish creating new version **does not** alter existing score rows. v3.0E **records** `RESCORING_REQUIRED` only; automatic and manual re-score of existing responses **deferred** beyond v3.0E (OD-E05).
 
 ---
 
@@ -249,10 +341,12 @@ Trusted identity: gateway-verified JWT → `X-Tenant-ID`, `X-User-ID` → member
 
 | Property | Rule |
 |---|---|
-| IDOR | Foreign tenant/resource → **404** (not 403) |
-| Compare | Same tenant + buyer read on event |
-| Restore | Requires `PolicyBuyerManage` equivalent |
-| Global template scope | **Not introduced** implicitly |
+| Unknown or cross-tenant resource | **404** (fail-closed) |
+| Same-tenant authenticated actor without permission | **403** |
+| Unauthenticated | **401** |
+| Immutable conflict / stale version / draft exists / idempotency conflict | **409** |
+| Readiness fail / missing or stale impact confirmation | **422** |
+| Malformed request | **400** |
 
 ---
 
@@ -273,7 +367,7 @@ Trusted identity: gateway-verified JWT → `X-Tenant-ID`, `X-User-ID` → member
 | description_i18n_json | JSONB | |
 | rfx_type | VARCHAR(32) | |
 | owner_company_id | UUID NULL | |
-| status | VARCHAR(32) | DRAFT, PUBLISHED, ARCHIVED |
+| status | VARCHAR(32) | **ACTIVE**, **ARCHIVED** |
 | version | INT | Optimistic lock |
 | created_by | UUID | |
 | created_at, updated_at, deleted_at | TIMESTAMPTZ | |
@@ -286,27 +380,55 @@ Trusted identity: gateway-verified JWT → `X-Tenant-ID`, `X-User-ID` → member
 | tenant_id | UUID NOT NULL | |
 | template_id | UUID FK | |
 | version_number | INT NOT NULL | |
-| status | VARCHAR(32) | DRAFT, PUBLISHED, ARCHIVED |
+| status | VARCHAR(32) | **DRAFT**, **PUBLISHED**, **SUPERSEDED** |
 | published_at, published_by | TIMESTAMPTZ, UUID | |
 | change_summary | TEXT | |
 | version | INT | Optimistic lock |
 
-Template questionnaire graph: reuse same section/question/option/rule tables with `rfx_template_version_id` **OR** separate normalized tables mirroring event structure. **Frozen decision:** mirror pattern — add nullable `rfx_template_version_id` to section graph with CHECK exactly one of (`rfx_version_id`, `rfx_template_version_id`) set.
+#### Template questionnaire graph (OD-E03 — separate tables)
+
+| Table | Mirrors |
+|---|---|
+| `rfx.rfx_template_sections` | `rfx_sections` structure; FK `rfx_template_version_id` |
+| `rfx.rfx_template_questions` | `rfx_questions` |
+| `rfx.rfx_template_question_options` | `rfx_question_options` |
+| `rfx.rfx_template_question_rules` | `rfx_question_rules` |
+
+**No** nullable dual-owner FK on event questionnaire tables. Clone **materializes** template rows into event-version graph.
+
+#### `rfx.rfx_idempotency_records` (proposal)
+
+| Column | Notes |
+|---|---|
+| id | UUID PK |
+| tenant_id, actor_id | Scope |
+| operation | e.g. `PUBLISH_EVENT_VERSION` |
+| aggregate_scope | event_id or template_id |
+| idempotency_key | Client header value |
+| request_body_hash | SHA-256 |
+| response_status + response_body_json | Stored first result |
+| created_at, expires_at | TTL default 24h |
 
 ### 9.2 Extensions to existing tables
 
 | Table | Addition |
 |---|---|
-| `rfx_events` | `source_template_version_id UUID NULL FK` |
+| `rfx_events` | `source_template_version_id UUID NULL FK` — immutable after insert |
+| `rfx_events` | `published_version_id UUID NULL FK` — denormalized current published pointer |
 | `rfx_versions` | `change_summary TEXT`, `superseded_at`, `superseded_by_version_id` |
-| `rfx_versions` | Partial unique: one PUBLISHED per event |
+| `rfx_versions` | Partial unique: one **DRAFT** per event |
+| `rfx_versions` | Partial unique: one **PUBLISHED** per event |
+| `rfx_template_versions` | Partial unique: one **DRAFT** per template |
+| `rfx_template_versions` | Partial unique: one **PUBLISHED** per template |
 
 ### 9.3 Indexes (minimum)
 
-- `(tenant_id, template_code)` unique partial
-- `(tenant_id, rfx_event_id, status)` on versions
-- `(template_id, version_number)` unique
-- `(rfx_event_id, version_number)` unique (exists)
+- `(tenant_id, template_code)` unique partial WHERE `deleted_at IS NULL`
+- `(tenant_id, rfx_event_id, status)` on `rfx_versions`
+- `(template_id, version_number)` unique on `rfx_template_versions`
+- `(rfx_event_id, version_number)` unique on `rfx_versions` (exists)
+- Partial uniques for DRAFT and PUBLISHED (separate indexes per §2.4, §9.2)
+- `(tenant_id, operation, aggregate_scope, idempotency_key)` unique on idempotency records
 
 ---
 
@@ -320,49 +442,71 @@ Base path: `/api/v1` via api-gateway. All endpoints require authenticated buyer 
 | POST | `/rfx-templates` | Buyer manage | `{ template_code, name_i18n, rfx_type }` | Template | 400,401,403,409 | No |
 | GET | `/rfx-templates/{id}` | Buyer read | — | Template + draft version | 401,403,404 | Safe |
 | PATCH | `/rfx-templates/{id}` | Buyer manage | metadata + `expected_version` | Template | 400,401,403,404,409 | No |
-| POST | `/rfx-templates/{id}/publish` | Buyer manage | `{ expected_version, change_summary }` | TemplateVersion | 401,403,404,409,422 | Publish idempotency key optional |
+| POST | `/rfx-templates/{id}/versions/publish` | Buyer manage | `{ expected_version, change_summary }` + **Idempotency-Key** | TemplateVersion | 400,401,403,404,409,422 | **Required** |
 | POST | `/rfx-templates/{id}/archive` | Buyer manage | — | Template | 401,403,404,409 | No |
-| POST | `/rfx-events/from-template` | Buyer manage | `{ template_version_id, title, rfx_number, ... }` | RfxEvent | 400,401,403,404,409 | No |
+| POST | `/rfx-events/from-template` | Buyer manage | `{ template_version_id, … }` + **Idempotency-Key** | RfxEvent | 400,401,403,404,409 | **Required** |
 | GET | `/rfx-events/{id}/versions` | Buyer read | — | `{ versions: VersionSummary[] }` | 401,403,404 | Safe |
 | GET | `/rfx-events/{id}/versions/{version_id}` | Buyer read | — | VersionDetail | 401,403,404 | Safe |
-| POST | `/rfx-events/{id}/versions/compare` | Buyer read | `{ source_version_id, target_version_id }` | CompareResult | 400,401,403,404 | Safe |
-| POST | `/rfx-events/{id}/versions/{version_id}/restore-draft` | Buyer manage | `{ expected_draft_absent, change_summary }` | New draft Version | 401,403,404,409,422 | No |
-| POST | `/rfx-events/{id}/questionnaire/publish` | Buyer manage | `{ expected_version, impact_confirmation_token? }` | Published Version | 400,401,403,404,409,422 | Idempotency key recommended |
-| POST | `/rfx-events/{id}/change-impact/preview` | Buyer manage | `{ candidate_version_id or patch ref }` | ChangeImpactAnalysis | 400,401,403,404,422 | Safe |
+| POST | `/rfx-events/{id}/versions/compare` | Buyer read | `{ source_version_id, target_version_id }` | CompareResult | 400,401,403,404 | Safe (no audit write) |
+| POST | `/rfx-events/{id}/versions/{version_id}/restore-draft` | Buyer manage | `{ change_summary }` + **Idempotency-Key** | New draft Version | 401,403,404,409,422 | **Required** |
+| POST | `/rfx-events/{id}/questionnaire/publish` | Buyer manage | `{ expected_version, impact_analysis_id?, canonical_diff_hash? }` + **Idempotency-Key** | Published Version | 400,401,403,404,409,422 | **Required** |
+| POST | `/rfx-events/{id}/change-impact/preview` | Buyer manage | `{ candidate_version_id }` | ChangeImpactAnalysis | 400,401,403,404,422 | Safe |
 
-### 10.1 Error semantics (mandatory)
+### 10.1 Error semantics (mandatory — unified)
 
 | Code | Use |
 |---|---|
 | 400 | Malformed body, invalid UUID |
 | 401 | Unauthenticated |
-| 403 | Authenticated but not owner/manage |
-| 404 | Cross-tenant or unknown id (fail-closed) |
-| 409 | Optimistic concurrency, immutable conflict, draft exists on restore |
-| 422 | Readiness fail, impact confirmation required/missing |
+| 403 | Same-tenant authenticated actor without permission |
+| 404 | Unknown or cross-tenant resource (fail-closed) |
+| 409 | Stale version token, immutable conflict, draft already exists, idempotency key/body mismatch, stale impact confirmation |
+| 422 | Readiness fail, missing material-impact confirmation |
 
 ---
 
 ## 11. Transaction and concurrency model (frozen)
 
-| Operation | Transaction boundary | Locks |
+| Operation | Transaction boundary | Locks / guards |
 |---|---|---|
-| Publish template | Single TX: validate → flip status → audit | Row lock template version |
-| Publish questionnaire version | TX: impact check → supersede old → publish new → update event.draft_version_id | Lock event + draft version row |
-| Restore as draft | TX: verify no draft → deep copy → audit | Lock event |
-| Clone from template | TX: create event + version + copy graph + provenance | — |
-| Concurrent draft edits | Optimistic `version` increment (existing) | — |
-| Double publish | Prevented by partial unique index + TX | |
-| Response during publish | Responses pin old version id; publish does not mutate submitted rows | |
-| Re-scoring collision | Deferred; if implemented, row-level lock on response + idempotent replace | |
+| Publish template version | Single TX: validate → supersede prior PUBLISHED → publish → audit → idempotency record | Lock template aggregate + version rows |
+| Publish event questionnaire | **10-step TX (§3.3)** — no implicit new DRAFT | Lock event + draft version |
+| Restore as draft | TX: verify **no** draft → deep copy → audit → idempotency | Lock event; **409** if draft exists |
+| Clone from template | TX: create event + version + materialize graph + provenance + idempotency | Block if template ARCHIVED |
+| Concurrent draft creation | Partial unique on DRAFT → one winner, others **409** | |
+| Concurrent draft edits | Optimistic `version` token (existing) | |
+| Double publish | Partial unique PUBLISHED + TX | |
+| Response during publish | Responses keep pinned `rfx_version_id`; publish does not mutate response rows | |
+| Re-scoring | **Out of v3.0E scope** — flag only | |
 
 **No silent last-write-wins** for material publishes or restore.
 
 ---
 
-## 12. Frontend scope (frozen)
+## 12. Idempotency contract (frozen)
 
-### 12.1 New Studio surfaces
+**Required header:** `Idempotency-Key` on:
+
+- publish template version
+- publish event version
+- restore-as-draft
+- clone event from template
+
+| Property | Rule |
+|---|---|
+| Scope key | `tenant_id` + `actor_id` + `operation` + aggregate scope (template_id or event_id) |
+| Body hash | SHA-256 of normalized request body stored with record |
+| Same key + same body | Return **stored response** (same status + body) |
+| Same key + different body | **409** idempotency conflict |
+| Persistence | Written in **same transaction** as mutating operation |
+| TTL | Default 24h retention; expired keys may be reused |
+| Network retry | Safe — does not create duplicate version/event |
+
+---
+
+## 13. Frontend scope (frozen)
+
+### 13.1 New Studio surfaces
 
 | Surface | Purpose |
 |---|---|
@@ -375,30 +519,37 @@ Base path: `/api/v1` via api-gateway. All endpoints require authenticated buyer 
 | Material-change modal | Shows ChangeImpactAnalysis + confirmation |
 | Scoring impact badge | When SCORING_AFFECTING or KNOCKOUT_AFFECTING |
 
-### 12.2 Immutable published state
+### 13.2 Immutable published state
 
 Published version opens **read-only** in Studio (existing scoring lock pattern extended to questionnaire).
 
 ---
 
-## 13. Audit events (frozen names)
+## 14. Audit events (frozen — versioned names)
 
-| Action | When |
+| Event name | When |
 |---|---|
-| `template.created` | Template create |
-| `template.published` | Template version publish |
-| `template.archived` | Template archive |
-| `rfx.version.published` | Questionnaire version publish |
-| `rfx.version.superseded` | Prior version superseded |
-| `rfx.version.restored_as_draft` | Restore operation |
-| `rfx.version.compared` | Compare invoked (optional) |
-| `rfx.event.created_from_template` | Clone |
-| `rfx.change_impact.previewed` | Impact preview |
-| `rfx.change_impact.confirmed` | Buyer confirmed material publish |
+| `rfx.template.created.v1` | Template aggregate create |
+| `rfx.template.version.published.v1` | Template version publish |
+| `rfx.template.archived.v1` | Template aggregate archive |
+| `rfx.version.published.v1` | Event questionnaire version publish |
+| `rfx.version.superseded.v1` | Prior version superseded |
+| `rfx.version.restored_as_draft.v1` | Restore-as-draft |
+| `rfx.event.created_from_template.v1` | Clone from template |
+| `rfx.change_impact.previewed.v1` | Impact preview generated |
+| `rfx.change_impact.confirmed.v1` | Buyer confirmed material publish |
+
+**Compare:** Safe GET/compare — **no mandatory domain audit write**. Security access logging via gateway/telemetry only.
 
 ---
 
-## 14. Stop conditions (implementation phase)
+## 15. Controller decisions closed (OD-E01–OD-E07)
+
+See `RFX_V3_0E_DISCOVERY.md` §7 — all **CLOSED** in remediation PR #106.
+
+---
+
+## 16. Stop conditions (implementation phase)
 
 Implementation must **STOP** and escalate if:
 
@@ -411,4 +562,4 @@ Implementation must **STOP** and escalate if:
 ---
 
 **CONTROLLER_ACCEPTANCE:** PENDING  
-**NEXT_ACTION:** Review test strategy + open decisions OD-E01–E07
+**NEXT_ACTION:** `CONTROLLER_FINAL_REVIEW_V3_0E_ARCHITECTURE`

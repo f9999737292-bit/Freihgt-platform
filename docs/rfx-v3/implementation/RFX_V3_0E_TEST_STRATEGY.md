@@ -1,7 +1,7 @@
 # RFx v3.0E — Templates + Versioning Test Strategy
 
 **Status:** `TEST_STRATEGY_FROZEN_PENDING_CONTROLLER_ACCEPTANCE`  
-**Mode:** `DISCOVERY_AND_ARCHITECTURE_FREEZE_ONLY`  
+**Mode:** `DISCOVERY_AND_ARCHITECTURE_FREEZE_ONLY` — remediation PR #106
 **Implementation:** **NOT authorized**  
 **Base:** `origin/main` @ `0db472d6a4b79d987cb98f28253383fd4a88821d`
 
@@ -43,10 +43,12 @@ Fail-closed: `REQUIRE_TEST_DATABASE=1` for integration; no mocks for browser acc
 | ID | Scenario | Assert |
 |---|---|---|
 | T-INT-01 | Create template DRAFT | Row exists, tenant scoped |
-| T-INT-02 | Publish template | PUBLISHED immutable; second publish → 409 |
-| T-INT-03 | Cross-tenant get template | 404 |
-| T-INT-04 | Archive template | Cannot clone from archived |
+| T-INT-02 | Publish template version | PUBLISHED immutable; prior PUBLISHED → SUPERSEDED; second concurrent publish → 409 |
+| T-INT-03 | Cross-tenant get template | **404** |
+| T-INT-04 | Archive template aggregate | Normal clone **409**; aggregate ARCHIVED |
 | T-INT-05 | Duplicate template_code | 409 |
+| T-INT-06 | Concurrent template draft creation | One winner; loser **409** |
+| T-INT-07 | Clone from SUPERSEDED template version | Allowed with explicit action; warning flag in response |
 
 ### 3.2 RFx versioning
 
@@ -57,8 +59,10 @@ Fail-closed: `REQUIRE_TEST_DATABASE=1` for integration; no mocks for browser acc
 | V-INT-03 | Mutate published version graph | 409 Conflict |
 | V-INT-04 | Compare v1 vs v2 | Correct diff counts |
 | V-INT-05 | Restore v1 as new draft v3 | New DRAFT; v1/v2 unchanged |
-| V-INT-06 | Restore while draft exists | 409 without force |
+| V-INT-06 | Restore while draft exists | **409** (no `force`) |
 | V-INT-07 | Optimistic concurrency on draft | Stale version → 409 |
+| V-INT-08 | Concurrent event draft fork | One winner; loser **409** |
+| V-INT-09 | Publish TX clears `draft_version_id` | No implicit new DRAFT in publish |
 
 ### 3.3 Change impact
 
@@ -69,8 +73,10 @@ Fail-closed: `REQUIRE_TEST_DATABASE=1` for integration; no mocks for browser acc
 | I-INT-03 | Add question with draft response | MATERIAL_WITH_DRAFT_RESPONSES |
 | I-INT-04 | Knockout rule change with submitted response | KNOCKOUT_AFFECTING; RESCORING_REQUIRED flag |
 | I-INT-05 | Publish without confirmation when required | 422 |
+| I-INT-06 | Stale impact confirmation after draft edit | **409** or **422** per contract |
+| I-INT-07 | Expired impact confirmation | **422** |
 
-### 3.4 v3.0D compatibility
+### 3.4 v3.0D compatibility and carrier continuity (mandatory)
 
 | ID | Scenario | Assert |
 |---|---|---|
@@ -78,6 +84,10 @@ Fail-closed: `REQUIRE_TEST_DATABASE=1` for integration; no mocks for browser acc
 | D-INT-02 | Score history for v1 response after v2 publish | qualification rows unchanged |
 | D-INT-03 | New response after v2 publish | Pins v2; scores use v2 model |
 | D-INT-04 | No silent re-score of v1 submission | Row count stable |
+| D-INT-05 | **Old draft response saveable after v2 publish** | PATCH autosave **200** against pinned v1 |
+| D-INT-06 | **Old draft response submittable against pinned v1** | Submit **200**; not 409 on version drift |
+| D-INT-07 | **New response pins newest PUBLISHED** | `rfx_version_id = v2.id` |
+| D-INT-08 | **No silent re-score after scoring-affecting change** | `RESCORING_REQUIRED` set; score rows unchanged |
 
 ### 3.5 Clone from template
 
@@ -87,13 +97,31 @@ Fail-closed: `REQUIRE_TEST_DATABASE=1` for integration; no mocks for browser acc
 | C-INT-02 | Provenance FK set | `source_template_version_id` |
 | C-INT-03 | Carrier non-member cannot clone | 403 |
 
-### 3.6 Security
+### 3.6 Idempotency
 
 | ID | Scenario | Assert |
 |---|---|---|
-| S-INT-01 | Cross-tenant compare | 404 |
-| S-INT-02 | Carrier template list | 403 |
-| S-INT-03 | tenant_id query spoof | 403 (gateway/service) |
+| ID-INT-01 | Retry publish with same Idempotency-Key + body | Same response; single version row |
+| ID-INT-02 | Same key with different payload | **409** |
+| ID-INT-03 | Retry restore-as-draft after timeout | Same draft version returned |
+| ID-INT-04 | Retry clone-from-template | Same event id returned |
+
+### 3.7 Restore safety
+
+| ID | Scenario | Assert |
+|---|---|---|
+| R-INT-01 | Existing draft blocks restore | **409** |
+| R-INT-02 | Restore never deletes draft | Draft row count unchanged on 409 |
+| R-INT-03 | SUPERSEDED source remains comparable | Compare API returns diff |
+
+### 3.8 Security (error semantics)
+
+| ID | Scenario | Assert |
+|---|---|---|
+| S-INT-01 | Cross-tenant compare | **404** |
+| S-INT-02 | Carrier template list | **403** |
+| S-INT-03 | Same-tenant buyer non-owner restore | **403** |
+| S-INT-04 | tenant_id query spoof | **403** (gateway/service) |
 
 ---
 
@@ -114,13 +142,17 @@ Fail-closed: `REQUIRE_TEST_DATABASE=1` for integration; no mocks for browser acc
 | 5 | Publish version 1 | Readiness pass; published locked |
 | 6 | Create new draft (fork) | Draft v2 editable |
 | 7 | Compare v1 vs v2 | Diff shows expected changes |
-| 8 | Restore v1 as new draft | New draft; v1 answers unchanged on old responses |
-| 9 | Submitted response immutability | Carrier submission on v1; after v2 publish, v1 score/answers visible unchanged |
-| 10 | Score history preserved | v3 score column shows v1 results for old response |
-| 11 | Cross-tenant denial | Buyer B cannot open Buyer A template |
+| 8 | Restore v1 as new draft | New draft; **409** if draft already exists |
+| 9 | Submitted response immutability | Carrier submission on v1; after v2 publish, v1 answers/scores unchanged |
+| 10 | Score history preserved | v1 results visible for old response |
+| 11 | Cross-tenant denial | Buyer B → **404** on Buyer A template |
 | 12 | Concurrency conflict | Two tabs edit draft → conflict message |
-| 13 | RU/EN/ZH | Template name and Studio labels render in each locale |
-| 14 | Legacy evaluation/award regression | web-procurement evaluation page loads; award flow unchanged |
+| 13 | RU/EN/ZH | Template name and Studio labels in each locale |
+| 14 | Legacy evaluation/award regression | web-procurement evaluation page loads |
+| 15 | **Draft response save after new publish** | Carrier continues editing on pinned v1 |
+| 16 | **Draft response submit after new publish** | Submit succeeds on pinned v1 |
+| 17 | **Template archive blocks clone** | Clone from ARCHIVED template → blocked |
+| 18 | **SUPERSEDED template version compare** | History compare still works |
 
 ### 4.2 Harness location (implementation phase)
 
@@ -171,9 +203,12 @@ Existing gates (`rfx-scoring-v3-integration`, `rfx-scoring-v3-browser-e2e`, `rfx
 | Compare | V-INT-04, Browser 7 |
 | Restore as draft | V-INT-05–06, Browser 8 |
 | Change impact | I-INT-01–05 |
-| v3.0D compatibility | D-INT-01–04, Browser 9–10 |
-| Tenant isolation | S-INT-01–03, Browser 11 |
-| Concurrency | V-INT-07, Browser 12 |
+| v3.0D compatibility + carrier continuity | D-INT-01–08, Browser 9–10, 15–16 |
+| Tenant isolation + error semantics | S-INT-01–04, Browser 11 |
+| Concurrency | V-INT-07–08, T-INT-06, Browser 12 |
+| Idempotency | ID-INT-01–04 |
+| Restore safety | R-INT-01–03, V-INT-06, Browser 8 |
+| Template archive / SUPERSEDED | T-INT-04–07, Browser 17–18 |
 | i18n | Browser 13 |
 | Legacy regression | Browser 14 |
 
@@ -190,4 +225,4 @@ Before v3.0E implementation acceptance:
 
 ---
 
-**NEXT_ACTION:** Controller review (`CONTROLLER_REVIEW_V3_0E_ARCHITECTURE`)
+**NEXT_ACTION:** `CONTROLLER_FINAL_REVIEW_V3_0E_ARCHITECTURE`

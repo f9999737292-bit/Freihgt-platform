@@ -100,7 +100,7 @@ Evidence: `packages/openapi/rfx-service.yaml`, `services/rfx-service/internal/ht
 | Template entity | Not migrated | ADR-008 spec only | Full greenfield | **Implement** `rfx_templates` + `rfx_template_versions` |
 | Template ownership | Tenant + optional owner company in spec | `RFX_V3_DATA_MODEL.md` §3.1 | No code | **Freeze:** tenant-scoped; owner company optional |
 | Tenant visibility | Tenant predicates on all RFx tables | `questionnaire_repository.go` | Templates missing | **Reuse** existing tenant isolation pattern |
-| Template lifecycle | Spec: DRAFT/ACTIVE/ARCHIVED | ADR-008 | No code | **Freeze:** DRAFT/PUBLISHED/ARCHIVED (align RFx naming) |
+| Template lifecycle | Spec: DRAFT/ACTIVE/ARCHIVED | ADR-008 | No code | **Freeze:** aggregate ACTIVE/ARCHIVED; version DRAFT/PUBLISHED/SUPERSEDED |
 | RFx version entity | `rfx_versions` table + domain | migration 000065, `questionnaire.go` | Publish workflow incomplete | **Extend** with publish/supersede API |
 | Immutable published version | Draft-only mutations enforced | `EnsureDraftVersionMutable` | No formal publish | **Implement** publish + immutability gate |
 | Create draft from published | Partial: `GetOrCreateDraftVersion` | `questionnaire_repository.go:46-70` | No supersede semantics | **Implement** explicit fork-from-published |
@@ -111,7 +111,7 @@ Evidence: `packages/openapi/rfx-service.yaml`, `services/rfx-service/internal/ht
 | Active-response protection | Response pinned to `rfx_version_id` | migration 000066, carrier service | No material-change gate | **Implement** impact classes + publish guard |
 | Scoring-model compatibility | Score model per `rfx_version_id` | migration 000067 | No cross-version scoring rules | **Freeze:** published score model immutable; new version → new model draft |
 | Audit history | `audit_events` table + recordAudit | `audit_repository.go` | No version-specific actions | **Extend** audit actions for version/template ops |
-| Archive/delete | Soft delete on version rows | `deleted_at` on versions | No archive API | **Implement** ARCHIVED status transitions |
+| Archive/delete | Soft delete on version rows | `deleted_at` on versions | No archive API | **Implement** aggregate ARCHIVED; version SUPERSEDED (not version ARCHIVED) |
 | Optimistic concurrency | `version` on draft rows; `save_version` on responses | repos + services | Present | **Reuse**; extend to template aggregates |
 | Multilingual content | i18n keys in web-admin | `apps/web-admin/i18n/*.json` | Template labels inline today | **Freeze:** template metadata i18n map; questionnaire labels per existing pattern |
 | Authorization | Buyer owner-company gate | `questionnaire_service.go:576-601` | Template roles undefined | **Freeze** matrix in architecture doc |
@@ -123,30 +123,22 @@ Evidence: `packages/openapi/rfx-service.yaml`, `services/rfx-service/internal/ht
 
 ## 5. Roadmap consistency finding
 
-**Finding:** `RFX_V3_ROADMAP.md` line 23 contains:
-
-```text
-STOP_AFTER_V3_0A=YES — no implementation tasks authorized from this stream.
-```
+**Finding:** `RFX_V3_ROADMAP.md` contained a misleading `STOP_AFTER_V3_0A=YES` marker implying no implementation beyond v3.0A.
 
 **Assessment:**
 
 | Aspect | Conclusion |
 |---|---|
-| Historical intent | Marker for the v3.0A architecture-only stream |
+| Historical intent | Marker for the completed v3.0A architecture-only stream |
 | Current accuracy | **Misleading** — v3.0B/C/D are `IMPLEMENTED_ACCEPTED` |
-| Risk | Readers may believe no implementation beyond 0.0A is authorized |
-| Silent fix | **NOT performed** in this discovery branch |
+| Controller action | **RECONCILED** in this PR — marker annotated to apply only to v3.0A stream |
 
-**Controller decision required:**
-
-Replace or annotate with explicit stream markers, e.g.:
+**Reconciled text (in roadmap):**
 
 ```text
-STOP_AFTER_V3_0A=YES — applies to v3.0A architecture stream only; does not block v3.0B–J implementation trains authorized by controller gates.
+STOP_AFTER_V3_0A=YES applies only to the completed v3.0A architecture-freeze stream.
+Subsequent release implementation requires an explicit controller gate per release.
 ```
-
-Roadmap edit deferred to separate controller-approved docs PR.
 
 ---
 
@@ -165,19 +157,27 @@ Verified in code after v3.0D merge:
 
 v3.0E **must not** break these invariants.
 
+### 6.1 Carrier response continuity gap (current code)
+
+**Evidence:** `carrier_response_service.go` `ensureCarrierResponse` loads the **current** published version and returns **409** when an existing response's `rfx_version_id` differs from that published row (lines 417–422).
+
+**Gap:** This blocks draft responses from save/resume/submit after a new questionnaire version is published, violating v3.0E continuity requirements.
+
+**Remediation (frozen):** Responses remain pinned to the version selected at creation; workspace/save/submit load questionnaire by **response.rfx_version_id**, not current published. New responses pin the then-current PUBLISHED version. See architecture freeze §3.3.
+
 ---
 
-## 7. Open decisions (controller input required)
+## 7. Controller decisions closed
 
-| ID | Topic | Options | Recommendation |
-|---|---|---|---|
-| OD-E01 | Global/cross-tenant templates | Defer vs tenant-admin publish | **DEFER** to post-v3.0E |
-| OD-E02 | Multiple concurrent event drafts | One draft vs many | **One active DRAFT** per event (simpler concurrency) |
-| OD-E03 | `questionnaire_snapshot_json` on publish | Snapshot column vs normalized copy | **Normalized copy** (existing tables); optional JSON snapshot deferred |
-| OD-E04 | Template version ↔ event version linkage | Provenance FK vs audit-only | **Provenance FK** on event: `source_template_version_id` nullable |
-| OD-E05 | Re-scoring trigger | Manual buyer action vs automatic job | **Manual/automatic both deferred**; v3.0E records `RESCORING_REQUIRED` flag only |
-| OD-E06 | Non-material publish without new version | Allow in-place typo fix | **DENY** for questionnaire/scoring graph; typos via new draft version |
-| OD-E07 | `SUPERSEDED` vs `ARCHIVED` | Use SUPERSEDED on publish of successor | **SUPERSEDED** when newer PUBLISHED exists; ARCHIVED = explicit retire |
+| ID | Decision | Status |
+|---|---|---|
+| **OD-E01** | Global/cross-tenant templates **DEFERRED**. v3.0E supports **tenant-scoped templates only**. | **CLOSED** |
+| **OD-E02** | **One active DRAFT** per event and **one active DRAFT** per template. Concurrent draft creation → **409**. | **CLOSED** |
+| **OD-E03** | Template questionnaire graph in **separate normalized tables** (`rfx_template_sections`, `rfx_template_questions`, `rfx_template_question_options`, `rfx_template_question_rules`). **No** dual-owner nullable FK on event questionnaire tables. Clone materializes template graph into event-version graph. | **CLOSED** |
+| **OD-E04** | Nullable provenance FK `rfx_events.source_template_version_id`. **Immutable** after event creation. | **CLOSED** |
+| **OD-E05** | v3.0E computes and persists **`RESCORING_REQUIRED` only**. Automatic and manual re-score of existing responses **not in v3.0E**. No silent re-score. | **CLOSED** |
+| **OD-E06** | **Any** questionnaire/scoring graph change after publication creates a **new DRAFT version**. In-place edits of published graph **forbidden** (including typo/label changes). | **CLOSED** |
+| **OD-E07** | **Separate aggregate and version lifecycle:** template aggregate ACTIVE→ARCHIVED; template/event version DRAFT→PUBLISHED→SUPERSEDED. ARCHIVED applies to aggregate/event retirement, **not** as substitute for SUPERSEDED version history. | **CLOSED** |
 
 ---
 
@@ -236,4 +236,4 @@ v3.0E **must not** break these invariants.
 
 ---
 
-**NEXT_ACTION:** Controller review architecture freeze (`RFX_V3_0E_ARCHITECTURE_FREEZE.md`).
+**NEXT_ACTION:** Controller final review (`CONTROLLER_FINAL_REVIEW_V3_0E_ARCHITECTURE`).

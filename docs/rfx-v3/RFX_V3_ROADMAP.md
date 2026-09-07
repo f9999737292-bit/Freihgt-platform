@@ -13,14 +13,14 @@
 | **v3.0B** | Questionnaire Core | Sections, questions, types, conditional rules, buyer Studio builder | **IMPLEMENTED_ACCEPTED** |
 | **v3.0C** | Carrier Response | Autosave, resume, error UX, submit gate | **IMPLEMENTED_ACCEPTED** |
 | **v3.0D** | Scoring + Knockout | Score models, knockout, explainability | **IMPLEMENTED_ACCEPTED** |
-| **v3.0E** | Templates + Versioning | Template library, immutable published versions, compare/restore | Planned |
+| **v3.0E** | Templates + Versioning | Template library, immutable published versions, compare/restore | **ARCHITECTURE_FROZEN_PENDING_CONTROLLER_ACCEPTANCE** |
 | **v3.0F** | Qualification Pool | Qualification results, pools, RFI→RFQ handoff | Planned |
 | **v3.0G** | Carrier 360 | Profile autofill, freshness, confirmation | Planned |
 | **v3.0H** | Analytics + Explainability | Dashboards, score drill-down, audit views | Planned |
 | **v3.0I** | AI | Bounded assist — extraction, suggestions, explanations | Planned |
 | **v3.0J** | Enterprise Hardening | Approval chains, notifications, outbox, OpenAPI parity, performance | Planned |
 
-**STOP_AFTER_V3_0A=YES** — no implementation tasks authorized from this stream.
+**STOP_AFTER_V3_0A=YES** applies only to the completed v3.0A architecture-freeze stream. Subsequent release implementation requires an explicit controller gate per release.
 
 ---
 
