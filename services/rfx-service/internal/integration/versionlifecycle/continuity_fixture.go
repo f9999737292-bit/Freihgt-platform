@@ -16,6 +16,12 @@ func promoteVersionForContinuityFixture(t *testing.T, env *testEnv, fix buyerFix
 	ctx := context.Background()
 	v2ID := uuid.New()
 	if _, err := env.pool.Exec(ctx, `
+		UPDATE rfx.rfx_versions
+		SET status = 'SUPERSEDED', superseded_at = now()
+		WHERE id = $1 AND tenant_id = $2`, v1ID, fix.TenantID); err != nil {
+		t.Fatalf("supersede v1 before continuity v2 insert: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `
 		INSERT INTO rfx.rfx_versions (
 			id, tenant_id, rfx_event_id, version_number, status, questionnaire_enabled,
 			published_at, published_by, change_summary
@@ -29,9 +35,9 @@ func promoteVersionForContinuityFixture(t *testing.T, env *testEnv, fix buyerFix
 	}
 	if _, err := env.pool.Exec(ctx, `
 		UPDATE rfx.rfx_versions
-		SET status = 'SUPERSEDED', superseded_at = now(), superseded_by_version_id = $3
+		SET superseded_by_version_id = $3
 		WHERE id = $1 AND tenant_id = $2`, v1ID, fix.TenantID, v2ID); err != nil {
-		t.Fatalf("supersede v1: %v", err)
+		t.Fatalf("link superseded v1 to v2: %v", err)
 	}
 	if _, err := env.pool.Exec(ctx, `
 		UPDATE rfx.rfx_events

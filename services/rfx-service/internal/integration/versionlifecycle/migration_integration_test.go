@@ -90,8 +90,8 @@ func TestE1INT20MigrationFailsOnAmbiguousMultiplePublished(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected migration to fail on ambiguous published rows")
 	}
-	if !strings.Contains(err.Error(), "multiple PUBLISHED") {
-		t.Fatalf("unexpected migration error: %v", err)
+	if !strings.Contains(err.Error(), "uq_rfx_versions_one_published_per_event") {
+		t.Fatalf("expected unique published constraint failure, got: %v", err)
 	}
 
 	if legacyColumnExists(t, env, "published_version_id") {
