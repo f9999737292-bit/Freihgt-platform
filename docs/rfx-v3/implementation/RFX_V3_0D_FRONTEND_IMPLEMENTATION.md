@@ -1,9 +1,12 @@
 # RFx v3.0D — Frontend + Browser Acceptance Report
 
-**Status:** `IMPLEMENTED_PENDING_CONTROLLER_ACCEPTANCE`  
+**Status:** `IMPLEMENTED_ACCEPTED`  
 **Branch:** `feat/bintrans-enterprise-rfx-scoring-knockout-v3.0d`  
 **Backend:** `PASS` (frozen)  
-**Frontend:** `IMPLEMENTED`
+**Frontend:** `IMPLEMENTED`  
+**Controller acceptance:** `YES`  
+**PR104:** merged (`70e621c91d9b45dc5da1d82fc42107bfc6db449a`)  
+**v3.0D:** `IMPLEMENTED_ACCEPTED`
 
 ---
 
@@ -50,4 +53,4 @@ Recovery fixes (2026-09-06): evaluation workspace progressive load, procurement 
 
 ---
 
-**NEXT_ACTION:** `CONTROLLER_FINAL_REVIEW_V3_0D`
+**NEXT_ACTION:** Post-merge documentation closeout complete; await controller decision on v3.0E authorization.
