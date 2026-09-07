@@ -76,7 +76,7 @@ Fail-closed: `REQUIRE_TEST_DATABASE=1` for integration; no mocks for browser acc
 | I-INT-06 | Stale impact confirmation after draft edit | **409** |
 | I-INT-07 | Expired impact confirmation | **422** |
 | I-INT-08 | Impact analysis for different event (same tenant) | **404** |
-| I-INT-09 | Successful publish sets `consumed_at` | Row consumed; reuse without idempotency → **422** or **409** |
+| I-INT-09 | Row consumed; reuse with new/missing Idempotency-Key | **409**; original matching idempotent replay returns stored response |
 
 ### 3.4 v3.0D compatibility and carrier continuity (mandatory)
 
@@ -108,6 +108,7 @@ Fail-closed: `REQUIRE_TEST_DATABASE=1` for integration; no mocks for browser acc
 | ID-INT-02 | Same key with different payload | **409** |
 | ID-INT-03 | Retry restore-as-draft after timeout | Same draft version returned |
 | ID-INT-04 | Retry clone-from-template | Same event id returned |
+| ID-INT-05 | Successful publish replay with same key/body after consumed analysis | Original stored response; no duplicate publish |
 
 ### 3.7 Restore safety
 
@@ -209,7 +210,7 @@ Existing gates (`rfx-scoring-v3-integration`, `rfx-scoring-v3-browser-e2e`, `rfx
 | v3.0D compatibility + carrier continuity | D-INT-01–09, Browser 9–10, 15–16 |
 | Tenant isolation + error semantics | S-INT-01–04, Browser 11 |
 | Concurrency | V-INT-07–08, T-INT-06, Browser 12 |
-| Idempotency | ID-INT-01–04 |
+| Idempotency | ID-INT-01–05, I-INT-09 |
 | Restore safety | R-INT-01–03, V-INT-06, Browser 8 |
 | Template archive / SUPERSEDED | T-INT-04–07, Browser 17–18 |
 | i18n | Browser 13 |

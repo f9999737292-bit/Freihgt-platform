@@ -322,10 +322,20 @@ Restore **≠** rollback. No status demotion of published history.
 | Actor lacks permission | **403** |
 | Unknown resource or impact analysis for different tenant/event/version | **404** |
 | Candidate draft changed after preview; stale `canonical_diff_hash` or `expected_version` | **409** |
+| `consumed_at IS NOT NULL` and request is **not** a successful replay of the same `Idempotency-Key` + body hash | **409** |
 | Required impact confirmation missing | **422** |
 | Impact analysis expired (`expires_at` passed) | **422** |
 
-**Single-use:** Successful publish sets `consumed_at` in the same transaction. Repeat publish handled via `Idempotency-Key`, not by reusing consumed analysis.
+**Consumed impact analysis and idempotency (frozen):**
+
+| Rule | Detail |
+|---|---|
+| Consumption | Successful publish sets `consumed_at` in the same transaction |
+| Reuse with new/missing key | `consumed_at IS NOT NULL` + no matching idempotency replay → **409 Conflict** |
+| Successful replay | Same `Idempotency-Key` + same request-body hash → return **stored original response** (even after consumption) |
+| Key/body mismatch | Same `Idempotency-Key` + different body → **409** |
+| New key on consumed analysis | Consumed impact analysis **cannot** be reused with a **new** `Idempotency-Key` → **409** |
+| Duplicate publish | Idempotent replay does **not** create a second published version |
 
 **Cleanup:** Expired/unconsumed rows may be deleted only after retention window (default 7 days).
 
@@ -380,7 +390,7 @@ Trusted identity: gateway-verified JWT → `X-Tenant-ID`, `X-User-ID` → member
 | Impact analysis for different tenant/event/version | **404** |
 | Same-tenant authenticated actor without permission | **403** |
 | Unauthenticated | **401** |
-| Stale version token / draft exists / idempotency conflict / stale diff hash or expected_version after preview | **409** |
+| Stale version token / draft exists / idempotency conflict / stale diff hash or expected_version after preview / consumed impact analysis without matching idempotent replay | **409** |
 | Readiness fail / missing required impact confirmation / expired impact analysis | **422** |
 | Malformed request | **400** |
 
@@ -526,7 +536,7 @@ Base path: `/api/v1` via api-gateway. All endpoints require authenticated buyer 
 | 401 | Unauthenticated |
 | 403 | Same-tenant authenticated actor without permission |
 | 404 | Unknown or cross-tenant resource; impact analysis for different tenant/event/version |
-| 409 | Stale version token, immutable conflict, draft already exists, idempotency key/body mismatch, stale diff hash or expected_version after preview |
+| 409 | Stale version token, immutable conflict, draft already exists, idempotency key/body mismatch, stale diff hash or expected_version after preview, **consumed impact analysis without matching idempotent replay** |
 | 422 | Readiness fail, **missing required** impact confirmation, **expired** impact analysis |
 
 ---
@@ -562,8 +572,9 @@ Base path: `/api/v1` via api-gateway. All endpoints require authenticated buyer 
 |---|---|
 | Scope key | `tenant_id` + `actor_id` + `operation` + aggregate scope (template_id or event_id) |
 | Body hash | SHA-256 of normalized request body stored with record |
-| Same key + same body | Return **stored response** (same status + body) |
+| Same key + same body | Return **stored response** (same status + body) — including after impact analysis consumed |
 | Same key + different body | **409** idempotency conflict |
+| Consumed impact analysis | Replay with **same** key + body allowed; **new/missing** key → **409** |
 | Persistence | Written in **same transaction** as mutating operation |
 | TTL | Default 24h retention; expired keys may be reused |
 | Network retry | Safe — does not create duplicate version/event |
