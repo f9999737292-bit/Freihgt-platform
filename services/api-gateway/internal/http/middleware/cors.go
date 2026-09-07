@@ -12,6 +12,7 @@ func CORS(allowedOrigins []string) func(http.Handler) http.Handler {
 		"Authorization",
 		"X-Tenant-ID",
 		"X-Company-ID",
+		"X-User-ID",
 		"X-Request-ID",
 		"X-Locale",
 	}, ", ")

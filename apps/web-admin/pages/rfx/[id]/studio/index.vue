@@ -2,6 +2,8 @@
 
 import { RFX_QUESTIONNAIRE_API_KEY, useRfxQuestionnaireApi } from '~/composables/useRfxQuestionnaireApi'
 
+import { RFX_SCORE_MODEL_API_KEY, useRfxScoreModelApi } from '~/composables/useRfxScoreModelApi'
+
 import { buildStudioNavSteps, resolveStudioStep } from '~/components/rfx/studio/studioNav'
 
 
@@ -22,9 +24,13 @@ const eventId = computed(() => String(route.params.id))
 
 const api = useRfxQuestionnaireApi(eventId)
 
+const scoreModelApi = useRfxScoreModelApi(eventId)
+
 
 
 provide(RFX_QUESTIONNAIRE_API_KEY, api)
+
+provide(RFX_SCORE_MODEL_API_KEY, scoreModelApi)
 
 
 
@@ -183,6 +189,14 @@ watch(eventId, loadStudio)
           :sections="api.studio.value?.sections ?? []"
 
         />
+
+      </template>
+
+
+
+      <template v-else-if="activeStep === 'scoring'">
+
+        <RfxStudioRfxScoringWorkspace :event-id="eventId" />
 
       </template>
 

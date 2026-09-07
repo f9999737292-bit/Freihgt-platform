@@ -38,13 +38,18 @@ type CarrierQuestionnaireStore interface {
 }
 
 type CarrierResponseService struct {
-	rfx   CarrierResponseStore
+	rfx     CarrierResponseStore
 	answers CarrierAnswerStore
-	q     CarrierQuestionnaireStore
-	audit AuditRecorder
-	actors ActorResolver
-	tx    *repository.TransactionRunner
-	auth  *RfxService
+	q       CarrierQuestionnaireStore
+	audit   AuditRecorder
+	actors  ActorResolver
+	tx      *repository.TransactionRunner
+	auth    *RfxService
+	scoring ScoringTrigger
+}
+
+type ScoringTrigger interface {
+	CalculateForSubmittedResponse(ctx context.Context, tenantID, responseID uuid.UUID) (*domain.ScoringRunResult, error)
 }
 
 func NewCarrierResponseService(
@@ -56,12 +61,25 @@ func NewCarrierResponseService(
 	actors ActorResolver,
 	auth *RfxService,
 ) *CarrierResponseService {
+	return NewCarrierResponseServiceWithScoring(pool, rfx, answers, q, audit, actors, auth, nil)
+}
+
+func NewCarrierResponseServiceWithScoring(
+	pool *pgxpool.Pool,
+	rfx *repository.RfxRepository,
+	answers *repository.AnswerRepository,
+	q *repository.QuestionnaireRepository,
+	audit AuditRecorder,
+	actors ActorResolver,
+	auth *RfxService,
+	scoring ScoringTrigger,
+) *CarrierResponseService {
 	var tx *repository.TransactionRunner
 	if pool != nil {
 		tx = repository.NewTransactionRunner(pool)
 	}
 	return &CarrierResponseService{
-		rfx: rfx, answers: answers, q: q, audit: audit, actors: actors, tx: tx, auth: auth,
+		rfx: rfx, answers: answers, q: q, audit: audit, actors: actors, tx: tx, auth: auth, scoring: scoring,
 	}
 }
 
@@ -299,6 +317,13 @@ func (s *CarrierResponseService) Submit(
 	})
 	if err != nil {
 		return nil, err
+	}
+	if s.scoring != nil && submitted != nil {
+		if _, scoreErr := s.scoring.CalculateForSubmittedResponse(ctx, actor.TenantID, submitted.ID); scoreErr != nil {
+			_ = recordAudit(ctx, s.audit, actor, carrierCompanyID, "rfx_response", submitted.ID, "response.scoring_failed", map[string]any{
+				"error_class": "SCORING_FAILURE",
+			})
+		}
 	}
 	submittedAt := nowUTC()
 	if submitted.SubmittedAt != nil {
