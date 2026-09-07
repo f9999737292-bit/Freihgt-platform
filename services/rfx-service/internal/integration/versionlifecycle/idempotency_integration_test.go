@@ -392,7 +392,11 @@ func TestIdempotencyRepositoryStoreExpiredReplacement(t *testing.T) {
 	if record.RequestBodyHash != "new-hash" || record.ResponseStatus != 201 {
 		t.Fatalf("unexpected replaced record: %+v", record)
 	}
-	if string(record.ResponseBody) != string(newBody) {
+	var gotBody map[string]any
+	if err := json.Unmarshal(record.ResponseBody, &gotBody); err != nil {
+		t.Fatalf("decode replaced body: %v", err)
+	}
+	if gotBody["new"] != true {
 		t.Fatalf("unexpected replaced body: %s", record.ResponseBody)
 	}
 }

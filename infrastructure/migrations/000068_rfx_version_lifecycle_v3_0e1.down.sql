@@ -15,7 +15,7 @@ ALTER TABLE rfx.rfx_events
 ALTER TABLE rfx.rfx_versions
     DROP CONSTRAINT IF EXISTS chk_rfx_versions_no_self_supersede;
 
-DROP INDEX IF EXISTS uq_rfx_versions_tenant_event_id;
+DROP INDEX IF EXISTS rfx.uq_rfx_versions_tenant_event_id;
 
 DROP INDEX IF EXISTS uq_rfx_versions_one_published_per_event;
 DROP INDEX IF EXISTS uq_rfx_versions_one_draft_per_event;
