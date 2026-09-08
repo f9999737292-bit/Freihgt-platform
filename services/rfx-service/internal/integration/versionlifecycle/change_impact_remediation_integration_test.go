@@ -410,22 +410,30 @@ func addScoringOnlyBindingOnDraft(t *testing.T, env *testEnv, fix buyerFixture, 
 	if err != nil {
 		t.Fatalf("load draft score model: %v", err)
 	}
+	existingCriteria, err := env.scoreRepo.ListCriteriaByModel(ctx, model.ID, fix.TenantID)
+	if err != nil {
+		t.Fatalf("list draft criteria: %v", err)
+	}
+	existingBindings, err := env.scoreRepo.ListBindingsByModel(ctx, model.ID, fix.TenantID)
+	if err != nil {
+		t.Fatalf("list draft bindings: %v", err)
+	}
 	criterionID := uuid.New()
-	criteria := []domain.ScoreCriterion{{
+	criteria := append(existingCriteria, domain.ScoreCriterion{
 		ID:                criterionID,
 		CriterionCode:     "PRICE",
 		Name:              "Price",
 		Weight:            100,
-		SortOrder:         1,
+		SortOrder:         len(existingCriteria) + 1,
 		NormalizationJSON: json.RawMessage(`{"type":"BOOLEAN_MAP","true_score":100,"false_score":0}`),
-	}}
+	})
 	questionID := mustQuestionByCode(t, env, fix, draftVersionID, "FLEET_SIZE").ID
-	bindings := []domain.ScoreBinding{{
+	bindings := append(existingBindings, domain.ScoreBinding{
 		CriterionID:     criterionID,
 		QuestionID:      questionID,
 		BindingType:     "AUTOMATIC",
 		ScoringRuleJSON: json.RawMessage(`{"type":"BOOLEAN_MAP"}`),
-	}}
+	})
 	if err := env.scoreRepo.ReplaceDraftDefinition(ctx, model.ID, fix.TenantID, criteria, bindings); err != nil {
 		t.Fatalf("replace scoring-only draft definition: %v", err)
 	}
@@ -442,7 +450,7 @@ func addKnockoutBindingOnDraft(t *testing.T, env *testEnv, fix buyerFixture, dra
 		}
 		if _, err := env.pool.Exec(ctx, `
 			INSERT INTO rfx.rfx_score_models (tenant_id, rfx_version_id, model_version, status, model_type, definition_json)
-			VALUES ($1, $2, 1, 'DRAFT', 'WEIGHTED', '{}'::jsonb)
+			VALUES ($1, $2, 1, 'DRAFT', 'AUTOMATIC', '{}'::jsonb)
 		`, fix.TenantID, draftVersionID); err != nil {
 			t.Fatalf("create draft score model: %v", err)
 		}
