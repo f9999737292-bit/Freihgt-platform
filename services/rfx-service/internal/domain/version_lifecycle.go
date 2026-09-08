@@ -3,6 +3,8 @@ package domain
 import (
 	"strings"
 
+	"github.com/google/uuid"
+
 	apperrors "github.com/freight-platform/rfx-service/internal/platform/errors"
 )
 
@@ -47,6 +49,19 @@ func ValidateVersionPublishStatus(status string) error {
 
 type RestoreVersionAsDraftInput struct {
 	ChangeSummary string `json:"change_summary"`
+}
+
+// RestoreVersionAsDraftIdempotencyPayload is the canonical idempotency identity for restore.
+type RestoreVersionAsDraftIdempotencyPayload struct {
+	SourceVersionID uuid.UUID `json:"source_version_id"`
+	ChangeSummary   string    `json:"change_summary"`
+}
+
+func NewRestoreVersionAsDraftIdempotencyPayload(sourceVersionID uuid.UUID, in RestoreVersionAsDraftInput) RestoreVersionAsDraftIdempotencyPayload {
+	return RestoreVersionAsDraftIdempotencyPayload{
+		SourceVersionID: sourceVersionID,
+		ChangeSummary:   strings.TrimSpace(in.ChangeSummary),
+	}
 }
 
 func ValidateRestoreVersionAsDraftInput(in RestoreVersionAsDraftInput) error {

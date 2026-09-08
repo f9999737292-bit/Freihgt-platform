@@ -403,7 +403,7 @@ func (s *VersionLifecycleService) RestoreVersionAsDraft(
 		Operation:      domain.VersionLifecycleOperationRestoreDraft,
 		AggregateScope: eventID,
 	}
-	requestBodyHash, err := hashRequestBody(in)
+	requestBodyHash, err := hashRequestBody(domain.NewRestoreVersionAsDraftIdempotencyPayload(sourceVersionID, in))
 	if err != nil {
 		return nil, err
 	}
@@ -420,9 +420,30 @@ func (s *VersionLifecycleService) RestoreVersionAsDraft(
 		idemRepo := s.idemRepo.WithTx(tx)
 		auditRepo := s.auditRepo.WithTx(tx)
 
-		out, err := qRepo.RestoreVersionAsDraftTx(ctx, eventID, sourceVersionID, actor.TenantID, in.ChangeSummary)
+		out, questionIDMap, err := qRepo.RestoreVersionAsDraftTx(ctx, eventID, sourceVersionID, actor.TenantID, in.ChangeSummary)
 		if err != nil {
 			return err
+		}
+		if s.scoreRepo != nil {
+			sourceQuestionnaire, err := qRepo.LoadQuestionnaire(ctx, sourceVersionID, actor.TenantID)
+			if err != nil {
+				return err
+			}
+			targetQuestionnaire, err := qRepo.LoadQuestionnaire(ctx, out.ID, actor.TenantID)
+			if err != nil {
+				return err
+			}
+			if err := s.scoreRepo.WithTx(tx).CopyDraftScoringFromSource(
+				ctx,
+				actor.TenantID,
+				sourceVersionID,
+				out.ID,
+				questionIDMap,
+				sourceQuestionnaire,
+				targetQuestionnaire,
+			); err != nil {
+				return err
+			}
 		}
 		out.IsActiveDraft = true
 		out.IsCurrentPublished = false
@@ -444,10 +465,10 @@ func (s *VersionLifecycleService) RestoreVersionAsDraft(
 			return err
 		}
 		if err := recordAudit(ctx, auditRepo, actor, event.OwnerCompanyID, "rfx_questionnaire", out.ID, "rfx.version.restored_as_draft.v1", map[string]any{
-			"rfx_event_id":       eventID.String(),
-			"source_version_id":  sourceVersionID.String(),
-			"version_number":     out.VersionNumber,
-			"change_summary":     strings.TrimSpace(in.ChangeSummary),
+			"rfx_event_id":      eventID.String(),
+			"source_version_id": sourceVersionID.String(),
+			"version_number":    out.VersionNumber,
+			"change_summary":    strings.TrimSpace(in.ChangeSummary),
 		}); err != nil {
 			return err
 		}

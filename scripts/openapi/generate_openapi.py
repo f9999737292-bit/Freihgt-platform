@@ -404,6 +404,7 @@ QUESTIONNAIRE_OK_POST_PROFILES = frozenset({
     "q_save_draft",
     "q_validate_publish",
     "vl_publish",
+    "vl_compare",
 })
 
 VERSION_LIFECYCLE_422_PROFILES = frozenset({"vl_publish"})

@@ -238,7 +238,7 @@ func (r *QuestionnaireRepository) ForkDraftFromPublishedTx(ctx context.Context, 
 		return nil, mapDBError(err)
 	}
 
-	if err := r.copyQuestionnaireGraph(ctx, tenantID, source.ID, draft.ID); err != nil {
+	if _, err := r.copyQuestionnaireGraph(ctx, tenantID, source.ID, draft.ID); err != nil {
 		return nil, err
 	}
 
@@ -259,24 +259,24 @@ func (r *QuestionnaireRepository) RestoreVersionAsDraftTx(
 	ctx context.Context,
 	eventID, sourceVersionID, tenantID uuid.UUID,
 	changeSummary string,
-) (*domain.RfxVersion, error) {
+) (*domain.RfxVersion, map[uuid.UUID]uuid.UUID, error) {
 	state, err := r.LockEventVersionState(ctx, eventID, tenantID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if state.DraftVersionID != nil {
-		return nil, apperrors.Conflict("draft questionnaire version already exists", map[string]any{"field": "draft_version_id"})
+		return nil, nil, apperrors.Conflict("draft questionnaire version already exists", map[string]any{"field": "draft_version_id"})
 	}
 
 	source, err := r.LockVersionByID(ctx, sourceVersionID, tenantID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if source.RfxEventID != eventID {
-		return nil, apperrors.NotFound("rfx version not found")
+		return nil, nil, apperrors.NotFound("rfx version not found")
 	}
 	if err := domain.ValidateVersionRestoreSourceStatus(source.Status); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	maxVersionNumber := 0
@@ -285,7 +285,7 @@ func (r *QuestionnaireRepository) RestoreVersionAsDraftTx(
 		FROM rfx.rfx_versions
 		WHERE rfx_event_id = $1 AND tenant_id = $2 AND deleted_at IS NULL
 	`, eventID, tenantID).Scan(&maxVersionNumber); err != nil {
-		return nil, mapDBError(err)
+		return nil, nil, mapDBError(err)
 	}
 
 	row := r.db().QueryRow(ctx, `
@@ -296,11 +296,12 @@ func (r *QuestionnaireRepository) RestoreVersionAsDraftTx(
 	`, tenantID, eventID, maxVersionNumber+1, domain.RfxVersionStatusDraft, source.QuestionnaireEnabled, strings.TrimSpace(changeSummary))
 	draft, err := scanRfxVersion(row)
 	if err != nil {
-		return nil, mapDBError(err)
+		return nil, nil, mapDBError(err)
 	}
 
-	if err := r.copyQuestionnaireGraph(ctx, tenantID, source.ID, draft.ID); err != nil {
-		return nil, err
+	questionIDMap, err := r.copyQuestionnaireGraph(ctx, tenantID, source.ID, draft.ID)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	if _, err := r.db().Exec(ctx, `
@@ -310,10 +311,10 @@ func (r *QuestionnaireRepository) RestoreVersionAsDraftTx(
 			version = version + 1
 		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
 	`, eventID, tenantID, draft.ID); err != nil {
-		return nil, mapDBError(err)
+		return nil, nil, mapDBError(err)
 	}
 
-	return draft, nil
+	return draft, questionIDMap, nil
 }
 
 func (r *QuestionnaireRepository) CountResponsesAndScoresForEvent(ctx context.Context, eventID, tenantID uuid.UUID) (int, int, error) {
@@ -342,10 +343,10 @@ func (r *QuestionnaireRepository) CountResponsesAndScoresForEvent(ctx context.Co
 	return responseCount, scoredResponseCount, nil
 }
 
-func (r *QuestionnaireRepository) copyQuestionnaireGraph(ctx context.Context, tenantID, sourceVersionID, targetVersionID uuid.UUID) error {
+func (r *QuestionnaireRepository) copyQuestionnaireGraph(ctx context.Context, tenantID, sourceVersionID, targetVersionID uuid.UUID) (map[uuid.UUID]uuid.UUID, error) {
 	definition, err := r.LoadQuestionnaire(ctx, sourceVersionID, tenantID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	questionIDMap := make(map[uuid.UUID]uuid.UUID)
@@ -357,7 +358,7 @@ func (r *QuestionnaireRepository) copyQuestionnaireGraph(ctx context.Context, te
 			SortOrder:   intPtr(sectionWithQuestions.Section.SortOrder),
 		})
 		if err != nil {
-			return err
+			return nil, err
 		}
 		for _, sourceQuestion := range sectionWithQuestions.Questions {
 			question, err := r.CreateQuestion(ctx, tenantID, section.ID, domain.CreateQuestionInput{
@@ -370,7 +371,7 @@ func (r *QuestionnaireRepository) copyQuestionnaireGraph(ctx context.Context, te
 				SortOrder:          intPtr(sourceQuestion.SortOrder),
 			})
 			if err != nil {
-				return err
+				return nil, err
 			}
 			questionIDMap[sourceQuestion.ID] = question.ID
 			for _, option := range sourceQuestion.Options {
@@ -379,7 +380,7 @@ func (r *QuestionnaireRepository) copyQuestionnaireGraph(ctx context.Context, te
 					Label:      option.Label,
 					SortOrder:  intPtr(option.SortOrder),
 				}); err != nil {
-					return err
+					return nil, err
 				}
 			}
 		}
@@ -390,7 +391,7 @@ func (r *QuestionnaireRepository) copyQuestionnaireGraph(ctx context.Context, te
 		if rule.TargetQuestionID != nil {
 			mappedID, ok := questionIDMap[*rule.TargetQuestionID]
 			if !ok {
-				return apperrors.Internal("failed to map copied rule target question", nil)
+				return nil, apperrors.Internal("failed to map copied rule target question", nil)
 			}
 			targetQuestionID = &mappedID
 		}
@@ -400,9 +401,9 @@ func (r *QuestionnaireRepository) copyQuestionnaireGraph(ctx context.Context, te
 			ConditionJSON: rule.ConditionJSON,
 			SortOrder:     intPtr(rule.SortOrder),
 		}); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	return questionIDMap, nil
 }

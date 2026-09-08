@@ -29,12 +29,14 @@ type testEnv struct {
 	pool           *pgxpool.Pool
 	rfxRepo        *repository.RfxRepository
 	qRepo          *repository.QuestionnaireRepository
+	scoreRepo      *repository.ScoreRepository
 	answerRepo     *repository.AnswerRepository
 	idemRepo       *repository.IdempotencyRepository
 	auditRepo      *repository.AuditRepository
 	membershipRepo *repository.MembershipRepository
 	rfxSvc         *service.RfxService
 	qSvc           *service.QuestionnaireService
+	scoreModelSvc  *service.ScoreModelService
 	crSvc          *service.CarrierResponseService
 	versionSvc     *service.VersionLifecycleService
 }
@@ -93,6 +95,7 @@ func setupTestEnv(t *testing.T) *testEnv {
 	qSvc := service.NewQuestionnaireService(rfxRepo, qRepo, auditRepo, membershipRepo)
 	crSvc := service.NewCarrierResponseService(pool, rfxRepo, answerRepo, qRepo, auditRepo, membershipRepo, rfxSvc)
 	scoreRepo := repository.NewScoreRepository(pool)
+	scoreModelSvc := service.NewScoreModelService(rfxRepo, scoreRepo, qRepo, auditRepo, membershipRepo, rfxSvc)
 	versionSvc := service.NewVersionLifecycleService(pool, rfxRepo, qRepo, scoreRepo, idemRepo, auditRepo, rfxSvc)
 	t.Logf("isolated database=%s", dbName)
 
@@ -100,12 +103,14 @@ func setupTestEnv(t *testing.T) *testEnv {
 		pool:           pool,
 		rfxRepo:        rfxRepo,
 		qRepo:          qRepo,
+		scoreRepo:      scoreRepo,
 		answerRepo:     answerRepo,
 		idemRepo:       idemRepo,
 		auditRepo:      auditRepo,
 		membershipRepo: membershipRepo,
 		rfxSvc:         rfxSvc,
 		qSvc:           qSvc,
+		scoreModelSvc:  scoreModelSvc,
 		crSvc:          crSvc,
 		versionSvc:     versionSvc,
 	}
@@ -157,6 +162,7 @@ func setupLegacyMigrationTestEnv(t *testing.T) (*testEnv, func()) {
 	qSvc := service.NewQuestionnaireService(rfxRepo, qRepo, auditRepo, membershipRepo)
 	crSvc := service.NewCarrierResponseService(pool, rfxRepo, answerRepo, qRepo, auditRepo, membershipRepo, rfxSvc)
 	scoreRepo := repository.NewScoreRepository(pool)
+	scoreModelSvc := service.NewScoreModelService(rfxRepo, scoreRepo, qRepo, auditRepo, membershipRepo, rfxSvc)
 	versionSvc := service.NewVersionLifecycleService(pool, rfxRepo, qRepo, scoreRepo, idemRepo, auditRepo, rfxSvc)
 	t.Logf("legacy migration database=%s", dbName)
 
@@ -164,12 +170,14 @@ func setupLegacyMigrationTestEnv(t *testing.T) (*testEnv, func()) {
 		pool:           pool,
 		rfxRepo:        rfxRepo,
 		qRepo:          qRepo,
+		scoreRepo:      scoreRepo,
 		answerRepo:     answerRepo,
 		idemRepo:       idemRepo,
 		auditRepo:      auditRepo,
 		membershipRepo: membershipRepo,
 		rfxSvc:         rfxSvc,
 		qSvc:           qSvc,
+		scoreModelSvc:  scoreModelSvc,
 		crSvc:          crSvc,
 		versionSvc:     versionSvc,
 	}, cleanup
@@ -517,4 +525,277 @@ func assertAppErrorCode(t *testing.T, err error, code apperrors.Code) *apperrors
 		t.Fatalf("expected code %s, got %v", code, err)
 	}
 	return appErr
+}
+
+type compareWriteSnapshot struct {
+	versionCount      int
+	sectionCount      int
+	questionCount     int
+	optionCount       int
+	ruleCount         int
+	scoreModelCount   int
+	auditCount        int
+	idempotencyCount  int
+	versionUpdatedMax time.Time
+}
+
+func captureCompareWriteSnapshot(t *testing.T, env *testEnv, tenantID, eventID uuid.UUID) compareWriteSnapshot {
+	t.Helper()
+	ctx := context.Background()
+	snap := compareWriteSnapshot{}
+	if err := env.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM rfx.rfx_versions WHERE tenant_id = $1 AND rfx_event_id = $2 AND deleted_at IS NULL`,
+		tenantID, eventID).Scan(&snap.versionCount); err != nil {
+		t.Fatalf("count versions: %v", err)
+	}
+	if err := env.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM rfx.rfx_sections s
+		INNER JOIN rfx.rfx_versions v ON v.id = s.rfx_version_id AND v.tenant_id = s.tenant_id
+		WHERE v.tenant_id = $1 AND v.rfx_event_id = $2 AND v.deleted_at IS NULL`,
+		tenantID, eventID).Scan(&snap.sectionCount); err != nil {
+		t.Fatalf("count sections: %v", err)
+	}
+	if err := env.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM rfx.rfx_questions q
+		INNER JOIN rfx.rfx_sections s ON s.id = q.section_id
+		INNER JOIN rfx.rfx_versions v ON v.id = s.rfx_version_id AND v.tenant_id = s.tenant_id
+		WHERE v.tenant_id = $1 AND v.rfx_event_id = $2 AND v.deleted_at IS NULL`,
+		tenantID, eventID).Scan(&snap.questionCount); err != nil {
+		t.Fatalf("count questions: %v", err)
+	}
+	if err := env.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM rfx.rfx_question_options o
+		INNER JOIN rfx.rfx_questions q ON q.id = o.question_id
+		INNER JOIN rfx.rfx_sections s ON s.id = q.section_id
+		INNER JOIN rfx.rfx_versions v ON v.id = s.rfx_version_id AND v.tenant_id = s.tenant_id
+		WHERE v.tenant_id = $1 AND v.rfx_event_id = $2 AND v.deleted_at IS NULL`,
+		tenantID, eventID).Scan(&snap.optionCount); err != nil {
+		t.Fatalf("count options: %v", err)
+	}
+	if err := env.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM rfx.rfx_question_rules r
+		INNER JOIN rfx.rfx_versions v ON v.id = r.rfx_version_id AND v.tenant_id = r.tenant_id
+		WHERE v.tenant_id = $1 AND v.rfx_event_id = $2 AND v.deleted_at IS NULL`,
+		tenantID, eventID).Scan(&snap.ruleCount); err != nil {
+		t.Fatalf("count rules: %v", err)
+	}
+	if err := env.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM rfx.rfx_score_models sm
+		INNER JOIN rfx.rfx_versions v ON v.id = sm.rfx_version_id AND v.tenant_id = sm.tenant_id
+		WHERE v.tenant_id = $1 AND v.rfx_event_id = $2 AND v.deleted_at IS NULL`,
+		tenantID, eventID).Scan(&snap.scoreModelCount); err != nil {
+		t.Fatalf("count score models: %v", err)
+	}
+	if err := env.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM rfx.audit_events WHERE tenant_id = $1`,
+		tenantID).Scan(&snap.auditCount); err != nil {
+		t.Fatalf("count audit: %v", err)
+	}
+	if err := env.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM rfx.rfx_idempotency_records WHERE tenant_id = $1 AND aggregate_scope = $2`,
+		tenantID, eventID).Scan(&snap.idempotencyCount); err != nil {
+		t.Fatalf("count idempotency: %v", err)
+	}
+	if err := env.pool.QueryRow(ctx, `
+		SELECT COALESCE(MAX(updated_at), 'epoch'::timestamptz) FROM rfx.rfx_versions
+		WHERE tenant_id = $1 AND rfx_event_id = $2 AND deleted_at IS NULL`,
+		tenantID, eventID).Scan(&snap.versionUpdatedMax); err != nil {
+		t.Fatalf("max version updated_at: %v", err)
+	}
+	return snap
+}
+
+func attachPublishedScoringToEvent(t *testing.T, env *testEnv, fix buyerFixture, eventID uuid.UUID) {
+	t.Helper()
+	ctx := context.Background()
+	_, err := env.scoreModelSvc.PutScoreModel(ctx, fix.BuyerA, eventID, domain.PutScoreModelInput{
+		Criteria: []domain.ScoreCriterionInput{
+			{
+				CriterionCode:     "HSE",
+				Name:              "HSE",
+				Weight:            40,
+				SortOrder:         1,
+				NormalizationJSON: json.RawMessage(`{"type":"BOOLEAN_MAP","true_score":100,"false_score":0}`),
+			},
+		},
+		Bindings: []domain.ScoreBindingInput{
+			{
+				CriterionCode:    "HSE",
+				QuestionCode:     "FLEET_SIZE",
+				ScoringRuleJSON:  json.RawMessage(`{"type":"TEXT_PRESENT"}`),
+				KnockoutRuleJSON: json.RawMessage(`{"type":"BOOLEAN_EQUALS","value":false}`),
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("put score model: %v", err)
+	}
+	if _, err := env.scoreModelSvc.PublishScoreModel(ctx, fix.BuyerA, eventID); err != nil {
+		t.Fatalf("publish score model: %v", err)
+	}
+}
+
+func ensureRichPublishedVersion(t *testing.T, env *testEnv, fix buyerFixture, eventID uuid.UUID, key string) *domain.RfxVersion {
+	t.Helper()
+	ctx := context.Background()
+	draft := makeQuestionnaireDraft(t, env, fix, eventID)
+	section, err := env.qSvc.CreateSection(ctx, fix.BuyerA, eventID, domain.CreateSectionInput{
+		SectionCode: "DETAILS",
+		Title:       "Details",
+	})
+	if err != nil {
+		t.Fatalf("create details section: %v", err)
+	}
+	choiceQ, err := env.qSvc.CreateQuestion(ctx, fix.BuyerA, eventID, section.ID, domain.CreateQuestionInput{
+		QuestionCode: "COVERAGE",
+		QuestionType: domain.QuestionTypeSingleSelect,
+		Label:        "Coverage",
+		Required:     true,
+	})
+	if err != nil {
+		t.Fatalf("create choice question: %v", err)
+	}
+	if _, err := env.qSvc.CreateOption(ctx, fix.BuyerA, eventID, choiceQ.ID, domain.CreateQuestionOptionInput{
+		OptionCode: "FULL",
+		Label:      "Full",
+	}); err != nil {
+		t.Fatalf("create option full: %v", err)
+	}
+	if _, err := env.qSvc.CreateOption(ctx, fix.BuyerA, eventID, choiceQ.ID, domain.CreateQuestionOptionInput{
+		OptionCode: "PARTIAL",
+		Label:      "Partial",
+	}); err != nil {
+		t.Fatalf("create option partial: %v", err)
+	}
+	targetCoverage := "COVERAGE"
+	if _, err := env.qSvc.CreateRule(ctx, fix.BuyerA, eventID, domain.CreateQuestionRuleInput{
+		RuleCode:           "REQ_COVERAGE",
+		Action:             domain.RuleActionRequire,
+		TargetQuestionCode: &targetCoverage,
+		ConditionJSON:      json.RawMessage(`{"operator":"EQUALS","source_question_code":"FLEET_SIZE","value":"1"}`),
+	}); err != nil {
+		t.Fatalf("create rule: %v", err)
+	}
+	draft, err = env.qRepo.GetVersionByID(ctx, draft.ID, fix.TenantID)
+	if err != nil {
+		t.Fatalf("reload draft: %v", err)
+	}
+	event, err := env.rfxRepo.GetEventByID(ctx, eventID, fix.TenantID)
+	if err != nil {
+		t.Fatalf("reload event: %v", err)
+	}
+	published, err := env.versionSvc.PublishQuestionnaire(ctx, fix.BuyerA, eventID, key, domain.PublishQuestionnaireInput{
+		ExpectedEventVersion: event.Version,
+		ExpectedDraftVersion: draft.Version,
+		ChangeSummary:        "Rich publish",
+	})
+	if err != nil {
+		t.Fatalf("publish rich version: %v", err)
+	}
+	return published
+}
+
+func assertFullGraphEqual(t *testing.T, env *testEnv, fix buyerFixture, leftVersionID, rightVersionID uuid.UUID, expectScoring bool) {
+	t.Helper()
+	ctx := context.Background()
+	leftGraph, err := env.qRepo.LoadQuestionnaire(ctx, leftVersionID, fix.TenantID)
+	if err != nil {
+		t.Fatalf("load left graph: %v", err)
+	}
+	rightGraph, err := env.qRepo.LoadQuestionnaire(ctx, rightVersionID, fix.TenantID)
+	if err != nil {
+		t.Fatalf("load right graph: %v", err)
+	}
+	assertQuestionnaireGraphEqual(t, leftGraph, rightGraph)
+	if !expectScoring {
+		if _, err := env.scoreRepo.GetDraftModelForVersion(ctx, fix.TenantID, rightVersionID); err == nil {
+			t.Fatal("expected no draft score model on restored version")
+		}
+		return
+	}
+	leftModel, err := env.scoreRepo.GetPublishedModelForVersion(ctx, fix.TenantID, leftVersionID)
+	if err != nil {
+		leftModel, err = env.scoreRepo.GetDraftModelForVersion(ctx, fix.TenantID, leftVersionID)
+	}
+	if err != nil {
+		t.Fatalf("load left score model: %v", err)
+	}
+	rightModel, err := env.scoreRepo.GetDraftModelForVersion(ctx, fix.TenantID, rightVersionID)
+	if err != nil {
+		t.Fatalf("load restored draft score model: %v", err)
+	}
+	if rightModel.Status != domain.ScoreModelStatusDraft {
+		t.Fatalf("restored score model status=%s", rightModel.Status)
+	}
+	if leftModel.ID == rightModel.ID {
+		t.Fatal("restored score model reused source ID")
+	}
+	leftCriteria, err := env.scoreRepo.ListCriteriaByModel(ctx, leftModel.ID, fix.TenantID)
+	if err != nil {
+		t.Fatalf("left criteria: %v", err)
+	}
+	rightCriteria, err := env.scoreRepo.ListCriteriaByModel(ctx, rightModel.ID, fix.TenantID)
+	if err != nil {
+		t.Fatalf("right criteria: %v", err)
+	}
+	if len(leftCriteria) != len(rightCriteria) {
+		t.Fatalf("criteria count mismatch")
+	}
+	leftCriterionByCode := map[string]domain.ScoreCriterion{}
+	for _, c := range leftCriteria {
+		leftCriterionByCode[c.CriterionCode] = c
+	}
+	for _, c := range rightCriteria {
+		source, ok := leftCriterionByCode[c.CriterionCode]
+		if !ok {
+			t.Fatalf("missing criterion code %s", c.CriterionCode)
+		}
+		if source.ID == c.ID {
+			t.Fatalf("criterion ID reused for %s", c.CriterionCode)
+		}
+		if source.Weight != c.Weight || string(source.NormalizationJSON) != string(c.NormalizationJSON) {
+			t.Fatalf("criterion config mismatch for %s", c.CriterionCode)
+		}
+	}
+	leftBindings, err := env.scoreRepo.ListBindingsByModel(ctx, leftModel.ID, fix.TenantID)
+	if err != nil {
+		t.Fatalf("left bindings: %v", err)
+	}
+	rightBindings, err := env.scoreRepo.ListBindingsByModel(ctx, rightModel.ID, fix.TenantID)
+	if err != nil {
+		t.Fatalf("right bindings: %v", err)
+	}
+	if len(leftBindings) != len(rightBindings) {
+		t.Fatalf("binding count mismatch")
+	}
+	leftQuestions := map[uuid.UUID]string{}
+	for _, section := range leftGraph.Sections {
+		for _, q := range section.Questions {
+			leftQuestions[q.ID] = q.QuestionCode
+		}
+	}
+	rightQuestions := map[uuid.UUID]string{}
+	for _, section := range rightGraph.Sections {
+		for _, q := range section.Questions {
+			rightQuestions[q.ID] = q.QuestionCode
+		}
+	}
+	for i, leftBinding := range leftBindings {
+		rightBinding := rightBindings[i]
+		if leftBinding.BindingType != rightBinding.BindingType {
+			t.Fatalf("binding type mismatch")
+		}
+		if string(leftBinding.ScoringRuleJSON) != string(rightBinding.ScoringRuleJSON) {
+			t.Fatalf("scoring_rule_json mismatch")
+		}
+		if string(leftBinding.KnockoutRuleJSON) != string(rightBinding.KnockoutRuleJSON) {
+			t.Fatalf("knockout_rule_json mismatch")
+		}
+		if leftQuestions[leftBinding.QuestionID] != rightQuestions[rightBinding.QuestionID] {
+			t.Fatalf("binding question remap mismatch")
+		}
+		if leftBinding.QuestionID == rightBinding.QuestionID {
+			t.Fatal("binding reused source question ID")
+		}
+	}
 }

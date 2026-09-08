@@ -406,6 +406,32 @@ func assertQuestionnaireGraphEqual(t *testing.T, left, right *domain.Questionnai
 			if sourceQuestion.Label != question.Label || sourceQuestion.Required != question.Required {
 				t.Fatalf("question payload mismatch for %s", question.QuestionCode)
 			}
+			leftOptions := map[string]domain.QuestionOption{}
+			for _, option := range sourceQuestion.Options {
+				leftOptions[option.OptionCode] = option
+			}
+			for _, option := range question.Options {
+				sourceOption, ok := leftOptions[option.OptionCode]
+				if !ok {
+					t.Fatalf("missing option %s on question %s", option.OptionCode, question.QuestionCode)
+				}
+				if sourceOption.Label != option.Label {
+					t.Fatalf("option label mismatch for %s", option.OptionCode)
+				}
+			}
+		}
+	}
+	leftRules := map[string]domain.QuestionRule{}
+	for _, rule := range left.Rules {
+		leftRules[rule.RuleCode] = rule
+	}
+	for _, rule := range right.Rules {
+		sourceRule, ok := leftRules[rule.RuleCode]
+		if !ok {
+			t.Fatalf("missing rule %s on restored graph", rule.RuleCode)
+		}
+		if sourceRule.Action != rule.Action {
+			t.Fatalf("rule action mismatch for %s", rule.RuleCode)
 		}
 	}
 }

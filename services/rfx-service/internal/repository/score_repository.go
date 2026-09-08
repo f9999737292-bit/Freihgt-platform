@@ -433,3 +433,157 @@ func defaultJSON(raw json.RawMessage) json.RawMessage {
 	}
 	return raw
 }
+
+func stableQuestionKey(sectionCode, questionCode string) string {
+	return sectionCode + "\x1f" + questionCode
+}
+
+func buildStableQuestionIDMap(questionnaire *domain.QuestionnaireDefinition) map[string]uuid.UUID {
+	out := make(map[string]uuid.UUID)
+	if questionnaire == nil {
+		return out
+	}
+	for _, section := range questionnaire.Sections {
+		for _, question := range section.Questions {
+			out[stableQuestionKey(section.Section.SectionCode, question.QuestionCode)] = question.ID
+		}
+	}
+	return out
+}
+
+func findQuestionStableCodes(questionnaire *domain.QuestionnaireDefinition, questionID uuid.UUID) (sectionCode, questionCode string, ok bool) {
+	if questionnaire == nil {
+		return "", "", false
+	}
+	for _, section := range questionnaire.Sections {
+		for _, question := range section.Questions {
+			if question.ID == questionID {
+				return section.Section.SectionCode, question.QuestionCode, true
+			}
+		}
+	}
+	return "", "", false
+}
+
+func (r *ScoreRepository) resolveRestoredQuestionID(
+	sourceQuestionID uuid.UUID,
+	questionIDMap map[uuid.UUID]uuid.UUID,
+	sourceQuestionnaire, targetQuestionnaire *domain.QuestionnaireDefinition,
+) (uuid.UUID, error) {
+	if targetID, ok := questionIDMap[sourceQuestionID]; ok {
+		return targetID, nil
+	}
+	sectionCode, questionCode, ok := findQuestionStableCodes(sourceQuestionnaire, sourceQuestionID)
+	if !ok {
+		return uuid.Nil, apperrors.Internal("failed to resolve source question stable codes for scoring binding", nil)
+	}
+	targetStable := buildStableQuestionIDMap(targetQuestionnaire)
+	if targetID, ok := targetStable[stableQuestionKey(sectionCode, questionCode)]; ok {
+		return targetID, nil
+	}
+	return uuid.Nil, apperrors.Conflict("scoring binding target question could not be resolved in restored questionnaire", map[string]any{
+		"section_code":  sectionCode,
+		"question_code": questionCode,
+	})
+}
+
+func (r *ScoreRepository) getSourceScoringModel(ctx context.Context, tenantID, sourceVersionID uuid.UUID) (*domain.ScoreModel, error) {
+	model, err := r.GetPublishedModelForVersion(ctx, tenantID, sourceVersionID)
+	if err == nil {
+		return model, nil
+	}
+	var appErr *apperrors.AppError
+	if !errors.As(err, &appErr) || appErr.Code != apperrors.CodeNotFound {
+		return nil, err
+	}
+	model, err = r.GetDraftModelForVersion(ctx, tenantID, sourceVersionID)
+	if err != nil {
+		if errors.As(err, &appErr) && appErr.Code == apperrors.CodeNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return model, nil
+}
+
+// CopyDraftScoringFromSource deep-copies a source scoring model into a new DRAFT for the restored version.
+// When the source has no scoring model the call succeeds without creating one.
+func (r *ScoreRepository) CopyDraftScoringFromSource(
+	ctx context.Context,
+	tenantID, sourceVersionID, targetVersionID uuid.UUID,
+	questionIDMap map[uuid.UUID]uuid.UUID,
+	sourceQuestionnaire, targetQuestionnaire *domain.QuestionnaireDefinition,
+) error {
+	sourceModel, err := r.getSourceScoringModel(ctx, tenantID, sourceVersionID)
+	if err != nil {
+		return err
+	}
+	if sourceModel == nil {
+		return nil
+	}
+
+	criteria, err := r.ListCriteriaByModel(ctx, sourceModel.ID, tenantID)
+	if err != nil {
+		return err
+	}
+	bindings, err := r.ListBindingsByModel(ctx, sourceModel.ID, tenantID)
+	if err != nil {
+		return err
+	}
+
+	const insertModel = `
+		INSERT INTO rfx.rfx_score_models (
+			tenant_id, rfx_version_id, model_version, status, model_type, definition_json
+		) VALUES ($1, $2, 1, 'DRAFT', $3, $4)
+		RETURNING id, tenant_id, rfx_version_id, model_version, status, model_type, definition_json,
+			created_by, created_at, updated_at, published_at
+	`
+	newModel, err := r.scanScoreModel(r.db().QueryRow(ctx, insertModel,
+		tenantID, targetVersionID, sourceModel.ModelType, defaultJSON(sourceModel.DefinitionJSON),
+	))
+	if err != nil {
+		return mapDBError(err)
+	}
+
+	criterionIDMap := make(map[uuid.UUID]uuid.UUID, len(criteria))
+	for _, criterion := range criteria {
+		newCriterionID := uuid.New()
+		criterionIDMap[criterion.ID] = newCriterionID
+		const insertCriterion = `
+			INSERT INTO rfx.rfx_score_criteria (
+				id, tenant_id, score_model_id, criterion_code, name, weight, normalization_json, sort_order
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		`
+		if _, err := r.db().Exec(ctx, insertCriterion,
+			newCriterionID, tenantID, newModel.ID, criterion.CriterionCode, criterion.Name,
+			criterion.Weight, criterion.NormalizationJSON, criterion.SortOrder,
+		); err != nil {
+			return mapDBError(err)
+		}
+	}
+
+	for _, binding := range bindings {
+		targetCriterionID, ok := criterionIDMap[binding.CriterionID]
+		if !ok {
+			return apperrors.Internal("failed to map scoring criterion during restore copy", nil)
+		}
+		targetQuestionID, err := r.resolveRestoredQuestionID(binding.QuestionID, questionIDMap, sourceQuestionnaire, targetQuestionnaire)
+		if err != nil {
+			return err
+		}
+		const insertBinding = `
+			INSERT INTO rfx.rfx_score_bindings (
+				id, tenant_id, score_model_id, criterion_id, question_id, binding_type,
+				scoring_rule_json, knockout_rule_json
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		`
+		if _, err := r.db().Exec(ctx, insertBinding,
+			uuid.New(), tenantID, newModel.ID, targetCriterionID, targetQuestionID, binding.BindingType,
+			defaultJSON(binding.ScoringRuleJSON), nullableJSON(binding.KnockoutRuleJSON),
+		); err != nil {
+			return mapDBError(err)
+		}
+	}
+
+	return nil
+}
