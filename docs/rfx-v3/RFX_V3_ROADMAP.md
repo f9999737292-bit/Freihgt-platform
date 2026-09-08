@@ -102,10 +102,20 @@ These are assigned to the **earliest appropriate wave** — not deferred beyond 
 
 | Wave | Scope | Status |
 |---|---|---|
-| **E1 Backend Foundation** | Migration 000068, publish/supersede, fork draft, idempotency, version list/detail, carrier response continuity | **IMPLEMENTED_ACCEPTED** — PR #107 merged via `1b880d0` |
-| **E2+** | Templates, compare, restore, change-impact engine, frontend version history, re-scoring | Pending — requires separate controller authorization |
+| **E1 Backend Foundation** | Questionnaire publish/supersede, fork draft, idempotency, version list/detail API, carrier response continuity, migration 000068 | **IMPLEMENTED_ACCEPTED** — PR #107 merged via `1b880d0` |
+| **E2 Compare + Restore** | Compare versions, restore-as-draft | **PENDING_CONTROLLER_AUTHORIZATION** |
+| **E3 Change Impact** | Change-impact preview, publish confirmation | **NOT_STARTED** |
+| **E4 Template Library** | Template library CRUD, publish | **NOT_STARTED** |
+| **E5 Template Clone + Provenance** | Clone event from template, provenance | **NOT_STARTED** |
+| **E6 Studio Frontend** | Studio UI: library, history, compare, restore | **NOT_STARTED** |
+| **E7 Browser Acceptance** | Browser acceptance gate | **NOT_STARTED** |
 
-Complete v3.0E release status remains **IMPLEMENTATION_IN_PROGRESS** until all v3.0E waves are accepted.
+Notes:
+
+- The E1 implementation expanded the backend foundation while remaining inside the accepted v3.0E architecture.
+- No E2–E7 implementation has started.
+- Each implementation wave requires a separate controller gate.
+- Complete v3.0E remains **IMPLEMENTATION_IN_PROGRESS** until all v3.0E waves are accepted.
 
 ---
 

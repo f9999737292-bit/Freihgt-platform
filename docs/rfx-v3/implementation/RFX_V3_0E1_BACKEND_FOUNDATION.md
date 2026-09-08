@@ -1,16 +1,18 @@
 # RFx v3.0E1 — Backend Foundation Implementation
 
-**STATUS=IMPLEMENTED_ACCEPTED**
-**CONTROLLER_ACCEPTANCE=YES**
-**PR107_MERGED=YES**
-**PR107_HEAD=818cca34ed9fb7301797ba8360bf65a7d1ce79b8**
-**PR107_MERGE_SHA=1b880d082cdf29035211ae5cef7ab6b8d2994968**
-**CI_RUN_ID=34198416525**
-**E1_INT_01_33=PASS**
+| Field | Value |
+|---|---|
+| **STATUS** | `IMPLEMENTED_ACCEPTED` |
+| **CONTROLLER_ACCEPTANCE** | `YES` |
+| **PR107_MERGED** | `YES` |
+| **PR107_HEAD** | `818cca34ed9fb7301797ba8360bf65a7d1ce79b8` |
+| **PR107_MERGE_SHA** | `1b880d082cdf29035211ae5cef7ab6b8d2994968` |
+| **CI_RUN_ID** | `34198416525` |
+| **E1_INT_01_33** | `PASS` |
 
-**Architecture base:** `origin/main` @ `d962b11d081e353f45205c73b8cfd93b7bcb969c` (PR #106 merged, `FROZEN_ACCEPTED`)
-**Merged via:** PR #107 → merge commit `1b880d0` on `origin/main`
-**Wave:** E1 only — version lifecycle, publish/supersede, fork draft, response continuity
+- **Architecture base:** `origin/main` @ `d962b11d081e353f45205c73b8cfd93b7bcb969c` (PR #106 merged, `FROZEN_ACCEPTED`)
+- **Merged via:** PR #107 → merge commit `1b880d0` on `origin/main`
+- **Wave:** E1 only — version lifecycle, publish/supersede, fork draft, response continuity
 
 ---
 
