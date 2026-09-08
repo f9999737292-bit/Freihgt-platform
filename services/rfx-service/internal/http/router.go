@@ -107,6 +107,8 @@ func NewRouter(
 			r.Get("/{id}/versions/{version_id}", versionHandler.GetVersion)
 			r.Post("/{id}/questionnaire/publish", versionHandler.PublishQuestionnaire)
 			r.Post("/{id}/versions/fork-draft", versionHandler.ForkDraftFromPublished)
+			r.Post("/{id}/versions/compare", versionHandler.CompareVersions)
+			r.Post("/{id}/versions/{version_id}/restore-draft", versionHandler.RestoreVersionAsDraft)
 		})
 
 		// RFx v3.0C carrier questionnaire response

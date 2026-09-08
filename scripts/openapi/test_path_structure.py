@@ -99,6 +99,8 @@ VERSION_LIFECYCLE_V3_0E1_ROUTES = (
     ("post", "/api/v1/rfx-events/{id}/questionnaire/publish"),
     ("get", "/api/v1/rfx-events/{id}/versions"),
     ("post", "/api/v1/rfx-events/{id}/versions/fork-draft"),
+    ("post", "/api/v1/rfx-events/{id}/versions/compare"),
+    ("post", "/api/v1/rfx-events/{id}/versions/{version_id}/restore-draft"),
     ("get", "/api/v1/rfx-events/{id}/versions/{version_id}"),
 )
 
@@ -260,6 +262,32 @@ def assert_version_lifecycle_routes_present(spec: dict, label: str) -> None:
         operation = path_item.get(method)
         if not isinstance(operation, dict):
             raise AssertionError(f"{label}: missing {method.upper()} {path}")
+
+
+def assert_version_lifecycle_success_status_codes(spec: dict, label: str) -> None:
+    paths = spec.get("paths", {})
+    compare_path = "/api/v1/rfx-events/{id}/versions/compare"
+    restore_path = "/api/v1/rfx-events/{id}/versions/{version_id}/restore-draft"
+
+    compare_op = paths.get(compare_path, {}).get("post")
+    if not isinstance(compare_op, dict):
+        raise AssertionError(f"{label}: missing POST {compare_path}")
+    compare_responses = compare_op.get("responses", {})
+    if not isinstance(compare_responses, dict):
+        raise AssertionError(f"{label}: POST {compare_path} responses must be an object")
+    if "200" not in compare_responses:
+        raise AssertionError(f"{label}: POST {compare_path} must return 200 on success")
+    if "201" in compare_responses:
+        raise AssertionError(f"{label}: POST {compare_path} must not use 201 on success")
+
+    restore_op = paths.get(restore_path, {}).get("post")
+    if not isinstance(restore_op, dict):
+        raise AssertionError(f"{label}: missing POST {restore_path}")
+    restore_responses = restore_op.get("responses", {})
+    if not isinstance(restore_responses, dict):
+        raise AssertionError(f"{label}: POST {restore_path} responses must be an object")
+    if "201" not in restore_responses:
+        raise AssertionError(f"{label}: POST {restore_path} must return 201 on success")
 
 
 def assert_rfx_service_version_lifecycle_routes() -> None:
@@ -553,6 +581,8 @@ def main() -> int:
     assert_rfx_service_scoring_routes()
     assert_version_lifecycle_routes_present(rfx_spec, "rfx-service.yaml")
     assert_version_lifecycle_routes_present(unified_spec, "openapi.yaml")
+    assert_version_lifecycle_success_status_codes(rfx_spec, "rfx-service.yaml")
+    assert_version_lifecycle_success_status_codes(unified_spec, "openapi.yaml")
     assert_aggregate_version_lifecycle_parity(rfx_spec, unified_spec)
     assert_gateway_version_lifecycle_routes()
     assert_rfx_service_version_lifecycle_routes()
@@ -564,6 +594,7 @@ def main() -> int:
     print("CARRIER_RESPONSE_V3_0C_ROUTE_PARITY=PASS")
     print("SCORING_V3_0D_ROUTE_PARITY=PASS")
     print("VERSION_LIFECYCLE_V3_0E1_ROUTE_PARITY=PASS")
+    print("VERSION_LIFECYCLE_V3_0E2_HTTP_STATUS_PARITY=PASS")
     print("GATEWAY_QUESTIONNAIRE_ROUTE_PARITY=PASS")
     print("GATEWAY_CARRIER_RESPONSE_ROUTE_PARITY=PASS")
     return 0

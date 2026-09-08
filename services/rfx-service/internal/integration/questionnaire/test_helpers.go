@@ -89,7 +89,8 @@ func setupTestEnv(t *testing.T) *testEnv {
 	idemRepo := repository.NewIdempotencyRepository(pool)
 	rfxSvc := service.NewRfxServiceWithAtomic(pool, rfxRepo, auditRepo, membershipRepo, newAwardConversionStub(pool))
 	qSvc := service.NewQuestionnaireService(rfxRepo, qRepo, auditRepo, membershipRepo)
-	versionSvc := service.NewVersionLifecycleService(pool, rfxRepo, qRepo, idemRepo, auditRepo, rfxSvc)
+	scoreRepo := repository.NewScoreRepository(pool)
+	versionSvc := service.NewVersionLifecycleService(pool, rfxRepo, qRepo, scoreRepo, idemRepo, auditRepo, rfxSvc)
 	t.Logf("isolated database=%s", dbName)
 	return &testEnv{
 		pool:           pool,

@@ -138,6 +138,8 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/rfx-events/{id}/questionnaire/publish", "post", "Publish current RFx questionnaire draft", "RFx", True, True, "vl_publish"),
     ("/api/v1/rfx-events/{id}/versions", "get", "List RFx questionnaire versions", "RFx", True, True, "vl_list"),
     ("/api/v1/rfx-events/{id}/versions/fork-draft", "post", "Fork draft from published questionnaire", "RFx", True, True, "vl_fork_draft"),
+    ("/api/v1/rfx-events/{id}/versions/compare", "post", "Compare RFx questionnaire versions", "RFx", True, True, "vl_compare"),
+    ("/api/v1/rfx-events/{id}/versions/{version_id}/restore-draft", "post", "Restore RFx questionnaire version as new draft", "RFx", True, True, "vl_restore_draft"),
     ("/api/v1/rfx-events/{id}/versions/{version_id}", "get", "Get RFx questionnaire version detail", "RFx", True, True, "vl_detail"),
     ("/api/v1/rfx-events/{id}/carrier-response", "get", "Get carrier questionnaire response workspace", "RFx", True, True, "cr_workspace_get"),
     ("/api/v1/rfx-events/{id}/carrier-response/start", "post", "Start or resume carrier questionnaire response", "RFx", True, True, "cr_start"),
@@ -395,12 +397,14 @@ QUESTIONNAIRE_CREATED_PROFILES = frozenset({
     "q_rule_create",
     "q_question_duplicate",
     "vl_fork_draft",
+    "vl_restore_draft",
 })
 
 QUESTIONNAIRE_OK_POST_PROFILES = frozenset({
     "q_save_draft",
     "q_validate_publish",
     "vl_publish",
+    "vl_compare",
 })
 
 VERSION_LIFECYCLE_422_PROFILES = frozenset({"vl_publish"})
@@ -409,6 +413,7 @@ IDEMPOTENCY_HEADER_PROFILES = frozenset({
     "priced_transport_order_create",
     "vl_publish",
     "vl_fork_draft",
+    "vl_restore_draft",
 })
 
 CONTRACT_RATE_SCHEMA_REFS = {
@@ -447,6 +452,8 @@ QUESTIONNAIRE_REQUEST_BODIES = {
     "q_rule_update": """              $ref: '#/components/schemas/RfxUpdateRuleRequest'""",
     "q_rule_delete": """              $ref: '#/components/schemas/RfxVersionedMutationRequest'""",
     "vl_publish": """              $ref: '#/components/schemas/RfxPublishQuestionnaireRequest'""",
+    "vl_compare": """              $ref: '#/components/schemas/RfxCompareVersionsRequest'""",
+    "vl_restore_draft": """              $ref: '#/components/schemas/RfxRestoreVersionAsDraftRequest'""",
 }
 
 CARRIER_RESPONSE_REQUEST_BODIES = {
@@ -488,6 +495,8 @@ QUESTIONNAIRE_RESPONSE_SCHEMAS = {
     "vl_list": "RfxVersionListResponse",
     "vl_detail": "RfxVersionDetailResponse",
     "vl_fork_draft": "RfxVersionRecord",
+    "vl_compare": "RfxCompareVersionsResponse",
+    "vl_restore_draft": "RfxVersionRecord",
 }
 
 READ_RESPONSE_SCHEMAS = {
@@ -1099,6 +1108,115 @@ def questionnaire_version_lifecycle_e1_schemas_block() -> str:
 """
 
 
+def questionnaire_version_lifecycle_e2_schemas_block() -> str:
+    return """    RfxCompareVersionsRequest:
+      type: object
+      required: [source_version_id, target_version_id]
+      properties:
+        source_version_id:
+          type: string
+          format: uuid
+        target_version_id:
+          type: string
+          format: uuid
+    RfxRestoreVersionAsDraftRequest:
+      type: object
+      required: [change_summary]
+      properties:
+        change_summary:
+          type: string
+          minLength: 1
+    RfxCompareFieldDiff:
+      type: object
+      properties:
+        field: {type: string}
+        before: {}
+        after: {}
+    RfxCompareItemDiff:
+      type: object
+      properties:
+        entity_type: {type: string}
+        change:
+          type: string
+          enum: [ADDED, REMOVED, CHANGED, REORDERED, UNCHANGED]
+        section_code: {type: string}
+        question_code: {type: string}
+        option_code: {type: string}
+        rule_code: {type: string}
+        criterion_code: {type: string}
+        fields:
+          type: array
+          items: {type: string}
+        field_diffs:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxCompareFieldDiff'
+    RfxCompareSummary:
+      type: object
+      properties:
+        added_count: {type: integer}
+        removed_count: {type: integer}
+        changed_count: {type: integer}
+        reordered_count: {type: integer}
+        unchanged_count: {type: integer}
+    RfxCompareScoringDiff:
+      type: object
+      properties:
+        criteria:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxCompareItemDiff'
+        bindings:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxCompareItemDiff'
+        model:
+          $ref: '#/components/schemas/RfxCompareItemDiff'
+    RfxCompareVersionsResponse:
+      type: object
+      properties:
+        source_version:
+          type: object
+          properties:
+            id: {type: string, format: uuid}
+            version_number: {type: integer}
+            status: {type: string}
+        target_version:
+          type: object
+          properties:
+            id: {type: string, format: uuid}
+            version_number: {type: integer}
+            status: {type: string}
+        source_version_number: {type: integer}
+        target_version_number: {type: integer}
+        summary:
+          $ref: '#/components/schemas/RfxCompareSummary'
+        canonical_diff_hash: {type: string}
+        differences:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxCompareItemDiff'
+        sections:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxCompareItemDiff'
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxCompareItemDiff'
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxCompareItemDiff'
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxCompareItemDiff'
+        scoring:
+          $ref: '#/components/schemas/RfxCompareScoringDiff'
+"""
+
+
 def questionnaire_entity_schemas_block() -> str:
     return """    RfxSection:
       type: object
@@ -1253,6 +1371,7 @@ def questionnaire_components_block(*, include_e1_version_lifecycle: bool = False
     ]
     if include_e1_version_lifecycle:
         parts.append(questionnaire_version_lifecycle_e1_schemas_block())
+        parts.append(questionnaire_version_lifecycle_e2_schemas_block())
     else:
         parts.append(questionnaire_base_version_record_block())
     parts.append(questionnaire_entity_schemas_block())

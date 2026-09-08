@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -21,6 +22,7 @@ import (
 type VersionLifecycleService struct {
 	rfxRepo   *repository.RfxRepository
 	qRepo     *repository.QuestionnaireRepository
+	scoreRepo *repository.ScoreRepository
 	idemRepo  *repository.IdempotencyRepository
 	auditRepo *repository.AuditRepository
 	tx        *repository.TransactionRunner
@@ -31,6 +33,7 @@ func NewVersionLifecycleService(
 	pool *pgxpool.Pool,
 	rfxRepo *repository.RfxRepository,
 	qRepo *repository.QuestionnaireRepository,
+	scoreRepo *repository.ScoreRepository,
 	idemRepo *repository.IdempotencyRepository,
 	auditRepo *repository.AuditRepository,
 	auth *RfxService,
@@ -42,6 +45,7 @@ func NewVersionLifecycleService(
 	return &VersionLifecycleService{
 		rfxRepo:   rfxRepo,
 		qRepo:     qRepo,
+		scoreRepo: scoreRepo,
 		idemRepo:  idemRepo,
 		auditRepo: auditRepo,
 		tx:        tx,
@@ -309,6 +313,232 @@ func (s *VersionLifecycleService) ForkDraftFromPublished(ctx context.Context, ac
 		return nil, err
 	}
 	return draft, nil
+}
+
+func (s *VersionLifecycleService) CompareVersions(
+	ctx context.Context,
+	actor domain.ActorContext,
+	eventID uuid.UUID,
+	in domain.CompareVersionsInput,
+) (*domain.CompareVersionsResult, error) {
+	if _, err := s.authorizeEvent(ctx, actor, eventID); err != nil {
+		return nil, err
+	}
+	if err := domain.ValidateCompareVersionsInput(in); err != nil {
+		return nil, err
+	}
+
+	sourceVersion, err := s.qRepo.GetVersionForEvent(ctx, eventID, in.SourceVersionID, actor.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	targetVersion, err := s.qRepo.GetVersionForEvent(ctx, eventID, in.TargetVersionID, actor.TenantID)
+	if err != nil {
+		return nil, err
+	}
+
+	sourceQuestionnaire, err := s.qRepo.LoadQuestionnaire(ctx, sourceVersion.ID, actor.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	targetQuestionnaire, err := s.qRepo.LoadQuestionnaire(ctx, targetVersion.ID, actor.TenantID)
+	if err != nil {
+		return nil, err
+	}
+
+	sourceSnapshot := domain.VersionCompareSnapshot{
+		Version:       *sourceVersion,
+		Questionnaire: *sourceQuestionnaire,
+	}
+	targetSnapshot := domain.VersionCompareSnapshot{
+		Version:       *targetVersion,
+		Questionnaire: *targetQuestionnaire,
+	}
+	if s.scoreRepo != nil {
+		sourceScoring, err := s.loadScoringSnapshot(ctx, actor.TenantID, sourceVersion.ID, *sourceQuestionnaire)
+		if err != nil {
+			return nil, err
+		}
+		targetScoring, err := s.loadScoringSnapshot(ctx, actor.TenantID, targetVersion.ID, *targetQuestionnaire)
+		if err != nil {
+			return nil, err
+		}
+		sourceSnapshot.Scoring = sourceScoring
+		targetSnapshot.Scoring = targetScoring
+	}
+
+	result := domain.CompareVersionSnapshots(sourceSnapshot, targetSnapshot)
+	return &result, nil
+}
+
+func (s *VersionLifecycleService) RestoreVersionAsDraft(
+	ctx context.Context,
+	actor domain.ActorContext,
+	eventID, sourceVersionID uuid.UUID,
+	idempotencyKey string,
+	in domain.RestoreVersionAsDraftInput,
+) (*domain.RfxVersion, error) {
+	event, err := s.authorizeEvent(ctx, actor, eventID)
+	if err != nil {
+		return nil, err
+	}
+	if err := domain.ValidateRestoreVersionAsDraftInput(in); err != nil {
+		return nil, err
+	}
+	if _, err := s.qRepo.GetVersionForEvent(ctx, eventID, sourceVersionID, actor.TenantID); err != nil {
+		return nil, err
+	}
+
+	idempotencyKey = strings.TrimSpace(idempotencyKey)
+	if idempotencyKey == "" {
+		return nil, apperrors.Validation("Idempotency-Key header is required", map[string]any{"field": "Idempotency-Key"})
+	}
+	if len(idempotencyKey) > 128 {
+		return nil, apperrors.Validation("Idempotency-Key header is too long", map[string]any{"field": "Idempotency-Key"})
+	}
+
+	scope := repository.IdempotencyScope{
+		TenantID:       actor.TenantID,
+		ActorID:        actor.UserID,
+		Operation:      domain.VersionLifecycleOperationRestoreDraft,
+		AggregateScope: eventID,
+	}
+	requestBodyHash, err := hashRequestBody(domain.NewRestoreVersionAsDraftIdempotencyPayload(sourceVersionID, in))
+	if err != nil {
+		return nil, err
+	}
+	if replay, err := s.loadReplay(ctx, scope, idempotencyKey, requestBodyHash); err != nil || replay != nil {
+		return replay, err
+	}
+	if s.tx == nil {
+		return nil, apperrors.Internal("version lifecycle service misconfigured", nil)
+	}
+
+	var draft *domain.RfxVersion
+	err = s.tx.Run(ctx, func(ctx context.Context, tx pgx.Tx) error {
+		qRepo := s.qRepo.WithTx(tx)
+		idemRepo := s.idemRepo.WithTx(tx)
+		auditRepo := s.auditRepo.WithTx(tx)
+
+		out, questionIDMap, err := qRepo.RestoreVersionAsDraftTx(ctx, eventID, sourceVersionID, actor.TenantID, in.ChangeSummary)
+		if err != nil {
+			return err
+		}
+		if s.scoreRepo != nil {
+			sourceQuestionnaire, err := qRepo.LoadQuestionnaire(ctx, sourceVersionID, actor.TenantID)
+			if err != nil {
+				return err
+			}
+			targetQuestionnaire, err := qRepo.LoadQuestionnaire(ctx, out.ID, actor.TenantID)
+			if err != nil {
+				return err
+			}
+			if err := s.scoreRepo.WithTx(tx).CopyDraftScoringFromSource(
+				ctx,
+				actor.TenantID,
+				sourceVersionID,
+				out.ID,
+				questionIDMap,
+				sourceQuestionnaire,
+				targetQuestionnaire,
+			); err != nil {
+				return err
+			}
+		}
+		out.IsActiveDraft = true
+		out.IsCurrentPublished = false
+		payload, err := json.Marshal(out)
+		if err != nil {
+			return apperrors.Internal("failed to persist restore replay payload", err)
+		}
+		if err := idemRepo.Store(ctx, repository.IdempotencyRecord{
+			TenantID:        actor.TenantID,
+			ActorID:         actor.UserID,
+			Operation:       domain.VersionLifecycleOperationRestoreDraft,
+			AggregateScope:  eventID,
+			IdempotencyKey:  idempotencyKey,
+			RequestBodyHash: requestBodyHash,
+			ResponseStatus:  http.StatusCreated,
+			ResponseBody:    payload,
+			ExpiresAt:       time.Now().UTC().Add(24 * time.Hour),
+		}); err != nil {
+			return err
+		}
+		if err := recordAudit(ctx, auditRepo, actor, event.OwnerCompanyID, "rfx_questionnaire", out.ID, "rfx.version.restored_as_draft.v1", map[string]any{
+			"rfx_event_id":      eventID.String(),
+			"source_version_id": sourceVersionID.String(),
+			"version_number":    out.VersionNumber,
+			"change_summary":    strings.TrimSpace(in.ChangeSummary),
+		}); err != nil {
+			return err
+		}
+		draft = out
+		return nil
+	})
+	if err != nil {
+		if replay, replayErr := s.loadReplay(ctx, scope, idempotencyKey, requestBodyHash); replayErr != nil || replay != nil {
+			return replay, replayErr
+		}
+		return nil, err
+	}
+	return draft, nil
+}
+
+func (s *VersionLifecycleService) loadScoringSnapshot(
+	ctx context.Context,
+	tenantID, versionID uuid.UUID,
+	questionnaire domain.QuestionnaireDefinition,
+) (*domain.ScoringCompareSnapshot, error) {
+	model, err := s.scoreRepo.GetPublishedModelForVersion(ctx, tenantID, versionID)
+	if err != nil {
+		var appErr *apperrors.AppError
+		if !errors.As(err, &appErr) || appErr.Code != apperrors.CodeNotFound {
+			return nil, err
+		}
+		model, err = s.scoreRepo.GetDraftModelForVersion(ctx, tenantID, versionID)
+		if err != nil {
+			if errors.As(err, &appErr) && appErr.Code == apperrors.CodeNotFound {
+				return nil, nil
+			}
+			return nil, err
+		}
+	}
+	criteria, err := s.scoreRepo.ListCriteriaByModel(ctx, model.ID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	bindings, err := s.scoreRepo.ListBindingsByModel(ctx, model.ID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	questionCodes := make(map[uuid.UUID]string)
+	for _, section := range questionnaire.Sections {
+		for _, question := range section.Questions {
+			questionCodes[question.ID] = question.QuestionCode
+		}
+	}
+	criterionCodes := make(map[uuid.UUID]string, len(criteria))
+	for _, criterion := range criteria {
+		criterionCodes[criterion.ID] = criterion.CriterionCode
+	}
+	bindingEntries := make([]domain.ScoreBindingCompareEntry, 0, len(bindings))
+	for _, binding := range bindings {
+		criterionCode := criterionCodes[binding.CriterionID]
+		questionCode := questionCodes[binding.QuestionID]
+		bindingEntries = append(bindingEntries, domain.ScoreBindingCompareEntry{
+			CriterionCode:    criterionCode,
+			QuestionCode:     questionCode,
+			BindingType:      binding.BindingType,
+			ScoringRuleJSON:  binding.ScoringRuleJSON,
+			KnockoutRuleJSON: binding.KnockoutRuleJSON,
+		})
+	}
+	return &domain.ScoringCompareSnapshot{
+		ModelVersion: model.ModelVersion,
+		Status:       model.Status,
+		Criteria:     criteria,
+		Bindings:     bindingEntries,
+	}, nil
 }
 
 func (s *VersionLifecycleService) authorizeEvent(ctx context.Context, actor domain.ActorContext, eventID uuid.UUID) (*domain.RfxEvent, error) {

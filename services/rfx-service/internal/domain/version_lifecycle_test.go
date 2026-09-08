@@ -1,8 +1,13 @@
 package domain
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"testing"
+
+	"github.com/google/uuid"
 
 	apperrors "github.com/freight-platform/rfx-service/internal/platform/errors"
 )
@@ -87,6 +92,49 @@ func TestValidateVersionForkSourceStatus(t *testing.T) {
 	if err := ValidateVersionForkSourceStatus(RfxVersionStatusDraft); err == nil {
 		t.Fatal("expected draft status to be rejected")
 	}
+}
+
+func TestRestoreVersionAsDraftIdempotencyPayloadIncludesSourceVersionID(t *testing.T) {
+	t.Parallel()
+
+	sourceA := uuid.New()
+	sourceB := uuid.New()
+	in := RestoreVersionAsDraftInput{ChangeSummary: "Same summary"}
+
+	payloadA := NewRestoreVersionAsDraftIdempotencyPayload(sourceA, in)
+	payloadB := NewRestoreVersionAsDraftIdempotencyPayload(sourceB, in)
+	if payloadA.SourceVersionID != sourceA || payloadA.ChangeSummary != "Same summary" {
+		t.Fatalf("unexpected payload A: %+v", payloadA)
+	}
+	hashA, err := hashTestPayload(payloadA)
+	if err != nil {
+		t.Fatalf("hash A: %v", err)
+	}
+	hashB, err := hashTestPayload(payloadB)
+	if err != nil {
+		t.Fatalf("hash B: %v", err)
+	}
+	if hashA == hashB {
+		t.Fatal("expected different hashes for different source_version_id")
+	}
+
+	payloadSameSource := NewRestoreVersionAsDraftIdempotencyPayload(sourceA, RestoreVersionAsDraftInput{ChangeSummary: "Different summary"})
+	hashSameSource, err := hashTestPayload(payloadSameSource)
+	if err != nil {
+		t.Fatalf("hash same source: %v", err)
+	}
+	if hashA == hashSameSource {
+		t.Fatal("expected different hashes for different change_summary")
+	}
+}
+
+func hashTestPayload(v any) (string, error) {
+	payload, err := json.Marshal(v)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(payload)
+	return hex.EncodeToString(sum[:]), nil
 }
 
 func TestChangeImpactAnalysisRequired(t *testing.T) {
