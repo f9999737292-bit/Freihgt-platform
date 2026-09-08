@@ -55,13 +55,13 @@ ALTER TABLE rfx.rfx_events
     ADD CONSTRAINT fk_rfx_events_published_version_composite
     FOREIGN KEY (tenant_id, id, published_version_id)
     REFERENCES rfx.rfx_versions (tenant_id, rfx_event_id, id)
-    ON DELETE SET NULL;
+    ON DELETE SET NULL (published_version_id);
 
 ALTER TABLE rfx.rfx_versions
     ADD CONSTRAINT fk_rfx_versions_superseded_by_composite
     FOREIGN KEY (tenant_id, rfx_event_id, superseded_by_version_id)
     REFERENCES rfx.rfx_versions (tenant_id, rfx_event_id, id)
-    ON DELETE SET NULL;
+    ON DELETE SET NULL (superseded_by_version_id);
 
 CREATE TABLE IF NOT EXISTS rfx.rfx_idempotency_records (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

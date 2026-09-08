@@ -243,6 +243,114 @@ func TestE1INT26NormalPublishV1ToV2CompositeConstraintsPass(t *testing.T) {
 	}
 }
 
+func TestE1INT32PublishedVersionDeleteNullsPointerOnly(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	ctx := context.Background()
+	event := createDraftEvent(t, env, fix, "RFX-E1-32")
+	versionID := uuid.New()
+	if _, err := env.pool.Exec(ctx, `
+		INSERT INTO rfx.rfx_versions (
+			id, tenant_id, rfx_event_id, version_number, status, questionnaire_enabled, published_at
+		) VALUES ($1, $2, $3, 1, 'PUBLISHED', TRUE, now())`,
+		versionID, fix.TenantID, event.ID); err != nil {
+		t.Fatalf("insert published version: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `
+		UPDATE rfx.rfx_events
+		SET published_version_id = $2
+		WHERE id = $1 AND tenant_id = $3`,
+		event.ID, versionID, fix.TenantID); err != nil {
+		t.Fatalf("set published_version_id: %v", err)
+	}
+
+	var eventIDBefore, tenantIDBefore uuid.UUID
+	var publishedBefore uuid.UUID
+	if err := env.pool.QueryRow(ctx, `
+		SELECT id, tenant_id, published_version_id
+		FROM rfx.rfx_events
+		WHERE id = $1`, event.ID).Scan(&eventIDBefore, &tenantIDBefore, &publishedBefore); err != nil {
+		t.Fatalf("read event before delete: %v", err)
+	}
+	if publishedBefore != versionID {
+		t.Fatalf("published_version_id before delete=%s want=%s", publishedBefore, versionID)
+	}
+
+	if _, err := env.pool.Exec(ctx, `DELETE FROM rfx.rfx_versions WHERE id = $1`, versionID); err != nil {
+		t.Fatalf("delete referenced version: %v", err)
+	}
+
+	var eventIDAfter, tenantIDAfter uuid.UUID
+	var publishedAfter *uuid.UUID
+	if err := env.pool.QueryRow(ctx, `
+		SELECT id, tenant_id, published_version_id
+		FROM rfx.rfx_events
+		WHERE id = $1`, event.ID).Scan(&eventIDAfter, &tenantIDAfter, &publishedAfter); err != nil {
+		t.Fatalf("read event after delete: %v", err)
+	}
+	if publishedAfter != nil {
+		t.Fatalf("expected published_version_id NULL after version delete, got %v", publishedAfter)
+	}
+	if eventIDBefore != eventIDAfter || tenantIDBefore != tenantIDAfter {
+		t.Fatalf("event identity changed: before=(%s,%s) after=(%s,%s)", eventIDBefore, tenantIDBefore, eventIDAfter, tenantIDAfter)
+	}
+}
+
+func TestE1INT33SupersededByDeleteNullsPointerOnly(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	ctx := context.Background()
+	event := createDraftEvent(t, env, fix, "RFX-E1-33")
+	olderID := uuid.New()
+	newerID := uuid.New()
+	if _, err := env.pool.Exec(ctx, `
+		INSERT INTO rfx.rfx_versions (
+			id, tenant_id, rfx_event_id, version_number, status, questionnaire_enabled
+		) VALUES ($1, $2, $3, 2, 'SUPERSEDED', TRUE)`,
+		newerID, fix.TenantID, event.ID); err != nil {
+		t.Fatalf("insert newer version: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `
+		INSERT INTO rfx.rfx_versions (
+			id, tenant_id, rfx_event_id, version_number, status, questionnaire_enabled,
+			superseded_by_version_id
+		) VALUES ($1, $2, $3, 1, 'SUPERSEDED', TRUE, $4)`,
+		olderID, fix.TenantID, event.ID, newerID); err != nil {
+		t.Fatalf("insert older version: %v", err)
+	}
+
+	var tenantBefore, eventRefBefore uuid.UUID
+	var supersededBefore uuid.UUID
+	if err := env.pool.QueryRow(ctx, `
+		SELECT tenant_id, rfx_event_id, superseded_by_version_id
+		FROM rfx.rfx_versions
+		WHERE id = $1`, olderID).Scan(&tenantBefore, &eventRefBefore, &supersededBefore); err != nil {
+		t.Fatalf("read older version before delete: %v", err)
+	}
+	if supersededBefore != newerID {
+		t.Fatalf("superseded_by before delete=%s want=%s", supersededBefore, newerID)
+	}
+
+	if _, err := env.pool.Exec(ctx, `DELETE FROM rfx.rfx_versions WHERE id = $1`, newerID); err != nil {
+		t.Fatalf("delete newer version: %v", err)
+	}
+
+	var tenantAfter, eventRefAfter uuid.UUID
+	var supersededAfter *uuid.UUID
+	if err := env.pool.QueryRow(ctx, `
+		SELECT tenant_id, rfx_event_id, superseded_by_version_id
+		FROM rfx.rfx_versions
+		WHERE id = $1`, olderID).Scan(&tenantAfter, &eventRefAfter, &supersededAfter); err != nil {
+		t.Fatalf("read older version after delete: %v", err)
+	}
+	if supersededAfter != nil {
+		t.Fatalf("expected superseded_by_version_id NULL after newer delete, got %v", supersededAfter)
+	}
+	if tenantBefore != tenantAfter || eventRefBefore != eventRefAfter {
+		t.Fatalf("older version scope changed: before=(%s,%s) after=(%s,%s)", tenantBefore, eventRefBefore, tenantAfter, eventRefAfter)
+	}
+}
+
 func assertPostgreSQLErrorCode(t *testing.T, err error, code string) {
 	t.Helper()
 	if err == nil {
