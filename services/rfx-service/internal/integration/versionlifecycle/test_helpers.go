@@ -344,7 +344,7 @@ func makeQuestionnaireDraft(t *testing.T, env *testEnv, fix buyerFixture, eventI
 		QuestionCode: "HSE_OK",
 		QuestionType: domain.QuestionTypeYesNo,
 		Label:        "HSE compliant",
-		Required:     true,
+		Required:     false,
 	}); err != nil {
 		t.Fatalf("create HSE question: %v", err)
 	}
@@ -380,16 +380,30 @@ func insertQualificationForResponse(t *testing.T, env *testEnv, tenantID uuid.UU
 		t.Fatal("response version must be pinned before scoring fixture insert")
 	}
 	ctx := context.Background()
+	modelID := uuid.Nil
 	model, err := env.scoreRepo.GetPublishedModelForVersion(ctx, tenantID, *response.RfxVersionID)
 	if err != nil {
-		t.Fatalf("load published score model: %v", err)
+		var appErr *apperrors.AppError
+		if !errors.As(err, &appErr) || appErr.Code != apperrors.CodeNotFound {
+			t.Fatalf("load published score model: %v", err)
+		}
+		modelID = uuid.New()
+		if _, err := env.pool.Exec(ctx, `
+			INSERT INTO rfx.rfx_score_models (
+				id, tenant_id, rfx_version_id, model_version, status, model_type, definition_json
+			) VALUES ($1, $2, $3, 1, 'PUBLISHED', 'AUTOMATIC', '{}'::jsonb)
+		`, modelID, tenantID, *response.RfxVersionID); err != nil {
+			t.Fatalf("insert score model: %v", err)
+		}
+	} else {
+		modelID = model.ID
 	}
 	if _, err := env.pool.Exec(ctx, `
 		INSERT INTO rfx.rfx_qualification_results (
 			id, tenant_id, rfx_response_id, score_model_id, score_model_version,
 			status, calculation_status, total_score, knockout_triggered, created_at, updated_at
 		) VALUES ($1, $2, $3, $4, 1, 'QUALIFIED', 'CALCULATED', 88.5, FALSE, now(), now())
-	`, uuid.New(), tenantID, response.ID, model.ID); err != nil {
+	`, uuid.New(), tenantID, response.ID, modelID); err != nil {
 		t.Fatalf("insert qualification result: %v", err)
 	}
 }
