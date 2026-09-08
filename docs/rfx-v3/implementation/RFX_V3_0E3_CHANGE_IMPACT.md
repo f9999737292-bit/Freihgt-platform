@@ -48,7 +48,7 @@ Repository max migration contract updated to **000069**; **000070** is unrelease
 | `KNOCKOUT_AFFECTING` | Knockout rule content change (not scoring-only binding add/remove) |
 
 Multiple classes per analysis; output order is fixed (§6.1 enum order).  
-Repository canonicalizes duplicates before INSERT; PostgreSQL CHECK rejects unknown classes.
+Repository canonicalizes duplicates before INSERT; PostgreSQL `<@` containment CHECK rejects unknown classes (no subqueries).
 
 ---
 
