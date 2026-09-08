@@ -284,8 +284,8 @@ func TestE2INT12RestoreAuditOnce(t *testing.T) {
 	}
 	var count int
 	if err := env.pool.QueryRow(context.Background(), `
-		SELECT COUNT(*) FROM core.audit_events
-		WHERE tenant_id = $1 AND event_type = 'rfx.version.restored_as_draft.v1' AND resource_id = $2`,
+		SELECT COUNT(*) FROM rfx.audit_events
+		WHERE tenant_id = $1 AND action = 'rfx.version.restored_as_draft.v1' AND entity_id = $2`,
 		fix.TenantID, draft.ID).Scan(&count); err != nil {
 		t.Fatalf("count audit: %v", err)
 	}
