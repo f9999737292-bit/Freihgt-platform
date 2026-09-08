@@ -120,10 +120,11 @@ func TestE3INT05ScoringChangeScoringAffecting(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
 	event := createDraftEvent(t, env, fix, "RFX-E3-05")
-	ensurePublishedVersion(t, env, fix, event.ID, "e3-int-05-v1")
+	v1 := ensurePublishedVersion(t, env, fix, event.ID, "e3-int-05-v1")
 	attachPublishedScoringToEvent(t, env, fix, event.ID)
 	draft := forkAndModifyDraft(t, env, fix, event.ID, "e3-int-05-fork", func(ctx context.Context, draftID uuid.UUID) {
-		modifyScoringWeight(t, env, fix, event.ID, 50)
+		copyPublishedScoringToDraft(t, env, fix, v1.ID, draftID)
+		modifyScoringWeightOnDraft(t, env, fix, draftID, 50)
 	})
 
 	analysis := previewChangeImpact(t, env, fix, event.ID, draft.ID, fix.BuyerA)
@@ -137,10 +138,11 @@ func TestE3INT06KnockoutChangeKnockoutAffecting(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
 	event := createDraftEvent(t, env, fix, "RFX-E3-06")
-	ensurePublishedVersion(t, env, fix, event.ID, "e3-int-06-v1")
+	v1 := ensurePublishedVersion(t, env, fix, event.ID, "e3-int-06-v1")
 	attachPublishedScoringToEvent(t, env, fix, event.ID)
 	draft := forkAndModifyDraft(t, env, fix, event.ID, "e3-int-06-fork", func(ctx context.Context, draftID uuid.UUID) {
-		modifyKnockoutRule(t, env, fix, event.ID)
+		copyPublishedScoringToDraft(t, env, fix, v1.ID, draftID)
+		modifyKnockoutRuleOnDraft(t, env, fix, draftID)
 	})
 
 	analysis := previewChangeImpact(t, env, fix, event.ID, draft.ID, fix.BuyerA)
@@ -154,7 +156,7 @@ func TestE3INT07MultipleClassesDeterministicOrder(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
 	event := createDraftEvent(t, env, fix, "RFX-E3-07")
-	ensurePublishedVersion(t, env, fix, event.ID, "e3-int-07-v1")
+	v1 := ensurePublishedVersion(t, env, fix, event.ID, "e3-int-07-v1")
 	attachPublishedScoringToEvent(t, env, fix, event.ID)
 	addParticipantAndOpenResponses(t, env, fix, event.ID)
 
@@ -192,10 +194,11 @@ func TestE3INT07MultipleClassesDeterministicOrder(t *testing.T) {
 	}
 
 	draft := forkAndModifyDraft(t, env, fix, event.ID, "e3-int-07-fork", func(ctx context.Context, draftID uuid.UUID) {
+		copyPublishedScoringToDraft(t, env, fix, v1.ID, draftID)
 		required := false
 		updateQuestionRequired(t, env, fix, event.ID, draftID, "FLEET_SIZE", &required)
-		modifyScoringWeight(t, env, fix, event.ID, 60)
-		modifyKnockoutRule(t, env, fix, event.ID)
+		modifyScoringWeightOnDraft(t, env, fix, draftID, 60)
+		modifyKnockoutRuleOnDraft(t, env, fix, draftID)
 	})
 
 	analysis := previewChangeImpact(t, env, fix, event.ID, draft.ID, fix.BuyerA)
@@ -702,14 +705,15 @@ func TestE3INT26ScoringPublishSetsRescoringRequiredTrue(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
 	event := createDraftEvent(t, env, fix, "RFX-E3-26")
-	ensurePublishedVersion(t, env, fix, event.ID, "e3-int-26-v1")
+	v1 := ensurePublishedVersion(t, env, fix, event.ID, "e3-int-26-v1")
 	attachPublishedScoringToEvent(t, env, fix, event.ID)
 	addParticipantAndOpenResponses(t, env, fix, event.ID)
 	if _, err := env.crSvc.StartOrResume(context.Background(), fix.CarrierAct, event.ID, fix.CarrierID); err != nil {
 		t.Fatalf("start response: %v", err)
 	}
 	draft := forkAndModifyDraft(t, env, fix, event.ID, "e3-int-26-fork", func(ctx context.Context, draftID uuid.UUID) {
-		modifyScoringWeight(t, env, fix, event.ID, 40)
+		copyPublishedScoringToDraft(t, env, fix, v1.ID, draftID)
+		modifyScoringWeightOnDraft(t, env, fix, draftID, 40)
 	})
 	analysis := previewChangeImpact(t, env, fix, event.ID, draft.ID, fix.BuyerA)
 	eventRow, err := reloadEvent(t, env, fix, event.ID)
@@ -819,7 +823,8 @@ func TestE3INT29OldScoreQualificationHistoryUnchanged(t *testing.T) {
 	}
 
 	draft := forkAndModifyDraft(t, env, fix, event.ID, "e3-int-29-fork", func(ctx context.Context, draftID uuid.UUID) {
-		modifyScoringWeight(t, env, fix, event.ID, 30)
+		copyPublishedScoringToDraft(t, env, fix, v1.ID, draftID)
+		modifyScoringWeightOnDraft(t, env, fix, draftID, 30)
 	})
 	analysis := previewChangeImpact(t, env, fix, event.ID, draft.ID, fix.BuyerA)
 	eventRow, err := reloadEvent(t, env, fix, event.ID)
@@ -847,7 +852,7 @@ func TestE3INT30NoAutomaticRescore(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
 	event := createDraftEvent(t, env, fix, "RFX-E3-30")
-	ensurePublishedVersion(t, env, fix, event.ID, "e3-int-30-v1")
+	v1 := ensurePublishedVersion(t, env, fix, event.ID, "e3-int-30-v1")
 	attachPublishedScoringToEvent(t, env, fix, event.ID)
 	addParticipantAndOpenResponses(t, env, fix, event.ID)
 	ws, err := env.crSvc.StartOrResume(context.Background(), fix.CarrierAct, event.ID, fix.CarrierID)
@@ -879,7 +884,8 @@ func TestE3INT30NoAutomaticRescore(t *testing.T) {
 	}
 
 	draft := forkAndModifyDraft(t, env, fix, event.ID, "e3-int-30-fork", func(ctx context.Context, draftID uuid.UUID) {
-		modifyKnockoutRule(t, env, fix, event.ID)
+		copyPublishedScoringToDraft(t, env, fix, v1.ID, draftID)
+		modifyKnockoutRuleOnDraft(t, env, fix, draftID)
 	})
 	analysis := previewChangeImpact(t, env, fix, event.ID, draft.ID, fix.BuyerA)
 	eventRow, err := reloadEvent(t, env, fix, event.ID)
@@ -994,6 +1000,7 @@ func TestE3INT33CompositeTenantEventVersionIntegrity(t *testing.T) {
 	eventA := createDraftEvent(t, env, fix, "RFX-E3-33-A")
 	eventB := createDraftEvent(t, env, fix, "RFX-E3-33-B")
 	v1A := ensurePublishedVersion(t, env, fix, eventA.ID, "e3-int-33-a-v1")
+	ensurePublishedVersion(t, env, fix, eventB.ID, "e3-int-33-b-v1")
 	draftB := forkAndModifyDraft(t, env, fix, eventB.ID, "e3-int-33-b-fork", func(ctx context.Context, draftID uuid.UUID) {
 		updateQuestionLabel(t, env, fix, eventB.ID, draftID, "FLEET_SIZE", "Relabel")
 	})
@@ -1169,53 +1176,121 @@ func addStructuralQuestion(t *testing.T, env *testEnv, fix buyerFixture, eventID
 
 func modifyScoringWeight(t *testing.T, env *testEnv, fix buyerFixture, eventID uuid.UUID, weight float64) {
 	t.Helper()
-	ctx := context.Background()
-	if _, err := env.scoreModelSvc.PutScoreModel(ctx, fix.BuyerA, eventID, domain.PutScoreModelInput{
-		Criteria: []domain.ScoreCriterionInput{
-			{
-				CriterionCode:     "HSE",
-				Name:              "HSE",
-				Weight:            weight,
-				SortOrder:         1,
-				NormalizationJSON: json.RawMessage(`{"type":"BOOLEAN_MAP","true_score":100,"false_score":0}`),
-			},
-		},
-		Bindings: []domain.ScoreBindingInput{
-			{
-				CriterionCode:    "HSE",
-				QuestionCode:     "HSE_OK",
-				ScoringRuleJSON:  json.RawMessage(`{"type":"BOOLEAN_MAP"}`),
-				KnockoutRuleJSON: json.RawMessage(`{"type":"BOOLEAN_EQUALS","value":false}`),
-			},
-		},
-	}); err != nil {
-		t.Fatalf("put score model: %v", err)
+	state, err := env.qRepo.GetEventVersionState(context.Background(), eventID, fix.TenantID)
+	if err != nil {
+		t.Fatalf("event state: %v", err)
 	}
+	if state.DraftVersionID == nil || state.PublishedVersionID == nil {
+		t.Fatal("expected published and draft versions for scoring modification")
+	}
+	copyPublishedScoringToDraft(t, env, fix, *state.PublishedVersionID, *state.DraftVersionID)
+	modifyScoringWeightOnDraft(t, env, fix, *state.DraftVersionID, weight)
 }
 
 func modifyKnockoutRule(t *testing.T, env *testEnv, fix buyerFixture, eventID uuid.UUID) {
 	t.Helper()
+	state, err := env.qRepo.GetEventVersionState(context.Background(), eventID, fix.TenantID)
+	if err != nil {
+		t.Fatalf("event state: %v", err)
+	}
+	if state.DraftVersionID == nil || state.PublishedVersionID == nil {
+		t.Fatal("expected published and draft versions for scoring modification")
+	}
+	copyPublishedScoringToDraft(t, env, fix, *state.PublishedVersionID, *state.DraftVersionID)
+	modifyKnockoutRuleOnDraft(t, env, fix, *state.DraftVersionID)
+}
+
+func copyPublishedScoringToDraft(t *testing.T, env *testEnv, fix buyerFixture, publishedVersionID, draftVersionID uuid.UUID) {
+	t.Helper()
 	ctx := context.Background()
-	if _, err := env.scoreModelSvc.PutScoreModel(ctx, fix.BuyerA, eventID, domain.PutScoreModelInput{
-		Criteria: []domain.ScoreCriterionInput{
-			{
-				CriterionCode:     "HSE",
-				Name:              "HSE",
-				Weight:            100,
-				SortOrder:         1,
-				NormalizationJSON: json.RawMessage(`{"type":"BOOLEAN_MAP","true_score":100,"false_score":0}`),
-			},
-		},
-		Bindings: []domain.ScoreBindingInput{
-			{
-				CriterionCode:    "HSE",
-				QuestionCode:     "HSE_OK",
-				ScoringRuleJSON:  json.RawMessage(`{"type":"BOOLEAN_MAP"}`),
-				KnockoutRuleJSON: json.RawMessage(`{"type":"BOOLEAN_EQUALS","value":true}`),
-			},
-		},
-	}); err != nil {
-		t.Fatalf("put knockout score model: %v", err)
+	sourceQ, err := env.qRepo.LoadQuestionnaire(ctx, publishedVersionID, fix.TenantID)
+	if err != nil {
+		t.Fatalf("load source questionnaire: %v", err)
+	}
+	targetQ, err := env.qRepo.LoadQuestionnaire(ctx, draftVersionID, fix.TenantID)
+	if err != nil {
+		t.Fatalf("load target questionnaire: %v", err)
+	}
+	questionIDMap := mapQuestionIDsByCode(*sourceQ, *targetQ)
+	if err := env.scoreRepo.CopyDraftScoringFromSource(ctx, fix.TenantID, publishedVersionID, draftVersionID, questionIDMap, sourceQ, targetQ); err != nil {
+		t.Fatalf("copy draft scoring: %v", err)
+	}
+}
+
+func mapQuestionIDsByCode(source, target domain.QuestionnaireDefinition) map[uuid.UUID]uuid.UUID {
+	sourceByCode := map[string]uuid.UUID{}
+	for _, section := range source.Sections {
+		for _, q := range section.Questions {
+			sourceByCode[section.Section.SectionCode+"\x00"+q.QuestionCode] = q.ID
+		}
+	}
+	out := make(map[uuid.UUID]uuid.UUID)
+	for _, section := range target.Sections {
+		for _, q := range section.Questions {
+			key := section.Section.SectionCode + "\x00" + q.QuestionCode
+			if sourceID, ok := sourceByCode[key]; ok {
+				out[sourceID] = q.ID
+			}
+		}
+	}
+	return out
+}
+
+func modifyScoringWeightOnDraft(t *testing.T, env *testEnv, fix buyerFixture, draftVersionID uuid.UUID, weight float64) {
+	t.Helper()
+	ctx := context.Background()
+	model, err := env.scoreRepo.GetDraftModelForVersion(ctx, fix.TenantID, draftVersionID)
+	if err != nil {
+		t.Fatalf("load draft score model: %v", err)
+	}
+	criteria := []domain.ScoreCriterion{{
+		CriterionCode:     "HSE",
+		Name:              "HSE",
+		Weight:            weight,
+		SortOrder:         1,
+		NormalizationJSON: json.RawMessage(`{"type":"BOOLEAN_MAP","true_score":100,"false_score":0}`),
+	}}
+	questionID := mustQuestionByCode(t, env, fix, draftVersionID, "HSE_OK").ID
+	criterionID := uuid.New()
+	criteria[0].ID = criterionID
+	bindings := []domain.ScoreBinding{{
+		CriterionID:      criterionID,
+		QuestionID:       questionID,
+		BindingType:      "AUTOMATIC",
+		ScoringRuleJSON:  json.RawMessage(`{"type":"BOOLEAN_MAP"}`),
+		KnockoutRuleJSON: json.RawMessage(`{"type":"BOOLEAN_EQUALS","value":false}`),
+	}}
+	if err := env.scoreRepo.ReplaceDraftDefinition(ctx, model.ID, fix.TenantID, criteria, bindings); err != nil {
+		t.Fatalf("replace draft score definition: %v", err)
+	}
+}
+
+func modifyKnockoutRuleOnDraft(t *testing.T, env *testEnv, fix buyerFixture, draftVersionID uuid.UUID) {
+	t.Helper()
+	ctx := context.Background()
+	model, err := env.scoreRepo.GetDraftModelForVersion(ctx, fix.TenantID, draftVersionID)
+	if err != nil {
+		t.Fatalf("load draft score model: %v", err)
+	}
+	criterionID := uuid.New()
+	criteria := []domain.ScoreCriterion{{
+		ID:                criterionID,
+		CriterionCode:     "HSE",
+		Name:              "HSE",
+		Weight:            100,
+		SortOrder:         1,
+		NormalizationJSON: json.RawMessage(`{"type":"BOOLEAN_MAP","true_score":100,"false_score":0}`),
+	}}
+	questionID := mustQuestionByCode(t, env, fix, draftVersionID, "HSE_OK").ID
+	bindings := []domain.ScoreBinding{{
+		CriterionID:      criterionID,
+		QuestionID:       questionID,
+		BindingType:      "AUTOMATIC",
+		ScoringRuleJSON:  json.RawMessage(`{"type":"BOOLEAN_MAP"}`),
+		KnockoutRuleJSON: json.RawMessage(`{"type":"BOOLEAN_EQUALS","value":true}`),
+	}}
+	if err := env.scoreRepo.ReplaceDraftDefinition(ctx, model.ID, fix.TenantID, criteria, bindings); err != nil {
+		t.Fatalf("replace draft knockout definition: %v", err)
 	}
 }
 
