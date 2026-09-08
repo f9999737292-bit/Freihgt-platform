@@ -334,11 +334,19 @@ func makeQuestionnaireDraft(t *testing.T, env *testEnv, fix buyerFixture, eventI
 	}
 	if _, err := env.qSvc.CreateQuestion(ctx, fix.BuyerA, eventID, section.ID, domain.CreateQuestionInput{
 		QuestionCode: "FLEET_SIZE",
-		QuestionType: domain.QuestionTypeText,
+		QuestionType: domain.QuestionTypeNumber,
 		Label:        "Fleet size",
 		Required:     true,
 	}); err != nil {
 		t.Fatalf("create question: %v", err)
+	}
+	if _, err := env.qSvc.CreateQuestion(ctx, fix.BuyerA, eventID, section.ID, domain.CreateQuestionInput{
+		QuestionCode: "HSE_OK",
+		QuestionType: domain.QuestionTypeYesNo,
+		Label:        "HSE compliant",
+		Required:     true,
+	}); err != nil {
+		t.Fatalf("create HSE question: %v", err)
 	}
 	version, err = env.qRepo.GetVersionByID(ctx, version.ID, fix.TenantID)
 	if err != nil {
@@ -617,13 +625,25 @@ func attachPublishedScoringToEvent(t *testing.T, env *testEnv, fix buyerFixture,
 				SortOrder:         1,
 				NormalizationJSON: json.RawMessage(`{"type":"BOOLEAN_MAP","true_score":100,"false_score":0}`),
 			},
+			{
+				CriterionCode:     "CAPACITY",
+				Name:              "Capacity",
+				Weight:            60,
+				SortOrder:         2,
+				NormalizationJSON: json.RawMessage(`{"type":"NUMBER_LINEAR","min":0,"max":100}`),
+			},
 		},
 		Bindings: []domain.ScoreBindingInput{
 			{
 				CriterionCode:    "HSE",
-				QuestionCode:     "FLEET_SIZE",
-				ScoringRuleJSON:  json.RawMessage(`{"type":"TEXT_PRESENT"}`),
+				QuestionCode:     "HSE_OK",
+				ScoringRuleJSON:  json.RawMessage(`{"type":"BOOLEAN_MAP"}`),
 				KnockoutRuleJSON: json.RawMessage(`{"type":"BOOLEAN_EQUALS","value":false}`),
+			},
+			{
+				CriterionCode:   "CAPACITY",
+				QuestionCode:    "FLEET_SIZE",
+				ScoringRuleJSON: json.RawMessage(`{"type":"NUMBER_LINEAR"}`),
 			},
 		},
 	})
