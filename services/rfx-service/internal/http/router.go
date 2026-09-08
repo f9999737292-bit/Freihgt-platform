@@ -22,6 +22,7 @@ func NewRouter(
 	cfg config.Config,
 	rfxSvc *service.RfxService,
 	qSvc *service.QuestionnaireService,
+	versionSvc *service.VersionLifecycleService,
 	crSvc *service.CarrierResponseService,
 	scoreModelSvc *service.ScoreModelService,
 	scoringSvc *service.ScoringService,
@@ -31,6 +32,7 @@ func NewRouter(
 ) http.Handler {
 	rfxHandler := handlers.NewRfxHandler(rfxSvc)
 	qHandler := handlers.NewQuestionnaireHandler(qSvc)
+	versionHandler := handlers.NewVersionLifecycleHandler(versionSvc)
 	crHandler := handlers.NewCarrierResponseHandler(crSvc)
 	scoreHandler := handlers.NewScoreHandler(scoreModelSvc, scoringSvc, rfxSvc)
 	frHandler := handlers.NewFreightRequestHandler(frSvc)
@@ -99,6 +101,14 @@ func NewRouter(
 		r.Patch("/{id}/rules/{rule_id}", qHandler.UpdateRule)
 		r.Delete("/{id}/rules/{rule_id}", qHandler.DeleteRule)
 
+		r.Group(func(r chi.Router) {
+			r.Use(versioningV3FlagMiddleware(cfg.RfxVersioningV3Enabled))
+			r.Get("/{id}/versions", versionHandler.ListVersions)
+			r.Get("/{id}/versions/{version_id}", versionHandler.GetVersion)
+			r.Post("/{id}/questionnaire/publish", versionHandler.PublishQuestionnaire)
+			r.Post("/{id}/versions/fork-draft", versionHandler.ForkDraftFromPublished)
+		})
+
 		// RFx v3.0C carrier questionnaire response
 		r.Get("/{id}/carrier-response", crHandler.GetCarrierResponse)
 		r.Post("/{id}/carrier-response/start", crHandler.StartCarrierResponse)
@@ -153,4 +163,16 @@ func NewRouter(
 	})
 
 	return r
+}
+
+func versioningV3FlagMiddleware(enabled bool) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !enabled {
+				http.NotFound(w, r)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }

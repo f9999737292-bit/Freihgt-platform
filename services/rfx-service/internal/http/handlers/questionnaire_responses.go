@@ -41,7 +41,12 @@ func toRfxVersionResponse(version *domain.RfxVersion) map[string]any {
 		"version_number":        version.VersionNumber,
 		"status":                version.Status,
 		"questionnaire_enabled": version.QuestionnaireEnabled,
+		"is_current_published":  version.IsCurrentPublished,
+		"is_active_draft":       version.IsActiveDraft,
+		"change_summary":        version.ChangeSummary,
 		"published_at":          formatDateTime(version.PublishedAt),
+		"superseded_at":         formatDateTime(version.SupersededAt),
+		"rescoring_required":    version.RescoringRequired,
 		"created_at":            version.CreatedAt.UTC().Format(time.RFC3339),
 		"updated_at":            version.UpdatedAt.UTC().Format(time.RFC3339),
 		"version":               version.Version,
@@ -50,6 +55,11 @@ func toRfxVersionResponse(version *domain.RfxVersion) map[string]any {
 		resp["published_by"] = version.PublishedBy.String()
 	} else {
 		resp["published_by"] = nil
+	}
+	if version.SupersededByVersionID != nil {
+		resp["superseded_by_version_id"] = version.SupersededByVersionID.String()
+	} else {
+		resp["superseded_by_version_id"] = nil
 	}
 	return resp
 }

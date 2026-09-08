@@ -52,6 +52,7 @@ func TestDeadlineWorkerRejectsInvalidInterval(t *testing.T) {
 
 func TestLoadIncludesDeadlineWorkerConfig(t *testing.T) {
 	t.Setenv("RFX_DEADLINE_WORKER_ENABLED", "false")
+	t.Setenv("RFX_VERSIONING_V3_ENABLED", "")
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("load: %v", err)
@@ -60,4 +61,15 @@ func TestLoadIncludesDeadlineWorkerConfig(t *testing.T) {
 		t.Fatal("expected deadline worker config")
 	}
 	_ = os.Getenv("DATABASE_URL")
+}
+
+func TestLoadIncludesVersioningFlag(t *testing.T) {
+	t.Setenv("RFX_VERSIONING_V3_ENABLED", "true")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if !cfg.RfxVersioningV3Enabled {
+		t.Fatal("expected versioning flag enabled")
+	}
 }

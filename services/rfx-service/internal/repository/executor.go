@@ -42,6 +42,13 @@ func (r *FreightRequestRepository) db() dbExecutor {
 	return r.pool
 }
 
+func (r *IdempotencyRepository) db() dbExecutor {
+	if r.exec != nil {
+		return r.exec
+	}
+	return r.pool
+}
+
 // WithTx returns a repository bound to an open transaction.
 func (r *RfxRepository) WithTx(tx pgx.Tx) *RfxRepository {
 	return &RfxRepository{pool: r.pool, exec: tx}
@@ -65,6 +72,10 @@ func (r *QuestionnaireRepository) WithTx(tx pgx.Tx) *QuestionnaireRepository {
 
 func (r *AnswerRepository) WithTx(tx pgx.Tx) *AnswerRepository {
 	return &AnswerRepository{pool: r.pool, exec: tx}
+}
+
+func (r *IdempotencyRepository) WithTx(tx pgx.Tx) *IdempotencyRepository {
+	return &IdempotencyRepository{pool: r.pool, exec: tx}
 }
 
 // TransactionRunner executes callbacks inside a database transaction.

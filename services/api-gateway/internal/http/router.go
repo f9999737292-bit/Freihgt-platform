@@ -267,6 +267,10 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	r.Post("/api/v1/rfx-events/{id}/rules", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
 	r.Patch("/api/v1/rfx-events/{id}/rules/{rule_id}", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
 	r.Delete("/api/v1/rfx-events/{id}/rules/{rule_id}", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
+	r.Post("/api/v1/rfx-events/{id}/questionnaire/publish", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
+	r.Post("/api/v1/rfx-events/{id}/versions/fork-draft", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
+	r.Get("/api/v1/rfx-events/{id}/versions", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerRead))
+	r.Get("/api/v1/rfx-events/{id}/versions/{version_id}", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerRead))
 
 	// RFx v3.0C carrier questionnaire response
 	r.Get("/api/v1/rfx-events/{id}/carrier-response", rfxGuard.WithPolicy(rfxrbac.PolicyCarrierRead))

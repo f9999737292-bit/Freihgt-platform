@@ -39,6 +39,10 @@ func Error(w http.ResponseWriter, err error) {
 	status := http.StatusInternalServerError
 	switch appErr.Code {
 	case apperrors.CodeValidation:
+		if appErr.Details["code"] == "CHANGE_IMPACT_ANALYSIS_REQUIRED" {
+			status = http.StatusUnprocessableEntity
+			break
+		}
 		status = http.StatusBadRequest
 	case apperrors.CodeValidationFailed:
 		errors := appErr.Errors

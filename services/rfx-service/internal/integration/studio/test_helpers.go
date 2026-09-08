@@ -33,11 +33,13 @@ type testEnv struct {
 	qRepo          *repository.QuestionnaireRepository
 	answerRepo     *repository.AnswerRepository
 	scoreRepo      *repository.ScoreRepository
+	idemRepo       *repository.IdempotencyRepository
 	rfxSvc         *service.RfxService
 	qSvc           *service.QuestionnaireService
 	scoreModelSvc  *service.ScoreModelService
 	scoringSvc     *service.ScoringService
 	crSvc          *service.CarrierResponseService
+	versionSvc     *service.VersionLifecycleService
 }
 
 type buyerFixture struct {
@@ -91,11 +93,13 @@ func setupTestEnv(t *testing.T) *testEnv {
 	qRepo := repository.NewQuestionnaireRepository(pool)
 	answerRepo := repository.NewAnswerRepository(pool)
 	scoreRepo := repository.NewScoreRepository(pool)
+	idemRepo := repository.NewIdempotencyRepository(pool)
 	rfxSvc := service.NewRfxServiceWithAtomic(pool, rfxRepo, auditRepo, membershipRepo, newAwardConversionStub(pool))
 	qSvc := service.NewQuestionnaireService(rfxRepo, qRepo, auditRepo, membershipRepo)
 	scoringSvc := service.NewScoringService(pool, rfxRepo, answerRepo, qRepo, scoreRepo, auditRepo)
 	scoreModelSvc := service.NewScoreModelService(rfxRepo, scoreRepo, qRepo, auditRepo, membershipRepo, rfxSvc)
 	crSvc := service.NewCarrierResponseServiceWithScoring(pool, rfxRepo, answerRepo, qRepo, auditRepo, membershipRepo, rfxSvc, scoringSvc)
+	versionSvc := service.NewVersionLifecycleService(pool, rfxRepo, qRepo, idemRepo, auditRepo, rfxSvc)
 	t.Logf("isolated database=%s", dbName)
 	return &testEnv{
 		pool:           pool,
@@ -105,11 +109,13 @@ func setupTestEnv(t *testing.T) *testEnv {
 		qRepo:          qRepo,
 		answerRepo:     answerRepo,
 		scoreRepo:      scoreRepo,
+		idemRepo:       idemRepo,
 		rfxSvc:         rfxSvc,
 		qSvc:           qSvc,
 		scoreModelSvc:  scoreModelSvc,
 		scoringSvc:     scoringSvc,
 		crSvc:          crSvc,
+		versionSvc:     versionSvc,
 	}
 }
 

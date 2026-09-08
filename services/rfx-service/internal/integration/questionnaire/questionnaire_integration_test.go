@@ -401,19 +401,63 @@ func TestPublishedVersionMutationDenied(t *testing.T) {
 	ctx := context.Background()
 	event := createDraftEvent(t, env, fix, "RFX-PUB-1")
 
-	if _, err := env.qSvc.CreateSection(ctx, fix.BuyerA, event.ID, domain.CreateSectionInput{
-		SectionCode: "PUBLISHED_SEC",
-		Title:       "Published Section",
-	}); err != nil {
-		t.Fatalf("create section before publish: %v", err)
-	}
-
 	studio, err := env.qSvc.GetStudio(ctx, fix.BuyerA, event.ID)
 	if err != nil {
 		t.Fatalf("get studio: %v", err)
 	}
+	if studio.DraftVersion == nil {
+		t.Fatal("expected draft version before publish")
+	}
+	enableQuestionnaireByVersionID(t, env, fix.TenantID, studio.DraftVersion.ID)
+
+	sec, err := env.qSvc.CreateSection(ctx, fix.BuyerA, event.ID, domain.CreateSectionInput{
+		SectionCode: "PUBLISHED_SEC",
+		Title:       "Published Section",
+	})
+	if err != nil {
+		t.Fatalf("create section before publish: %v", err)
+	}
+	if _, err := env.qSvc.CreateQuestion(ctx, fix.BuyerA, event.ID, sec.ID, domain.CreateQuestionInput{
+		QuestionCode: "Q1",
+		QuestionType: domain.QuestionTypeText,
+		Label:        "Question 1",
+		Required:     true,
+	}); err != nil {
+		t.Fatalf("create question before publish: %v", err)
+	}
+
+	readiness, err := env.qSvc.ValidatePublish(ctx, fix.BuyerA, event.ID)
+	if err != nil {
+		t.Fatalf("validate publish readiness: %v", err)
+	}
+	if !readiness.Ready {
+		t.Fatalf("expected publish readiness pass, items=%+v", readiness.Items)
+	}
+
+	studio, err = env.qSvc.GetStudio(ctx, fix.BuyerA, event.ID)
+	if err != nil {
+		t.Fatalf("reload studio before publish: %v", err)
+	}
 	publishedVersionID := studio.DraftVersion.ID
-	publishVersion(t, env, publishedVersionID)
+	eventRecord, err := env.rfxRepo.GetEventByID(ctx, event.ID, fix.TenantID)
+	if err != nil {
+		t.Fatalf("reload event before publish: %v", err)
+	}
+	if _, err := env.versionSvc.PublishQuestionnaire(ctx, fix.BuyerA, event.ID, "q-pub-mutation-denied", domain.PublishQuestionnaireInput{
+		ExpectedEventVersion: eventRecord.Version,
+		ExpectedDraftVersion: studio.DraftVersion.Version,
+		ChangeSummary:        "Initial publish",
+	}); err != nil {
+		t.Fatalf("publish questionnaire: %v", err)
+	}
+
+	var draftVersionID *uuid.UUID
+	if err := env.pool.QueryRow(ctx, `SELECT draft_version_id FROM rfx.rfx_events WHERE id=$1 AND tenant_id=$2`, event.ID, fix.TenantID).Scan(&draftVersionID); err != nil {
+		t.Fatalf("read draft_version_id: %v", err)
+	}
+	if draftVersionID != nil {
+		t.Fatalf("expected draft_version_id=NULL after publish, got %v", draftVersionID)
+	}
 
 	var publishedSectionCount int
 	if err := env.pool.QueryRow(ctx, `SELECT COUNT(*) FROM rfx.rfx_sections WHERE rfx_version_id=$1 AND tenant_id=$2 AND deleted_at IS NULL`, publishedVersionID, fix.TenantID).Scan(&publishedSectionCount); err != nil {
@@ -423,22 +467,31 @@ func TestPublishedVersionMutationDenied(t *testing.T) {
 		t.Fatalf("expected 1 section on published version, got %d", publishedSectionCount)
 	}
 
-	studioAfter, err := env.qSvc.GetStudio(ctx, fix.BuyerA, event.ID)
+	if _, err := env.qSvc.CreateSection(ctx, fix.BuyerA, event.ID, domain.CreateSectionInput{
+		SectionCode: "MUTATE_PUBLISHED",
+		Title:       "Mutate Published",
+	}); err == nil {
+		t.Fatal("expected mutation of published graph to fail")
+	} else {
+		assertAppErrorCode(t, err, apperrors.CodeConflict)
+	}
+
+	newDraft, err := env.versionSvc.ForkDraftFromPublished(ctx, fix.BuyerA, event.ID, "q-fork-mutation-denied")
 	if err != nil {
-		t.Fatalf("get studio after publish: %v", err)
+		t.Fatalf("fork draft from published: %v", err)
 	}
-	if studioAfter.DraftVersion == nil || studioAfter.DraftVersion.ID == publishedVersionID {
-		t.Fatal("expected new draft version after publish")
+	if newDraft.ID == publishedVersionID {
+		t.Fatal("fork must create a new draft version")
 	}
-	if studioAfter.DraftVersion.Status != domain.RfxVersionStatusDraft {
-		t.Fatalf("expected draft status, got %s", studioAfter.DraftVersion.Status)
+	if newDraft.Status != domain.RfxVersionStatusDraft {
+		t.Fatalf("expected forked draft status, got %s", newDraft.Status)
 	}
 
 	if _, err := env.qSvc.CreateSection(ctx, fix.BuyerA, event.ID, domain.CreateSectionInput{
 		SectionCode: "NEW_DRAFT",
 		Title:       "New Draft Section",
 	}); err != nil {
-		t.Fatalf("create section on new draft: %v", err)
+		t.Fatalf("create section on forked draft: %v", err)
 	}
 
 	if err := env.pool.QueryRow(ctx, `SELECT COUNT(*) FROM rfx.rfx_sections WHERE rfx_version_id=$1 AND tenant_id=$2 AND deleted_at IS NULL`, publishedVersionID, fix.TenantID).Scan(&publishedSectionCount); err != nil {
