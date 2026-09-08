@@ -13,7 +13,7 @@
 | **v3.0B** | Questionnaire Core | Sections, questions, types, conditional rules, buyer Studio builder | **IMPLEMENTED_ACCEPTED** |
 | **v3.0C** | Carrier Response | Autosave, resume, error UX, submit gate | **IMPLEMENTED_ACCEPTED** |
 | **v3.0D** | Scoring + Knockout | Score models, knockout, explainability | **IMPLEMENTED_ACCEPTED** |
-| **v3.0E** | Templates + Versioning | Template library, immutable published versions, compare/restore | **IMPLEMENTATION_IN_PROGRESS_E1** |
+| **v3.0E** | Templates + Versioning | Template library, immutable published versions, compare/restore | **IMPLEMENTATION_IN_PROGRESS** |
 | **v3.0F** | Qualification Pool | Qualification results, pools, RFI→RFQ handoff | Planned |
 | **v3.0G** | Carrier 360 | Profile autofill, freshness, confirmation | Planned |
 | **v3.0H** | Analytics + Explainability | Dashboards, score drill-down, audit views | Planned |
@@ -97,6 +97,25 @@ These are assigned to the **earliest appropriate wave** — not deferred beyond 
 | Immutable published versions | Domain model §7 |
 | `COMPARE_VERSIONS`, `RESTORE_DRAFT_VERSION` | Validation contract §21 |
 | Change impact analysis | API §7 |
+
+### v3.0E wave status
+
+| Wave | Scope | Status |
+|---|---|---|
+| **E1 Backend Foundation** | Questionnaire publish/supersede, fork draft, idempotency, version list/detail API, carrier response continuity, migration 000068 | **IMPLEMENTED_ACCEPTED** — PR #107 merged via `1b880d0` |
+| **E2 Compare + Restore** | Compare versions, restore-as-draft | **PENDING_CONTROLLER_AUTHORIZATION** |
+| **E3 Change Impact** | Change-impact preview, publish confirmation | **NOT_STARTED** |
+| **E4 Template Library** | Template library CRUD, publish | **NOT_STARTED** |
+| **E5 Template Clone + Provenance** | Clone event from template, provenance | **NOT_STARTED** |
+| **E6 Studio Frontend** | Studio UI: library, history, compare, restore | **NOT_STARTED** |
+| **E7 Browser Acceptance** | Browser acceptance gate | **NOT_STARTED** |
+
+Notes:
+
+- The E1 implementation expanded the backend foundation while remaining inside the accepted v3.0E architecture.
+- No E2–E7 implementation has started.
+- Each implementation wave requires a separate controller gate.
+- Complete v3.0E remains **IMPLEMENTATION_IN_PROGRESS** until all v3.0E waves are accepted.
 
 ---
 

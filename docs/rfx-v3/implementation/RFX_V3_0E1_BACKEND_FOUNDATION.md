@@ -1,20 +1,34 @@
 # RFx v3.0E1 — Backend Foundation Implementation
 
-**Status:** `IMPLEMENTATION_IN_PROGRESS_E1`  
-**Architecture base:** `origin/main` @ `d962b11d081e353f45205c73b8cfd93b7bcb969c` (PR #106 merged, `FROZEN_ACCEPTED`)  
-**Branch:** `feat/rfx-version-lifecycle-v3.0e1`  
-**Wave:** E1 only — version lifecycle, publish/supersede, fork draft, response continuity
+| Field | Value |
+|---|---|
+| **STATUS** | `IMPLEMENTED_ACCEPTED` |
+| **CONTROLLER_ACCEPTANCE** | `YES` |
+| **PR107_MERGED** | `YES` |
+| **PR107_HEAD** | `818cca34ed9fb7301797ba8360bf65a7d1ce79b8` |
+| **PR107_MERGE_SHA** | `1b880d082cdf29035211ae5cef7ab6b8d2994968` |
+| **CI_RUN_ID** | `34198416525` |
+| **E1_INT_01_33** | `PASS` |
+
+- **Architecture base:** `origin/main` @ `d962b11d081e353f45205c73b8cfd93b7bcb969c` (PR #106 merged, `FROZEN_ACCEPTED`)
+- **Merged via:** PR #107 → merge commit `1b880d0` on `origin/main`
+- **Wave:** E1 only — version lifecycle, publish/supersede, fork draft, response continuity
 
 ---
 
-## 1. Scope delivered (E1)
+## 1. Closeout summary
+
+v3.0E1 is **implemented, accepted, and merged**. The backend foundation ships behind feature flag `RFX_VERSIONING_V3_ENABLED=false` (disabled by default). Staging and pilot were not changed. v3.0E2 was not started. Templates, compare, restore, change-impact engine, frontend version history, and re-scoring remain deferred to later v3.0E waves.
+
+## 2. Scope delivered (E1)
 
 | Area | Status |
 |---|---|
 | Migration `000068_rfx_version_lifecycle_v3_0e1` | Implemented |
 | `rfx_versions` lifecycle columns + partial uniques | Implemented |
 | `rfx_events.published_version_id` + deterministic backfill | Implemented |
-| Persisted idempotency (`rfx.rfx_idempotency_records`) | Implemented |
+| Composite version pointer integrity + column-specific delete semantics | Implemented |
+| Persisted idempotency (`rfx.rfx_idempotency_records`) with expired-key reuse | Implemented |
 | Publish / supersede transaction | Implemented |
 | Fork draft from current published | Implemented |
 | Version list / detail API | Implemented |
@@ -22,9 +36,9 @@
 | Feature flag `RFX_VERSIONING_V3_ENABLED=false` default | Implemented |
 | OpenAPI + gateway routes | Implemented |
 | Domain unit tests | Implemented |
-| PostgreSQL integration tests E1-INT-01..33 | Implemented (require `TEST_DATABASE_URL`) |
+| PostgreSQL integration tests E1-INT-01..33 | Implemented |
 
-## 2. Deferred (not in E1)
+## 3. Deferred (not in E1)
 
 - Template library / clone from template
 - Compare engine
@@ -34,8 +48,9 @@
 - Re-scoring execution
 - Qualification pools
 - v3.0F
+- v3.0E2 and later v3.0E waves (separate controller authorization required)
 
-## 3. Migration 000068
+## 4. Migration 000068
 
 **Files:**
 - `infrastructure/migrations/000068_rfx_version_lifecycle_v3_0e1.up.sql`
@@ -55,7 +70,7 @@
 
 **Down:** Drops composite FKs, CHECK, supporting unique index, idempotency table, indexes, and E1-added columns only.
 
-## 4. API surface
+## 5. API surface
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
@@ -66,31 +81,40 @@
 
 Routes are gated by `RFX_VERSIONING_V3_ENABLED` in rfx-service (404 when disabled).
 
-## 5. Publish semantics (E1)
+## 6. Publish semantics (E1)
 
 - First publish: no impact analysis required
 - Republish when carrier responses or scores exist: **422** `CHANGE_IMPACT_ANALYSIS_REQUIRED` (fail-closed)
 - Republish without responses/scores: prior `PUBLISHED` → `SUPERSEDED`, draft → `PUBLISHED`
 - Optimistic concurrency: `expected_event_version`, `expected_draft_version`
 
-## 6. Response continuity
+## 7. Response continuity
 
 - `rfx_version_id` immutable after pin
 - Existing draft responses load questionnaire by pinned version after new publish
 - New responses pin current `published_version_id`
 - No silent re-bind or re-score
 
-## 7. Validation evidence
+## 8. Validation evidence
 
-| Check | Command | Result |
+| Check | Execution context | Result |
 |---|---|---|
-| Domain unit tests | `go test ./internal/domain/...` | PASS |
-| rfx-service unit tests | `go test $(go list ./... \| grep -v integration)` | PASS |
-| Integration compile | `go test -tags=integration -c ./internal/integration/versionlifecycle/` | PASS |
-| Integration E1-INT-01..33 | `go test -tags=integration ./internal/integration/versionlifecycle/...` | NOT_RUN locally (`TEST_DATABASE_URL` unset) |
-| OpenAPI generate/validate | `make openapi-check` | See PR CI |
+| Domain unit tests | CI | PASS |
+| rfx-service unit tests (non-integration) | CI | PASS |
+| Integration compile | CI | PASS |
+| Integration E1-INT-01..33 | Local PostgreSQL 16 | NOT_RUN (`TEST_DATABASE_URL` unavailable) |
+| Integration E1-INT-01..33 | CI PostgreSQL 16 on accepted head `818cca34` | PASS |
+| Migration UP / DOWN | CI PostgreSQL 16 | PASS |
+| Questionnaire integration | CI | PASS |
+| Carrier-response integration / browser | CI | PASS |
+| Scoring integration / browser | CI | PASS |
+| Security regression (`system-security-wave1`) | CI | PASS |
+| Repository-safety | CI | PASS |
+| OpenAPI generate/validate (`scripts-check`) | CI | PASS |
 
-## 8. Audit events
+**Accepted CI run:** `34198416525` (conclusion: success, exact head match).
+
+## 9. Audit events
 
 - `rfx.version.published.v1`
 - `rfx.version.superseded.v1`
@@ -98,4 +122,4 @@ Routes are gated by `RFX_VERSIONING_V3_ENABLED` in rfx-service (404 when disable
 
 ---
 
-**Controller review required.** Do not merge until v3.0E1 acceptance gate completes.
+**Post-merge documentation closeout.** v3.0E1 backend foundation is merged on `origin/main`. Complete v3.0E release remains `IMPLEMENTATION_IN_PROGRESS` per roadmap.
