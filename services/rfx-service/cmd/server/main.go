@@ -58,7 +58,8 @@ func main() {
 
 	rfxSvc := service.NewRfxServiceWithAtomic(db.Pool, rfxRepo, auditRepo, membershipRepo, toClient)
 	qSvc := service.NewQuestionnaireService(rfxRepo, qRepo, auditRepo, membershipRepo)
-	versionSvc := service.NewVersionLifecycleService(db.Pool, rfxRepo, qRepo, scoreRepo, idemRepo, auditRepo, rfxSvc)
+	changeImpactRepo := repository.NewChangeImpactRepository(db.Pool)
+	versionSvc := service.NewVersionLifecycleService(db.Pool, rfxRepo, qRepo, scoreRepo, idemRepo, auditRepo, changeImpactRepo, rfxSvc)
 	scoringSvc := service.NewScoringService(db.Pool, rfxRepo, answerRepo, qRepo, scoreRepo, auditRepo)
 	crSvc := service.NewCarrierResponseServiceWithScoring(db.Pool, rfxRepo, answerRepo, qRepo, auditRepo, membershipRepo, rfxSvc, scoringSvc)
 	scoreModelSvc := service.NewScoreModelService(rfxRepo, scoreRepo, qRepo, auditRepo, membershipRepo, rfxSvc)

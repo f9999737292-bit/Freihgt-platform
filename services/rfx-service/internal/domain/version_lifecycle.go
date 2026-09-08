@@ -17,9 +17,11 @@ const (
 )
 
 type PublishQuestionnaireInput struct {
-	ExpectedEventVersion int    `json:"expected_event_version"`
-	ExpectedDraftVersion int    `json:"expected_draft_version"`
-	ChangeSummary        string `json:"change_summary"`
+	ExpectedEventVersion int        `json:"expected_event_version"`
+	ExpectedDraftVersion int        `json:"expected_draft_version"`
+	ChangeSummary        string     `json:"change_summary"`
+	ImpactAnalysisID     *uuid.UUID `json:"impact_analysis_id,omitempty"`
+	CanonicalDiffHash    string     `json:"canonical_diff_hash,omitempty"`
 }
 
 type VersionDetail struct {

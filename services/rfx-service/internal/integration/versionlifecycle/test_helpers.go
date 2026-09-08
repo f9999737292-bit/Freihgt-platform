@@ -96,7 +96,8 @@ func setupTestEnv(t *testing.T) *testEnv {
 	crSvc := service.NewCarrierResponseService(pool, rfxRepo, answerRepo, qRepo, auditRepo, membershipRepo, rfxSvc)
 	scoreRepo := repository.NewScoreRepository(pool)
 	scoreModelSvc := service.NewScoreModelService(rfxRepo, scoreRepo, qRepo, auditRepo, membershipRepo, rfxSvc)
-	versionSvc := service.NewVersionLifecycleService(pool, rfxRepo, qRepo, scoreRepo, idemRepo, auditRepo, rfxSvc)
+	changeImpactRepo := repository.NewChangeImpactRepository(pool)
+	versionSvc := service.NewVersionLifecycleService(pool, rfxRepo, qRepo, scoreRepo, idemRepo, auditRepo, changeImpactRepo, rfxSvc)
 	t.Logf("isolated database=%s", dbName)
 
 	return &testEnv{
@@ -163,7 +164,8 @@ func setupLegacyMigrationTestEnv(t *testing.T) (*testEnv, func()) {
 	crSvc := service.NewCarrierResponseService(pool, rfxRepo, answerRepo, qRepo, auditRepo, membershipRepo, rfxSvc)
 	scoreRepo := repository.NewScoreRepository(pool)
 	scoreModelSvc := service.NewScoreModelService(rfxRepo, scoreRepo, qRepo, auditRepo, membershipRepo, rfxSvc)
-	versionSvc := service.NewVersionLifecycleService(pool, rfxRepo, qRepo, scoreRepo, idemRepo, auditRepo, rfxSvc)
+	changeImpactRepo := repository.NewChangeImpactRepository(pool)
+	versionSvc := service.NewVersionLifecycleService(pool, rfxRepo, qRepo, scoreRepo, idemRepo, auditRepo, changeImpactRepo, rfxSvc)
 	t.Logf("legacy migration database=%s", dbName)
 
 	return &testEnv{
@@ -816,4 +818,53 @@ func assertFullGraphEqual(t *testing.T, env *testEnv, fix buyerFixture, leftVers
 			t.Fatal("binding reused source question ID")
 		}
 	}
+}
+
+func buildRepublishPublishInput(
+	t *testing.T,
+	env *testEnv,
+	fix buyerFixture,
+	actor domain.ActorContext,
+	eventID uuid.UUID,
+	draft *domain.RfxVersion,
+	summary string,
+) domain.PublishQuestionnaireInput {
+	t.Helper()
+	analysis, err := env.versionSvc.PreviewChangeImpact(context.Background(), actor, eventID, domain.PreviewChangeImpactInput{
+		CandidateVersionID: draft.ID,
+	})
+	if err != nil {
+		t.Fatalf("preview for republish: %v", err)
+	}
+	event, err := env.rfxRepo.GetEventByID(context.Background(), eventID, fix.TenantID)
+	if err != nil {
+		t.Fatalf("reload event: %v", err)
+	}
+	analysisID := analysis.ID
+	return domain.PublishQuestionnaireInput{
+		ExpectedEventVersion: event.Version,
+		ExpectedDraftVersion: draft.Version,
+		ChangeSummary:        summary,
+		ImpactAnalysisID:     &analysisID,
+		CanonicalDiffHash:    analysis.CanonicalDiffHash,
+	}
+}
+
+func republishWithImpactConfirmation(
+	t *testing.T,
+	env *testEnv,
+	fix buyerFixture,
+	eventID uuid.UUID,
+	key string,
+	actor domain.ActorContext,
+	draft *domain.RfxVersion,
+	summary string,
+) *domain.RfxVersion {
+	t.Helper()
+	in := buildRepublishPublishInput(t, env, fix, actor, eventID, draft, summary)
+	published, err := env.versionSvc.PublishQuestionnaire(context.Background(), actor, eventID, key, in)
+	if err != nil {
+		t.Fatalf("republish with confirmation: %v", err)
+	}
+	return published
 }

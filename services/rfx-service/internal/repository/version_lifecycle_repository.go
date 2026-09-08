@@ -120,6 +120,7 @@ func (r *QuestionnaireRepository) PublishVersionTx(
 	expectedVersion int,
 	changeSummary string,
 	publishedBy uuid.UUID,
+	rescoringRequired bool,
 ) (*PublishVersionResult, error) {
 	state, err := r.LockEventVersionState(ctx, eventID, tenantID)
 	if err != nil {
@@ -173,12 +174,12 @@ func (r *QuestionnaireRepository) PublishVersionTx(
 			published_by = $5,
 			superseded_at = NULL,
 			superseded_by_version_id = NULL,
-			rescoring_required = FALSE,
+			rescoring_required = $6,
 			updated_at = now(),
 			version = version + 1
 		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
 		RETURNING `+rfxVersionSelectColumns+`
-	`, draft.ID, tenantID, domain.RfxVersionStatusPublished, strings.TrimSpace(changeSummary), publishedBy)
+	`, draft.ID, tenantID, domain.RfxVersionStatusPublished, strings.TrimSpace(changeSummary), publishedBy, rescoringRequired)
 	published, err := scanRfxVersion(row)
 	if err != nil {
 		return nil, mapDBError(err)
@@ -315,6 +316,46 @@ func (r *QuestionnaireRepository) RestoreVersionAsDraftTx(
 	}
 
 	return draft, questionIDMap, nil
+}
+
+func (r *QuestionnaireRepository) CountAffectedResponsesOnVersion(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	sourceVersionID uuid.UUID,
+	scope domain.ResponseImpactScope,
+) (draftCount, submittedCount int, err error) {
+	if !scope.CountAllResponsesOnVersion && len(scope.QuestionCodesWithAnswers) == 0 {
+		return 0, 0, nil
+	}
+	row := r.db().QueryRow(ctx, `
+		WITH affected AS (
+			SELECT DISTINCT rr.id, rr.status
+			FROM rfx.rfx_responses rr
+			WHERE rr.tenant_id = $1
+				AND rr.rfx_version_id = $2
+				AND rr.deleted_at IS NULL
+				AND (
+					$3::boolean
+					OR EXISTS (
+						SELECT 1
+						FROM rfx.rfx_answers ra
+						INNER JOIN rfx.rfx_questions q ON q.id = ra.question_id AND q.tenant_id = ra.tenant_id
+						WHERE ra.rfx_response_id = rr.id
+							AND ra.tenant_id = rr.tenant_id
+							AND q.question_code = ANY($4)
+					)
+				)
+		)
+		SELECT
+			COUNT(*) FILTER (WHERE status = $5),
+			COUNT(*) FILTER (WHERE status = $6)
+		FROM affected
+	`, tenantID, sourceVersionID, scope.CountAllResponsesOnVersion, scope.QuestionCodesWithAnswers,
+		domain.RfxResponseStatusDraft, domain.RfxResponseStatusSubmitted)
+	if err := row.Scan(&draftCount, &submittedCount); err != nil {
+		return 0, 0, mapDBError(err)
+	}
+	return draftCount, submittedCount, nil
 }
 
 func (r *QuestionnaireRepository) CountResponsesAndScoresForEvent(ctx context.Context, eventID, tenantID uuid.UUID) (int, int, error) {

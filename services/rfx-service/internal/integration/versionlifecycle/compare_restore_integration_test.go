@@ -359,19 +359,7 @@ func publishSecondVersion(t *testing.T, env *testEnv, fix buyerFixture, eventID 
 	if err != nil {
 		t.Fatalf("reload draft: %v", err)
 	}
-	event, err := env.rfxRepo.GetEventByID(context.Background(), eventID, fix.TenantID)
-	if err != nil {
-		t.Fatalf("reload event: %v", err)
-	}
-	published, err := env.versionSvc.PublishQuestionnaire(context.Background(), fix.BuyerA, eventID, publishKey, domain.PublishQuestionnaireInput{
-		ExpectedEventVersion: event.Version,
-		ExpectedDraftVersion: draft.Version,
-		ChangeSummary:        "Second publish",
-	})
-	if err != nil {
-		t.Fatalf("publish v2: %v", err)
-	}
-	return published
+	return republishWithImpactConfirmation(t, env, fix, eventID, publishKey, fix.BuyerA, draft, "Second publish")
 }
 
 func assertQuestionnaireGraphEqual(t *testing.T, left, right *domain.QuestionnaireDefinition) {

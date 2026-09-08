@@ -42,15 +42,7 @@ func TestE1INT27ExpiredKeyReuseReplacesRecord(t *testing.T) {
 	if err != nil {
 		t.Fatalf("fork after expiry: %v", err)
 	}
-	event2, err := env.rfxRepo.GetEventByID(context.Background(), event.ID, fix.TenantID)
-	if err != nil {
-		t.Fatalf("reload event2: %v", err)
-	}
-	secondIn := domain.PublishQuestionnaireInput{
-		ExpectedEventVersion: event2.Version,
-		ExpectedDraftVersion: draft2.Version,
-		ChangeSummary:        "Second lifecycle after expiry",
-	}
+	secondIn := buildRepublishPublishInput(t, env, fix, fix.BuyerA, event.ID, draft2, "Second lifecycle after expiry")
 	second, err := env.versionSvc.PublishQuestionnaire(context.Background(), fix.BuyerA, event.ID, key, secondIn)
 	if err != nil {
 		t.Fatalf("publish after expired key reuse: %v", err)
@@ -99,15 +91,7 @@ func TestE1INT28ExpiredKeyRetryDoesNotReturnOldResponse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("fork: %v", err)
 	}
-	event2, err := env.rfxRepo.GetEventByID(context.Background(), event.ID, fix.TenantID)
-	if err != nil {
-		t.Fatalf("reload event2: %v", err)
-	}
-	newIn := domain.PublishQuestionnaireInput{
-		ExpectedEventVersion: event2.Version,
-		ExpectedDraftVersion: draft2.Version,
-		ChangeSummary:        "New lifecycle",
-	}
+	newIn := buildRepublishPublishInput(t, env, fix, fix.BuyerA, event.ID, draft2, "New lifecycle")
 	replaced, err := env.versionSvc.PublishQuestionnaire(context.Background(), fix.BuyerA, event.ID, key, newIn)
 	if err != nil {
 		t.Fatalf("publish with expired key: %v", err)
@@ -188,15 +172,7 @@ func TestE1INT30UnexpiredSameKeyDifferentBody409(t *testing.T) {
 	if err != nil {
 		t.Fatalf("fork: %v", err)
 	}
-	event2, err := env.rfxRepo.GetEventByID(context.Background(), event.ID, fix.TenantID)
-	if err != nil {
-		t.Fatalf("reload event2: %v", err)
-	}
-	_, err = env.versionSvc.PublishQuestionnaire(context.Background(), fix.BuyerA, event.ID, key, domain.PublishQuestionnaireInput{
-		ExpectedEventVersion: event2.Version,
-		ExpectedDraftVersion: draft2.Version,
-		ChangeSummary:        "Different body",
-	})
+	_, err = env.versionSvc.PublishQuestionnaire(context.Background(), fix.BuyerA, event.ID, key, buildRepublishPublishInput(t, env, fix, fix.BuyerA, event.ID, draft2, "Different body"))
 	assertAppErrorCode(t, err, apperrors.CodeConflict)
 
 	var afterHash string
@@ -234,15 +210,7 @@ func TestE1INT31ConcurrentExpiredKeyReuseSingleMutation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("fork: %v", err)
 	}
-	event2, err := env.rfxRepo.GetEventByID(context.Background(), event.ID, fix.TenantID)
-	if err != nil {
-		t.Fatalf("reload event2: %v", err)
-	}
-	in := domain.PublishQuestionnaireInput{
-		ExpectedEventVersion: event2.Version,
-		ExpectedDraftVersion: draft2.Version,
-		ChangeSummary:        "Concurrent after expiry",
-	}
+	in := buildRepublishPublishInput(t, env, fix, fix.BuyerA, event.ID, draft2, "Concurrent after expiry")
 
 	var wg sync.WaitGroup
 	results := make([]*domain.RfxVersion, 2)

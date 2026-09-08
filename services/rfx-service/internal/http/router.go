@@ -106,6 +106,7 @@ func NewRouter(
 			r.Get("/{id}/versions", versionHandler.ListVersions)
 			r.Get("/{id}/versions/{version_id}", versionHandler.GetVersion)
 			r.Post("/{id}/questionnaire/publish", versionHandler.PublishQuestionnaire)
+			r.Post("/{id}/change-impact/preview", versionHandler.PreviewChangeImpact)
 			r.Post("/{id}/versions/fork-draft", versionHandler.ForkDraftFromPublished)
 			r.Post("/{id}/versions/compare", versionHandler.CompareVersions)
 			r.Post("/{id}/versions/{version_id}/restore-draft", versionHandler.RestoreVersionAsDraft)

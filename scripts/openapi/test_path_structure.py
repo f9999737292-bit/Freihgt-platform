@@ -97,6 +97,7 @@ SCORING_V3_0D_ROUTES = (
 
 VERSION_LIFECYCLE_V3_0E1_ROUTES = (
     ("post", "/api/v1/rfx-events/{id}/questionnaire/publish"),
+    ("post", "/api/v1/rfx-events/{id}/change-impact/preview"),
     ("get", "/api/v1/rfx-events/{id}/versions"),
     ("post", "/api/v1/rfx-events/{id}/versions/fork-draft"),
     ("post", "/api/v1/rfx-events/{id}/versions/compare"),

@@ -591,19 +591,7 @@ func publishIdenticalSecondVersion(t *testing.T, env *testEnv, fix buyerFixture,
 	if err != nil {
 		t.Fatalf("reload draft: %v", err)
 	}
-	event, err := env.rfxRepo.GetEventByID(context.Background(), eventID, fix.TenantID)
-	if err != nil {
-		t.Fatalf("reload event: %v", err)
-	}
-	published, err := env.versionSvc.PublishQuestionnaire(context.Background(), fix.BuyerA, eventID, publishKey, domain.PublishQuestionnaireInput{
-		ExpectedEventVersion: event.Version,
-		ExpectedDraftVersion: draft.Version,
-		ChangeSummary:        "Identical republish",
-	})
-	if err != nil {
-		t.Fatalf("publish identical v2: %v", err)
-	}
-	return published
+	return republishWithImpactConfirmation(t, env, fix, eventID, publishKey, fix.BuyerA, draft, "Identical republish")
 }
 
 func insertOrphanScoringBinding(t *testing.T, env *testEnv, fix buyerFixture, sourceVersionID, orphanQuestionID uuid.UUID) {

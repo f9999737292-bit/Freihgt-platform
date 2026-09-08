@@ -104,7 +104,7 @@ These are assigned to the **earliest appropriate wave** — not deferred beyond 
 |---|---|---|
 | **E1 Backend Foundation** | Questionnaire publish/supersede, fork draft, idempotency, version list/detail API, carrier response continuity, migration 000068 | **IMPLEMENTED_ACCEPTED** — PR #107 merged via `1b880d0` |
 | **E2 Compare + Restore** | Compare versions, restore-as-draft | **IMPLEMENTED_ACCEPTED** — PR #109 merged via `e1780e7` (head `5f223b1`, CI `34241367509`) |
-| **E3 Change Impact** | Change-impact preview, publish confirmation | **PENDING_CONTROLLER_AUTHORIZATION** |
+| **E3 Change Impact** | Change-impact preview, publish confirmation | **IMPLEMENTED_PENDING_CONTROLLER_ACCEPTANCE** |
 | **E4 Template Library** | Template library CRUD, publish | **NOT_STARTED** |
 | **E5 Template Clone + Provenance** | Clone event from template, provenance | **NOT_STARTED** |
 | **E6 Studio Frontend** | Studio UI: library, history, compare, restore | **NOT_STARTED** |
@@ -114,7 +114,7 @@ Notes:
 
 - The E1 implementation expanded the backend foundation while remaining inside the accepted v3.0E architecture.
 - E2 compare + restore backend is accepted and merged to `main` at `e1780e78425f9624b6ad956e24510260a2d9efcf`.
-- E3 requires explicit controller authorization before implementation starts.
+- E3 change-impact backend is implemented on branch `feat/rfx-change-impact-v3.0e3`; controller acceptance pending PR CI.
 - E4–E7 implementation has not started.
 - Each implementation wave requires a separate controller gate.
 - Complete v3.0E remains **IMPLEMENTATION_IN_PROGRESS** until all v3.0E waves are accepted.
