@@ -13,7 +13,7 @@
 | **v3.0B** | Questionnaire Core | Sections, questions, types, conditional rules, buyer Studio builder | **IMPLEMENTED_ACCEPTED** |
 | **v3.0C** | Carrier Response | Autosave, resume, error UX, submit gate | **IMPLEMENTED_ACCEPTED** |
 | **v3.0D** | Scoring + Knockout | Score models, knockout, explainability | **IMPLEMENTED_ACCEPTED** |
-| **v3.0E** | Templates + Versioning | Template library, immutable published versions, compare/restore | **IMPLEMENTATION_IN_PROGRESS_E1** |
+| **v3.0E** | Templates + Versioning | Template library, immutable published versions, compare/restore | **IMPLEMENTATION_IN_PROGRESS** |
 | **v3.0F** | Qualification Pool | Qualification results, pools, RFI→RFQ handoff | Planned |
 | **v3.0G** | Carrier 360 | Profile autofill, freshness, confirmation | Planned |
 | **v3.0H** | Analytics + Explainability | Dashboards, score drill-down, audit views | Planned |
@@ -97,6 +97,15 @@ These are assigned to the **earliest appropriate wave** — not deferred beyond 
 | Immutable published versions | Domain model §7 |
 | `COMPARE_VERSIONS`, `RESTORE_DRAFT_VERSION` | Validation contract §21 |
 | Change impact analysis | API §7 |
+
+### v3.0E wave status
+
+| Wave | Scope | Status |
+|---|---|---|
+| **E1 Backend Foundation** | Migration 000068, publish/supersede, fork draft, idempotency, version list/detail, carrier response continuity | **IMPLEMENTED_ACCEPTED** — PR #107 merged via `1b880d0` |
+| **E2+** | Templates, compare, restore, change-impact engine, frontend version history, re-scoring | Pending — requires separate controller authorization |
+
+Complete v3.0E release status remains **IMPLEMENTATION_IN_PROGRESS** until all v3.0E waves are accepted.
 
 ---
 
