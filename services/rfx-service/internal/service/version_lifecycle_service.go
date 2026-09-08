@@ -188,7 +188,7 @@ func (s *VersionLifecycleService) PublishQuestionnaire(
 				if err != nil {
 					return err
 				}
-				if err := validateImpactConfirmation(impactAnalysis, eventID, state, draft, in, actor); err != nil {
+				if err := validateImpactConfirmation(ctx, s, actor, eventID, impactAnalysis, state, draft, in); err != nil {
 					return err
 				}
 			}
@@ -429,15 +429,23 @@ func (s *VersionLifecycleService) buildImpactCompareResult(
 }
 
 func validateImpactConfirmation(
-	analysis *domain.ChangeImpactAnalysis,
+	ctx context.Context,
+	s *VersionLifecycleService,
+	actor domain.ActorContext,
 	eventID uuid.UUID,
+	analysis *domain.ChangeImpactAnalysis,
 	state *repository.EventVersionState,
 	draft *domain.RfxVersion,
 	in domain.PublishQuestionnaireInput,
-	actor domain.ActorContext,
 ) error {
 	if analysis.EventID != eventID {
 		return domain.ChangeImpactAnalysisNotFound()
+	}
+	if analysis.ActorID != actor.UserID {
+		return apperrors.Forbidden("change impact analysis actor mismatch")
+	}
+	if analysis.ConsumedAt != nil {
+		return domain.ChangeImpactAnalysisConsumed()
 	}
 	if analysis.CandidateVersionID != draft.ID {
 		return domain.ChangeImpactAnalysisNotFound()
@@ -452,16 +460,17 @@ func validateImpactConfirmation(
 	} else if analysis.SourceVersionID != nil {
 		return domain.ChangeImpactAnalysisNotFound()
 	}
-	if analysis.ActorID != actor.UserID {
-		return apperrors.Forbidden("change impact analysis actor mismatch")
-	}
-	if analysis.ConsumedAt != nil {
-		return domain.ChangeImpactAnalysisConsumed()
-	}
 	if !analysis.ExpiresAt.After(time.Now().UTC()) {
 		return domain.ChangeImpactAnalysisExpired()
 	}
 	if strings.TrimSpace(in.CanonicalDiffHash) != analysis.CanonicalDiffHash {
+		return domain.ChangeImpactStaleDiff()
+	}
+	bundle, err := s.buildImpactCompareResult(ctx, actor, eventID, state.PublishedVersionID, draft)
+	if err != nil {
+		return err
+	}
+	if bundle.diff.CanonicalDiffHash != analysis.CanonicalDiffHash {
 		return domain.ChangeImpactStaleDiff()
 	}
 	return nil
