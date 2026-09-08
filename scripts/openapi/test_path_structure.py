@@ -99,6 +99,8 @@ VERSION_LIFECYCLE_V3_0E1_ROUTES = (
     ("post", "/api/v1/rfx-events/{id}/questionnaire/publish"),
     ("get", "/api/v1/rfx-events/{id}/versions"),
     ("post", "/api/v1/rfx-events/{id}/versions/fork-draft"),
+    ("post", "/api/v1/rfx-events/{id}/versions/compare"),
+    ("post", "/api/v1/rfx-events/{id}/versions/{version_id}/restore-draft"),
     ("get", "/api/v1/rfx-events/{id}/versions/{version_id}"),
 )
 

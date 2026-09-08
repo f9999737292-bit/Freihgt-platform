@@ -103,7 +103,7 @@ These are assigned to the **earliest appropriate wave** — not deferred beyond 
 | Wave | Scope | Status |
 |---|---|---|
 | **E1 Backend Foundation** | Questionnaire publish/supersede, fork draft, idempotency, version list/detail API, carrier response continuity, migration 000068 | **IMPLEMENTED_ACCEPTED** — PR #107 merged via `1b880d0` |
-| **E2 Compare + Restore** | Compare versions, restore-as-draft | **PENDING_CONTROLLER_AUTHORIZATION** |
+| **E2 Compare + Restore** | Compare versions, restore-as-draft | **IMPLEMENTED_PENDING_CONTROLLER_ACCEPTANCE** |
 | **E3 Change Impact** | Change-impact preview, publish confirmation | **NOT_STARTED** |
 | **E4 Template Library** | Template library CRUD, publish | **NOT_STARTED** |
 | **E5 Template Clone + Provenance** | Clone event from template, provenance | **NOT_STARTED** |
@@ -113,7 +113,8 @@ These are assigned to the **earliest appropriate wave** — not deferred beyond 
 Notes:
 
 - The E1 implementation expanded the backend foundation while remaining inside the accepted v3.0E architecture.
-- No E2–E7 implementation has started.
+- E2 compare + restore backend is implemented pending controller acceptance on branch `feat/rfx-version-compare-restore-v3.0e2`.
+- E3–E7 implementation has not started.
 - Each implementation wave requires a separate controller gate.
 - Complete v3.0E remains **IMPLEMENTATION_IN_PROGRESS** until all v3.0E waves are accepted.
 

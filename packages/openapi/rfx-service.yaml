@@ -1043,6 +1043,158 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/v1/rfx-events/{id}/versions/compare:
+    post:
+      tags: [RFx]
+      summary: Compare RFx questionnaire versions
+      operationId: post_compare_rfx_questionnaire_versions
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RfxCompareVersionsRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RfxCompareVersionsResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/rfx-events/{id}/versions/{version_id}/restore-draft:
+    post:
+      tags: [RFx]
+      summary: Restore RFx questionnaire version as new draft
+      operationId: post_restore_rfx_questionnaire_version_as_new_draft
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: version_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Client-supplied idempotency key for version lifecycle mutation (max 128 chars).
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RfxRestoreVersionAsDraftRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RfxVersionRecord'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/v1/rfx-events/{id}/versions/{version_id}:
     get:
       tags: [RFx]
@@ -3960,6 +4112,111 @@ components:
           $ref: '#/components/schemas/RfxVersionRecord'
         questionnaire:
           $ref: '#/components/schemas/RfxQuestionnaireDefinition'
+    RfxCompareVersionsRequest:
+      type: object
+      required: [source_version_id, target_version_id]
+      properties:
+        source_version_id:
+          type: string
+          format: uuid
+        target_version_id:
+          type: string
+          format: uuid
+    RfxRestoreVersionAsDraftRequest:
+      type: object
+      required: [change_summary]
+      properties:
+        change_summary:
+          type: string
+          minLength: 1
+    RfxCompareFieldDiff:
+      type: object
+      properties:
+        field: {type: string}
+        before: {}
+        after: {}
+    RfxCompareItemDiff:
+      type: object
+      properties:
+        entity_type: {type: string}
+        change:
+          type: string
+          enum: [ADDED, REMOVED, CHANGED, REORDERED, UNCHANGED]
+        section_code: {type: string}
+        question_code: {type: string}
+        option_code: {type: string}
+        rule_code: {type: string}
+        criterion_code: {type: string}
+        fields:
+          type: array
+          items: {type: string}
+        field_diffs:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxCompareFieldDiff'
+    RfxCompareSummary:
+      type: object
+      properties:
+        added_count: {type: integer}
+        removed_count: {type: integer}
+        changed_count: {type: integer}
+        reordered_count: {type: integer}
+        unchanged_count: {type: integer}
+    RfxCompareScoringDiff:
+      type: object
+      properties:
+        criteria:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxCompareItemDiff'
+        bindings:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxCompareItemDiff'
+        model:
+          $ref: '#/components/schemas/RfxCompareItemDiff'
+    RfxCompareVersionsResponse:
+      type: object
+      properties:
+        source_version:
+          type: object
+          properties:
+            id: {type: string, format: uuid}
+            version_number: {type: integer}
+            status: {type: string}
+        target_version:
+          type: object
+          properties:
+            id: {type: string, format: uuid}
+            version_number: {type: integer}
+            status: {type: string}
+        source_version_number: {type: integer}
+        target_version_number: {type: integer}
+        summary:
+          $ref: '#/components/schemas/RfxCompareSummary'
+        canonical_diff_hash: {type: string}
+        differences:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxCompareItemDiff'
+        sections:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxCompareItemDiff'
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxCompareItemDiff'
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxCompareItemDiff'
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxCompareItemDiff'
+        scoring:
+          $ref: '#/components/schemas/RfxCompareScoringDiff'
     RfxSection:
       type: object
       properties:

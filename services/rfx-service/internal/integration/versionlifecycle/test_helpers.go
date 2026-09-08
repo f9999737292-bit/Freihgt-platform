@@ -92,7 +92,8 @@ func setupTestEnv(t *testing.T) *testEnv {
 	rfxSvc := service.NewRfxServiceWithAtomic(pool, rfxRepo, auditRepo, membershipRepo, newAwardConversionStub(pool))
 	qSvc := service.NewQuestionnaireService(rfxRepo, qRepo, auditRepo, membershipRepo)
 	crSvc := service.NewCarrierResponseService(pool, rfxRepo, answerRepo, qRepo, auditRepo, membershipRepo, rfxSvc)
-	versionSvc := service.NewVersionLifecycleService(pool, rfxRepo, qRepo, idemRepo, auditRepo, rfxSvc)
+	scoreRepo := repository.NewScoreRepository(pool)
+	versionSvc := service.NewVersionLifecycleService(pool, rfxRepo, qRepo, scoreRepo, idemRepo, auditRepo, rfxSvc)
 	t.Logf("isolated database=%s", dbName)
 
 	return &testEnv{
@@ -155,7 +156,8 @@ func setupLegacyMigrationTestEnv(t *testing.T) (*testEnv, func()) {
 	rfxSvc := service.NewRfxServiceWithAtomic(pool, rfxRepo, auditRepo, membershipRepo, newAwardConversionStub(pool))
 	qSvc := service.NewQuestionnaireService(rfxRepo, qRepo, auditRepo, membershipRepo)
 	crSvc := service.NewCarrierResponseService(pool, rfxRepo, answerRepo, qRepo, auditRepo, membershipRepo, rfxSvc)
-	versionSvc := service.NewVersionLifecycleService(pool, rfxRepo, qRepo, idemRepo, auditRepo, rfxSvc)
+	scoreRepo := repository.NewScoreRepository(pool)
+	versionSvc := service.NewVersionLifecycleService(pool, rfxRepo, qRepo, scoreRepo, idemRepo, auditRepo, rfxSvc)
 	t.Logf("legacy migration database=%s", dbName)
 
 	return &testEnv{
