@@ -250,8 +250,21 @@ func TestE2INT11RestoreConcurrentSingleDraft(t *testing.T) {
 		}
 		t.Fatalf("unexpected error: %v", callErr)
 	}
-	if success != 1 {
-		t.Fatalf("expected one success, got success=%d conflict=%d", success, conflict)
+	if success == 0 {
+		t.Fatal("expected at least one successful restore")
+	}
+	if success+conflict != 2 {
+		t.Fatalf("expected two terminal outcomes, got success=%d conflict=%d", success, conflict)
+	}
+	var draftCount int
+	if err := env.pool.QueryRow(context.Background(), `
+		SELECT COUNT(*) FROM rfx.rfx_versions
+		WHERE rfx_event_id = $1 AND tenant_id = $2 AND status = 'DRAFT' AND deleted_at IS NULL`,
+		event.ID, fix.TenantID).Scan(&draftCount); err != nil {
+		t.Fatalf("count drafts: %v", err)
+	}
+	if draftCount != 1 {
+		t.Fatalf("expected exactly one draft after concurrent restore, got %d", draftCount)
 	}
 }
 
