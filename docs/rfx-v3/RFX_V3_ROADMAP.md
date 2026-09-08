@@ -103,8 +103,8 @@ These are assigned to the **earliest appropriate wave** — not deferred beyond 
 | Wave | Scope | Status |
 |---|---|---|
 | **E1 Backend Foundation** | Questionnaire publish/supersede, fork draft, idempotency, version list/detail API, carrier response continuity, migration 000068 | **IMPLEMENTED_ACCEPTED** — PR #107 merged via `1b880d0` |
-| **E2 Compare + Restore** | Compare versions, restore-as-draft | **IMPLEMENTED_PENDING_CONTROLLER_ACCEPTANCE** |
-| **E3 Change Impact** | Change-impact preview, publish confirmation | **NOT_STARTED** |
+| **E2 Compare + Restore** | Compare versions, restore-as-draft | **IMPLEMENTED_ACCEPTED** — PR #109 merged via `e1780e7` (head `5f223b1`, CI `34241367509`) |
+| **E3 Change Impact** | Change-impact preview, publish confirmation | **PENDING_CONTROLLER_AUTHORIZATION** |
 | **E4 Template Library** | Template library CRUD, publish | **NOT_STARTED** |
 | **E5 Template Clone + Provenance** | Clone event from template, provenance | **NOT_STARTED** |
 | **E6 Studio Frontend** | Studio UI: library, history, compare, restore | **NOT_STARTED** |
@@ -113,8 +113,9 @@ These are assigned to the **earliest appropriate wave** — not deferred beyond 
 Notes:
 
 - The E1 implementation expanded the backend foundation while remaining inside the accepted v3.0E architecture.
-- E2 compare + restore backend is implemented pending controller acceptance on branch `feat/rfx-version-compare-restore-v3.0e2`.
-- E3–E7 implementation has not started.
+- E2 compare + restore backend is accepted and merged to `main` at `e1780e78425f9624b6ad956e24510260a2d9efcf`.
+- E3 requires explicit controller authorization before implementation starts.
+- E4–E7 implementation has not started.
 - Each implementation wave requires a separate controller gate.
 - Complete v3.0E remains **IMPLEMENTATION_IN_PROGRESS** until all v3.0E waves are accepted.
 
@@ -123,13 +124,13 @@ Notes:
 | Area | Markers | Target |
 |---|---|---|
 | Late submission workflow | `LATE_SUBMISSION_AND_DEADLINE_EXCEPTIONS=REQUIRED` | Before E7 browser acceptance |
-| Buyer RFQ channels | `BUYER_RFQ_MANUAL_CREATION`, `BUYER_RFQ_TEMPLATE_CREATION`, `BUYER_RFQ_EXCEL_IMPORT`, `BUYER_RFQ_ERP_INTEGRATION` | Post-E6 / pre-pilot |
+| Buyer RFQ channels | `BUYER_RFQ_MANUAL_CREATION`, `BUYER_RFQ_TEMPLATE_CREATION`, `BUYER_RFQ_EXCEL_IMPORT`, `BUYER_RFQ_ERP_INTEGRATION` (SAP/1C/ERP/TMS) | Post-E6 / pre-pilot |
 | Carrier offer channels | `CARRIER_DIRECT_OFFER_ENTRY`, `CARRIER_OFFER_EXCEL_EXPORT_IMPORT`; `CARRIER_ERP_INTEGRATION=NOT_REQUIRED_CURRENT_SCOPE` | Post-E6 / pre-pilot |
-| Competitor confidentiality | `CARRIER_CAN_VIEW_COMPETITOR_*=NO`, backend enforcement + cross-carrier isolation tests | Before pilot |
+| Competitor confidentiality | `CARRIER_CAN_VIEW_COMPETITOR_*=NO`, backend enforcement + cross-carrier isolation tests; carrier must not see participants, competitor identities, bids, submission times, or late-submission requests | Before pilot |
 | Excel import/export | `EXCEL_IMPORT_EXPORT=REQUIRED` | Post-E6 |
 | Training course | `USER_TRAINING_COURSE=REQUIRED` (RU/EN/ZH) | After UI stabilisation, before pilot |
 
-See [RFX_V3_0E2_COMPARE_RESTORE.md](./implementation/RFX_V3_0E2_COMPARE_RESTORE.md) §3 for full requirement text.
+See [RFX_V3_0E2_COMPARE_RESTORE.md](./implementation/RFX_V3_0E2_COMPARE_RESTORE.md) §5 for full requirement text.
 
 ---
 

@@ -1,12 +1,29 @@
 # RFx v3.0E2 — Compare + Restore-as-Draft Backend
 
-**Status:** IMPLEMENTED_PENDING_CONTROLLER_ACCEPTANCE  
-**Branch:** `feat/rfx-version-compare-restore-v3.0e2`  
+**Status:** IMPLEMENTED_ACCEPTED
+
+**Merged to main:** PR #109 via merge commit `e1780e78425f9624b6ad956e24510260a2d9efcf`
 **Scope:** E2 only — compare and restore-as-draft APIs behind `RFX_VERSIONING_V3_ENABLED`
 
 ---
 
-## 1. Delivered APIs
+## 1. Controller acceptance record
+
+| Field | Value |
+|---|---|
+| `E2_STATUS` | IMPLEMENTED_ACCEPTED |
+| `CONTROLLER_ACCEPTANCE` | YES |
+| `PR109_MERGED` | YES |
+| `PR109_HEAD` | `5f223b1aacd8e6de06e27cc3cc7650932dc71d68` |
+| `PR109_MERGE_SHA` | `e1780e78425f9624b6ad956e24510260a2d9efcf` |
+| `VERIFIED_MAIN_SHA` | `e1780e78425f9624b6ad956e24510260a2d9efcf` |
+| `CI_RUN_ID` | 34241367509 |
+| `CI_EXACT_HEAD` | YES (`5f223b1aacd8e6de06e27cc3cc7650932dc71d68`) |
+| `CI_CONCLUSION` | success |
+
+---
+
+## 2. Delivered APIs
 
 | Method | Path | Success | RBAC | Idempotency |
 |---|---|---|---|---|
@@ -36,7 +53,7 @@
 
 ---
 
-## 2. Controller remediation closure (E2-001..003)
+## 3. Controller remediation closure (E2-001..003)
 
 | ID | Requirement | Evidence |
 |---|---|---|
@@ -46,7 +63,7 @@
 
 ---
 
-## 3. Out of scope (E2)
+## 4. Out of scope (E2)
 
 - E3 change-impact engine
 - E4–E5 templates / cloning
@@ -56,24 +73,27 @@
 - Re-scoring
 - Migration 000069 (not required)
 
-**E3–E7:** NOT_STARTED
+**E3:** PENDING_CONTROLLER_AUTHORIZATION
+
+**E4–E7:** NOT_STARTED
 **Complete v3.0E:** IMPLEMENTATION_IN_PROGRESS
 
 ---
 
-## 4. Mandatory future gates (documented, not implemented in E2)
+## 5. Mandatory future gates (documented, not implemented in E2)
 
 The following requirements are recorded for controller tracking and must be implemented before final tender browser acceptance (E7) or in their designated waves. **None are implemented in E2.**
 
-### 4.1 Late submission
+### 5.1 Late submission
 
 `LATE_SUBMISSION_AND_DEADLINE_EXCEPTIONS=REQUIRED`
 
 - Carrier requests permission for late submission; reason is mandatory.
 - Buyer can approve/invite with an individual deadline or reject.
 - Global RFQ deadline is not changed; late bid is explicitly marked; all actions audited.
+- **Target:** before E7 browser acceptance.
 
-### 4.2 Buyer RFQ creation channels
+### 5.2 Buyer RFQ creation channels
 
 | Marker | Status |
 |---|---|
@@ -82,9 +102,9 @@ The following requirements are recorded for controller tracking and must be impl
 | `BUYER_RFQ_EXCEL_IMPORT` | REQUIRED |
 | `BUYER_RFQ_ERP_INTEGRATION` | REQUIRED |
 
-All channels must create the same canonical RFQ DRAFT and pass the same publish-readiness validation.
+All channels must create the same canonical RFQ DRAFT and pass the same publish-readiness validation. Buyer may create RFQ manually, from template, via Excel import, or via SAP/1C/ERP/TMS integration.
 
-### 4.3 Carrier offer channels
+### 5.3 Carrier offer channels
 
 | Marker | Status |
 |---|---|
@@ -92,9 +112,9 @@ All channels must create the same canonical RFQ DRAFT and pass the same publish-
 | `CARRIER_OFFER_EXCEL_EXPORT_IMPORT` | REQUIRED |
 | `CARRIER_ERP_INTEGRATION` | NOT_REQUIRED_CURRENT_SCOPE |
 
-Excel import must populate a DRAFT only and must never automatically submit an offer.
+Carrier may submit offers directly in the platform or via personal Excel export/import. Excel import must populate a DRAFT only and must never automatically submit an offer.
 
-### 4.4 Competitor confidentiality
+### 5.4 Competitor confidentiality
 
 | Marker | Value |
 |---|---|
@@ -110,13 +130,13 @@ Excel import must populate a DRAFT only and must never automatically submit an o
 
 Carrier-facing APIs and Excel files must not expose participant lists, competitor identities, bids, submission times, or late-submission decisions for others.
 
-### 4.5 Excel import/export
+### 5.5 Excel import/export
 
 `EXCEL_IMPORT_EXPORT=REQUIRED`
 
 Future scope: buyer RFQ matrix import/export, carrier personal bid-matrix export/import, versioned templates, preview-before-apply, row-level errors, formula-injection protection, file validation, audit, tenant isolation, published-version immutability.
 
-### 4.6 Training course
+### 5.6 Training course
 
 `USER_TRAINING_COURSE=REQUIRED`
 
@@ -124,7 +144,7 @@ Audiences: buyer, carrier, administrator. Formats: written instructions, short v
 
 ---
 
-## 5. Validation matrix
+## 6. Validation matrix
 
 | Area | Tests |
 |---|---|
@@ -160,12 +180,12 @@ Audiences: buyer, carrier, administrator. Formats: written instructions, short v
 
 ---
 
-## 6. Controller acceptance checklist
+## 7. Controller acceptance checklist
 
-- [ ] Compare semantics match architecture freeze §4
-- [ ] Restore semantics match architecture freeze §5
-- [ ] Tenant isolation and RBAC verified
-- [ ] Idempotency and concurrency behavior verified
-- [ ] E1 regression green on exact PR head
-- [ ] E2-INT-01..29 green on exact PR head
-- [ ] No unrelated OpenAPI drift in other services
+- [x] Compare semantics match architecture freeze §4
+- [x] Restore semantics match architecture freeze §5
+- [x] Tenant isolation and RBAC verified
+- [x] Idempotency and concurrency behavior verified
+- [x] E1 regression green on exact PR head
+- [x] E2-INT-01..29 green on exact PR head
+- [x] No unrelated OpenAPI drift in other services
