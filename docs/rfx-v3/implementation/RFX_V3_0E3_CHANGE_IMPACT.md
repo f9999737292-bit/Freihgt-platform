@@ -1,12 +1,31 @@
 # RFx v3.0E3 — Change Impact Analysis
 
-**Status:** IMPLEMENTED_PENDING_CONTROLLER_FINAL_REVIEW  
-**Branch:** `feat/rfx-change-impact-v3.0e3`  
+**Status:** IMPLEMENTED_ACCEPTED
+
+**Merged to main:** PR #111 via merge commit `69eacb3c1f1e9cea5e9fd735f40d1b256bc33587`
 **Normative:** [RFX_V3_0E_ARCHITECTURE_FREEZE.md](./RFX_V3_0E_ARCHITECTURE_FREEZE.md) §3.3, §6, §8–§14
 
 ---
 
-## 1. Scope
+## 1. Controller acceptance record
+
+| Field | Value |
+|---|---|
+| `E3_STATUS` | IMPLEMENTED_ACCEPTED |
+| `CONTROLLER_ACCEPTANCE` | YES |
+| `PR111_MERGED` | YES |
+| `PR111_HEAD` | `d9aa539ae1288ddbcdfd4427d595b353a1db0c57` |
+| `PR111_MERGE_SHA` | `69eacb3c1f1e9cea5e9fd735f40d1b256bc33587` |
+| `CI_RUN_ID` | 34259692961 |
+| `CI_EXACT_HEAD` | YES |
+| `CI_CONCLUSION` | success |
+| `E3_001_E3_006_CLOSED` | YES |
+| `MIGRATION_000069_ON_MAIN` | YES |
+| `MIGRATION_000070_CREATED` | NO |
+
+---
+
+## 2. Scope
 
 E3 adds server-side change-impact preview and publish confirmation for questionnaire republish:
 
@@ -19,9 +38,11 @@ E3 adds server-side change-impact preview and publish confirmation for questionn
 
 **Out of scope:** frontend, auto re-score, template library, late submission, Excel, E4–E7.
 
+Preview and publish-confirmation routes are registered under the existing v3 versioning route group and are gated by `RFX_VERSIONING_V3_ENABLED` (default **false** in rfx-service config).
+
 ---
 
-## 2. Migration 000069
+## 3. Migration 000069
 
 | File | Purpose |
 |---|---|
@@ -36,7 +57,7 @@ Repository max migration contract updated to **000069**; **000070** is unrelease
 
 ---
 
-## 3. Impact classes
+## 4. Impact classes
 
 | Class | Trigger |
 |---|---|
@@ -52,7 +73,7 @@ Repository canonicalizes duplicates before INSERT; PostgreSQL `<@` containment C
 
 ---
 
-## 4. API
+## 5. API
 
 ### Preview
 
@@ -94,7 +115,7 @@ HTTP semantics: **409** stale diff/consumed analysis/idempotency mismatch; **422
 
 ---
 
-## 5. Idempotency and consumption
+## 6. Idempotency and consumption
 
 - Same `Idempotency-Key` + same body → stored response (including after `consumed_at`)
 - Consumed analysis + new key → **409**
@@ -103,7 +124,7 @@ HTTP semantics: **409** stale diff/consumed analysis/idempotency mismatch; **422
 
 ---
 
-## 6. Response and score immutability
+## 7. Response and score immutability
 
 - Existing responses keep pinned `rfx_version_id`
 - Submitted responses and qualification history unchanged
@@ -112,7 +133,7 @@ HTTP semantics: **409** stale diff/consumed analysis/idempotency mismatch; **422
 
 ---
 
-## 7. Affected response counting (E3-003)
+## 8. Affected response counting (E3-003)
 
 - Added required question → counts all DRAFT/SUBMITTED responses on source version (even without answer on new question)
 - Removed/changed question → counts responses with answers on affected question codes
@@ -122,7 +143,7 @@ HTTP semantics: **409** stale diff/consumed analysis/idempotency mismatch; **422
 
 ---
 
-## 8. Tests
+## 9. Tests
 
 | Suite | Coverage |
 |---|---|
@@ -136,7 +157,7 @@ PostgreSQL 16 with `REQUIRE_TEST_DATABASE=1` in CI.
 
 ---
 
-## 9. Controller remediation map (E3-001..006)
+## 10. Controller remediation map (E3-001..006)
 
 | ID | Fix | Verification |
 |---|---|---|
@@ -149,13 +170,32 @@ PostgreSQL 16 with `REQUIRE_TEST_DATABASE=1` in CI.
 
 ---
 
-## 10. OpenAPI
+## 11. OpenAPI
 
 Generator profiles: `vl_change_impact_preview`, extended `RfxPublishQuestionnaireRequest`.  
 Regenerate via `python scripts/openapi/generate_openapi.py`.
 
 ---
 
-## 11. Controller acceptance
+## 12. Post-merge closeout
 
-Pending controller final review on exact PR head CI.
+- E3 change-impact backend is **accepted and merged to `main`** at `69eacb3c1f1e9cea5e9fd735f40d1b256bc33587` (PR #111 head `d9aa539ae1288ddbcdfd4427d595b353a1db0c57`, CI `34259692961`).
+- Versioning v3 routes (including change-impact preview and publish confirmation) remain behind `RFX_VERSIONING_V3_ENABLED=false` by default in rfx-service config.
+- Staging and pilot were **not** changed as part of E3.
+- **E4** (template library) has **not** started; separate controller authorization is required before implementation.
+- Complete v3.0E remains **IMPLEMENTATION_IN_PROGRESS** until E4–E7 are accepted.
+
+---
+
+## 13. Out of scope (E3)
+
+- E4–E5 template library / clone provenance
+- E6 Studio frontend (version history, compare, restore, change-impact UI)
+- E7 browser acceptance
+- Late-submission implementation
+- Automatic re-scoring
+- Excel import/export
+- Staging/pilot rollout
+
+**E4:** PENDING_CONTROLLER_AUTHORIZATION
+**E5–E7:** NOT_STARTED
