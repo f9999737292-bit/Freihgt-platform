@@ -171,51 +171,38 @@ func (s *VersionLifecycleService) PublishQuestionnaire(
 		}
 
 		if state.PublishedVersionID != nil {
-			responseCount, scoredResponseCount, err := qRepo.CountResponsesAndScoresForEvent(ctx, eventID, actor.TenantID)
+			hasConfirmation := in.ImpactAnalysisID != nil && strings.TrimSpace(in.CanonicalDiffHash) != ""
+			if !hasConfirmation {
+				return domain.ChangeImpactConfirmationRequired()
+			}
+			impactAnalysis, err := impactRepo.LockByID(ctx, *in.ImpactAnalysisID, actor.TenantID)
 			if err != nil {
 				return err
 			}
-			needsConfirmation := responseCount > 0 || scoredResponseCount > 0
-			hasConfirmation := in.ImpactAnalysisID != nil && strings.TrimSpace(in.CanonicalDiffHash) != ""
-			if needsConfirmation {
-				if !hasConfirmation {
-					return domain.ChangeImpactConfirmationRequired(responseCount, scoredResponseCount)
-				}
-			}
-			var impactAnalysis *domain.ChangeImpactAnalysis
-			if hasConfirmation {
-				impactAnalysis, err = impactRepo.LockByID(ctx, *in.ImpactAnalysisID, actor.TenantID)
-				if err != nil {
-					return err
-				}
-				if err := validateImpactConfirmation(ctx, s, actor, eventID, impactAnalysis, state, draft, in); err != nil {
-					return err
-				}
+			if err := validateImpactConfirmation(ctx, s, actor, event, eventID, impactAnalysis, state, draft, in); err != nil {
+				return err
 			}
 
-			rescoringRequired := false
-			if impactAnalysis != nil {
-				rescoringRequired = domain.ComputeRescoringRequired(impactAnalysis.ImpactClasses)
-			}
+			rescoringRequired := domain.ComputeRescoringRequired(impactAnalysis.ImpactClasses)
 
 			out, err := qRepo.PublishVersionTx(ctx, eventID, actor.TenantID, in.ExpectedDraftVersion, in.ChangeSummary, actor.UserID, rescoringRequired)
 			if err != nil {
 				return err
 			}
-			if impactAnalysis != nil {
-				if err := impactRepo.MarkConsumed(ctx, impactAnalysis.ID, actor.TenantID, time.Now().UTC()); err != nil {
-					return err
-				}
-				if err := recordAudit(ctx, auditRepo, actor, event.OwnerCompanyID, "rfx_change_impact", impactAnalysis.ID, "rfx.change_impact.confirmed.v1", map[string]any{
-					"rfx_event_id":          eventID.String(),
-					"impact_analysis_id":    impactAnalysis.ID.String(),
-					"candidate_version_id":  impactAnalysis.CandidateVersionID.String(),
-					"canonical_diff_hash":   impactAnalysis.CanonicalDiffHash,
-					"impact_classes":        impactAnalysis.ImpactClasses,
-					"published_version_id":  out.Published.ID.String(),
-				}); err != nil {
-					return err
-				}
+			if err := impactRepo.MarkConsumed(ctx, impactAnalysis.ID, actor.TenantID, time.Now().UTC()); err != nil {
+				return err
+			}
+			if err := recordAudit(ctx, auditRepo, actor, event.OwnerCompanyID, "rfx_change_impact", impactAnalysis.ID, "rfx.change_impact.confirmed.v1", map[string]any{
+				"rfx_event_id":             eventID.String(),
+				"impact_analysis_id":       impactAnalysis.ID.String(),
+				"preview_actor_id":         impactAnalysis.ActorID.String(),
+				"confirming_actor_id":      actor.UserID.String(),
+				"candidate_version_id":     impactAnalysis.CandidateVersionID.String(),
+				"canonical_diff_hash":      impactAnalysis.CanonicalDiffHash,
+				"impact_classes":           impactAnalysis.ImpactClasses,
+				"published_version_id":     out.Published.ID.String(),
+			}); err != nil {
+				return err
 			}
 			if err := recordVersionPublishAudits(ctx, auditRepo, actor, event, eventID, out, in); err != nil {
 				return err
@@ -293,18 +280,51 @@ func (s *VersionLifecycleService) PreviewChangeImpact(
 	if err != nil {
 		return nil, err
 	}
+	if err := s.requireBuyerManageForOwner(ctx, actor, event.OwnerCompanyID); err != nil {
+		return nil, err
+	}
 	if err := domain.ValidatePreviewChangeImpactInput(in); err != nil {
 		return nil, err
 	}
 	if s.changeImpactRepo == nil {
 		return nil, apperrors.Internal("change impact repository not configured", nil)
 	}
+	if s.tx == nil {
+		return nil, apperrors.Internal("version lifecycle service misconfigured", nil)
+	}
 
-	state, err := s.qRepo.GetEventVersionState(ctx, eventID, actor.TenantID)
+	var persisted *domain.ChangeImpactAnalysis
+	runErr := s.tx.Run(ctx, func(ctx context.Context, tx pgx.Tx) error {
+		result, err := s.previewChangeImpactInTx(ctx, tx, actor, event, eventID, in)
+		if err != nil {
+			return err
+		}
+		persisted = result
+		return nil
+	})
+	if runErr != nil {
+		return nil, runErr
+	}
+	return persisted, nil
+}
+
+func (s *VersionLifecycleService) previewChangeImpactInTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	actor domain.ActorContext,
+	event *domain.RfxEvent,
+	eventID uuid.UUID,
+	in domain.PreviewChangeImpactInput,
+) (*domain.ChangeImpactAnalysis, error) {
+	qRepo := s.qRepo.WithTx(tx)
+	changeImpactRepo := s.changeImpactRepo.WithTx(tx)
+	auditRepo := s.auditRepo.WithTx(tx)
+
+	state, err := qRepo.GetEventVersionState(ctx, eventID, actor.TenantID)
 	if err != nil {
 		return nil, err
 	}
-	candidate, err := s.qRepo.GetVersionForEvent(ctx, eventID, in.CandidateVersionID, actor.TenantID)
+	candidate, err := qRepo.GetVersionForEvent(ctx, eventID, in.CandidateVersionID, actor.TenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -315,16 +335,17 @@ func (s *VersionLifecycleService) PreviewChangeImpact(
 		return nil, err
 	}
 
-	compareResult, err := s.buildImpactCompareResult(ctx, actor, eventID, state.PublishedVersionID, candidate)
+	compareResult, err := s.buildImpactCompareResultWithRepo(ctx, qRepo, actor, eventID, state.PublishedVersionID, candidate)
 	if err != nil {
 		return nil, err
 	}
 
 	affectedDraft := 0
 	affectedSubmitted := 0
-	if state.PublishedVersionID != nil && len(compareResult.classification.AffectedQuestionCodes) > 0 {
-		affectedDraft, affectedSubmitted, err = s.qRepo.CountAffectedResponsesOnVersion(
-			ctx, actor.TenantID, *state.PublishedVersionID, compareResult.classification.AffectedQuestionCodes,
+	if state.PublishedVersionID != nil {
+		scope := domain.BuildResponseImpactScope(*compareResult.diff)
+		affectedDraft, affectedSubmitted, err = qRepo.CountAffectedResponsesOnVersion(
+			ctx, actor.TenantID, *state.PublishedVersionID, scope,
 		)
 		if err != nil {
 			return nil, err
@@ -350,22 +371,22 @@ func (s *VersionLifecycleService) PreviewChangeImpact(
 		ExpiresAt:                      now.Add(domain.ChangeImpactPreviewTTL),
 	}
 
-	persisted, err := s.changeImpactRepo.Insert(ctx, analysis)
+	persisted, err := changeImpactRepo.Insert(ctx, analysis)
 	if err != nil {
 		return nil, err
 	}
-	if err := recordAudit(ctx, s.auditRepo, actor, event.OwnerCompanyID, "rfx_change_impact", persisted.ID, "rfx.change_impact.previewed.v1", map[string]any{
-		"rfx_event_id":                     eventID.String(),
-		"impact_analysis_id":               persisted.ID.String(),
-		"source_version_id":                nullableUUIDString(persisted.SourceVersionID),
-		"candidate_version_id":             persisted.CandidateVersionID.String(),
-		"canonical_diff_hash":              persisted.CanonicalDiffHash,
-		"impact_classes":                   persisted.ImpactClasses,
-		"affected_draft_response_count":    persisted.AffectedDraftResponseCount,
+	if err := recordAudit(ctx, auditRepo, actor, event.OwnerCompanyID, "rfx_change_impact", persisted.ID, "rfx.change_impact.previewed.v1", map[string]any{
+		"rfx_event_id":                      eventID.String(),
+		"impact_analysis_id":                persisted.ID.String(),
+		"source_version_id":                 nullableUUIDString(persisted.SourceVersionID),
+		"candidate_version_id":              persisted.CandidateVersionID.String(),
+		"canonical_diff_hash":               persisted.CanonicalDiffHash,
+		"impact_classes":                    persisted.ImpactClasses,
+		"affected_draft_response_count":     persisted.AffectedDraftResponseCount,
 		"affected_submitted_response_count": persisted.AffectedSubmittedResponseCount,
-		"scoring_affecting":                persisted.ScoringAffecting,
-		"knockout_affecting":               persisted.KnockoutAffecting,
-		"expires_at":                       persisted.ExpiresAt,
+		"scoring_affecting":                 persisted.ScoringAffecting,
+		"knockout_affecting":                persisted.KnockoutAffecting,
+		"expires_at":                        persisted.ExpiresAt,
 	}); err != nil {
 		return nil, err
 	}
@@ -384,13 +405,24 @@ func (s *VersionLifecycleService) buildImpactCompareResult(
 	sourceVersionID *uuid.UUID,
 	candidate *domain.RfxVersion,
 ) (*impactCompareBundle, error) {
+	return s.buildImpactCompareResultWithRepo(ctx, s.qRepo, actor, eventID, sourceVersionID, candidate)
+}
+
+func (s *VersionLifecycleService) buildImpactCompareResultWithRepo(
+	ctx context.Context,
+	qRepo *repository.QuestionnaireRepository,
+	actor domain.ActorContext,
+	eventID uuid.UUID,
+	sourceVersionID *uuid.UUID,
+	candidate *domain.RfxVersion,
+) (*impactCompareBundle, error) {
 	var sourceSnapshot domain.VersionCompareSnapshot
 	if sourceVersionID != nil {
-		sourceVersion, err := s.qRepo.GetVersionForEvent(ctx, eventID, *sourceVersionID, actor.TenantID)
+		sourceVersion, err := qRepo.GetVersionForEvent(ctx, eventID, *sourceVersionID, actor.TenantID)
 		if err != nil {
 			return nil, err
 		}
-		sourceQuestionnaire, err := s.qRepo.LoadQuestionnaire(ctx, sourceVersion.ID, actor.TenantID)
+		sourceQuestionnaire, err := qRepo.LoadQuestionnaire(ctx, sourceVersion.ID, actor.TenantID)
 		if err != nil {
 			return nil, err
 		}
@@ -407,7 +439,7 @@ func (s *VersionLifecycleService) buildImpactCompareResult(
 		}
 	}
 
-	targetQuestionnaire, err := s.qRepo.LoadQuestionnaire(ctx, candidate.ID, actor.TenantID)
+	targetQuestionnaire, err := qRepo.LoadQuestionnaire(ctx, candidate.ID, actor.TenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -432,6 +464,7 @@ func validateImpactConfirmation(
 	ctx context.Context,
 	s *VersionLifecycleService,
 	actor domain.ActorContext,
+	event *domain.RfxEvent,
 	eventID uuid.UUID,
 	analysis *domain.ChangeImpactAnalysis,
 	state *repository.EventVersionState,
@@ -441,8 +474,8 @@ func validateImpactConfirmation(
 	if analysis.EventID != eventID {
 		return domain.ChangeImpactAnalysisNotFound()
 	}
-	if analysis.ActorID != actor.UserID {
-		return apperrors.Forbidden("change impact analysis actor mismatch")
+	if err := s.requireBuyerManageForOwner(ctx, actor, event.OwnerCompanyID); err != nil {
+		return err
 	}
 	if analysis.ConsumedAt != nil {
 		return domain.ChangeImpactAnalysisConsumed()
@@ -843,6 +876,31 @@ func (s *VersionLifecycleService) authorizeEvent(ctx context.Context, actor doma
 		return nil, apperrors.Forbidden("buyer company membership is required for this rfx event")
 	}
 	return event, nil
+}
+
+func (s *VersionLifecycleService) requireBuyerManageForOwner(ctx context.Context, actor domain.ActorContext, ownerCompanyID uuid.UUID) error {
+	if err := s.auth.requireBuyerActor(ctx, actor); err != nil {
+		return err
+	}
+	buyerCompanyIDs, err := s.auth.listBuyerCompanyIDs(ctx, actor)
+	if err != nil {
+		return err
+	}
+	if !domain.ContainsCompanyID(buyerCompanyIDs, ownerCompanyID) {
+		return apperrors.Forbidden("buyer company membership is required for this rfx event")
+	}
+	resolver, ok := s.auth.actors.(CompanyMembershipResolver)
+	if !ok {
+		return apperrors.Forbidden("buyer manage permission is required")
+	}
+	roles, err := resolver.ListUserRoleCodes(ctx, actor.TenantID, actor.UserID)
+	if err != nil {
+		return err
+	}
+	if !domain.HasBuyerManageRole(roles) {
+		return apperrors.Forbidden("buyer manage permission is required")
+	}
+	return nil
 }
 
 func (s *VersionLifecycleService) loadReplay(

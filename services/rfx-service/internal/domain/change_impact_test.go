@@ -52,6 +52,68 @@ func TestClassifyChangeImpactScoringAndKnockout(t *testing.T) {
 	assertContainsClass(t, classification.ImpactClasses, ChangeImpactClassKnockoutAffecting)
 }
 
+func TestClassifyChangeImpactScoringOnlyBindingAddedNotKnockout(t *testing.T) {
+	diff := CompareVersionsResult{
+		Differences: []CompareItemDiff{
+			{
+				EntityType:    "score_binding",
+				Change:        VersionDiffAdded,
+				CriterionCode: "PRICE",
+				QuestionCode:  "FLEET_SIZE",
+				FieldDiffs: []CompareFieldDiff{
+					{Field: "scoring_rule_json", Before: "", After: `{"type":"BOOLEAN_MAP"}`},
+					{Field: "knockout_rule_json", Before: "", After: ""},
+				},
+			},
+		},
+	}
+	classification := ClassifyChangeImpact(diff, 0, 0)
+	assertContainsClass(t, classification.ImpactClasses, ChangeImpactClassScoringAffecting)
+	for _, class := range classification.ImpactClasses {
+		if class == ChangeImpactClassKnockoutAffecting {
+			t.Fatalf("unexpected knockout class in %v", classification.ImpactClasses)
+		}
+	}
+}
+
+func TestClassifyChangeImpactKnockoutBindingAdded(t *testing.T) {
+	diff := CompareVersionsResult{
+		Differences: []CompareItemDiff{
+			{
+				EntityType:    "score_binding",
+				Change:        VersionDiffAdded,
+				CriterionCode: "HSE",
+				QuestionCode:  "HSE_OK",
+				FieldDiffs: []CompareFieldDiff{
+					{Field: "scoring_rule_json", Before: "", After: `{"type":"BOOLEAN_MAP"}`},
+					{Field: "knockout_rule_json", Before: "", After: `{"type":"BOOLEAN_EQUALS","value":false}`},
+				},
+			},
+		},
+	}
+	classification := ClassifyChangeImpact(diff, 0, 0)
+	assertContainsClass(t, classification.ImpactClasses, ChangeImpactClassKnockoutAffecting)
+}
+
+func TestBuildResponseImpactScopeAddedRequiredQuestionCountsAllResponses(t *testing.T) {
+	diff := CompareVersionsResult{
+		Differences: []CompareItemDiff{
+			{
+				EntityType:   "question",
+				Change:       VersionDiffAdded,
+				QuestionCode: "NEW_REQ",
+				FieldDiffs: []CompareFieldDiff{
+					{Field: "required", Before: false, After: true},
+				},
+			},
+		},
+	}
+	scope := BuildResponseImpactScope(diff)
+	if !scope.CountAllResponsesOnVersion {
+		t.Fatal("expected CountAllResponsesOnVersion=true for added required question")
+	}
+}
+
 func TestSortImpactClassesDeterministic(t *testing.T) {
 	sorted := SortImpactClasses([]string{
 		ChangeImpactClassKnockoutAffecting,

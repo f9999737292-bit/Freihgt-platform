@@ -35,6 +35,10 @@ func (r *ChangeImpactRepository) db() dbExecutor {
 }
 
 func (r *ChangeImpactRepository) Insert(ctx context.Context, analysis domain.ChangeImpactAnalysis) (*domain.ChangeImpactAnalysis, error) {
+	analysis.ImpactClasses = domain.CanonicalizeImpactClasses(analysis.ImpactClasses)
+	if err := domain.ValidateImpactClasses(analysis.ImpactClasses); err != nil {
+		return nil, err
+	}
 	classesJSON, err := json.Marshal(analysis.ImpactClasses)
 	if err != nil {
 		return nil, apperrors.Internal("failed to encode impact classes", err)

@@ -97,18 +97,7 @@ func TestE1INT05PublishV2WithoutResponsesSupersedesV1(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reload draft: %v", err)
 	}
-	event, err = env.rfxRepo.GetEventByID(context.Background(), event.ID, fix.TenantID)
-	if err != nil {
-		t.Fatalf("reload event: %v", err)
-	}
-	v2, err := env.versionSvc.PublishQuestionnaire(context.Background(), fix.BuyerA, event.ID, "e1-int-05-v2", domain.PublishQuestionnaireInput{
-		ExpectedEventVersion: event.Version,
-		ExpectedDraftVersion: draft.Version,
-		ChangeSummary:        "Second publish",
-	})
-	if err != nil {
-		t.Fatalf("publish v2: %v", err)
-	}
+	v2 := republishWithImpactConfirmation(t, env, fix, event.ID, "e1-int-05-v2", fix.BuyerA, draft, "Second publish")
 	v1Reload, err := env.qRepo.GetVersionByID(context.Background(), v1.ID, fix.TenantID)
 	if err != nil {
 		t.Fatalf("reload v1: %v", err)
@@ -199,15 +188,7 @@ func TestE1INT08PublishIdempotencySameKeyDifferentBody409(t *testing.T) {
 	if err != nil {
 		t.Fatalf("fork draft: %v", err)
 	}
-	event2, err := env.rfxRepo.GetEventByID(context.Background(), event.ID, fix.TenantID)
-	if err != nil {
-		t.Fatalf("reload event2: %v", err)
-	}
-	_, err = env.versionSvc.PublishQuestionnaire(context.Background(), fix.BuyerA, event.ID, "e1-int-08-key", domain.PublishQuestionnaireInput{
-		ExpectedEventVersion: event2.Version,
-		ExpectedDraftVersion: draft2.Version,
-		ChangeSummary:        "Different body",
-	})
+	_, err = env.versionSvc.PublishQuestionnaire(context.Background(), fix.BuyerA, event.ID, "e1-int-08-key", buildRepublishPublishInput(t, env, fix, fix.BuyerA, event.ID, draft2, "Different body"))
 	assertAppErrorCode(t, err, apperrors.CodeConflict)
 }
 
@@ -526,17 +507,5 @@ func publishV2WithoutResponses(t *testing.T, env *testEnv, fix buyerFixture, eve
 	if err != nil {
 		t.Fatalf("reload draft: %v", err)
 	}
-	event, err := env.rfxRepo.GetEventByID(context.Background(), eventID, fix.TenantID)
-	if err != nil {
-		t.Fatalf("reload event: %v", err)
-	}
-	v2, err := env.versionSvc.PublishQuestionnaire(context.Background(), fix.BuyerA, eventID, publishKey, domain.PublishQuestionnaireInput{
-		ExpectedEventVersion: event.Version,
-		ExpectedDraftVersion: draft.Version,
-		ChangeSummary:        "Version 2 publish",
-	})
-	if err != nil {
-		t.Fatalf("publish v2: %v", err)
-	}
-	return v2
+	return republishWithImpactConfirmation(t, env, fix, eventID, publishKey, fix.BuyerA, draft, "Version 2 publish")
 }

@@ -18,7 +18,22 @@ CREATE TABLE IF NOT EXISTS rfx.rfx_change_impact_analyses (
     consumed_at TIMESTAMPTZ NULL,
     CONSTRAINT chk_rfx_change_impact_draft_count_nonneg CHECK (affected_draft_response_count >= 0),
     CONSTRAINT chk_rfx_change_impact_submitted_count_nonneg CHECK (affected_submitted_response_count >= 0),
-    CONSTRAINT chk_rfx_change_impact_classes_array CHECK (jsonb_typeof(impact_classes) = 'array')
+    CONSTRAINT chk_rfx_change_impact_classes_array CHECK (jsonb_typeof(impact_classes) = 'array'),
+    CONSTRAINT chk_rfx_change_impact_classes_enum CHECK (
+        NOT EXISTS (
+            SELECT 1
+            FROM jsonb_array_elements(impact_classes) AS elem
+            WHERE jsonb_typeof(elem) <> 'string'
+               OR elem #>> '{}' NOT IN (
+                    'NON_MATERIAL',
+                    'MATERIAL_NO_RESPONSES',
+                    'MATERIAL_WITH_DRAFT_RESPONSES',
+                    'MATERIAL_WITH_SUBMITTED_RESPONSES',
+                    'SCORING_AFFECTING',
+                    'KNOCKOUT_AFFECTING'
+               )
+        )
+    )
 );
 
 CREATE INDEX IF NOT EXISTS idx_rfx_change_impact_event_candidate_created

@@ -387,7 +387,7 @@ func TestE3INT16StaleDiffAfterEdit409(t *testing.T) {
 		t.Fatalf("reload event: %v", err)
 	}
 
-	_, err = publishWithConfirmation(t, env, fix, event.ID, "e3-int-16-pub", eventRow, draft, analysis, "Stale diff publish")
+	_, err = publishWithConfirmation(t, env, fix, event.ID, "e3-int-16-pub", fix.BuyerA, eventRow, draft, analysis, "Stale diff publish")
 	appErr := assertAppErrorCode(t, err, apperrors.CodeConflict)
 	if got := appErr.Details["code"]; got != domain.VersionLifecycleMachineCodeChangeImpactStaleDiff {
 		t.Fatalf("details.code=%v", got)
@@ -418,7 +418,7 @@ func TestE3INT17ExpiredAnalysis422(t *testing.T) {
 		t.Fatalf("reload event: %v", err)
 	}
 
-	_, err = publishWithConfirmation(t, env, fix, event.ID, "e3-int-17-pub", eventRow, draft, analysis, "Expired analysis publish")
+	_, err = publishWithConfirmation(t, env, fix, event.ID, "e3-int-17-pub", fix.BuyerA, eventRow, draft, analysis, "Expired analysis publish")
 	appErr := assertAppErrorCode(t, err, apperrors.CodeValidation)
 	if got := appErr.Details["code"]; got != domain.VersionLifecycleMachineCodeChangeImpactExpired {
 		t.Fatalf("details.code=%v", got)
@@ -449,7 +449,7 @@ func TestE3INT18AnalysisWrongEventTenant404(t *testing.T) {
 		t.Fatalf("reload event B: %v", err)
 	}
 
-	_, err = publishWithConfirmation(t, env, fix, eventB.ID, "e3-int-18-b-pub", eventBRow, draftB, analysisA, "Wrong event analysis")
+	_, err = publishWithConfirmation(t, env, fix, eventB.ID, "e3-int-18-b-pub", fix.BuyerA, eventBRow, draftB, analysisA, "Wrong event analysis")
 	assertAppErrorCode(t, err, apperrors.CodeNotFound)
 }
 
@@ -471,7 +471,7 @@ func TestE3INT19SuccessfulConfirmedPublish(t *testing.T) {
 		t.Fatalf("reload event: %v", err)
 	}
 
-	v2, err := publishWithConfirmation(t, env, fix, event.ID, "e3-int-19-pub", eventRow, draft, analysis, "Confirmed publish")
+	v2, err := publishWithConfirmation(t, env, fix, event.ID, "e3-int-19-pub", fix.BuyerA, eventRow, draft, analysis, "Confirmed publish")
 	if err != nil {
 		t.Fatalf("confirmed publish: %v", err)
 	}
@@ -504,7 +504,7 @@ func TestE3INT20PublishConsumesAnalysis(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reload event: %v", err)
 	}
-	if _, err := publishWithConfirmation(t, env, fix, event.ID, "e3-int-20-pub", eventRow, draft, analysis, "Consume analysis"); err != nil {
+	if _, err := publishWithConfirmation(t, env, fix, event.ID, "e3-int-20-pub", fix.BuyerA, eventRow, draft, analysis, "Consume analysis"); err != nil {
 		t.Fatalf("publish: %v", err)
 	}
 
@@ -531,7 +531,7 @@ func TestE3INT21ConsumedAnalysisNewIdempotencyKey409(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reload event: %v", err)
 	}
-	if _, err := publishWithConfirmation(t, env, fix, event.ID, "e3-int-21-pub-k1", eventRow, draft, analysis, "First publish"); err != nil {
+	if _, err := publishWithConfirmation(t, env, fix, event.ID, "e3-int-21-pub-k1", fix.BuyerA, eventRow, draft, analysis, "First publish"); err != nil {
 		t.Fatalf("first publish: %v", err)
 	}
 
@@ -543,7 +543,7 @@ func TestE3INT21ConsumedAnalysisNewIdempotencyKey409(t *testing.T) {
 		t.Fatalf("reload event after fork: %v", err)
 	}
 
-	_, err = publishWithConfirmation(t, env, fix, event.ID, "e3-int-21-pub-k2", eventRow2, draft2, analysis, "Reuse consumed analysis")
+	_, err = publishWithConfirmation(t, env, fix, event.ID, "e3-int-21-pub-k2", fix.BuyerA, eventRow2, draft2, analysis, "Reuse consumed analysis")
 	appErr := assertAppErrorCode(t, err, apperrors.CodeConflict)
 	if got := appErr.Details["code"]; got != domain.VersionLifecycleMachineCodeChangeImpactConsumed {
 		t.Fatalf("details.code=%v", got)
@@ -568,11 +568,11 @@ func TestE3INT22SameKeyBodyReplayAfterConsumption(t *testing.T) {
 		t.Fatalf("reload event: %v", err)
 	}
 	key := "e3-int-22-pub"
-	first, err := publishWithConfirmation(t, env, fix, event.ID, key, eventRow, draft, analysis, "Replay body")
+	first, err := publishWithConfirmation(t, env, fix, event.ID, key, fix.BuyerA, eventRow, draft, analysis, "Replay body")
 	if err != nil {
 		t.Fatalf("first publish: %v", err)
 	}
-	second, err := publishWithConfirmation(t, env, fix, event.ID, key, eventRow, draft, analysis, "Replay body")
+	second, err := publishWithConfirmation(t, env, fix, event.ID, key, fix.BuyerA, eventRow, draft, analysis, "Replay body")
 	if err != nil {
 		t.Fatalf("replay publish: %v", err)
 	}
@@ -599,7 +599,7 @@ func TestE3INT23SameKeyDifferentBody409(t *testing.T) {
 		t.Fatalf("reload event: %v", err)
 	}
 	key := "e3-int-23-pub"
-	if _, err := publishWithConfirmation(t, env, fix, event.ID, key, eventRow, draft, analysis, "First body"); err != nil {
+	if _, err := publishWithConfirmation(t, env, fix, event.ID, key, fix.BuyerA, eventRow, draft, analysis, "First body"); err != nil {
 		t.Fatalf("first publish: %v", err)
 	}
 
@@ -612,7 +612,7 @@ func TestE3INT23SameKeyDifferentBody409(t *testing.T) {
 		t.Fatalf("reload event after fork: %v", err)
 	}
 
-	_, err = publishWithConfirmation(t, env, fix, event.ID, key, eventRow2, draft2, analysis2, "Different body")
+	_, err = publishWithConfirmation(t, env, fix, event.ID, key, fix.BuyerA, eventRow2, draft2, analysis2, "Different body")
 	assertAppErrorCode(t, err, apperrors.CodeConflict)
 }
 
@@ -642,7 +642,7 @@ func TestE3INT24ConcurrentPublishOneWinner(t *testing.T) {
 		go func(idx int) {
 			defer wg.Done()
 			key := "e3-int-24-" + string(rune('a'+idx))
-			results[idx], errs[idx] = publishWithConfirmation(t, env, fix, event.ID, key, eventRow, draft, analysis, "Concurrent publish")
+			results[idx], errs[idx] = publishWithConfirmation(t, env, fix, event.ID, key, fix.BuyerA, eventRow, draft, analysis, "Concurrent publish")
 		}(i)
 	}
 	wg.Wait()
@@ -721,7 +721,7 @@ func TestE3INT26ScoringPublishSetsRescoringRequiredTrue(t *testing.T) {
 		t.Fatalf("reload event: %v", err)
 	}
 
-	v2, err := publishWithConfirmation(t, env, fix, event.ID, "e3-int-26-pub", eventRow, draft, analysis, "Scoring publish")
+	v2, err := publishWithConfirmation(t, env, fix, event.ID, "e3-int-26-pub", fix.BuyerA, eventRow, draft, analysis, "Scoring publish")
 	if err != nil {
 		t.Fatalf("publish: %v", err)
 	}
@@ -752,7 +752,7 @@ func TestE3INT27NonScoringPublishRescoringRequiredFalse(t *testing.T) {
 		t.Fatalf("reload event: %v", err)
 	}
 
-	v2, err := publishWithConfirmation(t, env, fix, event.ID, "e3-int-27-pub", eventRow, draft, analysis, "Label-only publish")
+	v2, err := publishWithConfirmation(t, env, fix, event.ID, "e3-int-27-pub", fix.BuyerA, eventRow, draft, analysis, "Label-only publish")
 	if err != nil {
 		t.Fatalf("publish: %v", err)
 	}
@@ -787,7 +787,7 @@ func TestE3INT28OldResponsePinsUnchangedAfterPublish(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reload event: %v", err)
 	}
-	if _, err := publishWithConfirmation(t, env, fix, event.ID, "e3-int-28-pub", eventRow, draft, analysis, "Publish v2"); err != nil {
+	if _, err := publishWithConfirmation(t, env, fix, event.ID, "e3-int-28-pub", fix.BuyerA, eventRow, draft, analysis, "Publish v2"); err != nil {
 		t.Fatalf("publish: %v", err)
 	}
 
@@ -831,7 +831,7 @@ func TestE3INT29OldScoreQualificationHistoryUnchanged(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reload event: %v", err)
 	}
-	if _, err := publishWithConfirmation(t, env, fix, event.ID, "e3-int-29-pub", eventRow, draft, analysis, "Scoring publish"); err != nil {
+	if _, err := publishWithConfirmation(t, env, fix, event.ID, "e3-int-29-pub", fix.BuyerA, eventRow, draft, analysis, "Scoring publish"); err != nil {
 		t.Fatalf("publish: %v", err)
 	}
 
@@ -896,7 +896,7 @@ func TestE3INT30NoAutomaticRescore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reload event: %v", err)
 	}
-	v2, err := publishWithConfirmation(t, env, fix, event.ID, "e3-int-30-pub", eventRow, draft, analysis, "Knockout publish")
+	v2, err := publishWithConfirmation(t, env, fix, event.ID, "e3-int-30-pub", fix.BuyerA, eventRow, draft, analysis, "Knockout publish")
 	if err != nil {
 		t.Fatalf("publish: %v", err)
 	}
@@ -1077,6 +1077,7 @@ func publishWithConfirmation(
 	fix buyerFixture,
 	eventID uuid.UUID,
 	key string,
+	actor domain.ActorContext,
 	event *domain.RfxEvent,
 	draft *domain.RfxVersion,
 	analysis *domain.ChangeImpactAnalysis,
@@ -1084,7 +1085,7 @@ func publishWithConfirmation(
 ) (*domain.RfxVersion, error) {
 	t.Helper()
 	analysisID := analysis.ID
-	return env.versionSvc.PublishQuestionnaire(context.Background(), fix.BuyerA, eventID, key, domain.PublishQuestionnaireInput{
+	return env.versionSvc.PublishQuestionnaire(context.Background(), actor, eventID, key, domain.PublishQuestionnaireInput{
 		ExpectedEventVersion: event.Version,
 		ExpectedDraftVersion: draft.Version,
 		ChangeSummary:        summary,

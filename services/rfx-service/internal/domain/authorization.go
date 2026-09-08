@@ -46,3 +46,7 @@ func HasBuyerRole(roleCodes []string) bool {
 	}
 	return false
 }
+
+func HasBuyerManageRole(roleCodes []string) bool {
+	return HasBuyerRole(roleCodes)
+}

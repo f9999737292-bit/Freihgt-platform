@@ -322,23 +322,36 @@ func (r *QuestionnaireRepository) CountAffectedResponsesOnVersion(
 	ctx context.Context,
 	tenantID uuid.UUID,
 	sourceVersionID uuid.UUID,
-	questionCodes []string,
+	scope domain.ResponseImpactScope,
 ) (draftCount, submittedCount int, err error) {
-	if len(questionCodes) == 0 {
+	if !scope.CountAllResponsesOnVersion && len(scope.QuestionCodesWithAnswers) == 0 {
 		return 0, 0, nil
 	}
 	row := r.db().QueryRow(ctx, `
+		WITH affected AS (
+			SELECT DISTINCT rr.id, rr.status
+			FROM rfx.rfx_responses rr
+			WHERE rr.tenant_id = $1
+				AND rr.rfx_version_id = $2
+				AND rr.deleted_at IS NULL
+				AND (
+					$3::boolean
+					OR EXISTS (
+						SELECT 1
+						FROM rfx.rfx_answers ra
+						INNER JOIN rfx.rfx_questions q ON q.id = ra.question_id AND q.tenant_id = ra.tenant_id
+						WHERE ra.rfx_response_id = rr.id
+							AND ra.tenant_id = rr.tenant_id
+							AND q.question_code = ANY($4)
+					)
+				)
+		)
 		SELECT
-			COUNT(DISTINCT rr.id) FILTER (WHERE rr.status = $4),
-			COUNT(DISTINCT rr.id) FILTER (WHERE rr.status = $5)
-		FROM rfx.rfx_responses rr
-		INNER JOIN rfx.rfx_answers ra ON ra.rfx_response_id = rr.id AND ra.tenant_id = rr.tenant_id
-		INNER JOIN rfx.rfx_questions q ON q.id = ra.question_id AND q.tenant_id = rr.tenant_id
-		WHERE rr.tenant_id = $1
-			AND rr.rfx_version_id = $2
-			AND rr.deleted_at IS NULL
-			AND q.question_code = ANY($3)
-	`, tenantID, sourceVersionID, questionCodes, domain.RfxResponseStatusDraft, domain.RfxResponseStatusSubmitted)
+			COUNT(*) FILTER (WHERE status = $5),
+			COUNT(*) FILTER (WHERE status = $6)
+		FROM affected
+	`, tenantID, sourceVersionID, scope.CountAllResponsesOnVersion, scope.QuestionCodesWithAnswers,
+		domain.RfxResponseStatusDraft, domain.RfxResponseStatusSubmitted)
 	if err := row.Scan(&draftCount, &submittedCount); err != nil {
 		return 0, 0, mapDBError(err)
 	}

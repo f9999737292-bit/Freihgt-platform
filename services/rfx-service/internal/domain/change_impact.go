@@ -74,6 +74,12 @@ type ChangeImpactClassification struct {
 	AffectedQuestionCodes          []string
 }
 
+// ResponseImpactScope drives affected response counting for change-impact preview.
+type ResponseImpactScope struct {
+	CountAllResponsesOnVersion bool
+	QuestionCodesWithAnswers   []string
+}
+
 func ValidatePreviewChangeImpactInput(in PreviewChangeImpactInput) error {
 	if in.CandidateVersionID == uuid.Nil {
 		return apperrors.Validation("candidate_version_id is required", map[string]any{"field": "candidate_version_id"})
@@ -82,12 +88,21 @@ func ValidatePreviewChangeImpactInput(in PreviewChangeImpactInput) error {
 }
 
 func ValidateImpactClasses(classes []string) error {
+	seen := make(map[string]struct{}, len(classes))
 	for _, class := range classes {
 		if _, ok := allowedChangeImpactClasses[class]; !ok {
 			return apperrors.Internal("invalid impact class persisted: "+class, nil)
 		}
+		if _, dup := seen[class]; dup {
+			return apperrors.Internal("duplicate impact class persisted: "+class, nil)
+		}
+		seen[class] = struct{}{}
 	}
 	return nil
+}
+
+func CanonicalizeImpactClasses(classes []string) []string {
+	return SortImpactClasses(classes)
 }
 
 func SortImpactClasses(classes []string) []string {
@@ -218,15 +233,37 @@ func isNonMaterialFieldSet(fields []string) bool {
 }
 
 func bindingChangeAffectsKnockout(item CompareItemDiff) bool {
-	if item.Change == VersionDiffAdded || item.Change == VersionDiffRemoved {
-		return true
-	}
-	for _, field := range item.Fields {
-		if field == "knockout_rule_json" {
-			return true
+	switch item.Change {
+	case VersionDiffAdded:
+		return bindingKnockoutRulePresent(item.FieldDiffs, true)
+	case VersionDiffRemoved:
+		return bindingKnockoutRulePresent(item.FieldDiffs, false)
+	case VersionDiffChanged:
+		for _, field := range item.Fields {
+			if field == "knockout_rule_json" {
+				return true
+			}
 		}
 	}
 	return false
+}
+
+func bindingKnockoutRulePresent(diffs []CompareFieldDiff, useAfter bool) bool {
+	for _, diff := range diffs {
+		if diff.Field != "knockout_rule_json" {
+			continue
+		}
+		value := diff.Before
+		if useAfter {
+			value = diff.After
+		}
+		return isMeaningfulKnockoutRule(normalizeCompareValue(value))
+	}
+	return false
+}
+
+func isMeaningfulKnockoutRule(normalized string) bool {
+	return normalized != "" && normalized != "null" && normalized != "{}"
 }
 
 func bindingChangeAffectsScoring(item CompareItemDiff) bool {
@@ -243,42 +280,15 @@ func bindingChangeAffectsScoring(item CompareItemDiff) bool {
 }
 
 func extractAffectedQuestionCodes(diff CompareVersionsResult) []string {
-	codes := make(map[string]struct{})
-	for _, item := range diff.Differences {
-		if item.Change == VersionDiffUnchanged || isNonMaterialDiffItem(item) {
-			continue
-		}
-		switch item.EntityType {
-		case "question":
-			if item.QuestionCode != "" {
-				codes[item.QuestionCode] = struct{}{}
-			}
-		case "option":
-			if item.QuestionCode != "" {
-				codes[item.QuestionCode] = struct{}{}
-			}
-		case "section", "questionnaire_enabled":
-			for _, q := range diff.Questions {
-				if q.SectionCode == item.SectionCode && q.Change != VersionDiffUnchanged && !isNonMaterialDiffItem(q) {
-					if q.QuestionCode != "" {
-						codes[q.QuestionCode] = struct{}{}
-					}
-				}
-			}
-			if item.EntityType == "section" && (item.Change == VersionDiffAdded || item.Change == VersionDiffRemoved) {
-				for _, q := range diff.Questions {
-					if q.SectionCode == item.SectionCode && q.QuestionCode != "" {
-						codes[q.QuestionCode] = struct{}{}
-					}
-				}
-			}
-		case "rule":
-			if item.Change != VersionDiffUnchanged {
-				for _, q := range diff.Questions {
-					if q.QuestionCode != "" && !isNonMaterialDiffItem(q) {
-						codes[q.QuestionCode] = struct{}{}
-					}
-				}
+	scope := BuildResponseImpactScope(diff)
+	codes := make(map[string]struct{}, len(scope.QuestionCodesWithAnswers))
+	for _, code := range scope.QuestionCodesWithAnswers {
+		codes[code] = struct{}{}
+	}
+	if scope.CountAllResponsesOnVersion {
+		for _, q := range diff.Questions {
+			if q.QuestionCode != "" {
+				codes[q.QuestionCode] = struct{}{}
 			}
 		}
 	}
@@ -290,11 +300,75 @@ func extractAffectedQuestionCodes(diff CompareVersionsResult) []string {
 	return out
 }
 
-func ChangeImpactConfirmationRequired(responseCount, scoredResponseCount int) error {
+func BuildResponseImpactScope(diff CompareVersionsResult) ResponseImpactScope {
+	scope := ResponseImpactScope{}
+	questionCodesAnswered := make(map[string]struct{})
+
+	for _, item := range diff.Differences {
+		if item.Change == VersionDiffUnchanged || isNonMaterialDiffItem(item) {
+			continue
+		}
+		switch item.EntityType {
+		case "question":
+			switch item.Change {
+			case VersionDiffAdded:
+				if questionDiffTargetRequired(item) {
+					scope.CountAllResponsesOnVersion = true
+				}
+			case VersionDiffRemoved:
+				if item.QuestionCode != "" {
+					questionCodesAnswered[item.QuestionCode] = struct{}{}
+				}
+			case VersionDiffChanged:
+				if questionDiffBecameRequired(item) {
+					scope.CountAllResponsesOnVersion = true
+				} else if item.QuestionCode != "" {
+					questionCodesAnswered[item.QuestionCode] = struct{}{}
+				}
+			}
+		case "option":
+			if item.QuestionCode != "" {
+				questionCodesAnswered[item.QuestionCode] = struct{}{}
+			}
+		case "section", "questionnaire_enabled":
+			scope.CountAllResponsesOnVersion = true
+		case "rule":
+			scope.CountAllResponsesOnVersion = true
+		}
+	}
+
+	scope.QuestionCodesWithAnswers = make([]string, 0, len(questionCodesAnswered))
+	for code := range questionCodesAnswered {
+		scope.QuestionCodesWithAnswers = append(scope.QuestionCodesWithAnswers, code)
+	}
+	sort.Strings(scope.QuestionCodesWithAnswers)
+	return scope
+}
+
+func questionDiffTargetRequired(item CompareItemDiff) bool {
+	for _, diff := range item.FieldDiffs {
+		if diff.Field == "required" && normalizeCompareValue(diff.After) == "true" {
+			return true
+		}
+	}
+	return false
+}
+
+func questionDiffBecameRequired(item CompareItemDiff) bool {
+	for _, diff := range item.FieldDiffs {
+		if diff.Field != "required" {
+			continue
+		}
+		if normalizeCompareValue(diff.Before) == "false" && normalizeCompareValue(diff.After) == "true" {
+			return true
+		}
+	}
+	return false
+}
+
+func ChangeImpactConfirmationRequired() error {
 	return apperrors.Validation("change impact confirmation is required before republishing this questionnaire", map[string]any{
-		"code":                  VersionLifecycleMachineCodeChangeImpactRequired,
-		"response_count":        responseCount,
-		"scored_response_count": scoredResponseCount,
+		"code": VersionLifecycleMachineCodeChangeImpactRequired,
 	})
 }
 
