@@ -88,6 +88,28 @@ func (h *VersionLifecycleHandler) PublishQuestionnaire(w http.ResponseWriter, r 
 	respond.JSON(w, http.StatusOK, toRfxVersionResponse(version))
 }
 
+func (h *VersionLifecycleHandler) PreviewChangeImpact(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireActor(w, r)
+	if !ok {
+		return
+	}
+	eventID, ok := parseEventID(w, r)
+	if !ok {
+		return
+	}
+	var input domain.PreviewChangeImpactInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		respond.Error(w, apperrors.Validation("invalid request body", nil))
+		return
+	}
+	analysis, err := h.service.PreviewChangeImpact(r.Context(), actor, eventID, input)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusOK, toChangeImpactAnalysisResponse(analysis))
+}
+
 func (h *VersionLifecycleHandler) ForkDraftFromPublished(w http.ResponseWriter, r *http.Request) {
 	actor, ok := requireActor(w, r)
 	if !ok {
@@ -227,6 +249,28 @@ func toCompareItemDiffResponse(item *domain.CompareItemDiff) map[string]any {
 			})
 		}
 		resp["field_diffs"] = fieldDiffs
+	}
+	return resp
+}
+
+func toChangeImpactAnalysisResponse(analysis *domain.ChangeImpactAnalysis) map[string]any {
+	resp := map[string]any{
+		"impact_analysis_id":                analysis.ID,
+		"tenant_id":                         analysis.TenantID,
+		"event_id":                          analysis.EventID,
+		"candidate_version_id":              analysis.CandidateVersionID,
+		"canonical_diff_hash":               analysis.CanonicalDiffHash,
+		"impact_classes":                    analysis.ImpactClasses,
+		"affected_draft_response_count":     analysis.AffectedDraftResponseCount,
+		"affected_submitted_response_count": analysis.AffectedSubmittedResponseCount,
+		"scoring_affecting":                 analysis.ScoringAffecting,
+		"knockout_affecting":                analysis.KnockoutAffecting,
+		"expires_at":                        analysis.ExpiresAt,
+	}
+	if analysis.SourceVersionID != nil {
+		resp["source_version_id"] = *analysis.SourceVersionID
+	} else {
+		resp["source_version_id"] = nil
 	}
 	return resp
 }
