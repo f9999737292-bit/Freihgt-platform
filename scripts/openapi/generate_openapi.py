@@ -136,6 +136,7 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/rfx-events/{id}/save-draft", "post", "Save RFx questionnaire draft", "RFx", True, True, "q_save_draft"),
     ("/api/v1/rfx-events/{id}/validate-publish", "post", "Validate RFx publish readiness", "RFx", True, True, "q_validate_publish"),
     ("/api/v1/rfx-events/{id}/questionnaire/publish", "post", "Publish current RFx questionnaire draft", "RFx", True, True, "vl_publish"),
+    ("/api/v1/rfx-events/{id}/change-impact/preview", "post", "Preview RFx questionnaire change impact", "RFx", True, True, "vl_change_impact_preview"),
     ("/api/v1/rfx-events/{id}/versions", "get", "List RFx questionnaire versions", "RFx", True, True, "vl_list"),
     ("/api/v1/rfx-events/{id}/versions/fork-draft", "post", "Fork draft from published questionnaire", "RFx", True, True, "vl_fork_draft"),
     ("/api/v1/rfx-events/{id}/versions/compare", "post", "Compare RFx questionnaire versions", "RFx", True, True, "vl_compare"),
@@ -405,6 +406,7 @@ QUESTIONNAIRE_OK_POST_PROFILES = frozenset({
     "q_validate_publish",
     "vl_publish",
     "vl_compare",
+    "vl_change_impact_preview",
 })
 
 VERSION_LIFECYCLE_422_PROFILES = frozenset({"vl_publish"})
@@ -452,6 +454,7 @@ QUESTIONNAIRE_REQUEST_BODIES = {
     "q_rule_update": """              $ref: '#/components/schemas/RfxUpdateRuleRequest'""",
     "q_rule_delete": """              $ref: '#/components/schemas/RfxVersionedMutationRequest'""",
     "vl_publish": """              $ref: '#/components/schemas/RfxPublishQuestionnaireRequest'""",
+    "vl_change_impact_preview": """              $ref: '#/components/schemas/RfxChangeImpactPreviewRequest'""",
     "vl_compare": """              $ref: '#/components/schemas/RfxCompareVersionsRequest'""",
     "vl_restore_draft": """              $ref: '#/components/schemas/RfxRestoreVersionAsDraftRequest'""",
 }
@@ -492,6 +495,7 @@ QUESTIONNAIRE_RESPONSE_SCHEMAS = {
     "q_rule_create": "RfxQuestionRule",
     "q_rule_update": "RfxQuestionRule",
     "vl_publish": "RfxVersionRecord",
+    "vl_change_impact_preview": "RfxChangeImpactAnalysisResponse",
     "vl_list": "RfxVersionListResponse",
     "vl_detail": "RfxVersionDetailResponse",
     "vl_fork_draft": "RfxVersionRecord",
@@ -1069,6 +1073,12 @@ def questionnaire_version_lifecycle_e1_schemas_block() -> str:
         change_summary:
           type: string
           minLength: 1
+        impact_analysis_id:
+          type: string
+          format: uuid
+        canonical_diff_hash:
+          type: string
+          minLength: 1
     RfxVersionRecord:
       type: object
       properties:
@@ -1214,6 +1224,42 @@ def questionnaire_version_lifecycle_e2_schemas_block() -> str:
             $ref: '#/components/schemas/RfxCompareItemDiff'
         scoring:
           $ref: '#/components/schemas/RfxCompareScoringDiff'
+"""
+
+
+def questionnaire_version_lifecycle_e3_schemas_block() -> str:
+    return """    RfxChangeImpactPreviewRequest:
+      type: object
+      required: [candidate_version_id]
+      properties:
+        candidate_version_id:
+          type: string
+          format: uuid
+    RfxChangeImpactAnalysisResponse:
+      type: object
+      properties:
+        impact_analysis_id: {type: string, format: uuid}
+        tenant_id: {type: string, format: uuid}
+        event_id: {type: string, format: uuid}
+        source_version_id: {type: string, format: uuid, nullable: true}
+        candidate_version_id: {type: string, format: uuid}
+        canonical_diff_hash: {type: string}
+        impact_classes:
+          type: array
+          items:
+            type: string
+            enum:
+              - NON_MATERIAL
+              - MATERIAL_NO_RESPONSES
+              - MATERIAL_WITH_DRAFT_RESPONSES
+              - MATERIAL_WITH_SUBMITTED_RESPONSES
+              - SCORING_AFFECTING
+              - KNOCKOUT_AFFECTING
+        affected_draft_response_count: {type: integer}
+        affected_submitted_response_count: {type: integer}
+        scoring_affecting: {type: boolean}
+        knockout_affecting: {type: boolean}
+        expires_at: {type: string, format: date-time}
 """
 
 
@@ -1372,6 +1418,7 @@ def questionnaire_components_block(*, include_e1_version_lifecycle: bool = False
     if include_e1_version_lifecycle:
         parts.append(questionnaire_version_lifecycle_e1_schemas_block())
         parts.append(questionnaire_version_lifecycle_e2_schemas_block())
+        parts.append(questionnaire_version_lifecycle_e3_schemas_block())
     else:
         parts.append(questionnaire_base_version_record_block())
     parts.append(questionnaire_entity_schemas_block())
