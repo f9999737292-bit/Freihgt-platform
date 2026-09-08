@@ -859,10 +859,14 @@ func TestE3INT30NoAutomaticRescore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("start response: %v", err)
 	}
+	qFleet := questionIDByCode(t, ws, "FLEET_SIZE")
 	qID := questionIDByCode(t, ws, "HSE_OK")
 	if _, err := env.crSvc.SaveAnswers(context.Background(), fix.CarrierAct, event.ID, fix.CarrierID, domain.AnswerBatchPatchInput{
 		ExpectedSaveVersion: ws.Response.SaveVersion,
-		Answers:             []domain.AnswerPatchItem{{QuestionID: qID, Value: json.RawMessage(`true`)}},
+		Answers: []domain.AnswerPatchItem{
+			{QuestionID: qFleet, Value: json.RawMessage(`"10"`)},
+			{QuestionID: qID, Value: json.RawMessage(`true`)},
+		},
 	}); err != nil {
 		t.Fatalf("save answer: %v", err)
 	}
