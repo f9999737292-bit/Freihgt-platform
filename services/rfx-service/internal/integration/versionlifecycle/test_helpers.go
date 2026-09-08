@@ -334,7 +334,7 @@ func makeQuestionnaireDraft(t *testing.T, env *testEnv, fix buyerFixture, eventI
 	}
 	if _, err := env.qSvc.CreateQuestion(ctx, fix.BuyerA, eventID, section.ID, domain.CreateQuestionInput{
 		QuestionCode: "FLEET_SIZE",
-		QuestionType: domain.QuestionTypeNumber,
+		QuestionType: domain.QuestionTypeText,
 		Label:        "Fleet size",
 		Required:     true,
 	}); err != nil {
@@ -380,20 +380,16 @@ func insertQualificationForResponse(t *testing.T, env *testEnv, tenantID uuid.UU
 		t.Fatal("response version must be pinned before scoring fixture insert")
 	}
 	ctx := context.Background()
-	modelID := uuid.New()
-	if _, err := env.pool.Exec(ctx, `
-		INSERT INTO rfx.rfx_score_models (
-			id, tenant_id, rfx_version_id, model_version, status, model_type, definition_json
-		) VALUES ($1, $2, $3, 1, 'PUBLISHED', 'AUTOMATIC', '{}'::jsonb)
-	`, modelID, tenantID, *response.RfxVersionID); err != nil {
-		t.Fatalf("insert score model: %v", err)
+	model, err := env.scoreRepo.GetPublishedModelForVersion(ctx, tenantID, *response.RfxVersionID)
+	if err != nil {
+		t.Fatalf("load published score model: %v", err)
 	}
 	if _, err := env.pool.Exec(ctx, `
 		INSERT INTO rfx.rfx_qualification_results (
 			id, tenant_id, rfx_response_id, score_model_id, score_model_version,
 			status, calculation_status, total_score, knockout_triggered, created_at, updated_at
 		) VALUES ($1, $2, $3, $4, 1, 'QUALIFIED', 'CALCULATED', 88.5, FALSE, now(), now())
-	`, uuid.New(), tenantID, response.ID, modelID); err != nil {
+	`, uuid.New(), tenantID, response.ID, model.ID); err != nil {
 		t.Fatalf("insert qualification result: %v", err)
 	}
 }
@@ -621,16 +617,9 @@ func attachPublishedScoringToEvent(t *testing.T, env *testEnv, fix buyerFixture,
 			{
 				CriterionCode:     "HSE",
 				Name:              "HSE",
-				Weight:            40,
+				Weight:            100,
 				SortOrder:         1,
 				NormalizationJSON: json.RawMessage(`{"type":"BOOLEAN_MAP","true_score":100,"false_score":0}`),
-			},
-			{
-				CriterionCode:     "CAPACITY",
-				Name:              "Capacity",
-				Weight:            60,
-				SortOrder:         2,
-				NormalizationJSON: json.RawMessage(`{"type":"NUMBER_LINEAR","min":0,"max":100}`),
 			},
 		},
 		Bindings: []domain.ScoreBindingInput{
@@ -639,11 +628,6 @@ func attachPublishedScoringToEvent(t *testing.T, env *testEnv, fix buyerFixture,
 				QuestionCode:     "HSE_OK",
 				ScoringRuleJSON:  json.RawMessage(`{"type":"BOOLEAN_MAP"}`),
 				KnockoutRuleJSON: json.RawMessage(`{"type":"BOOLEAN_EQUALS","value":false}`),
-			},
-			{
-				CriterionCode:   "CAPACITY",
-				QuestionCode:    "FLEET_SIZE",
-				ScoringRuleJSON: json.RawMessage(`{"type":"NUMBER_LINEAR"}`),
 			},
 		},
 	})

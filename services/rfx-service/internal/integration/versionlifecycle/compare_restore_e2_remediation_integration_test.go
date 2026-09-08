@@ -381,6 +381,13 @@ func TestE2INT24UnresolvableScoringBindingRollsBack(t *testing.T) {
 	insertOrphanScoringBinding(t, env, fix, v1.ID, orphanQuestionID)
 
 	before := captureCompareWriteSnapshot(t, env, fix.TenantID, event.ID)
+	var restoreAuditBefore int
+	if err := env.pool.QueryRow(context.Background(), `
+		SELECT COUNT(*) FROM rfx.audit_events
+		WHERE tenant_id = $1 AND action = 'rfx.version.restored_as_draft.v1'`,
+		fix.TenantID).Scan(&restoreAuditBefore); err != nil {
+		t.Fatalf("count restore audit before: %v", err)
+	}
 	var draftPointer *uuid.UUID
 	if err := env.pool.QueryRow(ctx, `SELECT draft_version_id FROM rfx.rfx_events WHERE id = $1 AND tenant_id = $2`, event.ID, fix.TenantID).Scan(&draftPointer); err != nil {
 		t.Fatalf("draft pointer: %v", err)
@@ -404,15 +411,15 @@ func TestE2INT24UnresolvableScoringBindingRollsBack(t *testing.T) {
 	if draftPointer != nil {
 		t.Fatal("draft pointer set after rollback")
 	}
-	var auditCount int
+	var restoreAuditAfter int
 	if err := env.pool.QueryRow(ctx, `
 		SELECT COUNT(*) FROM rfx.audit_events
 		WHERE tenant_id = $1 AND action = 'rfx.version.restored_as_draft.v1'`,
-		fix.TenantID).Scan(&auditCount); err != nil {
+		fix.TenantID).Scan(&restoreAuditAfter); err != nil {
 		t.Fatalf("audit count: %v", err)
 	}
-	if auditCount != before.auditCount {
-		t.Fatalf("audit events changed: before=%d after=%d", before.auditCount, auditCount)
+	if restoreAuditAfter != restoreAuditBefore {
+		t.Fatalf("restore audit events changed: before=%d after=%d", restoreAuditBefore, restoreAuditAfter)
 	}
 	var idemCount int
 	if err := env.pool.QueryRow(ctx, `
