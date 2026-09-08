@@ -47,15 +47,66 @@
 
 ---
 
-## 3. Late submission requirement (documented, not implemented)
+## 3. Mandatory future gates (documented, not implemented in E2)
 
-`LATE_SUBMISSION_AND_DEADLINE_EXCEPTIONS=REQUIRED_BEFORE_FINAL_TENDER_BROWSER_ACCEPTANCE`
+The following requirements are recorded for controller tracking and must be implemented before final tender browser acceptance (E7) or in their designated waves. **None are implemented in E2.**
 
-Before final end-to-end tender browser acceptance (E7):
+### 3.1 Late submission
 
-- Carrier may request late submission with a reason.
-- Buyer may invite/approve with an individual deadline or reject.
-- This is separate future scope and is **not** implemented in E2.
+`LATE_SUBMISSION_AND_DEADLINE_EXCEPTIONS=REQUIRED`
+
+- Carrier requests permission for late submission; reason is mandatory.
+- Buyer can approve/invite with an individual deadline or reject.
+- Global RFQ deadline is not changed; late bid is explicitly marked; all actions audited.
+
+### 3.2 Buyer RFQ creation channels
+
+| Marker | Status |
+|---|---|
+| `BUYER_RFQ_MANUAL_CREATION` | REQUIRED |
+| `BUYER_RFQ_TEMPLATE_CREATION` | REQUIRED |
+| `BUYER_RFQ_EXCEL_IMPORT` | REQUIRED |
+| `BUYER_RFQ_ERP_INTEGRATION` | REQUIRED |
+
+All channels must create the same canonical RFQ DRAFT and pass the same publish-readiness validation.
+
+### 3.3 Carrier offer channels
+
+| Marker | Status |
+|---|---|
+| `CARRIER_DIRECT_OFFER_ENTRY` | REQUIRED |
+| `CARRIER_OFFER_EXCEL_EXPORT_IMPORT` | REQUIRED |
+| `CARRIER_ERP_INTEGRATION` | NOT_REQUIRED_CURRENT_SCOPE |
+
+Excel import must populate a DRAFT only and must never automatically submit an offer.
+
+### 3.4 Competitor confidentiality
+
+| Marker | Value |
+|---|---|
+| `BUYER_CAN_MANAGE_INVITED_CARRIERS` | YES |
+| `BUYER_CAN_IMPORT_INVITATION_LIST` | YES |
+| `CARRIER_CAN_VIEW_OWN_INVITATION` | YES |
+| `CARRIER_CAN_VIEW_OTHER_PARTICIPANTS` | NO |
+| `CARRIER_CAN_VIEW_COMPETITOR_IDENTITIES` | NO |
+| `CARRIER_CAN_VIEW_COMPETITOR_BIDS` | NO |
+| `CARRIER_CAN_VIEW_COMPETITOR_LATE_REQUESTS` | NO |
+| `BACKEND_ENFORCEMENT_REQUIRED` | YES |
+| `CROSS_CARRIER_ISOLATION_TESTS_REQUIRED` | YES |
+
+Carrier-facing APIs and Excel files must not expose participant lists, competitor identities, bids, submission times, or late-submission decisions for others.
+
+### 3.5 Excel import/export
+
+`EXCEL_IMPORT_EXPORT=REQUIRED`
+
+Future scope: buyer RFQ matrix import/export, carrier personal bid-matrix export/import, versioned templates, preview-before-apply, row-level errors, formula-injection protection, file validation, audit, tenant isolation, published-version immutability.
+
+### 3.6 Training course
+
+`USER_TRAINING_COURSE=REQUIRED`
+
+Audiences: buyer, carrier, administrator. Formats: written instructions, short videos, in-product onboarding, training RFQ, exercises, knowledge test, RU/EN/ZH. Required after UI stabilisation and before pilot/final tender acceptance.
 
 ---
 

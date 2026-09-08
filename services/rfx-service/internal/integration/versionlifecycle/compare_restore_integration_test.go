@@ -287,15 +287,15 @@ func TestE2INT13RestorePreservesResponsePinAndScoreHistory(t *testing.T) {
 	event := createDraftEvent(t, env, fix, "RFX-E2-13")
 	published := ensurePublishedVersion(t, env, fix, event.ID, "e2-int-13-pub")
 	addParticipantAndOpenResponses(t, env, fix, event.ID)
-	response, err := env.crSvc.StartOrResume(context.Background(), fix.CarrierAct, event.ID, fix.CarrierID)
+	ws, err := env.crSvc.StartOrResume(context.Background(), fix.CarrierAct, event.ID, fix.CarrierID)
 	if err != nil {
 		t.Fatalf("start response: %v", err)
 	}
-	if response.RfxVersionID == nil {
+	if ws.Response.RfxVersionID == nil {
 		t.Fatal("response not pinned")
 	}
-	pinnedVersion := *response.RfxVersionID
-	insertQualificationForResponse(t, env, fix.TenantID, response)
+	pinnedVersion := *ws.Response.RfxVersionID
+	insertQualificationForResponse(t, env, fix.TenantID, &ws.Response)
 
 	if _, err := env.versionSvc.RestoreVersionAsDraft(context.Background(), fix.BuyerA, event.ID, published.ID, "e2-int-13-restore", domain.RestoreVersionAsDraftInput{
 		ChangeSummary: "Restore while response exists",
@@ -303,7 +303,7 @@ func TestE2INT13RestorePreservesResponsePinAndScoreHistory(t *testing.T) {
 		t.Fatalf("restore: %v", err)
 	}
 
-	reloaded, err := env.rfxRepo.GetResponseByID(context.Background(), response.ID, fix.TenantID)
+	reloaded, err := env.rfxRepo.GetResponseByID(context.Background(), ws.Response.ID, fix.TenantID)
 	if err != nil {
 		t.Fatalf("reload response: %v", err)
 	}
@@ -313,7 +313,7 @@ func TestE2INT13RestorePreservesResponsePinAndScoreHistory(t *testing.T) {
 	var scoreCount int
 	if err := env.pool.QueryRow(context.Background(), `
 		SELECT COUNT(*) FROM rfx.rfx_qualification_results WHERE tenant_id = $1 AND rfx_response_id = $2`,
-		fix.TenantID, response.ID).Scan(&scoreCount); err != nil {
+		fix.TenantID, ws.Response.ID).Scan(&scoreCount); err != nil {
 		t.Fatalf("count scores: %v", err)
 	}
 	if scoreCount != 1 {

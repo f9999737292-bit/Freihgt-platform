@@ -48,15 +48,15 @@ type CompareFieldDiff struct {
 }
 
 type CompareItemDiff struct {
-	EntityType   string             `json:"entity_type"`
-	Change       string             `json:"change"`
-	SectionCode  string             `json:"section_code,omitempty"`
-	QuestionCode string             `json:"question_code,omitempty"`
-	OptionCode   string             `json:"option_code,omitempty"`
-	RuleCode     string             `json:"rule_code,omitempty"`
-	CriterionCode string            `json:"criterion_code,omitempty"`
-	Fields       []string           `json:"fields,omitempty"`
-	FieldDiffs   []CompareFieldDiff `json:"field_diffs,omitempty"`
+	EntityType    string             `json:"entity_type"`
+	Change        string             `json:"change"`
+	SectionCode   string             `json:"section_code,omitempty"`
+	QuestionCode  string             `json:"question_code,omitempty"`
+	OptionCode    string             `json:"option_code,omitempty"`
+	RuleCode      string             `json:"rule_code,omitempty"`
+	CriterionCode string             `json:"criterion_code,omitempty"`
+	Fields        []string           `json:"fields,omitempty"`
+	FieldDiffs    []CompareFieldDiff `json:"field_diffs,omitempty"`
 }
 
 type CompareScoringDiff struct {
@@ -88,9 +88,9 @@ type ScoringCompareSnapshot struct {
 }
 
 type ScoreBindingCompareEntry struct {
-	CriterionCode string
-	QuestionCode  string
-	BindingType   string
+	CriterionCode    string
+	QuestionCode     string
+	BindingType      string
 	ScoringRuleJSON  json.RawMessage
 	KnockoutRuleJSON json.RawMessage
 }
@@ -564,8 +564,8 @@ type ruleSnapshot struct {
 }
 
 type criterionSnapshot struct {
-	weight             float64
-	normalizationJSON  json.RawMessage
+	weight            float64
+	normalizationJSON json.RawMessage
 }
 
 type bindingSnapshot struct {

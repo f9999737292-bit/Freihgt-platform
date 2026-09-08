@@ -118,6 +118,19 @@ Notes:
 - Each implementation wave requires a separate controller gate.
 - Complete v3.0E remains **IMPLEMENTATION_IN_PROGRESS** until all v3.0E waves are accepted.
 
+### Mandatory future gates (not implemented in E2)
+
+| Area | Markers | Target |
+|---|---|---|
+| Late submission workflow | `LATE_SUBMISSION_AND_DEADLINE_EXCEPTIONS=REQUIRED` | Before E7 browser acceptance |
+| Buyer RFQ channels | `BUYER_RFQ_MANUAL_CREATION`, `BUYER_RFQ_TEMPLATE_CREATION`, `BUYER_RFQ_EXCEL_IMPORT`, `BUYER_RFQ_ERP_INTEGRATION` | Post-E6 / pre-pilot |
+| Carrier offer channels | `CARRIER_DIRECT_OFFER_ENTRY`, `CARRIER_OFFER_EXCEL_EXPORT_IMPORT`; `CARRIER_ERP_INTEGRATION=NOT_REQUIRED_CURRENT_SCOPE` | Post-E6 / pre-pilot |
+| Competitor confidentiality | `CARRIER_CAN_VIEW_COMPETITOR_*=NO`, backend enforcement + cross-carrier isolation tests | Before pilot |
+| Excel import/export | `EXCEL_IMPORT_EXPORT=REQUIRED` | Post-E6 |
+| Training course | `USER_TRAINING_COURSE=REQUIRED` (RU/EN/ZH) | After UI stabilisation, before pilot |
+
+See [RFX_V3_0E2_COMPARE_RESTORE.md](./implementation/RFX_V3_0E2_COMPARE_RESTORE.md) §3 for full requirement text.
+
 ---
 
 ## 7. v3.0F — Qualification Pool
