@@ -117,7 +117,11 @@ func (r *TemplateQuestionnaireRepository) CreateSection(ctx context.Context, ten
 		VALUES ($1,$2,$3,$4,$5,$6,$7)
 		RETURNING id, tenant_id, template_id, rfx_template_version_id, section_code, title, description, sort_order, created_at, updated_at, version`,
 		tenantID, templateID, versionID, strings.TrimSpace(in.SectionCode), strings.TrimSpace(in.Title), optionalString(in.Description), sortOrder)
-	return scanTemplateSection(row)
+	sec, err := scanTemplateSection(row)
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	return sec, nil
 }
 
 func (r *TemplateQuestionnaireRepository) UpdateSection(ctx context.Context, sectionID, tenantID uuid.UUID, in domain.UpdateSectionInput) (*domain.TemplateSection, error) {
@@ -239,7 +243,11 @@ func (r *TemplateQuestionnaireRepository) CreateQuestion(ctx context.Context, te
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9)
 		RETURNING id, tenant_id, section_id, question_code, question_type, label, help_text, required, validation_rule_json, sort_order, created_at, updated_at, version`,
 		tenantID, sectionID, strings.TrimSpace(in.QuestionCode), strings.TrimSpace(in.QuestionType), strings.TrimSpace(in.Label), optionalString(in.HelpText), in.Required, string(val), sortOrder)
-	return scanTemplateQuestion(row)
+	q, err := scanTemplateQuestion(row)
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	return q, nil
 }
 
 func (r *TemplateQuestionnaireRepository) UpdateQuestion(ctx context.Context, questionID, tenantID uuid.UUID, in domain.UpdateQuestionInput) (*domain.TemplateQuestion, error) {
@@ -399,7 +407,11 @@ func (r *TemplateQuestionnaireRepository) CreateOption(ctx context.Context, tena
 		VALUES ($1,$2,$3,$4,$5)
 		RETURNING id, tenant_id, question_id, option_code, label, sort_order, created_at, updated_at, version`,
 		tenantID, questionID, strings.TrimSpace(in.OptionCode), strings.TrimSpace(in.Label), sortOrder)
-	return scanTemplateQuestionOption(row)
+	opt, err := scanTemplateQuestionOption(row)
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	return opt, nil
 }
 
 func (r *TemplateQuestionnaireRepository) UpdateOption(ctx context.Context, optionID, tenantID uuid.UUID, in domain.UpdateQuestionOptionInput) (*domain.TemplateQuestionOption, error) {
@@ -486,7 +498,11 @@ func (r *TemplateQuestionnaireRepository) CreateRule(ctx context.Context, tenant
 		VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8)
 		RETURNING id, tenant_id, template_id, rfx_template_version_id, target_question_id, rule_code, action, condition_json, sort_order, created_at, updated_at, version`,
 		tenantID, templateID, versionID, targetQuestionID, strings.TrimSpace(in.RuleCode), strings.TrimSpace(in.Action), string(cond), sortOrder)
-	return scanTemplateQuestionRule(row)
+	rule, err := scanTemplateQuestionRule(row)
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	return rule, nil
 }
 
 func (r *TemplateQuestionnaireRepository) UpdateRule(ctx context.Context, ruleID, tenantID uuid.UUID, targetQuestionID *uuid.UUID, in domain.UpdateQuestionRuleInput) (*domain.TemplateQuestionRule, error) {
