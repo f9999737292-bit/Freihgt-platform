@@ -124,17 +124,14 @@ func seedPlatformAdmin(t *testing.T, env *testEnv, fix buyerFixture, withCompany
 	if err := env.pool.QueryRow(ctx, `SELECT id FROM core.roles WHERE tenant_id IS NULL AND code = 'PLATFORM_ADMIN' LIMIT 1`).Scan(&adminRoleID); err != nil {
 		t.Fatalf("lookup platform admin role: %v", err)
 	}
-	companyID := fix.CompanyA
 	if withCompanyMembership {
 		if _, err := env.pool.Exec(ctx, `INSERT INTO core.company_memberships (tenant_id, company_id, user_id) VALUES ($1, $2, $3)`,
 			fix.TenantID, fix.CompanyA, adminID); err != nil {
 			t.Fatalf("seed admin membership: %v", err)
 		}
-	} else {
-		companyID = uuid.Nil
 	}
 	if _, err := env.pool.Exec(ctx, `INSERT INTO core.user_roles (tenant_id, user_id, company_id, role_id) VALUES ($1, $2, $3, $4)`,
-		fix.TenantID, adminID, companyID, adminRoleID); err != nil {
+		fix.TenantID, adminID, fix.CompanyA, adminRoleID); err != nil {
 		t.Fatalf("seed admin role: %v", err)
 	}
 	return domain.ActorContext{TenantID: fix.TenantID, UserID: adminID}
@@ -337,19 +334,19 @@ func TestE4REM015CrossTenantQuestionDenied(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
 	detail := createTemplate(t, env, fix, "fk-q-tenant", nil)
-	var sectionID, templateID, versionID uuid.UUID
-	if err := env.pool.QueryRow(context.Background(), `
-		SELECT id, template_id, rfx_template_version_id
-		FROM rfx.rfx_template_sections
-		WHERE template_id = $1 AND deleted_at IS NULL LIMIT 1`, detail.Template.ID).Scan(&sectionID, &templateID, &versionID); err != nil {
-		t.Fatalf("lookup section: %v", err)
+	section, err := env.templateQSvc.CreateSection(context.Background(), fix.BuyerA, detail.Template.ID, domain.CreateSectionInput{
+		SectionCode: "S1",
+		Title:       "Section 1",
+	})
+	if err != nil {
+		t.Fatalf("create section: %v", err)
 	}
 	otherTenant := uuid.New()
-	_, err := env.pool.Exec(context.Background(), `
+	_, err = env.pool.Exec(context.Background(), `
 		INSERT INTO rfx.rfx_template_questions (
 			tenant_id, template_id, rfx_template_version_id, section_id, question_code, question_type, label
 		) VALUES ($1, $2, $3, $4, 'BAD', 'TEXT', 'Bad')`,
-		otherTenant, templateID, versionID, sectionID)
+		otherTenant, detail.Template.ID, detail.DraftVersion.ID, section.ID)
 	if err == nil {
 		t.Fatal("expected cross-tenant question insert denied")
 	}
