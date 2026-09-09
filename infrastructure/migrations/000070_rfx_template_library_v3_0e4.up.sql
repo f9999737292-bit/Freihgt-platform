@@ -90,6 +90,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_rfx_template_sections_version_code
 CREATE INDEX IF NOT EXISTS idx_rfx_template_sections_tenant_version
     ON rfx.rfx_template_sections (tenant_id, rfx_template_version_id, sort_order);
 
+CREATE UNIQUE INDEX IF NOT EXISTS uq_rfx_template_sections_tenant_id
+    ON rfx.rfx_template_sections (tenant_id, id);
+
 ALTER TABLE rfx.rfx_template_sections
     ADD CONSTRAINT fk_rfx_template_sections_version_composite
     FOREIGN KEY (tenant_id, template_id, rfx_template_version_id)
@@ -98,6 +101,8 @@ ALTER TABLE rfx.rfx_template_sections
 CREATE TABLE IF NOT EXISTS rfx.rfx_template_questions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL,
+    template_id UUID NOT NULL,
+    rfx_template_version_id UUID NOT NULL,
     section_id UUID NOT NULL,
     question_code VARCHAR(100) NOT NULL,
     question_type VARCHAR(50) NOT NULL,
@@ -119,10 +124,21 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_rfx_template_questions_section_code
 CREATE INDEX IF NOT EXISTS idx_rfx_template_questions_tenant_section
     ON rfx.rfx_template_questions (tenant_id, section_id, sort_order);
 
+CREATE UNIQUE INDEX IF NOT EXISTS uq_rfx_template_questions_tenant_id
+    ON rfx.rfx_template_questions (tenant_id, id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_rfx_template_questions_tenant_version_question
+    ON rfx.rfx_template_questions (tenant_id, template_id, rfx_template_version_id, id);
+
 ALTER TABLE rfx.rfx_template_questions
-    ADD CONSTRAINT fk_rfx_template_questions_section
-    FOREIGN KEY (section_id)
-    REFERENCES rfx.rfx_template_sections (id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_rfx_template_questions_section_composite
+    FOREIGN KEY (tenant_id, section_id)
+    REFERENCES rfx.rfx_template_sections (tenant_id, id);
+
+ALTER TABLE rfx.rfx_template_questions
+    ADD CONSTRAINT fk_rfx_template_questions_version_composite
+    FOREIGN KEY (tenant_id, template_id, rfx_template_version_id)
+    REFERENCES rfx.rfx_template_versions (tenant_id, template_id, id);
 
 CREATE TABLE IF NOT EXISTS rfx.rfx_template_question_options (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -141,10 +157,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_rfx_template_question_options_question_code
     ON rfx.rfx_template_question_options (question_id, option_code)
     WHERE deleted_at IS NULL;
 
+CREATE UNIQUE INDEX IF NOT EXISTS uq_rfx_template_question_options_tenant_id
+    ON rfx.rfx_template_question_options (tenant_id, id);
+
 ALTER TABLE rfx.rfx_template_question_options
-    ADD CONSTRAINT fk_rfx_template_question_options_question
-    FOREIGN KEY (question_id)
-    REFERENCES rfx.rfx_template_questions (id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_rfx_template_question_options_question_composite
+    FOREIGN KEY (tenant_id, question_id)
+    REFERENCES rfx.rfx_template_questions (tenant_id, id) ON DELETE CASCADE;
 
 CREATE TABLE IF NOT EXISTS rfx.rfx_template_question_rules (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -173,6 +192,7 @@ ALTER TABLE rfx.rfx_template_question_rules
     REFERENCES rfx.rfx_template_versions (tenant_id, template_id, id);
 
 ALTER TABLE rfx.rfx_template_question_rules
-    ADD CONSTRAINT fk_rfx_template_question_rules_target_question
-    FOREIGN KEY (target_question_id)
-    REFERENCES rfx.rfx_template_questions (id) ON DELETE SET NULL;
+    ADD CONSTRAINT fk_rfx_template_question_rules_target_question_composite
+    FOREIGN KEY (tenant_id, template_id, rfx_template_version_id, target_question_id)
+    REFERENCES rfx.rfx_template_questions (tenant_id, template_id, rfx_template_version_id, id)
+    ON DELETE SET NULL;

@@ -1,4 +1,6 @@
 ALTER TABLE rfx.rfx_template_question_rules
+    DROP CONSTRAINT IF EXISTS fk_rfx_template_question_rules_target_question_composite;
+ALTER TABLE rfx.rfx_template_question_rules
     DROP CONSTRAINT IF EXISTS fk_rfx_template_question_rules_target_question;
 
 ALTER TABLE rfx.rfx_template_question_rules
@@ -8,20 +10,30 @@ DROP INDEX IF EXISTS rfx.uq_rfx_template_question_rules_version_code;
 DROP TABLE IF EXISTS rfx.rfx_template_question_rules;
 
 ALTER TABLE rfx.rfx_template_question_options
+    DROP CONSTRAINT IF EXISTS fk_rfx_template_question_options_question_composite;
+ALTER TABLE rfx.rfx_template_question_options
     DROP CONSTRAINT IF EXISTS fk_rfx_template_question_options_question;
 
+DROP INDEX IF EXISTS rfx.uq_rfx_template_question_options_tenant_id;
 DROP INDEX IF EXISTS rfx.uq_rfx_template_question_options_question_code;
 DROP TABLE IF EXISTS rfx.rfx_template_question_options;
 
 ALTER TABLE rfx.rfx_template_questions
+    DROP CONSTRAINT IF EXISTS fk_rfx_template_questions_version_composite;
+ALTER TABLE rfx.rfx_template_questions
+    DROP CONSTRAINT IF EXISTS fk_rfx_template_questions_section_composite;
+ALTER TABLE rfx.rfx_template_questions
     DROP CONSTRAINT IF EXISTS fk_rfx_template_questions_section;
 
+DROP INDEX IF EXISTS rfx.uq_rfx_template_questions_tenant_version_question;
+DROP INDEX IF EXISTS rfx.uq_rfx_template_questions_tenant_id;
 DROP INDEX IF EXISTS rfx.uq_rfx_template_questions_section_code;
 DROP TABLE IF EXISTS rfx.rfx_template_questions;
 
 ALTER TABLE rfx.rfx_template_sections
     DROP CONSTRAINT IF EXISTS fk_rfx_template_sections_version_composite;
 
+DROP INDEX IF EXISTS rfx.uq_rfx_template_sections_tenant_id;
 DROP INDEX IF EXISTS rfx.uq_rfx_template_sections_version_code;
 DROP INDEX IF EXISTS rfx.idx_rfx_template_sections_tenant_version;
 DROP TABLE IF EXISTS rfx.rfx_template_sections;
