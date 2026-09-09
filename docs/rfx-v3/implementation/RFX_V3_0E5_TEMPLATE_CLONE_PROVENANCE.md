@@ -1,23 +1,42 @@
 # RFx v3.0E5 — Template Clone + Provenance
 
-**Status:** IMPLEMENTED_PENDING_CONTROLLER_ACCEPTANCE
+**Status:** IMPLEMENTED_ACCEPTED
 
-**Branch:** `feat/rfx-template-clone-provenance-v3.0e5`  
-**Base:** `a53f5a5fa5556d61ce09e1b7fb2d306afef8bc60` (E4 docs closeout on `main`)  
+**Merged to main:** PR #115 via merge commit `81ff86b0f54b1053491d20dc06f51c4dfef537fd`
 **Migration:** `000071_rfx_template_clone_provenance_v3_0e5`  
 **Scope:** E5 only (no E6/E7, no v3.0F, no staging/pilot)
 
 ---
 
-## 1. Summary
+## 1. Controller acceptance record
+
+| Field | Value |
+|---|---|
+| `STATUS` | IMPLEMENTED_ACCEPTED |
+| `CONTROLLER_ACCEPTANCE` | YES |
+| `PR115_MERGED` | YES |
+| `PR115_HEAD` | `5c26d34e3e623ac1d1be414455c8a28b18ae1c62` |
+| `PR115_MERGE_SHA` | `81ff86b0f54b1053491d20dc06f51c4dfef537fd` |
+| `CI_RUN_ID` | 34401634396 |
+| `CI_EXACT_HEAD` | YES |
+| `CI_CONCLUSION` | success |
+| `E5_001_E5_005_CLOSED` | YES |
+| `MIGRATION_000071_ON_MAIN` | YES |
+| `MIGRATION_000072_CREATED` | NO |
+
+---
+
+## 2. Summary
 
 Buyer-managed clone of a published (or explicitly selected superseded) RFx template version into a new RFx event with immutable template provenance, initial event DRAFT questionnaire version, deep graph materialization (sections/questions/options/rules with remapped rule targets), mandatory idempotency, and audit `rfx.event.created_from_template.v1`.
 
 Scoring, responses, invitations, offers, and evaluation results are **not** copied or created.
 
+E5 delivers **only** the buyer RFQ creation channel **from published template** (`POST /rfx-events/from-template`). Manual event creation, Excel import/export, SAP/1C/ERP/TMS integration, late submission workflows, and carrier Excel import/export are **not** implemented in E5.
+
 ---
 
-## 2. API
+## 3. API
 
 | Method | Gateway path | Service path | Auth | Notes |
 |--------|--------------|--------------|------|-------|
@@ -43,7 +62,7 @@ Event fields plus:
 
 ---
 
-## 3. Source version rules
+## 4. Source version rules
 
 | Source status | Result |
 |---------------|--------|
@@ -55,7 +74,7 @@ Event fields plus:
 
 ---
 
-## 4. Provenance (DB)
+## 5. Provenance (DB)
 
 Migration `000071`:
 
@@ -68,7 +87,7 @@ Manual event creation leaves provenance NULL.
 
 ---
 
-## 5. Transaction (atomic)
+## 6. Transaction (atomic)
 
 Single transaction:
 
@@ -86,7 +105,7 @@ Any failure rolls back all mutations.
 
 ---
 
-## 6. Idempotency
+## 7. Idempotency
 
 - Operation: `CLONE_EVENT_FROM_TEMPLATE`
 - Scope: `tenant_id` + `actor_id` + operation + `template_version_id`
@@ -97,7 +116,7 @@ Any failure rolls back all mutations.
 
 ---
 
-## 7. Not copied
+## 8. Not copied
 
 | Artifact | Copied |
 |----------|--------|
@@ -109,26 +128,58 @@ Any failure rolls back all mutations.
 
 ---
 
-## 8. Integration tests
+## 9. Controller remediation (E5-001..E5-005)
+
+| Item | Scope | Outcome |
+|---|---|---|
+| **E5-001** | PR body restoration with full summary, scope, tests, CI evidence | Closed |
+| **E5-002** | Migration 000071 down cleanup — schema-qualified index drops; REM-004 validates full object cleanup + legacy data + up restore | Closed |
+| **E5-003** | Feature-flag HTTP tests — REM-005/INT-32 real **404** when disabled; REM-006 HTTP **201** when enabled | Closed |
+| **E5-004** | Atomic rollback coverage — REM-001 graph copy inject at option phase; REM-002 audit; REM-003 idempotency | Closed |
+| **E5-005** | Acceptance evidence hardening — canonical graph equality, full UUID isolation, real template/event draft mutations, discovered zero business artifacts, E5-REM-007..012 | Closed at `5c26d34` |
+
+---
+
+## 10. Integration tests
 
 Package: `services/rfx-service/internal/integration/templatelibrary/`  
-Cases: **E5-INT-01..32** (clone, provenance, isolation, graph, idempotency, migration up/down, gateway alignment, feature flag fail-closed).
+CI job: `rfx-version-lifecycle-v3-integration` with `REQUIRE_TEST_DATABASE=1`
 
-CI: existing `rfx-version-lifecycle-v3-integration` job runs `./internal/integration/templatelibrary/...` with `REQUIRE_TEST_DATABASE=1`.
+| Suite | Coverage |
+|---|---|
+| E5-INT-01..32 | Clone, provenance, isolation, canonical graph equality, UUID disjointness, rule target remap, template/event mutation independence, zero business artifacts, idempotency, migration up/down, gateway alignment, feature flag fail-closed HTTP |
+| E5-REM-001..012 | Graph/audit/idempotency rollback, down migration cleanup, feature-flag HTTP, canonical equality, UUID isolation, mutation isolation, zero artifacts, rule targets event-local |
+| E1–E4 regressions | Template library and version lifecycle continuity on shared CI job |
+
+All suites passed on PR #115 head `5c26d34e3e623ac1d1be414455c8a28b18ae1c62` (CI run `34401634396`, 48/48 checks).
 
 ---
 
-## 9. Out of scope (E5)
+## 11. Post-merge closeout
 
-- E6 Studio frontend
-- E7 browser acceptance
+- E5 clone-from-template is **accepted and merged to `main`** at `81ff86b0f54b1053491d20dc06f51c4dfef537fd` (PR #115 head `5c26d34e3e623ac1d1be414455c8a28b18ae1c62`, CI `34401634396`).
+- Migration **000071** is on `main`; migration **000072** was not created.
+- `POST /rfx-events/from-template` is on `main` with immutable `source_template_version_id` and trigger `trg_rfx_events_provenance_immutable`.
+- Questionnaire graph is materialized independently with new UUIDs; rule targets are remapped to event-local questions.
+- Scoring models and downstream business artifacts (responses, participants, offer lines, evaluation/qualification results) are **not** copied on clone.
+- E5-INT-01..32 and E5-REM-001..012 passed on exact HEAD.
+- Staging and pilot were **not** changed as part of E5.
+- **E6** (Studio frontend) and **E7** (browser acceptance) have **not** started; separate controller authorization is required before either wave.
+- Complete v3.0E remains **IMPLEMENTATION_IN_PROGRESS** until E6–E7 are accepted.
+
+---
+
+## 12. Out of scope (E5 / E6+)
+
+- Studio frontend for template library / clone UX (E6)
+- Browser acceptance gate (E7)
 - v3.0F qualification pool
-- Staging / pilot deployment changes
-- Migration `000072`
+- Manual buyer RFQ creation UX beyond existing APIs
+- Excel import/export
+- SAP/1C/ERP/TMS integration
+- Late submission & deadline exceptions
+- Carrier Excel import/export
+- Staging/pilot rollout
 
----
-
-## 10. Controller gate
-
-**E6/E7:** NOT_STARTED — separate authorization required.  
-**Merge:** DO NOT MERGE until controller acceptance.
+**E6:** PENDING_CONTROLLER_AUTHORIZATION
+**E7:** NOT_STARTED
