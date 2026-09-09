@@ -430,7 +430,7 @@ func TestE4REM019OptionForForeignVersionQuestionDenied(t *testing.T) {
 		WHERE rfx_template_version_id = $1 AND deleted_at IS NULL LIMIT 1`, draft.ID).Scan(&draftSectionID); err != nil {
 		t.Fatalf("lookup draft section: %v", err)
 	}
-	_, err := env.pool.Exec(context.Background(), `
+	_, err = env.pool.Exec(context.Background(), `
 		INSERT INTO rfx.rfx_template_questions (
 			tenant_id, template_id, rfx_template_version_id, section_id, question_code, question_type, label
 		) VALUES ($1, $2, $3, $4, 'BAD', 'TEXT', 'Bad')`,
