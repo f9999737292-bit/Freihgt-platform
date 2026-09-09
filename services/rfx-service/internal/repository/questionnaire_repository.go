@@ -91,6 +91,25 @@ func (r *QuestionnaireRepository) GetOrCreateDraftVersion(ctx context.Context, t
 	return ver, nil
 }
 
+func (r *QuestionnaireRepository) CreateInitialDraftVersion(ctx context.Context, tenantID, eventID uuid.UUID) (*domain.RfxVersion, error) {
+	const insert = `
+		INSERT INTO rfx.rfx_versions (tenant_id, rfx_event_id, version_number, status, questionnaire_enabled)
+		VALUES ($1,$2,1,$3,TRUE)
+		RETURNING ` + rfxVersionSelectColumns
+	row := r.db().QueryRow(ctx, insert, tenantID, eventID, domain.RfxVersionStatusDraft)
+	ver, err := scanRfxVersion(row)
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	if _, err := r.db().Exec(ctx, `
+		UPDATE rfx.rfx_events
+		SET draft_version_id=$3, updated_at=now(), version=version+1
+		WHERE id=$1 AND tenant_id=$2 AND deleted_at IS NULL`, eventID, tenantID, ver.ID); err != nil {
+		return nil, mapDBError(err)
+	}
+	return ver, nil
+}
+
 func (r *QuestionnaireRepository) GetVersionByID(ctx context.Context, id, tenantID uuid.UUID) (*domain.RfxVersion, error) {
 	row := r.db().QueryRow(ctx, `
 		SELECT `+rfxVersionSelectColumns+`

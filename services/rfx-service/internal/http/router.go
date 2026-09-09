@@ -25,6 +25,7 @@ func NewRouter(
 	versionSvc *service.VersionLifecycleService,
 	templateSvc *service.TemplateLibraryService,
 	templateQSvc *service.TemplateQuestionnaireService,
+	templateCloneSvc *service.TemplateCloneService,
 	crSvc *service.CarrierResponseService,
 	scoreModelSvc *service.ScoreModelService,
 	scoringSvc *service.ScoringService,
@@ -37,6 +38,7 @@ func NewRouter(
 	versionHandler := handlers.NewVersionLifecycleHandler(versionSvc)
 	templateHandler := handlers.NewTemplateLibraryHandler(templateSvc)
 	templateQHandler := handlers.NewTemplateQuestionnaireHandler(templateQSvc)
+	templateCloneHandler := handlers.NewTemplateCloneHandler(templateCloneSvc)
 	crHandler := handlers.NewCarrierResponseHandler(crSvc)
 	scoreHandler := handlers.NewScoreHandler(scoreModelSvc, scoringSvc, rfxSvc)
 	frHandler := handlers.NewFreightRequestHandler(frSvc)
@@ -54,6 +56,10 @@ func NewRouter(
 
 	r.Route("/v1/rfx-events", func(r chi.Router) {
 		r.Post("/", rfxHandler.CreateEvent)
+		r.Group(func(r chi.Router) {
+			r.Use(versioningV3FlagMiddleware(cfg.RfxVersioningV3Enabled))
+			r.Post("/from-template", templateCloneHandler.CreateEventFromTemplate)
+		})
 		r.Get("/", rfxHandler.ListEvents)
 		r.Get("/{id}", rfxHandler.GetEvent)
 		r.Patch("/{id}", rfxHandler.UpdateEvent)

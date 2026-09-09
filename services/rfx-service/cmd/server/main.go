@@ -64,6 +64,7 @@ func main() {
 	tmplQRepo := repository.NewTemplateQuestionnaireRepository(db.Pool)
 	templateSvc := service.NewTemplateLibraryService(db.Pool, tmplRepo, tmplQRepo, idemRepo, auditRepo, rfxSvc)
 	templateQSvc := service.NewTemplateQuestionnaireService(db.Pool, tmplRepo, tmplQRepo, auditRepo, templateSvc)
+	templateCloneSvc := service.NewTemplateCloneService(db.Pool, rfxRepo, qRepo, tmplRepo, tmplQRepo, idemRepo, auditRepo, rfxSvc, templateSvc)
 	scoringSvc := service.NewScoringService(db.Pool, rfxRepo, answerRepo, qRepo, scoreRepo, auditRepo)
 	crSvc := service.NewCarrierResponseServiceWithScoring(db.Pool, rfxRepo, answerRepo, qRepo, auditRepo, membershipRepo, rfxSvc, scoringSvc)
 	scoreModelSvc := service.NewScoreModelService(rfxRepo, scoreRepo, qRepo, auditRepo, membershipRepo, rfxSvc)
@@ -76,7 +77,7 @@ func main() {
 	deadlineMetrics := worker.NewMetrics(cfg.ServiceName)
 	deadlineWorker := worker.NewDeadlineWorker(cfg.DeadlineWorker, rfxSvc, worker.RealClock(), log, deadlineMetrics)
 
-	router := httpserver.NewRouter(log, db.Pool, cfg, rfxSvc, qSvc, versionSvc, templateSvc, templateQSvc, crSvc, scoreModelSvc, scoringSvc, frSvc, bidSvc, pricingSvc)
+	router := httpserver.NewRouter(log, db.Pool, cfg, rfxSvc, qSvc, versionSvc, templateSvc, templateQSvc, templateCloneSvc, crSvc, scoreModelSvc, scoringSvc, frSvc, bidSvc, pricingSvc)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

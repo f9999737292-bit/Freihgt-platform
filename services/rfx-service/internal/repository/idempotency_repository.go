@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,6 +17,8 @@ var ErrIdempotencyRecordActive = errors.New("idempotency record not expired")
 type IdempotencyRepository struct {
 	pool *pgxpool.Pool
 	exec dbExecutor
+	// injectStoreFailure is set only by integration tests to verify transactional rollback.
+	injectStoreFailure bool
 }
 
 type IdempotencyScope struct {
@@ -43,6 +46,11 @@ func NewIdempotencyRepository(pool *pgxpool.Pool) *IdempotencyRepository {
 	return &IdempotencyRepository{pool: pool}
 }
 
+// SetInjectStoreFailure enables a one-shot idempotency insert failure for integration tests.
+func (r *IdempotencyRepository) SetInjectStoreFailure(enabled bool) {
+	r.injectStoreFailure = enabled
+}
+
 func (r *IdempotencyRepository) Get(ctx context.Context, scope IdempotencyScope, key string) (*IdempotencyRecord, error) {
 	row := r.db().QueryRow(ctx, `
 		SELECT id, tenant_id, actor_id, operation, aggregate_scope, idempotency_key,
@@ -62,6 +70,9 @@ func (r *IdempotencyRepository) Get(ctx context.Context, scope IdempotencyScope,
 }
 
 func (r *IdempotencyRepository) Store(ctx context.Context, record IdempotencyRecord) error {
+	if r.injectStoreFailure {
+		return mapDBError(fmt.Errorf("injected idempotency store failure"))
+	}
 	if len(record.ResponseBody) == 0 {
 		record.ResponseBody = json.RawMessage(`{}`)
 	}

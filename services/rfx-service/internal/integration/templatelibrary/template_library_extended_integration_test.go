@@ -275,19 +275,18 @@ func TestE4INT41OpenAPIRouterGatewayParity(t *testing.T) {
 	}
 }
 
-func TestE4INT42E5CloneRouteAbsent(t *testing.T) {
+func TestE4INT42E5CloneRoutePresent(t *testing.T) {
 	root := repoRoot(t)
 	for _, rel := range []string{
 		"services/rfx-service/internal/http/router.go",
 		"services/api-gateway/internal/http/router.go",
-		"scripts/openapi/generate_openapi.py",
 	} {
 		body, err := os.ReadFile(filepath.Join(root, rel))
 		if err != nil {
 			t.Fatalf("read %s: %v", rel, err)
 		}
-		if strings.Contains(string(body), "from-template") {
-			t.Fatalf("E5 clone route must be absent in %s", rel)
+		if !strings.Contains(string(body), "from-template") {
+			t.Fatalf("E5 clone route must be present in %s", rel)
 		}
 	}
 }
