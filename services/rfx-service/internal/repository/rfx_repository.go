@@ -74,6 +74,62 @@ func (r *RfxRepository) CreateEvent(ctx context.Context, in domain.CreateRfxEven
 	return result, err
 }
 
+func (r *RfxRepository) CreateEventWithProvenance(ctx context.Context, in domain.CreateRfxEventInput, sourceTemplateVersionID uuid.UUID) (*domain.RfxEvent, error) {
+	var result *domain.RfxEvent
+	err := measureDB("rfx_repository", "create_rfx_event_from_template", func() error {
+		const query = `
+		INSERT INTO rfx.rfx_events (
+			tenant_id, rfx_number, rfx_type, category, title, description,
+			owner_company_id, currency_code, valid_from, valid_to, response_deadline, status,
+			source_template_version_id
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		RETURNING id, tenant_id, rfx_number, rfx_type, category, title, description,
+			owner_company_id, status, currency_code, valid_from, valid_to, response_deadline,
+			created_at, updated_at, version
+	`
+		row := r.db().QueryRow(ctx, query,
+			in.TenantID,
+			strings.TrimSpace(in.RfxNumber),
+			strings.TrimSpace(in.RfxType),
+			strings.TrimSpace(in.Category),
+			strings.TrimSpace(in.Title),
+			optionalString(in.Description),
+			in.OwnerCompanyID,
+			optionalString(in.CurrencyCode),
+			optionalDate(in.ValidFrom),
+			optionalDate(in.ValidTo),
+			in.ResponseDeadline,
+			domain.RfxStatusDraft,
+			sourceTemplateVersionID,
+		)
+		event, scanErr := scanRfxEvent(row)
+		if scanErr != nil {
+			return mapDBError(scanErr)
+		}
+		result = event
+		return nil
+	})
+	return result, err
+}
+
+func (r *RfxRepository) GetSourceTemplateVersionID(ctx context.Context, eventID, tenantID uuid.UUID) (*uuid.UUID, error) {
+	var sourceID *uuid.UUID
+	err := measureDB("rfx_repository", "get_rfx_event_source_template_version_id", func() error {
+		return r.db().QueryRow(ctx, `
+			SELECT source_template_version_id
+			FROM rfx.rfx_events
+			WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`,
+			eventID, tenantID).Scan(&sourceID)
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperrors.NotFound("rfx event not found")
+		}
+		return nil, mapDBError(err)
+	}
+	return sourceID, nil
+}
+
 func (r *RfxRepository) GetEventByID(ctx context.Context, id, tenantID uuid.UUID) (*domain.RfxEvent, error) {
 	var result *domain.RfxEvent
 	err := measureDB("rfx_repository", "get_rfx_event", func() error {
@@ -994,7 +1050,7 @@ func (r *RfxRepository) UpdateResponseAfterSave(
 				return nil, getErr
 			}
 			return nil, apperrors.Conflict("save version conflict", map[string]any{
-				"field":                "save_version",
+				"field":                 "save_version",
 				"expected_save_version": expectedSaveVersion,
 				"current_save_version":  current.SaveVersion,
 				"last_saved_at":         current.LastSavedAt,
