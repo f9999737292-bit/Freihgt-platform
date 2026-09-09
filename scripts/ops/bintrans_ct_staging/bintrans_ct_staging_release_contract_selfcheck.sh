@@ -180,15 +180,16 @@ assert_pass "MIGRATION_66_RESOLVES" bintrans_resolve_migration_file_pair 000066
 assert_pass "MIGRATION_67_RESOLVES" bintrans_resolve_migration_file_pair 000067
 assert_pass "MIGRATION_68_RESOLVES" bintrans_resolve_migration_file_pair 000068
 assert_pass "MIGRATION_69_RESOLVES" bintrans_resolve_migration_file_pair 000069
+assert_pass "MIGRATION_70_RESOLVES" bintrans_resolve_migration_file_pair 000070
 max_target="$(bintrans_max_migration_target)"
-[[ "${max_target}" == "000069" ]] || fail "expected max migration 000069, got ${max_target}"
+[[ "${max_target}" == "000070" ]] || fail "expected max migration 000070, got ${max_target}"
 BINTRANS_STAGING_ENV="${valid_env}" write_env "${valid_env}" \
   "DEPLOYED_GIT_SHA=${FIXTURE_SHA}" \
   "BINTRANS_IMAGE_TAG=${FIXTURE_TAG}" \
-  "MIGRATION_TARGET=000069"
-BINTRANS_STAGING_ENV="${valid_env}" bintrans_validate_migration_target_bounded 000069
+  "MIGRATION_TARGET=000070"
+BINTRANS_STAGING_ENV="${valid_env}" bintrans_validate_migration_target_bounded 000070
 assert_fail "MIGRATION_TARGET_ABOVE_MAX" bash -c 'source "'"${ROOT}"'/scripts/ops/bintrans_ct_staging/bintrans_ct_staging_common.sh"; bintrans_validate_migration_target_bounded 999999'
-assert_fail "MIGRATION_TARGET_UNRELEASED_000070" bash -c 'source "'"${ROOT}"'/scripts/ops/bintrans_ct_staging/bintrans_ct_staging_common.sh"; bintrans_validate_migration_target_bounded 000070'
-echo "OK: synthetic 36->69 bounded migration contract"
+assert_fail "MIGRATION_TARGET_UNRELEASED_000071" bash -c 'source "'"${ROOT}"'/scripts/ops/bintrans_ct_staging/bintrans_ct_staging_common.sh"; bintrans_validate_migration_target_bounded 000071'
+echo "OK: synthetic 36->70 bounded migration contract"
 
 echo "bintrans-ct-staging-release-contract-selfcheck: PASS"

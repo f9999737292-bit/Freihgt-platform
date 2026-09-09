@@ -23,6 +23,8 @@ func NewRouter(
 	rfxSvc *service.RfxService,
 	qSvc *service.QuestionnaireService,
 	versionSvc *service.VersionLifecycleService,
+	templateSvc *service.TemplateLibraryService,
+	templateQSvc *service.TemplateQuestionnaireService,
 	crSvc *service.CarrierResponseService,
 	scoreModelSvc *service.ScoreModelService,
 	scoringSvc *service.ScoringService,
@@ -33,6 +35,8 @@ func NewRouter(
 	rfxHandler := handlers.NewRfxHandler(rfxSvc)
 	qHandler := handlers.NewQuestionnaireHandler(qSvc)
 	versionHandler := handlers.NewVersionLifecycleHandler(versionSvc)
+	templateHandler := handlers.NewTemplateLibraryHandler(templateSvc)
+	templateQHandler := handlers.NewTemplateQuestionnaireHandler(templateQSvc)
 	crHandler := handlers.NewCarrierResponseHandler(crSvc)
 	scoreHandler := handlers.NewScoreHandler(scoreModelSvc, scoringSvc, rfxSvc)
 	frHandler := handlers.NewFreightRequestHandler(frSvc)
@@ -156,6 +160,34 @@ func NewRouter(
 		r.Get("/{id}", bidHandler.GetByID)
 		r.Post("/{id}/submit", bidHandler.SubmitBid)
 		r.Post("/{id}/accept", bidHandler.AcceptBid)
+	})
+
+	r.Route("/v1/rfx-templates", func(r chi.Router) {
+		r.Use(versioningV3FlagMiddleware(cfg.RfxVersioningV3Enabled))
+		r.Get("/", templateHandler.ListTemplates)
+		r.Post("/", templateHandler.CreateTemplate)
+		r.Get("/{id}", templateHandler.GetTemplate)
+		r.Patch("/{id}", templateHandler.UpdateTemplate)
+		r.Delete("/{id}", templateHandler.DeleteTemplate)
+		r.Post("/{id}/archive", templateHandler.ArchiveTemplate)
+		r.Post("/{id}/versions/publish", templateHandler.PublishTemplateVersion)
+		r.Post("/{id}/versions/fork-draft", templateHandler.ForkDraftFromPublished)
+		r.Get("/{id}/questionnaire", templateQHandler.GetQuestionnaire)
+		r.Post("/{id}/sections", templateQHandler.CreateSection)
+		r.Patch("/{id}/sections/{section_id}", templateQHandler.UpdateSection)
+		r.Delete("/{id}/sections/{section_id}", templateQHandler.DeleteSection)
+		r.Post("/{id}/sections/reorder", templateQHandler.ReorderSections)
+		r.Post("/{id}/questions", templateQHandler.CreateQuestion)
+		r.Patch("/{id}/questions/{question_id}", templateQHandler.UpdateQuestion)
+		r.Delete("/{id}/questions/{question_id}", templateQHandler.DeleteQuestion)
+		r.Post("/{id}/questions/{question_id}/duplicate", templateQHandler.DuplicateQuestion)
+		r.Post("/{id}/questions/reorder", templateQHandler.ReorderQuestions)
+		r.Post("/{id}/questions/{question_id}/options", templateQHandler.CreateOption)
+		r.Patch("/{id}/questions/{question_id}/options/{option_id}", templateQHandler.UpdateOption)
+		r.Delete("/{id}/questions/{question_id}/options/{option_id}", templateQHandler.DeleteOption)
+		r.Post("/{id}/rules", templateQHandler.CreateRule)
+		r.Patch("/{id}/rules/{rule_id}", templateQHandler.UpdateRule)
+		r.Delete("/{id}/rules/{rule_id}", templateQHandler.DeleteRule)
 	})
 
 	r.Route("/internal/v1/pricing", func(r chi.Router) {
