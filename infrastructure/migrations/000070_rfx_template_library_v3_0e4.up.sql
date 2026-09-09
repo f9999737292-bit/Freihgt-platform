@@ -93,6 +93,9 @@ CREATE INDEX IF NOT EXISTS idx_rfx_template_sections_tenant_version
 CREATE UNIQUE INDEX IF NOT EXISTS uq_rfx_template_sections_tenant_id
     ON rfx.rfx_template_sections (tenant_id, id);
 
+CREATE UNIQUE INDEX IF NOT EXISTS uq_rfx_template_sections_tenant_version_section
+    ON rfx.rfx_template_sections (tenant_id, template_id, rfx_template_version_id, id);
+
 ALTER TABLE rfx.rfx_template_sections
     ADD CONSTRAINT fk_rfx_template_sections_version_composite
     FOREIGN KEY (tenant_id, template_id, rfx_template_version_id)
@@ -134,6 +137,11 @@ ALTER TABLE rfx.rfx_template_questions
     ADD CONSTRAINT fk_rfx_template_questions_section_composite
     FOREIGN KEY (tenant_id, section_id)
     REFERENCES rfx.rfx_template_sections (tenant_id, id);
+
+ALTER TABLE rfx.rfx_template_questions
+    ADD CONSTRAINT fk_rfx_template_questions_section_version_composite
+    FOREIGN KEY (tenant_id, template_id, rfx_template_version_id, section_id)
+    REFERENCES rfx.rfx_template_sections (tenant_id, template_id, rfx_template_version_id, id);
 
 ALTER TABLE rfx.rfx_template_questions
     ADD CONSTRAINT fk_rfx_template_questions_version_composite

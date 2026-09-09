@@ -115,8 +115,9 @@ func seedPlatformAdmin(t *testing.T, env *testEnv, fix buyerFixture, withCompany
 	t.Helper()
 	ctx := context.Background()
 	adminID := uuid.New()
+	email := "platform-admin-" + adminID.String()[:8] + "@test.local"
 	if _, err := env.pool.Exec(ctx, `INSERT INTO core.users (id, tenant_id, email, full_name) VALUES ($1, $2, $3, $4)`,
-		adminID, fix.TenantID, "platform-admin@test.local", "Platform Admin"); err != nil {
+		adminID, fix.TenantID, email, "Platform Admin"); err != nil {
 		t.Fatalf("seed admin user: %v", err)
 	}
 	var adminRoleID uuid.UUID
@@ -336,15 +337,19 @@ func TestE4REM015CrossTenantQuestionDenied(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
 	detail := createTemplate(t, env, fix, "fk-q-tenant", nil)
+	var sectionID, templateID, versionID uuid.UUID
+	if err := env.pool.QueryRow(context.Background(), `
+		SELECT id, template_id, rfx_template_version_id
+		FROM rfx.rfx_template_sections
+		WHERE template_id = $1 AND deleted_at IS NULL LIMIT 1`, detail.Template.ID).Scan(&sectionID, &templateID, &versionID); err != nil {
+		t.Fatalf("lookup section: %v", err)
+	}
 	otherTenant := uuid.New()
 	_, err := env.pool.Exec(context.Background(), `
 		INSERT INTO rfx.rfx_template_questions (
 			tenant_id, template_id, rfx_template_version_id, section_id, question_code, question_type, label
-		)
-		SELECT $1, template_id, rfx_template_version_id, id, 'BAD', 'TEXT', 'Bad'
-		FROM rfx.rfx_template_sections
-		WHERE template_id = $2 AND deleted_at IS NULL LIMIT 1`,
-		otherTenant, detail.Template.ID)
+		) VALUES ($1, $2, $3, $4, 'BAD', 'TEXT', 'Bad')`,
+		otherTenant, templateID, versionID, sectionID)
 	if err == nil {
 		t.Fatal("expected cross-tenant question insert denied")
 	}
@@ -541,7 +546,10 @@ func TestE4REM023ValidSameVersionGraphAccepted(t *testing.T) {
 	}
 	target := "Q"
 	if _, err := env.templateQSvc.CreateRule(context.Background(), fix.BuyerA, detail.Template.ID, domain.CreateQuestionRuleInput{
-		RuleCode: "R1", Action: domain.RuleActionShow, TargetQuestionCode: &target, ConditionJSON: json.RawMessage(`{}`),
+		RuleCode:           "R1",
+		Action:             domain.RuleActionShow,
+		TargetQuestionCode: &target,
+		ConditionJSON:      json.RawMessage(`{"operator":"EQUALS","source_question_code":"Q","value":"1"}`),
 	}); err != nil {
 		t.Fatalf("rule: %v", err)
 	}
@@ -576,7 +584,7 @@ func TestE4REM024MigrationDownWithSearchPathPublic(t *testing.T) {
 func TestE4REM025ForkCreatedByIsForkActor(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
-	detail := createTemplateAs(t, env, fix, fix.BuyerA, "fork-provenance", &fix.CompanyA)
+	detail := createTemplate(t, env, fix, "fork-provenance", nil)
 	populateTemplateGraph(t, env, fix, detail.Template.ID)
 	publishTemplate(t, env, fix, detail.Template.ID, "rem-025-pub")
 	draft, err := env.templateSvc.ForkDraftFromPublished(context.Background(), fix.BuyerB, detail.Template.ID, "rem-025-fork")
@@ -630,7 +638,7 @@ func TestE4REM027ForkReplayPreservesDraftAndCreatedBy(t *testing.T) {
 func TestE4REM028SourceCreatedByUnchangedAfterFork(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
-	detail := createTemplateAs(t, env, fix, fix.BuyerA, "source-provenance", &fix.CompanyA)
+	detail := createTemplate(t, env, fix, "source-provenance", nil)
 	populateTemplateGraph(t, env, fix, detail.Template.ID)
 	published := publishTemplate(t, env, fix, detail.Template.ID, "rem-028-pub")
 	sourceCreatedBy := published.CreatedBy
