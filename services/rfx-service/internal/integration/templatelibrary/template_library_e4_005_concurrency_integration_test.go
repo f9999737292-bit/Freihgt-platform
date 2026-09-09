@@ -65,12 +65,12 @@ func countTemplateSectionsByCode(t *testing.T, env *testEnv, templateID uuid.UUI
 	return count
 }
 
-func countAuditEventsByName(t *testing.T, env *testEnv, fix buyerFixture, eventName string) int {
+func countAuditEventsByAction(t *testing.T, env *testEnv, fix buyerFixture, action string) int {
 	t.Helper()
 	var count int
 	if err := env.pool.QueryRow(context.Background(), `
 		SELECT COUNT(*) FROM rfx.audit_events
-		WHERE tenant_id = $1 AND event_name = $2`, fix.TenantID, eventName).Scan(&count); err != nil {
+		WHERE tenant_id = $1 AND action = $2`, fix.TenantID, action).Scan(&count); err != nil {
 		t.Fatalf("count audit events: %v", err)
 	}
 	return count
@@ -156,7 +156,7 @@ func TestE4REM030CreateSectionVsPublishPublishWins(t *testing.T) {
 	if count := countTemplateSectionsByCode(t, env, templateID, "RACE_LOST"); count != 0 {
 		t.Fatalf("expected no race section, got %d", count)
 	}
-	if count := countAuditEventsByName(t, env, fix, "rfx.template.section.created.v1"); count != 0 {
+	if count := countAuditEventsByAction(t, env, fix, "rfx.template.section.created.v1"); count != 0 {
 		t.Fatalf("expected no section create audit, got %d", count)
 	}
 }
@@ -173,7 +173,7 @@ func TestE4REM031CreateSectionVsPublishMutationWins(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("create section: %v", err)
 	}
-	beforeAudit := countAuditEventsByName(t, env, fix, "rfx.template.section.created.v1")
+	beforeAudit := countAuditEventsByAction(t, env, fix, "rfx.template.section.created.v1")
 	published := publishTemplate(t, env, fix, templateID, "rem-031-pub")
 	def, err := env.tmplQRepo.LoadQuestionnaire(context.Background(), templateID, published.ID, fix.TenantID)
 	if err != nil {
@@ -189,7 +189,7 @@ func TestE4REM031CreateSectionVsPublishMutationWins(t *testing.T) {
 	if !found {
 		t.Fatal("published graph must include mutation section")
 	}
-	if after := countAuditEventsByName(t, env, fix, "rfx.template.section.created.v1"); after != beforeAudit {
+	if after := countAuditEventsByAction(t, env, fix, "rfx.template.section.created.v1"); after != beforeAudit {
 		t.Fatalf("expected exactly one section create audit, before=%d after=%d", beforeAudit, after)
 	}
 }
@@ -502,16 +502,11 @@ func TestE4REM039AuditFailureConcurrentMutationRollsBackGraph(t *testing.T) {
 		})
 		createErrCh <- err
 	}()
+	waitForOtherLockWaiters(t, env, 1)
 	go func() {
-		waitForOtherLockWaiters(t, env, 1)
-		reloaded, err := env.templateSvc.GetTemplate(context.Background(), fix.BuyerA, templateID)
-		if err != nil {
-			publishErrCh <- err
-			return
-		}
 		_, pubErr := env.templateSvc.PublishTemplateVersion(context.Background(), fix.BuyerA, templateID, "rem-039-pub", domain.PublishTemplateVersionInput{
-			ExpectedTemplateVersion: reloaded.Template.Version,
-			ExpectedDraftVersion:    reloaded.DraftVersion.Version,
+			ExpectedTemplateVersion: detail.Template.Version,
+			ExpectedDraftVersion:    detail.DraftVersion.Version,
 			ChangeSummary:           "publish after audit race",
 		})
 		publishErrCh <- pubErr
