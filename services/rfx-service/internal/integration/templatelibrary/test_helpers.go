@@ -229,6 +229,175 @@ func cloneFromTemplate(t *testing.T, env *testEnv, actor domain.ActorContext, te
 	return result
 }
 
+type cloneArtifactCounts struct {
+	events      int
+	versions    int
+	sections    int
+	questions   int
+	options     int
+	rules       int
+	auditClone  int
+	idempotency int
+}
+
+func countCloneArtifacts(ctx context.Context, env *testEnv, fix buyerFixture, rfxNumber, idempotencyKey string, templateVersionID uuid.UUID) (cloneArtifactCounts, error) {
+	var out cloneArtifactCounts
+	if err := env.pool.QueryRow(ctx, `SELECT COUNT(*) FROM rfx.rfx_events WHERE tenant_id=$1 AND rfx_number=$2`, fix.TenantID, rfxNumber).Scan(&out.events); err != nil {
+		return out, err
+	}
+	if err := env.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM rfx.rfx_versions v
+		JOIN rfx.rfx_events e ON e.id = v.rfx_event_id AND e.tenant_id = v.tenant_id
+		WHERE e.tenant_id=$1 AND e.rfx_number=$2`, fix.TenantID, rfxNumber).Scan(&out.versions); err != nil {
+		return out, err
+	}
+	if err := env.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM rfx.rfx_sections s
+		JOIN rfx.rfx_versions v ON v.id = s.rfx_version_id AND v.tenant_id = s.tenant_id
+		JOIN rfx.rfx_events e ON e.id = v.rfx_event_id AND e.tenant_id = v.tenant_id
+		WHERE e.tenant_id=$1 AND e.rfx_number=$2`, fix.TenantID, rfxNumber).Scan(&out.sections); err != nil {
+		return out, err
+	}
+	if err := env.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM rfx.rfx_questions q
+		JOIN rfx.rfx_sections s ON s.id = q.section_id AND s.tenant_id = q.tenant_id
+		JOIN rfx.rfx_versions v ON v.id = s.rfx_version_id AND v.tenant_id = s.tenant_id
+		JOIN rfx.rfx_events e ON e.id = v.rfx_event_id AND e.tenant_id = v.tenant_id
+		WHERE e.tenant_id=$1 AND e.rfx_number=$2`, fix.TenantID, rfxNumber).Scan(&out.questions); err != nil {
+		return out, err
+	}
+	if err := env.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM rfx.rfx_question_options o
+		JOIN rfx.rfx_questions q ON q.id = o.question_id AND q.tenant_id = o.tenant_id
+		JOIN rfx.rfx_sections s ON s.id = q.section_id AND s.tenant_id = q.tenant_id
+		JOIN rfx.rfx_versions v ON v.id = s.rfx_version_id AND v.tenant_id = s.tenant_id
+		JOIN rfx.rfx_events e ON e.id = v.rfx_event_id AND e.tenant_id = v.tenant_id
+		WHERE e.tenant_id=$1 AND e.rfx_number=$2`, fix.TenantID, rfxNumber).Scan(&out.options); err != nil {
+		return out, err
+	}
+	if err := env.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM rfx.rfx_question_rules r
+		JOIN rfx.rfx_versions v ON v.id = r.rfx_version_id AND v.tenant_id = r.tenant_id
+		JOIN rfx.rfx_events e ON e.id = v.rfx_event_id AND e.tenant_id = v.tenant_id
+		WHERE e.tenant_id=$1 AND e.rfx_number=$2`, fix.TenantID, rfxNumber).Scan(&out.rules); err != nil {
+		return out, err
+	}
+	if err := env.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM rfx.audit_events
+		WHERE tenant_id=$1 AND action='rfx.event.created_from_template.v1'
+			AND metadata->>'event_id' IN (
+				SELECT id::text FROM rfx.rfx_events WHERE tenant_id=$1 AND rfx_number=$2
+			)`, fix.TenantID, rfxNumber).Scan(&out.auditClone); err != nil {
+		return out, err
+	}
+	if err := env.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM rfx.rfx_idempotency_records
+		WHERE tenant_id=$1 AND aggregate_scope=$2 AND idempotency_key=$3 AND operation=$4 AND expires_at > now()`,
+		fix.TenantID, templateVersionID, idempotencyKey, domain.TemplateCloneOperationCloneEventFromTemplate).Scan(&out.idempotency); err != nil {
+		return out, err
+	}
+	return out, nil
+}
+
+func assertZeroCloneArtifacts(t *testing.T, env *testEnv, fix buyerFixture, rfxNumber, idempotencyKey string, templateVersionID uuid.UUID) {
+	t.Helper()
+	counts, err := countCloneArtifacts(context.Background(), env, fix, rfxNumber, idempotencyKey, templateVersionID)
+	if err != nil {
+		t.Fatalf("count clone artifacts: %v", err)
+	}
+	if counts.events != 0 || counts.versions != 0 || counts.sections != 0 || counts.questions != 0 ||
+		counts.options != 0 || counts.rules != 0 || counts.auditClone != 0 || counts.idempotency != 0 {
+		t.Fatalf("expected zero clone artifacts, got events=%d versions=%d sections=%d questions=%d options=%d rules=%d audit=%d idempotency=%d",
+			counts.events, counts.versions, counts.sections, counts.questions, counts.options, counts.rules, counts.auditClone, counts.idempotency)
+	}
+}
+
+func regclassExists(ctx context.Context, pool *pgxpool.Pool, name string) (bool, error) {
+	var regclass *string
+	if err := pool.QueryRow(ctx, `SELECT to_regclass($1)::text`, name).Scan(&regclass); err != nil {
+		return false, err
+	}
+	return regclass != nil && *regclass != "", nil
+}
+
+func assertMigration000071Absent(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
+	t.Helper()
+	for _, idx := range []string{
+		"rfx.idx_rfx_events_source_template_version_id",
+		"rfx.uq_rfx_template_versions_tenant_version_id",
+	} {
+		exists, err := regclassExists(ctx, pool, idx)
+		if err != nil {
+			t.Fatalf("regclass %s: %v", idx, err)
+		}
+		if exists {
+			t.Fatalf("expected index %s absent after down migration", idx)
+		}
+	}
+	var triggerCount int
+	if err := pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM pg_trigger
+		WHERE tgname = 'trg_rfx_events_provenance_immutable'`).Scan(&triggerCount); err != nil {
+		t.Fatalf("trigger check: %v", err)
+	}
+	if triggerCount != 0 {
+		t.Fatal("expected provenance trigger absent after down migration")
+	}
+	var functionCount int
+	if err := pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM pg_proc p
+		JOIN pg_namespace n ON n.oid = p.pronamespace
+		WHERE n.nspname = 'rfx' AND p.proname = 'prevent_rfx_event_provenance_mutation'`).Scan(&functionCount); err != nil {
+		t.Fatalf("function check: %v", err)
+	}
+	if functionCount != 0 {
+		t.Fatal("expected provenance function absent after down migration")
+	}
+	var fkCount int
+	if err := pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM pg_constraint
+		WHERE conname = 'fk_rfx_events_source_template_version_composite'`).Scan(&fkCount); err != nil {
+		t.Fatalf("fk check: %v", err)
+	}
+	if fkCount != 0 {
+		t.Fatal("expected composite provenance FK absent after down migration")
+	}
+	var columnCount int
+	if err := pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM information_schema.columns
+		WHERE table_schema = 'rfx' AND table_name = 'rfx_events' AND column_name = 'source_template_version_id'`).Scan(&columnCount); err != nil {
+		t.Fatalf("column check: %v", err)
+	}
+	if columnCount != 0 {
+		t.Fatal("expected source_template_version_id column absent after down migration")
+	}
+}
+
+func assertMigration000071Present(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
+	t.Helper()
+	for _, idx := range []string{
+		"rfx.idx_rfx_events_source_template_version_id",
+		"rfx.uq_rfx_template_versions_tenant_version_id",
+	} {
+		exists, err := regclassExists(ctx, pool, idx)
+		if err != nil {
+			t.Fatalf("regclass %s: %v", idx, err)
+		}
+		if !exists {
+			t.Fatalf("expected index %s present after up migration", idx)
+		}
+	}
+	var columnCount int
+	if err := pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM information_schema.columns
+		WHERE table_schema = 'rfx' AND table_name = 'rfx_events' AND column_name = 'source_template_version_id'`).Scan(&columnCount); err != nil {
+		t.Fatalf("column check: %v", err)
+	}
+	if columnCount != 1 {
+		t.Fatal("expected source_template_version_id column present after up migration")
+	}
+}
+
 func seedBuyerFixture(t *testing.T, env *testEnv) buyerFixture {
 	t.Helper()
 	ctx := context.Background()
@@ -939,6 +1108,33 @@ func createTemplate(t *testing.T, env *testEnv, fix buyerFixture, code string, o
 func populateTemplateGraph(t *testing.T, env *testEnv, fix buyerFixture, templateID uuid.UUID) {
 	t.Helper()
 	populateTemplateGraphWithRule(t, env, fix, templateID, false)
+}
+
+func populateTemplateGraphWithOptions(t *testing.T, env *testEnv, fix buyerFixture, templateID uuid.UUID) {
+	t.Helper()
+	ctx := context.Background()
+	section, err := env.templateQSvc.CreateSection(ctx, fix.BuyerA, templateID, domain.CreateSectionInput{
+		SectionCode: "GENERAL",
+		Title:       "General",
+	})
+	if err != nil {
+		t.Fatalf("create template section: %v", err)
+	}
+	question, err := env.templateQSvc.CreateQuestion(ctx, fix.BuyerA, templateID, section.ID, domain.CreateQuestionInput{
+		QuestionCode: "COVERAGE",
+		QuestionType: domain.QuestionTypeSingleSelect,
+		Label:        "Coverage",
+		Required:     true,
+	})
+	if err != nil {
+		t.Fatalf("create template question: %v", err)
+	}
+	if _, err := env.templateQSvc.CreateOption(ctx, fix.BuyerA, templateID, question.ID, domain.CreateQuestionOptionInput{
+		OptionCode: "FULL",
+		Label:      "Full",
+	}); err != nil {
+		t.Fatalf("create template option: %v", err)
+	}
 }
 
 func populateTemplateGraphWithRule(t *testing.T, env *testEnv, fix buyerFixture, templateID uuid.UUID, withRule bool) {

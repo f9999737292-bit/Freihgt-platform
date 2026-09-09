@@ -4,6 +4,7 @@ package templatelibrary
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,7 +16,6 @@ import (
 
 	"github.com/freight-platform/rfx-service/internal/config"
 	"github.com/freight-platform/rfx-service/internal/domain"
-	httpserver "github.com/freight-platform/rfx-service/internal/http"
 	apperrors "github.com/freight-platform/rfx-service/internal/platform/errors"
 )
 
@@ -307,27 +307,56 @@ func TestE5INT23ConcurrentReplaySingleEvent(t *testing.T) {
 	in := defaultCloneEventInput("RFQ-E5-23", fix.CompanyA)
 	var wg sync.WaitGroup
 	ids := make(chan uuid.UUID, 2)
+	errs := make(chan error, 2)
 	for i := 0; i < 2; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			result, err := env.cloneSvc.CloneEventFromTemplate(context.Background(), fix.BuyerA, published.ID, in, key)
 			if err != nil {
-				t.Errorf("clone: %v", err)
+				errs <- err
 				return
 			}
+			errs <- nil
 			ids <- result.Event.ID
 		}()
 	}
 	wg.Wait()
 	close(ids)
-	var first uuid.UUID
-	for id := range ids {
-		if first == uuid.Nil {
-			first = id
-		} else if id != first {
-			t.Fatalf("concurrent replay created multiple events")
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("concurrent clone must succeed: %v", err)
 		}
+	}
+	received := make([]uuid.UUID, 0, 2)
+	for id := range ids {
+		received = append(received, id)
+	}
+	if len(received) != 2 {
+		t.Fatalf("expected two clone results, got %d", len(received))
+	}
+	if received[0] != received[1] {
+		t.Fatalf("concurrent replay created multiple events: %s vs %s", received[0], received[1])
+	}
+	ctx := context.Background()
+	counts, err := countCloneArtifacts(ctx, env, fix, in.RfxNumber, key, published.ID)
+	if err != nil {
+		t.Fatalf("count artifacts: %v", err)
+	}
+	if counts.events != 1 || counts.versions != 1 || counts.idempotency != 1 || counts.auditClone != 1 {
+		t.Fatalf("expected single persisted clone set, got events=%d versions=%d idempotency=%d audit=%d",
+			counts.events, counts.versions, counts.idempotency, counts.auditClone)
+	}
+	var provenanceCount int
+	if err := env.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM rfx.rfx_events
+		WHERE tenant_id=$1 AND rfx_number=$2 AND source_template_version_id=$3`,
+		fix.TenantID, in.RfxNumber, published.ID).Scan(&provenanceCount); err != nil {
+		t.Fatalf("count provenance: %v", err)
+	}
+	if provenanceCount != 1 {
+		t.Fatalf("expected one provenance pointer, got %d", provenanceCount)
 	}
 }
 
@@ -370,7 +399,26 @@ func TestE5INT25CloneFailureRollsBackEvent(t *testing.T) {
 	}
 }
 
-func TestE5INT26AuditFailureRollsBackAll(t *testing.T) { TestE5INT25CloneFailureRollsBackEvent(t) }
+func TestE5INT26SuccessfulCloneWritesAuditEvent(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	_, published := setupPublishedTemplate(t, env, fix, "e5-int-26", nil)
+	result := cloneFromTemplate(t, env, fix.BuyerA, published.ID, defaultCloneEventInput("RFQ-E5-26", fix.CompanyA), uuid.NewString())
+	events, err := env.auditRepo.ListByEntity(context.Background(), fix.TenantID, "rfx_event", result.Event.ID, 10)
+	if err != nil {
+		t.Fatalf("list audit: %v", err)
+	}
+	found := false
+	for _, event := range events {
+		if event.Action == "rfx.event.created_from_template.v1" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("expected rfx.event.created_from_template.v1 audit event")
+	}
+}
 
 func TestE5INT27IdempotencyStoreFailureRollsBackAll(t *testing.T) {
 	env := setupTestEnv(t)
@@ -397,9 +445,11 @@ func TestE5INT28Migration000071UpDown(t *testing.T) {
 	if err := applyMigrationFile(ctx, env.pool, "000071_rfx_template_clone_provenance_v3_0e5.down.sql"); err != nil {
 		t.Fatalf("down: %v", err)
 	}
+	assertMigration000071Absent(t, ctx, env.pool)
 	if err := applyMigrationFile(ctx, env.pool, "000071_rfx_template_clone_provenance_v3_0e5.up.sql"); err != nil {
 		t.Fatalf("up: %v", err)
 	}
+	assertMigration000071Present(t, ctx, env.pool)
 }
 
 func TestE5INT29DownMigrationWithSearchPathPublic(t *testing.T) {
@@ -411,6 +461,7 @@ func TestE5INT29DownMigrationWithSearchPathPublic(t *testing.T) {
 	if err := applyMigrationFile(ctx, env.pool, "000071_rfx_template_clone_provenance_v3_0e5.down.sql"); err != nil {
 		t.Fatalf("down with public search_path: %v", err)
 	}
+	assertMigration000071Absent(t, ctx, env.pool)
 }
 
 func TestE5INT30CompositeProvenanceFKRejectsCrossTenantPointer(t *testing.T) {
@@ -448,9 +499,13 @@ func TestE5INT31GatewayServiceOpenAPIAlignment(t *testing.T) {
 
 func TestE5INT32FeatureFlagDisabledFailClosed(t *testing.T) {
 	env := setupTestEnv(t)
-	cfg := config.Config{RfxVersioningV3Enabled: false}
-	router := httpserver.NewRouter(nil, env.pool, cfg, env.rfxSvc, env.qSvc, env.versionSvc, env.templateSvc, env.templateQSvc, env.cloneSvc, env.crSvc, env.scoreModelSvc, nil, nil, nil, nil)
-	if router == nil {
-		t.Fatal("expected router")
+	fix := seedBuyerFixture(t, env)
+	_, published := setupPublishedTemplate(t, env, fix, "e5-int-32", nil)
+	rfxNumber := "RFQ-E5-32"
+	key := uuid.NewString()
+	rec := postCloneFromTemplateHTTP(t, env, config.Config{RfxVersioningV3Enabled: false}, fix, published.ID, rfxNumber, key)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("feature disabled HTTP status=%d want=%d body=%s", rec.Code, http.StatusNotFound, rec.Body.String())
 	}
+	assertZeroCloneArtifacts(t, env, fix, rfxNumber, key, published.ID)
 }
