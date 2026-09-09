@@ -124,6 +124,7 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/transport-orders/{id}/submit", "post", "Submit transport order", "Transport Orders", True, True, None),
     ("/api/v1/transport-orders/{id}/cancel", "post", "Cancel transport order", "Transport Orders", True, True, None),
     ("/api/v1/rfx-events", "post", "Create RFx event", "RFx", True, True, None),
+    ("/api/v1/rfx-events/from-template", "post", "Clone RFx event from template", "RFx", True, True, "e5_clone"),
     ("/api/v1/rfx-events", "get", "List RFx events", "RFx", True, True, None),
     ("/api/v1/rfx-events/{id}", "get", "Get RFx event by ID", "RFx", True, True, None),
     ("/api/v1/rfx-events/{id}", "patch", "Update RFx event", "RFx", True, True, None),
@@ -435,6 +436,7 @@ QUESTIONNAIRE_CREATED_PROFILES = frozenset({
     "vl_restore_draft",
     "tl_create",
     "tl_fork_draft",
+    "e5_clone",
     "tl_section_create",
     "tl_question_create",
     "tl_option_create",
@@ -461,6 +463,7 @@ IDEMPOTENCY_HEADER_PROFILES = frozenset({
     "vl_restore_draft",
     "tl_publish",
     "tl_fork_draft",
+    "e5_clone",
 })
 
 CONTRACT_RATE_SCHEMA_REFS = {
@@ -525,6 +528,10 @@ TEMPLATE_REQUEST_BODIES = {
     "tl_rule_delete": """              $ref: '#/components/schemas/RfxVersionedMutationRequest'""",
 }
 
+E5_CLONE_REQUEST_BODIES = {
+    "e5_clone": """              $ref: '#/components/schemas/RfxCloneEventFromTemplateRequest'""",
+}
+
 CARRIER_RESPONSE_REQUEST_BODIES = {
     "cr_answers_patch": """              $ref: '#/components/schemas/RfxCarrierAnswerBatchPatch'""",
     "cr_submit": """              type: object
@@ -587,6 +594,7 @@ TEMPLATE_RESPONSE_SCHEMAS = {
     "tl_option_update": "RfxTemplateQuestionOption",
     "tl_rule_create": "RfxTemplateQuestionRule",
     "tl_rule_update": "RfxTemplateQuestionRule",
+    "e5_clone": "RfxCloneEventFromTemplateResponse",
 }
 
 READ_RESPONSE_SCHEMAS = {
@@ -827,6 +835,8 @@ def render_operation(
             lines.append(QUESTIONNAIRE_REQUEST_BODIES[profile])
         elif profile in TEMPLATE_REQUEST_BODIES:
             lines.append(TEMPLATE_REQUEST_BODIES[profile])
+        elif profile in E5_CLONE_REQUEST_BODIES:
+            lines.append(E5_CLONE_REQUEST_BODIES[profile])
         elif profile in CARRIER_RESPONSE_REQUEST_BODIES:
             lines.append(CARRIER_RESPONSE_REQUEST_BODIES[profile])
         elif profile == "priced_transport_order_create":
@@ -1556,6 +1566,32 @@ def template_library_components_block() -> str:
         expected_template_version: {type: integer, minimum: 1}
         expected_draft_version: {type: integer, minimum: 1}
         change_summary: {type: string, minLength: 1}
+    RfxCloneEventFromTemplateRequest:
+      type: object
+      required: [template_version_id, rfx_number, rfx_type, category, title, owner_company_id]
+      properties:
+        template_version_id: {type: string, format: uuid}
+        rfx_number: {type: string}
+        rfx_type: {type: string}
+        category: {type: string}
+        title: {type: string}
+        description: {type: string, nullable: true}
+        owner_company_id: {type: string, format: uuid}
+        currency_code: {type: string, nullable: true}
+        valid_from: {type: string, format: date-time, nullable: true}
+        valid_to: {type: string, format: date-time, nullable: true}
+        response_deadline: {type: string, format: date-time, nullable: true}
+    RfxCloneEventFromTemplateResponse:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        draft_version_id: {type: string, format: uuid}
+        source_template_id: {type: string, format: uuid}
+        source_template_version_id: {type: string, format: uuid}
+        source_version_number: {type: integer}
+        source_version_status: {type: string, enum: [PUBLISHED, SUPERSEDED]}
+        source_version_warning: {type: boolean}
+      additionalProperties: true
     RfxTemplateRecord:
       type: object
       properties:

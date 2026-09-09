@@ -4009,6 +4009,130 @@
         }
       }
     },
+    "/api/v1/rfx-events/from-template": {
+      "post": {
+        "tags": [
+          "RFx"
+        ],
+        "summary": "Clone RFx event from template",
+        "operationId": "post_clone_rfx_event_from_template",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XTenantID"
+          },
+          {
+            "$ref": "#/components/parameters/XCompanyID"
+          },
+          {
+            "$ref": "#/components/parameters/XLocale"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Client-supplied idempotency key for version lifecycle mutation (max 128 chars).",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RfxCloneEventFromTemplateRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RfxCloneEventFromTemplateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/rfx-events/{id}": {
       "get": {
         "tags": [
@@ -26304,6 +26428,97 @@
             "minLength": 1
           }
         }
+      },
+      "RfxCloneEventFromTemplateRequest": {
+        "type": "object",
+        "required": [
+          "template_version_id",
+          "rfx_number",
+          "rfx_type",
+          "category",
+          "title",
+          "owner_company_id"
+        ],
+        "properties": {
+          "template_version_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rfx_number": {
+            "type": "string"
+          },
+          "rfx_type": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "owner_company_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "currency_code": {
+            "type": "string",
+            "nullable": true
+          },
+          "valid_from": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "valid_to": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "response_deadline": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "RfxCloneEventFromTemplateResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "draft_version_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "source_template_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "source_template_version_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "source_version_number": {
+            "type": "integer"
+          },
+          "source_version_status": {
+            "type": "string",
+            "enum": [
+              "PUBLISHED",
+              "SUPERSEDED"
+            ]
+          },
+          "source_version_warning": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": true
       },
       "RfxTemplateRecord": {
         "type": "object",
