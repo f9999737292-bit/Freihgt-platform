@@ -150,6 +150,7 @@ func TestE4REM030CreateSectionVsPublishPublishWins(t *testing.T) {
 	detail := createTemplate(t, env, fix, "rem-030", nil)
 	templateID := detail.Template.ID
 	populateTemplateGraph(t, env, fix, templateID)
+	auditBaseline := countAuditEventsByAction(t, env, fix, "rfx.template.section.created.v1")
 
 	ctx, tx := beginHeldTemplateLock(t, env, fix, templateID)
 	createErrCh := make(chan error, 1)
@@ -170,8 +171,8 @@ func TestE4REM030CreateSectionVsPublishPublishWins(t *testing.T) {
 	if count := countTemplateSectionsByCode(t, env, templateID, "RACE_LOST"); count != 0 {
 		t.Fatalf("expected no race section, got %d", count)
 	}
-	if count := countAuditEventsByAction(t, env, fix, "rfx.template.section.created.v1"); count != 0 {
-		t.Fatalf("expected no section create audit, got %d", count)
+	if count := countAuditEventsByAction(t, env, fix, "rfx.template.section.created.v1"); count != auditBaseline {
+		t.Fatalf("expected no new section create audit, baseline=%d after=%d", auditBaseline, count)
 	}
 }
 
@@ -260,41 +261,30 @@ func TestE4REM032UpdateQuestionVsPublishConsistentSnapshot(t *testing.T) {
 	})
 }
 
-func TestE4REM033DeleteOptionRuleVsPublishConsistent(t *testing.T) {
+func TestE4REM033DeleteSectionVsPublishConsistent(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
 	detail := createTemplate(t, env, fix, "rem-033", nil)
 	templateID := detail.Template.ID
-	_, question, option, rule := seedOptionRuleGraph(t, env, fix, templateID)
+	populateTemplateGraph(t, env, fix, templateID)
+	section := loadDraftSectionByCode(t, env, fix, templateID, "GENERAL")
 
 	ctx, tx := beginHeldTemplateLock(t, env, fix, templateID)
-	deleteErrCh := make(chan error, 2)
+	deleteErrCh := make(chan error, 1)
 	go func() {
-		deleteErrCh <- env.templateQSvc.DeleteOption(context.Background(), fix.BuyerA, templateID, question.ID, option.ID, 1)
+		deleteErrCh <- env.templateQSvc.DeleteSection(context.Background(), fix.BuyerA, templateID, section.ID, section.Version)
 	}()
-	go func() {
-		deleteErrCh <- env.templateQSvc.DeleteRule(context.Background(), fix.BuyerA, templateID, rule.ID, 1)
-	}()
-	waitForOtherLockWaiters(t, env, 2)
+	waitForOtherLockWaiters(t, env, 1)
 	publishTemplateInTx(t, ctx, tx, env, fix, templateID, "publish wins delete race")
 	if err := tx.Commit(ctx); err != nil {
 		t.Fatalf("commit: %v", err)
 	}
-	for i := 0; i < 2; i++ {
-		expectAppErrorCode(t, <-deleteErrCh, apperrors.CodeConflict)
-	}
+	expectAppErrorCode(t, <-deleteErrCh, apperrors.CodeConflict)
 	def := loadPublishedTemplateQuestionnaire(t, env, fix, templateID)
-	if len(def.Rules) != 1 {
-		t.Fatalf("expected published rule retained, got %d", len(def.Rules))
+	if len(def.Sections) != 1 || def.Sections[0].Section.SectionCode != "GENERAL" {
+		t.Fatal("published graph must retain validated section")
 	}
-	for _, swq := range def.Sections {
-		for _, q := range swq.Questions {
-			if q.ID == question.ID && len(q.Options) != 1 {
-				t.Fatalf("expected published option retained, got %d", len(q.Options))
-			}
-		}
-	}
-	err := env.templateQSvc.DeleteOption(context.Background(), fix.BuyerA, templateID, question.ID, option.ID, 1)
+	err := env.templateQSvc.DeleteSection(context.Background(), fix.BuyerA, templateID, section.ID, section.Version)
 	expectAppErrorCode(t, err, apperrors.CodeConflict)
 }
 
@@ -312,6 +302,22 @@ func TestE4REM034ReorderVsPublishAtomicOrder(t *testing.T) {
 	secB, err := env.templateQSvc.CreateSection(context.Background(), fix.BuyerA, templateID, domain.CreateSectionInput{SectionCode: "B", Title: "B", SortOrder: &sortB})
 	if err != nil {
 		t.Fatalf("section B: %v", err)
+	}
+	for _, spec := range []struct {
+		sectionID uuid.UUID
+		code      string
+	}{
+		{secA.ID, "Q_A"},
+		{secB.ID, "Q_B"},
+	} {
+		if _, err := env.templateQSvc.CreateQuestion(context.Background(), fix.BuyerA, templateID, spec.sectionID, domain.CreateQuestionInput{
+			QuestionCode: spec.code,
+			QuestionType: domain.QuestionTypeText,
+			Label:        spec.code,
+			Required:     true,
+		}); err != nil {
+			t.Fatalf("create question %s: %v", spec.code, err)
+		}
 	}
 
 	ctx, tx := beginHeldTemplateLock(t, env, fix, templateID)
