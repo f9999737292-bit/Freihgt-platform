@@ -86,7 +86,20 @@ func publishTemplateInTx(t *testing.T, ctx context.Context, tx pgx.Tx, env *test
 		t.Fatal("expected draft version before publish")
 	}
 	tRepo := env.tmplRepo.WithTx(tx)
-	result, err := tRepo.PublishTemplateVersionTx(ctx, templateID, fix.TenantID, detail.Template.Version, detail.DraftVersion.Version, summary, fix.BuyerA.UserID)
+	qRepo := env.tmplQRepo.WithTx(tx)
+	_, draft, err := tRepo.LockTemplateAndDraftForPublish(ctx, templateID, fix.TenantID, detail.Template.Version, detail.DraftVersion.Version)
+	if err != nil {
+		t.Fatalf("lock for publish in tx: %v", err)
+	}
+	definition, err := qRepo.LoadQuestionnaire(ctx, templateID, draft.ID, fix.TenantID)
+	if err != nil {
+		t.Fatalf("load questionnaire in tx: %v", err)
+	}
+	readiness := domain.EvaluatePublishReadiness(domain.RfxVersion{QuestionnaireEnabled: true}, domain.ToQuestionnaireSections(definition.Sections), domain.ToQuestionnaireRules(definition.Rules))
+	if !readiness.Ready {
+		t.Fatalf("publish in tx readiness failed: %+v", readiness)
+	}
+	result, err := tRepo.PublishLockedDraftVersion(ctx, templateID, fix.TenantID, draft, summary, fix.BuyerA.UserID)
 	if err != nil {
 		t.Fatalf("publish in tx: %v", err)
 	}
@@ -136,6 +149,7 @@ func TestE4REM030CreateSectionVsPublishPublishWins(t *testing.T) {
 	fix := seedBuyerFixture(t, env)
 	detail := createTemplate(t, env, fix, "rem-030", nil)
 	templateID := detail.Template.ID
+	populateTemplateGraph(t, env, fix, templateID)
 
 	ctx, tx := beginHeldTemplateLock(t, env, fix, templateID)
 	createErrCh := make(chan error, 1)
@@ -168,13 +182,16 @@ func TestE4REM031CreateSectionVsPublishMutationWins(t *testing.T) {
 	templateID := detail.Template.ID
 	populateTemplateGraph(t, env, fix, templateID)
 
+	auditBaseline := countAuditEventsByAction(t, env, fix, "rfx.template.section.created.v1")
 	if _, err := env.templateQSvc.CreateSection(context.Background(), fix.BuyerA, templateID, domain.CreateSectionInput{
 		SectionCode: "WINNER",
 		Title:       "Winner",
 	}); err != nil {
 		t.Fatalf("create section: %v", err)
 	}
-	beforeAudit := countAuditEventsByAction(t, env, fix, "rfx.template.section.created.v1")
+	if afterCreate := countAuditEventsByAction(t, env, fix, "rfx.template.section.created.v1"); afterCreate != auditBaseline+1 {
+		t.Fatalf("expected exactly one new section create audit, baseline=%d after=%d", auditBaseline, afterCreate)
+	}
 	published := publishTemplate(t, env, fix, templateID, "rem-031-pub")
 	def, err := env.tmplQRepo.LoadQuestionnaire(context.Background(), templateID, published.ID, fix.TenantID)
 	if err != nil {
@@ -190,8 +207,8 @@ func TestE4REM031CreateSectionVsPublishMutationWins(t *testing.T) {
 	if !found {
 		t.Fatal("published graph must include mutation section")
 	}
-	if after := countAuditEventsByAction(t, env, fix, "rfx.template.section.created.v1"); after != beforeAudit {
-		t.Fatalf("expected exactly one section create audit, before=%d after=%d", beforeAudit, after)
+	if afterPublish := countAuditEventsByAction(t, env, fix, "rfx.template.section.created.v1"); afterPublish != auditBaseline+1 {
+		t.Fatalf("publish must not add section create audit, baseline+1=%d after=%d", auditBaseline+1, afterPublish)
 	}
 }
 
@@ -373,7 +390,7 @@ func TestE4REM036GraphMutationWinsBeforeArchive(t *testing.T) {
 	}
 }
 
-func TestE4REM037PublishArchiveGraphMutationNoDeadlock(t *testing.T) {
+func TestE4REM037PublishUpdateGraphMutationNoDeadlock(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
 	detail := createTemplate(t, env, fix, "rem-037", nil)

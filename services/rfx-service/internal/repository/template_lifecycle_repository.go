@@ -15,40 +15,57 @@ type PublishTemplateVersionResult struct {
 	Superseded *domain.RfxTemplateVersion
 }
 
-func (r *TemplateLibraryRepository) PublishTemplateVersionTx(
+func (r *TemplateLibraryRepository) LockTemplateAndDraftForPublish(
 	ctx context.Context,
 	templateID, tenantID uuid.UUID,
 	expectedTemplateVersion, expectedDraftVersion int,
-	changeSummary string,
-	publishedBy uuid.UUID,
-) (*PublishTemplateVersionResult, error) {
+) (*domain.RfxTemplate, *domain.RfxTemplateVersion, error) {
 	tmpl, err := r.LockTemplateByID(ctx, templateID, tenantID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := domain.EnsureTemplateActive(tmpl.Status); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if tmpl.Version != expectedTemplateVersion {
-		return nil, apperrors.Conflict("template was modified by another request", map[string]any{"field": "expected_template_version"})
+		return nil, nil, apperrors.Conflict("template was modified by another request", map[string]any{"field": "expected_template_version"})
 	}
-
 	draft, err := r.GetDraftVersion(ctx, templateID, tenantID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if draft == nil {
-		return nil, apperrors.Conflict("draft template version not found", map[string]any{"field": "draft_version_id"})
+		return nil, nil, apperrors.Conflict("draft template version not found", map[string]any{"field": "draft_version_id"})
 	}
 	draft, err = r.LockVersionByID(ctx, draft.ID, tenantID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+	if draft.TemplateID != templateID || draft.TenantID != tenantID {
+		return nil, nil, apperrors.Conflict("draft template version not found", map[string]any{"field": "draft_version_id"})
+	}
+	if err := domain.EnsureTemplateVersionPublishable(draft.Status); err != nil {
+		return nil, nil, err
+	}
+	if draft.Version != expectedDraftVersion {
+		return nil, nil, apperrors.Conflict("draft version was modified by another request", map[string]any{"field": "expected_draft_version"})
+	}
+	draft.IsActiveDraft = true
+	return tmpl, draft, nil
+}
+
+func (r *TemplateLibraryRepository) PublishLockedDraftVersion(
+	ctx context.Context,
+	templateID, tenantID uuid.UUID,
+	draft *domain.RfxTemplateVersion,
+	changeSummary string,
+	publishedBy uuid.UUID,
+) (*PublishTemplateVersionResult, error) {
+	if draft == nil {
+		return nil, apperrors.Conflict("draft template version not found", map[string]any{"field": "draft_version_id"})
 	}
 	if err := domain.EnsureTemplateVersionPublishable(draft.Status); err != nil {
 		return nil, err
-	}
-	if draft.Version != expectedDraftVersion {
-		return nil, apperrors.Conflict("draft version was modified by another request", map[string]any{"field": "expected_draft_version"})
 	}
 
 	var superseded *domain.RfxTemplateVersion
@@ -92,6 +109,20 @@ func (r *TemplateLibraryRepository) PublishTemplateVersionTx(
 	}
 
 	return &PublishTemplateVersionResult{Published: published, Superseded: superseded}, nil
+}
+
+func (r *TemplateLibraryRepository) PublishTemplateVersionTx(
+	ctx context.Context,
+	templateID, tenantID uuid.UUID,
+	expectedTemplateVersion, expectedDraftVersion int,
+	changeSummary string,
+	publishedBy uuid.UUID,
+) (*PublishTemplateVersionResult, error) {
+	_, draft, err := r.LockTemplateAndDraftForPublish(ctx, templateID, tenantID, expectedTemplateVersion, expectedDraftVersion)
+	if err != nil {
+		return nil, err
+	}
+	return r.PublishLockedDraftVersion(ctx, templateID, tenantID, draft, changeSummary, publishedBy)
 }
 
 func (r *TemplateLibraryRepository) ForkDraftFromPublishedTx(

@@ -212,8 +212,7 @@ func (s *TemplateLibraryService) ArchiveTemplate(ctx context.Context, actor doma
 }
 
 func (s *TemplateLibraryService) PublishTemplateVersion(ctx context.Context, actor domain.ActorContext, templateID uuid.UUID, idempotencyKey string, in domain.PublishTemplateVersionInput) (*domain.RfxTemplateVersion, error) {
-	tmpl, err := s.authorizeTemplateManage(ctx, actor, templateID)
-	if err != nil {
+	if _, err := s.authorizeTemplateManage(ctx, actor, templateID); err != nil {
 		return nil, err
 	}
 	if err := domain.ValidatePublishTemplateVersionInput(in); err != nil {
@@ -245,13 +244,11 @@ func (s *TemplateLibraryService) PublishTemplateVersion(ctx context.Context, act
 		idemRepo := s.idemRepo.WithTx(tx)
 		aRepo := s.auditRepo.WithTx(tx)
 
-		draft, draftErr := tRepo.GetDraftVersion(ctx, templateID, actor.TenantID)
-		if draftErr != nil {
-			return draftErr
+		lockedTmpl, draft, lockErr := s.LockTemplateAndDraftForPublish(ctx, tRepo, actor, templateID, in.ExpectedTemplateVersion, in.ExpectedDraftVersion)
+		if lockErr != nil {
+			return lockErr
 		}
-		if draft == nil {
-			return apperrors.Conflict("draft template version not found", map[string]any{"field": "draft_version_id"})
-		}
+
 		definition, loadErr := qRepo.LoadQuestionnaire(ctx, templateID, draft.ID, actor.TenantID)
 		if loadErr != nil {
 			return loadErr
@@ -261,7 +258,7 @@ func (s *TemplateLibraryService) PublishTemplateVersion(ctx context.Context, act
 			return domain.TemplatePublishReadinessFailure(readiness)
 		}
 
-		out, pubErr := tRepo.PublishTemplateVersionTx(ctx, templateID, actor.TenantID, in.ExpectedTemplateVersion, in.ExpectedDraftVersion, in.ChangeSummary, actor.UserID)
+		out, pubErr := tRepo.PublishLockedDraftVersion(ctx, templateID, actor.TenantID, draft, in.ChangeSummary, actor.UserID)
 		if pubErr != nil {
 			return pubErr
 		}
@@ -276,7 +273,7 @@ func (s *TemplateLibraryService) PublishTemplateVersion(ctx context.Context, act
 		}); storeErr != nil {
 			return storeErr
 		}
-		if auditErr := recordAudit(ctx, aRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template_version", out.Published.ID, "rfx.template.version.published.v1", map[string]any{
+		if auditErr := recordAudit(ctx, aRepo, actor, ownerCompanyIDValue(lockedTmpl.OwnerCompanyID), "rfx_template_version", out.Published.ID, "rfx.template.version.published.v1", map[string]any{
 			"template_id": templateID.String(), "version_number": out.Published.VersionNumber,
 		}); auditErr != nil {
 			return auditErr
@@ -411,6 +408,34 @@ func (s *TemplateLibraryService) authorizeTemplateManage(ctx context.Context, ac
 		return nil, err
 	}
 	return tmpl, nil
+}
+
+// LockTemplateAndDraftForPublish locks the template aggregate and current DRAFT version for publish,
+// re-validating tenant authorization, ACTIVE status, and optimistic versions inside the transaction.
+func (s *TemplateLibraryService) LockTemplateAndDraftForPublish(
+	ctx context.Context,
+	tRepo *repository.TemplateLibraryRepository,
+	actor domain.ActorContext,
+	templateID uuid.UUID,
+	expectedTemplateVersion, expectedDraftVersion int,
+) (*domain.RfxTemplate, *domain.RfxTemplateVersion, error) {
+	if err := actor.Validate(); err != nil {
+		return nil, nil, err
+	}
+	if err := s.denyCarrierOnly(ctx, actor); err != nil {
+		return nil, nil, err
+	}
+	if err := s.requireBuyerManage(ctx, actor); err != nil {
+		return nil, nil, err
+	}
+	tmpl, draft, err := tRepo.LockTemplateAndDraftForPublish(ctx, templateID, actor.TenantID, expectedTemplateVersion, expectedDraftVersion)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := s.requireTemplateCompanyAccess(ctx, actor, tmpl, true); err != nil {
+		return nil, nil, err
+	}
+	return tmpl, draft, nil
 }
 
 // LockMutableDraftForGraphMutation locks the template aggregate and current DRAFT version
