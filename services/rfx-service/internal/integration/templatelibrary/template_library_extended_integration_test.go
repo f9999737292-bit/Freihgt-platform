@@ -248,22 +248,29 @@ func TestE4INT41OpenAPIRouterGatewayParity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read gateway router: %v", err)
 	}
-	required := []string{
+	requiredGateway := []string{
 		"/api/v1/rfx-templates",
 		"/api/v1/rfx-templates/{id}/versions/publish",
 		"/api/v1/rfx-templates/{id}/versions/fork-draft",
 		"/api/v1/rfx-templates/{id}/questionnaire",
 	}
-	for _, path := range required {
+	for _, path := range requiredGateway {
 		if !strings.Contains(string(openapiBody), path) {
 			t.Fatalf("openapi missing path %s", path)
 		}
-		rfxPath := strings.ReplaceAll(path, "/api/v1", "/v1")
-		if !strings.Contains(string(rfxBody), rfxPath) {
-			t.Fatalf("rfx router missing path %s", rfxPath)
-		}
 		if !strings.Contains(string(gatewayBody), path) {
 			t.Fatalf("gateway missing path %s", path)
+		}
+	}
+	requiredRfxNested := []string{
+		`Route("/v1/rfx-templates"`,
+		`Post("/{id}/versions/publish"`,
+		`Post("/{id}/versions/fork-draft"`,
+		`Get("/{id}/questionnaire"`,
+	}
+	for _, fragment := range requiredRfxNested {
+		if !strings.Contains(string(rfxBody), fragment) {
+			t.Fatalf("rfx router missing route fragment %s", fragment)
 		}
 	}
 }

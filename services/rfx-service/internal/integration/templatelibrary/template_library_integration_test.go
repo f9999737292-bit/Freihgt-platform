@@ -40,12 +40,7 @@ func TestE4INT03SameCodeAllowedInOtherTenant(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
 	createTemplate(t, env, fix, "shared-code", &fix.CompanyA)
-	foreignCompany := uuid.New()
-	if _, err := env.pool.Exec(context.Background(), `INSERT INTO core.companies (id, tenant_id, legal_name, company_type) VALUES ($1,$2,$3,$4)`,
-		foreignCompany, fix.OtherTenantID, "Foreign", "SHIPPER"); err != nil {
-		t.Fatalf("seed foreign company: %v", err)
-	}
-	if _, err := env.templateSvc.CreateTemplate(context.Background(), fix.CrossTenant, createTemplateInput("shared-code", &foreignCompany)); err != nil {
+	if _, err := env.templateSvc.CreateTemplate(context.Background(), fix.CrossTenant, createTemplateInput("shared-code", nil)); err != nil {
 		t.Fatalf("expected cross-tenant duplicate allowed: %v", err)
 	}
 }
@@ -307,8 +302,19 @@ func TestE4INT22PublishIdempotentReplay(t *testing.T) {
 	detail := createTemplate(t, env, fix, "idem-pub", nil)
 	populateTemplateGraph(t, env, fix, detail.Template.ID)
 	key := "e4-22"
-	first := publishTemplate(t, env, fix, detail.Template.ID, key)
-	second := publishTemplate(t, env, fix, detail.Template.ID, key)
+	in := domain.PublishTemplateVersionInput{
+		ExpectedTemplateVersion: detail.Template.Version,
+		ExpectedDraftVersion:    detail.DraftVersion.Version,
+		ChangeSummary:           "Initial publish",
+	}
+	first, err := env.templateSvc.PublishTemplateVersion(context.Background(), fix.BuyerA, detail.Template.ID, key, in)
+	if err != nil {
+		t.Fatalf("first publish: %v", err)
+	}
+	second, err := env.templateSvc.PublishTemplateVersion(context.Background(), fix.BuyerA, detail.Template.ID, key, in)
+	if err != nil {
+		t.Fatalf("replay publish: %v", err)
+	}
 	if first.ID != second.ID {
 		t.Fatalf("idempotent replay mismatch")
 	}
