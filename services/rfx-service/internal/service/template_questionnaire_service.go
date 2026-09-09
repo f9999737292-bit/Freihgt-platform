@@ -2,9 +2,12 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/freight-platform/rfx-service/internal/domain"
 	apperrors "github.com/freight-platform/rfx-service/internal/platform/errors"
@@ -16,15 +19,21 @@ type TemplateQuestionnaireService struct {
 	qRepo     *repository.TemplateQuestionnaireRepository
 	auditRepo *repository.AuditRepository
 	tmplSvc   *TemplateLibraryService
+	tx        *repository.TransactionRunner
 }
 
 func NewTemplateQuestionnaireService(
+	pool *pgxpool.Pool,
 	tmplRepo *repository.TemplateLibraryRepository,
 	qRepo *repository.TemplateQuestionnaireRepository,
 	auditRepo *repository.AuditRepository,
 	tmplSvc *TemplateLibraryService,
 ) *TemplateQuestionnaireService {
-	return &TemplateQuestionnaireService{tmplRepo: tmplRepo, qRepo: qRepo, auditRepo: auditRepo, tmplSvc: tmplSvc}
+	var tx *repository.TransactionRunner
+	if pool != nil {
+		tx = repository.NewTransactionRunner(pool)
+	}
+	return &TemplateQuestionnaireService{tmplRepo: tmplRepo, qRepo: qRepo, auditRepo: auditRepo, tmplSvc: tmplSvc, tx: tx}
 }
 
 func (s *TemplateQuestionnaireService) GetQuestionnaire(ctx context.Context, actor domain.ActorContext, templateID uuid.UUID) (*domain.TemplateQuestionnaireDefinition, error) {
@@ -43,11 +52,16 @@ func (s *TemplateQuestionnaireService) CreateSection(ctx context.Context, actor 
 	if err != nil {
 		return nil, err
 	}
-	section, err := s.qRepo.CreateSection(ctx, actor.TenantID, tmpl.ID, draft.ID, in)
+	var section *domain.TemplateSection
+	err = s.runMutation(ctx, func(qRepo *repository.TemplateQuestionnaireRepository, aRepo *repository.AuditRepository) error {
+		var createErr error
+		section, createErr = qRepo.CreateSection(ctx, actor.TenantID, tmpl.ID, draft.ID, in)
+		if createErr != nil {
+			return createErr
+		}
+		return recordAudit(ctx, aRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template_section", section.ID, "rfx.template.section.created.v1", map[string]any{"section_code": section.SectionCode})
+	})
 	if err != nil {
-		return nil, err
-	}
-	if err := recordAudit(ctx, s.auditRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template_section", section.ID, "rfx.template.section.created.v1", map[string]any{"section_code": section.SectionCode}); err != nil {
 		return nil, err
 	}
 	return section, nil
@@ -61,11 +75,16 @@ func (s *TemplateQuestionnaireService) UpdateSection(ctx context.Context, actor 
 	if err := s.qRepo.AssertSectionBelongsToVersion(ctx, sectionID, tmpl.ID, draft.ID, actor.TenantID); err != nil {
 		return nil, err
 	}
-	section, err := s.qRepo.UpdateSection(ctx, sectionID, actor.TenantID, in)
+	var section *domain.TemplateSection
+	err = s.runMutation(ctx, func(qRepo *repository.TemplateQuestionnaireRepository, aRepo *repository.AuditRepository) error {
+		var updateErr error
+		section, updateErr = qRepo.UpdateSection(ctx, sectionID, actor.TenantID, in)
+		if updateErr != nil {
+			return updateErr
+		}
+		return recordAudit(ctx, aRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template_section", section.ID, "rfx.template.section.updated.v1", nil)
+	})
 	if err != nil {
-		return nil, err
-	}
-	if err := recordAudit(ctx, s.auditRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template_section", section.ID, "rfx.template.section.updated.v1", nil); err != nil {
 		return nil, err
 	}
 	return section, nil
@@ -79,10 +98,12 @@ func (s *TemplateQuestionnaireService) DeleteSection(ctx context.Context, actor 
 	if err := s.qRepo.AssertSectionBelongsToVersion(ctx, sectionID, tmpl.ID, draft.ID, actor.TenantID); err != nil {
 		return err
 	}
-	if err := s.qRepo.DeleteSection(ctx, sectionID, actor.TenantID, expectedVersion); err != nil {
-		return err
-	}
-	return recordAudit(ctx, s.auditRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template_section", sectionID, "rfx.template.section.deleted.v1", nil)
+	return s.runMutation(ctx, func(qRepo *repository.TemplateQuestionnaireRepository, aRepo *repository.AuditRepository) error {
+		if err := qRepo.DeleteSection(ctx, sectionID, actor.TenantID, expectedVersion); err != nil {
+			return err
+		}
+		return recordAudit(ctx, aRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template_section", sectionID, "rfx.template.section.deleted.v1", nil)
+	})
 }
 
 func (s *TemplateQuestionnaireService) ReorderSections(ctx context.Context, actor domain.ActorContext, templateID uuid.UUID, orderedIDs []uuid.UUID) error {
@@ -93,10 +114,12 @@ func (s *TemplateQuestionnaireService) ReorderSections(ctx context.Context, acto
 	if len(orderedIDs) == 0 {
 		return apperrors.Validation("ordered_ids is required", map[string]any{"field": "ordered_ids"})
 	}
-	if err := s.qRepo.ReorderSections(ctx, actor.TenantID, tmpl.ID, draft.ID, orderedIDs); err != nil {
-		return err
-	}
-	return recordAudit(ctx, s.auditRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template_version", draft.ID, "rfx.template.sections.reordered.v1", nil)
+	return s.runMutation(ctx, func(qRepo *repository.TemplateQuestionnaireRepository, aRepo *repository.AuditRepository) error {
+		if err := qRepo.ReorderSections(ctx, actor.TenantID, tmpl.ID, draft.ID, orderedIDs); err != nil {
+			return err
+		}
+		return recordAudit(ctx, aRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template_version", draft.ID, "rfx.template.sections.reordered.v1", nil)
+	})
 }
 
 func (s *TemplateQuestionnaireService) CreateQuestion(ctx context.Context, actor domain.ActorContext, templateID, sectionID uuid.UUID, in domain.CreateQuestionInput) (*domain.TemplateQuestion, error) {
@@ -110,11 +133,16 @@ func (s *TemplateQuestionnaireService) CreateQuestion(ctx context.Context, actor
 	if err := s.qRepo.AssertSectionBelongsToVersion(ctx, sectionID, tmpl.ID, draft.ID, actor.TenantID); err != nil {
 		return nil, err
 	}
-	question, err := s.qRepo.CreateQuestion(ctx, actor.TenantID, sectionID, in)
+	var question *domain.TemplateQuestion
+	err = s.runMutation(ctx, func(qRepo *repository.TemplateQuestionnaireRepository, aRepo *repository.AuditRepository) error {
+		var createErr error
+		question, createErr = qRepo.CreateQuestion(ctx, actor.TenantID, sectionID, in)
+		if createErr != nil {
+			return createErr
+		}
+		return recordAudit(ctx, aRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template_question", question.ID, "rfx.template.question.created.v1", map[string]any{"question_code": question.QuestionCode})
+	})
 	if err != nil {
-		return nil, err
-	}
-	if err := recordAudit(ctx, s.auditRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template_question", question.ID, "rfx.template.question.created.v1", map[string]any{"question_code": question.QuestionCode}); err != nil {
 		return nil, err
 	}
 	return question, nil
@@ -133,11 +161,16 @@ func (s *TemplateQuestionnaireService) UpdateQuestion(ctx context.Context, actor
 	if err := s.qRepo.AssertQuestionBelongsToVersion(ctx, questionID, tmpl.ID, draft.ID, actor.TenantID); err != nil {
 		return nil, err
 	}
-	question, err := s.qRepo.UpdateQuestion(ctx, questionID, actor.TenantID, in)
+	var question *domain.TemplateQuestion
+	err = s.runMutation(ctx, func(qRepo *repository.TemplateQuestionnaireRepository, aRepo *repository.AuditRepository) error {
+		var updateErr error
+		question, updateErr = qRepo.UpdateQuestion(ctx, questionID, actor.TenantID, in)
+		if updateErr != nil {
+			return updateErr
+		}
+		return recordAudit(ctx, aRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template_question", question.ID, "rfx.template.question.updated.v1", nil)
+	})
 	if err != nil {
-		return nil, err
-	}
-	if err := recordAudit(ctx, s.auditRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template_question", question.ID, "rfx.template.question.updated.v1", nil); err != nil {
 		return nil, err
 	}
 	return question, nil
@@ -151,10 +184,12 @@ func (s *TemplateQuestionnaireService) DeleteQuestion(ctx context.Context, actor
 	if err := s.qRepo.AssertQuestionBelongsToVersion(ctx, questionID, tmpl.ID, draft.ID, actor.TenantID); err != nil {
 		return err
 	}
-	if err := s.qRepo.DeleteQuestion(ctx, questionID, actor.TenantID, expectedVersion); err != nil {
-		return err
-	}
-	return recordAudit(ctx, s.auditRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template_question", questionID, "rfx.template.question.deleted.v1", nil)
+	return s.runMutation(ctx, func(qRepo *repository.TemplateQuestionnaireRepository, aRepo *repository.AuditRepository) error {
+		if err := qRepo.DeleteQuestion(ctx, questionID, actor.TenantID, expectedVersion); err != nil {
+			return err
+		}
+		return recordAudit(ctx, aRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template_question", questionID, "rfx.template.question.deleted.v1", nil)
+	})
 }
 
 func (s *TemplateQuestionnaireService) ReorderQuestions(ctx context.Context, actor domain.ActorContext, templateID, sectionID uuid.UUID, orderedIDs []uuid.UUID) error {
@@ -168,10 +203,12 @@ func (s *TemplateQuestionnaireService) ReorderQuestions(ctx context.Context, act
 	if len(orderedIDs) == 0 {
 		return apperrors.Validation("ordered_ids is required", map[string]any{"field": "ordered_ids"})
 	}
-	if err := s.qRepo.ReorderQuestions(ctx, actor.TenantID, sectionID, orderedIDs); err != nil {
-		return err
-	}
-	return recordAudit(ctx, s.auditRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template_version", draft.ID, "rfx.template.questions.reordered.v1", map[string]any{"section_id": sectionID.String()})
+	return s.runMutation(ctx, func(qRepo *repository.TemplateQuestionnaireRepository, aRepo *repository.AuditRepository) error {
+		if err := qRepo.ReorderQuestions(ctx, actor.TenantID, sectionID, orderedIDs); err != nil {
+			return err
+		}
+		return recordAudit(ctx, aRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template_version", draft.ID, "rfx.template.questions.reordered.v1", map[string]any{"section_id": sectionID.String()})
+	})
 }
 
 func (s *TemplateQuestionnaireService) DuplicateQuestion(ctx context.Context, actor domain.ActorContext, templateID, questionID uuid.UUID) (*domain.TemplateQuestion, error) {
@@ -186,12 +223,20 @@ func (s *TemplateQuestionnaireService) DuplicateQuestion(ctx context.Context, ac
 	if err != nil {
 		return nil, err
 	}
-	newCode := source.QuestionCode + "_copy"
-	question, err := s.qRepo.DuplicateQuestion(ctx, actor.TenantID, questionID, newCode)
+	newCode, err := s.nextDuplicateQuestionCode(ctx, tmpl.ID, draft.ID, actor.TenantID, source.QuestionCode)
 	if err != nil {
 		return nil, err
 	}
-	if err := recordAudit(ctx, s.auditRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template_question", question.ID, "rfx.template.question.duplicated.v1", map[string]any{"source_question_id": questionID.String()}); err != nil {
+	var question *domain.TemplateQuestion
+	err = s.runMutation(ctx, func(qRepo *repository.TemplateQuestionnaireRepository, aRepo *repository.AuditRepository) error {
+		var dupErr error
+		question, dupErr = qRepo.DuplicateQuestion(ctx, actor.TenantID, questionID, newCode)
+		if dupErr != nil {
+			return dupErr
+		}
+		return recordAudit(ctx, aRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template_question", question.ID, "rfx.template.question.duplicated.v1", map[string]any{"source_question_id": questionID.String()})
+	})
+	if err != nil {
 		return nil, err
 	}
 	return question, nil
@@ -208,11 +253,16 @@ func (s *TemplateQuestionnaireService) CreateOption(ctx context.Context, actor d
 	if err := s.qRepo.AssertQuestionBelongsToVersion(ctx, questionID, tmpl.ID, draft.ID, actor.TenantID); err != nil {
 		return nil, err
 	}
-	option, err := s.qRepo.CreateOption(ctx, actor.TenantID, questionID, in)
+	var option *domain.TemplateQuestionOption
+	err = s.runMutation(ctx, func(qRepo *repository.TemplateQuestionnaireRepository, aRepo *repository.AuditRepository) error {
+		var createErr error
+		option, createErr = qRepo.CreateOption(ctx, actor.TenantID, questionID, in)
+		if createErr != nil {
+			return createErr
+		}
+		return recordAudit(ctx, aRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template_question_option", option.ID, "rfx.template.option.created.v1", map[string]any{"option_code": option.OptionCode})
+	})
 	if err != nil {
-		return nil, err
-	}
-	if err := recordAudit(ctx, s.auditRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template_question_option", option.ID, "rfx.template.option.created.v1", map[string]any{"option_code": option.OptionCode}); err != nil {
 		return nil, err
 	}
 	return option, nil
@@ -233,11 +283,16 @@ func (s *TemplateQuestionnaireService) UpdateOption(ctx context.Context, actor d
 	if opt.QuestionID != questionID {
 		return nil, apperrors.NotFound("option not found")
 	}
-	option, err := s.qRepo.UpdateOption(ctx, optionID, actor.TenantID, in)
+	var option *domain.TemplateQuestionOption
+	err = s.runMutation(ctx, func(qRepo *repository.TemplateQuestionnaireRepository, aRepo *repository.AuditRepository) error {
+		var updateErr error
+		option, updateErr = qRepo.UpdateOption(ctx, optionID, actor.TenantID, in)
+		if updateErr != nil {
+			return updateErr
+		}
+		return recordAudit(ctx, aRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template_question_option", option.ID, "rfx.template.option.updated.v1", nil)
+	})
 	if err != nil {
-		return nil, err
-	}
-	if err := recordAudit(ctx, s.auditRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template_question_option", option.ID, "rfx.template.option.updated.v1", nil); err != nil {
 		return nil, err
 	}
 	return option, nil
@@ -258,10 +313,12 @@ func (s *TemplateQuestionnaireService) DeleteOption(ctx context.Context, actor d
 	if opt.QuestionID != questionID {
 		return apperrors.NotFound("option not found")
 	}
-	if err := s.qRepo.DeleteOption(ctx, optionID, actor.TenantID, expectedVersion); err != nil {
-		return err
-	}
-	return recordAudit(ctx, s.auditRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template_question_option", optionID, "rfx.template.option.deleted.v1", nil)
+	return s.runMutation(ctx, func(qRepo *repository.TemplateQuestionnaireRepository, aRepo *repository.AuditRepository) error {
+		if err := qRepo.DeleteOption(ctx, optionID, actor.TenantID, expectedVersion); err != nil {
+			return err
+		}
+		return recordAudit(ctx, aRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template_question_option", optionID, "rfx.template.option.deleted.v1", nil)
+	})
 }
 
 func (s *TemplateQuestionnaireService) CreateRule(ctx context.Context, actor domain.ActorContext, templateID uuid.UUID, in domain.CreateQuestionRuleInput) (*domain.TemplateQuestionRule, error) {
@@ -279,11 +336,16 @@ func (s *TemplateQuestionnaireService) CreateRule(ctx context.Context, actor dom
 			return nil, err
 		}
 	}
-	rule, err := s.qRepo.CreateRule(ctx, actor.TenantID, tmpl.ID, draft.ID, targetQuestionID, in)
+	var rule *domain.TemplateQuestionRule
+	err = s.runMutation(ctx, func(qRepo *repository.TemplateQuestionnaireRepository, aRepo *repository.AuditRepository) error {
+		var createErr error
+		rule, createErr = qRepo.CreateRule(ctx, actor.TenantID, tmpl.ID, draft.ID, targetQuestionID, in)
+		if createErr != nil {
+			return createErr
+		}
+		return recordAudit(ctx, aRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template_question_rule", rule.ID, "rfx.template.rule.created.v1", map[string]any{"rule_code": rule.RuleCode})
+	})
 	if err != nil {
-		return nil, err
-	}
-	if err := recordAudit(ctx, s.auditRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template_question_rule", rule.ID, "rfx.template.rule.created.v1", map[string]any{"rule_code": rule.RuleCode}); err != nil {
 		return nil, err
 	}
 	return rule, nil
@@ -312,11 +374,16 @@ func (s *TemplateQuestionnaireService) UpdateRule(ctx context.Context, actor dom
 	} else {
 		targetQuestionID = rule.TargetQuestionID
 	}
-	updated, err := s.qRepo.UpdateRule(ctx, ruleID, actor.TenantID, targetQuestionID, in)
+	var updated *domain.TemplateQuestionRule
+	err = s.runMutation(ctx, func(qRepo *repository.TemplateQuestionnaireRepository, aRepo *repository.AuditRepository) error {
+		var updateErr error
+		updated, updateErr = qRepo.UpdateRule(ctx, ruleID, actor.TenantID, targetQuestionID, in)
+		if updateErr != nil {
+			return updateErr
+		}
+		return recordAudit(ctx, aRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template_question_rule", updated.ID, "rfx.template.rule.updated.v1", nil)
+	})
 	if err != nil {
-		return nil, err
-	}
-	if err := recordAudit(ctx, s.auditRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template_question_rule", updated.ID, "rfx.template.rule.updated.v1", nil); err != nil {
 		return nil, err
 	}
 	return updated, nil
@@ -334,10 +401,44 @@ func (s *TemplateQuestionnaireService) DeleteRule(ctx context.Context, actor dom
 	if rule.TemplateID != tmpl.ID || rule.RfxTemplateVersionID != draft.ID {
 		return apperrors.NotFound("rule not found")
 	}
-	if err := s.qRepo.DeleteRule(ctx, ruleID, actor.TenantID, expectedVersion); err != nil {
-		return err
+	return s.runMutation(ctx, func(qRepo *repository.TemplateQuestionnaireRepository, aRepo *repository.AuditRepository) error {
+		if err := qRepo.DeleteRule(ctx, ruleID, actor.TenantID, expectedVersion); err != nil {
+			return err
+		}
+		return recordAudit(ctx, aRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template_question_rule", ruleID, "rfx.template.rule.deleted.v1", nil)
+	})
+}
+
+func (s *TemplateQuestionnaireService) runMutation(ctx context.Context, fn func(qRepo *repository.TemplateQuestionnaireRepository, aRepo *repository.AuditRepository) error) error {
+	if s.tx == nil {
+		return apperrors.Internal("template questionnaire service misconfigured", nil)
 	}
-	return recordAudit(ctx, s.auditRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template_question_rule", ruleID, "rfx.template.rule.deleted.v1", nil)
+	return s.tx.Run(ctx, func(ctx context.Context, tx pgx.Tx) error {
+		return fn(s.qRepo.WithTx(tx), s.auditRepo.WithTx(tx))
+	})
+}
+
+func (s *TemplateQuestionnaireService) nextDuplicateQuestionCode(ctx context.Context, templateID, versionID, tenantID uuid.UUID, baseCode string) (string, error) {
+	definition, err := s.qRepo.LoadQuestionnaire(ctx, templateID, versionID, tenantID)
+	if err != nil {
+		return "", err
+	}
+	existing := make(map[string]struct{})
+	for _, swq := range definition.Sections {
+		for _, q := range swq.Questions {
+			existing[q.QuestionCode] = struct{}{}
+		}
+	}
+	candidate := baseCode + "_copy"
+	for i := 2; ; i++ {
+		if _, ok := existing[candidate]; !ok {
+			return candidate, nil
+		}
+		candidate = fmt.Sprintf("%s_copy%d", baseCode, i)
+		if i > 1000 {
+			return "", apperrors.Internal("failed to generate duplicate question code", nil)
+		}
+	}
 }
 
 func (s *TemplateQuestionnaireService) loadDraftContext(ctx context.Context, actor domain.ActorContext, templateID uuid.UUID) (*domain.RfxTemplate, *domain.RfxTemplateVersion, error) {

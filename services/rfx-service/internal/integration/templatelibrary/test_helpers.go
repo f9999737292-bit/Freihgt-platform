@@ -105,7 +105,7 @@ func setupTestEnv(t *testing.T) *testEnv {
 	tmplRepo := repository.NewTemplateLibraryRepository(pool)
 	tmplQRepo := repository.NewTemplateQuestionnaireRepository(pool)
 	templateSvc := service.NewTemplateLibraryService(pool, tmplRepo, tmplQRepo, idemRepo, auditRepo, rfxSvc)
-	templateQSvc := service.NewTemplateQuestionnaireService(tmplRepo, tmplQRepo, auditRepo, templateSvc)
+	templateQSvc := service.NewTemplateQuestionnaireService(pool, tmplRepo, tmplQRepo, auditRepo, templateSvc)
 	t.Logf("isolated database=%s", dbName)
 
 	return &testEnv{
@@ -181,7 +181,7 @@ func setupLegacyMigrationTestEnv(t *testing.T) (*testEnv, func()) {
 	tmplRepo := repository.NewTemplateLibraryRepository(pool)
 	tmplQRepo := repository.NewTemplateQuestionnaireRepository(pool)
 	templateSvc := service.NewTemplateLibraryService(pool, tmplRepo, tmplQRepo, idemRepo, auditRepo, rfxSvc)
-	templateQSvc := service.NewTemplateQuestionnaireService(tmplRepo, tmplQRepo, auditRepo, templateSvc)
+	templateQSvc := service.NewTemplateQuestionnaireService(pool, tmplRepo, tmplQRepo, auditRepo, templateSvc)
 	t.Logf("legacy migration database=%s", dbName)
 
 	return &testEnv{

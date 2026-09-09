@@ -63,7 +63,7 @@ func main() {
 	tmplRepo := repository.NewTemplateLibraryRepository(db.Pool)
 	tmplQRepo := repository.NewTemplateQuestionnaireRepository(db.Pool)
 	templateSvc := service.NewTemplateLibraryService(db.Pool, tmplRepo, tmplQRepo, idemRepo, auditRepo, rfxSvc)
-	templateQSvc := service.NewTemplateQuestionnaireService(tmplRepo, tmplQRepo, auditRepo, templateSvc)
+	templateQSvc := service.NewTemplateQuestionnaireService(db.Pool, tmplRepo, tmplQRepo, auditRepo, templateSvc)
 	scoringSvc := service.NewScoringService(db.Pool, rfxRepo, answerRepo, qRepo, scoreRepo, auditRepo)
 	crSvc := service.NewCarrierResponseServiceWithScoring(db.Pool, rfxRepo, answerRepo, qRepo, auditRepo, membershipRepo, rfxSvc, scoringSvc)
 	scoreModelSvc := service.NewScoreModelService(rfxRepo, scoreRepo, qRepo, auditRepo, membershipRepo, rfxSvc)
