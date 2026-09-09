@@ -106,7 +106,7 @@ These are assigned to the **earliest appropriate wave** — not deferred beyond 
 | **E2 Compare + Restore** | Compare versions, restore-as-draft | **IMPLEMENTED_ACCEPTED** — PR #109 merged via `e1780e7` (head `5f223b1`, CI `34241367509`) |
 | **E3 Change Impact** | Change-impact preview, publish confirmation | **IMPLEMENTED_ACCEPTED** — PR #111 merged via `69eacb3` (head `d9aa539`, CI `34259692961`) |
 | **E4 Template Library** | Template library CRUD, publish, fork-draft, archive, draft graph | **IMPLEMENTED_ACCEPTED** — PR #113 merged via `5243bb5` (head `c701ab3`, CI `34383868950`) |
-| **E5 Template Clone + Provenance** | Clone event from template, provenance | **PENDING_CONTROLLER_AUTHORIZATION** |
+| **E5 Template Clone + Provenance** | Clone event from template, provenance | **IMPLEMENTED_PENDING_CONTROLLER_ACCEPTANCE** |
 | **E6 Studio Frontend** | Studio UI: library, history, compare, restore | **NOT_STARTED** |
 | **E7 Browser Acceptance** | Browser acceptance gate | **NOT_STARTED** |
 
@@ -116,7 +116,7 @@ Notes:
 - E2 compare + restore backend is accepted and merged to `main` at `e1780e78425f9624b6ad956e24510260a2d9efcf`.
 - E3 change-impact backend is accepted and merged to `main` at `69eacb3c1f1e9cea5e9fd735f40d1b256bc33587` (PR #111 head `d9aa539ae1288ddbcdfd4427d595b353a1db0c57`, CI `34259692961`).
 - E4 template library backend is accepted and merged to `main` at `5243bb5b8752e6d94bcdf7403697b64ff88def96` (PR #113 head `c701ab32af38c0f0ef4db5bd51210634198d583a`, CI `34383868950`, migration 000070).
-- E5 requires separate controller authorization before implementation.
+- E5 template clone + provenance backend is implemented on branch `feat/rfx-template-clone-provenance-v3.0e5` (migration 000071); pending controller acceptance — **DO NOT MERGE** until authorized.
 - E6–E7 implementation has not started.
 - Each implementation wave requires a separate controller gate.
 - Complete v3.0E remains **IMPLEMENTATION_IN_PROGRESS** until all v3.0E waves are accepted.
