@@ -218,8 +218,8 @@ func TestE4REM044ConcurrentPublishAndGraphMutationNoPartialState(t *testing.T) {
 		t.Fatal("timed out waiting for concurrent publish and graph mutation")
 	}
 
-	published, _ := env.tmplRepo.GetPublishedVersion(context.Background(), templateID, fix.TenantID)
-	raceSectionCount := countTemplateSectionsByCode(t, env, templateID, "RACE_044")
+	publishErr := errs[0]
+	mutationErr := errs[1]
 	for i, err := range errs {
 		if err == nil {
 			continue
@@ -232,20 +232,40 @@ func TestE4REM044ConcurrentPublishAndGraphMutationNoPartialState(t *testing.T) {
 			t.Fatalf("unexpected error code[%d]: %s", i, appErr.Code)
 		}
 	}
-	if published != nil {
-		def := loadPublishedTemplateQuestionnaire(t, env, fix, templateID)
-		if raceSectionCount > 0 {
-			for _, swq := range def.Sections {
-				if swq.Section.SectionCode == "RACE_044" {
-					t.Fatal("published graph must not include concurrent mutation section")
-				}
-			}
+
+	published, err := env.tmplRepo.GetPublishedVersion(context.Background(), templateID, fix.TenantID)
+	if err != nil {
+		t.Fatalf("published lookup: %v", err)
+	}
+	if publishErr != nil && published != nil {
+		t.Fatal("PUBLISHED version must not exist when publish failed")
+	}
+	if publishErr == nil && published == nil {
+		t.Fatal("expected published version when publish succeeded")
+	}
+	if published == nil {
+		return
+	}
+
+	def := loadPublishedTemplateQuestionnaire(t, env, fix, templateID)
+	hasRaceSection := false
+	for _, swq := range def.Sections {
+		if swq.Section.SectionCode == "RACE_044" {
+			hasRaceSection = true
 		}
-		if raceSectionCount == 0 {
-			if len(def.Sections) != 1 || def.Sections[0].Section.SectionCode != "GENERAL" {
-				t.Fatal("published graph must be fully consistent with validated ready state")
-			}
+	}
+	if mutationErr == nil {
+		if !hasRaceSection {
+			t.Fatal("published graph must include mutation section when concurrent mutation succeeded")
 		}
+		return
+	}
+	expectAppErrorCode(t, mutationErr, apperrors.CodeConflict)
+	if hasRaceSection {
+		t.Fatal("published graph must not include concurrent mutation section when publish won")
+	}
+	if len(def.Sections) != 1 || def.Sections[0].Section.SectionCode != "GENERAL" {
+		t.Fatal("published graph must match validated pre-mutation ready state")
 	}
 }
 
