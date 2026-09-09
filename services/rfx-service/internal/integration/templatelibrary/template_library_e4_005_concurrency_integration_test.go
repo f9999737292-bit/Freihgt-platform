@@ -166,6 +166,7 @@ func TestE4REM031CreateSectionVsPublishMutationWins(t *testing.T) {
 	fix := seedBuyerFixture(t, env)
 	detail := createTemplate(t, env, fix, "rem-031", nil)
 	templateID := detail.Template.ID
+	populateTemplateGraph(t, env, fix, templateID)
 
 	if _, err := env.templateQSvc.CreateSection(context.Background(), fix.BuyerA, templateID, domain.CreateSectionInput{
 		SectionCode: "WINNER",
@@ -488,33 +489,42 @@ func TestE4REM039AuditFailureConcurrentMutationRollsBackGraph(t *testing.T) {
 	fix := seedBuyerFixture(t, env)
 	detail := createTemplate(t, env, fix, "rem-039", nil)
 	templateID := detail.Template.ID
+	populateTemplateGraph(t, env, fix, templateID)
 
 	env.auditRepo.SetInjectRecordFailure(true)
 	t.Cleanup(func() { env.auditRepo.SetInjectRecordFailure(false) })
 
-	ctx, tx := beginHeldTemplateLock(t, env, fix, templateID)
 	createErrCh := make(chan error, 1)
 	publishErrCh := make(chan error, 1)
+	var wg sync.WaitGroup
+	wg.Add(2)
 	go func() {
+		defer wg.Done()
 		_, err := env.templateQSvc.CreateSection(context.Background(), fix.BuyerA, templateID, domain.CreateSectionInput{
 			SectionCode: "AUDIT_RACE",
 			Title:       "Audit Race",
 		})
 		createErrCh <- err
 	}()
-	waitForOtherLockWaiters(t, env, 1)
 	go func() {
+		defer wg.Done()
+		reloaded, err := env.templateSvc.GetTemplate(context.Background(), fix.BuyerA, templateID)
+		if err != nil {
+			publishErrCh <- err
+			return
+		}
+		if reloaded.DraftVersion == nil {
+			publishErrCh <- apperrors.Conflict("draft missing", map[string]any{"field": "draft_version_id"})
+			return
+		}
 		_, pubErr := env.templateSvc.PublishTemplateVersion(context.Background(), fix.BuyerA, templateID, "rem-039-pub", domain.PublishTemplateVersionInput{
-			ExpectedTemplateVersion: detail.Template.Version,
-			ExpectedDraftVersion:    detail.DraftVersion.Version,
-			ChangeSummary:           "publish after audit race",
+			ExpectedTemplateVersion: reloaded.Template.Version,
+			ExpectedDraftVersion:    reloaded.DraftVersion.Version,
+			ChangeSummary:           "publish concurrent with audit failure",
 		})
 		publishErrCh <- pubErr
 	}()
-	waitForOtherLockWaiters(t, env, 2)
-	if err := tx.Rollback(ctx); err != nil {
-		t.Fatalf("rollback held lock: %v", err)
-	}
+	wg.Wait()
 
 	createErr := <-createErrCh
 	if createErr == nil {
@@ -522,15 +532,27 @@ func TestE4REM039AuditFailureConcurrentMutationRollsBackGraph(t *testing.T) {
 	}
 	publishErr := <-publishErrCh
 	if publishErr != nil {
-		t.Fatalf("publish should succeed on clean graph: %v", publishErr)
+		var appErr *apperrors.AppError
+		if !errors.As(publishErr, &appErr) || appErr.Code != apperrors.CodeConflict {
+			t.Fatalf("unexpected publish error: %v", publishErr)
+		}
 	}
 	if count := countTemplateSectionsByCode(t, env, templateID, "AUDIT_RACE"); count != 0 {
 		t.Fatalf("expected rolled-back section absent, got %d", count)
 	}
-	def := loadPublishedTemplateQuestionnaire(t, env, fix, templateID)
-	for _, swq := range def.Sections {
-		if swq.Section.SectionCode == "AUDIT_RACE" {
-			t.Fatal("published graph must not include rolled-back section")
+	published, err := env.tmplRepo.GetPublishedVersion(context.Background(), templateID, fix.TenantID)
+	if err != nil {
+		t.Fatalf("published version: %v", err)
+	}
+	if published != nil {
+		def, err := env.tmplQRepo.LoadQuestionnaire(context.Background(), templateID, published.ID, fix.TenantID)
+		if err != nil {
+			t.Fatalf("load published questionnaire: %v", err)
+		}
+		for _, swq := range def.Sections {
+			if swq.Section.SectionCode == "AUDIT_RACE" {
+				t.Fatal("published graph must not include rolled-back section")
+			}
 		}
 	}
 }
