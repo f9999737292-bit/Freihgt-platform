@@ -87,7 +87,7 @@ func (s *TemplateLibraryService) CreateTemplate(ctx context.Context, actor domai
 }
 
 func (s *TemplateLibraryService) ListTemplates(ctx context.Context, actor domain.ActorContext, filter domain.TemplateListFilter) ([]domain.RfxTemplate, int, error) {
-	if err := s.requireBuyerRead(ctx, actor); err != nil {
+	if err := s.applyTemplateListScope(ctx, actor, &filter); err != nil {
 		return nil, 0, err
 	}
 	return s.tmplRepo.ListTemplates(ctx, actor.TenantID, filter)
@@ -126,11 +126,24 @@ func (s *TemplateLibraryService) UpdateTemplate(ctx context.Context, actor domai
 			return nil, validateErr
 		}
 	}
-	updated, err := s.tmplRepo.UpdateTemplate(ctx, templateID, actor.TenantID, in, nameI18n, descriptionI18n)
-	if err != nil {
-		return nil, err
+	if s.tx == nil {
+		return nil, apperrors.Internal("template library service misconfigured", nil)
 	}
-	if err := recordAudit(ctx, s.auditRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template", updated.ID, "rfx.template.updated.v1", nil); err != nil {
+	var updated *domain.RfxTemplate
+	err = s.tx.Run(ctx, func(ctx context.Context, tx pgx.Tx) error {
+		tRepo := s.tmplRepo.WithTx(tx)
+		aRepo := s.auditRepo.WithTx(tx)
+		if _, lockErr := tRepo.LockTemplateByID(ctx, templateID, actor.TenantID); lockErr != nil {
+			return lockErr
+		}
+		var updateErr error
+		updated, updateErr = tRepo.UpdateTemplate(ctx, templateID, actor.TenantID, in, nameI18n, descriptionI18n)
+		if updateErr != nil {
+			return updateErr
+		}
+		return recordAudit(ctx, aRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template", updated.ID, "rfx.template.updated.v1", nil)
+	})
+	if err != nil {
 		return nil, err
 	}
 	return updated, nil
@@ -144,17 +157,27 @@ func (s *TemplateLibraryService) DeleteTemplate(ctx context.Context, actor domai
 	if err := domain.EnsureTemplateActive(tmpl.Status); err != nil {
 		return err
 	}
-	everPublished, err := s.tmplRepo.HasEverPublished(ctx, templateID, actor.TenantID)
-	if err != nil {
-		return err
+	if s.tx == nil {
+		return apperrors.Internal("template library service misconfigured", nil)
 	}
-	if everPublished {
-		return apperrors.Conflict("template with published versions cannot be deleted", map[string]any{"field": "template_id"})
-	}
-	if err := s.tmplRepo.SoftDeleteTemplate(ctx, templateID, actor.TenantID); err != nil {
-		return err
-	}
-	return recordAudit(ctx, s.auditRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template", templateID, "rfx.template.deleted.v1", nil)
+	return s.tx.Run(ctx, func(ctx context.Context, tx pgx.Tx) error {
+		tRepo := s.tmplRepo.WithTx(tx)
+		aRepo := s.auditRepo.WithTx(tx)
+		if _, lockErr := tRepo.LockTemplateByID(ctx, templateID, actor.TenantID); lockErr != nil {
+			return lockErr
+		}
+		everPublished, pubErr := tRepo.HasEverPublished(ctx, templateID, actor.TenantID)
+		if pubErr != nil {
+			return pubErr
+		}
+		if everPublished {
+			return apperrors.Conflict("template with published versions cannot be deleted", map[string]any{"field": "template_id"})
+		}
+		if delErr := tRepo.SoftDeleteTemplate(ctx, templateID, actor.TenantID); delErr != nil {
+			return delErr
+		}
+		return recordAudit(ctx, aRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template", templateID, "rfx.template.deleted.v1", nil)
+	})
 }
 
 func (s *TemplateLibraryService) ArchiveTemplate(ctx context.Context, actor domain.ActorContext, templateID uuid.UUID) (*domain.RfxTemplate, error) {
@@ -165,11 +188,24 @@ func (s *TemplateLibraryService) ArchiveTemplate(ctx context.Context, actor doma
 	if tmpl.Status == domain.RfxTemplateStatusArchived {
 		return nil, apperrors.Conflict("template is already archived", map[string]any{"field": "status"})
 	}
-	archived, err := s.tmplRepo.ArchiveTemplate(ctx, templateID, actor.TenantID)
-	if err != nil {
-		return nil, err
+	if s.tx == nil {
+		return nil, apperrors.Internal("template library service misconfigured", nil)
 	}
-	if err := recordAudit(ctx, s.auditRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template", archived.ID, "rfx.template.archived.v1", nil); err != nil {
+	var archived *domain.RfxTemplate
+	err = s.tx.Run(ctx, func(ctx context.Context, tx pgx.Tx) error {
+		tRepo := s.tmplRepo.WithTx(tx)
+		aRepo := s.auditRepo.WithTx(tx)
+		if _, lockErr := tRepo.LockTemplateByID(ctx, templateID, actor.TenantID); lockErr != nil {
+			return lockErr
+		}
+		var archiveErr error
+		archived, archiveErr = tRepo.ArchiveTemplate(ctx, templateID, actor.TenantID)
+		if archiveErr != nil {
+			return archiveErr
+		}
+		return recordAudit(ctx, aRepo, actor, ownerCompanyIDValue(tmpl.OwnerCompanyID), "rfx_template", archived.ID, "rfx.template.archived.v1", nil)
+	})
+	if err != nil {
 		return nil, err
 	}
 	return archived, nil
@@ -289,7 +325,7 @@ func (s *TemplateLibraryService) ForkDraftFromPublished(ctx context.Context, act
 		qRepo := s.qRepo.WithTx(tx)
 		idemRepo := s.idemRepo.WithTx(tx)
 		aRepo := s.auditRepo.WithTx(tx)
-		out, forkErr := tRepo.ForkDraftFromPublishedTx(ctx, templateID, actor.TenantID, qRepo)
+		out, forkErr := tRepo.ForkDraftFromPublishedTx(ctx, templateID, actor.TenantID, actor.UserID, qRepo)
 		if forkErr != nil {
 			return forkErr
 		}
@@ -394,6 +430,37 @@ func (s *TemplateLibraryService) requireTemplateCompanyAccess(ctx context.Contex
 		}
 		return apperrors.Forbidden("buyer company membership is required for this template")
 	}
+	return nil
+}
+
+func (s *TemplateLibraryService) applyTemplateListScope(ctx context.Context, actor domain.ActorContext, filter *domain.TemplateListFilter) error {
+	if err := actor.Validate(); err != nil {
+		return err
+	}
+	if err := s.denyCarrierOnly(ctx, actor); err != nil {
+		return err
+	}
+	if err := s.auth.requireBuyerActor(ctx, actor); err != nil {
+		return err
+	}
+	buyerCompanyIDs, err := s.auth.listBuyerCompanyIDs(ctx, actor)
+	if err != nil {
+		return err
+	}
+	if len(buyerCompanyIDs) == 0 {
+		return apperrors.Forbidden("buyer company membership is required")
+	}
+	filter.IncludeTenantWide = true
+	if filter.OwnerCompanyID != nil {
+		if !domain.ContainsCompanyID(buyerCompanyIDs, *filter.OwnerCompanyID) {
+			filter.DenyAll = true
+			return nil
+		}
+		filter.AccessibleOwnerCompanyIDs = []uuid.UUID{*filter.OwnerCompanyID}
+		filter.IncludeTenantWide = false
+		return nil
+	}
+	filter.AccessibleOwnerCompanyIDs = buyerCompanyIDs
 	return nil
 }
 

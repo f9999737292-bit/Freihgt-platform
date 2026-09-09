@@ -136,6 +136,11 @@ type TemplateListFilter struct {
 	Search         *string
 	Limit          int
 	Offset         int
+
+	// AccessScope is populated by the service from verified membership; never trust client input.
+	AccessibleOwnerCompanyIDs []uuid.UUID
+	IncludeTenantWide         bool
+	DenyAll                   bool
 }
 
 type CreateTemplateInput struct {

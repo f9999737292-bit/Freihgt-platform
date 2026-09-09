@@ -187,14 +187,26 @@ func (r *TemplateLibraryRepository) ListTemplates(ctx context.Context, tenantID 
 	where := []string{"tenant_id=$1", "deleted_at IS NULL"}
 	args := []any{tenantID}
 	idx := 2
+	if filter.DenyAll {
+		where = append(where, "1=0")
+	} else if filter.OwnerCompanyID != nil {
+		where = append(where, fmt.Sprintf("owner_company_id=$%d", idx))
+		args = append(args, *filter.OwnerCompanyID)
+		idx++
+	} else if len(filter.AccessibleOwnerCompanyIDs) > 0 {
+		if filter.IncludeTenantWide {
+			where = append(where, fmt.Sprintf("(owner_company_id IS NULL OR owner_company_id = ANY($%d))", idx))
+		} else {
+			where = append(where, fmt.Sprintf("owner_company_id = ANY($%d)", idx))
+		}
+		args = append(args, filter.AccessibleOwnerCompanyIDs)
+		idx++
+	} else {
+		where = append(where, "1=0")
+	}
 	if filter.Status != nil {
 		where = append(where, fmt.Sprintf("status=$%d", idx))
 		args = append(args, strings.TrimSpace(*filter.Status))
-		idx++
-	}
-	if filter.OwnerCompanyID != nil {
-		where = append(where, fmt.Sprintf("owner_company_id=$%d", idx))
-		args = append(args, *filter.OwnerCompanyID)
 		idx++
 	}
 	if filter.RfxType != nil {

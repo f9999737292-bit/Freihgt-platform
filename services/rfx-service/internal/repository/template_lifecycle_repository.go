@@ -96,7 +96,7 @@ func (r *TemplateLibraryRepository) PublishTemplateVersionTx(
 
 func (r *TemplateLibraryRepository) ForkDraftFromPublishedTx(
 	ctx context.Context,
-	templateID, tenantID uuid.UUID,
+	templateID, tenantID, forkActorUserID uuid.UUID,
 	qRepo *TemplateQuestionnaireRepository,
 ) (*domain.RfxTemplateVersion, error) {
 	tmpl, err := r.LockTemplateByID(ctx, templateID, tenantID)
@@ -139,7 +139,7 @@ func (r *TemplateLibraryRepository) ForkDraftFromPublishedTx(
 		INSERT INTO rfx.rfx_template_versions (tenant_id, template_id, version_number, status, created_by)
 		VALUES ($1,$2,$3,$4,$5)
 		RETURNING `+rfxTemplateVersionSelectColumns,
-		tenantID, templateID, maxVersionNumber+1, domain.RfxVersionStatusDraft, source.CreatedBy)
+		tenantID, templateID, maxVersionNumber+1, domain.RfxVersionStatusDraft, forkActorUserID)
 	draft, err := scanRfxTemplateVersion(row)
 	if err != nil {
 		return nil, mapDBError(err)

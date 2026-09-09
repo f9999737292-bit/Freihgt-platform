@@ -230,6 +230,10 @@ func (r *TemplateQuestionnaireRepository) AssertSectionBelongsToVersion(ctx cont
 }
 
 func (r *TemplateQuestionnaireRepository) CreateQuestion(ctx context.Context, tenantID, sectionID uuid.UUID, in domain.CreateQuestionInput) (*domain.TemplateQuestion, error) {
+	sec, err := r.GetSectionByID(ctx, sectionID, tenantID)
+	if err != nil {
+		return nil, err
+	}
 	sortOrder := 0
 	if in.SortOrder != nil {
 		sortOrder = *in.SortOrder
@@ -239,10 +243,15 @@ func (r *TemplateQuestionnaireRepository) CreateQuestion(ctx context.Context, te
 		val = json.RawMessage(`{}`)
 	}
 	row := r.db().QueryRow(ctx, `
-		INSERT INTO rfx.rfx_template_questions (tenant_id, section_id, question_code, question_type, label, help_text, required, validation_rule_json, sort_order)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9)
+		INSERT INTO rfx.rfx_template_questions (
+			tenant_id, template_id, rfx_template_version_id, section_id,
+			question_code, question_type, label, help_text, required, validation_rule_json, sort_order
+		)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11)
 		RETURNING id, tenant_id, section_id, question_code, question_type, label, help_text, required, validation_rule_json, sort_order, created_at, updated_at, version`,
-		tenantID, sectionID, strings.TrimSpace(in.QuestionCode), strings.TrimSpace(in.QuestionType), strings.TrimSpace(in.Label), optionalString(in.HelpText), in.Required, string(val), sortOrder)
+		tenantID, sec.TemplateID, sec.RfxTemplateVersionID, sectionID,
+		strings.TrimSpace(in.QuestionCode), strings.TrimSpace(in.QuestionType), strings.TrimSpace(in.Label),
+		optionalString(in.HelpText), in.Required, string(val), sortOrder)
 	q, err := scanTemplateQuestion(row)
 	if err != nil {
 		return nil, mapDBError(err)
