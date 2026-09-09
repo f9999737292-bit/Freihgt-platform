@@ -413,6 +413,55 @@ func (s *TemplateLibraryService) authorizeTemplateManage(ctx context.Context, ac
 	return tmpl, nil
 }
 
+// LockMutableDraftForGraphMutation locks the template aggregate and current DRAFT version
+// inside an open transaction and re-validates tenant, authorization, and editability.
+// Lock order matches PublishTemplateVersionTx: template row, then draft version row.
+func (s *TemplateLibraryService) LockMutableDraftForGraphMutation(
+	ctx context.Context,
+	tRepo *repository.TemplateLibraryRepository,
+	actor domain.ActorContext,
+	templateID uuid.UUID,
+) (*domain.RfxTemplate, *domain.RfxTemplateVersion, error) {
+	if err := actor.Validate(); err != nil {
+		return nil, nil, err
+	}
+	if err := s.denyCarrierOnly(ctx, actor); err != nil {
+		return nil, nil, err
+	}
+	if err := s.requireBuyerManage(ctx, actor); err != nil {
+		return nil, nil, err
+	}
+	tmpl, err := tRepo.LockTemplateByID(ctx, templateID, actor.TenantID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := s.requireTemplateCompanyAccess(ctx, actor, tmpl, true); err != nil {
+		return nil, nil, err
+	}
+	if err := domain.EnsureTemplateActive(tmpl.Status); err != nil {
+		return nil, nil, err
+	}
+	draft, err := tRepo.GetDraftVersion(ctx, templateID, actor.TenantID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if draft == nil {
+		return nil, nil, apperrors.Conflict("draft template version not found", map[string]any{"field": "draft_version_id"})
+	}
+	draft, err = tRepo.LockVersionByID(ctx, draft.ID, actor.TenantID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if draft.TemplateID != templateID || draft.TenantID != actor.TenantID {
+		return nil, nil, apperrors.Conflict("draft template version not found", map[string]any{"field": "draft_version_id"})
+	}
+	if err := domain.EnsureTemplateVersionDraft(draft.Status); err != nil {
+		return nil, nil, err
+	}
+	draft.IsActiveDraft = true
+	return tmpl, draft, nil
+}
+
 func (s *TemplateLibraryService) requireTemplateCompanyAccess(ctx context.Context, actor domain.ActorContext, tmpl *domain.RfxTemplate, manage bool) error {
 	if err := s.auth.requireBuyerActor(ctx, actor); err != nil {
 		return err
