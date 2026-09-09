@@ -43,6 +43,7 @@ type testEnv struct {
 	versionSvc     *service.VersionLifecycleService
 	templateSvc    *service.TemplateLibraryService
 	templateQSvc   *service.TemplateQuestionnaireService
+	cloneSvc       *service.TemplateCloneService
 }
 
 type buyerFixture struct {
@@ -106,6 +107,7 @@ func setupTestEnv(t *testing.T) *testEnv {
 	tmplQRepo := repository.NewTemplateQuestionnaireRepository(pool)
 	templateSvc := service.NewTemplateLibraryService(pool, tmplRepo, tmplQRepo, idemRepo, auditRepo, rfxSvc)
 	templateQSvc := service.NewTemplateQuestionnaireService(pool, tmplRepo, tmplQRepo, auditRepo, templateSvc)
+	cloneSvc := service.NewTemplateCloneService(pool, rfxRepo, qRepo, tmplRepo, tmplQRepo, idemRepo, auditRepo, rfxSvc, templateSvc)
 	t.Logf("isolated database=%s", dbName)
 
 	return &testEnv{
@@ -126,6 +128,7 @@ func setupTestEnv(t *testing.T) *testEnv {
 		versionSvc:     versionSvc,
 		templateSvc:    templateSvc,
 		templateQSvc:   templateQSvc,
+		cloneSvc:       cloneSvc,
 	}
 }
 
@@ -182,6 +185,7 @@ func setupLegacyMigrationTestEnv(t *testing.T) (*testEnv, func()) {
 	tmplQRepo := repository.NewTemplateQuestionnaireRepository(pool)
 	templateSvc := service.NewTemplateLibraryService(pool, tmplRepo, tmplQRepo, idemRepo, auditRepo, rfxSvc)
 	templateQSvc := service.NewTemplateQuestionnaireService(pool, tmplRepo, tmplQRepo, auditRepo, templateSvc)
+	cloneSvc := service.NewTemplateCloneService(pool, rfxRepo, qRepo, tmplRepo, tmplQRepo, idemRepo, auditRepo, rfxSvc, templateSvc)
 	t.Logf("legacy migration database=%s", dbName)
 
 	return &testEnv{
@@ -202,7 +206,27 @@ func setupLegacyMigrationTestEnv(t *testing.T) (*testEnv, func()) {
 		versionSvc:     versionSvc,
 		templateSvc:    templateSvc,
 		templateQSvc:   templateQSvc,
+		cloneSvc:       cloneSvc,
 	}, cleanup
+}
+
+func defaultCloneEventInput(rfxNumber string, owner uuid.UUID) domain.CreateRfxEventInput {
+	return domain.CreateRfxEventInput{
+		RfxNumber:      rfxNumber,
+		RfxType:        "SPOT_RFQ",
+		Category:       "FREIGHT",
+		Title:          "Cloned RFx Event",
+		OwnerCompanyID: owner,
+	}
+}
+
+func cloneFromTemplate(t *testing.T, env *testEnv, actor domain.ActorContext, templateVersionID uuid.UUID, in domain.CreateRfxEventInput, key string) *domain.CloneEventFromTemplateResult {
+	t.Helper()
+	result, err := env.cloneSvc.CloneEventFromTemplate(context.Background(), actor, templateVersionID, in, key)
+	if err != nil {
+		t.Fatalf("clone from template: %v", err)
+	}
+	return result
 }
 
 func seedBuyerFixture(t *testing.T, env *testEnv) buyerFixture {
@@ -914,6 +938,11 @@ func createTemplate(t *testing.T, env *testEnv, fix buyerFixture, code string, o
 
 func populateTemplateGraph(t *testing.T, env *testEnv, fix buyerFixture, templateID uuid.UUID) {
 	t.Helper()
+	populateTemplateGraphWithRule(t, env, fix, templateID, false)
+}
+
+func populateTemplateGraphWithRule(t *testing.T, env *testEnv, fix buyerFixture, templateID uuid.UUID, withRule bool) {
+	t.Helper()
 	ctx := context.Background()
 	section, err := env.templateQSvc.CreateSection(ctx, fix.BuyerA, templateID, domain.CreateSectionInput{
 		SectionCode: "GENERAL",
@@ -929,6 +958,18 @@ func populateTemplateGraph(t *testing.T, env *testEnv, fix buyerFixture, templat
 		Required:     true,
 	}); err != nil {
 		t.Fatalf("create template question: %v", err)
+	}
+	if !withRule {
+		return
+	}
+	target := "FLEET_SIZE"
+	if _, err := env.templateQSvc.CreateRule(ctx, fix.BuyerA, templateID, domain.CreateQuestionRuleInput{
+		RuleCode:           "REQ_FLEET",
+		Action:             domain.RuleActionRequire,
+		TargetQuestionCode: &target,
+		ConditionJSON:      json.RawMessage(`{"operator":"EQUALS","source_question_code":"FLEET_SIZE","value":"1"}`),
+	}); err != nil {
+		t.Fatalf("create template rule: %v", err)
 	}
 }
 
