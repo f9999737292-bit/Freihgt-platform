@@ -6,6 +6,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -19,7 +21,8 @@ import (
 
 func postCloneFromTemplateHTTP(t *testing.T, env *testEnv, cfg config.Config, fix buyerFixture, templateVersionID uuid.UUID, rfxNumber, idempotencyKey string) *httptest.ResponseRecorder {
 	t.Helper()
-	router := httpserver.NewRouter(nil, env.pool, cfg, env.rfxSvc, env.qSvc, env.versionSvc, env.templateSvc, env.templateQSvc, env.cloneSvc, env.crSvc, env.scoreModelSvc, nil, nil, nil, nil)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	router := httpserver.NewRouter(log, env.pool, cfg, env.rfxSvc, env.qSvc, env.versionSvc, env.templateSvc, env.templateQSvc, env.cloneSvc, env.crSvc, env.scoreModelSvc, nil, nil, nil, nil)
 	body, err := json.Marshal(map[string]any{
 		"template_version_id": templateVersionID.String(),
 		"rfx_number":          rfxNumber,
