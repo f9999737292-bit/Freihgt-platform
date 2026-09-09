@@ -142,6 +142,30 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/rfx-events/{id}/versions/compare", "post", "Compare RFx questionnaire versions", "RFx", True, True, "vl_compare"),
     ("/api/v1/rfx-events/{id}/versions/{version_id}/restore-draft", "post", "Restore RFx questionnaire version as new draft", "RFx", True, True, "vl_restore_draft"),
     ("/api/v1/rfx-events/{id}/versions/{version_id}", "get", "Get RFx questionnaire version detail", "RFx", True, True, "vl_detail"),
+    ("/api/v1/rfx-templates", "get", "List RFx templates", "RFx", True, True, "tl_list"),
+    ("/api/v1/rfx-templates", "post", "Create RFx template", "RFx", True, True, "tl_create"),
+    ("/api/v1/rfx-templates/{id}", "get", "Get RFx template detail", "RFx", True, True, "tl_detail"),
+    ("/api/v1/rfx-templates/{id}", "patch", "Update RFx template metadata", "RFx", True, True, "tl_update"),
+    ("/api/v1/rfx-templates/{id}", "delete", "Soft-delete draft-only RFx template", "RFx", True, True, "tl_delete"),
+    ("/api/v1/rfx-templates/{id}/archive", "post", "Archive RFx template", "RFx", True, True, "tl_archive"),
+    ("/api/v1/rfx-templates/{id}/versions/publish", "post", "Publish RFx template version", "RFx", True, True, "tl_publish"),
+    ("/api/v1/rfx-templates/{id}/versions/fork-draft", "post", "Fork RFx template draft from published", "RFx", True, True, "tl_fork_draft"),
+    ("/api/v1/rfx-templates/{id}/questionnaire", "get", "Get RFx template questionnaire", "RFx", True, True, "tl_questionnaire_get"),
+    ("/api/v1/rfx-templates/{id}/sections", "post", "Create RFx template section", "RFx", True, True, "tl_section_create"),
+    ("/api/v1/rfx-templates/{id}/sections/{section_id}", "patch", "Update RFx template section", "RFx", True, True, "tl_section_update"),
+    ("/api/v1/rfx-templates/{id}/sections/{section_id}", "delete", "Delete RFx template section", "RFx", True, True, "tl_section_delete"),
+    ("/api/v1/rfx-templates/{id}/sections/reorder", "post", "Reorder RFx template sections", "RFx", True, True, "tl_section_reorder"),
+    ("/api/v1/rfx-templates/{id}/questions", "post", "Create RFx template question", "RFx", True, True, "tl_question_create"),
+    ("/api/v1/rfx-templates/{id}/questions/{question_id}", "patch", "Update RFx template question", "RFx", True, True, "tl_question_update"),
+    ("/api/v1/rfx-templates/{id}/questions/{question_id}", "delete", "Delete RFx template question", "RFx", True, True, "tl_question_delete"),
+    ("/api/v1/rfx-templates/{id}/questions/{question_id}/duplicate", "post", "Duplicate RFx template question", "RFx", True, True, "tl_question_duplicate"),
+    ("/api/v1/rfx-templates/{id}/questions/reorder", "post", "Reorder RFx template questions", "RFx", True, True, "tl_question_reorder"),
+    ("/api/v1/rfx-templates/{id}/questions/{question_id}/options", "post", "Create RFx template question option", "RFx", True, True, "tl_option_create"),
+    ("/api/v1/rfx-templates/{id}/questions/{question_id}/options/{option_id}", "patch", "Update RFx template question option", "RFx", True, True, "tl_option_update"),
+    ("/api/v1/rfx-templates/{id}/questions/{question_id}/options/{option_id}", "delete", "Delete RFx template question option", "RFx", True, True, "tl_option_delete"),
+    ("/api/v1/rfx-templates/{id}/rules", "post", "Create RFx template rule", "RFx", True, True, "tl_rule_create"),
+    ("/api/v1/rfx-templates/{id}/rules/{rule_id}", "patch", "Update RFx template rule", "RFx", True, True, "tl_rule_update"),
+    ("/api/v1/rfx-templates/{id}/rules/{rule_id}", "delete", "Delete RFx template rule", "RFx", True, True, "tl_rule_delete"),
     ("/api/v1/rfx-events/{id}/carrier-response", "get", "Get carrier questionnaire response workspace", "RFx", True, True, "cr_workspace_get"),
     ("/api/v1/rfx-events/{id}/carrier-response/start", "post", "Start or resume carrier questionnaire response", "RFx", True, True, "cr_start"),
     ("/api/v1/rfx-events/{id}/carrier-response/answers", "patch", "Atomic batch autosave of carrier answers", "RFx", True, True, "cr_answers_patch"),
@@ -380,6 +404,9 @@ NO_REQUEST_BODY_PROFILES = frozenset({
     "q_validate_publish",
     "q_question_duplicate",
     "vl_fork_draft",
+    "tl_archive",
+    "tl_fork_draft",
+    "tl_delete",
 })
 
 QUESTIONNAIRE_NO_CONTENT_PROFILES = frozenset({
@@ -389,6 +416,13 @@ QUESTIONNAIRE_NO_CONTENT_PROFILES = frozenset({
     "q_question_reorder",
     "q_option_delete",
     "q_rule_delete",
+    "tl_delete",
+    "tl_section_delete",
+    "tl_section_reorder",
+    "tl_question_delete",
+    "tl_question_reorder",
+    "tl_option_delete",
+    "tl_rule_delete",
 })
 
 QUESTIONNAIRE_CREATED_PROFILES = frozenset({
@@ -399,6 +433,13 @@ QUESTIONNAIRE_CREATED_PROFILES = frozenset({
     "q_question_duplicate",
     "vl_fork_draft",
     "vl_restore_draft",
+    "tl_create",
+    "tl_fork_draft",
+    "tl_section_create",
+    "tl_question_create",
+    "tl_option_create",
+    "tl_rule_create",
+    "tl_question_duplicate",
 })
 
 QUESTIONNAIRE_OK_POST_PROFILES = frozenset({
@@ -407,15 +448,19 @@ QUESTIONNAIRE_OK_POST_PROFILES = frozenset({
     "vl_publish",
     "vl_compare",
     "vl_change_impact_preview",
+    "tl_publish",
+    "tl_archive",
 })
 
-VERSION_LIFECYCLE_422_PROFILES = frozenset({"vl_publish"})
+VERSION_LIFECYCLE_422_PROFILES = frozenset({"vl_publish", "tl_publish"})
 
 IDEMPOTENCY_HEADER_PROFILES = frozenset({
     "priced_transport_order_create",
     "vl_publish",
     "vl_fork_draft",
     "vl_restore_draft",
+    "tl_publish",
+    "tl_fork_draft",
 })
 
 CONTRACT_RATE_SCHEMA_REFS = {
@@ -457,6 +502,27 @@ QUESTIONNAIRE_REQUEST_BODIES = {
     "vl_change_impact_preview": """              $ref: '#/components/schemas/RfxChangeImpactPreviewRequest'""",
     "vl_compare": """              $ref: '#/components/schemas/RfxCompareVersionsRequest'""",
     "vl_restore_draft": """              $ref: '#/components/schemas/RfxRestoreVersionAsDraftRequest'""",
+}
+
+TEMPLATE_REQUEST_BODIES = {
+    "tl_create": """              $ref: '#/components/schemas/RfxCreateTemplateRequest'""",
+    "tl_update": """              $ref: '#/components/schemas/RfxUpdateTemplateRequest'""",
+    "tl_publish": """              $ref: '#/components/schemas/RfxPublishTemplateVersionRequest'""",
+    "tl_section_create": """              $ref: '#/components/schemas/RfxCreateSectionRequest'""",
+    "tl_section_update": """              $ref: '#/components/schemas/RfxUpdateSectionRequest'""",
+    "tl_section_delete": """              $ref: '#/components/schemas/RfxVersionedMutationRequest'""",
+    "tl_section_reorder": """              $ref: '#/components/schemas/RfxReorderSectionsRequest'""",
+    "tl_question_create": """              $ref: '#/components/schemas/RfxCreateTemplateQuestionRequest'""",
+    "tl_question_update": """              $ref: '#/components/schemas/RfxUpdateQuestionRequest'""",
+    "tl_question_delete": """              $ref: '#/components/schemas/RfxVersionedMutationRequest'""",
+    "tl_question_duplicate": """              $ref: '#/components/schemas/RfxDuplicateQuestionRequest'""",
+    "tl_question_reorder": """              $ref: '#/components/schemas/RfxReorderQuestionsRequest'""",
+    "tl_option_create": """              $ref: '#/components/schemas/RfxCreateOptionRequest'""",
+    "tl_option_update": """              $ref: '#/components/schemas/RfxUpdateOptionRequest'""",
+    "tl_option_delete": """              $ref: '#/components/schemas/RfxVersionedMutationRequest'""",
+    "tl_rule_create": """              $ref: '#/components/schemas/RfxCreateRuleRequest'""",
+    "tl_rule_update": """              $ref: '#/components/schemas/RfxUpdateRuleRequest'""",
+    "tl_rule_delete": """              $ref: '#/components/schemas/RfxVersionedMutationRequest'""",
 }
 
 CARRIER_RESPONSE_REQUEST_BODIES = {
@@ -503,6 +569,26 @@ QUESTIONNAIRE_RESPONSE_SCHEMAS = {
     "vl_restore_draft": "RfxVersionRecord",
 }
 
+TEMPLATE_RESPONSE_SCHEMAS = {
+    "tl_list": "RfxTemplateListResponse",
+    "tl_create": "RfxTemplateDetailResponse",
+    "tl_detail": "RfxTemplateDetailResponse",
+    "tl_update": "RfxTemplateRecord",
+    "tl_archive": "RfxTemplateRecord",
+    "tl_publish": "RfxTemplateVersionRecord",
+    "tl_fork_draft": "RfxTemplateVersionRecord",
+    "tl_questionnaire_get": "RfxTemplateQuestionnaireDefinition",
+    "tl_section_create": "RfxTemplateSection",
+    "tl_section_update": "RfxTemplateSection",
+    "tl_question_create": "RfxTemplateQuestion",
+    "tl_question_update": "RfxTemplateQuestion",
+    "tl_question_duplicate": "RfxTemplateQuestion",
+    "tl_option_create": "RfxTemplateQuestionOption",
+    "tl_option_update": "RfxTemplateQuestionOption",
+    "tl_rule_create": "RfxTemplateQuestionRule",
+    "tl_rule_update": "RfxTemplateQuestionRule",
+}
+
 READ_RESPONSE_SCHEMAS = {
     "payment_list": "PaymentListResponse",
     "payment_detail": "PaymentRecord",
@@ -510,6 +596,7 @@ READ_RESPONSE_SCHEMAS = {
     "payment_audit_list": "PaymentAuditEventListResponse",
     "payment_eligible_obligations_list": "EligiblePaymentObligationListResponse",
     **QUESTIONNAIRE_RESPONSE_SCHEMAS,
+    **TEMPLATE_RESPONSE_SCHEMAS,
     **CARRIER_RESPONSE_SCHEMAS,
 }
 
@@ -738,6 +825,8 @@ def render_operation(
             lines.append(CONTRACT_RATE_REQUEST_BODIES[profile])
         elif profile in QUESTIONNAIRE_REQUEST_BODIES:
             lines.append(QUESTIONNAIRE_REQUEST_BODIES[profile])
+        elif profile in TEMPLATE_REQUEST_BODIES:
+            lines.append(TEMPLATE_REQUEST_BODIES[profile])
         elif profile in CARRIER_RESPONSE_REQUEST_BODIES:
             lines.append(CARRIER_RESPONSE_REQUEST_BODIES[profile])
         elif profile == "priced_transport_order_create":
@@ -758,6 +847,17 @@ def render_operation(
                 "          application/json:",
                 "            schema:",
                 QUESTIONNAIRE_REQUEST_BODIES[profile],
+            ]
+        )
+    elif method == "delete" and profile in TEMPLATE_REQUEST_BODIES:
+        lines.extend(
+            [
+                "      requestBody:",
+                "        required: false",
+                "        content:",
+                "          application/json:",
+                "            schema:",
+                TEMPLATE_REQUEST_BODIES[profile],
             ]
         )
 
@@ -1411,7 +1511,11 @@ def questionnaire_entity_schemas_block() -> str:
 """
 
 
-def questionnaire_components_block(*, include_e1_version_lifecycle: bool = False) -> str:
+def questionnaire_components_block(
+    *,
+    include_e1_version_lifecycle: bool = False,
+    include_e4_template_library: bool = False,
+) -> str:
     parts = [
         questionnaire_prefix_schemas_block(),
     ]
@@ -1422,7 +1526,169 @@ def questionnaire_components_block(*, include_e1_version_lifecycle: bool = False
     else:
         parts.append(questionnaire_base_version_record_block())
     parts.append(questionnaire_entity_schemas_block())
+    if include_e4_template_library:
+        parts.append(template_library_components_block())
     return "".join(parts)
+
+
+def template_library_components_block() -> str:
+    return """    RfxCreateTemplateRequest:
+      type: object
+      required: [template_code, name_i18n]
+      properties:
+        template_code: {type: string, maxLength: 128}
+        name_i18n: {type: object, additionalProperties: {type: string}}
+        description_i18n: {type: object, additionalProperties: {type: string}}
+        rfx_type: {type: string}
+        owner_company_id: {type: string, format: uuid}
+    RfxUpdateTemplateRequest:
+      type: object
+      required: [expected_version]
+      properties:
+        name_i18n: {type: object, additionalProperties: {type: string}}
+        description_i18n: {type: object, additionalProperties: {type: string}}
+        rfx_type: {type: string}
+        expected_version: {type: integer, minimum: 1}
+    RfxPublishTemplateVersionRequest:
+      type: object
+      required: [expected_template_version, expected_draft_version, change_summary]
+      properties:
+        expected_template_version: {type: integer, minimum: 1}
+        expected_draft_version: {type: integer, minimum: 1}
+        change_summary: {type: string, minLength: 1}
+    RfxTemplateRecord:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        tenant_id: {type: string, format: uuid}
+        template_code: {type: string}
+        name_i18n: {type: object, additionalProperties: {type: string}}
+        description_i18n: {type: object, additionalProperties: {type: string}, nullable: true}
+        rfx_type: {type: string, nullable: true}
+        owner_company_id: {type: string, format: uuid, nullable: true}
+        status: {type: string, enum: [ACTIVE, ARCHIVED]}
+        version: {type: integer}
+        created_by: {type: string, format: uuid}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+    RfxTemplateVersionRecord:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        tenant_id: {type: string, format: uuid}
+        template_id: {type: string, format: uuid}
+        version_number: {type: integer}
+        status: {type: string, enum: [DRAFT, PUBLISHED, SUPERSEDED]}
+        change_summary: {type: string, nullable: true}
+        is_active_draft: {type: boolean}
+        is_published: {type: boolean}
+        published_at: {type: string, format: date-time, nullable: true}
+        published_by: {type: string, format: uuid, nullable: true}
+        created_by: {type: string, format: uuid}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        version: {type: integer}
+    RfxTemplateDetailResponse:
+      type: object
+      properties:
+        template:
+          $ref: '#/components/schemas/RfxTemplateRecord'
+        draft_version:
+          $ref: '#/components/schemas/RfxTemplateVersionRecord'
+        published_version:
+          $ref: '#/components/schemas/RfxTemplateVersionRecord'
+        versions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxTemplateVersionRecord'
+    RfxTemplateListResponse:
+      allOf:
+        - $ref: '#/components/schemas/PaginatedResponse'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/RfxTemplateRecord'
+    RfxCreateTemplateQuestionRequest:
+      allOf:
+        - $ref: '#/components/schemas/RfxCreateQuestionRequest'
+        - type: object
+          required: [section_id]
+          properties:
+            section_id: {type: string, format: uuid}
+    RfxTemplateSection:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        tenant_id: {type: string, format: uuid}
+        template_id: {type: string, format: uuid}
+        rfx_template_version_id: {type: string, format: uuid}
+        section_code: {type: string}
+        title: {type: string}
+        description: {type: string, nullable: true}
+        sort_order: {type: integer}
+        version: {type: integer}
+    RfxTemplateQuestion:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        section_id: {type: string, format: uuid}
+        question_code: {type: string}
+        question_type: {type: string}
+        label: {type: string}
+        required: {type: boolean}
+        validation_rule_json: {type: object, additionalProperties: true}
+        sort_order: {type: integer}
+        version: {type: integer}
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxTemplateQuestionOption'
+    RfxTemplateQuestionOption:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        question_id: {type: string, format: uuid}
+        option_code: {type: string}
+        label: {type: string}
+        sort_order: {type: integer}
+        version: {type: integer}
+    RfxTemplateQuestionRule:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        template_id: {type: string, format: uuid}
+        rfx_template_version_id: {type: string, format: uuid}
+        rule_code: {type: string}
+        action: {type: string, enum: [SHOW, HIDE, REQUIRE]}
+        target_question_id: {type: string, format: uuid, nullable: true}
+        condition_json: {type: object, additionalProperties: true}
+        sort_order: {type: integer}
+        version: {type: integer}
+    RfxTemplateQuestionnaireDefinition:
+      type: object
+      properties:
+        template_id: {type: string, format: uuid}
+        rfx_template_version_id: {type: string, format: uuid}
+        version_number: {type: integer}
+        version_status: {type: string}
+        sections:
+          type: array
+          items:
+            type: object
+            properties:
+              section:
+                $ref: '#/components/schemas/RfxTemplateSection'
+              questions:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RfxTemplateQuestion'
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxTemplateQuestionRule'
+"""
 
 
 def carrier_components_block() -> str:
@@ -1532,9 +1798,16 @@ def carrier_components_block() -> str:
 """
 
 
-def global_components_block(*, include_e1_version_lifecycle: bool = False) -> str:
+def global_components_block(
+    *,
+    include_e1_version_lifecycle: bool = False,
+    include_e4_template_library: bool = False,
+) -> str:
     rfx_components = (
-        questionnaire_components_block(include_e1_version_lifecycle=include_e1_version_lifecycle)
+        questionnaire_components_block(
+            include_e1_version_lifecycle=include_e1_version_lifecycle,
+            include_e4_template_library=include_e4_template_library,
+        )
         + carrier_components_block()
     )
     return """
@@ -1955,8 +2228,16 @@ def payment_components_block() -> str:
 """
 
 
-def components_block(*, include_payment_components: bool = False, include_e1_version_lifecycle: bool = False) -> str:
-    block = global_components_block(include_e1_version_lifecycle=include_e1_version_lifecycle)
+def components_block(
+    *,
+    include_payment_components: bool = False,
+    include_e1_version_lifecycle: bool = False,
+    include_e4_template_library: bool = False,
+) -> str:
+    block = global_components_block(
+        include_e1_version_lifecycle=include_e1_version_lifecycle,
+        include_e4_template_library=include_e4_template_library,
+    )
     if include_payment_components:
         block = block.rstrip() + "\n" + payment_components_block()
     return block
@@ -1969,6 +2250,7 @@ def build_spec(
     *,
     include_payment_components: bool = False,
     include_e1_version_lifecycle: bool = False,
+    include_e4_template_library: bool = False,
 ) -> str:
     tags_yaml = "\n".join(f"  - name: {tag}" for tag in TAGS)
     return (
@@ -1985,7 +2267,7 @@ tags:
 {tags_yaml}
 paths:
 {render_paths(endpoints)}
-{components_block(include_payment_components=include_payment_components, include_e1_version_lifecycle=include_e1_version_lifecycle)}
+{components_block(include_payment_components=include_payment_components, include_e1_version_lifecycle=include_e1_version_lifecycle, include_e4_template_library=include_e4_template_library)}
 """
     ).strip() + "\n"
 
@@ -2014,6 +2296,7 @@ def main() -> None:
         ENDPOINTS,
         include_payment_components=True,
         include_e1_version_lifecycle=True,
+        include_e4_template_library=True,
     )
     (OPENAPI_DIR / "openapi.yaml").write_text(unified, encoding="utf-8")
 
@@ -2026,6 +2309,7 @@ def main() -> None:
             service_endpoints,
             include_payment_components=(filename == "payment-service.yaml"),
             include_e1_version_lifecycle=(filename == "rfx-service.yaml"),
+            include_e4_template_library=(filename == "rfx-service.yaml"),
         )
         (OPENAPI_DIR / filename).write_text(spec, encoding="utf-8")
 
