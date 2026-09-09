@@ -26,11 +26,20 @@ func mutateTemplateDraftGraph(t *testing.T, env *testEnv, fix buyerFixture, temp
 	if err != nil {
 		t.Fatalf("load template draft graph: %v", err)
 	}
-	if _, err := env.templateQSvc.CreateSection(ctx, fix.BuyerA, templateID, domain.CreateSectionInput{
+	mutatedSection, err := env.templateQSvc.CreateSection(ctx, fix.BuyerA, templateID, domain.CreateSectionInput{
 		SectionCode: "MUTATED",
 		Title:       "Mutated Section",
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("add template section: %v", err)
+	}
+	if _, err := env.templateQSvc.CreateQuestion(ctx, fix.BuyerA, templateID, mutatedSection.ID, domain.CreateQuestionInput{
+		QuestionCode: "EXTRA_NOTES",
+		QuestionType: domain.QuestionTypeText,
+		Label:        "Extra notes",
+		Required:     false,
+	}); err != nil {
+		t.Fatalf("add template question: %v", err)
 	}
 	fleetQ := findTemplateQuestionByCode(t, draftGraph, "FLEET_SIZE")
 	newLabel := "Fleet size (mutated)"
@@ -47,12 +56,12 @@ func mutateTemplateDraftGraph(t *testing.T, env *testEnv, fix buyerFixture, temp
 	}); err != nil {
 		t.Fatalf("add template option: %v", err)
 	}
-	target := "FLEET_SIZE"
+	target := "EXTRA_NOTES"
 	if _, err := env.templateQSvc.CreateRule(ctx, fix.BuyerA, templateID, domain.CreateQuestionRuleInput{
 		RuleCode:           "MUTATED_RULE",
-		Action:             domain.RuleActionShow,
+		Action:             domain.RuleActionRequire,
 		TargetQuestionCode: &target,
-		ConditionJSON:      json.RawMessage(`{"operator":"EQUALS","source_question_code":"COVERAGE","value":"NONE"}`),
+		ConditionJSON:      json.RawMessage(`{"operator":"EQUALS","source_question_code":"FLEET_SIZE","value":"99"}`),
 	}); err != nil {
 		t.Fatalf("add template rule: %v", err)
 	}
@@ -69,11 +78,20 @@ func mutateEventDraftGraph(t *testing.T, env *testEnv, fix buyerFixture, eventID
 	if err != nil {
 		t.Fatalf("load event draft graph: %v", err)
 	}
-	if _, err := env.qSvc.CreateSection(ctx, fix.BuyerA, eventID, domain.CreateSectionInput{
+	mutatedSection, err := env.qSvc.CreateSection(ctx, fix.BuyerA, eventID, domain.CreateSectionInput{
 		SectionCode: "EVENT_MUTATED",
 		Title:       "Event Mutated Section",
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("add event section: %v", err)
+	}
+	if _, err := env.qSvc.CreateQuestion(ctx, fix.BuyerA, eventID, mutatedSection.ID, domain.CreateQuestionInput{
+		QuestionCode: "EXTRA_NOTES",
+		QuestionType: domain.QuestionTypeText,
+		Label:        "Extra notes",
+		Required:     false,
+	}); err != nil {
+		t.Fatalf("add event question: %v", err)
 	}
 	fleetQ := findEventQuestionByCode(t, eventGraph, "FLEET_SIZE")
 	newLabel := "Fleet size (event mutated)"
@@ -90,12 +108,12 @@ func mutateEventDraftGraph(t *testing.T, env *testEnv, fix buyerFixture, eventID
 	}); err != nil {
 		t.Fatalf("add event option: %v", err)
 	}
-	target := "FLEET_SIZE"
+	target := "EXTRA_NOTES"
 	if _, err := env.qSvc.CreateRule(ctx, fix.BuyerA, eventID, domain.CreateQuestionRuleInput{
 		RuleCode:           "EVENT_MUTATED_RULE",
-		Action:             domain.RuleActionShow,
+		Action:             domain.RuleActionRequire,
 		TargetQuestionCode: &target,
-		ConditionJSON:      json.RawMessage(`{"operator":"EQUALS","source_question_code":"COVERAGE","value":"NONE"}`),
+		ConditionJSON:      json.RawMessage(`{"operator":"EQUALS","source_question_code":"FLEET_SIZE","value":"99"}`),
 	}); err != nil {
 		t.Fatalf("add event rule: %v", err)
 	}
