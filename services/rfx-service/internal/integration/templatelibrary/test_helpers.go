@@ -1137,6 +1137,77 @@ func populateTemplateGraphWithOptions(t *testing.T, env *testEnv, fix buyerFixtu
 	}
 }
 
+func populateRichTemplateGraphForCloneTests(t *testing.T, env *testEnv, fix buyerFixture, templateID uuid.UUID) {
+	t.Helper()
+	ctx := context.Background()
+	generalDesc := "General requirements"
+	fleetHelp := "Enter fleet count"
+	section, err := env.templateQSvc.CreateSection(ctx, fix.BuyerA, templateID, domain.CreateSectionInput{
+		SectionCode: "GENERAL",
+		Title:       "General",
+		Description: &generalDesc,
+	})
+	if err != nil {
+		t.Fatalf("create template general section: %v", err)
+	}
+	if _, err := env.templateQSvc.CreateQuestion(ctx, fix.BuyerA, templateID, section.ID, domain.CreateQuestionInput{
+		QuestionCode:       "FLEET_SIZE",
+		QuestionType:       domain.QuestionTypeText,
+		Label:              "Fleet size",
+		HelpText:           &fleetHelp,
+		Required:           true,
+		ValidationRuleJSON: json.RawMessage(`{"min":1}`),
+	}); err != nil {
+		t.Fatalf("create template fleet question: %v", err)
+	}
+	detailsSection, err := env.templateQSvc.CreateSection(ctx, fix.BuyerA, templateID, domain.CreateSectionInput{
+		SectionCode: "DETAILS",
+		Title:       "Details",
+	})
+	if err != nil {
+		t.Fatalf("create template details section: %v", err)
+	}
+	coverageQ, err := env.templateQSvc.CreateQuestion(ctx, fix.BuyerA, templateID, detailsSection.ID, domain.CreateQuestionInput{
+		QuestionCode: "COVERAGE",
+		QuestionType: domain.QuestionTypeSingleSelect,
+		Label:        "Coverage",
+		Required:     true,
+	})
+	if err != nil {
+		t.Fatalf("create template coverage question: %v", err)
+	}
+	for _, opt := range []struct {
+		code, label string
+	}{
+		{"FULL", "Full"},
+		{"PARTIAL", "Partial"},
+	} {
+		if _, err := env.templateQSvc.CreateOption(ctx, fix.BuyerA, templateID, coverageQ.ID, domain.CreateQuestionOptionInput{
+			OptionCode: opt.code,
+			Label:      opt.label,
+		}); err != nil {
+			t.Fatalf("create template option %s: %v", opt.code, err)
+		}
+	}
+	target := "COVERAGE"
+	if _, err := env.templateQSvc.CreateRule(ctx, fix.BuyerA, templateID, domain.CreateQuestionRuleInput{
+		RuleCode:           "REQ_COVERAGE",
+		Action:             domain.RuleActionRequire,
+		TargetQuestionCode: &target,
+		ConditionJSON:      json.RawMessage(`{"operator":"EQUALS","source_question_code":"FLEET_SIZE","value":"10"}`),
+	}); err != nil {
+		t.Fatalf("create template rule: %v", err)
+	}
+}
+
+func setupPublishedRichTemplate(t *testing.T, env *testEnv, fix buyerFixture, code string, owner *uuid.UUID) (*domain.TemplateDetail, *domain.RfxTemplateVersion) {
+	t.Helper()
+	detail := createTemplate(t, env, fix, code, owner)
+	populateRichTemplateGraphForCloneTests(t, env, fix, detail.Template.ID)
+	published := publishTemplate(t, env, fix, detail.Template.ID, uuid.NewString())
+	return detail, published
+}
+
 func populateTemplateGraphWithRule(t *testing.T, env *testEnv, fix buyerFixture, templateID uuid.UUID, withRule bool) {
 	t.Helper()
 	ctx := context.Background()

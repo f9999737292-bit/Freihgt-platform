@@ -173,28 +173,24 @@ func TestE5INT13SupersededCloneUsesExactVersion(t *testing.T) {
 func TestE5INT14DeepGraphEqualityByCodes(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
-	detail, published := setupPublishedTemplate(t, env, fix, "e5-int-14", nil)
-	tmplGraph, _ := env.tmplQRepo.LoadQuestionnaire(context.Background(), detail.Template.ID, published.ID, fix.TenantID)
+	detail, published := setupPublishedRichTemplate(t, env, fix, "e5-int-14", nil)
+	tmplCanonical, tmplGraph := loadTemplateGraphSnapshot(t, env, fix, detail.Template.ID, published.ID)
 	result := cloneFromTemplate(t, env, fix.BuyerA, published.ID, defaultCloneEventInput("RFQ-E5-14", fix.CompanyA), uuid.NewString())
-	eventGraph, _ := env.qRepo.LoadQuestionnaire(context.Background(), result.DraftVersion.ID, fix.TenantID)
-	if len(tmplGraph.Sections) != len(eventGraph.Sections) {
-		t.Fatalf("section count mismatch")
-	}
-	if tmplGraph.Sections[0].Section.SectionCode != eventGraph.Sections[0].Section.SectionCode {
-		t.Fatal("section code mismatch")
-	}
+	eventCanonical, eventGraph := loadEventGraphSnapshot(t, env, fix, result.DraftVersion.ID)
+	assertCanonicalGraphEqual(t, tmplCanonical, eventCanonical)
+	assertTemplateAndEventCanonicalEqual(t, tmplGraph, eventGraph)
 }
 
 func TestE5INT15EventGraphUUIDsAreNew(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
-	detail, published := setupPublishedTemplate(t, env, fix, "e5-int-15", nil)
-	tmplGraph, _ := env.tmplQRepo.LoadQuestionnaire(context.Background(), detail.Template.ID, published.ID, fix.TenantID)
+	detail, published := setupPublishedRichTemplate(t, env, fix, "e5-int-15", nil)
+	_, tmplGraph := loadTemplateGraphSnapshot(t, env, fix, detail.Template.ID, published.ID)
 	result := cloneFromTemplate(t, env, fix.BuyerA, published.ID, defaultCloneEventInput("RFQ-E5-15", fix.CompanyA), uuid.NewString())
-	eventGraph, _ := env.qRepo.LoadQuestionnaire(context.Background(), result.DraftVersion.ID, fix.TenantID)
-	if tmplGraph.Sections[0].Questions[0].ID == eventGraph.Sections[0].Questions[0].ID {
-		t.Fatal("question UUID must differ from template")
-	}
+	_, eventGraph := loadEventGraphSnapshot(t, env, fix, result.DraftVersion.ID)
+	assertGraphUUIDSetsDisjoint(t, tmplGraph, eventGraph)
+	assertEventGraphUsesNoTemplateUUIDs(t, tmplGraph, eventGraph)
+	assertEventRuleTargetsAreEventLocal(t, eventGraph)
 }
 
 func TestE5INT16RuleTargetsRemapped(t *testing.T) {
@@ -223,30 +219,34 @@ func TestE5INT16RuleTargetsRemapped(t *testing.T) {
 func TestE5INT17TemplateMutationDoesNotAffectClonedEvent(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
-	detail, published := setupPublishedTemplate(t, env, fix, "e5-int-17", nil)
+	detail, published := setupPublishedRichTemplate(t, env, fix, "e5-int-17", nil)
+	_, tmplGraph := loadTemplateGraphSnapshot(t, env, fix, detail.Template.ID, published.ID)
 	result := cloneFromTemplate(t, env, fix.BuyerA, published.ID, defaultCloneEventInput("RFQ-E5-17", fix.CompanyA), uuid.NewString())
+	eventBefore, _ := loadEventGraphSnapshot(t, env, fix, result.DraftVersion.ID)
 	if _, err := env.templateSvc.ForkDraftFromPublished(context.Background(), fix.BuyerA, detail.Template.ID, uuid.NewString()); err != nil {
 		t.Fatalf("fork template: %v", err)
 	}
-	eventGraphBefore, _ := env.qRepo.LoadQuestionnaire(context.Background(), result.DraftVersion.ID, fix.TenantID)
-	eventGraphAfter, _ := env.qRepo.LoadQuestionnaire(context.Background(), result.DraftVersion.ID, fix.TenantID)
-	if len(eventGraphBefore.Sections) != len(eventGraphAfter.Sections) {
-		t.Fatal("cloned event graph changed after template mutation")
-	}
+	mutateTemplateDraftGraph(t, env, fix, detail.Template.ID)
+	eventAfter, eventGraph := loadEventGraphSnapshot(t, env, fix, result.DraftVersion.ID)
+	assertCanonicalGraphEqual(t, eventBefore, eventAfter)
+	assertEventGraphUsesNoTemplateUUIDs(t, tmplGraph, eventGraph)
 }
 
 func TestE5INT18EventMutationDoesNotAffectTemplate(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
-	detail, published := setupPublishedTemplate(t, env, fix, "e5-int-18", nil)
-	tmplBefore, _ := env.tmplQRepo.LoadQuestionnaire(context.Background(), detail.Template.ID, published.ID, fix.TenantID)
+	detail, published := setupPublishedRichTemplate(t, env, fix, "e5-int-18", nil)
+	_, tmplGraphDef := loadTemplateGraphSnapshot(t, env, fix, detail.Template.ID, published.ID)
+	templateBefore := capturePublishedTemplateContract(tmplGraphDef, published)
 	result := cloneFromTemplate(t, env, fix.BuyerA, published.ID, defaultCloneEventInput("RFQ-E5-18", fix.CompanyA), uuid.NewString())
-	section, _ := env.qSvc.CreateSection(context.Background(), fix.BuyerA, result.Event.ID, domain.CreateSectionInput{SectionCode: "NEW", Title: "New"})
-	_ = section
-	tmplAfter, _ := env.tmplQRepo.LoadQuestionnaire(context.Background(), detail.Template.ID, published.ID, fix.TenantID)
-	if len(tmplBefore.Sections) != len(tmplAfter.Sections) {
-		t.Fatal("template graph changed after event mutation")
+	mutateEventDraftGraph(t, env, fix, result.Event.ID)
+	_, tmplGraphAfterDef := loadTemplateGraphSnapshot(t, env, fix, detail.Template.ID, published.ID)
+	reloadedPublished, err := env.tmplRepo.GetVersionByID(context.Background(), published.ID, fix.TenantID)
+	if err != nil {
+		t.Fatalf("reload published version: %v", err)
 	}
+	templateAfter := capturePublishedTemplateContract(tmplGraphAfterDef, reloadedPublished)
+	assertPublishedTemplateContractUnchanged(t, templateBefore, templateAfter)
 }
 
 func TestE5INT19ScoringNotCopied(t *testing.T) {
@@ -263,17 +263,9 @@ func TestE5INT19ScoringNotCopied(t *testing.T) {
 func TestE5INT20NoResponsesInvitationsOffersResults(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
-	_, published := setupPublishedTemplate(t, env, fix, "e5-int-20", nil)
+	_, published := setupPublishedRichTemplate(t, env, fix, "e5-int-20", nil)
 	result := cloneFromTemplate(t, env, fix.BuyerA, published.ID, defaultCloneEventInput("RFQ-E5-20", fix.CompanyA), uuid.NewString())
-	for _, query := range []string{
-		`SELECT COUNT(*) FROM rfx.rfx_responses WHERE rfx_event_id=$1`,
-		`SELECT COUNT(*) FROM rfx.rfx_participants WHERE rfx_event_id=$1`,
-	} {
-		var count int
-		if err := env.pool.QueryRow(context.Background(), query, result.Event.ID).Scan(&count); err != nil || count != 0 {
-			t.Fatalf("unexpected rows for %s: %d err=%v", query, count, err)
-		}
-	}
+	assertNoCloneBusinessArtifacts(t, env, fix, result.Event.ID, result.DraftVersion.ID)
 }
 
 func TestE5INT21SameKeySameBodyReplaysEvent(t *testing.T) {
