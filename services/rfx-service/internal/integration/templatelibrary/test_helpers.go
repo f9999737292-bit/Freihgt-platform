@@ -951,23 +951,33 @@ func populateTemplateGraphWithRule(t *testing.T, env *testEnv, fix buyerFixture,
 	if err != nil {
 		t.Fatalf("create template section: %v", err)
 	}
-	if _, err := env.templateQSvc.CreateQuestion(ctx, fix.BuyerA, templateID, section.ID, domain.CreateQuestionInput{
+	fleetQ, err := env.templateQSvc.CreateQuestion(ctx, fix.BuyerA, templateID, section.ID, domain.CreateQuestionInput{
 		QuestionCode: "FLEET_SIZE",
 		QuestionType: domain.QuestionTypeText,
 		Label:        "Fleet size",
 		Required:     true,
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("create template question: %v", err)
 	}
 	if !withRule {
 		return
 	}
-	target := "FLEET_SIZE"
+	if _, err := env.templateQSvc.CreateQuestion(ctx, fix.BuyerA, templateID, section.ID, domain.CreateQuestionInput{
+		QuestionCode: "NOTES",
+		QuestionType: domain.QuestionTypeText,
+		Label:        "Notes",
+		Required:     false,
+	}); err != nil {
+		t.Fatalf("create template target question: %v", err)
+	}
+	target := "NOTES"
+	_ = fleetQ
 	if _, err := env.templateQSvc.CreateRule(ctx, fix.BuyerA, templateID, domain.CreateQuestionRuleInput{
-		RuleCode:           "REQ_FLEET",
+		RuleCode:           "REQ_NOTES",
 		Action:             domain.RuleActionRequire,
 		TargetQuestionCode: &target,
-		ConditionJSON:      json.RawMessage(`{"operator":"EQUALS","source_question_code":"FLEET_SIZE","value":"1"}`),
+		ConditionJSON:      json.RawMessage(`{"operator":"EQUALS","source_question_code":"FLEET_SIZE","value":"10"}`),
 	}); err != nil {
 		t.Fatalf("create template rule: %v", err)
 	}

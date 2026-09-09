@@ -76,7 +76,8 @@ func TestE5INT05CrossTenantSourceNotFound(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
 	_, published := setupPublishedTemplate(t, env, fix, "e5-int-05", &fix.CompanyA)
-	_, err := env.cloneSvc.CloneEventFromTemplate(context.Background(), fix.CrossTenant, published.ID, defaultCloneEventInput("RFQ-E5-05", fix.CompanyA), uuid.NewString())
+	in := defaultCloneEventInput("RFQ-E5-05", uuid.Nil)
+	_, err := env.cloneSvc.CloneEventFromTemplate(context.Background(), fix.CrossTenant, published.ID, in, uuid.NewString())
 	expectAppErrorCode(t, err, apperrors.CodeNotFound)
 }
 
@@ -343,7 +344,8 @@ func TestE5INT24ExpiredKeyReuse(t *testing.T) {
 		fix.TenantID, published.ID, key, time.Now().UTC().Add(-time.Hour), domain.TemplateCloneOperationCloneEventFromTemplate); err != nil {
 		t.Fatalf("expire idempotency: %v", err)
 	}
-	second := cloneFromTemplate(t, env, fix.BuyerA, published.ID, in, key)
+	secondIn := defaultCloneEventInput("RFQ-E5-24-REUSE", fix.CompanyA)
+	second := cloneFromTemplate(t, env, fix.BuyerA, published.ID, secondIn, key)
 	if first.Event.ID == second.Event.ID {
 		t.Fatal("expired key reuse must create a new event")
 	}
@@ -415,13 +417,8 @@ func TestE5INT30CompositeProvenanceFKRejectsCrossTenantPointer(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
 	_, published := setupPublishedTemplate(t, env, fix, "e5-int-30", nil)
-	foreignCompany := uuid.New()
-	if _, err := env.pool.Exec(context.Background(), `INSERT INTO core.companies (id, tenant_id, legal_name, company_type) VALUES ($1,$2,$3,$4)`,
-		foreignCompany, fix.OtherTenantID, "Foreign Co", "SHIPPER"); err != nil {
-		t.Fatalf("seed foreign company: %v", err)
-	}
 	foreignEvent, err := env.rfxSvc.CreateEvent(context.Background(), fix.CrossTenant, domain.CreateRfxEventInput{
-		TenantID: fix.OtherTenantID, OwnerCompanyID: foreignCompany, Title: "Foreign", RfxType: "SPOT_RFQ", Category: "FREIGHT", RfxNumber: "RFQ-FK",
+		TenantID: fix.OtherTenantID, OwnerCompanyID: uuid.Nil, Title: "Foreign", RfxType: "SPOT_RFQ", Category: "FREIGHT", RfxNumber: "RFQ-FK",
 	})
 	if err != nil {
 		t.Fatalf("create foreign event: %v", err)
