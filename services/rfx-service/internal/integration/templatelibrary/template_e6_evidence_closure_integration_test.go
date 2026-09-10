@@ -135,14 +135,14 @@ func TestE6EV03EventProvenanceLifecycleAndNoLeakage(t *testing.T) {
 	assertHTTPEventProvenanceExact(t, supRec, published, detail.Template.TemplateCode, true)
 
 	carrierRec := getEventHTTPWithActor(t, env, e6EnabledConfig(), fix.CarrierAct, cloneResult.Event.ID)
-	if carrierRec.Code != http.StatusOK {
-		t.Fatalf("carrier event GET: %d body=%s", carrierRec.Code, carrierRec.Body.String())
-	}
-	assertHTTPEventOmitsProvenance(t, carrierRec)
+	expectHTTPErrorCode(t, carrierRec, http.StatusNotFound, apperrors.CodeNotFound)
 
 	carrierProv, err := env.rfxSvc.GetEventProvenance(context.Background(), fix.CarrierAct, cloneResult.Event.ID)
 	if err == nil && carrierProv != nil {
 		t.Fatalf("carrier PG provenance leak: %+v", carrierProv)
+	}
+	if err != nil {
+		expectAppErrorCode(t, err, apperrors.CodeNotFound)
 	}
 
 	crossRec := getEventHTTPWithActor(t, env, e6EnabledConfig(), fix.CrossTenant, cloneResult.Event.ID)

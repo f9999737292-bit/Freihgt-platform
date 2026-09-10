@@ -70,6 +70,12 @@ func normalizeJSONField(raw json.RawMessage) string {
 	if err := json.Unmarshal(raw, &decoded); err != nil {
 		return string(raw)
 	}
+	if decoded == nil {
+		return ""
+	}
+	if obj, ok := decoded.(map[string]any); ok && len(obj) == 0 {
+		return ""
+	}
 	normalized, err := json.Marshal(decoded)
 	if err != nil {
 		return string(raw)
