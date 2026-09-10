@@ -11,6 +11,7 @@
     "transportOrders": "Заявки на перевозку",
     "freightRequests": "Мини-тендеры",
     "rfx": "RFx / Тендеры",
+    "rfxTemplates": "Шаблоны RFx",
     "shipments": "Перевозки",
     "documents": "Документы",
     "billingRegisters": "Реестры биллинга",
@@ -46,7 +47,10 @@
     "next": "Далее",
     "submit": "Отправить",
     "type": "Тип",
-    "name": "Название"
+    "name": "Название",
+    "open": "Открыть",
+    "select": "Выберите…",
+    "loadFailed": "Не удалось загрузить"
   },
   "login": {
     "title": "Вход в систему",
@@ -326,6 +330,7 @@
         "evaluation": "Оценка",
         "communications": "Коммуникации",
         "validation": "Проверка",
+        "versionHistory": "История версий",
         "publication": "Публикация"
       },
       "scoring": {
@@ -449,7 +454,111 @@
         "PERCENT": "Процент",
         "RATING": "Рейтинг"
       }
-    }
+    },
+    "templates": {
+      "libraryTitle": "Библиотека шаблонов RFx",
+      "librarySubtitle": "Переиспользуемые шаблоны закупщика для enterprise-тендеров",
+      "create": "Создать шаблон",
+      "search": "Поиск шаблонов",
+      "empty": "Шаблоны не найдены",
+      "backToLibrary": "К библиотеке",
+      "backToTemplate": "К шаблону",
+      "versionHistory": "История версий",
+      "versionHistoryTitle": "История версий шаблона",
+      "readOnly": "Эта версия шаблона только для чтения",
+      "fork": "Создать новый черновик",
+      "fork.success": "Черновик создан",
+      "aggregateStatus": { "ACTIVE": "Активен", "ARCHIVED": "В архиве" },
+      "versionStatus": { "DRAFT": "Черновик", "PUBLISHED": "Опубликован", "SUPERSEDED": "Заменён" },
+      "columns": { "name": "Название", "code": "Код", "status": "Статус", "updated": "Изменён" },
+      "publish": { "action": "Опубликовать шаблон", "changeSummary": "Описание изменений", "success": "Шаблон опубликован" },
+      "archive": { "action": "Архивировать", "success": "Шаблон архивирован" },
+      "readiness": { "noSections": "Добавьте хотя бы один раздел перед публикацией" },
+      "clone": {
+        "title": "Создать RFx из шаблона",
+        "selectTemplate": "Шаблон",
+        "selectVersion": "Опубликованная версия",
+        "supersededWarning": "Выбрана заменённая версия. Будет показано предупреждение.",
+        "submit": "Создать черновик RFx",
+        "success": "RFx создан из шаблона",
+        "replay": "Повтор idempotency вернул событие {id}"
+      }
+    },
+    "versions": {
+      "title": "История версий RFx",
+      "back": "К версиям",
+      "status": { "DRAFT": "Черновик", "PUBLISHED": "Опубликован", "SUPERSEDED": "Заменён", "ARCHIVED": "В архиве" },
+      "columns": { "number": "Версия", "status": "Статус", "publishedAt": "Опубликован", "summary": "Описание изменений" }
+    },
+    "compare": {
+      "title": "Сравнение версий",
+      "open": "Сравнить версии",
+      "from": "Из версии",
+      "to": "В версию",
+      "run": "Сравнить",
+      "swap": "Поменять направление",
+      "direction": "ИЗ v{from} → В v{to}",
+      "diffHash": "Канонический hash diff",
+      "noData": "Выберите версии для сравнения",
+      "noDifferences": "Различий нет",
+      "added": "Добавлено",
+      "removed": "Удалено",
+      "changed": "Изменено",
+      "reordered": "Переупорядочено",
+      "change": {
+        "ADDED": "Добавлено",
+        "REMOVED": "Удалено",
+        "CHANGED": "Изменено",
+        "REORDERED": "Переупорядочено",
+        "UNCHANGED": "Без изменений"
+      }
+    },
+    "restore": {
+      "title": "Восстановить как новый черновик",
+      "sourceVersion": "Исходная версия v{number}",
+      "warning": "История не перематывается. Будет создан новый черновик.",
+      "changeSummary": "Описание изменений",
+      "confirm": "Восстановить черновик",
+      "action": "Восстановить как черновик",
+      "success": "Черновик восстановлен"
+    },
+    "changeImpact": {
+      "loading": "Анализ влияния изменений…",
+      "noAnalysis": "Запустите preview перед повторной публикацией",
+      "expiresAt": "Анализ действителен до",
+      "draftResponses": "Затронуто черновых ответов",
+      "submittedResponses": "Затронуто отправленных ответов",
+      "scoringAffecting": "Может измениться конфигурация скоринга",
+      "knockoutAffecting": "Могут измениться knockout-правила",
+      "rescoringRequired": "После публикации потребуется пересчёт",
+      "confirmRepublish": "Подтвердить повторную публикацию",
+      "classes": {
+        "NON_MATERIAL": "Несущественное изменение",
+        "MATERIAL_NO_RESPONSES": "Существенное — ответов нет",
+        "MATERIAL_WITH_DRAFT_RESPONSES": "Существенное — есть черновые ответы",
+        "MATERIAL_WITH_SUBMITTED_RESPONSES": "Существенное — есть отправленные ответы",
+        "SCORING_AFFECTING": "Влияет на скоринг",
+        "KNOCKOUT_AFFECTING": "Влияет на knockout"
+      }
+    },
+    "errors": {
+      "badRequest": "Некорректный запрос",
+      "unauthorized": "Требуется повторная аутентификация",
+      "forbidden": "Недостаточно прав",
+      "notFound": "Объект не найден или недоступен",
+      "conflict": "Конфликт — обновите данные и повторите",
+      "validation": "Ошибка бизнес-валидации",
+      "versionConflict": "Версия изменилась на сервере",
+      "statusConflict": "Статус больше не позволяет действие",
+      "idempotencyConflict": "Idempotency-ключ использован с другим телом",
+      "draftAlreadyExists": "Активный черновик уже существует",
+      "staleDiff": "Diff устарел — повторите impact preview",
+      "impactAnalysisConsumed": "Анализ влияния уже использован",
+      "impactAnalysisExpired": "Анализ влияния истёк",
+      "templateArchived": "Шаблон архивирован",
+      "templateDraftOnly": "Событие можно создать только из опубликованной версии"
+    },
+    "backToDetail": "К карточке RFx"
   },
   "freightRequests": {
     "title": "Freight Requests",

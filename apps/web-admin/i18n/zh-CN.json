@@ -11,6 +11,7 @@
     "transportOrders": "运输订单",
     "freightRequests": "迷你招标",
     "rfx": "RFx / 招标",
+    "rfxTemplates": "RFx 模板",
     "shipments": "运输",
     "documents": "文档",
     "billingRegisters": "账单登记",
@@ -46,7 +47,10 @@
     "next": "下一页",
     "submit": "提交",
     "type": "类型",
-    "name": "名称"
+    "name": "名称",
+    "open": "打开",
+    "select": "请选择…",
+    "loadFailed": "加载失败"
   },
   "login": {
     "title": "登录",
@@ -326,6 +330,7 @@
         "evaluation": "评估",
         "communications": "通信",
         "validation": "验证",
+        "versionHistory": "版本历史",
         "publication": "发布"
       },
       "scoring": {
@@ -449,7 +454,111 @@
         "PERCENT": "百分比",
         "RATING": "评分"
       }
-    }
+    },
+    "templates": {
+      "libraryTitle": "RFx 模板库",
+      "librarySubtitle": "企业招标的可复用采购模板",
+      "create": "创建模板",
+      "search": "搜索模板",
+      "empty": "未找到模板",
+      "backToLibrary": "返回模板库",
+      "backToTemplate": "返回模板",
+      "versionHistory": "版本历史",
+      "versionHistoryTitle": "模板版本历史",
+      "readOnly": "此模板版本为只读",
+      "fork": "创建新草稿",
+      "fork.success": "已创建草稿",
+      "aggregateStatus": { "ACTIVE": "有效", "ARCHIVED": "已归档" },
+      "versionStatus": { "DRAFT": "草稿", "PUBLISHED": "已发布", "SUPERSEDED": "已取代" },
+      "columns": { "name": "名称", "code": "代码", "status": "状态", "updated": "更新时间" },
+      "publish": { "action": "发布模板", "changeSummary": "变更摘要", "success": "模板已发布" },
+      "archive": { "action": "归档", "success": "模板已归档" },
+      "readiness": { "noSections": "发布前至少添加一个分区" },
+      "clone": {
+        "title": "从模板创建 RFx",
+        "selectTemplate": "模板",
+        "selectVersion": "已发布版本",
+        "supersededWarning": "您选择了已取代版本，将显示警告。",
+        "submit": "创建 RFx 草稿",
+        "success": "已从模板创建 RFx",
+        "replay": "幂等重放返回事件 {id}"
+      }
+    },
+    "versions": {
+      "title": "RFx 版本历史",
+      "back": "返回版本列表",
+      "status": { "DRAFT": "草稿", "PUBLISHED": "已发布", "SUPERSEDED": "已取代", "ARCHIVED": "已归档" },
+      "columns": { "number": "版本", "status": "状态", "publishedAt": "发布时间", "summary": "变更摘要" }
+    },
+    "compare": {
+      "title": "版本比较",
+      "open": "比较版本",
+      "from": "源版本",
+      "to": "目标版本",
+      "run": "比较",
+      "swap": "交换方向",
+      "direction": "从 v{from} → 到 v{to}",
+      "diffHash": "规范 diff 哈希",
+      "noData": "请选择要比较的版本",
+      "noDifferences": "无差异",
+      "added": "新增",
+      "removed": "删除",
+      "changed": "变更",
+      "reordered": "重排",
+      "change": {
+        "ADDED": "新增",
+        "REMOVED": "删除",
+        "CHANGED": "变更",
+        "REORDERED": "重排",
+        "UNCHANGED": "未变更"
+      }
+    },
+    "restore": {
+      "title": "恢复为新草稿",
+      "sourceVersion": "源版本 v{number}",
+      "warning": "不会回滚历史，将创建新的草稿版本。",
+      "changeSummary": "变更摘要",
+      "confirm": "恢复草稿",
+      "action": "恢复为草稿",
+      "success": "草稿已恢复"
+    },
+    "changeImpact": {
+      "loading": "正在分析变更影响…",
+      "noAnalysis": "重新发布前请运行影响预览",
+      "expiresAt": "分析过期时间",
+      "draftResponses": "受影响的草稿答复",
+      "submittedResponses": "受影响的已提交答复",
+      "scoringAffecting": "可能影响评分配置",
+      "knockoutAffecting": "可能影响淘汰规则",
+      "rescoringRequired": "发布后需要重新评分",
+      "confirmRepublish": "确认具有实质影响的重新发布",
+      "classes": {
+        "NON_MATERIAL": "非实质变更",
+        "MATERIAL_NO_RESPONSES": "实质变更 — 尚无答复",
+        "MATERIAL_WITH_DRAFT_RESPONSES": "实质变更 — 存在草稿答复",
+        "MATERIAL_WITH_SUBMITTED_RESPONSES": "实质变更 — 存在已提交答复",
+        "SCORING_AFFECTING": "影响评分",
+        "KNOCKOUT_AFFECTING": "影响淘汰规则"
+      }
+    },
+    "errors": {
+      "badRequest": "请求无效",
+      "unauthorized": "需要重新认证",
+      "forbidden": "权限不足",
+      "notFound": "资源不存在或不可访问",
+      "conflict": "冲突 — 请刷新后重试",
+      "validation": "业务验证失败",
+      "versionConflict": "服务器版本已变更",
+      "statusConflict": "当前状态不允许此操作",
+      "idempotencyConflict": "幂等键与不同请求体重复使用",
+      "draftAlreadyExists": "已存在活动草稿",
+      "staleDiff": "Diff 已过期 — 请重新运行影响预览",
+      "impactAnalysisConsumed": "影响分析已被使用",
+      "impactAnalysisExpired": "影响分析已过期",
+      "templateArchived": "模板已归档",
+      "templateDraftOnly": "只能从已发布模板版本创建事件"
+    },
+    "backToDetail": "返回 RFx 详情"
   },
   "freightRequests": {
     "title": "货运请求",

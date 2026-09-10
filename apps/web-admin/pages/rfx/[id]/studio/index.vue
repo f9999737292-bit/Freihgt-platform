@@ -42,7 +42,13 @@ const readiness = ref<Awaited<ReturnType<typeof api.validatePublish>> | null>(nu
 
 const activeStep = computed(() => resolveStudioStep(route.query.step))
 
-const navSteps = computed(() => buildStudioNavSteps(eventId.value, activeStep.value, t))
+const { enabled: rfxVersioningEnabled } = useRfxVersioningFeature()
+
+const navSteps = computed(() =>
+  buildStudioNavSteps(eventId.value, activeStep.value, t, {
+    versioningEnabled: rfxVersioningEnabled.value,
+  }),
+)
 
 
 

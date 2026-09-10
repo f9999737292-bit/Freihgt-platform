@@ -1,6 +1,8 @@
 <script setup lang="ts">
 const uiStore = useUiStore()
 const { canSeeNavItem } = usePermissions()
+const { enabled: rfxVersioningEnabled } = useRfxVersioningFeature()
+const { canReadRfxTemplates } = useRfxBuyerPermissions()
 
 const navItems = [
   { to: '/dashboard', icon: '▣', labelKey: 'nav.dashboard' },
@@ -10,6 +12,7 @@ const navItems = [
   { to: '/transport-orders', icon: '⇄', labelKey: 'nav.transportOrders' },
   { to: '/freight-requests', icon: '⚡', labelKey: 'nav.freightRequests' },
   { to: '/rfx', icon: '⚖', labelKey: 'nav.rfx' },
+  { to: '/rfx/templates', icon: '📋', labelKey: 'nav.rfxTemplates', buyerTemplates: true },
   { to: '/shipments', icon: '⛟', labelKey: 'nav.shipments' },
   { to: '/documents', icon: '📄', labelKey: 'nav.documents' },
   { to: '/billing-registers', icon: '₽', labelKey: 'nav.billingRegisters' },
@@ -18,7 +21,14 @@ const navItems = [
   { to: '/settings', icon: '⚙', labelKey: 'nav.settings' },
 ]
 
-const visibleNavItems = computed(() => navItems.filter((item) => canSeeNavItem(item.to)))
+const visibleNavItems = computed(() =>
+  navItems.filter((item) => {
+    if ('buyerTemplates' in item && item.buyerTemplates) {
+      return rfxVersioningEnabled.value && canReadRfxTemplates() && canSeeNavItem('/rfx')
+    }
+    return canSeeNavItem(item.to)
+  }),
+)
 </script>
 
 <template>
