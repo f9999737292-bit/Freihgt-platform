@@ -212,6 +212,9 @@ func TestE6INT13DraftVersionQuestionnaireGraphPG(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get draft version questionnaire: %v", err)
 	}
+	if q.VersionStatus != domain.RfxVersionStatusDraft {
+		t.Fatalf("expected draft version status, got %s", q.VersionStatus)
+	}
 	assertE6HistoricalGraphPG(t, q, expect)
 }
 
@@ -340,40 +343,72 @@ func TestE6INT23HTTPFeatureFlagDisabledVersionQuestionnaireNotFound(t *testing.T
 func TestE6INT24OpenAPIEventProvenanceAndVersionQuestionnaireParity(t *testing.T) {
 	root := repoRoot(t)
 	openapiPath := filepath.Join(root, "packages", "openapi", "rfx-service.yaml")
+	rfxRouterPath := filepath.Join(root, "services", "rfx-service", "internal", "http", "router.go")
 	gatewayPath := filepath.Join(root, "services", "api-gateway", "internal", "http", "router.go")
 	openapiBody, err := os.ReadFile(openapiPath)
 	if err != nil {
 		t.Fatalf("read openapi: %v", err)
 	}
+	rfxBody, err := os.ReadFile(rfxRouterPath)
+	if err != nil {
+		t.Fatalf("read rfx router: %v", err)
+	}
 	gatewayBody, err := os.ReadFile(gatewayPath)
 	if err != nil {
 		t.Fatalf("read gateway router: %v", err)
 	}
+	openapi := string(openapiBody)
+	gateway := string(gatewayBody)
+	rfxRouter := string(rfxBody)
+
 	for _, fragment := range []string{
 		"/api/v1/rfx-templates/{id}/versions/{version_id}/questionnaire",
+		"/api/v1/rfx-events/{id}",
+		"source_template_id",
 		"source_template_version_id",
 		"source_version_number",
+		"source_version_status",
+		"source_version_warning",
+		"source_template_code",
 		"RfxEventDetailResponse",
+		"RfxTemplateQuestionnaireDefinition",
+		"version_status",
 	} {
-		if !strings.Contains(string(openapiBody), fragment) {
+		if !strings.Contains(openapi, fragment) {
 			t.Fatalf("openapi missing fragment %s", fragment)
 		}
 	}
-	if !strings.Contains(string(gatewayBody), "/api/v1/rfx-templates/{id}/versions/{version_id}/questionnaire") {
-		t.Fatal("gateway missing version questionnaire route")
+	for _, path := range []string{
+		"/api/v1/rfx-templates/{id}/versions/{version_id}/questionnaire",
+		"/api/v1/rfx-events/{id}",
+	} {
+		if !strings.Contains(gateway, path) {
+			t.Fatalf("gateway missing path %s", path)
+		}
+	}
+	for _, fragment := range []string{
+		`Get("/{id}/versions/{version_id}/questionnaire"`,
+		`Get("/{id}", rfxHandler.GetEvent)`,
+	} {
+		if !strings.Contains(rfxRouter, fragment) {
+			t.Fatalf("rfx router missing fragment %s", fragment)
+		}
 	}
 }
 
-func TestE6INT25TenantWidePublishedVersionReadableByBuyerBPG(t *testing.T) {
+func TestE6INT25TenantWidePublishedVersionReadableByBuyerB(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
 	_, published, expect := setupPublishedE6HistoricalTemplate(t, env, fix, "e6-int-25", nil)
 
 	q, err := env.templateQSvc.GetVersionQuestionnaire(context.Background(), fix.BuyerB, published.TemplateID, published.ID)
 	if err != nil {
-		t.Fatalf("tenant-wide published graph for buyer B: %v", err)
+		t.Fatalf("tenant-wide published graph for buyer B PG: %v", err)
 	}
 	assertE6HistoricalGraphPG(t, q, expect)
+
+	rec := getTemplateVersionQuestionnaireHTTPWithActor(t, env, e6EnabledConfig(), fix.BuyerB, published.TemplateID, published.ID)
+	assertE6HistoricalGraphHTTP(t, rec, published, expect)
 }
 
 func e6EnabledConfig() config.Config {

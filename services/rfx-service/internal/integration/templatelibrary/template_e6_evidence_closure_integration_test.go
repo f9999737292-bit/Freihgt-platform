@@ -59,6 +59,33 @@ func TestE6EV02HistoricalVersionQuestionnaireDeterministicRepeatHTTP(t *testing.
 	assertTemplateVersionQuestionnaireWriteSnapshotEqual(t, before, after)
 }
 
+func TestE6EV04EventGetProvenanceReadOnlyNoWrite(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	detail, published, _ := setupPublishedE6HistoricalTemplate(t, env, fix, "e6-ev-04", &fix.CompanyA)
+	cloneResult := cloneFromTemplate(t, env, fix.BuyerA, published.ID, defaultCloneEventInput("RFQ-E6-EV-04", fix.CompanyA), uuid.NewString())
+
+	before := captureEventGetWriteSnapshot(t, env, fix, cloneResult.Event.ID)
+
+	prov, err := env.rfxSvc.GetEventProvenance(context.Background(), fix.BuyerA, cloneResult.Event.ID)
+	if err != nil {
+		t.Fatalf("PG get event provenance: %v", err)
+	}
+	if prov == nil {
+		t.Fatal("expected PG provenance for cloned event")
+	}
+	assertProvenanceExact(t, prov, published, detail.Template.TemplateCode, false)
+
+	afterPG := captureEventGetWriteSnapshot(t, env, fix, cloneResult.Event.ID)
+	assertEventGetWriteSnapshotEqual(t, before, afterPG)
+
+	rec := getEventHTTP(t, env, e6EnabledConfig(), fix, cloneResult.Event.ID)
+	assertHTTPEventProvenanceExact(t, rec, published, detail.Template.TemplateCode, false)
+
+	afterHTTP := captureEventGetWriteSnapshot(t, env, fix, cloneResult.Event.ID)
+	assertEventGetWriteSnapshotEqual(t, before, afterHTTP)
+}
+
 func TestE6EV03EventProvenanceLifecycleAndNoLeakage(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
