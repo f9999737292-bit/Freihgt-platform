@@ -11,6 +11,7 @@
     "transportOrders": "Transport Orders",
     "freightRequests": "Mini Tenders",
     "rfx": "RFx / Tenders",
+    "rfxTemplates": "RFx Templates",
     "shipments": "Shipments",
     "documents": "Documents",
     "billingRegisters": "Billing Registers",
@@ -44,9 +45,14 @@
     "close": "Close",
     "previous": "Previous",
     "next": "Next",
+    "retry": "Retry",
+    "pageOf": "Page {page} of {total}",
     "submit": "Submit",
     "type": "Type",
-    "name": "Name"
+    "name": "Name",
+    "open": "Open",
+    "select": "Select…",
+    "loadFailed": "Failed to load"
   },
   "login": {
     "title": "Sign in",
@@ -279,6 +285,8 @@
       "readyPass": "Ready to publish",
       "readyFail": "Blocking errors found",
       "runValidationHint": "Click Validate to run publish readiness checks",
+      "publish": "Publish questionnaire",
+      "publishSuccess": "Questionnaire published",
       "basicsHint": "Core RFx fields are edited on the event detail page.",
       "editBasicsLink": "Go to RFx detail",
       "planned": "Planned",
@@ -326,6 +334,7 @@
         "evaluation": "Evaluation",
         "communications": "Communications",
         "validation": "Validation",
+        "versionHistory": "Version history",
         "publication": "Publication"
       },
       "scoring": {
@@ -449,7 +458,154 @@
         "PERCENT": "Percent",
         "RATING": "Rating"
       }
-    }
+    },
+    "templates": {
+      "libraryTitle": "RFx template library",
+      "librarySubtitle": "Reusable buyer templates for enterprise tenders",
+      "create": "Create template",
+      "search": "Search templates",
+      "empty": "No templates found",
+      "backToLibrary": "Back to library",
+      "backToTemplate": "Back to template",
+      "versionHistory": "Version history",
+      "versionHistoryTitle": "Template version history",
+      "readOnly": "This template version is read-only",
+      "archivedBanner": "This template is archived — mutations are disabled",
+      "backToVersions": "Back to version history",
+      "versionHistoryEmpty": "No versions recorded yet",
+      "fork": "Fork new draft",
+      "fork.createDraft": "Create new draft",
+      "fork.success": "Draft forked",
+      "fork.unavailable": "Fork is not available",
+      "fork.archived": "Archived templates cannot be forked",
+      "fork.draftExists": "An active draft already exists — use the editor",
+      "fork.noPublished": "Publish a version before forking a new draft",
+      "aggregateStatus": { "ACTIVE": "Active", "ARCHIVED": "Archived" },
+      "versionStatus": { "DRAFT": "Draft", "PUBLISHED": "Published", "SUPERSEDED": "Superseded" },
+      "columns": { "name": "Name", "code": "Code", "status": "Status", "updated": "Updated" },
+      "publish": { "action": "Publish template", "changeSummary": "Change summary", "success": "Template published" },
+      "archive": {
+        "action": "Archive",
+        "success": "Template archived",
+        "confirmTitle": "Archive template?",
+        "confirmBody": "Archived templates cannot be edited or used for new clones.",
+        "confirm": "Archive template"
+      },
+      "readiness": {
+        "noSections": "Add at least one section before publishing",
+        "serverAuthoritative": "Local pre-check only — server validates full publish readiness on submit"
+      },
+      "versionDetail": {
+        "title": "Template version v{number}",
+        "createdAt": "Created",
+        "open": "Open version detail",
+        "graphGap": "Historical questionnaire graph is not available via the current API — metadata only (BACKEND_CONTRACT_GAP)."
+      },
+      "clone": {
+        "title": "Create RFx from template",
+        "selectTemplate": "Template",
+        "selectVersion": "Published version",
+        "versionsLoading": "Loading template versions…",
+        "versionsLoadFailed": "Failed to load template versions",
+        "noCloneableVersions": "No published or superseded versions available for clone",
+        "supersededWarning": "You selected a superseded version. A warning will be recorded.",
+        "submit": "Create RFx draft",
+        "success": "RFx created from template",
+        "confirmIntro": "RFx draft created. Review source provenance before opening Studio.",
+        "openStudio": "Open RFx Studio",
+        "replay": "Idempotent replay returned event {id}"
+      }
+    },
+    "provenance": {
+      "title": "Created from template",
+      "templateName": "Template",
+      "templateId": "Template ID",
+      "sourceVersion": "Source version",
+      "sourceVersionId": "Source template version ID"
+    },
+    "versions": {
+      "title": "RFx version history",
+      "back": "Back to versions",
+      "loading": "Loading version history…",
+      "loadFailed": "Failed to load version history — publish is blocked",
+      "detailTitle": "RFx version v{number}",
+      "immutableBanner": "This version is immutable (read-only)",
+      "status": { "DRAFT": "Draft", "PUBLISHED": "Published", "SUPERSEDED": "Superseded", "ARCHIVED": "Archived" },
+      "columns": { "number": "Version", "status": "Status", "publishedAt": "Published", "summary": "Change summary" }
+    },
+    "compare": {
+      "title": "Compare versions",
+      "open": "Compare versions",
+      "from": "From version",
+      "to": "To version",
+      "run": "Compare",
+      "swap": "Swap direction",
+      "direction": "FROM v{from} → TO v{to}",
+      "diffHash": "Canonical diff hash",
+      "noData": "Select versions to compare",
+      "noDifferences": "No differences",
+      "added": "Added",
+      "removed": "Removed",
+      "changed": "Changed",
+      "reordered": "Reordered",
+      "change": {
+        "ADDED": "Added",
+        "REMOVED": "Removed",
+        "CHANGED": "Changed",
+        "REORDERED": "Reordered",
+        "UNCHANGED": "Unchanged"
+      }
+    },
+    "restore": {
+      "title": "Restore as new draft",
+      "sourceVersion": "Source version v{number}",
+      "warning": "History is not rewound. A new draft version will be created.",
+      "changeSummary": "Change summary",
+      "confirm": "Restore draft",
+      "action": "Restore as draft",
+      "success": "Draft restored"
+    },
+    "changeImpact": {
+      "loading": "Analyzing change impact…",
+      "noAnalysis": "Run impact preview before republishing",
+      "expiresAt": "Analysis expires",
+      "draftResponses": "Draft responses affected",
+      "submittedResponses": "Submitted responses affected",
+      "scoringAffecting": "Scoring configuration may be affected",
+      "knockoutAffecting": "Knockout rules may be affected",
+      "rescoringRequired": "Re-scoring will be required after publish",
+      "confirmRepublish": "Confirm republish with material impact",
+      "preview": "Preview change impact",
+      "republish": "Republish questionnaire",
+      "republishHint": "A previous published version exists — impact preview is required before republish",
+      "repreviewRequired": "Run a new impact preview and confirm again.",
+      "classes": {
+        "NON_MATERIAL": "Non-material change",
+        "MATERIAL_NO_RESPONSES": "Material change — no responses yet",
+        "MATERIAL_WITH_DRAFT_RESPONSES": "Material change — draft responses exist",
+        "MATERIAL_WITH_SUBMITTED_RESPONSES": "Material change — submitted responses exist",
+        "SCORING_AFFECTING": "Scoring-affecting change",
+        "KNOCKOUT_AFFECTING": "Knockout-affecting change"
+      }
+    },
+    "errors": {
+      "badRequest": "Invalid request",
+      "unauthorized": "Authentication required",
+      "forbidden": "Insufficient permissions",
+      "notFound": "Resource not found or not accessible",
+      "conflict": "Conflict — refresh and retry",
+      "validation": "Validation failed",
+      "versionConflict": "Version changed on the server",
+      "statusConflict": "Status no longer allows this action",
+      "idempotencyConflict": "Idempotency key reused with different payload",
+      "draftAlreadyExists": "An active draft already exists",
+      "staleDiff": "Diff hash is stale — rerun impact preview",
+      "impactAnalysisConsumed": "Impact analysis already consumed",
+      "impactAnalysisExpired": "Impact analysis expired",
+      "templateArchived": "Template is archived",
+      "templateDraftOnly": "Only published template versions can create events"
+    },
+    "backToDetail": "Back to RFx detail"
   },
   "freightRequests": {
     "title": "Freight Requests",

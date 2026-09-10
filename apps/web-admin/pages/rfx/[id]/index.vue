@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { toDatetimeLocal, toRFC3339, type RfxEvent } from '~/types/rfx'
+import { extractEventProvenance, toDatetimeLocal, toRFC3339, type RfxEvent } from '~/types/rfx'
 import type { Company } from '~/types/company'
+import { resolveI18nMapValue } from '~/utils/rfxTemplateI18n'
 
 definePageMeta({ middleware: 'auth', layout: 'default' })
 
@@ -8,7 +9,7 @@ const route = useRoute()
 const { getRfxEvent, updateRfxEvent, isApiUnavailableError } = useRfxApi()
 const { listCompanies } = useCompanies()
 const { pushToast } = useToast()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const event = ref<RfxEvent | null>(null)
 const companies = ref<Company[]>([])
@@ -22,6 +23,15 @@ const editForm = reactive({ title: '', description: '', response_deadline: '' })
 const eventId = computed(() => String(route.params.id))
 
 const { canEditCustomFieldsRuntime } = useLowCodePermissions()
+const { canManageRfxTemplates } = useRfxBuyerPermissions()
+const { enabled: rfxVersioningEnabled } = useRfxVersioningFeature()
+
+const eventProvenance = computed(() => extractEventProvenance(event.value))
+const provenanceTemplateName = computed(() => {
+  const prov = eventProvenance.value
+  if (!prov?.source_template_name_i18n) return prov?.source_template_code ?? null
+  return resolveI18nMapValue(prov.source_template_name_i18n, locale.value)
+})
 
 const companyName = computed(() => {
   if (!event.value) return ''
@@ -107,6 +117,13 @@ onMounted(async () => {
     <UiEmptyState v-else-if="!event" :title="$t('rfx.noRfxFound')" />
 
     <template v-else>
+      <RfxProvenanceBanner
+        v-if="rfxVersioningEnabled && eventProvenance"
+        :provenance="eventProvenance"
+        :template-id="eventProvenance.source_template_id"
+        :template-name="provenanceTemplateName"
+        :can-link-template="canManageRfxTemplates()"
+      />
       <RfxActions :event="event" @updated="loadEvent" @edit="openEdit" />
       <RfxDetailsCard :event="event" :company-name="companyName" @edit="openEdit" />
       <RfxParticipantsTable :rfx-event-id="event.id" :company-name="companyNameById" />

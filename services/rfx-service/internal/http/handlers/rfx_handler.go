@@ -139,8 +139,13 @@ func (h *RfxHandler) GetEvent(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, err)
 		return
 	}
+	provenance, err := h.service.GetEventProvenance(r.Context(), actor, id)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
 
-	respond.JSON(w, http.StatusOK, toRfxEventResponse(event))
+	respond.JSON(w, http.StatusOK, toRfxEventResponse(event, provenance))
 }
 
 func (h *RfxHandler) ListEvents(w http.ResponseWriter, r *http.Request) {
@@ -677,8 +682,8 @@ func parseCreateRfxEventRequest(req createRfxEventRequest, tenantID uuid.UUID) (
 	}, nil
 }
 
-func toRfxEventResponse(event *domain.RfxEvent) map[string]any {
-	return map[string]any{
+func toRfxEventResponse(event *domain.RfxEvent, provenance ...*domain.RfxEventProvenance) map[string]any {
+	resp := map[string]any{
 		"id":                event.ID.String(),
 		"tenant_id":         event.TenantID.String(),
 		"rfx_number":        event.RfxNumber,
@@ -695,6 +700,24 @@ func toRfxEventResponse(event *domain.RfxEvent) map[string]any {
 		"created_at":        event.CreatedAt.UTC().Format("2006-01-02T15:04:05Z"),
 		"updated_at":        event.UpdatedAt.UTC().Format("2006-01-02T15:04:05Z"),
 		"version":           event.Version,
+	}
+	if len(provenance) > 0 && provenance[0] != nil {
+		mergeRfxEventProvenance(resp, provenance[0])
+	}
+	return resp
+}
+
+func mergeRfxEventProvenance(resp map[string]any, provenance *domain.RfxEventProvenance) {
+	resp["source_template_id"] = provenance.SourceTemplateID.String()
+	resp["source_template_version_id"] = provenance.SourceTemplateVersionID.String()
+	resp["source_version_number"] = provenance.SourceVersionNumber
+	resp["source_version_status"] = provenance.SourceVersionStatus
+	resp["source_version_warning"] = provenance.SourceVersionWarning
+	resp["source_template_code"] = provenance.TemplateCode
+	if len(provenance.NameI18nJSON) > 0 {
+		resp["source_template_name_i18n"] = jsonRawToAny(provenance.NameI18nJSON)
+	} else {
+		resp["source_template_name_i18n"] = nil
 	}
 }
 

@@ -1,6 +1,6 @@
 # RFx v3.0A — Implementation Roadmap
 
-**Status:** Architecture freeze  
+**Status:** Architecture freeze
 **Normative companion:** [RFX_V3_RESPONSE_VALIDATION_AND_DRAFT_SAFETY.md](./RFX_V3_RESPONSE_VALIDATION_AND_DRAFT_SAFETY.md)
 
 ---
@@ -13,7 +13,7 @@
 | **v3.0B** | Questionnaire Core | Sections, questions, types, conditional rules, buyer Studio builder | **IMPLEMENTED_ACCEPTED** |
 | **v3.0C** | Carrier Response | Autosave, resume, error UX, submit gate | **IMPLEMENTED_ACCEPTED** |
 | **v3.0D** | Scoring + Knockout | Score models, knockout, explainability | **IMPLEMENTED_ACCEPTED** |
-| **v3.0E** | Templates + Versioning | Template library, immutable published versions, compare/restore | **IMPLEMENTATION_IN_PROGRESS** |
+| **v3.0E** | Templates + Versioning | Template library, immutable published versions, compare/restore | **IMPLEMENTATION_IN_PROGRESS** (E1–E5 backend accepted; **E6 frontend** `IMPLEMENTED_PENDING_CONTROLLER_ACCEPTANCE`; E7 not started) |
 | **v3.0F** | Qualification Pool | Qualification results, pools, RFI→RFQ handoff | Planned |
 | **v3.0G** | Carrier 360 | Profile autofill, freshness, confirmation | Planned |
 | **v3.0H** | Analytics + Explainability | Dashboards, score drill-down, audit views | Planned |
@@ -107,7 +107,7 @@ These are assigned to the **earliest appropriate wave** — not deferred beyond 
 | **E3 Change Impact** | Change-impact preview, publish confirmation | **IMPLEMENTED_ACCEPTED** — PR #111 merged via `69eacb3` (head `d9aa539`, CI `34259692961`) |
 | **E4 Template Library** | Template library CRUD, publish, fork-draft, archive, draft graph | **IMPLEMENTED_ACCEPTED** — PR #113 merged via `5243bb5` (head `c701ab3`, CI `34383868950`) |
 | **E5 Template Clone + Provenance** | Clone event from template, provenance | **IMPLEMENTED_ACCEPTED** — PR #115 merged via `81ff86b` (head `5c26d34`, CI `34401634396`, migration 000071) |
-| **E6 Studio Frontend** | Studio UI: library, history, compare, restore | **PENDING_CONTROLLER_AUTHORIZATION** |
+| **E6 Studio Frontend** | Studio UI: library, history, compare, restore, clone, republish impact | **IMPLEMENTED_PENDING_CONTROLLER_ACCEPTANCE** (remediation E6-001…E6-008) |
 | **E7 Browser Acceptance** | Browser acceptance gate | **NOT_STARTED** |
 
 Notes:
@@ -200,3 +200,4 @@ See [RFX_V3_GAP_MATRIX.md](./RFX_V3_GAP_MATRIX.md) for repository-backed current
 - [README.md](./README.md)
 - [RFX_V3_GAP_MATRIX.md](./RFX_V3_GAP_MATRIX.md)
 - [ADR index](./adr/)
+

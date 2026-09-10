@@ -126,7 +126,7 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/rfx-events", "post", "Create RFx event", "RFx", True, True, None),
     ("/api/v1/rfx-events/from-template", "post", "Clone RFx event from template", "RFx", True, True, "e5_clone"),
     ("/api/v1/rfx-events", "get", "List RFx events", "RFx", True, True, None),
-    ("/api/v1/rfx-events/{id}", "get", "Get RFx event by ID", "RFx", True, True, None),
+    ("/api/v1/rfx-events/{id}", "get", "Get RFx event by ID (optional clone provenance for buyers)", "RFx", True, True, "rfx_event_detail"),
     ("/api/v1/rfx-events/{id}", "patch", "Update RFx event", "RFx", True, True, None),
     ("/api/v1/rfx-events/{id}/publish", "post", "Publish RFx event", "RFx", True, True, None),
     ("/api/v1/rfx-events/{id}/cancel", "post", "Cancel RFx event", "RFx", True, True, None),
@@ -152,6 +152,7 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/rfx-templates/{id}/versions/publish", "post", "Publish RFx template version", "RFx", True, True, "tl_publish"),
     ("/api/v1/rfx-templates/{id}/versions/fork-draft", "post", "Fork RFx template draft from published", "RFx", True, True, "tl_fork_draft"),
     ("/api/v1/rfx-templates/{id}/questionnaire", "get", "Get RFx template questionnaire", "RFx", True, True, "tl_questionnaire_get"),
+    ("/api/v1/rfx-templates/{id}/versions/{version_id}/questionnaire", "get", "Get read-only RFx template version questionnaire graph", "RFx", True, True, "tl_version_questionnaire_get"),
     ("/api/v1/rfx-templates/{id}/sections", "post", "Create RFx template section", "RFx", True, True, "tl_section_create"),
     ("/api/v1/rfx-templates/{id}/sections/{section_id}", "patch", "Update RFx template section", "RFx", True, True, "tl_section_update"),
     ("/api/v1/rfx-templates/{id}/sections/{section_id}", "delete", "Delete RFx template section", "RFx", True, True, "tl_section_delete"),
@@ -585,6 +586,8 @@ TEMPLATE_RESPONSE_SCHEMAS = {
     "tl_publish": "RfxTemplateVersionRecord",
     "tl_fork_draft": "RfxTemplateVersionRecord",
     "tl_questionnaire_get": "RfxTemplateQuestionnaireDefinition",
+    "tl_version_questionnaire_get": "RfxTemplateQuestionnaireDefinition",
+    "rfx_event_detail": "RfxEventDetailResponse",
     "tl_section_create": "RfxTemplateSection",
     "tl_section_update": "RfxTemplateSection",
     "tl_question_create": "RfxTemplateQuestion",
@@ -1501,6 +1504,18 @@ def questionnaire_entity_schemas_block() -> str:
         created_at: {type: string, format: date-time}
         updated_at: {type: string, format: date-time}
         version: {type: integer}
+    RfxEventDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/RfxStudioEventRecord'
+        - type: object
+          properties:
+            source_template_id: {type: string, format: uuid, nullable: true}
+            source_template_version_id: {type: string, format: uuid, nullable: true}
+            source_version_number: {type: integer, nullable: true}
+            source_version_status: {type: string, enum: [PUBLISHED, SUPERSEDED], nullable: true}
+            source_version_warning: {type: boolean, nullable: true}
+            source_template_code: {type: string, nullable: true}
+            source_template_name_i18n: {type: object, additionalProperties: {type: string}, nullable: true}
     RfxStudioResponse:
       type: object
       properties:

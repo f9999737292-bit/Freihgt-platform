@@ -30,6 +30,8 @@ export type StudioStepId =
 
   | 'validation'
 
+  | 'versionHistory'
+
   | 'publication'
 
 
@@ -41,6 +43,8 @@ export function buildStudioNavSteps(
   activeStep: StudioStepId,
 
   t: (key: string) => string,
+
+  options?: { versioningEnabled?: boolean },
 
 ): StudioNavStep[] {
 
@@ -92,6 +96,15 @@ export function buildStudioNavSteps(
 
     },
 
+    ...(options?.versioningEnabled
+      ? [{
+          id: 'versionHistory',
+          label: t('rfx.studio.steps.versionHistory'),
+          to: `/rfx/${eventId}/versions`,
+          active: activeStep === 'versionHistory',
+        }]
+      : []),
+
     { id: 'publication', label: t('rfx.studio.steps.publication'), planned: true },
 
   ]
@@ -104,7 +117,7 @@ export function resolveStudioStep(queryStep: unknown): StudioStepId {
 
   const value = String(queryStep ?? 'questionnaire')
 
-  const allowed: StudioStepId[] = ['basics', 'questionnaire', 'scoring', 'validation']
+  const allowed: StudioStepId[] = ['basics', 'questionnaire', 'scoring', 'validation', 'versionHistory']
 
   return allowed.includes(value as StudioStepId) ? (value as StudioStepId) : 'questionnaire'
 

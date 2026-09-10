@@ -44,6 +44,14 @@ func (s *TemplateQuestionnaireService) GetQuestionnaire(ctx context.Context, act
 	return s.qRepo.LoadQuestionnaire(ctx, tmpl.ID, draft.ID, actor.TenantID)
 }
 
+// GetVersionQuestionnaire returns a read-only questionnaire graph for any template version (DRAFT/PUBLISHED/SUPERSEDED).
+func (s *TemplateQuestionnaireService) GetVersionQuestionnaire(ctx context.Context, actor domain.ActorContext, templateID, versionID uuid.UUID) (*domain.TemplateQuestionnaireDefinition, error) {
+	if _, err := s.tmplSvc.authorizeTemplateRead(ctx, actor, templateID); err != nil {
+		return nil, err
+	}
+	return s.qRepo.LoadQuestionnaire(ctx, templateID, versionID, actor.TenantID)
+}
+
 func (s *TemplateQuestionnaireService) CreateSection(ctx context.Context, actor domain.ActorContext, templateID uuid.UUID, in domain.CreateSectionInput) (*domain.TemplateSection, error) {
 	if err := domain.ValidateCreateSectionInput(in); err != nil {
 		return nil, err

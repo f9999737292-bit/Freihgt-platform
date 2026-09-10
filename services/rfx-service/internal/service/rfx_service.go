@@ -18,6 +18,7 @@ type RfxStore interface {
 	CompanyExists(ctx context.Context, companyID, tenantID uuid.UUID) (bool, error)
 	CreateEvent(ctx context.Context, in domain.CreateRfxEventInput) (*domain.RfxEvent, error)
 	GetEventByID(ctx context.Context, id, tenantID uuid.UUID) (*domain.RfxEvent, error)
+	LoadEventProvenance(ctx context.Context, eventID, tenantID uuid.UUID) (*domain.RfxEventProvenance, error)
 	ListEvents(ctx context.Context, filter domain.ListRfxEventsFilter) ([]domain.RfxEvent, int, error)
 	UpdateEvent(ctx context.Context, id, tenantID uuid.UUID, in domain.UpdateRfxEventInput) (*domain.RfxEvent, error)
 	UpdateEventStatus(ctx context.Context, id, tenantID uuid.UUID, expectedStatus, newStatus string) (*domain.RfxEvent, error)
@@ -161,6 +162,32 @@ func (s *RfxService) GetEvent(ctx context.Context, actor domain.ActorContext, id
 		return event, nil
 	}
 	return nil, apperrors.Forbidden("authorization required")
+}
+
+func (s *RfxService) GetEventProvenance(ctx context.Context, actor domain.ActorContext, eventID uuid.UUID) (*domain.RfxEventProvenance, error) {
+	if _, err := s.GetEvent(ctx, actor, eventID); err != nil {
+		return nil, err
+	}
+	kind, _, err := s.resolveActor(ctx, actor)
+	if err != nil {
+		return nil, err
+	}
+	if kind != domain.ActorKindBuyer {
+		return nil, nil
+	}
+	prov, err := s.repo.LoadEventProvenance(ctx, eventID, actor.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	if prov == nil {
+		return nil, nil
+	}
+	if prov.TemplateOwnerCompanyID != uuid.Nil {
+		if _, err := s.requireOwnerCompanyAccess(ctx, actor, prov.TemplateOwnerCompanyID); err != nil {
+			return nil, nil
+		}
+	}
+	return prov, nil
 }
 
 func (s *RfxService) ListEvents(ctx context.Context, actor domain.ActorContext, filter domain.ListRfxEventsFilter) ([]domain.RfxEvent, int, error) {

@@ -38,6 +38,27 @@ func (h *TemplateQuestionnaireHandler) GetQuestionnaire(w http.ResponseWriter, r
 	respond.JSON(w, http.StatusOK, toTemplateQuestionnaireResponse(q))
 }
 
+func (h *TemplateQuestionnaireHandler) GetVersionQuestionnaire(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireActor(w, r)
+	if !ok {
+		return
+	}
+	templateID, ok := parseTemplateID(w, r)
+	if !ok {
+		return
+	}
+	versionID, ok := parseVersionID(w, r)
+	if !ok {
+		return
+	}
+	q, err := h.service.GetVersionQuestionnaire(r.Context(), actor, templateID, versionID)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusOK, toTemplateQuestionnaireResponse(q))
+}
+
 func (h *TemplateQuestionnaireHandler) CreateSection(w http.ResponseWriter, r *http.Request) {
 	actor, ok := requireActor(w, r)
 	if !ok {

@@ -2391,6 +2391,18 @@ components:
         created_at: {type: string, format: date-time}
         updated_at: {type: string, format: date-time}
         version: {type: integer}
+    RfxEventDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/RfxStudioEventRecord'
+        - type: object
+          properties:
+            source_template_id: {type: string, format: uuid, nullable: true}
+            source_template_version_id: {type: string, format: uuid, nullable: true}
+            source_version_number: {type: integer, nullable: true}
+            source_version_status: {type: string, enum: [PUBLISHED, SUPERSEDED], nullable: true}
+            source_version_warning: {type: boolean, nullable: true}
+            source_template_code: {type: string, nullable: true}
+            source_template_name_i18n: {type: object, additionalProperties: {type: string}, nullable: true}
     RfxStudioResponse:
       type: object
       properties:

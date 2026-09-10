@@ -47,6 +47,17 @@ export const BID_STATUSES = ['DRAFT', 'SUBMITTED', 'ACCEPTED', 'REJECTED'] as co
 
 export const PARTICIPANT_TYPES = ['CARRIER', 'SHIPPER', 'FORWARDER', 'LSP'] as const
 
+/** Optional clone provenance when backend exposes it on GET /rfx-events/{id}. */
+export interface RfxEventProvenance {
+  source_template_id: string
+  source_template_version_id: string
+  source_version_number: number
+  source_version_status: 'PUBLISHED' | 'SUPERSEDED'
+  source_version_warning?: boolean
+  source_template_code?: string
+  source_template_name_i18n?: Record<string, string> | null
+}
+
 export interface RfxEvent {
   id: string
   tenant_id: string
@@ -64,6 +75,26 @@ export interface RfxEvent {
   created_at?: string
   updated_at?: string
   version?: number
+  source_template_id?: string
+  source_template_version_id?: string
+  source_version_number?: number
+  source_version_status?: 'PUBLISHED' | 'SUPERSEDED'
+  source_version_warning?: boolean
+  source_template_code?: string
+  source_template_name_i18n?: Record<string, string> | null
+}
+
+export function extractEventProvenance(event: RfxEvent | null): RfxEventProvenance | null {
+  if (!event?.source_template_version_id || event.source_version_number == null) return null
+  return {
+    source_template_id: event.source_template_id ?? '',
+    source_template_version_id: event.source_template_version_id,
+    source_version_number: event.source_version_number,
+    source_version_status: event.source_version_status ?? 'PUBLISHED',
+    source_version_warning: event.source_version_warning,
+    source_template_code: event.source_template_code,
+    source_template_name_i18n: event.source_template_name_i18n,
+  }
 }
 
 export interface CreateRfxEventPayload {
@@ -417,3 +448,4 @@ export function formatMoney(value?: number | null, currency?: string | null): st
   }).format(value)
   return currency ? `${formatted} ${currency}` : formatted
 }
+

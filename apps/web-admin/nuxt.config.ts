@@ -31,6 +31,8 @@ export default defineNuxtConfig({
       mockAuth: process.env.NUXT_PUBLIC_MOCK_AUTH === 'true',
       controlTowerSummaryApiEnabled:
         process.env.NUXT_PUBLIC_CONTROL_TOWER_SUMMARY_API_ENABLED !== 'false',
+      rfxVersioningV3Enabled:
+        process.env.NUXT_PUBLIC_RFX_VERSIONING_V3_ENABLED === 'true',
     },
   },
   i18n: {
