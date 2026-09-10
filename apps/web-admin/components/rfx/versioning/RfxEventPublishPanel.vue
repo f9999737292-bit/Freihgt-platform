@@ -10,7 +10,10 @@ import { useRfxVersionLifecycleApi } from '~/composables/useRfxVersionLifecycleA
 import { IdempotentOperation } from '~/utils/idempotentOperation'
 import {
   buildEventPublishPayload,
+  extractPublishBaselineFromStudio,
+  isImpactPreviewBaselineStale,
   shouldRequireImpactPreview,
+  type ImpactPreviewBaseline,
 } from '~/utils/rfxEventPublishOrchestration'
 import { formatRfxApiError, resolveRfxConflictDetailKey } from '~/utils/rfxApiError'
 
@@ -32,12 +35,14 @@ const versions = ref<RfxVersionRecord[]>([])
 const versionsState = ref<'loading' | 'loaded' | 'error'>('loading')
 const changeSummary = ref('')
 const impactAnalysis = ref<RfxChangeImpactAnalysisResponse | null>(null)
+const impactPreviewBaseline = ref<ImpactPreviewBaseline | null>(null)
 const impactLoading = ref(false)
 const impactError = ref('')
 const publishError = ref('')
 const serverReadiness = ref<RfxPublishReadinessResult | null>(null)
 const readinessLoading = ref(false)
 const awaitingImpactConfirm = ref(false)
+const confirmInFlight = ref(false)
 const autosaveBlocked = ref(false)
 
 const publishOp = new IdempotentOperation('evt-pub')
@@ -78,6 +83,11 @@ async function flushAutosaveOrBlock(): Promise<boolean> {
   }
 }
 
+async function loadPublishBaseline(): Promise<ImpactPreviewBaseline | null> {
+  const studio = await questionnaireApi.getStudio()
+  return extractPublishBaselineFromStudio(studio)
+}
+
 async function refreshServerReadiness(): Promise<boolean> {
   readinessLoading.value = true
   serverReadiness.value = null
@@ -94,7 +104,14 @@ async function refreshServerReadiness(): Promise<boolean> {
 
 function clearImpactAnalysis() {
   impactAnalysis.value = null
+  impactPreviewBaseline.value = null
   awaitingImpactConfirm.value = false
+}
+
+function invalidateImpactPreviewForStaleDraft() {
+  clearImpactAnalysis()
+  publishError.value = t('rfx.changeImpact.repreviewRequired')
+  pushToast('error', t('rfx.changeImpact.repreviewRequired'))
 }
 
 async function runImpactPreview() {
@@ -102,9 +119,16 @@ async function runImpactPreview() {
   impactError.value = ''
   clearImpactAnalysis()
   try {
+    if (!(await flushAutosaveOrBlock())) return
+    const baseline = await loadPublishBaseline()
+    if (!baseline) {
+      impactError.value = t('rfx.studio.loadFailed')
+      return
+    }
     impactAnalysis.value = await lifecycleApi.previewChangeImpact({
-      candidate_version_id: props.draftVersionId,
+      candidate_version_id: baseline.draftVersionId,
     })
+    impactPreviewBaseline.value = baseline
     if (impactAnalysis.value.impact_classes.some((c) => c !== 'NON_MATERIAL')) {
       awaitingImpactConfirm.value = true
     }
@@ -134,30 +158,35 @@ function handleImpactPublishError(e: unknown): boolean {
   return false
 }
 
-async function runPrePublishGates(): Promise<boolean> {
+async function runPrePublishGates(): Promise<ImpactPreviewBaseline | null> {
   publishError.value = ''
   if (!changeSummary.value.trim()) {
     pushToast('error', t('rfx.templates.publish.changeSummary'))
-    return false
+    return null
   }
   if (versionsState.value === 'error') {
     pushToast('error', t('rfx.versions.loadFailed'))
-    return false
+    return null
   }
-  if (!(await flushAutosaveOrBlock())) return false
+  if (!(await flushAutosaveOrBlock())) return null
+  const baseline = await loadPublishBaseline()
+  if (!baseline) {
+    pushToast('error', t('rfx.studio.loadFailed'))
+    return null
+  }
   if (!(await refreshServerReadiness())) {
     pushToast('error', t('rfx.studio.readyFail'))
-    return false
+    return null
   }
-  return true
+  return baseline
 }
 
-async function executePublish() {
+async function executePublish(baseline: ImpactPreviewBaseline) {
   if (publishOp.isSubmitting()) return
   publishError.value = ''
   const body = buildEventPublishPayload({
-    expectedEventVersion: props.expectedEventVersion,
-    expectedDraftVersion: props.expectedDraftVersion,
+    expectedEventVersion: baseline.eventVersion,
+    expectedDraftVersion: baseline.draftVersion,
     changeSummary: changeSummary.value,
     impact: republishRequired.value ? impactAnalysis.value : null,
   })
@@ -174,24 +203,46 @@ async function executePublish() {
 
 async function handlePublishClick() {
   if (publishBlocked.value || publishOp.isSubmitting()) return
-  if (!(await runPrePublishGates())) return
+  const baseline = await runPrePublishGates()
+  if (!baseline) return
   if (republishRequired.value && !impactAnalysis.value) {
     await runImpactPreview()
     if (!impactAnalysis.value) return
     if (awaitingImpactConfirm.value) return
   }
-  await executePublish()
+  const publishBaseline = impactPreviewBaseline.value ?? baseline
+  await executePublish(publishBaseline)
 }
 
 async function confirmImpactAndPublish() {
-  if (publishBlocked.value || publishOp.isSubmitting()) return
-  if (!impactAnalysis.value) return
+  if (publishBlocked.value || publishOp.isSubmitting() || confirmInFlight.value) return
+  if (!impactAnalysis.value || !impactPreviewBaseline.value) return
+  confirmInFlight.value = true
   awaitingImpactConfirm.value = false
-  if (!(await runPrePublishGates())) {
-    awaitingImpactConfirm.value = true
-    return
+  try {
+    if (!(await flushAutosaveOrBlock())) {
+      awaitingImpactConfirm.value = true
+      return
+    }
+    const currentBaseline = await loadPublishBaseline()
+    if (!currentBaseline) {
+      awaitingImpactConfirm.value = true
+      pushToast('error', t('rfx.studio.loadFailed'))
+      return
+    }
+    if (isImpactPreviewBaselineStale(impactPreviewBaseline.value, currentBaseline, impactAnalysis.value)) {
+      invalidateImpactPreviewForStaleDraft()
+      return
+    }
+    if (!(await refreshServerReadiness())) {
+      awaitingImpactConfirm.value = true
+      pushToast('error', t('rfx.studio.readyFail'))
+      return
+    }
+    await executePublish(currentBaseline)
+  } finally {
+    confirmInFlight.value = false
   }
-  await executePublish()
 }
 
 function retryPreview() {

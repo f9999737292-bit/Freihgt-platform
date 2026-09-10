@@ -126,7 +126,7 @@ func (r *RfxRepository) LoadEventProvenance(ctx context.Context, eventID, tenant
 		)
 		err := r.db().QueryRow(ctx, `
 			SELECT tv.id, tv.template_id, tv.version_number, tv.status,
-			       t.template_code, t.name_i18n, t.owner_company_id
+			       t.template_code, t.name_i18n_json, t.owner_company_id
 			FROM rfx.rfx_events e
 			INNER JOIN rfx.rfx_template_versions tv
 				ON tv.id = e.source_template_version_id AND tv.tenant_id = e.tenant_id AND tv.deleted_at IS NULL

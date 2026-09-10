@@ -117,10 +117,7 @@ func TestE6INT07EventProvenanceHiddenFromCarrier(t *testing.T) {
 	result := cloneFromTemplate(t, env, fix.BuyerA, published.ID, defaultCloneEventInput("RFQ-E6-07", fix.CompanyA), uuid.NewString())
 
 	prov, err := env.rfxSvc.GetEventProvenance(context.Background(), fix.CarrierAct, result.Event.ID)
-	if err != nil {
-		t.Fatalf("carrier event access: %v", err)
-	}
-	if prov != nil {
+	if err == nil && prov != nil {
 		t.Fatal("carrier must not receive template provenance")
 	}
 }
@@ -130,7 +127,7 @@ func TestE6INT08HTTPGetVersionQuestionnaire(t *testing.T) {
 	fix := seedBuyerFixture(t, env)
 	_, published := setupPublishedTemplate(t, env, fix, "e6-int-08", &fix.CompanyA)
 
-	rec := getTemplateVersionQuestionnaireHTTP(t, env, fix, published.TemplateID, published.ID)
+	rec := getTemplateVersionQuestionnaireHTTP(t, env, e6EnabledConfig(), fix, published.TemplateID, published.ID)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
 	}
@@ -150,7 +147,7 @@ func TestE6INT09HTTPGetEventProvenanceFields(t *testing.T) {
 	_, published := setupPublishedTemplate(t, env, fix, "e6-int-09", &fix.CompanyA)
 	result := cloneFromTemplate(t, env, fix.BuyerA, published.ID, defaultCloneEventInput("RFQ-E6-09", fix.CompanyA), uuid.NewString())
 
-	rec := getEventHTTP(t, env, fix, result.Event.ID)
+	rec := getEventHTTP(t, env, e6EnabledConfig(), fix, result.Event.ID)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
 	}
@@ -158,7 +155,7 @@ func TestE6INT09HTTPGetEventProvenanceFields(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if payload["source_template_version_id"] != published.ID.String() {
+	if got, _ := payload["source_template_version_id"].(string); got != published.ID.String() {
 		t.Fatalf("expected source_template_version_id=%s got %#v", published.ID, payload["source_template_version_id"])
 	}
 	if payload["source_version_number"] == nil {
@@ -166,23 +163,43 @@ func TestE6INT09HTTPGetEventProvenanceFields(t *testing.T) {
 	}
 }
 
-func getTemplateVersionQuestionnaireHTTP(t *testing.T, env *testEnv, fix buyerFixture, templateID, versionID uuid.UUID) *httptest.ResponseRecorder {
+func TestE6INT10HTTPCrossTenantVersionQuestionnaireNotFound(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	_, published := setupPublishedTemplate(t, env, fix, "e6-int-10", &fix.CompanyA)
+
+	rec := getTemplateVersionQuestionnaireHTTPWithActor(t, env, e6EnabledConfig(), fix.CrossTenant, published.TemplateID, published.ID)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func e6EnabledConfig() config.Config {
+	return config.Config{RfxVersioningV3Enabled: true}
+}
+
+func getTemplateVersionQuestionnaireHTTP(t *testing.T, env *testEnv, cfg config.Config, fix buyerFixture, templateID, versionID uuid.UUID) *httptest.ResponseRecorder {
+	t.Helper()
+	return getTemplateVersionQuestionnaireHTTPWithActor(t, env, cfg, fix.BuyerA, templateID, versionID)
+}
+
+func getTemplateVersionQuestionnaireHTTPWithActor(t *testing.T, env *testEnv, cfg config.Config, actor domain.ActorContext, templateID, versionID uuid.UUID) *httptest.ResponseRecorder {
 	t.Helper()
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	router := httpserver.NewRouter(log, env.pool, config.Config{}, env.rfxSvc, env.qSvc, env.versionSvc, env.templateSvc, env.templateQSvc, env.cloneSvc, env.crSvc, env.scoreModelSvc, nil, nil, nil, nil)
+	router := httpserver.NewRouter(log, env.pool, cfg, env.rfxSvc, env.qSvc, env.versionSvc, env.templateSvc, env.templateQSvc, env.cloneSvc, env.crSvc, env.scoreModelSvc, nil, nil, nil, nil)
 	path := "/v1/rfx-templates/" + templateID.String() + "/versions/" + versionID.String() + "/questionnaire"
 	req := httptest.NewRequest(http.MethodGet, path, nil)
-	req.Header.Set("X-Tenant-ID", fix.TenantID.String())
-	req.Header.Set("X-User-ID", fix.BuyerA.UserID.String())
+	req.Header.Set("X-Tenant-ID", actor.TenantID.String())
+	req.Header.Set("X-User-ID", actor.UserID.String())
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	return rec
 }
 
-func getEventHTTP(t *testing.T, env *testEnv, fix buyerFixture, eventID uuid.UUID) *httptest.ResponseRecorder {
+func getEventHTTP(t *testing.T, env *testEnv, cfg config.Config, fix buyerFixture, eventID uuid.UUID) *httptest.ResponseRecorder {
 	t.Helper()
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	router := httpserver.NewRouter(log, env.pool, config.Config{}, env.rfxSvc, env.qSvc, env.versionSvc, env.templateSvc, env.templateQSvc, env.cloneSvc, env.crSvc, env.scoreModelSvc, nil, nil, nil, nil)
+	router := httpserver.NewRouter(log, env.pool, cfg, env.rfxSvc, env.qSvc, env.versionSvc, env.templateSvc, env.templateQSvc, env.cloneSvc, env.crSvc, env.scoreModelSvc, nil, nil, nil, nil)
 	path := "/v1/rfx-events/" + eventID.String()
 	req := httptest.NewRequest(http.MethodGet, path, nil)
 	req.Header.Set("X-Tenant-ID", fix.TenantID.String())

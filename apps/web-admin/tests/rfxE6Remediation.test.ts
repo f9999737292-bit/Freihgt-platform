@@ -22,6 +22,7 @@ import {
 import {
   buildEventPublishPayload,
   hasPublishedEventVersion,
+  isImpactPreviewBaselineStale,
   shouldRequireImpactPreview,
 } from '../utils/rfxEventPublishOrchestration'
 import {
@@ -179,6 +180,17 @@ describe('E6-REM publish orchestration', () => {
     })
     expect(payload.impact_analysis_id).toBe('ia-1')
     expect(payload.canonical_diff_hash).toBe('hash-1')
+  })
+
+  it('E6-REM-UT-39 impact preview baseline stale when draft version changes', () => {
+    const baseline = { eventVersion: 1, draftVersionId: 'draft-1', draftVersion: 2 }
+    const current = { eventVersion: 1, draftVersionId: 'draft-1', draftVersion: 3 }
+    expect(isImpactPreviewBaselineStale(baseline, current, { candidate_version_id: 'draft-1' })).toBe(true)
+  })
+
+  it('E6-REM-UT-40 impact preview baseline stable when unchanged', () => {
+    const baseline = { eventVersion: 1, draftVersionId: 'draft-1', draftVersion: 2 }
+    expect(isImpactPreviewBaselineStale(baseline, baseline, { candidate_version_id: 'draft-1' })).toBe(false)
   })
 
   it('E6-REM-UT-26 six impact classes exist', () => {

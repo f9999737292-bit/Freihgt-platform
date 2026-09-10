@@ -22,10 +22,38 @@ const previewChangeImpact = vi.fn()
 const publishQuestionnaire = vi.fn()
 const pushToast = vi.fn()
 
+function defaultStudioState() {
+  return {
+    event: {
+      id: 'evt-1',
+      rfx_number: 'RFQ-1',
+      rfx_type: 'SPOT_RFQ',
+      category: 'FREIGHT',
+      title: 'Test',
+      owner_company_id: 'co-1',
+      status: 'DRAFT',
+      version: 1,
+    },
+    draft_version: {
+      id: 'draft-1',
+      rfx_event_id: 'evt-1',
+      version_number: 2,
+      status: 'DRAFT',
+      questionnaire_enabled: true,
+      version: 2,
+    },
+    sections: [],
+    rules: [],
+  }
+}
+
+const getStudio = vi.fn(async () => defaultStudioState())
+
 vi.mock('~/composables/useRfxQuestionnaireApi', () => ({
   useInjectedRfxQuestionnaireApi: () => ({
     flushPendingPatches,
     validatePublish,
+    getStudio,
   }),
   RFX_QUESTIONNAIRE_API_KEY: Symbol('rfxQuestionnaireApi'),
 }))
@@ -84,8 +112,10 @@ describe('E6 component acceptance', () => {
       canonical_diff_hash: 'hash-1',
       expires_at: '2099-01-01T00:00:00Z',
       impact_classes: ['NON_MATERIAL'],
+      candidate_version_id: 'draft-1',
     })
     publishQuestionnaire.mockResolvedValue({ id: 'pub-res' })
+    getStudio.mockImplementation(async () => defaultStudioState())
   })
 
   it('E6-CMP-01 cloneable versions prefer PUBLISHED over SUPERSEDED', () => {
@@ -241,6 +271,7 @@ describe('E6 component acceptance', () => {
       canonical_diff_hash: 'hash-1',
       expires_at: '2099-01-01T00:00:00Z',
       impact_classes: ['MATERIAL_NO_RESPONSES'],
+      candidate_version_id: 'draft-1',
     })
     const wrapper = mountPublishPanel()
     await flushPromises()
@@ -259,6 +290,7 @@ describe('E6 component acceptance', () => {
       canonical_diff_hash: 'hash-old',
       expires_at: '2020-01-01T00:00:00Z',
       impact_classes: ['MATERIAL_NO_RESPONSES'],
+      candidate_version_id: 'draft-1',
     })
     publishQuestionnaire.mockRejectedValueOnce(new ApiError(422, { code: 'IMPACT_ANALYSIS_EXPIRED', message: 'expired', details: {} }))
     const wrapper = mountPublishPanel()
@@ -279,6 +311,7 @@ describe('E6 component acceptance', () => {
       canonical_diff_hash: 'hash-1',
       expires_at: '2099-01-01T00:00:00Z',
       impact_classes: ['MATERIAL_NO_RESPONSES'],
+      candidate_version_id: 'draft-1',
     })
     publishQuestionnaire.mockRejectedValueOnce(new ApiError(409, { code: 'STALE_DIFF', message: 'stale', details: {} }))
     const wrapper = mountPublishPanel()
@@ -346,6 +379,7 @@ describe('E6 component acceptance', () => {
       canonical_diff_hash: 'hash-1',
       expires_at: '2099-01-01T00:00:00Z',
       impact_classes: ['MATERIAL_NO_RESPONSES'],
+      candidate_version_id: 'draft-1',
     })
     publishQuestionnaire.mockRejectedValue(new ApiError(409, { code: 'IMPACT_ANALYSIS_CONSUMED', message: 'consumed', details: {} }))
     const wrapper = mountPublishPanel()
@@ -359,29 +393,67 @@ describe('E6 component acceptance', () => {
     expect(wrapper.text()).toContain('rfx.errors.impactAnalysisConsumed')
   })
 
-  it('E6-CMP-21 impact confirm re-runs flush and validate before publish', async () => {
+  it('E6-CMP-21 impact confirm re-runs flush, studio reload, and validate before publish', async () => {
     listVersions.mockResolvedValue({ versions: [publishedVersion] })
     previewChangeImpact.mockResolvedValueOnce({
       impact_analysis_id: 'ia-1',
       canonical_diff_hash: 'hash-1',
       expires_at: '2099-01-01T00:00:00Z',
       impact_classes: ['MATERIAL_NO_RESPONSES'],
+      candidate_version_id: 'draft-1',
     })
     const wrapper = mountPublishPanel()
     await flushPromises()
     await wrapper.find('textarea').setValue('Summary')
     await wrapper.findAll('button').find((b) => b.text().includes('rfx.changeImpact.preview'))!.trigger('click')
     await flushPromises()
-    flushPendingPatches.mockClear()
+    const flushCallsBeforeConfirm = flushPendingPatches.mock.calls.length
+    const studioCallsBeforeConfirm = getStudio.mock.calls.length
     validatePublish.mockClear()
     publishQuestionnaire.mockClear()
     await wrapper.find('[data-testid="impact-confirm"]').trigger('click')
     await flushPromises()
-    expect(flushPendingPatches).toHaveBeenCalled()
+    expect(flushPendingPatches.mock.calls.length).toBeGreaterThan(flushCallsBeforeConfirm)
+    expect(getStudio.mock.calls.length).toBeGreaterThan(studioCallsBeforeConfirm)
     expect(validatePublish).toHaveBeenCalled()
-    expect(flushPendingPatches.mock.invocationCallOrder[0]).toBeLessThan(validatePublish.mock.invocationCallOrder[0]!)
+    expect(flushPendingPatches.mock.invocationCallOrder[flushCallsBeforeConfirm]).toBeLessThan(getStudio.mock.invocationCallOrder[studioCallsBeforeConfirm]!)
+    expect(getStudio.mock.invocationCallOrder[studioCallsBeforeConfirm]).toBeLessThan(validatePublish.mock.invocationCallOrder[0]!)
     expect(validatePublish.mock.invocationCallOrder[0]).toBeLessThan(publishQuestionnaire.mock.invocationCallOrder[0]!)
-    expect(publishQuestionnaire).toHaveBeenCalled()
+    expect(publishQuestionnaire).toHaveBeenCalledWith(
+      expect.objectContaining({ expected_event_version: 1, expected_draft_version: 2 }),
+      expect.any(String),
+    )
+  })
+
+  it('E6-CMP-23 stale draft after impact preview blocks confirm publish', async () => {
+    listVersions.mockResolvedValue({ versions: [publishedVersion] })
+    previewChangeImpact.mockResolvedValueOnce({
+      impact_analysis_id: 'ia-1',
+      canonical_diff_hash: 'hash-1',
+      expires_at: '2099-01-01T00:00:00Z',
+      impact_classes: ['MATERIAL_NO_RESPONSES'],
+      candidate_version_id: 'draft-1',
+    })
+    const wrapper = mountPublishPanel()
+    await flushPromises()
+    await wrapper.find('textarea').setValue('Summary')
+    await wrapper.findAll('button').find((b) => b.text().includes('rfx.changeImpact.preview'))!.trigger('click')
+    await flushPromises()
+    getStudio.mockResolvedValueOnce({
+      ...defaultStudioState(),
+      draft_version: {
+        id: 'draft-1',
+        rfx_event_id: 'evt-1',
+        version_number: 2,
+        status: 'DRAFT',
+        questionnaire_enabled: true,
+        version: 3,
+      },
+    })
+    await wrapper.find('[data-testid="impact-confirm"]').trigger('click')
+    await flushPromises()
+    expect(publishQuestionnaire).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('rfx.changeImpact.repreviewRequired')
   })
 
   it('E6-CMP-22 impact confirm blocks publish when NOT_READY after confirm', async () => {
@@ -391,6 +463,7 @@ describe('E6 component acceptance', () => {
       canonical_diff_hash: 'hash-1',
       expires_at: '2099-01-01T00:00:00Z',
       impact_classes: ['MATERIAL_NO_RESPONSES'],
+      candidate_version_id: 'draft-1',
     })
     const wrapper = mountPublishPanel()
     await flushPromises()
