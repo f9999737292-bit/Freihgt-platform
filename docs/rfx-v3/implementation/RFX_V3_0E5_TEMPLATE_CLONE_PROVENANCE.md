@@ -164,14 +164,14 @@ All suites passed on PR #115 head `5c26d34e3e623ac1d1be414455c8a28b18ae1c62` (CI
 - Scoring models and downstream business artifacts (responses, participants, offer lines, evaluation/qualification results) are **not** copied on clone.
 - E5-INT-01..32 and E5-REM-001..012 passed on exact HEAD.
 - Staging and pilot were **not** changed as part of E5.
-- **E6** (Studio frontend) is accepted and merged to `main` at `176461729dc2200d458eefad70ccdc126a2041b3` (PR #117).
-- **E7** (browser acceptance) has **not** started; separate controller authorization is required before E7.
-- Complete v3.0E remains **IMPLEMENTATION_IN_PROGRESS** until E7 is accepted.
+- **E6** (Studio frontend) and **E7** (browser acceptance) have **not** started; separate controller authorization is required before either wave.
+- Complete v3.0E remains **IMPLEMENTATION_IN_PROGRESS** until E6–E7 are accepted.
 
 ---
 
 ## 12. Out of scope (E5 / E6+)
 
+- Studio frontend for template library / clone UX (E6)
 - Browser acceptance gate (E7)
 - v3.0F qualification pool
 - Manual buyer RFQ creation UX beyond existing APIs
@@ -181,5 +181,5 @@ All suites passed on PR #115 head `5c26d34e3e623ac1d1be414455c8a28b18ae1c62` (CI
 - Carrier Excel import/export
 - Staging/pilot rollout
 
-**E6:** IMPLEMENTED_ACCEPTED (see `RFX_V3_0E6_STUDIO_FRONTEND.md`)
+**E6:** PENDING_CONTROLLER_AUTHORIZATION
 **E7:** NOT_STARTED
