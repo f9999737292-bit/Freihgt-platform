@@ -25,21 +25,19 @@ import (
 func TestE6INT01PublishedVersionQuestionnaireGraph(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
-	_, published := setupPublishedTemplate(t, env, fix, "e6-int-01", &fix.CompanyA)
+	_, published, expect := setupPublishedE6HistoricalTemplate(t, env, fix, "e6-int-01", &fix.CompanyA)
 
 	q, err := env.templateQSvc.GetVersionQuestionnaire(context.Background(), fix.BuyerA, published.TemplateID, published.ID)
 	if err != nil {
 		t.Fatalf("get published version questionnaire: %v", err)
 	}
-	if len(q.Sections) == 0 {
-		t.Fatal("expected non-empty questionnaire graph for published version")
-	}
+	assertE6HistoricalGraphPG(t, q, expect)
 }
 
 func TestE6INT02SupersededVersionQuestionnaireGraph(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
-	detail, firstPublished := setupPublishedTemplate(t, env, fix, "e6-int-02", &fix.CompanyA)
+	detail, firstPublished, expect := setupPublishedE6HistoricalTemplate(t, env, fix, "e6-int-02", &fix.CompanyA)
 
 	draft, err := env.templateSvc.ForkDraftFromPublished(context.Background(), fix.BuyerA, detail.Template.ID, uuid.NewString())
 	if err != nil {
@@ -61,9 +59,10 @@ func TestE6INT02SupersededVersionQuestionnaireGraph(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get superseded version questionnaire: %v", err)
 	}
-	if len(q.Sections) == 0 {
-		t.Fatal("expected non-empty questionnaire graph for superseded version")
+	if q.VersionStatus != domain.RfxVersionStatusSuperseded {
+		t.Fatalf("expected superseded version status, got %s", q.VersionStatus)
 	}
+	assertE6HistoricalGraphPG(t, q, expect)
 }
 
 func TestE6INT03VersionQuestionnaireCrossTenantNotFound(t *testing.T) {
@@ -128,20 +127,10 @@ func TestE6INT07EventProvenanceHiddenFromCarrier(t *testing.T) {
 func TestE6INT08HTTPGetVersionQuestionnaire(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
-	_, published := setupPublishedTemplate(t, env, fix, "e6-int-08", &fix.CompanyA)
+	_, published, expect := setupPublishedE6HistoricalTemplate(t, env, fix, "e6-int-08", &fix.CompanyA)
 
 	rec := getTemplateVersionQuestionnaireHTTP(t, env, e6EnabledConfig(), fix, published.TemplateID, published.ID)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
-	}
-	var payload map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
-	sections, ok := payload["sections"].([]any)
-	if !ok || len(sections) == 0 {
-		t.Fatalf("expected sections in HTTP response, got %#v", payload["sections"])
-	}
+	assertE6HistoricalGraphHTTP(t, rec, published, expect)
 }
 
 func TestE6INT09HTTPGetEventProvenanceFields(t *testing.T) {
@@ -175,65 +164,64 @@ func TestE6INT10HTTPCrossTenantVersionQuestionnaireNotFound(t *testing.T) {
 	expectHTTPErrorCode(t, rec, http.StatusNotFound, apperrors.CodeNotFound)
 }
 
-func TestE6INT11CrossTemplateVersionQuestionnaireNotFoundPG(t *testing.T) {
+func TestE6INT11CrossTemplateVersionQuestionnaireNotFound(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
 	detailA := createTemplate(t, env, fix, "e6-int-11-a", &fix.CompanyA)
-	_, publishedB := setupPublishedTemplate(t, env, fix, "e6-int-11-b", &fix.CompanyA)
+	_, publishedB, _ := setupPublishedE6HistoricalTemplate(t, env, fix, "e6-int-11-b", &fix.CompanyA)
 
 	_, err := env.templateQSvc.GetVersionQuestionnaire(context.Background(), fix.BuyerA, detailA.Template.ID, publishedB.ID)
 	expectAppErrorCode(t, err, apperrors.CodeNotFound)
-}
-
-func TestE6INT12CrossTemplateVersionQuestionnaireNotFoundHTTP(t *testing.T) {
-	env := setupTestEnv(t)
-	fix := seedBuyerFixture(t, env)
-	detailA := createTemplate(t, env, fix, "e6-int-12-a", &fix.CompanyA)
-	_, publishedB := setupPublishedTemplate(t, env, fix, "e6-int-12-b", &fix.CompanyA)
 
 	rec := getTemplateVersionQuestionnaireHTTP(t, env, e6EnabledConfig(), fix, detailA.Template.ID, publishedB.ID)
 	expectHTTPErrorCode(t, rec, http.StatusNotFound, apperrors.CodeNotFound)
 }
 
+func TestE6INT12SupersededVersionQuestionnaireGraphHTTP(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	detail, firstPublished, expect := setupPublishedE6HistoricalTemplate(t, env, fix, "e6-int-12", &fix.CompanyA)
+
+	draft, err := env.templateSvc.ForkDraftFromPublished(context.Background(), fix.BuyerA, detail.Template.ID, "e6-int-12-fork")
+	if err != nil {
+		t.Fatalf("fork draft: %v", err)
+	}
+	detail, err = env.templateSvc.GetTemplate(context.Background(), fix.BuyerA, detail.Template.ID)
+	if err != nil {
+		t.Fatalf("reload template: %v", err)
+	}
+	if _, err := env.templateSvc.PublishTemplateVersion(context.Background(), fix.BuyerA, detail.Template.ID, "e6-int-12-pub2", domain.PublishTemplateVersionInput{
+		ExpectedTemplateVersion: detail.Template.Version,
+		ExpectedDraftVersion:    draft.Version,
+		ChangeSummary:           "Second publish",
+	}); err != nil {
+		t.Fatalf("publish second version: %v", err)
+	}
+	superseded := reloadTemplateVersionByID(t, env, fix, detail.Template.ID, firstPublished.ID)
+
+	rec := getTemplateVersionQuestionnaireHTTP(t, env, e6EnabledConfig(), fix, superseded.TemplateID, superseded.ID)
+	assertE6HistoricalGraphHTTP(t, rec, superseded, expect)
+}
+
 func TestE6INT13DraftVersionQuestionnaireGraphPG(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
-	detail := createTemplate(t, env, fix, "e6-int-13", &fix.CompanyA)
-	populateTemplateGraph(t, env, fix, detail.Template.ID)
-	if detail.DraftVersion == nil {
-		t.Fatal("expected draft version")
-	}
+	detail, expect := setupE6HistoricalTemplateDraft(t, env, fix, "e6-int-13", &fix.CompanyA)
 
 	q, err := env.templateQSvc.GetVersionQuestionnaire(context.Background(), fix.BuyerA, detail.Template.ID, detail.DraftVersion.ID)
 	if err != nil {
 		t.Fatalf("get draft version questionnaire: %v", err)
 	}
-	if len(q.Sections) == 0 {
-		t.Fatal("expected non-empty draft questionnaire graph")
-	}
+	assertE6HistoricalGraphPG(t, q, expect)
 }
 
 func TestE6INT14DraftVersionQuestionnaireGraphHTTP(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
-	detail := createTemplate(t, env, fix, "e6-int-14", &fix.CompanyA)
-	populateTemplateGraph(t, env, fix, detail.Template.ID)
-	if detail.DraftVersion == nil {
-		t.Fatal("expected draft version")
-	}
+	detail, expect := setupE6HistoricalTemplateDraft(t, env, fix, "e6-int-14", &fix.CompanyA)
 
 	rec := getTemplateVersionQuestionnaireHTTP(t, env, e6EnabledConfig(), fix, detail.Template.ID, detail.DraftVersion.ID)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
-	}
-	var payload map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
-	sections, ok := payload["sections"].([]any)
-	if !ok || len(sections) == 0 {
-		t.Fatalf("expected sections in draft HTTP response, got %#v", payload["sections"])
-	}
+	assertE6HistoricalGraphHTTP(t, rec, detail.DraftVersion, expect)
 }
 
 func TestE6INT15UnknownVersionQuestionnaireNotFoundPG(t *testing.T) {
@@ -379,15 +367,13 @@ func TestE6INT24OpenAPIEventProvenanceAndVersionQuestionnaireParity(t *testing.T
 func TestE6INT25TenantWidePublishedVersionReadableByBuyerBPG(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
-	_, published := setupPublishedTemplate(t, env, fix, "e6-int-25", nil)
+	_, published, expect := setupPublishedE6HistoricalTemplate(t, env, fix, "e6-int-25", nil)
 
 	q, err := env.templateQSvc.GetVersionQuestionnaire(context.Background(), fix.BuyerB, published.TemplateID, published.ID)
 	if err != nil {
 		t.Fatalf("tenant-wide published graph for buyer B: %v", err)
 	}
-	if len(q.Sections) == 0 {
-		t.Fatal("expected non-empty tenant-wide published questionnaire graph")
-	}
+	assertE6HistoricalGraphPG(t, q, expect)
 }
 
 func e6EnabledConfig() config.Config {
