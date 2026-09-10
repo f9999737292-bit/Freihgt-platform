@@ -3,6 +3,7 @@ import type { RfxTemplateRecord } from '~/types/rfx-template'
 import { RFX_TEMPLATE_AGGREGATE_STATUSES } from '~/types/rfx-template'
 import { resolveI18nMapValue } from '~/utils/rfxTemplateI18n'
 import { formatRfxApiError } from '~/utils/rfxApiError'
+import { formatRfxDateTime } from '~/utils/formatRfxDateTime'
 
 definePageMeta({ middleware: ['auth', 'rfx-buyer-manage'], layout: 'default' })
 
@@ -19,7 +20,6 @@ const loadFailed = ref(false)
 const forbidden = ref(false)
 const showCreateModal = ref(false)
 const showCloneModal = ref(false)
-const templateVersions = ref(new Map<string, never[]>())
 
 const filters = reactive({
   search: '',
@@ -34,6 +34,9 @@ const statusOptions = computed(() => [
     value: v,
   })),
 ])
+
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pagination.limit)))
+const currentPage = computed(() => Math.floor(pagination.offset / pagination.limit) + 1)
 
 function templateName(tpl: RfxTemplateRecord) {
   return resolveI18nMapValue(tpl.name_i18n, locale.value) || tpl.template_code
@@ -86,6 +89,11 @@ onMounted(() => void loadLibrary())
 function openTemplate(id: string) {
   void router.push(`/rfx/templates/${id}`)
 }
+
+function goToPage(page: number) {
+  pagination.offset = (page - 1) * pagination.limit
+  void loadLibrary()
+}
 </script>
 
 <template>
@@ -114,33 +122,48 @@ function openTemplate(id: string) {
 
     <p v-if="loading">{{ $t('common.loading') }}</p>
     <p v-else-if="forbidden">{{ $t('rfx.errors.forbidden') }}</p>
-    <p v-else-if="loadFailed">{{ $t('common.loadFailed') }}</p>
+    <div v-else-if="loadFailed" class="error-row">
+      <p>{{ $t('common.loadFailed') }}</p>
+      <button type="button" class="btn btn--secondary" @click="loadLibrary">{{ $t('common.retry') }}</button>
+    </div>
     <p v-else-if="items.length === 0">{{ $t('rfx.templates.empty') }}</p>
 
-    <table v-else class="data-table">
-      <thead>
-        <tr>
-          <th>{{ $t('rfx.templates.columns.name') }}</th>
-          <th>{{ $t('rfx.templates.columns.code') }}</th>
-          <th>{{ $t('rfx.templates.columns.status') }}</th>
-          <th>{{ $t('rfx.templates.columns.updated') }}</th>
-          <th>{{ $t('common.actions') }}</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="tpl in items" :key="tpl.id">
-          <td>{{ templateName(tpl) }}</td>
-          <td><code>{{ tpl.template_code }}</code></td>
-          <td><RfxTemplateStatusBadge :aggregate-status="tpl.status" /></td>
-          <td>{{ tpl.updated_at }}</td>
-          <td>
-            <button type="button" class="btn btn--link" @click="openTemplate(tpl.id)">
-              {{ $t('common.open') }}
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <template v-else>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>{{ $t('rfx.templates.columns.name') }}</th>
+            <th>{{ $t('rfx.templates.columns.code') }}</th>
+            <th>{{ $t('rfx.templates.columns.status') }}</th>
+            <th>{{ $t('rfx.templates.columns.updated') }}</th>
+            <th>{{ $t('common.actions') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="tpl in items" :key="tpl.id">
+            <td>{{ templateName(tpl) }}</td>
+            <td><code>{{ tpl.template_code }}</code></td>
+            <td><RfxTemplateStatusBadge :aggregate-status="tpl.status" /></td>
+            <td>{{ formatRfxDateTime(tpl.updated_at, locale) }}</td>
+            <td>
+              <button type="button" class="btn btn--link" @click="openTemplate(tpl.id)">
+                {{ $t('common.open') }}
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <nav v-if="totalPages > 1" class="pagination" aria-label="Pagination">
+        <button type="button" class="btn btn--secondary" :disabled="currentPage <= 1" @click="goToPage(currentPage - 1)">
+          {{ $t('common.previous') }}
+        </button>
+        <span>{{ $t('common.pageOf', { page: currentPage, total: totalPages }) }}</span>
+        <button type="button" class="btn btn--secondary" :disabled="currentPage >= totalPages" @click="goToPage(currentPage + 1)">
+          {{ $t('common.next') }}
+        </button>
+      </nav>
+    </template>
 
     <RfxTemplateCreateModal
       :open="showCreateModal"
@@ -150,8 +173,7 @@ function openTemplate(id: string) {
 
     <RfxCreateFromTemplateModal
       :open="showCloneModal"
-      :templates="items.filter((t) => t.status === 'ACTIVE')"
-      :template-versions="templateVersions"
+      :templates="items.filter((tpl) => tpl.status === 'ACTIVE')"
       @close="showCloneModal = false"
       @created="(id: string) => { showCloneModal = false; void router.push(`/rfx/${id}/studio`) }"
     />
@@ -164,6 +186,8 @@ function openTemplate(id: string) {
 .page__subtitle { margin: 0.25rem 0 0; color: var(--color-text-muted); }
 .page__actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .filters { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+.error-row { display: flex; align-items: center; gap: 0.75rem; }
 .data-table { width: 100%; border-collapse: collapse; }
 .data-table th, .data-table td { text-align: left; padding: 0.625rem; border-bottom: 1px solid var(--color-border); }
+.pagination { display: flex; align-items: center; gap: 0.75rem; }
 </style>

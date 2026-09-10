@@ -2,13 +2,14 @@
 import type { RfxVersionRecord } from '~/types/rfx-version-lifecycle'
 import { isEventVersionEditable } from '~/types/rfx-version-lifecycle'
 import { formatRfxApiError } from '~/utils/rfxApiError'
-import { createIdempotencyKey } from '~/utils/idempotencyKey'
+import { formatRfxDateTime } from '~/utils/formatRfxDateTime'
+import { IdempotentOperation } from '~/utils/idempotentOperation'
 
 definePageMeta({ middleware: ['auth', 'rfx-buyer-manage'], layout: 'default' })
 
 const route = useRoute()
 const router = useRouter()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const { pushToast } = useToast()
 const { canManageEventVersions } = useRfxBuyerPermissions()
 
@@ -21,6 +22,7 @@ const restoreOpen = ref(false)
 const restoreTarget = ref<RfxVersionRecord | null>(null)
 const restoreError = ref('')
 const restoring = ref(false)
+const restoreOp = new IdempotentOperation<{ change_summary: string }, unknown>('evt-restore')
 
 async function loadVersions() {
   loading.value = true
@@ -39,18 +41,18 @@ onMounted(() => void loadVersions())
 function openRestore(version: RfxVersionRecord) {
   restoreTarget.value = version
   restoreError.value = ''
+  restoreOp.reset()
   restoreOpen.value = true
 }
 
 async function handleRestore(changeSummary: string) {
-  if (!restoreTarget.value) return
+  if (!restoreTarget.value || restoreOp.isSubmitting()) return
   restoring.value = true
   restoreError.value = ''
+  const body = { change_summary: changeSummary }
   try {
-    await lifecycleApi.restoreAsDraft(
-      restoreTarget.value.id,
-      { change_summary: changeSummary },
-      createIdempotencyKey('evt-restore'),
+    await restoreOp.execute(body, (key, payload) =>
+      lifecycleApi.restoreAsDraft(restoreTarget.value!.id, payload, key),
     )
     restoreOpen.value = false
     pushToast('success', t('rfx.restore.success'))
@@ -65,6 +67,10 @@ async function handleRestore(changeSummary: string) {
 
 function goCompare() {
   void router.push(`/rfx/${eventId.value}/versions/compare`)
+}
+
+function openVersion(versionId: string) {
+  void router.push(`/rfx/${eventId.value}/versions/${versionId}`)
 }
 </script>
 
@@ -86,18 +92,21 @@ function goCompare() {
           <th>{{ $t('rfx.versions.columns.status') }}</th>
           <th>{{ $t('rfx.versions.columns.publishedAt') }}</th>
           <th>{{ $t('rfx.versions.columns.summary') }}</th>
-          <th v-if="canManageEventVersions()">{{ $t('common.actions') }}</th>
+          <th>{{ $t('common.actions') }}</th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="ver in versions" :key="ver.id">
           <td>v{{ ver.version_number }}</td>
           <td><RfxVersionStatusBadge :status="ver.status" /></td>
-          <td>{{ ver.published_at || '—' }}</td>
+          <td>{{ formatRfxDateTime(ver.published_at, locale) }}</td>
           <td>{{ ver.change_summary || '—' }}</td>
-          <td v-if="canManageEventVersions()">
+          <td>
+            <button type="button" class="btn btn--link" @click="openVersion(ver.id)">
+              {{ $t('common.open') }}
+            </button>
             <button
-              v-if="!isEventVersionEditable(ver.status)"
+              v-if="canManageEventVersions() && !isEventVersionEditable(ver.status)"
               type="button"
               class="btn btn--link"
               @click="openRestore(ver)"

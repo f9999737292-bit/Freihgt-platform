@@ -356,13 +356,22 @@ export function useRfxTemplateQuestionnaireApi(templateId: Ref<string> | string,
   }
 
   async function validatePublish() {
+    const sectionCount = studio.value?.sections.length ?? 0
     const result: RfxPublishReadinessResult = {
-      ready: (studio.value?.sections.length ?? 0) > 0,
-      blocking_fail_count: (studio.value?.sections.length ?? 0) > 0 ? 0 : 1,
-      warning_count: 0,
-      items: (studio.value?.sections.length ?? 0) > 0
-        ? []
-        : [{ code: 'NO_SECTIONS', status: 'FAIL', message: 'rfx.templates.readiness.noSections' }],
+      ready: false,
+      blocking_fail_count: sectionCount > 0 ? 0 : 1,
+      warning_count: sectionCount > 0 ? 1 : 0,
+      items: sectionCount > 0
+        ? [{
+            code: 'LOCAL_PRECHECK',
+            status: 'WARN',
+            message: 'rfx.templates.readiness.serverAuthoritative',
+          }]
+        : [{
+            code: 'NO_SECTIONS',
+            status: 'FAIL',
+            message: 'rfx.templates.readiness.noSections',
+          }],
     }
     publishReadiness.value = result
     return result
