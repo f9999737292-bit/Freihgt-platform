@@ -2381,8 +2381,8 @@ paths:
   /api/v1/rfx-events/{id}:
     get:
       tags: [RFx]
-      summary: Get RFx event by ID
-      operationId: get_get_rfx_event_by_id
+      summary: Get RFx event by ID (optional clone provenance for buyers)
+      operationId: get_get_rfx_event_by_id__optional_clone_provenance_for_buyers
       parameters:
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
@@ -2403,8 +2403,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                $ref: '#/components/schemas/RfxEventDetailResponse'
         '400':
           description: Validation error
           content:
@@ -4094,6 +4093,75 @@ paths:
         - $ref: '#/components/parameters/XLocale'
         - $ref: '#/components/parameters/Authorization'
         - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RfxTemplateQuestionnaireDefinition'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/rfx-templates/{id}/versions/{version_id}/questionnaire:
+    get:
+      tags: [RFx]
+      summary: Get read-only RFx template version questionnaire graph
+      operationId: get_get_read_only_rfx_template_version_questionnaire_graph
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: version_id
           in: path
           required: true
           schema:
@@ -14861,6 +14929,18 @@ components:
         created_at: {type: string, format: date-time}
         updated_at: {type: string, format: date-time}
         version: {type: integer}
+    RfxEventDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/RfxStudioEventRecord'
+        - type: object
+          properties:
+            source_template_id: {type: string, format: uuid, nullable: true}
+            source_template_version_id: {type: string, format: uuid, nullable: true}
+            source_version_number: {type: integer, nullable: true}
+            source_version_status: {type: string, enum: [PUBLISHED, SUPERSEDED], nullable: true}
+            source_version_warning: {type: boolean, nullable: true}
+            source_template_code: {type: string, nullable: true}
+            source_template_name_i18n: {type: object, additionalProperties: {type: string}, nullable: true}
     RfxStudioResponse:
       type: object
       properties:
