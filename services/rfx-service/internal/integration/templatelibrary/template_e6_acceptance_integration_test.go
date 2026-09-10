@@ -9,6 +9,9 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -169,8 +172,221 @@ func TestE6INT10HTTPCrossTenantVersionQuestionnaireNotFound(t *testing.T) {
 	_, published := setupPublishedTemplate(t, env, fix, "e6-int-10", &fix.CompanyA)
 
 	rec := getTemplateVersionQuestionnaireHTTPWithActor(t, env, e6EnabledConfig(), fix.CrossTenant, published.TemplateID, published.ID)
+	expectHTTPErrorCode(t, rec, http.StatusNotFound, apperrors.CodeNotFound)
+}
+
+func TestE6INT11CrossTemplateVersionQuestionnaireNotFoundPG(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	detailA := createTemplate(t, env, fix, "e6-int-11-a", &fix.CompanyA)
+	_, publishedB := setupPublishedTemplate(t, env, fix, "e6-int-11-b", &fix.CompanyA)
+
+	_, err := env.templateQSvc.GetVersionQuestionnaire(context.Background(), fix.BuyerA, detailA.Template.ID, publishedB.ID)
+	expectAppErrorCode(t, err, apperrors.CodeNotFound)
+}
+
+func TestE6INT12CrossTemplateVersionQuestionnaireNotFoundHTTP(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	detailA := createTemplate(t, env, fix, "e6-int-12-a", &fix.CompanyA)
+	_, publishedB := setupPublishedTemplate(t, env, fix, "e6-int-12-b", &fix.CompanyA)
+
+	rec := getTemplateVersionQuestionnaireHTTP(t, env, e6EnabledConfig(), fix, detailA.Template.ID, publishedB.ID)
+	expectHTTPErrorCode(t, rec, http.StatusNotFound, apperrors.CodeNotFound)
+}
+
+func TestE6INT13DraftVersionQuestionnaireGraphPG(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	detail := createTemplate(t, env, fix, "e6-int-13", &fix.CompanyA)
+	populateTemplateGraph(t, env, fix, detail.Template.ID)
+	if detail.DraftVersion == nil {
+		t.Fatal("expected draft version")
+	}
+
+	q, err := env.templateQSvc.GetVersionQuestionnaire(context.Background(), fix.BuyerA, detail.Template.ID, detail.DraftVersion.ID)
+	if err != nil {
+		t.Fatalf("get draft version questionnaire: %v", err)
+	}
+	if len(q.Sections) == 0 {
+		t.Fatal("expected non-empty draft questionnaire graph")
+	}
+}
+
+func TestE6INT14DraftVersionQuestionnaireGraphHTTP(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	detail := createTemplate(t, env, fix, "e6-int-14", &fix.CompanyA)
+	populateTemplateGraph(t, env, fix, detail.Template.ID)
+	if detail.DraftVersion == nil {
+		t.Fatal("expected draft version")
+	}
+
+	rec := getTemplateVersionQuestionnaireHTTP(t, env, e6EnabledConfig(), fix, detail.Template.ID, detail.DraftVersion.ID)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	sections, ok := payload["sections"].([]any)
+	if !ok || len(sections) == 0 {
+		t.Fatalf("expected sections in draft HTTP response, got %#v", payload["sections"])
+	}
+}
+
+func TestE6INT15UnknownVersionQuestionnaireNotFoundPG(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	detail := createTemplate(t, env, fix, "e6-int-15", &fix.CompanyA)
+
+	_, err := env.templateQSvc.GetVersionQuestionnaire(context.Background(), fix.BuyerA, detail.Template.ID, uuid.New())
+	expectAppErrorCode(t, err, apperrors.CodeNotFound)
+}
+
+func TestE6INT16UnknownVersionQuestionnaireNotFoundHTTP(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	detail := createTemplate(t, env, fix, "e6-int-16", &fix.CompanyA)
+
+	rec := getTemplateVersionQuestionnaireHTTP(t, env, e6EnabledConfig(), fix, detail.Template.ID, uuid.New())
+	expectHTTPErrorCode(t, rec, http.StatusNotFound, apperrors.CodeNotFound)
+}
+
+func TestE6INT17CompanyOwnedVersionQuestionnaireForbidden(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	_, published := setupPublishedTemplate(t, env, fix, "e6-int-17", &fix.CompanyA)
+
+	_, err := env.templateQSvc.GetVersionQuestionnaire(context.Background(), fix.BuyerB, published.TemplateID, published.ID)
+	expectAppErrorCode(t, err, apperrors.CodeForbidden)
+
+	rec := getTemplateVersionQuestionnaireHTTPWithActor(t, env, e6EnabledConfig(), fix.BuyerB, published.TemplateID, published.ID)
+	expectHTTPErrorCode(t, rec, http.StatusForbidden, apperrors.CodeForbidden)
+}
+
+func TestE6INT18HTTPManualEventOmitsProvenanceFields(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	event := createDraftEvent(t, env, fix, "RFQ-E6-18")
+
+	rec := getEventHTTP(t, env, e6EnabledConfig(), fix, event.ID)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	for _, key := range []string{
+		"source_template_id",
+		"source_template_version_id",
+		"source_version_number",
+		"source_version_status",
+		"source_template_code",
+	} {
+		if _, ok := payload[key]; ok {
+			t.Fatalf("manual event must not expose provenance field %s", key)
+		}
+	}
+}
+
+func TestE6INT19HTTPCrossTenantEventNotFound(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	event := createDraftEvent(t, env, fix, "RFQ-E6-19")
+
+	rec := getEventHTTPWithActor(t, env, e6EnabledConfig(), fix.CrossTenant, event.ID)
+	expectHTTPErrorCode(t, rec, http.StatusNotFound, apperrors.CodeNotFound)
+}
+
+func TestE6INT20SupersededCloneProvenanceWarningPG(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	detail, v1 := setupPublishedTemplate(t, env, fix, "e6-int-20", &fix.CompanyA)
+	if _, err := env.templateSvc.ForkDraftFromPublished(context.Background(), fix.BuyerA, detail.Template.ID, "e6-int-20-fork"); err != nil {
+		t.Fatalf("fork: %v", err)
+	}
+	publishTemplate(t, env, fix, detail.Template.ID, "e6-int-20-pub2")
+	result := cloneFromTemplate(t, env, fix.BuyerA, v1.ID, defaultCloneEventInput("RFQ-E6-20", fix.CompanyA), uuid.NewString())
+
+	prov, err := env.rfxSvc.GetEventProvenance(context.Background(), fix.BuyerA, result.Event.ID)
+	if err != nil {
+		t.Fatalf("get event provenance: %v", err)
+	}
+	if prov == nil || !prov.SourceVersionWarning || prov.SourceVersionStatus != domain.RfxVersionStatusSuperseded {
+		t.Fatalf("expected superseded provenance warning, got %+v", prov)
+	}
+}
+
+func TestE6INT21HTTPCarrierVersionQuestionnaireForbidden(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	_, published := setupPublishedTemplate(t, env, fix, "e6-int-21", &fix.CompanyA)
+
+	rec := getTemplateVersionQuestionnaireHTTPWithActor(t, env, e6EnabledConfig(), fix.CarrierAct, published.TemplateID, published.ID)
+	expectHTTPErrorCode(t, rec, http.StatusForbidden, apperrors.CodeForbidden)
+}
+
+func TestE6INT22HTTPBuyerNonOwnerEventNotFound(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	event := createDraftEvent(t, env, fix, "RFQ-E6-22")
+
+	rec := getEventHTTPWithActor(t, env, e6EnabledConfig(), fix.BuyerB, event.ID)
+	expectHTTPErrorCode(t, rec, http.StatusNotFound, apperrors.CodeNotFound)
+}
+
+func TestE6INT23HTTPFeatureFlagDisabledVersionQuestionnaireNotFound(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	_, published := setupPublishedTemplate(t, env, fix, "e6-int-23", &fix.CompanyA)
+
+	rec := getTemplateVersionQuestionnaireHTTP(t, env, config.Config{RfxVersioningV3Enabled: false}, fix, published.TemplateID, published.ID)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestE6INT24OpenAPIEventProvenanceAndVersionQuestionnaireParity(t *testing.T) {
+	root := repoRoot(t)
+	openapiPath := filepath.Join(root, "packages", "openapi", "rfx-service.yaml")
+	gatewayPath := filepath.Join(root, "services", "api-gateway", "internal", "http", "router.go")
+	openapiBody, err := os.ReadFile(openapiPath)
+	if err != nil {
+		t.Fatalf("read openapi: %v", err)
+	}
+	gatewayBody, err := os.ReadFile(gatewayPath)
+	if err != nil {
+		t.Fatalf("read gateway router: %v", err)
+	}
+	for _, fragment := range []string{
+		"/api/v1/rfx-templates/{id}/versions/{version_id}/questionnaire",
+		"source_template_version_id",
+		"source_version_number",
+		"RfxEventDetailResponse",
+	} {
+		if !strings.Contains(string(openapiBody), fragment) {
+			t.Fatalf("openapi missing fragment %s", fragment)
+		}
+	}
+	if !strings.Contains(string(gatewayBody), "/api/v1/rfx-templates/{id}/versions/{version_id}/questionnaire") {
+		t.Fatal("gateway missing version questionnaire route")
+	}
+}
+
+func TestE6INT25TenantWidePublishedVersionReadableByBuyerBPG(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	_, published := setupPublishedTemplate(t, env, fix, "e6-int-25", nil)
+
+	q, err := env.templateQSvc.GetVersionQuestionnaire(context.Background(), fix.BuyerB, published.TemplateID, published.ID)
+	if err != nil {
+		t.Fatalf("tenant-wide published graph for buyer B: %v", err)
+	}
+	if len(q.Sections) == 0 {
+		t.Fatal("expected non-empty tenant-wide published questionnaire graph")
 	}
 }
 
@@ -198,13 +414,36 @@ func getTemplateVersionQuestionnaireHTTPWithActor(t *testing.T, env *testEnv, cf
 
 func getEventHTTP(t *testing.T, env *testEnv, cfg config.Config, fix buyerFixture, eventID uuid.UUID) *httptest.ResponseRecorder {
 	t.Helper()
+	return getEventHTTPWithActor(t, env, cfg, fix.BuyerA, eventID)
+}
+
+func getEventHTTPWithActor(t *testing.T, env *testEnv, cfg config.Config, actor domain.ActorContext, eventID uuid.UUID) *httptest.ResponseRecorder {
+	t.Helper()
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	router := httpserver.NewRouter(log, env.pool, cfg, env.rfxSvc, env.qSvc, env.versionSvc, env.templateSvc, env.templateQSvc, env.cloneSvc, env.crSvc, env.scoreModelSvc, nil, nil, nil, nil)
 	path := "/v1/rfx-events/" + eventID.String()
 	req := httptest.NewRequest(http.MethodGet, path, nil)
-	req.Header.Set("X-Tenant-ID", fix.TenantID.String())
-	req.Header.Set("X-User-ID", fix.BuyerA.UserID.String())
+	req.Header.Set("X-Tenant-ID", actor.TenantID.String())
+	req.Header.Set("X-User-ID", actor.UserID.String())
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	return rec
+}
+
+func expectHTTPErrorCode(t *testing.T, rec *httptest.ResponseRecorder, wantStatus int, wantCode apperrors.Code) {
+	t.Helper()
+	if rec.Code != wantStatus {
+		t.Fatalf("expected HTTP %d, got %d body=%s", wantStatus, rec.Code, rec.Body.String())
+	}
+	var payload struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error body: %v raw=%s", err, rec.Body.String())
+	}
+	if payload.Error.Code != string(wantCode) {
+		t.Fatalf("expected error code=%s got=%s body=%s", wantCode, payload.Error.Code, rec.Body.String())
+	}
 }
