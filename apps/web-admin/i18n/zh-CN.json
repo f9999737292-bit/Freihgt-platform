@@ -526,6 +526,8 @@
     "versions": {
       "title": "RFx 版本历史",
       "back": "返回版本列表",
+      "loading": "正在加载版本历史…",
+      "loadFailed": "无法加载版本历史 — 发布已阻止",
       "detailTitle": "RFx 版本 v{number}",
       "immutableBanner": "此版本不可变（只读）",
       "status": { "DRAFT": "草稿", "PUBLISHED": "已发布", "SUPERSEDED": "已取代", "ARCHIVED": "已归档" },
@@ -576,6 +578,7 @@
       "preview": "预览变更影响",
       "republish": "重新发布问卷",
       "republishHint": "存在先前已发布版本 — 重新发布前需预览影响",
+      "repreviewRequired": "请重新运行影响预览并再次确认。",
       "classes": {
         "NON_MATERIAL": "非实质变更",
         "MATERIAL_NO_RESPONSES": "实质变更 — 尚无答复",

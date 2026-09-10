@@ -526,6 +526,8 @@
     "versions": {
       "title": "История версий RFx",
       "back": "К версиям",
+      "loading": "Загрузка истории версий…",
+      "loadFailed": "Не удалось загрузить историю версий — публикация заблокирована",
       "detailTitle": "Версия RFx v{number}",
       "immutableBanner": "Эта версия неизменяема (только чтение)",
       "status": { "DRAFT": "Черновик", "PUBLISHED": "Опубликован", "SUPERSEDED": "Заменён", "ARCHIVED": "В архиве" },
@@ -576,6 +578,7 @@
       "preview": "Предпросмотр влияния изменений",
       "republish": "Повторно опубликовать опросник",
       "republishHint": "Есть предыдущая опубликованная версия — перед republish нужен preview impact",
+      "repreviewRequired": "Выполните новый preview impact и подтвердите снова.",
       "classes": {
         "NON_MATERIAL": "Несущественное изменение",
         "MATERIAL_NO_RESPONSES": "Существенное — ответов нет",

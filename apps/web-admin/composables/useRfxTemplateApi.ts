@@ -1,4 +1,5 @@
 import type { PaginatedResponse } from '~/types/api'
+import type { RfxQuestionnaireDefinition } from '~/types/rfx-questionnaire'
 import type {
   ListRfxTemplatesFilters,
   RfxCreateTemplateRequest,
@@ -64,6 +65,10 @@ export function useRfxTemplateApi() {
     })
   }
 
+  async function getTemplateVersionQuestionnaire(templateId: string, versionId: string) {
+    return apiGet<RfxQuestionnaireDefinition>(basePath(templateId, `/versions/${versionId}/questionnaire`))
+  }
+
   return {
     listTemplates,
     getTemplate,
@@ -72,5 +77,6 @@ export function useRfxTemplateApi() {
     archiveTemplate,
     publishTemplateVersion,
     forkTemplateDraft,
+    getTemplateVersionQuestionnaire,
   }
 }

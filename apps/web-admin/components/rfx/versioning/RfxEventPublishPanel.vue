@@ -5,6 +5,8 @@ import type {
   RfxVersionRecord,
 } from '~/types/rfx-version-lifecycle'
 import { ApiError } from '~/composables/useApi'
+import { useInjectedRfxQuestionnaireApi } from '~/composables/useRfxQuestionnaireApi'
+import { useRfxVersionLifecycleApi } from '~/composables/useRfxVersionLifecycleApi'
 import { IdempotentOperation } from '~/utils/idempotentOperation'
 import {
   buildEventPublishPayload,
@@ -14,7 +16,6 @@ import { formatRfxApiError, resolveRfxConflictDetailKey } from '~/utils/rfxApiEr
 
 const props = defineProps<{
   eventId: string
-  readiness: RfxPublishReadinessResult | null
   expectedEventVersion: number
   expectedDraftVersion: number
   draftVersionId: string
@@ -24,36 +25,82 @@ const emit = defineEmits<{ published: [] }>()
 
 const { t } = useI18n()
 const { pushToast } = useToast()
+const questionnaireApi = useInjectedRfxQuestionnaireApi()
 const lifecycleApi = useRfxVersionLifecycleApi(computed(() => props.eventId))
 
 const versions = ref<RfxVersionRecord[]>([])
+const versionsState = ref<'loading' | 'loaded' | 'error'>('loading')
 const changeSummary = ref('')
 const impactAnalysis = ref<RfxChangeImpactAnalysisResponse | null>(null)
 const impactLoading = ref(false)
 const impactError = ref('')
 const publishError = ref('')
 const serverReadiness = ref<RfxPublishReadinessResult | null>(null)
+const readinessLoading = ref(false)
 const awaitingImpactConfirm = ref(false)
+const autosaveBlocked = ref(false)
 
 const publishOp = new IdempotentOperation('evt-pub')
 
-const republishRequired = computed(() => shouldRequireImpactPreview(versions.value))
-const effectiveReadiness = computed(() => serverReadiness.value ?? props.readiness)
+const republishRequired = computed(() =>
+  versionsState.value === 'loaded' && shouldRequireImpactPreview(versions.value),
+)
+const publishBlocked = computed(() =>
+  versionsState.value !== 'loaded' || autosaveBlocked.value || readinessLoading.value,
+)
+const serverReadinessBlocksPublish = computed(() =>
+  serverReadiness.value != null && !serverReadiness.value.ready,
+)
 
-onMounted(async () => {
+async function loadVersions() {
+  versionsState.value = 'loading'
   try {
     const data = await lifecycleApi.listVersions()
     versions.value = data.versions ?? []
+    versionsState.value = 'loaded'
   } catch {
     versions.value = []
+    versionsState.value = 'error'
   }
-})
+}
+
+onMounted(() => void loadVersions())
+
+async function flushAutosaveOrBlock(): Promise<boolean> {
+  autosaveBlocked.value = false
+  try {
+    await questionnaireApi.flushPendingPatches()
+    return true
+  } catch {
+    autosaveBlocked.value = true
+    pushToast('error', t('rfx.studio.autosaveError'))
+    return false
+  }
+}
+
+async function refreshServerReadiness(): Promise<boolean> {
+  readinessLoading.value = true
+  serverReadiness.value = null
+  try {
+    serverReadiness.value = await questionnaireApi.validatePublish()
+    return Boolean(serverReadiness.value?.ready)
+  } catch (e) {
+    pushToast('error', formatRfxApiError(e, t))
+    return false
+  } finally {
+    readinessLoading.value = false
+  }
+}
+
+function clearImpactAnalysis() {
+  impactAnalysis.value = null
+  awaitingImpactConfirm.value = false
+}
 
 async function runImpactPreview() {
   impactLoading.value = true
   impactError.value = ''
-  impactAnalysis.value = null
-  awaitingImpactConfirm.value = false
+  clearImpactAnalysis()
   try {
     impactAnalysis.value = await lifecycleApi.previewChangeImpact({
       candidate_version_id: props.draftVersionId,
@@ -68,26 +115,28 @@ async function runImpactPreview() {
   }
 }
 
-async function handlePublishClick() {
-  publishError.value = ''
-  if (!changeSummary.value.trim()) {
-    pushToast('error', t('rfx.templates.publish.changeSummary'))
-    return
+function handleImpactPublishError(e: unknown): boolean {
+  if (!(e instanceof ApiError)) return false
+  if (e.status === 409) {
+    const key = resolveRfxConflictDetailKey(e.code)
+    publishError.value = key ? t(key) : formatRfxApiError(e, t)
+    if (e.code === 'STALE_DIFF') {
+      clearImpactAnalysis()
+      publishError.value = `${publishError.value} ${t('rfx.changeImpact.repreviewRequired')}`
+    }
+    return true
   }
-  if (!effectiveReadiness.value?.ready) {
-    pushToast('error', t('rfx.studio.readyFail'))
-    return
+  if (e.status === 422 && e.code === 'IMPACT_ANALYSIS_EXPIRED') {
+    clearImpactAnalysis()
+    publishError.value = t('rfx.errors.impactAnalysisExpired')
+    return true
   }
-  if (republishRequired.value && !impactAnalysis.value) {
-    await runImpactPreview()
-    if (!impactAnalysis.value) return
-    if (awaitingImpactConfirm.value) return
-  }
-  await executePublish()
+  return false
 }
 
 async function executePublish() {
   if (publishOp.isSubmitting()) return
+  publishError.value = ''
   const body = buildEventPublishPayload({
     expectedEventVersion: props.expectedEventVersion,
     expectedDraftVersion: props.expectedDraftVersion,
@@ -99,26 +148,34 @@ async function executePublish() {
     pushToast('success', t('rfx.studio.publishSuccess'))
     emit('published')
   } catch (e) {
-    if (e instanceof ApiError) {
-      if (e.status === 409) {
-        const key = resolveRfxConflictDetailKey(e.code)
-        publishError.value = key ? t(key) : formatRfxApiError(e, t)
-        if (e.code === 'STALE_DIFF' || e.code === 'IMPACT_ANALYSIS_EXPIRED') {
-          impactAnalysis.value = null
-          awaitingImpactConfirm.value = false
-        }
-        if (e.code === 'IMPACT_ANALYSIS_CONSUMED') {
-          // same key replay handled by backend; if new attempt needed user must re-preview
-        }
-        return
-      }
-      if (e.status === 422) {
-        publishError.value = formatRfxApiError(e, t)
-        return
-      }
+    if (!handleImpactPublishError(e)) {
+      publishError.value = formatRfxApiError(e, t)
     }
-    publishError.value = formatRfxApiError(e, t)
   }
+}
+
+async function handlePublishClick() {
+  if (publishBlocked.value || publishOp.isSubmitting()) return
+  publishError.value = ''
+  if (!changeSummary.value.trim()) {
+    pushToast('error', t('rfx.templates.publish.changeSummary'))
+    return
+  }
+  if (versionsState.value === 'error') {
+    pushToast('error', t('rfx.versions.loadFailed'))
+    return
+  }
+  if (!(await flushAutosaveOrBlock())) return
+  if (!(await refreshServerReadiness())) {
+    pushToast('error', t('rfx.studio.readyFail'))
+    return
+  }
+  if (republishRequired.value && !impactAnalysis.value) {
+    await runImpactPreview()
+    if (!impactAnalysis.value) return
+    if (awaitingImpactConfirm.value) return
+  }
+  await executePublish()
 }
 
 function confirmImpactAndPublish() {
@@ -127,7 +184,7 @@ function confirmImpactAndPublish() {
 }
 
 function retryPreview() {
-  impactAnalysis.value = null
+  clearImpactAnalysis()
   void runImpactPreview()
 }
 </script>
@@ -136,7 +193,16 @@ function retryPreview() {
   <UiCard class="publish-panel">
     <h2>{{ $t('rfx.studio.validationTitle') }}</h2>
 
-    <RfxStudioRfxPublishReadinessPanel :result="effectiveReadiness" />
+    <p v-if="versionsState === 'loading'">{{ $t('rfx.versions.loading') }}</p>
+    <div v-else-if="versionsState === 'error'" class="publish-panel__error-row">
+      <p>{{ $t('rfx.versions.loadFailed') }}</p>
+      <button type="button" class="btn btn--link" @click="loadVersions">{{ $t('common.retry') }}</button>
+    </div>
+
+    <p v-if="autosaveBlocked" class="publish-panel__error">{{ $t('rfx.studio.autosaveError') }}</p>
+    <p v-if="readinessLoading">{{ $t('common.loading') }}</p>
+
+    <RfxStudioRfxPublishReadinessPanel v-else-if="serverReadiness" :result="serverReadiness" />
 
     <label class="publish-panel__label">
       {{ $t('rfx.templates.publish.changeSummary') }}
@@ -161,7 +227,7 @@ function retryPreview() {
         v-if="republishRequired && !impactAnalysis"
         type="button"
         class="btn btn--secondary"
-        :disabled="impactLoading || !effectiveReadiness?.ready"
+        :disabled="publishBlocked || impactLoading || serverReadinessBlocksPublish"
         @click="runImpactPreview"
       >
         {{ $t('rfx.changeImpact.preview') }}
@@ -177,7 +243,7 @@ function retryPreview() {
       <button
         type="button"
         class="btn btn--primary"
-        :disabled="publishOp.isSubmitting() || !effectiveReadiness?.ready || (republishRequired && awaitingImpactConfirm)"
+        :disabled="publishBlocked || publishOp.isSubmitting() || serverReadinessBlocksPublish || (republishRequired && awaitingImpactConfirm)"
         @click="handlePublishClick"
       >
         {{ republishRequired ? $t('rfx.changeImpact.republish') : $t('rfx.studio.publish') }}
@@ -192,5 +258,6 @@ function retryPreview() {
 .publish-panel__label { display: flex; flex-direction: column; gap: 0.375rem; font-size: 0.875rem; }
 .publish-panel__hint { font-size: 0.875rem; color: var(--color-text-muted); margin: 0; }
 .publish-panel__error { color: var(--color-danger, #b91c1c); margin: 0; }
+.publish-panel__error-row { display: flex; align-items: center; gap: 0.75rem; }
 .publish-panel__actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 </style>

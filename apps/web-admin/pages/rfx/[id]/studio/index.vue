@@ -213,7 +213,6 @@ watch(eventId, loadStudio)
         <RfxEventPublishPanel
           v-if="rfxVersioningEnabled && api.studio.value?.draft_version && api.studio.value?.event.version != null"
           :event-id="eventId"
-          :readiness="readiness ?? api.publishReadiness.value"
           :expected-event-version="api.studio.value.event.version"
           :expected-draft-version="api.studio.value.draft_version.version"
           :draft-version-id="api.studio.value.draft_version.id"

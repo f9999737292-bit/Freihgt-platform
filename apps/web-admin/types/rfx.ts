@@ -54,6 +54,8 @@ export interface RfxEventProvenance {
   source_version_number: number
   source_version_status: 'PUBLISHED' | 'SUPERSEDED'
   source_version_warning?: boolean
+  source_template_code?: string
+  source_template_name_i18n?: Record<string, string> | null
 }
 
 export interface RfxEvent {
@@ -78,6 +80,8 @@ export interface RfxEvent {
   source_version_number?: number
   source_version_status?: 'PUBLISHED' | 'SUPERSEDED'
   source_version_warning?: boolean
+  source_template_code?: string
+  source_template_name_i18n?: Record<string, string> | null
 }
 
 export function extractEventProvenance(event: RfxEvent | null): RfxEventProvenance | null {
@@ -88,6 +92,8 @@ export function extractEventProvenance(event: RfxEvent | null): RfxEventProvenan
     source_version_number: event.source_version_number,
     source_version_status: event.source_version_status ?? 'PUBLISHED',
     source_version_warning: event.source_version_warning,
+    source_template_code: event.source_template_code,
+    source_template_name_i18n: event.source_template_name_i18n,
   }
 }
 

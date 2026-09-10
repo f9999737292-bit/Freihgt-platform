@@ -526,6 +526,8 @@
     "versions": {
       "title": "RFx version history",
       "back": "Back to versions",
+      "loading": "Loading version history…",
+      "loadFailed": "Failed to load version history — publish is blocked",
       "detailTitle": "RFx version v{number}",
       "immutableBanner": "This version is immutable (read-only)",
       "status": { "DRAFT": "Draft", "PUBLISHED": "Published", "SUPERSEDED": "Superseded", "ARCHIVED": "Archived" },
@@ -576,6 +578,7 @@
       "preview": "Preview change impact",
       "republish": "Republish questionnaire",
       "republishHint": "A previous published version exists — impact preview is required before republish",
+      "repreviewRequired": "Run a new impact preview and confirm again.",
       "classes": {
         "NON_MATERIAL": "Non-material change",
         "MATERIAL_NO_RESPONSES": "Material change — no responses yet",

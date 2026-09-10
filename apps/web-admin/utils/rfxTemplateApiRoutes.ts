@@ -45,6 +45,11 @@ export const RFX_TEMPLATE_API_ROUTES = {
     path: `/api/v1/rfx-templates/${TEMPLATE}/questionnaire`,
     caller: 'getTemplateQuestionnaire',
   },
+  getTemplateVersionQuestionnaire: {
+    method: 'GET',
+    path: `/api/v1/rfx-templates/${TEMPLATE}/versions/{version_id}/questionnaire`,
+    caller: 'getTemplateVersionQuestionnaire',
+  },
   createSection: {
     method: 'POST',
     path: `/api/v1/rfx-templates/${TEMPLATE}/sections`,
