@@ -35,6 +35,9 @@ func (m *mockRfxStore) CreateEvent(ctx context.Context, in domain.CreateRfxEvent
 func (m *mockRfxStore) GetEventByID(ctx context.Context, id, tenantID uuid.UUID) (*domain.RfxEvent, error) {
 	return m.getEventFn(ctx, id, tenantID)
 }
+func (m *mockRfxStore) LoadEventProvenance(context.Context, uuid.UUID, uuid.UUID) (*domain.RfxEventProvenance, error) {
+	return nil, nil
+}
 func (m *mockRfxStore) ListEvents(context.Context, domain.ListRfxEventsFilter) ([]domain.RfxEvent, int, error) {
 	return nil, 0, nil
 }

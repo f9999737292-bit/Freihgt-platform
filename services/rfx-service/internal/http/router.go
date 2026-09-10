@@ -179,6 +179,7 @@ func NewRouter(
 		r.Post("/{id}/versions/publish", templateHandler.PublishTemplateVersion)
 		r.Post("/{id}/versions/fork-draft", templateHandler.ForkDraftFromPublished)
 		r.Get("/{id}/questionnaire", templateQHandler.GetQuestionnaire)
+		r.Get("/{id}/versions/{version_id}/questionnaire", templateQHandler.GetVersionQuestionnaire)
 		r.Post("/{id}/sections", templateQHandler.CreateSection)
 		r.Patch("/{id}/sections/{section_id}", templateQHandler.UpdateSection)
 		r.Delete("/{id}/sections/{section_id}", templateQHandler.DeleteSection)

@@ -112,6 +112,55 @@ func (r *RfxRepository) CreateEventWithProvenance(ctx context.Context, in domain
 	return result, err
 }
 
+func (r *RfxRepository) LoadEventProvenance(ctx context.Context, eventID, tenantID uuid.UUID) (*domain.RfxEventProvenance, error) {
+	var result *domain.RfxEventProvenance
+	err := measureDB("rfx_repository", "load_rfx_event_provenance", func() error {
+		var (
+			sourceVersionID uuid.UUID
+			templateID      uuid.UUID
+			versionNumber   int
+			versionStatus   string
+			templateCode    string
+			nameI18n        []byte
+			ownerCompanyID  *uuid.UUID
+		)
+		err := r.db().QueryRow(ctx, `
+			SELECT tv.id, tv.template_id, tv.version_number, tv.status,
+			       t.template_code, t.name_i18n, t.owner_company_id
+			FROM rfx.rfx_events e
+			INNER JOIN rfx.rfx_template_versions tv
+				ON tv.id = e.source_template_version_id AND tv.tenant_id = e.tenant_id AND tv.deleted_at IS NULL
+			INNER JOIN rfx.rfx_templates t
+				ON t.id = tv.template_id AND t.tenant_id = e.tenant_id AND t.deleted_at IS NULL
+			WHERE e.id = $1 AND e.tenant_id = $2 AND e.deleted_at IS NULL
+			  AND e.source_template_version_id IS NOT NULL`,
+			eventID, tenantID,
+		).Scan(&sourceVersionID, &templateID, &versionNumber, &versionStatus, &templateCode, &nameI18n, &ownerCompanyID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				result = nil
+				return nil
+			}
+			return mapDBError(err)
+		}
+		prov := &domain.RfxEventProvenance{
+			SourceTemplateID:        templateID,
+			SourceTemplateVersionID: sourceVersionID,
+			SourceVersionNumber:     versionNumber,
+			SourceVersionStatus:     versionStatus,
+			TemplateCode:            templateCode,
+			NameI18nJSON:            nameI18n,
+			SourceVersionWarning:    versionStatus == domain.RfxVersionStatusSuperseded,
+		}
+		if ownerCompanyID != nil {
+			prov.TemplateOwnerCompanyID = *ownerCompanyID
+		}
+		result = prov
+		return nil
+	})
+	return result, err
+}
+
 func (r *RfxRepository) GetSourceTemplateVersionID(ctx context.Context, eventID, tenantID uuid.UUID) (*uuid.UUID, error) {
 	var sourceID *uuid.UUID
 	err := measureDB("rfx_repository", "get_rfx_event_source_template_version_id", func() error {
