@@ -359,6 +359,51 @@ describe('E6 component acceptance', () => {
     expect(wrapper.text()).toContain('rfx.errors.impactAnalysisConsumed')
   })
 
+  it('E6-CMP-21 impact confirm re-runs flush and validate before publish', async () => {
+    listVersions.mockResolvedValue({ versions: [publishedVersion] })
+    previewChangeImpact.mockResolvedValueOnce({
+      impact_analysis_id: 'ia-1',
+      canonical_diff_hash: 'hash-1',
+      expires_at: '2099-01-01T00:00:00Z',
+      impact_classes: ['MATERIAL_NO_RESPONSES'],
+    })
+    const wrapper = mountPublishPanel()
+    await flushPromises()
+    await wrapper.find('textarea').setValue('Summary')
+    await wrapper.findAll('button').find((b) => b.text().includes('rfx.changeImpact.preview'))!.trigger('click')
+    await flushPromises()
+    flushPendingPatches.mockClear()
+    validatePublish.mockClear()
+    publishQuestionnaire.mockClear()
+    await wrapper.find('[data-testid="impact-confirm"]').trigger('click')
+    await flushPromises()
+    expect(flushPendingPatches).toHaveBeenCalled()
+    expect(validatePublish).toHaveBeenCalled()
+    expect(flushPendingPatches.mock.invocationCallOrder[0]).toBeLessThan(validatePublish.mock.invocationCallOrder[0]!)
+    expect(validatePublish.mock.invocationCallOrder[0]).toBeLessThan(publishQuestionnaire.mock.invocationCallOrder[0]!)
+    expect(publishQuestionnaire).toHaveBeenCalled()
+  })
+
+  it('E6-CMP-22 impact confirm blocks publish when NOT_READY after confirm', async () => {
+    listVersions.mockResolvedValue({ versions: [publishedVersion] })
+    previewChangeImpact.mockResolvedValueOnce({
+      impact_analysis_id: 'ia-1',
+      canonical_diff_hash: 'hash-1',
+      expires_at: '2099-01-01T00:00:00Z',
+      impact_classes: ['MATERIAL_NO_RESPONSES'],
+    })
+    const wrapper = mountPublishPanel()
+    await flushPromises()
+    await wrapper.find('textarea').setValue('Summary')
+    await wrapper.findAll('button').find((b) => b.text().includes('rfx.changeImpact.preview'))!.trigger('click')
+    await flushPromises()
+    validatePublish.mockResolvedValueOnce({ ready: false, blocking_fail_count: 1, warning_count: 0, items: [{ severity: 'FAIL', code: 'X', message: 'blocked' }] })
+    await wrapper.find('[data-testid="impact-confirm"]').trigger('click')
+    await flushPromises()
+    expect(publishQuestionnaire).not.toHaveBeenCalled()
+    expect(pushToast).toHaveBeenCalledWith('error', 'rfx.studio.readyFail')
+  })
+
   it('E6-CMP-20 publish sends Idempotency-Key header value', async () => {
     listVersions.mockResolvedValue({ versions: [] })
     const wrapper = mountPublishPanel()

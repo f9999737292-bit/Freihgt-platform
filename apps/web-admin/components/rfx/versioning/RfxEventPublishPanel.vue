@@ -134,6 +134,24 @@ function handleImpactPublishError(e: unknown): boolean {
   return false
 }
 
+async function runPrePublishGates(): Promise<boolean> {
+  publishError.value = ''
+  if (!changeSummary.value.trim()) {
+    pushToast('error', t('rfx.templates.publish.changeSummary'))
+    return false
+  }
+  if (versionsState.value === 'error') {
+    pushToast('error', t('rfx.versions.loadFailed'))
+    return false
+  }
+  if (!(await flushAutosaveOrBlock())) return false
+  if (!(await refreshServerReadiness())) {
+    pushToast('error', t('rfx.studio.readyFail'))
+    return false
+  }
+  return true
+}
+
 async function executePublish() {
   if (publishOp.isSubmitting()) return
   publishError.value = ''
@@ -156,20 +174,7 @@ async function executePublish() {
 
 async function handlePublishClick() {
   if (publishBlocked.value || publishOp.isSubmitting()) return
-  publishError.value = ''
-  if (!changeSummary.value.trim()) {
-    pushToast('error', t('rfx.templates.publish.changeSummary'))
-    return
-  }
-  if (versionsState.value === 'error') {
-    pushToast('error', t('rfx.versions.loadFailed'))
-    return
-  }
-  if (!(await flushAutosaveOrBlock())) return
-  if (!(await refreshServerReadiness())) {
-    pushToast('error', t('rfx.studio.readyFail'))
-    return
-  }
+  if (!(await runPrePublishGates())) return
   if (republishRequired.value && !impactAnalysis.value) {
     await runImpactPreview()
     if (!impactAnalysis.value) return
@@ -178,9 +183,15 @@ async function handlePublishClick() {
   await executePublish()
 }
 
-function confirmImpactAndPublish() {
+async function confirmImpactAndPublish() {
+  if (publishBlocked.value || publishOp.isSubmitting()) return
+  if (!impactAnalysis.value) return
   awaitingImpactConfirm.value = false
-  void executePublish()
+  if (!(await runPrePublishGates())) {
+    awaitingImpactConfirm.value = true
+    return
+  }
+  await executePublish()
 }
 
 function retryPreview() {

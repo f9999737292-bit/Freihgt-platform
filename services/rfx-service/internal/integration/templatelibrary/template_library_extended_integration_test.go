@@ -253,6 +253,7 @@ func TestE4INT41OpenAPIRouterGatewayParity(t *testing.T) {
 		"/api/v1/rfx-templates/{id}/versions/publish",
 		"/api/v1/rfx-templates/{id}/versions/fork-draft",
 		"/api/v1/rfx-templates/{id}/questionnaire",
+		"/api/v1/rfx-templates/{id}/versions/{version_id}/questionnaire",
 	}
 	for _, path := range requiredGateway {
 		if !strings.Contains(string(openapiBody), path) {
@@ -267,6 +268,7 @@ func TestE4INT41OpenAPIRouterGatewayParity(t *testing.T) {
 		`Post("/{id}/versions/publish"`,
 		`Post("/{id}/versions/fork-draft"`,
 		`Get("/{id}/questionnaire"`,
+		`Get("/{id}/versions/{version_id}/questionnaire"`,
 	}
 	for _, fragment := range requiredRfxNested {
 		if !strings.Contains(string(rfxBody), fragment) {
