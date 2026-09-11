@@ -282,7 +282,7 @@ func TestE1INT13OldDraftResponseSubmitsAgainstPinnedV1(t *testing.T) {
 	if err != nil {
 		t.Fatalf("workspace: %v", err)
 	}
-	if _, err := env.crSvc.Submit(context.Background(), fix.CarrierAct, event.ID, fix.CarrierID, ws2.Response.SaveVersion); err != nil {
+	if _, err := env.crSvc.Submit(context.Background(), fix.CarrierAct, event.ID, fix.CarrierID, ws2.Response.SaveVersion, ""); err != nil {
 		t.Fatalf("submit against pinned v1: %v", err)
 	}
 	reloaded, err := env.rfxRepo.GetResponseByEventAndCompany(context.Background(), event.ID, fix.CarrierID, fix.TenantID)

@@ -162,7 +162,7 @@ func TestE3REM008AddedRequiredQuestionCountsSubmittedResponse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("workspace: %v", err)
 	}
-	if _, err := env.crSvc.Submit(context.Background(), fix.CarrierAct, event.ID, fix.CarrierID, ws2.Response.SaveVersion); err != nil {
+	if _, err := env.crSvc.Submit(context.Background(), fix.CarrierAct, event.ID, fix.CarrierID, ws2.Response.SaveVersion, ""); err != nil {
 		t.Fatalf("submit: %v", err)
 	}
 	draft := forkAndModifyDraft(t, env, fix, event.ID, "e3-rem-08-fork", func(ctx context.Context, draftID uuid.UUID) {
@@ -273,7 +273,7 @@ func TestE3REM011TwoCarriersDistinctAffectedCounts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("workspace submitted: %v", err)
 	}
-	if _, err := env.crSvc.Submit(context.Background(), carrierBAct, event.ID, carrierB, wsSubmitted2.Response.SaveVersion); err != nil {
+	if _, err := env.crSvc.Submit(context.Background(), carrierBAct, event.ID, carrierB, wsSubmitted2.Response.SaveVersion, ""); err != nil {
 		t.Fatalf("submit carrier b: %v", err)
 	}
 
