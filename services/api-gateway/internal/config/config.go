@@ -56,6 +56,7 @@ type Config struct {
 	MaxRequestBodyBytes int64
 	TrackingInternalToken string
 	InternalServiceToken  string
+	RfxExcelExchangeEnabled bool
 }
 
 func Load() (Config, error) {
@@ -184,8 +185,18 @@ func Load() (Config, error) {
 		RateLimitBurst:      rateLimitBurst,
 		MaxRequestBodyBytes: maxBodyBytes,
 		TrackingInternalToken: getEnv("TRACKING_INTERNAL_SERVICE_TOKEN", getEnv("INTERNAL_SERVICE_TOKEN", "dev_internal_tracking_token")),
-		InternalServiceToken:  getEnv("INTERNAL_SERVICE_TOKEN", ""),
+		InternalServiceToken:    getEnv("INTERNAL_SERVICE_TOKEN", ""),
+		RfxExcelExchangeEnabled: parseBool(getEnv("RFX_EXCEL_EXCHANGE_ENABLED", "false")),
 	}, nil
+}
+
+func parseBool(raw string) bool {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
 }
 
 func getEnv(key, fallback string) string {

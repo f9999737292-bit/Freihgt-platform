@@ -37,6 +37,32 @@ func (r *QuestionnaireRepository) db() dbExecutor {
 	return r.pool
 }
 
+func (r *QuestionnaireRepository) GetActiveDraftVersion(ctx context.Context, tenantID, eventID uuid.UUID) (*domain.RfxVersion, error) {
+	const draftQuery = `
+		SELECT draft_version_id
+		FROM rfx.rfx_events
+		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+	`
+	var draftID *uuid.UUID
+	if err := r.db().QueryRow(ctx, draftQuery, eventID, tenantID).Scan(&draftID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperrors.NotFound("rfx event not found")
+		}
+		return nil, mapDBError(err)
+	}
+	if draftID == nil {
+		return nil, apperrors.Conflict("draft questionnaire version not found", map[string]any{"field": "draft_version"})
+	}
+	version, err := r.GetVersionByID(ctx, *draftID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	if version.Status != domain.RfxVersionStatusDraft {
+		return nil, apperrors.Conflict("draft questionnaire version not found", map[string]any{"field": "draft_version"})
+	}
+	return version, nil
+}
+
 func (r *QuestionnaireRepository) GetOrCreateDraftVersion(ctx context.Context, tenantID, eventID uuid.UUID) (*domain.RfxVersion, error) {
 	const draftQuery = `
 		SELECT draft_version_id, published_version_id

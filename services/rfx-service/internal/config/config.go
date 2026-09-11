@@ -18,6 +18,7 @@ type Config struct {
 	TransportOrderServiceURL string
 	RfxVersioningV3Enabled   bool
 	RfxLateSubmissionEnabled bool
+	RfxExcelExchangeEnabled  bool
 	DeadlineWorker           DeadlineWorkerConfig
 }
 
@@ -61,6 +62,7 @@ func Load() (Config, error) {
 		TransportOrderServiceURL: os.Getenv("TRANSPORT_ORDER_SERVICE_URL"),
 		RfxVersioningV3Enabled:   parseBool(getEnv("RFX_VERSIONING_V3_ENABLED", "false")),
 		RfxLateSubmissionEnabled: parseBool(getEnv("RFX_LATE_SUBMISSION_ENABLED", "false")),
+		RfxExcelExchangeEnabled:  parseBool(getEnv("RFX_EXCEL_EXCHANGE_ENABLED", "false")),
 		DeadlineWorker:           deadlineWorker,
 	}, nil
 }

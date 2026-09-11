@@ -28,6 +28,7 @@ func NewRouter(
 	templateCloneSvc *service.TemplateCloneService,
 	crSvc *service.CarrierResponseService,
 	lateSvc *service.LateSubmissionService,
+	excelExchangeSvc *service.ExcelExchangeService,
 	scoreModelSvc *service.ScoreModelService,
 	scoringSvc *service.ScoringService,
 	frSvc *service.FreightRequestService,
@@ -42,6 +43,7 @@ func NewRouter(
 	templateCloneHandler := handlers.NewTemplateCloneHandler(templateCloneSvc)
 	crHandler := handlers.NewCarrierResponseHandler(crSvc)
 	lateHandler := handlers.NewLateSubmissionHandler(lateSvc)
+	excelExchangeHandler := handlers.NewExcelExchangeHandler(excelExchangeSvc)
 	scoreHandler := handlers.NewScoreHandler(scoreModelSvc, scoringSvc, rfxSvc)
 	frHandler := handlers.NewFreightRequestHandler(frSvc)
 	bidHandler := handlers.NewBidHandler(bidSvc)
@@ -141,6 +143,11 @@ func NewRouter(
 			r.Post("/{id}/late-submission-requests/{request_id}/reject", lateHandler.Reject)
 		})
 
+		r.Group(func(r chi.Router) {
+			r.Use(excelExchangeFlagMiddleware(cfg.RfxExcelExchangeEnabled))
+			r.Get("/{id}/xlsx-export", excelExchangeHandler.ExportBuyerDraftXLSX)
+		})
+
 		// RFx v3.0D scoring
 		r.Get("/{id}/score-model", scoreHandler.GetScoreModel)
 		r.Put("/{id}/score-model", scoreHandler.PutScoreModel)
@@ -223,6 +230,10 @@ func versioningV3FlagMiddleware(enabled bool) func(http.Handler) http.Handler {
 }
 
 func lateSubmissionFlagMiddleware(enabled bool) func(http.Handler) http.Handler {
+	return featureFlagMiddleware(enabled)
+}
+
+func excelExchangeFlagMiddleware(enabled bool) func(http.Handler) http.Handler {
 	return featureFlagMiddleware(enabled)
 }
 
