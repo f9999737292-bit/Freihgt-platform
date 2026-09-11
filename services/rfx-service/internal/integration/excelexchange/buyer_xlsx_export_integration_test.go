@@ -308,7 +308,7 @@ func assertWorkbookGraphParity(t *testing.T, f *excelize.File, draft richDraftFi
 	}
 
 	assertSheetDataRows(t, f, "Sections", 1)
-	assertSheetDataRows(t, f, "Questions", 1)
+	assertSheetDataRows(t, f, "Questions", 2)
 	assertSheetDataRows(t, f, "Options", 1)
 	assertSheetDataRows(t, f, "Rules", 1)
 	assertSheetDataRows(t, f, "Lots", 1)

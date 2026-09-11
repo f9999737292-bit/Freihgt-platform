@@ -261,10 +261,17 @@ func seedRichDraftEvent(t *testing.T, env *testEnv, fix buyerFixture) richDraftF
 	if err != nil {
 		t.Fatalf("option: %v", err)
 	}
-	targetCode := "NOTES"
+	detailHelp := "Detail help"
+	_, err = env.qSvc.CreateQuestion(ctx, fix.BuyerA, event.ID, sec.ID, domain.CreateQuestionInput{
+		QuestionCode: "DETAIL", QuestionType: domain.QuestionTypeText, Label: "Detail notes", HelpText: &detailHelp,
+	})
+	if err != nil {
+		t.Fatalf("detail question: %v", err)
+	}
+	targetCode := "DETAIL"
 	cond := json.RawMessage(`{"operator":"EQUALS","source_question_code":"NOTES","value":"YES"}`)
 	rule, err := env.qSvc.CreateRule(ctx, fix.BuyerA, event.ID, domain.CreateQuestionRuleInput{
-		RuleCode: "SHOW_NOTES", Action: domain.RuleActionShow, TargetQuestionCode: &targetCode, ConditionJSON: cond,
+		RuleCode: "SHOW_DETAIL", Action: domain.RuleActionShow, TargetQuestionCode: &targetCode, ConditionJSON: cond,
 	})
 	if err != nil {
 		t.Fatalf("rule: %v", err)
