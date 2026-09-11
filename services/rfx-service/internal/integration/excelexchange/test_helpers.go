@@ -3,6 +3,8 @@
 package excelexchange
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -22,6 +24,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/xuri/excelize/v2"
 
 	"github.com/freight-platform/rfx-service/internal/config"
 	"github.com/freight-platform/rfx-service/internal/domain"
@@ -80,6 +83,21 @@ type graphWriteSnapshot struct {
 	auditCount        int
 	idempotencyCount  int
 	importAnalysisCnt int
+}
+
+type competitorSentinels struct {
+	ParticipantAID  uuid.UUID
+	ParticipantBID  uuid.UUID
+	ResponseAID     uuid.UUID
+	ResponseBID     uuid.UUID
+	CarrierACompany uuid.UUID
+	CarrierBCompany uuid.UUID
+	OfferRateA      string
+	OfferRateB      string
+	NameTokenA      string
+	NameTokenB      string
+	EmailTokenA     string
+	EmailTokenB     string
 }
 
 func setupTestEnv(t *testing.T) *testEnv {
@@ -272,6 +290,208 @@ func seedRichDraftEvent(t *testing.T, env *testEnv, fix buyerFixture) richDraftF
 	}
 	return richDraftFixture{
 		Event: reloaded, Version: version, Section: sec, Question: q, Option: opt, Rule: rule, Lot: lot,
+	}
+}
+
+func seedCompetitorSentinels(t *testing.T, env *testEnv, fix buyerFixture, draft richDraftFixture) competitorSentinels {
+	t.Helper()
+	ctx := context.Background()
+	sent := competitorSentinels{
+		ParticipantAID:  uuid.New(),
+		ParticipantBID:  uuid.New(),
+		ResponseAID:     uuid.New(),
+		ResponseBID:     uuid.New(),
+		CarrierACompany: fix.CarrierID,
+		CarrierBCompany: fix.CarrierBID,
+		OfferRateA:      "888888.01",
+		OfferRateB:      "777777.02",
+		NameTokenA:      "SENTINEL-XLSX-CARRIER-A",
+		NameTokenB:      "SENTINEL-XLSX-CARRIER-B",
+		EmailTokenA:     "sentinel-xlsx-carrier-a@test.local",
+		EmailTokenB:     "sentinel-xlsx-carrier-b@test.local",
+	}
+	if _, err := env.rfxSvc.AddParticipant(ctx, fix.BuyerA, draft.Event.ID, domain.AddRfxParticipantInput{
+		TenantID: fix.TenantID, RfxEventID: draft.Event.ID, CompanyID: fix.CarrierBID, ParticipantType: "CARRIER",
+	}); err != nil {
+		t.Fatalf("add carrier B participant: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `
+		UPDATE core.companies SET legal_name = $3 WHERE tenant_id = $1 AND id = $2`,
+		fix.TenantID, fix.CarrierID, sent.NameTokenA); err != nil {
+		t.Fatalf("tag carrier A company: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `
+		UPDATE core.companies SET legal_name = $3 WHERE tenant_id = $1 AND id = $2`,
+		fix.TenantID, fix.CarrierBID, sent.NameTokenB); err != nil {
+		t.Fatalf("tag carrier B company: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `
+		UPDATE core.users SET email = $3, full_name = $3
+		WHERE tenant_id = $1 AND id = $2`,
+		fix.TenantID, fix.CarrierAct.UserID, sent.EmailTokenA); err != nil {
+		t.Fatalf("tag carrier A email: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `
+		UPDATE core.users SET email = $3, full_name = $3
+		WHERE tenant_id = $1 AND id = $2`,
+		fix.TenantID, fix.CarrierBAct.UserID, sent.EmailTokenB); err != nil {
+		t.Fatalf("tag carrier B email: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `
+		UPDATE rfx.rfx_participants SET id = $4
+		WHERE tenant_id = $1 AND rfx_event_id = $2 AND company_id = $3`,
+		fix.TenantID, draft.Event.ID, fix.CarrierID, sent.ParticipantAID); err != nil {
+		t.Fatalf("set participant A id: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `
+		UPDATE rfx.rfx_participants SET id = $4
+		WHERE tenant_id = $1 AND rfx_event_id = $2 AND company_id = $3`,
+		fix.TenantID, draft.Event.ID, fix.CarrierBID, sent.ParticipantBID); err != nil {
+		t.Fatalf("set participant B id: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `
+		INSERT INTO rfx.rfx_responses (id, tenant_id, rfx_event_id, participant_company_id, status, commercial_score, total_score)
+		VALUES ($1,$2,$3,$4,'SUBMITTED',80,80)`,
+		sent.ResponseAID, fix.TenantID, draft.Event.ID, fix.CarrierID); err != nil {
+		t.Fatalf("insert response A: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `
+		INSERT INTO rfx.rfx_responses (id, tenant_id, rfx_event_id, participant_company_id, status, commercial_score, total_score)
+		VALUES ($1,$2,$3,$4,'SUBMITTED',75,75)`,
+		sent.ResponseBID, fix.TenantID, draft.Event.ID, fix.CarrierBID); err != nil {
+		t.Fatalf("insert response B: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `
+		INSERT INTO rfx.rfx_response_offer_lines (tenant_id, rfx_response_id, rfx_lot_id, amount, currency_code, comment)
+		VALUES ($1,$2,$3,$4,'RUB',$5)`,
+		fix.TenantID, sent.ResponseAID, draft.Lot.ID, sent.OfferRateA, "SENTINEL-OFFER-A"); err != nil {
+		t.Fatalf("insert offer A: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `
+		INSERT INTO rfx.rfx_response_offer_lines (tenant_id, rfx_response_id, rfx_lot_id, amount, currency_code, comment)
+		VALUES ($1,$2,$3,$4,'RUB',$5)`,
+		fix.TenantID, sent.ResponseBID, draft.Lot.ID, sent.OfferRateB, "SENTINEL-OFFER-B"); err != nil {
+		t.Fatalf("insert offer B: %v", err)
+	}
+	return sent
+}
+
+func assertWorkbookExcludesCompetitorSentinels(t *testing.T, data []byte, sent competitorSentinels, draft richDraftFixture) {
+	t.Helper()
+	needles := []string{
+		sent.ParticipantAID.String(),
+		sent.ParticipantBID.String(),
+		sent.ResponseAID.String(),
+		sent.ResponseBID.String(),
+		sent.CarrierACompany.String(),
+		sent.CarrierBCompany.String(),
+		sent.NameTokenA,
+		sent.NameTokenB,
+		sent.EmailTokenA,
+		sent.EmailTokenB,
+		sent.OfferRateA,
+		sent.OfferRateB,
+		"SENTINEL-OFFER-A",
+		"SENTINEL-OFFER-B",
+	}
+
+	f, err := excelize.OpenReader(bytes.NewReader(data))
+	if err != nil {
+		t.Fatalf("open workbook: %v", err)
+	}
+	defer f.Close()
+
+	for _, sheet := range f.GetSheetList() {
+		rows, err := f.GetRows(sheet)
+		if err != nil {
+			t.Fatalf("read sheet %s: %v", sheet, err)
+		}
+		for rowIdx, row := range rows {
+			for colIdx, value := range row {
+				for _, needle := range needles {
+					if strings.Contains(value, needle) {
+						cell, _ := excelize.CoordinatesToCellName(colIdx+1, rowIdx+1)
+						t.Fatalf("competitor sentinel leaked in cell %s!%s (marker=%q)", sheet, cell, needle)
+					}
+				}
+			}
+		}
+	}
+
+	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		t.Fatalf("open zip: %v", err)
+	}
+	for _, file := range reader.File {
+		rc, err := file.Open()
+		if err != nil {
+			t.Fatalf("open zip entry %s: %v", file.Name, err)
+		}
+		body, err := io.ReadAll(io.LimitReader(rc, 4<<20))
+		_ = rc.Close()
+		if err != nil {
+			t.Fatalf("read zip entry %s: %v", file.Name, err)
+		}
+		content := strings.ToLower(string(body))
+		for _, needle := range needles {
+			if strings.Contains(content, strings.ToLower(needle)) {
+				t.Fatalf("competitor sentinel leaked in zip entry %s (marker=%q)", file.Name, needle)
+			}
+		}
+		if strings.Contains(file.Name, "participant") || strings.Contains(file.Name, "response") || strings.Contains(file.Name, "carrier") {
+			t.Fatalf("unexpected competitor-oriented zip entry %s", file.Name)
+		}
+	}
+
+	foundBuyerMarkers := 0
+	for _, marker := range []string{
+		draft.Section.SectionCode,
+		draft.Question.QuestionCode,
+		draft.Option.OptionCode,
+		draft.Lot.LotNumber,
+	} {
+		if workbookContainsValue(t, f, marker) {
+			foundBuyerMarkers++
+		}
+	}
+	if foundBuyerMarkers < 3 {
+		t.Fatalf("buyer draft markers underrepresented in workbook: found %d/4", foundBuyerMarkers)
+	}
+}
+
+func workbookContainsValue(t *testing.T, f *excelize.File, want string) bool {
+	t.Helper()
+	for _, sheet := range f.GetSheetList() {
+		rows, err := f.GetRows(sheet)
+		if err != nil {
+			t.Fatalf("read sheet %s: %v", sheet, err)
+		}
+		for _, row := range rows {
+			for _, value := range row {
+				if value == want {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func assertHTTPErrorCode(t *testing.T, rec *httptest.ResponseRecorder, wantStatus int, wantCode apperrors.Code) {
+	t.Helper()
+	if rec.Code != wantStatus {
+		t.Fatalf("expected HTTP %d, got %d body=%s", wantStatus, rec.Code, rec.Body.String())
+	}
+	var payload struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error body: %v raw=%s", err, rec.Body.String())
+	}
+	if payload.Error.Code != string(wantCode) {
+		t.Fatalf("expected error code=%s got=%s body=%s", wantCode, payload.Error.Code, rec.Body.String())
 	}
 }
 

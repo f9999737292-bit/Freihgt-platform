@@ -212,38 +212,30 @@ func TestE7P2INT18NoCompetitorDataInWorkbook(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
 	draft := seedRichDraftEvent(t, env, fix)
+	sent := seedCompetitorSentinels(t, env, fix, draft)
 
 	rec := getBuyerXlsxExportHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, draft.Event.ID)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
 	}
-	body := strings.ToLower(rec.Body.String())
-	for _, forbidden := range []string{
-		fix.CarrierID.String(),
-		fix.CarrierBID.String(),
-		"carrier a",
-		"participant",
-		"response",
-		"bid",
-	} {
-		if strings.Contains(body, strings.ToLower(forbidden)) {
-			t.Fatalf("workbook must not contain competitor marker %q", forbidden)
+	assertWorkbookExcludesCompetitorSentinels(t, rec.Body.Bytes(), sent, draft)
+
+	for _, sheet := range []string{"Participants", "Responses", "Bids", "CarrierResponses"} {
+		f, err := excelize.OpenReader(bytes.NewReader(rec.Body.Bytes()))
+		if err != nil {
+			t.Fatalf("open workbook: %v", err)
 		}
-	}
-	sheets := []string{"Participants", "Responses", "Bids", "CarrierResponses"}
-	f, err := excelize.OpenReader(bytes.NewReader(rec.Body.Bytes()))
-	if err != nil {
-		t.Fatalf("open workbook: %v", err)
-	}
-	defer f.Close()
-	for _, sheet := range sheets {
 		if idx, _ := f.GetSheetIndex(sheet); idx >= 0 {
+			_ = f.Close()
 			t.Fatalf("unexpected competitor sheet %q", sheet)
 		}
+		_ = f.Close()
 	}
 }
 
 func TestE7P2INT19RouteParitySmoke(t *testing.T) {
+	const canonicalOperationID = "get_export_buyer_draft_rfx_event_as_xlsx_workbook"
+
 	routes := sharedrfx.E7ExcelExchangeRoutes()
 	if len(routes) != 1 {
 		t.Fatalf("expected 1 route, got %d", len(routes))
@@ -252,8 +244,13 @@ func TestE7P2INT19RouteParitySmoke(t *testing.T) {
 	if route.Method != http.MethodGet || route.SuccessStatus != http.StatusOK {
 		t.Fatalf("unexpected route contract: %+v", route)
 	}
-	if route.OpenAPIOperationID != "get_export_buyer_draft_rfx_event_xlsx" {
-		t.Fatalf("operation id=%q", route.OpenAPIOperationID)
+	if route.OpenAPIOperationID != canonicalOperationID {
+		t.Fatalf("manifest operationId mismatch: got=%q want=%q method=%s path=%s gateway=%s service=%s",
+			route.OpenAPIOperationID, canonicalOperationID, route.Method, route.OpenAPIPath, route.GatewayPath, route.ServicePath)
+	}
+	if route.GatewayPath != "/api/v1/rfx-events/{id}/xlsx-export" {
+		t.Fatalf("gateway path mismatch: got=%q want=%q operationId=%s",
+			route.GatewayPath, "/api/v1/rfx-events/{id}/xlsx-export", route.OpenAPIOperationID)
 	}
 
 	env := setupTestEnv(t)
@@ -261,7 +258,30 @@ func TestE7P2INT19RouteParitySmoke(t *testing.T) {
 	draft := seedRichDraftEvent(t, env, fix)
 	rec := getBuyerXlsxExportHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, draft.Event.ID)
 	if rec.Code != route.SuccessStatus {
-		t.Fatalf("service path smoke status=%d want %d", rec.Code, route.SuccessStatus)
+		t.Fatalf("service path smoke status=%d want=%d method=%s path=%s operationId=%s",
+			rec.Code, route.SuccessStatus, route.Method, route.ServicePath, route.OpenAPIOperationID)
+	}
+}
+
+func TestE7P2INT20BuyerReadOnlyHTTP403Forbidden(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	draft := seedRichDraftEvent(t, env, fix)
+	before := captureGraphWriteSnapshot(t, env, fix.TenantID, draft.Event.ID)
+
+	rec := getBuyerXlsxExportHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerRead, draft.Event.ID)
+	assertHTTPErrorCode(t, rec, http.StatusForbidden, apperrors.CodeForbidden)
+	if ct := rec.Header().Get("Content-Type"); strings.Contains(ct, "spreadsheetml") {
+		t.Fatalf("forbidden response must not return XLSX content-type: %q", ct)
+	}
+	body := rec.Body.Bytes()
+	if len(body) >= 2 && body[0] == 'P' && body[1] == 'K' {
+		t.Fatal("forbidden response must not contain XLSX bytes")
+	}
+
+	after := captureGraphWriteSnapshot(t, env, fix.TenantID, draft.Event.ID)
+	if !reflect.DeepEqual(before, after) {
+		t.Fatal("buyer read-only denial must not mutate persisted graph or side-effect tables")
 	}
 }
 

@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/xuri/excelize/v2"
@@ -84,26 +86,30 @@ func GenerateBuyerDraftWorkbook(snapshot BuyerDraftSnapshot) ([]byte, error) {
 			return nil, fmt.Errorf("create sheet %s: %w", name, err)
 		}
 	}
+	cw, err := newCellWriter(f)
+	if err != nil {
+		return nil, err
+	}
 
-	if err := writeInstructionsSheet(f); err != nil {
+	if err := writeInstructionsSheet(cw); err != nil {
 		return nil, err
 	}
-	if err := writeMetadataSheet(f, snapshot.Metadata); err != nil {
+	if err := writeMetadataSheet(cw, snapshot.Metadata); err != nil {
 		return nil, err
 	}
-	if err := writeLotsSheet(f, snapshot.Lots); err != nil {
+	if err := writeLotsSheet(cw, snapshot.Lots); err != nil {
 		return nil, err
 	}
-	if err := writeSectionsSheet(f, snapshot.Sections); err != nil {
+	if err := writeSectionsSheet(cw, snapshot.Sections); err != nil {
 		return nil, err
 	}
-	if err := writeQuestionsSheet(f, snapshot.Questions); err != nil {
+	if err := writeQuestionsSheet(cw, snapshot.Questions); err != nil {
 		return nil, err
 	}
-	if err := writeOptionsSheet(f, snapshot.Options); err != nil {
+	if err := writeOptionsSheet(cw, snapshot.Options); err != nil {
 		return nil, err
 	}
-	if err := writeRulesSheet(f, snapshot.Rules); err != nil {
+	if err := writeRulesSheet(cw, snapshot.Rules); err != nil {
 		return nil, err
 	}
 
@@ -118,7 +124,32 @@ func GenerateBuyerDraftWorkbook(snapshot BuyerDraftSnapshot) ([]byte, error) {
 	return data, nil
 }
 
-func writeInstructionsSheet(f *excelize.File) error {
+type cellWriter struct {
+	f           *excelize.File
+	textStyleID int
+}
+
+func newCellWriter(f *excelize.File) (*cellWriter, error) {
+	textStyleID, err := f.NewStyle(&excelize.Style{NumFmt: 49})
+	if err != nil {
+		return nil, fmt.Errorf("create text cell style: %w", err)
+	}
+	return &cellWriter{f: f, textStyleID: textStyleID}, nil
+}
+
+func (cw *cellWriter) setTextCell(sheet, cell, value string) error {
+	if err := cw.f.SetCellStr(sheet, cell, value); err != nil {
+		return err
+	}
+	if isFormulaLikeCellValue(value) {
+		if err := cw.f.SetCellStyle(sheet, cell, cell, cw.textStyleID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func writeInstructionsSheet(cw *cellWriter) error {
 	for rowIdx, cols := range instructionRows {
 		row := rowIdx + 1
 		for colIdx, value := range cols {
@@ -126,7 +157,7 @@ func writeInstructionsSheet(f *excelize.File) error {
 			if err != nil {
 				return err
 			}
-			if err := setTextCell(f, sheetInstructions, cell, value); err != nil {
+			if err := cw.setTextCell(sheetInstructions, cell, value); err != nil {
 				return err
 			}
 		}
@@ -134,7 +165,7 @@ func writeInstructionsSheet(f *excelize.File) error {
 	return nil
 }
 
-func writeMetadataSheet(f *excelize.File, md BuyerDraftMetadata) error {
+func writeMetadataSheet(cw *cellWriter, md BuyerDraftMetadata) error {
 	rows := [][2]string{
 		{"schema_name", domain.SchemaVersionBuyerXLSXV1},
 		{"schema_version", schemaVersionNumber},
@@ -152,19 +183,19 @@ func writeMetadataSheet(f *excelize.File, md BuyerDraftMetadata) error {
 	}
 	for rowIdx, row := range rows {
 		rowNum := rowIdx + 1
-		if err := setTextCell(f, sheetMetadata, fmt.Sprintf("A%d", rowNum), row[0]); err != nil {
+		if err := cw.setTextCell(sheetMetadata, fmt.Sprintf("A%d", rowNum), row[0]); err != nil {
 			return err
 		}
-		if err := setTextCell(f, sheetMetadata, fmt.Sprintf("B%d", rowNum), row[1]); err != nil {
+		if err := cw.setTextCell(sheetMetadata, fmt.Sprintf("B%d", rowNum), row[1]); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func writeLotsSheet(f *excelize.File, lots []domain.RfxLot) error {
+func writeLotsSheet(cw *cellWriter, lots []domain.RfxLot) error {
 	headers := []string{"lot_number", "name", "description", "category", "estimated_value", "currency_code", "status"}
-	if err := writeHeaderRow(f, sheetLots, headers); err != nil {
+	if err := writeHeaderRow(cw, sheetLots, headers); err != nil {
 		return err
 	}
 	sortedLots := append([]domain.RfxLot(nil), lots...)
@@ -186,16 +217,16 @@ func writeLotsSheet(f *excelize.File, lots []domain.RfxLot) error {
 			optionalString(lot.CurrencyCode),
 			lot.Status,
 		}
-		if err := writeDataRow(f, sheetLots, rowNum, values); err != nil {
+		if err := writeDataRow(cw, sheetLots, rowNum, values); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func writeSectionsSheet(f *excelize.File, sections []domain.Section) error {
+func writeSectionsSheet(cw *cellWriter, sections []domain.Section) error {
 	headers := []string{"section_code", "title_ru", "title_en", "title_zh", "description_ru", "description_en", "description_zh", "sort_order"}
-	if err := writeHeaderRow(f, sheetSections, headers); err != nil {
+	if err := writeHeaderRow(cw, sheetSections, headers); err != nil {
 		return err
 	}
 	sortedSections := append([]domain.Section(nil), sections...)
@@ -214,21 +245,21 @@ func writeSectionsSheet(f *excelize.File, sections []domain.Section) error {
 			desc, desc, desc,
 			strconv.Itoa(section.SortOrder),
 		}
-		if err := writeDataRow(f, sheetSections, rowNum, values); err != nil {
+		if err := writeDataRow(cw, sheetSections, rowNum, values); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func writeQuestionsSheet(f *excelize.File, questions []BuyerDraftQuestion) error {
+func writeQuestionsSheet(cw *cellWriter, questions []BuyerDraftQuestion) error {
 	headers := []string{
 		"section_code", "question_code", "question_type",
 		"title_ru", "title_en", "title_zh",
 		"description_ru", "description_en", "description_zh",
 		"required", "sort_order", "validation_json",
 	}
-	if err := writeHeaderRow(f, sheetQuestions, headers); err != nil {
+	if err := writeHeaderRow(cw, sheetQuestions, headers); err != nil {
 		return err
 	}
 	sortedQuestions := append([]BuyerDraftQuestion(nil), questions...)
@@ -260,16 +291,16 @@ func writeQuestionsSheet(f *excelize.File, questions []BuyerDraftQuestion) error
 			strconv.Itoa(q.SortOrder),
 			validationJSON,
 		}
-		if err := writeDataRow(f, sheetQuestions, rowNum, values); err != nil {
+		if err := writeDataRow(cw, sheetQuestions, rowNum, values); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func writeOptionsSheet(f *excelize.File, options []BuyerDraftOption) error {
+func writeOptionsSheet(cw *cellWriter, options []BuyerDraftOption) error {
 	headers := []string{"question_code", "option_code", "label_ru", "label_en", "label_zh", "sort_order"}
-	if err := writeHeaderRow(f, sheetOptions, headers); err != nil {
+	if err := writeHeaderRow(cw, sheetOptions, headers); err != nil {
 		return err
 	}
 	sortedOptions := append([]BuyerDraftOption(nil), options...)
@@ -290,16 +321,16 @@ func writeOptionsSheet(f *excelize.File, options []BuyerDraftOption) error {
 			item.Option.Label, item.Option.Label, item.Option.Label,
 			strconv.Itoa(item.Option.SortOrder),
 		}
-		if err := writeDataRow(f, sheetOptions, rowNum, values); err != nil {
+		if err := writeDataRow(cw, sheetOptions, rowNum, values); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func writeRulesSheet(f *excelize.File, rules []BuyerDraftRule) error {
+func writeRulesSheet(cw *cellWriter, rules []BuyerDraftRule) error {
 	headers := []string{"rule_code", "source_question_code", "condition", "target_question_code", "action", "sort_order"}
-	if err := writeHeaderRow(f, sheetRules, headers); err != nil {
+	if err := writeHeaderRow(cw, sheetRules, headers); err != nil {
 		return err
 	}
 	sortedRules := append([]BuyerDraftRule(nil), rules...)
@@ -323,53 +354,65 @@ func writeRulesSheet(f *excelize.File, rules []BuyerDraftRule) error {
 			rule.Action,
 			strconv.Itoa(rule.SortOrder),
 		}
-		if err := writeDataRow(f, sheetRules, rowNum, values); err != nil {
+		if err := writeDataRow(cw, sheetRules, rowNum, values); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func writeHeaderRow(f *excelize.File, sheet string, headers []string) error {
+func writeHeaderRow(cw *cellWriter, sheet string, headers []string) error {
 	for colIdx, header := range headers {
 		cell, err := excelize.CoordinatesToCellName(colIdx+1, 1)
 		if err != nil {
 			return err
 		}
-		if err := setTextCell(f, sheet, cell, header); err != nil {
+		if err := cw.setTextCell(sheet, cell, header); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func writeDataRow(f *excelize.File, sheet string, rowNum int, values []string) error {
+func writeDataRow(cw *cellWriter, sheet string, rowNum int, values []string) error {
 	for colIdx, value := range values {
 		cell, err := excelize.CoordinatesToCellName(colIdx+1, rowNum)
 		if err != nil {
 			return err
 		}
-		if err := setTextCell(f, sheet, cell, value); err != nil {
+		if err := cw.setTextCell(sheet, cell, value); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func setTextCell(f *excelize.File, sheet, cell, value string) error {
-	return f.SetCellStr(sheet, cell, sanitizeCellValue(value))
+func isFormulaLikeCellValue(value string) bool {
+	trimmed := trimLeadingFormulaMask(value)
+	if trimmed == "" {
+		return false
+	}
+	switch trimmed[0] {
+	case '=', '+', '-', '@':
+		return true
+	default:
+		return false
+	}
 }
 
-func sanitizeCellValue(value string) string {
-	if value == "" {
-		return value
+func trimLeadingFormulaMask(value string) string {
+	for len(value) > 0 {
+		r, size := utf8.DecodeRuneInString(value)
+		if r == utf8.RuneError && size == 1 {
+			break
+		}
+		if unicode.IsSpace(r) {
+			value = value[size:]
+			continue
+		}
+		break
 	}
-	switch value[0] {
-	case '=', '+', '-', '@':
-		return "'" + value
-	default:
-		return value
-	}
+	return value
 }
 
 func formatCanonicalJSON(raw json.RawMessage) (string, error) {

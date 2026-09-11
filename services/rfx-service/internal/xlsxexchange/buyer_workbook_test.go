@@ -235,9 +235,13 @@ func TestGenerateBuyerDraftWorkbookFormulaLikeValuesAsText(t *testing.T) {
 	lotNumber, _ := f.GetCellValue(sheetLots, "A2")
 	name, _ := f.GetCellValue(sheetLots, "B2")
 	description, _ := f.GetCellValue(sheetLots, "C2")
-	for _, got := range []string{lotNumber, name, description} {
-		if strings.HasPrefix(got, "=") || strings.HasPrefix(got, "+") || strings.HasPrefix(got, "@") {
-			t.Fatalf("formula-like value not sanitized: %q", got)
+	if lotNumber != "+001" || name != "@alias" || description != value {
+		t.Fatalf("original values must be preserved: lot=%q name=%q description=%q", lotNumber, name, description)
+	}
+	for _, cell := range []string{"A2", "B2", "C2"} {
+		formula, _ := f.GetCellFormula(sheetLots, cell)
+		if formula != "" {
+			t.Fatalf("cell %s must not be formula", cell)
 		}
 	}
 }
