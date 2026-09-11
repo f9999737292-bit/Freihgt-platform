@@ -1,14 +1,19 @@
 # RFx v3.0E7 — Buyer XLSX Import Preview Discovery
 
-**Status:** `DISCOVERY_COMPLETE_PENDING_CONTROLLER_DECISION`
-**IMPLEMENTATION_STARTED:** `NO`
+**Status:** `IMPLEMENTATION_IN_PROGRESS`
+**IMPLEMENTATION_STARTED:** `YES`
 **Base:** `origin/main` @ `e8a7fb582328d452d1f800915b0015fa0d31d6d7`
-**Branch:** `discovery/rfx-buyer-xlsx-import-preview-v3.0e7-phase2`
+**Discovery branch:** `discovery/rfx-buyer-xlsx-import-preview-v3.0e7-phase2`
+**Implementation branch:** `feat/rfx-buyer-xlsx-import-preview-parser-v3.0e7-phase2`
+**Architecture review HEAD:** `5d51af525cd9ee3f55fb8c58ab5f11be584ade5e`
 
 | Marker | Value |
 |---|---|
 | `BUYER_XLSX_EXPORT_V1_STATUS` | `IMPLEMENTED_ACCEPTED` (PR #123) |
-| `BUYER_XLSX_IMPORT_PREVIEW_STATUS` | `DISCOVERY_ONLY` |
+| `BUYER_XLSX_IMPORT_PREVIEW_STATUS` | `P2_PARSER_IMPLEMENTED` |
+| `P2_PARSER_VALIDATOR` | `IMPLEMENTED_PENDING_CONTROLLER_REVIEW` |
+| `P3_PREVIEW_SERVICE_HTTP` | `NOT_STARTED` |
+| `P4_COMMIT` | `NOT_STARTED` |
 | `WORKBOOK_SCHEMA` | `BINTRANS_RFX_BUYER_XLSX_V1` |
 | `MAX_MIGRATION` | `000073` |
 | `MIGRATION_000074_ALLOWED` | `NO` |
@@ -760,6 +765,69 @@ FEATURE_FLAG_DEFAULT_OFF=YES
 TEST_MATRIX_DRAFTED=YES
 NEXT_TEST_ID=E7P2-INT-21
 
-CONTROLLER_VERDICT=PENDING
-NEXT_ACTION=CONTROLLER_DECISION_BUYER_XLSX_IMPORT_PREVIEW_ARCHITECTURE
+CONTROLLER_VERDICT=APPROVE_ARCHITECTURE
+NEXT_ACTION=CONTROLLER_REVIEW_BUYER_XLSX_IMPORT_P2
 ```
+
+---
+
+## 21. Controller architecture approval (P2)
+
+| Item | Decision |
+|---|---|
+| `ARCHITECTURE_REVIEW_HEAD` | `5d51af525cd9ee3f55fb8c58ab5f11be584ade5e` |
+| `CONTROLLER_VERDICT` | `APPROVE_ARCHITECTURE` |
+| CD-01 | `OPTION_A` — analysis persistence deferred to P3 |
+| CD-02 | Analysis insert **only** when `ready_to_commit=true` && `errors==0` (P3 service) |
+| CD-03 | `UPDATE_EXISTING_DRAFT_ONLY` |
+| CD-04 | Future HTTP **422** structured preview body (direct JSON, not `respond.Error`) |
+| CD-05 | TTL **24h** (P3) |
+| CD-06 | Lazy expiry check on read |
+| CD-07 | I18N mismatch → **WARNING** |
+| CD-08 | Hidden rows/columns → **WARNING** v1 |
+| CD-09 | Stateless dry-run **DEFERRED** |
+| CD-10 | Multipart field `file` (P3) |
+| CD-11 | Limits from §8.2 |
+| CD-12 | P2 implementation **AUTHORIZED** |
+
+### P2 clarifications (frozen)
+
+- **Analysis guard (CD-02):** P2 parser never writes `rfx_import_analyses`. Analysis row creation is P3-only when `ReadyToCommit=true`.
+- **Structured 422 (CD-04):** P2 returns `BuyerImportPreview` domain DTO only. HTTP status/body mapping is P3; future handler emits structured JSON 422 directly.
+- **`target_version` semantics:** DB `target_version` = draft `version_number`. Optimistic `event_row_version` and `draft_row_version` are separate fields in canonical payload — never mixed with business version number.
+- **Issue ordering:** ERROR before WARNING → workbook sheet order → row → column → `machine_code` → `stable_code`. Package-level issues (empty `sheet`) sort before sheet-scoped issues.
+
+### P2 implementation status
+
+| Marker | Value |
+|---|---|
+| `STATUS` | `IMPLEMENTATION_IN_PROGRESS` |
+| `P2_PARSER_VALIDATOR` | `IMPLEMENTED_PENDING_CONTROLLER_REVIEW` |
+| `P2_DATABASE_WRITES` | `NO` |
+| `P2_EVENT_GRAPH_WRITES` | `NO` |
+| `P2_ANALYSIS_WRITES` | `NO` |
+| `P2_FILESYSTEM_WRITES` | `NO` |
+| `SECURITY_BEFORE_EXCELIZE` | `YES` |
+| `READY_TO_COMMIT_RULE` | `ERRORS_ZERO` |
+| Parser package | `services/rfx-service/internal/xlsxexchange/buyer_import_*.go` |
+| Unit tests | `buyer_import_parser_test.go` + existing export/security tests |
+
+### P2 parser test evidence (local)
+
+```
+go test ./internal/xlsxexchange/...  → PASS
+go test ./internal/xlsxsecurity/...  → PASS
+go vet ./internal/xlsxexchange/... → PASS
+go build ./...                       → PASS
+```
+
+Coverage highlights: security-before-Excelize hook, seven-sheet contract, metadata trust, I18N mismatch warning, E2 questionnaire diff reuse, separate lots diff, canonical hash determinism, forbidden-import source scan.
+
+### P3+ remains not started
+
+| Item | Status |
+|---|---|
+| HTTP handler / multipart | `NOT_STARTED` |
+| Repository persistence | `NOT_STARTED` |
+| OpenAPI / gateway | `NOT_STARTED` |
+| Commit / CREATE FROM XLSX | `NOT_STARTED` |
