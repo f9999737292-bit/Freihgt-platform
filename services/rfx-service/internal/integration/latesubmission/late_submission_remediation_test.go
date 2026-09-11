@@ -230,7 +230,7 @@ func seedExpiredApprovedPermission(t *testing.T) (*testEnv, buyerFixture, *domai
 	fix := seedBuyerFixture(t, env)
 	now := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
 	env.lateSvc.SetNowFunc(func() time.Time { return now })
-	event, _ := seedPublishedEventAfterDeadline(t, env, fix)
+	event, _ := seedPublishedEventAfterDeadlineAt(t, env, fix, now)
 	created, err := env.lateSvc.CreateRequest(context.Background(), fix.CarrierAct, event.ID, fix.CarrierID, uuid.NewString(), domain.CreateLateSubmissionRequestInput{
 		ReasonCode: domain.LateSubmissionReasonOther, ReasonText: "first", RequestedUntil: now.Add(24 * time.Hour),
 	})
