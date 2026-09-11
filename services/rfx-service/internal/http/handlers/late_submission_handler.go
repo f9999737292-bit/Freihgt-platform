@@ -197,6 +197,8 @@ func toLateSubmissionRequestResponses(items []domain.LateSubmissionRequest) []ma
 }
 
 func toLateSubmissionRequestResponse(req *domain.LateSubmissionRequest) map[string]any {
+	now := time.Now().UTC()
+	status := domain.EffectiveLateSubmissionStatus(req, now)
 	resp := map[string]any{
 		"id":                 req.ID.String(),
 		"rfx_event_id":       req.RfxEventID.String(),
@@ -204,7 +206,7 @@ func toLateSubmissionRequestResponse(req *domain.LateSubmissionRequest) map[stri
 		"reason_code":        string(req.ReasonCode),
 		"reason_text":        req.ReasonText,
 		"requested_until":    req.RequestedUntil.UTC().Format(time.RFC3339),
-		"status":             string(req.Status),
+		"status":             string(status),
 		"requested_by":       req.RequestedBy.String(),
 		"version":            req.Version,
 		"created_at":         req.CreatedAt.UTC().Format(time.RFC3339),

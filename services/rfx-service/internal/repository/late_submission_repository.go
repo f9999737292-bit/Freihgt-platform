@@ -145,6 +145,54 @@ func (r *LateSubmissionRepository) GetActiveByEventAndCarrier(ctx context.Contex
 	return req, nil
 }
 
+func (r *LateSubmissionRepository) LockActiveByEventAndCarrierForUpdate(ctx context.Context, tenantID, eventID, carrierCompanyID uuid.UUID) (*domain.LateSubmissionRequest, error) {
+	row := r.db().QueryRow(ctx, `
+		SELECT `+lateSubmissionSelectColumns+`
+		FROM rfx.rfx_late_submission_requests
+		WHERE tenant_id = $1 AND rfx_event_id = $2 AND carrier_company_id = $3
+			AND status IN ('REQUESTED', 'APPROVED')
+		ORDER BY created_at DESC
+		LIMIT 1
+		FOR UPDATE
+	`, tenantID, eventID, carrierCompanyID)
+	req, err := scanLateSubmissionRequest(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, mapDBError(err)
+	}
+	return req, nil
+}
+
+func (r *LateSubmissionRepository) MaterializeExpired(
+	ctx context.Context,
+	id, tenantID, eventID, carrierCompanyID uuid.UUID,
+	expectedVersion int,
+	expiredAt time.Time,
+) (*domain.LateSubmissionRequest, error) {
+	row := r.db().QueryRow(ctx, `
+		UPDATE rfx.rfx_late_submission_requests SET
+			status = 'EXPIRED',
+			approved_valid_from = NULL,
+			approved_valid_until = NULL,
+			version = version + 1,
+			updated_at = now()
+		WHERE id = $1 AND tenant_id = $2 AND rfx_event_id = $3 AND carrier_company_id = $4
+			AND status = 'APPROVED' AND approved_valid_until <= $5 AND version = $6
+		RETURNING `+lateSubmissionSelectColumns,
+		id, tenantID, eventID, carrierCompanyID, expiredAt.UTC(), expectedVersion,
+	)
+	req, err := scanLateSubmissionRequest(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperrors.Conflict("late submission permission cannot be expired", map[string]any{"field": "status"})
+		}
+		return nil, mapDBError(err)
+	}
+	return req, nil
+}
+
 func (r *LateSubmissionRepository) LockForDecision(ctx context.Context, id, tenantID, eventID uuid.UUID) (*domain.LateSubmissionRequest, error) {
 	row := r.db().QueryRow(ctx, `
 		SELECT `+lateSubmissionSelectColumns+`

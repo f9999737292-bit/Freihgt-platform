@@ -114,9 +114,21 @@ func (s *LateSubmissionService) CreateRequest(
 		if err := domain.ValidateLateRequestEligibility(event.ResponseDeadline, now); err != nil {
 			return err
 		}
-		active, err := lateRepo.GetActiveByEventAndCarrier(ctx, actor.TenantID, eventID, carrierCompanyID)
+		active, err := lateRepo.LockActiveByEventAndCarrierForUpdate(ctx, actor.TenantID, eventID, carrierCompanyID)
 		if err != nil {
 			return err
+		}
+		if active != nil && domain.IsLateSubmissionApprovedExpired(active, now) {
+			expired, expireErr := lateRepo.MaterializeExpired(ctx, active.ID, actor.TenantID, eventID, carrierCompanyID, active.Version, now)
+			if expireErr != nil {
+				return expireErr
+			}
+			if err := recordAudit(ctx, s.auditTx(tx), actor, carrierCompanyID, "rfx_late_submission_request", expired.ID, domain.LateSubmissionAuditExpired, map[string]any{
+				"rfx_event_id": eventID.String(),
+			}); err != nil {
+				return err
+			}
+			active = nil
 		}
 		if err := domain.CanCreateLateSubmissionRequest(active, now); err != nil {
 			return err
@@ -171,7 +183,11 @@ func (s *LateSubmissionService) ListOwnRequests(ctx context.Context, actor domai
 	if err != nil {
 		return nil, err
 	}
-	return s.lateRepo.ListOwnByEventAndCarrier(ctx, actor.TenantID, eventID, carrierCompanyID)
+	items, err := s.lateRepo.ListOwnByEventAndCarrier(ctx, actor.TenantID, eventID, carrierCompanyID)
+	if err != nil {
+		return nil, err
+	}
+	return applyEffectiveLateSubmissionStatuses(items, s.now()), nil
 }
 
 func (s *LateSubmissionService) BuyerListRequests(ctx context.Context, actor domain.ActorContext, eventID uuid.UUID) ([]domain.LateSubmissionRequest, error) {
@@ -180,7 +196,18 @@ func (s *LateSubmissionService) BuyerListRequests(ctx context.Context, actor dom
 		return nil, err
 	}
 	_ = event
-	return s.lateRepo.ListByEvent(ctx, actor.TenantID, eventID)
+	items, err := s.lateRepo.ListByEvent(ctx, actor.TenantID, eventID)
+	if err != nil {
+		return nil, err
+	}
+	return applyEffectiveLateSubmissionStatuses(items, s.now()), nil
+}
+
+func applyEffectiveLateSubmissionStatuses(items []domain.LateSubmissionRequest, now time.Time) []domain.LateSubmissionRequest {
+	for i := range items {
+		items[i].Status = domain.EffectiveLateSubmissionStatus(&items[i], now)
+	}
+	return items
 }
 
 func (s *LateSubmissionService) Approve(

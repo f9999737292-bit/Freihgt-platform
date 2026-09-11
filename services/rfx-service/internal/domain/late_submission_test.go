@@ -96,6 +96,20 @@ func TestCanCreateAfterRejected(t *testing.T) {
 	}
 }
 
+func TestIsLateSubmissionApprovedExpiredBoundary(t *testing.T) {
+	from := mustTime("2026-01-02T10:00:00Z")
+	until := mustTime("2026-01-02T12:00:00Z")
+	req := &LateSubmissionRequest{
+		Status: LateSubmissionStatusApproved, ApprovedValidFrom: &from, ApprovedValidUntil: &until,
+	}
+	if IsLateSubmissionApprovedExpired(req, mustTime("2026-01-02T11:59:59Z")) {
+		t.Fatal("before valid_until must not be expired")
+	}
+	if !IsLateSubmissionApprovedExpired(req, mustTime("2026-01-02T12:00:00Z")) {
+		t.Fatal("at valid_until boundary must be expired")
+	}
+}
+
 func TestEffectiveLateSubmissionStatusExpired(t *testing.T) {
 	from := mustTime("2026-01-02T10:00:00Z")
 	until := mustTime("2026-01-02T12:00:00Z")

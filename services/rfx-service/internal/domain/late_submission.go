@@ -40,6 +40,7 @@ const (
 	LateSubmissionAuditRequested = "rfx.late_submission.requested.v1"
 	LateSubmissionAuditApproved  = "rfx.late_submission.approved.v1"
 	LateSubmissionAuditRejected  = "rfx.late_submission.rejected.v1"
+	LateSubmissionAuditExpired   = "rfx.late_submission.expired.v1"
 	LateSubmissionAuditConsumed  = "rfx.late_submission.consumed.v1"
 )
 
@@ -184,11 +185,21 @@ func ValidateLateSubmissionTransition(current LateSubmissionStatus, next LateSub
 	})
 }
 
+func IsLateSubmissionApprovedExpired(req *LateSubmissionRequest, now time.Time) bool {
+	if req == nil || req.Status != LateSubmissionStatusApproved {
+		return false
+	}
+	if req.ApprovedValidUntil == nil {
+		return false
+	}
+	return !now.Before(req.ApprovedValidUntil.UTC())
+}
+
 func EffectiveLateSubmissionStatus(req *LateSubmissionRequest, now time.Time) LateSubmissionStatus {
 	if req == nil {
 		return ""
 	}
-	if req.Status == LateSubmissionStatusApproved && req.ApprovedValidUntil != nil && !now.Before(req.ApprovedValidUntil.UTC()) {
+	if IsLateSubmissionApprovedExpired(req, now) {
 		return LateSubmissionStatusExpired
 	}
 	return req.Status
