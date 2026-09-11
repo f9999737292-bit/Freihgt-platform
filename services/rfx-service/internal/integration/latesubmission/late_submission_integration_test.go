@@ -707,7 +707,7 @@ func seedApprovedLateWindow(t *testing.T) (*testEnv, buyerFixture, *domain.RfxEv
 func postLateSubmissionHTTP(t *testing.T, env *testEnv, cfg config.Config, fix buyerFixture, eventID uuid.UUID, key string) *httptest.ResponseRecorder {
 	t.Helper()
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	router := httpserver.NewRouter(log, env.pool, cfg, env.rfxSvc, env.qSvc, nil, nil, nil, nil, env.crSvc, env.lateSvc, nil, nil, nil, nil, nil)
+	router := httpserver.NewRouter(log, env.pool, cfg, env.rfxSvc, env.qSvc, nil, nil, nil, nil, env.crSvc, env.lateSvc, nil, nil, nil, nil, nil, nil)
 	body, _ := json.Marshal(map[string]any{
 		"reason_code": "OTHER", "reason_text": "http", "requested_until": time.Now().UTC().Add(24 * time.Hour).Format(time.RFC3339),
 	})
