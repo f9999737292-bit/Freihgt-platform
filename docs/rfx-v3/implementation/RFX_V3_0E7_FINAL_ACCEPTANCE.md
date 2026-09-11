@@ -1,8 +1,8 @@
 # RFx v3.0E7 — Final Integration, Late Submission, Data Exchange and Browser Acceptance
 
-**Status:** `E7_PHASE_1_IMPLEMENTED_PENDING_VALIDATION`
+**Status:** `E7_PHASE_1_IMPLEMENTED_PENDING_CONTROLLER_ACCEPTANCE`
 **E7_STATUS:** `IMPLEMENTATION_IN_PROGRESS`
-**E7_PHASE_1_STATUS:** `IMPLEMENTED_PENDING_VALIDATION`
+**E7_PHASE_1_STATUS:** `IMPLEMENTED_PENDING_CONTROLLER_ACCEPTANCE`
 **Scope:** E7 Phase 1 — late submission backend (persistence, domain, workflow, API, RBAC, OpenAPI, integration tests E7-INT-01..40)
 **Base:** `origin/main` @ `0150d26fb0fbbc518c1494cebadcba5a24e229d4`
 **Branch:** `feat/rfx-final-acceptance-v3.0e7`
@@ -205,7 +205,7 @@ Unit tests cover FSM transitions, deadline/window boundaries, UTC conversion, id
 ## 9. Status markers
 
 ```
-E7_PHASE_1_STATUS=IMPLEMENTED_PENDING_VALIDATION
+E7_PHASE_1_STATUS=IMPLEMENTED_PENDING_CONTROLLER_ACCEPTANCE
 E7_STATUS=IMPLEMENTATION_IN_PROGRESS
 ROADMAP_V3_0E_STATUS=IMPLEMENTATION_IN_PROGRESS
 MIGRATION_000072_CREATED=YES
