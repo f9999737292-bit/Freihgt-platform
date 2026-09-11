@@ -511,8 +511,12 @@ func getBuyerXlsxExportHTTP(t *testing.T, env *testEnv, cfg config.Config, actor
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	router := httpserver.NewRouter(log, env.pool, cfg, env.rfxSvc, env.qSvc, nil, nil, nil, nil, nil, nil, env.excelExchangeSvc, nil, nil, nil, nil, nil)
 	req := httptest.NewRequest(http.MethodGet, "/v1/rfx-events/"+eventID.String()+"/xlsx-export", nil)
-	req.Header.Set("X-Tenant-ID", actor.TenantID.String())
-	req.Header.Set("X-User-ID", actor.UserID.String())
+	if actor.TenantID != uuid.Nil {
+		req.Header.Set("X-Tenant-ID", actor.TenantID.String())
+	}
+	if actor.UserID != uuid.Nil {
+		req.Header.Set("X-User-ID", actor.UserID.String())
+	}
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	return rec
