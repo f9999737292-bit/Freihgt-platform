@@ -169,7 +169,7 @@ func (h *CarrierResponseHandler) SubmitCarrierResponse(w http.ResponseWriter, r 
 		respond.Error(w, apperrors.Validation("invalid request body", nil))
 		return
 	}
-	result, err := h.service.Submit(r.Context(), actor, eventID, carrierCompanyID, req.SaveVersion)
+	result, err := h.service.Submit(r.Context(), actor, eventID, carrierCompanyID, req.SaveVersion, r.Header.Get("Idempotency-Key"))
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -251,11 +251,11 @@ func toCarrierAnswerResponses(answers []domain.CarrierAnswer) []map[string]any {
 
 func toResponseSaveResultResponse(result *domain.ResponseSaveResult) map[string]any {
 	return map[string]any{
-		"response_id":         result.ResponseID.String(),
-		"save_version":        result.SaveVersion,
-		"last_saved_at":       result.LastSavedAt.UTC().Format("2006-01-02T15:04:05Z07:00"),
-		"last_saved_by":       result.LastSavedBy.String(),
-		"completion_percent":  result.CompletionPercent,
+		"response_id":        result.ResponseID.String(),
+		"save_version":       result.SaveVersion,
+		"last_saved_at":      result.LastSavedAt.UTC().Format("2006-01-02T15:04:05Z07:00"),
+		"last_saved_by":      result.LastSavedBy.String(),
+		"completion_percent": result.CompletionPercent,
 	}
 }
 

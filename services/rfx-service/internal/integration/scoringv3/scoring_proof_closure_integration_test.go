@@ -259,7 +259,7 @@ func TestSingleSelectScoring(t *testing.T) {
 	if err != nil {
 		t.Fatalf("save: %v", err)
 	}
-	submit, err := env.crSvc.Submit(ctx, fix.CarrierAct, sf.Event.ID, fix.CarrierID, saved.SaveVersion)
+	submit, err := env.crSvc.Submit(ctx, fix.CarrierAct, sf.Event.ID, fix.CarrierID, saved.SaveVersion, "")
 	if err != nil {
 		t.Fatalf("submit: %v", err)
 	}
@@ -306,7 +306,7 @@ func TestMultiSelectSumCappedScoring(t *testing.T) {
 	if err != nil {
 		t.Fatalf("save: %v", err)
 	}
-	submit, err := env.crSvc.Submit(ctx, fix.CarrierAct, sf.Event.ID, fix.CarrierID, saved.SaveVersion)
+	submit, err := env.crSvc.Submit(ctx, fix.CarrierAct, sf.Event.ID, fix.CarrierID, saved.SaveVersion, "")
 	if err != nil {
 		t.Fatalf("submit: %v", err)
 	}
@@ -445,7 +445,7 @@ func TestPersistedValidAnswerOnly(t *testing.T) {
 	if err != nil {
 		t.Fatalf("save: %v", err)
 	}
-	if _, err := crNoScore.Submit(ctx, fix.CarrierAct, sf.Event.ID, fix.CarrierID, saved.SaveVersion); err != nil {
+	if _, err := crNoScore.Submit(ctx, fix.CarrierAct, sf.Event.ID, fix.CarrierID, saved.SaveVersion, ""); err != nil {
 		t.Fatalf("submit: %v", err)
 	}
 	resp, err := env.rfxRepo.GetResponseByEventAndCompany(ctx, sf.Event.ID, fix.CarrierID, fix.TenantID)
@@ -491,7 +491,7 @@ func TestInvalidAndPreviewAnswerSafety(t *testing.T) {
 	if err != nil {
 		t.Fatalf("save: %v", err)
 	}
-	if _, err := crNoScore.Submit(ctx, fix.CarrierAct, sf.Event.ID, fix.CarrierID, saved.SaveVersion); err != nil {
+	if _, err := crNoScore.Submit(ctx, fix.CarrierAct, sf.Event.ID, fix.CarrierID, saved.SaveVersion, ""); err != nil {
 		t.Fatalf("submit: %v", err)
 	}
 	resp, err := env.rfxRepo.GetResponseByEventAndCompany(ctx, sf.Event.ID, fix.CarrierID, fix.TenantID)
@@ -573,7 +573,7 @@ func TestKnockoutSaveSubmitExplicitProofs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("KNOCKOUT_BLOCKS_SAVE_NO: save failed: %v", err)
 	}
-	submit, err := env.crSvc.Submit(ctx, fix.CarrierBAct, sf.Event.ID, fix.CarrierBID, saved.SaveVersion)
+	submit, err := env.crSvc.Submit(ctx, fix.CarrierBAct, sf.Event.ID, fix.CarrierBID, saved.SaveVersion, "")
 	if err != nil {
 		t.Fatalf("KNOCKOUT_BLOCKS_SUBMIT_NO: submit failed: %v", err)
 	}
@@ -667,7 +667,7 @@ func TestScoringFailureDoesNotRollbackSubmit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("save: %v", err)
 	}
-	submit, err := failSvc.Submit(ctx, fix.CarrierAct, sf.Event.ID, fix.CarrierID, saved.SaveVersion)
+	submit, err := failSvc.Submit(ctx, fix.CarrierAct, sf.Event.ID, fix.CarrierID, saved.SaveVersion, "")
 	if err != nil {
 		t.Fatalf("SUBMIT_COMMITTED_BEFORE_SCORING: submit must succeed: %v", err)
 	}

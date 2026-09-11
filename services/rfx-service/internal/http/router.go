@@ -27,6 +27,7 @@ func NewRouter(
 	templateQSvc *service.TemplateQuestionnaireService,
 	templateCloneSvc *service.TemplateCloneService,
 	crSvc *service.CarrierResponseService,
+	lateSvc *service.LateSubmissionService,
 	scoreModelSvc *service.ScoreModelService,
 	scoringSvc *service.ScoringService,
 	frSvc *service.FreightRequestService,
@@ -40,6 +41,7 @@ func NewRouter(
 	templateQHandler := handlers.NewTemplateQuestionnaireHandler(templateQSvc)
 	templateCloneHandler := handlers.NewTemplateCloneHandler(templateCloneSvc)
 	crHandler := handlers.NewCarrierResponseHandler(crSvc)
+	lateHandler := handlers.NewLateSubmissionHandler(lateSvc)
 	scoreHandler := handlers.NewScoreHandler(scoreModelSvc, scoringSvc, rfxSvc)
 	frHandler := handlers.NewFreightRequestHandler(frSvc)
 	bidHandler := handlers.NewBidHandler(bidSvc)
@@ -130,6 +132,15 @@ func NewRouter(
 		r.Post("/{id}/carrier-response/submit", crHandler.SubmitCarrierResponse)
 		r.Get("/{id}/carrier-response/summary", crHandler.GetCarrierResponseSummary)
 
+		r.Group(func(r chi.Router) {
+			r.Use(lateSubmissionFlagMiddleware(cfg.RfxLateSubmissionEnabled))
+			r.Post("/{id}/late-submission-requests", lateHandler.CreateRequest)
+			r.Get("/{id}/late-submission-requests/mine", lateHandler.ListOwnRequests)
+			r.Get("/{id}/late-submission-requests", lateHandler.BuyerListRequests)
+			r.Post("/{id}/late-submission-requests/{request_id}/approve", lateHandler.Approve)
+			r.Post("/{id}/late-submission-requests/{request_id}/reject", lateHandler.Reject)
+		})
+
 		// RFx v3.0D scoring
 		r.Get("/{id}/score-model", scoreHandler.GetScoreModel)
 		r.Put("/{id}/score-model", scoreHandler.PutScoreModel)
@@ -208,6 +219,14 @@ func NewRouter(
 }
 
 func versioningV3FlagMiddleware(enabled bool) func(http.Handler) http.Handler {
+	return featureFlagMiddleware(enabled)
+}
+
+func lateSubmissionFlagMiddleware(enabled bool) func(http.Handler) http.Handler {
+	return featureFlagMiddleware(enabled)
+}
+
+func featureFlagMiddleware(enabled bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if !enabled {

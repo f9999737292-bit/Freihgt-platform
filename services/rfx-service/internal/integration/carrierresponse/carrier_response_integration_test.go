@@ -108,7 +108,7 @@ func TestSubmitSuccessAndPostSubmitEditDenied(t *testing.T) {
 	if err != nil {
 		t.Fatalf("save: %v", err)
 	}
-	_, err = env.crSvc.Submit(ctx, fix.CarrierAct, event.ID, fix.CarrierID, saved.SaveVersion)
+	_, err = env.crSvc.Submit(ctx, fix.CarrierAct, event.ID, fix.CarrierID, saved.SaveVersion, "")
 	if err != nil {
 		t.Fatalf("submit: %v", err)
 	}

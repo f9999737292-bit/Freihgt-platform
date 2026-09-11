@@ -17,6 +17,7 @@ type Config struct {
 	InternalServiceToken     string
 	TransportOrderServiceURL string
 	RfxVersioningV3Enabled   bool
+	RfxLateSubmissionEnabled bool
 	DeadlineWorker           DeadlineWorkerConfig
 }
 
@@ -59,6 +60,7 @@ func Load() (Config, error) {
 		InternalServiceToken:     os.Getenv("INTERNAL_SERVICE_TOKEN"),
 		TransportOrderServiceURL: os.Getenv("TRANSPORT_ORDER_SERVICE_URL"),
 		RfxVersioningV3Enabled:   parseBool(getEnv("RFX_VERSIONING_V3_ENABLED", "false")),
+		RfxLateSubmissionEnabled: parseBool(getEnv("RFX_LATE_SUBMISSION_ENABLED", "false")),
 		DeadlineWorker:           deadlineWorker,
 	}, nil
 }

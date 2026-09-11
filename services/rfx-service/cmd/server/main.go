@@ -66,7 +66,9 @@ func main() {
 	templateQSvc := service.NewTemplateQuestionnaireService(db.Pool, tmplRepo, tmplQRepo, auditRepo, templateSvc)
 	templateCloneSvc := service.NewTemplateCloneService(db.Pool, rfxRepo, qRepo, tmplRepo, tmplQRepo, idemRepo, auditRepo, rfxSvc, templateSvc)
 	scoringSvc := service.NewScoringService(db.Pool, rfxRepo, answerRepo, qRepo, scoreRepo, auditRepo)
-	crSvc := service.NewCarrierResponseServiceWithScoring(db.Pool, rfxRepo, answerRepo, qRepo, auditRepo, membershipRepo, rfxSvc, scoringSvc)
+	lateRepo := repository.NewLateSubmissionRepository(db.Pool)
+	lateSvc := service.NewLateSubmissionService(db.Pool, lateRepo, rfxRepo, idemRepo, auditRepo, rfxSvc)
+	crSvc := service.NewCarrierResponseServiceWithLateSubmission(db.Pool, rfxRepo, answerRepo, qRepo, auditRepo, membershipRepo, rfxSvc, scoringSvc, lateSvc, idemRepo)
 	scoreModelSvc := service.NewScoreModelService(rfxRepo, scoreRepo, qRepo, auditRepo, membershipRepo, rfxSvc)
 	frSvc := service.NewFreightRequestServiceWithAuth(frRepo, membershipRepo)
 	bidSvc := service.NewBidServiceWithAtomic(db.Pool, bidRepo, frRepo, membershipRepo, auditRepo)
@@ -77,7 +79,7 @@ func main() {
 	deadlineMetrics := worker.NewMetrics(cfg.ServiceName)
 	deadlineWorker := worker.NewDeadlineWorker(cfg.DeadlineWorker, rfxSvc, worker.RealClock(), log, deadlineMetrics)
 
-	router := httpserver.NewRouter(log, db.Pool, cfg, rfxSvc, qSvc, versionSvc, templateSvc, templateQSvc, templateCloneSvc, crSvc, scoreModelSvc, scoringSvc, frSvc, bidSvc, pricingSvc)
+	router := httpserver.NewRouter(log, db.Pool, cfg, rfxSvc, qSvc, versionSvc, templateSvc, templateQSvc, templateCloneSvc, crSvc, lateSvc, scoreModelSvc, scoringSvc, frSvc, bidSvc, pricingSvc)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),
