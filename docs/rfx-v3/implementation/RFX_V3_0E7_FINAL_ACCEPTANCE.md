@@ -40,7 +40,9 @@ Uncommitted partial implementation was resumed without reset/clean. Technical au
 | Feature flag | `RFX_LATE_SUBMISSION_ENABLED` → HTTP 404 when disabled | Implemented |
 | api-gateway routes + RBAC | `services/api-gateway/internal/http/router.go` | Implemented |
 | OpenAPI (generator source) | `scripts/openapi/generate_openapi.py`, `packages/openapi/rfx-service.yaml`, unified `openapi.yaml`/`openapi.json` | Implemented |
-| Integration tests E7-INT-01..40 | `services/rfx-service/internal/integration/latesubmission/` | Implemented (CI execution pending) |
+| Integration tests E7-INT-01..40 + E7-REM-001..008 | `services/rfx-service/internal/integration/latesubmission/` | Implemented (CI on exact remediation HEAD) |
+| Route parity manifest | `packages/shared-go/rfx/e7_late_submission_routes.go` | Implemented |
+| Gateway identity spoof (E7) | `services/api-gateway/internal/rfxrbac/guard_test.go` | Implemented |
 | Migration contract max 000072 | `scripts/ops/bintrans_ct_staging/bintrans_ct_staging_release_contract_selfcheck.sh` | Implemented |
 
 **Not in Phase 1:** Excel import/export, ERP/SAP/1C, web-admin E7 UI, web-procurement E7 UI, training, browser acceptance (E7-BRW-*), migration 000073.
@@ -83,7 +85,7 @@ Terminal: `REJECTED`, `EXPIRED`, `CONSUMED`. No `CANCELLED`.
 ### Deadline and window (frozen)
 
 - **Global event deadline** is never modified by late submission (`ExtendDeadline` remains separate).
-- Before global deadline: normal carrier save/submit; late request creation returns `422`.
+- Before global deadline: normal carrier save/submit; late request creation returns **HTTP 400** (`CodeValidation`, E7-INT-02). **HTTP 422** applies to post-deadline window/permission semantics (E7-INT-14, E7-INT-18..21), not pre-deadline create eligibility.
 - After global deadline: save/submit allowed only with `APPROVED` permission inside approved window.
 - **`valid_from` inclusive:** reject when `now.Before(valid_from)`.
 - **`valid_until` exclusive:** reject when `!now.Before(valid_until)` (submit at exact boundary is forbidden).
@@ -93,7 +95,7 @@ Terminal: `REJECTED`, `EXPIRED`, `CONSUMED`. No `CANCELLED`.
 
 ### Audit events
 
-`rfx.late_submission.requested.v1`, `approved.v1`, `rejected.v1`, `consumed.v1`
+`rfx.late_submission.requested.v1`, `approved.v1`, `rejected.v1`, `expired.v1`, `consumed.v1`
 
 ### Idempotency operations
 
@@ -124,7 +126,7 @@ Cross-tenant, cross-company, or unknown request ID → **404**. Feature disabled
 | ID | Scenario |
 |---|---|
 | E7-INT-01 | Carrier creates late request after deadline |
-| E7-INT-02 | Request before deadline → strict error |
+| E7-INT-02 | Request before deadline → HTTP 400 Validation |
 | E7-INT-03 | Empty reason forbidden |
 | E7-INT-04 | Unknown reason code forbidden |
 | E7-INT-05 | Carrier reads own request |
@@ -168,6 +170,19 @@ Tests use PostgreSQL 16, clock abstraction (no `sleep`), `REQUIRE_TEST_DATABASE=
 
 Unit tests cover FSM transitions, deadline/window boundaries, UTC conversion, idempotency payload stability.
 
+### Remediation tests (E7-REM-001..008)
+
+| ID | Scenario |
+|---|---|
+| E7-REM-001 | Expired APPROVED materialized → new REQUESTED succeeds |
+| E7-REM-002 | REQUESTED blocks duplicate create |
+| E7-REM-003 | Active APPROVED blocks duplicate create |
+| E7-REM-004 | Concurrent rerequest after expiry — one business result |
+| E7-REM-005 | Other carrier cannot spoof/materialize foreign request |
+| E7-REM-006 | Audit failure rolls back expiry + create |
+| E7-REM-007 | Idempotency failure rolls back expiry + create |
+| E7-REM-008 | Valid-window submit safe against concurrent create |
+
 ---
 
 ## 7. Deferred phases (explicit)
@@ -185,24 +200,39 @@ Unit tests cover FSM transitions, deadline/window boundaries, UTC conversion, id
 
 ---
 
-## 8. Validation evidence (local, 2026-09-11)
+## 8. Controller remediation (2026-09-11)
 
-| Check | Result |
-|---|---|
-| Domain/repository/service unit tests | PASS |
-| rfx-service build | PASS |
-| api-gateway tests + build | PASS |
-| Integration compile (`-tags=integration`) | PASS |
-| OpenAPI validate | PASS |
-| OpenAPI generate idempotent (two consecutive runs) | PASS |
-| Non-RFx OpenAPI churn (E7 schemas) | NONE (scoped to rfx-service + unified) |
-| Migration contract selfcheck | PASS |
-| PostgreSQL integration E7-INT-* | NOT_RUN (`TEST_DATABASE_URL` unset locally; CI required) |
-| `git diff --check` | PASS |
+| Finding | Status | Evidence |
+|---|---|---|
+| E7P1-001 EXPIRED materialization | CLOSED | Transactional APPROVED→EXPIRED before create; E7-REM-001..008 |
+| E7P1-002 five-route parity | CLOSED | `packages/shared-go/rfx/e7_late_submission_routes.go` + parity tests |
+| E7P1-003 gateway identity spoof | CLOSED | `TestE7GatewayIdentityHeaderSpoofLateSubmission*` |
+| E7P1-004 pre-deadline HTTP 400 | CLOSED | Doc/OpenAPI/E7-INT-02 aligned |
+| E7P1-005 exact-head evidence | CLOSED | This section + PR body after remediation CI |
+
+Historical CI green at `c045fd8` / run `34595040796` attempt 1 timeout retained for audit only. Authoritative evidence is remediation exact-head CI (see PR body).
 
 ---
 
-## 9. Status markers
+## 9. Validation evidence
+
+| Check | Result |
+|---|---|
+| Domain/repository/service unit tests | PASS (local) |
+| rfx-service build | PASS (local) |
+| api-gateway tests + build | PASS (local) |
+| Five-route parity tests | PASS (local) |
+| Gateway E7 spoof tests | PASS (local) |
+| Integration compile (`-tags=integration`) | PASS (local) |
+| OpenAPI validate | PASS (local) |
+| OpenAPI generate idempotent (two consecutive runs) | PASS (local) |
+| Migration contract selfcheck | PASS (local) |
+| PostgreSQL integration E7-INT-* + E7-REM-* | CI required (`TEST_DATABASE_URL` unset locally → NOT_RUN) |
+| `git diff --check` | PASS (local) |
+
+---
+
+## 10. Status markers
 
 ```
 E7_PHASE_1_STATUS=IMPLEMENTED_PENDING_CONTROLLER_ACCEPTANCE
@@ -212,5 +242,11 @@ MIGRATION_000072_CREATED=YES
 MIGRATION_000073_CREATED=NO
 MAX_MIGRATION_CONTRACT=000072
 CONTROLLER_VERDICT=PENDING
-NEXT_ACTION=CONTROLLER_REVIEW_E7_PHASE_1_LATE_SUBMISSION
+E7P1_001_STATUS=CLOSED
+E7P1_002_STATUS=CLOSED
+E7P1_003_STATUS=CLOSED
+E7P1_004_STATUS=CLOSED
+E7P1_005_STATUS=CLOSED
+PRE_DEADLINE_REQUEST_HTTP_STATUS=400
+NEXT_ACTION=CONTROLLER_FINAL_REVIEW_E7_PHASE_1_LATE_SUBMISSION
 ```
