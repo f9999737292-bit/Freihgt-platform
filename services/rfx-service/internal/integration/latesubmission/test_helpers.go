@@ -177,9 +177,15 @@ func seedBuyerFixture(t *testing.T, env *testEnv) buyerFixture {
 
 func seedPublishedEventAfterDeadline(t *testing.T, env *testEnv, fix buyerFixture) (*domain.RfxEvent, *domain.Question) {
 	t.Helper()
+	return seedPublishedEventAfterDeadlineAt(t, env, fix, time.Now().UTC())
+}
+
+func seedPublishedEventAfterDeadlineAt(t *testing.T, env *testEnv, fix buyerFixture, anchor time.Time) (*domain.RfxEvent, *domain.Question) {
+	t.Helper()
 	ctx := context.Background()
-	future := time.Now().UTC().Add(24 * time.Hour)
-	past := time.Now().UTC().Add(-2 * time.Hour)
+	anchor = anchor.UTC()
+	future := anchor.Add(24 * time.Hour)
+	past := anchor.Add(-2 * time.Hour)
 	event, err := env.rfxSvc.CreateEvent(ctx, fix.BuyerA, domain.CreateRfxEventInput{
 		TenantID: fix.TenantID, OwnerCompanyID: fix.CompanyA, Title: "Late Submission Event",
 		RfxType: "SPOT_RFQ", Category: "FREIGHT", RfxNumber: "RFX-LS-" + uuid.NewString()[:8],

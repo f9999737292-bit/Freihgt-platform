@@ -78,7 +78,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/**/go.sum
@@ -118,7 +118,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/rfx-service/go.sum
@@ -155,7 +155,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/rfx-service/go.sum
@@ -192,7 +192,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/rfx-service/go.sum
@@ -229,7 +229,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/rfx-service/go.sum
@@ -266,7 +266,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/rfx-service/go.sum
@@ -303,7 +303,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/rfx-service/go.sum
@@ -340,7 +340,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/rfx-service/go.sum
@@ -379,7 +379,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/rfx-service/go.sum
@@ -420,7 +420,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/rfx-service/go.sum
@@ -458,7 +458,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/rfx-service/go.sum
@@ -495,7 +495,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/rfx-service/go.sum
@@ -534,7 +534,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/rfx-service/go.sum
@@ -605,7 +605,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/rfx-service/go.sum
@@ -644,7 +644,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/rfx-service/go.sum
@@ -717,7 +717,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/rfx-service/go.sum
@@ -787,7 +787,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/shipment-service/go.sum
@@ -825,7 +825,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/shipment-service/go.sum
@@ -870,7 +870,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/billing-register-service/go.sum
@@ -910,7 +910,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/billing-register-service/go.sum
@@ -947,7 +947,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/payment-service/go.sum
@@ -984,7 +984,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/freight-cost-service/go.sum
@@ -1039,7 +1039,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/contract-rate-service/go.sum
@@ -1076,7 +1076,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/api-gateway/go.sum
@@ -1096,7 +1096,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/api-gateway/go.sum
@@ -1115,7 +1115,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/freight-cost-service/go.sum
@@ -1161,7 +1161,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/freight-cost-service/go.sum
@@ -1205,7 +1205,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/freight-cost-service/go.sum
@@ -1244,7 +1244,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/freight-cost-service/go.sum
@@ -1299,7 +1299,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/rfx-service/go.sum
@@ -1408,7 +1408,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/**/go.sum
@@ -1444,7 +1444,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
             services/**/go.sum
