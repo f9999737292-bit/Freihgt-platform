@@ -13,7 +13,7 @@
 | **v3.0B** | Questionnaire Core | Sections, questions, types, conditional rules, buyer Studio builder | **IMPLEMENTED_ACCEPTED** |
 | **v3.0C** | Carrier Response | Autosave, resume, error UX, submit gate | **IMPLEMENTED_ACCEPTED** |
 | **v3.0D** | Scoring + Knockout | Score models, knockout, explainability | **IMPLEMENTED_ACCEPTED** |
-| **v3.0E** | Templates + Versioning | Template library, immutable published versions, compare/restore, late submission | **IMPLEMENTATION_IN_PROGRESS** (E1–E7 Phase 1 accepted; **E7 browser acceptance** not started) |
+| **v3.0E** | Templates + Versioning | Template library, immutable published versions, compare/restore, late submission, Excel/ERP | **IMPLEMENTATION_IN_PROGRESS** (E1–E6 + E7 Phase 1 + E7 Phase 2 foundation + Buyer XLSX Export V1 **IMPLEMENTED_ACCEPTED**; E7 Phase 2 overall in progress; **E7 browser acceptance** not started) |
 | **v3.0F** | Qualification Pool | Qualification results, pools, RFI→RFQ handoff | Planned |
 | **v3.0G** | Carrier 360 | Profile autofill, freshness, confirmation | Planned |
 | **v3.0H** | Analytics + Explainability | Dashboards, score drill-down, audit views | Planned |
@@ -109,7 +109,13 @@ These are assigned to the **earliest appropriate wave** — not deferred beyond 
 | **E5 Template Clone + Provenance** | Clone event from template, provenance | **IMPLEMENTED_ACCEPTED** — PR #115 merged via `81ff86b` (head `5c26d34`, CI `34401634396`, migration 000071) |
 | **E6 Studio Frontend** | Studio UI: library, history, compare, restore, clone, republish impact | **IMPLEMENTED_ACCEPTED** — PR #117 merged via `1764617` (head `60d5fd2`, CI `34509790393`) |
 | **E7 Phase 1 Late Submission** | Per-carrier late submission backend (migration 000072, API, RBAC, OpenAPI, E7-INT-01..40 + E7-REM-001..008) | **IMPLEMENTED_ACCEPTED** — PR #119 merged via `598b0b3` (head `3a2f4b9`, CI `34599209374`, migration 000072) |
-| **E7 Browser Acceptance** | Browser acceptance gate | **NOT_STARTED** |
+| **E7 Phase 2 Foundation + Buyer XLSX Export V1** | Migration 000073, ZIP security, import-analysis/external-link repos, buyer draft XLSX export (7-sheet `BINTRANS_RFX_BUYER_XLSX_V1`, Excelize v2.11.0, E7P2-INT-01..20) | **IMPLEMENTED_ACCEPTED** — PR #123 merged via `a6b66be` (head `9a75029`, CI `34639373871`, migration 000073) |
+| **E7 Phase 2 Buyer XLSX Import** | Preview/commit import from buyer workbook | **NOT_STARTED** — next Phase 2 stage |
+| **E7 Phase 2 Carrier XLSX** | Carrier offer export/import | **NOT_STARTED** |
+| **E7 Phase 2 ERP API** | Generic ERP JSON contract | **NOT_STARTED** |
+| **E7 Phase 2 Frontend** | Excel/ERP UI surfaces | **NOT_STARTED** |
+| **E7 Phase 2 Training** | RU/EN/ZH training course | **NOT_STARTED** |
+| **E7 Browser Acceptance** | Final real browser acceptance gate | **NOT_STARTED** |
 
 Notes:
 
@@ -120,7 +126,9 @@ Notes:
 - E5 template clone + provenance backend is accepted and merged to `main` at `81ff86b0f54b1053491d20dc06f51c4dfef537fd` (PR #115 head `5c26d34e3e623ac1d1be414455c8a28b18ae1c62`, CI `34401634396`, migration 000071). E5 delivers only the **template-to-event clone** channel; manual creation, Excel, SAP/1C, late submission, and carrier import/export remain future gates.
 - E6 Studio frontend is accepted and merged to `main` at `176461729dc2200d458eefad70ccdc126a2041b3` (PR #117 head `60d5fd28fb4601814a44ff4b7fb8d815b1635130`, CI `34509790393`). E6 delivers buyer Studio UI and acceptance evidence; late submission, Excel, ERP/TMS, and training remain future gates.
 - E7 Phase 1 late submission backend is accepted and merged to `main` at `598b0b3f19861480ec2716e174692eb1d2425bed` (PR #119 head `3a2f4b91c131c2fefe1056821618c7661fd4f4bc`, CI `34599209374`, migration 000072). Delivers migration 000072, five HTTP routes, carrier submit gate, OpenAPI, integration tests E7-INT-01..40 + E7-REM-001..008. Historical green at `c045fd8` retained for audit only.
-- E7 browser acceptance, Excel/ERP Phase 2, frontend, and training have not started.
+- E7 Phase 2 foundation + Buyer XLSX Export V1 is accepted and merged to `main` at `a6b66bea51579d689e98188e31446e436524927d` (PR #123 head `9a7502902d4ddbdedbb4e54817c183b8a00a7140`, CI `34639373871`, migration 000073). Delivers buyer draft XLSX export only; import, carrier XLSX, ERP, frontend, training, and browser acceptance remain **NOT_STARTED**.
+- E7 Phase 2 overall remains **IMPLEMENTATION_IN_PROGRESS** — next stage is Buyer XLSX Import Preview/Commit.
+- E7 browser acceptance, carrier XLSX, ERP integration, Phase 2 frontend, and training have not started.
 - Each implementation wave requires a separate controller gate.
 - Complete v3.0E remains **IMPLEMENTATION_IN_PROGRESS** until E7 browser acceptance is accepted.
 
@@ -128,12 +136,15 @@ Notes:
 
 | Area | Markers | Target |
 |---|---|---|
-| Late submission workflow | `LATE_SUBMISSION_AND_DEADLINE_EXCEPTIONS=REQUIRED` — Phase 1 backend **IMPLEMENTED_ACCEPTED** (PR #119); Excel/ERP/frontend/training deferred | Before E7 browser acceptance |
-| Buyer RFQ channels | `BUYER_RFQ_MANUAL_CREATION`, `BUYER_RFQ_TEMPLATE_CREATION` (E5: backend clone-from-template only), `BUYER_RFQ_EXCEL_IMPORT`, `BUYER_RFQ_ERP_INTEGRATION` (SAP/1C/ERP/TMS) — Excel/SAP/1C/manual UX **not implemented** | Post-E6 / pre-pilot |
-| Carrier offer channels | `CARRIER_DIRECT_OFFER_ENTRY`, `CARRIER_OFFER_EXCEL_EXPORT_IMPORT`; `CARRIER_ERP_INTEGRATION=NOT_REQUIRED_CURRENT_SCOPE` | Post-E6 / pre-pilot |
-| Competitor confidentiality | `CARRIER_CAN_VIEW_COMPETITOR_*=NO`, backend enforcement + cross-carrier isolation tests; carrier must not see participants, competitor identities, bids, submission times, or late-submission requests | Before pilot |
-| Excel import/export | `EXCEL_IMPORT_EXPORT=REQUIRED` | Post-E6 |
-| Training course | `USER_TRAINING_COURSE=REQUIRED` (RU/EN/ZH) | After UI stabilisation, before pilot |
+| Late submission workflow | `LATE_SUBMISSION_AND_DEADLINE_EXCEPTIONS=REQUIRED` — Phase 1 backend **IMPLEMENTED_ACCEPTED** (PR #119); carrier late submission **UI not started** | Before E7 browser acceptance |
+| Buyer approve/reject UI | Late-submission buyer approve/reject workflow UI — **not started** | Before E7 browser acceptance |
+| Buyer RFQ channels | `BUYER_RFQ_MANUAL_CREATION`, `BUYER_RFQ_TEMPLATE_CREATION` (E5: backend clone-from-template only), `BUYER_RFQ_EXCEL_IMPORT` (export **IMPLEMENTED_ACCEPTED** PR #123; import **NOT_STARTED**), `BUYER_RFQ_ERP_INTEGRATION` (SAP/1C/ERP/TMS) — ERP/SAP/1C **not started** | Post-E6 / pre-pilot |
+| Carrier offer channels | `CARRIER_DIRECT_OFFER_ENTRY`, `CARRIER_OFFER_EXCEL_EXPORT_IMPORT` (**NOT_STARTED**); `CARRIER_ERP_INTEGRATION=NOT_REQUIRED_CURRENT_SCOPE` | Post-E6 / pre-pilot |
+| Competitor confidentiality | `CARRIER_CAN_VIEW_COMPETITOR_*=NO`, backend enforcement + cross-carrier isolation tests; carrier must not see participants, competitor identities, bids, submission times, or late-submission requests; buyer XLSX export enforces exclusion (E7P2-INT-18) | Before pilot |
+| Excel import/export | `EXCEL_IMPORT_EXPORT=REQUIRED` — buyer export **IMPLEMENTED_ACCEPTED**; buyer import, carrier Excel **NOT_STARTED** | Post-E6 |
+| ERP integration | Generic ERP JSON contract API — **NOT_STARTED** | Post-E6 / pre-pilot |
+| Training course | `USER_TRAINING_COURSE=REQUIRED` (RU/EN/ZH) — Phase 2 training **NOT_STARTED** | After UI stabilisation, before pilot |
+| Final browser acceptance | Real browser acceptance gate for E7 — **NOT_STARTED** | Before pilot |
 
 See [RFX_V3_0E2_COMPARE_RESTORE.md](./implementation/RFX_V3_0E2_COMPARE_RESTORE.md) §5 for full requirement text.
 

@@ -1,8 +1,21 @@
 # RFx v3.0E7 Phase 2 — Excel Import/Export + ERP Integration
 
-**Status:** `IMPLEMENTATION_IN_PROGRESS` (buyer XLSX export complete)
-**Branch:** `feat/rfx-excel-erp-v3.0e7-phase2`
-**Base:** `origin/main` @ `a56db57e4666057c326c5a0a2017bad3e81f890d`
+**Status:** `IMPLEMENTATION_IN_PROGRESS`
+**Base:** `origin/main` @ `a6b66bea51579d689e98188e31446e436524927d`
+
+| Marker | Value |
+|---|---|
+| `PHASE2_STATUS` | `IMPLEMENTATION_IN_PROGRESS` |
+| `BUYER_XLSX_EXPORT_V1_STATUS` | `IMPLEMENTED_ACCEPTED` |
+| `CONTROLLER_ACCEPTANCE` | YES |
+| `PR123_MERGED` | YES |
+| `PR123_HEAD` | `9a7502902d4ddbdedbb4e54817c183b8a00a7140` |
+| `PR123_MERGE_SHA` | `a6b66bea51579d689e98188e31446e436524927d` |
+| `PR123_MERGED_AT` | `2026-09-11T19:50:20Z` |
+| `PR123_CI_RUN_ID` | `34639373871` |
+| `PR123_CI_CONCLUSION` | `success` |
+
+**Next stage:** Buyer XLSX Import Preview/Commit — **NOT STARTED**
 
 ---
 
@@ -58,6 +71,8 @@ Backfill:
 - `source_template_version_id IS NOT NULL` → `TEMPLATE`
 - all other existing events → `MANUAL`
 
+Migration **000074** is **not** authorized and **not** present on `main`.
+
 ---
 
 ## 4. Workbook schema versions
@@ -89,7 +104,7 @@ Sheet order (fixed):
 
 ---
 
-## 5. Buyer XLSX export (Phase 2 — implemented)
+## 5. Buyer XLSX Export V1 — accepted (PR #123)
 
 | Item | Value |
 |---|---|
@@ -109,7 +124,45 @@ Implementation:
 - `services/rfx-service/internal/xlsxexchange/buyer_workbook.go`
 - `packages/shared-go/rfx/e7_excel_exchange_routes.go` (route parity anchor)
 
-OpenAPI profile: `xlsx_export_buyer_draft` (binary 200 response).
+OpenAPI profile: `xlsx_export_buyer_draft` (binary 200 response); operationId `get_export_buyer_draft_rfx_event_as_xlsx_workbook`.
+
+### 5.1 Acceptance record (Buyer XLSX Export V1)
+
+| Acceptance criterion | Evidence |
+|---|---|
+| Schema | `BINTRANS_RFX_BUYER_XLSX_V1` |
+| Workbook sheets | 7 fixed sheets (Instructions, Metadata, Lots, Sections, Questions, Options, Rules) |
+| Export precondition | Active **DRAFT** questionnaire version only |
+| RBAC | **BuyerManage** required; BuyerRead → HTTP **403** |
+| Feature flag | `RFX_EXCEL_EXCHANGE_ENABLED` default **false** → HTTP **404** |
+| Tenant / company isolation | Cross-tenant and cross-company buyer → HTTP **404** (fail closed) |
+| Formula hardening | Leading-whitespace formula injection blocked; original values preserved |
+| Competitor confidentiality | No participant, response, bid, scoring, invitation, or award data |
+| Semantic determinism | Repeated export yields canonical snapshot (E7P2-INT-14) |
+| Export side effects | No writes — event/version/graph, import-analysis, idempotency unchanged |
+| Migration | **000073** on `main` |
+| Excelize | `github.com/xuri/excelize/v2@v2.11.0` |
+| Integration tests | E7P2-INT-06..20 |
+| OpenAPI | Binary `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` response |
+
+### 5.2 Controller review findings — closed
+
+| Finding | Status |
+|---|---|
+| OpenAPI operationId mismatch | **CLOSED** — `get_export_buyer_draft_rfx_event_as_xlsx_workbook` |
+| Leading-whitespace formula injection | **CLOSED** — `SetCellStr` + text style; original values preserved |
+| Competitor scan evidence (E7P2-INT-18) | **CLOSED** — DB sentinels + cell/ZIP/XML scan |
+| OpenAPI parity | **CLOSED** — route parity test strengthened |
+| BuyerRead HTTP 403 (E7P2-INT-20) | **CLOSED** |
+
+Historical CI attempts prior to remediation are retained for audit only; they are not current evidence.
+
+### 5.3 Known limitations (honest scope)
+
+- Event questionnaire i18n remains **monolingual** — export duplicates the source value into RU/EN/ZH columns.
+- **No audit trail** for export — consistent with read-only GET pattern; no audit events written.
+- Scoring, participants, responses, offers, and awards are **not exported**.
+- Binary XLSX is **not stored** in the database.
 
 ---
 
@@ -117,19 +170,32 @@ OpenAPI profile: `xlsx_export_buyer_draft` (binary 200 response).
 
 | Area | Status |
 |---|---|
-| Migration 000073 | IMPLEMENTED |
-| ZIP security inspection | IMPLEMENTED (`internal/xlsxsecurity`) |
-| Import analysis repository | IMPLEMENTED |
-| External object link repository | IMPLEMENTED |
-| Buyer draft XLSX export | **IMPLEMENTED** |
-| Buyer workbook generate (Excelize) | **IMPLEMENTED** |
-| OpenAPI (`xlsx_export_buyer_draft`) | **IMPLEMENTED** |
-| Gateway RBAC + identity spoof test | **IMPLEMENTED** |
-| CI job `rfx-excel-exchange-v3-integration` | **IMPLEMENTED** |
-| E7P2-INT integration matrix | **IMPLEMENTED** (E7P2-INT-01..19) |
-| Multipart import HTTP handlers | NOT STARTED |
-| ERP generic JSON contract API | NOT STARTED |
-| Carrier offer export | NOT STARTED |
+| Migration 000073 | **IMPLEMENTED_ACCEPTED** |
+| ZIP security inspection | **IMPLEMENTED** (`internal/xlsxsecurity`) |
+| Import analysis repository | **IMPLEMENTED** (foundation) |
+| External object link repository | **IMPLEMENTED** (foundation) |
+| Buyer draft XLSX export | **IMPLEMENTED_ACCEPTED** (PR #123) |
+| Buyer workbook generate (Excelize) | **IMPLEMENTED_ACCEPTED** |
+| OpenAPI (`xlsx_export_buyer_draft`) | **IMPLEMENTED_ACCEPTED** |
+| Gateway RBAC + identity spoof test | **IMPLEMENTED_ACCEPTED** |
+| CI job `rfx-excel-exchange-v3-integration` | **IMPLEMENTED_ACCEPTED** |
+| E7P2-INT integration matrix | **IMPLEMENTED_ACCEPTED** (E7P2-INT-01..20) |
+| Buyer XLSX import (preview/commit) | **NOT_STARTED** |
+| Multipart import HTTP handlers | **NOT_STARTED** |
+| ERP generic JSON contract API | **NOT_STARTED** |
+| Carrier offer export/import | **NOT_STARTED** |
+| Phase 2 frontend | **NOT_STARTED** |
+| Phase 2 training (RU/EN/ZH) | **NOT_STARTED** |
+| Phase 2 browser acceptance | **NOT_STARTED** |
+
+| Future capability marker | Status |
+|---|---|
+| `BUYER_XLSX_IMPORT` | `NOT_STARTED` |
+| `CARRIER_XLSX` | `NOT_STARTED` |
+| `ERP_API` | `NOT_STARTED` |
+| `FRONTEND_PHASE2` | `NOT_STARTED` |
+| `TRAINING` | `NOT_STARTED` |
+| `BROWSER_ACCEPTANCE` | `NOT_STARTED` |
 
 ---
 
@@ -152,6 +218,7 @@ OpenAPI profile: `xlsx_export_buyer_draft` (binary 200 response).
 | E7P2-INT-17 | Idempotency | Count unchanged |
 | E7P2-INT-18 | Competitor exclusion | No carrier/participant sheets or IDs |
 | E7P2-INT-19 | Route parity smoke | Shared route anchor + HTTP 200 |
+| E7P2-INT-20 | BuyerRead actor | HTTP 403 |
 
 Gateway: `TestE7GatewayIdentityHeaderSpoofXlsxExport` — spoof headers stripped, verified JWT identity forwarded.
 
