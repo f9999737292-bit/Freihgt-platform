@@ -267,6 +267,58 @@ func TestE7GatewayIdentityHeaderSpoofLateSubmissionCreate(t *testing.T) {
 	}
 }
 
+func TestE7GatewayIdentityHeaderSpoofXlsxExport(t *testing.T) {
+	verifiedTenant := "11111111-1111-1111-1111-111111111111"
+	verifiedUser := "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+	spoofTenant := "22222222-2222-2222-2222-222222222222"
+	spoofUser := "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+	spoofCompany := "cccccccc-cccc-cccc-cccc-cccccccccccc"
+	eventID := "dddddddd-dddd-dddd-dddd-dddddddddddd"
+
+	identityServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"roles": []string{"PROCUREMENT_MANAGER"}})
+	}))
+	defer identityServer.Close()
+
+	var gotTenant, gotUser, gotCompany string
+	downstreamCalled := false
+	guard := NewGuard(config.Config{
+		AuthEnabled:         true,
+		ProxyTimeoutSeconds: 5,
+		Services:            config.ServiceURLs{Identity: identityServer.URL},
+	}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		downstreamCalled = true
+		gotTenant = r.Header.Get("X-Tenant-ID")
+		gotUser = r.Header.Get("X-User-ID")
+		gotCompany = r.Header.Get("X-Company-ID")
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	token := signTestToken(t, "secret", verifiedUser, verifiedTenant)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/rfx-events/"+eventID+"/xlsx-export", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("X-Tenant-ID", spoofTenant)
+	req.Header.Set("X-User-ID", spoofUser)
+	req.Header.Set("X-Company-ID", spoofCompany)
+
+	rec := serveThroughAuth(t, guard.WithPolicy(PolicyBuyerManage), req, "secret")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d want 200 body=%s", rec.Code, rec.Body.String())
+	}
+	if !downstreamCalled {
+		t.Fatal("downstream must be called for authorized buyer manage")
+	}
+	if gotTenant != verifiedTenant {
+		t.Fatalf("downstream tenant=%q want verified %q", gotTenant, verifiedTenant)
+	}
+	if gotUser != verifiedUser {
+		t.Fatalf("downstream user=%q want verified %q", gotUser, verifiedUser)
+	}
+	if gotCompany != "" {
+		t.Fatalf("spoofed X-Company-ID must be stripped, got %q", gotCompany)
+	}
+}
+
 func TestE7GatewayIdentityHeaderSpoofLateSubmissionUnauthorizedAndForbidden(t *testing.T) {
 	eventID := "dddddddd-dddd-dddd-dddd-dddddddddddd"
 	identityServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

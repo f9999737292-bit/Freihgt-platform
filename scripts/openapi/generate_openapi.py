@@ -177,6 +177,7 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/rfx-events/{id}/late-submission-requests", "get", "List late submission requests for buyer review queue", "RFx", True, True, "ls_list_buyer"),
     ("/api/v1/rfx-events/{id}/late-submission-requests/{request_id}/approve", "post", "Approve carrier late submission request", "RFx", True, True, "ls_approve"),
     ("/api/v1/rfx-events/{id}/late-submission-requests/{request_id}/reject", "post", "Reject carrier late submission request", "RFx", True, True, "ls_reject"),
+    ("/api/v1/rfx-events/{id}/xlsx-export", "get", "Export buyer draft RFx event as XLSX workbook", "RFx", True, True, "xlsx_export_buyer_draft"),
     ("/api/v1/rfx-events/{id}/carrier-response/submit", "post", "Submit carrier questionnaire response", "RFx", True, True, "cr_submit"),
     ("/api/v1/rfx-events/{id}/carrier-response/summary", "get", "Carrier response completion summary", "RFx", True, True, "cr_summary_get"),
     ("/api/v1/rfx-events/{id}/score-model", "get", "Get RFx score model", "RFx", True, True, "score_model_get"),
@@ -486,6 +487,22 @@ LATE_SUBMISSION_422_PROFILES = frozenset({
     "ls_approve",
     "ls_reject",
 })
+
+E7_EXCEL_EXCHANGE_ENDPOINT_PROFILES = frozenset({"xlsx_export_buyer_draft"})
+
+BINARY_RESPONSE_PROFILES = frozenset({"xlsx_export_buyer_draft"})
+
+EXCEL_EXCHANGE_DESCRIPTIONS = {
+    "xlsx_export_buyer_draft": """Export buyer draft RFx event as an XLSX workbook snapshot.
+
+Feature flag: when `RFX_EXCEL_EXCHANGE_ENABLED` is false (default), the route returns **404** (feature disabled).
+
+Authorization: **BuyerManage** role required; buyer read-only roles are denied (**403**).
+
+Scope: exports the active DRAFT questionnaire graph only. No carrier/competitor bid or response data is included in the workbook.
+
+Precondition: an active DRAFT questionnaire version must exist; otherwise returns **409** conflict.""",
+}
 
 CONTRACT_RATE_SCHEMA_REFS = {
     "contract_lifecycle": "EmptyLifecycleRequest",
@@ -867,6 +884,13 @@ def render_operation(
         lines.append("      description: |")
         for desc_line in PRICED_TRANSPORT_ORDER_DESCRIPTION.splitlines():
             lines.append(f"        {desc_line}")
+    elif profile in EXCEL_EXCHANGE_DESCRIPTIONS:
+        lines.append("      description: |")
+        for desc_line in EXCEL_EXCHANGE_DESCRIPTIONS[profile].splitlines():
+            if desc_line:
+                lines.append(f"        {desc_line}")
+            else:
+                lines.append("")
 
     parameters = render_parameters(path, method, with_headers, profile)
     if parameters:
@@ -935,6 +959,23 @@ def render_operation(
 
     if secured:
         lines.append(SECURITY_BEARER.rstrip("\n"))
+
+    if profile in BINARY_RESPONSE_PROFILES:
+        lines.extend(
+            [
+                "      responses:",
+                "        '200':",
+                "          description: XLSX workbook attachment",
+                "          content:",
+                "            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:",
+                "              schema:",
+                "                type: string",
+                "                format: binary",
+                ERROR_RESPONSES.rstrip("\n"),
+                "",
+            ]
+        )
+        return "\n".join(lines)
 
     if profile in QUESTIONNAIRE_NO_CONTENT_PROFILES:
         lines.extend(
@@ -1978,11 +2019,21 @@ def late_submission_components_block() -> str:
 """
 
 
+def filter_e7_excel_exchange_endpoints(
+    endpoints: list[tuple[str, str, str, str, bool, bool, str | None]],
+    include_e7_excel_exchange: bool,
+) -> list[tuple[str, str, str, str, bool, bool, str | None]]:
+    if include_e7_excel_exchange:
+        return endpoints
+    return [item for item in endpoints if item[6] not in E7_EXCEL_EXCHANGE_ENDPOINT_PROFILES]
+
+
 def global_components_block(
     *,
     include_e1_version_lifecycle: bool = False,
     include_e4_template_library: bool = False,
     include_e7_late_submission: bool = False,
+    include_e7_excel_exchange: bool = False,
 ) -> str:
     rfx_components = (
         questionnaire_components_block(
@@ -2417,11 +2468,13 @@ def components_block(
     include_e1_version_lifecycle: bool = False,
     include_e4_template_library: bool = False,
     include_e7_late_submission: bool = False,
+    include_e7_excel_exchange: bool = False,
 ) -> str:
     block = global_components_block(
         include_e1_version_lifecycle=include_e1_version_lifecycle,
         include_e4_template_library=include_e4_template_library,
         include_e7_late_submission=include_e7_late_submission,
+        include_e7_excel_exchange=include_e7_excel_exchange,
     )
     if include_payment_components:
         block = block.rstrip() + "\n" + payment_components_block()
@@ -2437,7 +2490,9 @@ def build_spec(
     include_e1_version_lifecycle: bool = False,
     include_e4_template_library: bool = False,
     include_e7_late_submission: bool = False,
+    include_e7_excel_exchange: bool = False,
 ) -> str:
+    endpoints = filter_e7_excel_exchange_endpoints(endpoints, include_e7_excel_exchange)
     tags_yaml = "\n".join(f"  - name: {tag}" for tag in TAGS)
     return (
         f"""openapi: 3.0.3
@@ -2453,7 +2508,7 @@ tags:
 {tags_yaml}
 paths:
 {render_paths(endpoints)}
-{components_block(include_payment_components=include_payment_components, include_e1_version_lifecycle=include_e1_version_lifecycle, include_e4_template_library=include_e4_template_library, include_e7_late_submission=include_e7_late_submission)}
+{components_block(include_payment_components=include_payment_components, include_e1_version_lifecycle=include_e1_version_lifecycle, include_e4_template_library=include_e4_template_library, include_e7_late_submission=include_e7_late_submission, include_e7_excel_exchange=include_e7_excel_exchange)}
 """
     ).strip() + "\n"
 
@@ -2484,6 +2539,7 @@ def main() -> None:
         include_e1_version_lifecycle=True,
         include_e4_template_library=True,
         include_e7_late_submission=True,
+        include_e7_excel_exchange=True,
     )
     (OPENAPI_DIR / "openapi.yaml").write_text(unified, encoding="utf-8")
 
@@ -2498,6 +2554,7 @@ def main() -> None:
             include_e1_version_lifecycle=(filename == "rfx-service.yaml"),
             include_e4_template_library=(filename == "rfx-service.yaml"),
             include_e7_late_submission=(filename == "rfx-service.yaml"),
+            include_e7_excel_exchange=(filename == "rfx-service.yaml"),
         )
         (OPENAPI_DIR / filename).write_text(spec, encoding="utf-8")
 

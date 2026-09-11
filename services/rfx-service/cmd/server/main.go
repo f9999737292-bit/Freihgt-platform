@@ -68,6 +68,7 @@ func main() {
 	scoringSvc := service.NewScoringService(db.Pool, rfxRepo, answerRepo, qRepo, scoreRepo, auditRepo)
 	lateRepo := repository.NewLateSubmissionRepository(db.Pool)
 	lateSvc := service.NewLateSubmissionService(db.Pool, lateRepo, rfxRepo, idemRepo, auditRepo, rfxSvc)
+	excelExchangeSvc := service.NewExcelExchangeService(rfxRepo, qRepo, rfxSvc)
 	crSvc := service.NewCarrierResponseServiceWithLateSubmission(db.Pool, rfxRepo, answerRepo, qRepo, auditRepo, membershipRepo, rfxSvc, scoringSvc, lateSvc, idemRepo)
 	scoreModelSvc := service.NewScoreModelService(rfxRepo, scoreRepo, qRepo, auditRepo, membershipRepo, rfxSvc)
 	frSvc := service.NewFreightRequestServiceWithAuth(frRepo, membershipRepo)
@@ -79,7 +80,7 @@ func main() {
 	deadlineMetrics := worker.NewMetrics(cfg.ServiceName)
 	deadlineWorker := worker.NewDeadlineWorker(cfg.DeadlineWorker, rfxSvc, worker.RealClock(), log, deadlineMetrics)
 
-	router := httpserver.NewRouter(log, db.Pool, cfg, rfxSvc, qSvc, versionSvc, templateSvc, templateQSvc, templateCloneSvc, crSvc, lateSvc, scoreModelSvc, scoringSvc, frSvc, bidSvc, pricingSvc)
+	router := httpserver.NewRouter(log, db.Pool, cfg, rfxSvc, qSvc, versionSvc, templateSvc, templateQSvc, templateCloneSvc, crSvc, lateSvc, excelExchangeSvc, scoreModelSvc, scoringSvc, frSvc, bidSvc, pricingSvc)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

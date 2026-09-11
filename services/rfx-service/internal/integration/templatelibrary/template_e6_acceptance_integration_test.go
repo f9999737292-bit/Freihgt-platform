@@ -423,7 +423,7 @@ func getTemplateVersionQuestionnaireHTTP(t *testing.T, env *testEnv, cfg config.
 func getTemplateVersionQuestionnaireHTTPWithActor(t *testing.T, env *testEnv, cfg config.Config, actor domain.ActorContext, templateID, versionID uuid.UUID) *httptest.ResponseRecorder {
 	t.Helper()
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	router := httpserver.NewRouter(log, env.pool, cfg, env.rfxSvc, env.qSvc, env.versionSvc, env.templateSvc, env.templateQSvc, env.cloneSvc, env.crSvc, nil, env.scoreModelSvc, nil, nil, nil, nil)
+	router := httpserver.NewRouter(log, env.pool, cfg, env.rfxSvc, env.qSvc, env.versionSvc, env.templateSvc, env.templateQSvc, env.cloneSvc, env.crSvc, nil, nil, env.scoreModelSvc, nil, nil, nil, nil)
 	path := "/v1/rfx-templates/" + templateID.String() + "/versions/" + versionID.String() + "/questionnaire"
 	req := httptest.NewRequest(http.MethodGet, path, nil)
 	req.Header.Set("X-Tenant-ID", actor.TenantID.String())
@@ -441,7 +441,7 @@ func getEventHTTP(t *testing.T, env *testEnv, cfg config.Config, fix buyerFixtur
 func getEventHTTPWithActor(t *testing.T, env *testEnv, cfg config.Config, actor domain.ActorContext, eventID uuid.UUID) *httptest.ResponseRecorder {
 	t.Helper()
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	router := httpserver.NewRouter(log, env.pool, cfg, env.rfxSvc, env.qSvc, env.versionSvc, env.templateSvc, env.templateQSvc, env.cloneSvc, env.crSvc, nil, env.scoreModelSvc, nil, nil, nil, nil)
+	router := httpserver.NewRouter(log, env.pool, cfg, env.rfxSvc, env.qSvc, env.versionSvc, env.templateSvc, env.templateQSvc, env.cloneSvc, env.crSvc, nil, nil, env.scoreModelSvc, nil, nil, nil, nil)
 	path := "/v1/rfx-events/" + eventID.String()
 	req := httptest.NewRequest(http.MethodGet, path, nil)
 	req.Header.Set("X-Tenant-ID", actor.TenantID.String())

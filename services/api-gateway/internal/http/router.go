@@ -318,6 +318,12 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	r.Post("/api/v1/rfx-events/{id}/late-submission-requests/{request_id}/approve", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
 	r.Post("/api/v1/rfx-events/{id}/late-submission-requests/{request_id}/reject", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
 
+	// RFx v3.0E7 Phase 2 buyer XLSX export
+	r.Group(func(r chi.Router) {
+		r.Use(excelExchangeFlagMiddleware(cfg.RfxExcelExchangeEnabled))
+		r.Get("/api/v1/rfx-events/{id}/xlsx-export", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
+	})
+
 	// RFx v3.0D scoring
 	r.Get("/api/v1/rfx-events/{id}/score-model", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerRead))
 	r.Put("/api/v1/rfx-events/{id}/score-model", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
@@ -464,4 +470,16 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	})
 
 	return r
+}
+
+func excelExchangeFlagMiddleware(enabled bool) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !enabled {
+				http.NotFound(w, r)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }

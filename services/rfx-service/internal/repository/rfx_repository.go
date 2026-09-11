@@ -161,6 +161,46 @@ func (r *RfxRepository) LoadEventProvenance(ctx context.Context, eventID, tenant
 	return result, err
 }
 
+type EventExchangeMetadata struct {
+	CreationChannel             string
+	SourceTemplateVersionID     *uuid.UUID
+	SourceTemplateVersionNumber *int
+}
+
+func (r *RfxRepository) GetEventExchangeMetadata(ctx context.Context, eventID, tenantID uuid.UUID) (*EventExchangeMetadata, error) {
+	var result *EventExchangeMetadata
+	err := measureDB("rfx_repository", "get_rfx_event_exchange_metadata", func() error {
+		var (
+			creationChannel string
+			sourceVersionID *uuid.UUID
+			versionNumber   *int
+		)
+		err := r.db().QueryRow(ctx, `
+			SELECT e.creation_channel, e.source_template_version_id, tv.version_number
+			FROM rfx.rfx_events e
+			LEFT JOIN rfx.rfx_template_versions tv
+				ON tv.id = e.source_template_version_id
+				AND tv.tenant_id = e.tenant_id
+				AND tv.deleted_at IS NULL
+			WHERE e.id = $1 AND e.tenant_id = $2 AND e.deleted_at IS NULL`,
+			eventID, tenantID,
+		).Scan(&creationChannel, &sourceVersionID, &versionNumber)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return apperrors.NotFound("rfx event not found")
+			}
+			return mapDBError(err)
+		}
+		result = &EventExchangeMetadata{
+			CreationChannel:             creationChannel,
+			SourceTemplateVersionID:     sourceVersionID,
+			SourceTemplateVersionNumber: versionNumber,
+		}
+		return nil
+	})
+	return result, err
+}
+
 func (r *RfxRepository) GetSourceTemplateVersionID(ctx context.Context, eventID, tenantID uuid.UUID) (*uuid.UUID, error) {
 	var sourceID *uuid.UUID
 	err := measureDB("rfx_repository", "get_rfx_event_source_template_version_id", func() error {
