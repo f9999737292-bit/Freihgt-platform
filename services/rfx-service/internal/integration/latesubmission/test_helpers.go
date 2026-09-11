@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/freight-platform/rfx-service/internal/domain"
@@ -255,88 +257,76 @@ func approveRequest(t *testing.T, env *testEnv, fix buyerFixture, eventID, reque
 	return out
 }
 
-func createTempDatabase(ctx context.Context, adminURL string) (string, string, func(context.Context), error) {
+func createTempDatabase(ctx context.Context, adminURL string) (dbName string, testURL string, cleanup func(context.Context), err error) {
 	cfg, err := pgxpool.ParseConfig(adminURL)
 	if err != nil {
-		return "", "", nil, err
+		return "", "", nil, fmt.Errorf("parse database url: %w", err)
 	}
-	adminDB := cfg.ConnConfig.Database
-	if adminDB == "" {
-		adminDB = "postgres"
-	}
-	dbName := "rfx_late_submission_test_" + strings.ReplaceAll(uuid.NewString(), "-", "")[:16]
+	dbName = "rfx_late_submission_test_" + strings.ReplaceAll(uuid.NewString(), "-", "")[:16]
 	adminCfg := cfg.Copy()
-	adminCfg.ConnConfig.Database = adminDB
+	adminCfg.ConnConfig.Database = "postgres"
 	adminPool, err := pgxpool.NewWithConfig(ctx, adminCfg)
 	if err != nil {
 		return "", "", nil, err
 	}
-	if _, err := adminPool.Exec(ctx, `CREATE DATABASE "`+dbName+`"`); err != nil {
-		adminPool.Close()
+	defer adminPool.Close()
+	if _, err := adminPool.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{dbName}.Sanitize()); err != nil {
 		return "", "", nil, err
 	}
-	adminPool.Close()
 	testCfg := cfg.Copy()
 	testCfg.ConnConfig.Database = dbName
-	testURL := testCfg.ConnString()
-	cleanup := func(c context.Context) {
-		c2, cancel := context.WithTimeout(c, 30*time.Second)
-		defer cancel()
-		adminCfg.ConnConfig.Database = adminDB
-		p, err := pgxpool.NewWithConfig(c2, adminCfg)
-		if err != nil {
+	testURL = buildDSN(testCfg)
+	cleanup = func(cctx context.Context) {
+		cadmin, cerr := pgxpool.NewWithConfig(cctx, adminCfg)
+		if cerr != nil {
 			return
 		}
-		_, _ = p.Exec(c2, `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()`, dbName)
-		_, _ = p.Exec(c2, `DROP DATABASE IF EXISTS "`+dbName+`"`)
-		p.Close()
+		defer cadmin.Close()
+		_, _ = cadmin.Exec(cctx, "DROP DATABASE IF EXISTS "+pgx.Identifier{dbName}.Sanitize()+" WITH (FORCE)")
 	}
 	return dbName, testURL, cleanup, nil
 }
 
+func buildDSN(cfg *pgxpool.Config) string {
+	return fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable",
+		url.QueryEscape(cfg.ConnConfig.User),
+		url.QueryEscape(cfg.ConnConfig.Password),
+		cfg.ConnConfig.Host, cfg.ConnConfig.Port, cfg.ConnConfig.Database)
+}
+
 func applyMigrations(ctx context.Context, pool *pgxpool.Pool) error {
-	root, err := repoRoot()
+	migrationsDir, err := locateMigrationsDir()
 	if err != nil {
 		return err
 	}
-	dir := filepath.Join(root, "infrastructure", "migrations")
-	entries, err := os.ReadDir(dir)
+	files, err := filepath.Glob(filepath.Join(migrationsDir, "*.up.sql"))
 	if err != nil {
 		return err
 	}
-	var ups []string
-	for _, e := range entries {
-		if strings.HasSuffix(e.Name(), ".up.sql") {
-			ups = append(ups, e.Name())
+	sort.Strings(files)
+	for _, file := range files {
+		base := filepath.Base(file)
+		content, readErr := os.ReadFile(file)
+		if readErr != nil {
+			return readErr
 		}
-	}
-	sort.Strings(ups)
-	for _, name := range ups {
-		body, err := os.ReadFile(filepath.Join(dir, name))
-		if err != nil {
-			return err
-		}
-		if _, err := pool.Exec(ctx, string(body)); err != nil {
-			return fmt.Errorf("migration %s: %w", name, err)
+		if _, execErr := pool.Exec(ctx, string(content)); execErr != nil {
+			return fmt.Errorf("migration %s: %w", base, execErr)
 		}
 	}
 	return nil
 }
 
-func repoRoot() (string, error) {
-	wd, err := os.Getwd()
-	if err != nil {
-		return "", err
+func locateMigrationsDir() (string, error) {
+	candidates := []string{
+		filepath.Join("..", "..", "..", "..", "infrastructure", "migrations"),
+		filepath.Join("..", "..", "..", "..", "..", "infrastructure", "migrations"),
 	}
-	dir := wd
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.work")); err == nil {
-			return dir, nil
+	for _, candidate := range candidates {
+		if st, err := os.Stat(candidate); err == nil && st.IsDir() {
+			return candidate, nil
 		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return "", fmt.Errorf("go.work not found from %s", wd)
-		}
-		dir = parent
 	}
+	wd, _ := os.Getwd()
+	return "", fmt.Errorf("migrations dir not found from %s", wd)
 }

@@ -15,22 +15,22 @@ import (
 )
 
 func TestE7INT35MigrationUpPresent(t *testing.T) {
-	root, err := repoRoot()
+	migrationsDir, err := locateMigrationsDir()
 	if err != nil {
-		t.Fatalf("repo root: %v", err)
+		t.Fatalf("migrations dir: %v", err)
 	}
-	up := filepath.Join(root, "infrastructure", "migrations", "000072_rfx_late_submission_v3_0e7.up.sql")
+	up := filepath.Join(migrationsDir, "000072_rfx_late_submission_v3_0e7.up.sql")
 	if _, err := os.Stat(up); err != nil {
 		t.Fatalf("missing migration up: %v", err)
 	}
 }
 
 func TestE7INT36MigrationDownSearchPath(t *testing.T) {
-	root, err := repoRoot()
+	migrationsDir, err := locateMigrationsDir()
 	if err != nil {
-		t.Fatalf("repo root: %v", err)
+		t.Fatalf("migrations dir: %v", err)
 	}
-	down, err := os.ReadFile(filepath.Join(root, "infrastructure", "migrations", "000072_rfx_late_submission_v3_0e7.down.sql"))
+	down, err := os.ReadFile(filepath.Join(migrationsDir, "000072_rfx_late_submission_v3_0e7.down.sql"))
 	if err != nil {
 		t.Fatalf("read down: %v", err)
 	}
@@ -61,12 +61,15 @@ func TestE7INT37UpAfterDown(t *testing.T) {
 	if err := applyMigrations(ctx, pool); err != nil {
 		t.Fatalf("up all: %v", err)
 	}
-	root, _ := repoRoot()
-	downSQL, _ := os.ReadFile(filepath.Join(root, "infrastructure", "migrations", "000072_rfx_late_submission_v3_0e7.down.sql"))
+	migrationsDir, err := locateMigrationsDir()
+	if err != nil {
+		t.Fatalf("migrations dir: %v", err)
+	}
+	downSQL, _ := os.ReadFile(filepath.Join(migrationsDir, "000072_rfx_late_submission_v3_0e7.down.sql"))
 	if _, err := pool.Exec(ctx, string(downSQL)); err != nil {
 		t.Fatalf("down 000072: %v", err)
 	}
-	upSQL, _ := os.ReadFile(filepath.Join(root, "infrastructure", "migrations", "000072_rfx_late_submission_v3_0e7.up.sql"))
+	upSQL, _ := os.ReadFile(filepath.Join(migrationsDir, "000072_rfx_late_submission_v3_0e7.up.sql"))
 	if _, err := pool.Exec(ctx, string(upSQL)); err != nil {
 		t.Fatalf("up 000072 again: %v", err)
 	}
