@@ -1,12 +1,12 @@
 # RFx v3.0E7 — Final Integration, Late Submission, Data Exchange and Browser Acceptance
 
-**Status:** `E7_PHASE_1_IMPLEMENTED_PENDING_CONTROLLER_ACCEPTANCE`
+**Status:** `E7_PHASE_1_IMPLEMENTED_ACCEPTED`
 **E7_STATUS:** `IMPLEMENTATION_IN_PROGRESS`
-**E7_PHASE_1_STATUS:** `IMPLEMENTED_PENDING_CONTROLLER_ACCEPTANCE`
-**Scope:** E7 Phase 1 — late submission backend (persistence, domain, workflow, API, RBAC, OpenAPI, integration tests E7-INT-01..40)
-**Base:** `origin/main` @ `0150d26fb0fbbc518c1494cebadcba5a24e229d4`
-**Branch:** `feat/rfx-final-acceptance-v3.0e7`
-**Worktree:** `D:\Projects\freight-platform-wt\rfx-final-acceptance-v3.0e7`
+**E7_PHASE_1_STATUS:** `IMPLEMENTED_ACCEPTED`
+**Scope:** E7 Phase 1 — late submission backend (persistence, domain, workflow, API, RBAC, OpenAPI, integration tests E7-INT-01..40 + E7-REM-001..008)
+**Merged:** PR #119 @ `598b0b3f19861480ec2716e174692eb1d2425bed` (head `3a2f4b91c131c2fefe1056821618c7661fd4f4bc`, merged 2026-09-11T13:16:52Z)
+**Closeout branch:** `docs/rfx-v3-0e7-phase1-post-merge-closeout`
+**Worktree:** `D:\Projects\freight-platform-wt\rfx-v3-0e7-phase1-post-merge-closeout`
 
 Prior waves E1–E6: **IMPLEMENTED_ACCEPTED** (PR #107–#117, docs closeout PR #118).
 
@@ -227,26 +227,61 @@ Historical CI green at `c045fd8` / run `34595040796` attempt 1 timeout retained 
 | OpenAPI validate | PASS (local) |
 | OpenAPI generate idempotent (two consecutive runs) | PASS (local) |
 | Migration contract selfcheck | PASS (local) |
-| PostgreSQL integration E7-INT-* + E7-REM-* | CI required (`TEST_DATABASE_URL` unset locally → NOT_RUN) |
+| PostgreSQL integration E7-INT-* + E7-REM-* | PASS (CI run `34599209374` on PostgreSQL 16; local `TEST_DATABASE_URL` unset → NOT_RUN) |
 | `git diff --check` | PASS (local) |
 
 ---
 
-## 10. Status markers
+## 10. Post-merge closeout (2026-09-11)
+
+PR #119 merged to `main` via merge commit after controller verdict **ACCEPT**.
+
+| Item | Value |
+|---|---|
+| `PR119_MERGED` | YES |
+| `PR119_HEAD` | `3a2f4b91c131c2fefe1056821618c7661fd4f4bc` |
+| `PR119_MERGE_SHA` | `598b0b3f19861480ec2716e174692eb1d2425bed` |
+| `PR119_MERGED_AT` | `2026-09-11T13:16:52Z` |
+| `PR119_CI_RUN_ID` | `34599209374` |
+| `PR119_CI_CONCLUSION` | `success` |
+| `origin/main` at post-merge verification | `598b0b3f19861480ec2716e174692eb1d2425bed` (no additional commits on main) |
+
+### Optional hardening (non-blocking LOW findings, accepted)
+
+| ID | Item |
+|---|---|
+| E7P1-R2-001 | Boundary-race integration evidence at `valid_until` |
+| E7P1-R2-002 | Clarify HTTP 400 vs 422 descriptions in OpenAPI create operation |
+| E7P1-R2-003 | Inline SHA/CI in acceptance docs (addressed by this closeout) |
+| E7P1-R2-004 | Full gateway-router E2E for E7 identity spoof |
+| E7P1-R2-005 | Explicit assertion that `X-Carrier-Company-ID` is stripped |
+
+---
+
+## 11. Status markers
 
 ```
-E7_PHASE_1_STATUS=IMPLEMENTED_PENDING_CONTROLLER_ACCEPTANCE
+E7_PHASE_1_STATUS=IMPLEMENTED_ACCEPTED
+E7_PHASE_1_CONTROLLER_ACCEPTANCE=YES
 E7_STATUS=IMPLEMENTATION_IN_PROGRESS
 ROADMAP_V3_0E_STATUS=IMPLEMENTATION_IN_PROGRESS
+PR119_MERGED=YES
+PR119_HEAD=3a2f4b91c131c2fefe1056821618c7661fd4f4bc
+PR119_MERGE_SHA=598b0b3f19861480ec2716e174692eb1d2425bed
+PR119_MERGED_AT=2026-09-11T13:16:52Z
+PR119_CI_RUN_ID=34599209374
+PR119_CI_CONCLUSION=success
 MIGRATION_000072_CREATED=YES
 MIGRATION_000073_CREATED=NO
 MAX_MIGRATION_CONTRACT=000072
-CONTROLLER_VERDICT=PENDING
-E7P1_001_STATUS=CLOSED
-E7P1_002_STATUS=CLOSED
-E7P1_003_STATUS=CLOSED
-E7P1_004_STATUS=CLOSED
-E7P1_005_STATUS=CLOSED
+CONTROLLER_VERDICT=ACCEPT
+E7P1_001_E7P1_005_CLOSED=YES
+BLOCKER_FINDINGS_OPEN=0
+HIGH_FINDINGS_OPEN=0
+MEDIUM_FINDINGS_OPEN=0
+LOW_FINDINGS_OPEN=5_ACCEPTED_NON_BLOCKING
 PRE_DEADLINE_REQUEST_HTTP_STATUS=400
-NEXT_ACTION=CONTROLLER_FINAL_REVIEW_E7_PHASE_1_LATE_SUBMISSION
+E7_BROWSER_ACCEPTANCE=NOT_STARTED
+E7_PHASE_2=NOT_STARTED
+NEXT_ACTION=CONTROLLER_REVIEW_DOCS_CLOSEOUT_PR
 ```

@@ -13,7 +13,7 @@
 | **v3.0B** | Questionnaire Core | Sections, questions, types, conditional rules, buyer Studio builder | **IMPLEMENTED_ACCEPTED** |
 | **v3.0C** | Carrier Response | Autosave, resume, error UX, submit gate | **IMPLEMENTED_ACCEPTED** |
 | **v3.0D** | Scoring + Knockout | Score models, knockout, explainability | **IMPLEMENTED_ACCEPTED** |
-| **v3.0E** | Templates + Versioning | Template library, immutable published versions, compare/restore, late submission | **IMPLEMENTATION_IN_PROGRESS** (E1–E6 accepted; **E7 Phase 1 late submission** implemented pending validation; browser acceptance not started) |
+| **v3.0E** | Templates + Versioning | Template library, immutable published versions, compare/restore, late submission | **IMPLEMENTATION_IN_PROGRESS** (E1–E7 Phase 1 accepted; **E7 browser acceptance** not started) |
 | **v3.0F** | Qualification Pool | Qualification results, pools, RFI→RFQ handoff | Planned |
 | **v3.0G** | Carrier 360 | Profile autofill, freshness, confirmation | Planned |
 | **v3.0H** | Analytics + Explainability | Dashboards, score drill-down, audit views | Planned |
@@ -108,7 +108,7 @@ These are assigned to the **earliest appropriate wave** — not deferred beyond 
 | **E4 Template Library** | Template library CRUD, publish, fork-draft, archive, draft graph | **IMPLEMENTED_ACCEPTED** — PR #113 merged via `5243bb5` (head `c701ab3`, CI `34383868950`) |
 | **E5 Template Clone + Provenance** | Clone event from template, provenance | **IMPLEMENTED_ACCEPTED** — PR #115 merged via `81ff86b` (head `5c26d34`, CI `34401634396`, migration 000071) |
 | **E6 Studio Frontend** | Studio UI: library, history, compare, restore, clone, republish impact | **IMPLEMENTED_ACCEPTED** — PR #117 merged via `1764617` (head `60d5fd2`, CI `34509790393`) |
-| **E7 Phase 1 Late Submission** | Per-carrier late submission backend (migration 000072, API, RBAC, OpenAPI, E7-INT-01..40) | **IMPLEMENTED_PENDING_CONTROLLER_ACCEPTANCE** |
+| **E7 Phase 1 Late Submission** | Per-carrier late submission backend (migration 000072, API, RBAC, OpenAPI, E7-INT-01..40 + E7-REM-001..008) | **IMPLEMENTED_ACCEPTED** — PR #119 merged via `598b0b3` (head `3a2f4b9`, CI `34599209374`, migration 000072) |
 | **E7 Browser Acceptance** | Browser acceptance gate | **NOT_STARTED** |
 
 Notes:
@@ -119,16 +119,16 @@ Notes:
 - E4 template library backend is accepted and merged to `main` at `5243bb5b8752e6d94bcdf7403697b64ff88def96` (PR #113 head `c701ab32af38c0f0ef4db5bd51210634198d583a`, CI `34383868950`, migration 000070).
 - E5 template clone + provenance backend is accepted and merged to `main` at `81ff86b0f54b1053491d20dc06f51c4dfef537fd` (PR #115 head `5c26d34e3e623ac1d1be414455c8a28b18ae1c62`, CI `34401634396`, migration 000071). E5 delivers only the **template-to-event clone** channel; manual creation, Excel, SAP/1C, late submission, and carrier import/export remain future gates.
 - E6 Studio frontend is accepted and merged to `main` at `176461729dc2200d458eefad70ccdc126a2041b3` (PR #117 head `60d5fd28fb4601814a44ff4b7fb8d815b1635130`, CI `34509790393`). E6 delivers buyer Studio UI and acceptance evidence; late submission, Excel, ERP/TMS, and training remain future gates.
-- E7 Phase 1 late submission backend is implemented on branch `feat/rfx-final-acceptance-v3.0e7` (migration 000072, five HTTP routes, carrier submit gate, OpenAPI, integration tests E7-INT-01..40 + E7-REM-001..008). Status: **IMPLEMENTED_PENDING_CONTROLLER_ACCEPTANCE** — controller remediation applied; exact-head CI on remediation HEAD (see PR #119). Historical green at `c045fd8` retained for audit only.
-- E7 browser acceptance, Excel/ERP, frontend, and training have not started.
+- E7 Phase 1 late submission backend is accepted and merged to `main` at `598b0b3f19861480ec2716e174692eb1d2425bed` (PR #119 head `3a2f4b91c131c2fefe1056821618c7661fd4f4bc`, CI `34599209374`, migration 000072). Delivers migration 000072, five HTTP routes, carrier submit gate, OpenAPI, integration tests E7-INT-01..40 + E7-REM-001..008. Historical green at `c045fd8` retained for audit only.
+- E7 browser acceptance, Excel/ERP Phase 2, frontend, and training have not started.
 - Each implementation wave requires a separate controller gate.
-- Complete v3.0E remains **IMPLEMENTATION_IN_PROGRESS** until E7 is accepted.
+- Complete v3.0E remains **IMPLEMENTATION_IN_PROGRESS** until E7 browser acceptance is accepted.
 
 ### Mandatory future gates
 
 | Area | Markers | Target |
 |---|---|---|
-| Late submission workflow | `LATE_SUBMISSION_AND_DEADLINE_EXCEPTIONS=REQUIRED` — Phase 1 backend **IMPLEMENTED_PENDING_CONTROLLER_ACCEPTANCE**; Excel/ERP/frontend/training deferred | Before E7 browser acceptance |
+| Late submission workflow | `LATE_SUBMISSION_AND_DEADLINE_EXCEPTIONS=REQUIRED` — Phase 1 backend **IMPLEMENTED_ACCEPTED** (PR #119); Excel/ERP/frontend/training deferred | Before E7 browser acceptance |
 | Buyer RFQ channels | `BUYER_RFQ_MANUAL_CREATION`, `BUYER_RFQ_TEMPLATE_CREATION` (E5: backend clone-from-template only), `BUYER_RFQ_EXCEL_IMPORT`, `BUYER_RFQ_ERP_INTEGRATION` (SAP/1C/ERP/TMS) — Excel/SAP/1C/manual UX **not implemented** | Post-E6 / pre-pilot |
 | Carrier offer channels | `CARRIER_DIRECT_OFFER_ENTRY`, `CARRIER_OFFER_EXCEL_EXPORT_IMPORT`; `CARRIER_ERP_INTEGRATION=NOT_REQUIRED_CURRENT_SCOPE` | Post-E6 / pre-pilot |
 | Competitor confidentiality | `CARRIER_CAN_VIEW_COMPETITOR_*=NO`, backend enforcement + cross-carrier isolation tests; carrier must not see participants, competitor identities, bids, submission times, or late-submission requests | Before pilot |
