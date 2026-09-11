@@ -311,6 +311,13 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	r.Post("/api/v1/rfx-events/{id}/carrier-response/submit", rfxGuard.WithPolicy(rfxrbac.PolicyCarrierRespond))
 	r.Get("/api/v1/rfx-events/{id}/carrier-response/summary", rfxGuard.WithPolicy(rfxrbac.PolicyCarrierRead))
 
+	// RFx v3.0E7 late submission
+	r.Post("/api/v1/rfx-events/{id}/late-submission-requests", rfxGuard.WithPolicy(rfxrbac.PolicyCarrierRespond))
+	r.Get("/api/v1/rfx-events/{id}/late-submission-requests/mine", rfxGuard.WithPolicy(rfxrbac.PolicyCarrierRead))
+	r.Get("/api/v1/rfx-events/{id}/late-submission-requests", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerRead))
+	r.Post("/api/v1/rfx-events/{id}/late-submission-requests/{request_id}/approve", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
+	r.Post("/api/v1/rfx-events/{id}/late-submission-requests/{request_id}/reject", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
+
 	// RFx v3.0D scoring
 	r.Get("/api/v1/rfx-events/{id}/score-model", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerRead))
 	r.Put("/api/v1/rfx-events/{id}/score-model", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))

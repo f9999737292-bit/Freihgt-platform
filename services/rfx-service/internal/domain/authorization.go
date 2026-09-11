@@ -48,5 +48,11 @@ func HasBuyerRole(roleCodes []string) bool {
 }
 
 func HasBuyerManageRole(roleCodes []string) bool {
-	return HasBuyerRole(roleCodes)
+	for _, code := range roleCodes {
+		switch strings.ToUpper(strings.TrimSpace(code)) {
+		case "PLATFORM_ADMIN", "PROCUREMENT_MANAGER", "SHIPPER_ADMIN", "FORWARDER_MANAGER":
+			return true
+		}
+	}
+	return false
 }

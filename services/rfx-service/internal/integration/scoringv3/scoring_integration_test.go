@@ -240,7 +240,7 @@ func submitCarrierAnswers(t *testing.T, env *testEnv, fix buyerFixture, sf scori
 	if err != nil {
 		t.Fatalf("save: %v", err)
 	}
-	if _, err := env.crSvc.Submit(ctx, actor, sf.Event.ID, carrierID, saved.SaveVersion); err != nil {
+	if _, err := env.crSvc.Submit(ctx, actor, sf.Event.ID, carrierID, saved.SaveVersion, ""); err != nil {
 		t.Fatalf("submit: %v", err)
 	}
 	resp, err := env.rfxRepo.GetResponseByEventAndCompany(ctx, sf.Event.ID, carrierID, fix.TenantID)

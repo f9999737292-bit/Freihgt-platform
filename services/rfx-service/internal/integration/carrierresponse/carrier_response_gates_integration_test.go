@@ -136,7 +136,7 @@ func TestRequiredRulePreSubmitAndSubmitDenied(t *testing.T) {
 		t.Fatal("expected pre-submit fail for missing required answer")
 	}
 
-	_, err = env.crSvc.Submit(ctx, fix.CarrierAct, event.ID, fix.CarrierID, ws.Response.SaveVersion)
+	_, err = env.crSvc.Submit(ctx, fix.CarrierAct, event.ID, fix.CarrierID, ws.Response.SaveVersion, "")
 	if err == nil {
 		t.Fatal("expected submit with errors denied")
 	}

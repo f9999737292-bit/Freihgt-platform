@@ -12,6 +12,7 @@ const (
 	CodeInternal         Code = "INTERNAL_ERROR"
 	CodeUnauthorized     Code = "UNAUTHORIZED"
 	CodeForbidden        Code = "FORBIDDEN"
+	CodeUnprocessable    Code = "UNPROCESSABLE_ENTITY"
 )
 
 type ValidationErrorItem struct {
@@ -74,6 +75,10 @@ func Unauthorized(message string) *AppError {
 
 func Forbidden(message string) *AppError {
 	return &AppError{Code: CodeForbidden, Message: message, Details: map[string]any{}}
+}
+
+func Unprocessable(message string, details map[string]any) *AppError {
+	return &AppError{Code: CodeUnprocessable, Message: message, Details: detailsOrEmpty(details)}
 }
 
 func detailsOrEmpty(details map[string]any) map[string]any {

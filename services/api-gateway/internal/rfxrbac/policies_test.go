@@ -4,13 +4,19 @@ import "testing"
 
 func TestBuyerManageRoles(t *testing.T) {
 	t.Parallel()
-	for _, role := range []string{"PLATFORM_ADMIN", "PROCUREMENT_MANAGER", "SHIPPER_ADMIN", "SHIPPER_LOGIST", "FORWARDER_MANAGER"} {
+	for _, role := range []string{"PLATFORM_ADMIN", "PROCUREMENT_MANAGER", "SHIPPER_ADMIN", "FORWARDER_MANAGER"} {
 		if !CanBuyerManage([]string{role}) {
 			t.Fatalf("expected buyer manage for %s", role)
 		}
 	}
 	if CanBuyerManage([]string{"CARRIER_ADMIN"}) {
 		t.Fatal("carrier must not manage rfx")
+	}
+	if CanBuyerManage([]string{"SHIPPER_LOGIST"}) {
+		t.Fatal("buyer read-only role must not manage rfx")
+	}
+	if !CanBuyerRead([]string{"SHIPPER_LOGIST"}) {
+		t.Fatal("buyer read role must read rfx")
 	}
 }
 

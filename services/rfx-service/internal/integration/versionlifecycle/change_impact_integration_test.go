@@ -100,7 +100,7 @@ func TestE3INT04SubmittedResponsesMaterialWithSubmitted(t *testing.T) {
 	if err != nil {
 		t.Fatalf("workspace: %v", err)
 	}
-	if _, err := env.crSvc.Submit(context.Background(), fix.CarrierAct, event.ID, fix.CarrierID, ws2.Response.SaveVersion); err != nil {
+	if _, err := env.crSvc.Submit(context.Background(), fix.CarrierAct, event.ID, fix.CarrierID, ws2.Response.SaveVersion, ""); err != nil {
 		t.Fatalf("submit: %v", err)
 	}
 
@@ -189,7 +189,7 @@ func TestE3INT07MultipleClassesDeterministicOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("workspace submitted: %v", err)
 	}
-	if _, err := env.crSvc.Submit(context.Background(), carrierBAct, event.ID, carrierB, wsSubmitted2.Response.SaveVersion); err != nil {
+	if _, err := env.crSvc.Submit(context.Background(), carrierBAct, event.ID, carrierB, wsSubmitted2.Response.SaveVersion, ""); err != nil {
 		t.Fatalf("submit carrier b: %v", err)
 	}
 
@@ -874,7 +874,7 @@ func TestE3INT30NoAutomaticRescore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("workspace: %v", err)
 	}
-	if _, err := env.crSvc.Submit(context.Background(), fix.CarrierAct, event.ID, fix.CarrierID, ws2.Response.SaveVersion); err != nil {
+	if _, err := env.crSvc.Submit(context.Background(), fix.CarrierAct, event.ID, fix.CarrierID, ws2.Response.SaveVersion, ""); err != nil {
 		t.Fatalf("submit: %v", err)
 	}
 	responseID := ws.Response.ID

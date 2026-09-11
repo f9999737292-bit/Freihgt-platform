@@ -211,6 +211,105 @@ func TestE6GatewayIdentityHeaderSpoofDeniedHistoricalGraphAndProvenance(t *testi
 	}
 }
 
+// E7_GATEWAY_IDENTITY_SPOOF=PASS UNTRUSTED_IDENTITY_HEADERS_STRIPPED=PASS
+func TestE7GatewayIdentityHeaderSpoofLateSubmissionCreate(t *testing.T) {
+	verifiedTenant := "11111111-1111-1111-1111-111111111111"
+	verifiedUser := "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+	spoofTenant := "22222222-2222-2222-2222-222222222222"
+	spoofUser := "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+	spoofCompany := "cccccccc-cccc-cccc-cccc-cccccccccccc"
+	eventID := "dddddddd-dddd-dddd-dddd-dddddddddddd"
+
+	identityServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"roles": []string{"CARRIER_DISPATCHER"}})
+	}))
+	defer identityServer.Close()
+
+	var gotTenant, gotUser, gotCompany string
+	downstreamCalled := false
+	guard := NewGuard(config.Config{
+		AuthEnabled:         true,
+		ProxyTimeoutSeconds: 5,
+		Services:            config.ServiceURLs{Identity: identityServer.URL},
+	}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		downstreamCalled = true
+		gotTenant = r.Header.Get("X-Tenant-ID")
+		gotUser = r.Header.Get("X-User-ID")
+		gotCompany = r.Header.Get("X-Company-ID")
+		w.WriteHeader(http.StatusCreated)
+	}))
+
+	token := signTestToken(t, "secret", verifiedUser, verifiedTenant)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/rfx-events/"+eventID+"/late-submission-requests", strings.NewReader(`{"reason_code":"OTHER","reason_text":"late","requested_until":"2026-09-11T12:00:00Z"}`))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Idempotency-Key", "e7-spoof-key")
+	req.Header.Set("X-Tenant-ID", spoofTenant)
+	req.Header.Set("X-User-ID", spoofUser)
+	req.Header.Set("X-Company-ID", spoofCompany)
+	req.Header.Set("X-Carrier-Company-ID", spoofCompany)
+
+	rec := serveThroughAuth(t, guard.WithPolicy(PolicyCarrierRespond), req, "secret")
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status=%d want 201 body=%s", rec.Code, rec.Body.String())
+	}
+	if !downstreamCalled {
+		t.Fatal("downstream must be called for authorized carrier")
+	}
+	if gotTenant != verifiedTenant {
+		t.Fatalf("downstream tenant=%q want verified %q", gotTenant, verifiedTenant)
+	}
+	if gotUser != verifiedUser {
+		t.Fatalf("downstream user=%q want verified %q", gotUser, verifiedUser)
+	}
+	if gotCompany != "" {
+		t.Fatalf("spoofed X-Company-ID must be stripped, got %q", gotCompany)
+	}
+}
+
+func TestE7GatewayIdentityHeaderSpoofLateSubmissionUnauthorizedAndForbidden(t *testing.T) {
+	eventID := "dddddddd-dddd-dddd-dddd-dddddddddddd"
+	identityServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"roles": []string{"CARRIER_DISPATCHER"}})
+	}))
+	defer identityServer.Close()
+
+	guard := NewGuard(config.Config{
+		AuthEnabled:         true,
+		ProxyTimeoutSeconds: 5,
+		Services:            config.ServiceURLs{Identity: identityServer.URL},
+	}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("downstream must not be called")
+	}))
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/rfx-events/"+eventID+"/late-submission-requests", strings.NewReader(`{}`))
+	rec := serveThroughAuth(t, guard.WithPolicy(PolicyCarrierRespond), req, "secret")
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("missing auth status=%d want 401", rec.Code)
+	}
+
+	identityServerBuyer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"roles": []string{"SHIPPER_LOGIST"}})
+	}))
+	defer identityServerBuyer.Close()
+
+	guardBuyer := NewGuard(config.Config{
+		AuthEnabled:         true,
+		ProxyTimeoutSeconds: 5,
+		Services:            config.ServiceURLs{Identity: identityServerBuyer.URL},
+	}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("downstream must not be called for buyer read on carrier respond route")
+	}))
+
+	token := signTestToken(t, "secret", "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "11111111-1111-1111-1111-111111111111")
+	req2 := httptest.NewRequest(http.MethodPost, "/api/v1/rfx-events/"+eventID+"/late-submission-requests", strings.NewReader(`{}`))
+	req2.Header.Set("Authorization", "Bearer "+token)
+	rec2 := serveThroughAuth(t, guardBuyer.WithPolicy(PolicyCarrierRespond), req2, "secret")
+	if rec2.Code != http.StatusForbidden {
+		t.Fatalf("wrong role status=%d want 403", rec2.Code)
+	}
+}
+
 func TestAcceptBidBuyerAllowedCarrierDenied(t *testing.T) {
 	tenantID := "11111111-1111-1111-1111-111111111111"
 	path := "/api/v1/bids/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/accept"
