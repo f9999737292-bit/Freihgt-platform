@@ -172,6 +172,11 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/rfx-events/{id}/carrier-response/start", "post", "Start or resume carrier questionnaire response", "RFx", True, True, "cr_start"),
     ("/api/v1/rfx-events/{id}/carrier-response/answers", "patch", "Atomic batch autosave of carrier answers", "RFx", True, True, "cr_answers_patch"),
     ("/api/v1/rfx-events/{id}/carrier-response/validate", "post", "Pre-submit validation of carrier response", "RFx", True, True, "cr_validate"),
+    ("/api/v1/rfx-events/{id}/late-submission-requests", "post", "Create carrier late submission request after response deadline", "RFx", True, True, "ls_create"),
+    ("/api/v1/rfx-events/{id}/late-submission-requests/mine", "get", "List own late submission requests for carrier", "RFx", True, True, "ls_list_mine"),
+    ("/api/v1/rfx-events/{id}/late-submission-requests", "get", "List late submission requests for buyer review queue", "RFx", True, True, "ls_list_buyer"),
+    ("/api/v1/rfx-events/{id}/late-submission-requests/{request_id}/approve", "post", "Approve carrier late submission request", "RFx", True, True, "ls_approve"),
+    ("/api/v1/rfx-events/{id}/late-submission-requests/{request_id}/reject", "post", "Reject carrier late submission request", "RFx", True, True, "ls_reject"),
     ("/api/v1/rfx-events/{id}/carrier-response/submit", "post", "Submit carrier questionnaire response", "RFx", True, True, "cr_submit"),
     ("/api/v1/rfx-events/{id}/carrier-response/summary", "get", "Carrier response completion summary", "RFx", True, True, "cr_summary_get"),
     ("/api/v1/rfx-events/{id}/score-model", "get", "Get RFx score model", "RFx", True, True, "score_model_get"),
@@ -465,6 +470,21 @@ IDEMPOTENCY_HEADER_PROFILES = frozenset({
     "tl_publish",
     "tl_fork_draft",
     "e5_clone",
+    "ls_create",
+    "ls_approve",
+    "ls_reject",
+})
+
+LATE_SUBMISSION_IDEMPOTENCY_PROFILES = frozenset({"ls_create", "ls_approve", "ls_reject"})
+
+LATE_SUBMISSION_OK_POST_PROFILES = frozenset({"ls_approve", "ls_reject"})
+
+LATE_SUBMISSION_422_PROFILES = frozenset({
+    "ls_create",
+    "ls_list_mine",
+    "ls_list_buyer",
+    "ls_approve",
+    "ls_reject",
 })
 
 CONTRACT_RATE_SCHEMA_REFS = {
@@ -545,6 +565,20 @@ CARRIER_RESPONSE_REQUEST_BODIES = {
 
 CARRIER_RESPONSE_422_PROFILES = frozenset({"cr_answers_patch", "cr_submit"})
 
+LATE_SUBMISSION_REQUEST_BODIES = {
+    "ls_create": """              $ref: '#/components/schemas/RfxCreateLateSubmissionRequest'""",
+    "ls_approve": """              $ref: '#/components/schemas/RfxApproveLateSubmissionRequest'""",
+    "ls_reject": """              $ref: '#/components/schemas/RfxRejectLateSubmissionRequest'""",
+}
+
+LATE_SUBMISSION_SCHEMAS = {
+    "ls_create": "RfxLateSubmissionRequest",
+    "ls_list_mine": "RfxLateSubmissionRequestList",
+    "ls_list_buyer": "RfxLateSubmissionRequestList",
+    "ls_approve": "RfxLateSubmissionRequest",
+    "ls_reject": "RfxLateSubmissionRequest",
+}
+
 CARRIER_RESPONSE_SCHEMAS = {
     "cr_workspace_get": "RfxCarrierResponseWorkspace",
     "cr_start": "RfxCarrierResponseWorkspace",
@@ -609,6 +643,7 @@ READ_RESPONSE_SCHEMAS = {
     **QUESTIONNAIRE_RESPONSE_SCHEMAS,
     **TEMPLATE_RESPONSE_SCHEMAS,
     **CARRIER_RESPONSE_SCHEMAS,
+    **LATE_SUBMISSION_SCHEMAS,
 }
 
 # Public routes protected by paymentGuard / companycontext.Enforcer (router.go).
@@ -768,6 +803,28 @@ def render_parameters(path: str, method: str, with_headers: bool, profile: str |
             "            minLength: 1",
             "            maxLength: 128",
         ])
+    elif profile in LATE_SUBMISSION_IDEMPOTENCY_PROFILES:
+        lines.extend([
+            "        - name: Idempotency-Key",
+            "          in: header",
+            "          required: true",
+            "          description: Client-supplied idempotency key for late submission mutation (max 128 chars).",
+            "          schema:",
+            "            type: string",
+            "            minLength: 1",
+            "            maxLength: 128",
+        ])
+    elif profile == "cr_submit":
+        lines.extend([
+            "        - name: Idempotency-Key",
+            "          in: header",
+            "          required: false",
+            "          description: Required when submitting after the event response deadline (late submission). Client-supplied idempotency key (max 128 chars).",
+            "          schema:",
+            "            type: string",
+            "            minLength: 1",
+            "            maxLength: 128",
+        ])
     elif profile in IDEMPOTENCY_HEADER_PROFILES - {"priced_transport_order_create"}:
         lines.extend([
             "        - name: Idempotency-Key",
@@ -842,6 +899,8 @@ def render_operation(
             lines.append(E5_CLONE_REQUEST_BODIES[profile])
         elif profile in CARRIER_RESPONSE_REQUEST_BODIES:
             lines.append(CARRIER_RESPONSE_REQUEST_BODIES[profile])
+        elif profile in LATE_SUBMISSION_REQUEST_BODIES:
+            lines.append(LATE_SUBMISSION_REQUEST_BODIES[profile])
         elif profile == "priced_transport_order_create":
             lines.append(PRICED_TRANSPORT_ORDER_REQUEST_BODY)
         else:
@@ -891,7 +950,7 @@ def render_operation(
 
     if profile in QUESTIONNAIRE_CREATED_PROFILES:
         success_code = "201"
-    elif profile in VOID_DESCRIPTIONS or profile in RECONCILE_DESCRIPTIONS or profile in QUESTIONNAIRE_OK_POST_PROFILES or profile in CARRIER_RESPONSE_SCHEMAS:
+    elif profile in VOID_DESCRIPTIONS or profile in RECONCILE_DESCRIPTIONS or profile in QUESTIONNAIRE_OK_POST_PROFILES or profile in CARRIER_RESPONSE_SCHEMAS or profile in LATE_SUBMISSION_OK_POST_PROFILES:
         success_code = "200"
     elif method == "post" and tag not in {"Gateway", "Auth"}:
         success_code = "201"
@@ -951,6 +1010,17 @@ def render_operation(
                 "                oneOf:",
                 "                  - $ref: '#/components/schemas/ErrorResponse'",
                 "                  - $ref: '#/components/schemas/ValidationFailedResponse'",
+            ]
+        )
+    elif profile in LATE_SUBMISSION_422_PROFILES:
+        lines.extend(
+            [
+                "        '422':",
+                "          description: Unprocessable entity",
+                "          content:",
+                "            application/json:",
+                "              schema:",
+                "                $ref: '#/components/schemas/ErrorResponse'",
             ]
         )
     lines.append("")
@@ -1849,10 +1919,70 @@ def carrier_components_block() -> str:
 """
 
 
+def late_submission_components_block() -> str:
+    return """    RfxLateSubmissionRequest:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        rfx_event_id: {type: string, format: uuid}
+        carrier_company_id: {type: string, format: uuid}
+        participant_id: {type: string, format: uuid}
+        reason_code:
+          type: string
+          enum: [TECHNICAL_FAILURE, ORGANIZATIONAL_DELAY, BUYER_REQUEST, FORCE_MAJEURE, OTHER]
+        reason_text: {type: string}
+        requested_until: {type: string, format: date-time}
+        status:
+          type: string
+          enum: [REQUESTED, APPROVED, REJECTED, EXPIRED, CONSUMED]
+        approved_valid_from: {type: string, format: date-time}
+        approved_valid_until: {type: string, format: date-time}
+        decision_comment: {type: string}
+        requested_by: {type: string, format: uuid}
+        decided_by: {type: string, format: uuid}
+        decided_at: {type: string, format: date-time}
+        consumed_at: {type: string, format: date-time}
+        version: {type: integer}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+    RfxLateSubmissionRequestList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RfxLateSubmissionRequest'
+    RfxCreateLateSubmissionRequest:
+      type: object
+      required: [reason_code, reason_text, requested_until]
+      properties:
+        reason_code:
+          type: string
+          enum: [TECHNICAL_FAILURE, ORGANIZATIONAL_DELAY, BUYER_REQUEST, FORCE_MAJEURE, OTHER]
+        reason_text: {type: string, minLength: 1}
+        requested_until: {type: string, format: date-time}
+    RfxApproveLateSubmissionRequest:
+      type: object
+      required: [expected_version, approved_valid_from, approved_valid_until]
+      properties:
+        expected_version: {type: integer}
+        approved_valid_from: {type: string, format: date-time}
+        approved_valid_until: {type: string, format: date-time}
+        decision_comment: {type: string}
+    RfxRejectLateSubmissionRequest:
+      type: object
+      required: [expected_version]
+      properties:
+        expected_version: {type: integer}
+        decision_comment: {type: string}
+"""
+
+
 def global_components_block(
     *,
     include_e1_version_lifecycle: bool = False,
     include_e4_template_library: bool = False,
+    include_e7_late_submission: bool = False,
 ) -> str:
     rfx_components = (
         questionnaire_components_block(
@@ -1861,6 +1991,8 @@ def global_components_block(
         )
         + carrier_components_block()
     )
+    if include_e7_late_submission:
+        rfx_components += late_submission_components_block()
     return """
 components:
   securitySchemes:
@@ -2284,10 +2416,12 @@ def components_block(
     include_payment_components: bool = False,
     include_e1_version_lifecycle: bool = False,
     include_e4_template_library: bool = False,
+    include_e7_late_submission: bool = False,
 ) -> str:
     block = global_components_block(
         include_e1_version_lifecycle=include_e1_version_lifecycle,
         include_e4_template_library=include_e4_template_library,
+        include_e7_late_submission=include_e7_late_submission,
     )
     if include_payment_components:
         block = block.rstrip() + "\n" + payment_components_block()
@@ -2302,6 +2436,7 @@ def build_spec(
     include_payment_components: bool = False,
     include_e1_version_lifecycle: bool = False,
     include_e4_template_library: bool = False,
+    include_e7_late_submission: bool = False,
 ) -> str:
     tags_yaml = "\n".join(f"  - name: {tag}" for tag in TAGS)
     return (
@@ -2318,7 +2453,7 @@ tags:
 {tags_yaml}
 paths:
 {render_paths(endpoints)}
-{components_block(include_payment_components=include_payment_components, include_e1_version_lifecycle=include_e1_version_lifecycle, include_e4_template_library=include_e4_template_library)}
+{components_block(include_payment_components=include_payment_components, include_e1_version_lifecycle=include_e1_version_lifecycle, include_e4_template_library=include_e4_template_library, include_e7_late_submission=include_e7_late_submission)}
 """
     ).strip() + "\n"
 
@@ -2348,6 +2483,7 @@ def main() -> None:
         include_payment_components=True,
         include_e1_version_lifecycle=True,
         include_e4_template_library=True,
+        include_e7_late_submission=True,
     )
     (OPENAPI_DIR / "openapi.yaml").write_text(unified, encoding="utf-8")
 
@@ -2361,6 +2497,7 @@ def main() -> None:
             include_payment_components=(filename == "payment-service.yaml"),
             include_e1_version_lifecycle=(filename == "rfx-service.yaml"),
             include_e4_template_library=(filename == "rfx-service.yaml"),
+            include_e7_late_submission=(filename == "rfx-service.yaml"),
         )
         (OPENAPI_DIR / filename).write_text(spec, encoding="utf-8")
 
