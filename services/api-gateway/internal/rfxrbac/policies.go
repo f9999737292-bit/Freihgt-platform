@@ -6,11 +6,16 @@ var buyerManageRoles = map[string]struct{}{
 	"PLATFORM_ADMIN":      {},
 	"PROCUREMENT_MANAGER": {},
 	"SHIPPER_ADMIN":       {},
-	"SHIPPER_LOGIST":      {},
 	"FORWARDER_MANAGER":   {},
 }
 
-var buyerReadRoles = buyerManageRoles
+var buyerReadRoles = map[string]struct{}{
+	"PLATFORM_ADMIN":      {},
+	"PROCUREMENT_MANAGER": {},
+	"SHIPPER_ADMIN":       {},
+	"SHIPPER_LOGIST":      {},
+	"FORWARDER_MANAGER":   {},
+}
 
 var carrierRespondRoles = map[string]struct{}{
 	"CARRIER_ADMIN":      {},

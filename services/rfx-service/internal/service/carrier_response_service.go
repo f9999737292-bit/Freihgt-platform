@@ -351,39 +351,39 @@ func (s *CarrierResponseService) Submit(
 		return nil, err
 	}
 	now := nowUTC()
+	lateSubmit := domain.ResponseDeadlinePassed(event.ResponseDeadline, now)
+	var scope repository.IdempotencyScope
+	var requestBodyHash string
+	if lateSubmit {
+		idempotencyKey = strings.TrimSpace(idempotencyKey)
+		if idempotencyKey == "" {
+			return nil, apperrors.Validation("Idempotency-Key header is required", map[string]any{"field": "Idempotency-Key"})
+		}
+		if s.idem != nil {
+			scope = repository.IdempotencyScope{
+				TenantID: actor.TenantID, ActorID: actor.UserID,
+				Operation: domain.LateSubmissionOperationSubmit, AggregateScope: workspace.Response.ID,
+			}
+			payload := struct {
+				EventID             uuid.UUID `json:"event_id"`
+				ExpectedSaveVersion int64     `json:"expected_save_version"`
+				CarrierCompanyID    uuid.UUID `json:"carrier_company_id"`
+			}{EventID: eventID, ExpectedSaveVersion: expectedSaveVersion, CarrierCompanyID: carrierCompanyID}
+			requestBodyHash, err = hashRequestBody(payload)
+			if err != nil {
+				return nil, err
+			}
+			if replay, replayErr := s.loadSubmitReplay(ctx, scope, idempotencyKey, requestBodyHash); replayErr != nil || replay != nil {
+				return replay, replayErr
+			}
+		}
+	}
 	permission, err := s.resolveLatePermission(ctx, event, carrierCompanyID, now)
 	if err != nil {
 		return nil, err
 	}
 	if err := domain.ValidateCarrierMutationDeadline(event.ResponseDeadline, now, permission); err != nil {
 		return nil, err
-	}
-	lateSubmit := domain.ResponseDeadlinePassed(event.ResponseDeadline, now)
-	if lateSubmit {
-		idempotencyKey = strings.TrimSpace(idempotencyKey)
-		if idempotencyKey == "" {
-			return nil, apperrors.Validation("Idempotency-Key header is required", map[string]any{"field": "Idempotency-Key"})
-		}
-	}
-	var scope repository.IdempotencyScope
-	var requestBodyHash string
-	if lateSubmit && s.idem != nil {
-		scope = repository.IdempotencyScope{
-			TenantID: actor.TenantID, ActorID: actor.UserID,
-			Operation: domain.LateSubmissionOperationSubmit, AggregateScope: workspace.Response.ID,
-		}
-		payload := struct {
-			EventID             uuid.UUID `json:"event_id"`
-			ExpectedSaveVersion int64     `json:"expected_save_version"`
-			CarrierCompanyID    uuid.UUID `json:"carrier_company_id"`
-		}{EventID: eventID, ExpectedSaveVersion: expectedSaveVersion, CarrierCompanyID: carrierCompanyID}
-		requestBodyHash, err = hashRequestBody(payload)
-		if err != nil {
-			return nil, err
-		}
-		if replay, replayErr := s.loadSubmitReplay(ctx, scope, idempotencyKey, requestBodyHash); replayErr != nil || replay != nil {
-			return replay, replayErr
-		}
 	}
 
 	var submitted *domain.RfxResponse
