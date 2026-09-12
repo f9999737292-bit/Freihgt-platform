@@ -178,6 +178,7 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/rfx-events/{id}/late-submission-requests/{request_id}/approve", "post", "Approve carrier late submission request", "RFx", True, True, "ls_approve"),
     ("/api/v1/rfx-events/{id}/late-submission-requests/{request_id}/reject", "post", "Reject carrier late submission request", "RFx", True, True, "ls_reject"),
     ("/api/v1/rfx-events/{id}/xlsx-export", "get", "Export buyer draft RFx event as XLSX workbook", "RFx", True, True, "xlsx_export_buyer_draft"),
+    ("/api/v1/rfx-events/{id}/xlsx-import/preview", "post", "Preview buyer draft RFx event XLSX import", "RFx", True, True, "xlsx_import_preview_buyer_draft"),
     ("/api/v1/rfx-events/{id}/carrier-response/submit", "post", "Submit carrier questionnaire response", "RFx", True, True, "cr_submit"),
     ("/api/v1/rfx-events/{id}/carrier-response/summary", "get", "Carrier response completion summary", "RFx", True, True, "cr_summary_get"),
     ("/api/v1/rfx-events/{id}/score-model", "get", "Get RFx score model", "RFx", True, True, "score_model_get"),
@@ -488,9 +489,54 @@ LATE_SUBMISSION_422_PROFILES = frozenset({
     "ls_reject",
 })
 
-E7_EXCEL_EXCHANGE_ENDPOINT_PROFILES = frozenset({"xlsx_export_buyer_draft"})
+E7_EXCEL_EXCHANGE_ENDPOINT_PROFILES = frozenset({"xlsx_export_buyer_draft", "xlsx_import_preview_buyer_draft"})
 
 BINARY_RESPONSE_PROFILES = frozenset({"xlsx_export_buyer_draft"})
+
+EXCEL_EXCHANGE_PREVIEW_PROFILES = frozenset({"xlsx_import_preview_buyer_draft"})
+
+EXCEL_EXCHANGE_ERROR_RESPONSES = """        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Request body or uploaded file too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'"""
 
 EXCEL_EXCHANGE_DESCRIPTIONS = {
     "xlsx_export_buyer_draft": """Export buyer draft RFx event as an XLSX workbook snapshot.
@@ -500,6 +546,21 @@ Feature flag: when `RFX_EXCEL_EXCHANGE_ENABLED` is false (default), the route re
 Authorization: **BuyerManage** role required; buyer read-only roles are denied (**403**).
 
 Scope: exports the active DRAFT questionnaire graph only. No carrier/competitor bid or response data is included in the workbook.
+
+Precondition: an active DRAFT questionnaire version must exist; otherwise returns **409** conflict.""",
+    "xlsx_import_preview_buyer_draft": """Preview buyer draft RFx event XLSX import for UPDATE_DRAFT mode.
+
+Feature flag: when `RFX_EXCEL_EXCHANGE_ENABLED` is false (default), the route returns **404** (feature disabled).
+
+Authorization: **BuyerManage** role required; buyer read-only roles are denied (**403**).
+
+Request: multipart/form-data with required binary `file` field (max 5 MiB). Workbook schema `BINTRANS_RFX_BUYER_XLSX_V1`.
+
+Successful domain-valid preview returns **200** with `ready_to_commit=true`, persisted `analysis_id`, and server-computed `expires_at` (24h TTL).
+
+Domain-invalid but structurally readable workbooks return **422** with the structured preview envelope and `ready_to_commit=false` without persisting analysis.
+
+Malformed multipart, unsafe ZIP/XLSX, or schema contract failures return **400** / **413** with the standard error envelope.
 
 Precondition: an active DRAFT questionnaire version must exist; otherwise returns **409** conflict.""",
 }
@@ -898,7 +959,7 @@ def render_operation(
     elif with_headers:
         lines.append(COMMON_HEADER.rstrip("\n"))
 
-    if method in {"post", "patch", "put"} and profile not in NO_REQUEST_BODY_PROFILES:
+    if method in {"post", "patch", "put"} and profile not in NO_REQUEST_BODY_PROFILES and profile not in EXCEL_EXCHANGE_PREVIEW_PROFILES:
         schema_ref = "#/components/schemas/VoidRequest" if profile in VOID_DESCRIPTIONS else None
         lines.extend(
             [
@@ -957,7 +1018,7 @@ def render_operation(
             ]
         )
 
-    if secured:
+    if secured and profile not in EXCEL_EXCHANGE_PREVIEW_PROFILES:
         lines.append(SECURITY_BEARER.rstrip("\n"))
 
     if profile in BINARY_RESPONSE_PROFILES:
@@ -972,6 +1033,46 @@ def render_operation(
                 "                type: string",
                 "                format: binary",
                 ERROR_RESPONSES.rstrip("\n"),
+                "",
+            ]
+        )
+        return "\n".join(lines)
+
+    if profile in EXCEL_EXCHANGE_PREVIEW_PROFILES:
+        lines.extend(
+            [
+                "      requestBody:",
+                "        required: true",
+                "        content:",
+                "          multipart/form-data:",
+                "            schema:",
+                "              type: object",
+                "              required: [file]",
+                "              properties:",
+                "                file:",
+                "                  type: string",
+                "                  format: binary",
+                "                  description: BUYER XLSX workbook (max 5 MiB)",
+            ]
+        )
+        if secured:
+            lines.append(SECURITY_BEARER.rstrip("\n"))
+        lines.extend(
+            [
+                "      responses:",
+                "        '200':",
+                "          description: Valid import preview with persisted analysis",
+                "          content:",
+                "            application/json:",
+                "              schema:",
+                "                $ref: '#/components/schemas/RfxBuyerXlsxImportPreviewResponse'",
+                "        '422':",
+                "          description: Domain-invalid structured import preview",
+                "          content:",
+                "            application/json:",
+                "              schema:",
+                "                $ref: '#/components/schemas/RfxBuyerXlsxImportPreviewResponse'",
+                EXCEL_EXCHANGE_ERROR_RESPONSES.rstrip("\n"),
                 "",
             ]
         )
@@ -2019,6 +2120,87 @@ def late_submission_components_block() -> str:
 """
 
 
+def excel_exchange_components_block() -> str:
+    return """    RfxBuyerXlsxImportPreviewIssue:
+      type: object
+      required: [severity, machine_code, message_key]
+      properties:
+        severity:
+          type: string
+          enum: [error, warning]
+        machine_code: {type: string}
+        sheet: {type: string}
+        row: {type: integer}
+        column: {type: string}
+        stable_code: {type: string}
+        message_key: {type: string}
+        params:
+          type: object
+          additionalProperties: true
+    RfxBuyerXlsxImportPreviewSummary:
+      type: object
+      properties:
+        errors: {type: integer}
+        warnings: {type: integer}
+        sections_added: {type: integer}
+        sections_changed: {type: integer}
+        sections_removed: {type: integer}
+        questions_added: {type: integer}
+        questions_removed: {type: integer}
+        lots_added: {type: integer}
+        lots_changed: {type: integer}
+        lots_removed: {type: integer}
+    RfxBuyerXlsxImportPreviewResponse:
+      type: object
+      required:
+        - schema_name
+        - schema_version
+        - mode
+        - target_event_id
+        - target_draft_version_id
+        - target_version_number
+        - target_event_row_version
+        - target_draft_row_version
+        - ready_to_commit
+        - summary
+        - questionnaire_diff
+        - lots_diff
+        - errors
+        - warnings
+      properties:
+        schema_name: {type: string, example: BINTRANS_RFX_BUYER_XLSX_V1}
+        schema_version: {type: string, example: "1"}
+        mode: {type: string, enum: [UPDATE_DRAFT]}
+        target_event_id: {type: string, format: uuid}
+        target_draft_version_id: {type: string, format: uuid}
+        target_version_number: {type: integer}
+        target_event_row_version: {type: integer}
+        target_draft_row_version: {type: integer}
+        canonical_payload_hash: {type: string}
+        analysis_id: {type: string, format: uuid}
+        expires_at: {type: string, format: date-time}
+        ready_to_commit: {type: boolean}
+        summary:
+          $ref: '#/components/schemas/RfxBuyerXlsxImportPreviewSummary'
+        questionnaire_diff:
+          type: object
+          additionalProperties: true
+        lots_diff:
+          type: object
+          additionalProperties: true
+        errors:
+          type: array
+          maxItems: 2000
+          items:
+            $ref: '#/components/schemas/RfxBuyerXlsxImportPreviewIssue'
+        warnings:
+          type: array
+          maxItems: 2000
+          items:
+            $ref: '#/components/schemas/RfxBuyerXlsxImportPreviewIssue'
+"""
+
+
 def filter_e7_excel_exchange_endpoints(
     endpoints: list[tuple[str, str, str, str, bool, bool, str | None]],
     include_e7_excel_exchange: bool,
@@ -2044,6 +2226,8 @@ def global_components_block(
     )
     if include_e7_late_submission:
         rfx_components += late_submission_components_block()
+    if include_e7_excel_exchange:
+        rfx_components += excel_exchange_components_block()
     return """
 components:
   securitySchemes:

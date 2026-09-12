@@ -3891,6 +3891,109 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/v1/rfx-events/{id}/xlsx-import/preview:
+    post:
+      tags: [RFx]
+      summary: Preview buyer draft RFx event XLSX import
+      operationId: post_preview_buyer_draft_rfx_event_xlsx_import
+      description: |
+        Preview buyer draft RFx event XLSX import for UPDATE_DRAFT mode.
+
+        Feature flag: when `RFX_EXCEL_EXCHANGE_ENABLED` is false (default), the route returns **404** (feature disabled).
+
+        Authorization: **BuyerManage** role required; buyer read-only roles are denied (**403**).
+
+        Request: multipart/form-data with required binary `file` field (max 5 MiB). Workbook schema `BINTRANS_RFX_BUYER_XLSX_V1`.
+
+        Successful domain-valid preview returns **200** with `ready_to_commit=true`, persisted `analysis_id`, and server-computed `expires_at` (24h TTL).
+
+        Domain-invalid but structurally readable workbooks return **422** with the structured preview envelope and `ready_to_commit=false` without persisting analysis.
+
+        Malformed multipart, unsafe ZIP/XLSX, or schema contract failures return **400** / **413** with the standard error envelope.
+
+        Precondition: an active DRAFT questionnaire version must exist; otherwise returns **409** conflict.
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: BUYER XLSX workbook (max 5 MiB)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Valid import preview with persisted analysis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RfxBuyerXlsxImportPreviewResponse'
+        '422':
+          description: Domain-invalid structured import preview
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RfxBuyerXlsxImportPreviewResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Request body or uploaded file too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/v1/rfx-events/{id}/carrier-response/submit:
     post:
       tags: [RFx]
@@ -7108,6 +7211,83 @@ components:
       properties:
         expected_version: {type: integer}
         decision_comment: {type: string}
+    RfxBuyerXlsxImportPreviewIssue:
+      type: object
+      required: [severity, machine_code, message_key]
+      properties:
+        severity:
+          type: string
+          enum: [error, warning]
+        machine_code: {type: string}
+        sheet: {type: string}
+        row: {type: integer}
+        column: {type: string}
+        stable_code: {type: string}
+        message_key: {type: string}
+        params:
+          type: object
+          additionalProperties: true
+    RfxBuyerXlsxImportPreviewSummary:
+      type: object
+      properties:
+        errors: {type: integer}
+        warnings: {type: integer}
+        sections_added: {type: integer}
+        sections_changed: {type: integer}
+        sections_removed: {type: integer}
+        questions_added: {type: integer}
+        questions_removed: {type: integer}
+        lots_added: {type: integer}
+        lots_changed: {type: integer}
+        lots_removed: {type: integer}
+    RfxBuyerXlsxImportPreviewResponse:
+      type: object
+      required:
+        - schema_name
+        - schema_version
+        - mode
+        - target_event_id
+        - target_draft_version_id
+        - target_version_number
+        - target_event_row_version
+        - target_draft_row_version
+        - ready_to_commit
+        - summary
+        - questionnaire_diff
+        - lots_diff
+        - errors
+        - warnings
+      properties:
+        schema_name: {type: string, example: BINTRANS_RFX_BUYER_XLSX_V1}
+        schema_version: {type: string, example: "1"}
+        mode: {type: string, enum: [UPDATE_DRAFT]}
+        target_event_id: {type: string, format: uuid}
+        target_draft_version_id: {type: string, format: uuid}
+        target_version_number: {type: integer}
+        target_event_row_version: {type: integer}
+        target_draft_row_version: {type: integer}
+        canonical_payload_hash: {type: string}
+        analysis_id: {type: string, format: uuid}
+        expires_at: {type: string, format: date-time}
+        ready_to_commit: {type: boolean}
+        summary:
+          $ref: '#/components/schemas/RfxBuyerXlsxImportPreviewSummary'
+        questionnaire_diff:
+          type: object
+          additionalProperties: true
+        lots_diff:
+          type: object
+          additionalProperties: true
+        errors:
+          type: array
+          maxItems: 2000
+          items:
+            $ref: '#/components/schemas/RfxBuyerXlsxImportPreviewIssue'
+        warnings:
+          type: array
+          maxItems: 2000
+          items:
+            $ref: '#/components/schemas/RfxBuyerXlsxImportPreviewIssue'
     HealthResponse:
       type: object
       properties:

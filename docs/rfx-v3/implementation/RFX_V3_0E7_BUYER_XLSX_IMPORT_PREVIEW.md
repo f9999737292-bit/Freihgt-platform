@@ -10,12 +10,13 @@
 | Marker | Value |
 |---|---|
 | `BUYER_XLSX_EXPORT_V1_STATUS` | `IMPLEMENTED_ACCEPTED` (PR #123) |
-| `BUYER_XLSX_IMPORT_PREVIEW_STATUS` | `P2_1_HARDENING_IMPLEMENTED` |
+| `BUYER_XLSX_IMPORT_PREVIEW_STATUS` | `P3_PREVIEW_SERVICE_HTTP_IMPLEMENTED` |
 | `P2_PARSER_VALIDATOR` | `IMPLEMENTED_ACCEPTED` |
-| `P2_1_HARDENING` | `IMPLEMENTED_PENDING_CONTROLLER_REVIEW` |
-| `P3_PREVIEW_SERVICE_HTTP` | `NOT_STARTED` |
+| `P2_1_HARDENING` | `IMPLEMENTED_ACCEPTED` |
+| `P3_PREVIEW_SERVICE_HTTP` | `IMPLEMENTED_PENDING_CONTROLLER_REVIEW` |
 | `MAX_PREVIEW_ISSUES` | `2000` |
 | `P4_COMMIT` | `NOT_STARTED` |
+| `CONTROLLER_VERDICT_P3` | `PENDING` |
 | `WORKBOOK_SCHEMA` | `BINTRANS_RFX_BUYER_XLSX_V1` |
 | `MAX_MIGRATION` | `000073` |
 | `MIGRATION_000074_ALLOWED` | `NO` |
@@ -844,7 +845,7 @@ Production limits (immutable via public API):
 |---|---|
 | `STATUS` | `IMPLEMENTATION_IN_PROGRESS` |
 | `P2_PARSER_VALIDATOR` | `IMPLEMENTED_ACCEPTED` |
-| `P2_1_HARDENING` | `IMPLEMENTED_PENDING_CONTROLLER_REVIEW` |
+| `P2_1_HARDENING` | `IMPLEMENTED_ACCEPTED` |
 | `P2_DATABASE_WRITES` | `NO` |
 | `P2_EVENT_GRAPH_WRITES` | `NO` |
 | `P2_ANALYSIS_WRITES` | `NO` |
@@ -866,11 +867,31 @@ go test -race ./internal/xlsxexchange/... → NOT_RUN (CGO_ENABLED=0)
 
 Coverage highlights: deterministic issue cap (`ISSUE_LIMIT_REACHED`), fixed production limits, internal-only workbook opener, context cancellation in long loops, full Export→Parse semantic round-trip, multi-node rule cycle, hash sensitivity matrix, security-before-Excelize, seven-sheet contract, metadata trust, I18N mismatch warning, E2 questionnaire diff reuse, separate lots diff, canonical hash determinism, forbidden-import source scan, external defined-name rejection.
 
-### P3+ remains not started
+### P3 preview service + HTTP (implemented, pending controller review)
+
+| Marker | Value |
+|---|---|
+| `P3_PREVIEW_SERVICE_HTTP` | `IMPLEMENTED_PENDING_CONTROLLER_REVIEW` |
+| `PREVIEW_MODEL` | `OPTION_A` (persist analysis only when `ready_to_commit=true`) |
+| `HTTP_ROUTE` | `POST /api/v1/rfx-events/{id}/xlsx-import/preview` |
+| `SERVICE_ROUTE` | `POST /v1/rfx-events/{id}/xlsx-import/preview` |
+| `MULTIPART_FIELD` | `file` |
+| `UPDATE_DRAFT_ONLY` | `YES` |
+| `ANALYSIS_TTL` | `24h` (injectable service clock) |
+| `VALID_PREVIEW_HTTP` | `200` |
+| `INVALID_DOMAIN_HTTP` | `422` structured preview envelope |
+| `MALFORMED_HTTP` | `400` |
+| `OVERSIZED_HTTP` | `413` |
+| `PREVIEW_EVENT_GRAPH_WRITES` | `NO` |
+| `PREVIEW_AUDIT_WRITES` | `NO` |
+| `PREVIEW_IDEMPOTENCY_WRITES` | `NO` |
+| `BINARY_XLSX_PERSISTED` | `NO` |
+| Integration tests | `E7P2-INT-21..INT-42` in `internal/integration/excelexchange/` |
+
+### P4+ remains not started
 
 | Item | Status |
 |---|---|
-| HTTP handler / multipart | `NOT_STARTED` |
-| Repository persistence | `NOT_STARTED` |
-| OpenAPI / gateway | `NOT_STARTED` |
-| Commit / CREATE FROM XLSX | `NOT_STARTED` |
+| Commit / apply analysis to DRAFT | `NOT_STARTED` |
+| CREATE FROM XLSX | `NOT_STARTED` |
+| Carrier XLSX | `NOT_STARTED` |
