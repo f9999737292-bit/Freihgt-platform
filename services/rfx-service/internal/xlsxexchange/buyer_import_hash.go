@@ -1,6 +1,7 @@
 package xlsxexchange
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -127,8 +128,15 @@ func CanonicalImportPayloadJSON(preview BuyerImportPreview, target TargetDraftBa
 
 // StableStoredPayload re-canonicalizes import payload bytes for JSONB-stable hashing and persistence.
 func StableStoredPayload(payloadJSON []byte) ([]byte, string, error) {
+	pgLike, err := normalizeJSONDocument(payloadJSON)
+	if err != nil {
+		return nil, "", err
+	}
 	var payload canonicalImportPayload
-	if err := json.Unmarshal(payloadJSON, &payload); err != nil {
+	if err := json.Unmarshal(pgLike, &payload); err != nil {
+		return nil, "", err
+	}
+	if err := normalizeCanonicalImportPayload(&payload); err != nil {
 		return nil, "", err
 	}
 	normalized, err := marshalCanonical(payload)
@@ -137,6 +145,50 @@ func StableStoredPayload(payloadJSON []byte) ([]byte, string, error) {
 	}
 	sum := sha256.Sum256(normalized)
 	return normalized, hex.EncodeToString(sum[:]), nil
+}
+
+func normalizeJSONDocument(payloadJSON []byte) ([]byte, error) {
+	if len(bytes.TrimSpace(payloadJSON)) == 0 {
+		return payloadJSON, nil
+	}
+	var decoded any
+	if err := json.Unmarshal(payloadJSON, &decoded); err != nil {
+		return nil, err
+	}
+	return json.Marshal(decoded)
+}
+
+func normalizeJSONBytes(raw json.RawMessage) (json.RawMessage, error) {
+	if len(bytes.TrimSpace(raw)) == 0 {
+		return nil, nil
+	}
+	var decoded any
+	if err := json.Unmarshal(raw, &decoded); err != nil {
+		return nil, err
+	}
+	out, err := json.Marshal(decoded)
+	if err != nil {
+		return nil, err
+	}
+	return json.RawMessage(out), nil
+}
+
+func normalizeCanonicalImportPayload(payload *canonicalImportPayload) error {
+	for idx := range payload.Questionnaire.Questions {
+		normalized, err := normalizeJSONBytes(payload.Questionnaire.Questions[idx].ValidationJSON)
+		if err != nil {
+			return err
+		}
+		payload.Questionnaire.Questions[idx].ValidationJSON = normalized
+	}
+	for idx := range payload.Questionnaire.Rules {
+		normalized, err := normalizeJSONBytes(payload.Questionnaire.Rules[idx].ConditionJSON)
+		if err != nil {
+			return err
+		}
+		payload.Questionnaire.Rules[idx].ConditionJSON = normalized
+	}
+	return nil
 }
 
 // StableStoredPayloadHash returns the JSONB-stable SHA-256 hex digest for canonical payload bytes.
@@ -245,6 +297,10 @@ func flattenCanonicalQuestionnaire(def domain.QuestionnaireDefinition) ([]canoni
 			SortOrder:   swq.Section.SortOrder,
 		})
 		for _, q := range swq.Questions {
+			validationJSON, err := normalizeJSONBytes(q.ValidationRuleJSON)
+			if err != nil {
+				validationJSON = q.ValidationRuleJSON
+			}
 			questions = append(questions, canonicalQuestion{
 				SectionCode:    swq.Section.SectionCode,
 				QuestionCode:   q.QuestionCode,
@@ -253,7 +309,7 @@ func flattenCanonicalQuestionnaire(def domain.QuestionnaireDefinition) ([]canoni
 				HelpText:       optionalString(q.HelpText),
 				Required:       q.Required,
 				SortOrder:      q.SortOrder,
-				ValidationJSON: q.ValidationRuleJSON,
+				ValidationJSON: validationJSON,
 			})
 			for _, opt := range q.Options {
 				options = append(options, canonicalOption{
@@ -284,10 +340,14 @@ func canonicalRules(rules []domain.QuestionRule, sections []domain.SectionWithQu
 			targetCode = codeByID[*rule.TargetQuestionID]
 		}
 		sourceCode := ExtractSourceQuestionCode(rule.ConditionJSON)
+		conditionJSON, err := normalizeJSONBytes(rule.ConditionJSON)
+		if err != nil {
+			conditionJSON = rule.ConditionJSON
+		}
 		out = append(out, canonicalRule{
 			RuleCode:           rule.RuleCode,
 			SourceQuestionCode: sourceCode,
-			ConditionJSON:      rule.ConditionJSON,
+			ConditionJSON:      conditionJSON,
 			TargetQuestionCode: targetCode,
 			Action:             rule.Action,
 			SortOrder:          rule.SortOrder,
