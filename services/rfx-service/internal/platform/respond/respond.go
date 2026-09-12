@@ -64,6 +64,8 @@ func Error(w http.ResponseWriter, err error) {
 		status = http.StatusForbidden
 	case apperrors.CodeUnprocessable:
 		status = http.StatusUnprocessableEntity
+	case apperrors.CodeRequestBodyTooLarge:
+		status = http.StatusRequestEntityTooLarge
 	}
 	JSON(w, status, errorBody{Error: errorPayload{
 		Code: string(appErr.Code), Message: appErr.Message, Details: appErr.Details,

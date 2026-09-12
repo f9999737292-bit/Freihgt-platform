@@ -112,6 +112,12 @@ func computeCanonicalPayloadHash(
 	return hex.EncodeToString(sum[:]), nil
 }
 
+// CanonicalImportPayloadJSON returns deterministic JSON bytes for immutable preview persistence.
+func CanonicalImportPayloadJSON(preview BuyerImportPreview, target TargetDraftBaseline, proposal BuyerImportProposal) ([]byte, error) {
+	payload := buildCanonicalImportPayload(target, proposal, preview.QuestionnaireDiff, preview.LotsDiff, preview.Errors, preview.Warnings)
+	return marshalCanonical(payload)
+}
+
 func buildCanonicalImportPayload(
 	target TargetDraftBaseline,
 	proposal BuyerImportProposal,
