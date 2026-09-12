@@ -4,6 +4,7 @@ package excelexchange
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -103,7 +104,7 @@ func TestE7P2INT23AnalysisRowPersistedOptionA(t *testing.T) {
 	if row.CanonicalHash != preview.CanonicalPayloadHash {
 		t.Fatal("persisted hash mismatch")
 	}
-	if err := domain.VerifyImportAnalysisCanonicalHash(row.CanonicalPayloadJSON, row.CanonicalHash); err != nil {
+	if err := xlsxexchange.VerifyStoredCanonicalPayloadHash(row.CanonicalPayloadJSON, row.CanonicalHash); err != nil {
 		t.Fatalf("repository hash defense failed: %v", err)
 	}
 }
@@ -353,6 +354,15 @@ func TestE7P2INT39StaleMetadataRowVersionWarning(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
 	draft := seedRichDraftEvent(t, env, fix)
+	ctx := context.Background()
+	event, err := env.rfxRepo.GetEventByID(ctx, draft.Event.ID, fix.TenantID)
+	if err != nil {
+		t.Fatalf("reload event: %v", err)
+	}
+	version, err := env.qRepo.GetActiveDraftVersion(ctx, fix.TenantID, draft.Event.ID)
+	if err != nil {
+		t.Fatalf("reload draft version: %v", err)
+	}
 	workbook := exportRichDraftWorkbook(t, env, fix, draft)
 	workbook = setMetadataValue(t, workbook, "event_row_version", "0")
 	workbook = setMetadataValue(t, workbook, "version_row_version", "0")
@@ -364,8 +374,11 @@ func TestE7P2INT39StaleMetadataRowVersionWarning(t *testing.T) {
 	}
 	preview := decodePreviewResponse(t, rec)
 	assertPreviewWarningCode(t, preview, xlsxexchange.MachineCodeMetadataMismatch)
-	if preview.TargetEventRowVersion <= 1 || preview.TargetDraftRowVersion <= 1 {
-		t.Fatalf("preview must bind current server baseline versions: %+v", preview)
+	if preview.TargetEventRowVersion != event.Version {
+		t.Fatalf("preview event row version=%d want server=%d", preview.TargetEventRowVersion, event.Version)
+	}
+	if preview.TargetDraftRowVersion != version.Version {
+		t.Fatalf("preview draft row version=%d want server=%d", preview.TargetDraftRowVersion, version.Version)
 	}
 	if countImportAnalyses(t, env, fix.TenantID) != before+1 {
 		t.Fatal("valid stale-metadata preview must still persist analysis")

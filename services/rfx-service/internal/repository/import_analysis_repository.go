@@ -11,6 +11,7 @@ import (
 
 	"github.com/freight-platform/rfx-service/internal/domain"
 	apperrors "github.com/freight-platform/rfx-service/internal/platform/errors"
+	"github.com/freight-platform/rfx-service/internal/xlsxexchange"
 )
 
 type ImportAnalysisRepository struct {
@@ -43,6 +44,17 @@ const importAnalysisSelectColumns = `
 func (r *ImportAnalysisRepository) CreatePreview(ctx context.Context, in domain.ImportAnalysis) (*domain.ImportAnalysis, error) {
 	if err := domain.ValidateImportAnalysisPreviewInput(in); err != nil {
 		return nil, err
+	}
+	if in.WorkbookType == domain.WorkbookTypeBuyerTender {
+		if err := xlsxexchange.VerifyStoredCanonicalPayloadHash(in.CanonicalPayloadJSON, in.CanonicalHash); err != nil {
+			return nil, apperrors.Validation("canonical hash mismatch", map[string]any{"field": "canonical_hash"})
+		}
+		stored, hash, err := xlsxexchange.StableStoredPayload(in.CanonicalPayloadJSON)
+		if err != nil {
+			return nil, apperrors.Validation("invalid canonical payload json", map[string]any{"field": "canonical_payload_json"})
+		}
+		in.CanonicalPayloadJSON = stored
+		in.CanonicalHash = hash
 	}
 	createdAt := in.CreatedAt.UTC()
 	if createdAt.IsZero() {

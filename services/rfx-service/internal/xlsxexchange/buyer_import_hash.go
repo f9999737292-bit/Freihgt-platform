@@ -4,6 +4,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -108,14 +110,51 @@ func computeCanonicalPayloadHash(
 	if err != nil {
 		return "", err
 	}
-	sum := sha256.Sum256(raw)
-	return hex.EncodeToString(sum[:]), nil
+	_, hash, err := StableStoredPayload(raw)
+	return hash, err
 }
 
 // CanonicalImportPayloadJSON returns deterministic JSON bytes for immutable preview persistence.
 func CanonicalImportPayloadJSON(preview BuyerImportPreview, target TargetDraftBaseline, proposal BuyerImportProposal) ([]byte, error) {
 	payload := buildCanonicalImportPayload(target, proposal, preview.QuestionnaireDiff, preview.LotsDiff, preview.Errors, preview.Warnings)
-	return marshalCanonical(payload)
+	raw, err := marshalCanonical(payload)
+	if err != nil {
+		return nil, err
+	}
+	stored, _, err := StableStoredPayload(raw)
+	return stored, err
+}
+
+// StableStoredPayload re-canonicalizes import payload bytes for JSONB-stable hashing and persistence.
+func StableStoredPayload(payloadJSON []byte) ([]byte, string, error) {
+	var payload canonicalImportPayload
+	if err := json.Unmarshal(payloadJSON, &payload); err != nil {
+		return nil, "", err
+	}
+	normalized, err := marshalCanonical(payload)
+	if err != nil {
+		return nil, "", err
+	}
+	sum := sha256.Sum256(normalized)
+	return normalized, hex.EncodeToString(sum[:]), nil
+}
+
+// StableStoredPayloadHash returns the JSONB-stable SHA-256 hex digest for canonical payload bytes.
+func StableStoredPayloadHash(payloadJSON []byte) (string, error) {
+	_, hash, err := StableStoredPayload(payloadJSON)
+	return hash, err
+}
+
+// VerifyStoredCanonicalPayloadHash checks hash against JSONB-round-trip-safe canonical bytes.
+func VerifyStoredCanonicalPayloadHash(payloadJSON []byte, hash string) error {
+	_, computed, err := StableStoredPayload(payloadJSON)
+	if err != nil {
+		return err
+	}
+	if strings.ToLower(strings.TrimSpace(hash)) != computed {
+		return fmt.Errorf("canonical hash mismatch")
+	}
+	return nil
 }
 
 func buildCanonicalImportPayload(

@@ -391,6 +391,22 @@ func (p *buyerImportParser) validateHeaderRow(sheet string, rows [][]string, exp
 		return
 	}
 	header := rows[0]
+	for idx, cell := range header {
+		if p.shouldStop() {
+			return
+		}
+		name := trimCell(cell)
+		if name == "" {
+			continue
+		}
+		if _, denied := competitorColumnNames[strings.ToLower(name)]; denied {
+			p.issues.addError(issueError(
+				MachineCodeCompetitorColumnDenied,
+				"rfx.buyer_xlsx_import.competitor_column_denied",
+				sheet, name, columnName(idx+1), 1, nil,
+			))
+		}
+	}
 	if len(header) != len(expected) {
 		p.issues.addError(issueError(
 			MachineCodeInvalidHeader,

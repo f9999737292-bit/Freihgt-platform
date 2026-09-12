@@ -77,6 +77,14 @@ var (
 	rulesHeaders   = []string{"rule_code", "source_question_code", "condition", "target_question_code", "action", "sort_order"}
 )
 
+var competitorColumnNames = map[string]struct{}{
+	"carrier_id":         {},
+	"carrier_company_id": {},
+	"participant_id":     {},
+	"response_id":        {},
+	"offer_rate":         {},
+}
+
 var metadataAllowedKeys = map[string]struct{}{
 	"schema_name": {}, "schema_version": {}, "exported_at_utc": {},
 	"tenant_id": {}, "rfx_event_id": {}, "rfx_version_id": {},

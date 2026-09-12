@@ -94,9 +94,13 @@ func duplicatePreviewHeader(t *testing.T, data []byte, sheet string) []byte {
 func workbookWithDuplicateSectionCode(t *testing.T, data []byte) []byte {
 	t.Helper()
 	return mutatePreviewWorkbook(t, data, func(f *excelize.File) {
-		_ = f.SetCellStr(previewSheetSections, "A3", "SEC1")
-		_ = f.SetCellStr(previewSheetSections, "B3", "Dup")
-		_ = f.SetCellStr(previewSheetSections, "H3", "2")
+		code, err := f.GetCellValue(previewSheetSections, "A2")
+		if err != nil || strings.TrimSpace(code) == "" {
+			t.Fatalf("read baseline section_code: %v", err)
+		}
+		_ = f.SetCellStr(previewSheetSections, "A3", code)
+		_ = f.SetCellStr(previewSheetSections, "B3", "Duplicate Section")
+		_ = f.SetCellStr(previewSheetSections, "H3", "99")
 	})
 }
 

@@ -91,6 +91,10 @@ func (s *ExcelExchangeService) PreviewBuyerImportWorkbook(
 	if err != nil {
 		return nil, apperrors.Internal("failed to marshal canonical import payload", err)
 	}
+	canonicalHash, err := xlsxexchange.StableStoredPayloadHash(payloadJSON)
+	if err != nil {
+		return nil, apperrors.Internal("failed to compute canonical import payload hash", err)
+	}
 	summaryJSON, err := json.Marshal(preview.Summary)
 	if err != nil {
 		return nil, apperrors.Internal("failed to marshal validation summary", err)
@@ -108,7 +112,7 @@ func (s *ExcelExchangeService) PreviewBuyerImportWorkbook(
 		TargetID:             &targetID,
 		TargetVersion:        &targetVersion,
 		CanonicalPayloadJSON: payloadJSON,
-		CanonicalHash:        preview.CanonicalPayloadHash,
+		CanonicalHash:        canonicalHash,
 		ValidationSummary:    summaryJSON,
 		CreatedAt:            createdAt,
 		ExpiresAt:            expiresAt,
@@ -129,6 +133,7 @@ func (s *ExcelExchangeService) PreviewBuyerImportWorkbook(
 
 	response.AnalysisID = &persisted.ID
 	response.ExpiresAt = &persisted.ExpiresAt
+	response.CanonicalPayloadHash = persisted.CanonicalHash
 	return response, nil
 }
 
