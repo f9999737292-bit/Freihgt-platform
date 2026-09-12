@@ -93,6 +93,18 @@ func TestInspectUploadRejectsOLEEmbeddings(t *testing.T) {
 	}
 }
 
+func TestInspectUploadRejectsExternalDefinedName(t *testing.T) {
+	data := buildZipWithEntries(t, map[string]string{
+		"[Content_Types].xml":      `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"/>`,
+		"xl/workbook.xml":          `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><definedNames><definedName name="Ext">[OtherBook]Sheet1!$A$1</definedName></definedNames></workbook>`,
+		"xl/worksheets/sheet1.xml": `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"/>`,
+	})
+	_, err := InspectUpload("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", data, DefaultLimits())
+	if err == nil {
+		t.Fatal("expected external defined name rejection")
+	}
+}
+
 func TestInspectUploadRejectsExternalLinks(t *testing.T) {
 	data := buildZipWithEntries(t, map[string]string{
 		"[Content_Types].xml":        `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"/>`,

@@ -17,7 +17,7 @@ type ExcelExchangeRoute struct {
 	FeatureFlagProtected bool
 }
 
-// E7ExcelExchangeRoutes returns exactly one buyer draft XLSX export operation.
+// E7ExcelExchangeRoutes returns buyer draft XLSX export and import preview operations.
 func E7ExcelExchangeRoutes() []ExcelExchangeRoute {
 	return []ExcelExchangeRoute{
 		{
@@ -28,6 +28,19 @@ func E7ExcelExchangeRoutes() []ExcelExchangeRoute {
 			GatewayPath:          "/api/v1/rfx-events/{id}/xlsx-export",
 			OpenAPIPath:          "/api/v1/rfx-events/{id}/xlsx-export",
 			OpenAPIOperationID:   "get_export_buyer_draft_rfx_event_as_xlsx_workbook",
+			RBACPolicy:           "PolicyBuyerManage",
+			SuccessStatus:        http.StatusOK,
+			IdempotencyRequired:  false,
+			FeatureFlagProtected: true,
+		},
+		{
+			Name:                 "preview_buyer_draft_xlsx_import",
+			Method:               http.MethodPost,
+			ServiceChiPath:       "/{id}/xlsx-import/preview",
+			ServicePath:          "/v1/rfx-events/{id}/xlsx-import/preview",
+			GatewayPath:          "/api/v1/rfx-events/{id}/xlsx-import/preview",
+			OpenAPIPath:          "/api/v1/rfx-events/{id}/xlsx-import/preview",
+			OpenAPIOperationID:   "post_preview_buyer_draft_rfx_event_xlsx_import",
 			RBACPolicy:           "PolicyBuyerManage",
 			SuccessStatus:        http.StatusOK,
 			IdempotencyRequired:  false,

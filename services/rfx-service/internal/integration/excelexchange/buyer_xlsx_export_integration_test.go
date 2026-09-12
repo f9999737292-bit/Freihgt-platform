@@ -237,10 +237,19 @@ func TestE7P2INT19RouteParitySmoke(t *testing.T) {
 	const canonicalOperationID = "get_export_buyer_draft_rfx_event_as_xlsx_workbook"
 
 	routes := sharedrfx.E7ExcelExchangeRoutes()
-	if len(routes) != 1 {
-		t.Fatalf("expected 1 route, got %d", len(routes))
+	if len(routes) != 2 {
+		t.Fatalf("expected 2 routes, got %d", len(routes))
 	}
-	route := routes[0]
+	var route sharedrfx.ExcelExchangeRoute
+	for _, candidate := range routes {
+		if candidate.OpenAPIOperationID == canonicalOperationID {
+			route = candidate
+			break
+		}
+	}
+	if route.OpenAPIOperationID == "" {
+		t.Fatalf("export route missing from manifest")
+	}
 	if route.Method != http.MethodGet || route.SuccessStatus != http.StatusOK {
 		t.Fatalf("unexpected route contract: %+v", route)
 	}
