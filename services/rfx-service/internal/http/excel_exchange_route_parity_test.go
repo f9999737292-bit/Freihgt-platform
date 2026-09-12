@@ -17,11 +17,9 @@ var embeddedExcelExchangeServiceRouter string
 func TestE7ExcelExchangeRouteParity(t *testing.T) {
 	t.Parallel()
 	routes := sharedrfx.E7ExcelExchangeRoutes()
-	if len(routes) != 1 {
-		t.Fatalf("expected exactly 1 excel exchange route, got %d", len(routes))
+	if len(routes) != 2 {
+		t.Fatalf("expected exactly 2 excel exchange routes, got %d", len(routes))
 	}
-	route := routes[0]
-
 	serviceRouter := embeddedExcelExchangeServiceRouter
 	rfxOpenAPI, err := readExcelExchangeRepoFile(t, "packages/openapi/rfx-service.yaml")
 	if err != nil {
@@ -36,53 +34,45 @@ func TestE7ExcelExchangeRouteParity(t *testing.T) {
 		t.Fatalf("read gateway router: %v", err)
 	}
 
-	if route.Method != "GET" {
-		t.Fatalf("manifest method=%q want GET", route.Method)
-	}
-	if route.OpenAPIPath != "/api/v1/rfx-events/{id}/xlsx-export" {
-		t.Fatalf("manifest path=%q", route.OpenAPIPath)
-	}
-	if route.OpenAPIOperationID != "get_export_buyer_draft_rfx_event_as_xlsx_workbook" {
-		t.Fatalf("manifest operationId=%q", route.OpenAPIOperationID)
-	}
-	if route.RBACPolicy != "PolicyBuyerManage" {
-		t.Fatalf("manifest RBAC=%q", route.RBACPolicy)
-	}
-	if !route.FeatureFlagProtected {
-		t.Fatal("manifest must mark feature flag protection")
-	}
-
-	if strings.Count(serviceRouter, "xlsx-export") != 1 {
-		t.Fatalf("service router must declare exactly 1 xlsx-export route, got %d", strings.Count(serviceRouter, "xlsx-export"))
-	}
 	if !strings.Contains(serviceRouter, "excelExchangeFlagMiddleware") {
 		t.Fatal("service excel exchange routes must be protected by excelExchangeFlagMiddleware")
-	}
-
-	serviceNeedle := `.` + excelExchangeChiMethod(route.Method) + `("` + route.ServiceChiPath + `"`
-	if !strings.Contains(serviceRouter, serviceNeedle) {
-		t.Fatalf("service router missing %s", serviceNeedle)
-	}
-	gatewayNeedle := `.` + excelExchangeChiMethod(route.Method) + `("` + route.GatewayPath + `"`
-	if !strings.Contains(gatewayRouter, gatewayNeedle) {
-		t.Fatalf("gateway router missing %s", gatewayNeedle)
-	}
-	if !strings.Contains(gatewayRouter, "WithPolicy(rfxrbac."+route.RBACPolicy+")") {
-		t.Fatalf("gateway router missing RBAC policy %s", route.RBACPolicy)
 	}
 	if !strings.Contains(gatewayRouter, "excelExchangeFlagMiddleware") {
 		t.Fatal("gateway excel exchange routes must be protected by excelExchangeFlagMiddleware")
 	}
 
-	for _, spec := range []struct {
-		name string
-		body string
-	}{
-		{name: "rfx-service", body: rfxOpenAPI},
-		{name: "unified", body: unifiedOpenAPI},
-	} {
-		t.Run(spec.name, func(t *testing.T) {
-			assertExcelExchangeOpenAPIOperation(t, spec.body, route)
+	for _, route := range routes {
+		t.Run(route.Name, func(t *testing.T) {
+			if route.RBACPolicy != "PolicyBuyerManage" {
+				t.Fatalf("manifest RBAC=%q", route.RBACPolicy)
+			}
+			if !route.FeatureFlagProtected {
+				t.Fatal("manifest must mark feature flag protection")
+			}
+
+			serviceNeedle := `.` + excelExchangeChiMethod(route.Method) + `("` + route.ServiceChiPath + `"`
+			if !strings.Contains(serviceRouter, serviceNeedle) {
+				t.Fatalf("service router missing %s", serviceNeedle)
+			}
+			gatewayNeedle := `.` + excelExchangeChiMethod(route.Method) + `("` + route.GatewayPath + `"`
+			if !strings.Contains(gatewayRouter, gatewayNeedle) {
+				t.Fatalf("gateway router missing %s", gatewayNeedle)
+			}
+			if !strings.Contains(gatewayRouter, "WithPolicy(rfxrbac."+route.RBACPolicy+")") {
+				t.Fatalf("gateway router missing RBAC policy %s", route.RBACPolicy)
+			}
+
+			for _, spec := range []struct {
+				name string
+				body string
+			}{
+				{name: "rfx-service", body: rfxOpenAPI},
+				{name: "unified", body: unifiedOpenAPI},
+			} {
+				t.Run(spec.name, func(t *testing.T) {
+					assertExcelExchangeOpenAPIOperation(t, spec.body, route)
+				})
+			}
 		})
 	}
 }
@@ -94,8 +84,8 @@ func assertExcelExchangeOpenAPIOperation(t *testing.T, openAPI string, route sha
 	if pathBlock == "" {
 		t.Fatalf("openapi missing path block %s", route.OpenAPIPath)
 	}
-	if !strings.Contains(pathBlock, "get:") {
-		t.Fatalf("openapi path %s must declare GET", route.OpenAPIPath)
+	if !strings.Contains(pathBlock, strings.ToLower(route.Method)+":") {
+		t.Fatalf("openapi path %s must declare %s", route.OpenAPIPath, route.Method)
 	}
 	if !strings.Contains(pathBlock, "operationId: "+route.OpenAPIOperationID) {
 		t.Fatalf("openapi path %s missing operationId %s", route.OpenAPIPath, route.OpenAPIOperationID)
@@ -106,12 +96,30 @@ func assertExcelExchangeOpenAPIOperation(t *testing.T, openAPI string, route sha
 	if !strings.Contains(pathBlock, "BuyerManage") {
 		t.Fatal("openapi description must document BuyerManage authorization")
 	}
-	if !strings.Contains(pathBlock, "type: string") || !strings.Contains(pathBlock, "format: binary") {
-		t.Fatal("openapi 200 response must declare string/binary workbook payload")
+
+	switch route.Name {
+	case "export_buyer_draft_xlsx":
+		if !strings.Contains(pathBlock, "type: string") || !strings.Contains(pathBlock, "format: binary") {
+			t.Fatal("openapi 200 response must declare string/binary workbook payload")
+		}
+		if !strings.Contains(pathBlock, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") {
+			t.Fatal("openapi 200 response must declare XLSX content type")
+		}
+	case "preview_buyer_draft_xlsx_import":
+		if !strings.Contains(pathBlock, "multipart/form-data") {
+			t.Fatal("openapi preview request must declare multipart/form-data")
+		}
+		if !strings.Contains(pathBlock, "RfxBuyerXlsxImportPreviewResponse") {
+			t.Fatal("openapi preview must declare structured preview response schema")
+		}
+		if !strings.Contains(pathBlock, "'422':") {
+			t.Fatal("openapi preview must declare 422 structured preview response")
+		}
+		if !strings.Contains(pathBlock, "'413':") {
+			t.Fatal("openapi preview must declare 413 response")
+		}
 	}
-	if !strings.Contains(pathBlock, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") {
-		t.Fatal("openapi 200 response must declare XLSX content type")
-	}
+
 	for _, code := range []string{"'401'", "'403'", "'404'", "'409'", "'500'"} {
 		if !strings.Contains(pathBlock, code+":") {
 			t.Fatalf("openapi path %s missing %s response", route.OpenAPIPath, code)

@@ -359,6 +359,145 @@ func TestInspectUploadRejectsExternalDefinedNameEvidence(t *testing.T) {
 	}
 }
 
+func TestInspectUploadRejectsFormulaDefinedNameEvidence(t *testing.T) {
+	data := buildWorkbookWithDefinedName(t, "=SUM(A1:A2)")
+	if _, err := xlsxsecurity.InspectUpload("", data, xlsxsecurity.DefaultLimits()); err == nil {
+		t.Fatal("expected formula defined name rejection")
+	}
+}
+
+func TestInspectUploadAcceptsLocalRangeDefinedNameEvidence(t *testing.T) {
+	data := buildWorkbookWithDefinedName(t, "Sections!$A$1:$B$2")
+	if _, err := xlsxsecurity.InspectUpload("", data, xlsxsecurity.DefaultLimits()); err != nil {
+		t.Fatalf("expected local range defined name to be accepted: %v", err)
+	}
+}
+
+func TestQuestionSectionCodeRoundTripExplicit(t *testing.T) {
+	snapshot := fullRoundTripSnapshot()
+	data, err := GenerateBuyerDraftWorkbook(snapshot)
+	if err != nil {
+		t.Fatalf("generate: %v", err)
+	}
+	preview, err := ParseBuyerImportPreview(context.Background(), data, targetFromSnapshot(snapshot))
+	if err != nil || !preview.ReadyToCommit {
+		t.Fatalf("parse failed: err=%v errors=%v", err, preview.Errors)
+	}
+	wantByQuestion := map[string]string{}
+	for _, item := range snapshot.Questions {
+		wantByQuestion[item.Question.QuestionCode] = item.SectionCode
+	}
+	for _, swq := range preview.Proposal.Questionnaire.Sections {
+		for _, q := range swq.Questions {
+			if swq.Section.SectionCode != wantByQuestion[q.QuestionCode] {
+				t.Fatalf("question %s bound to section %s want %s", q.QuestionCode, swq.Section.SectionCode, wantByQuestion[q.QuestionCode])
+			}
+		}
+	}
+}
+
+func TestRuleTargetQuestionCodeRoundTripExplicit(t *testing.T) {
+	snapshot := fullRoundTripSnapshot()
+	data, err := GenerateBuyerDraftWorkbook(snapshot)
+	if err != nil {
+		t.Fatalf("generate: %v", err)
+	}
+	preview, err := ParseBuyerImportPreview(context.Background(), data, targetFromSnapshot(snapshot))
+	if err != nil || !preview.ReadyToCommit {
+		t.Fatalf("parse failed: err=%v errors=%v", err, preview.Errors)
+	}
+	wantTarget := map[string]string{}
+	for _, rule := range snapshot.Rules {
+		wantTarget[rule.RuleCode] = rule.TargetQuestionCode
+	}
+	codeByID := map[uuid.UUID]string{}
+	for _, swq := range preview.Proposal.Questionnaire.Sections {
+		for _, q := range swq.Questions {
+			codeByID[q.ID] = q.QuestionCode
+		}
+	}
+	for _, rule := range preview.Proposal.Questionnaire.Rules {
+		targetCode := ""
+		if rule.TargetQuestionID != nil {
+			targetCode = codeByID[*rule.TargetQuestionID]
+		}
+		if targetCode != wantTarget[rule.RuleCode] {
+			t.Fatalf("rule %s target=%q want=%q", rule.RuleCode, targetCode, wantTarget[rule.RuleCode])
+		}
+	}
+}
+
+func TestUnicodeAndEmptyOptionalRoundTrip(t *testing.T) {
+	snapshot := fullRoundTripSnapshot()
+	for i := range snapshot.Lots {
+		if snapshot.Lots[i].LotNumber == "L1" {
+			snapshot.Lots[i].Description = nil
+		}
+	}
+	snapshot.Questions[0].Question.Label = "Компания «БинТранс» 中文"
+	snapshot.Options[0].Option.Label = "Да ✓"
+	data, err := GenerateBuyerDraftWorkbook(snapshot)
+	if err != nil {
+		t.Fatalf("generate: %v", err)
+	}
+	preview, err := ParseBuyerImportPreview(context.Background(), data, targetFromSnapshot(snapshot))
+	if err != nil || !preview.ReadyToCommit {
+		t.Fatalf("parse failed: err=%v errors=%v", err, preview.Errors)
+	}
+	foundEmptyOptionalLot := false
+	for _, lot := range preview.Proposal.Lots {
+		if lot.LotNumber != "L1" {
+			continue
+		}
+		if lot.Description == nil || strings.TrimSpace(stringPtrValue(lot.Description)) == "" {
+			foundEmptyOptionalLot = true
+		}
+	}
+	if !foundEmptyOptionalLot {
+		t.Fatal("expected empty optional lot description for L1")
+	}
+	foundUnicode := false
+	for _, swq := range preview.Proposal.Questionnaire.Sections {
+		for _, q := range swq.Questions {
+			if q.QuestionCode == "Q1" && q.Label == "Компания «БинТранс» 中文" {
+				foundUnicode = true
+			}
+		}
+	}
+	if !foundUnicode {
+		t.Fatal("unicode question label not round-tripped")
+	}
+}
+
+func TestParseBuyerImportPreviewTwoIndependentRuleCycles(t *testing.T) {
+	cases := []BuyerDraftSnapshot{cycleSnapshot(), independentCycleSnapshot()}
+	for _, snapshot := range cases {
+		data, err := GenerateBuyerDraftWorkbook(snapshot)
+		if err != nil {
+			t.Fatalf("generate: %v", err)
+		}
+		preview, err := ParseBuyerImportPreview(context.Background(), data, targetFromSnapshot(snapshot))
+		if err != nil {
+			t.Fatalf("parse: %v", err)
+		}
+		assertIssueCode(t, preview.Errors, MachineCodeCyclicRule)
+	}
+}
+
+func independentCycleSnapshot() BuyerDraftSnapshot {
+	snapshot := minimalSnapshot()
+	snapshot.Sections = []domain.Section{{SectionCode: "SEC2", Title: "Independent cycle", SortOrder: 1}}
+	snapshot.Questions = []BuyerDraftQuestion{
+		{SectionCode: "SEC2", Question: domain.Question{QuestionCode: "Q1", QuestionType: domain.QuestionTypeText, Label: "A", Required: true, SortOrder: 1}},
+		{SectionCode: "SEC2", Question: domain.Question{QuestionCode: "Q2", QuestionType: domain.QuestionTypeText, Label: "B", Required: true, SortOrder: 2}},
+	}
+	snapshot.Rules = []BuyerDraftRule{
+		{RuleCode: "R1", SourceQuestionCode: "Q1", ConditionJSON: json.RawMessage(`{"operator":"EQUALS","source_question_code":"Q1","value":"a"}`), TargetQuestionCode: "Q2", Action: domain.RuleActionShow, SortOrder: 1},
+		{RuleCode: "R2", SourceQuestionCode: "Q2", ConditionJSON: json.RawMessage(`{"operator":"EQUALS","source_question_code":"Q2","value":"b"}`), TargetQuestionCode: "Q1", Action: domain.RuleActionShow, SortOrder: 2},
+	}
+	return snapshot
+}
+
 func workbookWithManyErrors(t *testing.T, errorCount int) []byte {
 	t.Helper()
 	snapshot := minimalSnapshot()
