@@ -183,13 +183,17 @@ func seedPublishedEventAfterDeadline(t *testing.T, env *testEnv, fix buyerFixtur
 func seedPublishedEventAfterDeadlineAt(t *testing.T, env *testEnv, fix buyerFixture, anchor time.Time) (*domain.RfxEvent, *domain.Question) {
 	t.Helper()
 	ctx := context.Background()
-	anchor = anchor.UTC()
-	future := anchor.Add(24 * time.Hour)
-	past := anchor.Add(-2 * time.Hour)
+	scenarioNow := anchor.UTC()
+	expiredDeadline := scenarioNow.Add(-2 * time.Hour)
+	creationBase := time.Now().UTC()
+	if scenarioNow.After(creationBase) {
+		creationBase = scenarioNow
+	}
+	creationDeadline := creationBase.Add(24 * time.Hour)
 	event, err := env.rfxSvc.CreateEvent(ctx, fix.BuyerA, domain.CreateRfxEventInput{
 		TenantID: fix.TenantID, OwnerCompanyID: fix.CompanyA, Title: "Late Submission Event",
 		RfxType: "SPOT_RFQ", Category: "FREIGHT", RfxNumber: "RFX-LS-" + uuid.NewString()[:8],
-		ResponseDeadline: &future,
+		ResponseDeadline: &creationDeadline,
 	})
 	if err != nil {
 		t.Fatalf("create event: %v", err)
@@ -229,7 +233,7 @@ func seedPublishedEventAfterDeadlineAt(t *testing.T, env *testEnv, fix buyerFixt
 	if err != nil {
 		t.Fatalf("start response before late flow: %v", err)
 	}
-	_, err = env.pool.Exec(ctx, `UPDATE rfx.rfx_events SET response_deadline = $2 WHERE id = $1`, event.ID, past)
+	_, err = env.pool.Exec(ctx, `UPDATE rfx.rfx_events SET response_deadline = $2 WHERE id = $1`, event.ID, expiredDeadline)
 	if err != nil {
 		t.Fatalf("set past deadline: %v", err)
 	}
