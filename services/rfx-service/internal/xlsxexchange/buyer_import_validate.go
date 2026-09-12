@@ -8,7 +8,11 @@ import (
 	"github.com/freight-platform/rfx-service/internal/domain"
 )
 
-func validateProposalGraph(target TargetDraftBaseline, proposal BuyerImportProposal, issues *issueCollector) {
+func (p *buyerImportParser) validateProposalGraph(target TargetDraftBaseline, proposal BuyerImportProposal) {
+	if err := p.checkContext(); err != nil {
+		return
+	}
+	issues := p.issues
 	sections := proposal.Questionnaire.Sections
 	rules := proposal.Questionnaire.Rules
 

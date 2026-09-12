@@ -5,21 +5,71 @@ import (
 	"strings"
 )
 
+const (
+	// MaxPreviewIssues is the maximum number of issues returned across errors and warnings.
+	// When exceeded, the final slot is a deterministic ISSUE_LIMIT_REACHED truncation issue.
+	MaxPreviewIssues = 2000
+)
+
 type issueCollector struct {
-	errors   []BuyerImportIssue
-	warnings []BuyerImportIssue
+	errors            []BuyerImportIssue
+	warnings          []BuyerImportIssue
+	collectingStopped bool
+	truncated         bool
 }
 
 func newIssueCollector() *issueCollector {
 	return &issueCollector{}
 }
 
-func (c *issueCollector) addError(issue BuyerImportIssue) {
-	c.errors = append(c.errors, issue)
+func (c *issueCollector) regularCount() int {
+	return len(c.errors) + len(c.warnings)
 }
 
-func (c *issueCollector) addWarning(issue BuyerImportIssue) {
+func (c *issueCollector) stopped() bool {
+	return c.collectingStopped
+}
+
+func (c *issueCollector) addError(issue BuyerImportIssue) bool {
+	if c.collectingStopped {
+		return false
+	}
+	if c.regularCount() >= MaxPreviewIssues-1 {
+		c.markTruncated()
+		return false
+	}
+	c.errors = append(c.errors, issue)
+	return true
+}
+
+func (c *issueCollector) addWarning(issue BuyerImportIssue) bool {
+	if c.collectingStopped {
+		return false
+	}
+	if c.regularCount() >= MaxPreviewIssues-1 {
+		c.markTruncated()
+		return false
+	}
 	c.warnings = append(c.warnings, issue)
+	return true
+}
+
+func (c *issueCollector) markTruncated() {
+	if c.truncated {
+		c.collectingStopped = true
+		return
+	}
+	c.truncated = true
+	c.collectingStopped = true
+}
+
+func truncationIssue() BuyerImportIssue {
+	return BuyerImportIssue{
+		Severity:    IssueSeverityError,
+		MachineCode: MachineCodeIssueLimitReached,
+		MessageKey:  "rfx.buyer_xlsx_import.issue_limit_reached",
+		Params:      map[string]any{"limit": MaxPreviewIssues},
+	}
 }
 
 func (c *issueCollector) sorted() ([]BuyerImportIssue, []BuyerImportIssue) {
@@ -27,7 +77,20 @@ func (c *issueCollector) sorted() ([]BuyerImportIssue, []BuyerImportIssue) {
 	warnings := append([]BuyerImportIssue(nil), c.warnings...)
 	sortIssues(errors)
 	sortIssues(warnings)
+	if c.truncated {
+		errors = append(errors, truncationIssue())
+	}
 	return errors, warnings
+}
+
+func countIssuesWithCode(issues []BuyerImportIssue, code string) int {
+	n := 0
+	for _, issue := range issues {
+		if issue.MachineCode == code {
+			n++
+		}
+	}
+	return n
 }
 
 // Package-level issues (empty sheet) sort before sheet-scoped issues.

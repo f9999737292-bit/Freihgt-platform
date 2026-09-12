@@ -4,7 +4,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/freight-platform/rfx-service/internal/domain"
-	"github.com/freight-platform/rfx-service/internal/xlsxsecurity"
 )
 
 const (
@@ -37,6 +36,7 @@ const (
 	MachineCodeTooManyRows             = "too_many_rows"
 	MachineCodeTooManyCells            = "too_many_cells"
 	MachineCodePreviewNotReady         = "preview_not_ready"
+	MachineCodeIssueLimitReached       = "ISSUE_LIMIT_REACHED"
 )
 
 // BuyerImportLimits mirrors discovery §8.2.
@@ -147,15 +147,6 @@ type BuyerImportPreview struct {
 	Warnings              []BuyerImportIssue
 	QuestionnaireDiff     domain.CompareVersionsResult
 	LotsDiff              LotsCompareResult
-}
-
-// ParserOptions configures security limits and test hooks.
-type ParserOptions struct {
-	ContentType    string
-	SecurityLimits xlsxsecurity.Limits
-	ImportLimits   BuyerImportLimits
-	// OpenWorkbook opens bytes after security PASS. Defaults to excelize.OpenReader.
-	OpenWorkbook func(data []byte) (workbookReader, error)
 }
 
 type workbookReader interface {
