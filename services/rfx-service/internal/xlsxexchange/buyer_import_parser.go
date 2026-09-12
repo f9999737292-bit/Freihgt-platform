@@ -3,6 +3,7 @@ package xlsxexchange
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -583,6 +584,32 @@ func (p *buyerImportParser) parseMetadataSheet(workbook workbookReader, target T
 				MachineCodeMetadataMismatch,
 				"rfx.buyer_xlsx_import.tenant_id_mismatch",
 				sheetMetadata, "tenant_id", "", 0, nil,
+			))
+		}
+	}
+	if eventRV := trimCell(meta["event_row_version"]); eventRV != "" {
+		if parsed, err := strconv.Atoi(eventRV); err == nil && parsed != target.EventRowVersion {
+			p.issues.addWarning(issueWarning(
+				MachineCodeMetadataMismatch,
+				"rfx.buyer_xlsx_import.event_row_version_mismatch",
+				sheetMetadata, "event_row_version", "", 0,
+				map[string]any{
+					"workbook_event_row_version": parsed,
+					"server_event_row_version":   target.EventRowVersion,
+				},
+			))
+		}
+	}
+	if versionRV := trimCell(meta["version_row_version"]); versionRV != "" {
+		if parsed, err := strconv.Atoi(versionRV); err == nil && parsed != target.DraftRowVersion {
+			p.issues.addWarning(issueWarning(
+				MachineCodeMetadataMismatch,
+				"rfx.buyer_xlsx_import.version_row_version_mismatch",
+				sheetMetadata, "version_row_version", "", 0,
+				map[string]any{
+					"workbook_version_row_version": parsed,
+					"server_draft_row_version":     target.DraftRowVersion,
+				},
 			))
 		}
 	}

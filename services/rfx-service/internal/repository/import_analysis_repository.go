@@ -44,18 +44,23 @@ func (r *ImportAnalysisRepository) CreatePreview(ctx context.Context, in domain.
 	if err := domain.ValidateImportAnalysisPreviewInput(in); err != nil {
 		return nil, err
 	}
+	createdAt := in.CreatedAt.UTC()
+	if createdAt.IsZero() {
+		createdAt = time.Now().UTC()
+	}
+	expiresAt := in.ExpiresAt.UTC()
 	row := r.db().QueryRow(ctx, `
 		INSERT INTO rfx.rfx_import_analyses (
 			tenant_id, actor_id, actor_company_id, workbook_type, schema_version,
 			target_type, target_id, target_version, canonical_payload_json, canonical_hash,
-			status, validation_summary, expires_at
+			status, validation_summary, created_at, expires_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
 		)
 		RETURNING `+importAnalysisSelectColumns,
 		in.TenantID, in.ActorID, in.ActorCompanyID, in.WorkbookType, in.SchemaVersion,
 		in.TargetType, in.TargetID, in.TargetVersion, in.CanonicalPayloadJSON, in.CanonicalHash,
-		domain.ImportAnalysisStatusPreviewed, in.ValidationSummary, in.ExpiresAt.UTC(),
+		domain.ImportAnalysisStatusPreviewed, in.ValidationSummary, createdAt, expiresAt,
 	)
 	return scanImportAnalysis(row)
 }

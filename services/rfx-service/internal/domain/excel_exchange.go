@@ -1,6 +1,8 @@
 package domain
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"strings"
 	"time"
 
@@ -99,8 +101,24 @@ func ValidateImportAnalysisPreviewInput(in ImportAnalysis) error {
 	if len(strings.TrimSpace(in.CanonicalHash)) != 64 {
 		return apperrors.Validation("canonical_hash must be sha256 hex", map[string]any{"field": "canonical_hash"})
 	}
+	if err := VerifyImportAnalysisCanonicalHash(in.CanonicalPayloadJSON, in.CanonicalHash); err != nil {
+		return err
+	}
 	if in.ExpiresAt.IsZero() {
 		return apperrors.Validation("expires_at is required", map[string]any{"field": "expires_at"})
+	}
+	if !in.CreatedAt.IsZero() && !in.ExpiresAt.After(in.CreatedAt) {
+		return apperrors.Validation("expires_at must be after created_at", map[string]any{"field": "expires_at"})
+	}
+	return nil
+}
+
+// VerifyImportAnalysisCanonicalHash ensures persisted hash matches canonical payload bytes.
+func VerifyImportAnalysisCanonicalHash(payloadJSON []byte, hash string) error {
+	sum := sha256.Sum256(payloadJSON)
+	computed := hex.EncodeToString(sum[:])
+	if strings.ToLower(strings.TrimSpace(hash)) != computed {
+		return apperrors.Validation("canonical hash mismatch", map[string]any{"field": "canonical_hash"})
 	}
 	return nil
 }

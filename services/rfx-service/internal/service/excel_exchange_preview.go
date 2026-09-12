@@ -19,7 +19,6 @@ type previewTransactionRunner interface {
 	Run(ctx context.Context, fn func(ctx context.Context, tx pgx.Tx) error) error
 }
 
-
 // BuyerImportPreviewResponse is the structured preview envelope for HTTP 200/422.
 type BuyerImportPreviewResponse struct {
 	SchemaName            string                          `json:"schema_name"`
@@ -111,6 +110,7 @@ func (s *ExcelExchangeService) PreviewBuyerImportWorkbook(
 		CanonicalPayloadJSON: payloadJSON,
 		CanonicalHash:        preview.CanonicalPayloadHash,
 		ValidationSummary:    summaryJSON,
+		CreatedAt:            createdAt,
 		ExpiresAt:            expiresAt,
 	}
 
@@ -128,7 +128,7 @@ func (s *ExcelExchangeService) PreviewBuyerImportWorkbook(
 	}
 
 	response.AnalysisID = &persisted.ID
-	response.ExpiresAt = &expiresAt
+	response.ExpiresAt = &persisted.ExpiresAt
 	return response, nil
 }
 
