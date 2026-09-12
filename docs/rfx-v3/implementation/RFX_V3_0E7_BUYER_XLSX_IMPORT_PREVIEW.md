@@ -10,9 +10,11 @@
 | Marker | Value |
 |---|---|
 | `BUYER_XLSX_EXPORT_V1_STATUS` | `IMPLEMENTED_ACCEPTED` (PR #123) |
-| `BUYER_XLSX_IMPORT_PREVIEW_STATUS` | `P2_PARSER_IMPLEMENTED` |
-| `P2_PARSER_VALIDATOR` | `IMPLEMENTED_PENDING_CONTROLLER_REVIEW` |
+| `BUYER_XLSX_IMPORT_PREVIEW_STATUS` | `P2_1_HARDENING_IMPLEMENTED` |
+| `P2_PARSER_VALIDATOR` | `IMPLEMENTED_ACCEPTED` |
+| `P2_1_HARDENING` | `IMPLEMENTED_PENDING_CONTROLLER_REVIEW` |
 | `P3_PREVIEW_SERVICE_HTTP` | `NOT_STARTED` |
+| `MAX_PREVIEW_ISSUES` | `2000` |
 | `P4_COMMIT` | `NOT_STARTED` |
 | `WORKBOOK_SCHEMA` | `BINTRANS_RFX_BUYER_XLSX_V1` |
 | `MAX_MIGRATION` | `000073` |
@@ -797,12 +799,52 @@ NEXT_ACTION=CONTROLLER_REVIEW_BUYER_XLSX_IMPORT_P2
 - **`target_version` semantics:** DB `target_version` = draft `version_number`. Optimistic `event_row_version` and `draft_row_version` are separate fields in canonical payload — never mixed with business version number.
 - **Issue ordering:** ERROR before WARNING → workbook sheet order → row → column → `machine_code` → `stable_code`. Package-level issues (empty `sheet`) sort before sheet-scoped issues.
 
+### P2 controller review (accepted)
+
+| Marker | Value |
+|---|---|
+| `CONTROLLER_VERDICT` | `ACCEPT_P2` |
+| `NON_BLOCKING_FINDINGS` | `M-P2-01..06` (P2.1 hardening scope) |
+| `M-P2-06` | Early stop after structural errors — **documented fail-fast gate**, not a defect |
+
+### P2.1 hardening (implemented)
+
+| Marker | Value |
+|---|---|
+| `P2_1_HARDENING` | `IMPLEMENTED_PENDING_CONTROLLER_REVIEW` |
+| `MAX_PREVIEW_ISSUES` | `2000` |
+| `TRUNCATION_ISSUE_CODE` | `ISSUE_LIMIT_REACHED` |
+| `TRUNCATION_SEMANTICS` | Up to 1999 regular issues; slot 2000 is deterministic synthetic ERROR with `limit=2000` |
+| `PRODUCTION_LIMITS` | Fixed — caller cannot override security/import limits or `OpenWorkbook` |
+| `OPEN_WORKBOOK_HOOK` | Package-internal only (`parseBuyerImportPreview` + tests) |
+| `CONTEXT_CANCELLATION` | Checked before inspection, after open, per sheet, every 128 rows / 256 cells, before diff/hash |
+| `EXPORT_IMPORT_ROUNDTRIP` | Full semantic Export V1 → Preview parser proof (lots/sections/questions/options/rules/validation/sort) |
+| `MULTI_NODE_CYCLE` | A→B→C→A deterministic `cyclic_rule`, no hash, no panic |
+| `HASH_SENSITIVITY` | Table-driven commit-relevant field matrix + JSON key-order independence |
+| `NAMED_RANGES_POLICY` | Fail closed at ZIP inspection: workbook `definedName` with formula (`=…`) or external book brackets (`[Book]…`) rejected |
+| `PIVOT_DRAWING_COMMENT_POLICY` | Not consumed by parser; export generator does not emit pivot/drawing/comment parts; external relationships remain forbidden |
+
+Production limits (immutable via public API):
+
+| Limit | Value |
+|---|---|
+| Compressed upload | 5 MiB |
+| Expanded ZIP | 50 MiB |
+| Compression ratio | 100:1 |
+| ZIP entries | 256 |
+| Sheets | 7 (fixed order) |
+| Rows / sheet | 10 000 |
+| Total cells | 500 000 |
+| String / JSON field | 8 192 |
+| Preview issues | 2 000 |
+
 ### P2 implementation status
 
 | Marker | Value |
 |---|---|
 | `STATUS` | `IMPLEMENTATION_IN_PROGRESS` |
-| `P2_PARSER_VALIDATOR` | `IMPLEMENTED_PENDING_CONTROLLER_REVIEW` |
+| `P2_PARSER_VALIDATOR` | `IMPLEMENTED_ACCEPTED` |
+| `P2_1_HARDENING` | `IMPLEMENTED_PENDING_CONTROLLER_REVIEW` |
 | `P2_DATABASE_WRITES` | `NO` |
 | `P2_EVENT_GRAPH_WRITES` | `NO` |
 | `P2_ANALYSIS_WRITES` | `NO` |
@@ -810,18 +852,19 @@ NEXT_ACTION=CONTROLLER_REVIEW_BUYER_XLSX_IMPORT_P2
 | `SECURITY_BEFORE_EXCELIZE` | `YES` |
 | `READY_TO_COMMIT_RULE` | `ERRORS_ZERO` |
 | Parser package | `services/rfx-service/internal/xlsxexchange/buyer_import_*.go` |
-| Unit tests | `buyer_import_parser_test.go` + existing export/security tests |
+| Unit tests | `buyer_import_parser_test.go`, `buyer_import_p21_test.go` + export/security tests |
 
-### P2 parser test evidence (local)
+### P2 / P2.1 parser test evidence (local)
 
 ```
 go test ./internal/xlsxexchange/...  → PASS
 go test ./internal/xlsxsecurity/...  → PASS
 go vet ./internal/xlsxexchange/... → PASS
 go build ./...                       → PASS
+go test -race ./internal/xlsxexchange/... → NOT_RUN (CGO_ENABLED=0)
 ```
 
-Coverage highlights: security-before-Excelize hook, seven-sheet contract, metadata trust, I18N mismatch warning, E2 questionnaire diff reuse, separate lots diff, canonical hash determinism, forbidden-import source scan.
+Coverage highlights: deterministic issue cap (`ISSUE_LIMIT_REACHED`), fixed production limits, internal-only workbook opener, context cancellation in long loops, full Export→Parse semantic round-trip, multi-node rule cycle, hash sensitivity matrix, security-before-Excelize, seven-sheet contract, metadata trust, I18N mismatch warning, E2 questionnaire diff reuse, separate lots diff, canonical hash determinism, forbidden-import source scan, external defined-name rejection.
 
 ### P3+ remains not started
 

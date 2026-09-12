@@ -35,7 +35,7 @@ func TestParseBuyerImportPreviewValidExportWorkbook(t *testing.T) {
 		t.Fatalf("generate: %v", err)
 	}
 	target := targetFromSnapshot(snapshot)
-	preview, err := ParseBuyerImportPreview(context.Background(), data, target, ParserOptions{})
+	preview, err := ParseBuyerImportPreview(context.Background(), data, target)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -56,10 +56,8 @@ func TestParseBuyerImportPreviewSecurityBeforeExcelize(t *testing.T) {
 		openCalls.Add(1)
 		return nil, errors.New("excelize should not run")
 	}
-	opts := ParserOptions{
-		SecurityLimits: xlsxsecurity.DefaultLimits(),
-		OpenWorkbook:   blockOpen,
-	}
+	cfg := productionParseConfig()
+	cfg.openWorkbook = blockOpen
 
 	cases := []struct {
 		name  string
@@ -72,7 +70,7 @@ func TestParseBuyerImportPreviewSecurityBeforeExcelize(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			openCalls.Store(0)
-			preview, err := ParseBuyerImportPreview(context.Background(), tc.bytes, minimalTarget(), opts)
+			preview, err := parseBuyerImportPreview(context.Background(), tc.bytes, minimalTarget(), cfg)
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
@@ -92,12 +90,12 @@ func TestParseBuyerImportPreviewSecurityBeforeExcelize(t *testing.T) {
 			t.Fatalf("generate: %v", err)
 		}
 		openCalls.Store(0)
-		validOpts := ParserOptions{SecurityLimits: xlsxsecurity.DefaultLimits()}
-		validOpts.OpenWorkbook = func(data []byte) (workbookReader, error) {
+		validCfg := productionParseConfig()
+		validCfg.openWorkbook = func(data []byte) (workbookReader, error) {
 			openCalls.Add(1)
 			return defaultOpenWorkbook(data)
 		}
-		preview, err := ParseBuyerImportPreview(context.Background(), validData, targetFromSnapshot(snapshot), validOpts)
+		preview, err := parseBuyerImportPreview(context.Background(), validData, targetFromSnapshot(snapshot), validCfg)
 		if err != nil {
 			t.Fatalf("parse: %v", err)
 		}
@@ -185,7 +183,7 @@ func TestParseBuyerImportPreviewMetadataMismatchWarning(t *testing.T) {
 		t.Fatalf("generate: %v", err)
 	}
 	target := targetFromSnapshot(richSnapshot())
-	preview, err := ParseBuyerImportPreview(context.Background(), data, target, ParserOptions{})
+	preview, err := ParseBuyerImportPreview(context.Background(), data, target)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -200,7 +198,7 @@ func TestParseBuyerImportPreviewWorkbookTenantCannotOverrideBaseline(t *testing.
 		t.Fatalf("generate: %v", err)
 	}
 	target := targetFromSnapshot(richSnapshot())
-	preview, err := ParseBuyerImportPreview(context.Background(), data, target, ParserOptions{})
+	preview, err := ParseBuyerImportPreview(context.Background(), data, target)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -304,7 +302,7 @@ func TestParseBuyerImportPreviewQuestionnaireDiffReuse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("generate: %v", err)
 	}
-	preview, err := ParseBuyerImportPreview(context.Background(), data, target, ParserOptions{})
+	preview, err := ParseBuyerImportPreview(context.Background(), data, target)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -321,7 +319,7 @@ func TestParseBuyerImportPreviewLotsDiff(t *testing.T) {
 	if err != nil {
 		t.Fatalf("generate: %v", err)
 	}
-	preview, err := ParseBuyerImportPreview(context.Background(), data, target, ParserOptions{})
+	preview, err := ParseBuyerImportPreview(context.Background(), data, target)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -335,11 +333,11 @@ func TestParseBuyerImportPreviewDeterministicHash(t *testing.T) {
 	target := targetFromSnapshot(snapshot)
 	first := GenerateWorkbookOrFail(t, snapshot)
 	second := GenerateWorkbookOrFail(t, snapshot)
-	p1, err := ParseBuyerImportPreview(context.Background(), first, target, ParserOptions{})
+	p1, err := ParseBuyerImportPreview(context.Background(), first, target)
 	if err != nil {
 		t.Fatalf("parse1: %v", err)
 	}
-	p2, err := ParseBuyerImportPreview(context.Background(), second, target, ParserOptions{})
+	p2, err := ParseBuyerImportPreview(context.Background(), second, target)
 	if err != nil {
 		t.Fatalf("parse2: %v", err)
 	}
@@ -359,7 +357,7 @@ func TestParseBuyerImportPreviewRowOrderIndependent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("generate: %v", err)
 	}
-	preview, err := ParseBuyerImportPreview(context.Background(), data, target, ParserOptions{})
+	preview, err := ParseBuyerImportPreview(context.Background(), data, target)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -378,8 +376,8 @@ func TestParseBuyerImportPreviewZIPMetadataIndependent(t *testing.T) {
 	data := GenerateWorkbookOrFail(t, snapshot)
 	rewritten := rewriteZipComment(t, data, "comment-a")
 	rewritten2 := rewriteZipComment(t, data, "comment-b")
-	p1, _ := ParseBuyerImportPreview(context.Background(), rewritten, target, ParserOptions{})
-	p2, _ := ParseBuyerImportPreview(context.Background(), rewritten2, target, ParserOptions{})
+	p1, _ := ParseBuyerImportPreview(context.Background(), rewritten, target)
+	p2, _ := ParseBuyerImportPreview(context.Background(), rewritten2, target)
 	if p1.CanonicalPayloadHash != p2.CanonicalPayloadHash {
 		t.Fatalf("zip metadata must not affect hash")
 	}
@@ -391,8 +389,8 @@ func TestParseBuyerImportPreviewTargetBaselineAffectsHash(t *testing.T) {
 	targetB := targetA
 	targetB.EventRowVersion = targetA.EventRowVersion + 1
 	data := GenerateWorkbookOrFail(t, snapshot)
-	p1, _ := ParseBuyerImportPreview(context.Background(), data, targetA, ParserOptions{})
-	p2, _ := ParseBuyerImportPreview(context.Background(), data, targetB, ParserOptions{})
+	p1, _ := ParseBuyerImportPreview(context.Background(), data, targetA)
+	p2, _ := ParseBuyerImportPreview(context.Background(), data, targetB)
 	if p1.CanonicalPayloadHash == p2.CanonicalPayloadHash {
 		t.Fatal("baseline row version must affect hash")
 	}
@@ -415,7 +413,7 @@ func TestParseBuyerImportPreviewNoSideEffects(t *testing.T) {
 	data := GenerateWorkbookOrFail(t, snapshot)
 	original := append([]byte(nil), data...)
 	target := targetFromSnapshot(snapshot)
-	preview, err := ParseBuyerImportPreview(context.Background(), data, target, ParserOptions{})
+	preview, err := ParseBuyerImportPreview(context.Background(), data, target)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -458,7 +456,7 @@ func TestBuyerImportParserForbiddenImports(t *testing.T) {
 
 func parseWorkbook(t *testing.T, data []byte, target TargetDraftBaseline) BuyerImportPreview {
 	t.Helper()
-	preview, err := ParseBuyerImportPreview(context.Background(), data, target, ParserOptions{})
+	preview, err := ParseBuyerImportPreview(context.Background(), data, target)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
