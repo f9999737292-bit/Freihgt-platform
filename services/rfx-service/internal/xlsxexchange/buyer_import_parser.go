@@ -391,6 +391,7 @@ func (p *buyerImportParser) validateHeaderRow(sheet string, rows [][]string, exp
 		return
 	}
 	header := rows[0]
+	competitorDenied := false
 	for idx, cell := range header {
 		if p.shouldStop() {
 			return
@@ -405,7 +406,11 @@ func (p *buyerImportParser) validateHeaderRow(sheet string, rows [][]string, exp
 				"rfx.buyer_xlsx_import.competitor_column_denied",
 				sheet, name, columnName(idx+1), 1, nil,
 			))
+			competitorDenied = true
 		}
+	}
+	if competitorDenied {
+		return
 	}
 	if len(header) != len(expected) {
 		p.issues.addError(issueError(
