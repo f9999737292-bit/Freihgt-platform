@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/xuri/excelize/v2"
 
 	"github.com/freight-platform/rfx-service/internal/domain"
@@ -57,16 +58,22 @@ func TestPreviewImportAnalysisTransactionRollbackExtra(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
 	draft := seedRichDraftEvent(t, env, fix)
-	before := countImportAnalyses(t, env, fix.TenantID)
+	before := captureGraphWriteSnapshot(t, env, fix.TenantID, draft.Event.ID)
 	createdAt := time.Date(2026, 9, 12, 16, 0, 0, 0, time.UTC)
-	payload := []byte(`{"schema_name":"BINTRANS_RFX_BUYER_XLSX_V1","mode":"UPDATE_DRAFT"}`)
-	hash := sha256Hex(payload)
+	rawPayload := []byte(`{"schema_name":"BINTRANS_RFX_BUYER_XLSX_V1","schema_version":"BINTRANS_RFX_BUYER_XLSX_V1","mode":"UPDATE_DRAFT","lots":[],"questionnaire":{"sections":[],"questions":[],"options":[],"rules":[]},"counts":{"errors":0,"warnings":0,"lots":0,"sections":0,"questions":0,"options":0,"rules":0}}`)
+	storedPayload, canonicalHash, err := xlsxexchange.StableStoredPayload(rawPayload)
+	if err != nil {
+		t.Fatalf("stable stored payload: %v", err)
+	}
+	if err := xlsxexchange.VerifyStoredCanonicalPayloadHash(storedPayload, canonicalHash); err != nil {
+		t.Fatalf("canonical hash verification: %v", err)
+	}
 	targetVersion := draft.Version.VersionNumber
 	input := domain.ImportAnalysis{
 		TenantID: fix.TenantID, ActorID: fix.BuyerA.UserID, ActorCompanyID: fix.CompanyA,
 		WorkbookType: domain.WorkbookTypeBuyerTender, SchemaVersion: domain.SchemaVersionBuyerXLSXV1,
 		TargetType: domain.ImportTargetTypeDraftEvent, TargetID: &draft.Event.ID, TargetVersion: &targetVersion,
-		CanonicalPayloadJSON: payload, CanonicalHash: hash,
+		CanonicalPayloadJSON: storedPayload, CanonicalHash: canonicalHash,
 		ValidationSummary: []byte(`{}`), CreatedAt: createdAt, ExpiresAt: createdAt.Add(24 * time.Hour),
 	}
 	ctx := context.Background()
@@ -74,15 +81,23 @@ func TestPreviewImportAnalysisTransactionRollbackExtra(t *testing.T) {
 	if err != nil {
 		t.Fatalf("begin tx: %v", err)
 	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
 	repo := env.importAnalysisRepo.WithTx(tx)
-	if _, err := repo.CreatePreview(ctx, input); err != nil {
+	created, err := repo.CreatePreview(ctx, input)
+	if err != nil {
 		t.Fatalf("create preview in tx: %v", err)
+	}
+	if created == nil || created.ID == uuid.Nil {
+		t.Fatal("create preview must return persisted analysis row in transaction")
 	}
 	if err := tx.Rollback(ctx); err != nil {
 		t.Fatalf("rollback: %v", err)
 	}
-	if countImportAnalyses(t, env, fix.TenantID) != before {
-		t.Fatal("rolled back analysis must not persist")
+	assertPreviewFailureNoWrites(t, env, fix.TenantID, draft.Event.ID, before)
+	if _, err := env.importAnalysisRepo.GetByID(ctx, created.ID, fix.TenantID); err == nil {
+		t.Fatal("rolled back analysis must not be visible outside transaction")
 	}
 }
 
@@ -95,7 +110,7 @@ func TestPreviewRepositoryHashMismatchDeniedExtra(t *testing.T) {
 	input := domain.ImportAnalysis{
 		TenantID: fix.TenantID, ActorID: fix.BuyerA.UserID, ActorCompanyID: fix.CompanyA,
 		WorkbookType: domain.WorkbookTypeBuyerTender, SchemaVersion: domain.SchemaVersionBuyerXLSXV1,
-		TargetType: domain.ImportTargetTypeDraftEvent,
+		TargetType:           domain.ImportTargetTypeDraftEvent,
 		CanonicalPayloadJSON: payload,
 		CanonicalHash:        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 		ValidationSummary:    []byte(`{}`), CreatedAt: createdAt, ExpiresAt: createdAt.Add(time.Hour),
