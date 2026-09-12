@@ -634,7 +634,7 @@ RFX_IMPORT_ANALYSES_USAGE=DEFERRED_UNUSED
 
 ---
 
-## 16. Test strategy (draft — not implemented)
+## 16. Test strategy (implemented)
 
 ### 16.1 Unit tests
 
@@ -647,32 +647,36 @@ RFX_IMPORT_ANALYSES_USAGE=DEFERRED_UNUSED
 - Canonical JSON + hash determinism
 - Issue sort order (sheet, row, column, code)
 
-### 16.2 Integration tests (continue from E7P2-INT-20)
+### 16.2 Integration tests (E7P2-INT-21..42 — authoritative matrix)
 
-| ID | Scope |
-|---|---|
-| E7P2-INT-21 | Rich workbook preview success (UPDATE_DRAFT) |
-| E7P2-INT-22 | No event/graph/lot writes |
-| E7P2-INT-23 | Analysis row persisted (OPTION A) / absent (OPTION B) |
-| E7P2-INT-24 | Schema mismatch |
-| E7P2-INT-25 | Missing / unexpected sheet |
-| E7P2-INT-26 | Invalid headers |
-| E7P2-INT-27 | Duplicate stable codes |
-| E7P2-INT-28 | Dangling references |
-| E7P2-INT-29 | Rule cycle / self-target |
-| E7P2-INT-30 | Malformed JSON cells |
-| E7P2-INT-31 | Formula / macro / OLE / external link rejection |
-| E7P2-INT-32 | Oversized upload |
-| E7P2-INT-33 | BuyerRead 403 |
-| E7P2-INT-34 | Carrier 403 |
-| E7P2-INT-35 | Cross-tenant 404 |
-| E7P2-INT-36 | Cross-company fail closed |
-| E7P2-INT-37 | Feature disabled 404 + no writes |
-| E7P2-INT-38 | Gateway identity spoof |
-| E7P2-INT-39 | Stale metadata row version warning |
-| E7P2-INT-40 | Deterministic repeated preview |
-| E7P2-INT-41 | Competitor column rejected |
-| E7P2-INT-42 | Route/gateway/OpenAPI parity |
+| ID | Scope | Test function |
+|---|---|---|
+| E7P2-INT-21 | Rich workbook preview success (UPDATE_DRAFT) | `TestE7P2INT21RichWorkbookPreviewSuccessUpdateDraft` |
+| E7P2-INT-22 | No event/graph/lot writes | `TestE7P2INT22NoEventGraphLotWrites` |
+| E7P2-INT-23 | Analysis row persisted (OPTION A) | `TestE7P2INT23AnalysisRowPersistedOptionA` |
+| E7P2-INT-24 | Schema mismatch | `TestE7P2INT24SchemaMismatch400ZeroAnalysis` |
+| E7P2-INT-25 | Missing / unexpected sheet | `TestE7P2INT25MissingUnexpectedSheet400ZeroAnalysis` |
+| E7P2-INT-26 | Invalid headers | `TestE7P2INT26InvalidHeaders400ZeroAnalysis` |
+| E7P2-INT-27 | Duplicate stable codes | `TestE7P2INT27DuplicateStableCodes422ZeroAnalysis` |
+| E7P2-INT-28 | Dangling references | `TestE7P2INT28DanglingReferences422ZeroAnalysis` |
+| E7P2-INT-29 | Rule cycle / self-target | `TestE7P2INT29RuleCycleSelfTarget422ZeroAnalysis` |
+| E7P2-INT-30 | Malformed JSON cells | `TestE7P2INT30MalformedJSONCells422ZeroAnalysis` |
+| E7P2-INT-31 | Formula / macro / OLE / external link rejection | `TestE7P2INT31FormulaMacroExternalLink400ZeroAnalysis` |
+| E7P2-INT-32 | Oversized upload | `TestE7P2INT32OversizedUpload413ZeroAnalysis` |
+| E7P2-INT-33 | BuyerRead 403 | `TestE7P2INT33BuyerRead403ZeroAnalysis` |
+| E7P2-INT-34 | Carrier 403 | `TestE7P2INT34Carrier403ZeroAnalysis` |
+| E7P2-INT-35 | Cross-tenant 404 | `TestE7P2INT35CrossTenant404ZeroAnalysis` |
+| E7P2-INT-36 | Cross-company fail closed | `TestE7P2INT36CrossCompanyFailClosed404ZeroAnalysis` |
+| E7P2-INT-37 | Feature disabled 404 + no writes | `TestE7P2INT37FeatureDisabled404NoWrites` |
+| E7P2-INT-38 | Gateway identity spoof | `TestE7P2INT38GatewayIdentitySpoofDenied` |
+| E7P2-INT-39 | Stale metadata row version warning | `TestE7P2INT39StaleMetadataRowVersionWarning` |
+| E7P2-INT-40 | Deterministic repeated preview | `TestE7P2INT40DeterministicRepeatedPreview` |
+| E7P2-INT-41 | Competitor column rejected | `TestE7P2INT41CompetitorColumnRejected` |
+| E7P2-INT-42 | Route/gateway/OpenAPI parity | `TestE7P2INT42RouteServiceGatewayOpenAPIParity` |
+
+Matrix completeness/uniqueness guard: `TestE7P2PreviewMatrixIDsCompleteAndUnique`.
+
+Additional PostgreSQL/HTTP evidence (no matrix ID): unauthenticated 401, no-active-draft 409, multipart validation, issue cap, repository hash mismatch, transaction rollback (`buyer_xlsx_import_preview_extra_integration_test.go`).
 
 ---
 
@@ -683,7 +687,7 @@ RFX_IMPORT_ANALYSES_USAGE=DEFERRED_UNUSED
 | **P1** | Controller decision on persistence option + UPDATE-only scope | This discovery |
 | **P2** | Parser + validator library (no HTTP) | P1 |
 | **P3** | Preview HTTP handler + multipart + OPTION A persist | P2 |
-| **P4** | OpenAPI + gateway route + E7P2-INT-21..42 | P3 |
+| **P4** | Commit / apply analysis to DRAFT | P3 |
 | **P5** | Commit increment (separate contract) | P4 |
 | **P6** | CREATE_DRAFT FROM XLSX (optional) | P5 |
 
@@ -867,26 +871,35 @@ go test -race ./internal/xlsxexchange/... → NOT_RUN (CGO_ENABLED=0)
 
 Coverage highlights: deterministic issue cap (`ISSUE_LIMIT_REACHED`), fixed production limits, internal-only workbook opener, context cancellation in long loops, full Export→Parse semantic round-trip, multi-node rule cycle, hash sensitivity matrix, security-before-Excelize, seven-sheet contract, metadata trust, I18N mismatch warning, E2 questionnaire diff reuse, separate lots diff, canonical hash determinism, forbidden-import source scan, external defined-name rejection.
 
-### P3 preview service + HTTP (implemented, pending controller review)
+### P3 preview service + HTTP (implemented, remediation applied)
 
 | Marker | Value |
 |---|---|
 | `P3_PREVIEW_SERVICE_HTTP` | `IMPLEMENTED_PENDING_CONTROLLER_REVIEW` |
+| `P2_PARSER_VALIDATOR` | `IMPLEMENTED_ACCEPTED` |
+| `P2_1_HARDENING` | `IMPLEMENTED_ACCEPTED` |
+| `P4_COMMIT` | `NOT_STARTED` |
 | `PREVIEW_MODEL` | `OPTION_A` (persist analysis only when `ready_to_commit=true`) |
 | `HTTP_ROUTE` | `POST /api/v1/rfx-events/{id}/xlsx-import/preview` |
 | `SERVICE_ROUTE` | `POST /v1/rfx-events/{id}/xlsx-import/preview` |
 | `MULTIPART_FIELD` | `file` |
 | `UPDATE_DRAFT_ONLY` | `YES` |
-| `ANALYSIS_TTL` | `24h` (injectable service clock) |
+| `ANALYSIS_TTL` | `24h` exact (`expires_at = created_at + 24h`) |
+| `CREATED_AT_SOURCE` | `SERVICE_UTC_CLOCK` (explicit INSERT) |
+| `EXPIRES_AT_SOURCE` | `SAME_SERVICE_UTC_CLOCK_PLUS_24H` |
+| `REPOSITORY_HASH_RECOMPUTED` | `YES` (`SHA-256(canonical_payload_json)`) |
 | `VALID_PREVIEW_HTTP` | `200` |
-| `INVALID_DOMAIN_HTTP` | `422` structured preview envelope |
+| `INVALID_DOMAIN_HTTP` | `422` structured preview envelope via `respond.JSON` |
 | `MALFORMED_HTTP` | `400` |
 | `OVERSIZED_HTTP` | `413` |
 | `PREVIEW_EVENT_GRAPH_WRITES` | `NO` |
 | `PREVIEW_AUDIT_WRITES` | `NO` |
 | `PREVIEW_IDEMPOTENCY_WRITES` | `NO` |
 | `BINARY_XLSX_PERSISTED` | `NO` |
-| Integration tests | `E7P2-INT-21..INT-42` in `internal/integration/excelexchange/` |
+| Integration tests | `E7P2-INT-21..INT-42` aligned to §16.2 |
+| `LOCAL_POSTGRES_INTEGRATION` | `NOT_RUN` unless `TEST_DATABASE_URL` set |
+
+Stale baseline semantics (Preview): workbook metadata row versions are informational only; mismatches emit `metadata_mismatch` warnings while response/canonical hash bind current server baseline. P4 Commit must re-validate row versions and return `409 stale_target` when advanced.
 
 ### P4+ remains not started
 

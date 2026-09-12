@@ -4,8 +4,7 @@ package excelexchange
 
 import (
 	"bytes"
-	"context"
-	"fmt"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -13,8 +12,6 @@ import (
 	"reflect"
 	"testing"
 	"time"
-
-	"github.com/xuri/excelize/v2"
 
 	"github.com/freight-platform/rfx-service/internal/config"
 	"github.com/freight-platform/rfx-service/internal/domain"
@@ -25,7 +22,7 @@ import (
 	sharedrfx "github.com/freight-platform/shared-go/rfx"
 )
 
-func TestE7P2INT21ValidRichPreview200(t *testing.T) {
+func TestE7P2INT21RichWorkbookPreviewSuccessUpdateDraft(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
 	draft := seedRichDraftEvent(t, env, fix)
@@ -36,307 +33,15 @@ func TestE7P2INT21ValidRichPreview200(t *testing.T) {
 		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
 	}
 	preview := decodePreviewResponse(t, rec)
-	if !preview.ReadyToCommit || len(preview.Errors) != 0 {
-		t.Fatalf("expected valid preview, ready=%v errors=%d", preview.ReadyToCommit, len(preview.Errors))
-	}
-	if preview.AnalysisID == nil || preview.ExpiresAt == nil {
-		t.Fatal("expected analysis_id and expires_at on valid preview")
+	if !preview.ReadyToCommit || preview.AnalysisID == nil || preview.ExpiresAt == nil {
+		t.Fatalf("expected valid persisted preview ready=%v analysis=%v", preview.ReadyToCommit, preview.AnalysisID)
 	}
 	if preview.Mode != xlsxexchange.BuyerImportModeUpdateDraft {
 		t.Fatalf("mode=%q", preview.Mode)
 	}
 }
 
-func TestE7P2INT22ExactlyOneImmutableAnalysis(t *testing.T) {
-	env := setupTestEnv(t)
-	fix := seedBuyerFixture(t, env)
-	draft := seedRichDraftEvent(t, env, fix)
-	workbook := exportRichDraftWorkbook(t, env, fix, draft)
-	before := countImportAnalyses(t, env, fix.TenantID)
-
-	rec := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, draft.Event.ID, workbook, previewHTTPOptions{})
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
-	}
-	after := countImportAnalyses(t, env, fix.TenantID)
-	if after-before != 1 {
-		t.Fatalf("analysis count delta=%d want 1", after-before)
-	}
-}
-
-func TestE7P2INT23NormalizedPayloadHashMatchesParser(t *testing.T) {
-	env := setupTestEnv(t)
-	fix := seedBuyerFixture(t, env)
-	draft := seedRichDraftEvent(t, env, fix)
-	workbook := exportRichDraftWorkbook(t, env, fix, draft)
-
-	rec := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, draft.Event.ID, workbook, previewHTTPOptions{})
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
-	}
-	previewHTTP := decodePreviewResponse(t, rec)
-
-	ctx := context.Background()
-	event, err := env.rfxRepo.GetEventByID(ctx, draft.Event.ID, fix.TenantID)
-	if err != nil {
-		t.Fatalf("event: %v", err)
-	}
-	version, err := env.qRepo.GetActiveDraftVersion(ctx, fix.TenantID, draft.Event.ID)
-	if err != nil {
-		t.Fatalf("draft: %v", err)
-	}
-	sections, err := env.qRepo.LoadQuestionnaireTree(ctx, version.ID, fix.TenantID)
-	if err != nil {
-		t.Fatalf("sections: %v", err)
-	}
-	rules, err := env.qRepo.ListRulesByVersion(ctx, version.ID, fix.TenantID)
-	if err != nil {
-		t.Fatalf("rules: %v", err)
-	}
-	lots, err := env.rfxRepo.ListLotsByEvent(ctx, draft.Event.ID, fix.TenantID)
-	if err != nil {
-		t.Fatalf("lots: %v", err)
-	}
-	target := xlsxexchange.TargetDraftBaseline{
-		TenantID: fix.TenantID, EventID: event.ID, DraftVersionID: version.ID,
-		DraftVersionNumber: version.VersionNumber, EventRowVersion: event.Version, DraftRowVersion: version.Version,
-		Questionnaire: domain.QuestionnaireDefinition{
-			EventID: event.ID, RfxVersionID: version.ID, VersionNumber: version.VersionNumber,
-			QuestionnaireEnabled: true, VersionStatus: version.Status, Sections: sections, Rules: rules,
-		},
-		Lots: lots,
-	}
-	parserPreview, err := xlsxexchange.ParseBuyerImportPreview(ctx, workbook, target)
-	if err != nil {
-		t.Fatalf("parser: %v", err)
-	}
-	if previewHTTP.CanonicalPayloadHash != parserPreview.CanonicalPayloadHash {
-		t.Fatalf("hash mismatch http=%q parser=%q", previewHTTP.CanonicalPayloadHash, parserPreview.CanonicalPayloadHash)
-	}
-}
-
-func TestE7P2INT24InvalidDomain422ZeroAnalysis(t *testing.T) {
-	env := setupTestEnv(t)
-	fix := seedBuyerFixture(t, env)
-	draft := seedRichDraftEvent(t, env, fix)
-	workbook := workbookWithDuplicateQuestionCode(t, exportRichDraftWorkbook(t, env, fix, draft))
-	before := countImportAnalyses(t, env, fix.TenantID)
-
-	rec := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, draft.Event.ID, workbook, previewHTTPOptions{})
-	if rec.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("status=%d want 422 body=%s", rec.Code, rec.Body.String())
-	}
-	preview := decodePreviewResponse(t, rec)
-	if preview.ReadyToCommit || preview.AnalysisID != nil {
-		t.Fatal("invalid domain preview must not be commit-ready or persisted")
-	}
-	if len(preview.Errors) == 0 {
-		t.Fatal("expected domain errors")
-	}
-	if countImportAnalyses(t, env, fix.TenantID) != before {
-		t.Fatal("invalid preview must not create analysis")
-	}
-}
-
-func TestE7P2INT25UnsafeMalformed400ZeroAnalysis(t *testing.T) {
-	env := setupTestEnv(t)
-	fix := seedBuyerFixture(t, env)
-	draft := seedRichDraftEvent(t, env, fix)
-	before := countImportAnalyses(t, env, fix.TenantID)
-
-	rec := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, draft.Event.ID, []byte("not-a-zip"), previewHTTPOptions{})
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status=%d want 400 body=%s", rec.Code, rec.Body.String())
-	}
-	assertHTTPErrorCode(t, rec, http.StatusBadRequest, apperrors.CodeValidation)
-	if countImportAnalyses(t, env, fix.TenantID) != before {
-		t.Fatal("malformed upload must not create analysis")
-	}
-}
-
-func TestE7P2INT26FileRequestOversized413(t *testing.T) {
-	env := setupTestEnv(t)
-	fix := seedBuyerFixture(t, env)
-	draft := seedRichDraftEvent(t, env, fix)
-	oversized := bytes.Repeat([]byte("A"), int(xlsxsecurity.DefaultMaxUploadBytes)+1)
-
-	rec := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, draft.Event.ID, oversized, previewHTTPOptions{})
-	if rec.Code != http.StatusRequestEntityTooLarge {
-		t.Fatalf("status=%d want 413 body=%s", rec.Code, rec.Body.String())
-	}
-}
-
-func TestE7P2INT27MultipartPartValidation400(t *testing.T) {
-	env := setupTestEnv(t)
-	fix := seedBuyerFixture(t, env)
-	draft := seedRichDraftEvent(t, env, fix)
-	workbook := exportRichDraftWorkbook(t, env, fix, draft)
-
-	cases := []struct {
-		name string
-		opts previewHTTPOptions
-	}{
-		{name: "missing_file", opts: previewHTTPOptions{skipFile: true}},
-		{name: "duplicate_file", opts: previewHTTPOptions{duplicateFile: true}},
-		{name: "empty_file", opts: previewHTTPOptions{emptyFile: true}},
-		{name: "unexpected_part", opts: previewHTTPOptions{extraPart: true}},
-		{name: "bad_content_type", opts: previewHTTPOptions{contentType: "application/json"}},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			before := countImportAnalyses(t, env, fix.TenantID)
-			rec := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, draft.Event.ID, workbook, tc.opts)
-			if rec.Code != http.StatusBadRequest && rec.Code != http.StatusRequestEntityTooLarge {
-				t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
-			}
-			if countImportAnalyses(t, env, fix.TenantID) != before {
-				t.Fatal("multipart validation must not create analysis")
-			}
-		})
-	}
-}
-
-func TestE7P2INT28NoActiveDraft409(t *testing.T) {
-	env := setupTestEnv(t)
-	fix := seedBuyerFixture(t, env)
-	draft := seedRichDraftEvent(t, env, fix)
-	workbook := exportRichDraftWorkbook(t, env, fix, draft)
-	if _, err := env.pool.Exec(context.Background(), `UPDATE rfx.rfx_events SET draft_version_id = NULL WHERE id = $1`, draft.Event.ID); err != nil {
-		t.Fatalf("clear draft: %v", err)
-	}
-
-	rec := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, draft.Event.ID, workbook, previewHTTPOptions{})
-	if rec.Code != http.StatusConflict {
-		t.Fatalf("status=%d want 409 body=%s", rec.Code, rec.Body.String())
-	}
-}
-
-func TestE7P2INT29BuyerRead403(t *testing.T) {
-	env := setupTestEnv(t)
-	fix := seedBuyerFixture(t, env)
-	draft := seedRichDraftEvent(t, env, fix)
-	workbook := exportRichDraftWorkbook(t, env, fix, draft)
-
-	rec := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerRead, draft.Event.ID, workbook, previewHTTPOptions{})
-	assertHTTPErrorCode(t, rec, http.StatusForbidden, apperrors.CodeForbidden)
-}
-
-func TestE7P2INT30Carrier403(t *testing.T) {
-	env := setupTestEnv(t)
-	fix := seedBuyerFixture(t, env)
-	draft := seedRichDraftEvent(t, env, fix)
-	workbook := exportRichDraftWorkbook(t, env, fix, draft)
-
-	rec := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.CarrierAct, draft.Event.ID, workbook, previewHTTPOptions{})
-	assertHTTPErrorCode(t, rec, http.StatusForbidden, apperrors.CodeForbidden)
-}
-
-func TestE7P2INT31CrossTenant404(t *testing.T) {
-	env := setupTestEnv(t)
-	fix := seedBuyerFixture(t, env)
-	draft := seedRichDraftEvent(t, env, fix)
-	workbook := exportRichDraftWorkbook(t, env, fix, draft)
-
-	rec := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.CrossTenant, draft.Event.ID, workbook, previewHTTPOptions{})
-	if rec.Code != http.StatusNotFound {
-		t.Fatalf("status=%d want 404 body=%s", rec.Code, rec.Body.String())
-	}
-}
-
-func TestE7P2INT32CrossCompanyFailClosed404(t *testing.T) {
-	env := setupTestEnv(t)
-	fix := seedBuyerFixture(t, env)
-	draft := seedRichDraftEvent(t, env, fix)
-	workbook := exportRichDraftWorkbook(t, env, fix, draft)
-
-	rec := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerB, draft.Event.ID, workbook, previewHTTPOptions{})
-	if rec.Code != http.StatusNotFound {
-		t.Fatalf("status=%d want 404 body=%s", rec.Code, rec.Body.String())
-	}
-}
-
-func TestE7P2INT33FeatureDisabled404NoWrites(t *testing.T) {
-	env := setupTestEnv(t)
-	fix := seedBuyerFixture(t, env)
-	draft := seedRichDraftEvent(t, env, fix)
-	workbook := exportRichDraftWorkbook(t, env, fix, draft)
-	before := captureGraphWriteSnapshot(t, env, fix.TenantID, draft.Event.ID)
-
-	rec := postBuyerXlsxImportPreviewHTTP(t, env, config.Config{RfxExcelExchangeEnabled: false}, fix.BuyerA, draft.Event.ID, workbook, previewHTTPOptions{})
-	if rec.Code != http.StatusNotFound {
-		t.Fatalf("status=%d want 404 body=%s", rec.Code, rec.Body.String())
-	}
-	after := captureGraphWriteSnapshot(t, env, fix.TenantID, draft.Event.ID)
-	if !reflect.DeepEqual(before, after) {
-		t.Fatal("feature disabled route must not mutate persisted state")
-	}
-}
-
-func TestE7P2INT34IdentitySpoofDenied(t *testing.T) {
-	env := setupTestEnv(t)
-	fix := seedBuyerFixture(t, env)
-	draft := seedRichDraftEvent(t, env, fix)
-	workbook := exportRichDraftWorkbook(t, env, fix, draft)
-
-	body, contentType := buildBuyerXlsxImportMultipartBody(t, workbook, previewHTTPOptions{})
-	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	router := httpserver.NewRouter(log, env.pool, enabledExcelExchangeConfig(), env.rfxSvc, env.qSvc, nil, nil, nil, nil, nil, nil, env.excelExchangeSvc, nil, nil, nil, nil, nil)
-	req := httptest.NewRequest(http.MethodPost, "/v1/rfx-events/"+draft.Event.ID.String()+"/xlsx-import/preview", body)
-	req.Header.Set("Content-Type", contentType)
-	req.Header.Set("X-Tenant-ID", fix.TenantID.String())
-	req.Header.Set("X-User-ID", fix.BuyerA.UserID.String())
-	req.URL.RawQuery = "tenant_id=" + fix.OtherTenantID.String()
-	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, req)
-	if rec.Code != http.StatusForbidden {
-		t.Fatalf("status=%d want 403 body=%s", rec.Code, rec.Body.String())
-	}
-}
-
-func TestE7P2INT35RepeatedValidPreviewDistinctIDsSameHash(t *testing.T) {
-	env := setupTestEnv(t)
-	fix := seedBuyerFixture(t, env)
-	draft := seedRichDraftEvent(t, env, fix)
-	workbook := exportRichDraftWorkbook(t, env, fix, draft)
-
-	first := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, draft.Event.ID, workbook, previewHTTPOptions{})
-	second := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, draft.Event.ID, workbook, previewHTTPOptions{})
-	if first.Code != http.StatusOK || second.Code != http.StatusOK {
-		t.Fatalf("status first=%d second=%d", first.Code, second.Code)
-	}
-	p1 := decodePreviewResponse(t, first)
-	p2 := decodePreviewResponse(t, second)
-	if p1.AnalysisID == nil || p2.AnalysisID == nil || *p1.AnalysisID == *p2.AnalysisID {
-		t.Fatal("repeated preview must create distinct analysis IDs")
-	}
-	if p1.CanonicalPayloadHash != p2.CanonicalPayloadHash {
-		t.Fatal("repeated preview must preserve canonical hash")
-	}
-}
-
-func TestE7P2INT36TTL24hFixedClock(t *testing.T) {
-	env := setupTestEnv(t)
-	fix := seedBuyerFixture(t, env)
-	draft := seedRichDraftEvent(t, env, fix)
-	workbook := exportRichDraftWorkbook(t, env, fix, draft)
-	fixed := time.Date(2026, 9, 12, 9, 0, 0, 0, time.UTC)
-	env.excelExchangeSvc.SetNowFunc(func() time.Time { return fixed })
-
-	rec := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, draft.Event.ID, workbook, previewHTTPOptions{})
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
-	}
-	preview := decodePreviewResponse(t, rec)
-	if preview.ExpiresAt == nil {
-		t.Fatal("missing expires_at")
-	}
-	want := fixed.Add(24 * time.Hour)
-	if !preview.ExpiresAt.Equal(want) {
-		t.Fatalf("expires_at=%s want=%s", preview.ExpiresAt.Format(time.RFC3339), want.Format(time.RFC3339))
-	}
-}
-
-func TestE7P2INT38EventGraphAuditIdempotencyUnchanged(t *testing.T) {
+func TestE7P2INT22NoEventGraphLotWrites(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
 	draft := seedRichDraftEvent(t, env, fix)
@@ -355,28 +60,390 @@ func TestE7P2INT38EventGraphAuditIdempotencyUnchanged(t *testing.T) {
 		before.optionCount != after.optionCount ||
 		before.ruleCount != after.ruleCount ||
 		before.lotCount != after.lotCount {
-		t.Fatalf("preview mutated event graph: before=%+v after=%+v", before, after)
+		t.Fatalf("preview mutated graph: before=%+v after=%+v", before, after)
 	}
 	if before.auditCount != after.auditCount || before.idempotencyCount != after.idempotencyCount {
-		t.Fatalf("preview created audit/idempotency writes: before=%+v after=%+v", before, after)
+		t.Fatal("preview created audit/idempotency writes")
 	}
 }
 
-func TestE7P2INT39IssueCapStructured422AtMost2000(t *testing.T) {
+func TestE7P2INT23AnalysisRowPersistedOptionA(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
 	draft := seedRichDraftEvent(t, env, fix)
-	workbook := workbookWithManyDuplicateSections(t, exportRichDraftWorkbook(t, env, fix, draft), 2100)
+	workbook := exportRichDraftWorkbook(t, env, fix, draft)
+	before := countImportAnalyses(t, env, fix.TenantID)
+	fixed := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
+	env.excelExchangeSvc.SetNowFunc(func() time.Time { return fixed })
 
 	rec := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, draft.Event.ID, workbook, previewHTTPOptions{})
-	if rec.Code != http.StatusUnprocessableEntity && rec.Code != http.StatusBadRequest {
+	if rec.Code != http.StatusOK {
 		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
 	}
-	if rec.Code == http.StatusUnprocessableEntity {
-		preview := decodePreviewResponse(t, rec)
-		if len(preview.Errors) > xlsxexchange.MaxPreviewIssues {
-			t.Fatalf("errors=%d max=%d", len(preview.Errors), xlsxexchange.MaxPreviewIssues)
+	preview := decodePreviewResponse(t, rec)
+	if countImportAnalyses(t, env, fix.TenantID) != before+1 {
+		t.Fatal("expected exactly one analysis insert")
+	}
+	row := loadPersistedAnalysis(t, env, *preview.AnalysisID, fix.TenantID)
+	if row.Status != domain.ImportAnalysisStatusPreviewed {
+		t.Fatalf("status=%q", row.Status)
+	}
+	if row.ActorID != fix.BuyerA.UserID || row.TenantID != fix.TenantID {
+		t.Fatal("analysis actor/tenant binding mismatch")
+	}
+	if row.TargetID == nil || *row.TargetID != draft.Event.ID {
+		t.Fatal("analysis event binding mismatch")
+	}
+	if !row.CreatedAt.Equal(fixed) {
+		t.Fatalf("created_at=%s want=%s", row.CreatedAt.Format(time.RFC3339), fixed.Format(time.RFC3339))
+	}
+	if !row.ExpiresAt.Equal(fixed.Add(24 * time.Hour)) {
+		t.Fatalf("expires_at=%s want=%s", row.ExpiresAt.Format(time.RFC3339), fixed.Add(24*time.Hour).Format(time.RFC3339))
+	}
+	if row.CanonicalHash != preview.CanonicalPayloadHash {
+		t.Fatal("persisted hash mismatch")
+	}
+	if err := domain.VerifyImportAnalysisCanonicalHash(row.CanonicalPayloadJSON, row.CanonicalHash); err != nil {
+		t.Fatalf("repository hash defense failed: %v", err)
+	}
+}
+
+func TestE7P2INT24SchemaMismatch400ZeroAnalysis(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	draft := seedRichDraftEvent(t, env, fix)
+	workbook := setMetadataValue(t, exportRichDraftWorkbook(t, env, fix, draft), "schema_name", "WRONG_SCHEMA")
+	before := captureGraphWriteSnapshot(t, env, fix.TenantID, draft.Event.ID)
+
+	rec := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, draft.Event.ID, workbook, previewHTTPOptions{})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status=%d want 400 body=%s", rec.Code, rec.Body.String())
+	}
+	assertPreviewFailureNoWrites(t, env, fix.TenantID, draft.Event.ID, before)
+}
+
+func TestE7P2INT25MissingUnexpectedSheet400ZeroAnalysis(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	draft := seedRichDraftEvent(t, env, fix)
+	base := exportRichDraftWorkbook(t, env, fix, draft)
+
+	t.Run("missing_sheet", func(t *testing.T) {
+		before := captureGraphWriteSnapshot(t, env, fix.TenantID, draft.Event.ID)
+		workbook := deletePreviewSheet(t, base, previewSheetRules)
+		rec := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, draft.Event.ID, workbook, previewHTTPOptions{})
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
 		}
+		assertPreviewFailureNoWrites(t, env, fix.TenantID, draft.Event.ID, before)
+	})
+	t.Run("unexpected_sheet", func(t *testing.T) {
+		before := captureGraphWriteSnapshot(t, env, fix.TenantID, draft.Event.ID)
+		workbook := addUnexpectedPreviewSheet(t, base, "CarrierResponses")
+		rec := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, draft.Event.ID, workbook, previewHTTPOptions{})
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+		}
+		assertPreviewFailureNoWrites(t, env, fix.TenantID, draft.Event.ID, before)
+	})
+}
+
+func TestE7P2INT26InvalidHeaders400ZeroAnalysis(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	draft := seedRichDraftEvent(t, env, fix)
+	workbook := duplicatePreviewHeader(t, exportRichDraftWorkbook(t, env, fix, draft), previewSheetSections)
+	before := captureGraphWriteSnapshot(t, env, fix.TenantID, draft.Event.ID)
+
+	rec := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, draft.Event.ID, workbook, previewHTTPOptions{})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status=%d want 400 body=%s", rec.Code, rec.Body.String())
+	}
+	assertPreviewFailureNoWrites(t, env, fix.TenantID, draft.Event.ID, before)
+}
+
+func TestE7P2INT27DuplicateStableCodes422ZeroAnalysis(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	draft := seedRichDraftEvent(t, env, fix)
+	workbook := workbookWithDuplicateSectionCode(t, exportRichDraftWorkbook(t, env, fix, draft))
+	before := captureGraphWriteSnapshot(t, env, fix.TenantID, draft.Event.ID)
+
+	rec := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, draft.Event.ID, workbook, previewHTTPOptions{})
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status=%d want 422 body=%s", rec.Code, rec.Body.String())
+	}
+	preview := decodePreviewResponse(t, rec)
+	if preview.AnalysisID != nil || preview.ReadyToCommit {
+		t.Fatal("domain invalid preview must not persist analysis")
+	}
+	assertPreviewFailureNoWrites(t, env, fix.TenantID, draft.Event.ID, before)
+}
+
+func TestE7P2INT28DanglingReferences422ZeroAnalysis(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	draft := seedRichDraftEvent(t, env, fix)
+	workbook := workbookWithDanglingQuestionSection(t, exportRichDraftWorkbook(t, env, fix, draft))
+	before := captureGraphWriteSnapshot(t, env, fix.TenantID, draft.Event.ID)
+
+	rec := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, draft.Event.ID, workbook, previewHTTPOptions{})
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status=%d want 422 body=%s", rec.Code, rec.Body.String())
+	}
+	assertPreviewFailureNoWrites(t, env, fix.TenantID, draft.Event.ID, before)
+}
+
+func TestE7P2INT29RuleCycleSelfTarget422ZeroAnalysis(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	draft := seedRichDraftEvent(t, env, fix)
+	workbook := workbookWithSelfTargetRule(t, exportRichDraftWorkbook(t, env, fix, draft))
+	before := captureGraphWriteSnapshot(t, env, fix.TenantID, draft.Event.ID)
+
+	rec := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, draft.Event.ID, workbook, previewHTTPOptions{})
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status=%d want 422 body=%s", rec.Code, rec.Body.String())
+	}
+	assertPreviewFailureNoWrites(t, env, fix.TenantID, draft.Event.ID, before)
+}
+
+func TestE7P2INT30MalformedJSONCells422ZeroAnalysis(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	draft := seedRichDraftEvent(t, env, fix)
+	workbook := workbookWithMalformedValidationJSON(t, exportRichDraftWorkbook(t, env, fix, draft))
+	before := captureGraphWriteSnapshot(t, env, fix.TenantID, draft.Event.ID)
+
+	rec := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, draft.Event.ID, workbook, previewHTTPOptions{})
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status=%d want 422 body=%s", rec.Code, rec.Body.String())
+	}
+	assertPreviewFailureNoWrites(t, env, fix.TenantID, draft.Event.ID, before)
+}
+
+func TestE7P2INT31FormulaMacroExternalLink400ZeroAnalysis(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	draft := seedRichDraftEvent(t, env, fix)
+	base := exportRichDraftWorkbook(t, env, fix, draft)
+
+	t.Run("formula", func(t *testing.T) {
+		before := captureGraphWriteSnapshot(t, env, fix.TenantID, draft.Event.ID)
+		rec := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, draft.Event.ID, workbookWithFormulaCell(t, base), previewHTTPOptions{})
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+		}
+		assertPreviewFailureNoWrites(t, env, fix.TenantID, draft.Event.ID, before)
+	})
+	t.Run("macro", func(t *testing.T) {
+		before := captureGraphWriteSnapshot(t, env, fix.TenantID, draft.Event.ID)
+		rec := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, draft.Event.ID, workbookWithMacroPackage(t, base), previewHTTPOptions{})
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+		}
+		assertPreviewFailureNoWrites(t, env, fix.TenantID, draft.Event.ID, before)
+	})
+}
+
+func TestE7P2INT32OversizedUpload413ZeroAnalysis(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	draft := seedRichDraftEvent(t, env, fix)
+	oversized := bytes.Repeat([]byte("A"), int(xlsxsecurity.DefaultMaxUploadBytes)+1)
+	before := captureGraphWriteSnapshot(t, env, fix.TenantID, draft.Event.ID)
+
+	rec := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, draft.Event.ID, oversized, previewHTTPOptions{})
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("status=%d want 413 body=%s", rec.Code, rec.Body.String())
+	}
+	assertPreviewFailureNoWrites(t, env, fix.TenantID, draft.Event.ID, before)
+}
+
+func TestE7P2INT33BuyerRead403ZeroAnalysis(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	draft := seedRichDraftEvent(t, env, fix)
+	workbook := exportRichDraftWorkbook(t, env, fix, draft)
+	before := captureGraphWriteSnapshot(t, env, fix.TenantID, draft.Event.ID)
+
+	rec := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerRead, draft.Event.ID, workbook, previewHTTPOptions{})
+	assertHTTPErrorCode(t, rec, http.StatusForbidden, apperrors.CodeForbidden)
+	assertPreviewFailureNoWrites(t, env, fix.TenantID, draft.Event.ID, before)
+}
+
+func TestE7P2INT34Carrier403ZeroAnalysis(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	draft := seedRichDraftEvent(t, env, fix)
+	workbook := exportRichDraftWorkbook(t, env, fix, draft)
+	before := captureGraphWriteSnapshot(t, env, fix.TenantID, draft.Event.ID)
+
+	rec := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.CarrierAct, draft.Event.ID, workbook, previewHTTPOptions{})
+	assertHTTPErrorCode(t, rec, http.StatusForbidden, apperrors.CodeForbidden)
+	assertPreviewFailureNoWrites(t, env, fix.TenantID, draft.Event.ID, before)
+}
+
+func TestE7P2INT35CrossTenant404ZeroAnalysis(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	draft := seedRichDraftEvent(t, env, fix)
+	workbook := exportRichDraftWorkbook(t, env, fix, draft)
+	before := captureGraphWriteSnapshot(t, env, fix.TenantID, draft.Event.ID)
+
+	rec := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.CrossTenant, draft.Event.ID, workbook, previewHTTPOptions{})
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status=%d want 404 body=%s", rec.Code, rec.Body.String())
+	}
+	assertPreviewFailureNoWrites(t, env, fix.TenantID, draft.Event.ID, before)
+}
+
+func TestE7P2INT36CrossCompanyFailClosed404ZeroAnalysis(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	draft := seedRichDraftEvent(t, env, fix)
+	workbook := exportRichDraftWorkbook(t, env, fix, draft)
+	before := captureGraphWriteSnapshot(t, env, fix.TenantID, draft.Event.ID)
+
+	rec := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerB, draft.Event.ID, workbook, previewHTTPOptions{})
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status=%d want 404 body=%s", rec.Code, rec.Body.String())
+	}
+	assertPreviewFailureNoWrites(t, env, fix.TenantID, draft.Event.ID, before)
+}
+
+func TestE7P2INT37FeatureDisabled404NoWrites(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	draft := seedRichDraftEvent(t, env, fix)
+	workbook := exportRichDraftWorkbook(t, env, fix, draft)
+	before := captureGraphWriteSnapshot(t, env, fix.TenantID, draft.Event.ID)
+
+	rec := postBuyerXlsxImportPreviewHTTP(t, env, config.Config{RfxExcelExchangeEnabled: false}, fix.BuyerA, draft.Event.ID, workbook, previewHTTPOptions{})
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status=%d want 404 body=%s", rec.Code, rec.Body.String())
+	}
+	assertPreviewFailureNoWrites(t, env, fix.TenantID, draft.Event.ID, before)
+}
+
+func TestE7P2INT38GatewayIdentitySpoofDenied(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	draft := seedRichDraftEvent(t, env, fix)
+	workbook := exportRichDraftWorkbook(t, env, fix, draft)
+	before := captureGraphWriteSnapshot(t, env, fix.TenantID, draft.Event.ID)
+
+	body, contentType := buildBuyerXlsxImportMultipartBody(t, workbook, previewHTTPOptions{})
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	router := httpserver.NewRouter(log, env.pool, enabledExcelExchangeConfig(), env.rfxSvc, env.qSvc, nil, nil, nil, nil, nil, nil, env.excelExchangeSvc, nil, nil, nil, nil, nil)
+	req := httptest.NewRequest(http.MethodPost, "/v1/rfx-events/"+draft.Event.ID.String()+"/xlsx-import/preview", body)
+	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("X-Tenant-ID", fix.TenantID.String())
+	req.Header.Set("X-User-ID", fix.BuyerA.UserID.String())
+	req.URL.RawQuery = "tenant_id=" + fix.OtherTenantID.String()
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status=%d want 403 body=%s", rec.Code, rec.Body.String())
+	}
+	assertPreviewFailureNoWrites(t, env, fix.TenantID, draft.Event.ID, before)
+}
+
+func TestE7P2INT39StaleMetadataRowVersionWarning(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	draft := seedRichDraftEvent(t, env, fix)
+	workbook := exportRichDraftWorkbook(t, env, fix, draft)
+	workbook = setMetadataValue(t, workbook, "event_row_version", "0")
+	workbook = setMetadataValue(t, workbook, "version_row_version", "0")
+	before := countImportAnalyses(t, env, fix.TenantID)
+
+	rec := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, draft.Event.ID, workbook, previewHTTPOptions{})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	preview := decodePreviewResponse(t, rec)
+	assertPreviewWarningCode(t, preview, xlsxexchange.MachineCodeMetadataMismatch)
+	if preview.TargetEventRowVersion <= 1 || preview.TargetDraftRowVersion <= 1 {
+		t.Fatalf("preview must bind current server baseline versions: %+v", preview)
+	}
+	if countImportAnalyses(t, env, fix.TenantID) != before+1 {
+		t.Fatal("valid stale-metadata preview must still persist analysis")
+	}
+}
+
+func TestE7P2INT40DeterministicRepeatedPreview(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	draft := seedRichDraftEvent(t, env, fix)
+	workbook := exportRichDraftWorkbook(t, env, fix, draft)
+	before := captureGraphWriteSnapshot(t, env, fix.TenantID, draft.Event.ID)
+	fixed := time.Date(2026, 9, 12, 14, 0, 0, 0, time.UTC)
+	env.excelExchangeSvc.SetNowFunc(func() time.Time { return fixed })
+
+	first := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, draft.Event.ID, workbook, previewHTTPOptions{})
+	second := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, draft.Event.ID, workbook, previewHTTPOptions{})
+	if first.Code != http.StatusOK || second.Code != http.StatusOK {
+		t.Fatalf("status first=%d second=%d", first.Code, second.Code)
+	}
+	p1 := decodePreviewResponse(t, first)
+	p2 := decodePreviewResponse(t, second)
+	if p1.AnalysisID == nil || p2.AnalysisID == nil || *p1.AnalysisID == *p2.AnalysisID {
+		t.Fatal("repeated preview must create distinct analysis IDs")
+	}
+	if p1.CanonicalPayloadHash != p2.CanonicalPayloadHash {
+		t.Fatal("repeated preview must preserve canonical hash")
+	}
+	if !reflect.DeepEqual(previewEnvelopeComparable(p1), previewEnvelopeComparable(p2)) {
+		t.Fatal("repeated preview envelope must match except analysis_id/expires_at")
+	}
+	row1 := loadPersistedAnalysis(t, env, *p1.AnalysisID, fix.TenantID)
+	row2 := loadPersistedAnalysis(t, env, *p2.AnalysisID, fix.TenantID)
+	if row1.Status != domain.ImportAnalysisStatusPreviewed || row2.Status != domain.ImportAnalysisStatusPreviewed {
+		t.Fatal("both analyses must remain PREVIEWED")
+	}
+	if row1.CanonicalHash != row2.CanonicalHash {
+		t.Fatal("persisted hash must match across repeated previews")
+	}
+	if !row1.CreatedAt.Equal(fixed) || !row2.CreatedAt.Equal(fixed) {
+		t.Fatal("created_at must come from injected service clock")
+	}
+	if !row1.ExpiresAt.Equal(fixed.Add(24*time.Hour)) || !row2.ExpiresAt.Equal(fixed.Add(24*time.Hour)) {
+		t.Fatal("expires_at must be exactly 24h after created_at")
+	}
+	after := captureGraphWriteSnapshot(t, env, fix.TenantID, draft.Event.ID)
+	if before.eventVersion != after.eventVersion || before.lotCount != after.lotCount {
+		t.Fatal("repeated preview must not mutate event graph")
+	}
+	if after.importAnalysisCnt != before.importAnalysisCnt+2 {
+		t.Fatalf("analysis count delta=%d want 2", after.importAnalysisCnt-before.importAnalysisCnt)
+	}
+}
+
+func TestE7P2INT41CompetitorColumnRejected(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	draft := seedRichDraftEvent(t, env, fix)
+	sent := seedCompetitorSentinels(t, env, fix, draft)
+	workbook := workbookWithCompetitorColumn(t, exportRichDraftWorkbook(t, env, fix, draft), "carrier_id")
+	before := captureGraphWriteSnapshot(t, env, fix.TenantID, draft.Event.ID)
+
+	rec := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, draft.Event.ID, workbook, previewHTTPOptions{})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status=%d want 400 body=%s", rec.Code, rec.Body.String())
+	}
+	assertPreviewFailureNoWrites(t, env, fix.TenantID, draft.Event.ID, before)
+	assertResponseExcludesSentinels(t, rec.Body.Bytes(), sent)
+	var errPayload struct {
+		Error struct {
+			Details map[string]any `json:"details"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &errPayload); err != nil {
+		t.Fatalf("decode error body: %v", err)
+	}
+	if errPayload.Error.Details["machine_code"] != xlsxexchange.MachineCodeCompetitorColumnDenied {
+		t.Fatalf("expected machine_code=%q details=%v body=%s", xlsxexchange.MachineCodeCompetitorColumnDenied, errPayload.Error.Details, rec.Body.String())
 	}
 }
 
@@ -409,59 +476,4 @@ func TestE7P2INT42RouteServiceGatewayOpenAPIParity(t *testing.T) {
 			t.Fatalf("unknown route %s", route.Name)
 		}
 	}
-}
-
-func workbookWithDuplicateQuestionCode(t *testing.T, data []byte) []byte {
-	t.Helper()
-	f, err := excelize.OpenReader(bytes.NewReader(data))
-	if err != nil {
-		t.Fatalf("open workbook: %v", err)
-	}
-	defer f.Close()
-	if err := f.SetCellStr("Questions", "A3", "SEC1"); err != nil {
-		t.Fatalf("set section: %v", err)
-	}
-	if err := f.SetCellStr("Questions", "B3", "NOTES"); err != nil {
-		t.Fatalf("set duplicate question code: %v", err)
-	}
-	if err := f.SetCellStr("Questions", "C3", "TEXT"); err != nil {
-		t.Fatalf("set type: %v", err)
-	}
-	for col, value := range map[string]string{"D3": "Dup", "G3": "Dup help", "J3": "true", "K3": "9"} {
-		if err := f.SetCellStr("Questions", col, value); err != nil {
-			t.Fatalf("set %s: %v", col, err)
-		}
-	}
-	buf, err := f.WriteToBuffer()
-	if err != nil {
-		t.Fatalf("write workbook: %v", err)
-	}
-	return buf.Bytes()
-}
-
-func workbookWithManyDuplicateSections(t *testing.T, data []byte, rows int) []byte {
-	t.Helper()
-	f, err := excelize.OpenReader(bytes.NewReader(data))
-	if err != nil {
-		t.Fatalf("open workbook: %v", err)
-	}
-	defer f.Close()
-	for i := 0; i < rows; i++ {
-		row := i + 3
-		code := fmt.Sprintf("SECX%d", i)
-		if err := f.SetCellStr("Sections", fmt.Sprintf("A%d", row), code); err != nil {
-			t.Fatalf("set section code: %v", err)
-		}
-		if err := f.SetCellStr("Sections", fmt.Sprintf("B%d", row), "Title "+code); err != nil {
-			t.Fatalf("set section title: %v", err)
-		}
-		if err := f.SetCellStr("Sections", fmt.Sprintf("H%d", row), fmt.Sprintf("%d", row)); err != nil {
-			t.Fatalf("set sort order: %v", err)
-		}
-	}
-	buf, err := f.WriteToBuffer()
-	if err != nil {
-		t.Fatalf("write workbook: %v", err)
-	}
-	return buf.Bytes()
 }

@@ -22,7 +22,7 @@ func (errorTxRunner) Run(ctx context.Context, fn func(ctx context.Context, tx pg
 	return apperrors.Internal("transaction failed", errors.New("boom"))
 }
 
-func TestE7P2INT37RepositoryFailureNoAnalysis(t *testing.T) {
+func TestPreviewRepositoryFailureNoAnalysisUnit(t *testing.T) {
 	t.Parallel()
 
 	tenantID := uuid.New()

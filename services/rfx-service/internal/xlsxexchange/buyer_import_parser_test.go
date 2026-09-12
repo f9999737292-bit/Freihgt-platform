@@ -175,6 +175,33 @@ func TestParseBuyerImportPreviewUnsupportedSchema(t *testing.T) {
 	assertIssueCode(t, preview.Errors, MachineCodeUnsupportedSchema)
 }
 
+func TestParseBuyerImportPreviewStaleRowVersionMetadataWarning(t *testing.T) {
+	snapshot := richSnapshot()
+	data, err := GenerateBuyerDraftWorkbook(snapshot)
+	if err != nil {
+		t.Fatalf("generate: %v", err)
+	}
+	target := targetFromSnapshot(snapshot)
+	target.EventRowVersion++
+	target.DraftRowVersion++
+	preview, err := ParseBuyerImportPreview(context.Background(), data, target)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	warnCount := 0
+	for _, warn := range preview.Warnings {
+		if warn.MachineCode == MachineCodeMetadataMismatch {
+			warnCount++
+		}
+	}
+	if warnCount < 2 {
+		t.Fatalf("expected stale row version warnings, got %v", preview.Warnings)
+	}
+	if preview.TargetEventRowVersion != target.EventRowVersion {
+		t.Fatalf("response must bind server row versions")
+	}
+}
+
 func TestParseBuyerImportPreviewMetadataMismatchWarning(t *testing.T) {
 	snapshot := richSnapshot()
 	snapshot.Metadata.RfxEventID = uuid.New()
