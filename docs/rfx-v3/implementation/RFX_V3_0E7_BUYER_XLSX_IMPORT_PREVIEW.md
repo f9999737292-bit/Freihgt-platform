@@ -2,24 +2,38 @@
 
 **Status:** `IMPLEMENTATION_IN_PROGRESS`
 **IMPLEMENTATION_STARTED:** `YES`
-**Base:** `origin/main` @ `e8a7fb582328d452d1f800915b0015fa0d31d6d7`
+**Base:** `origin/main` @ `b2df9ac20ae9bf9dbbb48f5e78199766643ad2ef` (post PR #125 merge)
 **Discovery branch:** `discovery/rfx-buyer-xlsx-import-preview-v3.0e7-phase2`
 **Implementation branch:** `feat/rfx-buyer-xlsx-import-preview-parser-v3.0e7-phase2`
 **Architecture review HEAD:** `5d51af525cd9ee3f55fb8c58ab5f11be584ade5e`
 
 | Marker | Value |
 |---|---|
+| `STATUS` | `IMPLEMENTATION_IN_PROGRESS` |
+| `E7_PHASE2_STATUS` | `IMPLEMENTATION_IN_PROGRESS` |
 | `BUYER_XLSX_EXPORT_V1_STATUS` | `IMPLEMENTED_ACCEPTED` (PR #123) |
-| `BUYER_XLSX_IMPORT_PREVIEW_STATUS` | `P3_PREVIEW_SERVICE_HTTP_IMPLEMENTED` |
+| `BUYER_XLSX_IMPORT_PREVIEW_STATUS` | `IMPLEMENTED_ACCEPTED` |
+| `BUYER_XLSX_IMPORT_P2_STATUS` | `IMPLEMENTED_ACCEPTED` |
+| `BUYER_XLSX_IMPORT_P2_1_STATUS` | `IMPLEMENTED_ACCEPTED` |
+| `BUYER_XLSX_IMPORT_P3_STATUS` | `IMPLEMENTED_ACCEPTED` |
 | `P2_PARSER_VALIDATOR` | `IMPLEMENTED_ACCEPTED` |
 | `P2_1_HARDENING` | `IMPLEMENTED_ACCEPTED` |
-| `P3_PREVIEW_SERVICE_HTTP` | `IMPLEMENTED_PENDING_CONTROLLER_REVIEW` |
+| `P3_PREVIEW_SERVICE_HTTP` | `IMPLEMENTED_ACCEPTED` |
+| `CONTROLLER_ACCEPTANCE` | `YES` |
+| `CONTROLLER_VERDICT` | `ACCEPT_P3` |
 | `MAX_PREVIEW_ISSUES` | `2000` |
-| `P4_COMMIT` | `NOT_STARTED` |
-| `CONTROLLER_VERDICT_P3` | `PENDING` |
+| `P4_COMMIT_STATUS` | `NOT_STARTED` |
+| `CREATE_FROM_XLSX_STATUS` | `NOT_STARTED` |
+| `CARRIER_XLSX_STATUS` | `NOT_STARTED` |
+| `ERP_API_STATUS` | `NOT_STARTED` |
+| `FRONTEND_PHASE2_STATUS` | `NOT_STARTED` |
+| `TRAINING_STATUS` | `NOT_STARTED` |
+| `BROWSER_ACCEPTANCE_STATUS` | `NOT_STARTED` |
+| `STAGING_STATUS` | `NOT_STARTED` |
+| `PILOT_STATUS` | `NOT_STARTED` |
 | `WORKBOOK_SCHEMA` | `BINTRANS_RFX_BUYER_XLSX_V1` |
-| `MAX_MIGRATION` | `000073` |
-| `MIGRATION_000074_ALLOWED` | `NO` |
+| `MAX_MIGRATION_CONTRACT` | `000073` |
+| `MIGRATION_000074_CREATED` | `NO` |
 
 ---
 
@@ -29,13 +43,14 @@
 |---|---|
 | Export V1 merged | PR #123 → `a6b66bea51579d689e98188e31446e436524927d` |
 | Docs closeout merged | PR #124 → `e8a7fb582328d452d1f800915b0015fa0d31d6d7` |
+| Import Preview P2/P2.1/P3 merged | PR #125 → `b2df9ac20ae9bf9dbbb48f5e78199766643ad2ef` (head `db5bb9ef`, CI `34719259509`) |
 | Migration 000073 | Present on `main` |
 | Migration 000074 | Absent / not authorized |
-| Buyer XLSX import routes/handlers | **Not implemented** on `main` |
-| `rfx_import_analyses` repository | Foundation only — **no service callers** |
+| Buyer XLSX import preview route/handler | **Implemented** on `main` (`POST …/xlsx-import/preview`) |
+| `rfx_import_analyses` repository | **Active** — preview service persists valid analyses |
 | Controller decision | `NORMALIZED_PREVIEW_PERSISTENCE=YES` (Phase 2 doc §1) |
 | Controller decision | `XLSX_BINARY_PERSISTENCE=NO` |
-| Controller decision | `XLSX_MULTIPART_DIRECT_TO_RFX=YES` (authorized, not implemented) |
+| Controller decision | `XLSX_MULTIPART_DIRECT_TO_RFX=YES` (implemented P3) |
 
 ---
 
@@ -49,17 +64,17 @@
 | ZIP security | `services/rfx-service/internal/xlsxsecurity/inspect.go` | **Implemented** |
 | Export service | `services/rfx-service/internal/service/excel_exchange_service.go` | **Implemented** (read-only GET) |
 | Export handler | `services/rfx-service/internal/http/handlers/excel_exchange_handler.go` | **Implemented** |
-| Route manifest | `packages/shared-go/rfx/e7_excel_exchange_routes.go` | Export route only |
+| Route manifest | `packages/shared-go/rfx/e7_excel_exchange_routes.go` | Export + preview routes |
 | Import analysis domain | `services/rfx-service/internal/domain/excel_exchange.go` | **Foundation** |
 | Import analysis repo | `services/rfx-service/internal/repository/import_analysis_repository.go` | `CreatePreview`, `GetByID`, `MarkConsumed` |
 | External object links | `services/rfx-service/internal/repository/external_object_link_repository.go` | Foundation (ERP, not import) |
 | E2 version compare | `services/rfx-service/internal/domain/version_compare.go` | Questionnaire graph only — **no Lots** |
 | Graph mutation APIs | `RfxService` section/question/option/rule CRUD + reorder | **Implemented** |
 | Create event | `RfxService.CreateEvent`, `POST /from-template` | **Implemented** |
-| Multipart upload in rfx-service | — | **None** |
+| Multipart upload in rfx-service | `handlers/buyer_xlsx_multipart.go` | **Implemented** (preview) |
 | Gateway body limit middleware | `services/api-gateway/internal/http/middleware/bodylimit.go` | Pattern exists (`MaxBytesReader`) |
 | Low-code import preview (reference) | `services/low-code-service/.../admin_form_template_service.go` | Separate domain; records preview audit |
-| Integration tests | E7P2-INT-01..20 | Export + migration foundation |
+| Integration tests | E7P2-INT-01..42 + EXTRA | Export + preview + migration foundation |
 
 ---
 
@@ -816,7 +831,7 @@ NEXT_ACTION=CONTROLLER_REVIEW_BUYER_XLSX_IMPORT_P2
 
 | Marker | Value |
 |---|---|
-| `P2_1_HARDENING` | `IMPLEMENTED_PENDING_CONTROLLER_REVIEW` |
+| `P2_1_HARDENING` | `IMPLEMENTED_ACCEPTED` |
 | `MAX_PREVIEW_ISSUES` | `2000` |
 | `TRUNCATION_ISSUE_CODE` | `ISSUE_LIMIT_REACHED` |
 | `TRUNCATION_SEMANTICS` | Up to 1999 regular issues; slot 2000 is deterministic synthetic ERROR with `limit=2000` |
@@ -871,14 +886,14 @@ go test -race ./internal/xlsxexchange/... → NOT_RUN (CGO_ENABLED=0)
 
 Coverage highlights: deterministic issue cap (`ISSUE_LIMIT_REACHED`), fixed production limits, internal-only workbook opener, context cancellation in long loops, full Export→Parse semantic round-trip, multi-node rule cycle, hash sensitivity matrix, security-before-Excelize, seven-sheet contract, metadata trust, I18N mismatch warning, E2 questionnaire diff reuse, separate lots diff, canonical hash determinism, forbidden-import source scan, external defined-name rejection.
 
-### P3 preview service + HTTP (implemented, remediation applied)
+### P3 preview service + HTTP (implemented, accepted)
 
 | Marker | Value |
 |---|---|
-| `P3_PREVIEW_SERVICE_HTTP` | `IMPLEMENTED_PENDING_CONTROLLER_REVIEW` |
+| `P3_PREVIEW_SERVICE_HTTP` | `IMPLEMENTED_ACCEPTED` |
 | `P2_PARSER_VALIDATOR` | `IMPLEMENTED_ACCEPTED` |
 | `P2_1_HARDENING` | `IMPLEMENTED_ACCEPTED` |
-| `P4_COMMIT` | `NOT_STARTED` |
+| `P4_COMMIT_STATUS` | `NOT_STARTED` |
 | `PREVIEW_MODEL` | `OPTION_A` (persist analysis only when `ready_to_commit=true`) |
 | `HTTP_ROUTE` | `POST /api/v1/rfx-events/{id}/xlsx-import/preview` |
 | `SERVICE_ROUTE` | `POST /v1/rfx-events/{id}/xlsx-import/preview` |
@@ -896,8 +911,8 @@ Coverage highlights: deterministic issue cap (`ISSUE_LIMIT_REACHED`), fixed prod
 | `PREVIEW_AUDIT_WRITES` | `NO` |
 | `PREVIEW_IDEMPOTENCY_WRITES` | `NO` |
 | `BINARY_XLSX_PERSISTED` | `NO` |
-| Integration tests | `E7P2-INT-21..INT-42` aligned to §16.2 |
-| `LOCAL_POSTGRES_INTEGRATION` | `NOT_RUN` unless `TEST_DATABASE_URL` set |
+| Integration tests | `E7P2-INT-21..INT-42` aligned to §16.2 — **PASS** on CI `34719259509` |
+| `POSTGRES16_INTEGRATION` | `PASS` (CI `rfx-excel-exchange-v3-integration`) |
 
 Stale baseline semantics (Preview): workbook metadata row versions are informational only; mismatches emit `metadata_mismatch` warnings while response/canonical hash bind current server baseline. P4 Commit must re-validate row versions and return `409 stale_target` when advanced.
 
@@ -905,6 +920,95 @@ Stale baseline semantics (Preview): workbook metadata row versions are informati
 
 | Item | Status |
 |---|---|
-| Commit / apply analysis to DRAFT | `NOT_STARTED` |
+| Commit / apply analysis to DRAFT (P4) | `NOT_STARTED` |
 | CREATE FROM XLSX | `NOT_STARTED` |
 | Carrier XLSX | `NOT_STARTED` |
+| ERP API | `NOT_STARTED` |
+| Frontend Phase 2 | `NOT_STARTED` |
+| Training (RU/EN/ZH) | `NOT_STARTED` |
+| Browser acceptance | `NOT_STARTED` |
+| Staging / pilot | `NOT_STARTED` |
+
+Preview analyzes **UPDATE_EXISTING_DRAFT** only; it does **not** apply changes. Each valid preview creates a new immutable analysis row (new analysis ID). Binary XLSX is not stored. Analysis rows will be consumed by future P4 Commit. Overall E7 Phase 2 and v3.0E remain **IMPLEMENTATION_IN_PROGRESS**.
+
+---
+
+## 22. Post-merge acceptance record (PR #125)
+
+**Closeout branch:** `docs/rfx-buyer-xlsx-import-preview-p3-post-merge-closeout`
+
+| Marker | Value |
+|---|---|
+| `PR125_MERGED` | YES |
+| `PR125_HEAD` | `db5bb9ef5e2abc527af2f6f50cc2ea5b1497d754` |
+| `PR125_MERGE_SHA` | `b2df9ac20ae9bf9dbbb48f5e78199766643ad2ef` |
+| `PR125_MERGED_AT` | `2026-09-13T10:11:28Z` |
+| `PR125_CI_RUN_ID` | `34719259509` |
+| `PR125_CI_CONCLUSION` | `success` |
+| `PR125_CI_EXACT_HEAD` | YES |
+
+### Accepted properties (confirmed on `main`)
+
+| Property | Status |
+|---|---|
+| Schema `BINTRANS_RFX_BUYER_XLSX_V1` | YES |
+| UPDATE_EXISTING_DRAFT only | YES |
+| Seven mandatory sheets | YES |
+| Security inspection before Excelize | YES |
+| Fixed production limits | YES |
+| Max 2000 issues (`ISSUE_LIMIT_REACHED`) | YES |
+| Deterministic canonical hash (JSONB-stable) | YES |
+| Valid preview → one immutable analysis row | YES |
+| Invalid preview → no analysis row | YES |
+| TTL exactly 24 hours | YES |
+| Tenant / event / version / actor binding | YES |
+| Binary XLSX not persisted | YES |
+| Preview does not mutate event/version/graph/lots | YES |
+| Preview does not create audit/idempotency records | YES |
+| BuyerManage required | YES |
+| BuyerRead and Carrier denied | YES |
+| Competitor data not disclosed | YES |
+| OpenAPI + route manifest parity | YES |
+| PR #126 date-independent late-submission fixture in final CI | YES |
+| Exact-head CI green | YES |
+
+### Test matrix evidence (separate proofs)
+
+| ID / test | Purpose | Result |
+|---|---|---|
+| E7P2-INT-21..42 | Normative matrix (§16.2) | PASS |
+| **E7P2-INT-37** | Feature-disabled HTTP 404 + no writes (`TestE7P2INT37FeatureDisabled404NoWrites`) | PASS |
+| `TestPreviewImportAnalysisTransactionRollbackExtra` | PostgreSQL rollback + tx cleanup (EXTRA, outside matrix IDs) | PASS |
+| `PACKAGE_TIMEOUT` | — | NO |
+
+### CI remediation history (retained)
+
+| Run | Head | Result | Notes |
+|---|---|---|---|
+| 34714552019 | `831735c8` | failure | Rollback test hash mismatch blocked package |
+| 34718000139 | `dd9d546e` | failure | INT-41 competitor masked by header mismatch |
+| 34718562022 | `8b3154a2` | failure | INT-23 JSONB round-trip hash mismatch |
+| **34719259509** | **`db5bb9ef`** | **success** | Exact-head green; 50/50 checks |
+
+```
+CONTROLLER_ACCEPTANCE=YES
+CONTROLLER_VERDICT=ACCEPT_P3
+BUYER_XLSX_IMPORT_PREVIEW_STATUS=IMPLEMENTED_ACCEPTED
+BUYER_XLSX_IMPORT_P2_STATUS=IMPLEMENTED_ACCEPTED
+BUYER_XLSX_IMPORT_P2_1_STATUS=IMPLEMENTED_ACCEPTED
+BUYER_XLSX_IMPORT_P3_STATUS=IMPLEMENTED_ACCEPTED
+PR125_MERGED=YES
+PR125_HEAD=db5bb9ef5e2abc527af2f6f50cc2ea5b1497d754
+PR125_MERGE_SHA=b2df9ac20ae9bf9dbbb48f5e78199766643ad2ef
+PR125_CI_RUN_ID=34719259509
+PR125_CI_CONCLUSION=success
+E7P2_INT_21_42=PASS
+E7P2_INT_37=FEATURE_DISABLED_HTTP_404_PASS
+POSTGRES_ROLLBACK_TEST=TestPreviewImportAnalysisTransactionRollbackExtra_PASS
+POSTGRES16_INTEGRATION=PASS
+PACKAGE_TIMEOUT=NO
+MAX_MIGRATION_CONTRACT=000073
+MIGRATION_000074_CREATED=NO
+P4_COMMIT_STATUS=NOT_STARTED
+NEXT_ACTION=CONTROLLER_REVIEW_BUYER_XLSX_IMPORT_PREVIEW_P3_DOCS_CLOSEOUT
+```
