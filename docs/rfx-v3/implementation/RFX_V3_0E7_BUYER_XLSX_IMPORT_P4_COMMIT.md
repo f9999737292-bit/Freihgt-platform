@@ -1,26 +1,37 @@
-# RFx v3.0E7 — Buyer XLSX Import P4 Commit Discovery
+# RFx v3.0E7 — Buyer XLSX Import P4 Commit
 
-**Status:** `ARCHITECTURE_FROZEN_ACCEPTED`
+**Status:** `IMPLEMENTED_ACCEPTED`
 
-**Base:** `origin/main` @ `06615a92530c4812a36c3a13c4e5af7cbd242ac4`
+**Base:** `origin/main` @ `0756c3fc5fb0a24f095859abb9008a447fa2dfe2` (post PR #129 merge)
+**Architecture freeze:** PR #128 → `3119b0bb6bd697b324b5a3234a5fdaa9eaa22035`
 **Discovery branch:** `discovery/rfx-buyer-xlsx-import-p4-commit-v3.0e7-phase2`
+**Implementation branch:** `feat/rfx-buyer-xlsx-import-p4-commit-v3.0e7-phase2`
 
 | Marker | Value |
 |---|---|
-| `STATUS` | `ARCHITECTURE_FROZEN_ACCEPTED` |
-| `CONTROLLER_VERDICT` | `GO` |
-| `CONTROLLER_DECISION_REQUIRED` | `NO` |
+| `STATUS` | `IMPLEMENTED_ACCEPTED` |
+| `P4_ARCHITECTURE_STATUS` | `IMPLEMENTED_ACCEPTED` |
+| `P4_IMPLEMENTATION_STATUS` | `IMPLEMENTED_ACCEPTED` |
+| `CONTROLLER_ACCEPTANCE` | `YES` |
+| `CONTROLLER_VERDICT` | `ACCEPT_P4` |
+| `BUYER_XLSX_IMPORT_P4_STATUS` | `IMPLEMENTED_ACCEPTED` |
+| `BUYER_XLSX_IMPORT_V1_UPDATE_DRAFT_STATUS` | `IMPLEMENTED_ACCEPTED` |
 | `P4_IMPLEMENTATION_AUTHORIZED` | `YES` |
-| `P4_IMPLEMENTATION_STARTED` | `NO` |
-| `P4_PRODUCT_CODE_CHANGED` | `NO` |
-| `P4_TEST_CODE_CHANGED` | `NO` |
-| `P4_OPENAPI_CHANGED` | `NO` |
-| `P4_CI_CHANGED` | `NO` |
+| `P4_PRODUCT_CODE_CHANGED` | `YES` (PR #129) |
+| `P4_TEST_CODE_CHANGED` | `YES` (PR #129) |
+| `P4_OPENAPI_CHANGED` | `YES` (PR #129) |
 | `MIGRATION_000074_CREATED` | `NO` |
 | `MAX_MIGRATION_CONTRACT` | `000073` |
 | `MIGRATION_000073_SUFFICIENT` | `YES` |
 | `MIGRATION_000074_REQUIRED` | `NO` |
-| `NEXT_ACTION` | `PUBLISH_P4_ARCHITECTURE_DRAFT_PR` |
+| `PR129_STATE` | `MERGED` |
+| `PR129_HEAD` | `43924472c091a5e0e4845c92fac31c4b374ee391` |
+| `PR129_BASE` | `3119b0bb6bd697b324b5a3234a5fdaa9eaa22035` |
+| `PR129_MERGE_SHA` | `0756c3fc5fb0a24f095859abb9008a447fa2dfe2` |
+| `PR129_MERGED_AT` | `2026-09-13T18:36:00Z` |
+| `PR129_CI_RUN_ID` | `34773513465` |
+| `PR129_CI_ATTEMPT` | `2` |
+| `PR129_CI_CONCLUSION` | `success` |
 
 ---
 
@@ -69,9 +80,9 @@ COMPETITOR_CONFIDENTIALITY=REQUIRED
 | Docs closeout merged | PR #127 → `06615a92530c4812a36c3a13c4e5af7cbd242ac4` (head `8acdd6b0`, CI `34752643889`) |
 | Migration 000073 | Present — `infrastructure/migrations/000073_rfx_excel_erp_exchange_v3_0e7_phase2.{up,down}.sql` |
 | Migration 000074 | Absent / not authorized |
-| P4 status in roadmap/docs | `NOT_STARTED` |
+| P4 implementation merged | PR #129 → `0756c3fc5fb0a24f095859abb9008a447fa2dfe2` (head `43924472`, CI `34773513465` attempt 2) |
 | Preview route | `POST /v1/rfx-events/{id}/xlsx-import/preview` — `packages/shared-go/rfx/e7_excel_exchange_routes.go` |
-| Commit route | **Not implemented** |
+| Commit route | **Implemented** — `POST /v1/rfx-events/{id}/xlsx-import/commit` (`post_commit_buyer_draft_rfx_event_xlsx_import`) |
 
 ---
 
@@ -548,32 +559,32 @@ Guard: `TestE7P2CommitMatrixIDsCompleteAndUnique` — IDs 43..70 inclusive, no g
 
 ---
 
-## 18. Blockers
+## 18. Blockers (historical — resolved at implementation)
 
-| ID | Severity | Description | Blocks architecture? |
+| ID | Severity | Description | Resolution |
 |---|---|---|---|
-| P4-IMPL-01 | Implementation | Missing lot update/soft-delete repository methods | NO — add in P4 code without migration |
-| P4-IMPL-02 | Implementation | Missing `LockImportAnalysisForUpdate` repository method | NO — SQL only |
-| P4-IMPL-03 | Implementation | Missing atomic commit orchestration service | NO — new service layer |
-| P4-IMPL-04 | Implementation | Lot-only stale detection needs fingerprint compare | NO — app logic |
+| P4-IMPL-01 | Implementation | Missing lot update/soft-delete repository methods | **CLOSED** — `excel_exchange_reconcile.go`, `rfx_repository.go` (PR #129) |
+| P4-IMPL-02 | Implementation | Missing `LockImportAnalysisForUpdate` repository method | **CLOSED** — `import_analysis_repository.go` (PR #129) |
+| P4-IMPL-03 | Implementation | Missing atomic commit orchestration service | **CLOSED** — `excel_exchange_commit.go` (PR #129) |
+| P4-IMPL-04 | Implementation | Lot-only stale detection needs fingerprint compare | **CLOSED** — `buyer_lots_fingerprint.go` + tests (PR #129) |
 
-**No migration schema blocker identified.** Architecture freeze may proceed pending controller decision.
+**No migration schema blocker.** All four implementation gates accepted.
 
-`IMPLEMENTATION_BLOCKERS=P4-IMPL-01,P4-IMPL-02,P4-IMPL-03,P4-IMPL-04`
+`IMPLEMENTATION_BLOCKERS=NONE (historical: P4-IMPL-01..04 resolved)`
 
 ---
 
-## 19. Implementation sequence (post-approval)
+## 19. Implementation sequence (completed PR #129)
 
-1. Repository: `LockImportAnalysisForUpdate`, lot update/delete by `lot_number`.
-2. Domain: commit input validation, operation constants, error codes.
-3. Service: `CommitBuyerXlsxImport` orchestration (tx + locks + apply + audit + consume + idempotency).
-4. HTTP handler + router + gateway route manifest entry.
-5. OpenAPI contract + generator.
-6. Integration tests INT-43..70 + extras.
-7. CI job extension (`rfx-excel-exchange-v3-integration`).
+1. Repository: `LockImportAnalysisForUpdate`, lot update/delete by `lot_number`. **DONE**
+2. Domain: commit input validation, operation constants, error codes. **DONE**
+3. Service: `CommitBuyerImportAnalysis` orchestration (tx + locks + apply + audit + consume + idempotency). **DONE**
+4. HTTP handler + router + gateway route manifest entry. **DONE**
+5. OpenAPI contract + generator source (`xlsx_import_commit_buyer_draft`). **DONE**
+6. Integration tests INT-43..70 + lock/phantom/rollback extras. **DONE**
+7. CI job `rfx-excel-exchange-v3-integration` — E7P2-INT-43..70 PASS (run `34773513465` attempt 2). **DONE**
 
-P3 Preview code remains unchanged.
+P3 Preview code unchanged except shared fingerprint binding helpers.
 
 ---
 
@@ -582,10 +593,10 @@ P3 Preview code remains unchanged.
 Mandatory implementation conditions (not migration blockers):
 
 ```
-P4_IMPL_01_LOT_RECONCILIATION=REQUIRED
-P4_IMPL_02_ANALYSIS_FOR_UPDATE_LOCK=REQUIRED
-P4_IMPL_03_ATOMIC_ORCHESTRATION=REQUIRED
-P4_IMPL_04_BASELINE_LOT_FINGERPRINT=REQUIRED
+P4_IMPL_01_LOT_RECONCILIATION=IMPLEMENTED_ACCEPTED
+P4_IMPL_02_ANALYSIS_FOR_UPDATE_LOCK=IMPLEMENTED_ACCEPTED
+P4_IMPL_03_ATOMIC_ORCHESTRATION=IMPLEMENTED_ACCEPTED
+P4_IMPL_04_BASELINE_LOT_FINGERPRINT=IMPLEMENTED_ACCEPTED
 
 P4_ENTRY_GATE_BASELINE_LOT_FINGERPRINT=MANDATORY
 P4_ENTRY_GATE_HASH_REVERIFICATION=MANDATORY
@@ -606,7 +617,7 @@ P4_ENTRY_GATE_SINGLE_TRANSACTION=MANDATORY
 | Expiry after lock | `now >= expires_at` → 409 before mutation/consume |
 | Single transaction | Graph, lots, audit, consume, idempotency store — one tx |
 
-`P4_IMPLEMENTATION_AUTHORIZED=YES` grants **technical authorization only** after formal docs PR closeout. Product implementation has **not** started.
+`P4_IMPLEMENTATION_AUTHORIZED=YES` was granted at architecture freeze (PR #128). Product implementation **completed and accepted** via PR #129.
 
 ---
 
@@ -651,16 +662,13 @@ NEXT_TEST_RANGE=E7P2-INT-43..70
 ## 22. Final markers
 
 ```
-STATUS=ARCHITECTURE_FROZEN_ACCEPTED
-CONTROLLER_VERDICT=GO
-CONTROLLER_DECISION_REQUIRED=NO
-P4_IMPLEMENTATION_AUTHORIZED=YES
-P4_IMPLEMENTATION_STARTED=NO
-P4_PRODUCT_CODE_CHANGED=NO
-P4_TEST_CODE_CHANGED=NO
-P4_OPENAPI_CHANGED=NO
-P4_CI_CHANGED=NO
-MIGRATION_000074_CREATED=NO
+STATUS=IMPLEMENTED_ACCEPTED
+P4_ARCHITECTURE_STATUS=IMPLEMENTED_ACCEPTED
+P4_IMPLEMENTATION_STATUS=IMPLEMENTED_ACCEPTED
+CONTROLLER_ACCEPTANCE=YES
+CONTROLLER_VERDICT=ACCEPT_P4
+BUYER_XLSX_IMPORT_P4_STATUS=IMPLEMENTED_ACCEPTED
+BUYER_XLSX_IMPORT_V1_UPDATE_DRAFT_STATUS=IMPLEMENTED_ACCEPTED
 
 UPDATE_EXISTING_DRAFT_ONLY=YES
 CLIENT_SENDS_ANALYSIS_ID_ONLY=YES
@@ -668,40 +676,84 @@ IDEMPOTENCY_KEY_REQUIRED=YES
 BINARY_XLSX_REUSED=NO
 BINARY_XLSX_REQUIRED_FOR_COMMIT=NO
 STORED_PROPOSAL_HASH_REVERIFIED=YES
-STORED_PROPOSAL_COMPLETE=YES
-STORED_HASH_REVERIFIABLE=YES
-SERVER_BASELINE_RECHECK_REQUIRED=YES
-STALE_ANALYSIS_HTTP=409
-EXPIRED_ANALYSIS_HTTP=409
-CONSUMED_ANALYSIS_HTTP=409_OR_IDEMPOTENT_REPLAY
-SUCCESS_HTTP=200
-
-ATOMIC_GRAPH_LOTS_APPLY=REQUIRED
-ANALYSIS_CONSUME_ATOMIC=REQUIRED
-AUDIT_ATOMIC=REQUIRED
-IDEMPOTENCY_ATOMIC=REQUIRED
-ATOMIC_GRAPH_LOTS_CONSUME_AUDIT_IDEMPOTENCY=REQUIRED
-PUBLISHED_VERSIONS_IMMUTABLE=REQUIRED
-COMPETITOR_CONFIDENTIALITY=REQUIRED
-
-P4_IMPL_01_LOT_RECONCILIATION=REQUIRED
-P4_IMPL_02_ANALYSIS_FOR_UPDATE_LOCK=REQUIRED
-P4_IMPL_03_ATOMIC_ORCHESTRATION=REQUIRED
-P4_IMPL_04_BASELINE_LOT_FINGERPRINT=REQUIRED
-P4_ENTRY_GATE_BASELINE_LOT_FINGERPRINT=MANDATORY
-BASELINE_LOT_FINGERPRINT_MANDATORY=YES
-PROPOSED_LOTS_HASH_DISTINCT=YES
-
+FEATURE_FLAG_DEFAULT_OFF=YES
+BUYER_MANAGE_REQUIRED=YES
+TENANT_COMPANY_ACTOR_EVENT_VERSION_BINDING=YES
+ANALYSIS_TTL_24H=YES
+SINGLE_USE_CONSUME=YES
+SAME_KEY_REPLAY=YES
+STALE_BASELINE_AND_LOT_FINGERPRINT=YES
 ABA_POLICY=CONTENT_EQUIVALENT_STATE_ACCEPTED_V1
-STRICT_ABA_REJECTION=DEFERRED
-CONTENT_EQUIVALENT_REPLAY_ACCEPTED=YES
-
-IDEMPOTENCY_REPLAY_CONTRACT=FROZEN
-EXPIRY_AFTER_LOCK=REQUIRED
-
+ATOMIC_GRAPH_LOTS_CONSUME_AUDIT_IDEMPOTENCY=PASS
+PHANTOM_LOT_EVENT_BARRIER=PASS
+UNRESOLVED_RULE_TARGETS_FAIL_CLOSED=YES
 MIGRATION_000073_SUFFICIENT=YES
-MIGRATION_000074_REQUIRED=NO
-IMPLEMENTATION_BLOCKERS=P4-IMPL-01,P4-IMPL-02,P4-IMPL-03,P4-IMPL-04
-NEXT_TEST_RANGE=E7P2-INT-43..70
-NEXT_ACTION=PUBLISH_P4_ARCHITECTURE_DRAFT_PR
+MIGRATION_000074_CREATED=NO
+
+P4_IMPL_01_LOT_RECONCILIATION=IMPLEMENTED_ACCEPTED
+P4_IMPL_02_ANALYSIS_FOR_UPDATE_LOCK=IMPLEMENTED_ACCEPTED
+P4_IMPL_03_ATOMIC_ORCHESTRATION=IMPLEMENTED_ACCEPTED
+P4_IMPL_04_BASELINE_LOT_FINGERPRINT=IMPLEMENTED_ACCEPTED
+
+E7P2_INT_43_70=PASS
+POSTGRES_ROLLBACK_TESTS=PASS
+LOCK_SERIALIZATION_TESTS=PASS
+PHANTOM_LOT_TESTS=PASS
+INT_61_62=PASS
+PREVIEW_EXPORT_REGRESSION_INT_06_42=PASS
+SCORING_ATTEMPT_1=BASELINE_FLAKE_CONFIRMED
+SCORING_ATTEMPT_2=PASS
+```
+
+---
+
+## 23. Implementation acceptance record (PR #129)
+
+### Accepted properties
+
+| Property | Status |
+|---|---|
+| Update Existing DRAFT only | **YES** |
+| Commit from stored canonical proposal (no XLSX re-parse) | **YES** |
+| Mandatory `Idempotency-Key` | **YES** |
+| BuyerManage RBAC | **YES** |
+| Feature flag default OFF (`RFX_EXCEL_EXCHANGE_ENABLED=false`) | **YES** |
+| Tenant / company / actor / event / version binding | **YES** |
+| 24-hour analysis TTL + single-use consume | **YES** |
+| Same-key idempotent replay | **YES** |
+| Stale baseline + lot fingerprint rejection | **YES** |
+| Content-equivalent ABA v1 | **YES** |
+| Atomic graph + lots + audit + consume + idempotency | **YES** |
+| Phantom-lot event barrier | **YES** |
+| Canonical hash re-verification at commit | **YES** |
+| Unresolved rule targets fail closed | **YES** |
+| Migration 000073 sufficient; 000074 absent | **YES** |
+
+### Logical commits (PR #129)
+
+| # | SHA | Message |
+|---|-----|---------|
+| 1 | `01c9c588` | `chore(openapi): add buyer XLSX import commit to generator source` |
+| 2 | `43924472` | `feat(rfx): implement buyer XLSX import commit (P4 INT-43..70)` |
+
+### CI evidence
+
+| Run | Head | Attempt | Result | Notes |
+|---|---|---|---|---|
+| 34773513465 | `43924472` | 1 | failure | `rfx-scoring-v3-browser-e2e` Playwright timeout — **BASELINE_FLAKE_CONFIRMED** (no P4 diff causality) |
+| **34773513465** | **`43924472`** | **2** | **success** | Single `rerun --failed`; 50/50 checks; E7P2-INT-43..70 PASS |
+
+```
+PR129_STATE=MERGED
+PR129_HEAD=43924472c091a5e0e4845c92fac31c4b374ee391
+PR129_BASE=3119b0bb6bd697b324b5a3234a5fdaa9eaa22035
+PR129_MERGE_SHA=0756c3fc5fb0a24f095859abb9008a447fa2dfe2
+PR129_MERGED_AT=2026-09-13T18:36:00Z
+PR129_CI_RUN_ID=34773513465
+PR129_CI_ATTEMPT=2
+PR129_CI_CONCLUSION=success
+CONTROLLER_ACCEPTANCE=YES
+CONTROLLER_VERDICT=ACCEPT_P4
+BUYER_XLSX_IMPORT_P4_STATUS=IMPLEMENTED_ACCEPTED
+NEXT_ACTION=POST_MERGE_DOCS_CLOSEOUT_BUYER_XLSX_IMPORT_P4_COMPLETE
 ```
