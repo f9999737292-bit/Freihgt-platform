@@ -6145,6 +6145,96 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/v1/rfx-events/{id}/xlsx-import/commit:
+    post:
+      tags: [RFx]
+      summary: Commit buyer draft RFx event XLSX import
+      operationId: post_commit_buyer_draft_rfx_event_xlsx_import
+      description: |
+        Atomically apply a persisted buyer XLSX import preview analysis to the active DRAFT.
+
+        Feature flag: when `RFX_EXCEL_EXCHANGE_ENABLED` is false (default), the route returns **404** (feature disabled).
+
+        Authorization: **BuyerManage** role required; only the preview creator actor may commit.
+
+        Requires `Idempotency-Key` header. Request body contains only `analysis_id`.
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Client-supplied idempotency key for buyer XLSX import commit (max 128 chars).
+          schema:
+            type: string
+            maxLength: 128
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RfxBuyerXlsxImportCommitRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Import analysis committed to active draft
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RfxBuyerXlsxImportCommitResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Stored proposal failed revalidation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/v1/rfx-events/{id}/carrier-response/submit:
     post:
       tags: [RFx]
@@ -15958,6 +16048,55 @@ components:
           maxItems: 2000
           items:
             $ref: '#/components/schemas/RfxBuyerXlsxImportPreviewIssue'
+    RfxBuyerXlsxImportCommitRequest:
+      type: object
+      required: [analysis_id]
+      properties:
+        analysis_id:
+          type: string
+          format: uuid
+    RfxBuyerXlsxImportEntityChangeCounts:
+      type: object
+      properties:
+        added:
+          type: integer
+        updated:
+          type: integer
+        deleted:
+          type: integer
+    RfxBuyerXlsxImportCommitResponse:
+      type: object
+      required: [event_id, draft_version_id, analysis_id, event_version, draft_version, committed_at, changes]
+      properties:
+        event_id:
+          type: string
+          format: uuid
+        draft_version_id:
+          type: string
+          format: uuid
+        analysis_id:
+          type: string
+          format: uuid
+        event_version:
+          type: integer
+        draft_version:
+          type: integer
+        committed_at:
+          type: string
+          format: date-time
+        changes:
+          type: object
+          properties:
+            lots:
+              $ref: '#/components/schemas/RfxBuyerXlsxImportEntityChangeCounts'
+            sections:
+              $ref: '#/components/schemas/RfxBuyerXlsxImportEntityChangeCounts'
+            questions:
+              $ref: '#/components/schemas/RfxBuyerXlsxImportEntityChangeCounts'
+            options:
+              $ref: '#/components/schemas/RfxBuyerXlsxImportEntityChangeCounts'
+            rules:
+              $ref: '#/components/schemas/RfxBuyerXlsxImportEntityChangeCounts'
     HealthResponse:
       type: object
       properties:

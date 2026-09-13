@@ -70,7 +70,7 @@ func main() {
 	lateSvc := service.NewLateSubmissionService(db.Pool, lateRepo, rfxRepo, idemRepo, auditRepo, rfxSvc)
 	importAnalysisRepo := repository.NewImportAnalysisRepository(db.Pool)
 	txRunner := repository.NewTransactionRunner(db.Pool)
-	excelExchangeSvc := service.NewExcelExchangeService(rfxRepo, qRepo, rfxSvc, importAnalysisRepo, txRunner)
+	excelExchangeSvc := service.NewExcelExchangeService(rfxRepo, qRepo, rfxSvc, importAnalysisRepo, idemRepo, auditRepo, txRunner)
 	crSvc := service.NewCarrierResponseServiceWithLateSubmission(db.Pool, rfxRepo, answerRepo, qRepo, auditRepo, membershipRepo, rfxSvc, scoringSvc, lateSvc, idemRepo)
 	scoreModelSvc := service.NewScoreModelService(rfxRepo, scoreRepo, qRepo, auditRepo, membershipRepo, rfxSvc)
 	frSvc := service.NewFreightRequestServiceWithAuth(frRepo, membershipRepo)

@@ -26,6 +26,17 @@ const (
 	ImportTargetTypeDraftEvent      = "DRAFT_EVENT"
 	ImportTargetTypeCarrierResponse = "CARRIER_RESPONSE"
 
+	BuyerXlsxImportCommitOperation = "BUYER_XLSX_IMPORT_COMMIT"
+
+	MachineCodeAnalysisExpired         = "analysis_expired"
+	MachineCodeAnalysisAlreadyConsumed = "analysis_already_consumed"
+	MachineCodeStaleTarget             = "stale_target"
+	MachineCodeAnalysisNotFound        = "analysis_not_found"
+	MachineCodeProposalRevalidation    = "proposal_revalidation_failed"
+	MachineCodeCanonicalHashMismatch   = "canonical_hash_mismatch"
+	MachineCodeActorBindingDenied      = "actor_binding_denied"
+	MachineCodeIdempotencyConflict     = "idempotency_conflict"
+
 	CreationChannelManual   = "MANUAL"
 	CreationChannelTemplate = "TEMPLATE"
 	CreationChannelExcel    = "EXCEL"
@@ -51,6 +62,26 @@ type ImportAnalysis struct {
 	ResultReferenceType  *string
 	ResultReferenceID    *uuid.UUID
 	CreatedAt            time.Time
+}
+
+type BuyerImportCommitInput struct {
+	AnalysisID uuid.UUID `json:"analysis_id"`
+}
+
+// BuyerImportCommitIdempotencyPayload is the canonical request fingerprint for commit replay.
+type BuyerImportCommitIdempotencyPayload struct {
+	AnalysisID uuid.UUID `json:"analysis_id"`
+}
+
+func NewBuyerImportCommitIdempotencyPayload(analysisID uuid.UUID) BuyerImportCommitIdempotencyPayload {
+	return BuyerImportCommitIdempotencyPayload{AnalysisID: analysisID}
+}
+
+func ValidateBuyerImportCommitInput(in BuyerImportCommitInput) error {
+	if in.AnalysisID == uuid.Nil {
+		return apperrors.Validation("analysis_id is required", map[string]any{"field": "analysis_id"})
+	}
+	return nil
 }
 
 type ExternalObjectLink struct {

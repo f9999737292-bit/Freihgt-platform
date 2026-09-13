@@ -1,8 +1,11 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 
+	"github.com/freight-platform/rfx-service/internal/domain"
+	apperrors "github.com/freight-platform/rfx-service/internal/platform/errors"
 	"github.com/freight-platform/rfx-service/internal/platform/respond"
 	"github.com/freight-platform/rfx-service/internal/service"
 	"github.com/freight-platform/rfx-service/internal/xlsxexchange"
@@ -64,4 +67,26 @@ func (h *ExcelExchangeHandler) PreviewBuyerImportXLSX(w http.ResponseWriter, r *
 	default:
 		respond.JSON(w, http.StatusOK, preview)
 	}
+}
+
+func (h *ExcelExchangeHandler) CommitBuyerImportXLSX(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireActor(w, r)
+	if !ok {
+		return
+	}
+	eventID, ok := parseEventID(w, r)
+	if !ok {
+		return
+	}
+	var body domain.BuyerImportCommitInput
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		respond.Error(w, apperrors.Validation("invalid request body", map[string]any{"field": "body"}))
+		return
+	}
+	result, err := h.service.CommitBuyerImportAnalysis(r.Context(), actor, eventID, body, r.Header.Get("Idempotency-Key"))
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusOK, result)
 }

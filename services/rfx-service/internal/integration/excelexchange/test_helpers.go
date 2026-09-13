@@ -139,7 +139,7 @@ func setupTestEnv(t *testing.T) *testEnv {
 	rfxSvc := service.NewRfxServiceWithAtomic(pool, rfxRepo, auditRepo, membershipRepo, newAwardConversionStub(pool))
 	qSvc := service.NewQuestionnaireService(rfxRepo, qRepo, auditRepo, membershipRepo)
 	txRunner := repository.NewTransactionRunner(pool)
-	excelExchangeSvc := service.NewExcelExchangeService(rfxRepo, qRepo, rfxSvc, importAnalysisRepo, txRunner)
+	excelExchangeSvc := service.NewExcelExchangeService(rfxRepo, qRepo, rfxSvc, importAnalysisRepo, idemRepo, auditRepo, txRunner)
 	return &testEnv{
 		pool: pool, rfxRepo: rfxRepo, auditRepo: auditRepo, membershipRepo: membershipRepo,
 		qRepo: qRepo, idemRepo: idemRepo, importAnalysisRepo: importAnalysisRepo,
@@ -610,6 +610,61 @@ func decodePreviewResponse(t *testing.T, rec *httptest.ResponseRecorder) service
 		t.Fatalf("decode preview response: %v body=%s", err, rec.Body.String())
 	}
 	return out
+}
+
+func decodeCommitResponse(t *testing.T, rec *httptest.ResponseRecorder) service.BuyerImportCommitResponse {
+	t.Helper()
+	var out service.BuyerImportCommitResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode commit response: %v body=%s", err, rec.Body.String())
+	}
+	return out
+}
+
+func postBuyerXlsxImportCommitHTTP(
+	t *testing.T,
+	env *testEnv,
+	cfg config.Config,
+	actor domain.ActorContext,
+	eventID uuid.UUID,
+	analysisID uuid.UUID,
+	idempotencyKey string,
+) *httptest.ResponseRecorder {
+	t.Helper()
+	body, err := json.Marshal(domain.BuyerImportCommitInput{AnalysisID: analysisID})
+	if err != nil {
+		t.Fatalf("marshal commit body: %v", err)
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	router := httpserver.NewRouter(log, env.pool, cfg, env.rfxSvc, env.qSvc, nil, nil, nil, nil, nil, nil, env.excelExchangeSvc, nil, nil, nil, nil, nil)
+	req := httptest.NewRequest(http.MethodPost, "/v1/rfx-events/"+eventID.String()+"/xlsx-import/commit", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	if idempotencyKey != "" {
+		req.Header.Set("Idempotency-Key", idempotencyKey)
+	}
+	if actor.TenantID != uuid.Nil {
+		req.Header.Set("X-Tenant-ID", actor.TenantID.String())
+	}
+	if actor.UserID != uuid.Nil {
+		req.Header.Set("X-User-ID", actor.UserID.String())
+	}
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
+}
+
+func previewReadyAnalysis(t *testing.T, env *testEnv, fix buyerFixture, draft richDraftFixture) service.BuyerImportPreviewResponse {
+	t.Helper()
+	workbook := exportRichDraftWorkbook(t, env, fix, draft)
+	rec := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, draft.Event.ID, workbook, previewHTTPOptions{})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("preview status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	preview := decodePreviewResponse(t, rec)
+	if !preview.ReadyToCommit || preview.AnalysisID == nil {
+		t.Fatalf("preview not ready: %+v", preview)
+	}
+	return preview
 }
 
 func countImportAnalyses(t *testing.T, env *testEnv, tenantID uuid.UUID) int {

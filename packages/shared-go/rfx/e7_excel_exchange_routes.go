@@ -46,5 +46,18 @@ func E7ExcelExchangeRoutes() []ExcelExchangeRoute {
 			IdempotencyRequired:  false,
 			FeatureFlagProtected: true,
 		},
+		{
+			Name:                 "commit_buyer_draft_xlsx_import",
+			Method:               http.MethodPost,
+			ServiceChiPath:       "/{id}/xlsx-import/commit",
+			ServicePath:          "/v1/rfx-events/{id}/xlsx-import/commit",
+			GatewayPath:          "/api/v1/rfx-events/{id}/xlsx-import/commit",
+			OpenAPIPath:          "/api/v1/rfx-events/{id}/xlsx-import/commit",
+			OpenAPIOperationID:   "post_commit_buyer_draft_rfx_event_xlsx_import",
+			RBACPolicy:           "PolicyBuyerManage",
+			SuccessStatus:        http.StatusOK,
+			IdempotencyRequired:  true,
+			FeatureFlagProtected: true,
+		},
 	}
 }

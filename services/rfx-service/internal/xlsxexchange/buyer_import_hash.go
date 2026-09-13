@@ -14,20 +14,35 @@ import (
 )
 
 type canonicalImportPayload struct {
-	SchemaName            string                   `json:"schema_name"`
-	SchemaVersion         string                   `json:"schema_version"`
-	Mode                  string                   `json:"mode"`
-	TargetEventID         uuid.UUID                `json:"target_event_id"`
-	TargetDraftVersionID  uuid.UUID                `json:"target_draft_version_id"`
-	TargetVersionNumber   int                      `json:"target_version_number"`
-	EventRowVersion       int                      `json:"event_row_version"`
-	DraftRowVersion       int                      `json:"draft_row_version"`
-	Lots                  []canonicalLot           `json:"lots"`
-	Questionnaire         canonicalQuestionnaire   `json:"questionnaire"`
-	QuestionnaireDiffHash string                   `json:"questionnaire_diff_hash"`
-	LotsDiffHash          string                   `json:"lots_diff_hash"`
-	Counts                canonicalImportCounts    `json:"counts"`
-	CommitAffectingWarns  []canonicalCommitWarning `json:"commit_affecting_warnings,omitempty"`
+	SchemaName              string                   `json:"schema_name"`
+	SchemaVersion           string                   `json:"schema_version"`
+	Mode                    string                   `json:"mode"`
+	TargetEventID           uuid.UUID                `json:"target_event_id"`
+	TargetDraftVersionID    uuid.UUID                `json:"target_draft_version_id"`
+	TargetVersionNumber     int                      `json:"target_version_number"`
+	EventRowVersion         int                      `json:"event_row_version"`
+	DraftRowVersion         int                      `json:"draft_row_version"`
+	BaselineLotsFingerprint string                   `json:"baseline_lots_fingerprint"`
+	ProposedLotsHash        string                   `json:"proposed_lots_hash"`
+	Lots                    []canonicalLot           `json:"lots"`
+	Questionnaire           canonicalQuestionnaire   `json:"questionnaire"`
+	QuestionnaireDiffHash   string                   `json:"questionnaire_diff_hash"`
+	LotsDiffHash            string                   `json:"lots_diff_hash"`
+	Counts                  canonicalImportCounts    `json:"counts"`
+	CommitAffectingWarns    []canonicalCommitWarning `json:"commit_affecting_warnings,omitempty"`
+}
+
+// StoredImportPayload is the server-authoritative decoded analysis payload for commit.
+type StoredImportPayload struct {
+	TargetEventID           uuid.UUID
+	TargetDraftVersionID    uuid.UUID
+	TargetVersionNumber     int
+	EventRowVersion         int
+	DraftRowVersion         int
+	BaselineLotsFingerprint string
+	ProposedLotsHash        string
+	Lots                    []canonicalLot
+	Questionnaire           canonicalQuestionnaire
 }
 
 type canonicalImportCounts struct {
@@ -106,7 +121,10 @@ func computeCanonicalPayloadHash(
 	lDiff LotsCompareResult,
 	errors, warnings []BuyerImportIssue,
 ) (string, error) {
-	payload := buildCanonicalImportPayload(target, proposal, qDiff, lDiff, errors, warnings)
+	payload, err := buildCanonicalImportPayload(target, proposal, qDiff, lDiff, errors, warnings)
+	if err != nil {
+		return "", err
+	}
 	raw, err := marshalCanonical(payload)
 	if err != nil {
 		return "", err
@@ -117,7 +135,10 @@ func computeCanonicalPayloadHash(
 
 // CanonicalImportPayloadJSON returns deterministic JSON bytes for immutable preview persistence.
 func CanonicalImportPayloadJSON(preview BuyerImportPreview, target TargetDraftBaseline, proposal BuyerImportProposal) ([]byte, error) {
-	payload := buildCanonicalImportPayload(target, proposal, preview.QuestionnaireDiff, preview.LotsDiff, preview.Errors, preview.Warnings)
+	payload, err := buildCanonicalImportPayload(target, proposal, preview.QuestionnaireDiff, preview.LotsDiff, preview.Errors, preview.Warnings)
+	if err != nil {
+		return nil, err
+	}
 	raw, err := marshalCanonical(payload)
 	if err != nil {
 		return nil, err
@@ -215,18 +236,29 @@ func buildCanonicalImportPayload(
 	qDiff domain.CompareVersionsResult,
 	lDiff LotsCompareResult,
 	errors, warnings []BuyerImportIssue,
-) canonicalImportPayload {
+) (canonicalImportPayload, error) {
 	sections, questions, options := flattenCanonicalQuestionnaire(proposal.Questionnaire)
+	proposalLots := canonicalLots(proposal.Lots)
+	baselineFingerprint, err := ComputeBaselineLotsFingerprint(target.Lots)
+	if err != nil {
+		return canonicalImportPayload{}, fmt.Errorf("compute baseline lots fingerprint: %w", err)
+	}
+	proposedHash, err := ComputeProposedLotsHash(proposalLots)
+	if err != nil {
+		return canonicalImportPayload{}, fmt.Errorf("compute proposed lots hash: %w", err)
+	}
 	return canonicalImportPayload{
-		SchemaName:           domain.SchemaVersionBuyerXLSXV1,
-		SchemaVersion:        schemaVersionNumber,
-		Mode:                 BuyerImportModeUpdateDraft,
-		TargetEventID:        target.EventID,
-		TargetDraftVersionID: target.DraftVersionID,
-		TargetVersionNumber:  target.DraftVersionNumber,
-		EventRowVersion:      target.EventRowVersion,
-		DraftRowVersion:      target.DraftRowVersion,
-		Lots:                 canonicalLots(proposal.Lots),
+		SchemaName:              domain.SchemaVersionBuyerXLSXV1,
+		SchemaVersion:           schemaVersionNumber,
+		Mode:                    BuyerImportModeUpdateDraft,
+		TargetEventID:           target.EventID,
+		TargetDraftVersionID:    target.DraftVersionID,
+		TargetVersionNumber:     target.DraftVersionNumber,
+		EventRowVersion:         target.EventRowVersion,
+		DraftRowVersion:         target.DraftRowVersion,
+		BaselineLotsFingerprint: baselineFingerprint,
+		ProposedLotsHash:        proposedHash,
+		Lots:                    proposalLots,
 		Questionnaire: canonicalQuestionnaire{
 			Sections:  sections,
 			Questions: questions,
@@ -245,7 +277,138 @@ func buildCanonicalImportPayload(
 			Rules:     len(proposal.Questionnaire.Rules),
 		},
 		CommitAffectingWarns: commitAffectingWarnings(warnings),
+	}, nil
+}
+
+// ParseStoredImportPayload decodes immutable analysis JSON into commit-safe server proposal fields.
+func ParseStoredImportPayload(payloadJSON []byte) (StoredImportPayload, error) {
+	stored, _, err := StableStoredPayload(payloadJSON)
+	if err != nil {
+		return StoredImportPayload{}, err
 	}
+	var payload canonicalImportPayload
+	if err := json.Unmarshal(stored, &payload); err != nil {
+		return StoredImportPayload{}, err
+	}
+	return StoredImportPayload{
+		TargetEventID:           payload.TargetEventID,
+		TargetDraftVersionID:    payload.TargetDraftVersionID,
+		TargetVersionNumber:     payload.TargetVersionNumber,
+		EventRowVersion:         payload.EventRowVersion,
+		DraftRowVersion:         payload.DraftRowVersion,
+		BaselineLotsFingerprint: payload.BaselineLotsFingerprint,
+		ProposedLotsHash:        payload.ProposedLotsHash,
+		Lots:                    payload.Lots,
+		Questionnaire:           payload.Questionnaire,
+	}, nil
+}
+
+// ProposalFromStoredPayload materializes a domain proposal graph from stored canonical payload.
+func ProposalFromStoredPayload(stored StoredImportPayload, target TargetDraftBaseline) BuyerImportProposal {
+	sectionIndex := make(map[string]int)
+	sections := make([]domain.SectionWithQuestions, 0, len(stored.Questionnaire.Sections))
+	for _, sec := range stored.Questionnaire.Sections {
+		sectionIndex[sec.SectionCode] = len(sections)
+		desc := optionalStringPtr(sec.Description)
+		sections = append(sections, domain.SectionWithQuestions{
+			Section: domain.Section{
+				SectionCode: sec.SectionCode,
+				Title:       sec.Title,
+				Description: desc,
+				SortOrder:   sec.SortOrder,
+			},
+			Questions: nil,
+		})
+	}
+	questionIDByCode := make(map[string]uuid.UUID)
+	for _, q := range stored.Questionnaire.Questions {
+		idx, ok := sectionIndex[q.SectionCode]
+		if !ok {
+			continue
+		}
+		help := optionalStringPtr(q.HelpText)
+		questionID := uuid.NewSHA1(uuid.NameSpaceOID, []byte("buyer-import-commit:"+q.QuestionCode))
+		questionIDByCode[q.QuestionCode] = questionID
+		sections[idx].Questions = append(sections[idx].Questions, domain.Question{
+			ID:                 questionID,
+			QuestionCode:       q.QuestionCode,
+			QuestionType:       q.QuestionType,
+			Label:              q.Label,
+			HelpText:           help,
+			Required:           q.Required,
+			ValidationRuleJSON: q.ValidationJSON,
+			SortOrder:          q.SortOrder,
+		})
+	}
+	for _, opt := range stored.Questionnaire.Options {
+		for sIdx, swq := range sections {
+			for qIdx, q := range swq.Questions {
+				if q.QuestionCode != opt.QuestionCode {
+					continue
+				}
+				sections[sIdx].Questions[qIdx].Options = append(sections[sIdx].Questions[qIdx].Options, domain.QuestionOption{
+					OptionCode: opt.OptionCode,
+					Label:      opt.Label,
+					SortOrder:  opt.SortOrder,
+				})
+			}
+		}
+	}
+	rules := make([]domain.QuestionRule, 0, len(stored.Questionnaire.Rules))
+	for _, rule := range stored.Questionnaire.Rules {
+		var targetID *uuid.UUID
+		if rule.TargetQuestionCode != "" {
+			if id, ok := questionIDByCode[rule.TargetQuestionCode]; ok {
+				targetID = &id
+			}
+		}
+		rules = append(rules, domain.QuestionRule{
+			RuleCode:         rule.RuleCode,
+			Action:           rule.Action,
+			ConditionJSON:    rule.ConditionJSON,
+			SortOrder:        rule.SortOrder,
+			TargetQuestionID: targetID,
+		})
+	}
+	lots := make([]domain.RfxLot, 0, len(stored.Lots))
+	for _, lot := range stored.Lots {
+		desc := optionalStringPtr(lot.Description)
+		cat := optionalStringPtr(lot.Category)
+		cur := optionalStringPtr(lot.CurrencyCode)
+		lots = append(lots, domain.RfxLot{
+			LotNumber:      lot.LotNumber,
+			Name:           lot.Name,
+			Description:    desc,
+			Category:       cat,
+			EstimatedValue: lot.EstimatedValue,
+			CurrencyCode:   cur,
+			Status:         lot.Status,
+		})
+	}
+	sortSections(sections)
+	sortRules(rules)
+	sortLots(lots)
+	return BuyerImportProposal{
+		Lots: lots,
+		Questionnaire: domain.QuestionnaireDefinition{
+			EventID:              target.EventID,
+			RfxVersionID:         target.DraftVersionID,
+			VersionNumber:        target.DraftVersionNumber,
+			QuestionnaireEnabled: target.Questionnaire.QuestionnaireEnabled,
+			VersionStatus:        domain.RfxVersionStatusDraft,
+			Sections:             sections,
+			Rules:                rules,
+		},
+	}
+}
+
+func optionalStringPtr(value string) *string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil
+	}
+	out := trimmed
+	return &out
 }
 
 func commitAffectingWarnings(warnings []BuyerImportIssue) []canonicalCommitWarning {

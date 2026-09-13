@@ -77,6 +77,26 @@ func (r *ImportAnalysisRepository) CreatePreview(ctx context.Context, in domain.
 	return scanImportAnalysis(row)
 }
 
+func (r *ImportAnalysisRepository) LockImportAnalysisForUpdate(ctx context.Context, id, tenantID uuid.UUID) (*domain.ImportAnalysis, error) {
+	if r.exec == nil {
+		return nil, apperrors.Internal("import analysis lock requires transaction", nil)
+	}
+	row := r.db().QueryRow(ctx, `
+		SELECT `+importAnalysisSelectColumns+`
+		FROM rfx.rfx_import_analyses
+		WHERE id = $1 AND tenant_id = $2
+		FOR UPDATE
+	`, id, tenantID)
+	analysis, err := scanImportAnalysis(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperrors.NotFound("import analysis not found")
+		}
+		return nil, mapDBError(err)
+	}
+	return analysis, nil
+}
+
 func (r *ImportAnalysisRepository) GetByID(ctx context.Context, id, tenantID uuid.UUID) (*domain.ImportAnalysis, error) {
 	row := r.db().QueryRow(ctx, `
 		SELECT `+importAnalysisSelectColumns+`
@@ -106,10 +126,10 @@ func (r *ImportAnalysisRepository) MarkConsumed(
 		    consumed_at = $5,
 		    result_reference_type = $6,
 		    result_reference_id = $7
-		WHERE id = $1 AND tenant_id = $2 AND status = $3
+		WHERE id = $1 AND tenant_id = $2 AND status = $3 AND expires_at > $8
 		RETURNING `+importAnalysisSelectColumns,
 		id, tenantID, domain.ImportAnalysisStatusPreviewed, domain.ImportAnalysisStatusConsumed,
-		consumedAt.UTC(), resultReferenceType, resultReferenceID,
+		consumedAt.UTC(), resultReferenceType, resultReferenceID, consumedAt.UTC(),
 	)
 	analysis, err := scanImportAnalysis(row)
 	if err != nil {
