@@ -11,8 +11,10 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/textproto"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -136,7 +138,8 @@ func setupTestEnv(t *testing.T) *testEnv {
 	importAnalysisRepo := repository.NewImportAnalysisRepository(pool)
 	rfxSvc := service.NewRfxServiceWithAtomic(pool, rfxRepo, auditRepo, membershipRepo, newAwardConversionStub(pool))
 	qSvc := service.NewQuestionnaireService(rfxRepo, qRepo, auditRepo, membershipRepo)
-	excelExchangeSvc := service.NewExcelExchangeService(rfxRepo, qRepo, rfxSvc)
+	txRunner := repository.NewTransactionRunner(pool)
+	excelExchangeSvc := service.NewExcelExchangeService(rfxRepo, qRepo, rfxSvc, importAnalysisRepo, txRunner)
 	return &testEnv{
 		pool: pool, rfxRepo: rfxRepo, auditRepo: auditRepo, membershipRepo: membershipRepo,
 		qRepo: qRepo, idemRepo: idemRepo, importAnalysisRepo: importAnalysisRepo,
@@ -504,6 +507,118 @@ func assertHTTPErrorCode(t *testing.T, rec *httptest.ResponseRecorder, wantStatu
 
 func enabledExcelExchangeConfig() config.Config {
 	return config.Config{RfxExcelExchangeEnabled: true}
+}
+
+type previewHTTPOptions struct {
+	fileField     string
+	extraPart     bool
+	duplicateFile bool
+	emptyFile     bool
+	skipFile      bool
+	contentType   string
+}
+
+func exportRichDraftWorkbook(t *testing.T, env *testEnv, fix buyerFixture, draft richDraftFixture) []byte {
+	t.Helper()
+	data, _, err := env.excelExchangeSvc.ExportBuyerDraftWorkbook(context.Background(), fix.BuyerA, draft.Event.ID)
+	if err != nil {
+		t.Fatalf("export draft workbook: %v", err)
+	}
+	return data
+}
+
+func postBuyerXlsxImportPreviewHTTP(
+	t *testing.T,
+	env *testEnv,
+	cfg config.Config,
+	actor domain.ActorContext,
+	eventID uuid.UUID,
+	fileBytes []byte,
+	opts previewHTTPOptions,
+) *httptest.ResponseRecorder {
+	t.Helper()
+	body, contentType := buildBuyerXlsxImportMultipartBody(t, fileBytes, opts)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	router := httpserver.NewRouter(log, env.pool, cfg, env.rfxSvc, env.qSvc, nil, nil, nil, nil, nil, nil, env.excelExchangeSvc, nil, nil, nil, nil, nil)
+	req := httptest.NewRequest(http.MethodPost, "/v1/rfx-events/"+eventID.String()+"/xlsx-import/preview", body)
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	if actor.TenantID != uuid.Nil {
+		req.Header.Set("X-Tenant-ID", actor.TenantID.String())
+	}
+	if actor.UserID != uuid.Nil {
+		req.Header.Set("X-User-ID", actor.UserID.String())
+	}
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
+}
+
+func buildBuyerXlsxImportMultipartBody(t *testing.T, fileBytes []byte, opts previewHTTPOptions) (*bytes.Buffer, string) {
+	t.Helper()
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	field := opts.fileField
+	if field == "" {
+		field = "file"
+	}
+	if opts.extraPart {
+		part, err := writer.CreateFormField("unexpected")
+		if err != nil {
+			t.Fatalf("create unexpected part: %v", err)
+		}
+		if _, err := part.Write([]byte("value")); err != nil {
+			t.Fatalf("write unexpected part: %v", err)
+		}
+	}
+	writeFilePart := func(name string, payload []byte) {
+		header := textproto.MIMEHeader{}
+		header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="import.xlsx"`, name))
+		header.Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+		part, err := writer.CreatePart(header)
+		if err != nil {
+			t.Fatalf("create file part: %v", err)
+		}
+		if _, err := part.Write(payload); err != nil {
+			t.Fatalf("write file part: %v", err)
+		}
+	}
+	if !opts.skipFile {
+		if opts.emptyFile {
+			fileBytes = []byte{}
+		}
+		writeFilePart(field, fileBytes)
+		if opts.duplicateFile {
+			writeFilePart(field, fileBytes)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close multipart writer: %v", err)
+	}
+	contentType := opts.contentType
+	if contentType == "" {
+		contentType = writer.FormDataContentType()
+	}
+	return &buf, contentType
+}
+
+func decodePreviewResponse(t *testing.T, rec *httptest.ResponseRecorder) service.BuyerImportPreviewResponse {
+	t.Helper()
+	var out service.BuyerImportPreviewResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode preview response: %v body=%s", err, rec.Body.String())
+	}
+	return out
+}
+
+func countImportAnalyses(t *testing.T, env *testEnv, tenantID uuid.UUID) int {
+	t.Helper()
+	var count int
+	if err := env.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM rfx.rfx_import_analyses WHERE tenant_id = $1`, tenantID).Scan(&count); err != nil {
+		t.Fatalf("count import analyses: %v", err)
+	}
+	return count
 }
 
 func getBuyerXlsxExportHTTP(t *testing.T, env *testEnv, cfg config.Config, actor domain.ActorContext, eventID uuid.UUID) *httptest.ResponseRecorder {

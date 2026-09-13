@@ -140,6 +140,11 @@ func InspectUpload(contentType string, data []byte, limits Limits) (InspectionRe
 				return InspectionResult{}, err
 			}
 		}
+		if normalized == "xl/workbook.xml" {
+			if err := inspectWorkbookDefinedNames(file); err != nil {
+				return InspectionResult{}, err
+			}
+		}
 	}
 
 	if !hasContentTypes {
@@ -235,6 +240,47 @@ func inspectContentTypes(file *zip.File) error {
 		}
 	}
 	return nil
+}
+
+func inspectWorkbookDefinedNames(file *zip.File) error {
+	rc, err := file.Open()
+	if err != nil {
+		return apperrors.Validation("unable to read workbook xml", map[string]any{"field": "file", "entry": file.Name})
+	}
+	defer rc.Close()
+	body, err := io.ReadAll(io.LimitReader(rc, 1<<20))
+	if err != nil {
+		return apperrors.Validation("malformed workbook xml", map[string]any{"field": "file", "entry": file.Name})
+	}
+	lower := strings.ToLower(string(body))
+	if !strings.Contains(lower, "definedname") {
+		return nil
+	}
+	decoder := xml.NewDecoder(bytes.NewReader(body))
+	for {
+		token, err := decoder.Token()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return apperrors.Validation("malformed workbook xml", map[string]any{"field": "file", "entry": file.Name})
+		}
+		if start, ok := token.(xml.StartElement); ok && strings.EqualFold(start.Name.Local, "definedName") {
+			var value string
+			if err := decoder.DecodeElement(&value, &start); err != nil {
+				return apperrors.Validation("malformed defined name", map[string]any{"field": "file", "entry": file.Name})
+			}
+			trimmed := strings.TrimSpace(value)
+			if trimmed == "" {
+				continue
+			}
+			if strings.HasPrefix(trimmed, "=") || (strings.Contains(trimmed, "[") && strings.Contains(trimmed, "]")) {
+				return apperrors.Validation("workbook defined names with formulas or external references are not allowed", map[string]any{
+					"field": "file", "entry": file.Name, "reason": "defined_name_formula_or_external",
+				})
+			}
+		}
+	}
 }
 
 func TempFilePattern(workbookType string) string {

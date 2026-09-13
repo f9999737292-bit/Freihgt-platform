@@ -28,22 +28,28 @@ type ExcelExchangeRfxStore interface {
 }
 
 type ExcelExchangeService struct {
-	rfxRepo ExcelExchangeRfxStore
-	qRepo   ExcelExchangeQuestionnaireStore
-	auth    *RfxService
-	nowFn   func() time.Time
+	rfxRepo            ExcelExchangeRfxStore
+	qRepo              ExcelExchangeQuestionnaireStore
+	auth               *RfxService
+	importAnalysisRepo *repository.ImportAnalysisRepository
+	txRunner           previewTransactionRunner
+	nowFn              func() time.Time
 }
 
 func NewExcelExchangeService(
 	rfxRepo ExcelExchangeRfxStore,
 	qRepo ExcelExchangeQuestionnaireStore,
 	auth *RfxService,
+	importAnalysisRepo *repository.ImportAnalysisRepository,
+	txRunner previewTransactionRunner,
 ) *ExcelExchangeService {
 	return &ExcelExchangeService{
-		rfxRepo: rfxRepo,
-		qRepo:   qRepo,
-		auth:    auth,
-		nowFn:   nowUTC,
+		rfxRepo:            rfxRepo,
+		qRepo:              qRepo,
+		auth:               auth,
+		importAnalysisRepo: importAnalysisRepo,
+		txRunner:           txRunner,
+		nowFn:              nowUTC,
 	}
 }
 

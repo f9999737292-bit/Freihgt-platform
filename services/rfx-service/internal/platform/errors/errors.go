@@ -5,14 +5,15 @@ import "fmt"
 type Code string
 
 const (
-	CodeValidation       Code = "VALIDATION_ERROR"
-	CodeValidationFailed Code = "VALIDATION_FAILED"
-	CodeNotFound         Code = "NOT_FOUND"
-	CodeConflict         Code = "CONFLICT"
-	CodeInternal         Code = "INTERNAL_ERROR"
-	CodeUnauthorized     Code = "UNAUTHORIZED"
-	CodeForbidden        Code = "FORBIDDEN"
-	CodeUnprocessable    Code = "UNPROCESSABLE_ENTITY"
+	CodeValidation          Code = "VALIDATION_ERROR"
+	CodeValidationFailed    Code = "VALIDATION_FAILED"
+	CodeNotFound            Code = "NOT_FOUND"
+	CodeConflict            Code = "CONFLICT"
+	CodeInternal            Code = "INTERNAL_ERROR"
+	CodeUnauthorized        Code = "UNAUTHORIZED"
+	CodeForbidden           Code = "FORBIDDEN"
+	CodeUnprocessable       Code = "UNPROCESSABLE_ENTITY"
+	CodeRequestBodyTooLarge Code = "REQUEST_BODY_TOO_LARGE"
 )
 
 type ValidationErrorItem struct {
@@ -79,6 +80,10 @@ func Forbidden(message string) *AppError {
 
 func Unprocessable(message string, details map[string]any) *AppError {
 	return &AppError{Code: CodeUnprocessable, Message: message, Details: detailsOrEmpty(details)}
+}
+
+func RequestBodyTooLarge(message string) *AppError {
+	return &AppError{Code: CodeRequestBodyTooLarge, Message: message, Details: map[string]any{}}
 }
 
 func detailsOrEmpty(details map[string]any) map[string]any {

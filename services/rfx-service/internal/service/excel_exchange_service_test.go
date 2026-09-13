@@ -123,7 +123,7 @@ func TestExcelExchangeServiceExportBuyerDraftWorkbookSuccess(t *testing.T) {
 	}
 
 	auth := NewRfxService(authRfxStore, nil, buyerMembershipResolver(ownerCompanyID))
-	svc := NewExcelExchangeService(rfxStore, qStore, auth)
+	svc := NewExcelExchangeService(rfxStore, qStore, auth, nil, nil)
 	svc.SetNowFunc(func() time.Time { return fixedNow })
 
 	data, filename, err := svc.ExportBuyerDraftWorkbook(context.Background(), buyerTestActor(tenantID, userID, ownerCompanyID), eventID)
@@ -158,7 +158,7 @@ func TestExcelExchangeServiceExportBuyerDraftWorkbookMissingDraft(t *testing.T) 
 		},
 	}
 	auth := NewRfxService(authRfxStore, nil, buyerMembershipResolver(ownerCompanyID))
-	svc := NewExcelExchangeService(rfxStore, qStore, auth)
+	svc := NewExcelExchangeService(rfxStore, qStore, auth, nil, nil)
 
 	_, _, err := svc.ExportBuyerDraftWorkbook(context.Background(), buyerTestActor(tenantID, userID, ownerCompanyID), eventID)
 	var appErr *apperrors.AppError
@@ -184,7 +184,7 @@ func TestExcelExchangeServiceExportBuyerDraftWorkbookRequiresBuyerManage(t *test
 	resolver := buyerMembershipResolver(ownerCompanyID)
 	resolver.roles = []string{"SHIPPER_LOGIST"}
 	auth := NewRfxService(authRfxStore, nil, resolver)
-	svc := NewExcelExchangeService(rfxStore, qStore, auth)
+	svc := NewExcelExchangeService(rfxStore, qStore, auth, nil, nil)
 
 	_, _, err := svc.ExportBuyerDraftWorkbook(context.Background(), buyerTestActor(tenantID, userID, ownerCompanyID), eventID)
 	var appErr *apperrors.AppError
