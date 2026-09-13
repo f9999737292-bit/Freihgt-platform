@@ -1,12 +1,16 @@
 # RFx v3.0E7 — Buyer XLSX Import P4 Commit Discovery
 
-**Status:** `DISCOVERY_COMPLETE_PENDING_CONTROLLER_DECISION`  
-**Base:** `origin/main` @ `06615a92530c4812a36c3a13c4e5af7cbd242ac4`  
+**Status:** `ARCHITECTURE_FROZEN_ACCEPTED`
+
+**Base:** `origin/main` @ `06615a92530c4812a36c3a13c4e5af7cbd242ac4`
 **Discovery branch:** `discovery/rfx-buyer-xlsx-import-p4-commit-v3.0e7-phase2`
 
 | Marker | Value |
 |---|---|
-| `STATUS` | `DISCOVERY_COMPLETE_PENDING_CONTROLLER_DECISION` |
+| `STATUS` | `ARCHITECTURE_FROZEN_ACCEPTED` |
+| `CONTROLLER_VERDICT` | `GO` |
+| `CONTROLLER_DECISION_REQUIRED` | `NO` |
+| `P4_IMPLEMENTATION_AUTHORIZED` | `YES` |
 | `P4_IMPLEMENTATION_STARTED` | `NO` |
 | `P4_PRODUCT_CODE_CHANGED` | `NO` |
 | `P4_TEST_CODE_CHANGED` | `NO` |
@@ -16,7 +20,7 @@
 | `MAX_MIGRATION_CONTRACT` | `000073` |
 | `MIGRATION_000073_SUFFICIENT` | `YES` |
 | `MIGRATION_000074_REQUIRED` | `NO` |
-| `CONTROLLER_DECISION_REQUIRED` | `YES` |
+| `NEXT_ACTION` | `PUBLISH_P4_ARCHITECTURE_DRAFT_PR` |
 
 ---
 
@@ -248,9 +252,35 @@ Edge cases:
 | Order-only graph edits | **YES** — `draft_row_version` bump via `TouchDraftVersion` / entity updates |
 | Lot-only edits without draft bump | **Gap** — lots are event-scoped; lot mutations do not bump draft row version today |
 
-**Mitigation for lot-only stale gap (P4 v1):** include **canonical lots snapshot hash** or lot count + sorted `lot_number` list comparison against current DB lots inside commit tx before mutation. Payload already contains full `lots[]` — compare DB lot set fingerprint to payload fingerprint; mismatch → 409.
+**Mitigation for lot-only stale gap (P4 v1):** persist and compare **`baseline_lots_fingerprint`** (server lot set at Preview time) against the current DB lot fingerprint inside commit tx before mutation. Mismatch → 409 `stale_target`.
 
-**Assessment:** Existing counters sufficient for questionnaire stale detection; **supplement with lot-set fingerprint check** for event-scoped lots. Not a migration blocker.
+**Assessment:** Event/draft row versions are **insufficient** for lot-only mutation detection. **`baseline_lots_fingerprint` is mandatory** (P4-IMPL-04 / `P4_ENTRY_GATE_BASELINE_LOT_FINGERPRINT`). Not a migration blocker.
+
+### 8.4 Lot fingerprint semantics (frozen)
+
+| Term | Meaning |
+|---|---|
+| `proposed_lots_hash` | Canonical hash of the **imported lot set** (`lots[]` in stored proposal) — the state Commit will apply |
+| `baseline_lots_fingerprint` | Canonical fingerprint of the **server lot set at Preview time** — bound into the analysis row for stale detection |
+| Commit stale check | Current DB lot fingerprint must equal stored `baseline_lots_fingerprint`; event/draft row versions alone do not cover lot-only edits |
+
+P4 implementation must persist `baseline_lots_fingerprint` when creating the Preview analysis (or equivalent immutable binding) and re-verify it after `LockImportAnalysisForUpdate`.
+
+### 8.5 ABA policy (frozen v1)
+
+```
+ABA_POLICY=CONTENT_EQUIVALENT_STATE_ACCEPTED_V1
+STRICT_ABA_REJECTION=DEFERRED
+CONTENT_EQUIVALENT_REPLAY_ACCEPTED=YES
+```
+
+| Rule | v1 behavior |
+|---|---|
+| Content-equivalent restore | If data changed and returned to a **fully identical canonical state**, Commit **may proceed** when all binding/fingerprint checks pass |
+| Strict historical ABA | Rejected-then-restored version **numbers** without content change are **not** auto-blocked — monotonic revision model deferred |
+| Draft replacement | **Detected** — `target_draft_version_id` mismatch → 409 |
+| Non-equivalent edits | **Detected** — event/draft row version mismatch → 409 |
+| Lot-only non-equivalent edits | **Detected** — `baseline_lots_fingerprint` mismatch → 409 |
 
 ---
 
@@ -272,11 +302,15 @@ Edge cases:
 
 ### Expired
 
+Expiry is evaluated **after** `LockImportAnalysisForUpdate` and **before** any graph/lot mutation, audit, consume, or idempotency store.
+
 If `now() >= analysis.expires_at` (UTC):
 
 - HTTP **409** `analysis_expired`
 - Optional: lazy `UPDATE status='EXPIRED'` (same tx, before consume attempt)
-- No graph writes, no consume
+- No graph writes, no consume, no audit, no idempotency success row
+- Row may remain physically `PREVIEWED` in DB — app treats `expires_at` as authoritative (`EXPIRY_AFTER_LOCK=REQUIRED`)
+- `MarkConsumed` must not run on expired analysis; commit path fail-closed on status + expiry in the same transaction
 
 ### Consumed
 
@@ -317,10 +351,16 @@ Pattern: `VersionLifecycleService` + `IdempotencyRepository` (`rfx_idempotency_r
 
 | Case | Result |
 |---|---|
-| Same key + same fingerprint | 200 replay |
-| Same key + different analysis_id | 409 idempotency conflict |
+| Same key + same request fingerprint | **200 replay** — return stored response body from `rfx_idempotency_records` |
+| Same key + different request fingerprint | **409** `idempotency_conflict` |
+| Different key + analysis already consumed | **409** `analysis_already_consumed` |
 | Tx rollback | No durable idempotency success row |
-| Store timing | After successful mutation + audit + consume, before commit |
+| Store timing | After successful graph/lot mutation + audit + `MarkConsumed`, before `COMMIT` |
+
+**Frozen contract (`IDEMPOTENCY_REPLAY_CONTRACT=FROZEN`):**
+
+- Response body must be persisted in the existing idempotency record **or** deterministically reconstructable from stored fields on replay.
+- Graph/lots apply, analysis consume, audit, and idempotency completion occur in **one transaction** (`ATOMIC_GRAPH_LOTS_CONSUME_AUDIT_IDEMPOTENCY=REQUIRED`).
 
 ---
 
@@ -537,10 +577,84 @@ P3 Preview code remains unchanged.
 
 ---
 
-## 20. Final markers
+## 20. P4 implementation entry gates
+
+Mandatory implementation conditions (not migration blockers):
 
 ```
-STATUS=DISCOVERY_COMPLETE_PENDING_CONTROLLER_DECISION
+P4_IMPL_01_LOT_RECONCILIATION=REQUIRED
+P4_IMPL_02_ANALYSIS_FOR_UPDATE_LOCK=REQUIRED
+P4_IMPL_03_ATOMIC_ORCHESTRATION=REQUIRED
+P4_IMPL_04_BASELINE_LOT_FINGERPRINT=REQUIRED
+
+P4_ENTRY_GATE_BASELINE_LOT_FINGERPRINT=MANDATORY
+P4_ENTRY_GATE_HASH_REVERIFICATION=MANDATORY
+P4_ENTRY_GATE_SERVER_BASELINE_RECHECK=MANDATORY
+P4_ENTRY_GATE_ACTOR_BINDING=MANDATORY
+P4_ENTRY_GATE_IDEMPOTENCY_REPLAY=MANDATORY
+P4_ENTRY_GATE_EXPIRY_AFTER_LOCK=MANDATORY
+P4_ENTRY_GATE_SINGLE_TRANSACTION=MANDATORY
+```
+
+| Gate | Requirement |
+|---|---|
+| Baseline lot fingerprint | Persist `baseline_lots_fingerprint` at Preview; re-check after analysis lock at Commit |
+| Hash re-verification | `VerifyStoredCanonicalPayloadHash` before mutation |
+| Server baseline recheck | Event/draft row versions, draft UUID, actor/tenant/event bindings |
+| Actor binding | `analysis.actor_id` equals commit actor |
+| Idempotency replay | Same key + same fingerprint → 200 without duplicate writes |
+| Expiry after lock | `now >= expires_at` → 409 before mutation/consume |
+| Single transaction | Graph, lots, audit, consume, idempotency store — one tx |
+
+`P4_IMPLEMENTATION_AUTHORIZED=YES` grants **technical authorization only** after formal docs PR closeout. Product implementation has **not** started.
+
+---
+
+## 21. Controller Architecture Review Record
+
+Independent architecture review completed on discovery commit `adf895395bb9e7782fb63fddb6749807486b8e10`.
+
+```
+ARCHITECTURE_REVIEW_RESULT=GO
+ARCHITECTURE_FREEZE=ACCEPTED
+DISCOVERY_DOC_ACCURACY=CONFIRMED
+CONTROLLER_TECHNICAL_AUTHORIZATION=YES
+P4_PRODUCT_IMPLEMENTATION_STARTED=NO
+SEPARATE_IMPLEMENTATION_TASK_REQUIRED=YES
+
+REVIEWED_HEAD=adf895395bb9e7782fb63fddb6749807486b8e10
+REVIEWED_BASE=06615a92530c4812a36c3a13c4e5af7cbd242ac4
+BLOCKER_FINDINGS=0
+HIGH_FINDINGS=0
+MEDIUM_FINDINGS=1
+LOW_FINDINGS=2
+
+MIGRATION_000073_SUFFICIENT=YES
+MIGRATION_000074_REQUIRED=NO
+MIGRATION_000074_CREATED=NO
+STORED_PROPOSAL_COMPLETE=YES
+STORED_HASH_REVERIFIABLE=YES
+BINARY_XLSX_REQUIRED_FOR_COMMIT=NO
+NEXT_TEST_RANGE=E7P2-INT-43..70
+```
+
+### Findings recorded
+
+**MEDIUM (1):** Lot-only mutations do not increment draft row version. P4 must implement and test `baseline_lots_fingerprint` stale detection. Mandatory P4 implementation condition; **not** a migration blocker.
+
+**LOW (1):** Row-version ABA — v1 accepts content-equivalent state replay (`ABA_POLICY=CONTENT_EQUIVALENT_STATE_ACCEPTED_V1`); strict historical ABA rejection deferred.
+
+**LOW (2):** Physical `EXPIRED` status may remain `PREVIEWED` in DB; expiry enforced after lock and before mutation/consume via `expires_at`.
+
+---
+
+## 22. Final markers
+
+```
+STATUS=ARCHITECTURE_FROZEN_ACCEPTED
+CONTROLLER_VERDICT=GO
+CONTROLLER_DECISION_REQUIRED=NO
+P4_IMPLEMENTATION_AUTHORIZED=YES
 P4_IMPLEMENTATION_STARTED=NO
 P4_PRODUCT_CODE_CHANGED=NO
 P4_TEST_CODE_CHANGED=NO
@@ -552,7 +666,10 @@ UPDATE_EXISTING_DRAFT_ONLY=YES
 CLIENT_SENDS_ANALYSIS_ID_ONLY=YES
 IDEMPOTENCY_KEY_REQUIRED=YES
 BINARY_XLSX_REUSED=NO
+BINARY_XLSX_REQUIRED_FOR_COMMIT=NO
 STORED_PROPOSAL_HASH_REVERIFIED=YES
+STORED_PROPOSAL_COMPLETE=YES
+STORED_HASH_REVERIFIABLE=YES
 SERVER_BASELINE_RECHECK_REQUIRED=YES
 STALE_ANALYSIS_HTTP=409
 EXPIRED_ANALYSIS_HTTP=409
@@ -563,13 +680,28 @@ ATOMIC_GRAPH_LOTS_APPLY=REQUIRED
 ANALYSIS_CONSUME_ATOMIC=REQUIRED
 AUDIT_ATOMIC=REQUIRED
 IDEMPOTENCY_ATOMIC=REQUIRED
+ATOMIC_GRAPH_LOTS_CONSUME_AUDIT_IDEMPOTENCY=REQUIRED
 PUBLISHED_VERSIONS_IMMUTABLE=REQUIRED
 COMPETITOR_CONFIDENTIALITY=REQUIRED
+
+P4_IMPL_01_LOT_RECONCILIATION=REQUIRED
+P4_IMPL_02_ANALYSIS_FOR_UPDATE_LOCK=REQUIRED
+P4_IMPL_03_ATOMIC_ORCHESTRATION=REQUIRED
+P4_IMPL_04_BASELINE_LOT_FINGERPRINT=REQUIRED
+P4_ENTRY_GATE_BASELINE_LOT_FINGERPRINT=MANDATORY
+BASELINE_LOT_FINGERPRINT_MANDATORY=YES
+PROPOSED_LOTS_HASH_DISTINCT=YES
+
+ABA_POLICY=CONTENT_EQUIVALENT_STATE_ACCEPTED_V1
+STRICT_ABA_REJECTION=DEFERRED
+CONTENT_EQUIVALENT_REPLAY_ACCEPTED=YES
+
+IDEMPOTENCY_REPLAY_CONTRACT=FROZEN
+EXPIRY_AFTER_LOCK=REQUIRED
 
 MIGRATION_000073_SUFFICIENT=YES
 MIGRATION_000074_REQUIRED=NO
 IMPLEMENTATION_BLOCKERS=P4-IMPL-01,P4-IMPL-02,P4-IMPL-03,P4-IMPL-04
-CONTROLLER_DECISION_REQUIRED=YES
 NEXT_TEST_RANGE=E7P2-INT-43..70
-NEXT_ACTION=CONTROLLER_REVIEW_BUYER_XLSX_IMPORT_P4_ARCHITECTURE
+NEXT_ACTION=PUBLISH_P4_ARCHITECTURE_DRAFT_PR
 ```
