@@ -1,13 +1,17 @@
 # RFx v3.0E7 — Carrier XLSX Exchange Discovery
 
-**Status:** `DISCOVERY_COMPLETE_PENDING_CONTROLLER_DECISION`
+**Status:** `ARCHITECTURE_FROZEN_ACCEPTED`
 
 **Base:** `origin/main` @ `87916ab2bfd83ec15605446c02f2cd0c0ee6c79d` (post PR #130 merge)
 **Discovery branch:** `discovery/rfx-carrier-xlsx-exchange-v3.0e7-phase2`
+**Discovery commit:** `85b5157842bb24e1078a26c4884c4b708c3f8b9c`
 
 | Marker | Value |
 |---|---|
-| `STATUS` | `DISCOVERY_COMPLETE_PENDING_CONTROLLER_DECISION` |
+| `STATUS` | `ARCHITECTURE_FROZEN_ACCEPTED` |
+| `ARCHITECTURE_REVIEW_RESULT` | `GO` |
+| `ARCHITECTURE_FREEZE` | `ACCEPTED` |
+| `CARRIER_XLSX_IMPLEMENTATION_AUTHORIZED` | `YES` |
 | `CARRIER_XLSX_IMPLEMENTATION_STARTED` | `NO` |
 | `CARRIER_XLSX_SCHEMA` | `BINTRANS_RFX_CARRIER_XLSX_V1` |
 | `CARRIER_XLSX_EXPORT_PROPOSED` | `YES` |
@@ -15,12 +19,15 @@
 | `CARRIER_XLSX_COMMIT_PROPOSED` | `YES` |
 | `CARRIER_XLSX_COMMIT_RESULT` | `DRAFT_ONLY` |
 | `CARRIER_XLSX_COMMIT_AUTO_SUBMIT` | `NO` |
-| `COMPETITOR_CONFIDENTIALITY` | `MANDATORY` |
+| `COMPETITOR_CONFIDENTIALITY` | `MANDATORY_FAIL_CLOSED` |
 | `MIGRATION_000073_SUFFICIENT` | `YES` |
 | `MIGRATION_000074_REQUIRED` | `NO` |
 | `MIGRATION_000074_CREATED` | `NO` |
 | `MAX_MIGRATION_CONTRACT` | `000073` |
-| `CONTROLLER_VERDICT` | `PENDING` |
+| `TEST_MATRIX` | `E7P2-INT-71..119` |
+| `TEST_CASE_COUNT` | `49` |
+| `MATRIX_GUARD` | `EXTRA_NO_INT_ID` |
+| `NEXT_TEST_ID_AFTER_CARRIER_XLSX` | `E7P2-INT-120` |
 | `E7_PHASE2_STATUS` | `IMPLEMENTATION_IN_PROGRESS` |
 | `CARRIER_XLSX_STATUS` | `NOT_STARTED` |
 | `CREATE_FROM_XLSX_STATUS` | `OUT_OF_SCOPE` / `NOT_STARTED` |
@@ -305,7 +312,50 @@ Headers: `lot_number`, `amount`, `currency_code`, `comment`
 | `currency_code` | string | YES | — | YES | Must match event currency |
 | `comment` | string | NO | — | YES | Optional |
 
-*When event has zero lots, allow single event-level line with empty/`0` lot_number policy TBD at implementation — mirror `ValidateOfferLineInput` lotCount semantics.
+### 5.10 Zero-lot offer line policy (frozen)
+
+Code evidence:
+
+| Evidence | Location |
+|---|---|
+| `RfxLotID` not required when `lotCount == 0` | `domain/rfx_offer_line.go:29–31` (`ValidateOfferLineInput`) |
+| Event-level line uses `RfxLotID == uuid.Nil` | `repository/evaluation_repository.go:47–50` |
+| At most one NULL-lot line per response | `000038_rfx_evaluation_award_v1.3.up.sql:18–20` (`uq_rfx_response_offer_line_event`) |
+| Completeness: one Nil-lot line when `lotCount == 0` | `domain/rfx_response_commercial.go:28–34` (`ResponseOfferComplete`) |
+| Commercial PATCH without lot ID | `integration/enterprise/evaluation_award_integration_test.go:188` (`UpsertOfferLineInput{{Amount, CurrencyCode}}`) |
+| Lot required when `lotCount > 0` | `domain/rfx_offer_line.go:30–31`; `evaluation_service.go:74–84` |
+
+**Policy A — event has lots (`lotCount > 0`):**
+
+| Rule | Contract |
+|---|---|
+| OfferLines rows | One row per covered lot; `lot_number` **required** |
+| Stable key | `lot_number` → server maps to `rfx_lot_id` |
+| Empty `lot_number` | **422** `rfx_lot_id_required` (mirror `ValidateOfferLineInput`) |
+| Unknown `lot_number` | **422** / **404** `rfx_lot_not_found` |
+| Duplicate `lot_number` in workbook | **422** `duplicate_lot_number` |
+| Export | One row per event lot (Lots sheet); no event-level row |
+| Fingerprint | Sorted map `lot_id → {amount,currency,comment}` |
+
+**Policy B — event has zero lots (`lotCount == 0`):**
+
+| Rule | Contract |
+|---|---|
+| Event-level offer | **Allowed** — exactly **one** OfferLines row maximum |
+| Stable key | `lot_number` = **empty string** (canonical event-level key) |
+| `lot_number` non-empty | **422** `unknown_lot` (event has no lots) |
+| Second OfferLines row | **422** `duplicate_event_level_offer` (DB unique index) |
+| Empty OfferLines sheet | **Valid** — no commercial offer yet (answers-only DRAFT) |
+| Export | If one event-level line exists: single row with empty `lot_number`; else header-only sheet |
+| Commit mapping | `UpsertOfferLineInput{RfxLotID: uuid.Nil, Amount, CurrencyCode, Comment}` |
+| Fingerprint | Single entry keyed `__EVENT_LEVEL__` → `{amount,currency,comment}` |
+
+```
+ZERO_LOT_POLICY=FROZEN_EVENT_LEVEL_SINGLE_LINE
+ZERO_LOT_LOT_NUMBER_KEY=EMPTY_STRING
+ZERO_LOT_MAX_OFFER_ROWS=1
+ZERO_LOT_EMPTY_SHEET_ALLOWED=YES
+```
 
 ---
 
@@ -330,7 +380,7 @@ GET /api/v1/rfx-events/{event_id}/carrier-responses/{response_id}/xlsx-export
 | Feature flag | `RFX_EXCEL_EXCHANGE_ENABLED`; false → 404 |
 | Audit | Optional read audit `rfx.carrier_xlsx_export.generated.v1` (no mutation) |
 | DB writes | **None** |
-| Formula protection | All cells `SetCellStr`; numeric format text (`NumFmt 49` pattern from buyer) |
+| Formula protection | All cells `SetCellStr` + text format `NumFmt 49` (buyer pattern: `buyer_workbook.go:133–141`); see §9.4 |
 | Determinism | Stable sheet order, sorted rows by stable keys, canonical metadata minus `exported_at_utc` |
 
 ### 6.2 Export after SUBMITTED — recommended policy
@@ -505,12 +555,33 @@ Include only: own response context, carrier-visible lots, published questionnair
 | Defined names | Reject external/ref names (buyer pattern) |
 | Comments / drawings | Strip on export; reject on import if present |
 | External links | Reject (inspect.go) |
-| Formulas | Reject all formula cells |
+| Formulas | Reject formula XML/cells; allow formula-like literal text as text (§9.4) |
 | Pivot/cache/custom XML | Reject non-allowlisted ZIP entries |
 | Document properties | Do not embed competitor data |
 | ZIP relationships | Allowlist OOXML parts only |
 
-### 9.3 Future test sentinels (INT-79, INT-86, INT-117–119)
+### 9.4 Formula and formula-like text policy (frozen)
+
+```
+FORMULA_XML_POLICY=REJECT
+FORMULA_CELL_POLICY=REJECT
+FORMULA_LIKE_TEXT_POLICY=ALLOW_AS_LITERAL_TEXT
+FORMULA_LIKE_TEXT_STORAGE=SetCellStr + text format NumFmt 49
+ORIGINAL_TEXT_SEMANTICS_PRESERVED=YES
+```
+
+| Layer | Policy |
+|---|---|
+| ZIP/XML inspection | Reject VBA, external links, formula XML (`xlsxsecurity/inspect.go`) |
+| Excelize cell type | Reject cells with formula type / `<f>` elements |
+| Literal text | Values starting with `=`, `+`, `-`, `@`, or whitespace+prefix **allowed** when stored as plain text (`NumFmt 49`) |
+| Export | Write all answer/offer values via `SetCellStr`; never emit formula cells |
+| Import | Accept formula-like strings only from text cells; no Excel evaluation |
+| INT-119 | Formula cell rejection on import |
+
+Buyer reference: `buyer_workbook.go:133–141` (`NumFmt: 49`, `SetCellStr`).
+
+### 9.5 Future test sentinels (INT-79, INT-86, INT-117–119)
 
 - Export snapshot must not contain regex `\bcompetitor_|\bother_carrier_|\brank\b|\bscore\b`
 - Import with forbidden column headers → 422 `competitor_column_forbidden` before generic header errors
@@ -569,6 +640,31 @@ If UI save produces identical canonical answer/offer fingerprint as preview base
 Schema delta for 000074: **none required** — carrier enums pre-provisioned in 000073 CHECK constraints.
 
 If future controller ever required 000074, candidates would be: none identified at discovery; optional index on `(tenant_id, target_type, target_id, status)` already exists.
+
+### 11.1 Carrier canonical hash implementation gate (frozen)
+
+Existing `StableStoredPayload` / `VerifyStoredCanonicalPayloadHash` (`xlsxexchange/buyer_import_hash.go`) supports **buyer** payloads today. `CreatePreview` re-hashes only when `workbook_type == BUYER_TENDER` (`import_analysis_repository.go:48–58`).
+
+Carrier implementation **must** add a parallel path:
+
+| Gate | Requirement |
+|---|---|
+| Carrier payload struct | Canonical JSON for answers + offer lines + baselines |
+| `CARRIER_STABLE_STORED_PAYLOAD` | **REQUIRED** — carrier-specific stable marshal + SHA-256 |
+| `REPOSITORY_HASH_DISPATCH_BY_WORKBOOK_TYPE` | **REQUIRED** — `CreatePreview` selects verifier by `workbook_type` + `schema_version` |
+| Unknown workbook/schema | **FAIL_CLOSED** — validation error; no analysis row |
+| Preview persistence | No insert on hash mismatch |
+| Commit | Re-verify carrier hash after JSONB round-trip (`VerifyStoredCanonicalPayloadHash`) |
+| `CARRIER_JSONB_ROUNDTRIP_HASH_TEST` | **REQUIRED** — integration test before C3 sign-off |
+
+```
+CARRIER_STABLE_STORED_PAYLOAD=REQUIRED
+REPOSITORY_HASH_DISPATCH_BY_WORKBOOK_TYPE=REQUIRED
+UNKNOWN_WORKBOOK_HASH_PATH=FAIL_CLOSED
+CARRIER_JSONB_ROUNDTRIP_HASH_TEST=REQUIRED
+```
+
+Migration 000074 is **not** required for hash dispatch.
 
 ---
 
@@ -630,7 +726,19 @@ Extend `packages/shared-go/rfx/e7_excel_exchange_routes.go` with carrier routes 
 
 ## 15. Test matrix E7P2-INT-71..119
 
-Continue after buyer INT-70. Guard: `TestE7P2CarrierXlsxMatrixIDsCompleteAndUnique`.
+Continue after buyer INT-70.
+
+```
+TEST_MATRIX=E7P2-INT-71..119
+TEST_CASE_COUNT=49
+TEST_IDS_COMPLETE=YES
+TEST_IDS_UNIQUE=YES
+MATRIX_GUARD=EXTRA_NO_INT_ID
+MATRIX_GUARD_NAME=TestE7P2CarrierXlsxMatrixIDsCompleteAndUnique
+NEXT_TEST_ID_AFTER_CARRIER_XLSX=E7P2-INT-120
+```
+
+The matrix guard is an **EXTRA** meta-test (no INT ID). It verifies INT-71..119 are registered exactly once. **INT-120** remains free for the first business test after Carrier XLSX completes.
 
 | ID | Scenario | Layer |
 |---|---|---|
@@ -684,7 +792,7 @@ Continue after buyer INT-70. Guard: `TestE7P2CarrierXlsxMatrixIDsCompleteAndUniq
 | INT-118 | Confidentiality: defined names / comments rejected on import | HTTP |
 | INT-119 | Formula cell rejection on import | HTTP |
 
-Matrix guard **INT-120** (meta): `TestE7P2CarrierXlsxMatrixIDsCompleteAndUnique` — verifies INT-71..119 registered exactly once.
+**Matrix guard (EXTRA, not counted in 49):** `TestE7P2CarrierXlsxMatrixIDsCompleteAndUnique` — verifies INT-71..119 registered exactly once.
 
 ---
 
@@ -713,29 +821,59 @@ Each stage requires controller authorization before product code (same pattern a
 | SUBMITTED export misuse | MEDIUM | `export_mode` + commit refuses non-DRAFT |
 | Offer line replace wipes concurrent UI commercial edit | MEDIUM | Same as existing PATCH semantics; document in UX |
 
-**Blockers for implementation start:** `CONTROLLER_VERDICT=PENDING` — no product code until architecture acceptance.
+**Blockers for implementation tranche C1:** controller PR merge authorization (implementation not started).
 
 ---
 
-## 18. Controller decisions requested
+## 18. Controller decisions (accepted)
 
-| # | Decision | Recommendation |
+| # | Decision | Status |
 |---|---|---|
-| CD-1 | Approve `BINTRANS_RFX_CARRIER_XLSX_V1` 8-sheet schema | YES |
-| CD-2 | Approve response-scoped routes with `{response_id}` | YES |
-| CD-3 | `MIGRATION_000073_SUFFICIENT=YES` | YES |
-| CD-4 | SUBMITTED export read-only allowed; preview/commit forbidden | YES |
-| CD-5 | `CARRIER_XLSX_COMMIT_AUTO_SUBMIT=NO` absolute | YES |
-| CD-6 | Reuse `RFX_EXCEL_EXCHANGE_ENABLED` (no new flag) | YES |
-| CD-7 | Test range INT-71..119 + matrix guard | YES |
-| CD-8 | Authorize implementation tranche C1 (export first) | PENDING |
+| CD-1 | Approve `BINTRANS_RFX_CARRIER_XLSX_V1` 8-sheet schema | **ACCEPTED** |
+| CD-2 | Approve response-scoped routes with `{response_id}` | **ACCEPTED** |
+| CD-3 | `MIGRATION_000073_SUFFICIENT=YES` | **ACCEPTED** |
+| CD-4 | SUBMITTED export read-only allowed; preview/commit forbidden | **ACCEPTED** |
+| CD-5 | `CARRIER_XLSX_COMMIT_AUTO_SUBMIT=NO` absolute | **ACCEPTED** |
+| CD-6 | Reuse `RFX_EXCEL_EXCHANGE_ENABLED` (no new flag) | **ACCEPTED** |
+| CD-7 | Test range INT-71..119 + EXTRA matrix guard | **ACCEPTED** |
+| CD-8 | Authorize implementation tranche C1 (export first) | **PENDING PR MERGE** |
 
 ---
 
-## 19. Final markers
+## 19. Controller architecture review record
+
+Independent architecture review completed on discovery commit `85b5157842bb24e1078a26c4884c4b708c3f8b9c`.
 
 ```
-STATUS=DISCOVERY_COMPLETE_PENDING_CONTROLLER_DECISION
+REVIEWED_HEAD=85b5157842bb24e1078a26c4884c4b708c3f8b9c
+REVIEWED_BASE=87916ab2bfd83ec15605446c02f2cd0c0ee6c79d
+CONTROLLER_VERDICT=GO
+ARCHITECTURE_FREEZE=ACCEPTED
+CARRIER_XLSX_IMPLEMENTATION_AUTHORIZED=YES
+BLOCKER_FINDINGS=0
+HIGH_FINDINGS=0
+MEDIUM_FINDINGS=2_CLOSED_IN_PUBLICATION_COMMIT
+LOW_FINDINGS=2_CLOSED_IN_PUBLICATION_COMMIT
+```
+
+Publication commit closes:
+
+| ID | Finding | Remediation |
+|---|---|---|
+| MEDIUM-01 | INT-120 guard ambiguity | §15: `MATRIX_GUARD=EXTRA_NO_INT_ID`; INT-120 reserved for next business test |
+| MEDIUM-02 | Zero-lot TBD | §5.10: frozen event-level single-line policy with code evidence |
+| LOW-01 | `FORMULA_POLICY=REJECT_ALL` ambiguous | §9.4: split XML/cell vs literal text policies |
+| LOW-02 | Carrier hash path implicit | §11.1: `REPOSITORY_HASH_DISPATCH_BY_WORKBOOK_TYPE=REQUIRED` |
+
+---
+
+## 20. Final markers
+
+```
+STATUS=ARCHITECTURE_FROZEN_ACCEPTED
+ARCHITECTURE_REVIEW_RESULT=GO
+ARCHITECTURE_FREEZE=ACCEPTED
+CARRIER_XLSX_IMPLEMENTATION_AUTHORIZED=YES
 CARRIER_XLSX_IMPLEMENTATION_STARTED=NO
 CARRIER_XLSX_SCHEMA=BINTRANS_RFX_CARRIER_XLSX_V1
 CARRIER_XLSX_EXPORT_PROPOSED=YES
@@ -745,12 +883,21 @@ CARRIER_XLSX_COMMIT_RESULT=DRAFT_ONLY
 CARRIER_XLSX_COMMIT_AUTO_SUBMIT=NO
 DIRECT_SUBMIT_ENDPOINT_UNCHANGED=YES
 LATE_SUBMISSION_FLOW_UNCHANGED=YES
-COMPETITOR_CONFIDENTIALITY=MANDATORY
+COMPETITOR_CONFIDENTIALITY=MANDATORY_FAIL_CLOSED
 COMPETITOR_COLUMNS_REJECTED=YES
 COMPETITOR_SENTINELS_REQUIRED=YES
 HIDDEN_CONTENT_POLICY=FAIL_CLOSED
-FORMULA_POLICY=REJECT_ALL
+FORMULA_XML_POLICY=REJECT
+FORMULA_CELL_POLICY=REJECT
+FORMULA_LIKE_TEXT_POLICY=ALLOW_AS_LITERAL_TEXT
+FORMULA_LIKE_TEXT_STORAGE=SetCellStr + text format NumFmt 49
+ORIGINAL_TEXT_SEMANTICS_PRESERVED=YES
 SECURITY_BEFORE_EXCELIZE=YES
+ZERO_LOT_POLICY=FROZEN_EVENT_LEVEL_SINGLE_LINE
+CARRIER_STABLE_STORED_PAYLOAD=REQUIRED
+REPOSITORY_HASH_DISPATCH_BY_WORKBOOK_TYPE=REQUIRED
+UNKNOWN_WORKBOOK_HASH_PATH=FAIL_CLOSED
+CARRIER_JSONB_ROUNDTRIP_HASH_TEST=REQUIRED
 PREVIEW_EVENT_WRITES=NO
 PREVIEW_RESPONSE_WRITES=NO
 PREVIEW_ANALYSIS_PERSISTENCE=YES
@@ -760,7 +907,12 @@ AUDIT_EVENT_PROPOSED=rfx.carrier_xlsx_import.committed.v1
 MIGRATION_000073_SUFFICIENT=YES
 MIGRATION_000074_REQUIRED=NO
 MIGRATION_000074_CREATED=NO
-NEXT_TEST_ID=E7P2-INT-71
-CONTROLLER_VERDICT=PENDING
-NEXT_ACTION=CONTROLLER_REVIEW_CARRIER_XLSX_ARCHITECTURE
+TEST_MATRIX=E7P2-INT-71..119
+TEST_CASE_COUNT=49
+TEST_IDS_COMPLETE=YES
+TEST_IDS_UNIQUE=YES
+MATRIX_GUARD=EXTRA_NO_INT_ID
+MATRIX_GUARD_NAME=TestE7P2CarrierXlsxMatrixIDsCompleteAndUnique
+NEXT_TEST_ID_AFTER_CARRIER_XLSX=E7P2-INT-120
+NEXT_ACTION=CONTROLLER_REVIEW_CARRIER_XLSX_ARCHITECTURE_PR
 ```
