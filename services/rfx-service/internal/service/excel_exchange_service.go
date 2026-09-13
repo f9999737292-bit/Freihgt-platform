@@ -30,8 +30,12 @@ type ExcelExchangeRfxStore interface {
 type ExcelExchangeService struct {
 	rfxRepo            ExcelExchangeRfxStore
 	qRepo              ExcelExchangeQuestionnaireStore
+	rfxRepoFull        *repository.RfxRepository
+	qRepoFull          *repository.QuestionnaireRepository
 	auth               *RfxService
 	importAnalysisRepo *repository.ImportAnalysisRepository
+	idemRepo           *repository.IdempotencyRepository
+	auditRepo          *repository.AuditRepository
 	txRunner           previewTransactionRunner
 	nowFn              func() time.Time
 }
@@ -41,13 +45,27 @@ func NewExcelExchangeService(
 	qRepo ExcelExchangeQuestionnaireStore,
 	auth *RfxService,
 	importAnalysisRepo *repository.ImportAnalysisRepository,
+	idemRepo *repository.IdempotencyRepository,
+	auditRepo *repository.AuditRepository,
 	txRunner previewTransactionRunner,
 ) *ExcelExchangeService {
+	var rfxRepoFull *repository.RfxRepository
+	if concrete, ok := rfxRepo.(*repository.RfxRepository); ok {
+		rfxRepoFull = concrete
+	}
+	var qRepoFull *repository.QuestionnaireRepository
+	if concrete, ok := qRepo.(*repository.QuestionnaireRepository); ok {
+		qRepoFull = concrete
+	}
 	return &ExcelExchangeService{
 		rfxRepo:            rfxRepo,
 		qRepo:              qRepo,
+		rfxRepoFull:        rfxRepoFull,
+		qRepoFull:          qRepoFull,
 		auth:               auth,
 		importAnalysisRepo: importAnalysisRepo,
+		idemRepo:           idemRepo,
+		auditRepo:          auditRepo,
 		txRunner:           txRunner,
 		nowFn:              nowUTC,
 	}

@@ -464,7 +464,31 @@ func (s *RfxService) CreateLot(ctx context.Context, actor domain.ActorContext, e
 	if err := domain.ValidateCreateRfxLotInput(in); err != nil {
 		return nil, err
 	}
-	return s.repo.CreateLot(ctx, in)
+	var created *domain.RfxLot
+	err = s.runRfx(ctx, func(rfx RfxStore, _ AuditRecorder) error {
+		concrete, ok := rfx.(*repository.RfxRepository)
+		if !ok {
+			lot, createErr := rfx.CreateLot(ctx, in)
+			if createErr != nil {
+				return createErr
+			}
+			created = lot
+			return nil
+		}
+		if err := concrete.LockRfxEventForLotMutation(ctx, eventID, actor.TenantID); err != nil {
+			return err
+		}
+		lot, createErr := concrete.CreateLot(ctx, in)
+		if createErr != nil {
+			return createErr
+		}
+		created = lot
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return created, nil
 }
 
 func (s *RfxService) ListLots(ctx context.Context, actor domain.ActorContext, eventID uuid.UUID) ([]domain.RfxLot, error) {

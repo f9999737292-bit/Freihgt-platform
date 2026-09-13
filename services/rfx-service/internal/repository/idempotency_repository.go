@@ -15,10 +15,9 @@ import (
 var ErrIdempotencyRecordActive = errors.New("idempotency record not expired")
 
 type IdempotencyRepository struct {
-	pool *pgxpool.Pool
-	exec dbExecutor
-	// injectStoreFailure is set only by integration tests to verify transactional rollback.
-	injectStoreFailure bool
+	pool   *pgxpool.Pool
+	exec   dbExecutor
+	inject *testInjectState
 }
 
 type IdempotencyScope struct {
@@ -43,12 +42,12 @@ type IdempotencyRecord struct {
 }
 
 func NewIdempotencyRepository(pool *pgxpool.Pool) *IdempotencyRepository {
-	return &IdempotencyRepository{pool: pool}
+	return &IdempotencyRepository{pool: pool, inject: &testInjectState{}}
 }
 
-// SetInjectStoreFailure enables a one-shot idempotency insert failure for integration tests.
+// SetInjectStoreFailure arms a one-shot idempotency insert failure for integration tests.
 func (r *IdempotencyRepository) SetInjectStoreFailure(enabled bool) {
-	r.injectStoreFailure = enabled
+	r.inject.set(enabled)
 }
 
 func (r *IdempotencyRepository) Get(ctx context.Context, scope IdempotencyScope, key string) (*IdempotencyRecord, error) {
@@ -70,7 +69,7 @@ func (r *IdempotencyRepository) Get(ctx context.Context, scope IdempotencyScope,
 }
 
 func (r *IdempotencyRepository) Store(ctx context.Context, record IdempotencyRecord) error {
-	if r.injectStoreFailure {
+	if r.inject.consume() {
 		return mapDBError(fmt.Errorf("injected idempotency store failure"))
 	}
 	if len(record.ResponseBody) == 0 {

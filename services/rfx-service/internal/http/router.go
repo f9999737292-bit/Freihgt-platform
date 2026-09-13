@@ -147,6 +147,7 @@ func NewRouter(
 			r.Use(excelExchangeFlagMiddleware(cfg.RfxExcelExchangeEnabled))
 			r.Get("/{id}/xlsx-export", excelExchangeHandler.ExportBuyerDraftXLSX)
 			r.Post("/{id}/xlsx-import/preview", excelExchangeHandler.PreviewBuyerImportXLSX)
+			r.Post("/{id}/xlsx-import/commit", excelExchangeHandler.CommitBuyerImportXLSX)
 		})
 
 		// RFx v3.0D scoring

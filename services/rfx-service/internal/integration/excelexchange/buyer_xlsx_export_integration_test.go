@@ -237,8 +237,8 @@ func TestE7P2INT19RouteParitySmoke(t *testing.T) {
 	const canonicalOperationID = "get_export_buyer_draft_rfx_event_as_xlsx_workbook"
 
 	routes := sharedrfx.E7ExcelExchangeRoutes()
-	if len(routes) != 2 {
-		t.Fatalf("expected 2 routes, got %d", len(routes))
+	if len(routes) != 3 {
+		t.Fatalf("expected 3 routes, got %d", len(routes))
 	}
 	var route sharedrfx.ExcelExchangeRoute
 	for _, candidate := range routes {

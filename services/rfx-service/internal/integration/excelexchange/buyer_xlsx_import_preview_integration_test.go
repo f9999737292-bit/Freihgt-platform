@@ -462,13 +462,14 @@ func TestE7P2INT41CompetitorColumnRejected(t *testing.T) {
 
 func TestE7P2INT42RouteServiceGatewayOpenAPIParity(t *testing.T) {
 	routes := sharedrfx.E7ExcelExchangeRoutes()
-	if len(routes) != 2 {
-		t.Fatalf("expected 2 routes, got %d", len(routes))
+	if len(routes) != 3 {
+		t.Fatalf("expected 3 routes, got %d", len(routes))
 	}
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
 	draft := seedRichDraftEvent(t, env, fix)
 	workbook := exportRichDraftWorkbook(t, env, fix, draft)
+	preview := previewReadyAnalysis(t, env, fix, draft)
 
 	for _, route := range routes {
 		switch route.Name {
@@ -484,6 +485,20 @@ func TestE7P2INT42RouteServiceGatewayOpenAPIParity(t *testing.T) {
 			}
 			if route.OpenAPIOperationID != "post_preview_buyer_draft_rfx_event_xlsx_import" {
 				t.Fatalf("unexpected operationId=%q", route.OpenAPIOperationID)
+			}
+		case "commit_buyer_draft_xlsx_import":
+			if preview.AnalysisID == nil {
+				t.Fatal("expected analysis_id for commit route parity")
+			}
+			rec := postBuyerXlsxImportCommitHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, draft.Event.ID, *preview.AnalysisID, "e7p2-int-42")
+			if rec.Code != route.SuccessStatus {
+				t.Fatalf("commit status=%d want=%d body=%s", rec.Code, route.SuccessStatus, rec.Body.String())
+			}
+			if route.OpenAPIOperationID != "post_commit_buyer_draft_rfx_event_xlsx_import" {
+				t.Fatalf("unexpected operationId=%q", route.OpenAPIOperationID)
+			}
+			if !route.IdempotencyRequired {
+				t.Fatal("commit route must require idempotency")
 			}
 		default:
 			t.Fatalf("unknown route %s", route.Name)

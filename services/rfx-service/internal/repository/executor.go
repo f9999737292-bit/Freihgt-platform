@@ -55,7 +55,7 @@ func (r *RfxRepository) WithTx(tx pgx.Tx) *RfxRepository {
 }
 
 func (r *AuditRepository) WithTx(tx pgx.Tx) *AuditRepository {
-	return &AuditRepository{pool: r.pool, exec: tx, injectRecordFailure: r.injectRecordFailure}
+	return &AuditRepository{pool: r.pool, exec: tx, inject: r.inject}
 }
 
 func (r *BidRepository) WithTx(tx pgx.Tx) *BidRepository {
@@ -75,7 +75,7 @@ func (r *AnswerRepository) WithTx(tx pgx.Tx) *AnswerRepository {
 }
 
 func (r *IdempotencyRepository) WithTx(tx pgx.Tx) *IdempotencyRepository {
-	return &IdempotencyRepository{pool: r.pool, exec: tx, injectStoreFailure: r.injectStoreFailure}
+	return &IdempotencyRepository{pool: r.pool, exec: tx, inject: r.inject}
 }
 
 // TransactionRunner executes callbacks inside a database transaction.

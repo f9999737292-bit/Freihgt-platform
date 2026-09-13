@@ -11,19 +11,18 @@ import (
 )
 
 type AuditRepository struct {
-	pool *pgxpool.Pool
-	exec dbExecutor
-	// injectRecordFailure is set only by integration tests to verify transactional rollback.
-	injectRecordFailure bool
+	pool   *pgxpool.Pool
+	exec   dbExecutor
+	inject *testInjectState
 }
 
 func NewAuditRepository(pool *pgxpool.Pool) *AuditRepository {
-	return &AuditRepository{pool: pool}
+	return &AuditRepository{pool: pool, inject: &testInjectState{}}
 }
 
-// SetInjectRecordFailure enables a one-shot audit insert failure for integration tests.
+// SetInjectRecordFailure arms a one-shot audit insert failure for integration tests.
 func (r *AuditRepository) SetInjectRecordFailure(enabled bool) {
-	r.injectRecordFailure = enabled
+	r.inject.set(enabled)
 }
 
 type AuditRecord struct {
@@ -88,7 +87,7 @@ func (r *AuditRepository) ListByEntity(ctx context.Context, tenantID uuid.UUID, 
 }
 
 func (r *AuditRepository) Record(ctx context.Context, rec AuditRecord) error {
-	if r.injectRecordFailure {
+	if r.inject.consume() {
 		return mapDBError(fmt.Errorf("injected audit record failure"))
 	}
 	meta := rec.Metadata

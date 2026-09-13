@@ -500,6 +500,28 @@ func (r *RfxRepository) UpdateEventStatus(ctx context.Context, id, tenantID uuid
 	return result, err
 }
 
+// LockRfxEventForLotMutation acquires the canonical parent-event row lock required
+// before any lot create/update/soft-delete under the same tenant in a transaction.
+func (r *RfxRepository) LockRfxEventForLotMutation(ctx context.Context, eventID, tenantID uuid.UUID) error {
+	if r.exec == nil {
+		return apperrors.Internal("event lot mutation lock requires transaction", nil)
+	}
+	var locked uuid.UUID
+	err := r.db().QueryRow(ctx, `
+		SELECT id
+		FROM rfx.rfx_events
+		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+		FOR UPDATE
+	`, eventID, tenantID).Scan(&locked)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return apperrors.NotFound("rfx event not found")
+		}
+		return mapDBError(err)
+	}
+	return nil
+}
+
 func (r *RfxRepository) CreateLot(ctx context.Context, in domain.CreateRfxLotInput) (*domain.RfxLot, error) {
 	const query = `
 		INSERT INTO rfx.rfx_lots (
@@ -547,6 +569,140 @@ func (r *RfxRepository) GetLotOwnerContext(ctx context.Context, lotID, tenantID 
 		return nil, mapDBError(err)
 	}
 	return &lotCtx, nil
+}
+
+func (r *RfxRepository) GetLotByEventAndNumber(ctx context.Context, eventID, tenantID uuid.UUID, lotNumber string) (*domain.RfxLot, bool, error) {
+	const query = `
+		SELECT id, tenant_id, rfx_event_id, lot_number, name, description,
+			category, estimated_value, currency_code, status, deleted_at IS NOT NULL
+		FROM rfx.rfx_lots
+		WHERE rfx_event_id = $1 AND tenant_id = $2 AND lot_number = $3
+	`
+	var lot domain.RfxLot
+	var deleted bool
+	err := r.db().QueryRow(ctx, query, eventID, tenantID, strings.TrimSpace(lotNumber)).Scan(
+		&lot.ID, &lot.TenantID, &lot.RfxEventID, &lot.LotNumber, &lot.Name, &lot.Description,
+		&lot.Category, &lot.EstimatedValue, &lot.CurrencyCode, &lot.Status, &deleted,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, false, nil
+		}
+		return nil, false, mapDBError(err)
+	}
+	return &lot, deleted, nil
+}
+
+func (r *RfxRepository) UpdateLotByEventAndNumber(
+	ctx context.Context,
+	eventID, tenantID uuid.UUID,
+	lotNumber string,
+	in domain.CreateRfxLotInput,
+	status string,
+) (*domain.RfxLot, error) {
+	if strings.TrimSpace(status) == "" {
+		status = "ACTIVE"
+	}
+	const query = `
+		UPDATE rfx.rfx_lots
+		SET name = $4,
+		    description = $5,
+		    category = $6,
+		    estimated_value = $7,
+		    currency_code = $8,
+		    status = $9,
+		    deleted_at = NULL
+		WHERE rfx_event_id = $1 AND tenant_id = $2 AND lot_number = $3
+		RETURNING id, tenant_id, rfx_event_id, lot_number, name, description,
+			category, estimated_value, currency_code, status
+	`
+	row := r.db().QueryRow(ctx, query,
+		eventID, tenantID, strings.TrimSpace(lotNumber),
+		strings.TrimSpace(in.Name),
+		optionalString(in.Description),
+		optionalString(in.Category),
+		optionalFloat(in.EstimatedValue),
+		optionalString(in.CurrencyCode),
+		strings.TrimSpace(status),
+	)
+	lot, err := scanRfxLot(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperrors.NotFound("rfx lot not found")
+		}
+		return nil, mapDBError(err)
+	}
+	return lot, nil
+}
+
+func (r *RfxRepository) SoftDeleteLotByEventAndNumber(ctx context.Context, eventID, tenantID uuid.UUID, lotNumber string) error {
+	lotNumber = strings.TrimSpace(lotNumber)
+	tag, err := r.db().Exec(ctx, `
+		UPDATE rfx.rfx_lots
+		SET deleted_at = now()
+		WHERE rfx_event_id = $1 AND tenant_id = $2 AND lot_number = $3 AND deleted_at IS NULL
+	`, eventID, tenantID, lotNumber)
+	if err != nil {
+		return mapDBError(err)
+	}
+	if tag.RowsAffected() > 0 {
+		return nil
+	}
+	var deleted bool
+	err = r.db().QueryRow(ctx, `
+		SELECT deleted_at IS NOT NULL
+		FROM rfx.rfx_lots
+		WHERE rfx_event_id = $1 AND tenant_id = $2 AND lot_number = $3
+	`, eventID, tenantID, lotNumber).Scan(&deleted)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return apperrors.NotFound("rfx lot not found")
+		}
+		return mapDBError(err)
+	}
+	if deleted {
+		return nil
+	}
+	return apperrors.NotFound("rfx lot not found")
+}
+
+func (r *RfxRepository) LockEventLotsForUpdate(ctx context.Context, eventID, tenantID uuid.UUID) ([]domain.RfxLot, error) {
+	if r.exec == nil {
+		return nil, apperrors.Internal("event lot lock requires transaction", nil)
+	}
+	const query = `
+		SELECT id, tenant_id, rfx_event_id, lot_number, name, description,
+			category, estimated_value, currency_code, status, deleted_at IS NOT NULL
+		FROM rfx.rfx_lots
+		WHERE rfx_event_id = $1 AND tenant_id = $2
+		ORDER BY lot_number
+		FOR UPDATE
+	`
+	rows, err := r.db().Query(ctx, query, eventID, tenantID)
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	defer rows.Close()
+
+	lots := make([]domain.RfxLot, 0)
+	for rows.Next() {
+		var lot domain.RfxLot
+		var deleted bool
+		if err := rows.Scan(
+			&lot.ID, &lot.TenantID, &lot.RfxEventID, &lot.LotNumber, &lot.Name, &lot.Description,
+			&lot.Category, &lot.EstimatedValue, &lot.CurrencyCode, &lot.Status, &deleted,
+		); err != nil {
+			return nil, mapDBError(err)
+		}
+		if deleted {
+			continue
+		}
+		lots = append(lots, lot)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, mapDBError(err)
+	}
+	return lots, nil
 }
 
 func (r *RfxRepository) ListLotsByEvent(ctx context.Context, eventID, tenantID uuid.UUID) ([]domain.RfxLot, error) {
