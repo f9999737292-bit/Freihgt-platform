@@ -179,6 +179,7 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/rfx-events/{id}/late-submission-requests/{request_id}/reject", "post", "Reject carrier late submission request", "RFx", True, True, "ls_reject"),
     ("/api/v1/rfx-events/{id}/xlsx-export", "get", "Export buyer draft RFx event as XLSX workbook", "RFx", True, True, "xlsx_export_buyer_draft"),
     ("/api/v1/rfx-events/{id}/xlsx-import/preview", "post", "Preview buyer draft RFx event XLSX import", "RFx", True, True, "xlsx_import_preview_buyer_draft"),
+    ("/api/v1/rfx-events/{id}/xlsx-import/commit", "post", "Commit buyer draft RFx event XLSX import", "RFx", True, True, "xlsx_import_commit_buyer_draft"),
     ("/api/v1/rfx-events/{id}/carrier-response/submit", "post", "Submit carrier questionnaire response", "RFx", True, True, "cr_submit"),
     ("/api/v1/rfx-events/{id}/carrier-response/summary", "get", "Carrier response completion summary", "RFx", True, True, "cr_summary_get"),
     ("/api/v1/rfx-events/{id}/score-model", "get", "Get RFx score model", "RFx", True, True, "score_model_get"),
@@ -489,11 +490,17 @@ LATE_SUBMISSION_422_PROFILES = frozenset({
     "ls_reject",
 })
 
-E7_EXCEL_EXCHANGE_ENDPOINT_PROFILES = frozenset({"xlsx_export_buyer_draft", "xlsx_import_preview_buyer_draft"})
+E7_EXCEL_EXCHANGE_ENDPOINT_PROFILES = frozenset({
+    "xlsx_export_buyer_draft",
+    "xlsx_import_preview_buyer_draft",
+    "xlsx_import_commit_buyer_draft",
+})
 
 BINARY_RESPONSE_PROFILES = frozenset({"xlsx_export_buyer_draft"})
 
 EXCEL_EXCHANGE_PREVIEW_PROFILES = frozenset({"xlsx_import_preview_buyer_draft"})
+
+EXCEL_EXCHANGE_COMMIT_PROFILES = frozenset({"xlsx_import_commit_buyer_draft"})
 
 EXCEL_EXCHANGE_ERROR_RESPONSES = """        '400':
           description: Validation error
@@ -538,6 +545,49 @@ EXCEL_EXCHANGE_ERROR_RESPONSES = """        '400':
               schema:
                 $ref: '#/components/schemas/ErrorResponse'"""
 
+EXCEL_EXCHANGE_COMMIT_ERROR_RESPONSES = """        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Stored proposal failed revalidation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'"""
+
 EXCEL_EXCHANGE_DESCRIPTIONS = {
     "xlsx_export_buyer_draft": """Export buyer draft RFx event as an XLSX workbook snapshot.
 
@@ -563,6 +613,13 @@ Domain-invalid but structurally readable workbooks return **422** with the struc
 Malformed multipart, unsafe ZIP/XLSX, or schema contract failures return **400** / **413** with the standard error envelope.
 
 Precondition: an active DRAFT questionnaire version must exist; otherwise returns **409** conflict.""",
+    "xlsx_import_commit_buyer_draft": """Atomically apply a persisted buyer XLSX import preview analysis to the active DRAFT.
+
+Feature flag: when `RFX_EXCEL_EXCHANGE_ENABLED` is false (default), the route returns **404** (feature disabled).
+
+Authorization: **BuyerManage** role required; only the preview creator actor may commit.
+
+Requires `Idempotency-Key` header. Request body contains only `analysis_id`.""",
 }
 
 CONTRACT_RATE_SCHEMA_REFS = {
@@ -881,6 +938,16 @@ def render_parameters(path: str, method: str, with_headers: bool, profile: str |
             "            minLength: 1",
             "            maxLength: 128",
         ])
+    elif profile in EXCEL_EXCHANGE_COMMIT_PROFILES:
+        lines.extend([
+            "        - name: Idempotency-Key",
+            "          in: header",
+            "          required: true",
+            "          description: Client-supplied idempotency key for buyer XLSX import commit (max 128 chars).",
+            "          schema:",
+            "            type: string",
+            "            maxLength: 128",
+        ])
     elif profile in LATE_SUBMISSION_IDEMPOTENCY_PROFILES:
         lines.extend([
             "        - name: Idempotency-Key",
@@ -959,7 +1026,12 @@ def render_operation(
     elif with_headers:
         lines.append(COMMON_HEADER.rstrip("\n"))
 
-    if method in {"post", "patch", "put"} and profile not in NO_REQUEST_BODY_PROFILES and profile not in EXCEL_EXCHANGE_PREVIEW_PROFILES:
+    if (
+        method in {"post", "patch", "put"}
+        and profile not in NO_REQUEST_BODY_PROFILES
+        and profile not in EXCEL_EXCHANGE_PREVIEW_PROFILES
+        and profile not in EXCEL_EXCHANGE_COMMIT_PROFILES
+    ):
         schema_ref = "#/components/schemas/VoidRequest" if profile in VOID_DESCRIPTIONS else None
         lines.extend(
             [
@@ -1018,7 +1090,7 @@ def render_operation(
             ]
         )
 
-    if secured and profile not in EXCEL_EXCHANGE_PREVIEW_PROFILES:
+    if secured and profile not in EXCEL_EXCHANGE_PREVIEW_PROFILES and profile not in EXCEL_EXCHANGE_COMMIT_PROFILES:
         lines.append(SECURITY_BEARER.rstrip("\n"))
 
     if profile in BINARY_RESPONSE_PROFILES:
@@ -1073,6 +1145,34 @@ def render_operation(
                 "              schema:",
                 "                $ref: '#/components/schemas/RfxBuyerXlsxImportPreviewResponse'",
                 EXCEL_EXCHANGE_ERROR_RESPONSES.rstrip("\n"),
+                "",
+            ]
+        )
+        return "\n".join(lines)
+
+    if profile in EXCEL_EXCHANGE_COMMIT_PROFILES:
+        lines.extend(
+            [
+                "      requestBody:",
+                "        required: true",
+                "        content:",
+                "          application/json:",
+                "            schema:",
+                "              $ref: '#/components/schemas/RfxBuyerXlsxImportCommitRequest'",
+            ]
+        )
+        if secured:
+            lines.append(SECURITY_BEARER.rstrip("\n"))
+        lines.extend(
+            [
+                "      responses:",
+                "        '200':",
+                "          description: Import analysis committed to active draft",
+                "          content:",
+                "            application/json:",
+                "              schema:",
+                "                $ref: '#/components/schemas/RfxBuyerXlsxImportCommitResponse'",
+                EXCEL_EXCHANGE_COMMIT_ERROR_RESPONSES.rstrip("\n"),
                 "",
             ]
         )
@@ -2198,6 +2298,55 @@ def excel_exchange_components_block() -> str:
           maxItems: 2000
           items:
             $ref: '#/components/schemas/RfxBuyerXlsxImportPreviewIssue'
+    RfxBuyerXlsxImportCommitRequest:
+      type: object
+      required: [analysis_id]
+      properties:
+        analysis_id:
+          type: string
+          format: uuid
+    RfxBuyerXlsxImportEntityChangeCounts:
+      type: object
+      properties:
+        added:
+          type: integer
+        updated:
+          type: integer
+        deleted:
+          type: integer
+    RfxBuyerXlsxImportCommitResponse:
+      type: object
+      required: [event_id, draft_version_id, analysis_id, event_version, draft_version, committed_at, changes]
+      properties:
+        event_id:
+          type: string
+          format: uuid
+        draft_version_id:
+          type: string
+          format: uuid
+        analysis_id:
+          type: string
+          format: uuid
+        event_version:
+          type: integer
+        draft_version:
+          type: integer
+        committed_at:
+          type: string
+          format: date-time
+        changes:
+          type: object
+          properties:
+            lots:
+              $ref: '#/components/schemas/RfxBuyerXlsxImportEntityChangeCounts'
+            sections:
+              $ref: '#/components/schemas/RfxBuyerXlsxImportEntityChangeCounts'
+            questions:
+              $ref: '#/components/schemas/RfxBuyerXlsxImportEntityChangeCounts'
+            options:
+              $ref: '#/components/schemas/RfxBuyerXlsxImportEntityChangeCounts'
+            rules:
+              $ref: '#/components/schemas/RfxBuyerXlsxImportEntityChangeCounts'
 """
 
 
