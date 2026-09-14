@@ -111,8 +111,8 @@ func TestE7P2INT85HiddenOrUnknownSheet422Or400(t *testing.T) {
 	t.Run("missing_sheet", func(t *testing.T) {
 		before := captureResponseWriteSnapshot(t, env, fix.TenantID, carrier.Response.ID)
 		rec := postCarrierXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.CarrierAct, carrier.Event.ID, carrier.Response.ID, deletePreviewSheet(t, base, "Rules"), previewHTTPOptions{})
-		if rec.Code != http.StatusBadRequest {
-			t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+		if rec.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("status=%d want 422 body=%s", rec.Code, rec.Body.String())
 		}
 		assertCarrierPreviewFailureNoWrites(t, env, fix.TenantID, carrier.Response.ID, before)
 	})

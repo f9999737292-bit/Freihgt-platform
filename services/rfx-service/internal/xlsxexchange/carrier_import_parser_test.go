@@ -50,6 +50,27 @@ func TestClassifyCarrierPreviewErrorsSchemaMismatchIsDomain(t *testing.T) {
 	}
 }
 
+func TestClassifyCarrierPreviewErrorsCompetitorColumnIsDomain(t *testing.T) {
+	class := ClassifyCarrierPreviewErrors([]BuyerImportIssue{{
+		MachineCode: MachineCodeCompetitorColumnDenied,
+		Severity:    IssueSeverityError,
+	}})
+	if class != PreviewErrorClassDomain {
+		t.Fatalf("class=%v want domain", class)
+	}
+}
+
+func TestClassifyCarrierPreviewErrorsOfferValidationIsDomain(t *testing.T) {
+	class := ClassifyCarrierPreviewErrors([]BuyerImportIssue{{
+		MachineCode: MachineCodeInvalidType,
+		MessageKey:  "rfx.carrier_xlsx_import.invalid_offer_line",
+		Severity:    IssueSeverityError,
+	}})
+	if class != PreviewErrorClassDomain {
+		t.Fatalf("class=%v want domain", class)
+	}
+}
+
 func carrierImportTargetFromSnapshot(snapshot CarrierResponseSnapshot) TargetCarrierBaseline {
 	lotID := uuid.New()
 	lots := snapshot.Lots
