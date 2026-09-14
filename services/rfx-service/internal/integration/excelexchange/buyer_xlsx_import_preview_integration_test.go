@@ -500,6 +500,33 @@ func TestE7P2INT42RouteServiceGatewayOpenAPIParity(t *testing.T) {
 			if !route.IdempotencyRequired {
 				t.Fatal("commit route must require idempotency")
 			}
+		case "export_carrier_response_xlsx":
+			if route.Method != http.MethodGet {
+				t.Fatalf("carrier export method=%s want GET", route.Method)
+			}
+			if route.GatewayPath != "/api/v1/rfx-events/{id}/carrier-responses/{response_id}/xlsx-export" {
+				t.Fatalf("carrier gateway path=%q", route.GatewayPath)
+			}
+			if route.ServicePath != "/v1/rfx-events/{event_id}/carrier-responses/{response_id}/xlsx-export" {
+				t.Fatalf("carrier service path=%q", route.ServicePath)
+			}
+			if route.OpenAPIOperationID != "get_export_carrier_rfx_response_as_xlsx_workbook" {
+				t.Fatalf("unexpected operationId=%q", route.OpenAPIOperationID)
+			}
+			if route.RBACPolicy != "PolicyCarrierRead" {
+				t.Fatalf("carrier RBAC=%q", route.RBACPolicy)
+			}
+			if !route.FeatureFlagProtected {
+				t.Fatal("carrier export must be feature-flag protected")
+			}
+			if route.IdempotencyRequired {
+				t.Fatal("carrier export must not require idempotency")
+			}
+			carrier := seedCarrierDraftExportFixture(t, env, fix)
+			rec := getCarrierXlsxExportHTTP(t, env, enabledExcelExchangeConfig(), fix.CarrierAct, carrier.Event.ID, carrier.Response.ID)
+			if rec.Code != route.SuccessStatus {
+				t.Fatalf("carrier export status=%d want=%d body=%s", rec.Code, route.SuccessStatus, rec.Body.String())
+			}
 		default:
 			t.Fatalf("unknown route %s", route.Name)
 		}
