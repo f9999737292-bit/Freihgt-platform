@@ -7,6 +7,21 @@ import (
 	"sort"
 )
 
+// CompareCarrierAnswersDiffForCommit compares baseline vs proposed answer rows for commit change counts.
+func CompareCarrierAnswersDiffForCommit(baseline, proposed []CarrierAnswerRow) CarrierAnswersDiff {
+	return compareCarrierAnswersDiff(baseline, proposed)
+}
+
+// CompareCarrierOfferLinesDiffForCommit compares baseline vs proposed offer lines for commit change counts.
+func CompareCarrierOfferLinesDiffForCommit(baseline, proposed []CarrierOfferLineRow) CarrierOfferLinesDiff {
+	return compareCarrierOfferLinesDiff(baseline, proposed)
+}
+
+// ProposedOfferRowsFromProposal returns non-deleted offer line rows from a carrier import proposal.
+func ProposedOfferRowsFromProposal(proposal CarrierImportProposal) []CarrierOfferLineRow {
+	return proposedOfferRows(proposal)
+}
+
 func compareCarrierAnswersDiff(baseline, proposed []CarrierAnswerRow) CarrierAnswersDiff {
 	baseMap := make(map[string]string, len(baseline))
 	for _, row := range baseline {

@@ -182,6 +182,7 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/rfx-events/{id}/carrier-responses/{response_id}/xlsx-import/preview", "post", "Preview carrier RFx response XLSX import", "RFx", True, True, "xlsx_import_preview_carrier_response"),
     ("/api/v1/rfx-events/{id}/xlsx-import/preview", "post", "Preview buyer draft RFx event XLSX import", "RFx", True, True, "xlsx_import_preview_buyer_draft"),
     ("/api/v1/rfx-events/{id}/xlsx-import/commit", "post", "Commit buyer draft RFx event XLSX import", "RFx", True, True, "xlsx_import_commit_buyer_draft"),
+    ("/api/v1/rfx-events/{id}/carrier-responses/{response_id}/xlsx-import/commit", "post", "Commit carrier RFx response XLSX import", "RFx", True, True, "xlsx_import_commit_carrier_response"),
     ("/api/v1/rfx-events/{id}/carrier-response/submit", "post", "Submit carrier questionnaire response", "RFx", True, True, "cr_submit"),
     ("/api/v1/rfx-events/{id}/carrier-response/summary", "get", "Carrier response completion summary", "RFx", True, True, "cr_summary_get"),
     ("/api/v1/rfx-events/{id}/score-model", "get", "Get RFx score model", "RFx", True, True, "score_model_get"),
@@ -498,13 +499,14 @@ E7_EXCEL_EXCHANGE_ENDPOINT_PROFILES = frozenset({
     "xlsx_import_preview_buyer_draft",
     "xlsx_import_preview_carrier_response",
     "xlsx_import_commit_buyer_draft",
+    "xlsx_import_commit_carrier_response",
 })
 
 BINARY_RESPONSE_PROFILES = frozenset({"xlsx_export_buyer_draft", "xlsx_export_carrier_response"})
 
 EXCEL_EXCHANGE_PREVIEW_PROFILES = frozenset({"xlsx_import_preview_buyer_draft", "xlsx_import_preview_carrier_response"})
 
-EXCEL_EXCHANGE_COMMIT_PROFILES = frozenset({"xlsx_import_commit_buyer_draft"})
+EXCEL_EXCHANGE_COMMIT_PROFILES = frozenset({"xlsx_import_commit_buyer_draft", "xlsx_import_commit_carrier_response"})
 
 EXCEL_EXCHANGE_ERROR_RESPONSES = """        '400':
           description: Validation error
@@ -648,6 +650,13 @@ Feature flag: when `RFX_EXCEL_EXCHANGE_ENABLED` is false (default), the route re
 Authorization: **BuyerManage** role required; only the preview creator actor may commit.
 
 Requires `Idempotency-Key` header. Request body contains only `analysis_id`.""",
+    "xlsx_import_commit_carrier_response": """Atomically apply a persisted carrier XLSX import preview analysis to a DRAFT response.
+
+Feature flag: when `RFX_EXCEL_EXCHANGE_ENABLED` is false (default), the route returns **404** (feature disabled).
+
+Authorization: **CarrierRespond** role required; only the preview creator actor may commit; response must belong to the authenticated carrier company.
+
+Requires `Idempotency-Key` header. Request body contains only `analysis_id`. Commit applies stored canonical payload only (no XLSX re-parse), updates answers and offer lines, and leaves the response in DRAFT (no auto-submit).""",
 }
 
 CONTRACT_RATE_SCHEMA_REFS = {
@@ -967,11 +976,14 @@ def render_parameters(path: str, method: str, with_headers: bool, profile: str |
             "            maxLength: 128",
         ])
     elif profile in EXCEL_EXCHANGE_COMMIT_PROFILES:
+        commit_label = "buyer XLSX import commit"
+        if profile == "xlsx_import_commit_carrier_response":
+            commit_label = "carrier XLSX import commit"
         lines.extend([
             "        - name: Idempotency-Key",
             "          in: header",
             "          required: true",
-            "          description: Client-supplied idempotency key for buyer XLSX import commit (max 128 chars).",
+            f"          description: Client-supplied idempotency key for {commit_label} (max 128 chars).",
             "          schema:",
             "            type: string",
             "            maxLength: 128",
@@ -1184,6 +1196,13 @@ def render_operation(
         return "\n".join(lines)
 
     if profile in EXCEL_EXCHANGE_COMMIT_PROFILES:
+        commit_request_schema = "RfxBuyerXlsxImportCommitRequest"
+        commit_response_schema = "RfxBuyerXlsxImportCommitResponse"
+        commit_success_description = "Import analysis committed to active draft"
+        if profile == "xlsx_import_commit_carrier_response":
+            commit_request_schema = "RfxCarrierXlsxImportCommitRequest"
+            commit_response_schema = "RfxCarrierXlsxImportCommitResponse"
+            commit_success_description = "Import analysis committed to carrier DRAFT response"
         lines.extend(
             [
                 "      requestBody:",
@@ -1191,7 +1210,7 @@ def render_operation(
                 "        content:",
                 "          application/json:",
                 "            schema:",
-                "              $ref: '#/components/schemas/RfxBuyerXlsxImportCommitRequest'",
+                f"              $ref: '#/components/schemas/{commit_request_schema}'",
             ]
         )
         if secured:
@@ -1200,11 +1219,11 @@ def render_operation(
             [
                 "      responses:",
                 "        '200':",
-                "          description: Import analysis committed to active draft",
+                f"          description: {commit_success_description}",
                 "          content:",
                 "            application/json:",
                 "              schema:",
-                "                $ref: '#/components/schemas/RfxBuyerXlsxImportCommitResponse'",
+                f"                $ref: '#/components/schemas/{commit_response_schema}'",
                 EXCEL_EXCHANGE_COMMIT_ERROR_RESPONSES.rstrip("\n"),
                 "",
             ]
@@ -2440,6 +2459,39 @@ def excel_exchange_components_block() -> str:
             options:
               $ref: '#/components/schemas/RfxBuyerXlsxImportEntityChangeCounts'
             rules:
+              $ref: '#/components/schemas/RfxBuyerXlsxImportEntityChangeCounts'
+    RfxCarrierXlsxImportCommitRequest:
+      type: object
+      required: [analysis_id]
+      properties:
+        analysis_id:
+          type: string
+          format: uuid
+    RfxCarrierXlsxImportCommitResponse:
+      type: object
+      required: [event_id, response_id, analysis_id, save_version, committed_at, changes]
+      properties:
+        event_id:
+          type: string
+          format: uuid
+        response_id:
+          type: string
+          format: uuid
+        analysis_id:
+          type: string
+          format: uuid
+        save_version:
+          type: integer
+          format: int64
+        committed_at:
+          type: string
+          format: date-time
+        changes:
+          type: object
+          properties:
+            answers:
+              $ref: '#/components/schemas/RfxBuyerXlsxImportEntityChangeCounts'
+            offer_lines:
               $ref: '#/components/schemas/RfxBuyerXlsxImportEntityChangeCounts'
 """
 

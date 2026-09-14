@@ -462,8 +462,8 @@ func TestE7P2INT41CompetitorColumnRejected(t *testing.T) {
 
 func TestE7P2INT42RouteServiceGatewayOpenAPIParity(t *testing.T) {
 	routes := sharedrfx.E7ExcelExchangeRoutes()
-	if len(routes) != 5 {
-		t.Fatalf("expected 5 routes, got %d", len(routes))
+	if len(routes) != 6 {
+		t.Fatalf("expected 6 routes, got %d", len(routes))
 	}
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
@@ -539,6 +539,25 @@ func TestE7P2INT42RouteServiceGatewayOpenAPIParity(t *testing.T) {
 			}
 			if route.RBACPolicy != "PolicyCarrierRespond" {
 				t.Fatalf("carrier preview RBAC=%q", route.RBACPolicy)
+			}
+		case "commit_carrier_response_xlsx_import":
+			carrier := seedCarrierDraftExportFixture(t, env, fix)
+			carrierPreview := previewReadyCarrierAnalysis(t, env, fix, carrier, nil)
+			if carrierPreview.AnalysisID == nil {
+				t.Fatal("expected analysis_id for carrier commit route parity")
+			}
+			rec := postCarrierXlsxImportCommitHTTP(t, env, enabledExcelExchangeConfig(), fix.CarrierAct, carrier.Event.ID, carrier.Response.ID, *carrierPreview.AnalysisID, "e7p2-int-42-carrier-commit")
+			if rec.Code != route.SuccessStatus {
+				t.Fatalf("carrier commit status=%d want=%d body=%s", rec.Code, route.SuccessStatus, rec.Body.String())
+			}
+			if route.OpenAPIOperationID != "post_commit_carrier_rfx_response_xlsx_import" {
+				t.Fatalf("unexpected operationId=%q", route.OpenAPIOperationID)
+			}
+			if route.RBACPolicy != "PolicyCarrierRespond" {
+				t.Fatalf("carrier commit RBAC=%q", route.RBACPolicy)
+			}
+			if !route.IdempotencyRequired {
+				t.Fatal("carrier commit route must require idempotency")
 			}
 		default:
 			t.Fatalf("unknown route %s", route.Name)

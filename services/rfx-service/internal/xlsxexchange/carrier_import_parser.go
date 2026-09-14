@@ -187,7 +187,7 @@ func proposedAnswerRows(proposal CarrierImportProposal) []CarrierAnswerRow {
 		}
 		out = append(out, CarrierAnswerRow{
 			QuestionCode: patch.QuestionCode,
-			AnswerValue:  strings.TrimSpace(string(patch.Value)),
+			AnswerValue:  FormatCarrierAnswerValue(patch.Value),
 		})
 	}
 	return out

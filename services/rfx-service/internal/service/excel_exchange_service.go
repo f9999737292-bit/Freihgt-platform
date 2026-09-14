@@ -6,12 +6,28 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/freight-platform/rfx-service/internal/domain"
 	apperrors "github.com/freight-platform/rfx-service/internal/platform/errors"
 	"github.com/freight-platform/rfx-service/internal/repository"
 	"github.com/freight-platform/rfx-service/internal/xlsxexchange"
 )
+
+type latePermissionResolver interface {
+	ResolveActivePermission(
+		ctx context.Context,
+		tenantID, eventID, carrierCompanyID uuid.UUID,
+		deadline *time.Time,
+		now time.Time,
+	) (*domain.LateSubmissionRequest, error)
+	EnsureApprovedWindowTx(
+		ctx context.Context,
+		tx pgx.Tx,
+		requestID, tenantID, eventID, carrierCompanyID uuid.UUID,
+		now time.Time,
+	) error
+}
 
 const BuyerDraftXLSXContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
@@ -39,10 +55,12 @@ type ExcelExchangeService struct {
 	answerRepo         ExcelExchangeAnswerStore
 	rfxRepoFull        *repository.RfxRepository
 	qRepoFull          *repository.QuestionnaireRepository
+	answerRepoFull     *repository.AnswerRepository
 	auth               *RfxService
 	importAnalysisRepo *repository.ImportAnalysisRepository
 	idemRepo           *repository.IdempotencyRepository
 	auditRepo          *repository.AuditRepository
+	late               latePermissionResolver
 	txRunner           previewTransactionRunner
 	nowFn              func() time.Time
 }
@@ -65,12 +83,17 @@ func NewExcelExchangeService(
 	if concrete, ok := qRepo.(*repository.QuestionnaireRepository); ok {
 		qRepoFull = concrete
 	}
+	var answerRepoFull *repository.AnswerRepository
+	if concrete, ok := answerRepo.(*repository.AnswerRepository); ok {
+		answerRepoFull = concrete
+	}
 	return &ExcelExchangeService{
 		rfxRepo:            rfxRepo,
 		qRepo:              qRepo,
 		answerRepo:         answerRepo,
 		rfxRepoFull:        rfxRepoFull,
 		qRepoFull:          qRepoFull,
+		answerRepoFull:     answerRepoFull,
 		auth:               auth,
 		importAnalysisRepo: importAnalysisRepo,
 		idemRepo:           idemRepo,
@@ -84,6 +107,10 @@ func (s *ExcelExchangeService) SetNowFunc(fn func() time.Time) {
 	if fn != nil {
 		s.nowFn = fn
 	}
+}
+
+func (s *ExcelExchangeService) SetLateSubmissionService(late latePermissionResolver) {
+	s.late = late
 }
 
 func (s *ExcelExchangeService) ExportBuyerDraftWorkbook(

@@ -152,7 +152,7 @@ func canonicalAnswersFromProposal(proposal CarrierImportProposal) []canonicalCar
 		}
 		out = append(out, canonicalCarrierAnswer{
 			QuestionCode: patch.QuestionCode,
-			AnswerValue:  strings.TrimSpace(string(patch.Value)),
+			AnswerValue:  FormatCarrierAnswerValue(patch.Value),
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].QuestionCode < out[j].QuestionCode })

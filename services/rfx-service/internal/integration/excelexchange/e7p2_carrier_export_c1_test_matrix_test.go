@@ -20,7 +20,7 @@ func TestE7P2CarrierXlsxMatrixIDsCompleteAndUnique(t *testing.T) {
 		t.Fatalf("cwd: %v", err)
 	}
 	found := map[int]string{}
-	re := regexp.MustCompile(`^TestE7P2INT(\d{2})`)
+	re := regexp.MustCompile(`^TestE7P2INT(\d{2,3})`)
 	fset := token.NewFileSet()
 	err = filepath.Walk(dir, func(path string, info os.FileInfo, walkErr error) error {
 		if walkErr != nil {
@@ -46,7 +46,7 @@ func TestE7P2CarrierXlsxMatrixIDsCompleteAndUnique(t *testing.T) {
 			if convErr != nil {
 				return convErr
 			}
-			if id < 71 || id > 90 {
+			if id < 71 || id > 119 {
 				continue
 			}
 			if prev, exists := found[id]; exists {
@@ -59,7 +59,7 @@ func TestE7P2CarrierXlsxMatrixIDsCompleteAndUnique(t *testing.T) {
 	if err != nil {
 		t.Fatalf("scan tests: %v", err)
 	}
-	for id := 71; id <= 90; id++ {
+	for id := 71; id <= 119; id++ {
 		if _, ok := found[id]; !ok {
 			t.Fatalf("missing required test E7P2-INT-%02d", id)
 		}

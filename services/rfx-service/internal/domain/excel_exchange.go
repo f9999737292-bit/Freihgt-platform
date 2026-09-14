@@ -26,7 +26,8 @@ const (
 	ImportTargetTypeDraftEvent      = "DRAFT_EVENT"
 	ImportTargetTypeCarrierResponse = "CARRIER_RESPONSE"
 
-	BuyerXlsxImportCommitOperation = "BUYER_XLSX_IMPORT_COMMIT"
+	BuyerXlsxImportCommitOperation   = "BUYER_XLSX_IMPORT_COMMIT"
+	CarrierXlsxImportCommitOperation = "CARRIER_XLSX_IMPORT_COMMIT"
 
 	MachineCodeAnalysisExpired         = "analysis_expired"
 	MachineCodeAnalysisAlreadyConsumed = "analysis_already_consumed"
@@ -78,6 +79,26 @@ func NewBuyerImportCommitIdempotencyPayload(analysisID uuid.UUID) BuyerImportCom
 }
 
 func ValidateBuyerImportCommitInput(in BuyerImportCommitInput) error {
+	if in.AnalysisID == uuid.Nil {
+		return apperrors.Validation("analysis_id is required", map[string]any{"field": "analysis_id"})
+	}
+	return nil
+}
+
+type CarrierImportCommitInput struct {
+	AnalysisID uuid.UUID `json:"analysis_id"`
+}
+
+// CarrierImportCommitIdempotencyPayload is the canonical request fingerprint for carrier commit replay.
+type CarrierImportCommitIdempotencyPayload struct {
+	AnalysisID uuid.UUID `json:"analysis_id"`
+}
+
+func NewCarrierImportCommitIdempotencyPayload(analysisID uuid.UUID) CarrierImportCommitIdempotencyPayload {
+	return CarrierImportCommitIdempotencyPayload{AnalysisID: analysisID}
+}
+
+func ValidateCarrierImportCommitInput(in CarrierImportCommitInput) error {
 	if in.AnalysisID == uuid.Nil {
 		return apperrors.Validation("analysis_id is required", map[string]any{"field": "analysis_id"})
 	}

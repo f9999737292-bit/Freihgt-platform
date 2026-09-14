@@ -43,6 +43,15 @@ func TestVerifyImportAnalysisCanonicalHashMatch(t *testing.T) {
 	}
 }
 
+func TestValidateCarrierImportCommitInput(t *testing.T) {
+	if err := ValidateCarrierImportCommitInput(CarrierImportCommitInput{AnalysisID: uuid.New()}); err != nil {
+		t.Fatalf("valid carrier commit input rejected: %v", err)
+	}
+	if err := ValidateCarrierImportCommitInput(CarrierImportCommitInput{}); err == nil {
+		t.Fatal("expected missing analysis_id rejection")
+	}
+}
+
 func TestValidateSchemaVersionMismatch(t *testing.T) {
 	in := ImportAnalysis{
 		TenantID:             uuid.New(),

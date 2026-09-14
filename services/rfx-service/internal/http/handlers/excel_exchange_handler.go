@@ -149,6 +149,32 @@ func (h *ExcelExchangeHandler) PreviewBuyerImportXLSX(w http.ResponseWriter, r *
 	}
 }
 
+func (h *ExcelExchangeHandler) CommitCarrierImportXLSX(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireActor(w, r)
+	if !ok {
+		return
+	}
+	eventID, ok := parseEventID(w, r)
+	if !ok {
+		return
+	}
+	responseID, ok := parseResponseID(w, r)
+	if !ok {
+		return
+	}
+	var body domain.CarrierImportCommitInput
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		respond.Error(w, apperrors.Validation("invalid request body", map[string]any{"field": "body"}))
+		return
+	}
+	result, err := h.service.CommitCarrierImportAnalysis(r.Context(), actor, eventID, responseID, body, r.Header.Get("Idempotency-Key"))
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusOK, result)
+}
+
 func (h *ExcelExchangeHandler) CommitBuyerImportXLSX(w http.ResponseWriter, r *http.Request) {
 	actor, ok := requireActor(w, r)
 	if !ok {
