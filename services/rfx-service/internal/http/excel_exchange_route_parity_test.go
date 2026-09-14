@@ -17,8 +17,8 @@ var embeddedExcelExchangeServiceRouter string
 func TestE7ExcelExchangeRouteParity(t *testing.T) {
 	t.Parallel()
 	routes := sharedrfx.E7ExcelExchangeRoutes()
-	if len(routes) != 3 {
-		t.Fatalf("expected exactly 3 excel exchange routes, got %d", len(routes))
+	if len(routes) != 4 {
+		t.Fatalf("expected exactly 4 excel exchange routes, got %d", len(routes))
 	}
 	serviceRouter := embeddedExcelExchangeServiceRouter
 	rfxOpenAPI, err := readExcelExchangeRepoFile(t, "packages/openapi/rfx-service.yaml")
@@ -43,7 +43,9 @@ func TestE7ExcelExchangeRouteParity(t *testing.T) {
 
 	for _, route := range routes {
 		t.Run(route.Name, func(t *testing.T) {
-			if route.RBACPolicy != "PolicyBuyerManage" {
+			switch route.RBACPolicy {
+			case "PolicyBuyerManage", "PolicyCarrierRead":
+			default:
 				t.Fatalf("manifest RBAC=%q", route.RBACPolicy)
 			}
 			if !route.FeatureFlagProtected {
@@ -93,8 +95,15 @@ func assertExcelExchangeOpenAPIOperation(t *testing.T, openAPI string, route sha
 	if !strings.Contains(pathBlock, "RFX_EXCEL_EXCHANGE_ENABLED") {
 		t.Fatal("openapi description must document RFX_EXCEL_EXCHANGE_ENABLED feature flag")
 	}
-	if !strings.Contains(pathBlock, "BuyerManage") {
-		t.Fatal("openapi description must document BuyerManage authorization")
+	switch route.RBACPolicy {
+	case "PolicyBuyerManage":
+		if !strings.Contains(pathBlock, "BuyerManage") {
+			t.Fatal("openapi description must document BuyerManage authorization")
+		}
+	case "PolicyCarrierRead":
+		if !strings.Contains(pathBlock, "CarrierRead") {
+			t.Fatal("openapi description must document CarrierRead authorization")
+		}
 	}
 
 	switch route.Name {
@@ -117,6 +126,13 @@ func assertExcelExchangeOpenAPIOperation(t *testing.T, openAPI string, route sha
 		}
 		if !strings.Contains(pathBlock, "'413':") {
 			t.Fatal("openapi preview must declare 413 response")
+		}
+	case "export_carrier_response_xlsx":
+		if !strings.Contains(pathBlock, "type: string") || !strings.Contains(pathBlock, "format: binary") {
+			t.Fatal("openapi 200 response must declare string/binary workbook payload")
+		}
+		if !strings.Contains(pathBlock, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") {
+			t.Fatal("openapi 200 response must declare XLSX content type")
 		}
 	case "commit_buyer_draft_xlsx_import":
 		if !strings.Contains(pathBlock, "Idempotency-Key") {

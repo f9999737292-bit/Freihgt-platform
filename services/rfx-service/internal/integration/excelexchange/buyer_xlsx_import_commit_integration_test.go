@@ -600,8 +600,8 @@ func TestE7P2INT69FeatureDisabled404NoWrites(t *testing.T) {
 
 func TestE7P2INT70RouteParityCommitRouteExists(t *testing.T) {
 	routes := sharedrfx.E7ExcelExchangeRoutes()
-	if len(routes) != 3 {
-		t.Fatalf("expected 3 routes, got %d", len(routes))
+	if len(routes) != 4 {
+		t.Fatalf("expected 4 routes, got %d", len(routes))
 	}
 	var commitRoute sharedrfx.ExcelExchangeRoute
 	for _, route := range routes {

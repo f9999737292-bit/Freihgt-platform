@@ -43,9 +43,11 @@ type testEnv struct {
 	idemRepo           *repository.IdempotencyRepository
 	membershipRepo     *repository.MembershipRepository
 	qRepo              *repository.QuestionnaireRepository
+	answerRepo         *repository.AnswerRepository
 	importAnalysisRepo *repository.ImportAnalysisRepository
 	rfxSvc             *service.RfxService
 	qSvc               *service.QuestionnaireService
+	crSvc              *service.CarrierResponseService
 	excelExchangeSvc   *service.ExcelExchangeService
 }
 
@@ -136,14 +138,18 @@ func setupTestEnv(t *testing.T) *testEnv {
 	qRepo := repository.NewQuestionnaireRepository(pool)
 	idemRepo := repository.NewIdempotencyRepository(pool)
 	importAnalysisRepo := repository.NewImportAnalysisRepository(pool)
+	answerRepo := repository.NewAnswerRepository(pool)
 	rfxSvc := service.NewRfxServiceWithAtomic(pool, rfxRepo, auditRepo, membershipRepo, newAwardConversionStub(pool))
 	qSvc := service.NewQuestionnaireService(rfxRepo, qRepo, auditRepo, membershipRepo)
+	lateRepo := repository.NewLateSubmissionRepository(pool)
+	lateSvc := service.NewLateSubmissionService(pool, lateRepo, rfxRepo, idemRepo, auditRepo, rfxSvc)
+	crSvc := service.NewCarrierResponseServiceWithLateSubmission(pool, rfxRepo, answerRepo, qRepo, auditRepo, membershipRepo, rfxSvc, nil, lateSvc, idemRepo)
 	txRunner := repository.NewTransactionRunner(pool)
-	excelExchangeSvc := service.NewExcelExchangeService(rfxRepo, qRepo, rfxSvc, importAnalysisRepo, idemRepo, auditRepo, txRunner)
+	excelExchangeSvc := service.NewExcelExchangeService(rfxRepo, qRepo, rfxSvc, importAnalysisRepo, idemRepo, auditRepo, txRunner, answerRepo)
 	return &testEnv{
 		pool: pool, rfxRepo: rfxRepo, auditRepo: auditRepo, membershipRepo: membershipRepo,
-		qRepo: qRepo, idemRepo: idemRepo, importAnalysisRepo: importAnalysisRepo,
-		rfxSvc: rfxSvc, qSvc: qSvc, excelExchangeSvc: excelExchangeSvc,
+		qRepo: qRepo, answerRepo: answerRepo, idemRepo: idemRepo, importAnalysisRepo: importAnalysisRepo,
+		rfxSvc: rfxSvc, qSvc: qSvc, crSvc: crSvc, excelExchangeSvc: excelExchangeSvc,
 	}
 }
 
@@ -752,6 +758,216 @@ func captureGraphWriteSnapshot(t *testing.T, env *testEnv, tenantID, eventID uui
 		t.Fatalf("count import analyses: %v", err)
 	}
 	return snap
+}
+
+type carrierExportFixture struct {
+	Event    *domain.RfxEvent
+	Response *domain.RfxResponse
+	Question *domain.Question
+	Lot      *domain.RfxLot
+}
+
+func seedCarrierDraftExportFixture(t *testing.T, env *testEnv, fix buyerFixture) carrierExportFixture {
+	t.Helper()
+	ctx := context.Background()
+	draft := seedRichDraftEvent(t, env, fix)
+	if _, err := env.pool.Exec(ctx, `UPDATE rfx.rfx_versions SET status='PUBLISHED', published_at=now() WHERE id=$1`, draft.Version.ID); err != nil {
+		t.Fatalf("publish version: %v", err)
+	}
+	if _, err := env.rfxSvc.PublishEvent(ctx, fix.BuyerA, draft.Event.ID); err != nil {
+		t.Fatalf("publish event: %v", err)
+	}
+	ws, err := env.crSvc.StartOrResume(ctx, fix.CarrierAct, draft.Event.ID, fix.CarrierID)
+	if err != nil {
+		t.Fatalf("start carrier response: %v", err)
+	}
+	if _, err := env.crSvc.SaveAnswers(ctx, fix.CarrierAct, draft.Event.ID, fix.CarrierID, domain.AnswerBatchPatchInput{
+		ExpectedSaveVersion: ws.Response.SaveVersion,
+		Answers:             []domain.AnswerPatchItem{{QuestionID: draft.Question.ID, Value: json.RawMessage(`"YES"`)}},
+	}); err != nil {
+		t.Fatalf("save answers: %v", err)
+	}
+	if _, err := env.rfxSvc.UpdateResponseCommercial(ctx, fix.CarrierAct, ws.Response.ID, []domain.UpsertOfferLineInput{{
+		RfxLotID: draft.Lot.ID, Amount: 12345.67, CurrencyCode: "RUB", Comment: strPtr("own-offer"),
+	}}); err != nil {
+		t.Fatalf("save offer line: %v", err)
+	}
+	response, err := env.rfxRepo.GetResponseByID(ctx, ws.Response.ID, fix.TenantID)
+	if err != nil {
+		t.Fatalf("reload response: %v", err)
+	}
+	return carrierExportFixture{Event: draft.Event, Response: response, Question: draft.Question, Lot: draft.Lot}
+}
+
+func strPtr(v string) *string { return &v }
+
+func getCarrierXlsxExportHTTP(
+	t *testing.T,
+	env *testEnv,
+	cfg config.Config,
+	actor domain.ActorContext,
+	eventID, responseID uuid.UUID,
+) *httptest.ResponseRecorder {
+	t.Helper()
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	router := httpserver.NewRouter(log, env.pool, cfg, env.rfxSvc, env.qSvc, nil, nil, nil, nil, nil, nil, env.excelExchangeSvc, nil, nil, nil, nil, nil)
+	req := httptest.NewRequest(http.MethodGet, "/v1/rfx-events/"+eventID.String()+"/carrier-responses/"+responseID.String()+"/xlsx-export", nil)
+	if actor.TenantID != uuid.Nil {
+		req.Header.Set("X-Tenant-ID", actor.TenantID.String())
+	}
+	if actor.UserID != uuid.Nil {
+		req.Header.Set("X-User-ID", actor.UserID.String())
+	}
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
+}
+
+type responseWriteSnapshot struct {
+	saveVersion      int64
+	answerCount      int
+	offerLineCount   int
+	auditCount       int
+	idempotencyCount int
+}
+
+func captureResponseWriteSnapshot(t *testing.T, env *testEnv, tenantID, responseID uuid.UUID) responseWriteSnapshot {
+	t.Helper()
+	ctx := context.Background()
+	snap := responseWriteSnapshot{}
+	if err := env.pool.QueryRow(ctx, `SELECT save_version FROM rfx.rfx_responses WHERE id=$1 AND tenant_id=$2`, responseID, tenantID).Scan(&snap.saveVersion); err != nil {
+		t.Fatalf("response save_version: %v", err)
+	}
+	if err := env.pool.QueryRow(ctx, `SELECT COUNT(*) FROM rfx.rfx_answers WHERE rfx_response_id=$1 AND tenant_id=$2`, responseID, tenantID).Scan(&snap.answerCount); err != nil {
+		t.Fatalf("count answers: %v", err)
+	}
+	if err := env.pool.QueryRow(ctx, `SELECT COUNT(*) FROM rfx.rfx_response_offer_lines WHERE rfx_response_id=$1 AND tenant_id=$2`, responseID, tenantID).Scan(&snap.offerLineCount); err != nil {
+		t.Fatalf("count offer lines: %v", err)
+	}
+	if err := env.pool.QueryRow(ctx, `SELECT COUNT(*) FROM rfx.audit_events WHERE tenant_id=$1`, tenantID).Scan(&snap.auditCount); err != nil {
+		t.Fatalf("count audit: %v", err)
+	}
+	if err := env.pool.QueryRow(ctx, `SELECT COUNT(*) FROM rfx.rfx_idempotency_records WHERE tenant_id=$1`, tenantID).Scan(&snap.idempotencyCount); err != nil {
+		t.Fatalf("count idempotency: %v", err)
+	}
+	return snap
+}
+
+func seedCompetitorBSentinelsOnly(t *testing.T, env *testEnv, fix buyerFixture, draft richDraftFixture) competitorSentinels {
+	t.Helper()
+	ctx := context.Background()
+	sent := competitorSentinels{
+		ParticipantBID:  uuid.New(),
+		ResponseBID:     uuid.New(),
+		CarrierBCompany: fix.CarrierBID,
+		OfferRateB:      "777777.02",
+		NameTokenB:      "SENTINEL-XLSX-CARRIER-B",
+		EmailTokenB:     "sentinel-xlsx-carrier-b@test.local",
+	}
+	if _, err := env.rfxSvc.AddParticipant(ctx, fix.BuyerA, draft.Event.ID, domain.AddRfxParticipantInput{
+		TenantID: fix.TenantID, RfxEventID: draft.Event.ID, CompanyID: fix.CarrierBID, ParticipantType: "CARRIER",
+	}); err != nil {
+		t.Fatalf("add carrier B participant: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `UPDATE core.companies SET legal_name = $3 WHERE tenant_id = $1 AND id = $2`,
+		fix.TenantID, fix.CarrierBID, sent.NameTokenB); err != nil {
+		t.Fatalf("tag carrier B company: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `UPDATE core.users SET email = $3, full_name = $3 WHERE tenant_id = $1 AND id = $2`,
+		fix.TenantID, fix.CarrierBAct.UserID, sent.EmailTokenB); err != nil {
+		t.Fatalf("tag carrier B email: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `UPDATE rfx.rfx_participants SET id = $4 WHERE tenant_id = $1 AND rfx_event_id = $2 AND company_id = $3`,
+		fix.TenantID, draft.Event.ID, fix.CarrierBID, sent.ParticipantBID); err != nil {
+		t.Fatalf("set participant B id: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `
+		INSERT INTO rfx.rfx_responses (id, tenant_id, rfx_event_id, participant_company_id, status, commercial_score, total_score)
+		VALUES ($1,$2,$3,$4,'SUBMITTED',75,75)`,
+		sent.ResponseBID, fix.TenantID, draft.Event.ID, fix.CarrierBID); err != nil {
+		t.Fatalf("insert response B: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `
+		INSERT INTO rfx.rfx_response_offer_lines (tenant_id, rfx_response_id, rfx_lot_id, amount, currency_code, comment)
+		VALUES ($1,$2,$3,$4,'RUB',$5)`,
+		fix.TenantID, sent.ResponseBID, draft.Lot.ID, sent.OfferRateB, "SENTINEL-OFFER-B"); err != nil {
+		t.Fatalf("insert offer B: %v", err)
+	}
+	return sent
+}
+
+func assertCarrierWorkbookExcludesCompetitorSentinels(t *testing.T, data []byte, sent competitorSentinels, own carrierExportFixture) {
+	t.Helper()
+	needles := []string{
+		sent.ParticipantBID.String(),
+		sent.ResponseBID.String(),
+		sent.CarrierBCompany.String(),
+		sent.NameTokenB,
+		sent.EmailTokenB,
+		sent.OfferRateB,
+		"SENTINEL-OFFER-B",
+		"competitor_",
+		"other_carrier_",
+		"rank",
+		"score",
+	}
+	assertWorkbookExcludesNeedles(t, data, needles)
+	if !workbookContainsValue(t, mustOpenWorkbook(t, data), own.Question.QuestionCode) {
+		t.Fatal("own question marker missing from carrier export")
+	}
+}
+
+func assertWorkbookExcludesNeedles(t *testing.T, data []byte, needles []string) {
+	t.Helper()
+	f := mustOpenWorkbook(t, data)
+	defer f.Close()
+	for _, sheet := range f.GetSheetList() {
+		rows, err := f.GetRows(sheet)
+		if err != nil {
+			t.Fatalf("read sheet %s: %v", sheet, err)
+		}
+		for rowIdx, row := range rows {
+			for colIdx, value := range row {
+				lower := strings.ToLower(value)
+				for _, needle := range needles {
+					if strings.Contains(value, needle) || strings.Contains(lower, strings.ToLower(needle)) {
+						cell, _ := excelize.CoordinatesToCellName(colIdx+1, rowIdx+1)
+						t.Fatalf("forbidden sentinel %q in %s!%s", needle, sheet, cell)
+					}
+				}
+			}
+		}
+	}
+	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		t.Fatalf("open zip: %v", err)
+	}
+	for _, file := range reader.File {
+		rc, err := file.Open()
+		if err != nil {
+			t.Fatalf("open zip entry %s: %v", file.Name, err)
+		}
+		body, err := io.ReadAll(io.LimitReader(rc, 4<<20))
+		_ = rc.Close()
+		if err != nil {
+			t.Fatalf("read zip entry %s: %v", file.Name, err)
+		}
+		content := strings.ToLower(string(body))
+		for _, needle := range needles {
+			if strings.Contains(content, strings.ToLower(needle)) {
+				t.Fatalf("forbidden sentinel %q in zip entry %s", needle, file.Name)
+			}
+		}
+	}
+}
+
+func mustOpenWorkbook(t *testing.T, data []byte) *excelize.File {
+	t.Helper()
+	f, err := excelize.OpenReader(bytes.NewReader(data))
+	if err != nil {
+		t.Fatalf("open workbook: %v", err)
+	}
+	return f
 }
 
 func assertAppErrorCode(t *testing.T, err error, code apperrors.Code) {

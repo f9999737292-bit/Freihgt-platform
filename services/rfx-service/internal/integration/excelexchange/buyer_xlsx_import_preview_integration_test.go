@@ -462,8 +462,8 @@ func TestE7P2INT41CompetitorColumnRejected(t *testing.T) {
 
 func TestE7P2INT42RouteServiceGatewayOpenAPIParity(t *testing.T) {
 	routes := sharedrfx.E7ExcelExchangeRoutes()
-	if len(routes) != 3 {
-		t.Fatalf("expected 3 routes, got %d", len(routes))
+	if len(routes) != 4 {
+		t.Fatalf("expected 4 routes, got %d", len(routes))
 	}
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
