@@ -112,7 +112,10 @@ These are assigned to the **earliest appropriate wave** — not deferred beyond 
 | **E7 Phase 2 Foundation + Buyer XLSX Export V1** | Migration 000073, ZIP security, import-analysis/external-link repos, buyer draft XLSX export (7-sheet `BINTRANS_RFX_BUYER_XLSX_V1`, Excelize v2.11.0, E7P2-INT-01..20) | **IMPLEMENTED_ACCEPTED** — PR #123 merged via `a6b66be` (head `9a75029`, CI `34639373871`, migration 000073) |
 | **E7 Phase 2 Buyer XLSX Import Preview P2/P2.1/P3** | Parser/validator, preview HTTP, OPTION A analysis persistence (`UPDATE_EXISTING_DRAFT`, E7P2-INT-21..42) | **IMPLEMENTED_ACCEPTED** — PR #125 merged via `b2df9ac` (head `db5bb9ef`, CI `34719259509`, migration 000073 reused) |
 | **E7 Phase 2 Buyer XLSX Import Commit (P4)** | Atomic/single-use apply of preview analysis to DRAFT (`UPDATE_EXISTING_DRAFT`, E7P2-INT-43..70) | **IMPLEMENTED_ACCEPTED** — PR #129 merged via `0756c3fc` (head `43924472`, CI `34773513465` attempt 2, migration 000073 reused) |
-| **E7 Phase 2 Carrier XLSX** | Carrier offer export/import | **NOT_STARTED** |
+| **E7 Phase 2 Carrier XLSX Architecture** | Frozen discovery (8-sheet `BINTRANS_RFX_CARRIER_XLSX_V1`, response-scoped routes, competitor confidentiality, zero-lot, no auto-submit) | **IMPLEMENTED_ACCEPTED** — PR #131 merged via `7454b949` (head `1859872b`, CI `34812566043`) |
+| **E7 Phase 2 Carrier XLSX C1 Export** | Own-response GET export (DRAFT + SUBMITTED read-only, E7P2-INT-71..79, INT-42 remediation) | **IMPLEMENTED_ACCEPTED** — PR #132 merged via `fa850826` (head `479d1fd7`, CI `34833481110`, migration 000073 reused) |
+| **E7 Phase 2 Carrier XLSX C2 Preview** | Carrier import preview parser + analysis persistence | **NOT_STARTED** |
+| **E7 Phase 2 Carrier XLSX C3 Commit** | Atomic commit from stored proposal (DRAFT-only, mandatory Idempotency-Key) | **NOT_STARTED** |
 | **E7 Phase 2 ERP API** | Generic ERP JSON contract | **NOT_STARTED** |
 | **E7 Phase 2 Frontend** | Excel/ERP UI surfaces | **NOT_STARTED** |
 | **E7 Phase 2 Training** | RU/EN/ZH training course | **NOT_STARTED** |
@@ -130,8 +133,10 @@ Notes:
 - E7 Phase 2 foundation + Buyer XLSX Export V1 is accepted and merged to `main` at `a6b66bea51579d689e98188e31446e436524927d` (PR #123 head `9a7502902d4ddbdedbb4e54817c183b8a00a7140`, CI `34639373871`, migration 000073). Delivers buyer draft XLSX export only.
 - E7 Phase 2 Buyer XLSX Import Preview P2/P2.1/P3 is accepted and merged to `main` at `b2df9ac20ae9bf9dbbb48f5e78199766643ad2ef` (PR #125 head `db5bb9ef5e2abc527af2f6f50cc2ea5b1497d754`, CI `34719259509`, E7P2-INT-21..42 PASS). Delivers parser, preview HTTP, and immutable analysis persistence.
 - E7 Phase 2 Buyer XLSX Import Commit (P4) is accepted and merged to `main` at `0756c3fc5fb0a24f095859abb9008a447fa2dfe2` (PR #129 head `43924472c091a5e0e4845c92fac31c4b374ee391`, CI `34773513465` attempt 2, E7P2-INT-43..70 PASS). Delivers atomic commit apply for **UPDATE_EXISTING_DRAFT** only — Create from XLSX, carrier Excel, ERP, frontend, and training remain future gates.
-- E7 Phase 2 overall remains **IMPLEMENTATION_IN_PROGRESS** — next stages: Carrier XLSX, ERP API, Phase 2 frontend, training, E7 browser acceptance.
-- E7 browser acceptance, carrier XLSX, ERP integration, Phase 2 frontend, and training have not started.
+- E7 Phase 2 Carrier XLSX architecture is accepted and merged to `main` at `7454b94916fe76a9712ed80e0631db70bba5539b` (PR #131 head `1859872b`, CI `34812566043`). Delivers frozen discovery only.
+- E7 Phase 2 Carrier XLSX C1 Export is accepted and merged to `main` at `fa850826c6f7ed7f25e948dcc8fc8cad41eb2d74` (PR #132 head `479d1fd7`, CI `34833481110`, E7P2-INT-71..79 PASS, INT-42 remediation PASS). Delivers carrier own-response GET export only — Preview, Commit, frontend, and browser acceptance remain future gates.
+- E7 Phase 2 overall remains **IMPLEMENTATION_IN_PROGRESS** — next stages: Carrier XLSX C2 Preview, C3 Commit, ERP API, Phase 2 frontend, training, E7 browser acceptance.
+- E7 browser acceptance, Carrier XLSX C2/C3, ERP integration, Phase 2 frontend, and training have not started.
 - Each implementation wave requires a separate controller gate.
 - Complete v3.0E remains **IMPLEMENTATION_IN_PROGRESS** until E7 browser acceptance is accepted.
 
@@ -142,9 +147,9 @@ Notes:
 | Late submission workflow | `LATE_SUBMISSION_AND_DEADLINE_EXCEPTIONS=REQUIRED` — Phase 1 backend **IMPLEMENTED_ACCEPTED** (PR #119); carrier late submission **UI not started** | Before E7 browser acceptance |
 | Buyer approve/reject UI | Late-submission buyer approve/reject workflow UI — **not started** | Before E7 browser acceptance |
 | Buyer RFQ channels | `BUYER_RFQ_MANUAL_CREATION`, `BUYER_RFQ_TEMPLATE_CREATION` (E5: backend clone-from-template only), `BUYER_RFQ_EXCEL_IMPORT` (export **IMPLEMENTED_ACCEPTED** PR #123; preview **IMPLEMENTED_ACCEPTED** PR #125; P4 Commit apply **IMPLEMENTED_ACCEPTED** PR #129; Create from XLSX **NOT_STARTED**), `BUYER_RFQ_ERP_INTEGRATION` (SAP/1C/ERP/TMS) — ERP/SAP/1C **not started** | Post-E6 / pre-pilot |
-| Carrier offer channels | `CARRIER_DIRECT_OFFER_ENTRY`, `CARRIER_OFFER_EXCEL_EXPORT_IMPORT` (**NOT_STARTED**); `CARRIER_ERP_INTEGRATION=NOT_REQUIRED_CURRENT_SCOPE` | Post-E6 / pre-pilot |
+| Carrier offer channels | `CARRIER_DIRECT_OFFER_ENTRY`; `CARRIER_OFFER_EXCEL_EXPORT` (**IMPLEMENTED_ACCEPTED** PR #132 C1); `CARRIER_OFFER_EXCEL_IMPORT_PREVIEW` (**NOT_STARTED** C2); `CARRIER_OFFER_EXCEL_IMPORT_COMMIT` (**NOT_STARTED** C3); `CARRIER_ERP_INTEGRATION=NOT_REQUIRED_CURRENT_SCOPE` | Post-E6 / pre-pilot |
 | Competitor confidentiality | `CARRIER_CAN_VIEW_COMPETITOR_*=NO`, backend enforcement + cross-carrier isolation tests; carrier must not see participants, competitor identities, bids, submission times, or late-submission requests; buyer XLSX export enforces exclusion (E7P2-INT-18) | Before pilot |
-| Excel import/export | `EXCEL_IMPORT_EXPORT=REQUIRED` — buyer export **IMPLEMENTED_ACCEPTED**; buyer import preview **IMPLEMENTED_ACCEPTED** (PR #125); P4 Commit apply **IMPLEMENTED_ACCEPTED** (PR #129); Create from XLSX, carrier Excel **NOT_STARTED** | Post-E6 |
+| Excel import/export | `EXCEL_IMPORT_EXPORT=REQUIRED` — buyer export **IMPLEMENTED_ACCEPTED**; buyer import preview **IMPLEMENTED_ACCEPTED** (PR #125); P4 Commit apply **IMPLEMENTED_ACCEPTED** (PR #129); carrier export **IMPLEMENTED_ACCEPTED** (PR #132 C1); carrier import preview/commit **NOT_STARTED** (C2/C3); Create from XLSX **NOT_STARTED** | Post-E6 |
 | P4 Commit gates | Atomic/single-use Commit; stale baseline rejection; consumed/expired analysis rejection — **IMPLEMENTED_ACCEPTED** (PR #129) | Closed for UPDATE_EXISTING_DRAFT |
 | ERP integration | Generic ERP JSON contract API — **NOT_STARTED** | Post-E6 / pre-pilot |
 | Training course | `USER_TRAINING_COURSE=REQUIRED` (RU/EN/ZH) — Phase 2 training **NOT_STARTED** | After UI stabilisation, before pilot |
@@ -225,7 +230,11 @@ E7_STATUS=IMPLEMENTATION_IN_PROGRESS
 V3_0E_STATUS=IMPLEMENTATION_IN_PROGRESS
 
 CREATE_FROM_XLSX_STATUS=NOT_STARTED
-CARRIER_XLSX_STATUS=NOT_STARTED
+CARRIER_XLSX_ARCHITECTURE_STATUS=IMPLEMENTED_ACCEPTED
+CARRIER_XLSX_C1_EXPORT_STATUS=IMPLEMENTED_ACCEPTED
+CARRIER_XLSX_C2_PREVIEW_STATUS=NOT_STARTED
+CARRIER_XLSX_C3_COMMIT_STATUS=NOT_STARTED
+CARRIER_XLSX_OVERALL_STATUS=IMPLEMENTATION_IN_PROGRESS
 ERP_API_STATUS=NOT_STARTED
 FRONTEND_PHASE2_STATUS=NOT_STARTED
 TRAINING_STATUS=NOT_STARTED
