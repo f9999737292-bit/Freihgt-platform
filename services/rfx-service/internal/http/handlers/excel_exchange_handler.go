@@ -69,6 +69,53 @@ func (h *ExcelExchangeHandler) ExportBuyerDraftXLSX(w http.ResponseWriter, r *ht
 	respond.BinaryAttachment(w, http.StatusOK, service.BuyerDraftXLSXContentType, filename, data)
 }
 
+func (h *ExcelExchangeHandler) PreviewCarrierImportXLSX(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireActor(w, r)
+	if !ok {
+		return
+	}
+	eventID, ok := parseEventID(w, r)
+	if !ok {
+		return
+	}
+	responseID, ok := parseResponseID(w, r)
+	if !ok {
+		return
+	}
+	fileBytes, err := ReadBuyerXlsxImportFile(w, r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	preview, err := h.service.PreviewCarrierImportWorkbook(r.Context(), actor, eventID, responseID, fileBytes)
+	if err != nil {
+		if preview != nil {
+			switch xlsxexchange.ClassifyCarrierPreviewErrors(preview.Errors) {
+			case xlsxexchange.PreviewErrorClassStructural:
+				respond.Error(w, service.CarrierStructuralPreviewAppError(preview.Errors[0]))
+				return
+			case xlsxexchange.PreviewErrorClassDomain:
+				respond.JSON(w, http.StatusUnprocessableEntity, preview)
+				return
+			}
+		}
+		respond.Error(w, err)
+		return
+	}
+
+	switch xlsxexchange.ClassifyCarrierPreviewErrors(preview.Errors) {
+	case xlsxexchange.PreviewErrorClassStructural:
+		respond.Error(w, service.CarrierStructuralPreviewAppError(preview.Errors[0]))
+		return
+	case xlsxexchange.PreviewErrorClassDomain:
+		respond.JSON(w, http.StatusUnprocessableEntity, preview)
+		return
+	default:
+		respond.JSON(w, http.StatusOK, preview)
+	}
+}
+
 func (h *ExcelExchangeHandler) PreviewBuyerImportXLSX(w http.ResponseWriter, r *http.Request) {
 	actor, ok := requireActor(w, r)
 	if !ok {

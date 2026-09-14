@@ -72,5 +72,18 @@ func E7ExcelExchangeRoutes() []ExcelExchangeRoute {
 			IdempotencyRequired:  false,
 			FeatureFlagProtected: true,
 		},
+		{
+			Name:                 "preview_carrier_response_xlsx_import",
+			Method:               http.MethodPost,
+			ServiceChiPath:       "/{id}/carrier-responses/{response_id}/xlsx-import/preview",
+			ServicePath:          "/v1/rfx-events/{event_id}/carrier-responses/{response_id}/xlsx-import/preview",
+			GatewayPath:          "/api/v1/rfx-events/{id}/carrier-responses/{response_id}/xlsx-import/preview",
+			OpenAPIPath:          "/api/v1/rfx-events/{id}/carrier-responses/{response_id}/xlsx-import/preview",
+			OpenAPIOperationID:   "post_preview_carrier_rfx_response_xlsx_import",
+			RBACPolicy:           "PolicyCarrierRespond",
+			SuccessStatus:        http.StatusOK,
+			IdempotencyRequired:  false,
+			FeatureFlagProtected: true,
+		},
 	}
 }
