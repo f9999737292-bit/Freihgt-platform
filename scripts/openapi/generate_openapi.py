@@ -178,6 +178,7 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/rfx-events/{id}/late-submission-requests/{request_id}/approve", "post", "Approve carrier late submission request", "RFx", True, True, "ls_approve"),
     ("/api/v1/rfx-events/{id}/late-submission-requests/{request_id}/reject", "post", "Reject carrier late submission request", "RFx", True, True, "ls_reject"),
     ("/api/v1/rfx-events/{id}/xlsx-export", "get", "Export buyer draft RFx event as XLSX workbook", "RFx", True, True, "xlsx_export_buyer_draft"),
+    ("/api/v1/rfx-events/{id}/carrier-responses/{response_id}/xlsx-export", "get", "Export carrier RFx response as XLSX workbook", "RFx", True, True, "xlsx_export_carrier_response"),
     ("/api/v1/rfx-events/{id}/xlsx-import/preview", "post", "Preview buyer draft RFx event XLSX import", "RFx", True, True, "xlsx_import_preview_buyer_draft"),
     ("/api/v1/rfx-events/{id}/xlsx-import/commit", "post", "Commit buyer draft RFx event XLSX import", "RFx", True, True, "xlsx_import_commit_buyer_draft"),
     ("/api/v1/rfx-events/{id}/carrier-response/submit", "post", "Submit carrier questionnaire response", "RFx", True, True, "cr_submit"),
@@ -492,11 +493,12 @@ LATE_SUBMISSION_422_PROFILES = frozenset({
 
 E7_EXCEL_EXCHANGE_ENDPOINT_PROFILES = frozenset({
     "xlsx_export_buyer_draft",
+    "xlsx_export_carrier_response",
     "xlsx_import_preview_buyer_draft",
     "xlsx_import_commit_buyer_draft",
 })
 
-BINARY_RESPONSE_PROFILES = frozenset({"xlsx_export_buyer_draft"})
+BINARY_RESPONSE_PROFILES = frozenset({"xlsx_export_buyer_draft", "xlsx_export_carrier_response"})
 
 EXCEL_EXCHANGE_PREVIEW_PROFILES = frozenset({"xlsx_import_preview_buyer_draft"})
 
@@ -598,6 +600,15 @@ Authorization: **BuyerManage** role required; buyer read-only roles are denied (
 Scope: exports the active DRAFT questionnaire graph only. No carrier/competitor bid or response data is included in the workbook.
 
 Precondition: an active DRAFT questionnaire version must exist; otherwise returns **409** conflict.""",
+    "xlsx_export_carrier_response": """Export own carrier RFx response as an XLSX workbook snapshot.
+
+Feature flag: when `RFX_EXCEL_EXCHANGE_ENABLED` is false (default), the route returns **404** (feature disabled).
+
+Authorization: **CarrierRead** role required; response must belong to the authenticated carrier company.
+
+Scope: exports own questionnaire answers and commercial offer lines only. No competitor IDs, prices, rankings, or scores are included.
+
+DRAFT responses export with `export_mode=DRAFT_EDIT`. SUBMITTED responses export read-only with `export_mode=SUBMITTED_READONLY`.""",
     "xlsx_import_preview_buyer_draft": """Preview buyer draft RFx event XLSX import for UPDATE_DRAFT mode.
 
 Feature flag: when `RFX_EXCEL_EXCHANGE_ENABLED` is false (default), the route returns **404** (feature disabled).
