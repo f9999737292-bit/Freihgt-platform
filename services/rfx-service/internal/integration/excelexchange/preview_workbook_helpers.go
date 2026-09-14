@@ -134,6 +134,123 @@ func workbookWithFormulaCell(t *testing.T, data []byte) []byte {
 	})
 }
 
+func workbookWithCarrierFormulaCell(t *testing.T, data []byte) []byte {
+	t.Helper()
+	return mutatePreviewWorkbook(t, data, func(f *excelize.File) {
+		if err := f.SetCellFormula("Answers", "B2", "=1+1"); err != nil {
+			t.Fatalf("set carrier formula: %v", err)
+		}
+	})
+}
+
+func workbookWithCarrierAnswerValue(t *testing.T, data []byte, questionCode, value string) []byte {
+	t.Helper()
+	return mutatePreviewWorkbook(t, data, func(f *excelize.File) {
+		rows, err := f.GetRows("Answers")
+		if err != nil {
+			t.Fatalf("read answers: %v", err)
+		}
+		for i, row := range rows {
+			if i == 0 || len(row) == 0 || strings.TrimSpace(row[0]) != questionCode {
+				continue
+			}
+			cell := fmt.Sprintf("B%d", i+1)
+			if err := f.SetCellStr("Answers", cell, value); err != nil {
+				t.Fatalf("set answer %s: %v", questionCode, err)
+			}
+			return
+		}
+		t.Fatalf("answer row %q not found", questionCode)
+	})
+}
+
+func workbookWithCarrierOfferAmount(t *testing.T, data []byte, amount, comment string) []byte {
+	t.Helper()
+	return mutatePreviewWorkbook(t, data, func(f *excelize.File) {
+		if err := f.SetCellStr("OfferLines", "B2", amount); err != nil {
+			t.Fatalf("set offer amount: %v", err)
+		}
+		if comment != "" {
+			if err := f.SetCellStr("OfferLines", "D2", comment); err != nil {
+				t.Fatalf("set offer comment: %v", err)
+			}
+		}
+	})
+}
+
+func workbookWithRemovedCarrierAnswerRow(t *testing.T, data []byte, questionCode string) []byte {
+	t.Helper()
+	return mutatePreviewWorkbook(t, data, func(f *excelize.File) {
+		rows, err := f.GetRows("Answers")
+		if err != nil {
+			t.Fatalf("read answers: %v", err)
+		}
+		for i := len(rows) - 1; i >= 1; i-- {
+			row := rows[i]
+			if len(row) == 0 || strings.TrimSpace(row[0]) != questionCode {
+				continue
+			}
+			if err := f.RemoveRow("Answers", i+1); err != nil {
+				t.Fatalf("remove answer row %s: %v", questionCode, err)
+			}
+			return
+		}
+		t.Fatalf("answer row %q not found", questionCode)
+	})
+}
+
+func workbookWithRemovedCarrierOfferLine(t *testing.T, data []byte) []byte {
+	t.Helper()
+	return mutatePreviewWorkbook(t, data, func(f *excelize.File) {
+		rows, err := f.GetRows("OfferLines")
+		if err != nil {
+			t.Fatalf("read offer lines: %v", err)
+		}
+		if len(rows) < 2 {
+			t.Fatal("expected at least one offer line row")
+		}
+		if err := f.RemoveRow("OfferLines", 2); err != nil {
+			t.Fatalf("remove offer line row: %v", err)
+		}
+	})
+}
+
+func workbookWithExternalDefinedName(t *testing.T, data []byte, definedValue string) []byte {
+	t.Helper()
+	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		t.Fatalf("open zip: %v", err)
+	}
+	workbookXML := `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><definedNames><definedName name="ExtRef">` + definedValue + `</definedName></definedNames></workbook>`
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for _, file := range reader.File {
+		rc, err := file.Open()
+		if err != nil {
+			t.Fatalf("open entry: %v", err)
+		}
+		body, err := io.ReadAll(rc)
+		_ = rc.Close()
+		if err != nil {
+			t.Fatalf("read entry: %v", err)
+		}
+		if file.Name == "xl/workbook.xml" {
+			body = []byte(workbookXML)
+		}
+		w, err := zw.Create(file.Name)
+		if err != nil {
+			t.Fatalf("create entry: %v", err)
+		}
+		if _, err := w.Write(body); err != nil {
+			t.Fatalf("write entry: %v", err)
+		}
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatalf("close zip: %v", err)
+	}
+	return buf.Bytes()
+}
+
 func workbookWithCompetitorColumn(t *testing.T, data []byte, columnName string) []byte {
 	t.Helper()
 	return mutatePreviewWorkbook(t, data, func(f *excelize.File) {

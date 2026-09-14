@@ -34,6 +34,7 @@ import (
 	apperrors "github.com/freight-platform/rfx-service/internal/platform/errors"
 	"github.com/freight-platform/rfx-service/internal/repository"
 	"github.com/freight-platform/rfx-service/internal/service"
+	"github.com/freight-platform/rfx-service/internal/xlsxexchange"
 )
 
 type testEnv struct {
@@ -48,6 +49,7 @@ type testEnv struct {
 	rfxSvc             *service.RfxService
 	qSvc               *service.QuestionnaireService
 	crSvc              *service.CarrierResponseService
+	lateSvc            *service.LateSubmissionService
 	excelExchangeSvc   *service.ExcelExchangeService
 }
 
@@ -146,10 +148,11 @@ func setupTestEnv(t *testing.T) *testEnv {
 	crSvc := service.NewCarrierResponseServiceWithLateSubmission(pool, rfxRepo, answerRepo, qRepo, auditRepo, membershipRepo, rfxSvc, nil, lateSvc, idemRepo)
 	txRunner := repository.NewTransactionRunner(pool)
 	excelExchangeSvc := service.NewExcelExchangeService(rfxRepo, qRepo, rfxSvc, importAnalysisRepo, idemRepo, auditRepo, txRunner, answerRepo)
+	excelExchangeSvc.SetLateSubmissionService(lateSvc)
 	return &testEnv{
 		pool: pool, rfxRepo: rfxRepo, auditRepo: auditRepo, membershipRepo: membershipRepo,
 		qRepo: qRepo, answerRepo: answerRepo, idemRepo: idemRepo, importAnalysisRepo: importAnalysisRepo,
-		rfxSvc: rfxSvc, qSvc: qSvc, crSvc: crSvc, excelExchangeSvc: excelExchangeSvc,
+		rfxSvc: rfxSvc, qSvc: qSvc, crSvc: crSvc, lateSvc: lateSvc, excelExchangeSvc: excelExchangeSvc,
 	}
 }
 
@@ -901,6 +904,198 @@ func decodeCarrierPreviewResponse(t *testing.T, rec *httptest.ResponseRecorder) 
 		t.Fatalf("decode carrier preview: %v body=%s", err, rec.Body.String())
 	}
 	return preview
+}
+
+func decodeCarrierCommitResponse(t *testing.T, rec *httptest.ResponseRecorder) service.CarrierImportCommitResponse {
+	t.Helper()
+	var out service.CarrierImportCommitResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode carrier commit: %v body=%s", err, rec.Body.String())
+	}
+	return out
+}
+
+func postCarrierXlsxImportCommitHTTP(
+	t *testing.T,
+	env *testEnv,
+	cfg config.Config,
+	actor domain.ActorContext,
+	eventID, responseID, analysisID uuid.UUID,
+	idempotencyKey string,
+) *httptest.ResponseRecorder {
+	t.Helper()
+	body, err := json.Marshal(domain.CarrierImportCommitInput{AnalysisID: analysisID})
+	if err != nil {
+		t.Fatalf("marshal commit body: %v", err)
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	router := httpserver.NewRouter(log, env.pool, cfg, env.rfxSvc, env.qSvc, nil, nil, nil, nil, nil, nil, env.excelExchangeSvc, nil, nil, nil, nil, nil)
+	req := httptest.NewRequest(http.MethodPost, "/v1/rfx-events/"+eventID.String()+"/carrier-responses/"+responseID.String()+"/xlsx-import/commit", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	if idempotencyKey != "" {
+		req.Header.Set("Idempotency-Key", idempotencyKey)
+	}
+	if actor.TenantID != uuid.Nil {
+		req.Header.Set("X-Tenant-ID", actor.TenantID.String())
+	}
+	if actor.UserID != uuid.Nil {
+		req.Header.Set("X-User-ID", actor.UserID.String())
+	}
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
+}
+
+func previewReadyCarrierAnalysis(
+	t *testing.T,
+	env *testEnv,
+	fix buyerFixture,
+	carrier carrierExportFixture,
+	mutate func([]byte) []byte,
+) service.CarrierImportPreviewResponse {
+	t.Helper()
+	workbook := exportCarrierDraftWorkbook(t, env, fix, carrier)
+	if mutate != nil {
+		workbook = mutate(workbook)
+	}
+	rec := postCarrierXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.CarrierAct, carrier.Event.ID, carrier.Response.ID, workbook, previewHTTPOptions{})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("preview status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	preview := decodeCarrierPreviewResponse(t, rec)
+	if !preview.ReadyToCommit || preview.AnalysisID == nil {
+		t.Fatalf("preview not ready: %+v", preview)
+	}
+	return preview
+}
+
+func carrierCommitSuccessful(
+	t *testing.T,
+	env *testEnv,
+	fix buyerFixture,
+	carrier carrierExportFixture,
+	preview service.CarrierImportPreviewResponse,
+	key string,
+) service.CarrierImportCommitResponse {
+	t.Helper()
+	rec := postCarrierXlsxImportCommitHTTP(t, env, enabledExcelExchangeConfig(), fix.CarrierAct, carrier.Event.ID, carrier.Response.ID, *preview.AnalysisID, key)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("commit status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	return decodeCarrierCommitResponse(t, rec)
+}
+
+func assertCarrierCommitFailureNoWrites(
+	t *testing.T,
+	env *testEnv,
+	fix buyerFixture,
+	carrier carrierExportFixture,
+	analysisID uuid.UUID,
+	before responseWriteSnapshot,
+) {
+	t.Helper()
+	after := captureResponseWriteSnapshot(t, env, fix.TenantID, carrier.Response.ID)
+	if before.saveVersion != after.saveVersion ||
+		before.answerCount != after.answerCount ||
+		before.offerLineCount != after.offerLineCount {
+		t.Fatalf("commit failure mutated response: before=%+v after=%+v", before, after)
+	}
+	if before.auditCount != after.auditCount || before.idempotencyCount != after.idempotencyCount {
+		t.Fatalf("commit failure created audit/idempotency writes")
+	}
+	row := loadPersistedAnalysis(t, env, analysisID, fix.TenantID)
+	if row.Status == domain.ImportAnalysisStatusConsumed {
+		t.Fatal("failed commit must not consume analysis")
+	}
+}
+
+func countIdempotencyRecordsForResponse(t *testing.T, env *testEnv, fix buyerFixture, responseID uuid.UUID, key string) int {
+	t.Helper()
+	var count int
+	if err := env.pool.QueryRow(context.Background(), `
+		SELECT COUNT(*) FROM rfx.rfx_idempotency_records
+		WHERE tenant_id = $1 AND aggregate_scope = $2 AND idempotency_key = $3`,
+		fix.TenantID, responseID, key).Scan(&count); err != nil {
+		t.Fatalf("count idempotency: %v", err)
+	}
+	return count
+}
+
+func parseStoredCarrierProposal(t *testing.T, analysis domain.ImportAnalysis) xlsxexchange.StoredCarrierPayload {
+	t.Helper()
+	stored, err := xlsxexchange.ParseStoredCarrierPayload(analysis.CanonicalPayloadJSON)
+	if err != nil {
+		t.Fatalf("parse stored carrier proposal: %v", err)
+	}
+	return stored
+}
+
+func seedAlternateCarrierDispatcherOnCompanyA(t *testing.T, env *testEnv, fix buyerFixture) domain.ActorContext {
+	t.Helper()
+	ctx := context.Background()
+	altCarrier := domain.ActorContext{TenantID: fix.TenantID, UserID: uuid.New()}
+	if _, err := env.pool.Exec(ctx, `INSERT INTO core.users (id, tenant_id, email, full_name) VALUES ($1,$2,$3,$4)`,
+		altCarrier.UserID, fix.TenantID, "carrier-alt@test.local", "carrier-alt@test.local"); err != nil {
+		t.Fatalf("seed alt carrier user: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `INSERT INTO core.company_memberships (tenant_id, company_id, user_id) VALUES ($1,$2,$3)`,
+		fix.TenantID, fix.CarrierID, altCarrier.UserID); err != nil {
+		t.Fatalf("seed alt carrier membership: %v", err)
+	}
+	var carrierRole uuid.UUID
+	if err := env.pool.QueryRow(ctx, `SELECT id FROM core.roles WHERE tenant_id IS NULL AND code = $1 LIMIT 1`, "CARRIER_DISPATCHER").Scan(&carrierRole); err != nil {
+		t.Fatalf("lookup carrier role: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `INSERT INTO core.user_roles (tenant_id, user_id, company_id, role_id) VALUES ($1,$2,$3,$4)`,
+		fix.TenantID, altCarrier.UserID, fix.CarrierID, carrierRole); err != nil {
+		t.Fatalf("seed alt carrier role: %v", err)
+	}
+	return altCarrier
+}
+
+func insertCarrierAnalysisWithWrongCompany(t *testing.T, env *testEnv, fix buyerFixture, preview service.CarrierImportPreviewResponse) uuid.UUID {
+	t.Helper()
+	source := loadPersistedAnalysis(t, env, *preview.AnalysisID, fix.TenantID)
+	id := uuid.New()
+	_, err := env.pool.Exec(context.Background(), `
+		INSERT INTO rfx.rfx_import_analyses (
+			id, tenant_id, actor_id, actor_company_id, workbook_type, schema_version,
+			target_type, target_id, target_version, canonical_payload_json, canonical_hash,
+			status, validation_summary, created_at, expires_at
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+		)`,
+		id, source.TenantID, source.ActorID, fix.CarrierBID, source.WorkbookType, source.SchemaVersion,
+		source.TargetType, source.TargetID, source.TargetVersion, source.CanonicalPayloadJSON, source.CanonicalHash,
+		domain.ImportAnalysisStatusPreviewed, source.ValidationSummary, source.CreatedAt, source.ExpiresAt,
+	)
+	if err != nil {
+		t.Fatalf("insert wrong-company carrier analysis: %v", err)
+	}
+	return id
+}
+
+func insertCarrierAnalysisWithHashMismatch(t *testing.T, env *testEnv, fix buyerFixture, preview service.CarrierImportPreviewResponse) uuid.UUID {
+	t.Helper()
+	source := loadPersistedAnalysis(t, env, *preview.AnalysisID, fix.TenantID)
+	id := uuid.New()
+	_, err := env.pool.Exec(context.Background(), `
+		INSERT INTO rfx.rfx_import_analyses (
+			id, tenant_id, actor_id, actor_company_id, workbook_type, schema_version,
+			target_type, target_id, target_version, canonical_payload_json, canonical_hash,
+			status, validation_summary, created_at, expires_at
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+		)`,
+		id, source.TenantID, source.ActorID, source.ActorCompanyID, source.WorkbookType, source.SchemaVersion,
+		source.TargetType, source.TargetID, source.TargetVersion, source.CanonicalPayloadJSON,
+		"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+		domain.ImportAnalysisStatusPreviewed, source.ValidationSummary, source.CreatedAt, source.ExpiresAt,
+	)
+	if err != nil {
+		t.Fatalf("insert mismatched carrier analysis: %v", err)
+	}
+	return id
 }
 
 func seedCompetitorBSentinelsOnly(t *testing.T, env *testEnv, fix buyerFixture, draft richDraftFixture) competitorSentinels {
