@@ -1,21 +1,23 @@
 # RFx v3.0E7 — Carrier XLSX Exchange Discovery
 
-**Status:** `ARCHITECTURE_FROZEN_ACCEPTED`
+**Status:** `IMPLEMENTATION_IN_PROGRESS`
 
 **Base:** `origin/main` @ `87916ab2bfd83ec15605446c02f2cd0c0ee6c79d` (post PR #130 merge)
 **Discovery branch:** `discovery/rfx-carrier-xlsx-exchange-v3.0e7-phase2`
 **Discovery commit:** `85b5157842bb24e1078a26c4884c4b708c3f8b9c`
+**C1 merge:** PR #132 @ `fa850826c6f7ed7f25e948dcc8fc8cad41eb2d74` (2026-09-14)
 
 | Marker | Value |
 |---|---|
-| `STATUS` | `ARCHITECTURE_FROZEN_ACCEPTED` |
+| `STATUS` | `IMPLEMENTATION_IN_PROGRESS` |
 | `ARCHITECTURE_REVIEW_RESULT` | `GO` |
-| `ARCHITECTURE_FREEZE` | `ACCEPTED` |
+| `ARCHITECTURE_FREEZE` | `IMPLEMENTED_ACCEPTED` |
 | `CARRIER_XLSX_IMPLEMENTATION_AUTHORIZED` | `YES` |
 | `CARRIER_XLSX_IMPLEMENTATION_STARTED` | `YES` |
-| `CARRIER_XLSX_C1_EXPORT_STATUS` | `IMPLEMENTED_PENDING_CONTROLLER_REVIEW` |
-| `CARRIER_XLSX_PREVIEW_STATUS` | `NOT_STARTED` |
-| `CARRIER_XLSX_COMMIT_STATUS` | `NOT_STARTED` |
+| `CARRIER_XLSX_C1_EXPORT_STATUS` | `IMPLEMENTED_ACCEPTED` |
+| `CARRIER_XLSX_C2_PREVIEW_STATUS` | `NOT_STARTED` |
+| `CARRIER_XLSX_C3_COMMIT_STATUS` | `NOT_STARTED` |
+| `CARRIER_XLSX_OVERALL_STATUS` | `IMPLEMENTATION_IN_PROGRESS` |
 | `C1_EXPORT_TEST_IDS` | `E7P2-INT-71..79` |
 | `CARRIER_XLSX_SCHEMA` | `BINTRANS_RFX_CARRIER_XLSX_V1` |
 | `CARRIER_XLSX_EXPORT_PROPOSED` | `YES` |
@@ -824,7 +826,7 @@ Each stage requires controller authorization before product code (same pattern a
 | SUBMITTED export misuse | MEDIUM | `export_mode` + commit refuses non-DRAFT |
 | Offer line replace wipes concurrent UI commercial edit | MEDIUM | Same as existing PATCH semantics; document in UX |
 
-**Blockers for implementation tranche C1:** controller PR merge authorization (implementation not started).
+**Blockers for implementation tranche C1:** none — C1 export accepted and merged (PR #132).
 
 ---
 
@@ -839,7 +841,7 @@ Each stage requires controller authorization before product code (same pattern a
 | CD-5 | `CARRIER_XLSX_COMMIT_AUTO_SUBMIT=NO` absolute | **ACCEPTED** |
 | CD-6 | Reuse `RFX_EXCEL_EXCHANGE_ENABLED` (no new flag) | **ACCEPTED** |
 | CD-7 | Test range INT-71..119 + EXTRA matrix guard | **ACCEPTED** |
-| CD-8 | Authorize implementation tranche C1 (export first) | **PENDING PR MERGE** |
+| CD-8 | Authorize implementation tranche C1 (export first) | **ACCEPTED** (PR #132 merged) |
 
 ---
 
@@ -873,14 +875,15 @@ Publication commit closes:
 ## 20. Final markers
 
 ```
-STATUS=ARCHITECTURE_FROZEN_ACCEPTED
+STATUS=IMPLEMENTATION_IN_PROGRESS
 ARCHITECTURE_REVIEW_RESULT=GO
-ARCHITECTURE_FREEZE=ACCEPTED
+ARCHITECTURE_FREEZE=IMPLEMENTED_ACCEPTED
 CARRIER_XLSX_IMPLEMENTATION_AUTHORIZED=YES
 CARRIER_XLSX_IMPLEMENTATION_STARTED=YES
-CARRIER_XLSX_C1_EXPORT_STATUS=IMPLEMENTED_PENDING_CONTROLLER_REVIEW
-CARRIER_XLSX_PREVIEW_STATUS=NOT_STARTED
-CARRIER_XLSX_COMMIT_STATUS=NOT_STARTED
+CARRIER_XLSX_C1_EXPORT_STATUS=IMPLEMENTED_ACCEPTED
+CARRIER_XLSX_C2_PREVIEW_STATUS=NOT_STARTED
+CARRIER_XLSX_C3_COMMIT_STATUS=NOT_STARTED
+CARRIER_XLSX_OVERALL_STATUS=IMPLEMENTATION_IN_PROGRESS
 C1_EXPORT_TEST_IDS=E7P2-INT-71..79
 CARRIER_XLSX_SCHEMA=BINTRANS_RFX_CARRIER_XLSX_V1
 CARRIER_XLSX_EXPORT_PROPOSED=YES
@@ -921,17 +924,89 @@ TEST_IDS_UNIQUE=YES
 MATRIX_GUARD=EXTRA_NO_INT_ID
 MATRIX_GUARD_NAME=TestE7P2CarrierXlsxMatrixIDsCompleteAndUnique
 NEXT_TEST_ID_AFTER_CARRIER_XLSX=E7P2-INT-120
-NEXT_ACTION=CONTROLLER_REVIEW_CARRIER_XLSX_C1_EXPORT
+NEXT_ACTION=CARRIER_XLSX_C2_PREVIEW_IMPLEMENTATION
 ```
 
 ---
 
-## 21. C1 export implementation progress
+## 21. C1 export acceptance record (PR #132)
+
+### Merge evidence
 
 ```
-CARRIER_XLSX_C1_EXPORT_STATUS=IMPLEMENTED_PENDING_CONTROLLER_REVIEW
-CARRIER_XLSX_IMPLEMENTATION_STARTED=YES
-CARRIER_XLSX_PREVIEW_STATUS=NOT_STARTED
-CARRIER_XLSX_COMMIT_STATUS=NOT_STARTED
+PR132_STATE=MERGED
+PR132_HEAD=479d1fd75df1d969043f086bd42708d840a403ad
+PR132_BASE=7454b94916fe76a9712ed80e0631db70bba5539b
+PR132_MERGE_SHA=fa850826c6f7ed7f25e948dcc8fc8cad41eb2d74
+PR132_MERGED_AT=2026-09-14T10:52:38Z
+PR132_CI_RUN_ID=34833481110
+PR132_CI_CONCLUSION=success
+CONTROLLER_ACCEPTANCE=YES
+CONTROLLER_VERDICT=ACCEPT_C1
+```
+
+Initial exact-head CI run `34829303236` @ `46220ee2` failed on INT-42 test drift (`unknown route export_carrier_response_xlsx`). Remediation commit `479d1fd7` (test-only) restored route parity; final exact-head run `34833481110` @ `479d1fd7` succeeded with all required checks PASS.
+
+### Accepted C1 properties
+
+| Property | Status |
+|---|---|
+| Schema `BINTRANS_RFX_CARRIER_XLSX_V1` | **YES** |
+| Eight workbook sheets (no Sections sheet; `section_code` on Questions) | **YES** |
+| DRAFT export (`export_mode=DRAFT_EDIT`) | **YES** |
+| SUBMITTED read-only export (`export_mode=SUBMITTED_READONLY`) | **YES** |
+| CarrierRead RBAC policy | **YES** |
+| Tenant / company / event / response binding | **YES** |
+| Feature flag default OFF (`RFX_EXCEL_EXCHANGE_ENABLED=false`) | **YES** |
+| No Idempotency-Key on export GET | **YES** |
+| Zero-lot event-level single OfferLines row; empty `lot_number` | **YES** |
+| Formula-like literal text preserved; formula XML absent | **YES** |
+| Semantic export determinism (excluding `exported_at_utc`) | **YES** |
+| Competitor source queries absent | **YES** |
+| Competitor confidentiality tests (cells + ZIP/XML scan) | **YES** |
+| Export fully read-only (no response/answer/offer/audit/idempotency/import-analysis writes) | **YES** |
+| Late permission and `submitted_at` untouched | **YES** |
+| Service route `GET /v1/rfx-events/{event_id}/carrier-responses/{response_id}/xlsx-export` | **YES** |
+| Gateway route `GET /api/v1/rfx-events/{id}/carrier-responses/{response_id}/xlsx-export` | **YES** |
+| operationId `get_export_carrier_rfx_response_as_xlsx_workbook` | **YES** |
+| OpenAPI source + unified YAML/JSON artifacts | **YES** |
+| E7P2-INT-71..79 PASS (PostgreSQL 16 runtime) | **YES** |
+| INT-42 route parity remediation PASS | **YES** |
+| Buyer INT-06..70 regression PASS | **YES** |
+| Migration 000074 absent | **YES** |
+| Carrier Preview route absent | **YES** |
+| Carrier Commit route absent | **YES** |
+| Auto-submit absent | **YES** |
+
+### Logical commits (PR #132)
+
+| # | SHA | Message |
+|---|-----|---------|
+| 1 | `b49b931a` | `feat(rfx): generate Carrier XLSX export workbook` |
+| 2 | `d3bf8e88` | `feat(rfx): expose Carrier XLSX export API` |
+| 3 | `27add37b` | `test(rfx): cover Carrier XLSX export acceptance` |
+| 4 | `9fd1ae45` | `docs(rfx): align C1 export status markers` |
+| 5 | `46220ee2` | `feat(rfx): add Carrier XLSX export to unified openapi.json` |
+| 6 | `479d1fd7` | `test(rfx): include Carrier XLSX export in INT-42 parity` |
+
+### Accepted non-blocking LOW findings
+
+```
+LOW_01_STATUS=ACCEPTED_NON_BLOCKING
+LOW_01=INT79_COMPETITOR_ANSWERS_NOT_SEEDED
+
+LOW_02_STATUS=ACCEPTED_NON_BLOCKING
+LOW_02=INT76_NO_WRITE_SNAPSHOT_PARTIAL
+```
+
+These findings are recorded for audit; they are **not** closed in this closeout.
+
+### C1 status markers
+
+```
+CARRIER_XLSX_C1_EXPORT_STATUS=IMPLEMENTED_ACCEPTED
+CARRIER_XLSX_C2_PREVIEW_STATUS=NOT_STARTED
+CARRIER_XLSX_C3_COMMIT_STATUS=NOT_STARTED
+CARRIER_XLSX_OVERALL_STATUS=IMPLEMENTATION_IN_PROGRESS
 C1_EXPORT_TEST_IDS=E7P2-INT-71..79
 ```
