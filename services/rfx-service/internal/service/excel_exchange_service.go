@@ -17,19 +17,26 @@ const BuyerDraftXLSXContentType = "application/vnd.openxmlformats-officedocument
 
 type ExcelExchangeQuestionnaireStore interface {
 	GetActiveDraftVersion(ctx context.Context, tenantID, eventID uuid.UUID) (*domain.RfxVersion, error)
+	GetVersionByID(ctx context.Context, id, tenantID uuid.UUID) (*domain.RfxVersion, error)
 	LoadQuestionnaireTree(ctx context.Context, versionID, tenantID uuid.UUID) ([]domain.SectionWithQuestions, error)
 	ListRulesByVersion(ctx context.Context, versionID, tenantID uuid.UUID) ([]domain.QuestionRule, error)
 }
 
 type ExcelExchangeRfxStore interface {
 	GetEventByID(ctx context.Context, id, tenantID uuid.UUID) (*domain.RfxEvent, error)
+	GetResponseByID(ctx context.Context, id, tenantID uuid.UUID) (*domain.RfxResponse, error)
 	ListLotsByEvent(ctx context.Context, eventID, tenantID uuid.UUID) ([]domain.RfxLot, error)
 	GetEventExchangeMetadata(ctx context.Context, eventID, tenantID uuid.UUID) (*repository.EventExchangeMetadata, error)
+}
+
+type ExcelExchangeAnswerStore interface {
+	ListByResponse(ctx context.Context, responseID, tenantID uuid.UUID) ([]domain.CarrierAnswer, error)
 }
 
 type ExcelExchangeService struct {
 	rfxRepo            ExcelExchangeRfxStore
 	qRepo              ExcelExchangeQuestionnaireStore
+	answerRepo         ExcelExchangeAnswerStore
 	rfxRepoFull        *repository.RfxRepository
 	qRepoFull          *repository.QuestionnaireRepository
 	auth               *RfxService
@@ -48,6 +55,7 @@ func NewExcelExchangeService(
 	idemRepo *repository.IdempotencyRepository,
 	auditRepo *repository.AuditRepository,
 	txRunner previewTransactionRunner,
+	answerRepo ExcelExchangeAnswerStore,
 ) *ExcelExchangeService {
 	var rfxRepoFull *repository.RfxRepository
 	if concrete, ok := rfxRepo.(*repository.RfxRepository); ok {
@@ -60,6 +68,7 @@ func NewExcelExchangeService(
 	return &ExcelExchangeService{
 		rfxRepo:            rfxRepo,
 		qRepo:              qRepo,
+		answerRepo:         answerRepo,
 		rfxRepoFull:        rfxRepoFull,
 		qRepoFull:          qRepoFull,
 		auth:               auth,
