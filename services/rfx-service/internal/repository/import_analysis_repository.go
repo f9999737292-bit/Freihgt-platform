@@ -45,7 +45,8 @@ func (r *ImportAnalysisRepository) CreatePreview(ctx context.Context, in domain.
 	if err := domain.ValidateImportAnalysisPreviewInput(in); err != nil {
 		return nil, err
 	}
-	if in.WorkbookType == domain.WorkbookTypeBuyerTender {
+	switch in.WorkbookType {
+	case domain.WorkbookTypeBuyerTender:
 		if err := xlsxexchange.VerifyStoredCanonicalPayloadHash(in.CanonicalPayloadJSON, in.CanonicalHash); err != nil {
 			return nil, apperrors.Validation("canonical hash mismatch", map[string]any{"field": "canonical_hash"})
 		}
@@ -55,6 +56,18 @@ func (r *ImportAnalysisRepository) CreatePreview(ctx context.Context, in domain.
 		}
 		in.CanonicalPayloadJSON = stored
 		in.CanonicalHash = hash
+	case domain.WorkbookTypeCarrierOffer:
+		if err := xlsxexchange.VerifyStoredCarrierCanonicalPayloadHash(in.CanonicalPayloadJSON, in.CanonicalHash); err != nil {
+			return nil, apperrors.Validation("canonical hash mismatch", map[string]any{"field": "canonical_hash"})
+		}
+		stored, hash, err := xlsxexchange.StableStoredCarrierPayload(in.CanonicalPayloadJSON)
+		if err != nil {
+			return nil, apperrors.Validation("invalid canonical payload json", map[string]any{"field": "canonical_payload_json"})
+		}
+		in.CanonicalPayloadJSON = stored
+		in.CanonicalHash = hash
+	default:
+		return nil, apperrors.Validation("unsupported workbook_type for import preview", map[string]any{"field": "workbook_type"})
 	}
 	createdAt := in.CreatedAt.UTC()
 	if createdAt.IsZero() {
