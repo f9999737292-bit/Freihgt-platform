@@ -324,6 +324,7 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 		r.Get("/api/v1/rfx-events/{id}/xlsx-export", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
 		r.Get("/api/v1/rfx-events/{id}/carrier-responses/{response_id}/xlsx-export", rfxGuard.WithPolicy(rfxrbac.PolicyCarrierRead))
 		r.Post("/api/v1/rfx-events/{id}/carrier-responses/{response_id}/xlsx-import/preview", rfxGuard.WithPolicy(rfxrbac.PolicyCarrierRespond))
+		r.Post("/api/v1/rfx-events/{id}/carrier-responses/{response_id}/xlsx-import/commit", rfxGuard.WithPolicy(rfxrbac.PolicyCarrierRespond))
 		r.Post("/api/v1/rfx-events/{id}/xlsx-import/preview", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
 		r.Post("/api/v1/rfx-events/{id}/xlsx-import/commit", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
 	})
