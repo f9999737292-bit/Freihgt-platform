@@ -17,8 +17,8 @@ var embeddedExcelExchangeServiceRouter string
 func TestE7ExcelExchangeRouteParity(t *testing.T) {
 	t.Parallel()
 	routes := sharedrfx.E7ExcelExchangeRoutes()
-	if len(routes) != 5 {
-		t.Fatalf("expected exactly 5 excel exchange routes, got %d", len(routes))
+	if len(routes) != 6 {
+		t.Fatalf("expected exactly 6 excel exchange routes, got %d", len(routes))
 	}
 	serviceRouter := embeddedExcelExchangeServiceRouter
 	rfxOpenAPI, err := readExcelExchangeRepoFile(t, "packages/openapi/rfx-service.yaml")
@@ -160,6 +160,19 @@ func assertExcelExchangeOpenAPIOperation(t *testing.T, openAPI string, route sha
 		}
 		if !strings.Contains(pathBlock, "RfxBuyerXlsxImportCommitResponse") {
 			t.Fatal("openapi commit must declare commit response schema")
+		}
+		if !strings.Contains(pathBlock, "'422':") {
+			t.Fatal("openapi commit must declare 422 response")
+		}
+	case "commit_carrier_response_xlsx_import":
+		if !strings.Contains(pathBlock, "Idempotency-Key") {
+			t.Fatal("openapi commit must declare Idempotency-Key header")
+		}
+		if !strings.Contains(pathBlock, "RfxCarrierXlsxImportCommitRequest") {
+			t.Fatal("openapi commit must declare carrier commit request schema")
+		}
+		if !strings.Contains(pathBlock, "RfxCarrierXlsxImportCommitResponse") {
+			t.Fatal("openapi commit must declare carrier commit response schema")
 		}
 		if !strings.Contains(pathBlock, "'422':") {
 			t.Fatal("openapi commit must declare 422 response")

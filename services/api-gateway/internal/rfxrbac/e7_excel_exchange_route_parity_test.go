@@ -13,8 +13,8 @@ import (
 func TestE7ExcelExchangeGatewayRouteParity(t *testing.T) {
 	t.Parallel()
 	routes := sharedrfx.E7ExcelExchangeRoutes()
-	if len(routes) != 5 {
-		t.Fatalf("expected exactly 5 excel exchange routes, got %d", len(routes))
+	if len(routes) != 6 {
+		t.Fatalf("expected exactly 6 excel exchange routes, got %d", len(routes))
 	}
 
 	routerSource, err := readExcelExchangeGatewayRouter(t)
@@ -28,8 +28,8 @@ func TestE7ExcelExchangeGatewayRouteParity(t *testing.T) {
 	if strings.Count(routerSource, "xlsx-import/preview") != 2 {
 		t.Fatalf("gateway router must declare exactly 2 xlsx-import/preview routes, got %d", strings.Count(routerSource, "xlsx-import/preview"))
 	}
-	if strings.Count(routerSource, "xlsx-import/commit") != 1 {
-		t.Fatalf("gateway router must declare exactly 1 xlsx-import/commit route, got %d", strings.Count(routerSource, "xlsx-import/commit"))
+	if strings.Count(routerSource, "xlsx-import/commit") != 2 {
+		t.Fatalf("gateway router must declare exactly 2 xlsx-import/commit routes, got %d", strings.Count(routerSource, "xlsx-import/commit"))
 	}
 	if !strings.Contains(routerSource, "excelExchangeFlagMiddleware") {
 		t.Fatal("gateway excel exchange routes must be protected by excelExchangeFlagMiddleware")

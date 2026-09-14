@@ -4273,6 +4273,102 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/v1/rfx-events/{id}/carrier-responses/{response_id}/xlsx-import/commit:
+    post:
+      tags: [RFx]
+      summary: Commit carrier RFx response XLSX import
+      operationId: post_commit_carrier_rfx_response_xlsx_import
+      description: |
+        Atomically apply a persisted carrier XLSX import preview analysis to a DRAFT response.
+
+        Feature flag: when `RFX_EXCEL_EXCHANGE_ENABLED` is false (default), the route returns **404** (feature disabled).
+
+        Authorization: **CarrierRespond** role required; only the preview creator actor may commit; response must belong to the authenticated carrier company.
+
+        Requires `Idempotency-Key` header. Request body contains only `analysis_id`. Commit applies stored canonical payload only (no XLSX re-parse), updates answers and offer lines, and leaves the response in DRAFT (no auto-submit).
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: response_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Client-supplied idempotency key for carrier XLSX import commit (max 128 chars).
+          schema:
+            type: string
+            maxLength: 128
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RfxCarrierXlsxImportCommitRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Import analysis committed to carrier DRAFT response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RfxCarrierXlsxImportCommitResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Stored proposal failed revalidation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/v1/rfx-events/{id}/carrier-response/submit:
     post:
       tags: [RFx]
@@ -7676,6 +7772,39 @@ components:
             options:
               $ref: '#/components/schemas/RfxBuyerXlsxImportEntityChangeCounts'
             rules:
+              $ref: '#/components/schemas/RfxBuyerXlsxImportEntityChangeCounts'
+    RfxCarrierXlsxImportCommitRequest:
+      type: object
+      required: [analysis_id]
+      properties:
+        analysis_id:
+          type: string
+          format: uuid
+    RfxCarrierXlsxImportCommitResponse:
+      type: object
+      required: [event_id, response_id, analysis_id, save_version, committed_at, changes]
+      properties:
+        event_id:
+          type: string
+          format: uuid
+        response_id:
+          type: string
+          format: uuid
+        analysis_id:
+          type: string
+          format: uuid
+        save_version:
+          type: integer
+          format: int64
+        committed_at:
+          type: string
+          format: date-time
+        changes:
+          type: object
+          properties:
+            answers:
+              $ref: '#/components/schemas/RfxBuyerXlsxImportEntityChangeCounts'
+            offer_lines:
               $ref: '#/components/schemas/RfxBuyerXlsxImportEntityChangeCounts'
     HealthResponse:
       type: object
