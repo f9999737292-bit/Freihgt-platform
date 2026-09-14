@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+
 	"github.com/freight-platform/rfx-service/internal/domain"
 	apperrors "github.com/freight-platform/rfx-service/internal/platform/errors"
 	"github.com/freight-platform/rfx-service/internal/platform/respond"
@@ -17,6 +20,36 @@ type ExcelExchangeHandler struct {
 
 func NewExcelExchangeHandler(svc *service.ExcelExchangeService) *ExcelExchangeHandler {
 	return &ExcelExchangeHandler{service: svc}
+}
+
+func parseResponseID(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
+	responseID, err := uuid.Parse(chi.URLParam(r, "response_id"))
+	if err != nil {
+		respond.Error(w, apperrors.Validation("invalid response_id", nil))
+		return uuid.Nil, false
+	}
+	return responseID, true
+}
+
+func (h *ExcelExchangeHandler) ExportCarrierResponseXLSX(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireActor(w, r)
+	if !ok {
+		return
+	}
+	eventID, ok := parseEventID(w, r)
+	if !ok {
+		return
+	}
+	responseID, ok := parseResponseID(w, r)
+	if !ok {
+		return
+	}
+	data, filename, err := h.service.ExportCarrierResponseWorkbook(r.Context(), actor, eventID, responseID)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	respond.BinaryAttachment(w, http.StatusOK, service.BuyerDraftXLSXContentType, filename, data)
 }
 
 func (h *ExcelExchangeHandler) ExportBuyerDraftXLSX(w http.ResponseWriter, r *http.Request) {

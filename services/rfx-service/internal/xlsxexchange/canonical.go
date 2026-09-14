@@ -26,8 +26,25 @@ func CanonicalWorkbookSnapshot(data []byte) (WorkbookCanonical, error) {
 		_ = f.Close()
 	}()
 
-	out := WorkbookCanonical{Sheets: make(map[string][][]string, len(buyerSheetOrder))}
-	for _, sheetName := range buyerSheetOrder {
+	return canonicalWorkbookSnapshot(f, buyerSheetOrder)
+}
+
+// CanonicalCarrierWorkbookSnapshot parses carrier workbook bytes into a deterministic semantic snapshot,
+// excluding exported_at_utc from the Metadata sheet.
+func CanonicalCarrierWorkbookSnapshot(data []byte) (WorkbookCanonical, error) {
+	f, err := excelize.OpenReader(bytes.NewReader(data))
+	if err != nil {
+		return WorkbookCanonical{}, fmt.Errorf("open workbook: %w", err)
+	}
+	defer func() {
+		_ = f.Close()
+	}()
+	return canonicalWorkbookSnapshot(f, carrierSheetOrder)
+}
+
+func canonicalWorkbookSnapshot(f *excelize.File, sheetOrder []string) (WorkbookCanonical, error) {
+	out := WorkbookCanonical{Sheets: make(map[string][][]string, len(sheetOrder))}
+	for _, sheetName := range sheetOrder {
 		rows, err := f.GetRows(sheetName)
 		if err != nil {
 			return WorkbookCanonical{}, fmt.Errorf("read sheet %s: %w", sheetName, err)

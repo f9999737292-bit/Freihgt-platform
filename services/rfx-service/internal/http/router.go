@@ -146,6 +146,7 @@ func NewRouter(
 		r.Group(func(r chi.Router) {
 			r.Use(excelExchangeFlagMiddleware(cfg.RfxExcelExchangeEnabled))
 			r.Get("/{id}/xlsx-export", excelExchangeHandler.ExportBuyerDraftXLSX)
+			r.Get("/{id}/carrier-responses/{response_id}/xlsx-export", excelExchangeHandler.ExportCarrierResponseXLSX)
 			r.Post("/{id}/xlsx-import/preview", excelExchangeHandler.PreviewBuyerImportXLSX)
 			r.Post("/{id}/xlsx-import/commit", excelExchangeHandler.CommitBuyerImportXLSX)
 		})

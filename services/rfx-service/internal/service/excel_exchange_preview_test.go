@@ -62,7 +62,7 @@ func TestPreviewRepositoryFailureNoAnalysisUnit(t *testing.T) {
 		},
 	}
 	auth := NewRfxService(authRfxStore, nil, buyerMembershipResolver(ownerCompanyID))
-	svc := NewExcelExchangeService(rfxStore, qStore, auth, repository.NewImportAnalysisRepository(nil), nil, nil, errorTxRunner{})
+	svc := NewExcelExchangeService(rfxStore, qStore, auth, repository.NewImportAnalysisRepository(nil), nil, nil, errorTxRunner{}, nil)
 
 	workbook, err := xlsxexchange.GenerateBuyerDraftWorkbook(xlsxexchange.BuyerDraftSnapshot{
 		Metadata: xlsxexchange.BuyerDraftMetadata{
@@ -119,7 +119,7 @@ func TestPreviewBuyerImportWorkbookTTLUsesInjectedClock(t *testing.T) {
 		},
 	}
 	auth := NewRfxService(authRfxStore, nil, buyerMembershipResolver(ownerCompanyID))
-	svc := NewExcelExchangeService(rfxStore, qStore, auth, nil, nil, nil, nil)
+	svc := NewExcelExchangeService(rfxStore, qStore, auth, nil, nil, nil, nil, nil)
 	svc.SetNowFunc(func() time.Time { return fixed })
 
 	workbook, err := xlsxexchange.GenerateBuyerDraftWorkbook(xlsxexchange.BuyerDraftSnapshot{

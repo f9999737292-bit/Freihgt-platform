@@ -16,6 +16,7 @@ import (
 
 type mockExcelExchangeRfxStore struct {
 	getEventFn            func(ctx context.Context, id, tenantID uuid.UUID) (*domain.RfxEvent, error)
+	getResponseFn         func(ctx context.Context, id, tenantID uuid.UUID) (*domain.RfxResponse, error)
 	listLotsFn            func(ctx context.Context, eventID, tenantID uuid.UUID) ([]domain.RfxLot, error)
 	getExchangeMetadataFn func(ctx context.Context, eventID, tenantID uuid.UUID) (*repository.EventExchangeMetadata, error)
 }
@@ -25,6 +26,13 @@ func (m *mockExcelExchangeRfxStore) GetEventByID(ctx context.Context, id, tenant
 		return m.getEventFn(ctx, id, tenantID)
 	}
 	return nil, apperrors.NotFound("rfx event not found")
+}
+
+func (m *mockExcelExchangeRfxStore) GetResponseByID(ctx context.Context, id, tenantID uuid.UUID) (*domain.RfxResponse, error) {
+	if m.getResponseFn != nil {
+		return m.getResponseFn(ctx, id, tenantID)
+	}
+	return nil, apperrors.NotFound("rfx response not found")
 }
 
 func (m *mockExcelExchangeRfxStore) ListLotsByEvent(ctx context.Context, eventID, tenantID uuid.UUID) ([]domain.RfxLot, error) {
@@ -43,6 +51,7 @@ func (m *mockExcelExchangeRfxStore) GetEventExchangeMetadata(ctx context.Context
 
 type mockExcelExchangeQuestionnaireStore struct {
 	getActiveDraftFn func(ctx context.Context, tenantID, eventID uuid.UUID) (*domain.RfxVersion, error)
+	getVersionFn     func(ctx context.Context, id, tenantID uuid.UUID) (*domain.RfxVersion, error)
 	loadTreeFn       func(ctx context.Context, versionID, tenantID uuid.UUID) ([]domain.SectionWithQuestions, error)
 	listRulesFn      func(ctx context.Context, versionID, tenantID uuid.UUID) ([]domain.QuestionRule, error)
 }
@@ -52,6 +61,13 @@ func (m *mockExcelExchangeQuestionnaireStore) GetActiveDraftVersion(ctx context.
 		return m.getActiveDraftFn(ctx, tenantID, eventID)
 	}
 	return nil, apperrors.Conflict("draft questionnaire version not found", map[string]any{"field": "draft_version"})
+}
+
+func (m *mockExcelExchangeQuestionnaireStore) GetVersionByID(ctx context.Context, id, tenantID uuid.UUID) (*domain.RfxVersion, error) {
+	if m.getVersionFn != nil {
+		return m.getVersionFn(ctx, id, tenantID)
+	}
+	return nil, apperrors.NotFound("rfx version not found")
 }
 
 func (m *mockExcelExchangeQuestionnaireStore) LoadQuestionnaireTree(ctx context.Context, versionID, tenantID uuid.UUID) ([]domain.SectionWithQuestions, error) {
@@ -123,7 +139,7 @@ func TestExcelExchangeServiceExportBuyerDraftWorkbookSuccess(t *testing.T) {
 	}
 
 	auth := NewRfxService(authRfxStore, nil, buyerMembershipResolver(ownerCompanyID))
-	svc := NewExcelExchangeService(rfxStore, qStore, auth, nil, nil, nil, nil)
+	svc := NewExcelExchangeService(rfxStore, qStore, auth, nil, nil, nil, nil, nil)
 	svc.SetNowFunc(func() time.Time { return fixedNow })
 
 	data, filename, err := svc.ExportBuyerDraftWorkbook(context.Background(), buyerTestActor(tenantID, userID, ownerCompanyID), eventID)
@@ -158,7 +174,7 @@ func TestExcelExchangeServiceExportBuyerDraftWorkbookMissingDraft(t *testing.T) 
 		},
 	}
 	auth := NewRfxService(authRfxStore, nil, buyerMembershipResolver(ownerCompanyID))
-	svc := NewExcelExchangeService(rfxStore, qStore, auth, nil, nil, nil, nil)
+	svc := NewExcelExchangeService(rfxStore, qStore, auth, nil, nil, nil, nil, nil)
 
 	_, _, err := svc.ExportBuyerDraftWorkbook(context.Background(), buyerTestActor(tenantID, userID, ownerCompanyID), eventID)
 	var appErr *apperrors.AppError
@@ -184,7 +200,7 @@ func TestExcelExchangeServiceExportBuyerDraftWorkbookRequiresBuyerManage(t *test
 	resolver := buyerMembershipResolver(ownerCompanyID)
 	resolver.roles = []string{"SHIPPER_LOGIST"}
 	auth := NewRfxService(authRfxStore, nil, resolver)
-	svc := NewExcelExchangeService(rfxStore, qStore, auth, nil, nil, nil, nil)
+	svc := NewExcelExchangeService(rfxStore, qStore, auth, nil, nil, nil, nil, nil)
 
 	_, _, err := svc.ExportBuyerDraftWorkbook(context.Background(), buyerTestActor(tenantID, userID, ownerCompanyID), eventID)
 	var appErr *apperrors.AppError
