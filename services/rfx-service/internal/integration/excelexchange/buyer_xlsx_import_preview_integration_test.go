@@ -462,8 +462,8 @@ func TestE7P2INT41CompetitorColumnRejected(t *testing.T) {
 
 func TestE7P2INT42RouteServiceGatewayOpenAPIParity(t *testing.T) {
 	routes := sharedrfx.E7ExcelExchangeRoutes()
-	if len(routes) != 4 {
-		t.Fatalf("expected 4 routes, got %d", len(routes))
+	if len(routes) != 5 {
+		t.Fatalf("expected 5 routes, got %d", len(routes))
 	}
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
@@ -526,6 +526,19 @@ func TestE7P2INT42RouteServiceGatewayOpenAPIParity(t *testing.T) {
 			rec := getCarrierXlsxExportHTTP(t, env, enabledExcelExchangeConfig(), fix.CarrierAct, carrier.Event.ID, carrier.Response.ID)
 			if rec.Code != route.SuccessStatus {
 				t.Fatalf("carrier export status=%d want=%d body=%s", rec.Code, route.SuccessStatus, rec.Body.String())
+			}
+		case "preview_carrier_response_xlsx_import":
+			carrier := seedCarrierDraftExportFixture(t, env, fix)
+			workbook := exportCarrierDraftWorkbook(t, env, fix, carrier)
+			rec := postCarrierXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.CarrierAct, carrier.Event.ID, carrier.Response.ID, workbook, previewHTTPOptions{})
+			if rec.Code != route.SuccessStatus {
+				t.Fatalf("carrier preview status=%d want=%d body=%s", rec.Code, route.SuccessStatus, rec.Body.String())
+			}
+			if route.OpenAPIOperationID != "post_preview_carrier_rfx_response_xlsx_import" {
+				t.Fatalf("unexpected operationId=%q", route.OpenAPIOperationID)
+			}
+			if route.RBACPolicy != "PolicyCarrierRespond" {
+				t.Fatalf("carrier preview RBAC=%q", route.RBACPolicy)
 			}
 		default:
 			t.Fatalf("unknown route %s", route.Name)

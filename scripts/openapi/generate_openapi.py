@@ -179,6 +179,7 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/rfx-events/{id}/late-submission-requests/{request_id}/reject", "post", "Reject carrier late submission request", "RFx", True, True, "ls_reject"),
     ("/api/v1/rfx-events/{id}/xlsx-export", "get", "Export buyer draft RFx event as XLSX workbook", "RFx", True, True, "xlsx_export_buyer_draft"),
     ("/api/v1/rfx-events/{id}/carrier-responses/{response_id}/xlsx-export", "get", "Export carrier RFx response as XLSX workbook", "RFx", True, True, "xlsx_export_carrier_response"),
+    ("/api/v1/rfx-events/{id}/carrier-responses/{response_id}/xlsx-import/preview", "post", "Preview carrier RFx response XLSX import", "RFx", True, True, "xlsx_import_preview_carrier_response"),
     ("/api/v1/rfx-events/{id}/xlsx-import/preview", "post", "Preview buyer draft RFx event XLSX import", "RFx", True, True, "xlsx_import_preview_buyer_draft"),
     ("/api/v1/rfx-events/{id}/xlsx-import/commit", "post", "Commit buyer draft RFx event XLSX import", "RFx", True, True, "xlsx_import_commit_buyer_draft"),
     ("/api/v1/rfx-events/{id}/carrier-response/submit", "post", "Submit carrier questionnaire response", "RFx", True, True, "cr_submit"),
@@ -495,12 +496,13 @@ E7_EXCEL_EXCHANGE_ENDPOINT_PROFILES = frozenset({
     "xlsx_export_buyer_draft",
     "xlsx_export_carrier_response",
     "xlsx_import_preview_buyer_draft",
+    "xlsx_import_preview_carrier_response",
     "xlsx_import_commit_buyer_draft",
 })
 
 BINARY_RESPONSE_PROFILES = frozenset({"xlsx_export_buyer_draft", "xlsx_export_carrier_response"})
 
-EXCEL_EXCHANGE_PREVIEW_PROFILES = frozenset({"xlsx_import_preview_buyer_draft"})
+EXCEL_EXCHANGE_PREVIEW_PROFILES = frozenset({"xlsx_import_preview_buyer_draft", "xlsx_import_preview_carrier_response"})
 
 EXCEL_EXCHANGE_COMMIT_PROFILES = frozenset({"xlsx_import_commit_buyer_draft"})
 
@@ -609,6 +611,21 @@ Authorization: **CarrierRead** role required; response must belong to the authen
 Scope: exports own questionnaire answers and commercial offer lines only. No competitor IDs, prices, rankings, or scores are included.
 
 DRAFT responses export with `export_mode=DRAFT_EDIT`. SUBMITTED responses export read-only with `export_mode=SUBMITTED_READONLY`.""",
+    "xlsx_import_preview_carrier_response": """Preview carrier RFx response XLSX import for UPDATE_CARRIER_DRAFT mode.
+
+Feature flag: when `RFX_EXCEL_EXCHANGE_ENABLED` is false (default), the route returns **404** (feature disabled).
+
+Authorization: **CarrierRespond** role required; response must belong to the authenticated carrier company.
+
+Request: multipart/form-data with required binary `file` field (max 5 MiB). Workbook schema `BINTRANS_RFX_CARRIER_XLSX_V1`.
+
+Successful domain-valid preview returns **200** with `ready_to_commit=true`, persisted `analysis_id`, and server-computed `expires_at` (24h TTL).
+
+Domain-invalid but structurally readable workbooks return **422** with the structured preview envelope and `ready_to_commit=false` without persisting analysis.
+
+Malformed multipart, unsafe ZIP/XLSX, or schema contract failures return **400** / **413** with the standard error envelope.
+
+Precondition: response must be **DRAFT**; SUBMITTED responses return **409** conflict.""",
     "xlsx_import_preview_buyer_draft": """Preview buyer draft RFx event XLSX import for UPDATE_DRAFT mode.
 
 Feature flag: when `RFX_EXCEL_EXCHANGE_ENABLED` is false (default), the route returns **404** (feature disabled).
@@ -1122,6 +1139,11 @@ def render_operation(
         return "\n".join(lines)
 
     if profile in EXCEL_EXCHANGE_PREVIEW_PROFILES:
+        workbook_label = "BUYER XLSX workbook (max 5 MiB)"
+        preview_schema = "RfxBuyerXlsxImportPreviewResponse"
+        if profile == "xlsx_import_preview_carrier_response":
+            workbook_label = "CARRIER XLSX workbook (max 5 MiB)"
+            preview_schema = "RfxCarrierXlsxImportPreviewResponse"
         lines.extend(
             [
                 "      requestBody:",
@@ -1135,7 +1157,7 @@ def render_operation(
                 "                file:",
                 "                  type: string",
                 "                  format: binary",
-                "                  description: BUYER XLSX workbook (max 5 MiB)",
+                f"                  description: {workbook_label}",
             ]
         )
         if secured:
@@ -1148,13 +1170,13 @@ def render_operation(
                 "          content:",
                 "            application/json:",
                 "              schema:",
-                "                $ref: '#/components/schemas/RfxBuyerXlsxImportPreviewResponse'",
+                f"                $ref: '#/components/schemas/{preview_schema}'",
                 "        '422':",
                 "          description: Domain-invalid structured import preview",
                 "          content:",
                 "            application/json:",
                 "              schema:",
-                "                $ref: '#/components/schemas/RfxBuyerXlsxImportPreviewResponse'",
+                f"                $ref: '#/components/schemas/{preview_schema}'",
                 EXCEL_EXCHANGE_ERROR_RESPONSES.rstrip("\n"),
                 "",
             ]
@@ -2297,6 +2319,67 @@ def excel_exchange_components_block() -> str:
           type: object
           additionalProperties: true
         lots_diff:
+          type: object
+          additionalProperties: true
+        errors:
+          type: array
+          maxItems: 2000
+          items:
+            $ref: '#/components/schemas/RfxBuyerXlsxImportPreviewIssue'
+        warnings:
+          type: array
+          maxItems: 2000
+          items:
+            $ref: '#/components/schemas/RfxBuyerXlsxImportPreviewIssue'
+    RfxCarrierXlsxImportPreviewSummary:
+      type: object
+      properties:
+        errors: {type: integer}
+        warnings: {type: integer}
+        answers_added: {type: integer}
+        answers_changed: {type: integer}
+        answers_removed: {type: integer}
+        offer_lines_added: {type: integer}
+        offer_lines_changed: {type: integer}
+        offer_lines_removed: {type: integer}
+    RfxCarrierXlsxImportPreviewResponse:
+      type: object
+      required:
+        - schema_name
+        - schema_version
+        - mode
+        - target_event_id
+        - target_response_id
+        - target_rfx_version_id
+        - target_version_number
+        - target_event_row_version
+        - target_response_save_version
+        - ready_to_commit
+        - summary
+        - answers_diff
+        - offer_lines_diff
+        - errors
+        - warnings
+      properties:
+        schema_name: {type: string, example: BINTRANS_RFX_CARRIER_XLSX_V1}
+        schema_version: {type: string, example: "1"}
+        mode: {type: string, enum: [UPDATE_CARRIER_DRAFT]}
+        target_event_id: {type: string, format: uuid}
+        target_response_id: {type: string, format: uuid}
+        target_rfx_version_id: {type: string, format: uuid}
+        target_version_number: {type: integer}
+        target_event_row_version: {type: integer}
+        target_response_save_version: {type: integer, format: int64}
+        canonical_payload_hash: {type: string}
+        analysis_id: {type: string, format: uuid}
+        expires_at: {type: string, format: date-time}
+        ready_to_commit: {type: boolean}
+        summary:
+          $ref: '#/components/schemas/RfxCarrierXlsxImportPreviewSummary'
+        answers_diff:
+          type: object
+          additionalProperties: true
+        offer_lines_diff:
           type: object
           additionalProperties: true
         errors:

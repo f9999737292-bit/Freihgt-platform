@@ -13,8 +13,8 @@ import (
 func TestE7ExcelExchangeGatewayRouteParity(t *testing.T) {
 	t.Parallel()
 	routes := sharedrfx.E7ExcelExchangeRoutes()
-	if len(routes) != 4 {
-		t.Fatalf("expected exactly 4 excel exchange routes, got %d", len(routes))
+	if len(routes) != 5 {
+		t.Fatalf("expected exactly 5 excel exchange routes, got %d", len(routes))
 	}
 
 	routerSource, err := readExcelExchangeGatewayRouter(t)
@@ -25,8 +25,8 @@ func TestE7ExcelExchangeGatewayRouteParity(t *testing.T) {
 	if strings.Count(routerSource, "xlsx-export") != 2 {
 		t.Fatalf("gateway router must declare exactly 2 xlsx-export routes, got %d", strings.Count(routerSource, "xlsx-export"))
 	}
-	if strings.Count(routerSource, "xlsx-import/preview") != 1 {
-		t.Fatalf("gateway router must declare exactly 1 xlsx-import/preview route, got %d", strings.Count(routerSource, "xlsx-import/preview"))
+	if strings.Count(routerSource, "xlsx-import/preview") != 2 {
+		t.Fatalf("gateway router must declare exactly 2 xlsx-import/preview routes, got %d", strings.Count(routerSource, "xlsx-import/preview"))
 	}
 	if strings.Count(routerSource, "xlsx-import/commit") != 1 {
 		t.Fatalf("gateway router must declare exactly 1 xlsx-import/commit route, got %d", strings.Count(routerSource, "xlsx-import/commit"))
@@ -45,7 +45,7 @@ func TestE7ExcelExchangeGatewayRouteParity(t *testing.T) {
 				t.Fatalf("gateway missing RBAC policy %s", route.RBACPolicy)
 			}
 			switch route.RBACPolicy {
-			case "PolicyBuyerManage", "PolicyCarrierRead":
+			case "PolicyBuyerManage", "PolicyCarrierRead", "PolicyCarrierRespond":
 			default:
 				t.Fatalf("unknown RBAC policy %s", route.RBACPolicy)
 			}

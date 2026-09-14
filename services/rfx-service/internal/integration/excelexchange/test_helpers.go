@@ -824,11 +824,12 @@ func getCarrierXlsxExportHTTP(
 }
 
 type responseWriteSnapshot struct {
-	saveVersion      int64
-	answerCount      int
-	offerLineCount   int
-	auditCount       int
-	idempotencyCount int
+	saveVersion       int64
+	answerCount       int
+	offerLineCount    int
+	auditCount        int
+	idempotencyCount  int
+	importAnalysisCnt int
 }
 
 func captureResponseWriteSnapshot(t *testing.T, env *testEnv, tenantID, responseID uuid.UUID) responseWriteSnapshot {
@@ -850,7 +851,56 @@ func captureResponseWriteSnapshot(t *testing.T, env *testEnv, tenantID, response
 	if err := env.pool.QueryRow(ctx, `SELECT COUNT(*) FROM rfx.rfx_idempotency_records WHERE tenant_id=$1`, tenantID).Scan(&snap.idempotencyCount); err != nil {
 		t.Fatalf("count idempotency: %v", err)
 	}
+	if err := env.pool.QueryRow(ctx, `SELECT COUNT(*) FROM rfx.rfx_import_analyses WHERE tenant_id=$1`, tenantID).Scan(&snap.importAnalysisCnt); err != nil {
+		t.Fatalf("count import analyses: %v", err)
+	}
 	return snap
+}
+
+func exportCarrierDraftWorkbook(t *testing.T, env *testEnv, fix buyerFixture, carrier carrierExportFixture) []byte {
+	t.Helper()
+	data, _, err := env.excelExchangeSvc.ExportCarrierResponseWorkbook(context.Background(), fix.CarrierAct, carrier.Event.ID, carrier.Response.ID)
+	if err != nil {
+		t.Fatalf("export carrier workbook: %v", err)
+	}
+	return data
+}
+
+func postCarrierXlsxImportPreviewHTTP(
+	t *testing.T,
+	env *testEnv,
+	cfg config.Config,
+	actor domain.ActorContext,
+	eventID, responseID uuid.UUID,
+	fileBytes []byte,
+	opts previewHTTPOptions,
+) *httptest.ResponseRecorder {
+	t.Helper()
+	body, contentType := buildBuyerXlsxImportMultipartBody(t, fileBytes, opts)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	router := httpserver.NewRouter(log, env.pool, cfg, env.rfxSvc, env.qSvc, nil, nil, nil, nil, nil, nil, env.excelExchangeSvc, nil, nil, nil, nil, nil)
+	req := httptest.NewRequest(http.MethodPost, "/v1/rfx-events/"+eventID.String()+"/carrier-responses/"+responseID.String()+"/xlsx-import/preview", body)
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	if actor.TenantID != uuid.Nil {
+		req.Header.Set("X-Tenant-ID", actor.TenantID.String())
+	}
+	if actor.UserID != uuid.Nil {
+		req.Header.Set("X-User-ID", actor.UserID.String())
+	}
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
+}
+
+func decodeCarrierPreviewResponse(t *testing.T, rec *httptest.ResponseRecorder) service.CarrierImportPreviewResponse {
+	t.Helper()
+	var preview service.CarrierImportPreviewResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &preview); err != nil {
+		t.Fatalf("decode carrier preview: %v body=%s", err, rec.Body.String())
+	}
+	return preview
 }
 
 func seedCompetitorBSentinelsOnly(t *testing.T, env *testEnv, fix buyerFixture, draft richDraftFixture) competitorSentinels {
@@ -893,6 +943,12 @@ func seedCompetitorBSentinelsOnly(t *testing.T, env *testEnv, fix buyerFixture, 
 		fix.TenantID, sent.ResponseBID, draft.Lot.ID, sent.OfferRateB, "SENTINEL-OFFER-B"); err != nil {
 		t.Fatalf("insert offer B: %v", err)
 	}
+	if _, err := env.pool.Exec(ctx, `
+		INSERT INTO rfx.rfx_answers (tenant_id, rfx_response_id, question_id, answer_value_json, answer_source, validation_version, version)
+		VALUES ($1,$2,$3,$4::jsonb,$5,1,1)`,
+		fix.TenantID, sent.ResponseBID, draft.Question.ID, `"SENTINEL-COMPETITOR-ANSWER-B"`, domain.AnswerSourceCarrierDeclared); err != nil {
+		t.Fatalf("insert competitor B answer: %v", err)
+	}
 	return sent
 }
 
@@ -906,6 +962,7 @@ func assertCarrierWorkbookExcludesCompetitorSentinels(t *testing.T, data []byte,
 		sent.EmailTokenB,
 		sent.OfferRateB,
 		"SENTINEL-OFFER-B",
+		"SENTINEL-COMPETITOR-ANSWER-B",
 		"competitor_",
 		"other_carrier_",
 		"rank",
