@@ -17,8 +17,8 @@ var embeddedExcelExchangeServiceRouter string
 func TestE7ExcelExchangeRouteParity(t *testing.T) {
 	t.Parallel()
 	routes := sharedrfx.E7ExcelExchangeRoutes()
-	if len(routes) != 4 {
-		t.Fatalf("expected exactly 4 excel exchange routes, got %d", len(routes))
+	if len(routes) != 5 {
+		t.Fatalf("expected exactly 5 excel exchange routes, got %d", len(routes))
 	}
 	serviceRouter := embeddedExcelExchangeServiceRouter
 	rfxOpenAPI, err := readExcelExchangeRepoFile(t, "packages/openapi/rfx-service.yaml")
@@ -44,7 +44,7 @@ func TestE7ExcelExchangeRouteParity(t *testing.T) {
 	for _, route := range routes {
 		t.Run(route.Name, func(t *testing.T) {
 			switch route.RBACPolicy {
-			case "PolicyBuyerManage", "PolicyCarrierRead":
+			case "PolicyBuyerManage", "PolicyCarrierRead", "PolicyCarrierRespond":
 			default:
 				t.Fatalf("manifest RBAC=%q", route.RBACPolicy)
 			}
@@ -104,6 +104,10 @@ func assertExcelExchangeOpenAPIOperation(t *testing.T, openAPI string, route sha
 		if !strings.Contains(pathBlock, "CarrierRead") {
 			t.Fatal("openapi description must document CarrierRead authorization")
 		}
+	case "PolicyCarrierRespond":
+		if !strings.Contains(pathBlock, "CarrierRespond") {
+			t.Fatal("openapi description must document CarrierRespond authorization")
+		}
 	}
 
 	switch route.Name {
@@ -133,6 +137,19 @@ func assertExcelExchangeOpenAPIOperation(t *testing.T, openAPI string, route sha
 		}
 		if !strings.Contains(pathBlock, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") {
 			t.Fatal("openapi 200 response must declare XLSX content type")
+		}
+	case "preview_carrier_response_xlsx_import":
+		if !strings.Contains(pathBlock, "multipart/form-data") {
+			t.Fatal("openapi preview must declare multipart/form-data")
+		}
+		if !strings.Contains(pathBlock, "RfxCarrierXlsxImportPreviewResponse") {
+			t.Fatal("openapi preview must declare structured carrier preview response schema")
+		}
+		if !strings.Contains(pathBlock, "'422':") {
+			t.Fatal("openapi preview must declare 422 structured preview response")
+		}
+		if !strings.Contains(pathBlock, "'413':") {
+			t.Fatal("openapi preview must declare 413 response")
 		}
 	case "commit_buyer_draft_xlsx_import":
 		if !strings.Contains(pathBlock, "Idempotency-Key") {

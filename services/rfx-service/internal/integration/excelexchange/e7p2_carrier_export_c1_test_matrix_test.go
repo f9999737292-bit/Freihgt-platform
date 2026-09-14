@@ -46,7 +46,7 @@ func TestE7P2CarrierXlsxMatrixIDsCompleteAndUnique(t *testing.T) {
 			if convErr != nil {
 				return convErr
 			}
-			if id < 71 || id > 79 {
+			if id < 71 || id > 90 {
 				continue
 			}
 			if prev, exists := found[id]; exists {
@@ -59,7 +59,7 @@ func TestE7P2CarrierXlsxMatrixIDsCompleteAndUnique(t *testing.T) {
 	if err != nil {
 		t.Fatalf("scan tests: %v", err)
 	}
-	for id := 71; id <= 79; id++ {
+	for id := 71; id <= 90; id++ {
 		if _, ok := found[id]; !ok {
 			t.Fatalf("missing required test E7P2-INT-%02d", id)
 		}
