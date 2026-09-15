@@ -1,15 +1,15 @@
 # RFx v3.0E7 Phase 2 — ERP API Acceptance Test Matrix
 
-**Status:** `FROZEN_PENDING_REVIEW` (tests not implemented)  
+**Status:** REMEDIATION_COMPLETE_PENDING_RE_REVIEW (tests not implemented)
 **Parent:** [RFX_V3_0E7_ERP_API.md](./RFX_V3_0E7_ERP_API.md)
 
 | Marker | Value |
 |---|---|
-| `ERP_TEST_IDS` | `E7P2-INT-120..189` |
-| `ERP_TEST_COUNT` | `70` |
+| `ERP_TEST_IDS` | `E7P2-INT-120..195` |
+| `ERP_TEST_COUNT` | `76` |
 | `ERP_TEST_IDS_UNIQUE` | `YES` |
-| `INT_120_WAS_FREE` | `YES` |
-| `NEXT_FREE_TEST_ID` | `E7P2-INT-190` |
+| `INT_120_WAS_FREE` | `YES` (at initial freeze) |
+| `NEXT_FREE_TEST_ID` | `E7P2-INT-196` |
 | `PRIOR_RANGE_END` | `E7P2-INT-119` (Carrier XLSX C3) |
 
 ---
@@ -43,8 +43,8 @@
 | E7P2-INT-135 | CREATE preview valid JSON | 200; `ready_to_commit=true`; analysis persisted | create |
 | E7P2-INT-136 | CREATE preview validation errors | 422; zero analysis rows (OPTION A) | create |
 | E7P2-INT-137 | CREATE commit from analysis | 201; event created; `creation_channel=ERP` | create |
-| E7P2-INT-138 | CREATE external link inserted | Link row matches external identity key | external_id |
-| E7P2-INT-139 | Duplicate CREATE same external ID | 409 `external_id_conflict` | external_id |
+| E7P2-INT-138 | CREATE stable external link inserted | Link matches stable identity key | external_id |
+| E7P2-INT-139 | Duplicate CREATE same stable external ID | 409 `external_id_conflict` | external_id |
 | E7P2-INT-140 | CREATE retry same Idempotency-Key | Same event returned | idempotency |
 | E7P2-INT-141 | CREATE commit without preview | 404 `analysis_not_found` | create |
 | E7P2-INT-142 | CREATE preview unknown schema_version | 422 | validation |
@@ -68,7 +68,7 @@
 | E7P2-INT-153 | UPDATE canonical hash tampered in DB | 409 `canonical_hash_mismatch` | integrity |
 | E7P2-INT-154 | UPDATE consumed analysis replay | 409 `analysis_already_consumed` | analysis |
 | E7P2-INT-155 | UPDATE expired analysis | 409 `analysis_expired` | analysis |
-| E7P2-INT-156 | UPDATE actor binding mismatch | 409 `actor_binding_denied` | security |
+| E7P2-INT-156 | UPDATE actor/principal binding mismatch | 409 `actor_binding_denied` | security |
 | E7P2-INT-157 | UPDATE idempotent replay | Stored 200 response | idempotency |
 | E7P2-INT-158 | UPDATE concurrent ERP requests | One succeeds; one stale | concurrency |
 | E7P2-INT-159 | UPDATE no partial writes on failure | Transaction rollback verified | rollback |
@@ -79,9 +79,9 @@
 
 | ID | Scenario | Expected | Category |
 |---|---|---|---|
-| E7P2-INT-160 | GET by external_system + object_id | 200; correct event | read |
-| E7P2-INT-161 | GET external unknown ID | 404 | read |
-| E7P2-INT-162 | GET internal ID | 200; DRAFT subset only | read |
+| E7P2-INT-160 | GET by stable external_system + object_id | 200; correct single RFx | read |
+| E7P2-INT-161 | GET external unknown stable ID | 404 | read |
+| E7P2-INT-162 | GET internal ID returns ErpRfxDraftSummary only | 200; allowlisted fields | read |
 | E7P2-INT-163 | GET analysis status PREVIEWED | 200; expires_at present | status |
 | E7P2-INT-164 | GET analysis CONSUMED | 200; consumed_at set | status |
 
@@ -95,9 +95,9 @@
 | E7P2-INT-166 | Unknown unit code (fail-closed type) | 422 | mapping |
 | E7P2-INT-167 | Unknown cargo type (warning allowed) | 200 preview with warning | mapping |
 | E7P2-INT-168 | Tenant override mapping | External code resolves | mapping |
-| E7P2-INT-169 | Retired mapping set | 422 for codes only in retired set | mapping |
+| E7P2-INT-169 | Retired mapping set at Preview | 422 or mapping error | mapping |
 | E7P2-INT-170 | Platform default mapping | Unmapped tenant uses default | mapping |
-| E7P2-INT-171 | Mapping applied before canonical hash | Hash reflects canonical codes | mapping |
+| E7P2-INT-171 | Mapping applied before canonical hash | Hash reflects resolved codes + mapping_context | mapping |
 
 ---
 
@@ -128,56 +128,73 @@
 | E7P2-INT-185 | Route/gateway/OpenAPI parity | Shared route manifest | parity |
 | E7P2-INT-186 | Rate limit 429 | Retry-After header | limits |
 | E7P2-INT-187 | Migration 000074 up/down (when authorized) | Schema extension reversible | migration |
-| E7P2-INT-188 | Competitor data absent in GET | No participant/bid fields | confidentiality |
-| E7P2-INT-189 | Capabilities schema version | Returns `BINTRANS_RFX_ERP_JSON_V1` | capabilities |
+| E7P2-INT-188 | Competitor data absent in ERP GET DTO | No participant/bid fields | confidentiality |
+| E7P2-INT-189 | Capabilities returns schema version | `BINTRANS_RFX_ERP_JSON_V1` + deferred_fields | capabilities |
 
 ---
 
-## 2. Coverage checklist
+## 8. Remediation tests (INT-190..194)
 
-| Requirement | Covered by |
+| ID | Scenario | Expected | Finding closed |
+|---|---|---|---|
+| E7P2-INT-190 | OAuth-only principal attempts API key | 401 `auth_scheme_denied` | M-02 |
+| E7P2-INT-191 | ERP commit rejects analysis bound to different principal | 409 `actor_binding_denied` | H-02 |
+| E7P2-INT-192 | GET by stable external ID without revision is deterministic | Single RFx; revision history optional | H-03 |
+| E7P2-INT-193 | Commit after mapping set RETIRED post-Preview | 409 `stale_mapping_context` | H-04 |
+| E7P2-INT-194 | Concurrent CREATE commits same stable external ID | One 201; others 409; one RFx | M-06 |
+| E7P2-INT-195 | Deferred field `lanes[]` in payload | 422 `unsupported_field_v1` | H-05 |
+
+---
+
+## 9. Capabilities (uses INT-134 for unauthenticated denial)
+
+Authenticated capabilities returns `BINTRANS_RFX_ERP_JSON_V1` and `deferred_fields[]` — covered at implementation time alongside INT-134 inverse.
+
+---
+
+## 10. Finding traceability table
+
+| ID | Exact requirement | Endpoint/layer | Expected result | Finding closed |
+|---|---|---|---|---|
+| E7P2-INT-143 | Mass assignment blocked | CREATE preview | 422 `unknown_field` | H-01 |
+| E7P2-INT-147 | Payload size limit | CREATE preview | 413 | H-01 |
+| E7P2-INT-175 | JSON depth limit | CREATE preview | 400/422 | H-01 |
+| E7P2-INT-177 | No auto-publish | CREATE commit | DRAFT status | H-01 |
+| E7P2-INT-188 | Competitor data excluded | ERP GET DTO | No bid/participant fields | H-01, M-05 |
+| E7P2-INT-195 | Deferred lanes rejected | CREATE preview | 422 `unsupported_field_v1` | H-05 |
+| E7P2-INT-190 | Auth downgrade blocked | Token endpoint + API | 401 `auth_scheme_denied` | M-02 |
+| E7P2-INT-191 | Principal binding on analysis | CREATE/UPDATE commit | 409 if mismatch | H-02 |
+| E7P2-INT-192 | Stable external lookup | GET by-external-id | Single RFx | H-03 |
+| E7P2-INT-193 | Mapping version pinned | UPDATE commit | 409 if mapping retired | H-04 |
+| E7P2-INT-194 | Concurrent CREATE race | CREATE commit | One winner | M-06 |
+| E7P2-INT-138 | Stable link on CREATE | CREATE commit | One link per stable key | H-03 |
+| E7P2-INT-139 | Duplicate stable CREATE | CREATE commit | 409 | H-03 |
+| E7P2-INT-134 | Capabilities requires auth | GET capabilities | 401 | M-03 |
+| E7P2-INT-162 | ERP GET DTO allowlist | GET by internal ID | ErpRfxDraftSummary only | M-05 |
+| E7P2-INT-171 | mapping_context in hash | CREATE preview | Pinned in analysis | H-04 |
+| E7P2-INT-188 | Migration reversible | DB migration | up/down/up | M-08 |
+
+---
+
+## 11. Threat model cross-reference (H-01)
+
+| Threat | Test IDs |
 |---|---|
-| Authentication | INT-120..127 |
-| Credential revocation/expiry | INT-122..123 |
-| Tenant/company isolation | INT-128..131 |
-| Scopes | INT-132..134 |
-| Create Preview/Commit | INT-135..147 |
-| Update Preview/Commit | INT-148..159 |
-| External ID uniqueness | INT-138..139, 160..161 |
-| Duplicate Create | INT-139 |
-| Idempotent replay/conflict | INT-140, 145, 157 |
-| Concurrent requests | INT-158 |
-| Stale version | INT-151..152 |
-| Expired/consumed analysis | INT-154..155 |
-| Canonical hash tampering | INT-153 |
-| Mapping failures | INT-165..171 |
-| Invalid reference codes | INT-165..167 |
-| Domain validation | INT-172..173, 176 |
-| Limits | INT-147, 174..175, 186 |
-| Audit | INT-180..182 |
-| Rollback | INT-159 |
-| No auto-publish | INT-177 |
-| No Carrier mutation | INT-178..179 |
-| Route/OpenAPI parity | INT-185 |
-| ERP/UI/XLSX coexistence | INT-183..184 |
-| Migration up/down | INT-187 |
+| Mass assignment | E7P2-INT-143 |
+| Payload bomb | E7P2-INT-147, E7P2-INT-175 |
+| Auto-publish | E7P2-INT-177 |
+| Competitor leak | E7P2-INT-188 |
+| Deferred freight fields | E7P2-INT-195 |
+| Auth downgrade | E7P2-INT-190 |
+| Principal binding | E7P2-INT-191, E7P2-INT-156 |
+| Stable identity | E7P2-INT-138, 139, 192, 194 |
+| Mapping drift | E7P2-INT-193 |
 
 ---
 
-## 3. Uniqueness verification
+## 12. ID range summary
 
 ```
-PRIOR_TEST_RANGES:
-  E7P2-INT-01..20   — Buyer XLSX Export
-  E7P2-INT-21..42   — Buyer XLSX Preview
-  E7P2-INT-43..70   — Buyer XLSX Commit
-  E7P2-INT-71..119  — Carrier XLSX C1/C2/C3
-
-ERP_RESERVED_RANGE:
-  E7P2-INT-120..189 — ERP API (this matrix)
-
-NEXT_FREE_AFTER_ERP:
-  E7P2-INT-190
+E7P2-INT-120..195  — ERP API (76 tests)
+NEXT_FREE_TEST_ID  — E7P2-INT-196
 ```
-
-No duplicate IDs detected in repository at architecture freeze time.

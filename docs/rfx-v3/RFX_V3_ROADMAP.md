@@ -116,7 +116,7 @@ These are assigned to the **earliest appropriate wave** — not deferred beyond 
 | **E7 Phase 2 Carrier XLSX C1 Export** | Own-response GET export (DRAFT + SUBMITTED read-only, E7P2-INT-71..79, INT-42 remediation) | **IMPLEMENTED_ACCEPTED** — PR #132 merged via `fa850826` (head `479d1fd7`, CI `34833481110`, migration 000073 reused) |
 | **E7 Phase 2 Carrier XLSX C2 Preview** | Carrier import preview parser + analysis persistence (E7P2-INT-80..90) | **MERGED_ACCEPTED** — PR #134 merged via `66241e67` (head `4a04e7ec`, product head `5b2fa47a`, CI `34864516651`, migration 000073 reused) |
 | **E7 Phase 2 Carrier XLSX C3 Commit** | Atomic commit from stored proposal (DRAFT-only, mandatory Idempotency-Key, E7P2-INT-91..119) | **MERGED_ACCEPTED** — PR #135 merged via `e3341f05` (head `b48af2ff`, product head `5326ff8c`, CI `34884705304`, migration 000073 reused) |
-| **E7 Phase 2 ERP API Architecture** | Generic ERP JSON contract discovery + architecture freeze (ADR-012..015, E7P2-INT-120..189) | **ARCHITECTURE_FROZEN_PENDING_REVIEW** |
+| **E7 Phase 2 ERP API Architecture** | Generic ERP JSON contract + controller remediation H-01..H-05 (ADR-012..015, E7P2-INT-120..195, PR #137) | **REMEDIATION_COMPLETE_PENDING_RE_REVIEW** |
 | **E7 Phase 2 ERP API Implementation** | Gateway routes, identity principals, rfx-service handlers, migration 000074 | **NOT_STARTED** |
 | **E7 Phase 2 Frontend** | Excel/ERP UI surfaces | **NOT_STARTED** |
 | **E7 Phase 2 Training** | RU/EN/ZH training course | **NOT_STARTED** |
@@ -139,8 +139,8 @@ Notes:
 - E7 Phase 2 Carrier XLSX C2 Preview is accepted and merged to `main` at `66241e67d58c411efb9fa425902e459df65772fc` (PR #134 head `4a04e7ec`, product head `5b2fa47a`, CI `34864516651`, E7P2-INT-80..90 PASS). Delivers carrier import preview parser, valid-only analysis persistence, and Preview HTTP route. Non-blocking findings deferred: INT-113 closed in C3, partial C1 no-write snapshot (LOW), theoretical `target_version` INTEGER overflow guard (LOW).
 - E7 Phase 2 Carrier XLSX C3 Commit is accepted and merged to `main` at `e3341f0594cb749e5bb27d70053a495838eed3c8` (PR #135 head `b48af2ff`, product head `5326ff8c`, CI `34884705304`, E7P2-INT-91..119 PASS). Delivers atomic commit from persisted preview analysis to DRAFT response (no auto-submit). Open findings: C1 LOW-02 extended no-write snapshot (REMAINS_OPEN), `target_version` INTEGER overflow guard (REMAINS_LOW), dedicated named JSONB round-trip integration test absent (implicit runtime/unit coverage).
 - E7 Phase 2 Carrier XLSX backend (C1 Export + C2 Preview + C3 Commit) is **IMPLEMENTED_ACCEPTED** on `main`. Create from XLSX, ERP API, Phase 2 frontend, training, and E7 browser acceptance remain future gates.
-- E7 Phase 2 ERP API **architecture** is frozen pending controller review (docs only at `72a5556`): [RFX_V3_0E7_ERP_API.md](./implementation/RFX_V3_0E7_ERP_API.md), ADR-012..015, acceptance matrix E7P2-INT-120..189. `ERP_API_IMPLEMENTATION_AUTHORIZED=NO`; migration 000074 not created.
-- E7 Phase 2 overall remains **IMPLEMENTATION_IN_PROGRESS** — next stages in order: (1) controller review of ERP architecture, (2) E7 Phase 2 ERP API implementation (when authorized), (3) Phase 2 frontend, (4) RU/EN/ZH training, (5) E7 browser acceptance. Generic ERP API is designed primarily as Buyer RFQ integration until a separate controller gate expands scope; `CARRIER_ERP_INTEGRATION=NOT_REQUIRED_CURRENT_SCOPE`.
+- E7 Phase 2 ERP API **architecture** remediation complete pending re-review (PR #137): [RFX_V3_0E7_ERP_API.md](./implementation/RFX_V3_0E7_ERP_API.md), ADR-012..015, acceptance matrix E7P2-INT-120..195. Controller previous verdict `CHANGES_REQUIRED`; current `PENDING_RE_REVIEW`. `ERP_API_IMPLEMENTATION_AUTHORIZED=NO`; migration 000074 proposed not created.
+- E7 Phase 2 overall remains **IMPLEMENTATION_IN_PROGRESS** — next: (1) controller re-review ERP architecture, (2) ERP implementation when authorized, (3) frontend, (4) training, (5) browser acceptance.
 - E7 browser acceptance, ERP integration, Phase 2 frontend, and training have not started.
 - Each implementation wave requires a separate controller gate.
 - Complete v3.0E remains **IMPLEMENTATION_IN_PROGRESS** until E7 browser acceptance is accepted.
@@ -156,7 +156,7 @@ Notes:
 | Competitor confidentiality | `CARRIER_CAN_VIEW_COMPETITOR_*=NO`, backend enforcement + cross-carrier isolation tests; carrier must not see participants, competitor identities, bids, submission times, or late-submission requests; buyer XLSX export enforces exclusion (E7P2-INT-18) | Before pilot |
 | Excel import/export | `EXCEL_IMPORT_EXPORT=REQUIRED` — buyer export **IMPLEMENTED_ACCEPTED**; buyer import preview **IMPLEMENTED_ACCEPTED** (PR #125); P4 Commit apply **IMPLEMENTED_ACCEPTED** (PR #129); carrier export **MERGED_ACCEPTED** (PR #132 C1); carrier import preview **MERGED_ACCEPTED** (PR #134 C2); carrier import commit **MERGED_ACCEPTED** (PR #135 C3); carrier XLSX overall **IMPLEMENTED_ACCEPTED**; Create from XLSX **NOT_STARTED** | Post-E6 |
 | P4 Commit gates | Atomic/single-use Commit; stale baseline rejection; consumed/expired analysis rejection — **IMPLEMENTED_ACCEPTED** (PR #129) | Closed for UPDATE_EXISTING_DRAFT |
-| ERP integration | Generic ERP JSON contract API — architecture **FROZEN_PENDING_REVIEW**; implementation **NOT_STARTED** | Post-E6 / pre-pilot |
+| ERP integration | Generic ERP JSON contract API — architecture **REMEDIATION_COMPLETE_PENDING_RE_REVIEW** (PR #137); implementation **NOT_STARTED** | Post-E6 / pre-pilot |
 | Training course | `USER_TRAINING_COURSE=REQUIRED` (RU/EN/ZH) — Phase 2 training **NOT_STARTED** | After UI stabilisation, before pilot |
 | Final browser acceptance | Real browser acceptance gate for E7 — **NOT_STARTED** | Before pilot |
 
@@ -247,18 +247,21 @@ C1_LOW_02_STATUS=REMAINS_OPEN
 TARGET_VERSION_OVERFLOW_STATUS=REMAINS_LOW
 CARRIER_ERP_INTEGRATION=NOT_REQUIRED_CURRENT_SCOPE
 ERP_API_DISCOVERY_STATUS=COMPLETE
-ERP_API_ARCHITECTURE_STATUS=FROZEN_PENDING_REVIEW
+ERP_API_ARCHITECTURE_STATUS=REMEDIATION_COMPLETE_PENDING_RE_REVIEW
 ERP_API_IMPLEMENTATION_STATUS=NOT_STARTED
 ERP_API_IMPLEMENTATION_AUTHORIZED=NO
 ERP_API_IMPLEMENTATION_STARTED=NO
-BUYER_RFQ_ERP_INTEGRATION=ARCHITECTURE_FROZEN_PENDING_REVIEW
-ERP_TEST_IDS=E7P2-INT-120..189
-ERP_TEST_COUNT=70
-NEXT_FREE_TEST_ID=E7P2-INT-190
+BUYER_RFQ_ERP_INTEGRATION=ARCHITECTURE_REMEDIATED_PENDING_RE_REVIEW
+CONTROLLER_PREVIOUS_VERDICT=CHANGES_REQUIRED
+CONTROLLER_VERDICT=PENDING_RE_REVIEW
+ERP_TEST_IDS=E7P2-INT-120..195
+ERP_TEST_COUNT=76
+NEXT_FREE_TEST_ID=E7P2-INT-196
+MERMAID_VALIDATION=MANUAL_ONLY
 FRONTEND_PHASE2_STATUS=NOT_STARTED
 TRAINING_STATUS=NOT_STARTED
 BROWSER_ACCEPTANCE_STATUS=NOT_STARTED
-NEXT_STAGE_SEQUENCE=CONTROLLER_REVIEW_ERP_ARCHITECTURE,ERP_API_IMPLEMENTATION,FRONTEND_PHASE2,TRAINING,BROWSER_ACCEPTANCE
+NEXT_STAGE_SEQUENCE=CONTROLLER_RE_REVIEW_ERP_ARCHITECTURE,ERP_API_IMPLEMENTATION,FRONTEND_PHASE2,TRAINING,BROWSER_ACCEPTANCE
 ```
 
 ---

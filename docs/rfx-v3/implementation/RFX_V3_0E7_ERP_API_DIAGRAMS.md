@@ -1,7 +1,8 @@
 # RFx v3.0E7 Phase 2 — ERP API Diagrams
 
-**Status:** Architecture freeze  
+**Status:** REMEDIATION_COMPLETE_PENDING_RE_REVIEW
 **Parent:** [RFX_V3_0E7_ERP_API.md](./RFX_V3_0E7_ERP_API.md)
+**Validation:** `MERMAID_VALIDATION=MANUAL_ONLY` (no repository automated validator)
 
 ---
 
@@ -10,17 +11,17 @@
 ```mermaid
 flowchart TB
     subgraph ERP["Buyer ERP / SAP / 1C / TMS"]
-        Adapter["Vendor adapter\n(maps to canonical JSON)"]
+        Adapter["Vendor adapter"]
     end
 
     subgraph BINTRANS["BINTRANS Platform"]
-        GW["API Gateway\nOAuth / API key / RBAC"]
+        GW["API Gateway\nOAuth or API-key principal"]
         RFx["rfx-service\nERP preview/commit"]
-        ID["identity-service\n(integration principals)"]
-        DB[(PostgreSQL\nrfx_import_analyses\nexternal_object_links)]
+        ID["identity-service\nintegration principals NEW"]
+        DB[(PostgreSQL)]
     end
 
-    Adapter -->|"HTTPS JSON"| GW
+    Adapter -->|"BINTRANS_RFX_ERP_JSON_V1"| GW
     GW --> ID
     GW --> RFx
     RFx --> DB
@@ -28,7 +29,7 @@ flowchart TB
 
 ---
 
-## 2. Machine authentication
+## 2. Machine authentication (no downgrade)
 
 ```mermaid
 sequenceDiagram
@@ -37,48 +38,40 @@ sequenceDiagram
     participant ID as Identity
     participant RFx as rfx-service
 
-    ERP->>GW: POST /integrations/oauth/token\nclient_credentials
-    GW->>ID: Validate client_id + secret
-    ID-->>GW: integration_principal + scopes
-    GW-->>ERP: access_token (15m TTL)
+    ERP->>GW: POST /integrations/oauth/token
+    GW->>ID: Validate OAuth principal
+    ID-->>GW: principal + credential_type=OAUTH
+    GW-->>ERP: access_token
 
-    ERP->>GW: POST /erp/rfx/drafts/preview\nAuthorization: Bearer token
-    GW->>GW: Strip spoofed identity headers
-    GW->>GW: Validate token + scopes
-    GW->>RFx: X-Tenant-ID, X-Integration-Principal-ID, X-Company-ID
-    RFx-->>GW: Preview response
-    GW-->>ERP: 200 + analysis_id
+    Note over ERP,GW: API-key rejected for OAuth-only principal
+
+    ERP->>GW: POST /erp/rfx/drafts/preview\nBearer OAuth token
+    GW->>GW: Strip spoofed headers
+    GW->>RFx: X-Integration-Principal-ID, X-Tenant-ID, X-Company-ID
+    RFx-->>ERP: analysis_id
 ```
 
 ---
 
-## 3. CREATE Preview → Commit
+## 3. CREATE Preview → Commit (stable identity)
 
 ```mermaid
 sequenceDiagram
     participant ERP as ERP Client
-    participant GW as Gateway
     participant RFx as rfx-service
     participant DB as PostgreSQL
 
-    ERP->>GW: POST .../drafts/preview\nBINTRANS_RFX_ERP_JSON_V1
-    GW->>RFx: Forward authenticated
-    RFx->>RFx: Map reference codes
-    RFx->>RFx: Validate domain rules
-    alt ready_to_commit
-        RFx->>DB: INSERT rfx_import_analyses\nPREVIEWED, hash, TTL 24h
-        RFx-->>ERP: analysis_id
-    else blocking errors
-        RFx-->>ERP: 422 + issues
-    end
+    ERP->>RFx: POST create preview
+    RFx->>RFx: Map codes + pin mapping_context
+    RFx->>DB: INSERT analysis\nintegration_principal_id set\nactor_id NULL
 
-    ERP->>GW: POST .../drafts/commit\nanalysis_id + Idempotency-Key
-    GW->>RFx: Forward
-    RFx->>DB: LOCK analysis FOR UPDATE
-    RFx->>RFx: Verify hash + binding
-    RFx->>DB: BEGIN; CREATE event; reconcile graph/lots
-    RFx->>DB: INSERT external_object_link
-    RFx->>DB: Mark CONSUMED; idempotency record
+    ERP->>RFx: POST create commit + Idempotency-Key
+    RFx->>DB: LOCK analysis
+    RFx->>RFx: Verify principal binding
+    RFx->>DB: BEGIN
+    RFx->>DB: INSERT rfx_event DRAFT
+    RFx->>DB: INSERT stable external link
+    RFx->>DB: CONSUMED + idempotency
     RFx->>DB: COMMIT
     RFx-->>ERP: 201 rfx_event_id
 ```
@@ -93,19 +86,16 @@ sequenceDiagram
     participant RFx as rfx-service
     participant DB as PostgreSQL
 
-    ERP->>RFx: POST /rfx-events/{id}/erp-import/preview
-    RFx->>DB: Load DRAFT baseline + versions
-    RFx->>RFx: Build canonical payload with baseline tokens
-    RFx->>DB: INSERT analysis (if ready)
+    ERP->>RFx: POST update preview
+    RFx->>DB: Load DRAFT baseline versions
+    RFx->>DB: INSERT analysis with pinned mapping_context
 
-    ERP->>RFx: POST /rfx-events/{id}/erp-import/commit
-    RFx->>DB: Lock analysis
-    RFx->>RFx: Revalidate baseline vs live DRAFT
-    alt stale
-        RFx-->>ERP: 409 stale_target
+    ERP->>RFx: POST update commit
+    RFx->>RFx: Revalidate baseline tokens
+    alt stale draft_row_version
+        RFx-->>ERP: 409 proposal_revalidation_failed
     else ok
-        RFx->>DB: Atomic reconcile graph/lots
-        RFx->>DB: CONSUMED + audit
+        RFx->>DB: Apply pinned canonical payload
         RFx-->>ERP: 200 applied
     end
 ```
@@ -120,30 +110,40 @@ sequenceDiagram
     participant RFx as rfx-service
     participant DB as PostgreSQL
 
-    ERP->>RFx: POST commit (Idempotency-Key: K1)
-    RFx->>DB: Success; store idempotency response
-    Note over ERP,RFx: Network timeout before response
+    ERP->>RFx: POST commit Idempotency-Key K1
+    RFx->>DB: Success + store idempotency response
+    Note over ERP,RFx: Client timeout
 
-    ERP->>RFx: POST commit (Idempotency-Key: K1, same body)
-    RFx->>DB: Find idempotency record scope+K1
-    RFx-->>ERP: Replay stored 201 (no duplicate event)
+    ERP->>RFx: POST commit Idempotency-Key K1
+    RFx->>DB: Replay stored 201
+    RFx-->>ERP: Same rfx_event_id
 ```
 
 ---
 
-## 6. Concurrent ERP / UI update
+## 6. Concurrent CREATE (winner/loser)
 
 ```mermaid
 sequenceDiagram
-    participant ERP as ERP Client
-    participant UI as Buyer UI
+    participant ERP1 as ERP Client A
+    participant ERP2 as ERP Client B
     participant RFx as rfx-service
+    participant DB as PostgreSQL
 
-    ERP->>RFx: Preview (captures draft_row_version=5)
-    UI->>RFx: Save draft (draft_row_version→6)
-    ERP->>RFx: Commit analysis (baseline version=5)
-    RFx->>RFx: Live version=6 ≠ baseline=5
-    RFx-->>ERP: 409 proposal_revalidation_failed
+    par Parallel previews
+        ERP1->>RFx: CREATE preview
+        ERP2->>RFx: CREATE preview
+    end
+
+    par Parallel commits
+        ERP1->>RFx: CREATE commit
+        ERP2->>RFx: CREATE commit
+    end
+
+    RFx->>DB: Unique stable external key
+    Note over DB: One COMMIT wins
+    RFx-->>ERP1: 201 created
+    RFx-->>ERP2: 409 external_id_conflict
 ```
 
 ---
@@ -154,12 +154,9 @@ sequenceDiagram
 sequenceDiagram
     participant ERP as ERP Client
     participant RFx as rfx-service
-    participant DB as PostgreSQL
 
-    Note over DB: analysis created_at + 24h < now()
-    ERP->>RFx: POST commit (expired analysis_id)
-    RFx->>DB: Load analysis status=PREVIEWED
-    RFx->>RFx: expires_at check fails
+    Note over RFx: expires_at passed
+    ERP->>RFx: POST commit expired analysis_id
     RFx-->>ERP: 409 analysis_expired
 ```
 
@@ -174,26 +171,31 @@ sequenceDiagram
     participant ERP as ERP Client
     participant GW as Gateway
 
-    Admin->>ID: Revoke integration credential
+    Admin->>ID: Revoke credential
     ERP->>GW: Request with old token
-    GW->>ID: Validate token
+    GW->>ID: Validate
     ID-->>GW: credential_revoked
-    GW-->>ERP: 401 credential_revoked
+    GW-->>ERP: 401
 ```
 
 ---
 
-## 9. Mapping failure (fail closed)
+## 9. Mapping version pin / stale mapping
 
 ```mermaid
 sequenceDiagram
     participant ERP as ERP Client
     participant RFx as rfx-service
+    participant DB as PostgreSQL
 
-    ERP->>RFx: POST preview\n"currency": "SAP:ZZZ"
-    RFx->>RFx: Lookup mapping CURRENCY
-    RFx->>RFx: No mapping for ZZZ
-    RFx-->>ERP: 422 unknown_currency_code\njson_pointer=/event/currency
+    ERP->>RFx: POST preview
+    RFx->>DB: Analysis with mapping_context v3
+
+    Note over DB: Mapping set v3 RETIRED
+
+    ERP->>RFx: POST commit
+    RFx->>RFx: Mapping set no longer ACTIVE
+    RFx-->>ERP: 409 stale_mapping_context
 ```
 
 ---
@@ -202,19 +204,14 @@ sequenceDiagram
 
 ```mermaid
 stateDiagram-v2
-    [*] --> PREVIEWED: Preview persisted\n(ready_to_commit=true)
+    [*] --> PREVIEWED: Preview persisted
     PREVIEWED --> CONSUMED: Commit success
-    PREVIEWED --> EXPIRED: expires_at passed\n(lazy check at commit)
-    CONSUMED --> [*]: Single-use terminal
+    PREVIEWED --> EXPIRED: expires_at passed
+    CONSUMED --> [*]: Terminal single-use
     EXPIRED --> [*]: Terminal
 
     note right of PREVIEWED
-        Payload immutable
-        (DB trigger)
-    end note
-
-    note right of CONSUMED
-        result_reference set
-        consumed_at set
+        integration_principal_id or actor_id XOR
+        mapping_context pinned in payload
     end note
 ```
