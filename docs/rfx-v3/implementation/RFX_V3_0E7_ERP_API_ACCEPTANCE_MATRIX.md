@@ -2,6 +2,7 @@
 
 **Status:** FROZEN_ACCEPTED (tests not implemented)
 **Parent:** [RFX_V3_0E7_ERP_API.md](./RFX_V3_0E7_ERP_API.md)
+**Wave ownership:** [RFX_V3_0E7_ERP_API_IMPLEMENTATION_WAVES.md](./RFX_V3_0E7_ERP_API_IMPLEMENTATION_WAVES.md)
 
 | Marker | Value |
 |---|---|
