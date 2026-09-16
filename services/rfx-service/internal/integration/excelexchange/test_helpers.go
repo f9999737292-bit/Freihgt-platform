@@ -1274,6 +1274,56 @@ func buildDSN(cfg *pgxpool.Config) string {
 		cfg.ConnConfig.Host, cfg.ConnConfig.Port, cfg.ConnConfig.Database)
 }
 
+const (
+	migration073DownFile = "000073_rfx_excel_erp_exchange_v3_0e7_phase2.down.sql"
+	migration073UpFile   = "000073_rfx_excel_erp_exchange_v3_0e7_phase2.up.sql"
+	migration074DownFile = "000074_rfx_erp_integration_principals_v3_0e7_phase2.down.sql"
+	migration074UpFile   = "000074_rfx_erp_integration_principals_v3_0e7_phase2.up.sql"
+)
+
+func applyMigrationFile(ctx context.Context, pool *pgxpool.Pool, filename string) error {
+	migrationsDir, err := locateMigrationsDir()
+	if err != nil {
+		return err
+	}
+	content, err := os.ReadFile(filepath.Join(migrationsDir, filename))
+	if err != nil {
+		return err
+	}
+	if _, err := pool.Exec(ctx, string(content)); err != nil {
+		return fmt.Errorf("migration %s: %w", filename, err)
+	}
+	return nil
+}
+
+// applyMigration073IsolationRoundTrip verifies 000073 reversibility. When 000074 is
+// present it must be rolled back first because E1 objects depend on 000073 tables.
+func applyMigration073IsolationRoundTrip(ctx context.Context, pool *pgxpool.Pool) error {
+	migrationsDir, err := locateMigrationsDir()
+	if err != nil {
+		return err
+	}
+	has074 := false
+	if _, err := os.Stat(filepath.Join(migrationsDir, migration074DownFile)); err == nil {
+		has074 = true
+		if err := applyMigrationFile(ctx, pool, migration074DownFile); err != nil {
+			return fmt.Errorf("down 000074 before 000073 isolation: %w", err)
+		}
+	}
+	if err := applyMigrationFile(ctx, pool, migration073DownFile); err != nil {
+		return fmt.Errorf("down 000073: %w", err)
+	}
+	if err := applyMigrationFile(ctx, pool, migration073UpFile); err != nil {
+		return fmt.Errorf("up 000073 again: %w", err)
+	}
+	if has074 {
+		if err := applyMigrationFile(ctx, pool, migration074UpFile); err != nil {
+			return fmt.Errorf("up 000074 after 000073 isolation: %w", err)
+		}
+	}
+	return nil
+}
+
 func applyMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 	migrationsDir, err := locateMigrationsDir()
 	if err != nil {
