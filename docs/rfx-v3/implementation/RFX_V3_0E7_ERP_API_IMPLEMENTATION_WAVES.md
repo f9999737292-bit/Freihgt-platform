@@ -1,6 +1,6 @@
 # RFx v3.0E7 Phase 2 — ERP API Implementation Waves and Test Ownership
 
-**Status:** `FROZEN_PENDING_REVIEW`
+**Status:** `REMEDIATION_COMPLETE_PENDING_RE_REVIEW`
 **Parent:** [RFX_V3_0E7_ERP_API_IMPLEMENTATION_PLAN.md](./RFX_V3_0E7_ERP_API_IMPLEMENTATION_PLAN.md)
 
 | Marker | Value |
@@ -11,10 +11,14 @@
 | `ERP_TEST_IDS_UNIQUE_PRIMARY_ASSIGNMENT` | `YES` |
 | `ERP_TEST_ID_GAPS` | `NONE` |
 | `ERP_TEST_ID_DUPLICATES` | `NONE` |
+| `E3_PRIMARY_TEST_IDS` | `133,135,136,142,143,146,147,148,149,165-176,195` |
+| `E4_PRIMARY_TEST_IDS` | `132,137-141,144,145,177,180,191,193,194` |
+| `E3_E4_PRIMARY_OVERLAP` | `NONE` |
 | `NEXT_FREE_TEST_ID` | `E7P2-INT-196` |
 | `NEW_TEST_IDS_RESERVED` | `NO` |
+| `PUBLIC_ROUTE_CONTRACT_POLICY` | `INCREMENTAL_PER_WAVE` |
 
-Cross-wave regression references are allowed; **primary owner** is exactly one wave per ID.
+Cross-wave regression references are allowed; **primary owner** is exactly one wave per ID. Automated primary-ID parsers must read **only** §2 (normative primary ownership matrix).
 
 ---
 
@@ -115,15 +119,18 @@ Additional migration harness tests (pattern E7P2-INT-01..05 for 000074) are **E1
 | E7P2-INT-194 | Concurrent CREATE race | E4 | unique + transaction | E1, E4 |
 | E7P2-INT-195 | Deferred lanes[] rejected | E3 | allowlist | E3 |
 
-### Cross-wave regression notes
+### Cross-wave regression references — NON-PRIMARY
 
-| ID | Secondary verification |
-|---|---|
-| E7P2-INT-191 | E5 UPDATE commit binding regression |
-| E7P2-INT-193 | E5 UPDATE commit mapping pin regression |
-| E7P2-INT-156 | E4 CREATE commit binding smoke optional |
-| E7P2-INT-130, 131 | Re-verified on E6 read endpoints |
-| E7P2-INT-177 | Re-verified on E5 UPDATE (must stay DRAFT) |
+> **Not primary ownership.** Do not include this table in primary-ID parsers. Primary assignments are defined **only** in §2 above.
+
+| ID | Ownership type | Secondary verification | Primary owner (unchanged) |
+|---|---|---|---|
+| E7P2-INT-191 | `REGRESSION_ONLY` | E5 UPDATE commit binding regression | E4 |
+| E7P2-INT-193 | `REGRESSION_ONLY` | E5 UPDATE commit mapping pin regression | E4 |
+| E7P2-INT-156 | `REGRESSION_ONLY` | E4 CREATE commit binding smoke optional | E5 |
+| E7P2-INT-130 | `REGRESSION_ONLY` | Re-verified on E6 read endpoints | E2 |
+| E7P2-INT-131 | `REGRESSION_ONLY` | Re-verified on E6 read endpoints | E2 |
+| E7P2-INT-177 | `REGRESSION_ONLY` | Re-verified on E5 UPDATE (must stay DRAFT) | E4 |
 
 ---
 
@@ -141,7 +148,9 @@ Additional migration harness tests (pattern E7P2-INT-01..05 for 000074) are **E1
 
 **Integration tests:** INT-187; extend INT-01..05 pattern for 000074.
 
-**Forbidden:** HTTP routes, OpenAPI ERP paths, OAuth handlers.
+**Forbidden:** HTTP routes, OpenAPI ERP/auth route operations, OAuth handlers.
+
+**Contract gate:** OpenAPI route change **NONE**; route manifest change **NONE**; PR asserts no accidental ERP/auth route publication.
 
 ---
 
@@ -152,10 +161,13 @@ Additional migration harness tests (pattern E7P2-INT-01..05 for 000074) are **E1
 **Logical commits:**
 
 1. `feat(identity): add integration OAuth token endpoint`
-2. `feat(gateway): add ERP machine auth middleware and header injection`
-3. `test(integration): add ERP auth INT-120..131, 190, 186`
+2. `feat(openapi): add OAuth token endpoint contract`
+3. `feat(gateway): add ERP machine auth middleware, route manifest, header injection`
+4. `test(integration): add ERP auth INT-120..131, 190, 186 and auth contract smoke`
 
-**Forbidden:** RFx preview/commit handlers, OpenAPI ERP RFx ops (token endpoint only).
+**Contract gate (same PR):** OAuth token OpenAPI (request/response/errors/rate-limit); gateway route + manifest; parity test; regen ×2 idempotent; `make openapi-validate`; `make openapi-check`. **Token endpoint OpenAPI is not deferred to E6.**
+
+**Forbidden:** RFx preview/commit handlers, OpenAPI ERP RFx preview/commit/read ops.
 
 **Merge prerequisite:** E1 merged to `main`.
 
@@ -167,7 +179,11 @@ Additional migration harness tests (pattern E7P2-INT-01..05 for 000074) are **E1
 
 1. `feat(rfx): add ERP JSON canonical parser and mapping pin`
 2. `feat(rfx): add ERP CREATE and UPDATE preview routes`
-3. `test(rfx): add ERP preview integration tests E3 matrix subset`
+3. `feat(openapi): add ERP CREATE/UPDATE Preview operations and schemas`
+4. `feat(shared): update ERP route manifest and gateway/service parity`
+5. `test(rfx): add ERP preview integration tests E3 matrix subset and contract tests`
+
+**Contract gate (same PR):** Preview OpenAPI ops + schemas + responses per plan §3.5; manifest; parity; regen ×2; validate/check. **No merge with public Preview routes without contract.**
 
 **Forbidden:** Commit handlers, external link creation, event creation.
 
@@ -179,7 +195,11 @@ Additional migration harness tests (pattern E7P2-INT-01..05 for 000074) are **E1
 
 1. `feat(rfx): add ERP CREATE commit orchestration`
 2. `feat(rfx): wire stable external identity on create`
-3. `test(rfx): add ERP CREATE commit integration tests`
+3. `feat(openapi): add ERP CREATE Commit operation and error schemas`
+4. `feat(shared): update route manifest and parity for CREATE Commit`
+5. `test(rfx): add ERP CREATE commit integration tests`
+
+**Contract gate (same PR):** CREATE Commit OpenAPI + manifest + parity per plan §3.5; requires E1 §6.1 idempotency API. **No merge with CREATE Commit route without contract.**
 
 ---
 
@@ -188,7 +208,13 @@ Additional migration harness tests (pattern E7P2-INT-01..05 for 000074) are **E1
 **Logical commits:**
 
 1. `feat(rfx): add ERP UPDATE commit orchestration`
-2. `test(rfx): add ERP UPDATE commit and coexistence tests`
+2. `feat(openapi): add ERP UPDATE Commit operation and error schemas`
+3. `feat(shared): update route manifest and parity for UPDATE Commit`
+4. `test(rfx): add ERP UPDATE commit and coexistence tests`
+
+**Primary tests:** E7P2-INT-150–159, 178, 179, 181, 183, 184. E5 primary: INT-156. Cross-wave regression: INT-191 for UPDATE principal-binding path; primary ownership of INT-191 remains **E4**.
+
+**Contract gate (same PR):** UPDATE Commit OpenAPI + manifest + parity per plan §3.5. **No merge with UPDATE Commit route without contract.**
 
 ---
 
@@ -197,10 +223,14 @@ Additional migration harness tests (pattern E7P2-INT-01..05 for 000074) are **E1
 **Logical commits:**
 
 1. `feat(rfx): add ERP read APIs and capabilities`
-2. `docs(openapi): add ERP integration operations`
-3. `test(rfx): add ERP matrix guards INT-120..195 and route parity`
+2. `feat(openapi): add ERP read/capabilities operations (same PR as routes)`
+3. `test(rfx): add ERP matrix guards INT-120..195 and exhaustive route/OpenAPI parity (INT-185)`
 
-**Final gates:** `make openapi-check`, full ERP integration package, Buyer/Carrier XLSX regression CI jobs unchanged/passing.
+**Contract gate (same PR):** OpenAPI for four read operations; manifest + parity; exhaustive INT-185 across E2–E6; `operationId` uniqueness; no orphan/OpenAPI-only routes; backward compatibility check for E2–E5 contracts.
+
+`E6_OPENAPI_ROLE=FINAL_EXHAUSTIVE_CONSOLIDATION` · `E6_IS_FIRST_PUBLICATION_FOR_E2_E5=NO`
+
+**Final gates:** `make openapi-validate`, `make openapi-check`, full ERP integration package, Buyer/Carrier XLSX regression CI jobs unchanged/passing.
 
 ---
 
