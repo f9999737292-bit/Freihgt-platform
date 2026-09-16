@@ -61,7 +61,7 @@ func TestE3INT03DraftResponsesAffectedMaterialWithDraftResponses(t *testing.T) {
 	qID := questionIDByCode(t, ws, "FLEET_SIZE")
 	if _, err := env.crSvc.SaveAnswers(context.Background(), fix.CarrierAct, event.ID, fix.CarrierID, domain.AnswerBatchPatchInput{
 		ExpectedSaveVersion: ws.Response.SaveVersion,
-		Answers:             []domain.AnswerPatchItem{{QuestionID: qID, Value: json.RawMessage(`"42"`) }},
+		Answers:             []domain.AnswerPatchItem{{QuestionID: qID, Value: json.RawMessage(`"42"`)}},
 	}); err != nil {
 		t.Fatalf("save draft answer: %v", err)
 	}
@@ -92,7 +92,7 @@ func TestE3INT04SubmittedResponsesMaterialWithSubmitted(t *testing.T) {
 	qID := questionIDByCode(t, ws, "FLEET_SIZE")
 	if _, err := env.crSvc.SaveAnswers(context.Background(), fix.CarrierAct, event.ID, fix.CarrierID, domain.AnswerBatchPatchInput{
 		ExpectedSaveVersion: ws.Response.SaveVersion,
-		Answers:             []domain.AnswerPatchItem{{QuestionID: qID, Value: json.RawMessage(`"99"`) }},
+		Answers:             []domain.AnswerPatchItem{{QuestionID: qID, Value: json.RawMessage(`"99"`)}},
 	}); err != nil {
 		t.Fatalf("save answer: %v", err)
 	}
@@ -169,7 +169,7 @@ func TestE3INT07MultipleClassesDeterministicOrder(t *testing.T) {
 	qDraft := questionIDByCode(t, wsDraft, "FLEET_SIZE")
 	if _, err := env.crSvc.SaveAnswers(context.Background(), fix.CarrierAct, event.ID, fix.CarrierID, domain.AnswerBatchPatchInput{
 		ExpectedSaveVersion: wsDraft.Response.SaveVersion,
-		Answers:             []domain.AnswerPatchItem{{QuestionID: qDraft, Value: json.RawMessage(`"10"`) }},
+		Answers:             []domain.AnswerPatchItem{{QuestionID: qDraft, Value: json.RawMessage(`"10"`)}},
 	}); err != nil {
 		t.Fatalf("save draft carrier answer: %v", err)
 	}
@@ -181,7 +181,7 @@ func TestE3INT07MultipleClassesDeterministicOrder(t *testing.T) {
 	qSubmitted := questionIDByCode(t, wsSubmitted, "FLEET_SIZE")
 	if _, err := env.crSvc.SaveAnswers(context.Background(), carrierBAct, event.ID, carrierB, domain.AnswerBatchPatchInput{
 		ExpectedSaveVersion: wsSubmitted.Response.SaveVersion,
-		Answers:             []domain.AnswerPatchItem{{QuestionID: qSubmitted, Value: json.RawMessage(`"20"`) }},
+		Answers:             []domain.AnswerPatchItem{{QuestionID: qSubmitted, Value: json.RawMessage(`"20"`)}},
 	}); err != nil {
 		t.Fatalf("save submitted carrier answer: %v", err)
 	}
@@ -976,6 +976,9 @@ func TestE3INT32Migration000069DownPreservesLegacy(t *testing.T) {
 	ctx := context.Background()
 	if err := applyMigrationFile(ctx, env.pool, "000068_rfx_version_lifecycle_v3_0e1.up.sql"); err != nil {
 		t.Fatalf("apply 000068: %v", err)
+	}
+	if err := applyE1IdempotencySchemaCompat(ctx, env.pool); err != nil {
+		t.Fatalf("apply E1 idempotency schema compat: %v", err)
 	}
 	fix := seedBuyerFixture(t, env)
 	event := createDraftEvent(t, env, fix, "RFX-E3-32")

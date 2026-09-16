@@ -59,17 +59,8 @@ func TestE7P2INT03Migration073UpDownUp(t *testing.T) {
 	if err := applyMigrations(ctx, pool); err != nil {
 		t.Fatalf("up all: %v", err)
 	}
-	migrationsDir, err := locateMigrationsDir()
-	if err != nil {
-		t.Fatalf("migrations dir: %v", err)
-	}
-	downSQL, _ := os.ReadFile(filepath.Join(migrationsDir, "000073_rfx_excel_erp_exchange_v3_0e7_phase2.down.sql"))
-	if _, err := pool.Exec(ctx, string(downSQL)); err != nil {
-		t.Fatalf("down 000073: %v", err)
-	}
-	upSQL, _ := os.ReadFile(filepath.Join(migrationsDir, "000073_rfx_excel_erp_exchange_v3_0e7_phase2.up.sql"))
-	if _, err := pool.Exec(ctx, string(upSQL)); err != nil {
-		t.Fatalf("up 000073 again: %v", err)
+	if err := applyMigration073IsolationRoundTrip(ctx, pool); err != nil {
+		t.Fatalf("000073 isolation round trip: %v", err)
 	}
 }
 

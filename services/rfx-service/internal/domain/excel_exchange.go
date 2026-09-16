@@ -45,24 +45,25 @@ const (
 )
 
 type ImportAnalysis struct {
-	ID                   uuid.UUID
-	TenantID             uuid.UUID
-	ActorID              uuid.UUID
-	ActorCompanyID       uuid.UUID
-	WorkbookType         string
-	SchemaVersion        string
-	TargetType           string
-	TargetID             *uuid.UUID
-	TargetVersion        *int
-	CanonicalPayloadJSON []byte
-	CanonicalHash        string
-	Status               string
-	ValidationSummary    []byte
-	ExpiresAt            time.Time
-	ConsumedAt           *time.Time
-	ResultReferenceType  *string
-	ResultReferenceID    *uuid.UUID
-	CreatedAt            time.Time
+	ID                     uuid.UUID
+	TenantID               uuid.UUID
+	ActorID                uuid.UUID
+	IntegrationPrincipalID *uuid.UUID
+	ActorCompanyID         uuid.UUID
+	WorkbookType           string
+	SchemaVersion          string
+	TargetType             string
+	TargetID               *uuid.UUID
+	TargetVersion          *int
+	CanonicalPayloadJSON   []byte
+	CanonicalHash          string
+	Status                 string
+	ValidationSummary      []byte
+	ExpiresAt              time.Time
+	ConsumedAt             *time.Time
+	ResultReferenceType    *string
+	ResultReferenceID      *uuid.UUID
+	CreatedAt              time.Time
 }
 
 type BuyerImportCommitInput struct {
@@ -113,10 +114,20 @@ type ExternalObjectLink struct {
 	ExternalObjectType     string
 	ExternalObjectID       string
 	ExternalVersion        string
+	ExternalRevision       string
 	PayloadHash            string
 	RfxEventID             uuid.UUID
 	CreatedAt              time.Time
 	UpdatedAt              time.Time
+}
+
+type ExternalObjectLinkRevision struct {
+	ID               uuid.UUID
+	TenantID         uuid.UUID
+	LinkID           uuid.UUID
+	ExternalRevision string
+	PayloadHash      string
+	RecordedAt       time.Time
 }
 
 func ValidateCreationChannel(value string) error {
@@ -131,6 +142,9 @@ func ValidateCreationChannel(value string) error {
 func ValidateImportAnalysisPreviewInput(in ImportAnalysis) error {
 	if in.TenantID == uuid.Nil {
 		return apperrors.Validation("tenant_id is required", map[string]any{"field": "tenant_id"})
+	}
+	if err := ValidateImportAnalysisOwner(in.ActorID, in.IntegrationPrincipalID); err != nil {
+		return err
 	}
 	if in.ActorID == uuid.Nil {
 		return apperrors.Validation("actor_id is required", map[string]any{"field": "actor_id"})
