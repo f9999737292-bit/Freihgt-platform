@@ -502,6 +502,52 @@ func applyMigrationFile(ctx context.Context, pool *pgxpool.Pool, baseName string
 	return nil
 }
 
+// applyE1IdempotencySchemaCompat applies the idempotency subset of migration 000074
+// without later migrations that depend on 000069. Legacy migration tests isolate 000069
+// but service code expects integration_principal_id after E1 repository changes.
+func applyE1IdempotencySchemaCompat(ctx context.Context, pool *pgxpool.Pool) error {
+	const sql = `
+ALTER TABLE rfx.rfx_idempotency_records
+    ADD COLUMN IF NOT EXISTS integration_principal_id UUID NULL;
+
+ALTER TABLE rfx.rfx_idempotency_records
+    ALTER COLUMN actor_id DROP NOT NULL;
+
+ALTER TABLE rfx.rfx_idempotency_records
+    DROP CONSTRAINT IF EXISTS chk_rfx_idempotency_owner_xor;
+
+ALTER TABLE rfx.rfx_idempotency_records
+    ADD CONSTRAINT chk_rfx_idempotency_owner_xor CHECK (
+        (
+            actor_id IS NOT NULL
+            AND integration_principal_id IS NULL
+        )
+        OR (
+            actor_id IS NULL
+            AND integration_principal_id IS NOT NULL
+        )
+    );
+
+DROP INDEX IF EXISTS rfx.uq_rfx_idempotency_scope_key;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_rfx_idempotency_human_scope_key
+    ON rfx.rfx_idempotency_records (
+        tenant_id, actor_id, operation, aggregate_scope, idempotency_key
+    )
+    WHERE actor_id IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_rfx_idempotency_erp_scope_key
+    ON rfx.rfx_idempotency_records (
+        tenant_id, integration_principal_id, operation, aggregate_scope, idempotency_key
+    )
+    WHERE integration_principal_id IS NOT NULL;
+`
+	if _, err := pool.Exec(ctx, sql); err != nil {
+		return fmt.Errorf("apply E1 idempotency schema compat: %w", err)
+	}
+	return nil
+}
+
 func locateMigrationsDir() (string, error) {
 	candidates := []string{
 		filepath.Join("..", "..", "..", "..", "infrastructure", "migrations"),
