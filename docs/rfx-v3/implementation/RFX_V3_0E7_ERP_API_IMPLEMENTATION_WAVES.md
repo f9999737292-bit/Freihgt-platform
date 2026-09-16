@@ -1,6 +1,6 @@
 # RFx v3.0E7 Phase 2 — ERP API Implementation Waves and Test Ownership
 
-**Status:** `REMEDIATION_COMPLETE_PENDING_RE_REVIEW`
+**Status:** `FROZEN_ACCEPTED`
 **Parent:** [RFX_V3_0E7_ERP_API_IMPLEMENTATION_PLAN.md](./RFX_V3_0E7_ERP_API_IMPLEMENTATION_PLAN.md)
 
 | Marker | Value |

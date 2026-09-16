@@ -1,13 +1,13 @@
 # RFx v3.0E7 Phase 2 — ERP API Implementation Plan
 
-**Status:** `REMEDIATION_COMPLETE_PENDING_RE_REVIEW`
+**Status:** `FROZEN_ACCEPTED`
 **Architecture base:** `origin/main` @ `6c142bb7378b46a4fbb8fc629bea682861558f19` (PR #137 merged)
 **Mode:** Planning only — **no product implementation authorized**
 
 | Marker | Value |
 |---|---|
 | `ERP_API_ARCHITECTURE_STATUS` | `FROZEN_ACCEPTED` |
-| `ERP_API_IMPLEMENTATION_PLAN_STATUS` | `REMEDIATION_COMPLETE_PENDING_RE_REVIEW` |
+| `ERP_API_IMPLEMENTATION_PLAN_STATUS` | `FROZEN_ACCEPTED` |
 | `ERP_API_IMPLEMENTATION_STATUS` | `NOT_STARTED` |
 | `ERP_API_IMPLEMENTATION_AUTHORIZED` | `NO` |
 | `ERP_API_IMPLEMENTATION_STARTED` | `NO` |
@@ -15,9 +15,12 @@
 | `MIGRATION_000074_AUTHORIZED` | `NO` |
 | `MIGRATION_000074_CREATED` | `NO` |
 | `PUBLIC_ROUTE_CONTRACT_POLICY` | `INCREMENTAL_PER_WAVE` |
-| `CONTROLLER_VERDICT` | `PENDING_RE_REVIEW` |
+| `PUBLIC_ROUTE_OPENAPI_PER_WAVE` | `YES` |
+| `E6_OPENAPI_ROLE` | `FINAL_EXHAUSTIVE_CONSOLIDATION` |
+| `E6_IS_FIRST_PUBLICATION_FOR_E2_E5` | `NO` |
+| `CONTROLLER_VERDICT` | `ACCEPT_ERP_API_IMPLEMENTATION_PLAN` |
 | `CONTROLLER_PREVIOUS_VERDICT` | `CHANGES_REQUIRED` |
-| `NEXT_ACTION` | `CONTROLLER_RE_REVIEW_ERP_API_IMPLEMENTATION_PLAN` |
+| `NEXT_ACTION` | `E1_SCOPE_AUTHORIZATION_AND_EXECUTION_TASK` |
 
 **Normative architecture (frozen):**
 
@@ -474,14 +477,20 @@ ERP_API_IMPLEMENTATION_PLAN_STATUS=FROZEN_ACCEPTED
 
 ---
 
-## 10. Controller evidence placeholder
+## 10. Controller evidence
 
 | Field | Value |
 |---|---|
-| Architecture reviewed head | `6c142bb7378b46a4fbb8fc629bea682861558f19` |
-| Implementation plan status | `REMEDIATION_COMPLETE_PENDING_RE_REVIEW` |
-| Controller previous verdict | `CHANGES_REQUIRED` (H-01, M-01..M-04 remediated in docs) |
+| Reviewed base | `6c142bb7378b46a4fbb8fc629bea682861558f19` |
+| Reviewed head | `812ca3184dd71b90ffad8fbe2ceea4a097305325` |
+| Controller verdict | `ACCEPT_ERP_API_IMPLEMENTATION_PLAN` |
+| Controller previous verdict | `CHANGES_REQUIRED` (H-01, M-01..M-04 remediated in commit `812ca318`) |
+| Findings (BLOCKER/HIGH/MEDIUM/LOW) | `0` / `0` / `0` / `0` |
+| Test matrix | 76 IDs (`E7P2-INT-120..195`); complete; unique primary assignment |
+| Implementation plan status | `FROZEN_ACCEPTED` |
 | Implementation authorized | **NO** |
+| E1 authorized | **NO** |
+| Migration 000074 authorized | **NO** |
 
 ---
 
