@@ -2,6 +2,7 @@
 
 **Status:** FROZEN_ACCEPTED (tests not implemented)
 **Parent:** [RFX_V3_0E7_ERP_API.md](./RFX_V3_0E7_ERP_API.md)
+**Wave ownership:** [RFX_V3_0E7_ERP_API_IMPLEMENTATION_WAVES.md](./RFX_V3_0E7_ERP_API_IMPLEMENTATION_WAVES.md)
 
 | Marker | Value |
 |---|---|
@@ -11,6 +12,12 @@
 | `INT_120_WAS_FREE` | `YES` (at initial freeze) |
 | `NEXT_FREE_TEST_ID` | `E7P2-INT-196` |
 | `PRIOR_RANGE_END` | `E7P2-INT-119` (Carrier XLSX C3) |
+| `PUBLIC_ROUTE_CONTRACT_POLICY` | `INCREMENTAL_PER_WAVE` |
+| `E3_PRIMARY_TEST_IDS` | `133,135,136,142,143,146,147,148,149,165-176,195` |
+| `E4_PRIMARY_TEST_IDS` | `132,137-141,144,145,177,180,191,193,194` |
+| `E3_E4_PRIMARY_OVERLAP` | `NONE` |
+
+Per-wave OpenAPI + route parity is mandatory in the same PR as each public route (implementation plan §3.5). INT-185 is **final exhaustive consolidation** in E6; E2–E5 contracts publish incrementally in their respective waves.
 
 ---
 
@@ -125,7 +132,7 @@
 | E7P2-INT-182 | No secrets in audit payload | Redaction verified | audit |
 | E7P2-INT-183 | ERP + UI edit coexistence | Stale detection works | coexistence |
 | E7P2-INT-184 | ERP + XLSX edit coexistence | Stale baseline on second commit | coexistence |
-| E7P2-INT-185 | Route/gateway/OpenAPI parity | Shared route manifest | parity |
+| E7P2-INT-185 | Route/gateway/OpenAPI exhaustive parity (E2–E6; final consolidation in E6) | Shared route manifest; contracts per wave §3.5 | parity |
 | E7P2-INT-186 | Rate limit 429 | Retry-After header | limits |
 | E7P2-INT-187 | Migration 000074 up/down (when authorized) | Schema extension reversible | migration |
 | E7P2-INT-188 | Competitor data absent in ERP GET DTO | No participant/bid fields | confidentiality |
@@ -138,7 +145,7 @@
 | ID | Scenario | Expected | Finding closed |
 |---|---|---|---|
 | E7P2-INT-190 | OAuth-only principal attempts API key | 401 `auth_scheme_denied` | M-02 |
-| E7P2-INT-191 | ERP commit rejects analysis bound to different principal | 409 `actor_binding_denied` | H-02 |
+| E7P2-INT-191 | ERP commit rejects analysis bound to different principal (primary E4; E5 UPDATE regression) | 409 `actor_binding_denied` | H-02 |
 | E7P2-INT-192 | GET by stable external ID without revision is deterministic | Single RFx; revision history optional | H-03 |
 | E7P2-INT-193 | Commit after mapping set RETIRED post-Preview | 409 `stale_mapping_context` | H-04 |
 | E7P2-INT-194 | Concurrent CREATE commits same stable external ID | One 201; others 409; one RFx | M-06 |
