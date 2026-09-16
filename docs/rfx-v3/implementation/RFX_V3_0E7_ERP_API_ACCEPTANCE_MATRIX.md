@@ -1,6 +1,6 @@
 # RFx v3.0E7 Phase 2 — ERP API Acceptance Test Matrix
 
-**Status:** REMEDIATION_COMPLETE_PENDING_RE_REVIEW (tests not implemented)
+**Status:** FROZEN_ACCEPTED (tests not implemented)
 **Parent:** [RFX_V3_0E7_ERP_API.md](./RFX_V3_0E7_ERP_API.md)
 
 | Marker | Value |
@@ -133,7 +133,7 @@
 
 ---
 
-## 8. Remediation tests (INT-190..194)
+## 8. Remediation tests (INT-190..195)
 
 | ID | Scenario | Expected | Finding closed |
 |---|---|---|---|
@@ -172,7 +172,7 @@ Authenticated capabilities returns `BINTRANS_RFX_ERP_JSON_V1` and `deferred_fiel
 | E7P2-INT-134 | Capabilities requires auth | GET capabilities | 401 | M-03 |
 | E7P2-INT-162 | ERP GET DTO allowlist | GET by internal ID | ErpRfxDraftSummary only | M-05 |
 | E7P2-INT-171 | mapping_context in hash | CREATE preview | Pinned in analysis | H-04 |
-| E7P2-INT-188 | Migration reversible | DB migration | up/down/up | M-08 |
+| E7P2-INT-187 | Migration reversible | DB migration | up/down/up | M-08 |
 
 ---
 

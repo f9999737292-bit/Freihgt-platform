@@ -1,9 +1,20 @@
 # ADR-RFX-013: ERP Machine Authentication
 
-**Status:** FROZEN_PENDING_REVIEW
+**Status:** Accepted
 **Date:** 2026-09-16
 **Deciders:** E7 Phase 2 ERP architecture stream
 **Normative detail:** [RFX_V3_0E7_ERP_API.md](../implementation/RFX_V3_0E7_ERP_API.md) §10
+
+### Controller acceptance evidence
+
+| Field | Value |
+|---|---|
+| Reviewed head | `c538bcf073f901f2e80a26b77fb14a6f4a9491c6` |
+| Controller verdict | `ACCEPT_ERP_API_ARCHITECTURE` |
+| HIGH findings open | 0 |
+| MEDIUM findings open | 0 |
+| Residual LOW findings | Fixed in acceptance-alignment commit |
+| Implementation authorization | NO |
 
 ---
 

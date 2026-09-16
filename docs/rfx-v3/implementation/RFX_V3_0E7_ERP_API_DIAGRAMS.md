@@ -1,6 +1,6 @@
 # RFx v3.0E7 Phase 2 — ERP API Diagrams
 
-**Status:** REMEDIATION_COMPLETE_PENDING_RE_REVIEW
+**Status:** FROZEN_ACCEPTED
 **Parent:** [RFX_V3_0E7_ERP_API.md](./RFX_V3_0E7_ERP_API.md)
 **Validation:** `MERMAID_VALIDATION=MANUAL_ONLY` (no repository automated validator)
 

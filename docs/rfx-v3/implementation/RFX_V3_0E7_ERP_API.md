@@ -1,24 +1,35 @@
 # RFx v3.0E7 Phase 2 — Generic ERP JSON API Architecture
 
-**Status:** `REMEDIATION_COMPLETE_PENDING_RE_REVIEW`
+**Status:** `FROZEN_ACCEPTED`
 **Base:** `origin/main` @ `72a555637b3137ff5ea11e5b79c928f2b405bb3f`
 **Mode:** `DOCS_ONLY` — no product implementation in this stream
 
 | Marker | Value |
 |---|---|
 | `ERP_API_DISCOVERY_STATUS` | `COMPLETE` |
-| `ERP_API_ARCHITECTURE_STATUS` | `REMEDIATION_COMPLETE_PENDING_RE_REVIEW` |
+| `ERP_API_ARCHITECTURE_STATUS` | `FROZEN_ACCEPTED` |
 | `ERP_API_IMPLEMENTATION_STATUS` | `NOT_STARTED` |
 | `ERP_API_IMPLEMENTATION_AUTHORIZED` | `NO` |
 | `ERP_API_IMPLEMENTATION_STARTED` | `NO` |
-| `BUYER_RFQ_ERP_INTEGRATION` | `ARCHITECTURE_REMEDIATED_PENDING_RE_REVIEW` |
+| `BUYER_RFQ_ERP_INTEGRATION` | `ARCHITECTURE_FROZEN_ACCEPTED` |
 | `CARRIER_ERP_INTEGRATION` | `NOT_REQUIRED_CURRENT_SCOPE` |
 | `CREATE_FROM_XLSX_STATUS` | `NOT_STARTED` |
 | `MIGRATION_000074_CREATED` | `NO` |
 | `MIGRATION_REQUIRED_PROPOSED` | `YES` |
 | `CONTROLLER_PREVIOUS_VERDICT` | `CHANGES_REQUIRED` |
-| `CONTROLLER_VERDICT` | `PENDING_RE_REVIEW` |
+| `CONTROLLER_VERDICT` | `ACCEPT_ERP_API_ARCHITECTURE` |
 | `MERMAID_VALIDATION` | `MANUAL_ONLY` |
+
+### Controller acceptance evidence
+
+| Field | Value |
+|---|---|
+| Reviewed head | `c538bcf073f901f2e80a26b77fb14a6f4a9491c6` |
+| Controller verdict | `ACCEPT_ERP_API_ARCHITECTURE` |
+| HIGH findings open | 0 |
+| MEDIUM findings open | 0 |
+| Residual LOW findings | Fixed in acceptance-alignment commit |
+| Implementation authorization | NO |
 
 **Normative companions:**
 
@@ -130,7 +141,9 @@ Legacy name `ERP_BUYER_IMPORT_COMMIT` is **retired** — do not use.
 | Concurrency | Atomic stable external identity claim |
 | State | DRAFT only; no publish |
 | Audit | `rfx.erp.draft.created.v1` |
-| Errors | 401, 403, 404, 409 (`external_id_conflict`, `idempotency_conflict`), 422, 429 |
+| Errors | 401, 403, 404, 409 (`external_id_conflict`, `idempotency_conflict`, `stale_mapping_context`), 422, 429 |
+
+`stale_mapping_context` applies to all ERP Commit operations (CREATE and UPDATE) when the mapping set was RETIRED after Preview — Commit applies pinned resolved values only, no re-mapping (ADR-015).
 
 #### Op 3 — Update DRAFT Preview
 
@@ -508,8 +521,8 @@ Never log: secrets, tokens, raw API keys, full payload, competitor data.
 
 ```
 ERP_API_IMPLEMENTATION_AUTHORIZED=NO
-DO_NOT_MERGE_UNTIL_CONTROLLER_RE_REVIEW=YES
-NEXT_ACTION=CONTROLLER_RE_REVIEW_ERP_API_ARCHITECTURE
+ERP_API_IMPLEMENTATION_STATUS=NOT_STARTED
+NEXT_ACTION=ERP_API_IMPLEMENTATION_WAVE_PLANNING_AND_AUTHORIZATION
 ```
 
 ---
