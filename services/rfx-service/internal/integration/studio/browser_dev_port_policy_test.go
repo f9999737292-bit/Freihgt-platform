@@ -75,6 +75,18 @@ func TestIsTaskOwnedStalePnpmNuxtLauncher_wrongPortNotKillable(t *testing.T) {
 	}
 }
 
+func TestClassifyDevPortListener_linuxRelativeNuxtListener(t *testing.T) {
+	proc := portProcessInfo{
+		PID:         6180,
+		ProcessName: "node",
+		CommandLine: `node ./node_modules/.bin/../nuxt/bin/nuxt.mjs dev --port 3023 --host 127.0.0.1`,
+	}
+	kill, blocked, reason := classifyDevPortListener("3023", proc, testWorktree)
+	if !kill || blocked || reason == "" {
+		t.Fatalf("want kill=true blocked=false, got kill=%v blocked=%v reason=%q", kill, blocked, reason)
+	}
+}
+
 func TestCommandLineMatchesNuxtDevPort(t *testing.T) {
 	cases := []struct {
 		cmd  string

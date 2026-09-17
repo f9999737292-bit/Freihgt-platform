@@ -45,6 +45,15 @@ func commandLineMatchesNuxtDevPort(commandLine, port string) bool {
 		strings.Contains(cmd, "--port="+port)
 }
 
+func isNodeProcessName(name string) bool {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "node.exe", "node":
+		return true
+	default:
+		return false
+	}
+}
+
 func isTaskOwnedWorktree(commandLine, worktreeRoot string) bool {
 	root := strings.TrimSpace(worktreeRoot)
 	if root != "" && strings.Contains(commandLine, root) {
@@ -57,6 +66,15 @@ func isTaskOwnedWorktree(commandLine, worktreeRoot string) bool {
 		strings.Contains(cmd, "@freight-platform/web-procurement")
 }
 
+func isTaskOwnedNuxtDevCommandLine(commandLine, worktreeRoot string) bool {
+	if isTaskOwnedWorktree(commandLine, worktreeRoot) {
+		return true
+	}
+	cmd := strings.ToLower(commandLine)
+	// pnpm --filter launches on Linux CI often use relative nuxt.mjs without app path.
+	return strings.Contains(cmd, "nuxt.mjs") && strings.Contains(cmd, "node_modules")
+}
+
 func isTaskOwnedStaleNuxtDevListener(port, processName, commandLine, worktreeRoot string) bool {
 	if !isScopedDevPort(port) {
 		return false
@@ -64,7 +82,7 @@ func isTaskOwnedStaleNuxtDevListener(port, processName, commandLine, worktreeRoo
 	if isProtectedPortProcessName(processName) {
 		return false
 	}
-	if !strings.EqualFold(strings.TrimSpace(processName), "node.exe") {
+	if !isNodeProcessName(processName) {
 		return false
 	}
 	if isTaskOwnedStalePnpmNuxtLauncher(port, processName, commandLine, worktreeRoot) {
@@ -73,7 +91,7 @@ func isTaskOwnedStaleNuxtDevListener(port, processName, commandLine, worktreeRoo
 	if !commandLineMatchesNuxtDevPort(commandLine, port) {
 		return false
 	}
-	return isTaskOwnedWorktree(commandLine, worktreeRoot)
+	return isTaskOwnedNuxtDevCommandLine(commandLine, worktreeRoot)
 }
 
 func isTaskOwnedStalePnpmNuxtLauncher(port, processName, commandLine, worktreeRoot string) bool {
@@ -83,7 +101,7 @@ func isTaskOwnedStalePnpmNuxtLauncher(port, processName, commandLine, worktreeRo
 	if isProtectedPortProcessName(processName) {
 		return false
 	}
-	if !strings.EqualFold(strings.TrimSpace(processName), "node.exe") {
+	if !isNodeProcessName(processName) {
 		return false
 	}
 	cmd := strings.ToLower(commandLine)
@@ -93,7 +111,7 @@ func isTaskOwnedStalePnpmNuxtLauncher(port, processName, commandLine, worktreeRo
 	if !commandLineMatchesNuxtDevPort(commandLine, port) {
 		return false
 	}
-	return isTaskOwnedWorktree(commandLine, worktreeRoot)
+	return isTaskOwnedNuxtDevCommandLine(commandLine, worktreeRoot)
 }
 
 func classifyDevPortListener(port string, proc portProcessInfo, worktreeRoot string) (kill bool, blocked bool, reason string) {
