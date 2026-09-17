@@ -44,7 +44,9 @@ export function isScoringCompatibleQuestionType(type: string): type is ScoringQu
   return ['NUMBER', 'PERCENT', 'YES_NO', 'SINGLE_SELECT', 'MULTI_SELECT'].includes(type)
 }
 
-export function filterBindableQuestions(questions: ScoringBindableQuestion[]): ScoringBindableQuestion[] {
+export function filterBindableQuestions(
+  questions: ScoringBindableQuestion[],
+): ScoringBindableQuestion[] {
   return questions.filter((q) => isScoringCompatibleQuestionType(q.question_type))
 }
 
@@ -58,7 +60,10 @@ export function editorStateLabel(state: ScoreModelEditorState, t: (key: string) 
   return translated === key ? state : translated
 }
 
-export function readinessErrorMessage(err: ScoreModelReadinessError, t: (key: string) => string): string {
+export function readinessErrorMessage(
+  err: ScoreModelReadinessError,
+  t: (key: string) => string,
+): string {
   const key = `rfx.studio.scoring.readiness.${err.code}`
   const translated = t(key)
   if (translated !== key) return translated
@@ -93,13 +98,20 @@ export function viewToDraftInput(
   bindings: Array<{ criterion_code: string; question_code: string; knockout_rule_json?: unknown }>,
 ): PutScoreModelInput {
   return {
-    criteria: criteria.map((c, index) => ({
-      criterion_code: c.criterion_code,
-      name: c.name,
-      weight: c.weight,
-      normalization_json: parseJsonField(c.normalization_json),
-      sort_order: c.sort_order ?? index + 1,
-    })),
+    criteria: criteria.map((c, index) =>
+      toApiCriterionInput(
+        {
+          criterion_code: c.criterion_code,
+          name: c.name,
+          weight: c.weight,
+          normalization_json: parseJsonField(c.normalization_json),
+          sort_order: c.sort_order ?? index + 1,
+          persisted_id: c.id,
+          client_render_key: c.id,
+        },
+        index,
+      ),
+    ),
     bindings: bindings.map((b) => ({
       criterion_code: b.criterion_code,
       question_code: b.question_code,
@@ -110,6 +122,48 @@ export function viewToDraftInput(
   }
 }
 
+export function createClientRenderKey(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `client-${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+export function criterionRenderKey(criterion: ScoreCriterionInput): string {
+  if (criterion.persisted_id) return `persisted:${criterion.persisted_id}`
+  if (criterion.client_render_key) return `client:${criterion.client_render_key}`
+  return `code:${criterion.criterion_code}`
+}
+
+export function toApiCriterionInput(criterion: ScoreCriterionInput, index: number) {
+  return {
+    criterion_code: criterion.criterion_code,
+    name: criterion.name,
+    weight: criterion.weight,
+    normalization_json: criterion.normalization_json,
+    sort_order: criterion.sort_order ?? index + 1,
+  }
+}
+
+export function mergeCriterionClientKeys(
+  previous: ScoreCriterionInput[],
+  records: ScoreCriterionRecord[],
+): ScoreCriterionInput[] {
+  const priorByCode = new Map(previous.map((criterion) => [criterion.criterion_code, criterion]))
+  return records.map((record, index) => {
+    const prior = priorByCode.get(record.criterion_code)
+    return {
+      criterion_code: record.criterion_code,
+      name: record.name,
+      weight: record.weight,
+      normalization_json: parseJsonField(record.normalization_json),
+      sort_order: record.sort_order ?? index + 1,
+      persisted_id: record.id,
+      client_render_key: prior?.client_render_key ?? record.id ?? createClientRenderKey(),
+    }
+  })
+}
+
 export function newCriterion(index: number): ScoreCriterionInput {
   return {
     criterion_code: `CRITERION_${index}`,
@@ -117,6 +171,7 @@ export function newCriterion(index: number): ScoreCriterionInput {
     weight: 0,
     normalization_json: { type: 'BOOLEAN_MAP', true_score: 100, false_score: 0 },
     sort_order: index,
+    client_render_key: createClientRenderKey(),
   }
 }
 
