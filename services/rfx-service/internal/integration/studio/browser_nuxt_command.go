@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"strings"
 )
 
 func nuxtPackageFilter(appLabel string) (string, error) {
@@ -27,4 +28,35 @@ func newNuxtDevCommand(ctx context.Context, root string, filterPackage string, p
 	cmd.Dir = root
 	cmd.Env = env
 	return cmd
+}
+
+func newNuxtPrepareCommand(ctx context.Context, root, filterPackage string, env []string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, "pnpm",
+		"--filter", filterPackage,
+		"exec", "nuxt", "prepare",
+	)
+	cmd.Dir = root
+	cmd.Env = env
+	return cmd
+}
+
+func envHasIsolatedNuxtBuildDir(env []string) bool {
+	for _, entry := range env {
+		if strings.HasPrefix(entry, "NUXT_E2E_BUILD_DIR=") {
+			return strings.TrimPrefix(entry, "NUXT_E2E_BUILD_DIR=") != ""
+		}
+	}
+	return false
+}
+
+func runNuxtPrepare(ctx context.Context, root, filterPackage string, env []string) error {
+	if !envHasIsolatedNuxtBuildDir(env) {
+		return nil
+	}
+	cmd := newNuxtPrepareCommand(ctx, root, filterPackage, env)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("nuxt prepare: %w: %s", err, string(out))
+	}
+	return nil
 }

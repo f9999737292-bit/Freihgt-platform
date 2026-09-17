@@ -19,6 +19,14 @@ func prepareNuxtDevLaunch(t *testing.T, appLabel, port string) nuxtDevLaunch {
 	if !nuxtBuildDirWithinAllowedRoot(buildDir) {
 		t.Fatalf("isolated nuxt build dir outside allowed temp root: %s", buildDir)
 	}
+	if err := linkIsolatedNuxtBuildDir(appLabel, buildDir); err != nil {
+		t.Fatalf("link isolated nuxt build dir for %s:%s: %v", appLabel, port, err)
+	}
+	t.Cleanup(func() {
+		if err := unlinkIsolatedNuxtBuildDir(appLabel); err != nil {
+			t.Logf("unlink isolated nuxt build dir for %s: %v", appLabel, err)
+		}
+	})
 	t.Cleanup(func() {
 		state := boundedLockRelease(func() error {
 			return removeGeneratedPathBounded(buildDir)

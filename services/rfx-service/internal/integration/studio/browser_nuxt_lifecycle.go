@@ -73,6 +73,10 @@ func startNuxtDevCommand(t *testing.T, ctx context.Context, appLabel, port strin
 	if err != nil {
 		t.Fatalf("create nuxt log: %v", err)
 	}
+	if err := runNuxtPrepare(ctx, root, filter, env); err != nil {
+		_ = logFile.Close()
+		t.Fatalf("prepare %s before dev on port %s: %v", appLabel, port, err)
+	}
 	cmd := newNuxtDevCommand(ctx, root, filter, port, env)
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile

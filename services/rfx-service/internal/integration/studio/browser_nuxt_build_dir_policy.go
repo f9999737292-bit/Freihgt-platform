@@ -86,3 +86,90 @@ func isTransientPathBusy(err error) bool {
 		strings.Contains(msg, "resource busy") ||
 		strings.Contains(msg, "being used by another process")
 }
+
+func nuxtAppDir(appLabel string) (string, error) {
+	root, err := findRepoRoot()
+	if err != nil {
+		return "", err
+	}
+	switch appLabel {
+	case "web-admin":
+		return filepath.Join(root, "apps", "web-admin"), nil
+	case "web-procurement":
+		return filepath.Join(root, "apps", "web-procurement"), nil
+	default:
+		return "", fmt.Errorf("unsupported nuxt app label %q", appLabel)
+	}
+}
+
+func findRepoRoot() (string, error) {
+	wd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	dir := wd
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "infrastructure", "migrations")); err == nil {
+			return dir, nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", fmt.Errorf("repo root not found from %s", wd)
+		}
+		dir = parent
+	}
+}
+
+// linkNuxtBuildDirAt exposes isolated Nuxt buildDir at appDir/.nuxt so Vite can
+// resolve tsconfig extends on clean CI checkouts.
+func linkNuxtBuildDirAt(appDir, buildDir string) error {
+	linkPath := filepath.Join(appDir, ".nuxt")
+	if fi, err := os.Lstat(linkPath); err == nil {
+		if fi.Mode()&os.ModeSymlink != 0 {
+			target, readErr := os.Readlink(linkPath)
+			if readErr == nil && filepath.Clean(target) == filepath.Clean(buildDir) {
+				return nil
+			}
+		}
+		if err := os.RemoveAll(linkPath); err != nil {
+			return fmt.Errorf("remove existing nuxt link path %s: %w", linkPath, err)
+		}
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	if err := os.Symlink(buildDir, linkPath); err != nil {
+		return fmt.Errorf("symlink %s -> %s: %w", linkPath, buildDir, err)
+	}
+	return nil
+}
+
+func unlinkNuxtBuildDirAt(appDir string) error {
+	linkPath := filepath.Join(appDir, ".nuxt")
+	fi, err := os.Lstat(linkPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	if fi.Mode()&os.ModeSymlink == 0 {
+		return nil
+	}
+	return os.Remove(linkPath)
+}
+
+func linkIsolatedNuxtBuildDir(appLabel, buildDir string) error {
+	appDir, err := nuxtAppDir(appLabel)
+	if err != nil {
+		return err
+	}
+	return linkNuxtBuildDirAt(appDir, buildDir)
+}
+
+func unlinkIsolatedNuxtBuildDir(appLabel string) error {
+	appDir, err := nuxtAppDir(appLabel)
+	if err != nil {
+		return err
+	}
+	return unlinkNuxtBuildDirAt(appDir)
+}

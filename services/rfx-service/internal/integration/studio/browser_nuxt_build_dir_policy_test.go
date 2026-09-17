@@ -71,6 +71,34 @@ func TestBoundedLockRelease_persistentFailFast(t *testing.T) {
 	}
 }
 
+func TestLinkNuxtBuildDirAt_exposesTsconfigForVite(t *testing.T) {
+	buildDir, err := isolatedNuxtBuildDir("web-admin", "3022")
+	if err != nil {
+		t.Fatalf("build dir: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(buildDir) })
+	appDir := filepath.Join(os.TempDir(), "rfx-nuxt-link-test-app")
+	if err := os.MkdirAll(appDir, 0o755); err != nil {
+		t.Fatalf("mkdir app dir: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(appDir) })
+	if err := linkNuxtBuildDirAt(appDir, buildDir); err != nil {
+		t.Fatalf("link: %v", err)
+	}
+	t.Cleanup(func() { _ = unlinkNuxtBuildDirAt(appDir) })
+	tsconfig := []byte(`{"compilerOptions":{"strict":true}}`)
+	if err := os.WriteFile(filepath.Join(buildDir, "tsconfig.json"), tsconfig, 0o644); err != nil {
+		t.Fatalf("write tsconfig: %v", err)
+	}
+	linked, err := os.ReadFile(filepath.Join(appDir, ".nuxt", "tsconfig.json"))
+	if err != nil {
+		t.Fatalf("read linked tsconfig: %v", err)
+	}
+	if string(linked) != string(tsconfig) {
+		t.Fatalf("expected linked tsconfig content, got %q", string(linked))
+	}
+}
+
 func TestIsolatedNuxtBuildDir_handlesSpacesInWorktreePath(t *testing.T) {
 	nested := filepath.Join(os.TempDir(), "rfx nuxt harness", "worktree")
 	if err := os.MkdirAll(nested, 0o755); err != nil {

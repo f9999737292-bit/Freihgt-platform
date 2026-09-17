@@ -38,3 +38,15 @@ func TestNewNuxtDevCommand_usesPnpmFilterExec(t *testing.T) {
 		t.Fatalf("unexpected cwd: %q", cmd.Dir)
 	}
 }
+
+func TestEnvHasIsolatedNuxtBuildDir(t *testing.T) {
+	if !envHasIsolatedNuxtBuildDir([]string{"NUXT_E2E_BUILD_DIR=/tmp/rfx-nuxt"}) {
+		t.Fatal("expected isolated build dir env to be detected")
+	}
+	if envHasIsolatedNuxtBuildDir([]string{"NUXT_E2E_BUILD_DIR="}) {
+		t.Fatal("expected empty build dir env to be ignored")
+	}
+	if envHasIsolatedNuxtBuildDir(nil) {
+		t.Fatal("expected nil env to be ignored")
+	}
+}
