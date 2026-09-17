@@ -38,8 +38,10 @@ type browserLiveStack struct {
 }
 
 type webAdminCmd struct {
-	cmd  *exec.Cmd
-	logs []*os.File
+	cmd    *exec.Cmd
+	cancel context.CancelFunc
+	port   string
+	logs   []*os.File
 }
 
 func TestRfxStudio_BrowserE2E_LiveBuyerFlow(t *testing.T) {
@@ -50,7 +52,7 @@ func TestRfxStudio_BrowserE2E_LiveBuyerFlow(t *testing.T) {
 		t.Fatal("TEST_DATABASE_URL is required when BROWSER_E2E=1")
 	}
 	stack := startBrowserLiveStack(t)
-	t.Cleanup(stack.shutdown)
+	t.Cleanup(func() { stack.shutdown(t) })
 	t.Cleanup(func() {
 		dumpGatewayLogsOnFailure(t, stack.gatewayProc)
 		writeGatewayFailureArtifact(t, stack.gatewayProc)
@@ -80,10 +82,10 @@ func verifyStudioGatewayProbe(t *testing.T, stack *browserLiveStack) {
 	}
 }
 
-func (s *browserLiveStack) shutdown() {
+func (s *browserLiveStack) shutdown(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	stopBrowserWebAdmin(s.webCmd)
+	stopBrowserWebAdmin(t, s.webCmd)
 	if s.rfxSrv != nil {
 		_ = s.rfxSrv.Shutdown(ctx)
 	}
@@ -158,44 +160,34 @@ func listenHTTPServer(t *testing.T, handler http.Handler) (string, *http.Server)
 
 func startBrowserWebAdmin(t *testing.T, gatewayURL string, fix browserStudioFixture, port string) (string, *webAdminCmd) {
 	t.Helper()
-	root, err := repoRoot()
-	if err != nil {
-		t.Fatalf("repo root: %v", err)
-	}
-	cmd := exec.Command("pnpm", "--filter", "@freight-platform/web-admin", "exec", "nuxt", "dev", "--port", port, "--host", "127.0.0.1")
-	cmd.Dir = root
-	cmd.Env = append(os.Environ(),
+	launch := prepareNuxtDevLaunch(t, "web-admin", port)
+	ctx, cancel := context.WithCancel(context.Background())
+	env := appendNuxtDevEnv(append(os.Environ(),
 		"NUXT_PUBLIC_API_BASE_URL="+gatewayURL,
 		"NUXT_PUBLIC_DEFAULT_TENANT_ID="+fix.TenantID.String(),
 		"NUXT_E2E_DISABLE_SSR=true",
-	)
-	logFile, err := os.CreateTemp("", "rfx-studio-nuxt-"+port+"-*.log")
-	if err != nil {
-		t.Fatalf("create nuxt log file: %v", err)
-	}
-	cmd.Stdout = logFile
-	cmd.Stderr = logFile
-	cmd.WaitDelay = 0
-	if err := cmd.Start(); err != nil {
-		_ = logFile.Close()
-		t.Fatalf("start web-admin dev: %v", err)
-	}
+	), launch)
+	cmd, logFile := startNuxtDevCommand(t, ctx, "web-admin", port, env)
+	assertNuxtDevStarted(t, port, logFile.Name())
 	return "http://127.0.0.1:" + port, &webAdminCmd{
-		cmd:  cmd,
-		logs: []*os.File{logFile},
+		cmd:    cmd,
+		cancel: cancel,
+		port:   port,
+		logs:   []*os.File{logFile},
 	}
 }
 
-func stopBrowserWebAdmin(proc *webAdminCmd) {
-	if proc == nil || proc.cmd == nil || proc.cmd.Process == nil {
+func stopBrowserWebAdmin(t *testing.T, proc *webAdminCmd) {
+	if proc == nil {
 		return
 	}
-	proc.cmd.WaitDelay = 0
-	_ = proc.cmd.Process.Kill()
+	if proc.cancel != nil {
+		proc.cancel()
+	}
+	stopNuxtDevProcess(t, proc.cmd, proc.port)
 	for _, logFile := range proc.logs {
 		_ = logFile.Close()
 	}
-	_ = proc.cmd.Wait()
 }
 
 func waitForHTTP200(t *testing.T, targetURL string, timeout time.Duration) {

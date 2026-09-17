@@ -40,7 +40,7 @@ func TestRfxStudio_BrowserE2E_PreviewSandboxDbIsolation(t *testing.T) {
 	fix := seedBrowserStudioFixture(t, env)
 	responsesBefore, answersBefore := countCarrierResponseRows(t, env, fix.TenantID.String(), fix.EventID.String())
 	stack := startBrowserLiveStackWithEnv(t, env, fix)
-	t.Cleanup(stack.shutdown)
+	t.Cleanup(func() { stack.shutdown(t) })
 	if err := runPlaywrightSpec(t, stack, "studio-acceptance.spec.ts"); err != nil {
 		t.Fatalf("playwright preview sandbox spec: %v", err)
 	}

@@ -1,5 +1,6 @@
 export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',
+  ...(process.env.NUXT_E2E_BUILD_DIR ? { buildDir: process.env.NUXT_E2E_BUILD_DIR } : {}),
   devtools: { enabled: true },
   devServer: {
     port: 3000,
@@ -31,8 +32,7 @@ export default defineNuxtConfig({
       mockAuth: process.env.NUXT_PUBLIC_MOCK_AUTH === 'true',
       controlTowerSummaryApiEnabled:
         process.env.NUXT_PUBLIC_CONTROL_TOWER_SUMMARY_API_ENABLED !== 'false',
-      rfxVersioningV3Enabled:
-        process.env.NUXT_PUBLIC_RFX_VERSIONING_V3_ENABLED === 'true',
+      rfxVersioningV3Enabled: process.env.NUXT_PUBLIC_RFX_VERSIONING_V3_ENABLED === 'true',
     },
   },
   i18n: {
