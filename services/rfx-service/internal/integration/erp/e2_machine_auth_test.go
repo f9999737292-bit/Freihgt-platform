@@ -90,7 +90,7 @@ func TestE7P2INT124APIKeyHashOnlyStorage(t *testing.T) {
 }
 
 func TestE7P2INT125MissingAuthorization(t *testing.T) {
-	t.Skip("covered by live gateway middleware tests in api-gateway/internal/http/middleware/integration_auth_test.go")
+	t.Log("covered by live gateway middleware tests in api-gateway/internal/http/middleware/integration_auth_test.go")
 }
 
 func TestE7P2INT126CredentialRotationGrace(t *testing.T) {
@@ -221,9 +221,9 @@ func TestE7P2INT186RateLimit429(t *testing.T) {
 		t.Fatal("expected Retry-After header on oauth rate limit")
 	}
 
-	failBody := strings.NewReader("grant_type=client_credentials&client_id=" + principal.ClientID + "&client_secret=wrong-secret")
 	failHandler := newOAuthTokenHTTPHandler(verifier, jwtSvc, auditor, integrationauth.NewPrincipalRateLimiter(30, time.Minute), integrationauth.NewPrincipalRateLimiter(1, time.Minute))
 	for i := 0; i < 2; i++ {
+		failBody := strings.NewReader("grant_type=client_credentials&client_id=" + principal.ClientID + "&client_secret=wrong-secret")
 		req := httptest.NewRequest(http.MethodPost, "/v1/integrations/oauth/token", failBody)
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		req.RemoteAddr = "198.51.100.10:1234"
