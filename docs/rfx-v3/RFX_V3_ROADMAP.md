@@ -121,6 +121,7 @@ These are assigned to the **earliest appropriate wave** — not deferred beyond 
 | **E7 Phase 2 ERP API E1 Foundation** | Migration 000074, integration principals, credentials, scopes, XOR ownership, stable external identity, reference mapping | **IMPLEMENTED_ACCEPTED** — PR #139 (head `5713d7c5`, CI `35066148105`) |
 | **E7 Phase 2 ERP API E2 Machine Auth** | OAuth/API-key integration auth, trusted header strip/inject | **IMPLEMENTED_ACCEPTED** — PR #142 |
 | **E7 Phase 2 ERP API E3 CREATE/UPDATE Preview** | Canonical JSON parser, mapping pin, CREATE/UPDATE Preview only | **IMPLEMENTED_ACCEPTED** — PR #143 (head `f60e1917`, CI `35382305777`) |
+| **E7 Phase 2 ERP API E3.1 Hardening** | Strict Content-Type, nested IngestJSON, per-type mapping pins, stable `rfx.erp.*` errors | **IMPLEMENTED_ACCEPTED** — PR #144 (head `f4a0ed73`, CI `35390138371`) |
 | **E7 Phase 2 ERP API E4–E6** | Commit/GET/capabilities, migration 000075, remaining OpenAPI parity | **NOT_STARTED** |
 | **E7 Phase 2 Frontend** | Excel/ERP UI surfaces | **NOT_STARTED** |
 | **E7 Phase 2 Training** | RU/EN/ZH training course | **NOT_STARTED** |
@@ -147,6 +148,7 @@ Notes:
 - E7 Phase 2 ERP API **implementation plan** frozen accepted (PR #138): [RFX_V3_0E7_ERP_API_IMPLEMENTATION_PLAN.md](./implementation/RFX_V3_0E7_ERP_API_IMPLEMENTATION_PLAN.md), [RFX_V3_0E7_ERP_API_IMPLEMENTATION_WAVES.md](./implementation/RFX_V3_0E7_ERP_API_IMPLEMENTATION_WAVES.md). Controller verdict `ACCEPT_ERP_API_IMPLEMENTATION_PLAN`. `PUBLIC_ROUTE_CONTRACT_POLICY=INCREMENTAL_PER_WAVE`.
 - E7 Phase 2 ERP API **E1 foundation** accepted (PR #139 head `5713d7c5`, CI `35066148105`, controller `ACCEPT_ERP_API_E1`): [RFX_V3_0E7_ERP_API_E1_IMPLEMENTATION.md](./implementation/RFX_V3_0E7_ERP_API_E1_IMPLEMENTATION.md). Delivers migration 000074 and repository foundations only — no public ERP routes, OAuth, or OpenAPI changes.
 - E7 Phase 2 ERP API **E3 CREATE/UPDATE Preview** accepted (PR #143 head `f60e1917979cb2133f7d5fcd74cbdd8d66ddea79`, CI `35382305777`, controller `ACCEPT_ERP_API_E3`): [RFX_V3_0E7_ERP_API_E3_IMPLEMENTATION.md](./implementation/RFX_V3_0E7_ERP_API_E3_IMPLEMENTATION.md). Delivers parser, mapping pin, and Preview only — Commit/GET/capabilities and E4 remain unauthorized.
+- E7 Phase 2 ERP API **E3.1 hardening** accepted (PR #144 head `f4a0ed73c733198b451561e4b49a9acde46eba37`, CI `35390138371`, controller `ACCEPT_ERP_API_E3_1`). Delivers Content-Type enforcement, unified nested ingest, per-mapping-type pins, and stable public error keys. Non-blocking residuals: `F_E31_L1`, `F_E31_L2`. E4 remains unauthorized.
 - E7 Phase 2 overall remains **IMPLEMENTATION_IN_PROGRESS** — next: (1) ERP API E4 authorization, (2) remaining ERP waves E5–E6, (3) frontend, (4) training, (5) browser acceptance.
 - E7 browser acceptance, ERP integration, Phase 2 frontend, and training have not started.
 - Each implementation wave requires a separate controller gate.

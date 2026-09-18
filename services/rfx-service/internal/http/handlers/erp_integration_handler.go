@@ -2,16 +2,18 @@ package handlers
 
 import (
 	"io"
+	"mime"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
 	"github.com/freight-platform/rfx-service/internal/domain"
+	"github.com/freight-platform/rfx-service/internal/erpjson"
 	apperrors "github.com/freight-platform/rfx-service/internal/platform/errors"
 	"github.com/freight-platform/rfx-service/internal/platform/respond"
 	"github.com/freight-platform/rfx-service/internal/service"
-	"github.com/freight-platform/rfx-service/internal/erpjson"
 )
 
 type ErpIntegrationHandler struct {
@@ -63,7 +65,36 @@ func (h *ErpIntegrationHandler) PreviewUpdateDraft(w http.ResponseWriter, r *htt
 	writePreviewResponse(w, preview)
 }
 
+func requireERPJSONContentType(r *http.Request) error {
+	raw := strings.TrimSpace(r.Header.Get("Content-Type"))
+	if raw == "" {
+		return unsupportedERPMediaType()
+	}
+	mediaType, params, err := mime.ParseMediaType(raw)
+	if err != nil {
+		return unsupportedERPMediaType()
+	}
+	if !strings.EqualFold(mediaType, "application/json") {
+		return unsupportedERPMediaType()
+	}
+	if charset, ok := params["charset"]; ok && !strings.EqualFold(strings.TrimSpace(charset), "utf-8") {
+		return unsupportedERPMediaType()
+	}
+	return nil
+}
+
+func unsupportedERPMediaType() error {
+	return apperrors.Validation("unsupported media type", map[string]any{
+		"field":        "content_type",
+		"machine_code": erpjson.MachineCodeUnsupportedMediaType,
+		"message_key":  "rfx.erp.unsupported_media_type",
+	})
+}
+
 func readERPJSONBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
+	if err := requireERPJSONContentType(r); err != nil {
+		return nil, err
+	}
 	defer r.Body.Close()
 	raw, err := io.ReadAll(io.LimitReader(r.Body, erpjson.MaxBodyBytes+1))
 	if err != nil {

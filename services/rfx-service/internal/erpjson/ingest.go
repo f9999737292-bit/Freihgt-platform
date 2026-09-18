@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 )
 
 // IngestJSON validates size, depth, duplicate keys, then decodes into v.
@@ -97,7 +98,28 @@ func IngestErrorToIssues(err error) []Issue {
 			path = path[1 : len(path)-1]
 		}
 		return []Issue{errIssue(MachineCodeDuplicateField, path, "rfx.erp.duplicate_field")}
+	case msg == "trailing json":
+		return []Issue{errIssue(MachineCodeInvalidType, "", "rfx.erp.invalid_json")}
+	case strings.HasPrefix(msg, `json: unknown field "`):
+		field := strings.TrimSuffix(strings.TrimPrefix(msg, `json: unknown field "`), `"`)
+		return []Issue{errIssue(MachineCodeUnknownField, field, "rfx.erp.unknown_field")}
 	default:
 		return []Issue{errIssue(MachineCodeInvalidType, "", "rfx.erp.invalid_json")}
 	}
+}
+
+func prefixIssuePaths(issues []Issue, prefix string) []Issue {
+	if prefix == "" {
+		return issues
+	}
+	out := make([]Issue, len(issues))
+	copy(out, issues)
+	for i := range out {
+		if out[i].Path == "" {
+			out[i].Path = prefix
+			continue
+		}
+		out[i].Path = prefix + "." + out[i].Path
+	}
+	return out
 }

@@ -48,8 +48,15 @@ func injectIntegrationHeaders(req *http.Request, tenantID, companyID, principalI
 
 func postERPPreview(t *testing.T, router http.Handler, path string, tenantID, companyID, principalID uuid.UUID, scopes []string, body []byte) *httptest.ResponseRecorder {
 	t.Helper()
+	return postERPPreviewWithContentType(t, router, path, tenantID, companyID, principalID, scopes, body, "application/json")
+}
+
+func postERPPreviewWithContentType(t *testing.T, router http.Handler, path string, tenantID, companyID, principalID uuid.UUID, scopes []string, body []byte, contentType string) *httptest.ResponseRecorder {
+	t.Helper()
 	req := httptest.NewRequest(http.MethodPost, path, bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
 	injectIntegrationHeaders(req, tenantID, companyID, principalID, scopes...)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
