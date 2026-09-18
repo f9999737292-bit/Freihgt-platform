@@ -27,6 +27,7 @@ const questionnaireApi = inject(RFX_QUESTIONNAIRE_API_KEY)!
 const scoreApi = inject(RFX_SCORE_MODEL_API_KEY) ?? useRfxScoreModelApi(toRef(props, 'eventId'))
 
 const showPublishConfirm = ref(false)
+const bootstrapping = ref(false)
 
 const bindableQuestions = computed(() => {
   const studioSections = questionnaireApi.studio.value?.sections ?? []
@@ -62,12 +63,17 @@ const questionByCode = computed(() => {
 const weightTotal = computed(() => totalWeight(scoreApi.draftCriteria.value))
 
 async function loadAll() {
-  await questionnaireApi.loadAll()
-  await scoreApi.loadScoreModel()
-  if (scoreApi.view.value) {
-    scoreApi.bindQuestionCodes(
-      bindableQuestions.value.map((q) => ({ id: q.id, question_code: q.question_code })),
-    )
+  bootstrapping.value = true
+  try {
+    await questionnaireApi.loadAll()
+    await scoreApi.loadScoreModel()
+    if (scoreApi.view.value) {
+      scoreApi.bindQuestionCodes(
+        bindableQuestions.value.map((q) => ({ id: q.id, question_code: q.question_code })),
+      )
+    }
+  } finally {
+    bootstrapping.value = false
   }
 }
 
@@ -161,7 +167,11 @@ watch(() => props.eventId, loadAll)
 
 <template>
   <div class="scoring-workspace" data-testid="rfx-scoring-workspace">
-    <div v-if="scoreApi.loading.value" class="state-banner" data-testid="scoring-state-loading">
+    <div
+      v-if="bootstrapping || scoreApi.loading.value"
+      class="state-banner"
+      data-testid="scoring-state-loading"
+    >
       {{ t('common.loading') }}
     </div>
 

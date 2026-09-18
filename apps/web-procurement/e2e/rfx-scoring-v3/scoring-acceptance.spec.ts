@@ -16,7 +16,10 @@ import {
   bootstrapProcurementSession,
   assertBrowserResponsesApi,
   assertBrowserScoresApi,
+  addScoringCriteria,
   gotoScoringStep,
+  saveScoringDraft,
+  validateScoringReadiness,
   waitForScoringModelReady,
 } from "./helpers";
 
@@ -42,11 +45,9 @@ test.describe("RFx v3.0D scoring browser acceptance", () => {
     await gotoScoringStep(page);
     await waitForScoringModelReady(page);
 
-    const addCriterion = page.getByTestId("scoring-add-criterion");
+    await addScoringCriteria(page, 1);
+    await addScoringCriteria(page, 2);
     const cards = page.getByTestId("scoring-criterion-card");
-    await addCriterion.scrollIntoViewIfNeeded();
-    await addCriterion.click();
-    await addCriterion.click();
     await expect(cards).toHaveCount(2, { timeout: 30_000 });
 
     const codeInputs = page.getByTestId("scoring-criterion-code");
@@ -75,11 +76,8 @@ test.describe("RFx v3.0D scoring browser acceptance", () => {
       .nth(0)
       .getByTestId("scoring-knockout-boolean-false")
       .check();
-    await page.getByTestId("scoring-save-draft").click();
-    await page.getByTestId("scoring-validate").click();
-    await expect(page.getByTestId("scoring-readiness-ready")).toBeVisible({
-      timeout: 60_000,
-    });
+    await saveScoringDraft(page);
+    await validateScoringReadiness(page);
 
     await page.getByTestId("scoring-publish").click();
     await page.getByTestId("scoring-publish-confirm").click();

@@ -6,6 +6,7 @@ import {
   jwt,
   seedBuyerAdminSession,
   stubBuyerCompanies,
+  loadScoringStepWithTenantProbe,
   scoringModelPath,
   gotoScoringStep,
   waitForScoringModelReady,
@@ -74,14 +75,7 @@ test.describe("RFx v3.0D scoring readiness diagnostics", () => {
   }) => {
     test.skip(!adminURL || !gatewayURL || !jwt, "BROWSER_E2E URLs required");
 
-    let observedTenant = "";
-    await page.route(`**${scoringModelPath()}`, async (route) => {
-      observedTenant = route.request().headers()["x-tenant-id"] ?? "";
-      await route.continue();
-    });
-
-    await gotoScoringStep(page);
-    await waitForScoringModelReady(page);
+    const observedTenant = await loadScoringStepWithTenantProbe(page);
     expect(observedTenant).toBe(process.env.BROWSER_E2E_TENANT_ID);
     expect(observedTenant.length).toBeGreaterThan(0);
   });

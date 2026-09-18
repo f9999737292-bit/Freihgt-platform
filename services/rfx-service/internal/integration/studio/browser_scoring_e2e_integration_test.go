@@ -29,6 +29,7 @@ type webProcurementCmd struct {
 	cancel context.CancelFunc
 	port   string
 	logs   []*os.File
+	launch *nuxtDevLaunch
 }
 
 func TestRfxScoringV3_BrowserE2E_Acceptance(t *testing.T) {
@@ -38,6 +39,7 @@ func TestRfxScoringV3_BrowserE2E_Acceptance(t *testing.T) {
 	if strings.TrimSpace(os.Getenv("TEST_DATABASE_URL")) == "" {
 		t.Fatal("TEST_DATABASE_URL is required when BROWSER_E2E=1")
 	}
+	t.Cleanup(func() { verifyBrowserHarnessCleanup(t) })
 	stack := startBrowserScoringLiveStack(t)
 	t.Cleanup(func() {
 		dumpGatewayLogsOnFailure(t, stack.gatewayProc)
@@ -56,6 +58,7 @@ func TestRfxScoringV3_BrowserE2E_ReadinessDiagnostics(t *testing.T) {
 	if strings.TrimSpace(os.Getenv("TEST_DATABASE_URL")) == "" {
 		t.Fatal("TEST_DATABASE_URL is required when BROWSER_E2E=1")
 	}
+	t.Cleanup(func() { verifyBrowserHarnessCleanup(t) })
 	stack := startBrowserScoringLiveStack(t)
 	t.Cleanup(func() {
 		dumpGatewayLogsOnFailure(t, stack.gatewayProc)
@@ -64,6 +67,44 @@ func TestRfxScoringV3_BrowserE2E_ReadinessDiagnostics(t *testing.T) {
 	verifyScoringGatewayProbe(t, stack)
 	if err := runScoringV3PlaywrightReadinessSuite(t, stack); err != nil {
 		t.Fatalf("playwright scoring v3 readiness suite: %v", err)
+	}
+}
+
+func TestRfxScoringV3_BrowserE2E_CriterionStabilityLoop(t *testing.T) {
+	if os.Getenv("BROWSER_E2E") != "1" {
+		t.Skip("set BROWSER_E2E=1 to run live browser E2E against local stack")
+	}
+	if strings.TrimSpace(os.Getenv("TEST_DATABASE_URL")) == "" {
+		t.Fatal("TEST_DATABASE_URL is required when BROWSER_E2E=1")
+	}
+	t.Cleanup(func() { verifyBrowserHarnessCleanup(t) })
+	stack := startBrowserScoringLiveStack(t)
+	t.Cleanup(func() {
+		dumpGatewayLogsOnFailure(t, stack.gatewayProc)
+		writeGatewayFailureArtifact(t, stack.gatewayProc)
+	})
+	verifyScoringGatewayProbe(t, stack)
+	if err := runScoringV3PlaywrightCriterionLoopSuite(t, stack); err != nil {
+		t.Fatalf("playwright scoring v3 criterion stability loop: %v", err)
+	}
+}
+
+func TestRfxScoringV3_BrowserE2E_Ready03IsolationLoop(t *testing.T) {
+	if os.Getenv("BROWSER_E2E") != "1" {
+		t.Skip("set BROWSER_E2E=1 to run live browser E2E against local stack")
+	}
+	if strings.TrimSpace(os.Getenv("TEST_DATABASE_URL")) == "" {
+		t.Fatal("TEST_DATABASE_URL is required when BROWSER_E2E=1")
+	}
+	t.Cleanup(func() { verifyBrowserHarnessCleanup(t) })
+	stack := startBrowserScoringLiveStack(t)
+	t.Cleanup(func() {
+		dumpGatewayLogsOnFailure(t, stack.gatewayProc)
+		writeGatewayFailureArtifact(t, stack.gatewayProc)
+	})
+	verifyScoringGatewayProbe(t, stack)
+	if err := runScoringV3PlaywrightReady03LoopSuite(t, stack); err != nil {
+		t.Fatalf("playwright scoring v3 READY-03 loop: %v", err)
 	}
 }
 
@@ -131,21 +172,21 @@ func startBrowserProductionGatewayWithOrigins(t *testing.T, rfxServiceURL, origi
 
 func startBrowserWebProcurement(t *testing.T, gatewayURL string, fix browserStudioFixture, port string) (string, *webProcurementCmd) {
 	t.Helper()
-	launch := prepareNuxtDevLaunch(t, "web-procurement", port)
-	ctx, cancel := context.WithCancel(context.Background())
-	env := appendNuxtDevEnv(append(os.Environ(),
+	env := append(os.Environ(),
 		"NUXT_PUBLIC_API_BASE_URL="+gatewayURL,
 		"NUXT_PUBLIC_DEFAULT_TENANT_ID="+fix.TenantID.String(),
 		"NUXT_E2E_DISABLE_SSR=true",
-	), launch)
-	cmd, logFile := startNuxtDevCommand(t, ctx, "web-procurement", port, env)
-	assertNuxtDevStarted(t, port, logFile.Name())
-	return "http://127.0.0.1:" + port, &webProcurementCmd{
+	)
+	cmd, cancel, logFile, launch := bootNuxtDevApp(t, "web-procurement", port, env)
+	proc := &webProcurementCmd{
 		cmd:    cmd,
 		cancel: cancel,
 		port:   port,
 		logs:   []*os.File{logFile},
+		launch: launch,
 	}
+	t.Cleanup(func() { stopBrowserWebProcurement(t, proc) })
+	return "http://127.0.0.1:" + port, proc
 }
 
 func (s *browserScoringLiveStack) shutdown(t *testing.T) {
@@ -170,6 +211,9 @@ func stopBrowserWebProcurement(t *testing.T, proc *webProcurementCmd) {
 		proc.cancel()
 	}
 	stopNuxtDevProcess(t, proc.cmd, proc.port)
+	if proc.launch != nil {
+		proc.launch.releaseImmediate(t)
+	}
 	for _, logFile := range proc.logs {
 		_ = logFile.Close()
 	}
@@ -187,6 +231,8 @@ func runScoringV3PlaywrightSuite(t *testing.T, stack *browserScoringLiveStack) e
 	cmd.Dir = e2eDir
 	fix := stack.fixture
 	cmd.Env = append(os.Environ(),
+		"BROWSER_E2E_SCORING_READINESS=",
+		"BROWSER_E2E_READY03_LOOP=",
 		"BROWSER_E2E_ADMIN_URL="+stack.adminURL,
 		"BROWSER_E2E_PROCUREMENT_URL="+stack.procurementURL,
 		"BROWSER_E2E_GATEWAY_URL="+stack.gatewayURL,
@@ -228,6 +274,7 @@ func runScoringV3PlaywrightReadinessSuite(t *testing.T, stack *browserScoringLiv
 	fix := stack.fixture
 	cmd.Env = append(os.Environ(),
 		"BROWSER_E2E_SCORING_READINESS=1",
+		"BROWSER_E2E_READY03_LOOP=",
 		"BROWSER_E2E_ADMIN_URL="+stack.adminURL,
 		"BROWSER_E2E_PROCUREMENT_URL="+stack.procurementURL,
 		"BROWSER_E2E_GATEWAY_URL="+stack.gatewayURL,
@@ -254,4 +301,84 @@ func runScoringV3PlaywrightReadinessSuite(t *testing.T, stack *browserScoringLiv
 		}
 	}
 	return err
+}
+
+func runScoringV3PlaywrightCriterionLoopSuite(t *testing.T, stack *browserScoringLiveStack) error {
+	t.Helper()
+	root, err := repoRoot()
+	if err != nil {
+		return err
+	}
+	e2eDir := filepath.Join(root, "apps", "web-procurement", "e2e", "rfx-scoring-v3")
+	configPath := filepath.Join(e2eDir, "playwright.config.ts")
+	cmd := exec.Command("npx", "playwright", "test", "--config", configPath)
+	cmd.Dir = e2eDir
+	fix := stack.fixture
+	cmd.Env = append(os.Environ(),
+		"BROWSER_E2E_CRITERION_LOOP=1",
+		"BROWSER_E2E_SCORING_READINESS=",
+		"BROWSER_E2E_READY03_LOOP=",
+		"BROWSER_E2E_ADMIN_URL="+stack.adminURL,
+		"BROWSER_E2E_PROCUREMENT_URL="+stack.procurementURL,
+		"BROWSER_E2E_GATEWAY_URL="+stack.gatewayURL,
+		"BROWSER_E2E_JWT="+fix.JWT,
+		"BROWSER_E2E_TENANT_ID="+fix.TenantID.String(),
+		"BROWSER_E2E_BUYER_COMPANY_ID="+fix.CompanyID.String(),
+		"BROWSER_E2E_EVENT_ID="+fix.EventID.String(),
+		"BROWSER_E2E_RFX_NUMBER="+fix.RfxNumber,
+		"BROWSER_E2E_USER_ID="+fix.UserID.String(),
+	)
+	output, err := cmd.CombinedOutput()
+	if len(output) > 0 {
+		t.Logf("playwright scoring v3 criterion loop output:\n%s", string(output))
+	}
+	return err
+}
+
+func runScoringV3PlaywrightReady03LoopSuite(t *testing.T, stack *browserScoringLiveStack) error {
+	t.Helper()
+	root, err := repoRoot()
+	if err != nil {
+		return err
+	}
+	e2eDir := filepath.Join(root, "apps", "web-procurement", "e2e", "rfx-scoring-v3")
+	configPath := filepath.Join(e2eDir, "playwright.config.ts")
+	cmd := exec.Command("npx", "playwright", "test", "--config", configPath)
+	cmd.Dir = e2eDir
+	fix := stack.fixture
+	cmd.Env = append(os.Environ(),
+		"BROWSER_E2E_SCORING_READINESS=",
+		"BROWSER_E2E_READY03_LOOP=1",
+		"BROWSER_E2E_ADMIN_URL="+stack.adminURL,
+		"BROWSER_E2E_PROCUREMENT_URL="+stack.procurementURL,
+		"BROWSER_E2E_GATEWAY_URL="+stack.gatewayURL,
+		"BROWSER_E2E_JWT="+fix.JWT,
+		"BROWSER_E2E_TENANT_ID="+fix.TenantID.String(),
+		"BROWSER_E2E_BUYER_COMPANY_ID="+fix.CompanyID.String(),
+		"BROWSER_E2E_EVENT_ID="+fix.EventID.String(),
+		"BROWSER_E2E_RFX_NUMBER="+fix.RfxNumber,
+		"BROWSER_E2E_USER_ID="+fix.UserID.String(),
+	)
+	output, err := cmd.CombinedOutput()
+	if len(output) > 0 {
+		t.Logf("playwright scoring v3 READY-03 loop output:\n%s", string(output))
+	}
+	return err
+}
+
+func verifyBrowserHarnessCleanup(t *testing.T) {
+	t.Helper()
+	for _, port := range []string{"3020", "3022", "3023"} {
+		if devPortInUse(port) {
+			t.Errorf("dev port %s still in use after cleanup", port)
+		}
+	}
+	dirs, err := listTaskOwnedTempBuildDirs()
+	if err != nil {
+		t.Errorf("list task-owned temp build dirs: %v", err)
+		return
+	}
+	if len(dirs) > 0 {
+		t.Errorf("TEMP_BUILD_DIR_LEAKS=%d dirs=%v", len(dirs), dirs)
+	}
 }

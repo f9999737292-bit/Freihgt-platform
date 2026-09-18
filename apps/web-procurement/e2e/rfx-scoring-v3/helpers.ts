@@ -179,6 +179,47 @@ export function scoringModelPath(forEvent = eventId) {
   return `/api/v1/rfx-events/${forEvent}/score-model`;
 }
 
+function scoreModelTenantHeader(
+  headers: Record<string, string>,
+): string {
+  return (
+    headers["x-tenant-id"] ??
+    headers["X-Tenant-ID"] ??
+    ""
+  ).trim();
+}
+
+function isScoreModelGetRequest(url: string, method: string, forEvent = eventId) {
+  return (
+    method === "GET" &&
+    url.includes(scoringModelPath(forEvent))
+  );
+}
+
+/** Install before navigation; resolves when a score-model GET carries X-Tenant-ID. */
+export function waitForScoreModelTenantRequest(
+  page: Page,
+  options?: { timeout?: number; forEventId?: string },
+) {
+  const forEvent = options?.forEventId ?? eventId;
+  const path = scoringModelPath(forEvent);
+  return page.waitForRequest(
+    (req) =>
+      isScoreModelGetRequest(req.url(), req.method(), forEvent) &&
+      scoreModelTenantHeader(req.headers()).length > 0,
+    { timeout: options?.timeout ?? 120_000 },
+  );
+}
+
+/** Open scoring step and return tenant header from the authoritative score-model GET. */
+export async function loadScoringStepWithTenantProbe(page: Page) {
+  const tenantRequest = waitForScoreModelTenantRequest(page);
+  await gotoScoringStep(page);
+  await waitForScoringModelReady(page);
+  const request = await tenantRequest;
+  return scoreModelTenantHeader(request.headers());
+}
+
 /** Wait for studio shell API before scoring workspace assertions. */
 export async function waitForStudioLoad(page: Page) {
   return page.waitForResponse(
@@ -288,12 +329,17 @@ export async function probeScoringModelLoad(
   );
 }
 
+export function scoringWorkspaceLoading(page: Page) {
+  return page.getByTestId("scoring-state-loading");
+}
+
 /** Wait until scoring model UI is interactive; fail fast on load error banner. */
 export async function waitForScoringModelReady(
   page: Page,
   options?: { timeout?: number },
 ) {
   const timeout = options?.timeout ?? 120_000;
+  await expect(scoringWorkspaceLoading(page)).toBeHidden({ timeout });
   await expect
     .poll(
       async () => {
@@ -305,6 +351,7 @@ export async function waitForScoringModelReady(
             }${probe.reason ? ` body=${probe.reason}` : ""}`,
           );
         }
+        if (await scoringWorkspaceLoading(page).isVisible()) return "pending";
         const ready = await page.getByTestId("scoring-model-ready").isVisible();
         if (!ready) return "pending";
         const addCriterion = page.getByTestId("scoring-add-criterion");
@@ -318,6 +365,70 @@ export async function waitForScoringModelReady(
       { timeout, intervals: [250, 500, 1000] },
     )
     .toBe("ready");
+}
+
+/** Click add-criterion until criterion card count reaches expected value. */
+export async function addScoringCriteria(
+  page: Page,
+  expectedCount: number,
+  options?: { timeout?: number },
+) {
+  const timeout = options?.timeout ?? 30_000;
+  const cards = page.getByTestId("scoring-criterion-card");
+  await expect(scoringWorkspaceLoading(page)).toBeHidden({ timeout });
+  let current = await cards.count();
+  while (current < expectedCount) {
+    await expect(page.getByTestId("scoring-add-criterion")).toBeEnabled({
+      timeout,
+    });
+    await page.getByTestId("scoring-add-criterion").click();
+    current += 1;
+    await expect(cards).toHaveCount(current, { timeout });
+    await expect(scoringWorkspaceLoading(page)).toBeHidden({ timeout });
+  }
+  await expect(cards).toHaveCount(expectedCount, { timeout });
+}
+
+/** Persist scoring draft and wait for PUT completion before further mutations. */
+export async function saveScoringDraft(page: Page, options?: { timeout?: number }) {
+  const timeout = options?.timeout ?? 60_000;
+  await expect(scoringWorkspaceLoading(page)).toBeHidden({ timeout });
+  const saveBtn = page.getByTestId("scoring-save-draft");
+  await expect(saveBtn).toBeEnabled({ timeout });
+  const saveResponse = page.waitForResponse(
+    (resp) =>
+      resp.request().method() === "PUT" &&
+      resp.url().includes(scoringModelPath()) &&
+      resp.status() < 500,
+    { timeout },
+  );
+  await saveBtn.click();
+  await saveResponse;
+  await expect(scoringWorkspaceLoading(page)).toBeHidden({ timeout });
+}
+
+/** Run readiness validation and wait for ready panel. */
+export async function validateScoringReadiness(
+  page: Page,
+  options?: { timeout?: number },
+) {
+  const timeout = options?.timeout ?? 60_000;
+  await expect(scoringWorkspaceLoading(page)).toBeHidden({ timeout });
+  const validateBtn = page.getByTestId("scoring-validate");
+  await expect(validateBtn).toBeEnabled({ timeout });
+  const validateResponse = page.waitForResponse(
+    (resp) =>
+      resp.url().includes("/score-model/validate") &&
+      resp.request().method() === "POST" &&
+      resp.status() < 500,
+    { timeout },
+  );
+  await validateBtn.click();
+  await validateResponse;
+  await expect(scoringWorkspaceLoading(page)).toBeHidden({ timeout });
+  await expect(page.getByTestId("scoring-readiness-ready")).toBeVisible({
+    timeout,
+  });
 }
 
 /** Seed procurement-origin localStorage and warm Pinia session before cross-app studio steps. */

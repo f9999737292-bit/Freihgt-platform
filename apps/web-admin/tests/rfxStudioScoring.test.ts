@@ -9,6 +9,7 @@ import {
   readinessErrorMessage,
   toApiCriterionInput,
   totalWeight,
+  viewToDraftInput,
 } from '../utils/rfxStudioScoring'
 
 describe('rfxStudioScoring helpers', () => {
@@ -124,6 +125,61 @@ describe('criterion stable render keys', () => {
     expect(payload).not.toHaveProperty('persisted_id')
     expect(payload.criterion_code).toBe('CRITERION_1')
   })
+
+  it('preserves knockout binding on stable criterion key after delete and reorder', () => {
+    const hse = { ...newCriterion(1), criterion_code: 'HSE', name: 'HSE', weight: 40 }
+    const price = { ...newCriterion(2), criterion_code: 'PRICE', name: 'Price', weight: 60 }
+    const hseClientKey = criterionRenderKey(hse)
+    const knockoutBinding = {
+      criterion_code: 'HSE',
+      question_code: 'Q_YES_NO',
+      knockout_rule_json: { type: 'BOOLEAN_FALSE_KNOCKOUT', value: false },
+    }
+    const bindings = [
+      knockoutBinding,
+      {
+        criterion_code: 'PRICE',
+        question_code: 'Q_NUMBER',
+        knockout_rule_json: null,
+      },
+    ]
+    const serverRecords = [
+      {
+        criterion_code: 'HSE',
+        name: 'HSE',
+        weight: 40,
+        normalization_json: hse.normalization_json,
+        id: 'server-hse',
+      },
+      {
+        criterion_code: 'PRICE',
+        name: 'Price',
+        weight: 60,
+        normalization_json: price.normalization_json,
+        id: 'server-price',
+      },
+    ]
+    const beforeHash = JSON.stringify(viewToDraftInput(serverRecords, bindings))
+
+    const afterDelete = mergeCriterionClientKeys([price], [serverRecords[1]])
+    expect(afterDelete).toHaveLength(1)
+    expect(
+      bindings.find((binding) => binding.criterion_code === 'HSE')?.knockout_rule_json,
+    ).toEqual(knockoutBinding.knockout_rule_json)
+
+    const restored = mergeCriterionClientKeys(
+      [{ ...price, sort_order: 2 }, hse],
+      serverRecords,
+    )
+    const restoredHse = restored.find((c) => c.criterion_code === 'HSE')!
+    expect(restoredHse.client_render_key).toBe(hse.client_render_key)
+    expect(criterionRenderKey(restoredHse)).toBe('persisted:server-hse')
+    expect(hseClientKey).toMatch(/^client:/)
+
+    const afterHash = JSON.stringify(viewToDraftInput(serverRecords, bindings))
+    expect(afterHash).toBe(beforeHash)
+    expect(toApiCriterionInput(restored[0], 0)).not.toHaveProperty('client_render_key')
+  })
 })
 
 describe('RfxScoringWorkspace readiness markers', () => {
@@ -140,5 +196,8 @@ describe('RfxScoringWorkspace readiness markers', () => {
     expect(source).toContain('data-testid="scoring-add-criterion"')
     expect(source).toContain('criterionRenderKey(criterion)')
     expect(source).not.toMatch(/:key="index"/)
+    expect(source).toContain('const bootstrapping = ref(false)')
+    expect(source).toContain('bootstrapping || scoreApi.loading.value')
+    expect(source).toMatch(/bootstrapping\.value = true[\s\S]*questionnaireApi\.loadAll/)
   })
 })
