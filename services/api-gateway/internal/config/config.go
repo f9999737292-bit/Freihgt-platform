@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/freight-platform/api-gateway/internal/controltower/legacyaggregate"
 	"github.com/freight-platform/api-gateway/internal/controltowerreadmodel"
+	"github.com/freight-platform/shared-go/clientip"
 )
 
 type ServiceURLs struct {
@@ -37,26 +39,31 @@ type ControlTowerConfig struct {
 }
 
 type Config struct {
-	ServiceName         string
-	Environment         string
-	HTTPPort            int
-	LogLevel            string
-	Services            ServiceURLs
-	ControlTower        ControlTowerConfig
-	AuthEnabled         bool
-	JWTSecret           string
-	DevTenantID         string
-	CORSAllowedOrigins  []string
-	ProxyTimeoutSeconds int
-	ReadyCheckTimeoutMS int
-	OpenAPIDir          string
-	RateLimitEnabled    bool
-	RateLimitRPS        float64
-	RateLimitBurst      int
-	MaxRequestBodyBytes int64
-	TrackingInternalToken string
-	InternalServiceToken  string
-	RfxExcelExchangeEnabled bool
+	ServiceName                string
+	Environment                string
+	HTTPPort                   int
+	LogLevel                   string
+	Services                   ServiceURLs
+	ControlTower               ControlTowerConfig
+	AuthEnabled                bool
+	JWTSecret                  string
+	IntegrationJWTSecret       string
+	TrustedProxyCIDRs          string
+	TrustedProxyNetworks       []*net.IPNet
+	DevTenantID                string
+	CORSAllowedOrigins         []string
+	ProxyTimeoutSeconds        int
+	ReadyCheckTimeoutMS        int
+	OpenAPIDir                 string
+	RateLimitEnabled           bool
+	RateLimitRPS               float64
+	RateLimitBurst             int
+	MaxRequestBodyBytes        int64
+	TrackingInternalToken      string
+	InternalServiceToken       string
+	RfxExcelExchangeEnabled    bool
+	IntegrationAuthEnabled     bool
+	IntegrationRateLimitPerMin int
 }
 
 func Load() (Config, error) {
@@ -84,6 +91,20 @@ func Load() (Config, error) {
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
 		jwtSecret = "dev_secret_change_me"
+	}
+	environment := getEnv("ENVIRONMENT", "development")
+	integrationAuthEnabled := parseBool(getEnv("INTEGRATION_AUTH_ENABLED", "true"))
+	integrationJWTSecret := strings.TrimSpace(os.Getenv("INTEGRATION_JWT_SECRET"))
+	if integrationJWTSecret == "" {
+		if integrationAuthEnabled && isProductionEnvironment(environment) {
+			return Config{}, fmt.Errorf("INTEGRATION_JWT_SECRET is required when INTEGRATION_AUTH_ENABLED=true in production")
+		}
+		integrationJWTSecret = "dev_integration_jwt_secret_change_me"
+	}
+	trustedProxyCIDRs := strings.TrimSpace(os.Getenv("TRUSTED_PROXY_CIDRS"))
+	trustedProxyNetworks, err := clientip.ParseTrustedProxyCIDRs(trustedProxyCIDRs)
+	if err != nil {
+		return Config{}, fmt.Errorf("invalid TRUSTED_PROXY_CIDRS: %w", err)
 	}
 
 	proxyTimeout := 30
@@ -147,7 +168,7 @@ func Load() (Config, error) {
 
 	return Config{
 		ServiceName: "api-gateway",
-		Environment: getEnv("ENVIRONMENT", "development"),
+		Environment: environment,
 		HTTPPort:    port,
 		LogLevel:    getEnv("LOG_LEVEL", "info"),
 		OpenAPIDir:  resolveOpenAPIDir(getEnv("OPENAPI_DIR", "")),
@@ -174,20 +195,34 @@ func Load() (Config, error) {
 			ContractRate:    getEnv("CONTRACT_RATE_SERVICE_URL", "http://localhost:8091"),
 			FreightCost:     getEnv("FREIGHT_COST_SERVICE_URL", "http://localhost:8092"),
 		},
-		AuthEnabled:         authEnabled,
-		JWTSecret:           jwtSecret,
-		DevTenantID:         getEnv("DEV_TENANT_ID", ""),
-		CORSAllowedOrigins:  parseOrigins(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:5173")),
-		ProxyTimeoutSeconds: proxyTimeout,
-		ReadyCheckTimeoutMS: readyTimeoutMS,
-		RateLimitEnabled:    rateLimitEnabled,
-		RateLimitRPS:        rateLimitRPS,
-		RateLimitBurst:      rateLimitBurst,
-		MaxRequestBodyBytes: maxBodyBytes,
-		TrackingInternalToken: getEnv("TRACKING_INTERNAL_SERVICE_TOKEN", getEnv("INTERNAL_SERVICE_TOKEN", "dev_internal_tracking_token")),
-		InternalServiceToken:    getEnv("INTERNAL_SERVICE_TOKEN", ""),
-		RfxExcelExchangeEnabled: parseBool(getEnv("RFX_EXCEL_EXCHANGE_ENABLED", "false")),
+		AuthEnabled:                authEnabled,
+		JWTSecret:                  jwtSecret,
+		IntegrationJWTSecret:       integrationJWTSecret,
+		TrustedProxyCIDRs:          trustedProxyCIDRs,
+		TrustedProxyNetworks:       trustedProxyNetworks,
+		DevTenantID:                getEnv("DEV_TENANT_ID", ""),
+		CORSAllowedOrigins:         parseOrigins(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:5173")),
+		ProxyTimeoutSeconds:        proxyTimeout,
+		ReadyCheckTimeoutMS:        readyTimeoutMS,
+		RateLimitEnabled:           rateLimitEnabled,
+		RateLimitRPS:               rateLimitRPS,
+		RateLimitBurst:             rateLimitBurst,
+		MaxRequestBodyBytes:        maxBodyBytes,
+		TrackingInternalToken:      getEnv("TRACKING_INTERNAL_SERVICE_TOKEN", getEnv("INTERNAL_SERVICE_TOKEN", "dev_internal_tracking_token")),
+		InternalServiceToken:       getEnv("INTERNAL_SERVICE_TOKEN", ""),
+		RfxExcelExchangeEnabled:    parseBool(getEnv("RFX_EXCEL_EXCHANGE_ENABLED", "false")),
+		IntegrationAuthEnabled:     integrationAuthEnabled,
+		IntegrationRateLimitPerMin: intEnv("INTEGRATION_RATE_LIMIT_PER_MIN", 60),
 	}, nil
+}
+
+func isProductionEnvironment(environment string) bool {
+	switch strings.ToLower(strings.TrimSpace(environment)) {
+	case "production", "prod", "staging":
+		return true
+	default:
+		return false
+	}
 }
 
 func parseBool(raw string) bool {

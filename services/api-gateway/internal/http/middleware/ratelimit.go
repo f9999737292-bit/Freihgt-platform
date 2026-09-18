@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -12,6 +11,7 @@ import (
 
 	apperrors "github.com/freight-platform/api-gateway/internal/platform/errors"
 	"github.com/freight-platform/api-gateway/internal/platform/respond"
+	"github.com/freight-platform/shared-go/clientip"
 )
 
 var rateLimitedTotal = prometheus.NewCounterVec(
@@ -32,9 +32,12 @@ type visitor struct {
 }
 
 // RateLimit applies an IP-based token bucket limiter to /api/v1/* routes.
-func RateLimit(enabled bool, rps float64, burst int, serviceName string) func(http.Handler) http.Handler {
+func RateLimit(enabled bool, rps float64, burst int, serviceName string, resolver *clientip.Resolver) func(http.Handler) http.Handler {
 	if !enabled {
 		return func(next http.Handler) http.Handler { return next }
+	}
+	if resolver == nil {
+		resolver = clientip.NewResolver(nil)
 	}
 
 	visitors := make(map[string]*visitor)
@@ -62,7 +65,11 @@ func RateLimit(enabled bool, rps float64, burst int, serviceName string) func(ht
 				return
 			}
 
-			ip := clientIP(r)
+			ip, err := resolver.ClientIP(r)
+			if err != nil || ip == "" {
+				respond.Error(w, apperrors.Forbidden("access_denied"))
+				return
+			}
 			mu.Lock()
 			v, exists := visitors[ip]
 			if !exists {
@@ -86,21 +93,4 @@ func RateLimit(enabled bool, rps float64, burst int, serviceName string) func(ht
 
 func shouldRateLimit(path string) bool {
 	return strings.HasPrefix(path, "/api/v1/")
-}
-
-func clientIP(r *http.Request) string {
-	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-		parts := strings.Split(forwarded, ",")
-		if ip := strings.TrimSpace(parts[0]); ip != "" {
-			return ip
-		}
-	}
-	if realIP := strings.TrimSpace(r.Header.Get("X-Real-IP")); realIP != "" {
-		return realIP
-	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
 }

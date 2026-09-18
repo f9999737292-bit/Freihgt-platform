@@ -6,10 +6,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	authmiddleware "github.com/freight-platform/identity-service/internal/http/middleware"
 	"github.com/freight-platform/identity-service/internal/http/handlers"
+	authmiddleware "github.com/freight-platform/identity-service/internal/http/middleware"
 	"github.com/freight-platform/identity-service/internal/platform/security"
 	"github.com/freight-platform/identity-service/internal/service"
+	"github.com/freight-platform/shared-go/clientip"
+	"github.com/freight-platform/shared-go/internalauth"
 	"github.com/freight-platform/shared-go/metrics"
 	"github.com/freight-platform/shared-go/observability"
 )
@@ -24,6 +26,9 @@ func NewRouter(
 	userService *service.UserService,
 	roleService *service.RoleService,
 	membershipService *service.MembershipService,
+	integrationOAuthHandler *handlers.IntegrationOAuthHandler,
+	integrationVerifyHandler *handlers.IntegrationVerifyHandler,
+	internalServiceToken string,
 ) http.Handler {
 	authHandler := handlers.NewAuthHandler(authService, roleService)
 	userHandler := handlers.NewUserHandler(userService, roleService)
@@ -31,6 +36,7 @@ func NewRouter(
 	membershipHandler := handlers.NewMembershipHandler(membershipService)
 
 	r := chi.NewRouter()
+	r.Use(clientip.CapturePeerMiddleware)
 	observability.Mount(r, observability.MountOptions{
 		ServiceName: serviceName,
 		Log:         log,
@@ -42,6 +48,14 @@ func NewRouter(
 		r.Post("/login", authHandler.Login)
 		r.With(authmiddleware.Auth(jwtService)).Get("/me", authHandler.Me)
 	})
+
+	if integrationOAuthHandler != nil {
+		r.Post("/v1/integrations/oauth/token", integrationOAuthHandler.Token)
+	}
+	if integrationVerifyHandler != nil {
+		internalAuth := internalauth.Config{Token: internalServiceToken, Environment: "production"}
+		r.With(internalAuth.Middleware).Post("/internal/v1/integrations/auth/verify-bearer", integrationVerifyHandler.VerifyBearer)
+	}
 
 	r.Route("/v1/users", func(r chi.Router) {
 		r.Post("/", userHandler.Create)

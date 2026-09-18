@@ -12,6 +12,7 @@ import (
 	"github.com/freight-platform/api-gateway/internal/config"
 	apperrors "github.com/freight-platform/api-gateway/internal/platform/errors"
 	"github.com/freight-platform/api-gateway/internal/platform/respond"
+	"github.com/freight-platform/shared-go/clientip"
 	sharedmiddleware "github.com/freight-platform/shared-go/middleware"
 )
 
@@ -22,8 +23,9 @@ type Route struct {
 }
 
 type ProxyHandler struct {
-	routes  []Route
-	timeout time.Duration
+	routes           []Route
+	timeout          time.Duration
+	clientIPResolver *clientip.Resolver
 }
 
 func NewProxyHandler(cfg config.Config) (*ProxyHandler, error) {
@@ -33,6 +35,7 @@ func NewProxyHandler(cfg config.Config) (*ProxyHandler, error) {
 		baseURL string
 	}{
 		{"/api/v1/auth", "identity-service", cfg.Services.Identity},
+		{"/api/v1/integrations", "identity-service", cfg.Services.Identity},
 		{"/api/v1/users", "identity-service", cfg.Services.Identity},
 		{"/api/v1/roles", "identity-service", cfg.Services.Identity},
 		{"/api/v1/companies", "company-service", cfg.Services.Company},
@@ -74,8 +77,9 @@ func NewProxyHandler(cfg config.Config) (*ProxyHandler, error) {
 	}
 
 	return &ProxyHandler{
-		routes:  routes,
-		timeout: time.Duration(cfg.ProxyTimeoutSeconds) * time.Second,
+		routes:           routes,
+		timeout:          time.Duration(cfg.ProxyTimeoutSeconds) * time.Second,
+		clientIPResolver: clientip.NewResolver(cfg.TrustedProxyNetworks),
 	}, nil
 }
 
@@ -99,24 +103,32 @@ func (p *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := sharedmiddleware.WithTargetService(r.Context(), route.Service)
 	r = r.WithContext(ctx)
 
-	proxy := httputil.NewSingleHostReverseProxy(route.Target)
-	proxy.Transport = &http.Transport{
-		Proxy:                 http.ProxyFromEnvironment,
-		ResponseHeaderTimeout: p.timeout,
-	}
-	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
-		respond.Error(w, apperrors.ServiceUnavailable("target service is unavailable", route.Service))
-	}
-
-	originalDirector := proxy.Director
-	proxy.Director = func(req *http.Request) {
-		originalDirector(req)
-		req.URL.Path = rewrittenPath
-		req.URL.RawPath = rewrittenPath
-		req.Host = route.Target.Host
-		if requestID := sharedmiddleware.RequestIDFromContext(r.Context()); requestID != "" {
-			req.Header.Set(sharedmiddleware.RequestIDHeader, requestID)
-		}
+	proxy := &httputil.ReverseProxy{
+		Transport: &http.Transport{
+			Proxy:                 http.ProxyFromEnvironment,
+			ResponseHeaderTimeout: p.timeout,
+		},
+		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
+			respond.Error(w, apperrors.ServiceUnavailable("target service is unavailable", route.Service))
+		},
+		Rewrite: func(pr *httputil.ProxyRequest) {
+			pr.SetURL(route.Target)
+			pr.Out.URL.Path = rewrittenPath
+			pr.Out.URL.RawPath = rewrittenPath
+			pr.Out.Host = route.Target.Host
+			if requestID := sharedmiddleware.RequestIDFromContext(r.Context()); requestID != "" {
+				pr.Out.Header.Set(sharedmiddleware.RequestIDHeader, requestID)
+			}
+			resolver := p.clientIPResolver
+			if resolver == nil {
+				resolver = clientip.NewResolver(nil)
+			}
+			clientIP, err := resolver.ClientIP(r)
+			if err != nil {
+				clientIP = ""
+			}
+			clientip.SetTrustedForwardedClientIP(pr.Out.Header, clientIP)
+		},
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), p.timeout)

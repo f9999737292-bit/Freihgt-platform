@@ -3,6 +3,7 @@ package http
 import (
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
@@ -28,6 +29,8 @@ import (
 	"github.com/freight-platform/api-gateway/internal/shipmentrbac"
 	"github.com/freight-platform/api-gateway/internal/tracking"
 	"github.com/freight-platform/api-gateway/internal/transportorderrbac"
+	"github.com/freight-platform/shared-go/clientip"
+	"github.com/freight-platform/shared-go/integrationauth"
 	"github.com/freight-platform/shared-go/metrics"
 	sharedmiddleware "github.com/freight-platform/shared-go/middleware"
 	"github.com/freight-platform/shared-go/observability"
@@ -39,16 +42,32 @@ const serviceName = "api-gateway"
 func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, controlTower *controltower.Handler, shipmentEvents *shipmentevents.Handler, trackingHandler *tracking.Handler, driverHandler *driver.Handler) http.Handler {
 	metricsCollector := metrics.New(serviceName)
 
+	clientIPResolver := clientip.NewResolver(cfg.TrustedProxyNetworks)
+
 	r := chi.NewRouter()
 	r.Use(sharedmiddleware.RequestID)
+	r.Use(clientip.CapturePeerMiddleware)
+	r.Use(clientip.StripSpoofableForwardedHeaders(clientIPResolver))
 	r.Use(chimiddleware.RealIP)
 	r.Use(sharedmiddleware.Recover(log, serviceName))
 	r.Use(sharedmiddleware.AccessLog(log, serviceName))
 	r.Use(metricsCollector.Middleware)
 	r.Use(gwmiddleware.MaxBodySize(cfg.MaxRequestBodyBytes))
-	r.Use(gwmiddleware.RateLimit(cfg.RateLimitEnabled, cfg.RateLimitRPS, cfg.RateLimitBurst, serviceName))
+	r.Use(gwmiddleware.RateLimit(cfg.RateLimitEnabled, cfg.RateLimitRPS, cfg.RateLimitBurst, serviceName, clientIPResolver))
 	r.Use(gwmiddleware.CORS(cfg.CORSAllowedOrigins))
-	r.Use(gwmiddleware.Auth(cfg.AuthEnabled, cfg.JWTSecret))
+	integrationJWT := integrationauth.NewJWTService(cfg.IntegrationJWTSecret, integrationauth.TokenTTL)
+	if proxy != nil {
+		proxy.clientIPResolver = clientIPResolver
+	}
+	r.Use(gwmiddleware.AuthWithIntegrationSupport(cfg.AuthEnabled, cfg.JWTSecret, integrationJWT, nil))
+	r.Use(gwmiddleware.IntegrationAuth(gwmiddleware.IntegrationAuthConfig{
+		Enabled:              cfg.IntegrationAuthEnabled,
+		IntegrationJWTSecret: cfg.IntegrationJWTSecret,
+		IdentityInternalURL:  cfg.Services.Identity,
+		InternalServiceToken: cfg.InternalServiceToken,
+		RateLimiter:          integrationauth.NewPrincipalRateLimiter(cfg.IntegrationRateLimitPerMin, time.Minute),
+		ClientIPResolver:     clientIPResolver,
+	}))
 
 	sharedpprof.Mount(r)
 

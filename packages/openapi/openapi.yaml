@@ -499,6 +499,59 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/v1/integrations/oauth/token:
+    post:
+      tags: [Auth]
+      summary: Obtain OAuth access token via client credentials
+      operationId: post_obtain_oauth_access_token_via_client_credentials
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [grant_type, client_id, client_secret]
+              properties:
+                grant_type:
+                  type: string
+                  enum: [client_credentials]
+                client_id:
+                  type: string
+                client_secret:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: OAuth access token issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthIntegrationTokenResponse'
+        '400':
+          description: Invalid OAuth request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthIntegrationErrorResponse'
+        '401':
+          description: Client authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthIntegrationErrorResponse'
+        '403':
+          description: Client IP not allowed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthIntegrationErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthIntegrationErrorResponse'
+
   /api/v1/users:
     post:
       tags: [Users]
@@ -16476,6 +16529,29 @@ components:
               $ref: '#/components/schemas/RfxBuyerXlsxImportEntityChangeCounts'
             offer_lines:
               $ref: '#/components/schemas/RfxBuyerXlsxImportEntityChangeCounts'
+
+    OAuthIntegrationTokenResponse:
+      type: object
+      required: [access_token, token_type, expires_in]
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          enum: [Bearer]
+        expires_in:
+          type: integer
+          format: int64
+        scope:
+          type: string
+    OAuthIntegrationErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+        error_description:
+          type: string
     HealthResponse:
       type: object
       properties:
