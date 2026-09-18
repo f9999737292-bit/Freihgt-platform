@@ -4,6 +4,7 @@ package studio
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"runtime"
@@ -205,7 +206,8 @@ func lookupWindowsProcess(t *testing.T, pid int) (portProcessInfo, bool) {
 	if len(parts) > 1 {
 		cmdLine = strings.TrimSpace(parts[1])
 	}
-	return portProcessInfo{PID: pid, ProcessName: name, CommandLine: cmdLine}, true
+	cwd := lookupProcessCwd(pid)
+	return portProcessInfo{PID: pid, ProcessName: name, CommandLine: cmdLine, Cwd: cwd}, true
 }
 
 func lookupUnixProcess(t *testing.T, pid int) (portProcessInfo, bool) {
@@ -224,7 +226,8 @@ func lookupUnixProcess(t *testing.T, pid int) (portProcessInfo, bool) {
 	if len(fields) > 1 {
 		cmdLine = strings.TrimSpace(strings.TrimPrefix(line, name))
 	}
-	return portProcessInfo{PID: pid, ProcessName: name, CommandLine: cmdLine}, true
+	cwd := lookupProcessCwd(pid)
+	return portProcessInfo{PID: pid, ProcessName: name, CommandLine: cmdLine, Cwd: cwd}, true
 }
 
 func killVerifiedStaleNuxtDevWindows(t *testing.T, port, worktreeRoot string) {
@@ -308,25 +311,40 @@ func devPortInUse(port string) bool {
 	return len(strings.Fields(string(out))) > 0
 }
 
-func assertNuxtDevStarted(t *testing.T, port string, logPath string) {
-	t.Helper()
-	if logPath == "" {
-		return
-	}
-	deadline := time.Now().Add(90 * time.Second)
+func waitForNuxtDevBoot(port, logPath string, timeout time.Duration) (ready bool, fatalReason string) {
+	deadline := time.Now().Add(timeout)
+	probeURL := "http://127.0.0.1:" + port + "/"
 	for time.Now().Before(deadline) {
-		data, err := os.ReadFile(logPath)
-		if err == nil {
-			state := evaluateNuxtDevBootLog(string(data), port, devPortInUse)
-			if state.ready {
-				return
+		if logPath != "" {
+			data, err := os.ReadFile(logPath)
+			if err == nil {
+				state := evaluateNuxtDevBootLog(string(data), port, devPortInUse)
+				if state.fatal {
+					return false, state.reason
+				}
 			}
-			if state.fatal {
-				dumpDevLogTail(t, logPath)
-				t.Fatalf("web dev on port %s failed; %s (log=%s)", port, state.reason, logPath)
+		}
+		resp, err := http.Get(probeURL)
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusInternalServerError {
+				return true, ""
 			}
 		}
 		time.Sleep(500 * time.Millisecond)
+	}
+	return false, ""
+}
+
+func assertNuxtDevStarted(t *testing.T, port string, logPath string) {
+	t.Helper()
+	ready, fatalReason := waitForNuxtDevBoot(port, logPath, 120*time.Second)
+	if fatalReason != "" {
+		dumpDevLogTail(t, logPath)
+		t.Fatalf("web dev on port %s failed; %s (log=%s)", port, fatalReason, logPath)
+	}
+	if ready {
+		return
 	}
 	dumpDevLogTail(t, logPath)
 	t.Fatalf("web dev on port %s did not finish booting within timeout (log=%s)", port, logPath)

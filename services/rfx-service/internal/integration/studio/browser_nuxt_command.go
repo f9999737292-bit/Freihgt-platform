@@ -53,10 +53,10 @@ func runNuxtPrepare(ctx context.Context, root, filterPackage string, env []strin
 	if !envHasIsolatedNuxtBuildDir(env) {
 		return nil
 	}
-	cmd := newNuxtPrepareCommand(ctx, root, filterPackage, env)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("nuxt prepare: %w: %s", err, string(out))
-	}
+	// Isolated temp build dirs: let `nuxt dev` prepare lazily. A separate prepare pass
+	// races with dev startup on Windows and can EBUSY-lock the temp `dev` directory.
+	_ = ctx
+	_ = root
+	_ = filterPackage
 	return nil
 }

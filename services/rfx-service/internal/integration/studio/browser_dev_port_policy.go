@@ -2,10 +2,12 @@ package studio
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 )
 
 var scopedDevPorts = map[string]struct{}{
+	"3020": {},
 	"3022": {},
 	"3023": {},
 }
@@ -14,6 +16,7 @@ type portProcessInfo struct {
 	PID         int
 	ProcessName string
 	CommandLine string
+	Cwd         string
 }
 
 func isScopedDevPort(port string) bool {
@@ -54,64 +57,180 @@ func isNodeProcessName(name string) bool {
 	}
 }
 
-func isTaskOwnedWorktree(commandLine, worktreeRoot string) bool {
-	root := strings.TrimSpace(worktreeRoot)
-	if root != "" && strings.Contains(commandLine, root) {
-		return true
+func extractNuxtEntryPath(commandLine string) (path string, isRelative bool, found bool) {
+	replaced := strings.NewReplacer("\"", " ", "'", " ").Replace(commandLine)
+	for _, token := range strings.Fields(replaced) {
+		if !strings.Contains(strings.ToLower(token), "nuxt.mjs") {
+			continue
+		}
+		cleaned := strings.Trim(token, `"'`)
+		return cleaned, !filepath.IsAbs(cleaned), true
 	}
-	cmd := strings.ToLower(commandLine)
-	return strings.Contains(cmd, "web-admin") ||
-		strings.Contains(cmd, "web-procurement") ||
-		strings.Contains(cmd, "@freight-platform/web-admin") ||
-		strings.Contains(cmd, "@freight-platform/web-procurement")
+	return "", false, false
 }
 
-func isTaskOwnedNuxtDevCommandLine(commandLine, worktreeRoot string) bool {
-	if isTaskOwnedWorktree(commandLine, worktreeRoot) {
-		return true
+func pnpmFilterPackage(commandLine string) (string, bool) {
+	replaced := strings.NewReplacer("\"", " ", "'", " ").Replace(commandLine)
+	fields := strings.Fields(replaced)
+	for i, field := range fields {
+		if strings.EqualFold(field, "--filter") || strings.EqualFold(field, "-F") {
+			if i+1 >= len(fields) {
+				return "", false
+			}
+			return strings.Trim(fields[i+1], `"'`), true
+		}
 	}
+	return "", false
+}
+
+func isPnpmNuxtDevLauncher(commandLine string) bool {
 	cmd := strings.ToLower(commandLine)
-	// pnpm --filter launches on Linux CI often use relative nuxt.mjs without app path.
-	return strings.Contains(cmd, "nuxt.mjs") && strings.Contains(cmd, "node_modules")
+	return strings.Contains(cmd, "pnpm") &&
+		strings.Contains(cmd, "exec") &&
+		strings.Contains(cmd, "nuxt") &&
+		strings.Contains(cmd, "dev")
+}
+
+func expectedPackageForAppDir(appDir string) (string, bool) {
+	switch filepath.Base(appDir) {
+	case "web-admin":
+		return "@freight-platform/web-admin", true
+	case "web-procurement":
+		return "@freight-platform/web-procurement", true
+	default:
+		return "", false
+	}
+}
+
+func resolveCommandNuxtPath(commandLine, cwd string) (string, bool) {
+	entryPath, isRelative, found := extractNuxtEntryPath(commandLine)
+	if !found {
+		return "", false
+	}
+	if filepath.IsAbs(entryPath) {
+		norm, ok := normalizePathForComparison(entryPath)
+		return norm, ok
+	}
+	if !isRelative || strings.TrimSpace(cwd) == "" {
+		return "", false
+	}
+	joined := filepath.Join(cwd, entryPath)
+	norm, ok := normalizePathForComparison(joined)
+	return norm, ok
+}
+
+func verifiedProcessCwd(proc portProcessInfo) (string, bool) {
+	if strings.TrimSpace(proc.Cwd) != "" {
+		norm, ok := normalizePathForComparison(proc.Cwd)
+		return norm, ok
+	}
+	cwd := lookupProcessCwd(proc.PID)
+	if strings.TrimSpace(cwd) == "" {
+		return "", false
+	}
+	norm, ok := normalizePathForComparison(cwd)
+	return norm, ok
+}
+
+func isTaskOwnedPnpmNuxtLauncher(port string, proc portProcessInfo, worktreeRoot string) (bool, string) {
+	if !isPnpmNuxtDevLauncher(proc.CommandLine) || !commandLineMatchesNuxtDevPort(proc.CommandLine, port) {
+		return false, "not a pnpm nuxt dev launcher"
+	}
+	filter, ok := pnpmFilterPackage(proc.CommandLine)
+	if !ok {
+		return false, "pnpm filter missing"
+	}
+	adminAppDir, procAppDir, ok := expectedNuxtAppDirs(worktreeRoot)
+	if !ok {
+		return false, "worktree root invalid"
+	}
+	expectedAdmin, _ := expectedPackageForAppDir(adminAppDir)
+	expectedProc, _ := expectedPackageForAppDir(procAppDir)
+	if filter != expectedAdmin && filter != expectedProc {
+		return false, "pnpm filter does not match expected app"
+	}
+	// Corepack/pnpm launchers often run with a global cwd; package filter + port bind task ownership.
+	return true, "pnpm filter matches expected task app"
+}
+
+func isTaskOwnedNuxtCliDev(port string, proc portProcessInfo, worktreeRoot string) (bool, string) {
+	cmd := strings.ToLower(proc.CommandLine)
+	if (!strings.Contains(cmd, "@nuxt/cli") && !strings.Contains(cmd, "@nuxt+cli")) ||
+		!strings.Contains(cmd, "dev") {
+		return false, "not an @nuxt/cli dev process"
+	}
+	if !commandLineMatchesNuxtDevPort(proc.CommandLine, port) {
+		return false, "command does not match nuxt dev port"
+	}
+	if worktreePathInCommandLine(proc.CommandLine, worktreeRoot) {
+		return true, "@nuxt/cli dev references worktree path"
+	}
+	cwd, cwdOK := verifiedProcessCwd(proc)
+	if cwdOK && pathWithinRoot(cwd, worktreeRoot) {
+		return true, "@nuxt/cli dev cwd within worktree"
+	}
+	return false, "@nuxt/cli dev outside worktree"
+}
+
+func isTaskOwnedDirectNuxtDev(port string, proc portProcessInfo, worktreeRoot string) (bool, string) {
+	if !commandLineMatchesNuxtDevPort(proc.CommandLine, port) {
+		return false, "command does not match nuxt dev port"
+	}
+	nuxtPath, ok := resolveCommandNuxtPath(proc.CommandLine, proc.Cwd)
+	if !ok {
+		cwd, cwdOK := verifiedProcessCwd(proc)
+		if !cwdOK {
+			return false, "relative nuxt argv without verified cwd"
+		}
+		nuxtPath, ok = resolveCommandNuxtPath(proc.CommandLine, cwd)
+		if !ok {
+			return false, "unable to resolve nuxt entry path"
+		}
+	}
+	if !nuxtPathWithinExpectedApps(nuxtPath, worktreeRoot) {
+		return false, "resolved nuxt path outside expected app directories"
+	}
+	return true, "resolved nuxt path within expected app"
 }
 
 func isTaskOwnedStaleNuxtDevListener(port, processName, commandLine, worktreeRoot string) bool {
-	if !isScopedDevPort(port) {
-		return false
+	proc := portProcessInfo{
+		ProcessName: processName,
+		CommandLine: commandLine,
 	}
-	if isProtectedPortProcessName(processName) {
-		return false
-	}
-	if !isNodeProcessName(processName) {
-		return false
-	}
-	if isTaskOwnedStalePnpmNuxtLauncher(port, processName, commandLine, worktreeRoot) {
-		return true
-	}
-	if !commandLineMatchesNuxtDevPort(commandLine, port) {
-		return false
-	}
-	return isTaskOwnedNuxtDevCommandLine(commandLine, worktreeRoot)
+	owned, _ := classifyTaskOwnedNuxtDev(port, proc, worktreeRoot)
+	return owned
 }
 
 func isTaskOwnedStalePnpmNuxtLauncher(port, processName, commandLine, worktreeRoot string) bool {
+	proc := portProcessInfo{
+		ProcessName: processName,
+		CommandLine: commandLine,
+	}
+	owned, _ := isTaskOwnedPnpmNuxtLauncher(port, proc, worktreeRoot)
+	return owned
+}
+
+func classifyTaskOwnedNuxtDev(port string, proc portProcessInfo, worktreeRoot string) (owned bool, reason string) {
 	if !isScopedDevPort(port) {
-		return false
+		return false, "port out of scope"
 	}
-	if isProtectedPortProcessName(processName) {
-		return false
+	if isProtectedPortProcessName(proc.ProcessName) {
+		return false, "protected process"
 	}
-	if !isNodeProcessName(processName) {
-		return false
+	if !isNodeProcessName(proc.ProcessName) {
+		return false, "not a node process"
 	}
-	cmd := strings.ToLower(commandLine)
-	if !strings.Contains(cmd, "pnpm") || !strings.Contains(cmd, "exec") || !strings.Contains(cmd, "nuxt") {
-		return false
+	if !commandLineMatchesNuxtDevPort(proc.CommandLine, port) {
+		return false, "command does not match nuxt dev port"
 	}
-	if !commandLineMatchesNuxtDevPort(commandLine, port) {
-		return false
+	if owned, reason := isTaskOwnedPnpmNuxtLauncher(port, proc, worktreeRoot); owned {
+		return true, reason
 	}
-	return isTaskOwnedNuxtDevCommandLine(commandLine, worktreeRoot)
+	if owned, reason := isTaskOwnedNuxtCliDev(port, proc, worktreeRoot); owned {
+		return true, reason
+	}
+	return isTaskOwnedDirectNuxtDev(port, proc, worktreeRoot)
 }
 
 func classifyDevPortListener(port string, proc portProcessInfo, worktreeRoot string) (kill bool, blocked bool, reason string) {
@@ -124,8 +243,8 @@ func classifyDevPortListener(port string, proc portProcessInfo, worktreeRoot str
 	if isProtectedPortProcessName(proc.ProcessName) {
 		return false, true, fmt.Sprintf("protected process %q", proc.ProcessName)
 	}
-	if isTaskOwnedStaleNuxtDevListener(port, proc.ProcessName, proc.CommandLine, worktreeRoot) {
-		return true, false, "task-owned stale nuxt dev"
+	if owned, ownedReason := classifyTaskOwnedNuxtDev(port, proc, worktreeRoot); owned {
+		return true, false, ownedReason
 	}
 	return false, true, fmt.Sprintf("unknown listener owner process=%q cmd=%q", proc.ProcessName, sanitizeCommandLineForLog(proc.CommandLine, 160))
 }

@@ -42,6 +42,7 @@ type webAdminCmd struct {
 	cancel context.CancelFunc
 	port   string
 	logs   []*os.File
+	launch *nuxtDevLaunch
 }
 
 func TestRfxStudio_BrowserE2E_LiveBuyerFlow(t *testing.T) {
@@ -51,6 +52,7 @@ func TestRfxStudio_BrowserE2E_LiveBuyerFlow(t *testing.T) {
 	if strings.TrimSpace(os.Getenv("TEST_DATABASE_URL")) == "" {
 		t.Fatal("TEST_DATABASE_URL is required when BROWSER_E2E=1")
 	}
+	t.Cleanup(func() { verifyBrowserHarnessCleanup(t) })
 	stack := startBrowserLiveStack(t)
 	t.Cleanup(func() { stack.shutdown(t) })
 	t.Cleanup(func() {
@@ -92,6 +94,7 @@ func (s *browserLiveStack) shutdown(t *testing.T) {
 	if s.gatewayProc != nil {
 		shutdownBrowserGatewayProcess(s.gatewayProc)
 	}
+	verifyDevPortsReleased(t, "3020")
 }
 
 func startBrowserLiveStack(t *testing.T) *browserLiveStack {
@@ -160,21 +163,22 @@ func listenHTTPServer(t *testing.T, handler http.Handler) (string, *http.Server)
 
 func startBrowserWebAdmin(t *testing.T, gatewayURL string, fix browserStudioFixture, port string) (string, *webAdminCmd) {
 	t.Helper()
-	launch := prepareNuxtDevLaunch(t, "web-admin", port)
-	ctx, cancel := context.WithCancel(context.Background())
-	env := appendNuxtDevEnv(append(os.Environ(),
+	ensureDevPortFree(t, port)
+	env := append(os.Environ(),
 		"NUXT_PUBLIC_API_BASE_URL="+gatewayURL,
 		"NUXT_PUBLIC_DEFAULT_TENANT_ID="+fix.TenantID.String(),
 		"NUXT_E2E_DISABLE_SSR=true",
-	), launch)
-	cmd, logFile := startNuxtDevCommand(t, ctx, "web-admin", port, env)
-	assertNuxtDevStarted(t, port, logFile.Name())
-	return "http://127.0.0.1:" + port, &webAdminCmd{
+	)
+	cmd, cancel, logFile, launch := bootNuxtDevApp(t, "web-admin", port, env)
+	proc := &webAdminCmd{
 		cmd:    cmd,
 		cancel: cancel,
 		port:   port,
 		logs:   []*os.File{logFile},
+		launch: launch,
 	}
+	t.Cleanup(func() { stopBrowserWebAdmin(t, proc) })
+	return "http://127.0.0.1:" + port, proc
 }
 
 func stopBrowserWebAdmin(t *testing.T, proc *webAdminCmd) {
@@ -185,6 +189,9 @@ func stopBrowserWebAdmin(t *testing.T, proc *webAdminCmd) {
 		proc.cancel()
 	}
 	stopNuxtDevProcess(t, proc.cmd, proc.port)
+	if proc.launch != nil {
+		proc.launch.releaseImmediate(t)
+	}
 	for _, logFile := range proc.logs {
 		_ = logFile.Close()
 	}

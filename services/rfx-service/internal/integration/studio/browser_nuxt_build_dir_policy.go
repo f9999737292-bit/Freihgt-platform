@@ -120,30 +120,80 @@ func findRepoRoot() (string, error) {
 	}
 }
 
-// linkNuxtBuildDirAt exposes isolated Nuxt buildDir at appDir/.nuxt so Vite can
-// resolve tsconfig extends on clean CI checkouts.
-func linkNuxtBuildDirAt(appDir, buildDir string) error {
-	linkPath := filepath.Join(appDir, ".nuxt")
-	if fi, err := os.Lstat(linkPath); err == nil {
-		if fi.Mode()&os.ModeSymlink != 0 {
-			target, readErr := os.Readlink(linkPath)
-			if readErr == nil && filepath.Clean(target) == filepath.Clean(buildDir) {
-				return nil
-			}
-		}
-		if err := os.RemoveAll(linkPath); err != nil {
-			return fmt.Errorf("remove existing nuxt link path %s: %w", linkPath, err)
-		}
-	} else if !os.IsNotExist(err) {
-		return err
+func resolveSymlinkTarget(linkPath string) (string, error) {
+	target, err := os.Readlink(linkPath)
+	if err != nil {
+		return "", err
 	}
+	if !filepath.IsAbs(target) {
+		target = filepath.Join(filepath.Dir(linkPath), target)
+	}
+	abs, err := filepath.Abs(target)
+	if err != nil {
+		return filepath.Clean(target), nil
+	}
+	return filepath.Clean(abs), nil
+}
+
+func sameBuildDirTarget(a, b string) bool {
+	absA, errA := filepath.Abs(a)
+	absB, errB := filepath.Abs(b)
+	if errA != nil || errB != nil {
+		return filepath.Clean(a) == filepath.Clean(b)
+	}
+	return absA == absB
+}
+
+func createNuxtSymlink(linkPath, buildDir string) error {
 	if err := os.Symlink(buildDir, linkPath); err != nil {
 		return fmt.Errorf("symlink %s -> %s: %w", linkPath, buildDir, err)
 	}
 	return nil
 }
 
-func unlinkNuxtBuildDirAt(appDir string) error {
+// linkNuxtBuildDirAt exposes isolated Nuxt buildDir at appDir/.nuxt so Vite can
+// resolve tsconfig extends on clean CI checkouts.
+func linkNuxtBuildDirAt(appDir, buildDir string) error {
+	if !nuxtBuildDirWithinAllowedRoot(buildDir) {
+		return fmt.Errorf("refusing to link non task-owned build dir: %s", buildDir)
+	}
+	linkPath := filepath.Join(appDir, ".nuxt")
+	fi, err := os.Lstat(linkPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return createNuxtSymlink(linkPath, buildDir)
+		}
+		return err
+	}
+	if fi.Mode()&os.ModeSymlink != 0 {
+		target, readErr := resolveSymlinkTarget(linkPath)
+		if readErr != nil {
+			return fmt.Errorf("existing .nuxt symlink unreadable at %s: %w", linkPath, readErr)
+		}
+		if sameBuildDirTarget(target, buildDir) {
+			return nil
+		}
+		if nuxtBuildDirWithinAllowedRoot(target) {
+			if err := os.Remove(linkPath); err != nil {
+				return fmt.Errorf("remove stale task-owned nuxt link %s: %w", linkPath, err)
+			}
+			return createNuxtSymlink(linkPath, buildDir)
+		}
+		return fmt.Errorf("existing .nuxt symlink at %s targets %s (refusing replace with %s)", linkPath, target, buildDir)
+	}
+	return fmt.Errorf("existing .nuxt path at %s is not a task-owned symlink (refusing modify)", linkPath)
+}
+
+func hasRealNuxtDirectory(appDir string) bool {
+	linkPath := filepath.Join(appDir, ".nuxt")
+	fi, err := os.Lstat(linkPath)
+	if err != nil {
+		return false
+	}
+	return fi.Mode()&os.ModeSymlink == 0
+}
+
+func unlinkNuxtBuildDirAt(appDir, expectedBuildDir string) error {
 	linkPath := filepath.Join(appDir, ".nuxt")
 	fi, err := os.Lstat(linkPath)
 	if err != nil {
@@ -154,6 +204,16 @@ func unlinkNuxtBuildDirAt(appDir string) error {
 	}
 	if fi.Mode()&os.ModeSymlink == 0 {
 		return nil
+	}
+	target, readErr := resolveSymlinkTarget(linkPath)
+	if readErr != nil {
+		return fmt.Errorf("refusing to remove .nuxt symlink at %s: %w", linkPath, readErr)
+	}
+	if !sameBuildDirTarget(target, expectedBuildDir) {
+		return nil
+	}
+	if !nuxtBuildDirWithinAllowedRoot(expectedBuildDir) {
+		return fmt.Errorf("refusing to unlink .nuxt with target outside temp root: %s", target)
 	}
 	return os.Remove(linkPath)
 }
@@ -166,10 +226,61 @@ func linkIsolatedNuxtBuildDir(appLabel, buildDir string) error {
 	return linkNuxtBuildDirAt(appDir, buildDir)
 }
 
-func unlinkIsolatedNuxtBuildDir(appLabel string) error {
+func unlinkIsolatedNuxtBuildDir(appLabel, expectedBuildDir string) error {
 	appDir, err := nuxtAppDir(appLabel)
 	if err != nil {
 		return err
 	}
-	return unlinkNuxtBuildDirAt(appDir)
+	return unlinkNuxtBuildDirAt(appDir, expectedBuildDir)
+}
+
+const taskOwnedNuxtBuildDirPrefix = "rfx-nuxt-"
+
+func isTaskOwnedNuxtBuildDirName(name string) bool {
+	return strings.HasPrefix(name, taskOwnedNuxtBuildDirPrefix)
+}
+
+func isTaskOwnedNuxtBuildDirPath(path string) bool {
+	if !nuxtBuildDirWithinAllowedRoot(path) {
+		return false
+	}
+	return isTaskOwnedNuxtBuildDirName(filepath.Base(path))
+}
+
+func releaseNuxtDevLaunchAt(appDir, buildDir string) error {
+	if !isTaskOwnedNuxtBuildDirPath(buildDir) {
+		return fmt.Errorf("refusing to release non task-owned build dir: %s", buildDir)
+	}
+	if err := unlinkNuxtBuildDirAt(appDir, buildDir); err != nil {
+		return err
+	}
+	return removeGeneratedPathBounded(buildDir)
+}
+
+// releaseNuxtDevLaunch unlinks the app .nuxt symlink before removing the temp build dir.
+func releaseNuxtDevLaunch(appLabel, buildDir string) error {
+	appDir, err := nuxtAppDir(appLabel)
+	if err != nil {
+		return err
+	}
+	return releaseNuxtDevLaunchAt(appDir, buildDir)
+}
+
+func listTaskOwnedTempBuildDirs() ([]string, error) {
+	tempRoot := os.TempDir()
+	entries, err := os.ReadDir(tempRoot)
+	if err != nil {
+		return nil, err
+	}
+	var dirs []string
+	for _, entry := range entries {
+		if !entry.IsDir() || !isTaskOwnedNuxtBuildDirName(entry.Name()) {
+			continue
+		}
+		path := filepath.Join(tempRoot, entry.Name())
+		if isTaskOwnedNuxtBuildDirPath(path) {
+			dirs = append(dirs, path)
+		}
+	}
+	return dirs, nil
 }
