@@ -2653,12 +2653,14 @@ def erp_preview_components_block() -> str:
           enum: [CREATE_DRAFT, UPDATE_DRAFT]
         external:
           type: object
+          additionalProperties: false
           properties:
             system: {type: string}
             object_id: {type: string}
             revision: {type: string}
         event:
           type: object
+          additionalProperties: false
           required: [type, title, currency, timezone]
           properties:
             type: {type: string}
@@ -2672,7 +2674,14 @@ def erp_preview_components_block() -> str:
           maxItems: 200
           items:
             type: object
-            additionalProperties: true
+            additionalProperties: false
+            properties:
+              lot_number: {type: string}
+              name: {type: string}
+              description: {type: string}
+              category: {type: string}
+              estimated_value: {type: number}
+              currency_code: {type: string}
         questionnaire:
           type: object
           additionalProperties: true
