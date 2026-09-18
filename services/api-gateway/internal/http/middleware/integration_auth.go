@@ -27,6 +27,8 @@ type IntegrationAuthConfig struct {
 	InternalServiceToken string
 	RateLimiter          *integrationauth.PrincipalRateLimiter
 	ClientIPResolver     *clientip.Resolver
+	// IntegrationRouteClassifier, when set, overrides rfx.IsIntegrationProtectedRoute.
+	IntegrationRouteClassifier func(method, path string) bool
 }
 
 type IntegrationAuthContext struct {
@@ -47,8 +49,12 @@ func IntegrationAuthFromContext(ctx context.Context) (IntegrationAuthContext, bo
 func IntegrationAuth(cfg IntegrationAuthConfig) func(http.Handler) http.Handler {
 	integrationJWT := integrationauth.NewJWTService(cfg.IntegrationJWTSecret, integrationauth.TokenTTL)
 	return func(next http.Handler) http.Handler {
+		isIntegrationProtected := cfg.IntegrationRouteClassifier
+		if isIntegrationProtected == nil {
+			isIntegrationProtected = rfx.IsIntegrationProtectedRoute
+		}
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !cfg.Enabled || !rfx.IsIntegrationProtectedRoute(r.Method, r.URL.Path) {
+			if !cfg.Enabled || !isIntegrationProtected(r.Method, r.URL.Path) {
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -185,11 +191,11 @@ func mapIntegrationAuthError(err error) *apperrors.AppError {
 	}
 }
 
-func AuthWithIntegrationSupport(enabled bool, humanJWTSecret string, integrationJWT *integrationauth.JWTService) func(http.Handler) http.Handler {
+func AuthWithIntegrationSupport(enabled bool, humanJWTSecret string, integrationJWT *integrationauth.JWTService, integrationRouteClassifier func(method, path string) bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !enabled || isPublicGatewayRoute(r.Method, r.URL.Path) || !rfx.RequiresHumanAuth(r.Method, r.URL.Path) {
-				if isPublicGatewayRoute(r.Method, r.URL.Path) || !rfx.RequiresHumanAuth(r.Method, r.URL.Path) {
+			if !enabled || !requiresHumanGatewayAuth(r.Method, r.URL.Path, integrationRouteClassifier) {
+				if isPublicGatewayRoute(r.Method, r.URL.Path) || isIntegrationProtectedRoute(r.Method, r.URL.Path, integrationRouteClassifier) {
 					integrationauth.StripUntrustedIntegrationHeaders(r.Header)
 				}
 				next.ServeHTTP(w, r)
@@ -251,6 +257,23 @@ func isPublicGatewayRoute(method, path string) bool {
 		return true
 	}
 	return isPublicRoute(method, path)
+}
+
+func isIntegrationProtectedRoute(method, path string, classifier func(method, path string) bool) bool {
+	if classifier != nil {
+		return classifier(method, path)
+	}
+	return rfx.IsIntegrationProtectedRoute(method, path)
+}
+
+func requiresHumanGatewayAuth(method, path string, classifier func(method, path string) bool) bool {
+	if isPublicGatewayRoute(method, path) {
+		return false
+	}
+	if isIntegrationProtectedRoute(method, path, classifier) {
+		return false
+	}
+	return true
 }
 
 func resolveClientIP(resolver *clientip.Resolver, r *http.Request) (string, error) {

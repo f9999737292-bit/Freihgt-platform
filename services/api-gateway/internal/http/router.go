@@ -42,18 +42,24 @@ const serviceName = "api-gateway"
 func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, controlTower *controltower.Handler, shipmentEvents *shipmentevents.Handler, trackingHandler *tracking.Handler, driverHandler *driver.Handler) http.Handler {
 	metricsCollector := metrics.New(serviceName)
 
+	clientIPResolver := clientip.NewResolver(cfg.TrustedProxyNetworks)
+
 	r := chi.NewRouter()
 	r.Use(sharedmiddleware.RequestID)
+	r.Use(clientip.CapturePeerMiddleware)
+	r.Use(clientip.StripSpoofableForwardedHeaders(clientIPResolver))
 	r.Use(chimiddleware.RealIP)
 	r.Use(sharedmiddleware.Recover(log, serviceName))
 	r.Use(sharedmiddleware.AccessLog(log, serviceName))
 	r.Use(metricsCollector.Middleware)
 	r.Use(gwmiddleware.MaxBodySize(cfg.MaxRequestBodyBytes))
-	r.Use(gwmiddleware.RateLimit(cfg.RateLimitEnabled, cfg.RateLimitRPS, cfg.RateLimitBurst, serviceName))
+	r.Use(gwmiddleware.RateLimit(cfg.RateLimitEnabled, cfg.RateLimitRPS, cfg.RateLimitBurst, serviceName, clientIPResolver))
 	r.Use(gwmiddleware.CORS(cfg.CORSAllowedOrigins))
 	integrationJWT := integrationauth.NewJWTService(cfg.IntegrationJWTSecret, integrationauth.TokenTTL)
-	clientIPResolver := clientip.NewResolver(cfg.TrustedProxyNetworks)
-	r.Use(gwmiddleware.AuthWithIntegrationSupport(cfg.AuthEnabled, cfg.JWTSecret, integrationJWT))
+	if proxy != nil {
+		proxy.clientIPResolver = clientIPResolver
+	}
+	r.Use(gwmiddleware.AuthWithIntegrationSupport(cfg.AuthEnabled, cfg.JWTSecret, integrationJWT, nil))
 	r.Use(gwmiddleware.IntegrationAuth(gwmiddleware.IntegrationAuthConfig{
 		Enabled:              cfg.IntegrationAuthEnabled,
 		IntegrationJWTSecret: cfg.IntegrationJWTSecret,

@@ -30,9 +30,9 @@ func TestPublicOAuthTokenNeighborProtected(t *testing.T) {
 	}
 }
 
-func TestIntegrationFixtureRouteProtected(t *testing.T) {
-	if !IsIntegrationProtectedRoute(http.MethodGet, "/api/v1/integrations/erp/_fixture/protected") {
-		t.Fatal("expected fixture route to require integration auth")
+func TestProductionClassifierExcludesFixtureRoute(t *testing.T) {
+	if IsIntegrationProtectedRoute(http.MethodGet, "/api/v1/integrations/erp/_fixture/protected") {
+		t.Fatal("fixture route must not be in production integration classifier")
 	}
 }
 

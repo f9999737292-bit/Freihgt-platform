@@ -7,7 +7,7 @@ import (
 )
 
 func TestRateLimitReturns429(t *testing.T) {
-	handler := RateLimit(true, 1, 1, "api-gateway")(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := RateLimit(true, 1, 1, "api-gateway", nil)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -28,7 +28,7 @@ func TestRateLimitReturns429(t *testing.T) {
 }
 
 func TestRateLimitSkipsHealth(t *testing.T) {
-	handler := RateLimit(true, 1, 1, "api-gateway")(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := RateLimit(true, 1, 1, "api-gateway", nil)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 

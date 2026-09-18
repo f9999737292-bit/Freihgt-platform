@@ -74,14 +74,7 @@ func NormalizeGatewayPath(rawPath string) string {
 	return path
 }
 
-// E7IntegrationProtectedRoutes returns integration routes that require machine bearer auth.
+// E7IntegrationProtectedRoutes returns production integration routes that require machine bearer auth.
 func E7IntegrationProtectedRoutes() []ErpMachineAuthRoute {
-	return []ErpMachineAuthRoute{
-		{
-			Name:        "integration_auth_fixture",
-			Method:      http.MethodGet,
-			GatewayPath: "/api/v1/integrations/erp/_fixture/protected",
-			Public:      false,
-		},
-	}
+	return nil
 }

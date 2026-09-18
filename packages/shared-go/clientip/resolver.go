@@ -58,7 +58,7 @@ func ParseTrustedProxyCIDRs(raw string) ([]*net.IPNet, error) {
 
 // ClientIP returns the resolved client IP or an error for malformed/ambiguous chains.
 func (r *Resolver) ClientIP(req *http.Request) (string, error) {
-	peerIP, err := hostFromAddr(req.RemoteAddr)
+	peerIP, err := peerHostFromRequest(req)
 	if err != nil {
 		return "", err
 	}
@@ -69,14 +69,14 @@ func (r *Resolver) ClientIP(req *http.Request) (string, error) {
 	if len(r.trusted) == 0 || !r.contains(peer) {
 		return normalizeIP(peer), nil
 	}
-	if forwarded := strings.TrimSpace(req.Header.Get("X-Forwarded-For")); forwarded != "" {
+	if forwarded := strings.TrimSpace(req.Header.Get(HeaderXForwardedFor)); forwarded != "" {
 		ip, err := clientFromForwardedFor(forwarded, r.trusted)
 		if err != nil {
 			return "", err
 		}
 		return ip, nil
 	}
-	if realIP := strings.TrimSpace(req.Header.Get("X-Real-IP")); realIP != "" {
+	if realIP := strings.TrimSpace(req.Header.Get(HeaderXRealIP)); realIP != "" {
 		ip := net.ParseIP(realIP)
 		if ip == nil {
 			return "", fmt.Errorf("invalid x-real-ip")

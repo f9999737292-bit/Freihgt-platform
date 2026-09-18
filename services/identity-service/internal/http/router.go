@@ -6,10 +6,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	authmiddleware "github.com/freight-platform/identity-service/internal/http/middleware"
 	"github.com/freight-platform/identity-service/internal/http/handlers"
+	authmiddleware "github.com/freight-platform/identity-service/internal/http/middleware"
 	"github.com/freight-platform/identity-service/internal/platform/security"
 	"github.com/freight-platform/identity-service/internal/service"
+	"github.com/freight-platform/shared-go/clientip"
 	"github.com/freight-platform/shared-go/internalauth"
 	"github.com/freight-platform/shared-go/metrics"
 	"github.com/freight-platform/shared-go/observability"
@@ -35,6 +36,7 @@ func NewRouter(
 	membershipHandler := handlers.NewMembershipHandler(membershipService)
 
 	r := chi.NewRouter()
+	r.Use(clientip.CapturePeerMiddleware)
 	observability.Mount(r, observability.MountOptions{
 		ServiceName: serviceName,
 		Log:         log,
