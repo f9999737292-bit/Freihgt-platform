@@ -317,6 +317,18 @@ tenant_id
 
 Schema: **`BINTRANS_RFX_ERP_JSON_V1`**. Full field table: ADR-012.
 
+### 6.0 Parser ingress limits (frozen — E3)
+
+| Limit | Value | HTTP | Machine code |
+|---|---|---|---|
+| Max body size | 2 MiB | 413 | — |
+| Max JSON nesting depth | 32 (`ERP_JSON_MAX_DEPTH`) | 400/422 | `json_depth_exceeded` |
+| Duplicate JSON keys | Reject fail-closed | 422 | `duplicate_field` |
+| Unknown top-level field | Reject | 422 | `unknown_field` |
+| Deferred top-level (`lanes[]`, etc.) | Reject | 422 | `unsupported_field_v1` |
+
+Depth and duplicate-key checks run during streaming ingest before large allocations.
+
 ### 6.1 Freight field disposition
 
 | Domain area | v1 status | Rationale |
@@ -417,7 +429,7 @@ See ADR-014. Commit requires `Idempotency-Key`. Body version tokens for UPDATE. 
 
 ## 12. Error contract
 
-Unchanged HTTP matrix §9.2 (prior revision). Machine codes include `external_id_conflict`, `stale_mapping_context`, `auth_scheme_denied`.
+Preview validation uses `ErpImportPreviewResponse` with `errors[]` / `warnings[]` items (`machine_code`, JSON pointer `path`, optional `external_source`). HTTP mapping: structural ingress failures may return 400; domain validation returns **422** with zero analysis rows (OPTION A). Machine codes include `unknown_field`, `duplicate_field`, `unsupported_field_v1`, `json_depth_exceeded`, mapping errors, `external_id_conflict`, `stale_mapping_context`, `auth_scheme_denied`, `stale_target`.
 
 ---
 
@@ -466,7 +478,7 @@ Never log: secrets, tokens, raw API keys, full payload, competitor data.
 
 ---
 
-## 16. Migration 000074 proposal (M-08 — not created)
+## 16. Migration 000074 (M-08 — implemented in E1)
 
 | # | Change |
 |---|---|
@@ -486,7 +498,7 @@ Never log: secrets, tokens, raw API keys, full payload, competitor data.
 | 14 | Triggers: preserve payload immutability |
 | 15 | Down migration: reversible; legacy XLSX rows keep `actor_id` populated |
 
-`MIGRATION_000074_CREATED=NO` — proposal only.
+`MIGRATION_000074_CREATED=YES` — implemented in Wave E1 (PR #139).
 
 ---
 

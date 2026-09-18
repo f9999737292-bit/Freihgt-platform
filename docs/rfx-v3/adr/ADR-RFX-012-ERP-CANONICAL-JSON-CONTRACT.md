@@ -35,6 +35,10 @@ Adopt **`BINTRANS_RFX_ERP_JSON_V1`**.
 | `schema_version` | `BINTRANS_RFX_ERP_JSON_V1` |
 | Content-Type | `application/json` |
 | Max body size | 2 MiB |
+| Max JSON nesting depth | **32** (`ERP_JSON_MAX_DEPTH`) |
+| Duplicate JSON keys | **REJECT_FAIL_CLOSED** → 422 `duplicate_field` |
+
+Depth is enforced during streaming ingest **before** full materialization of deep structures. Duplicate keys in any object are rejected; **no last-wins** semantics.
 
 ### Top-level allowlist
 
