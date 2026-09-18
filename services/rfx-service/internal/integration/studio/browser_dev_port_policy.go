@@ -17,6 +17,7 @@ type portProcessInfo struct {
 	ProcessName string
 	CommandLine string
 	Cwd         string
+	ParentPID   int
 }
 
 func isScopedDevPort(port string) bool {
@@ -102,6 +103,69 @@ func expectedPackageForAppDir(appDir string) (string, bool) {
 	}
 }
 
+func expectedAppDirForPort(port, worktreeRoot string) (string, bool) {
+	root, ok := normalizePathForComparison(worktreeRoot)
+	if !ok {
+		return "", false
+	}
+	switch port {
+	case "3020", "3022":
+		return filepath.Join(root, "apps", "web-admin"), true
+	case "3023":
+		return filepath.Join(root, "apps", "web-procurement"), true
+	default:
+		return "", false
+	}
+}
+
+func resolveOwnedNuxtPath(port string, proc portProcessInfo, worktreeRoot string) (path string, ok bool, reason string) {
+	_, isRelative, found := extractNuxtEntryPath(proc.CommandLine)
+	if !found {
+		return "", false, "nuxt entry not found in argv"
+	}
+	expectedApp, hasApp := expectedAppDirForPort(port, worktreeRoot)
+	if !hasApp {
+		return "", false, "unknown port app mapping"
+	}
+	normExpectedApp, appOK := normalizePathForComparison(expectedApp)
+	if !appOK {
+		return "", false, "expected app dir invalid"
+	}
+	if !isRelative {
+		resolved, resolvedOK := resolveCommandNuxtPath(proc.CommandLine, "")
+		if !resolvedOK {
+			return "", false, "unable to resolve absolute nuxt entry path"
+		}
+		if pathWithinRoot(resolved, normExpectedApp) {
+			return resolved, true, "absolute nuxt path within expected app"
+		}
+		return "", false, "absolute nuxt path outside expected app for port"
+	}
+	cwd, cwdOK := verifiedProcessCwd(proc)
+	if !cwdOK {
+		return "", false, "relative nuxt argv without verified cwd"
+	}
+	normWorktree, worktreeOK := normalizePathForComparison(worktreeRoot)
+	if !worktreeOK || !pathWithinRoot(cwd, normWorktree) {
+		return "", false, "cwd outside worktree"
+	}
+	if pathWithinRoot(cwd, normExpectedApp) {
+		if resolved, resolvedOK := resolveCommandNuxtPath(proc.CommandLine, cwd); resolvedOK {
+			if pathWithinRoot(resolved, normExpectedApp) {
+				return resolved, true, "resolved from verified cwd within expected app"
+			}
+		}
+	}
+	if cwd == normWorktree {
+		if resolved, resolvedOK := resolveCommandNuxtPath(proc.CommandLine, normExpectedApp); resolvedOK {
+			if pathWithinRoot(resolved, normExpectedApp) {
+				return resolved, true, "resolved from expected app dir for port"
+			}
+		}
+	}
+	return "", false, "unable to resolve relative nuxt path within expected app"
+}
+
 func resolveCommandNuxtPath(commandLine, cwd string) (string, bool) {
 	entryPath, isRelative, found := extractNuxtEntryPath(commandLine)
 	if !found {
@@ -176,21 +240,18 @@ func isTaskOwnedDirectNuxtDev(port string, proc portProcessInfo, worktreeRoot st
 	if !commandLineMatchesNuxtDevPort(proc.CommandLine, port) {
 		return false, "command does not match nuxt dev port"
 	}
-	nuxtPath, ok := resolveCommandNuxtPath(proc.CommandLine, proc.Cwd)
+	nuxtPath, ok, reason := resolveOwnedNuxtPath(port, proc, worktreeRoot)
 	if !ok {
-		cwd, cwdOK := verifiedProcessCwd(proc)
-		if !cwdOK {
-			return false, "relative nuxt argv without verified cwd"
-		}
-		nuxtPath, ok = resolveCommandNuxtPath(proc.CommandLine, cwd)
-		if !ok {
-			return false, "unable to resolve nuxt entry path"
-		}
+		return false, reason
 	}
-	if !nuxtPathWithinExpectedApps(nuxtPath, worktreeRoot) {
-		return false, "resolved nuxt path outside expected app directories"
+	expectedApp, hasApp := expectedAppDirForPort(port, worktreeRoot)
+	if !hasApp {
+		return false, "unknown port app mapping"
 	}
-	return true, "resolved nuxt path within expected app"
+	if !pathWithinRoot(nuxtPath, expectedApp) {
+		return false, "resolved nuxt path outside expected app for port"
+	}
+	return true, reason
 }
 
 func isTaskOwnedStaleNuxtDevListener(port, processName, commandLine, worktreeRoot string) bool {

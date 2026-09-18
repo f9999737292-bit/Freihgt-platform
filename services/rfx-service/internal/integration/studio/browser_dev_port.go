@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -212,22 +213,36 @@ func lookupWindowsProcess(t *testing.T, pid int) (portProcessInfo, bool) {
 
 func lookupUnixProcess(t *testing.T, pid int) (portProcessInfo, bool) {
 	t.Helper()
-	out, err := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "comm=", "-o", "args=").CombinedOutput()
-	if err != nil {
-		return portProcessInfo{}, false
+	cmdLine := readProcCmdline(pid)
+	if strings.TrimSpace(cmdLine) == "" {
+		out, err := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "comm=", "-o", "args=").CombinedOutput()
+		if err != nil {
+			return portProcessInfo{}, false
+		}
+		line := strings.TrimSpace(string(out))
+		if line == "" {
+			return portProcessInfo{}, false
+		}
+		fields := strings.Fields(line)
+		cmdLine = line
+		if len(fields) > 1 {
+			cmdLine = strings.TrimSpace(strings.TrimPrefix(line, fields[0]))
+		}
 	}
-	line := strings.TrimSpace(string(out))
-	if line == "" {
-		return portProcessInfo{}, false
-	}
-	fields := strings.Fields(line)
-	name := fields[0]
-	cmdLine := line
-	if len(fields) > 1 {
-		cmdLine = strings.TrimSpace(strings.TrimPrefix(line, name))
+	name := readProcExe(pid)
+	if name == "" {
+		name = "node"
+	} else {
+		name = filepath.Base(name)
 	}
 	cwd := lookupProcessCwd(pid)
-	return portProcessInfo{PID: pid, ProcessName: name, CommandLine: cmdLine, Cwd: cwd}, true
+	return portProcessInfo{
+		PID:         pid,
+		ProcessName: name,
+		CommandLine: cmdLine,
+		Cwd:         cwd,
+		ParentPID:   readProcParentPID(pid),
+	}, true
 }
 
 func killVerifiedStaleNuxtDevWindows(t *testing.T, port, worktreeRoot string) {

@@ -9,7 +9,7 @@ func TestStopNuxtDevProcess_idempotentWithoutCmd(t *testing.T) {
 }
 
 func TestReleaseTaskOwnedDevPort_noOpForUnscopedPort(t *testing.T) {
-	releaseTaskOwnedDevPort(t, "3020", testWorktree)
+	releaseTaskOwnedDevPort(t, "3020", testWorktreeRoot(t))
 }
 
 func TestVerifyDevPortsReleased_skipsUnscopedPorts(t *testing.T) {
