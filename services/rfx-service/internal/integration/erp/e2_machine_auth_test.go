@@ -89,9 +89,6 @@ func TestE7P2INT124APIKeyHashOnlyStorage(t *testing.T) {
 	TestCredentialHashOnlyStorage(t)
 }
 
-func TestE7P2INT125MissingAuthorization(t *testing.T) {
-	t.Log("covered by live gateway middleware tests in api-gateway/internal/http/middleware/integration_auth_test.go")
-}
 
 func TestE7P2INT126CredentialRotationGrace(t *testing.T) {
 	env := setupTestEnv(t)

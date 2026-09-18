@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 
 	"github.com/freight-platform/api-gateway/internal/http/middleware"
@@ -22,16 +23,23 @@ const (
 	humanProtectedPath       = "/api/v1/rfx-events"
 )
 
+func integrationFixtureClassifier(method, path string) bool {
+	return method == http.MethodGet && path == integrationFixturePath
+}
+
 func newGatewayAuthChain(t *testing.T, final http.HandlerFunc, limiter *integrationauth.PrincipalRateLimiter) http.Handler {
 	t.Helper()
+	resolver := clientip.NewResolver(nil)
 	integrationJWT := integrationauth.NewJWTService(testIntegrationJWTSecret, integrationauth.TokenTTL)
 	integrationLayer := middleware.IntegrationAuth(middleware.IntegrationAuthConfig{
-		Enabled:              true,
-		IntegrationJWTSecret: testIntegrationJWTSecret,
-		RateLimiter:          limiter,
-		ClientIPResolver:     clientip.NewResolver(nil),
+		Enabled:                    true,
+		IntegrationJWTSecret:       testIntegrationJWTSecret,
+		RateLimiter:                limiter,
+		ClientIPResolver:           resolver,
+		IntegrationRouteClassifier: integrationFixtureClassifier,
 	})(final)
-	return middleware.AuthWithIntegrationSupport(true, testHumanJWTSecret, integrationJWT)(integrationLayer)
+	chain := middleware.AuthWithIntegrationSupport(true, testHumanJWTSecret, integrationJWT, integrationFixtureClassifier)(integrationLayer)
+	return clientip.CapturePeerMiddleware(clientip.StripSpoofableForwardedHeaders(resolver)(chain))
 }
 
 func signIntegrationToken(t *testing.T, principalID, tenantID, companyID uuid.UUID) string {
@@ -266,6 +274,113 @@ func TestE7P2INT186PrincipalRateLimitIsolation(t *testing.T) {
 	}
 	if allowed, _ := limiter.Allow(keyB); !allowed {
 		t.Fatal("principal B should have independent quota")
+	}
+}
+
+func signIntegrationTokenWithClaims(t *testing.T, secret string, mutate func(*integrationauth.IntegrationTokenClaims)) string {
+	t.Helper()
+	now := time.Now().UTC()
+	claims := integrationauth.IntegrationTokenClaims{
+		TenantID:   uuid.NewString(),
+		CompanyID:  uuid.NewString(),
+		Scope:      "rfx:draft:read",
+		AuthScheme: integrationauth.AuthSchemeOAuth,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   uuid.NewString(),
+			Issuer:    integrationauth.TokenIssuer,
+			Audience:  jwt.ClaimStrings{integrationauth.TokenAudience},
+			ExpiresAt: jwt.NewNumericDate(now.Add(integrationauth.TokenTTL)),
+			IssuedAt:  jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(now),
+			ID:        uuid.NewString(),
+		},
+	}
+	claims.Act.Kind = integrationauth.ActorKindIntegration
+	if mutate != nil {
+		mutate(&claims)
+	}
+	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(secret))
+	if err != nil {
+		t.Fatalf("sign integration token: %v", err)
+	}
+	return token
+}
+
+func TestE7P2INT125ExpiredIntegrationTokenRejected(t *testing.T) {
+	handler := newGatewayAuthChain(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("expired integration token must be rejected")
+	}), nil)
+	token := signIntegrationTokenWithClaims(t, testIntegrationJWTSecret, func(c *integrationauth.IntegrationTokenClaims) {
+		c.ExpiresAt = jwt.NewNumericDate(time.Now().UTC().Add(-time.Hour))
+	})
+	req := httptest.NewRequest(http.MethodGet, integrationFixturePath, nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status=%d want 401", rec.Code)
+	}
+}
+
+func TestE7P2INT125WrongIssuerRejected(t *testing.T) {
+	handler := newGatewayAuthChain(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("wrong issuer must be rejected")
+	}), nil)
+	token := signIntegrationTokenWithClaims(t, testIntegrationJWTSecret, func(c *integrationauth.IntegrationTokenClaims) {
+		c.Issuer = "wrong-issuer"
+	})
+	req := httptest.NewRequest(http.MethodGet, integrationFixturePath, nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status=%d want 401", rec.Code)
+	}
+}
+
+func TestE7P2INT125WrongAudienceRejected(t *testing.T) {
+	handler := newGatewayAuthChain(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("wrong audience must be rejected")
+	}), nil)
+	token := signIntegrationTokenWithClaims(t, testIntegrationJWTSecret, func(c *integrationauth.IntegrationTokenClaims) {
+		c.Audience = jwt.ClaimStrings{"wrong-audience"}
+	})
+	req := httptest.NewRequest(http.MethodGet, integrationFixturePath, nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status=%d want 401", rec.Code)
+	}
+}
+
+func TestE7P2INT125FutureNBFRejected(t *testing.T) {
+	handler := newGatewayAuthChain(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("future nbf must be rejected")
+	}), nil)
+	token := signIntegrationTokenWithClaims(t, testIntegrationJWTSecret, func(c *integrationauth.IntegrationTokenClaims) {
+		c.NotBefore = jwt.NewNumericDate(time.Now().UTC().Add(time.Hour))
+	})
+	req := httptest.NewRequest(http.MethodGet, integrationFixturePath, nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status=%d want 401", rec.Code)
+	}
+}
+
+func TestE7P2INT125WrongSigningKeyRejected(t *testing.T) {
+	handler := newGatewayAuthChain(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("wrong signing key must be rejected")
+	}), nil)
+	token := signIntegrationTokenWithClaims(t, "different-integration-secret", nil)
+	req := httptest.NewRequest(http.MethodGet, integrationFixturePath, nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status=%d want 401", rec.Code)
 	}
 }
 
