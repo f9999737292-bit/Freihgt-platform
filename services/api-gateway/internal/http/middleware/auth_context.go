@@ -3,6 +3,9 @@ package middleware
 import (
 	"context"
 	"errors"
+	"net/http"
+
+	"github.com/freight-platform/shared-go/integrationauth"
 )
 
 type authContextKey struct{}
@@ -47,4 +50,7 @@ func StripUntrustedIdentityHeaders(header interface {
 	header.Del("X-Internal-Service-Token")
 	header.Del("X-Platform-Admin")
 	header.Del("X-Role")
+	if httpHeader, ok := header.(http.Header); ok {
+		integrationauth.StripUntrustedIntegrationHeaders(httpHeader)
+	}
 }

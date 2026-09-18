@@ -3,6 +3,7 @@ package http
 import (
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
@@ -28,6 +29,7 @@ import (
 	"github.com/freight-platform/api-gateway/internal/shipmentrbac"
 	"github.com/freight-platform/api-gateway/internal/tracking"
 	"github.com/freight-platform/api-gateway/internal/transportorderrbac"
+	"github.com/freight-platform/shared-go/integrationauth"
 	"github.com/freight-platform/shared-go/metrics"
 	sharedmiddleware "github.com/freight-platform/shared-go/middleware"
 	"github.com/freight-platform/shared-go/observability"
@@ -48,7 +50,15 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	r.Use(gwmiddleware.MaxBodySize(cfg.MaxRequestBodyBytes))
 	r.Use(gwmiddleware.RateLimit(cfg.RateLimitEnabled, cfg.RateLimitRPS, cfg.RateLimitBurst, serviceName))
 	r.Use(gwmiddleware.CORS(cfg.CORSAllowedOrigins))
-	r.Use(gwmiddleware.Auth(cfg.AuthEnabled, cfg.JWTSecret))
+	integrationJWT := integrationauth.NewJWTService(cfg.JWTSecret, integrationauth.TokenTTL)
+	r.Use(gwmiddleware.AuthWithIntegrationSupport(cfg.AuthEnabled, cfg.JWTSecret, integrationJWT))
+	r.Use(gwmiddleware.IntegrationAuth(gwmiddleware.IntegrationAuthConfig{
+		Enabled:              cfg.IntegrationAuthEnabled,
+		JWTSecret:            cfg.JWTSecret,
+		IdentityInternalURL:  cfg.Services.Identity,
+		InternalServiceToken: cfg.InternalServiceToken,
+		RateLimiter:          integrationauth.NewPrincipalRateLimiter(cfg.IntegrationRateLimitPerMin, time.Minute),
+	}))
 
 	sharedpprof.Mount(r)
 

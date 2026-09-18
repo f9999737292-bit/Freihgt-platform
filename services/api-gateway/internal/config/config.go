@@ -55,8 +55,10 @@ type Config struct {
 	RateLimitBurst      int
 	MaxRequestBodyBytes int64
 	TrackingInternalToken string
-	InternalServiceToken  string
-	RfxExcelExchangeEnabled bool
+	InternalServiceToken        string
+	RfxExcelExchangeEnabled     bool
+	IntegrationAuthEnabled      bool
+	IntegrationRateLimitPerMin  int
 }
 
 func Load() (Config, error) {
@@ -185,8 +187,10 @@ func Load() (Config, error) {
 		RateLimitBurst:      rateLimitBurst,
 		MaxRequestBodyBytes: maxBodyBytes,
 		TrackingInternalToken: getEnv("TRACKING_INTERNAL_SERVICE_TOKEN", getEnv("INTERNAL_SERVICE_TOKEN", "dev_internal_tracking_token")),
-		InternalServiceToken:    getEnv("INTERNAL_SERVICE_TOKEN", ""),
-		RfxExcelExchangeEnabled: parseBool(getEnv("RFX_EXCEL_EXCHANGE_ENABLED", "false")),
+		InternalServiceToken:       getEnv("INTERNAL_SERVICE_TOKEN", ""),
+		RfxExcelExchangeEnabled:    parseBool(getEnv("RFX_EXCEL_EXCHANGE_ENABLED", "false")),
+		IntegrationAuthEnabled:     parseBool(getEnv("INTEGRATION_AUTH_ENABLED", "true")),
+		IntegrationRateLimitPerMin: intEnv("INTEGRATION_RATE_LIMIT_PER_MIN", 60),
 	}, nil
 }
 

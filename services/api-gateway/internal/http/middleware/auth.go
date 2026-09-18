@@ -78,7 +78,7 @@ func isPublicRoute(method, path string) bool {
 		return true
 	case method == http.MethodGet && strings.HasPrefix(path, "/openapi/"):
 		return true
-	case method == http.MethodPost && (path == "/api/v1/auth/login" || path == "/api/v1/users"):
+	case method == http.MethodPost && (path == "/api/v1/auth/login" || path == "/api/v1/users" || path == "/api/v1/integrations/oauth/token"):
 		return true
 	default:
 		return false
