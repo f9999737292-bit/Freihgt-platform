@@ -11,12 +11,15 @@ import (
 	"time"
 
 	"github.com/freight-platform/identity-service/internal/config"
-	httpserver "github.com/freight-platform/identity-service/internal/http"
+	identityhttp "github.com/freight-platform/identity-service/internal/http"
+	"github.com/freight-platform/identity-service/internal/http/handlers"
 	"github.com/freight-platform/identity-service/internal/platform/database"
 	"github.com/freight-platform/identity-service/internal/platform/logger"
 	"github.com/freight-platform/identity-service/internal/platform/security"
 	"github.com/freight-platform/identity-service/internal/repository"
 	"github.com/freight-platform/identity-service/internal/service"
+	"github.com/freight-platform/shared-go/integrationauth"
+	"github.com/freight-platform/shared-go/internalauth"
 	"github.com/freight-platform/shared-go/metrics"
 )
 
@@ -51,7 +54,18 @@ func main() {
 	roleService := service.NewRoleService(roleRepo, permissionRepo, userRepo)
 	membershipService := service.NewMembershipService(userRepo, roleRepo, membershipRepo)
 
-	router := httpserver.NewRouter(log, db.Pool, jwtService, authService, userService, roleService, membershipService)
+	integrationVerifier := integrationauth.NewVerifier(db.Pool)
+	integrationJWT := integrationauth.NewJWTService(cfg.JWTSecret, time.Duration(cfg.IntegrationTokenTTLMin)*time.Minute)
+	integrationAuditor := integrationauth.NewAuditRecorder(db.Pool)
+	integrationLimiter := integrationauth.NewPrincipalRateLimiter(cfg.IntegrationOAuthRateLimit, time.Minute)
+	integrationOAuthService := service.NewIntegrationOAuthService(integrationVerifier, integrationJWT, integrationAuditor, integrationLimiter)
+	integrationOAuthHandler := handlers.NewIntegrationOAuthHandler(integrationOAuthService)
+	integrationVerifyHandler := handlers.NewIntegrationVerifyHandler(integrationVerifier, integrationAuditor, internalauth.Config{
+		Token:       cfg.InternalServiceToken,
+		Environment: cfg.Environment,
+	})
+
+	router := identityhttp.NewRouter(log, db.Pool, jwtService, authService, userService, roleService, membershipService, integrationOAuthHandler, integrationVerifyHandler, cfg.InternalServiceToken)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

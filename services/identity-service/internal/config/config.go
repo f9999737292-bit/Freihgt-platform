@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
@@ -12,8 +13,11 @@ type Config struct {
 	HTTPPort             int
 	LogLevel             string
 	DatabaseURL          string
-	JWTSecret            string
-	JWTAccessTokenTTLMin int
+	JWTSecret                 string
+	JWTAccessTokenTTLMin      int
+	IntegrationTokenTTLMin    int
+	IntegrationOAuthRateLimit   int
+	InternalServiceToken        string
 }
 
 func Load() (Config, error) {
@@ -49,14 +53,30 @@ func Load() (Config, error) {
 		jwtSecret = "dev_secret_change_me"
 	}
 
+	integrationTTL := 15
+	if raw := strings.TrimSpace(os.Getenv("INTEGRATION_TOKEN_TTL_MINUTES")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
+			integrationTTL = parsed
+		}
+	}
+	oauthRateLimit := 30
+	if raw := strings.TrimSpace(os.Getenv("INTEGRATION_OAUTH_RATE_LIMIT_PER_MIN")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
+			oauthRateLimit = parsed
+		}
+	}
+
 	return Config{
-		ServiceName:          "identity-service",
-		Environment:          getEnv("ENVIRONMENT", "development"),
-		HTTPPort:             port,
-		LogLevel:             getEnv("LOG_LEVEL", "info"),
-		DatabaseURL:          databaseURL,
-		JWTSecret:            jwtSecret,
-		JWTAccessTokenTTLMin: ttl,
+		ServiceName:               "identity-service",
+		Environment:               getEnv("ENVIRONMENT", "development"),
+		HTTPPort:                  port,
+		LogLevel:                  getEnv("LOG_LEVEL", "info"),
+		DatabaseURL:               databaseURL,
+		JWTSecret:                 jwtSecret,
+		JWTAccessTokenTTLMin:      ttl,
+		IntegrationTokenTTLMin:    integrationTTL,
+		IntegrationOAuthRateLimit: oauthRateLimit,
+		InternalServiceToken:      getEnv("INTERNAL_SERVICE_TOKEN", ""),
 	}, nil
 }
 
