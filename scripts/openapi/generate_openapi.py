@@ -98,6 +98,7 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/docs", "get", "Swagger UI", "Gateway", False, False, None),
     ("/api/v1/auth/login", "post", "Login and obtain JWT access token", "Auth", False, False, None),
     ("/api/v1/auth/me", "get", "Get current authenticated user", "Auth", True, True, None),
+    ("/api/v1/integrations/oauth/token", "post", "Obtain OAuth access token via client credentials", "Auth", False, False, "oauth_client_credentials"),
     ("/api/v1/users", "post", "Create user", "Users", False, False, None),
     ("/api/v1/users", "get", "List users", "Users", True, True, None),
     ("/api/v1/users/{id}", "get", "Get user by ID", "Users", True, True, None),
@@ -1065,6 +1066,61 @@ def render_operation(
         lines.append(parameters.rstrip("\n"))
     elif with_headers:
         lines.append(COMMON_HEADER.rstrip("\n"))
+
+    if profile == "oauth_client_credentials":
+        lines.extend(
+            [
+                "      requestBody:",
+                "        required: true",
+                "        content:",
+                "          application/x-www-form-urlencoded:",
+                "            schema:",
+                "              type: object",
+                "              required: [grant_type, client_id, client_secret]",
+                "              properties:",
+                "                grant_type:",
+                "                  type: string",
+                "                  enum: [client_credentials]",
+                "                client_id:",
+                "                  type: string",
+                "                client_secret:",
+                "                  type: string",
+                "                  format: password",
+                "      responses:",
+                "        '200':",
+                "          description: OAuth access token issued",
+                "          content:",
+                "            application/json:",
+                "              schema:",
+                "                $ref: '#/components/schemas/OAuthIntegrationTokenResponse'",
+                "        '400':",
+                "          description: Invalid OAuth request",
+                "          content:",
+                "            application/json:",
+                "              schema:",
+                "                $ref: '#/components/schemas/OAuthIntegrationErrorResponse'",
+                "        '401':",
+                "          description: Client authentication failed",
+                "          content:",
+                "            application/json:",
+                "              schema:",
+                "                $ref: '#/components/schemas/OAuthIntegrationErrorResponse'",
+                "        '403':",
+                "          description: Client IP not allowed",
+                "          content:",
+                "            application/json:",
+                "              schema:",
+                "                $ref: '#/components/schemas/OAuthIntegrationErrorResponse'",
+                "        '429':",
+                "          description: Rate limit exceeded",
+                "          content:",
+                "            application/json:",
+                "              schema:",
+                "                $ref: '#/components/schemas/OAuthIntegrationErrorResponse'",
+                "",
+            ]
+        )
+        return "\n".join(lines)
 
     if (
         method in {"post", "patch", "put"}
@@ -2505,6 +2561,33 @@ def filter_e7_excel_exchange_endpoints(
     return [item for item in endpoints if item[6] not in E7_EXCEL_EXCHANGE_ENDPOINT_PROFILES]
 
 
+def oauth_integration_components_block() -> str:
+    return """
+    OAuthIntegrationTokenResponse:
+      type: object
+      required: [access_token, token_type, expires_in]
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          enum: [Bearer]
+        expires_in:
+          type: integer
+          format: int64
+        scope:
+          type: string
+    OAuthIntegrationErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+        error_description:
+          type: string
+"""
+
+
 def global_components_block(
     *,
     include_e1_version_lifecycle: bool = False,
@@ -2523,6 +2606,7 @@ def global_components_block(
         rfx_components += late_submission_components_block()
     if include_e7_excel_exchange:
         rfx_components += excel_exchange_components_block()
+    rfx_components += oauth_integration_components_block()
     return """
 components:
   securitySchemes:
