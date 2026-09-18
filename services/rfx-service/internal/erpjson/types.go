@@ -15,15 +15,15 @@ const (
 )
 
 type RawDocument struct {
-	SchemaVersion       string          `json:"schema_version"`
-	RequestedOperation  string          `json:"requested_operation"`
-	External            *ExternalRef    `json:"external,omitempty"`
-	Event               EventPayload    `json:"event"`
-	Lots                []LotPayload    `json:"lots,omitempty"`
-	Questionnaire       json.RawMessage `json:"questionnaire,omitempty"`
-	TemplateReference   json.RawMessage `json:"template_reference,omitempty"`
-	Extensions          json.RawMessage `json:"extensions,omitempty"`
-	MappingContext      json.RawMessage `json:"mapping_context,omitempty"`
+	SchemaVersion      string          `json:"schema_version"`
+	RequestedOperation string          `json:"requested_operation"`
+	External           *ExternalRef    `json:"external,omitempty"`
+	Event              EventPayload    `json:"event"`
+	Lots               []LotPayload    `json:"lots,omitempty"`
+	Questionnaire      json.RawMessage `json:"questionnaire,omitempty"`
+	TemplateReference  json.RawMessage `json:"template_reference,omitempty"`
+	Extensions         json.RawMessage `json:"extensions,omitempty"`
+	MappingContext     json.RawMessage `json:"mapping_context,omitempty"`
 }
 
 type ExternalRef struct {
@@ -50,32 +50,39 @@ type LotPayload struct {
 	CurrencyCode   string   `json:"currency_code,omitempty"`
 }
 
-type MappingContextPin struct {
+type MappingTypePin struct {
+	MappingType       string    `json:"mapping_type"`
 	MappingSetID      uuid.UUID `json:"mapping_set_id"`
 	MappingSetVersion int       `json:"mapping_set_version"`
-	MappingTypes      []string  `json:"mapping_types_applied"`
+}
+
+type MappingContextPin struct {
+	MappingSetID      uuid.UUID        `json:"mapping_set_id"`
+	MappingSetVersion int              `json:"mapping_set_version"`
+	MappingTypes      []string         `json:"mapping_types_applied"`
+	Pins              []MappingTypePin `json:"pins,omitempty"`
 }
 
 type ParsedPreview struct {
-	Operation       string
-	External        *ExternalRef
-	Event           EventPayload
-	Lots            []domain.CreateRfxLotInput
-	Questionnaire   domain.QuestionnaireDefinition
-	ReadyToCommit   bool
-	Errors          []Issue
-	Warnings        []Issue
-	MappingContext  MappingContextPin
-	CanonicalJSON   []byte
-	CanonicalHash   string
+	Operation      string
+	External       *ExternalRef
+	Event          EventPayload
+	Lots           []domain.CreateRfxLotInput
+	Questionnaire  domain.QuestionnaireDefinition
+	ReadyToCommit  bool
+	Errors         []Issue
+	Warnings       []Issue
+	MappingContext MappingContextPin
+	CanonicalJSON  []byte
+	CanonicalHash  string
 }
 
 type PreviewResponse struct {
-	SchemaVersion       string     `json:"schema_version"`
-	ReadyToCommit       bool       `json:"ready_to_commit"`
-	AnalysisID          *uuid.UUID `json:"analysis_id,omitempty"`
-	ExpiresAt           *time.Time `json:"expires_at,omitempty"`
-	CanonicalPayloadHash string    `json:"canonical_payload_hash,omitempty"`
-	Errors              []Issue    `json:"errors"`
-	Warnings            []Issue    `json:"warnings"`
+	SchemaVersion        string     `json:"schema_version"`
+	ReadyToCommit        bool       `json:"ready_to_commit"`
+	AnalysisID           *uuid.UUID `json:"analysis_id,omitempty"`
+	ExpiresAt            *time.Time `json:"expires_at,omitempty"`
+	CanonicalPayloadHash string     `json:"canonical_payload_hash,omitempty"`
+	Errors               []Issue    `json:"errors"`
+	Warnings             []Issue    `json:"warnings"`
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"unicode/utf8"
 
@@ -17,20 +18,35 @@ type MappingLookup interface {
 	ResolveCode(ctx context.Context, tenantID uuid.UUID, mappingType, externalCode string) (canonical string, mappingSet domain.ReferenceMappingSet, warning bool, err error)
 }
 
+type previewEnvelope struct {
+	SchemaVersion      string            `json:"schema_version"`
+	RequestedOperation string            `json:"requested_operation"`
+	External           json.RawMessage   `json:"external"`
+	Event              json.RawMessage   `json:"event"`
+	Lots               []json.RawMessage `json:"lots"`
+	Questionnaire      json.RawMessage   `json:"questionnaire"`
+	TemplateReference  json.RawMessage   `json:"template_reference"`
+	Extensions         json.RawMessage   `json:"extensions"`
+	MappingContext     json.RawMessage   `json:"mapping_context"`
+}
+
 func ParsePreview(ctx context.Context, tenantID uuid.UUID, expectedOp string, raw []byte, maps MappingLookup) (*ParsedPreview, error) {
 	if len(raw) > MaxBodyBytes {
-		return nil, fmt.Errorf("body too large")
+		return &ParsedPreview{Errors: IngestErrorToIssues(fmt.Errorf("body too large"))}, nil
 	}
 	if err := validateStructure(raw, MaxJSONDepth); err != nil {
-		out := &ParsedPreview{Errors: IngestErrorToIssues(err)}
-		return out, nil
+		return &ParsedPreview{Errors: IngestErrorToIssues(err)}, nil
 	}
 	if issues := CheckTopLevelAllowlist(raw); len(issues) > 0 {
 		return &ParsedPreview{Errors: issues}, nil
 	}
-	var doc RawDocument
-	if err := json.Unmarshal(raw, &doc); err != nil {
+	var env previewEnvelope
+	if err := IngestJSON(raw, &env); err != nil {
 		return &ParsedPreview{Errors: IngestErrorToIssues(err)}, nil
+	}
+	doc, typedIssues := decodeTypedPreviewSections(env)
+	if len(typedIssues) > 0 {
+		return &ParsedPreview{Errors: typedIssues}, nil
 	}
 
 	out := &ParsedPreview{Operation: normalizeOperation(doc.RequestedOperation)}
@@ -85,7 +101,7 @@ func ParsePreview(ctx context.Context, tenantID uuid.UUID, expectedOp string, ra
 	canonical, pin, err := buildCanonicalPayload(doc, maps, ctx, tenantID)
 	if err != nil {
 		out.ReadyToCommit = false
-		out.Errors = append(out.Errors, errIssue(MachineCodeMappingNotFound, "", err.Error()))
+		out.Errors = append(out.Errors, errIssue(MachineCodeMappingNotFound, "", "rfx.erp.mapping_not_found"))
 		return out, nil
 	}
 	hash, err := StableHash(canonical)
@@ -96,6 +112,43 @@ func ParsePreview(ctx context.Context, tenantID uuid.UUID, expectedOp string, ra
 	out.CanonicalHash = hash
 	out.MappingContext = pin
 	return out, nil
+}
+
+func decodeTypedPreviewSections(env previewEnvelope) (RawDocument, []Issue) {
+	doc := RawDocument{
+		SchemaVersion:      env.SchemaVersion,
+		RequestedOperation: env.RequestedOperation,
+		Questionnaire:      env.Questionnaire,
+		TemplateReference:  env.TemplateReference,
+		Extensions:         env.Extensions,
+		MappingContext:     env.MappingContext,
+	}
+	var issues []Issue
+	if len(env.Event) > 0 {
+		if err := IngestJSON(env.Event, &doc.Event); err != nil {
+			issues = append(issues, prefixIssuePaths(IngestErrorToIssues(err), "event")...)
+		}
+	}
+	if len(env.External) > 0 {
+		var ext ExternalRef
+		if err := IngestJSON(env.External, &ext); err != nil {
+			issues = append(issues, prefixIssuePaths(IngestErrorToIssues(err), "external")...)
+		} else {
+			doc.External = &ext
+		}
+	}
+	if len(env.Lots) > MaxLots {
+		issues = append(issues, errIssue(MachineCodeTooManyLots, "lots", "rfx.erp.too_many_lots"))
+	}
+	for i, lotRaw := range env.Lots {
+		var lot LotPayload
+		if err := IngestJSON(lotRaw, &lot); err != nil {
+			issues = append(issues, prefixIssuePaths(IngestErrorToIssues(err), fmt.Sprintf("lots[%d]", i))...)
+			continue
+		}
+		doc.Lots = append(doc.Lots, lot)
+	}
+	return doc, issues
 }
 
 func appendMappingResults(errors, warnings []Issue, issue Issue, _ *domain.ReferenceMappingSet, warnOnly bool) ([]Issue, []Issue) {
@@ -174,10 +227,10 @@ type questionnaireJSON struct {
 
 type questionnaireRuleJSON struct {
 	RuleCode           string          `json:"rule_code"`
-	SourceQuestionCode   string          `json:"source_question_code"`
-	TargetQuestionCode   string          `json:"target_question_code"`
-	Action               string          `json:"action"`
-	Condition            json.RawMessage `json:"condition"`
+	SourceQuestionCode string          `json:"source_question_code"`
+	TargetQuestionCode string          `json:"target_question_code"`
+	Action             string          `json:"action"`
+	Condition          json.RawMessage `json:"condition"`
 }
 
 func validateQuestionnaireJSON(raw json.RawMessage) (errors, warnings []Issue) {
@@ -248,7 +301,7 @@ func buildCanonicalPayload(doc RawDocument, maps MappingLookup, ctx context.Cont
 		}
 		event.Currency = canonical
 		typesApplied = appendUnique(typesApplied, "CURRENCY")
-		pin = mergePin(pin, set)
+		pin = mergePin(pin, "CURRENCY", set)
 	}
 	if maps != nil && strings.TrimSpace(event.Timezone) != "" {
 		canonical, set, _, err := maps.ResolveCode(ctx, tenantID, "TIMEZONE", event.Timezone)
@@ -257,7 +310,7 @@ func buildCanonicalPayload(doc RawDocument, maps MappingLookup, ctx context.Cont
 		}
 		event.Timezone = canonical
 		typesApplied = appendUnique(typesApplied, "TIMEZONE")
-		pin = mergePin(pin, set)
+		pin = mergePin(pin, "TIMEZONE", set)
 	}
 
 	lots := make([]LotPayload, len(doc.Lots))
@@ -270,7 +323,7 @@ func buildCanonicalPayload(doc RawDocument, maps MappingLookup, ctx context.Cont
 			}
 			lots[i].CurrencyCode = canonical
 			typesApplied = appendUnique(typesApplied, "CURRENCY")
-			pin = mergePin(pin, set)
+			pin = mergePin(pin, "CURRENCY", set)
 		}
 	}
 
@@ -284,14 +337,14 @@ func buildCanonicalPayload(doc RawDocument, maps MappingLookup, ctx context.Cont
 			}
 			freight.UnitCode = canonical
 			typesApplied = appendUnique(typesApplied, "UNIT")
-			pin = mergePin(pin, set)
+			pin = mergePin(pin, "UNIT", set)
 			extensions = mergeFreightExtensions(extensions, freight)
 		}
 		if strings.TrimSpace(freight.CargoType) != "" {
 			if canonical, set, _, err := maps.ResolveCode(ctx, tenantID, "CARGO_TYPE", freight.CargoType); err == nil {
 				freight.CargoType = canonical
 				typesApplied = appendUnique(typesApplied, "CARGO_TYPE")
-				pin = mergePin(pin, set)
+				pin = mergePin(pin, "CARGO_TYPE", set)
 				extensions = mergeFreightExtensions(extensions, freight)
 			}
 		}
@@ -315,6 +368,9 @@ func buildCanonicalPayload(doc RawDocument, maps MappingLookup, ctx context.Cont
 		resolved["extensions"] = json.RawMessage(extensions)
 	}
 	pin.MappingTypes = typesApplied
+	sort.Slice(pin.Pins, func(i, j int) bool {
+		return pin.Pins[i].MappingType < pin.Pins[j].MappingType
+	})
 	resolved["mapping_context"] = pin
 	normalized, err := json.Marshal(resolved)
 	if err != nil {
@@ -344,13 +400,21 @@ func mergeFreightExtensions(raw json.RawMessage, freight freightExtensions) json
 	return out
 }
 
-func mergePin(current MappingContextPin, set domain.ReferenceMappingSet) MappingContextPin {
+func mergePin(current MappingContextPin, mappingType string, set domain.ReferenceMappingSet) MappingContextPin {
 	if current.MappingSetID == uuid.Nil {
-		return MappingContextPin{MappingSetID: set.ID, MappingSetVersion: set.Version}
+		current.MappingSetID = set.ID
+		current.MappingSetVersion = set.Version
 	}
-	if current.MappingSetID != set.ID {
-		return current
+	for _, existing := range current.Pins {
+		if existing.MappingType == mappingType {
+			return current
+		}
 	}
+	current.Pins = append(current.Pins, MappingTypePin{
+		MappingType:       mappingType,
+		MappingSetID:      set.ID,
+		MappingSetVersion: set.Version,
+	})
 	return current
 }
 
