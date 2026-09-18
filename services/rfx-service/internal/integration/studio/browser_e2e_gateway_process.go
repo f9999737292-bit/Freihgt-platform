@@ -26,9 +26,9 @@ type browserGatewayProcess struct {
 }
 
 var (
-	apiGatewayBinaryMu     sync.Mutex
-	apiGatewayBinaryOnce   sync.Once
-	apiGatewayBinaryPath   string
+	apiGatewayBinaryMu       sync.Mutex
+	apiGatewayBinaryOnce     sync.Once
+	apiGatewayBinaryPath     string
 	apiGatewayBinaryBuildErr error
 )
 
@@ -188,7 +188,11 @@ func writeGatewayFailureArtifact(t *testing.T, proc *browserGatewayProcess) {
 	if err != nil {
 		return
 	}
-	dir := filepath.Join(root, "apps", "web-procurement", "e2e", "rfx-studio", "test-results")
+	artifactDir := "rfx-scoring-v3"
+	if strings.Contains(t.Name(), "Studio") {
+		artifactDir = "rfx-studio"
+	}
+	dir := filepath.Join(root, "apps", "web-procurement", "e2e", artifactDir, "test-results")
 	_ = os.MkdirAll(dir, 0o755)
 	path := filepath.Join(dir, "api-gateway.log")
 	_ = os.WriteFile(path, []byte(procLogs(proc)), 0o644)

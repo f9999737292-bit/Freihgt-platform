@@ -3,10 +3,21 @@
 export const SCORE_MODEL_STATUSES = ['DRAFT', 'PUBLISHED'] as const
 export type ScoreModelStatus = (typeof SCORE_MODEL_STATUSES)[number]
 
-export const SCORING_QUESTION_TYPES = ['NUMBER', 'PERCENT', 'YES_NO', 'SINGLE_SELECT', 'MULTI_SELECT'] as const
+export const SCORING_QUESTION_TYPES = [
+  'NUMBER',
+  'PERCENT',
+  'YES_NO',
+  'SINGLE_SELECT',
+  'MULTI_SELECT',
+] as const
 export type ScoringQuestionType = (typeof SCORING_QUESTION_TYPES)[number]
 
-export const NORMALIZATION_TYPES = ['NUMBER_LINEAR', 'BOOLEAN_MAP', 'OPTION_MAP', 'MULTI_SELECT'] as const
+export const NORMALIZATION_TYPES = [
+  'NUMBER_LINEAR',
+  'BOOLEAN_MAP',
+  'OPTION_MAP',
+  'MULTI_SELECT',
+] as const
 export type NormalizationType = (typeof NORMALIZATION_TYPES)[number]
 
 export const MULTI_SELECT_AGGREGATIONS = ['SUM_CAPPED', 'MAX', 'AVERAGE'] as const
@@ -82,6 +93,10 @@ export interface ScoreCriterionInput {
   weight: number
   normalization_json: Record<string, unknown>
   sort_order?: number
+  /** Server criterion id; client-only render identity, never sent to API. */
+  persisted_id?: string
+  /** Client-only stable Vue render identity; never sent to API. */
+  client_render_key?: string
 }
 
 export interface ScoreBindingInput {

@@ -8,7 +8,11 @@ import type {
 } from '~/types/rfx-score-model'
 import { ApiError } from '~/composables/useApi'
 import { rfxEventApiPath } from '~/utils/rfxQuestionnaireApiRoutes'
-import { deriveEditorState } from '~/utils/rfxStudioScoring'
+import {
+  deriveEditorState,
+  mergeCriterionClientKeys,
+  toApiCriterionInput,
+} from '~/utils/rfxStudioScoring'
 
 export const RFX_SCORE_MODEL_API_KEY = Symbol('rfxScoreModelApi')
 
@@ -51,20 +55,11 @@ export function useRfxScoreModelApi(rfxEventId: Ref<string> | string) {
   }
 
   function syncDraftFromView(data: ScoreModelView) {
-    draftCriteria.value = data.criteria.map((c, index) => ({
-      criterion_code: c.criterion_code,
-      name: c.name,
-      weight: c.weight,
-      normalization_json:
-        typeof c.normalization_json === 'string'
-          ? JSON.parse(c.normalization_json)
-          : { ...(c.normalization_json as Record<string, unknown>) },
-      sort_order: c.sort_order ?? index + 1,
-    }))
+    draftCriteria.value = mergeCriterionClientKeys(draftCriteria.value, data.criteria)
     const codeByCriterionId = new Map(data.criteria.map((c) => [c.id, c.criterion_code]))
     const questionCodeById = new Map<string, string>()
     draftBindings.value = data.bindings.map((b) => {
-      const criterionCode = b.criterion_id ? codeByCriterionId.get(b.criterion_id) ?? '' : ''
+      const criterionCode = b.criterion_id ? (codeByCriterionId.get(b.criterion_id) ?? '') : ''
       return {
         criterion_code: criterionCode,
         question_code: questionCodeById.get(b.question_id ?? '') ?? '',
@@ -81,10 +76,7 @@ export function useRfxScoreModelApi(rfxEventId: Ref<string> | string) {
 
   function buildPutInput(): PutScoreModelInput {
     return {
-      criteria: draftCriteria.value.map((c, index) => ({
-        ...c,
-        sort_order: c.sort_order ?? index + 1,
-      })),
+      criteria: draftCriteria.value.map((c, index) => toApiCriterionInput(c, index)),
       bindings: draftBindings.value,
     }
   }

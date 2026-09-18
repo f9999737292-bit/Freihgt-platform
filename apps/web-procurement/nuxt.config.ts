@@ -14,6 +14,7 @@ const localeFiles = [
 
 export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',
+  ...(process.env.NUXT_E2E_BUILD_DIR ? { buildDir: process.env.NUXT_E2E_BUILD_DIR } : {}),
   ssr: process.env.NUXT_E2E_DISABLE_SSR !== 'true',
   devtools: { enabled: true },
   devServer: {

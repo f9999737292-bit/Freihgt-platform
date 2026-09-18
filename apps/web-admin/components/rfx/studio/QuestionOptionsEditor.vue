@@ -63,29 +63,18 @@ function onLabelInput(optionId: string) {
 
 
 async function addOption() {
-
   const sortOrder = nextSortOrder(options.value)
-
   const code = `OPT_${sortOrder}`
 
   try {
-
     await api.createOption(props.question.id, {
-
       option_code: code,
-
       label: t('rfx.studio.newOption'),
-
       sort_order: sortOrder,
-
     })
-
   } catch (e) {
-
     pushToast('error', e instanceof Error ? e.message : t('common.error'))
-
   }
-
 }
 
 
