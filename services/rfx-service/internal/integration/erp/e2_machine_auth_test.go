@@ -90,18 +90,7 @@ func TestE7P2INT124APIKeyHashOnlyStorage(t *testing.T) {
 }
 
 func TestE7P2INT125MissingAuthorization(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/integrations/erp/capabilities", nil)
-	rec := httptest.NewRecorder()
-	http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.TrimSpace(r.Header.Get("Authorization")) == "" {
-			w.WriteHeader(http.StatusUnauthorized)
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-	}).ServeHTTP(rec, req)
-	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf("expected 401 got %d", rec.Code)
-	}
+	t.Skip("covered by live gateway middleware tests in api-gateway/internal/http/middleware/integration_auth_test.go")
 }
 
 func TestE7P2INT126CredentialRotationGrace(t *testing.T) {
@@ -196,13 +185,56 @@ func TestE7P2INT131CrossCompanyBinding(t *testing.T) {
 }
 
 func TestE7P2INT186RateLimit429(t *testing.T) {
+	env := setupTestEnv(t)
+	tenantID, companyID := seedTenantCompany(t, env)
+	principal := seedIntegrationPrincipal(t, env, tenantID, companyID, "int186-client")
+	secret := "int186-secret"
+	seedOAuthCredential(t, env, tenantID, principal, secret)
+	verifier := integrationauth.NewVerifier(env.pool)
+	jwtSvc := integrationauth.NewJWTService("test-integration-jwt-secret", integrationauth.TokenTTL)
+	auditor := integrationauth.NewAuditRecorder(env.pool)
 	limiter := integrationauth.NewPrincipalRateLimiter(1, time.Minute)
-	key := limiter.Key(uuid.NewString(), uuid.NewString(), "oauth_token")
-	if allowed, _ := limiter.Allow(key); !allowed {
-		t.Fatal("first request should pass")
+	failedLimiter := integrationauth.NewPrincipalRateLimiter(30, time.Minute)
+	handler := newOAuthTokenHTTPHandler(verifier, jwtSvc, auditor, limiter, failedLimiter)
+
+	body := func() *strings.Reader {
+		return strings.NewReader("grant_type=client_credentials&client_id=" + principal.ClientID + "&client_secret=" + secret)
 	}
-	if allowed, _ := limiter.Allow(key); allowed {
-		t.Fatal("second request should be rate limited")
+	req1 := httptest.NewRequest(http.MethodPost, "/v1/integrations/oauth/token", body())
+	req1.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req1.RemoteAddr = "127.0.0.1:1234"
+	rec1 := httptest.NewRecorder()
+	handler.ServeHTTP(rec1, req1)
+	if rec1.Code != http.StatusOK {
+		t.Fatalf("first token request status=%d want 200 body=%s", rec1.Code, rec1.Body.String())
+	}
+
+	req2 := httptest.NewRequest(http.MethodPost, "/v1/integrations/oauth/token", body())
+	req2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req2.RemoteAddr = "127.0.0.1:1234"
+	rec2 := httptest.NewRecorder()
+	handler.ServeHTTP(rec2, req2)
+	if rec2.Code != http.StatusTooManyRequests {
+		t.Fatalf("second token request status=%d want 429 body=%s", rec2.Code, rec2.Body.String())
+	}
+	if rec2.Header().Get("Retry-After") == "" {
+		t.Fatal("expected Retry-After header on oauth rate limit")
+	}
+
+	failBody := strings.NewReader("grant_type=client_credentials&client_id=" + principal.ClientID + "&client_secret=wrong-secret")
+	failHandler := newOAuthTokenHTTPHandler(verifier, jwtSvc, auditor, integrationauth.NewPrincipalRateLimiter(30, time.Minute), integrationauth.NewPrincipalRateLimiter(1, time.Minute))
+	for i := 0; i < 2; i++ {
+		req := httptest.NewRequest(http.MethodPost, "/v1/integrations/oauth/token", failBody)
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.RemoteAddr = "198.51.100.10:1234"
+		rec := httptest.NewRecorder()
+		failHandler.ServeHTTP(rec, req)
+		if i == 0 && rec.Code != http.StatusUnauthorized {
+			t.Fatalf("first failed attempt status=%d want 401", rec.Code)
+		}
+		if i == 1 && rec.Code != http.StatusTooManyRequests {
+			t.Fatalf("second failed attempt status=%d want 429", rec.Code)
+		}
 	}
 }
 
