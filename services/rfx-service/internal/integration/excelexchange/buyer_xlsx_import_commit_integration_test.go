@@ -569,7 +569,7 @@ func TestE7P2INT68GatewayIdentitySpoofDenied(t *testing.T) {
 		t.Fatalf("marshal body: %v", err)
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	router := httpserver.NewRouter(log, env.pool, enabledExcelExchangeConfig(), env.rfxSvc, env.qSvc, nil, nil, nil, nil, nil, nil, env.excelExchangeSvc, nil, nil, nil, nil, nil)
+	router := httpserver.NewRouter(log, env.pool, enabledExcelExchangeConfig(), env.rfxSvc, env.qSvc, nil, nil, nil, nil, nil, nil, env.excelExchangeSvc, nil, nil, nil, nil, nil, nil)
 	req := httptest.NewRequest(http.MethodPost, "/v1/rfx-events/"+draft.Event.ID.String()+"/xlsx-import/commit", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Idempotency-Key", "e7p2-int-68")

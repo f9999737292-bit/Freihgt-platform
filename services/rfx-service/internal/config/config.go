@@ -19,6 +19,7 @@ type Config struct {
 	RfxVersioningV3Enabled   bool
 	RfxLateSubmissionEnabled bool
 	RfxExcelExchangeEnabled  bool
+	RfxErpIntegrationEnabled bool
 	DeadlineWorker           DeadlineWorkerConfig
 }
 
@@ -63,6 +64,7 @@ func Load() (Config, error) {
 		RfxVersioningV3Enabled:   parseBool(getEnv("RFX_VERSIONING_V3_ENABLED", "false")),
 		RfxLateSubmissionEnabled: parseBool(getEnv("RFX_LATE_SUBMISSION_ENABLED", "false")),
 		RfxExcelExchangeEnabled:  parseBool(getEnv("RFX_EXCEL_EXCHANGE_ENABLED", "false")),
+		RfxErpIntegrationEnabled: parseBool(getEnv("RFX_ERP_INTEGRATION_ENABLED", "false")),
 		DeadlineWorker:           deadlineWorker,
 	}, nil
 }

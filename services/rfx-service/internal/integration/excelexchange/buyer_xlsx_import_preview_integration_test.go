@@ -336,7 +336,7 @@ func TestE7P2INT38GatewayIdentitySpoofDenied(t *testing.T) {
 
 	body, contentType := buildBuyerXlsxImportMultipartBody(t, workbook, previewHTTPOptions{})
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	router := httpserver.NewRouter(log, env.pool, enabledExcelExchangeConfig(), env.rfxSvc, env.qSvc, nil, nil, nil, nil, nil, nil, env.excelExchangeSvc, nil, nil, nil, nil, nil)
+	router := httpserver.NewRouter(log, env.pool, enabledExcelExchangeConfig(), env.rfxSvc, env.qSvc, nil, nil, nil, nil, nil, nil, env.excelExchangeSvc, nil, nil, nil, nil, nil, nil)
 	req := httptest.NewRequest(http.MethodPost, "/v1/rfx-events/"+draft.Event.ID.String()+"/xlsx-import/preview", body)
 	req.Header.Set("Content-Type", contentType)
 	req.Header.Set("X-Tenant-ID", fix.TenantID.String())

@@ -29,6 +29,7 @@ func NewRouter(
 	crSvc *service.CarrierResponseService,
 	lateSvc *service.LateSubmissionService,
 	excelExchangeSvc *service.ExcelExchangeService,
+	erpIntegrationSvc *service.ErpIntegrationService,
 	scoreModelSvc *service.ScoreModelService,
 	scoringSvc *service.ScoringService,
 	frSvc *service.FreightRequestService,
@@ -44,6 +45,7 @@ func NewRouter(
 	crHandler := handlers.NewCarrierResponseHandler(crSvc)
 	lateHandler := handlers.NewLateSubmissionHandler(lateSvc)
 	excelExchangeHandler := handlers.NewExcelExchangeHandler(excelExchangeSvc)
+	erpIntegrationHandler := handlers.NewErpIntegrationHandler(erpIntegrationSvc)
 	scoreHandler := handlers.NewScoreHandler(scoreModelSvc, scoringSvc, rfxSvc)
 	frHandler := handlers.NewFreightRequestHandler(frSvc)
 	bidHandler := handlers.NewBidHandler(bidSvc)
@@ -144,6 +146,11 @@ func NewRouter(
 		})
 
 		r.Group(func(r chi.Router) {
+			r.Use(erpIntegrationFlagMiddleware(cfg.RfxErpIntegrationEnabled))
+			r.Post("/{id}/erp-import/preview", erpIntegrationHandler.PreviewUpdateDraft)
+		})
+
+		r.Group(func(r chi.Router) {
 			r.Use(excelExchangeFlagMiddleware(cfg.RfxExcelExchangeEnabled))
 			r.Get("/{id}/xlsx-export", excelExchangeHandler.ExportBuyerDraftXLSX)
 			r.Get("/{id}/carrier-responses/{response_id}/xlsx-export", excelExchangeHandler.ExportCarrierResponseXLSX)
@@ -220,6 +227,11 @@ func NewRouter(
 		r.Delete("/{id}/rules/{rule_id}", templateQHandler.DeleteRule)
 	})
 
+	r.Route("/v1/integrations/erp", func(r chi.Router) {
+		r.Use(erpIntegrationFlagMiddleware(cfg.RfxErpIntegrationEnabled))
+		r.Post("/rfx/drafts/preview", erpIntegrationHandler.PreviewCreateDraft)
+	})
+
 	r.Route("/internal/v1/pricing", func(r chi.Router) {
 		r.Use(internalAuth.Middleware)
 		r.Get("/award-context/{sourceId}", pricingHandler.GetAwardLinkContext)
@@ -239,6 +251,10 @@ func lateSubmissionFlagMiddleware(enabled bool) func(http.Handler) http.Handler 
 }
 
 func excelExchangeFlagMiddleware(enabled bool) func(http.Handler) http.Handler {
+	return featureFlagMiddleware(enabled)
+}
+
+func erpIntegrationFlagMiddleware(enabled bool) func(http.Handler) http.Handler {
 	return featureFlagMiddleware(enabled)
 }
 

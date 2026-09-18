@@ -99,6 +99,8 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/auth/login", "post", "Login and obtain JWT access token", "Auth", False, False, None),
     ("/api/v1/auth/me", "get", "Get current authenticated user", "Auth", True, True, None),
     ("/api/v1/integrations/oauth/token", "post", "Obtain OAuth access token via client credentials", "Auth", False, False, "oauth_client_credentials"),
+    ("/api/v1/integrations/erp/rfx/drafts/preview", "post", "Preview ERP buyer JSON create draft import", "RFx", True, True, "erp_import_preview_create_draft"),
+    ("/api/v1/rfx-events/{id}/erp-import/preview", "post", "Preview ERP buyer JSON update draft import", "RFx", True, True, "erp_import_preview_update_draft"),
     ("/api/v1/users", "post", "Create user", "Users", False, False, None),
     ("/api/v1/users", "get", "List users", "Users", True, True, None),
     ("/api/v1/users/{id}", "get", "Get user by ID", "Users", True, True, None),
@@ -507,6 +509,18 @@ BINARY_RESPONSE_PROFILES = frozenset({"xlsx_export_buyer_draft", "xlsx_export_ca
 
 EXCEL_EXCHANGE_PREVIEW_PROFILES = frozenset({"xlsx_import_preview_buyer_draft", "xlsx_import_preview_carrier_response"})
 
+E7_ERP_PREVIEW_ENDPOINT_PROFILES = frozenset({
+    "erp_import_preview_create_draft",
+    "erp_import_preview_update_draft",
+})
+
+ERP_PREVIEW_PROFILES = frozenset(E7_ERP_PREVIEW_ENDPOINT_PROFILES)
+
+PROFILE_OPERATION_IDS = {
+    "erp_import_preview_create_draft": "postErpRfxDraftCreatePreview",
+    "erp_import_preview_update_draft": "postErpRfxDraftUpdatePreview",
+}
+
 EXCEL_EXCHANGE_COMMIT_PROFILES = frozenset({"xlsx_import_commit_buyer_draft", "xlsx_import_commit_carrier_response"})
 
 EXCEL_EXCHANGE_ERROR_RESPONSES = """        '400':
@@ -651,6 +665,30 @@ Feature flag: when `RFX_EXCEL_EXCHANGE_ENABLED` is false (default), the route re
 Authorization: **BuyerManage** role required; only the preview creator actor may commit.
 
 Requires `Idempotency-Key` header. Request body contains only `analysis_id`.""",
+    "erp_import_preview_create_draft": """Preview ERP buyer JSON import for CREATE_DRAFT mode.
+
+Feature flag: when `RFX_ERP_INTEGRATION_ENABLED` is false (default), the route returns **404** (feature disabled).
+
+Authorization: integration bearer auth with scopes `rfx:draft:preview` and `rfx:draft:create`.
+
+Request: `application/json` body with schema `BINTRANS_RFX_ERP_JSON_V1` and `requested_operation=CREATE_DRAFT` (max 2 MiB).
+
+Successful domain-valid preview returns **200** with `ready_to_commit=true`, persisted `analysis_id`, and server-computed `expires_at` (24h TTL).
+
+Domain-invalid but structurally readable payloads return **422** with the structured preview envelope and `ready_to_commit=false` without persisting analysis (OPTION A).""",
+    "erp_import_preview_update_draft": """Preview ERP buyer JSON import for UPDATE_DRAFT mode.
+
+Feature flag: when `RFX_ERP_INTEGRATION_ENABLED` is false (default), the route returns **404** (feature disabled).
+
+Authorization: integration bearer auth with scopes `rfx:draft:preview` and `rfx:draft:read`.
+
+Request: `application/json` body with schema `BINTRANS_RFX_ERP_JSON_V1` and `requested_operation=UPDATE_DRAFT` (max 2 MiB).
+
+Successful domain-valid preview returns **200** with `ready_to_commit=true`, persisted `analysis_id`, and server-computed `expires_at` (24h TTL).
+
+Domain-invalid but structurally readable payloads return **422** with the structured preview envelope and `ready_to_commit=false` without persisting analysis (OPTION A).
+
+Precondition: target RFx event must be **DRAFT**; PUBLISHED events return **409** `stale_target`.""",
     "xlsx_import_commit_carrier_response": """Atomically apply a persisted carrier XLSX import preview analysis to a DRAFT response.
 
 Feature flag: when `RFX_EXCEL_EXCHANGE_ENABLED` is false (default), the route returns **404** (feature disabled).
@@ -1034,11 +1072,12 @@ def render_operation(
     secured: bool,
     profile: str | None = None,
 ) -> str:
+    operation_id = PROFILE_OPERATION_IDS.get(profile, f"{method}_{path_to_id(summary)}")
     lines = [
         f"    {method}:",
         f"      tags: [{tag}]",
         f"      summary: {summary}",
-        f"      operationId: {method}_{path_to_id(summary)}",
+        f"      operationId: {operation_id}",
     ]
 
     if profile in VOID_DESCRIPTIONS:
@@ -1127,6 +1166,7 @@ def render_operation(
         and profile not in NO_REQUEST_BODY_PROFILES
         and profile not in EXCEL_EXCHANGE_PREVIEW_PROFILES
         and profile not in EXCEL_EXCHANGE_COMMIT_PROFILES
+        and profile not in ERP_PREVIEW_PROFILES
     ):
         schema_ref = "#/components/schemas/VoidRequest" if profile in VOID_DESCRIPTIONS else None
         lines.extend(
@@ -1186,7 +1226,7 @@ def render_operation(
             ]
         )
 
-    if secured and profile not in EXCEL_EXCHANGE_PREVIEW_PROFILES and profile not in EXCEL_EXCHANGE_COMMIT_PROFILES:
+    if secured and profile not in EXCEL_EXCHANGE_PREVIEW_PROFILES and profile not in EXCEL_EXCHANGE_COMMIT_PROFILES and profile not in ERP_PREVIEW_PROFILES:
         lines.append(SECURITY_BEARER.rstrip("\n"))
 
     if profile in BINARY_RESPONSE_PROFILES:
@@ -1245,6 +1285,40 @@ def render_operation(
                 "            application/json:",
                 "              schema:",
                 f"                $ref: '#/components/schemas/{preview_schema}'",
+                EXCEL_EXCHANGE_ERROR_RESPONSES.rstrip("\n"),
+                "",
+            ]
+        )
+        return "\n".join(lines)
+
+    if profile in ERP_PREVIEW_PROFILES:
+        lines.extend(
+            [
+                "      requestBody:",
+                "        required: true",
+                "        content:",
+                "          application/json:",
+                "            schema:",
+                "              $ref: '#/components/schemas/ErpImportPreviewRequest'",
+            ]
+        )
+        if secured:
+            lines.append(SECURITY_BEARER.rstrip("\n"))
+        lines.extend(
+            [
+                "      responses:",
+                "        '200':",
+                "          description: Valid ERP import preview with persisted analysis",
+                "          content:",
+                "            application/json:",
+                "              schema:",
+                "                $ref: '#/components/schemas/ErpImportPreviewResponse'",
+                "        '422':",
+                "          description: Domain-invalid structured ERP import preview",
+                "          content:",
+                "            application/json:",
+                "              schema:",
+                "                $ref: '#/components/schemas/ErpImportPreviewResponse'",
                 EXCEL_EXCHANGE_ERROR_RESPONSES.rstrip("\n"),
                 "",
             ]
@@ -2552,6 +2626,85 @@ def excel_exchange_components_block() -> str:
 """
 
 
+def erp_preview_components_block() -> str:
+    return """    ErpImportPreviewIssue:
+      type: object
+      required: [severity, machine_code]
+      properties:
+        severity:
+          type: string
+          enum: [error, warning]
+        machine_code: {type: string}
+        path: {type: string}
+        message_key: {type: string}
+        external_source: {type: string}
+        params:
+          type: object
+          additionalProperties: true
+    ErpImportPreviewRequest:
+      type: object
+      required: [schema_version, requested_operation, event]
+      properties:
+        schema_version:
+          type: string
+          enum: [BINTRANS_RFX_ERP_JSON_V1]
+        requested_operation:
+          type: string
+          enum: [CREATE_DRAFT, UPDATE_DRAFT]
+        external:
+          type: object
+          properties:
+            system: {type: string}
+            object_id: {type: string}
+            revision: {type: string}
+        event:
+          type: object
+          required: [type, title, currency, timezone]
+          properties:
+            type: {type: string}
+            title: {type: string}
+            description: {type: string}
+            currency: {type: string}
+            timezone: {type: string}
+            deadline: {type: string, format: date-time}
+        lots:
+          type: array
+          maxItems: 200
+          items:
+            type: object
+            additionalProperties: true
+        questionnaire:
+          type: object
+          additionalProperties: true
+        template_reference:
+          type: object
+          additionalProperties: true
+        extensions:
+          type: object
+          additionalProperties: true
+      additionalProperties: false
+    ErpImportPreviewResponse:
+      type: object
+      required: [schema_version, ready_to_commit, errors, warnings]
+      properties:
+        schema_version:
+          type: string
+          example: BINTRANS_RFX_ERP_JSON_V1
+        ready_to_commit: {type: boolean}
+        analysis_id: {type: string, format: uuid}
+        expires_at: {type: string, format: date-time}
+        canonical_payload_hash: {type: string}
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErpImportPreviewIssue'
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErpImportPreviewIssue'
+"""
+
+
 def filter_e7_excel_exchange_endpoints(
     endpoints: list[tuple[str, str, str, str, bool, bool, str | None]],
     include_e7_excel_exchange: bool,
@@ -2559,6 +2712,15 @@ def filter_e7_excel_exchange_endpoints(
     if include_e7_excel_exchange:
         return endpoints
     return [item for item in endpoints if item[6] not in E7_EXCEL_EXCHANGE_ENDPOINT_PROFILES]
+
+
+def filter_e7_erp_preview_endpoints(
+    endpoints: list[tuple[str, str, str, str, bool, bool, str | None]],
+    include_e7_erp_preview: bool,
+) -> list[tuple[str, str, str, str, bool, bool, str | None]]:
+    if include_e7_erp_preview:
+        return endpoints
+    return [item for item in endpoints if item[6] not in E7_ERP_PREVIEW_ENDPOINT_PROFILES]
 
 
 def oauth_integration_components_block() -> str:
@@ -2594,6 +2756,7 @@ def global_components_block(
     include_e4_template_library: bool = False,
     include_e7_late_submission: bool = False,
     include_e7_excel_exchange: bool = False,
+    include_e7_erp_preview: bool = False,
     include_oauth_integration: bool = False,
 ) -> str:
     rfx_components = (
@@ -2607,6 +2770,8 @@ def global_components_block(
         rfx_components += late_submission_components_block()
     if include_e7_excel_exchange:
         rfx_components += excel_exchange_components_block()
+    if include_e7_erp_preview:
+        rfx_components += erp_preview_components_block()
     if include_oauth_integration:
         rfx_components += oauth_integration_components_block()
     return """
@@ -3034,6 +3199,7 @@ def components_block(
     include_e4_template_library: bool = False,
     include_e7_late_submission: bool = False,
     include_e7_excel_exchange: bool = False,
+    include_e7_erp_preview: bool = False,
     include_oauth_integration: bool = False,
 ) -> str:
     block = global_components_block(
@@ -3041,6 +3207,7 @@ def components_block(
         include_e4_template_library=include_e4_template_library,
         include_e7_late_submission=include_e7_late_submission,
         include_e7_excel_exchange=include_e7_excel_exchange,
+        include_e7_erp_preview=include_e7_erp_preview,
         include_oauth_integration=include_oauth_integration,
     )
     if include_payment_components:
@@ -3058,9 +3225,11 @@ def build_spec(
     include_e4_template_library: bool = False,
     include_e7_late_submission: bool = False,
     include_e7_excel_exchange: bool = False,
+    include_e7_erp_preview: bool = False,
     include_oauth_integration: bool = False,
 ) -> str:
     endpoints = filter_e7_excel_exchange_endpoints(endpoints, include_e7_excel_exchange)
+    endpoints = filter_e7_erp_preview_endpoints(endpoints, include_e7_erp_preview)
     tags_yaml = "\n".join(f"  - name: {tag}" for tag in TAGS)
     return (
         f"""openapi: 3.0.3
@@ -3076,7 +3245,7 @@ tags:
 {tags_yaml}
 paths:
 {render_paths(endpoints)}
-{components_block(include_payment_components=include_payment_components, include_e1_version_lifecycle=include_e1_version_lifecycle, include_e4_template_library=include_e4_template_library, include_e7_late_submission=include_e7_late_submission, include_e7_excel_exchange=include_e7_excel_exchange, include_oauth_integration=include_oauth_integration)}
+{components_block(include_payment_components=include_payment_components, include_e1_version_lifecycle=include_e1_version_lifecycle, include_e4_template_library=include_e4_template_library, include_e7_late_submission=include_e7_late_submission, include_e7_excel_exchange=include_e7_excel_exchange, include_e7_erp_preview=include_e7_erp_preview, include_oauth_integration=include_oauth_integration)}
 """
     ).strip() + "\n"
 
@@ -3108,6 +3277,7 @@ def main() -> None:
         include_e4_template_library=True,
         include_e7_late_submission=True,
         include_e7_excel_exchange=True,
+        include_e7_erp_preview=True,
         include_oauth_integration=True,
     )
     (OPENAPI_DIR / "openapi.yaml").write_text(unified, encoding="utf-8")
@@ -3124,6 +3294,7 @@ def main() -> None:
             include_e4_template_library=(filename == "rfx-service.yaml"),
             include_e7_late_submission=(filename == "rfx-service.yaml"),
             include_e7_excel_exchange=(filename == "rfx-service.yaml"),
+            include_e7_erp_preview=(filename == "rfx-service.yaml"),
             include_oauth_integration=(filename == "identity-service.yaml"),
         )
         (OPENAPI_DIR / filename).write_text(spec, encoding="utf-8")

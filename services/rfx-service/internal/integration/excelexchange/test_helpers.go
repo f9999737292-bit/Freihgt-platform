@@ -548,7 +548,7 @@ func postBuyerXlsxImportPreviewHTTP(
 	t.Helper()
 	body, contentType := buildBuyerXlsxImportMultipartBody(t, fileBytes, opts)
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	router := httpserver.NewRouter(log, env.pool, cfg, env.rfxSvc, env.qSvc, nil, nil, nil, nil, nil, nil, env.excelExchangeSvc, nil, nil, nil, nil, nil)
+	router := httpserver.NewRouter(log, env.pool, cfg, env.rfxSvc, env.qSvc, nil, nil, nil, nil, nil, nil, env.excelExchangeSvc, nil, nil, nil, nil, nil, nil)
 	req := httptest.NewRequest(http.MethodPost, "/v1/rfx-events/"+eventID.String()+"/xlsx-import/preview", body)
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
@@ -645,7 +645,7 @@ func postBuyerXlsxImportCommitHTTP(
 		t.Fatalf("marshal commit body: %v", err)
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	router := httpserver.NewRouter(log, env.pool, cfg, env.rfxSvc, env.qSvc, nil, nil, nil, nil, nil, nil, env.excelExchangeSvc, nil, nil, nil, nil, nil)
+	router := httpserver.NewRouter(log, env.pool, cfg, env.rfxSvc, env.qSvc, nil, nil, nil, nil, nil, nil, env.excelExchangeSvc, nil, nil, nil, nil, nil, nil)
 	req := httptest.NewRequest(http.MethodPost, "/v1/rfx-events/"+eventID.String()+"/xlsx-import/commit", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	if idempotencyKey != "" {
@@ -688,7 +688,7 @@ func countImportAnalyses(t *testing.T, env *testEnv, tenantID uuid.UUID) int {
 func getBuyerXlsxExportHTTP(t *testing.T, env *testEnv, cfg config.Config, actor domain.ActorContext, eventID uuid.UUID) *httptest.ResponseRecorder {
 	t.Helper()
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	router := httpserver.NewRouter(log, env.pool, cfg, env.rfxSvc, env.qSvc, nil, nil, nil, nil, nil, nil, env.excelExchangeSvc, nil, nil, nil, nil, nil)
+	router := httpserver.NewRouter(log, env.pool, cfg, env.rfxSvc, env.qSvc, nil, nil, nil, nil, nil, nil, env.excelExchangeSvc, nil, nil, nil, nil, nil, nil)
 	req := httptest.NewRequest(http.MethodGet, "/v1/rfx-events/"+eventID.String()+"/xlsx-export", nil)
 	if actor.TenantID != uuid.Nil {
 		req.Header.Set("X-Tenant-ID", actor.TenantID.String())
@@ -813,7 +813,7 @@ func getCarrierXlsxExportHTTP(
 ) *httptest.ResponseRecorder {
 	t.Helper()
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	router := httpserver.NewRouter(log, env.pool, cfg, env.rfxSvc, env.qSvc, nil, nil, nil, nil, nil, nil, env.excelExchangeSvc, nil, nil, nil, nil, nil)
+	router := httpserver.NewRouter(log, env.pool, cfg, env.rfxSvc, env.qSvc, nil, nil, nil, nil, nil, nil, env.excelExchangeSvc, nil, nil, nil, nil, nil, nil)
 	req := httptest.NewRequest(http.MethodGet, "/v1/rfx-events/"+eventID.String()+"/carrier-responses/"+responseID.String()+"/xlsx-export", nil)
 	if actor.TenantID != uuid.Nil {
 		req.Header.Set("X-Tenant-ID", actor.TenantID.String())
@@ -881,7 +881,7 @@ func postCarrierXlsxImportPreviewHTTP(
 	t.Helper()
 	body, contentType := buildBuyerXlsxImportMultipartBody(t, fileBytes, opts)
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	router := httpserver.NewRouter(log, env.pool, cfg, env.rfxSvc, env.qSvc, nil, nil, nil, nil, nil, nil, env.excelExchangeSvc, nil, nil, nil, nil, nil)
+	router := httpserver.NewRouter(log, env.pool, cfg, env.rfxSvc, env.qSvc, nil, nil, nil, nil, nil, nil, env.excelExchangeSvc, nil, nil, nil, nil, nil, nil)
 	req := httptest.NewRequest(http.MethodPost, "/v1/rfx-events/"+eventID.String()+"/carrier-responses/"+responseID.String()+"/xlsx-import/preview", body)
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
@@ -929,7 +929,7 @@ func postCarrierXlsxImportCommitHTTP(
 		t.Fatalf("marshal commit body: %v", err)
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	router := httpserver.NewRouter(log, env.pool, cfg, env.rfxSvc, env.qSvc, nil, nil, nil, nil, nil, nil, env.excelExchangeSvc, nil, nil, nil, nil, nil)
+	router := httpserver.NewRouter(log, env.pool, cfg, env.rfxSvc, env.qSvc, nil, nil, nil, nil, nil, nil, env.excelExchangeSvc, nil, nil, nil, nil, nil, nil)
 	req := httptest.NewRequest(http.MethodPost, "/v1/rfx-events/"+eventID.String()+"/carrier-responses/"+responseID.String()+"/xlsx-import/commit", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	if idempotencyKey != "" {
