@@ -29,6 +29,7 @@ import (
 	"github.com/freight-platform/api-gateway/internal/shipmentrbac"
 	"github.com/freight-platform/api-gateway/internal/tracking"
 	"github.com/freight-platform/api-gateway/internal/transportorderrbac"
+	"github.com/freight-platform/shared-go/clientip"
 	"github.com/freight-platform/shared-go/integrationauth"
 	"github.com/freight-platform/shared-go/metrics"
 	sharedmiddleware "github.com/freight-platform/shared-go/middleware"
@@ -50,14 +51,16 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	r.Use(gwmiddleware.MaxBodySize(cfg.MaxRequestBodyBytes))
 	r.Use(gwmiddleware.RateLimit(cfg.RateLimitEnabled, cfg.RateLimitRPS, cfg.RateLimitBurst, serviceName))
 	r.Use(gwmiddleware.CORS(cfg.CORSAllowedOrigins))
-	integrationJWT := integrationauth.NewJWTService(cfg.JWTSecret, integrationauth.TokenTTL)
+	integrationJWT := integrationauth.NewJWTService(cfg.IntegrationJWTSecret, integrationauth.TokenTTL)
+	clientIPResolver := clientip.NewResolver(cfg.TrustedProxyNetworks)
 	r.Use(gwmiddleware.AuthWithIntegrationSupport(cfg.AuthEnabled, cfg.JWTSecret, integrationJWT))
 	r.Use(gwmiddleware.IntegrationAuth(gwmiddleware.IntegrationAuthConfig{
 		Enabled:              cfg.IntegrationAuthEnabled,
-		JWTSecret:            cfg.JWTSecret,
+		IntegrationJWTSecret: cfg.IntegrationJWTSecret,
 		IdentityInternalURL:  cfg.Services.Identity,
 		InternalServiceToken: cfg.InternalServiceToken,
 		RateLimiter:          integrationauth.NewPrincipalRateLimiter(cfg.IntegrationRateLimitPerMin, time.Minute),
+		ClientIPResolver:     clientIPResolver,
 	}))
 
 	sharedpprof.Mount(r)

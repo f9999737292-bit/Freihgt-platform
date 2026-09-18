@@ -15,15 +15,18 @@ import (
 
 	apperrors "github.com/freight-platform/api-gateway/internal/platform/errors"
 	"github.com/freight-platform/api-gateway/internal/platform/respond"
+	"github.com/freight-platform/shared-go/clientip"
 	"github.com/freight-platform/shared-go/integrationauth"
+	"github.com/freight-platform/shared-go/rfx"
 )
 
 type IntegrationAuthConfig struct {
 	Enabled              bool
-	JWTSecret            string
+	IntegrationJWTSecret string
 	IdentityInternalURL  string
 	InternalServiceToken string
 	RateLimiter          *integrationauth.PrincipalRateLimiter
+	ClientIPResolver     *clientip.Resolver
 }
 
 type IntegrationAuthContext struct {
@@ -42,10 +45,10 @@ func IntegrationAuthFromContext(ctx context.Context) (IntegrationAuthContext, bo
 }
 
 func IntegrationAuth(cfg IntegrationAuthConfig) func(http.Handler) http.Handler {
-	integrationJWT := integrationauth.NewJWTService(cfg.JWTSecret, integrationauth.TokenTTL)
+	integrationJWT := integrationauth.NewJWTService(cfg.IntegrationJWTSecret, integrationauth.TokenTTL)
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !cfg.Enabled || !requiresIntegrationAuth(r.URL.Path) {
+			if !cfg.Enabled || !rfx.IsIntegrationProtectedRoute(r.Method, r.URL.Path) {
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -61,11 +64,15 @@ func IntegrationAuth(cfg IntegrationAuthConfig) func(http.Handler) http.Handler 
 				return
 			}
 			token := strings.TrimSpace(parts[1])
+			clientIP, err := resolveClientIP(cfg.ClientIPResolver, r)
+			if err != nil {
+				respond.Error(w, apperrors.Forbidden("access_denied"))
+				return
+			}
 			var authCtx integrationauth.AuthenticatedContext
-			var err error
 			switch {
 			case integrationauth.IsAPIKeyBearer(token):
-				authCtx, err = verifyAPIKeyViaIdentity(r.Context(), cfg, token, clientIPFromRequest(r))
+				authCtx, err = verifyAPIKeyViaIdentity(r.Context(), cfg, token, clientIP)
 			default:
 				authCtx, err = verifyIntegrationJWT(integrationJWT, token)
 			}
@@ -88,10 +95,6 @@ func IntegrationAuth(cfg IntegrationAuthConfig) func(http.Handler) http.Handler 
 			next.ServeHTTP(w, r)
 		})
 	}
-}
-
-func requiresIntegrationAuth(path string) bool {
-	return strings.HasPrefix(path, "/api/v1/integrations/")
 }
 
 func verifyIntegrationJWT(jwtService *integrationauth.JWTService, token string) (integrationauth.AuthenticatedContext, error) {
@@ -182,10 +185,13 @@ func mapIntegrationAuthError(err error) *apperrors.AppError {
 	}
 }
 
-func AuthWithIntegrationSupport(enabled bool, jwtSecret string, integrationJWT *integrationauth.JWTService) func(http.Handler) http.Handler {
+func AuthWithIntegrationSupport(enabled bool, humanJWTSecret string, integrationJWT *integrationauth.JWTService) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !enabled || isPublicRoute(r.Method, r.URL.Path) {
+			if !enabled || isPublicGatewayRoute(r.Method, r.URL.Path) || !rfx.RequiresHumanAuth(r.Method, r.URL.Path) {
+				if isPublicGatewayRoute(r.Method, r.URL.Path) || !rfx.RequiresHumanAuth(r.Method, r.URL.Path) {
+					integrationauth.StripUntrustedIntegrationHeaders(r.Header)
+				}
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -207,22 +213,16 @@ func AuthWithIntegrationSupport(enabled bool, jwtSecret string, integrationJWT *
 
 			if integrationJWT != nil {
 				if claims, err := integrationJWT.ParseIntegrationToken(token); err == nil && claims.IsIntegrationToken() {
-					authCtx, err := integrationauth.ClaimsToContext(claims)
-					if err != nil {
-						respond.Error(w, apperrors.Unauthorized("invalid integration token"))
-						return
-					}
-					if claims.AuthScheme != "" && claims.AuthScheme != integrationauth.AuthSchemeOAuth {
-						respond.Error(w, apperrors.Unauthorized("auth_scheme_denied"))
-						return
-					}
-					integrationauth.InjectTrustedIntegrationHeaders(r.Header, authCtx)
-					next.ServeHTTP(w, r)
+					respond.Error(w, apperrors.Unauthorized("invalid or expired token"))
 					return
 				}
 			}
+			if integrationauth.IsAPIKeyBearer(token) {
+				respond.Error(w, apperrors.Unauthorized("invalid or expired token"))
+				return
+			}
 
-			claims, err := parseToken(token, jwtSecret)
+			claims, err := parseToken(token, humanJWTSecret)
 			if err != nil {
 				respond.Error(w, apperrors.Unauthorized("invalid or expired token"))
 				return
@@ -246,17 +246,18 @@ func AuthWithIntegrationSupport(enabled bool, jwtSecret string, integrationJWT *
 	}
 }
 
-func clientIPFromRequest(r *http.Request) string {
-	if forwarded := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); forwarded != "" {
-		parts := strings.Split(forwarded, ",")
-		if len(parts) > 0 {
-			return strings.TrimSpace(parts[0])
-		}
+func isPublicGatewayRoute(method, path string) bool {
+	if rfx.IsPublicOAuthTokenRoute(method, path) {
+		return true
 	}
-	if realIP := strings.TrimSpace(r.Header.Get("X-Real-IP")); realIP != "" {
-		return realIP
+	return isPublicRoute(method, path)
+}
+
+func resolveClientIP(resolver *clientip.Resolver, r *http.Request) (string, error) {
+	if resolver == nil {
+		resolver = clientip.NewResolver(nil)
 	}
-	return strings.TrimSpace(r.RemoteAddr)
+	return resolver.ClientIP(r)
 }
 
 // ParseIntegrationTokenForTest exposes integration token parsing for unit tests.

@@ -36,6 +36,7 @@ func (s *JWTService) CreateIntegrationToken(ctx AuthenticatedContext) (token str
 			Audience:  jwt.ClaimStrings{TokenAudience},
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
 			IssuedAt:  jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(now),
 			ID:        uuid.NewString(),
 		},
 	}

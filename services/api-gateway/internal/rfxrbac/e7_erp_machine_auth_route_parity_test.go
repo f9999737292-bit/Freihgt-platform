@@ -21,7 +21,11 @@ func TestE7ErpMachineAuthRouteParity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read auth.go: %v", err)
 	}
-	combined := string(routerSource) + string(proxySource) + string(authSource)
+	classifierSource, err := os.ReadFile("../../../../packages/shared-go/rfx/e7_route_classifier.go")
+	if err != nil {
+		t.Fatalf("read e7_route_classifier.go: %v", err)
+	}
+	combined := string(routerSource) + string(proxySource) + string(authSource) + string(classifierSource)
 	for _, route := range rfx.E7ErpMachineAuthRoutes() {
 		if !strings.Contains(combined, route.GatewayPath) {
 			t.Fatalf("gateway route missing: %s", route.GatewayPath)
