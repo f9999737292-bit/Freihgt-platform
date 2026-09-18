@@ -54,6 +54,128 @@ func (r *ReferenceMappingRepository) CreateEntry(ctx context.Context, in domain.
 	return scanReferenceMappingEntry(row)
 }
 
+func (r *ReferenceMappingRepository) GetLatestActiveSetForTenant(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	mappingType string,
+) (*domain.ReferenceMappingSet, error) {
+	mappingType = strings.TrimSpace(mappingType)
+	row := r.db().QueryRow(ctx, `
+		SELECT id, tenant_id, mapping_type, version, status
+		FROM rfx.rfx_reference_mapping_sets
+		WHERE mapping_type = $1
+		  AND status = $2
+		  AND tenant_id = $3
+		ORDER BY version DESC
+		LIMIT 1
+	`, mappingType, domain.ReferenceMappingSetStatusActive, tenantID)
+	set, err := scanReferenceMappingSet(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperrors.NotFound("reference mapping set not found")
+		}
+		return nil, mapDBError(err)
+	}
+	return set, nil
+}
+
+func (r *ReferenceMappingRepository) GetLatestActivePlatformSet(
+	ctx context.Context,
+	mappingType string,
+) (*domain.ReferenceMappingSet, error) {
+	mappingType = strings.TrimSpace(mappingType)
+	row := r.db().QueryRow(ctx, `
+		SELECT id, tenant_id, mapping_type, version, status
+		FROM rfx.rfx_reference_mapping_sets
+		WHERE mapping_type = $1
+		  AND status = $2
+		  AND tenant_id IS NULL
+		ORDER BY version DESC
+		LIMIT 1
+	`, mappingType, domain.ReferenceMappingSetStatusActive)
+	set, err := scanReferenceMappingSet(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperrors.NotFound("reference mapping set not found")
+		}
+		return nil, mapDBError(err)
+	}
+	return set, nil
+}
+
+func (r *ReferenceMappingRepository) GetSetsAtMaxVersion(
+	ctx context.Context,
+	tenantID *uuid.UUID,
+	mappingType string,
+) ([]domain.ReferenceMappingSet, error) {
+	mappingType = strings.TrimSpace(mappingType)
+	rows, err := r.db().Query(ctx, `
+		WITH latest AS (
+			SELECT MAX(version) AS max_version
+			FROM rfx.rfx_reference_mapping_sets
+			WHERE mapping_type = $1
+			  AND (
+				($2::uuid IS NULL AND tenant_id IS NULL)
+				OR tenant_id = $2
+			  )
+		)
+		SELECT s.id, s.tenant_id, s.mapping_type, s.version, s.status
+		FROM rfx.rfx_reference_mapping_sets s
+		JOIN latest l ON s.version = l.max_version
+		WHERE s.mapping_type = $1
+		  AND (
+			($2::uuid IS NULL AND s.tenant_id IS NULL)
+			OR s.tenant_id = $2
+		  )
+	`, mappingType, tenantID)
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	defer rows.Close()
+	var sets []domain.ReferenceMappingSet
+	for rows.Next() {
+		set, scanErr := scanReferenceMappingSet(rows)
+		if scanErr != nil {
+			return nil, mapDBError(scanErr)
+		}
+		sets = append(sets, *set)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, mapDBError(err)
+	}
+	return sets, nil
+}
+
+func (r *ReferenceMappingRepository) CountActiveSetsAtMaxVersion(
+	ctx context.Context,
+	tenantID *uuid.UUID,
+	mappingType string,
+) (int, error) {
+	var count int
+	err := r.db().QueryRow(ctx, `
+		WITH latest AS (
+			SELECT MAX(version) AS max_version
+			FROM rfx.rfx_reference_mapping_sets
+			WHERE mapping_type = $1
+			  AND status = $2
+			  AND (
+				($3::uuid IS NULL AND tenant_id IS NULL)
+				OR tenant_id = $3
+			  )
+		)
+		SELECT COUNT(*)
+		FROM rfx.rfx_reference_mapping_sets s
+		JOIN latest l ON s.version = l.max_version
+		WHERE s.mapping_type = $1
+		  AND s.status = $2
+		  AND (
+			($3::uuid IS NULL AND s.tenant_id IS NULL)
+			OR s.tenant_id = $3
+		  )
+	`, mappingType, domain.ReferenceMappingSetStatusActive, tenantID).Scan(&count)
+	return count, err
+}
+
 func (r *ReferenceMappingRepository) GetActiveSet(
 	ctx context.Context,
 	tenantID *uuid.UUID,
