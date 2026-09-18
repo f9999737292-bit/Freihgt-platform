@@ -41,3 +41,49 @@ func TestHumanRouteRequiresHumanAuth(t *testing.T) {
 		t.Fatal("expected human route to require human auth")
 	}
 }
+
+func TestUpdatePreviewConcretePathIsIntegrationProtected(t *testing.T) {
+	const eventID = "550e8400-e29b-41d4-a716-446655440000"
+	path := "/api/v1/rfx-events/" + eventID + "/erp-import/preview"
+	if !IsIntegrationProtectedRoute(http.MethodPost, path) {
+		t.Fatal("UPDATE preview with a concrete event id must use integration auth")
+	}
+	if RequiresHumanAuth(http.MethodPost, path) {
+		t.Fatal("UPDATE preview with a concrete event id must not require human auth")
+	}
+	if !IsIntegrationProtectedRoute(http.MethodPost, "/api/v1/rfx-events/{id}/erp-import/preview") {
+		t.Fatal("literal OpenAPI template must still classify as integration protected")
+	}
+}
+
+func TestUpdatePreviewNeighborsRemainHuman(t *testing.T) {
+	const eventID = "550e8400-e29b-41d4-a716-446655440000"
+	cases := []struct {
+		method string
+		path   string
+	}{
+		{http.MethodGet, "/api/v1/rfx-events/" + eventID + "/erp-import/preview"},
+		{http.MethodPost, "/api/v1/rfx-events/" + eventID},
+		{http.MethodPost, "/api/v1/rfx-events/" + eventID + "/xlsx-import/preview"},
+		{http.MethodPost, "/api/v1/rfx-events/" + eventID + "/erp-import/commit"},
+		{http.MethodPost, "/api/v1/rfx-events/" + eventID + "/erp-import/preview/extra"},
+		{http.MethodPost, "/api/v1/integrations/erp/rfx/drafts/preview/extra"},
+	}
+	for _, tc := range cases {
+		if IsIntegrationProtectedRoute(tc.method, tc.path) {
+			t.Fatalf("%s %s must not be integration protected", tc.method, tc.path)
+		}
+		if !RequiresHumanAuth(tc.method, tc.path) {
+			t.Fatalf("%s %s must remain human authenticated", tc.method, tc.path)
+		}
+	}
+}
+
+func TestCreatePreviewExactPathIsIntegrationProtected(t *testing.T) {
+	if !IsIntegrationProtectedRoute(http.MethodPost, "/api/v1/integrations/erp/rfx/drafts/preview") {
+		t.Fatal("CREATE preview must be integration protected")
+	}
+	if RequiresHumanAuth(http.MethodPost, "/api/v1/integrations/erp/rfx/drafts/preview") {
+		t.Fatal("CREATE preview must not require human auth")
+	}
+}

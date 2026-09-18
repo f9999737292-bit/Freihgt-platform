@@ -35,6 +35,7 @@ func NewProxyHandler(cfg config.Config) (*ProxyHandler, error) {
 		baseURL string
 	}{
 		{"/api/v1/auth", "identity-service", cfg.Services.Identity},
+		{"/api/v1/integrations/erp", "rfx-service", cfg.Services.RFX},
 		{"/api/v1/integrations", "identity-service", cfg.Services.Identity},
 		{"/api/v1/users", "identity-service", cfg.Services.Identity},
 		{"/api/v1/roles", "identity-service", cfg.Services.Identity},

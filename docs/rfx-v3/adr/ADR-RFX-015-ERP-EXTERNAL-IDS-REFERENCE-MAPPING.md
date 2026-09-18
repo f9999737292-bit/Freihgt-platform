@@ -73,6 +73,19 @@ Migration 000074 replaces `uq_rfx_external_object_identity` to drop `external_ve
 
 New tables in 000074: `rfx_reference_mapping_sets`, `rfx_reference_mapping_entries`.
 
+#### 5.1 Deterministic mapping set selection (Preview)
+
+For each `mapping_type` required by the payload:
+
+1. Select **tenant-scoped** set: `tenant_id = authenticated tenant`, `status = ACTIVE`, **maximum** `version`.
+2. If none, select **platform default**: `tenant_id IS NULL`, `status = ACTIVE`, **maximum** `version`.
+3. If multiple sets tie at the same max version (tenant or platform scope), **fail closed** (422).
+4. If the only matching set is **RETIRED**, reject at Preview (422) — no implicit fallback to another version.
+5. Missing required mapping (fail-closed types) → 422 with `external_source` in issue.
+6. Selected `mapping_set_id` and `mapping_set_version` are pinned in `mapping_context` and included in the canonical hash.
+
+Tenant override (INT-168) wins over platform default (INT-170) when an ACTIVE tenant-scoped set exists.
+
 ### 6. Mapping version pin (H-04)
 
 Preview stores in canonical analysis payload:
