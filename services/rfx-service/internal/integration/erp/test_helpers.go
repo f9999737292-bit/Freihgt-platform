@@ -21,6 +21,7 @@ import (
 
 	"github.com/freight-platform/rfx-service/internal/domain"
 	"github.com/freight-platform/rfx-service/internal/repository"
+	"github.com/freight-platform/shared-go/integrationauth"
 )
 
 type testEnv struct {
@@ -90,6 +91,44 @@ func seedTenantCompany(t *testing.T, env *testEnv) (tenantID, companyID uuid.UUI
 		t.Fatalf("seed company: %v", err)
 	}
 	return tenantID, companyID
+}
+
+func seedOAuthCredential(t *testing.T, env *testEnv, tenantID uuid.UUID, principal *domain.IntegrationPrincipal, secret string) {
+	t.Helper()
+	hash, err := integrationauth.HashSecret(secret)
+	if err != nil {
+		t.Fatalf("hash secret: %v", err)
+	}
+	if _, err := env.credentialRepo.StoreHash(context.Background(), domain.IntegrationCredential{
+		TenantID:               tenantID,
+		IntegrationPrincipalID: principal.ID,
+		CredentialType:         domain.IntegrationCredentialTypeOAuth,
+		SecretHash:             hash,
+		HashAlgorithm:          integrationauth.HashAlgorithmBcrypt,
+		HashVersion:            1,
+		LookupFingerprint:      "oauth-" + principal.ClientID,
+	}); err != nil {
+		t.Fatalf("store oauth credential: %v", err)
+	}
+}
+
+func seedAPIKeyCredential(t *testing.T, env *testEnv, tenantID uuid.UUID, principal *domain.IntegrationPrincipal, apiKey string) {
+	t.Helper()
+	hash, err := integrationauth.HashSecret(apiKey)
+	if err != nil {
+		t.Fatalf("hash api key: %v", err)
+	}
+	if _, err := env.credentialRepo.StoreHash(context.Background(), domain.IntegrationCredential{
+		TenantID:               tenantID,
+		IntegrationPrincipalID: principal.ID,
+		CredentialType:         domain.IntegrationCredentialTypeAPIKey,
+		SecretHash:             hash,
+		HashAlgorithm:          integrationauth.HashAlgorithmBcrypt,
+		HashVersion:            1,
+		LookupFingerprint:      integrationauth.APIKeyLookupFingerprint(apiKey),
+	}); err != nil {
+		t.Fatalf("store api key credential: %v", err)
+	}
 }
 
 func seedIntegrationPrincipal(t *testing.T, env *testEnv, tenantID, companyID uuid.UUID, clientID string) *domain.IntegrationPrincipal {
