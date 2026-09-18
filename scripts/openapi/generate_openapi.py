@@ -2594,6 +2594,7 @@ def global_components_block(
     include_e4_template_library: bool = False,
     include_e7_late_submission: bool = False,
     include_e7_excel_exchange: bool = False,
+    include_oauth_integration: bool = False,
 ) -> str:
     rfx_components = (
         questionnaire_components_block(
@@ -2606,7 +2607,8 @@ def global_components_block(
         rfx_components += late_submission_components_block()
     if include_e7_excel_exchange:
         rfx_components += excel_exchange_components_block()
-    rfx_components += oauth_integration_components_block()
+    if include_oauth_integration:
+        rfx_components += oauth_integration_components_block()
     return """
 components:
   securitySchemes:
@@ -3032,12 +3034,14 @@ def components_block(
     include_e4_template_library: bool = False,
     include_e7_late_submission: bool = False,
     include_e7_excel_exchange: bool = False,
+    include_oauth_integration: bool = False,
 ) -> str:
     block = global_components_block(
         include_e1_version_lifecycle=include_e1_version_lifecycle,
         include_e4_template_library=include_e4_template_library,
         include_e7_late_submission=include_e7_late_submission,
         include_e7_excel_exchange=include_e7_excel_exchange,
+        include_oauth_integration=include_oauth_integration,
     )
     if include_payment_components:
         block = block.rstrip() + "\n" + payment_components_block()
@@ -3054,6 +3058,7 @@ def build_spec(
     include_e4_template_library: bool = False,
     include_e7_late_submission: bool = False,
     include_e7_excel_exchange: bool = False,
+    include_oauth_integration: bool = False,
 ) -> str:
     endpoints = filter_e7_excel_exchange_endpoints(endpoints, include_e7_excel_exchange)
     tags_yaml = "\n".join(f"  - name: {tag}" for tag in TAGS)
@@ -3071,7 +3076,7 @@ tags:
 {tags_yaml}
 paths:
 {render_paths(endpoints)}
-{components_block(include_payment_components=include_payment_components, include_e1_version_lifecycle=include_e1_version_lifecycle, include_e4_template_library=include_e4_template_library, include_e7_late_submission=include_e7_late_submission, include_e7_excel_exchange=include_e7_excel_exchange)}
+{components_block(include_payment_components=include_payment_components, include_e1_version_lifecycle=include_e1_version_lifecycle, include_e4_template_library=include_e4_template_library, include_e7_late_submission=include_e7_late_submission, include_e7_excel_exchange=include_e7_excel_exchange, include_oauth_integration=include_oauth_integration)}
 """
     ).strip() + "\n"
 
@@ -3103,6 +3108,7 @@ def main() -> None:
         include_e4_template_library=True,
         include_e7_late_submission=True,
         include_e7_excel_exchange=True,
+        include_oauth_integration=True,
     )
     (OPENAPI_DIR / "openapi.yaml").write_text(unified, encoding="utf-8")
 
@@ -3118,6 +3124,7 @@ def main() -> None:
             include_e4_template_library=(filename == "rfx-service.yaml"),
             include_e7_late_submission=(filename == "rfx-service.yaml"),
             include_e7_excel_exchange=(filename == "rfx-service.yaml"),
+            include_oauth_integration=(filename == "identity-service.yaml"),
         )
         (OPENAPI_DIR / filename).write_text(spec, encoding="utf-8")
 

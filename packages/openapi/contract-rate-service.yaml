@@ -2523,29 +2523,6 @@ components:
         details:
           type: object
           additionalProperties: true
-
-    OAuthIntegrationTokenResponse:
-      type: object
-      required: [access_token, token_type, expires_in]
-      properties:
-        access_token:
-          type: string
-        token_type:
-          type: string
-          enum: [Bearer]
-        expires_in:
-          type: integer
-          format: int64
-        scope:
-          type: string
-    OAuthIntegrationErrorResponse:
-      type: object
-      required: [error]
-      properties:
-        error:
-          type: string
-        error_description:
-          type: string
     HealthResponse:
       type: object
       properties:
