@@ -18,6 +18,7 @@ import (
 	"github.com/freight-platform/identity-service/internal/platform/security"
 	"github.com/freight-platform/identity-service/internal/repository"
 	"github.com/freight-platform/identity-service/internal/service"
+	"github.com/freight-platform/shared-go/clientip"
 	"github.com/freight-platform/shared-go/integrationauth"
 	"github.com/freight-platform/shared-go/internalauth"
 	"github.com/freight-platform/shared-go/metrics"
@@ -55,15 +56,17 @@ func main() {
 	membershipService := service.NewMembershipService(userRepo, roleRepo, membershipRepo)
 
 	integrationVerifier := integrationauth.NewVerifier(db.Pool)
-	integrationJWT := integrationauth.NewJWTService(cfg.JWTSecret, time.Duration(cfg.IntegrationTokenTTLMin)*time.Minute)
+	integrationJWT := integrationauth.NewJWTService(cfg.IntegrationJWTSecret, time.Duration(cfg.IntegrationTokenTTLMin)*time.Minute)
 	integrationAuditor := integrationauth.NewAuditRecorder(db.Pool)
 	integrationLimiter := integrationauth.NewPrincipalRateLimiter(cfg.IntegrationOAuthRateLimit, time.Minute)
-	integrationOAuthService := service.NewIntegrationOAuthService(integrationVerifier, integrationJWT, integrationAuditor, integrationLimiter)
-	integrationOAuthHandler := handlers.NewIntegrationOAuthHandler(integrationOAuthService)
+	failedLimiter := integrationauth.NewPrincipalRateLimiter(cfg.IntegrationOAuthFailedLimit, time.Minute)
+	clientIPResolver := clientip.NewResolver(cfg.TrustedProxyNetworks)
+	integrationOAuthService := service.NewIntegrationOAuthService(integrationVerifier, integrationJWT, integrationAuditor, integrationLimiter, failedLimiter)
+	integrationOAuthHandler := handlers.NewIntegrationOAuthHandler(integrationOAuthService, clientIPResolver)
 	integrationVerifyHandler := handlers.NewIntegrationVerifyHandler(integrationVerifier, integrationAuditor, internalauth.Config{
 		Token:       cfg.InternalServiceToken,
 		Environment: cfg.Environment,
-	})
+	}, clientIPResolver)
 
 	router := identityhttp.NewRouter(log, db.Pool, jwtService, authService, userService, roleService, membershipService, integrationOAuthHandler, integrationVerifyHandler, cfg.InternalServiceToken)
 

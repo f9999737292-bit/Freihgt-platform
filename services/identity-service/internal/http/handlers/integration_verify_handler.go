@@ -6,19 +6,24 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/freight-platform/shared-go/clientip"
 	"github.com/freight-platform/shared-go/integrationauth"
 	"github.com/freight-platform/shared-go/internalauth"
 	"github.com/freight-platform/shared-go/lowcode"
 )
 
 type IntegrationVerifyHandler struct {
-	verifier    *integrationauth.Verifier
-	auditor     *integrationauth.AuditRecorder
-	internalAuth internalauth.Config
+	verifier         *integrationauth.Verifier
+	auditor          *integrationauth.AuditRecorder
+	internalAuth     internalauth.Config
+	clientIPResolver *clientip.Resolver
 }
 
-func NewIntegrationVerifyHandler(verifier *integrationauth.Verifier, auditor *integrationauth.AuditRecorder, internalAuth internalauth.Config) *IntegrationVerifyHandler {
-	return &IntegrationVerifyHandler{verifier: verifier, auditor: auditor, internalAuth: internalAuth}
+func NewIntegrationVerifyHandler(verifier *integrationauth.Verifier, auditor *integrationauth.AuditRecorder, internalAuth internalauth.Config, clientIPResolver *clientip.Resolver) *IntegrationVerifyHandler {
+	if clientIPResolver == nil {
+		clientIPResolver = clientip.NewResolver(nil)
+	}
+	return &IntegrationVerifyHandler{verifier: verifier, auditor: auditor, internalAuth: internalAuth, clientIPResolver: clientIPResolver}
 }
 
 type verifyBearerRequest struct {
@@ -49,9 +54,14 @@ func (h *IntegrationVerifyHandler) VerifyBearer(w http.ResponseWriter, r *http.R
 		return
 	}
 	requestID := strings.TrimSpace(r.Header.Get(lowcode.HeaderRequestID))
-	authCtx, err := h.verifier.AuthenticateAPIKeyBearer(r.Context(), bearer, clientIP(r))
+	clientIP, ipErr := h.clientIPResolver.ClientIP(r)
+	if ipErr != nil {
+		http.Error(w, "access_denied", http.StatusForbidden)
+		return
+	}
+	authCtx, err := h.verifier.AuthenticateAPIKeyBearer(r.Context(), bearer, clientIP)
 	if err != nil {
-		_ = h.auditor.RecordAuthFailure(r.Context(), nil, nil, mapVerifyError(err), integrationauth.AuthSchemeAPIKey, requestID, clientIP(r))
+		_ = h.auditor.RecordAuthFailure(r.Context(), nil, nil, mapVerifyError(err), integrationauth.AuthSchemeAPIKey, requestID, clientIP)
 		writeVerifyError(w, err)
 		return
 	}

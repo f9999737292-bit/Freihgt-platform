@@ -3,26 +3,31 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
-	"net"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/freight-platform/identity-service/internal/service"
+	"github.com/freight-platform/shared-go/clientip"
 	"github.com/freight-platform/shared-go/integrationauth"
 	"github.com/freight-platform/shared-go/lowcode"
 )
 
 type IntegrationOAuthHandler struct {
-	oauthService *service.IntegrationOAuthService
+	oauthService     *service.IntegrationOAuthService
+	clientIPResolver *clientip.Resolver
 }
 
-func NewIntegrationOAuthHandler(oauthService *service.IntegrationOAuthService) *IntegrationOAuthHandler {
-	return &IntegrationOAuthHandler{oauthService: oauthService}
+func NewIntegrationOAuthHandler(oauthService *service.IntegrationOAuthService, clientIPResolver *clientip.Resolver) *IntegrationOAuthHandler {
+	if clientIPResolver == nil {
+		clientIPResolver = clientip.NewResolver(nil)
+	}
+	return &IntegrationOAuthHandler{oauthService: oauthService, clientIPResolver: clientIPResolver}
 }
 
 func (h *IntegrationOAuthHandler) Token(w http.ResponseWriter, r *http.Request) {
+	integrationauth.StripUntrustedIntegrationHeaders(r.Header)
 	if err := r.ParseForm(); err != nil {
 		writeOAuthError(w, http.StatusBadRequest, "invalid_request", "malformed form body")
 		return
@@ -38,13 +43,19 @@ func (h *IntegrationOAuthHandler) Token(w http.ResponseWriter, r *http.Request) 
 		writeOAuthError(w, http.StatusBadRequest, "invalid_request", "client_id and client_secret are required")
 		return
 	}
+	clientIP, err := h.clientIPResolver.ClientIP(r)
+	if err != nil {
+		writeOAuthError(w, http.StatusForbidden, "access_denied", "client ip not allowed")
+		return
+	}
 	requestID := strings.TrimSpace(r.Header.Get(lowcode.HeaderRequestID))
-	result, err := h.oauthService.IssueClientCredentialsToken(r.Context(), clientID, clientSecret, clientIP(r), requestID)
+	result, err := h.oauthService.IssueClientCredentialsToken(r.Context(), clientID, clientSecret, clientIP, requestID)
 	if err != nil {
 		writeOAuthAuthError(w, err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"access_token": result.AccessToken,
 		"token_type":   result.TokenType,
@@ -74,21 +85,4 @@ func writeOAuthError(w http.ResponseWriter, status int, code, description string
 		"error":             code,
 		"error_description": description,
 	})
-}
-
-func clientIP(r *http.Request) string {
-	if forwarded := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); forwarded != "" {
-		parts := strings.Split(forwarded, ",")
-		if len(parts) > 0 {
-			return strings.TrimSpace(parts[0])
-		}
-	}
-	if realIP := strings.TrimSpace(r.Header.Get("X-Real-IP")); realIP != "" {
-		return realIP
-	}
-	host, _, err := net.SplitHostPort(strings.TrimSpace(r.RemoteAddr))
-	if err == nil {
-		return host
-	}
-	return strings.TrimSpace(r.RemoteAddr)
 }
