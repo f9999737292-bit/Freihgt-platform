@@ -5,7 +5,7 @@ package studio
 import "testing"
 
 func TestStopNuxtDevProcess_idempotentWithoutCmd(t *testing.T) {
-	stopNuxtDevProcess(t, nil, "")
+	stopNuxtDevProcess(t, nil, "", nil)
 }
 
 func TestReleaseTaskOwnedDevPort_noOpForUnscopedPort(t *testing.T) {

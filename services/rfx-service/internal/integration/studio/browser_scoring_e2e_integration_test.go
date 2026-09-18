@@ -210,7 +210,7 @@ func stopBrowserWebProcurement(t *testing.T, proc *webProcurementCmd) {
 	if proc.cancel != nil {
 		proc.cancel()
 	}
-	stopNuxtDevProcess(t, proc.cmd, proc.port)
+	stopNuxtDevProcess(t, proc.cmd, proc.port, launchProcessRecord(proc.launch))
 	if proc.launch != nil {
 		proc.launch.releaseImmediate(t)
 	}

@@ -16,6 +16,14 @@ type nuxtDevLaunch struct {
 	buildDir string
 	linked   bool
 	released bool
+	process  *nuxtProcessLaunchRecord
+}
+
+func launchProcessRecord(launch *nuxtDevLaunch) *nuxtProcessLaunchRecord {
+	if launch == nil {
+		return nil
+	}
+	return launch.process
 }
 
 func (l *nuxtDevLaunch) release() error {
@@ -115,7 +123,7 @@ func bootNuxtDevApp(t *testing.T, appLabel, port string, baseEnv []string) (*exe
 				lastLaunch.releaseImmediate(t)
 				lastLaunch = nil
 			}
-			stopNuxtDevProcess(t, nil, port)
+			stopNuxtDevProcess(t, nil, port, nil)
 			ensureDevPortFree(t, port)
 			if firstFailure != "" {
 				t.Logf("retry nuxt dev boot app=%s port=%s attempt=%d after first failure: %s", appLabel, port, attempt, firstFailure)
@@ -127,11 +135,12 @@ func bootNuxtDevApp(t *testing.T, appLabel, port string, baseEnv []string) (*exe
 		lastLaunch = launch
 		ctx, cancel := context.WithCancel(context.Background())
 		env := appendNuxtDevEnv(baseEnv, launch)
-		cmd, logFile := startNuxtDevCommand(t, ctx, appLabel, port, env)
+		cmd, logFile, processRecord := startNuxtDevCommand(t, ctx, appLabel, port, env, launch.buildDir)
+		launch.process = processRecord
 		lastLogPath = logFile.Name()
 		ready, fatalReason := waitForNuxtDevBoot(port, lastLogPath, 120*time.Second)
 		if fatalReason != "" {
-			stopNuxtDevProcess(t, cmd, port)
+			stopNuxtDevProcess(t, cmd, port, launch.process)
 			cancel()
 			_ = logFile.Close()
 			dumpDevLogTail(t, lastLogPath)
@@ -143,7 +152,7 @@ func bootNuxtDevApp(t *testing.T, appLabel, port string, baseEnv []string) (*exe
 		if firstFailure == "" {
 			firstFailure = fmt.Sprintf("boot probe timed out (log=%s)", lastLogPath)
 		}
-		stopNuxtDevProcess(t, cmd, port)
+		stopNuxtDevProcess(t, cmd, port, launch.process)
 		cancel()
 		_ = logFile.Close()
 	}

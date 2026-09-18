@@ -8,16 +8,6 @@ import (
 	"time"
 )
 
-func killProcessTreePID(pid int) error {
-	if pid <= 0 {
-		return nil
-	}
-	if runtime.GOOS == "windows" {
-		return exec.Command("taskkill", "/PID", strconv.Itoa(pid), "/T", "/F").Run()
-	}
-	return exec.Command("kill", "-9", strconv.Itoa(pid)).Run()
-}
-
 func processStillRunning(pid int) bool {
 	if pid <= 0 {
 		return false
