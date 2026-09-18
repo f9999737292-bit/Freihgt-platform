@@ -52,8 +52,10 @@ export function useRfxQuestionnaireApi(rfxEventId: Ref<string> | string) {
 
   const patchTimers = new Map<string, ReturnType<typeof setTimeout>>()
   const pendingDebouncedPayloads = new Map<string, Record<string, unknown>>()
+  const pendingPatchRunners = new Map<string, () => Promise<void>>()
   let inFlightPatch: Promise<void> | null = null
   let pendingPatchKey: string | null = null
+  let createOptionInFlight: Promise<RfxQuestionOption> | null = null
 
   const eventId = computed(() => (typeof rfxEventId === 'string' ? rfxEventId : rfxEventId.value))
 
@@ -202,11 +204,14 @@ export function useRfxQuestionnaireApi(rfxEventId: Ref<string> | string) {
   ) {
     const merged = { ...(pendingDebouncedPayloads.get(key) as T | undefined), ...payload }
     pendingDebouncedPayloads.set(key, merged)
-    schedulePatch(key, async () => {
+    const runner = async () => {
       const body = pendingDebouncedPayloads.get(key) as T
       pendingDebouncedPayloads.delete(key)
+      pendingPatchRunners.delete(key)
       await mutate(body)
-    })
+    }
+    pendingPatchRunners.set(key, runner)
+    schedulePatch(key, runner)
   }
 
   function getSectionVersion(sectionId: string): number | null {
@@ -463,15 +468,28 @@ export function useRfxQuestionnaireApi(rfxEventId: Ref<string> | string) {
   }
 
   async function createOption(questionId: string, payload: RfxCreateOptionRequest) {
-    try {
-      const option = await apiPost<RfxQuestionOption>(basePath(`/questions/${questionId}/options`), payload)
-      await loadStudio()
-      markSavedFromTimestamp(studio.value?.draft_version?.updated_at)
-      return option
-    } catch (err) {
-      handleMutationError(err)
-      throw err
+    if (createOptionInFlight) {
+      await createOptionInFlight.catch(() => undefined)
     }
+    createOptionInFlight = (async () => {
+      try {
+        await flushPendingPatches()
+        saving.value = true
+        autosaveStatus.value = 'saving'
+        const option = await apiPost<RfxQuestionOption>(basePath(`/questions/${questionId}/options`), payload)
+        await loadStudio()
+        await flushPendingPatches()
+        markSavedFromTimestamp(studio.value?.draft_version?.updated_at)
+        return option
+      } catch (err) {
+        handleMutationError(err)
+        throw err
+      } finally {
+        saving.value = false
+        createOptionInFlight = null
+      }
+    })()
+    return createOptionInFlight
   }
 
   function scheduleOptionUpdate(
@@ -568,7 +586,19 @@ export function useRfxQuestionnaireApi(rfxEventId: Ref<string> | string) {
   }
 
   async function flushPendingPatches() {
-    clearAllPatchTimers()
+    for (let attempt = 0; attempt < 8; attempt++) {
+      clearAllPatchTimers()
+      if (inFlightPatch) await inFlightPatch.catch(() => undefined)
+      if (pendingPatchRunners.size === 0) {
+        return
+      }
+      const queued = [...pendingPatchRunners.entries()]
+      for (const [key, runner] of queued) {
+        pendingPatchRunners.delete(key)
+        pendingDebouncedPayloads.delete(key)
+        await runDebouncedPatch(key, runner).catch(() => undefined)
+      }
+    }
     if (inFlightPatch) await inFlightPatch.catch(() => undefined)
   }
 

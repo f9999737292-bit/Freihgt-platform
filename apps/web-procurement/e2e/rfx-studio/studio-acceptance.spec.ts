@@ -178,6 +178,7 @@ test('F102-001 RFx Studio live browser acceptance', async ({ page }) => {
     () => page.getByRole('button', { name: 'Добавить опцию' }).click(),
   )
   expect(opt1Create.status()).toBe(201)
+  await expectAutosaveSaved(page)
   const opt2Create = await clickAndWaitForMutation(
     page,
     '/options',

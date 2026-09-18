@@ -35,4 +35,31 @@ describe('useRfxQuestionnaireApi tenant query contract', () => {
     expect(source).toMatch(/scheduleQuestionUpdate[\s\S]*scheduleDebouncedMutation\(`question:\$\{questionId\}`/)
     expect(source).toMatch(/pendingDebouncedPayloads\.set\(key, merged\)/)
   })
+
+  it('createOption waits for pending autosave patches before POST', () => {
+    const fnStart = source.indexOf('async function createOption')
+    expect(fnStart).toBeGreaterThan(-1)
+    const fnBody = source.slice(fnStart, fnStart + 400)
+    const flushIdx = fnBody.indexOf('await flushPendingPatches()')
+    const postIdx = fnBody.indexOf('apiPost<RfxQuestionOption>')
+    expect(flushIdx).toBeGreaterThan(-1)
+    expect(postIdx).toBeGreaterThan(flushIdx)
+  })
+
+  it('flushPendingPatches executes queued debounced runners', () => {
+    expect(source).toMatch(/pendingPatchRunners/)
+    expect(source).toMatch(/await runDebouncedPatch\(key, runner\)/)
+    expect(source).toMatch(/createOptionInFlight/)
+  })
+
+  it('createOption flushes again after loadStudio', () => {
+    const fnStart = source.indexOf('async function createOption')
+    const fnBody = source.slice(fnStart, fnStart + 900)
+    const firstFlush = fnBody.indexOf('await flushPendingPatches()')
+    const loadStudio = fnBody.indexOf('await loadStudio()')
+    const secondFlush = fnBody.indexOf('await flushPendingPatches()', firstFlush + 1)
+    expect(firstFlush).toBeGreaterThan(-1)
+    expect(loadStudio).toBeGreaterThan(firstFlush)
+    expect(secondFlush).toBeGreaterThan(loadStudio)
+  })
 })
