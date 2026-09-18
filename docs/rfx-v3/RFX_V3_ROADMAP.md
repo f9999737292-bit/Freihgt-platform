@@ -119,7 +119,9 @@ These are assigned to the **earliest appropriate wave** — not deferred beyond 
 | **E7 Phase 2 ERP API Architecture** | Generic ERP JSON contract + controller acceptance (ADR-012..015, E7P2-INT-120..195, PR #137) | **FROZEN_ACCEPTED** |
 | **E7 Phase 2 ERP API Implementation Plan** | Wave plan E1–E6, INT-120..195 ownership, migration/auth/API sequencing, per-wave OpenAPI parity | **FROZEN_ACCEPTED** |
 | **E7 Phase 2 ERP API E1 Foundation** | Migration 000074, integration principals, credentials, scopes, XOR ownership, stable external identity, reference mapping | **IMPLEMENTED_ACCEPTED** — PR #139 (head `5713d7c5`, CI `35066148105`) |
-| **E7 Phase 2 ERP API E2–E6** | Gateway routes, OAuth/API-key auth, Preview/Commit/GET handlers, OpenAPI parity | **NOT_STARTED** |
+| **E7 Phase 2 ERP API E2 Machine Auth** | OAuth/API-key integration auth, trusted header strip/inject | **IMPLEMENTED_ACCEPTED** — PR #142 |
+| **E7 Phase 2 ERP API E3 CREATE/UPDATE Preview** | Canonical JSON parser, mapping pin, CREATE/UPDATE Preview only | **IMPLEMENTED_ACCEPTED** — PR #143 (head `f60e1917`, CI `35382305777`) |
+| **E7 Phase 2 ERP API E4–E6** | Commit/GET/capabilities, migration 000075, remaining OpenAPI parity | **NOT_STARTED** |
 | **E7 Phase 2 Frontend** | Excel/ERP UI surfaces | **NOT_STARTED** |
 | **E7 Phase 2 Training** | RU/EN/ZH training course | **NOT_STARTED** |
 | **E7 Browser Acceptance** | Final real browser acceptance gate | **NOT_STARTED** |
@@ -144,7 +146,8 @@ Notes:
 - E7 Phase 2 ERP API **architecture** frozen accepted (PR #137): [RFX_V3_0E7_ERP_API.md](./implementation/RFX_V3_0E7_ERP_API.md), ADR-012..015 Accepted, acceptance matrix E7P2-INT-120..195. Controller verdict `ACCEPT_ERP_API_ARCHITECTURE`. `ERP_API_IMPLEMENTATION_AUTHORIZED=NO`; migration 000074 proposed not created.
 - E7 Phase 2 ERP API **implementation plan** frozen accepted (PR #138): [RFX_V3_0E7_ERP_API_IMPLEMENTATION_PLAN.md](./implementation/RFX_V3_0E7_ERP_API_IMPLEMENTATION_PLAN.md), [RFX_V3_0E7_ERP_API_IMPLEMENTATION_WAVES.md](./implementation/RFX_V3_0E7_ERP_API_IMPLEMENTATION_WAVES.md). Controller verdict `ACCEPT_ERP_API_IMPLEMENTATION_PLAN`. `PUBLIC_ROUTE_CONTRACT_POLICY=INCREMENTAL_PER_WAVE`.
 - E7 Phase 2 ERP API **E1 foundation** accepted (PR #139 head `5713d7c5`, CI `35066148105`, controller `ACCEPT_ERP_API_E1`): [RFX_V3_0E7_ERP_API_E1_IMPLEMENTATION.md](./implementation/RFX_V3_0E7_ERP_API_E1_IMPLEMENTATION.md). Delivers migration 000074 and repository foundations only — no public ERP routes, OAuth, or OpenAPI changes.
-- E7 Phase 2 overall remains **IMPLEMENTATION_IN_PROGRESS** — next: (1) ERP API E2 authorization, (2) ERP implementation waves E2–E6, (3) frontend, (4) training, (5) browser acceptance.
+- E7 Phase 2 ERP API **E3 CREATE/UPDATE Preview** accepted (PR #143 head `f60e1917979cb2133f7d5fcd74cbdd8d66ddea79`, CI `35382305777`, controller `ACCEPT_ERP_API_E3`): [RFX_V3_0E7_ERP_API_E3_IMPLEMENTATION.md](./implementation/RFX_V3_0E7_ERP_API_E3_IMPLEMENTATION.md). Delivers parser, mapping pin, and Preview only — Commit/GET/capabilities and E4 remain unauthorized.
+- E7 Phase 2 overall remains **IMPLEMENTATION_IN_PROGRESS** — next: (1) ERP API E4 authorization, (2) remaining ERP waves E5–E6, (3) frontend, (4) training, (5) browser acceptance.
 - E7 browser acceptance, ERP integration, Phase 2 frontend, and training have not started.
 - Each implementation wave requires a separate controller gate.
 - Complete v3.0E remains **IMPLEMENTATION_IN_PROGRESS** until E7 browser acceptance is accepted.
@@ -160,7 +163,7 @@ Notes:
 | Competitor confidentiality | `CARRIER_CAN_VIEW_COMPETITOR_*=NO`, backend enforcement + cross-carrier isolation tests; carrier must not see participants, competitor identities, bids, submission times, or late-submission requests; buyer XLSX export enforces exclusion (E7P2-INT-18) | Before pilot |
 | Excel import/export | `EXCEL_IMPORT_EXPORT=REQUIRED` — buyer export **IMPLEMENTED_ACCEPTED**; buyer import preview **IMPLEMENTED_ACCEPTED** (PR #125); P4 Commit apply **IMPLEMENTED_ACCEPTED** (PR #129); carrier export **MERGED_ACCEPTED** (PR #132 C1); carrier import preview **MERGED_ACCEPTED** (PR #134 C2); carrier import commit **MERGED_ACCEPTED** (PR #135 C3); carrier XLSX overall **IMPLEMENTED_ACCEPTED**; Create from XLSX **NOT_STARTED** | Post-E6 |
 | P4 Commit gates | Atomic/single-use Commit; stale baseline rejection; consumed/expired analysis rejection — **IMPLEMENTED_ACCEPTED** (PR #129) | Closed for UPDATE_EXISTING_DRAFT |
-| ERP integration | Generic ERP JSON contract API — architecture **FROZEN_ACCEPTED** (PR #137); implementation **NOT_STARTED** | Post-E6 / pre-pilot |
+| ERP integration | Generic ERP JSON contract API — architecture **FROZEN_ACCEPTED** (PR #137); E1–E3 **IMPLEMENTED_ACCEPTED**; E4 **NOT_STARTED** | Post-E6 / pre-pilot |
 | Training course | `USER_TRAINING_COURSE=REQUIRED` (RU/EN/ZH) — Phase 2 training **NOT_STARTED** | After UI stabilisation, before pilot |
 | Final browser acceptance | Real browser acceptance gate for E7 — **NOT_STARTED** | Before pilot |
 
@@ -264,14 +267,22 @@ MIGRATION_000074_AUTHORIZED=YES
 MIGRATION_000074_CREATED=YES
 ERP_API_E2_AUTHORIZED=YES
 ERP_API_E2_STATUS=IMPLEMENTED_ACCEPTED
-ERP_API_E3_STATUS=NOT_STARTED
-ERP_API_E3_AUTHORIZED=NO
+ERP_API_E3_STATUS=IMPLEMENTED_ACCEPTED
+ERP_API_E3_AUTHORIZED=YES
+ERP_API_E4_STATUS=NOT_STARTED
+ERP_API_E4_AUTHORIZED=NO
 BUYER_RFQ_ERP_INTEGRATION=ARCHITECTURE_FROZEN_ACCEPTED
-CONTROLLER_PREVIOUS_VERDICT=ACCEPT_ERP_API_E1
-CONTROLLER_VERDICT=ACCEPT_ERP_API_E2
-CONTROLLER_REVIEW_HEAD=ef86283320190a130f374fc8b303b7509b698b88
-CONTROLLER_CI_RUN=35366297048
+CONTROLLER_PREVIOUS_VERDICT=ACCEPT_ERP_API_E2
+CONTROLLER_VERDICT=ACCEPT_ERP_API_E3
+CONTROLLER_REVIEW_HEAD=f60e1917979cb2133f7d5fcd74cbdd8d66ddea79
+CONTROLLER_CI_RUN=35382305777
 CONTROLLER_CI_RESULT=SUCCESS
+F_E3_C1=CONTENT_TYPE_ENFORCEMENT
+F_E3_C2=NESTED_UNKNOWN_FIELD_REJECTION
+F_E3_C3=UNIFIED_INGEST_PATH
+F_E3_C4=PER_MAPPING_TYPE_PINNING
+F_E3_C5=STABLE_ERROR_MESSAGE_KEYS
+FOLLOW_UP_FINDINGS_BLOCK_E3_MERGE=NO
 ERP_TEST_IDS=E7P2-INT-120..195
 ERP_TEST_COUNT=76
 NEXT_FREE_TEST_ID=E7P2-INT-196
@@ -279,7 +290,7 @@ MERMAID_VALIDATION=MANUAL_ONLY
 FRONTEND_PHASE2_STATUS=NOT_STARTED
 TRAINING_STATUS=NOT_STARTED
 BROWSER_ACCEPTANCE_STATUS=NOT_STARTED
-NEXT_ACTION=CONTROLLED_MERGE_PR142
+NEXT_ACTION=ERP_API_E3_CONTROLLED_MERGE
 NEXT_STAGE_SEQUENCE=FRONTEND_PHASE2,TRAINING,BROWSER_ACCEPTANCE
 ```
 
