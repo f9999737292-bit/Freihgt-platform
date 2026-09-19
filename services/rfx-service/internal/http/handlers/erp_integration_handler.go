@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"mime"
 	"net/http"
@@ -61,10 +62,33 @@ func (h *ErpIntegrationHandler) PreviewUpdateDraft(w http.ResponseWriter, r *htt
 	}
 	preview, err := h.service.PreviewUpdateDraft(r.Context(), actor, eventID, raw)
 	if err != nil {
-		respond.Error(w, err)
+		writeERPUpdatePreviewError(w, err)
 		return
 	}
 	writePreviewResponse(w, preview)
+}
+
+func (h *ErpIntegrationHandler) CommitUpdateDraft(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireIntegrationActor(w, r, domain.ScopeDraftCommit, domain.ScopeDraftRead)
+	if !ok {
+		return
+	}
+	eventID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		respond.Error(w, apperrors.Validation("invalid event id", map[string]any{"field": "id"}))
+		return
+	}
+	in, err := readERPUpdateCommitBody(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	result, err := h.service.CommitUpdateDraft(r.Context(), actor, eventID, in, r.Header.Get("Idempotency-Key"))
+	if err != nil {
+		writeERPUpdatePreviewError(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusOK, result)
 }
 
 func (h *ErpIntegrationHandler) CommitCreateDraft(w http.ResponseWriter, r *http.Request) {
@@ -83,6 +107,23 @@ func (h *ErpIntegrationHandler) CommitCreateDraft(w http.ResponseWriter, r *http
 		return
 	}
 	respond.JSON(w, http.StatusCreated, result)
+}
+
+func readERPUpdateCommitBody(r *http.Request) (domain.ErpUpdateCommitInput, error) {
+	raw, err := readERPJSONBody(nil, r)
+	if err != nil {
+		return domain.ErpUpdateCommitInput{}, err
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	var in domain.ErpUpdateCommitInput
+	if err := decoder.Decode(&in); err != nil {
+		return domain.ErpUpdateCommitInput{}, apperrors.Validation("invalid request body", map[string]any{"field": "body"})
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		return domain.ErpUpdateCommitInput{}, apperrors.Validation("invalid request body", map[string]any{"field": "body"})
+	}
+	return in, nil
 }
 
 func readERPCreateCommitBody(r *http.Request) (domain.ErpCreateCommitInput, error) {
@@ -144,6 +185,25 @@ func readERPJSONBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 		return nil, apperrors.Validation("request body is required", map[string]any{"field": "body"})
 	}
 	return raw, nil
+}
+
+func writeERPUpdatePreviewError(w http.ResponseWriter, err error) {
+	var appErr *apperrors.AppError
+	if errors.As(err, &appErr) && appErr.Code == apperrors.CodeValidation {
+		field, _ := appErr.Details["field"].(string)
+		switch field {
+		case "external", "external.revision", "external.system", "external.object_id":
+			respond.JSON(w, http.StatusUnprocessableEntity, map[string]any{
+				"error": map[string]any{
+					"code":    string(appErr.Code),
+					"message": appErr.Message,
+					"details": appErr.Details,
+				},
+			})
+			return
+		}
+	}
+	respond.Error(w, err)
 }
 
 func writePreviewResponse(w http.ResponseWriter, preview *erpjson.PreviewResponse) {

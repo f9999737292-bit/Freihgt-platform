@@ -234,6 +234,8 @@ paths:
 
         Domain-invalid but structurally readable payloads return **422** with the structured preview envelope and `ready_to_commit=false` without persisting analysis (OPTION A).
 
+        State-dependent existing-link rule (not expressible as JSON Schema): if the target event already has an external object link, UPDATE Preview requires `external` with the same normalized `system` and `object_id` and a new `revision` that is not the current link revision and is not already stored in that link's revision history. Missing `external`, missing `revision`, or a repeated revision returns **422** `VALIDATION_ERROR` with `details.field=external.revision` and no new `machine_code`. Changing the stable identity is rejected before analysis persist. Events without a link may omit `external`.
+
         Precondition: target RFx event must be **DRAFT**; PUBLISHED events return **409** `stale_target`.
       parameters:
         - $ref: '#/components/parameters/XRequestID'
@@ -263,11 +265,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErpImportPreviewResponse'
         '422':
-          description: Domain-invalid structured ERP import preview
+          description: Domain-invalid structured ERP import preview, or existing-link revision/identity VALIDATION_ERROR
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErpImportPreviewResponse'
+                oneOf:
+                  - $ref: '#/components/schemas/ErpImportPreviewResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
         '400':
           description: Validation error
           content:
@@ -300,6 +304,109 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '413':
           description: Request body or uploaded file too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/rfx-events/{id}/erp-import/commit:
+    post:
+      tags: [RFx]
+      summary: Commit ERP buyer JSON update draft import
+      operationId: postErpRfxDraftUpdateCommit
+      description: |
+        Apply a persisted ERP UPDATE preview analysis to an existing DRAFT RFx event.
+
+        Feature flag: when `RFX_ERP_INTEGRATION_ENABLED` is false (default), the route returns **404** (feature disabled) and writes zero records.
+
+        Authorization: integration bearer auth with scopes `rfx:draft:commit` and `rfx:draft:read`. Tenant, company, and integration principal are taken from trusted gateway context only.
+
+        Requires `Idempotency-Key` header (max 128 chars). Request body contains only `analysis_id`.
+
+        Successful commit returns **200** with `rfx_event_id` and `applied_at`. The event remains **DRAFT** (no auto-publish). Commit revalidates stored baseline tokens `event_row_version`, `draft_row_version`, `baseline_lots_fingerprint`, and when a link existed at Preview `baseline_external_link_id` / `baseline_external_revision`.
+
+        If the event already has an external link, an accepted UPDATE must apply a new unused `external.revision`: backfill the previous revision/hash into history when E4 left it only on the link, append the new history row, and update link metadata in place without rebinding `rfx_event_id`. Link or current-revision drift after Preview returns **409** `stale_target` with zero writes. Same-key replay returns the stored **200** without extra history rows. Events without a link may omit `external`; first bind creates the link and the initial history row atomically.
+
+        Conflict machine codes: `stale_target`, `proposal_revalidation_failed`, `stale_mapping_context`, `actor_binding_denied`, `analysis_expired`, `analysis_already_consumed`, `canonical_hash_mismatch`, `idempotency_conflict`, `external_id_conflict`.
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Client-supplied idempotency key for ERP UPDATE commit (max 128 chars).
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErpUpdateCommitRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: ERP UPDATE commit applied to a DRAFT event
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErpUpdateCommitResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict (`stale_target`, `proposal_revalidation_failed`, `stale_mapping_context`, `actor_binding_denied`, `analysis_expired`, `analysis_already_consumed`, `canonical_hash_mismatch`, `idempotency_conflict`, `external_id_conflict`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Unprocessable stored analysis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
           content:
             application/json:
               schema:
@@ -8191,6 +8298,25 @@ components:
           enum: [ERP]
         external_revision:
           type: string
+    ErpUpdateCommitRequest:
+      type: object
+      required: [analysis_id]
+      additionalProperties: false
+      properties:
+        analysis_id:
+          type: string
+          format: uuid
+    ErpUpdateCommitResponse:
+      type: object
+      required: [rfx_event_id, applied_at]
+      additionalProperties: false
+      properties:
+        rfx_event_id:
+          type: string
+          format: uuid
+        applied_at:
+          type: string
+          format: date-time
     HealthResponse:
       type: object
       properties:

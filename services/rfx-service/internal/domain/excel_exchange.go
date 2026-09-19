@@ -107,6 +107,25 @@ func ValidateErpCreateCommitInput(in ErpCreateCommitInput) error {
 	return nil
 }
 
+type ErpUpdateCommitInput struct {
+	AnalysisID uuid.UUID `json:"analysis_id"`
+}
+
+type ErpUpdateCommitIdempotencyPayload struct {
+	AnalysisID uuid.UUID `json:"analysis_id"`
+}
+
+func NewErpUpdateCommitIdempotencyPayload(analysisID uuid.UUID) ErpUpdateCommitIdempotencyPayload {
+	return ErpUpdateCommitIdempotencyPayload{AnalysisID: analysisID}
+}
+
+func ValidateErpUpdateCommitInput(in ErpUpdateCommitInput) error {
+	if in.AnalysisID == uuid.Nil {
+		return apperrors.Validation("analysis_id is required", map[string]any{"field": "analysis_id"})
+	}
+	return nil
+}
+
 type CarrierImportCommitInput struct {
 	AnalysisID uuid.UUID `json:"analysis_id"`
 }

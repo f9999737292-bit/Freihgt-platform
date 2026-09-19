@@ -158,8 +158,10 @@ Legacy name `ERP_BUYER_IMPORT_COMMIT` is **retired** — do not use.
 | Request | `BINTRANS_RFX_ERP_JSON_V1` with `requested_operation=UPDATE_DRAFT` |
 | Response | `ErpImportPreviewResponse` |
 | Idempotency | Optional |
-| Concurrency | Captures `event_row_version`, `draft_row_version`, `baseline_lots_fingerprint` in canonical payload |
+| Concurrency | Captures `event_row_version`, `draft_row_version`, `baseline_lots_fingerprint`, and when a link exists `baseline_external_link_id` + `baseline_external_revision` |
 | State | Target must be DRAFT |
+| External (existing link) | Requires `external` with same normalized `system`/`object_id` and a new unused `revision`. Missing/repeated revision → **422 `VALIDATION_ERROR`** `details.field=external.revision`. Identity change rejected before analysis persist. JSON Schema cannot express this state-dependent rule. |
+| External (no link) | `external` remains optional. First bind is allowed. |
 | Audit | `rfx.erp.preview.created.v1` when persisted |
 | Errors | 400, 401, 403, 404, 409, 413, 422, 429 |
 | Flag | `RFX_ERP_INTEGRATION_ENABLED` |
@@ -175,7 +177,8 @@ Legacy name `ERP_BUYER_IMPORT_COMMIT` is **retired** — do not use.
 | Request | `{ "analysis_id": "uuid" }` |
 | Response | `200 ErpUpdateCommitResponse` (`rfx_event_id`, `applied_at`) |
 | Idempotency | **Required**; op `ERP_BUYER_UPDATE_COMMIT` |
-| Concurrency | Revalidates baseline tokens from stored analysis |
+| Concurrency | Revalidates baseline tokens from stored analysis, including external-link identity and current revision |
+| External | Existing link: backfill previous revision if missing from history, append new revision, update link metadata in place (`rfx_event_id` never rebound). No link + `external`: insert link + initial history row. No link + no `external`: no link writes. Drift → **409 `stale_target`**. Same-key replay → stored 200, no extra history. |
 | Audit | `rfx.erp.draft.updated.v1` |
 | Errors | 401, 403, 404, 409, 422, 429 |
 
@@ -297,6 +300,8 @@ tenant_id
 ```
 
 **`external_revision` is NOT part of stable uniqueness.** Multiple revisions update the same link row's revision metadata and `payload_hash`; they do not create a second RFx.
+
+**UPDATE of an existing link (controller policy B):** every accepted UPDATE must supply a new `external.revision` and persist a history row. Unique `(link_id, external_revision)` from migration `000074` forbids replaying a revision string; omitted/repeated revision is **422 `VALIDATION_ERROR`** at Preview, not a unique-index 500. If E4 CREATE stored `"1"` only on the link, the first accepted UPDATE backfills that row before appending the new revision. Changing `system`/`object_id` is forbidden (stable identity immutable). `000075` is not authorized.
 
 ### 5.2 Normalization
 

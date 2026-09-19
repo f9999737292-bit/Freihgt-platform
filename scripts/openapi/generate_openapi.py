@@ -102,6 +102,7 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/integrations/erp/rfx/drafts/preview", "post", "Preview ERP buyer JSON create draft import", "RFx", True, True, "erp_import_preview_create_draft"),
     ("/api/v1/integrations/erp/rfx/drafts/commit", "post", "Commit ERP buyer JSON create draft import", "RFx", True, True, "erp_import_create_commit"),
     ("/api/v1/rfx-events/{id}/erp-import/preview", "post", "Preview ERP buyer JSON update draft import", "RFx", True, True, "erp_import_preview_update_draft"),
+    ("/api/v1/rfx-events/{id}/erp-import/commit", "post", "Commit ERP buyer JSON update draft import", "RFx", True, True, "erp_import_update_commit"),
     ("/api/v1/users", "post", "Create user", "Users", False, False, None),
     ("/api/v1/users", "get", "List users", "Users", True, True, None),
     ("/api/v1/users/{id}", "get", "Get user by ID", "Users", True, True, None),
@@ -519,13 +520,19 @@ E7_ERP_CREATE_COMMIT_ENDPOINT_PROFILES = frozenset({
     "erp_import_create_commit",
 })
 
+E7_ERP_UPDATE_COMMIT_ENDPOINT_PROFILES = frozenset({
+    "erp_import_update_commit",
+})
+
 ERP_PREVIEW_PROFILES = frozenset(E7_ERP_PREVIEW_ENDPOINT_PROFILES)
 ERP_CREATE_COMMIT_PROFILES = frozenset(E7_ERP_CREATE_COMMIT_ENDPOINT_PROFILES)
+ERP_UPDATE_COMMIT_PROFILES = frozenset(E7_ERP_UPDATE_COMMIT_ENDPOINT_PROFILES)
 
 PROFILE_OPERATION_IDS = {
     "erp_import_preview_create_draft": "postErpRfxDraftCreatePreview",
     "erp_import_preview_update_draft": "postErpRfxDraftUpdatePreview",
     "erp_import_create_commit": "postErpRfxDraftCreateCommit",
+    "erp_import_update_commit": "postErpRfxDraftUpdateCommit",
 }
 
 EXCEL_EXCHANGE_COMMIT_PROFILES = frozenset({"xlsx_import_commit_buyer_draft", "xlsx_import_commit_carrier_response"})
@@ -665,6 +672,55 @@ ERP_CREATE_COMMIT_ERROR_RESPONSES = """        '400':
               schema:
                 $ref: '#/components/schemas/ErrorResponse'"""
 
+ERP_UPDATE_COMMIT_ERROR_RESPONSES = """        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict (`stale_target`, `proposal_revalidation_failed`, `stale_mapping_context`, `actor_binding_denied`, `analysis_expired`, `analysis_already_consumed`, `canonical_hash_mismatch`, `idempotency_conflict`, `external_id_conflict`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Unprocessable stored analysis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'"""
+
 EXCEL_EXCHANGE_DESCRIPTIONS = {
     "xlsx_export_buyer_draft": """Export buyer draft RFx event as an XLSX workbook snapshot.
 
@@ -744,6 +800,8 @@ Successful domain-valid preview returns **200** with `ready_to_commit=true`, per
 
 Domain-invalid but structurally readable payloads return **422** with the structured preview envelope and `ready_to_commit=false` without persisting analysis (OPTION A).
 
+State-dependent existing-link rule (not expressible as JSON Schema): if the target event already has an external object link, UPDATE Preview requires `external` with the same normalized `system` and `object_id` and a new `revision` that is not the current link revision and is not already stored in that link's revision history. Missing `external`, missing `revision`, or a repeated revision returns **422** `VALIDATION_ERROR` with `details.field=external.revision` and no new `machine_code`. Changing the stable identity is rejected before analysis persist. Events without a link may omit `external`.
+
 Precondition: target RFx event must be **DRAFT**; PUBLISHED events return **409** `stale_target`.""",
     "erp_import_create_commit": """Apply a persisted ERP CREATE preview analysis and allocate a DRAFT RFx event.
 
@@ -756,6 +814,19 @@ Requires `Idempotency-Key` header (max 128 chars). Request body contains only `a
 Successful commit returns **201** with `rfx_event_id`, `external_link_id`, `creation_channel=ERP`, and `external_revision`. The created event remains **DRAFT** (no auto-publish).
 
 Conflict machine codes: `external_id_conflict`, `idempotency_conflict`, `stale_mapping_context`, `actor_binding_denied`, `analysis_expired`, `analysis_already_consumed`, `canonical_hash_mismatch`.""",
+    "erp_import_update_commit": """Apply a persisted ERP UPDATE preview analysis to an existing DRAFT RFx event.
+
+Feature flag: when `RFX_ERP_INTEGRATION_ENABLED` is false (default), the route returns **404** (feature disabled) and writes zero records.
+
+Authorization: integration bearer auth with scopes `rfx:draft:commit` and `rfx:draft:read`. Tenant, company, and integration principal are taken from trusted gateway context only.
+
+Requires `Idempotency-Key` header (max 128 chars). Request body contains only `analysis_id`.
+
+Successful commit returns **200** with `rfx_event_id` and `applied_at`. The event remains **DRAFT** (no auto-publish). Commit revalidates stored baseline tokens `event_row_version`, `draft_row_version`, `baseline_lots_fingerprint`, and when a link existed at Preview `baseline_external_link_id` / `baseline_external_revision`.
+
+If the event already has an external link, an accepted UPDATE must apply a new unused `external.revision`: backfill the previous revision/hash into history when E4 left it only on the link, append the new history row, and update link metadata in place without rebinding `rfx_event_id`. Link or current-revision drift after Preview returns **409** `stale_target` with zero writes. Same-key replay returns the stored **200** without extra history rows. Events without a link may omit `external`; first bind creates the link and the initial history row atomically.
+
+Conflict machine codes: `stale_target`, `proposal_revalidation_failed`, `stale_mapping_context`, `actor_binding_denied`, `analysis_expired`, `analysis_already_consumed`, `canonical_hash_mismatch`, `idempotency_conflict`, `external_id_conflict`.""",
     "xlsx_import_commit_carrier_response": """Atomically apply a persisted carrier XLSX import preview analysis to a DRAFT response.
 
 Feature flag: when `RFX_EXCEL_EXCHANGE_ENABLED` is false (default), the route returns **404** (feature disabled).
@@ -1105,6 +1176,17 @@ def render_parameters(path: str, method: str, with_headers: bool, profile: str |
             "            minLength: 1",
             "            maxLength: 128",
         ])
+    elif profile in ERP_UPDATE_COMMIT_PROFILES:
+        lines.extend([
+            "        - name: Idempotency-Key",
+            "          in: header",
+            "          required: true",
+            "          description: Client-supplied idempotency key for ERP UPDATE commit (max 128 chars).",
+            "          schema:",
+            "            type: string",
+            "            minLength: 1",
+            "            maxLength: 128",
+        ])
     elif profile in LATE_SUBMISSION_IDEMPOTENCY_PROFILES:
         lines.extend([
             "        - name: Idempotency-Key",
@@ -1246,6 +1328,7 @@ def render_operation(
         and profile not in EXCEL_EXCHANGE_COMMIT_PROFILES
         and profile not in ERP_PREVIEW_PROFILES
         and profile not in ERP_CREATE_COMMIT_PROFILES
+        and profile not in ERP_UPDATE_COMMIT_PROFILES
     ):
         schema_ref = "#/components/schemas/VoidRequest" if profile in VOID_DESCRIPTIONS else None
         lines.extend(
@@ -1305,7 +1388,7 @@ def render_operation(
             ]
         )
 
-    if secured and profile not in EXCEL_EXCHANGE_PREVIEW_PROFILES and profile not in EXCEL_EXCHANGE_COMMIT_PROFILES and profile not in ERP_PREVIEW_PROFILES and profile not in ERP_CREATE_COMMIT_PROFILES:
+    if secured and profile not in EXCEL_EXCHANGE_PREVIEW_PROFILES and profile not in EXCEL_EXCHANGE_COMMIT_PROFILES and profile not in ERP_PREVIEW_PROFILES and profile not in ERP_CREATE_COMMIT_PROFILES and profile not in ERP_UPDATE_COMMIT_PROFILES:
         lines.append(SECURITY_BEARER.rstrip("\n"))
 
     if profile in BINARY_RESPONSE_PROFILES:
@@ -1371,6 +1454,25 @@ def render_operation(
         return "\n".join(lines)
 
     if profile in ERP_PREVIEW_PROFILES:
+        preview_422 = [
+                "        '422':",
+                "          description: Domain-invalid structured ERP import preview",
+                "          content:",
+                "            application/json:",
+                "              schema:",
+                "                $ref: '#/components/schemas/ErpImportPreviewResponse'",
+        ]
+        if profile == "erp_import_preview_update_draft":
+            preview_422 = [
+                "        '422':",
+                "          description: Domain-invalid structured ERP import preview, or existing-link revision/identity VALIDATION_ERROR",
+                "          content:",
+                "            application/json:",
+                "              schema:",
+                "                oneOf:",
+                "                  - $ref: '#/components/schemas/ErpImportPreviewResponse'",
+                "                  - $ref: '#/components/schemas/ErrorResponse'",
+            ]
         lines.extend(
             [
                 "      requestBody:",
@@ -1392,12 +1494,11 @@ def render_operation(
                 "            application/json:",
                 "              schema:",
                 "                $ref: '#/components/schemas/ErpImportPreviewResponse'",
-                "        '422':",
-                "          description: Domain-invalid structured ERP import preview",
-                "          content:",
-                "            application/json:",
-                "              schema:",
-                "                $ref: '#/components/schemas/ErpImportPreviewResponse'",
+            ]
+        )
+        lines.extend(preview_422)
+        lines.extend(
+            [
                 EXCEL_EXCHANGE_ERROR_RESPONSES.rstrip("\n"),
                 "",
             ]
@@ -1427,6 +1528,34 @@ def render_operation(
                 "              schema:",
                 "                $ref: '#/components/schemas/ErpCreateCommitResponse'",
                 ERP_CREATE_COMMIT_ERROR_RESPONSES.rstrip("\n"),
+                "",
+            ]
+        )
+        return "\n".join(lines)
+
+    if profile in ERP_UPDATE_COMMIT_PROFILES:
+        lines.extend(
+            [
+                "      requestBody:",
+                "        required: true",
+                "        content:",
+                "          application/json:",
+                "            schema:",
+                "              $ref: '#/components/schemas/ErpUpdateCommitRequest'",
+            ]
+        )
+        if secured:
+            lines.append(SECURITY_BEARER.rstrip("\n"))
+        lines.extend(
+            [
+                "      responses:",
+                "        '200':",
+                "          description: ERP UPDATE commit applied to a DRAFT event",
+                "          content:",
+                "            application/json:",
+                "              schema:",
+                "                $ref: '#/components/schemas/ErpUpdateCommitResponse'",
+                ERP_UPDATE_COMMIT_ERROR_RESPONSES.rstrip("\n"),
                 "",
             ]
         )
@@ -2842,6 +2971,25 @@ def erp_preview_components_block() -> str:
           enum: [ERP]
         external_revision:
           type: string
+    ErpUpdateCommitRequest:
+      type: object
+      required: [analysis_id]
+      additionalProperties: false
+      properties:
+        analysis_id:
+          type: string
+          format: uuid
+    ErpUpdateCommitResponse:
+      type: object
+      required: [rfx_event_id, applied_at]
+      additionalProperties: false
+      properties:
+        rfx_event_id:
+          type: string
+          format: uuid
+        applied_at:
+          type: string
+          format: date-time
 """
 
 
@@ -2860,7 +3008,7 @@ def filter_e7_erp_preview_endpoints(
 ) -> list[tuple[str, str, str, str, bool, bool, str | None]]:
     if include_e7_erp_preview:
         return endpoints
-    excluded = E7_ERP_PREVIEW_ENDPOINT_PROFILES | E7_ERP_CREATE_COMMIT_ENDPOINT_PROFILES
+    excluded = E7_ERP_PREVIEW_ENDPOINT_PROFILES | E7_ERP_CREATE_COMMIT_ENDPOINT_PROFILES | E7_ERP_UPDATE_COMMIT_ENDPOINT_PROFILES
     return [item for item in endpoints if item[6] not in excluded]
 
 

@@ -46,9 +46,9 @@ Depth is enforced during streaming ingest **before** full materialization of dee
 |---|---|---|---|---|---|
 | `schema_version` | string | Yes | Must equal `BINTRANS_RFX_ERP_JSON_V1` | Literal | — |
 | `requested_operation` | enum | Yes | `CREATE_DRAFT` \| `UPDATE_DRAFT` | Uppercase | Routes target type |
-| `external.system` | string | Yes (CREATE) | `[A-Z0-9_]{1,64}` | Uppercase trim | Stable link |
-| `external.object_id` | string | Yes (CREATE) | 1–256 NFC trim | Preserved case | Stable link |
-| `external.revision` | string | No | 1–64; default `"1"` | Trim | Revision metadata only |
+| `external.system` | string | Yes (CREATE); Yes on UPDATE if the target event already has an external link | `[A-Z0-9_]{1,64}` | Uppercase trim | Stable link |
+| `external.object_id` | string | Yes (CREATE); Yes on UPDATE if the target event already has an external link | 1–256 NFC trim | Preserved case | Stable link |
+| `external.revision` | string | No for CREATE and for UPDATE of an unbound UI event (default `"1"`). **Required and must be new** on UPDATE of an event that already has an external link | 1–64; default `"1"` only when no existing link | Trim | Revision metadata only. JSON Schema cannot express the existing-link condition. |
 | `event.type` | enum | Yes | Platform RFx types | Enum normalize | `rfx_events.type` |
 | `event.title` | string | Yes | 1–500 NFC | Trim | `rfx_events.title` |
 | `event.description` | string | No | Max 8000 | NFC trim | `rfx_events.description` |
@@ -92,6 +92,12 @@ ERP v1 aligns with Buyer XLSX commit surface (lots + questionnaire only).
 ### Mass assignment
 
 Unknown top-level keys → 422 `unknown_field`. No `additionalProperties`.
+
+### UPDATE compatibility (existing external link)
+
+If the target DRAFT already has an `rfx_external_object_links` row, UPDATE Preview **must** send `external` with the same normalized `system`/`object_id` and a new `revision` that is not the current link revision and is not already stored in `rfx_external_object_link_revisions` for that link. Omitted `external` / omitted `revision` / replayed revision → **422 `VALIDATION_ERROR`** with `details.field=external.revision` and no new `machine_code`. Changing stable identity is rejected before analysis persist.
+
+**Compatibility risk:** E3 UPDATE payloads that omit `external` remain valid only for events **without** a link (UI-created drafts). After E4 CREATE (default revision `"1"`), a later UPDATE without a new revision is rejected.
 
 ---
 
