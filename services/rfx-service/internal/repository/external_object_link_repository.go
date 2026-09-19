@@ -33,6 +33,44 @@ func (r *ExternalObjectLinkRepository) db() dbExecutor {
 	return r.pool
 }
 
+func (r *ExternalObjectLinkRepository) InsertLink(ctx context.Context, link domain.ExternalObjectLink) (*domain.ExternalObjectLink, error) {
+	if err := validateExternalObjectLink(link); err != nil {
+		return nil, err
+	}
+	revision := strings.TrimSpace(link.ExternalRevision)
+	if revision == "" {
+		revision = strings.TrimSpace(link.ExternalVersion)
+	}
+	row := r.db().QueryRow(ctx, `
+		INSERT INTO rfx.rfx_external_object_links (
+			tenant_id, integration_principal_id, external_system, external_object_type,
+			external_object_id, external_version, external_revision, payload_hash, rfx_event_id
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		RETURNING id, tenant_id, integration_principal_id, external_system, external_object_type,
+		          external_object_id, external_version, external_revision, payload_hash, rfx_event_id, created_at, updated_at
+	`, link.TenantID, link.IntegrationPrincipalID, link.ExternalSystem, link.ExternalObjectType,
+		link.ExternalObjectID, link.ExternalVersion, revision, link.PayloadHash, link.RfxEventID)
+	created, err := scanExternalObjectLink(row)
+	if err != nil {
+		return nil, mapStableIdentityConflict(err)
+	}
+	return created, nil
+}
+
+func mapStableIdentityConflict(err error) error {
+	mapped := mapDBError(err)
+	var appErr *apperrors.AppError
+	if errors.As(mapped, &appErr) && appErr.Code == apperrors.CodeConflict {
+		detail, _ := appErr.Details["detail"].(string)
+		if strings.Contains(detail, "uq_rfx_external_object_stable_identity") {
+			return apperrors.Conflict("stable external identity already exists", map[string]any{
+				"machine_code": domain.MachineCodeExternalIDConflict,
+			})
+		}
+	}
+	return mapped
+}
+
 func (r *ExternalObjectLinkRepository) UpsertLink(ctx context.Context, link domain.ExternalObjectLink) (*domain.ExternalObjectLink, error) {
 	if err := validateExternalObjectLink(link); err != nil {
 		return nil, err
