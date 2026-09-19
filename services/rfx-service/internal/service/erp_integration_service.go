@@ -22,6 +22,9 @@ type ErpIntegrationService struct {
 	importAnalysisRepo *repository.ImportAnalysisRepository
 	mappingResolver    *ErpMappingResolver
 	auditRepo          *repository.AuditRepository
+	idemRepo           *repository.IdempotencyRepository
+	linkRepo           *repository.ExternalObjectLinkRepository
+	mappingRepo        *repository.ReferenceMappingRepository
 	txRunner           previewTransactionRunner
 	nowFn              func() time.Time
 }
@@ -33,6 +36,9 @@ func NewErpIntegrationService(
 	mappingResolver *ErpMappingResolver,
 	auditRepo *repository.AuditRepository,
 	txRunner previewTransactionRunner,
+	idemRepo *repository.IdempotencyRepository,
+	linkRepo *repository.ExternalObjectLinkRepository,
+	mappingRepo *repository.ReferenceMappingRepository,
 ) *ErpIntegrationService {
 	return &ErpIntegrationService{
 		rfxRepo:            rfxRepo,
@@ -40,6 +46,9 @@ func NewErpIntegrationService(
 		importAnalysisRepo: importAnalysisRepo,
 		mappingResolver:    mappingResolver,
 		auditRepo:          auditRepo,
+		idemRepo:           idemRepo,
+		linkRepo:           linkRepo,
+		mappingRepo:        mappingRepo,
 		txRunner:           txRunner,
 		nowFn:              nowUTC,
 	}

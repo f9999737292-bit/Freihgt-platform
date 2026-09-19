@@ -37,6 +37,8 @@ const (
 	MachineCodeCanonicalHashMismatch   = "canonical_hash_mismatch"
 	MachineCodeActorBindingDenied      = "actor_binding_denied"
 	MachineCodeIdempotencyConflict     = "idempotency_conflict"
+	MachineCodeStaleMappingContext     = "stale_mapping_context"
+	MachineCodeExternalIDConflict      = "external_id_conflict"
 
 	CreationChannelManual   = "MANUAL"
 	CreationChannelTemplate = "TEMPLATE"
@@ -80,6 +82,25 @@ func NewBuyerImportCommitIdempotencyPayload(analysisID uuid.UUID) BuyerImportCom
 }
 
 func ValidateBuyerImportCommitInput(in BuyerImportCommitInput) error {
+	if in.AnalysisID == uuid.Nil {
+		return apperrors.Validation("analysis_id is required", map[string]any{"field": "analysis_id"})
+	}
+	return nil
+}
+
+type ErpCreateCommitInput struct {
+	AnalysisID uuid.UUID `json:"analysis_id"`
+}
+
+type ErpCreateCommitIdempotencyPayload struct {
+	AnalysisID uuid.UUID `json:"analysis_id"`
+}
+
+func NewErpCreateCommitIdempotencyPayload(analysisID uuid.UUID) ErpCreateCommitIdempotencyPayload {
+	return ErpCreateCommitIdempotencyPayload{AnalysisID: analysisID}
+}
+
+func ValidateErpCreateCommitInput(in ErpCreateCommitInput) error {
 	if in.AnalysisID == uuid.Nil {
 		return apperrors.Validation("analysis_id is required", map[string]any{"field": "analysis_id"})
 	}

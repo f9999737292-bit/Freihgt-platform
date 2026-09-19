@@ -230,6 +230,7 @@ func NewRouter(
 	r.Route("/v1/integrations/erp", func(r chi.Router) {
 		r.Use(erpIntegrationFlagMiddleware(cfg.RfxErpIntegrationEnabled))
 		r.Post("/rfx/drafts/preview", erpIntegrationHandler.PreviewCreateDraft)
+		r.Post("/rfx/drafts/commit", erpIntegrationHandler.CommitCreateDraft)
 	})
 
 	r.Route("/internal/v1/pricing", func(r chi.Router) {
