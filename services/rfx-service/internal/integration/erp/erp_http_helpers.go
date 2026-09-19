@@ -27,13 +27,23 @@ func enabledERPIntegrationConfig() config.Config {
 
 func newERPPreviewRouter(t *testing.T, env *testEnv, cfg config.Config) http.Handler {
 	t.Helper()
+	handler, _ := newERPPreviewRouterAndService(t, env, cfg)
+	return handler
+}
+
+func newERPPreviewRouterAndService(t *testing.T, env *testEnv, cfg config.Config) (http.Handler, *service.ErpIntegrationService) {
+	t.Helper()
 	rfxRepo := repository.NewRfxRepository(env.pool)
 	qRepo := repository.NewQuestionnaireRepository(env.pool)
 	txRunner := repository.NewTransactionRunner(env.pool)
 	mappingResolver := service.NewErpMappingResolver(env.mappingRepo)
-	erpSvc := service.NewErpIntegrationService(rfxRepo, qRepo, env.analysisRepo, mappingResolver, nil, txRunner)
+	auditRepo := repository.NewAuditRepository(env.pool)
+	erpSvc := service.NewErpIntegrationService(
+		rfxRepo, qRepo, env.analysisRepo, mappingResolver, auditRepo, txRunner,
+		env.idemRepo, env.externalLinkRepo, env.mappingRepo,
+	)
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	return httpserver.NewRouter(log, env.pool, cfg, nil, nil, nil, nil, nil, nil, nil, nil, nil, erpSvc, nil, nil, nil, nil, nil)
+	return httpserver.NewRouter(log, env.pool, cfg, nil, nil, nil, nil, nil, nil, nil, nil, nil, erpSvc, nil, nil, nil, nil, nil), erpSvc
 }
 
 func injectIntegrationHeaders(req *http.Request, tenantID, companyID, principalID uuid.UUID, scopes ...string) {
@@ -134,6 +144,28 @@ func seedDraftRfxEvent(t *testing.T, env *testEnv, tenantID, companyID uuid.UUID
 		t.Fatalf("draft version: %v", err)
 	}
 	return eventID
+}
+
+func commitScopes() []string {
+	return []string{domain.ScopeDraftCommit, domain.ScopeDraftCreate}
+}
+
+func postERPCreateCommit(t *testing.T, router http.Handler, tenantID, companyID, principalID uuid.UUID, scopes []string, analysisID uuid.UUID, idempotencyKey string) *httptest.ResponseRecorder {
+	t.Helper()
+	return postERPCreateCommitRaw(t, router, tenantID, companyID, principalID, scopes, []byte(`{"analysis_id":"`+analysisID.String()+`"}`), idempotencyKey)
+}
+
+func postERPCreateCommitRaw(t *testing.T, router http.Handler, tenantID, companyID, principalID uuid.UUID, scopes []string, body []byte, idempotencyKey string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, "/v1/integrations/erp/rfx/drafts/commit", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	if idempotencyKey != "" {
+		req.Header.Set("Idempotency-Key", idempotencyKey)
+	}
+	injectIntegrationHeaders(req, tenantID, companyID, principalID, scopes...)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
 }
 
 func postERPUpdatePreview(t *testing.T, router http.Handler, eventID, tenantID, companyID, principalID uuid.UUID, scopes []string, body []byte) *httptest.ResponseRecorder {

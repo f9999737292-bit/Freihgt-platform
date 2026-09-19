@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"bytes"
+	"encoding/json"
 	"io"
 	"mime"
 	"net/http"
@@ -63,6 +65,41 @@ func (h *ErpIntegrationHandler) PreviewUpdateDraft(w http.ResponseWriter, r *htt
 		return
 	}
 	writePreviewResponse(w, preview)
+}
+
+func (h *ErpIntegrationHandler) CommitCreateDraft(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireIntegrationActor(w, r, domain.ScopeDraftCommit, domain.ScopeDraftCreate)
+	if !ok {
+		return
+	}
+	in, err := readERPCreateCommitBody(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	result, err := h.service.CommitCreateDraft(r.Context(), actor, in, r.Header.Get("Idempotency-Key"))
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusCreated, result)
+}
+
+func readERPCreateCommitBody(r *http.Request) (domain.ErpCreateCommitInput, error) {
+	raw, err := readERPJSONBody(nil, r)
+	if err != nil {
+		return domain.ErpCreateCommitInput{}, err
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	var in domain.ErpCreateCommitInput
+	if err := decoder.Decode(&in); err != nil {
+		return domain.ErpCreateCommitInput{}, apperrors.Validation("invalid request body", map[string]any{"field": "body"})
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		return domain.ErpCreateCommitInput{}, apperrors.Validation("invalid request body", map[string]any{"field": "body"})
+	}
+	return in, nil
 }
 
 func requireERPJSONContentType(r *http.Request) error {

@@ -22,8 +22,23 @@ type ErpIntegrationService struct {
 	importAnalysisRepo *repository.ImportAnalysisRepository
 	mappingResolver    *ErpMappingResolver
 	auditRepo          *repository.AuditRepository
+	idemRepo           *repository.IdempotencyRepository
+	linkRepo           *repository.ExternalObjectLinkRepository
+	mappingRepo        *repository.ReferenceMappingRepository
 	txRunner           previewTransactionRunner
 	nowFn              func() time.Time
+	// afterCreateCommitIdempotencyMiss is a test-only hook invoked inside the
+	// commit transaction after a nil idempotency Get, before event creation.
+	afterCreateCommitIdempotencyMiss func()
+}
+
+// SetAfterCreateCommitIdempotencyMiss arms a test-only barrier so concurrent
+// commits can both observe a missing idempotency row before either Stores.
+func (s *ErpIntegrationService) SetAfterCreateCommitIdempotencyMiss(fn func()) {
+	if s == nil {
+		return
+	}
+	s.afterCreateCommitIdempotencyMiss = fn
 }
 
 func NewErpIntegrationService(
@@ -33,6 +48,9 @@ func NewErpIntegrationService(
 	mappingResolver *ErpMappingResolver,
 	auditRepo *repository.AuditRepository,
 	txRunner previewTransactionRunner,
+	idemRepo *repository.IdempotencyRepository,
+	linkRepo *repository.ExternalObjectLinkRepository,
+	mappingRepo *repository.ReferenceMappingRepository,
 ) *ErpIntegrationService {
 	return &ErpIntegrationService{
 		rfxRepo:            rfxRepo,
@@ -40,6 +58,9 @@ func NewErpIntegrationService(
 		importAnalysisRepo: importAnalysisRepo,
 		mappingResolver:    mappingResolver,
 		auditRepo:          auditRepo,
+		idemRepo:           idemRepo,
+		linkRepo:           linkRepo,
+		mappingRepo:        mappingRepo,
 		txRunner:           txRunner,
 		nowFn:              nowUTC,
 	}
