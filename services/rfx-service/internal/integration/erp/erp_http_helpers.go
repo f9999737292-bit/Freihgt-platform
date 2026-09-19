@@ -150,6 +150,28 @@ func commitScopes() []string {
 	return []string{domain.ScopeDraftCommit, domain.ScopeDraftCreate}
 }
 
+func updateCommitScopes() []string {
+	return []string{domain.ScopeDraftCommit, domain.ScopeDraftRead}
+}
+
+func postERPUpdateCommit(t *testing.T, router http.Handler, eventID, tenantID, companyID, principalID uuid.UUID, scopes []string, analysisID uuid.UUID, idempotencyKey string) *httptest.ResponseRecorder {
+	t.Helper()
+	return postERPUpdateCommitRaw(t, router, eventID, tenantID, companyID, principalID, scopes, []byte(`{"analysis_id":"`+analysisID.String()+`"}`), idempotencyKey)
+}
+
+func postERPUpdateCommitRaw(t *testing.T, router http.Handler, eventID, tenantID, companyID, principalID uuid.UUID, scopes []string, body []byte, idempotencyKey string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, "/v1/rfx-events/"+eventID.String()+"/erp-import/commit", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	if idempotencyKey != "" {
+		req.Header.Set("Idempotency-Key", idempotencyKey)
+	}
+	injectIntegrationHeaders(req, tenantID, companyID, principalID, scopes...)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
+}
+
 func postERPCreateCommit(t *testing.T, router http.Handler, tenantID, companyID, principalID uuid.UUID, scopes []string, analysisID uuid.UUID, idempotencyKey string) *httptest.ResponseRecorder {
 	t.Helper()
 	return postERPCreateCommitRaw(t, router, tenantID, companyID, principalID, scopes, []byte(`{"analysis_id":"`+analysisID.String()+`"}`), idempotencyKey)
