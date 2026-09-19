@@ -87,3 +87,15 @@ func TestCreatePreviewExactPathIsIntegrationProtected(t *testing.T) {
 		t.Fatal("CREATE preview must not require human auth")
 	}
 }
+
+func TestCreateCommitExactPathIsIntegrationProtected(t *testing.T) {
+	if !IsIntegrationProtectedRoute(http.MethodPost, "/api/v1/integrations/erp/rfx/drafts/commit") {
+		t.Fatal("CREATE commit must be integration protected")
+	}
+	if RequiresHumanAuth(http.MethodPost, "/api/v1/integrations/erp/rfx/drafts/commit") {
+		t.Fatal("CREATE commit must not require human auth")
+	}
+	if IsIntegrationProtectedRoute(http.MethodPost, "/api/v1/integrations/erp/rfx/drafts/commit/extra") {
+		t.Fatal("CREATE commit neighbor must not be integration protected")
+	}
+}

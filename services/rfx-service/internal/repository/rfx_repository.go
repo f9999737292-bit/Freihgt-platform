@@ -39,9 +39,50 @@ func (r *RfxRepository) CompanyExists(ctx context.Context, companyID, tenantID u
 }
 
 func (r *RfxRepository) CreateEvent(ctx context.Context, in domain.CreateRfxEventInput) (*domain.RfxEvent, error) {
+	return r.createEvent(ctx, in, "")
+}
+
+func (r *RfxRepository) CreateEventWithChannel(ctx context.Context, in domain.CreateRfxEventInput, creationChannel string) (*domain.RfxEvent, error) {
+	if err := domain.ValidateCreationChannel(creationChannel); err != nil {
+		return nil, err
+	}
+	return r.createEvent(ctx, in, creationChannel)
+}
+
+func (r *RfxRepository) createEvent(ctx context.Context, in domain.CreateRfxEventInput, creationChannel string) (*domain.RfxEvent, error) {
 	var result *domain.RfxEvent
 	err := measureDB("rfx_repository", "create_rfx_event", func() error {
-		const query = `
+		var (
+			query string
+			row   pgx.Row
+		)
+		if strings.TrimSpace(creationChannel) != "" {
+			query = `
+		INSERT INTO rfx.rfx_events (
+			tenant_id, rfx_number, rfx_type, category, title, description,
+			owner_company_id, currency_code, valid_from, valid_to, response_deadline, status, creation_channel
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		RETURNING id, tenant_id, rfx_number, rfx_type, category, title, description,
+			owner_company_id, status, currency_code, valid_from, valid_to, response_deadline,
+			created_at, updated_at, version
+	`
+			row = r.db().QueryRow(ctx, query,
+				in.TenantID,
+				strings.TrimSpace(in.RfxNumber),
+				strings.TrimSpace(in.RfxType),
+				strings.TrimSpace(in.Category),
+				strings.TrimSpace(in.Title),
+				optionalString(in.Description),
+				in.OwnerCompanyID,
+				optionalString(in.CurrencyCode),
+				optionalDate(in.ValidFrom),
+				optionalDate(in.ValidTo),
+				in.ResponseDeadline,
+				domain.RfxStatusDraft,
+				strings.TrimSpace(creationChannel),
+			)
+		} else {
+			query = `
 		INSERT INTO rfx.rfx_events (
 			tenant_id, rfx_number, rfx_type, category, title, description,
 			owner_company_id, currency_code, valid_from, valid_to, response_deadline, status
@@ -50,20 +91,21 @@ func (r *RfxRepository) CreateEvent(ctx context.Context, in domain.CreateRfxEven
 			owner_company_id, status, currency_code, valid_from, valid_to, response_deadline,
 			created_at, updated_at, version
 	`
-		row := r.db().QueryRow(ctx, query,
-			in.TenantID,
-			strings.TrimSpace(in.RfxNumber),
-			strings.TrimSpace(in.RfxType),
-			strings.TrimSpace(in.Category),
-			strings.TrimSpace(in.Title),
-			optionalString(in.Description),
-			in.OwnerCompanyID,
-			optionalString(in.CurrencyCode),
-			optionalDate(in.ValidFrom),
-			optionalDate(in.ValidTo),
-			in.ResponseDeadline,
-			domain.RfxStatusDraft,
-		)
+			row = r.db().QueryRow(ctx, query,
+				in.TenantID,
+				strings.TrimSpace(in.RfxNumber),
+				strings.TrimSpace(in.RfxType),
+				strings.TrimSpace(in.Category),
+				strings.TrimSpace(in.Title),
+				optionalString(in.Description),
+				in.OwnerCompanyID,
+				optionalString(in.CurrencyCode),
+				optionalDate(in.ValidFrom),
+				optionalDate(in.ValidTo),
+				in.ResponseDeadline,
+				domain.RfxStatusDraft,
+			)
+		}
 		event, err := scanRfxEvent(row)
 		if err != nil {
 			return mapDBError(err)

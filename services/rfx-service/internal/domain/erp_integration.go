@@ -36,6 +36,12 @@ const (
 
 	OwnerKindHuman                = "HUMAN"
 	OwnerKindIntegrationPrincipal = "INTEGRATION_PRINCIPAL"
+
+	ExternalObjectTypeRfxEvent = "RFX_EVENT"
+	ERPCreateDefaultCategory   = "FREIGHT"
+	AuditActorKindIntegration  = "INTEGRATION"
+	ERPCreateCommitAuditAction = "rfx.erp.draft.created.v1"
+	ERPCreateCommitReplayAudit = "rfx.erp.commit.replayed.v1"
 )
 
 type IntegrationPrincipal struct {

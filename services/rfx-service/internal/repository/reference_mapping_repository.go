@@ -22,6 +22,10 @@ func NewReferenceMappingRepository(pool *pgxpool.Pool) *ReferenceMappingReposito
 	return &ReferenceMappingRepository{pool: pool}
 }
 
+func (r *ReferenceMappingRepository) WithTx(tx pgx.Tx) *ReferenceMappingRepository {
+	return &ReferenceMappingRepository{pool: r.pool, exec: tx}
+}
+
 func (r *ReferenceMappingRepository) db() dbExecutor {
 	if r.exec != nil {
 		return r.exec
@@ -52,6 +56,25 @@ func (r *ReferenceMappingRepository) CreateEntry(ctx context.Context, in domain.
 		RETURNING id, tenant_id, mapping_set_id, external_code, canonical_code
 	`, in.TenantID, in.MappingSetID, strings.TrimSpace(in.ExternalCode), strings.TrimSpace(in.CanonicalCode))
 	return scanReferenceMappingEntry(row)
+}
+
+func (r *ReferenceMappingRepository) GetSetByID(ctx context.Context, id uuid.UUID) (*domain.ReferenceMappingSet, error) {
+	if id == uuid.Nil {
+		return nil, apperrors.Validation("mapping_set_id is required", map[string]any{"field": "mapping_set_id"})
+	}
+	row := r.db().QueryRow(ctx, `
+		SELECT id, tenant_id, mapping_type, version, status
+		FROM rfx.rfx_reference_mapping_sets
+		WHERE id = $1
+	`, id)
+	set, err := scanReferenceMappingSet(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperrors.NotFound("reference mapping set not found")
+		}
+		return nil, mapDBError(err)
+	}
+	return set, nil
 }
 
 func (r *ReferenceMappingRepository) GetLatestActiveSetForTenant(

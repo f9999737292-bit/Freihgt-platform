@@ -121,6 +121,101 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/v1/integrations/erp/rfx/drafts/commit:
+    post:
+      tags: [RFx]
+      summary: Commit ERP buyer JSON create draft import
+      operationId: postErpRfxDraftCreateCommit
+      description: |
+        Apply a persisted ERP CREATE preview analysis and allocate a DRAFT RFx event.
+
+        Feature flag: when `RFX_ERP_INTEGRATION_ENABLED` is false (default), the route returns **404** (feature disabled) and writes zero records.
+
+        Authorization: integration bearer auth with scopes `rfx:draft:commit` and `rfx:draft:create`. Tenant, company, and integration principal are taken from trusted gateway context only.
+
+        Requires `Idempotency-Key` header (max 128 chars). Request body contains only `analysis_id`.
+
+        Successful commit returns **201** with `rfx_event_id`, `external_link_id`, `creation_channel=ERP`, and `external_revision`. The created event remains **DRAFT** (no auto-publish).
+
+        Conflict machine codes: `external_id_conflict`, `idempotency_conflict`, `stale_mapping_context`, `actor_binding_denied`, `analysis_expired`, `analysis_already_consumed`, `canonical_hash_mismatch`.
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Client-supplied idempotency key for ERP CREATE commit (max 128 chars).
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErpCreateCommitRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: ERP CREATE commit allocated a DRAFT event
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErpCreateCommitResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict (`external_id_conflict`, `idempotency_conflict`, `stale_mapping_context`, `actor_binding_denied`, `analysis_expired`, `analysis_already_consumed`, `canonical_hash_mismatch`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Unprocessable stored analysis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/v1/rfx-events/{id}/erp-import/preview:
     post:
       tags: [RFx]
@@ -8072,6 +8167,30 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ErpImportPreviewIssue'
+    ErpCreateCommitRequest:
+      type: object
+      required: [analysis_id]
+      additionalProperties: false
+      properties:
+        analysis_id:
+          type: string
+          format: uuid
+    ErpCreateCommitResponse:
+      type: object
+      required: [rfx_event_id, external_link_id, creation_channel, external_revision]
+      additionalProperties: false
+      properties:
+        rfx_event_id:
+          type: string
+          format: uuid
+        external_link_id:
+          type: string
+          format: uuid
+        creation_channel:
+          type: string
+          enum: [ERP]
+        external_revision:
+          type: string
     HealthResponse:
       type: object
       properties:
