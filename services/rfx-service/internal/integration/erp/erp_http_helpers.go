@@ -152,7 +152,11 @@ func commitScopes() []string {
 
 func postERPCreateCommit(t *testing.T, router http.Handler, tenantID, companyID, principalID uuid.UUID, scopes []string, analysisID uuid.UUID, idempotencyKey string) *httptest.ResponseRecorder {
 	t.Helper()
-	body := []byte(`{"analysis_id":"` + analysisID.String() + `"}`)
+	return postERPCreateCommitRaw(t, router, tenantID, companyID, principalID, scopes, []byte(`{"analysis_id":"`+analysisID.String()+`"}`), idempotencyKey)
+}
+
+func postERPCreateCommitRaw(t *testing.T, router http.Handler, tenantID, companyID, principalID uuid.UUID, scopes []string, body []byte, idempotencyKey string) *httptest.ResponseRecorder {
+	t.Helper()
 	req := httptest.NewRequest(http.MethodPost, "/v1/integrations/erp/rfx/drafts/commit", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	if idempotencyKey != "" {

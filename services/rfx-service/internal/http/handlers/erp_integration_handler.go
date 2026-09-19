@@ -96,6 +96,9 @@ func readERPCreateCommitBody(r *http.Request) (domain.ErpCreateCommitInput, erro
 	if err := decoder.Decode(&in); err != nil {
 		return domain.ErpCreateCommitInput{}, apperrors.Validation("invalid request body", map[string]any{"field": "body"})
 	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		return domain.ErpCreateCommitInput{}, apperrors.Validation("invalid request body", map[string]any{"field": "body"})
+	}
 	return in, nil
 }
 

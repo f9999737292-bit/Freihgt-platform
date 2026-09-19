@@ -577,6 +577,64 @@ func TestE4CreateCommitConcurrentIdempotentReplaySameBody(t *testing.T) {
 	}
 }
 
+func TestE4CreateCommitRejectsTrailingJSON(t *testing.T) {
+	env := setupTestEnv(t)
+	tenantID, companyID, principal, router := seedCreateCommitReady(t, env, "TRAIL")
+	analysisID := previewCreateAnalysis(t, router, tenantID, companyID, principal.ID, "TRAIL")
+	beforeAnalyses := countERPAnalyses(t, env, tenantID)
+	validPrefix := `{"analysis_id":"` + analysisID.String() + `"}`
+
+	cases := []struct {
+		name string
+		body string
+	}{
+		{name: "second_object", body: validPrefix + `{"extra":1}`},
+		{name: "second_scalar", body: validPrefix + `1`},
+		{name: "corrupt_remainder", body: validPrefix + `{`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := postERPCreateCommitRaw(t, router, tenantID, companyID, principal.ID, commitScopes(), []byte(tc.body), "key-trail-"+tc.name)
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+			}
+			if countERPAnalyses(t, env, tenantID) != beforeAnalyses {
+				t.Fatal("trailing JSON must not create an analysis")
+			}
+			if countERPEvents(t, env, tenantID) != 0 {
+				t.Fatal("trailing JSON must not create an event")
+			}
+			if countExternalLinks(t, env, tenantID) != 0 {
+				t.Fatal("trailing JSON must not create an external link")
+			}
+			if countIdempotencyRecords(t, env, tenantID, principal.ID, "key-trail-"+tc.name) != 0 {
+				t.Fatal("trailing JSON must not store an idempotency record")
+			}
+			if fetchAnalysisStatus(t, env, analysisID) != domain.ImportAnalysisStatusPreviewed {
+				t.Fatalf("analysis status=%s", fetchAnalysisStatus(t, env, analysisID))
+			}
+		})
+	}
+}
+
+func TestE4CreateCommitAcceptsTrailingWhitespace(t *testing.T) {
+	env := setupTestEnv(t)
+	tenantID, companyID, principal, router := seedCreateCommitReady(t, env, "WS")
+	analysisID := previewCreateAnalysis(t, router, tenantID, companyID, principal.ID, "WS")
+	body := []byte(`{"analysis_id":"` + analysisID.String() + `"}` + "  \n\t")
+	rec := postERPCreateCommitRaw(t, router, tenantID, companyID, principal.ID, commitScopes(), body, "key-ws")
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	out := decodeCreateCommit(t, rec.Result(), rec.Body.Bytes())
+	if out["creation_channel"] != domain.CreationChannelERP {
+		t.Fatalf("creation_channel=%v", out["creation_channel"])
+	}
+	if countERPEvents(t, env, tenantID) != 1 || countExternalLinks(t, env, tenantID) != 1 {
+		t.Fatal("valid commit with trailing whitespace must create one event and one link")
+	}
+}
+
 func TestERPCreateCommitFeatureFlagDisabled(t *testing.T) {
 	env := setupTestEnv(t)
 	tenantID, companyID := seedTenantCompany(t, env)

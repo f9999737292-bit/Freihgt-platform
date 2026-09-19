@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"github.com/freight-platform/rfx-service/internal/erpjson"
 	apperrors "github.com/freight-platform/rfx-service/internal/platform/errors"
 )
@@ -53,6 +55,51 @@ func TestRequireERPJSONContentTypeRejectsInvalidMediaTypes(t *testing.T) {
 		if strings.Contains(strings.ToLower(appErr.Message), "{") || strings.Contains(appErr.Error(), "schema_version") {
 			t.Fatalf("content-type %q leaked payload: %s", ct, appErr.Error())
 		}
+	}
+}
+
+func TestReadERPCreateCommitBodyRequiresSingleJSONValue(t *testing.T) {
+	t.Parallel()
+	analysisID := uuid.New()
+	valid := `{"analysis_id":"` + analysisID.String() + `"}`
+	cases := []struct {
+		name    string
+		body    string
+		wantErr bool
+	}{
+		{name: "valid", body: valid, wantErr: false},
+		{name: "trailing_whitespace", body: valid + "  \n\t", wantErr: false},
+		{name: "second_object", body: valid + `{"extra":1}`, wantErr: true},
+		{name: "second_scalar", body: valid + `1`, wantErr: true},
+		{name: "corrupt_remainder", body: valid + `{`, wantErr: true},
+		{name: "unknown_field", body: `{"analysis_id":"` + analysisID.String() + `","extra":1}`, wantErr: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			req, err := http.NewRequest(http.MethodPost, "/v1/integrations/erp/rfx/drafts/commit", strings.NewReader(tc.body))
+			if err != nil {
+				t.Fatalf("new request: %v", err)
+			}
+			req.Header.Set("Content-Type", "application/json")
+			in, readErr := readERPCreateCommitBody(req)
+			if tc.wantErr {
+				if readErr == nil {
+					t.Fatal("expected validation error")
+				}
+				var appErr *apperrors.AppError
+				if !errors.As(readErr, &appErr) || appErr.Code != apperrors.CodeValidation {
+					t.Fatalf("want VALIDATION_ERROR, got %v", readErr)
+				}
+				return
+			}
+			if readErr != nil {
+				t.Fatalf("unexpected error: %v", readErr)
+			}
+			if in.AnalysisID != analysisID {
+				t.Fatalf("analysis_id=%s", in.AnalysisID)
+			}
+		})
 	}
 }
 
