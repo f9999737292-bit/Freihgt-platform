@@ -65,7 +65,8 @@ func TestUpdatePreviewNeighborsRemainHuman(t *testing.T) {
 		{http.MethodGet, "/api/v1/rfx-events/" + eventID + "/erp-import/preview"},
 		{http.MethodPost, "/api/v1/rfx-events/" + eventID},
 		{http.MethodPost, "/api/v1/rfx-events/" + eventID + "/xlsx-import/preview"},
-		{http.MethodPost, "/api/v1/rfx-events/" + eventID + "/erp-import/commit"},
+		{http.MethodGet, "/api/v1/rfx-events/" + eventID + "/erp-import/commit"},
+		{http.MethodPost, "/api/v1/rfx-events/" + eventID + "/erp-import/commit/extra"},
 		{http.MethodPost, "/api/v1/rfx-events/" + eventID + "/erp-import/preview/extra"},
 		{http.MethodPost, "/api/v1/integrations/erp/rfx/drafts/preview/extra"},
 	}
@@ -85,6 +86,20 @@ func TestCreatePreviewExactPathIsIntegrationProtected(t *testing.T) {
 	}
 	if RequiresHumanAuth(http.MethodPost, "/api/v1/integrations/erp/rfx/drafts/preview") {
 		t.Fatal("CREATE preview must not require human auth")
+	}
+}
+
+func TestUpdateCommitExactPathIsIntegrationProtected(t *testing.T) {
+	const eventID = "550e8400-e29b-41d4-a716-446655440000"
+	path := "/api/v1/rfx-events/" + eventID + "/erp-import/commit"
+	if !IsIntegrationProtectedRoute(http.MethodPost, path) {
+		t.Fatal("UPDATE commit with a concrete event id must use integration auth")
+	}
+	if RequiresHumanAuth(http.MethodPost, path) {
+		t.Fatal("UPDATE commit with a concrete event id must not require human auth")
+	}
+	if !IsIntegrationProtectedRoute(http.MethodPost, "/api/v1/rfx-events/{id}/erp-import/commit") {
+		t.Fatal("literal OpenAPI template must still classify as integration protected")
 	}
 }
 

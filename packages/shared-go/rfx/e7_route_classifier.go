@@ -115,5 +115,6 @@ func NormalizeGatewayPath(rawPath string) string {
 // E7IntegrationProtectedRoutes returns production integration routes that require machine bearer auth.
 func E7IntegrationProtectedRoutes() []ErpMachineAuthRoute {
 	routes := append([]ErpMachineAuthRoute{}, E7ErpPreviewRoutes()...)
-	return append(routes, E7ErpCreateCommitRoutes()...)
+	routes = append(routes, E7ErpCreateCommitRoutes()...)
+	return append(routes, E7ErpUpdateCommitRoutes()...)
 }
