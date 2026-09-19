@@ -8,13 +8,16 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/freight-platform/rfx-service/internal/config"
 	"github.com/freight-platform/rfx-service/internal/domain"
 	"github.com/freight-platform/rfx-service/internal/repository"
+	"github.com/freight-platform/rfx-service/internal/service"
 )
 
 func createDraftPayload(objectID string) string {
@@ -28,6 +31,12 @@ func createDraftPayload(objectID string) string {
 
 func seedCreateCommitReady(t *testing.T, env *testEnv, objectID string) (tenantID, companyID uuid.UUID, principal *domain.IntegrationPrincipal, router http.Handler) {
 	t.Helper()
+	tenantID, companyID, principal, router, _ = seedCreateCommitReadyWithService(t, env, objectID)
+	return tenantID, companyID, principal, router
+}
+
+func seedCreateCommitReadyWithService(t *testing.T, env *testEnv, objectID string) (tenantID, companyID uuid.UUID, principal *domain.IntegrationPrincipal, router http.Handler, erpSvc *service.ErpIntegrationService) {
+	t.Helper()
 	tenantID, companyID = seedTenantCompany(t, env)
 	seedPlatformMappingSet(t, env, tenantID, "CURRENCY", 1, "USD_EXT", "USD")
 	seedPlatformMappingSet(t, env, tenantID, "TIMEZONE", 1, "UTC_EXT", "UTC")
@@ -35,8 +44,54 @@ func seedCreateCommitReady(t *testing.T, env *testEnv, objectID string) (tenantI
 	grantScope(t, env, tenantID, principal.ID, domain.ScopeDraftPreview)
 	grantScope(t, env, tenantID, principal.ID, domain.ScopeDraftCreate)
 	grantScope(t, env, tenantID, principal.ID, domain.ScopeDraftCommit)
-	router = newERPPreviewRouter(t, env, enabledERPIntegrationConfig())
-	return tenantID, companyID, principal, router
+	router, erpSvc = newERPPreviewRouterAndService(t, env, enabledERPIntegrationConfig())
+	return tenantID, companyID, principal, router, erpSvc
+}
+
+func fetchAnalysisStatus(t *testing.T, env *testEnv, analysisID uuid.UUID) string {
+	t.Helper()
+	var status string
+	if err := env.pool.QueryRow(context.Background(), `
+		SELECT status FROM rfx.rfx_import_analyses WHERE id = $1
+	`, analysisID).Scan(&status); err != nil {
+		t.Fatalf("fetch analysis status: %v", err)
+	}
+	return status
+}
+
+func countIdempotencyRecords(t *testing.T, env *testEnv, tenantID, principalID uuid.UUID, key string) int {
+	t.Helper()
+	var count int
+	if err := env.pool.QueryRow(context.Background(), `
+		SELECT COUNT(*) FROM rfx.rfx_idempotency_records
+		WHERE tenant_id = $1 AND integration_principal_id = $2 AND idempotency_key = $3
+	`, tenantID, principalID, key).Scan(&count); err != nil {
+		t.Fatalf("count idempotency records: %v", err)
+	}
+	return count
+}
+
+func armCreateCommitIdempotencyMissBarrier(t *testing.T, erpSvc *service.ErpIntegrationService) *int32 {
+	t.Helper()
+	var arrived int32
+	ready := make(chan struct{}, 2)
+	release := make(chan struct{})
+	go func() {
+		<-ready
+		<-ready
+		close(release)
+	}()
+	erpSvc.SetAfterCreateCommitIdempotencyMiss(func() {
+		atomic.AddInt32(&arrived, 1)
+		ready <- struct{}{}
+		select {
+		case <-release:
+		case <-time.After(10 * time.Second):
+			t.Error("timed out waiting for concurrent CREATE commit peer after idempotency miss")
+		}
+	})
+	t.Cleanup(func() { erpSvc.SetAfterCreateCommitIdempotencyMiss(nil) })
+	return &arrived
 }
 
 func previewCreateAnalysis(t *testing.T, router http.Handler, tenantID, companyID, principalID uuid.UUID, objectID string) uuid.UUID {
@@ -397,6 +452,128 @@ func TestE7P2INT194ConcurrentCreateRace(t *testing.T) {
 	}
 	if countERPEvents(t, env, tenantID) != 1 || countExternalLinks(t, env, tenantID) != 1 {
 		t.Fatal("concurrent CREATE must leave exactly one event and one link")
+	}
+}
+
+func TestE4CreateCommitConcurrentIdempotencyConflictDifferentBodies(t *testing.T) {
+	env := setupTestEnv(t)
+	tenantID, companyID, principal, router, erpSvc := seedCreateCommitReadyWithService(t, env, "RACE-DIFF")
+	first := previewCreateAnalysis(t, router, tenantID, companyID, principal.ID, "RACE-DIFF-A")
+	second := previewCreateAnalysis(t, router, tenantID, companyID, principal.ID, "RACE-DIFF-B")
+	arrived := armCreateCommitIdempotencyMissBarrier(t, erpSvc)
+
+	var (
+		wg   sync.WaitGroup
+		rec1 *http.Response
+		rec2 *http.Response
+		b1   []byte
+		b2   []byte
+	)
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		out := postERPCreateCommit(t, router, tenantID, companyID, principal.ID, commitScopes(), first, "shared-race-diff")
+		rec1 = out.Result()
+		b1 = out.Body.Bytes()
+	}()
+	go func() {
+		defer wg.Done()
+		out := postERPCreateCommit(t, router, tenantID, companyID, principal.ID, commitScopes(), second, "shared-race-diff")
+		rec2 = out.Result()
+		b2 = out.Body.Bytes()
+	}()
+	wg.Wait()
+	if atomic.LoadInt32(arrived) != 2 {
+		t.Fatalf("expected both commits to observe a missing idempotency row, arrived=%d", atomic.LoadInt32(arrived))
+	}
+
+	created, conflict := 0, 0
+	for i, rec := range []*http.Response{rec1, rec2} {
+		body := b1
+		if i == 1 {
+			body = b2
+		}
+		switch rec.StatusCode {
+		case http.StatusCreated:
+			created++
+		case http.StatusConflict:
+			if errorMachineCode(body) != domain.MachineCodeIdempotencyConflict {
+				t.Fatalf("loser machine_code=%s body=%s", errorMachineCode(body), string(body))
+			}
+			conflict++
+		default:
+			t.Fatalf("unexpected status %d body=%s", rec.StatusCode, string(body))
+		}
+	}
+	if created != 1 || conflict != 1 {
+		t.Fatalf("expected one 201 and one 409 idempotency_conflict, got created=%d conflict=%d b1=%s b2=%s", created, conflict, string(b1), string(b2))
+	}
+	if countERPEvents(t, env, tenantID) != 1 || countExternalLinks(t, env, tenantID) != 1 {
+		t.Fatalf("expected exactly one event and one link, events=%d links=%d", countERPEvents(t, env, tenantID), countExternalLinks(t, env, tenantID))
+	}
+	if countIdempotencyRecords(t, env, tenantID, principal.ID, "shared-race-diff") != 1 {
+		t.Fatal("expected exactly one idempotency record")
+	}
+	consumed, previewed := 0, 0
+	for _, analysisID := range []uuid.UUID{first, second} {
+		switch fetchAnalysisStatus(t, env, analysisID) {
+		case domain.ImportAnalysisStatusConsumed:
+			consumed++
+		case domain.ImportAnalysisStatusPreviewed:
+			previewed++
+		default:
+			t.Fatalf("unexpected analysis status %s", fetchAnalysisStatus(t, env, analysisID))
+		}
+	}
+	if consumed != 1 || previewed != 1 {
+		t.Fatalf("expected one CONSUMED and one PREVIEWED analysis, consumed=%d previewed=%d", consumed, previewed)
+	}
+}
+
+func TestE4CreateCommitConcurrentIdempotentReplaySameBody(t *testing.T) {
+	env := setupTestEnv(t)
+	tenantID, companyID, principal, router, erpSvc := seedCreateCommitReadyWithService(t, env, "RACE-SAME")
+	analysisID := previewCreateAnalysis(t, router, tenantID, companyID, principal.ID, "RACE-SAME")
+	arrived := armCreateCommitIdempotencyMissBarrier(t, erpSvc)
+
+	var (
+		wg   sync.WaitGroup
+		rec1 *http.Response
+		rec2 *http.Response
+		b1   []byte
+		b2   []byte
+	)
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		out := postERPCreateCommit(t, router, tenantID, companyID, principal.ID, commitScopes(), analysisID, "shared-race-same")
+		rec1 = out.Result()
+		b1 = out.Body.Bytes()
+	}()
+	go func() {
+		defer wg.Done()
+		out := postERPCreateCommit(t, router, tenantID, companyID, principal.ID, commitScopes(), analysisID, "shared-race-same")
+		rec2 = out.Result()
+		b2 = out.Body.Bytes()
+	}()
+	wg.Wait()
+	if atomic.LoadInt32(arrived) != 2 {
+		t.Fatalf("expected both commits to observe a missing idempotency row, arrived=%d", atomic.LoadInt32(arrived))
+	}
+	if rec1.StatusCode != http.StatusCreated || rec2.StatusCode != http.StatusCreated {
+		t.Fatalf("expected both 201, got %d/%d b1=%s b2=%s", rec1.StatusCode, rec2.StatusCode, string(b1), string(b2))
+	}
+	if string(b1) != string(b2) {
+		t.Fatalf("replay body mismatch %s vs %s", string(b1), string(b2))
+	}
+	if countERPEvents(t, env, tenantID) != 1 || countExternalLinks(t, env, tenantID) != 1 {
+		t.Fatalf("same-body race must leave one event and one link, events=%d links=%d", countERPEvents(t, env, tenantID), countExternalLinks(t, env, tenantID))
+	}
+	if fetchAnalysisStatus(t, env, analysisID) != domain.ImportAnalysisStatusConsumed {
+		t.Fatalf("analysis status=%s", fetchAnalysisStatus(t, env, analysisID))
+	}
+	if countIdempotencyRecords(t, env, tenantID, principal.ID, "shared-race-same") != 1 {
+		t.Fatal("expected exactly one idempotency record")
 	}
 }
 

@@ -27,6 +27,12 @@ func enabledERPIntegrationConfig() config.Config {
 
 func newERPPreviewRouter(t *testing.T, env *testEnv, cfg config.Config) http.Handler {
 	t.Helper()
+	handler, _ := newERPPreviewRouterAndService(t, env, cfg)
+	return handler
+}
+
+func newERPPreviewRouterAndService(t *testing.T, env *testEnv, cfg config.Config) (http.Handler, *service.ErpIntegrationService) {
+	t.Helper()
 	rfxRepo := repository.NewRfxRepository(env.pool)
 	qRepo := repository.NewQuestionnaireRepository(env.pool)
 	txRunner := repository.NewTransactionRunner(env.pool)
@@ -37,7 +43,7 @@ func newERPPreviewRouter(t *testing.T, env *testEnv, cfg config.Config) http.Han
 		env.idemRepo, env.externalLinkRepo, env.mappingRepo,
 	)
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	return httpserver.NewRouter(log, env.pool, cfg, nil, nil, nil, nil, nil, nil, nil, nil, nil, erpSvc, nil, nil, nil, nil, nil)
+	return httpserver.NewRouter(log, env.pool, cfg, nil, nil, nil, nil, nil, nil, nil, nil, nil, erpSvc, nil, nil, nil, nil, nil), erpSvc
 }
 
 func injectIntegrationHeaders(req *http.Request, tenantID, companyID, principalID uuid.UUID, scopes ...string) {

@@ -27,6 +27,18 @@ type ErpIntegrationService struct {
 	mappingRepo        *repository.ReferenceMappingRepository
 	txRunner           previewTransactionRunner
 	nowFn              func() time.Time
+	// afterCreateCommitIdempotencyMiss is a test-only hook invoked inside the
+	// commit transaction after a nil idempotency Get, before event creation.
+	afterCreateCommitIdempotencyMiss func()
+}
+
+// SetAfterCreateCommitIdempotencyMiss arms a test-only barrier so concurrent
+// commits can both observe a missing idempotency row before either Stores.
+func (s *ErpIntegrationService) SetAfterCreateCommitIdempotencyMiss(fn func()) {
+	if s == nil {
+		return
+	}
+	s.afterCreateCommitIdempotencyMiss = fn
 }
 
 func NewErpIntegrationService(

@@ -90,6 +90,9 @@ func (s *ErpIntegrationService) CommitCreateDraft(
 			result = &replay
 			return nil
 		}
+		if hook := s.afterCreateCommitIdempotencyMiss; hook != nil {
+			hook()
+		}
 
 		analysis, err := importRepo.LockImportAnalysisForUpdate(ctx, in.AnalysisID, actor.TenantID)
 		if err != nil {
@@ -184,19 +187,35 @@ func (s *ErpIntegrationService) CommitCreateDraft(
 			ResponseStatus:         201,
 			ResponseBody:           responseBody,
 			ExpiresAt:              now.Add(24 * time.Hour),
-		}); err != nil && !errors.Is(err, repository.ErrIdempotencyRecordActive) {
+		}); err != nil {
 			return err
 		}
 		result = response
 		return nil
 	})
 	if runErr != nil {
-		if replay, replayErr := s.loadCreateCommitReplay(ctx, scope, idempotencyKey, requestBodyHash); replayErr == nil && replay != nil {
-			return replay, nil
-		}
-		return nil, runErr
+		return s.resolveCreateCommitAfterTx(ctx, scope, idempotencyKey, requestBodyHash, runErr)
 	}
 	return result, nil
+}
+
+func (s *ErpIntegrationService) resolveCreateCommitAfterTx(
+	ctx context.Context,
+	scope repository.IdempotencyScope,
+	idempotencyKey, requestBodyHash string,
+	runErr error,
+) (*ErpCreateCommitResponse, error) {
+	replay, replayErr := s.loadCreateCommitReplay(ctx, scope, idempotencyKey, requestBodyHash)
+	if replayErr != nil {
+		return nil, replayErr
+	}
+	if replay != nil {
+		return replay, nil
+	}
+	if errors.Is(runErr, repository.ErrIdempotencyRecordActive) {
+		return nil, apperrors.Internal("idempotency winner record not found after concurrent store conflict", runErr)
+	}
+	return nil, runErr
 }
 
 func (s *ErpIntegrationService) validateCreateCommitAnalysis(
