@@ -2,13 +2,13 @@
 
 **Wave:** E5 (UPDATE Commit)
 **Branch:** `feat/rfx-erp-update-commit-e5-v3.0e7`
-**Status:** `IMPLEMENTED_PENDING_CONTROLLER_REVIEW`
+**Status:** `IMPLEMENTED_ACCEPTED`
 
 ## Authorization markers
 
 ```
 ERP_API_E5_AUTHORIZED=YES
-ERP_API_E5_STATUS=IMPLEMENTED_PENDING_CONTROLLER_REVIEW
+ERP_API_E5_STATUS=IMPLEMENTED_ACCEPTED
 ERP_API_E5_IMPLEMENTATION_STARTED=YES
 OPERATION_ID=postErpRfxDraftUpdateCommit
 UPDATE_COMMIT_ROUTE=/api/v1/rfx-events/{id}/erp-import/commit
@@ -22,7 +22,27 @@ ERP_API_E6_STATUS=NOT_STARTED
 ERP_API_E6_AUTHORIZED=NO
 ERP_GET_IMPLEMENTED=NO
 INT_196_OCCUPIED=NO
+CONTROLLER_VERDICT=ACCEPT_ERP_API_E5
+CONTROLLER_REVIEW_HEAD=1a12c999d5cea2b2cc72d185773b22090f8ed261
+CONTROLLER_CI_RUN=35466989829
+CONTROLLER_CI_RESULT=SUCCESS
+REVISION_POLICY=B_EXISTING_LINK_REQUIRES_NEW_REVISION
 ```
+
+## Controller acceptance
+
+| Field | Value |
+|---|---|
+| Reviewed PR | #146 |
+| Reviewed head | `1a12c999d5cea2b2cc72d185773b22090f8ed261` |
+| Reviewed base | `85c2cc00e13225c1a146c9667d10270d1edbaf70` |
+| Accepted CI | `35466989829` |
+| Controller verdict | `ACCEPT_ERP_API_E5` |
+| Revision policy | **B** — existing-link UPDATE requires a new unused `external.revision` and a history row |
+
+## Revision policy B (accepted)
+
+If the target event already has an external link, UPDATE Preview must send the same normalized `system`/`object_id` and a new `revision` unused in that link's history. Missing or repeated revision is **422 `VALIDATION_ERROR`** (`details.field=external.revision`) with no analysis persist. Commit backfills the E4 current revision when history is empty, appends the new row, and updates link metadata in place. Events without a link may omit `external`. E6 GET-by-revision, migration `000075`, auto-publish, and INT-196 remain unauthorized.
 
 ## Baseline policy (normative reuse, not invented)
 
