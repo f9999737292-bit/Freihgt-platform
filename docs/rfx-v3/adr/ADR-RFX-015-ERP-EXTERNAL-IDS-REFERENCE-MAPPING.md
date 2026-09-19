@@ -53,8 +53,13 @@ Migration 000074 replaces `uq_rfx_external_object_identity` to drop `external_ve
 
 | Event | Behavior |
 |---|---|
-| CREATE commit | Insert link with `external_revision` (default `"1"`) |
-| UPDATE commit | Update `payload_hash` + append revision history row |
+| CREATE commit | Insert link with `external_revision` (default `"1"`). History row is **not** required at CREATE; E4 may leave revision only on the link. |
+| UPDATE of existing link | Preview requires same normalized `system`/`object_id` and a **new** `revision` unused in this link's history. Commit updates `payload_hash`, backfills the previous revision/hash into history if E4 left it only on the link, then appends the new history row. Unique `(link_id, external_revision)` from `000074` is preserved — no `000075`. |
+| UPDATE without a link | Omitting `external` is allowed (UI event). First bind (`external` present) creates the link and the initial history row atomically. |
+| Missing / repeated revision on existing link | **422 `VALIDATION_ERROR`**, `details.field=external.revision`, no new `machine_code`; no analysis persist |
+| Stable identity change on existing link | Rejected before analysis persist (`422 VALIDATION_ERROR` on `external.system` / `external.object_id`) |
+| Link or current revision changed after Preview | Commit **409 `stale_target`**, zero writes |
+| Same-key UPDATE replay | Stored **200**; no additional history rows |
 | Duplicate CREATE (same stable key) | 409 `external_id_conflict` |
 | Rebind / second RFx for same stable key | Forbidden |
 | GET without revision | Single RFx for stable key — test **E7P2-INT-192** |
