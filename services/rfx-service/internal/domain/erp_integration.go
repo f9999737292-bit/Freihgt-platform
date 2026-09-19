@@ -41,6 +41,7 @@ const (
 	ERPCreateDefaultCategory   = "FREIGHT"
 	AuditActorKindIntegration  = "INTEGRATION"
 	ERPCreateCommitAuditAction = "rfx.erp.draft.created.v1"
+	ERPUpdateCommitAuditAction = "rfx.erp.draft.updated.v1"
 	ERPCreateCommitReplayAudit = "rfx.erp.commit.replayed.v1"
 )
 

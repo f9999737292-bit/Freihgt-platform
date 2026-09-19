@@ -125,6 +125,67 @@ func (r *ExternalObjectLinkRepository) GetByStableIdentity(
 	return link, nil
 }
 
+func (r *ExternalObjectLinkRepository) GetByRfxEventID(
+	ctx context.Context,
+	tenantID, integrationPrincipalID, eventID uuid.UUID,
+) (*domain.ExternalObjectLink, error) {
+	row := r.db().QueryRow(ctx, `
+		SELECT id, tenant_id, integration_principal_id, external_system, external_object_type,
+		       external_object_id, external_version, external_revision, payload_hash, rfx_event_id, created_at, updated_at
+		FROM rfx.rfx_external_object_links
+		WHERE tenant_id = $1
+		  AND integration_principal_id = $2
+		  AND rfx_event_id = $3
+	`, tenantID, integrationPrincipalID, eventID)
+	link, err := scanExternalObjectLink(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperrors.NotFound("external object link not found")
+		}
+		return nil, mapDBError(err)
+	}
+	return link, nil
+}
+
+// UpdateLinkMetadataInPlace updates hash/revision for the existing event binding and never changes rfx_event_id.
+func (r *ExternalObjectLinkRepository) UpdateLinkMetadataInPlace(
+	ctx context.Context,
+	linkID, tenantID, integrationPrincipalID, eventID uuid.UUID,
+	revision, payloadHash string,
+) (*domain.ExternalObjectLink, error) {
+	revision = strings.TrimSpace(revision)
+	payloadHash = strings.TrimSpace(payloadHash)
+	if revision == "" {
+		return nil, apperrors.Validation("external_revision is required", map[string]any{"field": "external_revision"})
+	}
+	if len(payloadHash) != 64 {
+		return nil, apperrors.Validation("payload_hash must be sha256 hex", map[string]any{"field": "payload_hash"})
+	}
+	row := r.db().QueryRow(ctx, `
+		UPDATE rfx.rfx_external_object_links SET
+			payload_hash = $6,
+			external_version = $5,
+			external_revision = $5,
+			updated_at = now()
+		WHERE id = $1
+		  AND tenant_id = $2
+		  AND integration_principal_id = $3
+		  AND rfx_event_id = $4
+		RETURNING id, tenant_id, integration_principal_id, external_system, external_object_type,
+		          external_object_id, external_version, external_revision, payload_hash, rfx_event_id, created_at, updated_at
+	`, linkID, tenantID, integrationPrincipalID, eventID, revision, payloadHash)
+	updated, err := scanExternalObjectLink(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperrors.Conflict("stable external identity already exists", map[string]any{
+				"machine_code": domain.MachineCodeExternalIDConflict,
+			})
+		}
+		return nil, mapDBError(err)
+	}
+	return updated, nil
+}
+
 func (r *ExternalObjectLinkRepository) RecordRevision(ctx context.Context, revision domain.ExternalObjectLinkRevision) (*domain.ExternalObjectLinkRevision, error) {
 	if revision.TenantID == uuid.Nil || revision.LinkID == uuid.Nil {
 		return nil, apperrors.Validation("tenant_id and link_id are required", map[string]any{"field": "revision"})

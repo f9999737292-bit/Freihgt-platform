@@ -12,6 +12,7 @@ import (
 	"github.com/freight-platform/rfx-service/internal/erpjson"
 	apperrors "github.com/freight-platform/rfx-service/internal/platform/errors"
 	"github.com/freight-platform/rfx-service/internal/repository"
+	"github.com/freight-platform/rfx-service/internal/xlsxexchange"
 )
 
 const erpImportAnalysisTTL = 24 * time.Hour
@@ -30,6 +31,12 @@ type ErpIntegrationService struct {
 	// afterCreateCommitIdempotencyMiss is a test-only hook invoked inside the
 	// commit transaction after a nil idempotency Get, before event creation.
 	afterCreateCommitIdempotencyMiss func()
+	// afterUpdateCommitIdempotencyMiss is a test-only hook invoked inside the
+	// UPDATE commit transaction after a nil idempotency Get, before apply.
+	afterUpdateCommitIdempotencyMiss func()
+	// afterUpdateCommitApply is a test-only hook invoked after graph apply
+	// and before consume/idempotency store so rollback can be proven.
+	afterUpdateCommitApply func() error
 }
 
 // SetAfterCreateCommitIdempotencyMiss arms a test-only barrier so concurrent
@@ -39,6 +46,20 @@ func (s *ErpIntegrationService) SetAfterCreateCommitIdempotencyMiss(fn func()) {
 		return
 	}
 	s.afterCreateCommitIdempotencyMiss = fn
+}
+
+func (s *ErpIntegrationService) SetAfterUpdateCommitIdempotencyMiss(fn func()) {
+	if s == nil {
+		return
+	}
+	s.afterUpdateCommitIdempotencyMiss = fn
+}
+
+func (s *ErpIntegrationService) SetAfterUpdateCommitApply(fn func() error) {
+	if s == nil {
+		return
+	}
+	s.afterUpdateCommitApply = fn
 }
 
 func NewErpIntegrationService(
@@ -92,16 +113,40 @@ func (s *ErpIntegrationService) PreviewUpdateDraft(ctx context.Context, actor In
 		return nil, err
 	}
 	if event.Status != domain.RfxStatusDraft {
-		return nil, apperrors.Conflict("stale_target", map[string]any{"machine_code": "stale_target"})
+		return nil, apperrors.Conflict("stale_target", map[string]any{"machine_code": domain.MachineCodeStaleTarget})
 	}
 	version, err := s.qRepo.GetActiveDraftVersion(ctx, actor.TenantID, eventID)
 	if err != nil {
 		return nil, err
 	}
+	lots, err := s.rfxRepo.ListLotsByEvent(ctx, eventID, actor.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	fingerprint, err := xlsxexchange.ComputeBaselineLotsFingerprint(lots)
+	if err != nil {
+		return nil, apperrors.Internal("failed to compute baseline lots fingerprint", err)
+	}
 	targetVersion := version.VersionNumber
 	parsed, err := erpjson.ParsePreview(ctx, actor.TenantID, erpjson.OperationUpdateDraft, raw, s.mappingResolver)
 	if err != nil {
 		return nil, err
+	}
+	if parsed.ReadyToCommit && !erpjson.HasErrors(parsed.Errors) {
+		bound, bindErr := erpjson.BindUpdateBaselineTokens(parsed.CanonicalJSON, erpjson.UpdateBaselineTokens{
+			EventRowVersion:         event.Version,
+			DraftRowVersion:         version.Version,
+			BaselineLotsFingerprint: fingerprint,
+		})
+		if bindErr != nil {
+			return nil, apperrors.Internal("failed to bind update baseline tokens", bindErr)
+		}
+		hash, hashErr := erpjson.StableHash(bound)
+		if hashErr != nil {
+			return nil, apperrors.Internal("failed to hash update canonical payload", hashErr)
+		}
+		parsed.CanonicalJSON = bound
+		parsed.CanonicalHash = hash
 	}
 	return s.finalizePreview(ctx, actor, parsed, domain.ImportTargetTypeDraftEvent, &eventID, &targetVersion)
 }

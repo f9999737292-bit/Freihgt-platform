@@ -148,6 +148,7 @@ func NewRouter(
 		r.Group(func(r chi.Router) {
 			r.Use(erpIntegrationFlagMiddleware(cfg.RfxErpIntegrationEnabled))
 			r.Post("/{id}/erp-import/preview", erpIntegrationHandler.PreviewUpdateDraft)
+			r.Post("/{id}/erp-import/commit", erpIntegrationHandler.CommitUpdateDraft)
 		})
 
 		r.Group(func(r chi.Router) {

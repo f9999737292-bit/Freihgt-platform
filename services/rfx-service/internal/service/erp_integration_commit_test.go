@@ -12,6 +12,27 @@ import (
 	"github.com/freight-platform/rfx-service/internal/repository"
 )
 
+func TestResolveUpdateCommitAfterTxDoesNotInventSuccess(t *testing.T) {
+	t.Parallel()
+	s := &ErpIntegrationService{}
+	scope := repository.IdempotencyScope{
+		TenantID:               uuid.New(),
+		IntegrationPrincipalID: uuid.New(),
+		OwnerKind:              domain.OwnerKindIntegrationPrincipal,
+		Operation:              domain.ERPBuyerUpdateCommitOperation,
+		AggregateScope:         uuid.New(),
+	}
+
+	replay, err := s.resolveUpdateCommitAfterTx(context.Background(), scope, "key", "hash", repository.ErrIdempotencyRecordActive)
+	if replay != nil {
+		t.Fatal("missing winner record must not become a successful replay")
+	}
+	var appErr *apperrors.AppError
+	if !errors.As(err, &appErr) || appErr.Code != apperrors.CodeInternal {
+		t.Fatalf("expected internal error after missing winner, got %v", err)
+	}
+}
+
 func TestResolveCreateCommitAfterTxDoesNotInventSuccess(t *testing.T) {
 	t.Parallel()
 	s := &ErpIntegrationService{}
