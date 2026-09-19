@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -133,11 +134,21 @@ func (s *ErpIntegrationService) PreviewUpdateDraft(ctx context.Context, actor In
 		return nil, err
 	}
 	if parsed.ReadyToCommit && !erpjson.HasErrors(parsed.Errors) {
-		bound, bindErr := erpjson.BindUpdateBaselineTokens(parsed.CanonicalJSON, erpjson.UpdateBaselineTokens{
-			EventRowVersion:         event.Version,
-			DraftRowVersion:         version.Version,
-			BaselineLotsFingerprint: fingerprint,
-		})
+		existing, resolvedRevision, policyErr := s.validateUpdatePreviewExternalPolicy(ctx, actor, eventID, parsed)
+		if policyErr != nil {
+			return nil, policyErr
+		}
+		canonical := parsed.CanonicalJSON
+		if parsed.External != nil && strings.TrimSpace(resolvedRevision) != "" {
+			patched, patchErr := erpjson.ApplyStoredExternalRevision(canonical, resolvedRevision)
+			if patchErr != nil {
+				return nil, apperrors.Internal("failed to persist update external revision", patchErr)
+			}
+			canonical = patched
+		}
+		bound, bindErr := erpjson.BindUpdateBaselineTokens(canonical, updatePreviewBaselineTokens(
+			event.Version, version.Version, fingerprint, existing,
+		))
 		if bindErr != nil {
 			return nil, apperrors.Internal("failed to bind update baseline tokens", bindErr)
 		}

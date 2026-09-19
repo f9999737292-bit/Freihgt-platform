@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"mime"
 	"net/http"
@@ -61,7 +62,7 @@ func (h *ErpIntegrationHandler) PreviewUpdateDraft(w http.ResponseWriter, r *htt
 	}
 	preview, err := h.service.PreviewUpdateDraft(r.Context(), actor, eventID, raw)
 	if err != nil {
-		respond.Error(w, err)
+		writeERPUpdatePreviewError(w, err)
 		return
 	}
 	writePreviewResponse(w, preview)
@@ -84,7 +85,7 @@ func (h *ErpIntegrationHandler) CommitUpdateDraft(w http.ResponseWriter, r *http
 	}
 	result, err := h.service.CommitUpdateDraft(r.Context(), actor, eventID, in, r.Header.Get("Idempotency-Key"))
 	if err != nil {
-		respond.Error(w, err)
+		writeERPUpdatePreviewError(w, err)
 		return
 	}
 	respond.JSON(w, http.StatusOK, result)
@@ -184,6 +185,25 @@ func readERPJSONBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 		return nil, apperrors.Validation("request body is required", map[string]any{"field": "body"})
 	}
 	return raw, nil
+}
+
+func writeERPUpdatePreviewError(w http.ResponseWriter, err error) {
+	var appErr *apperrors.AppError
+	if errors.As(err, &appErr) && appErr.Code == apperrors.CodeValidation {
+		field, _ := appErr.Details["field"].(string)
+		switch field {
+		case "external", "external.revision", "external.system", "external.object_id":
+			respond.JSON(w, http.StatusUnprocessableEntity, map[string]any{
+				"error": map[string]any{
+					"code":    string(appErr.Code),
+					"message": appErr.Message,
+					"details": appErr.Details,
+				},
+			})
+			return
+		}
+	}
+	respond.Error(w, err)
 }
 
 func writePreviewResponse(w http.ResponseWriter, preview *erpjson.PreviewResponse) {

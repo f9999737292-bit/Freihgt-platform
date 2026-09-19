@@ -163,6 +163,9 @@ func (s *ErpIntegrationService) CommitUpdateDraft(
 		if stored.BaselineLotsFingerprint != currentFingerprint {
 			return commitConflict(domain.MachineCodeStaleTarget, "baseline_lots_fingerprint is stale")
 		}
+		if err := s.assertUpdateExternalLinkBaseline(ctx, linkRepo, actor, eventID, stored); err != nil {
+			return err
+		}
 
 		if err := revalidateStoredUpdateGraph(stored); err != nil {
 			return err
@@ -444,114 +447,6 @@ func parseERPQuestionnaireDraft(raw json.RawMessage) xlsxexchange.ERPQuestionnai
 		})
 	}
 	return out
-}
-
-func (s *ErpIntegrationService) applyUpdateExternalLink(
-	ctx context.Context,
-	linkRepo *repository.ExternalObjectLinkRepository,
-	actor IntegrationActor,
-	eventID uuid.UUID,
-	payloadHash string,
-	stored *erpjson.StoredUpdateCanonical,
-) error {
-	var identity *erpjson.ExternalRef
-	if stored != nil && stored.External != nil &&
-		strings.TrimSpace(stored.External.System) != "" &&
-		strings.TrimSpace(stored.External.ObjectID) != "" {
-		identity = stored.External
-	}
-
-	if identity != nil {
-		existing, err := linkRepo.GetByStableIdentity(
-			ctx, actor.TenantID, actor.PrincipalID,
-			identity.System, domain.ExternalObjectTypeRfxEvent, identity.ObjectID,
-		)
-		if err != nil && !isNotFound(err) {
-			return err
-		}
-		if existing != nil && existing.RfxEventID != eventID {
-			return commitConflict(domain.MachineCodeExternalIDConflict, "stable external identity already exists")
-		}
-		revision := strings.TrimSpace(identity.Revision)
-		if existing != nil {
-			if revision == "" {
-				revision = existing.ExternalRevision
-			}
-			if revision == "" {
-				revision = existing.ExternalVersion
-			}
-			if revision == "" {
-				revision = "1"
-			}
-			updated, err := linkRepo.UpdateLinkMetadataInPlace(
-				ctx, existing.ID, actor.TenantID, actor.PrincipalID, eventID, revision, payloadHash,
-			)
-			if err != nil {
-				return err
-			}
-			if revision != existing.ExternalRevision {
-				if _, err := linkRepo.RecordRevision(ctx, domain.ExternalObjectLinkRevision{
-					TenantID:         actor.TenantID,
-					LinkID:           updated.ID,
-					ExternalRevision: revision,
-					PayloadHash:      payloadHash,
-				}); err != nil {
-					return err
-				}
-			}
-			return nil
-		}
-		bound, err := linkRepo.GetByRfxEventID(ctx, actor.TenantID, actor.PrincipalID, eventID)
-		if err != nil && !isNotFound(err) {
-			return err
-		}
-		if bound != nil {
-			return commitConflict(domain.MachineCodeExternalIDConflict, "stable external identity already exists")
-		}
-		if revision == "" {
-			revision = "1"
-		}
-		created, err := linkRepo.InsertLink(ctx, domain.ExternalObjectLink{
-			TenantID:               actor.TenantID,
-			IntegrationPrincipalID: actor.PrincipalID,
-			ExternalSystem:         identity.System,
-			ExternalObjectType:     domain.ExternalObjectTypeRfxEvent,
-			ExternalObjectID:       identity.ObjectID,
-			ExternalVersion:        revision,
-			ExternalRevision:       revision,
-			PayloadHash:            payloadHash,
-			RfxEventID:             eventID,
-		})
-		if err != nil {
-			return err
-		}
-		_, err = linkRepo.RecordRevision(ctx, domain.ExternalObjectLinkRevision{
-			TenantID:         actor.TenantID,
-			LinkID:           created.ID,
-			ExternalRevision: revision,
-			PayloadHash:      payloadHash,
-		})
-		return err
-	}
-
-	existing, err := linkRepo.GetByRfxEventID(ctx, actor.TenantID, actor.PrincipalID, eventID)
-	if err != nil {
-		if isNotFound(err) {
-			return nil
-		}
-		return err
-	}
-	revision := existing.ExternalRevision
-	if revision == "" {
-		revision = existing.ExternalVersion
-	}
-	if revision == "" {
-		revision = "1"
-	}
-	_, err = linkRepo.UpdateLinkMetadataInPlace(
-		ctx, existing.ID, actor.TenantID, actor.PrincipalID, eventID, revision, payloadHash,
-	)
-	return err
 }
 
 func (s *ErpIntegrationService) loadUpdateCommitReplay(

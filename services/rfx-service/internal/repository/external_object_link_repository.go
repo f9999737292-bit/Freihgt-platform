@@ -204,9 +204,72 @@ func (r *ExternalObjectLinkRepository) RecordRevision(ctx context.Context, revis
 	`, revision.TenantID, revision.LinkID, strings.TrimSpace(revision.ExternalRevision), revision.PayloadHash)
 	var out domain.ExternalObjectLinkRevision
 	if err := row.Scan(&out.ID, &out.TenantID, &out.LinkID, &out.ExternalRevision, &out.PayloadHash, &out.RecordedAt); err != nil {
-		return nil, mapDBError(err)
+		return nil, mapRevisionConflict(err)
 	}
 	return &out, nil
+}
+
+func mapRevisionConflict(err error) error {
+	mapped := mapDBError(err)
+	var appErr *apperrors.AppError
+	if errors.As(mapped, &appErr) && appErr.Code == apperrors.CodeConflict {
+		detail, _ := appErr.Details["detail"].(string)
+		if strings.Contains(detail, "uq_rfx_external_object_link_revision") {
+			return apperrors.Conflict("external link revision drifted after preview", map[string]any{
+				"machine_code": domain.MachineCodeStaleTarget,
+			})
+		}
+	}
+	return mapped
+}
+
+func (r *ExternalObjectLinkRepository) RevisionExists(ctx context.Context, tenantID, linkID uuid.UUID, revision string) (bool, error) {
+	revision = strings.TrimSpace(revision)
+	if tenantID == uuid.Nil || linkID == uuid.Nil || revision == "" {
+		return false, apperrors.Validation("revision lookup is incomplete", map[string]any{"field": "external.revision"})
+	}
+	var exists bool
+	if err := r.db().QueryRow(ctx, `
+		SELECT EXISTS(
+			SELECT 1
+			FROM rfx.rfx_external_object_link_revisions
+			WHERE tenant_id = $1 AND link_id = $2 AND external_revision = $3
+		)
+	`, tenantID, linkID, revision).Scan(&exists); err != nil {
+		return false, mapDBError(err)
+	}
+	return exists, nil
+}
+
+func (r *ExternalObjectLinkRepository) ListRevisions(ctx context.Context, tenantID, linkID uuid.UUID) ([]domain.ExternalObjectLinkRevision, error) {
+	if tenantID == uuid.Nil || linkID == uuid.Nil {
+		return nil, apperrors.Validation("tenant_id and link_id are required", map[string]any{"field": "revision"})
+	}
+	rows, err := r.db().Query(ctx, `
+		SELECT id, tenant_id, link_id, external_revision, payload_hash, recorded_at
+		FROM rfx.rfx_external_object_link_revisions
+		WHERE tenant_id = $1 AND link_id = $2
+		ORDER BY recorded_at ASC, id ASC
+	`, tenantID, linkID)
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	defer rows.Close()
+	var out []domain.ExternalObjectLinkRevision
+	for rows.Next() {
+		var row domain.ExternalObjectLinkRevision
+		if err := rows.Scan(&row.ID, &row.TenantID, &row.LinkID, &row.ExternalRevision, &row.PayloadHash, &row.RecordedAt); err != nil {
+			return nil, mapDBError(err)
+		}
+		out = append(out, row)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, mapDBError(err)
+	}
+	if out == nil {
+		out = []domain.ExternalObjectLinkRevision{}
+	}
+	return out, nil
 }
 
 func (r *ExternalObjectLinkRepository) GetByExternalIdentity(
