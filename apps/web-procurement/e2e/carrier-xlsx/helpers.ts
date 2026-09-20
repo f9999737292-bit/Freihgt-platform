@@ -151,12 +151,13 @@ export async function stubCarrierTenderWorkspace(
       ],
     })
   })
-  await page.route(`**/api/v1/carrier/rfx-events/${eventId}`, async (route: Route) => {
+  await page.route('**/api/v1/carrier/rfx-events/**', async (route: Route) => {
     if (route.request().method() === 'OPTIONS') {
       await route.fulfill({ status: 204, headers: corsHeaders })
       return
     }
-    if (route.request().method() !== 'GET') {
+    const url = new URL(route.request().url())
+    if (route.request().method() !== 'GET' || url.pathname !== `/api/v1/carrier/rfx-events/${eventId}`) {
       await route.fallback()
       return
     }

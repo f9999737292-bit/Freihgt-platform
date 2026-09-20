@@ -69,7 +69,7 @@ export async function stubCarrierEventMetadata(
     lot_count: 0,
     participant_company_id: carrierCompanyId,
   }
-  await page.route(`**/api/v1/carrier/rfx-events/${targetEventId}`, async (route) => {
+  await page.route(`**/api/v1/carrier/rfx-events/${targetEventId}**`, async (route) => {
     if (route.request().method() !== 'GET') {
       await route.continue()
       return
