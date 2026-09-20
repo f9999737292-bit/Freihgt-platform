@@ -67,7 +67,7 @@ func startBuyerXlsxLiveStack(t *testing.T) *browserBuyerXlsxLiveStack {
 	rfxURL, rfxSrv := startBuyerXlsxRfxService(t, env)
 	identity := startBrowserIdentityStub(t, browserIdentityRolesForBuyer(fix.UserID.String()))
 	webOrigin := browserGatewayEnvForStack(t, buyerXlsxBrowserPort)
-	gatewayURL, gatewayProc := startBrowserProductionGatewayWithOrigins(t, rfxURL, webOrigin, identity)
+	gatewayURL, gatewayProc := startBuyerXlsxProductionGateway(t, rfxURL, webOrigin, identity)
 	webURL, webCmd := startBuyerXlsxWebProcurement(t, gatewayURL, fix, buyerXlsxBrowserPort)
 	waitForHTTP200(t, webURL+"/login", 120*time.Second)
 	return &browserBuyerXlsxLiveStack{
@@ -132,6 +132,31 @@ func startBuyerXlsxRfxService(t *testing.T, env *testEnv) (string, *http.Server)
 		nil, nil, nil,
 	)
 	return listenHTTPServer(t, handler)
+}
+
+func startBuyerXlsxProductionGateway(t *testing.T, rfxServiceURL, origins string, identity *browserIdentityStub) (string, *browserGatewayProcess) {
+	t.Helper()
+	root, err := repoRoot()
+	if err != nil {
+		t.Fatalf("repo root: %v", err)
+	}
+	openAPIDir := filepath.Join(root, "packages", "openapi")
+	env := []string{
+		"AUTH_ENABLED=true",
+		"JWT_SECRET=" + browserE2EJWTSecret,
+		"RFX_SERVICE_URL=" + strings.TrimRight(rfxServiceURL, "/"),
+		"IDENTITY_SERVICE_URL=" + identity.URL(),
+		"CORS_ALLOWED_ORIGINS=" + origins,
+		"RATE_LIMIT_ENABLED=false",
+		"OPENAPI_DIR=" + openAPIDir,
+		"LOG_LEVEL=error",
+		"ENVIRONMENT=test",
+		"RFX_EXCEL_EXCHANGE_ENABLED=true",
+	}
+	gatewayURL, proc := startProductionGatewayProcess(t, env)
+	verifyBrowserGatewayHealth(t, gatewayURL)
+	verifyBrowserGatewayRfxRoute(t, gatewayURL, rfxServiceURL)
+	return gatewayURL, proc
 }
 
 func startBuyerXlsxWebProcurement(t *testing.T, gatewayURL string, fix browserStudioFixture, port string) (string, *webProcurementCmd) {
