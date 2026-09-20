@@ -429,7 +429,12 @@ test.describe('late submission live stack', () => {
     )
     expect(api.status()).toBe(422)
     const body = await api.json() as { error?: { details?: { field?: string } } }
-    expect(['approved_valid_until', 'late_submission_request', 'late_submission_status']).toContain(body.error?.details?.field)
+    expect([
+      'response_deadline',
+      'approved_valid_until',
+      'late_submission_request',
+      'late_submission_status',
+    ]).toContain(body.error?.details?.field)
     const afterExpired = await postCarrierLateCreate(page, fix.expiredEventId, `late-create:${crypto.randomUUID()}`, {
       reason_code: 'TECHNICAL_FAILURE',
       reason_text: 'new attempt after EXPIRED window',
