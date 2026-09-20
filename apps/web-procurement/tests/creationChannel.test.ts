@@ -79,6 +79,7 @@ describe('F4 human provenance creation_channel', () => {
   it('keeps denied human GET on a stable not-found empty state', () => {
     const page = readFileSync(resolve(__dirname, '../pages/tenders/[id]/index.vue'), 'utf8')
     const loadStart = page.slice(page.indexOf('async function loadWorkspace()'), page.indexOf('async function refreshWorkspace()'))
+    expect(page).toContain("import EmptyState from '~/components/ui/EmptyState.vue'")
     expect(page).toContain('data-testid="tender-not-found"')
     expect(page).toContain('v-if="notFound"')
     expect(loadStart).toContain('if (shouldShowNotFound(error))')

@@ -16,6 +16,7 @@ import { creationChannelLabelKey } from '~/utils/creationChannel'
 import type { Company } from '~/types/company'
 import { checkPublishReadiness } from '~/utils/publishReadiness'
 import { shouldShowNotFound, isApiUnavailableError } from '~/utils/apiError'
+import EmptyState from '~/components/ui/EmptyState.vue'
 
 definePageMeta({ middleware: 'auth', layout: 'default' })
 
@@ -308,7 +309,9 @@ onMounted(() => {
       v-if="notFound"
       data-testid="tender-not-found"
       :title="$t('tenders.notFound')"
-    />
+    >
+      {{ $t('tenders.notFound') }}
+    </EmptyState>
     <div v-else-if="loading" class="loading-block">{{ $t('common.loading') }}</div>
     <EmptyState v-else-if="apiUnavailable" :title="$t('tenders.loadFailed')" />
     <EmptyState v-else-if="!event" :title="$t('tenders.empty')" />
