@@ -10,11 +10,13 @@ import (
 
 	"github.com/freight-platform/rfx-service/internal/domain"
 	apperrors "github.com/freight-platform/rfx-service/internal/platform/errors"
+	"github.com/freight-platform/rfx-service/internal/repository"
 )
 
 type mockRfxStore struct {
 	createEventFn         func(ctx context.Context, in domain.CreateRfxEventInput) (*domain.RfxEvent, error)
 	getEventFn            func(ctx context.Context, id, tenantID uuid.UUID) (*domain.RfxEvent, error)
+	getExchangeMetaFn     func(ctx context.Context, eventID, tenantID uuid.UUID) (*repository.EventExchangeMetadata, error)
 	updateStatusFn        func(ctx context.Context, id, tenantID uuid.UUID, expected, newStatus string) (*domain.RfxEvent, error)
 	addParticipantFn      func(ctx context.Context, in domain.AddRfxParticipantInput) (*domain.RfxParticipant, error)
 	participantExistsFn   func(ctx context.Context, eventID, companyID, tenantID uuid.UUID) (bool, error)
@@ -35,6 +37,12 @@ func (m *mockRfxStore) CreateEvent(ctx context.Context, in domain.CreateRfxEvent
 }
 func (m *mockRfxStore) GetEventByID(ctx context.Context, id, tenantID uuid.UUID) (*domain.RfxEvent, error) {
 	return m.getEventFn(ctx, id, tenantID)
+}
+func (m *mockRfxStore) GetEventExchangeMetadata(ctx context.Context, eventID, tenantID uuid.UUID) (*repository.EventExchangeMetadata, error) {
+	if m.getExchangeMetaFn != nil {
+		return m.getExchangeMetaFn(ctx, eventID, tenantID)
+	}
+	return &repository.EventExchangeMetadata{CreationChannel: domain.CreationChannelManual}, nil
 }
 func (m *mockRfxStore) LoadEventProvenance(context.Context, uuid.UUID, uuid.UUID) (*domain.RfxEventProvenance, error) {
 	return nil, nil

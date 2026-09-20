@@ -3217,8 +3217,8 @@ paths:
   /api/v1/rfx-events/{id}:
     get:
       tags: [RFx]
-      summary: Get RFx event by ID (optional clone provenance for buyers)
-      operationId: get_get_rfx_event_by_id__optional_clone_provenance_for_buyers
+      summary: Get RFx event by ID (optional clone provenance and stored creation_channel for buyers)
+      operationId: get_get_rfx_event_by_id__optional_clone_provenance_and_stored_creation_channel_for_buyers
       parameters:
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
@@ -16743,6 +16743,10 @@ components:
         - $ref: '#/components/schemas/RfxStudioEventRecord'
         - type: object
           properties:
+            creation_channel:
+              type: string
+              enum: [MANUAL, TEMPLATE, EXCEL, ERP]
+              description: Persisted rfx.rfx_events.creation_channel. Present for rows after migration 000073 (NOT NULL DEFAULT MANUAL). Omitted only when the stored value is empty; the API does not invent a channel.
             source_template_id: {type: string, format: uuid, nullable: true}
             source_template_version_id: {type: string, format: uuid, nullable: true}
             source_version_number: {type: integer, nullable: true}

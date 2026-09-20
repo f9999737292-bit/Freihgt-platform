@@ -136,7 +136,7 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/rfx-events/from-template", "post", "Clone RFx event from template", "RFx", True, True, "e5_clone"),
     ("/api/v1/rfx-events", "get", "List RFx events", "RFx", True, True, None),
     ("/api/v1/carrier/rfx-events/{id}", "get", "Get invited RFx event for the authenticated carrier company", "RFx", True, True, "carrier_invited_event_get"),
-    ("/api/v1/rfx-events/{id}", "get", "Get RFx event by ID (optional clone provenance for buyers)", "RFx", True, True, "rfx_event_detail"),
+    ("/api/v1/rfx-events/{id}", "get", "Get RFx event by ID (optional clone provenance and stored creation_channel for buyers)", "RFx", True, True, "rfx_event_detail"),
     ("/api/v1/rfx-events/{id}", "patch", "Update RFx event", "RFx", True, True, None),
     ("/api/v1/rfx-events/{id}/publish", "post", "Publish RFx event", "RFx", True, True, None),
     ("/api/v1/rfx-events/{id}/cancel", "post", "Cancel RFx event", "RFx", True, True, None),
@@ -2423,6 +2423,10 @@ def questionnaire_entity_schemas_block() -> str:
         - $ref: '#/components/schemas/RfxStudioEventRecord'
         - type: object
           properties:
+            creation_channel:
+              type: string
+              enum: [MANUAL, TEMPLATE, EXCEL, ERP]
+              description: Persisted rfx.rfx_events.creation_channel. Present for rows after migration 000073 (NOT NULL DEFAULT MANUAL). Omitted only when the stored value is empty; the API does not invent a channel.
             source_template_id: {type: string, format: uuid, nullable: true}
             source_template_version_id: {type: string, format: uuid, nullable: true}
             source_version_number: {type: integer, nullable: true}
