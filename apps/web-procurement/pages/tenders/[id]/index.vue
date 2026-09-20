@@ -85,18 +85,7 @@ async function loadWorkspace() {
   notFound.value = false
   apiUnavailable.value = false
   try {
-    event.value = await getRfxEvent(eventId.value)
-    setCompany(event.value.owner_company_id)
-    try {
-      lots.value = await listLots(eventId.value)
-    } catch {
-      lots.value = []
-    }
-    try {
-      participants.value = await listRfxParticipants(eventId.value)
-    } catch {
-      participants.value = []
-    }
+    await refreshWorkspace()
   } catch (error) {
     event.value = null
     lots.value = []
@@ -111,6 +100,21 @@ async function loadWorkspace() {
     }
   } finally {
     loading.value = false
+  }
+}
+
+async function refreshWorkspace() {
+  event.value = await getRfxEvent(eventId.value)
+  setCompany(event.value.owner_company_id)
+  try {
+    lots.value = await listLots(eventId.value)
+  } catch {
+    lots.value = []
+  }
+  try {
+    participants.value = await listRfxParticipants(eventId.value)
+  } catch {
+    participants.value = []
   }
 }
 
@@ -381,7 +385,7 @@ onMounted(() => {
         <BuyerXlsxExchangePanel
           :event-id="event.id"
           :event-status="event.status"
-          @committed="loadWorkspace"
+          @committed="refreshWorkspace"
         />
       </div>
 

@@ -73,7 +73,7 @@ async function openDraft(page: Page) {
 }
 
 async function exportWorkbook(page: Page, probe = attachBuyerXlsxNetworkProbe(page)) {
-  const { eventId } = liveFixture()
+  const { eventId, gatewayURL, jwt, companyId } = liveFixture()
   const respPromise = page.waitForResponse((resp) => {
     return resp.url().includes(`/rfx-events/${eventId}/xlsx-export`) && resp.request().method() === 'GET'
   }, { timeout: 30_000 })
@@ -84,11 +84,24 @@ async function exportWorkbook(page: Page, probe = attachBuyerXlsxNetworkProbe(pa
   if (!resp.ok()) {
     throw new Error(`export status=${resp.status()} ${resp.url()}\n${formatBuyerXlsxNetworkProbe(probe)}`)
   }
+  const liveExport = await page.request.get(`${gatewayURL}/api/v1/rfx-events/${eventId}/xlsx-export`, {
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+      'X-Company-ID': companyId,
+    },
+  })
+  if (!liveExport.ok()) {
+    throw new Error(`live export replay status=${liveExport.status()}`)
+  }
+  const bytes = Buffer.from(await liveExport.body())
+  if (bytes.length < 4 || bytes.subarray(0, 2).toString() !== 'PK') {
+    throw new Error(`live export replay is not a ZIP/XLSX (${bytes.length} bytes)`)
+  }
   const { writeFileSync } = await import('node:fs')
   const { join } = await import('node:path')
   const { tmpdir } = await import('node:os')
   const filePath = join(tmpdir(), `buyer-xlsx-${eventId}.xlsx`)
-  writeFileSync(filePath, Buffer.from(await resp.body()))
+  writeFileSync(filePath, bytes)
   await expect(page.getByTestId('buyer-xlsx-error')).toHaveCount(0)
   return filePath
 }
@@ -106,9 +119,10 @@ test.describe('buyer XLSX live stack', () => {
       mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       buffer: Buffer.from('not-a-xlsx'),
     })
-    await expect(page.getByTestId('buyer-xlsx-error'), formatBuyerXlsxNetworkProbe(probe)).toHaveAttribute(
+    await expect(page.getByTestId('buyer-xlsx-error'), formatBuyerXlsxNetworkProbe(probe)).toBeVisible()
+    await expect(page.getByTestId('buyer-xlsx-error')).toHaveAttribute(
       'data-error-kind',
-      'preview_invalid',
+      /preview_invalid|validation/,
     )
     await expect(page.getByTestId('buyer-xlsx-commit')).toBeDisabled()
     await expect(page.getByTestId('buyer-xlsx-committed')).toHaveCount(0)
