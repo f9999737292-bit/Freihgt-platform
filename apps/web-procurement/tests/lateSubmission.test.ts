@@ -169,6 +169,16 @@ describe('late submission F3 routes and access', () => {
       }),
       now,
     })).toBe('window_expired')
+    expect(lateSubmitBlockReason({
+      deadline: '2026-09-19T00:00:00Z',
+      responseStatus: 'DRAFT',
+      request: request({
+        status: 'EXPIRED',
+        approved_valid_from: '2026-09-20T10:00:00Z',
+        approved_valid_until: '2026-09-20T12:00:00Z',
+      }),
+      now,
+    })).toBe('window_expired')
   })
 
   it('keeps pre-deadline submit clickable and only locks the button outside an approved late window', () => {

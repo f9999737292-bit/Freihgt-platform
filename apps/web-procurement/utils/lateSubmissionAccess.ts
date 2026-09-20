@@ -106,6 +106,7 @@ export function lateSubmitBlockReason(input: {
   if (!isDeadlineExpired(input.deadline, input.now)) return null
   if (String(input.responseStatus || '').toUpperCase() !== 'DRAFT') return 'draft'
   const status = String(input.request?.status || '').toUpperCase()
+  if (status === 'EXPIRED') return 'window_expired'
   if (status !== 'APPROVED') return 'permission'
   const from = input.request?.approved_valid_from
   const until = input.request?.approved_valid_until
