@@ -15,6 +15,16 @@
     "validFrom": "Valid from",
     "validTo": "Valid to",
     "overview": "Overview",
+    "creationChannel": {
+      "label": "Creation channel",
+      "values": {
+        "MANUAL": "Created manually",
+        "TEMPLATE": "Created from template",
+        "EXCEL": "Created from Excel",
+        "ERP": "Created from ERP",
+        "unknown": "Unknown creation channel"
+      }
+    },
     "lotsTitle": "Lots",
     "lanesTitle": "Lanes",
     "lot": "Lot",

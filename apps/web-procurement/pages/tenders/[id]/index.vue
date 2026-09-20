@@ -12,9 +12,11 @@ import {
   type RfxLot,
   type RfxParticipant,
 } from '~/types/rfx'
+import { creationChannelLabelKey } from '~/utils/creationChannel'
 import type { Company } from '~/types/company'
 import { checkPublishReadiness } from '~/utils/publishReadiness'
 import { shouldShowNotFound, isApiUnavailableError } from '~/utils/apiError'
+import EmptyState from '~/components/ui/EmptyState.vue'
 
 definePageMeta({ middleware: 'auth', layout: 'default' })
 
@@ -50,11 +52,14 @@ const laneForm = reactive({
 const participantForm = reactive({ company_id: '', participant_type: 'CARRIER' })
 
 const eventId = computed(() => String(route.params.id))
+let workspaceLoadGeneration = 0
 
 const companyName = computed(() => {
   if (!event.value) return '—'
   return companies.value.find((company) => company.id === event.value!.owner_company_id)?.legal_name || event.value.owner_company_id
 })
+
+const creationChannelLabel = computed(() => t(creationChannelLabelKey(event.value?.creation_channel)))
 
 const carrierOptions = computed(() =>
   companies.value
@@ -82,25 +87,31 @@ async function loadCompanies() {
 }
 
 async function loadWorkspace() {
+  const generation = ++workspaceLoadGeneration
   loading.value = true
-  notFound.value = false
   apiUnavailable.value = false
   try {
     await refreshWorkspace()
+    if (generation !== workspaceLoadGeneration) return
+    notFound.value = false
   } catch (error) {
+    if (generation !== workspaceLoadGeneration) return
     event.value = null
     lots.value = []
     participants.value = []
     if (shouldShowNotFound(error)) {
       notFound.value = true
     } else {
+      notFound.value = false
       apiUnavailable.value = isApiUnavailableError(error)
       if (!apiUnavailable.value) {
         pushToast('error', error instanceof Error ? error.message : t('tenders.loadFailed'))
       }
     }
   } finally {
-    loading.value = false
+    if (generation === workspaceLoadGeneration) {
+      loading.value = false
+    }
   }
 }
 
@@ -242,12 +253,11 @@ async function cancelTender() {
   }
 }
 
+useAuthStore().restoreSession()
+useTenantStore().restoreTenant()
 watch(eventId, loadWorkspace, { immediate: true })
 onMounted(() => {
-  useAuthStore().restoreSession()
-  useTenantStore().restoreTenant()
   void loadCompanies()
-  void loadWorkspace()
 })
 </script>
 
@@ -295,8 +305,12 @@ onMounted(() => {
       </template>
     </PageHeader>
 
-    <div v-if="loading" class="loading-block">{{ $t('common.loading') }}</div>
-    <EmptyState v-else-if="notFound" :title="$t('tenders.notFound')" />
+    <EmptyState
+      v-if="notFound"
+      data-testid="tender-not-found"
+      :title="$t('tenders.notFound')"
+    />
+    <div v-else-if="loading" class="loading-block">{{ $t('common.loading') }}</div>
     <EmptyState v-else-if="apiUnavailable" :title="$t('tenders.loadFailed')" />
     <EmptyState v-else-if="!event" :title="$t('tenders.empty')" />
 
@@ -316,6 +330,8 @@ onMounted(() => {
           <dd data-testid="tender-status"><Badge :status="event.status" /></dd>
           <dt>{{ $t('tenders.deadline') }}</dt>
           <dd>{{ formatRfxDate(event.response_deadline) }}</dd>
+          <dt>{{ $t('tenders.creationChannel.label') }}</dt>
+          <dd data-testid="tender-creation-channel">{{ creationChannelLabel }}</dd>
           <dt>{{ $t('tenders.description') }}</dt>
           <dd>{{ event.description || '—' }}</dd>
         </dl>

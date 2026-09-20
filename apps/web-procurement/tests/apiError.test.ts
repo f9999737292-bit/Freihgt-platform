@@ -14,4 +14,10 @@ describe('apiError helpers', () => {
     expect(shouldShowNotFound(new ApiError(400, { code: 'VALIDATION', message: 'bad', details: {} }))).toBe(false)
     expect(shouldShowNotFound(new Error('network'))).toBe(false)
   })
+
+  it('classifies duck-typed 403/404 payloads without relying on instanceof', () => {
+    expect(shouldShowNotFound({ status: 403, code: 'FORBIDDEN', message: 'denied' })).toBe(true)
+    expect(shouldShowNotFound({ status: 404, code: 'NOT_FOUND', message: 'missing' })).toBe(true)
+    expect(isNotFoundError({ status: 404, code: 'NOT_FOUND' })).toBe(true)
+  })
 })

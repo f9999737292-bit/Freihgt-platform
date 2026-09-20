@@ -144,8 +144,13 @@ func (h *RfxHandler) GetEvent(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, err)
 		return
 	}
+	creationChannel, err := h.service.GetEventCreationChannel(r.Context(), actor, id)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
 
-	respond.JSON(w, http.StatusOK, toRfxEventResponse(event, provenance))
+	respond.JSON(w, http.StatusOK, toRfxEventDetailResponse(event, provenance, creationChannel))
 }
 
 func (h *RfxHandler) ListEvents(w http.ResponseWriter, r *http.Request) {
@@ -705,6 +710,22 @@ func toRfxEventResponse(event *domain.RfxEvent, provenance ...*domain.RfxEventPr
 		mergeRfxEventProvenance(resp, provenance[0])
 	}
 	return resp
+}
+
+func toRfxEventDetailResponse(event *domain.RfxEvent, provenance *domain.RfxEventProvenance, creationChannel string) map[string]any {
+	resp := toRfxEventResponse(event, provenance)
+	mergeRfxEventCreationChannel(resp, creationChannel)
+	return resp
+}
+
+func mergeRfxEventCreationChannel(resp map[string]any, creationChannel string) {
+	channel := strings.TrimSpace(creationChannel)
+	if channel == "" {
+		// Historical NULL is impossible after 000073 (NOT NULL DEFAULT MANUAL).
+		// Do not invent MANUAL/TEMPLATE when the stored value is empty.
+		return
+	}
+	resp["creation_channel"] = channel
 }
 
 func mergeRfxEventProvenance(resp map[string]any, provenance *domain.RfxEventProvenance) {

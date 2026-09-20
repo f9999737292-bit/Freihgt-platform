@@ -13,7 +13,7 @@
 | **v3.0B** | Questionnaire Core | Sections, questions, types, conditional rules, buyer Studio builder | **IMPLEMENTED_ACCEPTED** |
 | **v3.0C** | Carrier Response | Autosave, resume, error UX, submit gate | **IMPLEMENTED_ACCEPTED** |
 | **v3.0D** | Scoring + Knockout | Score models, knockout, explainability | **IMPLEMENTED_ACCEPTED** |
-| **v3.0E** | Templates + Versioning | Template library, immutable published versions, compare/restore, late submission, Excel/ERP | **IMPLEMENTATION_IN_PROGRESS** (E1–E6 + E7 Phase 1 + E7 Phase 2 foundation + Buyer XLSX Export V1 + Buyer XLSX Import Preview P2/P2.1/P3 + Buyer XLSX Import P4 Commit + Frontend F1 Buyer XLSX UPDATE_DRAFT UI + Frontend F2 Carrier XLSX UPDATE_CARRIER_DRAFT UI + Frontend F3 Late Submission UI **IMPLEMENTED_ACCEPTED**; E7 Phase 2 overall in progress; remaining ERP browser client, training, and **E7 browser acceptance** not started) |
+| **v3.0E** | Templates + Versioning | Template library, immutable published versions, compare/restore, late submission, Excel/ERP | **IMPLEMENTATION_IN_PROGRESS** (E1–E6 + E7 Phase 1 + E7 Phase 2 foundation + Buyer XLSX Export V1 + Buyer XLSX Import Preview P2/P2.1/P3 + Buyer XLSX Import P4 Commit + Frontend F1 Buyer XLSX UPDATE_DRAFT UI + Frontend F2 Carrier XLSX UPDATE_CARRIER_DRAFT UI + Frontend F3 Late Submission UI + Frontend F4 Human Provenance **IMPLEMENTED_ACCEPTED**; E7 Phase 2 overall in progress; remaining F5, training, and **E7 browser acceptance** not started) |
 | **v3.0F** | Qualification Pool | Qualification results, pools, RFI→RFQ handoff | Planned |
 | **v3.0G** | Carrier 360 | Profile autofill, freshness, confirmation | Planned |
 | **v3.0H** | Analytics + Explainability | Dashboards, score drill-down, audit views | Planned |
@@ -128,7 +128,8 @@ These are assigned to the **earliest appropriate wave** — not deferred beyond 
 | **E7 Phase 2 Frontend F1 Buyer XLSX UPDATE_DRAFT** | web-procurement `/tenders/:id` export / preview / commit for `UPDATE_EXISTING_DRAFT` | **IMPLEMENTED_ACCEPTED** — PR #148 (head `b3b0b9e4`, CI `35506563407`, 6/6 browser PASS 0 skipped) |
 | **E7 Phase 2 Frontend F2 Carrier XLSX UPDATE_CARRIER_DRAFT** | web-procurement `/carrier/tenders/:id` export / preview / commit for `UPDATE_CARRIER_DRAFT` | **IMPLEMENTED_ACCEPTED** — PR #149 (product head `00849e3a`, controller CI `35516181597`) |
 | **E7 Phase 2 Frontend F3 Late Submission** | web-procurement carrier request/mine, buyer queue approve/reject, late questionnaire submit of an existing DRAFT in an APPROVED window | **IMPLEMENTED_ACCEPTED** — PR #150 (product head `22536fb2`, controller CI `35523932949`, verdict `ACCEPT_FRONTEND_PHASE2_F3`) |
-| **E7 Phase 2 Frontend** | Remaining Excel/ERP UI (ERP browser client) | **IMPLEMENTATION_IN_PROGRESS** |
+| **E7 Phase 2 Frontend F4 Human Provenance** | web-procurement `/tenders/:id` shows stored `creation_channel` from human JWT `GET /api/v1/rfx-events/{id}` (RU/EN/ZH; no `external_link`; no `/integrations/erp/*`) | **IMPLEMENTED_ACCEPTED** — PR #151 (product head `ee14a606`, controller CI `35532693100`, verdict `ACCEPT_FRONTEND_PHASE2_F4`) |
+| **E7 Phase 2 Frontend** | Remaining Frontend Phase 2 after F4 (F5 Create-from-XLSX UI, not an ERP browser client) | **IMPLEMENTATION_IN_PROGRESS** |
 | **E7 Phase 2 Training** | RU/EN/ZH training course | **NOT_STARTED** |
 | **E7 Browser Acceptance** | Final real browser acceptance gate | **NOT_STARTED** |
 
@@ -160,8 +161,9 @@ Notes:
 - E7 Phase 2 Frontend **F1 Buyer XLSX UPDATE_DRAFT UI** accepted (PR #148 head `b3b0b9e48c18a96085a6f742e8ba7b10d4773c41`, CI `35506563407`, 6/6 browser PASS 0 skipped, verdict `ACCEPT_FRONTEND_PHASE2_F1`): web-procurement `/tenders/:id` human-JWT export/preview/commit for `UPDATE_EXISTING_DRAFT` only.
 - E7 Phase 2 Frontend **F2 Carrier XLSX UPDATE_CARRIER_DRAFT UI** accepted (PR #149 product head `00849e3a2f7ddef809766458c92f1a961d1b3dec`, CI `35516181597`, verdict `ACCEPT_FRONTEND_PHASE2_F2`): web-procurement `/carrier/tenders/:id` human-JWT export/preview/commit for `UPDATE_CARRIER_DRAFT` only after own `response.id`; carrier-scoped `GET /api/v1/carrier/rfx-events/{id}`; Commit stays DRAFT; no `/submit` from XLSX.
 - E7 Phase 2 Frontend **F3 Late Submission UI** accepted (PR #150 product head `22536fb2c4aa1fbc53080fba3d75e876277bc65b`, controller CI `35523932949`, 11/11 late-submission browser PASS 0 skipped, verdict `ACCEPT_FRONTEND_PHASE2_F3`): carrier Create → GET `/mine` → buyer approve/reject → late questionnaire submit of an existing DRAFT inside an active APPROVED window (`valid_from` inclusive, `valid_until` exclusive). Commercial `/rfx-responses/{id}/submit` stays closed after the deadline. Follow-up LOW (do not block F3): `F3_L1` `/mine` error shows wait-for-approval; `F3_L2` HTTP classifier omits 422 `response_deadline`; `F3_L3` panel and workspace do not share late-request state.
-- E7 Phase 2 overall remains **IMPLEMENTATION_IN_PROGRESS** — next: (1) remaining frontend (ERP browser client), (2) training, (3) final E7 browser acceptance.
-- Final E7 browser acceptance, remaining Phase 2 frontend (ERP browser client), and training have not started. Frontend Phase 2 as a whole is not closed.
+- E7 Phase 2 Frontend **F4 Human Provenance** accepted (PR #151 product head `ee14a6062b47e287f5a1981def40fe0e516741d2`, controller CI `35532693100`, 7/7 human-provenance browser PASS 0 skipped, verdict `ACCEPT_FRONTEND_PHASE2_F4`): web-procurement `/tenders/:id` shows stored `creation_channel` from buyer human JWT `GET /api/v1/rfx-events/{id}` (MANUAL/TEMPLATE/EXCEL/ERP; empty historical value omitted; no invented MANUAL). No `external_link`; browser never calls `/integrations/erp/*`. Follow-up LOW (do not block F4): `F4_R1` duck-typed 403/404 helper and synthesized `FORBIDDEN`/`NOT_FOUND`; `F4_R2` browser gate is `en-US` only (RU/ZH unit + i18n); `F4_R3` live fixture asserts MANUAL only; `F4_R4` OpenAPI `operationId` renamed by generate summary.
+- E7 Phase 2 overall remains **IMPLEMENTATION_IN_PROGRESS** — next authorized frontend slice is **F5 Create-from-XLSX UI**. This is not an ERP browser client. Training and final E7 browser acceptance remain unauthorized here.
+- Final E7 browser acceptance, F5, and training have not started. Frontend Phase 2 as a whole is not closed.
 - Each implementation wave requires a separate controller gate.
 - Complete v3.0E remains **IMPLEMENTATION_IN_PROGRESS** until E7 browser acceptance is accepted.
 
@@ -291,10 +293,10 @@ ERP_API_E6_AUTHORIZED=YES
 MIGRATION_000075_AUTHORIZED=NO
 AUTO_PUBLISH_AUTHORIZED=NO
 BUYER_RFQ_ERP_INTEGRATION=ARCHITECTURE_FROZEN_ACCEPTED
-CONTROLLER_PREVIOUS_VERDICT=ACCEPT_FRONTEND_PHASE2_F2
-CONTROLLER_VERDICT=ACCEPT_FRONTEND_PHASE2_F3
-CONTROLLER_REVIEW_HEAD=22536fb2c4aa1fbc53080fba3d75e876277bc65b
-CONTROLLER_CI_RUN=35523932949
+CONTROLLER_PREVIOUS_VERDICT=ACCEPT_FRONTEND_PHASE2_F3
+CONTROLLER_VERDICT=ACCEPT_FRONTEND_PHASE2_F4
+CONTROLLER_REVIEW_HEAD=ee14a6062b47e287f5a1981def40fe0e516741d2
+CONTROLLER_CI_RUN=35532693100
 CONTROLLER_CI_RESULT=SUCCESS
 FRONTEND_PHASE2_F1_BUYER_XLSX_UPDATE_DRAFT_STATUS=IMPLEMENTED_ACCEPTED
 FRONTEND_PHASE2_F1_BROWSER_STATUS=IMPLEMENTED_ACCEPTED
@@ -302,10 +304,21 @@ FRONTEND_PHASE2_F2_CARRIER_XLSX_STATUS=IMPLEMENTED_ACCEPTED
 FRONTEND_PHASE2_F2_BROWSER_STATUS=IMPLEMENTED_ACCEPTED
 FRONTEND_PHASE2_F3_STATUS=IMPLEMENTED_ACCEPTED
 FRONTEND_PHASE2_F3_BROWSER_STATUS=IMPLEMENTED_ACCEPTED
+FRONTEND_PHASE2_F4_STATUS=IMPLEMENTED_ACCEPTED
+FRONTEND_PHASE2_F4_BROWSER_STATUS=IMPLEMENTED_ACCEPTED
+FRONTEND_PHASE2_F4_SCOPE=CREATION_CHANNEL_ONLY
+FRONTEND_PHASE2_F4_HUMAN_GET=/api/v1/rfx-events/{id}
+FRONTEND_PHASE2_F4_PRODUCT_HEAD=ee14a6062b47e287f5a1981def40fe0e516741d2
+FRONTEND_PHASE2_F4_CI_RUN=35532693100
 F3_L1=MINE_ERROR_SHOWS_WAIT_FOR_APPROVAL
 F3_L2=CLASSIFY_HTTP_ERROR_OMITS_RESPONSE_DEADLINE
 F3_L3=PANEL_WORKSPACE_LATE_REQUEST_STATE_NOT_SHARED
 FOLLOW_UP_FINDINGS_BLOCK_F3_MERGE=NO
+F4_R1=DUCK_TYPED_403_404_HELPER_AND_SYNTHESIZED_FORBIDDEN_NOT_FOUND
+F4_R2=BROWSER_GATE_EN_US_ONLY
+F4_R3=LIVE_FIXTURE_ASSERTS_MANUAL_ONLY
+F4_R4=OPENAPI_OPERATION_ID_RENAMED_BY_GENERATE_SUMMARY
+FOLLOW_UP_FINDINGS_BLOCK_F4_MERGE=NO
 F_E6_L1=OPENAPI_409_EVENT_NOT_DRAFT_ON_ANALYSIS_AND_CAPABILITIES
 FOLLOW_UP_FINDINGS_BLOCK_E6_MERGE=NO
 F_E3_C1=CONTENT_TYPE_ENFORCEMENT

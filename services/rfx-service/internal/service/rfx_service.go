@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,6 +19,7 @@ type RfxStore interface {
 	CompanyExists(ctx context.Context, companyID, tenantID uuid.UUID) (bool, error)
 	CreateEvent(ctx context.Context, in domain.CreateRfxEventInput) (*domain.RfxEvent, error)
 	GetEventByID(ctx context.Context, id, tenantID uuid.UUID) (*domain.RfxEvent, error)
+	GetEventExchangeMetadata(ctx context.Context, eventID, tenantID uuid.UUID) (*repository.EventExchangeMetadata, error)
 	LoadEventProvenance(ctx context.Context, eventID, tenantID uuid.UUID) (*domain.RfxEventProvenance, error)
 	ListEvents(ctx context.Context, filter domain.ListRfxEventsFilter) ([]domain.RfxEvent, int, error)
 	UpdateEvent(ctx context.Context, id, tenantID uuid.UUID, in domain.UpdateRfxEventInput) (*domain.RfxEvent, error)
@@ -163,6 +165,20 @@ func (s *RfxService) GetEvent(ctx context.Context, actor domain.ActorContext, id
 		return event, nil
 	}
 	return nil, apperrors.Forbidden("authorization required")
+}
+
+func (s *RfxService) GetEventCreationChannel(ctx context.Context, actor domain.ActorContext, eventID uuid.UUID) (string, error) {
+	if _, err := s.GetEvent(ctx, actor, eventID); err != nil {
+		return "", err
+	}
+	meta, err := s.repo.GetEventExchangeMetadata(ctx, eventID, actor.TenantID)
+	if err != nil {
+		return "", err
+	}
+	if meta == nil {
+		return "", nil
+	}
+	return strings.TrimSpace(meta.CreationChannel), nil
 }
 
 func (s *RfxService) GetEventProvenance(ctx context.Context, actor domain.ActorContext, eventID uuid.UUID) (*domain.RfxEventProvenance, error) {

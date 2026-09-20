@@ -65,6 +65,7 @@ export interface RfxEvent {
   created_at?: string
   updated_at?: string
   version?: number
+  creation_channel?: string | null
 }
 
 export interface CreateRfxEventPayload {
