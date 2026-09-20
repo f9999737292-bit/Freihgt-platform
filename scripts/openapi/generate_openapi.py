@@ -1236,6 +1236,16 @@ def query_parameter_lines(method: str, path: str, profile: str | None) -> list[s
             "            type: string",
             "            format: uuid",
         ])
+    elif profile in {"ls_create", "ls_list_mine"}:
+        lines.extend([
+            "        - name: carrier_company_id",
+            "          in: query",
+            "          required: false",
+            "          description: Carrier company context already accepted by the backend handler.",
+            "          schema:",
+            "            type: string",
+            "            format: uuid",
+        ])
     elif profile == "erp_get_rfx_by_external_id":
         lines.extend([
             "        - name: external_system",
@@ -3419,6 +3429,7 @@ components:
                 - SERVICE_UNAVAILABLE
                 - INTERNAL_ERROR
                 - ROUTE_NOT_FOUND
+                - UNPROCESSABLE_ENTITY
             message:
               type: string
             details:

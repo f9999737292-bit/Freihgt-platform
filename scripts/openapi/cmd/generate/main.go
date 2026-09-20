@@ -643,6 +643,7 @@ const globalComponentsBlock = `components:
                 - SERVICE_UNAVAILABLE
                 - INTERNAL_ERROR
                 - ROUTE_NOT_FOUND
+                - UNPROCESSABLE_ENTITY
             message:
               type: string
             details:
