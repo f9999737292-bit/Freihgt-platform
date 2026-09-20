@@ -1,9 +1,11 @@
 import { expect, test } from '@playwright/test'
 import {
   analysisId,
+  attachBuyerXlsxNetworkProbe,
   eventId,
   expectPanelVisible,
   expectWorkspaceLoaded,
+  formatBuyerXlsxNetworkProbe,
   fulfillJSON,
   readyPreviewBody,
   seedBuyerSession,
@@ -22,7 +24,8 @@ test.describe('buyer XLSX update draft', () => {
 
   test('export, preview, and commit use accepted human routes', async ({ page }) => {
     const seen: string[] = []
-    let commitKey = ''
+    const commitKeys: string[] = []
+    const probe = attachBuyerXlsxNetworkProbe(page)
 
     await seedBuyerSession(page)
     await stubTenderWorkspace(page)
@@ -49,7 +52,7 @@ test.describe('buyer XLSX update draft', () => {
     await page.route(`**/api/v1/rfx-events/${eventId}/xlsx-import/commit`, async (route) => {
       await withBuyerXlsxCORS(route, async (route) => {
         seen.push(`${route.request().method()} ${new URL(route.request().url()).pathname}`)
-        commitKey = route.request().headers()['idempotency-key'] || ''
+        commitKeys.push(route.request().headers()['idempotency-key'] || '')
         await fulfillJSON(route, 200, {
           event_id: eventId,
           draft_version_id: '22222222-2222-4222-8222-222222222222',
@@ -79,14 +82,17 @@ test.describe('buyer XLSX update draft', () => {
     await page.getByTestId('buyer-xlsx-commit').click()
     await expect(page.getByTestId('buyer-xlsx-committed')).toBeVisible()
     await expect(page.getByTestId('buyer-xlsx-commit')).toBeDisabled()
+    await page.getByTestId('buyer-xlsx-commit').click({ force: true })
+    await expect(page.getByTestId('buyer-xlsx-commit')).toBeDisabled()
+    expect(commitKeys, formatBuyerXlsxNetworkProbe(probe)).toEqual([`buyer-xlsx-commit:${analysisId}`])
 
-    expect(seen).toContain(`GET /api/v1/rfx-events/${eventId}/xlsx-export`)
+    expect(seen, formatBuyerXlsxNetworkProbe(probe)).toContain(`GET /api/v1/rfx-events/${eventId}/xlsx-export`)
     expect(seen).toContain(`POST /api/v1/rfx-events/${eventId}/xlsx-import/preview`)
     expect(seen).toContain(`POST /api/v1/rfx-events/${eventId}/xlsx-import/commit`)
-    expect(commitKey).toBe(`buyer-xlsx-commit:${analysisId}`)
   })
 
   test('422 preview keeps commit disabled and 409 stale offers retry', async ({ page }) => {
+    const probe = attachBuyerXlsxNetworkProbe(page)
     await seedBuyerSession(page)
     await stubTenderWorkspace(page)
 
@@ -108,7 +114,7 @@ test.describe('buyer XLSX update draft', () => {
       mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       buffer: Buffer.from('xlsx'),
     })
-    await expect(page.getByTestId('buyer-xlsx-error')).toHaveAttribute('data-error-kind', 'preview_invalid')
+    await expect(page.getByTestId('buyer-xlsx-error'), formatBuyerXlsxNetworkProbe(probe)).toHaveAttribute('data-error-kind', 'preview_invalid')
     await expect(page.getByTestId('buyer-xlsx-issue-text')).toHaveText('A lot is missing required data.')
     await expect(page.getByTestId('buyer-xlsx-issue-text')).not.toContainText('rfx.buyer_xlsx')
     await expect(page.getByTestId('buyer-xlsx-commit')).toBeDisabled()

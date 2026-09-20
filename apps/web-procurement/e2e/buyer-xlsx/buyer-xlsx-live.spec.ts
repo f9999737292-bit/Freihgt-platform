@@ -1,5 +1,11 @@
 import { expect, test, type Page } from '@playwright/test'
-import { expectPanelVisible, expectWorkspaceLoaded, requireBuyerXlsxEnv } from './helpers'
+import {
+  attachBuyerXlsxNetworkProbe,
+  expectPanelVisible,
+  expectWorkspaceLoaded,
+  formatBuyerXlsxNetworkProbe,
+  requireBuyerXlsxEnv,
+} from './helpers'
 
 function liveFixture() {
   return {
@@ -66,15 +72,17 @@ async function openDraft(page: Page) {
   await expectPanelVisible(page)
 }
 
-async function exportWorkbook(page: Page) {
+async function exportWorkbook(page: Page, probe = attachBuyerXlsxNetworkProbe(page)) {
   const { eventId } = liveFixture()
   const respPromise = page.waitForResponse((resp) => {
     return resp.url().includes(`/rfx-events/${eventId}/xlsx-export`) && resp.request().method() === 'GET'
   }, { timeout: 30_000 })
   await page.getByTestId('buyer-xlsx-export').click()
-  const resp = await respPromise
+  const resp = await respPromise.catch((error: Error) => {
+    throw new Error(`${error.message}\n${formatBuyerXlsxNetworkProbe(probe)}`)
+  })
   if (!resp.ok()) {
-    throw new Error(`export status=${resp.status()} ${resp.url()}`)
+    throw new Error(`export status=${resp.status()} ${resp.url()}\n${formatBuyerXlsxNetworkProbe(probe)}`)
   }
   const { writeFileSync } = await import('node:fs')
   const { join } = await import('node:path')
@@ -91,21 +99,26 @@ async function uploadWorkbook(page: Page, filePath: string) {
 
 test.describe('buyer XLSX live stack', () => {
   test('422 preview keeps Commit disabled', async ({ page }) => {
+    const probe = attachBuyerXlsxNetworkProbe(page)
     await openDraft(page)
     await page.getByTestId('buyer-xlsx-file').setInputFiles({
       name: 'bad.xlsx',
       mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       buffer: Buffer.from('not-a-xlsx'),
     })
-    await expect(page.getByTestId('buyer-xlsx-error')).toBeVisible()
+    await expect(page.getByTestId('buyer-xlsx-error'), formatBuyerXlsxNetworkProbe(probe)).toHaveAttribute(
+      'data-error-kind',
+      'preview_invalid',
+    )
     await expect(page.getByTestId('buyer-xlsx-commit')).toBeDisabled()
     await expect(page.getByTestId('buyer-xlsx-committed')).toHaveCount(0)
     await expect(page.locator('body')).not.toContainText('rfx.buyer_xlsx')
   })
 
   test('409 stale disables Commit until a new Preview', async ({ page }) => {
+    const probe = attachBuyerXlsxNetworkProbe(page)
     await openDraft(page)
-    const workbook = await exportWorkbook(page)
+    const workbook = await exportWorkbook(page, probe)
     await uploadWorkbook(page, workbook)
     await expect(page.getByTestId('buyer-xlsx-preview')).toBeVisible()
     await expect(page.getByTestId('buyer-xlsx-commit')).toBeEnabled()
@@ -133,14 +146,25 @@ test.describe('buyer XLSX live stack', () => {
 
   test('export, preview, and commit update the same DRAFT', async ({ page }) => {
     const { eventId } = liveFixture()
+    const probe = attachBuyerXlsxNetworkProbe(page)
     await openDraft(page)
-    const workbook = await exportWorkbook(page)
+    const workbook = await exportWorkbook(page, probe)
     await uploadWorkbook(page, workbook)
     await expect(page.getByTestId('buyer-xlsx-preview')).toBeVisible()
     await expect(page.getByTestId('buyer-xlsx-commit')).toBeEnabled()
+    const commitKeys: string[] = []
+    page.on('request', (req) => {
+      if (req.method() === 'POST' && req.url().includes(`/rfx-events/${eventId}/xlsx-import/commit`)) {
+        commitKeys.push(req.headers()['idempotency-key'] || '')
+      }
+    })
     await page.getByTestId('buyer-xlsx-commit').click()
     await expect(page.getByTestId('buyer-xlsx-committed')).toBeVisible()
     await expect(page.getByTestId('buyer-xlsx-commit')).toBeDisabled()
+    await page.getByTestId('buyer-xlsx-commit').click({ force: true })
+    await expect(page.getByTestId('buyer-xlsx-commit')).toBeDisabled()
+    expect(commitKeys.length, formatBuyerXlsxNetworkProbe(probe)).toBe(1)
+    expect(commitKeys[0]).toMatch(/^buyer-xlsx-commit:[0-9a-f-]{36}$/)
     await expect(page.locator('.badge, [data-status], dd').filter({ hasText: 'DRAFT' }).first()).toBeVisible()
     await expect(page).toHaveURL(new RegExp(`/tenders/${eventId}`))
   })

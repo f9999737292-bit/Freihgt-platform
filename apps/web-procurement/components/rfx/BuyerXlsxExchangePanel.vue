@@ -10,6 +10,8 @@ import { createBuyerXlsxIdempotencyStore } from '~/utils/buyerXlsxIdempotency'
 import { resolveBuyerXlsxIssueCopy } from '~/utils/buyerXlsxIssueText'
 import { BUYER_XLSX_MAX_UPLOAD_BYTES } from '~/utils/buyerXlsxApiRoutes'
 import { canShowBuyerXlsxPanel } from '~/utils/buyerXlsxAccess'
+import Button from '~/components/ui/Button.vue'
+import Card from '~/components/ui/Card.vue'
 
 const props = defineProps<{
   eventId: string

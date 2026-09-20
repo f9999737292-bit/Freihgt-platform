@@ -22,58 +22,6 @@ function isNetworkFetchError(error: unknown): boolean {
   return false
 }
 
-function buildUrl(path: string, query?: RequestOptions['query']) {
-  const config = useRuntimeConfig()
-  const base = config.public.apiBaseUrl.replace(/\/$/, '')
-  const url = new URL(path.startsWith('http') ? path : `${base}${path}`)
-  if (query) {
-    for (const [key, value] of Object.entries(query)) {
-      if (value !== undefined && value !== '') {
-        url.searchParams.set(key, String(value))
-      }
-    }
-  }
-  return url.toString()
-}
-
-function ensureTenant(options: RequestOptions) {
-  if (options.skipTenant) return
-
-  const tenantStore = useTenantStore()
-  if (!tenantStore.tenantId?.trim()) {
-    throw new TenantRequiredError()
-  }
-}
-
-function buildHeaders(options: RequestOptions = {}) {
-  const authStore = useAuthStore()
-  const tenantStore = useTenantStore()
-  const { locale } = useI18n()
-  const headers: Record<string, string> = {
-    Accept: options.headers?.Accept ?? 'application/json',
-    [API_HEADER_REQUEST_ID]: crypto.randomUUID(),
-    'X-Locale': locale.value,
-    ...options.headers,
-  }
-  if (options.jsonContentType !== false && !headers['Content-Type']) {
-    headers['Content-Type'] = 'application/json'
-  }
-
-  if (!options.skipAuth && authStore.token) {
-    headers[API_HEADER_AUTHORIZATION] = `Bearer ${authStore.token}`
-  }
-  if (!options.skipAuth && authStore.user?.id) {
-    headers[API_HEADER_USER_ID] = authStore.user.id
-  }
-  if (!options.skipTenant && tenantStore.tenantId) {
-    headers[API_HEADER_TENANT_ID] = tenantStore.tenantId
-  }
-  if (tenantStore.currentCompanyId) {
-    headers['X-Company-ID'] = tenantStore.currentCompanyId
-  }
-  return headers
-}
-
 async function fetchWithNetworkHandling(input: string, init?: RequestInit): Promise<Response> {
   try {
     return await fetch(input, init)
@@ -113,6 +61,57 @@ async function handleResponse<T>(response: Response, acceptStatuses: number[] = 
 }
 
 export function useApi() {
+  const config = useRuntimeConfig()
+  const { locale } = useI18n()
+  const authStore = useAuthStore()
+  const tenantStore = useTenantStore()
+
+  function buildUrl(path: string, query?: RequestOptions['query']) {
+    const base = String(config.public.apiBaseUrl || '').replace(/\/$/, '')
+    const url = new URL(path.startsWith('http') ? path : `${base}${path}`)
+    if (query) {
+      for (const [key, value] of Object.entries(query)) {
+        if (value !== undefined && value !== '') {
+          url.searchParams.set(key, String(value))
+        }
+      }
+    }
+    return url.toString()
+  }
+
+  function ensureTenant(options: RequestOptions) {
+    if (options.skipTenant) return
+    if (!tenantStore.tenantId?.trim()) {
+      throw new TenantRequiredError()
+    }
+  }
+
+  function buildHeaders(options: RequestOptions = {}) {
+    const headers: Record<string, string> = {
+      Accept: options.headers?.Accept ?? 'application/json',
+      [API_HEADER_REQUEST_ID]: crypto.randomUUID(),
+      'X-Locale': locale.value,
+      ...options.headers,
+    }
+    if (options.jsonContentType !== false && !headers['Content-Type']) {
+      headers['Content-Type'] = 'application/json'
+    }
+
+    if (!options.skipAuth && authStore.token) {
+      headers[API_HEADER_AUTHORIZATION] = `Bearer ${authStore.token}`
+    }
+    if (!options.skipAuth && authStore.user?.id) {
+      headers[API_HEADER_USER_ID] = authStore.user.id
+    }
+    if (!options.skipTenant && tenantStore.tenantId) {
+      headers[API_HEADER_TENANT_ID] = tenantStore.tenantId
+    }
+    if (tenantStore.currentCompanyId) {
+      headers['X-Company-ID'] = tenantStore.currentCompanyId
+    }
+    return headers
+  }
+
   async function apiGet<T>(path: string, options: RequestOptions = {}) {
     ensureTenant(options)
     const response = await fetchWithNetworkHandling(buildUrl(path, options.query), {

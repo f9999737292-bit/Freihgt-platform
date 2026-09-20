@@ -6,8 +6,50 @@ export const analysisId = '33333333-3333-4333-8333-333333333333'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers':
-    'Authorization, Content-Type, X-Tenant-ID, X-Company-ID, X-User-ID, X-Request-ID, X-Locale, Idempotency-Key',
+    'Accept, Authorization, Content-Type, X-Tenant-ID, X-Company-ID, X-User-ID, X-Request-ID, X-Locale, Idempotency-Key',
   'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
+}
+
+export interface BuyerXlsxNetworkProbe {
+  console: string[]
+  request: string[]
+  response: string[]
+  requestfailed: string[]
+}
+
+export function attachBuyerXlsxNetworkProbe(page: Page): BuyerXlsxNetworkProbe {
+  const probe: BuyerXlsxNetworkProbe = {
+    console: [],
+    request: [],
+    response: [],
+    requestfailed: [],
+  }
+  const interesting = (url: string) => url.includes('/api/v1/') || url.includes('/xlsx')
+  page.on('console', (msg) => {
+    probe.console.push(`${msg.type()} ${msg.text()}`)
+  })
+  page.on('request', (req) => {
+    if (!interesting(req.url())) return
+    probe.request.push(`${req.method()} ${req.url()}`)
+  })
+  page.on('response', (resp) => {
+    if (!interesting(resp.url())) return
+    probe.response.push(`${resp.request().method()} ${resp.status()} ${resp.url()}`)
+  })
+  page.on('requestfailed', (req) => {
+    if (!interesting(req.url())) return
+    probe.requestfailed.push(`${req.method()} ${req.failure()?.errorText || 'failed'} ${req.url()}`)
+  })
+  return probe
+}
+
+export function formatBuyerXlsxNetworkProbe(probe: BuyerXlsxNetworkProbe): string {
+  return [
+    `console=${JSON.stringify(probe.console.filter((line) => /error|fail|cors|xlsx|unavailable/i.test(line)))}`,
+    `request=${JSON.stringify(probe.request)}`,
+    `response=${JSON.stringify(probe.response)}`,
+    `requestfailed=${JSON.stringify(probe.requestfailed)}`,
+  ].join('\n')
 }
 
 export function requireBuyerXlsxEnv(name: string): string {
@@ -97,7 +139,13 @@ export async function stubTenderWorkspace(page: Page, status = 'DRAFT') {
       await fulfillJSON(route, 200, { items: [] })
       return
     }
-    await route.continue()
+    if (url.pathname.includes('/xlsx-')) {
+      await fulfillJSON(route, 599, {
+        error: { code: 'INTERNAL_ERROR', message: 'xlsx route was not stubbed', details: {} },
+      })
+      return
+    }
+    await route.fallback()
   })
 }
 
