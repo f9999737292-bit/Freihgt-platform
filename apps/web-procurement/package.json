@@ -12,7 +12,8 @@
     "test:browser:freight-cost-intelligence": "playwright test --config e2e/freight-cost-intelligence/playwright.config.ts",
     "test:browser:buyer-xlsx": "playwright test --config e2e/buyer-xlsx/playwright.config.ts",
     "test:browser:carrier-xlsx": "playwright test --config e2e/carrier-xlsx/playwright.config.ts",
-    "test:browser:late-submission": "playwright test --config e2e/late-submission/playwright.config.ts"
+    "test:browser:late-submission": "playwright test --config e2e/late-submission/playwright.config.ts",
+    "test:browser:human-provenance": "playwright test --config e2e/human-provenance/playwright.config.ts"
   },
   "dependencies": {
     "@freight-platform/i18n": "workspace:*",
