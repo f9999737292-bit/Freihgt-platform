@@ -192,6 +192,9 @@ func writeGatewayFailureArtifact(t *testing.T, proc *browserGatewayProcess) {
 	if strings.Contains(t.Name(), "Studio") {
 		artifactDir = "rfx-studio"
 	}
+	if strings.Contains(t.Name(), "BuyerXlsx") {
+		artifactDir = "buyer-xlsx"
+	}
 	dir := filepath.Join(root, "apps", "web-procurement", "e2e", artifactDir, "test-results")
 	_ = os.MkdirAll(dir, 0o755)
 	path := filepath.Join(dir, "api-gateway.log")

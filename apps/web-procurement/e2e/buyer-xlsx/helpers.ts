@@ -3,6 +3,14 @@ import { expect, type Page, type Route } from '@playwright/test'
 export const eventId = '11111111-1111-4111-8111-111111111111'
 export const analysisId = '33333333-3333-4333-8333-333333333333'
 
+export function requireBuyerXlsxEnv(name: string): string {
+  const value = (process.env[name] || '').trim()
+  if (!value) {
+    throw new Error(`${name} is required for the buyer XLSX browser gate`)
+  }
+  return value
+}
+
 export async function seedBuyerSession(page: Page, roles = ['PROCUREMENT_MANAGER']) {
   await page.addInitScript((input) => {
     localStorage.setItem(
