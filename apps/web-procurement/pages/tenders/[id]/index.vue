@@ -307,7 +307,7 @@ onMounted(() => {
           <dt>{{ $t('tenders.ownerCompany') }}</dt>
           <dd>{{ companyName }}</dd>
           <dt>{{ $t('common.status') }}</dt>
-          <dd><Badge :status="event.status" /></dd>
+          <dd data-testid="tender-status"><Badge :status="event.status" /></dd>
           <dt>{{ $t('tenders.deadline') }}</dt>
           <dd>{{ formatRfxDate(event.response_deadline) }}</dd>
           <dt>{{ $t('tenders.description') }}</dt>

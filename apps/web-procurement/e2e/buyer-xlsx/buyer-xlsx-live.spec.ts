@@ -34,6 +34,7 @@ async function seedLiveBuyerSession(page: Page) {
     )
     localStorage.setItem('freight_procurement_tenant_id', input.tenant)
     localStorage.setItem('freight_procurement_company_id', input.company)
+    localStorage.setItem('freight_procurement_rfx_excel_exchange', 'true')
     document.cookie = 'freight_procurement_locale=en-US; path=/'
   }, {
     token: fix.jwt,

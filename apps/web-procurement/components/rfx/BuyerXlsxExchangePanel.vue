@@ -9,6 +9,7 @@ import {
 import { createBuyerXlsxIdempotencyStore } from '~/utils/buyerXlsxIdempotency'
 import { resolveBuyerXlsxIssueCopy } from '~/utils/buyerXlsxIssueText'
 import { BUYER_XLSX_MAX_UPLOAD_BYTES } from '~/utils/buyerXlsxApiRoutes'
+import { canShowBuyerXlsxPanel } from '~/utils/buyerXlsxAccess'
 
 const props = defineProps<{
   eventId: string
@@ -22,7 +23,6 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const { pushToast } = useToast()
 const { enabled: excelEnabled } = useRfxExcelExchangeFeature()
-const { canBuyerXlsxExchange } = usePermissions()
 const { exportBuyerDraft, previewBuyerDraft, commitBuyerDraft } = useBuyerXlsxApi()
 const idempotency = createBuyerXlsxIdempotencyStore()
 
@@ -37,8 +37,12 @@ const lastError = ref<BuyerXlsxClassifiedError | null>(null)
 const analysisInvalidated = ref(false)
 const statusMessage = ref('')
 
-const visible = computed(
-  () => excelEnabled.value && canBuyerXlsxExchange() && props.eventStatus === 'DRAFT',
+const visible = computed(() =>
+  canShowBuyerXlsxPanel({
+    excelExchangeEnabled: excelEnabled.value,
+    roles: useAuthStore().user?.roles ?? [],
+    eventStatus: props.eventStatus,
+  }),
 )
 const busy = computed(() => exporting.value || previewing.value || committing.value)
 const commitEnabled = computed(() =>
@@ -177,6 +181,11 @@ function issueCopy(issue: { message_key: string; machine_code: string; sheet?: s
 </script>
 
 <template>
+  <div
+    data-testid="buyer-xlsx-gate"
+    :data-enabled="excelEnabled ? 'true' : 'false'"
+    :data-status="eventStatus"
+  >
   <Card v-if="visible" data-testid="buyer-xlsx-panel">
     <template #header>
       <h3>{{ $t('tenders.buyerXlsx.title') }}</h3>
@@ -308,6 +317,7 @@ function issueCopy(issue: { message_key: string; machine_code: string; sheet?: s
       </p>
     </div>
   </Card>
+  </div>
 </template>
 
 <style scoped>

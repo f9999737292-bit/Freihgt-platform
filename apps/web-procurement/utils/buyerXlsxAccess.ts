@@ -16,5 +16,5 @@ export function canShowBuyerXlsxPanel(input: {
 }): boolean {
   return input.excelExchangeEnabled
     && hasBuyerXlsxManageRole(input.roles)
-    && input.eventStatus === 'DRAFT'
+    && String(input.eventStatus || '').toUpperCase() === 'DRAFT'
 }

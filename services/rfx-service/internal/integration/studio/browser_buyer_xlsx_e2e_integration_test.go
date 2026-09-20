@@ -168,6 +168,7 @@ func startBuyerXlsxWebProcurement(t *testing.T, gatewayURL string, fix browserSt
 		"NUXT_E2E_GATEWAY_URL="+gatewayURL,
 		"NUXT_PUBLIC_DEFAULT_TENANT_ID="+fix.TenantID.String(),
 		"NUXT_PUBLIC_RFX_EXCEL_EXCHANGE_ENABLED=true",
+		"RFX_EXCEL_EXCHANGE_UI=1",
 		"NUXT_E2E_DISABLE_SSR=true",
 		"NUXT_E2E_DISABLE_DEVTOOLS=true",
 	)

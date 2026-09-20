@@ -89,6 +89,7 @@ describe('buyer XLSX F1 routes and access', () => {
     })).toBe(false)
     expect(isRfxExcelExchangeEnabled(true)).toBe(true)
     expect(isRfxExcelExchangeEnabled('true')).toBe(true)
+    expect(isRfxExcelExchangeEnabled('1')).toBe(true)
     expect(isRfxExcelExchangeEnabled('false')).toBe(false)
     expect(isRfxExcelExchangeEnabled(false)).toBe(false)
   })

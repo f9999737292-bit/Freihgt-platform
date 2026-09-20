@@ -50,6 +50,7 @@ export async function seedBuyerSession(page: Page, roles = ['PROCUREMENT_MANAGER
     )
     localStorage.setItem('freight_procurement_tenant_id', input.tenant)
     localStorage.setItem('freight_procurement_company_id', input.company)
+    localStorage.setItem('freight_procurement_rfx_excel_exchange', 'true')
     document.cookie = 'freight_procurement_locale=en-US; path=/'
   }, {
     tenant: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
@@ -119,5 +120,8 @@ export async function expectWorkspaceLoaded(page: Page, rfxNumber: string) {
 }
 
 export async function expectPanelVisible(page: Page) {
+  const gate = page.getByTestId('buyer-xlsx-gate')
+  await expect(gate).toHaveAttribute('data-enabled', 'true', { timeout: 30_000 })
+  await expect(gate).toHaveAttribute('data-status', /draft/i)
   await expect(page.getByTestId('buyer-xlsx-panel')).toBeVisible({ timeout: 30_000 })
 }
