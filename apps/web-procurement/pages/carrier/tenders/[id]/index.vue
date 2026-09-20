@@ -20,6 +20,7 @@ import {
 import { shouldShowNotFound, isApiUnavailableError } from '~/utils/apiError'
 import { ApiError } from '~/utils/apiClient'
 import CarrierXlsxExchangePanel from '~/components/carrier/CarrierXlsxExchangePanel.vue'
+import LateSubmissionRequestPanel from '~/components/carrier/LateSubmissionRequestPanel.vue'
 
 definePageMeta({ middleware: 'auth', layout: 'default' })
 
@@ -475,6 +476,14 @@ onUnmounted(() => {
         </div>
         <p class="muted decline-note">{{ t('carrierTenders.detail.declineNotSupported') }}</p>
       </Card>
+
+      <div data-testid="carrier-late-submission-slot">
+        <LateSubmissionRequestPanel
+          :event-id="eventId"
+          :carrier-company-id="selectedCarrierCompanyId"
+          :deadline="event.response_deadline"
+        />
+      </div>
 
       <div data-testid="carrier-xlsx-slot">
         <CarrierXlsxExchangePanel

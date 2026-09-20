@@ -8,6 +8,7 @@ import {
 } from '~/utils/companyMembership'
 import { shouldShowNotFound, isApiUnavailableError } from '~/utils/apiError'
 import { ApiError } from '~/utils/apiClient'
+import LateSubmissionRequestPanel from '~/components/carrier/LateSubmissionRequestPanel.vue'
 
 definePageMeta({ middleware: 'auth', layout: 'default' })
 
@@ -104,6 +105,12 @@ onMounted(async () => {
           <option v-for="opt in carrierOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
         </select>
       </div>
+
+      <LateSubmissionRequestPanel
+        :event-id="eventId"
+        :carrier-company-id="selectedCarrierCompanyId"
+        :deadline="event.response_deadline"
+      />
 
       <CarrierResponseWorkspace
         v-if="selectedCarrierCompanyId"

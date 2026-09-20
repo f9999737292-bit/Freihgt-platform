@@ -10,6 +10,7 @@ const localeFiles = [
   'contracts.json',
   'freightCosts.json',
   'carrierResponse.json',
+  'lateSubmission.json',
 ]
 
 export default defineNuxtConfig({
@@ -61,6 +62,8 @@ export default defineNuxtConfig({
       rfxExcelExchangeEnabled: process.env.NUXT_PUBLIC_RFX_EXCEL_EXCHANGE_ENABLED === 'true'
         || process.env.RFX_EXCEL_EXCHANGE_UI === '1',
       excelUiEnabled: process.env.RFX_EXCEL_EXCHANGE_UI === '1',
+      rfxLateSubmissionEnabled: process.env.NUXT_PUBLIC_RFX_LATE_SUBMISSION_ENABLED === 'true'
+        || process.env.RFX_LATE_SUBMISSION_UI === '1',
     },
   },
   i18n: {

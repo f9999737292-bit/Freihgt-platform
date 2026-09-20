@@ -38,15 +38,29 @@ import {
   type CarrierRuleRuntimeContext,
 } from '~/utils/carrierResponseRuntime'
 import { ApiError } from '~/utils/apiClient'
+import { isDeadlineExpired } from '~/types/carrierRfx'
+import type { LateSubmissionRequest } from '~/types/lateSubmission'
+import {
+  canLateSubmitQuestionnaire,
+  lateSubmitBlockReason,
+  latestOwnLateRequest,
+} from '~/utils/lateSubmissionAccess'
+import { createLateSubmissionIdempotencyStore } from '~/utils/lateSubmissionIdempotency'
 
 const PATCH_DEBOUNCE_MS = 800
 
 export function useCarrierResponseWorkspace(
   eventId: Ref<string>,
   carrierCompanyId: Ref<string>,
+  responseDeadline?: Ref<string | null | undefined>,
 ) {
   const api = useCarrierResponseApi()
+  const lateApi = useLateSubmissionApi()
+  const { enabled: lateEnabled } = useRfxLateSubmissionFeature()
+  const authStore = useAuthStore()
+  const lateIdempotency = createLateSubmissionIdempotencyStore()
   const { t } = useI18n()
+  const lateRequest = ref<LateSubmissionRequest | null>(null)
 
   const workspace = ref<CarrierResponseWorkspace | null>(null)
   const loading = ref(false)
@@ -153,23 +167,40 @@ export function useCarrierResponseWorkspace(
     lastSavedAt.value = data.last_saved_at ?? null
   }
 
+  const deadlineExpired = computed(() => isDeadlineExpired(responseDeadline?.value))
+  const lateRoles = computed(() => authStore.user?.roles ?? [])
+
+  async function loadLateRequest() {
+    if (!lateEnabled.value || !deadlineExpired.value || !carrierCompanyId.value) {
+      lateRequest.value = null
+      return
+    }
+    try {
+      const result = await lateApi.listOwnRequests(eventId.value, carrierCompanyId.value)
+      lateRequest.value = latestOwnLateRequest(result.items)
+    } catch {
+      lateRequest.value = null
+    }
+  }
+
   async function loadWorkspace(options: { startIfMissing?: boolean } = {}) {
     if (!carrierCompanyId.value) return
     loading.value = true
     loadError.value = null
+    await loadLateRequest()
     try {
       let data: CarrierResponseWorkspace
       try {
         data = await api.getCarrierResponse(eventId.value, carrierCompanyId.value)
       } catch (err) {
-        if (err instanceof ApiError && err.status === 404 && options.startIfMissing) {
+        if (err instanceof ApiError && err.status === 404 && options.startIfMissing && !deadlineExpired.value) {
           data = await api.startCarrierResponse(eventId.value, carrierCompanyId.value)
         } else {
           throw err
         }
       }
       applyWorkspace(data)
-      if (data.product_status === 'NOT_STARTED' && options.startIfMissing) {
+      if (data.product_status === 'NOT_STARTED' && options.startIfMissing && !deadlineExpired.value) {
         const started = await api.startCarrierResponse(eventId.value, carrierCompanyId.value)
         applyWorkspace(started)
       }
@@ -322,8 +353,33 @@ export function useCarrierResponseWorkspace(
     return result
   }
 
+  const lateSubmitAllowed = computed(() => canLateSubmitQuestionnaire({
+    lateSubmissionEnabled: lateEnabled.value,
+    roles: lateRoles.value,
+    deadline: responseDeadline?.value,
+    responseStatus: workspace.value?.status || productStatus.value,
+    request: lateRequest.value,
+  }))
+
+  const lateBlockReason = computed(() => lateSubmitBlockReason({
+    deadline: responseDeadline?.value,
+    responseStatus: workspace.value?.status || productStatus.value,
+    request: lateRequest.value,
+  }))
+
   async function submitResponse() {
     if (isLocked.value) return
+    if (deadlineExpired.value && !lateSubmitAllowed.value) {
+      const reasonKeys = {
+        deadline: 'lateSubmission.submit.blockedDeadline',
+        draft: 'lateSubmission.submit.blockedDraft',
+        permission: 'lateSubmission.submit.blockedPermission',
+        window_not_started: 'lateSubmission.submit.blockedWindowNotStarted',
+        window_expired: 'lateSubmission.submit.blockedWindowExpired',
+      } as const
+      submitBlockedMessage.value = t(reasonKeys[lateBlockReason.value ?? 'permission'])
+      return false
+    }
     await flushPendingPatches().catch(() => undefined)
     const validation = await validateBeforeSubmit()
     if (!validation.valid || validation.blocking_error_count > 0) {
@@ -333,10 +389,18 @@ export function useCarrierResponseWorkspace(
       autosaveStatus.value = validation.blocking_error_count > 0 ? 'invalid' : autosaveStatus.value
       return false
     }
+    const lateKey = deadlineExpired.value
+      ? lateIdempotency.keyForSubmit(workspace.value?.id || eventId.value, saveVersion.value)
+      : undefined
+    if (deadlineExpired.value && !lateKey) {
+      submitBlockedMessage.value = t('lateSubmission.submit.needIdempotency')
+      return false
+    }
     const result = await api.submitCarrierResponse(
       eventId.value,
       saveVersion.value,
       carrierCompanyId.value,
+      lateKey,
     )
     saveVersion.value = result.save_version
     if (workspace.value) {
@@ -403,7 +467,7 @@ export function useCarrierResponseWorkspace(
       blockingErrorCount.value,
       serverValidation.value?.valid ?? null,
       isSubmitted.value,
-    ) && !isLocked.value,
+    ) && !isLocked.value && (!deadlineExpired.value || lateSubmitAllowed.value),
   )
 
   onBeforeRouteLeave((_to, _from, next) => {
@@ -414,7 +478,7 @@ export function useCarrierResponseWorkspace(
   })
 
   watch(carrierCompanyId, () => {
-    void loadWorkspace({ startIfMissing: true }).catch(() => undefined)
+    void loadWorkspace({ startIfMissing: !deadlineExpired.value }).catch(() => undefined)
   })
 
   return {
@@ -439,6 +503,11 @@ export function useCarrierResponseWorkspace(
     submitBlockedMessage,
     showLeaveWarning,
     canSubmit,
+    lateRequest,
+    lateSubmitAllowed,
+    lateBlockReason,
+    deadlineExpired,
+    loadLateRequest,
     loadWorkspace,
     reloadFromServer,
     setLocalAnswer,

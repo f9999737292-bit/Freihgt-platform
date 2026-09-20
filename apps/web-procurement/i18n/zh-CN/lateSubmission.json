@@ -1,0 +1,72 @@
+{
+  "lateSubmission": {
+    "carrier": {
+      "title": "逾期提交申请",
+      "hint": "应答截止时间已过。请先向买方申请批准，然后仅在批准窗口内提交已有的 DRAFT 问卷。",
+      "reasonCode": "原因",
+      "reasonText": "说明",
+      "requestedUntil": "申请有效至",
+      "submit": "申请逾期提交",
+      "submitSuccess": "逾期提交申请已发送",
+      "status": "申请状态",
+      "window": "批准窗口",
+      "noRequest": "尚无逾期提交申请",
+      "commercialLocked": "截止后不可提交商务报价。批准后请使用问卷提交。"
+    },
+    "buyer": {
+      "title": "逾期提交队列",
+      "empty": "没有逾期提交申请",
+      "carrier": "承运商公司",
+      "reason": "原因",
+      "requestedUntil": "申请至",
+      "windowFrom": "有效自",
+      "windowUntil": "有效至",
+      "comment": "决定备注",
+      "approve": "批准",
+      "reject": "拒绝",
+      "approveSuccess": "已批准逾期提交",
+      "rejectSuccess": "已拒绝逾期提交",
+      "readOnly": "可以查看队列，但不能批准或拒绝。"
+    },
+    "reason": {
+      "TECHNICAL_FAILURE": "技术故障",
+      "ORGANIZATIONAL_DELAY": "组织延误",
+      "BUYER_REQUEST": "买方要求",
+      "FORCE_MAJEURE": "不可抗力",
+      "OTHER": "其他"
+    },
+    "status": {
+      "REQUESTED": "已申请",
+      "APPROVED": "已批准",
+      "REJECTED": "已拒绝",
+      "EXPIRED": "已过期",
+      "CONSUMED": "已使用"
+    },
+    "submit": {
+      "blockedDeadline": "截止后提交需要已批准的逾期窗口。",
+      "blockedDraft": "逾期提交仅适用于已有 DRAFT 应答。",
+      "blockedPermission": "请等待买方批准后再提交。",
+      "blockedWindowNotStarted": "批准窗口尚未开始。",
+      "blockedWindowExpired": "批准窗口已结束。",
+      "needIdempotency": "逾期提交必须发送 Idempotency-Key。"
+    },
+    "errors": {
+      "validation": "请检查申请字段后重试。",
+      "beforeDeadline": "仅在应答截止之后才能申请逾期提交。",
+      "reasonCode": "请选择有效原因。",
+      "reasonText": "请填写非空说明。",
+      "requestedUntil": "请输入有效的申请截止日期。",
+      "unauthorized": "请先登录。",
+      "forbidden": "您没有执行此逾期提交操作的权限。",
+      "notFound": "逾期提交不可用或未找到该申请。",
+      "conflict": "该申请已有有效决定。",
+      "idempotencyConflict": "此幂等键已用于其他请求。",
+      "idempotencyRequired": "必须提供 Idempotency-Key。",
+      "permissionRequired": "需要已批准的逾期提交窗口。",
+      "windowNotStarted": "批准窗口尚未开始。",
+      "windowExpired": "批准窗口已结束。",
+      "unprocessable": "现在无法完成此逾期提交操作。",
+      "unavailable": "逾期提交服务暂时不可用。"
+    }
+  }
+}

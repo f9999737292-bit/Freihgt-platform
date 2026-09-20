@@ -18,6 +18,7 @@ const { pushToast } = useToast()
 
 const eventId = computed(() => props.event.id)
 const carrierCompanyId = computed(() => props.carrierCompanyId)
+const responseDeadline = computed(() => props.event.response_deadline)
 
 const {
   workspace,
@@ -35,6 +36,9 @@ const {
   focusQuestionId,
   submitBlockedMessage,
   showLeaveWarning,
+  canSubmit,
+  lateBlockReason,
+  deadlineExpired,
   loadWorkspace,
   reloadFromServer,
   setLocalAnswer,
@@ -48,7 +52,7 @@ const {
   confirmLeave,
   discardInvalidAndLeave,
   flushPendingPatches,
-} = useCarrierResponseWorkspace(eventId, carrierCompanyId)
+} = useCarrierResponseWorkspace(eventId, carrierCompanyId, responseDeadline)
 
 const submitting = ref(false)
 const starting = ref(false)
@@ -64,6 +68,19 @@ const autosaveLabel = computed(() => {
 })
 
 const autosaveClass = computed(() => resolveCarrierAutosaveStatusClass(autosaveStatus.value))
+
+const lateBlockedLabel = computed(() => {
+  const reason = lateBlockReason.value
+  if (!reason) return ''
+  const keys = {
+    deadline: 'lateSubmission.submit.blockedDeadline',
+    draft: 'lateSubmission.submit.blockedDraft',
+    permission: 'lateSubmission.submit.blockedPermission',
+    window_not_started: 'lateSubmission.submit.blockedWindowNotStarted',
+    window_expired: 'lateSubmission.submit.blockedWindowExpired',
+  } as const
+  return t(keys[reason])
+})
 
 const activeSection = computed(() =>
   workspace.value?.questionnaire.sections.find((swq) => swq.section.id === activeSectionId.value) ?? null,
@@ -85,7 +102,7 @@ function sectionBadge(summary: { state: string; errorCount: number; warningCount
 async function ensureStarted() {
   starting.value = true
   try {
-    await loadWorkspace({ startIfMissing: true })
+    await loadWorkspace({ startIfMissing: !deadlineExpired.value })
   } finally {
     starting.value = false
   }
@@ -224,6 +241,13 @@ onMounted(() => {
             <p v-if="submitBlockedMessage" class="cr-workspace__submit-blocked" data-testid="submit-blocked">
               {{ submitBlockedMessage }}
             </p>
+            <p
+              v-if="deadlineExpired && lateBlockedLabel"
+              class="cr-workspace__submit-blocked"
+              data-testid="late-submit-blocked"
+            >
+              {{ submitBlockedMessage || lateBlockedLabel }}
+            </p>
             <p v-if="isLocked" class="cr-workspace__locked" data-testid="post-submit-lock">
               {{ t('carrierResponse.submit.locked') }}
             </p>
@@ -231,7 +255,7 @@ onMounted(() => {
               v-else
               type="button"
               data-testid="submit-questionnaire"
-              :disabled="submitting || autosaveStatus === 'saving'"
+              :disabled="submitting || autosaveStatus === 'saving' || !canSubmit"
               @click="onSubmit"
             >
               {{ t('carrierResponse.submit.action') }}

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import BuyerXlsxExchangePanel from '~/components/rfx/BuyerXlsxExchangePanel.vue'
+import BuyerLateSubmissionQueue from '~/components/rfx/BuyerLateSubmissionQueue.vue'
 import {
   canCancelStatus,
   canPublishStatus,
@@ -387,6 +388,10 @@ onMounted(() => {
           :event-status="event.status"
           @committed="refreshWorkspace"
         />
+      </div>
+
+      <div data-testid="buyer-late-submission-slot">
+        <BuyerLateSubmissionQueue :event-id="event.id" />
       </div>
 
       <Card>
