@@ -733,17 +733,11 @@ func TestF301LegacyCreateKeyAfterRejectReplaysOrConflicts(t *testing.T) {
 
 func TestF301NewCreateKeyAllowedAfterExpiredAndConsumed(t *testing.T) {
 	ctx := context.Background()
-	until := time.Now().UTC().Add(24 * time.Hour)
-	body := domain.CreateLateSubmissionRequestInput{
-		ReasonCode: domain.LateSubmissionReasonOther, ReasonText: "retry after terminal",
-		RequestedUntil: until,
-	}
-
-	expiredEnv, expiredFix, expiredEvent, _, _ := seedApprovedLateWindow(t)
-	if _, err := expiredEnv.pool.Exec(ctx, `UPDATE rfx.rfx_late_submission_requests SET approved_valid_until = $1 WHERE rfx_event_id = $2`, time.Now().UTC().Add(-time.Hour), expiredEvent.ID); err != nil {
-		t.Fatalf("expire window: %v", err)
-	}
-	expiredNext, err := expiredEnv.lateSvc.CreateRequest(ctx, expiredFix.CarrierAct, expiredEvent.ID, expiredFix.CarrierID, uuid.NewString(), body)
+	expiredEnv, expiredFix, expiredEvent := seedExpiredApprovedPermission(t)
+	expiredNext, err := expiredEnv.lateSvc.CreateRequest(ctx, expiredFix.CarrierAct, expiredEvent.ID, expiredFix.CarrierID, uuid.NewString(), domain.CreateLateSubmissionRequestInput{
+		ReasonCode: domain.LateSubmissionReasonOther, ReasonText: "retry after EXPIRED",
+		RequestedUntil: fixedLateNow().Add(24 * time.Hour),
+	})
 	if err != nil {
 		t.Fatalf("create after EXPIRED: %v", err)
 	}
@@ -755,7 +749,10 @@ func TestF301NewCreateKeyAllowedAfterExpiredAndConsumed(t *testing.T) {
 	if _, err := consumedEnv.crSvc.Submit(ctx, consumedFix.CarrierAct, consumedEvent.ID, consumedFix.CarrierID, saved.SaveVersion, uuid.NewString()); err != nil {
 		t.Fatalf("consume: %v", err)
 	}
-	consumedNext, err := consumedEnv.lateSvc.CreateRequest(ctx, consumedFix.CarrierAct, consumedEvent.ID, consumedFix.CarrierID, uuid.NewString(), body)
+	consumedNext, err := consumedEnv.lateSvc.CreateRequest(ctx, consumedFix.CarrierAct, consumedEvent.ID, consumedFix.CarrierID, uuid.NewString(), domain.CreateLateSubmissionRequestInput{
+		ReasonCode: domain.LateSubmissionReasonOther, ReasonText: "retry after CONSUMED",
+		RequestedUntil: time.Now().UTC().Add(24 * time.Hour),
+	})
 	if err != nil {
 		t.Fatalf("create after CONSUMED: %v", err)
 	}
