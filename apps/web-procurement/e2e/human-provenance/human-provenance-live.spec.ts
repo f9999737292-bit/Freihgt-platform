@@ -3,6 +3,7 @@ import {
   assertNoErpIntegrationCalls,
   attachHumanProvenanceNetworkProbe,
   expectWorkspaceLoaded,
+  formatHumanGetDenial,
   formatHumanProvenanceNetworkProbe,
   requireHumanProvenanceEnv,
 } from './helpers'
@@ -97,6 +98,9 @@ test.describe('human provenance live stack', () => {
       user: liveFixture().carrierUserId,
       company: liveFixture().carrierCompanyId,
       roles: ['CARRIER_DISPATCHER'],
+      expectedStatus: 403,
+      fixture: 'seedHumanProvenanceBrowserFixture.CarrierAct',
+      layer: 'api-gateway PolicyBuyerRead on GET /api/v1/rfx-events/{id}; carrier must use /api/v1/carrier/rfx-events/{id}',
     })
   })
 
@@ -106,21 +110,33 @@ test.describe('human provenance live stack', () => {
       user: liveFixture().otherBuyerUserId,
       company: liveFixture().otherBuyerCompanyId,
       roles: ['PROCUREMENT_MANAGER'],
+      expectedStatus: 404,
+      fixture: 'seedHumanProvenanceBrowserFixture.BuyerB/CompanyB',
+      layer: 'rfx-service requireOwnerCompanyAccess returns NOT_FOUND for foreign owner company',
     })
   })
 })
 
 async function expectDeniedHumanGet(
   page: Page,
-  actor: { token: string; user: string; company: string; roles: string[] },
+  actor: {
+    token: string
+    user: string
+    company: string
+    roles: string[]
+    expectedStatus: number
+    fixture: string
+    layer: string
+  },
 ) {
   const fix = liveFixture()
   const probe = attachHumanProvenanceNetworkProbe(page)
   await seedLiveSession(page, actor)
+  const path = `/api/v1/rfx-events/${fix.eventId}`
   const eventGET = page.waitForResponse((resp) => {
     const url = resp.url()
     return (
-      url.includes(`/api/v1/rfx-events/${fix.eventId}`)
+      url.includes(path)
       && !url.includes('/lots')
       && !url.includes('/participants')
       && resp.request().method() === 'GET'
@@ -128,8 +144,18 @@ async function expectDeniedHumanGet(
   }, { timeout: 30_000 })
   await page.goto(`/tenders/${fix.eventId}`, { waitUntil: 'domcontentloaded' })
   const loaded = await eventGET
-  expect([403, 404], formatHumanProvenanceNetworkProbe(probe)).toContain(loaded.status())
-  await expect(page.getByText('Tender not found')).toBeVisible({ timeout: 30_000 })
+  expect(loaded.status(), formatHumanGetDenial({
+    method: 'GET',
+    path,
+    status: loaded.status(),
+    role: actor.roles.join(','),
+    companyId: actor.company,
+    fixture: actor.fixture,
+    layer: actor.layer,
+    probe,
+  })).toBe(actor.expectedStatus)
+  await expect(page.getByTestId('tender-not-found')).toBeVisible()
+  await expect(page.getByTestId('tender-not-found')).toHaveText('Tender not found')
   await expect(page.getByTestId('tender-creation-channel')).toHaveCount(0)
   await expect(page.locator('body')).not.toContainText('Created manually')
   await expect(page.locator('body')).not.toContainText('MANUAL')

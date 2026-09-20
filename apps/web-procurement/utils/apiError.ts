@@ -1,28 +1,36 @@
 import { ApiError } from '~/utils/apiClient'
 
-export function isNotFoundError(error: unknown): boolean {
-  if (error instanceof ApiError) {
-    return error.status === 404 || error.code === 'NOT_FOUND'
-  }
-  return false
+function errorStatus(error: unknown): number | undefined {
+  if (typeof error !== 'object' || error === null || !('status' in error)) return undefined
+  return typeof error.status === 'number' ? error.status : undefined
 }
 
-/** Treat unauthorized cross-company access as "not found" in buyer UI. */
+function errorCode(error: unknown): string | undefined {
+  if (typeof error !== 'object' || error === null || !('code' in error)) return undefined
+  return typeof error.code === 'string' ? error.code : undefined
+}
+
+export function isNotFoundError(error: unknown): boolean {
+  return errorStatus(error) === 404 || errorCode(error) === 'NOT_FOUND'
+}
+
+/** Treat unauthorized cross-company or RBAC denial as "not found" in buyer UI. */
 export function shouldShowNotFound(error: unknown): boolean {
-  if (error instanceof ApiError) {
-    return (
-      error.status === 404
-      || error.status === 403
-      || error.code === 'NOT_FOUND'
-      || error.code === 'FORBIDDEN'
-    )
-  }
-  return false
+  const status = errorStatus(error)
+  const code = errorCode(error)
+  return (
+    status === 404
+    || status === 403
+    || code === 'NOT_FOUND'
+    || code === 'FORBIDDEN'
+  )
 }
 
 export function isApiUnavailableError(error: unknown): boolean {
-  if (error instanceof ApiError) {
-    return error.status === 0 || error.status >= 500 || error.code === 'SERVICE_UNAVAILABLE'
+  const status = errorStatus(error)
+  const code = errorCode(error)
+  if (status === 0 || (status !== undefined && status >= 500) || code === 'SERVICE_UNAVAILABLE') {
+    return true
   }
-  return error instanceof TypeError
+  return error instanceof TypeError && !(error instanceof ApiError)
 }

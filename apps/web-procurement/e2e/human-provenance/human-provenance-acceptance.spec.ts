@@ -4,6 +4,7 @@ import {
   attachHumanProvenanceNetworkProbe,
   eventId,
   expectWorkspaceLoaded,
+  formatHumanGetDenial,
   formatHumanProvenanceNetworkProbe,
   seedBuyerSession,
   stubTenderWorkspace,
@@ -61,8 +62,24 @@ test.describe('human provenance creation_channel', () => {
       status: 403,
       body: { error: { code: 'FORBIDDEN', message: 'denied', details: {} } },
     })
+    const eventGET = page.waitForResponse((resp) => {
+      const url = new URL(resp.url())
+      return resp.request().method() === 'GET' && url.pathname === `/api/v1/rfx-events/${eventId}`
+    }, { timeout: 30_000 })
     await page.goto(`/tenders/${eventId}`, { waitUntil: 'domcontentloaded' })
-    await expect(page.getByText('Tender not found')).toBeVisible({ timeout: 30_000 })
+    const loaded = await eventGET
+    expect(loaded.status(), formatHumanGetDenial({
+      method: 'GET',
+      path: `/api/v1/rfx-events/${eventId}`,
+      status: loaded.status(),
+      role: 'PROCUREMENT_MANAGER',
+      companyId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      fixture: 'helpers.stubTenderWorkspace status=403',
+      layer: 'playwright stub FORBIDDEN on buyer human GET',
+      probe,
+    })).toBe(403)
+    await expect(page.getByTestId('tender-not-found')).toBeVisible()
+    await expect(page.getByTestId('tender-not-found')).toHaveText('Tender not found')
     await expect(page.getByTestId('tender-creation-channel')).toHaveCount(0)
     await expect(page.locator('body')).not.toContainText('Created manually')
     await expect(page.locator('body')).not.toContainText('MANUAL')
@@ -76,8 +93,24 @@ test.describe('human provenance creation_channel', () => {
       status: 404,
       body: { error: { code: 'NOT_FOUND', message: 'denied', details: {} } },
     })
+    const eventGET = page.waitForResponse((resp) => {
+      const url = new URL(resp.url())
+      return resp.request().method() === 'GET' && url.pathname === `/api/v1/rfx-events/${eventId}`
+    }, { timeout: 30_000 })
     await page.goto(`/tenders/${eventId}`, { waitUntil: 'domcontentloaded' })
-    await expect(page.getByText('Tender not found')).toBeVisible({ timeout: 30_000 })
+    const loaded = await eventGET
+    expect(loaded.status(), formatHumanGetDenial({
+      method: 'GET',
+      path: `/api/v1/rfx-events/${eventId}`,
+      status: loaded.status(),
+      role: 'PROCUREMENT_MANAGER',
+      companyId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      fixture: 'helpers.stubTenderWorkspace status=404',
+      layer: 'playwright stub NOT_FOUND on buyer human GET',
+      probe,
+    })).toBe(404)
+    await expect(page.getByTestId('tender-not-found')).toBeVisible()
+    await expect(page.getByTestId('tender-not-found')).toHaveText('Tender not found')
     await expect(page.getByTestId('tender-creation-channel')).toHaveCount(0)
     await expect(page.locator('body')).not.toContainText('Created manually')
     await expect(page.locator('body')).not.toContainText('MANUAL')

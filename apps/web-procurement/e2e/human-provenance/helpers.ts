@@ -29,6 +29,28 @@ export function formatHumanProvenanceNetworkProbe(probe: HumanProvenanceNetworkP
   return `request=${JSON.stringify(probe.request)}\nresponse=${JSON.stringify(probe.response)}`
 }
 
+export function formatHumanGetDenial(input: {
+  method: string
+  path: string
+  status: number
+  role: string
+  companyId: string
+  fixture: string
+  layer: string
+  probe: HumanProvenanceNetworkProbe
+}): string {
+  return [
+    `method=${input.method}`,
+    `path=${input.path}`,
+    `status=${input.status}`,
+    `role=${input.role}`,
+    `company=${input.companyId}`,
+    `fixture=${input.fixture}`,
+    `layer=${input.layer}`,
+    formatHumanProvenanceNetworkProbe(input.probe),
+  ].join('\n')
+}
+
 export function requireHumanProvenanceEnv(name: string): string {
   const value = (process.env[name] || '').trim()
   if (!value) {

@@ -51,13 +51,24 @@ async function handleResponse<T>(response: Response, acceptStatuses: number[] = 
     body = (await response.json()) as ApiErrorBody
   } catch {
     throw new ApiError(response.status, {
-      code: 'INTERNAL_ERROR',
+      code: fallbackErrorCode(response.status),
       message: response.statusText || 'Request failed',
       details: {},
     })
   }
 
-  throw new ApiError(response.status, body!.error)
+  const payload = body?.error
+  throw new ApiError(response.status, {
+    code: payload?.code || fallbackErrorCode(response.status),
+    message: payload?.message || response.statusText || 'Request failed',
+    details: payload?.details ?? {},
+  })
+}
+
+function fallbackErrorCode(status: number): string {
+  if (status === 403) return 'FORBIDDEN'
+  if (status === 404) return 'NOT_FOUND'
+  return 'INTERNAL_ERROR'
 }
 
 export function useApi() {
