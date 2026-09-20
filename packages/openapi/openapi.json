@@ -1534,6 +1534,506 @@
         }
       }
     },
+    "/api/v1/integrations/erp/rfx-events/{id}": {
+      "get": {
+        "tags": [
+          "RFx"
+        ],
+        "summary": "Get ERP RFx draft by internal ID",
+        "operationId": "getErpRfxEventById",
+        "description": "Return an allowlisted ERP DRAFT summary by internal RFx event ID.\n\nFeature flag: when `RFX_ERP_INTEGRATION_ENABLED` is false (default), the route returns **404** (feature disabled).\n\nAuthorization: integration bearer auth with scope `rfx:draft:read`. Tenant, company, and integration principal are taken from trusted gateway context only. Human JWT is not accepted.\n\nResponse: `ErpRfxDraftSummary` only (not the human UI event DTO). PUBLISHED or non-DRAFT events return **409** `event_not_draft`. Cross-tenant or cross-company lookups return **404**.\n\nE2 per-principal rate limit applies (**429**). Read operations do not write audit events.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XTenantID"
+          },
+          {
+            "$ref": "#/components/parameters/XCompanyID"
+          },
+          {
+            "$ref": "#/components/parameters/XLocale"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Allowlisted ERP DRAFT summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErpRfxDraftSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (`event_not_draft` when the target RFx is PUBLISHED or otherwise not DRAFT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/integrations/erp/rfx/by-external-id": {
+      "get": {
+        "tags": [
+          "RFx"
+        ],
+        "summary": "Get ERP RFx draft by stable external identity",
+        "operationId": "getErpRfxByExternalId",
+        "description": "Return an allowlisted ERP DRAFT summary by stable external identity.\n\nFeature flag: when `RFX_ERP_INTEGRATION_ENABLED` is false (default), the route returns **404** (feature disabled).\n\nAuthorization: integration bearer auth with scope `rfx:draft:read`. Lookup key is tenant + principal + `external_system` + `RFX_EVENT` + `external_object_id`. Revision is optional metadata only.\n\nQuery `external_revision` matching the current link revision returns **200** even when E4 CREATE left history empty. Any other unrecorded revision returns **404**. PUBLISHED or non-DRAFT events return **409** `event_not_draft`.\n\nE2 per-principal rate limit applies (**429**). Read operations do not write audit events.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XTenantID"
+          },
+          {
+            "$ref": "#/components/parameters/XCompanyID"
+          },
+          {
+            "$ref": "#/components/parameters/XLocale"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "name": "external_system",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "external_object_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "external_revision",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Allowlisted ERP DRAFT summary for the stable external identity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErpRfxDraftSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (`event_not_draft` when the target RFx is PUBLISHED or otherwise not DRAFT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/integrations/erp/analyses/{analysis_id}": {
+      "get": {
+        "tags": [
+          "RFx"
+        ],
+        "summary": "Get ERP import analysis status",
+        "operationId": "getErpImportAnalysisStatus",
+        "description": "Return the persisted ERP import analysis status snapshot.\n\nFeature flag: when `RFX_ERP_INTEGRATION_ENABLED` is false (default), the route returns **404** (feature disabled).\n\nAuthorization: integration bearer auth with scope `rfx:status:read`. Only the owning integration principal may read the analysis. Foreign tenant, company, or principal returns **404** without revealing existence.\n\nSemantics are synchronous v1: the handler reads the persisted row and does not imply a background worker.\n\nE2 per-principal rate limit applies (**429**). Read operations do not write audit events.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XTenantID"
+          },
+          {
+            "$ref": "#/components/parameters/XCompanyID"
+          },
+          {
+            "$ref": "#/components/parameters/XLocale"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "name": "analysis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Persisted ERP analysis status snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErpAnalysisStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (`event_not_draft` when the target RFx is PUBLISHED or otherwise not DRAFT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/integrations/erp/capabilities": {
+      "get": {
+        "tags": [
+          "RFx"
+        ],
+        "summary": "Get ERP integration capabilities",
+        "operationId": "getErpIntegrationCapabilities",
+        "description": "Return principal-authenticated ERP v1 capabilities.\n\nFeature flag: when `RFX_ERP_INTEGRATION_ENABLED` is false (default), the route returns **404** (feature disabled).\n\nAuthorization: integration bearer auth with scope `rfx:status:read` only. Unauthenticated requests return **401**.\n\nResponse includes `schema_version=BINTRANS_RFX_ERP_JSON_V1`, parser limits, supported mapping types, and deferred fields.\n\nE2 per-principal rate limit applies (**429**). Read operations do not write audit events.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XTenantID"
+          },
+          {
+            "$ref": "#/components/parameters/XCompanyID"
+          },
+          {
+            "$ref": "#/components/parameters/XLocale"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Principal-scoped ERP v1 capabilities",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErpIntegrationCapabilities"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (`event_not_draft` when the target RFx is PUBLISHED or otherwise not DRAFT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/users": {
       "post": {
         "tags": [
@@ -30377,6 +30877,249 @@
           "applied_at": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "ErpExternalLink": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "system",
+          "object_type",
+          "object_id",
+          "revision"
+        ],
+        "properties": {
+          "system": {
+            "type": "string"
+          },
+          "object_type": {
+            "type": "string",
+            "enum": [
+              "RFX_EVENT"
+            ]
+          },
+          "object_id": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string"
+          },
+          "requested_revision": {
+            "type": "string"
+          }
+        }
+      },
+      "ErpPublishReadinessSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ready",
+          "blocking_fail_count",
+          "warning_count"
+        ],
+        "properties": {
+          "ready": {
+            "type": "boolean"
+          },
+          "blocking_fail_count": {
+            "type": "integer"
+          },
+          "warning_count": {
+            "type": "integer"
+          }
+        }
+      },
+      "ErpQuestionnaireCounts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "section_count",
+          "question_count",
+          "rule_count"
+        ],
+        "properties": {
+          "section_count": {
+            "type": "integer"
+          },
+          "question_count": {
+            "type": "integer"
+          },
+          "rule_count": {
+            "type": "integer"
+          }
+        }
+      },
+      "ErpRfxDraftSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rfx_event_id",
+          "status",
+          "rfx_type",
+          "title",
+          "timezone",
+          "creation_channel",
+          "publish_readiness_summary",
+          "lot_count",
+          "questionnaire_counts",
+          "event_row_version",
+          "draft_row_version"
+        ],
+        "properties": {
+          "rfx_event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT"
+            ]
+          },
+          "rfx_type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "currency_code": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "response_deadline": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "creation_channel": {
+            "type": "string",
+            "enum": [
+              "MANUAL",
+              "TEMPLATE",
+              "EXCEL",
+              "ERP"
+            ]
+          },
+          "external_link": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ErpExternalLink"
+              }
+            ]
+          },
+          "publish_readiness_summary": {
+            "$ref": "#/components/schemas/ErpPublishReadinessSummary"
+          },
+          "lot_count": {
+            "type": "integer"
+          },
+          "questionnaire_counts": {
+            "$ref": "#/components/schemas/ErpQuestionnaireCounts"
+          },
+          "event_row_version": {
+            "type": "integer"
+          },
+          "draft_row_version": {
+            "type": "integer"
+          }
+        }
+      },
+      "ErpAnalysisStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "analysis_id",
+          "status",
+          "expires_at",
+          "validation_summary",
+          "ready_to_commit"
+        ],
+        "properties": {
+          "analysis_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PREVIEWED",
+              "CONSUMED",
+              "EXPIRED"
+            ]
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "consumed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "validation_summary": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "ready_to_commit": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ErpIntegrationLimits": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "max_body_bytes",
+          "max_json_depth",
+          "max_lots"
+        ],
+        "properties": {
+          "max_body_bytes": {
+            "type": "integer"
+          },
+          "max_json_depth": {
+            "type": "integer"
+          },
+          "max_lots": {
+            "type": "integer"
+          }
+        }
+      },
+      "ErpIntegrationCapabilities": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "limits",
+          "supported_mapping_types",
+          "deferred_fields"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "enum": [
+              "BINTRANS_RFX_ERP_JSON_V1"
+            ]
+          },
+          "limits": {
+            "$ref": "#/components/schemas/ErpIntegrationLimits"
+          },
+          "supported_mapping_types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "deferred_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
