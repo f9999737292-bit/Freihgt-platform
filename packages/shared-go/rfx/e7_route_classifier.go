@@ -116,5 +116,6 @@ func NormalizeGatewayPath(rawPath string) string {
 func E7IntegrationProtectedRoutes() []ErpMachineAuthRoute {
 	routes := append([]ErpMachineAuthRoute{}, E7ErpPreviewRoutes()...)
 	routes = append(routes, E7ErpCreateCommitRoutes()...)
-	return append(routes, E7ErpUpdateCommitRoutes()...)
+	routes = append(routes, E7ErpUpdateCommitRoutes()...)
+	return append(routes, E7ErpReadRoutes()...)
 }

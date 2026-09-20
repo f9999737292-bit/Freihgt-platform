@@ -39,6 +39,7 @@ const (
 	MachineCodeIdempotencyConflict     = "idempotency_conflict"
 	MachineCodeStaleMappingContext     = "stale_mapping_context"
 	MachineCodeExternalIDConflict      = "external_id_conflict"
+	MachineCodeEventNotDraft           = "event_not_draft"
 
 	CreationChannelManual   = "MANUAL"
 	CreationChannelTemplate = "TEMPLATE"
