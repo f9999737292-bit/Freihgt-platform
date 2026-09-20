@@ -182,7 +182,7 @@ async function exportWorkbook(page: Page, probe = attachCarrierXlsxNetworkProbe(
   const { writeFileSync } = await import('node:fs')
   const { join } = await import('node:path')
   const { tmpdir } = await import('node:os')
-  const filePath = join(tmpdir(), `carrier-xlsx-${responseId}.xlsx`)
+  const filePath = join(tmpdir(), `carrier-xlsx-${responseId}-${Date.now()}.xlsx`)
   writeFileSync(filePath, bytes)
   await expect(page.getByTestId('carrier-xlsx-error')).toHaveCount(0)
   return { filePath, bytes }
@@ -243,10 +243,19 @@ test.describe('carrier XLSX live stack', () => {
     await expect(page.getByTestId('carrier-xlsx-commit')).toBeDisabled()
     await expect(page.getByTestId('carrier-xlsx-retry-preview')).toBeEnabled()
 
-    const refreshed = await exportWorkbook(page, probe)
-    await uploadWorkbook(page, refreshed.filePath)
+    const previewWait = page.waitForResponse((resp) => {
+      return resp.url().includes(`/rfx-events/${fix.eventId}/carrier-responses/${fix.responseId}/xlsx-import/preview`)
+        && resp.request().method() === 'POST'
+    }, { timeout: 30_000 })
+    await page.getByTestId('carrier-xlsx-retry-preview').click()
+    const previewResp = await previewWait.catch((error: Error) => {
+      throw new Error(`${error.message}\n${formatCarrierXlsxNetworkProbe(probe)}`)
+    })
+    if (previewResp.status() !== 200) {
+      throw new Error(`retry preview status=${previewResp.status()}\n${formatCarrierXlsxNetworkProbe(probe)}`)
+    }
     await expect(page.getByTestId('carrier-xlsx-preview')).toBeVisible()
-    await expect(page.getByTestId('carrier-xlsx-commit')).toBeEnabled()
+    await expect(page.getByTestId('carrier-xlsx-commit'), formatCarrierXlsxNetworkProbe(probe)).toBeEnabled()
   })
 
   test('export, preview, and commit keep the own response in DRAFT without submit or competitor data', async ({ page }) => {

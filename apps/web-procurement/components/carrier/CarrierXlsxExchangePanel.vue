@@ -82,6 +82,7 @@ function onFileChange(event: Event) {
   const file = input.files?.[0] ?? null
   selectedFile.value = file
   clearImportState()
+  input.value = ''
   if (!file) return
   void runPreview(file)
 }
