@@ -23,4 +23,18 @@ describe('carrier tender page routes', () => {
     expect(questionnaire).not.toContain('CarrierXlsxExchangePanel')
     expect(questionnaire).not.toContain('carrier-xlsx')
   })
+
+  it('loads own-response after buyer-only lots and missing own-participant failures', () => {
+    const detail = readFileSync(join(pagesRoot, '[id]', 'index.vue'), 'utf8')
+    const loadWorkspace = detail.slice(detail.indexOf('async function loadWorkspace()'))
+    expect(loadWorkspace).toMatch(/try \{\s*participant\.value = await getOwnParticipant/)
+    expect(loadWorkspace).toMatch(/try \{\s*lots\.value = await listLots/)
+    expect(loadWorkspace).toMatch(/try \{\s*await loadResponse\(\)/)
+    const tenderFail = loadWorkspace.slice(
+      loadWorkspace.indexOf('event.value = await getTender'),
+      loadWorkspace.indexOf('participant.value = await getOwnParticipant'),
+    )
+    expect(tenderFail).toContain('return')
+    expect(tenderFail).not.toContain('await loadResponse()')
+  })
 })

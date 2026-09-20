@@ -174,6 +174,21 @@ async function refreshWorkspace() {
   }
 }
 
+function classifyWorkspaceError(error: unknown) {
+  if (shouldShowNotFound(error)) {
+    notFound.value = true
+    return
+  }
+  if (error instanceof ApiError && error.status === 403) {
+    permissionDenied.value = true
+    return
+  }
+  apiUnavailable.value = isCarrierApiUnavailable(error)
+  if (!apiUnavailable.value) {
+    pushToast('error', error instanceof Error ? error.message : t('carrierTenders.loadFailed'))
+  }
+}
+
 async function loadWorkspace() {
   loading.value = true
   notFound.value = false
@@ -183,35 +198,46 @@ async function loadWorkspace() {
     if (selectedCarrierCompanyId.value) {
       setCompany(selectedCarrierCompanyId.value)
     }
-    event.value = await getTender(eventId.value)
-    participant.value = await getOwnParticipant(eventId.value, selectedCarrierCompanyId.value || undefined)
-    lots.value = await listLots(eventId.value)
-    const laneEntries: Record<string, RfxLane[]> = {}
-    for (const lot of lots.value) {
-      laneEntries[lot.id] = await listLanes(lot.id, selectedCarrierCompanyId.value || undefined)
+    try {
+      event.value = await getTender(eventId.value)
+    } catch (error) {
+      event.value = null
+      lots.value = []
+      lanesByLot.value = {}
+      response.value = null
+      participant.value = null
+      classifyWorkspaceError(error)
+      return
     }
-    lanesByLot.value = laneEntries
-    await loadResponse()
+    // Buyer-only /lots and missing gateway /own-participant must not hide own-response.
+    try {
+      participant.value = await getOwnParticipant(eventId.value, selectedCarrierCompanyId.value || undefined)
+    } catch {
+      // Keep the current participant snapshot.
+    }
+    try {
+      lots.value = await listLots(eventId.value)
+      const laneEntries: Record<string, RfxLane[]> = {}
+      for (const lot of lots.value) {
+        try {
+          laneEntries[lot.id] = await listLanes(lot.id, selectedCarrierCompanyId.value || undefined)
+        } catch {
+          laneEntries[lot.id] = lanesByLot.value[lot.id] ?? []
+        }
+      }
+      lanesByLot.value = laneEntries
+    } catch {
+      // Keep the current lots/lanes snapshot.
+    }
+    try {
+      await loadResponse()
+    } catch (error) {
+      classifyWorkspaceError(error)
+    }
     try {
       ownAward.value = await getOwnAward(eventId.value, selectedCarrierCompanyId.value || undefined)
     } catch {
       ownAward.value = null
-    }
-  } catch (error) {
-    event.value = null
-    lots.value = []
-    lanesByLot.value = {}
-    response.value = null
-    participant.value = null
-    if (shouldShowNotFound(error)) {
-      notFound.value = true
-    } else if (error instanceof ApiError && error.status === 403) {
-      permissionDenied.value = true
-    } else {
-      apiUnavailable.value = isCarrierApiUnavailable(error)
-      if (!apiUnavailable.value) {
-        pushToast('error', error instanceof Error ? error.message : t('carrierTenders.loadFailed'))
-      }
     }
   } finally {
     loading.value = false

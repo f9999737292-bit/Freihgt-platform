@@ -73,7 +73,7 @@ async function stubLiveCarrierShell(page: Page) {
   })
   await page.route('**/api/v1/companies**', async (route) => {
     const url = new URL(route.request().url())
-    if (url.pathname !== '/api/v1/companies' && !url.pathname.endsWith('/companies')) {
+    if (url.pathname !== '/api/v1/companies') {
       await route.fallback()
       return
     }
@@ -84,8 +84,31 @@ async function stubLiveCarrierShell(page: Page) {
       ],
     })
   })
+  await page.route(`**/api/v1/rfx-events/${fix.eventId}/own-participant**`, async (route) => {
+    await fulfillJSON(route, 200, {
+      id: `${fix.eventId}-participant`,
+      company_id: fix.carrierCompanyId,
+      participant_type: 'CARRIER',
+      status: 'INVITED',
+    })
+  })
+  await page.route(`**/api/v1/rfx-events/${fix.eventId}/lots**`, async (route) => {
+    await fulfillJSON(route, 200, {
+      items: [{
+        id: fix.lotId,
+        lot_number: 'L1',
+        name: 'Lane bundle',
+        description: 'Lane bundle',
+        category: 'FREIGHT',
+      }],
+    })
+  })
+  await page.route('**/api/v1/rfx-lots/**/lanes**', async (route) => {
+    await fulfillJSON(route, 200, { items: [] })
+  })
   await page.route(`**/api/v1/rfx-events/${fix.eventId}`, async (route) => {
-    if (route.request().method() !== 'GET') {
+    const pathname = new URL(route.request().url()).pathname
+    if (pathname !== `/api/v1/rfx-events/${fix.eventId}` || route.request().method() !== 'GET') {
       await route.fallback()
       return
     }
@@ -106,6 +129,7 @@ async function stubLiveCarrierShell(page: Page) {
 
 async function openDraft(page: Page) {
   const { eventId, rfxNumber, responseId } = liveFixture()
+  const probe = attachCarrierXlsxNetworkProbe(page)
   await seedLiveCarrierSession(page)
   await stubLiveCarrierShell(page)
   const responseWait = page.waitForResponse((resp) => {
@@ -115,9 +139,11 @@ async function openDraft(page: Page) {
     )
   }, { timeout: 30_000 })
   await page.goto(`/carrier/tenders/${eventId}`, { waitUntil: 'domcontentloaded' })
-  const loaded = await responseWait
+  const loaded = await responseWait.catch((error: Error) => {
+    throw new Error(`${error.message}\n${formatCarrierXlsxNetworkProbe(probe)}`)
+  })
   if (loaded.status() !== 200) {
-    throw new Error(`own-response GET ${loaded.status()} ${loaded.url()}`)
+    throw new Error(`own-response GET ${loaded.status()} ${loaded.url()}\n${formatCarrierXlsxNetworkProbe(probe)}`)
   }
   await expectWorkspaceLoaded(page, rfxNumber)
   await expectPanelVisible(page, 'DRAFT')
