@@ -4219,6 +4219,13 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: carrier_company_id
+          in: query
+          required: false
+          description: Carrier company context already accepted by the backend handler.
+          schema:
+            type: string
+            format: uuid
         - name: Idempotency-Key
           in: header
           required: true
@@ -4367,6 +4374,13 @@ paths:
         - name: id
           in: path
           required: true
+          schema:
+            type: string
+            format: uuid
+        - name: carrier_company_id
+          in: query
+          required: false
+          description: Carrier company context already accepted by the backend handler.
           schema:
             type: string
             format: uuid
@@ -7391,6 +7405,7 @@ components:
                 - SERVICE_UNAVAILABLE
                 - INTERNAL_ERROR
                 - ROUTE_NOT_FOUND
+                - UNPROCESSABLE_ENTITY
             message:
               type: string
             details:

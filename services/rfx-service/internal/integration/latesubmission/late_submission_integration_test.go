@@ -675,6 +675,92 @@ func TestE7INT40CarrierResponseRegressionSmoke(t *testing.T) {
 	}
 }
 
+func TestF301LegacyCreateKeyAfterRejectReplaysOrConflicts(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	event, _ := seedPublishedEventAfterDeadline(t, env, fix)
+	ctx := context.Background()
+	until := time.Now().UTC().Add(24 * time.Hour)
+	body := domain.CreateLateSubmissionRequestInput{
+		ReasonCode: domain.LateSubmissionReasonTechnicalFailure, ReasonText: "vpn outage",
+		RequestedUntil: until,
+	}
+	legacyKey := "late-create:" + event.ID.String() + ":" + fix.CarrierID.String()
+	first, err := env.lateSvc.CreateRequest(ctx, fix.CarrierAct, event.ID, fix.CarrierID, legacyKey, body)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if _, err := env.lateSvc.Reject(ctx, fix.BuyerA, event.ID, first.ID, uuid.NewString(), domain.RejectLateSubmissionInput{
+		ExpectedVersion: first.Version, DecisionComment: "no",
+	}); err != nil {
+		t.Fatalf("reject: %v", err)
+	}
+	replay, err := env.lateSvc.CreateRequest(ctx, fix.CarrierAct, event.ID, fix.CarrierID, legacyKey, body)
+	if err != nil {
+		t.Fatalf("legacy replay: %v", err)
+	}
+	if replay.ID != first.ID {
+		t.Fatalf("F3-01: reused event/company key after REJECTED must replay %s, got %s", first.ID, replay.ID)
+	}
+	_, err = env.lateSvc.CreateRequest(ctx, fix.CarrierAct, event.ID, fix.CarrierID, legacyKey, domain.CreateLateSubmissionRequestInput{
+		ReasonCode: domain.LateSubmissionReasonOther, ReasonText: "different body", RequestedUntil: until,
+	})
+	assertAppErrorCode(t, err, apperrors.CodeConflict)
+
+	secondKey := "late-create:" + uuid.NewString()
+	second, err := env.lateSvc.CreateRequest(ctx, fix.CarrierAct, event.ID, fix.CarrierID, secondKey, body)
+	if err != nil {
+		t.Fatalf("new attempt: %v", err)
+	}
+	if second.ID == first.ID {
+		t.Fatal("new key after REJECTED must create a new request")
+	}
+	secondReplay, err := env.lateSvc.CreateRequest(ctx, fix.CarrierAct, event.ID, fix.CarrierID, secondKey, body)
+	if err != nil {
+		t.Fatalf("new attempt replay: %v", err)
+	}
+	if secondReplay.ID != second.ID {
+		t.Fatalf("retry of the new attempt must replay %s, got %s", second.ID, secondReplay.ID)
+	}
+	items, err := env.lateSvc.ListOwnRequests(ctx, fix.CarrierAct, event.ID, fix.CarrierID)
+	if err != nil {
+		t.Fatalf("mine: %v", err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("expected two requests after reject+new attempt, got %d", len(items))
+	}
+}
+
+func TestF301NewCreateKeyAllowedAfterExpiredAndConsumed(t *testing.T) {
+	ctx := context.Background()
+	expiredEnv, expiredFix, expiredEvent := seedExpiredApprovedPermission(t)
+	expiredNext, err := expiredEnv.lateSvc.CreateRequest(ctx, expiredFix.CarrierAct, expiredEvent.ID, expiredFix.CarrierID, uuid.NewString(), domain.CreateLateSubmissionRequestInput{
+		ReasonCode: domain.LateSubmissionReasonOther, ReasonText: "retry after EXPIRED",
+		RequestedUntil: fixedLateNow().Add(24 * time.Hour),
+	})
+	if err != nil {
+		t.Fatalf("create after EXPIRED: %v", err)
+	}
+	if expiredNext.Status != domain.LateSubmissionStatusRequested {
+		t.Fatalf("status after EXPIRED=%s", expiredNext.Status)
+	}
+
+	consumedEnv, consumedFix, consumedEvent, _, saved := seedApprovedLateWindow(t)
+	if _, err := consumedEnv.crSvc.Submit(ctx, consumedFix.CarrierAct, consumedEvent.ID, consumedFix.CarrierID, saved.SaveVersion, uuid.NewString()); err != nil {
+		t.Fatalf("consume: %v", err)
+	}
+	consumedNext, err := consumedEnv.lateSvc.CreateRequest(ctx, consumedFix.CarrierAct, consumedEvent.ID, consumedFix.CarrierID, uuid.NewString(), domain.CreateLateSubmissionRequestInput{
+		ReasonCode: domain.LateSubmissionReasonOther, ReasonText: "retry after CONSUMED",
+		RequestedUntil: time.Now().UTC().Add(24 * time.Hour),
+	})
+	if err != nil {
+		t.Fatalf("create after CONSUMED: %v", err)
+	}
+	if consumedNext.Status != domain.LateSubmissionStatusRequested {
+		t.Fatalf("status after CONSUMED=%s", consumedNext.Status)
+	}
+}
+
 func seedApprovedLateWindow(t *testing.T) (*testEnv, buyerFixture, *domain.RfxEvent, *domain.Question, *domain.ResponseSaveResult) {
 	t.Helper()
 	env := setupTestEnv(t)

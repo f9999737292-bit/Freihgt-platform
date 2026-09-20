@@ -22,6 +22,7 @@ import {
 
 interface CarrierApiOptions {
   carrierCompanyId?: string
+  idempotencyKey?: string
 }
 
 async function carrierFetch<T>(
@@ -56,6 +57,7 @@ async function carrierFetch<T>(
   if (authStore.user?.id) headers[API_HEADER_USER_ID] = authStore.user.id
   if (tenantStore.tenantId) headers[API_HEADER_TENANT_ID] = tenantStore.tenantId
   if (tenantStore.currentCompanyId) headers['X-Company-ID'] = tenantStore.currentCompanyId
+  if (options.idempotencyKey) headers['Idempotency-Key'] = options.idempotencyKey
 
   let response: Response
   try {
@@ -86,6 +88,14 @@ async function carrierFetch<T>(
   }
 
   if (response.status === 422) {
+    const wrapped = payload as { error?: { code?: string; message?: string; details?: Record<string, unknown> } }
+    if (wrapped.error?.code && wrapped.error.code !== 'VALIDATION_FAILED') {
+      throw new ApiError(422, {
+        code: wrapped.error.code,
+        message: wrapped.error.message ?? 'Unprocessable',
+        details: wrapped.error.details ?? {},
+      })
+    }
     throw new CarrierValidationError(parseCarrierValidation422Body(payload))
   }
 
@@ -159,12 +169,13 @@ export function useCarrierResponseApi() {
     eventId: string,
     saveVersion: number,
     carrierCompanyId?: string,
+    idempotencyKey?: string,
   ) {
     return carrierFetch<CarrierResponseSubmitResult>(
       'POST',
       carrierResponseApiPath(eventId, 'submit'),
       { save_version: saveVersion },
-      { carrierCompanyId },
+      { carrierCompanyId, idempotencyKey },
     )
   }
 

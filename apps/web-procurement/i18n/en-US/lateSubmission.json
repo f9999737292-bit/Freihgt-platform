@@ -1,0 +1,72 @@
+{
+  "lateSubmission": {
+    "carrier": {
+      "title": "Late submission request",
+      "hint": "The response deadline has passed. Request buyer approval, then submit the existing DRAFT questionnaire only inside the approved window.",
+      "reasonCode": "Reason",
+      "reasonText": "Explanation",
+      "requestedUntil": "Requested until",
+      "submit": "Request late submission",
+      "submitSuccess": "Late submission request sent",
+      "status": "Request status",
+      "window": "Approved window",
+      "noRequest": "No late submission request yet",
+      "commercialLocked": "Commercial submit stays closed after the deadline. Use the questionnaire after approval."
+    },
+    "buyer": {
+      "title": "Late submission queue",
+      "empty": "No late submission requests",
+      "carrier": "Carrier company",
+      "reason": "Reason",
+      "requestedUntil": "Requested until",
+      "windowFrom": "Valid from",
+      "windowUntil": "Valid until",
+      "comment": "Decision comment",
+      "approve": "Approve",
+      "reject": "Reject",
+      "approveSuccess": "Late submission approved",
+      "rejectSuccess": "Late submission rejected",
+      "readOnly": "You can view this queue but cannot approve or reject."
+    },
+    "reason": {
+      "TECHNICAL_FAILURE": "Technical failure",
+      "ORGANIZATIONAL_DELAY": "Organizational delay",
+      "BUYER_REQUEST": "Buyer request",
+      "FORCE_MAJEURE": "Force majeure",
+      "OTHER": "Other"
+    },
+    "status": {
+      "REQUESTED": "Requested",
+      "APPROVED": "Approved",
+      "REJECTED": "Rejected",
+      "EXPIRED": "Expired",
+      "CONSUMED": "Used"
+    },
+    "submit": {
+      "blockedDeadline": "Submit after the deadline requires an approved late submission window.",
+      "blockedDraft": "Late submit is available only for an existing DRAFT response.",
+      "blockedPermission": "Wait for buyer approval before submitting.",
+      "blockedWindowNotStarted": "The approved window has not started yet.",
+      "blockedWindowExpired": "The approved window has expired.",
+      "needIdempotency": "A late submit must send an Idempotency-Key."
+    },
+    "errors": {
+      "validation": "Check the request fields and try again.",
+      "beforeDeadline": "A late submission request is allowed only after the response deadline.",
+      "reasonCode": "Select a valid reason.",
+      "reasonText": "Enter a non-empty explanation.",
+      "requestedUntil": "Enter a valid requested-until date.",
+      "unauthorized": "Sign in to continue.",
+      "forbidden": "You do not have permission for this late submission action.",
+      "notFound": "Late submission is unavailable or the request was not found.",
+      "conflict": "This late submission request already has an active decision.",
+      "idempotencyConflict": "This idempotency key already belongs to another request.",
+      "idempotencyRequired": "An Idempotency-Key is required.",
+      "permissionRequired": "An approved late submission window is required.",
+      "windowNotStarted": "The approved window has not started yet.",
+      "windowExpired": "The approved window has expired.",
+      "unprocessable": "The late submission action cannot be completed now.",
+      "unavailable": "Late submission is temporarily unavailable."
+    }
+  }
+}

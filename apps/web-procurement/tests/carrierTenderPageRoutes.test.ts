@@ -24,6 +24,14 @@ describe('carrier tender page routes', () => {
     expect(questionnaire).not.toContain('carrier-xlsx')
   })
 
+  it('mounts late submission request on carrier tender and questionnaire pages', () => {
+    const detail = readFileSync(join(pagesRoot, '[id]', 'index.vue'), 'utf8')
+    const questionnaire = readFileSync(join(pagesRoot, '[id]', 'questionnaire.vue'), 'utf8')
+    expect(detail).toContain('LateSubmissionRequestPanel')
+    expect(questionnaire).toContain('LateSubmissionRequestPanel')
+    expect(detail).toContain('carrier-late-submission-slot')
+  })
+
   it('loads own-response after buyer-only lots and missing own-participant failures', () => {
     const detail = readFileSync(join(pagesRoot, '[id]', 'index.vue'), 'utf8')
     const loadWorkspace = detail.slice(detail.indexOf('async function loadWorkspace()'))

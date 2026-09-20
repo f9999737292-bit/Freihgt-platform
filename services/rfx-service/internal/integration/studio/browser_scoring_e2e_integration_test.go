@@ -368,7 +368,7 @@ func runScoringV3PlaywrightReady03LoopSuite(t *testing.T, stack *browserScoringL
 
 func verifyBrowserHarnessCleanup(t *testing.T) {
 	t.Helper()
-	for _, port := range []string{"3020", "3022", "3023", "3031", "3032"} {
+	for _, port := range []string{"3020", "3022", "3023", "3031", "3032", "3033"} {
 		if devPortInUse(port) {
 			t.Errorf("dev port %s still in use after cleanup", port)
 		}
