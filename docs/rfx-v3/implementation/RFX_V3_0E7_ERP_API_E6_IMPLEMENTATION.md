@@ -2,13 +2,13 @@
 
 **Wave:** E6 (GET / status / capabilities)
 **Branch:** `feat/rfx-erp-contract-closure-e6-v3.0e7`
-**Status:** `IMPLEMENTED`
+**Status:** `IMPLEMENTED_ACCEPTED`
 
 ## Authorization markers
 
 ```
 ERP_API_E6_AUTHORIZED=YES
-ERP_API_E6_STATUS=IMPLEMENTED
+ERP_API_E6_STATUS=IMPLEMENTED_ACCEPTED
 ERP_API_E6_IMPLEMENTATION_STARTED=YES
 E6_OPENAPI_ROLE=FINAL_EXHAUSTIVE_CONSOLIDATION
 E6_IS_FIRST_PUBLICATION_FOR_E2_E5=NO
@@ -19,7 +19,28 @@ MIGRATION_000075_AUTHORIZED=NO
 MIGRATION_000075_REQUIRED=NO
 INT_196_OCCUPIED=NO
 ERP_GET_IMPLEMENTED=YES
+CONTROLLER_VERDICT=ACCEPT_ERP_API_E6
+CONTROLLER_REVIEW_HEAD=72950d64a0f16251f2b94abfe02c3cfd346f6d45
+CONTROLLER_CI_RUN=35491362938
+CONTROLLER_CI_RESULT=SUCCESS
+FOLLOW_UP_FINDINGS_BLOCK_E6_MERGE=NO
 ```
+
+## Controller acceptance
+
+| Field | Value |
+|---|---|
+| Reviewed PR | #147 |
+| Reviewed head | `72950d64a0f16251f2b94abfe02c3cfd346f6d45` |
+| Reviewed base | `1db7aedcb479af35f77b644b9d61934ea5d05224` |
+| Accepted product CI | `35491362938` |
+| Controller verdict | `ACCEPT_ERP_API_E6` |
+
+## Non-blocking findings
+
+| ID | Severity | Status | Note |
+|---|---|---|---|
+| F_E6_L1 | LOW | REMAINS_OPEN | OpenAPI lists `409 event_not_draft` on `getErpImportAnalysisStatus` and `getErpIntegrationCapabilities`. Runtime does not emit that code for those operations; it applies only to the two RFx GET operations. Does not block merge. |
 
 ## Delivered operations
 
