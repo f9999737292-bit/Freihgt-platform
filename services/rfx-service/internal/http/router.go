@@ -172,6 +172,7 @@ func NewRouter(
 
 	r.Route("/v1/carrier/rfx-events", func(r chi.Router) {
 		r.Get("/", rfxHandler.ListCarrierInvitedEvents)
+		r.Get("/{id}", rfxHandler.GetCarrierInvitedEvent)
 	})
 
 	r.Post("/v1/rfx-lots/{lot_id}/lanes", rfxHandler.CreateLane)

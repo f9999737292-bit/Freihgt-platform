@@ -19,6 +19,7 @@ import {
 } from '~/utils/companyMembership'
 import { shouldShowNotFound, isApiUnavailableError } from '~/utils/apiError'
 import { ApiError } from '~/utils/apiClient'
+import CarrierXlsxExchangePanel from '~/components/carrier/CarrierXlsxExchangePanel.vue'
 
 definePageMeta({ middleware: 'auth', layout: 'default' })
 
@@ -137,6 +138,57 @@ async function loadResponse() {
   }
 }
 
+async function refreshWorkspace() {
+  if (selectedCarrierCompanyId.value) {
+    setCompany(selectedCarrierCompanyId.value)
+  }
+  try {
+    event.value = await getTender(eventId.value, selectedCarrierCompanyId.value || undefined)
+  } catch {
+    // Keep the current event so the XLSX panel is not remounted after commit.
+  }
+  try {
+    participant.value = await getOwnParticipant(eventId.value, selectedCarrierCompanyId.value || undefined)
+  } catch {
+    // Keep the current participant snapshot.
+  }
+  try {
+    lots.value = await listLots(eventId.value)
+    const laneEntries: Record<string, RfxLane[]> = {}
+    for (const lot of lots.value) {
+      laneEntries[lot.id] = await listLanes(lot.id, selectedCarrierCompanyId.value || undefined)
+    }
+    lanesByLot.value = laneEntries
+  } catch {
+    // Keep the current lots/lanes snapshot.
+  }
+  try {
+    await loadResponse()
+  } catch {
+    // Keep the current response so commit UI state survives a refresh race.
+  }
+  try {
+    ownAward.value = await getOwnAward(eventId.value, selectedCarrierCompanyId.value || undefined)
+  } catch {
+    ownAward.value = null
+  }
+}
+
+function classifyWorkspaceError(error: unknown) {
+  if (shouldShowNotFound(error)) {
+    notFound.value = true
+    return
+  }
+  if (error instanceof ApiError && error.status === 403) {
+    permissionDenied.value = true
+    return
+  }
+  apiUnavailable.value = isCarrierApiUnavailable(error)
+  if (!apiUnavailable.value) {
+    pushToast('error', error instanceof Error ? error.message : t('carrierTenders.loadFailed'))
+  }
+}
+
 async function loadWorkspace() {
   loading.value = true
   notFound.value = false
@@ -146,35 +198,46 @@ async function loadWorkspace() {
     if (selectedCarrierCompanyId.value) {
       setCompany(selectedCarrierCompanyId.value)
     }
-    event.value = await getTender(eventId.value)
-    participant.value = await getOwnParticipant(eventId.value, selectedCarrierCompanyId.value || undefined)
-    lots.value = await listLots(eventId.value)
-    const laneEntries: Record<string, RfxLane[]> = {}
-    for (const lot of lots.value) {
-      laneEntries[lot.id] = await listLanes(lot.id, selectedCarrierCompanyId.value || undefined)
+    try {
+      event.value = await getTender(eventId.value, selectedCarrierCompanyId.value || undefined)
+    } catch (error) {
+      event.value = null
+      lots.value = []
+      lanesByLot.value = {}
+      response.value = null
+      participant.value = null
+      classifyWorkspaceError(error)
+      return
     }
-    lanesByLot.value = laneEntries
-    await loadResponse()
+    // Buyer-only /lots and missing gateway /own-participant must not hide own-response.
+    try {
+      participant.value = await getOwnParticipant(eventId.value, selectedCarrierCompanyId.value || undefined)
+    } catch {
+      // Keep the current participant snapshot.
+    }
+    try {
+      lots.value = await listLots(eventId.value)
+      const laneEntries: Record<string, RfxLane[]> = {}
+      for (const lot of lots.value) {
+        try {
+          laneEntries[lot.id] = await listLanes(lot.id, selectedCarrierCompanyId.value || undefined)
+        } catch {
+          laneEntries[lot.id] = lanesByLot.value[lot.id] ?? []
+        }
+      }
+      lanesByLot.value = laneEntries
+    } catch {
+      // Keep the current lots/lanes snapshot.
+    }
+    try {
+      await loadResponse()
+    } catch (error) {
+      classifyWorkspaceError(error)
+    }
     try {
       ownAward.value = await getOwnAward(eventId.value, selectedCarrierCompanyId.value || undefined)
     } catch {
       ownAward.value = null
-    }
-  } catch (error) {
-    event.value = null
-    lots.value = []
-    lanesByLot.value = {}
-    response.value = null
-    participant.value = null
-    if (shouldShowNotFound(error)) {
-      notFound.value = true
-    } else if (error instanceof ApiError && error.status === 403) {
-      permissionDenied.value = true
-    } else {
-      apiUnavailable.value = isCarrierApiUnavailable(error)
-      if (!apiUnavailable.value) {
-        pushToast('error', error instanceof Error ? error.message : t('carrierTenders.loadFailed'))
-      }
     }
   } finally {
     loading.value = false
@@ -270,7 +333,7 @@ onUnmounted(() => {
     <nav class="breadcrumb" aria-label="Breadcrumb">
       <NuxtLink to="/carrier/tenders">{{ t('carrierTenders.title') }}</NuxtLink>
       <span aria-hidden="true"> / </span>
-      <span>{{ event?.rfx_number || eventId }}</span>
+      <span data-testid="carrier-tender-rfx-number">{{ event?.rfx_number || eventId }}</span>
     </nav>
 
     <PageHeader
@@ -318,7 +381,7 @@ onUnmounted(() => {
           <dt>{{ t('carrierTenders.detail.participantStatus') }}</dt>
           <dd>{{ statusLabel(participant?.status || 'INVITED') }}</dd>
           <dt>{{ t('carrierTenders.columns.ownResponse') }}</dt>
-          <dd>{{ statusLabel(ownResponseStatus) }}</dd>
+          <dd data-testid="carrier-tender-response-status">{{ statusLabel(ownResponseStatus) }}</dd>
         </dl>
         <p v-if="event.description" class="description">{{ event.description }}</p>
       </Card>
@@ -401,12 +464,26 @@ onUnmounted(() => {
           <Button v-if="showCreate" :disabled="acting" @click="handleCreateResponse">
             {{ t('carrierTenders.detail.createResponse') }}
           </Button>
-          <Button v-if="showSubmit" :disabled="acting" @click="handleSubmitResponse">
+          <Button
+            v-if="showSubmit"
+            data-testid="carrier-submit-response"
+            :disabled="acting"
+            @click="handleSubmitResponse"
+          >
             {{ t('carrierTenders.detail.submitResponse') }}
           </Button>
         </div>
         <p class="muted decline-note">{{ t('carrierTenders.detail.declineNotSupported') }}</p>
       </Card>
+
+      <div data-testid="carrier-xlsx-slot">
+        <CarrierXlsxExchangePanel
+          :event-id="eventId"
+          :response-id="response?.id || ''"
+          :response-status="response?.status || ''"
+          @committed="refreshWorkspace"
+        />
+      </div>
     </template>
   </div>
 </template>

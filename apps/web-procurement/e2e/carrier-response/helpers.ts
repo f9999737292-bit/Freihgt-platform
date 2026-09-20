@@ -47,14 +47,29 @@ export async function seedCarrierSession(page: Page) {
   }, { token: jwt, tenant: tenantId, company: carrierCompanyId, user: userId })
 }
 
-/** GET /api/v1/rfx-events/{id} is buyer-only at gateway; stub minimal event metadata for page shell. */
+/** GET /api/v1/carrier/rfx-events/{id} is the carrier-scoped event read used by tender pages. */
 export async function stubCarrierEventMetadata(
   page: Page,
   targetEventId = eventId,
   title = eventTitle,
   number = rfxNumber,
 ) {
-  await page.route(`**/api/v1/rfx-events/${targetEventId}`, async (route) => {
+  const body = {
+    id: targetEventId,
+    tenant_id: tenantId,
+    owner_company_id: buyerCompanyId,
+    rfx_number: number,
+    title,
+    status: 'PUBLISHED',
+    rfx_type: 'SPOT_RFQ',
+    category: 'FREIGHT',
+    response_deadline: new Date(Date.now() + 48 * 3600 * 1000).toISOString(),
+    participant_status: 'INVITED',
+    own_response_status: 'DRAFT',
+    lot_count: 0,
+    participant_company_id: carrierCompanyId,
+  }
+  await page.route(`**/api/v1/carrier/rfx-events/${targetEventId}**`, async (route) => {
     if (route.request().method() !== 'GET') {
       await route.continue()
       return
@@ -62,17 +77,7 @@ export async function stubCarrierEventMetadata(
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({
-        id: targetEventId,
-        tenant_id: tenantId,
-        owner_company_id: buyerCompanyId,
-        rfx_number: number,
-        title,
-        status: 'PUBLISHED',
-        rfx_type: 'SPOT_RFQ',
-        category: 'FREIGHT',
-        response_deadline: new Date(Date.now() + 48 * 3600 * 1000).toISOString(),
-      }),
+      body: JSON.stringify(body),
     })
   })
 }

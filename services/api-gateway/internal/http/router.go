@@ -239,6 +239,7 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	r.Post("/api/v1/rfx-events/from-template", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
 	r.Get("/api/v1/rfx-events", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerRead))
 	r.Get("/api/v1/rfx-events/{id}", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerRead))
+	r.Get("/api/v1/carrier/rfx-events/{id}", rfxGuard.WithPolicy(rfxrbac.PolicyCarrierRead))
 	r.Patch("/api/v1/rfx-events/{id}", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
 	r.Post("/api/v1/rfx-events/{id}/publish", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
 	r.Post("/api/v1/rfx-events/{id}/cancel", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))

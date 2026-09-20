@@ -65,7 +65,7 @@ async function loadEvent() {
   permissionDenied.value = false
   apiUnavailable.value = false
   try {
-    event.value = await getTender(eventId.value)
+    event.value = await getTender(eventId.value, selectedCarrierCompanyId.value || undefined)
   } catch (err) {
     if (shouldShowNotFound(err)) notFound.value = true
     else if (err instanceof ApiError && err.status === 403) permissionDenied.value = true

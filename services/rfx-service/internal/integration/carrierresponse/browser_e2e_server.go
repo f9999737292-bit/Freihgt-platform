@@ -49,5 +49,6 @@ func newBrowserCarrierRouter(env *testEnv) http.Handler {
 		r.Get("/{id}/carrier-response/summary", crHandler.GetCarrierResponseSummary)
 	})
 	r.Get("/v1/carrier/rfx-events", rfxHandler.ListCarrierInvitedEvents)
+	r.Get("/v1/carrier/rfx-events/{id}", rfxHandler.GetCarrierInvitedEvent)
 	return r
 }

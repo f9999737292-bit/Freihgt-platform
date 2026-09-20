@@ -38,6 +38,7 @@ type RfxStore interface {
 	GetResponseByEventAndCompany(ctx context.Context, eventID, companyID, tenantID uuid.UUID) (*domain.RfxResponse, error)
 	SubmitResponse(ctx context.Context, id, tenantID uuid.UUID, submittedBy *uuid.UUID) (*domain.RfxResponse, error)
 	ListCarrierInvitedEvents(ctx context.Context, filter domain.ListCarrierInvitedEventsFilter, now time.Time) ([]domain.CarrierInvitedRfxEvent, int, error)
+	GetCarrierInvitedEvent(ctx context.Context, eventID, carrierCompanyID, tenantID uuid.UUID) (*domain.CarrierInvitedRfxEvent, error)
 	ListLanesByLot(ctx context.Context, lotID, tenantID uuid.UUID) ([]domain.RfxLane, error)
 	GetParticipantByEventAndCompany(ctx context.Context, eventID, companyID, tenantID uuid.UUID) (*domain.RfxParticipant, error)
 }

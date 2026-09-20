@@ -1153,6 +1153,43 @@ func (r *RfxRepository) ListCarrierInvitedEvents(ctx context.Context, filter dom
 	return items, total, err
 }
 
+func (r *RfxRepository) GetCarrierInvitedEvent(ctx context.Context, eventID, carrierCompanyID, tenantID uuid.UUID) (*domain.CarrierInvitedRfxEvent, error) {
+	var item *domain.CarrierInvitedRfxEvent
+	err := measureDB("rfx_repository", "get_carrier_invited_event", func() error {
+		const query = `
+		SELECT e.id, e.tenant_id, e.rfx_number, e.rfx_type, e.category, e.title, e.description,
+			e.owner_company_id, e.status, e.currency_code, e.valid_from, e.valid_to, e.response_deadline,
+			e.created_at, e.updated_at, e.version,
+			p.status, p.company_id, resp.id, resp.status,
+			(SELECT COUNT(*) FROM rfx.rfx_lots l WHERE l.rfx_event_id = e.id AND l.tenant_id = e.tenant_id AND l.deleted_at IS NULL)
+		FROM rfx.rfx_events e
+		INNER JOIN rfx.rfx_participants p ON p.rfx_event_id = e.id AND p.tenant_id = e.tenant_id AND p.company_id = $2
+		LEFT JOIN rfx.rfx_responses resp ON resp.rfx_event_id = e.id
+		  AND resp.participant_company_id = p.company_id AND resp.tenant_id = e.tenant_id AND resp.deleted_at IS NULL
+		WHERE e.tenant_id = $3 AND e.id = $1 AND e.deleted_at IS NULL`
+		row := r.db().QueryRow(ctx, query, eventID, carrierCompanyID, tenantID)
+		var found domain.CarrierInvitedRfxEvent
+		var responseID *uuid.UUID
+		var responseStatus *string
+		if err := row.Scan(
+			&found.Event.ID, &found.Event.TenantID, &found.Event.RfxNumber, &found.Event.RfxType, &found.Event.Category, &found.Event.Title, &found.Event.Description,
+			&found.Event.OwnerCompanyID, &found.Event.Status, &found.Event.CurrencyCode, &found.Event.ValidFrom, &found.Event.ValidTo, &found.Event.ResponseDeadline,
+			&found.Event.CreatedAt, &found.Event.UpdatedAt, &found.Event.Version,
+			&found.ParticipantStatus, &found.ParticipantCompanyID, &responseID, &responseStatus, &found.LotCount,
+		); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return apperrors.NotFound("rfx event not found")
+			}
+			return mapDBError(err)
+		}
+		found.OwnResponseStatus = domain.DeriveOwnResponseStatus(responseStatus)
+		found.OwnResponseID = responseID
+		item = &found
+		return nil
+	})
+	return item, err
+}
+
 func scanRfxEvent(row pgx.Row) (*domain.RfxEvent, error) {
 	var event domain.RfxEvent
 	err := row.Scan(
