@@ -129,6 +129,13 @@ export function canShowBuyerLateQueue(input: {
   return input.lateSubmissionEnabled && hasLateSubmissionBuyerReadRole(input.roles)
 }
 
+export function canEnableQuestionnaireSubmitButton(input: {
+  deadlineExpired: boolean
+  lateSubmitAllowed: boolean
+}): boolean {
+  return !input.deadlineExpired || input.lateSubmitAllowed
+}
+
 export function canDecideLateSubmission(input: {
   lateSubmissionEnabled: boolean
   roles: readonly string[]

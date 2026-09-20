@@ -5,6 +5,7 @@ import { ApiError } from '~/utils/apiClient'
 import {
   canCreateLateSubmissionRequest,
   canDecideLateSubmission,
+  canEnableQuestionnaireSubmitButton,
   canLateSubmitQuestionnaire,
   canShowBuyerLateQueue,
   canShowCarrierLateRequestPanel,
@@ -168,6 +169,21 @@ describe('late submission F3 routes and access', () => {
       }),
       now,
     })).toBe('window_expired')
+  })
+
+  it('keeps pre-deadline submit clickable and only locks the button outside an approved late window', () => {
+    expect(canEnableQuestionnaireSubmitButton({
+      deadlineExpired: false,
+      lateSubmitAllowed: false,
+    })).toBe(true)
+    expect(canEnableQuestionnaireSubmitButton({
+      deadlineExpired: true,
+      lateSubmitAllowed: true,
+    })).toBe(true)
+    expect(canEnableQuestionnaireSubmitButton({
+      deadlineExpired: true,
+      lateSubmitAllowed: false,
+    })).toBe(false)
   })
 
   it('reuses one Idempotency-Key per logical create attempt and rotates after terminal status', () => {

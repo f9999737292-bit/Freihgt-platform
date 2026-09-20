@@ -199,12 +199,18 @@ export async function seedBuyerSession(
   })
 }
 
-export async function stubCarrierMemberships(page: Page, role = 'CARRIER_DISPATCHER') {
+export async function stubCarrierMemberships(
+  page: Page,
+  role = 'CARRIER_DISPATCHER',
+  companies: { carrierCompanyId?: string; buyerCompanyId?: string } = {},
+) {
+  const carrierId = companies.carrierCompanyId || carrierCompanyId
+  const buyerId = companies.buyerCompanyId || buyerCompanyId
   await page.route('**/api/v1/users/**/companies**', async (route) => {
     await fulfillJSON(route, 200, {
       items: [{
-        membership_id: `${carrierCompanyId}-membership`,
-        company_id: carrierCompanyId,
+        membership_id: `${carrierId}-membership`,
+        company_id: carrierId,
         legal_name: 'Carrier A',
         company_type: 'CARRIER',
         membership_status: 'ACTIVE',
@@ -220,8 +226,8 @@ export async function stubCarrierMemberships(page: Page, role = 'CARRIER_DISPATC
     }
     await fulfillJSON(route, 200, {
       items: [
-        { id: buyerCompanyId, legal_name: 'Buyer A', company_type: 'SHIPPER', status: 'ACTIVE' },
-        { id: carrierCompanyId, legal_name: 'Carrier A', company_type: 'CARRIER', status: 'ACTIVE' },
+        { id: buyerId, legal_name: 'Buyer A', company_type: 'SHIPPER', status: 'ACTIVE' },
+        { id: carrierId, legal_name: 'Carrier A', company_type: 'CARRIER', status: 'ACTIVE' },
       ],
     })
   })

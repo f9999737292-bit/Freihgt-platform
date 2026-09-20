@@ -71,7 +71,10 @@ async function seedLiveSession(
 async function stubLiveShell(page: Page, role: 'carrier' | 'buyer' | 'logist') {
   const fix = liveFixture()
   if (role === 'carrier') {
-    await stubCarrierMemberships(page)
+    await stubCarrierMemberships(page, 'CARRIER_DISPATCHER', {
+      carrierCompanyId: fix.carrierCompanyId,
+      buyerCompanyId: fix.buyerCompanyId,
+    })
     return
   }
   const userId = role === 'logist' ? fix.logistUserId : fix.buyerUserId

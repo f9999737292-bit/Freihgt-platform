@@ -6,6 +6,7 @@ import {
   resolveCarrierAutosaveStatusClass,
 } from '~/utils/carrierResponseAutosave'
 import { formatLocalValueForDisplay } from '~/utils/carrierResponseValidation'
+import { canEnableQuestionnaireSubmitButton } from '~/utils/lateSubmissionAccess'
 
 const props = defineProps<{
   event: RfxEvent
@@ -36,7 +37,7 @@ const {
   focusQuestionId,
   submitBlockedMessage,
   showLeaveWarning,
-  canSubmit,
+  lateSubmitAllowed,
   lateBlockReason,
   deadlineExpired,
   loadWorkspace,
@@ -68,6 +69,11 @@ const autosaveLabel = computed(() => {
 })
 
 const autosaveClass = computed(() => resolveCarrierAutosaveStatusClass(autosaveStatus.value))
+
+const submitEnabled = computed(() => canEnableQuestionnaireSubmitButton({
+  deadlineExpired: deadlineExpired.value,
+  lateSubmitAllowed: lateSubmitAllowed.value,
+}))
 
 const lateBlockedLabel = computed(() => {
   const reason = lateBlockReason.value
@@ -255,7 +261,7 @@ onMounted(() => {
               v-else
               type="button"
               data-testid="submit-questionnaire"
-              :disabled="submitting || autosaveStatus === 'saving' || !canSubmit"
+              :disabled="submitting || autosaveStatus === 'saving' || !submitEnabled"
               @click="onSubmit"
             >
               {{ t('carrierResponse.submit.action') }}

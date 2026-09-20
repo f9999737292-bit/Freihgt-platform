@@ -48,14 +48,15 @@ test.describe('late submission stub UI', () => {
       seen.push(`${route.request().method()} ${new URL(route.request().url()).pathname}`)
       await fulfillJSON(route, 200, { items: [] })
     })
-    await page.route(`**/api/v1/rfx-events/${eventId}/late-submission-requests`, async (route) => {
-      if (route.request().method() !== 'POST') {
+    await page.route(`**/api/v1/rfx-events/${eventId}/late-submission-requests**`, async (route) => {
+      const url = new URL(route.request().url())
+      if (route.request().method() !== 'POST' || url.pathname.endsWith('/mine')) {
         await route.fallback()
         return
       }
-      seen.push(`${route.request().method()} ${new URL(route.request().url()).pathname}`)
+      seen.push(`${route.request().method()} ${url.pathname}`)
       keys.push(route.request().headers()['idempotency-key'] || '')
-      expect(new URL(route.request().url()).searchParams.get('carrier_company_id')).toBeTruthy()
+      expect(url.searchParams.get('carrier_company_id')).toBeTruthy()
       await fulfillJSON(route, 201, lateRequestBody())
     })
 
@@ -213,7 +214,12 @@ test.describe('late submission stub UI', () => {
         })],
       })
     })
-    await page.route(`**/api/v1/rfx-events/${eventId}/carrier-response/submit`, async (route) => {
+    await page.route(`**/api/v1/rfx-events/${eventId}/carrier-response/submit**`, async (route) => {
+      const url = new URL(route.request().url())
+      if (route.request().method() !== 'POST' || !url.pathname.endsWith('/carrier-response/submit')) {
+        await route.fallback()
+        return
+      }
       submitKeys.push(route.request().headers()['idempotency-key'] || '')
       await fulfillJSON(route, 200, {
         ...workspaceBody({ product_status: 'SUBMITTED', status: 'SUBMITTED', save_version: 2 }),
