@@ -7,6 +7,7 @@ import {
   buyerXlsxPreviewPath,
 } from '~/utils/buyerXlsxApiRoutes'
 import { canShowBuyerXlsxPanel, hasBuyerXlsxManageRole } from '~/utils/buyerXlsxAccess'
+import { isRfxExcelExchangeEnabled } from '~/utils/buyerXlsxFeatureFlag'
 import {
   canCommitBuyerXlsxPreview,
   classifyBuyerXlsxHttpError,
@@ -86,6 +87,10 @@ describe('buyer XLSX F1 routes and access', () => {
       roles: ['SHIPPER_LOGIST'],
       eventStatus: 'DRAFT',
     })).toBe(false)
+    expect(isRfxExcelExchangeEnabled(true)).toBe(true)
+    expect(isRfxExcelExchangeEnabled('true')).toBe(true)
+    expect(isRfxExcelExchangeEnabled('false')).toBe(false)
+    expect(isRfxExcelExchangeEnabled(false)).toBe(false)
   })
 })
 

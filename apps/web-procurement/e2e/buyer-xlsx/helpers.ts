@@ -61,7 +61,7 @@ export async function stubTenderWorkspace(page: Page, status = 'DRAFT') {
       return
     }
     if (method === 'GET' && url.pathname.endsWith('/lots')) {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [] }) })
       return
     }
     if (method === 'GET' && url.pathname.endsWith('/participants')) {

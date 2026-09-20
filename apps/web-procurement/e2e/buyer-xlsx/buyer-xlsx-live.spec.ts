@@ -10,6 +10,7 @@ function liveFixture() {
     eventId: requireBuyerXlsxEnv('BROWSER_E2E_EVENT_ID'),
     userId: requireBuyerXlsxEnv('BROWSER_E2E_USER_ID'),
     gatewayURL: requireBuyerXlsxEnv('BROWSER_E2E_GATEWAY_URL'),
+    rfxNumber: requireBuyerXlsxEnv('BROWSER_E2E_RFX_NUMBER'),
   }
 }
 
@@ -43,10 +44,11 @@ async function seedLiveBuyerSession(page: Page) {
 }
 
 async function openDraft(page: Page) {
-  const { eventId } = liveFixture()
+  const { eventId, rfxNumber } = liveFixture()
   await seedLiveBuyerSession(page)
   await page.goto(`/tenders/${eventId}`, { waitUntil: 'domcontentloaded' })
-  await expect(page.getByText('Tender not found')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible()
+  await expect(page.getByText(rfxNumber)).toBeVisible({ timeout: 30_000 })
   await expectPanelVisible(page)
 }
 
@@ -87,10 +89,16 @@ test.describe('buyer XLSX live stack', () => {
     await expect(page.getByTestId('buyer-xlsx-preview')).toBeVisible()
     await expect(page.getByTestId('buyer-xlsx-commit')).toBeEnabled()
 
-    await page.getByLabel('Lot number').fill('L-STALE')
-    await page.getByLabel('Lot name').fill('Stale lot')
-    await page.getByRole('button', { name: 'Add lot' }).click()
-    await expect(page.getByText('L-STALE')).toBeVisible()
+    const fix = liveFixture()
+    const mutate = await page.request.patch(`${fix.gatewayURL}/api/v1/rfx-events/${fix.eventId}`, {
+      headers: {
+        Authorization: `Bearer ${fix.jwt}`,
+        'Content-Type': 'application/json',
+        'X-Company-ID': fix.companyId,
+      },
+      data: { title: `Stale after preview ${Date.now()}` },
+    })
+    expect(mutate.ok()).toBeTruthy()
 
     await page.getByTestId('buyer-xlsx-commit').click()
     await expect(page.getByTestId('buyer-xlsx-error')).toHaveAttribute('data-error-kind', 'stale_target')
