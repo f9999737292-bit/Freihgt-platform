@@ -143,7 +143,7 @@ async function refreshWorkspace() {
     setCompany(selectedCarrierCompanyId.value)
   }
   try {
-    event.value = await getTender(eventId.value)
+    event.value = await getTender(eventId.value, selectedCarrierCompanyId.value || undefined)
   } catch {
     // Keep the current event so the XLSX panel is not remounted after commit.
   }
@@ -199,7 +199,7 @@ async function loadWorkspace() {
       setCompany(selectedCarrierCompanyId.value)
     }
     try {
-      event.value = await getTender(eventId.value)
+      event.value = await getTender(eventId.value, selectedCarrierCompanyId.value || undefined)
     } catch (error) {
       event.value = null
       lots.value = []

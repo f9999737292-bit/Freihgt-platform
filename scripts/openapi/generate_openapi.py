@@ -135,6 +135,7 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/rfx-events", "post", "Create RFx event", "RFx", True, True, None),
     ("/api/v1/rfx-events/from-template", "post", "Clone RFx event from template", "RFx", True, True, "e5_clone"),
     ("/api/v1/rfx-events", "get", "List RFx events", "RFx", True, True, None),
+    ("/api/v1/carrier/rfx-events/{id}", "get", "Get invited RFx event for the authenticated carrier company", "RFx", True, True, "carrier_invited_event_get"),
     ("/api/v1/rfx-events/{id}", "get", "Get RFx event by ID (optional clone provenance for buyers)", "RFx", True, True, "rfx_event_detail"),
     ("/api/v1/rfx-events/{id}", "patch", "Update RFx event", "RFx", True, True, None),
     ("/api/v1/rfx-events/{id}/publish", "post", "Publish RFx event", "RFx", True, True, None),
@@ -549,6 +550,7 @@ PROFILE_OPERATION_IDS = {
     "erp_get_rfx_by_external_id": "getErpRfxByExternalId",
     "erp_get_import_analysis_status": "getErpImportAnalysisStatus",
     "erp_get_integration_capabilities": "getErpIntegrationCapabilities",
+    "carrier_invited_event_get": "get_carrier_invited_rfx_event",
 }
 
 EXCEL_EXCHANGE_COMMIT_PROFILES = frozenset({"xlsx_import_commit_buyer_draft", "xlsx_import_commit_carrier_response"})
@@ -779,6 +781,15 @@ ERP_UPDATE_COMMIT_ERROR_RESPONSES = """        '400':
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'"""
+
+CARRIER_INVITED_EVENT_DESCRIPTION = """Carrier-scoped read of an RFx event the authenticated company is invited to.
+
+Authorization: **CarrierRead** role required (`CARRIER_ADMIN`, `CARRIER_DISPATCHER`).
+Access is fail-closed on tenant isolation and invited-company membership.
+The payload is the invited-event list item (own participant/response summary only).
+It does not expose participants, foreign responses, rates, or scores.
+
+The buyer route `GET /api/v1/rfx-events/{id}` remains **BuyerRead** and is not opened to carriers."""
 
 EXCEL_EXCHANGE_DESCRIPTIONS = {
     "xlsx_export_buyer_draft": """Export buyer draft RFx event as an XLSX workbook snapshot.
@@ -1066,6 +1077,7 @@ TEMPLATE_RESPONSE_SCHEMAS = {
     "tl_questionnaire_get": "RfxTemplateQuestionnaireDefinition",
     "tl_version_questionnaire_get": "RfxTemplateQuestionnaireDefinition",
     "rfx_event_detail": "RfxEventDetailResponse",
+    "carrier_invited_event_get": "CarrierInvitedEventResponse",
     "tl_section_create": "RfxTemplateSection",
     "tl_section_update": "RfxTemplateSection",
     "tl_question_create": "RfxTemplateQuestion",
@@ -1215,6 +1227,15 @@ def query_parameter_lines(method: str, path: str, profile: str | None) -> list[s
         lines.extend(_pagination_query_lines())
     elif method == "get" and path == "/api/v1/freight-costs":
         lines.extend(_pagination_query_lines())
+    elif profile == "carrier_invited_event_get":
+        lines.extend([
+            "        - name: carrier_company_id",
+            "          in: query",
+            "          required: false",
+            "          schema:",
+            "            type: string",
+            "            format: uuid",
+        ])
     elif profile == "erp_get_rfx_by_external_id":
         lines.extend([
             "        - name: external_system",
@@ -1370,6 +1391,13 @@ def render_operation(
     elif profile in EXCEL_EXCHANGE_DESCRIPTIONS:
         lines.append("      description: |")
         for desc_line in EXCEL_EXCHANGE_DESCRIPTIONS[profile].splitlines():
+            if desc_line:
+                lines.append(f"        {desc_line}")
+            else:
+                lines.append("")
+    elif profile == "carrier_invited_event_get":
+        lines.append("      description: |")
+        for desc_line in CARRIER_INVITED_EVENT_DESCRIPTION.splitlines():
             if desc_line:
                 lines.append(f"        {desc_line}")
             else:
@@ -2392,6 +2420,16 @@ def questionnaire_entity_schemas_block() -> str:
             source_version_warning: {type: boolean, nullable: true}
             source_template_code: {type: string, nullable: true}
             source_template_name_i18n: {type: object, additionalProperties: {type: string}, nullable: true}
+    CarrierInvitedEventResponse:
+      allOf:
+        - $ref: '#/components/schemas/RfxStudioEventRecord'
+        - type: object
+          properties:
+            participant_status: {type: string}
+            own_response_status: {type: string, enum: [NOT_STARTED, DRAFT, SUBMITTED]}
+            own_response_id: {type: string, format: uuid, nullable: true}
+            lot_count: {type: integer}
+            participant_company_id: {type: string, format: uuid}
     RfxStudioResponse:
       type: object
       properties:

@@ -28,6 +28,20 @@ func (s *RfxService) ListCarrierInvitedEvents(ctx context.Context, actor domain.
 	return s.repo.ListCarrierInvitedEvents(ctx, filter, nowUTC())
 }
 
+func (s *RfxService) GetCarrierInvitedEvent(ctx context.Context, actor domain.ActorContext, eventID uuid.UUID, requestedCarrierCompanyID uuid.UUID) (*domain.CarrierInvitedRfxEvent, error) {
+	if err := actor.Validate(); err != nil {
+		return nil, err
+	}
+	if eventID == uuid.Nil {
+		return nil, apperrors.Validation("id is required", map[string]any{"field": "id"})
+	}
+	carrierCompanyID, err := s.resolveCarrierCompanyIDOnly(ctx, actor, requestedCarrierCompanyID)
+	if err != nil {
+		return nil, err
+	}
+	return s.repo.GetCarrierInvitedEvent(ctx, eventID, carrierCompanyID, actor.TenantID)
+}
+
 func (s *RfxService) GetOwnResponse(ctx context.Context, actor domain.ActorContext, eventID uuid.UUID, requestedCarrierCompanyID uuid.UUID) (*domain.RfxResponse, error) {
 	if err := actor.Validate(); err != nil {
 		return nil, err

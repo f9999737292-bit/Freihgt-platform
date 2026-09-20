@@ -37,4 +37,10 @@ describe('carrier tender page routes', () => {
     expect(tenderFail).toContain('return')
     expect(tenderFail).not.toContain('await loadResponse()')
   })
+
+  it('loads tender metadata from the carrier-scoped invited event route', () => {
+    const api = readFileSync(join(process.cwd(), 'composables', 'useCarrierRfxApi.ts'), 'utf8')
+    expect(api).toContain('/api/v1/carrier/rfx-events/${encodeURIComponent(id)}')
+    expect(api).not.toMatch(/async function getTender[\s\S]{0,240}\/api\/v1\/rfx-events\//)
+  })
 })

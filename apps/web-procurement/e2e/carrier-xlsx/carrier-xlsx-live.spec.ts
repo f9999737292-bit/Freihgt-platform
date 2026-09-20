@@ -23,6 +23,8 @@ function liveFixture() {
     competitorOffer: requireCarrierXlsxEnv('BROWSER_E2E_COMPETITOR_OFFER'),
     competitorName: requireCarrierXlsxEnv('BROWSER_E2E_COMPETITOR_NAME'),
     competitorAnswer: requireCarrierXlsxEnv('BROWSER_E2E_COMPETITOR_ANSWER'),
+    competitorCompanyId: requireCarrierXlsxEnv('BROWSER_E2E_COMPETITOR_COMPANY_ID'),
+    competitorResponseId: requireCarrierXlsxEnv('BROWSER_E2E_COMPETITOR_RESPONSE_ID'),
     lotId: requireCarrierXlsxEnv('BROWSER_E2E_LOT_ID'),
   }
 }
@@ -106,32 +108,21 @@ async function stubLiveCarrierShell(page: Page) {
   await page.route('**/api/v1/rfx-lots/**/lanes**', async (route) => {
     await fulfillJSON(route, 200, { items: [] })
   })
-  await page.route(`**/api/v1/rfx-events/${fix.eventId}`, async (route) => {
-    const pathname = new URL(route.request().url()).pathname
-    if (pathname !== `/api/v1/rfx-events/${fix.eventId}` || route.request().method() !== 'GET') {
-      await route.fallback()
-      return
-    }
-    await fulfillJSON(route, 200, {
-      id: fix.eventId,
-      tenant_id: fix.tenantId,
-      owner_company_id: fix.buyerCompanyId,
-      rfx_number: fix.rfxNumber,
-      title: 'Carrier XLSX live',
-      status: 'PUBLISHED',
-      rfx_type: 'SPOT_RFQ',
-      category: 'FREIGHT',
-      currency_code: 'RUB',
-      response_deadline: new Date(Date.now() + 48 * 3600 * 1000).toISOString(),
-    })
-  })
+}
+
+function isCarrierInvitedEventGet(url: string, eventId: string) {
+  const parsed = new URL(url)
+  return parsed.pathname === `/api/v1/carrier/rfx-events/${eventId}`
 }
 
 async function openDraft(page: Page) {
-  const { eventId, rfxNumber, responseId } = liveFixture()
+  const { eventId, rfxNumber, responseId, gatewayURL, jwt } = liveFixture()
   const probe = attachCarrierXlsxNetworkProbe(page)
   await seedLiveCarrierSession(page)
   await stubLiveCarrierShell(page)
+  const eventWait = page.waitForResponse((resp) => {
+    return isCarrierInvitedEventGet(resp.url(), eventId) && resp.request().method() === 'GET'
+  }, { timeout: 30_000 })
   const responseWait = page.waitForResponse((resp) => {
     return (
       resp.url().includes(`/api/v1/rfx-events/${eventId}/own-response`)
@@ -139,11 +130,23 @@ async function openDraft(page: Page) {
     )
   }, { timeout: 30_000 })
   await page.goto(`/carrier/tenders/${eventId}`, { waitUntil: 'domcontentloaded' })
+  const eventLoaded = await eventWait.catch((error: Error) => {
+    throw new Error(`${error.message}\n${formatCarrierXlsxNetworkProbe(probe)}`)
+  })
+  if (eventLoaded.status() !== 200) {
+    throw new Error(`carrier invited event GET ${eventLoaded.status()} ${eventLoaded.url()}\n${formatCarrierXlsxNetworkProbe(probe)}`)
+  }
   const loaded = await responseWait.catch((error: Error) => {
     throw new Error(`${error.message}\n${formatCarrierXlsxNetworkProbe(probe)}`)
   })
   if (loaded.status() !== 200) {
     throw new Error(`own-response GET ${loaded.status()} ${loaded.url()}\n${formatCarrierXlsxNetworkProbe(probe)}`)
+  }
+  const buyerBlocked = await page.request.get(`${gatewayURL}/api/v1/rfx-events/${eventId}`, {
+    headers: { Authorization: `Bearer ${jwt}` },
+  })
+  if (buyerBlocked.status() !== 403) {
+    throw new Error(`buyer GET /rfx-events/{id} expected 403, got ${buyerBlocked.status()}`)
   }
   await expectWorkspaceLoaded(page, rfxNumber)
   await expectPanelVisible(page, 'DRAFT')
@@ -193,6 +196,41 @@ async function uploadWorkbook(page: Page, filePath: string) {
 }
 
 test.describe('carrier XLSX live stack', () => {
+  test('foreign company cannot read invited event or own response', async ({ page }) => {
+    const fix = liveFixture()
+    await seedLiveCarrierSession(page)
+    const eventResp = await page.request.get(
+      `${fix.gatewayURL}/api/v1/carrier/rfx-events/${fix.eventId}?carrier_company_id=${fix.competitorCompanyId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${fix.jwt}`,
+          'X-Company-ID': fix.competitorCompanyId,
+        },
+      },
+    )
+    expect([403, 404]).toContain(eventResp.status())
+    const eventBody = await eventResp.text()
+    expect(eventBody).not.toContain(fix.responseId)
+    expect(eventBody).not.toContain(fix.competitorResponseId)
+    expect(eventBody).not.toContain(fix.competitorOffer)
+
+    const ownResp = await page.request.get(
+      `${fix.gatewayURL}/api/v1/rfx-events/${fix.eventId}/own-response?carrier_company_id=${fix.competitorCompanyId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${fix.jwt}`,
+          'X-Company-ID': fix.competitorCompanyId,
+        },
+      },
+    )
+    expect([403, 404]).toContain(ownResp.status())
+    const ownBody = await ownResp.text()
+    expect(ownBody).not.toContain(fix.responseId)
+    expect(ownBody).not.toContain(fix.competitorResponseId)
+    expect(ownBody).not.toContain(fix.competitorOffer)
+    expect(ownBody).not.toContain(fix.competitorAnswer)
+  })
+
   test('invalid file keeps Commit disabled and hides raw message keys', async ({ page }) => {
     const probe = attachCarrierXlsxNetworkProbe(page)
     await openDraft(page)

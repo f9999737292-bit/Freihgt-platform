@@ -37,9 +37,11 @@ type browserCarrierXlsxFixture struct {
 	LotID            uuid.UUID
 	JWT              string
 	RfxNumber        string
-	CompetitorOffer  string
-	CompetitorName   string
-	CompetitorAnswer string
+	CompetitorOffer      string
+	CompetitorName       string
+	CompetitorAnswer     string
+	CompetitorCompanyID  uuid.UUID
+	CompetitorResponseID uuid.UUID
 }
 
 type browserCarrierXlsxLiveStack struct {
@@ -187,16 +189,20 @@ func seedCarrierXlsxBrowserFixture(t *testing.T, env *testEnv) browserCarrierXls
 		LotID:            lot.ID,
 		JWT:              browserStudioJWT(fix.CarrierAct.UserID, fix.TenantID),
 		RfxNumber:        event.RfxNumber,
-		CompetitorOffer:  competitor.offer,
-		CompetitorName:   competitor.name,
-		CompetitorAnswer: competitor.answer,
+		CompetitorOffer:      competitor.offer,
+		CompetitorName:       competitor.name,
+		CompetitorAnswer:     competitor.answer,
+		CompetitorCompanyID:  competitor.companyID,
+		CompetitorResponseID: competitor.responseID,
 	}
 }
 
 type carrierXlsxCompetitor struct {
-	offer  string
-	name   string
-	answer string
+	offer      string
+	name       string
+	answer     string
+	companyID  uuid.UUID
+	responseID uuid.UUID
 }
 
 func seedCarrierXlsxCompetitor(t *testing.T, env *testEnv, fix buyerFixture, eventID, lotID, questionID uuid.UUID) carrierXlsxCompetitor {
@@ -236,6 +242,8 @@ func seedCarrierXlsxCompetitor(t *testing.T, env *testEnv, fix buyerFixture, eve
 		fix.TenantID, responseBID, questionID, `"`+sent.answer+`"`, domain.AnswerSourceCarrierDeclared); err != nil {
 		t.Fatalf("insert competitor answer: %v", err)
 	}
+	sent.companyID = carrierBID
+	sent.responseID = responseBID
 	return sent
 }
 
@@ -418,6 +426,8 @@ func runCarrierXlsxPlaywrightSuite(t *testing.T, stack *browserCarrierXlsxLiveSt
 		"BROWSER_E2E_COMPETITOR_OFFER="+fix.CompetitorOffer,
 		"BROWSER_E2E_COMPETITOR_NAME="+fix.CompetitorName,
 		"BROWSER_E2E_COMPETITOR_ANSWER="+fix.CompetitorAnswer,
+		"BROWSER_E2E_COMPETITOR_COMPANY_ID="+fix.CompetitorCompanyID.String(),
+		"BROWSER_E2E_COMPETITOR_RESPONSE_ID="+fix.CompetitorResponseID.String(),
 	)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

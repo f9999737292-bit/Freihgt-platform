@@ -25,6 +25,7 @@ test.describe('carrier XLSX update draft', () => {
     await expect(page.getByTestId('carrier-xlsx-commit')).toHaveCount(0)
 
     await page.unroute('**/api/v1/rfx-events/**')
+    await page.unroute('**/api/v1/carrier/rfx-events/**')
     await page.unroute('**/api/v1/users/**/companies**')
     await page.unroute('**/api/v1/companies**')
     await stubCarrierTenderWorkspace(page, { responseStatus: 'SUBMITTED' })

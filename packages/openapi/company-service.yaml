@@ -997,6 +997,16 @@ components:
             source_version_warning: {type: boolean, nullable: true}
             source_template_code: {type: string, nullable: true}
             source_template_name_i18n: {type: object, additionalProperties: {type: string}, nullable: true}
+    CarrierInvitedEventResponse:
+      allOf:
+        - $ref: '#/components/schemas/RfxStudioEventRecord'
+        - type: object
+          properties:
+            participant_status: {type: string}
+            own_response_status: {type: string, enum: [NOT_STARTED, DRAFT, SUBMITTED]}
+            own_response_id: {type: string, format: uuid, nullable: true}
+            lot_count: {type: integer}
+            participant_company_id: {type: string, format: uuid}
     RfxStudioResponse:
       type: object
       properties:

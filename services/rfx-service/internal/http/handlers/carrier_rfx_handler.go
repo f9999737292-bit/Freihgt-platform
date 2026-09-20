@@ -59,6 +59,32 @@ func (h *RfxHandler) ListCarrierInvitedEvents(w http.ResponseWriter, r *http.Req
 	})
 }
 
+func (h *RfxHandler) GetCarrierInvitedEvent(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireActor(w, r)
+	if !ok {
+		return
+	}
+
+	eventID, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	carrierCompanyID, err := parseCarrierCompanyIDQuery(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	event, err := h.service.GetCarrierInvitedEvent(r.Context(), actor, eventID, carrierCompanyID)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+
+	respond.JSON(w, http.StatusOK, toCarrierInvitedEventResponse(event))
+}
+
 func (h *RfxHandler) GetOwnResponse(w http.ResponseWriter, r *http.Request) {
 	actor, ok := requireActor(w, r)
 	if !ok {

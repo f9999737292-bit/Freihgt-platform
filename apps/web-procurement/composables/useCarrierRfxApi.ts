@@ -1,5 +1,5 @@
 import type { PaginatedResponse } from '~/types/api'
-import type { RfxEvent, RfxLane, RfxLot, RfxParticipant } from '~/types/rfx'
+import type { RfxLane, RfxLot, RfxParticipant } from '~/types/rfx'
 import type { CarrierInvitedTender, CarrierResponseFilter, CarrierRfxResponse } from '~/types/carrierRfx'
 import { isApiUnavailableError } from '~/utils/apiError'
 
@@ -33,8 +33,10 @@ export function useCarrierRfxApi() {
     return { ...data, items: data.items ?? [] }
   }
 
-  async function getTender(id: string) {
-    return apiGet<RfxEvent>(`/api/v1/rfx-events/${encodeURIComponent(id)}`)
+  async function getTender(id: string, carrierCompanyId?: string) {
+    return apiGet<CarrierInvitedTender>(`/api/v1/carrier/rfx-events/${encodeURIComponent(id)}`, {
+      query: carrierQuery(carrierCompanyId),
+    })
   }
 
   async function getOwnParticipant(eventId: string, carrierCompanyId?: string) {

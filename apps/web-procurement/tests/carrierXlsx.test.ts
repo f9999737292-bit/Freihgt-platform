@@ -85,6 +85,12 @@ describe('carrier XLSX F2 routes and access', () => {
     expect(carrierXlsxCommitPath(eventId, responseId)).not.toContain('/submit')
   })
 
+  it('loads the tender page event through the carrier invited-event path', () => {
+    const api = readFileSync(resolve(__dirname, '../composables/useCarrierRfxApi.ts'), 'utf8')
+    expect(api).toContain('/api/v1/carrier/rfx-events/')
+    expect(api).not.toMatch(/function getTender[\s\S]{0,200}\/api\/v1\/rfx-events\//)
+  })
+
   it('shows the panel only for carrier roles + flag + own response id', () => {
     expect(hasCarrierXlsxReadRole(['PROCUREMENT_MANAGER'])).toBe(false)
     expect(hasCarrierXlsxReadRole(['CARRIER_ADMIN'])).toBe(true)

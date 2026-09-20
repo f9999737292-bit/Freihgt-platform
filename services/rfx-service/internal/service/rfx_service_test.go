@@ -20,7 +20,8 @@ type mockRfxStore struct {
 	participantExistsFn   func(ctx context.Context, eventID, companyID, tenantID uuid.UUID) (bool, error)
 	getResponseFn         func(ctx context.Context, id, tenantID uuid.UUID) (*domain.RfxResponse, error)
 	getLotOwnerContextFn  func(ctx context.Context, lotID, tenantID uuid.UUID) (*domain.LotOwnerContext, error)
-	createLaneFn          func(ctx context.Context, in domain.CreateRfxLaneInput) (*domain.RfxLane, error)
+	createLaneFn                 func(ctx context.Context, in domain.CreateRfxLaneInput) (*domain.RfxLane, error)
+	getCarrierInvitedEventFn     func(ctx context.Context, eventID, carrierCompanyID, tenantID uuid.UUID) (*domain.CarrierInvitedRfxEvent, error)
 }
 
 func (m *mockRfxStore) CompanyExists(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
@@ -94,6 +95,12 @@ func (m *mockRfxStore) SubmitResponse(context.Context, uuid.UUID, uuid.UUID, *uu
 }
 func (m *mockRfxStore) ListCarrierInvitedEvents(context.Context, domain.ListCarrierInvitedEventsFilter, time.Time) ([]domain.CarrierInvitedRfxEvent, int, error) {
 	return nil, 0, nil
+}
+func (m *mockRfxStore) GetCarrierInvitedEvent(ctx context.Context, eventID, carrierCompanyID, tenantID uuid.UUID) (*domain.CarrierInvitedRfxEvent, error) {
+	if m.getCarrierInvitedEventFn != nil {
+		return m.getCarrierInvitedEventFn(ctx, eventID, carrierCompanyID, tenantID)
+	}
+	return nil, apperrors.NotFound("rfx event not found")
 }
 func (m *mockRfxStore) ListLanesByLot(context.Context, uuid.UUID, uuid.UUID) ([]domain.RfxLane, error) {
 	return nil, nil

@@ -151,6 +151,33 @@ export async function stubCarrierTenderWorkspace(
       ],
     })
   })
+  await page.route(`**/api/v1/carrier/rfx-events/${eventId}`, async (route: Route) => {
+    if (route.request().method() === 'OPTIONS') {
+      await route.fulfill({ status: 204, headers: corsHeaders })
+      return
+    }
+    if (route.request().method() !== 'GET') {
+      await route.fallback()
+      return
+    }
+    await fulfillJSON(route, 200, {
+      id: eventId,
+      tenant_id: tenantId,
+      owner_company_id: buyerCompanyId,
+      rfx_number: 'RFX-CARRIER-XLSX-1',
+      title: 'Carrier XLSX draft',
+      status: 'PUBLISHED',
+      rfx_type: 'LANE_TENDER',
+      category: 'FREIGHT',
+      currency_code: 'RUB',
+      response_deadline: '2026-10-01T12:00:00Z',
+      participant_status: 'INVITED',
+      own_response_status: responseStatus === 'MISSING' ? 'NOT_STARTED' : responseStatus,
+      own_response_id: responseStatus === 'MISSING' ? null : responseId,
+      lot_count: 0,
+      participant_company_id: carrierCompanyId,
+    })
+  })
   await page.route('**/api/v1/rfx-events/**', async (route: Route) => {
     if (route.request().method() === 'OPTIONS') {
       await route.fulfill({ status: 204, headers: corsHeaders })
