@@ -5,7 +5,6 @@ import type {
   BuyerXlsxPreviewResult,
 } from '~/types/buyerXlsx'
 import {
-  BUYER_XLSX_CONTENT_TYPE,
   BUYER_XLSX_MAX_UPLOAD_BYTES,
   buyerXlsxCommitPath,
   buyerXlsxExportPath,
@@ -19,7 +18,7 @@ export function useBuyerXlsxApi() {
 
   async function exportBuyerDraft(eventId: string) {
     return apiGetBlob(buyerXlsxExportPath(eventId), {
-      headers: { Accept: `${BUYER_XLSX_CONTENT_TYPE}, */*` },
+      headers: { Accept: '*/*' },
     })
   }
 
