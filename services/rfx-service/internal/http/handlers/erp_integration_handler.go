@@ -109,6 +109,74 @@ func (h *ErpIntegrationHandler) CommitCreateDraft(w http.ResponseWriter, r *http
 	respond.JSON(w, http.StatusCreated, result)
 }
 
+func (h *ErpIntegrationHandler) GetRfxEventByID(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireIntegrationActor(w, r, domain.ScopeDraftRead)
+	if !ok {
+		return
+	}
+	eventID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		respond.Error(w, apperrors.Validation("invalid event id", map[string]any{"field": "id"}))
+		return
+	}
+	summary, err := h.service.GetRfxDraftSummaryByID(r.Context(), actor, eventID)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusOK, summary)
+}
+
+func (h *ErpIntegrationHandler) GetRfxByExternalID(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireIntegrationActor(w, r, domain.ScopeDraftRead)
+	if !ok {
+		return
+	}
+	summary, err := h.service.GetRfxDraftSummaryByExternalID(
+		r.Context(),
+		actor,
+		r.URL.Query().Get("external_system"),
+		r.URL.Query().Get("external_object_id"),
+		r.URL.Query().Get("external_revision"),
+	)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusOK, summary)
+}
+
+func (h *ErpIntegrationHandler) GetAnalysisStatus(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireIntegrationActor(w, r, domain.ScopeStatusRead)
+	if !ok {
+		return
+	}
+	analysisID, err := uuid.Parse(chi.URLParam(r, "analysis_id"))
+	if err != nil {
+		respond.Error(w, apperrors.Validation("invalid analysis id", map[string]any{"field": "analysis_id"}))
+		return
+	}
+	status, err := h.service.GetAnalysisStatus(r.Context(), actor, analysisID)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusOK, status)
+}
+
+func (h *ErpIntegrationHandler) GetCapabilities(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireIntegrationActor(w, r, domain.ScopeStatusRead)
+	if !ok {
+		return
+	}
+	caps, err := h.service.GetCapabilities(r.Context(), actor)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusOK, caps)
+}
+
 func readERPUpdateCommitBody(r *http.Request) (domain.ErpUpdateCommitInput, error) {
 	raw, err := readERPJSONBody(nil, r)
 	if err != nil {

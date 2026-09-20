@@ -114,3 +114,51 @@ func TestCreateCommitExactPathIsIntegrationProtected(t *testing.T) {
 		t.Fatal("CREATE commit neighbor must not be integration protected")
 	}
 }
+
+func TestReadRoutesAreIntegrationProtected(t *testing.T) {
+	const eventID = "550e8400-e29b-41d4-a716-446655440000"
+	cases := []struct {
+		method string
+		path   string
+	}{
+		{http.MethodGet, "/api/v1/integrations/erp/rfx-events/" + eventID},
+		{http.MethodGet, "/api/v1/integrations/erp/rfx-events/{id}"},
+		{http.MethodGet, "/api/v1/integrations/erp/rfx/by-external-id"},
+		{http.MethodGet, "/api/v1/integrations/erp/rfx/by-external-id?external_system=SAP"},
+		{http.MethodGet, "/api/v1/integrations/erp/analyses/" + eventID},
+		{http.MethodGet, "/api/v1/integrations/erp/analyses/{analysis_id}"},
+		{http.MethodGet, "/api/v1/integrations/erp/capabilities"},
+	}
+	for _, tc := range cases {
+		if !IsIntegrationProtectedRoute(tc.method, tc.path) {
+			t.Fatalf("%s %s must be integration protected", tc.method, tc.path)
+		}
+		if RequiresHumanAuth(tc.method, tc.path) {
+			t.Fatalf("%s %s must not require human auth", tc.method, tc.path)
+		}
+	}
+}
+
+func TestReadRouteNeighborsRemainHuman(t *testing.T) {
+	const eventID = "550e8400-e29b-41d4-a716-446655440000"
+	cases := []struct {
+		method string
+		path   string
+	}{
+		{http.MethodPost, "/api/v1/integrations/erp/rfx-events/" + eventID},
+		{http.MethodGet, "/api/v1/integrations/erp/rfx-events/" + eventID + "/extra"},
+		{http.MethodGet, "/api/v1/integrations/erp/rfx/by-external-id/extra"},
+		{http.MethodPost, "/api/v1/integrations/erp/rfx/by-external-id"},
+		{http.MethodGet, "/api/v1/integrations/erp/analyses/" + eventID + "/extra"},
+		{http.MethodGet, "/api/v1/integrations/erp/capabilities/extra"},
+		{http.MethodPost, "/api/v1/integrations/erp/capabilities"},
+	}
+	for _, tc := range cases {
+		if IsIntegrationProtectedRoute(tc.method, tc.path) {
+			t.Fatalf("%s %s must not be integration protected", tc.method, tc.path)
+		}
+		if !RequiresHumanAuth(tc.method, tc.path) {
+			t.Fatalf("%s %s must remain human authenticated", tc.method, tc.path)
+		}
+	}
+}

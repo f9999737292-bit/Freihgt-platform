@@ -145,6 +145,31 @@ func (r *ImportAnalysisRepository) GetByID(ctx context.Context, id, tenantID uui
 	return analysis, nil
 }
 
+func (r *ImportAnalysisRepository) GetLatestConsumedERPForEvent(
+	ctx context.Context,
+	tenantID, principalID, eventID uuid.UUID,
+) (*domain.ImportAnalysis, error) {
+	row := r.db().QueryRow(ctx, `
+		SELECT `+importAnalysisSelectColumns+`
+		FROM rfx.rfx_import_analyses
+		WHERE tenant_id = $1
+		  AND integration_principal_id = $2
+		  AND result_reference_id = $3
+		  AND workbook_type = $4
+		  AND status = $5
+		ORDER BY consumed_at DESC NULLS LAST, created_at DESC
+		LIMIT 1
+	`, tenantID, principalID, eventID, domain.WorkbookTypeERPBuyerJSON, domain.ImportAnalysisStatusConsumed)
+	analysis, err := scanImportAnalysis(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperrors.NotFound("import analysis not found")
+		}
+		return nil, mapDBError(err)
+	}
+	return analysis, nil
+}
+
 func (r *ImportAnalysisRepository) MarkConsumed(
 	ctx context.Context,
 	id, tenantID uuid.UUID,

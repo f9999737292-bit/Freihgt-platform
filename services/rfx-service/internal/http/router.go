@@ -232,6 +232,10 @@ func NewRouter(
 		r.Use(erpIntegrationFlagMiddleware(cfg.RfxErpIntegrationEnabled))
 		r.Post("/rfx/drafts/preview", erpIntegrationHandler.PreviewCreateDraft)
 		r.Post("/rfx/drafts/commit", erpIntegrationHandler.CommitCreateDraft)
+		r.Get("/rfx-events/{id}", erpIntegrationHandler.GetRfxEventByID)
+		r.Get("/rfx/by-external-id", erpIntegrationHandler.GetRfxByExternalID)
+		r.Get("/analyses/{analysis_id}", erpIntegrationHandler.GetAnalysisStatus)
+		r.Get("/capabilities", erpIntegrationHandler.GetCapabilities)
 	})
 
 	r.Route("/internal/v1/pricing", func(r chi.Router) {

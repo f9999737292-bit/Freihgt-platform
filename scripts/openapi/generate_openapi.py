@@ -103,6 +103,10 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/integrations/erp/rfx/drafts/commit", "post", "Commit ERP buyer JSON create draft import", "RFx", True, True, "erp_import_create_commit"),
     ("/api/v1/rfx-events/{id}/erp-import/preview", "post", "Preview ERP buyer JSON update draft import", "RFx", True, True, "erp_import_preview_update_draft"),
     ("/api/v1/rfx-events/{id}/erp-import/commit", "post", "Commit ERP buyer JSON update draft import", "RFx", True, True, "erp_import_update_commit"),
+    ("/api/v1/integrations/erp/rfx-events/{id}", "get", "Get ERP RFx draft by internal ID", "RFx", True, True, "erp_get_rfx_event_by_id"),
+    ("/api/v1/integrations/erp/rfx/by-external-id", "get", "Get ERP RFx draft by stable external identity", "RFx", True, True, "erp_get_rfx_by_external_id"),
+    ("/api/v1/integrations/erp/analyses/{analysis_id}", "get", "Get ERP import analysis status", "RFx", True, True, "erp_get_import_analysis_status"),
+    ("/api/v1/integrations/erp/capabilities", "get", "Get ERP integration capabilities", "RFx", True, True, "erp_get_integration_capabilities"),
     ("/api/v1/users", "post", "Create user", "Users", False, False, None),
     ("/api/v1/users", "get", "List users", "Users", True, True, None),
     ("/api/v1/users/{id}", "get", "Get user by ID", "Users", True, True, None),
@@ -524,15 +528,27 @@ E7_ERP_UPDATE_COMMIT_ENDPOINT_PROFILES = frozenset({
     "erp_import_update_commit",
 })
 
+E7_ERP_READ_ENDPOINT_PROFILES = frozenset({
+    "erp_get_rfx_event_by_id",
+    "erp_get_rfx_by_external_id",
+    "erp_get_import_analysis_status",
+    "erp_get_integration_capabilities",
+})
+
 ERP_PREVIEW_PROFILES = frozenset(E7_ERP_PREVIEW_ENDPOINT_PROFILES)
 ERP_CREATE_COMMIT_PROFILES = frozenset(E7_ERP_CREATE_COMMIT_ENDPOINT_PROFILES)
 ERP_UPDATE_COMMIT_PROFILES = frozenset(E7_ERP_UPDATE_COMMIT_ENDPOINT_PROFILES)
+ERP_READ_PROFILES = frozenset(E7_ERP_READ_ENDPOINT_PROFILES)
 
 PROFILE_OPERATION_IDS = {
     "erp_import_preview_create_draft": "postErpRfxDraftCreatePreview",
     "erp_import_preview_update_draft": "postErpRfxDraftUpdatePreview",
     "erp_import_create_commit": "postErpRfxDraftCreateCommit",
     "erp_import_update_commit": "postErpRfxDraftUpdateCommit",
+    "erp_get_rfx_event_by_id": "getErpRfxEventById",
+    "erp_get_rfx_by_external_id": "getErpRfxByExternalId",
+    "erp_get_import_analysis_status": "getErpImportAnalysisStatus",
+    "erp_get_integration_capabilities": "getErpIntegrationCapabilities",
 }
 
 EXCEL_EXCHANGE_COMMIT_PROFILES = frozenset({"xlsx_import_commit_buyer_draft", "xlsx_import_commit_carrier_response"})
@@ -655,6 +671,49 @@ ERP_CREATE_COMMIT_ERROR_RESPONSES = """        '400':
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
           description: Unprocessable stored analysis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'"""
+
+ERP_READ_ERROR_RESPONSES = """        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict (`event_not_draft` when the target RFx is PUBLISHED or otherwise not DRAFT)
           content:
             application/json:
               schema:
@@ -827,6 +886,42 @@ Successful commit returns **200** with `rfx_event_id` and `applied_at`. The even
 If the event already has an external link, an accepted UPDATE must apply a new unused `external.revision`: backfill the previous revision/hash into history when E4 left it only on the link, append the new history row, and update link metadata in place without rebinding `rfx_event_id`. Link or current-revision drift after Preview returns **409** `stale_target` with zero writes. Same-key replay returns the stored **200** without extra history rows. Events without a link may omit `external`; first bind creates the link and the initial history row atomically.
 
 Conflict machine codes: `stale_target`, `proposal_revalidation_failed`, `stale_mapping_context`, `actor_binding_denied`, `analysis_expired`, `analysis_already_consumed`, `canonical_hash_mismatch`, `idempotency_conflict`, `external_id_conflict`.""",
+    "erp_get_rfx_event_by_id": """Return an allowlisted ERP DRAFT summary by internal RFx event ID.
+
+Feature flag: when `RFX_ERP_INTEGRATION_ENABLED` is false (default), the route returns **404** (feature disabled).
+
+Authorization: integration bearer auth with scope `rfx:draft:read`. Tenant, company, and integration principal are taken from trusted gateway context only. Human JWT is not accepted.
+
+Response: `ErpRfxDraftSummary` only (not the human UI event DTO). PUBLISHED or non-DRAFT events return **409** `event_not_draft`. Cross-tenant or cross-company lookups return **404**.
+
+E2 per-principal rate limit applies (**429**). Read operations do not write audit events.""",
+    "erp_get_rfx_by_external_id": """Return an allowlisted ERP DRAFT summary by stable external identity.
+
+Feature flag: when `RFX_ERP_INTEGRATION_ENABLED` is false (default), the route returns **404** (feature disabled).
+
+Authorization: integration bearer auth with scope `rfx:draft:read`. Lookup key is tenant + principal + `external_system` + `RFX_EVENT` + `external_object_id`. Revision is optional metadata only.
+
+Query `external_revision` matching the current link revision returns **200** even when E4 CREATE left history empty. Any other unrecorded revision returns **404**. PUBLISHED or non-DRAFT events return **409** `event_not_draft`.
+
+E2 per-principal rate limit applies (**429**). Read operations do not write audit events.""",
+    "erp_get_import_analysis_status": """Return the persisted ERP import analysis status snapshot.
+
+Feature flag: when `RFX_ERP_INTEGRATION_ENABLED` is false (default), the route returns **404** (feature disabled).
+
+Authorization: integration bearer auth with scope `rfx:status:read`. Only the owning integration principal may read the analysis. Foreign tenant, company, or principal returns **404** without revealing existence.
+
+Semantics are synchronous v1: the handler reads the persisted row and does not imply a background worker.
+
+E2 per-principal rate limit applies (**429**). Read operations do not write audit events.""",
+    "erp_get_integration_capabilities": """Return principal-authenticated ERP v1 capabilities.
+
+Feature flag: when `RFX_ERP_INTEGRATION_ENABLED` is false (default), the route returns **404** (feature disabled).
+
+Authorization: integration bearer auth with scope `rfx:status:read` only. Unauthenticated requests return **401**.
+
+Response includes `schema_version=BINTRANS_RFX_ERP_JSON_V1`, parser limits, supported mapping types, and deferred fields.
+
+E2 per-principal rate limit applies (**429**). Read operations do not write audit events.""",
     "xlsx_import_commit_carrier_response": """Atomically apply a persisted carrier XLSX import preview analysis to a DRAFT response.
 
 Feature flag: when `RFX_EXCEL_EXCHANGE_ENABLED` is false (default), the route returns **404** (feature disabled).
@@ -1120,6 +1215,26 @@ def query_parameter_lines(method: str, path: str, profile: str | None) -> list[s
         lines.extend(_pagination_query_lines())
     elif method == "get" and path == "/api/v1/freight-costs":
         lines.extend(_pagination_query_lines())
+    elif profile == "erp_get_rfx_by_external_id":
+        lines.extend([
+            "        - name: external_system",
+            "          in: query",
+            "          required: true",
+            "          schema:",
+            "            type: string",
+            "            maxLength: 64",
+            "        - name: external_object_id",
+            "          in: query",
+            "          required: true",
+            "          schema:",
+            "            type: string",
+            "            maxLength: 256",
+            "        - name: external_revision",
+            "          in: query",
+            "          required: false",
+            "          schema:",
+            "            type: string",
+        ])
     return lines
 
 
@@ -1329,6 +1444,7 @@ def render_operation(
         and profile not in ERP_PREVIEW_PROFILES
         and profile not in ERP_CREATE_COMMIT_PROFILES
         and profile not in ERP_UPDATE_COMMIT_PROFILES
+        and profile not in ERP_READ_PROFILES
     ):
         schema_ref = "#/components/schemas/VoidRequest" if profile in VOID_DESCRIPTIONS else None
         lines.extend(
@@ -1388,7 +1504,7 @@ def render_operation(
             ]
         )
 
-    if secured and profile not in EXCEL_EXCHANGE_PREVIEW_PROFILES and profile not in EXCEL_EXCHANGE_COMMIT_PROFILES and profile not in ERP_PREVIEW_PROFILES and profile not in ERP_CREATE_COMMIT_PROFILES and profile not in ERP_UPDATE_COMMIT_PROFILES:
+    if secured and profile not in EXCEL_EXCHANGE_PREVIEW_PROFILES and profile not in EXCEL_EXCHANGE_COMMIT_PROFILES and profile not in ERP_PREVIEW_PROFILES and profile not in ERP_CREATE_COMMIT_PROFILES and profile not in ERP_UPDATE_COMMIT_PROFILES and profile not in ERP_READ_PROFILES:
         lines.append(SECURITY_BEARER.rstrip("\n"))
 
     if profile in BINARY_RESPONSE_PROFILES:
@@ -1556,6 +1672,36 @@ def render_operation(
                 "              schema:",
                 "                $ref: '#/components/schemas/ErpUpdateCommitResponse'",
                 ERP_UPDATE_COMMIT_ERROR_RESPONSES.rstrip("\n"),
+                "",
+            ]
+        )
+        return "\n".join(lines)
+
+    if profile in ERP_READ_PROFILES:
+        response_schema = {
+            "erp_get_rfx_event_by_id": "ErpRfxDraftSummary",
+            "erp_get_rfx_by_external_id": "ErpRfxDraftSummary",
+            "erp_get_import_analysis_status": "ErpAnalysisStatus",
+            "erp_get_integration_capabilities": "ErpIntegrationCapabilities",
+        }[profile]
+        success_desc = {
+            "erp_get_rfx_event_by_id": "Allowlisted ERP DRAFT summary",
+            "erp_get_rfx_by_external_id": "Allowlisted ERP DRAFT summary for the stable external identity",
+            "erp_get_import_analysis_status": "Persisted ERP analysis status snapshot",
+            "erp_get_integration_capabilities": "Principal-scoped ERP v1 capabilities",
+        }[profile]
+        if secured:
+            lines.append(SECURITY_BEARER.rstrip("\n"))
+        lines.extend(
+            [
+                "      responses:",
+                "        '200':",
+                f"          description: {success_desc}",
+                "          content:",
+                "            application/json:",
+                "              schema:",
+                f"                $ref: '#/components/schemas/{response_schema}'",
+                ERP_READ_ERROR_RESPONSES.rstrip("\n"),
                 "",
             ]
         )
@@ -2990,6 +3136,113 @@ def erp_preview_components_block() -> str:
         applied_at:
           type: string
           format: date-time
+    ErpExternalLink:
+      type: object
+      additionalProperties: false
+      required: [system, object_type, object_id, revision]
+      properties:
+        system: {type: string}
+        object_type:
+          type: string
+          enum: [RFX_EVENT]
+        object_id: {type: string}
+        revision: {type: string}
+        requested_revision: {type: string}
+    ErpPublishReadinessSummary:
+      type: object
+      additionalProperties: false
+      required: [ready, blocking_fail_count, warning_count]
+      properties:
+        ready: {type: boolean}
+        blocking_fail_count: {type: integer}
+        warning_count: {type: integer}
+    ErpQuestionnaireCounts:
+      type: object
+      additionalProperties: false
+      required: [section_count, question_count, rule_count]
+      properties:
+        section_count: {type: integer}
+        question_count: {type: integer}
+        rule_count: {type: integer}
+    ErpRfxDraftSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - rfx_event_id
+        - status
+        - rfx_type
+        - title
+        - timezone
+        - creation_channel
+        - publish_readiness_summary
+        - lot_count
+        - questionnaire_counts
+        - event_row_version
+        - draft_row_version
+      properties:
+        rfx_event_id: {type: string, format: uuid}
+        status:
+          type: string
+          enum: [DRAFT]
+        rfx_type: {type: string}
+        title: {type: string}
+        description: {type: string}
+        currency_code: {type: string}
+        timezone: {type: string}
+        response_deadline: {type: string, format: date-time}
+        creation_channel:
+          type: string
+          enum: [MANUAL, TEMPLATE, EXCEL, ERP]
+        external_link:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/ErpExternalLink'
+        publish_readiness_summary:
+          $ref: '#/components/schemas/ErpPublishReadinessSummary'
+        lot_count: {type: integer}
+        questionnaire_counts:
+          $ref: '#/components/schemas/ErpQuestionnaireCounts'
+        event_row_version: {type: integer}
+        draft_row_version: {type: integer}
+    ErpAnalysisStatus:
+      type: object
+      additionalProperties: false
+      required: [analysis_id, status, expires_at, validation_summary, ready_to_commit]
+      properties:
+        analysis_id: {type: string, format: uuid}
+        status:
+          type: string
+          enum: [PREVIEWED, CONSUMED, EXPIRED]
+        expires_at: {type: string, format: date-time}
+        consumed_at: {type: string, format: date-time}
+        validation_summary:
+          type: object
+          additionalProperties: true
+        ready_to_commit: {type: boolean}
+    ErpIntegrationLimits:
+      type: object
+      additionalProperties: false
+      required: [max_body_bytes, max_json_depth, max_lots]
+      properties:
+        max_body_bytes: {type: integer}
+        max_json_depth: {type: integer}
+        max_lots: {type: integer}
+    ErpIntegrationCapabilities:
+      type: object
+      additionalProperties: false
+      required: [schema_version, limits, supported_mapping_types, deferred_fields]
+      properties:
+        schema_version:
+          type: string
+          enum: [BINTRANS_RFX_ERP_JSON_V1]
+        limits:
+          $ref: '#/components/schemas/ErpIntegrationLimits'
+        supported_mapping_types:
+          type: array
+          items: {type: string}
+        deferred_fields:
+          type: array
+          items: {type: string}
 """
 
 
@@ -3008,7 +3261,7 @@ def filter_e7_erp_preview_endpoints(
 ) -> list[tuple[str, str, str, str, bool, bool, str | None]]:
     if include_e7_erp_preview:
         return endpoints
-    excluded = E7_ERP_PREVIEW_ENDPOINT_PROFILES | E7_ERP_CREATE_COMMIT_ENDPOINT_PROFILES | E7_ERP_UPDATE_COMMIT_ENDPOINT_PROFILES
+    excluded = E7_ERP_PREVIEW_ENDPOINT_PROFILES | E7_ERP_CREATE_COMMIT_ENDPOINT_PROFILES | E7_ERP_UPDATE_COMMIT_ENDPOINT_PROFILES | E7_ERP_READ_ENDPOINT_PROFILES
     return [item for item in endpoints if item[6] not in excluded]
 
 
