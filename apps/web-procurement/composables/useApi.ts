@@ -12,6 +12,8 @@ interface RequestOptions {
   skipTenant?: boolean
   headers?: Record<string, string>
   query?: Record<string, string | number | undefined>
+  jsonContentType?: boolean
+  acceptStatuses?: number[]
 }
 
 function isNetworkFetchError(error: unknown): boolean {
@@ -48,11 +50,13 @@ function buildHeaders(options: RequestOptions = {}) {
   const tenantStore = useTenantStore()
   const { locale } = useI18n()
   const headers: Record<string, string> = {
-    Accept: 'application/json',
-    'Content-Type': 'application/json',
+    Accept: options.headers?.Accept ?? 'application/json',
     [API_HEADER_REQUEST_ID]: crypto.randomUUID(),
     'X-Locale': locale.value,
     ...options.headers,
+  }
+  if (options.jsonContentType !== false && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json'
   }
 
   if (!options.skipAuth && authStore.token) {
@@ -85,8 +89,8 @@ async function fetchWithNetworkHandling(input: string, init?: RequestInit): Prom
   }
 }
 
-async function handleResponse<T>(response: Response): Promise<T> {
-  if (response.ok) {
+async function handleResponse<T>(response: Response, acceptStatuses: number[] = []): Promise<T> {
+  if (response.ok || acceptStatuses.includes(response.status)) {
     if (response.status === 204) {
       return undefined as T
     }
@@ -154,7 +158,45 @@ export function useApi() {
       method: 'DELETE',
       headers: buildHeaders(options),
     })
-    return handleResponse<T>(response)
+    return handleResponse<T>(response, options.acceptStatuses)
+  }
+
+  async function apiGetBlob(path: string, options: RequestOptions = {}) {
+    ensureTenant(options)
+    const response = await fetchWithNetworkHandling(buildUrl(path, options.query), {
+      method: 'GET',
+      headers: buildHeaders({
+        ...options,
+        jsonContentType: false,
+        headers: {
+          Accept: options.headers?.Accept ?? '*/*',
+          ...options.headers,
+        },
+      }),
+    })
+    if (!response.ok) {
+      return handleResponse<never>(response)
+    }
+    const disposition = response.headers.get('content-disposition') || ''
+    const filenameMatch = /filename\*?=(?:UTF-8'')?["']?([^";]+)["']?/i.exec(disposition)
+    return {
+      blob: await response.blob(),
+      filename: filenameMatch?.[1] ? decodeURIComponent(filenameMatch[1]) : null,
+      contentType: response.headers.get('content-type'),
+    }
+  }
+
+  async function apiPostForm<T>(path: string, body: FormData, options: RequestOptions = {}) {
+    ensureTenant(options)
+    const response = await fetchWithNetworkHandling(buildUrl(path, options.query), {
+      method: 'POST',
+      headers: buildHeaders({
+        ...options,
+        jsonContentType: false,
+      }),
+      body,
+    })
+    return handleResponse<T>(response, options.acceptStatuses)
   }
 
   return {
@@ -163,5 +205,7 @@ export function useApi() {
     apiPut,
     apiPatch,
     apiDelete,
+    apiGetBlob,
+    apiPostForm,
   }
 }

@@ -44,6 +44,7 @@ export default defineNuxtConfig({
       mockAuth: process.env.NUXT_PUBLIC_MOCK_AUTH === 'true',
       contractRateWorkspaceEnabled: process.env.NUXT_PUBLIC_CONTRACT_RATE_WORKSPACE_ENABLED === 'true',
       freightCostWorkspaceEnabled: process.env.NUXT_PUBLIC_FREIGHT_COST_WORKSPACE_ENABLED === 'true',
+      rfxExcelExchangeEnabled: process.env.NUXT_PUBLIC_RFX_EXCEL_EXCHANGE_ENABLED === 'true',
     },
   },
   i18n: {

@@ -363,6 +363,12 @@ onMounted(loadCompanies)
         <EmptyState v-else :title="$t('tenders.noParticipants')" />
       </Card>
 
+      <BuyerXlsxExchangePanel
+        :event-id="event.id"
+        :event-status="event.status"
+        @committed="loadWorkspace"
+      />
+
       <Card>
         <template #header>
           <h3>{{ $t('tenders.responseProgress') }}</h3>

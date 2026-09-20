@@ -1,4 +1,5 @@
 import type { AuthUser } from '~/types/api'
+import { hasBuyerXlsxManageRole } from '~/utils/buyerXlsxAccess'
 
 const TENDER_MANAGE_ROLES = [
   'PLATFORM_ADMIN',
@@ -101,6 +102,10 @@ export function usePermissions() {
     return canManageTenders()
   }
 
+  function canBuyerXlsxExchange(): boolean {
+    return isPlatformAdmin() || hasBuyerXlsxManageRole(userRoles())
+  }
+
   function isBuyerRole(): boolean {
     return canManageTenders()
   }
@@ -181,6 +186,7 @@ export function usePermissions() {
     canReadTenders,
     canManageTenders,
     canPublishTenders,
+    canBuyerXlsxExchange,
     isBuyerRole,
     isProcurementRole,
     canReadCarrierTenders,
