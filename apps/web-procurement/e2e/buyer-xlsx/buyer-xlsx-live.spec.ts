@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { expectPanelVisible, requireBuyerXlsxEnv } from './helpers'
+import { expectPanelVisible, expectWorkspaceLoaded, requireBuyerXlsxEnv } from './helpers'
 
 function liveFixture() {
   return {
@@ -46,9 +46,22 @@ async function seedLiveBuyerSession(page: Page) {
 async function openDraft(page: Page) {
   const { eventId, rfxNumber } = liveFixture()
   await seedLiveBuyerSession(page)
+  const eventResp = page.waitForResponse((resp) => {
+    const url = resp.url()
+    return (
+      url.includes(`/api/v1/rfx-events/${eventId}`)
+      && !url.includes('/lots')
+      && !url.includes('/participants')
+      && !url.includes('/xlsx')
+      && resp.request().method() === 'GET'
+    )
+  }, { timeout: 30_000 })
   await page.goto(`/tenders/${eventId}`, { waitUntil: 'domcontentloaded' })
-  await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible()
-  await expect(page.getByText(rfxNumber)).toBeVisible({ timeout: 30_000 })
+  const loaded = await eventResp
+  if (loaded.status() !== 200) {
+    throw new Error(`workspace event GET ${loaded.status()} ${loaded.url()}`)
+  }
+  await expectWorkspaceLoaded(page, rfxNumber)
   await expectPanelVisible(page)
 }
 

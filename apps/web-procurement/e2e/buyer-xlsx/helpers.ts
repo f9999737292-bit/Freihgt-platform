@@ -3,12 +3,32 @@ import { expect, type Page, type Route } from '@playwright/test'
 export const eventId = '11111111-1111-4111-8111-111111111111'
 export const analysisId = '33333333-3333-4333-8333-333333333333'
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers':
+    'Authorization, Content-Type, X-Tenant-ID, X-Company-ID, X-User-ID, X-Request-ID, X-Locale, Idempotency-Key',
+  'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
+}
+
 export function requireBuyerXlsxEnv(name: string): string {
   const value = (process.env[name] || '').trim()
   if (!value) {
     throw new Error(`${name} is required for the buyer XLSX browser gate`)
   }
   return value
+}
+
+export async function fulfillJSON(route: Route, status: number, body: unknown) {
+  if (route.request().method() === 'OPTIONS') {
+    await route.fulfill({ status: 204, headers: corsHeaders })
+    return
+  }
+  await route.fulfill({
+    status,
+    contentType: 'application/json',
+    headers: corsHeaders,
+    body: JSON.stringify(body),
+  })
 }
 
 export async function seedBuyerSession(page: Page, roles = ['PROCUREMENT_MANAGER']) {
@@ -40,32 +60,32 @@ export async function seedBuyerSession(page: Page, roles = ['PROCUREMENT_MANAGER
 
 export async function stubTenderWorkspace(page: Page, status = 'DRAFT') {
   await page.route('**/api/v1/rfx-events/**', async (route: Route) => {
+    if (route.request().method() === 'OPTIONS') {
+      await route.fulfill({ status: 204, headers: corsHeaders })
+      return
+    }
     const url = new URL(route.request().url())
     const method = route.request().method()
     if (method === 'GET' && url.pathname === `/api/v1/rfx-events/${eventId}`) {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          id: eventId,
-          tenant_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-          owner_company_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
-          rfx_number: 'RFX-XLSX-1',
-          title: 'Buyer XLSX draft',
-          status,
-          rfx_type: 'LANE_TENDER',
-          category: 'FREIGHT',
-          response_deadline: '2026-10-01T12:00:00Z',
-        }),
+      await fulfillJSON(route, 200, {
+        id: eventId,
+        tenant_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        owner_company_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+        rfx_number: 'RFX-XLSX-1',
+        title: 'Buyer XLSX draft',
+        status,
+        rfx_type: 'LANE_TENDER',
+        category: 'FREIGHT',
+        response_deadline: '2026-10-01T12:00:00Z',
       })
       return
     }
     if (method === 'GET' && url.pathname.endsWith('/lots')) {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [] }) })
+      await fulfillJSON(route, 200, { items: [] })
       return
     }
     if (method === 'GET' && url.pathname.endsWith('/participants')) {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [] }) })
+      await fulfillJSON(route, 200, { items: [] })
       return
     }
     await route.continue()
@@ -91,6 +111,11 @@ export function readyPreviewBody() {
     errors: [],
     warnings: [],
   }
+}
+
+export async function expectWorkspaceLoaded(page: Page, rfxNumber: string) {
+  await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible()
+  await expect(page.getByTestId('tender-rfx-number')).toHaveText(rfxNumber, { timeout: 30_000 })
 }
 
 export async function expectPanelVisible(page: Page) {

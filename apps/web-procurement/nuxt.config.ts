@@ -16,7 +16,7 @@ export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',
   ...(process.env.NUXT_E2E_BUILD_DIR ? { buildDir: process.env.NUXT_E2E_BUILD_DIR } : {}),
   ssr: process.env.NUXT_E2E_DISABLE_SSR !== 'true',
-  devtools: { enabled: true },
+  devtools: { enabled: process.env.NUXT_E2E_DISABLE_DEVTOOLS !== 'true' },
   devServer: {
     port: 3005,
   },
@@ -25,6 +25,10 @@ export default defineNuxtConfig({
       proxy: process.env.NUXT_E2E_GATEWAY_URL
         ? {
             '/api/v1/freight-costs': {
+              target: process.env.NUXT_E2E_GATEWAY_URL,
+              changeOrigin: true,
+            },
+            '/api/v1/rfx-events': {
               target: process.env.NUXT_E2E_GATEWAY_URL,
               changeOrigin: true,
             },
