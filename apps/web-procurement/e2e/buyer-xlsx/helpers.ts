@@ -31,6 +31,14 @@ export async function fulfillJSON(route: Route, status: number, body: unknown) {
   })
 }
 
+export async function withBuyerXlsxCORS(route: Route, handler: (route: Route) => Promise<void>) {
+  if (route.request().method() === 'OPTIONS') {
+    await route.fulfill({ status: 204, headers: corsHeaders })
+    return
+  }
+  await handler(route)
+}
+
 export async function seedBuyerSession(page: Page, roles = ['PROCUREMENT_MANAGER']) {
   await page.addInitScript((input) => {
     localStorage.setItem(

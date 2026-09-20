@@ -164,7 +164,7 @@ func startBuyerXlsxWebProcurement(t *testing.T, gatewayURL string, fix browserSt
 	t.Helper()
 	webURL := "http://127.0.0.1:" + port
 	env := overrideProcessEnv(os.Environ(),
-		"NUXT_PUBLIC_API_BASE_URL="+webURL,
+		"NUXT_PUBLIC_API_BASE_URL="+gatewayURL,
 		"NUXT_E2E_GATEWAY_URL="+gatewayURL,
 		"NUXT_PUBLIC_DEFAULT_TENANT_ID="+fix.TenantID.String(),
 		"NUXT_PUBLIC_RFX_EXCEL_EXCHANGE_ENABLED=true",

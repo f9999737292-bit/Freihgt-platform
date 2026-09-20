@@ -93,7 +93,7 @@ test.describe('buyer XLSX live stack', () => {
     await expect(page.getByTestId('buyer-xlsx-error')).toBeVisible()
     await expect(page.getByTestId('buyer-xlsx-commit')).toBeDisabled()
     await expect(page.getByTestId('buyer-xlsx-committed')).toHaveCount(0)
-    await expect(page.getByTestId('buyer-xlsx-issue-text')).not.toContainText('rfx.buyer_xlsx')
+    await expect(page.locator('body')).not.toContainText('rfx.buyer_xlsx')
   })
 
   test('409 stale disables Commit until a new Preview', async ({ page }) => {

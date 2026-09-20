@@ -36,6 +36,16 @@ export default defineNuxtConfig({
         : undefined,
     },
   },
+  nitro: process.env.NUXT_E2E_GATEWAY_URL
+    ? {
+        devProxy: {
+          '/api/v1/rfx-events': {
+            target: process.env.NUXT_E2E_GATEWAY_URL,
+            changeOrigin: true,
+          },
+        },
+      }
+    : {},
   typescript: {
     strict: true,
   },
