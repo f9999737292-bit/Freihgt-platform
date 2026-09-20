@@ -19,6 +19,7 @@ import { classifyLateSubmissionHttpError } from '~/utils/lateSubmissionErrors'
 import { isRfxLateSubmissionEnabled } from '~/utils/lateSubmissionFeatureFlag'
 import {
   createLateSubmissionIdempotencyStore,
+  lateCreateAttemptPhase,
   LATE_SUBMISSION_IDEMPOTENCY_KEY_MAX_LENGTH,
 } from '~/utils/lateSubmissionIdempotency'
 import type { LateSubmissionRequest } from '~/types/lateSubmission'
@@ -169,15 +170,43 @@ describe('late submission F3 routes and access', () => {
     })).toBe('window_expired')
   })
 
-  it('reuses Idempotency-Key prefixes within 128 characters', () => {
+  it('reuses one Idempotency-Key per logical create attempt and rotates after terminal status', () => {
     const store = createLateSubmissionIdempotencyStore()
-    const createKey = store.keyForCreate(eventId, 'carrier-1')
-    expect(store.keyForCreate(eventId, 'carrier-1')).toBe(createKey)
-    expect(createKey.startsWith('late-create:')).toBe(true)
+    const body = {
+      reason_code: 'TECHNICAL_FAILURE' as const,
+      reason_text: 'vpn outage',
+      requested_until: '2026-09-21T12:00:00Z',
+    }
+    const first = store.bindCreateAttempt(eventId, 'carrier-1', null, body)
+    expect(store.bindCreateAttempt(eventId, 'carrier-1', null, {
+      ...body,
+      reason_text: 'changed after the first click',
+    })).toEqual(first)
+    expect(first.key).toBe(store.keyForCreate(eventId, 'carrier-1'))
+    expect(first.key.startsWith('late-create:')).toBe(true)
+    expect(first.key.length).toBeLessThanOrEqual(LATE_SUBMISSION_IDEMPOTENCY_KEY_MAX_LENGTH)
+    expect(first.body.reason_text).toBe('vpn outage')
+
+    for (const status of ['REJECTED', 'EXPIRED', 'CONSUMED'] as const) {
+      const terminal = request({ id: `${status.toLowerCase()}-1`, status })
+      expect(lateCreateAttemptPhase(terminal)).toBe(`after:${terminal.id}`)
+      const next = store.bindCreateAttempt(eventId, 'carrier-1', terminal, {
+        ...body,
+        reason_text: `retry after ${status}`,
+      })
+      expect(next.key).not.toBe(first.key)
+      expect(next.key.startsWith('late-create:')).toBe(true)
+      expect(next.key.length).toBeLessThanOrEqual(LATE_SUBMISSION_IDEMPOTENCY_KEY_MAX_LENGTH)
+      expect(store.bindCreateAttempt(eventId, 'carrier-1', terminal, {
+        ...body,
+        reason_text: 'must keep the first body of this attempt',
+      })).toEqual(next)
+    }
+
     expect(store.keyForApprove(requestId, 1).startsWith('late-approve:')).toBe(true)
     expect(store.keyForReject(requestId, 1).startsWith('late-reject:')).toBe(true)
     expect(store.keyForSubmit('response-1', 2).startsWith('late-submit:')).toBe(true)
-    expect(createKey.length).toBeLessThanOrEqual(LATE_SUBMISSION_IDEMPOTENCY_KEY_MAX_LENGTH)
+    expect(store.keyForApprove(requestId, 1).length).toBeLessThanOrEqual(LATE_SUBMISSION_IDEMPOTENCY_KEY_MAX_LENGTH)
   })
 
   it('classifies window and permission HTTP errors', () => {

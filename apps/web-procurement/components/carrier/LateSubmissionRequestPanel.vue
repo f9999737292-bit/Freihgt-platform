@@ -80,14 +80,20 @@ async function onCreate() {
   acting.value = true
   errorKey.value = null
   try {
-    const created = await api.createRequest(
+    const attempt = idempotency.bindCreateAttempt(
       props.eventId,
+      props.carrierCompanyId,
+      current.value,
       {
         reason_code: reasonCode.value,
         reason_text: reasonText.value.trim(),
         requested_until: toRFC3339(requestedUntil.value),
       },
-      idempotency.keyForCreate(props.eventId, props.carrierCompanyId),
+    )
+    const created = await api.createRequest(
+      props.eventId,
+      attempt.body,
+      attempt.key,
       props.carrierCompanyId,
     )
     items.value = [created, ...items.value.filter((item) => item.id !== created.id)]

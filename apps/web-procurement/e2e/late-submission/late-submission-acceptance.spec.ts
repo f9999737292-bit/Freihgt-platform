@@ -71,6 +71,64 @@ test.describe('late submission stub UI', () => {
     expect(seen).toContain(`POST /api/v1/rfx-events/${eventId}/late-submission-requests`)
     expect(keys).toHaveLength(1)
     expect(keys[0]).toMatch(/^late-create:/)
+    expect(keys[0].length).toBeLessThanOrEqual(128)
+  })
+
+  test('after REJECTED a new create attempt uses a new Idempotency-Key and retries reuse it', async ({ page }) => {
+    const firstKeys: string[] = []
+    const retryKeys: string[] = []
+    const rejected = lateRequestBody({ status: 'REJECTED', version: 2, updated_at: '2026-09-20T11:00:00Z' })
+    await seedCarrierSession(page)
+    await stubCarrierTenderShell(page)
+    await page.route(`**/api/v1/rfx-events/${eventId}/late-submission-requests/mine**`, async (route) => {
+      await fulfillJSON(route, 200, { items: [] })
+    })
+    await page.route(`**/api/v1/rfx-events/${eventId}/late-submission-requests**`, async (route) => {
+      const url = new URL(route.request().url())
+      if (route.request().method() !== 'POST' || url.pathname.endsWith('/mine')) {
+        await route.fallback()
+        return
+      }
+      firstKeys.push(route.request().headers()['idempotency-key'] || '')
+      await fulfillJSON(route, 201, lateRequestBody())
+    })
+    await page.goto(`/carrier/tenders/${eventId}`, { waitUntil: 'domcontentloaded' })
+    await expectCarrierWorkspaceLoaded(page)
+    await page.getByTestId('carrier-late-reason-text').fill('first attempt after deadline')
+    await page.getByTestId('carrier-late-request-submit').click()
+    await expect(page.getByTestId('carrier-late-request-status')).toContainText(/requested/i)
+    expect(firstKeys).toHaveLength(1)
+
+    await page.unroute(`**/api/v1/rfx-events/${eventId}/late-submission-requests/mine**`)
+    await page.unroute(`**/api/v1/rfx-events/${eventId}/late-submission-requests**`)
+    await page.route(`**/api/v1/rfx-events/${eventId}/late-submission-requests/mine**`, async (route) => {
+      await fulfillJSON(route, 200, { items: [rejected] })
+    })
+    await page.route(`**/api/v1/rfx-events/${eventId}/late-submission-requests**`, async (route) => {
+      const url = new URL(route.request().url())
+      if (route.request().method() !== 'POST' || url.pathname.endsWith('/mine')) {
+        await route.fallback()
+        return
+      }
+      retryKeys.push(route.request().headers()['idempotency-key'] || '')
+      await fulfillJSON(route, 201, lateRequestBody({
+        id: '55555555-5555-4555-8555-555555555555',
+        status: 'REQUESTED',
+        reason_text: 'second attempt after reject',
+        updated_at: '2026-09-20T12:00:00Z',
+      }))
+    })
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await expectCarrierWorkspaceLoaded(page)
+    await expect(page.getByTestId('carrier-late-request-status')).toContainText(/rejected/i)
+    await expect(page.getByTestId('carrier-late-request-submit')).toBeVisible()
+    await page.getByTestId('carrier-late-reason-text').fill('second attempt after reject')
+    await page.getByTestId('carrier-late-request-submit').click()
+    await expect(page.getByTestId('carrier-late-request-status')).toContainText(/requested/i)
+    expect(retryKeys).toHaveLength(1)
+    expect(retryKeys[0]).toMatch(/^late-create:/)
+    expect(retryKeys[0].length).toBeLessThanOrEqual(128)
+    expect(retryKeys[0]).not.toBe(firstKeys[0])
   })
 
   test('buyer queue approve/reject stay manage-only and SHIPPER_LOGIST is read-only', async ({ page }) => {

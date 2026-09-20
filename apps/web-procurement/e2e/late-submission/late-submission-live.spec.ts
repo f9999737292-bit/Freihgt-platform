@@ -110,6 +110,41 @@ async function authHeaders(token: string, companyId: string) {
   }
 }
 
+async function postCarrierLateCreate(
+  page: Page,
+  eventId: string,
+  key: string,
+  body: { reason_code: string; reason_text: string; requested_until: string },
+) {
+  const fix = liveFixture()
+  return page.request.post(
+    `${fix.gatewayURL}/api/v1/rfx-events/${eventId}/late-submission-requests?carrier_company_id=${fix.carrierCompanyId}`,
+    {
+      headers: {
+        ...await authHeaders(fix.carrierJwt, fix.carrierCompanyId),
+        'Content-Type': 'application/json',
+        'Idempotency-Key': key,
+      },
+      data: body,
+    },
+  )
+}
+
+async function rejectLateRequest(page: Page, eventId: string, requestId: string, version: number, key: string) {
+  const fix = liveFixture()
+  return page.request.post(
+    `${fix.gatewayURL}/api/v1/rfx-events/${eventId}/late-submission-requests/${requestId}/reject`,
+    {
+      headers: {
+        ...await authHeaders(fix.buyerJwt, fix.buyerCompanyId),
+        'Content-Type': 'application/json',
+        'Idempotency-Key': key,
+      },
+      data: { expected_version: version, decision_comment: 'F3-01 reject' },
+    },
+  )
+}
+
 async function openCarrierTender(page: Page, eventId: string, rfxNumber: string) {
   const fix = liveFixture()
   const probe = attachLateSubmissionNetworkProbe(page)
@@ -224,9 +259,15 @@ test.describe('late submission live stack', () => {
     expect(submitted.ok(), `late submit status=${submitted.status()}`).toBeTruthy()
     expect(submitted.request().headers()['idempotency-key'] || '').toMatch(/^late-submit:/)
     await expect(page.getByTestId('post-submit-lock')).toBeVisible()
+    const afterConsumed = await postCarrierLateCreate(page, fix.submitEventId, `late-create:${crypto.randomUUID()}`, {
+      reason_code: 'TECHNICAL_FAILURE',
+      reason_text: 'new attempt after CONSUMED window',
+      requested_until: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+    })
+    expect(afterConsumed.status(), `create after CONSUMED status=${afterConsumed.status()}`).toBe(201)
   })
 
-  test('buyer reject keeps questionnaire submit blocked', async ({ page }) => {
+  test('buyer reject keeps submit blocked and a new create attempt gets a new Idempotency-Key', async ({ page }) => {
     const fix = liveFixture()
     const probe = await openBuyerTender(page, fix.rejectEventId, fix.rejectRfxNumber)
     const rejectWait = page.waitForResponse((resp) => {
@@ -250,6 +291,72 @@ test.describe('late submission live stack', () => {
     await expect(page.getByTestId('carrier-response-workspace')).toBeVisible({ timeout: 30_000 })
     await expect(page.getByTestId('late-submit-blocked')).toBeVisible()
     await expect(page.getByTestId('submit-questionnaire')).toBeDisabled()
+
+    const until = new Date(Date.now() + 24 * 3600 * 1000).toISOString()
+    const bodyA = {
+      reason_code: 'TECHNICAL_FAILURE',
+      reason_text: 'F3-01 same event/company after reject',
+      requested_until: until,
+    }
+    const bodyB = { ...bodyA, reason_text: 'F3-01 different body for the same key' }
+    const legacyKey = `late-create:${fix.rejectEventId}:${fix.carrierCompanyId}`
+    const first = await postCarrierLateCreate(page, fix.rejectEventId, legacyKey, bodyA)
+    expect(first.status(), `legacy create status=${first.status()}`).toBe(201)
+    const firstCreated = await first.json() as { id: string; version: number }
+    const rejectedAgain = await rejectLateRequest(
+      page,
+      fix.rejectEventId,
+      firstCreated.id,
+      firstCreated.version,
+      `late-reject-f301-${firstCreated.id}`,
+    )
+    expect(rejectedAgain.ok(), `F3-01 reject status=${rejectedAgain.status()}`).toBeTruthy()
+    const replay = await postCarrierLateCreate(page, fix.rejectEventId, legacyKey, bodyA)
+    expect(replay.status(), `legacy replay status=${replay.status()}`).toBe(201)
+    expect(((await replay.json()) as { id: string }).id).toBe(firstCreated.id)
+    const conflict = await postCarrierLateCreate(page, fix.rejectEventId, legacyKey, bodyB)
+    expect(conflict.status(), `legacy conflict status=${conflict.status()}`).toBe(409)
+
+    const uiProbe = await openCarrierTender(page, fix.rejectEventId, fix.rejectRfxNumber)
+    await expect(page.getByTestId('carrier-late-submission-panel')).toBeVisible()
+    await expect(page.getByTestId('carrier-late-request-status')).toContainText(/rejected/i)
+    await expect(page.getByTestId('carrier-late-request-submit')).toBeVisible()
+    const createWait = page.waitForResponse((resp) => {
+      return resp.request().method() === 'POST'
+        && new URL(resp.url()).pathname === `/api/v1/rfx-events/${fix.rejectEventId}/late-submission-requests`
+    }, { timeout: 30_000 })
+    await page.getByTestId('carrier-late-reason-text').fill('UI retry after /mine shows REJECTED')
+    await page.getByTestId('carrier-late-request-submit').click()
+    const created = await createWait.catch((error: Error) => {
+      throw new Error(`${error.message}\n${formatLateSubmissionNetworkProbe(uiProbe)}`)
+    })
+    expect(created.status(), formatLateSubmissionNetworkProbe(uiProbe)).toBe(201)
+    const uiKey = created.request().headers()['idempotency-key'] || ''
+    const uiBody = created.request().postDataJSON() as {
+      reason_code: string
+      reason_text: string
+      requested_until: string
+    }
+    const uiCreated = await created.json() as { id: string }
+    expect(uiKey).toMatch(/^late-create:/)
+    expect(uiKey.length).toBeLessThanOrEqual(128)
+    expect(uiKey).not.toBe(legacyKey)
+    expect(uiCreated.id).not.toBe(firstCreated.id)
+    await expect(page.getByTestId('carrier-late-request-status')).toContainText(/requested/i)
+
+    const uiReplay = await postCarrierLateCreate(page, fix.rejectEventId, uiKey, uiBody)
+    expect(uiReplay.status()).toBe(201)
+    expect(((await uiReplay.json()) as { id: string }).id).toBe(uiCreated.id)
+    const uiConflict = await postCarrierLateCreate(page, fix.rejectEventId, uiKey, bodyB)
+    expect(uiConflict.status()).toBe(409)
+    const mine = await page.request.get(
+      `${fix.gatewayURL}/api/v1/rfx-events/${fix.rejectEventId}/late-submission-requests/mine?carrier_company_id=${fix.carrierCompanyId}`,
+      { headers: await authHeaders(fix.carrierJwt, fix.carrierCompanyId) },
+    )
+    expect(mine.ok()).toBeTruthy()
+    const mineItems = (await mine.json() as { items: Array<{ id: string; status: string }> }).items
+    expect(mineItems.filter((item) => item.status === 'REQUESTED')).toHaveLength(1)
+    expect(mineItems.some((item) => item.id === uiCreated.id && item.status === 'REQUESTED')).toBe(true)
   })
 
   test('questionnaire submit is forbidden before the approved window starts', async ({ page }) => {
@@ -320,6 +427,12 @@ test.describe('late submission live stack', () => {
     expect(api.status()).toBe(422)
     const body = await api.json() as { error?: { details?: { field?: string } } }
     expect(['approved_valid_until', 'late_submission_request', 'late_submission_status']).toContain(body.error?.details?.field)
+    const afterExpired = await postCarrierLateCreate(page, fix.expiredEventId, `late-create:${crypto.randomUUID()}`, {
+      reason_code: 'TECHNICAL_FAILURE',
+      reason_text: 'new attempt after EXPIRED window',
+      requested_until: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+    })
+    expect(afterExpired.status(), `create after EXPIRED status=${afterExpired.status()}`).toBe(201)
   })
 
   test('SHIPPER_LOGIST can read the buyer queue but cannot approve', async ({ page }) => {
