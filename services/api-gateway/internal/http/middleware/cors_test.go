@@ -53,6 +53,12 @@ func TestCORS_OptionsPreflightForPilotWebAdminOrigin(t *testing.T) {
 	if got := rec.Header().Get("Access-Control-Allow-Headers"); got == "" || !strings.Contains(got, "X-User-ID") {
 		t.Fatalf("Access-Control-Allow-Headers=%q must include X-User-ID", got)
 	}
+	if !strings.Contains(rec.Header().Get("Access-Control-Allow-Headers"), "Idempotency-Key") {
+		t.Fatalf("Access-Control-Allow-Headers=%q must include Idempotency-Key", rec.Header().Get("Access-Control-Allow-Headers"))
+	}
+	if !strings.Contains(rec.Header().Get("Access-Control-Allow-Headers"), "Accept") {
+		t.Fatalf("Access-Control-Allow-Headers=%q must include Accept", rec.Header().Get("Access-Control-Allow-Headers"))
+	}
 }
 
 func TestCORS_RejectsUnknownOrigin(t *testing.T) {

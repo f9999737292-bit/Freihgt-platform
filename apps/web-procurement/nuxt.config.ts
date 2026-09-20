@@ -16,7 +16,7 @@ export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',
   ...(process.env.NUXT_E2E_BUILD_DIR ? { buildDir: process.env.NUXT_E2E_BUILD_DIR } : {}),
   ssr: process.env.NUXT_E2E_DISABLE_SSR !== 'true',
-  devtools: { enabled: true },
+  devtools: { enabled: process.env.NUXT_E2E_DISABLE_DEVTOOLS !== 'true' },
   devServer: {
     port: 3005,
   },
@@ -28,10 +28,24 @@ export default defineNuxtConfig({
               target: process.env.NUXT_E2E_GATEWAY_URL,
               changeOrigin: true,
             },
+            '/api/v1/rfx-events': {
+              target: process.env.NUXT_E2E_GATEWAY_URL,
+              changeOrigin: true,
+            },
           }
         : undefined,
     },
   },
+  nitro: process.env.NUXT_E2E_GATEWAY_URL
+    ? {
+        devProxy: {
+          '/api/v1/rfx-events': {
+            target: process.env.NUXT_E2E_GATEWAY_URL,
+            changeOrigin: true,
+          },
+        },
+      }
+    : {},
   typescript: {
     strict: true,
   },
@@ -44,6 +58,9 @@ export default defineNuxtConfig({
       mockAuth: process.env.NUXT_PUBLIC_MOCK_AUTH === 'true',
       contractRateWorkspaceEnabled: process.env.NUXT_PUBLIC_CONTRACT_RATE_WORKSPACE_ENABLED === 'true',
       freightCostWorkspaceEnabled: process.env.NUXT_PUBLIC_FREIGHT_COST_WORKSPACE_ENABLED === 'true',
+      rfxExcelExchangeEnabled: process.env.NUXT_PUBLIC_RFX_EXCEL_EXCHANGE_ENABLED === 'true'
+        || process.env.RFX_EXCEL_EXCHANGE_UI === '1',
+      excelUiEnabled: process.env.RFX_EXCEL_EXCHANGE_UI === '1',
     },
   },
   i18n: {

@@ -8,6 +8,7 @@ import (
 func CORS(allowedOrigins []string) func(http.Handler) http.Handler {
 	allowedMethods := "GET, POST, PATCH, PUT, DELETE, OPTIONS"
 	allowedHeaders := strings.Join([]string{
+		"Accept",
 		"Content-Type",
 		"Authorization",
 		"X-Tenant-ID",
@@ -15,6 +16,7 @@ func CORS(allowedOrigins []string) func(http.Handler) http.Handler {
 		"X-User-ID",
 		"X-Request-ID",
 		"X-Locale",
+		"Idempotency-Key",
 	}, ", ")
 
 	return func(next http.Handler) http.Handler {
@@ -25,7 +27,7 @@ func CORS(allowedOrigins []string) func(http.Handler) http.Handler {
 				w.Header().Set("Vary", "Origin")
 				w.Header().Set("Access-Control-Allow-Methods", allowedMethods)
 				w.Header().Set("Access-Control-Allow-Headers", allowedHeaders)
-				w.Header().Set("Access-Control-Expose-Headers", RequestIDHeader)
+				w.Header().Set("Access-Control-Expose-Headers", RequestIDHeader+", Content-Disposition")
 			}
 
 			if r.Method == http.MethodOptions {

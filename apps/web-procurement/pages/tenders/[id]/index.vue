@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import BuyerXlsxExchangePanel from '~/components/rfx/BuyerXlsxExchangePanel.vue'
 import {
   canCancelStatus,
   canPublishStatus,
@@ -84,10 +85,7 @@ async function loadWorkspace() {
   notFound.value = false
   apiUnavailable.value = false
   try {
-    event.value = await getRfxEvent(eventId.value)
-    setCompany(event.value.owner_company_id)
-    lots.value = await listLots(eventId.value)
-    participants.value = await listRfxParticipants(eventId.value)
+    await refreshWorkspace()
   } catch (error) {
     event.value = null
     lots.value = []
@@ -102,6 +100,21 @@ async function loadWorkspace() {
     }
   } finally {
     loading.value = false
+  }
+}
+
+async function refreshWorkspace() {
+  event.value = await getRfxEvent(eventId.value)
+  setCompany(event.value.owner_company_id)
+  try {
+    lots.value = await listLots(eventId.value)
+  } catch {
+    lots.value = []
+  }
+  try {
+    participants.value = await listRfxParticipants(eventId.value)
+  } catch {
+    participants.value = []
   }
 }
 
@@ -229,7 +242,12 @@ async function cancelTender() {
 }
 
 watch(eventId, loadWorkspace, { immediate: true })
-onMounted(loadCompanies)
+onMounted(() => {
+  useAuthStore().restoreSession()
+  useTenantStore().restoreTenant()
+  void loadCompanies()
+  void loadWorkspace()
+})
 </script>
 
 <template>
@@ -288,13 +306,13 @@ onMounted(loadCompanies)
         </template>
         <dl class="detail-grid">
           <dt>{{ $t('tenders.number') }}</dt>
-          <dd>{{ event.rfx_number }}</dd>
+          <dd data-testid="tender-rfx-number">{{ event.rfx_number }}</dd>
           <dt>{{ $t('tenders.type') }}</dt>
           <dd>{{ event.rfx_type }}</dd>
           <dt>{{ $t('tenders.ownerCompany') }}</dt>
           <dd>{{ companyName }}</dd>
           <dt>{{ $t('common.status') }}</dt>
-          <dd><Badge :status="event.status" /></dd>
+          <dd data-testid="tender-status"><Badge :status="event.status" /></dd>
           <dt>{{ $t('tenders.deadline') }}</dt>
           <dd>{{ formatRfxDate(event.response_deadline) }}</dd>
           <dt>{{ $t('tenders.description') }}</dt>
@@ -362,6 +380,14 @@ onMounted(loadCompanies)
         </Table>
         <EmptyState v-else :title="$t('tenders.noParticipants')" />
       </Card>
+
+      <div data-testid="buyer-xlsx-slot">
+        <BuyerXlsxExchangePanel
+          :event-id="event.id"
+          :event-status="event.status"
+          @committed="refreshWorkspace"
+        />
+      </div>
 
       <Card>
         <template #header>

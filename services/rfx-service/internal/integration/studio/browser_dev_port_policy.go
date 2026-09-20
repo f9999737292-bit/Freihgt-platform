@@ -10,6 +10,7 @@ var scopedDevPorts = map[string]struct{}{
 	"3020": {},
 	"3022": {},
 	"3023": {},
+	"3031": {},
 }
 
 type portProcessInfo struct {
@@ -111,7 +112,7 @@ func expectedAppDirForPort(port, worktreeRoot string) (string, bool) {
 	switch port {
 	case "3020", "3022":
 		return filepath.Join(root, "apps", "web-admin"), true
-	case "3023":
+	case "3023", "3031":
 		return filepath.Join(root, "apps", "web-procurement"), true
 	default:
 		return "", false
