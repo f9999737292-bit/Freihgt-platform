@@ -15,6 +15,16 @@
     "validFrom": "Действует с",
     "validTo": "Действует до",
     "overview": "Обзор",
+    "creationChannel": {
+      "label": "Канал создания",
+      "values": {
+        "MANUAL": "Создан вручную",
+        "TEMPLATE": "Создан из шаблона",
+        "EXCEL": "Создан из Excel",
+        "ERP": "Создан из ERP",
+        "unknown": "Неизвестный канал создания"
+      }
+    },
     "lotsTitle": "Лоты",
     "lanesTitle": "Линии",
     "lot": "Лот",

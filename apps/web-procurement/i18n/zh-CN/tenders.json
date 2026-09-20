@@ -15,6 +15,16 @@
     "validFrom": "生效自",
     "validTo": "生效至",
     "overview": "概览",
+    "creationChannel": {
+      "label": "创建渠道",
+      "values": {
+        "MANUAL": "手动创建",
+        "TEMPLATE": "从模板创建",
+        "EXCEL": "从 Excel 创建",
+        "ERP": "从 ERP 创建",
+        "unknown": "未知创建渠道"
+      }
+    },
     "lotsTitle": "标段",
     "lanesTitle": "线路",
     "lot": "标段",

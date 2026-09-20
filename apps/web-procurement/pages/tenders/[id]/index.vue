@@ -12,6 +12,7 @@ import {
   type RfxLot,
   type RfxParticipant,
 } from '~/types/rfx'
+import { creationChannelLabelKey } from '~/utils/creationChannel'
 import type { Company } from '~/types/company'
 import { checkPublishReadiness } from '~/utils/publishReadiness'
 import { shouldShowNotFound, isApiUnavailableError } from '~/utils/apiError'
@@ -55,6 +56,8 @@ const companyName = computed(() => {
   if (!event.value) return '—'
   return companies.value.find((company) => company.id === event.value!.owner_company_id)?.legal_name || event.value.owner_company_id
 })
+
+const creationChannelLabel = computed(() => t(creationChannelLabelKey(event.value?.creation_channel)))
 
 const carrierOptions = computed(() =>
   companies.value
@@ -316,6 +319,8 @@ onMounted(() => {
           <dd data-testid="tender-status"><Badge :status="event.status" /></dd>
           <dt>{{ $t('tenders.deadline') }}</dt>
           <dd>{{ formatRfxDate(event.response_deadline) }}</dd>
+          <dt>{{ $t('tenders.creationChannel.label') }}</dt>
+          <dd data-testid="tender-creation-channel">{{ creationChannelLabel }}</dd>
           <dt>{{ $t('tenders.description') }}</dt>
           <dd>{{ event.description || '—' }}</dd>
         </dl>
