@@ -11,8 +11,10 @@ import {
   canCommitBuyerXlsxPreview,
   classifyBuyerXlsxHttpError,
   isBuyerXlsxPreviewEnvelope,
+  shouldInvalidateBuyerXlsxAnalysis,
 } from '~/utils/buyerXlsxErrors'
 import { createBuyerXlsxIdempotencyStore } from '~/utils/buyerXlsxIdempotency'
+import { buyerXlsxIssueShowsInternal, resolveBuyerXlsxIssueCopy } from '~/utils/buyerXlsxIssueText'
 import { ApiError } from '~/utils/apiClient'
 import type { BuyerXlsxPreviewResponse } from '~/types/buyerXlsx'
 
@@ -127,6 +129,11 @@ describe('buyer XLSX preview and commit guards', () => {
       details: { machine_code: 'analysis_already_consumed' },
     }))
     expect(consumed.kind).toBe('analysis_already_consumed')
+    expect(shouldInvalidateBuyerXlsxAnalysis(stale.kind)).toBe(true)
+    expect(shouldInvalidateBuyerXlsxAnalysis(expired.kind)).toBe(true)
+    expect(shouldInvalidateBuyerXlsxAnalysis(consumed.kind)).toBe(true)
+    expect(canCommitBuyerXlsxPreview(readyPreview(), { analysisInvalidated: true })).toBe(false)
+    expect(canCommitBuyerXlsxPreview(readyPreview(), { alreadyCommitted: true })).toBe(false)
 
     const idem = classifyBuyerXlsxHttpError(new ApiError(409, {
       code: 'CONFLICT',
@@ -145,6 +152,29 @@ describe('buyer XLSX preview and commit guards', () => {
     expect(second).not.toBe(first)
     expect(second).toBe(store.keyForAnalysis('analysis-b'))
   })
+
+  it('maps preview issues to localized copy and keeps unknown codes technical-only', () => {
+    const known = resolveBuyerXlsxIssueCopy({
+      machine_code: 'missing_lot',
+      message_key: 'rfx.buyer_xlsx.missing_lot',
+      sheet: 'Lots',
+      row: 4,
+    })
+    expect(known.known).toBe(true)
+    expect(known.i18nKey).toBe('tenders.buyerXlsx.issues.missing_lot')
+    expect(known.technicalCode).toBe('missing_lot')
+    expect(known.location).toBe('Lots:4')
+    expect(buyerXlsxIssueShowsInternal(known.i18nKey, { message_key: 'rfx.buyer_xlsx.missing_lot' })).toBe(false)
+
+    const unknown = resolveBuyerXlsxIssueCopy({
+      machine_code: 'future_code',
+      message_key: 'rfx.buyer_xlsx_import.future_internal_payload',
+    })
+    expect(unknown.known).toBe(false)
+    expect(unknown.i18nKey).toBe('tenders.buyerXlsx.issues.unknown')
+    expect(unknown.technicalCode).toBe('future_code')
+    expect(unknown.i18nKey).not.toContain('future_internal_payload')
+  })
 })
 
 describe('buyer XLSX i18n', () => {
@@ -155,5 +185,7 @@ describe('buyer XLSX i18n', () => {
     expect(en).toContain('title')
     expect(en).toContain('errors.staleTarget')
     expect(en).toContain('errors.idempotencyConflict')
+    expect(en).toContain('issues.unknown')
+    expect(en).toContain('issues.missing_lot')
   })
 })

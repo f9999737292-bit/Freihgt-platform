@@ -10,7 +10,6 @@ import {
 
 test.describe('buyer XLSX update draft', () => {
   test('hides the panel when the public flag is off or the event is not DRAFT', async ({ page }) => {
-    test.skip(!process.env.BROWSER_E2E_WEB_URL && !process.env.BROWSER_E2E, 'web app URL not provided')
     await seedBuyerSession(page)
     await stubTenderWorkspace(page, 'PUBLISHED')
     await page.goto(`/tenders/${eventId}`, { waitUntil: 'domcontentloaded' })
@@ -18,7 +17,6 @@ test.describe('buyer XLSX update draft', () => {
   })
 
   test('export, preview, and commit use accepted human routes', async ({ page }) => {
-    test.skip(!process.env.BROWSER_E2E_WEB_URL && !process.env.BROWSER_E2E, 'web app URL not provided')
     const seen: string[] = []
     let commitKey = ''
 
@@ -77,6 +75,7 @@ test.describe('buyer XLSX update draft', () => {
     await expect(page.getByTestId('buyer-xlsx-commit')).toBeEnabled()
     await page.getByTestId('buyer-xlsx-commit').click()
     await expect(page.getByTestId('buyer-xlsx-committed')).toBeVisible()
+    await expect(page.getByTestId('buyer-xlsx-commit')).toBeDisabled()
 
     expect(seen).toContain(`GET /api/v1/rfx-events/${eventId}/xlsx-export`)
     expect(seen).toContain(`POST /api/v1/rfx-events/${eventId}/xlsx-import/preview`)
@@ -85,7 +84,6 @@ test.describe('buyer XLSX update draft', () => {
   })
 
   test('422 preview keeps commit disabled and 409 stale offers retry', async ({ page }) => {
-    test.skip(!process.env.BROWSER_E2E_WEB_URL && !process.env.BROWSER_E2E, 'web app URL not provided')
     await seedBuyerSession(page)
     await stubTenderWorkspace(page)
 
@@ -111,6 +109,8 @@ test.describe('buyer XLSX update draft', () => {
       buffer: Buffer.from('xlsx'),
     })
     await expect(page.getByTestId('buyer-xlsx-error')).toHaveAttribute('data-error-kind', 'preview_invalid')
+    await expect(page.getByTestId('buyer-xlsx-issue-text')).toHaveText('A lot is missing required data.')
+    await expect(page.getByTestId('buyer-xlsx-issue-text')).not.toContainText('rfx.buyer_xlsx')
     await expect(page.getByTestId('buyer-xlsx-commit')).toBeDisabled()
 
     await page.unroute(`**/api/v1/rfx-events/${eventId}/xlsx-import/commit`)
@@ -140,5 +140,6 @@ test.describe('buyer XLSX update draft', () => {
     await expect(page.getByTestId('buyer-xlsx-error')).toHaveAttribute('data-error-kind', 'stale_target')
     await expect(page.getByTestId('buyer-xlsx-retry-preview')).toBeVisible()
     await expect(page.getByTestId('buyer-xlsx-retry-preview')).toBeEnabled()
+    await expect(page.getByTestId('buyer-xlsx-commit')).toBeDisabled()
   })
 })

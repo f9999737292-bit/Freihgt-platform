@@ -159,6 +159,19 @@ export function classifyBuyerXlsxHttpError(error: unknown): BuyerXlsxClassifiedE
   }
 }
 
-export function canCommitBuyerXlsxPreview(preview: BuyerXlsxPreviewResponse | null): boolean {
+export interface BuyerXlsxCommitGuard {
+  analysisInvalidated?: boolean
+  alreadyCommitted?: boolean
+}
+
+export function shouldInvalidateBuyerXlsxAnalysis(kind: BuyerXlsxErrorKind): boolean {
+  return kind === 'stale_target' || kind === 'analysis_expired' || kind === 'analysis_already_consumed'
+}
+
+export function canCommitBuyerXlsxPreview(
+  preview: BuyerXlsxPreviewResponse | null,
+  guard: BuyerXlsxCommitGuard = {},
+): boolean {
+  if (guard.analysisInvalidated || guard.alreadyCommitted) return false
   return Boolean(preview?.ready_to_commit && preview.analysis_id)
 }

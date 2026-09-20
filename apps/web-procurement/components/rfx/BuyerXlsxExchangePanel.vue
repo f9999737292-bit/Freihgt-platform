@@ -1,8 +1,13 @@
 <script setup lang="ts">
 import type { BuyerXlsxClassifiedError } from '~/utils/buyerXlsxErrors'
 import type { BuyerXlsxCommitResponse, BuyerXlsxPreviewResponse } from '~/types/buyerXlsx'
-import { canCommitBuyerXlsxPreview, classifyBuyerXlsxHttpError } from '~/utils/buyerXlsxErrors'
+import {
+  canCommitBuyerXlsxPreview,
+  classifyBuyerXlsxHttpError,
+  shouldInvalidateBuyerXlsxAnalysis,
+} from '~/utils/buyerXlsxErrors'
 import { createBuyerXlsxIdempotencyStore } from '~/utils/buyerXlsxIdempotency'
+import { resolveBuyerXlsxIssueCopy } from '~/utils/buyerXlsxIssueText'
 import { BUYER_XLSX_MAX_UPLOAD_BYTES } from '~/utils/buyerXlsxApiRoutes'
 
 const props = defineProps<{
@@ -29,13 +34,19 @@ const committing = ref(false)
 const preview = ref<BuyerXlsxPreviewResponse | null>(null)
 const commitResult = ref<BuyerXlsxCommitResponse | null>(null)
 const lastError = ref<BuyerXlsxClassifiedError | null>(null)
+const analysisInvalidated = ref(false)
 const statusMessage = ref('')
 
 const visible = computed(
   () => excelEnabled.value && canBuyerXlsxExchange() && props.eventStatus === 'DRAFT',
 )
 const busy = computed(() => exporting.value || previewing.value || committing.value)
-const commitEnabled = computed(() => canCommitBuyerXlsxPreview(preview.value) && !busy.value)
+const commitEnabled = computed(() =>
+  canCommitBuyerXlsxPreview(preview.value, {
+    analysisInvalidated: analysisInvalidated.value,
+    alreadyCommitted: Boolean(commitResult.value),
+  }) && !busy.value,
+)
 const showRetryPreview = computed(() => Boolean(lastError.value?.retryPreview))
 
 function setStatus(message: string) {
@@ -46,6 +57,7 @@ function clearImportState() {
   preview.value = null
   commitResult.value = null
   lastError.value = null
+  analysisInvalidated.value = false
 }
 
 function onFileChange(event: Event) {
@@ -67,6 +79,7 @@ async function runPreview(file: File) {
     preview.value = result.preview
     idempotency.rememberPreview(result.preview.analysis_id)
     if (result.status === 422 || !result.preview.ready_to_commit) {
+      analysisInvalidated.value = true
       lastError.value = {
         kind: 'preview_invalid',
         status: 422,
@@ -76,10 +89,12 @@ async function runPreview(file: File) {
       }
       setStatus(t('tenders.buyerXlsx.status.previewBlocked'))
     } else {
+      analysisInvalidated.value = false
       setStatus(t('tenders.buyerXlsx.status.previewReady'))
     }
   } catch (error) {
     preview.value = null
+    analysisInvalidated.value = true
     lastError.value = classifyBuyerXlsxHttpError(error)
     setStatus(t(lastError.value.messageKey))
     pushToast('error', t(lastError.value.messageKey))
@@ -120,7 +135,15 @@ async function exportWorkbook() {
 }
 
 async function commitImport() {
-  if (!canCommitBuyerXlsxPreview(preview.value) || !preview.value?.analysis_id) return
+  if (
+    !canCommitBuyerXlsxPreview(preview.value, {
+      analysisInvalidated: analysisInvalidated.value,
+      alreadyCommitted: Boolean(commitResult.value),
+    })
+    || !preview.value?.analysis_id
+  ) {
+    return
+  }
   committing.value = true
   lastError.value = null
   setStatus(t('tenders.buyerXlsx.status.committing'))
@@ -132,11 +155,15 @@ async function commitImport() {
       key,
     )
     commitResult.value = result
+    analysisInvalidated.value = true
     setStatus(t('tenders.buyerXlsx.status.committed'))
     pushToast('success', t('tenders.buyerXlsx.commitSuccess'))
     emit('committed', result)
   } catch (error) {
     lastError.value = classifyBuyerXlsxHttpError(error)
+    if (shouldInvalidateBuyerXlsxAnalysis(lastError.value.kind)) {
+      analysisInvalidated.value = true
+    }
     setStatus(t(lastError.value.messageKey))
     pushToast('error', t(lastError.value.messageKey))
   } finally {
@@ -144,13 +171,8 @@ async function commitImport() {
   }
 }
 
-function issueLabel(issue: { message_key: string; machine_code: string; sheet?: string; row?: number }) {
-  const location = [issue.sheet, issue.row != null ? String(issue.row) : '']
-    .filter(Boolean)
-    .join(':')
-  return location
-    ? `${issue.machine_code} · ${issue.message_key} (${location})`
-    : `${issue.machine_code} · ${issue.message_key}`
+function issueCopy(issue: { message_key: string; machine_code: string; sheet?: string; row?: number }) {
+  return resolveBuyerXlsxIssueCopy(issue)
 }
 </script>
 
@@ -237,13 +259,37 @@ function issueLabel(issue: { message_key: string; machine_code: string; sheet?: 
       <section v-if="preview.errors.length" aria-labelledby="buyer-xlsx-errors-title">
         <h4 id="buyer-xlsx-errors-title">{{ $t('tenders.buyerXlsx.validationErrors') }}</h4>
         <ul>
-          <li v-for="(issue, index) in preview.errors" :key="`err-${index}`">{{ issueLabel(issue) }}</li>
+          <li
+            v-for="(issue, index) in preview.errors"
+            :key="`err-${index}`"
+            data-testid="buyer-xlsx-issue"
+          >
+            <span data-testid="buyer-xlsx-issue-text">{{ $t(issueCopy(issue).i18nKey) }}</span>
+            <span v-if="issueCopy(issue).location" class="buyer-xlsx__issue-loc">
+              {{ issueCopy(issue).location }}
+            </span>
+            <span class="buyer-xlsx__machine" data-testid="buyer-xlsx-issue-code">
+              {{ $t('tenders.buyerXlsx.machineCode', { code: issueCopy(issue).technicalCode }) }}
+            </span>
+          </li>
         </ul>
       </section>
       <section v-if="preview.warnings.length" aria-labelledby="buyer-xlsx-warnings-title">
         <h4 id="buyer-xlsx-warnings-title">{{ $t('tenders.buyerXlsx.validationWarnings') }}</h4>
         <ul>
-          <li v-for="(issue, index) in preview.warnings" :key="`warn-${index}`">{{ issueLabel(issue) }}</li>
+          <li
+            v-for="(issue, index) in preview.warnings"
+            :key="`warn-${index}`"
+            data-testid="buyer-xlsx-warning"
+          >
+            <span data-testid="buyer-xlsx-warning-text">{{ $t(issueCopy(issue).i18nKey) }}</span>
+            <span v-if="issueCopy(issue).location" class="buyer-xlsx__issue-loc">
+              {{ issueCopy(issue).location }}
+            </span>
+            <span class="buyer-xlsx__machine" data-testid="buyer-xlsx-warning-code">
+              {{ $t('tenders.buyerXlsx.machineCode', { code: issueCopy(issue).technicalCode }) }}
+            </span>
+          </li>
         </ul>
       </section>
     </div>
@@ -268,9 +314,16 @@ function issueLabel(issue: { message_key: string; machine_code: string; sheet?: 
 .buyer-xlsx__hint,
 .buyer-xlsx__limit,
 .buyer-xlsx__status,
-.buyer-xlsx__machine {
+.buyer-xlsx__machine,
+.buyer-xlsx__issue-loc {
   color: var(--color-text-muted);
   margin: 0 0 0.75rem;
+}
+
+.buyer-xlsx__issue-loc,
+li .buyer-xlsx__machine {
+  display: inline;
+  margin: 0 0 0 0.5rem;
 }
 
 .buyer-xlsx__actions {
