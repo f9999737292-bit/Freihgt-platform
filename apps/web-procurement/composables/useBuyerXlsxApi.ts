@@ -19,7 +19,7 @@ export function useBuyerXlsxApi() {
 
   async function exportBuyerDraft(eventId: string) {
     return apiGetBlob(buyerXlsxExportPath(eventId), {
-      headers: { Accept: BUYER_XLSX_CONTENT_TYPE },
+      headers: { Accept: `${BUYER_XLSX_CONTENT_TYPE}, */*` },
     })
   }
 

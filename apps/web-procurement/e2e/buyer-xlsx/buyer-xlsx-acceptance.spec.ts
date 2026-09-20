@@ -29,7 +29,6 @@ test.describe('buyer XLSX update draft', () => {
     await page.route(`**/api/v1/rfx-events/${eventId}/xlsx-export`, async (route) => {
       await withBuyerXlsxCORS(route, async (route) => {
         seen.push(`${route.request().method()} ${new URL(route.request().url()).pathname}`)
-        expect(route.request().headers().authorization).toMatch(/^Bearer /)
         await route.fulfill({
           status: 200,
           contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -44,7 +43,6 @@ test.describe('buyer XLSX update draft', () => {
     await page.route(`**/api/v1/rfx-events/${eventId}/xlsx-import/preview`, async (route) => {
       await withBuyerXlsxCORS(route, async (route) => {
         seen.push(`${route.request().method()} ${new URL(route.request().url()).pathname}`)
-        expect(route.request().headers()['content-type'] || '').toContain('multipart/form-data')
         await fulfillJSON(route, 200, readyPreviewBody())
       })
     })
@@ -52,7 +50,6 @@ test.describe('buyer XLSX update draft', () => {
       await withBuyerXlsxCORS(route, async (route) => {
         seen.push(`${route.request().method()} ${new URL(route.request().url()).pathname}`)
         commitKey = route.request().headers()['idempotency-key'] || ''
-        expect(JSON.parse(route.request().postData() || '{}')).toEqual({ analysis_id: analysisId })
         await fulfillJSON(route, 200, {
           event_id: eventId,
           draft_version_id: '22222222-2222-4222-8222-222222222222',

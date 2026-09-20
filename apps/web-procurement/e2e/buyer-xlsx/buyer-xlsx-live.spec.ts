@@ -67,15 +67,22 @@ async function openDraft(page: Page) {
 }
 
 async function exportWorkbook(page: Page) {
-  const [download] = await Promise.all([
-    page.waitForEvent('download'),
-    page.getByTestId('buyer-xlsx-export').click(),
-  ])
-  const path = await download.path()
-  if (!path) {
-    throw new Error('export download path is empty')
+  const { eventId } = liveFixture()
+  const respPromise = page.waitForResponse((resp) => {
+    return resp.url().includes(`/rfx-events/${eventId}/xlsx-export`) && resp.request().method() === 'GET'
+  }, { timeout: 30_000 })
+  await page.getByTestId('buyer-xlsx-export').click()
+  const resp = await respPromise
+  if (!resp.ok()) {
+    throw new Error(`export status=${resp.status()} ${resp.url()}`)
   }
-  return path
+  const { writeFileSync } = await import('node:fs')
+  const { join } = await import('node:path')
+  const { tmpdir } = await import('node:os')
+  const filePath = join(tmpdir(), `buyer-xlsx-${eventId}.xlsx`)
+  writeFileSync(filePath, Buffer.from(await resp.body()))
+  await expect(page.getByTestId('buyer-xlsx-error')).toHaveCount(0)
+  return filePath
 }
 
 async function uploadWorkbook(page: Page, filePath: string) {
