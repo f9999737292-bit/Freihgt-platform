@@ -309,9 +309,7 @@ onMounted(() => {
       v-if="notFound"
       data-testid="tender-not-found"
       :title="$t('tenders.notFound')"
-    >
-      {{ $t('tenders.notFound') }}
-    </EmptyState>
+    />
     <div v-else-if="loading" class="loading-block">{{ $t('common.loading') }}</div>
     <EmptyState v-else-if="apiUnavailable" :title="$t('tenders.loadFailed')" />
     <EmptyState v-else-if="!event" :title="$t('tenders.empty')" />

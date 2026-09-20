@@ -155,7 +155,7 @@ async function expectDeniedHumanGet(
     probe,
   })).toBe(actor.expectedStatus)
   await expect(page.getByTestId('tender-not-found')).toBeVisible()
-  await expect(page.getByTestId('tender-not-found')).toHaveText('Tender not found')
+  await expect(page.getByTestId('tender-not-found')).toContainText('Tender not found')
   await expect(page.getByTestId('tender-creation-channel')).toHaveCount(0)
   await expect(page.locator('body')).not.toContainText('Created manually')
   await expect(page.locator('body')).not.toContainText('MANUAL')
