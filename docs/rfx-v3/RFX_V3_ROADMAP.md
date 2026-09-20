@@ -124,7 +124,7 @@ These are assigned to the **earliest appropriate wave** — not deferred beyond 
 | **E7 Phase 2 ERP API E3.1 Hardening** | Strict Content-Type, nested IngestJSON, per-type mapping pins, stable `rfx.erp.*` errors | **IMPLEMENTED_ACCEPTED** — PR #144 (head `f4a0ed73`, CI `35390138371`) |
 | **E7 Phase 2 ERP API E4 CREATE Commit** | Atomic DRAFT create from preview analysis, stable external link, idempotency, no auto-publish | **IMPLEMENTED_ACCEPTED** — PR #145 (head `3ab1c8e5`, CI `35459414961`) |
 | **E7 Phase 2 ERP API E5 UPDATE Commit** | Atomic DRAFT update from preview analysis, existing-link revision policy B, no auto-publish | **IMPLEMENTED_ACCEPTED** — PR #146 (head `1a12c999`, CI `35466989829`) |
-| **E7 Phase 2 ERP API E6** | GET/status/capabilities, migration 000075 | **NOT_STARTED** |
+| **E7 Phase 2 ERP API E6** | GET/status/capabilities (no 000075) | **IMPLEMENTED** — branch `feat/rfx-erp-contract-closure-e6-v3.0e7` |
 | **E7 Phase 2 Frontend** | Excel/ERP UI surfaces | **NOT_STARTED** |
 | **E7 Phase 2 Training** | RU/EN/ZH training course | **NOT_STARTED** |
 | **E7 Browser Acceptance** | Final real browser acceptance gate | **NOT_STARTED** |
@@ -152,8 +152,9 @@ Notes:
 - E7 Phase 2 ERP API **E3 CREATE/UPDATE Preview** accepted (PR #143 head `f60e1917979cb2133f7d5fcd74cbdd8d66ddea79`, CI `35382305777`, controller `ACCEPT_ERP_API_E3`): [RFX_V3_0E7_ERP_API_E3_IMPLEMENTATION.md](./implementation/RFX_V3_0E7_ERP_API_E3_IMPLEMENTATION.md). Delivers parser, mapping pin, and Preview only — Commit/GET/capabilities were out of E3.
 - E7 Phase 2 ERP API **E3.1 hardening** accepted (PR #144 head `f4a0ed73c733198b451561e4b49a9acde46eba37`, CI `35390138371`, controller `ACCEPT_ERP_API_E3_1`). Delivers Content-Type enforcement, unified nested ingest, per-mapping-type pins, and stable public error keys. Non-blocking residuals: `F_E31_L1`, `F_E31_L2`.
 - E7 Phase 2 ERP API **E4 CREATE Commit** accepted (PR #145 head `3ab1c8e51f694583579af504c2eb24ac2cf75729`, CI `35459414961`, controller `ACCEPT_ERP_API_E4`): [RFX_V3_0E7_ERP_API_E4_IMPLEMENTATION.md](./implementation/RFX_V3_0E7_ERP_API_E4_IMPLEMENTATION.md). Delivers `POST /api/v1/integrations/erp/rfx/drafts/commit` only — event stays DRAFT.
-- E7 Phase 2 ERP API **E5 UPDATE Commit** accepted (PR #146 head `1a12c999d5cea2b2cc72d185773b22090f8ed261`, CI `35466989829`, controller `ACCEPT_ERP_API_E5`): [RFX_V3_0E7_ERP_API_E5_IMPLEMENTATION.md](./implementation/RFX_V3_0E7_ERP_API_E5_IMPLEMENTATION.md). Delivers `POST /api/v1/rfx-events/{id}/erp-import/commit` with revision policy B for existing links. Event stays DRAFT. E6 GET/status/capabilities, migration 000075, auto-publish, and INT-196 remain unauthorized.
-- E7 Phase 2 overall remains **IMPLEMENTATION_IN_PROGRESS** — next: (1) ERP API E6 authorization, (2) frontend, (3) training, (4) browser acceptance.
+- E7 Phase 2 ERP API **E5 UPDATE Commit** accepted (PR #146 head `1a12c999d5cea2b2cc72d185773b22090f8ed261`, CI `35466989829`, controller `ACCEPT_ERP_API_E5`): [RFX_V3_0E7_ERP_API_E5_IMPLEMENTATION.md](./implementation/RFX_V3_0E7_ERP_API_E5_IMPLEMENTATION.md). Delivers `POST /api/v1/rfx-events/{id}/erp-import/commit` with revision policy B for existing links. Event stays DRAFT.
+- E7 Phase 2 ERP API **E6 GET/status/capabilities** implemented on `feat/rfx-erp-contract-closure-e6-v3.0e7` from `origin/main` `1db7aedc`: [RFX_V3_0E7_ERP_API_E6_IMPLEMENTATION.md](./implementation/RFX_V3_0E7_ERP_API_E6_IMPLEMENTATION.md). Four integration-auth GET operations; migration `000075` and auto-publish remain unauthorized; INT-196 remains free.
+- E7 Phase 2 overall remains **IMPLEMENTATION_IN_PROGRESS** — next: (1) ERP API E6 review/merge, (2) frontend, (3) training, (4) browser acceptance.
 - E7 browser acceptance, ERP integration, Phase 2 frontend, and training have not started.
 - Each implementation wave requires a separate controller gate.
 - Complete v3.0E remains **IMPLEMENTATION_IN_PROGRESS** until E7 browser acceptance is accepted.
@@ -164,12 +165,12 @@ Notes:
 |---|---|---|
 | Late submission workflow | `LATE_SUBMISSION_AND_DEADLINE_EXCEPTIONS=REQUIRED` — Phase 1 backend **IMPLEMENTED_ACCEPTED** (PR #119); carrier late submission **UI not started** | Before E7 browser acceptance |
 | Buyer approve/reject UI | Late-submission buyer approve/reject workflow UI — **not started** | Before E7 browser acceptance |
-| Buyer RFQ channels | `BUYER_RFQ_MANUAL_CREATION`, `BUYER_RFQ_TEMPLATE_CREATION` (E5: backend clone-from-template only), `BUYER_RFQ_EXCEL_IMPORT` (export **IMPLEMENTED_ACCEPTED** PR #123; preview **IMPLEMENTED_ACCEPTED** PR #125; P4 Commit apply **IMPLEMENTED_ACCEPTED** PR #129; Create from XLSX **NOT_STARTED**), `BUYER_RFQ_ERP_INTEGRATION` — ERP CREATE Commit **IMPLEMENTED_ACCEPTED** (PR #145); ERP UPDATE Commit **IMPLEMENTED_ACCEPTED** (PR #146); GET/TMS **NOT_STARTED** | Post-E6 / pre-pilot |
+| Buyer RFQ channels | `BUYER_RFQ_MANUAL_CREATION`, `BUYER_RFQ_TEMPLATE_CREATION` (E5: backend clone-from-template only), `BUYER_RFQ_EXCEL_IMPORT` (export **IMPLEMENTED_ACCEPTED** PR #123; preview **IMPLEMENTED_ACCEPTED** PR #125; P4 Commit apply **IMPLEMENTED_ACCEPTED** PR #129; Create from XLSX **NOT_STARTED**), `BUYER_RFQ_ERP_INTEGRATION` — ERP CREATE/UPDATE Commit **IMPLEMENTED_ACCEPTED** (PR #145/#146); ERP GET **IMPLEMENTED** (E6, pending review); TMS **NOT_STARTED** | Post-E6 / pre-pilot |
 | Carrier offer channels | `CARRIER_DIRECT_OFFER_ENTRY`; `CARRIER_OFFER_EXCEL_EXPORT` (**MERGED_ACCEPTED** PR #132 C1); `CARRIER_OFFER_EXCEL_IMPORT_PREVIEW` (**MERGED_ACCEPTED** PR #134 C2); `CARRIER_OFFER_EXCEL_IMPORT_COMMIT` (**MERGED_ACCEPTED** PR #135 C3); `CARRIER_ERP_INTEGRATION=NOT_REQUIRED_CURRENT_SCOPE` | Post-E6 / pre-pilot |
 | Competitor confidentiality | `CARRIER_CAN_VIEW_COMPETITOR_*=NO`, backend enforcement + cross-carrier isolation tests; carrier must not see participants, competitor identities, bids, submission times, or late-submission requests; buyer XLSX export enforces exclusion (E7P2-INT-18) | Before pilot |
 | Excel import/export | `EXCEL_IMPORT_EXPORT=REQUIRED` — buyer export **IMPLEMENTED_ACCEPTED**; buyer import preview **IMPLEMENTED_ACCEPTED** (PR #125); P4 Commit apply **IMPLEMENTED_ACCEPTED** (PR #129); carrier export **MERGED_ACCEPTED** (PR #132 C1); carrier import preview **MERGED_ACCEPTED** (PR #134 C2); carrier import commit **MERGED_ACCEPTED** (PR #135 C3); carrier XLSX overall **IMPLEMENTED_ACCEPTED**; Create from XLSX **NOT_STARTED** | Post-E6 |
 | P4 Commit gates | Atomic/single-use Commit; stale baseline rejection; consumed/expired analysis rejection — **IMPLEMENTED_ACCEPTED** (PR #129) | Closed for UPDATE_EXISTING_DRAFT |
-| ERP integration | Generic ERP JSON contract API — architecture **FROZEN_ACCEPTED** (PR #137); E1–E4 **IMPLEMENTED_ACCEPTED**; E5 UPDATE Commit **IMPLEMENTED_ACCEPTED** (PR #146, revision policy B); E6 GET/status/capabilities **NOT_STARTED** | Post-E6 / pre-pilot |
+| ERP integration | Generic ERP JSON contract API — architecture **FROZEN_ACCEPTED** (PR #137); E1–E5 **IMPLEMENTED_ACCEPTED**; E6 GET/status/capabilities **IMPLEMENTED** (pending review) | Post-E6 / pre-pilot |
 | Training course | `USER_TRAINING_COURSE=REQUIRED` (RU/EN/ZH) — Phase 2 training **NOT_STARTED** | After UI stabilisation, before pilot |
 | Final browser acceptance | Real browser acceptance gate for E7 — **NOT_STARTED** | Before pilot |
 
@@ -279,8 +280,8 @@ ERP_API_E4_STATUS=IMPLEMENTED_ACCEPTED
 ERP_API_E4_AUTHORIZED=YES
 ERP_API_E5_STATUS=IMPLEMENTED_ACCEPTED
 ERP_API_E5_AUTHORIZED=YES
-ERP_API_E6_STATUS=NOT_STARTED
-ERP_API_E6_AUTHORIZED=NO
+ERP_API_E6_STATUS=IMPLEMENTED
+ERP_API_E6_AUTHORIZED=YES
 MIGRATION_000075_AUTHORIZED=NO
 AUTO_PUBLISH_AUTHORIZED=NO
 BUYER_RFQ_ERP_INTEGRATION=ARCHITECTURE_FROZEN_ACCEPTED

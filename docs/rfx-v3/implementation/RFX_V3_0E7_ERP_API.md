@@ -194,7 +194,7 @@ Legacy name `ERP_BUYER_IMPORT_COMMIT` is **retired** — do not use.
 | Idempotency | N/A |
 | State | DRAFT only → 409 if PUBLISHED |
 | Audit | None (read) |
-| Errors | 401, 403, 404, 409 |
+| Errors | 401, 403, 404, 409 `event_not_draft`, 429 |
 
 #### Op 6 — Get RFx by stable external identity
 
@@ -207,7 +207,7 @@ Legacy name `ERP_BUYER_IMPORT_COMMIT` is **retired** — do not use.
 | Query | `external_system`, `external_object_id` (required); `external_revision` (optional — history metadata only) |
 | Response | `ErpRfxDraftSummary` + `external_link` metadata |
 | Lookup | Stable key without revision → exactly one RFx |
-| Errors | 401, 403, 404 |
+| Errors | 401, 403, 404; 409 `event_not_draft` if PUBLISHED; 429 |
 
 #### Op 7 — Get analysis status
 
@@ -219,7 +219,7 @@ Legacy name `ERP_BUYER_IMPORT_COMMIT` is **retired** — do not use.
 | Scopes | `rfx:status:read` |
 | Response | `ErpAnalysisStatus` (`status`, `expires_at`, `consumed_at?`, `validation_summary`, `ready_to_commit` snapshot) |
 | Semantics | **Sync v1** — reads persisted analysis row; does not imply background worker |
-| Errors | 401, 403, 404 |
+| Errors | 401, 403, 404, 429 |
 
 #### Op 8 — Get capabilities
 
@@ -230,7 +230,7 @@ Legacy name `ERP_BUYER_IMPORT_COMMIT` is **retired** — do not use.
 | operationId | `getErpIntegrationCapabilities` |
 | Scopes | **`rfx:status:read` only** (M-03 — no unauthenticated read) |
 | Response | Principal-scoped: `schema_version`, `limits`, `supported_mapping_types`, `deferred_fields[]` |
-| Errors | 401, 403, 429 |
+| Errors | 401, 403, 404 (feature flag), 429 |
 
 ### 3.3 ERP GET DTO allowlist (`ErpRfxDraftSummary`) — M-05
 
@@ -314,7 +314,7 @@ tenant_id
 | Disabled principal | 403 |
 | Duplicate CREATE | 409 `external_id_conflict` on stable key |
 | GET without revision | Returns the single RFx for stable key |
-| GET with `external_revision` query | Returns same RFx + requested revision metadata if known; 404 if revision never recorded |
+| GET with `external_revision` query | Returns same RFx + requested revision metadata if the revision is the current link revision (including E4 CREATE with empty history) or exists in history; 404 if the revision was never recorded |
 
 ---
 
