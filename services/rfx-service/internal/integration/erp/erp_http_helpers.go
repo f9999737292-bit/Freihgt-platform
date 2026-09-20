@@ -154,6 +154,36 @@ func updateCommitScopes() []string {
 	return []string{domain.ScopeDraftCommit, domain.ScopeDraftRead}
 }
 
+func readScopes() []string {
+	return []string{domain.ScopeDraftRead}
+}
+
+func statusReadScopes() []string {
+	return []string{domain.ScopeStatusRead}
+}
+
+func getERP(t *testing.T, router http.Handler, path string, tenantID, companyID, principalID uuid.UUID, scopes []string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, path, nil)
+	if tenantID != uuid.Nil || companyID != uuid.Nil || principalID != uuid.Nil || len(scopes) > 0 {
+		injectIntegrationHeaders(req, tenantID, companyID, principalID, scopes...)
+	}
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
+}
+
+func countTenantAuditEvents(t *testing.T, env *testEnv, tenantID uuid.UUID) int {
+	t.Helper()
+	var count int
+	if err := env.pool.QueryRow(context.Background(), `
+		SELECT COUNT(*) FROM rfx.audit_events WHERE tenant_id = $1
+	`, tenantID).Scan(&count); err != nil {
+		t.Fatalf("count audit: %v", err)
+	}
+	return count
+}
+
 func postERPUpdateCommit(t *testing.T, router http.Handler, eventID, tenantID, companyID, principalID uuid.UUID, scopes []string, analysisID uuid.UUID, idempotencyKey string) *httptest.ResponseRecorder {
 	t.Helper()
 	return postERPUpdateCommitRaw(t, router, eventID, tenantID, companyID, principalID, scopes, []byte(`{"analysis_id":"`+analysisID.String()+`"}`), idempotencyKey)
