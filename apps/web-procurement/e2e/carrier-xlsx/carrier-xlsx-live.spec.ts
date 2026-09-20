@@ -247,12 +247,13 @@ test.describe('carrier XLSX live stack', () => {
       return resp.url().includes(`/rfx-events/${fix.eventId}/carrier-responses/${fix.responseId}/xlsx-import/preview`)
         && resp.request().method() === 'POST'
     }, { timeout: 30_000 })
-    await page.getByTestId('carrier-xlsx-retry-preview').click()
+    const refreshed = await exportWorkbook(page, probe)
+    await uploadWorkbook(page, refreshed.filePath)
     const previewResp = await previewWait.catch((error: Error) => {
       throw new Error(`${error.message}\n${formatCarrierXlsxNetworkProbe(probe)}`)
     })
     if (previewResp.status() !== 200) {
-      throw new Error(`retry preview status=${previewResp.status()}\n${formatCarrierXlsxNetworkProbe(probe)}`)
+      throw new Error(`new preview after stale status=${previewResp.status()}\n${formatCarrierXlsxNetworkProbe(probe)}`)
     }
     await expect(page.getByTestId('carrier-xlsx-preview')).toBeVisible()
     await expect(page.getByTestId('carrier-xlsx-commit'), formatCarrierXlsxNetworkProbe(probe)).toBeEnabled()
