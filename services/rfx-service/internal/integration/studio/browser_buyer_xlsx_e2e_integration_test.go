@@ -67,7 +67,8 @@ func startBuyerXlsxLiveStack(t *testing.T) *browserBuyerXlsxLiveStack {
 	rfxURL, rfxSrv := startBuyerXlsxRfxService(t, env)
 	identity := startBrowserIdentityStub(t, browserIdentityRolesForBuyer(fix.UserID.String()))
 	webOrigin := browserGatewayEnvForStack(t, buyerXlsxBrowserPort)
-	gatewayURL, gatewayProc := startBuyerXlsxProductionGateway(t, rfxURL, webOrigin, identity)
+	corsOrigins := webOrigin + ",http://localhost:" + buyerXlsxBrowserPort
+	gatewayURL, gatewayProc := startBuyerXlsxProductionGateway(t, rfxURL, corsOrigins, identity)
 	webURL, webCmd := startBuyerXlsxWebProcurement(t, gatewayURL, fix, buyerXlsxBrowserPort)
 	waitForHTTP200(t, webURL+"/login", 120*time.Second)
 	return &browserBuyerXlsxLiveStack{
@@ -161,11 +162,14 @@ func startBuyerXlsxProductionGateway(t *testing.T, rfxServiceURL, origins string
 
 func startBuyerXlsxWebProcurement(t *testing.T, gatewayURL string, fix browserStudioFixture, port string) (string, *webProcurementCmd) {
 	t.Helper()
-	env := append(os.Environ(),
-		"NUXT_PUBLIC_API_BASE_URL="+gatewayURL,
+	webURL := "http://127.0.0.1:" + port
+	env := overrideProcessEnv(os.Environ(),
+		"NUXT_PUBLIC_API_BASE_URL="+webURL,
+		"NUXT_E2E_GATEWAY_URL="+gatewayURL,
 		"NUXT_PUBLIC_DEFAULT_TENANT_ID="+fix.TenantID.String(),
 		"NUXT_PUBLIC_RFX_EXCEL_EXCHANGE_ENABLED=true",
 		"NUXT_E2E_DISABLE_SSR=true",
+		"NUXT_E2E_DISABLE_DEVTOOLS=true",
 	)
 	cmd, cancel, logFile, launch := bootNuxtDevApp(t, "web-procurement", port, env)
 	proc := &webProcurementCmd{
@@ -176,7 +180,28 @@ func startBuyerXlsxWebProcurement(t *testing.T, gatewayURL string, fix browserSt
 		launch: launch,
 	}
 	t.Cleanup(func() { stopBrowserWebProcurement(t, proc) })
-	return "http://127.0.0.1:" + port, proc
+	return webURL, proc
+}
+
+func overrideProcessEnv(base []string, overrides ...string) []string {
+	keys := make(map[string]struct{}, len(overrides))
+	for _, item := range overrides {
+		key, _, ok := strings.Cut(item, "=")
+		if ok {
+			keys[key] = struct{}{}
+		}
+	}
+	out := make([]string, 0, len(base)+len(overrides))
+	for _, item := range base {
+		key, _, ok := strings.Cut(item, "=")
+		if ok {
+			if _, skip := keys[key]; skip {
+				continue
+			}
+		}
+		out = append(out, item)
+	}
+	return append(out, overrides...)
 }
 
 func (s *browserBuyerXlsxLiveStack) shutdown(t *testing.T) {
@@ -195,35 +220,31 @@ func (s *browserBuyerXlsxLiveStack) shutdown(t *testing.T) {
 func verifyBuyerXlsxGatewayProbe(t *testing.T, stack *browserBuyerXlsxLiveStack) {
 	t.Helper()
 	eventURL := stack.gatewayURL + "/api/v1/rfx-events/" + stack.fixture.EventID.String()
-	req, err := http.NewRequest(http.MethodGet, eventURL, nil)
+	probeBuyerXlsxGET(t, stack, eventURL, "event")
+	probeBuyerXlsxGET(t, stack, eventURL+"/lots", "lots")
+	probeBuyerXlsxGET(t, stack, eventURL+"/participants", "participants")
+	probeBuyerXlsxGET(t, stack, eventURL+"/xlsx-export", "export")
+}
+
+func probeBuyerXlsxGET(t *testing.T, stack *browserBuyerXlsxLiveStack, url, label string) {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		t.Fatalf("probe request: %v", err)
+		t.Fatalf("probe %s request: %v", label, err)
 	}
 	req.Header.Set("Authorization", "Bearer "+stack.fixture.JWT)
 	req.Header.Set("X-Company-ID", stack.fixture.CompanyID.String())
+	req.Header.Set("Origin", stack.webURL)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		t.Fatalf("probe buyer XLSX event: %v", err)
+		t.Fatalf("probe buyer XLSX %s: %v", label, err)
 	}
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("probe buyer XLSX event: status=%d url=%s", resp.StatusCode, eventURL)
+		t.Fatalf("probe buyer XLSX %s: status=%d url=%s", label, resp.StatusCode, url)
 	}
-
-	exportURL := eventURL + "/xlsx-export"
-	exportReq, err := http.NewRequest(http.MethodGet, exportURL, nil)
-	if err != nil {
-		t.Fatalf("export probe request: %v", err)
-	}
-	exportReq.Header.Set("Authorization", "Bearer "+stack.fixture.JWT)
-	exportReq.Header.Set("X-Company-ID", stack.fixture.CompanyID.String())
-	exportResp, err := http.DefaultClient.Do(exportReq)
-	if err != nil {
-		t.Fatalf("probe buyer XLSX export: %v", err)
-	}
-	exportResp.Body.Close()
-	if exportResp.StatusCode != http.StatusOK {
-		t.Fatalf("probe buyer XLSX export: status=%d url=%s (excel flag or route missing)", exportResp.StatusCode, exportURL)
+	if got := resp.Header.Get("Access-Control-Allow-Origin"); got != stack.webURL {
+		t.Fatalf("probe buyer XLSX %s CORS origin=%q want %q", label, got, stack.webURL)
 	}
 }
 
