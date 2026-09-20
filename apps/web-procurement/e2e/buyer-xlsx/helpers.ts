@@ -120,8 +120,10 @@ export async function expectWorkspaceLoaded(page: Page, rfxNumber: string) {
 }
 
 export async function expectPanelVisible(page: Page) {
+  await expect(page.getByTestId('buyer-xlsx-slot')).toBeVisible({ timeout: 30_000 })
   const gate = page.getByTestId('buyer-xlsx-gate')
-  await expect(gate).toHaveAttribute('data-enabled', 'true', { timeout: 30_000 })
+  await expect(gate).toBeVisible({ timeout: 30_000 })
+  await expect(gate).toHaveAttribute('data-enabled', 'true')
   await expect(gate).toHaveAttribute('data-status', /draft/i)
   await expect(page.getByTestId('buyer-xlsx-panel')).toBeVisible({ timeout: 30_000 })
 }

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import BuyerXlsxExchangePanel from '~/components/rfx/BuyerXlsxExchangePanel.vue'
 import {
   canCancelStatus,
   canPublishStatus,
@@ -376,11 +377,13 @@ onMounted(() => {
         <EmptyState v-else :title="$t('tenders.noParticipants')" />
       </Card>
 
-      <BuyerXlsxExchangePanel
-        :event-id="event.id"
-        :event-status="event.status"
-        @committed="loadWorkspace"
-      />
+      <div data-testid="buyer-xlsx-slot">
+        <BuyerXlsxExchangePanel
+          :event-id="event.id"
+          :event-status="event.status"
+          @committed="loadWorkspace"
+        />
+      </div>
 
       <Card>
         <template #header>
