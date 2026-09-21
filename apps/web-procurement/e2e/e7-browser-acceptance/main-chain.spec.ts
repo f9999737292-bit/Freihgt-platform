@@ -9,6 +9,7 @@ import {
   carrierJwt,
   carrierUserId,
   attachLiveDiagnostics,
+  authHeaders,
   clickAndCapture,
   dumpCarrierOfferEvidence,
   dumpTenderDetailEvidence,
@@ -452,6 +453,25 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
   await expect(carrierPage.getByTestId('carrier-response-workspace')).toBeVisible({ timeout: 60_000 })
   await expect(questionRoots.first()).toBeVisible({ timeout: 30_000 })
   expect(startPosts, `second start after pin is forbidden: ${JSON.stringify(startPosts)}`).toHaveLength(1)
+
+  const ownAfterBind = await carrierPage.request.get(
+    `${gatewayURL}/api/v1/rfx-events/${eventId}/own-response?carrier_company_id=${carrierCompanyId}`,
+    { headers: authHeaders(carrierJwt, carrierCompanyId) },
+  )
+  expect(ownAfterBind.status(), `GET own-response after bind -> ${ownAfterBind.status()}`).toBe(200)
+  const ownAfterBindBody = await ownAfterBind.json() as {
+    id?: string
+    offer_lines?: Array<{ rfx_lot_id?: string; amount?: number | string; currency_code?: string }>
+  }
+  expect(ownAfterBindBody.id, `own-response id drifted after bind: ${JSON.stringify(ownAfterBindBody)}`).toBe(responseId)
+  if (Array.isArray(ownAfterBindBody.offer_lines)) {
+    const pinnedLine = ownAfterBindBody.offer_lines.find((line) => line.rfx_lot_id === lotId)
+    expect(Number(pinnedLine?.amount), `offer not preserved after bind: ${JSON.stringify(ownAfterBindBody)}`).toBe(15000)
+    expect(pinnedLine?.currency_code ?? 'RUB').toBe('RUB')
+    console.log(`E7-OWN-RESPONSE-AFTER-BIND responseId=${ownAfterBindBody.id} offer=15000 RUB lines=${ownAfterBindBody.offer_lines.length}`)
+  } else {
+    console.log(`E7-OWN-RESPONSE-AFTER-BIND responseId=${ownAfterBindBody.id} offer_lines_absent`)
+  }
   console.log(`E7-MAIN-EVENT-ID ${eventId} stage=bind-questionnaire responseId=${responseId} publishedVersionId=${publishedVersionId}`)
 
   const answersPatch = carrierPage.waitForResponse(async (resp) => {
