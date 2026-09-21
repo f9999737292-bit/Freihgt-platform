@@ -78,30 +78,31 @@ function stepLabel(step: WizardStep) {
   return t(`tenders.wizard.${step}`)
 }
 
+function applyStoredOwnerFallback() {
+  const stored = localStorage.getItem('freight_procurement_company_id') || form.owner_company_id
+  if (!stored) return
+  form.owner_company_id = stored
+  if (ownerOptions.value.length === 0) {
+    ownerOptions.value = [{ label: stored, value: stored }]
+  }
+}
+
 async function loadOwnerCompanies() {
+  applyStoredOwnerFallback()
   if (!user.value?.id) return
   try {
     const raw = await getUserCompanies(user.value.id)
     const memberships = filterBuyerMemberships(raw)
-    ownerOptions.value = membershipSelectOptions(memberships)
+    const options = membershipSelectOptions(memberships)
+    if (options.length > 0) {
+      ownerOptions.value = options
+    }
     if (!form.owner_company_id) {
       form.owner_company_id = selectDefaultOwnerCompany(memberships)
     }
-    if (ownerOptions.value.length === 0) {
-      const stored = localStorage.getItem('freight_procurement_company_id') || form.owner_company_id
-      if (stored) {
-        form.owner_company_id = stored
-        ownerOptions.value = [{ label: stored, value: stored }]
-      }
-    }
+    applyStoredOwnerFallback()
   } catch {
-    const stored = localStorage.getItem('freight_procurement_company_id')
-    if (stored) {
-      form.owner_company_id = stored
-      ownerOptions.value = [{ label: stored, value: stored }]
-    } else {
-      ownerOptions.value = []
-    }
+    applyStoredOwnerFallback()
   }
 }
 
@@ -341,12 +342,12 @@ onMounted(async () => {
         <Input v-model="form.rfx_number" :label="$t('tenders.number')" required />
         <Select v-model="form.rfx_type" :label="$t('tenders.type')" :options="typeOptions" />
         <Select v-model="form.category" :label="$t('tenders.category')" :options="categoryOptions" />
-        <Select
-          v-model="form.owner_company_id"
-          data-testid="wizard-owner-company"
-          :label="$t('tenders.ownerCompany')"
-          :options="ownerOptions"
-        />
+        <label class="ui-select">
+          <span class="ui-select__label">{{ $t('tenders.ownerCompany') }}</span>
+          <select v-model="form.owner_company_id" data-testid="wizard-owner-company">
+            <option v-for="opt in ownerOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+          </select>
+        </label>
         <Input v-model="form.title" data-testid="wizard-title" :label="$t('tenders.titleLabel')" required />
         <Input v-model="form.description" :label="$t('tenders.description')" />
       </div>

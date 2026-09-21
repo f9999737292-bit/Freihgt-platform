@@ -20,7 +20,7 @@ test('E7-BRW clone from template opens Studio and records MANUAL channel follow-
   await expect(page.getByText(templateCode)).toBeVisible({ timeout: 30_000 })
   const openClone = page.getByTestId('clone-from-template-open')
   await expect(openClone).toBeVisible()
-  await openClone.evaluate((el) => (el as HTMLButtonElement).click())
+  await openClone.click()
   await expect(page.locator('#clone-modal-title')).toBeVisible({ timeout: 15_000 })
   await page.getByTestId('clone-template-select').selectOption(templateId)
   await expect(page.getByTestId('clone-version-select')).toBeVisible({ timeout: 30_000 })

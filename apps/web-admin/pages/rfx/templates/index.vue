@@ -104,14 +104,10 @@ function goToPage(page: number) {
         <p class="page__subtitle">{{ $t('rfx.templates.librarySubtitle') }}</p>
       </div>
       <div v-if="canManageRfxTemplates()" class="page__actions">
-        <button
-          type="button"
-          class="btn btn--secondary"
-          data-testid="clone-from-template-open"
-          @click.stop.prevent="showCloneModal = true"
-        >
+        <label class="btn btn--secondary" data-testid="clone-from-template-open">
+          <input v-model="showCloneModal" type="checkbox" class="sr-only" />
           {{ $t('rfx.templates.clone.title') }}
-        </button>
+        </label>
         <button type="button" class="btn btn--primary" @click="showCreateModal = true">
           {{ $t('rfx.templates.create') }}
         </button>
@@ -195,4 +191,5 @@ function goToPage(page: number) {
 .data-table { width: 100%; border-collapse: collapse; }
 .data-table th, .data-table td { text-align: left; padding: 0.625rem; border-bottom: 1px solid var(--color-border); }
 .pagination { display: flex; align-items: center; gap: 0.75rem; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
 </style>
