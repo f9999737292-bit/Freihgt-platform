@@ -10659,6 +10659,25 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Unbound commercial carrier response cannot be opened as a questionnaire workspace. Envelope is ErrorResponse with error.code=UNPROCESSABLE_ENTITY and details.field=rfx_version_id. Other validation failures remain 400.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "UNPROCESSABLE_ENTITY",
+                    "message": "carrier response is not bound to a published questionnaire version",
+                    "details": {
+                      "field": "rfx_version_id"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }

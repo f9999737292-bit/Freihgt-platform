@@ -1019,6 +1019,12 @@ CARRIER_RESPONSE_REQUEST_BODIES = {
 }
 
 CARRIER_RESPONSE_422_PROFILES = frozenset({"cr_answers_patch", "cr_submit"})
+CARRIER_WORKSPACE_UNBOUND_422_PROFILES = frozenset({"cr_workspace_get"})
+CARRIER_WORKSPACE_UNBOUND_422_DESCRIPTION = (
+    "Unbound commercial carrier response cannot be opened as a questionnaire workspace. "
+    "Envelope is ErrorResponse with error.code=UNPROCESSABLE_ENTITY and details.field=rfx_version_id. "
+    "Other validation failures remain 400."
+)
 
 LATE_SUBMISSION_REQUEST_BODIES = {
     "ls_create": """              $ref: '#/components/schemas/RfxCreateLateSubmissionRequest'""",
@@ -1832,7 +1838,25 @@ def render_operation(
             ERROR_RESPONSES.rstrip("\n"),
         ]
     )
-    if profile in CARRIER_RESPONSE_422_PROFILES:
+    if profile in CARRIER_WORKSPACE_UNBOUND_422_PROFILES:
+        lines.extend(
+            [
+                "        '422':",
+                "          description: |",
+                f"            {CARRIER_WORKSPACE_UNBOUND_422_DESCRIPTION}",
+                "          content:",
+                "            application/json:",
+                "              schema:",
+                "                $ref: '#/components/schemas/ErrorResponse'",
+                "              example:",
+                "                error:",
+                "                  code: UNPROCESSABLE_ENTITY",
+                "                  message: carrier response is not bound to a published questionnaire version",
+                "                  details:",
+                "                    field: rfx_version_id",
+            ]
+        )
+    elif profile in CARRIER_RESPONSE_422_PROFILES:
         lines.extend(
             [
                 "        '422':",
