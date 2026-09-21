@@ -345,15 +345,23 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
   expect(offerSaved.id ?? responseId).toBe(responseId)
   if (offerSaved.rfx_event_id) expect(offerSaved.rfx_event_id).toBe(eventId)
   expect(offerSaved.status ?? 'DRAFT', `response must stay DRAFT after commercial save: ${JSON.stringify(offerSaved)}`).toBe('DRAFT')
+  const patchLine = (offerSaved.offer_lines ?? []).find((line) => line.rfx_lot_id === lotId)
+  expect(patchLine, `PATCH response missing offer line: ${JSON.stringify(offerSaved)}`).toBeTruthy()
+  expect(Number(patchLine?.amount)).toBe(15000)
   expect(prematureSubmit, `premature submit during save-offer: ${JSON.stringify(prematureSubmit)}`).toEqual([])
   const afterSaveToasts = await dumpCarrierOfferEvidence(carrierPage, lotId)
   expect(afterSaveToasts.toasts.some((text) => /amount for every lot|сумм|每个批次/i.test(text)), `offerLotRequired after save: ${JSON.stringify(afterSaveToasts)}`).toBe(false)
   console.log(`E7-MAIN-EVENT-ID ${eventId} stage=save-offer responseId=${responseId}`)
 
-  const refreshGet = waitForApi(carrierPage, {
-    method: 'GET',
-    pathIncludes: `/api/v1/rfx-events/${eventId}/own-response`,
-  })
+  const refreshGet = carrierPage.waitForResponse(async (resp) => {
+    if (resp.request().method() !== 'GET' || !resp.url().includes(`/api/v1/rfx-events/${eventId}/own-response`) || resp.status() !== 200) {
+      return false
+    }
+    const body = await resp.json().catch(() => null) as {
+      offer_lines?: Array<{ rfx_lot_id?: string; amount?: number | string }>
+    } | null
+    return Boolean((body?.offer_lines ?? []).some((line) => line.rfx_lot_id === lotId && Number(line.amount) === 15000))
+  }, { timeout: 60_000 })
   await carrierPage.goto(`${procurementURL}/carrier/tenders/${eventId}`, { waitUntil: 'domcontentloaded' })
   const refreshed = await refreshGet
   expect(refreshed.status()).toBe(200)
