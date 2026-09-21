@@ -321,10 +321,11 @@ onMounted(async () => {
         <Select v-model="form.category" :label="$t('tenders.category')" :options="categoryOptions" />
         <Select
           v-model="form.owner_company_id"
+          data-testid="wizard-owner-company"
           :label="$t('tenders.ownerCompany')"
           :options="ownerOptions"
         />
-        <Input v-model="form.title" :label="$t('tenders.titleLabel')" required />
+        <Input v-model="form.title" data-testid="wizard-title" :label="$t('tenders.titleLabel')" required />
         <Input v-model="form.description" :label="$t('tenders.description')" />
       </div>
       <div class="wizard-actions">
@@ -337,7 +338,7 @@ onMounted(async () => {
       <h3>{{ $t('tenders.lotsTitle') }}</h3>
       <div class="form-grid form-grid--2">
         <Input v-model="lotForm.lot_number" :label="$t('tenders.lotNumber')" />
-        <Input v-model="lotForm.name" :label="$t('tenders.lotName')" required />
+        <Input v-model="lotForm.name" data-testid="wizard-lot-name" :label="$t('tenders.lotName')" required />
         <Input v-model="lotForm.description" :label="$t('tenders.lotDescription')" />
       </div>
       <div class="wizard-actions">
@@ -383,6 +384,7 @@ onMounted(async () => {
       <div class="form-grid form-grid--2">
         <Select
           v-model="participantForm.company_id"
+          data-testid="wizard-participant-company"
           :label="$t('tenders.participantCompany')"
           :options="carrierOptions"
         />

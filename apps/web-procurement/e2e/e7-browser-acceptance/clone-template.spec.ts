@@ -12,15 +12,18 @@ import {
 
 test('E7-BRW clone from template opens Studio and records MANUAL channel follow-up', async ({ page }) => {
   await seedAdminSession(page)
+  const templatesWait = waitForApi(page, { method: 'GET', pathIncludes: '/api/v1/rfx-templates' })
   await page.goto(`${adminURL}/rfx/templates`, { waitUntil: 'domcontentloaded' })
+  const templatesResp = await templatesWait
+  expect(templatesResp.status(), `GET /api/v1/rfx-templates -> ${templatesResp.status()}`).toBe(200)
   await expect(page.getByRole('heading', { name: /Библиотека шаблонов|Template library|模板库/ })).toBeVisible({ timeout: 60_000 })
-  await page.getByRole('button', { name: 'Создать RFx из шаблона' }).click()
-  await expect(page.getByRole('heading', { name: 'Создать RFx из шаблона' })).toBeVisible()
-  const templateSelect = page.getByLabel('Шаблон')
-  await templateSelect.selectOption(templateId)
-  await expect(page.getByLabel('Опубликованная версия')).toBeVisible({ timeout: 30_000 })
-  await page.locator('form.modal input').nth(1).fill('E7 clone from template')
-  const owner = page.getByLabel('Владелец')
+  await expect(page.getByText(templateCode)).toBeVisible({ timeout: 30_000 })
+  await page.getByRole('button', { name: /Создать RFx из шаблона|Create RFx from template|从模板创建 RFx/ }).click()
+  await expect(page.locator('#clone-modal-title')).toBeVisible()
+  await page.getByTestId('clone-template-select').selectOption(templateId)
+  await expect(page.getByTestId('clone-version-select')).toBeVisible({ timeout: 30_000 })
+  await page.getByTestId('clone-event-title').fill('E7 clone from template')
+  const owner = page.getByTestId('clone-owner-select')
   await expect(owner.locator('option')).not.toHaveCount(0, { timeout: 15_000 })
   const ownerValue = await owner.inputValue()
   if (!ownerValue) {
@@ -30,7 +33,7 @@ test('E7-BRW clone from template opens Studio and records MANUAL channel follow-
     page,
     'clone-from-template',
     { method: 'POST', pathIncludes: '/api/v1/rfx-events/from-template' },
-    () => page.getByRole('button', { name: 'Создать черновик RFx' }).click(),
+    () => page.getByRole('button', { name: /Создать черновик RFx|Create RFx draft|创建 RFx 草稿/ }).click(),
   )
   expect(cloneResp.status()).toBe(201)
   const body = await cloneResp.json() as {
@@ -54,7 +57,7 @@ test('E7-BRW clone from template opens Studio and records MANUAL channel follow-
   await expect(page.getByText(templateCode).or(page.getByText('E7 Template'))).toBeVisible()
 
   const studioWait = waitForApi(page, { method: 'GET', pathIncludes: `/api/v1/rfx-events/${body.id}/studio` })
-  await page.getByRole('button', { name: 'Открыть RFx Studio' }).click()
+  await page.getByRole('button', { name: /Открыть RFx Studio|Open RFx Studio|打开 RFx Studio/ }).click()
   const studio = await studioWait
   expect(studio.status()).toBe(200)
   await expect(page).toHaveURL(new RegExp(`/rfx/${body.id}/studio`))

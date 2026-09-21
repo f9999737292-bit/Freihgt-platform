@@ -48,15 +48,16 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
 
   const createWait = waitForApi(buyerPage, { method: 'POST', pathIncludes: '/api/v1/rfx-events' })
   await buyerPage.goto(`${procurementURL}/tenders/new`, { waitUntil: 'domcontentloaded' })
-  await expect(buyerPage.getByLabel('Title')).toBeVisible({ timeout: 30_000 })
-  await buyerPage.getByLabel('Title').fill(TITLE)
-  const owner = buyerPage.getByLabel('Owner company')
+  const titleInput = buyerPage.getByTestId('wizard-title').locator('input')
+  await expect(titleInput).toBeVisible({ timeout: 30_000 })
+  await titleInput.fill(TITLE)
+  const owner = buyerPage.getByTestId('wizard-owner-company').locator('select')
   await expect(owner.locator('option')).not.toHaveCount(0, { timeout: 15_000 })
   if (!(await owner.inputValue())) {
-    const first = await owner.locator('option').nth(1).getAttribute('value')
+    const first = await owner.locator('option').nth(0).getAttribute('value')
     if (first) await owner.selectOption(first)
   }
-  await buyerPage.getByRole('button', { name: 'Next' }).click()
+  await buyerPage.getByRole('button', { name: /Next|Далее|下一步/ }).click()
   const created = await createWait
   expect(created.status(), `POST create event -> ${created.status()}`).toBe(201)
   assertGatewayHost(created.url())
@@ -66,17 +67,17 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
   logStage({ stage: 'create-draft', method: 'POST', path: '/api/v1/rfx-events', status: created.status() })
   console.log(`E7-MAIN-EVENT-ID ${eventId}`)
 
-  await buyerPage.getByLabel('Lot name').fill(LOT_NAME)
+  await buyerPage.getByTestId('wizard-lot-name').locator('input').fill(LOT_NAME)
   const lotResp = await clickAndCapture(
     buyerPage,
     'add-lot',
     { method: 'POST', pathIncludes: `/api/v1/rfx-events/${eventId}/lots` },
-    () => buyerPage.getByRole('button', { name: 'Add lot' }).click(),
+    () => buyerPage.getByRole('button', { name: /Add lot|Добавить лот|添加标段/ }).click(),
   )
   expect(lotResp.status()).toBe(201)
 
-  await buyerPage.getByRole('button', { name: 'Next' }).click()
-  const participantSelect = buyerPage.getByLabel('Participant company')
+  await buyerPage.getByRole('button', { name: /Next|Далее|下一步/ }).click()
+  const participantSelect = buyerPage.getByTestId('wizard-participant-company').locator('select')
   await expect(participantSelect.locator('option')).not.toHaveCount(0, { timeout: 15_000 })
   const carrierOption = participantSelect.locator('option').filter({ hasText: /Carrier A/ }).first()
   await expect(carrierOption).toHaveCount(1, { timeout: 15_000 })
@@ -85,19 +86,19 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
     buyerPage,
     'add-participant',
     { method: 'POST', pathIncludes: `/api/v1/rfx-events/${eventId}/participants` },
-    () => buyerPage.getByRole('button', { name: 'Add participant' }).click(),
+    () => buyerPage.getByRole('button', { name: /Add participant|Добавить участника|添加参与者/ }).click(),
   )
   expect(participantResp.status()).toBe(201)
 
-  await buyerPage.getByRole('button', { name: 'Next' }).click()
+  await buyerPage.getByRole('button', { name: /Next|Далее|下一步/ }).click()
   const deadlineResp = await clickAndCapture(
     buyerPage,
     'save-deadline',
     { method: 'PATCH', pathIncludes: `/api/v1/rfx-events/${eventId}` },
-    () => buyerPage.getByRole('button', { name: 'Next' }).click(),
+    () => buyerPage.getByRole('button', { name: /Next|Далее|下一步/ }).click(),
   )
   expect(deadlineResp.status()).toBeLessThan(400)
-  await expect(buyerPage.getByRole('button', { name: 'Publish' })).toBeVisible()
+  await expect(buyerPage.getByRole('button', { name: /Publish|Опубликовать|发布/ })).toBeVisible()
 
   const humanGet = waitForApi(buyerPage, {
     method: 'GET',
@@ -113,8 +114,8 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
   expect(humanBody.creation_channel).toBe('MANUAL')
   expect(humanBody.status).toBe('DRAFT')
   logStage({ stage: 'human-get', method: 'GET', path: `/api/v1/rfx-events/${eventId}`, status: human.status() })
-  await expect(buyerPage.getByTestId('tender-creation-channel')).toHaveText('Created manually')
-  await expect(buyerPage.getByRole('button', { name: 'Publish' })).toBeVisible()
+  await expect(buyerPage.getByTestId('tender-creation-channel')).toHaveText(/Created manually|Создан вручную|手动创建/)
+  await expect(buyerPage.getByRole('button', { name: /Publish|Опубликовать|发布/ })).toBeVisible()
 
   const studioLoad = waitForApi(adminPage, { method: 'GET', pathIncludes: `/api/v1/rfx-events/${eventId}/studio` })
   await adminPage.goto(`${adminURL}/rfx/${eventId}/studio?step=questionnaire`, { waitUntil: 'domcontentloaded' })
@@ -188,7 +189,7 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
     buyerPage,
     'publish-event',
     { method: 'POST', pathIncludes: `/api/v1/rfx-events/${eventId}/publish` },
-    () => buyerPage.getByRole('button', { name: 'Publish' }).click(),
+    () => buyerPage.getByRole('button', { name: /Publish|Опубликовать|发布/ }).click(),
   )
   expect(publishEvent.status()).toBe(200)
 
@@ -197,15 +198,17 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
     carrierPage,
     'carrier-start',
     { method: 'POST', pathIncludes: `/api/v1/rfx-events/${eventId}/responses` },
-    () => carrierPage.getByRole('button', { name: 'Start response' }).click(),
+    () => carrierPage.getByRole('button', { name: /Start response|Начать ответ|开始响应/ }).click(),
   )
   expect(startResp.status()).toBeLessThan(400)
-  await carrierPage.getByLabel(/Offer for lot|Commercial offer/).first().fill('15000')
+  const offerInput = carrierPage.locator('input[type="number"]').first()
+  await expect(offerInput).toBeVisible({ timeout: 15_000 })
+  await offerInput.fill('15000')
   const offerResp = await clickAndCapture(
     carrierPage,
     'save-offer',
     { method: 'PATCH', pathIncludes: '/api/v1/rfx-responses/' },
-    () => carrierPage.getByRole('button', { name: 'Save offer' }).click(),
+    () => carrierPage.getByRole('button', { name: /Save offer|Сохранить предложение|保存报价/ }).click(),
   )
   expect(offerResp.status()).toBeLessThan(400)
 

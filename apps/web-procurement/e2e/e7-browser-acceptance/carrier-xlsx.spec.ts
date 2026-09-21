@@ -27,7 +27,8 @@ async function openCarrierDraft(page: Page) {
   })
   await page.goto(`${procurementURL}/carrier/tenders/${carrierXlsxEventId}`, { waitUntil: 'domcontentloaded' })
   await expect(page.getByTestId('carrier-tender-response-status')).toBeVisible({ timeout: 30_000 })
-  await expect(page.getByTestId('carrier-xlsx-panel')).toBeVisible()
+  await expect(page.getByTestId('carrier-tender-response-status')).toContainText(/Draft|Черновик|草稿/i)
+  await expect(page.getByTestId('carrier-xlsx-panel')).toBeVisible({ timeout: 30_000 })
 }
 
 async function exportWorkbook(page: Page) {

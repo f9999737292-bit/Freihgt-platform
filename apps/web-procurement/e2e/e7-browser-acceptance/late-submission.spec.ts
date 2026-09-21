@@ -62,23 +62,25 @@ test.describe('E7 late submission live', () => {
     expect(approved.ok(), `approve ${approved.status()}`).toBeTruthy()
     await expect(page.getByTestId('buyer-late-status')).toContainText(/approved/i)
 
-    await seedProcurementSession(page, {
+    const carrierPage = await page.context().newPage()
+    await seedProcurementSession(carrierPage, {
       token: carrierJwt,
       user: carrierUserId,
       company: carrierCompanyId,
       roles: ['CARRIER_DISPATCHER'],
     })
-    page.once('dialog', (dialog) => dialog.accept())
-    const submitWait = page.waitForResponse((resp) =>
+    carrierPage.once('dialog', (dialog) => dialog.accept())
+    const submitWait = carrierPage.waitForResponse((resp) =>
       resp.request().method() === 'POST'
       && new URL(resp.url()).pathname === `/api/v1/rfx-events/${lateSubmitEventId}/carrier-response/submit`,
     )
-    await page.goto(`${procurementURL}/carrier/tenders/${lateSubmitEventId}/questionnaire`, { waitUntil: 'domcontentloaded' })
-    await expect(page.getByTestId('carrier-response-workspace')).toBeVisible({ timeout: 30_000 })
-    await page.getByTestId('submit-questionnaire').click()
+    await carrierPage.goto(`${procurementURL}/carrier/tenders/${lateSubmitEventId}/questionnaire`, { waitUntil: 'domcontentloaded' })
+    await expect(carrierPage.getByTestId('carrier-response-workspace')).toBeVisible({ timeout: 30_000 })
+    await carrierPage.getByTestId('submit-questionnaire').click()
     const submitted = await submitWait
     expect(submitted.ok(), `late submit ${submitted.status()}`).toBeTruthy()
-    await expect(page.getByTestId('post-submit-lock')).toBeVisible()
+    await expect(carrierPage.getByTestId('post-submit-lock')).toBeVisible()
+    await carrierPage.close()
   })
 
   test('buyer reject keeps submit blocked', async ({ page }) => {
@@ -89,15 +91,17 @@ test.describe('E7 late submission live', () => {
     await page.getByTestId('buyer-late-reject').click()
     expect((await rejectWait).ok()).toBeTruthy()
 
-    await seedProcurementSession(page, {
+    const carrierPage = await page.context().newPage()
+    await seedProcurementSession(carrierPage, {
       token: carrierJwt,
       user: carrierUserId,
       company: carrierCompanyId,
       roles: ['CARRIER_DISPATCHER'],
     })
-    await page.goto(`${procurementURL}/carrier/tenders/${lateRejectEventId}/questionnaire`, { waitUntil: 'domcontentloaded' })
-    await expect(page.getByTestId('late-submit-blocked')).toBeVisible()
-    await expect(page.getByTestId('submit-questionnaire')).toBeDisabled()
+    await carrierPage.goto(`${procurementURL}/carrier/tenders/${lateRejectEventId}/questionnaire`, { waitUntil: 'domcontentloaded' })
+    await expect(carrierPage.getByTestId('late-submit-blocked')).toBeVisible()
+    await expect(carrierPage.getByTestId('submit-questionnaire')).toBeDisabled()
+    await carrierPage.close()
   })
 
   test('submit is forbidden before and after the approved window', async ({ page }) => {

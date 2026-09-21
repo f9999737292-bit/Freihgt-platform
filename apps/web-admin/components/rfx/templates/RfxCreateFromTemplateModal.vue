@@ -188,7 +188,7 @@ const provenanceTemplateName = computed(() => {
       <template v-if="!cloneResult">
         <label class="modal__label">
           {{ $t('rfx.templates.clone.selectTemplate') }}
-          <select v-model="selectedTemplateId" required>
+          <select v-model="selectedTemplateId" required data-testid="clone-template-select">
             <option value="">{{ $t('common.select') }}</option>
             <option v-for="tpl in templates" :key="tpl.id" :value="tpl.id">
               {{ templateLabel(tpl) }}
@@ -205,7 +205,7 @@ const provenanceTemplateName = computed(() => {
 
         <label v-else-if="selectedTemplateId && cloneableVersions.length" class="modal__label">
           {{ $t('rfx.templates.clone.selectVersion') }}
-          <select v-model="selectedVersionId" required>
+          <select v-model="selectedVersionId" required data-testid="clone-version-select">
             <option v-for="ver in cloneableVersions" :key="ver.id" :value="ver.id">
               v{{ ver.version_number }} — {{ $t(`rfx.templates.versionStatus.${ver.status}`) }}
             </option>
@@ -216,7 +216,7 @@ const provenanceTemplateName = computed(() => {
 
         <label class="modal__label">{{ $t('rfx.rfxNumber') }}<input v-model="form.rfx_number" required /></label>
         <p v-if="errors.rfx_number" class="modal__field-error">{{ errors.rfx_number }}</p>
-        <label class="modal__label">{{ $t('rfx.title') }}<input v-model="form.title" required /></label>
+        <label class="modal__label">{{ $t('rfx.title') }}<input v-model="form.title" required data-testid="clone-event-title" /></label>
         <p v-if="errors.title" class="modal__field-error">{{ errors.title }}</p>
         <label class="modal__label">
           {{ $t('rfx.type') }}
@@ -232,7 +232,7 @@ const provenanceTemplateName = computed(() => {
         </label>
         <label class="modal__label">
           {{ $t('rfx.owner') }}
-          <select v-model="form.owner_company_id" required>
+          <select v-model="form.owner_company_id" required data-testid="clone-owner-select">
             <option v-for="opt in ownerOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
           </select>
         </label>
