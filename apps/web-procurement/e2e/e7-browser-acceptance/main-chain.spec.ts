@@ -52,6 +52,7 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
     method: 'GET',
     pathIncludes: `/api/v1/users/${buyerUserId}/companies`,
   })
+  const companiesWait = waitForApi(buyerPage, { method: 'GET', pathIncludes: '/api/v1/companies', status: 200 })
   await buyerPage.goto(`${procurementURL}/tenders/new`, { waitUntil: 'domcontentloaded' })
   const memberships = await membershipsWait
   expect(memberships.status(), `GET user companies -> ${memberships.status()}`).toBe(200)
@@ -99,9 +100,21 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
   )
   expect(lotResp.status()).toBe(201)
 
+  const companies = await companiesWait
+  const companiesURL = new URL(companies.url())
+  console.log(`E7-COMPANIES ${companies.request().method()} ${companiesURL.pathname}${companiesURL.search} -> ${companies.status()}`)
+  expect(companies.status(), `GET /api/v1/companies -> ${companies.status()}`).toBe(200)
+  expect(companiesURL.searchParams.get('company_type')).toBe('CARRIER')
+  expect(companiesURL.searchParams.get('status')).toBe('ACTIVE')
+  const companiesBody = await companies.json() as { items?: Array<{ legal_name?: string; company_type?: string; status?: string }> }
+  const carrierA = (companiesBody.items ?? []).find((item) => item.legal_name === 'Carrier A' && item.company_type === 'CARRIER')
+  expect(carrierA, `Carrier A missing in ${JSON.stringify({ path: companiesURL.pathname, query: companiesURL.search, count: companiesBody.items?.length })}`).toBeTruthy()
+
   await buyerPage.getByRole('button', { name: /Next|Далее|下一步/ }).click()
   const participantSelect = buyerPage.getByTestId('wizard-participant-company')
   await expect(participantSelect.locator('option')).not.toHaveCount(0, { timeout: 15_000 })
+  const optionLabels = await participantSelect.locator('option').allTextContents()
+  console.log(`E7-PARTICIPANT-OPTIONS ${JSON.stringify(optionLabels)}`)
   const carrierOption = participantSelect.locator('option').filter({ hasText: /Carrier A/ }).first()
   await expect(carrierOption).toHaveCount(1, { timeout: 15_000 })
   await participantSelect.selectOption({ label: (await carrierOption.textContent())?.trim() || '' })

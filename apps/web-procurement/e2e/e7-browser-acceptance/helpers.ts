@@ -126,7 +126,7 @@ export async function seedAdminSession(page: Page) {
 
 export function waitForApi(
   page: Page,
-  match: { method: string; pathIncludes: string; pathExcludes?: string[] },
+  match: { method: string; pathIncludes: string; pathExcludes?: string[]; status?: number },
   timeout = 60_000,
 ) {
   return page.waitForResponse((resp) => {
@@ -134,7 +134,13 @@ export function waitForApi(
     if (!url.includes(match.pathIncludes) || resp.request().method() !== match.method) {
       return false
     }
-    return !(match.pathExcludes ?? []).some((fragment) => url.includes(fragment))
+    if ((match.pathExcludes ?? []).some((fragment) => url.includes(fragment))) {
+      return false
+    }
+    if (match.status != null && resp.status() !== match.status) {
+      return false
+    }
+    return true
   }, { timeout })
 }
 
