@@ -7,6 +7,13 @@ import { formatRfxDate } from '~/types/rfx'
 import { shouldShowNotFound, isApiUnavailableError } from '~/utils/apiError'
 import type { V3ScoreExplanation, V3ScoreLoadState } from '~/types/rfx-score'
 import { useRfxScoreApi } from '~/composables/useRfxScoreApi'
+import PageHeader from '~/components/ui/PageHeader.vue'
+import Button from '~/components/ui/Button.vue'
+import Card from '~/components/ui/Card.vue'
+import EmptyState from '~/components/ui/EmptyState.vue'
+import Table from '~/components/ui/Table.vue'
+import Badge from '~/components/ui/Badge.vue'
+import Modal from '~/components/ui/Modal.vue'
 
 definePageMeta({ middleware: 'auth', layout: 'default' })
 
