@@ -27,6 +27,7 @@ const (
 	ImportTargetTypeCarrierResponse = "CARRIER_RESPONSE"
 
 	BuyerXlsxImportCommitOperation   = "BUYER_XLSX_IMPORT_COMMIT"
+	BuyerXlsxCreateCommitOperation   = "BUYER_XLSX_CREATE_COMMIT"
 	CarrierXlsxImportCommitOperation = "CARRIER_XLSX_IMPORT_COMMIT"
 
 	MachineCodeAnalysisExpired         = "analysis_expired"
