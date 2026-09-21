@@ -253,7 +253,7 @@ function retryPreview() {
 
 <template>
   <UiCard class="publish-panel">
-    <h2>{{ $t('rfx.studio.validationTitle') }}</h2>
+    <h2 data-testid="studio-validation-title">{{ $t('rfx.studio.validationTitle') }}</h2>
 
     <p v-if="versionsState === 'loading'">{{ $t('rfx.versions.loading') }}</p>
     <div v-else-if="versionsState === 'error'" class="publish-panel__error-row">
@@ -305,6 +305,7 @@ function retryPreview() {
       <button
         type="button"
         class="btn btn--primary"
+        data-testid="studio-publish-questionnaire"
         :disabled="publishBlocked || publishOp.isSubmitting() || serverReadinessBlocksPublish || (republishRequired && awaitingImpactConfirm)"
         @click="handlePublishClick"
       >

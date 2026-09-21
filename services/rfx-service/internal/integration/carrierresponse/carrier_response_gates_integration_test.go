@@ -17,6 +17,78 @@ import (
 	"github.com/freight-platform/rfx-service/internal/http/handlers"
 )
 
+func TestGetWorkspaceUnboundCommercialReturnsHTTP422(t *testing.T) {
+	env, fix, event, _ := seedPublishedQuestionnaire(t)
+	ctx := context.Background()
+	legacy, err := env.rfxSvc.CreateResponse(ctx, fix.CarrierAct, event.ID, domain.CreateRfxResponseInput{
+		TenantID: fix.TenantID, ParticipantCompanyID: fix.CarrierID,
+	})
+	if err != nil {
+		t.Fatalf("legacy commercial create: %v", err)
+	}
+	if legacy.RfxVersionID != nil {
+		t.Fatal("commercial response must start unbound")
+	}
+
+	crHandler := handlers.NewCarrierResponseHandler(env.crSvc)
+	r := chi.NewRouter()
+	r.Get("/v1/rfx-events/{id}/carrier-response", crHandler.GetCarrierResponse)
+	r.Post("/v1/rfx-events/{id}/carrier-response/start", crHandler.StartCarrierResponse)
+
+	getReq := httptest.NewRequest(http.MethodGet, "/v1/rfx-events/"+event.ID.String()+"/carrier-response?carrier_company_id="+fix.CarrierID.String(), nil)
+	getReq.Header.Set("X-Tenant-ID", fix.TenantID.String())
+	getReq.Header.Set("X-User-ID", fix.CarrierAct.UserID.String())
+	getRec := httptest.NewRecorder()
+	r.ServeHTTP(getRec, getReq)
+	if getRec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected GET 422 binding-required, got %d body=%s", getRec.Code, getRec.Body.String())
+	}
+	var envelope struct {
+		Error struct {
+			Code    string         `json:"code"`
+			Message string         `json:"message"`
+			Details map[string]any `json:"details"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(getRec.Body.Bytes(), &envelope); err != nil {
+		t.Fatalf("decode GET envelope: %v body=%s", err, getRec.Body.String())
+	}
+	if envelope.Error.Code != "UNPROCESSABLE_ENTITY" {
+		t.Fatalf("expected UNPROCESSABLE_ENTITY, got %s", envelope.Error.Code)
+	}
+	if envelope.Error.Details["field"] != "rfx_version_id" {
+		t.Fatalf("expected details.field=rfx_version_id, got %#v", envelope.Error.Details)
+	}
+
+	startReq := httptest.NewRequest(http.MethodPost, "/v1/rfx-events/"+event.ID.String()+"/carrier-response/start?carrier_company_id="+fix.CarrierID.String(), nil)
+	startReq.Header.Set("X-Tenant-ID", fix.TenantID.String())
+	startReq.Header.Set("X-User-ID", fix.CarrierAct.UserID.String())
+	startRec := httptest.NewRecorder()
+	r.ServeHTTP(startRec, startReq)
+	if startRec.Code != http.StatusOK {
+		t.Fatalf("expected POST start 200, got %d body=%s", startRec.Code, startRec.Body.String())
+	}
+	var started map[string]any
+	if err := json.Unmarshal(startRec.Body.Bytes(), &started); err != nil {
+		t.Fatalf("decode start workspace: %v", err)
+	}
+	if started["id"] != legacy.ID.String() {
+		t.Fatalf("start must pin same response, got %#v", started["id"])
+	}
+	if started["rfx_version_id"] == nil || started["rfx_version_id"] == "" {
+		t.Fatal("start must return pinned rfx_version_id")
+	}
+
+	repeatReq := httptest.NewRequest(http.MethodGet, "/v1/rfx-events/"+event.ID.String()+"/carrier-response?carrier_company_id="+fix.CarrierID.String(), nil)
+	repeatReq.Header.Set("X-Tenant-ID", fix.TenantID.String())
+	repeatReq.Header.Set("X-User-ID", fix.CarrierAct.UserID.String())
+	repeatRec := httptest.NewRecorder()
+	r.ServeHTTP(repeatRec, repeatReq)
+	if repeatRec.Code != http.StatusOK {
+		t.Fatalf("expected GET 200 after pin, got %d body=%s", repeatRec.Code, repeatRec.Body.String())
+	}
+}
+
 func TestHeaderSpoofTenantQueryDenied(t *testing.T) {
 	env, fix, event, _ := seedPublishedQuestionnaire(t)
 	crHandler := handlers.NewCarrierResponseHandler(env.crSvc)

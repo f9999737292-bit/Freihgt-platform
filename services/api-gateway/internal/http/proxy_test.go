@@ -36,6 +36,8 @@ func TestMatchRouteLongestPrefix(t *testing.T) {
 		{Prefix: "/api/v1/auth", Service: "identity-service"},
 		{Prefix: "/api/v1/users", Service: "identity-service"},
 		{Prefix: "/api/v1/companies", Service: "company-service"},
+		{Prefix: "/api/v1/rfx-events", Service: "rfx-service"},
+		{Prefix: "/api/v1/rfx-templates", Service: "rfx-service"},
 	}
 
 	if route := gatewayhttp.MatchRoute("/api/v1/auth/login", routes); route == nil || route.Service != "identity-service" {
@@ -46,6 +48,19 @@ func TestMatchRouteLongestPrefix(t *testing.T) {
 	}
 	if route := gatewayhttp.MatchRoute("/api/v1/unknown", routes); route != nil {
 		t.Fatalf("expected no route match")
+	}
+	if route := gatewayhttp.MatchRoute("/api/v1/rfx-templates", routes); route == nil || route.Service != "rfx-service" {
+		t.Fatalf("expected rfx-templates route")
+	}
+	if route := gatewayhttp.MatchRoute("/api/v1/rfx-templates/tpl-1/questionnaire", routes); route == nil || route.Prefix != "/api/v1/rfx-templates" {
+		t.Fatalf("expected rfx-templates prefix for template questionnaire")
+	}
+	if route := gatewayhttp.MatchRoute("/api/v1/rfx-templates/11111111-1111-1111-1111-111111111111", routes); route == nil || route.Prefix != "/api/v1/rfx-templates" {
+		t.Fatalf("expected rfx-templates prefix for template detail")
+	}
+	rewritten, ok := gatewayhttp.RewritePath("/api/v1/rfx-templates/11111111-1111-1111-1111-111111111111")
+	if !ok || rewritten != "/v1/rfx-templates/11111111-1111-1111-1111-111111111111" {
+		t.Fatalf("RewritePath template detail = %q ok=%v", rewritten, ok)
 	}
 }
 

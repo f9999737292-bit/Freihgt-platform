@@ -33,10 +33,12 @@ const router = useRouter()
 
 const currentStep = ref<WizardStep>('general')
 const saving = ref(false)
+const generalError = ref('')
 const draftEvent = ref<RfxEvent | null>(null)
 const lots = ref<RfxLot[]>([])
 const participants = ref<RfxParticipant[]>([])
 const carrierOptions = ref<Array<{ label: string; value: string }>>([])
+const carriersError = ref('')
 
 const form = reactive(emptyTenderWizardForm())
 const ownerOptions = ref<Array<{ label: string; value: string }>>([])
@@ -78,28 +80,48 @@ function stepLabel(step: WizardStep) {
   return t(`tenders.wizard.${step}`)
 }
 
+function applyStoredOwnerFallback() {
+  const stored = localStorage.getItem('freight_procurement_company_id') || form.owner_company_id
+  if (!stored) return
+  form.owner_company_id = stored
+  if (ownerOptions.value.length === 0) {
+    ownerOptions.value = [{ label: stored, value: stored }]
+  }
+}
+
 async function loadOwnerCompanies() {
+  applyStoredOwnerFallback()
   if (!user.value?.id) return
   try {
-    const memberships = filterBuyerMemberships(await getUserCompanies(user.value.id))
-    ownerOptions.value = membershipSelectOptions(memberships)
+    const raw = await getUserCompanies(user.value.id)
+    const memberships = filterBuyerMemberships(raw)
+    const options = membershipSelectOptions(memberships)
+    if (options.length > 0) {
+      ownerOptions.value = options
+    }
     if (!form.owner_company_id) {
       form.owner_company_id = selectDefaultOwnerCompany(memberships)
     }
+    applyStoredOwnerFallback()
   } catch {
-    ownerOptions.value = []
+    applyStoredOwnerFallback()
   }
 }
 
 async function loadCarriers() {
+  carriersError.value = ''
   try {
     const data = await listCompanies({ limit: 100, company_type: 'CARRIER', status: 'ACTIVE' })
     carrierOptions.value = data.items.map((company) => ({
       label: company.legal_name,
       value: company.id,
     }))
-  } catch {
+    if (carrierOptions.value.length === 0) {
+      carriersError.value = t('tenders.noParticipants')
+    }
+  } catch (error) {
     carrierOptions.value = []
+    carriersError.value = error instanceof Error ? error.message : t('common.error')
   }
 }
 
@@ -129,8 +151,14 @@ async function ensureDraft() {
 }
 
 async function saveGeneral() {
+  generalError.value = ''
   if (!form.title.trim() || !form.owner_company_id) {
-    pushToast('error', t('tenders.validation.requiredFields'))
+    const missing = [
+      !form.title.trim() ? 'title' : '',
+      !form.owner_company_id ? 'owner_company_id' : '',
+    ].filter(Boolean).join(',')
+    generalError.value = `${t('tenders.validation.requiredFields')} (${missing})`
+    pushToast('error', generalError.value)
     return
   }
 
@@ -148,7 +176,8 @@ async function saveGeneral() {
     setCompany(form.owner_company_id)
     currentStep.value = 'lots'
   } catch (error) {
-    pushToast('error', error instanceof Error ? error.message : t('common.error'))
+    generalError.value = error instanceof Error ? error.message : t('common.error')
+    pushToast('error', generalError.value)
   } finally {
     saving.value = false
   }
@@ -291,6 +320,15 @@ watch(currentStep, async (step) => {
   }
 })
 
+watch(
+  () => user.value?.id,
+  () => {
+    void loadOwnerCompanies()
+    void loadCarriers()
+  },
+  { immediate: true },
+)
+
 onMounted(async () => {
   await Promise.all([loadOwnerCompanies(), loadCarriers()])
 })
@@ -319,17 +357,33 @@ onMounted(async () => {
         <Input v-model="form.rfx_number" :label="$t('tenders.number')" required />
         <Select v-model="form.rfx_type" :label="$t('tenders.type')" :options="typeOptions" />
         <Select v-model="form.category" :label="$t('tenders.category')" :options="categoryOptions" />
-        <Select
-          v-model="form.owner_company_id"
-          :label="$t('tenders.ownerCompany')"
-          :options="ownerOptions"
-        />
-        <Input v-model="form.title" :label="$t('tenders.titleLabel')" required />
+        <label class="ui-select">
+          <span class="ui-select__label">{{ $t('tenders.ownerCompany') }}</span>
+          <select v-model="form.owner_company_id" data-testid="wizard-owner-company">
+            <option v-for="opt in ownerOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+          </select>
+        </label>
+        <label class="ui-input">
+          <span class="ui-input__label">{{ $t('tenders.titleLabel') }}</span>
+          <input v-model="form.title" data-testid="wizard-title" required class="ui-input__control" />
+        </label>
         <Input v-model="form.description" :label="$t('tenders.description')" />
       </div>
+      <p v-if="generalError" class="wizard-error" data-testid="wizard-general-error">{{ generalError }}</p>
       <div class="wizard-actions">
         <Button variant="secondary" @click="$router.push('/tenders')">{{ $t('common.cancel') }}</Button>
-        <Button :loading="saving" @click="saveGeneral">{{ $t('common.next') }}</Button>
+        <button
+          type="button"
+          class="ui-button ui-button--primary ui-button--md"
+          data-testid="wizard-next"
+          :disabled="saving"
+          :data-model-title="form.title"
+          :data-model-owner="form.owner_company_id"
+          :data-wizard-step="currentStep"
+          @click="saveGeneral"
+        >
+          {{ $t('common.next') }}
+        </button>
       </div>
     </Card>
 
@@ -337,7 +391,10 @@ onMounted(async () => {
       <h3>{{ $t('tenders.lotsTitle') }}</h3>
       <div class="form-grid form-grid--2">
         <Input v-model="lotForm.lot_number" :label="$t('tenders.lotNumber')" />
-        <Input v-model="lotForm.name" :label="$t('tenders.lotName')" required />
+        <label class="ui-input">
+          <span class="ui-input__label">{{ $t('tenders.lotName') }}</span>
+          <input v-model="lotForm.name" data-testid="wizard-lot-name" required class="ui-input__control" />
+        </label>
         <Input v-model="lotForm.description" :label="$t('tenders.lotDescription')" />
       </div>
       <div class="wizard-actions">
@@ -381,11 +438,13 @@ onMounted(async () => {
 
     <Card v-else-if="currentStep === 'participants'">
       <div class="form-grid form-grid--2">
-        <Select
-          v-model="participantForm.company_id"
-          :label="$t('tenders.participantCompany')"
-          :options="carrierOptions"
-        />
+        <label class="ui-select">
+          <span class="ui-select__label">{{ $t('tenders.participantCompany') }}</span>
+          <select v-model="participantForm.company_id" data-testid="wizard-participant-company">
+            <option v-for="opt in carrierOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+          </select>
+        </label>
+        <p v-if="carriersError" class="wizard-error" data-testid="wizard-carriers-error">{{ carriersError }}</p>
         <Select
           v-model="participantForm.participant_type"
           :label="$t('tenders.participantType')"
@@ -511,5 +570,32 @@ onMounted(async () => {
 .readiness-warning {
   margin: 1rem 0 0;
   color: var(--color-warning);
+}
+
+.wizard-error {
+  margin: 0.75rem 0 0;
+  color: #991b1b;
+}
+
+.ui-input,
+.ui-select {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.ui-input__label,
+.ui-select__label {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.ui-input__control {
+  min-height: 38px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  font: inherit;
 }
 </style>

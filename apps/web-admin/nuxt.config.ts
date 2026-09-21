@@ -1,7 +1,7 @@
 export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',
   ...(process.env.NUXT_E2E_BUILD_DIR ? { buildDir: process.env.NUXT_E2E_BUILD_DIR } : {}),
-  devtools: { enabled: true },
+  devtools: { enabled: process.env.NUXT_E2E_DISABLE_DEVTOOLS !== 'true' },
   devServer: {
     port: 3000,
     host: '127.0.0.1',
@@ -11,6 +11,10 @@ export default defineNuxtConfig({
       proxy: process.env.NUXT_E2E_GATEWAY_URL
         ? {
             '/api/v1/rfx-events': {
+              target: process.env.NUXT_E2E_GATEWAY_URL,
+              changeOrigin: true,
+            },
+            '/api/v1/rfx-templates': {
               target: process.env.NUXT_E2E_GATEWAY_URL,
               changeOrigin: true,
             },

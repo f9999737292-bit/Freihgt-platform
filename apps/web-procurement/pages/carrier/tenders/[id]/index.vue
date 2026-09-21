@@ -21,6 +21,8 @@ import { shouldShowNotFound, isApiUnavailableError } from '~/utils/apiError'
 import { ApiError } from '~/utils/apiClient'
 import CarrierXlsxExchangePanel from '~/components/carrier/CarrierXlsxExchangePanel.vue'
 import LateSubmissionRequestPanel from '~/components/carrier/LateSubmissionRequestPanel.vue'
+import Input from '~/components/ui/Input.vue'
+import { buildLotOfferLines, parseOfferAmount } from '~/utils/carrierOfferPayload'
 
 definePageMeta({ middleware: 'auth', layout: 'default' })
 
@@ -264,24 +266,20 @@ async function handleSaveOffer() {
   acting.value = true
   try {
     if (lots.value.length > 0) {
-      const missing = lots.value.some((lot) => {
-        const amount = offerAmountByLot.value[lot.id]
-        return amount == null || Number.isNaN(amount)
-      })
-      if (missing) {
+      const built = buildLotOfferLines(lots.value, offerAmountByLot.value, defaultCurrency.value)
+      if (!built.ok) {
         pushToast('error', t('carrierTenders.detail.offerLotRequired'))
         return
       }
+      response.value = await updateResponseCommercial(response.value.id, built.lines)
+    } else {
+      const amount = parseOfferAmount(offerAmount.value)
+      if (amount == null) return
+      response.value = await updateResponseCommercial(response.value.id, [{
+        amount,
+        currency_code: defaultCurrency.value,
+      }])
     }
-    const lines = lots.value.length
-      ? lots.value.map((lot) => ({
-          rfx_lot_id: lot.id,
-          amount: offerAmountByLot.value[lot.id] as number,
-          currency_code: defaultCurrency.value,
-        }))
-      : [{ amount: offerAmount.value ?? 0, currency_code: defaultCurrency.value }]
-    if (!lots.value.length && offerAmount.value == null) return
-    response.value = await updateResponseCommercial(response.value.id, lines)
     pushToast('success', t('carrierTenders.detail.offerSaved'))
   } catch (error) {
     pushToast('error', error instanceof Error ? error.message : t('common.error'))
@@ -429,6 +427,10 @@ onUnmounted(() => {
               type="number"
               min="0"
               step="0.01"
+              :data-testid="`carrier-offer-lot-${lot.id}`"
+              :data-offer-lot-id="lot.id"
+              :data-offer-amount="offerAmountByLot[lot.id] == null ? '' : String(offerAmountByLot[lot.id])"
+              :disabled="acting"
               :label="t('carrierTenders.detail.offerAmountForLot', { lot: lot.lot_number })"
             />
           </div>
@@ -459,7 +461,13 @@ onUnmounted(() => {
           <span>{{ t('carrierTenders.detail.awarded') }}</span>
         </div>
         <div class="actions">
-          <Button v-if="showOfferEdit" :disabled="acting" variant="secondary" @click="handleSaveOffer">
+          <Button
+            v-if="showOfferEdit"
+            data-testid="carrier-save-offer"
+            :disabled="acting"
+            variant="secondary"
+            @click="handleSaveOffer"
+          >
             {{ t('carrierTenders.detail.saveOffer') }}
           </Button>
           <Button v-if="showCreate" :disabled="acting" @click="handleCreateResponse">

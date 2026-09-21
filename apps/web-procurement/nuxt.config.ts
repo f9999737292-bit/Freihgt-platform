@@ -33,6 +33,10 @@ export default defineNuxtConfig({
               target: process.env.NUXT_E2E_GATEWAY_URL,
               changeOrigin: true,
             },
+            '/api/v1/companies': {
+              target: process.env.NUXT_E2E_GATEWAY_URL,
+              changeOrigin: true,
+            },
           }
         : undefined,
     },

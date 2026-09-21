@@ -7,6 +7,13 @@ import { formatRfxDate } from '~/types/rfx'
 import { shouldShowNotFound, isApiUnavailableError } from '~/utils/apiError'
 import type { V3ScoreExplanation, V3ScoreLoadState } from '~/types/rfx-score'
 import { useRfxScoreApi } from '~/composables/useRfxScoreApi'
+import PageHeader from '~/components/ui/PageHeader.vue'
+import Button from '~/components/ui/Button.vue'
+import Card from '~/components/ui/Card.vue'
+import EmptyState from '~/components/ui/EmptyState.vue'
+import Table from '~/components/ui/Table.vue'
+import Badge from '~/components/ui/Badge.vue'
+import Modal from '~/components/ui/Modal.vue'
 
 definePageMeta({ middleware: 'auth', layout: 'default' })
 
@@ -348,6 +355,8 @@ onMounted(loadCompanies)
                   v-if="canManageTenders() && !item.awarded && item.offer_complete"
                   size="sm"
                   variant="danger"
+                  data-testid="evaluation-award"
+                  :data-award-response-id="item.id"
                   :disabled="acting"
                   @click="openAwardConfirm(item)"
                 >
@@ -421,7 +430,7 @@ onMounted(loadCompanies)
       </p>
       <template #footer>
         <Button variant="secondary" @click="showAwardModal = false">{{ t('common.cancel') }}</Button>
-        <Button variant="danger" :loading="acting" @click="confirmAward">{{ t('tenders.evaluation.confirmAward') }}</Button>
+        <Button variant="danger" data-testid="evaluation-award-confirm" :loading="acting" @click="confirmAward">{{ t('tenders.evaluation.confirmAward') }}</Button>
       </template>
     </Modal>
 

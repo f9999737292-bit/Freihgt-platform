@@ -17,6 +17,9 @@ import type { Company } from '~/types/company'
 import { checkPublishReadiness } from '~/utils/publishReadiness'
 import { shouldShowNotFound, isApiUnavailableError } from '~/utils/apiError'
 import EmptyState from '~/components/ui/EmptyState.vue'
+import PageHeader from '~/components/ui/PageHeader.vue'
+import Button from '~/components/ui/Button.vue'
+import Card from '~/components/ui/Card.vue'
 
 definePageMeta({ middleware: 'auth', layout: 'default' })
 
@@ -271,9 +274,10 @@ onMounted(() => {
 
     <PageHeader :title="event?.title || $t('tenders.details')">
       <template #actions>
-        <Button variant="secondary" @click="$router.push('/tenders')">{{ $t('common.back') }}</Button>
+        <Button data-testid="tender-back" variant="secondary" @click="$router.push('/tenders')">{{ $t('common.back') }}</Button>
         <Button
           v-if="event && isEditableStatus(event.status) && canManageTenders()"
+          data-testid="tender-edit"
           variant="secondary"
           @click="openEdit"
         >
@@ -281,6 +285,7 @@ onMounted(() => {
         </Button>
         <Button
           v-if="event && canManageTenders()"
+          data-testid="tender-evaluation"
           variant="secondary"
           @click="$router.push(`/tenders/${eventId}/evaluation`)"
         >
@@ -288,6 +293,7 @@ onMounted(() => {
         </Button>
         <Button
           v-if="event && canPublishStatus(event.status) && canPublishTenders()"
+          data-testid="tender-publish"
           :disabled="!publishReadiness.ready"
           :loading="saving"
           @click="publishTender"
@@ -296,6 +302,7 @@ onMounted(() => {
         </Button>
         <Button
           v-if="event && canCancelStatus(event.status) && canManageTenders()"
+          data-testid="tender-cancel"
           variant="danger"
           :loading="saving"
           @click="cancelTender"
@@ -343,6 +350,7 @@ onMounted(() => {
             <h3>{{ $t('tenders.lotsTitle') }}</h3>
             <Button
               v-if="isEditableStatus(event.status) && canManageTenders()"
+              data-testid="tender-add-lot"
               size="sm"
               @click="addLot"
             >
@@ -378,6 +386,7 @@ onMounted(() => {
             <h3>{{ $t('tenders.participantsTitle') }}</h3>
             <Button
               v-if="isEditableStatus(event.status) && canManageTenders()"
+              data-testid="tender-add-participant"
               size="sm"
               @click="showParticipantModal = true"
             >

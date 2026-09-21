@@ -165,7 +165,11 @@ func (s *VersionLifecycleService) PublishQuestionnaire(
 		if err != nil {
 			return err
 		}
-		readiness := domain.EvaluatePublishReadiness(*draft, definition.Sections, definition.Rules)
+		// PublishQuestionnaire is the explicit enable action. Validate as if
+		// enabling so an empty disabled draft cannot publish-and-enable.
+		readyVersion := *draft
+		readyVersion.QuestionnaireEnabled = true
+		readiness := domain.EvaluatePublishReadiness(readyVersion, definition.Sections, definition.Rules)
 		if !readiness.Ready {
 			return publishReadinessFailed(readiness)
 		}

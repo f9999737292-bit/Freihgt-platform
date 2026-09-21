@@ -72,5 +72,6 @@ describe('rfx component auto-import resolution', () => {
     }
     const studioIndex = readFileSync(join(root, 'pages/rfx/[id]/studio/index.vue'), 'utf8')
     expect(templateSection(studioIndex)).toContain('<RfxStudioRfxQuestionnaireBuilder')
+    expect(studioIndex).toContain("import RfxEventPublishPanel from '~/components/rfx/versioning/RfxEventPublishPanel.vue'")
   })
 })

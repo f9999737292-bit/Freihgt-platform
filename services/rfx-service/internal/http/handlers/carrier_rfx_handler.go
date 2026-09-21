@@ -108,7 +108,7 @@ func (h *RfxHandler) GetOwnResponse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respond.JSON(w, http.StatusOK, toRfxResponseResponse(response))
+	respond.JSON(w, http.StatusOK, toRfxResponseDetailResponse(response, nil))
 }
 
 func (h *RfxHandler) GetResponse(w http.ResponseWriter, r *http.Request) {

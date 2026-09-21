@@ -1,6 +1,11 @@
 <script setup lang="ts">
+import { applyInputModel } from '~/utils/inputModel'
+
+defineOptions({ inheritAttrs: false })
+
+const [model, modifiers] = defineModel<string | number | null>({ default: '' })
+
 defineProps<{
-  modelValue: string
   label?: string
   type?: string
   placeholder?: string
@@ -8,7 +13,16 @@ defineProps<{
   disabled?: boolean
 }>()
 
-defineEmits<{ 'update:modelValue': [value: string] }>()
+const attrs = useAttrs()
+
+function displayValue(): string {
+  if (model.value == null) return ''
+  return String(model.value)
+}
+
+function onInput(event: Event) {
+  model.value = applyInputModel((event.target as HTMLInputElement).value, Boolean(modifiers.number))
+}
 </script>
 
 <template>
@@ -16,12 +30,13 @@ defineEmits<{ 'update:modelValue': [value: string] }>()
     <span v-if="label" class="ui-input__label">{{ label }}</span>
     <input
       class="ui-input__control"
+      v-bind="attrs"
       :type="type || 'text'"
-      :value="modelValue"
       :placeholder="placeholder"
       :required="required"
       :disabled="disabled"
-      @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
+      :value="displayValue()"
+      @input="onInput"
     />
   </label>
 </template>

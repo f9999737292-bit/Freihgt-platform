@@ -43,15 +43,17 @@ const ownerOptions = ref<Array<{ label: string; value: string }>>([])
 
 const versionsLoading = ref(false)
 const versionsLoadFailed = ref(false)
-const versionCache = ref(new Map<string, ReturnType<typeof filterCloneableTemplateVersions>>())
+const versionsLoadError = ref('')
+const versionCache = ref<Record<string, ReturnType<typeof filterCloneableTemplateVersions>>>({})
 
 const cloneOp = new IdempotentOperation('clone-tpl')
 const previousFocus = ref<HTMLElement | null>(null)
+const allowBackdropClose = ref(false)
 
 const cloneableVersions = computed(() => {
   const templateId = selectedTemplateId.value
   if (!templateId) return []
-  return versionCache.value.get(templateId) ?? []
+  return versionCache.value[templateId] ?? []
 })
 
 const supersededWarning = computed(() => {
@@ -66,7 +68,11 @@ const noCloneableVersions = computed(() =>
 watch(
   () => props.open,
   async (isOpen) => {
-    if (!isOpen) return
+    if (!isOpen) {
+      allowBackdropClose.value = false
+      return
+    }
+    allowBackdropClose.value = false
     previousFocus.value = document.activeElement as HTMLElement | null
     Object.assign(form, emptyCreateRfxForm())
     replaceRfxFormErrors(errors, {})
@@ -74,28 +80,39 @@ watch(
     selectedVersionId.value = ''
     cloneResult.value = null
     versionsLoadFailed.value = false
+    versionsLoadError.value = ''
     cloneOp.reset()
-    const owners = await loadAuthorizedOwnerCompanies()
-    ownerOptions.value = owners.map((o) => ({ label: o.legal_name, value: o.id }))
+    await nextTick()
+    requestAnimationFrame(() => {
+      allowBackdropClose.value = true
+    })
+    try {
+      const owners = await loadAuthorizedOwnerCompanies()
+      ownerOptions.value = owners.options
+    } catch {
+      ownerOptions.value = []
+    }
   },
 )
 
 watch(selectedTemplateId, async (templateId) => {
   selectedVersionId.value = ''
   if (!templateId) return
-  if (versionCache.value.has(templateId)) {
-    selectedVersionId.value = selectDefaultCloneVersionId(versionCache.value.get(templateId)!) ?? ''
+  if (versionCache.value[templateId]) {
+    selectedVersionId.value = selectDefaultCloneVersionId(versionCache.value[templateId]) ?? ''
     return
   }
   versionsLoading.value = true
   versionsLoadFailed.value = false
+  versionsLoadError.value = ''
   try {
     const detail = await getTemplate(templateId)
     const cloneable = filterCloneableTemplateVersions(detail)
-    versionCache.value.set(templateId, cloneable)
+    versionCache.value = { ...versionCache.value, [templateId]: cloneable }
     selectedVersionId.value = selectDefaultCloneVersionId(cloneable) ?? ''
-  } catch {
+  } catch (error) {
     versionsLoadFailed.value = true
+    versionsLoadError.value = formatRfxApiError(error, t)
   } finally {
     versionsLoading.value = false
   }
@@ -112,7 +129,9 @@ function closeModal() {
 
 async function retryVersionLoad() {
   if (!selectedTemplateId.value) return
-  versionCache.value.delete(selectedTemplateId.value)
+  const next = { ...versionCache.value }
+  delete next[selectedTemplateId.value]
+  versionCache.value = next
   const id = selectedTemplateId.value
   selectedTemplateId.value = ''
   await nextTick()
@@ -180,7 +199,7 @@ const provenanceTemplateName = computed(() => {
     aria-modal="true"
     aria-labelledby="clone-modal-title"
     @keydown="handleEscape"
-    @click.self="closeModal"
+    data-testid="clone-from-template-modal"
   >
     <form class="modal" @submit.prevent="handleSubmit">
       <h2 id="clone-modal-title">{{ $t('rfx.templates.clone.title') }}</h2>
@@ -188,7 +207,7 @@ const provenanceTemplateName = computed(() => {
       <template v-if="!cloneResult">
         <label class="modal__label">
           {{ $t('rfx.templates.clone.selectTemplate') }}
-          <select v-model="selectedTemplateId" required>
+          <select v-model="selectedTemplateId" required data-testid="clone-template-select">
             <option value="">{{ $t('common.select') }}</option>
             <option v-for="tpl in templates" :key="tpl.id" :value="tpl.id">
               {{ templateLabel(tpl) }}
@@ -197,15 +216,16 @@ const provenanceTemplateName = computed(() => {
         </label>
 
         <p v-if="selectedTemplateId && versionsLoading">{{ $t('rfx.templates.clone.versionsLoading') }}</p>
-        <p v-else-if="versionsLoadFailed" class="modal__error">
+        <p v-else-if="versionsLoadFailed" class="modal__error" data-testid="clone-versions-error">
           {{ $t('rfx.templates.clone.versionsLoadFailed') }}
+          <span v-if="versionsLoadError"> {{ versionsLoadError }}</span>
           <button type="button" class="btn btn--link" @click="retryVersionLoad">{{ $t('common.retry') }}</button>
         </p>
         <p v-else-if="noCloneableVersions" class="modal__warning">{{ $t('rfx.templates.clone.noCloneableVersions') }}</p>
 
         <label v-else-if="selectedTemplateId && cloneableVersions.length" class="modal__label">
           {{ $t('rfx.templates.clone.selectVersion') }}
-          <select v-model="selectedVersionId" required>
+          <select v-model="selectedVersionId" required data-testid="clone-version-select">
             <option v-for="ver in cloneableVersions" :key="ver.id" :value="ver.id">
               v{{ ver.version_number }} — {{ $t(`rfx.templates.versionStatus.${ver.status}`) }}
             </option>
@@ -216,7 +236,7 @@ const provenanceTemplateName = computed(() => {
 
         <label class="modal__label">{{ $t('rfx.rfxNumber') }}<input v-model="form.rfx_number" required /></label>
         <p v-if="errors.rfx_number" class="modal__field-error">{{ errors.rfx_number }}</p>
-        <label class="modal__label">{{ $t('rfx.title') }}<input v-model="form.title" required /></label>
+        <label class="modal__label">{{ $t('rfx.title') }}<input v-model="form.title" required data-testid="clone-event-title" /></label>
         <p v-if="errors.title" class="modal__field-error">{{ errors.title }}</p>
         <label class="modal__label">
           {{ $t('rfx.type') }}
@@ -232,14 +252,24 @@ const provenanceTemplateName = computed(() => {
         </label>
         <label class="modal__label">
           {{ $t('rfx.owner') }}
-          <select v-model="form.owner_company_id" required>
+          <select v-model="form.owner_company_id" required data-testid="clone-owner-select">
             <option v-for="opt in ownerOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
           </select>
         </label>
       </template>
 
       <template v-else>
-        <p>{{ $t('rfx.templates.clone.confirmIntro') }}</p>
+        <p data-testid="clone-success">{{ $t('rfx.templates.clone.confirmIntro') }}</p>
+        <dl class="clone-source" data-testid="clone-provenance">
+          <div>
+            <dt>{{ $t('rfx.provenance.templateId') }}</dt>
+            <dd><code data-testid="clone-source-template-id">{{ cloneResult.source_template_id }}</code></dd>
+          </div>
+          <div>
+            <dt>{{ $t('rfx.provenance.sourceVersionId') }}</dt>
+            <dd><code data-testid="clone-source-version-id">{{ cloneResult.source_template_version_id }}</code></dd>
+          </div>
+        </dl>
         <RfxProvenanceBanner
           :provenance="cloneResult"
           :template-name="provenanceTemplateName"
@@ -255,6 +285,7 @@ const provenanceTemplateName = computed(() => {
         <button
           type="submit"
           class="btn btn--primary"
+          :data-testid="cloneResult ? 'clone-open-studio' : 'clone-submit'"
           :disabled="saving || (!cloneResult && (versionsLoading || noCloneableVersions || !selectedVersionId))"
         >
           {{ cloneResult ? $t('rfx.templates.clone.openStudio') : $t('rfx.templates.clone.submit') }}
@@ -272,4 +303,8 @@ const provenanceTemplateName = computed(() => {
 .modal__error { color: var(--color-danger, #b91c1c); margin: 0; }
 .modal__field-error { color: var(--color-danger, #b91c1c); margin: -0.25rem 0 0; font-size: 0.8125rem; }
 .modal__actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem; }
+.clone-source { margin: 0; display: grid; gap: 0.375rem; }
+.clone-source div { display: grid; grid-template-columns: 10rem 1fr; gap: 0.5rem; font-size: 0.875rem; }
+.clone-source dt { color: var(--color-text-muted); margin: 0; }
+.clone-source dd { margin: 0; }
 </style>

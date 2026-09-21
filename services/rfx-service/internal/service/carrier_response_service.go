@@ -162,7 +162,7 @@ func (s *CarrierResponseService) GetWorkspace(
 		return nil, err
 	}
 	if response.RfxVersionID == nil {
-		return nil, apperrors.Validation("carrier response is not bound to a published questionnaire version", map[string]any{"field": "rfx_version_id"})
+		return nil, apperrors.Unprocessable("carrier response is not bound to a published questionnaire version", map[string]any{"field": "rfx_version_id"})
 	}
 	questionnaire, err := s.q.LoadQuestionnaire(ctx, *response.RfxVersionID, actor.TenantID)
 	if err != nil {
@@ -548,7 +548,7 @@ func (s *CarrierResponseService) ensureCarrierResponse(
 	}
 
 	if response.RfxVersionID == nil {
-		return uuid.Nil, nil, nil, apperrors.Validation("carrier response is not bound to a published questionnaire version", map[string]any{"field": "rfx_version_id"})
+		return uuid.Nil, nil, nil, apperrors.Unprocessable("carrier response is not bound to a published questionnaire version", map[string]any{"field": "rfx_version_id"})
 	}
 
 	questionnaire, err := s.q.LoadQuestionnaire(ctx, *response.RfxVersionID, actor.TenantID)

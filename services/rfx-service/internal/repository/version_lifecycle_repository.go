@@ -169,6 +169,7 @@ func (r *QuestionnaireRepository) PublishVersionTx(
 	row := r.db().QueryRow(ctx, `
 		UPDATE rfx.rfx_versions
 		SET status = $3,
+			questionnaire_enabled = TRUE,
 			change_summary = $4,
 			published_at = now(),
 			published_by = $5,
