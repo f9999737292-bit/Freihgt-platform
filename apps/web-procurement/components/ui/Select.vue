@@ -1,4 +1,6 @@
 <script setup lang="ts">
+defineOptions({ inheritAttrs: false })
+
 defineProps<{
   modelValue: string
   label?: string
@@ -7,6 +9,8 @@ defineProps<{
 }>()
 
 defineEmits<{ 'update:modelValue': [value: string] }>()
+
+const attrs = useAttrs()
 </script>
 
 <template>
@@ -14,6 +18,7 @@ defineEmits<{ 'update:modelValue': [value: string] }>()
     <span v-if="label" class="ui-select__label">{{ label }}</span>
     <select
       class="ui-select__control"
+      v-bind="attrs"
       :value="modelValue"
       :disabled="disabled"
       @change="$emit('update:modelValue', ($event.target as HTMLSelectElement).value)"

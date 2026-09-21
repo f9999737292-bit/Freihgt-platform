@@ -48,10 +48,10 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
 
   const createWait = waitForApi(buyerPage, { method: 'POST', pathIncludes: '/api/v1/rfx-events' })
   await buyerPage.goto(`${procurementURL}/tenders/new`, { waitUntil: 'domcontentloaded' })
-  const titleInput = buyerPage.getByTestId('wizard-title').locator('input')
+  const titleInput = buyerPage.getByTestId('wizard-title')
   await expect(titleInput).toBeVisible({ timeout: 30_000 })
   await titleInput.fill(TITLE)
-  const owner = buyerPage.getByTestId('wizard-owner-company').locator('select')
+  const owner = buyerPage.getByTestId('wizard-owner-company')
   await expect(owner.locator('option')).not.toHaveCount(0, { timeout: 15_000 })
   if (!(await owner.inputValue())) {
     const first = await owner.locator('option').nth(0).getAttribute('value')
@@ -67,7 +67,7 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
   logStage({ stage: 'create-draft', method: 'POST', path: '/api/v1/rfx-events', status: created.status() })
   console.log(`E7-MAIN-EVENT-ID ${eventId}`)
 
-  await buyerPage.getByTestId('wizard-lot-name').locator('input').fill(LOT_NAME)
+  await buyerPage.getByTestId('wizard-lot-name').fill(LOT_NAME)
   const lotResp = await clickAndCapture(
     buyerPage,
     'add-lot',
@@ -77,7 +77,7 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
   expect(lotResp.status()).toBe(201)
 
   await buyerPage.getByRole('button', { name: /Next|Далее|下一步/ }).click()
-  const participantSelect = buyerPage.getByTestId('wizard-participant-company').locator('select')
+  const participantSelect = buyerPage.getByTestId('wizard-participant-company')
   await expect(participantSelect.locator('option')).not.toHaveCount(0, { timeout: 15_000 })
   const carrierOption = participantSelect.locator('option').filter({ hasText: /Carrier A/ }).first()
   await expect(carrierOption).toHaveCount(1, { timeout: 15_000 })

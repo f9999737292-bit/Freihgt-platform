@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { writeFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
@@ -32,21 +32,24 @@ async function openCarrierDraft(page: Page) {
 }
 
 async function exportWorkbook(page: Page) {
-  const respPromise = page.waitForResponse((resp) => {
+  const exportWait = page.waitForResponse((resp) => {
     return resp.url().includes(`/carrier-responses/${carrierXlsxResponseId}/xlsx-export`)
       && resp.request().method() === 'GET'
   }, { timeout: 30_000 })
-  await page.getByTestId('carrier-xlsx-export').click()
-  const resp = await respPromise
+  const [download, resp] = await Promise.all([
+    page.waitForEvent('download', { timeout: 30_000 }),
+    exportWait,
+    page.getByTestId('carrier-xlsx-export').click(),
+  ])
   expect(resp.ok(), `carrier export ${resp.status()}`).toBeTruthy()
-  const bytes = Buffer.from(await resp.body())
+  const filePath = join(tmpdir(), `e7-carrier-xlsx-${carrierXlsxEventId}.xlsx`)
+  await download.saveAs(filePath)
+  const bytes = readFileSync(filePath)
   expect(bytes.subarray(0, 2).toString()).toBe('PK')
   const text = bytes.toString('utf8')
   expect(text).not.toContain(competitorOffer)
   expect(text).not.toContain(competitorName)
   expect(text).not.toContain(competitorAnswer)
-  const filePath = join(tmpdir(), `e7-carrier-xlsx-${carrierXlsxEventId}.xlsx`)
-  writeFileSync(filePath, bytes)
   return filePath
 }
 

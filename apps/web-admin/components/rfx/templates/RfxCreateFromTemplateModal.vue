@@ -47,6 +47,7 @@ const versionCache = ref(new Map<string, ReturnType<typeof filterCloneableTempla
 
 const cloneOp = new IdempotentOperation('clone-tpl')
 const previousFocus = ref<HTMLElement | null>(null)
+const allowBackdropClose = ref(false)
 
 const cloneableVersions = computed(() => {
   const templateId = selectedTemplateId.value
@@ -66,7 +67,11 @@ const noCloneableVersions = computed(() =>
 watch(
   () => props.open,
   async (isOpen) => {
-    if (!isOpen) return
+    if (!isOpen) {
+      allowBackdropClose.value = false
+      return
+    }
+    allowBackdropClose.value = false
     previousFocus.value = document.activeElement as HTMLElement | null
     Object.assign(form, emptyCreateRfxForm())
     replaceRfxFormErrors(errors, {})
@@ -75,6 +80,10 @@ watch(
     cloneResult.value = null
     versionsLoadFailed.value = false
     cloneOp.reset()
+    await nextTick()
+    requestAnimationFrame(() => {
+      allowBackdropClose.value = true
+    })
     const owners = await loadAuthorizedOwnerCompanies()
     ownerOptions.value = owners.options
   },
@@ -180,7 +189,7 @@ const provenanceTemplateName = computed(() => {
     aria-modal="true"
     aria-labelledby="clone-modal-title"
     @keydown="handleEscape"
-    @click.self="closeModal"
+    @click.self="allowBackdropClose && closeModal()"
   >
     <form class="modal" @submit.prevent="handleSubmit">
       <h2 id="clone-modal-title">{{ $t('rfx.templates.clone.title') }}</h2>

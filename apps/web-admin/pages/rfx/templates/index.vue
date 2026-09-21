@@ -94,6 +94,12 @@ function goToPage(page: number) {
   pagination.offset = (page - 1) * pagination.limit
   void loadLibrary()
 }
+
+function openCloneModal() {
+  void nextTick(() => {
+    showCloneModal.value = true
+  })
+}
 </script>
 
 <template>
@@ -104,7 +110,12 @@ function goToPage(page: number) {
         <p class="page__subtitle">{{ $t('rfx.templates.librarySubtitle') }}</p>
       </div>
       <div v-if="canManageRfxTemplates()" class="page__actions">
-        <button type="button" class="btn btn--secondary" @click="showCloneModal = true">
+        <button
+          type="button"
+          class="btn btn--secondary"
+          data-testid="clone-from-template-open"
+          @click="openCloneModal"
+        >
           {{ $t('rfx.templates.clone.title') }}
         </button>
         <button type="button" class="btn btn--primary" @click="showCreateModal = true">

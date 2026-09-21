@@ -1,4 +1,6 @@
 <script setup lang="ts">
+defineOptions({ inheritAttrs: false })
+
 defineProps<{
   modelValue: string
   label?: string
@@ -9,6 +11,8 @@ defineProps<{
 }>()
 
 defineEmits<{ 'update:modelValue': [value: string] }>()
+
+const attrs = useAttrs()
 </script>
 
 <template>
@@ -16,6 +20,7 @@ defineEmits<{ 'update:modelValue': [value: string] }>()
     <span v-if="label" class="ui-input__label">{{ label }}</span>
     <input
       class="ui-input__control"
+      v-bind="attrs"
       :type="type || 'text'"
       :value="modelValue"
       :placeholder="placeholder"
