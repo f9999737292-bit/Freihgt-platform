@@ -193,6 +193,8 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/rfx-events/{id}/xlsx-import/preview", "post", "Preview buyer draft RFx event XLSX import", "RFx", True, True, "xlsx_import_preview_buyer_draft"),
     ("/api/v1/rfx-events/{id}/xlsx-import/commit", "post", "Commit buyer draft RFx event XLSX import", "RFx", True, True, "xlsx_import_commit_buyer_draft"),
     ("/api/v1/rfx-events/{id}/carrier-responses/{response_id}/xlsx-import/commit", "post", "Commit carrier RFx response XLSX import", "RFx", True, True, "xlsx_import_commit_carrier_response"),
+    ("/api/v1/rfx-events/xlsx-create/preview", "post", "Preview buyer new RFx event XLSX create", "RFx", True, True, "xlsx_create_preview_buyer_draft"),
+    ("/api/v1/rfx-events/xlsx-create/commit", "post", "Commit buyer new RFx event XLSX create", "RFx", True, True, "xlsx_create_commit_buyer_draft"),
     ("/api/v1/rfx-events/{id}/carrier-response/submit", "post", "Submit carrier questionnaire response", "RFx", True, True, "cr_submit"),
     ("/api/v1/rfx-events/{id}/carrier-response/summary", "get", "Carrier response completion summary", "RFx", True, True, "cr_summary_get"),
     ("/api/v1/rfx-events/{id}/score-model", "get", "Get RFx score model", "RFx", True, True, "score_model_get"),
@@ -510,11 +512,15 @@ E7_EXCEL_EXCHANGE_ENDPOINT_PROFILES = frozenset({
     "xlsx_import_preview_carrier_response",
     "xlsx_import_commit_buyer_draft",
     "xlsx_import_commit_carrier_response",
+    "xlsx_create_preview_buyer_draft",
+    "xlsx_create_commit_buyer_draft",
 })
 
 BINARY_RESPONSE_PROFILES = frozenset({"xlsx_export_buyer_draft", "xlsx_export_carrier_response"})
 
 EXCEL_EXCHANGE_PREVIEW_PROFILES = frozenset({"xlsx_import_preview_buyer_draft", "xlsx_import_preview_carrier_response"})
+XLSX_CREATE_PREVIEW_PROFILES = frozenset({"xlsx_create_preview_buyer_draft"})
+XLSX_CREATE_COMMIT_PROFILES = frozenset({"xlsx_create_commit_buyer_draft"})
 
 E7_ERP_PREVIEW_ENDPOINT_PROFILES = frozenset({
     "erp_import_preview_create_draft",
@@ -847,6 +853,34 @@ Feature flag: when `RFX_EXCEL_EXCHANGE_ENABLED` is false (default), the route re
 Authorization: **BuyerManage** role required; only the preview creator actor may commit.
 
 Requires `Idempotency-Key` header. Request body contains only `analysis_id`.""",
+    "xlsx_create_preview_buyer_draft": """Preview buyer new RFx event XLSX create for CREATE_NEW_DRAFT mode.
+
+Feature flag: when `RFX_EXCEL_EXCHANGE_ENABLED` is false (default), the route returns **404** (feature disabled).
+
+Authorization: **BuyerManage** role required; buyer read-only roles are denied (**403**). Human JWT only. Integration OAuth/API key is not accepted.
+
+Request: multipart/form-data. Required fields: `file` (max 5 MiB), `owner_company_id`, `rfx_number`, `title`, `rfx_type`, `category`. Optional: `description`, `response_deadline`, `currency_code`. Workbook schema `BINTRANS_RFX_BUYER_XLSX_V1`. Workbook IDs are not authority.
+
+Successful domain-valid preview returns **200** with `ready_to_commit=true`, persisted `analysis_id`, and server-computed `expires_at` (24h TTL). Preview does not return `canonical_payload_hash` or a reserved event ID.
+
+Domain-invalid but structurally readable workbooks return **422** with the structured preview envelope and `ready_to_commit=false` without persisting analysis.
+
+Malformed multipart, unsafe ZIP/XLSX, formula cells, missing/unexpected sheets, invalid headers, competitor columns, or `unsupported_schema` return **400**. Oversized files return **413**. Gateway rate limit returns **429**.
+
+Zero lots and an empty questionnaire graph are allowed. Preview never creates an event, version, lots, questionnaire, participants, scoring, or RFx-create audit.""",
+    "xlsx_create_commit_buyer_draft": """Atomically create a new DRAFT RFx event from a persisted CREATE_NEW_DRAFT XLSX analysis.
+
+Feature flag: when `RFX_EXCEL_EXCHANGE_ENABLED` is false (default), the route returns **404** (feature disabled).
+
+Authorization: **BuyerManage** role required; only the preview creator actor and resolved owner company may commit. Human JWT only.
+
+Requires `Idempotency-Key` header (max 128 chars). Request body contains only `analysis_id`.
+
+First successful commit and same-key replay both return **201** with the same `event_id`. Created event has `creation_channel=EXCEL`, `status=DRAFT`, and `questionnaire_enabled=false`. Lots are optional. Participants and scoring are not created.
+
+Conflict machine codes: `analysis_expired`, `analysis_already_consumed`, `idempotency_conflict`, duplicate tenant `rfx_number`. Revalidation failures including an expired deadline return **422** `proposal_revalidation_failed` or `canonical_hash_mismatch` with zero event writes.
+
+Gateway shared rate limit returns **429**.""",
     "erp_import_preview_create_draft": """Preview ERP buyer JSON import for CREATE_DRAFT mode.
 
 Feature flag: when `RFX_ERP_INTEGRATION_ENABLED` is false (default), the route returns **404** (feature disabled).
@@ -1304,6 +1338,16 @@ def render_parameters(path: str, method: str, with_headers: bool, profile: str |
             "            minLength: 1",
             "            maxLength: 128",
         ])
+    elif profile in XLSX_CREATE_COMMIT_PROFILES:
+        lines.extend([
+            "        - name: Idempotency-Key",
+            "          in: header",
+            "          required: true",
+            "          description: Client-supplied idempotency key for buyer XLSX create commit (max 128 chars).",
+            "          schema:",
+            "            type: string",
+            "            maxLength: 128",
+        ])
     elif profile in EXCEL_EXCHANGE_COMMIT_PROFILES:
         commit_label = "buyer XLSX import commit"
         if profile == "xlsx_import_commit_carrier_response":
@@ -1484,7 +1528,9 @@ def render_operation(
         method in {"post", "patch", "put"}
         and profile not in NO_REQUEST_BODY_PROFILES
         and profile not in EXCEL_EXCHANGE_PREVIEW_PROFILES
+        and profile not in XLSX_CREATE_PREVIEW_PROFILES
         and profile not in EXCEL_EXCHANGE_COMMIT_PROFILES
+        and profile not in XLSX_CREATE_COMMIT_PROFILES
         and profile not in ERP_PREVIEW_PROFILES
         and profile not in ERP_CREATE_COMMIT_PROFILES
         and profile not in ERP_UPDATE_COMMIT_PROFILES
@@ -1548,7 +1594,7 @@ def render_operation(
             ]
         )
 
-    if secured and profile not in EXCEL_EXCHANGE_PREVIEW_PROFILES and profile not in EXCEL_EXCHANGE_COMMIT_PROFILES and profile not in ERP_PREVIEW_PROFILES and profile not in ERP_CREATE_COMMIT_PROFILES and profile not in ERP_UPDATE_COMMIT_PROFILES and profile not in ERP_READ_PROFILES:
+    if secured and profile not in EXCEL_EXCHANGE_PREVIEW_PROFILES and profile not in XLSX_CREATE_PREVIEW_PROFILES and profile not in EXCEL_EXCHANGE_COMMIT_PROFILES and profile not in XLSX_CREATE_COMMIT_PROFILES and profile not in ERP_PREVIEW_PROFILES and profile not in ERP_CREATE_COMMIT_PROFILES and profile not in ERP_UPDATE_COMMIT_PROFILES and profile not in ERP_READ_PROFILES:
         lines.append(SECURITY_BEARER.rstrip("\n"))
 
     if profile in BINARY_RESPONSE_PROFILES:
@@ -1608,6 +1654,104 @@ def render_operation(
                 "              schema:",
                 f"                $ref: '#/components/schemas/{preview_schema}'",
                 EXCEL_EXCHANGE_ERROR_RESPONSES.rstrip("\n"),
+                "",
+            ]
+        )
+        return "\n".join(lines)
+
+    if profile in XLSX_CREATE_PREVIEW_PROFILES:
+        lines.extend(
+            [
+                "      requestBody:",
+                "        required: true",
+                "        content:",
+                "          multipart/form-data:",
+                "            schema:",
+                "              type: object",
+                "              required: [file, owner_company_id, rfx_number, title, rfx_type, category]",
+                "              properties:",
+                "                file:",
+                "                  type: string",
+                "                  format: binary",
+                "                  description: BUYER XLSX workbook (max 5 MiB)",
+                "                owner_company_id:",
+                "                  type: string",
+                "                  format: uuid",
+                "                rfx_number:",
+                "                  type: string",
+                "                title:",
+                "                  type: string",
+                "                rfx_type:",
+                "                  type: string",
+                "                category:",
+                "                  type: string",
+                "                description:",
+                "                  type: string",
+                "                response_deadline:",
+                "                  type: string",
+                "                  format: date-time",
+                "                currency_code:",
+                "                  type: string",
+            ]
+        )
+        if secured:
+            lines.append(SECURITY_BEARER.rstrip("\n"))
+        lines.extend(
+            [
+                "      responses:",
+                "        '200':",
+                "          description: Valid CREATE_NEW_DRAFT preview with persisted analysis",
+                "          content:",
+                "            application/json:",
+                "              schema:",
+                "                $ref: '#/components/schemas/RfxBuyerXlsxCreatePreviewResponse'",
+                "        '422':",
+                "          description: Domain-invalid structured CREATE_NEW_DRAFT preview",
+                "          content:",
+                "            application/json:",
+                "              schema:",
+                "                $ref: '#/components/schemas/RfxBuyerXlsxCreatePreviewResponse'",
+                EXCEL_EXCHANGE_ERROR_RESPONSES.rstrip("\n"),
+                "        '429':",
+                "          description: Rate limit exceeded",
+                "          content:",
+                "            application/json:",
+                "              schema:",
+                "                $ref: '#/components/schemas/ErrorResponse'",
+                "",
+            ]
+        )
+        return "\n".join(lines)
+
+    if profile in XLSX_CREATE_COMMIT_PROFILES:
+        lines.extend(
+            [
+                "      requestBody:",
+                "        required: true",
+                "        content:",
+                "          application/json:",
+                "            schema:",
+                "              $ref: '#/components/schemas/RfxBuyerXlsxCreateCommitRequest'",
+            ]
+        )
+        if secured:
+            lines.append(SECURITY_BEARER.rstrip("\n"))
+        lines.extend(
+            [
+                "      responses:",
+                "        '201':",
+                "          description: New DRAFT RFx event created from XLSX analysis",
+                "          content:",
+                "            application/json:",
+                "              schema:",
+                "                $ref: '#/components/schemas/RfxBuyerXlsxCreateCommitResponse'",
+                EXCEL_EXCHANGE_COMMIT_ERROR_RESPONSES.rstrip("\n"),
+                "        '429':",
+                "          description: Rate limit exceeded",
+                "          content:",
+                "            application/json:",
+                "              schema:",
+                "                $ref: '#/components/schemas/ErrorResponse'",
                 "",
             ]
         )
@@ -2999,6 +3143,86 @@ def excel_exchange_components_block() -> str:
           maxItems: 2000
           items:
             $ref: '#/components/schemas/RfxBuyerXlsxImportPreviewIssue'
+    RfxBuyerXlsxCreatePreviewDraftSummary:
+      type: object
+      required: [rfx_number, title, rfx_type, category, lot_count, section_count, question_count]
+      properties:
+        rfx_number: {type: string}
+        title: {type: string}
+        rfx_type: {type: string}
+        category: {type: string}
+        description: {type: string}
+        response_deadline: {type: string, format: date-time}
+        currency_code: {type: string}
+        lot_count: {type: integer}
+        section_count: {type: integer}
+        question_count: {type: integer}
+    RfxBuyerXlsxCreatePreviewResponse:
+      type: object
+      required:
+        - mode
+        - schema_name
+        - schema_version
+        - owner_company_id
+        - ready_to_commit
+        - normalized_draft_summary
+        - change_counts
+        - errors
+        - warnings
+      properties:
+        mode: {type: string, enum: [CREATE_NEW_DRAFT]}
+        schema_name: {type: string, example: BINTRANS_RFX_BUYER_XLSX_V1}
+        schema_version: {type: string, example: "1"}
+        owner_company_id: {type: string, format: uuid}
+        analysis_id: {type: string, format: uuid}
+        expires_at: {type: string, format: date-time}
+        ready_to_commit: {type: boolean}
+        normalized_draft_summary:
+          $ref: '#/components/schemas/RfxBuyerXlsxCreatePreviewDraftSummary'
+        change_counts:
+          type: object
+          additionalProperties: true
+        errors:
+          type: array
+          maxItems: 2000
+          items:
+            $ref: '#/components/schemas/RfxBuyerXlsxImportPreviewIssue'
+        warnings:
+          type: array
+          maxItems: 2000
+          items:
+            $ref: '#/components/schemas/RfxBuyerXlsxImportPreviewIssue'
+    RfxBuyerXlsxCreateCommitRequest:
+      type: object
+      required: [analysis_id]
+      properties:
+        analysis_id:
+          type: string
+          format: uuid
+    RfxBuyerXlsxCreateCommitResponse:
+      type: object
+      required:
+        - event_id
+        - analysis_id
+        - creation_channel
+        - status
+        - draft_version_id
+        - draft_version_number
+        - questionnaire_enabled
+        - created_counts
+        - committed_at
+      properties:
+        event_id: {type: string, format: uuid}
+        analysis_id: {type: string, format: uuid}
+        creation_channel: {type: string, enum: [EXCEL]}
+        status: {type: string, enum: [DRAFT]}
+        draft_version_id: {type: string, format: uuid}
+        draft_version_number: {type: integer}
+        questionnaire_enabled: {type: boolean}
+        created_counts:
+          type: object
+          additionalProperties: true
+        committed_at: {type: string, format: date-time}
     RfxBuyerXlsxImportCommitRequest:
       type: object
       required: [analysis_id]
