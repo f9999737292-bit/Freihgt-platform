@@ -9,6 +9,12 @@ import {
   shouldStartCarrierResponseOnLoadError,
 } from '~/utils/carrierQuestionnaireBinding'
 
+type BindingWorkspace = {
+  id: string
+  product_status: string
+  rfx_version_id?: string
+}
+
 function apiError(status: number, code: string, details: Record<string, unknown> = {}) {
   return new ApiError(status, { code, message: 'ignored', details })
 }
@@ -44,8 +50,8 @@ describe('carrier questionnaire binding', () => {
   })
 
   it('GET 404 then start applies the started workspace and keeps the response id', async () => {
-    const started = { id: 'resp-1', product_status: 'DRAFT' }
-    const result = await resolveCarrierQuestionnaireWorkspace({
+    const started: BindingWorkspace = { id: 'resp-1', product_status: 'DRAFT' }
+    const result = await resolveCarrierQuestionnaireWorkspace<BindingWorkspace>({
       get: vi.fn().mockRejectedValue(apiError(404, 'NOT_FOUND')),
       start: vi.fn().mockResolvedValue(started),
       startIfMissing: true,
@@ -58,7 +64,7 @@ describe('carrier questionnaire binding', () => {
 
   it('GET binding-required 422 then start keeps the commercial response id', async () => {
     const start = vi.fn().mockResolvedValue({ id: 'commercial-1', product_status: 'DRAFT', rfx_version_id: 'ver-1' })
-    const result = await resolveCarrierQuestionnaireWorkspace({
+    const result = await resolveCarrierQuestionnaireWorkspace<BindingWorkspace>({
       get: vi.fn().mockRejectedValue(apiError(422, 'UNPROCESSABLE_ENTITY', { field: 'rfx_version_id' })),
       start,
       startIfMissing: true,
@@ -104,7 +110,7 @@ describe('carrier questionnaire binding', () => {
   it('reload after pin uses only GET', async () => {
     const get = vi.fn().mockResolvedValue({ id: 'commercial-1', product_status: 'DRAFT', rfx_version_id: 'ver-1' })
     const start = vi.fn()
-    const result = await resolveCarrierQuestionnaireWorkspace({
+    const result = await resolveCarrierQuestionnaireWorkspace<BindingWorkspace>({
       get,
       start,
       startIfMissing: true,

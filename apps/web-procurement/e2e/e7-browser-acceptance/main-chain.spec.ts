@@ -413,8 +413,10 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
   expect(bindEnvelope.error?.details?.field, `binding field: ${JSON.stringify(bindEnvelope)}`).toBe('rfx_version_id')
 
   const bindStartResp = await bindStart
-  expect(bindStartResp.status(), `POST carrier-response/start -> ${bindStartResp.status()}`).toBe(200)
-  const bindWorkspace = await bindStartResp.json() as {
+  const bindStartEnvelope = await bindStartResp.json().catch(() => ({}))
+  console.log(`E7-BIND-START-ENVELOPE status=${bindStartResp.status()} ${JSON.stringify(bindStartEnvelope)}`)
+  expect(bindStartResp.status(), `POST carrier-response/start -> ${bindStartResp.status()} ${JSON.stringify(bindStartEnvelope)}`).toBe(200)
+  const bindWorkspace = bindStartEnvelope as {
     id?: string
     rfx_event_id?: string
     rfx_version_id?: string | null

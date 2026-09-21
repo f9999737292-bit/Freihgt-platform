@@ -103,7 +103,7 @@ func (r *QuestionnaireRepository) GetOrCreateDraftVersion(ctx context.Context, t
 	}
 	const insert = `
 		INSERT INTO rfx.rfx_versions (tenant_id, rfx_event_id, version_number, status, questionnaire_enabled)
-		VALUES ($1,$2,$3,$4,FALSE)
+		VALUES ($1,$2,$3,$4,TRUE)
 		RETURNING ` + rfxVersionSelectColumns
 	row := r.db().QueryRow(ctx, insert, tenantID, eventID, maxNum+1, domain.RfxVersionStatusDraft)
 	ver, err := scanRfxVersion(row)

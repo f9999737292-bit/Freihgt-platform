@@ -275,6 +275,64 @@ func TestLegacyCommercialOfferPinsOnStart(t *testing.T) {
 	}
 }
 
+func TestStartPinsStudioDraftWithoutManualEnable(t *testing.T) {
+	env := setupTestEnv(t)
+	fix := seedBuyerFixture(t, env)
+	ctx := context.Background()
+	deadline := time.Now().UTC().Add(24 * time.Hour)
+	event, err := env.rfxSvc.CreateEvent(ctx, fix.BuyerA, domain.CreateRfxEventInput{
+		TenantID: fix.TenantID, OwnerCompanyID: fix.CompanyA, Title: "Studio draft enable",
+		RfxType: "SPOT_RFQ", Category: "FREIGHT", RfxNumber: "RFX-STE-" + uuid.NewString()[:8],
+		ResponseDeadline: &deadline,
+	})
+	if err != nil {
+		t.Fatalf("create event: %v", err)
+	}
+	if _, err := env.rfxSvc.AddParticipant(ctx, fix.BuyerA, event.ID, domain.AddRfxParticipantInput{
+		TenantID: fix.TenantID, RfxEventID: event.ID, CompanyID: fix.CarrierID, ParticipantType: "CARRIER",
+	}); err != nil {
+		t.Fatalf("add participant: %v", err)
+	}
+	version, err := env.qRepo.GetOrCreateDraftVersion(ctx, fix.TenantID, event.ID)
+	if err != nil {
+		t.Fatalf("studio draft: %v", err)
+	}
+	if !version.QuestionnaireEnabled {
+		t.Fatal("studio GetOrCreateDraftVersion must create an enabled questionnaire draft")
+	}
+	sec, err := env.qSvc.CreateSection(ctx, fix.BuyerA, event.ID, domain.CreateSectionInput{
+		SectionCode: "MAIN", Title: "Main",
+	})
+	if err != nil {
+		t.Fatalf("create section: %v", err)
+	}
+	if _, err := env.qSvc.CreateQuestion(ctx, fix.BuyerA, event.ID, sec.ID, domain.CreateQuestionInput{
+		QuestionCode: "NOTES", QuestionType: domain.QuestionTypeText, Label: "Notes", Required: true,
+	}); err != nil {
+		t.Fatalf("create question: %v", err)
+	}
+	publishVersion(t, env, version.ID)
+	if _, err := env.rfxSvc.PublishEvent(ctx, fix.BuyerA, event.ID); err != nil {
+		t.Fatalf("publish event: %v", err)
+	}
+	legacy, err := env.rfxSvc.CreateResponse(ctx, fix.CarrierAct, event.ID, domain.CreateRfxResponseInput{
+		TenantID: fix.TenantID, ParticipantCompanyID: fix.CarrierID,
+	})
+	if err != nil {
+		t.Fatalf("commercial create: %v", err)
+	}
+	ws, err := env.crSvc.StartOrResume(ctx, fix.CarrierAct, event.ID, fix.CarrierID)
+	if err != nil {
+		t.Fatalf("start after studio draft: %v", err)
+	}
+	if ws.Response.ID != legacy.ID {
+		t.Fatal("studio draft pin drifted response id")
+	}
+	if ws.Response.RfxVersionID == nil || *ws.Response.RfxVersionID != version.ID {
+		t.Fatalf("expected pin to studio version %s, got %v", version.ID, ws.Response.RfxVersionID)
+	}
+}
+
 func TestStartOrResumeUnboundWithoutPublishedVersion(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
