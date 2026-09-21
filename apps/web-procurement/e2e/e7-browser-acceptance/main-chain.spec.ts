@@ -47,7 +47,13 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
   })
 
   const createWait = waitForApi(buyerPage, { method: 'POST', pathIncludes: '/api/v1/rfx-events' })
+  const membershipsWait = waitForApi(buyerPage, {
+    method: 'GET',
+    pathIncludes: `/api/v1/users/${buyerUserId}/companies`,
+  })
   await buyerPage.goto(`${procurementURL}/tenders/new`, { waitUntil: 'domcontentloaded' })
+  const memberships = await membershipsWait
+  expect(memberships.status(), `GET user companies -> ${memberships.status()}`).toBe(200)
   const titleInput = buyerPage.getByTestId('wizard-title')
   await expect(titleInput).toBeVisible({ timeout: 30_000 })
   await titleInput.fill(TITLE)

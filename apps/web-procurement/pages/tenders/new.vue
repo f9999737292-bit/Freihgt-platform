@@ -291,6 +291,13 @@ watch(currentStep, async (step) => {
   }
 })
 
+watch(
+  () => user.value?.id,
+  () => {
+    void loadOwnerCompanies()
+  },
+)
+
 onMounted(async () => {
   await Promise.all([loadOwnerCompanies(), loadCarriers()])
 })

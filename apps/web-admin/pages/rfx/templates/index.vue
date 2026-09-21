@@ -96,9 +96,7 @@ function goToPage(page: number) {
 }
 
 function openCloneModal() {
-  void nextTick(() => {
-    showCloneModal.value = true
-  })
+  showCloneModal.value = true
 }
 </script>
 
