@@ -10,6 +10,7 @@ import {
   carrierUserId,
   attachLiveDiagnostics,
   clickAndCapture,
+  dumpTenderDetailEvidence,
   dumpWizardEvidence,
   gatewayURL,
   logStage,
@@ -70,6 +71,15 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
   await expect(titleInput).toHaveValue(TITLE)
   await expect(owner).toHaveValue(/.+/)
   attachLiveDiagnostics(buyerPage, 'MAIN')
+  const forbiddenHits: string[] = []
+  for (const page of [buyerPage, adminPage, carrierPage]) {
+    page.on('request', (req) => {
+      const url = req.url()
+      if (url.includes('/integrations/erp/')) {
+        forbiddenHits.push(`${req.method()} ${url}`)
+      }
+    })
+  }
   const afterClick: string[] = []
   buyerPage.on('request', (req) => {
     afterClick.push(`${req.method()} ${req.url()}`)
@@ -89,7 +99,7 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
   const eventId = createdBody.id
   expect(eventId).toBeTruthy()
   logStage({ stage: 'create-draft', method: 'POST', path: '/api/v1/rfx-events', status: created.status() })
-  console.log(`E7-MAIN-EVENT-ID ${eventId}`)
+  console.log(`E7-MAIN-EVENT-ID ${eventId} stage=create-draft`)
 
   await buyerPage.getByTestId('wizard-lot-name').fill(LOT_NAME)
   const lotResp = await clickAndCapture(
@@ -99,6 +109,7 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
     () => buyerPage.getByRole('button', { name: /Add lot|Добавить лот|添加标段/ }).click(),
   )
   expect(lotResp.status()).toBe(201)
+  console.log(`E7-MAIN-EVENT-ID ${eventId} stage=add-lot`)
 
   const companies = await companiesWait
   const companiesURL = new URL(companies.url())
@@ -125,6 +136,7 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
     () => buyerPage.getByRole('button', { name: /Add participant|Добавить участника|添加参与者/ }).click(),
   )
   expect(participantResp.status()).toBe(201)
+  console.log(`E7-MAIN-EVENT-ID ${eventId} stage=add-participant`)
 
   await buyerPage.getByRole('button', { name: /Next|Далее|下一步/ }).click()
   const deadlineResp = await clickAndCapture(
@@ -134,7 +146,16 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
     () => buyerPage.getByRole('button', { name: /Next|Далее|下一步/ }).click(),
   )
   expect(deadlineResp.status()).toBeLessThan(400)
+  console.log(`E7-MAIN-EVENT-ID ${eventId} stage=save-deadline`)
   await expect(buyerPage.getByRole('button', { name: /Publish|Опубликовать|发布/ })).toBeVisible()
+
+  const sessionBeforeDetail = await buyerPage.evaluate(() => {
+    const raw = localStorage.getItem('freight_procurement_session')
+    const parsed = raw ? JSON.parse(raw) as { user?: { id?: string; roles?: string[] } } : null
+    return { userId: parsed?.user?.id ?? null, roles: parsed?.user?.roles ?? null }
+  })
+  console.log(`E7-SESSION-BEFORE-DETAIL ${JSON.stringify(sessionBeforeDetail)}`)
+  expect(sessionBeforeDetail.roles).toEqual(['PROCUREMENT_MANAGER'])
 
   const humanGet = waitForApi(buyerPage, {
     method: 'GET',
@@ -146,12 +167,16 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
   expect(human.status()).toBe(200)
   assertGatewayHost(human.url())
   const humanBody = await human.json() as { creation_channel?: string; status?: string; id?: string }
-  expect(humanBody.id || eventId).toBe(eventId)
+  expect(humanBody.id, 'human GET event id drifted').toBe(eventId)
   expect(humanBody.creation_channel).toBe('MANUAL')
   expect(humanBody.status).toBe('DRAFT')
   logStage({ stage: 'human-get', method: 'GET', path: `/api/v1/rfx-events/${eventId}`, status: human.status() })
+  console.log(`E7-MAIN-EVENT-ID ${eventId} stage=human-get`)
   await expect(buyerPage.getByTestId('tender-creation-channel')).toHaveText(/Created manually|Создан вручную|手动创建/)
-  await expect(buyerPage.getByRole('button', { name: /Publish|Опубликовать|发布/ })).toBeVisible()
+  const humanDetail = await dumpTenderDetailEvidence(buyerPage)
+  expect(humanDetail.roles).toEqual(['PROCUREMENT_MANAGER'])
+  expect(humanDetail.headerTag, `PageHeader unresolved: ${JSON.stringify(humanDetail)}`).toBe('DIV')
+  expect(humanDetail.hasBack, `unconditional Back missing: ${JSON.stringify(humanDetail)}`).toBe(true)
 
   const studioLoad = waitForApi(adminPage, { method: 'GET', pathIncludes: `/api/v1/rfx-events/${eventId}/studio` })
   await adminPage.goto(`${adminURL}/rfx/${eventId}/studio?step=questionnaire`, { waitUntil: 'domcontentloaded' })
@@ -159,6 +184,7 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
   expect(studio.status()).toBe(200)
   assertGatewayHost(studio.url())
   logStage({ stage: 'studio-open', method: 'GET', path: `/api/v1/rfx-events/${eventId}/studio`, status: studio.status() })
+  console.log(`E7-MAIN-EVENT-ID ${eventId} stage=studio-open`)
   await expect(adminPage.getByRole('button', { name: 'Добавить раздел' })).toBeVisible({ timeout: 60_000 })
 
   const sectionResp = await clickAndCapture(
@@ -182,6 +208,7 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
     () => adminPage.getByRole('button', { name: 'Опубликовать опросник' }).click(),
   )
   expect(publishQ.status()).toBe(200)
+  console.log(`E7-MAIN-EVENT-ID ${eventId} stage=publish-questionnaire`)
 
   await adminPage.goto(`${adminURL}/rfx/${eventId}/studio?step=scoring`, { waitUntil: 'domcontentloaded' })
   await expect(adminPage.getByTestId('rfx-scoring-workspace')).toBeVisible({ timeout: 120_000 })
@@ -220,14 +247,33 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
   )
   expect(publishScore.status()).toBe(200)
   await expect(adminPage.getByTestId('scoring-published-lock')).toBeVisible({ timeout: 60_000 })
+  console.log(`E7-MAIN-EVENT-ID ${eventId} stage=publish-score-model`)
 
+  const publishPageGet = waitForApi(buyerPage, {
+    method: 'GET',
+    pathIncludes: `/api/v1/rfx-events/${eventId}`,
+    pathExcludes: ['/lots', '/participants', '/xlsx', '/studio', '/publish', '/questionnaire', '/score-model'],
+  })
+  await buyerPage.goto(`${procurementURL}/tenders/${eventId}`, { waitUntil: 'domcontentloaded' })
+  const publishPage = await publishPageGet
+  expect(publishPage.status()).toBe(200)
+  const publishPageBody = await publishPage.json() as { id?: string; status?: string }
+  expect(publishPageBody.id, 'pre-publish GET event id drifted').toBe(eventId)
+  expect(publishPageBody.status, 'event must stay DRAFT until UI PublishEvent').toBe('DRAFT')
+  const publishDetail = await dumpTenderDetailEvidence(buyerPage)
+  expect(publishDetail.roles).toEqual(['PROCUREMENT_MANAGER'])
+  expect(publishDetail.hasBack).toBe(true)
+  await expect(buyerPage.getByTestId('tender-publish')).toBeVisible({ timeout: 15_000 })
   const publishEvent = await clickAndCapture(
     buyerPage,
     'publish-event',
     { method: 'POST', pathIncludes: `/api/v1/rfx-events/${eventId}/publish` },
-    () => buyerPage.getByRole('button', { name: /Publish|Опубликовать|发布/ }).click(),
+    () => buyerPage.getByTestId('tender-publish').click(),
   )
   expect(publishEvent.status()).toBe(200)
+  const publishBody = await publishEvent.json().catch(() => ({})) as { id?: string; status?: string }
+  if (publishBody.id) expect(publishBody.id, 'publish event id drifted').toBe(eventId)
+  console.log(`E7-MAIN-EVENT-ID ${eventId} stage=publish-event status=${publishBody.status ?? 'unknown'}`)
 
   await carrierPage.goto(`${procurementURL}/carrier/tenders/${eventId}`, { waitUntil: 'domcontentloaded' })
   const startResp = await clickAndCapture(
@@ -237,6 +283,10 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
     () => carrierPage.getByRole('button', { name: /Start response|Начать ответ|开始响应/ }).click(),
   )
   expect(startResp.status()).toBeLessThan(400)
+  const startBody = await startResp.json().catch(() => ({})) as { id?: string; rfx_event_id?: string }
+  const responseId = startBody.id
+  if (startBody.rfx_event_id) expect(startBody.rfx_event_id, 'carrier start event id drifted').toBe(eventId)
+  console.log(`E7-MAIN-EVENT-ID ${eventId} stage=carrier-start responseId=${responseId ?? 'unknown'}`)
   const offerInput = carrierPage.locator('input[type="number"]').first()
   await expect(offerInput).toBeVisible({ timeout: 15_000 })
   await offerInput.fill('15000')
@@ -247,6 +297,8 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
     () => carrierPage.getByRole('button', { name: /Save offer|Сохранить предложение|保存报价/ }).click(),
   )
   expect(offerResp.status()).toBeLessThan(400)
+  if (responseId) expect(offerResp.url()).toContain(responseId)
+  console.log(`E7-MAIN-EVENT-ID ${eventId} stage=save-offer responseId=${responseId ?? 'unknown'}`)
 
   await carrierPage.goto(`${procurementURL}/carrier/tenders/${eventId}/questionnaire`, { waitUntil: 'domcontentloaded' })
   await expect(carrierPage.getByTestId('carrier-response-workspace')).toBeVisible({ timeout: 60_000 })
@@ -265,6 +317,7 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
     () => carrierPage.getByTestId('submit-questionnaire').click(),
   )
   expect(submitQ.status()).toBe(200)
+  console.log(`E7-MAIN-EVENT-ID ${eventId} stage=submit-questionnaire`)
 
   await buyerPage.goto(`${procurementURL}/tenders/${eventId}/evaluation`, { waitUntil: 'domcontentloaded' })
   await expect(buyerPage.getByTestId('evaluation-comparison-table')).toBeVisible({ timeout: 60_000 })
@@ -280,7 +333,12 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
     },
   )
   expect(awardResp.status(), `POST award-response -> ${awardResp.status()}`).toBe(200)
+  expect(awardResp.url()).not.toContain('/transport-orders')
+  expect(awardResp.url()).not.toContain('/integrations/erp/')
   logStage({ stage: 'award', method: 'POST', path: `/api/v1/rfx-events/${eventId}/award-response`, status: awardResp.status() })
+  console.log(`E7-MAIN-EVENT-ID ${eventId} stage=award`)
+
+  expect(forbiddenHits, `forbidden ERP requests: ${JSON.stringify(forbiddenHits)}`).toEqual([])
 
   await buyer.close()
   await admin.close()

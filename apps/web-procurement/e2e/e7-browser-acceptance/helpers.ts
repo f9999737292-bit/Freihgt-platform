@@ -198,10 +198,47 @@ export async function dumpWizardEvidence(page: Page) {
   return evidence
 }
 
+export async function dumpTenderDetailEvidence(page: Page) {
+  const evidence = await page.evaluate(() => {
+    const sessionRaw = localStorage.getItem('freight_procurement_session')
+    let roles: string[] | null = null
+    let userId: string | null = null
+    if (sessionRaw) {
+      try {
+        const parsed = JSON.parse(sessionRaw) as { user?: { id?: string; roles?: string[] } }
+        roles = parsed.user?.roles ?? null
+        userId = parsed.user?.id ?? null
+      } catch {
+        roles = null
+      }
+    }
+    const header = document.querySelector('.ui-page-header, page-header')
+    const buttons = Array.from(document.querySelectorAll('button')).map((el) => ({
+      tag: el.tagName,
+      testid: el.getAttribute('data-testid'),
+      text: (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80),
+    }))
+    return {
+      url: location.href,
+      roles,
+      userId,
+      headerTag: header?.tagName ?? null,
+      headerClass: typeof header?.className === 'string' ? header.className : null,
+      buttonCount: buttons.length,
+      buttons,
+      hasBack: Boolean(document.querySelector('[data-testid="tender-back"]')),
+      hasPublish: Boolean(document.querySelector('[data-testid="tender-publish"]')),
+    }
+  })
+  console.log(`E7-TENDER-DETAIL ${JSON.stringify(evidence)}`)
+  return evidence
+}
+
 export function attachLiveDiagnostics(page: Page, label: string) {
   page.on('console', (msg) => {
-    if (msg.type() === 'error') {
-      console.log(`E7-${label}-CONSOLE ${msg.type()} ${msg.text()}`)
+    const text = msg.text()
+    if (msg.type() === 'error' || /Failed to resolve component/i.test(text)) {
+      console.log(`E7-${label}-CONSOLE ${msg.type()} ${text}`)
     }
   })
   page.on('pageerror', (error) => {
