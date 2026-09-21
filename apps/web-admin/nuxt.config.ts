@@ -14,6 +14,10 @@ export default defineNuxtConfig({
               target: process.env.NUXT_E2E_GATEWAY_URL,
               changeOrigin: true,
             },
+            '/api/v1/rfx-templates': {
+              target: process.env.NUXT_E2E_GATEWAY_URL,
+              changeOrigin: true,
+            },
           }
         : undefined,
     },

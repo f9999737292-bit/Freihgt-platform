@@ -43,7 +43,8 @@ const ownerOptions = ref<Array<{ label: string; value: string }>>([])
 
 const versionsLoading = ref(false)
 const versionsLoadFailed = ref(false)
-const versionCache = ref(new Map<string, ReturnType<typeof filterCloneableTemplateVersions>>())
+const versionsLoadError = ref('')
+const versionCache = ref<Record<string, ReturnType<typeof filterCloneableTemplateVersions>>>({})
 
 const cloneOp = new IdempotentOperation('clone-tpl')
 const previousFocus = ref<HTMLElement | null>(null)
@@ -52,7 +53,7 @@ const allowBackdropClose = ref(false)
 const cloneableVersions = computed(() => {
   const templateId = selectedTemplateId.value
   if (!templateId) return []
-  return versionCache.value.get(templateId) ?? []
+  return versionCache.value[templateId] ?? []
 })
 
 const supersededWarning = computed(() => {
@@ -79,6 +80,7 @@ watch(
     selectedVersionId.value = ''
     cloneResult.value = null
     versionsLoadFailed.value = false
+    versionsLoadError.value = ''
     cloneOp.reset()
     await nextTick()
     requestAnimationFrame(() => {
@@ -96,19 +98,21 @@ watch(
 watch(selectedTemplateId, async (templateId) => {
   selectedVersionId.value = ''
   if (!templateId) return
-  if (versionCache.value.has(templateId)) {
-    selectedVersionId.value = selectDefaultCloneVersionId(versionCache.value.get(templateId)!) ?? ''
+  if (versionCache.value[templateId]) {
+    selectedVersionId.value = selectDefaultCloneVersionId(versionCache.value[templateId]) ?? ''
     return
   }
   versionsLoading.value = true
   versionsLoadFailed.value = false
+  versionsLoadError.value = ''
   try {
     const detail = await getTemplate(templateId)
     const cloneable = filterCloneableTemplateVersions(detail)
-    versionCache.value.set(templateId, cloneable)
+    versionCache.value = { ...versionCache.value, [templateId]: cloneable }
     selectedVersionId.value = selectDefaultCloneVersionId(cloneable) ?? ''
-  } catch {
+  } catch (error) {
     versionsLoadFailed.value = true
+    versionsLoadError.value = formatRfxApiError(error, t)
   } finally {
     versionsLoading.value = false
   }
@@ -125,7 +129,9 @@ function closeModal() {
 
 async function retryVersionLoad() {
   if (!selectedTemplateId.value) return
-  versionCache.value.delete(selectedTemplateId.value)
+  const next = { ...versionCache.value }
+  delete next[selectedTemplateId.value]
+  versionCache.value = next
   const id = selectedTemplateId.value
   selectedTemplateId.value = ''
   await nextTick()
@@ -210,8 +216,9 @@ const provenanceTemplateName = computed(() => {
         </label>
 
         <p v-if="selectedTemplateId && versionsLoading">{{ $t('rfx.templates.clone.versionsLoading') }}</p>
-        <p v-else-if="versionsLoadFailed" class="modal__error">
+        <p v-else-if="versionsLoadFailed" class="modal__error" data-testid="clone-versions-error">
           {{ $t('rfx.templates.clone.versionsLoadFailed') }}
+          <span v-if="versionsLoadError"> {{ versionsLoadError }}</span>
           <button type="button" class="btn btn--link" @click="retryVersionLoad">{{ $t('common.retry') }}</button>
         </p>
         <p v-else-if="noCloneableVersions" class="modal__warning">{{ $t('rfx.templates.clone.noCloneableVersions') }}</p>

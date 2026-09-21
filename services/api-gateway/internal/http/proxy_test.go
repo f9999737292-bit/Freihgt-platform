@@ -55,6 +55,13 @@ func TestMatchRouteLongestPrefix(t *testing.T) {
 	if route := gatewayhttp.MatchRoute("/api/v1/rfx-templates/tpl-1/questionnaire", routes); route == nil || route.Prefix != "/api/v1/rfx-templates" {
 		t.Fatalf("expected rfx-templates prefix for template questionnaire")
 	}
+	if route := gatewayhttp.MatchRoute("/api/v1/rfx-templates/11111111-1111-1111-1111-111111111111", routes); route == nil || route.Prefix != "/api/v1/rfx-templates" {
+		t.Fatalf("expected rfx-templates prefix for template detail")
+	}
+	rewritten, ok := gatewayhttp.RewritePath("/api/v1/rfx-templates/11111111-1111-1111-1111-111111111111")
+	if !ok || rewritten != "/v1/rfx-templates/11111111-1111-1111-1111-111111111111" {
+		t.Fatalf("RewritePath template detail = %q ok=%v", rewritten, ok)
+	}
 }
 
 func TestRouteTarget(t *testing.T) {

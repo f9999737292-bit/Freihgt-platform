@@ -88,6 +88,9 @@ describe('RfxCreateModal owner load UX (source contract)', () => {
     expect(modalSource).toContain('owners.options')
     expect(modalSource).not.toContain('owners.map')
     expect(modalSource).not.toContain('listCompanies')
+    expect(modalSource).not.toContain('new Map')
+    expect(modalSource).toContain('versionCache.value = { ...versionCache.value')
+    expect(modalSource).toContain('data-testid="clone-versions-error"')
   })
 
   it('surfaces explicit owner load failure instead of silent empty select', () => {

@@ -129,7 +129,11 @@ export const RFX_TEMPLATE_API_ROUTES = {
 
 export const RFX_TEMPLATE_OPENAPI_PARITY: readonly ApiRouteSpec[] = Object.values(RFX_TEMPLATE_API_ROUTES)
 
-export function rfxTemplateApiPath(templateId: string, suffix: string): string {
-  const normalized = suffix.startsWith('/') ? suffix : `/${suffix}`
+export function rfxTemplateApiPath(templateId: string, suffix = ''): string {
+  const trimmed = suffix.trim()
+  if (!trimmed || trimmed === '/') {
+    return `/api/v1/rfx-templates/${templateId}`
+  }
+  const normalized = trimmed.startsWith('/') ? trimmed : `/${trimmed}`
   return `/api/v1/rfx-templates/${templateId}${normalized}`
 }
