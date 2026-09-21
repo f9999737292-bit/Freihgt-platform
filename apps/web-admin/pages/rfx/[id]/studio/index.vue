@@ -5,6 +5,7 @@ import { RFX_QUESTIONNAIRE_API_KEY, useRfxQuestionnaireApi } from '~/composables
 import { RFX_SCORE_MODEL_API_KEY, useRfxScoreModelApi } from '~/composables/useRfxScoreModelApi'
 
 import { buildStudioNavSteps, resolveStudioStep } from '~/components/rfx/studio/studioNav'
+import RfxEventPublishPanel from '~/components/rfx/versioning/RfxEventPublishPanel.vue'
 
 
 

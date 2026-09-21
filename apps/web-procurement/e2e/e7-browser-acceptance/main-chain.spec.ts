@@ -199,13 +199,13 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
   await addStudioQuestion(adminPage, FLEET_LABEL, 'Число', false)
 
   await adminPage.goto(`${adminURL}/rfx/${eventId}/studio?step=validation`, { waitUntil: 'domcontentloaded' })
-  await expect(adminPage.getByText('Проверка RFx')).toBeVisible({ timeout: 30_000 })
+  await expect(adminPage.getByTestId('studio-validation-title')).toBeVisible({ timeout: 30_000 })
   await adminPage.locator('textarea').first().fill('E7 questionnaire publish')
   const publishQ = await clickAndCapture(
     adminPage,
     'publish-questionnaire',
     { method: 'POST', pathIncludes: `/api/v1/rfx-events/${eventId}/questionnaire/publish` },
-    () => adminPage.getByRole('button', { name: 'Опубликовать опросник' }).click(),
+    () => adminPage.getByTestId('studio-publish-questionnaire').click(),
   )
   expect(publishQ.status()).toBe(200)
   console.log(`E7-MAIN-EVENT-ID ${eventId} stage=publish-questionnaire`)
