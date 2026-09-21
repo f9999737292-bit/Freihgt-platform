@@ -79,6 +79,17 @@ describe('RfxCreateModal owner load UX (source contract)', () => {
     expect(composableSource).toContain('getUserCompanies')
   })
 
+  it('clone-from-template modal uses authorized owner options, not a raw membership array', () => {
+    const modalSource = readFileSync(
+      resolve(import.meta.dirname, '../components/rfx/templates/RfxCreateFromTemplateModal.vue'),
+      'utf8',
+    )
+    expect(modalSource).toContain('useRfxOwnerCompanies')
+    expect(modalSource).toContain('owners.options')
+    expect(modalSource).not.toContain('owners.map')
+    expect(modalSource).not.toContain('listCompanies')
+  })
+
   it('surfaces explicit owner load failure instead of silent empty select', () => {
     const modalSource = readFileSync(resolve(import.meta.dirname, '../components/rfx/RfxCreateModal.vue'), 'utf8')
 

@@ -76,7 +76,7 @@ watch(
     versionsLoadFailed.value = false
     cloneOp.reset()
     const owners = await loadAuthorizedOwnerCompanies()
-    ownerOptions.value = owners.map((o) => ({ label: o.legal_name, value: o.id }))
+    ownerOptions.value = owners.options
   },
 )
 

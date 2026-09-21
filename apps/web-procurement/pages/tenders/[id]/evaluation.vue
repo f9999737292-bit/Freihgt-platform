@@ -348,6 +348,7 @@ onMounted(loadCompanies)
                   v-if="canManageTenders() && !item.awarded && item.offer_complete"
                   size="sm"
                   variant="danger"
+                  data-testid="evaluation-award"
                   :disabled="acting"
                   @click="openAwardConfirm(item)"
                 >
@@ -421,7 +422,7 @@ onMounted(loadCompanies)
       </p>
       <template #footer>
         <Button variant="secondary" @click="showAwardModal = false">{{ t('common.cancel') }}</Button>
-        <Button variant="danger" :loading="acting" @click="confirmAward">{{ t('tenders.evaluation.confirmAward') }}</Button>
+        <Button variant="danger" data-testid="evaluation-award-confirm" :loading="acting" @click="confirmAward">{{ t('tenders.evaluation.confirmAward') }}</Button>
       </template>
     </Modal>
 
