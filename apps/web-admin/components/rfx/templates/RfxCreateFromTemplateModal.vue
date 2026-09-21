@@ -84,8 +84,12 @@ watch(
     requestAnimationFrame(() => {
       allowBackdropClose.value = true
     })
-    const owners = await loadAuthorizedOwnerCompanies()
-    ownerOptions.value = owners.options
+    try {
+      const owners = await loadAuthorizedOwnerCompanies()
+      ownerOptions.value = owners.options
+    } catch {
+      ownerOptions.value = []
+    }
   },
 )
 
@@ -189,7 +193,7 @@ const provenanceTemplateName = computed(() => {
     aria-modal="true"
     aria-labelledby="clone-modal-title"
     @keydown="handleEscape"
-    @click.self="allowBackdropClose && closeModal()"
+    data-testid="clone-from-template-modal"
   >
     <form class="modal" @submit.prevent="handleSubmit">
       <h2 id="clone-modal-title">{{ $t('rfx.templates.clone.title') }}</h2>

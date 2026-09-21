@@ -65,7 +65,9 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
     const first = await owner.locator('option').nth(0).getAttribute('value')
     if (first) await owner.selectOption(first)
   }
-  await buyerPage.getByRole('button', { name: /Next|Далее|下一步/ }).click()
+  await expect(titleInput).toHaveValue(TITLE)
+  await expect(owner).toHaveValue(/.+/)
+  await buyerPage.getByTestId('wizard-next').click()
   const created = await createWait
   expect(created.status(), `POST create event -> ${created.status()}`).toBe(201)
   assertGatewayHost(created.url())

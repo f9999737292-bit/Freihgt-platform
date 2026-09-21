@@ -4,6 +4,7 @@ import { RFX_TEMPLATE_AGGREGATE_STATUSES } from '~/types/rfx-template'
 import { resolveI18nMapValue } from '~/utils/rfxTemplateI18n'
 import { formatRfxApiError } from '~/utils/rfxApiError'
 import { formatRfxDateTime } from '~/utils/formatRfxDateTime'
+import RfxCreateFromTemplateModal from '~/components/rfx/templates/RfxCreateFromTemplateModal.vue'
 
 definePageMeta({ middleware: ['auth', 'rfx-buyer-manage'], layout: 'default' })
 
@@ -174,7 +175,7 @@ function goToPage(page: number) {
 
     <RfxCreateFromTemplateModal
       :open="showCloneModal"
-      :templates="items.filter((tpl) => tpl.status === 'ACTIVE')"
+      :templates="items.filter((tpl) => tpl.status !== 'ARCHIVED')"
       @close="showCloneModal = false"
       @created="(id: string) => { showCloneModal = false; void router.push(`/rfx/${id}/studio`) }"
     />

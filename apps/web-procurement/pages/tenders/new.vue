@@ -353,7 +353,9 @@ onMounted(async () => {
       </div>
       <div class="wizard-actions">
         <Button variant="secondary" @click="$router.push('/tenders')">{{ $t('common.cancel') }}</Button>
-        <Button :loading="saving" @click="saveGeneral">{{ $t('common.next') }}</Button>
+        <button type="button" class="ui-button ui-button--primary ui-button--md" data-testid="wizard-next" :disabled="saving" @click="saveGeneral">
+          {{ $t('common.next') }}
+        </button>
       </div>
     </Card>
 
