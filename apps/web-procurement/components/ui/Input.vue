@@ -1,16 +1,15 @@
 <script setup lang="ts">
 defineOptions({ inheritAttrs: false })
 
+const model = defineModel<string>({ default: '' })
+
 defineProps<{
-  modelValue: string
   label?: string
   type?: string
   placeholder?: string
   required?: boolean
   disabled?: boolean
 }>()
-
-defineEmits<{ 'update:modelValue': [value: string] }>()
 
 const attrs = useAttrs()
 </script>
@@ -22,11 +21,10 @@ const attrs = useAttrs()
       class="ui-input__control"
       v-bind="attrs"
       :type="type || 'text'"
-      :value="modelValue"
       :placeholder="placeholder"
       :required="required"
       :disabled="disabled"
-      @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
+      v-model="model"
     />
   </label>
 </template>
