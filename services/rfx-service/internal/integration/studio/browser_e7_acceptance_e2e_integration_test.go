@@ -92,6 +92,7 @@ func TestRfxE7_BrowserE2E_LiveAcceptance(t *testing.T) {
 	})
 	verifyE7GatewayProbe(t, stack)
 	verifyE7GatewayTemplateDetail(t, stack)
+	verifyE7GatewayCompaniesList(t, stack)
 	if err := runE7PlaywrightSuite(t, stack); err != nil {
 		t.Fatalf("playwright E7 browser acceptance suite: %v", err)
 	}
@@ -347,6 +348,31 @@ func (s *browserE7LiveStack) shutdown(t *testing.T) {
 		shutdownBrowserGatewayProcess(s.flagOffGw)
 	}
 	verifyDevPortsReleased(t, e7ProcurementPort, e7AdminPort, e7FlagOffPort)
+}
+
+func verifyE7GatewayCompaniesList(t *testing.T, stack *browserE7LiveStack) {
+	t.Helper()
+	listURL := strings.TrimRight(stack.gatewayURL, "/") + "/api/v1/companies?limit=100&company_type=CARRIER&status=ACTIVE"
+	req, err := http.NewRequest(http.MethodGet, listURL, nil)
+	if err != nil {
+		t.Fatalf("companies list request: %v", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+stack.fixture.BuyerJWT)
+	req.Header.Set("X-Company-ID", stack.fixture.BuyerCompanyID.String())
+	req.Header.Set("Origin", stack.procurementURL)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("GET %s: %v", listURL, err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("GET %s -> %d body=%s", listURL, resp.StatusCode, string(body))
+	}
+	if !strings.Contains(string(body), "Carrier A") {
+		t.Fatalf("GET %s missing Carrier A: %s", listURL, string(body))
+	}
+	t.Logf("E7-COMPANIES-PROBE GET %s -> %d", listURL, resp.StatusCode)
 }
 
 func verifyE7GatewayTemplateDetail(t *testing.T, stack *browserE7LiveStack) {
@@ -840,12 +866,17 @@ func startE7CompanyStub(t *testing.T, fix browserE7Fixture) *e7CompanyStub {
 			return
 		}
 		if r.URL.Path == "/v1/companies" || strings.HasSuffix(r.URL.Path, "/companies") {
-			wanted := r.URL.Query().Get("company_type")
+			wantedType := r.URL.Query().Get("company_type")
+			wantedStatus := r.URL.Query().Get("status")
 			items := make([]map[string]any, 0, len(companies))
 			for _, company := range companies {
-				if wanted == "" || company["company_type"] == wanted {
-					items = append(items, company)
+				if wantedType != "" && company["company_type"] != wantedType {
+					continue
 				}
+				if wantedStatus != "" && company["status"] != wantedStatus {
+					continue
+				}
+				items = append(items, company)
 			}
 			_ = json.NewEncoder(w).Encode(map[string]any{"items": items, "total": len(items), "limit": 200, "offset": 0})
 			return

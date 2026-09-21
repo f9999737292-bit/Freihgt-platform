@@ -21,6 +21,15 @@ describe('Input/Select Vue model propagation', () => {
     expect(source).not.toContain("$emit('update:modelValue'")
   })
 
+  it('retries carrier load after auth and renders a native participant select', () => {
+    const source = readFileSync(resolve(import.meta.dirname, '../pages/tenders/new.vue'), 'utf8')
+    expect(source).toContain('void loadCarriers()')
+    expect(source).toContain('data-testid="wizard-participant-company"')
+    expect(source).toContain('data-testid="wizard-carriers-error"')
+    expect(source).toContain("company_type: 'CARRIER'")
+    expect(source).not.toMatch(/<Select[^>]*data-testid="wizard-participant-company"/)
+  })
+
   it('wizard title and lot name use native v-model controls and surface saveGeneral errors', () => {
     const source = readFileSync(resolve(import.meta.dirname, '../pages/tenders/new.vue'), 'utf8')
     expect(source).toContain('v-model="form.title"')

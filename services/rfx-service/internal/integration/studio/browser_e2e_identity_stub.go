@@ -54,6 +54,16 @@ func startBrowserIdentityStubWithMemberships(
 			}
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{"items": items, "total": len(items), "limit": 200, "offset": 0})
+		case r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/users/") && strings.HasSuffix(r.URL.Path, "/roles"):
+			// companyrbac.PolicyList calls IdentityClient.ListUserTenantRoles before proxying GET /companies.
+			userID := extractIdentityStubUserID(r.URL.Path)
+			roles := stub.rolesByUser[userID]
+			items := make([]map[string]any, 0, len(roles))
+			for _, code := range roles {
+				items = append(items, map[string]any{"code": code})
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"items": items})
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}

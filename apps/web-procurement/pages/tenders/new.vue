@@ -38,6 +38,7 @@ const draftEvent = ref<RfxEvent | null>(null)
 const lots = ref<RfxLot[]>([])
 const participants = ref<RfxParticipant[]>([])
 const carrierOptions = ref<Array<{ label: string; value: string }>>([])
+const carriersError = ref('')
 
 const form = reactive(emptyTenderWizardForm())
 const ownerOptions = ref<Array<{ label: string; value: string }>>([])
@@ -108,14 +109,19 @@ async function loadOwnerCompanies() {
 }
 
 async function loadCarriers() {
+  carriersError.value = ''
   try {
     const data = await listCompanies({ limit: 100, company_type: 'CARRIER', status: 'ACTIVE' })
     carrierOptions.value = data.items.map((company) => ({
       label: company.legal_name,
       value: company.id,
     }))
-  } catch {
+    if (carrierOptions.value.length === 0) {
+      carriersError.value = t('tenders.noParticipants')
+    }
+  } catch (error) {
     carrierOptions.value = []
+    carriersError.value = error instanceof Error ? error.message : t('common.error')
   }
 }
 
@@ -318,6 +324,7 @@ watch(
   () => user.value?.id,
   () => {
     void loadOwnerCompanies()
+    void loadCarriers()
   },
   { immediate: true },
 )
@@ -431,12 +438,13 @@ onMounted(async () => {
 
     <Card v-else-if="currentStep === 'participants'">
       <div class="form-grid form-grid--2">
-        <Select
-          v-model="participantForm.company_id"
-          data-testid="wizard-participant-company"
-          :label="$t('tenders.participantCompany')"
-          :options="carrierOptions"
-        />
+        <label class="ui-select">
+          <span class="ui-select__label">{{ $t('tenders.participantCompany') }}</span>
+          <select v-model="participantForm.company_id" data-testid="wizard-participant-company">
+            <option v-for="opt in carrierOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+          </select>
+        </label>
+        <p v-if="carriersError" class="wizard-error" data-testid="wizard-carriers-error">{{ carriersError }}</p>
         <Select
           v-model="participantForm.participant_type"
           :label="$t('tenders.participantType')"
