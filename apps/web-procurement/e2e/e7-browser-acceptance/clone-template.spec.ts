@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import {
   adminURL,
+  attachLiveDiagnostics,
   buyerCompanyId,
   clickAndCapture,
   logStage,
@@ -23,7 +24,14 @@ test('E7-BRW clone from template opens Studio and records MANUAL channel follow-
   await openClone.click()
   await expect(page.getByTestId('clone-from-template-modal')).toBeVisible({ timeout: 15_000 })
   await expect(page.locator('#clone-modal-title')).toBeVisible()
+  attachLiveDiagnostics(page, 'CLONE')
+  const detailWait = waitForApi(page, { method: 'GET', pathIncludes: `/api/v1/rfx-templates/${templateId}` })
   await page.getByTestId('clone-template-select').selectOption(templateId)
+  const detail = await detailWait
+  const detailURL = new URL(detail.url())
+  console.log(`E7-TEMPLATE-DETAIL ${detail.request().method()} ${detailURL.pathname} -> ${detail.status()} host=${detailURL.host}`)
+  expect(detailURL.pathname, `template detail must not use a trailing slash: ${detailURL.pathname}`).toBe(`/api/v1/rfx-templates/${templateId}`)
+  expect(detail.status(), `GET /api/v1/rfx-templates/${templateId} -> ${detail.status()}`).toBe(200)
   await expect(page.getByTestId('clone-version-select')).toBeVisible({ timeout: 30_000 })
   await page.getByTestId('clone-event-title').fill('E7 clone from template')
   const owner = page.getByTestId('clone-owner-select')

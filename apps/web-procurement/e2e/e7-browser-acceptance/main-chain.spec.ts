@@ -8,7 +8,9 @@ import {
   carrierCompanyId,
   carrierJwt,
   carrierUserId,
+  attachLiveDiagnostics,
   clickAndCapture,
+  dumpWizardEvidence,
   gatewayURL,
   logStage,
   procurementURL,
@@ -66,8 +68,19 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
   }
   await expect(titleInput).toHaveValue(TITLE)
   await expect(owner).toHaveValue(/.+/)
+  attachLiveDiagnostics(buyerPage, 'MAIN')
+  const afterClick: string[] = []
+  buyerPage.on('request', (req) => {
+    afterClick.push(`${req.method()} ${req.url()}`)
+  })
+  const before = await dumpWizardEvidence(buyerPage)
+  expect(before.modelTitle, `Vue title model before Next: ${JSON.stringify(before)}`).toBe(TITLE)
+  expect(before.modelOwner, `Vue owner model before Next: ${JSON.stringify(before)}`).toBeTruthy()
+  expect(before.nextDisabled).toBe(false)
   const createWait = waitForApi(buyerPage, { method: 'POST', pathIncludes: '/api/v1/rfx-events' })
   await buyerPage.getByTestId('wizard-next').click()
+  await dumpWizardEvidence(buyerPage)
+  console.log(`E7-MAIN-AFTER-CLICK-REQUESTS ${JSON.stringify(afterClick)}`)
   const created = await createWait
   expect(created.status(), `POST create event -> ${created.status()}`).toBe(201)
   assertGatewayHost(created.url())

@@ -171,3 +171,37 @@ export async function expectWorkspace(page: Page, rfxNumber: string) {
 export function assertGatewayHost(url: string, expected = gatewayURL) {
   expect(new URL(url).host).toBe(new URL(expected).host)
 }
+
+export async function dumpWizardEvidence(page: Page) {
+  const evidence = await page.evaluate(() => {
+    const btn = document.querySelector('[data-testid="wizard-next"]') as HTMLButtonElement | null
+    const title = document.querySelector('[data-testid="wizard-title"]') as HTMLInputElement | null
+    const owner = document.querySelector('[data-testid="wizard-owner-company"]') as HTMLSelectElement | null
+    return {
+      step: btn?.getAttribute('data-wizard-step') ?? Array.from(document.querySelectorAll('.wizard-step--active')).map((el) => el.textContent?.trim()),
+      nextDisabled: btn?.disabled ?? null,
+      nextAriaDisabled: btn?.getAttribute('aria-disabled'),
+      modelTitle: btn?.getAttribute('data-model-title'),
+      modelOwner: btn?.getAttribute('data-model-owner'),
+      titleDom: title?.value ?? null,
+      ownerDom: owner?.value ?? null,
+      generalError: document.querySelector('[data-testid="wizard-general-error"]')?.textContent ?? null,
+    }
+  })
+  console.log(`E7-WIZARD-EVIDENCE ${JSON.stringify(evidence)}`)
+  return evidence
+}
+
+export function attachLiveDiagnostics(page: Page, label: string) {
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') {
+      console.log(`E7-${label}-CONSOLE ${msg.type()} ${msg.text()}`)
+    }
+  })
+  page.on('pageerror', (error) => {
+    console.log(`E7-${label}-PAGEERROR ${error.message}`)
+  })
+  page.on('requestfailed', (req) => {
+    console.log(`E7-${label}-REQUESTFAILED ${req.method()} ${req.url()} ${req.failure()?.errorText ?? ''}`)
+  })
+}

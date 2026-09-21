@@ -91,6 +91,7 @@ func TestRfxE7_BrowserE2E_LiveAcceptance(t *testing.T) {
 		writeGatewayFailureArtifact(t, stack.gatewayProc)
 	})
 	verifyE7GatewayProbe(t, stack)
+	verifyE7GatewayTemplateDetail(t, stack)
 	if err := runE7PlaywrightSuite(t, stack); err != nil {
 		t.Fatalf("playwright E7 browser acceptance suite: %v", err)
 	}
@@ -346,6 +347,31 @@ func (s *browserE7LiveStack) shutdown(t *testing.T) {
 		shutdownBrowserGatewayProcess(s.flagOffGw)
 	}
 	verifyDevPortsReleased(t, e7ProcurementPort, e7AdminPort, e7FlagOffPort)
+}
+
+func verifyE7GatewayTemplateDetail(t *testing.T, stack *browserE7LiveStack) {
+	t.Helper()
+	detailURL := strings.TrimRight(stack.gatewayURL, "/") + "/api/v1/rfx-templates/" + stack.fixture.TemplateID.String()
+	req, err := http.NewRequest(http.MethodGet, detailURL, nil)
+	if err != nil {
+		t.Fatalf("template detail request: %v", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+stack.fixture.BuyerJWT)
+	req.Header.Set("X-Company-ID", stack.fixture.BuyerCompanyID.String())
+	req.Header.Set("Origin", stack.adminURL)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("GET %s: %v", detailURL, err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("GET %s -> %d body=%s", detailURL, resp.StatusCode, string(body))
+	}
+	if !strings.Contains(string(body), `"versions"`) {
+		t.Fatalf("GET %s missing versions payload: %s", detailURL, string(body))
+	}
+	t.Logf("E7-TEMPLATE-DETAIL-PROBE GET %s -> %d", detailURL, resp.StatusCode)
 }
 
 func verifyE7GatewayProbe(t *testing.T, stack *browserE7LiveStack) {
