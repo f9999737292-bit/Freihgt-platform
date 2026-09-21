@@ -138,12 +138,12 @@ func startE7LiveStack(t *testing.T) *browserE7LiveStack {
 	rfxURL, rfxSrv := startE7RfxService(t, env, lateSvc, crSvc, excelSvc, templateSvc, templateQSvc, templateCloneSvc, true)
 	flagOffURL, flagOffSrv := startE7RfxService(t, env, lateSvc, crSvc, excelSvc, templateSvc, templateQSvc, templateCloneSvc, false)
 
-	identity := startBrowserIdentityStub(t, map[string][]string{
+	identity := startBrowserIdentityStubWithMemberships(t, map[string][]string{
 		fix.BuyerUserID.String():      {"PROCUREMENT_MANAGER"},
 		fix.OtherBuyerUserID.String(): {"PROCUREMENT_MANAGER"},
 		fix.CarrierUserID.String():    {"CARRIER_DISPATCHER"},
 		fix.LogistUserID.String():     {"SHIPPER_LOGIST"},
-	})
+	}, e7Memberships(fix))
 	companyStub := startE7CompanyStub(t, fix)
 
 	procOrigin := "http://127.0.0.1:" + e7ProcurementPort
@@ -252,7 +252,20 @@ func startE7ProductionGateway(
 	gatewayURL, proc := startProductionGatewayProcess(t, env)
 	verifyBrowserGatewayHealth(t, gatewayURL)
 	verifyBrowserGatewayRfxRoute(t, gatewayURL, rfxServiceURL)
+	verifyE7GatewayTemplatesRoute(t, gatewayURL, rfxServiceURL)
 	return gatewayURL, proc
+}
+
+func verifyE7GatewayTemplatesRoute(t *testing.T, gatewayURL, rfxServiceURL string) {
+	t.Helper()
+	routes := readGatewayRoutes(t, gatewayURL)
+	wantTarget := strings.TrimRight(rfxServiceURL, "/") + "/v1/rfx-templates"
+	for _, route := range routes {
+		if route["prefix"] == "/api/v1/rfx-templates" && route["target"] == wantTarget {
+			return
+		}
+	}
+	t.Fatalf("gateway /routes missing rfx-templates target=%q routes=%v", wantTarget, routes)
 }
 
 func startE7WebAdmin(t *testing.T, gatewayURL string, fix browserE7Fixture, port string) (string, *webAdminCmd) {
@@ -759,6 +772,15 @@ type e7CompanyStub struct {
 	server *httptest.Server
 }
 
+func e7Memberships(fix browserE7Fixture) map[string][]map[string]any {
+	return map[string][]map[string]any{
+		fix.BuyerUserID.String():      {membershipItem(fix.BuyerCompanyID, "Buyer A", "SHIPPER", "PROCUREMENT_MANAGER")},
+		fix.OtherBuyerUserID.String(): {membershipItem(fix.OtherBuyerCompanyID, "Buyer B", "SHIPPER", "PROCUREMENT_MANAGER")},
+		fix.CarrierUserID.String():    {membershipItem(fix.CarrierCompanyID, "Carrier A", "CARRIER", "CARRIER_DISPATCHER")},
+		fix.LogistUserID.String():     {membershipItem(fix.BuyerCompanyID, "Buyer A", "SHIPPER", "SHIPPER_LOGIST")},
+	}
+}
+
 func startE7CompanyStub(t *testing.T, fix browserE7Fixture) *e7CompanyStub {
 	t.Helper()
 	companies := []map[string]any{
@@ -767,12 +789,7 @@ func startE7CompanyStub(t *testing.T, fix browserE7Fixture) *e7CompanyStub {
 		companyItem(fix.CarrierCompanyID, fix.TenantID, "Carrier A", "CARRIER"),
 		companyItem(fix.CompetitorCompanyID, fix.TenantID, fix.CompetitorName, "CARRIER"),
 	}
-	memberships := map[string][]map[string]any{
-		fix.BuyerUserID.String():      {membershipItem(fix.BuyerCompanyID, "Buyer A", "SHIPPER", "PROCUREMENT_MANAGER")},
-		fix.OtherBuyerUserID.String(): {membershipItem(fix.OtherBuyerCompanyID, "Buyer B", "SHIPPER", "PROCUREMENT_MANAGER")},
-		fix.CarrierUserID.String():    {membershipItem(fix.CarrierCompanyID, "Carrier A", "CARRIER", "CARRIER_DISPATCHER")},
-		fix.LogistUserID.String():     {membershipItem(fix.BuyerCompanyID, "Buyer A", "SHIPPER", "SHIPPER_LOGIST")},
-	}
+	memberships := e7Memberships(fix)
 	stub := &e7CompanyStub{}
 	stub.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -836,6 +853,10 @@ func membershipItem(companyID uuid.UUID, name, typ, role string) map[string]any 
 		"legal_name":        name,
 		"company_type":      typ,
 		"membership_status": "ACTIVE",
-		"roles":             []map[string]any{{"code": role, "name": role}},
+		"roles": []map[string]any{{
+			"role_id": companyID.String() + "-" + role,
+			"code":    role,
+			"name":    role,
+		}},
 	}
 }
