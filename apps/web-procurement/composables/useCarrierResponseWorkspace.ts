@@ -37,6 +37,7 @@ import {
   resolveQuestionVisibility,
   type CarrierRuleRuntimeContext,
 } from '~/utils/carrierResponseRuntime'
+import { resolveCarrierQuestionnaireWorkspace } from '~/utils/carrierQuestionnaireBinding'
 import { ApiError } from '~/utils/apiClient'
 import { isDeadlineExpired } from '~/types/carrierRfx'
 import type { LateSubmissionRequest } from '~/types/lateSubmission'
@@ -189,21 +190,14 @@ export function useCarrierResponseWorkspace(
     loadError.value = null
     await loadLateRequest()
     try {
-      let data: CarrierResponseWorkspace
-      try {
-        data = await api.getCarrierResponse(eventId.value, carrierCompanyId.value)
-      } catch (err) {
-        if (err instanceof ApiError && err.status === 404 && options.startIfMissing && !deadlineExpired.value) {
-          data = await api.startCarrierResponse(eventId.value, carrierCompanyId.value)
-        } else {
-          throw err
-        }
-      }
-      applyWorkspace(data)
-      if (data.product_status === 'NOT_STARTED' && options.startIfMissing && !deadlineExpired.value) {
-        const started = await api.startCarrierResponse(eventId.value, carrierCompanyId.value)
-        applyWorkspace(started)
-      }
+      const result = await resolveCarrierQuestionnaireWorkspace({
+        get: () => api.getCarrierResponse(eventId.value, carrierCompanyId.value),
+        start: () => api.startCarrierResponse(eventId.value, carrierCompanyId.value),
+        startIfMissing: Boolean(options.startIfMissing),
+        deadlineExpired: deadlineExpired.value,
+        isNotStarted: (workspace) => workspace.product_status === 'NOT_STARTED',
+      })
+      applyWorkspace(result.workspace)
     } catch (err) {
       loadError.value = err instanceof Error ? err.message : 'LOAD_FAILED'
       throw err

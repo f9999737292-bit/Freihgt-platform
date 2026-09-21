@@ -212,7 +212,14 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
     () => adminPage.getByTestId('studio-publish-questionnaire').click(),
   )
   expect(publishQ.status()).toBe(200)
-  console.log(`E7-MAIN-EVENT-ID ${eventId} stage=publish-questionnaire`)
+  const publishQBody = await publishQ.json().catch(() => ({})) as {
+    id?: string
+    rfx_version_id?: string
+    version?: { id?: string }
+  }
+  const publishedVersionId = publishQBody.id || publishQBody.rfx_version_id || publishQBody.version?.id
+  expect(publishedVersionId, `published questionnaire version missing: ${JSON.stringify(publishQBody)}`).toBeTruthy()
+  console.log(`E7-MAIN-EVENT-ID ${eventId} stage=publish-questionnaire publishedVersionId=${publishedVersionId}`)
 
   await adminPage.goto(`${adminURL}/rfx/${eventId}/studio?step=scoring`, { waitUntil: 'domcontentloaded' })
   await expect(adminPage.getByTestId('rfx-scoring-workspace')).toBeVisible({ timeout: 120_000 })
@@ -380,16 +387,93 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
   expect(prematureSubmit, `premature submit after save-offer refresh: ${JSON.stringify(prematureSubmit)}`).toEqual([])
   console.log(`E7-MAIN-EVENT-ID ${eventId} stage=save-offer-refresh responseId=${responseId}`)
 
+  const startPosts: string[] = []
+  carrierPage.on('request', (req) => {
+    if (req.method() === 'POST' && req.url().includes(`/api/v1/rfx-events/${eventId}/carrier-response/start`)) {
+      startPosts.push(req.url())
+    }
+  })
+  const bindGet = waitForApi(carrierPage, {
+    method: 'GET',
+    pathIncludes: `/api/v1/rfx-events/${eventId}/carrier-response`,
+    pathExcludes: ['/start', '/answers', '/submit', '/validate'],
+  })
+  const bindStart = waitForApi(carrierPage, {
+    method: 'POST',
+    pathIncludes: `/api/v1/rfx-events/${eventId}/carrier-response/start`,
+  })
   await carrierPage.goto(`${procurementURL}/carrier/tenders/${eventId}/questionnaire`, { waitUntil: 'domcontentloaded' })
+  const bindGetResp = await bindGet
+  const bindEnvelope = await bindGetResp.json().catch(() => ({})) as {
+    error?: { code?: string; message?: string; details?: { field?: string } }
+  }
+  console.log(`E7-BIND-GET-ENVELOPE status=${bindGetResp.status()} ${JSON.stringify(bindEnvelope)}`)
+  expect(bindGetResp.status(), `GET carrier-response binding envelope: ${JSON.stringify(bindEnvelope)}`).toBe(422)
+  expect(bindEnvelope.error?.code, `binding code: ${JSON.stringify(bindEnvelope)}`).toBeTruthy()
+  expect(bindEnvelope.error?.details?.field, `binding field: ${JSON.stringify(bindEnvelope)}`).toBe('rfx_version_id')
+
+  const bindStartResp = await bindStart
+  expect(bindStartResp.status(), `POST carrier-response/start -> ${bindStartResp.status()}`).toBe(200)
+  const bindWorkspace = await bindStartResp.json() as {
+    id?: string
+    rfx_event_id?: string
+    rfx_version_id?: string | null
+    status?: string
+    save_version?: number
+    completion_percent?: number
+    questionnaire?: { sections?: Array<{ questions?: unknown[] }> }
+  }
+  expect(bindWorkspace.id, `start workspace id drifted: ${JSON.stringify(bindWorkspace)}`).toBe(responseId)
+  if (bindWorkspace.rfx_event_id) expect(bindWorkspace.rfx_event_id).toBe(eventId)
+  expect(bindWorkspace.rfx_version_id, `start did not pin version: ${JSON.stringify(bindWorkspace)}`).toBe(publishedVersionId)
+  expect(bindWorkspace.status ?? 'DRAFT').toBe('DRAFT')
+  expect((bindWorkspace.questionnaire?.sections ?? []).some((section) => (section.questions?.length ?? 0) > 0), `published questions missing: ${JSON.stringify(bindWorkspace.questionnaire)}`).toBe(true)
+  const startSaveVersion = Number(bindWorkspace.save_version ?? 0)
+
   await expect(carrierPage.getByTestId('carrier-response-workspace')).toBeVisible({ timeout: 60_000 })
   const questionRoots = carrierPage.locator('[data-testid^="question-"]')
   await expect(questionRoots.first()).toBeVisible({ timeout: 30_000 })
+  expect(startPosts, `unexpected extra start during first bind: ${JSON.stringify(startPosts)}`).toHaveLength(1)
+
+  const repeatGet = waitForApi(carrierPage, {
+    method: 'GET',
+    pathIncludes: `/api/v1/rfx-events/${eventId}/carrier-response`,
+    pathExcludes: ['/start', '/answers', '/submit', '/validate'],
+    status: 200,
+  })
+  await carrierPage.reload({ waitUntil: 'domcontentloaded' })
+  const repeatGetResp = await repeatGet
+  expect(repeatGetResp.status()).toBe(200)
+  const repeatWorkspace = await repeatGetResp.json() as { id?: string; rfx_version_id?: string | null }
+  expect(repeatWorkspace.id).toBe(responseId)
+  expect(repeatWorkspace.rfx_version_id).toBe(publishedVersionId)
+  await expect(carrierPage.getByTestId('carrier-response-workspace')).toBeVisible({ timeout: 60_000 })
+  await expect(questionRoots.first()).toBeVisible({ timeout: 30_000 })
+  expect(startPosts, `second start after pin is forbidden: ${JSON.stringify(startPosts)}`).toHaveLength(1)
+  console.log(`E7-MAIN-EVENT-ID ${eventId} stage=bind-questionnaire responseId=${responseId} publishedVersionId=${publishedVersionId}`)
+
+  const answersPatch = carrierPage.waitForResponse(async (resp) => {
+    if (resp.request().method() !== 'PATCH' || !resp.url().includes(`/api/v1/rfx-events/${eventId}/carrier-response/answers`) || resp.status() !== 200) {
+      return false
+    }
+    const body = await resp.json().catch(() => null) as { save_version?: number; completion_percent?: number } | null
+    return Boolean(body && Number(body.save_version) > startSaveVersion)
+  }, { timeout: 30_000 })
   const yesRadio = questionRoots.first().locator('input[type="radio"]').first()
   await yesRadio.check()
   const numberInput = carrierPage.locator('[data-testid^="question-"] input[type="number"]').first()
   await numberInput.fill('50')
   await numberInput.blur()
-  await carrierPage.waitForTimeout(1000)
+  const answersResp = await answersPatch
+  expect(answersResp.status(), `PATCH carrier-response/answers -> ${answersResp.status()}`).toBe(200)
+  const answersBody = await answersResp.json() as { save_version?: number; completion_percent?: number }
+  expect(Number(answersBody.save_version), `save_version did not grow: ${JSON.stringify(answersBody)}`).toBeGreaterThan(startSaveVersion)
+  expect(Number(answersBody.completion_percent), `completion missing: ${JSON.stringify(answersBody)}`).toBeGreaterThan(0)
+  logStage({ stage: 'answers-patch', method: 'PATCH', path: `/api/v1/rfx-events/${eventId}/carrier-response/answers`, status: answersResp.status() })
+  await expect(carrierPage.getByTestId('autosave-status')).toHaveText(/Сохранено|Saved|已保存/i)
+  await expect(carrierPage.getByTestId('submit-questionnaire')).toBeEnabled()
+
+  carrierPage.once('dialog', (dialog) => dialog.accept())
   const submitQ = await clickAndCapture(
     carrierPage,
     'submit-questionnaire',
