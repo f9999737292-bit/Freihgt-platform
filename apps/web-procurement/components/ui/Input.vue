@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { applyInputModel } from '~/utils/inputModel'
+
 defineOptions({ inheritAttrs: false })
 
-const model = defineModel<string>({ default: '' })
+const [model, modifiers] = defineModel<string | number | null>({ default: '' })
 
 defineProps<{
   label?: string
@@ -12,6 +14,15 @@ defineProps<{
 }>()
 
 const attrs = useAttrs()
+
+function displayValue(): string {
+  if (model.value == null) return ''
+  return String(model.value)
+}
+
+function onInput(event: Event) {
+  model.value = applyInputModel((event.target as HTMLInputElement).value, Boolean(modifiers.number))
+}
 </script>
 
 <template>
@@ -24,7 +35,8 @@ const attrs = useAttrs()
       :placeholder="placeholder"
       :required="required"
       :disabled="disabled"
-      v-model="model"
+      :value="displayValue()"
+      @input="onInput"
     />
   </label>
 </template>

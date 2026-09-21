@@ -234,6 +234,37 @@ export async function dumpTenderDetailEvidence(page: Page) {
   return evidence
 }
 
+export async function dumpCarrierOfferEvidence(page: Page, lotId?: string) {
+  const evidence = await page.evaluate((expectedLotId) => {
+    const numbers = Array.from(document.querySelectorAll('input[type="number"]')).map((el) => {
+      const input = el as HTMLInputElement
+      const label = input.closest('label')?.querySelector('.ui-input__label, span')?.textContent?.trim() ?? null
+      return {
+        testid: input.getAttribute('data-testid'),
+        lotId: input.getAttribute('data-offer-lot-id'),
+        modelAmount: input.getAttribute('data-offer-amount'),
+        tag: input.tagName,
+        className: input.className,
+        value: input.value,
+        label,
+      }
+    })
+    const toasts = Array.from(document.querySelectorAll('.toast')).map((el) => el.textContent?.trim() ?? '')
+    return {
+      url: location.href,
+      numberInputCount: numbers.length,
+      numbers,
+      lotInput: expectedLotId
+        ? numbers.find((item) => item.testid === `carrier-offer-lot-${expectedLotId}` || item.lotId === expectedLotId) ?? null
+        : numbers[0] ?? null,
+      saveOfferDisabled: (document.querySelector('[data-testid="carrier-save-offer"]') as HTMLButtonElement | null)?.disabled ?? null,
+      toasts,
+    }
+  }, lotId)
+  console.log(`E7-CARRIER-OFFER ${JSON.stringify(evidence)}`)
+  return evidence
+}
+
 export function attachLiveDiagnostics(page: Page, label: string) {
   page.on('console', (msg) => {
     const text = msg.text()

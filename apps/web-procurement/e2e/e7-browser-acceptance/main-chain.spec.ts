@@ -10,6 +10,7 @@ import {
   carrierUserId,
   attachLiveDiagnostics,
   clickAndCapture,
+  dumpCarrierOfferEvidence,
   dumpTenderDetailEvidence,
   dumpWizardEvidence,
   gatewayURL,
@@ -109,7 +110,10 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
     () => buyerPage.getByRole('button', { name: /Add lot|Добавить лот|添加标段/ }).click(),
   )
   expect(lotResp.status()).toBe(201)
-  console.log(`E7-MAIN-EVENT-ID ${eventId} stage=add-lot`)
+  const lotBody = await lotResp.json() as { id?: string; name?: string }
+  expect(lotBody.id, `add-lot 201 missing id: ${JSON.stringify(lotBody)}`).toBeTruthy()
+  const lotId = lotBody.id as string
+  console.log(`E7-MAIN-EVENT-ID ${eventId} stage=add-lot lotId=${lotId}`)
 
   const companies = await companiesWait
   const companiesURL = new URL(companies.url())
@@ -275,6 +279,7 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
   if (publishBody.id) expect(publishBody.id, 'publish event id drifted').toBe(eventId)
   console.log(`E7-MAIN-EVENT-ID ${eventId} stage=publish-event status=${publishBody.status ?? 'unknown'}`)
 
+  attachLiveDiagnostics(carrierPage, 'CARRIER')
   await carrierPage.goto(`${procurementURL}/carrier/tenders/${eventId}`, { waitUntil: 'domcontentloaded' })
   const startResp = await clickAndCapture(
     carrierPage,
@@ -282,23 +287,89 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
     { method: 'POST', pathIncludes: `/api/v1/rfx-events/${eventId}/responses` },
     () => carrierPage.getByRole('button', { name: /Start response|Начать ответ|开始响应/ }).click(),
   )
-  expect(startResp.status()).toBeLessThan(400)
-  const startBody = await startResp.json().catch(() => ({})) as { id?: string; rfx_event_id?: string }
-  const responseId = startBody.id
+  expect(startResp.status(), `POST start response -> ${startResp.status()}`).toBe(201)
+  const startBody = await startResp.json().catch(() => ({})) as { id?: string; rfx_event_id?: string; status?: string }
+  expect(startBody.id, `start response 201 missing id: ${JSON.stringify(startBody)}`).toBeTruthy()
+  const responseId = startBody.id as string
   if (startBody.rfx_event_id) expect(startBody.rfx_event_id, 'carrier start event id drifted').toBe(eventId)
-  console.log(`E7-MAIN-EVENT-ID ${eventId} stage=carrier-start responseId=${responseId ?? 'unknown'}`)
-  const offerInput = carrierPage.locator('input[type="number"]').first()
+  expect(startBody.status ?? 'DRAFT').toBe('DRAFT')
+  console.log(`E7-MAIN-EVENT-ID ${eventId} stage=carrier-start responseId=${responseId}`)
+
+  const offerInput = carrierPage.getByTestId(`carrier-offer-lot-${lotId}`)
+  const saveOffer = carrierPage.getByTestId('carrier-save-offer')
   await expect(offerInput).toBeVisible({ timeout: 15_000 })
+  await expect(saveOffer).toBeVisible()
+  await expect(saveOffer).toBeEnabled({ timeout: 15_000 })
+  const beforeFill = await dumpCarrierOfferEvidence(carrierPage, lotId)
+  expect(beforeFill.lotInput?.lotId ?? beforeFill.lotInput?.testid, `lot offer input mismatch: ${JSON.stringify(beforeFill)}`).toContain(lotId)
   await offerInput.fill('15000')
+  await expect(offerInput).toHaveValue('15000')
+  const afterFill = await dumpCarrierOfferEvidence(carrierPage, lotId)
+  expect(afterFill.lotInput?.value, `DOM value after fill: ${JSON.stringify(afterFill)}`).toBe('15000')
+  await offerInput.blur()
+  await expect(offerInput).toHaveValue('15000')
+  const afterBlur = await dumpCarrierOfferEvidence(carrierPage, lotId)
+  expect(afterBlur.lotInput?.value, `DOM value after blur: ${JSON.stringify(afterBlur)}`).toBe('15000')
+  expect(afterBlur.lotInput?.modelAmount, `Vue model after blur: ${JSON.stringify(afterBlur)}`).toBe('15000')
+  expect(afterBlur.toasts.some((text) => /amount for every lot|сумм|每个批次/i.test(text))).toBe(false)
+  await expect(saveOffer).toBeEnabled()
+
+  const prematureSubmit: string[] = []
+  carrierPage.on('request', (req) => {
+    if (req.method() === 'POST' && /\/rfx-responses\/[^/]+\/submit|\/carrier-response\/submit/.test(req.url())) {
+      prematureSubmit.push(`${req.method()} ${req.url()}`)
+    }
+  })
   const offerResp = await clickAndCapture(
     carrierPage,
     'save-offer',
-    { method: 'PATCH', pathIncludes: '/api/v1/rfx-responses/' },
-    () => carrierPage.getByRole('button', { name: /Save offer|Сохранить предложение|保存报价/ }).click(),
+    { method: 'PATCH', pathIncludes: `/api/v1/rfx-responses/${responseId}` },
+    () => saveOffer.click(),
   )
-  expect(offerResp.status()).toBeLessThan(400)
-  if (responseId) expect(offerResp.url()).toContain(responseId)
-  console.log(`E7-MAIN-EVENT-ID ${eventId} stage=save-offer responseId=${responseId ?? 'unknown'}`)
+  expect(offerResp.status(), `PATCH save offer -> ${offerResp.status()}`).toBeLessThan(400)
+  expect(offerResp.url()).toContain(`/api/v1/rfx-responses/${responseId}`)
+  const offerPayload = offerResp.request().postDataJSON() as {
+    offer_lines?: Array<{ rfx_lot_id?: string; amount?: number; currency_code?: string }>
+  }
+  console.log(`E7-SAVE-OFFER-BODY ${JSON.stringify(offerPayload)}`)
+  expect(offerPayload.offer_lines, `save-offer body: ${JSON.stringify(offerPayload)}`).toEqual([
+    { rfx_lot_id: lotId, amount: 15000, currency_code: 'RUB' },
+  ])
+  const offerSaved = await offerResp.json().catch(() => ({})) as {
+    id?: string
+    rfx_event_id?: string
+    status?: string
+    offer_lines?: Array<{ rfx_lot_id?: string; amount?: number; currency_code?: string }>
+  }
+  expect(offerSaved.id ?? responseId).toBe(responseId)
+  if (offerSaved.rfx_event_id) expect(offerSaved.rfx_event_id).toBe(eventId)
+  expect(offerSaved.status ?? 'DRAFT', `response must stay DRAFT after commercial save: ${JSON.stringify(offerSaved)}`).toBe('DRAFT')
+  expect(prematureSubmit, `premature submit during save-offer: ${JSON.stringify(prematureSubmit)}`).toEqual([])
+  const afterSaveToasts = await dumpCarrierOfferEvidence(carrierPage, lotId)
+  expect(afterSaveToasts.toasts.some((text) => /amount for every lot|сумм|每个批次/i.test(text)), `offerLotRequired after save: ${JSON.stringify(afterSaveToasts)}`).toBe(false)
+  console.log(`E7-MAIN-EVENT-ID ${eventId} stage=save-offer responseId=${responseId}`)
+
+  const refreshGet = waitForApi(carrierPage, {
+    method: 'GET',
+    pathIncludes: `/api/v1/rfx-events/${eventId}/own-response`,
+  })
+  await carrierPage.goto(`${procurementURL}/carrier/tenders/${eventId}`, { waitUntil: 'domcontentloaded' })
+  const refreshed = await refreshGet
+  expect(refreshed.status()).toBe(200)
+  const refreshedBody = await refreshed.json() as {
+    id?: string
+    rfx_event_id?: string
+    status?: string
+    offer_lines?: Array<{ rfx_lot_id?: string; amount?: number | string; currency_code?: string }>
+  }
+  expect(refreshedBody.id, 'own-response id drifted after save-offer').toBe(responseId)
+  if (refreshedBody.rfx_event_id) expect(refreshedBody.rfx_event_id).toBe(eventId)
+  expect(refreshedBody.status, `own-response status after save-offer: ${JSON.stringify(refreshedBody)}`).toBe('DRAFT')
+  const savedLine = (refreshedBody.offer_lines ?? []).find((line) => line.rfx_lot_id === lotId)
+  expect(savedLine, `saved offer line missing: ${JSON.stringify(refreshedBody)}`).toBeTruthy()
+  expect(Number(savedLine?.amount)).toBe(15000)
+  expect(prematureSubmit, `premature submit after save-offer refresh: ${JSON.stringify(prematureSubmit)}`).toEqual([])
+  console.log(`E7-MAIN-EVENT-ID ${eventId} stage=save-offer-refresh responseId=${responseId}`)
 
   await carrierPage.goto(`${procurementURL}/carrier/tenders/${eventId}/questionnaire`, { waitUntil: 'domcontentloaded' })
   await expect(carrierPage.getByTestId('carrier-response-workspace')).toBeVisible({ timeout: 60_000 })
@@ -317,26 +388,31 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
     () => carrierPage.getByTestId('submit-questionnaire').click(),
   )
   expect(submitQ.status()).toBe(200)
-  console.log(`E7-MAIN-EVENT-ID ${eventId} stage=submit-questionnaire`)
+  expect(submitQ.url()).toContain(eventId)
+  console.log(`E7-MAIN-EVENT-ID ${eventId} stage=submit-questionnaire responseId=${responseId}`)
 
   await buyerPage.goto(`${procurementURL}/tenders/${eventId}/evaluation`, { waitUntil: 'domcontentloaded' })
   await expect(buyerPage.getByTestId('evaluation-comparison-table')).toBeVisible({ timeout: 60_000 })
   await expect(buyerPage.getByTestId('v3-questionnaire-score').first()).toBeVisible({ timeout: 120_000 })
-  await expect(buyerPage.getByTestId('evaluation-award')).toBeVisible()
+  const awardButton = buyerPage.locator(`[data-testid="evaluation-award"][data-award-response-id="${responseId}"]`)
+  await expect(awardButton).toBeVisible()
   const awardResp = await clickAndCapture(
     buyerPage,
     'award-open',
     { method: 'POST', pathIncludes: `/api/v1/rfx-events/${eventId}/award-response` },
     async () => {
-      await buyerPage.getByTestId('evaluation-award').click()
+      await awardButton.click()
       await buyerPage.getByTestId('evaluation-award-confirm').click()
     },
   )
   expect(awardResp.status(), `POST award-response -> ${awardResp.status()}`).toBe(200)
+  expect(awardResp.url()).toContain(`/api/v1/rfx-events/${eventId}/award-response`)
   expect(awardResp.url()).not.toContain('/transport-orders')
   expect(awardResp.url()).not.toContain('/integrations/erp/')
+  const awardPayload = awardResp.request().postDataJSON() as { response_id?: string }
+  expect(awardPayload.response_id, `award body: ${JSON.stringify(awardPayload)}`).toBe(responseId)
   logStage({ stage: 'award', method: 'POST', path: `/api/v1/rfx-events/${eventId}/award-response`, status: awardResp.status() })
-  console.log(`E7-MAIN-EVENT-ID ${eventId} stage=award`)
+  console.log(`E7-MAIN-EVENT-ID ${eventId} stage=award eventId=${eventId} responseId=${responseId}`)
 
   expect(forbiddenHits, `forbidden ERP requests: ${JSON.stringify(forbiddenHits)}`).toEqual([])
 

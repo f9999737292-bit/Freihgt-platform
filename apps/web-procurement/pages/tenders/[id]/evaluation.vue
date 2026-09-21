@@ -349,6 +349,7 @@ onMounted(loadCompanies)
                   size="sm"
                   variant="danger"
                   data-testid="evaluation-award"
+                  :data-award-response-id="item.id"
                   :disabled="acting"
                   @click="openAwardConfirm(item)"
                 >
