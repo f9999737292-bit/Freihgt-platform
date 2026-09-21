@@ -46,7 +46,6 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
     roles: ['CARRIER_DISPATCHER'],
   })
 
-  const createWait = waitForApi(buyerPage, { method: 'POST', pathIncludes: '/api/v1/rfx-events' })
   const membershipsWait = waitForApi(buyerPage, {
     method: 'GET',
     pathIncludes: `/api/v1/users/${buyerUserId}/companies`,
@@ -67,6 +66,7 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
   }
   await expect(titleInput).toHaveValue(TITLE)
   await expect(owner).toHaveValue(/.+/)
+  const createWait = waitForApi(buyerPage, { method: 'POST', pathIncludes: '/api/v1/rfx-events' })
   await buyerPage.getByTestId('wizard-next').click()
   const created = await createWait
   expect(created.status(), `POST create event -> ${created.status()}`).toBe(201)
