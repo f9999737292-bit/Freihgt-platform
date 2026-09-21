@@ -17,8 +17,8 @@ var embeddedExcelExchangeServiceRouter string
 func TestE7ExcelExchangeRouteParity(t *testing.T) {
 	t.Parallel()
 	routes := sharedrfx.E7ExcelExchangeRoutes()
-	if len(routes) != 6 {
-		t.Fatalf("expected exactly 6 excel exchange routes, got %d", len(routes))
+	if len(routes) != 8 {
+		t.Fatalf("expected exactly 8 excel exchange routes, got %d", len(routes))
 	}
 	serviceRouter := embeddedExcelExchangeServiceRouter
 	rfxOpenAPI, err := readExcelExchangeRepoFile(t, "packages/openapi/rfx-service.yaml")
@@ -176,6 +176,29 @@ func assertExcelExchangeOpenAPIOperation(t *testing.T, openAPI string, route sha
 		}
 		if !strings.Contains(pathBlock, "'422':") {
 			t.Fatal("openapi commit must declare 422 response")
+		}
+	case "preview_buyer_new_rfx_event_xlsx_create":
+		if !strings.Contains(pathBlock, "multipart/form-data") {
+			t.Fatal("openapi create preview request must declare multipart/form-data")
+		}
+		if !strings.Contains(pathBlock, "RfxBuyerXlsxCreatePreviewResponse") {
+			t.Fatal("openapi create preview must declare structured preview response schema")
+		}
+		if !strings.Contains(pathBlock, "owner_company_id") {
+			t.Fatal("openapi create preview must declare owner_company_id")
+		}
+		if !strings.Contains(pathBlock, "'422':") || !strings.Contains(pathBlock, "'413':") || !strings.Contains(pathBlock, "'429':") {
+			t.Fatal("openapi create preview must declare 422/413/429")
+		}
+	case "commit_buyer_new_rfx_event_xlsx_create":
+		if !strings.Contains(pathBlock, "Idempotency-Key") {
+			t.Fatal("openapi create commit must declare Idempotency-Key header")
+		}
+		if !strings.Contains(pathBlock, "RfxBuyerXlsxCreateCommitRequest") || !strings.Contains(pathBlock, "RfxBuyerXlsxCreateCommitResponse") {
+			t.Fatal("openapi create commit must declare request/response schemas")
+		}
+		if !strings.Contains(pathBlock, "'201':") || !strings.Contains(pathBlock, "'422':") || !strings.Contains(pathBlock, "'429':") {
+			t.Fatal("openapi create commit must declare 201/422/429")
 		}
 	}
 
