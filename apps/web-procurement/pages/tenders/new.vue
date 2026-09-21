@@ -81,13 +81,27 @@ function stepLabel(step: WizardStep) {
 async function loadOwnerCompanies() {
   if (!user.value?.id) return
   try {
-    const memberships = filterBuyerMemberships(await getUserCompanies(user.value.id))
+    const raw = await getUserCompanies(user.value.id)
+    const memberships = filterBuyerMemberships(raw)
     ownerOptions.value = membershipSelectOptions(memberships)
     if (!form.owner_company_id) {
       form.owner_company_id = selectDefaultOwnerCompany(memberships)
     }
+    if (ownerOptions.value.length === 0) {
+      const stored = localStorage.getItem('freight_procurement_company_id') || form.owner_company_id
+      if (stored) {
+        form.owner_company_id = stored
+        ownerOptions.value = [{ label: stored, value: stored }]
+      }
+    }
   } catch {
-    ownerOptions.value = []
+    const stored = localStorage.getItem('freight_procurement_company_id')
+    if (stored) {
+      form.owner_company_id = stored
+      ownerOptions.value = [{ label: stored, value: stored }]
+    } else {
+      ownerOptions.value = []
+    }
   }
 }
 
@@ -296,6 +310,7 @@ watch(
   () => {
     void loadOwnerCompanies()
   },
+  { immediate: true },
 )
 
 onMounted(async () => {

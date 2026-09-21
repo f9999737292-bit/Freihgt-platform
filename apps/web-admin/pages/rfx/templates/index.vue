@@ -94,10 +94,6 @@ function goToPage(page: number) {
   pagination.offset = (page - 1) * pagination.limit
   void loadLibrary()
 }
-
-function openCloneModal() {
-  showCloneModal.value = true
-}
 </script>
 
 <template>
@@ -112,7 +108,7 @@ function openCloneModal() {
           type="button"
           class="btn btn--secondary"
           data-testid="clone-from-template-open"
-          @click="openCloneModal"
+          @click.stop.prevent="showCloneModal = true"
         >
           {{ $t('rfx.templates.clone.title') }}
         </button>

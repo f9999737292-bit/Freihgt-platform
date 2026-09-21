@@ -54,6 +54,8 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
   await buyerPage.goto(`${procurementURL}/tenders/new`, { waitUntil: 'domcontentloaded' })
   const memberships = await membershipsWait
   expect(memberships.status(), `GET user companies -> ${memberships.status()}`).toBe(200)
+  const membershipBody = await memberships.json() as { items?: Array<{ company_id?: string }> }
+  expect(membershipBody.items?.length, `user companies ${JSON.stringify(membershipBody)}`).toBeGreaterThan(0)
   const titleInput = buyerPage.getByTestId('wizard-title')
   await expect(titleInput).toBeVisible({ timeout: 30_000 })
   await titleInput.fill(TITLE)
