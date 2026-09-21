@@ -37,6 +37,7 @@ type testEnv struct {
 	lateSvc        *service.LateSubmissionService
 	lateRepo       *repository.LateSubmissionRepository
 	idemRepo       *repository.IdempotencyRepository
+	versionSvc     *service.VersionLifecycleService
 }
 
 type buyerFixture struct {
@@ -94,11 +95,14 @@ func setupTestEnv(t *testing.T) *testEnv {
 	lateRepo := repository.NewLateSubmissionRepository(pool)
 	lateSvc := service.NewLateSubmissionService(pool, lateRepo, rfxRepo, idemRepo, auditRepo, rfxSvc)
 	crSvc := service.NewCarrierResponseServiceWithLateSubmission(pool, rfxRepo, answerRepo, qRepo, auditRepo, membershipRepo, rfxSvc, nil, lateSvc, idemRepo)
+	scoreRepo := repository.NewScoreRepository(pool)
+	changeImpactRepo := repository.NewChangeImpactRepository(pool)
+	versionSvc := service.NewVersionLifecycleService(pool, rfxRepo, qRepo, scoreRepo, idemRepo, auditRepo, changeImpactRepo, rfxSvc)
 	t.Logf("isolated database=%s", dbName)
 	return &testEnv{
 		pool: pool, rfxRepo: rfxRepo, auditRepo: auditRepo, membershipRepo: membershipRepo,
 		qRepo: qRepo, answerRepo: answerRepo, rfxSvc: rfxSvc, qSvc: qSvc, crSvc: crSvc,
-		lateSvc: lateSvc, lateRepo: lateRepo, idemRepo: idemRepo,
+		lateSvc: lateSvc, lateRepo: lateRepo, idemRepo: idemRepo, versionSvc: versionSvc,
 	}
 }
 

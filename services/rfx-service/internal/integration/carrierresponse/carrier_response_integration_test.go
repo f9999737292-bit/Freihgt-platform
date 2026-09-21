@@ -83,14 +83,14 @@ func TestStaleSaveVersion409(t *testing.T) {
 	}
 	_, err = env.crSvc.SaveAnswers(ctx, fix.CarrierAct, event.ID, fix.CarrierID, domain.AnswerBatchPatchInput{
 		ExpectedSaveVersion: ws.Response.SaveVersion,
-		Answers:             []domain.AnswerPatchItem{{QuestionID: q.ID, Value: json.RawMessage(`"a"`) }},
+		Answers:             []domain.AnswerPatchItem{{QuestionID: q.ID, Value: json.RawMessage(`"a"`)}},
 	})
 	if err != nil {
 		t.Fatalf("first save: %v", err)
 	}
 	_, err = env.crSvc.SaveAnswers(ctx, fix.CarrierAct, event.ID, fix.CarrierID, domain.AnswerBatchPatchInput{
 		ExpectedSaveVersion: ws.Response.SaveVersion,
-		Answers:             []domain.AnswerPatchItem{{QuestionID: q.ID, Value: json.RawMessage(`"b"`) }},
+		Answers:             []domain.AnswerPatchItem{{QuestionID: q.ID, Value: json.RawMessage(`"b"`)}},
 	})
 	assertAppErrorCode(t, err, apperrors.CodeConflict)
 }
@@ -104,7 +104,7 @@ func TestSubmitSuccessAndPostSubmitEditDenied(t *testing.T) {
 	}
 	saved, err := env.crSvc.SaveAnswers(ctx, fix.CarrierAct, event.ID, fix.CarrierID, domain.AnswerBatchPatchInput{
 		ExpectedSaveVersion: ws.Response.SaveVersion,
-		Answers:             []domain.AnswerPatchItem{{QuestionID: q.ID, Value: json.RawMessage(`"ready"`) }},
+		Answers:             []domain.AnswerPatchItem{{QuestionID: q.ID, Value: json.RawMessage(`"ready"`)}},
 	})
 	if err != nil {
 		t.Fatalf("save: %v", err)
@@ -115,7 +115,7 @@ func TestSubmitSuccessAndPostSubmitEditDenied(t *testing.T) {
 	}
 	_, err = env.crSvc.SaveAnswers(ctx, fix.CarrierAct, event.ID, fix.CarrierID, domain.AnswerBatchPatchInput{
 		ExpectedSaveVersion: saved.SaveVersion + 1,
-		Answers:             []domain.AnswerPatchItem{{QuestionID: q.ID, Value: json.RawMessage(`"blocked"`) }},
+		Answers:             []domain.AnswerPatchItem{{QuestionID: q.ID, Value: json.RawMessage(`"blocked"`)}},
 	})
 	if err == nil {
 		t.Fatal("expected post-submit edit denied")
@@ -275,7 +275,7 @@ func TestLegacyCommercialOfferPinsOnStart(t *testing.T) {
 	}
 }
 
-func TestStartPinsStudioDraftWithoutManualEnable(t *testing.T) {
+func TestStartPinsStudioDraftAfterPublishQuestionnaire(t *testing.T) {
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
 	ctx := context.Background()
@@ -297,8 +297,26 @@ func TestStartPinsStudioDraftWithoutManualEnable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("studio draft: %v", err)
 	}
-	if !version.QuestionnaireEnabled {
-		t.Fatal("studio GetOrCreateDraftVersion must create an enabled questionnaire draft")
+	if version.QuestionnaireEnabled {
+		t.Fatal("studio GetOrCreateDraftVersion must create a disabled questionnaire draft")
+	}
+
+	event, err = env.rfxRepo.GetEventByID(ctx, event.ID, fix.TenantID)
+	if err != nil {
+		t.Fatalf("reload event before failed publish: %v", err)
+	}
+	_, failErr := env.versionSvc.PublishQuestionnaire(ctx, fix.BuyerA, event.ID, "ste-fail-empty", domain.PublishQuestionnaireInput{
+		ExpectedEventVersion: event.Version,
+		ExpectedDraftVersion: version.Version,
+		ChangeSummary:        "empty draft must stay disabled",
+	})
+	assertAppErrorCode(t, failErr, apperrors.CodeValidationFailed)
+	disabled, err := env.qRepo.GetVersionByID(ctx, version.ID, fix.TenantID)
+	if err != nil {
+		t.Fatalf("reload after failed publish: %v", err)
+	}
+	if disabled.QuestionnaireEnabled || disabled.Status != domain.RfxVersionStatusDraft {
+		t.Fatalf("failed publish mutated draft: enabled=%t status=%s", disabled.QuestionnaireEnabled, disabled.Status)
 	}
 	sec, err := env.qSvc.CreateSection(ctx, fix.BuyerA, event.ID, domain.CreateSectionInput{
 		SectionCode: "MAIN", Title: "Main",
@@ -311,7 +329,31 @@ func TestStartPinsStudioDraftWithoutManualEnable(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("create question: %v", err)
 	}
-	publishVersion(t, env, version.ID)
+	version, err = env.qRepo.GetVersionByID(ctx, version.ID, fix.TenantID)
+	if err != nil {
+		t.Fatalf("reload draft after content: %v", err)
+	}
+	if version.QuestionnaireEnabled {
+		t.Fatal("adding questionnaire content must not enable the draft")
+	}
+	event, err = env.rfxRepo.GetEventByID(ctx, event.ID, fix.TenantID)
+	if err != nil {
+		t.Fatalf("reload event before publish: %v", err)
+	}
+	published, err := env.versionSvc.PublishQuestionnaire(ctx, fix.BuyerA, event.ID, "ste-pub", domain.PublishQuestionnaireInput{
+		ExpectedEventVersion: event.Version,
+		ExpectedDraftVersion: version.Version,
+		ChangeSummary:        "explicit publish enables questionnaire",
+	})
+	if err != nil {
+		t.Fatalf("publish questionnaire: %v", err)
+	}
+	if published.ID != version.ID {
+		t.Fatalf("publish created a new version: draft=%s published=%s", version.ID, published.ID)
+	}
+	if !published.QuestionnaireEnabled || published.Status != domain.RfxVersionStatusPublished {
+		t.Fatalf("published version must be enabled: enabled=%t status=%s", published.QuestionnaireEnabled, published.Status)
+	}
 	if _, err := env.rfxSvc.PublishEvent(ctx, fix.BuyerA, event.ID); err != nil {
 		t.Fatalf("publish event: %v", err)
 	}
@@ -321,15 +363,40 @@ func TestStartPinsStudioDraftWithoutManualEnable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("commercial create: %v", err)
 	}
+	if legacy.RfxVersionID != nil {
+		t.Fatal("commercial create must not bind a version")
+	}
+	_, getErr := env.crSvc.GetWorkspace(ctx, fix.CarrierAct, event.ID, fix.CarrierID)
+	var getApp *apperrors.AppError
+	if !errors.As(getErr, &getApp) || getApp.Code != apperrors.CodeUnprocessable || getApp.Details["field"] != "rfx_version_id" {
+		t.Fatalf("expected unbound GET Unprocessable field=rfx_version_id, got %v", getErr)
+	}
 	ws, err := env.crSvc.StartOrResume(ctx, fix.CarrierAct, event.ID, fix.CarrierID)
 	if err != nil {
-		t.Fatalf("start after studio draft: %v", err)
+		t.Fatalf("start after PublishQuestionnaire: %v", err)
 	}
 	if ws.Response.ID != legacy.ID {
 		t.Fatal("studio draft pin drifted response id")
 	}
-	if ws.Response.RfxVersionID == nil || *ws.Response.RfxVersionID != version.ID {
-		t.Fatalf("expected pin to studio version %s, got %v", version.ID, ws.Response.RfxVersionID)
+	if ws.Response.RfxVersionID == nil || *ws.Response.RfxVersionID != published.ID {
+		t.Fatalf("expected pin to published version %s, got %v", published.ID, ws.Response.RfxVersionID)
+	}
+	if len(ws.Questionnaire.Sections) == 0 {
+		t.Fatal("published questionnaire must be available to carrier start")
+	}
+	again, err := env.crSvc.StartOrResume(ctx, fix.CarrierAct, event.ID, fix.CarrierID)
+	if err != nil {
+		t.Fatalf("repeat start: %v", err)
+	}
+	if again.Response.ID != legacy.ID || again.Response.RfxVersionID == nil || *again.Response.RfxVersionID != published.ID {
+		t.Fatal("repeat start rebound version or response")
+	}
+	var responseCount int
+	if err := env.pool.QueryRow(ctx, `SELECT COUNT(*) FROM rfx.rfx_responses WHERE rfx_event_id = $1 AND tenant_id = $2 AND deleted_at IS NULL`, event.ID, fix.TenantID).Scan(&responseCount); err != nil {
+		t.Fatalf("count responses: %v", err)
+	}
+	if responseCount != 1 {
+		t.Fatalf("expected one response row, got %d", responseCount)
 	}
 }
 
