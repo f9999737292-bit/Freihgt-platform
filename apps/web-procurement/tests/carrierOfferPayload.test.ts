@@ -63,13 +63,18 @@ describe('carrier offer payload', () => {
     expect(source).toContain('buildLotOfferLines')
     expect(source).toContain('offerLotRequired')
     expect(source).toContain('updateResponseCommercial')
-    expect(source).not.toMatch(/handleSaveOffer[\s\S]*submitResponse/)
+    const saveOfferFn = source.match(/async function handleSaveOffer\([\s\S]*?\nasync function /)?.[0] ?? ''
+    expect(saveOfferFn).toContain('updateResponseCommercial')
+    expect(saveOfferFn).not.toContain('submitResponse')
   })
 
   it('keeps the commercial save on PATCH and does not mark the response submitted', () => {
     const source = readFileSync(resolve(import.meta.dirname, '../pages/carrier/tenders/[id]/index.vue'), 'utf8')
-    expect(source).toMatch(/async function handleSaveOffer[\s\S]*updateResponseCommercial[\s\S]*offerSaved/)
-    expect(source).not.toMatch(/handleSaveOffer[\s\S]*status:\s*'SUBMITTED'/)
+    const saveOfferFn = source.match(/async function handleSaveOffer\([\s\S]*?\nasync function /)?.[0] ?? ''
+    expect(saveOfferFn).toContain('updateResponseCommercial')
+    expect(saveOfferFn).toContain('offerSaved')
+    expect(saveOfferFn).not.toContain('SUBMITTED')
+    expect(saveOfferFn).not.toContain('submitResponse')
     expect(source).toContain('offerLotRequired')
   })
 })

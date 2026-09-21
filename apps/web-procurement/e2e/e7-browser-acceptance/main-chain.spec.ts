@@ -297,6 +297,7 @@ test('E7-BRW-01 main chain on one event ID', async ({ browser }) => {
 
   const offerInput = carrierPage.getByTestId(`carrier-offer-lot-${lotId}`)
   const saveOffer = carrierPage.getByTestId('carrier-save-offer')
+  await dumpCarrierOfferEvidence(carrierPage, lotId)
   await expect(offerInput).toBeVisible({ timeout: 15_000 })
   await expect(saveOffer).toBeVisible()
   await expect(saveOffer).toBeEnabled({ timeout: 15_000 })

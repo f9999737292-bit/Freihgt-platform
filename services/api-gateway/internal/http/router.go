@@ -254,7 +254,7 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	r.Post("/api/v1/rfx-events/{id}/archive", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
 	r.Post("/api/v1/rfx-events/{id}/extend-deadline", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
 	r.Post("/api/v1/rfx-events/{id}/lots", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
-	r.Get("/api/v1/rfx-events/{id}/lots", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerRead))
+	r.Get("/api/v1/rfx-events/{id}/lots", rfxGuard.WithPolicy(rfxrbac.PolicyCombinedRead))
 	r.Post("/api/v1/rfx-lots/{lot_id}/lanes", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
 	r.Post("/api/v1/rfx-events/{id}/participants", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))
 	r.Get("/api/v1/rfx-events/{id}/participants", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerRead))

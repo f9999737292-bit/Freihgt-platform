@@ -20,6 +20,9 @@ func TestCarrierInvitedEventGatewayRouteParity(t *testing.T) {
 	if !strings.Contains(routerSource, `r.Get("/api/v1/rfx-events/{id}", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerRead))`) {
 		t.Fatal("buyer GET /api/v1/rfx-events/{id} must remain PolicyBuyerRead")
 	}
+	if !strings.Contains(routerSource, `r.Get("/api/v1/rfx-events/{id}/lots", rfxGuard.WithPolicy(rfxrbac.PolicyCombinedRead))`) {
+		t.Fatal("invited carriers must be able to GET /api/v1/rfx-events/{id}/lots")
+	}
 
 	openAPI, err := readCarrierInvitedOpenAPI(t, "packages/openapi/rfx-service.yaml")
 	if err != nil {
