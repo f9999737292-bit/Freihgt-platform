@@ -1095,6 +1095,129 @@ jobs:
             apps/web-procurement/e2e/human-provenance/test-results/api-gateway.log
           if-no-files-found: ignore
 
+  rfx-e7-browser-acceptance:
+    name: rfx-e7-browser-acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: mirror.gcr.io/library/postgres:16
+        env:
+          POSTGRES_USER: rfx_test
+          POSTGRES_PASSWORD: rfx_test
+          POSTGRES_DB: freight_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CI: true
+      TEST_DATABASE_URL: postgres://rfx_test:rfx_test@localhost:5432/freight_test?sslmode=disable
+      REQUIRE_TEST_DATABASE: "1"
+      BROWSER_E2E: "1"
+      BROWSER_E2E_REQUIRE: "1"
+      BROWSER_E2E_EXCEL_FLAG: "1"
+      BROWSER_E2E_LATE_FLAG: "1"
+      RFX_EXCEL_EXCHANGE_ENABLED: "true"
+      RFX_LATE_SUBMISSION_ENABLED: "true"
+      RFX_VERSIONING_V3_ENABLED: "true"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: |
+            packages/shared-go/go.sum
+            services/rfx-service/go.sum
+            services/api-gateway/go.sum
+
+      - name: Build production api-gateway for browser E2E
+        working-directory: services/api-gateway
+        run: go build -o /tmp/api-gateway-browser-e2e ./cmd/server
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        working-directory: apps/web-procurement
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Fail if E7 specs skip, fixme, only, or page.route
+        run: |
+          set -euo pipefail
+          if grep -R -n -E 'test\.(skip|fixme|only)\(|page\.route\(' --include='*.ts' apps/web-procurement/e2e/e7-browser-acceptance; then
+            echo "ERROR: E7 live specs must not contain test.skip, test.fixme, test.only, or page.route"
+            exit 1
+          fi
+          echo "OK: E7 specs contain no skip/fixme/only/page.route"
+
+      - name: Fail if E7 browser gate env is missing
+        run: |
+          test -n "${BROWSER_E2E}"
+          test "${BROWSER_E2E}" = "1"
+          test -n "${BROWSER_E2E_REQUIRE}"
+          test "${BROWSER_E2E_REQUIRE}" = "1"
+          test -n "${TEST_DATABASE_URL}"
+
+      - name: Run E7 live browser acceptance gate
+        working-directory: services/rfx-service
+        run: go test -tags=integration ./internal/integration/studio/... -count=1 -run TestRfxE7_BrowserE2E_LiveAcceptance -timeout 50m -v
+
+      - name: Fail if Playwright skipped any E7 test
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path("apps/web-procurement/e2e/e7-browser-acceptance/test-results/results.json")
+          if not path.exists():
+              raise SystemExit("E7 playwright results.json is missing")
+          payload = json.loads(path.read_text())
+
+          def count_skipped(node):
+              skipped = 0
+              if isinstance(node, dict):
+                  for result in node.get("results") or []:
+                      if isinstance(result, dict) and result.get("status") == "skipped":
+                          skipped += 1
+                  skipped += sum(count_skipped(value) for value in node.values())
+              elif isinstance(node, list):
+                  skipped += sum(count_skipped(value) for value in node)
+              return skipped
+
+          skipped = count_skipped(payload)
+          if skipped:
+              raise SystemExit(f"E7 browser acceptance forbids skipped tests: skipped={skipped}")
+          print("OK: E7 playwright skipped=0")
+          PY
+
+      - name: Upload Playwright failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rfx-e7-browser-acceptance-artifacts
+          path: |
+            apps/web-procurement/e2e/e7-browser-acceptance/test-results/**
+            apps/web-procurement/e2e/e7-browser-acceptance/playwright-report/**
+            apps/web-procurement/e2e/e7-browser-acceptance/test-results/api-gateway.log
+          if-no-files-found: ignore
+
   rfx-scoring-v3-browser-e2e:
     name: rfx-scoring-v3-browser-e2e
     runs-on: ubuntu-latest
