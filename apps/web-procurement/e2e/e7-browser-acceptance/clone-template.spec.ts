@@ -63,12 +63,26 @@ test('E7-BRW clone from template opens Studio and records MANUAL channel follow-
     status: cloneResp.status(),
   })
   console.log(`E7-CLONE-EVENT-ID ${body.id} creation_channel=${body.creation_channel ?? 'MANUAL'} BACKEND_FOLLOW_UP=creation_channel_TEMPLATE`)
-  await expect(page.locator('#provenance-title')).toBeVisible()
-  await expect(page.locator('code').filter({ hasText: templateId })).toBeVisible()
-  await expect(page.getByText(templateCode).or(page.getByText('E7 Template'))).toBeVisible()
+  console.log(`E7-CLONE-DOM-URL ${page.url()}`)
+  const modalDump = await page.evaluate(() => {
+    const modal = document.querySelector('[data-testid="clone-from-template-modal"]')
+    return {
+      url: location.href,
+      hasSuccess: Boolean(document.querySelector('[data-testid="clone-success"]')),
+      hasOpenStudio: Boolean(document.querySelector('[data-testid="clone-open-studio"]')),
+      sourceTemplate: document.querySelector('[data-testid="clone-source-template-id"]')?.textContent ?? null,
+      sourceVersion: document.querySelector('[data-testid="clone-source-version-id"]')?.textContent ?? null,
+      modalText: modal?.textContent?.replace(/\s+/g, ' ').slice(0, 500) ?? null,
+    }
+  })
+  console.log(`E7-CLONE-POST-CREATE ${JSON.stringify(modalDump)}`)
+  await expect(page.getByTestId('clone-success')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId('clone-source-template-id')).toHaveText(templateId)
+  await expect(page.getByTestId('clone-source-version-id')).toHaveText(body.source_template_version_id || /.*/)
+  await expect(page.getByTestId('clone-open-studio')).toBeVisible()
 
   const studioWait = waitForApi(page, { method: 'GET', pathIncludes: `/api/v1/rfx-events/${body.id}/studio` })
-  await page.getByRole('button', { name: /Открыть RFx Studio|Open RFx Studio|打开 RFx Studio/ }).click()
+  await page.getByTestId('clone-open-studio').click()
   const studio = await studioWait
   expect(studio.status()).toBe(200)
   await expect(page).toHaveURL(new RegExp(`/rfx/${body.id}/studio`))

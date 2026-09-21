@@ -259,7 +259,17 @@ const provenanceTemplateName = computed(() => {
       </template>
 
       <template v-else>
-        <p>{{ $t('rfx.templates.clone.confirmIntro') }}</p>
+        <p data-testid="clone-success">{{ $t('rfx.templates.clone.confirmIntro') }}</p>
+        <dl class="clone-source" data-testid="clone-provenance">
+          <div>
+            <dt>{{ $t('rfx.provenance.templateId') }}</dt>
+            <dd><code data-testid="clone-source-template-id">{{ cloneResult.source_template_id }}</code></dd>
+          </div>
+          <div>
+            <dt>{{ $t('rfx.provenance.sourceVersionId') }}</dt>
+            <dd><code data-testid="clone-source-version-id">{{ cloneResult.source_template_version_id }}</code></dd>
+          </div>
+        </dl>
         <RfxProvenanceBanner
           :provenance="cloneResult"
           :template-name="provenanceTemplateName"
@@ -275,6 +285,7 @@ const provenanceTemplateName = computed(() => {
         <button
           type="submit"
           class="btn btn--primary"
+          :data-testid="cloneResult ? 'clone-open-studio' : 'clone-submit'"
           :disabled="saving || (!cloneResult && (versionsLoading || noCloneableVersions || !selectedVersionId))"
         >
           {{ cloneResult ? $t('rfx.templates.clone.openStudio') : $t('rfx.templates.clone.submit') }}
@@ -292,4 +303,8 @@ const provenanceTemplateName = computed(() => {
 .modal__error { color: var(--color-danger, #b91c1c); margin: 0; }
 .modal__field-error { color: var(--color-danger, #b91c1c); margin: -0.25rem 0 0; font-size: 0.8125rem; }
 .modal__actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem; }
+.clone-source { margin: 0; display: grid; gap: 0.375rem; }
+.clone-source div { display: grid; grid-template-columns: 10rem 1fr; gap: 0.5rem; font-size: 0.875rem; }
+.clone-source dt { color: var(--color-text-muted); margin: 0; }
+.clone-source dd { margin: 0; }
 </style>
