@@ -80,24 +80,44 @@ async function saveDownload(download: Download): Promise<string> {
   return saved
 }
 
+async function armBusyObserver(page: Page) {
+  await page.evaluate(() => {
+    const el = document.querySelector('[data-testid="buyer-xlsx-create-template-download"]')
+    const state = { seen: el?.getAttribute('aria-busy') === 'true' }
+    const target = window as Window & { __w3TemplateBusy?: { seen: boolean } }
+    target.__w3TemplateBusy = state
+    if (!el) return
+    const observer = new MutationObserver(() => {
+      if (el.getAttribute('aria-busy') === 'true') state.seen = true
+    })
+    observer.observe(el, { attributes: true, attributeFilter: ['aria-busy'] })
+  })
+}
+
+async function expectBusySeen(page: Page) {
+  const seen = await page.evaluate(() => {
+    const target = window as Window & { __w3TemplateBusy?: { seen: boolean } }
+    return target.__w3TemplateBusy?.seen === true
+  })
+  expect(seen).toBe(true)
+}
+
 async function downloadBlankTemplate(page: Page) {
   const probe = attachCreateNetworkProbe(page)
   const button = page.locator(downloadButton)
   await expect(button).toBeVisible()
   await expect(button).toBeEnabled()
+  await armBusyObserver(page)
   const responsePromise = page.waitForResponse((resp) => {
     return resp.request().method() === 'GET' && new URL(resp.url()).pathname === templatePath
   }, { timeout: 30_000 })
   const downloadPromise = page.waitForEvent('download')
-  const busyPromise = page.waitForFunction(() => {
-    const el = document.querySelector('[data-testid="buyer-xlsx-create-template-download"]')
-    return el?.getAttribute('aria-busy') === 'true'
-  }, undefined, { timeout: 10_000 })
   await button.evaluate((el: HTMLButtonElement) => {
     el.click()
     el.click()
   })
-  const [response, download] = await Promise.all([responsePromise, downloadPromise, busyPromise])
+  const [response, download] = await Promise.all([responsePromise, downloadPromise])
+  await expectBusySeen(page)
   assertTemplateRequest(response.request())
   assertTemplateResponse(response)
   expect(download.suggestedFilename()).toBe(templateFilename)
@@ -120,21 +140,18 @@ test.describe('buyer XLSX blank template live download', () => {
     await expect(button).toHaveAccessibleName('Download blank template')
     await expect(page.locator('body')).not.toContainText('tenders.buyerXlsxCreate.template')
 
+    await armBusyObserver(page)
     const responsePromise = page.waitForResponse((resp) => {
       return resp.request().method() === 'GET' && new URL(resp.url()).pathname === templatePath
     }, { timeout: 30_000 })
     const downloadPromise = page.waitForEvent('download')
-    const busyPromise = page.waitForFunction(() => {
-      const el = document.querySelector('[data-testid="buyer-xlsx-create-template-download"]')
-      return el?.getAttribute('aria-busy') === 'true'
-    }, undefined, { timeout: 10_000 })
     await button.evaluate((el: HTMLButtonElement) => {
       el.click()
       el.click()
     })
     const response = await responsePromise
     const download = await downloadPromise
-    await busyPromise
+    await expectBusySeen(page)
     assertTemplateRequest(response.request())
     assertTemplateResponse(response)
     expect(download.suggestedFilename()).toBe(templateFilename)
