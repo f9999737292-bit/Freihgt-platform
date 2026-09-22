@@ -685,6 +685,26 @@ func countImportAnalyses(t *testing.T, env *testEnv, tenantID uuid.UUID) int {
 	return count
 }
 
+func getBuyerXlsxCreateTemplateHTTP(t *testing.T, env *testEnv, cfg config.Config, actor domain.ActorContext, rawQuery string) *httptest.ResponseRecorder {
+	t.Helper()
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	router := httpserver.NewRouter(log, env.pool, cfg, env.rfxSvc, env.qSvc, nil, nil, nil, nil, nil, nil, env.excelExchangeSvc, nil, nil, nil, nil, nil, nil)
+	path := "/v1/rfx-events/xlsx-create/template"
+	if strings.TrimSpace(rawQuery) != "" {
+		path += "?" + rawQuery
+	}
+	req := httptest.NewRequest(http.MethodGet, path, nil)
+	if actor.TenantID != uuid.Nil {
+		req.Header.Set("X-Tenant-ID", actor.TenantID.String())
+	}
+	if actor.UserID != uuid.Nil {
+		req.Header.Set("X-User-ID", actor.UserID.String())
+	}
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
+}
+
 func getBuyerXlsxExportHTTP(t *testing.T, env *testEnv, cfg config.Config, actor domain.ActorContext, eventID uuid.UUID) *httptest.ResponseRecorder {
 	t.Helper()
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
