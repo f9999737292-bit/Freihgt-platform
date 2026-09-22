@@ -421,7 +421,9 @@ func TestE7P2INT212DeadlineExpiresAfterPreview(t *testing.T) {
 	fix := seedBuyerFixture(t, env)
 	draft := seedRichDraftEvent(t, env, fix)
 	workbook := exportRichDraftWorkbook(t, env, fix, draft)
-	now := time.Date(2026, 9, 22, 12, 0, 0, 0, time.UTC)
+	// Preview HTTP validation uses wall-clock time; keep the shell deadline in the real future
+	// while the service clock still expires it before commit.
+	now := time.Now().UTC().Add(48 * time.Hour).Truncate(time.Second)
 	env.excelExchangeSvc.SetNowFunc(func() time.Time { return now })
 	fields := defaultCreatePreviewFields(fix, "RFX-F5-212")
 	fields.ResponseDeadline = now.Add(time.Hour).Format(time.RFC3339)
