@@ -153,6 +153,15 @@ func StableStoredPayload(payloadJSON []byte) ([]byte, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
+	var probe struct {
+		Mode string `json:"mode"`
+	}
+	if err := json.Unmarshal(pgLike, &probe); err != nil {
+		return nil, "", err
+	}
+	if probe.Mode == BuyerImportModeCreateNewDraft {
+		return stableStoredCreatePayload(pgLike)
+	}
 	var payload canonicalImportPayload
 	if err := json.Unmarshal(pgLike, &payload); err != nil {
 		return nil, "", err

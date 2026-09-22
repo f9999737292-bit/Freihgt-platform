@@ -67,6 +67,11 @@ func NewRouter(
 			r.Post("/from-template", templateCloneHandler.CreateEventFromTemplate)
 		})
 		r.Get("/", rfxHandler.ListEvents)
+		r.Group(func(r chi.Router) {
+			r.Use(excelExchangeFlagMiddleware(cfg.RfxExcelExchangeEnabled))
+			r.Post("/xlsx-create/preview", excelExchangeHandler.PreviewBuyerXlsxCreate)
+			r.Post("/xlsx-create/commit", excelExchangeHandler.CommitBuyerXlsxCreate)
+		})
 		r.Get("/{id}", rfxHandler.GetEvent)
 		r.Patch("/{id}", rfxHandler.UpdateEvent)
 		r.Post("/{id}/publish", rfxHandler.PublishEvent)

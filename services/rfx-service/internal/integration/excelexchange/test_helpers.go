@@ -1359,3 +1359,272 @@ func locateMigrationsDir() (string, error) {
 	wd, _ := os.Getwd()
 	return "", fmt.Errorf("migrations dir not found from %s", wd)
 }
+
+type createPreviewFields struct {
+	OwnerCompanyID   uuid.UUID
+	RfxNumber        string
+	Title            string
+	RfxType          string
+	Category         string
+	Description      string
+	ResponseDeadline string
+	CurrencyCode     string
+}
+
+func defaultCreatePreviewFields(fix buyerFixture, rfxNumber string) createPreviewFields {
+	return createPreviewFields{
+		OwnerCompanyID: fix.CompanyA,
+		RfxNumber:      rfxNumber,
+		Title:          "F5 Create Event",
+		RfxType:        "SPOT_RFQ",
+		Category:       "FREIGHT",
+	}
+}
+
+func postBuyerXlsxCreatePreviewHTTP(
+	t *testing.T,
+	env *testEnv,
+	cfg config.Config,
+	actor domain.ActorContext,
+	fileBytes []byte,
+	fields createPreviewFields,
+) *httptest.ResponseRecorder {
+	t.Helper()
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	if fields.OwnerCompanyID != uuid.Nil {
+		_ = writer.WriteField("owner_company_id", fields.OwnerCompanyID.String())
+	}
+	if fields.RfxNumber != "" {
+		_ = writer.WriteField("rfx_number", fields.RfxNumber)
+	}
+	if fields.Title != "" {
+		_ = writer.WriteField("title", fields.Title)
+	}
+	if fields.RfxType != "" {
+		_ = writer.WriteField("rfx_type", fields.RfxType)
+	}
+	if fields.Category != "" {
+		_ = writer.WriteField("category", fields.Category)
+	}
+	if fields.Description != "" {
+		_ = writer.WriteField("description", fields.Description)
+	}
+	if fields.ResponseDeadline != "" {
+		_ = writer.WriteField("response_deadline", fields.ResponseDeadline)
+	}
+	if fields.CurrencyCode != "" {
+		_ = writer.WriteField("currency_code", fields.CurrencyCode)
+	}
+	if fileBytes != nil {
+		header := textproto.MIMEHeader{}
+		header.Set("Content-Disposition", `form-data; name="file"; filename="create.xlsx"`)
+		header.Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+		part, err := writer.CreatePart(header)
+		if err != nil {
+			t.Fatalf("create file part: %v", err)
+		}
+		if _, err := part.Write(fileBytes); err != nil {
+			t.Fatalf("write file: %v", err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close multipart: %v", err)
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	router := httpserver.NewRouter(log, env.pool, cfg, env.rfxSvc, env.qSvc, nil, nil, nil, nil, nil, nil, env.excelExchangeSvc, nil, nil, nil, nil, nil, nil)
+	req := httptest.NewRequest(http.MethodPost, "/v1/rfx-events/xlsx-create/preview", &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	if actor.TenantID != uuid.Nil {
+		req.Header.Set("X-Tenant-ID", actor.TenantID.String())
+	}
+	if actor.UserID != uuid.Nil {
+		req.Header.Set("X-User-ID", actor.UserID.String())
+	}
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
+}
+
+func postBuyerXlsxCreateCommitHTTP(
+	t *testing.T,
+	env *testEnv,
+	cfg config.Config,
+	actor domain.ActorContext,
+	analysisID uuid.UUID,
+	idempotencyKey string,
+) *httptest.ResponseRecorder {
+	t.Helper()
+	body, err := json.Marshal(map[string]string{"analysis_id": analysisID.String()})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	router := httpserver.NewRouter(log, env.pool, cfg, env.rfxSvc, env.qSvc, nil, nil, nil, nil, nil, nil, env.excelExchangeSvc, nil, nil, nil, nil, nil, nil)
+	req := httptest.NewRequest(http.MethodPost, "/v1/rfx-events/xlsx-create/commit", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	if idempotencyKey != "" {
+		req.Header.Set("Idempotency-Key", idempotencyKey)
+	}
+	if actor.TenantID != uuid.Nil {
+		req.Header.Set("X-Tenant-ID", actor.TenantID.String())
+	}
+	if actor.UserID != uuid.Nil {
+		req.Header.Set("X-User-ID", actor.UserID.String())
+	}
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
+}
+
+func decodeCreatePreviewResponse(t *testing.T, rec *httptest.ResponseRecorder) service.BuyerXlsxCreatePreviewResponse {
+	t.Helper()
+	var preview service.BuyerXlsxCreatePreviewResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &preview); err != nil {
+		t.Fatalf("decode create preview: %v body=%s", err, rec.Body.String())
+	}
+	return preview
+}
+
+func decodeCreateCommitResponse(t *testing.T, rec *httptest.ResponseRecorder) service.BuyerXlsxCreateCommitResponse {
+	t.Helper()
+	var result service.BuyerXlsxCreateCommitResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+		t.Fatalf("decode create commit: %v body=%s", err, rec.Body.String())
+	}
+	return result
+}
+
+func countTenantEvents(t *testing.T, env *testEnv, tenantID uuid.UUID) int {
+	t.Helper()
+	var count int
+	if err := env.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM rfx.rfx_events WHERE tenant_id = $1 AND deleted_at IS NULL`, tenantID).Scan(&count); err != nil {
+		t.Fatalf("count events: %v", err)
+	}
+	return count
+}
+
+func countEventsByNumber(t *testing.T, env *testEnv, tenantID uuid.UUID, rfxNumber string) int {
+	t.Helper()
+	var count int
+	if err := env.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM rfx.rfx_events WHERE tenant_id = $1 AND rfx_number = $2 AND deleted_at IS NULL`, tenantID, rfxNumber).Scan(&count); err != nil {
+		t.Fatalf("count events by number: %v", err)
+	}
+	return count
+}
+
+func countCreateAudits(t *testing.T, env *testEnv, tenantID uuid.UUID) int {
+	t.Helper()
+	var count int
+	if err := env.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM rfx.audit_events WHERE tenant_id = $1 AND action = 'rfx.buyer_xlsx_import.created.v1'`, tenantID).Scan(&count); err != nil {
+		t.Fatalf("count create audits: %v", err)
+	}
+	return count
+}
+
+func headerOnlyLotsWorkbook(t *testing.T, data []byte) []byte {
+	t.Helper()
+	f, err := excelize.OpenReader(bytes.NewReader(data))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer f.Close()
+	rows, err := f.GetRows("Lots")
+	if err != nil {
+		t.Fatalf("lots: %v", err)
+	}
+	for i := len(rows); i > 1; i-- {
+		_ = f.RemoveRow("Lots", i)
+	}
+	out, err := f.WriteToBuffer()
+	if err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	return out.Bytes()
+}
+
+func emptyQuestionnaireWorkbook(t *testing.T, data []byte) []byte {
+	t.Helper()
+	f, err := excelize.OpenReader(bytes.NewReader(data))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer f.Close()
+	for _, sheet := range []string{"Sections", "Questions", "Options", "Rules"} {
+		rows, err := f.GetRows(sheet)
+		if err != nil {
+			t.Fatalf("%s: %v", sheet, err)
+		}
+		for i := len(rows); i > 1; i-- {
+			_ = f.RemoveRow(sheet, i)
+		}
+	}
+	out, err := f.WriteToBuffer()
+	if err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	return out.Bytes()
+}
+
+func insertCreateAnalysisWithHashMismatch(t *testing.T, env *testEnv, sourceID, tenantID uuid.UUID) uuid.UUID {
+	t.Helper()
+	source := loadPersistedAnalysis(t, env, sourceID, tenantID)
+	id := uuid.New()
+	_, err := env.pool.Exec(context.Background(), `
+		INSERT INTO rfx.rfx_import_analyses (
+			id, tenant_id, actor_id, actor_company_id, workbook_type, schema_version,
+			target_type, target_id, target_version, canonical_payload_json, canonical_hash,
+			status, validation_summary, created_at, expires_at
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+		)`,
+		id, source.TenantID, source.ActorID, source.ActorCompanyID, source.WorkbookType, source.SchemaVersion,
+		source.TargetType, source.TargetID, source.TargetVersion, source.CanonicalPayloadJSON,
+		"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+		domain.ImportAnalysisStatusPreviewed, source.ValidationSummary, source.CreatedAt, source.ExpiresAt,
+	)
+	if err != nil {
+		t.Fatalf("insert mismatched create analysis: %v", err)
+	}
+	return id
+}
+
+func injectFormulaIntoWorkbook(t *testing.T, data []byte) []byte {
+	t.Helper()
+	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		t.Fatalf("zip: %v", err)
+	}
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	injected := false
+	for _, file := range reader.File {
+		rc, err := file.Open()
+		if err != nil {
+			t.Fatalf("open %s: %v", file.Name, err)
+		}
+		body, err := io.ReadAll(rc)
+		_ = rc.Close()
+		if err != nil {
+			t.Fatalf("read %s: %v", file.Name, err)
+		}
+		if strings.Contains(file.Name, "xl/worksheets/") && strings.HasSuffix(file.Name, ".xml") && !injected {
+			body = []byte(strings.Replace(string(body), "<c ", "<c><f>1+1</f></c><c ", 1))
+			injected = true
+		}
+		w, err := zw.Create(file.Name)
+		if err != nil {
+			t.Fatalf("create %s: %v", file.Name, err)
+		}
+		if _, err := w.Write(body); err != nil {
+			t.Fatalf("write %s: %v", file.Name, err)
+		}
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatalf("close zip: %v", err)
+	}
+	if !injected {
+		t.Fatal("workbook had no worksheet cell to inject a formula")
+	}
+	return buf.Bytes()
+}

@@ -12616,6 +12616,335 @@
         }
       }
     },
+    "/api/v1/rfx-events/xlsx-create/preview": {
+      "post": {
+        "tags": [
+          "RFx"
+        ],
+        "summary": "Preview buyer new RFx event XLSX create",
+        "operationId": "post_preview_buyer_new_rfx_event_xlsx_create",
+        "description": "Preview buyer new RFx event XLSX create for CREATE_NEW_DRAFT mode.\n\nFeature flag: when `RFX_EXCEL_EXCHANGE_ENABLED` is false (default), the route returns **404** (feature disabled).\n\nAuthorization: **BuyerManage** role required; buyer read-only roles are denied (**403**). Human JWT only. Integration OAuth/API key is not accepted.\n\nRequest: multipart/form-data. Required fields: `file` (max 5 MiB), `owner_company_id`, `rfx_number`, `title`, `rfx_type`, `category`. Optional: `description`, `response_deadline`, `currency_code`. Workbook schema `BINTRANS_RFX_BUYER_XLSX_V1`. Workbook IDs are not authority.\n\nSuccessful domain-valid preview returns **200** with `ready_to_commit=true`, persisted `analysis_id`, and server-computed `expires_at` (24h TTL). Preview does not return `canonical_payload_hash` or a reserved event ID.\n\nDomain-invalid but structurally readable workbooks return **422** with the structured preview envelope and `ready_to_commit=false` without persisting analysis.\n\nMalformed multipart, unsafe ZIP/XLSX, formula cells, missing/unexpected sheets, invalid headers, competitor columns, or `unsupported_schema` return **400**. Oversized files return **413**. Gateway rate limit returns **429**.\n\nZero lots and an empty questionnaire graph are allowed. Preview never creates an event, version, lots, questionnaire, participants, scoring, or RFx-create audit.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XTenantID"
+          },
+          {
+            "$ref": "#/components/parameters/XCompanyID"
+          },
+          {
+            "$ref": "#/components/parameters/XLocale"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file",
+                  "owner_company_id",
+                  "rfx_number",
+                  "title",
+                  "rfx_type",
+                  "category"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "BUYER XLSX workbook (max 5 MiB)"
+                  },
+                  "owner_company_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "rfx_number": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "rfx_type": {
+                    "type": "string"
+                  },
+                  "category": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "response_deadline": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "currency_code": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Valid CREATE_NEW_DRAFT preview with persisted analysis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RfxBuyerXlsxCreatePreviewResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Domain-invalid structured CREATE_NEW_DRAFT preview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RfxBuyerXlsxCreatePreviewResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body or uploaded file too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/rfx-events/xlsx-create/commit": {
+      "post": {
+        "tags": [
+          "RFx"
+        ],
+        "summary": "Commit buyer new RFx event XLSX create",
+        "operationId": "post_commit_buyer_new_rfx_event_xlsx_create",
+        "description": "Atomically create a new DRAFT RFx event from a persisted CREATE_NEW_DRAFT XLSX analysis.\n\nFeature flag: when `RFX_EXCEL_EXCHANGE_ENABLED` is false (default), the route returns **404** (feature disabled).\n\nAuthorization: **BuyerManage** role required; only the preview creator actor and resolved owner company may commit. Human JWT only.\n\nRequires `Idempotency-Key` header (max 128 chars). Request body contains only `analysis_id`.\n\nFirst successful commit and same-key replay both return **201** with the same `event_id`. Created event has `creation_channel=EXCEL`, `status=DRAFT`, and `questionnaire_enabled=false`. Lots are optional. Participants and scoring are not created.\n\nConflict machine codes: `analysis_expired`, `analysis_already_consumed`, `idempotency_conflict`, duplicate tenant `rfx_number`. Revalidation failures including an expired deadline return **422** `proposal_revalidation_failed` or `canonical_hash_mismatch` with zero event writes.\n\nGateway shared rate limit returns **429**.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XTenantID"
+          },
+          {
+            "$ref": "#/components/parameters/XCompanyID"
+          },
+          {
+            "$ref": "#/components/parameters/XLocale"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Client-supplied idempotency key for buyer XLSX create commit (max 128 chars).",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RfxBuyerXlsxCreateCommitRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "New DRAFT RFx event created from XLSX analysis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RfxBuyerXlsxCreateCommitResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Stored proposal failed revalidation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/rfx-events/{id}/carrier-response/submit": {
       "post": {
         "tags": [
@@ -30690,6 +31019,183 @@
             "items": {
               "$ref": "#/components/schemas/RfxBuyerXlsxImportPreviewIssue"
             }
+          }
+        }
+      },
+      "RfxBuyerXlsxCreatePreviewDraftSummary": {
+        "type": "object",
+        "required": [
+          "rfx_number",
+          "title",
+          "rfx_type",
+          "category",
+          "lot_count",
+          "section_count",
+          "question_count"
+        ],
+        "properties": {
+          "rfx_number": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "rfx_type": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "response_deadline": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "currency_code": {
+            "type": "string"
+          },
+          "lot_count": {
+            "type": "integer"
+          },
+          "section_count": {
+            "type": "integer"
+          },
+          "question_count": {
+            "type": "integer"
+          }
+        }
+      },
+      "RfxBuyerXlsxCreatePreviewResponse": {
+        "type": "object",
+        "required": [
+          "mode",
+          "schema_name",
+          "schema_version",
+          "owner_company_id",
+          "ready_to_commit",
+          "normalized_draft_summary",
+          "change_counts",
+          "errors",
+          "warnings"
+        ],
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "CREATE_NEW_DRAFT"
+            ]
+          },
+          "schema_name": {
+            "type": "string",
+            "example": "BINTRANS_RFX_BUYER_XLSX_V1"
+          },
+          "schema_version": {
+            "type": "string",
+            "example": "1"
+          },
+          "owner_company_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "analysis_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ready_to_commit": {
+            "type": "boolean"
+          },
+          "normalized_draft_summary": {
+            "$ref": "#/components/schemas/RfxBuyerXlsxCreatePreviewDraftSummary"
+          },
+          "change_counts": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "errors": {
+            "type": "array",
+            "maxItems": 2000,
+            "items": {
+              "$ref": "#/components/schemas/RfxBuyerXlsxImportPreviewIssue"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "maxItems": 2000,
+            "items": {
+              "$ref": "#/components/schemas/RfxBuyerXlsxImportPreviewIssue"
+            }
+          }
+        }
+      },
+      "RfxBuyerXlsxCreateCommitRequest": {
+        "type": "object",
+        "required": [
+          "analysis_id"
+        ],
+        "properties": {
+          "analysis_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "RfxBuyerXlsxCreateCommitResponse": {
+        "type": "object",
+        "required": [
+          "event_id",
+          "analysis_id",
+          "creation_channel",
+          "status",
+          "draft_version_id",
+          "draft_version_number",
+          "questionnaire_enabled",
+          "created_counts",
+          "committed_at"
+        ],
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "analysis_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "creation_channel": {
+            "type": "string",
+            "enum": [
+              "EXCEL"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT"
+            ]
+          },
+          "draft_version_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "draft_version_number": {
+            "type": "integer"
+          },
+          "questionnaire_enabled": {
+            "type": "boolean"
+          },
+          "created_counts": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "committed_at": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },

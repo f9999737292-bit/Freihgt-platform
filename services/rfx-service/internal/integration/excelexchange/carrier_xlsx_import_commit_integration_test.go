@@ -514,8 +514,8 @@ func TestE7P2INT113SubmittedBlocksCommit409(t *testing.T) {
 
 func TestE7P2INT114RouteOpenAPIParity6RoutesStatic(t *testing.T) {
 	routes := sharedrfx.E7ExcelExchangeRoutes()
-	if len(routes) != 6 {
-		t.Fatalf("expected 6 routes, got %d", len(routes))
+	if len(routes) != 8 {
+		t.Fatalf("expected 8 routes, got %d", len(routes))
 	}
 	var commitRoute sharedrfx.ExcelExchangeRoute
 	for _, route := range routes {

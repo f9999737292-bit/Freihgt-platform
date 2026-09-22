@@ -7,7 +7,8 @@ import (
 )
 
 const (
-	BuyerImportModeUpdateDraft = "UPDATE_DRAFT"
+	BuyerImportModeUpdateDraft    = "UPDATE_DRAFT"
+	BuyerImportModeCreateNewDraft = "CREATE_NEW_DRAFT"
 
 	IssueSeverityError   = "error"
 	IssueSeverityWarning = "warning"
@@ -37,6 +38,7 @@ const (
 	MachineCodeTooManyCells            = "too_many_cells"
 	MachineCodePreviewNotReady         = "preview_not_ready"
 	MachineCodeIssueLimitReached       = "ISSUE_LIMIT_REACHED"
+	MachineCodeInvalidEventShell       = "invalid_event_shell"
 )
 
 // BuyerImportLimits mirrors discovery §8.2.

@@ -175,6 +175,51 @@ func (h *ExcelExchangeHandler) CommitCarrierImportXLSX(w http.ResponseWriter, r 
 	respond.JSON(w, http.StatusOK, result)
 }
 
+func (h *ExcelExchangeHandler) PreviewBuyerXlsxCreate(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireActor(w, r)
+	if !ok {
+		return
+	}
+	in, err := ReadBuyerXlsxCreatePreviewRequest(w, r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	preview, err := h.service.PreviewBuyerXlsxCreateWorkbook(r.Context(), actor, in)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	switch xlsxexchange.ClassifyCreatePreviewErrors(preview.Errors) {
+	case xlsxexchange.PreviewErrorClassStructural:
+		respond.Error(w, service.StructuralCreatePreviewAppError(preview.Errors[0]))
+		return
+	case xlsxexchange.PreviewErrorClassDomain:
+		respond.JSON(w, http.StatusUnprocessableEntity, preview)
+		return
+	default:
+		respond.JSON(w, http.StatusOK, preview)
+	}
+}
+
+func (h *ExcelExchangeHandler) CommitBuyerXlsxCreate(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireActor(w, r)
+	if !ok {
+		return
+	}
+	var body domain.BuyerImportCommitInput
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		respond.Error(w, apperrors.Validation("invalid request body", map[string]any{"field": "body"}))
+		return
+	}
+	result, err := h.service.CommitBuyerXlsxCreateAnalysis(r.Context(), actor, body, r.Header.Get("Idempotency-Key"))
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusCreated, result)
+}
+
 func (h *ExcelExchangeHandler) CommitBuyerImportXLSX(w http.ResponseWriter, r *http.Request) {
 	actor, ok := requireActor(w, r)
 	if !ok {
