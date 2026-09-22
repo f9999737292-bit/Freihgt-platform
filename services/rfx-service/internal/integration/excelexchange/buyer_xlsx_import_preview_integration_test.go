@@ -462,8 +462,8 @@ func TestE7P2INT41CompetitorColumnRejected(t *testing.T) {
 
 func TestE7P2INT42RouteServiceGatewayOpenAPIParity(t *testing.T) {
 	routes := sharedrfx.E7ExcelExchangeRoutes()
-	if len(routes) != 8 {
-		t.Fatalf("expected 8 routes, got %d", len(routes))
+	if len(routes) != 9 {
+		t.Fatalf("expected 9 routes, got %d", len(routes))
 	}
 	env := setupTestEnv(t)
 	fix := seedBuyerFixture(t, env)
@@ -558,6 +558,17 @@ func TestE7P2INT42RouteServiceGatewayOpenAPIParity(t *testing.T) {
 			}
 			if !route.IdempotencyRequired {
 				t.Fatal("carrier commit route must require idempotency")
+			}
+		case "export_buyer_create_xlsx_template":
+			if route.OpenAPIOperationID != "get_buyer_new_rfx_event_xlsx_create_template" {
+				t.Fatalf("unexpected operationId=%q", route.OpenAPIOperationID)
+			}
+			if route.RBACPolicy != "PolicyBuyerManage" || route.SuccessStatus != http.StatusOK || route.IdempotencyRequired {
+				t.Fatalf("unexpected create template contract: %+v", route)
+			}
+			rec := getBuyerXlsxCreateTemplateHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, "")
+			if rec.Code != route.SuccessStatus {
+				t.Fatalf("create template status=%d want=%d body=%s", rec.Code, route.SuccessStatus, rec.Body.String())
 			}
 		case "preview_buyer_new_rfx_event_xlsx_create":
 			if route.OpenAPIOperationID != "post_preview_buyer_new_rfx_event_xlsx_create" {

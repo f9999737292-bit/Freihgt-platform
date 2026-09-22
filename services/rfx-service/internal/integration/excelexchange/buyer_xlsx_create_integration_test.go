@@ -487,20 +487,25 @@ func TestE7P2INT214FlagOffAndRateLimitContract(t *testing.T) {
 
 func TestE7P2INT215ManifestOpenAPIClassifierParity(t *testing.T) {
 	routes := sharedrfx.E7ExcelExchangeRoutes()
-	if len(routes) != 8 {
-		t.Fatalf("expected 8 routes, got %d", len(routes))
+	if len(routes) != 9 {
+		t.Fatalf("expected 9 routes, got %d", len(routes))
 	}
-	if sharedrfx.IsIntegrationProtectedRoute(http.MethodPost, "/api/v1/rfx-events/xlsx-create/preview") ||
+	if sharedrfx.IsIntegrationProtectedRoute(http.MethodGet, "/api/v1/rfx-events/xlsx-create/template") ||
+		sharedrfx.IsIntegrationProtectedRoute(http.MethodPost, "/api/v1/rfx-events/xlsx-create/preview") ||
 		sharedrfx.IsIntegrationProtectedRoute(http.MethodPost, "/api/v1/rfx-events/xlsx-create/commit") {
 		t.Fatal("create routes must not be ERP/integration protected")
 	}
-	if !sharedrfx.RequiresHumanAuth(http.MethodPost, "/api/v1/rfx-events/xlsx-create/preview") ||
+	if !sharedrfx.RequiresHumanAuth(http.MethodGet, "/api/v1/rfx-events/xlsx-create/template") ||
+		!sharedrfx.RequiresHumanAuth(http.MethodPost, "/api/v1/rfx-events/xlsx-create/preview") ||
 		!sharedrfx.RequiresHumanAuth(http.MethodPost, "/api/v1/rfx-events/xlsx-create/commit") {
 		t.Fatal("create routes must be human JWT classified")
 	}
 	seen := map[string]bool{}
 	for _, route := range routes {
 		seen[route.Name] = true
+		if route.Name == "export_buyer_create_xlsx_template" && route.OpenAPIOperationID != "get_buyer_new_rfx_event_xlsx_create_template" {
+			t.Fatalf("template operationId=%q", route.OpenAPIOperationID)
+		}
 		if route.Name == "preview_buyer_new_rfx_event_xlsx_create" && route.OpenAPIOperationID != "post_preview_buyer_new_rfx_event_xlsx_create" {
 			t.Fatalf("preview operationId=%q", route.OpenAPIOperationID)
 		}
@@ -508,7 +513,7 @@ func TestE7P2INT215ManifestOpenAPIClassifierParity(t *testing.T) {
 			t.Fatalf("commit operationId=%q", route.OpenAPIOperationID)
 		}
 	}
-	if !seen["preview_buyer_new_rfx_event_xlsx_create"] || !seen["commit_buyer_new_rfx_event_xlsx_create"] {
+	if !seen["export_buyer_create_xlsx_template"] || !seen["preview_buyer_new_rfx_event_xlsx_create"] || !seen["commit_buyer_new_rfx_event_xlsx_create"] {
 		t.Fatal("create routes missing from manifest")
 	}
 }

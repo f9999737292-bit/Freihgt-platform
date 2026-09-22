@@ -17,8 +17,8 @@ var embeddedExcelExchangeServiceRouter string
 func TestE7ExcelExchangeRouteParity(t *testing.T) {
 	t.Parallel()
 	routes := sharedrfx.E7ExcelExchangeRoutes()
-	if len(routes) != 8 {
-		t.Fatalf("expected exactly 8 excel exchange routes, got %d", len(routes))
+	if len(routes) != 9 {
+		t.Fatalf("expected exactly 9 excel exchange routes, got %d", len(routes))
 	}
 	serviceRouter := embeddedExcelExchangeServiceRouter
 	rfxOpenAPI, err := readExcelExchangeRepoFile(t, "packages/openapi/rfx-service.yaml")
@@ -176,6 +176,19 @@ func assertExcelExchangeOpenAPIOperation(t *testing.T, openAPI string, route sha
 		}
 		if !strings.Contains(pathBlock, "'422':") {
 			t.Fatal("openapi commit must declare 422 response")
+		}
+	case "export_buyer_create_xlsx_template":
+		if !strings.Contains(pathBlock, "type: string") || !strings.Contains(pathBlock, "format: binary") {
+			t.Fatal("openapi 200 response must declare string/binary workbook payload")
+		}
+		if !strings.Contains(pathBlock, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") {
+			t.Fatal("openapi 200 response must declare XLSX content type")
+		}
+		if !strings.Contains(pathBlock, "bintrans-rfx-buyer-xlsx-v1-create-template.xlsx") {
+			t.Fatal("openapi must document the CREATE template filename")
+		}
+		if !strings.Contains(pathBlock, "'429':") {
+			t.Fatal("openapi template download must declare 429")
 		}
 	case "preview_buyer_new_rfx_event_xlsx_create":
 		if !strings.Contains(pathBlock, "multipart/form-data") {

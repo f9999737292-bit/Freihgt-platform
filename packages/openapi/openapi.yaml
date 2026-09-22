@@ -7383,6 +7383,84 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/v1/rfx-events/xlsx-create/template:
+    get:
+      tags: [RFx]
+      summary: Download buyer new RFx event XLSX create template
+      operationId: get_buyer_new_rfx_event_xlsx_create_template
+      description: |
+        Download a blank CREATE-compatible BUYER XLSX V1 workbook.
+
+        Feature flag: when `RFX_EXCEL_EXCHANGE_ENABLED` is false (default), the route returns **404** (feature disabled).
+
+        Authorization: **BuyerManage** role required (`PLATFORM_ADMIN`, `PROCUREMENT_MANAGER`, `SHIPPER_ADMIN`, `FORWARDER_MANAGER`); buyer read-only and carrier roles are denied (**403**). Human JWT only. Integration OAuth/API key is not accepted.
+
+        Read-only GET. No request body. Query `tenant_id` is rejected (**403**). Tenant and company authority come only from verified auth context.
+
+        Success returns **200** binary `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` with `Content-Disposition: attachment; filename="bintrans-rfx-buyer-xlsx-v1-create-template.xlsx"`, `Cache-Control: no-store`, and `X-Content-Type-Options: nosniff`.
+
+        The workbook contains canonical sheets and headers plus Metadata `schema_name` / `schema_version` only. It does not write events, analyses, lots, questionnaire, participants, publish/submit/award, or ERP/TMS state.
+
+        Shared gateway rate limit returns **429**.
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: "Blank CREATE-compatible BUYER XLSX V1 workbook download. Filename bintrans-rfx-buyer-xlsx-v1-create-template.xlsx. Attachment, Cache-Control no-store, X-Content-Type-Options nosniff. Read-only; no event or analysis writes."
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Shared gateway rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/v1/rfx-events/xlsx-create/preview:
     post:
       tags: [RFx]

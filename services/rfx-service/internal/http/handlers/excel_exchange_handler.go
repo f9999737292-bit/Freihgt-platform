@@ -175,6 +175,19 @@ func (h *ExcelExchangeHandler) CommitCarrierImportXLSX(w http.ResponseWriter, r 
 	respond.JSON(w, http.StatusOK, result)
 }
 
+func (h *ExcelExchangeHandler) ExportBuyerCreateBlankXLSX(w http.ResponseWriter, r *http.Request) {
+	actor, ok := requireActor(w, r)
+	if !ok {
+		return
+	}
+	data, filename, err := h.service.ExportBuyerCreateBlankWorkbook(r.Context(), actor)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	respond.BinaryAttachment(w, http.StatusOK, service.BuyerDraftXLSXContentType, filename, data)
+}
+
 func (h *ExcelExchangeHandler) PreviewBuyerXlsxCreate(w http.ResponseWriter, r *http.Request) {
 	actor, ok := requireActor(w, r)
 	if !ok {

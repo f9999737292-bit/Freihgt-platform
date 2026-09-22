@@ -430,6 +430,22 @@ func (s *ExcelExchangeService) loadCreateCommitReplay(
 	return &replay, nil
 }
 
+// ExportBuyerCreateBlankWorkbook returns a CREATE-compatible blank BUYER XLSX V1 template.
+// It authorizes the actor and generates the file in memory without reading or writing RFx state.
+func (s *ExcelExchangeService) ExportBuyerCreateBlankWorkbook(
+	ctx context.Context,
+	actor domain.ActorContext,
+) ([]byte, string, error) {
+	if err := s.requireBuyerManageActor(ctx, actor); err != nil {
+		return nil, "", err
+	}
+	data, err := xlsxexchange.GenerateBuyerCreateBlankWorkbook()
+	if err != nil {
+		return nil, "", apperrors.Internal("failed to generate buyer create template workbook", err)
+	}
+	return data, xlsxexchange.BuyerCreateBlankWorkbookFilename, nil
+}
+
 func (s *ExcelExchangeService) requireBuyerManageActor(ctx context.Context, actor domain.ActorContext) error {
 	if err := actor.Validate(); err != nil {
 		return err
