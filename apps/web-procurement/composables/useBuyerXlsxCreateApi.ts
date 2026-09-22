@@ -16,9 +16,10 @@ import {
   buyerXlsxCreateCommitBody,
   validateBuyerXlsxCreateInput,
 } from '~/utils/buyerXlsxCreateForm'
+import { fetchBuyerXlsxCreateTemplate } from '~/utils/buyerXlsxCreateTemplate'
 
 export function useBuyerXlsxCreateApi() {
-  const { apiPost, apiPostForm } = useApi()
+  const { apiGetBlob, apiPost, apiPostForm } = useApi()
 
   async function previewBuyerCreate(
     file: File,
@@ -78,8 +79,13 @@ export function useBuyerXlsxCreateApi() {
     )
   }
 
+  async function downloadBuyerCreateTemplate() {
+    return fetchBuyerXlsxCreateTemplate(apiGetBlob)
+  }
+
   return {
     previewBuyerCreate,
     commitBuyerCreate,
+    downloadBuyerCreateTemplate,
   }
 }
