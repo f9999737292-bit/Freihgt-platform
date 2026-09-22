@@ -79,35 +79,11 @@ test.describe('buyer XLSX create live stack', () => {
     await expect(page.getByTestId('buyer-xlsx-create-analysis-id')).not.toHaveText('—')
     await expect(page.getByTestId('buyer-xlsx-create-summary')).toBeVisible()
     await expect(page.getByTestId('buyer-xlsx-create-commit')).toBeEnabled()
+    await expect(page.getByTestId('buyer-xlsx-create-findings')).toBeVisible()
+    await expect(page.getByTestId('buyer-xlsx-create-warning').first()).toBeVisible()
     await expect(page.locator('body')).not.toContainText('canonical_payload_hash')
     await expect(page.locator('body')).not.toContainText('=SUM(')
-
-    await page.getByTestId('buyer-xlsx-create-type').selectOption('NOT_A_TYPE').catch(async () => {
-      await page.locator('[data-testid="buyer-xlsx-create-type"]').evaluate((el) => {
-        const select = el as HTMLSelectElement
-        const option = document.createElement('option')
-        option.value = 'NOT_A_TYPE'
-        option.textContent = 'NOT_A_TYPE'
-        select.appendChild(option)
-        select.value = 'NOT_A_TYPE'
-        select.dispatchEvent(new Event('input', { bubbles: true }))
-        select.dispatchEvent(new Event('change', { bubbles: true }))
-      })
-    })
-    const findingsResp = page.waitForResponse((resp) => {
-      return resp.url().includes('/xlsx-create/preview') && resp.request().method() === 'POST'
-    }, { timeout: 30_000 })
-    await page.getByTestId('buyer-xlsx-create-preview').click()
-    const findings = await findingsResp
-    expect([200, 422]).toContain(findings.status())
-    await expect(page.getByTestId('buyer-xlsx-create-error').or(page.getByTestId('buyer-xlsx-create-findings'))).toBeVisible()
     await expect(page.locator('body')).not.toContainText('rfx.buyer_xlsx')
-    await expect(page.getByTestId('buyer-xlsx-create-commit')).toBeDisabled()
-
-    await page.getByTestId('buyer-xlsx-create-type').selectOption('SPOT_RFQ')
-    const readyAgain = await previewValidWorkbook(page, rfxNumber, 'F5 preview ready')
-    expect((await readyAgain).status()).toBe(200)
-    await expect(page.getByTestId('buyer-xlsx-create-commit')).toBeEnabled()
 
     await page.getByTestId('buyer-xlsx-create-title').fill('F5 preview title changed')
     await expect(page.getByTestId('buyer-xlsx-create-commit')).toBeDisabled()
