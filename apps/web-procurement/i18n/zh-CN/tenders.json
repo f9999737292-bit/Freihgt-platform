@@ -240,6 +240,22 @@
         "validation": "无法读取该工作簿。",
         "rateLimited": "Excel 请求过多，请稍后重试。",
         "unavailable": "从 Excel 创建暂时不可用。"
+      },
+      "template": {
+        "download": "下载空白模板",
+        "hint": "此空白模板用于从 Excel 创建新招标。填写后请在本页上传。下载不会创建招标。上传和创建不会自动发布招标，也不会自动添加参与者。",
+        "status": {
+          "downloading": "正在下载空白模板",
+          "success": "空白模板已下载。请填写后在本页上传。下载不会创建招标。"
+        },
+        "errors": {
+          "unauthorized": "下载空白模板需要有效的登录会话。",
+          "forbidden": "您没有下载空白模板的权限。",
+          "notFound": "空白模板不可用，或此功能已关闭。",
+          "rateLimited": "请求过多，请稍后再次下载。",
+          "unavailable": "空白模板下载失败，可以重试。",
+          "invalidBinary": "模板文件为空或无效，可以重试。"
+        }
       }
     },
     "countLabel": "个招标",
