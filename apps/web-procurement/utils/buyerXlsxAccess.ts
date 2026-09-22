@@ -18,3 +18,10 @@ export function canShowBuyerXlsxPanel(input: {
     && hasBuyerXlsxManageRole(input.roles)
     && String(input.eventStatus || '').toUpperCase() === 'DRAFT'
 }
+
+export function canShowBuyerXlsxCreateEntry(input: {
+  excelExchangeEnabled: boolean
+  roles: readonly string[]
+}): boolean {
+  return input.excelExchangeEnabled && hasBuyerXlsxManageRole(input.roles)
+}

@@ -4,6 +4,8 @@ import type { Company } from '~/types/company'
 import { TenantRequiredError } from '~/utils/apiClient'
 import { buildStatusFilterOptions } from '~/utils/rfxStatusFilters'
 import { shouldShowNotFound } from '~/utils/apiError'
+import { canShowBuyerXlsxCreateEntry } from '~/utils/buyerXlsxAccess'
+import Button from '~/components/ui/Button.vue'
 
 definePageMeta({ middleware: 'auth', layout: 'default' })
 
@@ -13,6 +15,14 @@ const { hasTenant } = useTenantContext()
 const { canManageTenders } = usePermissions()
 const { pushToast } = useToast()
 const { t } = useI18n()
+const { enabled: excelEnabled } = useRfxExcelExchangeFeature()
+
+const showCreateFromExcel = computed(() =>
+  canShowBuyerXlsxCreateEntry({
+    excelExchangeEnabled: excelEnabled.value,
+    roles: useAuthStore().user?.roles ?? [],
+  }),
+)
 
 const items = ref<RfxEvent[]>([])
 const total = ref(0)
@@ -115,6 +125,14 @@ onMounted(async () => {
       <template #actions>
         <Button v-if="canManageTenders()" @click="$router.push('/tenders/new')">
           {{ $t('tenders.create') }}
+        </Button>
+        <Button
+          v-if="showCreateFromExcel"
+          variant="secondary"
+          data-testid="buyer-xlsx-create-entry"
+          @click="$router.push('/tenders/new-from-xlsx')"
+        >
+          {{ $t('tenders.createFromExcel') }}
         </Button>
       </template>
     </PageHeader>
