@@ -174,7 +174,7 @@ func (s *ExcelExchangeService) CommitBuyerXlsxCreateAnalysis(
 	in domain.BuyerImportCommitInput,
 	idempotencyKey string,
 ) (*BuyerXlsxCreateCommitResponse, error) {
-	if err := s.requireBuyerManageActor(ctx, actor); err != nil {
+	if err := actor.Validate(); err != nil {
 		return nil, err
 	}
 	if err := domain.ValidateBuyerImportCommitInput(in); err != nil {
@@ -202,6 +202,12 @@ func (s *ExcelExchangeService) CommitBuyerXlsxCreateAnalysis(
 	}
 	requestBodyHash, err := hashRequestBody(domain.NewBuyerImportCommitIdempotencyPayload(in.AnalysisID))
 	if err != nil {
+		return nil, err
+	}
+	if _, err := s.importAnalysisRepo.GetByID(ctx, in.AnalysisID, actor.TenantID); err != nil {
+		return nil, err
+	}
+	if err := s.requireBuyerManageActor(ctx, actor); err != nil {
 		return nil, err
 	}
 	if replay, err := s.loadCreateCommitReplay(ctx, scope, idempotencyKey, requestBodyHash); err != nil || replay != nil {
@@ -294,6 +300,12 @@ func (s *ExcelExchangeService) CommitBuyerXlsxCreateAnalysis(
 		}
 
 		eventInput := xlsxexchange.EventShellToCreateInput(actor.TenantID, stored)
+		if eventInput.ResponseDeadline != nil && !eventInput.ResponseDeadline.After(now) {
+			return apperrors.Unprocessable("stored create proposal failed revalidation", map[string]any{
+				"machine_code": domain.MachineCodeProposalRevalidation,
+				"field":        "response_deadline",
+			})
+		}
 		if err := domain.ValidateCreateRfxEventInput(eventInput); err != nil {
 			return apperrors.Unprocessable("stored create proposal failed revalidation", map[string]any{
 				"machine_code": domain.MachineCodeProposalRevalidation,

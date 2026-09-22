@@ -20,7 +20,7 @@ func TestE7P2CommitMatrixIDsCompleteAndUnique(t *testing.T) {
 		t.Fatalf("cwd: %v", err)
 	}
 	found := map[int]string{}
-	re := regexp.MustCompile(`^TestE7P2INT(\d{2})`)
+	re := regexp.MustCompile(`^TestE7P2INT(\d{2,3})`)
 	fset := token.NewFileSet()
 	err = filepath.Walk(dir, func(path string, info os.FileInfo, walkErr error) error {
 		if walkErr != nil {

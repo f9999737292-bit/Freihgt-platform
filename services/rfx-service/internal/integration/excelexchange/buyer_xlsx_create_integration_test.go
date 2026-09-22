@@ -53,6 +53,13 @@ func TestE7P2INT196PreviewReadyNewEventNullTarget(t *testing.T) {
 	if targetType != domain.ImportTargetTypeNewEvent || targetID != nil || targetVersion != nil {
 		t.Fatalf("target_type=%s target_id=%v target_version=%v", targetType, targetID, targetVersion)
 	}
+	row := loadPersistedAnalysis(t, env, *preview.AnalysisID, fix.TenantID)
+	if err := xlsxexchange.VerifyStoredCanonicalPayloadHash(row.CanonicalPayloadJSON, row.CanonicalHash); err != nil {
+		t.Fatalf("persisted canonical hash: %v", err)
+	}
+	if row.CanonicalHash == "" || len(row.CanonicalHash) != 64 {
+		t.Fatalf("canonical_hash=%q", row.CanonicalHash)
+	}
 	if countTenantEvents(t, env, fix.TenantID) != beforeEvents {
 		t.Fatal("preview must not create an event")
 	}
@@ -96,6 +103,12 @@ func TestE7P2INT198StructuralAndOversized(t *testing.T) {
 			t.Fatalf("status=%d want 413 body=%s", rec.Code, rec.Body.String())
 		}
 	})
+	t.Run("unsafe_formula", func(t *testing.T) {
+		draft := seedRichDraftEvent(t, env, fix)
+		workbook := injectFormulaIntoWorkbook(t, exportRichDraftWorkbook(t, env, fix, draft))
+		rec := postBuyerXlsxCreatePreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, workbook, defaultCreatePreviewFields(fix, "RFX-F5-198C"))
+		assertHTTPErrorCode(t, rec, http.StatusBadRequest, apperrors.CodeValidation)
+	})
 }
 
 func TestE7P2INT199BuyerReadAndCarrierForbidden(t *testing.T) {
@@ -137,6 +150,30 @@ func TestE7P2INT201AnalysisActorCompanyIsolation(t *testing.T) {
 	assertHTTPErrorCode(t, otherActor, http.StatusForbidden, apperrors.CodeForbidden)
 	otherTenant := postBuyerXlsxCreateCommitHTTP(t, env, enabledExcelExchangeConfig(), fix.CrossTenant, *preview.AnalysisID, "e7p2-int-201-t")
 	assertHTTPErrorCode(t, otherTenant, http.StatusNotFound, apperrors.CodeNotFound)
+
+	tampered := decodeCreatePreviewResponse(t, postBuyerXlsxCreatePreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, workbook, defaultCreatePreviewFields(fix, "RFX-F5-201H")))
+	mismatchID := insertCreateAnalysisWithHashMismatch(t, env, *tampered.AnalysisID, fix.TenantID)
+	mismatch := postBuyerXlsxCreateCommitHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, mismatchID, "e7p2-int-201-hash")
+	assertHTTPErrorCode(t, mismatch, http.StatusUnprocessableEntity, apperrors.CodeUnprocessable)
+	assertMachineCode(t, mismatch, domain.MachineCodeCanonicalHashMismatch)
+	if countEventsByNumber(t, env, fix.TenantID, "RFX-F5-201H") != 0 {
+		t.Fatal("hash mismatch created an event")
+	}
+
+	updateRec := postBuyerXlsxImportPreviewHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, draft.Event.ID, workbook, previewHTTPOptions{})
+	if updateRec.Code != http.StatusOK {
+		t.Fatalf("update preview=%d body=%s", updateRec.Code, updateRec.Body.String())
+	}
+	updatePreview := decodePreviewResponse(t, updateRec)
+	if updatePreview.AnalysisID == nil {
+		t.Fatal("update preview missing analysis")
+	}
+	stale := postBuyerXlsxCreateCommitHTTP(t, env, enabledExcelExchangeConfig(), fix.BuyerA, *updatePreview.AnalysisID, "e7p2-int-201-stale")
+	assertHTTPErrorCode(t, stale, http.StatusConflict, apperrors.CodeConflict)
+	assertMachineCode(t, stale, domain.MachineCodeStaleTarget)
+	if countEventsByNumber(t, env, fix.TenantID, "RFX-F5-201") != 0 {
+		t.Fatal("stale UPDATE analysis created a CREATE event")
+	}
 }
 
 func TestE7P2INT202ExpiredAndConsumedAnalysis(t *testing.T) {
@@ -283,6 +320,13 @@ func TestE7P2INT207CreationChannelExcelDraft(t *testing.T) {
 	if meta.CreationChannel != domain.CreationChannelExcel {
 		t.Fatalf("persisted channel=%q", meta.CreationChannel)
 	}
+	var participants int
+	if err := env.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM rfx.rfx_participants WHERE rfx_event_id = $1 AND tenant_id = $2`, result.EventID, fix.TenantID).Scan(&participants); err != nil {
+		t.Fatalf("participants: %v", err)
+	}
+	if participants != 0 {
+		t.Fatalf("participants=%d", participants)
+	}
 }
 
 func TestE7P2INT208ZeroLotDraftAllowed(t *testing.T) {
@@ -424,7 +468,9 @@ func TestE7P2INT214FlagOffAndRateLimitContract(t *testing.T) {
 	draft := seedRichDraftEvent(t, env, fix)
 	workbook := exportRichDraftWorkbook(t, env, fix, draft)
 	rec := postBuyerXlsxCreatePreviewHTTP(t, env, config.Config{RfxExcelExchangeEnabled: false}, fix.BuyerA, workbook, defaultCreatePreviewFields(fix, "RFX-F5-214"))
-	assertHTTPErrorCode(t, rec, http.StatusNotFound, apperrors.CodeNotFound)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("flag-off status=%d want 404 body=%s", rec.Code, rec.Body.String())
+	}
 	routes := sharedrfx.E7ExcelExchangeRoutes()
 	var commit sharedrfx.ExcelExchangeRoute
 	for _, route := range routes {

@@ -1565,3 +1565,66 @@ func emptyQuestionnaireWorkbook(t *testing.T, data []byte) []byte {
 	}
 	return out.Bytes()
 }
+
+func insertCreateAnalysisWithHashMismatch(t *testing.T, env *testEnv, sourceID, tenantID uuid.UUID) uuid.UUID {
+	t.Helper()
+	source := loadPersistedAnalysis(t, env, sourceID, tenantID)
+	id := uuid.New()
+	_, err := env.pool.Exec(context.Background(), `
+		INSERT INTO rfx.rfx_import_analyses (
+			id, tenant_id, actor_id, actor_company_id, workbook_type, schema_version,
+			target_type, target_id, target_version, canonical_payload_json, canonical_hash,
+			status, validation_summary, created_at, expires_at
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+		)`,
+		id, source.TenantID, source.ActorID, source.ActorCompanyID, source.WorkbookType, source.SchemaVersion,
+		source.TargetType, source.TargetID, source.TargetVersion, source.CanonicalPayloadJSON,
+		"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+		domain.ImportAnalysisStatusPreviewed, source.ValidationSummary, source.CreatedAt, source.ExpiresAt,
+	)
+	if err != nil {
+		t.Fatalf("insert mismatched create analysis: %v", err)
+	}
+	return id
+}
+
+func injectFormulaIntoWorkbook(t *testing.T, data []byte) []byte {
+	t.Helper()
+	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		t.Fatalf("zip: %v", err)
+	}
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	injected := false
+	for _, file := range reader.File {
+		rc, err := file.Open()
+		if err != nil {
+			t.Fatalf("open %s: %v", file.Name, err)
+		}
+		body, err := io.ReadAll(rc)
+		_ = rc.Close()
+		if err != nil {
+			t.Fatalf("read %s: %v", file.Name, err)
+		}
+		if strings.Contains(file.Name, "xl/worksheets/") && strings.HasSuffix(file.Name, ".xml") && !injected {
+			body = []byte(strings.Replace(string(body), "<c ", "<c><f>1+1</f></c><c ", 1))
+			injected = true
+		}
+		w, err := zw.Create(file.Name)
+		if err != nil {
+			t.Fatalf("create %s: %v", file.Name, err)
+		}
+		if _, err := w.Write(body); err != nil {
+			t.Fatalf("write %s: %v", file.Name, err)
+		}
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatalf("close zip: %v", err)
+	}
+	if !injected {
+		t.Fatal("workbook had no worksheet cell to inject a formula")
+	}
+	return buf.Bytes()
+}

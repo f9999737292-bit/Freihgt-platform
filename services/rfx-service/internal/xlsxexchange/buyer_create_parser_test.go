@@ -164,3 +164,58 @@ func TestCanonicalCreatePayloadOmitsTrustedWorkbookIDs(t *testing.T) {
 		t.Fatal("CREATE payload must include mode")
 	}
 }
+
+func TestCanonicalCreatePayloadHashIgnoresWorkbookIdentity(t *testing.T) {
+	snapshot := validImportSnapshot()
+	data, err := GenerateBuyerDraftWorkbook(snapshot)
+	if err != nil {
+		t.Fatalf("generate: %v", err)
+	}
+	preview, err := ParseBuyerCreatePreview(context.Background(), data)
+	if err != nil || !preview.ReadyToCommit {
+		t.Fatalf("parse: err=%v errors=%v", err, preview.Errors)
+	}
+	shell := BuyerCreateEventShell{
+		RfxNumber:      "RFX-CREATE-HASH",
+		Title:          "Create hash",
+		RfxType:        "SPOT_RFQ",
+		Category:       "FREIGHT",
+		OwnerCompanyID: uuid.MustParse("11111111-1111-1111-1111-111111111111"),
+	}
+	first, err := CanonicalCreatePayloadJSON(shell, preview)
+	if err != nil {
+		t.Fatalf("canonical: %v", err)
+	}
+	firstHash, err := StableStoredPayloadHash(first)
+	if err != nil {
+		t.Fatalf("hash: %v", err)
+	}
+	snapshot.Metadata.RfxEventID = uuid.New()
+	snapshot.Metadata.EventRowVersion++
+	altData, err := GenerateBuyerDraftWorkbook(snapshot)
+	if err != nil {
+		t.Fatalf("generate alt: %v", err)
+	}
+	altPreview, err := ParseBuyerCreatePreview(context.Background(), altData)
+	if err != nil || !altPreview.ReadyToCommit {
+		t.Fatalf("parse alt: err=%v errors=%v", err, altPreview.Errors)
+	}
+	second, err := CanonicalCreatePayloadJSON(shell, altPreview)
+	if err != nil {
+		t.Fatalf("canonical alt: %v", err)
+	}
+	secondHash, err := StableStoredPayloadHash(second)
+	if err != nil {
+		t.Fatalf("hash alt: %v", err)
+	}
+	if firstHash != secondHash {
+		t.Fatalf("CREATE hash must ignore workbook identity first=%s second=%s", firstHash, secondHash)
+	}
+	update, err := ParseBuyerImportPreview(context.Background(), data, targetFromSnapshot(validImportSnapshot()))
+	if err != nil || !update.ReadyToCommit {
+		t.Fatalf("update parse: err=%v errors=%v", err, update.Errors)
+	}
+	if update.CanonicalPayloadHash == firstHash {
+		t.Fatal("CREATE hash must diverge from UPDATE_EXISTING_DRAFT hash")
+	}
+}
