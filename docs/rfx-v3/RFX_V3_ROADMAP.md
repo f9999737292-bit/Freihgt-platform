@@ -130,6 +130,7 @@ These are assigned to the **earliest appropriate wave** — not deferred beyond 
 | **E7 Phase 2 Frontend F3 Late Submission** | web-procurement carrier request/mine, buyer queue approve/reject, late questionnaire submit of an existing DRAFT in an APPROVED window | **IMPLEMENTED_ACCEPTED** — PR #150 (product head `22536fb2`, controller CI `35523932949`, verdict `ACCEPT_FRONTEND_PHASE2_F3`) |
 | **E7 Phase 2 Frontend F4 Human Provenance** | web-procurement `/tenders/:id` shows stored `creation_channel` from human JWT `GET /api/v1/rfx-events/{id}` (RU/EN/ZH; no `external_link`; no `/integrations/erp/*`) | **IMPLEMENTED_ACCEPTED** — PR #151 (product head `ee14a606`, controller CI `35532693100`, verdict `ACCEPT_FRONTEND_PHASE2_F4`) |
 | **E7 Phase 2 Frontend F5 Create-from-XLSX upload-only** | web-procurement `/tenders/new-from-xlsx` human-JWT upload-only preview/commit; HTTP 201 → DRAFT `creation_channel=EXCEL`; no publish/submit/ERP; no blank-template download | **IMPLEMENTED_ACCEPTED** — PR #154 (product head `2acb7c0e`, controller CI `35731621656`, verdict `ACCEPT_F5_FRONTEND_UPLOAD_ONLY`) |
+| **E7 Phase 2 F5 XLSX template acquisition discovery** | Supported way for a buyer to obtain a CREATE-compatible blank XLSX | `F5_TEMPLATE_ACQUISITION_STATUS=DISCOVERY_COMPLETE_AWAITING_CONTROLLER_REVIEW` |
 | **E7 Phase 2 Frontend** | Remaining Frontend Phase 2 after F5 upload-only (blank-template acquisition, not an ERP browser client) | **IMPLEMENTATION_IN_PROGRESS** |
 | **E7 Phase 2 Training** | RU/EN/ZH training course | **NOT_STARTED** |
 | **E7 Browser Acceptance** | Final real browser acceptance gate (one event / one response through Award; no ERP browser client; no Award→TO) | **IMPLEMENTED_ACCEPTED** — PR #152 (product head `fd5b615f`, product CI `35644222482`, 13/13 passed 0 skipped retries 0, verdict `ACCEPT_E7_BROWSER_ACCEPTANCE`) |
@@ -273,6 +274,7 @@ F5_FRONTEND_UPLOAD_ONLY_CI_RUN=35731621656
 F5_FRONTEND_UPLOAD_ONLY_CONTRACT_VERDICT=ACCEPT_F5_FRONTEND_UPLOAD_ONLY
 F5_TEMPLATE_ACQUISITION_DECISION=A_UPLOAD_ONLY_FIRST_WAVE
 F5_TEMPLATE_ACQUISITION_DECISION_REQUIRED=YES
+F5_TEMPLATE_ACQUISITION_STATUS=DISCOVERY_COMPLETE_AWAITING_CONTROLLER_REVIEW
 F5_N1=WALL_CLOCK_VALIDATION_PLUS_COMMIT_NOWFN
 F5_N2=CROSS_TENANT_FIXTURE_NOT_FOREIGN_BUYER_MANAGE
 F5_N3=COMMIT_SHARES_RBAC_FLAG_MIDDLEWARE_WITH_PREVIEW
