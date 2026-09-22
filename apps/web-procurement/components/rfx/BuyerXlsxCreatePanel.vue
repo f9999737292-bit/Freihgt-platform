@@ -24,7 +24,10 @@ import {
   validateBuyerXlsxCreateInput,
 } from '~/utils/buyerXlsxCreateForm'
 import { BUYER_XLSX_CREATE_MAX_UPLOAD_BYTES } from '~/utils/buyerXlsxCreateApiRoutes'
+import { buyerXlsxCreateTemplateFlowSnapshot } from '~/utils/buyerXlsxCreateTemplate'
+import type { BuyerXlsxCreateTemplateLabels } from '~/utils/buyerXlsxCreateTemplate'
 import { resolveBuyerXlsxIssueCopy } from '~/utils/buyerXlsxIssueText'
+import BuyerXlsxCreateTemplateDownload from '~/components/rfx/BuyerXlsxCreateTemplateDownload.vue'
 import Button from '~/components/ui/Button.vue'
 import Card from '~/components/ui/Card.vue'
 import Input from '~/components/ui/Input.vue'
@@ -40,7 +43,7 @@ const { getUserCompanies } = useCompanies()
 const { pushToast } = useToast()
 const { setCompany } = useTenantContext()
 const { enabled: excelEnabled } = useRfxExcelExchangeFeature()
-const { previewBuyerCreate, commitBuyerCreate } = useBuyerXlsxCreateApi()
+const { previewBuyerCreate, commitBuyerCreate, downloadBuyerCreateTemplate } = useBuyerXlsxCreateApi()
 const router = useRouter()
 const idempotency = createBuyerXlsxCreateIdempotencyStore()
 
@@ -70,12 +73,33 @@ const analysisInvalidated = ref(false)
 const statusMessage = ref('')
 const previewFingerprint = ref('')
 
+const buyerRoles = computed(() => useAuthStore().user?.roles ?? [])
 const visible = computed(() =>
   canShowBuyerXlsxCreateEntry({
     excelExchangeEnabled: excelEnabled.value,
-    roles: useAuthStore().user?.roles ?? [],
+    roles: buyerRoles.value,
   }),
 )
+const templateLabels = computed<BuyerXlsxCreateTemplateLabels>(() => ({
+  download: t('tenders.buyerXlsxCreate.template.download'),
+  downloading: t('tenders.buyerXlsxCreate.template.status.downloading'),
+  success: t('tenders.buyerXlsxCreate.template.status.success'),
+  hint: t('tenders.buyerXlsxCreate.template.hint'),
+  unauthorized: t('tenders.buyerXlsxCreate.template.errors.unauthorized'),
+  forbidden: t('tenders.buyerXlsxCreate.template.errors.forbidden'),
+  notFound: t('tenders.buyerXlsxCreate.template.errors.notFound'),
+  rateLimited: t('tenders.buyerXlsxCreate.template.errors.rateLimited'),
+  unavailable: t('tenders.buyerXlsxCreate.template.errors.unavailable'),
+  invalidBinary: t('tenders.buyerXlsxCreate.template.errors.invalidBinary'),
+}))
+const templateFlow = computed(() => buyerXlsxCreateTemplateFlowSnapshot({
+  file: selectedFile.value,
+  metadata,
+  preview: preview.value,
+  idempotencyKey: preview.value?.analysis_id
+    ? idempotency.currentKey(preview.value.analysis_id)
+    : null,
+}))
 const busy = computed(() => previewing.value || committing.value)
 const commitEnabled = computed(() =>
   canCommitBuyerXlsxCreatePreview(preview.value, {
@@ -334,24 +358,35 @@ onMounted(() => {
         </div>
       </fieldset>
 
-      <label class="buyer-xlsx-create__upload">
-        <span class="buyer-xlsx-create__upload-label">{{ $t('tenders.buyerXlsxCreate.uploadLabel') }}</span>
-        <input
-          ref="fileInput"
-          data-testid="buyer-xlsx-create-file"
-          type="file"
-          accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-          :disabled="busy || Boolean(commitResult)"
-          :aria-describedby="'buyer-xlsx-create-status'"
-          @change="onFileChange"
-        >
-        <span class="buyer-xlsx-create__upload-text">
-          {{ selectedFile ? selectedFile.name : $t('tenders.buyerXlsxCreate.chooseFile') }}
-        </span>
-      </label>
-      <p class="buyer-xlsx-create__limit">
-        {{ $t('tenders.buyerXlsxCreate.sizeLimit', { size: BUYER_XLSX_CREATE_MAX_UPLOAD_BYTES / (1024 * 1024) }) }}
-      </p>
+      <div class="buyer-xlsx-create__acquire">
+        <BuyerXlsxCreateTemplateDownload
+          :excel-exchange-enabled="excelEnabled"
+          :roles="buyerRoles"
+          :download="downloadBuyerCreateTemplate"
+          :labels="templateLabels"
+          :flow="templateFlow"
+        />
+        <div class="buyer-xlsx-create__upload-column">
+          <label class="buyer-xlsx-create__upload">
+            <span class="buyer-xlsx-create__upload-label">{{ $t('tenders.buyerXlsxCreate.uploadLabel') }}</span>
+            <input
+              ref="fileInput"
+              data-testid="buyer-xlsx-create-file"
+              type="file"
+              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              :disabled="busy || Boolean(commitResult)"
+              :aria-describedby="'buyer-xlsx-create-status'"
+              @change="onFileChange"
+            >
+            <span class="buyer-xlsx-create__upload-text">
+              {{ selectedFile ? selectedFile.name : $t('tenders.buyerXlsxCreate.chooseFile') }}
+            </span>
+          </label>
+          <p class="buyer-xlsx-create__limit">
+            {{ $t('tenders.buyerXlsxCreate.sizeLimit', { size: BUYER_XLSX_CREATE_MAX_UPLOAD_BYTES / (1024 * 1024) }) }}
+          </p>
+        </div>
+      </div>
 
       <div class="buyer-xlsx-create__actions">
         <Button
@@ -499,6 +534,18 @@ onMounted(() => {
   border: 0;
   margin: 0 0 1rem;
   padding: 0;
+}
+
+.buyer-xlsx-create__acquire {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 1.5rem;
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
+}
+
+.buyer-xlsx-create__upload-column {
+  flex: 1 1 16rem;
 }
 
 .buyer-xlsx-create__upload {

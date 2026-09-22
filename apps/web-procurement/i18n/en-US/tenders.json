@@ -240,6 +240,22 @@
         "validation": "The workbook could not be read.",
         "rateLimited": "Too many Excel requests. Try again shortly.",
         "unavailable": "Create from Excel is temporarily unavailable."
+      },
+      "template": {
+        "download": "Download blank template",
+        "hint": "This blank template is for Create from Excel and a new tender. After you fill it in, upload it on this page. Downloading does not create a tender. Uploading and creating a tender do not publish it automatically or add participants.",
+        "status": {
+          "downloading": "Downloading blank template",
+          "success": "Blank template downloaded. Fill it in and upload it on this page. Downloading does not create a tender."
+        },
+        "errors": {
+          "unauthorized": "An active session is required to download the blank template.",
+          "forbidden": "You do not have permission to download the blank template.",
+          "notFound": "The blank template is unavailable, or this feature is turned off.",
+          "rateLimited": "Too many requests. Try the download again later.",
+          "unavailable": "The blank template could not be downloaded. You can try again.",
+          "invalidBinary": "The template file was empty or invalid. You can try again."
+        }
       }
     },
     "countLabel": "tenders",

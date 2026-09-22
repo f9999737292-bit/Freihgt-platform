@@ -1,5 +1,7 @@
 export const BUYER_XLSX_CREATE_PREVIEW_PATH = '/api/v1/rfx-events/xlsx-create/preview'
 export const BUYER_XLSX_CREATE_COMMIT_PATH = '/api/v1/rfx-events/xlsx-create/commit'
+export const BUYER_XLSX_CREATE_TEMPLATE_PATH = '/api/v1/rfx-events/xlsx-create/template'
+export const BUYER_XLSX_CREATE_TEMPLATE_FILENAME = 'bintrans-rfx-buyer-xlsx-v1-create-template.xlsx'
 
 export const BUYER_XLSX_CREATE_MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 
