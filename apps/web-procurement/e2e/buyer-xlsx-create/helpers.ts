@@ -49,6 +49,10 @@ export function attachCreateNetworkProbe(page: Page): CreateNetworkProbe {
     if (req.method() === 'POST' && url.includes('/xlsx-create/commit')) {
       probe.commitKeys.push(req.headers()['idempotency-key'] || '')
     }
+    if (req.method() === 'POST' && url.includes('/xlsx-create/preview')) {
+      const raw = req.postDataBuffer()?.toString('latin1') || ''
+      if (raw) probe.previewBodies.push(raw)
+    }
   })
   page.on('response', (resp) => {
     const url = resp.url()
@@ -56,6 +60,31 @@ export function attachCreateNetworkProbe(page: Page): CreateNetworkProbe {
     probe.response.push(`${resp.request().method()} ${resp.status()} ${url}`)
   })
   return probe
+}
+
+export async function assertLivePreviewMultipart(
+  page: Page,
+  request: { headers: () => Record<string, string>; postDataBuffer: () => Buffer | null },
+) {
+  const contentType = request.headers()['content-type'] || ''
+  expect(contentType, `preview content-type=${contentType}`).toMatch(/multipart\/form-data/i)
+  const raw = request.postDataBuffer()?.toString('latin1') || ''
+  let names = [...raw.matchAll(/name="([^"]+)"/g)].map((match) => match[1])
+  if (names.length === 0) {
+    names = await page.evaluate(() => {
+      const observed = (window as Window & { __f5CreatePreviewParts?: string[][] }).__f5CreatePreviewParts
+      return observed?.at(-1) ?? []
+    })
+  }
+  expect(names, `preview multipart fields=${JSON.stringify(names)}`).toEqual(expect.arrayContaining([
+    'file',
+    'owner_company_id',
+    'rfx_number',
+    'title',
+    'rfx_type',
+    'category',
+  ]))
+  expect(names).not.toContain('tenant_id')
 }
 
 export function formatCreateNetworkProbe(probe: CreateNetworkProbe): string {
@@ -109,6 +138,30 @@ export async function seedCreateSession(
       localStorage.removeItem('freight_procurement_rfx_excel_exchange')
     }
     document.cookie = 'freight_procurement_locale=en-US; path=/'
+    const observed = window as Window & {
+      __f5CreatePreviewWrapped?: boolean
+      __f5CreatePreviewParts?: string[][]
+    }
+    if (!observed.__f5CreatePreviewWrapped) {
+      observed.__f5CreatePreviewWrapped = true
+      observed.__f5CreatePreviewParts = []
+      const orig = window.fetch.bind(window)
+      window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+        try {
+          const url = typeof input === 'string'
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url
+          if (String(url).includes('/xlsx-create/preview') && init?.body instanceof FormData) {
+            observed.__f5CreatePreviewParts!.push(Array.from(init.body.keys()))
+          }
+        } catch {
+          // Observer must never block the live preview request.
+        }
+        return orig(input, init)
+      }
+    }
   }, {
     token: input.token,
     user: input.user,
@@ -128,6 +181,7 @@ export async function openTendersList(page: Page) {
   })
   await page.goto(`${webURL}/tenders`, { waitUntil: 'domcontentloaded' })
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByRole('heading', { name: 'Tenders' })).toBeVisible({ timeout: 30_000 })
 }
 
 export async function fillCreateMetadata(page: Page, rfxNumber: string, title: string) {

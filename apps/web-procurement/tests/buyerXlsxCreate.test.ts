@@ -363,5 +363,6 @@ describe('buyer XLSX create i18n and source safety', () => {
     expect(panel).toContain('/tenders/${result.event_id}')
     expect(readSource('pages/tenders/index.vue')).toContain('/tenders/new-from-xlsx')
     expect(readSource('pages/tenders/index.vue')).toContain('buyer-xlsx-create-entry')
+    expect(readSource('pages/tenders/index.vue')).toContain("import PageHeader from '~/components/ui/PageHeader.vue'")
   })
 })

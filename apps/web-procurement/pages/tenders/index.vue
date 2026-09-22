@@ -6,6 +6,7 @@ import { buildStatusFilterOptions } from '~/utils/rfxStatusFilters'
 import { shouldShowNotFound } from '~/utils/apiError'
 import { canShowBuyerXlsxCreateEntry } from '~/utils/buyerXlsxAccess'
 import Button from '~/components/ui/Button.vue'
+import PageHeader from '~/components/ui/PageHeader.vue'
 
 definePageMeta({ middleware: 'auth', layout: 'default' })
 
@@ -16,11 +17,12 @@ const { canManageTenders } = usePermissions()
 const { pushToast } = useToast()
 const { t } = useI18n()
 const { enabled: excelEnabled } = useRfxExcelExchangeFeature()
+const authStore = useAuthStore()
 
 const showCreateFromExcel = computed(() =>
   canShowBuyerXlsxCreateEntry({
     excelExchangeEnabled: excelEnabled.value,
-    roles: useAuthStore().user?.roles ?? [],
+    roles: authStore.user?.roles ?? [],
   }),
 )
 

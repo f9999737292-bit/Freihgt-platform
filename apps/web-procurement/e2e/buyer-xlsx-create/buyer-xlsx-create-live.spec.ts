@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
+  assertLivePreviewMultipart,
   attachCreateNetworkProbe,
   authHeaders,
   buyerCompanyId,
@@ -71,14 +72,7 @@ test.describe('buyer XLSX create live stack', () => {
     const previewResp = await previewValidWorkbook(page, rfxNumber, 'F5 preview ready')
     const preview = await previewResp
     expect(preview.status(), formatCreateNetworkProbe(probe)).toBe(200)
-    const previewBody = preview.request().postData() || ''
-    expect(previewBody).not.toContain('tenant_id')
-    expect(previewBody).toContain('owner_company_id')
-    expect(previewBody).toContain('rfx_number')
-    expect(previewBody).toContain('title')
-    expect(previewBody).toContain('rfx_type')
-    expect(previewBody).toContain('category')
-    expect(previewBody).toContain('name="file"')
+    await assertLivePreviewMultipart(page, preview.request())
 
     await expect(page.getByTestId('buyer-xlsx-create-result')).toBeVisible()
     await expect(page.getByTestId('buyer-xlsx-create-ready')).toHaveText(/yes/i)
