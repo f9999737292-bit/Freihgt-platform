@@ -7,15 +7,27 @@ DISCOVERY_ONLY=YES
 IMPLEMENTATION_AUTHORIZED=NO
 PRODUCT_CODE_CHANGES=NO
 MIGRATIONS_AUTHORIZED=NO
-MERGE_AUTHORIZED=NO
-F5_TEMPLATE_ACQUISITION_STATUS=DISCOVERY_COMPLETE_AWAITING_CONTROLLER_REVIEW
+F5_TEMPLATE_ACQUISITION_STATUS=DISCOVERY_ACCEPTED
+CONTROLLER_VERDICT=ACCEPT_F5_TEMPLATE_ACQUISITION_SCOPE
 F5_TEMPLATE_ACQUISITION_IMPLEMENTATION_AUTHORIZED=NO
 F5_OVERALL_STATUS=IMPLEMENTATION_IN_PROGRESS
+FRONTEND_PHASE2_STATUS=IMPLEMENTATION_IN_PROGRESS
 TRAINING_STATUS=NOT_STARTED
+ERP_BROWSER_CLIENT_STATUS=NOT_STARTED
+TMS_STATUS=OUT_OF_SCOPE
+AWARD_TO_TRANSPORT_ORDER_IN_E7_BROWSER_GATE=NO
 RECOMMENDED_VARIANT=A_BACKEND_GENERATED_BLANK_WORKBOOK
+F5_TA_1=FIXED_ACCEPTED
+F5_TA_2=NOTE_CLOSED
+ACCEPTED_DISCOVERY_HEAD=c0e39487482b9ffeca3706c089b15adc762007c6
+ACCEPTED_CI_RUN=35745948306
+ACCEPTED_CI_ATTEMPT=2
+OPENAPI_SOURCE_OF_TRUTH=scripts/openapi/generate_openapi.py
+ACCEPTED_ENDPOINT=GET /api/v1/rfx-events/xlsx-create/template
+NEXT_ACTION=AUTHORIZE_F5_TEMPLATE_ACQUISITION_W1
 ```
 
-This document does **not** authorize implementation, OpenAPI edits, migrations, frontend product changes, or merge.
+Controller verdict `ACCEPT_F5_TEMPLATE_ACQUISITION_SCOPE` accepts **Variant A** only: read-only `GET /api/v1/rfx-events/xlsx-create/template`, blank BUYER XLSX V1, OpenAPI source-of-truth `scripts/openapi/generate_openapi.py`. This document does **not** authorize W1–W4, product code, OpenAPI/generator edits, migrations, frontend product changes, training, ERP browser, TMS, or Award→TO. F5 overall and Frontend Phase 2 remain `IMPLEMENTATION_IN_PROGRESS`.
 
 ---
 
@@ -724,22 +736,28 @@ Discovery **does not** authorize any wave.
 
 ---
 
-## 16. Recommendation for controller
+## 16. Controller acceptance
 
-Accept **Variant A** as the only supported acquisition method:
+**Variant A accepted** as the only supported acquisition method:
 
 1. New read-only `GET /api/v1/rfx-events/xlsx-create/template`.
 2. Backend-generated **blank** BUYER XLSX V1 workbook (headers + schema metadata only).
 3. Primary button on `/tenders/new-from-xlsx`; list page stays an entry only.
 4. Same human JWT / BuyerManage / excel flag / fail-closed tenant rules as F5 CREATE.
 5. Own compatible XLSX remains valid.
-6. Authorize W1→W4 as a **separate** implementation stream after review.
-7. Keep  
-   `F5_TEMPLATE_ACQUISITION_IMPLEMENTATION_AUTHORIZED=NO`  
-   until that authorization exists.
+6. OpenAPI source-of-truth is `scripts/openapi/generate_openapi.py` (`F5-TA-1=FIXED_ACCEPTED`). Go `cmd/generate` remains a Makefile fallback only (`F5-TA-2=NOTE_CLOSED`).
+7. W1→W4 stay a **separate** implementation stream. Implementation has not started.
 
 ```
-F5_TEMPLATE_ACQUISITION_STATUS=DISCOVERY_COMPLETE_AWAITING_CONTROLLER_REVIEW
+F5_TEMPLATE_ACQUISITION_STATUS=DISCOVERY_ACCEPTED
+CONTROLLER_VERDICT=ACCEPT_F5_TEMPLATE_ACQUISITION_SCOPE
+ACCEPTED_DISCOVERY_HEAD=c0e39487482b9ffeca3706c089b15adc762007c6
+ACCEPTED_CI_RUN=35745948306
+ACCEPTED_CI_ATTEMPT=2
+F5_TA_1=FIXED_ACCEPTED
+F5_TA_2=NOTE_CLOSED
 F5_TEMPLATE_ACQUISITION_IMPLEMENTATION_AUTHORIZED=NO
-NEXT_ACTION=INDEPENDENT_CONTROLLER_REVIEW_F5_TEMPLATE_ACQUISITION_SCOPE
+F5_OVERALL_STATUS=IMPLEMENTATION_IN_PROGRESS
+FRONTEND_PHASE2_STATUS=IMPLEMENTATION_IN_PROGRESS
+NEXT_ACTION=AUTHORIZE_F5_TEMPLATE_ACQUISITION_W1
 ```
