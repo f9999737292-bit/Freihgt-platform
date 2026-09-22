@@ -124,7 +124,7 @@ Required: `file`, `owner_company_id`, `rfx_number`, `title`, `rfx_type`, `catego
 Optional: `description`, `response_deadline`, `currency_code`.  
 Forbidden: `tenant_id`, `auto_publish`, `publish`, `participants`, `erp`, hash fields (`buyerXlsxCreateApiRoutes.ts` 6–31; `buyer_xlsx_create_multipart.go` 19–38).
 
-Workbook IDs are not authority (`rfx-service.yaml` 5194; `createUntrustedMetadataKeys` in `buyer_create_parser.go` 41–53).
+Workbook IDs are not authority (generated `packages/openapi/rfx-service.yaml` currently documents this at line 5194; runtime: `createUntrustedMetadataKeys` in `buyer_create_parser.go` 41–53). That YAML file is a generated artifact, not an editable OpenAPI source — see §7.7.
 
 ### 2.7 Tests and docs already on `main`
 
@@ -437,11 +437,36 @@ No 409 (no DRAFT precondition). No 422 (no preview). No 201.
 
 ### 7.7 OpenAPI
 
-Add `GET /api/v1/rfx-events/xlsx-create/template` to `packages/openapi/rfx-service.yaml` (source), then `make openapi-check` to refresh generated `openapi.yaml` / `openapi.json`.
+**Authoritative source:** `scripts/openapi/generate_openapi.py` (Python).
+`packages/openapi/rfx-service.yaml`, `packages/openapi/openapi.yaml`, and `packages/openapi/openapi.json` are **generated artifacts**. Do not hand-edit them as source-of-truth. `scripts/openapi/cmd/generate/main.go` is a Makefile fallback only and is **not** the source-of-truth for this endpoint. Future W1 uses the Python generator that current CI/`make openapi-generate` already run.
 
-Document: human JWT, BuyerManage, flag-off 404, 200 binary, filename, no DB writes, no event/analysis, not an ERP route.
+W1 (when separately authorized) must update the Python generator, not YAML:
 
-Response content: `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` (binary schema).
+| Generator structure | Change |
+| --- | --- |
+| `ENDPOINTS` | add `GET /api/v1/rfx-events/xlsx-create/template` |
+| `E7_EXCEL_EXCHANGE_ENDPOINT_PROFILES` | include the new profile |
+| `BINARY_RESPONSE_PROFILES` | include the new profile (today this set is only F1/F2 export) |
+| Endpoint description / responses | human JWT, `PolicyBuyerManage`, Excel-flag semantics aligned with existing excel routes |
+
+Generated contract for `GET /api/v1/rfx-events/xlsx-create/template`:
+
+- `200` binary XLSX
+- MIME `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
+- `403` non-BuyerManage / forbidden `tenant_id` query
+- flag-off `404`
+- shared gateway rate-limit `429`
+- document filename, no DB writes, no event/analysis, not an ERP route
+
+After the generator change, W1 must:
+
+1. run generation;
+2. re-run generation and prove idempotency;
+3. run `make openapi-check`;
+4. prove generator ↔ committed artifact parity;
+5. leave no manual YAML drift.
+
+This discovery does **not** change the generator or any generated spec.
 
 ### 7.8 Side-effect ban (download)
 
@@ -552,7 +577,7 @@ Mechanical lock (implementation must add; discovery only specifies):
 3. Unit: generated blank must **not** be required to pass UPDATE preview against a real baseline (UPDATE may be ready with empty diffs; do not treat UPDATE success as the CREATE contract).
 4. Unit: every sheet formula-empty; no hidden sheets; metadata keys exactly `{schema_name, schema_version}`.
 5. Integration: HTTP 200 bytes → CREATE preview 200 ready → commit 201 DRAFT/EXCEL.
-6. Route/OpenAPI parity tests include the new GET.
+6. Route/OpenAPI parity tests include the new GET. OpenAPI parity is against Python-generated artifacts from `scripts/openapi/generate_openapi.py`, not a hand-edited `rfx-service.yaml`.
 7. When headers/schema change, blank generator and both parsers change in the **same** commit; CI fails if generator sheets ≠ parser `buyerSheetOrder`.
 
 Do **not** rely on markdown as the only lock.
@@ -595,7 +620,7 @@ W1/W2 also need existing unit/integration jobs that already compile `xlsxexchang
 | I8 | `tenant_id` query 403; company query ignored/rejected |
 | I9 | Shared rate-limit 429 |
 | I10 | Download: no DB writes, no analysis row, no event |
-| I11 | OpenAPI / `E7ExcelExchangeRoutes` / Chi / gateway parity |
+| I11 | Python generator + generated OpenAPI artifacts / `E7ExcelExchangeRoutes` / Chi / gateway parity |
 | I12 | Generator ↔ CREATE parser parity |
 
 ### 11.3 Browser (W3, same gate)
@@ -625,10 +650,10 @@ Discovery **does not** authorize any wave.
 
 ### W1 — backend generator / endpoint / OpenAPI / parity
 
-- **Scope:** `GenerateBuyerCreateBlankWorkbook`; GET template handler; Chi + gateway + `E7ExcelExchangeRoutes`; OpenAPI + `make openapi-check`; unit/integration from §11.1–11.2.
+- **Scope:** `GenerateBuyerCreateBlankWorkbook`; GET template handler; Chi + gateway + `E7ExcelExchangeRoutes`; Python OpenAPI generator (`scripts/openapi/generate_openapi.py`: `ENDPOINTS`, `E7_EXCEL_EXCHANGE_ENDPOINT_PROFILES`, `BINARY_RESPONSE_PROFILES`, description/responses); regenerate artifacts; `make openapi-check`; unit/integration from §11.1–11.2.
 - **Prerequisites:** controller authorization of this discovery; accepted F5 backend W1 (already on `main`).
-- **Tests:** xlsxexchange unit; excel exchange integration; route parity.
-- **Stop:** 200 blank file parses CREATE-ready; flag/RBAC/no-write proven; OpenAPI parity green.
+- **Tests:** xlsxexchange unit; excel exchange integration; route parity; generator idempotency and generator ↔ committed OpenAPI artifact parity.
+- **Stop:** 200 blank file parses CREATE-ready; flag/RBAC/no-write proven; Python-generated OpenAPI artifacts match `make openapi-check` with no hand-edited YAML.
 - **Forbidden:** frontend product UX; migrations; F1 rewrite; ERP; publish/participants; changing preview/commit contracts.
 
 ### W2 — frontend download UX / i18n
