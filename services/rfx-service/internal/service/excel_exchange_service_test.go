@@ -12,6 +12,7 @@ import (
 	"github.com/freight-platform/rfx-service/internal/domain"
 	apperrors "github.com/freight-platform/rfx-service/internal/platform/errors"
 	"github.com/freight-platform/rfx-service/internal/repository"
+	"github.com/freight-platform/rfx-service/internal/xlsxexchange"
 )
 
 type mockExcelExchangeRfxStore struct {
@@ -180,6 +181,61 @@ func TestExcelExchangeServiceExportBuyerDraftWorkbookMissingDraft(t *testing.T) 
 	var appErr *apperrors.AppError
 	if !errors.As(err, &appErr) || appErr.Code != apperrors.CodeConflict {
 		t.Fatalf("expected conflict, got %v", err)
+	}
+}
+
+func TestExcelExchangeServiceExportBuyerCreateBlankWorkbookSuccess(t *testing.T) {
+	t.Parallel()
+
+	tenantID := uuid.New()
+	userID := uuid.New()
+	ownerCompanyID := uuid.New()
+	rfxStore := &mockExcelExchangeRfxStore{
+		getEventFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.RfxEvent, error) {
+			t.Fatal("blank template must not load events")
+			return nil, nil
+		},
+		listLotsFn: func(context.Context, uuid.UUID, uuid.UUID) ([]domain.RfxLot, error) {
+			t.Fatal("blank template must not list lots")
+			return nil, nil
+		},
+	}
+	qStore := &mockExcelExchangeQuestionnaireStore{
+		getActiveDraftFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.RfxVersion, error) {
+			t.Fatal("blank template must not load questionnaire")
+			return nil, nil
+		},
+	}
+	auth := NewRfxService(&mockRfxStore{}, nil, buyerMembershipResolver(ownerCompanyID))
+	svc := NewExcelExchangeService(rfxStore, qStore, auth, nil, nil, nil, nil, nil)
+
+	data, filename, err := svc.ExportBuyerCreateBlankWorkbook(context.Background(), buyerTestActor(tenantID, userID, ownerCompanyID))
+	if err != nil {
+		t.Fatalf("export: %v", err)
+	}
+	if len(data) == 0 {
+		t.Fatal("expected non-empty workbook")
+	}
+	if filename != xlsxexchange.BuyerCreateBlankWorkbookFilename {
+		t.Fatalf("filename=%q", filename)
+	}
+}
+
+func TestExcelExchangeServiceExportBuyerCreateBlankWorkbookRequiresBuyerManage(t *testing.T) {
+	t.Parallel()
+
+	tenantID := uuid.New()
+	userID := uuid.New()
+	ownerCompanyID := uuid.New()
+	resolver := buyerMembershipResolver(ownerCompanyID)
+	resolver.roles = []string{"SHIPPER_LOGIST"}
+	auth := NewRfxService(&mockRfxStore{}, nil, resolver)
+	svc := NewExcelExchangeService(&mockExcelExchangeRfxStore{}, &mockExcelExchangeQuestionnaireStore{}, auth, nil, nil, nil, nil, nil)
+
+	_, _, err := svc.ExportBuyerCreateBlankWorkbook(context.Background(), buyerTestActor(tenantID, userID, ownerCompanyID))
+	var appErr *apperrors.AppError
+	if !errors.As(err, &appErr) || appErr.Code != apperrors.CodeForbidden {
+		t.Fatalf("expected forbidden, got %v", err)
 	}
 }
 

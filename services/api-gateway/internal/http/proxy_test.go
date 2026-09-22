@@ -14,6 +14,7 @@ func TestRewritePath(t *testing.T) {
 		wantOK  bool
 	}{
 		{"/api/v1/companies", "/v1/companies", true},
+		{"/api/v1/rfx-events/xlsx-create/template", "/v1/rfx-events/xlsx-create/template", true},
 		{"/api/v1/auth/login", "/v1/auth/login", true},
 		{"/api", "/", true},
 		{"/v1/companies", "", false},

@@ -27,6 +27,27 @@ func TestRateLimitReturns429(t *testing.T) {
 	}
 }
 
+func TestRateLimitReturns429ForXlsxCreateTemplate(t *testing.T) {
+	handler := RateLimit(true, 1, 1, "api-gateway", nil)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/rfx-events/xlsx-create/template", nil)
+	req.RemoteAddr = "203.0.113.20:12345"
+
+	rec1 := httptest.NewRecorder()
+	handler.ServeHTTP(rec1, req)
+	if rec1.Code != http.StatusOK {
+		t.Fatalf("first request status = %d, want 200", rec1.Code)
+	}
+
+	rec2 := httptest.NewRecorder()
+	handler.ServeHTTP(rec2, req)
+	if rec2.Code != http.StatusTooManyRequests {
+		t.Fatalf("second request status = %d, want 429", rec2.Code)
+	}
+}
+
 func TestRateLimitSkipsHealth(t *testing.T) {
 	handler := RateLimit(true, 1, 1, "api-gateway", nil)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)

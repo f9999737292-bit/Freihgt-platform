@@ -65,6 +65,7 @@ func TestUpdatePreviewNeighborsRemainHuman(t *testing.T) {
 		{http.MethodGet, "/api/v1/rfx-events/" + eventID + "/erp-import/preview"},
 		{http.MethodPost, "/api/v1/rfx-events/" + eventID},
 		{http.MethodPost, "/api/v1/rfx-events/" + eventID + "/xlsx-import/preview"},
+		{http.MethodGet, "/api/v1/rfx-events/xlsx-create/template"},
 		{http.MethodPost, "/api/v1/rfx-events/xlsx-create/preview"},
 		{http.MethodPost, "/api/v1/rfx-events/xlsx-create/commit"},
 		{http.MethodGet, "/api/v1/rfx-events/" + eventID + "/erp-import/commit"},
