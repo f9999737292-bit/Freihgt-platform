@@ -3,11 +3,15 @@
 Frontend download UX for the accepted W1 blank CREATE template. W3 live browser acceptance, training, ERP, TMS, and Award→Transport Order are not started.
 
 ```
-F5_TEMPLATE_ACQUISITION_W2_STATUS=IMPLEMENTED_AWAITING_CONTROLLER_REVIEW
+CONTROLLER_VERDICT=ACCEPT_F5_TEMPLATE_ACQUISITION_W2
+F5_TEMPLATE_ACQUISITION_W1_STATUS=IMPLEMENTED_ACCEPTED
+F5_TEMPLATE_ACQUISITION_W2_STATUS=IMPLEMENTED_ACCEPTED
 F5_TEMPLATE_ACQUISITION_W3_STATUS=NOT_STARTED
+F5_OVERALL_STATUS=IMPLEMENTATION_IN_PROGRESS
+FRONTEND_PHASE2_STATUS=IMPLEMENTATION_IN_PROGRESS
 ```
 
-F5 overall and Frontend Phase 2 stay **IMPLEMENTATION_IN_PROGRESS**. This document does not mark them accepted.
+F5 overall and Frontend Phase 2 stay **IMPLEMENTATION_IN_PROGRESS**. This document does not mark them accepted. W3 live-browser download has not been run.
 
 ## Recovery identity
 
@@ -45,3 +49,15 @@ The button uses the same frontend gate as Create from Excel: Excel exchange flag
 The browser download runs only after a click: object URL, temporary `<a download>`, remove the anchor, `URL.revokeObjectURL`. Server render does not touch `window`, `document`, or `URL.createObjectURL`. A second click while a download is in flight does not start another request. Download success and failure leave the selected file, metadata, preview, `analysis_id`, and commit Idempotency-Key in place. GET retries do not send an Idempotency-Key.
 
 Localized errors cover 401, 403, 404, 429, network/5xx, and an empty or invalid workbook. The raw backend body is not the user-facing text.
+
+## Acceptance
+
+| Item | Value |
+| --- | --- |
+| Controller verdict | `ACCEPT_F5_TEMPLATE_ACQUISITION_W2` |
+| PR | https://github.com/f9999737292-bit/Freihgt-platform/pull/157 |
+| Accepted product HEAD | `c51b39f5d7d2a683b4c1e3261cce93f8dee38231` |
+| Accepted CI | https://github.com/f9999737292-bit/Freihgt-platform/actions/runs/35773932856 |
+| W3 live-browser download | not run; `F5_TEMPLATE_ACQUISITION_W3_STATUS=NOT_STARTED` |
+
+W2 acceptance does not close F5 or Frontend Phase 2. Training, ERP, TMS, and Award→Transport Order stay outside this wave.
