@@ -71,25 +71,87 @@ var instructionRows = [][3]string{
 	},
 }
 
-// GenerateBuyerDraftWorkbook renders snapshot into a secure BUYER XLSX V1 workbook.
-func GenerateBuyerDraftWorkbook(snapshot BuyerDraftSnapshot) ([]byte, error) {
-	f := excelize.NewFile()
-	defer func() {
-		_ = f.Close()
-	}()
+var createInstructionRows = [][3]string{
+	{
+		"Схема: BINTRANS_RFX_BUYER_XLSX_V1",
+		"Schema: BINTRANS_RFX_BUYER_XLSX_V1",
+		"架构: BINTRANS_RFX_BUYER_XLSX_V1",
+	},
+	{
+		"Версия схемы: 1",
+		"Schema version: 1",
+		"架构版本: 1",
+	},
+	{
+		"Назначение: пустой шаблон для создания нового черновика тендера (CREATE), а не экспорт существующего события.",
+		"Purpose: blank template to create a new buyer draft tender (CREATE), not an export of an existing event.",
+		"用途: 用于创建新买方草稿招标（CREATE）的空白模板，不是现有事件的导出。",
+	},
+	{
+		"Заполните листы офлайн, затем загрузите файл в Create-from-Excel (preview, затем commit). Можно загрузить и свой совместимый XLSX.",
+		"Fill the sheets offline, then upload the file in Create-from-Excel (preview, then commit). You may also upload your own compatible XLSX.",
+		"离线填写工作表后，在 Create-from-Excel 中上传文件（先 preview，再 commit）。也可以上传自己的兼容 XLSX。",
+	},
+	{
+		"Реквизиты события (компания-владелец, номер, название, тип, категория, срок) задаются в форме загрузки, а не этим файлом.",
+		"Event identity (owner company, number, title, type, category, deadline) is supplied in the upload form, not by this file.",
+		"事件身份（所属公司、编号、标题、类型、类别、截止日期）在上传表单中提供，而不是由本文件提供。",
+	},
+	{
+		"Пустые лоты и пустая анкета допустимы. Шаблон не публикует тендер и не создаёт участников.",
+		"Empty lots and an empty questionnaire are allowed. The template does not publish the tender and does not create participants.",
+		"允许空批次和空问卷。模板不会发布招标，也不会创建参与者。",
+	},
+	{
+		"Не добавляйте формулы, макросы или внешние ссылки.",
+		"Do not add formulas, macros, or external links.",
+		"请勿添加公式、宏或外部链接。",
+	},
+}
 
+const BuyerCreateBlankWorkbookFilename = "bintrans-rfx-buyer-xlsx-v1-create-template.xlsx"
+
+func newBuyerWorkbook() (*excelize.File, *cellWriter, error) {
+	f := excelize.NewFile()
 	if err := f.SetSheetName("Sheet1", sheetInstructions); err != nil {
-		return nil, fmt.Errorf("rename instructions sheet: %w", err)
+		_ = f.Close()
+		return nil, nil, fmt.Errorf("rename instructions sheet: %w", err)
 	}
 	for _, name := range buyerSheetOrder[1:] {
 		if _, err := f.NewSheet(name); err != nil {
-			return nil, fmt.Errorf("create sheet %s: %w", name, err)
+			_ = f.Close()
+			return nil, nil, fmt.Errorf("create sheet %s: %w", name, err)
 		}
 	}
 	cw, err := newCellWriter(f)
 	if err != nil {
+		_ = f.Close()
+		return nil, nil, err
+	}
+	return f, cw, nil
+}
+
+func writeBuyerWorkbookBytes(f *excelize.File) ([]byte, error) {
+	var buf bytes.Buffer
+	if err := f.Write(&buf); err != nil {
+		return nil, fmt.Errorf("write workbook: %w", err)
+	}
+	data := buf.Bytes()
+	if int64(len(data)) > xlsxsecurity.DefaultMaxUploadBytes {
+		return nil, fmt.Errorf("workbook exceeds max upload size")
+	}
+	return data, nil
+}
+
+// GenerateBuyerDraftWorkbook renders snapshot into a secure BUYER XLSX V1 workbook.
+func GenerateBuyerDraftWorkbook(snapshot BuyerDraftSnapshot) ([]byte, error) {
+	f, cw, err := newBuyerWorkbook()
+	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		_ = f.Close()
+	}()
 
 	if err := writeInstructionsSheet(cw); err != nil {
 		return nil, err
@@ -113,15 +175,43 @@ func GenerateBuyerDraftWorkbook(snapshot BuyerDraftSnapshot) ([]byte, error) {
 		return nil, err
 	}
 
-	var buf bytes.Buffer
-	if err := f.Write(&buf); err != nil {
-		return nil, fmt.Errorf("write workbook: %w", err)
+	return writeBuyerWorkbookBytes(f)
+}
+
+// GenerateBuyerCreateBlankWorkbook renders a CREATE-compatible header-only BUYER XLSX V1 workbook.
+// It does not write tenant, event, version, company, or participant identity.
+func GenerateBuyerCreateBlankWorkbook() ([]byte, error) {
+	f, cw, err := newBuyerWorkbook()
+	if err != nil {
+		return nil, err
 	}
-	data := buf.Bytes()
-	if int64(len(data)) > xlsxsecurity.DefaultMaxUploadBytes {
-		return nil, fmt.Errorf("workbook exceeds max upload size")
+	defer func() {
+		_ = f.Close()
+	}()
+
+	if err := writeInstructionRows(cw, createInstructionRows); err != nil {
+		return nil, err
 	}
-	return data, nil
+	if err := writeCreateBlankMetadataSheet(cw); err != nil {
+		return nil, err
+	}
+	if err := writeLotsSheet(cw, nil); err != nil {
+		return nil, err
+	}
+	if err := writeSectionsSheet(cw, nil); err != nil {
+		return nil, err
+	}
+	if err := writeQuestionsSheet(cw, nil); err != nil {
+		return nil, err
+	}
+	if err := writeOptionsSheet(cw, nil); err != nil {
+		return nil, err
+	}
+	if err := writeRulesSheet(cw, nil); err != nil {
+		return nil, err
+	}
+
+	return writeBuyerWorkbookBytes(f)
 }
 
 type cellWriter struct {
@@ -150,7 +240,11 @@ func (cw *cellWriter) setTextCell(sheet, cell, value string) error {
 }
 
 func writeInstructionsSheet(cw *cellWriter) error {
-	for rowIdx, cols := range instructionRows {
+	return writeInstructionRows(cw, instructionRows)
+}
+
+func writeInstructionRows(cw *cellWriter, rows [][3]string) error {
+	for rowIdx, cols := range rows {
 		row := rowIdx + 1
 		for colIdx, value := range cols {
 			cell, err := excelize.CoordinatesToCellName(colIdx+1, row)
@@ -160,6 +254,23 @@ func writeInstructionsSheet(cw *cellWriter) error {
 			if err := cw.setTextCell(sheetInstructions, cell, value); err != nil {
 				return err
 			}
+		}
+	}
+	return nil
+}
+
+func writeCreateBlankMetadataSheet(cw *cellWriter) error {
+	rows := [][2]string{
+		{"schema_name", domain.SchemaVersionBuyerXLSXV1},
+		{"schema_version", schemaVersionNumber},
+	}
+	for rowIdx, row := range rows {
+		rowNum := rowIdx + 1
+		if err := cw.setTextCell(sheetMetadata, fmt.Sprintf("A%d", rowNum), row[0]); err != nil {
+			return err
+		}
+		if err := cw.setTextCell(sheetMetadata, fmt.Sprintf("B%d", rowNum), row[1]); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -194,8 +305,7 @@ func writeMetadataSheet(cw *cellWriter, md BuyerDraftMetadata) error {
 }
 
 func writeLotsSheet(cw *cellWriter, lots []domain.RfxLot) error {
-	headers := []string{"lot_number", "name", "description", "category", "estimated_value", "currency_code", "status"}
-	if err := writeHeaderRow(cw, sheetLots, headers); err != nil {
+	if err := writeHeaderRow(cw, sheetLots, lotsHeaders); err != nil {
 		return err
 	}
 	sortedLots := append([]domain.RfxLot(nil), lots...)
@@ -225,8 +335,7 @@ func writeLotsSheet(cw *cellWriter, lots []domain.RfxLot) error {
 }
 
 func writeSectionsSheet(cw *cellWriter, sections []domain.Section) error {
-	headers := []string{"section_code", "title_ru", "title_en", "title_zh", "description_ru", "description_en", "description_zh", "sort_order"}
-	if err := writeHeaderRow(cw, sheetSections, headers); err != nil {
+	if err := writeHeaderRow(cw, sheetSections, sectionsHeaders); err != nil {
 		return err
 	}
 	sortedSections := append([]domain.Section(nil), sections...)
@@ -253,13 +362,7 @@ func writeSectionsSheet(cw *cellWriter, sections []domain.Section) error {
 }
 
 func writeQuestionsSheet(cw *cellWriter, questions []BuyerDraftQuestion) error {
-	headers := []string{
-		"section_code", "question_code", "question_type",
-		"title_ru", "title_en", "title_zh",
-		"description_ru", "description_en", "description_zh",
-		"required", "sort_order", "validation_json",
-	}
-	if err := writeHeaderRow(cw, sheetQuestions, headers); err != nil {
+	if err := writeHeaderRow(cw, sheetQuestions, questionsHeaders); err != nil {
 		return err
 	}
 	sortedQuestions := append([]BuyerDraftQuestion(nil), questions...)
@@ -299,8 +402,7 @@ func writeQuestionsSheet(cw *cellWriter, questions []BuyerDraftQuestion) error {
 }
 
 func writeOptionsSheet(cw *cellWriter, options []BuyerDraftOption) error {
-	headers := []string{"question_code", "option_code", "label_ru", "label_en", "label_zh", "sort_order"}
-	if err := writeHeaderRow(cw, sheetOptions, headers); err != nil {
+	if err := writeHeaderRow(cw, sheetOptions, optionsHeaders); err != nil {
 		return err
 	}
 	sortedOptions := append([]BuyerDraftOption(nil), options...)
@@ -329,8 +431,7 @@ func writeOptionsSheet(cw *cellWriter, options []BuyerDraftOption) error {
 }
 
 func writeRulesSheet(cw *cellWriter, rules []BuyerDraftRule) error {
-	headers := []string{"rule_code", "source_question_code", "condition", "target_question_code", "action", "sort_order"}
-	if err := writeHeaderRow(cw, sheetRules, headers); err != nil {
+	if err := writeHeaderRow(cw, sheetRules, rulesHeaders); err != nil {
 		return err
 	}
 	sortedRules := append([]BuyerDraftRule(nil), rules...)
