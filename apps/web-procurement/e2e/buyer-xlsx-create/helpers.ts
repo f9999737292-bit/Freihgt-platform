@@ -27,6 +27,10 @@ export const foreignTenantId = requireCreateEnv('BROWSER_E2E_FOREIGN_TENANT_ID')
 export const foreignUserId = requireCreateEnv('BROWSER_E2E_FOREIGN_USER_ID')
 export const otherCompanyId = requireCreateEnv('BROWSER_E2E_OTHER_COMPANY_ID')
 export const flagOffRfxNumber = requireCreateEnv('BROWSER_E2E_FLAG_OFF_RFX_NUMBER')
+export const sourceEventId = requireCreateEnv('BROWSER_E2E_SOURCE_EVENT_ID')
+export const templateFilename = 'bintrans-rfx-buyer-xlsx-v1-create-template.xlsx'
+export const templatePath = '/api/v1/rfx-events/xlsx-create/template'
+export const templateMime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
 export interface CreateNetworkProbe {
   request: string[]
@@ -112,6 +116,7 @@ export async function seedCreateSession(
     tenant?: string
     roles: string[]
     excelFlag?: boolean
+    locale?: 'ru-RU' | 'en-US' | 'zh-CN'
   },
 ) {
   await page.addInitScript((session) => {
@@ -124,7 +129,7 @@ export async function seedCreateSession(
           tenant_id: session.tenant,
           email: 'buyer-xlsx-create@freight.test',
           full_name: 'Buyer XLSX Create',
-          preferred_locale: 'en-US',
+          preferred_locale: session.locale,
           status: 'ACTIVE',
           roles: session.roles,
         },
@@ -137,7 +142,7 @@ export async function seedCreateSession(
     } else {
       localStorage.removeItem('freight_procurement_rfx_excel_exchange')
     }
-    document.cookie = 'freight_procurement_locale=en-US; path=/'
+    document.cookie = `freight_procurement_locale=${session.locale}; path=/`
     const observed = window as Window & {
       __f5CreatePreviewWrapped?: boolean
       __f5CreatePreviewParts?: string[][]
@@ -169,6 +174,7 @@ export async function seedCreateSession(
     tenant: input.tenant || tenantId,
     roles: input.roles,
     excelFlag: input.excelFlag !== false,
+    locale: input.locale || 'en-US',
   })
 }
 
