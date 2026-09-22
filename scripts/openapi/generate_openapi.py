@@ -193,6 +193,7 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/rfx-events/{id}/xlsx-import/preview", "post", "Preview buyer draft RFx event XLSX import", "RFx", True, True, "xlsx_import_preview_buyer_draft"),
     ("/api/v1/rfx-events/{id}/xlsx-import/commit", "post", "Commit buyer draft RFx event XLSX import", "RFx", True, True, "xlsx_import_commit_buyer_draft"),
     ("/api/v1/rfx-events/{id}/carrier-responses/{response_id}/xlsx-import/commit", "post", "Commit carrier RFx response XLSX import", "RFx", True, True, "xlsx_import_commit_carrier_response"),
+    ("/api/v1/rfx-events/xlsx-create/template", "get", "Download buyer new RFx event XLSX create template", "RFx", True, True, "xlsx_create_template_buyer_draft"),
     ("/api/v1/rfx-events/xlsx-create/preview", "post", "Preview buyer new RFx event XLSX create", "RFx", True, True, "xlsx_create_preview_buyer_draft"),
     ("/api/v1/rfx-events/xlsx-create/commit", "post", "Commit buyer new RFx event XLSX create", "RFx", True, True, "xlsx_create_commit_buyer_draft"),
     ("/api/v1/rfx-events/{id}/carrier-response/submit", "post", "Submit carrier questionnaire response", "RFx", True, True, "cr_submit"),
@@ -512,11 +513,16 @@ E7_EXCEL_EXCHANGE_ENDPOINT_PROFILES = frozenset({
     "xlsx_import_preview_carrier_response",
     "xlsx_import_commit_buyer_draft",
     "xlsx_import_commit_carrier_response",
+    "xlsx_create_template_buyer_draft",
     "xlsx_create_preview_buyer_draft",
     "xlsx_create_commit_buyer_draft",
 })
 
-BINARY_RESPONSE_PROFILES = frozenset({"xlsx_export_buyer_draft", "xlsx_export_carrier_response"})
+BINARY_RESPONSE_PROFILES = frozenset({
+    "xlsx_export_buyer_draft",
+    "xlsx_export_carrier_response",
+    "xlsx_create_template_buyer_draft",
+})
 
 EXCEL_EXCHANGE_PREVIEW_PROFILES = frozenset({"xlsx_import_preview_buyer_draft", "xlsx_import_preview_carrier_response"})
 XLSX_CREATE_PREVIEW_PROFILES = frozenset({"xlsx_create_preview_buyer_draft"})
@@ -557,6 +563,7 @@ PROFILE_OPERATION_IDS = {
     "erp_get_import_analysis_status": "getErpImportAnalysisStatus",
     "erp_get_integration_capabilities": "getErpIntegrationCapabilities",
     "carrier_invited_event_get": "get_carrier_invited_rfx_event",
+    "xlsx_create_template_buyer_draft": "get_buyer_new_rfx_event_xlsx_create_template",
 }
 
 EXCEL_EXCHANGE_COMMIT_PROFILES = frozenset({"xlsx_import_commit_buyer_draft", "xlsx_import_commit_carrier_response"})
@@ -853,6 +860,19 @@ Feature flag: when `RFX_EXCEL_EXCHANGE_ENABLED` is false (default), the route re
 Authorization: **BuyerManage** role required; only the preview creator actor may commit.
 
 Requires `Idempotency-Key` header. Request body contains only `analysis_id`.""",
+    "xlsx_create_template_buyer_draft": """Download a blank CREATE-compatible BUYER XLSX V1 workbook.
+
+Feature flag: when `RFX_EXCEL_EXCHANGE_ENABLED` is false (default), the route returns **404** (feature disabled).
+
+Authorization: **BuyerManage** role required (`PLATFORM_ADMIN`, `PROCUREMENT_MANAGER`, `SHIPPER_ADMIN`, `FORWARDER_MANAGER`); buyer read-only and carrier roles are denied (**403**). Human JWT only. Integration OAuth/API key is not accepted.
+
+Read-only GET. No request body. Query `tenant_id` is rejected (**403**). Tenant and company authority come only from verified auth context.
+
+Success returns **200** binary `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` with `Content-Disposition: attachment; filename="bintrans-rfx-buyer-xlsx-v1-create-template.xlsx"`, `Cache-Control: no-store`, and `X-Content-Type-Options: nosniff`.
+
+The workbook contains canonical sheets and headers plus Metadata `schema_name` / `schema_version` only. It does not write events, analyses, lots, questionnaire, participants, publish/submit/award, or ERP/TMS state.
+
+Shared gateway rate limit returns **429**.""",
     "xlsx_create_preview_buyer_draft": """Preview buyer new RFx event XLSX create for CREATE_NEW_DRAFT mode.
 
 Feature flag: when `RFX_EXCEL_EXCHANGE_ENABLED` is false (default), the route returns **404** (feature disabled).
@@ -1598,20 +1618,38 @@ def render_operation(
         lines.append(SECURITY_BEARER.rstrip("\n"))
 
     if profile in BINARY_RESPONSE_PROFILES:
-        lines.extend(
-            [
-                "      responses:",
-                "        '200':",
-                "          description: XLSX workbook attachment",
-                "          content:",
-                "            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:",
-                "              schema:",
-                "                type: string",
-                "                format: binary",
-                ERROR_RESPONSES.rstrip("\n"),
-                "",
-            ]
-        )
+        binary_200_description = "XLSX workbook attachment"
+        if profile == "xlsx_create_template_buyer_draft":
+            binary_200_description = (
+                '"Blank CREATE-compatible BUYER XLSX V1 workbook download. '
+                "Filename bintrans-rfx-buyer-xlsx-v1-create-template.xlsx. "
+                "Attachment, Cache-Control no-store, X-Content-Type-Options nosniff. "
+                'Read-only; no event or analysis writes."'
+            )
+        binary_lines = [
+            "      responses:",
+            "        '200':",
+            f"          description: {binary_200_description}",
+            "          content:",
+            "            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:",
+            "              schema:",
+            "                type: string",
+            "                format: binary",
+            ERROR_RESPONSES.rstrip("\n"),
+        ]
+        if profile == "xlsx_create_template_buyer_draft":
+            binary_lines.extend(
+                [
+                    "        '429':",
+                    "          description: Shared gateway rate limit exceeded",
+                    "          content:",
+                    "            application/json:",
+                    "              schema:",
+                    "                $ref: '#/components/schemas/ErrorResponse'",
+                ]
+            )
+        binary_lines.append("")
+        lines.extend(binary_lines)
         return "\n".join(lines)
 
     if profile in EXCEL_EXCHANGE_PREVIEW_PROFILES:
