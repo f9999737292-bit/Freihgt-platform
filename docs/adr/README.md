@@ -35,4 +35,5 @@ EDO-0.2 introduces `ADR-EDO-001` … `ADR-EDO-009`. Membership ownership is reco
 
 - Discovery baseline: BINTRANS ECOSYSTEM + EDO ARCHITECTURE DISCOVERY v0.1 (`DISCOVERY_PASS_WITH_FINDINGS`)
 - Freeze report: [docs/architecture/edo-0.2-final-report.md](../architecture/edo-0.2-final-report.md)
+- EDO 0.3 discovery (not an accepted ADR, implementation not authorized): [docs/architecture/edo-0.3-discovery.md](../architecture/edo-0.3-discovery.md)
 - Event contracts: [docs/events/edo-0.2-event-contracts.md](../events/edo-0.2-event-contracts.md)
