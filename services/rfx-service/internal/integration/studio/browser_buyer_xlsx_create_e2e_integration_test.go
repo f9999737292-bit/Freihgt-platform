@@ -46,6 +46,7 @@ type browserBuyerXlsxCreateFixture struct {
 	ForeignJWT     string
 	WorkbookPath   string
 	FlagOffNumber  string
+	SourceEventID  uuid.UUID
 }
 
 type browserBuyerXlsxCreateLiveStack struct {
@@ -72,8 +73,18 @@ func TestRfxBuyerXlsxCreate_BrowserE2E_LiveCreateDraft(t *testing.T) {
 		dumpGatewayLogsOnFailure(t, stack.gatewayProc)
 		writeGatewayFailureArtifact(t, stack.gatewayProc)
 	})
+	beforeDownload := snapshotBuyerXlsxCreateWrites(t, stack)
+	if err := runBuyerXlsxCreatePlaywrightSuite(t, stack, "--grep", "blank template download writes nothing"); err != nil {
+		t.Fatalf("playwright blank template no-write proof: %v", err)
+	}
+	assertBuyerXlsxCreateWritesUnchanged(t, stack, beforeDownload)
+	beforeSuite := snapshotBuyerXlsxCreateWrites(t, stack)
 	if err := runBuyerXlsxCreatePlaywrightSuite(t, stack); err != nil {
 		t.Fatalf("playwright buyer XLSX create suite: %v", err)
+	}
+	afterSuite := snapshotBuyerXlsxCreateWrites(t, stack)
+	if afterSuite.analyses <= beforeSuite.analyses {
+		t.Fatalf("preview after template download did not persist an analysis: before=%d after=%d", beforeSuite.analyses, afterSuite.analyses)
 	}
 	assertBuyerXlsxCreateFlagOffSQLClean(t, stack)
 }
@@ -218,6 +229,7 @@ func seedBuyerXlsxCreateBrowserFixture(
 		ForeignJWT:     browserStudioJWT(base.CrossTenant.UserID, base.OtherTenantID),
 		WorkbookPath:   workbookPath,
 		FlagOffNumber:  "RFX-F5-FLAG-OFF-1",
+		SourceEventID:  event.ID,
 	}
 }
 
@@ -335,7 +347,7 @@ func (s *browserBuyerXlsxCreateLiveStack) shutdown(t *testing.T) {
 	verifyDevPortsReleased(t, buyerXlsxCreateBrowserPort, buyerXlsxCreateFlagOffBrowserPort)
 }
 
-func runBuyerXlsxCreatePlaywrightSuite(t *testing.T, stack *browserBuyerXlsxCreateLiveStack) error {
+func runBuyerXlsxCreatePlaywrightSuite(t *testing.T, stack *browserBuyerXlsxCreateLiveStack, extra ...string) error {
 	t.Helper()
 	root, err := repoRoot()
 	if err != nil {
@@ -343,7 +355,9 @@ func runBuyerXlsxCreatePlaywrightSuite(t *testing.T, stack *browserBuyerXlsxCrea
 	}
 	e2eDir := filepath.Join(root, "apps", "web-procurement", "e2e", "buyer-xlsx-create")
 	configPath := filepath.Join(e2eDir, "playwright.config.ts")
-	cmd := exec.Command("npx", "playwright", "test", "--config", configPath)
+	args := []string{"playwright", "test", "--config", configPath}
+	args = append(args, extra...)
+	cmd := exec.Command("npx", args...)
 	cmd.Dir = e2eDir
 	fix := stack.fixture
 	cmd.Env = append(os.Environ(),
@@ -370,10 +384,50 @@ func runBuyerXlsxCreatePlaywrightSuite(t *testing.T, stack *browserBuyerXlsxCrea
 		"BROWSER_E2E_FOREIGN_USER_ID="+fix.ForeignUserID.String(),
 		"BROWSER_E2E_OTHER_COMPANY_ID="+fix.OtherCompanyID.String(),
 		"BROWSER_E2E_FLAG_OFF_RFX_NUMBER="+fix.FlagOffNumber,
+		"BROWSER_E2E_SOURCE_EVENT_ID="+fix.SourceEventID.String(),
 	)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
+}
+
+type buyerXlsxCreateWriteCounts struct {
+	events       int
+	analyses     int
+	participants int
+	responses    int
+	awards       int
+	orders       int
+	idempotency  int
+}
+
+func snapshotBuyerXlsxCreateWrites(t *testing.T, stack *browserBuyerXlsxCreateLiveStack) buyerXlsxCreateWriteCounts {
+	t.Helper()
+	count := func(query string) int {
+		t.Helper()
+		var n int
+		if err := stack.env.pool.QueryRow(context.Background(), query).Scan(&n); err != nil {
+			t.Fatalf("write snapshot %s: %v", query, err)
+		}
+		return n
+	}
+	return buyerXlsxCreateWriteCounts{
+		events:       count(`SELECT COUNT(*) FROM rfx.rfx_events`),
+		analyses:     count(`SELECT COUNT(*) FROM rfx.rfx_import_analyses`),
+		participants: count(`SELECT COUNT(*) FROM rfx.rfx_participants`),
+		responses:    count(`SELECT COUNT(*) FROM rfx.rfx_responses`),
+		awards:       count(`SELECT COUNT(*) FROM rfx.rfx_awards`),
+		orders:       count(`SELECT COUNT(*) FROM transport.transport_orders`),
+		idempotency:  count(`SELECT COUNT(*) FROM rfx.rfx_idempotency_records`),
+	}
+}
+
+func assertBuyerXlsxCreateWritesUnchanged(t *testing.T, stack *browserBuyerXlsxCreateLiveStack, before buyerXlsxCreateWriteCounts) {
+	t.Helper()
+	after := snapshotBuyerXlsxCreateWrites(t, stack)
+	if after != before {
+		t.Fatalf("blank template download wrote rows: before=%+v after=%+v", before, after)
+	}
 }
 
 func assertBuyerXlsxCreateFlagOffSQLClean(t *testing.T, stack *browserBuyerXlsxCreateLiveStack) {
