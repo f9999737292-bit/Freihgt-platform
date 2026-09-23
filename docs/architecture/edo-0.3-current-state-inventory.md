@@ -147,7 +147,7 @@ documents.signatures.document_id=IMPLEMENTED
 revision binding=ABSENT
 ```
 
-`documents.signatures` references `document_id` and `signing_session_id`. It has `certificate_fingerprint`. It does not reference `document_version_id`. This inventory does not invent that column. A fingerprint is not a binding to the signed revision.
+`documents.signatures` references `document_id` and `signing_session_id`. It has `certificate_fingerprint`. It does not reference `document_version_id`. `document_version_id` exists on `document_files` and is absent from `documents.signatures`. A fingerprint is not a binding to the signed revision.
 
 No code path validates a qualified certificate chain, a timestamp authority, or a machine-readable power of attorney. No MChD GUID column exists. Storing a signature row does not mean the signature is legally valid. That question stays `LEGAL_VERIFICATION_REQUIRED`.
 

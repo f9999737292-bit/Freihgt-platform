@@ -4,7 +4,7 @@
 
 ```text
 EDO_0_2_STATUS=IMPLEMENTED_ACCEPTED
-EDO_0_3_DISCOVERY_STATUS=REMEDIATED_AWAITING_REPEAT_CONTROLLER_REVIEW
+EDO_0_3_DISCOVERY_STATUS=DISCOVERY_ACCEPTED
 EDO_0_3_IMPLEMENTATION_AUTHORIZED=NO
 DOCUMENT_READ_TENANT_ISOLATION_STATUS=PRODUCT_REMEDIATION_REQUIRED
 LEGAL_VERIFICATION_STATUS=OPEN
@@ -53,7 +53,17 @@ No product fix, migration, API change, or test implementation.
 
 ```text
 RECOMMENDED_VARIANT=A
+CONTROLLER_VERDICT=ACCEPT_EDO_0_3_SCOPE
+ACCEPTED_DISCOVERY_HEAD=5b0d55b7c44eef4d9da14a2add3f7e965e7b02ec
+ACCEPTED_CI=35912686104
+PR=https://github.com/f9999737292-bit/Freihgt-platform/pull/162
+VARIANT_A_SCOPE=ACCEPTED
+S1_STATUS=NOT_AUTHORIZED
+S1_IS_IMPLEMENTATION_PREREQUISITE=YES
+I1_I4_STATUS=NOT_AUTHORIZED
 ```
+
+Variant A is the accepted discovery scope. ArchiveManifest, MChD verification, an EDI operator integration, and e-ТрН stay out of scope. S1 remains the required product-security prerequisite and is not started. I1–I4 stay `NOT_AUTHORIZED`. Legal verification stays `OPEN`. The get-by-id tenant predicate is still absent.
 
 ## Document index
 
@@ -83,7 +93,7 @@ EDO 0.2 was merged in pull request #73 (`18a85074` on `main`).
 
 ## Controller review
 
-Review this scope before any implementation Task Contract. The next action is independent controller review. Implementation is not authorized.
+Repeat review accepted this discovery scope. Evidence: `CONTROLLER_VERDICT=ACCEPT_EDO_0_3_SCOPE`, discovery head `5b0d55b7c44eef4d9da14a2add3f7e965e7b02ec`, CI run `35912686104`, pull request #162. That verdict does not authorize S1 or I1–I4. The next product step, after this discovery is merged, is a separate authorization of S1 for the document read tenant predicate. The gap is not fixed here.
 
 ## References
 

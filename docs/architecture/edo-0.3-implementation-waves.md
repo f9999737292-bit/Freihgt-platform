@@ -10,15 +10,15 @@ EACH_WAVE_REQUIRES=INDEPENDENT_CONTROLLER_REVIEW
 
 Waves are a review sequence. Completing discovery does not start wave I1. No wave in this list is authorized to change product code, migrations, OpenAPI, or CI.
 
-Recommended content is variant A from [edo-0.3-architecture-options.md](edo-0.3-architecture-options.md). If the controller selects another variant, the wave contents change before any build wave is written.
+Accepted discovery scope is variant A from [edo-0.3-architecture-options.md](edo-0.3-architecture-options.md). S1 and I1–I4 stay `NOT_AUTHORIZED`.
 
 ## Wave register
 
 | Wave | Kind | Content | Status |
 |------|------|---------|--------|
-| W0 | Discovery | This document set. Scope, gaps, options, security, sources, tests, risks. Docs remediation of F-01…F-04 does not close the product gap | `REMEDIATED_AWAITING_REPEAT_CONTROLLER_REVIEW` |
+| W0 | Discovery | This document set. Variant A accepted as discovery scope. The product read gap stays open | `DISCOVERY_ACCEPTED` |
 | S1 | Product security remediation | Tenant predicate on `GET /v1/documents/{id}` and on `GetSession`. Separate from EDO 0.3 schema | `NOT_AUTHORIZED` |
-| W1 | Decision | Controller accepts variant A or explicitly selects B, C, or D. Confirms out-of-scope list. Confirms S1 is a prerequisite | `NOT_STARTED` |
+| W1 | Decision | Variant A is already the accepted discovery scope. A later implementation Task Contract still needs its own controller review. S1 stays a prerequisite | `NOT_STARTED` |
 | I1 | Schema | Additive `documents` migration for package, semantic relationship, certificate-evidence metadata bound to a revision, and immutability constraints. No other schema. No `PACKAGE_CONTAINS_DOCUMENT` | `NOT_AUTHORIZED` |
 | I2 | Rules | document-service commands: seal package, append semantic relationship, block signed mutation and signed file attach, trusted tenant predicate on every read including package and relationship | `NOT_AUTHORIZED` |
 | I3 | Edge | Gateway exposure only if I2 needs a public route. Trusted tenant only. OpenAPI source-of-truth update in the same reviewed change | `NOT_AUTHORIZED` |
