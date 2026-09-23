@@ -49,3 +49,7 @@ See `docs/database/` and `infrastructure/migrations/` for the current schema.
 - gRPC definitions in `packages/proto`
 - OpenAPI specs in `packages/openapi`
 - Async events documented in `docs/events`
+
+## EDO
+
+EDO 0.2 architecture freeze is accepted. EDO 0.3 discovery is documentation only and does not authorize implementation: [edo-0.3-discovery.md](edo-0.3-discovery.md).

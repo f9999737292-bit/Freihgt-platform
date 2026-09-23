@@ -44,17 +44,18 @@ Each workstream row carries:
 | **LOG** | LOG-active | IMPLEMENTATION | Logistics team | `a5163c3` | same primary dev WT | PLAT | ROAD-only mode | MM-0.2 leg schema (via LOG) |
 | **CT** | CT-shadow | OPERATIONAL | Control Tower team | staging pack `4d0cdfb` | `ops/bintrans-ct-staging-pack` | LOG Kafka events | PRIMARY mode disabled; shadow only | CT consume `edo.document.*` (future) |
 | **FC** | FC-v2.2 | IMPLEMENTATION | Finance cost team | `d0005bd` | main-aligned | LOG, billing | Mock EDO billing path (F-003) | EDO-0.5 billing bridge |
-| **EDO** | EDO-0.2 | ARCHITECTURE_FREEZE | EDO architecture | `d0005bd` | `discovery/edo-ecosystem-architecture-v0.1` | PLAT, INFRA | Legal verification; no archive storage | EDO-0.3 document extensions |
-| **TEDO** | TEDO-0.2 | ARCHITECTURE_FREEZE | Transport EDO | `d0005bd` | same discovery WT | EDO, LOG | No operator licensing | TEDO-0.3 ETRN lifecycle design |
-| **MM** | MM-0.2 | ARCHITECTURE_FREEZE | Multimodal | `d0005bd` | same discovery WT | LOG (shipment-service) | ROAD-only enforcement in code | MM-0.2 leg implementation request → LOG |
+| **EDO** | EDO-0.3 | DISCOVERY_COMPLETE | EDO architecture | `5b0d55b7` | PR #162, CI `35912686104`, verdict `ACCEPT_EDO_0_3_SCOPE` | S1 product read-isolation remediation | Legal verification open; `DOCUMENT_READ_TENANT_ISOLATION_REMEDIATION_REQUIRED`; S1 and I1–I4 not authorized; no archive storage | Separate authorization of S1. Variant A is the accepted discovery scope. Implementation is not started |
+| **TEDO** | TEDO-0.2 | ARCHITECTURE_FREEZE | Transport EDO | `d0005bd` | EDO-0.2 archive `discovery/edo-ecosystem-architecture-v0.1` | EDO, LOG | No operator licensing | TEDO-0.3 ETRN lifecycle design |
+| **MM** | MM-0.2 | ARCHITECTURE_FREEZE | Multimodal | `d0005bd` | EDO-0.2 archive `discovery/edo-ecosystem-architecture-v0.1` | LOG (shipment-service) | ROAD-only enforcement in code | MM-0.2 leg implementation request → LOG |
 | **FF** | FF-v1.9 | IMPLEMENTATION | Payments/finance | `d0005bd` | payment reconciliation branches | FC | No receivable aggregate yet | FF-0.2 receivable design impl |
 | **INFRA** | INFRA-staging | OPERATIONAL | DevOps | `4d0cdfb` staging pack | `ops/bintrans-ct-staging-pack` | — | S3/WORM not configured (F-004) | INFRA-0.1 object storage |
 
 ### Notes
 
 - Primary BINTRANS development continues in `D:\Projects\freight-platform` — **untouched by EDO-0.2**.
-- EDO discovery/freeze worktree: `D:\Projects\freight-platform-wt\edo-ecosystem-architecture-v0.1`.
-- BASE_SHA for EDO/TEDO/MM rows reflects discovery baseline `d0005bd8b055b0d2250e5092a0c1c0484decf540` (= `origin/main` at discovery time).
+- EDO-0.2 discovery/freeze worktree `D:\Projects\freight-platform-wt\edo-ecosystem-architecture-v0.1` remains an archive. Do not treat it as the active EDO-0.3 checkout.
+- EDO-0.3 discovery scope is accepted (`CONTROLLER_VERDICT=ACCEPT_EDO_0_3_SCOPE`) at `5b0d55b7c44eef4d9da14a2add3f7e965e7b02ec`, CI `35912686104`, pull request #162. Variant A is that scope. S1 is a required product-security prerequisite and is not authorized. I1–I4 are not authorized. Legal verification stays open. The get-by-id tenant gap is not fixed.
+- BASE_SHA for TEDO/MM rows remains discovery baseline `d0005bd8b055b0d2250e5092a0c1c0484decf540`. The EDO row base is the EDO-0.3 discovery base above.
 
 ## Update procedure
 
