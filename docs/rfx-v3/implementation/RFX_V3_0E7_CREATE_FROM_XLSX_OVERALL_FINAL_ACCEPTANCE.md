@@ -1,16 +1,18 @@
 # RFx v3.0E7 F5 Create-from-XLSX overall final acceptance
 
-One live browser chain for the accepted F5 pieces. This document does not accept F5 overall or Frontend Phase 2. No controller verdict is recorded here.
+One live browser chain for the accepted F5 pieces. Controller verdict `ACCEPT_F5_OVERALL_FINAL_ACCEPTANCE` accepts F5 overall. Frontend Phase 2 stays in progress. Training stays not started.
 
 ```
+CONTROLLER_VERDICT=ACCEPT_F5_OVERALL_FINAL_ACCEPTANCE
 F5_TEMPLATE_ACQUISITION_W1_STATUS=IMPLEMENTED_ACCEPTED
 F5_TEMPLATE_ACQUISITION_W2_STATUS=IMPLEMENTED_ACCEPTED
 F5_TEMPLATE_ACQUISITION_W3_STATUS=IMPLEMENTED_ACCEPTED
 F5_TEMPLATE_ACQUISITION_STATUS=IMPLEMENTED_ACCEPTED
-F5_OVERALL_FINAL_ACCEPTANCE_STATUS=IMPLEMENTED_AWAITING_CONTROLLER_REVIEW
-F5_OVERALL_STATUS=IMPLEMENTATION_IN_PROGRESS
+F5_OVERALL_FINAL_ACCEPTANCE_STATUS=IMPLEMENTED_ACCEPTED
+F5_OVERALL_STATUS=IMPLEMENTED_ACCEPTED
 FRONTEND_PHASE2_STATUS=IMPLEMENTATION_IN_PROGRESS
 TRAINING_STATUS=NOT_STARTED
+NEXT_ACTION=PLAN_F5_TRAINING
 ```
 
 ## Lineage on this base
@@ -37,6 +39,20 @@ The passive probe expects one template GET, one preview POST, and one commit POS
 
 The Go harness runs this spec alone before the full suite. The spec writes the created `rfx_number`, event id, analysis id, and Idempotency-Key to a temp evidence file. SQL then checks that one rfx number only: one `rfx_events` row, `DRAFT`, `EXCEL`, the same event id, the analysis `CONSUMED` with `NEW_EVENT` pointing at that event, one `BUYER_XLSX_CREATE_COMMIT` idempotency row with HTTP 201, and zero participants, responses, awards, award transport orders, ERP external links, and publish or submit audit rows. The draft questionnaire version stays `DRAFT`, disabled, and unpublished. Those identifiers are not printed to CI stdout.
 
+## Acceptance
+
+| Item | Value |
+| --- | --- |
+| Controller verdict | `ACCEPT_F5_OVERALL_FINAL_ACCEPTANCE` |
+| PR | https://github.com/f9999737292-bit/Freihgt-platform/pull/159 |
+| Accepted product HEAD | `3c3e37ce8b7d28b17799f20ade8c5c7246282986` |
+| Accepted CI | `35886064236` |
+| Isolated overall chain | `1 passed` |
+| Scoped DB assertions | PASS |
+| Full CREATE suite | `11 passed` |
+| Skipped | 0 |
+| Retries | 0 |
+
 ## Out of scope
 
-Product changes, ERP, training, TMS, Award→Transport Order, and marking F5 overall or Frontend Phase 2 `IMPLEMENTED_ACCEPTED`.
+Product changes in this alignment, ERP, training, TMS, and Award→Transport Order. Frontend Phase 2 stays `IMPLEMENTATION_IN_PROGRESS`. Training stays `NOT_STARTED`.
