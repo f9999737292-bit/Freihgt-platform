@@ -136,7 +136,7 @@ These are assigned to the **earliest appropriate wave** — not deferred beyond 
 | **E7 Phase 2 F5 XLSX template acquisition W3 browser** | Live download of the blank CREATE template inside `rfx-buyer-xlsx-create-browser-e2e` | **IMPLEMENTED_ACCEPTED** — PR #158, product HEAD `c7f5ae934eda50340836960ea04fc5f2b3c6a2e1`, CI `35783111497`, verdict `ACCEPT_F5_TEMPLATE_ACQUISITION_W3`; isolated 1 passed, full suite 10 passed, skipped 0, retries 0; live download errors stay on the W2 component tests |
 | **E7 Phase 2 F5 Create-from-XLSX overall** | One live chain: blank download, upload of that file, preview, commit, DRAFT/EXCEL, zero participants, scoped DB proof | **IMPLEMENTED_ACCEPTED** — [RFX_V3_0E7_CREATE_FROM_XLSX_OVERALL_FINAL_ACCEPTANCE.md](./implementation/RFX_V3_0E7_CREATE_FROM_XLSX_OVERALL_FINAL_ACCEPTANCE.md); PR #159, product HEAD `3c3e37ce8b7d28b17799f20ade8c5c7246282986`, CI `35886064236`, verdict `ACCEPT_F5_OVERALL_FINAL_ACCEPTANCE`; isolated overall-chain 1 passed, scoped DB assertions PASS, full CREATE suite 11 passed, skipped 0, retries 0 |
 | **E7 Phase 2 Frontend** | Remaining Frontend Phase 2 after F5 upload-only (W2 template download UX, not an ERP browser client) | **IMPLEMENTATION_IN_PROGRESS** |
-| **E7 Phase 2 Training** | RU/EN/ZH training course | **NOT_STARTED** |
+| **E7 Phase 2 Training** | RU/EN/ZH training course for accepted F5 Create-from-XLSX | **DISCOVERY_ACCEPTED** — [RFX_V3_0E7_CREATE_FROM_XLSX_TRAINING_DISCOVERY.md](./implementation/RFX_V3_0E7_CREATE_FROM_XLSX_TRAINING_DISCOVERY.md); PR #160, discovery HEAD `5b716dc01904616f4650e0f310fac6a42ea2c2ba`, CI `35893849771`, verdict `ACCEPT_F5_TRAINING_SCOPE`; `TRAINING_STATUS=NOT_STARTED`; `TRAINING_IMPLEMENTATION_AUTHORIZED=NO` |
 | **E7 Browser Acceptance** | Final real browser acceptance gate (one event / one response through Award; no ERP browser client; no Award→TO) | **IMPLEMENTED_ACCEPTED** — PR #152 (product head `fd5b615f`, product CI `35644222482`, 13/13 passed 0 skipped retries 0, verdict `ACCEPT_E7_BROWSER_ACCEPTANCE`) |
 
 Notes:
@@ -155,7 +155,7 @@ Notes:
 - E7 Phase 2 Carrier XLSX C1 Export is accepted and merged to `main` at `fa850826c6f7ed7f25e948dcc8fc8cad41eb2d74` (PR #132 head `479d1fd7`, CI `34833481110`, E7P2-INT-71..79 PASS, INT-42 remediation PASS). Delivers carrier own-response GET export only.
 - E7 Phase 2 Carrier XLSX C2 Preview is accepted and merged to `main` at `66241e67d58c411efb9fa425902e459df65772fc` (PR #134 head `4a04e7ec`, product head `5b2fa47a`, CI `34864516651`, E7P2-INT-80..90 PASS). Delivers carrier import preview parser, valid-only analysis persistence, and Preview HTTP route. Non-blocking findings deferred: INT-113 closed in C3, partial C1 no-write snapshot (LOW), theoretical `target_version` INTEGER overflow guard (LOW).
 - E7 Phase 2 Carrier XLSX C3 Commit is accepted and merged to `main` at `e3341f0594cb749e5bb27d70053a495838eed3c8` (PR #135 head `b48af2ff`, product head `5326ff8c`, CI `34884705304`, E7P2-INT-91..119 PASS). Delivers atomic commit from persisted preview analysis to DRAFT response (no auto-submit). Open findings: C1 LOW-02 extended no-write snapshot (REMAINS_OPEN), `target_version` INTEGER overflow guard (REMAINS_LOW), dedicated named JSONB round-trip integration test absent (implicit runtime/unit coverage).
-- E7 Phase 2 Carrier XLSX backend (C1 Export + C2 Preview + C3 Commit) is **IMPLEMENTED_ACCEPTED** on `main`. F5 frontend upload-only is **IMPLEMENTED_ACCEPTED**. F5 template acquisition W1 backend is **IMPLEMENTED_ACCEPTED**. W2 frontend is **IMPLEMENTED_ACCEPTED** (PR #157, product HEAD `c51b39f5d7d2a683b4c1e3261cce93f8dee38231`, CI `35773932856`, verdict `ACCEPT_F5_TEMPLATE_ACQUISITION_W2`). W3 live-browser acceptance is **IMPLEMENTED_ACCEPTED** (PR #158, product HEAD `c7f5ae934eda50340836960ea04fc5f2b3c6a2e1`, CI `35783111497`, verdict `ACCEPT_F5_TEMPLATE_ACQUISITION_W3`; isolated 1 passed, full suite 10 passed, skipped 0, retries 0). F5 overall and Frontend Phase 2 remain **IMPLEMENTATION_IN_PROGRESS**. Training remains a future gate.
+- E7 Phase 2 Carrier XLSX backend (C1 Export + C2 Preview + C3 Commit) is **IMPLEMENTED_ACCEPTED** on `main`. F5 frontend upload-only is **IMPLEMENTED_ACCEPTED**. F5 template acquisition W1 backend is **IMPLEMENTED_ACCEPTED**. W2 frontend is **IMPLEMENTED_ACCEPTED** (PR #157, product HEAD `c51b39f5d7d2a683b4c1e3261cce93f8dee38231`, CI `35773932856`, verdict `ACCEPT_F5_TEMPLATE_ACQUISITION_W2`). W3 live-browser acceptance is **IMPLEMENTED_ACCEPTED** (PR #158, product HEAD `c7f5ae934eda50340836960ea04fc5f2b3c6a2e1`, CI `35783111497`, verdict `ACCEPT_F5_TEMPLATE_ACQUISITION_W3`; isolated 1 passed, full suite 10 passed, skipped 0, retries 0). F5 overall is **IMPLEMENTED_ACCEPTED** (PR #159). Frontend Phase 2 remains **IMPLEMENTATION_IN_PROGRESS**. Training implementation remains **NOT_STARTED**. Training discovery is **DISCOVERY_ACCEPTED** (PR #160, verdict `ACCEPT_F5_TRAINING_SCOPE`) and is not implementation authorization.
 - E7 Phase 2 ERP API **architecture** frozen accepted (PR #137): [RFX_V3_0E7_ERP_API.md](./implementation/RFX_V3_0E7_ERP_API.md), ADR-012..015 Accepted, acceptance matrix E7P2-INT-120..195. Controller verdict `ACCEPT_ERP_API_ARCHITECTURE`. `ERP_API_IMPLEMENTATION_AUTHORIZED=NO`; migration 000074 proposed not created.
 - E7 Phase 2 ERP API **implementation plan** frozen accepted (PR #138): [RFX_V3_0E7_ERP_API_IMPLEMENTATION_PLAN.md](./implementation/RFX_V3_0E7_ERP_API_IMPLEMENTATION_PLAN.md), [RFX_V3_0E7_ERP_API_IMPLEMENTATION_WAVES.md](./implementation/RFX_V3_0E7_ERP_API_IMPLEMENTATION_WAVES.md). Controller verdict `ACCEPT_ERP_API_IMPLEMENTATION_PLAN`. `PUBLIC_ROUTE_CONTRACT_POLICY=INCREMENTAL_PER_WAVE`.
 - E7 Phase 2 ERP API **E1 foundation** accepted (PR #139 head `5713d7c5`, CI `35066148105`, controller `ACCEPT_ERP_API_E1`): [RFX_V3_0E7_ERP_API_E1_IMPLEMENTATION.md](./implementation/RFX_V3_0E7_ERP_API_E1_IMPLEMENTATION.md). Delivers migration 000074 and repository foundations only — no public ERP routes, OAuth, or OpenAPI changes.
@@ -414,9 +414,15 @@ NEXT_FREE_TEST_ID=E7P2-INT-221
 MERMAID_VALIDATION=MANUAL_ONLY
 FRONTEND_PHASE2_STATUS=IMPLEMENTATION_IN_PROGRESS
 TRAINING_STATUS=NOT_STARTED
+TRAINING_DISCOVERY_STATUS=DISCOVERY_ACCEPTED
+TRAINING_IMPLEMENTATION_AUTHORIZED=NO
+TRAINING_DISCOVERY_CONTROLLER_VERDICT=ACCEPT_F5_TRAINING_SCOPE
+TRAINING_DISCOVERY_HEAD=5b716dc01904616f4650e0f310fac6a42ea2c2ba
+TRAINING_DISCOVERY_CI_RUN=35893849771
+TRAINING_DISCOVERY_PR=160
 BROWSER_ACCEPTANCE_STATUS=IMPLEMENTED_ACCEPTED
-NEXT_ACTION=PLAN_F5_TRAINING
-NEXT_STAGE_SEQUENCE=PLAN_F5_TRAINING
+NEXT_ACTION=AUTHORIZE_F5_TRAINING_T1_RU
+NEXT_STAGE_SEQUENCE=F5_TRAINING_T1_RU_AUTHORIZATION
 ```
 
 ---
