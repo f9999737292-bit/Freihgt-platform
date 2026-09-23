@@ -134,6 +134,7 @@ These are assigned to the **earliest appropriate wave** — not deferred beyond 
 | **E7 Phase 2 F5 XLSX template acquisition W1 backend** | Read-only Variant A blank BUYER XLSX V1 download | **IMPLEMENTED_ACCEPTED** — PR #156, verdict `ACCEPT_F5_TEMPLATE_ACQUISITION_W1`, product HEAD `c835d19e`, CI `35760651845`; `GET /api/v1/rfx-events/xlsx-create/template`; human JWT + `PolicyBuyerManage`; flag-off 404; no event/analysis writes |
 | **E7 Phase 2 F5 XLSX template acquisition W2 frontend** | web-procurement `/tenders/new-from-xlsx` blank template download next to the XLSX upload | **IMPLEMENTED_ACCEPTED** — PR #157, product HEAD `c51b39f5d7d2a683b4c1e3261cce93f8dee38231`, CI `35773932856`, verdict `ACCEPT_F5_TEMPLATE_ACQUISITION_W2` |
 | **E7 Phase 2 F5 XLSX template acquisition W3 browser** | Live download of the blank CREATE template inside `rfx-buyer-xlsx-create-browser-e2e` | **IMPLEMENTED_ACCEPTED** — PR #158, product HEAD `c7f5ae934eda50340836960ea04fc5f2b3c6a2e1`, CI `35783111497`, verdict `ACCEPT_F5_TEMPLATE_ACQUISITION_W3`; isolated 1 passed, full suite 10 passed, skipped 0, retries 0; live download errors stay on the W2 component tests |
+| **E7 Phase 2 F5 Create-from-XLSX overall** | One live chain: blank download, upload of that file, preview, commit, DRAFT/EXCEL, zero participants, scoped DB proof | **IMPLEMENTATION_IN_PROGRESS** — [RFX_V3_0E7_CREATE_FROM_XLSX_OVERALL_FINAL_ACCEPTANCE.md](./implementation/RFX_V3_0E7_CREATE_FROM_XLSX_OVERALL_FINAL_ACCEPTANCE.md); no controller verdict; F5 overall is not accepted |
 | **E7 Phase 2 Frontend** | Remaining Frontend Phase 2 after F5 upload-only (W2 template download UX, not an ERP browser client) | **IMPLEMENTATION_IN_PROGRESS** |
 | **E7 Phase 2 Training** | RU/EN/ZH training course | **NOT_STARTED** |
 | **E7 Browser Acceptance** | Final real browser acceptance gate (one event / one response through Award; no ERP browser client; no Award→TO) | **IMPLEMENTED_ACCEPTED** — PR #152 (product head `fd5b615f`, product CI `35644222482`, 13/13 passed 0 skipped retries 0, verdict `ACCEPT_E7_BROWSER_ACCEPTANCE`) |
@@ -303,6 +304,7 @@ F5_TEMPLATE_ACQUISITION_W3_CI_RUN=35783111497
 F5_TEMPLATE_ACQUISITION_W3_PR=158
 F5_TEMPLATE_ACQUISITION_W3_BROWSER=ISOLATED_1_PASSED_FULL_SUITE_10_PASSED_SKIPPED_0_RETRIES_0
 F5_TEMPLATE_ACQUISITION_W3_LIVE_DOWNLOAD_ERROR_PATH=W2_COMPONENT_TESTS
+F5_OVERALL_FINAL_ACCEPTANCE_STATUS=IMPLEMENTATION_IN_PROGRESS
 F5_TEMPLATE_ACQUISITION_IMPLEMENTATION_AUTHORIZED=YES
 F5_TEMPLATE_ACQUISITION_IMPLEMENTATION_STARTED=YES
 F5_N1=WALL_CLOCK_VALIDATION_PLUS_COMMIT_NOWFN
