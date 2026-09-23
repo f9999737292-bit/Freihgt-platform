@@ -34,10 +34,10 @@ This discovery does not rename EDO 0.3 and does not start that Task Contract.
 
 After a future authorization, EDO 0.3 would let `document-service` represent:
 
-1. A sealed package of documents owned by the assembling company, tenant-scoped.
-2. Append-only relationships between documents or between a document and a package (correction, related document, package membership). UKD and cancellation remain new documents plus relationships, as ADR-EDO-002 already requires. This phase does not implement UKD XML.
+1. A sealed package of documents owned by the assembling company, tenant-scoped. Membership of a document in a package is stored only on `DocumentPackage`. The same document appears at most once in a package. The package and the member document share one tenant. Cross-tenant membership is forbidden. That membership row is the only source of truth for composition.
+2. Append-only `DocumentRelationship` rows for semantic links between documents, such as correction, replacement, or related document. A relationship does not say that a package contains a document. A relationship type `PACKAGE_CONTAINS_DOCUMENT` is forbidden because it would duplicate membership. UKD and cancellation remain new documents plus semantic relationships, as ADR-EDO-002 already requires. This phase does not implement UKD XML.
 3. Revision immutability: a signed revision's payload and file bytes are not updated or replaced in place. A legally significant change creates a new revision. `AddFile` on a signed document is in the gap this phase is meant to close.
-4. Signing evidence extensions in the `documents` schema: persist signature completion metadata already implied by `documents.signatures`, plus certificate evidence metadata (fingerprint, verification snapshot). No private keys. No claim that verification is legally sufficient.
+4. Signing evidence extensions in the `documents` schema. Current state: `documents.signatures.document_id` is implemented and revision binding is absent. This discovery does not invent `document_version_id`. The future contract binds the signature and certificate evidence to the immutable revision of the signed bytes, by `document_version_id` or an equivalent proof that names that revision and its content digest. Digest algorithm and digest value refer to that revision. Re-verification does not change historical evidence. A new revision does not inherit the previous signature. Certificate evidence has no private key. Evidence does not mean the signature is legally valid. Legal effect stays `LEGAL_VERIFICATION_REQUIRED`.
 
 Ownership stays with `document-service` ([ADR-EDO-001](../adr/ADR-EDO-001-canonical-edo-document-ownership.md)). Other services keep referencing `document_id`.
 
@@ -75,7 +75,8 @@ Ownership stays with `document-service` ([ADR-EDO-001](../adr/ADR-EDO-001-canoni
 2. Confirm that `ArchiveManifest` stays out of the first implementation wave.
 3. Confirm that MChD verification stays out until a legal review.
 4. Confirm tenant is taken from the gateway trust boundary on any new route.
-5. Authorize a Task Contract. This discovery is not that authorization.
+5. Accept a separate product remediation of `DOCUMENT_READ_TENANT_ISOLATION_REMEDIATION_REQUIRED` before any EDO 0.3 implementation Task Contract. This discovery is not that authorization.
+6. Authorize a Task Contract. This discovery is not that authorization.
 
 ## References
 

@@ -4,8 +4,9 @@
 
 ```text
 EDO_0_2_STATUS=IMPLEMENTED_ACCEPTED
-EDO_0_3_DISCOVERY_STATUS=DISCOVERY_COMPLETE_AWAITING_CONTROLLER_REVIEW
+EDO_0_3_DISCOVERY_STATUS=REMEDIATED_AWAITING_REPEAT_CONTROLLER_REVIEW
 EDO_0_3_IMPLEMENTATION_AUTHORIZED=NO
+DOCUMENT_READ_TENANT_ISOLATION_STATUS=PRODUCT_REMEDIATION_REQUIRED
 LEGAL_VERIFICATION_STATUS=OPEN
 PRODUCT_CODE_MODIFIED=NO
 ```
@@ -31,6 +32,24 @@ EDO-0.3 — Document domain extensions (document-service only)
 Named deliverables: `DocumentPackage`, `DocumentRelationship`, immutable revision rules, signing evidence extensions, additive `documents` schema only, and a separate Task Contract before any code.
 
 Recommended reading of the conflicting "EDO-0.3+" archive sentence: variant A. `ArchiveManifest`, MChD verification, operator exchange, and the four-way state split stay out until a controller says otherwise.
+
+Docs remediation of controller findings F-01…F-04:
+
+- Get-by-id tenant isolation is not described as complete. `DOCUMENT_READ_TENANT_ISOLATION_REMEDIATION_REQUIRED` is a separate product wave.
+- Package membership has one source of truth on `DocumentPackage`. Relationships do not duplicate it.
+- Future signing evidence binds to the signed revision. Today `documents.signatures.document_id` is implemented and revision binding is absent.
+- Waves I1–I4 name Task Contract gates and stay `NOT_AUTHORIZED`.
+
+```text
+CURRENT_PRODUCT_SECURITY_GAP:
+GET /v1/documents/{id} does not enforce tenant predicate at repository read path.
+
+ACTION:
+Separate security remediation required.
+
+NOT_IN_THIS_PR:
+No product fix, migration, API change, or test implementation.
+```
 
 ```text
 RECOMMENDED_VARIANT=A

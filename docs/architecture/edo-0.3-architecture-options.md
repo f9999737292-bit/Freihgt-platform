@@ -29,10 +29,10 @@ Follow the final-report sentence literally.
 
 In a future authorized wave, `document-service` gains:
 
-- `DocumentPackage` with tenant, assembling company, seal state, and membership frozen at seal.
-- `DocumentRelationship` as append-only edges. Corrections are new documents plus edges, not overwritten payloads.
+- `DocumentPackage` with tenant, assembling company, seal state, and membership frozen at seal. Membership is the only record that a document belongs to a package. Uniqueness is one document once per package. Package and member share one tenant.
+- `DocumentRelationship` as append-only semantic edges between documents (correction, replacement, related document). It does not duplicate package membership. `PACKAGE_CONTAINS_DOCUMENT` is forbidden.
 - Immutability rules on the existing revision and file rows: no in-place change and no cascade delete of signed artifacts; file attach follows the same signed-state rule as version create.
-- Signing evidence extension: certificate evidence metadata beside the existing signature row. Store fingerprint and verification snapshot. Do not store private keys. Do not call an external certificate authority in this variant.
+- Signing evidence extension bound to the immutable revision of the signed bytes. Current code has `documents.signatures.document_id` and no revision binding; do not invent `document_version_id`. The future column or equivalent proof must name that revision and its content digest. Digest algorithm and digest value refer to the signed revision. Re-verification does not rewrite historical evidence. A new revision does not inherit the previous signature. Store no private key. Do not call an external certificate authority in this variant. Evidence is not a claim of legal validity (`LEGAL_VERIFICATION_REQUIRED`).
 
 Leave unchanged:
 
@@ -41,7 +41,7 @@ Leave unchanged:
 - The single `document_status` column, while documenting that it is still the EDO 0.2 anti-pattern.
 - Operator, billing, TMS, payment, and factoring schemas.
 
-This variant can be implemented later without a legal conclusion about operator licensing or retention years. It still must not claim that the resulting signatures are legally valid.
+This variant can be implemented later without a legal conclusion about operator licensing or retention years. It still must not claim that the resulting signatures are legally valid. It also does not start until `DOCUMENT_READ_TENANT_ISOLATION_REMEDIATION_REQUIRED` has its own controller review. Variant A does not treat today's get-by-id path as fail-closed.
 
 ## Variant B — pull ArchiveManifest metadata forward
 

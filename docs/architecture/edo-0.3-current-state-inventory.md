@@ -85,12 +85,44 @@ Recommended scope stays inside `document-service` and schema `documents`.
 
 ## 5. Tenant and company isolation
 
-- Document reads and writes that go through `GetByIDAndTenant` require `tenant_id`.
-- Public document handlers take `tenant_id` from the JSON body or query string (`internal/http/handlers/document_handler.go`).
-- POD internal handlers take `X-Tenant-ID` (`internal/http/handlers/pod_upload_handler.go`).
-- List and get filters observed in `document_repository.go` constrain `tenant_id` and `deleted_at`. They do not constrain `owner_company_id`.
+Current document read isolation is not complete and is not fail-closed.
+
+```text
+List and mutations:
+GetByIDAndTenant / tenant predicate = IMPLEMENTED
+
+GET /v1/documents/{id}:
+DocumentHandler.GetByID → service.GetDetail → repository.GetByID
+repository predicate = id + deleted_at only
+tenant predicate = ABSENT
+
+GetSession:
+tenant predicate = ABSENT
+```
+
+The service method on that path is `DocumentService.GetByID`. It calls repository `GetDetail`, which calls repository `GetByID`.
+
+```text
+DOCUMENT_READ_TENANT_ISOLATION_REMEDIATION_REQUIRED
+```
+
+Closing that gap is a separate product-remediation wave with its own controller review. It is a prerequisite of any EDO 0.3 implementation wave. This discovery does not change the handler or the repository.
+
+```text
+CURRENT_PRODUCT_SECURITY_GAP:
+GET /v1/documents/{id} does not enforce tenant predicate at repository read path.
+
+ACTION:
+Separate security remediation required.
+
+NOT_IN_THIS_PR:
+No product fix, migration, API change, or test implementation.
+```
+
+- List passes a caller-supplied `tenant_id` into `List`, which filters `tenant_id` and `deleted_at`. It does not filter `owner_company_id`.
+- Mutations that call `GetByIDAndTenant` also take `tenant_id` from the JSON body. That body value is not the gateway trust boundary.
+- POD internal handlers take `X-Tenant-ID` (`internal/http/handlers/pod_upload_handler.go`). The header is trusted only when the gateway set it.
 - Signing checks that signer user and signer company exist in the same tenant. That is existence, not a membership or power-of-attorney check.
-- `SigningService.GetSession` loads a session by id without a tenant argument.
 
 ## 6. Authentication
 
@@ -110,7 +142,14 @@ Three identities already exist in the platform and must stay distinct for any la
 
 Implemented signature types: `SIMPLE_ELECTRONIC`, `ENHANCED_UNQUALIFIED`, `ENHANCED_QUALIFIED`. Verification status values include `PENDING`, `VALID`, `INVALID`, `EXPIRED`, `REVOKED`, `FAILED`.
 
-No code path validates a qualified certificate chain, a timestamp authority, or a machine-readable power of attorney. No MChD GUID column exists.
+```text
+documents.signatures.document_id=IMPLEMENTED
+revision binding=ABSENT
+```
+
+`documents.signatures` references `document_id` and `signing_session_id`. It has `certificate_fingerprint`. It does not reference `document_version_id`. This inventory does not invent that column. A fingerprint is not a binding to the signed revision.
+
+No code path validates a qualified certificate chain, a timestamp authority, or a machine-readable power of attorney. No MChD GUID column exists. Storing a signature row does not mean the signature is legally valid. That question stays `LEGAL_VERIFICATION_REQUIRED`.
 
 Whether a qualified signature or an MChD is legally required for a document type is `LEGAL_VERIFICATION_REQUIRED`. See [edo-0.3-regulatory-source-register.md](edo-0.3-regulatory-source-register.md).
 

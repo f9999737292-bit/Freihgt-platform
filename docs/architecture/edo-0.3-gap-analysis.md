@@ -17,13 +17,15 @@ Gaps below are the distance between accepted EDO 0.2 contracts, the code at `c38
 | G-01 | DocumentPackage | document-service aggregate | Absent | In recommended scope, schema and rules only after authorization |
 | G-02 | DocumentRelationship | Append-only edges | Absent | In recommended scope |
 | G-03 | Immutable revisions | Signed bytes never mutate; new revision for a legally significant change | Version create is blocked after `SIGNED`/`ARCHIVED`. File add is not. Rows are `ON DELETE CASCADE`. No anti-update constraint | In recommended scope as rules on existing `document_versions` |
-| G-04 | Signing evidence | DocumentSignature plus certificate evidence | Session and signature rows exist. Fingerprint is a column, not `CertificateEvidence` | Extend evidence in `documents` schema. Do not add private keys |
+| G-04 | Signing evidence bound to a revision | Signature and certificate evidence refer to the immutable revision of the signed bytes | `documents.signatures.document_id` is implemented. Revision binding is absent. There is no `document_version_id` on `documents.signatures`. Fingerprint is not that binding | Future I1 contract: bind evidence to `document_version_id` or an equivalent revision plus content digest. Re-verification does not rewrite history. A new revision does not inherit the previous signature. Evidence is not a legal-validity claim |
 | G-05 | MChD / authority | PowerOfAttorneyEvidence in ADR-EDO-001 | Absent | Controller option. Not in the named EDO 0.3 sentence. `LEGAL_VERIFICATION_REQUIRED` |
 | G-06 | ArchiveManifest | ADR-EDO-007 says EDO-0.3+ adds the schema. Archive matrix puts legal hold, hash manifest, and WORM at EDO-0.4+ / INFRA-0.1 | Status `ARCHIVED` only | Deferred by the recommended variant. Controller may pull a metadata-only schema forward |
 | G-07 | Orthogonal states | Four dimensions, never one column | One `document_status` | Not in the named EDO 0.3 sentence. Recorded as an option. Do not pretend the current column is compliant with the freeze |
 | G-08 | Outbox and `edo.document.*` | First producer uses transactional outbox | No document outbox. Catalog names are proposed | Design revisions so a later outbox can emit `edo.document.revision_added` and `edo.document.signature_state_changed`. Do not create topics in EDO 0.3 |
 | G-09 | Idempotency of document writes | Versioning policy for bus producers | Only POD upload intents | Package and relationship commands need an idempotency decision before implementation. Not built here |
-| G-10 | Tenant trust | Gateway-set tenant | Public handlers accept body/query `tenant_id`. `GetSession` has no tenant | Security constraint for later waves. See [edo-0.3-security-tenant-boundary.md](edo-0.3-security-tenant-boundary.md) |
+| G-10 | Tenant trust on list and mutations | Gateway-set tenant | List and `GetByIDAndTenant` mutations filter `tenant_id`, but the value comes from the body or query | New routes must use the gateway tenant. Do not describe this path as fail-closed |
+| G-10b | Document get-by-id tenant predicate | Every document read is tenant-scoped | Absent. `GET /v1/documents/{id}` is `DocumentHandler.GetByID` → `GetDetail` → `GetByID` with `id` and `deleted_at` only. `GetSession` also has no tenant predicate | `DOCUMENT_READ_TENANT_ISOLATION_REMEDIATION_REQUIRED`. Separate product wave and controller review before EDO 0.3 implementation. Not fixed in this discovery |
+| G-10c | Package membership source of truth | Membership lives only on `DocumentPackage` | Neither package nor relationship tables exist | Do not add a `PACKAGE_CONTAINS_DOCUMENT` relationship. One fact, one store. Uniqueness is one document once per package, same tenant |
 | G-11 | Company isolation | Company boundary on aggregates | Tenant filter only | Later waves must define company authorization. Discovery does not invent a new RBAC model |
 | G-12 | Billing `document_id` | Mandatory before operator-facing UPD states (ADR-EDO-002) | Nullable | Out of scope. Program label EDO-0.5 / `CWS-EDO-2026-001` |
 | G-13 | Operator port | transport-edo-service | Service absent. `GIS_EPD_CONNECTED=NO` | Out of scope. TEDO |
@@ -38,7 +40,7 @@ Gaps below are the distance between accepted EDO 0.2 contracts, the code at `c38
 ## What is not a gap in EDO 0.3
 
 - EDO 0.2 ADR pack is merged and present on `origin/main` (pull request #73, merge `18a85074`).
-- Document tenant column and owner company column already exist.
+- Document tenant column and owner company column already exist. List and tenant-scoped mutations use them. Get-by-id does not. Read isolation is not complete.
 - Signature type enum already distinguishes simple, enhanced unqualified, and enhanced qualified signatures. That enum is not a compliance claim.
 - Payment outbox exists for payments. Copying it into `document-service` is not part of the recommended scope.
 

@@ -32,15 +32,21 @@ Not written now. Names describe intent for a future Task Contract.
 
 | Future check | Level | Proves |
 |--------------|-------|--------|
-| Package create and seal in one tenant | Unit | Seal freezes membership |
-| Relationship append is idempotent per tenant and key | Unit | Replay does not duplicate the edge |
+| Package create and seal in one tenant | Unit | Seal freezes membership. Membership is the only composition record |
+| Duplicate membership of the same document in one package | Unit | Rejected. Uniqueness is one document once per package |
+| Relationship type that repeats package composition | Unit | `PACKAGE_CONTAINS_DOCUMENT` is rejected |
+| Relationship append is idempotent per tenant and key | Unit | Replay does not duplicate the semantic edge |
 | Relationship to a foreign-tenant document | Unit | Rejected or not found, without revealing the other tenant |
 | Signed revision payload update | Unit | Rejected |
 | Add file after `SIGNED` | Unit | Rejected. Closes the current `AddFile` gap |
+| Signature bound to the signed revision | Unit | Evidence names `document_version_id` or the equivalent digest binding. A new revision has no copied signature |
+| Re-verification | Unit | Historical evidence bytes and digest stay unchanged |
 | Cascade or soft-delete of a signed revision | Integration | Signed bytes and signature rows remain |
 | Gateway tenant mismatch | Integration | Body `tenant_id` that differs from the trusted tenant is rejected on any new route |
+| Document get-by-id tenant predicate | Security regression | Belongs to wave S1, not to this discovery. Proves a foreign tenant cannot read by id |
+| `GetSession` tenant predicate | Security regression | Belongs to wave S1 |
 | Certificate evidence has no private-key column | Migration review | Schema inspection |
-| OpenAPI matches new routes | Contract | Only if wave I3 exists |
+| OpenAPI matches new routes | Contract | Only if wave I3 exists. Source-of-truth file and generated artifacts match |
 | Browser flow | Not required for variant A | No new UI is in the recommended scope |
 
 Operator acceptance against a real EDI operator, GIS EPD, or Selectel WORM bucket is out of EDO 0.3. Those checks belong to TEDO and INFRA and stay `NOT_RUN`.

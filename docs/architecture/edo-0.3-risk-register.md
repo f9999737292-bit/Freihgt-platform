@@ -7,7 +7,26 @@ DOCUMENT_STATUS=DISCOVERY
 IMPLEMENTATION_AUTHORIZED=NO
 ```
 
-Risks are open. None are closed by this discovery.
+Risks are open. None are closed by this discovery. The product read gap below stays high. It is not folded into a general residual row and it is not treated as fixed by documentation.
+
+## F-01 product security gap
+
+```text
+CURRENT_PRODUCT_SECURITY_GAP:
+GET /v1/documents/{id} does not enforce tenant predicate at repository read path.
+
+ACTION:
+Separate security remediation required.
+
+NOT_IN_THIS_PR:
+No product fix, migration, API change, or test implementation.
+```
+
+```text
+DOCUMENT_READ_TENANT_ISOLATION_REMEDIATION_REQUIRED
+```
+
+Severity remains high. `GetSession` also has no tenant predicate. List and `GetByIDAndTenant` mutations are a different path and do not make document reads fail-closed.
 
 | ID | Risk | Evidence | Mitigation in discovery | Residual |
 |----|------|----------|-------------------------|----------|
@@ -15,7 +34,8 @@ Risks are open. None are closed by this discovery.
 | R-02 | `ArchiveManifest` treated as done because ADR-EDO-007 says EDO-0.3+ | Wording is "0.3 or later". Archive matrix puts WORM at EDO-0.4+ / INFRA | Recommended variant leaves the manifest out | A metadata-only table could be mistaken for a legal archive |
 | R-03 | Single `document_status` kept forever | Code column contradicts the state-machine freeze | Recorded as variant D, not silently "fixed" | Clients keep a collapsed status until a later wave |
 | R-04 | Signed bytes replaced via `AddFile` or `ON DELETE CASCADE` | `DocumentService.AddFile` has no status guard. Migration uses cascade | Immutability is in variant A for a future wave | Still true in the current code. This PR does not patch it |
-| R-05 | Client-supplied `tenant_id` copied onto new routes | `document_handler.go` | Security note forbids copying it | Existing routes are unchanged |
+| R-05 | Client-supplied `tenant_id` copied onto new routes | `document_handler.go` list and mutation bodies | Security note forbids copying it | Existing routes are unchanged. This row is not the get-by-id gap; that gap is the F-01 section above and stays high |
+| R-13 | Document get-by-id has no tenant predicate | `DocumentHandler.GetByID` → `GetDetail` → `GetByID` filters `id` and `deleted_at` only. `GetSession` has no tenant predicate | Docs name the gap. No product change in this pull request | HIGH. Open until a separate security wave and controller review |
 | R-06 | MChD GUID stored without a check | No column today. Variant C would add one | Variant C deferred. `LEGAL_VERIFICATION_REQUIRED` | Authority can be implied by a later careless column |
 | R-07 | Legal edition drift | 63-FZ has published amendment 04.08.2026 No. 315-FZ. Consolidated effect not reviewed | Register marks edition `LEGAL_VERIFICATION_REQUIRED` | A build wave must not cite this file as legal sign-off |
 | R-08 | False operator or accreditation claim | No official source names this platform as an operator | Explicit non-claim | Marketing or UI copy outside this PR |
