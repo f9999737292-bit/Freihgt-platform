@@ -3,14 +3,15 @@
 Live browser acceptance for the blank CREATE XLSX download. This wave does not change the W1 endpoint or the W2 frontend.
 
 ```
+CONTROLLER_VERDICT=ACCEPT_F5_TEMPLATE_ACQUISITION_W3
 F5_TEMPLATE_ACQUISITION_W1_STATUS=IMPLEMENTED_ACCEPTED
 F5_TEMPLATE_ACQUISITION_W2_STATUS=IMPLEMENTED_ACCEPTED
-F5_TEMPLATE_ACQUISITION_W3_STATUS=IMPLEMENTATION_IN_PROGRESS
+F5_TEMPLATE_ACQUISITION_W3_STATUS=IMPLEMENTED_ACCEPTED
 F5_OVERALL_STATUS=IMPLEMENTATION_IN_PROGRESS
 FRONTEND_PHASE2_STATUS=IMPLEMENTATION_IN_PROGRESS
 ```
 
-No controller verdict is recorded here. W3 does not accept F5 overall or Frontend Phase 2.
+Controller verdict `ACCEPT_F5_TEMPLATE_ACQUISITION_W3` accepts this live-browser wave only. F5 overall and Frontend Phase 2 stay **IMPLEMENTATION_IN_PROGRESS**. Training, ERP, TMS, and Award→Transport Order stay outside this wave.
 
 ## Gate
 
@@ -28,7 +29,20 @@ The same saved file is uploaded through the CREATE form. Preview is multipart HT
 
 `/tenders` keeps only Create from Excel. `/tenders/new` still opens the manual wizard. `/tenders/:id` still shows the F1 export control and does not show the blank-template button.
 
-A live download error is not produced here. Forcing 401, 403, 404, or 429 would require intercepting the product endpoint or hiding the button. Those states remain covered by the W2 component tests.
+A live download error is not produced here. Forcing 401, 403, 404, or 429 would require intercepting the product endpoint or hiding the button. Those states remain covered by the W2 component tests and were not a separate W3 live scenario.
+
+## Acceptance
+
+| Item | Value |
+| --- | --- |
+| Controller verdict | `ACCEPT_F5_TEMPLATE_ACQUISITION_W3` |
+| PR | https://github.com/f9999737292-bit/Freihgt-platform/pull/158 |
+| Accepted product HEAD | `c7f5ae934eda50340836960ea04fc5f2b3c6a2e1` |
+| Accepted CI | https://github.com/f9999737292-bit/Freihgt-platform/actions/runs/35783111497 |
+| Browser evidence | isolated 1 passed; full suite 10 passed; skipped 0; retries 0 |
+| Live download error path | W2 component tests; not a separate W3 live scenario |
+
+W3 acceptance does not close F5 or Frontend Phase 2.
 
 ## Out of scope
 
