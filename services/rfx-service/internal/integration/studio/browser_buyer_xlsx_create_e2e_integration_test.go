@@ -74,12 +74,17 @@ func TestRfxBuyerXlsxCreate_BrowserE2E_LiveCreateDraft(t *testing.T) {
 		writeGatewayFailureArtifact(t, stack.gatewayProc)
 	})
 	beforeDownload := snapshotBuyerXlsxCreateWrites(t, stack)
-	if err := runBuyerXlsxCreatePlaywrightSuite(t, stack, "--grep", "blank template download writes nothing"); err != nil {
+	if err := runBuyerXlsxCreatePlaywrightSuite(t, stack, "", "--grep", "blank template download writes nothing"); err != nil {
 		t.Fatalf("playwright blank template no-write proof: %v", err)
 	}
 	assertBuyerXlsxCreateWritesUnchanged(t, stack, beforeDownload)
+	evidencePath := filepath.Join(t.TempDir(), "f5-overall-chain-evidence.json")
+	if err := runBuyerXlsxCreatePlaywrightSuite(t, stack, evidencePath, "--grep", "buyer XLSX create overall chain"); err != nil {
+		t.Fatalf("playwright overall chain: %v", err)
+	}
+	assertBuyerXlsxCreateOverallChainDatabase(t, stack, evidencePath)
 	beforeSuite := snapshotBuyerXlsxCreateWrites(t, stack)
-	if err := runBuyerXlsxCreatePlaywrightSuite(t, stack); err != nil {
+	if err := runBuyerXlsxCreatePlaywrightSuite(t, stack, ""); err != nil {
 		t.Fatalf("playwright buyer XLSX create suite: %v", err)
 	}
 	afterSuite := snapshotBuyerXlsxCreateWrites(t, stack)
@@ -347,7 +352,7 @@ func (s *browserBuyerXlsxCreateLiveStack) shutdown(t *testing.T) {
 	verifyDevPortsReleased(t, buyerXlsxCreateBrowserPort, buyerXlsxCreateFlagOffBrowserPort)
 }
 
-func runBuyerXlsxCreatePlaywrightSuite(t *testing.T, stack *browserBuyerXlsxCreateLiveStack, extra ...string) error {
+func runBuyerXlsxCreatePlaywrightSuite(t *testing.T, stack *browserBuyerXlsxCreateLiveStack, evidencePath string, extra ...string) error {
 	t.Helper()
 	root, err := repoRoot()
 	if err != nil {
@@ -386,6 +391,9 @@ func runBuyerXlsxCreatePlaywrightSuite(t *testing.T, stack *browserBuyerXlsxCrea
 		"BROWSER_E2E_FLAG_OFF_RFX_NUMBER="+fix.FlagOffNumber,
 		"BROWSER_E2E_SOURCE_EVENT_ID="+fix.SourceEventID.String(),
 	)
+	if evidencePath != "" {
+		cmd.Env = append(cmd.Env, "BROWSER_E2E_OVERALL_CHAIN_EVIDENCE="+evidencePath)
+	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
@@ -399,6 +407,156 @@ type buyerXlsxCreateWriteCounts struct {
 	awards       int
 	orders       int
 	idempotency  int
+}
+
+type buyerXlsxCreateOverallEvidence struct {
+	RfxNumber      string `json:"rfx_number"`
+	EventID        string `json:"event_id"`
+	AnalysisID     string `json:"analysis_id"`
+	IdempotencyKey string `json:"idempotency_key"`
+}
+
+func assertBuyerXlsxCreateOverallChainDatabase(t *testing.T, stack *browserBuyerXlsxCreateLiveStack, evidencePath string) {
+	t.Helper()
+	raw, err := os.ReadFile(evidencePath)
+	if err != nil {
+		t.Fatal("overall chain evidence file is missing")
+	}
+	_ = os.Remove(evidencePath)
+	var ev buyerXlsxCreateOverallEvidence
+	if err := json.Unmarshal(raw, &ev); err != nil {
+		t.Fatal("overall chain evidence file is invalid")
+	}
+	eventID, eventErr := uuid.Parse(ev.EventID)
+	analysisID, analysisErr := uuid.Parse(ev.AnalysisID)
+	if eventErr != nil || analysisErr != nil || ev.RfxNumber == "" || ev.IdempotencyKey == "" {
+		t.Fatal("overall chain evidence file is incomplete")
+	}
+	if !strings.HasPrefix(ev.RfxNumber, "RFX-F5-ALL-") {
+		t.Fatal("overall chain evidence rfx number is unexpected")
+	}
+
+	ctx := context.Background()
+	tenantID := stack.fixture.TenantID
+	count := func(label, query string, args ...any) int {
+		t.Helper()
+		var n int
+		if err := stack.env.pool.QueryRow(ctx, query, args...).Scan(&n); err != nil {
+			t.Fatalf("overall chain %s lookup failed", label)
+		}
+		return n
+	}
+	requireZero := func(label, query string, args ...any) {
+		t.Helper()
+		if n := count(label, query, args...); n != 0 {
+			t.Fatalf("overall chain %s count=%d", label, n)
+		}
+	}
+
+	eventCount := count("event", `
+		SELECT COUNT(*) FROM rfx.rfx_events
+		WHERE tenant_id = $1 AND rfx_number = $2 AND deleted_at IS NULL`,
+		tenantID, ev.RfxNumber)
+	if eventCount != 1 {
+		t.Fatalf("overall chain created event count=%d", eventCount)
+	}
+	var storedEventID uuid.UUID
+	var status, channel string
+	if err := stack.env.pool.QueryRow(ctx, `
+		SELECT id, status, creation_channel
+		FROM rfx.rfx_events
+		WHERE tenant_id = $1 AND rfx_number = $2 AND deleted_at IS NULL`,
+		tenantID, ev.RfxNumber).Scan(&storedEventID, &status, &channel); err != nil {
+		t.Fatal("overall chain event row lookup failed")
+	}
+	if storedEventID != eventID {
+		t.Fatal("overall chain event id does not match the commit response")
+	}
+	if status != domain.RfxStatusDraft {
+		t.Fatalf("overall chain event status=%s", status)
+	}
+	if channel != domain.CreationChannelExcel {
+		t.Fatalf("overall chain creation channel=%s", channel)
+	}
+
+	var analysisStatus, referenceType string
+	var consumedAt *time.Time
+	var referenceID uuid.UUID
+	if err := stack.env.pool.QueryRow(ctx, `
+		SELECT status, consumed_at, COALESCE(result_reference_type, ''), result_reference_id
+		FROM rfx.rfx_import_analyses
+		WHERE id = $1 AND tenant_id = $2`,
+		analysisID, tenantID).Scan(&analysisStatus, &consumedAt, &referenceType, &referenceID); err != nil {
+		t.Fatal("overall chain analysis lookup failed")
+	}
+	if analysisStatus != domain.ImportAnalysisStatusConsumed || consumedAt == nil {
+		t.Fatalf("overall chain analysis status=%s consumed=%t", analysisStatus, consumedAt != nil)
+	}
+	if referenceType != domain.ImportTargetTypeNewEvent || referenceID != eventID {
+		t.Fatal("overall chain analysis does not reference the created event")
+	}
+
+	var idemCount, responseStatus int
+	if err := stack.env.pool.QueryRow(ctx, `
+		SELECT COUNT(*), COALESCE(MAX(response_status), 0)
+		FROM rfx.rfx_idempotency_records
+		WHERE tenant_id = $1 AND actor_id = $2 AND operation = $3
+		  AND aggregate_scope = $4 AND idempotency_key = $5`,
+		tenantID, stack.fixture.BuyerUserID, domain.BuyerXlsxCreateCommitOperation, uuid.Nil, ev.IdempotencyKey,
+	).Scan(&idemCount, &responseStatus); err != nil {
+		t.Fatal("overall chain idempotency lookup failed")
+	}
+	if idemCount != 1 {
+		t.Fatalf("overall chain idempotency count=%d", idemCount)
+	}
+	if responseStatus != http.StatusCreated {
+		t.Fatalf("overall chain idempotency response status=%d", responseStatus)
+	}
+
+	requireZero("participants", `
+		SELECT COUNT(*) FROM rfx.rfx_participants
+		WHERE tenant_id = $1 AND rfx_event_id = $2`, tenantID, eventID)
+	requireZero("responses", `
+		SELECT COUNT(*) FROM rfx.rfx_responses
+		WHERE tenant_id = $1 AND rfx_event_id = $2 AND deleted_at IS NULL`, tenantID, eventID)
+	requireZero("awards", `
+		SELECT COUNT(*) FROM rfx.rfx_awards
+		WHERE tenant_id = $1 AND rfx_event_id = $2`, tenantID, eventID)
+	requireZero("award transport orders", `
+		SELECT COUNT(*) FROM rfx.rfx_award_transport_orders
+		WHERE tenant_id = $1 AND rfx_event_id = $2`, tenantID, eventID)
+	requireZero("erp links", `
+		SELECT COUNT(*) FROM rfx.rfx_external_object_links
+		WHERE tenant_id = $1 AND rfx_event_id = $2`, tenantID, eventID)
+	requireZero("publish or submit audit", `
+		SELECT COUNT(*) FROM rfx.audit_events
+		WHERE tenant_id = $1 AND entity_id = $2
+		  AND (action ILIKE '%publish%' OR action ILIKE '%submit%')`, tenantID, eventID)
+
+	var versionCount int
+	var versionStatus string
+	var questionnaireEnabled bool
+	var publishedAt *time.Time
+	if err := stack.env.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM rfx.rfx_versions
+		WHERE tenant_id = $1 AND rfx_event_id = $2 AND deleted_at IS NULL`,
+		tenantID, eventID).Scan(&versionCount); err != nil {
+		t.Fatal("overall chain version lookup failed")
+	}
+	if versionCount != 1 {
+		t.Fatalf("overall chain draft version count=%d", versionCount)
+	}
+	if err := stack.env.pool.QueryRow(ctx, `
+		SELECT status, questionnaire_enabled, published_at
+		FROM rfx.rfx_versions
+		WHERE tenant_id = $1 AND rfx_event_id = $2 AND deleted_at IS NULL`,
+		tenantID, eventID).Scan(&versionStatus, &questionnaireEnabled, &publishedAt); err != nil {
+		t.Fatal("overall chain version row lookup failed")
+	}
+	if versionStatus != domain.RfxVersionStatusDraft || questionnaireEnabled || publishedAt != nil {
+		t.Fatal("overall chain questionnaire draft is published or enabled")
+	}
+	t.Log("overall chain database assertions passed")
 }
 
 func snapshotBuyerXlsxCreateWrites(t *testing.T, stack *browserBuyerXlsxCreateLiveStack) buyerXlsxCreateWriteCounts {
