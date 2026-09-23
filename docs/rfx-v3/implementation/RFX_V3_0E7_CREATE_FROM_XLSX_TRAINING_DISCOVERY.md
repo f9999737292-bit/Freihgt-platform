@@ -3,12 +3,13 @@
 Discovery and wave plan for user training of the accepted F5 Create-from-XLSX flow. This document does not authorize a course, a help page, or product changes.
 
 ```
+CONTROLLER_VERDICT=ACCEPT_F5_TRAINING_SCOPE
 F5_OVERALL_STATUS=IMPLEMENTED_ACCEPTED
-TRAINING_DISCOVERY_STATUS=DISCOVERY_COMPLETE_AWAITING_CONTROLLER_REVIEW
+TRAINING_DISCOVERY_STATUS=DISCOVERY_ACCEPTED
 TRAINING_IMPLEMENTATION_AUTHORIZED=NO
 TRAINING_STATUS=NOT_STARTED
 FRONTEND_PHASE2_STATUS=IMPLEMENTATION_IN_PROGRESS
-NEXT_ACTION=INDEPENDENT_CONTROLLER_REVIEW_F5_TRAINING_SCOPE
+NEXT_ACTION=AUTHORIZE_F5_TRAINING_T1_RU
 ```
 
 Base is `origin/main` `57bc501614f8aca981b7353182898861c4d8b6da`, merge of PR #159. Accepted product evidence stays in [overall final acceptance](./RFX_V3_0E7_CREATE_FROM_XLSX_OVERALL_FINAL_ACCEPTANCE.md).
@@ -41,7 +42,7 @@ Manual creation remains `/tenders/new`. Updating an existing draft remains F1 on
 
 ### Workbook
 
-The blank workbook has seven sheets, in this order: `Instructions`, `Metadata`, `Lots`, `Sections`, `Questions`, `Options`, `Rules`. Data sheets are headers only. Instructions describe CREATE upload. They do not describe automatic publication or participant creation. Empty lots, sections, and questions are valid for a new draft.
+The blank workbook has seven sheets, in this order: `Instructions`, `Metadata`, `Lots`, `Sections`, `Questions`, `Options`, `Rules`. Lots, Sections, Questions, Options, and Rules are headers only. Metadata already contains `schema_name` and `schema_version`; T1 must tell the buyer not to delete those rows. Instructions describe CREATE upload. They do not describe automatic publication or participant creation. Empty lots, sections, and questions are valid for a new draft.
 
 Only `.xlsx` is accepted. The maximum file size is 5 MiB. The RU size string uses **МиБ**. EN and ZH use **MiB**.
 
@@ -179,7 +180,7 @@ These pairs need human confirmation before EN or ZH course text is written. The 
 | Manual return | К ручному созданию | Back to manual creation | 返回手动创建 | — |
 | Size unit | МиБ | MiB | MiB | Do not normalize RU to MiB |
 | Carrier | Перевозчик | Carrier | 承运商 | Used only to say participants are not added |
-| Excel channel | — | `EXCEL` on the tender | — | F4 display label in RU and ZH |
+| Excel channel | Создан из Excel | Created from Excel | 从 Excel 创建 | Quote these UI strings. Field label: Канал создания / Creation channel / 创建渠道 |
 | BuyerManage | Not a UI label | Not a UI label | Not a UI label | Teach the four role names only to support |
 
 `Knockout` stays an untranslated product word where the evaluation UI already does that. It is out of this course except as a term not to redefine.
@@ -265,8 +266,44 @@ Training implementation, help UI, product code, OpenAPI, tests, workflows, migra
 
 ## Open decisions
 
-1. Confirm the spoken RU term for the object: тендер, as in the UI, or another legal term.
-2. Confirm the F4 RU and ZH label for `creation_channel=EXCEL` before lesson 14 is illustrated.
-3. Confirm whether T4 may ship a RU link before EN and ZH guides exist.
-4. Confirm the support rule for the **Code:** line: redact always, including internal tickets.
-5. Confirm the demo company display name. It must be synthetic.
+Closed by [Controller decisions](#controller-decisions). The questions were the spoken RU term, the Excel-channel labels, a RU help link before EN/ZH, the **Code:** line in tickets, and the synthetic company name.
+
+## Acceptance evidence
+
+Controller verdict `ACCEPT_F5_TRAINING_SCOPE` accepts this discovery scope. It does not authorize T1 or any later wave.
+
+| Item | Value |
+| --- | --- |
+| Controller verdict | `ACCEPT_F5_TRAINING_SCOPE` |
+| PR | https://github.com/f9999737292-bit/Freihgt-platform/pull/160 |
+| Accepted discovery HEAD | `5b716dc01904616f4650e0f310fac6a42ea2c2ba` |
+| Accepted CI | `35893849771` |
+| Scope | Docs only: this file and `docs/rfx-v3/RFX_V3_ROADMAP.md` |
+| Findings | TD-01…TD-04 non-blocking; dispositions below |
+
+## Controller findings
+
+| ID | Disposition |
+| --- | --- |
+| TD-01 | `RESOLVED_BY_CONTROLLER_DECISION` — quote the existing Excel-channel labels |
+| TD-02 | `RESOLVED_FOR_T1` — Metadata contains `schema_name` and `schema_version`; header-only applies only to Lots, Sections, Questions, Options, and Rules. T1 must forbid deleting the schema rows |
+| TD-03 | `NOTE_ACCEPTED` — support training does not teach turning on the localStorage flag; the backend remains the authority, and flag-off returns HTTP 404 |
+| TD-04 | `DEFERRED_TO_T4_CONTRACT` — the same-origin target and the exact path are fixed before T4 |
+
+## Controller decisions
+
+### Before T1
+
+Buyer speech uses **тендер**, as on the screen. Do not replace it with «закупка» or RFx. Leave `SPOT_RFQ`, `FREIGHT`, and `DRAFT` as codes, with a short gloss beside them.
+
+Excel channel copy quotes the existing UI strings: RU `Создан из Excel`, EN `Created from Excel`, ZH `从 Excel 创建`. The field label is RU `Канал создания`, EN `Creation channel`, ZH `创建渠道`.
+
+Screenshots use the synthetic company display name `Demo Buyer`. Assets live in `docs/rfx-v3/training/assets/` as PNG. The first name is `ru-01-list-button.png`. Alt text is in the language of that guide. Crop the `Code:` line.
+
+### Before T2
+
+Do not show the `Code:` line in the buyer course or in screenshots. An internal support ticket may keep the code only in a closed technical note. Do not copy the code into a buyer-facing reply or into training material.
+
+### Before T4
+
+A RU help link is allowed after accepted T2, before EN and ZH. EN/ZH link copy is allowed only after accepted T3. The target is a same-origin page built from the accepted Markdown of that same release. Do not use an external raw host, and do not copy course prose into Vue. The exact route is fixed by a separate T4 contract.
