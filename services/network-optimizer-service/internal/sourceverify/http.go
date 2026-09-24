@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/freight-platform/network-optimizer-service/internal/domain"
+	"github.com/freight-platform/shared-go/internalauth"
 	"github.com/freight-platform/shared-go/lowcode"
 )
 
@@ -19,9 +20,10 @@ type HTTPVerifier struct {
 	client            *http.Client
 	transportOrderURL string
 	shipmentURL       string
+	serviceToken      string
 }
 
-func NewHTTP(transportOrderURL, shipmentURL string) *HTTPVerifier {
+func NewHTTP(transportOrderURL, shipmentURL, serviceToken string) *HTTPVerifier {
 	return &HTTPVerifier{
 		client: &http.Client{
 			Timeout: 5 * time.Second,
@@ -31,22 +33,26 @@ func NewHTTP(transportOrderURL, shipmentURL string) *HTTPVerifier {
 		},
 		transportOrderURL: strings.TrimRight(transportOrderURL, "/"),
 		shipmentURL:       strings.TrimRight(shipmentURL, "/"),
+		serviceToken:      strings.TrimSpace(serviceToken),
 	}
 }
 
 func (v *HTTPVerifier) Owns(ctx context.Context, tenantID uuid.UUID, sourceType string, sourceID uuid.UUID) (bool, error) {
+	if strings.TrimSpace(v.serviceToken) == "" {
+		return false, ErrUnavailable
+	}
 	var endpoint string
 	switch sourceType {
 	case domain.SourceTransportOrder:
 		if v.transportOrderURL == "" {
 			return false, ErrUnavailable
 		}
-		endpoint = fmt.Sprintf("%s/v1/transport-orders/%s", v.transportOrderURL, sourceID)
+		endpoint = fmt.Sprintf("%s/internal/v1/transport-orders/%s/ownership", v.transportOrderURL, sourceID)
 	case domain.SourceShipment:
 		if v.shipmentURL == "" {
 			return false, ErrUnavailable
 		}
-		endpoint = fmt.Sprintf("%s/v1/shipments/%s", v.shipmentURL, sourceID)
+		endpoint = fmt.Sprintf("%s/internal/v1/shipments/%s/ownership", v.shipmentURL, sourceID)
 	default:
 		return false, nil
 	}
@@ -54,12 +60,11 @@ func (v *HTTPVerifier) Owns(ctx context.Context, tenantID uuid.UUID, sourceType 
 	if err != nil {
 		return false, ErrUnavailable
 	}
-	// Fresh request. tenantID is the actor already established for this call.
-	// Inbound client headers are not copied onto it.
-	// Downstream GET /v1/transport-orders/{id} and GET /v1/shipments/{id}
-	// scope the row by X-Tenant-ID. They are not internalauth routes.
-	// /internal/v1 is not an ownership probe: it serves rate snapshots and award creation.
+	// Fresh request. The token is the configured platform service credential.
+	// tenantID is the actor already established for this call.
+	// Inbound client headers, including integration identity headers, are not copied.
 	req.Header.Set(lowcode.HeaderTenantID, tenantID.String())
+	req.Header.Set(internalauth.HeaderName, v.serviceToken)
 	resp, err := v.client.Do(req)
 	if err != nil {
 		return false, ErrUnavailable
@@ -72,9 +77,10 @@ func (v *HTTPVerifier) Owns(ctx context.Context, tenantID uuid.UUID, sourceType 
 	switch resp.StatusCode {
 	case http.StatusOK:
 		var probe struct {
+			ID       *uuid.UUID `json:"id"`
 			TenantID *uuid.UUID `json:"tenant_id"`
 		}
-		if json.Unmarshal(body, &probe) != nil || probe.TenantID == nil || *probe.TenantID != tenantID {
+		if json.Unmarshal(body, &probe) != nil || probe.ID == nil || probe.TenantID == nil || *probe.ID != sourceID || *probe.TenantID != tenantID {
 			return false, nil
 		}
 		return true, nil

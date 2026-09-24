@@ -55,12 +55,15 @@ func TestBNO13SpoofedIdentityIgnored(t *testing.T) {
 	companyID := uuid.NewString()
 	identity := identityServer(t, companyID, "SHIPPER", []string{"SHIPPER_ADMIN"}, nil)
 	defer identity.Close()
-	var gotTenant, gotUser, gotEmail, gotAdmin string
+	var gotTenant, gotUser, gotEmail, gotAdmin, gotToken, gotPrincipal, gotActor string
 	guard := NewGuard(config.Config{AuthEnabled: true, ProxyTimeoutSeconds: 5, Services: config.ServiceURLs{Identity: identity.URL}}, http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		gotTenant = r.Header.Get("X-Tenant-ID")
 		gotUser = r.Header.Get("X-User-ID")
 		gotEmail = r.Header.Get("X-User-Email")
 		gotAdmin = r.Header.Get("X-Platform-Admin")
+		gotToken = r.Header.Get("X-Internal-Service-Token")
+		gotPrincipal = r.Header.Get("X-Integration-Principal-ID")
+		gotActor = r.Header.Get("X-Actor-Kind")
 	}))
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/network/load-opportunities", strings.NewReader(`{}`))
 	req.Header.Set("Authorization", "Bearer "+signToken(t, "secret", userID, tenantID))
@@ -69,12 +72,17 @@ func TestBNO13SpoofedIdentityIgnored(t *testing.T) {
 	req.Header.Set("X-User-ID", "spoofed-user")
 	req.Header.Set("X-User-Email", "spoofed@example.com")
 	req.Header.Set("X-Platform-Admin", "true")
+	req.Header.Set("X-Internal-Service-Token", "client-forged-token")
+	req.Header.Set("X-Integration-Principal-ID", uuid.NewString())
+	req.Header.Set("X-Integration-Scopes", "rfx:draft:read")
+	req.Header.Set("X-Integration-Auth-Scheme", "OAUTH")
+	req.Header.Set("X-Actor-Kind", "INTEGRATION")
 	rec := serve(t, guard.WithPolicy(PolicyPublishLoad), req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("BNO13 status=%d body=%s", rec.Code, rec.Body.String())
 	}
-	if gotTenant != tenantID || gotUser != userID || gotEmail != "" || gotAdmin != "" {
-		t.Fatalf("spoof reached downstream tenant=%s user=%s email=%s admin=%s", gotTenant, gotUser, gotEmail, gotAdmin)
+	if gotTenant != tenantID || gotUser != userID || gotEmail != "" || gotAdmin != "" || gotToken != "" || gotPrincipal != "" || gotActor != "BUYER" {
+		t.Fatalf("spoof reached downstream tenant=%s user=%s email=%s admin=%s token=%s principal=%s actor=%s", gotTenant, gotUser, gotEmail, gotAdmin, gotToken, gotPrincipal, gotActor)
 	}
 }
 

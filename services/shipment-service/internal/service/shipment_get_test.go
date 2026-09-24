@@ -101,3 +101,35 @@ func TestShipmentServiceGetByIDAndTenantUnexpectedErrorNotNotFound(t *testing.T)
 		t.Fatalf("expected internal error, got %v", err)
 	}
 }
+
+func TestConfirmOwnershipUsesTenantPredicate(t *testing.T) {
+	t.Parallel()
+	tenantID := uuid.New()
+	shipmentID := uuid.New()
+	var gotID, gotTenant uuid.UUID
+	svc := NewShipmentService(&mockShipmentStore{
+		getByIDAndTenantFn: func(_ context.Context, id, tenant uuid.UUID) (*domain.Shipment, error) {
+			gotID = id
+			gotTenant = tenant
+			return &domain.Shipment{ID: id, TenantID: tenant}, nil
+		},
+	}, &mockDriverLookup{}, &mockVehicleLookup{})
+	if err := svc.ConfirmOwnership(context.Background(), tenantID, shipmentID); err != nil {
+		t.Fatal(err)
+	}
+	if gotID != shipmentID || gotTenant != tenantID {
+		t.Fatalf("lookup id=%s tenant=%s", gotID, gotTenant)
+	}
+
+	other := uuid.New()
+	leaked := NewShipmentService(&mockShipmentStore{
+		getByIDAndTenantFn: func(_ context.Context, id, tenant uuid.UUID) (*domain.Shipment, error) {
+			return &domain.Shipment{ID: id, TenantID: other}, nil
+		},
+	}, &mockDriverLookup{}, &mockVehicleLookup{})
+	err := leaked.ConfirmOwnership(context.Background(), tenantID, shipmentID)
+	var appErr *apperrors.AppError
+	if !errors.As(err, &appErr) || appErr.Code != apperrors.CodeNotFound {
+		t.Fatalf("mismatched row tenant must be not found, got %v", err)
+	}
+}

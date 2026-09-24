@@ -43,15 +43,32 @@ Tenant and user identity on the public API come from the verified gateway JWT. `
 
 ### Source verification
 
-`SOURCE_VERIFY_SERVICE_AUTH=NONE`
+`SOURCE_VERIFY_SERVICE_AUTH=INTERNAL_SERVICE_TOKEN`
+
+`SOURCE_VERIFY_SERVICE_IDENTITY=PLATFORM_INTERNAL_SERVICE`
 
 `SOURCE_VERIFY_TENANT_CONTEXT=ACTOR_TENANT_HEADER`
 
-`RAW_CLIENT_HEADER_TRUSTED=NO`
+`SOURCE_VERIFY_SCOPE=INTERNAL_OWNERSHIP_PROBE`
 
-Publication checks ownership with `GET /v1/transport-orders/{id}` or `GET /v1/shipments/{id}`. Those handlers resolve the tenant only from `X-Tenant-ID` and load the row with that tenant predicate. They do not accept `X-Internal-Service-Token` as authorization. The transport-order `/internal/v1` routes do require that token, and they serve rate snapshots and award creation, so they are not the ownership probe.
+`RAW_TENANT_HEADER_ALONE_SUFFICIENT=NO`
 
-The verifier builds a new request and sets `X-Tenant-ID` from the actor tenant already taken from the gateway JWT. It does not copy `Authorization`, user, company, platform-admin, or internal-service headers from the caller. A matching `tenant_id` in the downstream body is required. A mismatch, a missing `tenant_id`, a not-found, or a redirect fails closed. A public caller cannot move that check onto another tenant by spoofing identity headers: the gateway replaces those headers before this service sees the request.
+`PUBLIC_ROUTE_REUSED=NO`
+
+`DEDICATED_INTERNAL_PROBE=YES`
+
+Publication does not call the public shipment or transport-order reads. Those reads are not service-authenticated, and the transport-order public read also applies company visibility. The ownership probes are:
+
+- `GET /internal/v1/transport-orders/{id}/ownership`
+- `GET /internal/v1/shipments/{id}/ownership`
+
+Both sit behind `packages/shared-go/internalauth`. The caller must present `X-Internal-Service-Token`, the same shared platform credential already used by internal routes such as transport-order rate snapshot. An empty or wrong token is denied. The token is read from `INTERNAL_SERVICE_TOKEN`. It is not hardcoded.
+
+`integrationauth` is the external ERP principal mechanism. Its scopes are `rfx:*`, its tenant comes from the principal, and the gateway injects those headers only after verifying an integration JWT. That is not the platform service-to-service boundary, so this probe does not add integration scopes or principals.
+
+After the token check, the probe still loads the row with `id` and the actor tenant. A valid service credential cannot select by id alone. The response is only `id` and `tenant_id`. A foreign tenant and a missing id return the same not-found body.
+
+Network-optimizer builds a new request. It sets the configured service token and `X-Tenant-ID` from the actor already taken from the gateway JWT. It does not copy client `Authorization`, integration principal, scope, auth-scheme, actor-kind, or internal-token headers. The gateway strips those headers before this service sees a public request. A missing token, a downstream 401, a tenant or id mismatch, a missing body field, a redirect, or an unexpected status fails closed and does not publish.
 
 ## Indexes
 

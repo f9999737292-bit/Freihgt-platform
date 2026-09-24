@@ -4,13 +4,15 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
-	HTTPPort          int
-	DatabaseURL       string
-	TransportOrderURL string
-	ShipmentURL       string
+	HTTPPort             int
+	DatabaseURL          string
+	TransportOrderURL    string
+	ShipmentURL          string
+	InternalServiceToken string
 }
 
 func Load() (Config, error) {
@@ -27,9 +29,10 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("DATABASE_URL is required")
 	}
 	return Config{
-		HTTPPort:          port,
-		DatabaseURL:       databaseURL,
-		TransportOrderURL: os.Getenv("TRANSPORT_ORDER_SERVICE_URL"),
-		ShipmentURL:       os.Getenv("SHIPMENT_SERVICE_URL"),
+		InternalServiceToken: strings.TrimSpace(os.Getenv("INTERNAL_SERVICE_TOKEN")),
+		HTTPPort:             port,
+		DatabaseURL:          databaseURL,
+		TransportOrderURL:    os.Getenv("TRANSPORT_ORDER_SERVICE_URL"),
+		ShipmentURL:          os.Getenv("SHIPMENT_SERVICE_URL"),
 	}, nil
 }

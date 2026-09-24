@@ -34,7 +34,7 @@ func main() {
 	}
 	defer pool.Close()
 	store := repository.NewPostgres(pool)
-	verifier := sourceverify.NewHTTP(cfg.TransportOrderURL, cfg.ShipmentURL)
+	verifier := sourceverify.NewHTTP(cfg.TransportOrderURL, cfg.ShipmentURL, cfg.InternalServiceToken)
 	svc := service.New(store, verifier)
 	server := &http.Server{
 		Addr:              ":" + itoa(cfg.HTTPPort),
