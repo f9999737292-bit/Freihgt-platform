@@ -260,7 +260,7 @@ func (s *Service) insertPrediction(ctx context.Context, tx repository.Tx, actor 
 	if err := s.audit(ctx, tx, actor, "predicted_capacity", prediction.ID, action, "", status, domain.CapVisPrivate, domain.SourceCurrentShipmentPrediction, &prediction.ShipmentID, now); err != nil {
 		return err
 	}
-	if err := s.emitPredicted(ctx, tx, actor.TenantID, prediction, now); err != nil {
+	if err := s.emitPredicted(ctx, tx, actor.TenantID, prediction, capacity.Version, now); err != nil {
 		return err
 	}
 	body, err := marshalPrediction(prediction, capacity)
@@ -387,11 +387,11 @@ func (s *Service) ownPrediction(ctx context.Context, tx repository.Tx, tenant, i
 	return prediction, capacity, nil
 }
 
-func (s *Service) emitPredicted(ctx context.Context, tx repository.Tx, tenant uuid.UUID, prediction domain.PredictedCapacity, now time.Time) error {
+func (s *Service) emitPredicted(ctx context.Context, tx repository.Tx, tenant uuid.UUID, prediction domain.PredictedCapacity, capacityVersion int, now time.Time) error {
 	id := uuid.New()
 	payload, err := json.Marshal(map[string]any{
 		"eventId": id, "eventName": domain.EventCapacityPredicted, "schemaVersion": 1,
-		"tenantId": tenant, "aggregateId": prediction.ID, "aggregateVersion": prediction.Version,
+		"tenantId": tenant, "aggregateId": prediction.CapacityID, "aggregateVersion": capacityVersion,
 		"occurredAt": now.UTC().Format(time.RFC3339Nano), "status": domain.CapacityPredicted,
 		"visibilityScope": domain.CapVisPrivate, "predictionId": prediction.ID,
 		"capacityId": prediction.CapacityID, "shipmentId": prediction.ShipmentID,
@@ -403,7 +403,7 @@ func (s *Service) emitPredicted(ctx context.Context, tx repository.Tx, tenant uu
 	}
 	return tx.InsertOutbox(ctx, repository.OutboxEvent{
 		ID: id, EventName: domain.EventCapacityPredicted, SchemaVersion: 1, TenantID: tenant,
-		AggregateID: prediction.ID, AggregateVersion: prediction.Version, OccurredAt: now, Payload: payload,
+		AggregateID: prediction.CapacityID, AggregateVersion: capacityVersion, OccurredAt: now, Payload: payload,
 	})
 }
 

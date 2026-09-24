@@ -2,6 +2,7 @@ package http_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -272,6 +273,131 @@ func TestBNOPredictionGates(t *testing.T) {
 			t.Fatalf("BNO58 %s status=%d", path, res.status)
 		}
 	}
+}
+
+func TestBNO81AndBNO82CapacityEventAggregate(t *testing.T) {
+	tenant := uuid.New()
+	user := uuid.New()
+	now := time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC)
+	weight := 20000.0
+	volume := 82.0
+	lat, lon := 55.75, 37.62
+	body := "TENT"
+	vehicleID := uuid.New()
+	planned := time.Date(2026, 9, 24, 16, 0, 0, 0, time.UTC)
+	fake := &fakeSources{
+		shipment: predict.ShipmentFact{
+			ID: uuid.New(), TenantID: tenant, Status: "IN_TRANSIT", Version: 4,
+			VehicleID: &vehicleID, DestinationLocationID: uuid.New(),
+			DestinationLatitude: &lat, DestinationLongitude: &lon, PlannedDeliveryAt: &planned,
+		},
+		vehicle: predict.VehicleFact{
+			ID: vehicleID, Version: 2, BodyType: &body,
+			LoadingAccess: []string{"SIDE"}, UnloadingAccess: []string{"REAR"},
+			CapacityWeightKg: &weight, CapacityVolumeM3: &volume,
+		},
+		eta: predict.ETAFact{Present: true, Arrival: time.Date(2026, 9, 24, 15, 20, 0, 0, time.UTC), ObservedAt: now.Add(-10 * time.Minute)},
+	}
+	store := repository.NewMemory()
+	policy := predict.Policy{Unload: 35 * time.Minute, Uncertainty: 20 * time.Minute, MaxETAAge: 30 * time.Minute, ConfidenceFloor: 0.5}
+	svc := service.New(store, sourceverify.MapVerifier{})
+	svc.ConfigurePrediction(sources{fake}, policy)
+	svc.SetClock(func() time.Time { return now })
+	srv := httptest.NewServer(httpserver.NewRouter(slog.New(slog.DiscardHandler), svc, nil))
+	t.Cleanup(srv.Close)
+	api := &client{base: srv.URL, t: t}
+
+	created := api.send(http.MethodPost, "/v1/network/shipments/"+fake.shipment.ID.String()+"/predicted-capacity", tenant, user, "", "", "")
+	if created.status != http.StatusCreated {
+		t.Fatalf("create status=%d body=%s", created.status, created.raw)
+	}
+	predictionID := object(t, created.doc, "prediction")["predicted_capacity_id"].(string)
+	capacityID := object(t, created.doc, "capacity")["id"].(string)
+	capacityVersion, _ := object(t, created.doc, "capacity")["version"].(float64)
+	if predictionID == capacityID || capacityVersion != 1 {
+		t.Fatalf("BNO81 fixture prediction=%s capacity=%s version=%v", predictionID, capacityID, capacityVersion)
+	}
+	replay := api.send(http.MethodPost, "/v1/network/shipments/"+fake.shipment.ID.String()+"/predicted-capacity", tenant, user, "", "", "")
+	if replay.status != http.StatusOK || object(t, replay.doc, "prediction")["predicted_capacity_id"] != predictionID {
+		t.Fatalf("idempotent replay status=%d body=%s", replay.status, replay.raw)
+	}
+	predicted := requireCapacityEvent(t, store, domain.EventCapacityPredicted, capacityID)
+	if predicted.AggregateID.String() == predictionID || predicted.AggregateVersion != 1 {
+		t.Fatalf("BNO81 aggregate=%s version=%d prediction=%s", predicted.AggregateID, predicted.AggregateVersion, predictionID)
+	}
+	payload := eventPayload(t, predicted)
+	if payload["aggregateId"] != capacityID || payload["capacityId"] != capacityID || payload["predictionId"] != predictionID {
+		t.Fatalf("BNO81 payload=%v", payload)
+	}
+	if payload["aggregateVersion"] != capacityVersion {
+		t.Fatalf("BNO81 payload version=%v capacity version=%v", payload["aggregateVersion"], capacityVersion)
+	}
+	assertSafeEvent(t, predicted)
+	if predictedCount(t, store, domain.EventCapacityPredicted, capacityID) != 1 {
+		t.Fatal("replay emitted a second predicted event")
+	}
+
+	activated := api.send(http.MethodPost, "/v1/network/predicted-capacities/"+predictionID+"/activate", tenant, user, "", `{"version":1}`, "")
+	if activated.status != http.StatusOK {
+		t.Fatalf("activate status=%d body=%s", activated.status, activated.raw)
+	}
+	activatedVersion, _ := object(t, activated.doc, "capacity")["version"].(float64)
+	updated := requireCapacityEvent(t, store, domain.EventCapacityUpdated, capacityID)
+	if updated.AggregateID != predicted.AggregateID || updated.AggregateVersion != int(activatedVersion) || updated.AggregateVersion <= predicted.AggregateVersion {
+		t.Fatalf("BNO82 predicted=%s/%d updated=%s/%d", predicted.AggregateID, predicted.AggregateVersion, updated.AggregateID, updated.AggregateVersion)
+	}
+	if object(t, activated.doc, "capacity")["visibility_scope"] != "PRIVATE" {
+		t.Fatal("activation changed visibility")
+	}
+
+	fake.shipment.Status = "CANCELLED"
+	cancelled := api.send(http.MethodPost, "/v1/network/shipments/"+fake.shipment.ID.String()+"/predicted-capacity", tenant, user, "", "", "")
+	if cancelled.status != http.StatusUnprocessableEntity {
+		t.Fatalf("cancel status=%d body=%s", cancelled.status, cancelled.raw)
+	}
+	withdrawn := requireCapacityEvent(t, store, domain.EventCapacityWithdrawn, capacityID)
+	if withdrawn.AggregateID != predicted.AggregateID || withdrawn.AggregateVersion <= updated.AggregateVersion {
+		t.Fatalf("BNO82 withdrawn=%s/%d updated=%d", withdrawn.AggregateID, withdrawn.AggregateVersion, updated.AggregateVersion)
+	}
+}
+
+func requireCapacityEvent(t *testing.T, store *repository.Memory, name, capacityID string) repository.OutboxEvent {
+	t.Helper()
+	events, err := store.ListOutbox(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, event := range events {
+		if event.EventName == name && event.AggregateID.String() == capacityID {
+			return event
+		}
+	}
+	t.Fatalf("missing %s for capacity %s", name, capacityID)
+	return repository.OutboxEvent{}
+}
+
+func predictedCount(t *testing.T, store *repository.Memory, name, capacityID string) int {
+	t.Helper()
+	events, err := store.ListOutbox(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	count := 0
+	for _, event := range events {
+		if event.EventName == name && event.AggregateID.String() == capacityID {
+			count++
+		}
+	}
+	return count
+}
+
+func eventPayload(t *testing.T, event repository.OutboxEvent) map[string]any {
+	t.Helper()
+	var payload map[string]any
+	if err := json.Unmarshal(event.Payload, &payload); err != nil {
+		t.Fatal(err)
+	}
+	return payload
 }
 
 type sources struct{ *fakeSources }
