@@ -29681,7 +29681,7 @@
         ],
         "summary": "List marketplace load opportunities",
         "operationId": "get_list_marketplace_load_opportunities",
-        "description": "Tenant-scoped list. Marketplace reads return the visibility projection, not source shipment or transport-order rows.\n",
+        "description": "Tenant-scoped list. Marketplace reads return the visibility projection, not source shipment or transport-order rows.\nANONYMIZED_MARKETPLACE loads and ANONYMIZED capacities omit exact latitude, longitude, and raw facility or yard labels.\nThis release has no validated city or zone field, so coarse geography is omitted rather than derived from coordinates.\nMARKETPLACE and other non-anonymized scopes retain the location fields allowed by the visibility matrix.\n",
         "parameters": [
           {
             "$ref": "#/components/parameters/XRequestID"
@@ -29807,6 +29807,7 @@
         ],
         "summary": "Get marketplace load opportunity",
         "operationId": "get_get_marketplace_load_opportunity",
+        "description": "Marketplace read. The response is the visibility projection, not the source shipment or transport-order row.\nANONYMIZED_MARKETPLACE loads and ANONYMIZED capacities omit exact latitude, longitude, and raw facility or yard labels.\nThis release has no validated city or zone field, so coarse geography is omitted rather than derived from coordinates.\nMARKETPLACE and other non-anonymized scopes retain the location fields allowed by the visibility matrix.\n",
         "parameters": [
           {
             "$ref": "#/components/parameters/XRequestID"
@@ -29920,7 +29921,7 @@
         ],
         "summary": "List marketplace capacities",
         "operationId": "get_list_marketplace_capacities",
-        "description": "Tenant-scoped list. Marketplace reads return the visibility projection, not source shipment or transport-order rows.\n",
+        "description": "Tenant-scoped list. Marketplace reads return the visibility projection, not source shipment or transport-order rows.\nANONYMIZED_MARKETPLACE loads and ANONYMIZED capacities omit exact latitude, longitude, and raw facility or yard labels.\nThis release has no validated city or zone field, so coarse geography is omitted rather than derived from coordinates.\nMARKETPLACE and other non-anonymized scopes retain the location fields allowed by the visibility matrix.\n",
         "parameters": [
           {
             "$ref": "#/components/parameters/XRequestID"
@@ -30046,6 +30047,7 @@
         ],
         "summary": "Get marketplace capacity",
         "operationId": "get_get_marketplace_capacity",
+        "description": "Marketplace read. The response is the visibility projection, not the source shipment or transport-order row.\nANONYMIZED_MARKETPLACE loads and ANONYMIZED capacities omit exact latitude, longitude, and raw facility or yard labels.\nThis release has no validated city or zone field, so coarse geography is omitted rather than derived from coordinates.\nMARKETPLACE and other non-anonymized scopes retain the location fields allowed by the visibility matrix.\n",
         "parameters": [
           {
             "$ref": "#/components/parameters/XRequestID"

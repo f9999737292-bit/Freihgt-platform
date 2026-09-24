@@ -30,10 +30,13 @@ func MarshalLoad(l LoadOpportunity) ([]byte, error) {
 func MarshalMarketplaceLoad(l LoadOpportunity) ([]byte, error) {
 	view := l.MarketplaceView()
 	doc := map[string]any{
-		"id": view.ID, "pickup": view.Pickup, "pickup_window": view.PickupWindow,
-		"delivery": view.Delivery, "delivery_window": view.DeliveryWindow,
+		"id": view.ID, "pickup_window": view.PickupWindow, "delivery_window": view.DeliveryWindow,
 		"visibility_scope": view.VisibilityScope, "status": view.Status,
 		"version": view.Version, "created_at": view.CreatedAt, "updated_at": view.UpdatedAt,
+	}
+	if l.VisibilityScope != VisAnonymized {
+		doc["pickup"] = view.Pickup
+		doc["delivery"] = view.Delivery
 	}
 	if view.OwnerTenantID != nil {
 		doc["owner_tenant_id"] = *view.OwnerTenantID
@@ -95,9 +98,11 @@ func MarshalMarketplaceCapacity(c Capacity) ([]byte, error) {
 	if view.VehicleID != nil {
 		doc["vehicle_id"] = *view.VehicleID
 	}
-	putString(doc, "location_label", view.LocationLabel)
-	putFloat(doc, "latitude", view.Latitude)
-	putFloat(doc, "longitude", view.Longitude)
+	if c.VisibilityScope != CapVisAnonymized {
+		putString(doc, "location_label", view.LocationLabel)
+		putFloat(doc, "latitude", view.Latitude)
+		putFloat(doc, "longitude", view.Longitude)
+	}
 	putString(doc, "body_type", view.BodyType)
 	putSlice(doc, "equipment", view.Equipment)
 	putFloat(doc, "payload_remaining_kg", view.PayloadRemainingKg)

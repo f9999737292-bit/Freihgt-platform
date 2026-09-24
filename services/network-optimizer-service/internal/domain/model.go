@@ -153,14 +153,17 @@ type MarketplaceCapacity struct {
 
 func (l LoadOpportunity) MarketplaceView() MarketplaceLoad {
 	view := MarketplaceLoad{
-		ID: l.ID, Pickup: l.Pickup, PickupWindow: l.PickupWindow,
-		Delivery: l.Delivery, DeliveryWindow: l.DeliveryWindow,
+		ID: l.ID, PickupWindow: l.PickupWindow, DeliveryWindow: l.DeliveryWindow,
 		WeightKg: l.WeightKg, VolumeM3: l.VolumeM3, BodyType: l.BodyType,
 		Equipment: append([]string(nil), l.Equipment...), Cargo: l.Cargo,
 		VisibilityScope: l.VisibilityScope, Status: l.Status, Version: l.Version,
 		CreatedAt: l.CreatedAt, UpdatedAt: l.UpdatedAt,
 	}
+	// This release has no validated city or zone field. Anonymized views omit
+	// exact coordinates and facility labels instead of treating them as a zone.
 	if l.VisibilityScope != VisAnonymized {
+		view.Pickup = l.Pickup
+		view.Delivery = l.Delivery
 		owner := l.OwnerTenantID
 		view.OwnerTenantID = &owner
 	}
@@ -173,14 +176,17 @@ func (l LoadOpportunity) MarketplaceView() MarketplaceLoad {
 
 func (c Capacity) MarketplaceView() MarketplaceCapacity {
 	view := MarketplaceCapacity{
-		ID: c.ID, LocationLabel: c.LocationLabel, Latitude: c.Latitude, Longitude: c.Longitude,
-		AvailableFrom: c.AvailableFrom, AvailableUntil: c.AvailableUntil, Source: c.Source,
+		ID: c.ID, AvailableFrom: c.AvailableFrom, AvailableUntil: c.AvailableUntil, Source: c.Source,
 		BodyType: c.BodyType, Equipment: append([]string(nil), c.Equipment...),
 		PayloadRemainingKg: c.PayloadRemainingKg, VolumeRemainingM3: c.VolumeRemainingM3,
 		VisibilityScope: c.VisibilityScope, Status: c.Status, Version: c.Version,
 		CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
 	}
+	// ANONYMIZED capacity has no coarse or public location classification in this release.
 	if c.VisibilityScope != CapVisAnonymized {
+		view.LocationLabel = c.LocationLabel
+		view.Latitude = c.Latitude
+		view.Longitude = c.Longitude
 		owner := c.OwnerTenantID
 		view.OwnerTenantID = &owner
 		view.CarrierCompanyID = c.CarrierCompanyID

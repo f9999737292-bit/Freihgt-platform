@@ -23,7 +23,12 @@ type HTTPVerifier struct {
 
 func NewHTTP(transportOrderURL, shipmentURL string) *HTTPVerifier {
 	return &HTTPVerifier{
-		client:            &http.Client{Timeout: 5 * time.Second},
+		client: &http.Client{
+			Timeout: 5 * time.Second,
+			CheckRedirect: func(*http.Request, []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		},
 		transportOrderURL: strings.TrimRight(transportOrderURL, "/"),
 		shipmentURL:       strings.TrimRight(shipmentURL, "/"),
 	}
@@ -49,6 +54,11 @@ func (v *HTTPVerifier) Owns(ctx context.Context, tenantID uuid.UUID, sourceType 
 	if err != nil {
 		return false, ErrUnavailable
 	}
+	// Fresh request. tenantID is the actor already established for this call.
+	// Inbound client headers are not copied onto it.
+	// Downstream GET /v1/transport-orders/{id} and GET /v1/shipments/{id}
+	// scope the row by X-Tenant-ID. They are not internalauth routes.
+	// /internal/v1 is not an ownership probe: it serves rate snapshots and award creation.
 	req.Header.Set(lowcode.HeaderTenantID, tenantID.String())
 	resp, err := v.client.Do(req)
 	if err != nil {
@@ -64,7 +74,7 @@ func (v *HTTPVerifier) Owns(ctx context.Context, tenantID uuid.UUID, sourceType 
 		var probe struct {
 			TenantID *uuid.UUID `json:"tenant_id"`
 		}
-		if json.Unmarshal(body, &probe) == nil && probe.TenantID != nil && *probe.TenantID != tenantID {
+		if json.Unmarshal(body, &probe) != nil || probe.TenantID == nil || *probe.TenantID != tenantID {
 			return false, nil
 		}
 		return true, nil

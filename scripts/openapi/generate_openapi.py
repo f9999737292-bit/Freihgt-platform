@@ -1468,6 +1468,14 @@ def render_parameters(path: str, method: str, with_headers: bool, profile: str |
     return "\n".join(lines) + "\n"
 
 
+def _bno_anonymized_geography_lines() -> list[str]:
+    return [
+        "        ANONYMIZED_MARKETPLACE loads and ANONYMIZED capacities omit exact latitude, longitude, and raw facility or yard labels.",
+        "        This release has no validated city or zone field, so coarse geography is omitted rather than derived from coordinates.",
+        "        MARKETPLACE and other non-anonymized scopes retain the location fields allowed by the visibility matrix.",
+    ]
+
+
 def render_operation(
     path: str,
     method: str,
@@ -1494,6 +1502,12 @@ def render_operation(
     elif profile == "bno_list":
         lines.append("      description: |")
         lines.append("        Tenant-scoped list. Marketplace reads return the visibility projection, not source shipment or transport-order rows.")
+        if "/marketplace/" in path:
+            lines.extend(_bno_anonymized_geography_lines())
+    elif path.startswith("/api/v1/network/marketplace/"):
+        lines.append("      description: |")
+        lines.append("        Marketplace read. The response is the visibility projection, not the source shipment or transport-order row.")
+        lines.extend(_bno_anonymized_geography_lines())
     elif profile in VOID_DESCRIPTIONS:
         lines.append("      description: |")
         for desc_line in VOID_DESCRIPTIONS[profile].splitlines():

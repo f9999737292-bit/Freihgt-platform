@@ -141,6 +141,51 @@ func TestBNOFoundationGates(t *testing.T) {
 		t.Fatalf("BNO07 status=%d body=%s", anonView.status, anonView.raw)
 	}
 
+	// BNO21 anonymized load omits exact geography. MARKETPLACE retains it.
+	geoSource := uuid.New()
+	verifier.Owned[fmt.Sprintf("%s|TRANSPORT_ORDER|%s", tenantA, geoSource)] = true
+	geoSite := uuid.New()
+	geoBody := fmt.Sprintf(`{"source_type":"TRANSPORT_ORDER","source_id":"%s","pickup":{"label":"Warehouse A","location_id":"%s","latitude":55.7558,"longitude":37.6173},"delivery":{"label":"Warehouse B","latitude":59.9343,"longitude":30.3351},"visibility_scope":"MARKETPLACE","publish":true,"weight_kg":1200}`, geoSource, geoSite)
+	geoLoad := api.send(http.MethodPost, "/v1/network/load-opportunities", tenantA, userA, "", geoBody, "")
+	if geoLoad.status != http.StatusCreated {
+		t.Fatalf("BNO21 marketplace create status=%d body=%s", geoLoad.status, geoLoad.raw)
+	}
+	geoView := api.send(http.MethodGet, "/v1/network/marketplace/load-opportunities/"+geoLoad.doc["id"].(string), tenantB, userB, companyB.String(), "", "")
+	geoPickup, _ := geoView.doc["pickup"].(map[string]any)
+	if geoView.status != http.StatusOK || geoPickup["label"] != "Warehouse A" || geoPickup["latitude"] != 55.7558 || geoPickup["longitude"] != 37.6173 {
+		t.Fatalf("BNO21 marketplace geo=%s", geoView.raw)
+	}
+	anonGeoSource := uuid.New()
+	verifier.Owned[fmt.Sprintf("%s|TRANSPORT_ORDER|%s", tenantA, anonGeoSource)] = true
+	anonSite := uuid.New()
+	anonGeoBody := fmt.Sprintf(`{"source_type":"TRANSPORT_ORDER","source_id":"%s","pickup":{"label":"Private Warehouse 9","location_id":"%s","latitude":55.751244,"longitude":37.618423},"delivery":{"label":"Customer Dock 12","latitude":59.939812,"longitude":30.315644},"visibility_scope":"ANONYMIZED_MARKETPLACE","publish":true,"weight_kg":800}`, anonGeoSource, anonSite)
+	anonGeo := api.send(http.MethodPost, "/v1/network/load-opportunities", tenantA, userA, "", anonGeoBody, "")
+	if anonGeo.status != http.StatusCreated {
+		t.Fatalf("BNO21 anon create status=%d body=%s", anonGeo.status, anonGeo.raw)
+	}
+	anonGeoView := api.send(http.MethodGet, "/v1/network/marketplace/load-opportunities/"+anonGeo.doc["id"].(string), tenantB, userB, companyB.String(), "", "")
+	if anonGeoView.status != http.StatusOK {
+		t.Fatalf("BNO21 anon status=%d body=%s", anonGeoView.status, anonGeoView.raw)
+	}
+	for _, key := range []string{"pickup", "delivery", "owner_tenant_id", "source_id", "source_type", "latitude", "longitude", "location_id", "label"} {
+		if _, ok := anonGeoView.doc[key]; ok {
+			t.Fatalf("BNO21 leaked %s: %s", key, anonGeoView.raw)
+		}
+	}
+	for _, leak := range []string{"Private Warehouse 9", "Customer Dock 12", anonSite.String(), anonGeoSource.String(), tenantA.String(), "55.751244", "37.618423", "59.939812", "30.315644"} {
+		if strings.Contains(anonGeoView.raw, leak) {
+			t.Fatalf("BNO21 raw leak %s in %s", leak, anonGeoView.raw)
+		}
+	}
+	if _, ok := anonGeoView.doc["weight_kg"]; !ok {
+		t.Fatal("BNO21 published weight should remain on the anonymized projection")
+	}
+	ownerGeo := api.send(http.MethodGet, "/v1/network/load-opportunities/"+anonGeo.doc["id"].(string), tenantA, userA, "", "", "")
+	ownerPickup, _ := ownerGeo.doc["pickup"].(map[string]any)
+	if ownerGeo.status != http.StatusOK || ownerPickup["label"] != "Private Warehouse 9" || ownerPickup["latitude"] != 55.751244 {
+		t.Fatalf("BNO21 owner view must retain exact geography: %s", ownerGeo.raw)
+	}
+
 	invitedSource := uuid.New()
 	verifier.Owned[fmt.Sprintf("%s|TRANSPORT_ORDER|%s", tenantA, invitedSource)] = true
 	invitedBody := withField(loadJSON(invitedSource, "INVITED_CARRIERS", true, 0), fmt.Sprintf(`"invited_carrier_company_ids":["%s"]`, companyB))
@@ -224,7 +269,7 @@ func TestBNOFoundationGates(t *testing.T) {
 	from := time.Now().UTC().Add(time.Hour).Format(time.RFC3339)
 	until := time.Now().UTC().Add(5 * time.Hour).Format(time.RFC3339)
 	carrierCompany := uuid.New()
-	capBody := fmt.Sprintf(`{"location_label":"Yard","available_from":"%s","available_until":"%s","visibility_scope":"MARKETPLACE","carrier_company_id":"%s","vehicle_id":"%s"}`, from, until, carrierCompany, uuid.New())
+	capBody := fmt.Sprintf(`{"location_label":"Yard","latitude":55.7558,"longitude":37.6173,"available_from":"%s","available_until":"%s","visibility_scope":"MARKETPLACE","carrier_company_id":"%s","vehicle_id":"%s","body_type":"TENT"}`, from, until, carrierCompany, uuid.New())
 	cap := api.send(http.MethodPost, "/v1/network/capacities", tenantB, userB, companyB.String(), capBody, "cap-1")
 	if cap.status != http.StatusCreated || cap.doc["status"] != "AVAILABLE" || cap.doc["source"] != "MANUAL" {
 		t.Fatalf("BNO09 status=%d body=%s", cap.status, cap.raw)
@@ -234,7 +279,7 @@ func TestBNOFoundationGates(t *testing.T) {
 	}
 	capID := cap.doc["id"].(string)
 	visibleCap := api.send(http.MethodGet, "/v1/network/marketplace/capacities/"+capID, tenantA, userA, "", "", "")
-	if visibleCap.status != http.StatusOK || visibleCap.doc["carrier_company_id"] != carrierCompany.String() {
+	if visibleCap.status != http.StatusOK || visibleCap.doc["carrier_company_id"] != carrierCompany.String() || visibleCap.doc["location_label"] != "Yard" || visibleCap.doc["latitude"] != 55.7558 || visibleCap.doc["longitude"] != 37.6173 {
 		t.Fatalf("BNO10 status=%d body=%s", visibleCap.status, visibleCap.raw)
 	}
 	privateCapBody := fmt.Sprintf(`{"location_label":"Hidden","available_from":"%s","available_until":"%s","visibility_scope":"PRIVATE"}`, from, until)
@@ -243,14 +288,58 @@ func TestBNOFoundationGates(t *testing.T) {
 	if hiddenCap.status != http.StatusNotFound {
 		t.Fatalf("BNO10 private status=%d", hiddenCap.status)
 	}
-	anonCapBody := fmt.Sprintf(`{"location_label":"Anon","available_from":"%s","available_until":"%s","visibility_scope":"ANONYMIZED","carrier_company_id":"%s","vehicle_id":"%s"}`, from, until, carrierCompany, uuid.New())
+	anonVehicle := uuid.New()
+	anonCapBody := fmt.Sprintf(`{"location_label":"Exact Yard 4","latitude":56.3287,"longitude":44.0021,"available_from":"%s","available_until":"%s","visibility_scope":"ANONYMIZED","carrier_company_id":"%s","vehicle_id":"%s","body_type":"TENT","equipment":["CURTAIN"]}`, from, until, carrierCompany, anonVehicle)
 	anonCap := api.send(http.MethodPost, "/v1/network/capacities", tenantB, userB, companyB.String(), anonCapBody, "")
+	if anonCap.status != http.StatusCreated {
+		t.Fatalf("BNO22 create status=%d body=%s", anonCap.status, anonCap.raw)
+	}
 	anonCapView := api.send(http.MethodGet, "/v1/network/marketplace/capacities/"+anonCap.doc["id"].(string), tenantA, userA, "", "", "")
 	if _, ok := anonCapView.doc["carrier_company_id"]; ok || anonCapView.doc["vehicle_id"] != nil {
 		t.Fatalf("BNO07/BNO10 anonymized capacity leaked identity: %s", anonCapView.raw)
 	}
 	if _, ok := anonCapView.doc["owner_tenant_id"]; ok {
 		t.Fatalf("BNO07 capacity owner leaked: %s", anonCapView.raw)
+	}
+	for _, key := range []string{"location_label", "latitude", "longitude", "carrier_company_id", "vehicle_id"} {
+		if _, ok := anonCapView.doc[key]; ok {
+			t.Fatalf("BNO22 leaked %s: %s", key, anonCapView.raw)
+		}
+	}
+	for _, leak := range []string{"Exact Yard 4", "56.3287", "44.0021", anonVehicle.String(), carrierCompany.String(), tenantB.String()} {
+		if strings.Contains(anonCapView.raw, leak) {
+			t.Fatalf("BNO22 raw leak %s in %s", leak, anonCapView.raw)
+		}
+	}
+	if anonCapView.doc["available_from"] == nil || anonCapView.doc["body_type"] != "TENT" {
+		t.Fatalf("BNO22 non-identifying capacity facts missing: %s", anonCapView.raw)
+	}
+	ownerCap := api.send(http.MethodGet, "/v1/network/capacities/"+anonCap.doc["id"].(string), tenantB, userB, companyB.String(), "", "")
+	if ownerCap.status != http.StatusOK || ownerCap.doc["location_label"] != "Exact Yard 4" || ownerCap.doc["latitude"] != 56.3287 || ownerCap.doc["vehicle_id"] != anonVehicle.String() {
+		t.Fatalf("BNO22 owner capacity must retain exact location and vehicle: %s", ownerCap.raw)
+	}
+	anonEvents, err := store.ListOutbox(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sawAnonLoad, sawAnonCap bool
+	for _, event := range anonEvents {
+		assertSafeEvent(t, event)
+		raw := string(event.Payload)
+		for _, leak := range []string{"Private Warehouse 9", "Customer Dock 12", "Exact Yard 4", "55.751244", "56.3287", "latitude", "longitude", "location_label", "vehicle_id", "source_id"} {
+			if strings.Contains(raw, leak) {
+				t.Fatalf("anonymized event leaked %s: %s", leak, raw)
+			}
+		}
+		if event.AggregateID.String() == anonGeo.doc["id"].(string) && event.EventName == "network.load_opportunity.published" {
+			sawAnonLoad = true
+		}
+		if event.AggregateID.String() == anonCap.doc["id"].(string) && event.EventName == "network.capacity.published" {
+			sawAnonCap = true
+		}
+	}
+	if !sawAnonLoad || !sawAnonCap {
+		t.Fatalf("anonymized publication events load=%v capacity=%v", sawAnonLoad, sawAnonCap)
 	}
 	networkBody := fmt.Sprintf(`{"location_label":"Network","available_from":"%s","available_until":"%s","visibility_scope":"SHIPPER_NETWORK","audience_tenant_ids":["%s"]}`, from, until, tenantA)
 	networkCap := api.send(http.MethodPost, "/v1/network/capacities", tenantB, userB, companyB.String(), networkBody, "")
@@ -260,8 +349,8 @@ func TestBNOFoundationGates(t *testing.T) {
 	other := uuid.New()
 	notAudience := api.send(http.MethodGet, "/v1/network/marketplace/capacities/"+networkCap.doc["id"].(string), other, uuid.New(), "", "", "")
 	audience := api.send(http.MethodGet, "/v1/network/marketplace/capacities/"+networkCap.doc["id"].(string), tenantA, userA, "", "", "")
-	if notAudience.status != http.StatusNotFound || audience.status != http.StatusOK {
-		t.Fatalf("BNO10 audience not=%d yes=%d", notAudience.status, audience.status)
+	if notAudience.status != http.StatusNotFound || audience.status != http.StatusOK || audience.doc["location_label"] != "Network" {
+		t.Fatalf("BNO10 audience not=%d yes=%d body=%s", notAudience.status, audience.status, audience.raw)
 	}
 	predicted := api.send(http.MethodPost, "/v1/network/capacities", tenantB, userB, companyB.String(), withField(capBody, `"source":"CURRENT_SHIPMENT_PREDICTION"`), "")
 	if predicted.status != http.StatusUnprocessableEntity {
@@ -326,7 +415,7 @@ func assertSafeEvent(t *testing.T, event repository.OutboxEvent) {
 			t.Fatalf("event %s missing %s", event.EventName, key)
 		}
 	}
-	for _, forbidden := range []string{"weight_kg", "source_id", "amount", "payload_remaining_kg", "pallet_count", "linear_meters"} {
+	for _, forbidden := range []string{"weight_kg", "source_id", "source_type", "amount", "payload_remaining_kg", "pallet_count", "linear_meters", "latitude", "longitude", "location_label", "pickup", "delivery", "vehicle_id", "carrier_company_id", "owner_tenant_id"} {
 		if _, ok := payload[forbidden]; ok {
 			t.Fatalf("event leaked %s", forbidden)
 		}

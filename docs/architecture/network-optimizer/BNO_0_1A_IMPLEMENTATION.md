@@ -37,6 +37,22 @@ Foundation only. This is not an optimizer release.
 
 Tenant and user identity on the public API come from the verified gateway JWT. `X-Tenant-ID`, `X-User-ID`, `X-User-Email`, and `X-Platform-Admin` supplied by the client are stripped before the JWT values are set. Company membership is checked before `X-Company-ID` is forwarded. A caller who is not allowed to see a record receives the same not-found response as a missing id.
 
+### Anonymized geography
+
+`Place` and capacity location fields are an optional location id, a free-text label, and exact latitude/longitude. There is no validated city or zone field in this release. `ANONYMIZED_MARKETPLACE` loads and `ANONYMIZED` capacities therefore omit exact coordinates and raw facility, warehouse, or yard labels. Time windows, equipment, and other non-identifying published facts remain. Owner reads and non-anonymized marketplace scopes still return the stored location fields. This is not reverse geocoding and it does not treat a coordinate as a city.
+
+### Source verification
+
+`SOURCE_VERIFY_SERVICE_AUTH=NONE`
+
+`SOURCE_VERIFY_TENANT_CONTEXT=ACTOR_TENANT_HEADER`
+
+`RAW_CLIENT_HEADER_TRUSTED=NO`
+
+Publication checks ownership with `GET /v1/transport-orders/{id}` or `GET /v1/shipments/{id}`. Those handlers resolve the tenant only from `X-Tenant-ID` and load the row with that tenant predicate. They do not accept `X-Internal-Service-Token` as authorization. The transport-order `/internal/v1` routes do require that token, and they serve rate snapshots and award creation, so they are not the ownership probe.
+
+The verifier builds a new request and sets `X-Tenant-ID` from the actor tenant already taken from the gateway JWT. It does not copy `Authorization`, user, company, platform-admin, or internal-service headers from the caller. A matching `tenant_id` in the downstream body is required. A mismatch, a missing `tenant_id`, a not-found, or a redirect fails closed. A public caller cannot move that check onto another tenant by spoofing identity headers: the gateway replaces those headers before this service sees the request.
+
 ## Indexes
 
 Owner lists use `(owner_tenant_id, status, created_at)`. Marketplace reads use visibility and status, plus the availability or pickup window. Active publication of the same source is unique per owner. Invited-carrier and shipper-network audience arrays use GIN indexes. These indexes serve tenant-scoped reads. They are not a global matching index.
