@@ -105,6 +105,48 @@ func TestShipperCanPublishLoad(t *testing.T) {
 	}
 }
 
+func TestBNO43ShipperCannotActivatePrediction(t *testing.T) {
+	tenantID := uuid.NewString()
+	userID := uuid.NewString()
+	companyID := uuid.NewString()
+	identity := identityServer(t, companyID, "SHIPPER", []string{"SHIPPER_ADMIN"}, nil)
+	defer identity.Close()
+	called := false
+	guard := NewGuard(config.Config{AuthEnabled: true, ProxyTimeoutSeconds: 5, Services: config.ServiceURLs{Identity: identity.URL}}, http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		called = true
+	}))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/network/predicted-capacities/"+uuid.NewString()+"/activate", strings.NewReader(`{"version":1}`))
+	req.Header.Set("Authorization", "Bearer "+signToken(t, "secret", userID, tenantID))
+	req.Header.Set("X-Company-ID", companyID)
+	req.Header.Set("X-Internal-Service-Token", "client-forged-token")
+	rec := serve(t, guard.WithPolicy(PolicyPublishCapacity), req)
+	if rec.Code != http.StatusForbidden || called {
+		t.Fatalf("BNO43 status=%d called=%v body=%s", rec.Code, called, rec.Body.String())
+	}
+}
+
+func TestBNO52PredictionRouteStripsForgedInternalToken(t *testing.T) {
+	tenantID := uuid.NewString()
+	userID := uuid.NewString()
+	companyID := uuid.NewString()
+	identity := identityServer(t, companyID, "CARRIER", []string{"CARRIER_DISPATCHER"}, nil)
+	defer identity.Close()
+	var gotToken, gotTenant string
+	guard := NewGuard(config.Config{AuthEnabled: true, ProxyTimeoutSeconds: 5, Services: config.ServiceURLs{Identity: identity.URL}}, http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		gotToken = r.Header.Get("X-Internal-Service-Token")
+		gotTenant = r.Header.Get("X-Tenant-ID")
+	}))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/network/shipments/"+uuid.NewString()+"/predicted-capacity", strings.NewReader(`{}`))
+	req.Header.Set("Authorization", "Bearer "+signToken(t, "secret", userID, tenantID))
+	req.Header.Set("X-Company-ID", companyID)
+	req.Header.Set("X-Tenant-ID", "spoofed-tenant")
+	req.Header.Set("X-Internal-Service-Token", "client-forged-token")
+	rec := serve(t, guard.WithPolicy(PolicyPublishCapacity), req)
+	if rec.Code != http.StatusOK || gotToken != "" || gotTenant != tenantID {
+		t.Fatalf("BNO52 status=%d token=%q tenant=%s body=%s", rec.Code, gotToken, gotTenant, rec.Body.String())
+	}
+}
+
 func serve(t *testing.T, handler http.Handler, req *http.Request) *httptest.ResponseRecorder {
 	t.Helper()
 	rec := httptest.NewRecorder()

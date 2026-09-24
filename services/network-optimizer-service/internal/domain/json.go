@@ -15,7 +15,7 @@ func MarshalLoad(l LoadOpportunity) ([]byte, error) {
 	putFloat(doc, "volume_m3", l.VolumeM3)
 	putString(doc, "body_type", l.BodyType)
 	putSlice(doc, "equipment", l.Equipment)
-	if l.Cargo != (CargoConstraints{}) {
+	if !l.Cargo.empty() {
 		doc["cargo"] = l.Cargo
 	}
 	if l.Commercial != (Commercial{}) {
@@ -45,7 +45,7 @@ func MarshalMarketplaceLoad(l LoadOpportunity) ([]byte, error) {
 	putFloat(doc, "volume_m3", view.VolumeM3)
 	putString(doc, "body_type", view.BodyType)
 	putSlice(doc, "equipment", view.Equipment)
-	if view.Cargo != (CargoConstraints{}) {
+	if !view.Cargo.empty() {
 		doc["cargo"] = view.Cargo
 	}
 	if view.Commercial != nil {

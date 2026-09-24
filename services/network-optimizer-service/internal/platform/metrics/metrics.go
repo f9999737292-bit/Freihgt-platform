@@ -24,7 +24,15 @@ var (
 		Name: "bno_api_requests_total",
 		Help: "Network optimizer API requests.",
 	}, []string{"operation", "result"})
+	PredictionResults = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "bno_capacity_predictions_total",
+		Help: "Rule-based capacity prediction outcomes. Confidence is a rule score, not a calibrated probability.",
+	}, []string{"result", "reason"})
 )
+
+func Prediction(result, reason string) {
+	PredictionResults.WithLabelValues(result, reason).Inc()
+}
 
 func API(operation, result string) {
 	APIRequests.WithLabelValues(operation, result).Inc()

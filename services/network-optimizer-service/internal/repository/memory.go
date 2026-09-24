@@ -14,6 +14,7 @@ type Memory struct {
 	mu     sync.Mutex
 	loads  map[uuid.UUID]domain.LoadOpportunity
 	caps   map[uuid.UUID]domain.Capacity
+	preds  map[uuid.UUID]domain.PredictedCapacity
 	idem   map[string]IdempotencyRecord
 	audits []AuditEvent
 	outbox []OutboxEvent
@@ -23,6 +24,7 @@ func NewMemory() *Memory {
 	return &Memory{
 		loads: map[uuid.UUID]domain.LoadOpportunity{},
 		caps:  map[uuid.UUID]domain.Capacity{},
+		preds: map[uuid.UUID]domain.PredictedCapacity{},
 		idem:  map[string]IdempotencyRecord{},
 	}
 }
@@ -35,6 +37,7 @@ func (m *Memory) Within(_ context.Context, fn func(Tx) error) error {
 	tx := &memTx{
 		loads:  cloneLoads(m.loads),
 		caps:   cloneCaps(m.caps),
+		preds:  clonePreds(m.preds),
 		idem:   cloneIdem(m.idem),
 		audits: append([]AuditEvent(nil), m.audits...),
 		outbox: append([]OutboxEvent(nil), m.outbox...),
@@ -44,6 +47,7 @@ func (m *Memory) Within(_ context.Context, fn func(Tx) error) error {
 	}
 	m.loads = tx.loads
 	m.caps = tx.caps
+	m.preds = tx.preds
 	m.idem = tx.idem
 	m.audits = tx.audits
 	m.outbox = tx.outbox
@@ -65,6 +69,7 @@ func (m *Memory) ListAudit(context.Context) ([]AuditEvent, error) {
 type memTx struct {
 	loads  map[uuid.UUID]domain.LoadOpportunity
 	caps   map[uuid.UUID]domain.Capacity
+	preds  map[uuid.UUID]domain.PredictedCapacity
 	idem   map[string]IdempotencyRecord
 	audits []AuditEvent
 	outbox []OutboxEvent
