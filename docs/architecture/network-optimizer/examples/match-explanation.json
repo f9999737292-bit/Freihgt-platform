@@ -1,0 +1,19 @@
+{
+  "match_id": "00000000-0000-4000-8000-000000000301",
+  "rank": 1,
+  "score": 0.81,
+  "objective_profile": "BALANCED",
+  "score_explanation": {
+    "summary": "Recommended because the pickup fits after predicted unloading and the return direction is toward the home corridor.",
+    "components": [
+      { "code": "DeadheadPenalty", "contribution": -0.04, "reason": "24 km empty reposition" },
+      { "code": "CapacityUtilization", "contribution": 0.22, "reason": "88% expected weight utilization" },
+      { "code": "ETAUncertainty", "contribution": -0.05, "reason": "pickup 1h 40m after predicted unloading" },
+      { "code": "DestinationNetworkValue", "contribution": 0.0, "reason": "network value not yet observed" }
+    ],
+    "hard_rejections": []
+  },
+  "rejected_example": {
+    "hard_rejections": ["PICKUP_WINDOW_ENDS_BEFORE_PREDICTED_AVAILABILITY"]
+  }
+}

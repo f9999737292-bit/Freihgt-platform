@@ -1,0 +1,17 @@
+{
+  "load_opportunity_id": "00000000-0000-4000-8000-000000000101",
+  "publication_scope": "ANONYMIZED_MARKETPLACE",
+  "status": "PUBLISHED",
+  "pickup": { "city": "Kazan", "precision": "CITY" },
+  "pickup_window": { "start": "2026-09-24T17:00:00Z", "end": "2026-09-24T20:00:00Z" },
+  "delivery": { "city": "Moscow", "precision": "CITY" },
+  "delivery_window": { "start": "2026-09-25T06:00:00Z", "end": "2026-09-25T18:00:00Z" },
+  "weight_kg": 9000,
+  "volume_m3": 38,
+  "body_type": "CURTAIN",
+  "equipment_requirements": ["CURTAIN_20T"],
+  "cargo_requirements": { "temperature_controlled": false, "adr": false },
+  "commercial_mode": "FIXED_PRICE_OFFER",
+  "offered_rate": { "amount": "85000.00", "currency": "RUB" },
+  "note": "Illustrative projection. owner_tenant_id and source ids are omitted from this carrier view."
+}
