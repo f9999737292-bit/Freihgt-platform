@@ -15,6 +15,7 @@ const (
 
 	CapacityAvailable = "AVAILABLE"
 	CapacityWithdrawn = "WITHDRAWN"
+	CapacityPredicted = "PREDICTED"
 
 	VisPrivate     = "PRIVATE"
 	VisInvited     = "INVITED_CARRIERS"
@@ -27,9 +28,10 @@ const (
 	CapVisMarketplace    = "MARKETPLACE"
 	CapVisAnonymized     = "ANONYMIZED"
 
-	SourceTransportOrder = "TRANSPORT_ORDER"
-	SourceShipment       = "SHIPMENT"
-	SourceManual         = "MANUAL"
+	SourceTransportOrder            = "TRANSPORT_ORDER"
+	SourceShipment                  = "SHIPMENT"
+	SourceManual                    = "MANUAL"
+	SourceCurrentShipmentPrediction = "CURRENT_SHIPMENT_PREDICTION"
 
 	EventLoadPublished     = "network.load_opportunity.published"
 	EventLoadUpdated       = "network.load_opportunity.updated"
@@ -37,6 +39,7 @@ const (
 	EventCapacityPublished = "network.capacity.published"
 	EventCapacityUpdated   = "network.capacity.updated"
 	EventCapacityWithdrawn = "network.capacity.withdrawn"
+	EventCapacityPredicted = "network.capacity.predicted"
 )
 
 type Place struct {
@@ -51,10 +54,21 @@ type TimeWindow struct {
 	End   *time.Time `json:"end,omitempty"`
 }
 
+func (c CargoConstraints) empty() bool {
+	return c.TemperatureMinC == nil && c.TemperatureMaxC == nil && c.PreferredTemperatureSetpointC == nil &&
+		c.TemperatureRequired == nil && c.Dangerous == nil && len(c.RequiredBodyTypes) == 0 &&
+		len(c.RequiredLoadingAccess) == 0 && len(c.RequiredUnloadingAccess) == 0
+}
+
 type CargoConstraints struct {
-	TemperatureMinC *float64 `json:"temperature_min_c,omitempty"`
-	TemperatureMaxC *float64 `json:"temperature_max_c,omitempty"`
-	Dangerous       *bool    `json:"dangerous,omitempty"`
+	TemperatureMinC               *float64 `json:"temperature_min_c,omitempty"`
+	TemperatureMaxC               *float64 `json:"temperature_max_c,omitempty"`
+	PreferredTemperatureSetpointC *float64 `json:"preferred_temperature_setpoint_c,omitempty"`
+	TemperatureRequired           *bool    `json:"temperature_required,omitempty"`
+	RequiredBodyTypes             []string `json:"required_body_types,omitempty"`
+	RequiredLoadingAccess         []string `json:"required_loading_access,omitempty"`
+	RequiredUnloadingAccess       []string `json:"required_unloading_access,omitempty"`
+	Dangerous                     *bool    `json:"dangerous,omitempty"`
 }
 
 type Commercial struct {
@@ -418,7 +432,16 @@ func validateCargo(c CargoConstraints) error {
 	if c.TemperatureMinC != nil && c.TemperatureMaxC != nil && *c.TemperatureMaxC < *c.TemperatureMinC {
 		return fmt.Errorf("temperature_max_c must be greater than or equal to temperature_min_c")
 	}
-	return nil
+	if err := finiteOptional("preferred_temperature_setpoint_c", c.PreferredTemperatureSetpointC); err != nil {
+		return err
+	}
+	if err := validateBodyTokens(c.RequiredBodyTypes); err != nil {
+		return err
+	}
+	if err := validateAccessTokens("required_loading_access", c.RequiredLoadingAccess); err != nil {
+		return err
+	}
+	return validateAccessTokens("required_unloading_access", c.RequiredUnloadingAccess)
 }
 
 func finiteOptional(name string, v *float64) error {

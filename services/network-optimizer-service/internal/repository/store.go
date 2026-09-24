@@ -64,6 +64,12 @@ type Tx interface {
 	ListOwnCapacities(context.Context, uuid.UUID, int, int) ([]domain.Capacity, error)
 	ListMarketplaceCapacities(context.Context, uuid.UUID, int, int) ([]domain.Capacity, error)
 
+	InsertPrediction(context.Context, domain.PredictedCapacity) error
+	UpdatePrediction(context.Context, domain.PredictedCapacity) error
+	GetPrediction(context.Context, uuid.UUID) (domain.PredictedCapacity, error)
+	CurrentPredictionByShipment(context.Context, uuid.UUID, uuid.UUID) (domain.PredictedCapacity, error)
+	ListOwnPredictions(context.Context, uuid.UUID, int, int) ([]domain.PredictedCapacity, error)
+
 	GetIdempotency(context.Context, uuid.UUID, string) (IdempotencyRecord, error)
 	PutIdempotency(context.Context, uuid.UUID, IdempotencyRecord) error
 	InsertAudit(context.Context, AuditEvent) error

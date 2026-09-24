@@ -335,6 +335,11 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/network/capacities/{id}", "get", "Get own capacity", "Network Optimizer", True, True, None),
     ("/api/v1/network/capacities/{id}", "patch", "Update own capacity", "Network Optimizer", True, True, "bno_foundation_mutation"),
     ("/api/v1/network/capacities/{id}/withdraw", "post", "Withdraw own capacity", "Network Optimizer", True, True, "bno_foundation_mutation"),
+    ("/api/v1/network/shipments/{shipmentId}/predicted-capacity", "post", "Generate predicted capacity", "Network Optimizer", True, True, "bno_prediction"),
+    ("/api/v1/network/predicted-capacities", "get", "List own predicted capacities", "Network Optimizer", True, True, "bno_list"),
+    ("/api/v1/network/predicted-capacities/{id}", "get", "Get own predicted capacity", "Network Optimizer", True, True, "bno_prediction"),
+    ("/api/v1/network/predicted-capacities/{id}/refresh", "post", "Refresh predicted capacity", "Network Optimizer", True, True, "bno_prediction"),
+    ("/api/v1/network/predicted-capacities/{id}/activate", "post", "Activate predicted capacity", "Network Optimizer", True, True, "bno_prediction"),
     ("/api/v1/network/marketplace/load-opportunities", "get", "List marketplace load opportunities", "Network Optimizer", True, True, "bno_list"),
     ("/api/v1/network/marketplace/load-opportunities/{id}", "get", "Get marketplace load opportunity", "Network Optimizer", True, True, None),
     ("/api/v1/network/marketplace/capacities", "get", "List marketplace capacities", "Network Optimizer", True, True, "bno_list"),
@@ -1377,7 +1382,7 @@ def render_parameters(path: str, method: str, with_headers: bool, profile: str |
             "            minLength: 1",
             "            maxLength: 128",
         ])
-    elif profile == "bno_foundation_mutation":
+    elif profile in {"bno_foundation_mutation", "bno_prediction"} and method == "post":
         lines.extend([
             "        - name: Idempotency-Key",
             "          in: header",
@@ -1499,6 +1504,12 @@ def render_operation(
         lines.append("        Tenant and user identity come from the verified gateway JWT. Client identity headers are not trusted.")
         lines.append("        Idempotency-Key replays the original result and does not create a second publication or outbox event.")
         lines.append("        Omitted physical attributes stay unknown. Zero is not a substitute for unknown.")
+    elif profile == "bno_prediction":
+        lines.append("      description: |")
+        lines.append("        Owner predictive capacity. A generated prediction is PRIVATE and PREDICTED.")
+        lines.append("        It is not marketplace capacity and it does not search or rank next loads.")
+        lines.append("        Activation to AVAILABLE stays PRIVATE until a separate publication.")
+        lines.append("        Confidence is a versioned rule score, not a calibrated probability.")
     elif profile == "bno_list":
         lines.append("      description: |")
         lines.append("        Tenant-scoped list. Marketplace reads return the visibility projection, not source shipment or transport-order rows.")
@@ -2032,9 +2043,27 @@ def render_operation(
         )
         return "\n".join(lines)
 
+    if profile == "bno_prediction" and method == "post" and path.endswith(("/refresh", "/activate")):
+        lines.extend(
+            [
+                "      requestBody:",
+                "        required: true",
+                "        content:",
+                "          application/json:",
+                "            schema:",
+                "              type: object",
+                "              required: [version]",
+                "              properties:",
+                "                version:",
+                "                  type: integer",
+                "                  minimum: 1",
+            ]
+        )
     if profile in QUESTIONNAIRE_CREATED_PROFILES:
         success_code = "201"
     elif profile in VOID_DESCRIPTIONS or profile in RECONCILE_DESCRIPTIONS or profile in QUESTIONNAIRE_OK_POST_PROFILES or profile in CARRIER_RESPONSE_SCHEMAS or profile in LATE_SUBMISSION_OK_POST_PROFILES:
+        success_code = "200"
+    elif profile == "bno_prediction" and ("/refresh" in path or "/activate" in path):
         success_code = "200"
     elif method == "post" and tag not in {"Gateway", "Auth"}:
         success_code = "201"

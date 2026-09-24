@@ -39,6 +39,8 @@ func NewRouter(
 	driverTaskHandler := handlers.NewDriverTaskHandler(driverTaskSvc)
 	internalTaskHandler := handlers.NewInternalDriverTaskHandler(driverTaskSvc, internalToken)
 	ownershipHandler := handlers.NewOwnershipInternalHandler(shipmentSvc)
+	predictionInputHandler := handlers.NewPredictionInputHandler(shipmentSvc)
+	vehicleCapabilityHandler := handlers.NewVehicleCapabilityHandler(vehicleSvc)
 	internalAuth := internalauth.Config{Token: internalToken}
 
 	r := chi.NewRouter()
@@ -105,6 +107,11 @@ func NewRouter(
 		r.Get("/status-summary", statusSummaryHandler.GetStatusSummary)
 		r.Get("/{shipmentId}/status-history", statusHistoryHandler.List)
 		r.With(internalAuth.Middleware).Get("/{shipmentId}/ownership", ownershipHandler.GetShipment)
+		r.With(internalAuth.Middleware).Get("/{shipmentId}/prediction-input", predictionInputHandler.Get)
+	})
+
+	r.Route("/internal/v1/vehicles", func(r chi.Router) {
+		r.With(internalAuth.Middleware).Get("/{id}/capability", vehicleCapabilityHandler.Get)
 	})
 
 	r.Route("/internal/v1/driver", func(r chi.Router) {

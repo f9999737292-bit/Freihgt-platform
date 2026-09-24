@@ -47,6 +47,12 @@ func NewRouter(log *slog.Logger, svc *service.Service, ready func(http.ResponseW
 	r.Patch("/v1/network/capacities/{id}", h.UpdateCapacity)
 	r.Post("/v1/network/capacities/{id}/withdraw", h.WithdrawCapacity)
 
+	r.Post("/v1/network/shipments/{shipmentId}/predicted-capacity", h.GeneratePrediction)
+	r.Get("/v1/network/predicted-capacities", h.ListPredictions)
+	r.Get("/v1/network/predicted-capacities/{id}", h.GetPrediction)
+	r.Post("/v1/network/predicted-capacities/{id}/refresh", h.RefreshPrediction)
+	r.Post("/v1/network/predicted-capacities/{id}/activate", h.ActivatePrediction)
+
 	r.Get("/v1/network/marketplace/load-opportunities", h.ListMarketplaceLoads)
 	r.Get("/v1/network/marketplace/load-opportunities/{id}", h.GetMarketplaceLoad)
 	r.Get("/v1/network/marketplace/capacities", h.ListMarketplaceCapacities)

@@ -2,7 +2,11 @@
 
 Each stage uses the same core. Later stages do not replace earlier contracts; they add problem classes. Implementation of any stage needs a new authorization.
 
-BNO-0.1A implements only the foundation subset of NLO-0.1: manual capacity, explicit load publication, visibility, persistence, API, outbox, and audit. It does not implement hard feasibility, persisted match candidates, explanations, or any later stage.
+BNO-0.1A implements the foundation subset of NLO-0.1: manual capacity, explicit load publication, visibility, persistence, API, outbox, and audit. It does not implement hard feasibility, persisted match candidates, or explanations.
+
+BNO-0.1B is IMPLEMENTED: rule-based `PredictedCapacity`, normalized body and combination capability, independent loading and unloading access, temperature capability and cargo requirements, and compatibility primitives. It does not implement next-load search or ranking.
+
+NLO-0.2 is PARTIAL. The predicted-capacity half is in BNO-0.1B. Top-N next-load matching is not implemented and is the next stage, BNO-0.1C.
 
 | Stage | Content | Depends on |
 |-------|---------|------------|

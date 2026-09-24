@@ -13,6 +13,7 @@ import (
 	"github.com/freight-platform/network-optimizer-service/internal/domain"
 	apperrors "github.com/freight-platform/network-optimizer-service/internal/platform/errors"
 	bnometrics "github.com/freight-platform/network-optimizer-service/internal/platform/metrics"
+	"github.com/freight-platform/network-optimizer-service/internal/predict"
 	"github.com/freight-platform/network-optimizer-service/internal/repository"
 	"github.com/freight-platform/network-optimizer-service/internal/sourceverify"
 )
@@ -20,6 +21,8 @@ import (
 type Service struct {
 	store    repository.Store
 	verifier sourceverify.Verifier
+	sources  predict.Sources
+	policy   predict.Policy
 	now      func() time.Time
 }
 
@@ -28,6 +31,17 @@ func New(store repository.Store, verifier sourceverify.Verifier) *Service {
 		verifier = sourceverify.Unavailable{}
 	}
 	return &Service{store: store, verifier: verifier, now: func() time.Time { return time.Now().UTC() }}
+}
+
+func (s *Service) ConfigurePrediction(sources predict.Sources, policy predict.Policy) {
+	s.sources = sources
+	s.policy = policy
+}
+
+func (s *Service) SetClock(now func() time.Time) {
+	if now != nil {
+		s.now = now
+	}
 }
 
 type Actor struct {
