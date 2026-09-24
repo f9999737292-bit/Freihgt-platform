@@ -33,6 +33,7 @@ tags:
   - name: Rate Cards
   - name: Rate Simulation
   - name: Freight Costs
+  - name: Network Optimizer
 paths:
   /api/v1/integrations/erp/rfx/drafts/preview:
     post:

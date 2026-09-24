@@ -65,7 +65,7 @@ func NewProxyHandler(cfg config.Config) (*ProxyHandler, error) {
 		{"/api/v1/low-code", "low-code-service", cfg.Services.LowCode},
 	}
 
-	routes := make([]Route, 0, len(routeDefs))
+	routes := make([]Route, 0, len(routeDefs)+1)
 	for _, def := range routeDefs {
 		target, err := url.Parse(strings.TrimRight(def.baseURL, "/"))
 		if err != nil {
@@ -76,6 +76,13 @@ func NewProxyHandler(cfg config.Config) (*ProxyHandler, error) {
 			Service: def.service,
 			Target:  target,
 		})
+	}
+	if base := strings.TrimSpace(cfg.Services.NetworkOptimizer); base != "" {
+		target, err := url.Parse(strings.TrimRight(base, "/"))
+		if err != nil {
+			return nil, fmt.Errorf("parse service url for network-optimizer-service: %w", err)
+		}
+		routes = append(routes, Route{Prefix: "/api/v1/network", Service: "network-optimizer-service", Target: target})
 	}
 
 	return &ProxyHandler{

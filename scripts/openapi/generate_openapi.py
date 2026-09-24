@@ -35,6 +35,7 @@ TAGS = [
     "Rate Cards",
     "Rate Simulation",
     "Freight Costs",
+    "Network Optimizer",
 ]
 
 COMMON_HEADER = """      parameters:
@@ -323,6 +324,21 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/freight-costs/analytics/carriers", "get", "List carrier analytics with lane-normalized comparison", "Freight Costs", True, True, None),
     ("/api/v1/freight-costs/analytics/accessorials", "get", "List accessorial analytics breakdown", "Freight Costs", True, True, None),
     ("/api/v1/freight-costs/opportunities", "get", "List explainable savings opportunities", "Freight Costs", True, True, None),
+    ("/api/v1/network/load-opportunities", "post", "Create a load opportunity", "Network Optimizer", True, True, "bno_foundation_mutation"),
+    ("/api/v1/network/load-opportunities", "get", "List own load opportunities", "Network Optimizer", True, True, "bno_list"),
+    ("/api/v1/network/load-opportunities/{id}", "get", "Get own load opportunity", "Network Optimizer", True, True, None),
+    ("/api/v1/network/load-opportunities/{id}", "patch", "Update own load opportunity", "Network Optimizer", True, True, "bno_foundation_mutation"),
+    ("/api/v1/network/load-opportunities/{id}/publish", "post", "Publish own load opportunity", "Network Optimizer", True, True, "bno_foundation_mutation"),
+    ("/api/v1/network/load-opportunities/{id}/withdraw", "post", "Withdraw own load opportunity", "Network Optimizer", True, True, "bno_foundation_mutation"),
+    ("/api/v1/network/capacities", "post", "Create manual capacity", "Network Optimizer", True, True, "bno_foundation_mutation"),
+    ("/api/v1/network/capacities", "get", "List own capacities", "Network Optimizer", True, True, "bno_list"),
+    ("/api/v1/network/capacities/{id}", "get", "Get own capacity", "Network Optimizer", True, True, None),
+    ("/api/v1/network/capacities/{id}", "patch", "Update own capacity", "Network Optimizer", True, True, "bno_foundation_mutation"),
+    ("/api/v1/network/capacities/{id}/withdraw", "post", "Withdraw own capacity", "Network Optimizer", True, True, "bno_foundation_mutation"),
+    ("/api/v1/network/marketplace/load-opportunities", "get", "List marketplace load opportunities", "Network Optimizer", True, True, "bno_list"),
+    ("/api/v1/network/marketplace/load-opportunities/{id}", "get", "Get marketplace load opportunity", "Network Optimizer", True, True, None),
+    ("/api/v1/network/marketplace/capacities", "get", "List marketplace capacities", "Network Optimizer", True, True, "bno_list"),
+    ("/api/v1/network/marketplace/capacities/{id}", "get", "Get marketplace capacity", "Network Optimizer", True, True, None),
 ]
 
 SERVICE_TAGS = {
@@ -336,6 +352,7 @@ SERVICE_TAGS = {
     "payment-service.yaml": {"Payment Obligations", "Payments"},
     "contract-rate-service.yaml": {"Transport Contracts", "Rate Cards", "Rate Simulation"},
     "freight-cost-service.yaml": {"Freight Costs"},
+    "network-optimizer-service.yaml": {"Network Optimizer"},
 }
 
 VOID_DESCRIPTIONS = {
@@ -1287,6 +1304,8 @@ def query_parameter_lines(method: str, path: str, profile: str | None) -> list[s
         lines.extend(_pagination_query_lines())
     elif method == "get" and path == "/api/v1/freight-costs":
         lines.extend(_pagination_query_lines())
+    elif profile == "bno_list":
+        lines.extend(_pagination_query_lines())
     elif profile == "carrier_invited_event_get":
         lines.extend([
             "        - name: carrier_company_id",
@@ -1356,6 +1375,16 @@ def render_parameters(path: str, method: str, with_headers: bool, profile: str |
             "          schema:",
             "            type: string",
             "            minLength: 1",
+            "            maxLength: 128",
+        ])
+    elif profile == "bno_foundation_mutation":
+        lines.extend([
+            "        - name: Idempotency-Key",
+            "          in: header",
+            "          required: false",
+            "          description: Replays the original mutation result when the same key and body are retried.",
+            "          schema:",
+            "            type: string",
             "            maxLength: 128",
         ])
     elif profile in XLSX_CREATE_COMMIT_PROFILES:
@@ -1456,7 +1485,16 @@ def render_operation(
         f"      operationId: {operation_id}",
     ]
 
-    if profile in VOID_DESCRIPTIONS:
+    if profile == "bno_foundation_mutation":
+        lines.append("      description: |")
+        lines.append("        BINTRANS Network Optimizer foundation mutation.")
+        lines.append("        Tenant and user identity come from the verified gateway JWT. Client identity headers are not trusted.")
+        lines.append("        Idempotency-Key replays the original result and does not create a second publication or outbox event.")
+        lines.append("        Omitted physical attributes stay unknown. Zero is not a substitute for unknown.")
+    elif profile == "bno_list":
+        lines.append("      description: |")
+        lines.append("        Tenant-scoped list. Marketplace reads return the visibility projection, not source shipment or transport-order rows.")
+    elif profile in VOID_DESCRIPTIONS:
         lines.append("      description: |")
         for desc_line in VOID_DESCRIPTIONS[profile].splitlines():
             lines.append(f"        {desc_line}")
@@ -4142,6 +4180,7 @@ SERVICE_DISPLAY_NAMES = {
     "payment-service.yaml": "Payment Service",
     "contract-rate-service.yaml": "Contract Rate Service",
     "freight-cost-service.yaml": "Freight Cost Service",
+    "network-optimizer-service.yaml": "Network Optimizer Service",
 }
 
 
