@@ -13,6 +13,8 @@ IMPLEMENTATION_AUTHORIZED=NO
 
 Baseline at freeze authoring: branch `discovery/bintrans-transport-network-optimizer-v0.1`, SHA `2c0ad2bd573ca78788d09d13cfe629b4023b88d9` (same as local `origin/main` after `git fetch origin` on 2026-09-24).
 
+The block above records the architecture freeze. BNO-0.1A later added the foundation runtime described in [BNO_0_1A_IMPLEMENTATION.md](BNO_0_1A_IMPLEMENTATION.md). Later roadmap stages remain not implemented.
+
 ## What this is
 
 One optimization core with two policy modes:
@@ -52,6 +54,7 @@ Not a second freight exchange, not a second RFx engine, not a second freight-cos
 | [OBSERVABILITY.md](OBSERVABILITY.md) | Future metrics |
 | [TEST_STRATEGY.md](TEST_STRATEGY.md) | Future tests, including golden scenarios |
 | [ROADMAP.md](ROADMAP.md) | NLO-0.1 … NLO-1.0 and FLEET-1.x |
+| [BNO_0_1A_IMPLEMENTATION.md](BNO_0_1A_IMPLEMENTATION.md) | Implemented foundation subset and explicit non-goals |
 | [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) | Unresolved items |
 | [CONSISTENCY_REVIEW.md](CONSISTENCY_REVIEW.md) | Pre-commit architecture, ownership, security, contract, and roadmap review |
 | [FINAL_ARCHITECTURE_REPORT.md](FINAL_ARCHITECTURE_REPORT.md) | Freeze verdict |
