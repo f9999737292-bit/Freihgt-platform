@@ -34,10 +34,16 @@ func (r *CargoRepository) Create(ctx context.Context, in domain.CreateCargoInput
 		const insertCargo = `
 		INSERT INTO transport.cargoes (
 			tenant_id, cargo_type, description, gross_weight, net_weight, volume,
-			temperature_min, temperature_max, dangerous_goods_flag, customs_required
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+			temperature_min, temperature_max, dangerous_goods_flag, customs_required,
+			cargo_type_code, pallet_count, pallet_type_code, linear_meters, max_loaded_height_mm,
+			stackable, fragile, packaging_type_code, food_grade_required, temperature_required,
+			preferred_temperature_setpoint_c, odor_emission_class, odor_sensitive, contamination_class
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
 		RETURNING id, tenant_id, cargo_type, description, gross_weight, net_weight, volume,
 			temperature_min, temperature_max, dangerous_goods_flag, customs_required,
+			cargo_type_code, pallet_count, pallet_type_code, linear_meters, max_loaded_height_mm,
+			stackable, fragile, packaging_type_code, food_grade_required, temperature_required,
+			preferred_temperature_setpoint_c, odor_emission_class, odor_sensitive, contamination_class,
 			created_at, updated_at, version
 	`
 		row := tx.QueryRow(ctx, insertCargo,
@@ -51,6 +57,20 @@ func (r *CargoRepository) Create(ctx context.Context, in domain.CreateCargoInput
 			optionalFloat(in.TemperatureMax),
 			in.DangerousGoodsFlag,
 			in.CustomsRequired,
+			optionalString(in.CargoTypeCode),
+			in.PalletCount,
+			optionalString(in.PalletTypeCode),
+			optionalFloat(in.LinearMeters),
+			in.MaxLoadedHeightMM,
+			in.Stackable,
+			in.Fragile,
+			optionalString(in.PackagingTypeCode),
+			in.FoodGradeRequired,
+			in.TemperatureRequired,
+			optionalFloat(in.PreferredTemperatureSetpointC),
+			optionalString(in.OdorEmissionClass),
+			in.OdorSensitive,
+			optionalString(in.ContaminationClass),
 		)
 
 		cargo, err := scanCargo(row)
@@ -98,14 +118,7 @@ func (r *CargoRepository) Create(ctx context.Context, in domain.CreateCargoInput
 func (r *CargoRepository) GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.Cargo, error) {
 	var result *domain.Cargo
 	err := measureDB("cargo_repository", "get_cargo", func() error {
-		const query = `
-		SELECT id, tenant_id, cargo_type, description, gross_weight, net_weight, volume,
-			temperature_min, temperature_max, dangerous_goods_flag, customs_required,
-			created_at, updated_at, version
-		FROM transport.cargoes
-		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
-	`
-		row := r.pool.QueryRow(ctx, query, id, tenantID)
+		row := r.pool.QueryRow(ctx, getCargoByIDAndTenantQuery, id, tenantID)
 		cargo, err := scanCargo(row)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -125,12 +138,26 @@ func (r *CargoRepository) GetByIDAndTenant(ctx context.Context, id, tenantID uui
 	return result, err
 }
 
+const getCargoByIDAndTenantQuery = `
+		SELECT id, tenant_id, cargo_type, description, gross_weight, net_weight, volume,
+			temperature_min, temperature_max, dangerous_goods_flag, customs_required,
+			cargo_type_code, pallet_count, pallet_type_code, linear_meters, max_loaded_height_mm,
+			stackable, fragile, packaging_type_code, food_grade_required, temperature_required,
+			preferred_temperature_setpoint_c, odor_emission_class, odor_sensitive, contamination_class,
+			created_at, updated_at, version
+		FROM transport.cargoes
+		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+	`
+
 func (r *CargoRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Cargo, error) {
 	var result *domain.Cargo
 	err := measureDB("cargo_repository", "get_cargo", func() error {
 		const query = `
 		SELECT id, tenant_id, cargo_type, description, gross_weight, net_weight, volume,
 			temperature_min, temperature_max, dangerous_goods_flag, customs_required,
+			cargo_type_code, pallet_count, pallet_type_code, linear_meters, max_loaded_height_mm,
+			stackable, fragile, packaging_type_code, food_grade_required, temperature_required,
+			preferred_temperature_setpoint_c, odor_emission_class, odor_sensitive, contamination_class,
 			created_at, updated_at, version
 		FROM transport.cargoes
 		WHERE id = $1 AND deleted_at IS NULL
@@ -211,6 +238,20 @@ func scanCargo(row pgx.Row) (*domain.Cargo, error) {
 		&cargo.TemperatureMax,
 		&cargo.DangerousGoodsFlag,
 		&cargo.CustomsRequired,
+		&cargo.CargoTypeCode,
+		&cargo.PalletCount,
+		&cargo.PalletTypeCode,
+		&cargo.LinearMeters,
+		&cargo.MaxLoadedHeightMM,
+		&cargo.Stackable,
+		&cargo.Fragile,
+		&cargo.PackagingTypeCode,
+		&cargo.FoodGradeRequired,
+		&cargo.TemperatureRequired,
+		&cargo.PreferredTemperatureSetpointC,
+		&cargo.OdorEmissionClass,
+		&cargo.OdorSensitive,
+		&cargo.ContaminationClass,
 		&createdAt,
 		&updatedAt,
 		&cargo.Version,

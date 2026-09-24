@@ -344,6 +344,18 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/network/marketplace/load-opportunities/{id}", "get", "Get marketplace load opportunity", "Network Optimizer", True, True, None),
     ("/api/v1/network/marketplace/capacities", "get", "List marketplace capacities", "Network Optimizer", True, True, "bno_list"),
     ("/api/v1/network/marketplace/capacities/{id}", "get", "Get marketplace capacity", "Network Optimizer", True, True, None),
+    ("/api/v1/network/compatibility/cargo-types", "get", "List cargo type catalog", "Network Optimizer", True, True, "bno_list"),
+    ("/api/v1/network/compatibility/equipment-types", "get", "List equipment type catalog", "Network Optimizer", True, True, "bno_list"),
+    ("/api/v1/network/compatibility/pallet-types", "get", "List pallet type catalog", "Network Optimizer", True, True, "bno_list"),
+    ("/api/v1/network/compatibility/packaging-types", "get", "List packaging type catalog", "Network Optimizer", True, True, "bno_list"),
+    ("/api/v1/network/compatibility/rule-sets", "get", "List compatibility rule sets", "Network Optimizer", True, True, "bno_list"),
+    ("/api/v1/network/compatibility/rule-sets", "post", "Create a draft compatibility rule set", "Network Optimizer", True, True, "bno_compatibility"),
+    ("/api/v1/network/compatibility/rule-sets/{id}/rules", "post", "Add a draft compatibility rule", "Network Optimizer", True, True, "bno_compatibility"),
+    ("/api/v1/network/compatibility/rule-sets/{id}/rules/{ruleCode}", "delete", "Remove a draft compatibility rule", "Network Optimizer", True, True, "bno_compatibility"),
+    ("/api/v1/network/compatibility/rule-sets/{id}/activate", "post", "Activate a compatibility rule set", "Network Optimizer", True, True, "bno_compatibility"),
+    ("/api/v1/network/compatibility/rule-sets/{id}/retire", "post", "Retire a compatibility rule set", "Network Optimizer", True, True, "bno_compatibility"),
+    ("/api/v1/network/compatibility/cargo-equipment/evaluate", "post", "Evaluate cargo equipment compatibility", "Network Optimizer", True, True, "bno_compatibility"),
+    ("/api/v1/network/compatibility/groupage/evaluate", "post", "Evaluate groupage compatibility", "Network Optimizer", True, True, "bno_compatibility"),
 ]
 
 SERVICE_TAGS = {
@@ -1510,6 +1522,11 @@ def render_operation(
         lines.append("        It is not marketplace capacity and it does not search or rank next loads.")
         lines.append("        Activation to AVAILABLE stays PRIVATE until a separate publication.")
         lines.append("        Confidence is a versioned rule score, not a calibrated probability.")
+    elif profile == "bno_compatibility":
+        lines.append("      description: |")
+        lines.append("        Compatibility evaluation uses explicit cargo and equipment facts plus the active catalog and rule-set versions.")
+        lines.append("        It does not search the marketplace, rank matches, or plan a route.")
+        lines.append("        Unknown facts stay unknown. A tenant rule cannot weaken a system or regulatory hard deny.")
     elif profile == "bno_list":
         lines.append("      description: |")
         lines.append("        Tenant-scoped list. Marketplace reads return the visibility projection, not source shipment or transport-order rows.")
@@ -2059,12 +2076,26 @@ def render_operation(
                 "                  minimum: 1",
             ]
         )
+    if profile == "bno_compatibility" and method == "post":
+        lines.extend(
+            [
+                "      requestBody:",
+                "        required: true",
+                "        content:",
+                "          application/json:",
+                "            schema:",
+                "              type: object",
+                "              additionalProperties: true",
+            ]
+        )
     if profile in QUESTIONNAIRE_CREATED_PROFILES:
         success_code = "201"
     elif profile in VOID_DESCRIPTIONS or profile in RECONCILE_DESCRIPTIONS or profile in QUESTIONNAIRE_OK_POST_PROFILES or profile in CARRIER_RESPONSE_SCHEMAS or profile in LATE_SUBMISSION_OK_POST_PROFILES:
         success_code = "200"
     elif profile == "bno_prediction" and ("/refresh" in path or "/activate" in path):
         success_code = "200"
+    elif profile == "bno_compatibility":
+        success_code = "200" if method != "post" or path.endswith("/evaluate") or path.endswith("/activate") or path.endswith("/retire") else "201"
     elif method == "post" and tag not in {"Gateway", "Auth"}:
         success_code = "201"
     else:

@@ -18,6 +18,8 @@ const (
 	PolicyWithdrawCapacity
 	PolicyViewMarketplaceLoads
 	PolicyViewMarketplaceCapacities
+	PolicyReadCompatibility
+	PolicyManageCompatibilityRules
 )
 
 var shipperRoles = map[string]struct{}{
@@ -49,6 +51,12 @@ func policyAllows(policy Policy, companyRoles []string, actorKind string, isPlat
 		return actorKind == companycontext.ActorBuyer && routeauth.HasAnyRole(companyRoles, shipperRoles)
 	case PolicyPublishCapacity, PolicyReadOwnCapacity, PolicyWithdrawCapacity, PolicyViewMarketplaceLoads:
 		return actorKind == companycontext.ActorCarrier && routeauth.HasAnyRole(companyRoles, carrierRoles)
+	case PolicyReadCompatibility:
+		return (actorKind == companycontext.ActorBuyer && routeauth.HasAnyRole(companyRoles, shipperRoles)) ||
+			(actorKind == companycontext.ActorCarrier && routeauth.HasAnyRole(companyRoles, carrierRoles))
+	case PolicyManageCompatibilityRules:
+		return (actorKind == companycontext.ActorBuyer && routeauth.HasAnyRole(companyRoles, map[string]struct{}{"SHIPPER_ADMIN": {}})) ||
+			(actorKind == companycontext.ActorCarrier && routeauth.HasAnyRole(companyRoles, map[string]struct{}{"CARRIER_ADMIN": {}}))
 	default:
 		return false
 	}
@@ -68,6 +76,10 @@ func policyDenyMessage(policy Policy) string {
 		return "insufficient permission to view marketplace loads"
 	case PolicyViewMarketplaceCapacities:
 		return "insufficient permission to view marketplace capacity"
+	case PolicyReadCompatibility:
+		return "insufficient permission to evaluate compatibility"
+	case PolicyManageCompatibilityRules:
+		return "insufficient permission to manage compatibility rules"
 	default:
 		return "insufficient permission"
 	}

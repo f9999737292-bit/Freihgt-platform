@@ -13,16 +13,16 @@ Smallest physical object the consolidation engine may co-load. It is a **plannin
 | `transport_order_id` | required | owning order |
 | `weight` | required when known | `gross_weight` or item weight |
 | `volume` | required when known | `volume` |
-| `pallet_count` | reserved | **NOT_FOUND** on cargo |
-| `linear_meters` | reserved | **NOT_FOUND** |
-| `dimensions` | reserved | **NOT_FOUND** |
-| `stackable` | reserved | **NOT_FOUND** |
-| `fragile` | reserved | **NOT_FOUND** |
-| `cargo_type` | required | `cargo_type` |
+| `pallet_count` | optional | nullable `transport.cargoes.pallet_count`; unknown stays null |
+| `linear_meters` | optional | nullable `transport.cargoes.linear_meters` |
+| `dimensions` | partial | `max_loaded_height_mm` only; no 3D packing |
+| `stackable` | optional | nullable cargo fact; stacking does not invent positions |
+| `fragile` | optional | nullable cargo fact; no automatic reject |
+| `cargo_type` | required | free-text `cargo_type` plus optional `cargo_type_code` |
 | `commodity` | optional | description / item name |
 | `temperature_min` / `temperature_max` | optional | cargo fields |
 | `adr_class` | optional | item `hazard_class`; cargo has `dangerous_goods_flag` |
-| `loading_method` / `unloading_method` | reserved | **NOT_FOUND** |
+| `loading_method` / `unloading_method` | partial | required and allowed access lists on the load projection; no separate method master |
 | `can_co_load` | policy | new; default false until publication says otherwise |
 | `pickup_location` / `delivery_location` | required | order origin/destination today (single pair) |
 | `pickup_window` / `delivery_window` | required | requested/planned timestamps; not a full window model |

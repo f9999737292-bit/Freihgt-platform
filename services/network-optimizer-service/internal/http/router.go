@@ -8,6 +8,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/freight-platform/network-optimizer-service/internal/http/handlers"
+	"github.com/freight-platform/network-optimizer-service/internal/reference"
 	"github.com/freight-platform/network-optimizer-service/internal/service"
 	sharedmiddleware "github.com/freight-platform/shared-go/middleware"
 	"github.com/freight-platform/shared-go/observability"
@@ -16,6 +17,10 @@ import (
 const serviceName = "network-optimizer-service"
 
 func NewRouter(log *slog.Logger, svc *service.Service, ready func(http.ResponseWriter, *http.Request)) http.Handler {
+	return NewRouterWithCatalog(log, svc, ready, nil)
+}
+
+func NewRouterWithCatalog(log *slog.Logger, svc *service.Service, ready func(http.ResponseWriter, *http.Request), catalog reference.Catalog) http.Handler {
 	r := chi.NewRouter()
 	r.Use(sharedmiddleware.RequestID)
 	r.Use(func(next http.Handler) http.Handler {
@@ -25,6 +30,9 @@ func NewRouter(log *slog.Logger, svc *service.Service, ready func(http.ResponseW
 		})
 	})
 	h := handlers.New(log, svc)
+	if catalog != nil {
+		h.UseCatalog(catalog)
+	}
 	r.Get("/health", observability.HealthHandler(serviceName))
 	if ready == nil {
 		ready = func(w http.ResponseWriter, _ *http.Request) {
@@ -57,5 +65,18 @@ func NewRouter(log *slog.Logger, svc *service.Service, ready func(http.ResponseW
 	r.Get("/v1/network/marketplace/load-opportunities/{id}", h.GetMarketplaceLoad)
 	r.Get("/v1/network/marketplace/capacities", h.ListMarketplaceCapacities)
 	r.Get("/v1/network/marketplace/capacities/{id}", h.GetMarketplaceCapacity)
+
+	r.Get("/v1/network/compatibility/cargo-types", h.ListCargoTypes)
+	r.Get("/v1/network/compatibility/equipment-types", h.ListEquipmentTypes)
+	r.Get("/v1/network/compatibility/pallet-types", h.ListPalletTypes)
+	r.Get("/v1/network/compatibility/packaging-types", h.ListPackagingTypes)
+	r.Get("/v1/network/compatibility/rule-sets", h.ListRuleSets)
+	r.Post("/v1/network/compatibility/rule-sets", h.CreateRuleSet)
+	r.Post("/v1/network/compatibility/rule-sets/{id}/rules", h.AddCompatibilityRule)
+	r.Delete("/v1/network/compatibility/rule-sets/{id}/rules/{ruleCode}", h.RemoveCompatibilityRule)
+	r.Post("/v1/network/compatibility/rule-sets/{id}/activate", h.ActivateRuleSet)
+	r.Post("/v1/network/compatibility/rule-sets/{id}/retire", h.RetireRuleSet)
+	r.Post("/v1/network/compatibility/cargo-equipment/evaluate", h.EvaluateCargoEquipment)
+	r.Post("/v1/network/compatibility/groupage/evaluate", h.EvaluateGroupage)
 	return r
 }

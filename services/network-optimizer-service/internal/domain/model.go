@@ -57,7 +57,12 @@ type TimeWindow struct {
 func (c CargoConstraints) empty() bool {
 	return c.TemperatureMinC == nil && c.TemperatureMaxC == nil && c.PreferredTemperatureSetpointC == nil &&
 		c.TemperatureRequired == nil && c.Dangerous == nil && len(c.RequiredBodyTypes) == 0 &&
-		len(c.RequiredLoadingAccess) == 0 && len(c.RequiredUnloadingAccess) == 0
+		len(c.RequiredLoadingAccess) == 0 && len(c.RequiredUnloadingAccess) == 0 &&
+		len(c.AllowedLoadingAccess) == 0 && len(c.AllowedUnloadingAccess) == 0 &&
+		c.CargoTypeCode == nil && c.PalletCount == nil && c.PalletTypeCode == nil && c.LinearMeters == nil &&
+		c.MaxLoadedHeightMM == nil && c.Stackable == nil && c.Fragile == nil && c.PackagingTypeCode == nil &&
+		c.FoodGradeRequired == nil && c.OdorEmissionClass == nil && c.OdorSensitive == nil &&
+		c.ContaminationClass == nil && len(c.HazardClasses) == 0
 }
 
 type CargoConstraints struct {
@@ -68,7 +73,22 @@ type CargoConstraints struct {
 	RequiredBodyTypes             []string `json:"required_body_types,omitempty"`
 	RequiredLoadingAccess         []string `json:"required_loading_access,omitempty"`
 	RequiredUnloadingAccess       []string `json:"required_unloading_access,omitempty"`
+	AllowedLoadingAccess          []string `json:"allowed_loading_access,omitempty"`
+	AllowedUnloadingAccess        []string `json:"allowed_unloading_access,omitempty"`
 	Dangerous                     *bool    `json:"dangerous,omitempty"`
+	CargoTypeCode                 *string  `json:"cargo_type_code,omitempty"`
+	PalletCount                   *int     `json:"pallet_count,omitempty"`
+	PalletTypeCode                *string  `json:"pallet_type_code,omitempty"`
+	LinearMeters                  *float64 `json:"linear_meters,omitempty"`
+	MaxLoadedHeightMM             *int     `json:"max_loaded_height_mm,omitempty"`
+	Stackable                     *bool    `json:"stackable,omitempty"`
+	Fragile                       *bool    `json:"fragile,omitempty"`
+	PackagingTypeCode             *string  `json:"packaging_type_code,omitempty"`
+	FoodGradeRequired             *bool    `json:"food_grade_required,omitempty"`
+	OdorEmissionClass             *string  `json:"odor_emission_class,omitempty"`
+	OdorSensitive                 *bool    `json:"odor_sensitive,omitempty"`
+	ContaminationClass            *string  `json:"contamination_class,omitempty"`
+	HazardClasses                 []string `json:"hazard_classes,omitempty"`
 }
 
 type Commercial struct {
@@ -441,7 +461,25 @@ func validateCargo(c CargoConstraints) error {
 	if err := validateAccessTokens("required_loading_access", c.RequiredLoadingAccess); err != nil {
 		return err
 	}
-	return validateAccessTokens("required_unloading_access", c.RequiredUnloadingAccess)
+	if err := validateAccessTokens("required_unloading_access", c.RequiredUnloadingAccess); err != nil {
+		return err
+	}
+	if err := validateAccessTokens("allowed_loading_access", c.AllowedLoadingAccess); err != nil {
+		return err
+	}
+	if err := validateAccessTokens("allowed_unloading_access", c.AllowedUnloadingAccess); err != nil {
+		return err
+	}
+	if c.PalletCount != nil && *c.PalletCount <= 0 {
+		return fmt.Errorf("pallet_count must be greater than zero when known")
+	}
+	if c.LinearMeters != nil && *c.LinearMeters <= 0 {
+		return fmt.Errorf("linear_meters must be greater than zero when known")
+	}
+	if c.MaxLoadedHeightMM != nil && *c.MaxLoadedHeightMM <= 0 {
+		return fmt.Errorf("max_loaded_height_mm must be greater than zero when known")
+	}
+	return nil
 }
 
 func finiteOptional(name string, v *float64) error {

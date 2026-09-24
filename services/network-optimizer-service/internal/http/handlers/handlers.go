@@ -17,6 +17,7 @@ import (
 	apperrors "github.com/freight-platform/network-optimizer-service/internal/platform/errors"
 	bnometrics "github.com/freight-platform/network-optimizer-service/internal/platform/metrics"
 	"github.com/freight-platform/network-optimizer-service/internal/platform/respond"
+	"github.com/freight-platform/network-optimizer-service/internal/reference"
 	"github.com/freight-platform/network-optimizer-service/internal/service"
 	"github.com/freight-platform/shared-go/lowcode"
 	sharedmiddleware "github.com/freight-platform/shared-go/middleware"
@@ -25,15 +26,16 @@ import (
 const headerCompanyID = "X-Company-ID"
 
 type Handler struct {
-	log *slog.Logger
-	svc *service.Service
+	log     *slog.Logger
+	svc     *service.Service
+	catalog reference.Catalog
 }
 
 func New(log *slog.Logger, svc *service.Service) *Handler {
 	if log == nil {
 		log = slog.Default()
 	}
-	return &Handler{log: log, svc: svc}
+	return &Handler{log: log, svc: svc, catalog: reference.NewMemoryCatalog()}
 }
 
 func (h *Handler) CreateLoad(w http.ResponseWriter, r *http.Request) {

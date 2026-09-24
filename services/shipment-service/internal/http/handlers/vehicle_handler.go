@@ -37,6 +37,14 @@ type createVehicleRequest struct {
 	TemperatureZoneCount          *int     `json:"temperature_zone_count"`
 	IndependentTemperatureControl *bool    `json:"independent_temperature_control"`
 	ContainerSize                 *string  `json:"container_size"`
+	EquipmentUnitKind             *string  `json:"equipment_unit_kind"`
+	PalletPositions               *int     `json:"pallet_positions"`
+	UsableLinearMeters            *float64 `json:"usable_linear_meters"`
+	InternalLengthMM              *int     `json:"internal_length_mm"`
+	InternalWidthMM               *int     `json:"internal_width_mm"`
+	InternalHeightMM              *int     `json:"internal_height_mm"`
+	FoodGradeCapability           *bool    `json:"food_grade_capability"`
+	ADRCapability                 *bool    `json:"adr_capability"`
 }
 
 func (h *VehicleHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -139,6 +147,14 @@ func parseCreateVehicleRequest(req createVehicleRequest) (domain.CreateVehicleIn
 		TemperatureZoneCount:          req.TemperatureZoneCount,
 		IndependentTemperatureControl: req.IndependentTemperatureControl,
 		ContainerSize:                 req.ContainerSize,
+		EquipmentUnitKind:             req.EquipmentUnitKind,
+		PalletPositions:               req.PalletPositions,
+		UsableLinearMeters:            req.UsableLinearMeters,
+		InternalLengthMM:              req.InternalLengthMM,
+		InternalWidthMM:               req.InternalWidthMM,
+		InternalHeightMM:              req.InternalHeightMM,
+		FoodGradeCapability:           req.FoodGradeCapability,
+		ADRCapability:                 req.ADRCapability,
 	}, nil
 }
 
@@ -164,6 +180,14 @@ func toVehicleResponse(v *domain.Vehicle) map[string]any {
 		"temperature_zone_count":          v.TemperatureZoneCount,
 		"independent_temperature_control": v.IndependentTemperatureControl,
 		"container_size":                  v.ContainerSize,
+		"equipment_unit_kind":             v.EquipmentUnitKind,
+		"pallet_positions":                v.PalletPositions,
+		"usable_linear_meters":            v.UsableLinearMeters,
+		"internal_length_mm":              v.InternalLengthMM,
+		"internal_width_mm":               v.InternalWidthMM,
+		"internal_height_mm":              v.InternalHeightMM,
+		"food_grade_capability":           v.FoodGradeCapability,
+		"adr_capability":                  v.ADRCapability,
 		"version":                         v.Version,
 	}
 }
