@@ -48,6 +48,7 @@ func main() {
 	vehicleRepo := repository.NewVehicleRepository(db.Pool)
 
 	shipmentSvc := service.NewShipmentService(shipmentRepo, driverRepo, vehicleRepo)
+	shipmentSvc.BindPredictionInput(shipmentRepo)
 	orderExecutionSvc := service.NewOrderExecutionService(orderExecutionRepo, shipmentSvc)
 	statusHistorySvc := service.NewStatusHistoryService(shipmentRepo)
 	statusSummaryRepo := repository.NewShipmentStatusSummaryRepository(db.Pool)

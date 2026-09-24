@@ -29,8 +29,11 @@ func TestGetVehicleByIDAndTenantQueryUsesSeparateParameters(t *testing.T) {
 const createVehicleQueryPrefix = `
 		INSERT INTO transport.vehicles (
 			tenant_id, carrier_company_id, plate_number, vehicle_type, equipment_type,
-			capacity_weight, capacity_volume, registration_country, status
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+			capacity_weight, capacity_volume, registration_country, status,
+			combination_type, body_type, loading_access, unloading_access,
+			temperature_control_mode, temperature_capability_min_c, temperature_capability_max_c,
+			temperature_zone_count, independent_temperature_control, container_size
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)`
 
 func TestCreateVehicleQueryUsesVerifiedTenantParameter(t *testing.T) {
 	t.Parallel()

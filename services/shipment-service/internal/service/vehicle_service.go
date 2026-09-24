@@ -30,7 +30,7 @@ func (s *VehicleService) Create(ctx context.Context, tenantID uuid.UUID, in doma
 	}
 	in.VehicleType = domain.NormalizeVehicleType(in.VehicleType)
 	in.RegistrationCountry = domain.NormalizeCountryCode(in.RegistrationCountry)
-	if err := domain.ValidateCreateVehicleInput(in); err != nil {
+	if err := domain.ValidateCreateVehicleInput(&in); err != nil {
 		return nil, err
 	}
 	exists, err := s.vehicles.CompanyExists(ctx, in.CarrierCompanyID, tenantID)

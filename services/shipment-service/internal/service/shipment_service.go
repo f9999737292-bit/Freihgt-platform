@@ -36,14 +36,33 @@ type VehicleLookup interface {
 	GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.Vehicle, error)
 }
 
+type PredictionInputReader interface {
+	PredictionInput(ctx context.Context, id, tenantID uuid.UUID) (*domain.ShipmentPredictionInput, error)
+}
+
 type ShipmentService struct {
-	shipments ShipmentStore
-	drivers   DriverLookup
-	vehicles  VehicleLookup
+	shipments        ShipmentStore
+	drivers          DriverLookup
+	vehicles         VehicleLookup
+	predictionInputs PredictionInputReader
 }
 
 func NewShipmentService(shipments ShipmentStore, drivers DriverLookup, vehicles VehicleLookup) *ShipmentService {
 	return &ShipmentService{shipments: shipments, drivers: drivers, vehicles: vehicles}
+}
+
+func (s *ShipmentService) BindPredictionInput(reader PredictionInputReader) {
+	s.predictionInputs = reader
+}
+
+func (s *ShipmentService) PredictionInput(ctx context.Context, tenantID, id uuid.UUID) (*domain.ShipmentPredictionInput, error) {
+	if err := domain.ValidateVerifiedTenant(tenantID); err != nil {
+		return nil, err
+	}
+	if s.predictionInputs == nil {
+		return nil, apperrors.Internal("prediction input is not configured", nil)
+	}
+	return s.predictionInputs.PredictionInput(ctx, id, tenantID)
 }
 
 func (s *ShipmentService) CreateFromTransportOrder(ctx context.Context, tenantID uuid.UUID, in domain.CreateShipmentFromOrderInput, transition domain.StatusTransitionContext) (*domain.Shipment, error) {

@@ -42,11 +42,12 @@ func (r *VehicleRepository) Create(ctx context.Context, tenantID uuid.UUID, in d
 		const query = `
 		INSERT INTO transport.vehicles (
 			tenant_id, carrier_company_id, plate_number, vehicle_type, equipment_type,
-			capacity_weight, capacity_volume, registration_country, status
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-		RETURNING id, tenant_id, carrier_company_id, plate_number, vehicle_type, equipment_type,
-			capacity_weight, capacity_volume, registration_country, status
-	`
+			capacity_weight, capacity_volume, registration_country, status,
+			combination_type, body_type, loading_access, unloading_access,
+			temperature_control_mode, temperature_capability_min_c, temperature_capability_max_c,
+			temperature_zone_count, independent_temperature_control, container_size
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+		RETURNING ` + vehicleSelectColumns
 		row := r.pool.QueryRow(ctx, query,
 			tenantID,
 			in.CarrierCompanyID,
@@ -57,6 +58,16 @@ func (r *VehicleRepository) Create(ctx context.Context, tenantID uuid.UUID, in d
 			optionalFloat(in.CapacityVolume),
 			domain.NormalizeCountryCode(in.RegistrationCountry),
 			domain.VehicleStatusActive,
+			in.CombinationType,
+			in.BodyType,
+			in.LoadingAccess,
+			in.UnloadingAccess,
+			in.TemperatureControlMode,
+			in.TemperatureCapabilityMinC,
+			in.TemperatureCapabilityMaxC,
+			in.TemperatureZoneCount,
+			in.IndependentTemperatureControl,
+			in.ContainerSize,
 		)
 		vehicle, err := scanVehicle(row)
 		if err != nil {
@@ -68,9 +79,14 @@ func (r *VehicleRepository) Create(ctx context.Context, tenantID uuid.UUID, in d
 	return result, err
 }
 
+const vehicleSelectColumns = `id, tenant_id, carrier_company_id, plate_number, vehicle_type, equipment_type,
+			capacity_weight, capacity_volume, registration_country, status,
+			combination_type, body_type, loading_access, unloading_access,
+			temperature_control_mode, temperature_capability_min_c, temperature_capability_max_c,
+			temperature_zone_count, independent_temperature_control, container_size, version`
+
 const getVehicleByIDAndTenantQuery = `
-		SELECT id, tenant_id, carrier_company_id, plate_number, vehicle_type, equipment_type,
-			capacity_weight, capacity_volume, registration_country, status
+		SELECT ` + vehicleSelectColumns + `
 		FROM transport.vehicles
 		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
 	`
@@ -103,8 +119,7 @@ func (r *VehicleRepository) List(ctx context.Context, tenantID uuid.UUID, filter
 
 		args = append(args, filter.Limit, filter.Offset)
 		listQuery := fmt.Sprintf(`
-		SELECT id, tenant_id, carrier_company_id, plate_number, vehicle_type, equipment_type,
-			capacity_weight, capacity_volume, registration_country, status
+		SELECT `+vehicleSelectColumns+`
 		FROM transport.vehicles
 		WHERE %s
 		ORDER BY plate_number ASC
@@ -139,6 +154,9 @@ func scanVehicle(row pgx.Row) (*domain.Vehicle, error) {
 	err := row.Scan(
 		&v.ID, &v.TenantID, &v.CarrierCompanyID, &v.PlateNumber, &v.VehicleType, &v.EquipmentType,
 		&v.CapacityWeight, &v.CapacityVolume, &v.RegistrationCountry, &v.Status,
+		&v.CombinationType, &v.BodyType, &v.LoadingAccess, &v.UnloadingAccess,
+		&v.TemperatureControlMode, &v.TemperatureCapabilityMinC, &v.TemperatureCapabilityMaxC,
+		&v.TemperatureZoneCount, &v.IndependentTemperatureControl, &v.ContainerSize, &v.Version,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, apperrors.NotFound("vehicle not found")
@@ -154,6 +172,9 @@ func scanVehicleRows(rows pgx.Rows) (*domain.Vehicle, error) {
 	err := rows.Scan(
 		&v.ID, &v.TenantID, &v.CarrierCompanyID, &v.PlateNumber, &v.VehicleType, &v.EquipmentType,
 		&v.CapacityWeight, &v.CapacityVolume, &v.RegistrationCountry, &v.Status,
+		&v.CombinationType, &v.BodyType, &v.LoadingAccess, &v.UnloadingAccess,
+		&v.TemperatureControlMode, &v.TemperatureCapabilityMinC, &v.TemperatureCapabilityMaxC,
+		&v.TemperatureZoneCount, &v.IndependentTemperatureControl, &v.ContainerSize, &v.Version,
 	)
 	if err != nil {
 		return nil, mapDBError(err)

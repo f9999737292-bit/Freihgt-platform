@@ -20,13 +20,23 @@ func NewVehicleHandler(svc *service.VehicleService) *VehicleHandler {
 }
 
 type createVehicleRequest struct {
-	CarrierCompanyID    string   `json:"carrier_company_id"`
-	PlateNumber         string   `json:"plate_number"`
-	VehicleType         string   `json:"vehicle_type"`
-	EquipmentType       *string  `json:"equipment_type"`
-	CapacityWeight      *float64 `json:"capacity_weight"`
-	CapacityVolume      *float64 `json:"capacity_volume"`
-	RegistrationCountry string   `json:"registration_country"`
+	CarrierCompanyID              string   `json:"carrier_company_id"`
+	PlateNumber                   string   `json:"plate_number"`
+	VehicleType                   string   `json:"vehicle_type"`
+	EquipmentType                 *string  `json:"equipment_type"`
+	CapacityWeight                *float64 `json:"capacity_weight"`
+	CapacityVolume                *float64 `json:"capacity_volume"`
+	RegistrationCountry           string   `json:"registration_country"`
+	CombinationType               *string  `json:"combination_type"`
+	BodyType                      *string  `json:"body_type"`
+	LoadingAccess                 []string `json:"loading_access"`
+	UnloadingAccess               []string `json:"unloading_access"`
+	TemperatureControlMode        *string  `json:"temperature_control_mode"`
+	TemperatureCapabilityMinC     *float64 `json:"temperature_capability_min_c"`
+	TemperatureCapabilityMaxC     *float64 `json:"temperature_capability_max_c"`
+	TemperatureZoneCount          *int     `json:"temperature_zone_count"`
+	IndependentTemperatureControl *bool    `json:"independent_temperature_control"`
+	ContainerSize                 *string  `json:"container_size"`
 }
 
 func (h *VehicleHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -112,27 +122,48 @@ func parseCreateVehicleRequest(req createVehicleRequest) (domain.CreateVehicleIn
 		return domain.CreateVehicleInput{}, err
 	}
 	return domain.CreateVehicleInput{
-		CarrierCompanyID:    carrierCompanyID,
-		PlateNumber:         req.PlateNumber,
-		VehicleType:         req.VehicleType,
-		EquipmentType:       req.EquipmentType,
-		CapacityWeight:      req.CapacityWeight,
-		CapacityVolume:      req.CapacityVolume,
-		RegistrationCountry: req.RegistrationCountry,
+		CarrierCompanyID:              carrierCompanyID,
+		PlateNumber:                   req.PlateNumber,
+		VehicleType:                   req.VehicleType,
+		EquipmentType:                 req.EquipmentType,
+		CapacityWeight:                req.CapacityWeight,
+		CapacityVolume:                req.CapacityVolume,
+		RegistrationCountry:           req.RegistrationCountry,
+		CombinationType:               req.CombinationType,
+		BodyType:                      req.BodyType,
+		LoadingAccess:                 req.LoadingAccess,
+		UnloadingAccess:               req.UnloadingAccess,
+		TemperatureControlMode:        req.TemperatureControlMode,
+		TemperatureCapabilityMinC:     req.TemperatureCapabilityMinC,
+		TemperatureCapabilityMaxC:     req.TemperatureCapabilityMaxC,
+		TemperatureZoneCount:          req.TemperatureZoneCount,
+		IndependentTemperatureControl: req.IndependentTemperatureControl,
+		ContainerSize:                 req.ContainerSize,
 	}, nil
 }
 
 func toVehicleResponse(v *domain.Vehicle) map[string]any {
 	return map[string]any{
-		"id":                   v.ID.String(),
-		"tenant_id":            v.TenantID.String(),
-		"carrier_company_id":   v.CarrierCompanyID.String(),
-		"plate_number":         v.PlateNumber,
-		"vehicle_type":         v.VehicleType,
-		"equipment_type":       v.EquipmentType,
-		"capacity_weight":      v.CapacityWeight,
-		"capacity_volume":      v.CapacityVolume,
-		"registration_country": v.RegistrationCountry,
-		"status":               v.Status,
+		"id":                              v.ID.String(),
+		"tenant_id":                       v.TenantID.String(),
+		"carrier_company_id":              v.CarrierCompanyID.String(),
+		"plate_number":                    v.PlateNumber,
+		"vehicle_type":                    v.VehicleType,
+		"equipment_type":                  v.EquipmentType,
+		"capacity_weight":                 v.CapacityWeight,
+		"capacity_volume":                 v.CapacityVolume,
+		"registration_country":            v.RegistrationCountry,
+		"status":                          v.Status,
+		"combination_type":                v.CombinationType,
+		"body_type":                       v.BodyType,
+		"loading_access":                  v.LoadingAccess,
+		"unloading_access":                v.UnloadingAccess,
+		"temperature_control_mode":        v.TemperatureControlMode,
+		"temperature_capability_min_c":    v.TemperatureCapabilityMinC,
+		"temperature_capability_max_c":    v.TemperatureCapabilityMaxC,
+		"temperature_zone_count":          v.TemperatureZoneCount,
+		"independent_temperature_control": v.IndependentTemperatureControl,
+		"container_size":                  v.ContainerSize,
+		"version":                         v.Version,
 	}
 }
