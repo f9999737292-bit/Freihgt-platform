@@ -31,6 +31,7 @@ type CargoType struct {
 	Code        string    `json:"code"`
 	ParentCode  *string   `json:"parent_code,omitempty"`
 	DisplayName string    `json:"display_name"`
+	Tags        []string  `json:"tags,omitempty"`
 }
 
 type NamedType struct {
@@ -224,8 +225,8 @@ func (s *Store) AddRule(actorTenant *uuid.UUID, setID uuid.UUID, rule Rule) erro
 	if err != nil {
 		return err
 	}
-	if rule.Layer == "REGULATORY" && (rule.SourceReference == nil || *rule.SourceReference == "") {
-		return fmt.Errorf("REGULATORY rule requires source_reference")
+	if err := ValidateRule(rule); err != nil {
+		return err
 	}
 	if set.Scope == ScopeTenant && rule.Layer == "REGULATORY" {
 		return fmt.Errorf("tenant rule cannot be regulatory")

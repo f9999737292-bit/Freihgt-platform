@@ -110,5 +110,83 @@ func (s *Store) EvaluationContext(viewer *uuid.UUID) compat.Context {
 			})
 		}
 	}
+	ctx.CargoClasses = s.activeCargoClasses(viewer)
+	ctx.EquipmentClasses = s.activeEquipmentClasses(viewer)
+	ctx.Aliases = s.activeAliases(viewer)
 	return ctx
+}
+
+func (s *Store) activeCargoClasses(viewer *uuid.UUID) []compat.CargoClass {
+	var out []compat.CargoClass
+	for _, item := range s.cargo {
+		version, ok := s.versionOf(item.VersionID)
+		if !ok || !s.activeForViewer(version, viewer) {
+			continue
+		}
+		out = append(out, compat.CargoClass{Code: item.Code, Parent: item.ParentCode, Tags: append([]string(nil), item.Tags...), Scope: version.Scope})
+	}
+	return out
+}
+
+func (s *Store) activeEquipmentClasses(viewer *uuid.UUID) []compat.EquipmentClass {
+	var out []compat.EquipmentClass
+	for _, item := range s.named {
+		version, ok := s.versionOf(item.VersionID)
+		if !ok || version.Kind != "EQUIPMENT_TYPE" || !s.activeForViewer(version, viewer) {
+			continue
+		}
+		class := compat.EquipmentClass{Code: item.Code, Scope: version.Scope}
+		if item.UnitKind != "" {
+			value := item.UnitKind
+			class.UnitKind = &value
+		}
+		if item.BodyType != "" {
+			value := item.BodyType
+			class.BodyType = &value
+		}
+		out = append(out, class)
+	}
+	return out
+}
+
+func (s *Store) activeAliases(viewer *uuid.UUID) map[string]string {
+	out := map[string]string{}
+	tenant := map[string]string{}
+	for _, item := range s.aliases {
+		version, ok := s.versionOf(item.VersionID)
+		if !ok || !s.activeForViewer(version, viewer) {
+			continue
+		}
+		if version.Scope == ScopeTenant {
+			tenant[item.AliasCode] = item.CanonicalCode
+			continue
+		}
+		out[item.AliasCode] = item.CanonicalCode
+	}
+	for alias, canonical := range tenant {
+		out[alias] = canonical
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func (s *Store) versionOf(id uuid.UUID) (Version, bool) {
+	for _, version := range s.versions {
+		if version.ID == id {
+			return version, true
+		}
+	}
+	return Version{}, false
+}
+
+func (s *Store) activeForViewer(version Version, viewer *uuid.UUID) bool {
+	if version.Status != StatusActive {
+		return false
+	}
+	if version.Scope == ScopeSystem {
+		return true
+	}
+	return viewer != nil && version.TenantID != nil && *version.TenantID == *viewer
 }

@@ -15,6 +15,8 @@ func EvaluateCargoEquipment(cargo Cargo, equipment Equipment, need AccessNeed, c
 func EvaluateGroupage(equipment Equipment, cargoes []Cargo, need AccessNeed, ctx Context) Result {
 	items := append([]Cargo(nil), cargoes...)
 	sort.Slice(items, func(i, j int) bool { return items[i].ID < items[j].ID })
+	var classResult Result
+	equipment, items, classResult = ResolveProfiles(equipment, items, ctx)
 	out := Result{
 		HardRejects: []Reason{}, IndeterminateReasons: []Reason{}, Conditions: []Reason{}, Warnings: []Reason{},
 		RuleSetVersions: ruleVersions(ctx.Rules),
@@ -23,6 +25,7 @@ func EvaluateGroupage(equipment Equipment, cargoes []Cargo, need AccessNeed, ctx
 			"pallet": ctx.PalletCatalogVersion, "packaging": ctx.PackagingCatalogVersion,
 		},
 	}
+	merge(&out, classResult)
 	for _, cargo := range items {
 		part := cargoEquipment(cargo, equipment, need, ctx)
 		out.CargoEquipment = append(out.CargoEquipment, PairResult{Left: cargo.ID, Right: "equipment", Status: part.Status, Reasons: append(append([]Reason{}, part.HardRejects...), part.IndeterminateReasons...)})
@@ -292,10 +295,12 @@ func adrCheck(cargoes []Cargo, equipment Equipment, ctx Context) Result {
 	if !needs {
 		return out
 	}
-	if equipment.ADRCapability != nil && !*equipment.ADRCapability {
+	if equipment.ADRCapability == nil {
+		add(&out, false, Reason{ReasonCode: "ADR_CAPABILITY_UNKNOWN", Dimension: "adr"})
+	} else if !*equipment.ADRCapability {
 		add(&out, true, Reason{ReasonCode: "ADR_INCOMPATIBLE", Dimension: "adr"})
 	}
-	sourced := false
+	applicable := false
 	for _, rule := range ctx.Rules {
 		if rule.Layer != LayerRegulatory {
 			continue
@@ -303,12 +308,15 @@ func adrCheck(cargoes []Cargo, equipment Equipment, ctx Context) Result {
 		if rule.SourceReference == nil || strings.TrimSpace(*rule.SourceReference) == "" {
 			continue
 		}
-		sourced = true
-		if rule.Decision == DecisionDeny && regulatoryHit(rule, cargoes, equipment) {
+		if !regulatoryHit(rule, cargoes, equipment) {
+			continue
+		}
+		applicable = true
+		if rule.Decision == DecisionDeny {
 			add(&out, true, reasonFrom(rule, "adr"))
 		}
 	}
-	if !sourced {
+	if !applicable {
 		add(&out, false, Reason{ReasonCode: "ADR_COMPATIBILITY_RULE_UNAVAILABLE", Dimension: "adr"})
 	}
 	out.Status = resolve(out)

@@ -18,6 +18,10 @@ A catalog version and a rule set have scope `SYSTEM` or `TENANT`, status `DRAFT`
 
 Cargo type codes are stable identities. Display names are not. The seed hierarchy includes general cargo, food and its children, pharma, chemical, and the other structural categories in migration `000077`. A category name does not imply a compatibility decision.
 
+Evaluation resolves `parent_codes` and catalog tags from the active cargo catalog. Caller-supplied parents and tags are not authoritative. `DAIRY` with parent `FOOD` matches a `PARENT=FOOD` selector, including transitive ancestors. A cycle, a missing parent, a duplicate code, or an unknown cargo type fails closed as `REFERENCE_DATA_UNAVAILABLE`. The engine does not invent `OTHER`.
+
+For a tenant evaluation the active system catalog is the base. An active tenant catalog row for the same code is a read overlay for that tenant only. It does not update the system version. This release reads that overlay. It does not provide a tenant catalog write API. `TENANT_REFERENCE_READ_OVERLAY=IMPLEMENTED`. Tenant catalog management is not implemented.
+
 Equipment unit kind is separate from combination type and body type: `TRUCK_BODY`, `TRAILER`, `SEMITRAILER`, `CONTAINER_CHASSIS`, `SWAP_BODY`, `OTHER`. An equipment type catalog row is a reference profile. When a planning default is used because the asset fact is null, provenance is `REFERENCE_DEFAULT`. A measured vehicle value stays `ASSET_CONFIRMED`. A specific cargo fact stays `CARGO_CONFIRMED` and is not replaced by a weaker catalog default.
 
 Aliases resolve only through an explicit alias row. Text such as "реф" is not inferred.
@@ -34,7 +38,7 @@ One zone needs a non-empty intersection of the cargo ranges. `+2..+8` with `-25.
 
 Food-grade, odor, and contamination decisions come from cargo facts plus active rules. A food-grade requirement against capability `false` is incompatible. Unknown capability is indeterminate. No product name is hardcoded.
 
-A regulatory rule requires `source_reference`. If dangerous goods are present and no sourced ADR rule matches, the result is `INDETERMINATE` / `ADR_COMPATIBILITY_RULE_UNAVAILABLE`. This stage does not invent an ADR segregation matrix.
+A regulatory rule requires `source_reference`. Dangerous cargo with unknown ADR capability is `INDETERMINATE` / `ADR_CAPABILITY_UNKNOWN`. Capability `false` is `INCOMPATIBLE` / `ADR_INCOMPATIBLE`. Capability `true` uses only a sourced regulatory rule whose selectors match the cargo and equipment in the request. An unrelated sourced rule is not coverage. If no applicable sourced rule matches, the result is `INDETERMINATE` / `ADR_COMPATIBILITY_RULE_UNAVAILABLE`. This stage does not invent an ADR segregation matrix.
 
 ## Rules and groupage
 

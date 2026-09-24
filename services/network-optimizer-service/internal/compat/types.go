@@ -106,6 +106,37 @@ type Equivalence struct {
 	PositionsEach float64
 }
 
+type CargoClass struct {
+	Code   string
+	Parent *string
+	Tags   []string
+	Scope  string
+}
+
+type EquipmentClass struct {
+	Code                          string
+	Scope                         string
+	UnitKind                      *string
+	CombinationType               *string
+	BodyType                      *string
+	PayloadKg                     *float64
+	VolumeM3                      *float64
+	PalletPositions               *int
+	UsableLinearMeters            *float64
+	InternalLengthMM              *int
+	InternalWidthMM               *int
+	InternalHeightMM              *int
+	LoadingAccess                 []string
+	UnloadingAccess               []string
+	TemperatureControlMode        *string
+	TemperatureMinC               *float64
+	TemperatureMaxC               *float64
+	TemperatureZoneCount          *int
+	IndependentTemperatureControl *bool
+	FoodGradeCapability           *bool
+	ADRCapability                 *bool
+}
+
 type Context struct {
 	CargoCatalogVersion     int
 	EquipmentCatalogVersion int
@@ -113,6 +144,10 @@ type Context struct {
 	PackagingCatalogVersion int
 	Rules                   []Rule
 	Equivalences            []Equivalence
+	CargoClasses            []CargoClass
+	EquipmentClasses        []EquipmentClass
+	Aliases                 map[string]string
+	CatalogInvalid          bool
 }
 
 type Reason struct {

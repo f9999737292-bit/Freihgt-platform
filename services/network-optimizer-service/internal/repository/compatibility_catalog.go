@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,7 +14,7 @@ import (
 func (p *Postgres) ListCargo(ctx context.Context, viewer uuid.UUID, limit, offset int) ([]reference.CargoType, error) {
 	limit, offset = bounds(limit, offset)
 	rows, err := p.pool.Query(ctx, `
-		SELECT c.version_id, c.code, c.parent_code, c.display_name
+		SELECT c.version_id, c.code, c.parent_code, c.display_name, c.tags
 		FROM network_optimizer.cargo_type_catalog c
 		JOIN network_optimizer.reference_catalog_versions v ON v.id = c.version_id
 		WHERE v.status = 'ACTIVE' AND (v.scope = 'SYSTEM' OR v.tenant_id = $1)
@@ -28,7 +27,7 @@ func (p *Postgres) ListCargo(ctx context.Context, viewer uuid.UUID, limit, offse
 	var out []reference.CargoType
 	for rows.Next() {
 		var item reference.CargoType
-		if err := rows.Scan(&item.VersionID, &item.Code, &item.ParentCode, &item.DisplayName); err != nil {
+		if err := rows.Scan(&item.VersionID, &item.Code, &item.ParentCode, &item.DisplayName, &item.Tags); err != nil {
 			return nil, err
 		}
 		out = append(out, item)
@@ -122,16 +121,14 @@ func (p *Postgres) CreateRuleSet(ctx context.Context, actor, tenant uuid.UUID) (
 }
 
 func (p *Postgres) AddRule(ctx context.Context, actor, tenant, setID uuid.UUID, rule reference.Rule) error {
+	if err := reference.ValidateRule(rule); err != nil {
+		return err
+	}
 	if err := p.requireDraft(ctx, tenant, setID); err != nil {
 		return err
 	}
-	if rule.Layer == reference.ScopeSystem || rule.Layer == "REGULATORY" {
-		if rule.Layer == "REGULATORY" {
-			return fmt.Errorf("tenant rule cannot be regulatory")
-		}
-	}
-	if rule.Layer == "REGULATORY" && (rule.SourceReference == nil || strings.TrimSpace(*rule.SourceReference) == "") {
-		return fmt.Errorf("REGULATORY rule requires source_reference")
+	if rule.Layer == "REGULATORY" {
+		return fmt.Errorf("tenant rule cannot be regulatory")
 	}
 	_, err := p.pool.Exec(ctx, `
 		INSERT INTO network_optimizer.compatibility_rules (
@@ -259,7 +256,183 @@ func (p *Postgres) Evaluation(ctx context.Context, tenant uuid.UUID) (compat.Con
 		}
 		out.Rules = append(out.Rules, rule)
 	}
-	return out, rules.Err()
+	if err := rules.Err(); err != nil {
+		return out, err
+	}
+	if err := p.loadCargoClasses(ctx, tenant, &out); err != nil {
+		return out, err
+	}
+	if err := p.loadEquipmentClasses(ctx, tenant, &out); err != nil {
+		return out, err
+	}
+	if err := p.loadAliases(ctx, tenant, &out); err != nil {
+		return out, err
+	}
+	if err := p.loadEquivalences(ctx, tenant, &out); err != nil {
+		return out, err
+	}
+	return out, nil
+}
+
+func (p *Postgres) loadCargoClasses(ctx context.Context, tenant uuid.UUID, out *compat.Context) error {
+	rows, err := p.pool.Query(ctx, `
+		SELECT c.code, c.parent_code, c.tags, v.scope
+		FROM network_optimizer.cargo_type_catalog c
+		JOIN network_optimizer.reference_catalog_versions v ON v.id = c.version_id
+		WHERE c.active = true AND v.status = 'ACTIVE' AND v.catalog_kind = 'CARGO_TYPE'
+			AND (v.scope = 'SYSTEM' OR v.tenant_id = $1)`, tenant)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var item compat.CargoClass
+		if err := rows.Scan(&item.Code, &item.Parent, &item.Tags, &item.Scope); err != nil {
+			return err
+		}
+		out.CargoClasses = append(out.CargoClasses, item)
+	}
+	return rows.Err()
+}
+
+func (p *Postgres) loadEquipmentClasses(ctx context.Context, tenant uuid.UUID, out *compat.Context) error {
+	rows, err := p.pool.Query(ctx, `
+		SELECT code, v.scope, unit_kind, combination_type, body_type,
+			nominal_payload_kg, nominal_volume_m3, pallet_positions, usable_linear_meters,
+			internal_length_mm, internal_width_mm, internal_height_mm,
+			loading_access, unloading_access, temperature_control_mode, temperature_min_c, temperature_max_c,
+			temperature_zone_count, independent_temperature_control, food_grade_capability, adr_capability
+		FROM network_optimizer.equipment_type_catalog item
+		JOIN network_optimizer.reference_catalog_versions v ON v.id = item.version_id
+		WHERE item.active = true AND v.status = 'ACTIVE' AND v.catalog_kind = 'EQUIPMENT_TYPE'
+			AND (v.scope = 'SYSTEM' OR v.tenant_id = $1)`, tenant)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var item compat.EquipmentClass
+		var unit, body string
+		if err := rows.Scan(
+			&item.Code, &item.Scope, &unit, &item.CombinationType, &body,
+			&item.PayloadKg, &item.VolumeM3, &item.PalletPositions, &item.UsableLinearMeters,
+			&item.InternalLengthMM, &item.InternalWidthMM, &item.InternalHeightMM,
+			&item.LoadingAccess, &item.UnloadingAccess, &item.TemperatureControlMode, &item.TemperatureMinC, &item.TemperatureMaxC,
+			&item.TemperatureZoneCount, &item.IndependentTemperatureControl, &item.FoodGradeCapability, &item.ADRCapability,
+		); err != nil {
+			return err
+		}
+		item.UnitKind = &unit
+		item.BodyType = &body
+		out.EquipmentClasses = append(out.EquipmentClasses, item)
+	}
+	return rows.Err()
+}
+
+func (p *Postgres) loadAliases(ctx context.Context, tenant uuid.UUID, out *compat.Context) error {
+	rows, err := p.pool.Query(ctx, `
+		SELECT a.alias_code, a.canonical_code, v.scope
+		FROM network_optimizer.catalog_aliases a
+		JOIN network_optimizer.reference_catalog_versions v ON v.id = a.version_id
+		WHERE v.status = 'ACTIVE' AND (v.scope = 'SYSTEM' OR v.tenant_id = $1)`, tenant)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	system := map[string]string{}
+	overlay := map[string]string{}
+	seenSystem := map[string]int{}
+	seenTenant := map[string]int{}
+	for rows.Next() {
+		var alias, canonical, scope string
+		if err := rows.Scan(&alias, &canonical, &scope); err != nil {
+			return err
+		}
+		if scope == reference.ScopeTenant {
+			seenTenant[alias]++
+			overlay[alias] = canonical
+			continue
+		}
+		seenSystem[alias]++
+		system[alias] = canonical
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for alias, count := range seenSystem {
+		if count > 1 {
+			out.CatalogInvalid = true
+			return nil
+		}
+		_ = alias
+	}
+	for alias, count := range seenTenant {
+		if count > 1 {
+			out.CatalogInvalid = true
+			return nil
+		}
+		_ = alias
+	}
+	for alias, canonical := range overlay {
+		system[alias] = canonical
+	}
+	if len(system) > 0 {
+		out.Aliases = system
+	}
+	return nil
+}
+
+func (p *Postgres) loadEquivalences(ctx context.Context, tenant uuid.UUID, out *compat.Context) error {
+	rows, err := p.pool.Query(ctx, `
+		SELECT e.from_code, e.basis_code, e.positions_each, v.scope
+		FROM network_optimizer.pallet_equivalences e
+		JOIN network_optimizer.reference_catalog_versions v ON v.id = e.version_id
+		WHERE v.status = 'ACTIVE' AND v.catalog_kind = 'PALLET_TYPE'
+			AND (v.scope = 'SYSTEM' OR v.tenant_id = $1)`, tenant)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	type row struct {
+		item  compat.Equivalence
+		scope string
+	}
+	var loaded []row
+	for rows.Next() {
+		var item row
+		if err := rows.Scan(&item.item.FromCode, &item.item.BasisCode, &item.item.PositionsEach, &item.scope); err != nil {
+			return err
+		}
+		loaded = append(loaded, item)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	system := map[string]compat.Equivalence{}
+	tenantRows := map[string]compat.Equivalence{}
+	for _, item := range loaded {
+		key := item.item.FromCode + "\x00" + item.item.BasisCode
+		if item.scope == reference.ScopeTenant {
+			if _, exists := tenantRows[key]; exists {
+				out.Equivalences = nil
+				return nil
+			}
+			tenantRows[key] = item.item
+			continue
+		}
+		if _, exists := system[key]; exists {
+			out.Equivalences = nil
+			return nil
+		}
+		system[key] = item.item
+	}
+	for key, item := range tenantRows {
+		system[key] = item
+	}
+	for _, item := range system {
+		out.Equivalences = append(out.Equivalences, item)
+	}
+	return nil
 }
 
 func (p *Postgres) requireDraft(ctx context.Context, tenant, setID uuid.UUID) error {

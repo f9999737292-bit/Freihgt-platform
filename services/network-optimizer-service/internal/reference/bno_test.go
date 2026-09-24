@@ -100,7 +100,7 @@ func TestBNO83ThroughBNO95ReferenceData(t *testing.T) {
 	if err := store.CreateRuleSet(systemSet); err != nil {
 		t.Fatal(err)
 	}
-	deny := Rule{RuleCode: "SYS_DENY", RuleKind: "CARGO_CARGO", Layer: "PLATFORM", Decision: "DENY", ReasonCode: "CARGO_PAIR_INCOMPATIBLE"}
+	deny := Rule{RuleCode: "SYS_DENY", RuleKind: "CARGO_CARGO", Layer: "PLATFORM", Decision: "DENY", ReasonCode: "CARGO_PAIR_INCOMPATIBLE", LeftSelectorType: "ANY", RightSelectorType: "ANY"}
 	if err := store.AddRule(nil, systemSet.ID, deny); err != nil {
 		t.Fatal(err)
 	}
@@ -122,7 +122,7 @@ func TestBNO83ThroughBNO95ReferenceData(t *testing.T) {
 	})
 	t.Run("BNO92_ACTIVE_VERSION_IMMUTABLE", func(t *testing.T) {
 		active, _ := store.GetRuleSet(nil, systemSet.ID)
-		if err := store.AddRule(nil, active.ID, Rule{RuleCode: "LATE", Layer: "PLATFORM", Decision: "DENY"}); err == nil {
+		if err := store.AddRule(nil, active.ID, Rule{RuleCode: "LATE", RuleKind: "CARGO_CARGO", Layer: "PLATFORM", Decision: "DENY", ReasonCode: "CARGO_PAIR_INCOMPATIBLE", LeftSelectorType: "ANY", RightSelectorType: "ANY"}); err == nil {
 			t.Fatal("retired or non-draft mutation")
 		}
 	})
@@ -133,7 +133,7 @@ func TestBNO83ThroughBNO95ReferenceData(t *testing.T) {
 	tenantSet := RuleSet{ID: uuid.New(), Scope: ScopeTenant, TenantID: &tenantA, Version: 1}
 	_ = store.CreateRuleSet(tenantSet)
 	t.Run("BNO93_SYSTEM_HARD_DENY_PRECEDENCE", func(t *testing.T) {
-		if err := store.AddRule(&tenantA, tenantSet.ID, Rule{RuleCode: "ALLOW_IT", Layer: "TENANT", Decision: "ALLOW"}); err != nil {
+		if err := store.AddRule(&tenantA, tenantSet.ID, Rule{RuleCode: "ALLOW_IT", RuleKind: "CARGO_CARGO", Layer: "TENANT", Decision: "ALLOW", ReasonCode: "TENANT_ALLOW", LeftSelectorType: "ANY", RightSelectorType: "ANY"}); err != nil {
 			t.Fatal(err)
 		}
 		systemRules, err := store.GetRuleSet(nil, fresh.ID)
@@ -151,11 +151,11 @@ func TestBNO83ThroughBNO95ReferenceData(t *testing.T) {
 		if err := store.CreateRuleSet(reg); err != nil {
 			t.Fatal(err)
 		}
-		if err := store.AddRule(nil, reg.ID, Rule{RuleCode: "ADR", Layer: "REGULATORY", Decision: "DENY"}); err == nil {
+		if err := store.AddRule(nil, reg.ID, Rule{RuleCode: "ADR", RuleKind: "CARGO_CARGO", Layer: "REGULATORY", Decision: "DENY", ReasonCode: "ADR_INCOMPATIBLE", LeftSelectorType: "HAZARD_CLASS", LeftSelectorValue: "3", RightSelectorType: "HAZARD_CLASS", RightSelectorValue: "5.1"}); err == nil {
 			t.Fatal("unsourced regulatory rule")
 		}
 		src := "ADR-2025"
-		if err := store.AddRule(nil, reg.ID, Rule{RuleCode: "ADR", Layer: "REGULATORY", Decision: "DENY", SourceReference: &src}); err != nil {
+		if err := store.AddRule(nil, reg.ID, Rule{RuleCode: "ADR", RuleKind: "CARGO_CARGO", Layer: "REGULATORY", Decision: "DENY", ReasonCode: "ADR_INCOMPATIBLE", LeftSelectorType: "HAZARD_CLASS", LeftSelectorValue: "3", RightSelectorType: "HAZARD_CLASS", RightSelectorValue: "5.1", SourceReference: &src}); err != nil {
 			t.Fatal(err)
 		}
 	})
@@ -176,3 +176,30 @@ func TestBNO83ThroughBNO95ReferenceData(t *testing.T) {
 }
 
 func (s RuleSet) Layer() string { return s.Scope }
+
+func TestBNO154InvalidSelectorTypeRejected(t *testing.T) {
+	store := NewStore()
+	set := RuleSet{ID: uuid.New(), Scope: ScopeSystem, Version: 1, Status: StatusDraft}
+	if err := store.CreateRuleSet(set); err != nil {
+		t.Fatal(err)
+	}
+	err := store.AddRule(nil, set.ID, Rule{
+		RuleCode: "BAD", RuleKind: "CARGO_CARGO", Layer: "PLATFORM", Decision: "DENY", ReasonCode: "X",
+		LeftSelectorType: "SCRIPT", LeftSelectorValue: "1", RightSelectorType: "ANY",
+	})
+	if err == nil {
+		t.Fatal("unknown selector stored")
+	}
+	if err := store.AddRule(nil, set.ID, Rule{RuleCode: " ", RuleKind: "CARGO_CARGO", Layer: "PLATFORM", Decision: "DENY", ReasonCode: "X", LeftSelectorType: "ANY", RightSelectorType: "ANY"}); err == nil {
+		t.Fatal("blank rule code stored")
+	}
+	if err := store.AddRule(nil, set.ID, Rule{RuleCode: "NO_REASON", RuleKind: "CARGO_CARGO", Layer: "PLATFORM", Decision: "DENY", LeftSelectorType: "ANY", RightSelectorType: "ANY"}); err == nil {
+		t.Fatal("blank reason stored")
+	}
+	if err := store.AddRule(nil, set.ID, Rule{RuleCode: "KIND", RuleKind: "MAGIC", Layer: "PLATFORM", Decision: "DENY", ReasonCode: "X", LeftSelectorType: "ANY", RightSelectorType: "ANY"}); err == nil {
+		t.Fatal("invalid kind stored")
+	}
+	if err := store.AddRule(nil, set.ID, Rule{RuleCode: "DEC", RuleKind: "CARGO_CARGO", Layer: "PLATFORM", Decision: "MAYBE", ReasonCode: "X", LeftSelectorType: "ANY", RightSelectorType: "ANY"}); err == nil {
+		t.Fatal("invalid decision stored")
+	}
+}
