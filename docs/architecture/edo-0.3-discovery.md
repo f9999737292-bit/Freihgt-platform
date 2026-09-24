@@ -5,8 +5,10 @@
 ```text
 EDO_0_2_STATUS=IMPLEMENTED_ACCEPTED
 EDO_0_3_DISCOVERY_STATUS=DISCOVERY_ACCEPTED
-EDO_0_3_IMPLEMENTATION_AUTHORIZED=NO
-DOCUMENT_READ_TENANT_ISOLATION_STATUS=PRODUCT_REMEDIATION_REQUIRED
+EDO_0_3_IMPLEMENTATION_AUTHORIZED=S1_ONLY
+DOCUMENT_READ_TENANT_ISOLATION_STATUS=REMEDIATED_AWAITING_CONTROLLER_REVIEW
+EDO_0_3_S1_STATUS=IMPLEMENTED_AWAITING_CONTROLLER_REVIEW
+EDO_0_3_I1_I4_STATUS=NOT_AUTHORIZED
 LEGAL_VERIFICATION_STATUS=OPEN
 PRODUCT_CODE_MODIFIED=NO
 ```
@@ -58,12 +60,12 @@ ACCEPTED_DISCOVERY_HEAD=5b0d55b7c44eef4d9da14a2add3f7e965e7b02ec
 ACCEPTED_CI=35912686104
 PR=https://github.com/f9999737292-bit/Freihgt-platform/pull/162
 VARIANT_A_SCOPE=ACCEPTED
-S1_STATUS=NOT_AUTHORIZED
+S1_STATUS=IMPLEMENTED_AWAITING_CONTROLLER_REVIEW
 S1_IS_IMPLEMENTATION_PREREQUISITE=YES
 I1_I4_STATUS=NOT_AUTHORIZED
 ```
 
-Variant A is the accepted discovery scope. ArchiveManifest, MChD verification, an EDI operator integration, and e-ТрН stay out of scope. S1 remains the required product-security prerequisite and is not started. I1–I4 stay `NOT_AUTHORIZED`. Legal verification stays `OPEN`. The get-by-id tenant predicate is still absent.
+Variant A remains the accepted discovery scope. ArchiveManifest, MChD verification, an EDI operator integration, and e-ТрН stay out of scope. S1 is implemented and awaits an independent controller review. It is not accepted. I1–I4 stay `NOT_AUTHORIZED`. Legal verification stays `OPEN`. The historical gap below is the defect S1 remediates; see [edo-0.3-s1-document-read-tenant-isolation.md](edo-0.3-s1-document-read-tenant-isolation.md).
 
 ## Document index
 
@@ -78,6 +80,7 @@ Variant A is the accepted discovery scope. ArchiveManifest, MChD verification, a
 | [edo-0.3-implementation-waves.md](edo-0.3-implementation-waves.md) | Review waves. Implementation not authorized |
 | [edo-0.3-test-acceptance-strategy.md](edo-0.3-test-acceptance-strategy.md) | Future tests. None added here |
 | [edo-0.3-risk-register.md](edo-0.3-risk-register.md) | Open risks |
+| [edo-0.3-s1-document-read-tenant-isolation.md](edo-0.3-s1-document-read-tenant-isolation.md) | S1 remediation awaiting controller review |
 | [workstream-status-v0.1.md](../program/workstream-status-v0.1.md) | EDO row updated to discovery complete |
 
 ## Accepted baseline this discovery does not reopen
