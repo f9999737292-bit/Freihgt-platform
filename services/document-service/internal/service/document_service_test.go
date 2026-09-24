@@ -8,16 +8,17 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/freight-platform/document-service/internal/domain"
-	"github.com/freight-platform/document-service/internal/repository"
 	apperrors "github.com/freight-platform/document-service/internal/platform/errors"
+	"github.com/freight-platform/document-service/internal/repository"
 )
 
 type mockDocumentStore struct {
-	createFn            func(ctx context.Context, in domain.CreateDocumentInput) (*domain.Document, *domain.DocumentVersion, error)
-	getByIDAndTenantFn  func(ctx context.Context, id, tenantID uuid.UUID) (*domain.Document, error)
-	hasVersionsFn       func(ctx context.Context, documentID uuid.UUID) (bool, error)
-	createVersionFn     func(ctx context.Context, documentID uuid.UUID, in domain.CreateDocumentVersionInput) (*domain.DocumentVersion, error)
-	updateStatusFn      func(ctx context.Context, id, tenantID uuid.UUID, status string, expectedVersion int) (*domain.Document, error)
+	createFn           func(ctx context.Context, in domain.CreateDocumentInput) (*domain.Document, *domain.DocumentVersion, error)
+	getDetailFn        func(ctx context.Context, id, tenantID uuid.UUID) (*repository.DocumentDetail, error)
+	getByIDAndTenantFn func(ctx context.Context, id, tenantID uuid.UUID) (*domain.Document, error)
+	hasVersionsFn      func(ctx context.Context, documentID uuid.UUID) (bool, error)
+	createVersionFn    func(ctx context.Context, documentID uuid.UUID, in domain.CreateDocumentVersionInput) (*domain.DocumentVersion, error)
+	updateStatusFn     func(ctx context.Context, id, tenantID uuid.UUID, status string, expectedVersion int) (*domain.Document, error)
 }
 
 func (m *mockDocumentStore) CompanyExists(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
@@ -29,8 +30,11 @@ func (m *mockDocumentStore) ShipmentExists(context.Context, uuid.UUID, uuid.UUID
 func (m *mockDocumentStore) CreateDocument(ctx context.Context, in domain.CreateDocumentInput) (*domain.Document, *domain.DocumentVersion, error) {
 	return m.createFn(ctx, in)
 }
-func (m *mockDocumentStore) GetDetail(context.Context, uuid.UUID) (*repository.DocumentDetail, error) {
-	return nil, nil
+func (m *mockDocumentStore) GetDetail(ctx context.Context, id, tenantID uuid.UUID) (*repository.DocumentDetail, error) {
+	if m.getDetailFn == nil {
+		return nil, nil
+	}
+	return m.getDetailFn(ctx, id, tenantID)
 }
 func (m *mockDocumentStore) List(context.Context, domain.ListDocumentsFilter) ([]domain.Document, int, error) {
 	return nil, 0, nil
@@ -211,5 +215,66 @@ func TestSigningServiceAddSignatureCompletesDocument(t *testing.T) {
 	}
 	if session.Status != domain.SigningSessionStatusCompleted || doc.DocumentStatus != domain.DocumentStatusSigned {
 		t.Fatalf("expected completed signing and SIGNED document")
+	}
+}
+
+func TestDocumentReadPassesTrustedTenantToStore(t *testing.T) {
+	t.Parallel()
+	docID := uuid.New()
+	tenantID := uuid.New()
+	var gotID, gotTenant uuid.UUID
+	svc := NewDocumentService(&mockDocumentStore{
+		getDetailFn: func(_ context.Context, id, tenant uuid.UUID) (*repository.DocumentDetail, error) {
+			gotID, gotTenant = id, tenant
+			return &repository.DocumentDetail{Document: &domain.Document{ID: id, TenantID: tenant}}, nil
+		},
+	})
+	detail, err := svc.GetByID(context.Background(), docID, tenantID)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if detail.Document.ID != docID || gotID != docID || gotTenant != tenantID {
+		t.Fatal("read did not use the trusted tenant")
+	}
+}
+
+func TestDocumentReadRejectsMissingTenantBeforeLookup(t *testing.T) {
+	t.Parallel()
+	called := false
+	svc := NewDocumentService(&mockDocumentStore{
+		getDetailFn: func(context.Context, uuid.UUID, uuid.UUID) (*repository.DocumentDetail, error) {
+			called = true
+			return nil, nil
+		},
+	})
+	_, err := svc.GetByID(context.Background(), uuid.New(), uuid.Nil)
+	var appErr *apperrors.AppError
+	if !errors.As(err, &appErr) || appErr.Code != apperrors.CodeUnauthorized || called {
+		t.Fatal("missing tenant must fail closed before lookup")
+	}
+}
+
+func TestSigningSessionReadUsesTenantPredicate(t *testing.T) {
+	t.Parallel()
+	sessionID := uuid.New()
+	tenantID := uuid.New()
+	var gotID, gotTenant uuid.UUID
+	svc := NewSigningService(&mockSigningStore{
+		getSessionFn: func(_ context.Context, id, tenant uuid.UUID) (*domain.SigningSession, error) {
+			gotID, gotTenant = id, tenant
+			if tenant != tenantID {
+				return nil, apperrors.NotFound("signing session not found")
+			}
+			return &domain.SigningSession{ID: id, TenantID: tenant}, nil
+		},
+	}, &mockDocumentStore{})
+	session, err := svc.GetSession(context.Background(), sessionID, tenantID)
+	if err != nil || session.ID != sessionID || gotID != sessionID || gotTenant != tenantID {
+		t.Fatal("session read did not use the trusted tenant")
+	}
+	_, err = svc.GetSession(context.Background(), sessionID, uuid.New())
+	var appErr *apperrors.AppError
+	if !errors.As(err, &appErr) || appErr.Code != apperrors.CodeNotFound {
+		t.Fatal("foreign tenant session must be not found")
 	}
 }

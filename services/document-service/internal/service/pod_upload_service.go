@@ -17,14 +17,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/freight-platform/document-service/internal/domain"
-	"github.com/freight-platform/document-service/internal/platform/storage"
 	apperrors "github.com/freight-platform/document-service/internal/platform/errors"
+	"github.com/freight-platform/document-service/internal/platform/storage"
 )
 
 type PODUploadService struct {
-	pool    *pgxpool.Pool
-	docs    *DocumentService
-	storage storage.ObjectStore
+	pool     *pgxpool.Pool
+	docs     *DocumentService
+	storage  storage.ObjectStore
 	maxBytes int64
 }
 
@@ -168,7 +168,7 @@ func (s *PODUploadService) CompleteUpload(ctx context.Context, in CompletePODUpl
 		return nil, apperrors.Validation("stored object missing", nil)
 	}
 	checksum := strings.ToLower(strings.TrimSpace(in.ChecksumSHA256))
-	detail, err := s.docs.GetByID(ctx, intent.documentID)
+	detail, err := s.docs.GetByID(ctx, intent.documentID, in.TenantID)
 	if err != nil || detail.LatestVersion == nil {
 		return nil, apperrors.NotFound("document version not found")
 	}
@@ -205,10 +205,10 @@ func (s *PODUploadService) CompleteUpload(ctx context.Context, in CompletePODUpl
 }
 
 type loadedIntent struct {
-	id, documentID, driverID uuid.UUID
+	id, documentID, driverID                         uuid.UUID
 	objectKey, tokenHash, mimeType, fileName, status string
-	maxBytes, byteSize int64
-	expiresAt time.Time
+	maxBytes, byteSize                               int64
+	expiresAt                                        time.Time
 }
 
 func (s *PODUploadService) loadIntent(ctx context.Context, tenantID, uploadID uuid.UUID) (*loadedIntent, error) {

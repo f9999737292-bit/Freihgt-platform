@@ -270,6 +270,46 @@ func TestAuthEnabledStripsSpoofedIdentityHeadersOnPostMutation(t *testing.T) {
 	}
 }
 
+func TestDocumentAndSigningReadsReplaceSpoofedTenantHeader(t *testing.T) {
+	secret := "test-secret"
+	token := signToken(t, secret, "user-id", "tenant-a", "user@example.com")
+	paths := []string{
+		"/api/v1/documents/11111111-1111-1111-1111-111111111111",
+		"/api/v1/signing-sessions/22222222-2222-2222-2222-222222222222",
+	}
+	for _, path := range paths {
+		t.Run(path, func(t *testing.T) {
+			handler := middleware.Auth(true, secret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if got := r.Header.Get("X-Tenant-ID"); got != "tenant-a" {
+					t.Fatal("spoofed tenant header reached the downstream read")
+				}
+				if got := r.URL.Query().Get("tenant_id"); got != "tenant-b" {
+					t.Fatal("query tenant was rewritten")
+				}
+				w.WriteHeader(http.StatusOK)
+			}))
+			req := httptest.NewRequest(http.MethodGet, path+"?tenant_id=tenant-b", nil)
+			req.Header.Set("X-Tenant-ID", "tenant-b")
+			req.Header.Set("X-User-ID", "spoofed-user")
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+			if rec.Code != http.StatusUnauthorized {
+				t.Fatalf("unauthenticated status=%d", rec.Code)
+			}
+
+			req = httptest.NewRequest(http.MethodGet, path+"?tenant_id=tenant-b", nil)
+			req.Header.Set("Authorization", "Bearer "+token)
+			req.Header.Set("X-Tenant-ID", "tenant-b")
+			req.Header.Set("X-User-ID", "spoofed-user")
+			rec = httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("authenticated status=%d", rec.Code)
+			}
+		})
+	}
+}
+
 func TestAuthEnabledUserCompaniesRouteRequiresBearerToken(t *testing.T) {
 	handler := middleware.Auth(true, "secret")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("handler should not be called without bearer token")

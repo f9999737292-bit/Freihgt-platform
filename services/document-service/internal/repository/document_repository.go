@@ -168,8 +168,8 @@ func (r *DocumentRepository) GetByIDAndTenant(ctx context.Context, id, tenantID 
 	return result, err
 }
 
-func (r *DocumentRepository) GetDetail(ctx context.Context, id uuid.UUID) (*DocumentDetail, error) {
-	doc, err := r.GetByID(ctx, id)
+func (r *DocumentRepository) GetDetail(ctx context.Context, id, tenantID uuid.UUID) (*DocumentDetail, error) {
+	doc, err := r.GetByIDAndTenant(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}

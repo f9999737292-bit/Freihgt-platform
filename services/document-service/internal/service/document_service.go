@@ -6,15 +6,15 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/freight-platform/document-service/internal/domain"
-	"github.com/freight-platform/document-service/internal/repository"
 	apperrors "github.com/freight-platform/document-service/internal/platform/errors"
+	"github.com/freight-platform/document-service/internal/repository"
 )
 
 type DocumentStore interface {
 	CompanyExists(ctx context.Context, companyID, tenantID uuid.UUID) (bool, error)
 	ShipmentExists(ctx context.Context, shipmentID, tenantID uuid.UUID) (bool, error)
 	CreateDocument(ctx context.Context, in domain.CreateDocumentInput) (*domain.Document, *domain.DocumentVersion, error)
-	GetDetail(ctx context.Context, id uuid.UUID) (*repository.DocumentDetail, error)
+	GetDetail(ctx context.Context, id, tenantID uuid.UUID) (*repository.DocumentDetail, error)
 	List(ctx context.Context, filter domain.ListDocumentsFilter) ([]domain.Document, int, error)
 	GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.Document, error)
 	HasVersions(ctx context.Context, documentID uuid.UUID) (bool, error)
@@ -63,11 +63,14 @@ func (s *DocumentService) Create(ctx context.Context, in domain.CreateDocumentIn
 	return doc, err
 }
 
-func (s *DocumentService) GetByID(ctx context.Context, id uuid.UUID) (*repository.DocumentDetail, error) {
+func (s *DocumentService) GetByID(ctx context.Context, id, tenantID uuid.UUID) (*repository.DocumentDetail, error) {
 	if id == uuid.Nil {
 		return nil, apperrors.Validation("id is required", map[string]any{"field": "id"})
 	}
-	return s.documents.GetDetail(ctx, id)
+	if tenantID == uuid.Nil {
+		return nil, apperrors.Unauthorized("trusted tenant context is required")
+	}
+	return s.documents.GetDetail(ctx, id, tenantID)
 }
 
 func (s *DocumentService) List(ctx context.Context, filter domain.ListDocumentsFilter) ([]domain.Document, int, error) {
