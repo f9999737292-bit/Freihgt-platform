@@ -209,3 +209,28 @@ func TestTransportOrderServiceCompanyIsolationDenied(t *testing.T) {
 		t.Fatal("expected not found for foreign company")
 	}
 }
+
+func TestConfirmOwnershipUsesTenantPredicate(t *testing.T) {
+	t.Parallel()
+	tenantID := uuid.New()
+	orderID := uuid.New()
+	var gotID, gotTenant uuid.UUID
+	var carrierCalls int
+	svc := NewTransportOrderService(&mockLocationStore{}, &mockCargoStore{}, &mockOrderStore{
+		getByIDAndTenantFn: func(_ context.Context, id, tenant uuid.UUID) (*domain.TransportOrder, error) {
+			gotID = id
+			gotTenant = tenant
+			return &domain.TransportOrder{ID: id, TenantID: tenant}, nil
+		},
+		getCarrierCompanyIDFn: func(context.Context, uuid.UUID, uuid.UUID) (*uuid.UUID, error) {
+			carrierCalls++
+			return nil, nil
+		},
+	}, &mockLocationStore{})
+	if err := svc.ConfirmOwnership(context.Background(), tenantID, orderID); err != nil {
+		t.Fatal(err)
+	}
+	if gotID != orderID || gotTenant != tenantID || carrierCalls != 0 {
+		t.Fatalf("id=%s tenant=%s carrierCalls=%d", gotID, gotTenant, carrierCalls)
+	}
+}

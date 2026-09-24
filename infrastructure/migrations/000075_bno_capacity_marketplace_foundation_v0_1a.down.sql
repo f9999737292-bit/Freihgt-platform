@@ -1,0 +1,1 @@
+DROP SCHEMA IF EXISTS network_optimizer CASCADE;

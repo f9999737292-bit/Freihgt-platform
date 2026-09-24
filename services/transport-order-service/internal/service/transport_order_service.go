@@ -140,6 +140,25 @@ func (s *TransportOrderService) GetTransportOrder(ctx context.Context, tenantID,
 	return order, nil
 }
 
+// ConfirmOwnership reports whether this tenant owns the order.
+// It uses the tenant predicate only. It does not apply carrier read visibility.
+func (s *TransportOrderService) ConfirmOwnership(ctx context.Context, tenantID, id uuid.UUID) error {
+	if tenantID == uuid.Nil {
+		return apperrors.Unauthorized("tenant context is required")
+	}
+	if id == uuid.Nil {
+		return apperrors.Validation("id is required", map[string]any{"field": "id"})
+	}
+	order, err := s.orders.GetByIDAndTenant(ctx, id, tenantID)
+	if err != nil {
+		return err
+	}
+	if order == nil || order.TenantID != tenantID {
+		return apperrors.NotFound("transport order not found")
+	}
+	return nil
+}
+
 func (s *TransportOrderService) ListTransportOrders(ctx context.Context, filter domain.ListTransportOrdersFilter, actor domain.OrderAccessActor) ([]domain.TransportOrder, int, error) {
 	if filter.TenantID == uuid.Nil {
 		return nil, 0, apperrors.Unauthorized("tenant context is required")

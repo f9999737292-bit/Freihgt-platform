@@ -6,13 +6,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/freight-platform/transport-order-service/internal/config"
-	"github.com/freight-platform/transport-order-service/internal/http/handlers"
-	"github.com/freight-platform/transport-order-service/internal/service"
 	"github.com/freight-platform/shared-go/internalauth"
 	"github.com/freight-platform/shared-go/metrics"
 	"github.com/freight-platform/shared-go/observability"
 	sharedpprof "github.com/freight-platform/shared-go/pprof"
+	"github.com/freight-platform/transport-order-service/internal/config"
+	"github.com/freight-platform/transport-order-service/internal/http/handlers"
+	"github.com/freight-platform/transport-order-service/internal/service"
 )
 
 const serviceName = "transport-order-service"
@@ -31,6 +31,7 @@ func NewRouter(
 	snapshotInternalHandler := handlers.NewRateSnapshotInternalHandler(snapshotReadSvc)
 	analyticsDimensionHandler := handlers.NewAnalyticsDimensionInternalHandler(analyticsDimensionSvc)
 	internalAuth := internalauth.Config{Token: cfg.InternalServiceToken, Environment: cfg.Environment}
+	ownershipHandler := handlers.NewOwnershipInternalHandler(svc)
 
 	r := chi.NewRouter()
 	observability.Mount(r, observability.MountOptions{
@@ -64,6 +65,7 @@ func NewRouter(
 	r.Route("/internal/v1", func(r chi.Router) {
 		r.Use(internalAuth.Middleware)
 		r.Post("/transport-orders/from-award-scope", pricedHandler.CreateFromAwardScope)
+		r.Get("/transport-orders/{transportOrderId}/ownership", ownershipHandler.GetTransportOrder)
 		r.Get("/transport-orders/{transportOrderId}/rate-snapshot", snapshotInternalHandler.GetRateSnapshot)
 		r.Post("/transport-orders/batch-analytics-dimensions", analyticsDimensionHandler.BatchGetAnalyticsDimensions)
 	})

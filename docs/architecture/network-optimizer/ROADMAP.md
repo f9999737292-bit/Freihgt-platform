@@ -1,6 +1,8 @@
 # Roadmap
 
-Each stage uses the same core. Later stages do not replace earlier contracts; they add problem classes. Implementation of any stage needs a new authorization. This document does not start NLO-0.1.
+Each stage uses the same core. Later stages do not replace earlier contracts; they add problem classes. Implementation of any stage needs a new authorization.
+
+BNO-0.1A implements only the foundation subset of NLO-0.1: manual capacity, explicit load publication, visibility, persistence, API, outbox, and audit. It does not implement hard feasibility, persisted match candidates, explanations, or any later stage.
 
 | Stage | Content | Depends on |
 |-------|---------|------------|

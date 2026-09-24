@@ -140,6 +140,19 @@ func (s *ShipmentService) GetByIDAndTenant(ctx context.Context, tenantID, id uui
 	return s.shipments.GetByIDAndTenant(ctx, id, tenantID)
 }
 
+// ConfirmOwnership reports whether this tenant owns the shipment.
+// The lookup remains id AND tenant_id. A service credential does not widen it.
+func (s *ShipmentService) ConfirmOwnership(ctx context.Context, tenantID, id uuid.UUID) error {
+	shipment, err := s.GetByIDAndTenant(ctx, tenantID, id)
+	if err != nil {
+		return err
+	}
+	if shipment == nil || shipment.TenantID != tenantID {
+		return apperrors.NotFound("shipment not found")
+	}
+	return nil
+}
+
 func (s *ShipmentService) List(ctx context.Context, filter domain.ListShipmentsFilter) ([]domain.Shipment, int, error) {
 	if filter.Limit == 0 {
 		filter.Limit = 20

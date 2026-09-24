@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/freight-platform/shared-go/internalauth"
 	"github.com/freight-platform/shared-go/metrics"
 	"github.com/freight-platform/shared-go/observability"
 	sharedpprof "github.com/freight-platform/shared-go/pprof"
@@ -37,6 +38,8 @@ func NewRouter(
 	driverOpsHandler := handlers.NewDriverOperationsHandler(driverOpsSvc)
 	driverTaskHandler := handlers.NewDriverTaskHandler(driverTaskSvc)
 	internalTaskHandler := handlers.NewInternalDriverTaskHandler(driverTaskSvc, internalToken)
+	ownershipHandler := handlers.NewOwnershipInternalHandler(shipmentSvc)
+	internalAuth := internalauth.Config{Token: internalToken}
 
 	r := chi.NewRouter()
 	observability.Mount(r, observability.MountOptions{
@@ -101,6 +104,7 @@ func NewRouter(
 	r.Route("/internal/v1/shipments", func(r chi.Router) {
 		r.Get("/status-summary", statusSummaryHandler.GetStatusSummary)
 		r.Get("/{shipmentId}/status-history", statusHistoryHandler.List)
+		r.With(internalAuth.Middleware).Get("/{shipmentId}/ownership", ownershipHandler.GetShipment)
 	})
 
 	r.Route("/internal/v1/driver", func(r chi.Router) {

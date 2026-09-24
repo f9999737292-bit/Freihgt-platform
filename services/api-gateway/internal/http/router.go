@@ -9,6 +9,7 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 
 	"github.com/freight-platform/api-gateway/internal/billingrbac"
+	"github.com/freight-platform/api-gateway/internal/bnorbac"
 	"github.com/freight-platform/api-gateway/internal/companyrbac"
 	"github.com/freight-platform/api-gateway/internal/config"
 	"github.com/freight-platform/api-gateway/internal/contractrates"
@@ -489,6 +490,23 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	r.Post("/api/v1/companies/{company_id}/members", companyGuard.WithPolicy(companyrbac.PolicyManageMembers))
 	r.Patch("/api/v1/companies/{company_id}/members/{membership_id}", companyGuard.WithPolicy(companyrbac.PolicyManageMembers))
 	r.Delete("/api/v1/companies/{company_id}/members/{membership_id}", companyGuard.WithPolicy(companyrbac.PolicyManageMembers))
+
+	networkGuard := bnorbac.NewGuard(cfg, proxy)
+	r.Post("/api/v1/network/load-opportunities", networkGuard.WithPolicy(bnorbac.PolicyPublishLoad))
+	r.Get("/api/v1/network/load-opportunities", networkGuard.WithPolicy(bnorbac.PolicyReadOwnLoad))
+	r.Get("/api/v1/network/load-opportunities/{id}", networkGuard.WithPolicy(bnorbac.PolicyReadOwnLoad))
+	r.Patch("/api/v1/network/load-opportunities/{id}", networkGuard.WithPolicy(bnorbac.PolicyPublishLoad))
+	r.Post("/api/v1/network/load-opportunities/{id}/publish", networkGuard.WithPolicy(bnorbac.PolicyPublishLoad))
+	r.Post("/api/v1/network/load-opportunities/{id}/withdraw", networkGuard.WithPolicy(bnorbac.PolicyWithdrawLoad))
+	r.Post("/api/v1/network/capacities", networkGuard.WithPolicy(bnorbac.PolicyPublishCapacity))
+	r.Get("/api/v1/network/capacities", networkGuard.WithPolicy(bnorbac.PolicyReadOwnCapacity))
+	r.Get("/api/v1/network/capacities/{id}", networkGuard.WithPolicy(bnorbac.PolicyReadOwnCapacity))
+	r.Patch("/api/v1/network/capacities/{id}", networkGuard.WithPolicy(bnorbac.PolicyPublishCapacity))
+	r.Post("/api/v1/network/capacities/{id}/withdraw", networkGuard.WithPolicy(bnorbac.PolicyWithdrawCapacity))
+	r.Get("/api/v1/network/marketplace/load-opportunities", networkGuard.WithPolicy(bnorbac.PolicyViewMarketplaceLoads))
+	r.Get("/api/v1/network/marketplace/load-opportunities/{id}", networkGuard.WithPolicy(bnorbac.PolicyViewMarketplaceLoads))
+	r.Get("/api/v1/network/marketplace/capacities", networkGuard.WithPolicy(bnorbac.PolicyViewMarketplaceCapacities))
+	r.Get("/api/v1/network/marketplace/capacities/{id}", networkGuard.WithPolicy(bnorbac.PolicyViewMarketplaceCapacities))
 
 	r.Handle("/api/*", proxy)
 	r.Handle("/api", proxy)

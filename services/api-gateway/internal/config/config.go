@@ -14,18 +14,19 @@ import (
 )
 
 type ServiceURLs struct {
-	Identity        string
-	Company         string
-	TransportOrder  string
-	RFX             string
-	Shipment        string
-	Document        string
-	BillingRegister string
-	Payment         string
-	LowCode         string
-	Tracking        string
-	ContractRate    string
-	FreightCost     string
+	Identity         string
+	Company          string
+	TransportOrder   string
+	RFX              string
+	Shipment         string
+	Document         string
+	BillingRegister  string
+	Payment          string
+	LowCode          string
+	Tracking         string
+	ContractRate     string
+	FreightCost      string
+	NetworkOptimizer string
 }
 
 type ControlTowerConfig struct {
@@ -182,18 +183,19 @@ func Load() (Config, error) {
 			ReadModel:               readModelCfg,
 		},
 		Services: ServiceURLs{
-			Identity:        getEnv("IDENTITY_SERVICE_URL", "http://localhost:8081"),
-			Company:         getEnv("COMPANY_SERVICE_URL", "http://localhost:8082"),
-			TransportOrder:  getEnv("TRANSPORT_ORDER_SERVICE_URL", "http://localhost:8083"),
-			RFX:             getEnv("RFX_SERVICE_URL", "http://localhost:8084"),
-			Shipment:        getEnv("SHIPMENT_SERVICE_URL", "http://localhost:8085"),
-			Document:        getEnv("DOCUMENT_SERVICE_URL", "http://localhost:8086"),
-			BillingRegister: getEnv("BILLING_REGISTER_SERVICE_URL", "http://localhost:8087"),
-			Payment:         getEnv("PAYMENT_SERVICE_URL", "http://localhost:8090"),
-			LowCode:         getEnv("LOW_CODE_SERVICE_URL", "http://localhost:8088"),
-			Tracking:        getEnv("TRACKING_SERVICE_URL", "http://localhost:8089"),
-			ContractRate:    getEnv("CONTRACT_RATE_SERVICE_URL", "http://localhost:8091"),
-			FreightCost:     getEnv("FREIGHT_COST_SERVICE_URL", "http://localhost:8092"),
+			Identity:         getEnv("IDENTITY_SERVICE_URL", "http://localhost:8081"),
+			Company:          getEnv("COMPANY_SERVICE_URL", "http://localhost:8082"),
+			TransportOrder:   getEnv("TRANSPORT_ORDER_SERVICE_URL", "http://localhost:8083"),
+			RFX:              getEnv("RFX_SERVICE_URL", "http://localhost:8084"),
+			Shipment:         getEnv("SHIPMENT_SERVICE_URL", "http://localhost:8085"),
+			Document:         getEnv("DOCUMENT_SERVICE_URL", "http://localhost:8086"),
+			BillingRegister:  getEnv("BILLING_REGISTER_SERVICE_URL", "http://localhost:8087"),
+			Payment:          getEnv("PAYMENT_SERVICE_URL", "http://localhost:8090"),
+			LowCode:          getEnv("LOW_CODE_SERVICE_URL", "http://localhost:8088"),
+			Tracking:         getEnv("TRACKING_SERVICE_URL", "http://localhost:8089"),
+			ContractRate:     getEnv("CONTRACT_RATE_SERVICE_URL", "http://localhost:8091"),
+			FreightCost:      getEnv("FREIGHT_COST_SERVICE_URL", "http://localhost:8092"),
+			NetworkOptimizer: getEnv("NETWORK_OPTIMIZER_SERVICE_URL", "http://localhost:8096"),
 		},
 		AuthEnabled:                authEnabled,
 		JWTSecret:                  jwtSecret,

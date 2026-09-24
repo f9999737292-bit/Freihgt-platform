@@ -71,6 +71,7 @@ jobs:
           - services/rfx-service
           - services/shipment-service
           - services/transport-order-service
+          - services/network-optimizer-service
 
     steps:
       - name: Checkout requested ref

@@ -14,6 +14,7 @@ use (
 	./services/identity-service
 	./services/localization-service
 	./services/low-code-service
+	./services/network-optimizer-service
 	./services/payment-service
 	./services/rfx-service
 	./services/shipment-service
