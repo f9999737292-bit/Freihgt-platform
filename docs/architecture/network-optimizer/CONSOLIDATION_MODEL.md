@@ -51,7 +51,7 @@ If the data needed to evaluate a hard constraint is missing, the result is `INDE
 
 ## Residual capacity
 
-Current trip fill uses remaining payload, volume, pallet positions, and linear metres after cargo already on the vehicle. The engine optimizes empty space as well as empty kilometres. Weight-only fill is allowed only when volume and linear metres are unknown **and** the explanation says so. It must not be presented as a full compatibility proof.
+Current trip fill uses remaining payload, volume, pallet positions, and linear metres after cargo already on the vehicle. The engine optimizes empty space as well as empty kilometres. Weight-only fill is allowed only when volume and linear metres are `UNKNOWN` and the explanation says so. Never coerce those unknown values to zero. It must not be presented as a full compatibility proof.
 
 ## Load order and unloading feasibility
 

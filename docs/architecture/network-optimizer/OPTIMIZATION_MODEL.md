@@ -148,7 +148,7 @@ Separate series: loads/day, available capacities, active vehicles, candidate pai
 | Road network | External |
 | Zones / corridors | City rules and geo index |
 
-Straight-line distance is allowed only inside **geo candidate search** to limit pairs. Executable kilometres, deadhead, and ETA slack require a road result or an audited `MANUAL_DISTANCE`. A plan that used Haversine as if it were road distance is invalid.
+Straight-line distance, including Haversine, is a candidate pre-filter only. It is not canonical road distance, not canonical travel time, and not canonical freight cost distance. Executable kilometres, deadhead, and ETA slack require a road result or an audited `MANUAL_DISTANCE`. A plan that used Haversine as if it were road distance is invalid. Freight cost remains the owner of any billed distance.
 
 ## Provider ports
 

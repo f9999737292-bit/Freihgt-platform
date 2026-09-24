@@ -27,7 +27,7 @@ Smallest physical object the consolidation engine may co-load. It is a **plannin
 | `pickup_location` / `delivery_location` | required | order origin/destination today (single pair) |
 | `pickup_window` / `delivery_window` | required | requested/planned timestamps; not a full window model |
 
-Unknown physical attributes fail closed for constraints that need them. A missing pallet count does not mean zero pallets. The match is `INDETERMINATE` for that constraint unless policy explicitly allows weight/volume-only feasibility.
+Unknown physical attributes fail closed for constraints that need them. Missing pallet counts and linear metres stay `UNKNOWN`. Never coerce an unknown value to zero. The match is `INDETERMINATE` for that constraint unless policy explicitly allows weight/volume-only feasibility.
 
 ### CargoCompatibility and CargoIncompatibility
 

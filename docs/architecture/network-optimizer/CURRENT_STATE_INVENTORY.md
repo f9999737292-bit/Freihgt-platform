@@ -44,6 +44,47 @@ Status is taken from services, migrations, and OpenAPI. Documents alone are `DOC
 
 The optimizer may read tenant-scoped orders, cargo, locations, vehicles, shipments, tracking ETA, slots, and rate snapshots through trusted APIs. It must not scan `transport.shipments` across tenants. It must not write freight-cost ledger rows, RFx awards, billing settlements, or slot bookings.
 
+## Closeout invariants
+
+These labels are the publication contract. They restate the inventory above.
+
+```text
+TRAILER_CURRENT_STATE=NOT_FOUND
+FACILITY_MASTER_CURRENT_STATE=NOT_FOUND
+ETA_KAFKA_EVENT_CURRENT_STATE=NOT_FOUND
+DRIVER_APP_GPS_PUBLICATION_CURRENT_STATE=NOT_FOUND
+```
+
+`FACILITY_MASTER_CURRENT_STATE` is `NOT_FOUND` even though slot rows carry an unbound `facility_id`. That UUID is not a facility master.
+
+`ETA_KAFKA_EVENT_CURRENT_STATE` is `NOT_FOUND`: ETA rows exist in tracking storage. There is no Kafka event to consume.
+
+`DRIVER_APP_GPS_PUBLICATION_CURRENT_STATE` is `NOT_FOUND`: `apps/driver-mobile` does not publish GPS. Tracking ingest elsewhere is not that app.
+
+```text
+HAVERSINE_POLICY
+```
+
+Haversine, or any straight-line distance, is a candidate pre-filter only. It is not canonical road distance, not canonical travel time, and not canonical freight cost distance.
+
+```text
+UNKNOWN_CAPACITY_POLICY
+```
+
+Missing pallet counts and linear metres stay `UNKNOWN`. Never coerce an unknown value to zero.
+
+```text
+MULTISTOP_EXECUTION_POLICY
+```
+
+Planning contracts for stops and legs may exist. Production multi-stop execution stays gated until the execution domain supports stops and legs.
+
+```text
+EDO_RUNTIME_POLICY
+```
+
+The document registry exists. The EDO operator runtime is not an implementation dependency for NLO-0.1 or NLO-0.2.
+
 ## Evidence anchors
 
 - Cargo: `services/transport-order-service/internal/domain/cargo.go`

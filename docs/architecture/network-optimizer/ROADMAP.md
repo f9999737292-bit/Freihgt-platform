@@ -24,6 +24,8 @@ NLO-0.7 and NLO-0.8 are empty of legal constants until operations load versioned
 
 Why: the repository can already supply one active shipment, an ETA, a location, cargo weight and volume, and a vehicle capacity. It cannot yet supply legs, trailers, pallets, a road network, or a legal city-rule dataset. Next-load ranking with hard feasibility and explanations proves the core without a VRP solver.
 
-Dependencies: trusted tenant headers; read APIs for shipment, tracking ETA, location, cargo, vehicle; explicit publication; optional rate snapshot for priced ranking. Kafka is not required for the first synchronous path. Events in the catalog are the later integration.
+Dependencies: trusted tenant headers; read APIs for shipment, tracking ETA, location, cargo, vehicle; explicit publication; optional rate snapshot for priced ranking. Kafka is not required for the first synchronous path. Events in the catalog are the later integration. The document registry may be read later for a document constraint. The EDO operator runtime is not an implementation dependency for NLO-0.1 or NLO-0.2.
+
+Planning contracts for multi-stop routes may exist from NLO-0.4. Production multi-stop execution stays gated until the execution domain supports stops and legs.
 
 Risks: builders may treat Haversine as road distance; a query might scan shipments across tenants; multi-stop UI might be promised before execution can store stops; missing pallet data might be treated as zero.

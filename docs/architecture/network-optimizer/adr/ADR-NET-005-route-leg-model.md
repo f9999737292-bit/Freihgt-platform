@@ -14,4 +14,4 @@ Planning uses `RoutePlan`, `RouteLeg`, and `RouteStop` (`PICKUP`, `DELIVERY`, `H
 
 ## Consequences
 
-UI and offers must not promise an executable multi-stop shipment before that evolution.
+Planning contracts may exist. Production multi-stop execution stays gated until the execution domain supports stops and legs. UI and offers must not promise an executable multi-stop shipment before that evolution.
