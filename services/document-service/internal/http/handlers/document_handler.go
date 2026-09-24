@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/freight-platform/document-service/internal/domain"
 	apperrors "github.com/freight-platform/document-service/internal/platform/errors"
@@ -95,7 +96,12 @@ func (h *DocumentHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, err)
 		return
 	}
-	detail, err := h.service.GetByID(r.Context(), id)
+	tenantID, err := trustedTenantID(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	detail, err := h.service.GetByID(r.Context(), id, tenantID)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -275,6 +281,18 @@ func (h *DocumentHandler) Archive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respond.JSON(w, http.StatusOK, toDocumentResponse(doc))
+}
+
+func trustedTenantID(r *http.Request) (uuid.UUID, error) {
+	raw := strings.TrimSpace(r.Header.Get("X-Tenant-ID"))
+	if raw == "" {
+		return uuid.Nil, apperrors.Unauthorized("trusted tenant context is required")
+	}
+	id, err := uuid.Parse(raw)
+	if err != nil || id == uuid.Nil {
+		return uuid.Nil, apperrors.Unauthorized("trusted tenant context is required")
+	}
+	return id, nil
 }
 
 func parseCreateDocumentRequest(req createDocumentRequest) (domain.CreateDocumentInput, error) {

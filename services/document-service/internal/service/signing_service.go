@@ -49,11 +49,14 @@ func (s *SigningService) CreateSession(ctx context.Context, documentID uuid.UUID
 	return s.signing.CreateSession(ctx, documentID, in)
 }
 
-func (s *SigningService) GetSession(ctx context.Context, id uuid.UUID) (*domain.SigningSession, error) {
+func (s *SigningService) GetSession(ctx context.Context, id, tenantID uuid.UUID) (*domain.SigningSession, error) {
 	if id == uuid.Nil {
 		return nil, apperrors.Validation("id is required", map[string]any{"field": "id"})
 	}
-	return s.signing.GetSessionByID(ctx, id)
+	if tenantID == uuid.Nil {
+		return nil, apperrors.Unauthorized("trusted tenant context is required")
+	}
+	return s.signing.GetSessionByIDAndTenant(ctx, id, tenantID)
 }
 
 func (s *SigningService) AddSignature(ctx context.Context, sessionID uuid.UUID, in domain.AddSignatureInput) (*domain.Signature, *domain.SigningSession, *domain.Document, error) {

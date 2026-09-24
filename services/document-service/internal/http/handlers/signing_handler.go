@@ -73,7 +73,12 @@ func (h *SigningHandler) GetSession(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, err)
 		return
 	}
-	session, err := h.service.GetSession(r.Context(), id)
+	tenantID, err := trustedTenantID(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	session, err := h.service.GetSession(r.Context(), id, tenantID)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -117,9 +122,9 @@ func (h *SigningHandler) AddSignature(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respond.JSON(w, http.StatusCreated, map[string]any{
-		"signature":        toSignatureResponse(signature),
-		"signing_session":  toSigningSessionResponse(session),
-		"document":         toDocumentResponse(doc),
+		"signature":       toSignatureResponse(signature),
+		"signing_session": toSigningSessionResponse(session),
+		"document":        toDocumentResponse(doc),
 	})
 }
 
