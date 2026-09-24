@@ -44,7 +44,7 @@ Each workstream row carries:
 | **LOG** | LOG-active | IMPLEMENTATION | Logistics team | `a5163c3` | same primary dev WT | PLAT | ROAD-only mode | MM-0.2 leg schema (via LOG) |
 | **CT** | CT-shadow | OPERATIONAL | Control Tower team | staging pack `4d0cdfb` | `ops/bintrans-ct-staging-pack` | LOG Kafka events | PRIMARY mode disabled; shadow only | CT consume `edo.document.*` (future) |
 | **FC** | FC-v2.2 | IMPLEMENTATION | Finance cost team | `d0005bd` | main-aligned | LOG, billing | Mock EDO billing path (F-003) | EDO-0.5 billing bridge |
-| **EDO** | EDO-0.3 | IMPLEMENTATION | EDO architecture | `2e39547e` | `fix/edo-0.3-s1-document-read-tenant-isolation-v0.1` | Controller review of S1 | Legal verification open; S1 awaits controller review; I1–I4 not authorized | Independent controller review of S1. Do not start I1 |
+| **EDO** | EDO-0.3 | IMPLEMENTATION | EDO architecture | `2e39547e` | PR #164 `fix/edo-0.3-s1-document-read-tenant-isolation-v0.1` | S1 accepted at `dff9eacf` | Legal verification open; I1–I4 not authorized | Authorize EDO 0.3 I1 separately. Do not start I1 |
 | **TEDO** | TEDO-0.2 | ARCHITECTURE_FREEZE | Transport EDO | `d0005bd` | EDO-0.2 archive `discovery/edo-ecosystem-architecture-v0.1` | EDO, LOG | No operator licensing | TEDO-0.3 ETRN lifecycle design |
 | **MM** | MM-0.2 | ARCHITECTURE_FREEZE | Multimodal | `d0005bd` | EDO-0.2 archive `discovery/edo-ecosystem-architecture-v0.1` | LOG (shipment-service) | ROAD-only enforcement in code | MM-0.2 leg implementation request → LOG |
 | **FF** | FF-v1.9 | IMPLEMENTATION | Payments/finance | `d0005bd` | payment reconciliation branches | FC | No receivable aggregate yet | FF-0.2 receivable design impl |
@@ -54,7 +54,7 @@ Each workstream row carries:
 
 - Primary BINTRANS development continues in `D:\Projects\freight-platform` — **untouched by EDO-0.2**.
 - EDO-0.2 discovery/freeze worktree `D:\Projects\freight-platform-wt\edo-ecosystem-architecture-v0.1` remains an archive. Do not treat it as the active EDO-0.3 checkout.
-- EDO-0.3 discovery scope stays accepted (`CONTROLLER_VERDICT=ACCEPT_EDO_0_3_SCOPE`, pull request #162). S1 document-read tenant isolation is `IMPLEMENTED_AWAITING_CONTROLLER_REVIEW` and `DOCUMENT_READ_TENANT_ISOLATION_STATUS=REMEDIATED_AWAITING_CONTROLLER_REVIEW`. It is not accepted. I1–I4 remain `NOT_AUTHORIZED`. Legal verification stays open.
+- EDO-0.3 discovery scope stays accepted (`CONTROLLER_VERDICT=ACCEPT_EDO_0_3_SCOPE`, pull request #162). S1 document-read tenant isolation is `IMPLEMENTED_ACCEPTED` (`CONTROLLER_VERDICT=ACCEPT_EDO_0_3_S1`, pull request #164, product HEAD `dff9eacf04e0fd8c0e381d8716cf5a4039c90ff1`, CI `35991273506`, `TestDocumentReadTenantIsolation` PASS). `DOCUMENT_READ_TENANT_ISOLATION_STATUS=REMEDIATED_ACCEPTED`. OpenAPI and schema were not changed. Blocking findings are absent. I1–I4 remain `NOT_AUTHORIZED`. Legal verification stays open.
 - BASE_SHA for TEDO/MM rows remains discovery baseline `d0005bd8b055b0d2250e5092a0c1c0484decf540`. The EDO row base is the EDO-0.3 discovery base above.
 
 ## Update procedure

@@ -3,14 +3,14 @@
 ## Status
 
 ```text
+CONTROLLER_VERDICT=ACCEPT_EDO_0_3_S1
 EDO_0_2_STATUS=IMPLEMENTED_ACCEPTED
 EDO_0_3_DISCOVERY_STATUS=DISCOVERY_ACCEPTED
 EDO_0_3_IMPLEMENTATION_AUTHORIZED=S1_ONLY
-DOCUMENT_READ_TENANT_ISOLATION_STATUS=REMEDIATED_AWAITING_CONTROLLER_REVIEW
-EDO_0_3_S1_STATUS=IMPLEMENTED_AWAITING_CONTROLLER_REVIEW
+DOCUMENT_READ_TENANT_ISOLATION_STATUS=REMEDIATED_ACCEPTED
+EDO_0_3_S1_STATUS=IMPLEMENTED_ACCEPTED
 EDO_0_3_I1_I4_STATUS=NOT_AUTHORIZED
 LEGAL_VERIFICATION_STATUS=OPEN
-PRODUCT_CODE_MODIFIED=NO
 ```
 
 Discovery date: 2026-09-23.
@@ -60,12 +60,12 @@ ACCEPTED_DISCOVERY_HEAD=5b0d55b7c44eef4d9da14a2add3f7e965e7b02ec
 ACCEPTED_CI=35912686104
 PR=https://github.com/f9999737292-bit/Freihgt-platform/pull/162
 VARIANT_A_SCOPE=ACCEPTED
-S1_STATUS=IMPLEMENTED_AWAITING_CONTROLLER_REVIEW
+S1_STATUS=IMPLEMENTED_ACCEPTED
 S1_IS_IMPLEMENTATION_PREREQUISITE=YES
 I1_I4_STATUS=NOT_AUTHORIZED
 ```
 
-Variant A remains the accepted discovery scope. ArchiveManifest, MChD verification, an EDI operator integration, and e-ТрН stay out of scope. S1 is implemented and awaits an independent controller review. It is not accepted. I1–I4 stay `NOT_AUTHORIZED`. Legal verification stays `OPEN`. The historical gap below is the defect S1 remediates; see [edo-0.3-s1-document-read-tenant-isolation.md](edo-0.3-s1-document-read-tenant-isolation.md).
+Variant A remains the accepted discovery scope. ArchiveManifest, MChD verification, an EDI operator integration, and e-ТрН stay out of scope. S1 is `IMPLEMENTED_ACCEPTED` at product HEAD `dff9eacf04e0fd8c0e381d8716cf5a4039c90ff1`, pull request #164, CI run `35991273506`. Document read and signing-session read are tenant-scoped. A foreign, missing, or deleted document returns the same `404`. A call without a trusted tenant returns `401`. OpenAPI and schema were not changed. Blocking findings are absent. I1–I4 stay `NOT_AUTHORIZED`. Legal verification stays `OPEN`. The historical gap below is the defect S1 remediates; see [edo-0.3-s1-document-read-tenant-isolation.md](edo-0.3-s1-document-read-tenant-isolation.md).
 
 ## Document index
 
@@ -80,7 +80,7 @@ Variant A remains the accepted discovery scope. ArchiveManifest, MChD verificati
 | [edo-0.3-implementation-waves.md](edo-0.3-implementation-waves.md) | Review waves. Implementation not authorized |
 | [edo-0.3-test-acceptance-strategy.md](edo-0.3-test-acceptance-strategy.md) | Future tests. None added here |
 | [edo-0.3-risk-register.md](edo-0.3-risk-register.md) | Open risks |
-| [edo-0.3-s1-document-read-tenant-isolation.md](edo-0.3-s1-document-read-tenant-isolation.md) | S1 remediation awaiting controller review |
+| [edo-0.3-s1-document-read-tenant-isolation.md](edo-0.3-s1-document-read-tenant-isolation.md) | S1 remediation accepted. I1–I4 remain `NOT_AUTHORIZED` |
 | [workstream-status-v0.1.md](../program/workstream-status-v0.1.md) | EDO row updated to discovery complete |
 
 ## Accepted baseline this discovery does not reopen
