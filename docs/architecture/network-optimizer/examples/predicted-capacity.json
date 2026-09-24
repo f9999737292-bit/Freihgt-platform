@@ -1,0 +1,13 @@
+{
+  "predicted_capacity_id": "00000000-0000-4000-8000-000000000201",
+  "vehicle_label": "A123BC",
+  "predicted_location": { "city": "Kazan" },
+  "available_from": "2026-09-24T16:35:00Z",
+  "availability_window": { "start": "2026-09-24T16:10:00Z", "end": "2026-09-24T17:15:00Z" },
+  "confidence": 0.87,
+  "prediction_method": "RULE_BASED",
+  "source": "CURRENT_SHIPMENT_PREDICTION",
+  "payload_remaining_kg": 20000,
+  "volume_remaining_m3": 82,
+  "note": "Illustrative. Plate visibility depends on capacity publication scope."
+}

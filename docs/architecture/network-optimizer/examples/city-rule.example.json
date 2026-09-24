@@ -1,0 +1,23 @@
+{
+  "rule_id": "example-not-normative",
+  "classification": "EXAMPLE_NOT_NORMATIVE",
+  "jurisdiction": "UNVERIFIED",
+  "city": "EXAMPLE_CITY",
+  "zone": null,
+  "road_segment": null,
+  "vehicle_conditions": {},
+  "cargo_conditions": {},
+  "permit_requirements": [],
+  "time_restrictions": [],
+  "weight_restrictions": [],
+  "dimension_restrictions": [],
+  "environmental_restrictions": [],
+  "effective_from": "2026-01-01T00:00:00Z",
+  "effective_to": null,
+  "source_reference": "NONE",
+  "source_authority": "NONE",
+  "version": 0,
+  "status": "DRAFT",
+  "checked_on": "2026-09-24",
+  "note": "No Moscow or Saint Petersburg legal thresholds are included."
+}

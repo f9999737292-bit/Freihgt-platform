@@ -53,3 +53,7 @@ See `docs/database/` and `infrastructure/migrations/` for the current schema.
 ## EDO
 
 EDO 0.2 architecture freeze is accepted. EDO 0.3 discovery is documentation only and does not authorize implementation: [edo-0.3-discovery.md](edo-0.3-discovery.md).
+
+## Network Optimizer
+
+BINTRANS Transportation & Network Optimizer v0.1 is an architecture freeze only. It does not authorize a new service, migrations, or production OpenAPI changes: [network-optimizer/README.md](network-optimizer/README.md).

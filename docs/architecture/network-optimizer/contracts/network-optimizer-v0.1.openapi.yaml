@@ -1,0 +1,143 @@
+openapi: 3.0.3
+info:
+  title: BINTRANS Network Optimizer API (skeleton)
+  version: 0.1.0-draft
+  description: |
+    Architecture-freeze skeleton. Not part of packages/openapi.
+    Not authorized for implementation. Gateway remains the public edge.
+    Paths use the repository /api/v1 prefix.
+servers:
+  - url: https://gateway.example.invalid/api/v1
+paths:
+  /network/capacities:
+    post:
+      operationId: createCapacity
+      x-audience: [public-carrier, internal]
+      summary: Create a capacity owned by the caller tenant
+      responses:
+        "201":
+          description: Created
+        "403":
+          description: Carrier identity does not match membership
+  /network/capacities/{id}:
+    get:
+      operationId: getCapacity
+      x-audience: [public-carrier, public-shipper, internal]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: In-scope capacity
+        "404":
+          description: Missing or out of scope
+  /network/load-opportunities:
+    post:
+      operationId: createLoadOpportunity
+      x-audience: [public-shipper, internal]
+      summary: Draft or publish an opportunity from the caller tenant
+      responses:
+        "201":
+          description: Created
+  /network/load-opportunities/{id}:
+    get:
+      operationId: getLoadOpportunity
+      x-audience: [public-shipper, public-carrier, internal]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: In-scope projection
+        "404":
+          description: Missing or out of scope
+  /network/matches/search:
+    post:
+      operationId: searchMatches
+      x-audience: [public-carrier, public-shipper, internal]
+      summary: Feasibility and deterministic ranking for the caller
+      responses:
+        "200":
+          description: Candidates with score_explanation or hard_rejections
+  /network/route-plans/generate:
+    post:
+      operationId: generateRoutePlan
+      x-audience: [public-carrier, public-shipper, internal]
+      responses:
+        "200":
+          description: Proposed plan
+        "422":
+          description: CITY_RULES_STALE or INFEASIBLE_ROUTING
+  /network/consolidation/analyze:
+    post:
+      operationId: analyzeConsolidation
+      x-audience: [public-carrier, public-shipper, internal]
+      responses:
+        "200":
+          description: Feasible sets and hard rejects
+  /network/offers:
+    post:
+      operationId: createOffer
+      x-audience: [public-carrier, public-shipper, internal]
+      responses:
+        "201":
+          description: Offer created
+  /network/offers/{id}/accept:
+    post:
+      operationId: acceptOffer
+      x-audience: [public-carrier, internal]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Assignment created
+        "409":
+          description: Version conflict or load already reserved
+  /network/offers/{id}/counter:
+    post:
+      operationId: counterOffer
+      x-audience: [public-carrier, internal]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: New offer revision
+  /network/offers/{id}/reject:
+    post:
+      operationId: rejectOffer
+      x-audience: [public-carrier, public-shipper, internal]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Rejected
+components:
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    ScoreExplanation:
+      type: object
+      required: [summary, components]
+      properties:
+        summary:
+          type: string
+        components:
+          type: array
+          items:
+            type: object
+            required: [code, contribution, reason]
+            properties:
+              code:
+                type: string
+              contribution:
+                type: number
+              reason:
+                type: string
+        hard_rejections:
+          type: array
+          items:
+            type: string

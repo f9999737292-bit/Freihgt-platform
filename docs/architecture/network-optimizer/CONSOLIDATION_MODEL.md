@@ -1,0 +1,70 @@
+# Consolidation model
+
+`CONSOLIDATION ENGINE` decides which cargo units may travel together. It is a logical component of the one optimization core, not a second product.
+
+## Pipeline position
+
+Hard constraints run before scoring. Scoring never repairs a hard failure.
+
+```text
+cargo units + capacity + route skeleton
+        ↓
+hard constraints
+        ↓
+HARD_REJECT  or  feasible set
+        ↓
+score only the feasible set
+```
+
+## Hard constraints
+
+Any one of these, when required data is present and violated, yields `HARD_REJECT`:
+
+- payload
+- volume
+- pallet positions
+- linear metres
+- cargo incompatibility
+- ADR
+- temperature
+- equipment / body
+- pickup reachability
+- delivery reachability
+- pickup windows
+- delivery windows
+- vehicle access (including city-rule access)
+- required documents
+- carrier permissions
+
+If the data needed to evaluate a hard constraint is missing, the result is `INDETERMINATE`, not a pass. Policy may allow a named subset of constraints to be skipped only when the objective is explicitly `FEASIBILITY_PARTIAL` and the explanation lists the skipped checks. Default policy does not skip.
+
+## Patterns
+
+| Pattern | Meaning |
+|---------|---------|
+| same-origin / same-destination | Co-load on one O–D |
+| multi-pick / one-drop | Several pickups, one delivery |
+| one-pick / multi-drop | One pickup, several deliveries |
+| multi-pick / multi-drop | Both |
+| hub consolidation | Deliver into a hub, then a linehaul leg |
+| cross-dock | Short dwell; inbound and outbound legs; no execution automation in the first implementation |
+
+## Residual capacity
+
+Current trip fill uses remaining payload, volume, pallet positions, and linear metres after cargo already on the vehicle. The engine optimizes empty space as well as empty kilometres. Weight-only fill is allowed only when volume and linear metres are `UNKNOWN` and the explanation says so. Never coerce those unknown values to zero. It must not be presented as a full compatibility proof.
+
+## Load order and unloading feasibility
+
+For multi-drop, a later capability checks placement, unloading sequence, and rehandling. A unit that must unload first must not sit behind a later unit unless rehandling is allowed.
+
+v0.1 contract, without 3D bin packing:
+
+```text
+placement_check = NOT_EVALUATED | SEQUENCE_OK | SEQUENCE_CONFLICT | REHANDLE_REQUIRED
+```
+
+`SEQUENCE_CONFLICT` is `HARD_REJECT` when the shipper or cargo policy forbids rehandling. `NOT_EVALUATED` is the v0.1 default and is visible in `score_explanation`. It does not claim a physical fit.
+
+## Cross-shipper sets
+
+A consolidation candidate may include cargo from more than one owner tenant only when every participating opportunity was published with a scope that allows network consolidation. Three or more shippers are the same rule as two: Shipper A, Shipper B, and Shipper C may share one vehicle only as co-loaded cargo units. The candidate stores each owner tenant id internally. The shared view follows [MARKETPLACE_DATA_VISIBILITY_MATRIX.md](MARKETPLACE_DATA_VISIBILITY_MATRIX.md). Shipper A does not receive B's or C's rate, contract, customer identity, internal ids, or tender. The same holds for every other pair.
