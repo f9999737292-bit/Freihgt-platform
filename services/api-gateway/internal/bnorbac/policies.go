@@ -17,6 +17,7 @@ const (
 	PolicyReadOwnCapacity
 	PolicyWithdrawCapacity
 	PolicyViewMarketplaceLoads
+	PolicySearchNextLoad
 	PolicyViewMarketplaceCapacities
 	PolicyReadCompatibility
 	PolicyManageCompatibilityRules
@@ -49,7 +50,7 @@ func policyAllows(policy Policy, companyRoles []string, actorKind string, isPlat
 	switch policy {
 	case PolicyPublishLoad, PolicyReadOwnLoad, PolicyWithdrawLoad, PolicyViewMarketplaceCapacities:
 		return actorKind == companycontext.ActorBuyer && routeauth.HasAnyRole(companyRoles, shipperRoles)
-	case PolicyPublishCapacity, PolicyReadOwnCapacity, PolicyWithdrawCapacity, PolicyViewMarketplaceLoads:
+	case PolicyPublishCapacity, PolicyReadOwnCapacity, PolicyWithdrawCapacity, PolicyViewMarketplaceLoads, PolicySearchNextLoad:
 		return actorKind == companycontext.ActorCarrier && routeauth.HasAnyRole(companyRoles, carrierRoles)
 	case PolicyReadCompatibility:
 		return (actorKind == companycontext.ActorBuyer && routeauth.HasAnyRole(companyRoles, shipperRoles)) ||

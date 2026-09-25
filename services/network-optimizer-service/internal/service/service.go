@@ -15,6 +15,7 @@ import (
 	apperrors "github.com/freight-platform/network-optimizer-service/internal/platform/errors"
 	bnometrics "github.com/freight-platform/network-optimizer-service/internal/platform/metrics"
 	"github.com/freight-platform/network-optimizer-service/internal/predict"
+	"github.com/freight-platform/network-optimizer-service/internal/reference"
 	"github.com/freight-platform/network-optimizer-service/internal/repository"
 	"github.com/freight-platform/network-optimizer-service/internal/routing"
 	"github.com/freight-platform/network-optimizer-service/internal/sourceverify"
@@ -26,6 +27,8 @@ type Service struct {
 	directory locationclient.Directory
 	routes    routing.Provider
 	policies  repository.PolicyStore
+	searches  repository.SearchStore
+	catalog   reference.Catalog
 	sources   predict.Sources
 	policy    predict.Policy
 	now       func() time.Time
@@ -35,7 +38,11 @@ func New(store repository.Store, verifier sourceverify.Verifier) *Service {
 	if verifier == nil {
 		verifier = sourceverify.Unavailable{}
 	}
-	return &Service{store: store, verifier: verifier, now: func() time.Time { return time.Now().UTC() }}
+	svc := &Service{store: store, verifier: verifier, now: func() time.Time { return time.Now().UTC() }}
+	if searches, ok := store.(repository.SearchStore); ok {
+		svc.searches = searches
+	}
+	return svc
 }
 
 func (s *Service) UseDirectory(directory locationclient.Directory) { s.directory = directory }
@@ -43,6 +50,8 @@ func (s *Service) UseDirectory(directory locationclient.Directory) { s.directory
 func (s *Service) UseRouting(provider routing.Provider) { s.routes = provider }
 
 func (s *Service) UsePolicies(store repository.PolicyStore) { s.policies = store }
+
+func (s *Service) UseCatalog(catalog reference.Catalog) { s.catalog = catalog }
 
 func (s *Service) ConfigurePrediction(sources predict.Sources, policy predict.Policy) {
 	s.sources = sources

@@ -508,6 +508,7 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	r.Get("/api/v1/network/predicted-capacities/{id}", networkGuard.WithPolicy(bnorbac.PolicyReadOwnCapacity))
 	r.Post("/api/v1/network/predicted-capacities/{id}/refresh", networkGuard.WithPolicy(bnorbac.PolicyPublishCapacity))
 	r.Post("/api/v1/network/predicted-capacities/{id}/activate", networkGuard.WithPolicy(bnorbac.PolicyPublishCapacity))
+	r.Post("/api/v1/network/next-load/search", networkGuard.WithPolicy(bnorbac.PolicySearchNextLoad))
 	r.Get("/api/v1/network/marketplace/load-opportunities", networkGuard.WithPolicy(bnorbac.PolicyViewMarketplaceLoads))
 	r.Get("/api/v1/network/marketplace/load-opportunities/{id}", networkGuard.WithPolicy(bnorbac.PolicyViewMarketplaceLoads))
 	r.Get("/api/v1/network/marketplace/capacities", networkGuard.WithPolicy(bnorbac.PolicyViewMarketplaceCapacities))

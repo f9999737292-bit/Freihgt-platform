@@ -9,22 +9,30 @@ import (
 )
 
 const (
-	SearchRadius                = "RADIUS"
-	SearchDirectionalCorridor   = "DIRECTIONAL_CORRIDOR"
-	SearchRouteEllipse          = "ROUTE_ELLIPSE"
-	PolicyCarrierDefault        = "CARRIER_DEFAULT"
-	PolicyCapacityOverride      = "CAPACITY_OVERRIDE"
-	PolicySearchRequest         = "SEARCH_REQUEST"
-	HaversineCanonicalRoad      = false
-	ReasonBacktrackRejected     = "BACKTRACK_DIRECTION_REJECTED"
-	ReasonForwardExceeded       = "FORWARD_SEARCH_EXCEEDED"
-	ReasonLateralExceeded       = "CORRIDOR_DEVIATION_EXCEEDED"
-	ReasonDeadheadExceeded      = "MAX_DEADHEAD_EXCEEDED"
-	ReasonRoadDistanceUnknown   = "ROAD_DISTANCE_UNKNOWN"
-	ReasonPickupWindowMissed    = "PICKUP_WINDOW_MISSED"
-	ReasonDirectionTarget       = "DIRECTION_TARGET_REQUIRED"
-	ReasonDirectionTargetGeo    = "DIRECTION_TARGET_GEO_UNKNOWN"
-	ReasonRouteIncreaseExceeded = "ROUTE_INCREASE_EXCEEDED"
+	SearchRadius                  = "RADIUS"
+	SearchDirectionalCorridor     = "DIRECTIONAL_CORRIDOR"
+	SearchRouteEllipse            = "ROUTE_ELLIPSE"
+	PolicyCarrierDefault          = "CARRIER_DEFAULT"
+	PolicyCapacityOverride        = "CAPACITY_OVERRIDE"
+	PolicySearchRequest           = "SEARCH_REQUEST"
+	HaversineCanonicalRoad        = false
+	ReasonBacktrackRejected       = "BACKTRACK_DIRECTION_REJECTED"
+	ReasonForwardExceeded         = "FORWARD_SEARCH_EXCEEDED"
+	ReasonLateralExceeded         = "CORRIDOR_DEVIATION_EXCEEDED"
+	ReasonDeadheadExceeded        = "MAX_DEADHEAD_EXCEEDED"
+	ReasonRoadDistanceUnknown     = "ROAD_DISTANCE_UNKNOWN"
+	ReasonPickupWindowMissed      = "PICKUP_WINDOW_MISSED"
+	ReasonDirectionTarget         = "DIRECTION_TARGET_REQUIRED"
+	ReasonDirectionTargetGeo      = "DIRECTION_TARGET_GEO_UNKNOWN"
+	ReasonRouteIncreaseExceeded   = "ROUTE_INCREASE_EXCEEDED"
+	ReasonDeliveryNotTowardTarget = "DELIVERY_NOT_TOWARD_TARGET"
+	ReasonDeadheadTimeExceeded    = "MAX_DEADHEAD_TIME_EXCEEDED"
+	ReasonPayloadExceeded         = "PAYLOAD_EXCEEDED"
+	ReasonVolumeExceeded          = "VOLUME_EXCEEDED"
+	ReasonOutsideRadius           = "OUTSIDE_RADIUS"
+	ReasonCargoIncompatible       = "CARGO_EQUIPMENT_INCOMPATIBLE"
+	ReasonCargoIndeterminate      = "CARGO_EQUIPMENT_INDETERMINATE"
+	ReasonCapacityFactUnknown     = "CAPACITY_FACT_UNKNOWN"
 )
 
 var (
@@ -98,17 +106,18 @@ type LegDistances struct {
 }
 
 type NextLoadSearchPolicy struct {
-	SearchMode               string
-	TargetLocationID         *uuid.UUID
-	ForwardSearchKm          *float64
-	CorridorDeviationKm      *float64
-	MaxDeadheadKm            *float64
-	PreferredDeadheadKm      *float64
-	MaxDeadheadMinutes       *float64
-	MinLoadedDistanceKm      *float64
-	MaxRouteIncreaseKm       *float64
-	ObjectiveProfile         string
-	AllowUnknownRoadDistance bool
+	SearchMode               string     `json:"search_mode"`
+	TargetLocationID         *uuid.UUID `json:"target_location_id,omitempty"`
+	ForwardSearchKm          *float64   `json:"forward_search_km,omitempty"`
+	CorridorDeviationKm      *float64   `json:"corridor_deviation_km,omitempty"`
+	MaxDeadheadKm            *float64   `json:"max_deadhead_km,omitempty"`
+	PreferredDeadheadKm      *float64   `json:"preferred_deadhead_km,omitempty"`
+	MaxDeadheadMinutes       *float64   `json:"max_deadhead_minutes,omitempty"`
+	MinLoadedDistanceKm      *float64   `json:"min_loaded_distance_km,omitempty"`
+	MaxRouteIncreaseKm       *float64   `json:"max_route_increase_km,omitempty"`
+	RadiusKm                 *float64   `json:"radius_km,omitempty"`
+	ObjectiveProfile         string     `json:"objective_profile,omitempty"`
+	AllowUnknownRoadDistance bool       `json:"allow_unknown_road_distance"`
 }
 
 func (p NextLoadSearchPolicy) Validate() error {
@@ -119,6 +128,15 @@ func (p NextLoadSearchPolicy) Validate() error {
 	}
 	if p.ObjectiveProfile == "" || len(p.ObjectiveProfile) > 64 {
 		return fmt.Errorf("objective_profile is required")
+	}
+	if p.SearchMode == SearchRadius && (p.RadiusKm == nil || *p.RadiusKm <= 0) {
+		return fmt.Errorf("radius_km is required")
+	}
+	if p.SearchMode == SearchDirectionalCorridor && (p.ForwardSearchKm == nil || p.CorridorDeviationKm == nil) {
+		return fmt.Errorf("forward_search_km and corridor_deviation_km are required")
+	}
+	if p.SearchMode == SearchRouteEllipse && p.MaxRouteIncreaseKm == nil {
+		return fmt.Errorf("max_route_increase_km is required")
 	}
 	if p.SearchMode != SearchRadius && p.TargetLocationID == nil {
 		return ErrDirectionTarget
@@ -134,8 +152,15 @@ func (p NextLoadSearchPolicy) Validate() error {
 		{"max_deadhead_minutes", p.MaxDeadheadMinutes},
 		{"min_loaded_distance_km", p.MinLoadedDistanceKm},
 		{"max_route_increase_km", p.MaxRouteIncreaseKm},
+		{"radius_km", p.RadiusKm},
 	}
 	for _, check := range checks {
+		if check.name == "radius_km" {
+			if check.v != nil && *check.v <= 0 {
+				return fmt.Errorf("radius_km must be positive")
+			}
+			continue
+		}
 		if check.v != nil && *check.v < 0 {
 			return fmt.Errorf("%s must be zero or greater", check.name)
 		}
@@ -162,8 +187,15 @@ func (p NextLoadSearchPolicy) ValidateOverride() error {
 		{"max_deadhead_minutes", p.MaxDeadheadMinutes},
 		{"min_loaded_distance_km", p.MinLoadedDistanceKm},
 		{"max_route_increase_km", p.MaxRouteIncreaseKm},
+		{"radius_km", p.RadiusKm},
 	}
 	for _, check := range checks {
+		if check.name == "radius_km" {
+			if check.v != nil && *check.v <= 0 {
+				return fmt.Errorf("radius_km must be positive")
+			}
+			continue
+		}
 		if check.v != nil && *check.v < 0 {
 			return fmt.Errorf("%s must be zero or greater", check.name)
 		}
@@ -228,6 +260,12 @@ func CheckCorridorPlacement(place CorridorPlacement, forwardSearchKm, corridorDe
 // The arguments are road kilometres. Straight-line geometry is not an input.
 func RouteIncreaseKm(baselineRoadKm, releaseToPickupRoadKm, pickupToTargetRoadKm float64) float64 {
 	return releaseToPickupRoadKm + pickupToTargetRoadKm - baselineRoadKm
+}
+
+// NextLoadInsertionIncreaseKm is the full load insertion path minus the direct road baseline.
+// It is road kilometres only: release to pickup, pickup to delivery, and delivery to target.
+func NextLoadInsertionIncreaseKm(baselineRoadKm, releaseToPickupRoadKm, pickupToDeliveryRoadKm, deliveryToTargetRoadKm float64) float64 {
+	return releaseToPickupRoadKm + pickupToDeliveryRoadKm + deliveryToTargetRoadKm - baselineRoadKm
 }
 
 func CheckRouteIncrease(increaseKm, maxRouteIncreaseKm float64) error {
