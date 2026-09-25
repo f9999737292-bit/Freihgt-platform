@@ -36,7 +36,7 @@ Separate from score.
 - `CargoCompatibility` records allowed co-load pairs or classes (same temperature band, shipper opt-in).
 - `CargoIncompatibility` is a hard rule: ADR class conflict, temperature conflict, shipper denial, fragile vs heavy, documented customer exclusion.
 
-A violated incompatibility is `HARD_REJECT`, not a penalty. See [CONSOLIDATION_MODEL.md](CONSOLIDATION_MODEL.md).
+A violated incompatibility is `HARD_REJECT`, not a penalty. See [CONSOLIDATION_MODEL.md](CONSOLIDATION_MODEL.md). BNO-0.1B2 rules also distinguish a `SOFT` deny, which is a warning, and `REQUIRE_SEPARATION` or `REQUIRE_CONDITION`, which stay indeterminate until a later allocator. That behavior is specified in [BNO_0_1B2_REFERENCE_COMPATIBILITY.md](BNO_0_1B2_REFERENCE_COMPATIBILITY.md). It does not add a consolidation solver.
 
 ## Load opportunity
 

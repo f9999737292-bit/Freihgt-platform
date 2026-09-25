@@ -100,19 +100,44 @@ func (s *Store) EvaluationContext(viewer *uuid.UUID) compat.Context {
 		if set.Scope != ScopeSystem && (viewer == nil || set.TenantID == nil || *set.TenantID != *viewer) {
 			continue
 		}
+		ref := compat.RuleSetRef{ID: set.ID.String(), Scope: set.Scope, Version: set.Version}
+		if set.TenantID != nil {
+			tenantID := set.TenantID.String()
+			ref.TenantID = &tenantID
+		}
+		ctx.RuleSets = append(ctx.RuleSets, ref)
 		for _, rule := range set.Rules {
-			ctx.Rules = append(ctx.Rules, compat.Rule{
+			item := compat.Rule{
 				RuleCode: rule.RuleCode, RuleKind: rule.RuleKind, Layer: rule.Layer,
 				LeftSelectorType: rule.LeftSelectorType, LeftSelectorValue: rule.LeftSelectorValue,
 				RightSelectorType: rule.RightSelectorType, RightSelectorValue: rule.RightSelectorValue,
-				Decision: rule.Decision, ReasonCode: rule.ReasonCode, SourceReference: rule.SourceReference,
-				Priority: rule.Priority, RuleSetVersion: set.Version,
-			})
+				Decision: rule.Decision, ReasonCode: rule.ReasonCode, Severity: rule.Severity,
+				RequiredSeparation: rule.RequiredSeparation, SourceReference: rule.SourceReference,
+				Priority: rule.Priority, RuleSetID: set.ID.String(), RuleSetScope: set.Scope, RuleSetVersion: set.Version,
+			}
+			if ref.TenantID != nil {
+				item.RuleSetTenantID = ref.TenantID
+			}
+			if item.Severity == "" {
+				item.Severity = compat.SeverityHard
+			}
+			ctx.Rules = append(ctx.Rules, item)
 		}
+	}
+	for _, version := range s.versions {
+		if !s.activeForViewer(version, viewer) {
+			continue
+		}
+		ref := compat.CatalogVersionRef{ID: version.ID.String(), CatalogKind: version.Kind, Scope: version.Scope, Version: version.Version}
+		if version.TenantID != nil {
+			tenantID := version.TenantID.String()
+			ref.TenantID = &tenantID
+		}
+		ctx.CatalogRefs = append(ctx.CatalogRefs, ref)
 	}
 	ctx.CargoClasses = s.activeCargoClasses(viewer)
 	ctx.EquipmentClasses = s.activeEquipmentClasses(viewer)
-	ctx.Aliases = s.activeAliases(viewer)
+	s.activeAliases(viewer).Apply(&ctx)
 	return ctx
 }
 
@@ -149,27 +174,16 @@ func (s *Store) activeEquipmentClasses(viewer *uuid.UUID) []compat.EquipmentClas
 	return out
 }
 
-func (s *Store) activeAliases(viewer *uuid.UUID) map[string]string {
-	out := map[string]string{}
-	tenant := map[string]string{}
+func (s *Store) activeAliases(viewer *uuid.UUID) *compat.AliasBuilder {
+	builder := compat.NewAliasBuilder()
 	for _, item := range s.aliases {
 		version, ok := s.versionOf(item.VersionID)
 		if !ok || !s.activeForViewer(version, viewer) {
 			continue
 		}
-		if version.Scope == ScopeTenant {
-			tenant[item.AliasCode] = item.CanonicalCode
-			continue
-		}
-		out[item.AliasCode] = item.CanonicalCode
+		builder.Add(version.Kind, version.Scope, item.AliasCode, item.CanonicalCode)
 	}
-	for alias, canonical := range tenant {
-		out[alias] = canonical
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
+	return builder
 }
 
 func (s *Store) versionOf(id uuid.UUID) (Version, bool) {

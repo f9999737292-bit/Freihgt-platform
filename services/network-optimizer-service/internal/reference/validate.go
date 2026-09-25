@@ -2,6 +2,23 @@ package reference
 
 import "strings"
 
+func PrepareRule(rule Rule) (Rule, error) {
+	if strings.TrimSpace(rule.Severity) == "" {
+		rule.Severity = "HARD"
+	}
+	if rule.RequiredSeparation != nil {
+		trimmed := strings.TrimSpace(*rule.RequiredSeparation)
+		rule.RequiredSeparation = &trimmed
+	}
+	if err := ValidateRule(rule); err != nil {
+		return Rule{}, err
+	}
+	if rule.Decision != "REQUIRE_SEPARATION" {
+		rule.RequiredSeparation = nil
+	}
+	return rule, nil
+}
+
 func ValidateRule(rule Rule) error {
 	if strings.TrimSpace(rule.RuleCode) == "" {
 		return errRule("rule_code is required")
@@ -23,6 +40,18 @@ func ValidateRule(rule Rule) error {
 	case "ALLOW", "DENY", "REQUIRE_SEPARATION", "REQUIRE_CONDITION":
 	default:
 		return errRule("invalid decision")
+	}
+	switch rule.Severity {
+	case "HARD", "SOFT":
+	default:
+		return errRule("invalid severity")
+	}
+	if rule.Decision == "REQUIRE_SEPARATION" {
+		if rule.RequiredSeparation == nil || strings.TrimSpace(*rule.RequiredSeparation) == "" {
+			return errRule("required_separation is required")
+		}
+	} else if rule.RequiredSeparation != nil && strings.TrimSpace(*rule.RequiredSeparation) != "" {
+		return errRule("required_separation is only valid for REQUIRE_SEPARATION")
 	}
 	if rule.Layer == "REGULATORY" && (rule.SourceReference == nil || strings.TrimSpace(*rule.SourceReference) == "") {
 		return errRule("REGULATORY rule requires source_reference")

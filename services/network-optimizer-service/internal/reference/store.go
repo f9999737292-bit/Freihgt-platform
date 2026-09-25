@@ -70,6 +70,8 @@ type Rule struct {
 	RightSelectorValue string  `json:"right_selector_value"`
 	Decision           string  `json:"decision"`
 	ReasonCode         string  `json:"reason_code"`
+	Severity           string  `json:"severity,omitempty"`
+	RequiredSeparation *string `json:"required_separation,omitempty"`
 	SourceReference    *string `json:"source_reference,omitempty"`
 	Priority           int     `json:"priority"`
 }
@@ -225,9 +227,11 @@ func (s *Store) AddRule(actorTenant *uuid.UUID, setID uuid.UUID, rule Rule) erro
 	if err != nil {
 		return err
 	}
-	if err := ValidateRule(rule); err != nil {
+	prepared, err := PrepareRule(rule)
+	if err != nil {
 		return err
 	}
+	rule = prepared
 	if set.Scope == ScopeTenant && rule.Layer == "REGULATORY" {
 		return fmt.Errorf("tenant rule cannot be regulatory")
 	}

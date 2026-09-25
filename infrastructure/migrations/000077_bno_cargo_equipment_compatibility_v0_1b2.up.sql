@@ -129,6 +129,30 @@ CREATE TABLE network_optimizer.equipment_type_catalog (
         AND (internal_width_mm IS NULL OR internal_width_mm > 0)
         AND (internal_height_mm IS NULL OR internal_height_mm > 0)
     ),
+    CONSTRAINT equipment_type_body_chk CHECK (body_type IN (
+        'TENT', 'CONTAINER', 'ISOTHERMAL', 'REFRIGERATOR', 'BOX', 'PLATFORM', 'LOWBED', 'TANK', 'TIPPER', 'CAR_CARRIER', 'TIMBER', 'OTHER'
+    )),
+    CONSTRAINT equipment_type_combination_chk CHECK (
+        combination_type IS NULL OR combination_type IN ('TRUCK', 'TRACTOR_SEMITRAILER', 'TRUCK_TRAILER', 'ROAD_TRAIN', 'OTHER')
+    ),
+    CONSTRAINT equipment_type_loading_access_chk CHECK (
+        loading_access IS NULL OR loading_access <@ ARRAY['REAR', 'SIDE', 'TOP']::text[]
+    ),
+    CONSTRAINT equipment_type_unloading_access_chk CHECK (
+        unloading_access IS NULL OR unloading_access <@ ARRAY['REAR', 'SIDE', 'TOP']::text[]
+    ),
+    CONSTRAINT equipment_type_temperature_mode_chk CHECK (
+        temperature_control_mode IS NULL OR temperature_control_mode IN ('NONE', 'PASSIVE', 'ACTIVE')
+    ),
+    CONSTRAINT equipment_type_temperature_range_chk CHECK (
+        temperature_min_c IS NULL OR temperature_max_c IS NULL OR temperature_min_c <= temperature_max_c
+    ),
+    CONSTRAINT equipment_type_temperature_zone_chk CHECK (
+        temperature_zone_count IS NULL OR temperature_zone_count >= 1
+    ),
+    CONSTRAINT equipment_type_container_size_chk CHECK (
+        container_size IS NULL OR container_size IN ('20FT', '40FT', '40HC', '45FT', 'REEFER_CONTAINER')
+    ),
     UNIQUE (version_id, code)
 );
 
@@ -219,6 +243,11 @@ CREATE TABLE network_optimizer.compatibility_rules (
     CONSTRAINT compatibility_rule_decision_chk CHECK (decision IN ('ALLOW', 'DENY', 'REQUIRE_SEPARATION', 'REQUIRE_CONDITION')),
     CONSTRAINT compatibility_rule_regulatory_source_chk CHECK (
         layer <> 'REGULATORY' OR (source_reference IS NOT NULL AND btrim(source_reference) <> '')
+    ),
+    CONSTRAINT compatibility_rule_severity_chk CHECK (severity IN ('HARD', 'SOFT')),
+    CONSTRAINT compatibility_rule_separation_chk CHECK (
+        (decision = 'REQUIRE_SEPARATION' AND required_separation IS NOT NULL AND btrim(required_separation) <> '')
+        OR (decision <> 'REQUIRE_SEPARATION' AND required_separation IS NULL)
     ),
     UNIQUE (rule_set_id, rule_code)
 );

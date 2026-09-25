@@ -87,7 +87,7 @@ func TestPostgresRuntimeCatalog(t *testing.T) {
 	t.Run("BNO146_EQUIPMENT_PROFILE_DERIVED_FROM_CATALOG", func(t *testing.T) {
 		if _, err := pool.Exec(ctx, `
 			UPDATE network_optimizer.equipment_type_catalog
-			SET nominal_payload_kg = 22000, body_type = 'REEFER'
+			SET nominal_payload_kg = 22000, body_type = 'REFRIGERATOR'
 			WHERE code = 'SEMITRAILER_REEFER'`); err != nil {
 			t.Fatal(err)
 		}

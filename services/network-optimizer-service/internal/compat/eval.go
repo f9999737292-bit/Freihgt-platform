@@ -24,6 +24,8 @@ func EvaluateGroupage(equipment Equipment, cargoes []Cargo, need AccessNeed, ctx
 			"cargo": ctx.CargoCatalogVersion, "equipment": ctx.EquipmentCatalogVersion,
 			"pallet": ctx.PalletCatalogVersion, "packaging": ctx.PackagingCatalogVersion,
 		},
+		RuleSetsUsed:        sortedRuleSets(ctx.RuleSets),
+		CatalogVersionsUsed: sortedCatalogRefs(ctx.CatalogRefs),
 	}
 	merge(&out, classResult)
 	for _, cargo := range items {
@@ -33,14 +35,9 @@ func EvaluateGroupage(equipment Equipment, cargoes []Cargo, need AccessNeed, ctx
 	}
 	for i := 0; i < len(items); i++ {
 		for j := i + 1; j < len(items); j++ {
-			pair := cargoPair(items[i], items[j], ctx)
+			pair, part := cargoPair(items[i], items[j], ctx)
 			out.CargoPairs = append(out.CargoPairs, pair)
-			if pair.Status == StatusIncompatible {
-				out.HardRejects = append(out.HardRejects, pair.Reasons...)
-			}
-			if pair.Status == StatusIndeterminate {
-				out.IndeterminateReasons = append(out.IndeterminateReasons, pair.Reasons...)
-			}
+			merge(&out, part)
 		}
 	}
 	usage, physical := capacity(items, equipment, ctx)
@@ -86,34 +83,19 @@ func cargoEquipment(cargo Cargo, equipment Equipment, need AccessNeed, ctx Conte
 	return out
 }
 
-func cargoPair(a, b Cargo, ctx Context) PairResult {
-	var reasons []Reason
-	status := StatusCompatible
+func cargoPair(a, b Cargo, ctx Context) (PairResult, Result) {
+	var part Result
 	for _, rule := range matchingPair(a, b, ctx.Rules) {
-		reason := reasonFrom(rule, "cargo_cargo")
-		switch rule.Decision {
-		case DecisionDeny:
-			if rule.Layer == LayerTenant && systemDenies(a, b, ctx.Rules) {
-				reasons = append(reasons, reason)
-				status = StatusIncompatible
-				continue
-			}
-			reasons = append(reasons, reason)
-			status = StatusIncompatible
-		case DecisionRequireSeparation, DecisionRequireCondition:
-			if status != StatusIncompatible {
-				status = StatusIndeterminate
-			}
-			reasons = append(reasons, reason)
-		}
+		applyRule(&part, rule, "cargo_cargo")
 	}
 	if a.ContaminationClass == nil && ruleNeeds(ctx.Rules, "CONTAMINATION_CLASS") && (hasTag(a, "FOOD") || hasTag(b, "FOOD")) {
-		reasons = append(reasons, Reason{ReasonCode: "CONTAMINATION_COMPATIBILITY_RULE", Dimension: "contamination"})
-		if status != StatusIncompatible {
-			status = StatusIndeterminate
-		}
+		add(&part, false, Reason{ReasonCode: "CONTAMINATION_COMPATIBILITY_RULE", Dimension: "contamination"})
 	}
-	return PairResult{Left: a.ID, Right: b.ID, Status: status, Reasons: reasons}
+	part.Status = resolve(part)
+	reasons := append([]Reason{}, part.HardRejects...)
+	reasons = append(reasons, part.IndeterminateReasons...)
+	reasons = append(reasons, part.Warnings...)
+	return PairResult{Left: a.ID, Right: b.ID, Status: part.Status, Reasons: reasons}, part
 }
 
 func capacity(cargoes []Cargo, equipment Equipment, ctx Context) (Usage, Result) {
@@ -400,6 +382,10 @@ func applyRule(out *Result, rule Rule, dimension string) {
 	reason := reasonFrom(rule, dimension)
 	switch rule.Decision {
 	case DecisionDeny:
+		if rule.Severity == SeveritySoft {
+			out.Warnings = append(out.Warnings, reason)
+			return
+		}
 		out.HardRejects = append(out.HardRejects, reason)
 	case DecisionRequireCondition, DecisionRequireSeparation:
 		out.Conditions = append(out.Conditions, reason)
@@ -433,15 +419,6 @@ func matchingPair(a, b Cargo, rules []Rule) []Rule {
 		}
 	}
 	return matched
-}
-
-func systemDenies(a, b Cargo, rules []Rule) bool {
-	for _, rule := range matchingPair(a, b, rules) {
-		if rule.Decision == DecisionDeny && (rule.Layer == LayerRegulatory || rule.Layer == LayerPlatform) {
-			return true
-		}
-	}
-	return false
 }
 
 func sortedRules(rules []Rule) []Rule {
@@ -600,7 +577,19 @@ func reasonFrom(rule Rule, dimension string) Reason {
 		code = "CARGO_PAIR_INCOMPATIBLE"
 	}
 	version := rule.RuleSetVersion
-	return Reason{ReasonCode: code, Dimension: dimension, RuleCode: &rule.RuleCode, RuleSetVersion: &version, SourceReference: rule.SourceReference}
+	reason := Reason{
+		ReasonCode: code, Dimension: dimension, RuleCode: &rule.RuleCode,
+		RuleSetVersion: &version, RequiredSeparation: rule.RequiredSeparation, SourceReference: rule.SourceReference,
+	}
+	if rule.RuleSetID != "" {
+		id := rule.RuleSetID
+		reason.RuleSetID = &id
+	}
+	if rule.RuleSetScope != "" {
+		scope := rule.RuleSetScope
+		reason.RuleSetScope = &scope
+	}
+	return reason
 }
 
 func ruleVersions(rules []Rule) []int {
@@ -718,6 +707,8 @@ func sumFloat(values []*float64) (float64, bool) {
 }
 
 func fingerprint(equipment Equipment, cargoes []Cargo, ctx Context) string {
+	ctx.RuleSets = sortedRuleSets(ctx.RuleSets)
+	ctx.CatalogRefs = sortedCatalogRefs(ctx.CatalogRefs)
 	body := struct {
 		Equipment Equipment `json:"equipment"`
 		Cargoes   []Cargo   `json:"cargoes"`
@@ -726,6 +717,43 @@ func fingerprint(equipment Equipment, cargoes []Cargo, ctx Context) string {
 	raw, _ := json.Marshal(body)
 	sum := sha256.Sum256(raw)
 	return hex.EncodeToString(sum[:])
+}
+
+func sortedRuleSets(items []RuleSetRef) []RuleSetRef {
+	out := append([]RuleSetRef{}, items...)
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Scope != out[j].Scope {
+			return out[i].Scope < out[j].Scope
+		}
+		if out[i].ID != out[j].ID {
+			return out[i].ID < out[j].ID
+		}
+		return out[i].Version < out[j].Version
+	})
+	if out == nil {
+		return []RuleSetRef{}
+	}
+	return out
+}
+
+func sortedCatalogRefs(items []CatalogVersionRef) []CatalogVersionRef {
+	out := append([]CatalogVersionRef{}, items...)
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].CatalogKind != out[j].CatalogKind {
+			return out[i].CatalogKind < out[j].CatalogKind
+		}
+		if out[i].Scope != out[j].Scope {
+			return out[i].Scope < out[j].Scope
+		}
+		if out[i].ID != out[j].ID {
+			return out[i].ID < out[j].ID
+		}
+		return out[i].Version < out[j].Version
+	})
+	if out == nil {
+		return []CatalogVersionRef{}
+	}
+	return out
 }
 
 func ApplyCatalogDefault(cargo Cargo, defaults Cargo) Cargo {

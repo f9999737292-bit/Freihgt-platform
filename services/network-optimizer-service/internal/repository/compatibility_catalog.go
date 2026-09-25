@@ -121,22 +121,26 @@ func (p *Postgres) CreateRuleSet(ctx context.Context, actor, tenant uuid.UUID) (
 }
 
 func (p *Postgres) AddRule(ctx context.Context, actor, tenant, setID uuid.UUID, rule reference.Rule) error {
-	if err := reference.ValidateRule(rule); err != nil {
+	prepared, err := reference.PrepareRule(rule)
+	if err != nil {
 		return err
 	}
+	rule = prepared
 	if err := p.requireDraft(ctx, tenant, setID); err != nil {
 		return err
 	}
 	if rule.Layer == "REGULATORY" {
 		return fmt.Errorf("tenant rule cannot be regulatory")
 	}
-	_, err := p.pool.Exec(ctx, `
+	_, err = p.pool.Exec(ctx, `
 		INSERT INTO network_optimizer.compatibility_rules (
 			id, rule_set_id, rule_code, rule_kind, layer, left_selector_type, left_selector_value,
-			right_selector_type, right_selector_value, decision, reason_code, source_reference, priority
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+			right_selector_type, right_selector_value, decision, reason_code, source_reference, priority,
+			severity, required_separation
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
 		uuid.New(), setID, rule.RuleCode, rule.RuleKind, rule.Layer, rule.LeftSelectorType, rule.LeftSelectorValue,
-		rule.RightSelectorType, rule.RightSelectorValue, rule.Decision, rule.ReasonCode, rule.SourceReference, rule.Priority)
+		rule.RightSelectorType, rule.RightSelectorValue, rule.Decision, rule.ReasonCode, rule.SourceReference, rule.Priority,
+		rule.Severity, rule.RequiredSeparation)
 	if err != nil {
 		return err
 	}
@@ -213,34 +217,60 @@ func (p *Postgres) RetireRuleSet(ctx context.Context, actor, tenant, setID uuid.
 func (p *Postgres) Evaluation(ctx context.Context, tenant uuid.UUID) (compat.Context, error) {
 	out := compat.Context{Rules: []compat.Rule{}}
 	rows, err := p.pool.Query(ctx, `
-		SELECT catalog_kind, version FROM network_optimizer.reference_catalog_versions
-		WHERE status = 'ACTIVE' AND scope = 'SYSTEM'`)
+		SELECT id::text, catalog_kind, scope, tenant_id::text, version
+		FROM network_optimizer.reference_catalog_versions
+		WHERE status = 'ACTIVE' AND (scope = 'SYSTEM' OR tenant_id = $1)`, tenant)
 	if err != nil {
 		return out, err
 	}
 	for rows.Next() {
-		var kind string
-		var version int
-		if err := rows.Scan(&kind, &version); err != nil {
+		var ref compat.CatalogVersionRef
+		if err := rows.Scan(&ref.ID, &ref.CatalogKind, &ref.Scope, &ref.TenantID, &ref.Version); err != nil {
 			rows.Close()
 			return out, err
 		}
-		switch kind {
+		out.CatalogRefs = append(out.CatalogRefs, ref)
+		if ref.Scope != reference.ScopeSystem {
+			continue
+		}
+		switch ref.CatalogKind {
 		case "CARGO_TYPE":
-			out.CargoCatalogVersion = version
+			out.CargoCatalogVersion = ref.Version
 		case "EQUIPMENT_TYPE":
-			out.EquipmentCatalogVersion = version
+			out.EquipmentCatalogVersion = ref.Version
 		case "PALLET_TYPE":
-			out.PalletCatalogVersion = version
+			out.PalletCatalogVersion = ref.Version
 		case "PACKAGING_TYPE":
-			out.PackagingCatalogVersion = version
+			out.PackagingCatalogVersion = ref.Version
 		}
 	}
 	rows.Close()
+	if err := rows.Err(); err != nil {
+		return out, err
+	}
+	sets, err := p.pool.Query(ctx, `
+		SELECT id::text, scope, tenant_id::text, version
+		FROM network_optimizer.compatibility_rule_sets
+		WHERE status = 'ACTIVE' AND (scope = 'SYSTEM' OR tenant_id = $1)`, tenant)
+	if err != nil {
+		return out, err
+	}
+	for sets.Next() {
+		var ref compat.RuleSetRef
+		if err := sets.Scan(&ref.ID, &ref.Scope, &ref.TenantID, &ref.Version); err != nil {
+			sets.Close()
+			return out, err
+		}
+		out.RuleSets = append(out.RuleSets, ref)
+	}
+	sets.Close()
+	if err := sets.Err(); err != nil {
+		return out, err
+	}
 	rules, err := p.pool.Query(ctx, `
 		SELECT r.rule_code, r.rule_kind, r.layer, r.left_selector_type, r.left_selector_value,
-			r.right_selector_type, r.right_selector_value, r.decision, r.reason_code, r.source_reference,
-			r.priority, s.version
+			r.right_selector_type, r.right_selector_value, r.decision, r.reason_code, r.severity,
+			r.required_separation, r.source_reference, r.priority, s.id::text, s.scope, s.tenant_id::text, s.version
 		FROM network_optimizer.compatibility_rules r
 		JOIN network_optimizer.compatibility_rule_sets s ON s.id = r.rule_set_id
 		WHERE s.status = 'ACTIVE' AND (s.scope = 'SYSTEM' OR s.tenant_id = $1)
@@ -251,7 +281,7 @@ func (p *Postgres) Evaluation(ctx context.Context, tenant uuid.UUID) (compat.Con
 	defer rules.Close()
 	for rules.Next() {
 		var rule compat.Rule
-		if err := rules.Scan(&rule.RuleCode, &rule.RuleKind, &rule.Layer, &rule.LeftSelectorType, &rule.LeftSelectorValue, &rule.RightSelectorType, &rule.RightSelectorValue, &rule.Decision, &rule.ReasonCode, &rule.SourceReference, &rule.Priority, &rule.RuleSetVersion); err != nil {
+		if err := rules.Scan(&rule.RuleCode, &rule.RuleKind, &rule.Layer, &rule.LeftSelectorType, &rule.LeftSelectorValue, &rule.RightSelectorType, &rule.RightSelectorValue, &rule.Decision, &rule.ReasonCode, &rule.Severity, &rule.RequiredSeparation, &rule.SourceReference, &rule.Priority, &rule.RuleSetID, &rule.RuleSetScope, &rule.RuleSetTenantID, &rule.RuleSetVersion); err != nil {
 			return out, err
 		}
 		out.Rules = append(out.Rules, rule)
@@ -331,7 +361,7 @@ func (p *Postgres) loadEquipmentClasses(ctx context.Context, tenant uuid.UUID, o
 
 func (p *Postgres) loadAliases(ctx context.Context, tenant uuid.UUID, out *compat.Context) error {
 	rows, err := p.pool.Query(ctx, `
-		SELECT a.alias_code, a.canonical_code, v.scope
+		SELECT a.alias_code, a.canonical_code, v.catalog_kind, v.scope
 		FROM network_optimizer.catalog_aliases a
 		JOIN network_optimizer.reference_catalog_versions v ON v.id = a.version_id
 		WHERE v.status = 'ACTIVE' AND (v.scope = 'SYSTEM' OR v.tenant_id = $1)`, tenant)
@@ -339,46 +369,18 @@ func (p *Postgres) loadAliases(ctx context.Context, tenant uuid.UUID, out *compa
 		return err
 	}
 	defer rows.Close()
-	system := map[string]string{}
-	overlay := map[string]string{}
-	seenSystem := map[string]int{}
-	seenTenant := map[string]int{}
+	builder := compat.NewAliasBuilder()
 	for rows.Next() {
-		var alias, canonical, scope string
-		if err := rows.Scan(&alias, &canonical, &scope); err != nil {
+		var alias, canonical, kind, scope string
+		if err := rows.Scan(&alias, &canonical, &kind, &scope); err != nil {
 			return err
 		}
-		if scope == reference.ScopeTenant {
-			seenTenant[alias]++
-			overlay[alias] = canonical
-			continue
-		}
-		seenSystem[alias]++
-		system[alias] = canonical
+		builder.Add(kind, scope, alias, canonical)
 	}
 	if err := rows.Err(); err != nil {
 		return err
 	}
-	for alias, count := range seenSystem {
-		if count > 1 {
-			out.CatalogInvalid = true
-			return nil
-		}
-		_ = alias
-	}
-	for alias, count := range seenTenant {
-		if count > 1 {
-			out.CatalogInvalid = true
-			return nil
-		}
-		_ = alias
-	}
-	for alias, canonical := range overlay {
-		system[alias] = canonical
-	}
-	if len(system) > 0 {
-		out.Aliases = system
-	}
+	builder.Apply(out)
 	return nil
 }
 

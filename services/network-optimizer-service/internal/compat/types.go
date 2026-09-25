@@ -19,8 +19,11 @@ const (
 	DecisionDeny              = "DENY"
 	DecisionRequireSeparation = "REQUIRE_SEPARATION"
 	DecisionRequireCondition  = "REQUIRE_CONDITION"
-	KindCargoCargo            = "CARGO_CARGO"
-	KindCargoEquipment        = "CARGO_EQUIPMENT"
+
+	SeverityHard       = "HARD"
+	SeveritySoft       = "SOFT"
+	KindCargoCargo     = "CARGO_CARGO"
+	KindCargoEquipment = "CARGO_EQUIPMENT"
 )
 
 type Cargo struct {
@@ -94,10 +97,29 @@ type Rule struct {
 	RightSelectorValue string
 	Decision           string
 	ReasonCode         string
+	Severity           string
 	RequiredSeparation *string
 	SourceReference    *string
 	Priority           int
+	RuleSetID          string
+	RuleSetScope       string
+	RuleSetTenantID    *string
 	RuleSetVersion     int
+}
+
+type RuleSetRef struct {
+	ID       string  `json:"id"`
+	Scope    string  `json:"scope"`
+	TenantID *string `json:"tenant_id,omitempty"`
+	Version  int     `json:"version"`
+}
+
+type CatalogVersionRef struct {
+	ID          string  `json:"id"`
+	CatalogKind string  `json:"catalog_kind"`
+	Scope       string  `json:"scope"`
+	TenantID    *string `json:"tenant_id,omitempty"`
+	Version     int     `json:"version"`
 }
 
 type Equivalence struct {
@@ -143,20 +165,28 @@ type Context struct {
 	PalletCatalogVersion    int
 	PackagingCatalogVersion int
 	Rules                   []Rule
+	RuleSets                []RuleSetRef
+	CatalogRefs             []CatalogVersionRef
 	Equivalences            []Equivalence
 	CargoClasses            []CargoClass
 	EquipmentClasses        []EquipmentClass
-	Aliases                 map[string]string
+	CargoAliases            map[string]string
+	EquipmentAliases        map[string]string
+	PalletAliases           map[string]string
+	PackagingAliases        map[string]string
 	CatalogInvalid          bool
 }
 
 type Reason struct {
-	ReasonCode      string  `json:"reason_code"`
-	Dimension       string  `json:"dimension"`
-	RuleCode        *string `json:"rule_code,omitempty"`
-	RuleSetVersion  *int    `json:"rule_set_version,omitempty"`
-	CatalogVersion  *int    `json:"catalog_version,omitempty"`
-	SourceReference *string `json:"source_reference,omitempty"`
+	ReasonCode         string  `json:"reason_code"`
+	Dimension          string  `json:"dimension"`
+	RuleCode           *string `json:"rule_code,omitempty"`
+	RuleSetID          *string `json:"rule_set_id,omitempty"`
+	RuleSetScope       *string `json:"rule_set_scope,omitempty"`
+	RuleSetVersion     *int    `json:"rule_set_version,omitempty"`
+	RequiredSeparation *string `json:"required_separation,omitempty"`
+	CatalogVersion     *int    `json:"catalog_version,omitempty"`
+	SourceReference    *string `json:"source_reference,omitempty"`
 }
 
 type PairResult struct {
@@ -193,6 +223,8 @@ type Result struct {
 	CapacityUsage        *Usage              `json:"capacity_usage,omitempty"`
 	Temperature          *TemperatureOutcome `json:"temperature,omitempty"`
 	RuleSetVersions      []int               `json:"rule_set_versions"`
+	RuleSetsUsed         []RuleSetRef        `json:"rule_sets_used"`
 	CatalogVersions      map[string]int      `json:"catalog_versions"`
+	CatalogVersionsUsed  []CatalogVersionRef `json:"catalog_versions_used"`
 	Fingerprint          string              `json:"fingerprint"`
 }

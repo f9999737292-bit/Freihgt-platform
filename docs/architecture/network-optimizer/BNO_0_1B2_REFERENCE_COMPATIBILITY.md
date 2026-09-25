@@ -24,7 +24,7 @@ For a tenant evaluation the active system catalog is the base. An active tenant 
 
 Equipment unit kind is separate from combination type and body type: `TRUCK_BODY`, `TRAILER`, `SEMITRAILER`, `CONTAINER_CHASSIS`, `SWAP_BODY`, `OTHER`. An equipment type catalog row is a reference profile. When a planning default is used because the asset fact is null, provenance is `REFERENCE_DEFAULT`. A measured vehicle value stays `ASSET_CONFIRMED`. A specific cargo fact stays `CARGO_CONFIRMED` and is not replaced by a weaker catalog default.
 
-Aliases resolve only through an explicit alias row. Text such as "реф" is not inferred.
+Aliases resolve only through an explicit alias row in the same catalog kind. A cargo alias and an equipment alias may share a token. Text such as "реф" is not inferred.
 
 ## Physical checks
 
@@ -44,9 +44,15 @@ A regulatory rule requires `source_reference`. Dangerous cargo with unknown ADR 
 
 Rule kinds are `CARGO_CARGO` and `CARGO_EQUIPMENT`. Selectors are explicit tokens such as cargo type, parent, tag, odor class, contamination class, and hazard class. There is no expression evaluator.
 
+Severity is `HARD` or `SOFT`. The default is `HARD`. `DENY` plus `HARD` is a hard reject and makes the result `INCOMPATIBLE`. `DENY` plus `SOFT` is a warning and does not by itself make the candidate incompatible. `REQUIRE_SEPARATION` stays `INDETERMINATE` and returns `conditions[]` with `reason_code`, `rule_code`, the rule-set id, scope, and version, and `required_separation`. `required_separation` is a structural condition identifier such as `PHYSICAL_PARTITION`. It is not a claim that the condition satisfies legislation, and this release does not prove that the separation exists. `REQUIRE_CONDITION` is also `INDETERMINATE`. Its `reason_code` names the condition. No allocator satisfies it here. `ALLOW` adds no rejection. `required_separation` is stored only for `REQUIRE_SEPARATION`.
+
 Precedence is regulatory hard deny, then platform hard deny, then tenant hard deny, then conditions, then allow. A tenant rule may add a restriction. It cannot clear a higher hard deny, and a tenant cannot create a regulatory rule.
 
-Groupage evaluates every cargo against the equipment and every unordered pair. Any hard reject makes the candidate incompatible. Capacity usage reports the sums that were actually known. The same facts and active versions produce the same status, reasons, and fingerprint. Cargo order is canonicalized before the fingerprint.
+The authoritative trace is `rule_sets_used[]` and `catalog_versions_used[]`. Each entry has id, scope, optional tenant id, and version. A system version 1 and a tenant version 1 stay distinct. `rule_set_versions` and `catalog_versions` remain the older integer summaries. A reason that comes from a rule carries `rule_code`, `rule_set_id`, `rule_set_scope`, and `rule_set_version`. The fingerprint includes those scoped references. The same facts with a different active tenant catalog version, or the same version number on a different rule-set id, produce a different fingerprint.
+
+Aliases are exact and catalog-kind scoped. A cargo alias is not an equipment alias. Within one kind, a tenant alias overrides the system alias for that tenant. A duplicate alias in one active stream fails closed. Text such as "реф" is not inferred.
+
+Groupage evaluates every cargo against the equipment and every unordered pair. Any hard reject makes the candidate incompatible. Capacity usage reports the sums that were actually known. Cargo order is canonicalized before the fingerprint.
 
 ## Security
 

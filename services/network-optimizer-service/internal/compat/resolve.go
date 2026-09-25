@@ -19,16 +19,21 @@ func ResolveProfiles(equipment Equipment, cargoes []Cargo, ctx Context) (Equipme
 	}
 	if cargoAuthoritative(ctx) {
 		for i := range cargoes {
-			next, reason := resolveCargo(cargoes[i], cargoIndex, ctx.Aliases)
+			next, reason := resolveCargo(cargoes[i], cargoIndex, ctx.CargoAliases)
 			cargoes[i] = next
 			add(&out, false, reason)
 		}
 	}
 	if equipmentAuthoritative(ctx) {
-		next, reason := resolveEquipment(equipment, equipmentIndex, ctx.Aliases)
+		next, reason := resolveEquipment(equipment, equipmentIndex, ctx.EquipmentAliases)
 		equipment = next
 		add(&out, false, reason)
 	}
+	for i := range cargoes {
+		rewriteExactAlias(&cargoes[i].PalletTypeCode, ctx.PalletAliases)
+		rewriteExactAlias(&cargoes[i].PackagingTypeCode, ctx.PackagingAliases)
+	}
+	rewriteExactAlias(&equipment.PalletBasisCode, ctx.PalletAliases)
 	out.Status = resolve(out)
 	return equipment, cargoes, out
 }
@@ -243,6 +248,82 @@ func applyBool(dst **bool, src *bool, provenance map[string]string, name string)
 	value := *src
 	*dst = &value
 	provenance[name] = ProvenanceReferenceDefault
+}
+
+func rewriteExactAlias(code **string, aliases map[string]string) {
+	if code == nil || *code == nil || len(aliases) == 0 {
+		return
+	}
+	canonical, ok := aliases[strings.TrimSpace(**code)]
+	if !ok {
+		return
+	}
+	**code = canonical
+}
+
+type AliasBuilder struct {
+	system  map[string]map[string]string
+	tenant  map[string]map[string]string
+	invalid bool
+}
+
+func NewAliasBuilder() *AliasBuilder {
+	return &AliasBuilder{system: map[string]map[string]string{}, tenant: map[string]map[string]string{}}
+}
+
+func (b *AliasBuilder) Add(kind, scope, alias, canonical string) {
+	kind = strings.TrimSpace(kind)
+	alias = strings.TrimSpace(alias)
+	canonical = strings.TrimSpace(canonical)
+	switch kind {
+	case "CARGO_TYPE", "EQUIPMENT_TYPE", "PALLET_TYPE", "PACKAGING_TYPE":
+	default:
+		b.invalid = true
+		return
+	}
+	if alias == "" || canonical == "" {
+		b.invalid = true
+		return
+	}
+	dest := b.system
+	if scope == "TENANT" {
+		dest = b.tenant
+	}
+	bucket := dest[kind]
+	if bucket == nil {
+		bucket = map[string]string{}
+		dest[kind] = bucket
+	}
+	if _, exists := bucket[alias]; exists {
+		b.invalid = true
+		return
+	}
+	bucket[alias] = canonical
+}
+
+func (b *AliasBuilder) Apply(ctx *Context) {
+	if b.invalid {
+		ctx.CatalogInvalid = true
+		return
+	}
+	ctx.CargoAliases = mergeAliasKind(b.system["CARGO_TYPE"], b.tenant["CARGO_TYPE"])
+	ctx.EquipmentAliases = mergeAliasKind(b.system["EQUIPMENT_TYPE"], b.tenant["EQUIPMENT_TYPE"])
+	ctx.PalletAliases = mergeAliasKind(b.system["PALLET_TYPE"], b.tenant["PALLET_TYPE"])
+	ctx.PackagingAliases = mergeAliasKind(b.system["PACKAGING_TYPE"], b.tenant["PACKAGING_TYPE"])
+}
+
+func mergeAliasKind(system, tenant map[string]string) map[string]string {
+	if len(system) == 0 && len(tenant) == 0 {
+		return nil
+	}
+	out := map[string]string{}
+	for alias, canonical := range system {
+		out[alias] = canonical
+	}
+	for alias, canonical := range tenant {
+		out[alias] = canonical
+	}
+	return out
 }
 
 func applyStrings(dst *[]string, src []string, provenance map[string]string, name string) {
