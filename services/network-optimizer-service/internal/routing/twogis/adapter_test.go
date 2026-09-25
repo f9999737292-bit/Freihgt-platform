@@ -286,6 +286,139 @@ func TestBNO200MatrixFailedCellNotZeroDistance(t *testing.T) {
 	}
 }
 
+func TestBNO202MatrixCurrentSendsJam(t *testing.T) {
+	var seen []capturedMatrix
+	adapter := capturingMatrix(t, &seen)
+	when := time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)
+	points := routing.MatrixRequest{
+		Origins: []routing.Point{{Latitude: 56.8, Longitude: 60.6}}, Destinations: []routing.Point{{Latitude: 55.7, Longitude: 37.6}},
+	}
+	current := points
+	current.TrafficMode = routing.TrafficCurrent
+	current.RouteMode = routing.RouteFastest
+	current.DepartureAt = &when
+	first, err := adapter.Matrix(context.Background(), current)
+	if err != nil {
+		t.Fatal(err)
+	}
+	implicit := points
+	second, err := adapter.Matrix(context.Background(), implicit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := seen[0].body
+	if body["transport"] != "truck" || body["type"] != "jam" || seen[0].version != "2.0" {
+		t.Fatalf("BNO202 %+v version %s", body, seen[0].version)
+	}
+	if _, sent := body["start_time"]; sent {
+		t.Fatal("BNO202 sent start_time for current traffic")
+	}
+	assertNoInternalMatrixEnums(t, body)
+	if first.RequestFingerprint != second.RequestFingerprint || first.TrafficMode != routing.TrafficCurrent || first.RouteMode != routing.RouteFastest {
+		t.Fatalf("BNO202 fingerprint treated an unsent field as distinct %s %s", first.RequestFingerprint, second.RequestFingerprint)
+	}
+}
+
+func TestBNO203MatrixStatisticalSendsStatistics(t *testing.T) {
+	var seen []capturedMatrix
+	adapter := capturingMatrix(t, &seen)
+	when := time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)
+	result, err := adapter.Matrix(context.Background(), routing.MatrixRequest{
+		Origins: []routing.Point{{Latitude: 56.8, Longitude: 60.6}}, Destinations: []routing.Point{{Latitude: 55.7, Longitude: 37.6}},
+		TrafficMode: routing.TrafficStatistical, RouteMode: routing.RouteFastest, DepartureAt: &when,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := seen[0].body
+	if body["type"] != "statistics" || body["start_time"] != "2026-09-25T12:00:00Z" || body["transport"] != "truck" {
+		t.Fatalf("BNO203 %+v", body)
+	}
+	assertNoInternalMatrixEnums(t, body)
+	jam, err := adapter.Matrix(context.Background(), routing.MatrixRequest{
+		Origins: []routing.Point{{Latitude: 56.8, Longitude: 60.6}}, Destinations: []routing.Point{{Latitude: 55.7, Longitude: 37.6}},
+		TrafficMode: routing.TrafficCurrent, RouteMode: routing.RouteFastest,
+	})
+	if err != nil || result.RequestFingerprint == jam.RequestFingerprint || seen[1].body["type"] != "jam" {
+		t.Fatalf("BNO203 jam and statistics share a fingerprint %s %s", result.RequestFingerprint, jam.RequestFingerprint)
+	}
+}
+
+func TestBNO204MatrixStatisticalWithoutTimeFailsClosed(t *testing.T) {
+	var seen []capturedMatrix
+	adapter := capturingMatrix(t, &seen)
+	_, err := adapter.Matrix(context.Background(), routing.MatrixRequest{
+		Origins: []routing.Point{{Latitude: 1, Longitude: 2}}, Destinations: []routing.Point{{Latitude: 3, Longitude: 4}},
+		TrafficMode: routing.TrafficStatistical, RouteMode: routing.RouteFastest,
+	})
+	if err != routing.ErrInvalidResponse || len(seen) != 0 {
+		t.Fatalf("BNO204 %v calls %d", err, len(seen))
+	}
+}
+
+func TestBNO205MatrixShortestNotSilentlyJam(t *testing.T) {
+	var seen []capturedMatrix
+	adapter := capturingMatrix(t, &seen)
+	when := time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)
+	base := routing.MatrixRequest{
+		Origins: []routing.Point{{Latitude: 56.8, Longitude: 60.6}}, Destinations: []routing.Point{{Latitude: 55.7, Longitude: 37.6}},
+		RouteMode: routing.RouteShortest,
+	}
+	shortest, err := adapter.Matrix(context.Background(), base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	planned := base
+	planned.TrafficMode = routing.TrafficStatistical
+	planned.DepartureAt = &when
+	same, err := adapter.Matrix(context.Background(), planned)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if seen[0].body["type"] != "shortest" || seen[1].body["type"] != "shortest" {
+		t.Fatalf("BNO205 types %v %v", seen[0].body["type"], seen[1].body["type"])
+	}
+	if _, sent := seen[0].body["start_time"]; sent {
+		t.Fatal("BNO205 shortest sent start_time")
+	}
+	if seen[1].body["type"] == "jam" || seen[0].body["type"] == "jam" {
+		t.Fatal("BNO205 shortest became jam")
+	}
+	assertNoInternalMatrixEnums(t, seen[0].body)
+	if shortest.RequestFingerprint != same.RequestFingerprint || shortest.TrafficMode != "" || shortest.RouteMode != routing.RouteShortest {
+		t.Fatalf("BNO205 metadata claimed traffic %+v %+v", shortest, same)
+	}
+}
+
+type capturedMatrix struct {
+	body    map[string]any
+	version string
+}
+
+func capturingMatrix(t *testing.T, seen *[]capturedMatrix) *Adapter {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		*seen = append(*seen, capturedMatrix{body: decodeProviderBody(t, r), version: r.URL.Query().Get("version")})
+		_, _ = w.Write([]byte(`{"routes":[{"source_id":0,"target_id":1,"distance":80000,"duration":4800,"status":"OK"}]}`))
+	}))
+	t.Cleanup(srv.Close)
+	return New(srv.URL, "test-key", slog.New(slog.DiscardHandler))
+}
+
+func assertNoInternalMatrixEnums(t *testing.T, body map[string]any) {
+	t.Helper()
+	raw, err := json.Marshal(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(raw)
+	for _, forbidden := range []string{`"CURRENT"`, `"STATISTICAL"`, `"FASTEST"`, `"STATIC"`, `"LIVE"`} {
+		if strings.Contains(text, forbidden) {
+			t.Fatalf("internal enum %s in %s", forbidden, text)
+		}
+	}
+}
+
 func routeAdapter(t *testing.T, capture func(map[string]any)) *Adapter {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

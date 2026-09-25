@@ -110,28 +110,22 @@ func (a *Adapter) Matrix(ctx context.Context, req routing.MatrixRequest) (routin
 		targets = append(targets, base+i)
 		points = append(points, latLon(dest))
 	}
-	internalTraffic, _, err := translateTraffic(req.TrafficMode)
-	if err != nil {
-		return routing.MatrixResult{}, err
-	}
-	internalMode, _, err := translateRouteMode(req.RouteMode)
+	providerType, normalized, err := matrixProviderRequest(req)
 	if err != nil {
 		return routing.MatrixResult{}, err
 	}
 	body := map[string]any{
 		"points": points, "sources": sources, "targets": targets,
 		"transport": "truck",
+		"type":      providerType,
 	}
 	if truck := truckParams(req.VehicleProfile); len(truck) > 0 {
 		body["truck_params"] = truck
 	}
-	normalized := req
-	normalized.TrafficMode = internalTraffic
-	normalized.RouteMode = internalMode
-	if internalTraffic == routing.TrafficStatistical && req.DepartureAt != nil {
-		body["start_time"] = req.DepartureAt.UTC().Format(time.RFC3339)
+	if providerType == "statistics" {
+		body["start_time"] = normalized.DepartureAt.UTC().Format(time.RFC3339)
 	}
-	raw, err := a.post(ctx, "/get_dist_matrix", body)
+	raw, err := a.postWithQuery(ctx, "/get_dist_matrix", body, url.Values{"version": {"2.0"}})
 	if err != nil {
 		return routing.MatrixResult{}, err
 	}
@@ -142,14 +136,18 @@ func (a *Adapter) Matrix(ctx context.Context, req routing.MatrixRequest) (routin
 	now := a.now()
 	return routing.MatrixResult{
 		Provider: "2GIS", Cells: cells, CalculatedAt: now,
-		TrafficMode: internalTraffic, RouteMode: internalMode,
+		TrafficMode: normalized.TrafficMode, RouteMode: normalized.RouteMode,
 		ProviderDefaultUsed: !req.VehicleProfile.Complete(),
 		RequestFingerprint:  routing.MatrixFingerprint("2GIS", normalized),
-		ExpiresAt:           routing.Expiry(internalTraffic, now),
+		ExpiresAt:           routing.Expiry(normalized.TrafficMode, now),
 	}, nil
 }
 
 func (a *Adapter) post(ctx context.Context, path string, body map[string]any) ([]byte, error) {
+	return a.postWithQuery(ctx, path, body, nil)
+}
+
+func (a *Adapter) postWithQuery(ctx context.Context, path string, body map[string]any, extra url.Values) ([]byte, error) {
 	payload, err := json.Marshal(body)
 	if err != nil {
 		return nil, routing.ErrInvalidResponse
@@ -160,6 +158,11 @@ func (a *Adapter) post(ctx context.Context, path string, body map[string]any) ([
 	}
 	query := endpoint.Query()
 	query.Set("key", a.apiKey)
+	for key, values := range extra {
+		for _, value := range values {
+			query.Set(key, value)
+		}
+	}
 	endpoint.RawQuery = query.Encode()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint.String(), bytes.NewReader(payload))
 	if err != nil {
@@ -335,6 +338,37 @@ func truckParams(profile routing.VehicleProfile) map[string]any {
 		body["dangerous_cargo"] = *profile.DangerousCargo
 	}
 	return body
+}
+
+func matrixProviderRequest(req routing.MatrixRequest) (string, routing.MatrixRequest, error) {
+	internalMode, _, err := translateRouteMode(req.RouteMode)
+	if err != nil {
+		return "", routing.MatrixRequest{}, err
+	}
+	normalized := req
+	normalized.RouteMode = internalMode
+	if req.TrafficMode != "" && req.TrafficMode != routing.TrafficCurrent && req.TrafficMode != routing.TrafficStatistical {
+		return "", routing.MatrixRequest{}, routing.ErrInvalidResponse
+	}
+	if internalMode == routing.RouteShortest {
+		// Distance Matrix has one type field. Shortest does not also apply jam or statistics.
+		normalized.TrafficMode = ""
+		normalized.DepartureAt = nil
+		return "shortest", normalized, nil
+	}
+	internalTraffic, _, err := translateTraffic(req.TrafficMode)
+	if err != nil {
+		return "", routing.MatrixRequest{}, err
+	}
+	normalized.TrafficMode = internalTraffic
+	if internalTraffic == routing.TrafficStatistical {
+		if req.DepartureAt == nil {
+			return "", routing.MatrixRequest{}, routing.ErrInvalidResponse
+		}
+		return "statistics", normalized, nil
+	}
+	normalized.DepartureAt = nil
+	return "jam", normalized, nil
 }
 
 func translateRouteMode(mode string) (internal, provider string, err error) {
