@@ -1669,6 +1669,8 @@ def render_operation(
             lines.append(LATE_SUBMISSION_REQUEST_BODIES[profile])
         elif profile == "priced_transport_order_create":
             lines.append(PRICED_TRANSPORT_ORDER_REQUEST_BODY)
+        elif profile == "bno_next_load":
+            lines.append("              $ref: '#/components/schemas/NextLoadSearchRequest'")
         else:
             lines.extend(
                 [
@@ -2090,17 +2092,6 @@ def render_operation(
                 "          application/json:",
                 "            schema:",
                 "              $ref: '#/components/schemas/CompatibilityRuleDraft'",
-            ]
-        )
-    elif profile == "bno_next_load":
-        lines.extend(
-            [
-                "      requestBody:",
-                "        required: true",
-                "        content:",
-                "          application/json:",
-                "            schema:",
-                "              $ref: '#/components/schemas/NextLoadSearchRequest'",
             ]
         )
     elif profile == "bno_compatibility" and method == "post":

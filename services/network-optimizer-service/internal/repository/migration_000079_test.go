@@ -15,7 +15,9 @@ func TestMigration000079Text(t *testing.T) {
 		"CREATE TABLE network_optimizer.next_load_search_runs",
 		"CREATE TABLE network_optimizer.match_candidates",
 		"reject_reasons text[]",
-		"match_candidates_run_fk",
+		"match_candidates_run_capacity_fk",
+		"next_load_search_runs_capacity_owner_fk",
+		"next_load_search_runs_id_tenant_capacity_uidx",
 		"ELIGIBLE",
 		"REJECTED",
 	} {

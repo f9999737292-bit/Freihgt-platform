@@ -26,6 +26,8 @@ type Adapter struct {
 	now     func() time.Time
 }
 
+func (a *Adapter) ProviderName() string { return "2GIS" }
+
 func New(baseURL, apiKey string, log *slog.Logger) *Adapter {
 	if log == nil {
 		log = slog.New(slog.DiscardHandler)

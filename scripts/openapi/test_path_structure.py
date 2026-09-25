@@ -514,6 +514,53 @@ def assert_payment_schema_isolation() -> None:
             raise AssertionError(f"openapi.yaml missing required schema {name}")
 
 
+def assert_next_load_single_request_body() -> None:
+    """BNO241: the next-load operation has one requestBody, and duplicate YAML keys fail."""
+    for filename in ("network-optimizer-service.yaml", "openapi.yaml"):
+        text = (OPENAPI_DIR / filename).read_text(encoding="utf-8")
+        operation = _operation_block(text, "/api/v1/network/next-load/search")
+        bodies = [line for line in operation.splitlines() if line.startswith("      requestBody:")]
+        if len(bodies) != 1:
+            raise AssertionError(f"{filename} next-load requestBody count={len(bodies)}")
+        if "additionalProperties: true" in operation.split("responses:", 1)[0]:
+            raise AssertionError(f"{filename} next-load request schema is untyped")
+        if "#/components/schemas/NextLoadSearchRequest" not in operation:
+            raise AssertionError(f"{filename} next-load request schema missing")
+        _reject_duplicate_mapping_keys(operation, filename)
+
+
+def _operation_block(text: str, path: str) -> str:
+    marker = f"  {path}:"
+    start = text.find(marker)
+    if start < 0:
+        raise AssertionError(f"missing operation {path}")
+    rest = text[start + len(marker):]
+    nxt = rest.find("\n  /")
+    if nxt < 0:
+        nxt = len(rest)
+    return rest[:nxt]
+
+
+def _reject_duplicate_mapping_keys(block: str, filename: str) -> None:
+    stack: list[tuple[int, set[str]]] = [(-1, set())]
+    for raw in block.splitlines():
+        stripped = raw.strip()
+        if not stripped or stripped.startswith("#") or stripped.startswith("-"):
+            continue
+        if ":" not in stripped:
+            continue
+        indent = len(raw) - len(raw.lstrip(" "))
+        key = stripped.split(":", 1)[0]
+        while stack and stack[-1][0] >= indent:
+            stack.pop()
+        parent = stack[-1][1]
+        if key in parent:
+            raise AssertionError(f"{filename} duplicate YAML key {key}")
+        parent.add(key)
+        if stripped.endswith(":"):
+            stack.append((indent, set()))
+
+
 def main() -> int:
     targets = [
         OPENAPI_DIR / "payment-service.yaml",
@@ -588,7 +635,11 @@ def main() -> int:
     assert_gateway_version_lifecycle_routes()
     assert_rfx_service_version_lifecycle_routes()
 
+    assert_next_load_single_request_body()
+
     print("OPENAPI_PATH_STRUCTURE_TEST=PASS")
+    print("BNO241_OPENAPI_SINGLE_REQUEST_BODY=PASS")
+    print("OPENAPI_DUPLICATE_KEYS=PASS")
     print("PAYMENT_COMPANY_CONTEXT_CONTRACT_TEST=PASS")
     print("FREIGHT_COST_PUBLIC_ROUTE_PARITY=PASS")
     print("QUESTIONNAIRE_V3_0B_ROUTE_PARITY=PASS")

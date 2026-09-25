@@ -57,6 +57,9 @@ func (s *Service) SearchNextLoad(ctx context.Context, actor Actor, cmd SearchCom
 	if cmd.CapacityID == uuid.Nil {
 		return Result{}, apperrors.Validation("capacity_id is required", map[string]any{"field": "capacity_id"})
 	}
+	if cmd.CandidateLimit != nil && *cmd.CandidateLimit < 0 {
+		return Result{}, apperrors.Validation("candidate_limit must be zero or greater", map[string]any{"field": "candidate_limit"})
+	}
 	var capacity domain.Capacity
 	err := s.store.Within(ctx, func(tx repository.Tx) error {
 		row, err := tx.GetCapacity(ctx, cmd.CapacityID)
@@ -76,7 +79,7 @@ func (s *Service) SearchNextLoad(ctx context.Context, actor Actor, cmd SearchCom
 	if capacity.Latitude == nil || capacity.Longitude == nil || capacity.AvailableUntil.IsZero() || !capacity.AvailableUntil.After(capacity.AvailableFrom) {
 		return Result{}, apperrors.Validation("capacity search geography or availability is incomplete", nil)
 	}
-	availableAt, err := s.effectiveAvailableAt(ctx, actor.TenantID, capacity)
+	availableAt, prediction, err := s.effectiveAvailableAt(ctx, actor.TenantID, capacity)
 	if err != nil {
 		return Result{}, err
 	}
@@ -97,13 +100,10 @@ func (s *Service) SearchNextLoad(ctx context.Context, actor Actor, cmd SearchCom
 	}
 	sort.Slice(loads, func(i, j int) bool { return loads[i].ID.String() < loads[j].ID.String() })
 	bnometrics.SearchPool(len(loads))
-	evaluated := s.evaluateLoads(ctx, actor.TenantID, capacity, availableAt, effective, target, line, loads)
+	evaluated := s.evaluateLoads(ctx, actor.TenantID, capacity, prediction, availableAt, effective, target, line, loads)
 	runID := uuid.New()
 	now := s.now()
-	providerName := "UNCONFIGURED"
-	if s.routes != nil {
-		providerName = "CONFIGURED"
-	}
+	providerName := routingProviderName(s.routes)
 	if err := s.persistSearch(ctx, runID, actor.TenantID, capacity, effective, providerName, started, now, evaluated); err != nil {
 		return Result{}, err
 	}
@@ -117,21 +117,21 @@ func (s *Service) SearchNextLoad(ctx context.Context, actor Actor, cmd SearchCom
 	return Result{Status: http.StatusOK, Body: raw, AggregateID: runID}, nil
 }
 
-func (s *Service) effectiveAvailableAt(ctx context.Context, tenant uuid.UUID, capacity domain.Capacity) (time.Time, error) {
+func (s *Service) effectiveAvailableAt(ctx context.Context, tenant uuid.UUID, capacity domain.Capacity) (time.Time, *domain.PredictedCapacity, error) {
 	if capacity.Source != domain.SourceCurrentShipmentPrediction {
-		return capacity.AvailableFrom, nil
+		return capacity.AvailableFrom, nil, nil
 	}
 	lookup, ok := s.store.(interface {
 		CurrentPredictionForCapacity(context.Context, uuid.UUID, uuid.UUID) (domain.PredictedCapacity, error)
 	})
 	if !ok {
-		return time.Time{}, apperrors.Validation("predicted availability is unavailable", map[string]any{"reason": "CAPACITY_NOT_EXECUTABLE"})
+		return time.Time{}, nil, apperrors.Validation("predicted availability is unavailable", map[string]any{"reason": "CAPACITY_NOT_EXECUTABLE"})
 	}
 	prediction, err := lookup.CurrentPredictionForCapacity(ctx, tenant, capacity.ID)
 	if err != nil {
-		return time.Time{}, apperrors.Validation("predicted availability is unavailable", map[string]any{"reason": "CAPACITY_NOT_EXECUTABLE"})
+		return time.Time{}, nil, apperrors.Validation("predicted availability is unavailable", map[string]any{"reason": "CAPACITY_NOT_EXECUTABLE"})
 	}
-	return prediction.PredictedAvailableAt, nil
+	return prediction.PredictedAvailableAt, &prediction, nil
 }
 
 func (s *Service) effectivePolicy(ctx context.Context, tenant, capacityID uuid.UUID, request domain.NextLoadSearchPolicy) (domain.NextLoadSearchPolicy, error) {
@@ -203,7 +203,7 @@ type evaluatedLoad struct {
 	fingerprint   string
 }
 
-func (s *Service) evaluateLoads(ctx context.Context, tenant uuid.UUID, capacity domain.Capacity, availableAt time.Time, policy domain.NextLoadSearchPolicy, target routing.Point, line [][]float64, loads []domain.LoadOpportunity) []evaluatedLoad {
+func (s *Service) evaluateLoads(ctx context.Context, tenant uuid.UUID, capacity domain.Capacity, prediction *domain.PredictedCapacity, availableAt time.Time, policy domain.NextLoadSearchPolicy, target routing.Point, line [][]float64, loads []domain.LoadOpportunity) []evaluatedLoad {
 	release := routing.Point{Latitude: *capacity.Latitude, Longitude: *capacity.Longitude}
 	prefiltered := make([]domain.LoadOpportunity, 0, len(loads))
 	early := map[uuid.UUID]evaluatedLoad{}
@@ -254,7 +254,7 @@ func (s *Service) evaluateLoads(ctx context.Context, tenant uuid.UUID, capacity 
 	for _, load := range loads {
 		item := early[load.ID]
 		if len(item.reasons) > 0 && !contains(prefiltered, load.ID) {
-			item.compatibility, item.fingerprint = s.compatibility(ctx, tenant, capacity, load)
+			item.compatibility, item.fingerprint = s.compatibility(ctx, tenant, capacity, prediction, load)
 			out = append(out, item)
 			continue
 		}
@@ -307,8 +307,8 @@ func (s *Service) evaluateLoads(ctx context.Context, tenant uuid.UUID, capacity 
 				}
 			}
 		}
-		item.reasons = append(item.reasons, physicalReasons(capacity, load)...)
-		item.compatibility, item.fingerprint = s.compatibility(ctx, tenant, capacity, load)
+		item.reasons = append(item.reasons, physicalReasons(equipmentFromCapacity(capacity, prediction), load)...)
+		item.compatibility, item.fingerprint = s.compatibility(ctx, tenant, capacity, prediction, load)
 		if item.compatibility == compat.StatusIncompatible {
 			item.reasons = append(item.reasons, domain.ReasonCargoIncompatible)
 		}
@@ -492,7 +492,7 @@ func (s *Service) fillLoadedLeg(ctx context.Context, loads []domain.LoadOpportun
 	}
 }
 
-func (s *Service) compatibility(ctx context.Context, tenant uuid.UUID, capacity domain.Capacity, load domain.LoadOpportunity) (string, string) {
+func (s *Service) compatibility(ctx context.Context, tenant uuid.UUID, capacity domain.Capacity, prediction *domain.PredictedCapacity, load domain.LoadOpportunity) (string, string) {
 	var evalCtx compat.Context
 	if s.catalog != nil {
 		loaded, err := s.catalog.Evaluation(ctx, tenant)
@@ -501,15 +501,19 @@ func (s *Service) compatibility(ctx context.Context, tenant uuid.UUID, capacity 
 		}
 		evalCtx = loaded
 	}
-	body := capacity.BodyType
-	var bodyPtr *string
-	if body != "" {
-		bodyPtr = &body
-	}
-	result := compat.EvaluateCargoEquipment(compat.Cargo{
-		ID: load.ID.String(), CargoTypeCode: load.Cargo.CargoTypeCode, WeightKg: load.WeightKg, VolumeM3: load.VolumeM3,
-	}, compat.Equipment{BodyType: bodyPtr, EquipmentTypeCode: firstEquipment(capacity.Equipment)}, compat.AccessNeed{RequiredBodyTypes: load.Cargo.RequiredBodyTypes}, evalCtx)
+	result := compat.EvaluateCargoEquipment(cargoFromLoad(load), equipmentFromCapacity(capacity, prediction), accessFromLoad(load), evalCtx)
 	return result.Status, result.Fingerprint
+}
+
+func routingProviderName(provider routing.Provider) string {
+	if provider == nil {
+		return "UNCONFIGURED"
+	}
+	named, ok := provider.(routing.IdentifiedProvider)
+	if !ok || named.ProviderName() == "" {
+		return "UNSPECIFIED"
+	}
+	return named.ProviderName()
 }
 
 func (s *Service) persistSearch(ctx context.Context, id, tenant uuid.UUID, capacity domain.Capacity, policy domain.NextLoadSearchPolicy, provider string, started, completed time.Time, rows []evaluatedLoad) error {
@@ -584,19 +588,19 @@ func (s *Service) publicSearch(id uuid.UUID, capacity domain.Capacity, policy do
 	}
 }
 
-func physicalReasons(capacity domain.Capacity, load domain.LoadOpportunity) []string {
+func physicalReasons(equipment compat.Equipment, load domain.LoadOpportunity) []string {
 	var reasons []string
 	if load.WeightKg != nil {
-		if capacity.PayloadRemainingKg == nil {
+		if equipment.PayloadKg == nil {
 			reasons = append(reasons, domain.ReasonCapacityFactUnknown)
-		} else if *load.WeightKg > *capacity.PayloadRemainingKg {
+		} else if *load.WeightKg > *equipment.PayloadKg {
 			reasons = append(reasons, domain.ReasonPayloadExceeded)
 		}
 	}
 	if load.VolumeM3 != nil {
-		if capacity.VolumeRemainingM3 == nil {
+		if equipment.VolumeM3 == nil {
 			reasons = append(reasons, domain.ReasonCapacityFactUnknown)
-		} else if *load.VolumeM3 > *capacity.VolumeRemainingM3 {
+		} else if *load.VolumeM3 > *equipment.VolumeM3 {
 			reasons = append(reasons, domain.ReasonVolumeExceeded)
 		}
 	}

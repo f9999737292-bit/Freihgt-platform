@@ -78,12 +78,20 @@ func (p *Postgres) GetSearch(ctx context.Context, tenant, id uuid.UUID) (SearchR
 func (p *Postgres) CurrentPredictionForCapacity(ctx context.Context, tenant, capacityID uuid.UUID) (domain.PredictedCapacity, error) {
 	var prediction domain.PredictedCapacity
 	err := p.pool.QueryRow(ctx, `
-		SELECT id, capacity_id, predicted_available_at, availability_window_start, availability_window_end, is_current
+		SELECT id, capacity_id, combination_type, body_type, loading_access, unloading_access,
+			capacity_weight_kg, capacity_volume_m3, temperature_control_mode,
+			temperature_capability_min_c, temperature_capability_max_c, temperature_zone_count,
+			independent_temperature_control, legacy_equipment_type, container_size,
+			predicted_available_at, availability_window_start, availability_window_end, is_current
 		FROM network_optimizer.predicted_capacities
 		WHERE owner_tenant_id=$1 AND capacity_id=$2 AND is_current
 		ORDER BY generated_at DESC LIMIT 1`, tenant, capacityID).Scan(
-		&prediction.ID, &prediction.CapacityID, &prediction.PredictedAvailableAt,
-		&prediction.AvailabilityWindowStart, &prediction.AvailabilityWindowEnd, &prediction.IsCurrent)
+		&prediction.ID, &prediction.CapacityID, &prediction.CombinationType, &prediction.BodyType,
+		&prediction.LoadingAccess, &prediction.UnloadingAccess, &prediction.CapacityWeightKg, &prediction.CapacityVolumeM3,
+		&prediction.TemperatureControlMode, &prediction.TemperatureCapabilityMinC, &prediction.TemperatureCapabilityMaxC,
+		&prediction.TemperatureZoneCount, &prediction.IndependentTemperatureControl, &prediction.LegacyEquipmentType,
+		&prediction.ContainerSize, &prediction.PredictedAvailableAt, &prediction.AvailabilityWindowStart,
+		&prediction.AvailabilityWindowEnd, &prediction.IsCurrent)
 	if err != nil {
 		return domain.PredictedCapacity{}, ErrNotFound
 	}

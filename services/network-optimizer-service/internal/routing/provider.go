@@ -112,6 +112,12 @@ type Provider interface {
 	Matrix(ctx context.Context, req MatrixRequest) (MatrixResult, error)
 }
 
+// IdentifiedProvider exposes a normalized vendor name such as 2GIS.
+// A provider that does not implement it has no persisted vendor identity.
+type IdentifiedProvider interface {
+	ProviderName() string
+}
+
 func Fingerprint(provider string, req RouteRequest) string {
 	body := struct {
 		Provider  string

@@ -4,9 +4,9 @@ BNO-0.1C1 lets a carrier search published load opportunities from one of its own
 
 ## Candidate pipeline
 
-1. The caller sends `capacity_id`, an optional policy override, and an optional candidate limit. A vehicle id is not search authority.
+1. The caller sends `capacity_id`, an optional policy override, and an optional candidate limit. A vehicle id is not search authority. `candidate_limit` below zero is a validation error. Zero returns no candidate rows and leaves the eligible count intact. The limit truncates the returned list; it is not a ranking.
 2. The capacity must belong to the caller, exist, be `AVAILABLE`, and have coordinates plus an availability interval. A foreign or missing capacity is hidden with 404. `PREDICTED` and `WITHDRAWN` are not executable.
-3. For `CURRENT_SHIPMENT_PREDICTION`, the feasibility clock is `PredictedCapacity.predicted_available_at`. `availability_window_start` and `availability_window_end` stay uncertainty context. Manual capacity uses `available_from`.
+3. For `CURRENT_SHIPMENT_PREDICTION`, the feasibility clock is `PredictedCapacity.predicted_available_at`. The same current prediction supplies known equipment facts: combination type, body type, loading access, unloading access, weight, volume, temperature capability, legacy equipment type, and container size. `availability_window_start` and `availability_window_end` stay uncertainty context. Manual capacity uses `available_from` and only its own known capacity facts.
 4. The effective policy is resolved, then validated.
 5. The pool is published loads already visible to the caller. Visibility is checked before feasibility.
 6. Mode-specific geometry prefilters run. They do not assign road distance.
@@ -80,13 +80,25 @@ If a required road route cannot be calculated, the candidate is `ROAD_DISTANCE_U
 
 Known load weight and volume must fit known capacity payload and volume (`PAYLOAD_EXCEEDED`, `VOLUME_EXCEEDED`). Unknown is not zero. A known load fact with a missing capacity fact is `CAPACITY_FACT_UNKNOWN`.
 
-Cargo and equipment compatibility reuses the BNO-0.1B2 evaluator. `COMPATIBLE` passes. `INCOMPATIBLE` is a hard reject. `INDETERMINATE` fails closed. It is not treated as compatible.
+Cargo and equipment compatibility reuses the BNO-0.1B2 evaluator. Known cargo facts are passed through: cargo type, weight, volume, pallet count and type, linear metres, loaded height, stackable, fragile, packaging, food grade, temperature requirement and range, preferred setpoint, dangerous goods, hazard classes, odor, and contamination. Unknown values stay unknown. They are not stored as false or zero.
+
+Access requirements stay separate: required and allowed loading access, and required and allowed unloading access. Access is not inferred from body type. Required body types and required equipment types come from the load.
+
+Manual equipment uses body type, equipment type, remaining payload, and remaining volume. A catalog may fill missing capabilities for a known equipment type: unit kind, combination type, pallet positions, linear metres, dimensions, loading and unloading access, temperature, food grade, and ADR. The search does not invent a capability the catalog does not contain.
+
+A current predicted-capacity snapshot adds the facts listed above when they are present. Container size is kept as equipment provenance. The evaluator has no container-size rule, so the fact is not turned into a compatibility decision.
+
+`COMPATIBLE` passes. `INCOMPATIBLE` is a hard reject. `INDETERMINATE` fails closed for executable matching. Unknown temperature, loading access, ADR, pallet positions, linear metres, or height does not pass when the cargo requires that dimension.
 
 ## Privacy
 
 Matching may use internal search geography, including exact coordinates of an anonymized load. The response uses display geography. An anonymized candidate does not return exact latitude, longitude, location id, facility label, address, postal code, exact road deadhead, or exact corridor offsets. Deadhead is one of `0-25`, `25-50`, `50-100`, `100-200`, or `200+` km. Non-anonymized visible loads may return the exact road distance.
 
 Rejected marketplace loads are not listed. The response has `rejection_counts_by_reason` only. Stored rejection rows remain on the searching tenant.
+
+## Routing provider provenance
+
+`routing_provider` on a search run is a vendor name only when the active provider implements `IdentifiedProvider`. The 2GIS adapter reports `2GIS`. No configured provider is stored as `UNCONFIGURED`. A provider that does not expose a name is stored as `UNSPECIFIED`. `CONFIGURED` is configuration state and is not written as a provider identity. The routing port remains route and matrix calls.
 
 ## Matrix batching and failure
 

@@ -15,6 +15,13 @@ import (
 	"github.com/freight-platform/network-optimizer-service/internal/routing"
 )
 
+func TestTwoGISProviderName(t *testing.T) {
+	adapter := New("https://routing.api.2gis.com", "test-key", nil)
+	if adapter.ProviderName() != "2GIS" {
+		t.Fatalf("provider %s", adapter.ProviderName())
+	}
+}
+
 func TestBNO180TwoGISMapping(t *testing.T) {
 	var seenKey string
 	var routeBody map[string]any

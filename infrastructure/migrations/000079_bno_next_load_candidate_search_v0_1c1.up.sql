@@ -19,7 +19,10 @@ CREATE TABLE network_optimizer.next_load_search_runs (
     completed_at timestamptz NOT NULL,
     routing_provider text NOT NULL,
     status text NOT NULL,
-    CONSTRAINT next_load_search_runs_id_tenant_uidx UNIQUE (id, tenant_id)
+    CONSTRAINT next_load_search_runs_id_tenant_uidx UNIQUE (id, tenant_id),
+    CONSTRAINT next_load_search_runs_id_tenant_capacity_uidx UNIQUE (id, tenant_id, capacity_id),
+    CONSTRAINT next_load_search_runs_capacity_owner_fk FOREIGN KEY (capacity_id, tenant_id)
+        REFERENCES network_optimizer.capacities (id, owner_tenant_id)
 );
 
 CREATE INDEX next_load_search_runs_tenant_capacity_idx
@@ -43,8 +46,8 @@ CREATE TABLE network_optimizer.match_candidates (
     created_at timestamptz NOT NULL,
     CONSTRAINT match_candidates_eligibility_chk CHECK (eligibility IN ('ELIGIBLE', 'REJECTED')),
     CONSTRAINT match_candidates_id_tenant_uidx UNIQUE (id, tenant_id),
-    CONSTRAINT match_candidates_run_fk FOREIGN KEY (search_run_id, tenant_id)
-        REFERENCES network_optimizer.next_load_search_runs (id, tenant_id)
+    CONSTRAINT match_candidates_run_capacity_fk FOREIGN KEY (search_run_id, tenant_id, capacity_id)
+        REFERENCES network_optimizer.next_load_search_runs (id, tenant_id, capacity_id)
 );
 
 CREATE INDEX match_candidates_run_idx

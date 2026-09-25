@@ -17643,16 +17643,9 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: true
+              $ref: '#/components/schemas/NextLoadSearchRequest'
       security:
         - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/NextLoadSearchRequest'
       responses:
         '200':
           description: Successful response
