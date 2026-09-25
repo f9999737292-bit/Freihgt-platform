@@ -83,3 +83,11 @@ CREATE TABLE network_optimizer.capacity_search_policies (
         AND (max_route_increase_km IS NULL OR max_route_increase_km >= 0)
     )
 );
+
+CREATE UNIQUE INDEX capacities_id_owner_uidx
+    ON network_optimizer.capacities (id, owner_tenant_id);
+
+ALTER TABLE network_optimizer.capacity_search_policies
+    ADD CONSTRAINT capacity_search_policies_capacity_owner_fk
+    FOREIGN KEY (capacity_id, owner_tenant_id)
+    REFERENCES network_optimizer.capacities (id, owner_tenant_id);

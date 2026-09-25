@@ -993,7 +993,13 @@ func (s *Service) SaveCapacityPolicy(ctx context.Context, tenant, capacityID uui
 	if err := policy.ValidateOverride(); err != nil {
 		return apperrors.Validation(err.Error(), nil)
 	}
-	return s.policies.UpsertCapacityPolicy(ctx, tenant, capacityID, policy)
+	if err := s.policies.UpsertCapacityPolicy(ctx, tenant, capacityID, policy); err != nil {
+		if errors.Is(err, repository.ErrNotFound) || errors.Is(err, repository.ErrConflict) {
+			return apperrors.NotFound("capacity is not available")
+		}
+		return err
+	}
+	return nil
 }
 
 func (s *Service) RoutingProvider() routing.Provider { return s.routes }

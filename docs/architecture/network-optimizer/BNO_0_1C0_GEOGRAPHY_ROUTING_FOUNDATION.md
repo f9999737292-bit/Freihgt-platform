@@ -38,7 +38,11 @@ An anonymous result must not reveal exact position through raw coordinates, a lo
 
 The first adapter is 2GIS, selected with `BNO_ROUTING_PROVIDER=2GIS`. `BNO_2GIS_ROUTING_BASE_URL` and `BNO_2GIS_API_KEY` come from the environment. The API key is not written to logs or domain records. Network-optimizer core does not parse 2GIS JSON.
 
-Vehicle height, width, length, gross weight, axle load, and dangerous-cargo state are sent only when known. Unknown stays unknown. If the provider still applies its own vehicle default, the route result records `ProviderDefaultUsed`.
+BNO traffic modes stay provider-neutral. `CURRENT` means current road conditions and does not send a planned departure. `STATISTICAL` means time-based planning and sends `DepartureAt` to the provider. The 2GIS adapter translates those modes to `jam` and `statistics`. It does not send the internal names.
+
+A truck request stays `transport=truck` when some dimensions are unknown. Known values are mapped to the provider fields `mass`, `axle_load`, `height`, `width`, `length`, and `dangerous_cargo`. Mass and axle load are converted from kilograms to tonnes. Maximum permitted mass is not derived from gross weight. Routing API v7 places those fields under `params.truck`, asks for `output=detailed`, and sends a statistical departure as `utc`. Distance Matrix uses `truck_params` and `start_time`. A failed matrix cell is an error and is not a zero road distance.
+
+Vehicle height, width, length, gross weight, axle load, and dangerous-cargo state are sent only when known. Unknown stays unknown. If the provider still applies its own vehicle default, the route and matrix results record `ProviderDefaultUsed`.
 
 Failures are `ROUTING_PROVIDER_UNAVAILABLE`, `ROUTE_NOT_FOUND`, `ROUTING_TIMEOUT`, and `ROUTING_INVALID_RESPONSE`. None of them falls back to Haversine.
 

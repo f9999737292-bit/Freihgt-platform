@@ -18,7 +18,7 @@ func (fakeProvider) Matrix(context.Context, MatrixRequest) (MatrixResult, error)
 
 func TestBNO179RoutingPortAndCache(t *testing.T) {
 	var provider Provider = fakeProvider{}
-	result, err := provider.Route(context.Background(), RouteRequest{RouteMode: RouteFastest, TrafficMode: TrafficStatic})
+	result, err := provider.Route(context.Background(), RouteRequest{RouteMode: RouteFastest, TrafficMode: TrafficCurrent})
 	if err != nil || result.DistanceM != 80000 || result.DurationSeconds != 4800 || result.Geometry.Type != "LineString" {
 		t.Fatalf("BNO179 route %+v %v", result, err)
 	}
@@ -29,8 +29,8 @@ func TestBNO179RoutingPortAndCache(t *testing.T) {
 	cache := NewMemoryCache()
 	now := time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)
 	result.CalculatedAt = now
-	result.ExpiresAt = Expiry(TrafficLive, now)
-	result.RequestFingerprint = Fingerprint("FAKE", RouteRequest{TrafficMode: TrafficLive, DepartureAt: &now})
+	result.ExpiresAt = Expiry(TrafficCurrent, now)
+	result.RequestFingerprint = Fingerprint("FAKE", RouteRequest{TrafficMode: TrafficCurrent, DepartureAt: &now})
 	if result.RequestFingerprint == "" {
 		t.Fatal("BNO179 fingerprint")
 	}

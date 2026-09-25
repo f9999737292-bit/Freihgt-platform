@@ -48,18 +48,32 @@ func (a *Adapter) Route(ctx context.Context, req routing.RouteRequest) (routing.
 	if a.baseURL == "" || a.apiKey == "" {
 		return routing.RouteResult{}, routing.ErrProviderUnavailable
 	}
+	internalTraffic, providerTraffic, err := translateTraffic(req.TrafficMode)
+	if err != nil {
+		return routing.RouteResult{}, err
+	}
+	internalMode, providerMode, err := translateRouteMode(req.RouteMode)
+	if err != nil {
+		return routing.RouteResult{}, err
+	}
 	body := map[string]any{
 		"points": []map[string]any{
 			point(req.Origin),
 			point(req.Destination),
 		},
-		"route_mode":   modeOr(req.RouteMode, routing.RouteFastest),
-		"traffic_mode": trafficOr(req.TrafficMode),
+		"transport":    "truck",
+		"output":       "detailed",
+		"route_mode":   providerMode,
+		"traffic_mode": providerTraffic,
 	}
-	defaultsUsed := !req.VehicleProfile.Complete()
-	if truck := truckBody(req.VehicleProfile); truck != nil {
-		body["truck"] = truck
-		body["transport"] = "truck"
+	if truck := truckParams(req.VehicleProfile); len(truck) > 0 {
+		body["params"] = map[string]any{"truck": truck}
+	}
+	normalized := req
+	normalized.TrafficMode = internalTraffic
+	normalized.RouteMode = internalMode
+	if internalTraffic == routing.TrafficStatistical && req.DepartureAt != nil {
+		body["utc"] = req.DepartureAt.UTC().Unix()
 	}
 	raw, err := a.post(ctx, "/routing/7.0.0/global", body)
 	if err != nil {
@@ -70,14 +84,13 @@ func (a *Adapter) Route(ctx context.Context, req routing.RouteRequest) (routing.
 		return routing.RouteResult{}, err
 	}
 	now := a.now()
-	traffic := trafficOr(req.TrafficMode)
 	parsed.Provider = "2GIS"
 	parsed.CalculatedAt = now
-	parsed.TrafficMode = traffic
-	parsed.RouteMode = modeOr(req.RouteMode, routing.RouteFastest)
-	parsed.RequestFingerprint = routing.Fingerprint("2GIS", req)
-	parsed.ProviderDefaultUsed = defaultsUsed
-	parsed.ExpiresAt = routing.Expiry(traffic, now)
+	parsed.TrafficMode = internalTraffic
+	parsed.RouteMode = internalMode
+	parsed.RequestFingerprint = routing.Fingerprint("2GIS", normalized)
+	parsed.ProviderDefaultUsed = !req.VehicleProfile.Complete()
+	parsed.ExpiresAt = routing.Expiry(internalTraffic, now)
 	return parsed, nil
 }
 
@@ -97,12 +110,26 @@ func (a *Adapter) Matrix(ctx context.Context, req routing.MatrixRequest) (routin
 		targets = append(targets, base+i)
 		points = append(points, latLon(dest))
 	}
+	internalTraffic, _, err := translateTraffic(req.TrafficMode)
+	if err != nil {
+		return routing.MatrixResult{}, err
+	}
+	internalMode, _, err := translateRouteMode(req.RouteMode)
+	if err != nil {
+		return routing.MatrixResult{}, err
+	}
 	body := map[string]any{
 		"points": points, "sources": sources, "targets": targets,
+		"transport": "truck",
 	}
-	if req.VehicleProfile.Complete() {
-		body["transport"] = "truck"
-		body["truck"] = truckBody(req.VehicleProfile)
+	if truck := truckParams(req.VehicleProfile); len(truck) > 0 {
+		body["truck_params"] = truck
+	}
+	normalized := req
+	normalized.TrafficMode = internalTraffic
+	normalized.RouteMode = internalMode
+	if internalTraffic == routing.TrafficStatistical && req.DepartureAt != nil {
+		body["start_time"] = req.DepartureAt.UTC().Format(time.RFC3339)
 	}
 	raw, err := a.post(ctx, "/get_dist_matrix", body)
 	if err != nil {
@@ -112,9 +139,13 @@ func (a *Adapter) Matrix(ctx context.Context, req routing.MatrixRequest) (routin
 	if err != nil {
 		return routing.MatrixResult{}, err
 	}
+	now := a.now()
 	return routing.MatrixResult{
-		Provider: "2GIS", Cells: cells, CalculatedAt: a.now(),
-		TrafficMode: trafficOr(req.TrafficMode), RouteMode: modeOr(req.RouteMode, routing.RouteFastest),
+		Provider: "2GIS", Cells: cells, CalculatedAt: now,
+		TrafficMode: internalTraffic, RouteMode: internalMode,
+		ProviderDefaultUsed: !req.VehicleProfile.Complete(),
+		RequestFingerprint:  routing.MatrixFingerprint("2GIS", normalized),
+		ExpiresAt:           routing.Expiry(internalTraffic, now),
 	}, nil
 }
 
@@ -229,13 +260,17 @@ func parseMatrix(raw []byte, originCount int) ([]routing.MatrixCell, error) {
 	cells := make([]routing.MatrixCell, 0, len(doc.Routes))
 	for _, route := range doc.Routes {
 		cell := routing.MatrixCell{OriginIndex: route.SourceID, DestinationIndex: route.TargetID - originCount}
-		if !strings.EqualFold(route.Status, "OK") {
-			cell.Err = routing.ErrRouteNotFound
-		} else if route.Distance < 0 || route.Duration < 0 {
-			return nil, routing.ErrInvalidResponse
-		} else {
+		switch matrixCellStatus(route.Status) {
+		case matrixOK:
+			if route.Distance < 0 || route.Duration < 0 {
+				return nil, routing.ErrInvalidResponse
+			}
 			cell.DistanceM = route.Distance
 			cell.DurationSeconds = route.Duration
+		case matrixNotFound:
+			cell.Err = routing.ErrRouteNotFound
+		default:
+			cell.Err = routing.ErrInvalidResponse
 		}
 		cells = append(cells, cell)
 	}
@@ -279,7 +314,7 @@ func latLon(p routing.Point) map[string]any {
 	return map[string]any{"lon": p.Longitude, "lat": p.Latitude}
 }
 
-func truckBody(profile routing.VehicleProfile) map[string]any {
+func truckParams(profile routing.VehicleProfile) map[string]any {
 	body := map[string]any{}
 	if profile.GrossWeightKg != nil {
 		body["mass"] = *profile.GrossWeightKg / 1000
@@ -299,24 +334,46 @@ func truckBody(profile routing.VehicleProfile) map[string]any {
 	if profile.DangerousCargo != nil {
 		body["dangerous_cargo"] = *profile.DangerousCargo
 	}
-	if len(body) == 0 {
-		return nil
-	}
 	return body
 }
 
-func modeOr(value, fallback string) string {
-	if value == "" {
-		return fallback
+func translateRouteMode(mode string) (internal, provider string, err error) {
+	switch mode {
+	case "", routing.RouteFastest:
+		return routing.RouteFastest, "fastest", nil
+	case routing.RouteShortest:
+		return routing.RouteShortest, "shortest", nil
+	default:
+		return "", "", routing.ErrInvalidResponse
 	}
-	return value
 }
 
-func trafficOr(value string) string {
-	if value == "" {
-		return routing.TrafficStatic
+func translateTraffic(mode string) (internal, provider string, err error) {
+	switch mode {
+	case "", routing.TrafficCurrent:
+		return routing.TrafficCurrent, "jam", nil
+	case routing.TrafficStatistical:
+		return routing.TrafficStatistical, "statistics", nil
+	default:
+		return "", "", routing.ErrInvalidResponse
 	}
-	return value
+}
+
+const (
+	matrixOK = iota
+	matrixNotFound
+	matrixInvalid
+)
+
+func matrixCellStatus(status string) int {
+	switch strings.ToUpper(strings.TrimSpace(status)) {
+	case "OK":
+		return matrixOK
+	case "ROUTE_NOT_FOUND", "ROUTE_DOES_NOT_EXISTS", "POINT_EXCLUDED", "ATTRACT_FAIL":
+		return matrixNotFound
+	default:
+		return matrixInvalid
+	}
 }
 
 func isTimeout(err error) bool {

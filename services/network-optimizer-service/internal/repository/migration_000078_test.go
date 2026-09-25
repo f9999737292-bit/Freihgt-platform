@@ -17,6 +17,8 @@ func TestMigration000078Text(t *testing.T) {
 		"DIRECTIONAL_CORRIDOR",
 		"ROUTE_ELLIPSE",
 		"allow_unknown_road_distance boolean NOT NULL DEFAULT false",
+		"capacity_search_policies_capacity_owner_fk",
+		"capacities_id_owner_uidx",
 	} {
 		if !strings.Contains(up, required) {
 			t.Fatalf("up migration missing %s", required)

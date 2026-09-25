@@ -1,4 +1,5 @@
 DROP TABLE IF EXISTS network_optimizer.capacity_search_policies;
+DROP INDEX IF EXISTS network_optimizer.capacities_id_owner_uidx;
 DROP TABLE IF EXISTS network_optimizer.carrier_search_policies;
 
 ALTER TABLE network_optimizer.load_opportunities

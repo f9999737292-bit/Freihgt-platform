@@ -40,6 +40,13 @@ func (m *Memory) GetCarrierPolicy(_ context.Context, tenant uuid.UUID) (domain.N
 func (m *Memory) UpsertCapacityPolicy(_ context.Context, tenant, capacityID uuid.UUID, policy domain.NextLoadSearchPolicy) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	capacity, ok := m.caps[capacityID]
+	if !ok || capacity.OwnerTenantID != tenant {
+		return ErrNotFound
+	}
+	if existing, exists := m.capacityPolicies[capacityID]; exists && existing.TenantID != tenant {
+		return ErrNotFound
+	}
 	if m.capacityPolicies == nil {
 		m.capacityPolicies = map[uuid.UUID]storedCapacityPolicy{}
 	}
@@ -94,25 +101,39 @@ func (p *Postgres) GetCarrierPolicy(ctx context.Context, tenant uuid.UUID) (doma
 }
 
 func (p *Postgres) UpsertCapacityPolicy(ctx context.Context, tenant, capacityID uuid.UUID, policy domain.NextLoadSearchPolicy) error {
-	_, err := p.pool.Exec(ctx, `
+	tag, err := p.pool.Exec(ctx, `
+		WITH owned AS (
+			SELECT id, owner_tenant_id
+			FROM network_optimizer.capacities
+			WHERE id = $1 AND owner_tenant_id = $2
+		)
 		INSERT INTO network_optimizer.capacity_search_policies (
 			capacity_id, owner_tenant_id, search_mode, target_location_id, forward_search_km, corridor_deviation_km,
 			max_deadhead_km, preferred_deadhead_km, max_deadhead_minutes, min_loaded_distance_km,
 			max_route_increase_km, objective_profile, allow_unknown_road_distance, version, updated_at
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,1,now())
+		)
+		SELECT owned.id, owned.owner_tenant_id, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 1, now()
+		FROM owned
 		ON CONFLICT (capacity_id) DO UPDATE SET
-			owner_tenant_id=EXCLUDED.owner_tenant_id, search_mode=EXCLUDED.search_mode,
+			search_mode=EXCLUDED.search_mode,
 			target_location_id=EXCLUDED.target_location_id, forward_search_km=EXCLUDED.forward_search_km,
 			corridor_deviation_km=EXCLUDED.corridor_deviation_km, max_deadhead_km=EXCLUDED.max_deadhead_km,
 			preferred_deadhead_km=EXCLUDED.preferred_deadhead_km, max_deadhead_minutes=EXCLUDED.max_deadhead_minutes,
 			min_loaded_distance_km=EXCLUDED.min_loaded_distance_km, max_route_increase_km=EXCLUDED.max_route_increase_km,
 			objective_profile=EXCLUDED.objective_profile, allow_unknown_road_distance=EXCLUDED.allow_unknown_road_distance,
-			version=capacity_search_policies.version+1, updated_at=now()`,
+			version=capacity_search_policies.version+1, updated_at=now()
+		WHERE capacity_search_policies.owner_tenant_id = EXCLUDED.owner_tenant_id`,
 		capacityID, tenant, nullString(policy.SearchMode), policy.TargetLocationID, policy.ForwardSearchKm, policy.CorridorDeviationKm,
 		policy.MaxDeadheadKm, policy.PreferredDeadheadKm, policy.MaxDeadheadMinutes, policy.MinLoadedDistanceKm,
 		policy.MaxRouteIncreaseKm, nullString(policy.ObjectiveProfile), policy.AllowUnknownRoadDistance,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 func (p *Postgres) GetCapacityPolicy(ctx context.Context, tenant, capacityID uuid.UUID) (domain.NextLoadSearchPolicy, error) {

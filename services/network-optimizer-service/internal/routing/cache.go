@@ -42,7 +42,7 @@ func (c *MemoryCache) Put(_ context.Context, key string, result RouteResult) {
 }
 
 func Expiry(mode string, calculated time.Time) time.Time {
-	if mode == TrafficLive {
+	if mode == TrafficCurrent {
 		return calculated.Add(LiveRouteTTL)
 	}
 	return calculated.Add(StaticRouteTTL)

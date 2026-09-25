@@ -10,9 +10,14 @@ import (
 )
 
 const (
-	TrafficStatic = "STATIC"
-	TrafficLive   = "LIVE"
-	RouteFastest  = "FASTEST"
+	// TrafficCurrent is current road conditions at the time of the request.
+	// It is a provider-neutral mode. Adapters translate it; it is not sent as a provider enum.
+	TrafficCurrent = "CURRENT"
+	// TrafficStatistical is time-based statistical planning for DepartureAt.
+	// A departure time is part of the request only when this mode is selected and DepartureAt is set.
+	TrafficStatistical = "STATISTICAL"
+	RouteFastest       = "FASTEST"
+	RouteShortest      = "SHORTEST"
 )
 
 var (
@@ -92,11 +97,14 @@ type MatrixCell struct {
 }
 
 type MatrixResult struct {
-	Provider     string
-	Cells        []MatrixCell
-	CalculatedAt time.Time
-	TrafficMode  string
-	RouteMode    string
+	Provider            string
+	Cells               []MatrixCell
+	CalculatedAt        time.Time
+	TrafficMode         string
+	RouteMode           string
+	ProviderDefaultUsed bool
+	RequestFingerprint  string
+	ExpiresAt           time.Time
 }
 
 type Provider interface {
@@ -116,11 +124,35 @@ func Fingerprint(provider string, req RouteRequest) string {
 	}{
 		Provider: provider, Origin: req.Origin, Dest: req.Destination,
 		Profile: req.VehicleProfile.Hash(), RouteMode: req.RouteMode, Traffic: req.TrafficMode,
-	}
-	if req.TrafficMode == TrafficLive && req.DepartureAt != nil {
-		body.Departure = req.DepartureAt.UTC().Truncate(15 * time.Minute).Format(time.RFC3339)
+		Departure: departureBucket(req.TrafficMode, req.DepartureAt),
 	}
 	raw, _ := json.Marshal(body)
 	sum := sha256.Sum256(raw)
 	return hex.EncodeToString(sum[:])
+}
+
+func MatrixFingerprint(provider string, req MatrixRequest) string {
+	body := struct {
+		Provider     string
+		Origins      []Point
+		Destinations []Point
+		Profile      string
+		RouteMode    string
+		Traffic      string
+		Departure    string
+	}{
+		Provider: provider, Origins: req.Origins, Destinations: req.Destinations,
+		Profile: req.VehicleProfile.Hash(), RouteMode: req.RouteMode, Traffic: req.TrafficMode,
+		Departure: departureBucket(req.TrafficMode, req.DepartureAt),
+	}
+	raw, _ := json.Marshal(body)
+	sum := sha256.Sum256(raw)
+	return hex.EncodeToString(sum[:])
+}
+
+func departureBucket(mode string, at *time.Time) string {
+	if mode != TrafficStatistical || at == nil {
+		return ""
+	}
+	return at.UTC().Truncate(15 * time.Minute).Format(time.RFC3339)
 }
