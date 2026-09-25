@@ -28284,7 +28284,7 @@
         ],
         "summary": "Create a load opportunity",
         "operationId": "post_create_a_load_opportunity",
-        "description": "BINTRANS Network Optimizer foundation mutation.\nTenant and user identity come from the verified gateway JWT. Client identity headers are not trusted.\nIdempotency-Key replays the original result and does not create a second publication or outbox event.\nOmitted physical attributes stay unknown. Zero is not a substitute for unknown.\n",
+        "description": "BINTRANS Network Optimizer foundation mutation.\nTenant and user identity come from the verified gateway JWT. Client identity headers are not trusted.\nIdempotency-Key replays the original result and does not create a second publication or outbox event.\nOmitted physical attributes stay unknown. Zero is not a substitute for unknown.\nA capacity location_id is resolved in the caller tenant against transport.locations. A foreign location id is not found.\nSource-backed load coordinates are replaced by the tenant-scoped source location snapshot.\n",
         "parameters": [
           {
             "$ref": "#/components/parameters/XRequestID"
@@ -28571,8 +28571,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/NetworkLoadOpportunity"
                 }
               }
             }
@@ -28645,7 +28644,7 @@
         ],
         "summary": "Update own load opportunity",
         "operationId": "patch_update_own_load_opportunity",
-        "description": "BINTRANS Network Optimizer foundation mutation.\nTenant and user identity come from the verified gateway JWT. Client identity headers are not trusted.\nIdempotency-Key replays the original result and does not create a second publication or outbox event.\nOmitted physical attributes stay unknown. Zero is not a substitute for unknown.\n",
+        "description": "BINTRANS Network Optimizer foundation mutation.\nTenant and user identity come from the verified gateway JWT. Client identity headers are not trusted.\nIdempotency-Key replays the original result and does not create a second publication or outbox event.\nOmitted physical attributes stay unknown. Zero is not a substitute for unknown.\nA capacity location_id is resolved in the caller tenant against transport.locations. A foreign location id is not found.\nSource-backed load coordinates are replaced by the tenant-scoped source location snapshot.\n",
         "parameters": [
           {
             "$ref": "#/components/parameters/XRequestID"
@@ -28770,7 +28769,7 @@
         ],
         "summary": "Publish own load opportunity",
         "operationId": "post_publish_own_load_opportunity",
-        "description": "BINTRANS Network Optimizer foundation mutation.\nTenant and user identity come from the verified gateway JWT. Client identity headers are not trusted.\nIdempotency-Key replays the original result and does not create a second publication or outbox event.\nOmitted physical attributes stay unknown. Zero is not a substitute for unknown.\n",
+        "description": "BINTRANS Network Optimizer foundation mutation.\nTenant and user identity come from the verified gateway JWT. Client identity headers are not trusted.\nIdempotency-Key replays the original result and does not create a second publication or outbox event.\nOmitted physical attributes stay unknown. Zero is not a substitute for unknown.\nA capacity location_id is resolved in the caller tenant against transport.locations. A foreign location id is not found.\nSource-backed load coordinates are replaced by the tenant-scoped source location snapshot.\n",
         "parameters": [
           {
             "$ref": "#/components/parameters/XRequestID"
@@ -28905,7 +28904,7 @@
         ],
         "summary": "Withdraw own load opportunity",
         "operationId": "post_withdraw_own_load_opportunity",
-        "description": "BINTRANS Network Optimizer foundation mutation.\nTenant and user identity come from the verified gateway JWT. Client identity headers are not trusted.\nIdempotency-Key replays the original result and does not create a second publication or outbox event.\nOmitted physical attributes stay unknown. Zero is not a substitute for unknown.\n",
+        "description": "BINTRANS Network Optimizer foundation mutation.\nTenant and user identity come from the verified gateway JWT. Client identity headers are not trusted.\nIdempotency-Key replays the original result and does not create a second publication or outbox event.\nOmitted physical attributes stay unknown. Zero is not a substitute for unknown.\nA capacity location_id is resolved in the caller tenant against transport.locations. A foreign location id is not found.\nSource-backed load coordinates are replaced by the tenant-scoped source location snapshot.\n",
         "parameters": [
           {
             "$ref": "#/components/parameters/XRequestID"
@@ -29040,7 +29039,7 @@
         ],
         "summary": "Create manual capacity",
         "operationId": "post_create_manual_capacity",
-        "description": "BINTRANS Network Optimizer foundation mutation.\nTenant and user identity come from the verified gateway JWT. Client identity headers are not trusted.\nIdempotency-Key replays the original result and does not create a second publication or outbox event.\nOmitted physical attributes stay unknown. Zero is not a substitute for unknown.\n",
+        "description": "BINTRANS Network Optimizer foundation mutation.\nTenant and user identity come from the verified gateway JWT. Client identity headers are not trusted.\nIdempotency-Key replays the original result and does not create a second publication or outbox event.\nOmitted physical attributes stay unknown. Zero is not a substitute for unknown.\nA capacity location_id is resolved in the caller tenant against transport.locations. A foreign location id is not found.\nSource-backed load coordinates are replaced by the tenant-scoped source location snapshot.\n",
         "parameters": [
           {
             "$ref": "#/components/parameters/XRequestID"
@@ -29090,8 +29089,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/NetworkCapacity"
                 }
               }
             }
@@ -29327,8 +29325,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/NetworkCapacity"
                 }
               }
             }
@@ -29401,7 +29398,7 @@
         ],
         "summary": "Update own capacity",
         "operationId": "patch_update_own_capacity",
-        "description": "BINTRANS Network Optimizer foundation mutation.\nTenant and user identity come from the verified gateway JWT. Client identity headers are not trusted.\nIdempotency-Key replays the original result and does not create a second publication or outbox event.\nOmitted physical attributes stay unknown. Zero is not a substitute for unknown.\n",
+        "description": "BINTRANS Network Optimizer foundation mutation.\nTenant and user identity come from the verified gateway JWT. Client identity headers are not trusted.\nIdempotency-Key replays the original result and does not create a second publication or outbox event.\nOmitted physical attributes stay unknown. Zero is not a substitute for unknown.\nA capacity location_id is resolved in the caller tenant against transport.locations. A foreign location id is not found.\nSource-backed load coordinates are replaced by the tenant-scoped source location snapshot.\n",
         "parameters": [
           {
             "$ref": "#/components/parameters/XRequestID"
@@ -29526,7 +29523,7 @@
         ],
         "summary": "Withdraw own capacity",
         "operationId": "post_withdraw_own_capacity",
-        "description": "BINTRANS Network Optimizer foundation mutation.\nTenant and user identity come from the verified gateway JWT. Client identity headers are not trusted.\nIdempotency-Key replays the original result and does not create a second publication or outbox event.\nOmitted physical attributes stay unknown. Zero is not a substitute for unknown.\n",
+        "description": "BINTRANS Network Optimizer foundation mutation.\nTenant and user identity come from the verified gateway JWT. Client identity headers are not trusted.\nIdempotency-Key replays the original result and does not create a second publication or outbox event.\nOmitted physical attributes stay unknown. Zero is not a substitute for unknown.\nA capacity location_id is resolved in the caller tenant against transport.locations. A foreign location id is not found.\nSource-backed load coordinates are replaced by the tenant-scoped source location snapshot.\n",
         "parameters": [
           {
             "$ref": "#/components/parameters/XRequestID"
@@ -30322,7 +30319,7 @@
         ],
         "summary": "List marketplace load opportunities",
         "operationId": "get_list_marketplace_load_opportunities",
-        "description": "Tenant-scoped list. Marketplace reads return the visibility projection, not source shipment or transport-order rows.\nANONYMIZED_MARKETPLACE loads and ANONYMIZED capacities omit exact latitude, longitude, and raw facility or yard labels.\nThis release has no validated city or zone field, so coarse geography is omitted rather than derived from coordinates.\nMARKETPLACE and other non-anonymized scopes retain the location fields allowed by the visibility matrix.\n",
+        "description": "Tenant-scoped list. Marketplace reads return the visibility projection, not source shipment or transport-order rows.\nSearch geography stays on the owner record and is not a public anonymized view.\nANONYMIZED_MARKETPLACE display omits location_id, latitude, longitude, facility labels, address lines, and postal codes.\nWhen known, anonymized display returns country_code, region, and city. Missing coarse fields are omitted and are not invented.\nMARKETPLACE and other non-anonymized scopes retain the exact location fields allowed by the visibility matrix.\nAnonymous results do not include an exact deadhead distance.\n",
         "parameters": [
           {
             "$ref": "#/components/parameters/XRequestID"
@@ -30448,7 +30445,7 @@
         ],
         "summary": "Get marketplace load opportunity",
         "operationId": "get_get_marketplace_load_opportunity",
-        "description": "Marketplace read. The response is the visibility projection, not the source shipment or transport-order row.\nANONYMIZED_MARKETPLACE loads and ANONYMIZED capacities omit exact latitude, longitude, and raw facility or yard labels.\nThis release has no validated city or zone field, so coarse geography is omitted rather than derived from coordinates.\nMARKETPLACE and other non-anonymized scopes retain the location fields allowed by the visibility matrix.\n",
+        "description": "Marketplace read. The response is the visibility projection, not the source shipment or transport-order row.\nSearch geography stays on the owner record and is not a public anonymized view.\nANONYMIZED_MARKETPLACE display omits location_id, latitude, longitude, facility labels, address lines, and postal codes.\nWhen known, anonymized display returns country_code, region, and city. Missing coarse fields are omitted and are not invented.\nMARKETPLACE and other non-anonymized scopes retain the exact location fields allowed by the visibility matrix.\nAnonymous results do not include an exact deadhead distance.\n",
         "parameters": [
           {
             "$ref": "#/components/parameters/XRequestID"
@@ -30486,8 +30483,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/NetworkMarketplaceLoad"
                 }
               }
             }
@@ -30562,7 +30558,7 @@
         ],
         "summary": "List marketplace capacities",
         "operationId": "get_list_marketplace_capacities",
-        "description": "Tenant-scoped list. Marketplace reads return the visibility projection, not source shipment or transport-order rows.\nANONYMIZED_MARKETPLACE loads and ANONYMIZED capacities omit exact latitude, longitude, and raw facility or yard labels.\nThis release has no validated city or zone field, so coarse geography is omitted rather than derived from coordinates.\nMARKETPLACE and other non-anonymized scopes retain the location fields allowed by the visibility matrix.\n",
+        "description": "Tenant-scoped list. Marketplace reads return the visibility projection, not source shipment or transport-order rows.\nSearch geography stays on the owner record and is not a public anonymized view.\nANONYMIZED_MARKETPLACE display omits location_id, latitude, longitude, facility labels, address lines, and postal codes.\nWhen known, anonymized display returns country_code, region, and city. Missing coarse fields are omitted and are not invented.\nMARKETPLACE and other non-anonymized scopes retain the exact location fields allowed by the visibility matrix.\nAnonymous results do not include an exact deadhead distance.\n",
         "parameters": [
           {
             "$ref": "#/components/parameters/XRequestID"
@@ -30688,7 +30684,7 @@
         ],
         "summary": "Get marketplace capacity",
         "operationId": "get_get_marketplace_capacity",
-        "description": "Marketplace read. The response is the visibility projection, not the source shipment or transport-order row.\nANONYMIZED_MARKETPLACE loads and ANONYMIZED capacities omit exact latitude, longitude, and raw facility or yard labels.\nThis release has no validated city or zone field, so coarse geography is omitted rather than derived from coordinates.\nMARKETPLACE and other non-anonymized scopes retain the location fields allowed by the visibility matrix.\n",
+        "description": "Marketplace read. The response is the visibility projection, not the source shipment or transport-order row.\nSearch geography stays on the owner record and is not a public anonymized view.\nANONYMIZED_MARKETPLACE display omits location_id, latitude, longitude, facility labels, address lines, and postal codes.\nWhen known, anonymized display returns country_code, region, and city. Missing coarse fields are omitted and are not invented.\nMARKETPLACE and other non-anonymized scopes retain the exact location fields allowed by the visibility matrix.\nAnonymous results do not include an exact deadhead distance.\n",
         "parameters": [
           {
             "$ref": "#/components/parameters/XRequestID"
@@ -30726,8 +30722,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/NetworkMarketplaceCapacity"
                 }
               }
             }
@@ -32427,6 +32422,144 @@
           "version": {
             "type": "integer",
             "minimum": 1
+          }
+        }
+      },
+      "NetworkPlace": {
+        "type": "object",
+        "description": "Owner and non-anonymized place. Exact search geography. Address lines are not part of this snapshot.",
+        "properties": {
+          "location_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "label": {
+            "type": "string"
+          },
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
+          },
+          "country_code": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 2
+          },
+          "region": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          }
+        }
+      },
+      "NetworkCoarsePlace": {
+        "type": "object",
+        "description": "Anonymized display geography. Exact coordinates, location ids, and facility labels are absent.",
+        "properties": {
+          "country_code": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 2
+          },
+          "region": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          }
+        }
+      },
+      "NetworkLoadOpportunity": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "pickup": {
+            "$ref": "#/components/schemas/NetworkPlace"
+          },
+          "delivery": {
+            "$ref": "#/components/schemas/NetworkPlace"
+          }
+        }
+      },
+      "NetworkMarketplaceLoad": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Marketplace projection. Anonymized loads use coarse places and do not expose exact deadhead.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "visibility_scope": {
+            "type": "string"
+          },
+          "pickup": {
+            "$ref": "#/components/schemas/NetworkCoarsePlace"
+          },
+          "delivery": {
+            "$ref": "#/components/schemas/NetworkCoarsePlace"
+          }
+        }
+      },
+      "NetworkCapacity": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "location_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "location_label": {
+            "type": "string"
+          },
+          "latitude": {
+            "type": "number",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "number",
+            "nullable": true
+          },
+          "country_code": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          }
+        }
+      },
+      "NetworkMarketplaceCapacity": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Anonymized capacity display omits location_id, coordinates, and facility labels.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "country_code": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
           }
         }
       },

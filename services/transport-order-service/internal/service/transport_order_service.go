@@ -159,6 +159,20 @@ func (s *TransportOrderService) ConfirmOwnership(ctx context.Context, tenantID, 
 	return nil
 }
 
+func (s *TransportOrderService) PlanningLocations(ctx context.Context, tenantID, id uuid.UUID) (uuid.UUID, uuid.UUID, error) {
+	if err := s.ConfirmOwnership(ctx, tenantID, id); err != nil {
+		return uuid.Nil, uuid.Nil, err
+	}
+	order, err := s.orders.GetByIDAndTenant(ctx, id, tenantID)
+	if err != nil {
+		return uuid.Nil, uuid.Nil, err
+	}
+	if order == nil || order.OriginLocationID == uuid.Nil || order.DestinationLocationID == uuid.Nil {
+		return uuid.Nil, uuid.Nil, apperrors.NotFound("transport order not found")
+	}
+	return order.OriginLocationID, order.DestinationLocationID, nil
+}
+
 func (s *TransportOrderService) ListTransportOrders(ctx context.Context, filter domain.ListTransportOrdersFilter, actor domain.OrderAccessActor) ([]domain.TransportOrder, int, error) {
 	if filter.TenantID == uuid.Nil {
 		return nil, 0, apperrors.Unauthorized("tenant context is required")

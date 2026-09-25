@@ -14,8 +14,10 @@ import (
 
 	"github.com/freight-platform/network-optimizer-service/internal/config"
 	httpserver "github.com/freight-platform/network-optimizer-service/internal/http"
+	"github.com/freight-platform/network-optimizer-service/internal/locationclient"
 	"github.com/freight-platform/network-optimizer-service/internal/predict"
 	"github.com/freight-platform/network-optimizer-service/internal/repository"
+	"github.com/freight-platform/network-optimizer-service/internal/routing/twogis"
 	"github.com/freight-platform/network-optimizer-service/internal/service"
 	"github.com/freight-platform/network-optimizer-service/internal/sourceclient"
 	"github.com/freight-platform/network-optimizer-service/internal/sourceverify"
@@ -38,6 +40,11 @@ func main() {
 	store := repository.NewPostgres(pool)
 	verifier := sourceverify.NewHTTP(cfg.TransportOrderURL, cfg.ShipmentURL, cfg.InternalServiceToken)
 	svc := service.New(store, verifier)
+	svc.UseDirectory(locationclient.NewHTTP(cfg.TransportOrderURL, cfg.ShipmentURL, cfg.InternalServiceToken))
+	svc.UsePolicies(store)
+	if cfg.RoutingProvider == "2GIS" {
+		svc.UseRouting(twogis.New(cfg.TwoGISRoutingBaseURL, cfg.TwoGISAPIKey, log))
+	}
 	svc.ConfigurePrediction(sourceclient.New(cfg.ShipmentURL, cfg.TrackingURL, cfg.InternalServiceToken), predict.Policy{
 		Unload: cfg.Prediction.Unload, Uncertainty: cfg.Prediction.Uncertainty, MaxETAAge: cfg.Prediction.MaxETAAge,
 		ConfidenceFloor: cfg.Prediction.ConfidenceFloor, AutoActivate: cfg.Prediction.AutoActivate,

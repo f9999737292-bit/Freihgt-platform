@@ -1487,9 +1487,11 @@ def render_parameters(path: str, method: str, with_headers: bool, profile: str |
 
 def _bno_anonymized_geography_lines() -> list[str]:
     return [
-        "        ANONYMIZED_MARKETPLACE loads and ANONYMIZED capacities omit exact latitude, longitude, and raw facility or yard labels.",
-        "        This release has no validated city or zone field, so coarse geography is omitted rather than derived from coordinates.",
-        "        MARKETPLACE and other non-anonymized scopes retain the location fields allowed by the visibility matrix.",
+        "        Search geography stays on the owner record and is not a public anonymized view.",
+        "        ANONYMIZED_MARKETPLACE display omits location_id, latitude, longitude, facility labels, address lines, and postal codes.",
+        "        When known, anonymized display returns country_code, region, and city. Missing coarse fields are omitted and are not invented.",
+        "        MARKETPLACE and other non-anonymized scopes retain the exact location fields allowed by the visibility matrix.",
+        "        Anonymous results do not include an exact deadhead distance.",
     ]
 
 
@@ -1516,6 +1518,8 @@ def render_operation(
         lines.append("        Tenant and user identity come from the verified gateway JWT. Client identity headers are not trusted.")
         lines.append("        Idempotency-Key replays the original result and does not create a second publication or outbox event.")
         lines.append("        Omitted physical attributes stay unknown. Zero is not a substitute for unknown.")
+        lines.append("        A capacity location_id is resolved in the caller tenant against transport.locations. A foreign location id is not found.")
+        lines.append("        Source-backed load coordinates are replaced by the tenant-scoped source location snapshot.")
     elif profile == "bno_prediction":
         lines.append("      description: |")
         lines.append("        Owner predictive capacity. A generated prediction is PRIVATE and PREDICTED.")
@@ -2122,6 +2126,16 @@ def render_operation(
     response_schema = READ_RESPONSE_SCHEMAS.get(profile or "")
     if profile == "bno_compatibility" and path.endswith("/evaluate"):
         response_schema = "CompatibilityEvaluation"
+    if method == "get" and path == "/api/v1/network/marketplace/load-opportunities/{id}":
+        response_schema = "NetworkMarketplaceLoad"
+    elif method == "get" and path == "/api/v1/network/marketplace/capacities/{id}":
+        response_schema = "NetworkMarketplaceCapacity"
+    elif method == "get" and path == "/api/v1/network/capacities/{id}":
+        response_schema = "NetworkCapacity"
+    elif method == "post" and path == "/api/v1/network/capacities":
+        response_schema = "NetworkCapacity"
+    elif method == "get" and path == "/api/v1/network/load-opportunities/{id}":
+        response_schema = "NetworkLoadOpportunity"
     if response_schema:
         schema_lines = [
             "              schema:",
@@ -3886,6 +3900,61 @@ components:
         version:
           type: integer
           minimum: 1
+    NetworkPlace:
+      type: object
+      description: Owner and non-anonymized place. Exact search geography. Address lines are not part of this snapshot.
+      properties:
+        location_id: {type: string, format: uuid}
+        label: {type: string}
+        latitude: {type: number}
+        longitude: {type: number}
+        country_code: {type: string, minLength: 2, maxLength: 2}
+        region: {type: string}
+        city: {type: string}
+    NetworkCoarsePlace:
+      type: object
+      description: Anonymized display geography. Exact coordinates, location ids, and facility labels are absent.
+      properties:
+        country_code: {type: string, minLength: 2, maxLength: 2}
+        region: {type: string}
+        city: {type: string}
+    NetworkLoadOpportunity:
+      type: object
+      additionalProperties: true
+      properties:
+        id: {type: string, format: uuid}
+        pickup: {$ref: '#/components/schemas/NetworkPlace'}
+        delivery: {$ref: '#/components/schemas/NetworkPlace'}
+    NetworkMarketplaceLoad:
+      type: object
+      additionalProperties: true
+      description: Marketplace projection. Anonymized loads use coarse places and do not expose exact deadhead.
+      properties:
+        id: {type: string, format: uuid}
+        visibility_scope: {type: string}
+        pickup: {$ref: '#/components/schemas/NetworkCoarsePlace'}
+        delivery: {$ref: '#/components/schemas/NetworkCoarsePlace'}
+    NetworkCapacity:
+      type: object
+      additionalProperties: true
+      properties:
+        id: {type: string, format: uuid}
+        location_id: {type: string, format: uuid, nullable: true}
+        location_label: {type: string}
+        latitude: {type: number, nullable: true}
+        longitude: {type: number, nullable: true}
+        country_code: {type: string}
+        region: {type: string}
+        city: {type: string}
+    NetworkMarketplaceCapacity:
+      type: object
+      additionalProperties: true
+      description: Anonymized capacity display omits location_id, coordinates, and facility labels.
+      properties:
+        id: {type: string, format: uuid}
+        country_code: {type: string}
+        region: {type: string}
+        city: {type: string}
     CompatibilityEvaluation:
       type: object
       required: [status, rule_sets_used, catalog_versions_used, fingerprint]

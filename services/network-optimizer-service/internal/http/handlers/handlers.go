@@ -381,10 +381,13 @@ func errorCode(err error) string {
 }
 
 type placeBody struct {
-	LocationID *uuid.UUID `json:"location_id"`
-	Label      string     `json:"label"`
-	Latitude   *float64   `json:"latitude"`
-	Longitude  *float64   `json:"longitude"`
+	LocationID  *uuid.UUID `json:"location_id"`
+	Label       string     `json:"label"`
+	Latitude    *float64   `json:"latitude"`
+	Longitude   *float64   `json:"longitude"`
+	CountryCode string     `json:"country_code"`
+	Region      string     `json:"region"`
+	City        string     `json:"city"`
 }
 
 type windowBody struct {
@@ -470,9 +473,13 @@ func (b updateLoadBody) patch() service.LoadPatch {
 type createCapacityBody struct {
 	CarrierCompanyID   *uuid.UUID  `json:"carrier_company_id"`
 	VehicleID          *uuid.UUID  `json:"vehicle_id"`
+	LocationID         *uuid.UUID  `json:"location_id"`
 	LocationLabel      string      `json:"location_label"`
 	Latitude           *float64    `json:"latitude"`
 	Longitude          *float64    `json:"longitude"`
+	CountryCode        string      `json:"country_code"`
+	Region             string      `json:"region"`
+	City               string      `json:"city"`
 	AvailableFrom      time.Time   `json:"available_from"`
 	AvailableUntil     time.Time   `json:"available_until"`
 	Source             string      `json:"source"`
@@ -486,8 +493,9 @@ type createCapacityBody struct {
 
 func (b createCapacityBody) toDomain() (domain.Capacity, error) {
 	return domain.Capacity{
-		CarrierCompanyID: b.CarrierCompanyID, VehicleID: b.VehicleID, LocationLabel: b.LocationLabel,
-		Latitude: b.Latitude, Longitude: b.Longitude, AvailableFrom: b.AvailableFrom, AvailableUntil: b.AvailableUntil,
+		CarrierCompanyID: b.CarrierCompanyID, VehicleID: b.VehicleID, LocationID: b.LocationID, LocationLabel: b.LocationLabel,
+		Latitude: b.Latitude, Longitude: b.Longitude, CountryCode: b.CountryCode, Region: b.Region, City: b.City,
+		AvailableFrom: b.AvailableFrom, AvailableUntil: b.AvailableUntil,
 		Source: b.Source, BodyType: b.BodyType, Equipment: b.Equipment,
 		PayloadRemainingKg: b.PayloadRemainingKg, VolumeRemainingM3: b.VolumeRemainingM3,
 		VisibilityScope: b.VisibilityScope, AudienceTenantIDs: b.AudienceTenantIDs,
@@ -498,9 +506,13 @@ type updateCapacityBody struct {
 	Version            int          `json:"version"`
 	CarrierCompanyID   *uuid.UUID   `json:"carrier_company_id"`
 	VehicleID          *uuid.UUID   `json:"vehicle_id"`
+	LocationID         *uuid.UUID   `json:"location_id"`
 	LocationLabel      *string      `json:"location_label"`
 	Latitude           *float64     `json:"latitude"`
 	Longitude          *float64     `json:"longitude"`
+	CountryCode        *string      `json:"country_code"`
+	Region             *string      `json:"region"`
+	City               *string      `json:"city"`
 	AvailableFrom      *time.Time   `json:"available_from"`
 	AvailableUntil     *time.Time   `json:"available_until"`
 	BodyType           *string      `json:"body_type"`
@@ -514,17 +526,21 @@ type updateCapacityBody struct {
 func (b updateCapacityBody) patch() service.CapacityPatch {
 	patch := service.CapacityPatch{
 		Version: b.Version, CarrierCompanyID: b.CarrierCompanyID, VehicleID: b.VehicleID,
-		LocationLabel: b.LocationLabel, Latitude: b.Latitude, Longitude: b.Longitude,
+		LocationID: b.LocationID, LocationLabel: b.LocationLabel, Latitude: b.Latitude, Longitude: b.Longitude,
+		CountryCode: b.CountryCode, Region: b.Region, City: b.City,
 		AvailableFrom: b.AvailableFrom, AvailableUntil: b.AvailableUntil, BodyType: b.BodyType,
 		Equipment: b.Equipment, PayloadRemainingKg: b.PayloadRemainingKg, VolumeRemainingM3: b.VolumeRemainingM3,
 		VisibilityScope: b.VisibilityScope, Audience: b.AudienceTenantIDs,
 	}
-	patch.Changed = b.CarrierCompanyID != nil || b.VehicleID != nil || b.LocationLabel != nil || b.Latitude != nil || b.Longitude != nil || b.AvailableFrom != nil || b.AvailableUntil != nil || b.BodyType != nil || b.Equipment != nil || b.PayloadRemainingKg != nil || b.VolumeRemainingM3 != nil || b.VisibilityScope != nil || b.AudienceTenantIDs != nil
+	patch.Changed = b.CarrierCompanyID != nil || b.VehicleID != nil || b.LocationID != nil || b.LocationLabel != nil || b.Latitude != nil || b.Longitude != nil || b.CountryCode != nil || b.Region != nil || b.City != nil || b.AvailableFrom != nil || b.AvailableUntil != nil || b.BodyType != nil || b.Equipment != nil || b.PayloadRemainingKg != nil || b.VolumeRemainingM3 != nil || b.VisibilityScope != nil || b.AudienceTenantIDs != nil
 	return patch
 }
 
 func placeOf(body placeBody) domain.Place {
-	return domain.Place{LocationID: body.LocationID, Label: body.Label, Latitude: body.Latitude, Longitude: body.Longitude}
+	return domain.Place{
+		LocationID: body.LocationID, Label: body.Label, Latitude: body.Latitude, Longitude: body.Longitude,
+		CountryCode: body.CountryCode, Region: body.Region, City: body.City,
+	}
 }
 
 func windowOf(body windowBody) domain.TimeWindow {

@@ -16382,6 +16382,8 @@ paths:
         Tenant and user identity come from the verified gateway JWT. Client identity headers are not trusted.
         Idempotency-Key replays the original result and does not create a second publication or outbox event.
         Omitted physical attributes stay unknown. Zero is not a substitute for unknown.
+        A capacity location_id is resolved in the caller tenant against transport.locations. A foreign location id is not found.
+        Source-backed load coordinates are replaced by the tenant-scoped source location snapshot.
       parameters:
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
@@ -16548,8 +16550,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                $ref: '#/components/schemas/NetworkLoadOpportunity'
         '400':
           description: Validation error
           content:
@@ -16596,6 +16597,8 @@ paths:
         Tenant and user identity come from the verified gateway JWT. Client identity headers are not trusted.
         Idempotency-Key replays the original result and does not create a second publication or outbox event.
         Omitted physical attributes stay unknown. Zero is not a substitute for unknown.
+        A capacity location_id is resolved in the caller tenant against transport.locations. A foreign location id is not found.
+        Source-backed load coordinates are replaced by the tenant-scoped source location snapshot.
       parameters:
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
@@ -16672,6 +16675,8 @@ paths:
         Tenant and user identity come from the verified gateway JWT. Client identity headers are not trusted.
         Idempotency-Key replays the original result and does not create a second publication or outbox event.
         Omitted physical attributes stay unknown. Zero is not a substitute for unknown.
+        A capacity location_id is resolved in the caller tenant against transport.locations. A foreign location id is not found.
+        Source-backed load coordinates are replaced by the tenant-scoped source location snapshot.
       parameters:
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
@@ -16755,6 +16760,8 @@ paths:
         Tenant and user identity come from the verified gateway JWT. Client identity headers are not trusted.
         Idempotency-Key replays the original result and does not create a second publication or outbox event.
         Omitted physical attributes stay unknown. Zero is not a substitute for unknown.
+        A capacity location_id is resolved in the caller tenant against transport.locations. A foreign location id is not found.
+        Source-backed load coordinates are replaced by the tenant-scoped source location snapshot.
       parameters:
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
@@ -16838,6 +16845,8 @@ paths:
         Tenant and user identity come from the verified gateway JWT. Client identity headers are not trusted.
         Idempotency-Key replays the original result and does not create a second publication or outbox event.
         Omitted physical attributes stay unknown. Zero is not a substitute for unknown.
+        A capacity location_id is resolved in the caller tenant against transport.locations. A foreign location id is not found.
+        Source-backed load coordinates are replaced by the tenant-scoped source location snapshot.
       parameters:
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
@@ -16866,8 +16875,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                $ref: '#/components/schemas/NetworkCapacity'
         '400':
           description: Validation error
           content:
@@ -17004,8 +17012,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                $ref: '#/components/schemas/NetworkCapacity'
         '400':
           description: Validation error
           content:
@@ -17052,6 +17059,8 @@ paths:
         Tenant and user identity come from the verified gateway JWT. Client identity headers are not trusted.
         Idempotency-Key replays the original result and does not create a second publication or outbox event.
         Omitted physical attributes stay unknown. Zero is not a substitute for unknown.
+        A capacity location_id is resolved in the caller tenant against transport.locations. A foreign location id is not found.
+        Source-backed load coordinates are replaced by the tenant-scoped source location snapshot.
       parameters:
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
@@ -17128,6 +17137,8 @@ paths:
         Tenant and user identity come from the verified gateway JWT. Client identity headers are not trusted.
         Idempotency-Key replays the original result and does not create a second publication or outbox event.
         Omitted physical attributes stay unknown. Zero is not a substitute for unknown.
+        A capacity location_id is resolved in the caller tenant against transport.locations. A foreign location id is not found.
+        Source-backed load coordinates are replaced by the tenant-scoped source location snapshot.
       parameters:
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
@@ -17623,9 +17634,11 @@ paths:
       operationId: get_list_marketplace_load_opportunities
       description: |
         Tenant-scoped list. Marketplace reads return the visibility projection, not source shipment or transport-order rows.
-        ANONYMIZED_MARKETPLACE loads and ANONYMIZED capacities omit exact latitude, longitude, and raw facility or yard labels.
-        This release has no validated city or zone field, so coarse geography is omitted rather than derived from coordinates.
-        MARKETPLACE and other non-anonymized scopes retain the location fields allowed by the visibility matrix.
+        Search geography stays on the owner record and is not a public anonymized view.
+        ANONYMIZED_MARKETPLACE display omits location_id, latitude, longitude, facility labels, address lines, and postal codes.
+        When known, anonymized display returns country_code, region, and city. Missing coarse fields are omitted and are not invented.
+        MARKETPLACE and other non-anonymized scopes retain the exact location fields allowed by the visibility matrix.
+        Anonymous results do not include an exact deadhead distance.
       parameters:
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
@@ -17701,9 +17714,11 @@ paths:
       operationId: get_get_marketplace_load_opportunity
       description: |
         Marketplace read. The response is the visibility projection, not the source shipment or transport-order row.
-        ANONYMIZED_MARKETPLACE loads and ANONYMIZED capacities omit exact latitude, longitude, and raw facility or yard labels.
-        This release has no validated city or zone field, so coarse geography is omitted rather than derived from coordinates.
-        MARKETPLACE and other non-anonymized scopes retain the location fields allowed by the visibility matrix.
+        Search geography stays on the owner record and is not a public anonymized view.
+        ANONYMIZED_MARKETPLACE display omits location_id, latitude, longitude, facility labels, address lines, and postal codes.
+        When known, anonymized display returns country_code, region, and city. Missing coarse fields are omitted and are not invented.
+        MARKETPLACE and other non-anonymized scopes retain the exact location fields allowed by the visibility matrix.
+        Anonymous results do not include an exact deadhead distance.
       parameters:
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
@@ -17724,8 +17739,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                $ref: '#/components/schemas/NetworkMarketplaceLoad'
         '400':
           description: Validation error
           content:
@@ -17770,9 +17784,11 @@ paths:
       operationId: get_list_marketplace_capacities
       description: |
         Tenant-scoped list. Marketplace reads return the visibility projection, not source shipment or transport-order rows.
-        ANONYMIZED_MARKETPLACE loads and ANONYMIZED capacities omit exact latitude, longitude, and raw facility or yard labels.
-        This release has no validated city or zone field, so coarse geography is omitted rather than derived from coordinates.
-        MARKETPLACE and other non-anonymized scopes retain the location fields allowed by the visibility matrix.
+        Search geography stays on the owner record and is not a public anonymized view.
+        ANONYMIZED_MARKETPLACE display omits location_id, latitude, longitude, facility labels, address lines, and postal codes.
+        When known, anonymized display returns country_code, region, and city. Missing coarse fields are omitted and are not invented.
+        MARKETPLACE and other non-anonymized scopes retain the exact location fields allowed by the visibility matrix.
+        Anonymous results do not include an exact deadhead distance.
       parameters:
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
@@ -17848,9 +17864,11 @@ paths:
       operationId: get_get_marketplace_capacity
       description: |
         Marketplace read. The response is the visibility projection, not the source shipment or transport-order row.
-        ANONYMIZED_MARKETPLACE loads and ANONYMIZED capacities omit exact latitude, longitude, and raw facility or yard labels.
-        This release has no validated city or zone field, so coarse geography is omitted rather than derived from coordinates.
-        MARKETPLACE and other non-anonymized scopes retain the location fields allowed by the visibility matrix.
+        Search geography stays on the owner record and is not a public anonymized view.
+        ANONYMIZED_MARKETPLACE display omits location_id, latitude, longitude, facility labels, address lines, and postal codes.
+        When known, anonymized display returns country_code, region, and city. Missing coarse fields are omitted and are not invented.
+        MARKETPLACE and other non-anonymized scopes retain the exact location fields allowed by the visibility matrix.
+        Anonymous results do not include an exact deadhead distance.
       parameters:
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
@@ -17871,8 +17889,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                $ref: '#/components/schemas/NetworkMarketplaceCapacity'
         '400':
           description: Validation error
           content:
@@ -18936,6 +18953,61 @@ components:
         version:
           type: integer
           minimum: 1
+    NetworkPlace:
+      type: object
+      description: Owner and non-anonymized place. Exact search geography. Address lines are not part of this snapshot.
+      properties:
+        location_id: {type: string, format: uuid}
+        label: {type: string}
+        latitude: {type: number}
+        longitude: {type: number}
+        country_code: {type: string, minLength: 2, maxLength: 2}
+        region: {type: string}
+        city: {type: string}
+    NetworkCoarsePlace:
+      type: object
+      description: Anonymized display geography. Exact coordinates, location ids, and facility labels are absent.
+      properties:
+        country_code: {type: string, minLength: 2, maxLength: 2}
+        region: {type: string}
+        city: {type: string}
+    NetworkLoadOpportunity:
+      type: object
+      additionalProperties: true
+      properties:
+        id: {type: string, format: uuid}
+        pickup: {$ref: '#/components/schemas/NetworkPlace'}
+        delivery: {$ref: '#/components/schemas/NetworkPlace'}
+    NetworkMarketplaceLoad:
+      type: object
+      additionalProperties: true
+      description: Marketplace projection. Anonymized loads use coarse places and do not expose exact deadhead.
+      properties:
+        id: {type: string, format: uuid}
+        visibility_scope: {type: string}
+        pickup: {$ref: '#/components/schemas/NetworkCoarsePlace'}
+        delivery: {$ref: '#/components/schemas/NetworkCoarsePlace'}
+    NetworkCapacity:
+      type: object
+      additionalProperties: true
+      properties:
+        id: {type: string, format: uuid}
+        location_id: {type: string, format: uuid, nullable: true}
+        location_label: {type: string}
+        latitude: {type: number, nullable: true}
+        longitude: {type: number, nullable: true}
+        country_code: {type: string}
+        region: {type: string}
+        city: {type: string}
+    NetworkMarketplaceCapacity:
+      type: object
+      additionalProperties: true
+      description: Anonymized capacity display omits location_id, coordinates, and facility labels.
+      properties:
+        id: {type: string, format: uuid}
+        country_code: {type: string}
+        region: {type: string}
+        city: {type: string}
     CompatibilityEvaluation:
       type: object
       required: [status, rule_sets_used, catalog_versions_used, fingerprint]
