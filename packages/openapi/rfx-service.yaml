@@ -7756,6 +7756,61 @@ components:
         version:
           type: integer
           minimum: 1
+    NetworkPlace:
+      type: object
+      description: Owner and non-anonymized place. Exact search geography. Address lines are not part of this snapshot.
+      properties:
+        location_id: {type: string, format: uuid}
+        label: {type: string}
+        latitude: {type: number}
+        longitude: {type: number}
+        country_code: {type: string, minLength: 2, maxLength: 2}
+        region: {type: string}
+        city: {type: string}
+    NetworkCoarsePlace:
+      type: object
+      description: Anonymized display geography. Exact coordinates, location ids, and facility labels are absent.
+      properties:
+        country_code: {type: string, minLength: 2, maxLength: 2}
+        region: {type: string}
+        city: {type: string}
+    NetworkLoadOpportunity:
+      type: object
+      additionalProperties: true
+      properties:
+        id: {type: string, format: uuid}
+        pickup: {$ref: '#/components/schemas/NetworkPlace'}
+        delivery: {$ref: '#/components/schemas/NetworkPlace'}
+    NetworkMarketplaceLoad:
+      type: object
+      additionalProperties: true
+      description: Marketplace projection. Anonymized loads use coarse places and do not expose exact deadhead.
+      properties:
+        id: {type: string, format: uuid}
+        visibility_scope: {type: string}
+        pickup: {$ref: '#/components/schemas/NetworkCoarsePlace'}
+        delivery: {$ref: '#/components/schemas/NetworkCoarsePlace'}
+    NetworkCapacity:
+      type: object
+      additionalProperties: true
+      properties:
+        id: {type: string, format: uuid}
+        location_id: {type: string, format: uuid, nullable: true}
+        location_label: {type: string}
+        latitude: {type: number, nullable: true}
+        longitude: {type: number, nullable: true}
+        country_code: {type: string}
+        region: {type: string}
+        city: {type: string}
+    NetworkMarketplaceCapacity:
+      type: object
+      additionalProperties: true
+      description: Anonymized capacity display omits location_id, coordinates, and facility labels.
+      properties:
+        id: {type: string, format: uuid}
+        country_code: {type: string}
+        region: {type: string}
+        city: {type: string}
     CompatibilityEvaluation:
       type: object
       required: [status, rule_sets_used, catalog_versions_used, fingerprint]

@@ -143,7 +143,7 @@ func (s *Service) ActivatePrediction(ctx context.Context, actor Actor, id uuid.U
 		if err := s.audit(ctx, tx, actor, "predicted_capacity", prediction.ID, "prediction_activated", domain.CapacityPredicted, domain.CapacityAvailable, domain.CapVisPrivate, domain.SourceCurrentShipmentPrediction, &prediction.ShipmentID, now); err != nil {
 			return err
 		}
-		if err := s.emit(ctx, tx, domain.EventCapacityUpdated, actor.TenantID, capacity.ID, capacity.Version, capacity.Status, capacity.VisibilityScope, now); err != nil {
+		if err := s.emit(ctx, tx, domain.EventCapacityUpdated, actor.TenantID, capacity.ID, capacity.Version, capacity.Status, capacity.VisibilityScope, capacity.LocationID, now); err != nil {
 			return err
 		}
 		body, err := marshalPrediction(prediction, capacity)
@@ -241,7 +241,8 @@ func (s *Service) insertPrediction(ctx context.Context, tx repository.Tx, actor 
 	}
 	capacity := domain.Capacity{
 		ID: capacityID, OwnerTenantID: actor.TenantID, CarrierCompanyID: actor.CompanyID, VehicleID: vehicleID,
-		Latitude: prediction.DestinationLatitude, Longitude: prediction.DestinationLongitude,
+		LocationID: &prediction.DestinationLocationID,
+		Latitude:   prediction.DestinationLatitude, Longitude: prediction.DestinationLongitude,
 		AvailableFrom: prediction.AvailabilityWindowStart, AvailableUntil: prediction.AvailabilityWindowEnd,
 		Source: domain.SourceCurrentShipmentPrediction, BodyType: bodyType,
 		PayloadRemainingKg: prediction.CapacityWeightKg, VolumeRemainingM3: prediction.CapacityVolumeM3,
@@ -337,7 +338,7 @@ func (s *Service) withdrawPrediction(ctx context.Context, actor Actor, predictio
 			if err := s.audit(ctx, tx, actor, "predicted_capacity", current.ID, "prediction_withdrawn", from, domain.CapacityWithdrawn, capacity.VisibilityScope, domain.SourceCurrentShipmentPrediction, &current.ShipmentID, now); err != nil {
 				return err
 			}
-			if err := s.emit(ctx, tx, domain.EventCapacityWithdrawn, actor.TenantID, capacity.ID, capacity.Version, capacity.Status, capacity.VisibilityScope, now); err != nil {
+			if err := s.emit(ctx, tx, domain.EventCapacityWithdrawn, actor.TenantID, capacity.ID, capacity.Version, capacity.Status, capacity.VisibilityScope, capacity.LocationID, now); err != nil {
 				return err
 			}
 		}
@@ -395,6 +396,7 @@ func (s *Service) emitPredicted(ctx context.Context, tx repository.Tx, tenant uu
 		"occurredAt": now.UTC().Format(time.RFC3339Nano), "status": domain.CapacityPredicted,
 		"visibilityScope": domain.CapVisPrivate, "predictionId": prediction.ID,
 		"capacityId": prediction.CapacityID, "shipmentId": prediction.ShipmentID,
+		"locationId":  prediction.DestinationLocationID,
 		"ruleVersion": prediction.RuleVersion, "confidence": prediction.Confidence,
 		"predictionMethod": prediction.PredictionMethod,
 	})

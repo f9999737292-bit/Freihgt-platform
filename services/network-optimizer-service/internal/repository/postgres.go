@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -23,7 +24,9 @@ delivery_window_start, delivery_window_end,
 weight_kg, volume_m3, body_type, equipment, cargo,
 commercial_mode, commercial_amount, commercial_currency,
 visibility_scope, invited_carrier_company_ids,
-status, version, created_at, updated_at`
+status, version, created_at, updated_at,
+pickup_country_code, pickup_region, pickup_city,
+delivery_country_code, delivery_region, delivery_city`
 
 const capacityColumns = `
 id, owner_tenant_id, carrier_company_id, vehicle_id,
@@ -31,7 +34,8 @@ location_label, latitude, longitude,
 available_from, available_until, source, body_type, equipment,
 payload_remaining_kg, volume_remaining_m3,
 visibility_scope, audience_tenant_ids,
-status, version, created_at, updated_at`
+status, version, created_at, updated_at,
+location_id, country_code, region, city`
 
 type Postgres struct {
 	pool *pgxpool.Pool
@@ -108,7 +112,8 @@ func (t *pgTx) InsertLoad(ctx context.Context, load domain.LoadOpportunity) erro
 			$17,$18,$19,$20,$21,
 			$22,$23,$24,
 			$25,$26,
-			$27,$28,$29,$30
+			$27,$28,$29,$30,
+			$31,$32,$33,$34,$35,$36
 		)`,
 		load.ID, load.OwnerTenantID, load.SourceType, load.SourceID,
 		load.Pickup.LocationID, load.Pickup.Label, load.Pickup.Latitude, load.Pickup.Longitude, load.PickupWindow.Start, load.PickupWindow.End,
@@ -117,6 +122,8 @@ func (t *pgTx) InsertLoad(ctx context.Context, load domain.LoadOpportunity) erro
 		load.Commercial.Mode, load.Commercial.Amount, load.Commercial.Currency,
 		load.VisibilityScope, emptyUUIDs(load.InvitedCarrierCompanyIDs),
 		load.Status, load.Version, load.CreatedAt, load.UpdatedAt,
+		nullString(load.Pickup.CountryCode), nullString(load.Pickup.Region), nullString(load.Pickup.City),
+		nullString(load.Delivery.CountryCode), nullString(load.Delivery.Region), nullString(load.Delivery.City),
 	)
 	if isConstraint(err, "load_opportunities_active_source_uidx") {
 		return ErrDuplicateSource
@@ -138,7 +145,9 @@ func (t *pgTx) UpdateLoad(ctx context.Context, load domain.LoadOpportunity, expe
 			weight_kg=$15, volume_m3=$16, body_type=$17, equipment=$18, cargo=$19,
 			commercial_mode=$20, commercial_amount=$21, commercial_currency=$22,
 			visibility_scope=$23, invited_carrier_company_ids=$24,
-			status=$25, version=$26, updated_at=$27
+			status=$25, version=$26, updated_at=$27,
+			pickup_country_code=$28, pickup_region=$29, pickup_city=$30,
+			delivery_country_code=$31, delivery_region=$32, delivery_city=$33
 		WHERE id=$1 AND version=$2`,
 		load.ID, expected,
 		load.Pickup.LocationID, load.Pickup.Label, load.Pickup.Latitude, load.Pickup.Longitude, load.PickupWindow.Start, load.PickupWindow.End,
@@ -147,6 +156,8 @@ func (t *pgTx) UpdateLoad(ctx context.Context, load domain.LoadOpportunity, expe
 		load.Commercial.Mode, load.Commercial.Amount, load.Commercial.Currency,
 		load.VisibilityScope, emptyUUIDs(load.InvitedCarrierCompanyIDs),
 		load.Status, load.Version, load.UpdatedAt,
+		nullString(load.Pickup.CountryCode), nullString(load.Pickup.Region), nullString(load.Pickup.City),
+		nullString(load.Delivery.CountryCode), nullString(load.Delivery.Region), nullString(load.Delivery.City),
 	)
 	if err != nil {
 		return err
@@ -194,13 +205,14 @@ func (t *pgTx) ActiveLoadBySource(ctx context.Context, tenant uuid.UUID, sourceT
 func (t *pgTx) InsertCapacity(ctx context.Context, cap domain.Capacity) error {
 	_, err := t.tx.Exec(ctx, `
 		INSERT INTO network_optimizer.capacities (`+capacityColumns+`)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)`,
 		cap.ID, cap.OwnerTenantID, cap.CarrierCompanyID, cap.VehicleID,
 		cap.LocationLabel, cap.Latitude, cap.Longitude,
 		cap.AvailableFrom, cap.AvailableUntil, cap.Source, cap.BodyType, emptyStrings(cap.Equipment),
 		cap.PayloadRemainingKg, cap.VolumeRemainingM3,
 		cap.VisibilityScope, emptyUUIDs(cap.AudienceTenantIDs),
 		cap.Status, cap.Version, cap.CreatedAt, cap.UpdatedAt,
+		cap.LocationID, nullString(cap.CountryCode), nullString(cap.Region), nullString(cap.City),
 	)
 	return err
 }
@@ -212,7 +224,8 @@ func (t *pgTx) UpdateCapacity(ctx context.Context, cap domain.Capacity, expected
 			available_from=$8, available_until=$9, body_type=$10, equipment=$11,
 			payload_remaining_kg=$12, volume_remaining_m3=$13,
 			visibility_scope=$14, audience_tenant_ids=$15,
-			status=$16, version=$17, updated_at=$18
+			status=$16, version=$17, updated_at=$18,
+			location_id=$19, country_code=$20, region=$21, city=$22
 		WHERE id=$1 AND version=$2`,
 		cap.ID, expected,
 		cap.CarrierCompanyID, cap.VehicleID, cap.LocationLabel, cap.Latitude, cap.Longitude,
@@ -220,6 +233,7 @@ func (t *pgTx) UpdateCapacity(ctx context.Context, cap domain.Capacity, expected
 		cap.PayloadRemainingKg, cap.VolumeRemainingM3,
 		cap.VisibilityScope, emptyUUIDs(cap.AudienceTenantIDs),
 		cap.Status, cap.Version, cap.UpdatedAt,
+		cap.LocationID, nullString(cap.CountryCode), nullString(cap.Region), nullString(cap.City),
 	)
 	if err != nil {
 		return err
@@ -319,6 +333,7 @@ func scanLoads(rows pgx.Rows) ([]domain.LoadOpportunity, error) {
 func scanLoad(row pgx.Row) (domain.LoadOpportunity, error) {
 	var load domain.LoadOpportunity
 	var cargo []byte
+	var pickupCountry, pickupRegion, pickupCity, deliveryCountry, deliveryRegion, deliveryCity *string
 	err := row.Scan(
 		&load.ID, &load.OwnerTenantID, &load.SourceType, &load.SourceID,
 		&load.Pickup.LocationID, &load.Pickup.Label, &load.Pickup.Latitude, &load.Pickup.Longitude, &load.PickupWindow.Start, &load.PickupWindow.End,
@@ -327,6 +342,7 @@ func scanLoad(row pgx.Row) (domain.LoadOpportunity, error) {
 		&load.Commercial.Mode, &load.Commercial.Amount, &load.Commercial.Currency,
 		&load.VisibilityScope, &load.InvitedCarrierCompanyIDs,
 		&load.Status, &load.Version, &load.CreatedAt, &load.UpdatedAt,
+		&pickupCountry, &pickupRegion, &pickupCity, &deliveryCountry, &deliveryRegion, &deliveryCity,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.LoadOpportunity{}, ErrNotFound
@@ -339,6 +355,12 @@ func scanLoad(row pgx.Row) (domain.LoadOpportunity, error) {
 			return domain.LoadOpportunity{}, err
 		}
 	}
+	load.Pickup.CountryCode = stringValue(pickupCountry)
+	load.Pickup.Region = stringValue(pickupRegion)
+	load.Pickup.City = stringValue(pickupCity)
+	load.Delivery.CountryCode = stringValue(deliveryCountry)
+	load.Delivery.Region = stringValue(deliveryRegion)
+	load.Delivery.City = stringValue(deliveryCity)
 	return load, nil
 }
 
@@ -359,6 +381,7 @@ func scanCapacities(rows pgx.Rows) ([]domain.Capacity, error) {
 
 func scanCapacity(row pgx.Row) (domain.Capacity, error) {
 	var cap domain.Capacity
+	var country, region, city *string
 	err := row.Scan(
 		&cap.ID, &cap.OwnerTenantID, &cap.CarrierCompanyID, &cap.VehicleID,
 		&cap.LocationLabel, &cap.Latitude, &cap.Longitude,
@@ -366,11 +389,32 @@ func scanCapacity(row pgx.Row) (domain.Capacity, error) {
 		&cap.PayloadRemainingKg, &cap.VolumeRemainingM3,
 		&cap.VisibilityScope, &cap.AudienceTenantIDs,
 		&cap.Status, &cap.Version, &cap.CreatedAt, &cap.UpdatedAt,
+		&cap.LocationID, &country, &region, &city,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Capacity{}, ErrNotFound
 	}
-	return cap, err
+	if err != nil {
+		return domain.Capacity{}, err
+	}
+	cap.CountryCode = stringValue(country)
+	cap.Region = stringValue(region)
+	cap.City = stringValue(city)
+	return cap, nil
+}
+
+func nullString(value string) any {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	return value
+}
+
+func stringValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 func versionMiss(ctx context.Context, tx pgx.Tx, table string, id uuid.UUID) error {

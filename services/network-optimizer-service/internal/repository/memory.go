@@ -11,13 +11,15 @@ import (
 )
 
 type Memory struct {
-	mu     sync.Mutex
-	loads  map[uuid.UUID]domain.LoadOpportunity
-	caps   map[uuid.UUID]domain.Capacity
-	preds  map[uuid.UUID]domain.PredictedCapacity
-	idem   map[string]IdempotencyRecord
-	audits []AuditEvent
-	outbox []OutboxEvent
+	mu               sync.Mutex
+	loads            map[uuid.UUID]domain.LoadOpportunity
+	caps             map[uuid.UUID]domain.Capacity
+	preds            map[uuid.UUID]domain.PredictedCapacity
+	idem             map[string]IdempotencyRecord
+	audits           []AuditEvent
+	outbox           []OutboxEvent
+	carrierPolicies  map[uuid.UUID]domain.NextLoadSearchPolicy
+	capacityPolicies map[uuid.UUID]storedCapacityPolicy
 }
 
 func NewMemory() *Memory {

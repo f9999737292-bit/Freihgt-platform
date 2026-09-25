@@ -11,19 +11,24 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/freight-platform/network-optimizer-service/internal/domain"
+	"github.com/freight-platform/network-optimizer-service/internal/locationclient"
 	apperrors "github.com/freight-platform/network-optimizer-service/internal/platform/errors"
 	bnometrics "github.com/freight-platform/network-optimizer-service/internal/platform/metrics"
 	"github.com/freight-platform/network-optimizer-service/internal/predict"
 	"github.com/freight-platform/network-optimizer-service/internal/repository"
+	"github.com/freight-platform/network-optimizer-service/internal/routing"
 	"github.com/freight-platform/network-optimizer-service/internal/sourceverify"
 )
 
 type Service struct {
-	store    repository.Store
-	verifier sourceverify.Verifier
-	sources  predict.Sources
-	policy   predict.Policy
-	now      func() time.Time
+	store     repository.Store
+	verifier  sourceverify.Verifier
+	directory locationclient.Directory
+	routes    routing.Provider
+	policies  repository.PolicyStore
+	sources   predict.Sources
+	policy    predict.Policy
+	now       func() time.Time
 }
 
 func New(store repository.Store, verifier sourceverify.Verifier) *Service {
@@ -32,6 +37,12 @@ func New(store repository.Store, verifier sourceverify.Verifier) *Service {
 	}
 	return &Service{store: store, verifier: verifier, now: func() time.Time { return time.Now().UTC() }}
 }
+
+func (s *Service) UseDirectory(directory locationclient.Directory) { s.directory = directory }
+
+func (s *Service) UseRouting(provider routing.Provider) { s.routes = provider }
+
+func (s *Service) UsePolicies(store repository.PolicyStore) { s.policies = store }
 
 func (s *Service) ConfigurePrediction(sources predict.Sources, policy predict.Policy) {
 	s.sources = sources
@@ -88,9 +99,13 @@ type CapacityPatch struct {
 	Version            int
 	CarrierCompanyID   *uuid.UUID
 	VehicleID          *uuid.UUID
+	LocationID         *uuid.UUID
 	LocationLabel      *string
 	Latitude           *float64
 	Longitude          *float64
+	CountryCode        *string
+	Region             *string
+	City               *string
 	AvailableFrom      *time.Time
 	AvailableUntil     *time.Time
 	BodyType           *string
@@ -110,6 +125,9 @@ func HashBody(body []byte) string {
 func (s *Service) CreateLoad(ctx context.Context, actor Actor, key, hash string, cmd CreateLoadCommand) (Result, error) {
 	load := cmd.Load
 	load.OwnerTenantID = actor.TenantID
+	if err := s.bindLoadGeography(ctx, actor.TenantID, &load); err != nil {
+		return Result{}, err
+	}
 	if err := domain.ValidateLoad(load); err != nil {
 		return Result{}, apperrors.Validation(err.Error(), nil)
 	}
@@ -148,7 +166,7 @@ func (s *Service) CreateLoad(ctx context.Context, actor Actor, key, hash string,
 			return err
 		}
 		if load.Status == domain.LoadPublished {
-			if err := s.emit(ctx, tx, domain.EventLoadPublished, actor.TenantID, load.ID, load.Version, load.Status, load.VisibilityScope, now); err != nil {
+			if err := s.emit(ctx, tx, domain.EventLoadPublished, actor.TenantID, load.ID, load.Version, load.Status, load.VisibilityScope, nil, now); err != nil {
 				return err
 			}
 		}
@@ -199,7 +217,7 @@ func (s *Service) PublishLoad(ctx context.Context, actor Actor, id uuid.UUID, ve
 		if err := s.audit(ctx, tx, actor, "load_opportunity", load.ID, "publish", from, load.Status, load.VisibilityScope, load.SourceType, &load.SourceID, now); err != nil {
 			return err
 		}
-		if err := s.emit(ctx, tx, domain.EventLoadPublished, actor.TenantID, load.ID, load.Version, load.Status, load.VisibilityScope, now); err != nil {
+		if err := s.emit(ctx, tx, domain.EventLoadPublished, actor.TenantID, load.ID, load.Version, load.Status, load.VisibilityScope, nil, now); err != nil {
 			return err
 		}
 		body, err := domain.MarshalLoad(load)
@@ -242,6 +260,9 @@ func (s *Service) UpdateLoad(ctx context.Context, actor Actor, id uuid.UUID, pat
 			return apperrors.Conflict("invalid status transition", nil)
 		}
 		applyLoadPatch(&load, patch)
+		if err := s.bindLoadGeography(ctx, actor.TenantID, &load); err != nil {
+			return err
+		}
 		if err := domain.ValidateLoad(load); err != nil {
 			return apperrors.Validation(err.Error(), nil)
 		}
@@ -256,7 +277,7 @@ func (s *Service) UpdateLoad(ctx context.Context, actor Actor, id uuid.UUID, pat
 			return err
 		}
 		if load.Status == domain.LoadPublished {
-			if err := s.emit(ctx, tx, domain.EventLoadUpdated, actor.TenantID, load.ID, load.Version, load.Status, load.VisibilityScope, now); err != nil {
+			if err := s.emit(ctx, tx, domain.EventLoadUpdated, actor.TenantID, load.ID, load.Version, load.Status, load.VisibilityScope, nil, now); err != nil {
 				return err
 			}
 		}
@@ -302,7 +323,7 @@ func (s *Service) WithdrawLoad(ctx context.Context, actor Actor, id uuid.UUID, v
 			return err
 		}
 		if from == domain.LoadPublished {
-			if err := s.emit(ctx, tx, domain.EventLoadWithdrawn, actor.TenantID, load.ID, load.Version, load.Status, load.VisibilityScope, now); err != nil {
+			if err := s.emit(ctx, tx, domain.EventLoadWithdrawn, actor.TenantID, load.ID, load.Version, load.Status, load.VisibilityScope, nil, now); err != nil {
 				return err
 			}
 		}
@@ -428,6 +449,9 @@ func (s *Service) CreateCapacity(ctx context.Context, actor Actor, key, hash str
 	if cap.Source == "" {
 		cap.Source = domain.SourceManual
 	}
+	if err := s.bindCapacityLocation(ctx, actor.TenantID, &cap); err != nil {
+		return Result{}, err
+	}
 	if err := domain.ValidateCapacity(cap); err != nil {
 		return Result{}, apperrors.Validation(err.Error(), nil)
 	}
@@ -447,7 +471,7 @@ func (s *Service) CreateCapacity(ctx context.Context, actor Actor, key, hash str
 		if err := s.audit(ctx, tx, actor, "capacity", cap.ID, "create", "", cap.Status, cap.VisibilityScope, cap.Source, nil, now); err != nil {
 			return err
 		}
-		if err := s.emit(ctx, tx, domain.EventCapacityPublished, actor.TenantID, cap.ID, cap.Version, cap.Status, cap.VisibilityScope, now); err != nil {
+		if err := s.emit(ctx, tx, domain.EventCapacityPublished, actor.TenantID, cap.ID, cap.Version, cap.Status, cap.VisibilityScope, cap.LocationID, now); err != nil {
 			return err
 		}
 		body, err := domain.MarshalCapacity(cap)
@@ -488,6 +512,9 @@ func (s *Service) UpdateCapacity(ctx context.Context, actor Actor, id uuid.UUID,
 			return apperrors.Conflict("invalid status transition", nil)
 		}
 		applyCapacityPatch(&cap, patch)
+		if err := s.bindCapacityLocation(ctx, actor.TenantID, &cap); err != nil {
+			return err
+		}
 		if err := domain.ValidateCapacity(cap); err != nil {
 			return apperrors.Validation(err.Error(), nil)
 		}
@@ -501,7 +528,7 @@ func (s *Service) UpdateCapacity(ctx context.Context, actor Actor, id uuid.UUID,
 		if err := s.audit(ctx, tx, actor, "capacity", cap.ID, "update", from, cap.Status, cap.VisibilityScope, cap.Source, nil, now); err != nil {
 			return err
 		}
-		if err := s.emit(ctx, tx, domain.EventCapacityUpdated, actor.TenantID, cap.ID, cap.Version, cap.Status, cap.VisibilityScope, now); err != nil {
+		if err := s.emit(ctx, tx, domain.EventCapacityUpdated, actor.TenantID, cap.ID, cap.Version, cap.Status, cap.VisibilityScope, cap.LocationID, now); err != nil {
 			return err
 		}
 		body, err := domain.MarshalCapacity(cap)
@@ -545,7 +572,7 @@ func (s *Service) WithdrawCapacity(ctx context.Context, actor Actor, id uuid.UUI
 		if err := s.audit(ctx, tx, actor, "capacity", cap.ID, "withdraw", from, cap.Status, cap.VisibilityScope, cap.Source, nil, now); err != nil {
 			return err
 		}
-		if err := s.emit(ctx, tx, domain.EventCapacityWithdrawn, actor.TenantID, cap.ID, cap.Version, cap.Status, cap.VisibilityScope, now); err != nil {
+		if err := s.emit(ctx, tx, domain.EventCapacityWithdrawn, actor.TenantID, cap.ID, cap.Version, cap.Status, cap.VisibilityScope, cap.LocationID, now); err != nil {
 			return err
 		}
 		body, err := domain.MarshalCapacity(cap)
@@ -721,13 +748,17 @@ func (s *Service) audit(ctx context.Context, tx repository.Tx, actor Actor, aggr
 	})
 }
 
-func (s *Service) emit(ctx context.Context, tx repository.Tx, name string, tenant, aggregate uuid.UUID, version int, status, visibility string, now time.Time) error {
+func (s *Service) emit(ctx context.Context, tx repository.Tx, name string, tenant, aggregate uuid.UUID, version int, status, visibility string, locationID *uuid.UUID, now time.Time) error {
 	id := uuid.New()
-	payload, err := json.Marshal(map[string]any{
+	payloadMap := map[string]any{
 		"eventId": id, "eventName": name, "schemaVersion": 1,
 		"tenantId": tenant, "aggregateId": aggregate, "aggregateVersion": version,
 		"occurredAt": now.Format(time.RFC3339Nano), "status": status, "visibilityScope": visibility,
-	})
+	}
+	if locationID != nil {
+		payloadMap["locationId"] = locationID.String()
+	}
+	payload, err := json.Marshal(payloadMap)
 	if err != nil {
 		return err
 	}
@@ -823,8 +854,20 @@ func applyCapacityPatch(cap *domain.Capacity, patch CapacityPatch) {
 	if patch.VehicleID != nil {
 		cap.VehicleID = patch.VehicleID
 	}
+	if patch.LocationID != nil {
+		cap.LocationID = patch.LocationID
+	}
 	if patch.LocationLabel != nil {
 		cap.LocationLabel = *patch.LocationLabel
+	}
+	if patch.CountryCode != nil {
+		cap.CountryCode = *patch.CountryCode
+	}
+	if patch.Region != nil {
+		cap.Region = *patch.Region
+	}
+	if patch.City != nil {
+		cap.City = *patch.City
 	}
 	if patch.Latitude != nil {
 		cap.Latitude = patch.Latitude
@@ -878,3 +921,79 @@ func marshalList(items []json.RawMessage, limit, offset int) ([]byte, error) {
 		Offset int               `json:"offset"`
 	}{Items: items, Limit: limit, Offset: offset})
 }
+
+func (s *Service) bindLoadGeography(ctx context.Context, tenant uuid.UUID, load *domain.LoadOpportunity) error {
+	if s.directory == nil {
+		return nil
+	}
+	origin, destination, err := s.directory.SourceEndpoints(ctx, tenant, load.SourceType, load.SourceID)
+	if errors.Is(err, locationclient.ErrNotFound) {
+		return apperrors.NotFound("source location is not available")
+	}
+	if err != nil {
+		return apperrors.ServiceUnavailable("source location could not be resolved")
+	}
+	if load.Pickup.LocationID != nil && *load.Pickup.LocationID != origin {
+		return apperrors.NotFound("location not found")
+	}
+	if load.Delivery.LocationID != nil && *load.Delivery.LocationID != destination {
+		return apperrors.NotFound("location not found")
+	}
+	pickup, err := s.directory.Projection(ctx, tenant, origin)
+	if errors.Is(err, locationclient.ErrNotFound) {
+		return apperrors.NotFound("location not found")
+	}
+	if err != nil {
+		return apperrors.ServiceUnavailable("source location could not be resolved")
+	}
+	delivery, err := s.directory.Projection(ctx, tenant, destination)
+	if errors.Is(err, locationclient.ErrNotFound) {
+		return apperrors.NotFound("location not found")
+	}
+	if err != nil {
+		return apperrors.ServiceUnavailable("source location could not be resolved")
+	}
+	load.Pickup = domain.ApplyPlaceSnapshot(load.Pickup, pickup)
+	load.Delivery = domain.ApplyPlaceSnapshot(load.Delivery, delivery)
+	return nil
+}
+
+func (s *Service) bindCapacityLocation(ctx context.Context, tenant uuid.UUID, cap *domain.Capacity) error {
+	if cap.LocationID == nil {
+		return nil
+	}
+	if s.directory == nil {
+		return apperrors.ServiceUnavailable("location could not be resolved")
+	}
+	snap, err := s.directory.Projection(ctx, tenant, *cap.LocationID)
+	if errors.Is(err, locationclient.ErrNotFound) {
+		return apperrors.NotFound("location not found")
+	}
+	if err != nil {
+		return apperrors.ServiceUnavailable("location could not be resolved")
+	}
+	domain.ApplyCapacitySnapshot(cap, snap)
+	return nil
+}
+
+func (s *Service) SaveCarrierPolicy(ctx context.Context, tenant uuid.UUID, policy domain.NextLoadSearchPolicy) error {
+	if s.policies == nil {
+		return apperrors.ServiceUnavailable("search policy store is unavailable")
+	}
+	if err := policy.Validate(); err != nil {
+		return apperrors.Validation(err.Error(), nil)
+	}
+	return s.policies.UpsertCarrierPolicy(ctx, tenant, policy)
+}
+
+func (s *Service) SaveCapacityPolicy(ctx context.Context, tenant, capacityID uuid.UUID, policy domain.NextLoadSearchPolicy) error {
+	if s.policies == nil {
+		return apperrors.ServiceUnavailable("search policy store is unavailable")
+	}
+	if err := policy.ValidateOverride(); err != nil {
+		return apperrors.Validation(err.Error(), nil)
+	}
+	return s.policies.UpsertCapacityPolicy(ctx, tenant, capacityID, policy)
+}
+
+func (s *Service) RoutingProvider() routing.Provider { return s.routes }

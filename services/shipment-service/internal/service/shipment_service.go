@@ -172,6 +172,17 @@ func (s *ShipmentService) ConfirmOwnership(ctx context.Context, tenantID, id uui
 	return nil
 }
 
+func (s *ShipmentService) PlanningLocations(ctx context.Context, tenantID, id uuid.UUID) (uuid.UUID, uuid.UUID, error) {
+	shipment, err := s.GetByIDAndTenant(ctx, tenantID, id)
+	if err != nil {
+		return uuid.Nil, uuid.Nil, err
+	}
+	if shipment == nil || shipment.TenantID != tenantID || shipment.OriginLocationID == uuid.Nil || shipment.DestinationLocationID == uuid.Nil {
+		return uuid.Nil, uuid.Nil, apperrors.NotFound("shipment not found")
+	}
+	return shipment.OriginLocationID, shipment.DestinationLocationID, nil
+}
+
 func (s *ShipmentService) List(ctx context.Context, filter domain.ListShipmentsFilter) ([]domain.Shipment, int, error) {
 	if filter.Limit == 0 {
 		filter.Limit = 20

@@ -43,10 +43,13 @@ const (
 )
 
 type Place struct {
-	LocationID *uuid.UUID `json:"location_id,omitempty"`
-	Label      string     `json:"label,omitempty"`
-	Latitude   *float64   `json:"latitude,omitempty"`
-	Longitude  *float64   `json:"longitude,omitempty"`
+	LocationID  *uuid.UUID `json:"location_id,omitempty"`
+	Label       string     `json:"label,omitempty"`
+	Latitude    *float64   `json:"latitude,omitempty"`
+	Longitude   *float64   `json:"longitude,omitempty"`
+	CountryCode string     `json:"country_code,omitempty"`
+	Region      string     `json:"region,omitempty"`
+	City        string     `json:"city,omitempty"`
 }
 
 type TimeWindow struct {
@@ -145,9 +148,13 @@ type Capacity struct {
 	OwnerTenantID      uuid.UUID   `json:"owner_tenant_id"`
 	CarrierCompanyID   *uuid.UUID  `json:"carrier_company_id,omitempty"`
 	VehicleID          *uuid.UUID  `json:"vehicle_id,omitempty"`
+	LocationID         *uuid.UUID  `json:"location_id,omitempty"`
 	LocationLabel      string      `json:"location_label,omitempty"`
 	Latitude           *float64    `json:"latitude,omitempty"`
 	Longitude          *float64    `json:"longitude,omitempty"`
+	CountryCode        string      `json:"country_code,omitempty"`
+	Region             string      `json:"region,omitempty"`
+	City               string      `json:"city,omitempty"`
 	AvailableFrom      time.Time   `json:"available_from"`
 	AvailableUntil     time.Time   `json:"available_until"`
 	Source             string      `json:"source"`
@@ -168,9 +175,13 @@ type MarketplaceCapacity struct {
 	OwnerTenantID      *uuid.UUID `json:"owner_tenant_id,omitempty"`
 	CarrierCompanyID   *uuid.UUID `json:"carrier_company_id,omitempty"`
 	VehicleID          *uuid.UUID `json:"vehicle_id,omitempty"`
+	LocationID         *uuid.UUID `json:"location_id,omitempty"`
 	LocationLabel      string     `json:"location_label,omitempty"`
 	Latitude           *float64   `json:"latitude,omitempty"`
 	Longitude          *float64   `json:"longitude,omitempty"`
+	CountryCode        string     `json:"country_code,omitempty"`
+	Region             string     `json:"region,omitempty"`
+	City               string     `json:"city,omitempty"`
 	AvailableFrom      time.Time  `json:"available_from"`
 	AvailableUntil     time.Time  `json:"available_until"`
 	Source             string     `json:"source"`
@@ -193,13 +204,16 @@ func (l LoadOpportunity) MarketplaceView() MarketplaceLoad {
 		VisibilityScope: l.VisibilityScope, Status: l.Status, Version: l.Version,
 		CreatedAt: l.CreatedAt, UpdatedAt: l.UpdatedAt,
 	}
-	// This release has no validated city or zone field. Anonymized views omit
-	// exact coordinates and facility labels instead of treating them as a zone.
+	// Anonymized display keeps only known coarse geography. Exact search
+	// geography stays on the stored load and is not copied into this view.
 	if l.VisibilityScope != VisAnonymized {
 		view.Pickup = l.Pickup
 		view.Delivery = l.Delivery
 		owner := l.OwnerTenantID
 		view.OwnerTenantID = &owner
+	} else {
+		view.Pickup = l.Pickup.CoarseDisplay()
+		view.Delivery = l.Delivery.CoarseDisplay()
 	}
 	if commercial := l.Commercial; commercial.Mode != "" || commercial.Amount != nil {
 		copy := commercial
@@ -216,15 +230,22 @@ func (c Capacity) MarketplaceView() MarketplaceCapacity {
 		VisibilityScope: c.VisibilityScope, Status: c.Status, Version: c.Version,
 		CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
 	}
-	// ANONYMIZED capacity has no coarse or public location classification in this release.
 	if c.VisibilityScope != CapVisAnonymized {
+		view.LocationID = c.LocationID
 		view.LocationLabel = c.LocationLabel
 		view.Latitude = c.Latitude
 		view.Longitude = c.Longitude
+		view.CountryCode = c.CountryCode
+		view.Region = c.Region
+		view.City = c.City
 		owner := c.OwnerTenantID
 		view.OwnerTenantID = &owner
 		view.CarrierCompanyID = c.CarrierCompanyID
 		view.VehicleID = c.VehicleID
+	} else {
+		view.CountryCode = c.CountryCode
+		view.Region = c.Region
+		view.City = c.City
 	}
 	return view
 }
@@ -315,10 +336,13 @@ func ValidateCapacity(c Capacity) error {
 	if c.Source != SourceManual {
 		return fmt.Errorf("only MANUAL capacity can be created in this release")
 	}
-	if strings.TrimSpace(c.LocationLabel) == "" && c.Latitude == nil && c.Longitude == nil {
-		return fmt.Errorf("location_label or coordinates are required")
+	if c.LocationID == nil && strings.TrimSpace(c.LocationLabel) == "" && c.Latitude == nil && c.Longitude == nil {
+		return fmt.Errorf("location_id, location_label, or coordinates are required")
 	}
 	if err := validateGeo(c.Latitude, c.Longitude); err != nil {
+		return err
+	}
+	if err := validateCoarse("location", c.CountryCode, c.Region, c.City); err != nil {
 		return err
 	}
 	if !c.AvailableUntil.After(c.AvailableFrom) || c.AvailableFrom.IsZero() || c.AvailableUntil.IsZero() {
@@ -394,7 +418,20 @@ func validatePlace(name string, p Place) error {
 	if len(p.Label) > 160 {
 		return fmt.Errorf("%s label is too long", name)
 	}
+	if err := validateCoarse(name, p.CountryCode, p.Region, p.City); err != nil {
+		return err
+	}
 	return validateGeo(p.Latitude, p.Longitude)
+}
+
+func validateCoarse(name, country, region, city string) error {
+	if country != "" && len(country) != 2 {
+		return fmt.Errorf("%s country_code must be 2 characters when provided", name)
+	}
+	if len(region) > 120 || len(city) > 120 {
+		return fmt.Errorf("%s region or city is too long", name)
+	}
+	return nil
 }
 
 func validateGeo(lat, lon *float64) error {

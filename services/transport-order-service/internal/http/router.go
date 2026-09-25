@@ -32,6 +32,8 @@ func NewRouter(
 	analyticsDimensionHandler := handlers.NewAnalyticsDimensionInternalHandler(analyticsDimensionSvc)
 	internalAuth := internalauth.Config{Token: cfg.InternalServiceToken, Environment: cfg.Environment}
 	ownershipHandler := handlers.NewOwnershipInternalHandler(svc)
+	locationInternal := handlers.NewLocationInternalHandler(svc)
+	planningInternal := handlers.NewPlanningInternalHandler(svc)
 
 	r := chi.NewRouter()
 	observability.Mount(r, observability.MountOptions{
@@ -66,6 +68,8 @@ func NewRouter(
 		r.Use(internalAuth.Middleware)
 		r.Post("/transport-orders/from-award-scope", pricedHandler.CreateFromAwardScope)
 		r.Get("/transport-orders/{transportOrderId}/ownership", ownershipHandler.GetTransportOrder)
+		r.Get("/transport-orders/{transportOrderId}/planning-locations", planningInternal.GetTransportOrder)
+		r.Get("/locations/{locationId}", locationInternal.GetProjection)
 		r.Get("/transport-orders/{transportOrderId}/rate-snapshot", snapshotInternalHandler.GetRateSnapshot)
 		r.Get("/cargoes/{id}/planning-profile", handler.GetCargoPlanningProfile)
 		r.Post("/transport-orders/batch-analytics-dimensions", analyticsDimensionHandler.BatchGetAnalyticsDimensions)

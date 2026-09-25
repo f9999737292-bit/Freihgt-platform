@@ -15,6 +15,9 @@ type Config struct {
 	ShipmentURL          string
 	TrackingURL          string
 	InternalServiceToken string
+	RoutingProvider      string
+	TwoGISRoutingBaseURL string
+	TwoGISAPIKey         string
 	Prediction           PredictionConfig
 }
 
@@ -65,6 +68,9 @@ func Load() (Config, error) {
 		TransportOrderURL:    os.Getenv("TRANSPORT_ORDER_SERVICE_URL"),
 		ShipmentURL:          os.Getenv("SHIPMENT_SERVICE_URL"),
 		TrackingURL:          os.Getenv("TRACKING_SERVICE_URL"),
+		RoutingProvider:      strings.TrimSpace(os.Getenv("BNO_ROUTING_PROVIDER")),
+		TwoGISRoutingBaseURL: strings.TrimSpace(os.Getenv("BNO_2GIS_ROUTING_BASE_URL")),
+		TwoGISAPIKey:         strings.TrimSpace(os.Getenv("BNO_2GIS_API_KEY")),
 		Prediction: PredictionConfig{
 			Unload: unload, Uncertainty: uncertainty, MaxETAAge: maxETAAge,
 			ConfidenceFloor: floor,
