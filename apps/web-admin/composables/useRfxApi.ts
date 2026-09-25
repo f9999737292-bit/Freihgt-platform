@@ -21,13 +21,8 @@ export function useRfxApi() {
     return tenantStore.tenantId
   }
 
-  function tenantQuery(extra: Record<string, string | number | undefined> = {}) {
-    return { tenant_id: tenantId(), ...extra }
-  }
-
   async function listRfxEvents(params: ListRfxEventsFilters = {}) {
     const query: Record<string, string | number | undefined> = {
-      ...tenantQuery(),
       limit: params.limit ?? 20,
       offset: params.offset ?? 0,
     }
@@ -43,7 +38,7 @@ export function useRfxApi() {
   }
 
   async function getRfxEvent(id: string) {
-    return apiGet<RfxEvent>(`/api/v1/rfx-events/${id}`, { query: tenantQuery() })
+    return apiGet<RfxEvent>(`/api/v1/rfx-events/${id}`)
   }
 
   async function createRfxEvent(payload: Omit<CreateRfxEventPayload, 'tenant_id'>) {
@@ -56,27 +51,23 @@ export function useRfxApi() {
   }
 
   async function updateRfxEvent(id: string, payload: UpdateRfxEventPayload) {
-    return apiPatch<RfxEvent>(`/api/v1/rfx-events/${id}`, payload, { query: tenantQuery() })
+    return apiPatch<RfxEvent>(`/api/v1/rfx-events/${id}`, payload)
   }
 
   async function publishRfxEvent(id: string) {
     return apiPost<{ id: string; status: string }>(
       `/api/v1/rfx-events/${id}/publish`,
-      undefined,
-      { query: tenantQuery() },
     )
   }
 
   async function cancelRfxEvent(id: string) {
     return apiPost<{ id: string; status: string }>(
       `/api/v1/rfx-events/${id}/cancel`,
-      undefined,
-      { query: tenantQuery() },
     )
   }
 
   async function listRfxParticipants(rfxEventId: string, params: ListRfxParticipantsParams = {}) {
-    const query: Record<string, string | number | undefined> = tenantQuery()
+    const query: Record<string, string | number | undefined> = {}
     if (params.status) query.status = params.status
     const data = await apiGet<{ items: RfxParticipant[] }>(
       `/api/v1/rfx-events/${rfxEventId}/participants`,

@@ -53,7 +53,6 @@ async function loadCounts() {
   loading.value = true
   unavailableKeys.value = new Set()
 
-  const query = { tenant_id: tenantStore.tenantId, limit: 1, offset: 0 }
   const endpoints = [
     ['companies', '/api/v1/companies'],
     ['users', '/api/v1/users'],
@@ -66,8 +65,12 @@ async function loadCounts() {
 
   const results = await Promise.allSettled(
     endpoints.map(async ([key, path]) => {
-      const data = await apiGet<{ total: number }>(path, { query })
-      return { key, total: data.total ?? 0 }
+      const query = key === 'rfx'
+        ? { limit: 1, offset: 0 }
+        : { tenant_id: tenantStore.tenantId, limit: 1, offset: 0 }
+      const data = await apiGet<{ total?: number; items?: unknown[] }>(path, { query })
+      const total = data.total ?? (Array.isArray(data.items) ? data.items.length : 0)
+      return { key, total }
     }),
   )
 
