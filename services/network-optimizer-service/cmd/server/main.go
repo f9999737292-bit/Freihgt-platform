@@ -42,9 +42,10 @@ func main() {
 		Unload: cfg.Prediction.Unload, Uncertainty: cfg.Prediction.Uncertainty, MaxETAAge: cfg.Prediction.MaxETAAge,
 		ConfidenceFloor: cfg.Prediction.ConfidenceFloor, AutoActivate: cfg.Prediction.AutoActivate,
 	})
+	router := httpserver.NewRouterWithCatalog(log, svc, ready(store), store)
 	server := &http.Server{
 		Addr:              ":" + itoa(cfg.HTTPPort),
-		Handler:           httpserver.NewRouter(log, svc, ready(store)),
+		Handler:           router,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	go func() {

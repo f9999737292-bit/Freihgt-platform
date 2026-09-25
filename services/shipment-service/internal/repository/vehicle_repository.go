@@ -45,8 +45,11 @@ func (r *VehicleRepository) Create(ctx context.Context, tenantID uuid.UUID, in d
 			capacity_weight, capacity_volume, registration_country, status,
 			combination_type, body_type, loading_access, unloading_access,
 			temperature_control_mode, temperature_capability_min_c, temperature_capability_max_c,
-			temperature_zone_count, independent_temperature_control, container_size
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+			temperature_zone_count, independent_temperature_control, container_size,
+			equipment_unit_kind, pallet_positions, usable_linear_meters,
+			internal_length_mm, internal_width_mm, internal_height_mm,
+			food_grade_capability, adr_capability
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
 		RETURNING ` + vehicleSelectColumns
 		row := r.pool.QueryRow(ctx, query,
 			tenantID,
@@ -68,6 +71,14 @@ func (r *VehicleRepository) Create(ctx context.Context, tenantID uuid.UUID, in d
 			in.TemperatureZoneCount,
 			in.IndependentTemperatureControl,
 			in.ContainerSize,
+			in.EquipmentUnitKind,
+			in.PalletPositions,
+			in.UsableLinearMeters,
+			in.InternalLengthMM,
+			in.InternalWidthMM,
+			in.InternalHeightMM,
+			in.FoodGradeCapability,
+			in.ADRCapability,
 		)
 		vehicle, err := scanVehicle(row)
 		if err != nil {
@@ -83,7 +94,10 @@ const vehicleSelectColumns = `id, tenant_id, carrier_company_id, plate_number, v
 			capacity_weight, capacity_volume, registration_country, status,
 			combination_type, body_type, loading_access, unloading_access,
 			temperature_control_mode, temperature_capability_min_c, temperature_capability_max_c,
-			temperature_zone_count, independent_temperature_control, container_size, version`
+			temperature_zone_count, independent_temperature_control, container_size,
+			equipment_unit_kind, pallet_positions, usable_linear_meters,
+			internal_length_mm, internal_width_mm, internal_height_mm,
+			food_grade_capability, adr_capability, version`
 
 const getVehicleByIDAndTenantQuery = `
 		SELECT ` + vehicleSelectColumns + `
@@ -156,7 +170,10 @@ func scanVehicle(row pgx.Row) (*domain.Vehicle, error) {
 		&v.CapacityWeight, &v.CapacityVolume, &v.RegistrationCountry, &v.Status,
 		&v.CombinationType, &v.BodyType, &v.LoadingAccess, &v.UnloadingAccess,
 		&v.TemperatureControlMode, &v.TemperatureCapabilityMinC, &v.TemperatureCapabilityMaxC,
-		&v.TemperatureZoneCount, &v.IndependentTemperatureControl, &v.ContainerSize, &v.Version,
+		&v.TemperatureZoneCount, &v.IndependentTemperatureControl, &v.ContainerSize,
+		&v.EquipmentUnitKind, &v.PalletPositions, &v.UsableLinearMeters,
+		&v.InternalLengthMM, &v.InternalWidthMM, &v.InternalHeightMM,
+		&v.FoodGradeCapability, &v.ADRCapability, &v.Version,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, apperrors.NotFound("vehicle not found")
@@ -174,7 +191,10 @@ func scanVehicleRows(rows pgx.Rows) (*domain.Vehicle, error) {
 		&v.CapacityWeight, &v.CapacityVolume, &v.RegistrationCountry, &v.Status,
 		&v.CombinationType, &v.BodyType, &v.LoadingAccess, &v.UnloadingAccess,
 		&v.TemperatureControlMode, &v.TemperatureCapabilityMinC, &v.TemperatureCapabilityMaxC,
-		&v.TemperatureZoneCount, &v.IndependentTemperatureControl, &v.ContainerSize, &v.Version,
+		&v.TemperatureZoneCount, &v.IndependentTemperatureControl, &v.ContainerSize,
+		&v.EquipmentUnitKind, &v.PalletPositions, &v.UsableLinearMeters,
+		&v.InternalLengthMM, &v.InternalWidthMM, &v.InternalHeightMM,
+		&v.FoodGradeCapability, &v.ADRCapability, &v.Version,
 	)
 	if err != nil {
 		return nil, mapDBError(err)

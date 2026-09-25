@@ -33,6 +33,14 @@ type Vehicle struct {
 	TemperatureZoneCount          *int
 	IndependentTemperatureControl *bool
 	ContainerSize                 *string
+	EquipmentUnitKind             *string
+	PalletPositions               *int
+	UsableLinearMeters            *float64
+	InternalLengthMM              *int
+	InternalWidthMM               *int
+	InternalHeightMM              *int
+	FoodGradeCapability           *bool
+	ADRCapability                 *bool
 	Version                       int
 }
 
@@ -54,6 +62,14 @@ type CreateVehicleInput struct {
 	TemperatureZoneCount          *int
 	IndependentTemperatureControl *bool
 	ContainerSize                 *string
+	EquipmentUnitKind             *string
+	PalletPositions               *int
+	UsableLinearMeters            *float64
+	InternalLengthMM              *int
+	InternalWidthMM               *int
+	InternalHeightMM              *int
+	FoodGradeCapability           *bool
+	ADRCapability                 *bool
 }
 
 type ListVehiclesFilter struct {
@@ -89,6 +105,9 @@ func ValidateCreateVehicleInput(in *CreateVehicleInput) error {
 	if in.ContainerSize, err = normalizeToken("container_size", in.ContainerSize, containerSizes); err != nil {
 		return err
 	}
+	if in.EquipmentUnitKind, err = normalizeToken("equipment_unit_kind", in.EquipmentUnitKind, equipmentUnitKinds); err != nil {
+		return err
+	}
 	if err := validateAccess("loading_access", in.LoadingAccess); err != nil {
 		return err
 	}
@@ -100,6 +119,21 @@ func ValidateCreateVehicleInput(in *CreateVehicleInput) error {
 	}
 	if in.TemperatureZoneCount != nil && *in.TemperatureZoneCount < 1 {
 		return apperrors.Validation("temperature_zone_count must be >= 1 when known", map[string]any{"field": "temperature_zone_count"})
+	}
+	if in.PalletPositions != nil && *in.PalletPositions <= 0 {
+		return apperrors.Validation("pallet_positions must be greater than zero when known", map[string]any{"field": "pallet_positions"})
+	}
+	if in.UsableLinearMeters != nil && *in.UsableLinearMeters <= 0 {
+		return apperrors.Validation("usable_linear_meters must be greater than zero when known", map[string]any{"field": "usable_linear_meters"})
+	}
+	if in.InternalLengthMM != nil && *in.InternalLengthMM <= 0 {
+		return apperrors.Validation("internal_length_mm must be greater than zero when known", map[string]any{"field": "internal_length_mm"})
+	}
+	if in.InternalWidthMM != nil && *in.InternalWidthMM <= 0 {
+		return apperrors.Validation("internal_width_mm must be greater than zero when known", map[string]any{"field": "internal_width_mm"})
+	}
+	if in.InternalHeightMM != nil && *in.InternalHeightMM <= 0 {
+		return apperrors.Validation("internal_height_mm must be greater than zero when known", map[string]any{"field": "internal_height_mm"})
 	}
 	return nil
 }
@@ -116,6 +150,10 @@ var bodyTypes = map[string]struct{}{
 var temperatureModes = map[string]struct{}{"NONE": {}, "PASSIVE": {}, "ACTIVE": {}}
 
 var containerSizes = map[string]struct{}{"20FT": {}, "40FT": {}, "40HC": {}, "45FT": {}, "REEFER_CONTAINER": {}}
+
+var equipmentUnitKinds = map[string]struct{}{
+	"TRUCK_BODY": {}, "TRAILER": {}, "SEMITRAILER": {}, "CONTAINER_CHASSIS": {}, "SWAP_BODY": {}, "OTHER": {},
+}
 
 var accessSides = map[string]struct{}{"REAR": {}, "SIDE": {}, "TOP": {}}
 

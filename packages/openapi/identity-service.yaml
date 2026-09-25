@@ -701,6 +701,141 @@ components:
         type: string
       description: Bearer JWT access token
   schemas:
+    CompatibilityReason:
+      type: object
+      required: [reason_code, dimension]
+      properties:
+        reason_code:
+          type: string
+        dimension:
+          type: string
+        rule_code:
+          type: string
+        rule_set_id:
+          type: string
+          format: uuid
+        rule_set_scope:
+          type: string
+          enum: [SYSTEM, TENANT]
+        rule_set_version:
+          type: integer
+        required_separation:
+          type: string
+          description: Structural separation condition. It is not a claim that legislation is satisfied.
+        source_reference:
+          type: string
+    CompatibilityRuleSetRef:
+      type: object
+      required: [id, scope, version]
+      description: Authoritative rule-set identity. Integer rule_set_versions are a legacy summary.
+      properties:
+        id:
+          type: string
+          format: uuid
+        scope:
+          type: string
+          enum: [SYSTEM, TENANT]
+        tenant_id:
+          type: string
+          format: uuid
+          nullable: true
+        version:
+          type: integer
+          minimum: 1
+    CompatibilityCatalogVersionRef:
+      type: object
+      required: [id, catalog_kind, scope, version]
+      description: Authoritative catalog version identity. Integer catalog_versions are a legacy system summary.
+      properties:
+        id:
+          type: string
+          format: uuid
+        catalog_kind:
+          type: string
+        scope:
+          type: string
+          enum: [SYSTEM, TENANT]
+        tenant_id:
+          type: string
+          format: uuid
+          nullable: true
+        version:
+          type: integer
+          minimum: 1
+    CompatibilityEvaluation:
+      type: object
+      required: [status, rule_sets_used, catalog_versions_used, fingerprint]
+      properties:
+        status:
+          type: string
+          enum: [COMPATIBLE, INCOMPATIBLE, INDETERMINATE]
+        hard_rejects:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompatibilityReason'
+        indeterminate_reasons:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompatibilityReason'
+        conditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompatibilityReason'
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompatibilityReason'
+        rule_set_versions:
+          type: array
+          description: Legacy integer versions. rule_sets_used is authoritative.
+          items:
+            type: integer
+        rule_sets_used:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompatibilityRuleSetRef'
+        catalog_versions:
+          type: object
+          description: Legacy system catalog version numbers keyed by kind. catalog_versions_used is authoritative.
+          additionalProperties:
+            type: integer
+        catalog_versions_used:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompatibilityCatalogVersionRef'
+        fingerprint:
+          type: string
+    CompatibilityRuleDraft:
+      type: object
+      required: [rule_code, rule_kind, decision, reason_code, left_selector_type, right_selector_type]
+      properties:
+        rule_code:
+          type: string
+        rule_kind:
+          type: string
+          enum: [CARGO_CARGO, CARGO_EQUIPMENT]
+        decision:
+          type: string
+          enum: [ALLOW, DENY, REQUIRE_SEPARATION, REQUIRE_CONDITION]
+        reason_code:
+          type: string
+        severity:
+          type: string
+          enum: [HARD, SOFT]
+          default: HARD
+        required_separation:
+          type: string
+          description: Required when decision is REQUIRE_SEPARATION. Absent for every other decision.
+        left_selector_type:
+          type: string
+        left_selector_value:
+          type: string
+        right_selector_type:
+          type: string
+        right_selector_value:
+          type: string
+        priority:
+          type: integer
     ErrorResponse:
       type: object
       required: [error]

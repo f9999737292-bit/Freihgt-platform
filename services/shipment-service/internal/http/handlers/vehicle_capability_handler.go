@@ -56,5 +56,13 @@ func (h *VehicleCapabilityHandler) Get(w http.ResponseWriter, r *http.Request) {
 		"temperature_zone_count":          vehicle.TemperatureZoneCount,
 		"independent_temperature_control": vehicle.IndependentTemperatureControl,
 		"container_size":                  vehicle.ContainerSize,
+		"equipment_unit_kind":             vehicle.EquipmentUnitKind,
+		"pallet_positions":                vehicle.PalletPositions,
+		"usable_linear_meters":            vehicle.UsableLinearMeters,
+		"internal_length_mm":              vehicle.InternalLengthMM,
+		"internal_width_mm":               vehicle.InternalWidthMM,
+		"internal_height_mm":              vehicle.InternalHeightMM,
+		"food_grade_capability":           vehicle.FoodGradeCapability,
+		"adr_capability":                  vehicle.ADRCapability,
 	})
 }

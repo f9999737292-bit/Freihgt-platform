@@ -344,6 +344,18 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/network/marketplace/load-opportunities/{id}", "get", "Get marketplace load opportunity", "Network Optimizer", True, True, None),
     ("/api/v1/network/marketplace/capacities", "get", "List marketplace capacities", "Network Optimizer", True, True, "bno_list"),
     ("/api/v1/network/marketplace/capacities/{id}", "get", "Get marketplace capacity", "Network Optimizer", True, True, None),
+    ("/api/v1/network/compatibility/cargo-types", "get", "List cargo type catalog", "Network Optimizer", True, True, "bno_list"),
+    ("/api/v1/network/compatibility/equipment-types", "get", "List equipment type catalog", "Network Optimizer", True, True, "bno_list"),
+    ("/api/v1/network/compatibility/pallet-types", "get", "List pallet type catalog", "Network Optimizer", True, True, "bno_list"),
+    ("/api/v1/network/compatibility/packaging-types", "get", "List packaging type catalog", "Network Optimizer", True, True, "bno_list"),
+    ("/api/v1/network/compatibility/rule-sets", "get", "List compatibility rule sets", "Network Optimizer", True, True, "bno_list"),
+    ("/api/v1/network/compatibility/rule-sets", "post", "Create a draft compatibility rule set", "Network Optimizer", True, True, "bno_compatibility"),
+    ("/api/v1/network/compatibility/rule-sets/{id}/rules", "post", "Add a draft compatibility rule", "Network Optimizer", True, True, "bno_compatibility"),
+    ("/api/v1/network/compatibility/rule-sets/{id}/rules/{ruleCode}", "delete", "Remove a draft compatibility rule", "Network Optimizer", True, True, "bno_compatibility"),
+    ("/api/v1/network/compatibility/rule-sets/{id}/activate", "post", "Activate a compatibility rule set", "Network Optimizer", True, True, "bno_compatibility"),
+    ("/api/v1/network/compatibility/rule-sets/{id}/retire", "post", "Retire a compatibility rule set", "Network Optimizer", True, True, "bno_compatibility"),
+    ("/api/v1/network/compatibility/cargo-equipment/evaluate", "post", "Evaluate cargo equipment compatibility", "Network Optimizer", True, True, "bno_compatibility"),
+    ("/api/v1/network/compatibility/groupage/evaluate", "post", "Evaluate groupage compatibility", "Network Optimizer", True, True, "bno_compatibility"),
 ]
 
 SERVICE_TAGS = {
@@ -1510,6 +1522,11 @@ def render_operation(
         lines.append("        It is not marketplace capacity and it does not search or rank next loads.")
         lines.append("        Activation to AVAILABLE stays PRIVATE until a separate publication.")
         lines.append("        Confidence is a versioned rule score, not a calibrated probability.")
+    elif profile == "bno_compatibility":
+        lines.append("      description: |")
+        lines.append("        Compatibility evaluation uses explicit cargo and equipment facts plus the active catalog and rule-set versions.")
+        lines.append("        It does not search the marketplace, rank matches, or plan a route.")
+        lines.append("        Unknown facts stay unknown. A tenant rule cannot weaken a system or regulatory hard deny.")
     elif profile == "bno_list":
         lines.append("      description: |")
         lines.append("        Tenant-scoped list. Marketplace reads return the visibility projection, not source shipment or transport-order rows.")
@@ -2059,12 +2076,37 @@ def render_operation(
                 "                  minimum: 1",
             ]
         )
+    if profile == "bno_compatibility" and method == "post" and path.endswith("/rules"):
+        lines.extend(
+            [
+                "      requestBody:",
+                "        required: true",
+                "        content:",
+                "          application/json:",
+                "            schema:",
+                "              $ref: '#/components/schemas/CompatibilityRuleDraft'",
+            ]
+        )
+    elif profile == "bno_compatibility" and method == "post":
+        lines.extend(
+            [
+                "      requestBody:",
+                "        required: true",
+                "        content:",
+                "          application/json:",
+                "            schema:",
+                "              type: object",
+                "              additionalProperties: true",
+            ]
+        )
     if profile in QUESTIONNAIRE_CREATED_PROFILES:
         success_code = "201"
     elif profile in VOID_DESCRIPTIONS or profile in RECONCILE_DESCRIPTIONS or profile in QUESTIONNAIRE_OK_POST_PROFILES or profile in CARRIER_RESPONSE_SCHEMAS or profile in LATE_SUBMISSION_OK_POST_PROFILES:
         success_code = "200"
     elif profile == "bno_prediction" and ("/refresh" in path or "/activate" in path):
         success_code = "200"
+    elif profile == "bno_compatibility":
+        success_code = "200" if method != "post" or path.endswith("/evaluate") or path.endswith("/activate") or path.endswith("/retire") else "201"
     elif method == "post" and tag not in {"Gateway", "Auth"}:
         success_code = "201"
     else:
@@ -2078,6 +2120,8 @@ def render_operation(
         success_desc = "Payment reconciled or idempotent success"
 
     response_schema = READ_RESPONSE_SCHEMAS.get(profile or "")
+    if profile == "bno_compatibility" and path.endswith("/evaluate"):
+        response_schema = "CompatibilityEvaluation"
     if response_schema:
         schema_lines = [
             "              schema:",
@@ -3781,6 +3825,141 @@ components:
         type: string
       description: Bearer JWT access token
   schemas:
+    CompatibilityReason:
+      type: object
+      required: [reason_code, dimension]
+      properties:
+        reason_code:
+          type: string
+        dimension:
+          type: string
+        rule_code:
+          type: string
+        rule_set_id:
+          type: string
+          format: uuid
+        rule_set_scope:
+          type: string
+          enum: [SYSTEM, TENANT]
+        rule_set_version:
+          type: integer
+        required_separation:
+          type: string
+          description: Structural separation condition. It is not a claim that legislation is satisfied.
+        source_reference:
+          type: string
+    CompatibilityRuleSetRef:
+      type: object
+      required: [id, scope, version]
+      description: Authoritative rule-set identity. Integer rule_set_versions are a legacy summary.
+      properties:
+        id:
+          type: string
+          format: uuid
+        scope:
+          type: string
+          enum: [SYSTEM, TENANT]
+        tenant_id:
+          type: string
+          format: uuid
+          nullable: true
+        version:
+          type: integer
+          minimum: 1
+    CompatibilityCatalogVersionRef:
+      type: object
+      required: [id, catalog_kind, scope, version]
+      description: Authoritative catalog version identity. Integer catalog_versions are a legacy system summary.
+      properties:
+        id:
+          type: string
+          format: uuid
+        catalog_kind:
+          type: string
+        scope:
+          type: string
+          enum: [SYSTEM, TENANT]
+        tenant_id:
+          type: string
+          format: uuid
+          nullable: true
+        version:
+          type: integer
+          minimum: 1
+    CompatibilityEvaluation:
+      type: object
+      required: [status, rule_sets_used, catalog_versions_used, fingerprint]
+      properties:
+        status:
+          type: string
+          enum: [COMPATIBLE, INCOMPATIBLE, INDETERMINATE]
+        hard_rejects:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompatibilityReason'
+        indeterminate_reasons:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompatibilityReason'
+        conditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompatibilityReason'
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompatibilityReason'
+        rule_set_versions:
+          type: array
+          description: Legacy integer versions. rule_sets_used is authoritative.
+          items:
+            type: integer
+        rule_sets_used:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompatibilityRuleSetRef'
+        catalog_versions:
+          type: object
+          description: Legacy system catalog version numbers keyed by kind. catalog_versions_used is authoritative.
+          additionalProperties:
+            type: integer
+        catalog_versions_used:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompatibilityCatalogVersionRef'
+        fingerprint:
+          type: string
+    CompatibilityRuleDraft:
+      type: object
+      required: [rule_code, rule_kind, decision, reason_code, left_selector_type, right_selector_type]
+      properties:
+        rule_code:
+          type: string
+        rule_kind:
+          type: string
+          enum: [CARGO_CARGO, CARGO_EQUIPMENT]
+        decision:
+          type: string
+          enum: [ALLOW, DENY, REQUIRE_SEPARATION, REQUIRE_CONDITION]
+        reason_code:
+          type: string
+        severity:
+          type: string
+          enum: [HARD, SOFT]
+          default: HARD
+        required_separation:
+          type: string
+          description: Required when decision is REQUIRE_SEPARATION. Absent for every other decision.
+        left_selector_type:
+          type: string
+        left_selector_value:
+          type: string
+        right_selector_type:
+          type: string
+        right_selector_value:
+          type: string
+        priority:
+          type: integer
     ErrorResponse:
       type: object
       required: [error]

@@ -171,17 +171,31 @@ type createCargoItemRequest struct {
 }
 
 type createCargoRequest struct {
-	TenantID           string                   `json:"tenant_id"`
-	CargoType          string                   `json:"cargo_type"`
-	Description        *string                  `json:"description"`
-	GrossWeight        *float64                 `json:"gross_weight"`
-	NetWeight          *float64                 `json:"net_weight"`
-	Volume             *float64                 `json:"volume"`
-	TemperatureMin     *float64                 `json:"temperature_min"`
-	TemperatureMax     *float64                 `json:"temperature_max"`
-	DangerousGoodsFlag bool                     `json:"dangerous_goods_flag"`
-	CustomsRequired    bool                     `json:"customs_required"`
-	Items              []createCargoItemRequest `json:"items"`
+	TenantID                      string                   `json:"tenant_id"`
+	CargoType                     string                   `json:"cargo_type"`
+	Description                   *string                  `json:"description"`
+	GrossWeight                   *float64                 `json:"gross_weight"`
+	NetWeight                     *float64                 `json:"net_weight"`
+	Volume                        *float64                 `json:"volume"`
+	TemperatureMin                *float64                 `json:"temperature_min"`
+	TemperatureMax                *float64                 `json:"temperature_max"`
+	DangerousGoodsFlag            bool                     `json:"dangerous_goods_flag"`
+	CustomsRequired               bool                     `json:"customs_required"`
+	CargoTypeCode                 *string                  `json:"cargo_type_code"`
+	PalletCount                   *int                     `json:"pallet_count"`
+	PalletTypeCode                *string                  `json:"pallet_type_code"`
+	LinearMeters                  *float64                 `json:"linear_meters"`
+	MaxLoadedHeightMM             *int                     `json:"max_loaded_height_mm"`
+	Stackable                     *bool                    `json:"stackable"`
+	Fragile                       *bool                    `json:"fragile"`
+	PackagingTypeCode             *string                  `json:"packaging_type_code"`
+	FoodGradeRequired             *bool                    `json:"food_grade_required"`
+	TemperatureRequired           *bool                    `json:"temperature_required"`
+	PreferredTemperatureSetpointC *float64                 `json:"preferred_temperature_setpoint_c"`
+	OdorEmissionClass             *string                  `json:"odor_emission_class"`
+	OdorSensitive                 *bool                    `json:"odor_sensitive"`
+	ContaminationClass            *string                  `json:"contamination_class"`
+	Items                         []createCargoItemRequest `json:"items"`
 }
 
 func (h *Handler) CreateCargo(w http.ResponseWriter, r *http.Request) {
@@ -212,17 +226,31 @@ func (h *Handler) CreateCargo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cargo, err := h.service.CreateCargo(r.Context(), domain.CreateCargoInput{
-		TenantID:           tenantID,
-		CargoType:          req.CargoType,
-		Description:        req.Description,
-		GrossWeight:        req.GrossWeight,
-		NetWeight:          req.NetWeight,
-		Volume:             req.Volume,
-		TemperatureMin:     req.TemperatureMin,
-		TemperatureMax:     req.TemperatureMax,
-		DangerousGoodsFlag: req.DangerousGoodsFlag,
-		CustomsRequired:    req.CustomsRequired,
-		Items:              items,
+		TenantID:                      tenantID,
+		CargoType:                     req.CargoType,
+		Description:                   req.Description,
+		GrossWeight:                   req.GrossWeight,
+		NetWeight:                     req.NetWeight,
+		Volume:                        req.Volume,
+		TemperatureMin:                req.TemperatureMin,
+		TemperatureMax:                req.TemperatureMax,
+		DangerousGoodsFlag:            req.DangerousGoodsFlag,
+		CustomsRequired:               req.CustomsRequired,
+		CargoTypeCode:                 req.CargoTypeCode,
+		PalletCount:                   req.PalletCount,
+		PalletTypeCode:                req.PalletTypeCode,
+		LinearMeters:                  req.LinearMeters,
+		MaxLoadedHeightMM:             req.MaxLoadedHeightMM,
+		Stackable:                     req.Stackable,
+		Fragile:                       req.Fragile,
+		PackagingTypeCode:             req.PackagingTypeCode,
+		FoodGradeRequired:             req.FoodGradeRequired,
+		TemperatureRequired:           req.TemperatureRequired,
+		PreferredTemperatureSetpointC: req.PreferredTemperatureSetpointC,
+		OdorEmissionClass:             req.OdorEmissionClass,
+		OdorSensitive:                 req.OdorSensitive,
+		ContaminationClass:            req.ContaminationClass,
+		Items:                         items,
 	})
 	if err != nil {
 		respond.Error(w, err)
@@ -249,8 +277,55 @@ func (h *Handler) GetCargo(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, err)
 		return
 	}
-
 	respond.JSON(w, http.StatusOK, toCargoResponse(cargo))
+}
+
+func (h *Handler) GetCargoPlanningProfile(w http.ResponseWriter, r *http.Request) {
+	id, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	tenantID, err := resolveVerifiedTenant(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	cargo, err := h.service.GetCargo(r.Context(), tenantID, id)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	classes := make([]string, 0)
+	for _, item := range cargo.Items {
+		if item.HazardClass != nil && *item.HazardClass != "" {
+			classes = append(classes, *item.HazardClass)
+		}
+	}
+	respond.JSON(w, http.StatusOK, map[string]any{
+		"id":                               cargo.ID.String(),
+		"tenant_id":                        cargo.TenantID.String(),
+		"cargo_type_code":                  cargo.CargoTypeCode,
+		"weight_kg":                        cargo.GrossWeight,
+		"volume_m3":                        cargo.Volume,
+		"pallet_count":                     cargo.PalletCount,
+		"pallet_type_code":                 cargo.PalletTypeCode,
+		"linear_meters":                    cargo.LinearMeters,
+		"max_loaded_height_mm":             cargo.MaxLoadedHeightMM,
+		"stackable":                        cargo.Stackable,
+		"fragile":                          cargo.Fragile,
+		"packaging_type_code":              cargo.PackagingTypeCode,
+		"food_grade_required":              cargo.FoodGradeRequired,
+		"temperature_required":             cargo.TemperatureRequired,
+		"temperature_min_c":                cargo.TemperatureMin,
+		"temperature_max_c":                cargo.TemperatureMax,
+		"preferred_temperature_setpoint_c": cargo.PreferredTemperatureSetpointC,
+		"dangerous_goods":                  cargo.DangerousGoodsFlag,
+		"hazard_classes":                   classes,
+		"odor_emission_class":              cargo.OdorEmissionClass,
+		"odor_sensitive":                   cargo.OdorSensitive,
+		"contamination_class":              cargo.ContaminationClass,
+	})
 }
 
 type createTransportOrderRequest struct {
@@ -606,21 +681,35 @@ func toCargoResponse(cargo *domain.Cargo) map[string]any {
 		})
 	}
 	return map[string]any{
-		"id":                   cargo.ID.String(),
-		"tenant_id":            cargo.TenantID.String(),
-		"cargo_type":           cargo.CargoType,
-		"description":          cargo.Description,
-		"gross_weight":         cargo.GrossWeight,
-		"net_weight":           cargo.NetWeight,
-		"volume":               cargo.Volume,
-		"temperature_min":      cargo.TemperatureMin,
-		"temperature_max":      cargo.TemperatureMax,
-		"dangerous_goods_flag": cargo.DangerousGoodsFlag,
-		"customs_required":     cargo.CustomsRequired,
-		"items":                items,
-		"created_at":           cargo.CreatedAt,
-		"updated_at":           cargo.UpdatedAt,
-		"version":              cargo.Version,
+		"id":                               cargo.ID.String(),
+		"tenant_id":                        cargo.TenantID.String(),
+		"cargo_type":                       cargo.CargoType,
+		"description":                      cargo.Description,
+		"gross_weight":                     cargo.GrossWeight,
+		"net_weight":                       cargo.NetWeight,
+		"volume":                           cargo.Volume,
+		"temperature_min":                  cargo.TemperatureMin,
+		"temperature_max":                  cargo.TemperatureMax,
+		"dangerous_goods_flag":             cargo.DangerousGoodsFlag,
+		"customs_required":                 cargo.CustomsRequired,
+		"cargo_type_code":                  cargo.CargoTypeCode,
+		"pallet_count":                     cargo.PalletCount,
+		"pallet_type_code":                 cargo.PalletTypeCode,
+		"linear_meters":                    cargo.LinearMeters,
+		"max_loaded_height_mm":             cargo.MaxLoadedHeightMM,
+		"stackable":                        cargo.Stackable,
+		"fragile":                          cargo.Fragile,
+		"packaging_type_code":              cargo.PackagingTypeCode,
+		"food_grade_required":              cargo.FoodGradeRequired,
+		"temperature_required":             cargo.TemperatureRequired,
+		"preferred_temperature_setpoint_c": cargo.PreferredTemperatureSetpointC,
+		"odor_emission_class":              cargo.OdorEmissionClass,
+		"odor_sensitive":                   cargo.OdorSensitive,
+		"contamination_class":              cargo.ContaminationClass,
+		"items":                            items,
+		"created_at":                       cargo.CreatedAt,
+		"updated_at":                       cargo.UpdatedAt,
+		"version":                          cargo.Version,
 	}
 }
 

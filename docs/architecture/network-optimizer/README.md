@@ -13,7 +13,7 @@ IMPLEMENTATION_AUTHORIZED=NO
 
 Baseline at freeze authoring: branch `discovery/bintrans-transport-network-optimizer-v0.1`, SHA `2c0ad2bd573ca78788d09d13cfe629b4023b88d9` (same as local `origin/main` after `git fetch origin` on 2026-09-24).
 
-The block above records the architecture freeze. BNO-0.1A later added the foundation runtime described in [BNO_0_1A_IMPLEMENTATION.md](BNO_0_1A_IMPLEMENTATION.md). BNO-0.1B added rule-based predicted capacity and the capability foundation in [BNO_0_1B_IMPLEMENTATION.md](BNO_0_1B_IMPLEMENTATION.md). Next-load matching and later roadmap stages remain not implemented.
+The block above records the architecture freeze. BNO-0.1A later added the foundation runtime described in [BNO_0_1A_IMPLEMENTATION.md](BNO_0_1A_IMPLEMENTATION.md). BNO-0.1B added rule-based predicted capacity and the capability foundation in [BNO_0_1B_IMPLEMENTATION.md](BNO_0_1B_IMPLEMENTATION.md). BNO-0.1B2 added cargo and equipment reference data and the compatibility foundation in [BNO_0_1B2_REFERENCE_COMPATIBILITY.md](BNO_0_1B2_REFERENCE_COMPATIBILITY.md). Next-load matching and later roadmap stages remain not implemented.
 
 ## What this is
 

@@ -67,6 +67,7 @@ func NewRouter(
 		r.Post("/transport-orders/from-award-scope", pricedHandler.CreateFromAwardScope)
 		r.Get("/transport-orders/{transportOrderId}/ownership", ownershipHandler.GetTransportOrder)
 		r.Get("/transport-orders/{transportOrderId}/rate-snapshot", snapshotInternalHandler.GetRateSnapshot)
+		r.Get("/cargoes/{id}/planning-profile", handler.GetCargoPlanningProfile)
 		r.Post("/transport-orders/batch-analytics-dimensions", analyticsDimensionHandler.BatchGetAnalyticsDimensions)
 	})
 

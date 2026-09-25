@@ -32,8 +32,11 @@ const createVehicleQueryPrefix = `
 			capacity_weight, capacity_volume, registration_country, status,
 			combination_type, body_type, loading_access, unloading_access,
 			temperature_control_mode, temperature_capability_min_c, temperature_capability_max_c,
-			temperature_zone_count, independent_temperature_control, container_size
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)`
+			temperature_zone_count, independent_temperature_control, container_size,
+			equipment_unit_kind, pallet_positions, usable_linear_meters,
+			internal_length_mm, internal_width_mm, internal_height_mm,
+			food_grade_capability, adr_capability
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)`
 
 func TestCreateVehicleQueryUsesVerifiedTenantParameter(t *testing.T) {
 	t.Parallel()
@@ -42,6 +45,9 @@ func TestCreateVehicleQueryUsesVerifiedTenantParameter(t *testing.T) {
 	}
 	if !strings.Contains(createVehicleQueryPrefix, "VALUES ($1, $2,") {
 		t.Fatalf("tenant must be first SQL parameter")
+	}
+	if !strings.Contains(getVehicleByIDAndTenantQuery, "tenant_id = $2") || !strings.Contains(vehicleSelectColumns, "adr_capability") {
+		t.Fatalf("vehicle capability read must stay tenant scoped and include effective combination fields")
 	}
 }
 
