@@ -185,7 +185,7 @@ func TestBNO206To240NextLoadSearch(t *testing.T) {
 		policy := domain.NextLoadSearchPolicy{
 			SearchMode: domain.SearchDirectionalCorridor, TargetLocationID: &targetID,
 			ForwardSearchKm: f64(500), CorridorDeviationKm: f64(50), MaxDeadheadKm: f64(80),
-			ObjectiveProfile: "MIN_EMPTY",
+			ObjectiveProfile: "MIN_DEADHEAD",
 		}
 		doc := w.search(w.actor(), cap.ID, policy)
 		if doc.EligibleCandidateCount != 1 || len(doc.Candidates) != 1 || doc.Candidates[0].LoadOpportunityID != a.ID {
@@ -219,7 +219,7 @@ func TestBNO206To240NextLoadSearch(t *testing.T) {
 		policy := domain.NextLoadSearchPolicy{
 			SearchMode: domain.SearchDirectionalCorridor, TargetLocationID: &targetID,
 			ForwardSearchKm: f64(500), CorridorDeviationKm: f64(50), MaxDeadheadKm: f64(80),
-			ObjectiveProfile: "MIN_EMPTY",
+			ObjectiveProfile: "MIN_DEADHEAD",
 		}
 		doc := w.search(w.actor(), cap.ID, policy)
 		if doc.RejectionCountsByReason[domain.ReasonBacktrackRejected] != 1 || doc.RejectionCountsByReason[domain.ReasonLateralExceeded] != 1 || doc.RejectionCountsByReason[domain.ReasonForwardExceeded] != 1 {
@@ -248,7 +248,7 @@ func TestBNO206To240NextLoadSearch(t *testing.T) {
 		w.routes.roads[roadKey(pickup, target)] = roadCell{m: 900000, sec: 600}
 		pass := domain.NextLoadSearchPolicy{
 			SearchMode: domain.SearchRouteEllipse, TargetLocationID: &targetID, MaxRouteIncreaseKm: f64(150),
-			ObjectiveProfile: "MIN_EMPTY",
+			ObjectiveProfile: "MIN_DEADHEAD",
 		}
 		doc := w.search(w.actor(), cap.ID, pass)
 		if len(doc.Candidates) != 1 || doc.Candidates[0].RouteIncreaseKm == nil || *doc.Candidates[0].RouteIncreaseKm != 100 {
@@ -484,7 +484,7 @@ func TestBNO206To240NextLoadSearch(t *testing.T) {
 		w := newWorld(t)
 		cap := w.capacity(domain.CapacityAvailable, domain.SourceManual, 0, 0)
 		carrierLimit, capacityLimit, requestLimit := 100.0, 70.0, 90.0
-		objective := domain.NextLoadSearchPolicy{SearchMode: domain.SearchRadius, RadiusKm: f64(500), ObjectiveProfile: "MIN_EMPTY", MaxDeadheadKm: &carrierLimit}
+		objective := domain.NextLoadSearchPolicy{SearchMode: domain.SearchRadius, RadiusKm: f64(500), ObjectiveProfile: "MIN_DEADHEAD", MaxDeadheadKm: &carrierLimit}
 		if err := w.store.UpsertCarrierPolicy(context.Background(), w.carrier, objective); err != nil {
 			t.Fatal(err)
 		}
@@ -626,7 +626,7 @@ func (w *world) search(actor Actor, capacityID uuid.UUID, policy domain.NextLoad
 }
 
 func radiusPolicy(radius, deadhead float64) domain.NextLoadSearchPolicy {
-	policy := domain.NextLoadSearchPolicy{SearchMode: domain.SearchRadius, RadiusKm: f64(radius), ObjectiveProfile: "MIN_EMPTY"}
+	policy := domain.NextLoadSearchPolicy{SearchMode: domain.SearchRadius, RadiusKm: f64(radius), ObjectiveProfile: "MIN_DEADHEAD"}
 	if deadhead > 0 {
 		policy.MaxDeadheadKm = f64(deadhead)
 	}

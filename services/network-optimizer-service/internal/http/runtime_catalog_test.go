@@ -130,7 +130,7 @@ func (fx runtimeFixture) search(t *testing.T, svc *service.Service) searchDoc {
 	t.Cleanup(srv.Close)
 	body := map[string]any{
 		"capacity_id": fx.capacity.String(),
-		"policy":      map[string]any{"search_mode": "RADIUS", "radius_km": 100, "objective_profile": "MIN_EMPTY"},
+		"policy":      map[string]any{"search_mode": "RADIUS", "radius_km": 100, "objective_profile": "MIN_DEADHEAD"},
 	}
 	raw, err := json.Marshal(body)
 	if err != nil {

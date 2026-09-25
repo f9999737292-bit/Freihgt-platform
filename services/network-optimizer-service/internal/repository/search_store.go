@@ -17,6 +17,11 @@ type SearchRun struct {
 	CompletedAt                time.Time
 	RoutingProvider            string
 	Status                     string
+	ScoreProfileCode           string
+	ScoreProfileVersion        int
+	ScoreProfileFingerprint    string
+	ScoringAlgorithmVersion    string
+	RankingCurrency            *string
 }
 
 type StoredCandidate struct {
@@ -35,6 +40,13 @@ type StoredCandidate struct {
 	CompatibilityFingerprint string
 	PolicyFingerprint        string
 	CreatedAt                time.Time
+	Rank                     *int
+	ScoreStatus              string
+	ScoreTotal               *int
+	ScoreEvidenceBps         *int
+	ScoreFingerprint         *string
+	ScoreComponents          []byte
+	UnrankedReasonCodes      []string
 }
 
 type SearchStore interface {

@@ -60,6 +60,7 @@ func EffectiveSearchPolicy(carrier, capacity, request NextLoadSearchPolicy) Next
 		TargetLocationID:         firstUUID(request.TargetLocationID, capacity.TargetLocationID, carrier.TargetLocationID),
 		PreferredDeadheadKm:      firstFloat(request.PreferredDeadheadKm, capacity.PreferredDeadheadKm, carrier.PreferredDeadheadKm),
 		ObjectiveProfile:         firstText(request.ObjectiveProfile, capacity.ObjectiveProfile, carrier.ObjectiveProfile),
+		RankingCurrency:          firstText(request.RankingCurrency, capacity.RankingCurrency, carrier.RankingCurrency),
 		ForwardSearchKm:          MinHardLimit(carrier.ForwardSearchKm, capacity.ForwardSearchKm, request.ForwardSearchKm),
 		CorridorDeviationKm:      MinHardLimit(carrier.CorridorDeviationKm, capacity.CorridorDeviationKm, request.CorridorDeviationKm),
 		MaxDeadheadKm:            MinHardLimit(carrier.MaxDeadheadKm, capacity.MaxDeadheadKm, request.MaxDeadheadKm),

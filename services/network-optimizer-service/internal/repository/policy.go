@@ -74,20 +74,20 @@ func (p *Postgres) UpsertCarrierPolicy(ctx context.Context, tenant uuid.UUID, po
 		INSERT INTO network_optimizer.carrier_search_policies (
 			owner_tenant_id, search_mode, target_location_id, forward_search_km, corridor_deviation_km,
 			max_deadhead_km, preferred_deadhead_km, max_deadhead_minutes, min_loaded_distance_km,
-			max_route_increase_km, radius_km, objective_profile, allow_unknown_road_distance, version, updated_at
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,1,now())
+			max_route_increase_km, radius_km, objective_profile, ranking_currency, allow_unknown_road_distance, version, updated_at
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,1,now())
 		ON CONFLICT (owner_tenant_id) DO UPDATE SET
 			search_mode=EXCLUDED.search_mode, target_location_id=EXCLUDED.target_location_id,
 			forward_search_km=EXCLUDED.forward_search_km, corridor_deviation_km=EXCLUDED.corridor_deviation_km,
 			max_deadhead_km=EXCLUDED.max_deadhead_km, preferred_deadhead_km=EXCLUDED.preferred_deadhead_km,
 			max_deadhead_minutes=EXCLUDED.max_deadhead_minutes, min_loaded_distance_km=EXCLUDED.min_loaded_distance_km,
 			max_route_increase_km=EXCLUDED.max_route_increase_km, radius_km=EXCLUDED.radius_km,
-			objective_profile=EXCLUDED.objective_profile,
+			objective_profile=EXCLUDED.objective_profile, ranking_currency=EXCLUDED.ranking_currency,
 			allow_unknown_road_distance=EXCLUDED.allow_unknown_road_distance, version=carrier_search_policies.version+1,
 			updated_at=now()`,
 		tenant, policy.SearchMode, policy.TargetLocationID, policy.ForwardSearchKm, policy.CorridorDeviationKm,
 		policy.MaxDeadheadKm, policy.PreferredDeadheadKm, policy.MaxDeadheadMinutes, policy.MinLoadedDistanceKm,
-		policy.MaxRouteIncreaseKm, policy.RadiusKm, policy.ObjectiveProfile, policy.AllowUnknownRoadDistance,
+		policy.MaxRouteIncreaseKm, policy.RadiusKm, policy.ObjectiveProfile, nullString(policy.RankingCurrency), policy.AllowUnknownRoadDistance,
 	)
 	return err
 }
@@ -96,7 +96,7 @@ func (p *Postgres) GetCarrierPolicy(ctx context.Context, tenant uuid.UUID) (doma
 	row := p.pool.QueryRow(ctx, `
 		SELECT search_mode, target_location_id, forward_search_km, corridor_deviation_km,
 			max_deadhead_km, preferred_deadhead_km, max_deadhead_minutes, min_loaded_distance_km,
-			max_route_increase_km, radius_km, objective_profile, allow_unknown_road_distance
+			max_route_increase_km, radius_km, objective_profile, ranking_currency, allow_unknown_road_distance
 		FROM network_optimizer.carrier_search_policies WHERE owner_tenant_id=$1`, tenant)
 	return scanPolicy(row)
 }
@@ -111,9 +111,9 @@ func (p *Postgres) UpsertCapacityPolicy(ctx context.Context, tenant, capacityID 
 		INSERT INTO network_optimizer.capacity_search_policies (
 			capacity_id, owner_tenant_id, search_mode, target_location_id, forward_search_km, corridor_deviation_km,
 			max_deadhead_km, preferred_deadhead_km, max_deadhead_minutes, min_loaded_distance_km,
-			max_route_increase_km, radius_km, objective_profile, allow_unknown_road_distance, version, updated_at
+			max_route_increase_km, radius_km, objective_profile, ranking_currency, allow_unknown_road_distance, version, updated_at
 		)
-		SELECT owned.id, owned.owner_tenant_id, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 1, now()
+		SELECT owned.id, owned.owner_tenant_id, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 1, now()
 		FROM owned
 		ON CONFLICT (capacity_id) DO UPDATE SET
 			search_mode=EXCLUDED.search_mode,
@@ -122,12 +122,13 @@ func (p *Postgres) UpsertCapacityPolicy(ctx context.Context, tenant, capacityID 
 			preferred_deadhead_km=EXCLUDED.preferred_deadhead_km, max_deadhead_minutes=EXCLUDED.max_deadhead_minutes,
 			min_loaded_distance_km=EXCLUDED.min_loaded_distance_km, max_route_increase_km=EXCLUDED.max_route_increase_km,
 			radius_km=EXCLUDED.radius_km, objective_profile=EXCLUDED.objective_profile,
+			ranking_currency=EXCLUDED.ranking_currency,
 			allow_unknown_road_distance=EXCLUDED.allow_unknown_road_distance,
 			version=capacity_search_policies.version+1, updated_at=now()
 		WHERE capacity_search_policies.owner_tenant_id = EXCLUDED.owner_tenant_id`,
 		capacityID, tenant, nullString(policy.SearchMode), policy.TargetLocationID, policy.ForwardSearchKm, policy.CorridorDeviationKm,
 		policy.MaxDeadheadKm, policy.PreferredDeadheadKm, policy.MaxDeadheadMinutes, policy.MinLoadedDistanceKm,
-		policy.MaxRouteIncreaseKm, policy.RadiusKm, nullString(policy.ObjectiveProfile), policy.AllowUnknownRoadDistance,
+		policy.MaxRouteIncreaseKm, policy.RadiusKm, nullString(policy.ObjectiveProfile), nullString(policy.RankingCurrency), policy.AllowUnknownRoadDistance,
 	)
 	if err != nil {
 		return err
@@ -142,17 +143,17 @@ func (p *Postgres) GetCapacityPolicy(ctx context.Context, tenant, capacityID uui
 	row := p.pool.QueryRow(ctx, `
 		SELECT search_mode, target_location_id, forward_search_km, corridor_deviation_km,
 			max_deadhead_km, preferred_deadhead_km, max_deadhead_minutes, min_loaded_distance_km,
-			max_route_increase_km, radius_km, objective_profile, allow_unknown_road_distance
+			max_route_increase_km, radius_km, objective_profile, ranking_currency, allow_unknown_road_distance
 		FROM network_optimizer.capacity_search_policies WHERE capacity_id=$1 AND owner_tenant_id=$2`, capacityID, tenant)
 	return scanPolicy(row)
 }
 
 func scanPolicy(row pgx.Row) (domain.NextLoadSearchPolicy, error) {
 	var policy domain.NextLoadSearchPolicy
-	var mode, objective *string
+	var mode, objective, ranking *string
 	err := row.Scan(&mode, &policy.TargetLocationID, &policy.ForwardSearchKm, &policy.CorridorDeviationKm,
 		&policy.MaxDeadheadKm, &policy.PreferredDeadheadKm, &policy.MaxDeadheadMinutes, &policy.MinLoadedDistanceKm,
-		&policy.MaxRouteIncreaseKm, &policy.RadiusKm, &objective, &policy.AllowUnknownRoadDistance)
+		&policy.MaxRouteIncreaseKm, &policy.RadiusKm, &objective, &ranking, &policy.AllowUnknownRoadDistance)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.NextLoadSearchPolicy{}, ErrNotFound
 	}
@@ -161,5 +162,6 @@ func scanPolicy(row pgx.Row) (domain.NextLoadSearchPolicy, error) {
 	}
 	policy.SearchMode = stringValue(mode)
 	policy.ObjectiveProfile = stringValue(objective)
+	policy.RankingCurrency = stringValue(ranking)
 	return policy, nil
 }
