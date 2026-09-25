@@ -32,6 +32,7 @@ func NewRouterWithCatalog(log *slog.Logger, svc *service.Service, ready func(htt
 	h := handlers.New(log, svc)
 	if catalog != nil {
 		h.UseCatalog(catalog)
+		svc.UseCatalog(catalog)
 	}
 	r.Get("/health", observability.HealthHandler(serviceName))
 	if ready == nil {
