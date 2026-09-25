@@ -14,6 +14,7 @@ import (
 	"github.com/freight-platform/network-optimizer-service/internal/domain"
 	"github.com/freight-platform/network-optimizer-service/internal/locationclient"
 	apperrors "github.com/freight-platform/network-optimizer-service/internal/platform/errors"
+	"github.com/freight-platform/network-optimizer-service/internal/profilefixture"
 	"github.com/freight-platform/network-optimizer-service/internal/repository"
 	"github.com/freight-platform/network-optimizer-service/internal/routing"
 )
@@ -553,9 +554,11 @@ func newWorld(t *testing.T) *world {
 	store := repository.NewMemory()
 	routes := &scripted{roads: map[string]roadCell{}}
 	dir := &dirMap{snaps: map[uuid.UUID]domain.LocationSnapshot{}}
+	store.SeedScoreProfiles(profilefixture.V1())
 	svc := New(store, nil)
 	svc.UseRouting(routes)
 	svc.UsePolicies(store)
+	svc.UseScoreProfiles(store)
 	svc.UseDirectory(dir)
 	return &world{t: t, store: store, routes: routes, dir: dir, svc: svc, carrier: uuid.New(), shipper: uuid.New(), at: time.Date(2026, 9, 25, 8, 0, 0, 0, time.UTC)}
 }

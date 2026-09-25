@@ -42,6 +42,7 @@ func main() {
 	svc := service.New(store, verifier)
 	svc.UseDirectory(locationclient.NewHTTP(cfg.TransportOrderURL, cfg.ShipmentURL, cfg.InternalServiceToken))
 	svc.UsePolicies(store)
+	svc.UseScoreProfiles(store)
 	if cfg.RoutingProvider == "2GIS" {
 		svc.UseRouting(twogis.New(cfg.TwoGISRoutingBaseURL, cfg.TwoGISAPIKey, log))
 	}

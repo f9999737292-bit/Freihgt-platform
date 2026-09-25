@@ -21,6 +21,12 @@ func (m *Memory) SaveSearch(_ context.Context, run SearchRun, candidates []Store
 	return nil
 }
 
+func (m *Memory) SearchRunCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.searchRuns)
+}
+
 func (m *Memory) GetSearch(_ context.Context, tenant, id uuid.UUID) (SearchRun, []StoredCandidate, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()

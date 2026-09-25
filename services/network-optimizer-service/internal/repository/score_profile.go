@@ -2,39 +2,48 @@ package repository
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/freight-platform/network-optimizer-service/internal/domain"
 )
 
-func (m *Memory) ensureProfiles() {
-	if m.scoreProfiles != nil {
-		return
+type ScoreProfileStore interface {
+	ActiveScoreProfile(ctx context.Context, code string) (domain.ScoreProfile, error)
+}
+
+func (m *Memory) SeedScoreProfiles(profiles []domain.ScoreProfile) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.scoreProfiles == nil {
+		m.scoreProfiles = map[string]domain.ScoreProfile{}
 	}
-	m.scoreProfiles = map[string]domain.ScoreProfile{}
-	for _, profile := range domain.SystemScoreProfiles() {
-		m.scoreProfiles[profile.Code] = profile
+	for _, profile := range profiles {
+		m.scoreProfiles[profile.Code] = cloneProfile(profile)
 	}
 }
 
 func (m *Memory) ActiveScoreProfile(_ context.Context, code string) (domain.ScoreProfile, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.ensureProfiles()
+	if m.scoreProfiles == nil {
+		return domain.ScoreProfile{}, ErrNotFound
+	}
 	profile, ok := m.scoreProfiles[code]
 	if !ok || profile.Status != domain.ProfileStatusActive || profile.Scope != domain.ProfileScopeSystem {
 		return domain.ScoreProfile{}, ErrNotFound
 	}
-	if profile.WeightSum() != 10000 {
-		return domain.ScoreProfile{}, fmt.Errorf("active profile %s weight sum %d", code, profile.WeightSum())
+	profile = cloneProfile(profile)
+	if err := domain.ValidateActiveScoreProfile(profile); err != nil {
+		return domain.ScoreProfile{}, err
 	}
-	return cloneProfile(profile), nil
+	return profile, nil
 }
 
 func (m *Memory) ReplaceScoreProfile(profile domain.ScoreProfile) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.ensureProfiles()
+	if m.scoreProfiles == nil {
+		m.scoreProfiles = map[string]domain.ScoreProfile{}
+	}
 	m.scoreProfiles[profile.Code] = cloneProfile(profile)
 }
 
@@ -72,8 +81,8 @@ func (p *Postgres) ActiveScoreProfile(ctx context.Context, code string) (domain.
 	if err := rows.Err(); err != nil {
 		return domain.ScoreProfile{}, err
 	}
-	if profile.WeightSum() != 10000 {
-		return domain.ScoreProfile{}, fmt.Errorf("active profile %s weight sum %d", code, profile.WeightSum())
+	if err := domain.ValidateActiveScoreProfile(profile); err != nil {
+		return domain.ScoreProfile{}, err
 	}
 	return profile, nil
 }

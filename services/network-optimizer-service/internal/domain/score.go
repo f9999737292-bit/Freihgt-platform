@@ -53,9 +53,11 @@ const (
 	ReasonConfidenceUnknown     = "PREDICTION_CONFIDENCE_UNAVAILABLE"
 	ReasonUncertaintyUnknown    = "ETA_UNCERTAINTY_UNAVAILABLE"
 
-	ErrObjectiveNotExecutable     = scoreError("OBJECTIVE_PROFILE_NOT_EXECUTABLE")
-	ErrRankingCurrencyRequired    = scoreError("RANKING_CURRENCY_REQUIRED")
-	ErrTargetRequiredForObjective = scoreError("TARGET_LOCATION_REQUIRED_FOR_OBJECTIVE")
+	ErrObjectiveNotExecutable      = scoreError("OBJECTIVE_PROFILE_NOT_EXECUTABLE")
+	ErrRankingCurrencyRequired     = scoreError("RANKING_CURRENCY_REQUIRED")
+	ErrTargetRequiredForObjective  = scoreError("TARGET_LOCATION_REQUIRED_FOR_OBJECTIVE")
+	ErrScoringAlgorithmUnsupported = scoreError("SCORING_ALGORITHM_UNSUPPORTED")
+	ErrScoreProfileInvalid         = scoreError("SCORE_PROFILE_INVALID")
 )
 
 type scoreError string
@@ -165,7 +167,12 @@ func ValidRankingCurrency(value string) bool {
 
 func (p ScoreProfile) Fingerprint() string {
 	components := append([]ScoreProfileComponent(nil), p.Components...)
-	sort.Slice(components, func(i, j int) bool { return components[i].Ordinal < components[j].Ordinal })
+	sort.Slice(components, func(i, j int) bool {
+		if components[i].Ordinal != components[j].Ordinal {
+			return components[i].Ordinal < components[j].Ordinal
+		}
+		return components[i].Code < components[j].Code
+	})
 	body := struct {
 		Code       string                  `json:"code"`
 		Version    int                     `json:"version"`
@@ -185,50 +192,53 @@ func (p ScoreProfile) WeightSum() int {
 	return total
 }
 
-func SystemScoreProfiles() []ScoreProfile {
-	active := func(id, code string, components []ScoreProfileComponent) ScoreProfile {
-		return ScoreProfile{
-			ID: uuid.MustParse(id), Code: code, Scope: ProfileScopeSystem, Version: 1,
-			Status: ProfileStatusActive, AlgorithmVersion: ScoringAlgorithmVersion, Components: components,
-		}
-	}
-	comp := func(code string, weight, ordinal int, required bool) ScoreProfileComponent {
-		return ScoreProfileComponent{Code: code, WeightBps: weight, Required: required, Ordinal: ordinal}
-	}
-	return []ScoreProfile{
-		active("00000000-0000-4000-8000-000000000201", ProfileMinDeadhead, []ScoreProfileComponent{
-			comp(ComponentDeadheadEfficiency, 10000, 1, true),
-		}),
-		active("00000000-0000-4000-8000-000000000202", ProfileMaxCapacityUtilization, []ScoreProfileComponent{
-			comp(ComponentCapacityUtilization, 10000, 1, true),
-		}),
-		active("00000000-0000-4000-8000-000000000203", ProfileReturnHome, []ScoreProfileComponent{
-			comp(ComponentTargetProximity, 10000, 1, true),
-		}),
-		active("00000000-0000-4000-8000-000000000204", ProfileMaxRevenue, []ScoreProfileComponent{
-			comp(ComponentRevenue, 10000, 1, true),
-		}),
-		active("00000000-0000-4000-8000-000000000205", ProfileMinRisk, []ScoreProfileComponent{
-			comp(ComponentPickupSlack, 5000, 1, true),
-			comp(ComponentPredictionConfidence, 3000, 2, false),
-			comp(ComponentETAUncertainty, 2000, 3, false),
-		}),
-		active("00000000-0000-4000-8000-000000000206", ProfileBalanced, []ScoreProfileComponent{
-			comp(ComponentDeadheadEfficiency, 3500, 1, true),
-			comp(ComponentCapacityUtilization, 2500, 2, false),
-			comp(ComponentWaitingEfficiency, 1500, 3, false),
-			comp(ComponentTargetProximity, 1000, 4, false),
-			comp(ComponentPickupSlack, 1000, 5, false),
-			comp(ComponentNetworkValue, 500, 6, false),
-		}),
-		{
-			ID: uuid.MustParse("00000000-0000-4000-8000-000000000207"), Code: ProfileMaxContribution,
-			Scope: ProfileScopeSystem, Version: 1, Status: ProfileStatusReserved, AlgorithmVersion: ScoringAlgorithmVersion,
-		},
+func KnownScoreComponent(code string) bool {
+	switch code {
+	case ComponentDeadheadEfficiency, ComponentCapacityUtilization, ComponentWaitingEfficiency, ComponentTargetProximity,
+		ComponentPickupSlack, ComponentRevenue, ComponentPredictionConfidence, ComponentETAUncertainty, ComponentNetworkValue:
+		return true
+	default:
+		return false
 	}
 }
 
+func ValidateActiveScoreProfile(profile ScoreProfile) error {
+	if profile.Scope != ProfileScopeSystem || profile.Status != ProfileStatusActive || profile.Version < 1 {
+		return ErrScoreProfileInvalid
+	}
+	if profile.AlgorithmVersion != ScoringAlgorithmVersion {
+		return ErrScoringAlgorithmUnsupported
+	}
+	if len(profile.Components) == 0 {
+		return ErrScoreProfileInvalid
+	}
+	codes := map[string]struct{}{}
+	ordinals := map[int]struct{}{}
+	sum := 0
+	for _, component := range profile.Components {
+		if !KnownScoreComponent(component.Code) || component.WeightBps <= 0 || component.WeightBps > 10000 || component.Ordinal <= 0 {
+			return ErrScoreProfileInvalid
+		}
+		if _, exists := codes[component.Code]; exists {
+			return ErrScoreProfileInvalid
+		}
+		if _, exists := ordinals[component.Ordinal]; exists {
+			return ErrScoreProfileInvalid
+		}
+		codes[component.Code] = struct{}{}
+		ordinals[component.Ordinal] = struct{}{}
+		sum += component.WeightBps
+	}
+	if sum != 10000 {
+		return ErrScoreProfileInvalid
+	}
+	return nil
+}
+
 func ScorePool(profile ScoreProfile, facts []ScoreFacts, rankingCurrency string) map[uuid.UUID]CandidateScore {
+	if err := ValidateActiveScoreProfile(profile); err != nil {
+		return map[uuid.UUID]CandidateScore{}
+	}
 	profileFingerprint := profile.Fingerprint()
 	observations := make([]map[string]componentObservation, len(facts))
 	for i, fact := range facts {

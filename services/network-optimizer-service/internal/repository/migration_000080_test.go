@@ -19,6 +19,8 @@ func TestMigration000080Text(t *testing.T) {
 		"SCORE_NOT_RECORDED",
 		"ranking_currency",
 		"bno-score-0.1c2.1",
+		"weight_bps <= 10000",
+		"score_profile_components_ordinal_uidx",
 	} {
 		if !strings.Contains(up, required) {
 			t.Fatalf("up migration missing %s", required)

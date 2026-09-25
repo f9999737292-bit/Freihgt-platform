@@ -12,7 +12,7 @@ Eligible candidates that lack the evidence required by the selected objective st
 
 Scoring algorithm version: `bno-score-0.1c2.1`.
 
-The version is stored on every search run. Component formulas live in code. Profile composition and weights do not. The service loads the one `ACTIVE` `SYSTEM` profile for the requested code from `network_optimizer.score_profiles` and `network_optimizer.score_profile_components`.
+The version is stored on a search run only after the loaded profile is accepted. Component formulas live in code. Profile composition and weights do not: `domain` scoring has no production weight table. The service loads the one `ACTIVE` `SYSTEM` profile for the requested code from `network_optimizer.score_profiles` and `network_optimizer.score_profile_components`, seeded by migration `000080_bno_match_score_topn_v0_1c2`. A profile whose `algorithm_version` is not `bno-score-0.1c2.1`, or whose weights, ordinals, or component codes fail validation, is rejected before scoring and before the search run is written.
 
 Canonical component points and the final score are integers from 0 to 10000. Raw source metrics may stay floating point. Rounding is half away from zero for normalization, and half up for the integer weighted total.
 

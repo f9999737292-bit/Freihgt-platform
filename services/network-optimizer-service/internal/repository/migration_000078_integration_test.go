@@ -26,7 +26,24 @@ func TestMigration000078UpDownUp(t *testing.T) {
 	}
 	assertBNO078Present(t, ctx, pool, true)
 	assertBNO077Present(t, ctx, pool, true)
+	// The current policy writer uses columns added after 000078. Apply them for that assertion, then remove them before rolling 000078 back.
+	for _, name := range []string{
+		"000079_bno_next_load_candidate_search_v0_1c1.up.sql",
+		"000080_bno_match_score_topn_v0_1c2.up.sql",
+	} {
+		if _, err := pool.Exec(ctx, mustRead(t, name)); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+	}
 	assertCapacityPolicyTenantBoundary(t, ctx, pool)
+	for _, name := range []string{
+		"000080_bno_match_score_topn_v0_1c2.down.sql",
+		"000079_bno_next_load_candidate_search_v0_1c1.down.sql",
+	} {
+		if _, err := pool.Exec(ctx, mustRead(t, name)); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+	}
 
 	if _, err := pool.Exec(ctx, mustRead(t, "000078_bno_geography_routing_foundation_v0_1c0.down.sql")); err != nil {
 		t.Fatalf("down: %v", err)

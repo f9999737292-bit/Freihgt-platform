@@ -67,10 +67,11 @@ CREATE UNIQUE INDEX score_profiles_active_system_uidx
 CREATE TABLE network_optimizer.score_profile_components (
     profile_id uuid NOT NULL REFERENCES network_optimizer.score_profiles (id) ON DELETE CASCADE,
     component_code text NOT NULL CHECK (component_code <> ''),
-    weight_bps integer NOT NULL CHECK (weight_bps > 0),
+    weight_bps integer NOT NULL CHECK (weight_bps > 0 AND weight_bps <= 10000),
     required boolean NOT NULL,
     ordinal integer NOT NULL CHECK (ordinal > 0),
-    PRIMARY KEY (profile_id, component_code)
+    PRIMARY KEY (profile_id, component_code),
+    CONSTRAINT score_profile_components_ordinal_uidx UNIQUE (profile_id, ordinal)
 );
 
 INSERT INTO network_optimizer.score_profiles (id, code, scope, tenant_id, version, status, algorithm_version)

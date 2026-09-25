@@ -3,26 +3,40 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"math"
 	"sort"
 
 	"github.com/freight-platform/network-optimizer-service/internal/domain"
 	apperrors "github.com/freight-platform/network-optimizer-service/internal/platform/errors"
+	"github.com/freight-platform/network-optimizer-service/internal/repository"
 )
 
 func (s *Service) activeScoreProfile(ctx context.Context, code string) (domain.ScoreProfile, error) {
-	lookup, ok := s.store.(interface {
-		ActiveScoreProfile(context.Context, string) (domain.ScoreProfile, error)
-	})
-	if !ok {
-		return domain.ScoreProfile{}, apperrors.Validation("objective profile is not executable", map[string]any{"reason": "OBJECTIVE_PROFILE_NOT_EXECUTABLE"})
+	if s.scoreProfiles == nil {
+		return domain.ScoreProfile{}, apperrors.Validation("score profile store is unavailable", map[string]any{"reason": "SCORE_PROFILE_STORE_UNAVAILABLE"})
 	}
-	profile, err := lookup.ActiveScoreProfile(ctx, code)
+	profile, err := s.scoreProfiles.ActiveScoreProfile(ctx, code)
 	if err != nil {
-		return domain.ScoreProfile{}, apperrors.Validation("objective profile is not executable", map[string]any{
-			"reason": "OBJECTIVE_PROFILE_NOT_EXECUTABLE",
-			"detail": "PLANNING_COST_PROVIDER_NOT_IMPLEMENTED",
-		})
+		switch {
+		case errors.Is(err, domain.ErrScoringAlgorithmUnsupported):
+			return domain.ScoreProfile{}, apperrors.Validation("scoring algorithm version is not supported", map[string]any{"reason": "SCORING_ALGORITHM_UNSUPPORTED"})
+		case errors.Is(err, domain.ErrScoreProfileInvalid):
+			return domain.ScoreProfile{}, apperrors.Validation("active score profile is invalid", map[string]any{"reason": "SCORE_PROFILE_INVALID"})
+		case errors.Is(err, repository.ErrNotFound):
+			return domain.ScoreProfile{}, apperrors.Validation("objective profile is not executable", map[string]any{
+				"reason": "OBJECTIVE_PROFILE_NOT_EXECUTABLE",
+				"detail": "PLANNING_COST_PROVIDER_NOT_IMPLEMENTED",
+			})
+		default:
+			return domain.ScoreProfile{}, apperrors.Validation("active score profile is invalid", map[string]any{"reason": "SCORE_PROFILE_INVALID"})
+		}
+	}
+	if err := domain.ValidateActiveScoreProfile(profile); err != nil {
+		if errors.Is(err, domain.ErrScoringAlgorithmUnsupported) {
+			return domain.ScoreProfile{}, apperrors.Validation("scoring algorithm version is not supported", map[string]any{"reason": "SCORING_ALGORITHM_UNSUPPORTED"})
+		}
+		return domain.ScoreProfile{}, apperrors.Validation("active score profile is invalid", map[string]any{"reason": "SCORE_PROFILE_INVALID"})
 	}
 	return profile, nil
 }

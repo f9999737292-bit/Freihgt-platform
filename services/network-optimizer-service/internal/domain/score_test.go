@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
@@ -23,7 +24,7 @@ func TestBNO257_PROFILE_CODES_VALIDATED(t *testing.T) {
 }
 
 func TestBNO259_PROFILE_WEIGHT_SUM_10000(t *testing.T) {
-	for _, profile := range SystemScoreProfiles() {
+	for _, profile := range testScoreProfiles() {
 		if profile.Status != ProfileStatusActive {
 			continue
 		}
@@ -43,6 +44,14 @@ func TestBNO260_PROFILE_FINGERPRINT_DETERMINISTIC(t *testing.T) {
 	changed.Components[0].WeightBps = 3400
 	if changed.Fingerprint() == profile.Fingerprint() {
 		t.Fatal("weight change did not change fingerprint")
+	}
+	reversed := profile
+	reversed.Components = append([]ScoreProfileComponent(nil), profile.Components...)
+	for i, j := 0, len(reversed.Components)-1; i < j; i, j = i+1, j-1 {
+		reversed.Components[i], reversed.Components[j] = reversed.Components[j], reversed.Components[i]
+	}
+	if reversed.Fingerprint() != profile.Fingerprint() {
+		t.Fatal("fingerprint depended on component slice order")
 	}
 }
 
@@ -168,15 +177,79 @@ func TestBNO275_ETA_UNCERTAINTY_USED(t *testing.T) {
 	}
 }
 
+// testScoreProfiles mirrors migration 000080 for in-package scoring tests.
+// Production scoring does not call it.
+func testScoreProfiles() []ScoreProfile {
+	active := func(code string, components []ScoreProfileComponent) ScoreProfile {
+		return ScoreProfile{
+			Code: code, Scope: ProfileScopeSystem, Version: 1,
+			Status: ProfileStatusActive, AlgorithmVersion: ScoringAlgorithmVersion, Components: components,
+		}
+	}
+	comp := func(code string, weight, ordinal int, required bool) ScoreProfileComponent {
+		return ScoreProfileComponent{Code: code, WeightBps: weight, Required: required, Ordinal: ordinal}
+	}
+	return []ScoreProfile{
+		active(ProfileMinDeadhead, []ScoreProfileComponent{comp(ComponentDeadheadEfficiency, 10000, 1, true)}),
+		active(ProfileMaxCapacityUtilization, []ScoreProfileComponent{comp(ComponentCapacityUtilization, 10000, 1, true)}),
+		active(ProfileReturnHome, []ScoreProfileComponent{comp(ComponentTargetProximity, 10000, 1, true)}),
+		active(ProfileMaxRevenue, []ScoreProfileComponent{comp(ComponentRevenue, 10000, 1, true)}),
+		active(ProfileMinRisk, []ScoreProfileComponent{
+			comp(ComponentPickupSlack, 5000, 1, true),
+			comp(ComponentPredictionConfidence, 3000, 2, false),
+			comp(ComponentETAUncertainty, 2000, 3, false),
+		}),
+		active(ProfileBalanced, []ScoreProfileComponent{
+			comp(ComponentDeadheadEfficiency, 3500, 1, true),
+			comp(ComponentCapacityUtilization, 2500, 2, false),
+			comp(ComponentWaitingEfficiency, 1500, 3, false),
+			comp(ComponentTargetProximity, 1000, 4, false),
+			comp(ComponentPickupSlack, 1000, 5, false),
+			comp(ComponentNetworkValue, 500, 6, false),
+		}),
+	}
+}
+
 func profileByCode(t *testing.T, code string) ScoreProfile {
 	t.Helper()
-	for _, profile := range SystemScoreProfiles() {
+	for _, profile := range testScoreProfiles() {
 		if profile.Code == code {
 			return profile
 		}
 	}
 	t.Fatalf("missing %s", code)
 	return ScoreProfile{}
+}
+
+func TestBNO319_PROFILE_ORDINAL_UNIQUE(t *testing.T) {
+	profile := profileByCode(t, ProfileMinDeadhead)
+	profile.Components = []ScoreProfileComponent{
+		{Code: ComponentDeadheadEfficiency, WeightBps: 5000, Required: true, Ordinal: 1},
+		{Code: ComponentNetworkValue, WeightBps: 5000, Required: false, Ordinal: 1},
+	}
+	if !errors.Is(ValidateActiveScoreProfile(profile), ErrScoreProfileInvalid) {
+		t.Fatal("duplicate ordinal accepted")
+	}
+}
+
+func TestBNO320_PROFILE_COMPONENT_VALIDATION(t *testing.T) {
+	profile := profileByCode(t, ProfileMinDeadhead)
+	profile.Components = []ScoreProfileComponent{{Code: "NOT_A_COMPONENT", WeightBps: 10000, Required: true, Ordinal: 1}}
+	if !errors.Is(ValidateActiveScoreProfile(profile), ErrScoreProfileInvalid) {
+		t.Fatal("unknown component accepted")
+	}
+	profile.Components = []ScoreProfileComponent{{Code: ComponentDeadheadEfficiency, WeightBps: 10001, Required: true, Ordinal: 1}}
+	if !errors.Is(ValidateActiveScoreProfile(profile), ErrScoreProfileInvalid) {
+		t.Fatal("weight above 10000 accepted")
+	}
+	unsupported := profileByCode(t, ProfileMinDeadhead)
+	unsupported.AlgorithmVersion = "bno-score-unsupported"
+	if !errors.Is(ValidateActiveScoreProfile(unsupported), ErrScoringAlgorithmUnsupported) {
+		t.Fatal("unsupported algorithm accepted")
+	}
+	if scored := ScorePool(unsupported, []ScoreFacts{{LoadID: uuid.New(), DeadheadKm: f64p(10)}}, ""); len(scored) != 0 {
+		t.Fatal("unsupported algorithm was scored")
+	}
 }
 
 func richFact(id string, deadhead, utilization, waiting, target, slack, network float64) ScoreFacts {
