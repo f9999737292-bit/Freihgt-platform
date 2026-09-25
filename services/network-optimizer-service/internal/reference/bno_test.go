@@ -175,6 +175,26 @@ func TestBNO83ThroughBNO95ReferenceData(t *testing.T) {
 	}
 }
 
+func TestBNO159RequireSeparationMissingRejected(t *testing.T) {
+	store := NewStore()
+	tenant := tenantForRule()
+	set := RuleSet{ID: uuid.New(), Scope: ScopeTenant, TenantID: &tenant, Version: 1, Status: StatusDraft}
+	if err := store.CreateRuleSet(set); err != nil {
+		t.Fatal(err)
+	}
+	rule := Rule{RuleCode: "SEP", RuleKind: "CARGO_CARGO", Layer: "TENANT", Decision: "REQUIRE_SEPARATION", ReasonCode: "KEEP_APART", LeftSelectorType: "ANY", RightSelectorType: "ANY"}
+	if err := store.AddRule(set.TenantID, set.ID, rule); err == nil {
+		t.Fatal("missing required_separation stored")
+	}
+	blank := " "
+	rule.RequiredSeparation = &blank
+	if err := store.AddRule(set.TenantID, set.ID, rule); err == nil {
+		t.Fatal("blank required_separation stored")
+	}
+}
+
+func tenantForRule() uuid.UUID { return uuid.MustParse("00000000-0000-4000-8000-000000000159") }
+
 func (s RuleSet) Layer() string { return s.Scope }
 
 func TestBNO154InvalidSelectorTypeRejected(t *testing.T) {

@@ -161,6 +161,72 @@ func TestCatalogHierarchyFailsClosed(t *testing.T) {
 	requireCode(t, got, "ROOT_PARENT")
 }
 
+func TestBNO158RequireSeparationInResult(t *testing.T) {
+	separation := "PHYSICAL_PARTITION"
+	setID := "00000000-0000-4000-8000-000000000099"
+	got := EvaluateGroupage(Equipment{}, []Cargo{{ID: "a"}, {ID: "b"}}, AccessNeed{}, Context{Rules: []Rule{{
+		RuleCode: "SEP", RuleKind: KindCargoCargo, Layer: LayerPlatform, LeftSelectorType: "ANY", RightSelectorType: "ANY",
+		Decision: DecisionRequireSeparation, ReasonCode: "KEEP_APART", Severity: SeverityHard,
+		RequiredSeparation: &separation, RuleSetID: setID, RuleSetScope: "SYSTEM", RuleSetVersion: 1,
+	}}})
+	if got.Status != StatusIndeterminate {
+		t.Fatal(got.Status)
+	}
+	if len(got.Conditions) != 1 || got.Conditions[0].RequiredSeparation == nil || *got.Conditions[0].RequiredSeparation != separation {
+		t.Fatalf("%#v", got.Conditions)
+	}
+	if got.Conditions[0].RuleCode == nil || *got.Conditions[0].RuleCode != "SEP" || got.Conditions[0].RuleSetID == nil || *got.Conditions[0].RuleSetID != setID || got.Conditions[0].RuleSetScope == nil || *got.Conditions[0].RuleSetScope != "SYSTEM" {
+		t.Fatalf("%#v", got.Conditions[0])
+	}
+}
+
+func TestBNO160HardDenyIncompatible(t *testing.T) {
+	got := EvaluateGroupage(Equipment{}, []Cargo{{ID: "a"}, {ID: "b"}}, AccessNeed{}, Context{Rules: []Rule{{
+		RuleCode: "HARD", RuleKind: KindCargoCargo, Layer: LayerPlatform, LeftSelectorType: "ANY", RightSelectorType: "ANY",
+		Decision: DecisionDeny, ReasonCode: "HARD_DENY", Severity: SeverityHard,
+	}}})
+	requireCode(t, got, "HARD_DENY")
+}
+
+func TestBNO161SoftDenyWarning(t *testing.T) {
+	got := EvaluateGroupage(Equipment{}, []Cargo{{ID: "a"}, {ID: "b"}}, AccessNeed{}, Context{Rules: []Rule{{
+		RuleCode: "SOFT", RuleKind: KindCargoCargo, Layer: LayerPlatform, LeftSelectorType: "ANY", RightSelectorType: "ANY",
+		Decision: DecisionDeny, ReasonCode: "SOFT_DENY", Severity: SeveritySoft,
+	}}})
+	if got.Status != StatusCompatible || len(got.Warnings) != 1 || got.Warnings[0].ReasonCode != "SOFT_DENY" || len(got.HardRejects) != 0 {
+		t.Fatalf("%s %#v %#v", got.Status, got.Warnings, got.HardRejects)
+	}
+}
+
+func TestBNO164TenantCatalogChangeChangesFingerprint(t *testing.T) {
+	base := Context{CatalogRefs: []CatalogVersionRef{{ID: "system", CatalogKind: "CARGO_TYPE", Scope: "SYSTEM", Version: 1}, {ID: "tenant-a", CatalogKind: "CARGO_TYPE", Scope: "TENANT", Version: 1}}}
+	changed := base
+	changed.CatalogRefs = []CatalogVersionRef{{ID: "system", CatalogKind: "CARGO_TYPE", Scope: "SYSTEM", Version: 1}, {ID: "tenant-a", CatalogKind: "CARGO_TYPE", Scope: "TENANT", Version: 2}}
+	otherSet := Context{RuleSets: []RuleSetRef{{ID: "system-set", Scope: "SYSTEM", Version: 1}}}
+	sameNumber := Context{RuleSets: []RuleSetRef{{ID: "tenant-set", Scope: "TENANT", Version: 1}}}
+	cargoes := []Cargo{{ID: "a"}}
+	if fingerprint(Equipment{}, cargoes, base) == fingerprint(Equipment{}, cargoes, changed) {
+		t.Fatal("tenant catalog version did not change fingerprint")
+	}
+	if fingerprint(Equipment{}, cargoes, otherSet) == fingerprint(Equipment{}, cargoes, sameNumber) {
+		t.Fatal("same version number collapsed different rule sets")
+	}
+}
+
+func TestAliasNamespacesStaySeparate(t *testing.T) {
+	ctx := Context{
+		CargoCatalogVersion: 1, EquipmentCatalogVersion: 1,
+		CargoClasses:     []CargoClass{{Code: "FOOD", Scope: "SYSTEM"}},
+		EquipmentClasses: []EquipmentClass{{Code: "SEMITRAILER_REEFER", Scope: "SYSTEM", BodyType: s("REFRIGERATOR")}},
+		CargoAliases:     map[string]string{"REF": "FOOD"},
+		EquipmentAliases: map[string]string{"REF": "SEMITRAILER_REEFER"},
+	}
+	equipment, cargoes, reasons := ResolveProfiles(Equipment{EquipmentTypeCode: s("REF")}, []Cargo{{ID: "a", CargoTypeCode: s("REF")}}, ctx)
+	if len(reasons.IndeterminateReasons) != 0 || cargoes[0].CargoTypeCode == nil || *cargoes[0].CargoTypeCode != "FOOD" || equipment.EquipmentTypeCode == nil || *equipment.EquipmentTypeCode != "SEMITRAILER_REEFER" {
+		t.Fatalf("%#v %#v %+v", cargoes, equipment.EquipmentTypeCode, reasons.IndeterminateReasons)
+	}
+}
+
 func parentFoodDeny() Rule {
 	return Rule{
 		RuleCode: "FOOD_PARENT", RuleKind: KindCargoCargo, Layer: LayerPlatform,
