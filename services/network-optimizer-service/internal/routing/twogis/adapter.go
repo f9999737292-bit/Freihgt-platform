@@ -26,6 +26,8 @@ type Adapter struct {
 	now     func() time.Time
 }
 
+func (a *Adapter) ProviderName() string { return "2GIS" }
+
 func New(baseURL, apiKey string, log *slog.Logger) *Adapter {
 	if log == nil {
 		log = slog.New(slog.DiscardHandler)
@@ -95,6 +97,26 @@ func (a *Adapter) Route(ctx context.Context, req routing.RouteRequest) (routing.
 }
 
 func (a *Adapter) Matrix(ctx context.Context, req routing.MatrixRequest) (routing.MatrixResult, error) {
+	if len(req.Origins) <= routing.SyncMatrixLimit && len(req.Destinations) <= routing.SyncMatrixLimit {
+		return a.matrixOnce(ctx, req)
+	}
+	if len(req.Origins) > routing.SyncMatrixLimit {
+		return routing.MatrixResult{}, routing.ErrInvalidResponse
+	}
+	return routing.BatchMatrix(ctx, matrixOnceProvider{a}, req, routing.SyncMatrixLimit)
+}
+
+type matrixOnceProvider struct{ adapter *Adapter }
+
+func (p matrixOnceProvider) Route(ctx context.Context, req routing.RouteRequest) (routing.RouteResult, error) {
+	return p.adapter.Route(ctx, req)
+}
+
+func (p matrixOnceProvider) Matrix(ctx context.Context, req routing.MatrixRequest) (routing.MatrixResult, error) {
+	return p.adapter.matrixOnce(ctx, req)
+}
+
+func (a *Adapter) matrixOnce(ctx context.Context, req routing.MatrixRequest) (routing.MatrixResult, error) {
 	if a.baseURL == "" || a.apiKey == "" {
 		return routing.MatrixResult{}, routing.ErrProviderUnavailable
 	}

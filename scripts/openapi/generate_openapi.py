@@ -340,6 +340,7 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/network/predicted-capacities/{id}", "get", "Get own predicted capacity", "Network Optimizer", True, True, "bno_prediction"),
     ("/api/v1/network/predicted-capacities/{id}/refresh", "post", "Refresh predicted capacity", "Network Optimizer", True, True, "bno_prediction"),
     ("/api/v1/network/predicted-capacities/{id}/activate", "post", "Activate predicted capacity", "Network Optimizer", True, True, "bno_prediction"),
+    ("/api/v1/network/next-load/search", "post", "Search next-load candidates for an available capacity", "Network Optimizer", True, True, "bno_next_load"),
     ("/api/v1/network/marketplace/load-opportunities", "get", "List marketplace load opportunities", "Network Optimizer", True, True, "bno_list"),
     ("/api/v1/network/marketplace/load-opportunities/{id}", "get", "Get marketplace load opportunity", "Network Optimizer", True, True, None),
     ("/api/v1/network/marketplace/capacities", "get", "List marketplace capacities", "Network Optimizer", True, True, "bno_list"),
@@ -1668,6 +1669,8 @@ def render_operation(
             lines.append(LATE_SUBMISSION_REQUEST_BODIES[profile])
         elif profile == "priced_transport_order_create":
             lines.append(PRICED_TRANSPORT_ORDER_REQUEST_BODY)
+        elif profile == "bno_next_load":
+            lines.append("              $ref: '#/components/schemas/NextLoadSearchRequest'")
         else:
             lines.extend(
                 [
@@ -2109,6 +2112,8 @@ def render_operation(
         success_code = "200"
     elif profile == "bno_prediction" and ("/refresh" in path or "/activate" in path):
         success_code = "200"
+    elif profile == "bno_next_load":
+        success_code = "200"
     elif profile == "bno_compatibility":
         success_code = "200" if method != "post" or path.endswith("/evaluate") or path.endswith("/activate") or path.endswith("/retire") else "201"
     elif method == "post" and tag not in {"Gateway", "Auth"}:
@@ -2126,6 +2131,8 @@ def render_operation(
     response_schema = READ_RESPONSE_SCHEMAS.get(profile or "")
     if profile == "bno_compatibility" and path.endswith("/evaluate"):
         response_schema = "CompatibilityEvaluation"
+    if profile == "bno_next_load":
+        response_schema = "NextLoadSearchResponse"
     if method == "get" and path == "/api/v1/network/marketplace/load-opportunities/{id}":
         response_schema = "NetworkMarketplaceLoad"
     elif method == "get" and path == "/api/v1/network/marketplace/capacities/{id}":
@@ -3900,6 +3907,66 @@ components:
         version:
           type: integer
           minimum: 1
+    NextLoadSearchRequest:
+      type: object
+      required: [capacity_id]
+      additionalProperties: false
+      properties:
+        capacity_id: {type: string, format: uuid}
+        candidate_limit: {type: integer, minimum: 0}
+        policy:
+          $ref: '#/components/schemas/NextLoadSearchPolicy'
+    NextLoadSearchPolicy:
+      type: object
+      description: Request policy may tighten hard maxima. It cannot widen them. radius_km is the RADIUS prefilter and is not max_deadhead_km.
+      properties:
+        search_mode: {type: string, enum: [RADIUS, DIRECTIONAL_CORRIDOR, ROUTE_ELLIPSE]}
+        target_location_id: {type: string, format: uuid}
+        forward_search_km: {type: number, minimum: 0}
+        corridor_deviation_km: {type: number, minimum: 0}
+        max_deadhead_km: {type: number, minimum: 0}
+        preferred_deadhead_km: {type: number, minimum: 0}
+        max_deadhead_minutes: {type: number, minimum: 0}
+        min_loaded_distance_km: {type: number, minimum: 0}
+        max_route_increase_km: {type: number, minimum: 0}
+        radius_km: {type: number, minimum: 0, nullable: true, description: Positive kilometres for RADIUS prefilter. Zero is rejected by the service.}
+        objective_profile: {type: string}
+    NextLoadSearchResponse:
+      type: object
+      required: [search_id, capacity_id, capacity_version, search_mode, effective_policy, eligible_candidate_count, rejection_counts_by_reason, candidates]
+      properties:
+        search_id: {type: string, format: uuid}
+        capacity_id: {type: string, format: uuid}
+        capacity_version: {type: integer}
+        search_mode: {type: string}
+        effective_policy: {$ref: '#/components/schemas/NextLoadSearchPolicy'}
+        effective_policy_fingerprint: {type: string}
+        eligible_candidate_count: {type: integer}
+        rejection_counts_by_reason:
+          type: object
+          additionalProperties: {type: integer}
+          description: Aggregate reject counts. Rejected load identities are not returned.
+        candidates:
+          type: array
+          items: {$ref: '#/components/schemas/NextLoadCandidate'}
+    NextLoadCandidate:
+      type: object
+      required: [load_opportunity_id, eligibility, load, compatibility]
+      properties:
+        load_opportunity_id: {type: string, format: uuid}
+        load_version: {type: integer}
+        eligibility: {type: string, enum: [ELIGIBLE]}
+        load: {$ref: '#/components/schemas/NetworkMarketplaceLoad'}
+        deadhead_bucket: {type: string, enum: ["0-25", "25-50", "50-100", "100-200", "200+"]}
+        road_deadhead_km: {type: number}
+        road_deadhead_minutes: {type: number}
+        forward_progress_km: {type: number, description: Corridor geometry. Not road distance. Omitted for anonymized loads.}
+        lateral_distance_km: {type: number, description: Corridor geometry. Not road distance. Omitted for anonymized loads.}
+        route_increase_km: {type: number}
+        timing: {type: string}
+        waiting_minutes: {type: number}
+        compatibility: {type: string, enum: [COMPATIBLE, INCOMPATIBLE, INDETERMINATE]}
+        explanation: {type: array, items: {type: string}}
     NetworkPlace:
       type: object
       description: Owner and non-anonymized place. Exact search geography. Address lines are not part of this snapshot.

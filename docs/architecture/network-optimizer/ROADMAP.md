@@ -8,7 +8,11 @@ BNO-0.1B is IMPLEMENTED: rule-based `PredictedCapacity`, normalized body and com
 
 BNO-0.1B2 is IMPLEMENTED: versioned cargo, equipment, pallet, and packaging catalogs, tenant compatibility rule sets, and explainable cargo-equipment and groupage evaluation. It does not implement next-load search, ranking, or a physical trailer asset master.
 
-NLO-0.2 is PARTIAL. The predicted-capacity half is in BNO-0.1B. Top-N next-load matching is not implemented. The next stage is BNO-0.1C, and it depends on BNO-0.1B2.
+BNO-0.1C0 is IMPLEMENTED: location snapshots, search and display geography, the routing port, and search-policy primitives. It does not search loads.
+
+BNO-0.1C1 is IMPLEMENTED in this line of work: a carrier-owned available capacity can search visible published loads and persist hard-feasible match candidates. Match score, weighted ranking, and top N are not implemented. BNO-0.1C is not complete.
+
+NLO-0.2 is PARTIAL. The predicted-capacity half is in BNO-0.1B. Top-N next-load matching is not implemented.
 
 NLO-0.3 remains NOT IMPLEMENTED.
 

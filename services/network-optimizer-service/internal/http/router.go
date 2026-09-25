@@ -32,6 +32,7 @@ func NewRouterWithCatalog(log *slog.Logger, svc *service.Service, ready func(htt
 	h := handlers.New(log, svc)
 	if catalog != nil {
 		h.UseCatalog(catalog)
+		svc.UseCatalog(catalog)
 	}
 	r.Get("/health", observability.HealthHandler(serviceName))
 	if ready == nil {
@@ -78,5 +79,6 @@ func NewRouterWithCatalog(log *slog.Logger, svc *service.Service, ready func(htt
 	r.Post("/v1/network/compatibility/rule-sets/{id}/retire", h.RetireRuleSet)
 	r.Post("/v1/network/compatibility/cargo-equipment/evaluate", h.EvaluateCargoEquipment)
 	r.Post("/v1/network/compatibility/groupage/evaluate", h.EvaluateGroupage)
+	r.Post("/v1/network/next-load/search", h.SearchNextLoad)
 	return r
 }

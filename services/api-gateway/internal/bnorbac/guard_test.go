@@ -105,6 +105,45 @@ func TestShipperCanPublishLoad(t *testing.T) {
 	}
 }
 
+func TestCarrierCanSearchNextLoad(t *testing.T) {
+	tenantID := uuid.NewString()
+	userID := uuid.NewString()
+	companyID := uuid.NewString()
+	identity := identityServer(t, companyID, "CARRIER", []string{"CARRIER_DISPATCHER"}, nil)
+	defer identity.Close()
+	called := false
+	guard := NewGuard(config.Config{AuthEnabled: true, ProxyTimeoutSeconds: 5, Services: config.ServiceURLs{Identity: identity.URL}}, http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		called = true
+	}))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/network/next-load/search", strings.NewReader(`{"capacity_id":"`+uuid.NewString()+`"}`))
+	req.Header.Set("Authorization", "Bearer "+signToken(t, "secret", userID, tenantID))
+	req.Header.Set("X-Company-ID", companyID)
+	req.Header.Set("X-Tenant-ID", "spoofed-tenant")
+	rec := serve(t, guard.WithPolicy(PolicySearchNextLoad), req)
+	if rec.Code != http.StatusOK || !called {
+		t.Fatalf("carrier search status=%d called=%v body=%s", rec.Code, called, rec.Body.String())
+	}
+}
+
+func TestShipperCannotSearchNextLoad(t *testing.T) {
+	tenantID := uuid.NewString()
+	userID := uuid.NewString()
+	companyID := uuid.NewString()
+	identity := identityServer(t, companyID, "SHIPPER", []string{"SHIPPER_ADMIN"}, nil)
+	defer identity.Close()
+	called := false
+	guard := NewGuard(config.Config{AuthEnabled: true, ProxyTimeoutSeconds: 5, Services: config.ServiceURLs{Identity: identity.URL}}, http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		called = true
+	}))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/network/next-load/search", strings.NewReader(`{}`))
+	req.Header.Set("Authorization", "Bearer "+signToken(t, "secret", userID, tenantID))
+	req.Header.Set("X-Company-ID", companyID)
+	rec := serve(t, guard.WithPolicy(PolicySearchNextLoad), req)
+	if rec.Code != http.StatusForbidden || called {
+		t.Fatalf("shipper search status=%d called=%v body=%s", rec.Code, called, rec.Body.String())
+	}
+}
+
 func TestBNO43ShipperCannotActivatePrediction(t *testing.T) {
 	tenantID := uuid.NewString()
 	userID := uuid.NewString()

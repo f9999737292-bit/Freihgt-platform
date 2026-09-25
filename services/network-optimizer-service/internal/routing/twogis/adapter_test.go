@@ -15,6 +15,13 @@ import (
 	"github.com/freight-platform/network-optimizer-service/internal/routing"
 )
 
+func TestTwoGISProviderName(t *testing.T) {
+	adapter := New("https://routing.api.2gis.com", "test-key", nil)
+	if adapter.ProviderName() != "2GIS" {
+		t.Fatalf("provider %s", adapter.ProviderName())
+	}
+}
+
 func TestBNO180TwoGISMapping(t *testing.T) {
 	var seenKey string
 	var routeBody map[string]any
@@ -427,6 +434,57 @@ func routeAdapter(t *testing.T, capture func(map[string]any)) *Adapter {
 	}))
 	t.Cleanup(srv.Close)
 	return New(srv.URL, "test-key", slog.New(slog.DiscardHandler))
+}
+
+func TestBNO232TwoGISMatrixBatchesStayWithinSyncLimit(t *testing.T) {
+	calls := 0
+	maxTargets := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body := decodeProviderBody(t, r)
+		calls++
+		sources, _ := body["sources"].([]any)
+		targets, _ := body["targets"].([]any)
+		points, _ := body["points"].([]any)
+		if len(sources) > routing.SyncMatrixLimit || len(targets) > routing.SyncMatrixLimit {
+			t.Fatalf("BNO232 sources %d targets %d", len(sources), len(targets))
+		}
+		if len(targets) > maxTargets {
+			maxTargets = len(targets)
+		}
+		routes := make([]map[string]any, 0, len(sources)*len(targets))
+		for _, source := range sources {
+			for _, target := range targets {
+				sourceID := int(source.(float64))
+				targetID := int(target.(float64))
+				lon := points[targetID].(map[string]any)["lon"].(float64)
+				routes = append(routes, map[string]any{
+					"source_id": sourceID, "target_id": targetID, "distance": int(lon * 1000), "duration": 60, "status": "OK",
+				})
+			}
+		}
+		raw, _ := json.Marshal(map[string]any{"routes": routes})
+		_, _ = w.Write(raw)
+	}))
+	t.Cleanup(srv.Close)
+	adapter := New(srv.URL, "test-key", slog.New(slog.DiscardHandler))
+	destinations := make([]routing.Point, 30)
+	for i := range destinations {
+		destinations[i] = routing.Point{Longitude: float64(i + 1)}
+	}
+	result, err := adapter.Matrix(context.Background(), routing.MatrixRequest{
+		Origins: []routing.Point{{Latitude: 56.8, Longitude: 60.6}}, Destinations: destinations,
+		RouteMode: routing.RouteFastest, TrafficMode: routing.TrafficStatistical, DepartureAt: timePtr(time.Date(2026, 9, 25, 8, 0, 0, 0, time.UTC)),
+	})
+	if err != nil || calls != 2 || maxTargets != routing.SyncMatrixLimit || len(result.Cells) != 30 {
+		t.Fatalf("BNO232 calls=%d max=%d cells=%d err=%v", calls, maxTargets, len(result.Cells), err)
+	}
+	seen := map[int]int{}
+	for _, cell := range result.Cells {
+		seen[cell.DestinationIndex] = cell.DistanceM
+	}
+	if seen[0] != 1000 || seen[25] != 26000 || seen[29] != 30000 {
+		t.Fatalf("BNO233 %+v", seen)
+	}
 }
 
 func matrixAdapter(t *testing.T, capture func(map[string]any), response string) *Adapter {

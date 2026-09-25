@@ -20,6 +20,8 @@ type Memory struct {
 	outbox           []OutboxEvent
 	carrierPolicies  map[uuid.UUID]domain.NextLoadSearchPolicy
 	capacityPolicies map[uuid.UUID]storedCapacityPolicy
+	searchRuns       map[uuid.UUID]SearchRun
+	searchCandidates map[uuid.UUID][]StoredCandidate
 }
 
 func NewMemory() *Memory {
