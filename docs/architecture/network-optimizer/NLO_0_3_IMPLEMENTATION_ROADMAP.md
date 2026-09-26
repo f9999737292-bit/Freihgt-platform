@@ -36,6 +36,8 @@ The first product wave is pairwise consolidation because unit-level onboard evid
 
 ### NLO-0.3B — pairwise same-origin foundation
 
+Status: IMPLEMENTED_IN_BRANCH / UNDER_REVIEW. Not closed. NLO-0.3 is not complete.
+
 Scope: `PAIRWISE_CONSOLIDATION_ONLY`, set size 2. Owned effective capacity plus two explicitly published loads. Canonical same O-D, overlapping windows, owner-controlled opt-in, `EvaluateGroupage`. Planning only. No score. No shipment mutation. No solver. No current-trip residual dependency.
 
 API: `POST /v1/network/consolidation/search` with pattern `SAME_ORIGIN_SAME_DESTINATION` and an owned `capacity_id`.
@@ -48,7 +50,7 @@ Out: current-trip context, residual occupancy, route insertion, execution, score
 
 ### NLO-0.3C — onboard evidence, trip context, residual snapshot
 
-Scope: shipment-service owns the future `ShipmentOnboardCargoProvider`. BNO consumes it. Build server-side `CurrentTripContext` and `ResidualCapacitySnapshot` from trusted ports. Do not number `000081` in this candidate. `NEW_EXECUTION_EVIDENCE_REQUIRED=YES` before a residual result can be `FEASIBLE`.
+Scope: shipment-service owns the future `ShipmentOnboardCargoProvider`. BNO consumes it. Build server-side `CurrentTripContext` and `ResidualCapacitySnapshot` from trusted ports. Do not reuse `000081`; that number is the NLO-0.3B pairwise migration. A residual migration needs a later number. `NEW_EXECUTION_EVIDENCE_REQUIRED=YES` before a residual result can be `FEASIBLE`.
 
 API: none that treats caller residual facts as authority.
 

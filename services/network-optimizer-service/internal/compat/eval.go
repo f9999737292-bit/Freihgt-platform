@@ -12,11 +12,38 @@ func EvaluateCargoEquipment(cargo Cargo, equipment Equipment, need AccessNeed, c
 	return EvaluateGroupage(equipment, []Cargo{cargo}, need, ctx)
 }
 
+type GroupageItem struct {
+	Cargo      Cargo
+	AccessNeed AccessNeed
+}
+
 func EvaluateGroupage(equipment Equipment, cargoes []Cargo, need AccessNeed, ctx Context) Result {
-	items := append([]Cargo(nil), cargoes...)
-	sort.Slice(items, func(i, j int) bool { return items[i].ID < items[j].ID })
+	items := make([]GroupageItem, len(cargoes))
+	for i, cargo := range cargoes {
+		items[i] = GroupageItem{Cargo: cargo, AccessNeed: need}
+	}
+	return evaluateGroupageItems(equipment, items, ctx, false)
+}
+
+func EvaluateGroupageItems(equipment Equipment, items []GroupageItem, ctx Context) Result {
+	return evaluateGroupageItems(equipment, items, ctx, true)
+}
+
+func evaluateGroupageItems(equipment Equipment, items []GroupageItem, ctx Context, fingerprintAccess bool) Result {
+	items = append([]GroupageItem(nil), items...)
+	sort.Slice(items, func(i, j int) bool { return items[i].Cargo.ID < items[j].Cargo.ID })
+	cargoes := make([]Cargo, len(items))
+	needs := make(map[string]AccessNeed, len(items))
+	for i, item := range items {
+		cargoes[i] = item.Cargo
+		needs[item.Cargo.ID] = item.AccessNeed
+	}
 	var classResult Result
-	equipment, items, classResult = ResolveProfiles(equipment, items, ctx)
+	equipment, cargoes, classResult = ResolveProfiles(equipment, cargoes, ctx)
+	resolved := make([]GroupageItem, len(cargoes))
+	for i, cargo := range cargoes {
+		resolved[i] = GroupageItem{Cargo: cargo, AccessNeed: needs[cargo.ID]}
+	}
 	out := Result{
 		HardRejects: []Reason{}, IndeterminateReasons: []Reason{}, Conditions: []Reason{}, Warnings: []Reason{},
 		RuleSetVersions: ruleVersions(ctx.Rules),
@@ -28,28 +55,32 @@ func EvaluateGroupage(equipment Equipment, cargoes []Cargo, need AccessNeed, ctx
 		CatalogVersionsUsed: sortedCatalogRefs(ctx.CatalogRefs),
 	}
 	merge(&out, classResult)
-	for _, cargo := range items {
-		part := cargoEquipment(cargo, equipment, need, ctx)
-		out.CargoEquipment = append(out.CargoEquipment, PairResult{Left: cargo.ID, Right: "equipment", Status: part.Status, Reasons: append(append([]Reason{}, part.HardRejects...), part.IndeterminateReasons...)})
+	for _, item := range resolved {
+		part := cargoEquipment(item.Cargo, equipment, item.AccessNeed, ctx)
+		out.CargoEquipment = append(out.CargoEquipment, PairResult{Left: item.Cargo.ID, Right: "equipment", Status: part.Status, Reasons: append(append([]Reason{}, part.HardRejects...), part.IndeterminateReasons...)})
 		merge(&out, part)
 	}
-	for i := 0; i < len(items); i++ {
-		for j := i + 1; j < len(items); j++ {
-			pair, part := cargoPair(items[i], items[j], ctx)
+	for i := 0; i < len(resolved); i++ {
+		for j := i + 1; j < len(resolved); j++ {
+			pair, part := cargoPair(resolved[i].Cargo, resolved[j].Cargo, ctx)
 			out.CargoPairs = append(out.CargoPairs, pair)
 			merge(&out, part)
 		}
 	}
-	usage, physical := capacity(items, equipment, ctx)
+	usage, physical := capacity(cargoes, equipment, ctx)
 	out.CapacityUsage = &usage
 	merge(&out, physical)
-	temp := temperatures(items, equipment, ctx)
+	temp := temperatures(cargoes, equipment, ctx)
 	out.Temperature = temp.Temperature
 	merge(&out, temp)
-	adr := adrCheck(items, equipment, ctx)
+	adr := adrCheck(cargoes, equipment, ctx)
 	merge(&out, adr)
 	out.Status = resolve(out)
-	out.Fingerprint = fingerprint(equipment, items, ctx)
+	if fingerprintAccess {
+		out.Fingerprint = fingerprintItems(equipment, resolved, ctx)
+	} else {
+		out.Fingerprint = fingerprint(equipment, cargoes, ctx)
+	}
 	return out
 }
 
@@ -704,6 +735,22 @@ func sumFloat(values []*float64) (float64, bool) {
 		sum += *value
 	}
 	return sum, true
+}
+
+func fingerprintItems(equipment Equipment, items []GroupageItem, ctx Context) string {
+	cargoes := make([]Cargo, len(items))
+	needs := make([]AccessNeed, len(items))
+	for i, item := range items {
+		cargoes[i] = item.Cargo
+		needs[i] = item.AccessNeed
+	}
+	body := struct {
+		Base  string       `json:"base"`
+		Needs []AccessNeed `json:"access_needs"`
+	}{fingerprint(equipment, cargoes, ctx), needs}
+	raw, _ := json.Marshal(body)
+	sum := sha256.Sum256(raw)
+	return hex.EncodeToString(sum[:])
 }
 
 func fingerprint(equipment Equipment, cargoes []Cargo, ctx Context) string {

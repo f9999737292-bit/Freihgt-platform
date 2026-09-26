@@ -9,6 +9,8 @@ func MarshalLoad(l LoadOpportunity) ([]byte, error) {
 		"pickup": l.Pickup, "pickup_window": l.PickupWindow,
 		"delivery": l.Delivery, "delivery_window": l.DeliveryWindow,
 		"visibility_scope": l.VisibilityScope, "status": l.Status,
+		"consolidation_allowed": l.ConsolidationAllowed,
+		"cross_shipper_consolidation_allowed": l.CrossShipperConsolidationAllowed,
 		"version": l.Version, "created_at": l.CreatedAt, "updated_at": l.UpdatedAt,
 	}
 	putFloat(doc, "weight_kg", l.WeightKg)
