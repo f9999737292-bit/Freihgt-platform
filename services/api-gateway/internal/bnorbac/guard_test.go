@@ -125,6 +125,57 @@ func TestCarrierCanSearchNextLoad(t *testing.T) {
 	}
 }
 
+func TestNLO03BCarrierConsolidationSearch(t *testing.T) {
+	for _, tc := range []struct{ name, role string }{
+		{"NLO03B_084_GATEWAY_CARRIER_ADMIN_ALLOWED", "CARRIER_ADMIN"},
+		{"NLO03B_085_GATEWAY_CARRIER_DISPATCHER_ALLOWED", "CARRIER_DISPATCHER"},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			tenantID := uuid.NewString()
+			userID := uuid.NewString()
+			companyID := uuid.NewString()
+			identity := identityServer(t, companyID, "CARRIER", []string{tc.role}, nil)
+			defer identity.Close()
+			var gotToken, gotTenant, gotUser string
+			guard := NewGuard(config.Config{AuthEnabled: true, ProxyTimeoutSeconds: 5, Services: config.ServiceURLs{Identity: identity.URL}}, http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+				gotToken = r.Header.Get("X-Internal-Service-Token")
+				gotTenant = r.Header.Get("X-Tenant-ID")
+				gotUser = r.Header.Get("X-User-ID")
+			}))
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/network/consolidation/search", strings.NewReader(`{"capacity_id":"`+uuid.NewString()+`","pattern":"SAME_ORIGIN_SAME_DESTINATION"}`))
+			req.Header.Set("Authorization", "Bearer "+signToken(t, "secret", userID, tenantID))
+			req.Header.Set("X-Company-ID", companyID)
+			req.Header.Set("X-Tenant-ID", "spoofed-tenant")
+			req.Header.Set("X-User-ID", "spoofed-user")
+			req.Header.Set("X-Internal-Service-Token", "client-forged-token")
+			rec := serve(t, guard.WithPolicy(PolicySearchConsolidation), req)
+			if rec.Code != http.StatusOK || gotToken != "" || gotTenant != tenantID || gotUser != userID {
+				t.Fatalf("NLO03B_087 %s status=%d token=%q tenant=%s user=%s body=%s", tc.role, rec.Code, gotToken, gotTenant, gotUser, rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestNLO03B_086_GATEWAY_SHIPPER_DENIED(t *testing.T) {
+	tenantID := uuid.NewString()
+	userID := uuid.NewString()
+	companyID := uuid.NewString()
+	identity := identityServer(t, companyID, "SHIPPER", []string{"SHIPPER_ADMIN"}, nil)
+	defer identity.Close()
+	called := false
+	guard := NewGuard(config.Config{AuthEnabled: true, ProxyTimeoutSeconds: 5, Services: config.ServiceURLs{Identity: identity.URL}}, http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		called = true
+	}))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/network/consolidation/search", strings.NewReader(`{}`))
+	req.Header.Set("Authorization", "Bearer "+signToken(t, "secret", userID, tenantID))
+	req.Header.Set("X-Company-ID", companyID)
+	rec := serve(t, guard.WithPolicy(PolicySearchConsolidation), req)
+	if rec.Code != http.StatusForbidden || called {
+		t.Fatalf("shipper status=%d called=%v body=%s", rec.Code, called, rec.Body.String())
+	}
+}
+
 func TestShipperCannotSearchNextLoad(t *testing.T) {
 	tenantID := uuid.NewString()
 	userID := uuid.NewString()

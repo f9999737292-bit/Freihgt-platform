@@ -36,6 +36,8 @@ The first product wave is pairwise consolidation because unit-level onboard evid
 
 ### NLO-0.3B — pairwise same-origin foundation
 
+Status: IMPLEMENTED_IN_BRANCH / UNDER_REVIEW. Not closed. NLO-0.3 is not complete.
+
 Scope: `PAIRWISE_CONSOLIDATION_ONLY`, set size 2. Owned effective capacity plus two explicitly published loads. Canonical same O-D, overlapping windows, owner-controlled opt-in, `EvaluateGroupage`. Planning only. No score. No shipment mutation. No solver. No current-trip residual dependency.
 
 API: `POST /v1/network/consolidation/search` with pattern `SAME_ORIGIN_SAME_DESTINATION` and an owned `capacity_id`.

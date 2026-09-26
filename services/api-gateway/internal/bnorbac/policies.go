@@ -18,6 +18,7 @@ const (
 	PolicyWithdrawCapacity
 	PolicyViewMarketplaceLoads
 	PolicySearchNextLoad
+	PolicySearchConsolidation
 	PolicyViewMarketplaceCapacities
 	PolicyReadCompatibility
 	PolicyManageCompatibilityRules
@@ -50,7 +51,7 @@ func policyAllows(policy Policy, companyRoles []string, actorKind string, isPlat
 	switch policy {
 	case PolicyPublishLoad, PolicyReadOwnLoad, PolicyWithdrawLoad, PolicyViewMarketplaceCapacities:
 		return actorKind == companycontext.ActorBuyer && routeauth.HasAnyRole(companyRoles, shipperRoles)
-	case PolicyPublishCapacity, PolicyReadOwnCapacity, PolicyWithdrawCapacity, PolicyViewMarketplaceLoads, PolicySearchNextLoad:
+	case PolicyPublishCapacity, PolicyReadOwnCapacity, PolicyWithdrawCapacity, PolicyViewMarketplaceLoads, PolicySearchNextLoad, PolicySearchConsolidation:
 		return actorKind == companycontext.ActorCarrier && routeauth.HasAnyRole(companyRoles, carrierRoles)
 	case PolicyReadCompatibility:
 		return (actorKind == companycontext.ActorBuyer && routeauth.HasAnyRole(companyRoles, shipperRoles)) ||
@@ -75,6 +76,8 @@ func policyDenyMessage(policy Policy) string {
 		return "insufficient permission to withdraw capacity"
 	case PolicyViewMarketplaceLoads:
 		return "insufficient permission to view marketplace loads"
+	case PolicySearchConsolidation:
+		return "insufficient permission to search consolidation"
 	case PolicyViewMarketplaceCapacities:
 		return "insufficient permission to view marketplace capacity"
 	case PolicyReadCompatibility:

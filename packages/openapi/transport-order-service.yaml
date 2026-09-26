@@ -1054,6 +1054,85 @@ components:
         id: {type: string, format: uuid}
         pickup: {$ref: '#/components/schemas/NetworkPlace'}
         delivery: {$ref: '#/components/schemas/NetworkPlace'}
+        consolidation_allowed:
+          type: boolean
+          description: Owner-controlled same-owner consolidation opt-in. Omitted on create means false. Not a search override.
+        cross_shipper_consolidation_allowed:
+          type: boolean
+          description: Owner-controlled cross-shipper consolidation opt-in. Independent of consolidation_allowed. Not a search override.
+    ConsolidationSearchRequest:
+      type: object
+      required: [capacity_id, pattern]
+      additionalProperties: false
+      properties:
+        capacity_id: {type: string, format: uuid}
+        pattern:
+          type: string
+          enum: [SAME_ORIGIN_SAME_DESTINATION, CURRENT_TRIP_FILL]
+          description: NLO-0.3B executes only SAME_ORIGIN_SAME_DESTINATION. CURRENT_TRIP_FILL returns PATTERN_NOT_IMPLEMENTED.
+        candidate_limit:
+          type: integer
+          minimum: 0
+          description: Response cap applied after evaluation. It does not change pair generation, counts, or persistence.
+    ConsolidationSearchResponse:
+      type: object
+      required: [search_id, capacity_id, capacity_version, pattern, pool_load_count, evaluated_pair_count, feasible_candidate_count, indeterminate_candidate_count, hard_reject_candidate_count, returned_candidate_count, excluded_counts_by_reason, hard_reject_counts_by_reason, indeterminate_counts_by_reason, candidates]
+      properties:
+        search_id: {type: string, format: uuid}
+        capacity_id: {type: string, format: uuid}
+        capacity_version: {type: integer}
+        pattern: {type: string, enum: [SAME_ORIGIN_SAME_DESTINATION]}
+        pool_load_count: {type: integer}
+        evaluated_pair_count: {type: integer}
+        feasible_candidate_count: {type: integer}
+        indeterminate_candidate_count: {type: integer}
+        hard_reject_candidate_count: {type: integer}
+        returned_candidate_count: {type: integer}
+        excluded_counts_by_reason:
+          type: object
+          additionalProperties: {type: integer}
+        hard_reject_counts_by_reason:
+          type: object
+          additionalProperties: {type: integer}
+        indeterminate_counts_by_reason:
+          type: object
+          additionalProperties: {type: integer}
+        candidates:
+          type: array
+          items: {$ref: '#/components/schemas/ConsolidationCandidate'}
+    ConsolidationCandidate:
+      type: object
+      required: [candidate_id, status, execution_supported, placement_check, members, compatibility]
+      properties:
+        candidate_id: {type: string, format: uuid}
+        status: {type: string, enum: [FEASIBLE, INDETERMINATE]}
+        execution_supported: {type: boolean, enum: [false]}
+        placement_check: {type: string, enum: [NOT_EVALUATED]}
+        members:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items: {$ref: '#/components/schemas/ConsolidationMember'}
+        pickup_window_overlap: {$ref: '#/components/schemas/ConsolidationWindowOverlap'}
+        delivery_window_overlap: {$ref: '#/components/schemas/ConsolidationWindowOverlap'}
+        compatibility: {type: string, enum: [COMPATIBLE, INCOMPATIBLE, INDETERMINATE]}
+        capacity_usage: {type: object, additionalProperties: true}
+        conditions: {type: array, items: {type: string}}
+        indeterminate_reason_codes: {type: array, items: {type: string}}
+        explanation: {type: array, items: {type: string}}
+    ConsolidationMember:
+      type: object
+      required: [ordinal, load_opportunity_id, load_version, load]
+      properties:
+        ordinal: {type: integer, enum: [1, 2]}
+        load_opportunity_id: {type: string, format: uuid}
+        load_version: {type: integer}
+        load: {$ref: '#/components/schemas/NetworkMarketplaceLoad'}
+    ConsolidationWindowOverlap:
+      type: object
+      properties:
+        start: {type: string, format: date-time}
+        end: {type: string, format: date-time}
     NetworkMarketplaceLoad:
       type: object
       additionalProperties: true

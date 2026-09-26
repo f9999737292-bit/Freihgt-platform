@@ -42,3 +42,33 @@ func (h *Handler) SearchNextLoad(w http.ResponseWriter, r *http.Request) {
 	)
 	respond.Bytes(w, result.Status, result.Body)
 }
+
+func (h *Handler) SearchConsolidation(w http.ResponseWriter, r *http.Request) {
+	actor, err := actorFrom(r)
+	if err != nil {
+		h.finish(w, r, "consolidation_search", uuid.Nil, err)
+		return
+	}
+	var body struct {
+		CapacityID     uuid.UUID `json:"capacity_id"`
+		Pattern        string    `json:"pattern"`
+		CandidateLimit *int      `json:"candidate_limit"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		h.finish(w, r, "consolidation_search", uuid.Nil, apperrors.Validation("request body is invalid", nil))
+		return
+	}
+	result, err := h.svc.SearchConsolidation(r.Context(), actor, service.ConsolidationCommand{
+		CapacityID: body.CapacityID, Pattern: body.Pattern, CandidateLimit: body.CandidateLimit,
+	})
+	if err != nil {
+		h.finish(w, r, "consolidation_search", uuid.Nil, err)
+		return
+	}
+	h.log.Info("consolidation search",
+		slog.String("request_id", actor.RequestID),
+		slog.String("search_id", result.AggregateID.String()),
+		slog.String("pattern", body.Pattern),
+	)
+	respond.Bytes(w, result.Status, result.Body)
+}

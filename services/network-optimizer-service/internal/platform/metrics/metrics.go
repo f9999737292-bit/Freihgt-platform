@@ -41,6 +41,35 @@ func API(operation, result string) {
 }
 
 var (
+	ConsolidationSearches = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "bno_consolidation_searches_total",
+		Help: "Pairwise consolidation searches.",
+	})
+	ConsolidationSets = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "bno_consolidation_sets_evaluated_total",
+		Help: "Pairwise consolidation sets evaluated.",
+	})
+	ConsolidationOutcomes = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "bno_consolidation_outcomes_total",
+		Help: "Pairwise consolidation outcomes by bounded status.",
+	}, []string{"status"})
+	ConsolidationDuration = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "bno_consolidation_duration_seconds",
+		Help:    "Pairwise consolidation search duration.",
+		Buckets: []float64{0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5},
+	})
+)
+
+func ConsolidationSearch(elapsed time.Duration, evaluated, feasible, indeterminate, hard int) {
+	ConsolidationSearches.Inc()
+	ConsolidationSets.Add(float64(evaluated))
+	ConsolidationDuration.Observe(elapsed.Seconds())
+	ConsolidationOutcomes.WithLabelValues("FEASIBLE").Add(float64(feasible))
+	ConsolidationOutcomes.WithLabelValues("INDETERMINATE").Add(float64(indeterminate))
+	ConsolidationOutcomes.WithLabelValues("HARD_REJECT").Add(float64(hard))
+}
+
+var (
 	SearchRunsTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "bno_search_runs_total",
 		Help: "Next-load candidate searches.",
