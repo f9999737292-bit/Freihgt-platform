@@ -50,7 +50,7 @@ Out: current-trip context, residual occupancy, route insertion, execution, score
 
 ### NLO-0.3C — onboard evidence, trip context, residual snapshot
 
-Status: NOT_STARTED. This is the next planned stage. It is not authorized by the NLO-0.3B closeout.
+Status: IMPLEMENTED_IN_BRANCH / UNDER_REVIEW. Not merged. Not CLOSED. NLO-0.3D is not started. `CURRENT_TRIP_FILL` stays `PATTERN_NOT_IMPLEMENTED`.
 
 Scope: shipment-service owns the future `ShipmentOnboardCargoProvider` and the authoritative unit-level `CONFIRMED_ONBOARD` evidence. A shipment-wide status does not prove that cargo is onboard. BNO consumes the provider. Build server-side `CurrentTripContext` and `ResidualCapacitySnapshot` from trusted ports. Do not reuse `000081`; that number is the NLO-0.3B pairwise migration. A residual migration needs a later number. `NEW_EXECUTION_EVIDENCE_REQUIRED=YES` before a residual result can be `FEASIBLE`.
 

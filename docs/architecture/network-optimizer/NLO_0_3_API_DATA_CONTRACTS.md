@@ -42,8 +42,9 @@ No arbitrary weight payload. Profiles stay in the database when a later score ex
 
 | Port | Owner | Existing endpoint to extend, not replace |
 | --- | --- | --- |
-| `ShipmentExecutionProvider` | shipment-service | prediction input is the closest read and is insufficient because it omits cargo |
-| `CargoProjectionProvider` | shipment-service | tenant-scoped cargo by shipment, including nullability |
+| `ShipmentExecutionProvider` | shipment-service | `GET /internal/v1/shipments/{shipmentId}/execution-context` |
+| `ShipmentOnboardCargoProvider` | shipment-service | `GET /internal/v1/shipments/{shipmentId}/onboard-cargo`; only `CONFIRMED_ONBOARD` evidence occupies capacity |
+| `CargoProjectionProvider` | transport-order-service | `GET /internal/v1/cargoes/{id}/planning-profile`, including `version`; shipment-service does not own a second cargo projection |
 | `TrackingPositionProvider` | tracking-service | position plus `EvaluateFreshness` |
 | `TrackingETAProvider` | tracking-service | existing ETA lookup |
 | `CurrentTripContextProvider` | network-optimizer-service | assembles the ports above; it is not a second database |

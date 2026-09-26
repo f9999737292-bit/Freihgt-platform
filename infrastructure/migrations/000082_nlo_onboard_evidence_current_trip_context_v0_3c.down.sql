@@ -1,0 +1,4 @@
+DROP TRIGGER IF EXISTS trg_shipment_cargo_execution_evidence_no_delete ON transport.shipment_cargo_execution_evidence;
+DROP TRIGGER IF EXISTS trg_shipment_cargo_execution_evidence_no_update ON transport.shipment_cargo_execution_evidence;
+DROP FUNCTION IF EXISTS transport.deny_shipment_cargo_execution_evidence_mutation();
+DROP TABLE IF EXISTS transport.shipment_cargo_execution_evidence;

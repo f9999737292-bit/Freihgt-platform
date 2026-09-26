@@ -538,6 +538,15 @@ func TestNLO03BPairwiseConsolidation(t *testing.T) {
 			t.Fatal(doc.Candidates[0].PlacementCheck)
 		}
 	})
+	t.Run("NLO03C_CURRENT_TRIP_FILL_STILL_NOT_IMPLEMENTED", func(t *testing.T) {
+		w := newWorld(t)
+		cap := w.readyCapacity()
+		_, err := w.svc.SearchConsolidation(context.Background(), w.actor(), ConsolidationCommand{CapacityID: cap.ID, Pattern: PatternCurrentTripFill})
+		var app *apperrors.AppError
+		if !errors.As(err, &app) || app.Details["reason"] != "PATTERN_NOT_IMPLEMENTED" {
+			t.Fatalf("%v", err)
+		}
+	})
 	t.Run("NLO03B_PATTERN_NOT_IMPLEMENTED", func(t *testing.T) {
 		w := newWorld(t)
 		cap := w.readyCapacity()

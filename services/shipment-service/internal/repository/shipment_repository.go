@@ -394,6 +394,14 @@ func (r *ShipmentRepository) AssignVehicle(ctx context.Context, id, tenantID, ve
 }
 
 func (r *ShipmentRepository) UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, fromStatus, newStatus string, actualPickupAt, actualDeliveryAt *time.Time, expectedVersion int, transition domain.StatusTransitionContext) (*domain.Shipment, error) {
+	return r.updateStatus(ctx, id, tenantID, fromStatus, newStatus, actualPickupAt, actualDeliveryAt, expectedVersion, transition, nil)
+}
+
+func (r *ShipmentRepository) UpdateStatusWithCargoEvidence(ctx context.Context, id, tenantID uuid.UUID, fromStatus, newStatus string, actualPickupAt, actualDeliveryAt *time.Time, expectedVersion int, transition domain.StatusTransitionContext, intent domain.CargoEvidenceIntent) (*domain.Shipment, error) {
+	return r.updateStatus(ctx, id, tenantID, fromStatus, newStatus, actualPickupAt, actualDeliveryAt, expectedVersion, transition, &intent)
+}
+
+func (r *ShipmentRepository) updateStatus(ctx context.Context, id, tenantID uuid.UUID, fromStatus, newStatus string, actualPickupAt, actualDeliveryAt *time.Time, expectedVersion int, transition domain.StatusTransitionContext, evidence *domain.CargoEvidenceIntent) (*domain.Shipment, error) {
 	var result *domain.Shipment
 	err := measureDB("shipment_repository", "update_shipment_status", func() error {
 		tx, err := r.pool.Begin(ctx)
@@ -428,6 +436,9 @@ func (r *ShipmentRepository) UpdateStatus(ctx context.Context, id, tenantID uuid
 
 		write := statusHistoryWriteFromShipmentTransition(shipment, stringPtr(fromStatus), newStatus, transition)
 		if err := insertStatusHistoryAndOutbox(ctx, tx, write); err != nil {
+			return err
+		}
+		if err := insertCargoEvidence(ctx, tx, shipment, evidence); err != nil {
 			return err
 		}
 

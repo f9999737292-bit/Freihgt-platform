@@ -27,6 +27,7 @@ func NewRouter(
 	vehicleSvc *service.VehicleService,
 	driverOpsSvc *service.DriverOperationsService,
 	driverTaskSvc *service.DriverTaskService,
+	evidenceSvc *service.ExecutionEvidenceService,
 	internalToken string,
 ) http.Handler {
 	shipmentHandler := handlers.NewShipmentHandler(shipmentSvc)
@@ -42,6 +43,7 @@ func NewRouter(
 	planningHandler := handlers.NewPlanningInternalHandler(shipmentSvc)
 	predictionInputHandler := handlers.NewPredictionInputHandler(shipmentSvc)
 	vehicleCapabilityHandler := handlers.NewVehicleCapabilityHandler(vehicleSvc)
+	evidenceHandler := handlers.NewExecutionEvidenceHandler(evidenceSvc)
 	internalAuth := internalauth.Config{Token: internalToken}
 
 	r := chi.NewRouter()
@@ -110,6 +112,8 @@ func NewRouter(
 		r.With(internalAuth.Middleware).Get("/{shipmentId}/ownership", ownershipHandler.GetShipment)
 		r.With(internalAuth.Middleware).Get("/{shipmentId}/planning-locations", planningHandler.GetShipment)
 		r.With(internalAuth.Middleware).Get("/{shipmentId}/prediction-input", predictionInputHandler.Get)
+		r.With(internalAuth.Middleware).Get("/{shipmentId}/execution-context", evidenceHandler.GetExecutionContext)
+		r.With(internalAuth.Middleware).Get("/{shipmentId}/onboard-cargo", evidenceHandler.GetOnboardCargo)
 	})
 
 	r.Route("/internal/v1/vehicles", func(r chi.Router) {

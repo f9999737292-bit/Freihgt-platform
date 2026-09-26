@@ -125,6 +125,25 @@ func ScoreOutcome(profile string, duration time.Duration, ranked, unranked int) 
 	ScoreDuration.Observe(duration.Seconds())
 }
 
+var (
+	CurrentTripContextBuilds = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "bno_current_trip_context_build_total",
+		Help: "Server-built current trip context results.",
+	}, []string{"result"})
+	ResidualCapacityDimensions = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "bno_residual_capacity_dimension_total",
+		Help: "Residual capacity dimension statuses.",
+	}, []string{"dimension", "status"})
+)
+
+func CurrentTripContext(result string) {
+	CurrentTripContextBuilds.WithLabelValues(result).Inc()
+}
+
+func ResidualDimension(dimension, status string) {
+	ResidualCapacityDimensions.WithLabelValues(dimension, status).Inc()
+}
+
 func SearchRun(duration time.Duration, eligible, rejected int, reasons map[string]int) {
 	SearchRunsTotal.Inc()
 	EligibleCandidates.Add(float64(eligible))

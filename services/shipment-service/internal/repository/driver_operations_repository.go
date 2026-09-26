@@ -50,6 +50,21 @@ WHERE tenant_id = $1 AND driver_id = $2 AND operation_type = $3 AND idempotency_
 	return &rec, nil
 }
 
+func (r *DriverOperationsRepository) CommitIdempotency(ctx context.Context, rec domain.DriverOperationIdempotencyRecord) error {
+	tx, err := r.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if err := r.SaveIdempotencyRecord(ctx, tx, rec); err != nil {
+		return err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return mapDBError(err)
+	}
+	return nil
+}
+
 func (r *DriverOperationsRepository) SaveIdempotencyRecord(ctx context.Context, tx pgx.Tx, rec domain.DriverOperationIdempotencyRecord) error {
 	const q = `
 INSERT INTO transport.driver_operation_idempotency (
@@ -65,9 +80,9 @@ ON CONFLICT (tenant_id, driver_id, operation_type, idempotency_key) DO NOTHING`
 }
 
 type ReportDriverExceptionParams struct {
-	Exception      domain.DriverReportedException
+	Exception       domain.DriverReportedException
 	ShipmentVersion int
-	CorrelationID  *string
+	CorrelationID   *string
 }
 
 func (r *DriverOperationsRepository) ReportException(ctx context.Context, params ReportDriverExceptionParams) (*domain.DriverReportedException, uuid.UUID, error) {
