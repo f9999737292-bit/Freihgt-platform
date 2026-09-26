@@ -24,7 +24,9 @@ Deterministic score
 Optional local route optimization
 ```
 
-Do not start with a global optimum. The supported phase order is:
+Do not start with a global optimum. NLO-0.3A additionally freezes that an unrestricted subset enumeration of N loads is not the default search. The first consolidation waves are bounded: a same-origin/same-destination pair, or one confirmed onboard cargo projection plus exactly one additional published load. MILP, CP-SAT, VRP, LNS, genetic search, and ML stay deferred. See [ADR-NET-016](adr/ADR-NET-016-bounded-consolidation-search.md).
+
+The supported phase order is:
 
 ```text
 candidate generation → feasibility filters → heuristic ranking → local route optimization

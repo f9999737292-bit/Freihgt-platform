@@ -16,3 +16,7 @@ Proposed records for the v0.1 freeze. Not Accepted until controller review. Impl
 | [ADR-NET-010](ADR-NET-010-routing-abstraction.md) | External routing abstraction |
 | [ADR-NET-011](ADR-NET-011-solver-evolution.md) | Solver evolution |
 | [ADR-NET-012](ADR-NET-012-private-fleet-vs-marketplace.md) | Private fleet and marketplace modes |
+| [ADR-NET-013](ADR-NET-013-current-trip-residual-capacity.md) | Current-trip residual capacity semantics |
+| [ADR-NET-014](ADR-NET-014-consolidation-candidate-execution-gate.md) | ConsolidationCandidate and execution gate |
+| [ADR-NET-015](ADR-NET-015-cross-shipper-opt-in-privacy.md) | Cross-shipper opt-in and privacy |
+| [ADR-NET-016](ADR-NET-016-bounded-consolidation-search.md) | Bounded deterministic consolidation search |

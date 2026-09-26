@@ -12,18 +12,18 @@ BNO-0.1C0 is IMPLEMENTED: location snapshots, search and display geography, the 
 
 BNO-0.1C1 is IMPLEMENTED: a carrier-owned available capacity can search visible published loads and persist hard-feasible match candidates.
 
-BNO-0.1C2 is implemented on `feat/bno-match-score-topn-v0.1c2` and is under controller review: deterministic match score, versioned system objective profiles, and top N after hard feasibility. BNO-0.1C is not complete.
+BNO-0.1C2 is IMPLEMENTED on `origin/main` `6d47cc92`: deterministic match score, stored system objective profiles, and top N after hard feasibility. BNO-0.1C is CLOSED.
 
-NLO-0.2 is PARTIAL. The predicted-capacity half is in BNO-0.1B. Deterministic top-N ranking is in the BNO-0.1C2 review branch and is not accepted as complete.
+NLO-0.2 is IMPLEMENTED as code on that same main. Rule-based `PredictedCapacity` reads a tenant-scoped shipment prediction input and a tracking ETA, then publishes future empty capacity after unload. BNO-0.1C1 search and BNO-0.1C2 top N rank that capacity against one load. Prediction fails closed when `BNO_PREDICTION_MAX_ETA_AGE` is unset or the ETA is older than that policy. That policy is not the tracking-service location freshness (10/30 minutes) or ETA freshness (15/60 minutes). NLO-0.2 does not compute in-trip residual capacity. GPS position is not an input.
 
-NLO-0.3 remains NOT IMPLEMENTED.
+NLO-0.3 architecture is FROZEN by NLO-0.3A and is NOT IMPLEMENTED. The first authorized product wave, when a controller authorizes it, is current-trip context and residual capacity, then pairwise same-origin/same-destination feasibility and one additional current-trip load. Unrestricted N-load search, a solver, and multi-stop shipment execution stay out. NLO-0.4 owns execution of shared stops and legs.
 
 | Stage | Content | Depends on |
 |-------|---------|------------|
 | NLO-0.1 | Capacity and load foundation: manual capacity, explicit load publication, tenant projection, hard feasibility, persisted candidates and explanations | Gateway tenant model, order/cargo/location reads |
 | NLO-0.2 | Predictive next load: rule-based `PredictedCapacity` from shipment plus tracking ETA, top N, no ML | NLO-0.1, tracking ETA read |
-| NLO-0.3 | Current-trip fill and consolidation patterns that current cargo attributes can prove | NLO-0.1, residual capacity |
-| NLO-0.4 | Multi-stop plans. Execution still blocked until shipment can represent stops | NLO-0.3, ADR-NET-005 follow-up |
+| NLO-0.3 | Current-trip residual context, pairwise same-origin/same-destination feasibility, and one additional current-trip load. Planning only | NLO-0.2, B2 groupage, explicit publication |
+| NLO-0.4 | Persistent route execution: multi-stop shipment, shared legs, accepted plan activation, driver multi-stop tasks | NLO-0.3 planning proof, ADR-NET-005 |
 | NLO-0.5 | Backhaul and roundtrip with corridor search and road distance | Routing provider port |
 | NLO-0.6 | Regional routing, open and closed | NLO-0.4 plan model |
 | NLO-0.7 | Urban Moscow profile populated from sourced rules, not from solver branches | city-rules data ownership |
@@ -34,11 +34,11 @@ NLO-0.3 remains NOT IMPLEMENTED.
 
 NLO-0.7 and NLO-0.8 are empty of legal constants until operations load versioned rules with sources. The architecture for both profiles is already defined.
 
-## Recommended first implementation
+## Recommended next implementation
 
-`NLO-0.1` + `NLO-0.2` only.
+NLO-0.1 and NLO-0.2 are already on main. The next product work, only after a separate authorization, is NLO-0.3B then NLO-0.3C and NLO-0.3D. See [NLO_0_3_IMPLEMENTATION_ROADMAP.md](NLO_0_3_IMPLEMENTATION_ROADMAP.md).
 
-Why: the repository can already supply one active shipment, an ETA, a location, cargo weight and volume, and a vehicle capacity. It cannot yet supply legs, trailers, pallets, a road network, or a legal city-rule dataset. Next-load ranking with hard feasibility and explanations proves the core without a VRP solver.
+Why that bound: `transport.shipments` still has one origin, one destination, one optional transport order, and one optional cargo. There is no stop or route-leg table. `PredictedCapacity` copies vehicle payload and volume as capacity after unload. It is not residual space during the trip. B2 `EvaluateGroupage` already evaluates a cargo set. The first consolidation waves reuse that evaluator for a pair or for one confirmed onboard projection plus one published load. They do not enumerate `2^N` subsets and they do not activate a shipment.
 
 Dependencies: trusted tenant headers; read APIs for shipment, tracking ETA, location, cargo, vehicle; explicit publication; optional rate snapshot for priced ranking. Kafka is not required for the first synchronous path. Events in the catalog are the later integration. The document registry may be read later for a document constraint. The EDO operator runtime is not an implementation dependency for NLO-0.1 or NLO-0.2.
 
