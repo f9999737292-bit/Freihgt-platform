@@ -8,13 +8,21 @@ Baseline: `origin/main` `6d47cc92`. Nothing in this document is implemented. `pa
 
 Gateway would later expose it under `/api/v1/network/consolidation/search` for the carrier roles that may already search next loads. This phase adds no route.
 
-Request concepts:
+The caller does not upload `CurrentTripContext`. Residual payload, onboard cargo, GPS, ETA, vehicle totals, and temperature state are not request fields.
 
-- `current_trip_context` or an owned `capacity_id` for a future-empty pair search, not both as competing sources of residual space;
-- selection scope: same owner, or cross-shipper only where both loads opted in;
-- pattern: `SAME_ORIGIN_SAME_DESTINATION` or `CURRENT_TRIP_FILL`;
-- policy: rehandling allowed or not;
-- limit: optional cap on returned sets. Production numbers stay unset.
+`SAME_ORIGIN_SAME_DESTINATION` sends an owned `capacity_id`, pattern, policy, and optional `candidate_limit`. The server checks capacity tenant ownership, status, version, and effective capability. A foreign capacity is `NOT_FOUND`.
+
+`CURRENT_TRIP_FILL` sends `shipment_id`, pattern, policy, and optional `candidate_limit`. Alternatively it sends `current_trip_context_id` only after the server has created that context. The server assembles the context. A foreign shipment is `NOT_FOUND`. The response may include a context summary. That summary is not trusted input.
+
+Opt-in is read from persisted load publication. The search body cannot set `consolidation_allowed` or `cross_shipper_consolidation_allowed`.
+
+Same-owner participation requires `consolidation_allowed=true` on each load. Cross-shipper participation requires `cross_shipper_consolidation_allowed=true` on each load and does not require `consolidation_allowed`.
+
+Other request concepts:
+
+- pattern is only `SAME_ORIGIN_SAME_DESTINATION` or `CURRENT_TRIP_FILL` in the first waves;
+- policy is rehandling allowed or not;
+- `candidate_limit` is optional. Production numbers stay unset.
 
 Response concepts:
 

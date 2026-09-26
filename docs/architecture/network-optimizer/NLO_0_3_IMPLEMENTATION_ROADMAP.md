@@ -1,13 +1,13 @@
 # NLO-0.3 implementation roadmap
 
-Baseline: `origin/main` `6d47cc92`. NLO-0.3A is a freeze. No wave below is authorized.
+Baseline: `origin/main` `6d47cc92`. NLO-0.3A is an architecture-freeze candidate, proposed and pending controller acceptance. No wave below is authorized. GPS is not an NLO-0.2 dependency. Current-trip residual capacity is NLO-0.3.
 
 ## What NLO-0.3 will implement
 
 Planning feasibility for:
 
-- a same-origin, same-destination pair of published loads;
-- one confirmed onboard cargo projection plus exactly one additional published load.
+- first, a same-origin, same-destination pair of published loads, with owner-controlled opt-in and no current-trip dependency;
+- later, one confirmed onboard cargo projection plus exactly one additional published load, after unit-level onboard evidence exists.
 
 Both stay `PROPOSED`. Neither mutates a shipment.
 
@@ -19,51 +19,62 @@ Persistent `RoutePlan` / `RouteStop` execution, multi-stop shipment representati
 
 Backhaul and round trip, regional and urban routing with sourced city rules, chain reoptimization, network-level optimization, and any solver. Consolidation ranking weights, if ever added, are a later authorized profile, not NLO-0.3B–D.
 
+## Opt-in rule
+
+Same statement as ADR-NET-015, the privacy document, and the API design. Both flags are owner-controlled persisted publication facts. Default is false. A searching carrier cannot set them on the request.
+
+- Same-owner pair: every participating load has `consolidation_allowed=true`. The cross-shipper flag does not grant or deny that pair.
+- Cross-shipper pair: every participating load has `cross_shipper_consolidation_allowed=true`. `consolidation_allowed` is not required and does not substitute.
+
+## Same O-D rule
+
+`SAME_ORIGIN_SAME_DESTINATION` means internal canonical `pickup.location_id` equality and `delivery.location_id` equality. Labels, city, region, coarse geography, rounded coordinates, and Haversine are not proof. Missing identity is `ORIGIN_IDENTITY_UNPROVEN` or `DESTINATION_IDENTITY_UNPROVEN`. Known pickup windows must overlap. Known delivery windows must overlap. A disjoint required window is `HARD_REJECT`. An unknown required window is `INDETERMINATE`.
+
 ## Waves
 
-### NLO-0.3B — current trip context and residual capacity
+The first product wave is pairwise consolidation because unit-level onboard evidence does not exist. A current-trip wave started first could not return a useful `FEASIBLE` result.
 
-Scope: internal ports for shipment cargo projection, vehicle totals, tracking position, and tracking ETA. Build `CurrentTripContext` and `ResidualCapacitySnapshot` in memory or a planning table only when an implementation task authorizes a migration. Do not number `000081` in this freeze.
+### NLO-0.3B — pairwise same-origin foundation
 
-API: none public, or a read of the context for the owning carrier if the implementation task says so.
+Scope: `PAIRWISE_CONSOLIDATION_ONLY`, set size 2. Owned effective capacity plus two explicitly published loads. Canonical same O-D, overlapping windows, owner-controlled opt-in, `EvaluateGroupage`. Planning only. No score. No shipment mutation. No solver. No current-trip residual dependency.
 
-Dependencies: onboard evidence. Until a unit-level loaded fact exists, residual stays `UNKNOWN` and the context says why.
+API: `POST /v1/network/consolidation/search` with pattern `SAME_ORIGIN_SAME_DESTINATION` and an owned `capacity_id`.
 
-Security: tenant-scoped internal token. No cross-tenant cargo scan.
+Security: capacity tenant ownership, status, version, and effective capability. A foreign capacity is `NOT_FOUND`. Marketplace list unchanged.
 
-Tests: known versus unknown weight, unknown pallets not treated as zero, provenance labels.
+Tests: canonical id match, label mismatch excluded, unproven origin, overlapping and disjoint windows, opt-in absent, cross-shipper without `consolidation_allowed`, pair hard deny, privacy of the other shipper, version invalidation, deterministic order.
 
-Out: search, pairing, shipment writes.
+Out: current-trip context, residual occupancy, route insertion, execution, score.
 
-### NLO-0.3C — pairwise same-origin feasibility
+### NLO-0.3C — onboard evidence, trip context, residual snapshot
 
-Scope: two published loads, same owner or both cross-shipper flags true, same origin and destination, `EvaluateGroupage`, windows that do not need a new stop.
+Scope: shipment-service owns the future `ShipmentOnboardCargoProvider`. BNO consumes it. Build server-side `CurrentTripContext` and `ResidualCapacitySnapshot` from trusted ports. Do not number `000081` in this candidate. `NEW_EXECUTION_EVIDENCE_REQUIRED=YES` before a residual result can be `FEASIBLE`.
 
-API: `POST /v1/network/consolidation/search` with pattern `SAME_ORIGIN_SAME_DESTINATION`.
+API: none that treats caller residual facts as authority.
 
-Migration: candidate persistence only if the implementation task authorizes it.
+Dependencies: a new execution fact. Shipment status, linked cargo, and planned quantity do not qualify. Driver events in shipment-service are shipment-scoped and do not name a cargo unit.
 
-Security: opt-in fail-closed. Marketplace list unchanged.
+Security: trusted tenant, owned shipment, `NOT_FOUND` for a foreign id. No browser tenant header.
 
-Tests: pair hard deny, temperature intersection and conflict, privacy of the other shipper, opt-in absent, version invalidation, deterministic order.
+Tests: `CONFIRMED_ONBOARD` counts, `PLANNED` does not, unknown dimension blocks `FEASIBLE`.
 
-Out: route insertion, execution, score.
+Out: load insertion, shipment writes.
 
 ### NLO-0.3D — one additional current-trip load
 
-Scope: context from 0.3B plus one load. Road insertion via the routing port. GPS and ETA freshness from tracking policies. `execution_supported=false`.
+Scope: context from 0.3C plus one published load. Road insertion via the routing port. Location and ETA decisions follow the freshness status returned by tracking-service. `execution_supported=false`.
 
-API: same search endpoint with pattern `CURRENT_TRIP_FILL` and `MAX_ADDITIONAL_LOADS=1`.
+API: same search endpoint with pattern `CURRENT_TRIP_FILL`, `shipment_id` or a server-created `current_trip_context_id`, and `MAX_ADDITIONAL_LOADS=1`.
 
-Dependencies: 0.3B and a fresh position. Without onboard proof the result is `INDETERMINATE`.
+Dependencies: 0.3C and a `FRESH` position when insertion needs a position. Without `CONFIRMED_ONBOARD` the result is `INDETERMINATE`.
 
-Tests: stale GPS, stale ETA, window miss, road distance not Haversine, one extra load, multi-stop not activated.
+Tests: stale, lost, and unknown location status, non-fresh ETA, window miss, road distance not Haversine, one extra load, caller residual facts ignored, multi-stop not activated.
 
 Out: a second extra load, solver, slot booking.
 
 ### NLO-0.3E — bounded expansion and optional ranking
 
-Scope: only after 0.3C and 0.3D measurements. Still no solver. A separate score, if authorized, is not MatchScore.
+Scope: only after 0.3B, 0.3C, and 0.3D measurements. Still no solver. A separate score, if authorized, is not MatchScore.
 
 Out of NLO-0.3E: unrestricted `2^N`, ML, 3D packing, shipment activation.
 
@@ -71,37 +82,37 @@ Out of NLO-0.3E: unrestricted `2^N`, ML, 3D packing, shipment activation.
 
 | Requirement | Source | Check | Unknown | Wave | Status |
 | --- | --- | --- | --- | --- | --- |
-| weight | vehicle `capacity_weight`, cargo `gross_weight` | residual subtraction | `INDETERMINATE` | 0.3B | FROZEN |
-| volume | vehicle `capacity_volume`, cargo `volume` | residual subtraction | `INDETERMINATE` | 0.3B | FROZEN |
-| pallet count | `cargoes.pallet_count` | not coerced to zero | `INDETERMINATE` | 0.3B | FROZEN |
-| pallet type | `pallet_type_code` plus equivalences | explicit positive factor only | `INDETERMINATE` | 0.3C | FROZEN |
-| linear metres | cargo and `usable_linear_meters` | residual subtraction | `INDETERMINATE` | 0.3B | FROZEN |
-| height | `max_loaded_height_mm`, internal height | comparison | `INDETERMINATE` | 0.3C | FROZEN |
-| body and trailer type | B2 body check | groupage | `INDETERMINATE` | 0.3C | FROZEN |
-| rear, side, top loading | access lists | independent | `INDETERMINATE` | 0.3C | FROZEN |
-| unloading access | access lists | independent | `INDETERMINATE` | 0.3C | FROZEN |
-| temperature | cargo interval, one zone | common intersection | `INDETERMINATE` | 0.3C | FROZEN |
-| multi-zone | `TemperatureZoneCount` | existing indeterminate code | `INDETERMINATE` | 0.3C | FROZEN |
-| food grade | B2 rules | groupage | `INDETERMINATE` | 0.3C | FROZEN |
-| ADR | sourced rules and capability | groupage | `INDETERMINATE` | 0.3C | FROZEN |
-| stackability | nullable flag | does not create positions | no automatic reject | 0.3C | FROZEN |
-| fragility | nullable flag | rule required | no automatic reject | 0.3C | FROZEN |
-| odor | B2 rules | groupage | `INDETERMINATE` | 0.3C | FROZEN |
-| contamination | B2 rules | groupage | `INDETERMINATE` | 0.3C | FROZEN |
-| cargo type | `cargo_type_code` | catalog rules | `INDETERMINATE` | 0.3C | FROZEN |
-| same O-D | load pickup and delivery identity | pair filter | not a pair | 0.3C | FROZEN |
+| weight | vehicle `capacity_weight`, cargo `gross_weight` | groupage in 0.3B; residual subtraction in 0.3C | `INDETERMINATE` | 0.3B / 0.3C | PROPOSED |
+| volume | vehicle `capacity_volume`, cargo `volume` | groupage in 0.3B; residual subtraction in 0.3C | `INDETERMINATE` | 0.3B / 0.3C | PROPOSED |
+| pallet count | `cargoes.pallet_count` | not coerced to zero | `INDETERMINATE` | 0.3B / 0.3C | PROPOSED |
+| pallet type | `pallet_type_code` plus equivalences | explicit positive factor only | `INDETERMINATE` | 0.3B | PROPOSED |
+| linear metres | cargo and `usable_linear_meters` | groupage in 0.3B; residual subtraction in 0.3C | `INDETERMINATE` | 0.3B / 0.3C | PROPOSED |
+| height | `max_loaded_height_mm`, internal height | comparison | `INDETERMINATE` | 0.3B | PROPOSED |
+| body and trailer type | B2 body check | groupage | `INDETERMINATE` | 0.3B | PROPOSED |
+| rear, side, top loading | access lists | independent | `INDETERMINATE` | 0.3B | PROPOSED |
+| unloading access | access lists | independent | `INDETERMINATE` | 0.3B | PROPOSED |
+| temperature | cargo interval, one zone | common intersection | `INDETERMINATE` | 0.3B | PROPOSED |
+| multi-zone | `TemperatureZoneCount` | existing indeterminate code | `INDETERMINATE` | 0.3B | PROPOSED |
+| food grade | B2 rules | groupage | `INDETERMINATE` | 0.3B | PROPOSED |
+| ADR | sourced rules and capability | groupage | `INDETERMINATE` | 0.3B | PROPOSED |
+| stackability | nullable flag | does not create positions | no automatic reject | 0.3B | PROPOSED |
+| fragility | nullable flag | rule required | no automatic reject | 0.3B | PROPOSED |
+| odor | B2 rules | groupage | `INDETERMINATE` | 0.3B | PROPOSED |
+| contamination | B2 rules | groupage | `INDETERMINATE` | 0.3B | PROPOSED |
+| cargo type | `cargo_type_code` | catalog rules | `INDETERMINATE` | 0.3B | PROPOSED |
+| same O-D | canonical `location_id` equality | pair filter plus window overlap | `ORIGIN_IDENTITY_UNPROVEN` or `DESTINATION_IDENTITY_UNPROVEN` | 0.3B | PROPOSED |
 | multi-pick | planning sequence | deferred | `PLAN_ONLY` | 0.3E or 0.4 | DEFERRED |
 | multi-drop | planning sequence | deferred | `PLAN_ONLY` | 0.3E or 0.4 | DEFERRED |
-| current-trip fill | `CurrentTripContext` | one extra load | `INDETERMINATE` without onboard proof | 0.3D | FROZEN |
-| cross-shipper | opt-in flags | both true | excluded | 0.3C | FROZEN |
-| privacy | safe views | other shipper fields omitted | n/a | 0.3C | FROZEN |
-| time windows | load windows plus road time | miss is hard when proven | `INDETERMINATE` if ETA stale | 0.3D | FROZEN |
-| road detour | routing port | not Haversine | `SERVICE_UNAVAILABLE` | 0.3D | FROZEN |
-| GPS freshness | tracking 10/30 | stale blocks insertion | `INDETERMINATE` | 0.3D | FROZEN |
-| ETA | tracking 15/60 and lookup | stale blocks windows | `INDETERMINATE` | 0.3D | FROZEN |
-| slot dependency | tracking slot state | NLO does not book | `PLAN_ONLY` | 0.3D | FROZEN |
-| rehandling | placement check | forbidden conflict rejects | `NOT_EVALUATED` otherwise | 0.3D | FROZEN |
-| unknown data | all of the above | no silent pass | `INDETERMINATE` | 0.3B | FROZEN |
+| current-trip fill | server-built `CurrentTripContext` | one extra load | `INDETERMINATE` without onboard proof | 0.3D | PROPOSED |
+| cross-shipper | owner-persisted opt-in flags | cross-shipper flag on each load; independent of same-owner flag | excluded | 0.3B | PROPOSED |
+| privacy | safe views | other shipper fields and internal location ids omitted | n/a | 0.3B | PROPOSED |
+| time windows | known pickup and delivery intervals | overlap required; disjoint is hard reject | `INDETERMINATE` if a required window is unknown | 0.3B | PROPOSED |
+| road detour | routing port | not Haversine | `SERVICE_UNAVAILABLE` | 0.3D | PROPOSED |
+| GPS freshness | tracking-service status | `FRESH` usable; other statuses block insertion | `INDETERMINATE` | 0.3D | PROPOSED |
+| ETA | tracking-service `freshnessStatus` | only `FRESH` may prove a window | `INDETERMINATE` | 0.3D | PROPOSED |
+| slot dependency | tracking slot state | NLO does not book | `PLAN_ONLY` | 0.3D | PROPOSED |
+| rehandling | placement check | forbidden conflict rejects | `NOT_EVALUATED` otherwise | 0.3D | PROPOSED |
+| unknown data | all of the above | required unknown is not `FEASIBLE` | `INDETERMINATE` | 0.3B | PROPOSED |
 
 ## Future tests
 
@@ -122,7 +133,7 @@ Tenant isolation stays on owner predicates and gateway headers. No IDOR lookup o
 | NLO03_ARCH_001 current execution inventory | PASS |
 | NLO03_ARCH_002 current-trip semantics | PASS |
 | NLO03_ARCH_003 residual capacity | PASS |
-| NLO03_ARCH_004 onboard cargo evidence | PASS_WITH_FINDING: no unit-level onboard fact exists, so residual stays unknown |
+| NLO03_ARCH_004 onboard cargo evidence | PASS_WITH_FINDING: documented implementation dependency; no unit-level onboard fact exists, so residual stays unknown until shipment-service adds it |
 | NLO03_ARCH_005 B2 groupage reuse | PASS |
 | NLO03_ARCH_006 N-way compatibility | PASS |
 | NLO03_ARCH_007 temperature | PASS |
@@ -132,8 +143,8 @@ Tenant isolation stays on owner predicates and gateway headers. No IDOR lookup o
 | NLO03_ARCH_011 rehandling | PASS |
 | NLO03_ARCH_012 route insertion | PASS |
 | NLO03_ARCH_013 time windows | PASS |
-| NLO03_ARCH_014 tracking freshness | PASS_WITH_FINDING: tracking policies exist; BNO prediction uses a separate max-age setting |
-| NLO03_ARCH_015 cross-shipper opt-in | PASS_WITH_FINDING: flags are frozen and are not columns yet |
+| NLO03_ARCH_014 tracking freshness | PASS_WITH_FINDING: tracking-service owns runtime thresholds; BNO consumes status; `BNO_PREDICTION_MAX_ETA_AGE` remains a separate NLO-0.2 gate |
+| NLO03_ARCH_015 cross-shipper opt-in | PASS_WITH_FINDING: flags are proposed owner-controlled facts and are not columns yet |
 | NLO03_ARCH_016 privacy | PASS |
 | NLO03_ARCH_017 network-optimization-only pool | PASS |
 | NLO03_ARCH_018 execution gate | PASS |
@@ -149,6 +160,14 @@ Tenant isolation stays on owner predicates and gateway headers. No IDOR lookup o
 | NLO03_ARCH_028 implementation waves | PASS |
 | NLO03_ARCH_029 traceability | PASS |
 | NLO03_ARCH_030 security | PASS |
+| NLO03_ARCH_031 trusted context server-built | PASS |
+| NLO03_ARCH_032 freshness policy owner is tracking-service | PASS |
+| NLO03_ARCH_033 no first-wave partial feasibility | PASS |
+| NLO03_ARCH_034 onboard evidence owner is shipment-service | PASS |
+| NLO03_ARCH_035 same O-D canonical identity | PASS |
+| NLO03_ARCH_036 same O-D window compatibility | PASS |
+| NLO03_ARCH_037 opt-in owner-controlled | PASS |
+| NLO03_ARCH_038 implementation order unblocked | PASS |
 
 ## Explicit exclusions
 

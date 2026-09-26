@@ -16,7 +16,7 @@ Baseline: `origin/main` `6d47cc92aa825abdd34ee223791ae13c83cf4b01`. Migration he
 
 NLO-0.2 is IMPLEMENTED as the predictive next-load path. `predict.Evaluate` builds future availability from shipment destination, vehicle totals, and a tracking ETA. Search and top N consume that capacity as one vehicle plus one load. The open product gap is current-trip residual capacity, which is NLO-0.3, not a missing half of NLO-0.2.
 
-Finding: prediction calls `POST /internal/v1/tracking/eta/lookup` through `sourceclient.HTTP.ETA`. It rejects the draft when `BNO_PREDICTION_MAX_ETA_AGE` is zero or the observation is older than that duration (`predict/rule.go`). Tracking-service has its own defaults in `domain/freshness.go` (location fresh 10 minutes, stale 30) and `domain/eta_freshness.go` (ETA fresh 15 minutes, stale 60). BNO does not read those constants. An empty BNO max age fails closed. GPS position is not an input to `PredictedCapacity`.
+Finding: prediction calls `POST /internal/v1/tracking/eta/lookup` through `sourceclient.HTTP.ETA`. It rejects the draft when `BNO_PREDICTION_MAX_ETA_AGE` is zero or the observation is older than that duration (`predict/rule.go`). GPS is not an NLO-0.2 input. Tracking-service defaults are 10/30 minutes for location and 15/60 minutes for ETA. Those numbers are defaults only. Runtime config is `TRACKING_FRESH_THRESHOLD_MINUTES`, `TRACKING_STALE_THRESHOLD_MINUTES`, `ETA_FRESH_THRESHOLD_MINUTES`, and `ETA_STALE_THRESHOLD_MINUTES`. NLO-0.3 consumes the returned freshness status and does not copy the thresholds.
 
 ## Shipment execution model
 
@@ -39,6 +39,8 @@ Answers:
 
 `ShipmentEligible` treats `LOADED` and `IN_TRANSIT` as eligible for future-empty prediction. That eligibility means "this shipment may produce a later empty capacity." It does not mean "this cargo is confirmed onboard for residual math."
 
+No existing driver or shipment event qualifies as unit-level onboard evidence. `NEW_EXECUTION_EVIDENCE_REQUIRED=YES`. The future owner is shipment-service. Network-optimizer-service only consumes `ShipmentOnboardCargoProvider`. Only `CONFIRMED_ONBOARD` counts toward residual occupancy.
+
 ## Ownership matrix
 
 | Fact | Owner | Source | Tenant boundary | Available | Freshness | BNO can read today | Gap |
@@ -53,7 +55,7 @@ Answers:
 | LoadOpportunity | network-optimizer-service | `network_optimizer.load_opportunities` | owner tenant; marketplace filter | YES | load version | YES for published scopes | opt-in booleans do not exist yet |
 | Location | transport `locations`; BNO snapshots | location id on order/shipment; BNO snapshot | tenant on location join | YES | snapshot time in BNO | YES for search geography | not live GPS |
 | Tracking ETA | tracking-service | `tracking.shipment_eta_state` | shipment binding | YES | `EvaluateETAFreshness` | YES via internal lookup | separate from BNO max age |
-| Driver GPS | shipment-service event `driver.location.updated`; tracking ingest | tracking position state | shipment/driver tenant | YES as tracking state | `EvaluateFreshness` 10/30 | NO dedicated BNO port | NLO-0.3B needs a position port |
+| Driver GPS | shipment-service event `driver.location.updated`; tracking ingest | tracking position state | shipment/driver tenant | YES as tracking state | status from tracking-service; defaults 10/30, runtime-configurable | NO dedicated BNO port | current-trip wave consumes status, not copied minutes |
 | Slots | tracking-service | `tracking.shipment_slot_state` | shipment binding | PARTIAL | source observed_at | NO from BNO | NLO must not book |
 | Compatibility catalogs and rules | network-optimizer-service | `000077` | platform plus tenant rule sets | YES | catalog and rule-set versions | YES | active set required |
 | Pallet equivalences | network-optimizer-service | `network_optimizer.pallet_equivalences` | catalog version | YES when seeded | catalog version | YES inside `EvaluateGroupage` | only explicit positive factors |

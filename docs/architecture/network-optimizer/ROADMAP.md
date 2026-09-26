@@ -14,9 +14,9 @@ BNO-0.1C1 is IMPLEMENTED: a carrier-owned available capacity can search visible 
 
 BNO-0.1C2 is IMPLEMENTED on `origin/main` `6d47cc92`: deterministic match score, stored system objective profiles, and top N after hard feasibility. BNO-0.1C is CLOSED.
 
-NLO-0.2 is IMPLEMENTED as code on that same main. Rule-based `PredictedCapacity` reads a tenant-scoped shipment prediction input and a tracking ETA, then publishes future empty capacity after unload. BNO-0.1C1 search and BNO-0.1C2 top N rank that capacity against one load. Prediction fails closed when `BNO_PREDICTION_MAX_ETA_AGE` is unset or the ETA is older than that policy. That policy is not the tracking-service location freshness (10/30 minutes) or ETA freshness (15/60 minutes). NLO-0.2 does not compute in-trip residual capacity. GPS position is not an input.
+NLO-0.2 is IMPLEMENTED as code on that same main. Rule-based `PredictedCapacity` reads a tenant-scoped shipment prediction input and a tracking ETA, then publishes future empty capacity after unload. BNO-0.1C1 search and BNO-0.1C2 top N rank that capacity against one load. Prediction fails closed when `BNO_PREDICTION_MAX_ETA_AGE` is unset or the ETA is older than that policy. That policy is not tracking-service freshness. Tracking defaults are 10/30 minutes for location and 15/60 minutes for ETA. Those are defaults only and are runtime-configurable. Tracking-service owns the policy. BNO consumes the returned status. NLO-0.2 does not compute in-trip residual capacity. GPS position is not an input.
 
-NLO-0.3 architecture is FROZEN by NLO-0.3A and is NOT IMPLEMENTED. The first authorized product wave, when a controller authorizes it, is current-trip context and residual capacity, then pairwise same-origin/same-destination feasibility and one additional current-trip load. Unrestricted N-load search, a solver, and multi-stop shipment execution stay out. NLO-0.4 owns execution of shared stops and legs.
+NLO-0.3A is an architecture-freeze candidate, proposed and pending controller acceptance. It is not implemented and is not accepted. The recommended first product wave, only after a later authorization, is pairwise same-origin/same-destination feasibility with owner-controlled opt-in. Current-trip residual capacity waits until shipment-service can prove unit-level onboard cargo. Unrestricted N-load search, a solver, and multi-stop shipment execution stay out. NLO-0.4 owns execution of shared stops and legs. GPS is not an NLO-0.2 dependency. Current-trip residual capacity is NLO-0.3.
 
 | Stage | Content | Depends on |
 |-------|---------|------------|
@@ -36,9 +36,9 @@ NLO-0.7 and NLO-0.8 are empty of legal constants until operations load versioned
 
 ## Recommended next implementation
 
-NLO-0.1 and NLO-0.2 are already on main. The next product work, only after a separate authorization, is NLO-0.3B then NLO-0.3C and NLO-0.3D. See [NLO_0_3_IMPLEMENTATION_ROADMAP.md](NLO_0_3_IMPLEMENTATION_ROADMAP.md).
+NLO-0.1 and NLO-0.2 are already on main. The next product work, only after a separate authorization, starts with pairwise same-origin consolidation. See [NLO_0_3_IMPLEMENTATION_ROADMAP.md](NLO_0_3_IMPLEMENTATION_ROADMAP.md).
 
-Why that bound: `transport.shipments` still has one origin, one destination, one optional transport order, and one optional cargo. There is no stop or route-leg table. `PredictedCapacity` copies vehicle payload and volume as capacity after unload. It is not residual space during the trip. B2 `EvaluateGroupage` already evaluates a cargo set. The first consolidation waves reuse that evaluator for a pair or for one confirmed onboard projection plus one published load. They do not enumerate `2^N` subsets and they do not activate a shipment.
+Why that order: `transport.shipments` still has one origin, one destination, one optional transport order, and one optional cargo. There is no stop table and no unit-level onboard fact. A residual-capacity wave cannot produce a useful `FEASIBLE` current-trip result until shipment-service owns that evidence. Pairwise published loads do not need it. B2 `EvaluateGroupage` already evaluates a cargo set. The first wave uses that evaluator for two loads that share canonical location ids and overlapping windows. It does not enumerate `2^N` subsets and it does not activate a shipment.
 
 Dependencies: trusted tenant headers; read APIs for shipment, tracking ETA, location, cargo, vehicle; explicit publication; optional rate snapshot for priced ranking. Kafka is not required for the first synchronous path. Events in the catalog are the later integration. The document registry may be read later for a document constraint. The EDO operator runtime is not an implementation dependency for NLO-0.1 or NLO-0.2.
 

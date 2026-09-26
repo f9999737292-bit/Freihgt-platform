@@ -1,12 +1,14 @@
 # ADR-NET-013: Current-trip residual capacity semantics
 
-Status: Proposed. NLO-0.3A freeze. Implementation is not authorized.
+Status: Proposed. Architecture-freeze candidate, pending controller acceptance. Implementation is not authorized.
 
 ## Decision
 
 `PredictedCapacity` remains future empty capacity after the current shipment unloads. It is not remaining space while cargo is still on the vehicle.
 
 In-trip space is a separate planning object, `ResidualCapacitySnapshot`, carried inside `CurrentTripContext`. It is not a new `Capacity.source` value and it is not a second meaning of `CURRENT_SHIPMENT_PREDICTION`.
+
+`CurrentTripContextProvider` builds that context on the server from the trusted tenant and an owned `shipment_id`. A public request does not upload residual capacity, onboard cargo, GPS, ETA, vehicle capability, or shipment version. A foreign shipment id is `NOT_FOUND`. Public responses omit the internal tenant id.
 
 ## Why this shape
 

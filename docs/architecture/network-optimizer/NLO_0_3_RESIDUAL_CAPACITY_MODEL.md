@@ -14,6 +14,8 @@ weight, volume, pallet count, pallet type, linear metres, max loaded height, sta
 
 `stackable=true` does not create pallet positions. `fragile=true` does not by itself hard-reject. A rule must say so. There is no 3D placement claim.
 
+Confirmed occupancy comes from shipment-service through `ShipmentOnboardCargoProvider`. Network-optimizer-service is not the system of record for physical load or unload. Only `CONFIRMED_ONBOARD` units enter the subtraction. `PLANNED` cargo does not. Shipment status `LOADED`, a cargo linked to the shipment, and a planned quantity are not that proof.
+
 ## Residual formula
 
 For one dimension:
@@ -29,7 +31,7 @@ only when both sides are known and expressed in the same unit.
 | both known and occupancy exceeds total | `HARD_REJECT` for any added load; the current set is already infeasible |
 | both known and occupancy is within total | the non-negative remainder, provenance `DERIVED_FROM_CONFIRMED_CARGO` |
 
-Do not subtract a known weight from an unknown volume and present a mixed remainder as measured capacity. Dimensions are independent.
+Do not subtract a known weight from an unknown volume and present a mixed remainder as measured capacity. Dimensions are independent. If a dimension is relevant to the cargo and equipment and either the capacity total or the occupancy is unknown, that dimension is `UNKNOWN`. A required unknown dimension blocks `FEASIBLE`. Payload does not prove volume, pallets, linear metres, or height. NLO-0.3B–D have no weight-only full-feasibility path.
 
 Pallet positions use an explicit positive `pallet_equivalences` row from B2. A missing factor for a known pallet type leaves pallet residual `UNKNOWN`. Mixed types are not converted by a hardcoded EUR ratio. Unknown pallet count is not zero pallets.
 

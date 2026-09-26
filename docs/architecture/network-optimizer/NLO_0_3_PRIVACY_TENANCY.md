@@ -14,12 +14,14 @@ Current-trip facts are read with the capacity owner's tenant through internal se
 
 ## Opt-in
 
-| Field | Default | Effect |
-| --- | --- | --- |
-| `consolidation_allowed` | false | Same-owner loads may be planned together |
-| `cross_shipper_consolidation_allowed` | false | A load may be planned with another tenant's published load |
+Both flags are owner-controlled fields persisted on the published `LoadOpportunity`. A searching carrier cannot set them in the search request. Default is false. Missing means false.
 
-No flag means no consolidation of that kind. `NETWORK_OPTIMIZATION_ONLY` is not consent. It is a visibility scope that humans do not browse. `share_commodity_with_co_load` is not required for the first waves because the other shipper view omits commodity detail anyway.
+Canonical rule, used the same way in ADR-NET-015, this document, the roadmap, and the API design:
+
+- Same-owner pair: every participating load has `consolidation_allowed=true`. `cross_shipper_consolidation_allowed` does not grant or deny that pair.
+- Cross-shipper pair: every participating load has `cross_shipper_consolidation_allowed=true`. `consolidation_allowed` is not required and does not substitute.
+
+`NETWORK_OPTIMIZATION_ONLY` is not consent. It is a visibility scope that humans do not browse. `share_commodity_with_co_load` is not required for the first waves because the other shipper view omits commodity detail anyway.
 
 ## Views
 
@@ -33,7 +35,7 @@ No flag means no consolidation of that kind. `NETWORK_OPTIMIZATION_ONLY` is not 
 | driver | not a consolidation audience in NLO-0.3 | other shipper commercial data |
 | platform admin | support view still scoped by an explicit admin path | not a raw cross-tenant scan |
 
-Anonymized geography rules from BNO-0.1C0 remain. Exact coordinates and exact road kilometres stay off anonymized human views.
+Anonymized geography rules from BNO-0.1C0 remain. Exact coordinates and exact road kilometres stay off anonymized human views. Internal canonical location ids may be compared to prove same origin and same destination. Those ids are not added to anonymized human output because the comparison used them.
 
 ## Internal pool
 

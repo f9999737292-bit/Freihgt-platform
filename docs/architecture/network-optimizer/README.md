@@ -13,7 +13,7 @@ IMPLEMENTATION_AUTHORIZED=NO
 
 Baseline at freeze authoring: branch `discovery/bintrans-transport-network-optimizer-v0.1`, SHA `2c0ad2bd573ca78788d09d13cfe629b4023b88d9` (same as local `origin/main` after `git fetch origin` on 2026-09-24).
 
-The block above records the original architecture freeze. Later accepted stages are BNO-0.1A, BNO-0.1B, BNO-0.1B2, BNO-0.1C0, BNO-0.1C1, and BNO-0.1C2. BNO-0.1C is closed on `origin/main` `6d47cc92`. NLO-0.3A freezes current-trip fill and consolidation and does not implement them. See [NLO_0_3_IMPLEMENTATION_ROADMAP.md](NLO_0_3_IMPLEMENTATION_ROADMAP.md).
+The block above records the original architecture freeze. Later accepted stages are BNO-0.1A, BNO-0.1B, BNO-0.1B2, BNO-0.1C0, BNO-0.1C1, and BNO-0.1C2. BNO-0.1C is closed on `origin/main` `6d47cc92`. NLO-0.3A proposes current-trip fill and consolidation. That package is an architecture-freeze candidate pending controller acceptance. It does not implement them. See [NLO_0_3_IMPLEMENTATION_ROADMAP.md](NLO_0_3_IMPLEMENTATION_ROADMAP.md).
 
 ## What this is
 

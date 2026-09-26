@@ -6,15 +6,25 @@ Baseline: `origin/main` `6d47cc92`. Compatibility calls `compat.EvaluateGroupage
 
 | Pattern | Decision | Why |
 | --- | --- | --- |
-| `SAME_ORIGIN_SAME_DESTINATION` | IMPLEMENT_FIRST, PLAN_ONLY | No route insertion when origin and destination already match. Execution still cannot store two orders on one shipment |
-| `CURRENT_TRIP_FILL` with one additional load | IMPLEMENT_FIRST, PLAN_ONLY | Smallest in-trip case. Blocked from `FEASIBLE` until onboard evidence exists |
+| `SAME_ORIGIN_SAME_DESTINATION` | FIRST_PRODUCT_WAVE, PLAN_ONLY | No current-trip dependency. Execution still cannot store two orders on one shipment |
+| `CURRENT_TRIP_FILL` with one additional load | AFTER_ONBOARD_EVIDENCE, PLAN_ONLY | Blocked from `FEASIBLE` until shipment-service proves `CONFIRMED_ONBOARD` |
 | `MULTI_PICK_ONE_DROP` | DEFER, PLAN_ONLY | Needs insertion and still cannot execute |
 | `ONE_PICK_MULTI_DROP` | DEFER, PLAN_ONLY | Same |
 | `MULTI_PICK_MULTI_DROP` | DEFER, and BLOCKED_BY_EXECUTION_MODEL for activation | NLO-0.4 |
 | `HUB_CONSOLIDATION` | DEFER | No hub stop in the shipment schema |
 | `CROSS_DOCK` | DEFER | No cross-dock execution fact |
 
-`ROUTE_FEASIBILITY` and `EXECUTION_MODEL_SUPPORT` are separate. A same-origin pair can be road-feasible and still non-executable.
+`ROUTE_FEASIBILITY` and `EXECUTION_MODEL_SUPPORT` are separate. A same-origin pair can pass groupage and still be non-executable.
+
+## Same origin and same destination
+
+Two loads are the same O-D only when internal canonical identifiers match:
+
+`load A pickup.location_id == load B pickup.location_id` and `load A delivery.location_id == load B delivery.location_id`.
+
+Label text, city, region, coarse anonymized geography, rounded coordinates, and Haversine proximity are not equality. If a canonical id is missing, the pair is not same O-D. Exclude it with `ORIGIN_IDENTITY_UNPROVEN` or `DESTINATION_IDENTITY_UNPROVEN`. Do not guess. Internal ids may be compared inside the trust zone. Anonymized human output does not reveal those ids. Coarse display stays as it is.
+
+Same locations are not enough. Two known pickup windows must overlap in a shared service interval. Two known delivery windows must overlap in a shared delivery interval. A proven disjoint required window is `HARD_REJECT`. A required window that is unknown is `INDETERMINATE`. Do not replace two windows with one invented timestamp.
 
 ## N-way hard feasibility
 
@@ -81,8 +91,8 @@ Statuses: `HARD_REJECT`, `INDETERMINATE`, `FEASIBLE`, `PROPOSED`, `INVALIDATED`.
 
 N candidate loads have `2^N` subsets. That is not the default. First waves:
 
-- `PAIRWISE_CONSOLIDATION_ONLY` for new loads that share origin and destination. Set size 2.
-- `MAX_ADDITIONAL_LOADS=1` for current-trip fill. The set is the confirmed onboard projection plus one load.
+- `PAIRWISE_CONSOLIDATION_ONLY` is the first product wave. Set size is 2. Members are explicitly published loads with canonical same O-D and compatible windows. No current-trip residual dependency.
+- `MAX_ADDITIONAL_LOADS=1` is the later current-trip wave. The set is confirmed onboard cargo plus one load. It is not the first wave, because unit-level onboard evidence does not exist yet.
 
 Ordering is load id ascending, then candidate id. Pool and duration limits stay unset until a later measurement. They are not invented as production constants.
 
