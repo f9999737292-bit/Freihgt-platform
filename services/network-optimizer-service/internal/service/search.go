@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"sort"
 	"time"
@@ -24,20 +25,34 @@ type SearchCommand struct {
 }
 
 type SearchCandidateView struct {
-	LoadOpportunityID   uuid.UUID              `json:"load_opportunity_id"`
-	LoadVersion         int                    `json:"load_version"`
-	Eligibility         string                 `json:"eligibility"`
-	Load                domain.MarketplaceLoad `json:"load"`
-	DeadheadBucket      string                 `json:"deadhead_bucket,omitempty"`
-	RoadDeadheadKm      *float64               `json:"road_deadhead_km,omitempty"`
-	RoadDeadheadMinutes *float64               `json:"road_deadhead_minutes,omitempty"`
-	ForwardProgressKm   *float64               `json:"forward_progress_km,omitempty"`
-	LateralDistanceKm   *float64               `json:"lateral_distance_km,omitempty"`
-	RouteIncreaseKm     *float64               `json:"route_increase_km,omitempty"`
-	Timing              string                 `json:"timing"`
-	WaitingMinutes      *float64               `json:"waiting_minutes,omitempty"`
-	Compatibility       string                 `json:"compatibility"`
-	Explanation         []string               `json:"explanation,omitempty"`
+	LoadOpportunityID   uuid.UUID                     `json:"load_opportunity_id"`
+	LoadVersion         int                           `json:"load_version"`
+	Eligibility         string                        `json:"eligibility"`
+	Load                domain.MarketplaceLoad        `json:"load"`
+	DeadheadBucket      string                        `json:"deadhead_bucket,omitempty"`
+	RoadDeadheadKm      *float64                      `json:"road_deadhead_km,omitempty"`
+	RoadDeadheadMinutes *float64                      `json:"road_deadhead_minutes,omitempty"`
+	ForwardProgressKm   *float64                      `json:"forward_progress_km,omitempty"`
+	LateralDistanceKm   *float64                      `json:"lateral_distance_km,omitempty"`
+	RouteIncreaseKm     *float64                      `json:"route_increase_km,omitempty"`
+	Timing              string                        `json:"timing"`
+	WaitingMinutes      *float64                      `json:"waiting_minutes,omitempty"`
+	Compatibility       string                        `json:"compatibility"`
+	Explanation         []string                      `json:"explanation,omitempty"`
+	Rank                *int                          `json:"rank,omitempty"`
+	ScoreStatus         string                        `json:"score_status,omitempty"`
+	Score               *int                          `json:"score,omitempty"`
+	ScoreEvidenceBps    *int                          `json:"score_evidence_bps,omitempty"`
+	ScoreComponents     []domain.ScoreComponentResult `json:"score_components,omitempty"`
+	UnrankedReasonCodes []string                      `json:"unranked_reason_codes,omitempty"`
+}
+
+type SearchRanking struct {
+	ObjectiveProfile   string `json:"objective_profile"`
+	ProfileVersion     int    `json:"profile_version"`
+	AlgorithmVersion   string `json:"algorithm_version"`
+	ProfileFingerprint string `json:"profile_fingerprint"`
+	RankingCurrency    string `json:"ranking_currency,omitempty"`
 }
 
 type SearchResponse struct {
@@ -48,7 +63,12 @@ type SearchResponse struct {
 	EffectivePolicy         domain.NextLoadSearchPolicy `json:"effective_policy"`
 	PolicyFingerprint       string                      `json:"effective_policy_fingerprint"`
 	EligibleCandidateCount  int                         `json:"eligible_candidate_count"`
+	RankedCandidateCount    int                         `json:"ranked_candidate_count"`
+	UnrankedEligibleCount   int                         `json:"unranked_eligible_count"`
+	ReturnedCandidateCount  int                         `json:"returned_candidate_count"`
 	RejectionCountsByReason map[string]int              `json:"rejection_counts_by_reason"`
+	UnrankedCountsByReason  map[string]int              `json:"unranked_counts_by_reason"`
+	Ranking                 SearchRanking               `json:"ranking"`
 	Candidates              []SearchCandidateView       `json:"candidates"`
 }
 
@@ -88,7 +108,11 @@ func (s *Service) SearchNextLoad(ctx context.Context, actor Actor, cmd SearchCom
 		return Result{}, err
 	}
 	if err := effective.Validate(); err != nil {
-		return Result{}, apperrors.Validation(err.Error(), nil)
+		return Result{}, policyValidation(err)
+	}
+	profile, err := s.activeScoreProfile(ctx, effective.ObjectiveProfile)
+	if err != nil {
+		return Result{}, err
 	}
 	target, line, err := s.targetRoute(ctx, actor.TenantID, capacity, effective, availableAt)
 	if err != nil {
@@ -101,13 +125,16 @@ func (s *Service) SearchNextLoad(ctx context.Context, actor Actor, cmd SearchCom
 	sort.Slice(loads, func(i, j int) bool { return loads[i].ID.String() < loads[j].ID.String() })
 	bnometrics.SearchPool(len(loads))
 	evaluated := s.evaluateLoads(ctx, actor.TenantID, capacity, prediction, availableAt, effective, target, line, loads)
+	scoreStarted := time.Now()
+	rankedCount, unrankedCount := scoreEligible(evaluated, profile, effective, prediction, capacity)
+	bnometrics.ScoreOutcome(profile.Code, time.Since(scoreStarted), rankedCount, unrankedCount)
 	runID := uuid.New()
 	now := s.now()
 	providerName := routingProviderName(s.routes)
-	if err := s.persistSearch(ctx, runID, actor.TenantID, capacity, effective, providerName, started, now, evaluated); err != nil {
+	if err := s.persistSearch(ctx, runID, actor.TenantID, capacity, effective, profile, providerName, started, now, evaluated); err != nil {
 		return Result{}, err
 	}
-	response := s.publicSearch(runID, capacity, effective, evaluated, cmd.CandidateLimit)
+	response := s.publicSearch(runID, capacity, effective, profile, evaluated, cmd.CandidateLimit)
 	raw, err := json.Marshal(response)
 	if err != nil {
 		return Result{}, err
@@ -150,11 +177,30 @@ func (s *Service) effectivePolicy(ctx context.Context, tenant, capacityID uuid.U
 	return domain.EffectiveSearchPolicy(carrier, capacity, request), nil
 }
 
-func (s *Service) targetRoute(ctx context.Context, tenant uuid.UUID, capacity domain.Capacity, policy domain.NextLoadSearchPolicy, availableAt time.Time) (routing.Point, [][]float64, error) {
-	if policy.SearchMode == domain.SearchRadius {
-		return routing.Point{}, nil, nil
+func policyValidation(err error) error {
+	switch {
+	case errors.Is(err, domain.ErrObjectiveNotExecutable):
+		return apperrors.Validation("objective profile is reserved", map[string]any{
+			"reason": "OBJECTIVE_PROFILE_NOT_EXECUTABLE",
+			"detail": "PLANNING_COST_PROVIDER_NOT_IMPLEMENTED",
+		})
+	case errors.Is(err, domain.ErrRankingCurrencyRequired):
+		return apperrors.Validation(err.Error(), map[string]any{"reason": "RANKING_CURRENCY_REQUIRED"})
+	case errors.Is(err, domain.ErrTargetRequiredForObjective):
+		return apperrors.Validation(err.Error(), map[string]any{"reason": "TARGET_LOCATION_REQUIRED_FOR_OBJECTIVE"})
+	default:
+		return apperrors.Validation(err.Error(), nil)
 	}
-	if policy.TargetLocationID == nil || s.directory == nil {
+}
+
+func (s *Service) targetRoute(ctx context.Context, tenant uuid.UUID, capacity domain.Capacity, policy domain.NextLoadSearchPolicy, availableAt time.Time) (routing.Point, [][]float64, error) {
+	if policy.TargetLocationID == nil {
+		if policy.SearchMode == domain.SearchRadius {
+			return routing.Point{}, nil, nil
+		}
+		return routing.Point{}, nil, apperrors.Validation(domain.ErrDirectionTargetGeo.Error(), nil)
+	}
+	if s.directory == nil {
 		return routing.Point{}, nil, apperrors.Validation(domain.ErrDirectionTargetGeo.Error(), nil)
 	}
 	snap, err := s.directory.Projection(ctx, tenant, *policy.TargetLocationID)
@@ -162,7 +208,7 @@ func (s *Service) targetRoute(ctx context.Context, tenant uuid.UUID, capacity do
 		return routing.Point{}, nil, apperrors.Validation(domain.ErrDirectionTargetGeo.Error(), nil)
 	}
 	target := routing.Point{Latitude: *snap.Latitude, Longitude: *snap.Longitude}
-	if s.routes == nil {
+	if policy.SearchMode == domain.SearchRadius || s.routes == nil {
 		return target, nil, nil
 	}
 	result, err := s.routes.Route(ctx, routing.RouteRequest{
@@ -190,17 +236,24 @@ func (s *Service) visibleLoads(ctx context.Context, actor Actor) ([]domain.LoadO
 }
 
 type evaluatedLoad struct {
-	load          domain.LoadOpportunity
-	reasons       []string
-	roadKm        *float64
-	roadMinutes   *float64
-	forward       *float64
-	lateral       *float64
-	increase      *float64
-	timing        string
-	waiting       *float64
-	compatibility string
-	fingerprint   string
+	load             domain.LoadOpportunity
+	reasons          []string
+	roadKm           *float64
+	roadMinutes      *float64
+	forward          *float64
+	lateral          *float64
+	increase         *float64
+	timing           string
+	waiting          *float64
+	waitingKnown     bool
+	slackKnown       bool
+	slackMinutes     *float64
+	deliveryToTarget *float64
+	usage            *compat.Usage
+	compatibility    string
+	fingerprint      string
+	score            domain.CandidateScore
+	rank             *int
 }
 
 func (s *Service) evaluateLoads(ctx context.Context, tenant uuid.UUID, capacity domain.Capacity, prediction *domain.PredictedCapacity, availableAt time.Time, policy domain.NextLoadSearchPolicy, target routing.Point, line [][]float64, loads []domain.LoadOpportunity) []evaluatedLoad {
@@ -254,7 +307,7 @@ func (s *Service) evaluateLoads(ctx context.Context, tenant uuid.UUID, capacity 
 	for _, load := range loads {
 		item := early[load.ID]
 		if len(item.reasons) > 0 && !contains(prefiltered, load.ID) {
-			item.compatibility, item.fingerprint = s.compatibility(ctx, tenant, capacity, prediction, load)
+			item.compatibility, item.fingerprint, item.usage = s.compatibility(ctx, tenant, capacity, prediction, load)
 			out = append(out, item)
 			continue
 		}
@@ -300,15 +353,20 @@ func (s *Service) evaluateLoads(ctx context.Context, tenant uuid.UUID, capacity 
 					item.timing = "MISSED"
 				} else {
 					item.timing = "FEASIBLE"
-					if waiting > 0 {
-						minutes := waiting.Minutes()
-						item.waiting = &minutes
+					item.waitingKnown = true
+					minutes := waiting.Minutes()
+					item.waiting = &minutes
+					if load.PickupWindow.End != nil {
+						slack := load.PickupWindow.End.Sub(arrival).Minutes()
+						item.slackKnown = true
+						item.slackMinutes = &slack
 					}
 				}
 			}
 		}
 		item.reasons = append(item.reasons, physicalReasons(equipmentFromCapacity(capacity, prediction), load)...)
-		item.compatibility, item.fingerprint = s.compatibility(ctx, tenant, capacity, prediction, load)
+		item.compatibility, item.fingerprint, item.usage = s.compatibility(ctx, tenant, capacity, prediction, load)
+		item.deliveryToTarget = facts.deliveryToTarget
 		if item.compatibility == compat.StatusIncompatible {
 			item.reasons = append(item.reasons, domain.ReasonCargoIncompatible)
 		}
@@ -360,6 +418,9 @@ func (s *Service) roadFacts(ctx context.Context, release, target routing.Point, 
 		facts[loadID] = fact
 	}
 	if policy.SearchMode == domain.SearchRadius {
+		if policy.TargetLocationID != nil {
+			s.fillDirection(ctx, loads, target, availableAt, facts)
+		}
 		return facts
 	}
 	baseline, err := s.routes.Route(ctx, routing.RouteRequest{
@@ -492,17 +553,17 @@ func (s *Service) fillLoadedLeg(ctx context.Context, loads []domain.LoadOpportun
 	}
 }
 
-func (s *Service) compatibility(ctx context.Context, tenant uuid.UUID, capacity domain.Capacity, prediction *domain.PredictedCapacity, load domain.LoadOpportunity) (string, string) {
+func (s *Service) compatibility(ctx context.Context, tenant uuid.UUID, capacity domain.Capacity, prediction *domain.PredictedCapacity, load domain.LoadOpportunity) (string, string, *compat.Usage) {
 	var evalCtx compat.Context
 	if s.catalog != nil {
 		loaded, err := s.catalog.Evaluation(ctx, tenant)
 		if err != nil {
-			return compat.StatusIndeterminate, ""
+			return compat.StatusIndeterminate, "", nil
 		}
 		evalCtx = loaded
 	}
 	result := compat.EvaluateCargoEquipment(cargoFromLoad(load), equipmentFromCapacity(capacity, prediction), accessFromLoad(load), evalCtx)
-	return result.Status, result.Fingerprint
+	return result.Status, result.Fingerprint, result.CapacityUsage
 }
 
 func routingProviderName(provider routing.Provider) string {
@@ -516,35 +577,71 @@ func routingProviderName(provider routing.Provider) string {
 	return named.ProviderName()
 }
 
-func (s *Service) persistSearch(ctx context.Context, id, tenant uuid.UUID, capacity domain.Capacity, policy domain.NextLoadSearchPolicy, provider string, started, completed time.Time, rows []evaluatedLoad) error {
+func (s *Service) persistSearch(ctx context.Context, id, tenant uuid.UUID, capacity domain.Capacity, policy domain.NextLoadSearchPolicy, profile domain.ScoreProfile, provider string, started, completed time.Time, rows []evaluatedLoad) error {
 	if s.searches == nil {
 		return nil
 	}
 	stored := make([]repository.StoredCandidate, 0, len(rows))
 	for _, row := range rows {
 		eligibility := "ELIGIBLE"
+		status := row.score.Status
 		if len(row.reasons) > 0 {
 			eligibility = "REJECTED"
+			status = domain.ScoreNotApplicable
 		}
-		stored = append(stored, repository.StoredCandidate{
+		if status == "" {
+			status = domain.ScoreNotApplicable
+		}
+		components, err := marshalComponents(row.score.Components)
+		if err != nil {
+			return err
+		}
+		var fingerprint *string
+		if row.score.Fingerprint != "" {
+			value := row.score.Fingerprint
+			fingerprint = &value
+		}
+		reasons := append([]string(nil), row.score.UnrankedReasons...)
+		if reasons == nil {
+			reasons = []string{}
+		}
+		candidate := repository.StoredCandidate{
 			ID: uuid.New(), SearchRunID: id, TenantID: tenant, CapacityID: capacity.ID,
 			LoadOpportunityID: row.load.ID, LoadVersion: row.load.Version, Eligibility: eligibility,
 			RejectReasons: append([]string(nil), row.reasons...), RoadDeadheadKm: row.roadKm,
 			RoadDeadheadMinutes: row.roadMinutes, WaitingMinutes: row.waiting,
 			CompatibilityStatus: row.compatibility, CompatibilityFingerprint: row.fingerprint,
 			PolicyFingerprint: policy.Fingerprint(), CreatedAt: completed,
-		})
+			ScoreStatus: status, ScoreComponents: components, UnrankedReasonCodes: reasons,
+			ScoreFingerprint: fingerprint,
+		}
+		if status == domain.ScoreRanked {
+			candidate.Rank = row.rank
+			candidate.ScoreTotal = row.score.Total
+			candidate.ScoreEvidenceBps = row.score.EvidenceBps
+		}
+		stored = append(stored, candidate)
+	}
+	var currency *string
+	if policy.RankingCurrency != "" {
+		value := policy.RankingCurrency
+		currency = &value
 	}
 	return s.searches.SaveSearch(ctx, repository.SearchRun{
 		ID: id, TenantID: tenant, CapacityID: capacity.ID, CapacityVersion: capacity.Version,
 		EffectivePolicyFingerprint: policy.Fingerprint(), StartedAt: started, CompletedAt: completed,
 		RoutingProvider: provider, Status: "COMPLETED",
+		ScoreProfileCode: profile.Code, ScoreProfileVersion: profile.Version,
+		ScoreProfileFingerprint: profile.Fingerprint(), ScoringAlgorithmVersion: profile.AlgorithmVersion,
+		RankingCurrency: currency,
 	}, stored)
 }
 
-func (s *Service) publicSearch(id uuid.UUID, capacity domain.Capacity, policy domain.NextLoadSearchPolicy, rows []evaluatedLoad, limit *int) SearchResponse {
+func (s *Service) publicSearch(id uuid.UUID, capacity domain.Capacity, policy domain.NextLoadSearchPolicy, profile domain.ScoreProfile, rows []evaluatedLoad, limit *int) SearchResponse {
 	counts := map[string]int{}
-	eligible := make([]SearchCandidateView, 0)
+	unrankedCounts := map[string]int{}
+	rankedCount := 0
+	unrankedCount := 0
 	for _, row := range rows {
 		if len(row.reasons) > 0 {
 			for _, reason := range row.reasons {
@@ -552,40 +649,62 @@ func (s *Service) publicSearch(id uuid.UUID, capacity domain.Capacity, policy do
 			}
 			continue
 		}
-		view := SearchCandidateView{
-			LoadOpportunityID: row.load.ID, LoadVersion: row.load.Version, Eligibility: "ELIGIBLE",
-			Load: row.load.MarketplaceView(), Timing: row.timing, WaitingMinutes: row.waiting,
-			Compatibility: row.compatibility, ForwardProgressKm: row.forward, LateralDistanceKm: row.lateral,
-			RouteIncreaseKm: row.increase, Explanation: []string{"ELIGIBLE"},
+		if row.score.Status == domain.ScoreRanked {
+			rankedCount++
+			continue
 		}
-		if row.roadKm != nil {
-			if row.load.VisibilityScope == domain.VisAnonymized {
-				view.DeadheadBucket = domain.DeadheadBucket(*row.roadKm)
-				view.ForwardProgressKm = nil
-				view.LateralDistanceKm = nil
-				view.RouteIncreaseKm = nil
-			} else {
-				view.RoadDeadheadKm = row.roadKm
-				view.RoadDeadheadMinutes = row.roadMinutes
-			}
+		unrankedCount++
+		for _, reason := range row.score.UnrankedReasons {
+			unrankedCounts[reason]++
 		}
-		eligible = append(eligible, view)
 	}
-	sort.Slice(eligible, func(i, j int) bool {
-		return eligible[i].LoadOpportunityID.String() < eligible[j].LoadOpportunityID.String()
-	})
-	totalEligible := len(eligible)
-	if limit != nil && *limit >= 0 && *limit < len(eligible) {
-		eligible = eligible[:*limit]
-	}
-	if counts == nil {
-		counts = map[string]int{}
+	selected := responseRows(rows, limit)
+	views := make([]SearchCandidateView, 0, len(selected))
+	for _, row := range selected {
+		views = append(views, candidateView(row))
 	}
 	return SearchResponse{
 		SearchID: id, CapacityID: capacity.ID, CapacityVersion: capacity.Version, SearchMode: policy.SearchMode,
-		EffectivePolicy: policy, PolicyFingerprint: policy.Fingerprint(), EligibleCandidateCount: totalEligible,
-		RejectionCountsByReason: counts, Candidates: eligible,
+		EffectivePolicy: policy, PolicyFingerprint: policy.Fingerprint(),
+		EligibleCandidateCount: rankedCount + unrankedCount, RankedCandidateCount: rankedCount,
+		UnrankedEligibleCount: unrankedCount, ReturnedCandidateCount: len(views),
+		RejectionCountsByReason: counts, UnrankedCountsByReason: unrankedCounts,
+		Ranking: SearchRanking{
+			ObjectiveProfile: profile.Code, ProfileVersion: profile.Version,
+			AlgorithmVersion: profile.AlgorithmVersion, ProfileFingerprint: profile.Fingerprint(),
+			RankingCurrency: policy.RankingCurrency,
+		},
+		Candidates: views,
 	}
+}
+
+func candidateView(row evaluatedLoad) SearchCandidateView {
+	view := SearchCandidateView{
+		LoadOpportunityID: row.load.ID, LoadVersion: row.load.Version, Eligibility: "ELIGIBLE",
+		Load: row.load.MarketplaceView(), Timing: row.timing, WaitingMinutes: row.waiting,
+		Compatibility: row.compatibility, ForwardProgressKm: row.forward, LateralDistanceKm: row.lateral,
+		RouteIncreaseKm: row.increase, Explanation: []string{"ELIGIBLE"},
+		ScoreStatus: row.score.Status, ScoreComponents: publicComponents(row.load, row.score.Components),
+	}
+	if row.score.Status == domain.ScoreRanked {
+		view.Rank = row.rank
+		view.Score = row.score.Total
+		view.ScoreEvidenceBps = row.score.EvidenceBps
+	} else {
+		view.UnrankedReasonCodes = append([]string(nil), row.score.UnrankedReasons...)
+	}
+	if row.roadKm != nil {
+		if row.load.VisibilityScope == domain.VisAnonymized {
+			view.DeadheadBucket = domain.DeadheadBucket(*row.roadKm)
+			view.ForwardProgressKm = nil
+			view.LateralDistanceKm = nil
+			view.RouteIncreaseKm = nil
+		} else {
+			view.RoadDeadheadKm = row.roadKm
+			view.RoadDeadheadMinutes = row.roadMinutes
+		}
+	}
+	return view
 }
 
 func physicalReasons(equipment compat.Equipment, load domain.LoadOpportunity) []string {

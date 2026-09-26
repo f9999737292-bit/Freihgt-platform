@@ -22,16 +22,17 @@ import (
 )
 
 type Service struct {
-	store     repository.Store
-	verifier  sourceverify.Verifier
-	directory locationclient.Directory
-	routes    routing.Provider
-	policies  repository.PolicyStore
-	searches  repository.SearchStore
-	catalog   reference.Catalog
-	sources   predict.Sources
-	policy    predict.Policy
-	now       func() time.Time
+	store         repository.Store
+	verifier      sourceverify.Verifier
+	directory     locationclient.Directory
+	routes        routing.Provider
+	policies      repository.PolicyStore
+	scoreProfiles repository.ScoreProfileStore
+	searches      repository.SearchStore
+	catalog       reference.Catalog
+	sources       predict.Sources
+	policy        predict.Policy
+	now           func() time.Time
 }
 
 func New(store repository.Store, verifier sourceverify.Verifier) *Service {
@@ -50,6 +51,8 @@ func (s *Service) UseDirectory(directory locationclient.Directory) { s.directory
 func (s *Service) UseRouting(provider routing.Provider) { s.routes = provider }
 
 func (s *Service) UsePolicies(store repository.PolicyStore) { s.policies = store }
+
+func (s *Service) UseScoreProfiles(store repository.ScoreProfileStore) { s.scoreProfiles = store }
 
 func (s *Service) UseCatalog(catalog reference.Catalog) { s.catalog = catalog }
 

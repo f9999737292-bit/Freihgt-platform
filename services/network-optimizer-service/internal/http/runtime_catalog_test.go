@@ -17,6 +17,7 @@ import (
 	"github.com/freight-platform/network-optimizer-service/internal/compat"
 	"github.com/freight-platform/network-optimizer-service/internal/domain"
 	httpserver "github.com/freight-platform/network-optimizer-service/internal/http"
+	"github.com/freight-platform/network-optimizer-service/internal/profilefixture"
 	"github.com/freight-platform/network-optimizer-service/internal/reference"
 	"github.com/freight-platform/network-optimizer-service/internal/repository"
 	"github.com/freight-platform/network-optimizer-service/internal/routing"
@@ -118,9 +119,11 @@ func newRuntimeFixture(t *testing.T) runtimeFixture {
 }
 
 func (fx runtimeFixture) service() *service.Service {
+	fx.store.SeedScoreProfiles(profilefixture.V1())
 	svc := service.New(fx.store, nil)
 	svc.UseRouting(flatRoads{})
 	svc.UsePolicies(fx.store)
+	svc.UseScoreProfiles(fx.store)
 	return svc
 }
 
@@ -130,7 +133,7 @@ func (fx runtimeFixture) search(t *testing.T, svc *service.Service) searchDoc {
 	t.Cleanup(srv.Close)
 	body := map[string]any{
 		"capacity_id": fx.capacity.String(),
-		"policy":      map[string]any{"search_mode": "RADIUS", "radius_km": 100, "objective_profile": "MIN_EMPTY"},
+		"policy":      map[string]any{"search_mode": "RADIUS", "radius_km": 100, "objective_profile": "MIN_DEADHEAD"},
 	}
 	raw, err := json.Marshal(body)
 	if err != nil {

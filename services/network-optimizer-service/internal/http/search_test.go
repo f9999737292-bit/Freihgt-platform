@@ -25,7 +25,7 @@ func TestNextLoadSearchRoute(t *testing.T) {
 	if missingAuth.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("auth %d", missingAuth.StatusCode)
 	}
-	req, err := http.NewRequest(http.MethodPost, srv.URL+"/v1/network/next-load/search", strings.NewReader(`{"capacity_id":"`+uuid.NewString()+`","policy":{"search_mode":"RADIUS","radius_km":25,"objective_profile":"MIN_EMPTY"}}`))
+	req, err := http.NewRequest(http.MethodPost, srv.URL+"/v1/network/next-load/search", strings.NewReader(`{"capacity_id":"`+uuid.NewString()+`","policy":{"search_mode":"RADIUS","radius_km":25,"objective_profile":"MIN_DEADHEAD"}}`))
 	if err != nil {
 		t.Fatal(err)
 	}

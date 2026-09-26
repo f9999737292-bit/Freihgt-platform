@@ -22,6 +22,7 @@ type Memory struct {
 	capacityPolicies map[uuid.UUID]storedCapacityPolicy
 	searchRuns       map[uuid.UUID]SearchRun
 	searchCandidates map[uuid.UUID][]StoredCandidate
+	scoreProfiles    map[string]domain.ScoreProfile
 }
 
 func NewMemory() *Memory {

@@ -888,10 +888,17 @@ components:
         min_loaded_distance_km: {type: number, minimum: 0}
         max_route_increase_km: {type: number, minimum: 0}
         radius_km: {type: number, minimum: 0, nullable: true, description: Positive kilometres for RADIUS prefilter. Zero is rejected by the service.}
-        objective_profile: {type: string}
+        objective_profile:
+          type: string
+          enum: [MIN_DEADHEAD, MAX_CAPACITY_UTILIZATION, RETURN_HOME, MAX_REVENUE, MIN_RISK, BALANCED, MAX_CONTRIBUTION]
+          description: Executable system profile. MAX_CONTRIBUTION is reserved and returns OBJECTIVE_PROFILE_NOT_EXECUTABLE until a planning cost provider exists.
+        ranking_currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+          description: Ordinary policy field. Required for MAX_REVENUE. No FX conversion is performed.
     NextLoadSearchResponse:
       type: object
-      required: [search_id, capacity_id, capacity_version, search_mode, effective_policy, eligible_candidate_count, rejection_counts_by_reason, candidates]
+      required: [search_id, capacity_id, capacity_version, search_mode, effective_policy, eligible_candidate_count, ranked_candidate_count, unranked_eligible_count, returned_candidate_count, rejection_counts_by_reason, unranked_counts_by_reason, ranking, candidates]
       properties:
         search_id: {type: string, format: uuid}
         capacity_id: {type: string, format: uuid}
@@ -900,10 +907,19 @@ components:
         effective_policy: {$ref: '#/components/schemas/NextLoadSearchPolicy'}
         effective_policy_fingerprint: {type: string}
         eligible_candidate_count: {type: integer}
+        ranked_candidate_count: {type: integer}
+        unranked_eligible_count: {type: integer}
+        returned_candidate_count: {type: integer}
         rejection_counts_by_reason:
           type: object
           additionalProperties: {type: integer}
-          description: Aggregate reject counts. Rejected load identities are not returned.
+          description: Hard-feasibility reject counts. Rejected load identities are not returned.
+        unranked_counts_by_reason:
+          type: object
+          additionalProperties: {type: integer}
+          description: Eligible candidates that could not be ranked. These are not hard rejects.
+        ranking:
+          $ref: '#/components/schemas/NextLoadSearchRanking'
         candidates:
           type: array
           items: {$ref: '#/components/schemas/NextLoadCandidate'}
@@ -925,6 +941,36 @@ components:
         waiting_minutes: {type: number}
         compatibility: {type: string, enum: [COMPATIBLE, INCOMPATIBLE, INDETERMINATE]}
         explanation: {type: array, items: {type: string}}
+        rank: {type: integer, minimum: 1, description: Present for RANKED candidates. Assigned before top-N truncation.}
+        score_status: {type: string, enum: [RANKED, UNRANKED]}
+        score: {type: integer, minimum: 0, maximum: 10000, description: Fixed-point match score. Omitted when unranked.}
+        score_evidence_bps: {type: integer, minimum: 0, maximum: 10000}
+        score_components:
+          type: array
+          items: {$ref: '#/components/schemas/NextLoadScoreComponent'}
+        unranked_reason_codes: {type: array, items: {type: string}}
+    NextLoadSearchRanking:
+      type: object
+      required: [objective_profile, profile_version, algorithm_version, profile_fingerprint]
+      properties:
+        objective_profile: {type: string}
+        profile_version: {type: integer, minimum: 1}
+        algorithm_version: {type: string}
+        profile_fingerprint: {type: string}
+        ranking_currency: {type: string, pattern: '^[A-Z]{3}$'}
+    NextLoadScoreComponent:
+      type: object
+      required: [code, status, weight_bps, reason_code, explanation]
+      properties:
+        code: {type: string}
+        status: {type: string, enum: [AVAILABLE, UNAVAILABLE, FALLBACK]}
+        raw_value: {type: number, description: Omitted when it would reveal anonymized geography or a hidden commercial amount.}
+        raw_unit: {type: string}
+        normalized_points: {type: integer, minimum: 0, maximum: 10000}
+        weight_bps: {type: integer, minimum: 1}
+        weighted_points: {type: integer}
+        reason_code: {type: string}
+        explanation: {type: string}
     NetworkPlace:
       type: object
       description: Owner and non-anonymized place. Exact search geography. Address lines are not part of this snapshot.

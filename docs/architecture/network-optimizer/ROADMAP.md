@@ -10,9 +10,11 @@ BNO-0.1B2 is IMPLEMENTED: versioned cargo, equipment, pallet, and packaging cata
 
 BNO-0.1C0 is IMPLEMENTED: location snapshots, search and display geography, the routing port, and search-policy primitives. It does not search loads.
 
-BNO-0.1C1 is IMPLEMENTED in this line of work: a carrier-owned available capacity can search visible published loads and persist hard-feasible match candidates. Match score, weighted ranking, and top N are not implemented. BNO-0.1C is not complete.
+BNO-0.1C1 is IMPLEMENTED: a carrier-owned available capacity can search visible published loads and persist hard-feasible match candidates.
 
-NLO-0.2 is PARTIAL. The predicted-capacity half is in BNO-0.1B. Top-N next-load matching is not implemented.
+BNO-0.1C2 is implemented on `feat/bno-match-score-topn-v0.1c2` and is under controller review: deterministic match score, versioned system objective profiles, and top N after hard feasibility. BNO-0.1C is not complete.
+
+NLO-0.2 is PARTIAL. The predicted-capacity half is in BNO-0.1B. Deterministic top-N ranking is in the BNO-0.1C2 review branch and is not accepted as complete.
 
 NLO-0.3 remains NOT IMPLEMENTED.
 

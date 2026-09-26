@@ -68,6 +68,19 @@ var (
 		Name: "bno_search_duration_seconds", Help: "Next-load search duration.",
 		Buckets: []float64{0.05, 0.1, 0.25, 0.5, 1, 2, 5},
 	})
+	ScoreRuns = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "bno_score_runs_total", Help: "Scored next-load searches by objective profile.",
+	}, []string{"profile"})
+	RankedCandidates = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "bno_ranked_candidates_total", Help: "Eligible candidates that received a rank.",
+	})
+	UnrankedCandidates = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "bno_unranked_candidates_total", Help: "Eligible candidates that could not be ranked.",
+	})
+	ScoreDuration = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name: "bno_score_duration_seconds", Help: "Deterministic match scoring duration.",
+		Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.25, 1},
+	})
 )
 
 func SearchPool(size int) { CandidatePoolSize.Observe(float64(size)) }
@@ -75,6 +88,13 @@ func SearchPool(size int) { CandidatePoolSize.Observe(float64(size)) }
 func RoutingError() { RoutingErrors.Inc() }
 
 func MatrixBatches(count int) { MatrixBatchCount.Add(float64(count)) }
+
+func ScoreOutcome(profile string, duration time.Duration, ranked, unranked int) {
+	ScoreRuns.WithLabelValues(profile).Inc()
+	RankedCandidates.Add(float64(ranked))
+	UnrankedCandidates.Add(float64(unranked))
+	ScoreDuration.Observe(duration.Seconds())
+}
 
 func SearchRun(duration time.Duration, eligible, rejected int, reasons map[string]int) {
 	SearchRunsTotal.Inc()

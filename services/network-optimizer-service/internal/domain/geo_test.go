@@ -17,7 +17,7 @@ func TestBNO184To193SearchPolicy(t *testing.T) {
 		ForwardSearchKm: &forward, CorridorDeviationKm: &lateral, MaxDeadheadKm: &deadhead,
 		PreferredDeadheadKm: &preferred, MaxDeadheadMinutes: &minutes,
 		MinLoadedDistanceKm: &loaded, MaxRouteIncreaseKm: &increase,
-		ObjectiveProfile: "MIN_EMPTY",
+		ObjectiveProfile: "MIN_DEADHEAD",
 	}
 	if err := policy.Validate(); err != nil {
 		t.Fatalf("BNO184 %v", err)

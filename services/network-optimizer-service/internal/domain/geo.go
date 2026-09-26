@@ -117,6 +117,7 @@ type NextLoadSearchPolicy struct {
 	MaxRouteIncreaseKm       *float64   `json:"max_route_increase_km,omitempty"`
 	RadiusKm                 *float64   `json:"radius_km,omitempty"`
 	ObjectiveProfile         string     `json:"objective_profile,omitempty"`
+	RankingCurrency          string     `json:"ranking_currency,omitempty"`
 	AllowUnknownRoadDistance bool       `json:"allow_unknown_road_distance"`
 }
 
@@ -126,8 +127,20 @@ func (p NextLoadSearchPolicy) Validate() error {
 	default:
 		return fmt.Errorf("unsupported search_mode")
 	}
-	if p.ObjectiveProfile == "" || len(p.ObjectiveProfile) > 64 {
-		return fmt.Errorf("objective_profile is required")
+	if !KnownObjectiveProfile(p.ObjectiveProfile) {
+		return fmt.Errorf("objective_profile is not recognized")
+	}
+	if !ObjectiveExecutable(p.ObjectiveProfile) {
+		return ErrObjectiveNotExecutable
+	}
+	if !ValidRankingCurrency(p.RankingCurrency) {
+		return fmt.Errorf("ranking_currency must be empty or three uppercase letters")
+	}
+	if p.ObjectiveProfile == ProfileMaxRevenue && p.RankingCurrency == "" {
+		return ErrRankingCurrencyRequired
+	}
+	if p.ObjectiveProfile == ProfileReturnHome && p.TargetLocationID == nil {
+		return ErrTargetRequiredForObjective
 	}
 	if p.SearchMode == SearchRadius && (p.RadiusKm == nil || *p.RadiusKm <= 0) {
 		return fmt.Errorf("radius_km is required")
