@@ -6,6 +6,8 @@
 
 Hard constraints run before scoring. Scoring never repairs a hard failure.
 
+NLO-0.3A is FROZEN_ACCEPTED and keeps the first implementation waves as feasibility only. BNO-0.1C2 `MatchScore` stays one capacity plus one load. It is not applied to a cargo set. A consolidation score, if authorized later, is a separate profile and is not frozen here. Multi-stop results stay `PROPOSED` planning records. They do not become an active shipment. See [NLO_0_3_CONSOLIDATION_FEASIBILITY.md](NLO_0_3_CONSOLIDATION_FEASIBILITY.md).
+
 ```text
 cargo units + capacity + route skeleton
         ↓
@@ -36,7 +38,7 @@ Any one of these, when required data is present and violated, yields `HARD_REJEC
 - required documents
 - carrier permissions
 
-If the data needed to evaluate a hard constraint is missing, the result is `INDETERMINATE`, not a pass. Policy may allow a named subset of constraints to be skipped only when the objective is explicitly `FEASIBILITY_PARTIAL` and the explanation lists the skipped checks. Default policy does not skip.
+If the data needed to evaluate a hard constraint is missing, the result is `INDETERMINATE`, not a pass. NLO-0.3B, NLO-0.3C, and NLO-0.3D do not use `FEASIBILITY_PARTIAL`. A required unknown fact cannot become `FEASIBLE`, and a weight-only result is not full feasibility while volume, pallets, linear metres, or height remain unknown and required. Any later advisory partial-evidence mode is future, non-executable, not authorized, and not `FEASIBLE`. It is outside NLO-0.3B–D.
 
 ## Patterns
 
@@ -51,7 +53,7 @@ If the data needed to evaluate a hard constraint is missing, the result is `INDE
 
 ## Residual capacity
 
-Current trip fill uses remaining payload, volume, pallet positions, and linear metres after cargo already on the vehicle. The engine optimizes empty space as well as empty kilometres. Weight-only fill is allowed only when volume and linear metres are `UNKNOWN` and the explanation says so. Never coerce those unknown values to zero. It must not be presented as a full compatibility proof.
+Current-trip fill, when later authorized, uses remaining payload, volume, pallet positions, and linear metres after cargo confirmed onboard. Each dimension is independent. An unknown required dimension stays `UNKNOWN` and the candidate stays `INDETERMINATE`. Never coerce an unknown value to zero, and never treat a weight-only remainder as full feasibility.
 
 ## Load order and unloading feasibility
 

@@ -23,11 +23,13 @@ Smallest physical object the consolidation engine may co-load. It is a **plannin
 | `temperature_min` / `temperature_max` | optional | cargo fields |
 | `adr_class` | optional | item `hazard_class`; cargo has `dangerous_goods_flag` |
 | `loading_method` / `unloading_method` | partial | required and allowed access lists on the load projection; no separate method master |
-| `can_co_load` | policy | new; default false until publication says otherwise |
+| `can_co_load` | not a runtime column | NLO-0.3A replaces this name. See the opt-in fields below |
 | `pickup_location` / `delivery_location` | required | order origin/destination today (single pair) |
 | `pickup_window` / `delivery_window` | required | requested/planned timestamps; not a full window model |
 
 Unknown physical attributes fail closed for constraints that need them. Missing pallet counts and linear metres stay `UNKNOWN`. Never coerce an unknown value to zero. The match is `INDETERMINATE` for that constraint unless policy explicitly allows weight/volume-only feasibility.
+
+NLO-0.3A correction, verified on `origin/main` `6d47cc92`: `transport.cargoes` gained nullable `pallet_count`, `pallet_type_code`, `linear_meters`, height, stackable, fragile, food-grade, odor, and contamination columns in migration `000077`. Those columns describe the cargo record. They do not prove the cargo is physically onboard, and they are not residual vehicle capacity. `can_co_load` is not a database column. Owner-controlled publication flags default to false. `consolidation_allowed` governs a same-owner pair. `cross_shipper_consolidation_allowed` governs a cross-shipper pair and does not require `consolidation_allowed`. A search request cannot override either flag. Details are in [NLO_0_3_PRIVACY_TENANCY.md](NLO_0_3_PRIVACY_TENANCY.md) and [ADR-NET-015](adr/ADR-NET-015-cross-shipper-opt-in-privacy.md).
 
 ### CargoCompatibility and CargoIncompatibility
 
