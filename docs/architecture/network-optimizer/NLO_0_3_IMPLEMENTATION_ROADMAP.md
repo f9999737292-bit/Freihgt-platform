@@ -1,13 +1,13 @@
 # NLO-0.3 implementation roadmap
 
-Baseline: `origin/main` `6d47cc92`. NLO-0.3A is FROZEN_ACCEPTED. No wave below is authorized. GPS is not an NLO-0.2 dependency. Current-trip residual capacity is NLO-0.3.
+Architecture baseline: `origin/main` `6d47cc92`. Current implementation main: `8208c662`. NLO-0.3A is FROZEN_ACCEPTED and CLOSED. NLO-0.3B is IMPLEMENTED / CLOSED. NLO-0.3C, NLO-0.3D, and NLO-0.3E are NOT_STARTED. NLO-0.3 is not complete. This closeout does not start NLO-0.3C. GPS is not an NLO-0.2 dependency. Current-trip residual capacity is NLO-0.3.
 
 ## What NLO-0.3 will implement
 
 Planning feasibility for:
 
-- first, a same-origin, same-destination pair of published loads, with owner-controlled opt-in and no current-trip dependency;
-- later, one confirmed onboard cargo projection plus exactly one additional published load, after unit-level onboard evidence exists.
+- a same-origin, same-destination pair of published loads, with owner-controlled opt-in and no current-trip dependency, now IMPLEMENTED / CLOSED as NLO-0.3B;
+- later, one confirmed onboard cargo projection plus exactly one additional published load, after unit-level onboard evidence exists. That wave is NOT_STARTED.
 
 Both stay `PROPOSED`. Neither mutates a shipment.
 
@@ -36,9 +36,9 @@ The first product wave is pairwise consolidation because unit-level onboard evid
 
 ### NLO-0.3B — pairwise same-origin foundation
 
-Status: IMPLEMENTED_IN_BRANCH / UNDER_REVIEW. Not closed. NLO-0.3 is not complete.
+Status: IMPLEMENTED / CLOSED. Merged in PR #174 at `8208c662f1c80475338a97dbc710268fa0fc5a07`. Migration `000081_nlo_pairwise_consolidation_v0_3b`. NLO-0.3 is not complete.
 
-Scope: `PAIRWISE_CONSOLIDATION_ONLY`, set size 2. Owned effective capacity plus two explicitly published loads. Canonical same O-D, overlapping windows, owner-controlled opt-in, `EvaluateGroupage` for a same-owner pair. Cross-shipper opt-in is implemented and fail-closed: full compatibility proof is not claimed, and a cross-shipper pair is not `FEASIBLE` until an ownership-aware reference context exists. Planning only. No score. No shipment mutation. No solver. No current-trip residual dependency.
+Scope: `PAIRWISE_CONSOLIDATION_ONLY`, set size 2. Owned effective capacity plus two explicitly published loads. Canonical same O-D, overlapping windows, owner-controlled opt-in, and B2 `EvaluateGroupageItems` for a same-owner pair. A same-owner `FEASIBLE` result considers capacity-owner restrictions and load-owner restrictions. One tenant's catalog overlay is not applied to the other tenant's cargo or equipment. If that ownership cannot be proven, the result is `INDETERMINATE` with `MULTI_PARTY_REFERENCE_CONTEXT_UNAVAILABLE`, not `FEASIBLE`. `CROSS_SHIPPER_OPT_IN=IMPLEMENTED`. `CROSS_SHIPPER_FULL_COMPATIBILITY_PROOF=NO`. `CROSS_SHIPPER_FEASIBLE_ALLOWED=NO`. A cross-shipper pair fails closed as `INDETERMINATE` / `MULTI_PARTY_REFERENCE_CONTEXT_UNAVAILABLE`. That fail-closed result is intentional. Planning only. No score. No shipment mutation. No solver. No current-trip residual dependency. `execution_supported=false`.
 
 API: `POST /v1/network/consolidation/search` with pattern `SAME_ORIGIN_SAME_DESTINATION` and an owned `capacity_id`.
 
@@ -50,7 +50,9 @@ Out: current-trip context, residual occupancy, route insertion, execution, score
 
 ### NLO-0.3C — onboard evidence, trip context, residual snapshot
 
-Scope: shipment-service owns the future `ShipmentOnboardCargoProvider`. BNO consumes it. Build server-side `CurrentTripContext` and `ResidualCapacitySnapshot` from trusted ports. Do not reuse `000081`; that number is the NLO-0.3B pairwise migration. A residual migration needs a later number. `NEW_EXECUTION_EVIDENCE_REQUIRED=YES` before a residual result can be `FEASIBLE`.
+Status: NOT_STARTED. This is the next planned stage. It is not authorized by the NLO-0.3B closeout.
+
+Scope: shipment-service owns the future `ShipmentOnboardCargoProvider` and the authoritative unit-level `CONFIRMED_ONBOARD` evidence. A shipment-wide status does not prove that cargo is onboard. BNO consumes the provider. Build server-side `CurrentTripContext` and `ResidualCapacitySnapshot` from trusted ports. Do not reuse `000081`; that number is the NLO-0.3B pairwise migration. A residual migration needs a later number. `NEW_EXECUTION_EVIDENCE_REQUIRED=YES` before a residual result can be `FEASIBLE`.
 
 API: none that treats caller residual facts as authority.
 
@@ -64,6 +66,8 @@ Out: load insertion, shipment writes.
 
 ### NLO-0.3D — one additional current-trip load
 
+Status: NOT_STARTED.
+
 Scope: context from 0.3C plus one published load. Road insertion via the routing port. Location and ETA decisions follow the freshness status returned by tracking-service. `execution_supported=false`.
 
 API: same search endpoint with pattern `CURRENT_TRIP_FILL`, `shipment_id` or a server-created `current_trip_context_id`, and `MAX_ADDITIONAL_LOADS=1`.
@@ -75,6 +79,8 @@ Tests: stale, lost, and unknown location status, non-fresh ETA, window miss, roa
 Out: a second extra load, solver, slot booking.
 
 ### NLO-0.3E — bounded expansion and optional ranking
+
+Status: NOT_STARTED.
 
 Scope: only after 0.3B, 0.3C, and 0.3D measurements. Still no solver. A separate score, if authorized, is not MatchScore.
 
@@ -146,7 +152,7 @@ Tenant isolation stays on owner predicates and gateway headers. No IDOR lookup o
 | NLO03_ARCH_012 route insertion | PASS |
 | NLO03_ARCH_013 time windows | PASS |
 | NLO03_ARCH_014 tracking freshness | PASS_WITH_FINDING: tracking-service owns runtime thresholds; BNO consumes status; `BNO_PREDICTION_MAX_ETA_AGE` remains a separate NLO-0.2 gate |
-| NLO03_ARCH_015 cross-shipper opt-in | PASS_WITH_FINDING: flags are accepted owner-controlled facts and are not columns yet |
+| NLO03_ARCH_015 cross-shipper opt-in | PASS: `consolidation_allowed` and `cross_shipper_consolidation_allowed` are owner-controlled columns in migration `000081`. Opt-in is implemented. Full compatibility proof is not claimed, and a cross-shipper pair is not `FEASIBLE` |
 | NLO03_ARCH_016 privacy | PASS |
 | NLO03_ARCH_017 network-optimization-only pool | PASS |
 | NLO03_ARCH_018 execution gate | PASS |

@@ -1,6 +1,6 @@
 # NLO-0.3 current-state inventory
 
-Baseline: `origin/main` `6d47cc92aa825abdd34ee223791ae13c83cf4b01`. Migration head is `000080_bno_match_score_topn_v0_1c2`. This document cites schema and code. It does not treat an architecture sentence as a runtime fact.
+Survey baseline: `origin/main` `6d47cc92aa825abdd34ee223791ae13c83cf4b01`, when the migration head was `000080_bno_match_score_topn_v0_1c2`. That SHA is the historical survey, not the current implementation. Current implementation main is `8208c662f1c80475338a97dbc710268fa0fc5a07`. Migration head is `000081_nlo_pairwise_consolidation_v0_3b`. NLO-0.3B is IMPLEMENTED / CLOSED. NLO-0.3C is NOT_STARTED. NLO-0.3 is not complete. This document cites schema and code. It does not treat an architecture sentence as a runtime fact.
 
 ## Accepted BNO status
 
@@ -20,7 +20,7 @@ Finding: prediction calls `POST /internal/v1/tracking/eta/lookup` through `sourc
 
 ## Shipment execution model
 
-`transport.shipments` in `000003_create_transport_tables.up.sql` has exactly one `origin_location_id` and one `destination_location_id`, both `NOT NULL`. It has one nullable `transport_order_id` and one nullable `cargo_id`. There is no `transport.shipment_stops` table and no `transport.route_legs` table. Later migrations through `000080` do not add them.
+`transport.shipments` in `000003_create_transport_tables.up.sql` has exactly one `origin_location_id` and one `destination_location_id`, both `NOT NULL`. It has one nullable `transport_order_id` and one nullable `cargo_id`. There is no `transport.shipment_stops` table and no `transport.route_legs` table. Later migrations through `000081` do not add them. Migration `000081` adds pairwise consolidation tables and opt-in columns. It does not add shipment stops or route legs.
 
 Answers:
 
@@ -52,7 +52,7 @@ No existing driver or shipment event qualifies as unit-level onboard evidence. `
 | Vehicle | shipment-service | `transport.vehicles` | `tenant_id` | YES weight/volume; PARTIAL pallets and linear metres | `version` | YES via `/internal/v1/vehicles/{id}/capability` | NULL capability stays unknown |
 | PredictedCapacity | network-optimizer-service | `network_optimizer` prediction rows | owner tenant | YES | ETA observed_at plus BNO max age | YES, own tenant | future empty, not residual |
 | Capacity | network-optimizer-service | `network_optimizer.capacities` | owner tenant | YES | capacity version | YES | manual or predicted empty |
-| LoadOpportunity | network-optimizer-service | `network_optimizer.load_opportunities` | owner tenant; marketplace filter | YES | load version | YES for published scopes | opt-in booleans do not exist yet |
+| LoadOpportunity | network-optimizer-service | `network_optimizer.load_opportunities` | owner tenant; marketplace filter | YES | load version | YES for published scopes | `consolidation_allowed` and `cross_shipper_consolidation_allowed` exist in `000081` |
 | Location | transport `locations`; BNO snapshots | location id on order/shipment; BNO snapshot | tenant on location join | YES | snapshot time in BNO | YES for search geography | not live GPS |
 | Tracking ETA | tracking-service | `tracking.shipment_eta_state` | shipment binding | YES | `EvaluateETAFreshness` | YES via internal lookup | separate from BNO max age |
 | Driver GPS | shipment-service event `driver.location.updated`; tracking ingest | tracking position state | shipment/driver tenant | YES as tracking state | status from tracking-service; defaults 10/30, runtime-configurable | NO dedicated BNO port | current-trip wave consumes status, not copied minutes |
@@ -71,4 +71,4 @@ No existing driver or shipment event qualifies as unit-level onboard evidence. `
 
 ## What is not in the repository
 
-No residual capacity table. No onboard evidence state machine. No solver. No 3D packer. No EDO readiness proof inside BNO. Pairwise opt-in, search, and migration `000081` are the NLO-0.3B branch, not this frozen inventory.
+No residual capacity table. No onboard evidence state machine. No solver. No 3D packer. No EDO readiness proof inside BNO. Pairwise opt-in, consolidation search, and migration `000081` are on main. NLO-0.3B is IMPLEMENTED / CLOSED. NLO-0.3C is NOT_STARTED. Unit-level `CONFIRMED_ONBOARD` evidence is still absent.
