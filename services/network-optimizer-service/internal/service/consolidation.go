@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -165,7 +166,7 @@ func (s *Service) SearchConsolidation(ctx context.Context, actor Actor, cmd Cons
 					}
 					continue
 				}
-				assessed = append(assessed, s.assessPair(ctx, equipment, left, right))
+				assessed = append(assessed, s.assessPair(ctx, capacity.OwnerTenantID, equipment, left, right))
 			}
 		}
 	}
@@ -284,7 +285,7 @@ func (p assessedPair) statusRank() int {
 	}
 }
 
-func (s *Service) assessPair(ctx context.Context, equipment compat.Equipment, left, right domain.LoadOpportunity) assessedPair {
+func (s *Service) assessPair(ctx context.Context, capacityOwner uuid.UUID, equipment compat.Equipment, left, right domain.LoadOpportunity) assessedPair {
 	out := assessedPair{left: left, right: right, compatibility: compat.StatusIndeterminate, crossShipper: left.OwnerTenantID != right.OwnerTenantID}
 	pickup, pickupCode := overlap(left.PickupWindow, right.PickupWindow, ReasonPickupUnknown, ReasonPickupDisjoint)
 	delivery, deliveryCode := overlap(left.DeliveryWindow, right.DeliveryWindow, ReasonDeliveryUnknown, ReasonDeliveryDisjoint)
@@ -314,7 +315,14 @@ func (s *Service) assessPair(ctx context.Context, equipment compat.Equipment, le
 	if out.crossShipper {
 		return assessCrossShipper(out, equipment, items, pickupCode, deliveryCode)
 	}
-	contexts, err := s.contextsFor(ctx, []uuid.UUID{left.OwnerTenantID})
+	return s.assessSameOwner(ctx, out, equipment, items, pickupCode, deliveryCode, capacityOwner, left.OwnerTenantID)
+}
+
+func (s *Service) assessSameOwner(ctx context.Context, out assessedPair, equipment compat.Equipment, items []compat.GroupageItem, pickupCode, deliveryCode string, capacityOwner, loadOwner uuid.UUID) assessedPair {
+	if s.catalog == nil {
+		return completeAssessment(out, []compat.Result{compat.EvaluateGroupageItems(equipment, items, compat.Context{})}, pickupCode, deliveryCode)
+	}
+	loaded, err := s.contextsFor(ctx, []uuid.UUID{capacityOwner, loadOwner})
 	if err != nil {
 		out.status = ConsolidationIndeterminate
 		out.compatibility = compat.StatusIndeterminate
@@ -323,10 +331,28 @@ func (s *Service) assessPair(ctx context.Context, equipment compat.Equipment, le
 		out.fingerprints = []string{"NOT_EVALUATED", ReasonMultiPartyUnavailable}
 		return out
 	}
-	var results []compat.Result
+	if capacityOwner == loadOwner {
+		return completeAssessment(out, evaluateContexts(equipment, items, loaded), pickupCode, deliveryCode)
+	}
+	if len(loaded) != 2 || !ownerScopeProvable(loaded[0], loaded[1]) {
+		return assessCrossShipper(out, equipment, items, pickupCode, deliveryCode)
+	}
+	projected := []compat.Context{
+		projectCapacityPolicy(loaded[0], loaded[1]),
+		projectLoadPolicy(loaded[1], loaded[0]),
+	}
+	return completeAssessment(out, evaluateContexts(equipment, items, projected), pickupCode, deliveryCode)
+}
+
+func evaluateContexts(equipment compat.Equipment, items []compat.GroupageItem, contexts []compat.Context) []compat.Result {
+	results := make([]compat.Result, 0, len(contexts))
 	for _, evalCtx := range contexts {
 		results = append(results, compat.EvaluateGroupageItems(equipment, items, evalCtx))
 	}
+	return results
+}
+
+func completeAssessment(out assessedPair, results []compat.Result, pickupCode, deliveryCode string) assessedPair {
 	out = mergeAssessments(out, results)
 	if pickupCode == ReasonPickupUnknown {
 		out.indeterminate = append(out.indeterminate, ReasonPickupUnknown)
@@ -342,6 +368,169 @@ func (s *Service) assessPair(ctx context.Context, equipment compat.Equipment, le
 	out.explanation = append(append([]string{}, out.hard...), out.indeterminate...)
 	out.trace = publicTrace(results)
 	return out
+}
+
+func ownerScopeProvable(capacityCtx, loadCtx compat.Context) bool {
+	if aliasConflict(capacityCtx.CargoAliases, loadCtx.CargoAliases) || aliasConflict(capacityCtx.EquipmentAliases, loadCtx.EquipmentAliases) || aliasConflict(capacityCtx.PalletAliases, loadCtx.PalletAliases) || aliasConflict(capacityCtx.PackagingAliases, loadCtx.PackagingAliases) {
+		return false
+	}
+	if equivalenceConflict(capacityCtx.Equivalences, loadCtx.Equivalences) {
+		return false
+	}
+	return knownScopes(capacityCtx) && knownScopes(loadCtx)
+}
+
+func knownScopes(ctx compat.Context) bool {
+	for _, item := range ctx.CargoClasses {
+		if !knownScope(item.Scope) {
+			return false
+		}
+	}
+	for _, item := range ctx.EquipmentClasses {
+		if !knownScope(item.Scope) {
+			return false
+		}
+	}
+	for _, item := range ctx.RuleSets {
+		if !knownScope(item.Scope) {
+			return false
+		}
+	}
+	for _, item := range ctx.CatalogRefs {
+		if !knownScope(item.Scope) {
+			return false
+		}
+	}
+	for _, item := range ctx.Rules {
+		if !knownScope(item.RuleSetScope) {
+			return false
+		}
+	}
+	return true
+}
+
+func knownScope(scope string) bool {
+	switch scope {
+	case "", "SYSTEM", "TENANT":
+		return true
+	default:
+		return false
+	}
+}
+
+func projectCapacityPolicy(capacityCtx, loadCtx compat.Context) compat.Context {
+	out := capacityCtx
+	out.CargoClasses = withoutScope(capacityCtx.CargoClasses, "TENANT")
+	out.CargoAliases = sharedAliases(capacityCtx.CargoAliases, loadCtx.CargoAliases)
+	out.PalletAliases = sharedAliases(capacityCtx.PalletAliases, loadCtx.PalletAliases)
+	out.PackagingAliases = sharedAliases(capacityCtx.PackagingAliases, loadCtx.PackagingAliases)
+	out.Equivalences = sharedEquivalences(capacityCtx.Equivalences, loadCtx.Equivalences)
+	out.CatalogRefs = withoutTenantKinds(capacityCtx.CatalogRefs, true)
+	return out
+}
+
+func projectLoadPolicy(loadCtx, capacityCtx compat.Context) compat.Context {
+	out := loadCtx
+	out.EquipmentClasses = withoutEquipmentScope(loadCtx.EquipmentClasses, "TENANT")
+	out.EquipmentAliases = sharedAliases(loadCtx.EquipmentAliases, capacityCtx.EquipmentAliases)
+	out.CatalogRefs = withoutTenantKinds(loadCtx.CatalogRefs, false)
+	return out
+}
+
+func withoutScope(items []compat.CargoClass, scope string) []compat.CargoClass {
+	var out []compat.CargoClass
+	for _, item := range items {
+		if item.Scope == scope {
+			continue
+		}
+		out = append(out, item)
+	}
+	return out
+}
+
+func withoutEquipmentScope(items []compat.EquipmentClass, scope string) []compat.EquipmentClass {
+	var out []compat.EquipmentClass
+	for _, item := range items {
+		if item.Scope == scope {
+			continue
+		}
+		out = append(out, item)
+	}
+	return out
+}
+
+func withoutTenantKinds(items []compat.CatalogVersionRef, cargoKinds bool) []compat.CatalogVersionRef {
+	var out []compat.CatalogVersionRef
+	for _, item := range items {
+		if item.Scope == "TENANT" && cargoKind(item.CatalogKind) == cargoKinds {
+			continue
+		}
+		out = append(out, item)
+	}
+	return out
+}
+
+func cargoKind(kind string) bool {
+	switch strings.ToUpper(kind) {
+	case "CARGO_TYPE", "PALLET_TYPE", "PACKAGING_TYPE", "CARGO":
+		return true
+	default:
+		return false
+	}
+}
+
+func sharedAliases(left, right map[string]string) map[string]string {
+	if len(left) == 0 || len(right) == 0 {
+		return nil
+	}
+	out := map[string]string{}
+	for key, value := range left {
+		if right[key] == value {
+			out[key] = value
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func aliasConflict(left, right map[string]string) bool {
+	for key, value := range left {
+		if other, ok := right[key]; ok && other != value {
+			return true
+		}
+	}
+	return false
+}
+
+func sharedEquivalences(left, right []compat.Equivalence) []compat.Equivalence {
+	index := map[string]float64{}
+	for _, item := range right {
+		index[item.FromCode+"\x00"+item.BasisCode] = item.PositionsEach
+	}
+	var out []compat.Equivalence
+	for _, item := range left {
+		factor, ok := index[item.FromCode+"\x00"+item.BasisCode]
+		if ok && factor == item.PositionsEach {
+			out = append(out, item)
+		}
+	}
+	return out
+}
+
+func equivalenceConflict(left, right []compat.Equivalence) bool {
+	index := map[string]float64{}
+	for _, item := range right {
+		index[item.FromCode+"\x00"+item.BasisCode] = item.PositionsEach
+	}
+	for _, item := range left {
+		factor, ok := index[item.FromCode+"\x00"+item.BasisCode]
+		if ok && factor != item.PositionsEach {
+			return true
+		}
+	}
+	return false
 }
 
 func assessCrossShipper(out assessedPair, equipment compat.Equipment, items []compat.GroupageItem, pickupCode, deliveryCode string) assessedPair {
