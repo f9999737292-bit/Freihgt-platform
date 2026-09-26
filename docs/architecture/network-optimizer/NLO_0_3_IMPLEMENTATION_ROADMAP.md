@@ -50,7 +50,7 @@ Out: current-trip context, residual occupancy, route insertion, execution, score
 
 ### NLO-0.3C — onboard evidence, trip context, residual snapshot
 
-Scope: shipment-service owns the future `ShipmentOnboardCargoProvider`. BNO consumes it. Build server-side `CurrentTripContext` and `ResidualCapacitySnapshot` from trusted ports. Do not number `000081` in this candidate. `NEW_EXECUTION_EVIDENCE_REQUIRED=YES` before a residual result can be `FEASIBLE`.
+Scope: shipment-service owns the future `ShipmentOnboardCargoProvider`. BNO consumes it. Build server-side `CurrentTripContext` and `ResidualCapacitySnapshot` from trusted ports. Do not reuse `000081`; that number is the NLO-0.3B pairwise migration. A residual migration needs a later number. `NEW_EXECUTION_EVIDENCE_REQUIRED=YES` before a residual result can be `FEASIBLE`.
 
 API: none that treats caller residual facts as authority.
 
