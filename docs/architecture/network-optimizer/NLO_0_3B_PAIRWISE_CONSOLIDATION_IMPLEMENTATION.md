@@ -1,6 +1,6 @@
 # NLO-0.3B pairwise consolidation implementation
 
-Status: IMPLEMENTED_IN_BRANCH / UNDER_REVIEW. This wave is not closed and NLO-0.3 is not complete.
+Status: IMPLEMENTED / CLOSED. Merged to main in PR #174. Feature head `8a99e71a8c06042e4bc46816dc41ce8c3142a1a4`. Merge SHA `8208c662f1c80475338a97dbc710268fa0fc5a07`. CI run `36267207012` succeeded. Migration `000081_nlo_pairwise_consolidation_v0_3b`. NLO-0.3C, NLO-0.3D, and NLO-0.3E are NOT_STARTED, so NLO-0.3 is not complete.
 
 The question this slice answers is whether two published loads can travel together on one owned available capacity when they share a canonical origin and a canonical destination. The result is planning feasibility. It does not execute a shipment, assign a vehicle, reserve capacity, score a pair, or insert a route stop.
 
