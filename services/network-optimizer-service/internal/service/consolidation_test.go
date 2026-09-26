@@ -132,19 +132,16 @@ func TestNLO03BPairwiseConsolidation(t *testing.T) {
 		}
 	})
 	t.Run("NLO03B_012_MULTI_PARTY_RESTRICTIONS_REPRESENTED", func(t *testing.T) {
-		w, cap, left, right := crossLoads(t)
-		deny := right.OwnerTenantID
-		w.svc.UseCatalog(tenantDenyCatalog{deny: deny})
+		w, cap, _, right := crossLoads(t)
+		cat := &callCatalog{byTenant: map[uuid.UUID]compat.Context{right.OwnerTenantID: tenantDenyContext()}}
+		w.svc.UseCatalog(cat)
 		doc := w.consolidate(w.actor(), cap.ID, nil)
-		if doc.FeasibleCandidateCount != 0 || doc.HardRejectCandidateCount != 1 || doc.HardRejectCountsByReason["TENANT_HARD_DENY"] != 1 {
-			t.Fatalf("deny %+v", doc)
+		if doc.FeasibleCandidateCount != 0 || doc.HardRejectCountsByReason["TENANT_HARD_DENY"] != 0 || len(cat.calls) != 0 {
+			t.Fatalf("overlay applied %+v calls %v", doc, cat.calls)
 		}
-		w.svc.UseCatalog(emptyCatalog{})
-		doc = w.consolidate(w.actor(), cap.ID, nil)
-		if doc.FeasibleCandidateCount != 1 || doc.Candidates[0].Status != ConsolidationFeasible {
-			t.Fatalf("all contexts %+v", doc)
+		if doc.IndeterminateCandidateCount != 1 || !has(doc.Candidates[0].IndeterminateReasonCodes, ReasonMultiPartyUnavailable) {
+			t.Fatalf("%+v", doc)
 		}
-		_ = left
 	})
 
 	t.Run("NLO03B_013_CANONICAL_SAME_OD_PAIR", func(t *testing.T) {
@@ -550,6 +547,143 @@ func TestNLO03BPairwiseConsolidation(t *testing.T) {
 			t.Fatalf("%v", err)
 		}
 	})
+	t.Run("NLO03B_095_CROSS_SHIPPER_NEVER_FEASIBLE_WITH_SINGLE_TENANT_CONTEXT", func(t *testing.T) {
+		w, cap, _, _ := crossLoads(t)
+		cat := &callCatalog{fallback: compat.Context{}}
+		w.svc.UseCatalog(cat)
+		doc := w.consolidate(w.actor(), cap.ID, nil)
+		if len(cat.calls) != 0 || doc.FeasibleCandidateCount != 0 || doc.Candidates[0].Status == ConsolidationFeasible {
+			t.Fatalf("calls %v doc %+v", cat.calls, doc)
+		}
+		if !has(doc.Candidates[0].IndeterminateReasonCodes, ReasonMultiPartyUnavailable) {
+			t.Fatalf("%+v", doc.Candidates[0])
+		}
+	})
+	t.Run("NLO03B_096_TENANT_A_ALIAS_NOT_APPLIED_TO_TENANT_B_CARGO", func(t *testing.T) {
+		w := newWorld(t)
+		cap := w.readyCapacity()
+		origin, dest := uuid.New(), uuid.New()
+		win := span(w.at, w.at.Add(2*time.Hour))
+		tenantA, tenantB := uuid.New(), uuid.New()
+		left := w.flagged(tenantA, domain.VisMarketplace, nil, origin, dest, true, true, win, win, f64(100), domain.CargoConstraints{CargoTypeCode: strPtr("GENERAL")})
+		right := w.flagged(tenantB, domain.VisMarketplace, nil, origin, dest, true, true, win, win, f64(100), domain.CargoConstraints{CargoTypeCode: strPtr("SHIPPER_B_TOKEN")})
+		alias := tenantAAliasContext()
+		direct := compat.EvaluateGroupageItems(compat.Equipment{PayloadKg: f64(1000)}, []compat.GroupageItem{
+			{Cargo: cargoFromLoad(left)}, {Cargo: cargoFromLoad(right)},
+		}, alias)
+		if !reason(direct, "TENANT_A_ALIAS_DENY") {
+			t.Fatalf("alias fixture did not deny %+v", direct.HardRejects)
+		}
+		cat := &callCatalog{byTenant: map[uuid.UUID]compat.Context{tenantA: alias}}
+		w.svc.UseCatalog(cat)
+		doc := w.consolidate(w.actor(), cap.ID, nil)
+		raw := mustJSON(doc)
+		if len(cat.calls) != 0 || strings.Contains(raw, "TENANT_A_ALIAS_DENY") || doc.FeasibleCandidateCount != 0 {
+			t.Fatalf("calls %v %s", cat.calls, raw)
+		}
+		if doc.Candidates[0].Status != ConsolidationIndeterminate || !has(doc.Candidates[0].IndeterminateReasonCodes, ReasonMultiPartyUnavailable) {
+			t.Fatalf("%+v", doc.Candidates[0])
+		}
+	})
+	t.Run("NLO03B_097_CROSS_SHIPPER_PHYSICAL_HARD_REJECT_SURVIVES", func(t *testing.T) {
+		w := newWorld(t)
+		cap := w.readyCapacity()
+		origin, dest := uuid.New(), uuid.New()
+		win := span(w.at, w.at.Add(2*time.Hour))
+		cold := domain.CargoConstraints{TemperatureMinC: f64(0), TemperatureMaxC: f64(2)}
+		warm := domain.CargoConstraints{TemperatureMinC: f64(20), TemperatureMaxC: f64(24)}
+		w.flagged(w.shipper, domain.VisMarketplace, nil, origin, dest, false, true, win, win, f64(100), cold)
+		w.flagged(uuid.New(), domain.VisMarketplace, nil, origin, dest, false, true, win, win, f64(100), warm)
+		cat := &callCatalog{fallback: compat.Context{}}
+		w.svc.UseCatalog(cat)
+		doc := w.consolidate(w.actor(), cap.ID, nil)
+		if len(cat.calls) != 0 || doc.FeasibleCandidateCount != 0 || doc.HardRejectCandidateCount != 1 || len(doc.Candidates) != 0 {
+			t.Fatalf("calls %v %+v", cat.calls, doc)
+		}
+		if doc.HardRejectCountsByReason["TEMPERATURE_RANGES_INCOMPATIBLE"] != 1 {
+			t.Fatalf("%+v", doc.HardRejectCountsByReason)
+		}
+	})
+	t.Run("NLO03B_098_CROSS_SHIPPER_OTHERWISE_INDETERMINATE", func(t *testing.T) {
+		w, cap, left, right := crossLoads(t)
+		cat := &callCatalog{fallback: tenantAAliasContext()}
+		w.svc.UseCatalog(cat)
+		doc := w.consolidate(w.actor(), cap.ID, nil)
+		if doc.Candidates[0].Status != ConsolidationIndeterminate || doc.FeasibleCandidateCount != 0 || len(cat.calls) != 0 {
+			t.Fatalf("calls %v %+v", cat.calls, doc)
+		}
+		if doc.Candidates[0].CapacityUsage == nil || doc.Candidates[0].CapacityUsage.WeightUsed == nil || *doc.Candidates[0].CapacityUsage.WeightUsed != 200 {
+			t.Fatalf("usage %+v", doc.Candidates[0].CapacityUsage)
+		}
+		_, rows, err := w.store.GetConsolidation(context.Background(), w.carrier, doc.SearchID)
+		if err != nil || len(rows) != 1 {
+			t.Fatal(err)
+		}
+		physical := compat.EvaluateGroupageItems(equipmentFromCapacity(cap, nil), []compat.GroupageItem{
+			{Cargo: cargoFromLoad(left)}, {Cargo: cargoFromLoad(right)},
+		}, compat.Context{})
+		fp := rows[0].CompatibilityFingerprint
+		if !strings.Contains(fp, physical.Fingerprint) || !strings.Contains(fp, ReasonMultiPartyUnavailable) || fp == physical.Fingerprint {
+			t.Fatalf("fingerprint %s physical %s", fp, physical.Fingerprint)
+		}
+		again := w.consolidate(w.actor(), cap.ID, nil)
+		_, more, err := w.store.GetConsolidation(context.Background(), w.carrier, again.SearchID)
+		if err != nil || more[0].CandidateFingerprint != rows[0].CandidateFingerprint {
+			t.Fatal("fingerprint not deterministic")
+		}
+	})
+	t.Run("NLO03B_099_SAME_OWNER_FULL_EVALUATION_STILL_WORKS", func(t *testing.T) {
+		w, cap, _, _ := sameOwnerPair(t)
+		doc := w.consolidate(w.actor(), cap.ID, nil)
+		if doc.FeasibleCandidateCount != 1 || doc.Candidates[0].Status != ConsolidationFeasible {
+			t.Fatalf("baseline %+v", doc)
+		}
+		w.svc.UseCatalog(tenantDenyCatalog{deny: w.shipper})
+		denied := w.consolidate(w.actor(), cap.ID, nil)
+		if denied.FeasibleCandidateCount != 0 || denied.HardRejectCountsByReason["TENANT_HARD_DENY"] != 1 {
+			t.Fatalf("load owner deny %+v", denied)
+		}
+		reg := &callCatalog{byTenant: map[uuid.UUID]compat.Context{w.shipper: regulatoryDenyContext()}}
+		w.svc.UseCatalog(reg)
+		regulated := w.consolidate(w.actor(), cap.ID, nil)
+		if regulated.HardRejectCountsByReason["ADR_INCOMPATIBLE"] != 1 || len(reg.calls) != 1 || reg.calls[0] != w.shipper {
+			t.Fatalf("calls %v %+v", reg.calls, regulated.HardRejectCountsByReason)
+		}
+		foreign := &callCatalog{byTenant: map[uuid.UUID]compat.Context{w.carrier: tenantDenyContext()}}
+		w.svc.UseCatalog(foreign)
+		kept := w.consolidate(w.actor(), cap.ID, nil)
+		if kept.FeasibleCandidateCount != 1 || len(foreign.calls) != 1 || foreign.calls[0] != w.shipper {
+			t.Fatalf("calls %v %+v", foreign.calls, kept)
+		}
+	})
+	t.Run("NLO03B_089_SEARCH_USES_DEDICATED_POOL", func(t *testing.T) {
+		raw, err := os.ReadFile("consolidation.go")
+		if err != nil || strings.Contains(string(raw), "ListMarketplaceLoads") || !strings.Contains(string(raw), "ListPublicConsolidationPool") {
+			t.Fatal("search does not use the dedicated pool")
+		}
+		w := newWorld(t)
+		cap := w.readyCapacity()
+		origin, dest := uuid.New(), uuid.New()
+		win := span(w.at, w.at.Add(time.Hour))
+		company := uuid.New()
+		other := uuid.New()
+		w.flagged(w.shipper, domain.VisMarketplace, nil, origin, dest, true, false, win, win, f64(10), domain.CargoConstraints{})
+		w.flagged(w.shipper, domain.VisAnonymized, nil, origin, dest, false, true, win, win, f64(10), domain.CargoConstraints{})
+		w.flagged(w.shipper, domain.VisInvited, []uuid.UUID{company}, origin, dest, true, false, win, win, f64(10), domain.CargoConstraints{})
+		w.flagged(w.shipper, domain.VisInvited, []uuid.UUID{other}, origin, dest, true, false, win, win, f64(10), domain.CargoConstraints{})
+		w.flagged(w.shipper, domain.VisPrivate, nil, origin, dest, true, true, win, win, f64(10), domain.CargoConstraints{})
+		w.flagged(w.shipper, domain.VisNetworkOnly, nil, origin, dest, true, true, win, win, f64(10), domain.CargoConstraints{})
+		w.flagged(w.shipper, domain.VisMarketplace, nil, origin, dest, false, false, win, win, f64(10), domain.CargoConstraints{})
+		actor := serviceActor(w.carrier, &company)
+		doc := w.consolidate(actor, cap.ID, nil)
+		if doc.PoolLoadCount != 3 {
+			t.Fatalf("pool %d", doc.PoolLoadCount)
+		}
+		listed, err := w.svc.ListMarketplaceLoads(context.Background(), actor, 20, 0)
+		if err != nil || !strings.Contains(string(listed.Body), `"id"`) {
+			t.Fatal(err)
+		}
+	})
 }
 
 func TestNLO03BPersistence(t *testing.T) {
@@ -908,8 +1042,8 @@ func crossLoadsOpt(t *testing.T, leftCross, rightCross bool) (*world, domain.Cap
 	cap := w.readyCapacity()
 	origin, dest := uuid.New(), uuid.New()
 	win := span(w.at, w.at.Add(2*time.Hour))
-	left := w.flagged(w.shipper, domain.VisMarketplace, nil, origin, dest, false, leftCross, win, win, f64(100), domain.CargoConstraints{})
-	right := w.flagged(uuid.New(), domain.VisMarketplace, nil, origin, dest, false, rightCross, win, win, f64(100), domain.CargoConstraints{})
+	left := w.flagged(w.shipper, domain.VisMarketplace, nil, origin, dest, true, leftCross, win, win, f64(100), domain.CargoConstraints{})
+	right := w.flagged(uuid.New(), domain.VisMarketplace, nil, origin, dest, true, rightCross, win, win, f64(100), domain.CargoConstraints{})
 	return w, cap, left, right
 }
 
@@ -1036,6 +1170,52 @@ func has(values []string, want string) bool {
 func mustJSON(v any) string {
 	raw, _ := json.Marshal(v)
 	return string(raw)
+}
+
+type callCatalog struct {
+	calls    []uuid.UUID
+	byTenant map[uuid.UUID]compat.Context
+	fallback compat.Context
+}
+
+func (c *callCatalog) Evaluation(_ context.Context, tenant uuid.UUID) (compat.Context, error) {
+	c.calls = append(c.calls, tenant)
+	if ctx, ok := c.byTenant[tenant]; ok {
+		return ctx, nil
+	}
+	return c.fallback, nil
+}
+
+func tenantDenyContext() compat.Context {
+	return compat.Context{Rules: []compat.Rule{{
+		RuleCode: "DENY", RuleKind: compat.KindCargoCargo, Layer: compat.LayerTenant,
+		LeftSelectorType: "ANY", RightSelectorType: "ANY", Decision: compat.DecisionDeny,
+		ReasonCode: "TENANT_HARD_DENY", Severity: compat.SeverityHard,
+	}}}
+}
+
+func regulatoryDenyContext() compat.Context {
+	return compat.Context{Rules: []compat.Rule{{
+		RuleCode: "ADR", RuleKind: compat.KindCargoCargo, Layer: compat.LayerRegulatory,
+		LeftSelectorType: "ANY", RightSelectorType: "ANY", Decision: compat.DecisionDeny,
+		ReasonCode: "ADR_INCOMPATIBLE", Severity: compat.SeverityHard,
+	}}}
+}
+
+func tenantAAliasContext() compat.Context {
+	return compat.Context{
+		CargoCatalogVersion: 1,
+		CargoClasses: []compat.CargoClass{
+			{Code: "GENERAL", Scope: "SYSTEM"},
+			{Code: "TENANT_A_FOOD", Scope: "TENANT", Tags: []string{"FOOD"}},
+		},
+		CargoAliases: map[string]string{"SHIPPER_B_TOKEN": "TENANT_A_FOOD"},
+		Rules: []compat.Rule{{
+			RuleCode: "ALIAS", RuleKind: compat.KindCargoCargo, Layer: compat.LayerTenant,
+			LeftSelectorType: "TAG", LeftSelectorValue: "FOOD", RightSelectorType: "ANY",
+			Decision: compat.DecisionDeny, ReasonCode: "TENANT_A_ALIAS_DENY", Severity: compat.SeverityHard,
+		}},
+	}
 }
 
 type emptyCatalog struct{}

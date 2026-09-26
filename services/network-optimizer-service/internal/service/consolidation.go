@@ -117,7 +117,7 @@ func (s *Service) SearchConsolidation(ctx context.Context, actor Actor, cmd Cons
 			return err
 		}
 		capacity = row
-		rows, err := tx.ListMarketplaceLoads(ctx, actor.TenantID, actor.CompanyID, 100000, 0)
+		rows, err := tx.ListPublicConsolidationPool(ctx, actor.TenantID, actor.CompanyID)
 		if err != nil {
 			return err
 		}
@@ -165,7 +165,7 @@ func (s *Service) SearchConsolidation(ctx context.Context, actor Actor, cmd Cons
 					}
 					continue
 				}
-				assessed = append(assessed, s.assessPair(ctx, actor.TenantID, equipment, left, right))
+				assessed = append(assessed, s.assessPair(ctx, equipment, left, right))
 			}
 		}
 	}
@@ -284,7 +284,7 @@ func (p assessedPair) statusRank() int {
 	}
 }
 
-func (s *Service) assessPair(ctx context.Context, actor uuid.UUID, equipment compat.Equipment, left, right domain.LoadOpportunity) assessedPair {
+func (s *Service) assessPair(ctx context.Context, equipment compat.Equipment, left, right domain.LoadOpportunity) assessedPair {
 	out := assessedPair{left: left, right: right, compatibility: compat.StatusIndeterminate, crossShipper: left.OwnerTenantID != right.OwnerTenantID}
 	pickup, pickupCode := overlap(left.PickupWindow, right.PickupWindow, ReasonPickupUnknown, ReasonPickupDisjoint)
 	delivery, deliveryCode := overlap(left.DeliveryWindow, right.DeliveryWindow, ReasonDeliveryUnknown, ReasonDeliveryDisjoint)
@@ -307,30 +307,21 @@ func (s *Service) assessPair(ctx context.Context, actor uuid.UUID, equipment com
 		out.fingerprints = []string{"NOT_EVALUATED"}
 		return out
 	}
-	tenants := []uuid.UUID{actor}
-	if left.OwnerTenantID != actor {
-		tenants = append(tenants, left.OwnerTenantID)
-	}
-	if right.OwnerTenantID != actor && right.OwnerTenantID != left.OwnerTenantID {
-		tenants = append(tenants, right.OwnerTenantID)
-	}
-	contexts, err := s.contextsFor(ctx, tenants)
-	if err != nil {
-		out.status = ConsolidationIndeterminate
-		out.indeterminate = []string{ReasonMultiPartyUnavailable}
-		if pickupCode == ReasonPickupUnknown {
-			out.indeterminate = append(out.indeterminate, ReasonPickupUnknown)
-		}
-		if deliveryCode == ReasonDeliveryUnknown {
-			out.indeterminate = append(out.indeterminate, ReasonDeliveryUnknown)
-		}
-		out.explanation = append([]string(nil), out.indeterminate...)
-		out.fingerprints = []string{"NOT_EVALUATED"}
-		return out
-	}
 	items := []compat.GroupageItem{
 		{Cargo: cargoFromLoad(left), AccessNeed: accessFromLoad(left)},
 		{Cargo: cargoFromLoad(right), AccessNeed: accessFromLoad(right)},
+	}
+	if out.crossShipper {
+		return assessCrossShipper(out, equipment, items, pickupCode, deliveryCode)
+	}
+	contexts, err := s.contextsFor(ctx, []uuid.UUID{left.OwnerTenantID})
+	if err != nil {
+		out.status = ConsolidationIndeterminate
+		out.compatibility = compat.StatusIndeterminate
+		out.indeterminate = []string{ReasonMultiPartyUnavailable}
+		out.explanation = append([]string(nil), out.indeterminate...)
+		out.fingerprints = []string{"NOT_EVALUATED", ReasonMultiPartyUnavailable}
+		return out
 	}
 	var results []compat.Result
 	for _, evalCtx := range contexts {
@@ -343,10 +334,6 @@ func (s *Service) assessPair(ctx context.Context, actor uuid.UUID, equipment com
 	if deliveryCode == ReasonDeliveryUnknown {
 		out.indeterminate = append(out.indeterminate, ReasonDeliveryUnknown)
 	}
-	if out.crossShipper && s.catalog == nil && out.status == ConsolidationFeasible {
-		out.status = ConsolidationIndeterminate
-		out.indeterminate = append(out.indeterminate, ReasonMultiPartyUnavailable)
-	}
 	if len(out.hard) > 0 {
 		out.status = ConsolidationHardReject
 	} else if len(out.indeterminate) > 0 {
@@ -354,6 +341,29 @@ func (s *Service) assessPair(ctx context.Context, actor uuid.UUID, equipment com
 	}
 	out.explanation = append(append([]string{}, out.hard...), out.indeterminate...)
 	out.trace = publicTrace(results)
+	return out
+}
+
+func assessCrossShipper(out assessedPair, equipment compat.Equipment, items []compat.GroupageItem, pickupCode, deliveryCode string) assessedPair {
+	result := compat.EvaluateGroupageItems(equipment, items, compat.Context{})
+	out = mergeAssessments(out, []compat.Result{result})
+	if pickupCode == ReasonPickupUnknown {
+		out.indeterminate = append(out.indeterminate, ReasonPickupUnknown)
+	}
+	if deliveryCode == ReasonDeliveryUnknown {
+		out.indeterminate = append(out.indeterminate, ReasonDeliveryUnknown)
+	}
+	out.fingerprints = append(out.fingerprints, ReasonMultiPartyUnavailable)
+	if len(out.hard) > 0 {
+		out.status = ConsolidationHardReject
+		out.compatibility = compat.StatusIncompatible
+	} else {
+		out.status = ConsolidationIndeterminate
+		out.compatibility = compat.StatusIndeterminate
+		out.indeterminate = appendUnique(out.indeterminate, ReasonMultiPartyUnavailable)
+	}
+	out.explanation = append(append([]string{}, out.hard...), out.indeterminate...)
+	out.trace = publicTrace([]compat.Result{result})
 	return out
 }
 

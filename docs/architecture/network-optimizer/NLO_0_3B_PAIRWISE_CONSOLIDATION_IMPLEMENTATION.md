@@ -28,15 +28,17 @@ Known exceedance maps to `HARD_REJECT`. Unknown required dimensions stay `INDETE
 
 ## Multi-party reference context
 
-Same-owner and cross-shipper evaluation calls `Catalog.Evaluation` once for the capacity owner and once for each distinct load owner. A hard deny from any of those contexts is `HARD_REJECT`. Any indeterminate context blocks `FEASIBLE`. One tenant's catalog is not applied as another tenant's overlay.
+`CROSS_SHIPPER_OPT_IN_IMPLEMENTED=YES`. `CROSS_SHIPPER_FULL_COMPATIBILITY_PROOF=NO`. `CROSS_SHIPPER_FAIL_CLOSED=YES`. `CROSS_SHIPPER_FEASIBLE_ALLOWED=NO`.
 
-When no catalog is configured, a cross-shipper pair that would otherwise be feasible is `INDETERMINATE` with `MULTI_PARTY_REFERENCE_CONTEXT_UNAVAILABLE`. A physical hard reject is kept. That pair is never marked `FEASIBLE` from a single empty context.
+A cross-shipper pair is not evaluated by loading one tenant's `Catalog.Evaluation` and applying it to another tenant's cargo. NLO-0.3B has no ownership-aware multi-party reference context. The pair is checked only with an empty physical context. A physical hard reject, such as payload, volume, equipment capability, or a temperature-range conflict, is kept. Every other cross-shipper result is `INDETERMINATE` with `MULTI_PARTY_REFERENCE_CONTEXT_UNAVAILABLE`. It is never `FEASIBLE`. Capacity usage and the compatibility fingerprint come from that physical result plus the stable marker `MULTI_PARTY_REFERENCE_CONTEXT_UNAVAILABLE`. This is the accepted safe outcome for 0.3B, not a failed implementation. Full cross-shipper proof waits for a later compatibility-context evolution.
+
+A same-owner pair uses the canonical B2 evaluation for that one load-owner tenant together with the capacity record. Another tenant's cargo catalog is not applied to those loads. Regulatory, platform, and tenant hard denies in that load-owner context still reject the pair.
 
 ## Persistence, privacy, and execution
 
 One transaction stores the search run, every evaluated candidate, and both member pins. Member ordinals are 1 and 2. `load_owner_tenant_id` is an internal audit column and is not a public response field. Capacity id and version, load versions, and the compatibility fingerprint are pinned. A later load change does not rewrite the old row.
 
-The public pool is `ListMarketplaceLoads` for the carrier actor. `PRIVATE` and `NETWORK_OPTIMIZATION_ONLY` stay out of marketplace list and out of this search. Anonymized members use the existing coarse marketplace view, so exact location ids, coordinates, owner tenant ids, and source ids are not copied into the response. The public compatibility trace omits rule-set tenant ids, catalog tenant ids, and source references. Rates are not summed.
+Search reads `ListPublicConsolidationPool`, not `ListMarketplaceLoads`. The marketplace list is unchanged. The pool keeps the carrier visibility contract: `PUBLISHED`, another tenant, and `MARKETPLACE`, `ANONYMIZED_MARKETPLACE`, or `INVITED_CARRIERS` for the actor company. `PRIVATE` and `NETWORK_OPTIMIZATION_ONLY` stay out. A load participates only when `consolidation_allowed` or `cross_shipper_consolidation_allowed` is true. Missing canonical location ids stay in the pool so the service can report `ORIGIN_IDENTITY_UNPROVEN` or `DESTINATION_IDENTITY_UNPROVEN`. Postgres orders the pool by pickup location id, delivery location id, then id. Pair permission is still applied later: same-owner needs both general flags, and cross-shipper needs both cross-shipper flags. Anonymized members use the existing coarse marketplace view, so exact location ids, coordinates, owner tenant ids, and source ids are not copied into the response. The public compatibility trace omits rule-set tenant ids, catalog tenant ids, and source references. Rates are not summed. `POST /v1/network/consolidation/search` rejects unknown JSON fields and a second JSON document. Candidate rows reference `(search_run_id, tenant_id, capacity_id, pattern)` on the search run.
 
 Every candidate returns `execution_supported=false` and `placement_check=NOT_EVALUATED`, including `FEASIBLE`. No shipment, assignment, reservation, or route insertion is created.
 

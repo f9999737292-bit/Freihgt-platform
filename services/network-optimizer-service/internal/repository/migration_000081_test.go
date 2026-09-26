@@ -21,6 +21,9 @@ func TestNLO03BMigration000081Text(t *testing.T) {
 		"load_owner_tenant_id",
 		"consolidation_candidates_fingerprint_uidx",
 		"REFERENCES network_optimizer.capacities (id, owner_tenant_id)",
+		"UNIQUE (id, tenant_id, capacity_id, pattern)",
+		"FOREIGN KEY (search_run_id, tenant_id, capacity_id, pattern)",
+		"REFERENCES network_optimizer.consolidation_search_runs (id, tenant_id, capacity_id, pattern)",
 	} {
 		if !strings.Contains(up, required) {
 			t.Fatalf("NLO03B_077 up migration missing %s", required)

@@ -27,6 +27,7 @@ CREATE TABLE network_optimizer.consolidation_search_runs (
     CONSTRAINT consolidation_search_runs_status_chk CHECK (status = 'COMPLETED'),
     CONSTRAINT consolidation_search_runs_limit_chk CHECK (candidate_limit IS NULL OR candidate_limit >= 0),
     CONSTRAINT consolidation_search_runs_id_tenant_uidx UNIQUE (id, tenant_id),
+    CONSTRAINT consolidation_search_runs_identity_uidx UNIQUE (id, tenant_id, capacity_id, pattern),
     CONSTRAINT consolidation_search_runs_capacity_owner_fk FOREIGN KEY (capacity_id, tenant_id)
         REFERENCES network_optimizer.capacities (id, owner_tenant_id)
 );
@@ -60,8 +61,8 @@ CREATE TABLE network_optimizer.consolidation_candidates (
     CONSTRAINT consolidation_candidates_status_chk CHECK (status IN ('HARD_REJECT', 'INDETERMINATE', 'FEASIBLE', 'PROPOSED', 'INVALIDATED')),
     CONSTRAINT consolidation_candidates_execution_chk CHECK (execution_supported = false),
     CONSTRAINT consolidation_candidates_placement_chk CHECK (placement_check = 'NOT_EVALUATED'),
-    CONSTRAINT consolidation_candidates_run_fk FOREIGN KEY (search_run_id, tenant_id)
-        REFERENCES network_optimizer.consolidation_search_runs (id, tenant_id),
+    CONSTRAINT consolidation_candidates_run_fk FOREIGN KEY (search_run_id, tenant_id, capacity_id, pattern)
+        REFERENCES network_optimizer.consolidation_search_runs (id, tenant_id, capacity_id, pattern),
     CONSTRAINT consolidation_candidates_fingerprint_uidx UNIQUE (search_run_id, candidate_fingerprint)
 );
 
