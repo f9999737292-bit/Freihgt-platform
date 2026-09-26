@@ -115,9 +115,11 @@ type LoadOpportunity struct {
 	Equipment                []string         `json:"equipment,omitempty"`
 	Cargo                    CargoConstraints `json:"cargo,omitempty"`
 	Commercial               Commercial       `json:"commercial,omitempty"`
-	VisibilityScope          string           `json:"visibility_scope"`
-	InvitedCarrierCompanyIDs []uuid.UUID      `json:"invited_carrier_company_ids,omitempty"`
-	Status                   string           `json:"status"`
+	VisibilityScope                   string           `json:"visibility_scope"`
+	InvitedCarrierCompanyIDs          []uuid.UUID      `json:"invited_carrier_company_ids,omitempty"`
+	ConsolidationAllowed              bool             `json:"consolidation_allowed"`
+	CrossShipperConsolidationAllowed  bool             `json:"cross_shipper_consolidation_allowed"`
+	Status                            string           `json:"status"`
 	Version                  int              `json:"version"`
 	CreatedAt                time.Time        `json:"created_at"`
 	UpdatedAt                time.Time        `json:"updated_at"`

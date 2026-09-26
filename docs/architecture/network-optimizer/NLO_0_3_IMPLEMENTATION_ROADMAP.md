@@ -36,7 +36,9 @@ The first product wave is pairwise consolidation because unit-level onboard evid
 
 ### NLO-0.3B — pairwise same-origin foundation
 
-Scope: `PAIRWISE_CONSOLIDATION_ONLY`, set size 2. Owned effective capacity plus two explicitly published loads. Canonical same O-D, overlapping windows, owner-controlled opt-in, `EvaluateGroupage`. Planning only. No score. No shipment mutation. No solver. No current-trip residual dependency.
+Status: IMPLEMENTED_IN_BRANCH / UNDER_REVIEW. Not closed. NLO-0.3 is not complete.
+
+Scope: `PAIRWISE_CONSOLIDATION_ONLY`, set size 2. Owned effective capacity plus two explicitly published loads. Canonical same O-D, overlapping windows, owner-controlled opt-in, `EvaluateGroupage` for a same-owner pair. Cross-shipper opt-in is implemented and fail-closed: full compatibility proof is not claimed, and a cross-shipper pair is not `FEASIBLE` until an ownership-aware reference context exists. Planning only. No score. No shipment mutation. No solver. No current-trip residual dependency.
 
 API: `POST /v1/network/consolidation/search` with pattern `SAME_ORIGIN_SAME_DESTINATION` and an owned `capacity_id`.
 
@@ -48,7 +50,7 @@ Out: current-trip context, residual occupancy, route insertion, execution, score
 
 ### NLO-0.3C — onboard evidence, trip context, residual snapshot
 
-Scope: shipment-service owns the future `ShipmentOnboardCargoProvider`. BNO consumes it. Build server-side `CurrentTripContext` and `ResidualCapacitySnapshot` from trusted ports. Do not number `000081` in this candidate. `NEW_EXECUTION_EVIDENCE_REQUIRED=YES` before a residual result can be `FEASIBLE`.
+Scope: shipment-service owns the future `ShipmentOnboardCargoProvider`. BNO consumes it. Build server-side `CurrentTripContext` and `ResidualCapacitySnapshot` from trusted ports. Do not reuse `000081`; that number is the NLO-0.3B pairwise migration. A residual migration needs a later number. `NEW_EXECUTION_EVIDENCE_REQUIRED=YES` before a residual result can be `FEASIBLE`.
 
 API: none that treats caller residual facts as authority.
 
@@ -104,7 +106,7 @@ Out of NLO-0.3E: unrestricted `2^N`, ML, 3D packing, shipment activation.
 | multi-pick | planning sequence | deferred | `PLAN_ONLY` | 0.3E or 0.4 | DEFERRED |
 | multi-drop | planning sequence | deferred | `PLAN_ONLY` | 0.3E or 0.4 | DEFERRED |
 | current-trip fill | server-built `CurrentTripContext` | one extra load | `INDETERMINATE` without onboard proof | 0.3D | FROZEN_ACCEPTED |
-| cross-shipper | owner-persisted opt-in flags | cross-shipper flag on each load; independent of same-owner flag | excluded | 0.3B | FROZEN_ACCEPTED |
+| cross-shipper | owner-persisted opt-in flags | cross-shipper flag on each load; independent of same-owner flag | `INDETERMINATE` `MULTI_PARTY_REFERENCE_CONTEXT_UNAVAILABLE`; never `FEASIBLE` in 0.3B | 0.3B | FROZEN_ACCEPTED |
 | privacy | safe views | other shipper fields and internal location ids omitted | n/a | 0.3B | FROZEN_ACCEPTED |
 | time windows | known pickup and delivery intervals | overlap required; disjoint is hard reject | `INDETERMINATE` if a required window is unknown | 0.3B | FROZEN_ACCEPTED |
 | road detour | routing port | not Haversine | `SERVICE_UNAVAILABLE` | 0.3D | FROZEN_ACCEPTED |

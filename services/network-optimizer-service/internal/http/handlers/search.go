@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 
@@ -39,6 +41,46 @@ func (h *Handler) SearchNextLoad(w http.ResponseWriter, r *http.Request) {
 		slog.String("search_id", result.AggregateID.String()),
 		slog.String("capacity_id", body.CapacityID.String()),
 		slog.String("routing_provider", "configured"),
+	)
+	respond.Bytes(w, result.Status, result.Body)
+}
+
+func (h *Handler) SearchConsolidation(w http.ResponseWriter, r *http.Request) {
+	actor, err := actorFrom(r)
+	if err != nil {
+		h.finish(w, r, "consolidation_search", uuid.Nil, err)
+		return
+	}
+	raw, err := io.ReadAll(r.Body)
+	if err != nil {
+		h.finishStatus(w, r, "consolidation_search", uuid.Nil, apperrors.Validation("request body is invalid", nil), http.StatusBadRequest)
+		return
+	}
+	var body struct {
+		CapacityID     uuid.UUID `json:"capacity_id"`
+		Pattern        string    `json:"pattern"`
+		CandidateLimit *int      `json:"candidate_limit"`
+	}
+	if err := decode(raw, &body); err != nil {
+		h.finishStatus(w, r, "consolidation_search", uuid.Nil, err, http.StatusBadRequest)
+		return
+	}
+	result, err := h.svc.SearchConsolidation(r.Context(), actor, service.ConsolidationCommand{
+		CapacityID: body.CapacityID, Pattern: body.Pattern, CandidateLimit: body.CandidateLimit,
+	})
+	if err != nil {
+		var appErr *apperrors.AppError
+		if errors.As(err, &appErr) && appErr.Code == apperrors.CodeValidation {
+			h.finishStatus(w, r, "consolidation_search", uuid.Nil, err, http.StatusBadRequest)
+			return
+		}
+		h.finish(w, r, "consolidation_search", uuid.Nil, err)
+		return
+	}
+	h.log.Info("consolidation search",
+		slog.String("request_id", actor.RequestID),
+		slog.String("search_id", result.AggregateID.String()),
+		slog.String("pattern", body.Pattern),
 	)
 	respond.Bytes(w, result.Status, result.Body)
 }

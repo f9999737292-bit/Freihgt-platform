@@ -56,6 +56,9 @@ type Tx interface {
 	GetLoad(context.Context, uuid.UUID) (domain.LoadOpportunity, error)
 	ListOwnLoads(context.Context, uuid.UUID, int, int) ([]domain.LoadOpportunity, error)
 	ListMarketplaceLoads(context.Context, uuid.UUID, *uuid.UUID, int, int) ([]domain.LoadOpportunity, error)
+	// ListPublicConsolidationPool is the carrier consolidation source.
+	// It is not the human marketplace list.
+	ListPublicConsolidationPool(context.Context, uuid.UUID, *uuid.UUID) ([]domain.LoadOpportunity, error)
 	ActiveLoadBySource(context.Context, uuid.UUID, string, uuid.UUID) (domain.LoadOpportunity, error)
 
 	InsertCapacity(context.Context, domain.Capacity) error

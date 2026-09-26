@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"slices"
+	"sort"
 	"sync"
 
 	"github.com/google/uuid"
@@ -11,18 +12,20 @@ import (
 )
 
 type Memory struct {
-	mu               sync.Mutex
-	loads            map[uuid.UUID]domain.LoadOpportunity
-	caps             map[uuid.UUID]domain.Capacity
-	preds            map[uuid.UUID]domain.PredictedCapacity
-	idem             map[string]IdempotencyRecord
-	audits           []AuditEvent
-	outbox           []OutboxEvent
-	carrierPolicies  map[uuid.UUID]domain.NextLoadSearchPolicy
-	capacityPolicies map[uuid.UUID]storedCapacityPolicy
-	searchRuns       map[uuid.UUID]SearchRun
-	searchCandidates map[uuid.UUID][]StoredCandidate
-	scoreProfiles    map[string]domain.ScoreProfile
+	mu                      sync.Mutex
+	loads                   map[uuid.UUID]domain.LoadOpportunity
+	caps                    map[uuid.UUID]domain.Capacity
+	preds                   map[uuid.UUID]domain.PredictedCapacity
+	idem                    map[string]IdempotencyRecord
+	audits                  []AuditEvent
+	outbox                  []OutboxEvent
+	carrierPolicies         map[uuid.UUID]domain.NextLoadSearchPolicy
+	capacityPolicies        map[uuid.UUID]storedCapacityPolicy
+	searchRuns              map[uuid.UUID]SearchRun
+	searchCandidates        map[uuid.UUID][]StoredCandidate
+	consolidationRuns       map[uuid.UUID]ConsolidationRun
+	consolidationCandidates map[uuid.UUID][]ConsolidationCandidate
+	scoreProfiles           map[string]domain.ScoreProfile
 }
 
 func NewMemory() *Memory {
@@ -120,6 +123,37 @@ func (t *memTx) ListOwnLoads(_ context.Context, tenant uuid.UUID, limit, offset 
 	}
 	sortLoads(rows)
 	return pageLoads(rows, limit, offset), nil
+}
+
+func (t *memTx) ListPublicConsolidationPool(_ context.Context, viewer uuid.UUID, company *uuid.UUID) ([]domain.LoadOpportunity, error) {
+	var rows []domain.LoadOpportunity
+	for _, load := range t.loads {
+		if !load.ConsolidationAllowed && !load.CrossShipperConsolidationAllowed {
+			continue
+		}
+		if ok, _ := domain.LoadVisible(load, viewer, company); ok {
+			rows = append(rows, copyLoad(load))
+		}
+	}
+	sort.Slice(rows, func(i, j int) bool {
+		leftPickup, rightPickup := locationKey(rows[i].Pickup.LocationID), locationKey(rows[j].Pickup.LocationID)
+		if leftPickup != rightPickup {
+			return leftPickup < rightPickup
+		}
+		leftDelivery, rightDelivery := locationKey(rows[i].Delivery.LocationID), locationKey(rows[j].Delivery.LocationID)
+		if leftDelivery != rightDelivery {
+			return leftDelivery < rightDelivery
+		}
+		return rows[i].ID.String() < rows[j].ID.String()
+	})
+	return rows, nil
+}
+
+func locationKey(id *uuid.UUID) string {
+	if id == nil {
+		return ""
+	}
+	return id.String()
 }
 
 func (t *memTx) ListMarketplaceLoads(_ context.Context, viewer uuid.UUID, company *uuid.UUID, limit, offset int) ([]domain.LoadOpportunity, error) {

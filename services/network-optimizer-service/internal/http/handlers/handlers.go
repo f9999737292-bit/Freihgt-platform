@@ -275,6 +275,23 @@ func (h *Handler) finish(w http.ResponseWriter, r *http.Request, operation strin
 	respond.Error(w, err)
 }
 
+func (h *Handler) finishStatus(w http.ResponseWriter, r *http.Request, operation string, aggregate uuid.UUID, err error, status int) {
+	requestID := sharedmiddleware.RequestIDFromContext(r.Context())
+	if requestID == "" {
+		requestID = lowcode.RequestIDFromHeader(r.Header)
+	}
+	tenant := lowcode.TenantIDFromHeader(r.Header)
+	h.log.Info("bno request",
+		slog.String("request_id", requestID),
+		slog.String("tenant_id", tenant),
+		slog.String("aggregate_id", aggregate.String()),
+		slog.String("operation", operation),
+		slog.String("error_code", errorCode(err)),
+	)
+	bnometrics.API(operation, errorCode(err))
+	respond.ErrorStatus(w, err, status)
+}
+
 func actorFrom(r *http.Request) (service.Actor, error) {
 	if q := strings.TrimSpace(r.URL.Query().Get("tenant_id")); q != "" && !strings.EqualFold(q, lowcode.TenantIDFromHeader(r.Header)) {
 		return service.Actor{}, apperrors.Forbidden("tenant_id does not match authenticated tenant")
@@ -396,21 +413,23 @@ type windowBody struct {
 }
 
 type createLoadBody struct {
-	SourceType               string                  `json:"source_type"`
-	SourceID                 uuid.UUID               `json:"source_id"`
-	Pickup                   placeBody               `json:"pickup"`
-	PickupWindow             windowBody              `json:"pickup_window"`
-	Delivery                 placeBody               `json:"delivery"`
-	DeliveryWindow           windowBody              `json:"delivery_window"`
-	WeightKg                 *float64                `json:"weight_kg"`
-	VolumeM3                 *float64                `json:"volume_m3"`
-	BodyType                 string                  `json:"body_type"`
-	Equipment                []string                `json:"equipment"`
-	Cargo                    domain.CargoConstraints `json:"cargo"`
-	Commercial               domain.Commercial       `json:"commercial"`
-	VisibilityScope          string                  `json:"visibility_scope"`
-	InvitedCarrierCompanyIDs []uuid.UUID             `json:"invited_carrier_company_ids"`
-	Publish                  bool                    `json:"publish"`
+	SourceType                       string                  `json:"source_type"`
+	SourceID                         uuid.UUID               `json:"source_id"`
+	Pickup                           placeBody               `json:"pickup"`
+	PickupWindow                     windowBody              `json:"pickup_window"`
+	Delivery                         placeBody               `json:"delivery"`
+	DeliveryWindow                   windowBody              `json:"delivery_window"`
+	WeightKg                         *float64                `json:"weight_kg"`
+	VolumeM3                         *float64                `json:"volume_m3"`
+	BodyType                         string                  `json:"body_type"`
+	Equipment                        []string                `json:"equipment"`
+	Cargo                            domain.CargoConstraints `json:"cargo"`
+	Commercial                       domain.Commercial       `json:"commercial"`
+	VisibilityScope                  string                  `json:"visibility_scope"`
+	InvitedCarrierCompanyIDs         []uuid.UUID             `json:"invited_carrier_company_ids"`
+	ConsolidationAllowed             bool                    `json:"consolidation_allowed"`
+	CrossShipperConsolidationAllowed bool                    `json:"cross_shipper_consolidation_allowed"`
+	Publish                          bool                    `json:"publish"`
 }
 
 func (b createLoadBody) toDomain() (domain.LoadOpportunity, error) {
@@ -421,23 +440,26 @@ func (b createLoadBody) toDomain() (domain.LoadOpportunity, error) {
 		WeightKg: b.WeightKg, VolumeM3: b.VolumeM3, BodyType: b.BodyType, Equipment: b.Equipment,
 		Cargo: b.Cargo, Commercial: b.Commercial, VisibilityScope: b.VisibilityScope,
 		InvitedCarrierCompanyIDs: b.InvitedCarrierCompanyIDs,
+		ConsolidationAllowed:     b.ConsolidationAllowed, CrossShipperConsolidationAllowed: b.CrossShipperConsolidationAllowed,
 	}, nil
 }
 
 type updateLoadBody struct {
-	Version                  int                      `json:"version"`
-	VisibilityScope          *string                  `json:"visibility_scope"`
-	InvitedCarrierCompanyIDs *[]uuid.UUID             `json:"invited_carrier_company_ids"`
-	Pickup                   *placeBody               `json:"pickup"`
-	PickupWindow             *windowBody              `json:"pickup_window"`
-	Delivery                 *placeBody               `json:"delivery"`
-	DeliveryWindow           *windowBody              `json:"delivery_window"`
-	WeightKg                 *float64                 `json:"weight_kg"`
-	VolumeM3                 *float64                 `json:"volume_m3"`
-	BodyType                 *string                  `json:"body_type"`
-	Equipment                *[]string                `json:"equipment"`
-	Cargo                    *domain.CargoConstraints `json:"cargo"`
-	Commercial               *domain.Commercial       `json:"commercial"`
+	Version                          int                      `json:"version"`
+	VisibilityScope                  *string                  `json:"visibility_scope"`
+	InvitedCarrierCompanyIDs         *[]uuid.UUID             `json:"invited_carrier_company_ids"`
+	Pickup                           *placeBody               `json:"pickup"`
+	PickupWindow                     *windowBody              `json:"pickup_window"`
+	Delivery                         *placeBody               `json:"delivery"`
+	DeliveryWindow                   *windowBody              `json:"delivery_window"`
+	WeightKg                         *float64                 `json:"weight_kg"`
+	VolumeM3                         *float64                 `json:"volume_m3"`
+	BodyType                         *string                  `json:"body_type"`
+	Equipment                        *[]string                `json:"equipment"`
+	Cargo                            *domain.CargoConstraints `json:"cargo"`
+	Commercial                       *domain.Commercial       `json:"commercial"`
+	ConsolidationAllowed             *bool                    `json:"consolidation_allowed"`
+	CrossShipperConsolidationAllowed *bool                    `json:"cross_shipper_consolidation_allowed"`
 }
 
 func (b updateLoadBody) patch() service.LoadPatch {
@@ -445,6 +467,7 @@ func (b updateLoadBody) patch() service.LoadPatch {
 		Version: b.Version, VisibilityScope: b.VisibilityScope, Invited: b.InvitedCarrierCompanyIDs,
 		WeightKg: b.WeightKg, VolumeM3: b.VolumeM3, BodyType: b.BodyType, Equipment: b.Equipment,
 		Cargo: b.Cargo, Commercial: b.Commercial,
+		ConsolidationAllowed: b.ConsolidationAllowed, CrossShipperConsolidationAllowed: b.CrossShipperConsolidationAllowed,
 	}
 	if b.Pickup != nil {
 		place := placeOf(*b.Pickup)
@@ -466,7 +489,7 @@ func (b updateLoadBody) patch() service.LoadPatch {
 		patch.DeliveryWindow = &window
 		patch.Changed = true
 	}
-	patch.Changed = patch.Changed || b.VisibilityScope != nil || b.InvitedCarrierCompanyIDs != nil || b.WeightKg != nil || b.VolumeM3 != nil || b.BodyType != nil || b.Equipment != nil || b.Cargo != nil || b.Commercial != nil
+	patch.Changed = patch.Changed || b.VisibilityScope != nil || b.InvitedCarrierCompanyIDs != nil || b.WeightKg != nil || b.VolumeM3 != nil || b.BodyType != nil || b.Equipment != nil || b.Cargo != nil || b.Commercial != nil || b.ConsolidationAllowed != nil || b.CrossShipperConsolidationAllowed != nil
 	return patch
 }
 

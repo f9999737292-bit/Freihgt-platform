@@ -80,5 +80,6 @@ func NewRouterWithCatalog(log *slog.Logger, svc *service.Service, ready func(htt
 	r.Post("/v1/network/compatibility/cargo-equipment/evaluate", h.EvaluateCargoEquipment)
 	r.Post("/v1/network/compatibility/groupage/evaluate", h.EvaluateGroupage)
 	r.Post("/v1/network/next-load/search", h.SearchNextLoad)
+	r.Post("/v1/network/consolidation/search", h.SearchConsolidation)
 	return r
 }

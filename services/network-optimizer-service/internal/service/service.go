@@ -10,29 +10,30 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/freight-platform/network-optimizer-service/internal/compat"
 	"github.com/freight-platform/network-optimizer-service/internal/domain"
 	"github.com/freight-platform/network-optimizer-service/internal/locationclient"
 	apperrors "github.com/freight-platform/network-optimizer-service/internal/platform/errors"
 	bnometrics "github.com/freight-platform/network-optimizer-service/internal/platform/metrics"
 	"github.com/freight-platform/network-optimizer-service/internal/predict"
-	"github.com/freight-platform/network-optimizer-service/internal/reference"
 	"github.com/freight-platform/network-optimizer-service/internal/repository"
 	"github.com/freight-platform/network-optimizer-service/internal/routing"
 	"github.com/freight-platform/network-optimizer-service/internal/sourceverify"
 )
 
 type Service struct {
-	store         repository.Store
-	verifier      sourceverify.Verifier
-	directory     locationclient.Directory
-	routes        routing.Provider
-	policies      repository.PolicyStore
-	scoreProfiles repository.ScoreProfileStore
-	searches      repository.SearchStore
-	catalog       reference.Catalog
-	sources       predict.Sources
-	policy        predict.Policy
-	now           func() time.Time
+	store          repository.Store
+	verifier       sourceverify.Verifier
+	directory      locationclient.Directory
+	routes         routing.Provider
+	policies       repository.PolicyStore
+	scoreProfiles  repository.ScoreProfileStore
+	searches       repository.SearchStore
+	catalog        catalogEvaluator
+	consolidations repository.ConsolidationStore
+	sources        predict.Sources
+	policy         predict.Policy
+	now            func() time.Time
 }
 
 func New(store repository.Store, verifier sourceverify.Verifier) *Service {
@@ -43,7 +44,14 @@ func New(store repository.Store, verifier sourceverify.Verifier) *Service {
 	if searches, ok := store.(repository.SearchStore); ok {
 		svc.searches = searches
 	}
+	if consolidations, ok := store.(repository.ConsolidationStore); ok {
+		svc.consolidations = consolidations
+	}
 	return svc
+}
+
+type catalogEvaluator interface {
+	Evaluation(context.Context, uuid.UUID) (compat.Context, error)
 }
 
 func (s *Service) UseDirectory(directory locationclient.Directory) { s.directory = directory }
@@ -54,7 +62,7 @@ func (s *Service) UsePolicies(store repository.PolicyStore) { s.policies = store
 
 func (s *Service) UseScoreProfiles(store repository.ScoreProfileStore) { s.scoreProfiles = store }
 
-func (s *Service) UseCatalog(catalog reference.Catalog) { s.catalog = catalog }
+func (s *Service) UseCatalog(catalog catalogEvaluator) { s.catalog = catalog }
 
 func (s *Service) ConfigurePrediction(sources predict.Sources, policy predict.Policy) {
 	s.sources = sources
@@ -87,20 +95,22 @@ type CreateLoadCommand struct {
 }
 
 type LoadPatch struct {
-	Version         int
-	VisibilityScope *string
-	Invited         *[]uuid.UUID
-	Pickup          *domain.Place
-	PickupWindow    *domain.TimeWindow
-	Delivery        *domain.Place
-	DeliveryWindow  *domain.TimeWindow
-	WeightKg        *float64
-	VolumeM3        *float64
-	BodyType        *string
-	Equipment       *[]string
-	Cargo           *domain.CargoConstraints
-	Commercial      *domain.Commercial
-	Changed         bool
+	Version                          int
+	VisibilityScope                  *string
+	Invited                          *[]uuid.UUID
+	Pickup                           *domain.Place
+	PickupWindow                     *domain.TimeWindow
+	Delivery                         *domain.Place
+	DeliveryWindow                   *domain.TimeWindow
+	WeightKg                         *float64
+	VolumeM3                         *float64
+	BodyType                         *string
+	Equipment                        *[]string
+	Cargo                            *domain.CargoConstraints
+	Commercial                       *domain.Commercial
+	ConsolidationAllowed             *bool
+	CrossShipperConsolidationAllowed *bool
+	Changed                          bool
 }
 
 type CreateCapacityCommand struct {
@@ -856,6 +866,12 @@ func applyLoadPatch(load *domain.LoadOpportunity, patch LoadPatch) {
 	}
 	if patch.Commercial != nil {
 		load.Commercial = *patch.Commercial
+	}
+	if patch.ConsolidationAllowed != nil {
+		load.ConsolidationAllowed = *patch.ConsolidationAllowed
+	}
+	if patch.CrossShipperConsolidationAllowed != nil {
+		load.CrossShipperConsolidationAllowed = *patch.CrossShipperConsolidationAllowed
 	}
 }
 

@@ -341,6 +341,7 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/network/predicted-capacities/{id}/refresh", "post", "Refresh predicted capacity", "Network Optimizer", True, True, "bno_prediction"),
     ("/api/v1/network/predicted-capacities/{id}/activate", "post", "Activate predicted capacity", "Network Optimizer", True, True, "bno_prediction"),
     ("/api/v1/network/next-load/search", "post", "Search next-load candidates for an available capacity", "Network Optimizer", True, True, "bno_next_load"),
+    ("/api/v1/network/consolidation/search", "post", "Search pairwise same-origin consolidation feasibility", "Network Optimizer", True, True, "bno_consolidation"),
     ("/api/v1/network/marketplace/load-opportunities", "get", "List marketplace load opportunities", "Network Optimizer", True, True, "bno_list"),
     ("/api/v1/network/marketplace/load-opportunities/{id}", "get", "Get marketplace load opportunity", "Network Optimizer", True, True, None),
     ("/api/v1/network/marketplace/capacities", "get", "List marketplace capacities", "Network Optimizer", True, True, "bno_list"),
@@ -1671,6 +1672,8 @@ def render_operation(
             lines.append(PRICED_TRANSPORT_ORDER_REQUEST_BODY)
         elif profile == "bno_next_load":
             lines.append("              $ref: '#/components/schemas/NextLoadSearchRequest'")
+        elif profile == "bno_consolidation":
+            lines.append("              $ref: '#/components/schemas/ConsolidationSearchRequest'")
         else:
             lines.extend(
                 [
@@ -2112,7 +2115,7 @@ def render_operation(
         success_code = "200"
     elif profile == "bno_prediction" and ("/refresh" in path or "/activate" in path):
         success_code = "200"
-    elif profile == "bno_next_load":
+    elif profile == "bno_next_load" or profile == "bno_consolidation":
         success_code = "200"
     elif profile == "bno_compatibility":
         success_code = "200" if method != "post" or path.endswith("/evaluate") or path.endswith("/activate") or path.endswith("/retire") else "201"
@@ -2133,6 +2136,8 @@ def render_operation(
         response_schema = "CompatibilityEvaluation"
     if profile == "bno_next_load":
         response_schema = "NextLoadSearchResponse"
+    if profile == "bno_consolidation":
+        response_schema = "ConsolidationSearchResponse"
     if method == "get" and path == "/api/v1/network/marketplace/load-opportunities/{id}":
         response_schema = "NetworkMarketplaceLoad"
     elif method == "get" and path == "/api/v1/network/marketplace/capacities/{id}":
@@ -4038,6 +4043,85 @@ components:
         id: {type: string, format: uuid}
         pickup: {$ref: '#/components/schemas/NetworkPlace'}
         delivery: {$ref: '#/components/schemas/NetworkPlace'}
+        consolidation_allowed:
+          type: boolean
+          description: Owner-controlled same-owner consolidation opt-in. Omitted on create means false. Not a search override.
+        cross_shipper_consolidation_allowed:
+          type: boolean
+          description: Owner-controlled cross-shipper consolidation opt-in. Independent of consolidation_allowed. Not a search override.
+    ConsolidationSearchRequest:
+      type: object
+      required: [capacity_id, pattern]
+      additionalProperties: false
+      properties:
+        capacity_id: {type: string, format: uuid}
+        pattern:
+          type: string
+          enum: [SAME_ORIGIN_SAME_DESTINATION, CURRENT_TRIP_FILL]
+          description: NLO-0.3B executes only SAME_ORIGIN_SAME_DESTINATION. CURRENT_TRIP_FILL returns PATTERN_NOT_IMPLEMENTED.
+        candidate_limit:
+          type: integer
+          minimum: 0
+          description: Response cap applied after evaluation. It does not change pair generation, counts, or persistence.
+    ConsolidationSearchResponse:
+      type: object
+      required: [search_id, capacity_id, capacity_version, pattern, pool_load_count, evaluated_pair_count, feasible_candidate_count, indeterminate_candidate_count, hard_reject_candidate_count, returned_candidate_count, excluded_counts_by_reason, hard_reject_counts_by_reason, indeterminate_counts_by_reason, candidates]
+      properties:
+        search_id: {type: string, format: uuid}
+        capacity_id: {type: string, format: uuid}
+        capacity_version: {type: integer}
+        pattern: {type: string, enum: [SAME_ORIGIN_SAME_DESTINATION]}
+        pool_load_count: {type: integer}
+        evaluated_pair_count: {type: integer}
+        feasible_candidate_count: {type: integer}
+        indeterminate_candidate_count: {type: integer}
+        hard_reject_candidate_count: {type: integer}
+        returned_candidate_count: {type: integer}
+        excluded_counts_by_reason:
+          type: object
+          additionalProperties: {type: integer}
+        hard_reject_counts_by_reason:
+          type: object
+          additionalProperties: {type: integer}
+        indeterminate_counts_by_reason:
+          type: object
+          additionalProperties: {type: integer}
+        candidates:
+          type: array
+          items: {$ref: '#/components/schemas/ConsolidationCandidate'}
+    ConsolidationCandidate:
+      type: object
+      required: [candidate_id, status, execution_supported, placement_check, members, compatibility]
+      properties:
+        candidate_id: {type: string, format: uuid}
+        status: {type: string, enum: [FEASIBLE, INDETERMINATE]}
+        execution_supported: {type: boolean, enum: [false]}
+        placement_check: {type: string, enum: [NOT_EVALUATED]}
+        members:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items: {$ref: '#/components/schemas/ConsolidationMember'}
+        pickup_window_overlap: {$ref: '#/components/schemas/ConsolidationWindowOverlap'}
+        delivery_window_overlap: {$ref: '#/components/schemas/ConsolidationWindowOverlap'}
+        compatibility: {type: string, enum: [COMPATIBLE, INCOMPATIBLE, INDETERMINATE]}
+        capacity_usage: {type: object, additionalProperties: true}
+        conditions: {type: array, items: {type: string}}
+        indeterminate_reason_codes: {type: array, items: {type: string}}
+        explanation: {type: array, items: {type: string}}
+    ConsolidationMember:
+      type: object
+      required: [ordinal, load_opportunity_id, load_version, load]
+      properties:
+        ordinal: {type: integer, enum: [1, 2]}
+        load_opportunity_id: {type: string, format: uuid}
+        load_version: {type: integer}
+        load: {$ref: '#/components/schemas/NetworkMarketplaceLoad'}
+    ConsolidationWindowOverlap:
+      type: object
+      properties:
+        start: {type: string, format: date-time}
+        end: {type: string, format: date-time}
     NetworkMarketplaceLoad:
       type: object
       additionalProperties: true

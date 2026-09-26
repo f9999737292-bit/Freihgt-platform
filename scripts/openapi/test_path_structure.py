@@ -514,6 +514,31 @@ def assert_payment_schema_isolation() -> None:
             raise AssertionError(f"openapi.yaml missing required schema {name}")
 
 
+def assert_consolidation_single_request_body() -> None:
+    """NLO03B_082 NLO03B_083 NLO03B_088: one typed consolidation request body and owner-only opt-in fields."""
+    for filename in ("network-optimizer-service.yaml", "openapi.yaml"):
+        text = (OPENAPI_DIR / filename).read_text(encoding="utf-8")
+        operation = _operation_block(text, "/api/v1/network/consolidation/search")
+        bodies = [line for line in operation.splitlines() if line.startswith("      requestBody:")]
+        if len(bodies) != 1:
+            raise AssertionError(f"{filename} consolidation requestBody count={len(bodies)}")
+        if "additionalProperties: true" in operation.split("responses:", 1)[0]:
+            raise AssertionError(f"{filename} consolidation request schema is untyped")
+        if "#/components/schemas/ConsolidationSearchRequest" not in operation:
+            raise AssertionError(f"{filename} consolidation request schema missing")
+        if "ConsolidationSearchResponse" not in operation:
+            raise AssertionError(f"{filename} consolidation response schema missing")
+        _reject_duplicate_mapping_keys(operation, filename)
+        owner = text.split("NetworkLoadOpportunity:", 1)[1].split("NetworkMarketplaceLoad:", 1)[0]
+        marketplace = text.split("NetworkMarketplaceLoad:", 1)[1].split("NetworkCapacity:", 1)[0]
+        if "consolidation_allowed:" not in owner or "cross_shipper_consolidation_allowed:" not in owner:
+            raise AssertionError(f"{filename} owner opt-in fields missing")
+        if "consolidation_allowed:" in marketplace or "cross_shipper_consolidation_allowed:" in marketplace:
+            raise AssertionError(f"{filename} marketplace load exposes consolidation opt-in")
+        if "load_owner_tenant_id:" in text.split("ConsolidationCandidate:", 1)[1].split("NetworkPlace:", 1)[0]:
+            raise AssertionError(f"{filename} public candidate exposes member owner tenant")
+
+
 def assert_next_load_single_request_body() -> None:
     """BNO241: the next-load operation has one requestBody, and duplicate YAML keys fail."""
     for filename in ("network-optimizer-service.yaml", "openapi.yaml"):
@@ -636,6 +661,7 @@ def main() -> int:
     assert_rfx_service_version_lifecycle_routes()
 
     assert_next_load_single_request_body()
+    assert_consolidation_single_request_body()
 
     print("OPENAPI_PATH_STRUCTURE_TEST=PASS")
     print("BNO241_OPENAPI_SINGLE_REQUEST_BODY=PASS")

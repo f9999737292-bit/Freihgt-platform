@@ -71,4 +71,4 @@ No existing driver or shipment event qualifies as unit-level onboard evidence. `
 
 ## What is not in the repository
 
-No residual capacity table. No onboard evidence state machine. No `consolidation_allowed` column. No consolidation search route. No `000081`. No solver. No 3D packer. No EDO readiness proof inside BNO.
+No residual capacity table. No onboard evidence state machine. No solver. No 3D packer. No EDO readiness proof inside BNO. Pairwise opt-in, search, and migration `000081` are the NLO-0.3B branch, not this frozen inventory.

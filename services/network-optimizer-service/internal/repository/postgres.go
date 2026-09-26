@@ -26,7 +26,8 @@ commercial_mode, commercial_amount, commercial_currency,
 visibility_scope, invited_carrier_company_ids,
 status, version, created_at, updated_at,
 pickup_country_code, pickup_region, pickup_city,
-delivery_country_code, delivery_region, delivery_city`
+delivery_country_code, delivery_region, delivery_city,
+consolidation_allowed, cross_shipper_consolidation_allowed`
 
 const capacityColumns = `
 id, owner_tenant_id, carrier_company_id, vehicle_id,
@@ -113,7 +114,8 @@ func (t *pgTx) InsertLoad(ctx context.Context, load domain.LoadOpportunity) erro
 			$22,$23,$24,
 			$25,$26,
 			$27,$28,$29,$30,
-			$31,$32,$33,$34,$35,$36
+			$31,$32,$33,$34,$35,$36,
+			$37,$38
 		)`,
 		load.ID, load.OwnerTenantID, load.SourceType, load.SourceID,
 		load.Pickup.LocationID, load.Pickup.Label, load.Pickup.Latitude, load.Pickup.Longitude, load.PickupWindow.Start, load.PickupWindow.End,
@@ -124,6 +126,7 @@ func (t *pgTx) InsertLoad(ctx context.Context, load domain.LoadOpportunity) erro
 		load.Status, load.Version, load.CreatedAt, load.UpdatedAt,
 		nullString(load.Pickup.CountryCode), nullString(load.Pickup.Region), nullString(load.Pickup.City),
 		nullString(load.Delivery.CountryCode), nullString(load.Delivery.Region), nullString(load.Delivery.City),
+		load.ConsolidationAllowed, load.CrossShipperConsolidationAllowed,
 	)
 	if isConstraint(err, "load_opportunities_active_source_uidx") {
 		return ErrDuplicateSource
@@ -147,7 +150,8 @@ func (t *pgTx) UpdateLoad(ctx context.Context, load domain.LoadOpportunity, expe
 			visibility_scope=$23, invited_carrier_company_ids=$24,
 			status=$25, version=$26, updated_at=$27,
 			pickup_country_code=$28, pickup_region=$29, pickup_city=$30,
-			delivery_country_code=$31, delivery_region=$32, delivery_city=$33
+			delivery_country_code=$31, delivery_region=$32, delivery_city=$33,
+			consolidation_allowed=$34, cross_shipper_consolidation_allowed=$35
 		WHERE id=$1 AND version=$2`,
 		load.ID, expected,
 		load.Pickup.LocationID, load.Pickup.Label, load.Pickup.Latitude, load.Pickup.Longitude, load.PickupWindow.Start, load.PickupWindow.End,
@@ -158,6 +162,7 @@ func (t *pgTx) UpdateLoad(ctx context.Context, load domain.LoadOpportunity, expe
 		load.Status, load.Version, load.UpdatedAt,
 		nullString(load.Pickup.CountryCode), nullString(load.Pickup.Region), nullString(load.Pickup.City),
 		nullString(load.Delivery.CountryCode), nullString(load.Delivery.Region), nullString(load.Delivery.City),
+		load.ConsolidationAllowed, load.CrossShipperConsolidationAllowed,
 	)
 	if err != nil {
 		return err
@@ -175,6 +180,24 @@ func (t *pgTx) GetLoad(ctx context.Context, id uuid.UUID) (domain.LoadOpportunit
 
 func (t *pgTx) ListOwnLoads(ctx context.Context, tenant uuid.UUID, limit, offset int) ([]domain.LoadOpportunity, error) {
 	rows, err := t.tx.Query(ctx, `SELECT `+loadColumns+` FROM network_optimizer.load_opportunities WHERE owner_tenant_id=$1 ORDER BY created_at DESC, id LIMIT $2 OFFSET $3`, tenant, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanLoads(rows)
+}
+
+func (t *pgTx) ListPublicConsolidationPool(ctx context.Context, viewer uuid.UUID, company *uuid.UUID) ([]domain.LoadOpportunity, error) {
+	rows, err := t.tx.Query(ctx, `
+		SELECT `+loadColumns+` FROM network_optimizer.load_opportunities
+		WHERE status='PUBLISHED'
+		  AND owner_tenant_id <> $1
+		  AND (consolidation_allowed OR cross_shipper_consolidation_allowed)
+		  AND (
+			visibility_scope IN ('MARKETPLACE', 'ANONYMIZED_MARKETPLACE')
+			OR (visibility_scope='INVITED_CARRIERS' AND $2::uuid IS NOT NULL AND $2 = ANY(invited_carrier_company_ids))
+		  )
+		ORDER BY pickup_location_id, delivery_location_id, id`, viewer, company)
 	if err != nil {
 		return nil, err
 	}
@@ -343,6 +366,7 @@ func scanLoad(row pgx.Row) (domain.LoadOpportunity, error) {
 		&load.VisibilityScope, &load.InvitedCarrierCompanyIDs,
 		&load.Status, &load.Version, &load.CreatedAt, &load.UpdatedAt,
 		&pickupCountry, &pickupRegion, &pickupCity, &deliveryCountry, &deliveryRegion, &deliveryCity,
+		&load.ConsolidationAllowed, &load.CrossShipperConsolidationAllowed,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.LoadOpportunity{}, ErrNotFound
