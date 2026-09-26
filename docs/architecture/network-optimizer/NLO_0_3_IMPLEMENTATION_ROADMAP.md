@@ -1,6 +1,6 @@
 # NLO-0.3 implementation roadmap
 
-Baseline: `origin/main` `6d47cc92`. NLO-0.3A is an architecture-freeze candidate, proposed and pending controller acceptance. No wave below is authorized. GPS is not an NLO-0.2 dependency. Current-trip residual capacity is NLO-0.3.
+Baseline: `origin/main` `6d47cc92`. NLO-0.3A is FROZEN_ACCEPTED. No wave below is authorized. GPS is not an NLO-0.2 dependency. Current-trip residual capacity is NLO-0.3.
 
 ## What NLO-0.3 will implement
 
@@ -82,37 +82,37 @@ Out of NLO-0.3E: unrestricted `2^N`, ML, 3D packing, shipment activation.
 
 | Requirement | Source | Check | Unknown | Wave | Status |
 | --- | --- | --- | --- | --- | --- |
-| weight | vehicle `capacity_weight`, cargo `gross_weight` | groupage in 0.3B; residual subtraction in 0.3C | `INDETERMINATE` | 0.3B / 0.3C | PROPOSED |
-| volume | vehicle `capacity_volume`, cargo `volume` | groupage in 0.3B; residual subtraction in 0.3C | `INDETERMINATE` | 0.3B / 0.3C | PROPOSED |
-| pallet count | `cargoes.pallet_count` | not coerced to zero | `INDETERMINATE` | 0.3B / 0.3C | PROPOSED |
-| pallet type | `pallet_type_code` plus equivalences | explicit positive factor only | `INDETERMINATE` | 0.3B | PROPOSED |
-| linear metres | cargo and `usable_linear_meters` | groupage in 0.3B; residual subtraction in 0.3C | `INDETERMINATE` | 0.3B / 0.3C | PROPOSED |
-| height | `max_loaded_height_mm`, internal height | comparison | `INDETERMINATE` | 0.3B | PROPOSED |
-| body and trailer type | B2 body check | groupage | `INDETERMINATE` | 0.3B | PROPOSED |
-| rear, side, top loading | access lists | independent | `INDETERMINATE` | 0.3B | PROPOSED |
-| unloading access | access lists | independent | `INDETERMINATE` | 0.3B | PROPOSED |
-| temperature | cargo interval, one zone | common intersection | `INDETERMINATE` | 0.3B | PROPOSED |
-| multi-zone | `TemperatureZoneCount` | existing indeterminate code | `INDETERMINATE` | 0.3B | PROPOSED |
-| food grade | B2 rules | groupage | `INDETERMINATE` | 0.3B | PROPOSED |
-| ADR | sourced rules and capability | groupage | `INDETERMINATE` | 0.3B | PROPOSED |
-| stackability | nullable flag | does not create positions | no automatic reject | 0.3B | PROPOSED |
-| fragility | nullable flag | rule required | no automatic reject | 0.3B | PROPOSED |
-| odor | B2 rules | groupage | `INDETERMINATE` | 0.3B | PROPOSED |
-| contamination | B2 rules | groupage | `INDETERMINATE` | 0.3B | PROPOSED |
-| cargo type | `cargo_type_code` | catalog rules | `INDETERMINATE` | 0.3B | PROPOSED |
-| same O-D | canonical `location_id` equality | pair filter plus window overlap | `ORIGIN_IDENTITY_UNPROVEN` or `DESTINATION_IDENTITY_UNPROVEN` | 0.3B | PROPOSED |
+| weight | vehicle `capacity_weight`, cargo `gross_weight` | groupage in 0.3B; residual subtraction in 0.3C | `INDETERMINATE` | 0.3B / 0.3C | FROZEN_ACCEPTED |
+| volume | vehicle `capacity_volume`, cargo `volume` | groupage in 0.3B; residual subtraction in 0.3C | `INDETERMINATE` | 0.3B / 0.3C | FROZEN_ACCEPTED |
+| pallet count | `cargoes.pallet_count` | not coerced to zero | `INDETERMINATE` | 0.3B / 0.3C | FROZEN_ACCEPTED |
+| pallet type | `pallet_type_code` plus equivalences | explicit positive factor only | `INDETERMINATE` | 0.3B | FROZEN_ACCEPTED |
+| linear metres | cargo and `usable_linear_meters` | groupage in 0.3B; residual subtraction in 0.3C | `INDETERMINATE` | 0.3B / 0.3C | FROZEN_ACCEPTED |
+| height | `max_loaded_height_mm`, internal height | comparison | `INDETERMINATE` | 0.3B | FROZEN_ACCEPTED |
+| body and trailer type | B2 body check | groupage | `INDETERMINATE` | 0.3B | FROZEN_ACCEPTED |
+| rear, side, top loading | access lists | independent | `INDETERMINATE` | 0.3B | FROZEN_ACCEPTED |
+| unloading access | access lists | independent | `INDETERMINATE` | 0.3B | FROZEN_ACCEPTED |
+| temperature | cargo interval, one zone | common intersection | `INDETERMINATE` | 0.3B | FROZEN_ACCEPTED |
+| multi-zone | `TemperatureZoneCount` | existing indeterminate code | `INDETERMINATE` | 0.3B | FROZEN_ACCEPTED |
+| food grade | B2 rules | groupage | `INDETERMINATE` | 0.3B | FROZEN_ACCEPTED |
+| ADR | sourced rules and capability | groupage | `INDETERMINATE` | 0.3B | FROZEN_ACCEPTED |
+| stackability | nullable flag | does not create positions | no automatic reject | 0.3B | FROZEN_ACCEPTED |
+| fragility | nullable flag | rule required | no automatic reject | 0.3B | FROZEN_ACCEPTED |
+| odor | B2 rules | groupage | `INDETERMINATE` | 0.3B | FROZEN_ACCEPTED |
+| contamination | B2 rules | groupage | `INDETERMINATE` | 0.3B | FROZEN_ACCEPTED |
+| cargo type | `cargo_type_code` | catalog rules | `INDETERMINATE` | 0.3B | FROZEN_ACCEPTED |
+| same O-D | canonical `location_id` equality | pair filter plus window overlap | `ORIGIN_IDENTITY_UNPROVEN` or `DESTINATION_IDENTITY_UNPROVEN` | 0.3B | FROZEN_ACCEPTED |
 | multi-pick | planning sequence | deferred | `PLAN_ONLY` | 0.3E or 0.4 | DEFERRED |
 | multi-drop | planning sequence | deferred | `PLAN_ONLY` | 0.3E or 0.4 | DEFERRED |
-| current-trip fill | server-built `CurrentTripContext` | one extra load | `INDETERMINATE` without onboard proof | 0.3D | PROPOSED |
-| cross-shipper | owner-persisted opt-in flags | cross-shipper flag on each load; independent of same-owner flag | excluded | 0.3B | PROPOSED |
-| privacy | safe views | other shipper fields and internal location ids omitted | n/a | 0.3B | PROPOSED |
-| time windows | known pickup and delivery intervals | overlap required; disjoint is hard reject | `INDETERMINATE` if a required window is unknown | 0.3B | PROPOSED |
-| road detour | routing port | not Haversine | `SERVICE_UNAVAILABLE` | 0.3D | PROPOSED |
-| GPS freshness | tracking-service status | `FRESH` usable; other statuses block insertion | `INDETERMINATE` | 0.3D | PROPOSED |
-| ETA | tracking-service `freshnessStatus` | only `FRESH` may prove a window | `INDETERMINATE` | 0.3D | PROPOSED |
-| slot dependency | tracking slot state | NLO does not book | `PLAN_ONLY` | 0.3D | PROPOSED |
-| rehandling | placement check | forbidden conflict rejects | `NOT_EVALUATED` otherwise | 0.3D | PROPOSED |
-| unknown data | all of the above | required unknown is not `FEASIBLE` | `INDETERMINATE` | 0.3B | PROPOSED |
+| current-trip fill | server-built `CurrentTripContext` | one extra load | `INDETERMINATE` without onboard proof | 0.3D | FROZEN_ACCEPTED |
+| cross-shipper | owner-persisted opt-in flags | cross-shipper flag on each load; independent of same-owner flag | excluded | 0.3B | FROZEN_ACCEPTED |
+| privacy | safe views | other shipper fields and internal location ids omitted | n/a | 0.3B | FROZEN_ACCEPTED |
+| time windows | known pickup and delivery intervals | overlap required; disjoint is hard reject | `INDETERMINATE` if a required window is unknown | 0.3B | FROZEN_ACCEPTED |
+| road detour | routing port | not Haversine | `SERVICE_UNAVAILABLE` | 0.3D | FROZEN_ACCEPTED |
+| GPS freshness | tracking-service status | `FRESH` usable; other statuses block insertion | `INDETERMINATE` | 0.3D | FROZEN_ACCEPTED |
+| ETA | tracking-service `freshnessStatus` | only `FRESH` may prove a window | `INDETERMINATE` | 0.3D | FROZEN_ACCEPTED |
+| slot dependency | tracking slot state | NLO does not book | `PLAN_ONLY` | 0.3D | FROZEN_ACCEPTED |
+| rehandling | placement check | forbidden conflict rejects | `NOT_EVALUATED` otherwise | 0.3D | FROZEN_ACCEPTED |
+| unknown data | all of the above | required unknown is not `FEASIBLE` | `INDETERMINATE` | 0.3B | FROZEN_ACCEPTED |
 
 ## Future tests
 
@@ -144,7 +144,7 @@ Tenant isolation stays on owner predicates and gateway headers. No IDOR lookup o
 | NLO03_ARCH_012 route insertion | PASS |
 | NLO03_ARCH_013 time windows | PASS |
 | NLO03_ARCH_014 tracking freshness | PASS_WITH_FINDING: tracking-service owns runtime thresholds; BNO consumes status; `BNO_PREDICTION_MAX_ETA_AGE` remains a separate NLO-0.2 gate |
-| NLO03_ARCH_015 cross-shipper opt-in | PASS_WITH_FINDING: flags are proposed owner-controlled facts and are not columns yet |
+| NLO03_ARCH_015 cross-shipper opt-in | PASS_WITH_FINDING: flags are accepted owner-controlled facts and are not columns yet |
 | NLO03_ARCH_016 privacy | PASS |
 | NLO03_ARCH_017 network-optimization-only pool | PASS |
 | NLO03_ARCH_018 execution gate | PASS |

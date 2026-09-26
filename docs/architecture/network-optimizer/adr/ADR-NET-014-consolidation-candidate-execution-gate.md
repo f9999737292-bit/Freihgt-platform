@@ -1,6 +1,6 @@
 # ADR-NET-014: ConsolidationCandidate and the execution gate
 
-Status: Proposed. Architecture-freeze candidate, pending controller acceptance. Implementation is not authorized.
+Status: Accepted. NLO-0.3A is FROZEN_ACCEPTED. Implementation is not authorized.
 
 ## Decision
 

@@ -1,6 +1,6 @@
 # ADR-NET-013: Current-trip residual capacity semantics
 
-Status: Proposed. Architecture-freeze candidate, pending controller acceptance. Implementation is not authorized.
+Status: Accepted. NLO-0.3A is FROZEN_ACCEPTED. Implementation is not authorized.
 
 ## Decision
 

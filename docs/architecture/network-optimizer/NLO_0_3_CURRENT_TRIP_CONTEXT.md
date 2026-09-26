@@ -9,7 +9,7 @@ Baseline: `origin/main` `6d47cc92`.
 | `FUTURE_EMPTY_CAPACITY` | Space after the current shipment unloads | `PredictedCapacity`. Vehicle weight and volume copied in `predict/rule.go` |
 | `CURRENT_TRIP_RESIDUAL_CAPACITY` | Space left while confirmed cargo is still on the vehicle | NOT stored. Not a `Capacity.source` |
 
-ADR-NET-013 proposes `CurrentTripContext` as the planning aggregate and `ResidualCapacitySnapshot` as a child of that context. Do not add `CURRENT_TRIP_RESIDUAL` as a capacity source. This package is an architecture-freeze candidate. It is not accepted.
+ADR-NET-013 records `CurrentTripContext` as the planning aggregate and `ResidualCapacitySnapshot` as a child of that context. Do not add `CURRENT_TRIP_RESIDUAL` as a capacity source. This package is FROZEN_ACCEPTED. Implementation is not authorized.
 
 ## Server-built context
 

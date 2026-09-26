@@ -6,7 +6,7 @@
 
 Hard constraints run before scoring. Scoring never repairs a hard failure.
 
-NLO-0.3A proposes the first implementation waves as feasibility only, pending controller acceptance. BNO-0.1C2 `MatchScore` stays one capacity plus one load. It is not applied to a cargo set. A consolidation score, if authorized later, is a separate profile and is not frozen here. Multi-stop results stay `PROPOSED` planning records. They do not become an active shipment. See [NLO_0_3_CONSOLIDATION_FEASIBILITY.md](NLO_0_3_CONSOLIDATION_FEASIBILITY.md).
+NLO-0.3A is FROZEN_ACCEPTED and keeps the first implementation waves as feasibility only. BNO-0.1C2 `MatchScore` stays one capacity plus one load. It is not applied to a cargo set. A consolidation score, if authorized later, is a separate profile and is not frozen here. Multi-stop results stay `PROPOSED` planning records. They do not become an active shipment. See [NLO_0_3_CONSOLIDATION_FEASIBILITY.md](NLO_0_3_CONSOLIDATION_FEASIBILITY.md).
 
 ```text
 cargo units + capacity + route skeleton

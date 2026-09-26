@@ -1,6 +1,6 @@
 # ADR-NET-015: Cross-shipper consolidation opt-in and privacy
 
-Status: Proposed. Architecture-freeze candidate, pending controller acceptance. Implementation is not authorized.
+Status: Accepted. NLO-0.3A is FROZEN_ACCEPTED. Implementation is not authorized.
 
 ## Decision
 
