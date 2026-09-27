@@ -1,6 +1,6 @@
 # ADR-NET index
 
-ADR-NET-001 through ADR-NET-012 are proposed records for the v0.1 freeze. ADR-NET-013 through ADR-NET-016 are Accepted. NLO-0.3A is FROZEN_ACCEPTED. Implementation is not authorized.
+ADR-NET-001 through ADR-NET-012 are proposed records for the v0.1 freeze. ADR-NET-013 through ADR-NET-017 are Accepted. ADR-NET-017 acceptance does not authorize implementation.
 
 | ID | Title |
 |----|-------|
@@ -20,3 +20,4 @@ ADR-NET-001 through ADR-NET-012 are proposed records for the v0.1 freeze. ADR-NE
 | [ADR-NET-014](ADR-NET-014-consolidation-candidate-execution-gate.md) | ConsolidationCandidate and execution gate |
 | [ADR-NET-015](ADR-NET-015-cross-shipper-opt-in-privacy.md) | Cross-shipper opt-in and privacy |
 | [ADR-NET-016](ADR-NET-016-bounded-consolidation-search.md) | Bounded deterministic consolidation search |
+| [ADR-NET-017](ADR-NET-017-bounded-consolidation-expansion.md) | NLO-0.3E bounded consolidation expansion |
