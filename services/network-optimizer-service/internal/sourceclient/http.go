@@ -18,10 +18,11 @@ import (
 )
 
 type HTTP struct {
-	client       *http.Client
-	shipmentURL  string
-	trackingURL  string
-	serviceToken string
+	client            *http.Client
+	shipmentURL       string
+	trackingURL       string
+	transportOrderURL string
+	serviceToken      string
 }
 
 func New(shipmentURL, trackingURL, serviceToken string) *HTTP {
@@ -36,6 +37,11 @@ func New(shipmentURL, trackingURL, serviceToken string) *HTTP {
 		trackingURL:  strings.TrimRight(trackingURL, "/"),
 		serviceToken: strings.TrimSpace(serviceToken),
 	}
+}
+
+func (h *HTTP) WithTransportOrder(url string) *HTTP {
+	h.transportOrderURL = strings.TrimRight(url, "/")
+	return h
 }
 
 func (h *HTTP) Shipment(ctx context.Context, tenant, id uuid.UUID) (predict.ShipmentFact, error) {

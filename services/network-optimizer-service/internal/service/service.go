@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/freight-platform/network-optimizer-service/internal/compat"
+	"github.com/freight-platform/network-optimizer-service/internal/currenttrip"
 	"github.com/freight-platform/network-optimizer-service/internal/domain"
 	"github.com/freight-platform/network-optimizer-service/internal/locationclient"
 	apperrors "github.com/freight-platform/network-optimizer-service/internal/platform/errors"
@@ -33,6 +34,7 @@ type Service struct {
 	consolidations repository.ConsolidationStore
 	sources        predict.Sources
 	policy         predict.Policy
+	currentTrip    *currenttrip.Provider
 	now            func() time.Time
 }
 
@@ -67,6 +69,17 @@ func (s *Service) UseCatalog(catalog catalogEvaluator) { s.catalog = catalog }
 func (s *Service) ConfigurePrediction(sources predict.Sources, policy predict.Policy) {
 	s.sources = sources
 	s.policy = policy
+}
+
+func (s *Service) ConfigureCurrentTrip(provider *currenttrip.Provider) {
+	s.currentTrip = provider
+}
+
+func (s *Service) BuildCurrentTrip(ctx context.Context, tenantID, shipmentID uuid.UUID) (currenttrip.CurrentTripContext, error) {
+	if s.currentTrip == nil {
+		return currenttrip.CurrentTripContext{}, currenttrip.ErrUnavailable
+	}
+	return s.currentTrip.Build(ctx, tenantID, shipmentID)
 }
 
 func (s *Service) SetClock(now func() time.Time) {

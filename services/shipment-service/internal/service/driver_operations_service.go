@@ -13,16 +13,35 @@ import (
 	"github.com/freight-platform/shipment-service/internal/repository"
 )
 
+type driverIdentityStore interface {
+	GetByUserIDAndTenant(ctx context.Context, userID, tenantID uuid.UUID) (*domain.Driver, error)
+}
+
+type driverShipmentStore interface {
+	GetByIDAndDriver(ctx context.Context, id, tenantID, driverID uuid.UUID) (*domain.Shipment, error)
+	ListByDriverID(ctx context.Context, filter domain.ListDriverShipmentsFilter) ([]domain.Shipment, int, error)
+	UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, fromStatus, newStatus string, actualPickupAt, actualDeliveryAt *time.Time, expectedVersion int, transition domain.StatusTransitionContext) (*domain.Shipment, error)
+	UpdateStatusWithCargoEvidence(ctx context.Context, id, tenantID uuid.UUID, fromStatus, newStatus string, actualPickupAt, actualDeliveryAt *time.Time, expectedVersion int, transition domain.StatusTransitionContext, intent domain.CargoEvidenceIntent) (*domain.Shipment, error)
+}
+
+type driverOperationStore interface {
+	GetIdempotencyRecord(ctx context.Context, tenantID, driverID uuid.UUID, operationType, idempotencyKey string) (*domain.DriverOperationIdempotencyRecord, error)
+	CommitIdempotency(ctx context.Context, rec domain.DriverOperationIdempotencyRecord) error
+	InsertDriverEventOutbox(ctx context.Context, params domain.BuildDriverEventParams) (uuid.UUID, error)
+	ReportException(ctx context.Context, params repository.ReportDriverExceptionParams) (*domain.DriverReportedException, uuid.UUID, error)
+	ReportDelay(ctx context.Context, params repository.ReportDriverDelayParams) (*domain.DriverReportedDelay, uuid.UUID, error)
+}
+
 type DriverOperationsService struct {
-	drivers    *repository.DriverRepository
-	shipments  *repository.ShipmentRepository
-	operations *repository.DriverOperationsRepository
+	drivers    driverIdentityStore
+	shipments  driverShipmentStore
+	operations driverOperationStore
 }
 
 func NewDriverOperationsService(
-	drivers *repository.DriverRepository,
-	shipments *repository.ShipmentRepository,
-	operations *repository.DriverOperationsRepository,
+	drivers driverIdentityStore,
+	shipments driverShipmentStore,
+	operations driverOperationStore,
 ) *DriverOperationsService {
 	return &DriverOperationsService{
 		drivers:    drivers,
@@ -181,9 +200,15 @@ func (s *DriverOperationsService) RecordOperationalEvent(
 		updateInput.ActualTime = actualDelivery
 	}
 
-	updated, err := s.shipments.UpdateStatus(ctx, shipment.ID, tenantID, shipment.Status, targetStatus, actualPickup, actualDelivery, shipment.Version, transition)
-	if err != nil {
-		return DriverOperationalEventResult{}, err
+	var updated *domain.Shipment
+	var updateErr error
+	if intent := domain.CargoEvidenceIntentForDriverEvent(strings.TrimSpace(in.Type), userID, resolved.Driver.ID, occurredAt); intent != nil {
+		updated, updateErr = s.shipments.UpdateStatusWithCargoEvidence(ctx, shipment.ID, tenantID, shipment.Status, targetStatus, actualPickup, actualDelivery, shipment.Version, transition, *intent)
+	} else {
+		updated, updateErr = s.shipments.UpdateStatus(ctx, shipment.ID, tenantID, shipment.Status, targetStatus, actualPickup, actualDelivery, shipment.Version, transition)
+	}
+	if updateErr != nil {
+		return DriverOperationalEventResult{}, updateErr
 	}
 	result.ShipmentStatus = updated.Status
 
@@ -226,12 +251,7 @@ func (s *DriverOperationsService) saveStatusEventIdempotency(
 	if err != nil {
 		return err
 	}
-	tx, err := s.operations.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback(ctx)
-	rec := domain.DriverOperationIdempotencyRecord{
+	return s.operations.CommitIdempotency(ctx, domain.DriverOperationIdempotencyRecord{
 		TenantID:           tenantID,
 		DriverID:           driverID,
 		OperationType:      domain.DriverOperationTypeStatusEvent,
@@ -240,11 +260,7 @@ func (s *DriverOperationsService) saveStatusEventIdempotency(
 		ResourceID:         shipmentID,
 		ResponseStatusCode: 200,
 		ResponseBody:       body,
-	}
-	if err := s.operations.SaveIdempotencyRecord(ctx, tx, rec); err != nil {
-		return err
-	}
-	return tx.Commit(ctx)
+	})
 }
 
 type DriverExceptionResult struct {
@@ -321,12 +337,7 @@ func (s *DriverOperationsService) ReportException(
 	if err != nil {
 		return DriverExceptionResult{}, err
 	}
-	tx, err := s.operations.Begin(ctx)
-	if err != nil {
-		return DriverExceptionResult{}, err
-	}
-	defer tx.Rollback(ctx)
-	if err := s.operations.SaveIdempotencyRecord(ctx, tx, domain.DriverOperationIdempotencyRecord{
+	if err := s.operations.CommitIdempotency(ctx, domain.DriverOperationIdempotencyRecord{
 		TenantID:           tenantID,
 		DriverID:           resolved.Driver.ID,
 		OperationType:      domain.DriverOperationTypeException,
@@ -336,9 +347,6 @@ func (s *DriverOperationsService) ReportException(
 		ResponseStatusCode: 201,
 		ResponseBody:       body,
 	}); err != nil {
-		return DriverExceptionResult{}, err
-	}
-	if err := tx.Commit(ctx); err != nil {
 		return DriverExceptionResult{}, err
 	}
 	return result, nil
@@ -418,12 +426,7 @@ func (s *DriverOperationsService) ReportDelay(
 	if err != nil {
 		return DriverDelayResult{}, err
 	}
-	tx, err := s.operations.Begin(ctx)
-	if err != nil {
-		return DriverDelayResult{}, err
-	}
-	defer tx.Rollback(ctx)
-	if err := s.operations.SaveIdempotencyRecord(ctx, tx, domain.DriverOperationIdempotencyRecord{
+	if err := s.operations.CommitIdempotency(ctx, domain.DriverOperationIdempotencyRecord{
 		TenantID:           tenantID,
 		DriverID:           resolved.Driver.ID,
 		OperationType:      domain.DriverOperationTypeDelay,
@@ -433,9 +436,6 @@ func (s *DriverOperationsService) ReportDelay(
 		ResponseStatusCode: 201,
 		ResponseBody:       body,
 	}); err != nil {
-		return DriverDelayResult{}, err
-	}
-	if err := tx.Commit(ctx); err != nil {
 		return DriverDelayResult{}, err
 	}
 	return result, nil

@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/freight-platform/network-optimizer-service/internal/config"
+	"github.com/freight-platform/network-optimizer-service/internal/currenttrip"
 	httpserver "github.com/freight-platform/network-optimizer-service/internal/http"
 	"github.com/freight-platform/network-optimizer-service/internal/locationclient"
 	"github.com/freight-platform/network-optimizer-service/internal/predict"
@@ -46,10 +47,12 @@ func main() {
 	if cfg.RoutingProvider == "2GIS" {
 		svc.UseRouting(twogis.New(cfg.TwoGISRoutingBaseURL, cfg.TwoGISAPIKey, log))
 	}
-	svc.ConfigurePrediction(sourceclient.New(cfg.ShipmentURL, cfg.TrackingURL, cfg.InternalServiceToken), predict.Policy{
+	sources := sourceclient.New(cfg.ShipmentURL, cfg.TrackingURL, cfg.InternalServiceToken).WithTransportOrder(cfg.TransportOrderURL)
+	svc.ConfigurePrediction(sources, predict.Policy{
 		Unload: cfg.Prediction.Unload, Uncertainty: cfg.Prediction.Uncertainty, MaxETAAge: cfg.Prediction.MaxETAAge,
 		ConfidenceFloor: cfg.Prediction.ConfidenceFloor, AutoActivate: cfg.Prediction.AutoActivate,
 	})
+	svc.ConfigureCurrentTrip(currenttrip.NewProvider(sources, sources, sources, sources, sources, sources))
 	router := httpserver.NewRouterWithCatalog(log, svc, ready(store), store)
 	server := &http.Server{
 		Addr:              ":" + itoa(cfg.HTTPPort),

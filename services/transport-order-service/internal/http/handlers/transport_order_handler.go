@@ -296,15 +296,22 @@ func (h *Handler) GetCargoPlanningProfile(w http.ResponseWriter, r *http.Request
 		respond.Error(w, err)
 		return
 	}
+	respond.JSON(w, http.StatusOK, cargoPlanningProfilePayload(cargo))
+}
+
+func cargoPlanningProfilePayload(cargo *domain.Cargo) map[string]any {
 	classes := make([]string, 0)
-	for _, item := range cargo.Items {
-		if item.HazardClass != nil && *item.HazardClass != "" {
-			classes = append(classes, *item.HazardClass)
+	if cargo != nil {
+		for _, item := range cargo.Items {
+			if item.HazardClass != nil && *item.HazardClass != "" {
+				classes = append(classes, *item.HazardClass)
+			}
 		}
 	}
-	respond.JSON(w, http.StatusOK, map[string]any{
+	return map[string]any{
 		"id":                               cargo.ID.String(),
 		"tenant_id":                        cargo.TenantID.String(),
+		"version":                          cargo.Version,
 		"cargo_type_code":                  cargo.CargoTypeCode,
 		"weight_kg":                        cargo.GrossWeight,
 		"volume_m3":                        cargo.Volume,
@@ -325,7 +332,7 @@ func (h *Handler) GetCargoPlanningProfile(w http.ResponseWriter, r *http.Request
 		"odor_emission_class":              cargo.OdorEmissionClass,
 		"odor_sensitive":                   cargo.OdorSensitive,
 		"contamination_class":              cargo.ContaminationClass,
-	})
+	}
 }
 
 type createTransportOrderRequest struct {
