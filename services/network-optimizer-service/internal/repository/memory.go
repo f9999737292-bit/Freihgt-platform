@@ -149,6 +149,14 @@ func (t *memTx) ListPublicConsolidationPool(_ context.Context, viewer uuid.UUID,
 	return rows, nil
 }
 
+func (t *memTx) ListPublicConsolidationPoolLimited(_ context.Context, viewer uuid.UUID, company *uuid.UUID, limit int) ([]domain.LoadOpportunity, error) {
+	rows, err := t.ListPublicConsolidationPool(context.Background(), viewer, company)
+	if err != nil || limit < 0 || len(rows) <= limit {
+		return rows, err
+	}
+	return rows[:limit], nil
+}
+
 func locationKey(id *uuid.UUID) string {
 	if id == nil {
 		return ""

@@ -18,11 +18,11 @@ func (p *Postgres) SaveConsolidation(ctx context.Context, run ConsolidationRun, 
 		INSERT INTO network_optimizer.consolidation_search_runs (
 			id, tenant_id, capacity_id, capacity_version, pattern,
 			started_at, completed_at, status, candidate_limit,
-			pool_load_count, evaluated_pair_count, created_at
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+			pool_load_count, evaluated_pair_count, evaluated_set_count, created_at
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
 		run.ID, run.TenantID, run.CapacityID, run.CapacityVersion, run.Pattern,
 		run.StartedAt, run.CompletedAt, run.Status, run.CandidateLimit,
-		run.PoolLoadCount, run.EvaluatedPairCount, run.CreatedAt,
+		run.PoolLoadCount, pairCountArg(run), setCountArg(run), run.CreatedAt,
 	); err != nil {
 		return err
 	}
@@ -65,19 +65,25 @@ func (p *Postgres) SaveConsolidation(ctx context.Context, run ConsolidationRun, 
 
 func (p *Postgres) GetConsolidation(ctx context.Context, tenant, id uuid.UUID) (ConsolidationRun, []ConsolidationCandidate, error) {
 	var run ConsolidationRun
+	var pairCount *int
 	err := p.pool.QueryRow(ctx, `
 		SELECT id, tenant_id, capacity_id, capacity_version, pattern, started_at, completed_at, status,
-		       candidate_limit, pool_load_count, evaluated_pair_count, created_at
+		       candidate_limit, pool_load_count, evaluated_pair_count, evaluated_set_count, created_at
 		FROM network_optimizer.consolidation_search_runs
 		WHERE id = $1 AND tenant_id = $2`, id, tenant).Scan(
 		&run.ID, &run.TenantID, &run.CapacityID, &run.CapacityVersion, &run.Pattern, &run.StartedAt, &run.CompletedAt, &run.Status,
-		&run.CandidateLimit, &run.PoolLoadCount, &run.EvaluatedPairCount, &run.CreatedAt,
+		&run.CandidateLimit, &run.PoolLoadCount, &pairCount, &run.EvaluatedSetCount, &run.CreatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ConsolidationRun{}, nil, ErrNotFound
 	}
 	if err != nil {
 		return ConsolidationRun{}, nil, err
+	}
+	if pairCount != nil {
+		run.EvaluatedPairCount = *pairCount
+	} else {
+		run.PairCountNull = true
 	}
 	rows, err := p.pool.Query(ctx, `
 		SELECT id, search_run_id, tenant_id, capacity_id, pattern, status, execution_supported,
@@ -139,6 +145,20 @@ func (p *Postgres) GetConsolidation(ctx context.Context, tenant, id uuid.UUID) (
 		candidates[i].Members = byCandidate[candidates[i].ID]
 	}
 	return run, candidates, nil
+}
+
+func pairCountArg(run ConsolidationRun) any {
+	if run.PairCountNull {
+		return nil
+	}
+	return run.EvaluatedPairCount
+}
+
+func setCountArg(run ConsolidationRun) any {
+	if run.EvaluatedSetCount == nil {
+		return nil
+	}
+	return *run.EvaluatedSetCount
 }
 
 func uuidArg(id uuid.UUID) any {
