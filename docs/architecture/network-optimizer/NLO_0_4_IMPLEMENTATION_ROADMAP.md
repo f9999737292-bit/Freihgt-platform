@@ -7,7 +7,7 @@ NLO_0_4_STARTED=YES
 NLO_0_4A=ARCHITECTURE_FROZEN_ACCEPTED
 NLO_0_4_IMPLEMENTATION_STARTED=NO
 NLO_0_4B_IMPLEMENTATION_AUTHORIZED_AFTER_PR182_MERGE=YES
-NLO_0_4B_IMPLEMENTATION_STARTED=NO
+NLO_0_4B_IMPLEMENTATION_STARTED=YES
 NLO_0_4C_STARTED=NO
 NLO_0_4D_STARTED=NO
 ARCHITECTURE_FROZEN=YES
@@ -20,6 +20,10 @@ NLO04A_POST_ACCEPT_F001=CLOSED
 ERRATUM_CONTROLLER_ACCEPTANCE=PASS
 NLO_0_4A_CLOSED=YES
 NLO_0_4B_IMPLEMENTATION_AUTHORIZED=YES
+NLO_0_4B_IMPLEMENTED=YES
+NLO_0_4B_ACCEPTED=NO
+CONTROLLER_REVIEW_PENDING=YES
+EXISTING_FUTURE_ROUTE_LOAD_SOURCE_IN_0_4B=NONE
 ```
 
 Post-freeze erratum E1 is accepted in ADR-NET-019. It corrects start-anchor identity. It does not start NLO-0.4B.
@@ -32,7 +36,7 @@ This publication. Route plan, stop, action, leg, bounded insertion, and the acce
 
 ### NLO-0.4B — persistent plan and bounded planner
 
-Proposed next implementation, only after PR #182 merges. Persist the planning tables in a new migration numbered at implementation time. Do not reserve `000085` now. Implement incremental insertion with the caps in `NLO_0_4A_MULTI_STOP_ALGORITHM.md`. `execution_supported` stays false. Unknown service duration may produce an advisory indeterminate plan. `CURRENT_TRIP_FILL` stays at one additional load until a product decision moves that public pattern. The new route-plan evaluate API is the multi-stop entry.
+Implementation is in progress for controller review. `NLO_0_4B_IMPLEMENTED=YES` and `NLO_0_4B_ACCEPTED=NO`. Migration `000085_nlo_route_plan_bounded_planner_v0_4b` persists planning tables only. `route_plan_activations` is not created. `execution_supported` stays false. Unknown service duration produces an advisory indeterminate plan. `CURRENT_TRIP_FILL` stays at one additional load. `EXISTING_FUTURE_ROUTE_LOAD_SOURCE_IN_0_4B=NONE`. The evaluate API is the multi-stop entry. Accept and activate remain NLO-0.4C.
 
 ### NLO-0.4C — accept and activate contract
 

@@ -30538,6 +30538,242 @@
         }
       }
     },
+    "/api/v1/network/route-plans/evaluate": {
+      "post": {
+        "tags": [
+          "Network Optimizer"
+        ],
+        "summary": "Evaluate a bounded route plan",
+        "operationId": "post_evaluate_a_bounded_route_plan",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XTenantID"
+          },
+          {
+            "$ref": "#/components/parameters/XCompanyID"
+          },
+          {
+            "$ref": "#/components/parameters/XLocale"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Required for route-plan evaluation. Same key and body replay the persisted plan. A different body conflicts.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoutePlanEvaluateRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoutePlan"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/network/route-plans/{id}": {
+      "get": {
+        "tags": [
+          "Network Optimizer"
+        ],
+        "summary": "Get an owned evaluated route plan",
+        "operationId": "get_get_an_owned_evaluated_route_plan",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XTenantID"
+          },
+          {
+            "$ref": "#/components/parameters/XCompanyID"
+          },
+          {
+            "$ref": "#/components/parameters/XLocale"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoutePlan"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/network/marketplace/load-opportunities": {
       "get": {
         "tags": [
@@ -33069,6 +33305,586 @@
           "cross_shipper_consolidation_allowed": {
             "type": "boolean",
             "description": "Owner-controlled cross-shipper consolidation opt-in. Independent of consolidation_allowed. Not a search override."
+          }
+        }
+      },
+      "RoutePlanEvaluateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "planning_mode",
+          "candidate_load_ids"
+        ],
+        "properties": {
+          "planning_mode": {
+            "type": "string",
+            "enum": [
+              "CURRENT_TRIP",
+              "DEPOT_START"
+            ]
+          },
+          "shipment_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Required for CURRENT_TRIP. Forbidden for DEPOT_START."
+          },
+          "capacity_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Required for DEPOT_START. Forbidden for CURRENT_TRIP."
+          },
+          "candidate_load_ids": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "RoutePlanResultStatus": {
+        "type": "string",
+        "enum": [
+          "FEASIBLE_PLAN_FOUND",
+          "INDETERMINATE_PLAN_FOUND"
+        ]
+      },
+      "RoutePlanReasonCode": {
+        "type": "string"
+      },
+      "RoutePoint": {
+        "type": "object",
+        "required": [
+          "point_kind",
+          "latitude",
+          "longitude",
+          "point_source"
+        ],
+        "properties": {
+          "point_kind": {
+            "type": "string",
+            "enum": [
+              "CANONICAL_LOCATION",
+              "POSITION_ANCHOR"
+            ]
+          },
+          "location_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180
+          },
+          "point_source": {
+            "type": "string",
+            "enum": [
+              "CANONICAL_LOCATION",
+              "TRACKING_POSITION",
+              "CAPACITY_POSITION"
+            ]
+          },
+          "point_observed_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RouteStopAction": {
+        "type": "object",
+        "required": [
+          "id",
+          "action_ordinal",
+          "action_type",
+          "subject_type",
+          "subject_id",
+          "subject_version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "action_ordinal": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4
+          },
+          "action_type": {
+            "type": "string",
+            "enum": [
+              "PICKUP",
+              "DELIVERY"
+            ]
+          },
+          "subject_type": {
+            "type": "string",
+            "enum": [
+              "LOAD_OPPORTUNITY",
+              "SHIPMENT_CARGO"
+            ]
+          },
+          "subject_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "subject_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "weight_delta_kg": {
+            "type": "number"
+          },
+          "volume_delta_m3": {
+            "type": "number"
+          },
+          "pallet_delta": {
+            "type": "number"
+          },
+          "linear_meters_delta": {
+            "type": "number"
+          },
+          "window_start": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "window_end": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "source_shipment_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "source_shipment_version": {
+            "type": "integer"
+          },
+          "evidence_state": {
+            "type": "string"
+          },
+          "evidence_state_version": {
+            "type": "integer"
+          },
+          "evidence_occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RouteStop": {
+        "type": "object",
+        "required": [
+          "id",
+          "ordinal",
+          "stop_role",
+          "point_kind",
+          "latitude",
+          "longitude",
+          "point_source",
+          "actions"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ordinal": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 8
+          },
+          "stop_role": {
+            "type": "string",
+            "enum": [
+              "START",
+              "CARGO",
+              "END"
+            ]
+          },
+          "point_kind": {
+            "type": "string",
+            "enum": [
+              "CANONICAL_LOCATION",
+              "POSITION_ANCHOR"
+            ]
+          },
+          "location_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
+          },
+          "point_source": {
+            "type": "string",
+            "enum": [
+              "CANONICAL_LOCATION",
+              "TRACKING_POSITION",
+              "CAPACITY_POSITION"
+            ]
+          },
+          "point_observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "planned_arrival": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "planned_departure": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "service_duration_seconds": {
+            "type": "integer"
+          },
+          "actions": {
+            "type": "array",
+            "maxItems": 4,
+            "items": {
+              "$ref": "#/components/schemas/RouteStopAction"
+            }
+          }
+        }
+      },
+      "RouteLeg": {
+        "type": "object",
+        "required": [
+          "id",
+          "ordinal",
+          "from_stop_id",
+          "to_stop_id",
+          "distance_m",
+          "duration_seconds",
+          "provider",
+          "route_mode",
+          "traffic_mode"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ordinal": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "from_stop_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "to_stop_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "from_point_fingerprint": {
+            "type": "string"
+          },
+          "to_point_fingerprint": {
+            "type": "string"
+          },
+          "distance_m": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "duration_seconds": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "provider": {
+            "type": "string"
+          },
+          "request_fingerprint": {
+            "type": "string"
+          },
+          "response_fingerprint": {
+            "type": "string"
+          },
+          "vehicle_profile_hash": {
+            "type": "string"
+          },
+          "route_mode": {
+            "type": "string"
+          },
+          "traffic_mode": {
+            "type": "string"
+          },
+          "departure_bucket": {
+            "type": "string"
+          },
+          "calculated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RouteCapacitySnapshot": {
+        "type": "object",
+        "required": [
+          "id",
+          "sequence_ordinal",
+          "after_stop_id",
+          "after_action_ordinal",
+          "payload_status",
+          "volume_status",
+          "pallet_status",
+          "linear_status",
+          "height_status",
+          "temperature_allocation_status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sequence_ordinal": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "after_stop_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "after_action_ordinal": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "payload_status": {
+            "type": "string",
+            "enum": [
+              "KNOWN",
+              "UNKNOWN"
+            ]
+          },
+          "payload_remaining_kg": {
+            "type": "number",
+            "nullable": true
+          },
+          "volume_status": {
+            "type": "string",
+            "enum": [
+              "KNOWN",
+              "UNKNOWN"
+            ]
+          },
+          "volume_remaining_m3": {
+            "type": "number",
+            "nullable": true
+          },
+          "pallet_status": {
+            "type": "string",
+            "enum": [
+              "KNOWN",
+              "UNKNOWN"
+            ]
+          },
+          "pallet_positions_remaining": {
+            "type": "number",
+            "nullable": true
+          },
+          "linear_status": {
+            "type": "string",
+            "enum": [
+              "KNOWN",
+              "UNKNOWN"
+            ]
+          },
+          "linear_meters_remaining": {
+            "type": "number",
+            "nullable": true
+          },
+          "height_status": {
+            "type": "string",
+            "enum": [
+              "KNOWN",
+              "UNKNOWN"
+            ]
+          },
+          "height_remaining_mm": {
+            "type": "number",
+            "nullable": true
+          },
+          "temperature_allocation_status": {
+            "type": "string"
+          }
+        }
+      },
+      "RoutePlanDependency": {
+        "type": "object",
+        "required": [
+          "id",
+          "dependency_kind"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dependency_kind": {
+            "type": "string",
+            "enum": [
+              "SHIPMENT",
+              "CAPACITY",
+              "VEHICLE",
+              "LOAD_OPPORTUNITY",
+              "SHIPMENT_CARGO",
+              "CURRENT_TRIP_CONTEXT",
+              "ROUTING_POLICY",
+              "CATALOG"
+            ]
+          },
+          "subject_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "subject_version": {
+            "type": "integer",
+            "nullable": true
+          },
+          "fingerprint": {
+            "type": "string"
+          }
+        }
+      },
+      "RoutePlan": {
+        "type": "object",
+        "required": [
+          "id",
+          "version",
+          "status",
+          "planning_mode",
+          "result_status",
+          "execution_supported",
+          "context_fingerprint",
+          "evaluation_fingerprint",
+          "algorithm_policy_version",
+          "routing_policy_version",
+          "created_at",
+          "stops",
+          "legs",
+          "capacity_snapshots",
+          "dependencies",
+          "reason_codes"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "EVALUATED"
+            ]
+          },
+          "planning_mode": {
+            "type": "string",
+            "enum": [
+              "CURRENT_TRIP",
+              "DEPOT_START"
+            ]
+          },
+          "result_status": {
+            "$ref": "#/components/schemas/RoutePlanResultStatus"
+          },
+          "execution_supported": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "capacity_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "capacity_version": {
+            "type": "integer",
+            "nullable": true
+          },
+          "shipment_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "shipment_version": {
+            "type": "integer",
+            "nullable": true
+          },
+          "vehicle_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "context_fingerprint": {
+            "type": "string"
+          },
+          "evaluation_fingerprint": {
+            "type": "string"
+          },
+          "algorithm_policy_version": {
+            "type": "string"
+          },
+          "routing_policy_version": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason_codes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoutePlanReasonCode"
+            }
+          },
+          "stops": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "$ref": "#/components/schemas/RouteStop"
+            }
+          },
+          "legs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RouteLeg"
+            }
+          },
+          "capacity_snapshots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RouteCapacitySnapshot"
+            }
+          },
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoutePlanDependency"
+            }
           }
         }
       },

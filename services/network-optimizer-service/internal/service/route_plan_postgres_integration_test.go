@@ -1,0 +1,173 @@
+//go:build integration
+
+package service
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/freight-platform/network-optimizer-service/internal/currenttrip"
+	"github.com/freight-platform/network-optimizer-service/internal/domain"
+	"github.com/freight-platform/network-optimizer-service/internal/repository"
+)
+
+func TestNLO04B_PostgresRoundtrip(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
+	defer cancel()
+	pool := startConsolidationPostgres(t, ctx)
+	for _, name := range []string{
+		"000001_create_schemas.up.sql",
+		"000003_create_transport_tables.up.sql",
+		"000075_bno_capacity_marketplace_foundation_v0_1a.up.sql",
+		"000076_bno_predictive_capacity_v0_1b.up.sql",
+		"000077_bno_cargo_equipment_compatibility_v0_1b2.up.sql",
+		"000078_bno_geography_routing_foundation_v0_1c0.up.sql",
+		"000079_bno_next_load_candidate_search_v0_1c1.up.sql",
+		"000080_bno_match_score_topn_v0_1c2.up.sql",
+		"000081_nlo_pairwise_consolidation_v0_3b.up.sql",
+		"000082_nlo_onboard_evidence_current_trip_context_v0_3c.up.sql",
+		"000083_nlo_current_trip_fill_v0_3d.up.sql",
+		"000084_nlo_bounded_n_member_search_v0_3e.up.sql",
+		"000085_nlo_route_plan_bounded_planner_v0_4b.up.sql",
+	} {
+		raw, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "infrastructure", "migrations", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(ctx, string(raw)); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+	}
+	store := repository.NewPostgres(pool)
+	svc := New(store, nil)
+	counter := &countingRoute{}
+	svc.UseRouting(counter)
+	dir := &dirMap{snaps: map[uuid.UUID]domain.LocationSnapshot{}}
+	svc.UseDirectory(dir)
+	now := time.Date(2026, 9, 27, 9, 0, 0, 0, time.UTC)
+	svc.SetClock(func() time.Time { return now })
+	carrier := uuid.New()
+	shipper := uuid.New()
+	origin, dest := uuid.New(), uuid.New()
+	lat, lon := 55.1, 37.2
+	win := domain.TimeWindow{Start: &now, End: timePtr(now.Add(24 * time.Hour))}
+	load := domain.LoadOpportunity{
+		ID: uuid.New(), OwnerTenantID: shipper, SourceType: domain.SourceTransportOrder, SourceID: uuid.New(),
+		Pickup:       domain.Place{LocationID: &origin, Latitude: &lat, Longitude: &lon},
+		Delivery:     domain.Place{LocationID: &dest, Latitude: f64(56), Longitude: f64(38)},
+		PickupWindow: win, DeliveryWindow: win, VisibilityScope: domain.VisMarketplace, Status: domain.LoadPublished,
+		Version: 1, WeightKg: f64(100), VolumeM3: f64(1), CrossShipperConsolidationAllowed: true,
+		CreatedAt: now, UpdatedAt: now,
+	}
+	location := uuid.New()
+	cap := domain.Capacity{
+		ID: uuid.New(), OwnerTenantID: carrier, LocationID: &location, Latitude: &lat, Longitude: &lon,
+		AvailableFrom: now, AvailableUntil: now.Add(time.Hour), Source: domain.SourceManual,
+		VisibilityScope: domain.CapVisPrivate, Status: domain.CapacityAvailable, Version: 1,
+		PayloadRemainingKg: f64(10000), VolumeRemainingM3: f64(40), CreatedAt: now, UpdatedAt: now,
+	}
+	if err := store.Within(ctx, func(tx repository.Tx) error {
+		if err := tx.InsertLoad(ctx, load); err != nil {
+			return err
+		}
+		return tx.InsertCapacity(ctx, cap)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	actor := Actor{TenantID: carrier, UserID: uuid.New()}
+	body := `{"planning_mode":"DEPOT_START","capacity_id":"` + cap.ID.String() + `","candidate_load_ids":["` + load.ID.String() + `"]}`
+	var cmd RoutePlanCommand
+	if err := json.Unmarshal([]byte(body), &cmd); err != nil {
+		t.Fatal(err)
+	}
+	cmd.Raw = []byte(body)
+	created, err := svc.EvaluateRoutePlan(ctx, actor, "pg-depot", cmd)
+	if err != nil || created.Status != http.StatusCreated {
+		t.Fatalf("evaluate %v %d", err, created.Status)
+	}
+	var doc map[string]any
+	if err := json.Unmarshal(created.Body, &doc); err != nil {
+		t.Fatal(err)
+	}
+	got, err := svc.GetRoutePlan(ctx, actor, uuid.MustParse(doc["id"].(string)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var round map[string]any
+	if err := json.Unmarshal(got.Body, &round); err != nil {
+		t.Fatal(err)
+	}
+	if round["id"] != doc["id"] || len(round["stops"].([]any)) != len(doc["stops"].([]any)) || len(round["legs"].([]any)) == 0 || len(round["capacity_snapshots"].([]any)) == 0 || len(round["dependencies"].([]any)) == 0 {
+		t.Fatalf("roundtrip mismatch %+v", round)
+	}
+
+	shipment := uuid.New()
+	vehicle := uuid.New()
+	cargo := uuid.New()
+	tripDest := uuid.New()
+	dir.snaps[tripDest] = domain.LocationSnapshot{ID: tripDest, Latitude: f64(57), Longitude: f64(39)}
+	posLat, posLon := 54.0, 36.0
+	recorded := now
+	src := &fillSources{
+		execution: currenttrip.ShipmentExecution{
+			ShipmentID: shipment, TenantID: carrier, ShipmentVersion: 2, ShipmentStatus: "IN_TRANSIT",
+			VehicleID: &vehicle, OriginLocationID: uuid.New(), DestinationLocationID: tripDest,
+		},
+		onboard: currenttrip.OnboardCargo{ShipmentID: shipment, ShipmentVersion: 2, Items: []currenttrip.OnboardEvidenceItem{{
+			CargoID: cargo, State: currenttrip.EvidenceConfirmedOnboard, StateVersion: 1, OccurredAt: now, Source: "DRIVER_OPERATION",
+		}}},
+		profiles: map[uuid.UUID]currenttrip.CargoProfile{cargo: {ID: cargo, Version: 3, WeightKg: f64(400)}},
+		vehicle:  currenttrip.VehicleCapability{ID: vehicle, TenantID: carrier, Version: 1, CapacityWeight: f64(20000)},
+		position: currenttrip.TrackingPosition{Freshness: "FRESH", Latitude: &posLat, Longitude: &posLon, RecordedAt: &recorded},
+		eta:      currenttrip.ETA{FreshnessStatus: "FRESH"},
+	}
+	svc.ConfigureCurrentTrip(currenttrip.NewProvider(src, src, src, src, src, src))
+	tripBody := `{"planning_mode":"CURRENT_TRIP","shipment_id":"` + shipment.String() + `","candidate_load_ids":["` + load.ID.String() + `"]}`
+	var tripCmd RoutePlanCommand
+	if err := json.Unmarshal([]byte(tripBody), &tripCmd); err != nil {
+		t.Fatal(err)
+	}
+	tripCmd.Raw = []byte(tripBody)
+	tripCreated, err := svc.EvaluateRoutePlan(ctx, actor, "pg-trip", tripCmd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var trip map[string]any
+	if err := json.Unmarshal(tripCreated.Body, &trip); err != nil {
+		t.Fatal(err)
+	}
+	stops := trip["stops"].([]any)
+	start := stops[0].(map[string]any)
+	if start["point_kind"] != "POSITION_ANCHOR" || start["location_id"] != nil || start["point_observed_at"] == nil {
+		t.Fatalf("anchor %+v", start)
+	}
+	reloaded, err := svc.GetRoutePlan(ctx, actor, uuid.MustParse(trip["id"].(string)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var again map[string]any
+	if err := json.Unmarshal(reloaded.Body, &again); err != nil {
+		t.Fatal(err)
+	}
+	againStart := again["stops"].([]any)[0].(map[string]any)
+	if againStart["latitude"] != start["latitude"] || againStart["longitude"] != start["longitude"] || againStart["location_id"] != nil {
+		t.Fatalf("anchor roundtrip %+v vs %+v", againStart, start)
+	}
+	left, err := time.Parse(time.RFC3339, start["point_observed_at"].(string))
+	if err != nil {
+		t.Fatal(err)
+	}
+	right, err := time.Parse(time.RFC3339, againStart["point_observed_at"].(string))
+	if err != nil || !left.Equal(right) {
+		t.Fatalf("observed_at %v vs %v err %v", start["point_observed_at"], againStart["point_observed_at"], err)
+	}
+}
+
+func timePtr(value time.Time) *time.Time { return &value }

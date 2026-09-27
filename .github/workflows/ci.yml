@@ -135,6 +135,29 @@ jobs:
         working-directory: services/network-optimizer-service
         run: go test -tags=integration ./internal/service -run 'TestNLO03E|TestNLO03B_089_099' -count=1 -v
 
+  network-optimizer-nlo04b-integration:
+    name: network-optimizer-nlo04b-integration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: |
+            packages/shared-go/go.sum
+            services/network-optimizer-service/go.sum
+
+      - name: NLO-0.4B migration integration
+        working-directory: services/network-optimizer-service
+        run: go test -tags=integration ./internal/repository -run TestNLO04B_Migration000085 -count=1 -v
+
+      - name: NLO-0.4B route-plan persistence
+        working-directory: services/network-optimizer-service
+        run: go test -tags=integration ./internal/service -run TestNLO04B_PostgresRoundtrip -count=1 -v
+
   rfx-deadline-worker-integration:
     name: rfx-deadline-worker-integration
     runs-on: ubuntu-latest

@@ -1,0 +1,161 @@
+package repository
+
+import (
+	"context"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+type RoutePlanRow struct {
+	ID                     uuid.UUID  `json:"id"`
+	TenantID               uuid.UUID  `json:"tenant_id"`
+	Version                int        `json:"version"`
+	Status                 string     `json:"status"`
+	PlanningMode           string     `json:"planning_mode"`
+	ResultStatus           string     `json:"result_status"`
+	CapacityID             *uuid.UUID `json:"capacity_id,omitempty"`
+	CapacityVersion        *int       `json:"capacity_version,omitempty"`
+	ShipmentID             *uuid.UUID `json:"shipment_id,omitempty"`
+	ShipmentVersion        *int       `json:"shipment_version,omitempty"`
+	VehicleID              *uuid.UUID `json:"vehicle_id,omitempty"`
+	ContextFingerprint     string     `json:"context_fingerprint"`
+	EvaluationFingerprint  string     `json:"evaluation_fingerprint"`
+	AlgorithmPolicyVersion string     `json:"algorithm_policy_version"`
+	RoutingPolicyVersion   string     `json:"routing_policy_version"`
+	SupersedesPlanID       *uuid.UUID `json:"supersedes_plan_id,omitempty"`
+	ExecutionSupported     bool       `json:"execution_supported"`
+	ReasonCodes            []string   `json:"reason_codes"`
+	CreatedAt              time.Time  `json:"created_at"`
+}
+
+type RouteStopRow struct {
+	ID                     uuid.UUID  `json:"id"`
+	RoutePlanID            uuid.UUID  `json:"route_plan_id"`
+	Ordinal                int        `json:"ordinal"`
+	StopRole               string     `json:"stop_role"`
+	PointKind              string     `json:"point_kind"`
+	LocationID             *uuid.UUID `json:"location_id,omitempty"`
+	Latitude               float64    `json:"latitude"`
+	Longitude              float64    `json:"longitude"`
+	PointSource            string     `json:"point_source"`
+	PointObservedAt        *time.Time `json:"point_observed_at,omitempty"`
+	PlannedArrival         *time.Time `json:"planned_arrival,omitempty"`
+	PlannedDeparture       *time.Time `json:"planned_departure,omitempty"`
+	ServiceDurationSeconds *int       `json:"service_duration_seconds,omitempty"`
+}
+
+type RouteActionRow struct {
+	ID                    uuid.UUID  `json:"id"`
+	RoutePlanID           uuid.UUID  `json:"route_plan_id"`
+	StopID                uuid.UUID  `json:"stop_id"`
+	ActionOrdinal         int        `json:"action_ordinal"`
+	ActionType            string     `json:"action_type"`
+	SubjectType           string     `json:"subject_type"`
+	SubjectID             uuid.UUID  `json:"subject_id"`
+	SubjectVersion        int        `json:"subject_version"`
+	WeightDeltaKg         *float64   `json:"weight_delta_kg,omitempty"`
+	VolumeDeltaM3         *float64   `json:"volume_delta_m3,omitempty"`
+	PalletDelta           *float64   `json:"pallet_delta,omitempty"`
+	LinearMetersDelta     *float64   `json:"linear_meters_delta,omitempty"`
+	WindowStart           *time.Time `json:"window_start,omitempty"`
+	WindowEnd             *time.Time `json:"window_end,omitempty"`
+	SourceShipmentID      *uuid.UUID `json:"source_shipment_id,omitempty"`
+	SourceShipmentVersion *int       `json:"source_shipment_version,omitempty"`
+	EvidenceState         string     `json:"evidence_state,omitempty"`
+	EvidenceStateVersion  *int       `json:"evidence_state_version,omitempty"`
+	EvidenceOccurredAt    *time.Time `json:"evidence_occurred_at,omitempty"`
+}
+
+type RouteLegRow struct {
+	ID                   uuid.UUID `json:"id"`
+	RoutePlanID          uuid.UUID `json:"route_plan_id"`
+	Ordinal              int       `json:"ordinal"`
+	FromStopID           uuid.UUID `json:"from_stop_id"`
+	ToStopID             uuid.UUID `json:"to_stop_id"`
+	FromPointFingerprint string    `json:"from_point_fingerprint"`
+	ToPointFingerprint   string    `json:"to_point_fingerprint"`
+	DistanceM            int       `json:"distance_m"`
+	DurationSeconds      int       `json:"duration_seconds"`
+	Provider             string    `json:"provider"`
+	RequestFingerprint   string    `json:"request_fingerprint"`
+	ResponseFingerprint  string    `json:"response_fingerprint"`
+	VehicleProfileHash   string    `json:"vehicle_profile_hash"`
+	RouteMode            string    `json:"route_mode"`
+	TrafficMode          string    `json:"traffic_mode"`
+	DepartureBucket      string    `json:"departure_bucket"`
+	CalculatedAt         time.Time `json:"calculated_at"`
+	ExpiresAt            time.Time `json:"expires_at"`
+}
+
+type RouteSnapshotRow struct {
+	ID                          uuid.UUID `json:"id"`
+	RoutePlanID                 uuid.UUID `json:"route_plan_id"`
+	SequenceOrdinal             int       `json:"sequence_ordinal"`
+	AfterStopID                 uuid.UUID `json:"after_stop_id"`
+	AfterActionOrdinal          int       `json:"after_action_ordinal"`
+	PayloadStatus               string    `json:"payload_status"`
+	PayloadRemainingKg          *float64  `json:"payload_remaining_kg,omitempty"`
+	VolumeStatus                string    `json:"volume_status"`
+	VolumeRemainingM3           *float64  `json:"volume_remaining_m3,omitempty"`
+	PalletStatus                string    `json:"pallet_status"`
+	PalletPositionsRemaining    *float64  `json:"pallet_positions_remaining,omitempty"`
+	LinearStatus                string    `json:"linear_status"`
+	LinearMetersRemaining       *float64  `json:"linear_meters_remaining,omitempty"`
+	HeightStatus                string    `json:"height_status"`
+	HeightRemainingMM           *float64  `json:"height_remaining_mm,omitempty"`
+	TemperatureAllocationStatus string    `json:"temperature_allocation_status"`
+}
+
+type RouteDependencyRow struct {
+	ID             uuid.UUID  `json:"id"`
+	RoutePlanID    uuid.UUID  `json:"route_plan_id"`
+	DependencyKind string     `json:"dependency_kind"`
+	SubjectID      *uuid.UUID `json:"subject_id,omitempty"`
+	SubjectVersion *int       `json:"subject_version,omitempty"`
+	Fingerprint    string     `json:"fingerprint,omitempty"`
+}
+
+type RoutePlanGraph struct {
+	Plan         RoutePlanRow         `json:"plan"`
+	Stops        []RouteStopRow       `json:"stops"`
+	Actions      []RouteActionRow     `json:"actions"`
+	Legs         []RouteLegRow        `json:"legs"`
+	Snapshots    []RouteSnapshotRow   `json:"capacity_snapshots"`
+	Dependencies []RouteDependencyRow `json:"dependencies"`
+}
+
+func cloneRoutePlans(in map[uuid.UUID]RoutePlanGraph) map[uuid.UUID]RoutePlanGraph {
+	out := make(map[uuid.UUID]RoutePlanGraph, len(in))
+	for id, graph := range in {
+		graph.Stops = append([]RouteStopRow(nil), graph.Stops...)
+		graph.Actions = append([]RouteActionRow(nil), graph.Actions...)
+		graph.Legs = append([]RouteLegRow(nil), graph.Legs...)
+		graph.Snapshots = append([]RouteSnapshotRow(nil), graph.Snapshots...)
+		graph.Dependencies = append([]RouteDependencyRow(nil), graph.Dependencies...)
+		graph.Plan.ReasonCodes = append([]string(nil), graph.Plan.ReasonCodes...)
+		out[id] = graph
+	}
+	return out
+}
+
+func (t *memTx) InsertRoutePlan(_ context.Context, graph RoutePlanGraph) error {
+	if t.plans == nil {
+		t.plans = map[uuid.UUID]RoutePlanGraph{}
+	}
+	if _, ok := t.plans[graph.Plan.ID]; ok {
+		return ErrConflict
+	}
+	copied := cloneRoutePlans(map[uuid.UUID]RoutePlanGraph{graph.Plan.ID: graph})
+	t.plans[graph.Plan.ID] = copied[graph.Plan.ID]
+	return nil
+}
+
+func (t *memTx) GetRoutePlan(_ context.Context, tenant, id uuid.UUID) (RoutePlanGraph, error) {
+	graph, ok := t.plans[id]
+	if !ok || graph.Plan.TenantID != tenant {
+		return RoutePlanGraph{}, ErrNotFound
+	}
+	copied := cloneRoutePlans(map[uuid.UUID]RoutePlanGraph{id: graph})
+	return copied[id], nil
+}
