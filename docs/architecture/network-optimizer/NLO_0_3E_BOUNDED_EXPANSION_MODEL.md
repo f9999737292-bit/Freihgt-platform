@@ -1,11 +1,15 @@
 # NLO-0.3E bounded expansion model
 
-Controller review R1 revised this model. It is not a frozen architecture. It does not implement a search.
+Controller review R3 is a freeze candidate. It is not accepted and it does not implement a search.
 
 ```text
-NLO03E_F001=ADDRESSED_IN_THIS_REVISION
-NLO03E_F002=ADDRESSED_IN_THIS_REVISION
+NLO03E_F001=CLOSED
+NLO03E_F002=CLOSED
+ADR_STATUS=PROPOSED
+ARCHITECTURE_FREEZE_CANDIDATE=YES
+TEST_STRATEGY_FREEZE_CANDIDATE=YES
 ARCHITECTURE_FROZEN=NO
+IMPLEMENTATION_AUTHORIZED=NO
 ```
 
 ```text
@@ -41,29 +45,82 @@ No VRP, MILP, CP-SAT, LNS, genetic algorithm, or ML.
 
 These server-owned policy fields are separate. The caller does not supply them.
 
-| Field | Meaning | Proposed value | Evidence | Safety margin | Failure | Owner | Default until accepted |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `MAX_CANDIDATE_POOL` | eligible loads read before an N-member search stops | 10 | Postgres pool 10: observed max 136 ms, 136 inserted rows. Sizes 2 and 3 together are 165 sets, inside the 1225-set measurement | pool 50 is the next measured tier and cannot finish size 3 inside 1225 sets | `POOL_LIMIT_EXCEEDED`, no partial feasible claim | server policy | 10 |
-| `MAX_SET_SIZE` | largest set the lex generator emits | 3 | Pairwise groupage is 2 loads. Size 3 is the only wider set whose full enumeration at pool 10 stays inside the measured call count. Size 4+ was not measured | call count capped at the pool-50 measurement | generator refuses a larger set | server policy | 3 |
-| `MAX_SETS_EVALUATED` | assessments per search | 1225 | Postgres pool 50 evaluated 1225 pairs, observed max 2846 ms, 3676 inserted rows | pool 100 evaluated 4950 pairs, observed max 10431 ms, 14851 rows, and is not the default | `SEARCH_BUDGET_EXCEEDED` before a partial feasible claim | server policy | 1225 |
-| `MAX_ROUTING_CALLS` | `roadLeg` calls per NLO-0.3E search | 0 | Same-origin expansion explores 0 route sequences. Postgres pairwise routing calls were 0 | not applicable | this wave does not call a provider | server policy | 0 |
-| `MAX_GROUPAGE_CALLS` | `EvaluateGroupageItems` calls per search | 2450 | Postgres pool 50 loaded 2450 catalog contexts, one groupage evaluation each | pool 100 used 9900 and is not the default | `SEARCH_BUDGET_EXCEEDED` | server policy | 2450 |
-| `TIME_BUDGET` | wall clock cap | 5s | Adopted comparison tier, pool 50, observed max 2846 ms on this disposable Postgres | about 1.8× that sample maximum; pool 100 observed max was 10431 ms; not a multi-host SLO | `SEARCH_BUDGET_EXCEEDED` | server policy | 5s |
-| `DETERMINISTIC_ORDER` | generation and tie break | load id lexicographic, then status rank for the page | Current pairwise sort is status rank then load ids. Fingerprints were stable across repeats | structural | a changed order changes the fingerprint | proposed in ADR-NET-017, not accepted | required for a later implementation |
-| `ROUTE_SEQUENCES_EXPLORED` | stop orders considered per set | 0 | Same-origin same-destination has one pickup location and one delivery location. F002: one order cannot prove every order infeasible | structural | emitting a stop list is out of NLO-0.3E | proposed in ADR-NET-017, not accepted | 0 |
+| Field | Meaning | Value | Evidence | Safety margin | Failure | Owner |
+| --- | --- | --- | --- | --- | --- | --- |
+| `MAX_CANDIDATE_POOL` | global count of visible eligible loads | 10 | Postgres pool 10: p50 150 ms, observed max 196 ms, 136 inserted rows, 5 samples. 136 is the row count, not the latency | pool 50 size-2 observed max was 2846 ms; pool 100 was 10431 ms; pool 500 was 445323 ms | `POOL_LIMIT_EXCEEDED` before enumeration | server policy |
+| `MAX_SET_SIZE` | largest cargo set | 3 | Explicit first-release bound. The pairwise benchmark measured 2-member groupage only. Size 4 is 375 sets and size 5 is 627; neither was timed | one step above pairs, below the unmeasured 4- and 5-member widths | generator does not emit a larger set | server policy |
+| `MAX_SETS_EVALUATED` | assessments per search | 165 | `C(10,2)+C(10,3)=45+120` when every load shares one origin and destination. That is the worst case inside a global pool of 10 | not the pool-50 pair count of 1225, which this pool cannot reach | `SEARCH_BUDGET_EXCEEDED` before the next set | server policy |
+| `MAX_ROUTING_CALLS` | `roadLeg` calls per NLO-0.3E search | 0 | Zero route sequences. Postgres routing calls were 0 | not applicable | this wave does not call a provider | server policy |
+| `MAX_GROUPAGE_CALLS` | `EvaluateGroupageItems` calls per search | 330 | 165 sets times 2 contexts (capacity tenant and load tenant) | a single shared tenant uses fewer calls; 330 is the maximum | `SEARCH_BUDGET_EXCEEDED` before the next call | server policy |
+| `TIME_BUDGET` | watchdog | 5s | Pool-50 size-2 observed max 2846 ms; pool-100 size-2 observed max 10431 ms | about 1.8 times the pool-50 maximum. Not a throughput promise and not an SLO | `SEARCH_BUDGET_EXCEEDED` | server policy |
+| `DETERMINISTIC_ORDER` | generation and tie break | load id lexicographic, then status rank for the page | Fingerprints were stable across repeats | structural | a changed order changes the fingerprint | proposed |
+| `ROUTE_SEQUENCES_EXPLORED` | stop orders per set | 0 | Same pickup and delivery location. F002 is closed | structural | a stop list is out of NLO-0.3E | proposed |
 
 ```text
-NLO03E_I001=ADDRESSED_IN_THIS_REVISION
-NLO03E_MAX_ROUTING_CALLS=0
-REAL_ROUTING_PROVIDER_BUDGET_REQUIRED_FOR_0_3E=NO
-NLO03E_I002=CONTRACT_SHAPE_FROZEN_MIGRATION_NOT_WRITTEN
-NLO03E_I003=OPEN
+POOL_BOUND_SCOPE=GLOBAL_VISIBLE_ELIGIBLE_POOL
+BUDGETS_MUTUALLY_COHERENT=YES
+TIME_BUDGET_IS_SLO=NO
+NLO03E_I001=RESOLVED
+NLO03E_I002=RESOLVED_AT_DESIGN_LEVEL
+NLO03E_I003=RESOLVED_AT_DESIGN_LEVEL
 IMPLEMENTATION_AUTHORIZED=NO
 ```
 
-The numbers are proposed server defaults for a later implementation. This revision does not change runtime behavior. `candidate_limit` is still not a compute budget.
+Structural counts are the primary budget. The 5 second watchdog does not raise the set count or the groupage count. Pool 50, 100, and 500 remain measurements of today's unbounded pairwise search. They are not the NLO-0.3E ceiling.
 
-A same-origin group larger than 10 loads is `POOL_LIMIT_EXCEEDED` for an N-member search. Sizes 2 and 3 of a group of 10 are 165 sets. That is inside the 1225 sets measured at pool 50. A group of 50 cannot be fully enumerated at set size 3 without exceeding that set budget, so it is not the N-member default. Pool 50 itself stayed under 5s (observed max 2846 ms) for pairs only. Pool 100 did not (observed max 10431 ms). Pool 500 took 445323 ms in one sample and inserted 374251 rows.
+## N-member cost model
+
+`TestNLO03ECostModel` (build tag `nlo03ediscovery`) asserts these counts. It does not generate production sets. Pool is 10. Two compatibility contexts are the maximum per set. One `EvaluateGroupageItems` call on K members is not treated as the same CPU work as a call on 2 members. Inside each context the current evaluator runs K cargo-versus-equipment checks and `C(K,2)` cargo-pair checks.
+
+| Max set size | Sets | Candidate rows | Member rows | Persisted rows | Groupage calls | Inner checks | Estimated response bytes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 3 | 165 | 165 | 450 | 616 | 330 | 1710 | 520455 |
+| 4 | 375 | 375 | 1290 | 1666 | 750 | 5910 | 1491971 |
+| 5 | 627 | 627 | 2550 | 3178 | 1254 | 13470 | 2949245 |
+
+Persisted rows are 1 run plus candidates plus members. Inner checks are `sets * 2 * (K + C(K,2))` summed over K from 2 through the max. The response estimate scales the measured 104091 byte size-2 body by member count (90 members in that measurement). It is not a new timed payload.
+
+`MAX_SET_SIZE=3` is the choice. It is a first-release product and safety bound. The pairwise benchmark did not time a 3-member `EvaluateGroupageItems` call, so it does not mathematically prove that 3 is the largest safe width. Size 3 keeps the audit at 616 rows and the inner checks at 1710. Size 4 multiplies inner checks by about 3.5 and size 5 by about 7.9, with a wider public member list and a harder explanation for an operator. The safety margin is refusing those unmeasured widths.
+
+## Pool bound
+
+`MAX_CANDIDATE_POOL` means `GLOBAL_VISIBLE_ELIGIBLE_POOL=10`. It is not a per-origin-destination cap.
+
+The first bound is the repository read, before any set is built. The proposed operation, not implemented here, keeps the current visibility and opt-in predicates and adds a deterministic limit:
+
+```text
+ORDER BY pickup_location_id, delivery_location_id, id
+LIMIT 11
+```
+
+Eleven is one more than the bound. If the eleventh row exists, the search returns `POOL_LIMIT_EXCEEDED` and discards the page. It does not evaluate candidates and it does not insert a completed run. If ten or fewer rows return, those rows are the whole eligible pool. Grouping them by canonical origin and destination cannot scan an unbounded marketplace, and it cannot create more than ten groups. The worst case is one group of ten, which is 165 sets. A split across groups produces fewer sets.
+
+```text
+UNBOUNDED_POOL_MATERIALIZATION=NO
+UNBOUNDED_GROUP_SCAN=NO
+POOL_BOUND_APPLIED_BEFORE_COMBINATORIAL_ENUMERATION=YES
+```
+
+## Budget checks and failure
+
+`candidate_limit` is `RESPONSE_LIMIT_ONLY`. It does not change pool reads, sets generated, sets evaluated, groupage calls, or rows written. Limit 0 and a large limit are the same compute.
+
+Before enumeration, the pool bound is checked. Before a set is evaluated, the search checks that one more set would still be within 165 and that the contexts that set would load would still be within 330. It does not start a set that would cross either count. Elapsed time is checked before each set. At or past 5 seconds the search does not start another set.
+
+If a structural count is already exhausted, that failure wins over the watchdog. Both set count, groupage count, and the watchdog use `SEARCH_BUDGET_EXCEEDED`. Only the pool read uses `POOL_LIMIT_EXCEEDED`. `ROUTING_BUDGET_EXCEEDED` is not an NLO-0.3E code.
+
+```text
+PARTIAL_RESULT_PRESENTED_AS_COMPLETE=NO
+BUDGET_FAILURE_ATOMICITY=ROLLED_BACK
+```
+
+Candidate, member, and run rows for the attempt stay in the search transaction and roll back. The current runs table allows only `status = 'COMPLETED'`, so a failed attempt is not stored as a completed search and is not stored as a partial candidate list. The HTTP result uses the existing validation error, HTTP 422, with `details.reason` set to the budget code. There is no 200 body of candidates.
+
+## Provenance
+
+An NLO-0.3E fingerprint covers capacity id and version, member load ids and versions, cargo or profile versions that the evaluation consumed, catalog versions, rule-set versions, compatibility fingerprints, policy version, algorithm and budget policy version, and the canonical origin, destination, and window inputs through their authoritative versions.
+
+It does not depend on shipment version, tracking position, tracking freshness, ETA, a routing request fingerprint, routing proof, or a multi-stop rehandling sequence. Those belong to current-trip fill, which this wave does not extend. NLO-0.3D provenance is unchanged.
 
 ## Route sequence
 
@@ -108,15 +165,23 @@ MULTI_STOP_PLANNING_IN_0_3E=NO
 MAX_SET_SIZE=3
 ```
 
-`POST /v1/network/consolidation/search` stays the only search route. A same-origin candidate may list 2 or 3 members. `ordinal` is an integer from 1 through 3, unique within the candidate. `load_opportunity_id` stays unique within the candidate. `execution_supported` is false. The public body has no stop list.
+`POST /v1/network/consolidation/search` stays the only search route. A same-origin candidate lists 2 or 3 members (`minItems` 2, `maxItems` 3). `ordinal` is an integer from 1 through 3. A two-member response remains valid. `ordinal` is unique within the candidate, and so is `load_opportunity_id`. The existing primary key `(candidate_id, ordinal)`, unique `(candidate_id, load_opportunity_id)`, and candidate foreign key stay. `execution_supported` is false. The public body has no stop list.
 
-Today `consolidation_candidate_members` checks `ordinal IN (1, 2)` and OpenAPI `members.maxItems` is 2. A later migration may widen the check to `ordinal BETWEEN 1 AND 3` and the generated contract may set `maxItems` to 3. Until that migration exists, N-member rows cannot be stored (`NLO03E_I002` remains the schema gap; the shape above is the freeze).
+Today the member check is `ordinal IN (1, 2)` and OpenAPI `maxItems` is 2. A later migration may replace the check with `ordinal BETWEEN 1 AND 3` and the generated contract may set `maxItems` to 3. This discovery does not add that migration and does not reserve `000084`.
+
+The down migration must not delete ordinal-3 rows to force the old check. If any member ordinal is outside 1..2, the down migration fails closed and leaves the rows in place.
+
+```text
+DOWN_FAILS_CLOSED_IF_ROWS_OUTSIDE_OLD_BOUND=YES
+MIGRATION_CREATED=NO
+MIGRATION_RESERVED=NO
+```
 
 ## Resource exhaustion
 
-A client `candidate_limit`, including 0 or a very large value, must not increase work. The server policy does.
+`candidate_limit` is a response cap only. It does not change pool reads, set generation, groupage calls, or persistence. The server pool, set, groupage, and time budgets do.
 
-Fail closed, with no feasible result invented from a partial search:
+Fail closed. A partial candidate list is not returned as a complete search.
 
 ```text
 POOL_LIMIT_EXCEEDED
@@ -125,9 +190,9 @@ SEARCH_BUDGET_EXCEEDED
 
 `ROUTING_BUDGET_EXCEEDED` is not produced by NLO-0.3E. NLO-0.3D still calls the routing provider for one additional load. That behavior is unchanged.
 
-Today those codes are not implemented. A large visible pool is still read in full, and a large same-origin group is still fully paired. That is the defect this bound is meant to close. It is not closed in this discovery.
+These codes are not implemented yet. The current pool read has no limit. This discovery does not change that query.
 
-Repeated identical searches each allocate a new search id and insert a new run. There is no cache. A cache is not authorized here. Freshness, catalog version, load version, shipment version, tracking, and routing fingerprint would all have to invalidate one. Audit prefers a new run over a reused body.
+Repeated identical searches each allocate a new search id. There is no cache. A cache is not authorized here. Invalidation for this wave is capacity, load, catalog, rule, policy, and budget-policy versions, plus the canonical origin, destination, and windows. Shipment version, tracking, and routing fingerprints are not NLO-0.3E inputs. Audit prefers a new run over a reused body.
 
 ## Idempotency
 

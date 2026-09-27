@@ -12,10 +12,10 @@ This plan is the sequence a later task would follow after controller acceptance.
 
 ## Blockers before any runtime change
 
-1. Controller acceptance of ADR-NET-017. Review R1 is `CHANGES_REQUIRED`. `ARCHITECTURE_FROZEN=NO`.
-2. `NLO03E_I001` values from the disposable Postgres measurement: `MAX_CANDIDATE_POOL=10` for a complete size-2 and size-3 search, `MAX_SET_SIZE=3`, `MAX_SETS_EVALUATED=1225`, `MAX_GROUPAGE_CALLS=2450`, `TIME_BUDGET=5s`. `NLO03E_MAX_ROUTING_CALLS=0`. `REAL_ROUTING_PROVIDER_BUDGET_REQUIRED_FOR_0_3E=NO`. A 2GIS load test is not required for this same-origin expansion. Controller acceptance of these defaults is still required before runtime work.
-3. `NLO03E_I002`: a migration, not written here, that can store more than two members, plus generated OpenAPI for that member list. `000081` checks `ordinal IN (1, 2)`. OpenAPI `members.maxItems` is 2 and `ordinal` is enum `[1, 2]`. `NEW_MIGRATION_REQUIRED=YES`. `PROPOSED_MIGRATION=NONE`. Do not reserve `000084` in discovery.
-4. `NLO03E_I003`: a server-owned evaluation budget that is not `candidate_limit`. `candidate_limit` stays the returned-result cap.
+1. Controller acceptance of ADR-NET-017. Review R3 is a freeze candidate. `ADR_STATUS=PROPOSED`. `ARCHITECTURE_FROZEN=NO`. `ARCHITECTURE_FREEZE_CANDIDATE=YES`.
+2. `NLO03E_I001` is resolved at design level. `MAX_CANDIDATE_POOL=10` is the global visible eligible pool. `MAX_SET_SIZE=3`. `MAX_SETS_EVALUATED=165`. `MAX_GROUPAGE_CALLS=330`. `TIME_BUDGET=5s` is a watchdog, not an SLO. `NLO03E_MAX_ROUTING_CALLS=0`. Controller acceptance is still required before runtime work.
+3. `NLO03E_I002` design is frozen: ordinal between 1 and 3, members `minItems` 2 and `maxItems` 3, existing two-member payloads remain valid. Down migration fails closed if any ordinal is outside 1..2. No migration file is created.
+4. `NLO03E_I003` is resolved at design level. `candidate_limit` stays the returned-result cap. Pool, set, groupage, and time budgets are checked before the work they bound. A budget failure rolls back and does not return a partial candidate list.
 
 ## Implementation order, after those blockers
 

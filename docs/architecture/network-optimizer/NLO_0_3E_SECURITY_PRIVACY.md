@@ -53,7 +53,7 @@ MULTI_STOP_PLANNING_IN_0_3E=NO
 
 ## Unknown
 
-Unknown weight, volume, windows, position freshness, catalog scope, or routing proof stays `INDETERMINATE`. It is not coerced to zero or to feasible.
+Unknown cargo facts stay `INDETERMINATE`. They are not coerced to zero or to feasible. Position freshness and routing proof are current-trip inputs. They are not NLO-0.3E search inputs.
 
 ## Metrics
 

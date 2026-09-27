@@ -156,4 +156,4 @@ Inserted rows are 1 run + 1 candidate per pair + 2 members per pair. DB growth i
 
 Pool 500 took 445323 ms, inserted 374251 rows, returned about 287 MB of JSON, grew the database by about 236 MB, and left about 1.3 GB on the Go heap. Routing calls were 0. That size is not a supported pool.
 
-Adopted server defaults, with the margin described in `NLO_0_3E_BOUNDED_EXPANSION_MODEL.md`: pool 10 for a complete size-2 and size-3 enumeration, set budget 1225 and groupage budget 2450 taken from the measured pool-50 pair search, time budget 5s, routing calls 0. Pool 50 stayed under 5s (observed max 2846 ms) for pairs only. Pool 100 did not (observed max 10431 ms).
+Adopted NLO-0.3E ceilings are not these pairwise sizes. A global eligible pool of 10 with set size at most 3 evaluates at most 165 sets and 330 groupage calls. Pool 50 size-2 observed max was 2846 ms. Pool 100 size-2 observed max was 10431 ms. Those two figures are the source of the 5 second watchdog. The watchdog is not an SLO. Pool 500 is not a supported pool.

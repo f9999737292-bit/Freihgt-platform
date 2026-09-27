@@ -1,34 +1,33 @@
 # NLO-0.3E test strategy
 
-Controller review R1 revised this list. `TEST_STRATEGY_FROZEN=NO`. These checks are proposed for a future implementation task. They are not implemented here. The discovery harness `nlo_03e_discovery_benchmark_test.go` (build tag `nlo03ediscovery`) measures the current size-2 and one-load code only.
+Controller review R3 freeze candidate. `TEST_STRATEGY_FREEZE_CANDIDATE=YES`. `TEST_STRATEGY_FROZEN=NO` until the controller accepts it. These checks are not implemented here. The discovery harnesses use build tag `nlo03ediscovery` and are not part of default `go test`.
 
 ## Scope
 
-- A same-origin same-destination set larger than 2 uses one pickup location and one delivery location. The result has no stop list.
+- Sets contain 2 or 3 members, all with the same canonical origin and destination. The result has no stop list.
+- A fourth member is not generated.
+- Generation is load-id lexicographic and the fingerprint is stable across repeats.
+- Window intersection uses every member.
 - The search does not accept a second additional load on `CURRENT_TRIP_FILL`. That pattern stays `MAX_ADDITIONAL_LOADS=1`.
-- The search does not implement `MULTI_PICK_ONE_DROP`, `ONE_PICK_MULTI_DROP`, or `MULTI_PICK_MULTI_DROP`.
+- Multi-pick and multi-drop are not implemented.
 - No `RoutePlan`, `RouteStop`, or driver multi-stop task is written.
-
-## Sequence verdict
-
-- NLO-0.3E explores zero alternate route sequences and does not emit a sequence-feasibility claim.
-- A sequence-independent groupage failure may be `HARD_REJECT`.
-- An order-dependent failure is not `HARD_REJECT` of the set. If a later wave explores stop orders, one failed order stays `INDETERMINATE` until the authorized sequence bound is exhausted.
-- A fixture with N eligible loads in one group does not generate `2^N` sets and does not generate `N!` sequences.
+- Route sequences explored are 0. Routing calls are 0.
 
 ## Bounds
 
-These checks use the server defaults from the Postgres measurement. `candidate_limit` is still not one of them (`NLO03E_I003`).
-
-- More than 10 eligible loads in one same-origin group returns `POOL_LIMIT_EXCEEDED` and does not enumerate sets.
+- The global eligible pool read uses `ORDER BY pickup_location_id, delivery_location_id, id LIMIT 11`. An eleventh row returns `POOL_LIMIT_EXCEEDED` and does not enumerate sets.
 - Set size never exceeds 3.
-- Assessed sets never exceed 1225.
-- Groupage calls never exceed 2450.
-- Routing calls for an NLO-0.3E set are 0.
-- Wall time past 5s returns `SEARCH_BUDGET_EXCEEDED`.
-- Generation order is load-id lexicographic and the fingerprint is stable across repeats.
+- Assessed sets never exceed 165. The precheck happens before the set is evaluated.
+- Groupage calls never exceed 330. The precheck happens before the call.
+- Elapsed time at or past 5 seconds does not start another set and returns `SEARCH_BUDGET_EXCEEDED`. The 5 seconds are a watchdog, not an SLO.
+- A structural budget failure wins over the watchdog when both are already true.
+- `candidate_limit` 0 and a large `candidate_limit` do not change pool reads, sets, groupage calls, or rows written.
 
-`NLO03E_I003`: `candidate_limit` changes the returned page only. It does not change evaluated count, routing calls, or rows persisted. A test must show limit 0 and a large limit do the same evaluation and persistence work until a separate server budget stops the search.
+## Failure atomicity
+
+- The response is not HTTP 200 with a partial candidate list presented as complete.
+- Candidate, member, and run rows of the attempt roll back.
+- A completed run is not used to record the failure.
 
 ## Capacity and compatibility
 
@@ -38,12 +37,16 @@ Reuse `EvaluateGroupageItems` and `ResidualCapacitySnapshot`. Assert aggregation
 
 A fingerprint change is required when any of these change and the feasibility status stays the same:
 
-- rule or catalog version
-- load version
-- shipment version
-- tracking freshness or position
-- routing request fingerprint
-- rehandling policy
+- capacity id or version
+- load id or version
+- cargo or profile version that the evaluation consumed
+- catalog version
+- rule-set version
+- policy version
+- algorithm or budget policy version
+- canonical origin, destination, or window inputs through their authoritative versions
+
+Shipment version, tracking position, tracking freshness, ETA, routing request fingerprint, routing proof, and multi-stop rehandling are not NLO-0.3E fingerprint inputs. NLO-0.3D tests for those stay in the current-trip suite.
 
 ## Tenancy and privacy
 
@@ -52,18 +55,11 @@ A fingerprint change is required when any of these change and the feasibility st
 - One tenant's catalog overlay is not applied to another tenant's cargo.
 - Public JSON does not contain the internal compatibility trace.
 
-## Routing and evidence
+## Members
 
-- Same-origin set expansion makes zero routing calls. `NLO03E_ROUTING_CALLS_PER_SET=0`.
-- The NLO-0.3E search does not return `ROUTING_BUDGET_EXCEEDED`.
-- Existing NLO-0.3D tests still cover one-load fill: routing unavailable stays indeterminate, a stale position skips routing, and a stale ETA is not a feasible arrival. Those protections are not removed.
-
-## Budgets and audit
-
-- Search budget reached returns `SEARCH_BUDGET_EXCEEDED`.
-- Pool budget reached returns `POOL_LIMIT_EXCEEDED`.
-- `NLO03E_I002`: N-member rows are not persisted until a later migration widens `ordinal IN (1, 2)` and the generated OpenAPI member list. This discovery does not add that migration. NLO-0.3E does not assert a routing budget.
-- The deterministic fingerprint covers policy, member ids and versions, and compatibility provenance.
+- Ordinal is unique within the candidate and is between 1 and 3.
+- Load id is unique within the candidate.
+- A two-member candidate still validates against the future contract.
 
 ## Execution boundary
 
