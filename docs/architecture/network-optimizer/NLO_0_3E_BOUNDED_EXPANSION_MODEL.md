@@ -1,10 +1,11 @@
 # NLO-0.3E bounded expansion model
 
-Controller review R3 is a freeze candidate. It is not accepted and it does not implement a search.
+Controller review R4 is a freeze candidate. It is not accepted and it does not implement a search.
 
 ```text
 NLO03E_F001=CLOSED
 NLO03E_F002=CLOSED
+NLO03E_F005=CLOSED
 ADR_STATUS=PROPOSED
 ARCHITECTURE_FREEZE_CANDIDATE=YES
 TEST_STRATEGY_FREEZE_CANDIDATE=YES
@@ -33,7 +34,7 @@ Option C, deterministic top-K seed expansion, is rejected for the same reason. T
 
 | Option | Complexity | Determinism | Audit | Routing cost | Compatibility cost | Privacy | Implementation |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| A lex extension | O(sets evaluated), sets capped | load-id order | each assessed set can be stored | no route-sequence search | one groupage pass per set, two contexts when two tenants | same fail-closed cross-shipper rule | extends the current pair loop |
+| A lex extension | O(sets evaluated), sets capped | load-id order | each assessed set can be stored | no route-sequence search | one groupage pass per set, two contexts when two tenants | same fail-closed cross-shipper rule | new N-member pattern only; the legacy pair loop stays pairwise |
 | B beam | O(beam * set size) | only if the score is total | needs the score in the fingerprint | depends on the beam | depends on the beam | score must not leak private facts | needs an unapproved score |
 | C top-K seeds | O(K * extensions) | only if the rank is total | same | depends on K | depends on K | same | needs an unapproved score |
 
@@ -66,7 +67,11 @@ NLO03E_I003=RESOLVED_AT_DESIGN_LEVEL
 IMPLEMENTATION_AUTHORIZED=NO
 ```
 
-Structural counts are the primary budget. The 5 second watchdog does not raise the set count or the groupage count. Pool 50, 100, and 500 remain measurements of today's unbounded pairwise search. They are not the NLO-0.3E ceiling.
+Structural counts are the primary budget. The 5 second watchdog does not raise the set count or the groupage count. These ceilings apply only to `SAME_ORIGIN_SAME_DESTINATION_N_MEMBER`. Pool 50, 100, and 500 remain measurements of today's unbounded pairwise search. They are not the N-member ceiling, and NLO-0.3E does not apply the pool of 10 to the legacy pairwise pattern.
+
+```text
+LEGACY_PAIRWISE_UNBOUNDED_BEHAVIOR=UNCHANGED_BY_0_3E
+```
 
 ## N-member cost model
 
@@ -84,7 +89,7 @@ Persisted rows are 1 run plus candidates plus members. Inner checks are `sets * 
 
 ## Pool bound
 
-`MAX_CANDIDATE_POOL` means `GLOBAL_VISIBLE_ELIGIBLE_POOL=10`. It is not a per-origin-destination cap.
+`MAX_CANDIDATE_POOL` means `GLOBAL_VISIBLE_ELIGIBLE_POOL=10` on `SAME_ORIGIN_SAME_DESTINATION_N_MEMBER` only. It is not a per-origin-destination cap. It is not applied to legacy `SAME_ORIGIN_SAME_DESTINATION`.
 
 The first bound is the repository read, before any set is built. The proposed operation, not implemented here, keeps the current visibility and opt-in predicates and adds a deterministic limit:
 
@@ -103,7 +108,7 @@ POOL_BOUND_APPLIED_BEFORE_COMBINATORIAL_ENUMERATION=YES
 
 ## Budget checks and failure
 
-`candidate_limit` is `RESPONSE_LIMIT_ONLY`. It does not change pool reads, sets generated, sets evaluated, groupage calls, or rows written. Limit 0 and a large limit are the same compute.
+On the N-member pattern, `candidate_limit` is `RESPONSE_LIMIT_ONLY`. It does not change pool reads, sets generated, sets evaluated, groupage calls, or rows written. Limit 0 and a large limit are the same compute. These prechecks are not a change to legacy pairwise search.
 
 Before enumeration, the pool bound is checked. Before a set is evaluated, the search checks that one more set would still be within 165 and that the contexts that set would load would still be within 330. It does not start a set that would cross either count. Elapsed time is checked before each set. At or past 5 seconds the search does not start another set.
 
@@ -118,7 +123,7 @@ Candidate, member, and run rows for the attempt stay in the search transaction a
 
 ## Provenance
 
-An NLO-0.3E fingerprint covers capacity id and version, member load ids and versions, cargo or profile versions that the evaluation consumed, catalog versions, rule-set versions, compatibility fingerprints, policy version, algorithm and budget policy version, and the canonical origin, destination, and window inputs through their authoritative versions.
+An N-member fingerprint covers `pattern=SAME_ORIGIN_SAME_DESTINATION_N_MEMBER`, capacity id and version, member load ids and versions, cargo or profile versions that the evaluation consumed, catalog versions, rule-set versions, compatibility fingerprints, policy version, algorithm and budget policy version, and the canonical origin, destination, and window inputs through their authoritative versions. The pattern value keeps a two-member N-member candidate from colliding with a legacy pairwise candidate.
 
 It does not depend on shipment version, tracking position, tracking freshness, ETA, a routing request fingerprint, routing proof, or a multi-stop rehandling sequence. Those belong to current-trip fill, which this wave does not extend. NLO-0.3D provenance is unchanged.
 
@@ -142,7 +147,8 @@ Required facts stay: weight, volume, pallets, linear metres, height, temperature
 
 | Class | Decision | Bound |
 | --- | --- | --- |
-| `SAME_ORIGIN_SAME_DESTINATION` with more than 2 loads | `IN_0_3E` as cargo-set planning only | shared pickup and delivery, no stop list, `execution_supported=false` |
+| `SAME_ORIGIN_SAME_DESTINATION` | unchanged pairwise mode | set size 2 only; NLO-0.3E does not widen it |
+| `SAME_ORIGIN_SAME_DESTINATION_N_MEMBER` | `IN_0_3E` as cargo-set planning only | shared pickup and delivery, 2 or 3 members, no stop list, `execution_supported=false` |
 | `CURRENT_TRIP_FILL` with more than 1 additional load | `DEFER_TO_0_4` | a second insertion is multi-stop planning |
 | `MULTI_PICK_ONE_DROP` | `DEFER_TO_0_4` | needs `RoutePlan` and `RouteStop` |
 | `ONE_PICK_MULTI_DROP` | `DEFER_TO_0_4` | same |
@@ -150,11 +156,19 @@ Required facts stay: weight, volume, pallets, linear metres, height, temperature
 
 NLO-0.4 owns persistent `RoutePlan`, `RouteStop`, shared route legs, accepted plan activation, multi-stop shipment representation, and driver multi-stop tasks. NLO-0.3E does not create those rows.
 
-## N-member contract
+## Public patterns
 
-This is the contract shape. It is not a migration and it is not a runtime change. `000084` is not created and is not reserved.
+The legacy pairwise pattern stays pairwise. The N-member pattern is additive. NLO-0.3E does not begin returning three-member candidates from `SAME_ORIGIN_SAME_DESTINATION`, and it does not apply the global pool of 10 to that pattern. Hardening the legacy pairwise resource limits needs its own compatibility decision.
 
 ```text
+LEGACY_PAIRWISE_PATTERN=SAME_ORIGIN_SAME_DESTINATION
+LEGACY_PAIRWISE_SET_SIZE=2
+PAIRWISE_ONLY=YES
+N_MEMBER_PATTERN=SAME_ORIGIN_SAME_DESTINATION_N_MEMBER
+N_MEMBER_PATTERN_ADDITIVE=YES
+NEW_PUBLIC_ENDPOINT=NO
+NEW_PATTERN=YES
+LEGACY_PAIRWISE_UNBOUNDED_BEHAVIOR=UNCHANGED_BY_0_3E
 NLO_0_3E_SCOPE=SAME_ORIGIN_SAME_DESTINATION_N_MEMBER_SETS_ONLY
 CURRENT_TRIP_FILL_MAX_ADDITIONAL_LOADS=1
 CURRENT_TRIP_FILL_GT_1=DEFER_TO_0_4
@@ -165,9 +179,31 @@ MULTI_STOP_PLANNING_IN_0_3E=NO
 MAX_SET_SIZE=3
 ```
 
-`POST /v1/network/consolidation/search` stays the only search route. A same-origin candidate lists 2 or 3 members (`minItems` 2, `maxItems` 3). `ordinal` is an integer from 1 through 3. A two-member response remains valid. `ordinal` is unique within the candidate, and so is `load_opportunity_id`. The existing primary key `(candidate_id, ordinal)`, unique `(candidate_id, load_opportunity_id)`, and candidate foreign key stay. `execution_supported` is false. The public body has no stop list.
+`POST /v1/network/consolidation/search` stays the only search route.
 
-Today the member check is `ordinal IN (1, 2)` and OpenAPI `maxItems` is 2. A later migration may replace the check with `ordinal BETWEEN 1 AND 3` and the generated contract may set `maxItems` to 3. This discovery does not add that migration and does not reserve `000084`.
+| Request | Before | After | Change |
+| --- | --- | --- | --- |
+| Existing `SAME_ORIGIN_SAME_DESTINATION` | pairwise, set size 2 | pairwise, set size 2 | `BREAKING=NO` |
+| Existing `CURRENT_TRIP_FILL` | max additional loads 1 | max additional loads 1 | `BREAKING=NO` |
+| New `SAME_ORIGIN_SAME_DESTINATION_N_MEMBER` | unsupported | bounded 2..3 member planning | `ADDITIVE=YES` |
+
+Proposed N-member request: `pattern=SAME_ORIGIN_SAME_DESTINATION_N_MEMBER`, an owned `capacity_id`, the existing policy when it applies, and optional `candidate_limit`. The caller does not send `max_set_size`, `max_pool_size`, `max_sets`, `max_groupage_calls`, or `time_budget`. Those stay server policy for this pattern only.
+
+Proposed response schemas stay separate. `PairwiseConsolidationSearchResponse` keeps `evaluated_pair_count` and `PairwiseConsolidationCandidate` with `members.minItems=2` and `members.maxItems=2`. `NMemberConsolidationSearchResponse` is not that schema. It carries `search_id`, `capacity_id`, `capacity_version`, `pattern`, `pool_load_count`, `evaluated_set_count`, `feasible_candidate_count`, `indeterminate_candidate_count`, `hard_reject_candidate_count`, `returned_candidate_count`, and `candidates`. The set counter is `evaluated_set_count`, not `evaluated_pair_count`. `NMemberConsolidationCandidate` has `members.minItems=2` and `members.maxItems=3`. Member `ordinal` is an integer from 1 through 3. `CURRENT_TRIP_FILL` stays `CurrentTripFillSearchResponse`.
+
+Proposed discriminator, not generated in this revision:
+
+```text
+SAME_ORIGIN_SAME_DESTINATION -> PairwiseConsolidationSearchResponse
+SAME_ORIGIN_SAME_DESTINATION_N_MEMBER -> NMemberConsolidationSearchResponse
+CURRENT_TRIP_FILL -> CurrentTripFillSearchResponse
+```
+
+Existing pairwise clients keep receiving two-member candidates. `execution_supported` is false. The N-member body has no stop list. `ordinal` is unique within the candidate, and so is `load_opportunity_id`. The existing primary key `(candidate_id, ordinal)`, unique `(candidate_id, load_opportunity_id)`, and candidate foreign key stay.
+
+The persisted `pattern` stores `SAME_ORIGIN_SAME_DESTINATION` or `SAME_ORIGIN_SAME_DESTINATION_N_MEMBER`. Audit does not infer the mode from member count, because an N-member search can store a two-member set.
+
+Today the member check is `ordinal IN (1, 2)` and the generated pairwise contract has `maxItems` 2. A later migration may allow N-member rows with `ordinal BETWEEN 1 AND 3` while the pairwise response schema stays at two members. This discovery does not add that migration, does not edit generated OpenAPI, and does not reserve `000084`.
 
 The down migration must not delete ordinal-3 rows to force the old check. If any member ordinal is outside 1..2, the down migration fails closed and leaves the rows in place.
 
@@ -179,7 +215,7 @@ MIGRATION_RESERVED=NO
 
 ## Resource exhaustion
 
-`candidate_limit` is a response cap only. It does not change pool reads, set generation, groupage calls, or persistence. The server pool, set, groupage, and time budgets do.
+On the N-member pattern, `candidate_limit` is a response cap only. It does not change pool reads, set generation, groupage calls, or persistence. The server pool, set, groupage, and time budgets do. Those budgets and the two codes below belong only to `SAME_ORIGIN_SAME_DESTINATION_N_MEMBER`. This ADR does not add them to legacy pairwise search.
 
 Fail closed. A partial candidate list is not returned as a complete search.
 

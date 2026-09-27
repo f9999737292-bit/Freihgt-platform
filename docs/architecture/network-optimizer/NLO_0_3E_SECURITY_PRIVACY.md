@@ -20,7 +20,7 @@ A set that mixes load owners stays `INDETERMINATE` until a future design proves 
 
 `ListPublicConsolidationPool` has no SQL limit. Pair generation is `N*(N-1)/2` inside one origin-destination group. Every assessed pair is written. `candidate_limit=0` still evaluates and persists the full set. A large `candidate_limit` does not reduce that work.
 
-NLO-0.3E fail-closed codes are `POOL_LIMIT_EXCEEDED` and `SEARCH_BUDGET_EXCEEDED`. Same-origin expansion makes no routing call, so `ROUTING_BUDGET_EXCEEDED` is not an NLO-0.3E outcome. NLO-0.3D still performs its existing four `roadLeg` calls for one additional load. That protection stays on NLO-0.3D. A future NLO-0.4 multi-stop planner owns any later routing budget.
+NLO-0.3E fail-closed codes `POOL_LIMIT_EXCEEDED` and `SEARCH_BUDGET_EXCEEDED` apply only to `SAME_ORIGIN_SAME_DESTINATION_N_MEMBER`. Legacy pairwise search is not given those codes or the pool of 10 by this wave. `LEGACY_PAIRWISE_UNBOUNDED_BEHAVIOR=UNCHANGED_BY_0_3E`. Same-origin N-member expansion makes no routing call, so `ROUTING_BUDGET_EXCEEDED` is not an NLO-0.3E outcome. NLO-0.3D still performs its existing four `roadLeg` calls for one additional load. That protection stays on NLO-0.3D. A future NLO-0.4 multi-stop planner owns any later routing budget.
 
 ```text
 NLO_0_3E_SCOPE=SAME_ORIGIN_SAME_DESTINATION_N_MEMBER_SETS_ONLY
@@ -57,4 +57,4 @@ Unknown cargo facts stay `INDETERMINATE`. They are not coerced to zero or to fea
 
 ## Metrics
 
-Existing labels are bounded: outcome status is three values, duration buckets are fixed. A later budget counter may use only the three reason codes above. Load ids, tenant ids, and raw set sizes must not be labels.
+Existing labels are bounded: outcome status is three values, duration buckets are fixed. A later budget counter for the N-member pattern may use only `POOL_LIMIT_EXCEEDED` or `SEARCH_BUDGET_EXCEEDED`. Load ids, tenant ids, and raw set sizes must not be labels.

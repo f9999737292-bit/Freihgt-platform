@@ -81,4 +81,4 @@ The code does not emit `bno_consolidation_hard_reject_total`, `bno_consolidation
 
 ## Public API
 
-`POST /v1/network/consolidation/search` dispatches `CURRENT_TRIP_FILL` and `SAME_ORIGIN_SAME_DESTINATION`. An unknown pattern returns `PATTERN_NOT_IMPLEMENTED`. No second search route exists.
+`POST /v1/network/consolidation/search` dispatches `CURRENT_TRIP_FILL` and `SAME_ORIGIN_SAME_DESTINATION`. An unknown pattern returns `PATTERN_NOT_IMPLEMENTED`. `SAME_ORIGIN_SAME_DESTINATION_N_MEMBER` is not dispatched. The existing pairwise pattern stays set size 2. No second search route exists.

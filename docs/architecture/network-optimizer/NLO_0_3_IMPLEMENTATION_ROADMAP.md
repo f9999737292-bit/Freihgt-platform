@@ -80,9 +80,9 @@ Out: a second extra load, solver, slot booking, assignment, reservation, NLO-0.3
 
 ### NLO-0.3E — bounded expansion and optional ranking
 
-Status: DISCOVERY / FREEZE_CANDIDATE. ADR-NET-017 review R3 is proposed and not accepted. Implementation is not started and is not authorized. `ARCHITECTURE_FROZEN=NO`. `ARCHITECTURE_FREEZE_CANDIDATE=YES`. `TEST_STRATEGY_FROZEN=NO`. `TEST_STRATEGY_FREEZE_CANDIDATE=YES`.
+Status: DISCOVERY / FREEZE_CANDIDATE. ADR-NET-017 review R4 is proposed and not accepted. Implementation is not started and is not authorized. `ARCHITECTURE_FROZEN=NO`. `ARCHITECTURE_FREEZE_CANDIDATE=YES`. `TEST_STRATEGY_FROZEN=NO`. `TEST_STRATEGY_FREEZE_CANDIDATE=YES`.
 
-Scope: only after 0.3B, 0.3C, and 0.3D measurements. Still no solver. A separate score, if authorized, is not MatchScore.
+Scope: additive pattern `SAME_ORIGIN_SAME_DESTINATION_N_MEMBER` on the existing search. Legacy `SAME_ORIGIN_SAME_DESTINATION` stays pairwise with set size 2. Still no solver. A separate score, if authorized, is not MatchScore.
 
 Out of NLO-0.3E: unrestricted `2^N`, ML, 3D packing, shipment activation.
 

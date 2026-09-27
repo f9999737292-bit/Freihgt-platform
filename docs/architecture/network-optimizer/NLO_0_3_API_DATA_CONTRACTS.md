@@ -1,6 +1,14 @@
 # NLO-0.3 API and data contracts
 
-Baseline: `origin/main` `6d47cc92`. NLO-0.3B, NLO-0.3C, and NLO-0.3D are IMPLEMENTED_CLOSED on main. `CURRENT_TRIP_FILL` is a public planning search, `execution_supported=false`, `MAX_ADDITIONAL_LOADS=1`, and it does not mutate a shipment, order, assignment, reservation, offer, slot, or driver task. This wave does not persist `current_trip_context_id`. NLO-0.3E is NOT_STARTED. NLO-0.4 is NOT_STARTED. NLO-0.3 is not complete.
+Baseline: `origin/main` `6576034a4f39b451341ad72667c5fc25f6562658`. NLO-0.3B, NLO-0.3C, and NLO-0.3D are IMPLEMENTED_CLOSED on main. `CURRENT_TRIP_FILL` is a public planning search, `execution_supported=false`, `MAX_ADDITIONAL_LOADS=1`, and it does not mutate a shipment, order, assignment, reservation, offer, slot, or driver task. This wave does not persist `current_trip_context_id`.
+
+```text
+NLO_0_3E=ARCHITECTURE_FREEZE_CANDIDATE
+IMPLEMENTATION_STARTED=NO
+ADR_STATUS=PROPOSED
+```
+
+NLO-0.4 is NOT_STARTED. NLO-0.3 is not complete. This document records the proposed NLO-0.3E contract. It does not change generated OpenAPI.
 
 ## One search endpoint
 
@@ -10,7 +18,33 @@ Gateway would later expose it under `/api/v1/network/consolidation/search` for t
 
 The caller does not upload `CurrentTripContext`. Residual payload, onboard cargo, GPS, ETA, vehicle totals, and temperature state are not request fields.
 
-`SAME_ORIGIN_SAME_DESTINATION` sends an owned `capacity_id`, pattern, policy, and optional `candidate_limit`. The server checks capacity tenant ownership, status, version, and effective capability. A foreign capacity is `NOT_FOUND`.
+## Pattern semantics
+
+`SAME_ORIGIN_SAME_DESTINATION` is the implemented pairwise mode. `PAIRWISE_ONLY=YES`. `SET_SIZE=2`. The response stays `PairwiseConsolidationSearchResponse` with `evaluated_pair_count` and `PairwiseConsolidationCandidate` (`members.minItems=2`, `members.maxItems=2`). NLO-0.3E does not return three-member candidates from this pattern and does not apply the N-member pool of 10 to it. `LEGACY_PAIRWISE_UNBOUNDED_BEHAVIOR=UNCHANGED_BY_0_3E`. Any later limit on this mode needs its own compatibility decision.
+
+`CURRENT_TRIP_FILL` is the implemented planning search. `MAX_ADDITIONAL_LOADS=1`. The response stays `CurrentTripFillSearchResponse`. NLO-0.3E does not change it.
+
+`SAME_ORIGIN_SAME_DESTINATION_N_MEMBER` is the proposed additive pattern. It is not implemented. The request sends that pattern, an owned `capacity_id`, the existing policy when it applies, and optional `candidate_limit`. The caller does not send `max_set_size`, `max_pool_size`, `max_sets`, `max_groupage_calls`, or `time_budget`. Server policy for this pattern only is pool 10, set size 3, 165 sets, 330 groupage calls, 0 routing calls, and a 5 second watchdog. `POOL_LIMIT_EXCEEDED` and `SEARCH_BUDGET_EXCEEDED` belong to this pattern. They are not retroactive pairwise errors.
+
+The N-member response is `NMemberConsolidationSearchResponse`. It is not `PairwiseConsolidationSearchResponse`. It includes `search_id`, `capacity_id`, `capacity_version`, `pattern`, `pool_load_count`, `evaluated_set_count`, `feasible_candidate_count`, `indeterminate_candidate_count`, `hard_reject_candidate_count`, `returned_candidate_count`, and `candidates`. The counter is `evaluated_set_count`. `NMemberConsolidationCandidate` has `members.minItems=2` and `members.maxItems=3`. Ordinal is 1 through 3. `execution_supported=false`.
+
+Proposed discriminator, not generated here:
+
+```text
+SAME_ORIGIN_SAME_DESTINATION -> PairwiseConsolidationSearchResponse
+SAME_ORIGIN_SAME_DESTINATION_N_MEMBER -> NMemberConsolidationSearchResponse
+CURRENT_TRIP_FILL -> CurrentTripFillSearchResponse
+```
+
+| Request | Before | After | Change |
+| --- | --- | --- | --- |
+| Existing `SAME_ORIGIN_SAME_DESTINATION` | pairwise | pairwise | `BREAKING=NO` |
+| Existing `CURRENT_TRIP_FILL` | max additional loads 1 | max additional loads 1 | `BREAKING=NO` |
+| New `SAME_ORIGIN_SAME_DESTINATION_N_MEMBER` | unsupported | bounded 2..3 member planning | `ADDITIVE=YES` |
+
+The persisted `pattern` stores which of the two same-origin modes ran. Audit does not infer the mode from member count. An N-member fingerprint includes `pattern=SAME_ORIGIN_SAME_DESTINATION_N_MEMBER` and the algorithm and budget policy version.
+
+`SAME_ORIGIN_SAME_DESTINATION` sends an owned `capacity_id`, pattern, policy, and optional `candidate_limit`. The server checks capacity tenant ownership, status, version, and effective capability. A foreign capacity is `NOT_FOUND`. The N-member request uses the same capacity checks.
 
 `CURRENT_TRIP_FILL` sends `shipment_id`, pattern, policy, and optional `candidate_limit`. The server assembles the context. A foreign shipment is `NOT_FOUND`. The response may include a context summary. That summary is not trusted input. `current_trip_context_id` is not accepted in NLO-0.3D because the server does not persist that context. The pairwise response requires `capacity_id` and `capacity_version`. The current-trip response omits both. A zero UUID or a zero version is not used for an absent capacity.
 
@@ -20,9 +54,9 @@ Same-owner participation requires `consolidation_allowed=true` on each load. Cro
 
 Other request concepts:
 
-- pattern is only `SAME_ORIGIN_SAME_DESTINATION` or `CURRENT_TRIP_FILL` in the first waves;
+- pattern is `SAME_ORIGIN_SAME_DESTINATION`, `CURRENT_TRIP_FILL`, or, when later implemented, `SAME_ORIGIN_SAME_DESTINATION_N_MEMBER`;
 - policy is rehandling allowed or not;
-- `candidate_limit` is optional. Production numbers stay unset.
+- `candidate_limit` is optional. On the proposed N-member pattern it is a response cap only. It does not set the server work budgets. Legacy pairwise behavior is unchanged by NLO-0.3E.
 
 Response concepts:
 
