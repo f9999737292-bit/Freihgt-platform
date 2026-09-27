@@ -1,6 +1,6 @@
 # ADR-NET index
 
-ADR-NET-001 through ADR-NET-012 are proposed records for the v0.1 freeze. ADR-NET-013 through ADR-NET-017 are Accepted. ADR-NET-017 implementation is in controller review and is not accepted.
+ADR-NET-001 through ADR-NET-012 are proposed records for the v0.1 freeze. ADR-NET-013 through ADR-NET-017 are Accepted. ADR-NET-017 implementation is accepted. `NLO_0_3E_ACCEPTED=YES`. `IMPLEMENTATION_CONTROLLER_ACCEPTANCE=PASS`. `RUNTIME_BLOCKING_FINDINGS=0`. NLO-0.4 is not started.
 
 | ID | Title |
 |----|-------|

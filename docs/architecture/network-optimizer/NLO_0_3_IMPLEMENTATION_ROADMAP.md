@@ -1,6 +1,6 @@
 # NLO-0.3 implementation roadmap
 
-Architecture baseline: `origin/main` `6d47cc92`. Current implementation main: `ef3722db92fd1c115f6539cc491df3eabd57affa`. NLO-0.3A is FROZEN_ACCEPTED and CLOSED. NLO-0.3B is IMPLEMENTED / CLOSED. NLO-0.3C is IMPLEMENTED_CLOSED. NLO-0.3D is IMPLEMENTED_CLOSED. NLO-0.3E architecture is FROZEN_ACCEPTED. ADR-NET-017 is Accepted. Implementation is in controller review and is not accepted. `NLO_0_3E_IMPLEMENTED=YES`. `NLO_0_3E_ACCEPTED=NO`. `CONTROLLER_REVIEW_PENDING=YES`. NLO-0.3 is not complete. NLO-0.4 is not started. GPS is not an NLO-0.2 dependency. Current-trip residual capacity is NLO-0.3.
+Architecture baseline: `origin/main` `6d47cc92`. Current implementation main before this acceptance: `e9cecbb21566285393dc72fbdbf5de032344819c`. NLO-0.3A is FROZEN_ACCEPTED and CLOSED. NLO-0.3B is IMPLEMENTED / CLOSED. NLO-0.3C is IMPLEMENTED_CLOSED. NLO-0.3D is IMPLEMENTED_CLOSED. NLO-0.3E architecture is FROZEN_ACCEPTED. ADR-NET-017 is Accepted. Implementation is accepted. `NLO_0_3E_IMPLEMENTED=YES`. `NLO_0_3E_ACCEPTED=YES`. `IMPLEMENTATION_CONTROLLER_ACCEPTANCE=PASS`. `RUNTIME_BLOCKING_FINDINGS=0`. `NLO_0_3_COMPLETE=YES`. NLO-0.4 is not started. GPS is not an NLO-0.2 dependency. Current-trip residual capacity is NLO-0.3.
 
 ## What NLO-0.3 will implement
 
@@ -50,7 +50,7 @@ Out: current-trip context, residual occupancy, route insertion, execution, score
 
 ### NLO-0.3C — onboard evidence, trip context, residual snapshot
 
-Status: IMPLEMENTED_CLOSED. Merged in PR #176 at `cad3c67b93fd72329050db624ae048495ef0236f`. Feature head `d8b2b659f7fbc735bf84e53b458755a89311734d`. Migration `000082_nlo_onboard_evidence_current_trip_context_v0_3c`. `NLO_0_3_COMPLETE=NO`. NLO-0.3D is a later wave and does not change this closed status.
+Status: IMPLEMENTED_CLOSED. Merged in PR #176 at `cad3c67b93fd72329050db624ae048495ef0236f`. Feature head `d8b2b659f7fbc735bf84e53b458755a89311734d`. Migration `000082_nlo_onboard_evidence_current_trip_context_v0_3c`. `NLO_0_3_COMPLETE=YES`. NLO-0.3D is a later wave and does not change this closed status.
 
 Scope: shipment-service owns the onboard-cargo read and the append-only unit-level `CONFIRMED_ONBOARD` evidence. A shipment-wide status does not prove that cargo is onboard. BNO consumes the provider and builds server-side `CurrentTripContext` and `ResidualCapacitySnapshot` from trusted ports. Migration `000082` is that evidence table. It does not reuse `000081`. `NEW_EXECUTION_EVIDENCE_REQUIRED=YES` before a residual result can be `FEASIBLE`. This wave does not return that public result.
 
@@ -66,7 +66,7 @@ Out: load insertion, shipment writes.
 
 ### NLO-0.3D — one additional current-trip load
 
-Status: IMPLEMENTED_CLOSED. Merged in PR #178 at `ef3722db92fd1c115f6539cc491df3eabd57affa`. Feature head `f61d64f8c34fa8cafa6bee30d44d8646c7c30655`. Migration `000083_nlo_current_trip_fill_v0_3d`. `CURRENT_TRIP_FILL_PUBLIC_ENABLED=YES` for the planning search only. `NLO_0_3E_ARCHITECTURE=FROZEN_ACCEPTED`. `NLO_0_3E_IMPLEMENTATION_STARTED=YES`. `NLO_0_3E_IMPLEMENTED=YES`. `NLO_0_3E_ACCEPTED=NO`. `NLO_0_4_STATUS=NOT_STARTED`. `NLO_0_3_COMPLETE=NO`. Controller findings `F001_CAPACITY_CONTEXT` and `F002_AUDIT_FINGERPRINT` are CLOSED.
+Status: IMPLEMENTED_CLOSED. Merged in PR #178 at `ef3722db92fd1c115f6539cc491df3eabd57affa`. Feature head `f61d64f8c34fa8cafa6bee30d44d8646c7c30655`. Migration `000083_nlo_current_trip_fill_v0_3d`. `CURRENT_TRIP_FILL_PUBLIC_ENABLED=YES` for the planning search only. `NLO_0_3E_ARCHITECTURE=FROZEN_ACCEPTED`. `NLO_0_3E_IMPLEMENTATION_STARTED=YES`. `NLO_0_3E_IMPLEMENTED=YES`. `NLO_0_3E_ACCEPTED=YES`. `NLO_0_4_STATUS=NOT_STARTED`. `NLO_0_3_COMPLETE=YES`. Controller findings `F001_CAPACITY_CONTEXT` and `F002_AUDIT_FINGERPRINT` are CLOSED.
 
 Scope: context from 0.3C plus exactly one published load. Road insertion via the routing port. Location and ETA decisions follow the freshness status returned by tracking-service. Planning only. `execution_supported=false`. `MAX_ADDITIONAL_LOADS=1`. No shipment, order, assignment, reservation, offer, slot, or driver task. A pairwise audit run requires capacity id and version. A current-trip audit run leaves both absent.
 
@@ -80,7 +80,7 @@ Out: a second extra load, solver, slot booking, assignment, reservation, NLO-0.3
 
 ### NLO-0.3E — bounded expansion and optional ranking
 
-Status: architecture FROZEN_ACCEPTED. ADR-NET-017 is Accepted. Implementation is in controller review and is not accepted. `ARCHITECTURE_FROZEN=YES`. `TEST_STRATEGY_FROZEN=YES`. `NLO_0_3E_IMPLEMENTATION_STARTED=YES`. `NLO_0_3E_IMPLEMENTED=YES`. `NLO_0_3E_ACCEPTED=NO`. `CONTROLLER_REVIEW_PENDING=YES`.
+Status: architecture FROZEN_ACCEPTED. ADR-NET-017 is Accepted. Implementation is accepted. `ARCHITECTURE_FROZEN=YES`. `TEST_STRATEGY_FROZEN=YES`. `NLO_0_3E_IMPLEMENTATION_AUTHORIZED=YES`. `NLO_0_3E_IMPLEMENTATION_STARTED=YES`. `NLO_0_3E_IMPLEMENTED=YES`. `NLO_0_3E_ACCEPTED=YES`. `IMPLEMENTATION_CONTROLLER_ACCEPTANCE=PASS`. `RUNTIME_BLOCKING_FINDINGS=0`. Migration `000084_nlo_bounded_n_member_search_v0_3e`. `CURRENT_MIGRATION_HEAD=000084`.
 
 Scope: additive pattern `SAME_ORIGIN_SAME_DESTINATION_N_MEMBER` on the existing search. Legacy `SAME_ORIGIN_SAME_DESTINATION` stays pairwise with set size 2. Still no solver. A separate score, if authorized, is not MatchScore.
 
