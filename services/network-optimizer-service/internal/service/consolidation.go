@@ -330,14 +330,16 @@ func (s *Service) assessPair(ctx context.Context, capacityOwner uuid.UUID, equip
 		{Cargo: cargoFromLoad(right), AccessNeed: accessFromLoad(right)},
 	}
 	if out.crossShipper {
-		return assessCrossShipper(s, out, equipment, items, pickupCode, deliveryCode)
+		return assessCrossShipper(out, equipment, items, pickupCode, deliveryCode, nil)
 	}
-	return s.assessSameOwner(ctx, out, equipment, items, pickupCode, deliveryCode, capacityOwner, left.OwnerTenantID)
+	return s.assessSameOwner(ctx, out, equipment, items, pickupCode, deliveryCode, capacityOwner, left.OwnerTenantID, nil)
 }
 
-func (s *Service) assessSameOwner(ctx context.Context, out assessedPair, equipment compat.Equipment, items []compat.GroupageItem, pickupCode, deliveryCode string, capacityOwner, loadOwner uuid.UUID) assessedPair {
+func (s *Service) assessSameOwner(ctx context.Context, out assessedPair, equipment compat.Equipment, items []compat.GroupageItem, pickupCode, deliveryCode string, capacityOwner, loadOwner uuid.UUID, work *nMemberWorkBudget) assessedPair {
 	if s.catalog == nil {
-		s.recordGroupageCall()
+		if !noteNMemberGroupage(work) {
+			return out
+		}
 		return completeAssessment(out, []compat.Result{compat.EvaluateGroupageItems(equipment, items, compat.Context{})}, pickupCode, deliveryCode)
 	}
 	loaded, err := s.contextsFor(ctx, []uuid.UUID{capacityOwner, loadOwner})
@@ -350,22 +352,24 @@ func (s *Service) assessSameOwner(ctx context.Context, out assessedPair, equipme
 		return out
 	}
 	if capacityOwner == loadOwner {
-		return completeAssessment(out, s.evaluateContexts(equipment, items, loaded), pickupCode, deliveryCode)
+		return completeAssessment(out, s.evaluateContexts(equipment, items, loaded, work), pickupCode, deliveryCode)
 	}
 	if len(loaded) != 2 || !ownerScopeProvable(loaded[0], loaded[1]) {
-		return assessCrossShipper(s, out, equipment, items, pickupCode, deliveryCode)
+		return assessCrossShipper(out, equipment, items, pickupCode, deliveryCode, work)
 	}
 	projected := []compat.Context{
 		projectCapacityPolicy(loaded[0], loaded[1]),
 		projectLoadPolicy(loaded[1], loaded[0]),
 	}
-	return completeAssessment(out, s.evaluateContexts(equipment, items, projected), pickupCode, deliveryCode)
+	return completeAssessment(out, s.evaluateContexts(equipment, items, projected, work), pickupCode, deliveryCode)
 }
 
-func (s *Service) evaluateContexts(equipment compat.Equipment, items []compat.GroupageItem, contexts []compat.Context) []compat.Result {
+func (s *Service) evaluateContexts(equipment compat.Equipment, items []compat.GroupageItem, contexts []compat.Context, work *nMemberWorkBudget) []compat.Result {
 	results := make([]compat.Result, 0, len(contexts))
 	for _, evalCtx := range contexts {
-		s.recordGroupageCall()
+		if !noteNMemberGroupage(work) {
+			return results
+		}
 		results = append(results, compat.EvaluateGroupageItems(equipment, items, evalCtx))
 	}
 	return results
@@ -552,9 +556,9 @@ func equivalenceConflict(left, right []compat.Equivalence) bool {
 	return false
 }
 
-func assessCrossShipper(s *Service, out assessedPair, equipment compat.Equipment, items []compat.GroupageItem, pickupCode, deliveryCode string) assessedPair {
-	if s != nil {
-		s.recordGroupageCall()
+func assessCrossShipper(out assessedPair, equipment compat.Equipment, items []compat.GroupageItem, pickupCode, deliveryCode string, work *nMemberWorkBudget) assessedPair {
+	if !noteNMemberGroupage(work) {
+		return out
 	}
 	result := compat.EvaluateGroupageItems(equipment, items, compat.Context{})
 	out = mergeAssessments(out, []compat.Result{result})

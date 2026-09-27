@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -88,13 +90,13 @@ func TestNLO03EBoundedNMemberSearch(t *testing.T) {
 	t.Run("NLO03E_POOL_11_REJECTED_BEFORE_ENUMERATION", func(t *testing.T) {
 		w, cap := nMemberWorld(t, 11, f64(10))
 		saves := w.countSaves()
-		_, _, err := searchOwned(t, w, cap.ID, nil)
+		_, obs, err := w.nMemberObserved(cap.ID, nil)
 		var app *apperrors.AppError
 		if !errors.As(err, &app) || app.Code != apperrors.CodeValidation || app.Details["reason"] != ReasonPoolLimitExceeded {
 			t.Fatal(err)
 		}
-		if saves.saves != 0 || w.svc.groupageCalls != 0 || w.routes.routeCalls != 0 {
-			t.Fatalf("saves %d groupage %d routes %d", saves.saves, w.svc.groupageCalls, w.routes.routeCalls)
+		if saves.saves != 0 || obs.actual != 0 || w.routes.routeCalls != 0 {
+			t.Fatalf("saves %d groupage %d routes %d", saves.saves, obs.actual, w.routes.routeCalls)
 		}
 	})
 	t.Run("NLO03E_SET_SIZE_2", func(t *testing.T) {
@@ -154,9 +156,9 @@ func TestNLO03EBoundedNMemberSearch(t *testing.T) {
 	t.Run("NLO03E_MAX_GROUPAGE_CALLS_330", func(t *testing.T) {
 		w, cap := nMemberWorld(t, 10, f64(10))
 		w.svc.UseCatalog(&callCatalog{fallback: compat.Context{}})
-		doc, _, err := searchOwned(t, w, cap.ID, nil)
-		if err != nil || doc.EvaluatedSetCount != 165 || w.svc.groupageCalls != 330 {
-			t.Fatalf("err %v sets %d groupage %d", err, doc.EvaluatedSetCount, w.svc.groupageCalls)
+		doc, obs, err := w.nMemberObserved(cap.ID, nil)
+		if err != nil || doc.EvaluatedSetCount != 165 || obs.actual != 330 || obs.actual > obs.reserved || obs.reserved > 330 {
+			t.Fatalf("err %v sets %d groupage %d reserved %d", err, doc.EvaluatedSetCount, obs.actual, obs.reserved)
 		}
 	})
 	t.Run("NLO03E_LEXICOGRAPHIC_DETERMINISM", func(t *testing.T) {
@@ -222,9 +224,9 @@ func TestNLO03EBoundedNMemberSearch(t *testing.T) {
 	})
 	t.Run("NLO03E_GROUPAGE_REUSE", func(t *testing.T) {
 		w, cap := nMemberWorld(t, 3, f64(400))
-		doc, _, err := searchOwned(t, w, cap.ID, nil)
-		if err != nil || doc.FeasibleCandidateCount != 3 || doc.HardRejectCandidateCount != 1 || w.svc.groupageCalls == 0 {
-			t.Fatalf("err %v doc %+v calls %d", err, doc, w.svc.groupageCalls)
+		doc, obs, err := w.nMemberObserved(cap.ID, nil)
+		if err != nil || doc.FeasibleCandidateCount != 3 || doc.HardRejectCandidateCount != 1 || obs.actual == 0 || obs.actual > obs.reserved {
+			t.Fatalf("err %v doc %+v calls %d reserved %d", err, doc, obs.actual, obs.reserved)
 		}
 		_, rows, err := w.store.GetConsolidation(context.Background(), w.carrier, doc.SearchID)
 		if err != nil || !has(tripleRow(t, rows).HardRejectReasons, "PAYLOAD_EXCEEDED") {
@@ -235,12 +237,12 @@ func TestNLO03EBoundedNMemberSearch(t *testing.T) {
 		w, cap := nMemberWorld(t, 3, f64(400))
 		loads := published(t, w)
 		equipment := equipmentFromCapacity(cap, nil)
-		forward := w.svc.assessNMemberSet(context.Background(), cap.OwnerTenantID, equipment, loads)
+		forward := w.svc.assessNMemberSet(context.Background(), cap.OwnerTenantID, equipment, loads, nil)
 		reverse := append([]domain.LoadOpportunity(nil), loads...)
 		for i, j := 0, len(reverse)-1; i < j; i, j = i+1, j-1 {
 			reverse[i], reverse[j] = reverse[j], reverse[i]
 		}
-		backward := w.svc.assessNMemberSet(context.Background(), cap.OwnerTenantID, equipment, reverse)
+		backward := w.svc.assessNMemberSet(context.Background(), cap.OwnerTenantID, equipment, reverse, nil)
 		if forward.status != ConsolidationHardReject || backward.status != forward.status || strings.Join(forward.hard, ",") != strings.Join(backward.hard, ",") {
 			t.Fatalf("%s %v / %s %v", forward.status, forward.hard, backward.status, backward.hard)
 		}
@@ -360,14 +362,14 @@ func TestNLO03EBoundedNMemberSearch(t *testing.T) {
 		if saves.saves != 0 {
 			t.Fatal(saves.saves)
 		}
-		w.svc.groupageCalls = 0
 		policy = defaultNMemberPolicy()
 		policy.MaxGroupageCalls = 1
 		w.svc.nMemberPolicy = policy
-		w.svc.UseCatalog(&callCatalog{fallback: compat.Context{}})
-		_, _, err = searchOwned(t, w, cap.ID, nil)
-		if !errors.As(err, &app) || app.Details["budget"] != "groupage" || w.svc.groupageCalls != 0 || saves.saves != 0 {
-			t.Fatalf("err %v calls %d saves %d", err, w.svc.groupageCalls, saves.saves)
+		cat := &callCatalog{fallback: compat.Context{}}
+		w.svc.UseCatalog(cat)
+		_, obs, err := w.nMemberObserved(cap.ID, nil)
+		if !errors.As(err, &app) || app.Details["budget"] != "groupage" || obs.actual != 0 || len(cat.calls) != 0 || saves.saves != 0 {
+			t.Fatalf("err %v calls %d catalog %d saves %d", err, obs.actual, len(cat.calls), saves.saves)
 		}
 	})
 	t.Run("NLO03E_TIME_BUDGET_FAIL_CLOSED", func(t *testing.T) {
@@ -498,6 +500,53 @@ func TestNLO03EBoundedNMemberSearch(t *testing.T) {
 			t.Fatalf("%+v %v", run, err)
 		}
 	})
+	t.Run("NLO03E_GROUPAGE_PREFLIGHT_PURE", func(t *testing.T) {
+		w, cap := nMemberWorld(t, 2, f64(10))
+		cat := &callCatalog{fallback: compat.Context{}}
+		w.svc.UseCatalog(cat)
+		policy := defaultNMemberPolicy()
+		policy.MaxGroupageCalls = 1
+		w.svc.nMemberPolicy = policy
+		_, obs, err := w.nMemberObserved(cap.ID, nil)
+		var app *apperrors.AppError
+		if !errors.As(err, &app) || app.Details["reason"] != ReasonSearchBudgetExceeded || app.Details["budget"] != "groupage" {
+			t.Fatal(err)
+		}
+		if len(cat.calls) != 0 || obs.actual != 0 || obs.reserved != 0 {
+			t.Fatalf("catalog %d actual %d reserved %d", len(cat.calls), obs.actual, obs.reserved)
+		}
+	})
+	t.Run("NLO03E_NO_DUPLICATE_CATALOG_PREFLIGHT_READ", func(t *testing.T) {
+		w, cap := nMemberWorld(t, 2, f64(10))
+		cat := &callCatalog{fallback: compat.Context{}}
+		w.svc.UseCatalog(cat)
+		doc, obs, err := w.nMemberObserved(cap.ID, nil)
+		if err != nil || doc.EvaluatedSetCount != 1 || len(cat.calls) != 2 || obs.actual != 2 || obs.actual > obs.reserved {
+			t.Fatalf("err %v sets %d catalog %d actual %d reserved %d", err, doc.EvaluatedSetCount, len(cat.calls), obs.actual, obs.reserved)
+		}
+	})
+	t.Run("NLO03E_TIME_CHECK_BEFORE_CATALOG_IO", func(t *testing.T) {
+		w, cap := nMemberWorld(t, 2, f64(10))
+		cat := &callCatalog{fallback: compat.Context{}}
+		w.svc.UseCatalog(cat)
+		base := time.Date(2026, 9, 27, 8, 0, 0, 0, time.UTC)
+		ticks := 0
+		w.svc.now = func() time.Time {
+			ticks++
+			if ticks < 2 {
+				return base
+			}
+			return base.Add(5 * time.Second)
+		}
+		_, obs, err := w.nMemberObserved(cap.ID, nil)
+		var app *apperrors.AppError
+		if !errors.As(err, &app) || app.Details["reason"] != ReasonSearchBudgetExceeded || app.Details["budget"] != "time" {
+			t.Fatal(err)
+		}
+		if len(cat.calls) != 0 || obs.actual != 0 {
+			t.Fatalf("catalog %d actual %d", len(cat.calls), obs.actual)
+		}
+	})
 	t.Run("NLO03E_FOREIGN_CAPACITY_NOT_FOUND", func(t *testing.T) {
 		w, cap := nMemberWorld(t, 2, f64(10))
 		_, err := w.svc.SearchConsolidation(context.Background(), serviceActor(uuid.New(), nil), ConsolidationCommand{CapacityID: cap.ID, Pattern: PatternSameOriginDestinationNMember})
@@ -516,6 +565,21 @@ func nMemberWorld(t *testing.T, n int, weight *float64) (*world, domain.Capacity
 	win := span(w.at, w.at.Add(2*time.Hour))
 	seedOD(w, w.shipper, n, origin, dest, true, false, win, win, weight)
 	return w, cap
+}
+
+func (w *world) nMemberObserved(capacityID uuid.UUID, limit *int) (NMemberConsolidationSearchResponse, *nMemberBudgetObservation, error) {
+	ctx, obs := observeNMemberBudget(context.Background())
+	result, err := w.svc.SearchConsolidation(ctx, w.actor(), ConsolidationCommand{
+		CapacityID: capacityID, Pattern: PatternSameOriginDestinationNMember, CandidateLimit: limit,
+	})
+	if err != nil {
+		return NMemberConsolidationSearchResponse{}, obs, err
+	}
+	var doc NMemberConsolidationSearchResponse
+	if err := json.Unmarshal(result.Body, &doc); err != nil {
+		return NMemberConsolidationSearchResponse{}, obs, err
+	}
+	return doc, obs, nil
 }
 
 func searchOwned(t *testing.T, w *world, capacityID uuid.UUID, limit *int) (NMemberConsolidationSearchResponse, []byte, error) {
@@ -598,6 +662,98 @@ func fingerprintBody(t *testing.T, policy *string) string {
 		value = *policy
 	}
 	loads := published(t, w)
-	set := w.svc.assessNMemberSet(context.Background(), cap.OwnerTenantID, equipmentFromCapacity(cap, nil), loads)
+	set := w.svc.assessNMemberSet(context.Background(), cap.OwnerTenantID, equipmentFromCapacity(cap, nil), loads, nil)
 	return string(set.fingerprintDocument(cap, value, w.svc.nMemberBounds()))
+}
+
+func TestNLO03E_CONCURRENT_SEARCHES_REQUEST_LOCAL(t *testing.T) {
+	w, src, _ := newFill(t)
+	cap := w.readyCapacity()
+	origin, dest := uuid.New(), uuid.New()
+	win := span(w.at.Add(-time.Hour), w.at.Add(48*time.Hour))
+	seedOD(w, w.shipper, 3, origin, dest, true, false, win, win, f64(10))
+
+	for round := 0; round < 4; round++ {
+		var wg sync.WaitGroup
+		errCh := make(chan string, 4)
+		run := func(name string, fn func() error) {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				if err := fn(); err != nil {
+					errCh <- name + ": " + err.Error()
+				}
+			}()
+		}
+		run("n-member-a", func() error { return assertConcurrentNMember(w, cap.ID) })
+		run("n-member-b", func() error { return assertConcurrentNMember(w, cap.ID) })
+		run("pairwise", func() error { return assertConcurrentPairwise(w, cap.ID) })
+		run("current-trip", func() error { return assertConcurrentFill(w, src.execution.ShipmentID) })
+		wg.Wait()
+		close(errCh)
+		for msg := range errCh {
+			t.Error(msg)
+		}
+	}
+	if w.routes.routeCalls == 0 {
+		t.Fatal("current trip made no routing calls")
+	}
+}
+
+func assertConcurrentNMember(w *world, capacityID uuid.UUID) error {
+	doc, obs, err := w.nMemberObserved(capacityID, nil)
+	if err != nil {
+		return err
+	}
+	if doc.Pattern != PatternSameOriginDestinationNMember || doc.EvaluatedSetCount != 4 || doc.FeasibleCandidateCount != 4 || doc.ReturnedCandidateCount != 4 {
+		return fmt.Errorf("pattern %s sets %d feasible %d returned %d", doc.Pattern, doc.EvaluatedSetCount, doc.FeasibleCandidateCount, doc.ReturnedCandidateCount)
+	}
+	if obs.actual > obs.reserved || obs.actual > 330 || obs.reserved > 330 {
+		return fmt.Errorf("actual %d reserved %d", obs.actual, obs.reserved)
+	}
+	return nil
+}
+
+func assertConcurrentPairwise(w *world, capacityID uuid.UUID) error {
+	result, err := w.svc.SearchConsolidation(context.Background(), w.actor(), ConsolidationCommand{
+		CapacityID: capacityID, Pattern: PatternSameOriginDestination,
+	})
+	if err != nil {
+		return err
+	}
+	var doc ConsolidationResponse
+	if err := json.Unmarshal(result.Body, &doc); err != nil {
+		return err
+	}
+	if doc.Pattern != PatternSameOriginDestination || doc.EvaluatedPairCount != 3 {
+		return fmt.Errorf("pattern %s pairs %d", doc.Pattern, doc.EvaluatedPairCount)
+	}
+	for _, candidate := range doc.Candidates {
+		if len(candidate.Members) != 2 {
+			return fmt.Errorf("pairwise members %d", len(candidate.Members))
+		}
+	}
+	return nil
+}
+
+func assertConcurrentFill(w *world, shipment uuid.UUID) error {
+	result, err := w.svc.SearchConsolidation(context.Background(), w.actor(), ConsolidationCommand{
+		ShipmentID: shipment, Pattern: PatternCurrentTripFill,
+	})
+	if err != nil {
+		return err
+	}
+	var doc ConsolidationResponse
+	if err := json.Unmarshal(result.Body, &doc); err != nil {
+		return err
+	}
+	if doc.Pattern != PatternCurrentTripFill || doc.MaxAdditionalLoads == nil || *doc.MaxAdditionalLoads != 1 || doc.EvaluatedPairCount < 1 {
+		return fmt.Errorf("pattern %s pairs %d max %v", doc.Pattern, doc.EvaluatedPairCount, doc.MaxAdditionalLoads)
+	}
+	for _, candidate := range doc.Candidates {
+		if len(candidate.Members) != 1 {
+			return fmt.Errorf("fill members %d", len(candidate.Members))
+		}
+	}
+	return nil
 }

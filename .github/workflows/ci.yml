@@ -91,6 +91,50 @@ jobs:
         working-directory: ${{ matrix.module }}
         run: go test ./...
 
+  network-optimizer-race-gate:
+    name: network-optimizer-race-gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: |
+            packages/shared-go/go.sum
+            services/network-optimizer-service/go.sum
+
+      - name: Race detector
+        working-directory: services/network-optimizer-service
+        env:
+          CGO_ENABLED: "1"
+        run: go test -race ./internal/service/... ./internal/http/handlers/... -count=1
+
+  network-optimizer-nlo03e-integration:
+    name: network-optimizer-nlo03e-integration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: |
+            packages/shared-go/go.sum
+            services/network-optimizer-service/go.sum
+
+      - name: NLO-0.3E migration integration
+        working-directory: services/network-optimizer-service
+        run: go test -tags=integration ./internal/repository -run TestNLO03E_Migration000084 -count=1 -v
+
+      - name: NLO-0.3E service integration
+        working-directory: services/network-optimizer-service
+        run: go test -tags=integration ./internal/service -run 'TestNLO03E|TestNLO03B_089_099' -count=1 -v
+
   rfx-deadline-worker-integration:
     name: rfx-deadline-worker-integration
     runs-on: ubuntu-latest

@@ -70,11 +70,48 @@ func (s *Service) nMemberBounds() nMemberPolicy {
 	return policy
 }
 
-func (s *Service) recordGroupageCall() {
-	if s == nil {
+// nMemberWorkBudget is created inside one N-member search and is never stored on Service.
+type nMemberWorkBudget struct {
+	maxGroupage int
+	reserved    int
+	actual      int
+	blocked     bool
+}
+
+type nMemberBudgetObservation struct {
+	actual   int
+	reserved int
+}
+
+type nMemberBudgetObservationKey struct{}
+
+func observeNMemberBudget(ctx context.Context) (context.Context, *nMemberBudgetObservation) {
+	obs := &nMemberBudgetObservation{}
+	return context.WithValue(ctx, nMemberBudgetObservationKey{}, obs), obs
+}
+
+func publishNMemberBudget(ctx context.Context, work *nMemberWorkBudget) {
+	if ctx == nil || work == nil {
 		return
 	}
-	s.groupageCalls++
+	obs, _ := ctx.Value(nMemberBudgetObservationKey{}).(*nMemberBudgetObservation)
+	if obs == nil {
+		return
+	}
+	obs.actual = work.actual
+	obs.reserved = work.reserved
+}
+
+func noteNMemberGroupage(work *nMemberWorkBudget) bool {
+	if work == nil {
+		return true
+	}
+	if work.actual+1 > work.reserved || work.actual+1 > work.maxGroupage {
+		work.blocked = true
+		return false
+	}
+	work.actual++
+	return true
 }
 
 type NMemberConsolidationSearchResponse struct {
@@ -92,8 +129,9 @@ type NMemberConsolidationSearchResponse struct {
 }
 
 func (s *Service) searchNMember(ctx context.Context, actor Actor, cmd ConsolidationCommand, started time.Time) (Result, error) {
-	s.groupageCalls = 0
 	policy := s.nMemberBounds()
+	work := &nMemberWorkBudget{maxGroupage: policy.MaxGroupageCalls}
+	defer publishNMemberBudget(ctx, work)
 	if cmd.CapacityID == uuid.Nil {
 		return Result{}, apperrors.Validation("capacity_id is required", map[string]any{"field": "capacity_id"})
 	}
@@ -166,7 +204,7 @@ func (s *Service) searchNMember(ctx context.Context, actor Actor, cmd Consolidat
 				if opted, _ := setOptedIn(set); !opted {
 					continue
 				}
-				planned := s.plannedNMemberGroupage(ctx, capacity.OwnerTenantID, set)
+				planned := plannedNMemberGroupage(s.catalog, capacity.OwnerTenantID, set)
 				if budget := structuralBudget(evaluated+1, reservedGroupage+planned, policy); budget != "" {
 					return s.nMemberBudgetFailure(budget)
 				}
@@ -175,7 +213,12 @@ func (s *Service) searchNMember(ctx context.Context, actor Actor, cmd Consolidat
 				}
 				evaluated++
 				reservedGroupage += planned
-				assessed = append(assessed, s.assessNMemberSet(ctx, capacity.OwnerTenantID, equipment, set))
+				work.reserved = reservedGroupage
+				row := s.assessNMemberSet(ctx, capacity.OwnerTenantID, equipment, set, work)
+				if work.blocked || work.actual > work.reserved || work.actual > work.maxGroupage {
+					return s.nMemberBudgetFailure("groupage")
+				}
+				assessed = append(assessed, row)
 			}
 		}
 	}
@@ -263,15 +306,8 @@ func structuralBudget(nextSets, nextGroupage int, policy nMemberPolicy) string {
 	return ""
 }
 
-func (s *Service) plannedNMemberGroupage(ctx context.Context, capacityOwner uuid.UUID, members []domain.LoadOpportunity) int {
-	if nMemberCrossShipper(members) || s.catalog == nil || capacityOwner == members[0].OwnerTenantID {
-		return 1
-	}
-	loaded, err := s.contextsFor(ctx, []uuid.UUID{capacityOwner, members[0].OwnerTenantID})
-	if err != nil {
-		return 0
-	}
-	if len(loaded) != 2 || !ownerScopeProvable(loaded[0], loaded[1]) {
+func plannedNMemberGroupage(catalog catalogEvaluator, capacityOwner uuid.UUID, members []domain.LoadOpportunity) int {
+	if len(members) == 0 || nMemberCrossShipper(members) || catalog == nil || capacityOwner == members[0].OwnerTenantID {
 		return 1
 	}
 	return 2
@@ -306,7 +342,7 @@ func (set assessedSet) statusRank() int {
 	}
 }
 
-func (s *Service) assessNMemberSet(ctx context.Context, capacityOwner uuid.UUID, equipment compat.Equipment, members []domain.LoadOpportunity) assessedSet {
+func (s *Service) assessNMemberSet(ctx context.Context, capacityOwner uuid.UUID, equipment compat.Equipment, members []domain.LoadOpportunity, work *nMemberWorkBudget) assessedSet {
 	sorted := append([]domain.LoadOpportunity(nil), members...)
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].ID.String() < sorted[j].ID.String() })
 	out := assessedSet{members: sorted, compatibility: compat.StatusIndeterminate, crossShipper: nMemberCrossShipper(sorted)}
@@ -343,9 +379,9 @@ func (s *Service) assessNMemberSet(ctx context.Context, capacityOwner uuid.UUID,
 	}
 	shell := assessedPair{compatibility: compat.StatusIndeterminate, crossShipper: out.crossShipper}
 	if out.crossShipper {
-		shell = assessCrossShipper(s, shell, equipment, items, pickupCode, deliveryCode)
+		shell = assessCrossShipper(shell, equipment, items, pickupCode, deliveryCode, work)
 	} else {
-		shell = s.assessSameOwner(ctx, shell, equipment, items, pickupCode, deliveryCode, capacityOwner, sorted[0].OwnerTenantID)
+		shell = s.assessSameOwner(ctx, shell, equipment, items, pickupCode, deliveryCode, capacityOwner, sorted[0].OwnerTenantID, work)
 	}
 	out.status = shell.status
 	out.compatibility = shell.compatibility

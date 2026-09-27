@@ -433,7 +433,7 @@ type groupOutcome struct {
 
 func (s *Service) fillGroupage(ctx context.Context, searcher, loadOwner uuid.UUID, equipment compat.Equipment, items []compat.GroupageItem) groupOutcome {
 	base := assessedPair{compatibility: compat.StatusIndeterminate, crossShipper: searcher != loadOwner}
-	base = s.assessSameOwner(ctx, base, equipment, items, "ok", "ok", searcher, loadOwner)
+	base = s.assessSameOwner(ctx, base, equipment, items, "ok", "ok", searcher, loadOwner, nil)
 	return groupOutcome{
 		compatibility: base.compatibility, hard: base.hard, indeterminate: base.indeterminate,
 		conditions: base.conditions, usage: base.usage,
