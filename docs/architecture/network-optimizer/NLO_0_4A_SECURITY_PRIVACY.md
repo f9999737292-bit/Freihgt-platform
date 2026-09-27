@@ -1,8 +1,10 @@
 # NLO-0.4A security and privacy
 
-Status: proposed. No runtime change.
+Status: accepted. Architecture frozen. No runtime change.
 
 ```text
+ARCHITECTURE_FROZEN=YES
+SECURITY_PRIVACY_MODEL=ACCEPTED
 CALLER_SUPPLIED_EXECUTION_STATE_ALLOWED=NO
 TENANT_ISOLATION_DESIGN=PASS
 CROSS_SHIPPER_PRIVACY_DESIGN=PASS

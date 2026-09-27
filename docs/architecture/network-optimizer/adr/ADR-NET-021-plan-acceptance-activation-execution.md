@@ -2,7 +2,12 @@
 
 ## Status
 
-Proposed. Discovery only. Not accepted. Implementation is not authorized.
+Accepted. Architecture freeze. Implementation is not started.
+
+```text
+ADR_NET_021=ACCEPTED
+NLO_0_4C_ACTIVATION_RELEASE_BLOCKED_UNTIL_SERVICE_DURATION_SOURCE=YES
+```
 
 ## Context
 
@@ -32,4 +37,4 @@ Public caller-visible reasons and the idempotency rule are in `NLO_0_4A_EXECUTIO
 
 ## Consequences
 
-NLO-0.4C is the proposed accept/activate implementation. NLO-0.4D is the proposed shipment and driver integration. Neither starts in this discovery.
+NLO-0.4C is the accept/activate implementation wave. Production activation stays blocked until an authoritative or versioned server-owned service-duration source exists. NLO-0.4D is the shipment and driver integration. Neither starts in this acceptance.

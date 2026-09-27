@@ -2,7 +2,11 @@
 
 ## Status
 
-Proposed. Discovery only. Not accepted. Implementation is not authorized.
+Accepted. Architecture freeze. Implementation is not started.
+
+```text
+ADR_NET_019=ACCEPTED
+```
 
 ## Context
 

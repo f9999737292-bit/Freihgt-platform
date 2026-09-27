@@ -1,10 +1,18 @@
 # NLO-0.4A route plan model
 
-Status: proposed. Not accepted. No migration. No generated OpenAPI.
+Status: accepted. Architecture frozen. No migration. No generated OpenAPI. No runtime implementation.
 
 ```text
-ADR_STATUS=PROPOSED
-ARCHITECTURE_FROZEN=NO
+ADR_STATUS=ACCEPTED
+ARCHITECTURE_FROZEN=YES
+OWNERSHIP_DECISION_FROZEN=YES
+BLOCKING_FINDINGS=0
+NLO04A_F001=CLOSED
+NLO04A_F002=CLOSED
+NLO04A_F003=CLOSED
+NLO04A_F004=CLOSED
+NLO04A_F005=CLOSED
+NLO04A_R001=CLOSED
 ROUTE_PLAN_OWNER=network-optimizer-service
 EXECUTION_OWNER=shipment-service
 ACCEPTED_PLAN_STRUCTURE_IMMUTABLE=YES
@@ -160,7 +168,7 @@ Each snapshot records weight, volume, pallet count, linear metres, and whether t
 
 `route_plan_dependencies` stores the versions the plan was computed from: shipment version, capacity version when present, each load id and version, context fingerprint, and routing policy version. Accept and activate compare these to current trusted reads. A mismatch is `409` with reason `PLAN_STALE`.
 
-## ERD (proposed, not migrated)
+## ERD (accepted, not migrated)
 
 ```text
 route_plans

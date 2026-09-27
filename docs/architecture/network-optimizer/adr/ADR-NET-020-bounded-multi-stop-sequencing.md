@@ -2,7 +2,11 @@
 
 ## Status
 
-Proposed. Discovery only. Not accepted. Implementation is not authorized.
+Accepted. Architecture freeze. Implementation is not started.
+
+```text
+ADR_NET_020=ACCEPTED
+```
 
 ## Context
 
@@ -40,4 +44,4 @@ Time is forward propagation. Waiting until a window opens is allowed. Late arriv
 
 ## Consequences
 
-No solver is introduced. A later controller may reject these numbers. Until then they are the proposed caps, not a runtime policy.
+No solver is introduced. These caps are accepted. They are not runtime policy until NLO-0.4B.

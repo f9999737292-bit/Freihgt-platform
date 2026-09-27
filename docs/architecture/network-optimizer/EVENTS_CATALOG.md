@@ -78,9 +78,9 @@ Tenant context on every row is the aggregate owner's `tenant_id`. Cross-shipper 
 
 Billing, RFx, and EDO events stay in their namespaces (`freight_settlement.*`, `billing_register.*`, future `edo.document.*`). The optimizer does not emit them.
 
-## NLO-0.4A proposed additions
+## NLO-0.4A accepted event names
 
-Not emitted. Not accepted. The v0.1 row `network.route_plan.generated` is not a lifecycle. NLO-0.4A proposes these names instead, still under `network.*`, past tense, and not published by this discovery:
+Not emitted. The names are accepted with the architecture and are not published by this acceptance. The v0.1 row `network.route_plan.generated` is not a lifecycle.
 
 | Name | Producer | When |
 | --- | --- | --- |

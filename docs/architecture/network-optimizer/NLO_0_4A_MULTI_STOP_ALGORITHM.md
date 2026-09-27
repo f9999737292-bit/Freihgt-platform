@@ -1,8 +1,10 @@
 # NLO-0.4A multi-stop algorithm
 
-Status: proposed. Not a production planner. The counts below are asserted by `services/network-optimizer-service/internal/nlo04adiscovery/cost_model_test.go`.
+Status: accepted. Not a production planner. The counts below are asserted by `services/network-optimizer-service/internal/nlo04adiscovery/cost_model_test.go`.
 
 ```text
+ARCHITECTURE_FROZEN=YES
+BOUNDED_SEARCH_MODEL=ACCEPTED
 SEARCH_ALGORITHM=BOUNDED_INCREMENTAL_HEURISTIC
 SEQUENCING_ALGORITHM=INCREMENTAL_COST_MIN_INSERTION
 UNRESTRICTED_PERMUTATION_SEARCH=NO
@@ -168,7 +170,13 @@ SERVICE_DURATION_SOURCE=AUTHORITATIVE_OR_UNKNOWN
 DEFAULT_ZERO=NO
 ```
 
-No shipment field, dwell table, or versioned duration policy exists. `OPEN_QUESTIONS.md` Q2 records that absence. Cargo-action service duration is `UNKNOWN`. Zero is not assumed. `TIME_FEASIBILITY=INDETERMINATE` and `PLAN_RESULT=INDETERMINATE`. An indeterminate plan may be returned as advice. `ACTIVATION_ALLOWED=NO` until a later accepted policy names an owner, a version, a pickup duration, a delivery duration, and a rationale. This discovery does not invent those numbers. `START` and `END` have no cargo service duration.
+No shipment field, dwell table, or versioned duration policy exists. `OPEN_QUESTIONS.md` Q2 records that absence. Cargo-action service duration is `UNKNOWN`. Zero is not assumed. `TIME_FEASIBILITY=INDETERMINATE` and `PLAN_RESULT=INDETERMINATE`. An indeterminate plan may be returned as advice. `ACTIVATION_ALLOWED=NO` until a later accepted policy names an owner, a version, a pickup duration, a delivery duration, and a rationale. This acceptance does not invent those numbers. `START` and `END` have no cargo service duration.
+
+```text
+NLO04B_ADVISORY_PLANNING_WITH_UNKNOWN_DURATION_ALLOWED=YES
+NLO04C_PRODUCTION_ACTIVATION_REQUIRES_SERVICE_DURATION_SOURCE=YES
+NLO_0_4C_ACTIVATION_RELEASE_BLOCKED_UNTIL_SERVICE_DURATION_SOURCE=YES
+```
 
 The window of a stop with several actions is the intersection of those action windows. An empty intersection is `STOP_WINDOW_VIOLATION` before routing.
 

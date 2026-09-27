@@ -1,10 +1,11 @@
 # NLO-0.4A test strategy
 
-Status: proposed candidate. These tests are not implemented. The only executable check in this discovery is the combinatorial cost model.
+Status: accepted. Architecture frozen. These tests are not implemented. The only executable check in this publication is the combinatorial cost model.
 
 ```text
-TEST_STRATEGY_FROZEN=NO
-TEST_STRATEGY_FREEZE_CANDIDATE=YES
+TEST_STRATEGY_FROZEN=YES
+ARCHITECTURE_FROZEN=YES
+BLOCKING_FINDINGS=0
 PRODUCTION_PLANNER_TESTS=NO
 ```
 

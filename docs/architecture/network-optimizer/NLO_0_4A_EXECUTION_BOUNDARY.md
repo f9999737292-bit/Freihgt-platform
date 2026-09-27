@@ -1,8 +1,10 @@
 # NLO-0.4A execution boundary
 
-Status: proposed. No shipment mutation in this discovery. No driver-app change.
+Status: accepted. Architecture frozen. No shipment mutation in this acceptance. No driver-app change.
 
 ```text
+ARCHITECTURE_FROZEN=YES
+CURRENT_TRIP_REPLAN_MODEL=ACCEPTED
 PLAN_ACCEPT_SEPARATE_FROM_ACTIVATE=YES
 ACTIVE_PLAN_DIRECT_EDIT_ALLOWED=NO
 PLAN_STRUCTURE_IMMUTABLE_AFTER_EVALUATION=YES
@@ -91,7 +93,7 @@ Current-trip successor order:
 6. previous plan becomes superseded
 ```
 
-Steps 4 and 6 commit together. There is no window in which both plans are independently execution-linked. One shipment has at most one `EXECUTION_LINKED` plan. The same idempotency key replays that transition. A new key after the successor is linked returns the existing link and does not create a second driver task or a second linked plan. Shipment operational status is not moved backward.
+Steps 4 and 6 commit together. There is no window in which both plans are independently execution-linked. `MAX_EXECUTION_LINKED_PLANS_PER_SHIPMENT=1`. The same idempotency key replays that transition. A new key after the successor is linked returns the existing link and does not create a second driver task or a second linked plan. Shipment operational status is not moved backward.
 
 ## Events (catalog only)
 

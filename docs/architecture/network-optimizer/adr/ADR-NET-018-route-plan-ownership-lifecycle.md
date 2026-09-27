@@ -2,11 +2,15 @@
 
 ## Status
 
-Proposed. Discovery only. Not accepted. Implementation is not authorized.
+Accepted. Architecture freeze. Implementation is not started.
 
 ```text
-ADR_STATUS=PROPOSED
+ADR_STATUS=ACCEPTED
+ADR_NET_018=ACCEPTED
+OWNERSHIP_DECISION_FROZEN=YES
+NLO_0_4_IMPLEMENTATION_STARTED=NO
 NLO_0_4_IMPLEMENTATION_AUTHORIZED=NO
+NLO_0_4B_IMPLEMENTATION_AUTHORIZED_AFTER_PR182_MERGE=YES
 ```
 
 ## Context
@@ -25,10 +29,9 @@ LIFECYCLE_STATUS_MUTABLE=YES
 ACCEPTED_PLAN_STRUCTURE_IMMUTABLE=YES
 REPLAN_CREATES_SUCCESSOR=YES
 ACTIVE_PLAN_DIRECT_EDIT_ALLOWED=NO
-OWNERSHIP_FREEZE_CANDIDATE=YES
-OWNERSHIP_DECISION_FROZEN=NO
+OWNERSHIP_DECISION_FROZEN=YES
 ```
 
 ## Consequences
 
-NLO-0.4B may persist this artifact only after this ADR is accepted. NLO-0.3 APIs stay unchanged. No migration is created here.
+This ADR is accepted. NLO-0.4B may persist this artifact after PR #182 merges. That wave is not started here. NLO-0.3 APIs stay unchanged. No migration is created here.
