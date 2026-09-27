@@ -36,6 +36,9 @@ func TestNLO03B_089_099_PostgresPoolAndRunIntegrity(t *testing.T) {
 		"000079_bno_next_load_candidate_search_v0_1c1.up.sql",
 		"000080_bno_match_score_topn_v0_1c2.up.sql",
 		"000081_nlo_pairwise_consolidation_v0_3b.up.sql",
+		"000082_nlo_onboard_evidence_current_trip_context_v0_3c.up.sql",
+		"000083_nlo_current_trip_fill_v0_3d.up.sql",
+		"000084_nlo_bounded_n_member_search_v0_3e.up.sql",
 	} {
 		raw, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "infrastructure", "migrations", name))
 		if err != nil {
@@ -190,7 +193,7 @@ func TestNLO03B_089_099_PostgresPoolAndRunIntegrity(t *testing.T) {
 			INSERT INTO network_optimizer.consolidation_candidates (
 				id, search_run_id, tenant_id, capacity_id, pattern, status, execution_supported,
 				compatibility_status, compatibility_fingerprint, candidate_fingerprint, placement_check, created_at
-			) VALUES ($1,$2,$3,$4,'CURRENT_TRIP_FILL','INDETERMINATE', false, 'INDETERMINATE', 'fp', $5, 'NOT_EVALUATED', now())`,
+			) VALUES ($1,$2,$3,$4,'SAME_ORIGIN_SAME_DESTINATION_N_MEMBER','INDETERMINATE', false, 'INDETERMINATE', 'fp', $5, 'NOT_EVALUATED', now())`,
 			uuid.New(), runID, carrier, capA.ID, "pattern-mismatch-"+uuid.NewString())
 		if !consolidationFK(err) {
 			t.Fatalf("expected pattern mismatch reject, got %v", err)

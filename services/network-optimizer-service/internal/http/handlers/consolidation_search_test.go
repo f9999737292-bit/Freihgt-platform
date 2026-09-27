@@ -103,6 +103,48 @@ func TestNLO03B_092_OPT_IN_OVERRIDE_FIELD_REJECTED(t *testing.T) {
 	}
 }
 
+func TestNLO03E_POOL_LIMIT_HTTP_422(t *testing.T) {
+	store := repository.NewMemory()
+	svc := service.New(store, nil)
+	carrier := uuid.New()
+	shipper := uuid.New()
+	now := time.Date(2026, 9, 27, 8, 0, 0, 0, time.UTC)
+	origin, dest := uuid.New(), uuid.New()
+	cap := domain.Capacity{
+		ID: uuid.New(), OwnerTenantID: carrier, AvailableFrom: now, AvailableUntil: now.Add(time.Hour),
+		Source: domain.SourceManual, VisibilityScope: domain.CapVisPrivate, Status: domain.CapacityAvailable, Version: 1,
+		PayloadRemainingKg: floatPtr(1000),
+	}
+	if err := store.Within(context.Background(), func(tx repository.Tx) error {
+		return tx.InsertCapacity(context.Background(), cap)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	win := domain.TimeWindow{Start: &now, End: timePtr(now.Add(time.Hour))}
+	for i := 0; i < 11; i++ {
+		load := domain.LoadOpportunity{
+			ID: uuid.New(), OwnerTenantID: shipper, SourceType: domain.SourceTransportOrder, SourceID: uuid.New(),
+			Pickup: domain.Place{LocationID: &origin, City: "A", CountryCode: "RU"}, Delivery: domain.Place{LocationID: &dest, City: "B", CountryCode: "RU"},
+			PickupWindow: win, DeliveryWindow: win, VisibilityScope: domain.VisMarketplace, Status: domain.LoadPublished,
+			Version: 1, ConsolidationAllowed: true, WeightKg: floatPtr(10), CreatedAt: now, UpdatedAt: now,
+		}
+		if err := store.Within(context.Background(), func(tx repository.Tx) error {
+			return tx.InsertLoad(context.Background(), load)
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	h := New(nil, svc)
+	rec := postConsolidation(t, h, carrier, `{"capacity_id":"`+cap.ID.String()+`","pattern":"SAME_ORIGIN_SAME_DESTINATION_N_MEMBER","max_set_size":4}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("override status %d body %s", rec.Code, rec.Body.String())
+	}
+	rec = postConsolidation(t, h, carrier, `{"capacity_id":"`+cap.ID.String()+`","pattern":"SAME_ORIGIN_SAME_DESTINATION_N_MEMBER"}`)
+	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), `"POOL_LIMIT_EXCEEDED"`) {
+		t.Fatalf("status %d body %s", rec.Code, rec.Body.String())
+	}
+}
+
 func consolidationFixture(t *testing.T) (*Handler, uuid.UUID, domain.Capacity) {
 	t.Helper()
 	store := repository.NewMemory()

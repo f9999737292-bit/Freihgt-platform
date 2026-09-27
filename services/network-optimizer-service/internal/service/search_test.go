@@ -725,11 +725,13 @@ type scripted struct {
 	line                   [][]float64
 	baselineM              int
 	calls                  int
+	routeCalls             int
 	maxDests               int
 	sawHaversineSubstitute bool
 }
 
 func (s *scripted) Route(context.Context, routing.RouteRequest) (routing.RouteResult, error) {
+	s.routeCalls++
 	if s.fail {
 		return routing.RouteResult{}, routing.ErrProviderUnavailable
 	}
