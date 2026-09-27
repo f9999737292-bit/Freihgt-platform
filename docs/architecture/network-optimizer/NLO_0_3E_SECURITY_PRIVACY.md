@@ -20,9 +20,15 @@ A set that mixes load owners stays `INDETERMINATE` until a future design proves 
 
 `ListPublicConsolidationPool` has no SQL limit. Pair generation is `N*(N-1)/2` inside one origin-destination group. Every assessed pair is written. `candidate_limit=0` still evaluates and persists the full set. A large `candidate_limit` does not reduce that work.
 
-The frozen fail-closed codes, not implemented in this discovery, are `POOL_LIMIT_EXCEEDED`, `SEARCH_BUDGET_EXCEEDED`, and `ROUTING_BUDGET_EXCEEDED`. Thresholds are `UNSET`. Until they are accepted, implementation of a larger set size must not ship an unbounded search.
+NLO-0.3E fail-closed codes are `POOL_LIMIT_EXCEEDED` and `SEARCH_BUDGET_EXCEEDED`. Same-origin expansion makes no routing call, so `ROUTING_BUDGET_EXCEEDED` is not an NLO-0.3E outcome. NLO-0.3D still performs its existing four `roadLeg` calls for one additional load. That protection stays on NLO-0.3D. A future NLO-0.4 multi-stop planner owns any later routing budget.
 
-Routing amplification: four provider calls per fresh current-trip candidate, including hard rejects. A larger set under the one-sequence rule still multiplies calls by the chain length. The routing budget exists so a client cannot demand that work.
+```text
+NLO_0_3E_SCOPE=SAME_ORIGIN_SAME_DESTINATION_N_MEMBER_SETS_ONLY
+ROUTE_SEQUENCES_EXPLORED_BY_0_3E=0
+NLO03E_ROUTING_CALLS_PER_SET=0
+NLO03E_MAX_ROUTING_CALLS=0
+MULTI_STOP_PLANNING_IN_0_3E=NO
+```
 
 Audit payload: the pairwise 500-load body was about 277 MB in memory. A production search must not persist unbounded JSON because a client asked for it.
 

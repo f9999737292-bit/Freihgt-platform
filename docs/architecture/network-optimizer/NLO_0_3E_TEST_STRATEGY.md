@@ -18,11 +18,14 @@ Controller review R1 revised this list. `TEST_STRATEGY_FROZEN=NO`. These checks 
 
 ## Bounds
 
-These checks wait on `NLO03E_I001`. The numbers are unset, so the checks cannot be implemented yet.
+These checks use the server defaults from the Postgres measurement. `candidate_limit` is still not one of them (`NLO03E_I003`).
 
-- Pool larger than `MAX_CANDIDATE_POOL` returns `POOL_LIMIT_EXCEEDED` and does not enumerate pairs.
-- Set size never exceeds `MAX_SET_SIZE`.
-- Assessed sets never exceed `MAX_SETS_EVALUATED`.
+- More than 10 eligible loads in one same-origin group returns `POOL_LIMIT_EXCEEDED` and does not enumerate sets.
+- Set size never exceeds 3.
+- Assessed sets never exceed 1225.
+- Groupage calls never exceed 2450.
+- Routing calls for an NLO-0.3E set are 0.
+- Wall time past 5s returns `SEARCH_BUDGET_EXCEEDED`.
 - Generation order is load-id lexicographic and the fingerprint is stable across repeats.
 
 `NLO03E_I003`: `candidate_limit` changes the returned page only. It does not change evaluated count, routing calls, or rows persisted. A test must show limit 0 and a large limit do the same evaluation and persistence work until a separate server budget stops the search.
@@ -51,18 +54,15 @@ A fingerprint change is required when any of these change and the feasibility st
 
 ## Routing and evidence
 
-- Same-origin set expansion does not add route legs.
-- Routing unavailable on the existing one-load fill yields indeterminate, not a haversine distance.
-- Stale position skips routing and is not feasible.
-- Stale ETA does not become a feasible arrival.
-- Hard residual reject still counts as an evaluated set. After a routing budget exists, a hard reject must not be allowed to exceed `MAX_ROUTING_CALLS`.
+- Same-origin set expansion makes zero routing calls. `NLO03E_ROUTING_CALLS_PER_SET=0`.
+- The NLO-0.3E search does not return `ROUTING_BUDGET_EXCEEDED`.
+- Existing NLO-0.3D tests still cover one-load fill: routing unavailable stays indeterminate, a stale position skips routing, and a stale ETA is not a feasible arrival. Those protections are not removed.
 
 ## Budgets and audit
 
 - Search budget reached returns `SEARCH_BUDGET_EXCEEDED`.
 - Pool budget reached returns `POOL_LIMIT_EXCEEDED`.
-- Routing budget reached returns `ROUTING_BUDGET_EXCEEDED`.
-- `NLO03E_I002`: N-member rows are not persisted until a later migration widens `ordinal IN (1, 2)` and the generated OpenAPI member list. This discovery does not add that migration.
+- `NLO03E_I002`: N-member rows are not persisted until a later migration widens `ordinal IN (1, 2)` and the generated OpenAPI member list. This discovery does not add that migration. NLO-0.3E does not assert a routing budget.
 - The deterministic fingerprint covers policy, member ids and versions, and compatibility provenance.
 
 ## Execution boundary

@@ -126,6 +126,34 @@ NETWORK/ROUTING: pairwise makes no routing call. Fill makes four calls per fresh
 
 Sorting and privacy projection are present and were not separable from the search duration. They are not the dominant term next to N² persistence.
 
-## What these measurements do not justify
+## What the in-memory run does not justify
 
-A production `MAX_POOL_SIZE`, `MAX_SETS_EVALUATED`, or `MAX_ROUTING_CALLS`. Those stay `UNSET` until a Postgres-backed run and a real routing-provider budget are accepted. See `NLO_0_3E_BOUNDED_EXPANSION_MODEL.md`.
+The in-memory numbers above are not Postgres latency and not 2GIS latency. The Postgres section below is the budget evidence for NLO-0.3E. Routing-provider load is not required for this wave: `NLO03E_ROUTING_CALLS_PER_SET=0`.
+
+## Postgres pairwise, one origin-destination group
+
+Disposable embedded Postgres 16 on localhost, database created for this test and stopped with the test. Migrations applied through `000083`. Not staging and not production. Same machine as the in-memory run: go1.26.4, windows/amd64, 12 CPUs.
+
+Fixtures are seeded. One canonical origin and destination. Weight and volume are known. Catalog contexts are empty, so each catalog load is followed by one `EvaluateGroupageItems`. Groupage calls equal catalog loads for that reason. Routing calls are 0. p50 is the middle sorted duration. Observed max is the slowest sample. Duration is `SearchConsolidation` only.
+
+| Pool | Pairs | Catalog and groupage | Candidate rows | Member rows | Inserted rows | Response bytes | Alloc bytes | Heap bytes | DB growth bytes | p50 ms | Observed max ms | Samples |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 10 | 45 | 90 | 45 | 90 | 136 | 104091 | 2730512 | 1404624 | 212992 | 150 | 196 | 5 |
+| 50 | 1225 | 2450 | 1225 | 2450 | 3676 | 2821637 | 63783208 | 14541888 | 2547712 | 2493 | 2846 | 5 |
+| 100 | 4950 | 9900 | 4950 | 9900 | 14851 | 11400313 | 270912896 | 55150848 | 9953280 | 10183 | 10431 | 5 |
+| 500 | 124750 | 249500 | 124750 | 249500 | 374251 | 287299719 | 7391905000 | 1335144032 | 247742464 | 445323 | 445323 | 1 |
+
+Fingerprints:
+
+```text
+10  4cc6cd6f4c74be57c7bc0463a15e4e4d8019945abb0a0c9f42c894ab30f5de50
+50  48c848cee5cfdf5c32fddeeb72ecaa8318c1c3ba17b11d0a18bc43e08d7973f9
+100 52d9f248bb5cf39c01815221accbac9e4d94047470bdb87eb65f2bb6dbe50eb7
+500 6bacdda8c59cdc4581846345eebf257dd4aae9802f10e274a67f5eaf63604a4a
+```
+
+Inserted rows are 1 run + 1 candidate per pair + 2 members per pair. DB growth is `pg_database_size` after the first search minus the size after the fixture insert. Heap is Go heap after that search, not Postgres process RSS. Pool 500 has one sample, so its p50 and observed maximum are that sample.
+
+Pool 500 took 445323 ms, inserted 374251 rows, returned about 287 MB of JSON, grew the database by about 236 MB, and left about 1.3 GB on the Go heap. Routing calls were 0. That size is not a supported pool.
+
+Adopted server defaults, with the margin described in `NLO_0_3E_BOUNDED_EXPANSION_MODEL.md`: pool 10 for a complete size-2 and size-3 enumeration, set budget 1225 and groupage budget 2450 taken from the measured pool-50 pair search, time budget 5s, routing calls 0. Pool 50 stayed under 5s (observed max 2846 ms) for pairs only. Pool 100 did not (observed max 10431 ms).

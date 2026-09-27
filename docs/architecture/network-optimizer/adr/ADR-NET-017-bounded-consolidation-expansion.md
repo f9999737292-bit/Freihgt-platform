@@ -5,7 +5,7 @@ Status: Proposed. Controller review R1: `CHANGES_REQUIRED`. Architecture is not 
 ```text
 NLO03E_F001=ADDRESSED_IN_THIS_REVISION
 NLO03E_F002=ADDRESSED_IN_THIS_REVISION
-NLO03E_I001=OPEN
+NLO03E_I001=ADDRESSED_IN_THIS_REVISION
 NLO03E_I002=OPEN
 NLO03E_I003=OPEN
 ARCHITECTURE_FROZEN=NO
@@ -20,7 +20,7 @@ NLO-0.3E, when later authorized, extends planning search only. `execution_suppor
 
 Algorithm: lexicographic incremental extension of load ids inside one canonical origin-destination group, from size 2 through a server-owned `MAX_SET_SIZE`, stopping at a server-owned `MAX_SETS_EVALUATED`. Every load in the set shares that one pickup location and that one delivery location. The set does not add a stop and does not order stops. Unrestricted subset enumeration is forbidden. Beam search and top-K seeding are rejected because they need a score.
 
-`MAX_SET_SIZE`, `MAX_CANDIDATE_POOL`, `MAX_SETS_EVALUATED`, `MAX_GROUPAGE_CALLS`, `MAX_ROUTING_CALLS`, and `TIME_BUDGET` are `UNSET` (`NLO03E_I001`). Local memory measurements show that a single origin-destination group of 500 loads evaluates 124750 pairs, persists 374251 logical rows, and holds on the order of 1.7 GB. That evidence forbids unbounded enumeration. It does not set a production number. Implementation is blocked until a controller sets the numbers.
+`MAX_SET_SIZE`, `MAX_CANDIDATE_POOL`, `MAX_SETS_EVALUATED`, `MAX_GROUPAGE_CALLS`, and `TIME_BUDGET` are set from the disposable Postgres pairwise measurement in `NLO_0_3E_MEASUREMENTS.md`. `NLO03E_MAX_ROUTING_CALLS=0`. `NLO03E_ROUTING_CALLS_PER_SET=0`. `REAL_ROUTING_PROVIDER_BUDGET_REQUIRED_FOR_0_3E=NO`. A 2GIS load test is not an NLO-0.3E gate. NLO-0.3D keeps its existing routing calls for one additional load.
 
 Route sequences explored by NLO-0.3E: 0. Same-origin same-destination has no alternate stop order. `N!` permutation is forbidden. NLO-0.3E does not choose a canonical multi-stop sequence. See F001 and F002 below.
 
@@ -34,7 +34,7 @@ Audit: each search creates a new run. Assessed sets are persisted only within th
 
 Invalidation: a change of rule, catalog, load, shipment, tracking, or routing fingerprint changes the candidate fingerprint even when the status does not.
 
-Failure modes: `POOL_LIMIT_EXCEEDED`, `SEARCH_BUDGET_EXCEEDED`, `ROUTING_BUDGET_EXCEEDED`. Fail closed. Unknown is not zero and not feasible.
+Failure modes for NLO-0.3E: `POOL_LIMIT_EXCEEDED` and `SEARCH_BUDGET_EXCEEDED`. Fail closed. `ROUTING_BUDGET_EXCEEDED` is not an NLO-0.3E result. Unknown is not zero and not feasible.
 
 Problem classes in this revision: same-origin same-destination sets larger than 2, as cargo-set planning only. Current-trip fill stays at one additional load, which is NLO-0.3D. A second additional load, multi-pick, multi-drop, and multi-pick-multi-drop wait for NLO-0.4.
 
@@ -64,7 +64,7 @@ NLO-0.3E explores no alternate route sequences, so it does not emit a sequence v
 
 These are unchanged by this revision. They block implementation. They are not closed by the architecture text.
 
-- `NLO03E_I001`: production budgets are `UNSET`.
+- `NLO03E_I001`: pool, set, groupage, and time budgets are the Postgres-backed values in the bounded-expansion model. Routing calls per NLO-0.3E set are 0, so a routing budget is not an NLO-0.3E blocker.
 - `NLO03E_I002`: N-member persistence and the public member contract are not supported.
 - `NLO03E_I003`: `candidate_limit` does not bound work.
 

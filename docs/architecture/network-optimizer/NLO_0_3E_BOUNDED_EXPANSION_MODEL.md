@@ -43,20 +43,27 @@ These server-owned policy fields are separate. The caller does not supply them.
 
 | Field | Meaning | Proposed value | Evidence | Safety margin | Failure | Owner | Default until accepted |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `MAX_CANDIDATE_POOL` | loads read from the public pool before search stops | UNSET | In-memory 500-load group produced 124750 pairs, ~277 MB JSON, ~1.7 GB heap, ~11 s. Postgres time unknown | not chosen | `POOL_LIMIT_EXCEEDED`, no partial feasible claim | server policy, versioned | implementation blocked |
-| `MAX_SET_SIZE` | largest set the lex generator emits | UNSET | Schema and OpenAPI allow ordinals 1 and 2 only. No N-member timing exists | not chosen | generator refuses a larger set | server policy | implementation blocked |
-| `MAX_SETS_EVALUATED` | assessments per search | UNSET | Pairwise evaluates every pair. 500 loads evaluated 124750 sets | not chosen | `SEARCH_BUDGET_EXCEEDED` | server policy | implementation blocked |
-| `MAX_ROUTING_CALLS` | `roadLeg` calls per search | UNSET | Fill uses 4 calls per fresh candidate, including hard rejects. Provider time was not 2GIS | not chosen | `ROUTING_BUDGET_EXCEEDED` | server policy | implementation blocked |
-| `MAX_GROUPAGE_CALLS` | `EvaluateGroupageItems` calls per search | UNSET | Pairwise used 2 calls per pair. 500 loads used 249500 calls | not chosen | `SEARCH_BUDGET_EXCEEDED` | server policy | implementation blocked |
-| `TIME_BUDGET` | wall clock cap | UNSET | Local p95 is not an SLO | not chosen | `SEARCH_BUDGET_EXCEEDED` | server policy | implementation blocked |
+| `MAX_CANDIDATE_POOL` | eligible loads read before an N-member search stops | 10 | Postgres pool 10: observed max 136 ms, 136 inserted rows. Sizes 2 and 3 together are 165 sets, inside the 1225-set measurement | pool 50 is the next measured tier and cannot finish size 3 inside 1225 sets | `POOL_LIMIT_EXCEEDED`, no partial feasible claim | server policy | 10 |
+| `MAX_SET_SIZE` | largest set the lex generator emits | 3 | Pairwise groupage is 2 loads. Size 3 is the only wider set whose full enumeration at pool 10 stays inside the measured call count. Size 4+ was not measured | call count capped at the pool-50 measurement | generator refuses a larger set | server policy | 3 |
+| `MAX_SETS_EVALUATED` | assessments per search | 1225 | Postgres pool 50 evaluated 1225 pairs, observed max 2846 ms, 3676 inserted rows | pool 100 evaluated 4950 pairs, observed max 10431 ms, 14851 rows, and is not the default | `SEARCH_BUDGET_EXCEEDED` before a partial feasible claim | server policy | 1225 |
+| `MAX_ROUTING_CALLS` | `roadLeg` calls per NLO-0.3E search | 0 | Same-origin expansion explores 0 route sequences. Postgres pairwise routing calls were 0 | not applicable | this wave does not call a provider | server policy | 0 |
+| `MAX_GROUPAGE_CALLS` | `EvaluateGroupageItems` calls per search | 2450 | Postgres pool 50 loaded 2450 catalog contexts, one groupage evaluation each | pool 100 used 9900 and is not the default | `SEARCH_BUDGET_EXCEEDED` | server policy | 2450 |
+| `TIME_BUDGET` | wall clock cap | 5s | Adopted comparison tier, pool 50, observed max 2846 ms on this disposable Postgres | about 1.8× that sample maximum; pool 100 observed max was 10431 ms; not a multi-host SLO | `SEARCH_BUDGET_EXCEEDED` | server policy | 5s |
 | `DETERMINISTIC_ORDER` | generation and tie break | load id lexicographic, then status rank for the page | Current pairwise sort is status rank then load ids. Fingerprints were stable across repeats | structural | a changed order changes the fingerprint | proposed in ADR-NET-017, not accepted | required for a later implementation |
 | `ROUTE_SEQUENCES_EXPLORED` | stop orders considered per set | 0 | Same-origin same-destination has one pickup location and one delivery location. F002: one order cannot prove every order infeasible | structural | emitting a stop list is out of NLO-0.3E | proposed in ADR-NET-017, not accepted | 0 |
 
 ```text
-IMPLEMENTATION_BLOCKED=YES
+NLO03E_I001=ADDRESSED_IN_THIS_REVISION
+NLO03E_MAX_ROUTING_CALLS=0
+REAL_ROUTING_PROVIDER_BUDGET_REQUIRED_FOR_0_3E=NO
+NLO03E_I002=CONTRACT_SHAPE_FROZEN_MIGRATION_NOT_WRITTEN
+NLO03E_I003=OPEN
+IMPLEMENTATION_AUTHORIZED=NO
 ```
 
-for every numeric production threshold above. A later controller decision may set them from a Postgres measurement and a real routing budget. This discovery does not.
+The numbers are proposed server defaults for a later implementation. This revision does not change runtime behavior. `candidate_limit` is still not a compute budget.
+
+A same-origin group larger than 10 loads is `POOL_LIMIT_EXCEEDED` for an N-member search. Sizes 2 and 3 of a group of 10 are 165 sets. That is inside the 1225 sets measured at pool 50. A group of 50 cannot be fully enumerated at set size 3 without exceeding that set budget, so it is not the N-member default. Pool 50 itself stayed under 5s (observed max 2846 ms) for pairs only. Pool 100 did not (observed max 10431 ms). Pool 500 took 445323 ms in one sample and inserted 374251 rows.
 
 ## Route sequence
 
@@ -86,6 +93,25 @@ Required facts stay: weight, volume, pallets, linear metres, height, temperature
 
 NLO-0.4 owns persistent `RoutePlan`, `RouteStop`, shared route legs, accepted plan activation, multi-stop shipment representation, and driver multi-stop tasks. NLO-0.3E does not create those rows.
 
+## N-member contract
+
+This is the contract shape. It is not a migration and it is not a runtime change. `000084` is not created and is not reserved.
+
+```text
+NLO_0_3E_SCOPE=SAME_ORIGIN_SAME_DESTINATION_N_MEMBER_SETS_ONLY
+CURRENT_TRIP_FILL_MAX_ADDITIONAL_LOADS=1
+CURRENT_TRIP_FILL_GT_1=DEFER_TO_0_4
+MULTI_PICK=DEFER_TO_0_4
+MULTI_DROP=DEFER_TO_0_4
+ROUTE_SEQUENCES_EXPLORED_BY_0_3E=0
+MULTI_STOP_PLANNING_IN_0_3E=NO
+MAX_SET_SIZE=3
+```
+
+`POST /v1/network/consolidation/search` stays the only search route. A same-origin candidate may list 2 or 3 members. `ordinal` is an integer from 1 through 3, unique within the candidate. `load_opportunity_id` stays unique within the candidate. `execution_supported` is false. The public body has no stop list.
+
+Today `consolidation_candidate_members` checks `ordinal IN (1, 2)` and OpenAPI `members.maxItems` is 2. A later migration may widen the check to `ordinal BETWEEN 1 AND 3` and the generated contract may set `maxItems` to 3. Until that migration exists, N-member rows cannot be stored (`NLO03E_I002` remains the schema gap; the shape above is the freeze).
+
 ## Resource exhaustion
 
 A client `candidate_limit`, including 0 or a very large value, must not increase work. The server policy does.
@@ -95,8 +121,9 @@ Fail closed, with no feasible result invented from a partial search:
 ```text
 POOL_LIMIT_EXCEEDED
 SEARCH_BUDGET_EXCEEDED
-ROUTING_BUDGET_EXCEEDED
 ```
+
+`ROUTING_BUDGET_EXCEEDED` is not produced by NLO-0.3E. NLO-0.3D still calls the routing provider for one additional load. That behavior is unchanged.
 
 Today those codes are not implemented. A large visible pool is still read in full, and a large same-origin group is still fully paired. That is the defect this bound is meant to close. It is not closed in this discovery.
 

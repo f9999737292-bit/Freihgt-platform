@@ -109,8 +109,8 @@ Out of NLO-0.3E: unrestricted `2^N`, ML, 3D packing, shipment activation.
 | contamination | B2 rules | groupage | `INDETERMINATE` | 0.3B | FROZEN_ACCEPTED |
 | cargo type | `cargo_type_code` | catalog rules | `INDETERMINATE` | 0.3B | FROZEN_ACCEPTED |
 | same O-D | canonical `location_id` equality | pair filter plus window overlap | `ORIGIN_IDENTITY_UNPROVEN` or `DESTINATION_IDENTITY_UNPROVEN` | 0.3B | FROZEN_ACCEPTED |
-| multi-pick | planning sequence | deferred | `PLAN_ONLY` | 0.3E or 0.4 | DEFERRED |
-| multi-drop | planning sequence | deferred | `PLAN_ONLY` | 0.3E or 0.4 | DEFERRED |
+| multi-pick | planning sequence | deferred | `PLAN_ONLY` | 0.4 | DEFER_TO_0_4 |
+| multi-drop | planning sequence | deferred | `PLAN_ONLY` | 0.4 | DEFER_TO_0_4 |
 | current-trip fill | server-built `CurrentTripContext` | one extra load | `INDETERMINATE` without onboard proof | 0.3D | FROZEN_ACCEPTED |
 | cross-shipper | owner-persisted opt-in flags | cross-shipper flag on each load; independent of same-owner flag | `INDETERMINATE` `MULTI_PARTY_REFERENCE_CONTEXT_UNAVAILABLE`; never `FEASIBLE` in 0.3B | 0.3B | FROZEN_ACCEPTED |
 | privacy | safe views | other shipper fields and internal location ids omitted | n/a | 0.3B | FROZEN_ACCEPTED |
