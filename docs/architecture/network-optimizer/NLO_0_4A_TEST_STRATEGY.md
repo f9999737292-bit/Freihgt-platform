@@ -73,9 +73,9 @@ Later implementation must include:
 - Route-leg evaluation budget, routing-provider call budget, and groupage evaluation budget are separate.
 - A different departure bucket on the same point fingerprints is a different cache key and may be another provider call.
 
-## Start anchor (erratum E1, proposed)
+## Start anchor (erratum E1, accepted)
 
-These tests are not implemented. `NLO04A_ERRATUM_E1=PROPOSED`.
+These tests are not implemented. `NLO04A_ERRATUM_E1=ACCEPTED`.
 
 - `CURRENT_TRIP_START_WITHOUT_LOCATION_ID_SUPPORTED`
 - `CURRENT_TRIP_START_USES_TRACKED_POSITION`

@@ -13,8 +13,9 @@ NLO04A_F003=CLOSED
 NLO04A_F004=CLOSED
 NLO04A_F005=CLOSED
 NLO04A_R001=CLOSED
-NLO04A_ERRATUM_E1=PROPOSED
-NLO04A_POST_ACCEPT_F001=RESOLVED_AT_DESIGN_LEVEL
+NLO04A_ERRATUM_E1=ACCEPTED
+NLO04A_POST_ACCEPT_F001=CLOSED
+ERRATUM_CONTROLLER_ACCEPTANCE=PASS
 ROUTE_PLAN_OWNER=network-optimizer-service
 EXECUTION_OWNER=shipment-service
 ACCEPTED_PLAN_STRUCTURE_IMMUTABLE=YES
@@ -70,7 +71,7 @@ LIFECYCLE_STATUS_MUTABLE=YES
 
 ## RouteStop
 
-A stop is an ordinal, a role, and a `RoutePoint`. It is not a load. Post-freeze erratum E1 is proposed in ADR-NET-019. It separates business location identity from the point the router uses. `MAX_STOPS` stays 8. Roles stay `START`, `CARGO`, and `END`.
+A stop is an ordinal, a role, and a `RoutePoint`. It is not a load. Post-freeze erratum E1 is accepted in ADR-NET-019. It separates business location identity from the point the router uses. `MAX_STOPS` stays 8. Roles stay `START`, `CARGO`, and `END`.
 
 ```text
 RoutePoint
@@ -117,7 +118,7 @@ Cargo equality uses canonical `location_id` only. Label, city, Haversine, and co
 
 `DEPOT_START` `START` is `CANONICAL_LOCATION` when the trusted capacity `LocationID` is set. If that id is null and the trusted capacity has latitude and longitude, the start is `POSITION_ANCHOR` with `source=CAPACITY_POSITION`. If neither is present, the result is `ROUTE_START_POSITION_UNKNOWN`. No city centroid is invented.
 
-`CURRENT_TRIP` `END` is required. Its `location_id` is the trusted `ShipmentExecution.DestinationLocationID`, and its coordinates are the trusted resolution of that location. A tracking-coordinate-only end is not allowed. `DEPOT_START` does not add an `END` stop. The route ends at the last cargo delivery.
+`CURRENT_TRIP` `END` is required. Its `location_id` is the trusted `ShipmentExecution.DestinationLocationID`, and its coordinates are the trusted resolution of that location. A tracking-coordinate-only end is not allowed. `SEPARATE_END_STOP_REQUIRED=NO` for `DEPOT_START`. That route ends at the last cargo delivery.
 
 `START` is not reordered. Actual arrival and departure are not stored on this row. They belong to shipment execution. A stop may exist without a cargo action only for `START` and, on a current trip, `END`. The v0.4 planner does not insert a break or a pure waypoint.
 

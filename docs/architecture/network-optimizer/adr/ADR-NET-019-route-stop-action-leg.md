@@ -45,11 +45,13 @@ The ERD is in `NLO_0_4A_ROUTE_PLAN_MODEL.md`. This ADR does not create tables.
 
 ## Post-freeze Erratum E1
 
-Proposed. Not accepted by this publication. ADR-NET-019 stays Accepted. This section corrects the start-anchor identity and the route-leg cache key. The Decision sentences that require `location_id` on every stop, and that key leg reuse only by `from_location_id` and `to_location_id`, are superseded here for `START` and for `RouteLegKey`. Cargo and `END` canonical identity in that Decision stays. Capacity snapshots and the groupage engine are unchanged.
+Accepted. ADR-NET-019 stays Accepted. This section corrects the start-anchor identity and the route-leg cache key. The Decision sentences that require `location_id` on every stop, and that key leg reuse only by `from_location_id` and `to_location_id`, are superseded here for `START` and for `RouteLegKey`. Cargo and `END` canonical identity in that Decision stays. Capacity snapshots and the groupage engine are unchanged.
 
 ```text
-NLO04A_ERRATUM_E1=PROPOSED
-NLO04A_POST_ACCEPT_F001=RESOLVED_AT_DESIGN_LEVEL
+NLO04A_ERRATUM_E1=ACCEPTED
+NLO04A_POST_ACCEPT_F001=CLOSED
+ERRATUM_CONTROLLER_ACCEPTANCE=PASS
+BLOCKING_FINDINGS=0
 ADR_NET_019=ACCEPTED
 ```
 
