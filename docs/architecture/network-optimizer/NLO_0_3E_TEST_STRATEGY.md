@@ -1,6 +1,6 @@
 # NLO-0.3E test strategy
 
-Controller review R5 freeze candidate. `TEST_STRATEGY_FREEZE_CANDIDATE=YES`. `TEST_STRATEGY_FROZEN=NO` until the controller accepts it. These checks are not implemented here. The discovery harnesses use build tag `nlo03ediscovery` and are not part of default `go test`.
+`NLO_0_3E_TEST_STRATEGY=FROZEN_ACCEPTED`. `TEST_STRATEGY_FROZEN=YES`. These checks are not implemented here. The discovery harnesses use build tag `nlo03ediscovery` and are not part of default `go test`. Acceptance does not start runtime work.
 
 ## Contract
 

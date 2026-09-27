@@ -1,6 +1,8 @@
 # NLO-0.3E implementation plan
 
 ```text
+NLO_0_3E_ARCHITECTURE=FROZEN_ACCEPTED
+NLO_0_3E_TEST_STRATEGY=FROZEN_ACCEPTED
 NLO_0_3E_IMPLEMENTATION_STARTED=NO
 NLO_0_3E_IMPLEMENTATION_AUTHORIZED=NO
 PRODUCT_CODE_CHANGED=NO
@@ -8,12 +10,12 @@ RUNTIME_BEHAVIOR_CHANGED=NO
 MIGRATION_ADDED=NO
 ```
 
-This plan is the sequence a later task would follow after controller acceptance. It is not authorization to start.
+ADR-NET-017 is accepted. This plan is the sequence a later task would follow on a new branch from merged main. It is not authorization to start, and this publication does not start it.
 
-## Blockers before any runtime change
+## Gates before any runtime change
 
-1. Controller acceptance of ADR-NET-017. Review R5 is a freeze candidate. `ADR_STATUS=PROPOSED`. `ARCHITECTURE_FROZEN=NO`. `ARCHITECTURE_FREEZE_CANDIDATE=YES`.
-2. `NLO03E_I001` is resolved at design level for `SAME_ORIGIN_SAME_DESTINATION_N_MEMBER` only. `MAX_CANDIDATE_POOL=10` is the global visible eligible pool. `MAX_SET_SIZE=3`. `MAX_SETS_EVALUATED=165`. `MAX_GROUPAGE_CALLS=330`. `TIME_BUDGET=5s` is a watchdog, not an SLO. `NLO03E_MAX_ROUTING_CALLS=0`. Legacy `SAME_ORIGIN_SAME_DESTINATION` stays pairwise. Controller acceptance is still required before runtime work.
+1. ADR-NET-017 is accepted. `ADR_STATUS=ACCEPTED`. `ARCHITECTURE_FROZEN=YES`. `TEST_STRATEGY_FROZEN=YES`. `NLO_0_3E_IMPLEMENTATION_AUTHORIZED=NO`.
+2. `NLO03E_I001` is resolved for `SAME_ORIGIN_SAME_DESTINATION_N_MEMBER` only. `MAX_CANDIDATE_POOL=10` is the global visible eligible pool. `MAX_SET_SIZE=3`. `MAX_SETS_EVALUATED=165`. `MAX_GROUPAGE_CALLS=330`. `TIME_BUDGET=5s` is a watchdog, not an SLO. `NLO03E_MAX_ROUTING_CALLS=0`. Legacy `SAME_ORIGIN_SAME_DESTINATION` stays pairwise. Implementation authorization is still required before runtime work.
 3. `NLO03E_I002` design is frozen, and no migration file is created. The later migration admits exactly three patterns, requires capacity for both same-origin patterns, keeps current-trip capacity null, adds `evaluated_set_count`, and keeps `evaluated_pair_count` for pairwise and for current-trip only. An N-member run stores `evaluated_set_count` and leaves `evaluated_pair_count` null. Ordinal becomes `BETWEEN 1 AND 3`. Primary key, load uniqueness, candidate foreign key, and the composite run foreign key stay. The down migration aborts if an N-member pattern row or an ordinal-3 member exists. It does not delete or rewrite those rows. `000084` is not reserved.
 4. `NLO03E_I003` is resolved at design level for the N-member pattern. `candidate_limit` stays the returned-result cap. Pool, set, groupage, and time budgets are checked before the work they bound. A budget failure rolls back and does not return a partial candidate list. Those codes are not added to legacy pairwise search.
 
@@ -36,7 +38,7 @@ This plan is the sequence a later task would follow after controller acceptance.
 5. Keep cross-shipper sets `INDETERMINATE`.
 6. Do not add `ConsolidationPlanningScore`, MatchScore, or client weights.
 7. Do not raise `MAX_ADDITIONAL_LOADS` above 1.
-8. Tests in `NLO_0_3E_TEST_STRATEGY.md` after that strategy is accepted. `TEST_STRATEGY_FROZEN=NO`.
+8. Tests in `NLO_0_3E_TEST_STRATEGY.md`. The strategy is frozen. Those tests are not implemented in this publication.
 
 ## Explicitly out
 

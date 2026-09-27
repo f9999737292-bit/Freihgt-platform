@@ -1,22 +1,31 @@
 # ADR-NET-017: NLO-0.3E bounded consolidation expansion
 
-Status: Proposed. Controller review R5 freeze candidate. Not accepted. Implementation is not authorized.
+Status: Accepted. Controller acceptance is recorded. Implementation is not authorized and has not started.
 
 ```text
-ADR_STATUS=PROPOSED
+ADR_STATUS=ACCEPTED
+ADR_NET_017=ACCEPTED
+CONTROLLER_ACCEPTANCE=PASS
 NLO03E_F001=CLOSED
 NLO03E_F002=CLOSED
 NLO03E_F005=CLOSED
-NLO03E_F006=ADDRESSED_IN_THIS_REVISION
+NLO03E_F006=CLOSED
 POSTGRES_BASELINE=ACCEPTED
 ROUTING_SCOPE=ACCEPTED
+COST_MODEL=ACCEPTED
+POOL_MODEL=ACCEPTED
+BUDGET_MODEL=ACCEPTED
+API_COMPATIBILITY=ACCEPTED
+PERSISTENCE_SCHEMA_DESIGN=ACCEPTED
+FAILURE_ATOMICITY=ACCEPTED
 NLO03E_I001=RESOLVED
 NLO03E_I002=RESOLVED_AT_DESIGN_LEVEL
 NLO03E_I003=RESOLVED_AT_DESIGN_LEVEL
-ARCHITECTURE_FROZEN=NO
-ARCHITECTURE_FREEZE_CANDIDATE=YES
-TEST_STRATEGY_FREEZE_CANDIDATE=YES
+ARCHITECTURE_FROZEN=YES
+TEST_STRATEGY_FROZEN=YES
+BLOCKING_FINDINGS=0
 IMPLEMENTATION_AUTHORIZED=NO
+NLO_0_3E_IMPLEMENTATION_STARTED=NO
 ```
 
 Baseline: `origin/main` `6576034a4f39b451341ad72667c5fc25f6562658`. Measurements: `NLO_0_3E_MEASUREMENTS.md`.
@@ -84,9 +93,9 @@ Widening `SAME_ORIGIN_SAME_DESTINATION` in place would return three-member candi
 
 The live pattern check, context check, and `evaluated_pair_count integer NOT NULL` cannot store `SAME_ORIGIN_SAME_DESTINATION_N_MEMBER` without either rejecting the row or overloading the pair-count column. Member `ordinal IN (1, 2)` cannot store a third member. This revision documents those live checks and the future checks. It does not add the migration.
 
-### Design status after R5
+### Controller acceptance
 
-F001, F002, and F005 stay closed. F006 is addressed in this revision and is not a controller acceptance. The Postgres baseline and the routing scope are accepted. I001, I002, and I003 are resolved at design level in this candidate. They are not a runtime implementation. The ADR remains proposed.
+F001, F002, F005, and F006 are closed. The Postgres baseline, routing scope, cost model, pool model, budget model, API compatibility, persistence schema design, and failure atomicity are accepted. I001, I002, and I003 stay resolved at design level. They are not a runtime implementation. `ARCHITECTURE_FROZEN=YES`. `TEST_STRATEGY_FROZEN=YES`. `BLOCKING_FINDINGS=0`. Implementation remains unauthorized.
 
 - `NLO03E_I001`: global pool 10, set size 3, 165 sets, 330 groupage calls, 5 second watchdog, 0 routing calls. Those budgets stay on the N-member pattern only.
 - `NLO03E_I002`: pattern check, context check, exclusive pair/set counts, ordinal 1..3, existing keys preserved, down migration fails closed without deleting or rewriting N-member rows. No migration file.
@@ -96,6 +105,6 @@ F001, F002, and F005 stay closed. F006 is addressed in this revision and is not 
 
 - NLO-0.3 stays incomplete until a later implementation is accepted and merged.
 - NLO-0.4 is not started. Multi-stop planning is not pulled forward into NLO-0.3E.
-- This revision is a freeze candidate. `ARCHITECTURE_FROZEN=NO` until the controller accepts it.
+- The architecture and the test strategy are frozen. `ARCHITECTURE_ACCEPTED` is not `IMPLEMENTED`. Runtime work starts on a later branch from merged main.
 - Solver techniques remain out: VRP, MILP, CP-SAT, LNS, genetic algorithms, ML, and 3D bin packing.
 - Backhaul, round trip, city rules, and network-wide optimization remain out.

@@ -3,12 +3,13 @@
 Baseline: `origin/main` `6576034a4f39b451341ad72667c5fc25f6562658`. NLO-0.3B, NLO-0.3C, and NLO-0.3D are IMPLEMENTED_CLOSED on main. `CURRENT_TRIP_FILL` is a public planning search, `execution_supported=false`, `MAX_ADDITIONAL_LOADS=1`, and it does not mutate a shipment, order, assignment, reservation, offer, slot, or driver task. This wave does not persist `current_trip_context_id`.
 
 ```text
-NLO_0_3E=ARCHITECTURE_FREEZE_CANDIDATE
+NLO_0_3E_ARCHITECTURE=FROZEN_ACCEPTED
+NLO_0_3E_TEST_STRATEGY=FROZEN_ACCEPTED
 IMPLEMENTATION_STARTED=NO
-ADR_STATUS=PROPOSED
+ADR_STATUS=ACCEPTED
 ```
 
-NLO-0.4 is NOT_STARTED. NLO-0.3 is not complete. This document records the proposed NLO-0.3E contract. It does not change generated OpenAPI.
+NLO-0.4 is NOT_STARTED. NLO-0.3 is not complete. This document records the accepted NLO-0.3E contract. It does not change generated OpenAPI, and it does not start implementation.
 
 ## One search endpoint
 
