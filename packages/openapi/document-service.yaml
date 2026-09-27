@@ -1028,14 +1028,22 @@ components:
           description: Owner-controlled cross-shipper consolidation opt-in. Independent of consolidation_allowed. Not a search override.
     ConsolidationSearchRequest:
       type: object
-      required: [capacity_id, pattern]
+      required: [pattern]
       additionalProperties: false
       properties:
         capacity_id: {type: string, format: uuid}
+        shipment_id:
+          type: string
+          format: uuid
+          description: Required for CURRENT_TRIP_FILL. The server builds the trip context. Residual facts are not accepted.
         pattern:
           type: string
           enum: [SAME_ORIGIN_SAME_DESTINATION, CURRENT_TRIP_FILL]
-          description: NLO-0.3B executes only SAME_ORIGIN_SAME_DESTINATION. CURRENT_TRIP_FILL returns PATTERN_NOT_IMPLEMENTED.
+          description: SAME_ORIGIN_SAME_DESTINATION requires capacity_id. CURRENT_TRIP_FILL requires shipment_id and plans exactly one additional load.
+        policy:
+          type: string
+          enum: [REHANDLING_FORBIDDEN, REHANDLING_ALLOWED]
+          description: Omitted means REHANDLING_FORBIDDEN. Not a residual or onboard override.
         candidate_limit:
           type: integer
           minimum: 0
@@ -1047,7 +1055,16 @@ components:
         search_id: {type: string, format: uuid}
         capacity_id: {type: string, format: uuid}
         capacity_version: {type: integer}
-        pattern: {type: string, enum: [SAME_ORIGIN_SAME_DESTINATION]}
+        pattern: {type: string, enum: [SAME_ORIGIN_SAME_DESTINATION, CURRENT_TRIP_FILL]}
+        shipment_id: {type: string, format: uuid}
+        shipment_version: {type: integer}
+        max_additional_loads: {type: integer, enum: [1]}
+        execution_supported: {type: boolean, enum: [false]}
+        input_fingerprint: {type: string}
+        context_summary:
+          type: object
+          additionalProperties: true
+          description: Output-only summary of the server-built current trip. Not accepted as a later request input.
         pool_load_count: {type: integer}
         evaluated_pair_count: {type: integer}
         feasible_candidate_count: {type: integer}
@@ -1071,12 +1088,12 @@ components:
       required: [candidate_id, status, execution_supported, placement_check, members, compatibility]
       properties:
         candidate_id: {type: string, format: uuid}
-        status: {type: string, enum: [FEASIBLE, INDETERMINATE]}
+        status: {type: string, enum: [FEASIBLE, INDETERMINATE, HARD_REJECT]}
         execution_supported: {type: boolean, enum: [false]}
-        placement_check: {type: string, enum: [NOT_EVALUATED]}
+        placement_check: {type: string, enum: [NOT_EVALUATED, SEQUENCE_OK, SEQUENCE_CONFLICT, REHANDLE_REQUIRED]}
         members:
           type: array
-          minItems: 2
+          minItems: 1
           maxItems: 2
           items: {$ref: '#/components/schemas/ConsolidationMember'}
         pickup_window_overlap: {$ref: '#/components/schemas/ConsolidationWindowOverlap'}
@@ -1086,6 +1103,10 @@ components:
         conditions: {type: array, items: {type: string}}
         indeterminate_reason_codes: {type: array, items: {type: string}}
         explanation: {type: array, items: {type: string}}
+        routing:
+          type: object
+          additionalProperties: true
+          description: Road figures from the routing provider. Absent when routing cannot prove the insertion.
     ConsolidationMember:
       type: object
       required: [ordinal, load_opportunity_id, load_version, load]
