@@ -1,6 +1,6 @@
 # NLO-0.3 implementation roadmap
 
-Architecture baseline: `origin/main` `6d47cc92`. Current implementation main: `8208c662`. NLO-0.3A is FROZEN_ACCEPTED and CLOSED. NLO-0.3B is IMPLEMENTED / CLOSED. NLO-0.3C, NLO-0.3D, and NLO-0.3E are NOT_STARTED. NLO-0.3 is not complete. This closeout does not start NLO-0.3C. GPS is not an NLO-0.2 dependency. Current-trip residual capacity is NLO-0.3.
+Architecture baseline: `origin/main` `6d47cc92`. Current implementation main: `cad3c67b93fd72329050db624ae048495ef0236f`. NLO-0.3A is FROZEN_ACCEPTED and CLOSED. NLO-0.3B is IMPLEMENTED / CLOSED. NLO-0.3C is IMPLEMENTED_CLOSED. NLO-0.3D and NLO-0.3E are NOT_STARTED. NLO-0.3 is not complete. This closeout does not start NLO-0.3D. GPS is not an NLO-0.2 dependency. Current-trip residual capacity is NLO-0.3.
 
 ## What NLO-0.3 will implement
 
@@ -32,7 +32,7 @@ Same statement as ADR-NET-015, the privacy document, and the API design. Both fl
 
 ## Waves
 
-The first product wave is pairwise consolidation because unit-level onboard evidence does not exist. A current-trip wave started first could not return a useful `FEASIBLE` result.
+The first product wave was pairwise consolidation because unit-level onboard evidence did not exist yet. A current-trip wave started first could not return a useful `FEASIBLE` result. That evidence now exists as NLO-0.3C. It does not enable `CURRENT_TRIP_FILL`.
 
 ### NLO-0.3B — pairwise same-origin foundation
 
@@ -50,13 +50,13 @@ Out: current-trip context, residual occupancy, route insertion, execution, score
 
 ### NLO-0.3C — onboard evidence, trip context, residual snapshot
 
-Status: IMPLEMENTED_IN_BRANCH / UNDER_REVIEW. Not merged. Not CLOSED. NLO-0.3D is not started. `CURRENT_TRIP_FILL` stays `PATTERN_NOT_IMPLEMENTED`.
+Status: IMPLEMENTED_CLOSED. Merged in PR #176 at `cad3c67b93fd72329050db624ae048495ef0236f`. Feature head `d8b2b659f7fbc735bf84e53b458755a89311734d`. Migration `000082_nlo_onboard_evidence_current_trip_context_v0_3c`. `NLO_0_3D_STATUS=NOT_STARTED`. `CURRENT_TRIP_FILL_PUBLIC_ENABLED=NO`. `CURRENT_TRIP_FILL_RESULT=PATTERN_NOT_IMPLEMENTED`. `NLO_0_3_COMPLETE=NO`.
 
-Scope: shipment-service owns the future `ShipmentOnboardCargoProvider` and the authoritative unit-level `CONFIRMED_ONBOARD` evidence. A shipment-wide status does not prove that cargo is onboard. BNO consumes the provider. Build server-side `CurrentTripContext` and `ResidualCapacitySnapshot` from trusted ports. Do not reuse `000081`; that number is the NLO-0.3B pairwise migration. A residual migration needs a later number. `NEW_EXECUTION_EVIDENCE_REQUIRED=YES` before a residual result can be `FEASIBLE`.
+Scope: shipment-service owns the onboard-cargo read and the append-only unit-level `CONFIRMED_ONBOARD` evidence. A shipment-wide status does not prove that cargo is onboard. BNO consumes the provider and builds server-side `CurrentTripContext` and `ResidualCapacitySnapshot` from trusted ports. Migration `000082` is that evidence table. It does not reuse `000081`. `NEW_EXECUTION_EVIDENCE_REQUIRED=YES` before a residual result can be `FEASIBLE`. This wave does not return that public result.
 
-API: none that treats caller residual facts as authority.
+API: none that treats caller residual facts as authority. `CURRENT_TRIP_FILL` remains `PATTERN_NOT_IMPLEMENTED`.
 
-Dependencies: a new execution fact. Shipment status, linked cargo, and planned quantity do not qualify. Driver events in shipment-service are shipment-scoped and do not name a cargo unit.
+Dependencies: the execution fact is migration `000082`. Shipment status, linked cargo, and planned quantity do not qualify by themselves. Driver events in shipment-service are shipment-scoped and do not name a cargo unit. The server reads `cargo_id` from the shipment inside the status transaction.
 
 Security: trusted tenant, owned shipment, `NOT_FOUND` for a foreign id. No browser tenant header.
 

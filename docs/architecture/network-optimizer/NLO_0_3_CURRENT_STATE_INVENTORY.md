@@ -1,6 +1,6 @@
 # NLO-0.3 current-state inventory
 
-Survey baseline: `origin/main` `6d47cc92aa825abdd34ee223791ae13c83cf4b01`, when the migration head was `000080_bno_match_score_topn_v0_1c2`. That SHA is the historical survey, not the current implementation. Current implementation main is `8208c662f1c80475338a97dbc710268fa0fc5a07`. Migration head is `000081_nlo_pairwise_consolidation_v0_3b`. NLO-0.3B is IMPLEMENTED / CLOSED. NLO-0.3C is NOT_STARTED. NLO-0.3 is not complete. This document cites schema and code. It does not treat an architecture sentence as a runtime fact.
+Survey baseline: `origin/main` `6d47cc92aa825abdd34ee223791ae13c83cf4b01`, when the migration head was `000080_bno_match_score_topn_v0_1c2`. That SHA is the historical survey, not the current implementation. Current implementation main is `cad3c67b93fd72329050db624ae048495ef0236f`. Migration head is `000082_nlo_onboard_evidence_current_trip_context_v0_3c`. NLO-0.3B is IMPLEMENTED / CLOSED. NLO-0.3C is IMPLEMENTED_CLOSED. NLO-0.3D is NOT_STARTED. NLO-0.3 is not complete. This document cites schema and code. It does not treat an architecture sentence as a runtime fact.
 
 ## Accepted BNO status
 
@@ -71,4 +71,4 @@ No existing driver or shipment event qualifies as unit-level onboard evidence. `
 
 ## What is not in the repository
 
-No residual capacity table. No onboard evidence state machine. No solver. No 3D packer. No EDO readiness proof inside BNO. Pairwise opt-in, consolidation search, and migration `000081` are on main. NLO-0.3B is IMPLEMENTED / CLOSED. NLO-0.3C is NOT_STARTED. Unit-level `CONFIRMED_ONBOARD` evidence is still absent.
+No persisted residual-capacity table. Residual capacity is a server-built snapshot, and it is not a public search input. Append-only unit evidence is migration `000082` on main. There is no mutable onboard boolean and no solver. No 3D packer. No EDO readiness proof inside BNO. Pairwise opt-in, consolidation search, and migration `000081` are on main. NLO-0.3B is IMPLEMENTED / CLOSED. NLO-0.3C is IMPLEMENTED_CLOSED. `CURRENT_TRIP_FILL` remains `PATTERN_NOT_IMPLEMENTED`. NLO-0.3D is NOT_STARTED.
