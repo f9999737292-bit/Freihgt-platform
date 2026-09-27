@@ -1,17 +1,31 @@
 # NLO-0.3D current trip fill
 
-Status: IMPLEMENTED_IN_BRANCH / UNDER_REVIEW. This branch does not merge. NLO-0.3C stays IMPLEMENTED_CLOSED. NLO-0.3E is NOT_STARTED. NLO-0.3 is not complete. NLO-0.4 is not started.
+Status: IMPLEMENTED_CLOSED. Merged to main in PR #178. Feature head `f61d64f8c34fa8cafa6bee30d44d8646c7c30655`. Merge SHA `ef3722db92fd1c115f6539cc491df3eabd57affa`. CI run `36307221142` succeeded on that feature head. Migration `000083_nlo_current_trip_fill_v0_3d`. NLO-0.3C stays IMPLEMENTED_CLOSED. NLO-0.3E is NOT_STARTED. NLO-0.3 is not complete. NLO-0.4 is not started.
 
 ```text
 NLO_0_3C_STATUS=IMPLEMENTED_CLOSED
-NLO_0_3D_STATUS=UNDER_REVIEW
-NLO_0_3_COMPLETE=NO
-NLO_0_3E_STARTED=NO
-CURRENT_TRIP_FILL=planning only
-EXECUTION_SUPPORTED=false
+NLO_0_3D_STATUS=IMPLEMENTED_CLOSED
+NLO_0_3D_MERGED=YES
+NLO_0_3D_MERGE_SHA=ef3722db92fd1c115f6539cc491df3eabd57affa
+CURRENT_TRIP_FILL_PUBLIC_ENABLED=YES
+CURRENT_TRIP_FILL_MODE=PLANNING_ONLY
 MAX_ADDITIONAL_LOADS=1
+EXECUTION_SUPPORTED=NO
 SHIPMENT_MUTATION=NO
+ORDER_MUTATION=NO
+ASSIGNMENT=NO
+RESERVATION=NO
+CARRIER_OFFER=NO
+SLOT_BOOKING=NO
+DRIVER_TASK=NO
+NLO_0_3_COMPLETE=NO
+NLO_0_3E_STATUS=NOT_STARTED
+NLO_0_4_STATUS=NOT_STARTED
 ```
+
+`CURRENT_TRIP_FILL_PUBLIC_ENABLED=YES` means the planning search API exists. It does not mean route execution, a multi-stop shipment, assignment, or reservation exists.
+
+Controller remediation R1 is closed. `F001_CAPACITY_CONTEXT=CLOSED`. `F002_AUDIT_FINGERPRINT=CLOSED`.
 
 ## What this wave answers
 
@@ -29,7 +43,7 @@ Groupage reuses the existing B2 engine. Pallet conversion requires an explicit p
 
 ## Persistence
 
-Migration `000083_nlo_current_trip_fill_v0_3d` widens the NLO-0.3B consolidation audit so a current-trip row can omit `capacity_id`. Provenance stays in the candidate trace and fingerprint. The response summary is output only.
+Migration `000083_nlo_current_trip_fill_v0_3d` widens the NLO-0.3B consolidation audit. A `SAME_ORIGIN_SAME_DESTINATION` run requires `capacity_id` and `capacity_version`. A `CURRENT_TRIP_FILL` run stores both as NULL and does not publish a zero UUID or a zero version. The public current-trip response omits both fields and includes `shipment_id` and `shipment_version`. The internal audit trace keeps the compatibility fingerprint, rule-set and catalog versions, policy, shipment and vehicle versions, onboard cargo and profile versions, evidence-state versions, position and ETA freshness and time, residual provenance, routing provenance, and the candidate fingerprint. The public marketplace response does not include that trace.
 
 ## Still out
 
