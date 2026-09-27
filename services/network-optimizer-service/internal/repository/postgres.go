@@ -453,6 +453,13 @@ func nullString(value string) any {
 	return value
 }
 
+func nullRaw(value []byte) any {
+	if len(value) == 0 {
+		return nil
+	}
+	return value
+}
+
 func stringValue(value *string) string {
 	if value == nil {
 		return ""

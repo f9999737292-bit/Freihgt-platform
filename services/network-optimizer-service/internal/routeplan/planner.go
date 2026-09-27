@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"sort"
 	"strconv"
 	"strings"
@@ -47,6 +48,7 @@ type Action struct {
 	EvidenceVersion *int
 	EvidenceAt      *time.Time
 	Cargo           compat.Cargo
+	AccessNeed      compat.AccessNeed
 }
 
 type Stop struct {
@@ -84,25 +86,43 @@ type Leg struct {
 	DepartureBucket     string
 	CalculatedAt        time.Time
 	ExpiresAt           time.Time
+	ProviderDefaultUsed bool
+	ProviderRouteID     string
 }
 
 type Snapshot struct {
-	SequenceOrdinal    int
-	AfterStopIndex     int
-	AfterActionOrdinal int
-	Capacity           Capacity
+	SequenceOrdinal          int
+	AfterStopIndex           int
+	AfterActionOrdinal       int
+	Capacity                 Capacity
+	CompatibilityStatus      string
+	CompatibilityFingerprint string
+	TemperatureCheck         string
+	ADRCheck                 string
+	FoodGradeCheck           string
 }
 
 type Outcome struct {
-	Stops              []Stop
-	Legs               []Leg
-	Snapshots          []Snapshot
-	ResultStatus       string
-	ReasonCodes        []string
-	PickupOrdinal      int
-	DeliveryOrdinal    int
-	DurationSeconds    int
-	ExecutionSupported bool
+	Stops                  []Stop
+	Legs                   []Leg
+	Snapshots              []Snapshot
+	ResultStatus           string
+	ReasonCodes            []string
+	PickupOrdinal          int
+	DeliveryOrdinal        int
+	DurationSeconds        int
+	ExecutionSupported     bool
+	ShipmentID             *uuid.UUID
+	ShipmentVersion        *int
+	CapacityID             *uuid.UUID
+	CapacityVersion        *int
+	VehicleID              *uuid.UUID
+	VehicleVersion         *int
+	ContextFingerprint     string
+	CatalogFingerprint     string
+	RuleFingerprint        string
+	ServiceDurationKnown   bool
+	ServiceDurationSeconds *int
 }
 
 type Input struct {
@@ -176,6 +196,7 @@ func insertLoad(ctx context.Context, in Input, budget *Budget, parent []Stop, lo
 	sequences := enumerate(parent, load)
 	var best *Outcome
 	blocked := ""
+	hadRouting := false
 	for _, seq := range sequences {
 		if len(seq) > MaxStops {
 			blocked = BudgetStops
@@ -185,9 +206,13 @@ func insertLoad(ctx context.Context, in Input, budget *Budget, parent []Stop, lo
 			blocked = BudgetActions
 			continue
 		}
-		outcome, err := evaluate(ctx, in, budget, seq, load.ID)
+		outcome, routingFailed, err := evaluate(ctx, in, budget, seq, load.ID)
 		if err != nil {
 			return Outcome{}, false, err
+		}
+		if routingFailed {
+			hadRouting = true
+			continue
 		}
 		if outcome == nil {
 			continue
@@ -201,6 +226,9 @@ func insertLoad(ctx context.Context, in Input, budget *Budget, parent []Stop, lo
 		if blocked != "" {
 			budget.BlockedReason = blocked
 			return Outcome{}, false, &SearchError{Code: ResultBudget, Budget: blocked, Detail: ReasonBudgetExceeded}
+		}
+		if hadRouting {
+			return Outcome{}, false, &SearchError{Code: ResultRoutingDown}
 		}
 		return Outcome{}, false, nil
 	}
@@ -362,22 +390,24 @@ func apply(parent []Stop, load Load, pickup, delivery slot) ([]Stop, bool) {
 	}
 }
 
-func evaluate(ctx context.Context, in Input, budget *Budget, stops []Stop, loadID uuid.UUID) (*Outcome, error) {
+var errSequenceRouting = errors.New("sequence routing failed")
+
+func evaluate(ctx context.Context, in Input, budget *Budget, stops []Stop, loadID uuid.UUID) (*Outcome, bool, error) {
 	if err := budget.openSequence(); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if err := validateAnchors(stops); err != nil {
-		return nil, nil
+		return nil, false, nil
 	}
 	reasons := []string{}
 	if emptyIntersection(stops) {
-		return nil, nil
-	}
-	if in.ServiceDurationSeconds == nil {
-		reasons = append(reasons, ReasonServiceDurationUnknown)
+		return nil, false, nil
 	}
 	if in.ReferenceUnavailable {
 		reasons = append(reasons, ReasonMultiPartyContext)
+	}
+	if !in.VehicleProfile.Complete() {
+		reasons = append(reasons, ReasonRoutingProfileUnknown)
 	}
 	onboard := append([]compat.GroupageItem(nil), in.Onboard...)
 	capacity := in.Initial
@@ -385,21 +415,29 @@ func evaluate(ctx context.Context, in Input, budget *Budget, stops []Stop, loadI
 	seq := 1
 	var legs []Leg
 	total := 0
-	departure := &in.Clock
-	durationKnown := in.ServiceDurationSeconds != nil
+	departureKnown := true
+	departure := in.Clock
 	for i := range stops {
 		if i > 0 {
 			if err := budget.before(BudgetTime); err != nil {
-				return nil, err
+				return nil, false, err
 			}
 			item := groupageItems(onboard)
 			if in.Groupage != nil && len(item) > 0 {
 				if err := budget.openGroupage(); err != nil {
-					return nil, err
+					return nil, false, err
 				}
 				result := in.Groupage(item)
+				if len(snapshots) > 0 {
+					last := &snapshots[len(snapshots)-1]
+					last.CompatibilityStatus = result.Status
+					last.CompatibilityFingerprint = result.Fingerprint
+					last.TemperatureCheck = checkStatus(result, "TEMPERATURE")
+					last.ADRCheck = checkStatus(result, "ADR")
+					last.FoodGradeCheck = checkStatus(result, "FOOD_GRADE")
+				}
 				if result.Status == compat.StatusIncompatible || len(result.HardRejects) > 0 {
-					return nil, nil
+					return nil, false, nil
 				}
 				if result.Status == compat.StatusIndeterminate || len(result.IndeterminateReasons) > 0 {
 					if len(result.IndeterminateReasons) == 0 {
@@ -410,32 +448,44 @@ func evaluate(ctx context.Context, in Input, budget *Budget, stops []Stop, loadI
 					}
 				}
 			}
-			leg, err := routeLeg(ctx, in, budget, stops[i-1], stops[i], departure)
+			var departAt *time.Time
+			if departureKnown {
+				departAt = &departure
+			}
+			leg, err := routeLeg(ctx, in, budget, stops[i-1], stops[i], departAt)
+			if errors.Is(err, errSequenceRouting) {
+				return nil, true, nil
+			}
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 			legs = append(legs, leg)
 			total += leg.DurationSeconds
-			if durationKnown && departure != nil {
+			if departureKnown {
 				arrival := departure.Add(time.Duration(leg.DurationSeconds) * time.Second)
 				windowStart, windowEnd, ok := stopWindow(stops[i])
 				if !ok {
-					return nil, nil
+					return nil, false, nil
 				}
 				if windowEnd != nil && arrival.After(*windowEnd) {
-					return nil, nil
+					return nil, false, nil
 				}
 				if windowStart != nil && arrival.Before(*windowStart) {
 					arrival = *windowStart
 				}
 				stops[i].Arrival = &arrival
-				service := *in.ServiceDurationSeconds
-				stops[i].Service = &service
-				depart := arrival.Add(time.Duration(service) * time.Second)
-				stops[i].Depart = &depart
-				departure = &depart
-			} else if stops[i].Role != RoleEnd {
-				departure = nil
+				if stopNeedsService(stops[i]) && in.ServiceDurationSeconds == nil {
+					reasons = append(reasons, ReasonServiceDurationUnknown)
+					departureKnown = false
+				} else if stopNeedsService(stops[i]) {
+					service := *in.ServiceDurationSeconds
+					stops[i].Service = &service
+					depart := arrival.Add(time.Duration(service) * time.Second)
+					stops[i].Depart = &depart
+					departure = depart
+				} else {
+					departure = arrival
+				}
 			}
 		}
 		for a := range stops[i].Actions {
@@ -444,13 +494,13 @@ func evaluate(ctx context.Context, in Input, budget *Budget, stops []Stop, loadI
 			var unknown bool
 			capacity, hard, unknown = applyAction(capacity, action)
 			if hard {
-				return nil, nil
+				return nil, false, nil
 			}
 			if unknown {
 				reasons = append(reasons, ReasonCapacityUnknown)
 			}
 			if action.Type == ActionPickup {
-				onboard = append(onboard, compat.GroupageItem{Cargo: action.Cargo})
+				onboard = append(onboard, compat.GroupageItem{Cargo: action.Cargo, AccessNeed: action.AccessNeed})
 			} else {
 				onboard = removeCargo(onboard, action.SubjectID)
 			}
@@ -460,19 +510,47 @@ func evaluate(ctx context.Context, in Input, budget *Budget, stops []Stop, loadI
 			seq++
 		}
 	}
+	if in.ServiceDurationSeconds == nil && !containsReason(reasons, ReasonServiceDurationUnknown) {
+		reasons = append(reasons, ReasonServiceDurationUnknown)
+	}
 	status := ResultFeasible
-	if len(reasons) > 0 || !durationKnown {
+	if len(reasons) > 0 {
 		status = ResultIndeterminate
-		if !durationKnown {
-			reasons = append(reasons, ReasonServiceDurationUnknown)
-		}
 	}
 	pickup, delivery := ordinals(stops, loadID)
 	return &Outcome{
 		Stops: stops, Legs: legs, Snapshots: snapshots, ResultStatus: status,
 		ReasonCodes: uniqueSorted(reasons), PickupOrdinal: pickup, DeliveryOrdinal: delivery,
-		DurationSeconds: total, ExecutionSupported: false,
-	}, nil
+		DurationSeconds: total, ExecutionSupported: false, ServiceDurationKnown: in.ServiceDurationSeconds != nil,
+		ServiceDurationSeconds: in.ServiceDurationSeconds,
+	}, false, nil
+}
+
+func stopNeedsService(stop Stop) bool {
+	return stop.Role != RoleStart && len(stop.Actions) > 0
+}
+
+func containsReason(reasons []string, code string) bool {
+	for _, reason := range reasons {
+		if reason == code {
+			return true
+		}
+	}
+	return false
+}
+
+func checkStatus(result compat.Result, prefix string) string {
+	for _, reason := range result.HardRejects {
+		if strings.HasPrefix(reason.ReasonCode, prefix) {
+			return "INCOMPATIBLE"
+		}
+	}
+	for _, reason := range result.IndeterminateReasons {
+		if strings.HasPrefix(reason.ReasonCode, prefix) {
+			return "INDETERMINATE"
+		}
+	}
+	return "CHECKED"
 }
 
 func routeLeg(ctx context.Context, in Input, budget *Budget, from, to Stop, departure *time.Time) (Leg, error) {
@@ -485,38 +563,51 @@ func routeLeg(ctx context.Context, in Input, budget *Budget, from, to Stop, depa
 	}
 	profile := in.VehicleProfile.Hash()
 	key := LegKey(from.Point.Fingerprint(), to.Point.Fingerprint(), profile, routing.RouteFastest, traffic, DepartureBucket(traffic, departure))
+	now := in.Clock
+	if now.IsZero() && in.Now != nil {
+		now = in.Now()
+	}
 	if cached, ok := in.cache[key]; ok {
-		return cached, nil
+		if cached.ExpiresAt.After(now) {
+			return cached, nil
+		}
+		delete(in.cache, key)
 	}
 	if err := budget.openProvider(); err != nil {
 		return Leg{}, err
 	}
 	if in.Route == nil {
-		return Leg{}, &SearchError{Code: ResultRoutingDown}
+		return Leg{}, errSequenceRouting
 	}
-	result, err := in.Route.Route(ctx, routing.RouteRequest{
+	request := routing.RouteRequest{
 		Origin:      routing.Point{Latitude: from.Point.Latitude, Longitude: from.Point.Longitude},
 		Destination: routing.Point{Latitude: to.Point.Latitude, Longitude: to.Point.Longitude},
 		DepartureAt: departure, VehicleProfile: in.VehicleProfile,
 		RouteMode: routing.RouteFastest, TrafficMode: traffic,
-	})
+	}
+	result, err := in.Route.Route(ctx, request)
 	if err != nil || result.DistanceM < 0 || result.DurationSeconds < 0 || result.Provider == "" {
-		return Leg{}, &SearchError{Code: ResultRoutingDown}
+		return Leg{}, errSequenceRouting
 	}
-	response := routing.Fingerprint(result.Provider, routing.RouteRequest{
-		Origin:      routing.Point{Latitude: from.Point.Latitude, Longitude: from.Point.Longitude},
-		Destination: routing.Point{Latitude: to.Point.Latitude, Longitude: to.Point.Longitude},
-		DepartureAt: departure, VehicleProfile: in.VehicleProfile,
-		RouteMode: routing.RouteFastest, TrafficMode: traffic,
-	})
+	requestFP := result.RequestFingerprint
+	if requestFP == "" {
+		requestFP = routing.Fingerprint(result.Provider, request)
+	}
+	routeID := ""
+	if result.ProviderRouteID != nil {
+		routeID = *result.ProviderRouteID
+	}
 	leg := Leg{
 		FromFingerprint: from.Point.Fingerprint(), ToFingerprint: to.Point.Fingerprint(),
 		DistanceM: result.DistanceM, DurationSeconds: result.DurationSeconds,
-		Provider: result.Provider, RequestFingerprint: key, ResponseFingerprint: response,
+		Provider: result.Provider, RequestFingerprint: requestFP,
 		VehicleProfileHash: profile, RouteMode: routing.RouteFastest, TrafficMode: traffic,
 		DepartureBucket: DepartureBucket(traffic, departure),
 		CalculatedAt:    result.CalculatedAt, ExpiresAt: result.ExpiresAt,
+		ProviderDefaultUsed: result.ProviderDefaultUsed || !in.VehicleProfile.Complete(),
+		ProviderRouteID:     routeID,
 	}
+	leg.ResponseFingerprint = ProofFingerprint(leg)
 	if in.cache == nil {
 		in.cache = map[string]Leg{}
 	}
@@ -731,26 +822,80 @@ func EvaluationFingerprint(outcome Outcome) string {
 		b.WriteString(code)
 		b.WriteString(",")
 	}
+	b.WriteString(AlgorithmPolicyVersion)
+	b.WriteString("|")
+	b.WriteString(RoutingPolicyVersion)
+	b.WriteString("|")
+	b.WriteString(BudgetPolicyVersion)
+	b.WriteString("|")
+	b.WriteString(outcome.ContextFingerprint)
+	b.WriteString("|")
+	b.WriteString(outcome.CatalogFingerprint)
+	b.WriteString("|")
+	b.WriteString(outcome.RuleFingerprint)
+	b.WriteString("|")
+	writeID(&b, outcome.ShipmentID, outcome.ShipmentVersion)
+	writeID(&b, outcome.CapacityID, outcome.CapacityVersion)
+	writeID(&b, outcome.VehicleID, outcome.VehicleVersion)
+	if outcome.ServiceDurationKnown && outcome.ServiceDurationSeconds != nil {
+		b.WriteString("SERVICE_KNOWN:")
+		b.WriteString(strconv.Itoa(*outcome.ServiceDurationSeconds))
+	} else {
+		b.WriteString("SERVICE_UNKNOWN")
+	}
 	for i, stop := range outcome.Stops {
 		b.WriteString("#")
 		b.WriteString(strconv.Itoa(i + 1))
 		b.WriteString(stop.Role)
 		b.WriteString(stop.Point.Fingerprint())
-		for j, action := range stop.Actions {
+		for _, action := range stop.Actions {
 			b.WriteString(action.Type)
 			b.WriteString(action.SubjectType)
 			b.WriteString(action.SubjectID.String())
-			b.WriteString(strconv.Itoa(j + 1))
+			b.WriteString(":")
+			b.WriteString(strconv.Itoa(action.SubjectVersion))
+			b.WriteString("@")
+			writeTime(&b, action.WindowStart)
+			b.WriteString("/")
+			writeTime(&b, action.WindowEnd)
 		}
 	}
 	for _, leg := range outcome.Legs {
-		b.WriteString(leg.FromFingerprint)
-		b.WriteString(leg.ToFingerprint)
+		b.WriteString(leg.RequestFingerprint)
+		b.WriteString(leg.ResponseFingerprint)
 		b.WriteString(strconv.Itoa(leg.DistanceM))
 		b.WriteString(strconv.Itoa(leg.DurationSeconds))
+		b.WriteString(leg.Provider)
+		b.WriteString(leg.VehicleProfileHash)
 		b.WriteString(leg.TrafficMode)
+		b.WriteString(leg.RouteMode)
 		b.WriteString(leg.DepartureBucket)
+	}
+	for _, snap := range outcome.Snapshots {
+		b.WriteString(snap.CompatibilityStatus)
+		b.WriteString(snap.CompatibilityFingerprint)
+		b.WriteString(snap.TemperatureCheck)
+		b.WriteString(snap.ADRCheck)
+		b.WriteString(snap.FoodGradeCheck)
 	}
 	sum := sha256.Sum256([]byte(b.String()))
 	return hex.EncodeToString(sum[:])
+}
+
+func writeID(b *strings.Builder, id *uuid.UUID, version *int) {
+	if id != nil {
+		b.WriteString(id.String())
+	}
+	b.WriteString(":")
+	if version != nil {
+		b.WriteString(strconv.Itoa(*version))
+	}
+	b.WriteString("|")
+}
+
+func writeTime(b *strings.Builder, value *time.Time) {
+	if value == nil {
+		return
+	}
+	b.WriteString(value.UTC().Format(time.RFC3339Nano))
 }

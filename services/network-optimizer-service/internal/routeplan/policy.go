@@ -5,6 +5,7 @@ import "time"
 const (
 	AlgorithmPolicyVersion = "BOUNDED_INCREMENTAL_HEURISTIC/v0.4b"
 	RoutingPolicyVersion   = "road-routing/v1"
+	BudgetPolicyVersion    = "nlo-0.4b-budgets/v1"
 
 	ModeCurrentTrip = "CURRENT_TRIP"
 	ModeDepotStart  = "DEPOT_START"
@@ -48,6 +49,7 @@ const (
 	ReasonCanonicalCargo         = "CANONICAL_CARGO_LOCATION_REQUIRED"
 	ReasonMultiPartyContext      = "MULTI_PARTY_REFERENCE_CONTEXT_UNAVAILABLE"
 	ReasonAnchorOrder            = "ANCHOR_ORDER_VIOLATION"
+	ReasonRoutingProfileUnknown  = "ROUTING_VEHICLE_PROFILE_UNKNOWN"
 
 	BudgetSequences = "sequences"
 	BudgetRouting   = "routing"

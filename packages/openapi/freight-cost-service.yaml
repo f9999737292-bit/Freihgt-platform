@@ -1023,7 +1023,8 @@ components:
       type: string
     RoutePoint:
       type: object
-      required: [point_kind, latitude, longitude, point_source]
+      description: Public route point. Exact location_id, latitude, and longitude are omitted when the stop contains only anonymized marketplace loads.
+      required: [point_kind, point_source]
       properties:
         point_kind: {type: string, enum: [CANONICAL_LOCATION, POSITION_ANCHOR]}
         location_id: {type: string, format: uuid, nullable: true}
@@ -1031,6 +1032,9 @@ components:
         longitude: {type: number, minimum: -180, maximum: 180}
         point_source: {type: string, enum: [CANONICAL_LOCATION, TRACKING_POSITION, CAPACITY_POSITION]}
         point_observed_at: {type: string, format: date-time}
+        country_code: {type: string}
+        region: {type: string}
+        city: {type: string}
     RouteStopAction:
       type: object
       required: [id, action_ordinal, action_type, subject_type, subject_id, subject_version]
@@ -1052,17 +1056,24 @@ components:
         evidence_state: {type: string}
         evidence_state_version: {type: integer}
         evidence_occurred_at: {type: string, format: date-time}
+        public_subject_snapshot:
+          type: object
+          additionalProperties: true
+          description: Immutable marketplace projection captured at evaluation. Exact geography and owner tenant id are omitted for anonymized loads.
     RouteStop:
       type: object
-      required: [id, ordinal, stop_role, point_kind, latitude, longitude, point_source, actions]
+      required: [id, ordinal, stop_role, point_kind, point_source, actions]
       properties:
         id: {type: string, format: uuid}
         ordinal: {type: integer, minimum: 1, maximum: 8}
         stop_role: {type: string, enum: [START, CARGO, END]}
         point_kind: {type: string, enum: [CANONICAL_LOCATION, POSITION_ANCHOR]}
-        location_id: {type: string, format: uuid, nullable: true}
-        latitude: {type: number}
-        longitude: {type: number}
+        location_id: {type: string, format: uuid, nullable: true, description: Omitted for a cargo stop whose actions are only anonymized marketplace loads.}
+        latitude: {type: number, description: Omitted for a cargo stop whose actions are only anonymized marketplace loads.}
+        longitude: {type: number, description: Omitted for a cargo stop whose actions are only anonymized marketplace loads.}
+        country_code: {type: string}
+        region: {type: string}
+        city: {type: string}
         point_source: {type: string, enum: [CANONICAL_LOCATION, TRACKING_POSITION, CAPACITY_POSITION]}
         point_observed_at: {type: string, format: date-time}
         planned_arrival: {type: string, format: date-time}
@@ -1074,7 +1085,7 @@ components:
           items: {$ref: '#/components/schemas/RouteStopAction'}
     RouteLeg:
       type: object
-      required: [id, ordinal, from_stop_id, to_stop_id, distance_m, duration_seconds, provider, route_mode, traffic_mode]
+      required: [id, ordinal, from_stop_id, to_stop_id, distance_m, duration_seconds, provider, route_mode, traffic_mode, provider_default_used]
       properties:
         id: {type: string, format: uuid}
         ordinal: {type: integer, minimum: 1}
@@ -1093,6 +1104,7 @@ components:
         departure_bucket: {type: string}
         calculated_at: {type: string, format: date-time}
         expires_at: {type: string, format: date-time}
+        provider_default_used: {type: boolean}
     RouteCapacitySnapshot:
       type: object
       required: [id, sequence_ordinal, after_stop_id, after_action_ordinal, payload_status, volume_status, pallet_status, linear_status, height_status, temperature_allocation_status]
@@ -1112,12 +1124,17 @@ components:
         height_status: {type: string, enum: [KNOWN, UNKNOWN]}
         height_remaining_mm: {type: number, nullable: true}
         temperature_allocation_status: {type: string}
+        compatibility_status: {type: string, nullable: true}
+        compatibility_fingerprint: {type: string, nullable: true}
+        temperature_check_status: {type: string, nullable: true}
+        adr_check_status: {type: string, nullable: true}
+        food_grade_check_status: {type: string, nullable: true}
     RoutePlanDependency:
       type: object
       required: [id, dependency_kind]
       properties:
         id: {type: string, format: uuid}
-        dependency_kind: {type: string, enum: [SHIPMENT, CAPACITY, VEHICLE, LOAD_OPPORTUNITY, SHIPMENT_CARGO, CURRENT_TRIP_CONTEXT, ROUTING_POLICY, CATALOG]}
+        dependency_kind: {type: string, enum: [SHIPMENT, CAPACITY, VEHICLE, LOAD_OPPORTUNITY, SHIPMENT_CARGO, CURRENT_TRIP_CONTEXT, ROUTING_POLICY, CATALOG, RULE_SET, ALGORITHM_POLICY]}
         subject_id: {type: string, format: uuid, nullable: true}
         subject_version: {type: integer, nullable: true}
         fingerprint: {type: string}

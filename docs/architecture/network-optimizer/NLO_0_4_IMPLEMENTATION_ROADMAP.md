@@ -36,7 +36,19 @@ This publication. Route plan, stop, action, leg, bounded insertion, and the acce
 
 ### NLO-0.4B — persistent plan and bounded planner
 
-Implementation is in progress for controller review. `NLO_0_4B_IMPLEMENTED=YES` and `NLO_0_4B_ACCEPTED=NO`. Migration `000085_nlo_route_plan_bounded_planner_v0_4b` persists planning tables only. `route_plan_activations` is not created. `execution_supported` stays false. Unknown service duration produces an advisory indeterminate plan. `CURRENT_TRIP_FILL` stays at one additional load. `EXISTING_FUTURE_ROUTE_LOAD_SOURCE_IN_0_4B=NONE`. The evaluate API is the multi-stop entry. Accept and activate remain NLO-0.4C.
+Implementation is in controller review after remediation R1. `NLO_0_4B_IMPLEMENTED=YES` and `NLO_0_4B_ACCEPTED=NO`. Migration `000085_nlo_route_plan_bounded_planner_v0_4b` persists planning tables only and was corrected in place. `route_plan_activations` is not created. `execution_supported` stays false. An unknown routing profile or unknown service duration keeps the plan advisory and indeterminate. A known late first stop is still a hard reject. `CURRENT_TRIP_FILL` stays at one additional load. `EXISTING_FUTURE_ROUTE_LOAD_SOURCE_IN_0_4B=NONE`. The evaluate API is the multi-stop entry. Accept and activate remain NLO-0.4C.
+
+```text
+NLO04B_IMPL_F001=CLOSED
+NLO04B_IMPL_F002=CLOSED
+NLO04B_IMPL_F003=CLOSED
+NLO04B_IMPL_F004=CLOSED
+NLO04B_IMPL_F005=CLOSED
+NLO04B_IMPL_F006=CLOSED
+NLO04B_IMPL_F007=CLOSED
+NLO04B_IMPL_F008=CLOSED
+RUNTIME_BLOCKING_FINDINGS=0
+```
 
 ### NLO-0.4C — accept and activate contract
 

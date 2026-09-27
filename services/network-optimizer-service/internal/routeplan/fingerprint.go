@@ -53,3 +53,24 @@ func DepartureBucket(trafficMode string, at *time.Time) string {
 	}
 	return at.UTC().Truncate(15 * time.Minute).Format(time.RFC3339)
 }
+
+func ProofFingerprint(leg Leg) string {
+	used := "0"
+	if leg.ProviderDefaultUsed {
+		used = "1"
+	}
+	raw := strings.Join([]string{
+		leg.RequestFingerprint,
+		leg.Provider,
+		leg.ProviderRouteID,
+		strconv.Itoa(leg.DistanceM),
+		strconv.Itoa(leg.DurationSeconds),
+		leg.RouteMode,
+		leg.TrafficMode,
+		used,
+		leg.CalculatedAt.UTC().Format(time.RFC3339Nano),
+		leg.ExpiresAt.UTC().Format(time.RFC3339Nano),
+	}, "|")
+	sum := sha256.Sum256([]byte(raw))
+	return hex.EncodeToString(sum[:])
+}

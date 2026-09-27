@@ -112,7 +112,7 @@ func TestBoundedInsertion(t *testing.T) {
 		Mode: ModeCurrentTrip, Start: Stop{Role: RoleStart, Point: start}, End: &end,
 		Loads: []Load{loadB, loadA}, Initial: knownCapacity(1000),
 		Clock: time.Date(2026, 9, 27, 8, 0, 0, 0, time.UTC), Route: routes,
-		Groupage: compatibleGroupage, ServiceDurationSeconds: intPtr(0),
+		Groupage: compatibleGroupage, ServiceDurationSeconds: intPtr(0), VehicleProfile: completeProfile(),
 	}
 	first, budget, err := Planner{}.Plan(context.Background(), in)
 	if err != nil {
@@ -146,7 +146,7 @@ func TestSharedStopsAndAnchorIsolation(t *testing.T) {
 	out, _, err := Planner{}.Plan(context.Background(), Input{
 		Mode: ModeDepotStart, Start: Stop{Role: RoleStart, Point: start}, End: &end,
 		Loads: []Load{a, b}, Initial: knownCapacity(100), Clock: time.Unix(0, 0),
-		Route: &scriptRoute{}, Groupage: compatibleGroupage, ServiceDurationSeconds: intPtr(0),
+		Route: &scriptRoute{}, Groupage: compatibleGroupage, ServiceDurationSeconds: intPtr(0), VehicleProfile: completeProfile(),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -203,7 +203,7 @@ func TestFeasibleBeatsIndeterminateAndOrdinals(t *testing.T) {
 	out, _, err := Planner{}.Plan(context.Background(), Input{
 		Mode: ModeDepotStart, Start: Stop{Role: RoleStart, Point: anchor(0, 0)},
 		Loads: []Load{short, long}, Initial: knownCapacity(100), Clock: time.Unix(100, 0),
-		Route: routes, Groupage: groupage, ServiceDurationSeconds: intPtr(0),
+		Route: routes, Groupage: groupage, ServiceDurationSeconds: intPtr(0), VehicleProfile: completeProfile(),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -272,7 +272,7 @@ func TestCacheHitDoesNotRecallProvider(t *testing.T) {
 	in := Input{
 		Mode: ModeDepotStart, Start: Stop{Role: RoleStart, Point: anchor(5, 5)},
 		Loads: []Load{load}, Initial: knownCapacity(20), Clock: time.Unix(0, 0),
-		Route: routes, Groupage: compatibleGroupage, ServiceDurationSeconds: intPtr(0),
+		Route: routes, Groupage: compatibleGroupage, ServiceDurationSeconds: intPtr(0), VehicleProfile: completeProfile(),
 	}
 	if _, _, err := (Planner{}).Plan(context.Background(), in); err != nil {
 		t.Fatal(err)
@@ -365,6 +365,14 @@ func knownCapacity(value float64) Capacity {
 }
 
 func intPtr(v int) *int { return &v }
+
+func completeProfile() routing.VehicleProfile {
+	gross, height, width, length, axle := 18000.0, 4.0, 2.55, 16.5, 8000.0
+	danger := false
+	return routing.VehicleProfile{
+		GrossWeightKg: &gross, HeightM: &height, WidthM: &width, LengthM: &length, AxleLoadKg: &axle, DangerousCargo: &danger,
+	}
+}
 
 func roles(stops []Stop) []string {
 	out := make([]string, len(stops))

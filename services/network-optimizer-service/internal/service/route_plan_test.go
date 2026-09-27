@@ -110,6 +110,7 @@ func TestNLO04BEvaluateCurrentTripAndReplay(t *testing.T) {
 func TestNLO04BDepotStartAndSecurity(t *testing.T) {
 	w, _, load := newFill(t)
 	w.svc.UseRouting(&countingRoute{})
+	w.svc.SetClock(func() time.Time { return w.at })
 	location := uuid.New()
 	lat, lon := 55.5, 37.5
 	cap := domain.Capacity{
@@ -159,6 +160,7 @@ func TestNLO04BIdempotencyAndRace(t *testing.T) {
 	w, src, load := newFill(t)
 	counter := &countingRoute{}
 	w.svc.UseRouting(counter)
+	w.svc.SetClock(func() time.Time { return w.at })
 	body := `{"planning_mode":"CURRENT_TRIP","shipment_id":"` + src.execution.ShipmentID.String() + `","candidate_load_ids":["` + load.ID.String() + `"]}`
 	var cmd RoutePlanCommand
 	if err := json.Unmarshal([]byte(body), &cmd); err != nil {

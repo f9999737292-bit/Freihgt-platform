@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -46,25 +47,26 @@ type RouteStopRow struct {
 }
 
 type RouteActionRow struct {
-	ID                    uuid.UUID  `json:"id"`
-	RoutePlanID           uuid.UUID  `json:"route_plan_id"`
-	StopID                uuid.UUID  `json:"stop_id"`
-	ActionOrdinal         int        `json:"action_ordinal"`
-	ActionType            string     `json:"action_type"`
-	SubjectType           string     `json:"subject_type"`
-	SubjectID             uuid.UUID  `json:"subject_id"`
-	SubjectVersion        int        `json:"subject_version"`
-	WeightDeltaKg         *float64   `json:"weight_delta_kg,omitempty"`
-	VolumeDeltaM3         *float64   `json:"volume_delta_m3,omitempty"`
-	PalletDelta           *float64   `json:"pallet_delta,omitempty"`
-	LinearMetersDelta     *float64   `json:"linear_meters_delta,omitempty"`
-	WindowStart           *time.Time `json:"window_start,omitempty"`
-	WindowEnd             *time.Time `json:"window_end,omitempty"`
-	SourceShipmentID      *uuid.UUID `json:"source_shipment_id,omitempty"`
-	SourceShipmentVersion *int       `json:"source_shipment_version,omitempty"`
-	EvidenceState         string     `json:"evidence_state,omitempty"`
-	EvidenceStateVersion  *int       `json:"evidence_state_version,omitempty"`
-	EvidenceOccurredAt    *time.Time `json:"evidence_occurred_at,omitempty"`
+	ID                    uuid.UUID       `json:"id"`
+	RoutePlanID           uuid.UUID       `json:"route_plan_id"`
+	StopID                uuid.UUID       `json:"stop_id"`
+	ActionOrdinal         int             `json:"action_ordinal"`
+	ActionType            string          `json:"action_type"`
+	SubjectType           string          `json:"subject_type"`
+	SubjectID             uuid.UUID       `json:"subject_id"`
+	SubjectVersion        int             `json:"subject_version"`
+	WeightDeltaKg         *float64        `json:"weight_delta_kg,omitempty"`
+	VolumeDeltaM3         *float64        `json:"volume_delta_m3,omitempty"`
+	PalletDelta           *float64        `json:"pallet_delta,omitempty"`
+	LinearMetersDelta     *float64        `json:"linear_meters_delta,omitempty"`
+	WindowStart           *time.Time      `json:"window_start,omitempty"`
+	WindowEnd             *time.Time      `json:"window_end,omitempty"`
+	SourceShipmentID      *uuid.UUID      `json:"source_shipment_id,omitempty"`
+	SourceShipmentVersion *int            `json:"source_shipment_version,omitempty"`
+	EvidenceState         string          `json:"evidence_state,omitempty"`
+	EvidenceStateVersion  *int            `json:"evidence_state_version,omitempty"`
+	EvidenceOccurredAt    *time.Time      `json:"evidence_occurred_at,omitempty"`
+	PublicSubjectSnapshot json.RawMessage `json:"public_subject_snapshot,omitempty"`
 }
 
 type RouteLegRow struct {
@@ -86,6 +88,7 @@ type RouteLegRow struct {
 	DepartureBucket      string    `json:"departure_bucket"`
 	CalculatedAt         time.Time `json:"calculated_at"`
 	ExpiresAt            time.Time `json:"expires_at"`
+	ProviderDefaultUsed  bool      `json:"provider_default_used"`
 }
 
 type RouteSnapshotRow struct {
@@ -105,6 +108,11 @@ type RouteSnapshotRow struct {
 	HeightStatus                string    `json:"height_status"`
 	HeightRemainingMM           *float64  `json:"height_remaining_mm,omitempty"`
 	TemperatureAllocationStatus string    `json:"temperature_allocation_status"`
+	CompatibilityStatus         string    `json:"compatibility_status,omitempty"`
+	CompatibilityFingerprint    string    `json:"compatibility_fingerprint,omitempty"`
+	TemperatureCheckStatus      string    `json:"temperature_check_status,omitempty"`
+	ADRCheckStatus              string    `json:"adr_check_status,omitempty"`
+	FoodGradeCheckStatus        string    `json:"food_grade_check_status,omitempty"`
 }
 
 type RouteDependencyRow struct {
@@ -130,6 +138,11 @@ func cloneRoutePlans(in map[uuid.UUID]RoutePlanGraph) map[uuid.UUID]RoutePlanGra
 	for id, graph := range in {
 		graph.Stops = append([]RouteStopRow(nil), graph.Stops...)
 		graph.Actions = append([]RouteActionRow(nil), graph.Actions...)
+		for i := range graph.Actions {
+			if graph.Actions[i].PublicSubjectSnapshot != nil {
+				graph.Actions[i].PublicSubjectSnapshot = append(json.RawMessage(nil), graph.Actions[i].PublicSubjectSnapshot...)
+			}
+		}
 		graph.Legs = append([]RouteLegRow(nil), graph.Legs...)
 		graph.Snapshots = append([]RouteSnapshotRow(nil), graph.Snapshots...)
 		graph.Dependencies = append([]RouteDependencyRow(nil), graph.Dependencies...)

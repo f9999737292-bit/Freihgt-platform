@@ -84,6 +84,9 @@ CREATE UNIQUE INDEX route_plan_stops_one_end_idx
     ON network_optimizer.route_plan_stops (route_plan_id)
     WHERE stop_role = 'END';
 
+ALTER TABLE network_optimizer.route_plan_stops
+    ADD CONSTRAINT route_plan_stops_plan_id_key UNIQUE (route_plan_id, id);
+
 CREATE TABLE network_optimizer.route_stop_actions (
     id uuid PRIMARY KEY,
     route_plan_id uuid NOT NULL REFERENCES network_optimizer.route_plans (id),
@@ -104,7 +107,10 @@ CREATE TABLE network_optimizer.route_stop_actions (
     evidence_state text NULL,
     evidence_state_version integer NULL,
     evidence_occurred_at timestamptz NULL,
+    public_subject_snapshot jsonb NULL,
     UNIQUE (stop_id, action_ordinal),
+    CONSTRAINT route_stop_actions_same_plan_fk FOREIGN KEY (route_plan_id, stop_id)
+        REFERENCES network_optimizer.route_plan_stops (route_plan_id, id),
     CONSTRAINT route_stop_actions_onboard_provenance_chk CHECK (
         subject_type <> 'SHIPMENT_CARGO'
         OR (
@@ -137,7 +143,12 @@ CREATE TABLE network_optimizer.route_plan_legs (
     departure_bucket text NOT NULL DEFAULT '',
     calculated_at timestamptz NOT NULL,
     expires_at timestamptz NOT NULL,
-    UNIQUE (route_plan_id, ordinal)
+    provider_default_used boolean NOT NULL,
+    UNIQUE (route_plan_id, ordinal),
+    CONSTRAINT route_plan_legs_from_same_plan_fk FOREIGN KEY (route_plan_id, from_stop_id)
+        REFERENCES network_optimizer.route_plan_stops (route_plan_id, id),
+    CONSTRAINT route_plan_legs_to_same_plan_fk FOREIGN KEY (route_plan_id, to_stop_id)
+        REFERENCES network_optimizer.route_plan_stops (route_plan_id, id)
 );
 
 CREATE TABLE network_optimizer.route_capacity_snapshots (
@@ -157,7 +168,14 @@ CREATE TABLE network_optimizer.route_capacity_snapshots (
     height_status text NOT NULL CHECK (height_status IN ('KNOWN', 'UNKNOWN')),
     height_remaining_mm double precision NULL,
     temperature_allocation_status text NOT NULL,
+    compatibility_status text NULL,
+    compatibility_fingerprint text NULL,
+    temperature_check_status text NULL,
+    adr_check_status text NULL,
+    food_grade_check_status text NULL,
     UNIQUE (route_plan_id, sequence_ordinal),
+    CONSTRAINT route_capacity_snapshots_same_plan_fk FOREIGN KEY (route_plan_id, after_stop_id)
+        REFERENCES network_optimizer.route_plan_stops (route_plan_id, id),
     CONSTRAINT route_capacity_snapshots_unknown_not_zero_chk CHECK (
         (payload_status = 'UNKNOWN') = (payload_remaining_kg IS NULL)
         AND (volume_status = 'UNKNOWN') = (volume_remaining_m3 IS NULL)
@@ -172,7 +190,7 @@ CREATE TABLE network_optimizer.route_plan_dependencies (
     route_plan_id uuid NOT NULL REFERENCES network_optimizer.route_plans (id),
     dependency_kind text NOT NULL CHECK (dependency_kind IN (
         'SHIPMENT', 'CAPACITY', 'VEHICLE', 'LOAD_OPPORTUNITY', 'SHIPMENT_CARGO',
-        'CURRENT_TRIP_CONTEXT', 'ROUTING_POLICY', 'CATALOG'
+        'CURRENT_TRIP_CONTEXT', 'ROUTING_POLICY', 'CATALOG', 'RULE_SET', 'ALGORITHM_POLICY'
     )),
     subject_id uuid NULL,
     subject_version integer NULL,

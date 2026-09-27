@@ -168,6 +168,45 @@ func TestNLO04B_PostgresRoundtrip(t *testing.T) {
 	if err != nil || !left.Equal(right) {
 		t.Fatalf("observed_at %v vs %v err %v", start["point_observed_at"], againStart["point_observed_at"], err)
 	}
+	depotID := uuid.MustParse(doc["id"].(string))
+	tripID := uuid.MustParse(trip["id"].(string))
+	var used bool
+	var requestFP, responseFP string
+	if err := pool.QueryRow(ctx, `SELECT provider_default_used, request_fingerprint, response_fingerprint FROM network_optimizer.route_plan_legs WHERE route_plan_id=$1 ORDER BY ordinal LIMIT 1`, depotID).Scan(&used, &requestFP, &responseFP); err != nil || !used || requestFP == "" || responseFP == "" || requestFP == responseFP {
+		t.Fatalf("provider default roundtrip %v %s %s %v", used, requestFP, responseFP, err)
+	}
+	var snapshot []byte
+	if err := pool.QueryRow(ctx, `SELECT public_subject_snapshot FROM network_optimizer.route_stop_actions WHERE route_plan_id=$1 AND public_subject_snapshot IS NOT NULL LIMIT 1`, depotID).Scan(&snapshot); err != nil || len(snapshot) == 0 {
+		t.Fatalf("snapshot roundtrip %v %s", err, snapshot)
+	}
+	var compatFP string
+	if err := pool.QueryRow(ctx, `SELECT compatibility_fingerprint FROM network_optimizer.route_capacity_snapshots WHERE route_plan_id=$1 AND compatibility_fingerprint IS NOT NULL LIMIT 1`, tripID).Scan(&compatFP); err != nil || compatFP == "" {
+		t.Fatalf("compatibility roundtrip %v %s", err, compatFP)
+	}
+	var catalogFP, ruleFP, algorithmFP string
+	if err := pool.QueryRow(ctx, `SELECT fingerprint FROM network_optimizer.route_plan_dependencies WHERE route_plan_id=$1 AND dependency_kind='CATALOG'`, depotID).Scan(&catalogFP); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT fingerprint FROM network_optimizer.route_plan_dependencies WHERE route_plan_id=$1 AND dependency_kind='RULE_SET'`, depotID).Scan(&ruleFP); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT fingerprint FROM network_optimizer.route_plan_dependencies WHERE route_plan_id=$1 AND dependency_kind='ALGORITHM_POLICY'`, depotID).Scan(&algorithmFP); err != nil {
+		t.Fatal(err)
+	}
+	if catalogFP == "" || ruleFP == "" || algorithmFP != "BOUNDED_INCREMENTAL_HEURISTIC/v0.4b" || catalogFP == algorithmFP {
+		t.Fatalf("dependency fingerprints catalog %s rule %s algorithm %s", catalogFP, ruleFP, algorithmFP)
+	}
+	tag, err := pool.Exec(ctx, `
+		INSERT INTO network_optimizer.route_plan_legs (
+			id, route_plan_id, ordinal, from_stop_id, to_stop_id, from_point_fingerprint, to_point_fingerprint,
+			distance_m, duration_seconds, provider, request_fingerprint, response_fingerprint,
+			vehicle_profile_hash, route_mode, traffic_mode, calculated_at, expires_at, provider_default_used
+		)
+		SELECT gen_random_uuid(), $1, 99, s.id, s.id, 'from', 'to', 1, 1, 'script', 'req', 'res', 'veh', 'FASTEST', 'CURRENT', now(), now(), true
+		FROM network_optimizer.route_plan_stops s WHERE s.route_plan_id=$2 LIMIT 1`, depotID, tripID)
+	if err == nil || tag.RowsAffected() != 0 {
+		t.Fatalf("cross-plan child insert succeeded %v rows %d", err, tag.RowsAffected())
+	}
 }
 
 func timePtr(value time.Time) *time.Time { return &value }

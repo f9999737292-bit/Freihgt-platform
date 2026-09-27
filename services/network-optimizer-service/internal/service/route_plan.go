@@ -8,6 +8,8 @@ import (
 	"errors"
 	"net/http"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -53,7 +55,17 @@ func (s *Service) EvaluateRoutePlan(ctx context.Context, actor Actor, idempotenc
 	if outcome.ResultStatus != routeplan.ResultFeasible && outcome.ResultStatus != routeplan.ResultIndeterminate {
 		return Result{}, mapPlanError(&routeplan.SearchError{Code: routeplan.ResultNoPlan})
 	}
-	graph := buildRoutePlanGraph(actor.TenantID, cmd, outcome, deps, s.now())
+	if deps.evidence != nil {
+		deps.catalogFingerprint = fingerprintLines(catalogLines(deps.evidence.catalogs))
+		deps.ruleFingerprint = fingerprintLines(ruleLines(deps.evidence.rules))
+	} else {
+		deps.catalogFingerprint = fingerprintLines(nil)
+		deps.ruleFingerprint = fingerprintLines(nil)
+	}
+	graph, err := buildRoutePlanGraph(actor.TenantID, cmd, outcome, deps, s.now())
+	if err != nil {
+		return Result{}, err
+	}
 	body, err := marshalRoutePlan(graph)
 	if err != nil {
 		return Result{}, err
@@ -160,8 +172,17 @@ type planDeps struct {
 	vehicleID          *uuid.UUID
 	vehicleVersion     *int
 	contextFingerprint string
+	catalogFingerprint string
+	ruleFingerprint    string
 	loads              []domain.LoadOpportunity
 	cargos             []currenttrip.OnboardCargoUnit
+	snapshots          map[uuid.UUID][]byte
+	evidence           *compatEvidence
+}
+
+type compatEvidence struct {
+	catalogs []compat.CatalogVersionRef
+	rules    []compat.RuleSetRef
 }
 
 func (s *Service) prepareRoutePlan(ctx context.Context, actor Actor, cmd RoutePlanCommand) (routeplan.Input, planDeps, error) {
@@ -188,12 +209,20 @@ func (s *Service) prepareRoutePlan(ctx context.Context, actor Actor, cmd RoutePl
 	}
 	deps.loads = loads
 	clock := s.now()
-	input := routeplan.Input{
-		Mode: cmd.PlanningMode, Clock: clock, Route: s.routes,
-		Groupage: func(items []compat.GroupageItem) compat.Result {
-			return compat.EvaluateGroupageItems(compat.Equipment{}, items, compat.Context{})
-		},
+	evidence := &compatEvidence{}
+	deps.evidence = evidence
+	deps.snapshots = map[uuid.UUID][]byte{}
+	for _, load := range loads {
+		raw, err := domain.MarshalMarketplaceLoad(load)
+		if err != nil {
+			return routeplan.Input{}, planDeps{}, err
+		}
+		deps.snapshots[load.ID] = raw
 	}
+	var equipment compat.Equipment
+	var evalCtx compat.Context
+	haveCtx := false
+	input := routeplan.Input{Mode: cmd.PlanningMode, Clock: clock, Route: s.routes}
 	owners := map[uuid.UUID]struct{}{actor.TenantID: {}}
 	for _, load := range loads {
 		owners[load.OwnerTenantID] = struct{}{}
@@ -202,15 +231,14 @@ func (s *Service) prepareRoutePlan(ctx context.Context, actor Actor, cmd RoutePl
 		input.ReferenceUnavailable = s.catalog == nil
 	}
 	if s.catalog != nil && !input.ReferenceUnavailable {
-		evalCtx, err := s.catalog.Evaluation(ctx, actor.TenantID)
+		ctxEval, err := s.catalog.Evaluation(ctx, actor.TenantID)
 		if err != nil {
 			input.ReferenceUnavailable = true
 		} else if len(owners) > 1 {
 			input.ReferenceUnavailable = true
 		} else {
-			input.Groupage = func(items []compat.GroupageItem) compat.Result {
-				return compat.EvaluateGroupageItems(compat.Equipment{}, items, evalCtx)
-			}
+			evalCtx = ctxEval
+			haveCtx = true
 		}
 	}
 	switch cmd.PlanningMode {
@@ -228,6 +256,10 @@ func (s *Service) prepareRoutePlan(ctx context.Context, actor Actor, cmd RoutePl
 		if trip.PositionFreshnessStatus != "FRESH" || trip.CurrentPosition == nil || trip.CurrentPosition.Latitude == nil || trip.CurrentPosition.Longitude == nil {
 			return routeplan.Input{}, planDeps{}, mapPlanError(&routeplan.SearchError{Code: routeplan.ResultStartUnknown})
 		}
+		if residualExceeded(trip.ResidualCapacity) {
+			return routeplan.Input{}, planDeps{}, mapPlanError(&routeplan.SearchError{Code: routeplan.ResultNoPlan, Detail: routeplan.ReasonCapacityExceeded})
+		}
+		equipment = equipmentFromVehicle(trip.VehicleCapability)
 		observed := trip.PositionObservedAt
 		if observed == nil {
 			observed = trip.CurrentPosition.RecordedAt
@@ -298,12 +330,23 @@ func (s *Service) prepareRoutePlan(ctx context.Context, actor Actor, cmd RoutePl
 		}
 		input.Start = routeplan.Stop{Role: routeplan.RoleStart, Point: start}
 		input.Initial = capacityFromDepot(capacity)
+		equipment = equipmentFromCapacity(capacity, nil)
 		version := capacity.Version
 		deps.capacityID = &capacity.ID
 		deps.capacityVersion = &version
 		deps.vehicleID = capacity.VehicleID
 		sum := sha256.Sum256([]byte(capacity.ID.String()))
 		deps.contextFingerprint = hex.EncodeToString(sum[:])
+	}
+	input.Groupage = func(items []compat.GroupageItem) compat.Result {
+		ctxUsed := compat.Context{}
+		if haveCtx && !input.ReferenceUnavailable {
+			ctxUsed = evalCtx
+		}
+		result := compat.EvaluateGroupageItems(equipment, items, ctxUsed)
+		evidence.catalogs = append(evidence.catalogs, result.CatalogVersionsUsed...)
+		evidence.rules = append(evidence.rules, result.RuleSetsUsed...)
+		return result
 	}
 	planned := make([]routeplan.Load, 0, len(loads))
 	for _, load := range loads {
@@ -342,7 +385,7 @@ func actionFromLoad(load domain.LoadOpportunity, kind string, window domain.Time
 	action := routeplan.Action{
 		Type: kind, SubjectType: routeplan.SubjectLoad, SubjectID: load.ID, SubjectVersion: load.Version,
 		WeightKg: load.WeightKg, VolumeM3: load.VolumeM3, LinearMeters: load.Cargo.LinearMeters,
-		WindowStart: window.Start, WindowEnd: window.End, Cargo: cargo,
+		WindowStart: window.Start, WindowEnd: window.End, Cargo: cargo, AccessNeed: accessFromLoad(load),
 	}
 	if load.Cargo.PalletCount != nil {
 		pallets := float64(*load.Cargo.PalletCount)
@@ -428,6 +471,15 @@ func residualDim(dim currenttrip.SubtractiveDimension) routeplan.Dimension {
 	return routeplan.Dimension{Status: routeplan.DimUnknown}
 }
 
+func residualExceeded(residual currenttrip.ResidualCapacitySnapshot) bool {
+	for _, dim := range []currenttrip.SubtractiveDimension{residual.Payload, residual.Volume, residual.PalletPositions, residual.LinearMeters} {
+		if dim.Status == currenttrip.DimensionExceeds {
+			return true
+		}
+	}
+	return residual.Height.Status == currenttrip.HeightKnownExceeded
+}
+
 func heightDim(height currenttrip.HeightCheck) routeplan.Dimension {
 	if height.Status == currenttrip.HeightKnownOK && height.VehicleInternalHeightMM != nil {
 		value := float64(*height.VehicleInternalHeightMM)
@@ -452,7 +504,16 @@ func knownOrUnknown(value *float64) routeplan.Dimension {
 	return routeplan.Dimension{Status: routeplan.DimKnown, Value: &copied}
 }
 
-func buildRoutePlanGraph(tenant uuid.UUID, cmd RoutePlanCommand, outcome routeplan.Outcome, deps planDeps, now time.Time) repository.RoutePlanGraph {
+func buildRoutePlanGraph(tenant uuid.UUID, cmd RoutePlanCommand, outcome routeplan.Outcome, deps planDeps, now time.Time) (repository.RoutePlanGraph, error) {
+	outcome.ContextFingerprint = deps.contextFingerprint
+	outcome.CatalogFingerprint = deps.catalogFingerprint
+	outcome.RuleFingerprint = deps.ruleFingerprint
+	outcome.ShipmentID = deps.shipmentID
+	outcome.ShipmentVersion = deps.shipmentVersion
+	outcome.CapacityID = deps.capacityID
+	outcome.CapacityVersion = deps.capacityVersion
+	outcome.VehicleID = deps.vehicleID
+	outcome.VehicleVersion = deps.vehicleVersion
 	planID := uuid.New()
 	stopIDs := make([]uuid.UUID, len(outcome.Stops))
 	stops := make([]repository.RouteStopRow, len(outcome.Stops))
@@ -474,8 +535,14 @@ func buildRoutePlanGraph(tenant uuid.UUID, cmd RoutePlanCommand, outcome routepl
 				SourceShipmentID: action.ShipmentID, SourceShipmentVersion: action.ShipmentVersion,
 				EvidenceState: action.EvidenceState, EvidenceStateVersion: action.EvidenceVersion, EvidenceOccurredAt: action.EvidenceAt,
 			}
+			if action.SubjectType == routeplan.SubjectLoad {
+				row.PublicSubjectSnapshot = deps.snapshots[action.SubjectID]
+			}
 			actions = append(actions, row)
 		}
+	}
+	if len(outcome.Legs) != len(stops)-1 {
+		return repository.RoutePlanGraph{}, apperrors.Validation("route leg adjacency is invalid", nil)
 	}
 	legs := make([]repository.RouteLegRow, len(outcome.Legs))
 	for i, leg := range outcome.Legs {
@@ -486,6 +553,10 @@ func buildRoutePlanGraph(tenant uuid.UUID, cmd RoutePlanCommand, outcome routepl
 			RequestFingerprint: leg.RequestFingerprint, ResponseFingerprint: leg.ResponseFingerprint,
 			VehicleProfileHash: leg.VehicleProfileHash, RouteMode: leg.RouteMode, TrafficMode: leg.TrafficMode,
 			DepartureBucket: leg.DepartureBucket, CalculatedAt: leg.CalculatedAt, ExpiresAt: leg.ExpiresAt,
+			ProviderDefaultUsed: leg.ProviderDefaultUsed,
+		}
+		if legs[i].FromStopID != stops[i].ID || legs[i].ToStopID != stops[i+1].ID || stops[i].Ordinal != i+1 || stops[i+1].Ordinal != i+2 {
+			return repository.RoutePlanGraph{}, apperrors.Validation("route leg adjacency is invalid", nil)
 		}
 	}
 	snapshots := make([]repository.RouteSnapshotRow, len(outcome.Snapshots))
@@ -499,6 +570,11 @@ func buildRoutePlanGraph(tenant uuid.UUID, cmd RoutePlanCommand, outcome routepl
 			LinearStatus: snap.Capacity.Linear.Status, LinearMetersRemaining: snap.Capacity.Linear.Value,
 			HeightStatus: snap.Capacity.Height.Status, HeightRemainingMM: snap.Capacity.Height.Value,
 			TemperatureAllocationStatus: snap.Capacity.Temperature,
+			CompatibilityStatus:         snap.CompatibilityStatus,
+			CompatibilityFingerprint:    snap.CompatibilityFingerprint,
+			TemperatureCheckStatus:      snap.TemperatureCheck,
+			ADRCheckStatus:              snap.ADRCheck,
+			FoodGradeCheckStatus:        snap.FoodGradeCheck,
 		}
 	}
 	dependencies := routeDependencies(planID, cmd, deps)
@@ -512,7 +588,7 @@ func buildRoutePlanGraph(tenant uuid.UUID, cmd RoutePlanCommand, outcome routepl
 			ExecutionSupported: false, ReasonCodes: append([]string(nil), outcome.ReasonCodes...), CreatedAt: now,
 		},
 		Stops: stops, Actions: actions, Legs: legs, Snapshots: snapshots, Dependencies: dependencies,
-	}
+	}, nil
 }
 
 func routeDependencies(planID uuid.UUID, cmd RoutePlanCommand, deps planDeps) []repository.RouteDependencyRow {
@@ -547,26 +623,44 @@ func routeDependencies(planID uuid.UUID, cmd RoutePlanCommand, deps planDeps) []
 		add("SHIPMENT_CARGO", &id, &version, cargo.EvidenceState)
 	}
 	add("ROUTING_POLICY", nil, nil, routeplan.RoutingPolicyVersion)
-	add("CATALOG", nil, nil, routeplan.AlgorithmPolicyVersion)
+	add("ALGORITHM_POLICY", nil, nil, routeplan.AlgorithmPolicyVersion)
+	add("CATALOG", nil, nil, deps.catalogFingerprint)
+	add("RULE_SET", nil, nil, deps.ruleFingerprint)
 	return rows
 }
 
 func marshalRoutePlan(graph repository.RoutePlanGraph) ([]byte, error) {
-	type stopView struct {
-		repository.RouteStopRow
-		Actions []repository.RouteActionRow `json:"actions"`
-	}
-	stops := make([]stopView, len(graph.Stops))
+	stops := make([]map[string]any, len(graph.Stops))
 	for i, stop := range graph.Stops {
-		stops[i].RouteStopRow = stop
-		for _, action := range graph.Actions {
-			if action.StopID == stop.ID {
-				stops[i].Actions = append(stops[i].Actions, action)
+		actions := publicActions(graph, stop)
+		view := map[string]any{
+			"id": stop.ID, "ordinal": stop.Ordinal, "stop_role": stop.StopRole,
+			"point_kind": stop.PointKind, "point_source": stop.PointSource, "actions": actions,
+		}
+		if stop.PointObservedAt != nil {
+			view["point_observed_at"] = stop.PointObservedAt
+		}
+		if stop.PlannedArrival != nil {
+			view["planned_arrival"] = stop.PlannedArrival
+		}
+		if stop.PlannedDeparture != nil {
+			view["planned_departure"] = stop.PlannedDeparture
+		}
+		if stop.ServiceDurationSeconds != nil {
+			view["service_duration_seconds"] = stop.ServiceDurationSeconds
+		}
+		if stopShowsExact(stop, actions) {
+			view["latitude"] = stop.Latitude
+			view["longitude"] = stop.Longitude
+			if stop.LocationID != nil {
+				view["location_id"] = stop.LocationID
 			}
+		} else if country, region, city := coarseGeography(actions); country != "" || region != "" || city != "" {
+			view["country_code"] = country
+			view["region"] = region
+			view["city"] = city
 		}
-		if stops[i].Actions == nil {
-			stops[i].Actions = []repository.RouteActionRow{}
-		}
+		stops[i] = view
 	}
 	body := map[string]any{
 		"id": graph.Plan.ID, "version": graph.Plan.Version, "status": graph.Plan.Status,
@@ -579,6 +673,153 @@ func marshalRoutePlan(graph repository.RoutePlanGraph) ([]byte, error) {
 		"stops": stops, "legs": graph.Legs, "capacity_snapshots": graph.Snapshots, "dependencies": graph.Dependencies,
 	}
 	return json.Marshal(body)
+}
+
+func publicActions(graph repository.RoutePlanGraph, stop repository.RouteStopRow) []map[string]any {
+	out := []map[string]any{}
+	for _, action := range graph.Actions {
+		if action.StopID != stop.ID {
+			continue
+		}
+		view := map[string]any{
+			"id": action.ID, "action_ordinal": action.ActionOrdinal, "action_type": action.ActionType,
+			"subject_type": action.SubjectType, "subject_id": action.SubjectID, "subject_version": action.SubjectVersion,
+		}
+		if action.WeightDeltaKg != nil {
+			view["weight_delta_kg"] = action.WeightDeltaKg
+		}
+		if action.VolumeDeltaM3 != nil {
+			view["volume_delta_m3"] = action.VolumeDeltaM3
+		}
+		if action.PalletDelta != nil {
+			view["pallet_delta"] = action.PalletDelta
+		}
+		if action.LinearMetersDelta != nil {
+			view["linear_meters_delta"] = action.LinearMetersDelta
+		}
+		if action.WindowStart != nil {
+			view["window_start"] = action.WindowStart
+		}
+		if action.WindowEnd != nil {
+			view["window_end"] = action.WindowEnd
+		}
+		if action.SourceShipmentID != nil {
+			view["source_shipment_id"] = action.SourceShipmentID
+		}
+		if action.SourceShipmentVersion != nil {
+			view["source_shipment_version"] = action.SourceShipmentVersion
+		}
+		if action.EvidenceState != "" {
+			view["evidence_state"] = action.EvidenceState
+		}
+		if action.EvidenceStateVersion != nil {
+			view["evidence_state_version"] = action.EvidenceStateVersion
+		}
+		if action.EvidenceOccurredAt != nil {
+			view["evidence_occurred_at"] = action.EvidenceOccurredAt
+		}
+		if len(action.PublicSubjectSnapshot) > 0 {
+			view["public_subject_snapshot"] = json.RawMessage(action.PublicSubjectSnapshot)
+		}
+		out = append(out, view)
+	}
+	return out
+}
+
+func stopShowsExact(stop repository.RouteStopRow, actions []map[string]any) bool {
+	if stop.StopRole == routeplan.RoleStart || stop.StopRole == routeplan.RoleEnd {
+		return true
+	}
+	if len(actions) == 0 {
+		return true
+	}
+	for _, action := range actions {
+		raw, _ := action["public_subject_snapshot"].(json.RawMessage)
+		if snapshotGrantsExact(raw) {
+			return true
+		}
+	}
+	return false
+}
+
+func snapshotGrantsExact(raw []byte) bool {
+	if len(raw) == 0 {
+		return true
+	}
+	var doc struct {
+		Visibility string `json:"visibility_scope"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		return false
+	}
+	return doc.Visibility != domain.VisAnonymized
+}
+
+func coarseGeography(actions []map[string]any) (string, string, string) {
+	for _, action := range actions {
+		raw, _ := action["public_subject_snapshot"].(json.RawMessage)
+		if len(raw) == 0 {
+			continue
+		}
+		var doc struct {
+			Pickup   domain.Place `json:"pickup"`
+			Delivery domain.Place `json:"delivery"`
+		}
+		if err := json.Unmarshal(raw, &doc); err != nil {
+			continue
+		}
+		place := doc.Pickup
+		if action["action_type"] == routeplan.ActionDelivery {
+			place = doc.Delivery
+		}
+		if place.CountryCode != "" || place.Region != "" || place.City != "" {
+			return place.CountryCode, place.Region, place.City
+		}
+	}
+	return "", "", ""
+}
+
+func fingerprintLines(lines []string) string {
+	copied := append([]string(nil), lines...)
+	sort.Strings(copied)
+	sum := sha256.Sum256([]byte(strings.Join(copied, "\n")))
+	return hex.EncodeToString(sum[:])
+}
+
+func catalogLines(refs []compat.CatalogVersionRef) []string {
+	seen := map[string]struct{}{}
+	lines := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		tenant := ""
+		if ref.TenantID != nil {
+			tenant = *ref.TenantID
+		}
+		line := ref.ID + "|" + ref.CatalogKind + "|" + ref.Scope + "|" + tenant + "|" + strconv.Itoa(ref.Version)
+		if _, ok := seen[line]; ok {
+			continue
+		}
+		seen[line] = struct{}{}
+		lines = append(lines, line)
+	}
+	return lines
+}
+
+func ruleLines(refs []compat.RuleSetRef) []string {
+	seen := map[string]struct{}{}
+	lines := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		tenant := ""
+		if ref.TenantID != nil {
+			tenant = *ref.TenantID
+		}
+		line := ref.ID + "|" + ref.Scope + "|" + tenant + "|" + strconv.Itoa(ref.Version)
+		if _, ok := seen[line]; ok {
+			continue
+		}
+		seen[line] = struct{}{}
+		lines = append(lines, line)
+	}
+	return lines
 }
 
 func mapPlanError(err error) error {
