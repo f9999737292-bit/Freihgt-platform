@@ -16,7 +16,10 @@ TEST_STRATEGY_FROZEN=YES
 BLOCKING_FINDINGS=0
 MIGRATION_RESERVED=NO
 NLO_0_4C_ACTIVATION_RELEASE_BLOCKED_UNTIL_SERVICE_DURATION_SOURCE=YES
+NLO04A_ERRATUM_E1=PROPOSED
 ```
+
+Post-freeze erratum E1 is proposed in ADR-NET-019. It corrects start-anchor identity. It is not accepted, and it does not start NLO-0.4B.
 
 ## Waves
 
