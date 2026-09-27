@@ -538,19 +538,18 @@ func TestNLO03BPairwiseConsolidation(t *testing.T) {
 			t.Fatal(doc.Candidates[0].PlacementCheck)
 		}
 	})
-	t.Run("NLO03C_CURRENT_TRIP_FILL_STILL_NOT_IMPLEMENTED", func(t *testing.T) {
+	t.Run("NLO03C_CURRENT_TRIP_FILL_REQUIRES_SHIPMENT", func(t *testing.T) {
 		w := newWorld(t)
-		cap := w.readyCapacity()
-		_, err := w.svc.SearchConsolidation(context.Background(), w.actor(), ConsolidationCommand{CapacityID: cap.ID, Pattern: PatternCurrentTripFill})
+		_, err := w.svc.SearchConsolidation(context.Background(), w.actor(), ConsolidationCommand{Pattern: PatternCurrentTripFill})
 		var app *apperrors.AppError
-		if !errors.As(err, &app) || app.Details["reason"] != "PATTERN_NOT_IMPLEMENTED" {
+		if !errors.As(err, &app) || app.Code != apperrors.CodeValidation {
 			t.Fatalf("%v", err)
 		}
 	})
 	t.Run("NLO03B_PATTERN_NOT_IMPLEMENTED", func(t *testing.T) {
 		w := newWorld(t)
 		cap := w.readyCapacity()
-		_, err := w.svc.SearchConsolidation(context.Background(), w.actor(), ConsolidationCommand{CapacityID: cap.ID, Pattern: PatternCurrentTripFill})
+		_, err := w.svc.SearchConsolidation(context.Background(), w.actor(), ConsolidationCommand{CapacityID: cap.ID, Pattern: "NOT_A_PATTERN"})
 		var app *apperrors.AppError
 		if !errors.As(err, &app) || app.Details["reason"] != "PATTERN_NOT_IMPLEMENTED" {
 			t.Fatalf("%v", err)
@@ -807,7 +806,7 @@ func TestNLO03BPersistence(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Run("NLO03B_059_SEARCH_RUN_PERSISTED", func(t *testing.T) {
-		if run.Status != "COMPLETED" || run.CapacityID != cap.ID || run.Pattern != PatternSameOriginDestination || run.EvaluatedPairCount != 1 {
+		if run.Status != "COMPLETED" || run.CapacityID == nil || *run.CapacityID != cap.ID || run.Pattern != PatternSameOriginDestination || run.EvaluatedPairCount != 1 {
 			t.Fatalf("%+v", run)
 		}
 	})
@@ -817,7 +816,7 @@ func TestNLO03BPersistence(t *testing.T) {
 		}
 	})
 	t.Run("NLO03B_062_CAPACITY_VERSION_PINNED", func(t *testing.T) {
-		if run.CapacityVersion != cap.Version {
+		if run.CapacityVersion == nil || *run.CapacityVersion != cap.Version {
 			t.Fatal(run.CapacityVersion)
 		}
 	})

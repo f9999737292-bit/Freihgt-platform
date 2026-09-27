@@ -6,13 +6,13 @@ Status: IMPLEMENTED_CLOSED. Merged to main in PR #176. Feature head `d8b2b659f7f
 NLO_0_3C_STATUS=IMPLEMENTED_CLOSED
 NLO_0_3C_MERGED=YES
 NLO_0_3C_MERGE_SHA=cad3c67b93fd72329050db624ae048495ef0236f
-CURRENT_TRIP_FILL_PUBLIC_ENABLED=NO
-CURRENT_TRIP_FILL_RESULT=PATTERN_NOT_IMPLEMENTED
+CURRENT_TRIP_FILL_PUBLIC_ENABLED=IN_NLO_0_3D_BRANCH
 NLO_0_3_COMPLETE=NO
-NLO_0_3D_STATUS=NOT_STARTED
+NLO_0_3D_STATUS=UNDER_REVIEW
+NLO_0_3E_STARTED=NO
 ```
 
-NLO-0.3D is not started. NLO-0.3 is not complete. Residual capacity is not a public search input.
+NLO-0.3C remains closed. NLO-0.3D is IMPLEMENTED_IN_BRANCH / UNDER_REVIEW and is not part of this closed wave. NLO-0.3 is not complete. Residual capacity is not a caller-supplied search input.
 
 ## Authoritative evidence
 
@@ -78,4 +78,4 @@ Temperature, ADR, food, odor, and contamination are carried facts. They are not 
 
 ## Still off
 
-`POST /v1/network/consolidation/search` with `pattern=CURRENT_TRIP_FILL` returns `PATTERN_NOT_IMPLEMENTED`. This wave does not search for another load, insert a route, assign, reserve, or offer capacity. There is no solver, MILP, CP-SAT, VRP, ML, or 3D packing.
+This closed wave does not search for another load, insert a route, assign, reserve, or offer capacity. Public `CURRENT_TRIP_FILL` is NLO-0.3D, planning only, `execution_supported=false`, `MAX_ADDITIONAL_LOADS=1`, with no shipment mutation. There is no solver, MILP, CP-SAT, VRP, ML, or 3D packing. NLO-0.3E is NOT_STARTED.

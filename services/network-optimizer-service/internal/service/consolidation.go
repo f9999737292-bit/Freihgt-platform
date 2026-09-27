@@ -42,7 +42,9 @@ const (
 
 type ConsolidationCommand struct {
 	CapacityID     uuid.UUID
+	ShipmentID     uuid.UUID
 	Pattern        string
+	Policy         string
 	CandidateLimit *int
 }
 
@@ -71,12 +73,13 @@ type ConsolidationCandidateView struct {
 	Conditions               []string                  `json:"conditions,omitempty"`
 	IndeterminateReasonCodes []string                  `json:"indeterminate_reason_codes,omitempty"`
 	Explanation              []string                  `json:"explanation,omitempty"`
+	Routing                  *RouteProof               `json:"routing,omitempty"`
 }
 
 type ConsolidationResponse struct {
 	SearchID                    uuid.UUID                    `json:"search_id"`
-	CapacityID                  uuid.UUID                    `json:"capacity_id"`
-	CapacityVersion             int                          `json:"capacity_version"`
+	CapacityID                  *uuid.UUID                   `json:"capacity_id,omitempty"`
+	CapacityVersion             *int                         `json:"capacity_version,omitempty"`
 	Pattern                     string                       `json:"pattern"`
 	PoolLoadCount               int                          `json:"pool_load_count"`
 	EvaluatedPairCount          int                          `json:"evaluated_pair_count"`
@@ -88,18 +91,24 @@ type ConsolidationResponse struct {
 	HardRejectCountsByReason    map[string]int               `json:"hard_reject_counts_by_reason"`
 	IndeterminateCountsByReason map[string]int               `json:"indeterminate_counts_by_reason"`
 	Candidates                  []ConsolidationCandidateView `json:"candidates"`
+	ShipmentID                  *uuid.UUID                   `json:"shipment_id,omitempty"`
+	ShipmentVersion             int                          `json:"shipment_version,omitempty"`
+	MaxAdditionalLoads          *int                         `json:"max_additional_loads,omitempty"`
+	ExecutionSupported          *bool                        `json:"execution_supported,omitempty"`
+	InputFingerprint            string                       `json:"input_fingerprint,omitempty"`
+	ContextSummary              *CurrentTripSummary          `json:"context_summary,omitempty"`
 }
 
 func (s *Service) SearchConsolidation(ctx context.Context, actor Actor, cmd ConsolidationCommand) (Result, error) {
 	started := s.now()
-	if cmd.CapacityID == uuid.Nil {
-		return Result{}, apperrors.Validation("capacity_id is required", map[string]any{"field": "capacity_id"})
-	}
 	if cmd.Pattern == "" {
 		return Result{}, apperrors.Validation("pattern is required", map[string]any{"field": "pattern"})
 	}
 	if cmd.Pattern == PatternCurrentTripFill {
-		return Result{}, apperrors.Validation("pattern is not implemented", map[string]any{"reason": "PATTERN_NOT_IMPLEMENTED"})
+		return s.searchCurrentTripFill(ctx, actor, cmd, started)
+	}
+	if cmd.CapacityID == uuid.Nil {
+		return Result{}, apperrors.Validation("capacity_id is required", map[string]any{"field": "capacity_id"})
 	}
 	if cmd.Pattern != PatternSameOriginDestination {
 		return Result{}, apperrors.Validation("pattern is not implemented", map[string]any{"reason": "PATTERN_NOT_IMPLEMENTED"})
@@ -179,8 +188,10 @@ func (s *Service) SearchConsolidation(ctx context.Context, actor Actor, cmd Cons
 		}
 		return assessed[i].right.ID.String() < assessed[j].right.ID.String()
 	})
+	capacityID := capacity.ID
+	capacityVersion := capacity.Version
 	response := ConsolidationResponse{
-		SearchID: uuid.New(), CapacityID: capacity.ID, CapacityVersion: capacity.Version,
+		SearchID: uuid.New(), CapacityID: &capacityID, CapacityVersion: &capacityVersion,
 		Pattern: PatternSameOriginDestination, PoolLoadCount: len(pool), EvaluatedPairCount: len(assessed),
 		ExcludedCountsByReason: nonzero(excluded), HardRejectCountsByReason: map[string]int{},
 		IndeterminateCountsByReason: map[string]int{}, Candidates: []ConsolidationCandidateView{},
@@ -224,7 +235,7 @@ func (s *Service) SearchConsolidation(ctx context.Context, actor Actor, cmd Cons
 		response.IndeterminateCountsByReason = map[string]int{}
 	}
 	run := repository.ConsolidationRun{
-		ID: response.SearchID, TenantID: actor.TenantID, CapacityID: capacity.ID, CapacityVersion: capacity.Version,
+		ID: response.SearchID, TenantID: actor.TenantID, CapacityID: &capacityID, CapacityVersion: &capacityVersion,
 		Pattern: PatternSameOriginDestination, StartedAt: started, CompletedAt: now, Status: "COMPLETED",
 		CandidateLimit: cmd.CandidateLimit, PoolLoadCount: response.PoolLoadCount, EvaluatedPairCount: response.EvaluatedPairCount,
 		CreatedAt: now,
@@ -268,6 +279,8 @@ type assessedPair struct {
 	usage            *compat.Usage
 	fingerprints     []string
 	ruleFingerprints []string
+	ruleVersions     []string
+	catalogVersions  []string
 	pickup           *WindowOverlap
 	delivery         *WindowOverlap
 	trace            []byte
@@ -583,6 +596,10 @@ func mergeAssessments(base assessedPair, results []compat.Result) assessedPair {
 		base.fingerprints = append(base.fingerprints, result.Fingerprint)
 		for _, ref := range result.RuleSetsUsed {
 			base.ruleFingerprints = append(base.ruleFingerprints, ref.ID+":"+ref.Scope)
+			base.ruleVersions = append(base.ruleVersions, ref.ID+":"+ref.Scope+":"+jsonNumber(ref.Version))
+		}
+		for _, ref := range result.CatalogVersionsUsed {
+			base.catalogVersions = append(base.catalogVersions, ref.CatalogKind+":"+ref.Scope+":"+ref.ID+":"+jsonNumber(ref.Version))
 		}
 		switch result.Status {
 		case compat.StatusIncompatible:

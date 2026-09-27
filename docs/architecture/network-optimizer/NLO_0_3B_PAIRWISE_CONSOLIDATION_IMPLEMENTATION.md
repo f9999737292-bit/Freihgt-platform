@@ -1,6 +1,6 @@
 # NLO-0.3B pairwise consolidation implementation
 
-Status: IMPLEMENTED / CLOSED. Merged to main in PR #174. Feature head `8a99e71a8c06042e4bc46816dc41ce8c3142a1a4`. Merge SHA `8208c662f1c80475338a97dbc710268fa0fc5a07`. CI run `36267207012` succeeded. Migration `000081_nlo_pairwise_consolidation_v0_3b`. NLO-0.3C is IMPLEMENTED_CLOSED on main `cad3c67b93fd72329050db624ae048495ef0236f` (PR #176, migration `000082`). NLO-0.3D and NLO-0.3E are NOT_STARTED, so NLO-0.3 is not complete. `CURRENT_TRIP_FILL` remains `PATTERN_NOT_IMPLEMENTED`.
+Status: IMPLEMENTED / CLOSED. Merged to main in PR #174. Feature head `8a99e71a8c06042e4bc46816dc41ce8c3142a1a4`. Merge SHA `8208c662f1c80475338a97dbc710268fa0fc5a07`. CI run `36267207012` succeeded. Migration `000081_nlo_pairwise_consolidation_v0_3b`. NLO-0.3C is IMPLEMENTED_CLOSED on main `cad3c67b93fd72329050db624ae048495ef0236f` (PR #176, migration `000082`). NLO-0.3D is IMPLEMENTED_IN_BRANCH / UNDER_REVIEW. NLO-0.3E is NOT_STARTED, so NLO-0.3 is not complete. `CURRENT_TRIP_FILL` is planning only on that branch and does not change this pairwise contract.
 
 The question this slice answers is whether two published loads can travel together on one owned available capacity when they share a canonical origin and a canonical destination. The result is planning feasibility. It does not execute a shipment, assign a vehicle, reserve capacity, score a pair, or insert a route stop.
 
@@ -44,7 +44,7 @@ Every candidate returns `execution_supported=false` and `placement_check=NOT_EVA
 
 ## API
 
-`POST /v1/network/consolidation/search` on network-optimizer-service. The gateway route is `POST /api/v1/network/consolidation/search` under `PolicySearchConsolidation` for `CARRIER_ADMIN` and `CARRIER_DISPATCHER`. Shipper roles are denied. `CURRENT_TRIP_FILL` is recognized and returns `PATTERN_NOT_IMPLEMENTED`.
+`POST /v1/network/consolidation/search` on network-optimizer-service. The gateway route is `POST /api/v1/network/consolidation/search` under `PolicySearchConsolidation` for `CARRIER_ADMIN` and `CARRIER_DISPATCHER`. Shipper roles are denied. `CURRENT_TRIP_FILL` is the NLO-0.3D planning pattern. This pairwise document does not implement it. Unknown patterns still return `PATTERN_NOT_IMPLEMENTED`.
 
 ## Non-goals
 

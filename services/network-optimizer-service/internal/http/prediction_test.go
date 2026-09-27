@@ -74,8 +74,12 @@ func TestBNOPredictionGates(t *testing.T) {
 	if prediction["prediction_method"] != "RULE_BASED" || prediction["is_current"] != true || capacity["status"] != "PREDICTED" || capacity["visibility_scope"] != "PRIVATE" || capacity["source"] != "CURRENT_SHIPMENT_PREDICTION" {
 		t.Fatalf("BNO28/BNO41 %+v %+v", prediction, capacity)
 	}
-	if prediction["capacity_semantics"] != "NEXT_LOAD_FUTURE_CAPACITY" || prediction["capacity_weight_kg"] != 20000.0 || strings.Contains(created.raw, "8000") || strings.Contains(created.raw, "12000") {
-		t.Fatalf("BNO78/BNO79 body=%s", created.raw)
+	predictedWeight, _ := prediction["capacity_weight_kg"].(float64)
+	remainingPayload, _ := capacity["payload_remaining_kg"].(float64)
+	// BNO78/BNO79: predicted capacity keeps the vehicle nominal weight.
+	// A residual such as 8000 or 12000 must not replace that field.
+	if prediction["capacity_semantics"] != "NEXT_LOAD_FUTURE_CAPACITY" || predictedWeight != 20000 || remainingPayload != 20000 || predictedWeight == 8000 || predictedWeight == 12000 || remainingPayload == 8000 || remainingPayload == 12000 {
+		t.Fatalf("BNO78/BNO79 prediction=%v capacity=%v", prediction["capacity_weight_kg"], capacity["payload_remaining_kg"])
 	}
 	if prediction["capacity_volume_m3"] != 82.0 || prediction["body_type"] != "TENT" {
 		t.Fatalf("BNO33/BNO59 %+v", prediction)

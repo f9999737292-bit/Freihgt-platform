@@ -41,7 +41,7 @@ func (p *Postgres) SaveConsolidation(ctx context.Context, run ConsolidationRun, 
 				$15,$16,$17,
 				$18,$19,$20,$21,$22
 			)`,
-			candidate.ID, candidate.SearchRunID, candidate.TenantID, candidate.CapacityID, candidate.Pattern, candidate.Status, candidate.ExecutionSupported,
+			candidate.ID, candidate.SearchRunID, candidate.TenantID, uuidArg(candidate.CapacityID), candidate.Pattern, candidate.Status, candidate.ExecutionSupported,
 			candidate.CompatibilityStatus, candidate.CompatibilityFingerprint, candidate.CandidateFingerprint,
 			candidate.PickupOverlapStart, candidate.PickupOverlapEnd, candidate.DeliveryOverlapStart, candidate.DeliveryOverlapEnd,
 			candidate.PlacementCheck, candidate.HardRejectReasons, candidate.IndeterminateReasonCodes,
@@ -95,14 +95,18 @@ func (p *Postgres) GetConsolidation(ctx context.Context, tenant, id uuid.UUID) (
 	var candidates []ConsolidationCandidate
 	for rows.Next() {
 		var candidate ConsolidationCandidate
+		var candidateCapacity *uuid.UUID
 		if err := rows.Scan(
-			&candidate.ID, &candidate.SearchRunID, &candidate.TenantID, &candidate.CapacityID, &candidate.Pattern, &candidate.Status, &candidate.ExecutionSupported,
+			&candidate.ID, &candidate.SearchRunID, &candidate.TenantID, &candidateCapacity, &candidate.Pattern, &candidate.Status, &candidate.ExecutionSupported,
 			&candidate.CompatibilityStatus, &candidate.CompatibilityFingerprint, &candidate.CandidateFingerprint,
 			&candidate.PickupOverlapStart, &candidate.PickupOverlapEnd, &candidate.DeliveryOverlapStart, &candidate.DeliveryOverlapEnd,
 			&candidate.PlacementCheck, &candidate.HardRejectReasons, &candidate.IndeterminateReasonCodes,
 			&candidate.Conditions, &candidate.Warnings, &candidate.CapacityUsage, &candidate.CompatibilityTrace, &candidate.CreatedAt,
 		); err != nil {
 			return ConsolidationRun{}, nil, err
+		}
+		if candidateCapacity != nil {
+			candidate.CapacityID = *candidateCapacity
 		}
 		candidates = append(candidates, candidate)
 	}
@@ -135,6 +139,13 @@ func (p *Postgres) GetConsolidation(ctx context.Context, tenant, id uuid.UUID) (
 		candidates[i].Members = byCandidate[candidates[i].ID]
 	}
 	return run, candidates, nil
+}
+
+func uuidArg(id uuid.UUID) any {
+	if id == uuid.Nil {
+		return nil
+	}
+	return id
 }
 
 func jsonOrEmpty(raw []byte, fallback string) []byte {
