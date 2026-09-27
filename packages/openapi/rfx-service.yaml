@@ -7905,16 +7905,16 @@ components:
           description: Required for CURRENT_TRIP_FILL. The server builds the trip context. Residual facts are not accepted.
         pattern:
           type: string
-          enum: [SAME_ORIGIN_SAME_DESTINATION, CURRENT_TRIP_FILL]
-          description: SAME_ORIGIN_SAME_DESTINATION requires capacity_id. CURRENT_TRIP_FILL requires shipment_id and plans exactly one additional load.
+          enum: [SAME_ORIGIN_SAME_DESTINATION, SAME_ORIGIN_SAME_DESTINATION_N_MEMBER, CURRENT_TRIP_FILL]
+          description: SAME_ORIGIN_SAME_DESTINATION requires capacity_id and stays pairwise. SAME_ORIGIN_SAME_DESTINATION_N_MEMBER requires capacity_id and is the bounded 2-or-3 member search. CURRENT_TRIP_FILL requires shipment_id and plans exactly one additional load.
         policy:
           type: string
           enum: [REHANDLING_FORBIDDEN, REHANDLING_ALLOWED]
-          description: Omitted means REHANDLING_FORBIDDEN. Not a residual or onboard override.
+          description: Omitted means REHANDLING_FORBIDDEN. Not a residual, onboard, pool, or budget override.
         candidate_limit:
           type: integer
           minimum: 0
-          description: Response cap applied after evaluation. It does not change pair generation, counts, or persistence.
+          description: Response cap applied after evaluation. It does not change pair generation, N-member set generation, server work budgets, counts, or persistence.
     ConsolidationSearchResponseBase:
       type: object
       required: [search_id, pattern, pool_load_count, evaluated_pair_count, feasible_candidate_count, indeterminate_candidate_count, hard_reject_candidate_count, returned_candidate_count, excluded_counts_by_reason, hard_reject_counts_by_reason, indeterminate_counts_by_reason, candidates]
@@ -7948,6 +7948,64 @@ components:
             pattern: {type: string, enum: [SAME_ORIGIN_SAME_DESTINATION]}
             capacity_id: {type: string, format: uuid}
             capacity_version: {type: integer, minimum: 1}
+            candidates:
+              type: array
+              items: {$ref: '#/components/schemas/PairwiseConsolidationCandidate'}
+    PairwiseConsolidationCandidate:
+      allOf:
+        - $ref: '#/components/schemas/ConsolidationCandidate'
+        - type: object
+          properties:
+            members:
+              type: array
+              minItems: 2
+              maxItems: 2
+              items: {$ref: '#/components/schemas/ConsolidationMember'}
+    NMemberConsolidationSearchResponse:
+      type: object
+      required: [search_id, capacity_id, capacity_version, pattern, pool_load_count, evaluated_set_count, feasible_candidate_count, indeterminate_candidate_count, hard_reject_candidate_count, returned_candidate_count, candidates]
+      properties:
+        search_id: {type: string, format: uuid}
+        capacity_id: {type: string, format: uuid}
+        capacity_version: {type: integer, minimum: 1}
+        pattern: {type: string, enum: [SAME_ORIGIN_SAME_DESTINATION_N_MEMBER]}
+        pool_load_count: {type: integer}
+        evaluated_set_count: {type: integer, minimum: 0, maximum: 165}
+        feasible_candidate_count: {type: integer}
+        indeterminate_candidate_count: {type: integer}
+        hard_reject_candidate_count: {type: integer}
+        returned_candidate_count: {type: integer}
+        candidates:
+          type: array
+          items: {$ref: '#/components/schemas/NMemberConsolidationCandidate'}
+    NMemberConsolidationCandidate:
+      type: object
+      required: [candidate_id, status, execution_supported, placement_check, members, compatibility]
+      properties:
+        candidate_id: {type: string, format: uuid}
+        status: {type: string, enum: [FEASIBLE, INDETERMINATE, HARD_REJECT]}
+        execution_supported: {type: boolean, enum: [false]}
+        placement_check: {type: string, enum: [NOT_EVALUATED]}
+        members:
+          type: array
+          minItems: 2
+          maxItems: 3
+          items: {$ref: '#/components/schemas/NMemberConsolidationMember'}
+        pickup_window_overlap: {$ref: '#/components/schemas/ConsolidationWindowOverlap'}
+        delivery_window_overlap: {$ref: '#/components/schemas/ConsolidationWindowOverlap'}
+        compatibility: {type: string, enum: [COMPATIBLE, INCOMPATIBLE, INDETERMINATE]}
+        capacity_usage: {type: object, additionalProperties: true}
+        conditions: {type: array, items: {type: string}}
+        indeterminate_reason_codes: {type: array, items: {type: string}}
+        explanation: {type: array, items: {type: string}}
+    NMemberConsolidationMember:
+      type: object
+      required: [ordinal, load_opportunity_id, load_version, load]
+      properties:
+        ordinal: {type: integer, minimum: 1, maximum: 3}
+        load_opportunity_id: {type: string, format: uuid}
+        load_version: {type: integer}
+        load: {$ref: '#/components/schemas/NetworkMarketplaceLoad'}
     CurrentTripFillSearchResponse:
       allOf:
         - $ref: '#/components/schemas/ConsolidationSearchResponseBase'
@@ -7967,11 +8025,13 @@ components:
     ConsolidationSearchResponse:
       oneOf:
         - $ref: '#/components/schemas/PairwiseConsolidationSearchResponse'
+        - $ref: '#/components/schemas/NMemberConsolidationSearchResponse'
         - $ref: '#/components/schemas/CurrentTripFillSearchResponse'
       discriminator:
         propertyName: pattern
         mapping:
           SAME_ORIGIN_SAME_DESTINATION: '#/components/schemas/PairwiseConsolidationSearchResponse'
+          SAME_ORIGIN_SAME_DESTINATION_N_MEMBER: '#/components/schemas/NMemberConsolidationSearchResponse'
           CURRENT_TRIP_FILL: '#/components/schemas/CurrentTripFillSearchResponse'
     ConsolidationCandidate:
       type: object

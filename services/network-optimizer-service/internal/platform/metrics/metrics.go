@@ -60,6 +60,18 @@ var (
 	})
 )
 
+var ConsolidationBudgetExhausted = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "bno_consolidation_budget_exhausted_total",
+	Help: "N-member consolidation searches rejected by a bounded budget reason.",
+}, []string{"reason"})
+
+func ConsolidationBudget(reason string) {
+	switch reason {
+	case "POOL_LIMIT_EXCEEDED", "SEARCH_BUDGET_EXCEEDED":
+		ConsolidationBudgetExhausted.WithLabelValues(reason).Inc()
+	}
+}
+
 func ConsolidationSearch(elapsed time.Duration, evaluated, feasible, indeterminate, hard int) {
 	ConsolidationSearches.Inc()
 	ConsolidationSets.Add(float64(evaluated))

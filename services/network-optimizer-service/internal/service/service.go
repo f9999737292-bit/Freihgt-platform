@@ -36,6 +36,8 @@ type Service struct {
 	policy         predict.Policy
 	currentTrip    *currenttrip.Provider
 	now            func() time.Time
+	nMemberPolicy  nMemberPolicy
+	groupageCalls  int
 }
 
 func New(store repository.Store, verifier sourceverify.Verifier) *Service {

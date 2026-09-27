@@ -74,7 +74,11 @@ func (h *Handler) SearchConsolidation(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		var appErr *apperrors.AppError
 		if errors.As(err, &appErr) && appErr.Code == apperrors.CodeValidation {
-			h.finishStatus(w, r, "consolidation_search", uuid.Nil, err, http.StatusBadRequest)
+			status := http.StatusBadRequest
+			if reason, _ := appErr.Details["reason"].(string); reason == service.ReasonPoolLimitExceeded || reason == service.ReasonSearchBudgetExceeded {
+				status = http.StatusUnprocessableEntity
+			}
+			h.finishStatus(w, r, "consolidation_search", uuid.Nil, err, status)
 			return
 		}
 		h.finish(w, r, "consolidation_search", uuid.Nil, err)
