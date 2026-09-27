@@ -40,9 +40,10 @@ CARRIER_OFFER=NO
 SLOT_BOOKING=NO
 DRIVER_TASK=NO
 ROUTE_PLAN_ACTIVATION=NO
+MULTI_STOP_PLANNING_IN_0_3E=NO
 ```
 
-`PLAN_ONLY` candidates are not executable multi-stop transport.
+`PLAN_ONLY` same-origin sets are not a stop list and are not executable multi-stop transport. One explored stop order, in any later wave, is not proof that the set is globally infeasible.
 
 ## Unknown
 

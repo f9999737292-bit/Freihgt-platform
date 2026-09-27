@@ -1,6 +1,12 @@
 # NLO-0.3E bounded expansion model
 
-This is an architecture freeze. It does not implement a search.
+Controller review R1 revised this model. It is not a frozen architecture. It does not implement a search.
+
+```text
+NLO03E_F001=ADDRESSED_IN_THIS_REVISION
+NLO03E_F002=ADDRESSED_IN_THIS_REVISION
+ARCHITECTURE_FROZEN=NO
+```
 
 ```text
 UNRESTRICTED_SUBSET_ENUMERATION=FORBIDDEN
@@ -13,7 +19,7 @@ NLO-0.3E must not loop over every subset of N loads and must not loop over N! st
 
 Option A: fixed maximum set size with incremental lexicographic extension.
 
-Loads in one canonical origin-destination group are sorted by load id. Sets are generated in lexicographic order of those ids, from size 2 up through `MAX_SET_SIZE`. Generation stops when `MAX_SETS_EVALUATED` is reached, when the group is exhausted under the size cap, or when the routing budget is reached. Each set is assessed once. Order of assessment is the generation order, then the existing status rank for the returned page. Status rank is not a commercial score.
+Loads in one canonical origin-destination group are sorted by load id. Sets are generated in lexicographic order of those ids, from size 2 up through `MAX_SET_SIZE`. Generation stops when `MAX_SETS_EVALUATED` is reached or when the group is exhausted under the size cap. Each set is assessed once as cargo at that shared pickup and shared delivery. There is no stop order to search. Order of assessment is the generation order, then the existing status rank for the returned page. Status rank is not a commercial score.
 
 Work is bounded by `MAX_SETS_EVALUATED`, not by `2^N`. Generating the next combination is linear in set size.
 
@@ -23,7 +29,7 @@ Option C, deterministic top-K seed expansion, is rejected for the same reason. T
 
 | Option | Complexity | Determinism | Audit | Routing cost | Compatibility cost | Privacy | Implementation |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| A lex extension | O(sets evaluated), sets capped | load-id order | each assessed set can be stored | one canonical sequence per set | one groupage pass per set, two contexts when two tenants | same fail-closed cross-shipper rule | extends the current pair loop |
+| A lex extension | O(sets evaluated), sets capped | load-id order | each assessed set can be stored | no route-sequence search | one groupage pass per set, two contexts when two tenants | same fail-closed cross-shipper rule | extends the current pair loop |
 | B beam | O(beam * set size) | only if the score is total | needs the score in the fingerprint | depends on the beam | depends on the beam | score must not leak private facts | needs an unapproved score |
 | C top-K seeds | O(K * extensions) | only if the rank is total | same | depends on K | depends on K | same | needs an unapproved score |
 
@@ -43,8 +49,8 @@ These server-owned policy fields are separate. The caller does not supply them.
 | `MAX_ROUTING_CALLS` | `roadLeg` calls per search | UNSET | Fill uses 4 calls per fresh candidate, including hard rejects. Provider time was not 2GIS | not chosen | `ROUTING_BUDGET_EXCEEDED` | server policy | implementation blocked |
 | `MAX_GROUPAGE_CALLS` | `EvaluateGroupageItems` calls per search | UNSET | Pairwise used 2 calls per pair. 500 loads used 249500 calls | not chosen | `SEARCH_BUDGET_EXCEEDED` | server policy | implementation blocked |
 | `TIME_BUDGET` | wall clock cap | UNSET | Local p95 is not an SLO | not chosen | `SEARCH_BUDGET_EXCEEDED` | server policy | implementation blocked |
-| `DETERMINISTIC_ORDER` | generation and tie break | load id lexicographic, then status rank for the page | Current pairwise sort is status rank then load ids. Fingerprints were stable across repeats | structural | a changed order changes the fingerprint | frozen in ADR-NET-017 | required |
-| `ROUTE_SEQUENCE_BOUND` | sequences considered per set | 1 | See sequence model. This is a structural cap, not a timing SLO | the cap is the algorithm | a second sequence is out of policy | frozen in ADR-NET-017 | 1 |
+| `DETERMINISTIC_ORDER` | generation and tie break | load id lexicographic, then status rank for the page | Current pairwise sort is status rank then load ids. Fingerprints were stable across repeats | structural | a changed order changes the fingerprint | proposed in ADR-NET-017, not accepted | required for a later implementation |
+| `ROUTE_SEQUENCES_EXPLORED` | stop orders considered per set | 0 | Same-origin same-destination has one pickup location and one delivery location. F002: one order cannot prove every order infeasible | structural | emitting a stop list is out of NLO-0.3E | proposed in ADR-NET-017, not accepted | 0 |
 
 ```text
 IMPLEMENTATION_BLOCKED=YES
@@ -54,18 +60,13 @@ for every numeric production threshold above. A later controller decision may se
 
 ## Route sequence
 
-For a set of K additional loads on a current trip, NLO-0.3E considers one sequence:
+NLO-0.3E explores zero route sequences (`NLO03E_F001`, `NLO03E_F002`).
 
-1. Current fresh position.
-2. Additional pickups in load-id order.
-3. Additional deliveries in the same load-id order.
-4. The trip destination last.
+A same-origin same-destination set uses the one pickup location and the one delivery location already shared by every member. Window overlap is the intersection of those known windows, as in pairwise search. It is not a permutation of stops. Rehandling is not evaluated as a new stop order. No `RouteStop` is planned.
 
-Precedence is pickup before delivery for each load. Loads are not interleaved. Existing onboard cargo is not reordered into a new stop list. `SEQUENCES_PER_SET=1`. The maximum number of route sequences in a search is `MAX_SETS_EVALUATED`, which is unset, and never `N!`.
+`CURRENT_TRIP_FILL` with a second additional load would be a second pickup and a second delivery. That is multi-stop planning and belongs to NLO-0.4. NLO-0.3D stays at one additional load. The four `insertRoad` calls measured for that one load are NLO-0.3D behavior. They are not a template for a longer chain in NLO-0.3E.
 
-Road calls for that one sequence, including the direct comparison leg used today, are `2*K + 2` when K is the additional-load count and both ends resolve (`direct`, then each hop of the chain). For K=1 that is the four calls `insertRoad` makes now. If the position is stale, routing calls stay 0 and the candidate is not feasible.
-
-Window propagation uses the summed provider durations along that single chain, the same way `insertRoad` derives pickup and delivery instants today. A missing window stays indeterminate. Rehandling stays the existing policy (`REHANDLING_FORBIDDEN` or `ALLOWED`) inside the fingerprint. A new stop is planning-only. It does not create a `RouteStop`.
+`N!` enumeration stays forbidden. A cap of one canonical sequence is also rejected: failure of that sequence would not prove the set infeasible, and success would still be a multi-stop plan. Sequence-dependent failure in any later wave stays `INDETERMINATE` until an authorized bound is exhausted. Sequence-independent groupage failure may be `HARD_REJECT`. Unknown is not zero.
 
 ## Residual capacity
 
@@ -77,8 +78,8 @@ Required facts stay: weight, volume, pallets, linear metres, height, temperature
 
 | Class | Decision | Bound |
 | --- | --- | --- |
-| `SAME_ORIGIN_SAME_DESTINATION` with more than 2 loads | `IN_0_3E` as `PLAN_ONLY` | lex sets, `execution_supported=false` |
-| `CURRENT_TRIP_FILL` with more than 1 additional load | `IN_0_3E` as `PLAN_ONLY` | one canonical sequence, `execution_supported=false` |
+| `SAME_ORIGIN_SAME_DESTINATION` with more than 2 loads | `IN_0_3E` as cargo-set planning only | shared pickup and delivery, no stop list, `execution_supported=false` |
+| `CURRENT_TRIP_FILL` with more than 1 additional load | `DEFER_TO_0_4` | a second insertion is multi-stop planning |
 | `MULTI_PICK_ONE_DROP` | `DEFER_TO_0_4` | needs `RoutePlan` and `RouteStop` |
 | `ONE_PICK_MULTI_DROP` | `DEFER_TO_0_4` | same |
 | `MULTI_PICK_MULTI_DROP` | `DEFER_TO_0_4` | same |

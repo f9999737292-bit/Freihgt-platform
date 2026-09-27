@@ -1,6 +1,6 @@
 # ADR-NET index
 
-ADR-NET-001 through ADR-NET-012 are proposed records for the v0.1 freeze. ADR-NET-013 through ADR-NET-016 are Accepted. ADR-NET-017 is Proposed for the NLO-0.3E discovery freeze. Implementation is not authorized.
+ADR-NET-001 through ADR-NET-012 are proposed records for the v0.1 freeze. ADR-NET-013 through ADR-NET-016 are Accepted. ADR-NET-017 is Proposed. Controller review R1 is CHANGES_REQUIRED. Implementation is not authorized.
 
 | ID | Title |
 |----|-------|
