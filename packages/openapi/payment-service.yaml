@@ -1341,23 +1341,12 @@ components:
           type: integer
           minimum: 0
           description: Response cap applied after evaluation. It does not change pair generation, counts, or persistence.
-    ConsolidationSearchResponse:
+    ConsolidationSearchResponseBase:
       type: object
-      required: [search_id, capacity_id, capacity_version, pattern, pool_load_count, evaluated_pair_count, feasible_candidate_count, indeterminate_candidate_count, hard_reject_candidate_count, returned_candidate_count, excluded_counts_by_reason, hard_reject_counts_by_reason, indeterminate_counts_by_reason, candidates]
+      required: [search_id, pattern, pool_load_count, evaluated_pair_count, feasible_candidate_count, indeterminate_candidate_count, hard_reject_candidate_count, returned_candidate_count, excluded_counts_by_reason, hard_reject_counts_by_reason, indeterminate_counts_by_reason, candidates]
       properties:
         search_id: {type: string, format: uuid}
-        capacity_id: {type: string, format: uuid}
-        capacity_version: {type: integer}
-        pattern: {type: string, enum: [SAME_ORIGIN_SAME_DESTINATION, CURRENT_TRIP_FILL]}
-        shipment_id: {type: string, format: uuid}
-        shipment_version: {type: integer}
-        max_additional_loads: {type: integer, enum: [1]}
-        execution_supported: {type: boolean, enum: [false]}
-        input_fingerprint: {type: string}
-        context_summary:
-          type: object
-          additionalProperties: true
-          description: Output-only summary of the server-built current trip. Not accepted as a later request input.
+        pattern: {type: string}
         pool_load_count: {type: integer}
         evaluated_pair_count: {type: integer}
         feasible_candidate_count: {type: integer}
@@ -1376,6 +1365,40 @@ components:
         candidates:
           type: array
           items: {$ref: '#/components/schemas/ConsolidationCandidate'}
+    PairwiseConsolidationSearchResponse:
+      allOf:
+        - $ref: '#/components/schemas/ConsolidationSearchResponseBase'
+        - type: object
+          required: [capacity_id, capacity_version, pattern]
+          properties:
+            pattern: {type: string, enum: [SAME_ORIGIN_SAME_DESTINATION]}
+            capacity_id: {type: string, format: uuid}
+            capacity_version: {type: integer, minimum: 1}
+    CurrentTripFillSearchResponse:
+      allOf:
+        - $ref: '#/components/schemas/ConsolidationSearchResponseBase'
+        - type: object
+          required: [shipment_id, shipment_version, pattern, max_additional_loads, execution_supported]
+          properties:
+            pattern: {type: string, enum: [CURRENT_TRIP_FILL]}
+            shipment_id: {type: string, format: uuid}
+            shipment_version: {type: integer}
+            max_additional_loads: {type: integer, enum: [1]}
+            execution_supported: {type: boolean, enum: [false]}
+            input_fingerprint: {type: string}
+            context_summary:
+              type: object
+              additionalProperties: true
+              description: Output-only summary of the server-built current trip. Not accepted as a later request input.
+    ConsolidationSearchResponse:
+      oneOf:
+        - $ref: '#/components/schemas/PairwiseConsolidationSearchResponse'
+        - $ref: '#/components/schemas/CurrentTripFillSearchResponse'
+      discriminator:
+        propertyName: pattern
+        mapping:
+          SAME_ORIGIN_SAME_DESTINATION: '#/components/schemas/PairwiseConsolidationSearchResponse'
+          CURRENT_TRIP_FILL: '#/components/schemas/CurrentTripFillSearchResponse'
     ConsolidationCandidate:
       type: object
       required: [candidate_id, status, execution_supported, placement_check, members, compatibility]

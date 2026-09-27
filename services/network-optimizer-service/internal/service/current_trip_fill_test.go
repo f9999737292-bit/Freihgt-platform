@@ -536,3 +536,149 @@ func profileWithLinear(profile currenttrip.CargoProfile, meters float64) current
 	profile.LinearMeters = f64(meters)
 	return profile
 }
+
+func TestNLO03DCapacityContext(t *testing.T) {
+	t.Run("CURRENT_TRIP_PUBLIC_AND_DB_CAPACITY_ABSENT", func(t *testing.T) {
+		w, src, _ := newFill(t)
+		result, err := w.svc.SearchConsolidation(context.Background(), w.actor(), ConsolidationCommand{ShipmentID: src.execution.ShipmentID, Pattern: PatternCurrentTripFill})
+		if err != nil {
+			t.Fatal(err)
+		}
+		raw := string(result.Body)
+		if strings.Contains(raw, `"capacity_id"`) || strings.Contains(raw, `"capacity_version"`) || strings.Contains(raw, "00000000-0000-0000-0000-000000000000") {
+			t.Fatalf("%s", raw)
+		}
+		if !strings.Contains(raw, `"shipment_id"`) || !strings.Contains(raw, `"shipment_version"`) {
+			t.Fatalf("%s", raw)
+		}
+		if strings.Contains(raw, `"compatibility_fingerprints"`) || strings.Contains(raw, `"rule_sets_used"`) || strings.Contains(raw, `"catalog_versions_used"`) {
+			t.Fatalf("public response leaked audit provenance: %s", raw)
+		}
+		var doc ConsolidationResponse
+		if err := json.Unmarshal(result.Body, &doc); err != nil {
+			t.Fatal(err)
+		}
+		run, _, err := w.store.GetConsolidation(context.Background(), w.carrier, doc.SearchID)
+		if err != nil || run.CapacityID != nil || run.CapacityVersion != nil {
+			t.Fatalf("%+v %v", run, err)
+		}
+	})
+	t.Run("PAIRWISE_PUBLIC_AND_DB_CAPACITY_PRESENT", func(t *testing.T) {
+		w, cap, _, _ := sameOwnerPair(t)
+		result, err := w.svc.SearchConsolidation(context.Background(), w.actor(), ConsolidationCommand{CapacityID: cap.ID, Pattern: PatternSameOriginDestination})
+		if err != nil {
+			t.Fatal(err)
+		}
+		raw := string(result.Body)
+		if !strings.Contains(raw, cap.ID.String()) || !strings.Contains(raw, `"capacity_version":`+jsonNumber(cap.Version)) {
+			t.Fatalf("%s", raw)
+		}
+		var doc ConsolidationResponse
+		if err := json.Unmarshal(result.Body, &doc); err != nil {
+			t.Fatal(err)
+		}
+		if doc.CapacityID == nil || *doc.CapacityID != cap.ID || doc.CapacityVersion == nil || *doc.CapacityVersion != cap.Version {
+			t.Fatalf("%+v", doc)
+		}
+		run, _, err := w.store.GetConsolidation(context.Background(), w.carrier, doc.SearchID)
+		if err != nil || run.CapacityID == nil || *run.CapacityID != cap.ID || run.CapacityVersion == nil || *run.CapacityVersion != cap.Version {
+			t.Fatalf("%+v %v", run, err)
+		}
+	})
+}
+
+type versionedCatalog struct {
+	ruleVersion    int
+	catalogVersion int
+}
+
+func (c versionedCatalog) Evaluation(context.Context, uuid.UUID) (compat.Context, error) {
+	return compat.Context{
+		CargoCatalogVersion: c.catalogVersion,
+		Rules: []compat.Rule{{
+			RuleCode: "NOTE", RuleKind: compat.KindCargoCargo, Layer: compat.LayerPlatform,
+			LeftSelectorType: "CARGO_TYPE", LeftSelectorValue: "UNMATCHED", RightSelectorType: "CARGO_TYPE", RightSelectorValue: "UNMATCHED",
+			Decision: compat.DecisionAllow, ReasonCode: "NOTE", RuleSetID: "ruleset", RuleSetScope: "SYSTEM", RuleSetVersion: c.ruleVersion,
+		}},
+		RuleSets:    []compat.RuleSetRef{{ID: "ruleset", Scope: "SYSTEM", Version: c.ruleVersion}},
+		CatalogRefs: []compat.CatalogVersionRef{{ID: "cargo-catalog", CatalogKind: "cargo", Scope: "SYSTEM", Version: c.catalogVersion}},
+	}, nil
+}
+
+func TestNLO03DAuditFingerprint(t *testing.T) {
+	t.Run("RULE_AND_CATALOG_VERSION_INVALIDATE_FINGERPRINT", func(t *testing.T) {
+		w, src, load := newFill(t)
+		w.svc.UseCatalog(versionedCatalog{ruleVersion: 1, catalogVersion: 4})
+		first := searchFill(t, w, src.execution.ShipmentID)
+		if first.Candidates[0].Status != ConsolidationFeasible || first.Candidates[0].Compatibility != compat.StatusCompatible {
+			t.Fatalf("%+v", first.Candidates[0])
+		}
+		_, rows, err := w.store.GetConsolidation(context.Background(), w.carrier, first.SearchID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		before := rows[0].CandidateFingerprint
+		trace := string(rows[0].CompatibilityTrace)
+		parts := strings.Split(rows[0].CompatibilityFingerprint, "|")
+		if len(parts) == 0 || rows[0].CompatibilityFingerprint == "" || rows[0].CompatibilityFingerprint == "NOT_EVALUATED" {
+			t.Fatalf("compatibility %s", rows[0].CompatibilityFingerprint)
+		}
+		for _, part := range parts {
+			if part == "" || !strings.Contains(trace, part) {
+				t.Fatalf("compatibility %s missing from %s", part, trace)
+			}
+		}
+		if !strings.Contains(trace, `"version":1`) || !strings.Contains(trace, `"version":4`) {
+			t.Fatal(trace)
+		}
+		for _, needle := range []string{`"shipment_id"`, `"shipment_version"`, `"vehicle_id"`, `"confirmed_onboard"`, `"cargo_version"`, `"evidence_state_version"`, `"additional_load_version"`, `"freshness":"FRESH"`, `"residual_capacity"`, `"provenance"`, `"policy"`, `"placement_check"`, `"rule_sets_used"`, `"catalog_versions_used"`, `"routing"`, `"distance_m"`, `"duration_seconds"`} {
+			if !strings.Contains(trace, needle) {
+				t.Fatalf("missing %s in %s", needle, trace)
+			}
+		}
+		w.svc.UseCatalog(versionedCatalog{ruleVersion: 2, catalogVersion: 4})
+		ruled := searchFill(t, w, src.execution.ShipmentID)
+		if ruled.Candidates[0].Compatibility != compat.StatusCompatible {
+			t.Fatalf("%+v", ruled.Candidates[0])
+		}
+		_, ruledRows, err := w.store.GetConsolidation(context.Background(), w.carrier, ruled.SearchID)
+		if err != nil || ruledRows[0].CandidateFingerprint == before || !strings.Contains(string(ruledRows[0].CompatibilityTrace), `"version":2`) {
+			t.Fatal(err)
+		}
+		w.svc.UseCatalog(versionedCatalog{ruleVersion: 2, catalogVersion: 9})
+		cataloged := searchFill(t, w, src.execution.ShipmentID)
+		if cataloged.Candidates[0].Compatibility != compat.StatusCompatible {
+			t.Fatalf("%+v", cataloged.Candidates[0])
+		}
+		_, catalogRows, err := w.store.GetConsolidation(context.Background(), w.carrier, cataloged.SearchID)
+		if err != nil || catalogRows[0].CandidateFingerprint == ruledRows[0].CandidateFingerprint || !strings.Contains(string(catalogRows[0].CompatibilityTrace), `"version":9`) {
+			t.Fatal(err)
+		}
+		_ = load
+	})
+	t.Run("POLICY_CHANGES_FINGERPRINT_AND_IDENTICAL_INPUT_IS_STABLE", func(t *testing.T) {
+		w, src, _ := newFill(t)
+		first := searchFill(t, w, src.execution.ShipmentID)
+		again := searchFill(t, w, src.execution.ShipmentID)
+		_, firstRows, err := w.store.GetConsolidation(context.Background(), w.carrier, first.SearchID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, againRows, err := w.store.GetConsolidation(context.Background(), w.carrier, again.SearchID)
+		if err != nil || againRows[0].CandidateFingerprint != firstRows[0].CandidateFingerprint {
+			t.Fatal(err)
+		}
+		allowed, err := w.svc.SearchConsolidation(context.Background(), w.actor(), ConsolidationCommand{ShipmentID: src.execution.ShipmentID, Pattern: PatternCurrentTripFill, Policy: PolicyRehandlingAllowed})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var doc ConsolidationResponse
+		if err := json.Unmarshal(allowed.Body, &doc); err != nil {
+			t.Fatal(err)
+		}
+		_, allowedRows, err := w.store.GetConsolidation(context.Background(), w.carrier, doc.SearchID)
+		if err != nil || allowedRows[0].CandidateFingerprint == firstRows[0].CandidateFingerprint || !strings.Contains(string(allowedRows[0].CompatibilityTrace), PolicyRehandlingAllowed) {
+			t.Fatalf("%v %s", err, allowedRows[0].CompatibilityTrace)
+		}
+	})
+}

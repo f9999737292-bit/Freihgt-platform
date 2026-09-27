@@ -806,7 +806,7 @@ func TestNLO03BPersistence(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Run("NLO03B_059_SEARCH_RUN_PERSISTED", func(t *testing.T) {
-		if run.Status != "COMPLETED" || run.CapacityID != cap.ID || run.Pattern != PatternSameOriginDestination || run.EvaluatedPairCount != 1 {
+		if run.Status != "COMPLETED" || run.CapacityID == nil || *run.CapacityID != cap.ID || run.Pattern != PatternSameOriginDestination || run.EvaluatedPairCount != 1 {
 			t.Fatalf("%+v", run)
 		}
 	})
@@ -816,7 +816,7 @@ func TestNLO03BPersistence(t *testing.T) {
 		}
 	})
 	t.Run("NLO03B_062_CAPACITY_VERSION_PINNED", func(t *testing.T) {
-		if run.CapacityVersion != cap.Version {
+		if run.CapacityVersion == nil || *run.CapacityVersion != cap.Version {
 			t.Fatal(run.CapacityVersion)
 		}
 	})

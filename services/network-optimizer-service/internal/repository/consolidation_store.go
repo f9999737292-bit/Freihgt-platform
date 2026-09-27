@@ -10,8 +10,8 @@ import (
 type ConsolidationRun struct {
 	ID                 uuid.UUID
 	TenantID           uuid.UUID
-	CapacityID         uuid.UUID
-	CapacityVersion    int
+	CapacityID         *uuid.UUID
+	CapacityVersion    *int
 	Pattern            string
 	StartedAt          time.Time
 	CompletedAt        time.Time

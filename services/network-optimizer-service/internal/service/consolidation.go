@@ -78,8 +78,8 @@ type ConsolidationCandidateView struct {
 
 type ConsolidationResponse struct {
 	SearchID                    uuid.UUID                    `json:"search_id"`
-	CapacityID                  uuid.UUID                    `json:"capacity_id"`
-	CapacityVersion             int                          `json:"capacity_version"`
+	CapacityID                  *uuid.UUID                   `json:"capacity_id,omitempty"`
+	CapacityVersion             *int                         `json:"capacity_version,omitempty"`
 	Pattern                     string                       `json:"pattern"`
 	PoolLoadCount               int                          `json:"pool_load_count"`
 	EvaluatedPairCount          int                          `json:"evaluated_pair_count"`
@@ -188,8 +188,10 @@ func (s *Service) SearchConsolidation(ctx context.Context, actor Actor, cmd Cons
 		}
 		return assessed[i].right.ID.String() < assessed[j].right.ID.String()
 	})
+	capacityID := capacity.ID
+	capacityVersion := capacity.Version
 	response := ConsolidationResponse{
-		SearchID: uuid.New(), CapacityID: capacity.ID, CapacityVersion: capacity.Version,
+		SearchID: uuid.New(), CapacityID: &capacityID, CapacityVersion: &capacityVersion,
 		Pattern: PatternSameOriginDestination, PoolLoadCount: len(pool), EvaluatedPairCount: len(assessed),
 		ExcludedCountsByReason: nonzero(excluded), HardRejectCountsByReason: map[string]int{},
 		IndeterminateCountsByReason: map[string]int{}, Candidates: []ConsolidationCandidateView{},
@@ -233,7 +235,7 @@ func (s *Service) SearchConsolidation(ctx context.Context, actor Actor, cmd Cons
 		response.IndeterminateCountsByReason = map[string]int{}
 	}
 	run := repository.ConsolidationRun{
-		ID: response.SearchID, TenantID: actor.TenantID, CapacityID: capacity.ID, CapacityVersion: capacity.Version,
+		ID: response.SearchID, TenantID: actor.TenantID, CapacityID: &capacityID, CapacityVersion: &capacityVersion,
 		Pattern: PatternSameOriginDestination, StartedAt: started, CompletedAt: now, Status: "COMPLETED",
 		CandidateLimit: cmd.CandidateLimit, PoolLoadCount: response.PoolLoadCount, EvaluatedPairCount: response.EvaluatedPairCount,
 		CreatedAt: now,
@@ -277,6 +279,8 @@ type assessedPair struct {
 	usage            *compat.Usage
 	fingerprints     []string
 	ruleFingerprints []string
+	ruleVersions     []string
+	catalogVersions  []string
 	pickup           *WindowOverlap
 	delivery         *WindowOverlap
 	trace            []byte
@@ -592,6 +596,10 @@ func mergeAssessments(base assessedPair, results []compat.Result) assessedPair {
 		base.fingerprints = append(base.fingerprints, result.Fingerprint)
 		for _, ref := range result.RuleSetsUsed {
 			base.ruleFingerprints = append(base.ruleFingerprints, ref.ID+":"+ref.Scope)
+			base.ruleVersions = append(base.ruleVersions, ref.ID+":"+ref.Scope+":"+jsonNumber(ref.Version))
+		}
+		for _, ref := range result.CatalogVersionsUsed {
+			base.catalogVersions = append(base.catalogVersions, ref.CatalogKind+":"+ref.Scope+":"+ref.ID+":"+jsonNumber(ref.Version))
 		}
 		switch result.Status {
 		case compat.StatusIncompatible:

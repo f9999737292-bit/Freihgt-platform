@@ -15,7 +15,7 @@ ALTER TABLE network_optimizer.consolidation_search_runs
 ALTER TABLE network_optimizer.consolidation_search_runs
     ADD CONSTRAINT consolidation_search_runs_context_chk CHECK (
         (pattern = 'SAME_ORIGIN_SAME_DESTINATION' AND capacity_id IS NOT NULL AND capacity_version IS NOT NULL)
-        OR (pattern = 'CURRENT_TRIP_FILL' AND capacity_id IS NULL)
+        OR (pattern = 'CURRENT_TRIP_FILL' AND capacity_id IS NULL AND capacity_version IS NULL)
     );
 
 ALTER TABLE network_optimizer.consolidation_candidates

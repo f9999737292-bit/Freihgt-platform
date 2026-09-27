@@ -20,7 +20,7 @@ func (p *Postgres) SaveConsolidation(ctx context.Context, run ConsolidationRun, 
 			started_at, completed_at, status, candidate_limit,
 			pool_load_count, evaluated_pair_count, created_at
 		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-		run.ID, run.TenantID, uuidArg(run.CapacityID), run.CapacityVersion, run.Pattern,
+		run.ID, run.TenantID, run.CapacityID, run.CapacityVersion, run.Pattern,
 		run.StartedAt, run.CompletedAt, run.Status, run.CandidateLimit,
 		run.PoolLoadCount, run.EvaluatedPairCount, run.CreatedAt,
 	); err != nil {
@@ -65,22 +65,14 @@ func (p *Postgres) SaveConsolidation(ctx context.Context, run ConsolidationRun, 
 
 func (p *Postgres) GetConsolidation(ctx context.Context, tenant, id uuid.UUID) (ConsolidationRun, []ConsolidationCandidate, error) {
 	var run ConsolidationRun
-	var capacityID *uuid.UUID
-	var capacityVersion *int
 	err := p.pool.QueryRow(ctx, `
 		SELECT id, tenant_id, capacity_id, capacity_version, pattern, started_at, completed_at, status,
 		       candidate_limit, pool_load_count, evaluated_pair_count, created_at
 		FROM network_optimizer.consolidation_search_runs
 		WHERE id = $1 AND tenant_id = $2`, id, tenant).Scan(
-		&run.ID, &run.TenantID, &capacityID, &capacityVersion, &run.Pattern, &run.StartedAt, &run.CompletedAt, &run.Status,
+		&run.ID, &run.TenantID, &run.CapacityID, &run.CapacityVersion, &run.Pattern, &run.StartedAt, &run.CompletedAt, &run.Status,
 		&run.CandidateLimit, &run.PoolLoadCount, &run.EvaluatedPairCount, &run.CreatedAt,
 	)
-	if capacityID != nil {
-		run.CapacityID = *capacityID
-	}
-	if capacityVersion != nil {
-		run.CapacityVersion = *capacityVersion
-	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ConsolidationRun{}, nil, ErrNotFound
 	}

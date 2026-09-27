@@ -73,18 +73,23 @@ type RouteProof struct {
 }
 
 type fillCandidate struct {
-	load          domain.LoadOpportunity
-	status        string
-	compatibility string
-	hard          []string
-	indeterminate []string
-	conditions    []string
-	explanation   []string
-	placement     string
-	routing       *RouteProof
-	fingerprint   string
-	trace         []byte
-	usage         *compat.Usage
+	load                domain.LoadOpportunity
+	status              string
+	compatibility       string
+	hard                []string
+	indeterminate       []string
+	conditions          []string
+	explanation         []string
+	placement           string
+	policy              string
+	routing             *RouteProof
+	fingerprint         string
+	compatibilityPrints []string
+	ruleVersions        []string
+	catalogVersions     []string
+	compatibilityTrace  []byte
+	trace               []byte
+	usage               *compat.Usage
 }
 
 func (s *Service) searchCurrentTripFill(ctx context.Context, actor Actor, cmd ConsolidationCommand, started time.Time) (Result, error) {
@@ -246,13 +251,14 @@ func summaryOf(trip currenttrip.CurrentTripContext) *CurrentTripSummary {
 func (s *Service) assessFill(ctx context.Context, searcher uuid.UUID, policy string, trip currenttrip.CurrentTripContext, load domain.LoadOpportunity) fillCandidate {
 	out := fillCandidate{
 		load: load, status: ConsolidationIndeterminate, compatibility: compat.StatusIndeterminate,
-		placement: PlacementNotEvaluated,
+		placement: PlacementNotEvaluated, policy: policy,
 	}
 	confirmed := confirmedUnits(trip)
 	if len(confirmed) == 0 {
 		out.indeterminate = []string{currenttrip.ReasonUnproven}
 		out.explanation = append([]string(nil), out.indeterminate...)
 		out.fingerprint = fillFingerprint(trip, load, out, nil)
+		out.trace = fillTrace(trip, load, out, nil)
 		return out
 	}
 	if exceeds(trip.ResidualCapacity.Payload) || exceeds(trip.ResidualCapacity.Volume) || exceeds(trip.ResidualCapacity.PalletPositions) || exceeds(trip.ResidualCapacity.LinearMeters) || trip.ResidualCapacity.Height.Status == currenttrip.HeightKnownExceeded {
@@ -271,6 +277,10 @@ func (s *Service) assessFill(ctx context.Context, searcher uuid.UUID, policy str
 	group := s.fillGroupage(ctx, searcher, load.OwnerTenantID, equipmentFromVehicle(trip.VehicleCapability), items)
 	out.compatibility = group.compatibility
 	out.usage = group.usage
+	out.compatibilityPrints = append([]string(nil), group.fingerprints...)
+	out.ruleVersions = append([]string(nil), group.ruleVersions...)
+	out.catalogVersions = append([]string(nil), group.catalogVersions...)
+	out.compatibilityTrace = append([]byte(nil), group.trace...)
 	out.conditions = append(out.conditions, group.conditions...)
 	for _, code := range group.hard {
 		out.hard = appendUnique(out.hard, code)
@@ -410,23 +420,25 @@ func addHeight(out *fillCandidate, load domain.LoadOpportunity, trip currenttrip
 }
 
 type groupOutcome struct {
-	compatibility string
-	hard          []string
-	indeterminate []string
-	conditions    []string
-	usage         *compat.Usage
+	compatibility   string
+	hard            []string
+	indeterminate   []string
+	conditions      []string
+	usage           *compat.Usage
+	fingerprints    []string
+	ruleVersions    []string
+	catalogVersions []string
+	trace           []byte
 }
 
 func (s *Service) fillGroupage(ctx context.Context, searcher, loadOwner uuid.UUID, equipment compat.Equipment, items []compat.GroupageItem) groupOutcome {
 	base := assessedPair{compatibility: compat.StatusIndeterminate, crossShipper: searcher != loadOwner}
-	if base.crossShipper {
-		base = s.assessSameOwner(ctx, base, equipment, items, "ok", "ok", searcher, loadOwner)
-	} else {
-		base = s.assessSameOwner(ctx, base, equipment, items, "ok", "ok", searcher, loadOwner)
-	}
+	base = s.assessSameOwner(ctx, base, equipment, items, "ok", "ok", searcher, loadOwner)
 	return groupOutcome{
 		compatibility: base.compatibility, hard: base.hard, indeterminate: base.indeterminate,
 		conditions: base.conditions, usage: base.usage,
+		fingerprints: append([]string(nil), base.fingerprints...), ruleVersions: append([]string(nil), base.ruleVersions...),
+		catalogVersions: append([]string(nil), base.catalogVersions...), trace: append([]byte(nil), base.trace...),
 	}
 }
 
@@ -580,6 +592,12 @@ func fillFingerprint(trip currenttrip.CurrentTripContext, load domain.LoadOpport
 	sort.Strings(evidence)
 	reasons := append(append([]string{}, out.hard...), out.indeterminate...)
 	sort.Strings(reasons)
+	prints := append([]string(nil), out.compatibilityPrints...)
+	rules := append([]string(nil), out.ruleVersions...)
+	catalogs := append([]string(nil), out.catalogVersions...)
+	sort.Strings(prints)
+	sort.Strings(rules)
+	sort.Strings(catalogs)
 	doc := map[string]any{
 		"shipment_id": trip.ShipmentID, "shipment_version": trip.ShipmentVersion,
 		"vehicle_id": vehicle, "vehicle_version": trip.VehicleVersion,
@@ -587,13 +605,15 @@ func fillFingerprint(trip currenttrip.CurrentTripContext, load domain.LoadOpport
 		"context_fingerprint": trip.InputFingerprint,
 		"position_freshness":  trip.PositionFreshnessStatus, "position_observed": observedStamp(trip.PositionObservedAt),
 		"eta_freshness": trip.ETAFreshnessStatus, "eta_observed": observedStamp(trip.ETAObservedAt),
-		"placement": out.placement, "status": out.status, "reasons": reasons,
-		"compatibility": out.compatibility,
+		"policy": out.policy, "placement": out.placement, "status": out.status, "reasons": reasons,
+		"compatibility_fingerprints": prints, "rule_sets": rules, "catalog_versions": catalogs,
 	}
 	if proof != nil {
 		doc["routing_fingerprint"] = proof.RequestFingerprint
 		doc["distance_m"] = proof.DistanceM
 		doc["duration_seconds"] = proof.DurationSeconds
+		doc["detour_distance_m"] = proof.DetourDistanceM
+		doc["detour_duration_seconds"] = proof.DetourDurationSeconds
 		doc["provider"] = proof.Provider
 	}
 	raw, _ := json.Marshal(doc)
@@ -602,11 +622,40 @@ func fillFingerprint(trip currenttrip.CurrentTripContext, load domain.LoadOpport
 }
 
 func fillTrace(trip currenttrip.CurrentTripContext, load domain.LoadOpportunity, out fillCandidate, proof *RouteProof) []byte {
+	onboard := make([]map[string]any, 0, len(trip.OnboardCargoUnits))
+	for _, unit := range trip.OnboardCargoUnits {
+		onboard = append(onboard, map[string]any{
+			"cargo_id": unit.CargoID, "cargo_version": unit.CargoVersion,
+			"evidence_state": unit.EvidenceState, "evidence_state_version": unit.EvidenceStateVersion,
+		})
+	}
+	evaluations := out.compatibilityTrace
+	if len(evaluations) == 0 {
+		evaluations = []byte("[]")
+	}
 	doc := map[string]any{
 		"shipment_id": trip.ShipmentID, "shipment_version": trip.ShipmentVersion,
-		"vehicle_version": trip.VehicleVersion, "load_id": load.ID, "load_version": load.Version,
-		"context_fingerprint": trip.InputFingerprint, "placement": out.placement,
-		"reasons": out.explanation,
+		"vehicle_version": trip.VehicleVersion, "confirmed_onboard": onboard,
+		"additional_load_id": load.ID, "additional_load_version": load.Version,
+		"position": map[string]any{"freshness": trip.PositionFreshnessStatus, "observed_at": observedStamp(trip.PositionObservedAt)},
+		"eta":      map[string]any{"freshness": trip.ETAFreshnessStatus, "observed_at": observedStamp(trip.ETAObservedAt)},
+		"residual_capacity": map[string]any{
+			"payload":          residualAudit(trip.ResidualCapacity.Payload),
+			"volume":           residualAudit(trip.ResidualCapacity.Volume),
+			"pallet_positions": residualAudit(trip.ResidualCapacity.PalletPositions),
+			"linear_meters":    residualAudit(trip.ResidualCapacity.LinearMeters),
+			"height": map[string]any{
+				"status": trip.ResidualCapacity.Height.Status, "provenance": trip.ResidualCapacity.Height.Provenance,
+			},
+		},
+		"policy": out.policy, "placement_check": out.placement,
+		"compatibility_fingerprints": append([]string(nil), out.compatibilityPrints...),
+		"compatibility_evaluations":  json.RawMessage(evaluations),
+		"hard_reasons":               append([]string(nil), out.hard...),
+		"indeterminate_reasons":      append([]string(nil), out.indeterminate...),
+		"conditions":                 append([]string(nil), out.conditions...),
+		"candidate_fingerprint":      out.fingerprint,
+		"input_fingerprint":          trip.InputFingerprint,
 	}
 	if trip.VehicleID != nil {
 		doc["vehicle_id"] = trip.VehicleID.String()
@@ -618,6 +667,10 @@ func fillTrace(trip currenttrip.CurrentTripContext, load domain.LoadOpportunity,
 	return raw
 }
 
+func residualAudit(dim currenttrip.SubtractiveDimension) map[string]any {
+	return map[string]any{"status": dim.Status, "provenance": dim.Provenance, "reason": dim.Reason}
+}
+
 func observedStamp(at *time.Time) string {
 	if at == nil {
 		return ""
@@ -627,6 +680,12 @@ func observedStamp(at *time.Time) string {
 
 func itoa(v int) string {
 	return jsonNumber(v)
+}
+
+func sortedCopy(values []string) []string {
+	out := append([]string(nil), values...)
+	sort.Strings(out)
+	return out
 }
 
 func jsonNumber(v int) string {
@@ -657,7 +716,7 @@ func (c fillCandidate) stored(searchID, tenant uuid.UUID, trip currenttrip.Curre
 	return repository.ConsolidationCandidate{
 		ID: uuid.New(), SearchRunID: searchID, TenantID: tenant, Pattern: PatternCurrentTripFill,
 		Status: c.status, ExecutionSupported: false, CompatibilityStatus: c.compatibility,
-		CompatibilityFingerprint: c.fingerprint, CandidateFingerprint: c.fingerprint,
+		CompatibilityFingerprint: joinPrints(sortedCopy(c.compatibilityPrints)), CandidateFingerprint: c.fingerprint,
 		PlacementCheck: c.placement, HardRejectReasons: emptyStrings(reasons),
 		IndeterminateReasonCodes: emptyStrings(c.indeterminate), Conditions: conditions,
 		Warnings: []byte("[]"), CompatibilityTrace: trace, CreatedAt: now,
