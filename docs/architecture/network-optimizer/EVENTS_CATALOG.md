@@ -77,3 +77,17 @@ Producer is the future network-optimizer context. Consumers are the owning carri
 Tenant context on every row is the aggregate owner's `tenant_id`. Cross-shipper consolidation events omit the other shipper's rate and identity from the payload. Internal ids of the other party are not on the externalized schema.
 
 Billing, RFx, and EDO events stay in their namespaces (`freight_settlement.*`, `billing_register.*`, future `edo.document.*`). The optimizer does not emit them.
+
+## NLO-0.4A proposed additions
+
+Not emitted. Not accepted. The v0.1 row `network.route_plan.generated` is not a lifecycle. NLO-0.4A proposes these names instead, still under `network.*`, past tense, and not published by this discovery:
+
+| Name | Producer | When |
+| --- | --- | --- |
+| `network.route_plan.evaluated` | network-optimizer-service | Bounded search persisted an `EVALUATED` plan |
+| `network.route_plan.accepted` | network-optimizer-service | Carrier accepted that version |
+| `network.route_plan.activation_requested` | network-optimizer-service | Activation row created. Shipment is not yet changed |
+| `network.route_plan.superseded` | network-optimizer-service | A successor plan committed |
+| `network.route_plan.cancelled` | network-optimizer-service | Plan withdrawn before execution linked |
+
+Execution names, if a later wave adds them, stay in the shipment namespace: `shipment.route_stop.arrived` and `shipment.route_stop.completed`. They are not optimizer events.

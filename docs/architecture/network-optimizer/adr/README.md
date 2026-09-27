@@ -1,6 +1,6 @@
 # ADR-NET index
 
-ADR-NET-001 through ADR-NET-012 are proposed records for the v0.1 freeze. ADR-NET-013 through ADR-NET-017 are Accepted. ADR-NET-017 implementation is accepted. `NLO_0_3E_ACCEPTED=YES`. `IMPLEMENTATION_CONTROLLER_ACCEPTANCE=PASS`. `RUNTIME_BLOCKING_FINDINGS=0`. NLO-0.4 is not started.
+ADR-NET-001 through ADR-NET-012 are proposed records for the v0.1 freeze. ADR-NET-013 through ADR-NET-017 are Accepted. ADR-NET-017 implementation is accepted. `NLO_0_3E_ACCEPTED=YES`. `IMPLEMENTATION_CONTROLLER_ACCEPTANCE=PASS`. `RUNTIME_BLOCKING_FINDINGS=0`. ADR-NET-018 through ADR-NET-021 are Proposed for NLO-0.4A. `NLO_0_4_IMPLEMENTATION_AUTHORIZED=NO`.
 
 | ID | Title |
 |----|-------|
@@ -21,3 +21,7 @@ ADR-NET-001 through ADR-NET-012 are proposed records for the v0.1 freeze. ADR-NE
 | [ADR-NET-015](ADR-NET-015-cross-shipper-opt-in-privacy.md) | Cross-shipper opt-in and privacy |
 | [ADR-NET-016](ADR-NET-016-bounded-consolidation-search.md) | Bounded deterministic consolidation search |
 | [ADR-NET-017](ADR-NET-017-bounded-consolidation-expansion.md) | NLO-0.3E bounded consolidation expansion |
+| [ADR-NET-018](ADR-NET-018-route-plan-ownership-lifecycle.md) | RoutePlan ownership and lifecycle |
+| [ADR-NET-019](ADR-NET-019-route-stop-action-leg.md) | Route stop, action, and leg |
+| [ADR-NET-020](ADR-NET-020-bounded-multi-stop-sequencing.md) | Bounded multi-stop sequencing |
+| [ADR-NET-021](ADR-NET-021-plan-acceptance-activation-execution.md) | Plan acceptance, activation, and execution |

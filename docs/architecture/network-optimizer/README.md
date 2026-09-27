@@ -60,9 +60,11 @@ Not a second freight exchange, not a second RFx engine, not a second freight-cos
 | [FINAL_ARCHITECTURE_REPORT.md](FINAL_ARCHITECTURE_REPORT.md) | Freeze verdict |
 | [NLO_0_3_CURRENT_STATE_INVENTORY.md](NLO_0_3_CURRENT_STATE_INVENTORY.md) | Code-backed inventory for current-trip fill |
 | [NLO_0_3_IMPLEMENTATION_ROADMAP.md](NLO_0_3_IMPLEMENTATION_ROADMAP.md) | Frozen waves, traceability, and acceptance |
-| [adr/](adr/) | ADR-NET-001 … ADR-NET-016 |
+| [NLO_0_4_IMPLEMENTATION_ROADMAP.md](NLO_0_4_IMPLEMENTATION_ROADMAP.md) | Proposed NLO-0.4 waves. Not authorized |
+| [NLO_0_4A_CURRENT_STATE_INVENTORY.md](NLO_0_4A_CURRENT_STATE_INVENTORY.md) | Route-plan discovery inventory |
+| [adr/](adr/) | ADR-NET-001 … ADR-NET-021 |
 
-ADR numbering follows the repository convention of a domain prefix (`ADR-EDO-*`, `ADR-RFX-*`, `ADR-PLAT-*`). ADR-NET-001 through ADR-NET-012 remain Proposed. ADR-NET-013 through ADR-NET-016 are Accepted. NLO-0.3A is FROZEN_ACCEPTED.
+ADR numbering follows the repository convention of a domain prefix (`ADR-EDO-*`, `ADR-RFX-*`, `ADR-PLAT-*`). ADR-NET-001 through ADR-NET-012 remain Proposed. ADR-NET-013 through ADR-NET-017 are Accepted. ADR-NET-018 through ADR-NET-021 are Proposed for NLO-0.4A and are not accepted. NLO-0.3 is complete. `NLO_0_4_IMPLEMENTATION_AUTHORIZED=NO`.
 
 ## Status labels used in discovery
 
