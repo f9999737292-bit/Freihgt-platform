@@ -20,7 +20,7 @@ func (p *Postgres) SaveConsolidation(ctx context.Context, run ConsolidationRun, 
 			started_at, completed_at, status, candidate_limit,
 			pool_load_count, evaluated_pair_count, created_at
 		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-		run.ID, run.TenantID, run.CapacityID, run.CapacityVersion, run.Pattern,
+		run.ID, run.TenantID, uuidArg(run.CapacityID), run.CapacityVersion, run.Pattern,
 		run.StartedAt, run.CompletedAt, run.Status, run.CandidateLimit,
 		run.PoolLoadCount, run.EvaluatedPairCount, run.CreatedAt,
 	); err != nil {
@@ -41,7 +41,7 @@ func (p *Postgres) SaveConsolidation(ctx context.Context, run ConsolidationRun, 
 				$15,$16,$17,
 				$18,$19,$20,$21,$22
 			)`,
-			candidate.ID, candidate.SearchRunID, candidate.TenantID, candidate.CapacityID, candidate.Pattern, candidate.Status, candidate.ExecutionSupported,
+			candidate.ID, candidate.SearchRunID, candidate.TenantID, uuidArg(candidate.CapacityID), candidate.Pattern, candidate.Status, candidate.ExecutionSupported,
 			candidate.CompatibilityStatus, candidate.CompatibilityFingerprint, candidate.CandidateFingerprint,
 			candidate.PickupOverlapStart, candidate.PickupOverlapEnd, candidate.DeliveryOverlapStart, candidate.DeliveryOverlapEnd,
 			candidate.PlacementCheck, candidate.HardRejectReasons, candidate.IndeterminateReasonCodes,
@@ -65,14 +65,22 @@ func (p *Postgres) SaveConsolidation(ctx context.Context, run ConsolidationRun, 
 
 func (p *Postgres) GetConsolidation(ctx context.Context, tenant, id uuid.UUID) (ConsolidationRun, []ConsolidationCandidate, error) {
 	var run ConsolidationRun
+	var capacityID *uuid.UUID
+	var capacityVersion *int
 	err := p.pool.QueryRow(ctx, `
 		SELECT id, tenant_id, capacity_id, capacity_version, pattern, started_at, completed_at, status,
 		       candidate_limit, pool_load_count, evaluated_pair_count, created_at
 		FROM network_optimizer.consolidation_search_runs
 		WHERE id = $1 AND tenant_id = $2`, id, tenant).Scan(
-		&run.ID, &run.TenantID, &run.CapacityID, &run.CapacityVersion, &run.Pattern, &run.StartedAt, &run.CompletedAt, &run.Status,
+		&run.ID, &run.TenantID, &capacityID, &capacityVersion, &run.Pattern, &run.StartedAt, &run.CompletedAt, &run.Status,
 		&run.CandidateLimit, &run.PoolLoadCount, &run.EvaluatedPairCount, &run.CreatedAt,
 	)
+	if capacityID != nil {
+		run.CapacityID = *capacityID
+	}
+	if capacityVersion != nil {
+		run.CapacityVersion = *capacityVersion
+	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ConsolidationRun{}, nil, ErrNotFound
 	}
@@ -95,14 +103,18 @@ func (p *Postgres) GetConsolidation(ctx context.Context, tenant, id uuid.UUID) (
 	var candidates []ConsolidationCandidate
 	for rows.Next() {
 		var candidate ConsolidationCandidate
+		var candidateCapacity *uuid.UUID
 		if err := rows.Scan(
-			&candidate.ID, &candidate.SearchRunID, &candidate.TenantID, &candidate.CapacityID, &candidate.Pattern, &candidate.Status, &candidate.ExecutionSupported,
+			&candidate.ID, &candidate.SearchRunID, &candidate.TenantID, &candidateCapacity, &candidate.Pattern, &candidate.Status, &candidate.ExecutionSupported,
 			&candidate.CompatibilityStatus, &candidate.CompatibilityFingerprint, &candidate.CandidateFingerprint,
 			&candidate.PickupOverlapStart, &candidate.PickupOverlapEnd, &candidate.DeliveryOverlapStart, &candidate.DeliveryOverlapEnd,
 			&candidate.PlacementCheck, &candidate.HardRejectReasons, &candidate.IndeterminateReasonCodes,
 			&candidate.Conditions, &candidate.Warnings, &candidate.CapacityUsage, &candidate.CompatibilityTrace, &candidate.CreatedAt,
 		); err != nil {
 			return ConsolidationRun{}, nil, err
+		}
+		if candidateCapacity != nil {
+			candidate.CapacityID = *candidateCapacity
 		}
 		candidates = append(candidates, candidate)
 	}
@@ -135,6 +147,13 @@ func (p *Postgres) GetConsolidation(ctx context.Context, tenant, id uuid.UUID) (
 		candidates[i].Members = byCandidate[candidates[i].ID]
 	}
 	return run, candidates, nil
+}
+
+func uuidArg(id uuid.UUID) any {
+	if id == uuid.Nil {
+		return nil
+	}
+	return id
 }
 
 func jsonOrEmpty(raw []byte, fallback string) []byte {

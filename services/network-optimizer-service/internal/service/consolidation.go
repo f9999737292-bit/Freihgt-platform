@@ -42,7 +42,9 @@ const (
 
 type ConsolidationCommand struct {
 	CapacityID     uuid.UUID
+	ShipmentID     uuid.UUID
 	Pattern        string
+	Policy         string
 	CandidateLimit *int
 }
 
@@ -71,6 +73,7 @@ type ConsolidationCandidateView struct {
 	Conditions               []string                  `json:"conditions,omitempty"`
 	IndeterminateReasonCodes []string                  `json:"indeterminate_reason_codes,omitempty"`
 	Explanation              []string                  `json:"explanation,omitempty"`
+	Routing                  *RouteProof               `json:"routing,omitempty"`
 }
 
 type ConsolidationResponse struct {
@@ -88,18 +91,24 @@ type ConsolidationResponse struct {
 	HardRejectCountsByReason    map[string]int               `json:"hard_reject_counts_by_reason"`
 	IndeterminateCountsByReason map[string]int               `json:"indeterminate_counts_by_reason"`
 	Candidates                  []ConsolidationCandidateView `json:"candidates"`
+	ShipmentID                  *uuid.UUID                   `json:"shipment_id,omitempty"`
+	ShipmentVersion             int                          `json:"shipment_version,omitempty"`
+	MaxAdditionalLoads          *int                         `json:"max_additional_loads,omitempty"`
+	ExecutionSupported          *bool                        `json:"execution_supported,omitempty"`
+	InputFingerprint            string                       `json:"input_fingerprint,omitempty"`
+	ContextSummary              *CurrentTripSummary          `json:"context_summary,omitempty"`
 }
 
 func (s *Service) SearchConsolidation(ctx context.Context, actor Actor, cmd ConsolidationCommand) (Result, error) {
 	started := s.now()
-	if cmd.CapacityID == uuid.Nil {
-		return Result{}, apperrors.Validation("capacity_id is required", map[string]any{"field": "capacity_id"})
-	}
 	if cmd.Pattern == "" {
 		return Result{}, apperrors.Validation("pattern is required", map[string]any{"field": "pattern"})
 	}
 	if cmd.Pattern == PatternCurrentTripFill {
-		return Result{}, apperrors.Validation("pattern is not implemented", map[string]any{"reason": "PATTERN_NOT_IMPLEMENTED"})
+		return s.searchCurrentTripFill(ctx, actor, cmd, started)
+	}
+	if cmd.CapacityID == uuid.Nil {
+		return Result{}, apperrors.Validation("capacity_id is required", map[string]any{"field": "capacity_id"})
 	}
 	if cmd.Pattern != PatternSameOriginDestination {
 		return Result{}, apperrors.Validation("pattern is not implemented", map[string]any{"reason": "PATTERN_NOT_IMPLEMENTED"})

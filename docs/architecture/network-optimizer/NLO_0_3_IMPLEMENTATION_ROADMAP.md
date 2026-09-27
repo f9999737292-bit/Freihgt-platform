@@ -1,13 +1,13 @@
 # NLO-0.3 implementation roadmap
 
-Architecture baseline: `origin/main` `6d47cc92`. Current implementation main: `cad3c67b93fd72329050db624ae048495ef0236f`. NLO-0.3A is FROZEN_ACCEPTED and CLOSED. NLO-0.3B is IMPLEMENTED / CLOSED. NLO-0.3C is IMPLEMENTED_CLOSED. NLO-0.3D and NLO-0.3E are NOT_STARTED. NLO-0.3 is not complete. This closeout does not start NLO-0.3D. GPS is not an NLO-0.2 dependency. Current-trip residual capacity is NLO-0.3.
+Architecture baseline: `origin/main` `6d47cc92`. Current implementation main: `cad3c67b93fd72329050db624ae048495ef0236f`. NLO-0.3A is FROZEN_ACCEPTED and CLOSED. NLO-0.3B is IMPLEMENTED / CLOSED. NLO-0.3C is IMPLEMENTED_CLOSED. NLO-0.3D is IMPLEMENTED_IN_BRANCH / UNDER_REVIEW and is not merged. NLO-0.3E is NOT_STARTED. NLO-0.3 is not complete. NLO-0.4 is not started. GPS is not an NLO-0.2 dependency. Current-trip residual capacity is NLO-0.3.
 
 ## What NLO-0.3 will implement
 
 Planning feasibility for:
 
 - a same-origin, same-destination pair of published loads, with owner-controlled opt-in and no current-trip dependency, now IMPLEMENTED / CLOSED as NLO-0.3B;
-- later, one confirmed onboard cargo projection plus exactly one additional published load, after unit-level onboard evidence exists. That wave is NOT_STARTED.
+- one confirmed onboard cargo projection plus exactly one additional published load. That wave is NLO-0.3D, IMPLEMENTED_IN_BRANCH / UNDER_REVIEW, planning only, `execution_supported=false`, `MAX_ADDITIONAL_LOADS=1`. It does not mutate a shipment.
 
 Both stay `PROPOSED`. Neither mutates a shipment.
 
@@ -32,7 +32,7 @@ Same statement as ADR-NET-015, the privacy document, and the API design. Both fl
 
 ## Waves
 
-The first product wave was pairwise consolidation because unit-level onboard evidence did not exist yet. A current-trip wave started first could not return a useful `FEASIBLE` result. That evidence now exists as NLO-0.3C. It does not enable `CURRENT_TRIP_FILL`.
+The first product wave was pairwise consolidation because unit-level onboard evidence did not exist yet. A current-trip wave started first could not return a useful `FEASIBLE` result. That evidence now exists as NLO-0.3C. NLO-0.3D uses it for planning-only fill of one additional load.
 
 ### NLO-0.3B — pairwise same-origin foundation
 
@@ -50,11 +50,11 @@ Out: current-trip context, residual occupancy, route insertion, execution, score
 
 ### NLO-0.3C — onboard evidence, trip context, residual snapshot
 
-Status: IMPLEMENTED_CLOSED. Merged in PR #176 at `cad3c67b93fd72329050db624ae048495ef0236f`. Feature head `d8b2b659f7fbc735bf84e53b458755a89311734d`. Migration `000082_nlo_onboard_evidence_current_trip_context_v0_3c`. `NLO_0_3D_STATUS=NOT_STARTED`. `CURRENT_TRIP_FILL_PUBLIC_ENABLED=NO`. `CURRENT_TRIP_FILL_RESULT=PATTERN_NOT_IMPLEMENTED`. `NLO_0_3_COMPLETE=NO`.
+Status: IMPLEMENTED_CLOSED. Merged in PR #176 at `cad3c67b93fd72329050db624ae048495ef0236f`. Feature head `d8b2b659f7fbc735bf84e53b458755a89311734d`. Migration `000082_nlo_onboard_evidence_current_trip_context_v0_3c`. `NLO_0_3_COMPLETE=NO`. NLO-0.3D is a later wave and does not change this closed status.
 
 Scope: shipment-service owns the onboard-cargo read and the append-only unit-level `CONFIRMED_ONBOARD` evidence. A shipment-wide status does not prove that cargo is onboard. BNO consumes the provider and builds server-side `CurrentTripContext` and `ResidualCapacitySnapshot` from trusted ports. Migration `000082` is that evidence table. It does not reuse `000081`. `NEW_EXECUTION_EVIDENCE_REQUIRED=YES` before a residual result can be `FEASIBLE`. This wave does not return that public result.
 
-API: none that treats caller residual facts as authority. `CURRENT_TRIP_FILL` remains `PATTERN_NOT_IMPLEMENTED`.
+API: none in this wave that treats caller residual facts as authority. Public `CURRENT_TRIP_FILL` search is NLO-0.3D, not this closed wave.
 
 Dependencies: the execution fact is migration `000082`. Shipment status, linked cargo, and planned quantity do not qualify by themselves. Driver events in shipment-service are shipment-scoped and do not name a cargo unit. The server reads `cargo_id` from the shipment inside the status transaction.
 
@@ -66,17 +66,17 @@ Out: load insertion, shipment writes.
 
 ### NLO-0.3D — one additional current-trip load
 
-Status: NOT_STARTED.
+Status: IMPLEMENTED_IN_BRANCH / UNDER_REVIEW. Not merged. Migration `000083_nlo_current_trip_fill_v0_3d` when this branch is accepted. `NLO_0_3E_STARTED=NO`. `NLO_0_3_COMPLETE=NO`.
 
-Scope: context from 0.3C plus one published load. Road insertion via the routing port. Location and ETA decisions follow the freshness status returned by tracking-service. `execution_supported=false`.
+Scope: context from 0.3C plus exactly one published load. Road insertion via the routing port. Location and ETA decisions follow the freshness status returned by tracking-service. Planning only. `execution_supported=false`. `MAX_ADDITIONAL_LOADS=1`. No shipment mutation.
 
-API: same search endpoint with pattern `CURRENT_TRIP_FILL`, `shipment_id` or a server-created `current_trip_context_id`, and `MAX_ADDITIONAL_LOADS=1`.
+API: same search endpoint with pattern `CURRENT_TRIP_FILL` and `shipment_id`. The caller does not submit residual facts or a raw context. There is no persisted `current_trip_context_id` in this wave.
 
 Dependencies: 0.3C and a `FRESH` position when insertion needs a position. Without `CONFIRMED_ONBOARD` the result is `INDETERMINATE`.
 
-Tests: stale, lost, and unknown location status, non-fresh ETA, window miss, road distance not Haversine, one extra load, caller residual facts ignored, multi-stop not activated.
+Tests: `NLO03D_001` through `NLO03D_018`, plus the 0.3B and 0.3C suites.
 
-Out: a second extra load, solver, slot booking.
+Out: a second extra load, solver, slot booking, assignment, reservation, NLO-0.3E, NLO-0.4.
 
 ### NLO-0.3E — bounded expansion and optional ranking
 

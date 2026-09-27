@@ -58,7 +58,9 @@ func (h *Handler) SearchConsolidation(w http.ResponseWriter, r *http.Request) {
 	}
 	var body struct {
 		CapacityID     uuid.UUID `json:"capacity_id"`
+		ShipmentID     uuid.UUID `json:"shipment_id"`
 		Pattern        string    `json:"pattern"`
+		Policy         string    `json:"policy"`
 		CandidateLimit *int      `json:"candidate_limit"`
 	}
 	if err := decode(raw, &body); err != nil {
@@ -66,7 +68,8 @@ func (h *Handler) SearchConsolidation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, err := h.svc.SearchConsolidation(r.Context(), actor, service.ConsolidationCommand{
-		CapacityID: body.CapacityID, Pattern: body.Pattern, CandidateLimit: body.CandidateLimit,
+		CapacityID: body.CapacityID, ShipmentID: body.ShipmentID, Pattern: body.Pattern,
+		Policy: body.Policy, CandidateLimit: body.CandidateLimit,
 	})
 	if err != nil {
 		var appErr *apperrors.AppError

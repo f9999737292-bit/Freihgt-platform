@@ -64,6 +64,10 @@ func (p *Provider) WithEquivalences(rows []PalletEquivalence) *Provider {
 	return p
 }
 
+func (p *Provider) Equivalences() []PalletEquivalence {
+	return append([]PalletEquivalence(nil), p.equivalences...)
+}
+
 func (p *Provider) Build(ctx context.Context, tenantID, shipmentID uuid.UUID) (CurrentTripContext, error) {
 	result := "built"
 	defer func() { bnometrics.CurrentTripContext(result) }()

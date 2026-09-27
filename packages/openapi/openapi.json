@@ -33075,7 +33075,6 @@
       "ConsolidationSearchRequest": {
         "type": "object",
         "required": [
-          "capacity_id",
           "pattern"
         ],
         "additionalProperties": false,
@@ -33084,13 +33083,26 @@
             "type": "string",
             "format": "uuid"
           },
+          "shipment_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Required for CURRENT_TRIP_FILL. The server builds the trip context. Residual facts are not accepted."
+          },
           "pattern": {
             "type": "string",
             "enum": [
               "SAME_ORIGIN_SAME_DESTINATION",
               "CURRENT_TRIP_FILL"
             ],
-            "description": "NLO-0.3B executes only SAME_ORIGIN_SAME_DESTINATION. CURRENT_TRIP_FILL returns PATTERN_NOT_IMPLEMENTED."
+            "description": "SAME_ORIGIN_SAME_DESTINATION requires capacity_id. CURRENT_TRIP_FILL requires shipment_id and plans exactly one additional load."
+          },
+          "policy": {
+            "type": "string",
+            "enum": [
+              "REHANDLING_FORBIDDEN",
+              "REHANDLING_ALLOWED"
+            ],
+            "description": "Omitted means REHANDLING_FORBIDDEN. Not a residual or onboard override."
           },
           "candidate_limit": {
             "type": "integer",
@@ -33132,8 +33144,36 @@
           "pattern": {
             "type": "string",
             "enum": [
-              "SAME_ORIGIN_SAME_DESTINATION"
+              "SAME_ORIGIN_SAME_DESTINATION",
+              "CURRENT_TRIP_FILL"
             ]
+          },
+          "shipment_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "shipment_version": {
+            "type": "integer"
+          },
+          "max_additional_loads": {
+            "type": "integer",
+            "enum": [
+              1
+            ]
+          },
+          "execution_supported": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "input_fingerprint": {
+            "type": "string"
+          },
+          "context_summary": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Output-only summary of the server-built current trip. Not accepted as a later request input."
           },
           "pool_load_count": {
             "type": "integer"
@@ -33198,7 +33238,8 @@
             "type": "string",
             "enum": [
               "FEASIBLE",
-              "INDETERMINATE"
+              "INDETERMINATE",
+              "HARD_REJECT"
             ]
           },
           "execution_supported": {
@@ -33210,12 +33251,15 @@
           "placement_check": {
             "type": "string",
             "enum": [
-              "NOT_EVALUATED"
+              "NOT_EVALUATED",
+              "SEQUENCE_OK",
+              "SEQUENCE_CONFLICT",
+              "REHANDLE_REQUIRED"
             ]
           },
           "members": {
             "type": "array",
-            "minItems": 2,
+            "minItems": 1,
             "maxItems": 2,
             "items": {
               "$ref": "#/components/schemas/ConsolidationMember"
@@ -33256,6 +33300,11 @@
             "items": {
               "type": "string"
             }
+          },
+          "routing": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Road figures from the routing provider. Absent when routing cannot prove the insertion."
           }
         }
       },

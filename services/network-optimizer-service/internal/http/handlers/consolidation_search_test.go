@@ -58,6 +58,21 @@ func TestNLO03B_011_SEARCHER_CANNOT_OVERRIDE_OPT_IN(t *testing.T) {
 	}
 }
 
+func TestNLO03D_CALLER_RESIDUAL_REJECTED(t *testing.T) {
+	h, carrier, _ := consolidationFixture(t)
+	shipment := uuid.New()
+	for _, body := range []string{
+		`{"pattern":"CURRENT_TRIP_FILL","shipment_id":"` + shipment.String() + `","residual_weight_kg":1}`,
+		`{"pattern":"CURRENT_TRIP_FILL","shipment_id":"` + shipment.String() + `","current_trip_context_id":"` + uuid.NewString() + `"}`,
+		`{"pattern":"CURRENT_TRIP_FILL","shipment_id":"` + shipment.String() + `","capacity_id":"` + uuid.NewString() + `"}`,
+	} {
+		rec := postConsolidation(t, h, carrier, body)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status %d body %s", rec.Code, rec.Body.String())
+		}
+	}
+}
+
 func TestNLO03B_090_UNKNOWN_SEARCH_FIELD_REJECTED(t *testing.T) {
 	h, carrier, cap := consolidationFixture(t)
 	rec := postConsolidation(t, h, carrier, `{"capacity_id":"`+cap.ID.String()+`","pattern":"SAME_ORIGIN_SAME_DESTINATION","rank":1}`)

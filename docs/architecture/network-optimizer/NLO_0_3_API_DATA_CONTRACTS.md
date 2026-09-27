@@ -1,6 +1,6 @@
 # NLO-0.3 API and data contracts
 
-Baseline: `origin/main` `6d47cc92`. Nothing in this document is implemented. `packages/openapi` is unchanged.
+Baseline: `origin/main` `6d47cc92`. NLO-0.3B and NLO-0.3C are IMPLEMENTED_CLOSED on main. NLO-0.3D is IMPLEMENTED_IN_BRANCH / UNDER_REVIEW: `CURRENT_TRIP_FILL` is planning only, `execution_supported=false`, `MAX_ADDITIONAL_LOADS=1`, and it does not mutate a shipment. This wave does not persist `current_trip_context_id`. NLO-0.3E is NOT_STARTED. NLO-0.3 is not complete.
 
 ## One search endpoint
 
@@ -12,7 +12,7 @@ The caller does not upload `CurrentTripContext`. Residual payload, onboard cargo
 
 `SAME_ORIGIN_SAME_DESTINATION` sends an owned `capacity_id`, pattern, policy, and optional `candidate_limit`. The server checks capacity tenant ownership, status, version, and effective capability. A foreign capacity is `NOT_FOUND`.
 
-`CURRENT_TRIP_FILL` sends `shipment_id`, pattern, policy, and optional `candidate_limit`. Alternatively it sends `current_trip_context_id` only after the server has created that context. The server assembles the context. A foreign shipment is `NOT_FOUND`. The response may include a context summary. That summary is not trusted input.
+`CURRENT_TRIP_FILL` sends `shipment_id`, pattern, policy, and optional `candidate_limit`. The server assembles the context. A foreign shipment is `NOT_FOUND`. The response may include a context summary. That summary is not trusted input. `current_trip_context_id` is not accepted in NLO-0.3D because the server does not persist that context.
 
 Opt-in is read from persisted load publication. The search body cannot set `consolidation_allowed` or `cross_shipper_consolidation_allowed`.
 
