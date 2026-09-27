@@ -45,6 +45,6 @@ Cross-shipper loads in one onboard interval use the NLO-0.3 rule. If ownership o
 
 ## Audit fingerprint
 
-The evaluation fingerprint covers ordered stop location ids, action types and load ids with versions, capacity or vehicle version, current-trip context fingerprint, per-leg routing fingerprints, compatibility fingerprints, catalog and rule versions, window inputs, `nlo-0.4a-insert-v1`, and the budget policy version.
+The evaluation fingerprint covers ordered stop location ids, action types and subject type, id, and version, capacity or vehicle version, current-trip context fingerprint, per-leg routing fingerprints, compatibility fingerprints, catalog and rule versions, window inputs, service-duration status, `nlo-0.4a-insert-v1`, and the budget policy version.
 
 The accepted plan version is the immutable snapshot id plus `version`. It is not recomputed by editing the evaluated row. A successor has its own fingerprint and `supersedes_plan_id`.

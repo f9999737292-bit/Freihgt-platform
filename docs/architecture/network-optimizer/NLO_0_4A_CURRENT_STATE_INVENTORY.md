@@ -23,7 +23,9 @@ Outbox names are dotted and shipment-owned: `shipment.created`, `shipment.status
 
 ## Current trip (NLO-0.3C / 0.3D)
 
-`network-optimizer-service/internal/currenttrip` builds `CurrentTripContext` on the server from shipment execution, onboard evidence, cargo profiles, vehicle capability, tracking position, and ETA. Callers do not submit residual capacity. Onboard proof is `CONFIRMED_ONBOARD`. Unknown occupancy stays unknown.
+`network-optimizer-service/internal/currenttrip` builds `CurrentTripContext` on the server from shipment execution, onboard evidence, cargo profiles, vehicle capability, tracking position, and ETA. Callers do not submit residual capacity. Onboard proof is `CONFIRMED_ONBOARD`. Unknown occupancy stays unknown. `OnboardCargoUnits` is a slice with no hard maximum of 2. `OnboardCargoUnit` carries `CargoID`, cargo profile version, evidence state, evidence state version, and evidence `OccurredAt`.
+
+`Shipment` has planned and actual pickup and delivery timestamps. It has no service-duration field. `OPEN_QUESTIONS.md` Q2 records that no dwell table exists.
 
 `searchCurrentTripFill` plans exactly one additional published load (`MaxAdditionalLoads = 1`). `insertRoad` calls `routing.Provider.Route` four times: direct position to destination, position to pickup, pickup to delivery, delivery to destination. Missing coordinates or a nil provider returns `ROUTING_PROVIDER_UNAVAILABLE`. The search does not insert a shipment stop, assign a driver, or book a slot. `execution_supported=false`.
 
@@ -39,7 +41,7 @@ Load opportunities and capacities live in `network-optimizer-service`. Canonical
 
 ## Slot booking
 
-No slot-booking service or reservation table was found. The shipment status machine has `PICKUP_SLOT_BOOKED` and `DELIVERY_SLOT_BOOKED` as execution statuses. NLO-0.3D tests forbid a "book slot" side effect. Planning does not own a slot.
+No slot-booking service or reservation table was found. The shipment status machine names `PICKUP_SLOT_BOOKED`. `DELIVERY_SLOT_BOOKED` is a constant and appears in a prediction status list, but it is not a target in `allowedStatusTransitions`. NLO-0.3D tests forbid a "book slot" side effect. Planning does not own a slot.
 
 ## Transport order
 

@@ -23,7 +23,7 @@ Later implementation must include:
 - Two loads with the same delivery `location_id` share one stop.
 - A stop may contain a delivery and a later load's pickup when the location matches. Action order is pickup-before-delivery for the same load.
 - A completed stop is not an insertion gap and does not change ordinal relative to other completed stops.
-- Confirmed onboard cargo remains in the residual ledger. Its delivery is not dropped.
+- Confirmed onboard cargo remains in the residual ledger. Its delivery is kept. It does not receive a synthetic pickup.
 
 ## Capacity and compatibility
 
@@ -40,14 +40,37 @@ Later implementation must include:
 - Arrival after the window is `STOP_WINDOW_VIOLATION`.
 - Provider unknown, timeout, and unavailable are `ROUTING_UNAVAILABLE` and do not store distance 0.
 - Haversine is not written into `distance_m`.
-- The same `RouteLegKey` inside one search is one provider call.
+- The same `RouteLegKey` inside one search is one provider call. A different departure bucket is a different key.
+- `UNIQUE_LOCATION_PAIRS` is not asserted as the provider-call count.
 - Sequence generation and tie-break are stable across repeated runs.
 
-## Budgets
+## Budgets and search results
 
-- `MAX_STOPS=8`, `MAX_ADDITIONAL_LOADS=2`, `MAX_SEQUENCE_CANDIDATES=64`, `MAX_ROUTING_CALLS=300`, and the 5 second watchdog each fail closed as `SEARCH_BUDGET_EXCEEDED` with the matching `budget` value.
-- A stopped search is `SEARCH_BUDGET_EXHAUSTED`, never `NO_FEASIBLE_SEQUENCE`.
-- `NO_FEASIBLE_SEQUENCE` appears only when the bounded pairs were all evaluated.
+- `MAX_STOPS=8`, `MAX_ADDITIONAL_LOADS=2`, `MAX_SEQUENCE_CANDIDATES=64`, `MAX_ROUTE_LEG_EVALUATIONS=300`, `MAX_ROUTING_PROVIDER_CALLS=300`, `MAX_GROUPAGE_EVALUATIONS=600`, and the 5 second watchdog each fail closed as `SEARCH_BUDGET_EXHAUSTED`.
+- `MAX_ROUTE_LOAD_SUBJECTS=4` fails as `PLAN_LOAD_LIMIT_EXCEEDED` and does not drop onboard cargo.
+- A stopped search is `SEARCH_BUDGET_EXHAUSTED`.
+- A finished heuristic with no plan is `NO_PLAN_FOUND_WITHIN_POLICY`.
+- The public API does not return `NO_FEASIBLE_SEQUENCE` for this heuristic.
+- Greedy search of 43 candidates on 4 future stops is not the 435-candidate parent-retention tree.
+- Load order is lexicographic load id. Another order is not searched.
+
+## Current trip, duration, and activation
+
+- `GREEDY_SEARCH_DOES_NOT_CLAIM_GLOBAL_INFEASIBILITY`
+- `ALTERNATIVE_FIRST_INSERTION_COULD_BE_FEASIBLE` does not become `NO_FEASIBLE_SEQUENCE`
+- `LOAD_ORDER_IS_DETERMINISTIC`
+- `CURRENT_TRIP_INITIAL_ONBOARD_SET_SEEDED`
+- `ONBOARD_CARGO_HAS_DELIVERY_WITHOUT_SYNTHETIC_PICKUP`
+- Three onboard plus one additional is allowed.
+- Three onboard plus two additional is rejected.
+- Four onboard plus one additional is rejected.
+- `UNKNOWN_SERVICE_DURATION_INDETERMINATE`
+- `ZERO_SERVICE_DURATION_NOT_ASSUMED`
+- Depot-start activation allows only `CARRIER_ASSIGNED`, `ACCEPTED_BY_CARRIER`, `VEHICLE_ASSIGNED`, `DRIVER_ASSIGNED`, and `PICKUP_SLOT_BOOKED`.
+- Current-trip activation allows `LOADED` and `IN_TRANSIT`, and also `IN_PICKUP`.
+- `CURRENT_TRIP_ACTIVATION_DOES_NOT_RESET_SHIPMENT_STATUS`
+- Route-leg evaluation budget, routing-provider call budget, and groupage evaluation budget are separate.
+- The same location pair with a different departure bucket is a different cache key and may be another provider call.
 
 ## Concurrency and tenancy
 

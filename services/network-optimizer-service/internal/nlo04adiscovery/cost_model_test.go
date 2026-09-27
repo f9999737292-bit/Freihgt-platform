@@ -33,10 +33,10 @@ func place(stops []int, pickupGap, deliveryGap, pickupLoc, deliveryLoc int) []in
 }
 
 type searchCost struct {
-	candidates  int
-	legsNoCache int
-	uniqueLegs  int
-	finalStops  int
+	candidates          int
+	legsNoCache         int
+	uniqueLocationPairs int
+	finalStops          int
 }
 
 func incrementalInsertion(startStops, loads int) searchCost {
@@ -45,6 +45,8 @@ func incrementalInsertion(startStops, loads int) searchCost {
 		current[i] = i + 1
 	}
 	nextLoc := 1000
+	// Location pairs only. A real RouteLegKey also includes profile, traffic mode,
+	// and departure bucket, so this count is not a provider-call count.
 	seen := map[[2]int]struct{}{}
 	var cost searchCost
 	for load := 0; load < loads; load++ {
@@ -67,9 +69,18 @@ func incrementalInsertion(startStops, loads int) searchCost {
 		}
 		current = winner
 	}
-	cost.uniqueLegs = len(seen)
+	cost.uniqueLocationPairs = len(seen)
 	cost.finalStops = len(current)
 	return cost
+}
+
+// fullTwoLoadRetention counts the two-load tree if every first-load parent is kept.
+// Each retained parent grows by two stops. This is a comparison, not a planner.
+func fullTwoLoadRetention(futureStops int) (first, second, total int) {
+	first = insertionPairs(futureStops)
+	second = first * insertionPairs(futureStops+2)
+	total = first + second
+	return first, second, total
 }
 
 func TestNLO04AInsertionCostModel(t *testing.T) {
@@ -96,12 +107,23 @@ func TestNLO04AInsertionCostModel(t *testing.T) {
 	if richTwo.legsNoCache > 300 || richThree.legsNoCache <= 300 {
 		t.Fatalf("rich +2 %+v +3 %+v", richTwo, richThree)
 	}
-	if richTwo.uniqueLegs >= richTwo.legsNoCache {
-		t.Fatalf("leg reuse did not reduce calls: %+v", richTwo)
+	if richTwo.uniqueLocationPairs >= richTwo.legsNoCache {
+		t.Fatalf("location pairs did not reduce below leg evaluations: %+v", richTwo)
 	}
-	t.Logf("ANCHOR stops=2 +1 candidates=%d legs=%d unique=%d", one.candidates, one.legsNoCache, one.uniqueLegs)
-	t.Logf("ANCHOR stops=2 +2 candidates=%d legs=%d unique=%d", two.candidates, two.legsNoCache, two.uniqueLegs)
-	t.Logf("ANCHOR stops=2 +3 candidates=%d legs=%d unique=%d", three.candidates, three.legsNoCache, three.uniqueLegs)
-	t.Logf("RICH stops=4 +2 candidates=%d legs=%d unique=%d stops=%d", richTwo.candidates, richTwo.legsNoCache, richTwo.uniqueLegs, richTwo.finalStops)
-	t.Logf("RICH stops=4 +3 candidates=%d legs=%d unique=%d stops=%d", richThree.candidates, richThree.legsNoCache, richThree.uniqueLegs, richThree.finalStops)
+	if richTwo.candidates != 43 {
+		t.Fatalf("greedy 4-stop +2 candidates=%d, want 15+28", richTwo.candidates)
+	}
+	first, second, total := fullTwoLoadRetention(4)
+	if first != 15 || second != 420 || total != 435 {
+		t.Fatalf("full retention first=%d second=%d total=%d", first, second, total)
+	}
+	if richTwo.candidates == total {
+		t.Fatal("greedy count must stay below full parent retention")
+	}
+	t.Logf("ANCHOR stops=2 +1 candidates=%d legs=%d locationPairs=%d", one.candidates, one.legsNoCache, one.uniqueLocationPairs)
+	t.Logf("ANCHOR stops=2 +2 candidates=%d legs=%d locationPairs=%d", two.candidates, two.legsNoCache, two.uniqueLocationPairs)
+	t.Logf("ANCHOR stops=2 +3 candidates=%d legs=%d locationPairs=%d", three.candidates, three.legsNoCache, three.uniqueLocationPairs)
+	t.Logf("RICH stops=4 +2 greedy=%d legs=%d locationPairs=%d stops=%d", richTwo.candidates, richTwo.legsNoCache, richTwo.uniqueLocationPairs, richTwo.finalStops)
+	t.Logf("RICH stops=4 +3 greedy=%d legs=%d locationPairs=%d stops=%d", richThree.candidates, richThree.legsNoCache, richThree.uniqueLocationPairs, richThree.finalStops)
+	t.Logf("RICH stops=4 full retention first=%d second=%d total=%d greedy=%d", first, second, total, richTwo.candidates)
 }

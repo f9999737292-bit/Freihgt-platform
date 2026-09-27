@@ -7,7 +7,9 @@ ADR_STATUS=PROPOSED
 ARCHITECTURE_FROZEN=NO
 ROUTE_PLAN_OWNER=network-optimizer-service
 EXECUTION_OWNER=shipment-service
-ACCEPTED_PLAN_IMMUTABLE=YES
+ACCEPTED_PLAN_STRUCTURE_IMMUTABLE=YES
+PLAN_STRUCTURE_IMMUTABLE_AFTER_EVALUATION=YES
+LIFECYCLE_STATUS_MUTABLE=YES
 MULTIPLE_ACTIONS_PER_STOP=YES
 MIGRATION_CREATED=NO
 ```
@@ -20,7 +22,7 @@ NLO-0.3 contracts stay as they are. `CURRENT_TRIP_FILL` remains one additional l
 
 ## RoutePlan
 
-One row is one immutable version.
+One row is one plan version. After `EVALUATED` is persisted, the structure does not change: stops, actions, legs, capacity snapshots, dependencies, and fingerprints. Lifecycle status and its clocks may move under compare-and-swap and idempotent commands: `EVALUATED` to `ACCEPTED`, then to `SUPERSEDED` or `CANCELLED`. That is not an edit of the route.
 
 | Field | Role |
 | --- | --- |
@@ -49,7 +51,12 @@ SUPERSEDED
 CANCELLED
 ```
 
-`DRAFT` is not used. Evaluation persists the plan. `ACTIVE` and `COMPLETED` are not plan states. Execution progress lives on the shipment. A cancelled plan was accepted or evaluated and then withdrawn before execution linked it. A superseded plan has a successor. An accepted plan is not edited.
+`DRAFT` is not used. Evaluation persists the plan. `ACTIVE` and `COMPLETED` are not plan states. Execution progress lives on the shipment. A cancelled plan was accepted or evaluated and then withdrawn before execution linked it. A superseded plan has a successor. Structure of an evaluated plan is not edited. Status transitions are the lifecycle metadata described above.
+
+```text
+PLAN_STRUCTURE_IMMUTABLE_AFTER_EVALUATION=YES
+LIFECYCLE_STATUS_MUTABLE=YES
+```
 
 ## RouteStop
 
@@ -68,8 +75,8 @@ COMPLETED_STOP_REORDER=NO
 | `route_plan_id`, `stop_id`, `ordinal` | Ordinal is `1..MAX_STOPS`, unique per plan |
 | `location_id` | Required. Same identity rule as NLO-0.3 |
 | `stop_role` | `START`, `CARGO`, or `END` |
-| `planned_arrival`, `planned_departure` | Forward propagation result |
-| `service_duration` | Sum of action service times at this stop |
+| `planned_arrival`, `planned_departure` | Forward propagation result when service duration is known. Otherwise the time fields stay unset and time feasibility is `INDETERMINATE` |
+| `service_duration` | Known only from an authoritative source. Cargo stops do not default to 0. See the algorithm document |
 | `provenance` | `CURRENT_POSITION`, `ONBOARD_DELIVERY`, `ADDITIONAL_LOAD`, `TRIP_DESTINATION` |
 
 `START` is the current position for `CURRENT_TRIP`, or the depot for `DEPOT_START`. It is not reordered. `END` is the trip destination when the trusted context has one, and it stays last. Actual arrival and departure are not stored on this row. They belong to shipment execution.
@@ -78,16 +85,53 @@ A stop may exist without a cargo action only for `START` and `END`. The v0.4 pla
 
 ## RouteStopAction
 
+An action names a `RouteLoadSubject`. It does not require `load_opportunity_id`.
+
 ```text
+RouteLoadSubject
+  subject_type = LOAD_OPPORTUNITY or SHIPMENT_CARGO
+  subject_id
+  subject_version
+
 RouteStopAction
-action_type = PICKUP or DELIVERY
-load_opportunity_id
-shipment_cargo_id when the action is confirmed onboard cargo
-quantity_delta for weight, volume, pallets, linear metres
-window_start, window_end
+  subject_type
+  subject_id
+  subject_version
+  action_type = PICKUP or DELIVERY
+  quantity_delta for weight, volume, pallets, linear metres
+  window_start, window_end
 ```
 
-`START` and `END` are stop roles, not cargo actions. `BREAK` is not a v0.4 action. Several actions may share one stop when `location_id` is equal. Pickup of load L and delivery of load L are never the same action. Pickup ordinal is less than or equal to delivery ordinal, and when they share a stop the pickup action is ordered before the delivery action.
+A subject is one logical cargo, not one shipment and not one action. Counting rules:
+
+- Confirmed onboard cargo is `SHIPMENT_CARGO`. Its id is `OnboardCargoUnit.CargoID`. Its version is the cargo profile version.
+- An additional marketplace load is `LOAD_OPPORTUNITY`.
+- Cargo already on the executing shipment but not yet picked up is `SHIPMENT_CARGO` and is an existing future route load.
+- If a load opportunity has been materialized as that shipment cargo id, it is the same subject. It is not counted again and it does not receive a second pickup. The evaluate request is rejected as `DUPLICATE_ROUTE_LOAD_SUBJECT` before search.
+
+```text
+ADDITIONAL LOAD:
+  subject_type=LOAD_OPPORTUNITY
+  actions=pickup and delivery
+
+ALREADY ONBOARD:
+  subject_type=SHIPMENT_CARGO
+  actions=delivery only
+```
+
+Onboard delivery provenance, copied from the trusted context and not from the caller:
+
+```text
+shipment_id
+shipment_version
+cargo_id
+cargo_version
+evidence_state = CONFIRMED_ONBOARD
+evidence_state_version
+evidence_occurred_at
+```
+
+`START` and `END` are stop roles, not cargo actions. `BREAK` is not a v0.4 action. Several actions may share one stop when `location_id` is equal. Pickup of subject L and delivery of subject L are never the same action. For a subject that has both, pickup ordinal is less than or equal to delivery ordinal, and when they share a stop the pickup action is ordered before the delivery action. Already-onboard cargo has no pickup action in the plan.
 
 ## RouteLeg
 
@@ -106,9 +150,11 @@ Geometry and the raw provider payload are not persisted in v0.4. The port may re
 
 ## Capacity ledger
 
-`RouteCapacitySnapshot` is calculated after every cargo action and persisted with the accepted plan as an audit row. It is not a live balance that later code mutates.
+`RouteCapacitySnapshot` is calculated after every future cargo action and persisted with the plan as an audit row. It is not a live balance that later code mutates.
 
-Each snapshot records weight, volume, pallet count, linear metres, and whether temperature, ADR, and food-grade constraints were known. The onboard set for a leg is every load whose pickup action is at or before the leg and whose delivery action is after the leg. `EvaluateGroupageItems` runs on that set. Unknown required facts stay `INDETERMINATE`.
+For `CURRENT_TRIP`, the first snapshot is the trusted NLO-0.3C residual at `START`. `INITIAL_CAPACITY_SOURCE=CURRENT_TRIP_CONTEXT`. The caller does not recompute occupancy. Each later snapshot follows one action. If a required residual dimension is `UNKNOWN`, the plan result is `INDETERMINATE`.
+
+Each snapshot records weight, volume, pallet count, linear metres, and whether temperature, ADR, and food-grade constraints were known. The onboard set starts as confirmed onboard cargo and then follows pickups and deliveries. It is not inferred by inventing a pickup for cargo that is already loaded. `EvaluateGroupageItems` runs on the set for each following leg. Unknown required facts stay `INDETERMINATE`.
 
 ## Dependencies
 
@@ -126,7 +172,8 @@ route_plan_stops
   route_plan_id, stop_id, ordinal, location_id, stop_role
 
 route_stop_actions
-  stop_id, action_ordinal, action_type, load_opportunity_id
+  stop_id, action_ordinal, action_type
+  subject_type, subject_id, subject_version
 
 route_plan_legs
   route_plan_id, from_stop_id, to_stop_id
@@ -163,7 +210,10 @@ Errors:
 | Condition | Result |
 | --- | --- |
 | Foreign shipment or capacity | `404` |
-| Budget, pool, or stop cap | `422` `SEARCH_BUDGET_EXCEEDED` or `POOL_LIMIT_EXCEEDED` |
+| Base subjects plus requested additional loads above 4, or more than 4 subjects already | `422` `PLAN_LOAD_LIMIT_EXCEEDED` |
+| Same cargo named twice | `422` `DUPLICATE_ROUTE_LOAD_SUBJECT` |
+| Search cap | `422` `SEARCH_BUDGET_EXHAUSTED` with `SEARCH_BUDGET_EXCEEDED` |
+| Heuristic finished with no plan | `NO_PLAN_FOUND_WITHIN_POLICY` |
 | Version mismatch | `409` `PLAN_STALE` |
 | Second activate with the same key and body | Replay of the first activation |
 | Routing provider down | `ROUTING_UNAVAILABLE`, not a zero-length leg |
