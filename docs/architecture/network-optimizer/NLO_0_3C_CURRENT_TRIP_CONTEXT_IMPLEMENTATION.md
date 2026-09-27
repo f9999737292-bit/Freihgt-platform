@@ -1,6 +1,18 @@
 # NLO-0.3C current trip context
 
-Status: IMPLEMENTED_IN_BRANCH / UNDER_REVIEW. This document describes the branch. It is not a merge closeout. NLO-0.3D is not started. NLO-0.3 is not complete.
+Status: IMPLEMENTED_CLOSED. Merged to main in PR #176. Feature head `d8b2b659f7fbc735bf84e53b458755a89311734d`. Merge SHA `cad3c67b93fd72329050db624ae048495ef0236f`. CI run `36272844616` succeeded on that feature head. Migration `000082_nlo_onboard_evidence_current_trip_context_v0_3c`.
+
+```text
+NLO_0_3C_STATUS=IMPLEMENTED_CLOSED
+NLO_0_3C_MERGED=YES
+NLO_0_3C_MERGE_SHA=cad3c67b93fd72329050db624ae048495ef0236f
+CURRENT_TRIP_FILL_PUBLIC_ENABLED=NO
+CURRENT_TRIP_FILL_RESULT=PATTERN_NOT_IMPLEMENTED
+NLO_0_3_COMPLETE=NO
+NLO_0_3D_STATUS=NOT_STARTED
+```
+
+NLO-0.3D is not started. NLO-0.3 is not complete. Residual capacity is not a public search input.
 
 ## Authoritative evidence
 
