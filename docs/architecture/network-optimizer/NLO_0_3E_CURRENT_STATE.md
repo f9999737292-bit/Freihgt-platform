@@ -1,6 +1,6 @@
 # NLO-0.3E current state
 
-Discovery baseline: `origin/main` `6576034a4f39b451341ad72667c5fc25f6562658`. Migration head `000083_nlo_current_trip_fill_v0_3d`. NLO-0.3B, NLO-0.3C, and NLO-0.3D are IMPLEMENTED_CLOSED. This document records the code that exists. It does not change it.
+Discovery baseline: `origin/main` `6576034a4f39b451341ad72667c5fc25f6562658`. The sections below describe that baseline. Implementation adds migration `000084_nlo_bounded_n_member_search_v0_3e` and dispatches `SAME_ORIGIN_SAME_DESTINATION_N_MEMBER`. `NLO_0_3E_IMPLEMENTED=YES`. `NLO_0_3E_ACCEPTED=NO`. `CONTROLLER_REVIEW_PENDING=YES`. NLO-0.4 is not started.
 
 `CURRENT_TRIP_FILL_PUBLIC_ENABLED=YES` for the planning search only. `MAX_ADDITIONAL_LOADS=1`. `EXECUTION_SUPPORTED=NO`.
 
@@ -77,8 +77,8 @@ The code does not emit `bno_consolidation_hard_reject_total`, `bno_consolidation
 
 ## Persistence shape
 
-`consolidation_search_runs` and `consolidation_candidates` can store a search of set size 2. `consolidation_candidate_members` has `CHECK (ordinal IN (1, 2))` in migration `000081`. OpenAPI `ConsolidationMember.ordinal` is enum `[1, 2]` and `members.maxItems` is 2 (`packages/openapi/network-optimizer-service.yaml`). A set with three or more loads cannot be stored without a later migration. This discovery does not add migration `000084`.
+`consolidation_search_runs` and `consolidation_candidates` can store a search of set size 2. `consolidation_candidate_members` has `CHECK (ordinal IN (1, 2))` in migration `000081`. OpenAPI `ConsolidationMember.ordinal` is enum `[1, 2]` and `members.maxItems` is 2 (`packages/openapi/network-optimizer-service.yaml`). A set with three or more loads could not be stored on that baseline. Implementation adds migration `000084_nlo_bounded_n_member_search_v0_3e`.
 
 ## Public API
 
-`POST /v1/network/consolidation/search` dispatches `CURRENT_TRIP_FILL` and `SAME_ORIGIN_SAME_DESTINATION`. An unknown pattern returns `PATTERN_NOT_IMPLEMENTED`. `SAME_ORIGIN_SAME_DESTINATION_N_MEMBER` is not dispatched. The existing pairwise pattern stays set size 2. No second search route exists.
+On the discovery baseline, `POST /v1/network/consolidation/search` dispatched `CURRENT_TRIP_FILL` and `SAME_ORIGIN_SAME_DESTINATION`. An unknown pattern returns `PATTERN_NOT_IMPLEMENTED`. The implementation wave dispatches `SAME_ORIGIN_SAME_DESTINATION_N_MEMBER` on that same route. The existing pairwise pattern stays set size 2. No second search route exists.

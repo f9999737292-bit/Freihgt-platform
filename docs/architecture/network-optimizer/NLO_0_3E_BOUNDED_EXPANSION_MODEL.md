@@ -1,6 +1,6 @@
 # NLO-0.3E bounded expansion model
 
-Controller acceptance is recorded. This document does not implement a search.
+Controller acceptance of the architecture is recorded. Implementation is in controller review and is not accepted.
 
 ```text
 NLO_0_3E_ARCHITECTURE=FROZEN_ACCEPTED
@@ -13,8 +13,11 @@ ARCHITECTURE_FROZEN=YES
 TEST_STRATEGY_FROZEN=YES
 CONTROLLER_ACCEPTANCE=PASS
 BLOCKING_FINDINGS=0
-IMPLEMENTATION_AUTHORIZED=NO
-NLO_0_3E_IMPLEMENTATION_STARTED=NO
+IMPLEMENTATION_AUTHORIZED=YES
+NLO_0_3E_IMPLEMENTATION_STARTED=YES
+NLO_0_3E_IMPLEMENTED=YES
+NLO_0_3E_ACCEPTED=NO
+CONTROLLER_REVIEW_PENDING=YES
 ```
 
 ```text
@@ -68,7 +71,10 @@ TIME_BUDGET_IS_SLO=NO
 NLO03E_I001=RESOLVED
 NLO03E_I002=RESOLVED_AT_DESIGN_LEVEL
 NLO03E_I003=RESOLVED_AT_DESIGN_LEVEL
-IMPLEMENTATION_AUTHORIZED=NO
+IMPLEMENTATION_AUTHORIZED=YES
+NLO_0_3E_IMPLEMENTED=YES
+NLO_0_3E_ACCEPTED=NO
+CONTROLLER_REVIEW_PENDING=YES
 ```
 
 Structural counts are the primary budget. The 5 second watchdog does not raise the set count or the groupage count. These ceilings apply only to `SAME_ORIGIN_SAME_DESTINATION_N_MEMBER`. Pool 50, 100, and 500 remain measurements of today's unbounded pairwise search. They are not the N-member ceiling, and NLO-0.3E does not apply the pool of 10 to the legacy pairwise pattern.
@@ -241,9 +247,9 @@ OR
 
 `searchCurrentTripFill` sets `EvaluatedPairCount` to the number of opted-in loads it assessed and stores that integer in `evaluated_pair_count`. The run leaves `capacity_id` and `capacity_version` null. NLO-0.3E does not rename that current-trip field and does not move it to `evaluated_set_count`.
 
-## Future migration shape
+## Migration shape
 
-Not created. Not reserved. `000084` is not used. `MIGRATION_CREATED=NO`. `MIGRATION_RESERVED=NO`.
+Implemented as `000084_nlo_bounded_n_member_search_v0_3e`. `MIGRATION_CREATED=YES`. The checks below are the accepted shape.
 
 Pattern check, and no other pattern:
 

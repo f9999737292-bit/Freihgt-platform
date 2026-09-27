@@ -5,11 +5,14 @@ Baseline: `origin/main` `6576034a4f39b451341ad72667c5fc25f6562658`. NLO-0.3B, NL
 ```text
 NLO_0_3E_ARCHITECTURE=FROZEN_ACCEPTED
 NLO_0_3E_TEST_STRATEGY=FROZEN_ACCEPTED
-IMPLEMENTATION_STARTED=NO
+IMPLEMENTATION_STARTED=YES
+NLO_0_3E_IMPLEMENTED=YES
+NLO_0_3E_ACCEPTED=NO
+CONTROLLER_REVIEW_PENDING=YES
 ADR_STATUS=ACCEPTED
 ```
 
-NLO-0.4 is NOT_STARTED. NLO-0.3 is not complete. This document records the accepted NLO-0.3E contract. It does not change generated OpenAPI, and it does not start implementation.
+NLO-0.4 is NOT_STARTED. NLO-0.3 is not complete. This document records the accepted NLO-0.3E contract. Implementation is in controller review and is not accepted.
 
 ## One search endpoint
 

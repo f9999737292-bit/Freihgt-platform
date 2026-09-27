@@ -1,6 +1,6 @@
 # ADR-NET-017: NLO-0.3E bounded consolidation expansion
 
-Status: Accepted. Controller acceptance is recorded. Implementation is not authorized and has not started.
+Status: Accepted. The accepted decision is unchanged. Implementation of that decision is in controller review and is not accepted.
 
 ```text
 ADR_STATUS=ACCEPTED
@@ -24,9 +24,14 @@ NLO03E_I003=RESOLVED_AT_DESIGN_LEVEL
 ARCHITECTURE_FROZEN=YES
 TEST_STRATEGY_FROZEN=YES
 BLOCKING_FINDINGS=0
-IMPLEMENTATION_AUTHORIZED=NO
-NLO_0_3E_IMPLEMENTATION_STARTED=NO
+IMPLEMENTATION_AUTHORIZED=YES
+NLO_0_3E_IMPLEMENTATION_STARTED=YES
+NLO_0_3E_IMPLEMENTED=YES
+NLO_0_3E_ACCEPTED=NO
+CONTROLLER_REVIEW_PENDING=YES
 ```
+
+Implementation migration: `000084_nlo_bounded_n_member_search_v0_3e`. This note does not change the accepted decision.
 
 Baseline: `origin/main` `6576034a4f39b451341ad72667c5fc25f6562658`. Measurements: `NLO_0_3E_MEASUREMENTS.md`.
 
@@ -60,7 +65,7 @@ Persistence (`NLO03E_I002`): live constraints are migration `000081` plus `00008
 
 The later migration, not created and not reserved as `000084`, widens the pattern check to those two values plus `SAME_ORIGIN_SAME_DESTINATION_N_MEMBER` and no other pattern. The context check requires non-null `capacity_id` and `capacity_version` for both same-origin patterns, and null capacity columns for `CURRENT_TRIP_FILL`. It adds nullable `evaluated_set_count` and allows `evaluated_pair_count` to be null only where the count check says so: pairwise and current-trip rows keep a pair count and a null set count; an N-member row keeps a set count and a null pair count. Both counts are never set together on those modes. Member ordinal becomes `BETWEEN 1 AND 3`. The primary key, load unique key, candidate foreign key, and composite run foreign key stay.
 
-The down migration raises and aborts when any run pattern is `SAME_ORIGIN_SAME_DESTINATION_N_MEMBER` or any member ordinal is 3. It does not delete those rows, rewrite the pattern to pairwise, or copy `evaluated_set_count` into `evaluated_pair_count`. `DOWN_MIGRATION_DESTRUCTIVE_COERCION=NO`. `DOWN_MIGRATION_FAIL_CLOSED=YES`. `MIGRATION_CREATED=NO`. `MIGRATION_RESERVED=NO`.
+The down migration raises and aborts when any run pattern is `SAME_ORIGIN_SAME_DESTINATION_N_MEMBER` or any member ordinal is 3. It does not delete those rows, rewrite the pattern to pairwise, or copy `evaluated_set_count` into `evaluated_pair_count`. `DOWN_MIGRATION_DESTRUCTIVE_COERCION=NO`. `DOWN_MIGRATION_FAIL_CLOSED=YES`. `MIGRATION_CREATED=YES`. Implementation file: `000084_nlo_bounded_n_member_search_v0_3e`.
 
 Public API counts use the same meaning as the columns: `PairwiseConsolidationSearchResponse.evaluated_pair_count` is `consolidation_search_runs.evaluated_pair_count`, and `NMemberConsolidationSearchResponse.evaluated_set_count` is `consolidation_search_runs.evaluated_set_count`.
 

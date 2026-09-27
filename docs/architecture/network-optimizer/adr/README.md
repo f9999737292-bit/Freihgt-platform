@@ -1,6 +1,6 @@
 # ADR-NET index
 
-ADR-NET-001 through ADR-NET-012 are proposed records for the v0.1 freeze. ADR-NET-013 through ADR-NET-017 are Accepted. ADR-NET-017 acceptance does not authorize implementation.
+ADR-NET-001 through ADR-NET-012 are proposed records for the v0.1 freeze. ADR-NET-013 through ADR-NET-017 are Accepted. ADR-NET-017 implementation is in controller review and is not accepted.
 
 | ID | Title |
 |----|-------|
