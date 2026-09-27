@@ -13,6 +13,9 @@ NLO04A_F003=CLOSED
 NLO04A_F004=CLOSED
 NLO04A_F005=CLOSED
 NLO04A_R001=CLOSED
+NLO04A_ERRATUM_E1=ACCEPTED
+NLO04A_POST_ACCEPT_F001=CLOSED
+ERRATUM_CONTROLLER_ACCEPTANCE=PASS
 ROUTE_PLAN_OWNER=network-optimizer-service
 EXECUTION_OWNER=shipment-service
 ACCEPTED_PLAN_STRUCTURE_IMMUTABLE=YES
@@ -68,11 +71,22 @@ LIFECYCLE_STATUS_MUTABLE=YES
 
 ## RouteStop
 
-A stop is a canonical `location_id` plus an ordinal. It is not a load.
+A stop is an ordinal, a role, and a `RoutePoint`. It is not a load. Post-freeze erratum E1 is accepted in ADR-NET-019. It separates business location identity from the point the router uses. `MAX_STOPS` stays 8. Roles stay `START`, `CARGO`, and `END`.
 
 ```text
+RoutePoint
+  point_kind = CANONICAL_LOCATION or POSITION_ANCHOR
+  location_id?
+  latitude
+  longitude
+  point_source
+  observed_at?
+
 ONE_STOP_MANY_LOADS=YES
-PICKUP_AND_DELIVERY_AT_SAME_STOP=YES when location_id matches
+PICKUP_AND_DELIVERY_AT_SAME_STOP=YES when canonical location_id matches
+SHARED_STOP_EQUALITY=same canonical location_id
+CARGO_STOP_CANONICAL_LOCATION_REQUIRED=YES
+END_STOP_CANONICAL_LOCATION_REQUIRED=YES
 EXECUTION_ONLY_WAYPOINT_IN_V0_4_PLANNER=NO
 BREAK_IN_V0_4_PLANNER=NO
 COMPLETED_STOP_REORDER=NO
@@ -81,15 +95,32 @@ COMPLETED_STOP_REORDER=NO
 | Field | Role |
 | --- | --- |
 | `route_plan_id`, `stop_id`, `ordinal` | Ordinal is `1..MAX_STOPS`, unique per plan |
-| `location_id` | Required. Same identity rule as NLO-0.3 |
 | `stop_role` | `START`, `CARGO`, or `END` |
+| `point_kind` | `CANONICAL_LOCATION` or `POSITION_ANCHOR` |
+| `location_id` | Required for `CANONICAL_LOCATION`. Null for `POSITION_ANCHOR`. Never a fabricated UUID |
+| `latitude`, `longitude` | Exact coordinates used for routing. Canonical coordinates are resolved by a trusted server source |
+| `point_source` | `CANONICAL_LOCATION`, `TRACKING_POSITION`, or `CAPACITY_POSITION` |
+| `point_observed_at` | Set for a tracking anchor. Null for a canonical location |
 | `planned_arrival`, `planned_departure` | Forward propagation result when service duration is known. Otherwise the time fields stay unset and time feasibility is `INDETERMINATE` |
 | `service_duration` | Known only from an authoritative source. Cargo stops do not default to 0. See the algorithm document |
-| `provenance` | `CURRENT_POSITION`, `ONBOARD_DELIVERY`, `ADDITIONAL_LOAD`, `TRIP_DESTINATION` |
 
-`START` is the current position for `CURRENT_TRIP`, or the depot for `DEPOT_START`. It is not reordered. `END` is the trip destination when the trusted context has one, and it stays last. Actual arrival and departure are not stored on this row. They belong to shipment execution.
+Constraints:
 
-A stop may exist without a cargo action only for `START` and `END`. The v0.4 planner does not insert a break or a pure waypoint.
+```text
+stop_role=CARGO -> point_kind=CANONICAL_LOCATION and location_id IS NOT NULL
+stop_role=END   -> point_kind=CANONICAL_LOCATION and location_id IS NOT NULL
+stop_role=START -> CANONICAL_LOCATION or POSITION_ANCHOR
+```
+
+Cargo equality uses canonical `location_id` only. Label, city, Haversine, and coordinate similarity do not merge pickup, delivery, or destination stops. A `POSITION_ANCHOR` does not participate in that equality and does not absorb pickup or delivery actions.
+
+`CURRENT_TRIP` `START` is the trusted `CurrentTripContext.CurrentPosition` when freshness is `FRESH` and both coordinates are present. It is persisted as one planning anchor: `POSITION_ANCHOR`, `source=TRACKING_POSITION`, latitude, longitude, and `observed_at`, plus the context fingerprint. The request body cannot supply those coordinates. `CALLER_SUPPLIED_START_POSITION_ALLOWED=NO`. A missing or not-fresh position is `ROUTE_START_POSITION_UNKNOWN`.
+
+`DEPOT_START` `START` is `CANONICAL_LOCATION` when the trusted capacity `LocationID` is set. If that id is null and the trusted capacity has latitude and longitude, the start is `POSITION_ANCHOR` with `source=CAPACITY_POSITION`. If neither is present, the result is `ROUTE_START_POSITION_UNKNOWN`. No city centroid is invented.
+
+`CURRENT_TRIP` `END` is required. Its `location_id` is the trusted `ShipmentExecution.DestinationLocationID`, and its coordinates are the trusted resolution of that location. A tracking-coordinate-only end is not allowed. `SEPARATE_END_STOP_REQUIRED=NO` for `DEPOT_START`. That route ends at the last cargo delivery.
+
+`START` is not reordered. Actual arrival and departure are not stored on this row. They belong to shipment execution. A stop may exist without a cargo action only for `START` and, on a current trip, `END`. The v0.4 planner does not insert a break or a pure waypoint.
 
 ## RouteStopAction
 
@@ -139,7 +170,7 @@ evidence_state_version
 evidence_occurred_at
 ```
 
-`START` and `END` are stop roles, not cargo actions. `BREAK` is not a v0.4 action. Several actions may share one stop when `location_id` is equal. Pickup of subject L and delivery of subject L are never the same action. For a subject that has both, pickup ordinal is less than or equal to delivery ordinal, and when they share a stop the pickup action is ordered before the delivery action. Already-onboard cargo has no pickup action in the plan.
+`START` and `END` are stop roles, not cargo actions. `BREAK` is not a v0.4 action. Several actions may share one stop when the canonical `location_id` is equal. A position anchor is never that shared stop. Pickup of subject L and delivery of subject L are never the same action. For a subject that has both, pickup ordinal is less than or equal to delivery ordinal, and when they share a stop the pickup action is ordered before the delivery action. Already-onboard cargo has no pickup action in the plan.
 
 ## RouteLeg
 
@@ -154,7 +185,7 @@ evidence_occurred_at
 
 Geometry and the raw provider payload are not persisted in v0.4. The port may return geometry. The plan stores the metrics and the fingerprints. A missing road result is not zero distance.
 
-`RouteLegKey` for reuse inside one search is `from_location_id + to_location_id + vehicle_profile_hash + traffic_mode + departure_bucket`. Reuse is allowed only inside that search and only when the key matches. A cached leg is not a reason to skip a capacity or compatibility check.
+`routing.RouteRequest` routes by origin and destination coordinates. Canonical location id is not the routing identity. `RoutePointFingerprint` hashes `point_kind`, the canonical `location_id` when present, the exact coordinates sent to the provider, `point_source`, and `observed_at` for a position anchor. `RouteLegKey` is the two point fingerprints plus `vehicle_profile_hash`, `route_mode`, `traffic_mode`, and `departure_bucket`. That matches `routing.Fingerprint`. Reuse is allowed only inside one search, only before `ExpiresAt`, and not across requests. A cached leg is not a reason to skip a capacity or compatibility check. `CACHE_KEY_SUPPORTS_POSITION_ANCHOR=YES`.
 
 ## Capacity ledger
 
@@ -177,7 +208,8 @@ route_plans
   supersedes_plan_id?
 
 route_plan_stops
-  route_plan_id, stop_id, ordinal, location_id, stop_role
+  route_plan_id, stop_id, ordinal, stop_role
+  point_kind, location_id?, latitude, longitude, point_source, point_observed_at?
 
 route_stop_actions
   stop_id, action_ordinal, action_type
@@ -218,6 +250,7 @@ Errors:
 | Condition | Result |
 | --- | --- |
 | Foreign shipment or capacity | `404` |
+| Start has neither a canonical location nor trusted coordinates, or a current-trip position is not `FRESH` | `ROUTE_START_POSITION_UNKNOWN` |
 | Base subjects plus requested additional loads above 4, or more than 4 subjects already | `422` `PLAN_LOAD_LIMIT_EXCEEDED` |
 | Same cargo named twice | `422` `DUPLICATE_ROUTE_LOAD_SUBJECT` |
 | Search cap | `422` `SEARCH_BUDGET_EXHAUSTED` with `SEARCH_BUDGET_EXCEEDED` |

@@ -41,8 +41,8 @@ Later implementation must include:
 - Arrival after the window is `STOP_WINDOW_VIOLATION`.
 - Provider unknown, timeout, and unavailable are `ROUTING_UNAVAILABLE` and do not store distance 0.
 - Haversine is not written into `distance_m`.
-- The same `RouteLegKey` inside one search is one provider call. A different departure bucket is a different key.
-- `UNIQUE_LOCATION_PAIRS` is not asserted as the provider-call count.
+- The same `RouteLegKey` inside one search is one provider call. The key is the two route-point fingerprints plus vehicle profile, route mode, traffic mode, and departure bucket. A different start position is a different key. A different departure bucket is a different key.
+- `UNIQUE_LOCATION_PAIRS` is not asserted as the provider-call count and is not the position-anchor key.
 - Sequence generation and tie-break are stable across repeated runs.
 
 ## Budgets and search results
@@ -71,11 +71,29 @@ Later implementation must include:
 - Current-trip activation allows `LOADED` and `IN_TRANSIT`, and also `IN_PICKUP`.
 - `CURRENT_TRIP_ACTIVATION_DOES_NOT_RESET_SHIPMENT_STATUS`
 - Route-leg evaluation budget, routing-provider call budget, and groupage evaluation budget are separate.
-- The same location pair with a different departure bucket is a different cache key and may be another provider call.
+- A different departure bucket on the same point fingerprints is a different cache key and may be another provider call.
+
+## Start anchor (erratum E1, accepted)
+
+These tests are not implemented. `NLO04A_ERRATUM_E1=ACCEPTED`.
+
+- `CURRENT_TRIP_START_WITHOUT_LOCATION_ID_SUPPORTED`
+- `CURRENT_TRIP_START_USES_TRACKED_POSITION`
+- `CURRENT_TRIP_START_CALLER_COORDINATES_REJECTED`
+- `DEPOT_START_CANONICAL_LOCATION`
+- `DEPOT_START_POSITION_ANCHOR_WHEN_LOCATION_ID_NULL`
+- `DEPOT_START_WITHOUT_LOCATION_OR_COORDS_FAILS_CLOSED`
+- `CARGO_STOP_REQUIRES_CANONICAL_LOCATION`
+- `POSITION_ANCHOR_NOT_MERGED_WITH_CARGO_STOP`
+- `SAME_COORDINATES_DIFFERENT_LOCATION_ID_NOT_AUTO_MERGED`
+- `ROUTELEG_KEY_SUPPORTS_POSITION_ANCHOR`
+- `ROUTELEG_KEY_CHANGES_WHEN_START_POSITION_CHANGES`
+- `CURRENT_TRIP_CONTEXT_CHANGE_MAKES_PLAN_STALE`
+- `TRACKING_HISTORY_NOT_PERSISTED`
 
 ## Concurrency and tenancy
 
-- Accept with a changed shipment version is `409` `PLAN_STALE`.
+- Accept with a changed shipment version, or a newer trusted current-trip context, is `409` `PLAN_STALE`. There is no coordinate tolerance.
 - Accept twice with one idempotency key returns one accepted plan.
 - Activate twice does not create two driver-task requests.
 - A foreign tenant does not read the plan (`404`).

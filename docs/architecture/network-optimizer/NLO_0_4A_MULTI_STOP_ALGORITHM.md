@@ -44,7 +44,7 @@ Winner rule, in order:
 
 Equal cost does not depend on map iteration. Gaps are scanned in increasing pickup gap, then increasing delivery gap.
 
-Shared stops: if a candidate gap lands on an existing future stop with the same `location_id`, the action attaches to that stop instead of creating a new stop. The cost model below counts the larger case, two new stops, which is the routing upper bound.
+Shared stops: if a candidate gap lands on an existing future cargo or end stop with the same canonical `location_id`, the action attaches to that stop instead of creating a new stop. A `POSITION_ANCHOR` is not a merge target, including when its coordinates equal a cargo location. The cost model below counts the larger case, two new stops, which is the routing upper bound. That harness still counts location-id pairs only. It is not the position-anchor cache key.
 
 ## Approaches that were measured
 
@@ -124,7 +124,7 @@ CACHEABLE_ROUTE_LEGS=YES
 GROUPAGE_WORK_STRUCTURALLY_BOUNDED=YES
 ```
 
-Cache reuse is inside one search, only when `RouteLegKey` matches, and only before `ExpiresAt`. Cache does not cross requests and does not let the search evaluate more sequences than the structural caps allow. `RouteLegKey` is `from_location_id + to_location_id + vehicle_profile_hash + traffic_mode + departure_bucket`, plus route mode when the existing fingerprint includes it.
+Cache reuse is inside one search, only when `RouteLegKey` matches, and only before `ExpiresAt`. Cache does not cross requests and does not let the search evaluate more sequences than the structural caps allow. `RouteLegKey` is `from_point_fingerprint + to_point_fingerprint + vehicle_profile_hash + route_mode + traffic_mode + departure_bucket`. `RoutePointFingerprint` hashes point kind, canonical location id when present, the exact coordinates used for routing, point source, and `observed_at` for a `POSITION_ANCHOR`. `CACHE_KEY_SUPPORTS_POSITION_ANCHOR=YES`. `UNIQUE_LOCATION_PAIRS` in the discovery harness is not this key and is not a provider-call count. A different start coordinate is a different key. `routing.Fingerprint` already binds coordinates the same way.
 
 ## Routing semantics
 
