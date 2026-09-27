@@ -12,17 +12,27 @@ This plan is the sequence a later task would follow after controller acceptance.
 
 ## Blockers before any runtime change
 
-1. Controller acceptance of ADR-NET-017. Review R4 is a freeze candidate. `ADR_STATUS=PROPOSED`. `ARCHITECTURE_FROZEN=NO`. `ARCHITECTURE_FREEZE_CANDIDATE=YES`.
+1. Controller acceptance of ADR-NET-017. Review R5 is a freeze candidate. `ADR_STATUS=PROPOSED`. `ARCHITECTURE_FROZEN=NO`. `ARCHITECTURE_FREEZE_CANDIDATE=YES`.
 2. `NLO03E_I001` is resolved at design level for `SAME_ORIGIN_SAME_DESTINATION_N_MEMBER` only. `MAX_CANDIDATE_POOL=10` is the global visible eligible pool. `MAX_SET_SIZE=3`. `MAX_SETS_EVALUATED=165`. `MAX_GROUPAGE_CALLS=330`. `TIME_BUDGET=5s` is a watchdog, not an SLO. `NLO03E_MAX_ROUTING_CALLS=0`. Legacy `SAME_ORIGIN_SAME_DESTINATION` stays pairwise. Controller acceptance is still required before runtime work.
-3. `NLO03E_I002` design is frozen: N-member ordinal between 1 and 3, N-member `minItems` 2 and `maxItems` 3, pairwise response stays `minItems` 2 and `maxItems` 2. Down migration fails closed if any ordinal is outside 1..2. No migration file is created. Persisted `pattern` distinguishes the modes.
+3. `NLO03E_I002` design is frozen, and no migration file is created. The later migration admits exactly three patterns, requires capacity for both same-origin patterns, keeps current-trip capacity null, adds `evaluated_set_count`, and keeps `evaluated_pair_count` for pairwise and for current-trip only. An N-member run stores `evaluated_set_count` and leaves `evaluated_pair_count` null. Ordinal becomes `BETWEEN 1 AND 3`. Primary key, load uniqueness, candidate foreign key, and the composite run foreign key stay. The down migration aborts if an N-member pattern row or an ordinal-3 member exists. It does not delete or rewrite those rows. `000084` is not reserved.
 4. `NLO03E_I003` is resolved at design level for the N-member pattern. `candidate_limit` stays the returned-result cap. Pool, set, groupage, and time budgets are checked before the work they bound. A budget failure rolls back and does not return a partial candidate list. Those codes are not added to legacy pairwise search.
+
+## Future migration shape, not a file
+
+`MIGRATION_CREATED=NO`. `MIGRATION_RESERVED=NO`. The checks below are the design a later migration would apply. Exact text is also in `NLO_0_3E_BOUNDED_EXPANSION_MODEL.md`.
+
+- Pattern check admits `SAME_ORIGIN_SAME_DESTINATION`, `SAME_ORIGIN_SAME_DESTINATION_N_MEMBER`, and `CURRENT_TRIP_FILL` only.
+- Context check: both same-origin patterns require `capacity_id` and `capacity_version`. `CURRENT_TRIP_FILL` requires both null.
+- Add `evaluated_set_count integer NULL`. Pairwise and current-trip rows require `evaluated_pair_count` and a null set count. N-member rows require `evaluated_set_count` and a null pair count.
+- Ordinal check becomes `ordinal BETWEEN 1 AND 3`. Primary key, load unique key, and candidate foreign key stay.
+- Down migration aborts if an N-member run or an ordinal-3 member exists. No delete, no pattern rewrite, no copy of the set count into the pair count.
 
 ## Implementation order, after those blockers
 
 1. Server-owned policy for `SAME_ORIGIN_SAME_DESTINATION_N_MEMBER` with the accepted numbers. Fail closed on pool and search budgets before enumeration. Do not add a routing budget to NLO-0.3E. Do not apply that pool bound to legacy pairwise search.
 2. Lexicographic set generation for the N-member pattern, size 2 through `MAX_SET_SIZE`, stop at `MAX_SETS_EVALUATED`. No stop list. Leave `SAME_ORIGIN_SAME_DESTINATION` pairwise.
 3. Groupage and residual snapshot reuse. No second engine. Sequence-independent failure may be `HARD_REJECT`. Do not treat one stop order as global infeasibility, because NLO-0.3E explores no stop orders.
-4. Persist N members only after the migration. The stored `pattern` is the request pattern. The N-member fingerprint includes `SAME_ORIGIN_SAME_DESTINATION_N_MEMBER` and the budget policy version.
+4. Persist N members only after that migration. The stored `pattern` is the request pattern. The N-member run writes `evaluated_set_count` and leaves `evaluated_pair_count` null. The N-member fingerprint includes `SAME_ORIGIN_SAME_DESTINATION_N_MEMBER` and the budget policy version. Do not infer the mode from member count.
 5. Keep cross-shipper sets `INDETERMINATE`.
 6. Do not add `ConsolidationPlanningScore`, MatchScore, or client weights.
 7. Do not raise `MAX_ADDITIONAL_LOADS` above 1.

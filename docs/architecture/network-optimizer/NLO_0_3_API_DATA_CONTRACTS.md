@@ -64,11 +64,11 @@ Response concepts:
 - pattern;
 - candidate sets with safe member views;
 - compatibility status and condition codes;
-- residual snapshot and provenance;
-- route feasibility, including provider and road figures only for the carrier audience;
-- `placement_check`;
+- residual snapshot where the pattern consumes one;
+- pairwise and N-member results do not carry a route, a tracking position, or an ETA;
+- current-trip results may carry route feasibility, including provider and road figures only for the carrier audience, plus placement and tracking provenance that belong to NLO-0.3D;
 - hard-reject counts by bounded reason;
-- planning status and `execution_supported=false` for multi-stop or multi-order results.
+- `execution_supported=false`.
 
 No arbitrary weight payload. Profiles stay in the database when a later score exists. The first waves do not score.
 
@@ -96,11 +96,19 @@ Later, one lifecycle is enough to start:
 
 Idempotency key is candidate id plus input fingerprint. A new fingerprint is a new candidate, not a mutation. No further event names until that lifecycle exists.
 
-Invalidation triggers: load version or withdrawal, capacity change, shipment status, vehicle change, stale location, ETA change, catalog activation, rule-set activation, slot change, onboard cargo change.
+Invalidation triggers that are shared: load version or withdrawal, catalog activation, and rule-set activation. Capacity change invalidates a capacity-backed search. Shipment status, vehicle change, stale location, ETA change, slot change, and onboard cargo change invalidate current-trip audit only. They are not N-member fingerprint inputs.
 
 ## Audit contents
 
-The immutable planning record stores the cargo set, versions, residual provenance, groupage fingerprint, catalog and rule versions, routing provider, road distances and times, window arithmetic, unknown constraints, and privacy scope. Human views apply the privacy document.
+Three stored modes stay distinct. Routing, ETA, tracking freshness, and shipment version are current-trip provenance. They are not N-member provenance.
+
+Pairwise audit: `pattern=SAME_ORIGIN_SAME_DESTINATION`, non-null capacity id and version, `evaluated_pair_count` set, `evaluated_set_count` null. Members are two. The record stores load versions, residual facts the pairwise evaluation consumed, groupage fingerprint, catalog and rule versions, and policy version.
+
+N-member audit: `pattern=SAME_ORIGIN_SAME_DESTINATION_N_MEMBER`, non-null capacity id and version, `evaluated_set_count` set, `evaluated_pair_count` null. Members are two or three. The same cargo, catalog, rule, and budget-policy versions apply. It does not store a routing provider, road distance, tracking position, or ETA. A two-member row is still this pattern.
+
+Current-trip audit: `pattern=CURRENT_TRIP_FILL`, null capacity id and version, `evaluated_pair_count` set to the number of assessed additional loads, `evaluated_set_count` null. That is the NLO-0.3D behavior in `searchCurrentTripFill`. The record may include shipment and vehicle versions, onboard evidence, position and ETA freshness, and routing provenance. NLO-0.3E does not change that column or those inputs.
+
+Human views apply the privacy document. The public N-member body does not include the internal compatibility trace.
 
 ## Metrics
 

@@ -1,11 +1,12 @@
 # NLO-0.3E bounded expansion model
 
-Controller review R4 is a freeze candidate. It is not accepted and it does not implement a search.
+Controller review R5 is a freeze candidate. It is not accepted and it does not implement a search.
 
 ```text
 NLO03E_F001=CLOSED
 NLO03E_F002=CLOSED
 NLO03E_F005=CLOSED
+NLO03E_F006=ADDRESSED_IN_THIS_REVISION
 ADR_STATUS=PROPOSED
 ARCHITECTURE_FREEZE_CANDIDATE=YES
 TEST_STRATEGY_FREEZE_CANDIDATE=YES
@@ -199,18 +200,119 @@ SAME_ORIGIN_SAME_DESTINATION_N_MEMBER -> NMemberConsolidationSearchResponse
 CURRENT_TRIP_FILL -> CurrentTripFillSearchResponse
 ```
 
-Existing pairwise clients keep receiving two-member candidates. `execution_supported` is false. The N-member body has no stop list. `ordinal` is unique within the candidate, and so is `load_opportunity_id`. The existing primary key `(candidate_id, ordinal)`, unique `(candidate_id, load_opportunity_id)`, and candidate foreign key stay.
-
-The persisted `pattern` stores `SAME_ORIGIN_SAME_DESTINATION` or `SAME_ORIGIN_SAME_DESTINATION_N_MEMBER`. Audit does not infer the mode from member count, because an N-member search can store a two-member set.
-
-Today the member check is `ordinal IN (1, 2)` and the generated pairwise contract has `maxItems` 2. A later migration may allow N-member rows with `ordinal BETWEEN 1 AND 3` while the pairwise response schema stays at two members. This discovery does not add that migration, does not edit generated OpenAPI, and does not reserve `000084`.
-
-The down migration must not delete ordinal-3 rows to force the old check. If any member ordinal is outside 1..2, the down migration fails closed and leaves the rows in place.
+Existing pairwise clients keep receiving two-member candidates. `execution_supported` is false. The N-member body has no stop list. `ordinal` is unique within the candidate, and so is `load_opportunity_id`.
 
 ```text
+PairwiseConsolidationSearchResponse.evaluated_pair_count
+    ↔ consolidation_search_runs.evaluated_pair_count
+NMemberConsolidationSearchResponse.evaluated_set_count
+    ↔ consolidation_search_runs.evaluated_set_count
+```
+
+The response name and the stored column use the same meaning. An N-member count is not written into `evaluated_pair_count`.
+
+## Current database constraints
+
+Migrations `000081` and `000083` are the live schema. This revision does not change them.
+
+`000081` creates `consolidation_search_runs` with `pattern text NOT NULL` and `evaluated_pair_count integer NOT NULL`. Its original pattern check allowed only `SAME_ORIGIN_SAME_DESTINATION`. `000083` replaces that check:
+
+```text
+consolidation_search_runs_pattern_chk:
+pattern IN ('SAME_ORIGIN_SAME_DESTINATION', 'CURRENT_TRIP_FILL')
+```
+
+`000083` also adds `consolidation_search_runs_context_chk`:
+
+```text
+(pattern = 'SAME_ORIGIN_SAME_DESTINATION'
+ AND capacity_id IS NOT NULL
+ AND capacity_version IS NOT NULL)
+OR
+(pattern = 'CURRENT_TRIP_FILL'
+ AND capacity_id IS NULL
+ AND capacity_version IS NULL)
+```
+
+`consolidation_candidate_members` still has `CHECK (ordinal IN (1, 2))`, primary key `(candidate_id, ordinal)`, unique `(candidate_id, load_opportunity_id)`, and a foreign key on `candidate_id`. `consolidation_candidates.pattern` is tied to the run by `consolidation_candidates_run_fk` on `(search_run_id, tenant_id, capacity_id, pattern)`. For a capacity-backed run that foreign key requires `candidate.pattern = search_run.pattern`.
+
+`searchCurrentTripFill` sets `EvaluatedPairCount` to the number of opted-in loads it assessed and stores that integer in `evaluated_pair_count`. The run leaves `capacity_id` and `capacity_version` null. NLO-0.3E does not rename that current-trip field and does not move it to `evaluated_set_count`.
+
+## Future migration shape
+
+Not created. Not reserved. `000084` is not used. `MIGRATION_CREATED=NO`. `MIGRATION_RESERVED=NO`.
+
+Pattern check, and no other pattern:
+
+```text
+pattern IN (
+  'SAME_ORIGIN_SAME_DESTINATION',
+  'SAME_ORIGIN_SAME_DESTINATION_N_MEMBER',
+  'CURRENT_TRIP_FILL'
+)
+```
+
+Context check. Both same-origin modes require a capacity. Current trip stays without one:
+
+```text
+(
+  pattern IN (
+    'SAME_ORIGIN_SAME_DESTINATION',
+    'SAME_ORIGIN_SAME_DESTINATION_N_MEMBER'
+  )
+  AND capacity_id IS NOT NULL
+  AND capacity_version IS NOT NULL
+)
+OR
+(
+  pattern = 'CURRENT_TRIP_FILL'
+  AND capacity_id IS NULL
+  AND capacity_version IS NULL
+)
+```
+
+Audit counts. Add `evaluated_set_count integer NULL` and drop `NOT NULL` from `evaluated_pair_count`. The count check is:
+
+```text
+(
+  pattern = 'SAME_ORIGIN_SAME_DESTINATION'
+  AND evaluated_pair_count IS NOT NULL
+  AND evaluated_set_count IS NULL
+)
+OR
+(
+  pattern = 'SAME_ORIGIN_SAME_DESTINATION_N_MEMBER'
+  AND evaluated_pair_count IS NULL
+  AND evaluated_set_count IS NOT NULL
+)
+OR
+(
+  pattern = 'CURRENT_TRIP_FILL'
+  AND evaluated_pair_count IS NOT NULL
+  AND evaluated_set_count IS NULL
+)
+```
+
+```text
+PAIRWISE_RUN_HAS_EVALUATED_PAIR_COUNT=YES
+PAIRWISE_RUN_HAS_EVALUATED_SET_COUNT=NO
+N_MEMBER_RUN_HAS_EVALUATED_SET_COUNT=YES
+N_MEMBER_RUN_HAS_EVALUATED_PAIR_COUNT=NO
+CURRENT_TRIP_AUDIT_FIELD=evaluated_pair_count
+```
+
+A pairwise row and an N-member row cannot both carry a pair count and a set count. Current-trip rows keep the column they already use.
+
+Member check becomes `ordinal BETWEEN 1 AND 3`. The primary key, the load unique key, and the candidate foreign key stay. The composite run foreign key stays, so an N-member candidate keeps the run's pattern. A two-member N-member candidate is still N-member mode. Member count is not the discriminator.
+
+Existing pairwise rows and existing current-trip rows stay valid: their pattern, capacity nullability, and `evaluated_pair_count` are unchanged, and `evaluated_set_count` is null. Ordinals 1 and 2 still satisfy `BETWEEN 1 AND 3`.
+
+The down migration checks before it restores the old constraints. If any run has `pattern = 'SAME_ORIGIN_SAME_DESTINATION_N_MEMBER'`, or any member has `ordinal = 3`, it raises an error and aborts. It does not delete those rows, does not rewrite the pattern to pairwise, and does not copy `evaluated_set_count` into `evaluated_pair_count`.
+
+```text
+DOWN_MIGRATION_DESTRUCTIVE_COERCION=NO
+DOWN_MIGRATION_FAIL_CLOSED=YES
 DOWN_FAILS_CLOSED_IF_ROWS_OUTSIDE_OLD_BOUND=YES
-MIGRATION_CREATED=NO
-MIGRATION_RESERVED=NO
 ```
 
 ## Resource exhaustion

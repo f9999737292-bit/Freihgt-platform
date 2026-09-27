@@ -1,6 +1,6 @@
 # NLO-0.3E test strategy
 
-Controller review R4 freeze candidate. `TEST_STRATEGY_FREEZE_CANDIDATE=YES`. `TEST_STRATEGY_FROZEN=NO` until the controller accepts it. These checks are not implemented here. The discovery harnesses use build tag `nlo03ediscovery` and are not part of default `go test`.
+Controller review R5 freeze candidate. `TEST_STRATEGY_FREEZE_CANDIDATE=YES`. `TEST_STRATEGY_FROZEN=NO` until the controller accepts it. These checks are not implemented here. The discovery harnesses use build tag `nlo03ediscovery` and are not part of default `go test`.
 
 ## Contract
 
@@ -81,10 +81,35 @@ Shipment version, tracking position, tracking freshness, ETA, routing request fi
 ## Members
 
 - N-member ordinal is unique within the candidate and is between 1 and 3.
-- Pairwise ordinal stays 1 or 2.
+- Pairwise ordinal stays 1 or 2 on the public pairwise schema. The future database check accepts 1 through 3 and rejects 4.
 - Load id is unique within the candidate.
 - A fingerprint for an N-member candidate includes `pattern=SAME_ORIGIN_SAME_DESTINATION_N_MEMBER` and the algorithm or budget policy version.
-- Persisted `pattern` distinguishes the legacy pairwise run from the N-member run. Member count alone is not the mode.
+- Persisted `pattern` distinguishes the legacy pairwise run from the N-member run. Member count alone is not the mode. A two-member N-member candidate stays N-member mode.
+
+## Future migration tests
+
+These are not implemented in this revision. No migration file is added.
+
+```text
+N_MEMBER_PATTERN_ACCEPTED_BY_DB
+UNKNOWN_PATTERN_REJECTED_BY_DB
+PAIRWISE_REQUIRES_CAPACITY
+N_MEMBER_REQUIRES_CAPACITY
+CURRENT_TRIP_REQUIRES_NO_CAPACITY
+PAIRWISE_PAIR_COUNT_REQUIRED
+PAIRWISE_SET_COUNT_NULL
+N_MEMBER_SET_COUNT_REQUIRED
+N_MEMBER_PAIR_COUNT_NULL
+N_MEMBER_ORDINAL_3_ACCEPTED
+N_MEMBER_ORDINAL_4_REJECTED
+N_MEMBER_PATTERN_AND_TWO_MEMBERS_STILL_N_MEMBER_MODE
+DOWN_WITH_N_MEMBER_ROWS_FAILS_CLOSED
+DOWN_WITH_ORDINAL_3_FAILS_CLOSED
+PAIRWISE_EXISTING_ROWS_SURVIVE_MIGRATION
+CURRENT_TRIP_EXISTING_ROWS_SURVIVE_MIGRATION
+```
+
+Current-trip survival means the row still stores its assessed-load count in `evaluated_pair_count`, with null capacity columns and a null `evaluated_set_count`.
 
 ## Execution boundary
 
