@@ -36,6 +36,9 @@ func TestNLO03B_089_099_PostgresPoolAndRunIntegrity(t *testing.T) {
 		"000079_bno_next_load_candidate_search_v0_1c1.up.sql",
 		"000080_bno_match_score_topn_v0_1c2.up.sql",
 		"000081_nlo_pairwise_consolidation_v0_3b.up.sql",
+		"000082_nlo_onboard_evidence_current_trip_context_v0_3c.up.sql",
+		"000083_nlo_current_trip_fill_v0_3d.up.sql",
+		"000084_nlo_bounded_n_member_search_v0_3e.up.sql",
 	} {
 		raw, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "infrastructure", "migrations", name))
 		if err != nil {
@@ -190,12 +193,112 @@ func TestNLO03B_089_099_PostgresPoolAndRunIntegrity(t *testing.T) {
 			INSERT INTO network_optimizer.consolidation_candidates (
 				id, search_run_id, tenant_id, capacity_id, pattern, status, execution_supported,
 				compatibility_status, compatibility_fingerprint, candidate_fingerprint, placement_check, created_at
-			) VALUES ($1,$2,$3,$4,'CURRENT_TRIP_FILL','INDETERMINATE', false, 'INDETERMINATE', 'fp', $5, 'NOT_EVALUATED', now())`,
+			) VALUES ($1,$2,$3,$4,'SAME_ORIGIN_SAME_DESTINATION_N_MEMBER','INDETERMINATE', false, 'INDETERMINATE', 'fp', $5, 'NOT_EVALUATED', now())`,
 			uuid.New(), runID, carrier, capA.ID, "pattern-mismatch-"+uuid.NewString())
 		if !consolidationFK(err) {
 			t.Fatalf("expected pattern mismatch reject, got %v", err)
 		}
 	})
+}
+
+func TestNLO03E_POSTGRES_ROUNDTRIP(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
+	defer cancel()
+	pool := startConsolidationPostgres(t, ctx)
+	for _, name := range []string{
+		"000001_create_schemas.up.sql",
+		"000003_create_transport_tables.up.sql",
+		"000075_bno_capacity_marketplace_foundation_v0_1a.up.sql",
+		"000076_bno_predictive_capacity_v0_1b.up.sql",
+		"000077_bno_cargo_equipment_compatibility_v0_1b2.up.sql",
+		"000078_bno_geography_routing_foundation_v0_1c0.up.sql",
+		"000079_bno_next_load_candidate_search_v0_1c1.up.sql",
+		"000080_bno_match_score_topn_v0_1c2.up.sql",
+		"000081_nlo_pairwise_consolidation_v0_3b.up.sql",
+		"000082_nlo_onboard_evidence_current_trip_context_v0_3c.up.sql",
+		"000083_nlo_current_trip_fill_v0_3d.up.sql",
+		"000084_nlo_bounded_n_member_search_v0_3e.up.sql",
+	} {
+		raw, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "infrastructure", "migrations", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(ctx, string(raw)); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+	}
+	store := repository.NewPostgres(pool)
+	carrier := uuid.New()
+	shipper := uuid.New()
+	now := time.Date(2026, 9, 27, 8, 0, 0, 0, time.UTC)
+	origin, dest := uuid.New(), uuid.New()
+	payload := 1000.0
+	weight := 10.0
+	capacity := domain.Capacity{
+		ID: uuid.New(), OwnerTenantID: carrier, LocationLabel: "yard", AvailableFrom: now, AvailableUntil: now.Add(2 * time.Hour),
+		Source: domain.SourceManual, VisibilityScope: domain.CapVisPrivate, Status: domain.CapacityAvailable, Version: 1,
+		PayloadRemainingKg: &payload, CreatedAt: now, UpdatedAt: now,
+	}
+	if err := store.Within(ctx, func(tx repository.Tx) error {
+		return tx.InsertCapacity(ctx, capacity)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 3; i++ {
+		load := domain.LoadOpportunity{
+			ID: uuid.New(), OwnerTenantID: shipper, SourceType: domain.SourceTransportOrder, SourceID: uuid.New(),
+			Pickup: domain.Place{LocationID: &origin, City: "A", CountryCode: "RU"}, Delivery: domain.Place{LocationID: &dest, City: "B", CountryCode: "RU"},
+			VisibilityScope: domain.VisMarketplace, Status: domain.LoadPublished, Version: 1,
+			ConsolidationAllowed: true, WeightKg: &weight, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := store.Within(ctx, func(tx repository.Tx) error { return tx.InsertLoad(ctx, load) }); err != nil {
+			t.Fatal(err)
+		}
+	}
+	svc := New(store, nil)
+	result, err := svc.SearchConsolidation(ctx, Actor{TenantID: carrier, UserID: uuid.New()}, ConsolidationCommand{
+		CapacityID: capacity.ID, Pattern: PatternSameOriginDestinationNMember,
+	})
+	if err != nil || result.Status != 200 {
+		t.Fatalf("status %d err %v", result.Status, err)
+	}
+	var doc NMemberConsolidationSearchResponse
+	if err := json.Unmarshal(result.Body, &doc); err != nil {
+		t.Fatal(err)
+	}
+	if doc.Pattern != PatternSameOriginDestinationNMember || doc.EvaluatedSetCount != 4 {
+		t.Fatalf("pattern %s sets %d", doc.Pattern, doc.EvaluatedSetCount)
+	}
+	run, rows, err := store.GetConsolidation(ctx, carrier, doc.SearchID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if run.Pattern != PatternSameOriginDestinationNMember || !run.PairCountNull || run.EvaluatedSetCount == nil || *run.EvaluatedSetCount != 4 {
+		t.Fatalf("run %+v", run)
+	}
+	var triple *repository.ConsolidationCandidate
+	for i := range rows {
+		if rows[i].Pattern != PatternSameOriginDestinationNMember {
+			t.Fatalf("candidate pattern %s", rows[i].Pattern)
+		}
+		if len(rows[i].Members) == 3 {
+			triple = &rows[i]
+		}
+	}
+	if triple == nil || triple.Members[0].Ordinal != 1 || triple.Members[1].Ordinal != 2 || triple.Members[2].Ordinal != 3 {
+		t.Fatalf("triple %+v", triple)
+	}
+	var pairCount *int
+	var setCount int
+	if err := pool.QueryRow(ctx, `
+		SELECT evaluated_pair_count, evaluated_set_count
+		FROM network_optimizer.consolidation_search_runs
+		WHERE id = $1`, doc.SearchID).Scan(&pairCount, &setCount); err != nil {
+		t.Fatal(err)
+	}
+	if pairCount != nil || setCount != 4 {
+		t.Fatalf("pair %v set %d", pairCount, setCount)
+	}
 }
 
 func consolidationLocationKey(load domain.LoadOpportunity) string {

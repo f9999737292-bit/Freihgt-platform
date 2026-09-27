@@ -19,6 +19,8 @@ type ConsolidationRun struct {
 	CandidateLimit     *int
 	PoolLoadCount      int
 	EvaluatedPairCount int
+	PairCountNull      bool
+	EvaluatedSetCount  *int
 	CreatedAt          time.Time
 }
 

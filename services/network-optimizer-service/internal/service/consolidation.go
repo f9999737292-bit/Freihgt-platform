@@ -21,8 +21,9 @@ import (
 )
 
 const (
-	PatternSameOriginDestination = "SAME_ORIGIN_SAME_DESTINATION"
-	PatternCurrentTripFill       = "CURRENT_TRIP_FILL"
+	PatternSameOriginDestination        = "SAME_ORIGIN_SAME_DESTINATION"
+	PatternSameOriginDestinationNMember = "SAME_ORIGIN_SAME_DESTINATION_N_MEMBER"
+	PatternCurrentTripFill              = "CURRENT_TRIP_FILL"
 
 	ConsolidationFeasible      = "FEASIBLE"
 	ConsolidationHardReject    = "HARD_REJECT"
@@ -106,6 +107,9 @@ func (s *Service) SearchConsolidation(ctx context.Context, actor Actor, cmd Cons
 	}
 	if cmd.Pattern == PatternCurrentTripFill {
 		return s.searchCurrentTripFill(ctx, actor, cmd, started)
+	}
+	if cmd.Pattern == PatternSameOriginDestinationNMember {
+		return s.searchNMember(ctx, actor, cmd, started)
 	}
 	if cmd.CapacityID == uuid.Nil {
 		return Result{}, apperrors.Validation("capacity_id is required", map[string]any{"field": "capacity_id"})
@@ -326,13 +330,16 @@ func (s *Service) assessPair(ctx context.Context, capacityOwner uuid.UUID, equip
 		{Cargo: cargoFromLoad(right), AccessNeed: accessFromLoad(right)},
 	}
 	if out.crossShipper {
-		return assessCrossShipper(out, equipment, items, pickupCode, deliveryCode)
+		return assessCrossShipper(out, equipment, items, pickupCode, deliveryCode, nil)
 	}
-	return s.assessSameOwner(ctx, out, equipment, items, pickupCode, deliveryCode, capacityOwner, left.OwnerTenantID)
+	return s.assessSameOwner(ctx, out, equipment, items, pickupCode, deliveryCode, capacityOwner, left.OwnerTenantID, nil)
 }
 
-func (s *Service) assessSameOwner(ctx context.Context, out assessedPair, equipment compat.Equipment, items []compat.GroupageItem, pickupCode, deliveryCode string, capacityOwner, loadOwner uuid.UUID) assessedPair {
+func (s *Service) assessSameOwner(ctx context.Context, out assessedPair, equipment compat.Equipment, items []compat.GroupageItem, pickupCode, deliveryCode string, capacityOwner, loadOwner uuid.UUID, work *nMemberWorkBudget) assessedPair {
 	if s.catalog == nil {
+		if !noteNMemberGroupage(work) {
+			return out
+		}
 		return completeAssessment(out, []compat.Result{compat.EvaluateGroupageItems(equipment, items, compat.Context{})}, pickupCode, deliveryCode)
 	}
 	loaded, err := s.contextsFor(ctx, []uuid.UUID{capacityOwner, loadOwner})
@@ -345,21 +352,24 @@ func (s *Service) assessSameOwner(ctx context.Context, out assessedPair, equipme
 		return out
 	}
 	if capacityOwner == loadOwner {
-		return completeAssessment(out, evaluateContexts(equipment, items, loaded), pickupCode, deliveryCode)
+		return completeAssessment(out, s.evaluateContexts(equipment, items, loaded, work), pickupCode, deliveryCode)
 	}
 	if len(loaded) != 2 || !ownerScopeProvable(loaded[0], loaded[1]) {
-		return assessCrossShipper(out, equipment, items, pickupCode, deliveryCode)
+		return assessCrossShipper(out, equipment, items, pickupCode, deliveryCode, work)
 	}
 	projected := []compat.Context{
 		projectCapacityPolicy(loaded[0], loaded[1]),
 		projectLoadPolicy(loaded[1], loaded[0]),
 	}
-	return completeAssessment(out, evaluateContexts(equipment, items, projected), pickupCode, deliveryCode)
+	return completeAssessment(out, s.evaluateContexts(equipment, items, projected, work), pickupCode, deliveryCode)
 }
 
-func evaluateContexts(equipment compat.Equipment, items []compat.GroupageItem, contexts []compat.Context) []compat.Result {
+func (s *Service) evaluateContexts(equipment compat.Equipment, items []compat.GroupageItem, contexts []compat.Context, work *nMemberWorkBudget) []compat.Result {
 	results := make([]compat.Result, 0, len(contexts))
 	for _, evalCtx := range contexts {
+		if !noteNMemberGroupage(work) {
+			return results
+		}
 		results = append(results, compat.EvaluateGroupageItems(equipment, items, evalCtx))
 	}
 	return results
@@ -546,7 +556,10 @@ func equivalenceConflict(left, right []compat.Equivalence) bool {
 	return false
 }
 
-func assessCrossShipper(out assessedPair, equipment compat.Equipment, items []compat.GroupageItem, pickupCode, deliveryCode string) assessedPair {
+func assessCrossShipper(out assessedPair, equipment compat.Equipment, items []compat.GroupageItem, pickupCode, deliveryCode string, work *nMemberWorkBudget) assessedPair {
+	if !noteNMemberGroupage(work) {
+		return out
+	}
 	result := compat.EvaluateGroupageItems(equipment, items, compat.Context{})
 	out = mergeAssessments(out, []compat.Result{result})
 	if pickupCode == ReasonPickupUnknown {

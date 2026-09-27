@@ -59,6 +59,9 @@ type Tx interface {
 	// ListPublicConsolidationPool is the carrier consolidation source.
 	// It is not the human marketplace list.
 	ListPublicConsolidationPool(context.Context, uuid.UUID, *uuid.UUID) ([]domain.LoadOpportunity, error)
+	// ListPublicConsolidationPoolLimited is the N-member pool probe.
+	// limit is the server pool plus one so the caller can detect overflow without reading the rest.
+	ListPublicConsolidationPoolLimited(context.Context, uuid.UUID, *uuid.UUID, int) ([]domain.LoadOpportunity, error)
 	ActiveLoadBySource(context.Context, uuid.UUID, string, uuid.UUID) (domain.LoadOpportunity, error)
 
 	InsertCapacity(context.Context, domain.Capacity) error

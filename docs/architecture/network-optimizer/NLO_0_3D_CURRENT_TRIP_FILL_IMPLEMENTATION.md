@@ -1,6 +1,6 @@
 # NLO-0.3D current trip fill
 
-Status: IMPLEMENTED_CLOSED. Merged to main in PR #178. Feature head `f61d64f8c34fa8cafa6bee30d44d8646c7c30655`. Merge SHA `ef3722db92fd1c115f6539cc491df3eabd57affa`. CI run `36307221142` succeeded on that feature head. Migration `000083_nlo_current_trip_fill_v0_3d`. NLO-0.3C stays IMPLEMENTED_CLOSED. NLO-0.3E is NOT_STARTED. NLO-0.3 is not complete. NLO-0.4 is not started.
+Status: IMPLEMENTED_CLOSED. Merged to main in PR #178. Feature head `f61d64f8c34fa8cafa6bee30d44d8646c7c30655`. Merge SHA `ef3722db92fd1c115f6539cc491df3eabd57affa`. CI run `36307221142` succeeded on that feature head. Migration `000083_nlo_current_trip_fill_v0_3d`. NLO-0.3C stays IMPLEMENTED_CLOSED. NLO-0.3E implementation is accepted. `NLO_0_3_COMPLETE=YES`. NLO-0.4 is not started.
 
 ```text
 NLO_0_3C_STATUS=IMPLEMENTED_CLOSED
@@ -18,8 +18,8 @@ RESERVATION=NO
 CARRIER_OFFER=NO
 SLOT_BOOKING=NO
 DRIVER_TASK=NO
-NLO_0_3_COMPLETE=NO
-NLO_0_3E_STATUS=NOT_STARTED
+NLO_0_3_COMPLETE=YES
+NLO_0_3E_STATUS=IMPLEMENTED_ACCEPTED
 NLO_0_4_STATUS=NOT_STARTED
 ```
 

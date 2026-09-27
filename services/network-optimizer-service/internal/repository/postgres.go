@@ -205,6 +205,25 @@ func (t *pgTx) ListPublicConsolidationPool(ctx context.Context, viewer uuid.UUID
 	return scanLoads(rows)
 }
 
+func (t *pgTx) ListPublicConsolidationPoolLimited(ctx context.Context, viewer uuid.UUID, company *uuid.UUID, limit int) ([]domain.LoadOpportunity, error) {
+	rows, err := t.tx.Query(ctx, `
+		SELECT `+loadColumns+` FROM network_optimizer.load_opportunities
+		WHERE status='PUBLISHED'
+		  AND owner_tenant_id <> $1
+		  AND (consolidation_allowed OR cross_shipper_consolidation_allowed)
+		  AND (
+			visibility_scope IN ('MARKETPLACE', 'ANONYMIZED_MARKETPLACE')
+			OR (visibility_scope='INVITED_CARRIERS' AND $2::uuid IS NOT NULL AND $2 = ANY(invited_carrier_company_ids))
+		  )
+		ORDER BY pickup_location_id, delivery_location_id, id
+		LIMIT $3`, viewer, company, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanLoads(rows)
+}
+
 func (t *pgTx) ListMarketplaceLoads(ctx context.Context, viewer uuid.UUID, company *uuid.UUID, limit, offset int) ([]domain.LoadOpportunity, error) {
 	rows, err := t.tx.Query(ctx, `
 		SELECT `+loadColumns+` FROM network_optimizer.load_opportunities

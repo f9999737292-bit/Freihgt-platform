@@ -5,11 +5,16 @@ Baseline: `origin/main` `6576034a4f39b451341ad72667c5fc25f6562658`. NLO-0.3B, NL
 ```text
 NLO_0_3E_ARCHITECTURE=FROZEN_ACCEPTED
 NLO_0_3E_TEST_STRATEGY=FROZEN_ACCEPTED
-IMPLEMENTATION_STARTED=NO
+IMPLEMENTATION_STARTED=YES
+NLO_0_3E_IMPLEMENTATION_AUTHORIZED=YES
+NLO_0_3E_IMPLEMENTED=YES
+NLO_0_3E_ACCEPTED=YES
+IMPLEMENTATION_CONTROLLER_ACCEPTANCE=PASS
+RUNTIME_BLOCKING_FINDINGS=0
 ADR_STATUS=ACCEPTED
 ```
 
-NLO-0.4 is NOT_STARTED. NLO-0.3 is not complete. This document records the accepted NLO-0.3E contract. It does not change generated OpenAPI, and it does not start implementation.
+NLO-0.4 is NOT_STARTED. NLO-0.3E implementation is accepted. `NLO_0_3_COMPLETE=YES`. This document records the accepted NLO-0.3E contract. Pairwise search stays two members and `evaluated_pair_count`. N-member search stays two or three members and `evaluated_set_count`. Current-trip fill stays `MAX_ADDITIONAL_LOADS=1` and `evaluated_pair_count`.
 
 ## One search endpoint
 
