@@ -25,7 +25,7 @@ Do not encode "arrived at stop 3" as a fake shipment status. That would reset or
 
 ## New projection
 
-A separate read model, keyed by `execution_id`, `revision_id`, and `execution_stop_id`, consumes shipment-service execution events from `transport.shipment_event_outbox`. It does not consume tracking approach events from that table. `tracking.stop.approaching` arrives on the tracking-owned publication. The read model does not share the shipment status version counter.
+A separate read model, keyed by `execution_id`, `revision_id`, and `execution_stop_id`, consumes shipment-service execution events from `transport.shipment_event_outbox`. It does not consume tracking approach events from that table. `tracking.stop.approaching` arrives on the tracking-owned publication. The operating-tenant projection shows stop progress and the cargo facts needed to run the route. It does not show other shippers' tenant ids. A shipper-scoped projection returns only that shipper's actions. The read model does not share the shipment status version counter.
 
 ```text
 STOP_PROGRESS_EVENTS=shipment.execution_plan.created, shipment.execution_plan.superseded, shipment.route_stop.current, shipment.route_stop.arrived, shipment.route_stop.service_started, shipment.route_stop.completed, shipment.route_stop.sequence_overridden

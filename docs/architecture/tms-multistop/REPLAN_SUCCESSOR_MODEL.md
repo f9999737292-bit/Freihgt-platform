@@ -12,7 +12,7 @@ REMAINING_STOPS_SUPERSEDED_SAFELY=YES
 CURRENT_STOP_REPLAN_RULE=PRESERVE_IN_SERVICE_STOP
 ```
 
-Agent D creates the successor RoutePlan and activates it. Agent C does not resequence. Execution switches future work when the successor activation is `EXECUTION_LINKED`, every new cargo action is materialized, and the stale check passes.
+Agent D creates the successor RoutePlan and persists its activation as `PENDING_EXECUTION`. Agent C does not resequence. Execution switches future work only when the successor projection command commits. `EXECUTION_LINKED` is Agent D's following status, after shipment-service has returned `execution_id` and `revision_id`.
 
 Stops are children of `TransportExecution`. A revision does not own them. `TransportExecutionRevisionStop` is the only way a revision names a stop. That is why a completed row can appear in the successor without gaining a second parent.
 
@@ -44,8 +44,8 @@ The arrows from revisions are membership links. The arrows from the route are th
 
 | Piece | Rule |
 | --- | --- |
-| Completed stops | Same id. `execution_id` unchanged. No update of timestamps, location, actions, or evidence. New link `INHERITED_COMPLETED` |
-| Current stop in `ARRIVED` or `SERVICE_STARTED` | Same id. `execution_id` unchanged. Status and actual timestamps unchanged. New link `INHERITED_IN_SERVICE` |
+| Completed stops | Same id. `execution_id` unchanged. No update of timestamps, location, actions, or evidence. New link `INHERITED_COMPLETED` stores the successor RoutePlan stop id. The introducing link keeps the original stop id |
+| Current stop in `ARRIVED` or `SERVICE_STARTED` | Same id. `execution_id` unchanged. Status and actual timestamps unchanged. New link `INHERITED_IN_SERVICE` stores the successor RoutePlan stop id. Incomplete actions get a new `TransportExecutionRevisionAction` row for the successor action ids |
 | Remaining `PLANNED` stops | Status `CANCELLED`, reason `SUPERSEDED`. They stay parented by the route. The successor does not link them as open work. New stop ids are allocated on the same route and linked `INTRODUCED` |
 | Driver current task | Stays on the in-service stop and the same driver |
 | Future driver tasks | Cancelled with the superseded planned stops. New tasks for introduced stops |
@@ -60,7 +60,7 @@ The arrows from revisions are membership links. The arrows from the route are th
 CURRENT_STOP_REPLAN_RULE=PRESERVE_IN_SERVICE_STOP
 ```
 
-If the driver has arrived or started service, that stop cannot be removed or reordered by the successor. If the successor contract omits that stop or changes its location or its incomplete actions, projection fails with `409 IN_SERVICE_STOP_CONFLICT` and leaves the old revision `ACTIVE`.
+If the driver has arrived or started service, that stop cannot be removed or reordered by the successor. The successor contract is compared to the stable stop by semantic fingerprint: role, point, location or anchor coordinates, and each incomplete action's type, `shipment_tenant_id`, `shipment_id`, `cargo_id`, and `cargo_version`. The successor's own RoutePlan stop and action ids are recorded on the new links. They are not required to equal the introducing plan's ids. If the fingerprint does not match, projection fails with `409 IN_SERVICE_STOP_CONFLICT` and leaves the old revision `ACTIVE`. The successor activation is not `EXECUTION_LINKED`.
 
 A `PLANNED` next stop, including while the vehicle is between stops, may be superseded.
 

@@ -33,7 +33,7 @@ Future relationship, not implemented here:
 TransportExecutionStop → DriverStopTask
 ```
 
-The route owns the sequence. The task is not parented by an arbitrary participant shipment.
+The route owns the sequence. The task is not parented by an arbitrary participant shipment. The driver is authorized by `TransportExecution.driver_id` in `operating_tenant_id`, including when participant shipments remain in other owner tenants.
 
 | Field | Rule |
 | --- | --- |

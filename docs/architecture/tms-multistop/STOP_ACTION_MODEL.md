@@ -32,11 +32,10 @@ Materialization is the existing creation of a shipment and cargo, completed befo
 | --- | --- |
 | `id` | Allocated by shipment-service |
 | `execution_stop_id` | Parent stop |
-| `tenant_id` | Route tenant |
-| `shipment_id` | Required. The materialized shipment. Not optional |
+| `shipment_id` | Required. The materialized shipment. Not moved to `operating_tenant_id` |
+| `shipment_tenant_id` | Required. Original owner tenant. Evidence is written in that tenant |
 | `cargo_id` | Required. The materialized cargo |
 | `cargo_version` | Version copied from the contract |
-| `source_route_plan_action_id` | External reference only |
 | `route_subject_type` | `LOAD_OPPORTUNITY` or `SHIPMENT_CARGO`, reference only |
 | `route_subject_id` | Planning subject id, reference only |
 | `action_type` | `PICKUP` or `DELIVERY` |
@@ -45,6 +44,22 @@ Materialization is the existing creation of a shipment and cargo, completed befo
 | `evidence_id` | Set when an append-only cargo evidence row is written for this `shipment_id` and `cargo_id` |
 | `completed_at` | First completion time |
 | `version` | Optimistic concurrency |
+
+The stable action has no `source_route_plan_action_id`. Lineage is `TransportExecutionRevisionAction`:
+
+| Link field | Rule |
+| --- | --- |
+| `revision_id` | Revision that names the action |
+| `action_id` | Stable execution action |
+| `source_route_plan_action_id` | Action id from that revision's RoutePlan only |
+| `source_action_ordinal` | Ordinal on that RoutePlan stop |
+| `membership` | `INTRODUCED`, `INHERITED_COMPLETED`, `INHERITED_IN_SERVICE`, or `SUPERSEDED` |
+
+A successor plan's action id is inserted on a new link. The stable action row is not rewritten. `STABLE_ACTION_SOURCE_ID_REWRITTEN=NO`. `SUCCESSOR_ROUTEPLAN_ACTION_LINEAGE_PRESERVED=YES`.
+
+## In-service comparison
+
+`409 IN_SERVICE_STOP_CONFLICT` compares the successor contract with the stable stop and its not-yet-completed actions. The successor's own `source_route_plan_stop_id` and `source_route_plan_action_id` are not expected to equal the introducing plan's ids. Match uses the semantic fingerprint: `stop_role`, `point_kind`, `location_id` or the anchor coordinates, and each incomplete action's `action_type`, `shipment_tenant_id`, `shipment_id`, `cargo_id`, and `cargo_version`. If no successor stop carries that fingerprint, or the fingerprint differs, projection fails and the old revision stays `ACTIVE`. The successor source ids are stored only on the new revision links.
 
 ## Action FSM
 

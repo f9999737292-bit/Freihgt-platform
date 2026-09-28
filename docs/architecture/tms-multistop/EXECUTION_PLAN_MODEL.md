@@ -3,9 +3,14 @@
 ```text
 EXECUTION_PLAN_MODEL=TRANSPORT_EXECUTION_PLUS_REVISION
 EXECUTION_ROUTE_MODEL=TRANSPORT_EXECUTION
-EXECUTION_PROJECTION_SOURCE=ACTIVATED_ROUTE_PLAN
+EXECUTION_PROJECTION_SOURCE=PENDING_EXECUTION_CONTRACT
+EXECUTION_PROJECTION_TRIGGER_IS_EXECUTION_LINKED=NO
+EXECUTION_LINKED_IS_POST_PROJECTION_FACT=YES
 IDEMPOTENT_EXECUTION_PROJECTION=YES
 MULTI_SHIPMENT_EXECUTION_SUPPORTED_BY_MODEL=YES
+CROSS_SHIPPER_EXECUTION_SUPPORTED_BY_MODEL=YES
+PARTICIPANT_SHIPMENT_OWNERSHIP_PRESERVED=YES
+SHIPMENT_REHOMED_TO_CARRIER_TENANT=NO
 DEPOT_START_WITHOUT_PREEXISTING_SHIPMENT_SUPPORTED=YES
 RAW_LOAD_OPPORTUNITY_EXECUTABLE=NO
 EXECUTION_SUBJECT_MATERIALIZATION_REQUIRED=YES
@@ -18,14 +23,14 @@ The shipment row is not the plan. It has one version, one origin, and one destin
 | Field | Rule |
 | --- | --- |
 | `id` | Allocated by shipment-service |
-| `tenant_id` | Gateway tenant of the execution. Every participant shipment must match it |
+| `operating_tenant_id` | Carrier execution scope. Not a shipment owner tenant |
 | `carrier_company_id` | Carrier operating the route |
 | `vehicle_id` | Nullable until assigned |
-| `driver_id` | Nullable until assigned. The driver sequence uses this driver |
+| `driver_id` | Nullable until assigned. Driver authorization uses this assignment |
 | `current_revision_id` | The one `ACTIVE` revision, or null before the first commit |
 | `created_at`, `updated_at` | Server clocks |
 
-No `shipment_id` column is required. `DEPOT_START` omits it.
+No `shipment_id` column is required. `DEPOT_START` omits it. Participant shipments are not required to share `operating_tenant_id`.
 
 ## TransportExecutionRevision
 
@@ -33,8 +38,8 @@ No `shipment_id` column is required. `DEPOT_START` omits it.
 | --- | --- |
 | `id` | Allocated by shipment-service |
 | `execution_id` | Parent route |
-| `tenant_id` | Same as the route |
-| `source_route_plan_id` | External reference |
+| `operating_tenant_id` | Same as the route |
+| `source_route_plan_id` | External reference for this revision only |
 | `source_route_plan_version` | External reference |
 | `source_activation_id` | Idempotency identity |
 | `source_activation_version` | Detects a changed activation row |
@@ -54,7 +59,7 @@ Only the `ACTIVE` revision accepts new driver commands on its introduced or in-s
 
 ## Participants
 
-`TransportExecutionParticipant` binds a materialized shipment and cargo to the route: `shipment_id`, `shipment_version`, `cargo_id`, `cargo_version`, plus the planning subject type and id as references. `CURRENT_TRIP` includes the existing trip shipment here. It is not stored as the route's parent.
+`TransportExecutionParticipant` binds one materialized shipment without moving it: `shipment_id`, `shipment_tenant_id`, `shipment_version`, `cargo_id`, `cargo_version`, `route_subject_type`, `route_subject_id`, and the provenance that this binding came from the trusted projection contract. `shipment_tenant_id` stays the shipment's original owner tenant. `CURRENT_TRIP` includes the existing trip shipment here. It is not the route's parent.
 
 ## Command
 
@@ -62,9 +67,11 @@ Only the `ACTIVE` revision accepts new driver commands on its introduced or in-s
 CreateExecutionProjectionFromActivation
 ```
 
-The command runs inside `shipment-service`. The caller is a trusted service principal for `network-optimizer-service`, or an internal consumer of that service's future activation event. A driver, shipper, or anonymous client cannot submit stops.
+The command runs inside `shipment-service`. The first implementation uses one trusted synchronous service command from `network-optimizer-service`. There is no second transport. A driver, shipper, or browser caller cannot submit stops or a foreign `shipment_tenant_id`.
 
-The command refuses the whole projection when any cargo action lacks `execution_shipment_id` and `cargo_id`. Reason: `409 EXECUTION_SUBJECT_UNMATERIALIZED`. It does not create a shipment from a `LOAD_OPPORTUNITY`. Materialization is a prior shipment-service fact: the shipment and cargo already exist and the contract names them. See `ROUTEPLAN_EXECUTION_CONTRACT.md`.
+The trigger status is `PENDING_EXECUTION`. `EXECUTION_LINKED` is not the input. Shipment-service returns `execution_id`, `revision_id`, and `activation_id` after the revision commits. Agent D then sets `EXECUTION_LINKED` in its own store and emits `network.route_plan.execution_linked`. That event is a post-link fact. `IMPLEMENTED_TODAY=NO`. `AGENT_D_CONTRACT_REQUIRED=YES`.
+
+The command refuses the whole projection when any cargo action lacks `execution_shipment_id`, `shipment_tenant_id`, and `cargo_id`. Reason: `409 EXECUTION_SUBJECT_UNMATERIALIZED`. It does not create a shipment and it does not copy a foreign shipment into `operating_tenant_id`. The named shipment must already exist in `shipment_tenant_id`. See `ROUTEPLAN_EXECUTION_CONTRACT.md`.
 
 ### Idempotency
 
@@ -72,14 +79,22 @@ Reuse a unique key plus a stored result. Do not add a generic idempotency platfo
 
 | Situation | Result |
 | --- | --- |
-| Same `source_activation_id` | Return the same revision id. No second stop set |
+| Same `source_activation_id` | Return the same `execution_id` and revision id. No second stop set |
 | Same id, different contract body or fingerprint | `409 ACTIVATION_BODY_CONFLICT` |
-| Cargo action without materialized shipment and cargo | `409 EXECUTION_SUBJECT_UNMATERIALIZED`. No rows |
-| New activation that supersedes the active revision | Create the successor revision on the same route. Mark the old revision `SUPERSEDED` in the same transaction |
-| New activation that does not supersede the active revision | `409 EXECUTION_PLAN_CONFLICT` |
-| Activation status other than `EXECUTION_LINKED` | Do not project |
+| Cargo action without materialized shipment, owner tenant, and cargo | `409 EXECUTION_SUBJECT_UNMATERIALIZED`. No rows |
+| New `PENDING_EXECUTION` activation that supersedes the active revision | Create the successor revision on the same route. Mark the old revision `SUPERSEDED` in the same transaction |
+| New activation that does not supersede the active revision | `409 EXECUTION_PLAN_CONFLICT`. The old revision stays `ACTIVE` |
+| `activation_status=EXECUTION_LINKED` as the projection trigger | Do not project. That status is written by Agent D only after this command has already returned ids |
+| `activation_status` other than `PENDING_EXECUTION` | Do not project |
 
-Unique constraint: `(tenant_id, source_activation_id)`.
+Unique constraint: `(operating_tenant_id, source_activation_id)`.
+
+```text
+SAME_ACTIVATION_RETURNS_SAME_EXECUTION_REVISION=YES
+NO_STATE_WITH_EXECUTION_LINKED_BUT_NO_EXECUTION_PROJECTION=YES
+```
+
+Agent D must not persist `EXECUTION_LINKED` unless it has stored the returned `execution_id` and `revision_id` for that `activation_id`. A lost response is a retry of the same command, which returns the same ids.
 
 ## What is copied
 

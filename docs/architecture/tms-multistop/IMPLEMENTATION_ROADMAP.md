@@ -13,7 +13,7 @@ NEXT_TMS_MIGRATION=UNRESERVED
 
 Agent D may need migration `000086` for NLO-0.4C. This pack does not reserve a number. The implementation wave fetches `origin/main` and takes the next free number.
 
-NLO-0.4D in the optimizer roadmap is the shipment and driver integration. It does not start here. It starts only after this freeze is accepted, Agent D emits `network.route_plan.execution_linked` (`IMPLEMENTED_TODAY=NO`), and the NLO service-duration gate is open.
+NLO-0.4D in the optimizer roadmap is the shipment and driver integration. It does not start here. It starts only after this freeze is accepted, Agent D implements the `PENDING_EXECUTION` projection command and the later `network.route_plan.execution_linked` post-link fact (`IMPLEMENTED_TODAY=NO`), and the NLO service-duration gate is open. The event is not the projection trigger.
 
 ```text
 NLO_0_4C_ACTIVATION_RELEASE_BLOCKED_UNTIL_SERVICE_DURATION_SOURCE=YES
@@ -28,7 +28,7 @@ The suggested split matches the repository: persistence before commands, command
 
 | Wave | Scope | Depends on |
 | --- | --- | --- |
-| TMS-MSTOP-0.1A | `TransportExecution`, revision, participant, stop, revision-stop link, and action tables. `CreateExecutionProjectionFromActivation`. Idempotency on `activation_id`. Reject unresolved load opportunities. No driver UI | Accepted freeze. Agent D contract `network.route_plan.execution_linked` (`IMPLEMENTED_TODAY=NO`). NLO service-duration gate still closed for production |
+| TMS-MSTOP-0.1A | `TransportExecution` with `operating_tenant_id`, revision, participant with `shipment_tenant_id`, stop, revision-stop link, action, and revision-action link. `CreateExecutionProjectionFromActivation` while activation is `PENDING_EXECUTION`. Idempotency on `activation_id`. Reject unresolved load opportunities. No driver UI | Accepted freeze. Agent D contract is the trusted synchronous command, then `EXECUTION_LINKED`, then `network.route_plan.execution_linked` (`IMPLEMENTED_TODAY=NO`). NLO service-duration gate still closed for production |
 | TMS-MSTOP-0.1B | Stop and action commands, cargo evidence writes, shipment status alignment, completed-stop immutability | 0.1A |
 | TMS-MSTOP-0.1C | `DriverStopTask` for current and next. Driver API. Offline queue still server-ordered | 0.1B |
 | TMS-MSTOP-0.1D | Tracking target `execution_stop`. `planned_arrival` left intact. Advisory approach event | 0.1B |

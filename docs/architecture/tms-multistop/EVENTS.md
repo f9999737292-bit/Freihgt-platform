@@ -39,7 +39,7 @@ Execution events use aggregate type `TRANSPORT_EXECUTION`, aggregate id of the r
 | `shipment.route_stop.completed` | shipment-service | Stop completed |
 | `shipment.route_stop.sequence_overridden` | shipment-service | Operator override |
 | `tracking.stop.approaching` | tracking-service | Advisory. Tracking-owned outbox only |
-| `network.route_plan.execution_linked` | network-optimizer-service | `AGENT_D_CONTRACT_REQUIRED`. `IMPLEMENTED_TODAY=NO` |
+| `network.route_plan.execution_linked` | network-optimizer-service | Post-link fact, after `EXECUTION_LINKED`. `AGENT_D_CONTRACT_REQUIRED`. `IMPLEMENTED_TODAY=NO`. Not the projection trigger |
 | `network.route_plan.superseded` | network-optimizer-service | Planning audit. Not the execution switch |
 
 `shipment.route_stop.arrived` and `shipment.route_stop.completed` match the names NLO-0.4A reserved for shipment-service. Delay and problem reuse the driver events. The event names stay on the shipment prefix because shipment-service publishes them. The aggregate is the route, not one arbitrary shipment.

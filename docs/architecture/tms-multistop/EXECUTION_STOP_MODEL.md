@@ -5,7 +5,8 @@ EXECUTION_STOP_MODEL=CHILD_OF_TRANSPORT_EXECUTION
 EXECUTION_STOP_PARENT=TransportExecution
 EXECUTION_STOP_ID_ALLOCATED_BY=shipment-service
 EXECUTION_STOP_ID_SHIPMENT_ROW_OWNED=NO
-ROUTEPLAN_STOP_REFERENCE=source_route_plan_stop_id
+ROUTEPLAN_STOP_REFERENCE=PER_REVISION_LINK
+STABLE_STOP_SOURCE_ID_REWRITTEN=NO
 COMPLETED_STOP_IMMUTABLE=YES
 COMPLETED_STOP_ROW_REPARENTED=NO
 IN_SERVICE_STOP_ROW_REPARENTED=NO
@@ -21,9 +22,8 @@ The stop is not a child of a revision. `TransportExecutionRevisionStop` records 
 | --- | --- |
 | `id` | Allocated by shipment-service. Stable for the life of the row |
 | `execution_id` | Parent route. Set once. Never updated |
-| `tenant_id` | Route tenant. Every query predicates it |
-| `source_route_plan_stop_id` | Immutable external reference from the revision that introduced the stop. Not a foreign key into optimizer tables |
-| `ordinal` | Copied when the stop is introduced. Not renumbered later |
+| `operating_tenant_id` | Carrier execution scope. Queries for the route use it. It is not the shipment owner |
+| `ordinal` | Ordinal when the stop was introduced. Not renumbered later |
 | `stop_role` | `START`, `CARGO`, or `END` |
 | `point_kind` | `CANONICAL_LOCATION` or `POSITION_ANCHOR` |
 | `location_id` | Null only when `point_kind=POSITION_ANCHOR` |
@@ -36,7 +36,17 @@ The stop is not a child of a revision. `TransportExecutionRevisionStop` records 
 | `arrived_at`, `service_started_at`, `completed_at` | Actual timestamps. First writer wins |
 | `created_at`, `updated_at` | Server clocks |
 
-There is no `execution_revision_id` on this row. Membership lives in `TransportExecutionRevisionStop` with `revision_id`, `stop_id`, and `membership` of `INTRODUCED`, `INHERITED_COMPLETED`, `INHERITED_IN_SERVICE`, or `SUPERSEDED`.
+There is no `execution_revision_id` and no `source_route_plan_stop_id` on this row. Membership and lineage live in `TransportExecutionRevisionStop`:
+
+| Link field | Rule |
+| --- | --- |
+| `revision_id` | The revision that names the stop |
+| `stop_id` | Stable execution stop |
+| `source_route_plan_stop_id` | Stop id from that revision's RoutePlan only |
+| `source_ordinal` | Ordinal on that RoutePlan |
+| `membership` | `INTRODUCED`, `INHERITED_COMPLETED`, `INHERITED_IN_SERVICE`, or `SUPERSEDED` |
+
+The introducing revision stores the first plan's stop id. A successor revision adds another row with the successor plan's stop id. Neither write updates the stable stop. `STABLE_STOP_SOURCE_ID_REWRITTEN=NO`.
 
 `START` with `POSITION_ANCHOR` is stored so the projection matches the plan. It is not a driver task. Driver-visible stops are `CARGO` stops and an `END` stop whose `location_id` differs from the last cargo stop.
 

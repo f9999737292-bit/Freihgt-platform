@@ -10,7 +10,7 @@ Arrival and completion today are driver operational commands in `shipment-servic
 
 ## Decision
 
-`shipment-service` owns arrival truth and completion truth. The assigned driver's arrive and confirm commands are authoritative. An operator in the same tenant may override with a reason and an audit row. Tracking may suggest approach or arrival and may store live ETA. Those signals do not set stop status, cargo evidence, or shipment status. The optimizer never completes a stop. `planned_arrival` on the stop is not replaced by live ETA.
+`shipment-service` owns arrival truth and completion truth. The assigned driver's arrive and confirm commands are authoritative. An operator in `operating_tenant_id` may override with a reason and an audit row. That override does not require the participant shipment to share the carrier tenant. Tracking may suggest approach or arrival and may store live ETA. Those signals do not set stop status, cargo evidence, or shipment status. The optimizer never completes a stop. `planned_arrival` on the stop is not replaced by live ETA.
 
 ```text
 ARRIVAL_TRUTH_OWNER=shipment-service

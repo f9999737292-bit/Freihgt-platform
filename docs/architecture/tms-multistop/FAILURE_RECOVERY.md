@@ -21,10 +21,22 @@ WRONG_STOP_POLICY=REJECT_WITHOUT_OPERATOR_OVERRIDE
 | Shipment cancelled | When today's cancel rules allow it, status becomes `CANCELLED`. `COMPLETED` stops stay. Open stops become `CANCELLED`. Open driver stop tasks are cancelled |
 | Vehicle changed | Existing assign-vehicle command. Open `PLANNED` tasks take the new vehicle id. An in-service stop keeps its recorded vehicle until complete |
 | Driver changed | Existing assign-driver command. `PLANNED` tasks move to the new driver. An in-service stop stays with the driver who arrived unless an operator transfer records a reason |
-| RoutePlan superseded | Ignored by execution until an `EXECUTION_LINKED` successor activation arrives |
+| RoutePlan superseded | Ignored until a `PENDING_EXECUTION` successor projection succeeds. `EXECUTION_LINKED` is not what starts that projection |
 | Activation replaced | Successor rules in `REPLAN_SUCCESSOR_MODEL.md`. Unrelated activation is `409 EXECUTION_PLAN_CONFLICT` |
+| Activation persisted, projection not created | Activation stays `PENDING_EXECUTION`. Retry the same command. No `EXECUTION_LINKED` |
+| Projection created, acknowledgement lost | Retry the same `activation_id`. Shipment-service returns the same `execution_id` and `revision_id`. Agent D then sets `EXECUTION_LINKED` |
+| Acknowledgement received twice | Second call returns the same ids. Agent D's status update to `EXECUTION_LINKED` is idempotent |
+| Optimizer crashes before `EXECUTION_LINKED` | Projection remains. Activation stays `PENDING_EXECUTION` until retry stores the ids and completes the status change |
+| Same activation received again | Same revision. No second stop set |
+| Projection rejects stale, materialization, or security | No revision. Agent D sets `REJECTED`. Previous `ACTIVE` revision is unchanged |
+| Successor projection fails while an old revision is `ACTIVE` | Old revision stays `ACTIVE`. Successor activation is `REJECTED` or remains `PENDING_EXECUTION` if the failure was transport loss |
 | Control Tower consumer delayed | Shipment commit is already durable. The read model catches up by event version. It does not grant execution rights |
 | Event replay | Outbox replay resends the same event id. Consumers treat duplicate event ids as already applied, which is the existing inbox behavior |
+
+```text
+NO_STATE_WITH_EXECUTION_LINKED_BUT_NO_EXECUTION_PROJECTION=YES
+SAME_ACTIVATION_RETURNS_SAME_EXECUTION_REVISION=YES
+```
 
 Optimistic concurrency uses the stop or action `version`. A stale version is `409` and does not apply. The client retries by reading the current stop, not by forcing the write.
 

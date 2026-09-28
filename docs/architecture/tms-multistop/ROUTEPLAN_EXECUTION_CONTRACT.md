@@ -2,92 +2,110 @@
 
 ```text
 ROUTEPLAN_EXECUTION_CONTRACT_FROZEN=YES
-EXECUTION_SOURCE=ACTIVATED_ROUTE_PLAN
+EXECUTION_PROJECTION_SOURCE=PENDING_EXECUTION_CONTRACT
+EXECUTION_PROJECTION_TRIGGER_IS_EXECUTION_LINKED=NO
+EXECUTION_LINKED_IS_POST_PROJECTION_FACT=YES
+PENDING_EXECUTION_PROJECTION_CONTRACT_REQUIRED=YES
 IDEMPOTENT_EXECUTION_PROJECTION=YES
 CALLER_SUPPLIED_STOPS_ACCEPTED=NO
 RAW_LOAD_OPPORTUNITY_EXECUTABLE=NO
 EXECUTION_SUBJECT_MATERIALIZATION_REQUIRED=YES
 DEPOT_START_WITHOUT_PREEXISTING_SHIPMENT_SUPPORTED=YES
 MULTI_SHIPMENT_EXECUTION_SUPPORTED_BY_MODEL=YES
-```
-
-Agent C does not read optimizer tables and does not depend on planner internals. Agent D must publish a stable activation contract. `ACCEPTED` is not execution. `EXECUTION_LINKED` is the accepted planning status from the NLO execution boundary. It means the plan is linked for execution. It does not mean shipment-service has already projected it.
-
-```text
-network.route_plan.execution_linked
-IMPLEMENTED_TODAY=NO
+CROSS_SHIPPER_EXECUTION_SUPPORTED_BY_MODEL=YES
+SHIPMENT_REHOMED_TO_CARRIER_TENANT=NO
+SAME_ACTIVATION_RETURNS_SAME_EXECUTION_REVISION=YES
+NO_STATE_WITH_EXECUTION_LINKED_BUT_NO_EXECUTION_PROJECTION=YES
+NETWORK_ROUTE_PLAN_EXECUTION_LINKED_IMPLEMENTED_TODAY=NO
 AGENT_D_CONTRACT_REQUIRED=YES
+PROJECTION_TRANSPORT=TRUSTED_SYNCHRONOUS_COMMAND
 ```
 
-NLO-0.4A catalogued `network.route_plan.activation_requested` as a future planning event. That request is not sufficient. `network.route_plan.execution_linked` is the name Agent C requires when an activation commits as `EXECUTION_LINKED`. It is not emitted today. `route_plan_activations` is absent from this baseline. This document does not edit NLO files to add the event.
+Agent C does not read optimizer tables. Agent D owns the activation row. This document does not edit NLO files.
 
-## Required payload
+`EXECUTION_LINKED` means Agent D has stored the execution ids returned by shipment-service. It is not the trigger that creates those ids. The first implementation uses one trusted synchronous command. A durable request/reply pair is not a second channel.
+
+## Sequence
+
+1. Agent D validates an accepted RoutePlan, including the NLO service-duration release gate. This architecture does not weaken that gate.
+2. Agent D persists the activation as `PENDING_EXECUTION`.
+3. Agent D calls `CreateExecutionProjectionFromActivation` with the service identity of `network-optimizer-service`.
+4. Shipment-service checks materialized subjects, shipment and evidence versions, participant owner tenants, execution authorization, and idempotency.
+5. Shipment-service commits `TransportExecution` and the revision, or returns the existing revision for that `activation_id`.
+6. The response is the durable linkage: `execution_id`, `revision_id`, `activation_id`.
+7. Agent D, in its own transaction, moves `PENDING_EXECUTION` to `EXECUTION_LINKED` only after those ids are stored.
+8. Agent D then emits `network.route_plan.execution_linked`. That event is the post-link fact. `IMPLEMENTED_TODAY=NO`.
+9. A deterministic rejection before step 5 leaves the activation unlinked. Agent D sets `REJECTED` for a permanent execution refusal. A lost response stays `PENDING_EXECUTION` and retries the same command.
+
+There is no distributed transaction. The projection commit and the activation status commit are separate. Idempotency on `activation_id` closes the gap.
+
+## Projection request
 
 | Field | Rule |
 | --- | --- |
 | `activation_id` | Idempotency identity |
 | `activation_version` | Changes when the activation row changes |
-| `activation_status` | Must be `EXECUTION_LINKED` |
-| `route_plan_id` | Plan that was activated |
-| `route_plan_version` | Version frozen at activate |
+| `activation_status` | Must be `PENDING_EXECUTION` |
+| `route_plan_id` | Plan being linked |
+| `route_plan_version` | Version frozen at this attempt |
 | `planning_mode` | `DEPOT_START` or `CURRENT_TRIP` |
-| `context_shipment_id` | Required for `CURRENT_TRIP`. Null for `DEPOT_START`. Context, not the execution root |
-| `context_shipment_version` | Required when `context_shipment_id` is set |
+| `operating_tenant_id` | Carrier execution scope |
+| `context_shipment_id` | Required for `CURRENT_TRIP`. Null for `DEPOT_START`. Not the execution root |
+| `context_shipment_tenant_id` | Owner tenant of that shipment when the id is set |
+| `context_shipment_version` | Required when the id is set |
 | `carrier_company_id` | Carrier on the route |
 | `vehicle_id` | Nullable |
 | `driver_id` | Nullable |
 | `evaluation_fingerprint` | Server fingerprint from the plan |
 | `supersedes_route_plan_id` | Previous plan, or null |
-| `supersedes_activation_id` | Previous execution-linked activation, or null |
+| `supersedes_activation_id` | Previous linked activation, or null |
 | `execution_subjects[]` | Every cargo subject, already materialized |
-| `stops[]` | Ordered, server-built |
-| `actions[]` | Ordered inside each stop, server-built |
+| `stops[]` | Ordered, server-built, with that plan's stop ids |
+| `actions[]` | Ordered inside each stop, with that plan's action ids |
 
-`execution_subjects[]` entry:
-
-| Field | Rule |
-| --- | --- |
-| `route_subject_type` | `LOAD_OPPORTUNITY` or `SHIPMENT_CARGO` |
-| `route_subject_id` | Planning subject id |
-| `route_subject_version` | Planning subject version |
-| `execution_shipment_id` | Required. Trusted shipment in the execution tenant |
-| `execution_shipment_version` | Required |
-| `cargo_id` | Required |
-| `cargo_version` | Required |
+`execution_subjects[]` entry: `route_subject_type` (`LOAD_OPPORTUNITY` or `SHIPMENT_CARGO`), `route_subject_id`, `route_subject_version`, `execution_shipment_id`, `shipment_tenant_id`, `execution_shipment_version`, `cargo_id`, `cargo_version`. `shipment_tenant_id` is the shipment's existing owner tenant. The command does not move the shipment.
 
 Each stop entry: `route_plan_stop_id`, `ordinal`, `stop_role`, `point_kind`, `location_id` or null, `latitude`, `longitude`, `planned_arrival`, `planned_departure`, `service_duration_seconds` or null.
 
-Each cargo action entry: `route_plan_action_id`, `route_plan_stop_id`, `action_ordinal`, `action_type` (`PICKUP` or `DELIVERY`), `route_subject_type`, `route_subject_id`, `execution_shipment_id`, `execution_shipment_version`, `cargo_id`, `cargo_version`, `evidence_state`, `evidence_state_version`.
+Each cargo action entry: `route_plan_action_id`, `route_plan_stop_id`, `action_ordinal`, `action_type`, `route_subject_type`, `route_subject_id`, `execution_shipment_id`, `shipment_tenant_id`, `execution_shipment_version`, `cargo_id`, `cargo_version`, `evidence_state`, `evidence_state_version`.
 
-`START` and `END` need no subject. Every `PICKUP` and `DELIVERY` must match one `execution_subjects[]` row. If `execution_shipment_id` or `cargo_id` is missing, projection returns `409 EXECUTION_SUBJECT_UNMATERIALIZED` and writes nothing. A `LOAD_OPPORTUNITY` id alone is not that identity. Projection does not create the shipment.
+`START` and `END` need no subject. A missing `execution_shipment_id`, `shipment_tenant_id`, or `cargo_id` on a cargo action returns `409 EXECUTION_SUBJECT_UNMATERIALIZED` and writes nothing. A `LOAD_OPPORTUNITY` id alone is not that identity.
 
-Legs, capacity snapshots, compatibility fingerprints, prices, and other tenants' identities are not part of this contract.
+A successor request that continues an in-service stop is matched by semantic fingerprint, not by equal RoutePlan stop ids. See `STOP_ACTION_MODEL.md`. The successor's source ids are stored on the new revision links only.
 
-## Stale check
+## Response
 
-If a named `execution_shipment_version` or onboard evidence version no longer matches shipment-service, projection returns `409 PLAN_STALE` and writes nothing. Agent D's activate-time check is not a substitute. For `DEPOT_START` there is no single shipment version to compare. Each subject is checked on its own.
+| Field | Rule |
+| --- | --- |
+| `execution_id` | Stable route |
+| `revision_id` | Revision created or replayed for this activation |
+| `activation_id` | Echo of the request |
 
-Same `activation_id` replays. A new id that does not supersede the linked revision is `409 EXECUTION_PLAN_CONFLICT`.
+Same `activation_id` and same body return the same pair. Same id and a different body return `409 ACTIVATION_BODY_CONFLICT` and do not change the stored revision.
+
+## After the response
+
+Agent D stores the three ids, then sets `EXECUTION_LINKED`, then emits `network.route_plan.execution_linked` with those ids. Shipment-service does not set the activation status. If Agent D crashes after the response and before `EXECUTION_LINKED`, a retry returns the same ids and Agent D completes step 7. `EXECUTION_LINKED` without a stored projection is not a valid Agent D outcome.
+
+Permanent shipment-service refusals (`EXECUTION_SUBJECT_UNMATERIALIZED`, `PLAN_STALE`, `IN_SERVICE_STOP_CONFLICT`, `EXECUTION_PLAN_CONFLICT`, authorization failure) return no new revision. Agent D sets `REJECTED` for that activation. A successor rejection leaves the previous revision `ACTIVE`.
 
 ## Trust
 
 ```text
 AGENT_D_CONTRACT_REQUIRED_FOR_IMPLEMENTATION
-activation_id
-activation_version
-activation_status=EXECUTION_LINKED
-route_plan_id
-route_plan_version
-planning_mode
-context_shipment_id nullable for DEPOT_START
-execution_subjects with execution_shipment_id and cargo_id on every cargo action
-ordered stops and actions
-event network.route_plan.execution_linked
+activation persisted as PENDING_EXECUTION before the call
+trusted synchronous CreateExecutionProjectionFromActivation
+activation_status on the request is PENDING_EXECUTION
+operating_tenant_id separate from shipment_tenant_id
+execution_subjects materialized in the owner tenant
+ordered stops and actions with that plan's source ids
+response execution_id revision_id activation_id
+EXECUTION_LINKED only after that response is stored
+event network.route_plan.execution_linked after EXECUTION_LINKED
 IMPLEMENTED_TODAY=NO
-same activation_id replays
-unresolved LOAD_OPPORTUNITY returns EXECUTION_SUBJECT_UNMATERIALIZED
+same activation_id returns the same execution revision
 ```
 
-The event is accepted only from the optimizer service identity, not from a browser body. Gateway user JWTs cannot call the projection command.
+Gateway user JWTs cannot call the command. A browser body cannot supply `shipment_tenant_id` to gain access.
 
-Production projection also waits on the NLO gate: activation release stays blocked until an authoritative or versioned service-duration source exists. This contract does not remove that gate.
+Production projection also waits on the NLO gate: activation release stays blocked until an authoritative or versioned service-duration source exists.

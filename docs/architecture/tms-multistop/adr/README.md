@@ -1,6 +1,6 @@
 # ADR-TMS index
 
-Accepted for the TMS multi-stop execution architecture freeze, including remediation R1. Implementation is not authorized.
+Accepted for the TMS multi-stop execution architecture freeze, including remediation R2. Implementation is not authorized.
 
 | ID | Title |
 | --- | --- |

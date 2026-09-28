@@ -15,9 +15,21 @@ EXECUTION_ROUTE_MODEL=TRANSPORT_EXECUTION
 NLO_0_4C_ACTIVATION_RELEASE_BLOCKED_UNTIL_SERVICE_DURATION_SOURCE=YES
 TMS_EXECUTION_DOES_NOT_WEAKEN_NLO_ACTIVATION_GATE=YES
 SLOT_BOOKING_AUTHORITY=NOT_IMPLEMENTED
+CROSS_SHIPPER_EXECUTION_SUPPORTED_BY_MODEL=YES
+PARTICIPANT_SHIPMENT_OWNERSHIP_PRESERVED=YES
+SHIPMENT_REHOMED_TO_CARRIER_TENANT=NO
+EXECUTION_PROJECTION_TRIGGER=PENDING_EXECUTION_TRUSTED_SYNCHRONOUS_COMMAND
+EXECUTION_PROJECTION_TRIGGER_IS_EXECUTION_LINKED=NO
+EXECUTION_LINKED_IS_POST_PROJECTION_FACT=YES
+NO_STATE_WITH_EXECUTION_LINKED_BUT_NO_EXECUTION_PROJECTION=YES
+SAME_ACTIVATION_RETURNS_SAME_EXECUTION_REVISION=YES
+STABLE_STOP_SOURCE_ID_REWRITTEN=NO
+STABLE_ACTION_SOURCE_ID_REWRITTEN=NO
+SUCCESSOR_ROUTEPLAN_STOP_LINEAGE_PRESERVED=YES
+SUCCESSOR_ROUTEPLAN_ACTION_LINEAGE_PRESERVED=YES
 ```
 
-Discovery baseline: `origin/main` `0fc6a7979ca5ea0cbbbd50ff5770bbbf22304a5c`, rebased onto `1566c0d30b93bca1016fed6e81620edf277be52f`. Remediation R1 is on `discovery/tms-multistop-execution-v0.1`.
+Discovery baseline: `origin/main` `0fc6a7979ca5ea0cbbbd50ff5770bbbf22304a5c`, rebased onto `1566c0d30b93bca1016fed6e81620edf277be52f`. Remediation R2 is on `discovery/tms-multistop-execution-v0.1`.
 
 `network-optimizer-service` owns planning. `shipment-service` owns execution. The execution aggregate is `TransportExecution`, which can include many materialized shipments and does not require an anchor shipment for `DEPOT_START`. This pack does not modify optimizer files, OpenAPI, or migrations.
 
@@ -29,7 +41,7 @@ TMS execution implementation does not remove or weaken the NLO activation releas
 | --- | --- |
 | [CURRENT_STATE_INVENTORY.md](CURRENT_STATE_INVENTORY.md) | What already exists |
 | [DOMAIN_MODEL.md](DOMAIN_MODEL.md) | Aggregate, diagrams, ownership answers |
-| [EXECUTION_PLAN_MODEL.md](EXECUTION_PLAN_MODEL.md) | Projection of an activated RoutePlan |
+| [EXECUTION_PLAN_MODEL.md](EXECUTION_PLAN_MODEL.md) | Projection from a `PENDING_EXECUTION` contract |
 | [EXECUTION_STOP_MODEL.md](EXECUTION_STOP_MODEL.md) | Stop parent is the route; revisions only link |
 | [STOP_ACTION_MODEL.md](STOP_ACTION_MODEL.md) | Pickup and delivery actions |
 | [SHIPMENT_FSM_ALIGNMENT.md](SHIPMENT_FSM_ALIGNMENT.md) | Coarse shipment status stays; it does not reset |
