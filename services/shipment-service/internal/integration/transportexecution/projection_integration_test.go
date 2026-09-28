@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -374,6 +375,45 @@ func TestTransportExecutionFoundation(t *testing.T) {
 		var pgErr *pgconn.PgError
 		if !errors.As(err, &pgErr) || pgErr.Code != "23503" {
 			t.Fatalf("fk err=%v", err)
+		}
+	})
+
+	t.Run("concurrent same activation", func(t *testing.T) {
+		operating := seedTenant(t, env, "race-carrier")
+		carrierID := seedCompany(t, env, operating, "CARRIER", "Race Carrier")
+		shipperA := seedShipment(t, env, "race-a", "IN_TRANSIT")
+		shipperB := seedShipment(t, env, "race-b", "IN_TRANSIT")
+		cmd := routeCommand(operating, carrierID, shipperA, shipperB)
+		var wg sync.WaitGroup
+		results := make([]domain.ProjectionResult, 2)
+		errs := make([]error, 2)
+		wg.Add(2)
+		for i := range results {
+			go func(i int) {
+				defer wg.Done()
+				results[i], errs[i] = env.svc.CreateExecutionProjectionFromActivation(env.ctx, cmd)
+			}(i)
+		}
+		wg.Wait()
+		for i, err := range errs {
+			if err != nil {
+				t.Fatalf("caller %d: %v", i, err)
+			}
+		}
+		if results[0].ExecutionID != results[1].ExecutionID || results[0].RevisionID != results[1].RevisionID {
+			t.Fatalf("concurrent activation diverged: %+v %+v", results[0], results[1])
+		}
+		created := 0
+		for _, result := range results {
+			if result.Created {
+				created++
+			}
+		}
+		if created != 1 {
+			t.Fatalf("created count=%d", created)
+		}
+		if countWhere(t, env, "transport.transport_execution_revisions", "execution_id=$1", results[0].ExecutionID) != 1 {
+			t.Fatal("concurrent activation created two revisions")
 		}
 	})
 }
